@@ -31,7 +31,7 @@ profile_offset = input("profile offset: ")
 prof_time = str(int(time_slice)+int(profile_offset))
 profile_string = "_PED_MMARKL_rho_pol.dat"
 
-local_project_location = "/temp/markl_m/ELMsuppression_in_hydrogen/DATA/"
+local_project_location = "/temp/markl_m/BALANCE_4CASES/DATA/"
 local_path_coil = local_project_location + "COIL/" + shot + "/"
 local_path_equi = local_project_location + "EQUI/" + shot + "/"
 local_path_prof = local_project_location + "PROF/" + shot + "/"

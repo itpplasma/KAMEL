@@ -163,6 +163,15 @@ class postproc:
                 self.deq22_res_vec = np.append(self.deq22_res_vec, self.fun(self.r_res[i]))
         return self.deq22_res_vec
 
+    def get_deq22_res_read(self,scanid='/', time=0):
+        self.scanid = scanid
+        self.deq22_res_vec = np.empty([0])
+        if (self.scanid=='/'):
+            for i in range (0,len(self.m)):
+                self.modestring = 'f_'+ str(int(self.m[i])) + '_'+ str(int(self.n[i]))
+                self.deq22_res_vec = np.append(self.deq22_res_vec, np.array(self.h5out[self.scanid][self.modestring]['dqle22_res'])[0])
+        return self.deq22_res_vec
+
 
     def nscan_plotdeq22_res(self,time=0, figuresize=(8,5)):
         """ Plot De_22_res """
@@ -248,7 +257,7 @@ class postproc:
         self.h5inp.close()
         
 
-    def plt_simple_criterion(self, scanid = '', time=0):
+    def plt_simple_criterion(self, scanid = '/', time=0):
         """ Create a plot that illustrates the simple bifurcation criterion, i.e. the values of dqle22 at the resonant surfaces. Also plots the plasma pressure as a reference."""
         self.da_res = np.array(self.h5inp['output/Da_res']).transpose()[0]
         #if (scanid == ''):
@@ -284,9 +293,9 @@ class postproc:
                 #plt.show()
             return list(map(plt.figure, plt.get_fignums()))
         
-        if (scanid == ''):
+        if (scanid == '/'):
             self.calc_pres(scanid=scanid)
-            self.deq22_res = self.get_deq22_res(scanid, time)
+            self.deq22_res = self.get_deq22_res_read(scanid, time)
             self.bifurcfactors = self.deq22_res/self.da_res
             fig, ax = plt.subplots(figsize=(10,4))
             ax_twin = plt.twinx()               
@@ -302,14 +311,20 @@ class postproc:
             ax_twin.set_ylim((0,14e4))
             
             ax_twin.ticklabel_format(useMathText=True)
+
+            fluid_resonance = np.amax(np.array(self.h5inp['output/zero_veperp']))
+            ExB_resonance = np.amax(np.array(self.h5inp['output/zero_vExB']))
+
+            ax.axvline(x=fluid_resonance, color = 'grey', linestyle = '--', label='Fluid resonance')
+            ax.axvline(x=ExB_resonance, color = 'grey', linestyle = '-.', label='ExB resonance')
                 
-            for elem in self.h5inp['output/zero_veperp']:
-                if (not np.isnan(elem)):
-                    ax.axvline(x=elem, color = 'grey', linestyle = '--', label='Fluid resonance')
+            #for elem in self.h5inp['output/zero_veperp']:
+            #    if (not np.isnan(elem)):
+            #        ax.axvline(x=elem, color = 'grey', linestyle = '--', label='Fluid resonance')
                         
-            for elem in self.h5inp['output/zero_vExB']:
-                if (not np.isnan(elem)):
-                    ax.axvline(x=elem, color = 'grey', linestyle = '-.', label='ExB resonance')
+            #for elem in self.h5inp['output/zero_vExB']:
+            #    if (not np.isnan(elem)):
+            #        ax.axvline(x=elem, color = 'grey', linestyle = '-.', label='ExB resonance')
             ax.legend()
             #plt.show()
             return list(map(plt.figure, plt.get_fignums()))

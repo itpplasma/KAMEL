@@ -996,7 +996,7 @@ classdef Balance < handle & hdf5_output
 			%save current path
             currentpath = pwd();
 
-			% linke the executable
+			% link the executable
             [~, ~] = system(['ln -fs ', '/temp/markl_m/GITHUB/BalanceSuite/ql-balance/', obj.EXEC_NAME, ' ', obj.path_run]);
 
 			%obj.write_kilca();
@@ -1047,9 +1047,18 @@ classdef Balance < handle & hdf5_output
                 %obj.options.write([obj.LIB_BALANCE, 'blueprints/'], obj.path_run);
 				scalefactorssq = h5read(obj.hdf5file, '/output/scalefactors_sq');
 				%disp(num2str(scalefactorssq))
+				switch obj.m
+				case 5
+					scalefactorssq = scalefactorssq(1);
+				case 6
+					scalefactorssq = scalefactorssq(2);
+				case 7
+					scalefactorssq = scalefactorssq(3);
+				end
+
 				obj.optionsnml = InputFile(['balance_conf.nml']);
 				obj.optionsnml.read();
-				obj.optionsnml.BALANCENML.antenna_factor = scalefactorssq(i);
+				obj.optionsnml.BALANCENML.antenna_factor = scalefactorssq;
 				obj.optionsnml.BALANCENML.path2out = obj.h5out;
 				obj.optionsnml.write([obj.path_run,'balance_conf.nml']);
                 
@@ -1438,6 +1447,8 @@ classdef Balance < handle & hdf5_output
 
             disp('-------------------------------------------------------')
             disp(' Reset profiles ')
+
+            system(['mkdir -p ', obj.path_run, 'profiles/']);
 
             profs = {'n', 'Ti', 'Te', 'Er', 'q', 'Vz', 'Vth'};
 

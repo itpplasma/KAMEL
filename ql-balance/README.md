@@ -1,0 +1,7 @@
+# ql-balance
+To compile the code, run
+	mk -f Balance.mk_mpi
+
+This will compile the code and create the executable balance.x.mpif90.openmpi_x86_64.
+
+The file balance_conf.nml is the blueprint namelist file required by the ql-balance code. The balance class can handle the file.

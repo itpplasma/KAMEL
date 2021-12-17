@@ -199,7 +199,7 @@ classdef da_estimator < handle & hdf5_output
                 obj.Pinp = interp1(P_inp_raw(:, 1), P_inp_raw(:, 2), time/1000) / obj.e;
                 
                 %distribute evenly to ions and electrons
-                obj.Peff = 0.5 .* (obj.P_inp - obj.P_rad);
+                obj.Peff = 0.5 .* (obj.Pinp - obj.Prad);
                 
                 obj.Da = -obj.Peff ./ obj.ne ./ obj.dTe ./ obj.S;
                 obj.type = 'est';

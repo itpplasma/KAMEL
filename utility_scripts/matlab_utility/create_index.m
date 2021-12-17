@@ -13,9 +13,9 @@ function create_index(shot, studynames, path, spath)
 	% shot ... shot number for which the index file should be created
 	% studynames ... studies to be included
 	% path ... path where the directory system is for which the index
-	% spath ... path where the index file should be saved to
 	% should be created. Can be multiple paths. Default is the 
 	% BALANCE_4CASES directory, in particular the MMARKL and ULBLP studies.
+	% spath ... path where the index file should be saved to
 	
 	if (nargin<4 || isempty(path))
 		path = '/temp/markl_m/BALANCE_4CASES/POST/';

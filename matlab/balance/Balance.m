@@ -997,7 +997,8 @@ classdef Balance < handle & hdf5_output
             currentpath = pwd();
 
 			% link the executable
-            [~, ~] = system(['ln -fs ', '/temp/markl_m/GITHUB/BalanceSuite/ql-balance/', obj.EXEC_NAME, ' ', obj.path_run]);
+			disp( ['ln -fs ', obj.LIB_BALANCE, '../ql-balance/', obj.EXEC_NAME, ' ', obj.path_run])
+            [~, ~] = system(['ln -fs ', obj.LIB_BALANCE, '../ql-balance/', obj.EXEC_NAME, ' ', obj.path_run]);
 
 			%obj.write_kilca();
 

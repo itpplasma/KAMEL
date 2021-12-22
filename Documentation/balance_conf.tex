@@ -1,0 +1,56 @@
+\documentclass{article}
+
+\usepackage{geometry}
+\geometry{verbose,tmargin=2cm,bmargin=2cm,lmargin=2cm,rmargin=2cm}
+
+
+\title{\Huge \texttt{balance\_conf.nml} \\ \Large Explanation of the configuration parameters}
+\author{Markus Markl}
+
+\begin{document}
+
+\maketitle
+
+\begin{itemize}
+	\item \textbf{flre\_path} : (String) Path to the KiLCA flre data of the pre run
+	\item \textbf{vac\_path} : (String) Similar as flre\_path
+	\item \textbf{btor} : (Double) Toroidal magnetic field value at the magnetic axis, in Gauss. 
+	\item \textbf{rtor} : (Double) Minor radius of the torus
+	\item \textbf{rmin} : (Double) Minimum radial value for the calculation
+	\item \textbf{rmax} : (Double) Maximum radial value, i.e. location of the wall
+	\item \textbf{repar} : (Double) Small radius of the separatrix
+	\item \textbf{npoimin} : (Integer) Number of points (?)
+	\item \textbf{gg\_factor} : Generate grid factor (?)
+	\item \textbf{gg\_width} : Generate grid width (?)
+	\item \textbf{gg\_r\_res} : Generate grid radial resolution (?)
+	\item \textbf{Nstorage} : Number of steps to be reserved in memory. Used for time evolution.
+	\item \textbf{tmax\_factor} : (Double) Factor for the maximal time value.
+	\item \textbf{antenna\_factor} : (Double) maximal antenna factor for the ramp up of the coil current in the time evolution
+	\item \textbf{iboutype} : (Integer) Type of boundary condition
+	\item \textbf{iwrite} : (?)
+	\item \textbf{eps} : Epsilon (?)
+	\item \textbf{dperp} : (?)
+	\item \textbf{icoll} : (?)
+	\item \textbf{Z\_i} : (Integer) Ion charge number
+	\item \textbf{am} : (Integer) Ion mass number
+	\item \textbf{rb\_cut\_in} : (?)
+	\item \textbf{re\_cut\_in} : (?)
+	\item \textbf{rb\_cut\_out} : (?)
+	\item \textbf{re\_cut\_out} : (?)
+	\item \textbf{write\_formfactors} : (Boolean) Write out form factors. Diagnostics output.
+	\item \textbf{flag\_run\_time\_evolution} : (Boolean) Enables the time evolution if true
+	\item \textbf{stop\_time\_step} : Stop if time step gets too small
+	\item \textbf{path2out} : (String) Path to the output hdf5 file where the balance data should be written to
+	\item \textbf{path2inp }: (String) Path to the input hdf5 file that is generated in the pre run
+	\item \textbf{timstep\_min} : (Double) Minimal time step value
+	\item \textbf{paramscan} : (Boolean) Enables the parameter scan mode, i.e. the changing of input profiles by the multiplication of a factor
+	\item \textbf{save\_prof\_time\_step} : (Integer) Save the profiles every nth step
+	\item \textbf{diagnostics\_output} : (Boolean) If set true, all of the data is written out. If false, only interesting data is written to hdf5. This saves the most disk space.
+	\item \textbf{br\_stopping} : (Boolean) Enables the stopping criterion based on a linear regression of $|B_r^{res}|$, i.e. if its increase is above a certain value, the code is stopped.
+	\item \textbf{suppression\_mode} : (Boolean) Enables the suppression of the profile output. Only important data ($D_{e22}^{ql}(r_{res})$, $B_r(r_{res})$) is written out. If enabled, this saves a lot of disk space.
+	\item \textbf{debug\_mode} : (Boolean) Enables debugging, i.e. a lot more information is written to the log file.
+	\item \textbf{timing\_mode} : (Boolean) Enables the timing mode, i.e. get the time each individual parameter scan needs and also the total time of the run (per mode) (is \textbf{WIP}).
+\end{itemize}
+
+
+\end{document}

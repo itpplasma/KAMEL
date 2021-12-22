@@ -327,7 +327,7 @@ program ql_balance
                             !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
                                 ! write initial background profiles to hdf5 file
                                 !
-                                if (debug_mode) print *, "writing initial background profiles"
+                                if (debug_mode) write(*,*) "writing initial background profiles"
                                 ! initialize hdf5 interface
                                 CALL h5_init()
                                 ! open hdf5 file
@@ -354,12 +354,12 @@ program ql_balance
                                     CALL h5_add_double_1(h5_id, "/init_params/r", &
                                                          r, lbound(r), ubound(r))
                                 else
-                                    if (debug_mode) print *, "they are already there -> skiping"
+                                    if (debug_mode) write(*,*) "they are already there -> skiping"
                                 end if
 
                                 CALL h5_close(h5_id)
                                 CALL h5_deinit()
-                                if (debug_mode) print *, "finished writing initial background profiles"
+                                if (debug_mode) write(*,*) "finished writing initial background profiles"
                                 !stop ! for test purposes
 
                             else
@@ -407,14 +407,14 @@ program ql_balance
                             idPhi0 = hold_dphi0 + ErVzfac*params(2, :)*(fac_vz(ifac_vz) - 1.d0)
                             deallocate (ErVzfac)
                         end if
-                        print *, "Parameter scan, current factors: "
-                        print *, "fac_n = ", fac_n(ifac_n), "   ", ifac_n, &
+                        write(*,*) "Parameter scan, current factors: "
+                        write(*,*) "fac_n = ", fac_n(ifac_n), "   ", ifac_n, &
                             " of ", size(fac_n)
-                        print *, "fac_Ti = ", fac_Ti(ifac_Ti), "   ", ifac_Ti, &
+                        write(*,*) "fac_Ti = ", fac_Ti(ifac_Ti), "   ", ifac_Ti, &
                             " of ", size(fac_Ti)
-                        print *, "fac_Te = ", fac_Te(ifac_Te), "   ", ifac_Te, &
+                        write(*,*) "fac_Te = ", fac_Te(ifac_Te), "   ", ifac_Te, &
                             " of ", size(fac_Te)
-                        print *, "fac_vz = ", fac_vz(ifac_vz), "   ", ifac_vz, &
+                        write(*,*) "fac_vz = ", fac_vz(ifac_vz), "   ", ifac_vz, &
                             " of ", size(fac_vz)
                     end if
                     !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -425,6 +425,7 @@ program ql_balance
                     if (debug_mode) print *, "going into get_dql"
                     call get_dql(0)
                     if (debug_mode) print *, "coming out of get_dql"
+
                     if (flag_run_time_evolution) then
                         !For time evolution mode use antenna_factor as maximum
                         !and start with a very small value and ramp this up
@@ -450,8 +451,7 @@ program ql_balance
                         end if
                     end if
 
-!stop !Stop Schalter verhindert Ausfuehrung des DGL-Loesers
-
+                    ! if no parameter scan, allocate quantities
                     if (ifac_n + ifac_Ti + ifac_Te + ifac_vz .eq. 4) then
                         allocate (timscal(npoi), dummy(npoic))
                         allocate (params_beg(nbaleqs, npoic), params_num(nbaleqs, npoic))
@@ -513,10 +513,7 @@ program ql_balance
                     iunit_diag = 5000
                     write_diag = .false.
 !
-!pause
-! this is where the diffusion coefficients (and others) get written to
-! the fort.5000 file (now the hdf5 file)
-                    call get_dql(0)
+                    call get_dql(0) ! also writes out diffusion coefficients and other data
                     dqle11 = dqle11*antenna_factor
                     dqle12 = dqle12*antenna_factor
                     dqle21 = dqle21*antenna_factor
@@ -525,9 +522,6 @@ program ql_balance
                     dqli12 = dqli12*antenna_factor
                     dqli21 = dqli21*antenna_factor
                     dqli22 = dqli22*antenna_factor
-!pause
-!!call MPI_finalize(ierror);
-!!stop
 !
                     if (flag_run_time_evolution) then
                         if (ifac_n + ifac_Ti + ifac_Te + ifac_vz .eq. 4) then
@@ -545,17 +539,12 @@ program ql_balance
                     dqli21_prev = dqli21
                     dqli22_prev = dqli22
                     params_begbeg = params
-                    if (debug_mode) print *, 'dql ready'
-!
-!call equipotentials
-!if (irank .eq. 0 ) then
-!    print *,'equipotentials ready'
-!endif
+                    if (debug_mode) write(*,*), 'dql ready'
 
 !init variables for interpolation of Br abs res
 !Added by Philipp Ulbl 04.06.2020
 !Changed location by Markus Markl 08.04.2021
-                    nlagr = 4; 
+                    nlagr = 4; ! order of lagrange interpolation
                     nder = 0; 
                     if (.not. allocated(coef)) allocate (coef(0:nder, nlagr))
 !binsearch
@@ -570,13 +559,12 @@ program ql_balance
 
                     if (.not. flag_run_time_evolution) then
 
-    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-                        ! added by Markus Markl, 04.03.2021
-
+                        ! linear run
                         ! added interpolation of dqle22, Markus Markl 08.04.2021
                         call plag_coeff(nlagr, nder, r_resonant, rb(ibeg:iend), coef)
                         dqle22_res(ifac_n, ifac_Te, ifac_Ti, ifac_vz) = sum(coef(0, :)*dqle22(ibeg:iend))
+
+                        ! if velocity scan, determine Er_res for v_ExB velocity at resonant surface
                         if (size(fac_vz) .ne. 1) then
                             if (debug_mode) write (*, *) "determine Er_res"
                             do ipoi = 1, npoic
@@ -587,10 +575,9 @@ program ql_balance
 
                         end if
                         write (*, *) 'dqle22 res = ', dqle22_res(ifac_n, ifac_Te, ifac_Ti, ifac_vz)
-                        ! h5_mode_groupname
 
                         if (paramscan) then
-                            ! if the last parameter scan is done, stop the code
+                            ! if the last parameter scan is done, write data and stop the code
                             if (ifac_n + ifac_Te + ifac_Ti + ifac_vz .eq. size(fac_n) + size(fac_Ti) + &
                                 size(fac_Te) + size(fac_vz)) then
                                 if (debug_mode) write(*,*) "Last parameter done. Finalize MPI"
@@ -620,7 +607,8 @@ program ql_balance
                                                          lbound(reshape(Er_res, (/size(Er_res)/))), &
                                                          ubound(reshape(Er_res, (/size(Er_res)/))))
                                 end if
-                                !timing
+
+                                !timing mode
                                 if (timing_mode) then
                                     CALL system_clock(timing_t2, count_rate)
                                     CALL system_clock(timing_parscan_t2)
@@ -723,8 +711,8 @@ program ql_balance
 ! #########################################################################################
 ! Time evolution
 !
-                    firstiterationdone = .false.
-                    do i = 1, Nstorage
+                    firstiterationdone = .false. ! if first iteration is done, some variables are already allocated
+                    do i = 1, Nstorage ! loop over time steps
                         write (*, *) "i = ", i
                         !
                         if (debug_mode) print *, 'yprev loop'
@@ -808,7 +796,7 @@ program ql_balance
                         !calculate Br abs at the resonant surface for stopping criterion
                         !Added by Philipp Ulbl 04.06.2020
 
-                        !binsearch - is already done before time evolution
+                        !binsearch - is also already done before time evolution
                         call binsrc(rb, 1, npoib, r_resonant, ibrabsres)
                         !
                         ibeg = max(1, ibrabsres - nlagr/2)
@@ -992,8 +980,8 @@ program ql_balance
                         if (antenna_factor .lt. (antenna_factor_max*2.d0)) then
                             !antenna_factor = time**2 + 1.d-4
                             !antenna_factor = EXP(100*time) + 1.d-4
-							!antenna_factor = 1.d-4 + antenna_factor + antenna_factor_max * timstep/t_max_ramp_up
-							antenna_factor = 1.d-4 + antenna_factor + antenna_factor_max * time/t_max_ramp_up
+							antenna_factor = antenna_factor + antenna_factor_max * (timstep/t_max_ramp_up)
+							!antenna_factor = 1.d-4 + antenna_factor + antenna_factor_max * time/t_max_ramp_up
                             !This can be activated for runs without QL evolution to check steady state behaviour
                             !antenna_factor = 1.d-4
                             !if(i .gt. 200) then
@@ -1415,7 +1403,12 @@ subroutine writefort1000(istep)
         write (*, *) "h5_currentgrp ", trim(h5_currentgrp)
         write (*, *) "defining fort.1000/1000 group ", 1000 + istep
         ! define group 1000+istep
-        CALL h5_define_group(h5_id, trim(h5_currentgrp), group_id_1)
+        CALL h5_obj_exists(h5_id, trim(h5_currentgrp), h5_exists_log)
+        if (.not. h5_exists_log) then
+        	CALL h5_define_group(h5_id, trim(h5_currentgrp), group_id_1)
+		end if
+ 
+
 
         write (*, *) "group defined"
         ! edited 26.03.2021, Markus Markl

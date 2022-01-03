@@ -918,13 +918,13 @@ classdef Balance < handle & hdf5_output
            % be done distinctively.
            %###############################################################
 
-			if (nargin < 2 || isempty(ion_mass))
+			if (nargin < 3 || isempty(ion_mass))
 				ion_mass = 2;
 			end
 
 			obj.m_ion = ion_mass;
 
-		   % need to read in r_big
+				   % need to read in r_big
 			obj.r_big = h5read(obj.hdf5file, '/input/r_big');
 			obj.b_tor = h5read(obj.hdf5file, '/input/b_tor');
 
@@ -944,7 +944,7 @@ classdef Balance < handle & hdf5_output
                 %standard settings of kilca
                 obj.(runname) = KiLCA_interface(obj.path_run, runs{k});
                 obj.(runname).BLUE_PATH = [obj.LIB_KiLCA, 'blueprints/'];
-           %     obj.(runname).PROF_PATH = obj.path_profiles;
+                obj.(runname).PROF_PATH = obj.path_profiles;
                 obj.(runname).set_background(obj.r_big, obj.r_sep);
                 obj.(runname).background.Btor = obj.b_tor;
                 obj.(runname).background.flag_recalc = 1;
@@ -968,7 +968,7 @@ classdef Balance < handle & hdf5_output
             
         end
         
-		function write_kilca(obj)
+		function write_kilca(obj, run_kilca)
 			% the new version of the balance code can be split in pre 
 			% and main run. But, the pre run does not create the 
 			% necessary input files, e.g. antenna.in. Meaning, this 
@@ -981,6 +981,29 @@ classdef Balance < handle & hdf5_output
                     obj.(runs{k}).write();
                 end
             end
+
+			if (nargin < 2 || isempty(run_kilca))
+				run_kilca = 1;
+			end
+
+			if (run_kilca == 1)
+				obj.reset_profiles();
+				obj.setKiLCAOptions(obj.m_ion);
+
+            	runs = {'kil_vacuum', 'kil_flre'};
+            	for k = 1:numel(runs)
+
+                	%write directory structure
+                	obj.(runs{k}).write();
+                	%pre-run of vacuum and flre
+                	obj.(runs{k}).run();
+
+                	%postprocess kilca
+                	obj.(runs{k}).post();
+
+                end
+            end
+
 		end
 
         function run(obj)
@@ -997,7 +1020,7 @@ classdef Balance < handle & hdf5_output
             currentpath = pwd();
 
 			% link the executable
-			disp( ['ln -fs ', obj.LIB_BALANCE, '../ql-balance/', obj.EXEC_NAME, ' ', obj.path_run])
+%			disp( ['ln -fs ', obj.LIB_BALANCE, '../ql-balance/', obj.EXEC_NAME, ' ', obj.path_run])
             [~, ~] = system(['ln -fs ', obj.LIB_BALANCE, '../ql-balance/', obj.EXEC_NAME, ' ', obj.path_run]);
 
 			%obj.write_kilca();
@@ -1454,11 +1477,12 @@ classdef Balance < handle & hdf5_output
             profs = {'n', 'Ti', 'Te', 'Er', 'q', 'Vz', 'Vth'};
 
             prof_r = h5read(obj.hdf5file, '/preprocprof/r_out');
+			kilca_r = h5read(obj.hdf5file, '/KiLCA_vac/output/background/R')';
 
             for i=1:numel(profs)
-                profile_y = h5read(obj.hdf5file, ['/preprocprof/',profs{i}]);
+                profile_y = interp1(prof_r, h5read(obj.hdf5file, ['/preprocprof/',profs{i}]), kilca_r);
                 fileID = fopen([obj.path_run, '/profiles/',profs{i},'.dat'],'w');
-                fprintf(fileID, "%.15e %.15e\n", [prof_r; profile_y]);
+                fprintf(fileID, "%.15e %.15e\n", [kilca_r; profile_y]);
                 fclose(fileID);
             end
 

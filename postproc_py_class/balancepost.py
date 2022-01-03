@@ -513,9 +513,9 @@ class postproc:
         for mode in mode_names:
         
             self.brvac = np.array(self.h5out[self.group_string(scanid, mode=mode, group ='Brvac_res')])
-            self.Br_abs_res = np.array(self.h5out[self.group_string(scanid,mode=mode, group='br_abs_res.dat')]).transpose()[3]
-            self.Br_abs_res_time = np.array(self.h5out[self.group_string(scanid, mode=mode, group='br_abs_res.dat')]).transpose()[1]
-            self.antenna_factor = np.array(self.h5out[self.group_string(scanid,mode=mode, group='br_abs_res.dat')]).transpose()[2]
+            self.Br_abs_res = np.array(self.h5out[self.group_string(scanid,mode=mode, group='br_abs_res')])
+            self.Br_abs_res_time = np.array(self.h5out[self.group_string(scanid, mode=mode, group='br_abs_time')])
+            self.antenna_factor = np.array(self.h5out[self.group_string(scanid,mode=mode, group='br_abs_antenna_factor')])
         
             plt.scatter(self.Br_abs_res_time, self.Br_abs_res/self.brvac/np.sqrt(self.antenna_factor), label='m = ' + mode[2] + '; n = '+ mode[4])
         plt.xlabel('t/s')

@@ -76,8 +76,12 @@ program ql_balance
     DOUBLE PRECISION, DIMENSION(:,:,:,:), ALLOCATABLE :: Er_res
 ! Added by Markus Markl 18.03.2021, used for improved stopping criterion
     DOUBLE PRECISION, DIMENSION(:), ALLOCATABLE :: br_abs_time
+	DOUBLE PRECISION, DIMENSION(:), ALLOCATABLE :: br_abs_antenna_factor
     DOUBLE PRECISION :: br_beta = 0
     DOUBLE PRECISION :: br_predicted
+
+! ramp up parameters
+	integer :: faster_ramp_up
 	DOUBLE PRECISION :: t_max_ramp_up = 1e-2 ! 10ms ramp up
 !
     integer ::  ibrabsres, ibeg, iend, nlagr, nder
@@ -94,7 +98,7 @@ program ql_balance
         write_formfactors, flag_run_time_evolution, stop_time_step, &
         path2inp, path2out, timstep_min, paramscan, save_prof_time_step, &
         diagnostics_output, br_stopping, suppression_mode, debug_mode, timing_mode, &
-        readfromtimestep, path2time
+        readfromtimestep, path2time, faster_ramp_up, t_max_ramp_up
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !debug_mode = .true. !  debug mode variable that enables print debugging
 !timing_mode = .true.
@@ -188,6 +192,8 @@ program ql_balance
         print *, 'br_stopping = ', br_stopping
         print *, 'debug_mode = ', debug_mode
         print *, 'suppression_mode = ', suppression_mode
+		write(*,*) "faster_ramp_up = ", faster_ramp_up
+		write(*,*) "t_max_ramp_up = ", t_max_ramp_up
         print *, ''
     end if
 
@@ -526,6 +532,7 @@ program ql_balance
                     if (flag_run_time_evolution) then
                         if (ifac_n + ifac_Ti + ifac_Te + ifac_vz .eq. 4) then
                             allocate (br_abs(Nstorage))
+							allocate (br_abs_antenna_factor(Nstorage))
                             allocate (br_abs_time(Nstorage))
                             !allocate (dqle22_res(Nstorage))
                         end if
@@ -539,7 +546,7 @@ program ql_balance
                     dqli21_prev = dqli21
                     dqli22_prev = dqli22
                     params_begbeg = params
-                    if (debug_mode) write(*,*), 'dql ready'
+                    if (debug_mode) write(*,*) 'dql ready'
 
 !init variables for interpolation of Br abs res
 !Added by Philipp Ulbl 04.06.2020
@@ -820,6 +827,7 @@ program ql_balance
                         ! added by Markus Markl, 19.03.2021
                         ! save the time for the improved stopping criterion
                         br_abs_time(i) = time
+						br_abs_antenna_factor(i) = antenna_factor
 
 
                         ! save the data
@@ -829,24 +837,27 @@ program ql_balance
                         write(*,*) 'time = ', br_abs_time(i)
 
                         ! most important data to be saved
-                        if (ihdf5test .eq. 1) then
-                            h5_currentgrp = "/"//trim(h5_mode_groupname) &
-                                            //"/br_abs_res.dat"
-                            CALL h5_init()
-                            CALL h5_open_rw(path2out, h5_id)
-                            if (.not. firstiterationdone) then
-                                CALL h5_define_unlimited_matrix(h5_id, trim(h5_currentgrp), &
-                                                                H5T_NATIVE_DOUBLE, (/4, -1/), brabs_dataset_id)
-                            end if
-                            CALL h5_append_double_1(brabs_dataset_id, (/i*1.d0, time, &
-                                                                        antenna_factor, br_abs(i)/), i)
-                            CALL h5_close(h5_id)
-                            CALL h5_deinit()
-                        else
-                            open (777, file='br_abs_res.dat', position='append')
-                            write (777, *) i, time, antenna_factor, br_abs(i)
-                            close (777)
-                        end if
+
+						CALL write_br_time_data(i, br_abs_time, br_abs_antenna_factor, br_abs)
+
+                        !if (ihdf5test .eq. 1) then
+                        !    h5_currentgrp = "/"//trim(h5_mode_groupname) &
+                        !                    //"/br_abs_res.dat"
+                        !    CALL h5_init()
+                        !    CALL h5_open_rw(path2out, h5_id)
+                        !    if (.not. firstiterationdone) then
+                        !        CALL h5_define_unlimited_matrix(h5_id, trim(h5_currentgrp), &
+                        !                                        H5T_NATIVE_DOUBLE, (/4, -1/), brabs_dataset_id)
+                        !    end if
+                        !    CALL h5_append_double_1(brabs_dataset_id, (/i*1.d0, time, &
+                        !                                                antenna_factor, br_abs(i)/), i)
+                        !    CALL h5_close(h5_id)
+                        !    CALL h5_deinit()
+                        !else
+                        !    open (777, file='br_abs_res.dat', position='append')
+                        !    write (777, *) i, time, antenna_factor, br_abs(i)
+                        !    close (777)
+                        !end if
 
                         ! Old stopping criterion by Philipp Ulbl:
                         !
@@ -901,6 +912,8 @@ program ql_balance
                                         '/stopping_criterion', 'discrepancy to linearly predicted value of Br_abs_res > delta')
                                     CALL h5_close(h5_id)
                                     CALL h5_deinit()
+
+
                                     if (paramscan) then
                                         !timing
                                         if (timing_mode) then
@@ -950,6 +963,10 @@ program ql_balance
                                             CALL h5_close(h5_id)
                                             CALL h5_deinit()
                                         end if
+										! write br data to hdf5
+										if (debug_mode) write(*,*) "Write br_time _data"
+										CALL write_br_time_data(i, br_abs_time, br_abs_antenna_factor, br_abs)
+
                                         CALL MPI_finalize(ierror); 
                                         print *, 'stop'
                                         stop
@@ -977,17 +994,19 @@ program ql_balance
                         !Added by Philipp Ulbl 12.05.2020
                         !
                         ! Stopping criterion that is always active
-                        if (antenna_factor .lt. (antenna_factor_max*2.d0)) then
-                            !antenna_factor = time**2 + 1.d-4
-                            !antenna_factor = EXP(100*time) + 1.d-4
-							antenna_factor = antenna_factor + antenna_factor_max * (timstep/t_max_ramp_up)
-							!antenna_factor = 1.d-4 + antenna_factor + antenna_factor_max * time/t_max_ramp_up
+                        if (antenna_factor .lt. (antenna_factor_max*5.d0)) then
+							if (debug_mode) write(*,*) "-- ramp up antenna_factor --"
+							if (faster_ramp_up .eq. 0) then
+                            	antenna_factor = time**2 + 1.d-4
+							else if (faster_ramp_up .eq. 1) then
+								antenna_factor = antenna_factor + antenna_factor_max * (timstep/t_max_ramp_up)
+							end if
                             !This can be activated for runs without QL evolution to check steady state behaviour
                             !antenna_factor = 1.d-4
                             !if(i .gt. 200) then
                             !    stop
                             !endif
-                            print *, 'antenna_factor = ', antenna_factor
+                            write(*,*) 'antenna_factor = ', antenna_factor
                         else
                             print *, 'stop: reached antenna_factor_max * 5'
                             if (suppression_mode .eqv. .false.) then
@@ -1013,6 +1032,9 @@ program ql_balance
                                     CALL h5_close(h5_id)
                                     CALL h5_deinit()
                                 end if
+
+								if (debug_mode) write(*,*) "Write br_time _data"
+								CALL write_br_time_data(i, br_abs_time, br_abs_antenna_factor, br_abs)
 
                                 if (ifac_n + ifac_Te + ifac_Ti + ifac_vz .eq. size(fac_n) + &
                                     size(fac_Ti) + size(fac_Te) + size(fac_vz)) then
@@ -1051,6 +1073,9 @@ program ql_balance
                                     CALL h5_close(h5_id)
                                     CALL h5_deinit()
                                 end if
+
+								if (debug_mode) write(*,*) "Write br_time _data"
+								CALL write_br_time_data(i, br_abs_time, br_abs_antenna_factor, br_abs)
                                 CALL MPI_finalize(ierror); 
                                 print *, 'stop'
                                 stop
@@ -1189,8 +1214,8 @@ program ql_balance
                             !limits ion and electron temperatures from below (by 10 eV in this example).
                             !Added by Philipp Ulbl on 09.06.2020
                             do ipoi = 1, npoic
-                                params(3, ipoi) = max(params(3, ipoi), 10d0*ev)
-                                params(4, ipoi) = max(params(4, ipoi), 10d0*ev)
+                                params(3, ipoi) = max(params(3, ipoi), 30d0*ev)
+                                params(4, ipoi) = max(params(4, ipoi), 30d0*ev)
                             end do
                             !
                             params_num = (params - params_beg)**2
@@ -1357,7 +1382,8 @@ program ql_balance
 
     write (*, *) 'Programm is finalized, without stopping criterion met'; 
     call MPI_finalize(ierror); 
-end program ql_balance
+
+contains
 
 ! added by Markus Markl, 12.03.2021
 ! This routine was added because of the change that only every
@@ -1576,3 +1602,45 @@ subroutine creategroupstructure
     write (*, *) "finished creating group structure"
 end subroutine
 
+
+subroutine write_br_time_data(i, br_abs_time, br_abs_antenna_factor, br_abs)
+
+    use control_mod
+    use baseparam_mod
+    use h5mod
+    use hdf5_tools
+
+    implicit none
+	integer, intent(in) :: i
+    double precision, dimension(:), intent(in) :: br_abs_time
+    double precision, dimension(:), intent(in) :: br_abs_antenna_factor
+    double precision, dimension(:), intent(in) :: br_abs
+    character(len=1024) :: h5_currentgrp
+
+	if (debug_mode) write(*,*) "writing out br time evolution data"
+
+    if (ihdf5test .eq. 1) then
+       	CALL h5_init()
+        CALL h5_open_rw(path2out, h5_id)
+
+ 		h5_currentgrp = "/"//trim(h5_mode_groupname) //"/br_abs_time"
+		CALL h5_add_double_1(h5_id, trim(h5_currentgrp), br_abs_time(1:i), &
+			lbound(br_abs_time(1:i)), ubound(br_abs_time(1:i)))
+
+ 		h5_currentgrp = "/"//trim(h5_mode_groupname) //"/br_abs_antenna_factor"
+		CALL h5_add_double_1(h5_id, trim(h5_currentgrp), br_abs_antenna_factor(1:i), &
+			lbound(br_abs_antenna_factor(1:i)), ubound(br_abs_antenna_factor(1:i)))
+
+ 		h5_currentgrp = "/"//trim(h5_mode_groupname) //"/br_abs_res"
+		CALL h5_add_double_1(h5_id, trim(h5_currentgrp), br_abs(1:i), &
+			lbound(br_abs(1:i)), ubound(br_abs(1:i)))
+
+        CALL h5_close(h5_id)
+        CALL h5_deinit()
+        
+    end if
+
+
+end subroutine
+
+end program ql_balance

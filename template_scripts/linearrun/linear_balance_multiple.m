@@ -36,8 +36,7 @@ m = [5,6,7];
 n = 2 .* ones(size(m));
 
 % define factors for parameter scan
-fac_n = [1.0];%[0.5; 1.0; 1.5];%[0.3; 0.5; 0.6;0.7; 0.8; 0.9; 1.0; 1.1; 1.2; ...
-	%1.3;1.4;1.5;1.8;2.1;2.4;2.7;3.0];
+fac_n = [1.0]; % for more factors: e.g. [0.5; 1.0; 1.5];
 fac_Ti = [1.0];
 fac_Te = [1.0];
 fac_vz = [1.0];
@@ -54,13 +53,13 @@ for i =1:numel(timeh5)
 	fclose(fileID);
 	tstart = tic;
 
+	% path to the input hdf5 file, that is generated in the pre run
 	path2inp = [prerundatapath, num2str(shot), '_', num2str(timeh5(i)),'_mi_', num2str(ionmass),'.hdf5'];
+
 % TODO: change path accordingly
 	runpath = ['/temp/markl_m/',project, '/RUNS/', studyname, '/', num2str(shot), '_', num2str(timeh5(i)), '/'];
 	system(['mkdir -p ', runpath]);
 
-% path to the input hdf5 file, that is generated in the pre run
-% same for each shot/time combination, i.e. has to be done only once
    
 % create balance object
 	bal = Balance(runpath, shot, timeh5(i), studyname, path2inp);
@@ -86,9 +85,9 @@ for i =1:numel(timeh5)
 % check if the configuration namelist file exists in run path, 
 % if not, copy it from blueprint path
 	if ~exist([runpath, 'balance_conf.nml'], 'file')
-		system(['cp /afs/itp.tugraz.at/user/markl_m/Dokumente/plasma/code/libneo/matlab/BALANCE/blueprints/balance_conf.nml '...
+		system(['cp /temp/markl_m/GITHUB/BalanceSuite/matlab/blueprints/balance_conf.nml '...
 			, runpath, 'balance_conf.nml']);
-end
+	end
 
 	balancenml = InputFile([runpath,'balance_conf.nml']);
 	balancenml.read();

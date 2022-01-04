@@ -53,4 +53,6 @@
  path2time = ' ' ,
  faster_ramp_up = 0, ! faster ramp up integer, if 0 no faster ramp up
  t_max_ramp_up = 1e-2, ! time at which the expt. antenna factor should be reached, if faster ramp up
+ temperature_limit = 20.0 , ! lower temperature limit
+ antenna_max_stopping = 2.0 , ! code stops when antenna factor has reached antenna_max stopping * antenna_factor_max
  /

@@ -57,6 +57,8 @@ program ql_balance
     double precision, dimension(:), allocatable :: ErVzfac ! factor to rescale Er
     integer, dimension(1) :: ind_dqle, ind_dqli
     integer :: lb, ub
+    DOUBLE PRECISION :: temperature_limit ! limits ion and electron temperatures from below, in eV
+    DOUBLE PRECISION :: antenna_max_stopping
 
 ! timing variables
     integer :: timing_t1, timing_t2 ! for total timing
@@ -98,7 +100,8 @@ program ql_balance
         write_formfactors, flag_run_time_evolution, stop_time_step, &
         path2inp, path2out, timstep_min, paramscan, save_prof_time_step, &
         diagnostics_output, br_stopping, suppression_mode, debug_mode, timing_mode, &
-        readfromtimestep, path2time, faster_ramp_up, t_max_ramp_up
+        readfromtimestep, path2time, faster_ramp_up, t_max_ramp_up, temperature_limit, &
+        antenna_max_stopping
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !debug_mode = .true. !  debug mode variable that enables print debugging
 !timing_mode = .true.
@@ -194,6 +197,8 @@ program ql_balance
         print *, 'suppression_mode = ', suppression_mode
 		write(*,*) "faster_ramp_up = ", faster_ramp_up
 		write(*,*) "t_max_ramp_up = ", t_max_ramp_up
+        write(*,*) "temperature_limit = ", temperature_limit
+        write(*,*) "antenna_max_stopping = ", antenna_max_stopping
         print *, ''
     end if
 
@@ -201,7 +206,7 @@ program ql_balance
     tmax = timescale*tmax_factor
     timstep = tmax/Nstorage
     if (irank .eq. 0) then
-        print *, 'timstep = ', timstep
+        write(*,*) "timstep = ", timstep
     end if
     timstepmax = tmax
 
@@ -892,7 +897,7 @@ program ql_balance
                             end if
                             ! calculate the from the linear regression predicted value of Br_abs
                             br_predicted = br_beta*br_abs_time(i)
-                            print *, "Delta = ", abs(br_abs(i) - br_predicted)
+                            write(*,*) "Delta = ", abs(br_abs(i) - br_predicted)
                             if (abs(br_abs(i) - br_predicted) .gt. 0.1) then
                                 print *, 'discrepancy to linearly predicted value &
                 &                    of Br_abs_res > delta'
@@ -963,9 +968,9 @@ program ql_balance
                                             CALL h5_close(h5_id)
                                             CALL h5_deinit()
                                         end if
-										! write br data to hdf5
-										if (debug_mode) write(*,*) "Write br_time _data"
-										CALL write_br_time_data(i, br_abs_time, br_abs_antenna_factor, br_abs)
+                                        ! write br data to hdf5
+                                        if (debug_mode) write(*,*) "Write br_time _data"
+                                        CALL write_br_time_data(i, br_abs_time, br_abs_antenna_factor, br_abs)
 
                                         CALL MPI_finalize(ierror); 
                                         print *, 'stop'
@@ -994,13 +999,14 @@ program ql_balance
                         !Added by Philipp Ulbl 12.05.2020
                         !
                         ! Stopping criterion that is always active
-                        if (antenna_factor .lt. (antenna_factor_max*5.d0)) then
-							if (debug_mode) write(*,*) "-- ramp up antenna_factor --"
-							if (faster_ramp_up .eq. 0) then
-                            	antenna_factor = time**2 + 1.d-4
-							else if (faster_ramp_up .eq. 1) then
-								antenna_factor = antenna_factor + antenna_factor_max * (timstep/t_max_ramp_up)
-							end if
+                        if (antenna_factor .lt. (antenna_factor_max*antenna_max_stopping)) then
+                            if (debug_mode) write(*,*) "-- ramp up antenna_factor --"
+                            if (faster_ramp_up .eq. 0) then
+                                antenna_factor = time**2 + 1.d-4
+                            else if (faster_ramp_up .eq. 1) then
+                                antenna_factor = antenna_factor + antenna_factor_max * (timstep/t_max_ramp_up)
+                            end if
+
                             !This can be activated for runs without QL evolution to check steady state behaviour
                             !antenna_factor = 1.d-4
                             !if(i .gt. 200) then
@@ -1008,7 +1014,7 @@ program ql_balance
                             !endif
                             write(*,*) 'antenna_factor = ', antenna_factor
                         else
-                            print *, 'stop: reached antenna_factor_max * 5'
+                            write(*,*) 'stop: reached antenna_factor_max * ', antenna_max_stopping
                             if (suppression_mode .eqv. .false.) then
                                 call writefort1000(i)
                             end if
@@ -1016,7 +1022,7 @@ program ql_balance
                             CALL h5_init()
                             CALL h5_open_rw(path2out, h5_id)
                             CALL h5_add_string(h5_id, trim(h5_mode_groupname)// &
-                                               '/stopping_criterion', 'reached antenna_factor_max * 5')
+                                               '/stopping_criterion', 'reached antenna_factor_max * antenna_max_stopping')
                             CALL h5_close(h5_id)
                             CALL h5_deinit()
                             if (paramscan) then
@@ -1033,8 +1039,8 @@ program ql_balance
                                     CALL h5_deinit()
                                 end if
 
-								if (debug_mode) write(*,*) "Write br_time _data"
-								CALL write_br_time_data(i, br_abs_time, br_abs_antenna_factor, br_abs)
+                                if (debug_mode) write(*,*) "Write br_time _data"
+                                CALL write_br_time_data(i, br_abs_time, br_abs_antenna_factor, br_abs)
 
                                 if (ifac_n + ifac_Te + ifac_Ti + ifac_vz .eq. size(fac_n) + &
                                     size(fac_Ti) + size(fac_Te) + size(fac_vz)) then
@@ -1074,8 +1080,8 @@ program ql_balance
                                     CALL h5_deinit()
                                 end if
 
-								if (debug_mode) write(*,*) "Write br_time _data"
-								CALL write_br_time_data(i, br_abs_time, br_abs_antenna_factor, br_abs)
+                                if (debug_mode) write(*,*) "Write br_time _data"
+                                CALL write_br_time_data(i, br_abs_time, br_abs_antenna_factor, br_abs)
                                 CALL MPI_finalize(ierror); 
                                 print *, 'stop'
                                 stop
@@ -1214,8 +1220,8 @@ program ql_balance
                             !limits ion and electron temperatures from below (by 10 eV in this example).
                             !Added by Philipp Ulbl on 09.06.2020
                             do ipoi = 1, npoic
-                                params(3, ipoi) = max(params(3, ipoi), 30d0*ev)
-                                params(4, ipoi) = max(params(4, ipoi), 30d0*ev)
+                                params(3, ipoi) = max(params(3, ipoi), temperature_limit*ev)
+                                params(4, ipoi) = max(params(4, ipoi), temperature_limit*ev)
                             end do
                             !
                             params_num = (params - params_beg)**2

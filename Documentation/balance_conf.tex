@@ -52,6 +52,8 @@
 	\item \textbf{timing\_mode} : (Boolean) Enables the timing mode, i.e. get the time each individual parameter scan needs and also the total time of the run (per mode) (is \textbf{WIP}).
 	\item \textbf{faster\_ramp\_up} : (Integer) Enables different ramp up modes, if 0 the standard one is used, i.e. $antenna\_factor = antenna_\_factor_0 + time^2$. If 1, the antenna factor reaches its experimental value at \texttt{t\_max\_ramp\_up}
 	\item \textbf{t\_max\_ramp\_up} : (Double) Time value at which the antenna factor reaches the experimental value. Given in seconds.
+	\item \textbf{temperature\_limit} : (Double) Lower electron and ion temperature limit in eV. Simulations seem to be sensitive to this value. If it is bad, the calculation will get stuck in a permanent loop. Usually, the value is about $10$ to $50eV$. Best way to check if the code got stuck is checking the size of the output hdf5 file. It should increase at least every minute.
+	\item \textbf{antenna\_max\_stopping} : (Double) Stopping criterion that is always on. Code will stop when antenna factor is greater than antenna\_factor\_max\footnote{antenna\_factor\_max is given by the initial antenna\_factor contained in the balance\_conf.nml file.} * antenna\_max\_stopping. Usually, it has a value of about 2 to 5.
 \end{itemize}
 
 

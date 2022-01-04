@@ -1,7 +1,7 @@
 # ql-balance
 To compile the code, run
 
-	mk -f Balance.mk_mpi
+	make -f Balance.mk_mpi
 
 This will compile the code and create the executable balance.x.mpif90.openmpi_x86_64.
 

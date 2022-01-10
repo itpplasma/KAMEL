@@ -7,7 +7,7 @@
 % combination done with the balance code.
 % ----------------------------------------------------------------------------
 % author: Markus Markl
-% created: 04.02.2021
+% created: 07.01.2022
 
 % TODO: change path
 libBalance = '/temp/markl_m/GITHUB/BalanceSuite/matlab/balance';

@@ -16,8 +16,8 @@
 ##########################################################
 # Author: Markus Markl
 # Created: 31.03.2021
-# Modified: -
 ##########################################################
+
 import os
 from h5py._hl import group
 import matplotlib.pyplot as plt 

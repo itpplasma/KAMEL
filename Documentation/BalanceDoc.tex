@@ -18,13 +18,13 @@
 \newcommand{\hdf}[0]{\texttt{hdf5} }
 \newcommand{\shellcmd}[1]{\\\\\indent\indent\texttt{\footnotesize\# #1}\\\\}
 
-\title{Balance Suite:\\A short introduction}
+\title{Balance:\\A short introduction}
 \author{Markus Markl}
 
 \begin{document}
 \maketitle
 \abstract{
-This is a user documentation of the Balance Suite\footnote{This is an unofficial name I gave the framework.}. It is intended to give guidance in how to use the framework. A recent explanation of the framework is contained in the master thesis of Philipp Ulbl \cite{philippmaster}. The theory of KiCLA can be found in \cite{heyn2006, heyn2008, ivanov2011} . The theory of the balance equations can be found in \cite{heyn2014}. Though I tried to explain the interesting aspects of the framework, a lot of details are most likely missing and (could) be added in the future.
+This is a user documentation of the framework governing the code \QLB. It is intended to give guidance in how to use the framework. A recent explanation of the framework is contained in the master thesis of Philipp Ulbl \cite{philippmaster}. The theory of KiCLA can be found in \cite{heyn2006, heyn2008, ivanov2011} . The theory of the balance equations can be found in \cite{heyn2014}. Though I tried to explain the interesting aspects of the framework, a lot of details are most likely missing and (could) be added in the future.
 }
 
 \tableofcontents
@@ -35,7 +35,7 @@ Recently, \QLB was updated resulting in a more economical version. Most of the d
 
 %The former includes the pre-processing of the profiles\footnote{Basically the extension of profiles beyond the separatrix.}, reconstruction of the equilibrium field and the calculation of scaling factors with GPEC and KiLCA. This part has to be done, no matter what type of balance run is needed.
 \subsection{Matlab classes}
-The execution of the codes \texttt{ql-balance} and \texttt{KiLCA} is managed by Matlab classes (\texttt{Balance.m} and \texttt{KiLCA\_interface.m}, as well as a lot of different classes handling input and output). The classes can be found in BalanceSuite/matlab/balance/ in the repo. Figure \ref{fig:codes} is a sketch of the relations between the codes and interfaces.
+The execution of the codes \texttt{ql-balance} and \texttt{KiLCA} is managed by Matlab classes (\texttt{Balance.m} and \texttt{KiLCA\_interface.m}, as well as a lot of different classes handling input and output). The classes can be found in Balance/matlab/balance/ in the repo. Figure \ref{fig:codes} is a sketch of the relations between the codes and interfaces.
 
 
 \begin{figure}[h]
@@ -47,15 +47,15 @@ The execution of the codes \texttt{ql-balance} and \texttt{KiLCA} is managed by 
 
 
 \section{Compilation}
-A typical procedure involving the Balance Suite is the fitting of the profiles with \texttt{augped} followed a the prerun and concluding with a balance run. Though, before using the balance code, it has to be compiled first\footnote{A compiled version of KiLCA is already in the /proj/plasma directory, and is referenced to in the KiLCA interface class in a hard coded line.}.
+A typical procedure involving the Balance framework is the fitting of the profiles with \texttt{augped} followed a the prerun and concluding with a balance run. Though, before using the balance code, it has to be compiled first\footnote{A compiled version of KiLCA is already in the /proj/plasma directory, and is referenced to in the KiLCA interface class in a hard coded line.}.
 
-So far, the makefile\footnote{Make should be substituted by cmake to provide a better portability.} to build the code is designed to work specifically on the ITP computers, i.e. most of the paths to external libraries are hard coded. The compilation requires the \texttt{mpif90.openmpi} and \texttt{h5fc} compilers. \\To compile the code run \shellcmd{make -f Balance.mk\_mpi} in the \QLB subdirectory of the Balance Suite repo. \\This creates the executable \texttt{balance.x.mpif90.openmpi\_x86\_64}. For the runs, the balance class softlinks this executable to the working directory. The location from where to link this executable is hard coded in the balance Matlab class. Since it is a relative path, the location of the executable has not to be changed. Though if change need be, the linking can be found in the method \texttt{run} in \texttt{Balance.m}.
+So far, the makefile\footnote{Make should be substituted by cmake to provide a better portability.} to build the code is designed to work specifically on the ITP computers, i.e. most of the paths to external libraries are hard coded. The compilation requires the \texttt{mpif90.openmpi} and \texttt{h5fc} compilers. \\To compile the code run \shellcmd{make -f Balance.mk\_mpi} in the \QLB subdirectory of the Balance repo. \\This creates the executable \texttt{balance.x.mpif90.openmpi\_x86\_64}. For the runs, the balance class softlinks this executable to the working directory. The location from where to link this executable is hard coded in the balance Matlab class. Since it is a relative path, the location of the executable has not to be changed. Though if change need be, the linking can be found in the method \texttt{run} in \texttt{Balance.m}.
 
 \section{Runs}
 \subsection{Prerun}
 \label{sec:prerun}
 As mentioned earlier, the prerun has to be done once for one time slice. The prerun does a few different things. Firstly, the equilibrium magnetic field is reconstructed from a g-file (which is the output of an EFIT calculation done at IPP). This also gives the safety factor. Secondly, the profiles are translated from the normalized poloidal flux variable to the small radial variable, i.e. the radial variable in a cylinder. Additionally, they are extended beyond the separatrix until the wall by a process that is described in Philipp's thesis \cite{philippmaster}. Further, \texttt{NEO-2} is run to get the k-coefficient, which is needed for the calculation of the radial electric field profile and the poloidal rotation velocity profile. Lastly, \texttt{GPEC} is run to determine the response current in toroidal geometry. This is then used to rescale the quasilinear diffusion coefficients in the balance run.\\
-The result of the prerun is a \texttt{SHOT\#\_TIME\#.hdf5}\footnote{A newer version of the Balance Suite will create a file that is named \texttt{SHOT\#\_TIME\#\_mi\_IONMASSNUMBER.hdf5}, where the ion mass number is the one used in the simulation. Though currently, isotope effects can not be resolved. The FLR expansion is sensitive to the ion mass, but we can only do runs of order 1, since there is a problem with the stitching of different zones if higher orders are used.} file containing a variety of information (c.f. appendix \ref{sec:hdf5} for how to quick peak into \texttt{hdf5} files). It contains the whole coil and g-file data, some GPEC data, the output of the KiLCA run and the preprocessed profiles. Some of the data is then accessed by the \texttt{ql-balance} code for the actual balance run.
+The result of the prerun is a \texttt{SHOT\#\_TIME\#.hdf5}\footnote{A newer version of the Balance framework will create a file that is named \texttt{SHOT\#\_TIME\#\_mi\_IONMASSNUMBER.hdf5}, where the ion mass number is the one used in the simulation. Though currently, isotope effects can not be resolved. The FLR expansion is sensitive to the ion mass, but we can only do runs of order 1, since there is a problem with the stitching of different zones if higher orders are used.} file containing a variety of information (c.f. appendix \ref{sec:hdf5} for how to quick peak into \texttt{hdf5} files). It contains the whole coil and g-file data, some GPEC data, the output of the KiLCA run and the preprocessed profiles. Some of the data is then accessed by the \texttt{ql-balance} code for the actual balance run.
 
 \subsection{Balance run}
 \label{sec:balancerun}
@@ -63,7 +63,7 @@ The balance code solves the balance equations \cite{heyn2014}, which are one dim
 The code itself has a few different ways to run. How to configure the run and which kind of runs are available is described in the following. 
 
 \subsubsection{Configuration of a run}
-The balance executable is controlled by the namelist file \texttt{balance\_conf.nml}. The variables therein are explained in the external documentation \texttt{balance\_conf.pdf}. The variables themselves can be changed via Matlab. See the \texttt{timeevol\_balance\_run.m} script in the /BalanceSuite/template\_scripts/timeevol/ directory for an example.
+The balance executable is controlled by the namelist file \texttt{balance\_conf.nml}. The variables therein are explained in the external documentation \texttt{balance\_conf.pdf}. The variables themselves can be changed via Matlab. See the \texttt{timeevol\_balance\_run.m} script in the /Balance/template\_scripts/timeevol/ directory for an example.
 
 \subsubsection{Linear run}
 The linear run determines the quasilinear diffusion coefficients in one calculation step, with the RMP current set to the experimental value. This is employed by the approximate bifurcation criterion, i.e. if the quasilinear diffusion coefficient is equals (or above) the anomalous one, bifurcation happens. For details about this criterion see Philipp's thesis \cite{philippmaster}.\\\\
@@ -155,7 +155,7 @@ Matlab can conveniently be used in the terminal. If working from an external mac
 Another convenient way is the use of x2go. Not to run the IDE of Matlab\footnote{Running the Matlab IDE in x2go does not work (for me at least). This is caused by a more deeper rooted issue and can't be fixed.} but to run it there also in the terminal. This has the advantage, that the x2go session can be paused, meaning Matlab will continue running. This has proven to be quite viable for doing a lot or long runs.
 
 \subsection{Directory tree}
-Though everyone can use a different directory structure for projects, a certain one has prevailed for me (which was adopted from Philipp Ulbl's work). To make the creation of such a structure easier, the python script \texttt{create\_proj\_dir.py} can e used. It can be found in BalanceSuite/utility\_scripts/python\_utility/. Make sure to change the project name and the parent directory in the script before running it. \\\\
+Though everyone can use a different directory structure for projects, a certain one has prevailed for me (which was adopted from Philipp Ulbl's work). To make the creation of such a structure easier, the python script \texttt{create\_proj\_dir.py} can e used. It can be found in Balance/utility\_scripts/python\_utility/. Make sure to change the project name and the parent directory in the script before running it. \\\\
 \pagebreak
 The following shows the idea of the structure\footnote{A slash indicates a directory, everything else are files.}:
 \dirtree{%

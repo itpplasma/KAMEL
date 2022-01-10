@@ -22,5 +22,5 @@ Contains matlab and python scripts that make life easier.
 Contains the matlab interface classes for the ql-balance, KiLCA and GPEC code, as well as things like NEO-2 and the kisslinger code. Also, blueprints for e.g. balance_conf.nml can be found there.
 
 ### Documentation
-	- Short introduction to the Balance Suite.
-	- List of variables contained in the balance configuration namelist balance_conf.nml.
+- Short introduction to the Balance Suite.
+- List of variables contained in the balance configuration namelist balance_conf.nml.

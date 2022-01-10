@@ -495,7 +495,7 @@ class postproc:
             fig.savefig('plots/'+"{:.0f}".format(self.shot)+'_'+"{:.0f}".format(self.time)+'_Br_over_Br0_abs' + mode+ '.'+ out_type, bbox_inches='tight', dpi=150)
         return list(map(plt.figure, plt.get_fignums()))
 
-    def plt_Br_over_Br0_abs_res_wo_diag_all_modes_one_fig(self, scanid='', save=False, title=False, out_type='pdf'):
+    def plt_Br_over_Br0_abs_res_wo_diag_all_modes_one_fig(self, scanid='', save=False, title=False, out_type='pdf', plt_type='scatter'):
         """ Plot Br over Br_vas absolute at the resonant surface, for the case when the diagnostics output was turned off. 
         Plots the values for all modes in one plot."""
 
@@ -503,6 +503,7 @@ class postproc:
             raise ValueError('Wrong output type! Only jpg and pdf are supported.')
 
         fig = plt.figure(figsize=(7.5,5))
+        plt.rc('font', size=18)
         plt.tight_layout()
         if title:
             plt.suptitle('ELM Suppression in Hydrogen. Time evolution of shot ' + "{:.0f}".format(self.shot) \
@@ -517,10 +518,17 @@ class postproc:
             self.Br_abs_res_time = np.array(self.h5out[self.group_string(scanid, mode=mode, group='br_abs_time')])
             self.antenna_factor = np.array(self.h5out[self.group_string(scanid,mode=mode, group='br_abs_antenna_factor')])
         
-            plt.scatter(self.Br_abs_res_time, self.Br_abs_res/self.brvac/np.sqrt(self.antenna_factor), label='m = ' + mode[2] + '; n = '+ mode[4])
+            if plt_type == 'scatter':
+                plt.scatter(self.Br_abs_res_time, self.Br_abs_res/self.brvac/np.sqrt(self.antenna_factor), label='m = ' + mode[2] + '; n = '+ mode[4])
+            if plt_type == 'plot':
+                plt.plot(self.Br_abs_res_time, self.Br_abs_res/self.brvac/np.sqrt(self.antenna_factor), label='m = ' + mode[2] + '; n = '+ mode[4],lw=4)
+            else:
+                SystemError('Plot type not supported')
+
         plt.xlabel('t/s')
         plt.ylabel('$|B_r^{res}(t)/B_0^{res}|$')
         plt.legend()
+        plt.grid()
         if save==True:
             fig.savefig('plots/'+"{:.0f}".format(self.shot)+'_'+"{:.0f}".format(self.time)+'_Br_over_Br0_abs_all_modes.'+ out_type, bbox_inches='tight', dpi=150)
         return list(map(plt.figure, plt.get_fignums()))
@@ -907,7 +915,7 @@ class postproc:
         fig = plt.figure(figsize=(16,8))
         # plotting
         for i in range(0,1):
-            dql_re = np.reshape(dqle22/self.da_res[i],(np.size(self.fac_Te), np.size(self.fac_n)))
+            dql_re = np.transpose(np.reshape(dqle22/self.da_res[i],(np.size(self.fac_Te), np.size(self.fac_n))))
             
             plt.title(str(int(self.shot)) + ' @ '+ str(int(self.time))+ 'ms ; m = '+str(int(self.m[i])))
             # filled contour plot

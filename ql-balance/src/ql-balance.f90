@@ -179,6 +179,7 @@ program ql_balance
         print *, 'gg_r_res = ', gg_r_res
         print *, 'Nstorage = ', Nstorage
         print *, 'tmax_factor = ', tmax_factor
+        write(*,*) "timstep_min = ", timstep_min
         print *, 'antenna_factor = ', antenna_factor
         print *, 'iboutype = ', iboutype
         print *, 'iwrite = ', iwrite
@@ -503,13 +504,14 @@ program ql_balance
                         !
                     else
                         !
-                        if (irank .eq. 0) then
-                            print *, 'start from scratch'
-                        end if
                         timstep = timstep*tol
-                        timstep = 1.0d-12
+                        !timstep = 1.0d-12
                         scratch = .true.
-                        !
+                        if (irank .eq. 0) then
+                            write(*,*) 'start from scratch'
+                            write(*,*) "timstep = ", timstep
+                        end if
+                       !
                     end if
 !
                     timstep_arr = 0.d0
@@ -537,7 +539,7 @@ program ql_balance
                     if (flag_run_time_evolution) then
                         if (ifac_n + ifac_Ti + ifac_Te + ifac_vz .eq. 4) then
                             allocate (br_abs(Nstorage))
-							allocate (br_abs_antenna_factor(Nstorage))
+                            allocate (br_abs_antenna_factor(Nstorage))
                             allocate (br_abs_time(Nstorage))
                             !allocate (dqle22_res(Nstorage))
                         end if
@@ -781,7 +783,7 @@ program ql_balance
                         !Stop if timestep becomes too small
                         !Added by Philipp Ulbl 13.05.2020
                         if (timstep .lt. stop_time_step .and. time .gt. 1.0d-3) then
-                            print *, 'stop: timestep smaller than stop limit'
+                            write(*,*) 'stop: timestep smaller than stop limit'
                             if (suppression_mode .eqv. .false.) then
                                 CALL writefort1000(i)
                             end if
@@ -794,12 +796,15 @@ program ql_balance
                                 CALL h5_add_double_0(h5_id, trim(h5_mode_groupname)// &
                                                      timing_ds_total, (timing_t2 - timing_t1)/dble(count_rate), &
                                                      'total time', 's')
-                                CALL h5_add_string(h5_id, trim(h5_mode_groupname)// &
-                                        '/stopping_criterion', 'timstep < stop time step')
-
                                 CALL h5_close(h5_id)
                                 CALL h5_deinit()
                             end if
+                            CALL h5_init()
+                            CALL h5_open_rw(path2out, h5_id)
+                            CALL h5_add_string(h5_id, trim(h5_mode_groupname)// &
+                                '/stopping_criterion', 'timestep < stop time step')
+                            CALL h5_close(h5_id)
+                            CALL h5_deinit()
 
                             call MPI_finalize(ierror); 
                             stop
@@ -1005,6 +1010,12 @@ program ql_balance
                                 antenna_factor = time**2 + 1.d-4
                             else if (faster_ramp_up .eq. 1) then
                                 antenna_factor = antenna_factor + antenna_factor_max * (timstep/t_max_ramp_up)
+                            else if (faster_ramp_up .eq. 2) then
+                                if (time .eq. 0) then
+                                    antenna_factor = 1.d-4
+                                else
+                                    antenna_factor = antenna_factor_max * (time/t_max_ramp_up)
+                                end if
                             end if
 
                             !This can be activated for runs without QL evolution to check steady state behaviour
@@ -1012,7 +1023,10 @@ program ql_balance
                             !if(i .gt. 200) then
                             !    stop
                             !endif
+                            write(*,*) " - - - "
                             write(*,*) 'antenna_factor = ', antenna_factor
+                            write(*,*) "which are ", antenna_factor/antenna_factor_max*100, "% of the max"
+                            write(*,*) " - - - "
                         else
                             write(*,*) 'stop: reached antenna_factor_max * ', antenna_max_stopping
                             if (suppression_mode .eqv. .false.) then
@@ -1216,6 +1230,7 @@ program ql_balance
                             write(*,*) "timstep before evolvestep is ", timstep
                             write(*,*) "eps before evolvestep is ", eps
                             call evolvestep(timstep, eps)
+                            write(*,*) "timstep after evolvestep is ", timstep
                             !
                             !limits ion and electron temperatures from below (by 10 eV in this example).
                             !Added by Philipp Ulbl on 09.06.2020
@@ -1258,7 +1273,7 @@ program ql_balance
                             timstep_arr = timstep_arr*factolred
                             params = params_beg
                             if (irank .eq. 0) then
-                                print *, 'redo step'
+                                write(*,*) 'redo step'
                             end if
                         end do ! end of redo step loop
                         !
@@ -1291,6 +1306,8 @@ program ql_balance
                         !read (5432,*) timstep_min
                         !close(5432)
                         timstep = max(timstep, timstep_min)
+                        ! limit timestep from above:
+                        if (faster_ramp_up .ne. 0) timstep = min(timstep,0.001) 
                         !
                         timstep_arr = timstep
                         !

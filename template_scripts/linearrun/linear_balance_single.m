@@ -56,10 +56,11 @@ bal.setModes(m,n);
 bal.load_prerun(ionmass);
 bal.kil_vacuum.background.mi = ionmass;
 bal.kil_flre.background.mi = ionmass;
-bal.write_kilca();
+bal.write_kilca(1); % change 1 to 0 after first run for a time slice
 
 % check if configuration namelist file exists in run path, if not copy it
 if ~exist([runpath, 'balance_conf.nml'], 'file')
+	% TODO: change path
 	system(['cp /temp/markl_m/GITHUB/BalanceSuite/matlab/blueprints/balance_conf.nml',...
 		runpath, 'balance_conf.nml']);
 end

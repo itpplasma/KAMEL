@@ -1,0 +1,220 @@
+\documentclass[11pt]{article}
+
+\usepackage{geometry}
+\geometry{verbose,tmargin=2cm,bmargin=2cm,lmargin=2cm,rmargin=2cm}
+%\usepackage{xcolor}
+%\usepackage[edges]{forest}
+\usepackage{dirtree}
+\usepackage{xcolor}
+\usepackage{graphicx}
+\usepackage[margin=2cm]{caption}
+\usepackage{float}
+\usepackage{appendix}
+
+\newcommand{\KiLCA}[0]{\texttt{KiLCA} }
+\newcommand{\GPEC}[0]{\texttt{GPEC} }
+\newcommand{\QLB}[0]{\texttt{ql-balance} }
+\newcommand{\B}[0]{\texttt{Balance }}
+\newcommand{\hdf}[0]{\texttt{hdf5} }
+\newcommand{\shellcmd}[1]{\\\\\indent\indent\texttt{\footnotesize\# #1}\\\\}
+
+\title{Balance Suite:\\A short introduction}
+\author{Markus Markl}
+
+\begin{document}
+\maketitle
+\abstract{
+This is a user documentation of the Balance Suite\footnote{This is an unofficial name I gave the framework.}. It is intended to give guidance in how to use the framework. A recent explanation of the framework is contained in the master thesis of Philipp Ulbl \cite{philippmaster}. The theory of KiCLA can be found in \cite{heyn2006, heyn2008, ivanov2011} . The theory of the balance equations can be found in \cite{heyn2014}. Though I tried to explain the interesting aspects of the framework, a lot of details are most likely missing and (could) be added in the future.
+}
+
+\tableofcontents
+
+\section{Introduction}
+The codes \QLB and \KiLCA are written in Fortran and C++ and Fortran, respectively, whereas the former invokes the latter by use of the library created in the compilation process. Configurations and data for runs are read in through text and \hdf files. For usability, Matlab classes exist that handle the writing/reading of configurations.\\
+Recently, \QLB was updated resulting in a more economical version. Most of the data written out in the previous version was purely code diagnostics and therefore, most of the time not needed. The current version employs the \texttt{hdf5} file format, which makes the data handling economical and portable. Writing less data to the disk also saves time. \\In the course of this update, the framework was divided into two parts. The prerun and the balance run itself. The former is described in section \ref{sec:prerun} and the latter in \ref{sec:balancerun}. Since some calculations of the framework need to be done only once per shot/time combination (c.f. \cite{philippmaster}), this saves computation time as well as disk space.
+
+%The former includes the pre-processing of the profiles\footnote{Basically the extension of profiles beyond the separatrix.}, reconstruction of the equilibrium field and the calculation of scaling factors with GPEC and KiLCA. This part has to be done, no matter what type of balance run is needed.
+\subsection{Matlab classes}
+The execution of the codes \texttt{ql-balance} and \texttt{KiLCA} is managed by Matlab classes (\texttt{Balance.m} and \texttt{KiLCA\_interface.m}, as well as a lot of different classes handling input and output). The classes can be found in BalanceSuite/matlab/balance/ in the repo. Figure \ref{fig:codes} is a sketch of the relations between the codes and interfaces.
+
+
+\begin{figure}[h]
+	\centering
+	\includegraphics[scale=.7]{graphics/codes.png}
+	\caption{Sketch of the framework. The green boxes indicate Matlab code, the red Fortran and the blue border C++ code. The Balance class invokes the \QLB and the \KiLCA interface, which again runs \KiLCA. The dashed line between \QLB and \KiLCA indicates, that a balance run also uses KiLCA routines. The output in form of the \hdf file comes from the Balance class as well as from \QLB directly.}
+	\label{fig:codes}
+\end{figure}
+
+
+\section{Compilation}
+A typical procedure involving the Balance Suite is the fitting of the profiles with \texttt{augped} followed a the prerun and concluding with a balance run. Though, before using the balance code, it has to be compiled first\footnote{A compiled version of KiLCA is already in the /proj/plasma directory, and is referenced to in the KiLCA interface class in a hard coded line.}.
+
+So far, the makefile\footnote{Make should be substituted by cmake to provide a better portability.} to build the code is designed to work specifically on the ITP computers, i.e. most of the paths to external libraries are hard coded. The compilation requires the \texttt{mpif90.openmpi} and \texttt{h5fc} compilers. \\To compile the code run \shellcmd{make -f Balance.mk\_mpi} in the \QLB subdirectory of the Balance Suite repo. \\This creates the executable \texttt{balance.x.mpif90.openmpi\_x86\_64}. For the runs, the balance class softlinks this executable to the working directory. The location from where to link this executable is hard coded in the balance Matlab class. Since it is a relative path, the location of the executable has not to be changed. Though if change need be, the linking can be found in the method \texttt{run} in \texttt{Balance.m}.
+
+\section{Runs}
+\subsection{Prerun}
+\label{sec:prerun}
+As mentioned earlier, the prerun has to be done once for one time slice. The prerun does a few different things. Firstly, the equilibrium magnetic field is reconstructed from a g-file (which is the output of an EFIT calculation done at IPP). This also gives the safety factor. Secondly, the profiles are translated from the normalized poloidal flux variable to the small radial variable, i.e. the radial variable in a cylinder. Additionally, they are extended beyond the separatrix until the wall by a process that is described in Philipp's thesis \cite{philippmaster}. Further, \texttt{NEO-2} is run to get the k-coefficient, which is needed for the calculation of the radial electric field profile and the poloidal rotation velocity profile. Lastly, \texttt{GPEC} is run to determine the response current in toroidal geometry. This is then used to rescale the quasilinear diffusion coefficients in the balance run.\\
+The result of the prerun is a \texttt{SHOT\#\_TIME\#.hdf5}\footnote{A newer version of the Balance Suite will create a file that is named \texttt{SHOT\#\_TIME\#\_mi\_IONMASSNUMBER.hdf5}, where the ion mass number is the one used in the simulation. Though currently, isotope effects can not be resolved. The FLR expansion is sensitive to the ion mass, but we can only do runs of order 1, since there is a problem with the stitching of different zones if higher orders are used.} file containing a variety of information (c.f. appendix \ref{sec:hdf5} for how to quick peak into \texttt{hdf5} files). It contains the whole coil and g-file data, some GPEC data, the output of the KiLCA run and the preprocessed profiles. Some of the data is then accessed by the \texttt{ql-balance} code for the actual balance run.
+
+\subsection{Balance run}
+\label{sec:balancerun}
+The balance code solves the balance equations \cite{heyn2014}, which are one dimensional transport equations for different quantities. In short, they describe the evolution of the plasma parameters with the help of energy and particle fluxes. Where in turn the fluxes are connected to gradients of density and temperatures by quasilinear diffusion coefficients.\\\\
+The code itself has a few different ways to run. How to configure the run and which kind of runs are available is described in the following. 
+
+\subsubsection{Configuration of a run}
+The balance executable is controlled by the namelist file \texttt{balance\_conf.nml}. The variables therein are explained in the external documentation \texttt{balance\_conf.pdf}. The variables themselves can be changed via Matlab. See the \texttt{timeevol\_balance\_run.m} script in the /BalanceSuite/template\_scripts/timeevol/ directory for an example.
+
+\subsubsection{Linear run}
+The linear run determines the quasilinear diffusion coefficients in one calculation step, with the RMP current set to the experimental value. This is employed by the approximate bifurcation criterion, i.e. if the quasilinear diffusion coefficient is equals (or above) the anomalous one, bifurcation happens. For details about this criterion see Philipp's thesis \cite{philippmaster}.\\\\
+The essential variable to enable a linear run is \texttt{flag\_run\_time\_evolution}, which must be set to \texttt{false}.
+
+\subsubsection{Time evolution}
+The balance equations contain time derivatives, hence one can determine time evolutions of various quantities. For a full time evolution the RMP coil current is linearly increased, up to 5 times the experimental coil current value\footnote{The value of 5 can be adjusted by the variable \texttt{antenna\_max\_stopping} in the balance\_conf.nml file.}.\\\\
+One interesting quantity to look at in the time evolution is the shielding factor $(B_r^{plas}/B_r^{vac})|_{r_{res}}$. A sudden and rapid increase in this value indicates the breakdown of the shielding and hence the occurrence of bifurcation.\\\\
+Again, the essential variable is \texttt{flag\_run\_time\_evolution}. This time it needs to be set \texttt{true}. For enabling a stopping criterion depending on the steepness of the shielding factor, set \texttt{br\_stopping} to \texttt{true}. The variable \texttt{save\_prof\_time\_step} controls the interval at which the profiles are written out. Usually, 5 to 10 is a good compromise between amount of data written out and the change visible in the profiles.
+
+\subsubsection{Parameter scan}
+Also of interest is the impact of different plasma parameter values. This question is investigated by multiplying a specific profile with a constant factor. The result of a parameter scan can be for example the one dimensional density scaling of the quasilinear diffusion coefficient $D_{e22}^{QL}$, or even a two dimensional scaling in density and electron temperature. Additionally, the fluid resonance in terms of rotation velocities can be investigated, by scaling the toroidal velocity $v_t$.
+
+\section{Content of the \hdf files}
+Though actually both generated \hdf files are output, one is called input and the other output. This has to be viewed from the \QLB code point of view. The input \hdf file is generated in the prerun and contains data that serves as input for the \QLB code. The output \hdf file contains largely data that is calculated in the balance run.
+
+\subsection{Input}
+Figure \ref{fig:silxview} shows the content of the input \hdf file as viewed in \texttt{silx view} (see appendix \ref{sec:hdf5} for details).
+\begin{figure}[H]
+	\centering
+	\includegraphics[scale=0.4]{graphics/silxview}
+	\caption{Content of the \hdf input file. Viewed with silx view.}
+	\label{fig:silxview}
+\end{figure}
+The group \texttt{preprocprof} contains the already pre-processed profiles, i.e. the ones extended beyond the separatrix. The \KiLCA groups contain the usual \texttt{vacuum} and \texttt{flre} output of \KiLCA. \texttt{Da\_estimation} is the result of the estimation procedure for the anomalous diffusion coefficient $D^A$ that is used as comparison for the quasilinear one. The calculation is realised in the \B class. The \texttt{output} group contains the results that are retrieved after the \KiLCA and \GPEC runs, e.g. \texttt{scalefactors\_sq} is the square of the ratio of the plasma response currents calculated by \GPEC and \KiLCA (c.f. equation (4.37) in \cite{philippmaster}).
+
+\subsection{Output}
+Though for the most part the output of runs are similar, there are slight differences for the different types of runs.
+
+\subsubsection{Linear run}
+Figure \ref{fig:output_linear} shows the structure of the output file from a linear run where 3 mode numbers where calculated. The mode numbers are saved in the variables \texttt{m} and \texttt{n}, which can be seen at the bottom. Groups \texttt{f\_5\_2} and so on indicate the output for the runs with different mode numbers. Containing the main result of a linear run, the quasilinear diffusion coefficient at the resonant surface \texttt{dqle22\_res}. The whole profile of this coefficient can be written out, if the \texttt{diagnostics\_output} namelist variable is set true. Then the profiles of all diffusion coefficients are contained in the \texttt{fort.5000} group. Since the variable was set false when doing the run that resulted in the below file, the \texttt{fort.5000} group only contains the profile of the absolute value of the radial magnetic field and the corresponding radial grid. The \texttt{fort.1000} group contains different profiles. If the variable \texttt{suppression\_mode} is set true, the \texttt{fort.1000} and \texttt{fort.5000} data is not written out at all.\\ The \texttt{factors} group contains the profile rescaling factors necessary for parameter scans. If no parameter scan is done, they each need to be set to 1. \\ The group \texttt{init\_params} contains the initial plasma profiles.
+\begin{figure}[H]
+	\centering
+	\includegraphics[scale=.4]{graphics/silxview_output_linearrun}
+	\caption{\hdf file output structure of a linear run with 3 mode number calculations.}
+	\label{fig:output_linear}
+\end{figure}
+
+\subsubsection{Time evolution}
+Figure \ref{fig:timeevol} shows the output of a time evolution run. Most of it is similar to the linear run, e.g. the \texttt{factors} group or the \texttt{fort.x000} groups. Though the latter have now more subgroups \texttt{1xxx} and \texttt{5xxx}, indicating the calculation steps. Note, that in this run, data was only written out every 10th step. This can be configured with the namelist variable \texttt{save\_prof\_time\_step}. Also note that if a stopping criterion is met, data is written out even if it is not a 10th step. \\
+The important data from this run is written into the datasets \texttt{br\_abs\_antenna\_factor}, \texttt{br\_abs\_res}, \texttt{br\_abs\_time} and \texttt{Brvac\_res} contained in the \texttt{f\_6\_2} group. Those datasets contain the information about the antenna factor\footnote{The antenna factor is comparable with the RMP coil current and is essentially given by equation (4.37) in \cite{philippmaster}.}, the radial magnetic field at the resonant surface, the time and the value of the radial magnetic field at the resonant surface in the vacuum, respectively. The first three are saved for every calculation step, in contrast to profile data.\\ The value that is saved as the radial magnetic field is actually $\tilde{B}_r(r_{res}) = B_r(r_{res})\sqrt{K}$, where $K$ is the antenna factor. So to get the shielding factor $F$ eventually, one has to calculate 
+\begin{equation}
+	F = \frac{\tilde{B}_r(r_{res})}{B_r^{vac}(r_{res}) \sqrt{K}}.
+\end{equation}
+\begin{figure}[H]
+	\centering
+	\includegraphics[scale=.4]{graphics/silxview_output_timeevol}
+	\caption{\hdf file output structure of a time evolution run with one mode number.}
+	\label{fig:timeevol}
+\end{figure}
+
+\subsubsection{Parameter scan}
+Figure \ref{fig:parscan} shows the structure of the output file for a parameter scan run. Looking at the factor group, one can see that a 10 times 10 density electron temperature scan was done. For every factor combination a group is created, though this is an old structure and needs to be refurbished at some point. The essential data is again in the dataset \texttt{dqle22\_res} in the group \texttt{f\_6\_2}. Note, that due to the parameter scan this is now a 1 times 100 array, containing the values for all factor combinations.
+\begin{figure}[H]
+	\centering
+	\includegraphics[scale=.4]{graphics/silxview_output_parscan}
+	\caption{Output \hdf file of a parameter scan run.}
+	\label{fig:parscan}
+\end{figure}
+
+
+
+\pagebreak
+\appendix
+\appendixpage
+\addappheadtotoc
+
+
+\section{\texttt{hdf5} file format}
+\label{sec:hdf5}
+\subsection{\texttt{silx view}}
+A convenient way to look at the content of an hdf5 file is using \texttt{silx}. This program is installed on the ITP computers and can be invoked by \shellcmd{silx view SHOT\_TIME.hdf5}
+This opens a window which shows the groups and datasets of the file. Also, datasets can be plotted therein, which can be useful sometimes.
+\subsection{\texttt{h5nav}}
+A way is to use the python tool \texttt{h5nav}, which can be retrieved by \shellcmd{pip install h5nav}
+This is a command line tool which comes handy for briefly checking the available content of a file. The navigation works the same as in a usual Linux terminal, i.e. \texttt{ls}, \texttt{cd}, ...
+
+\section{Useful information}
+
+\subsection{Log files}
+Probably the most useful tool for me was the log file that is written out after each balance run. It can be found in the subdirectory \texttt{out} of the run directory. It has the name \texttt{balance\_STUDYNAME\_DATETIME.log}. The \texttt{balance class} suppresses the Fortran executable terminal output and writes it to this file. Hence, it contains all the valuable output information of the balance fortran executable. If an error occurs, this is the place to start looking for the root.\\\\
+To get additional information, set the configuration variable \texttt{debug\_mode} in the \texttt{balance\_conf.nml} to true.
+
+\subsection{Mode numbers}
+The relevant mode numbers for the simulation of ASDEX Upgrade data are $m=5,6,7$ and $n=2$. At first it was not clear which one could be the main contender for causing ELM suppression. Though, with recent results, we got more insights into their relevance. The most important one is $m=6$, since it sits on top of the pedestal. The resonant surface there is suspected to be the main contributor to the process of ELM suppression. Mode number $m=7$ is already in the steep gradient region, which is, due to increased shear, usually strongly shielded. And mode $m=5$ is already too far towards the core to be much of relevance for ELM physics.
+
+\subsection{Using Matlab remotley}
+Matlab can conveniently be used in the terminal. If working from an external machine establish an \texttt{ssh} connection and type \shellcmd{matlab} in the terminal. To run a script, use \shellcmd{run SCRIPT.m} Beware though, that once the ssh connection gets lost, Matlab is stopped.\\
+Another convenient way is the use of x2go. Not to run the IDE of Matlab\footnote{Running the Matlab IDE in x2go does not work (for me at least). This is caused by a more deeper rooted issue and can't be fixed.} but to run it there also in the terminal. This has the advantage, that the x2go session can be paused, meaning Matlab will continue running. This has proven to be quite viable for doing a lot or long runs.
+
+\subsection{Directory tree}
+Though everyone can use a different directory structure for projects, a certain one has prevailed for me (which was adopted from Philipp Ulbl's work). To make the creation of such a structure easier, the python script \texttt{create\_proj\_dir.py} can e used. It can be found in BalanceSuite/utility\_scripts/python\_utility/. Make sure to change the project name and the parent directory in the script before running it. \\\\
+\pagebreak
+The following shows the idea of the structure\footnote{A slash indicates a directory, everything else are files.}:
+\dirtree{%
+.1 PROJECT\_DIR/.
+	.2 DATA/.
+  		.3 COIL/.
+  			.4 SHOT\#1/.
+  				.5 SHOT.TIME\#1\_coil.dat.
+  				.5 \dots.
+  			.4 SHOT\#2/.
+  			.4 \dots.
+  		.3 EQUI/.
+  			.4 SHOT\#1/.
+  				.5 gSHOT.TIME\#1\_EQH.
+  				.5 \dots.
+  			.4 SHOT\#2/.
+  			.4 \dots/.
+  		.3 PROF/.
+  			.4 SHOT\#1/.
+  				.5 gSHOT.TIME\#1\_\$PROFTYPE\$\_PED\_*\_rho\_pol.dat.
+  				.5 \dots.
+  			.4 SHOT\#2/.
+  			.4 \dots.
+  		.3 INDEX/.
+  			.4 SHOT\#\_index.
+  			.4 SHOT\#\_indexh5.
+  			.4 \dots .
+  .2 RUNS/.
+  		.3 timeevol/.
+  			.4 SHOT\_TIME/.
+  				.5 balance\_conf.nml.
+  				.5 out/.
+  					.6 balance\_STUDYNAME\_DATETIME.log.
+  					.6 STUDYNAME\_SHOT\_TIME.hdf5.
+  				.5 \dots .
+  		.3 \dots .
+  .2 RUNS\_PRE/.
+  		.3 \dots .
+  .2 SCRIPTS/.
+  		.3 script\_prerun.m.
+  		.3 linearrun/.
+  			.4 script\_linear.m .
+  		.3 timeevol/ .
+  			.4 script\_timeevol.m .
+  		.3 postprocessing/.
+  			.4 plots/.
+  				.5 plot\#1.png.
+  				.5 \dots .
+  .2 PRERUNDATA/.
+}
+
+
+	\begin{thebibliography}{9}
+		%\bibitem{Leonard2014} A.W. Leonard Phys. Plasmas 21, 090501 (2014)
+		\bibitem{philippmaster} Philipp Ulbl. “Effects of Resonant Magnetic Perturbations on the Suppression of Edge Localized Modes”. Master’s thesis. Institute of Theoretical and Computational Physics, Graz University of Technology, March 2020.
+		\bibitem{heyn2006} Martin F. Heyn et al 2006 Nucl. Fusion 46 S159
+		\bibitem{heyn2008} Martin F. Heyn et al 2008 Nucl. Fusion 48 024005
+		\bibitem{ivanov2011} Ivan Ivanov et al Phys. Plasmas 18, 022501 (2011)
+		\bibitem{heyn2014} Martin F. Heyn et al 2014 Nucl. Fusion 54 064005
+	\end{thebibliography}
+
+\end{document}

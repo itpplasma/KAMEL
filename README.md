@@ -4,22 +4,22 @@ When using the template scripts, make sure to change the code, most importantly 
 
 ## Content
 ### postproc_py_class
-	Contains a python class used for the post processing of the hdf5 version of the balance code
-	Note however, that this class is currently a mess and needs some changes.
+Contains a python class used for the post processing of the hdf5 version of the balance code
+Note however, that this class is currently a mess and needs some changes.
 
 ### template_scripts
-	Contains matlab scripts that can be used as templates for certain balance code runs.
+Contains matlab scripts that can be used as templates for certain balance code runs.
 	
 ### ql-balance
-	Contains the balance Fortran code itself. Compile with 
+Contains the balance Fortran code itself. Compile with 
 
-		make -f Balance.mk_mpi
+	make -f Balance.mk_mpi
 
 ### utility_scripts
-	Contains matlab and python scripts that make life easier.
+Contains matlab and python scripts that make life easier.
 
 ### matlab
-	Contains the matlab interface classes for the ql-balance, KiLCA and GPEC code, as well as things like NEO-2 and the kisslinger code. Also, blueprints for e.g. balance_conf.nml can be found there.
+Contains the matlab interface classes for the ql-balance, KiLCA and GPEC code, as well as things like NEO-2 and the kisslinger code. Also, blueprints for e.g. balance_conf.nml can be found there.
 
 ### Documentation
 	- Short introduction to the Balance Suite.

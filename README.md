@@ -1,4 +1,4 @@
-#Balance Suite
+# Balance Suite
 This repository contains everything concerning the balance code in the hdf5 version. To do runs, a compiled version of KiLCA needs to be available.
 When using the template scripts, make sure to change the code, most importantly the paths, according to your project before using it.
 

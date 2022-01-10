@@ -12,8 +12,8 @@
 % created: 22.12.2021
 
 % TODO: change paths
-libBalance = '/temp/markl_m/GITHUB/BalanceSuite/matlab/balance';
-addpath('/temp/markl_m/GITHUB/BalanceSuite/utility_scripts/matlab_utility/')
+libBalance = '/temp/markl_m/GITHUB/Balance/matlab/balance';
+addpath('/temp/markl_m/GITHUB/Balance/utility_scripts/matlab_utility/')
 addpath(genpath(libBalance))
 
 studyname = 'linearrun'; % specifies the directory, should describe the intent
@@ -85,7 +85,7 @@ for i =1:numel(timeh5)
 % check if the configuration namelist file exists in run path, 
 % if not, copy it from blueprint path
 	if ~exist([runpath, 'balance_conf.nml'], 'file')
-		system(['cp /temp/markl_m/GITHUB/BalanceSuite/matlab/blueprints/balance_conf.nml '...
+		system(['cp /temp/markl_m/GITHUB/Balance/matlab/blueprints/balance_conf.nml '...
 			, runpath, 'balance_conf.nml']);
 	end
 

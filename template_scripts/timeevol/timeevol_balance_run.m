@@ -8,7 +8,7 @@
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 % add balance class
-libBalance = '/temp/markl_m/GITHUB/BalanceSuite/matlab/balance/';
+libBalance = '/temp/markl_m/GITHUB/Balance/matlab/balance/';
 addpath(genpath(libBalance))
 
 % define studyname, in this case time evolution abbreviated by timeevol
@@ -61,7 +61,7 @@ bal.write_kilca();
 % if not, copy it from blueprint path
 % TODO: change path accordingly (could work without changing it)
 if ~exist([runpath, 'balance_conf.nml'], 'file')
-	system(['cp /temp/markl_m/GITHUB/BalanceSuite/matlab/blueprints/balance_conf.nml '...
+	system(['cp /temp/markl_m/GITHUB/Balance/matlab/blueprints/balance_conf.nml '...
 		, runpath, 'balance_conf.nml']);
 end
 

@@ -1071,7 +1071,8 @@ classdef Balance < handle & hdf5_output
                 %obj.options.write([obj.LIB_BALANCE, 'blueprints/'], obj.path_run);
 				scalefactorssq = h5read(obj.hdf5file, '/output/scalefactors_sq');
 				%disp(num2str(scalefactorssq))
-				switch obj.m
+				m_mode =obj.m(i);
+				switch m_mode
 				case 5
 					scalefactorssq = scalefactorssq(1);
 				case 6
@@ -1511,7 +1512,7 @@ classdef Balance < handle & hdf5_output
 
 
             %number of modes
-            nmodes = numel(obj.m);
+            nmodes =1; %numel(obj.m);
 
             %build zones
             rad   = [obj.r_sta, obj.r_sep, obj.r_ant, obj.r_idw];

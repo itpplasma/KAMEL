@@ -12,20 +12,19 @@
 %author:   Markus Markl
 %created:  28.06.2021
 
-ion_mass = 1; % mass is ion_mass * proton mass
+ion_mass = 2; % mass is ion_mass * proton mass
 
 % path to KiLCA interface and balance class. Needs to be changed individually.
-libKiLCA = '~/Dokumente/plasma/code/libneo/matlab/KiLCA_interface/';
-libBalance = '~/Dokumente/plasma/code/libneo/matlab/BALANCE/balance';
+libBalance = '/temp/markl_m/GITHUB/Balance/matlab/balance';
 
-addpath(genpath(libKiLCA))
 addpath(genpath(libBalance))
 
 mpath = pwd();
 
 %Runs to make
-shot = 39711; %or 33353 2900ms
-time = 2000;  %or 33120 5500ms
+shot = 39711; 
+time = 2000;  
+% profoffset is used, if names of profiles differ from time.
 profoffset = 2;
 equioffset = 0;
 shotname = [num2str(shot), '_', num2str(time)];
@@ -33,10 +32,11 @@ shotname = [num2str(shot), '_', num2str(time)];
 %proftype = '_ULBLP_rho_pol'; %'_MICDU' or '_MMARKL_rho_pol'
 proftype = '_MMARKL_rho_pol';
 
-studyname = ['ELMSuppr_H', proftype];
-basepath = '/temp/markl_m/ELMsuppression_in_hydrogen/';
+studyname = ['DEMO', proftype];
+% TODO:change path
+basepath = '/temp/markl_m/DEMONSTRATION_PROJ/';
 datapath = [basepath, 'DATA/'];
-path2preh5 = [basepath,'PRERUNDATA/',num2str(shot), '/', num2str(shot), '_', num2str(time), '.hdf5'];
+path2preh5 = [basepath,'PRERUNDATA/',num2str(shot), '/', num2str(shot), '_', num2str(time),'_mi_', num2str(ion_mass) '.hdf5'];
 
 % use copyinitial to use existing profiles to a shot/time.
 %copyinitial = ['/temp/markl_m/BALANCE_4CASES/RUNS/',studyname, '/33353_2670/NRef_timeevol/profiles/'];
@@ -55,6 +55,7 @@ runpath = [basepath, 'RUNS_PRE/', studyname,'/', num2str(shot), '_', num2str(tim
 gfile  = [datapath, 'EQUI/', num2str(shot),'/g',num2str(shot),'.',num2str(time+equioffset),'_EQH'];
 %gfile  = [datapath, 'DATA/EQUI/', num2str(shot),'/g',num2str(shot),'.',num2str(time),'_COCOS3'];
 cfile  = [datapath, 'COIL/', num2str(shot),'/',num2str(shot),'.',num2str(time),'_coil.dat'];
+%TODO: change path
 dapath = '/temp/markl_m/DA/ASTRA/';
 
 filehead = [datapath, 'PROF/', num2str(shot),'/',num2str(shot),'.',num2str(time+profoffset)];

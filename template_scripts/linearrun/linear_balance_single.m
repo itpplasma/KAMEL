@@ -9,7 +9,7 @@
 % created: 23.12.2021
 
 % TODO: change paths
-libBalance = '/temp/markl_m/GITHUB/BalanceSuite/matlab/balance';
+libBalance = '/temp/markl_m/GITHUB/Balance/matlab/balance';
 addpath(genpath(libBalance));
 
 % specify study name, directory in runs is created with this name
@@ -27,7 +27,7 @@ prerundatapath = ['/temp/markl_m/', project, '/PRERUNDATA/', num2str(shot), '/']
 ionmass = 2;
 
 % specify mode numbers
-m = 5:7;
+m = [5, 6, 7];
 n = 2.*ones(size(m));
 
 % define factors for parameter scan
@@ -61,7 +61,7 @@ bal.write_kilca(1); % change 1 to 0 after first run for a time slice
 % check if configuration namelist file exists in run path, if not copy it
 if ~exist([runpath, 'balance_conf.nml'], 'file')
 	% TODO: change path
-	system(['cp /temp/markl_m/GITHUB/BalanceSuite/matlab/blueprints/balance_conf.nml',...
+	system(['cp /temp/markl_m/GITHUB/Balance/matlab/blueprints/balance_conf.nml ',...
 		runpath, 'balance_conf.nml']);
 end
 

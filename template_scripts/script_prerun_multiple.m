@@ -16,7 +16,7 @@
 ion_mass = 2; % mass is ion_mass * proton mass
 
 % path to KiLCA interface and balance class. Needs to be changed individually.
-libBalance = '/temp/markl_m/GITHUB/BalanceSuite/matlab/balance';
+libBalance = '/temp/markl_m/GITHUB/Balance/matlab/balance';
 
 addpath(genpath(libBalance))
 

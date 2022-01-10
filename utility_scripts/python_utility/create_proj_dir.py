@@ -14,9 +14,8 @@
 import os
 import shutil
 
-#parentdir = '/temp/markl_m/' + projectname
-projectname = 'test_proj'
-parentdir = './'+projectname
+projectname = 'DEMONSTRATION_PROJ'
+parentdir = '/temp/markl_m/'+projectname
 
 datadir = os.path.join(parentdir, 'DATA')
 coildir = 'COIL'

@@ -10,7 +10,7 @@
 % created: 07.01.2022
 
 % TODO: change path
-libBalance = '/temp/markl_m/GITHUB/BalanceSuite/matlab/balance';
+libBalance = '/temp/markl_m/GITHUB/Balance/matlab/balance';
 addpath(genpath(libBalance))
 
 % specify study name, directory in runs is created with this name
@@ -60,7 +60,7 @@ bal.write_kilca(1); % change 1 to 0 after first run for a time slice
 % if not, copy it from blueprint path
 if ~exist([runpath, 'balance_conf.nml'], 'file')
 	% TODO: change path
-	system(['cp /temp/markl_m/GITHUB/BalanceSuite/matlab/blueprints/balance_conf.nml '...
+	system(['cp /temp/markl_m/GITHUB/Balance/matlab/blueprints/balance_conf.nml '...
 		, runpath, 'balance_conf.nml']);
 end
 

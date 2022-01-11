@@ -13,6 +13,9 @@
 # def plotbifurcation(self, export = 0):
 # --------------------------------------------------------
 # To do:
+# - Add second x axis to plt_shielding_fac_over_ant_fac that shows time
+# - Adjust x label in plt_shielding_fac_wo_diag_all_modes_one_fig
+# - Adjust y label in plt_antenna_ramp_up
 ##########################################################
 # Author: Markus Markl
 # Created: 31.03.2021
@@ -20,10 +23,10 @@
 
 import os
 from h5py._hl import group
-import matplotlib.pyplot as plt 
+import matplotlib.pyplot as plt
 from matplotlib.ticker import FormatStrFormatter
-import numpy as np 
-import h5py 
+import numpy as np
+import h5py
 from scipy.interpolate import CubicSpline
 import re
 
@@ -39,7 +42,7 @@ class postproc:
     profile_types = {'n': r'/$cm^{-3}$', 'Te': r'/$eV$', 'Ti': r'/$eV$', 'Vz': r'/$cm/s$', 'Er': r'/$statV cm^{-1}$'}
 
     def __init__(self, path2inp, path2out):
-        """ Constructor of class. 
+        """ Constructor of class.
         input: path2inp ... path to the input hdf5 file containing also the file name
                path2out ... path to the output hdf5 file containing also the file name"""
 
@@ -53,7 +56,7 @@ class postproc:
         """Open the hdf5 input and output files to read."""
         self.h5inp = h5py.File(self.path2inp, 'r')
         self.h5out = h5py.File(self.path2out, 'r')
-        
+
 
     def loadquantities(self):
         """ Load specific initial quantities, e.g. shot number, time, ..."""
@@ -69,7 +72,7 @@ class postproc:
         self.r_res = self.h5inp['output/r_res'][:]
         self.da_res = self.h5inp['output/Da_res'][:]
         self.scalefactors_sq = self.h5inp['output/scalefactors_sq'][:]
- 
+
 
     def get_scan_names(self):
         """ Get the names of the parameter scan groups"""
@@ -103,18 +106,18 @@ class postproc:
                         vzform = "{:0.3f}".format(vzfac)
                         if vzform[0] == '0':
                             vzform = vzform[1:]
-                    
+
                         self.scanlist.append('n'+nform+'Te'+Teform+'Ti'+Tiform+'vz'+vzform)
         return self.scanlist
 
-                        
+
     def get_mode_names(self, scanname):
         """Get the mode names, e.g. f_5_2, for a specific scanname. If no parameter scan was done, use '/' to indicate the root group."""
         self.modes_list = []
         for key in self.h5out[scanname].keys():
             if re.search('\Af_', key):
                 self.modes_list.append(key)
-        return self.modes_list       
+        return self.modes_list
 
 
     def group_string(self, scanid, group, mode='f_5_2', dataset = ''):
@@ -135,7 +138,7 @@ class postproc:
         self.ind = self.modes_list.index(mode)
         self.scalefactor_sq = np.array(self.h5inp['/output/scalefactors_sq'])[self.ind]
         return dqle22*self.scalefactor_sq
-   
+
 
     def get_deq22_res(self,scanid = '', time=0):
         """ Get De_22 at the resonant surfaces. This is done with the profile of deq22. Since its value at the resonant surface is now saved separately, this method is not used anymore."""
@@ -151,7 +154,7 @@ class postproc:
                 self.deq22 = self.deq22 * self.scalefactors_sq[i]
                 self.fun = CubicSpline(self.r, self.deq22)
                 self.deq22_res_vec = np.append(self.deq22_res_vec, self.fun(self.r_res[i]))
-            
+
         else:
             for i in range(0,len(self.m)):
                 self.modestring = 'f_'+ str(int(self.m[i][0])) + '_'+ str(int(self.n[i][0]))
@@ -191,8 +194,8 @@ class postproc:
             axs[i].grid(True, which="both")
             axs[i].scatter(self.fac_n[0], self.deq22_mat[:,i]/self.da_res[i])
         plt.tight_layout()
-        
-        
+
+
     def nscan_plotdeq22_res_interp(self, time=0, figuresize=(8,5)):
         """ Plot De_22_res """
         self.get_scan_names()
@@ -201,24 +204,24 @@ class postproc:
         for scan in self.scans_list:
             self.deq22_mat = np.append(self.deq22_mat, [self.get_deq22_res(scan,time)], axis=0)
         self.mode_num = self.deq22_mat.shape[1] # get the number of modes from the dimension of the deq22 matrix
-        
+
         # linear interpolation of logarithmic data interpolation
         # i.e. y = k*x + d, where y = log(Deq22) and x = log(n_fac)
         self.k = np.empty((self.mode_num))
         self.d = np.empty((self.mode_num))
         self.interp = []    # list that contains the interpolation functions
         self.x = np.linspace(np.log(self.fac_n[0][0]), np.log(self.fac_n[0][-1]), 100)
-        
+
         fig, axs = plt.subplots(self.mode_num, sharex=True, figsize=figuresize)
         for i in range(0,self.mode_num):
             # create the interpolations
-            self.interp.append(CubicSpline(np.log(self.fac_n[0]), np.log(self.deq22_mat[:,i])))   
-            self.k[i] = np.average(np.gradient(self.interp[i](self.x), self.x)) 
+            self.interp.append(CubicSpline(np.log(self.fac_n[0]), np.log(self.deq22_mat[:,i])))
+            self.k[i] = np.average(np.gradient(self.interp[i](self.x), self.x))
             self.d[i] = np.average(self.interp[i](self.x) - self.k[i] * self.x)
             axs[i].set_yscale('log')
             axs[i].set_xscale('log')
             axs[i].xaxis.set_minor_formatter(FormatStrFormatter("%.1f"))
-            
+
             axs[i].set_ylabel('$D^{QL}_{e22}$')
             axs[i].axhline(y=self.da_res[i], color='grey', linestyle='dashed',label='Threshold: $D_a^{res}$')
             axs[i].axvline(x=1, color='black', linestyle='dotted', label='Unscaled')
@@ -226,7 +229,7 @@ class postproc:
             axs[i].scatter(self.fac_n[0], self.deq22_mat[:,i])
             axs[i].plot(np.exp(self.x), np.exp(self.k[i]*self.x + self.d[i]),label='$D^{QL}_{e22}$ ~$n^{'+"{:5.3f}".format(self.k[i])+'}$')
             axs[i].legend()
-                           
+
         axs[self.mode_num-1].set_xlabel('n factor / 1')
         plt.tight_layout()
 
@@ -234,7 +237,7 @@ class postproc:
     def plotprofiles(self, mode, time=0, scan=''):
         """ WIP!!!"""
         self.get_scan_names() # saves possible scan names in list
-        self.profs = {'r' : np.empty((0)), 'n' : np.empty((0)), 'vz' : np.empty((0)), 'Te' : np.empty((0)), 
+        self.profs = {'r' : np.empty((0)), 'n' : np.empty((0)), 'vz' : np.empty((0)), 'Te' : np.empty((0)),
                       'Ti' : np.empty((0)), 'Er' : np.empty((0)), 'sqrtg_Btheta_over_c' : np.empty((0))}
         if (scan == ''):
             count = 0
@@ -244,18 +247,18 @@ class postproc:
         else:
             pass
             ### here the case if parameterscan was done has to be covered
-                
+
     def getbalanceprof(self, time):
         """ Get the profiles from the balance code run (contained in fort.1000 group) after the specified time """
         # order of f.1000 data
         # r, n, vz, Te, Ti, Er, sqrtg_Btheta_over_c
         pass
-        
+
     def closefile(self):
         """ Close the files. Necessary to free the file for other applications. """
         self.h5out.close()
         self.h5inp.close()
-        
+
 
     def plt_simple_criterion(self, scanid = '/', time=0):
         """ Create a plot that illustrates the simple bifurcation criterion, i.e. the values of dqle22 at the resonant surfaces. Also plots the plasma pressure as a reference."""
@@ -264,13 +267,13 @@ class postproc:
             #self.deq22_res = self.get_deq22_res(scanid, time)
         if (scanid == 'all'):
             self.get_scan_names()
-           
+
             for scan in self.scans_list:
                 self.calc_pres(scan)
                 self.deq22_res = self.get_deq22_res(scan, time)
                 self.bifurcfactors = self.deq22_res/self.da_res
                 fig, ax = plt.subplots(figsize=(10,4))
-                ax_twin = plt.twinx()               
+                ax_twin = plt.twinx()
                 ax.set_title(scan)
                 ax.plot(self.r_res.transpose()[0], self.bifurcfactors,marker='o', label='bifurcation factors')
                 ax.axhline(y=1.0,linestyle = ':', color = 'grey' ,label='threshold')
@@ -281,24 +284,24 @@ class postproc:
                 ax_twin.plot(self.prof_rc, self.prof_p*2, color='orange', label ='pressure')
                 ax_twin.set_ylabel('$p_{tot} / Pa', color='orange')
                 #ax_twin.set_ylim((0,12e4));
-                
+
                 for elem in self.h5inp['output/zero_veperp']:
                     if (not np.isnan(elem)):
                         ax.axvline(x=elem, color = 'grey', linestyle = '--', label='Fluid resonance')
-                        
+
                 for elem in self.h5inp['output/zero_vExB']:
                     if (not np.isnan(elem)):
                         ax.axvline(x=elem, color = 'grey', linestyle = '-.', label='ExB resonance')
                 ax.legend()
                 #plt.show()
             return list(map(plt.figure, plt.get_fignums()))
-        
+
         if (scanid == '/'):
             self.calc_pres(scanid=scanid)
             self.deq22_res = self.get_deq22_res_read(scanid, time)
             self.bifurcfactors = self.deq22_res/self.da_res
             fig, ax = plt.subplots(figsize=(10,4))
-            ax_twin = plt.twinx()               
+            ax_twin = plt.twinx()
             ax.set_title(scanid)
             ax.plot(self.r_res.transpose()[0], self.bifurcfactors,marker='o', label='bifurcation factors')
             ax.axhline(y=1.0,linestyle = ':', color = 'grey' ,label='threshold')
@@ -309,7 +312,7 @@ class postproc:
             ax_twin.plot(self.prof_rc, self.prof_p*2, color='orange', label ='pressure')
             ax_twin.set_ylabel('$p_{tot}$ / Pa', color='orange')
             ax_twin.set_ylim((0,14e4))
-            
+
             ax_twin.ticklabel_format(useMathText=True)
 
             fluid_resonance = np.amax(np.array(self.h5inp['output/zero_veperp']))
@@ -317,11 +320,11 @@ class postproc:
 
             ax.axvline(x=fluid_resonance, color = 'grey', linestyle = '--', label='Fluid resonance')
             ax.axvline(x=ExB_resonance, color = 'grey', linestyle = '-.', label='ExB resonance')
-                
+
             #for elem in self.h5inp['output/zero_veperp']:
             #    if (not np.isnan(elem)):
             #        ax.axvline(x=elem, color = 'grey', linestyle = '--', label='Fluid resonance')
-                        
+
             #for elem in self.h5inp['output/zero_vExB']:
             #    if (not np.isnan(elem)):
             #        ax.axvline(x=elem, color = 'grey', linestyle = '-.', label='ExB resonance')
@@ -334,7 +337,7 @@ class postproc:
             self.deq22_res = self.get_deq22_res(scanid, time)
             self.bifurcfactors = self.deq22_res/self.da_res
             fig, ax = plt.subplots(figsize=(10,4))
-            ax_twin = plt.twinx()               
+            ax_twin = plt.twinx()
             ax.set_title(scanid)
             ax.plot(self.r_res.transpose()[0], self.bifurcfactors,marker='o', label='bifurcation factors')
             ax.axhline(y=1.0,linestyle = ':', color = 'grey' ,label='threshold')
@@ -345,23 +348,23 @@ class postproc:
             ax_twin.plot(self.prof_rc, self.prof_p*2, color='orange', label ='pressure')
             ax_twin.set_ylabel('$p_{tot}$ / Pa', color='orange')
             ax_twin.set_ylim((0,14e4))
-            
+
             ax_twin.ticklabel_format(useMathText=True)
-                
+
             for elem in self.h5inp['output/zero_veperp']:
                 if (not np.isnan(elem)):
                     ax.axvline(x=elem, color = 'grey', linestyle = '--', label='Fluid resonance')
-                        
+
             for elem in self.h5inp['output/zero_vExB']:
                 if (not np.isnan(elem)):
                     ax.axvline(x=elem, color = 'grey', linestyle = '-.', label='ExB resonance')
             ax.legend()
             #plt.show()
             return list(map(plt.figure, plt.get_fignums()))
-        
+
 
     def load_profile(self, proftype='', scanid='', mode='f_5_2', time=0):
-        """ Load specific profiles from hdf5 file. 
+        """ Load specific profiles from hdf5 file.
             Possible proftypes: n, Te, Ti, Er, vz, all """
         self.prof_rc = np.array(self.h5out[self.group_string(scanid, mode=mode, group ='/fort.1000/'+str(1000+time)+'/rc')])
         if (proftype==''):
@@ -370,7 +373,7 @@ class postproc:
             self.prof_Ti = np.array(self.h5out[self.group_string(scanid, mode = mode, group = '/fort.1000/'+str(1000+time)+'/Ti')])
             self.prof_Er = np.array(self.h5out[self.group_string(scanid, mode = mode, group = '/fort.1000/'+str(1000+time)+'/Er')])
             self.prof_vz = np.array(self.h5out[self.group_string(scanid, mode = mode, group = '/fort.1000/'+str(1000+time)+'/Vz')])
-            
+
         elif (proftype=='n'):
             self.prof_n = np.array(self.h5out[self.group_string(scanid, mode = mode, group= '/fort.1000/'+str(1000+time)+'/n')])
             return self.prof_n
@@ -389,9 +392,9 @@ class postproc:
 
         else:
             print('Type not supported')
-        
-        
-        
+
+
+
     def calc_pres(self, scanid='', time=0):
         """ Calculates the pressure from the density, electron temperature and constants. """
         k_B = 1.3807e-16
@@ -400,7 +403,7 @@ class postproc:
         self.load_profile(proftype='Te', scanid=scanid)
         self.prof_p = self.prof_n * self.prof_Te * k_B * EVK
 
-        
+
     def calc_total_pres(self, scanid='', time=0):
         """ Calculate the total pressure, i.e. p_i + p_e."""
         k_B = 1.3807e-16
@@ -410,14 +413,14 @@ class postproc:
         self.load_profile(proftype='Ti', scanid=scanid)
         self.prof_p_tot = self.prof_n * (self.prof_Te+self.prof_Ti) * k_B * EVK
 
-######################################################        
+######################################################
 # Time evolution specific
-        
+
     def plt_Br_abs_ant(self, scanid ='', mode='f_5_2'):
         """ Plot the radial magnetic field at the antenna over time."""
         iterates = list(self.h5out[self.group_string(scanid=scanid, group='/fort.5000')].keys())
         self.Br_abs_ant = np.empty((0))
-                      
+
         for it in iterates:
             self.Br_abs_ant = np.append(self.Br_abs_ant, self.h5out[scanid+mode+ '/fort.5000/'+it+'/Br_abs'][-1])
         self.Br_ant_time = np.array(self.h5out[scanid+mode+'/timstep_evol.dat']).transpose()[5]
@@ -430,7 +433,8 @@ class postproc:
         plt.xlabel('t/s')
         plt.ylabel('$|B_r^{ant}|C_{52}$')
         return list(map(plt.figure, plt.get_fignums()))
-        
+
+
     def plt_Br_abs_res(self, scanid='', mode='f_5_2', diag=False):
         """ Plot the radial magnetic field at the resonant surface for a certain mode over time."""
         #timedataindex = 2
@@ -445,24 +449,24 @@ class postproc:
         plt.xlabel('t/s')
         plt.ylabel('$|B_r^{res}|C_{52}$')
         return list(map(plt.figure, plt.get_fignums()))
-    
+
     def plt_Br_over_Br0_abs_res(self, scanid ='', mode = 'f_5_2'):
         """ Plot shielding factor at resonant surface over time."""
         self.brvac = np.array(self.h5out[self.group_string(scanid, mode=mode, group ='Brvac.dat')][1])
         self.rr = np.array(self.h5out[self.group_string(scanid, group= 'fort.5000/5000/r')])
-        
+
         keys = list(self.h5out[self.group_string(scanid, group='fort.5000')].keys())
         self.br_frac = np.empty((0))
         for key in keys:
             fac = np.array(self.h5out[self.group_string(scanid,group='fort.5000/')+key+'/Br_abs'])/self.brvac
             ffun = CubicSpline(self.rr, fac)
             self.br_frac = np.append(self.br_frac, ffun(self.r_res[1]))
-            
+
         self.Br_frac_time = np.array(self.h5out[self.group_string(scanid,group='/timstep_evol.dat')]).transpose()[5]
         self.Br_frac_timesel = np.append(self.Br_frac_time[0::10], self.Br_frac_time[-1])
         self.Br_frac_interp_fun = CubicSpline(self.Br_frac_timesel, self.br_frac)
         self.Br_frac_interp = self.Br_frac_interp_fun(self.Br_frac_time)
-        
+
         fig = plt.figure()
         plt.scatter(self.Br_frac_timesel, self.br_frac,marker='o', label = 'Data')
 
@@ -472,7 +476,7 @@ class postproc:
         plt.legend()
         return list(map(plt.figure, plt.get_fignums()))
 
-    def plt_Br_over_Br0_abs_res_wo_diag(self, scanid='', mode = 'f_5_2', save=False, title=False, out_type='pdf'):
+    def plt_shielding_fac_wo_diag(self, scanid='', mode = 'f_5_2', save=False, title=False, out_type='pdf'):
         """ Plot shielding factor at resonant surface over time, when the balance run was done without the diagnostics output."""
 
         if not (out_type == 'pdf' or out_type == 'jpg'):
@@ -482,7 +486,7 @@ class postproc:
         self.Br_abs_res = np.array(self.h5out[self.group_string(scanid,mode=mode, group='br_abs_res.dat')]).transpose()[3]
         self.Br_abs_res_time = np.array(self.h5out[self.group_string(scanid, mode=mode, group='br_abs_res.dat')]).transpose()[1]
         self.antenna_factor = np.array(self.h5out[self.group_string(scanid,mode=mode, group='br_abs_res.dat')]).transpose()[2]
-        
+
         fig = plt.figure(figsize=(7.5,5))
         plt.tight_layout()
         if title:
@@ -495,8 +499,90 @@ class postproc:
             fig.savefig('plots/'+"{:.0f}".format(self.shot)+'_'+"{:.0f}".format(self.time)+'_Br_over_Br0_abs' + mode+ '.'+ out_type, bbox_inches='tight', dpi=150)
         return list(map(plt.figure, plt.get_fignums()))
 
-    def plt_Br_over_Br0_abs_res_wo_diag_all_modes_one_fig(self, scanid='', save=False, title=False, out_type='pdf', plt_type='scatter'):
-        """ Plot Br over Br_vas absolute at the resonant surface, for the case when the diagnostics output was turned off. 
+
+
+    def plt_antenna_ramp_up(self, scanid='', save=False, title=False, out_type='pdf', plt_type='plot', perc=True):
+        """ Plot antenna factor over time for the case when the diagnostics output was turned off. If perc is True, it plots it as percentage of the experimental value."""
+
+        if not (out_type == 'pdf' or out_type == 'jpg'):
+            raise ValueError('Wrong output type! Only jpg and pdf are supported.')
+        fig = plt.figure(figsize=(7.5,5))
+        plt.rc('font', size=18)
+        plt.tight_layout()
+        if title:
+            plt.suptitle('ELM Suppression in Hydrogen. Time evolution of shot ' + "{:.0f}".format(self.shot) \
+                + ' at ' + "{:.0f}".format(self.time) + 'ms.')
+
+        mode_names = self.get_mode_names('/'+scanid)
+
+        for mode in mode_names:
+
+            self.Br_abs_res_time = np.array(self.h5out[self.group_string(scanid, mode=mode, group='br_abs_time')])
+            self.antenna_factor = np.sqrt(np.array(self.h5out[self.group_string(scanid,mode=mode, group='br_abs_antenna_factor')]))
+            if perc:
+                self.antenna_factor = self.antenna_factor/np.sqrt(self.scalefactors_sq[1])
+
+            if plt_type == 'scatter':
+                plt.scatter(self.Br_abs_res_time, self.antenna_factor, label='m = ' + mode[2] + '; n = '+ mode[4])
+            if plt_type == 'plot':
+                plt.plot(self.Br_abs_res_time, self.antenna_factor, label='m = ' + mode[2] + '; n = '+ mode[4],lw=4)
+            else:
+                SystemError('Plot type not supported')
+
+        plt.xlabel(r'$t \; / \; s$')
+        if perc:
+            plt.ylabel('Antenna factor / %')
+        else:
+            plt.ylabel('Antenna factor / 1')
+        plt.legend()
+        plt.grid()
+        if save==True:
+            fig.savefig('plots/'+"{:.0f}".format(self.shot)+'_'+"{:.0f}".format(self.time)+'_antenna_factor.'+ out_type, bbox_inches='tight', dpi=150)
+        return list(map(plt.figure, plt.get_fignums()))
+
+    def plt_shielding_fac_over_ant_fac(self, scanid='', save=False, title=False, out_type = 'pdf', plt_type = 'plot', perc = True):
+        """ Plot shielding factor over antenna factor for the case when the diagnostics output was turned off. If perc is True, it plots the antenna factor as percentage of the experimental value."""
+
+        if not (out_type == 'pdf' or out_type == 'jpg'):
+            raise ValueError('Wrong output type! Only jpg and pdf are supported.')
+        fig = plt.figure(figsize=(7.5,5))
+        plt.rc('font', size=18)
+        plt.tight_layout()
+        if title:
+            plt.suptitle('ELM Suppression in Hydrogen. Time evolution of shot ' + "{:.0f}".format(self.shot) \
+                + ' at ' + "{:.0f}".format(self.time) + 'ms.')
+
+        mode_names = self.get_mode_names('/'+scanid)
+
+        for mode in mode_names:
+            self.brvac = np.array(self.h5out[self.group_string(scanid, mode=mode, group ='Brvac_res')])
+            self.Br_abs_res = np.array(self.h5out[self.group_string(scanid,mode=mode, group='br_abs_res')])
+            self.Br_abs_res_time = np.array(self.h5out[self.group_string(scanid, mode=mode, group='br_abs_time')])
+            self.antenna_factor = np.sqrt(np.array(self.h5out[self.group_string(scanid,mode=mode, group='br_abs_antenna_factor')]))
+
+            # If true, scale antenna factor with antenna factor max
+            if perc:
+                #max_ant = np.sqrt(np.array(self.h5inp['/output/scalefactors_sq'])[1])
+                self.antenna_factor_x = self.antenna_factor/np.sqrt(self.scalefactors_sq[1])
+
+            if plt_type == 'scatter':
+                plt.scatter(self.antenna_factor_x, self.Br_abs_res/self.brvac/self.antenna_factor, label='m = ' + mode[2] + '; n = '+ mode[4])
+            if plt_type == 'plot':
+                plt.plot(self.antenna_factor_x, self.Br_abs_res/self.brvac/self.antenna_factor, label='m = ' + mode[2] + '; n = '+ mode[4],lw=4)
+            else:
+                SystemError('Plot type not supported')
+
+        plt.xlabel(r'antenna factor / %')
+        plt.ylabel('$|B_r^{res}(t)/B_0^{res}|$')
+        plt.legend()
+        plt.grid()
+        if save==True:
+            fig.savefig('plots/'+"{:.0f}".format(self.shot)+'_'+"{:.0f}".format(self.time)+'_shielding_fac_over_ant_fac.'+ out_type, bbox_inches='tight', dpi=150)
+        return list(map(plt.figure, plt.get_fignums()))
+
+
+    def plt_shielding_fac_wo_diag_all_modes_one_fig(self, scanid='', save=False, title=False, out_type='pdf', plt_type='scatter'):
+        """ Plot Br over Br_vas absolute at the resonant surface, for the case when the diagnostics output was turned off.
         Plots the values for all modes in one plot."""
 
         if not (out_type == 'pdf' or out_type == 'jpg'):
@@ -512,16 +598,16 @@ class postproc:
         mode_names = self.get_mode_names('/'+scanid)
 
         for mode in mode_names:
-        
+
             self.brvac = np.array(self.h5out[self.group_string(scanid, mode=mode, group ='Brvac_res')])
             self.Br_abs_res = np.array(self.h5out[self.group_string(scanid,mode=mode, group='br_abs_res')])
             self.Br_abs_res_time = np.array(self.h5out[self.group_string(scanid, mode=mode, group='br_abs_time')])
-            self.antenna_factor = np.array(self.h5out[self.group_string(scanid,mode=mode, group='br_abs_antenna_factor')])
-        
+            self.antenna_factor = np.sqrt(np.array(self.h5out[self.group_string(scanid,mode=mode, group='br_abs_antenna_factor')]))
+
             if plt_type == 'scatter':
-                plt.scatter(self.Br_abs_res_time, self.Br_abs_res/self.brvac/np.sqrt(self.antenna_factor), label='m = ' + mode[2] + '; n = '+ mode[4])
+                plt.scatter(self.Br_abs_res_time, self.Br_abs_res/self.brvac/self.antenna_factor, label='m = ' + mode[2] + '; n = '+ mode[4])
             if plt_type == 'plot':
-                plt.plot(self.Br_abs_res_time, self.Br_abs_res/self.brvac/np.sqrt(self.antenna_factor), label='m = ' + mode[2] + '; n = '+ mode[4],lw=4)
+                plt.plot(self.Br_abs_res_time, self.Br_abs_res/self.brvac/self.antenna_factor, label='m = ' + mode[2] + '; n = '+ mode[4],lw=4)
             else:
                 SystemError('Plot type not supported')
 
@@ -530,14 +616,14 @@ class postproc:
         plt.legend()
         plt.grid()
         if save==True:
-            fig.savefig('plots/'+"{:.0f}".format(self.shot)+'_'+"{:.0f}".format(self.time)+'_Br_over_Br0_abs_all_modes.'+ out_type, bbox_inches='tight', dpi=150)
+            fig.savefig('plots/'+"{:.0f}".format(self.shot)+'_'+"{:.0f}".format(self.time)+'_shielding_fac_t_all_modes.'+ out_type, bbox_inches='tight', dpi=150)
         return list(map(plt.figure, plt.get_fignums()))
 
 
-        
-        
+
+
     def plt_n_t(self, time='last', scanid='', mode='f_5_2', save=False, title=False, out_type='pdf', y_range=0.1, r_range=0.5):
-        """ Plot the density profile for t = 0 and arbitrary second time. 
+        """ Plot the density profile for t = 0 and arbitrary second time.
         The second time is defaulted to the last time step.
         y_range and r_range are used to control the zoom window. The former is given in percent (of the value of the profile at the resonant surface) and the latter in cm."""
 
@@ -550,7 +636,7 @@ class postproc:
             # get the last entry of the groups, i.e. the last time step
             self.f1000tlist = list(self.h5out[self.group_string(scanid, group='fort.1000', mode=mode)].keys())
             time = self.f1000tlist[-1]
-            time = int(time) - 1000  
+            time = int(time) - 1000
             #print(time)
 
         fig = plt.figure(figsize=(15,5))
@@ -590,10 +676,10 @@ class postproc:
             fig.savefig('plots/'+"{:.0f}".format(self.shot)+'_'+"{:.0f}".format(self.time)+'_'+mode+ \
                 '_nprof_t.' + out_type, bbox_inches='tight', dpi=150)
         return list(map(plt.figure, plt.get_fignums()))
-    
-    
+
+
     def plt_Te_t(self, time='last', scanid='', mode='f_5_2', save=False, title=False, out_type ='pdf'):
-        """ Plot the electron temperature profile for t = 0 and arbitrary 
+        """ Plot the electron temperature profile for t = 0 and arbitrary
         second time. The second time is defaulted to the last time step."""
 
         if not (out_type == 'pdf' or out_type == 'jpg'):
@@ -608,7 +694,7 @@ class postproc:
             # get the last entry of the groups, i.e. the last time step
             self.f1000tlist = list(self.h5out[self.group_string(scanid, group='fort.1000', mode=mode)].keys())
             time = self.f1000tlist[-1]
-            time = int(time) - 1000  
+            time = int(time) - 1000
         fig = plt.figure(figsize=(15,5))
         if title:
             plt.suptitle('ELM Suppression in Hydrogen. Electron temperature time evolution of shot ' + "{:.0f}".format(self.shot) \
@@ -645,9 +731,9 @@ class postproc:
             fig.savefig('plots/'+"{:.0f}".format(self.shot)+'_'+"{:.0f}".format(self.time)+'_'+mode+ \
                 '_Teprof_t.'+ out_type, bbox_inches='tight', dpi=150)
         return list(map(plt.figure, plt.get_fignums()))
-     
+
     def plt_Ti_t(self, time='last', scanid='', mode='f_5_2', save=False, title=False, out_type='pdf'):
-        """ Plot the ion temperature profile for t = 0 and arbitrary 
+        """ Plot the ion temperature profile for t = 0 and arbitrary
         second time. The second time is defaulted to the last time step."""
 
         if not (out_type == 'pdf' or out_type == 'jpg'):
@@ -662,7 +748,7 @@ class postproc:
             # get the last entry of the groups, i.e. the last time step
             self.f1000tlist = list(self.h5out[self.group_string(scanid, group='fort.1000', mode=mode)].keys())
             time = self.f1000tlist[-1]
-            time = int(time) - 1000  
+            time = int(time) - 1000
         fig = plt.figure(figsize=(15,5))
         if title:
             plt.suptitle('ELM Suppression in Hydrogen. Ion temperature time evolution of shot ' + "{:.0f}".format(self.shot) \
@@ -698,11 +784,11 @@ class postproc:
         if save==True:
             fig.savefig('plots/'+"{:.0f}".format(self.shot)+'_'+"{:.0f}".format(self.time)+'_'+mode+ \
                 '_Tiprof_t.'+ out_type, bbox_inches='tight', dpi=150)
-        return list(map(plt.figure, plt.get_fignums()))   
-        
-      
+        return list(map(plt.figure, plt.get_fignums()))
+
+
     def plt_vz_t(self, time='last', scanid='', mode='f_5_2', save=False, title=False, out_type='pdf'):
-        """ Plot the toroidal velocity profile for t = 0 and arbitrary 
+        """ Plot the toroidal velocity profile for t = 0 and arbitrary
         second time. The second time is defaulted to the last time step."""
 
         if not (out_type == 'pdf' or out_type == 'jpg'):
@@ -714,7 +800,7 @@ class postproc:
             # get the last entry of the groups, i.e. the last time step
             self.f1000tlist = list(self.h5out[self.group_string(scanid, group='fort.1000', mode=mode)].keys())
             time = self.f1000tlist[-1]
-            time = int(time) - 1000  
+            time = int(time) - 1000
         fig = plt.figure(figsize=(15,5))
         if title:
             plt.suptitle('ELM Suppression in Hydrogen. Toroidal velocity time evolution of shot ' + "{:.0f}".format(self.shot) \
@@ -752,11 +838,11 @@ class postproc:
         if save==True:
             fig.savefig('plots/'+"{:.0f}".format(self.shot)+'_'+"{:.0f}".format(self.time)+'_'+mode+ \
                 '_vzprof_t.' + out_type, bbox_inches='tight', dpi=150)
-        return list(map(plt.figure, plt.get_fignums()))   
+        return list(map(plt.figure, plt.get_fignums()))
 
-       
+
     def plt_Er_t(self, time='last', scanid='', mode='f_5_2', save=False, title=False, out_type='pdf'):
-        """ Plot the radial electric field profile for t = 0 and arbitrary 
+        """ Plot the radial electric field profile for t = 0 and arbitrary
         second time. The second time is defaulted to the last time step."""
 
         if not (out_type == 'pdf' or out_type == 'jpg'):
@@ -768,7 +854,7 @@ class postproc:
             # get the last entry of the groups, i.e. the last time step
             self.f1000tlist = list(self.h5out[self.group_string(scanid, group='fort.1000', mode=mode)].keys())
             time = self.f1000tlist[-1]
-            time = int(time) - 1000  
+            time = int(time) - 1000
         fig = plt.figure(figsize=(15,5))
         if title:
             plt.suptitle('ELM Suppression in Hydrogen. Radial electric field time evolution of shot ' + "{:.0f}".format(self.shot) \
@@ -804,7 +890,7 @@ class postproc:
         if save==True:
             fig.savefig('plots/'+"{:.0f}".format(self.shot)+'_'+"{:.0f}".format(self.time)+'_'+mode+ \
                 '_Erprof_t.' + out_type, bbox_inches='tight', dpi=150)
-        return list(map(plt.figure, plt.get_fignums()))   
+        return list(map(plt.figure, plt.get_fignums()))
 
 
     def plt_all_profiles_t(self, time='last', scanid='', mode='f_5_2', save=False, title=False, out_type='pdf'):
@@ -823,8 +909,8 @@ class postproc:
         for i in self.m:
             #print('mode = '+ 'f_'+"{:.0f}".format(i)+'_2')
             self.plt_all_profiles_t(time=time, scanid=scanid, mode='f_'+"{:.0f}".format(i)+'_2', save=save, title=title, out_type=out_type)
-             
-        
+
+
     def get_real_time(self, timenum, scanid = '', mode = 'f_5_2'):
         """Converts balance run step number to the corresponding real time value."""
         if type(timenum) == str:
@@ -833,7 +919,7 @@ class postproc:
             except:
                 print('not a valid input')
 
-        self.timedata = np.array(self.h5out[self.group_string(scanid, group= '/timstep_evol.dat', mode=mode)]).transpose()[2]  
+        self.timedata = np.array(self.h5out[self.group_string(scanid, group= '/timstep_evol.dat', mode=mode)]).transpose()[2]
         if (timenum>999 and timenum < 4999):
             timenum = timenum - 1000
         elif (timenum>4999):
@@ -842,15 +928,15 @@ class postproc:
             return self.timedata[timenum-2]
         except:
             print('Something went wrong')
-        
-                                           
+
+
     def get_ped_val(self):
         """ WIP!!!"""
         self.load_profile(proftype='n')
         #self.prof_n
         #self.prof_rc
         #interpfun = interpolate.interp1d(self.prof_rc, self.prof_n,kind='cubic')
-        self.grad_n = np.gradient(self.prof_n, self.prof_rc)       
+        self.grad_n = np.gradient(self.prof_n, self.prof_rc)
 
 
     def plt_nTscan(self, mode='f_5_2'):
@@ -916,7 +1002,7 @@ class postproc:
         # plotting
         for i in range(0,1):
             dql_re = np.transpose(np.reshape(dqle22/self.da_res[i],(np.size(self.fac_Te), np.size(self.fac_n))))
-            
+
             plt.title(str(int(self.shot)) + ' @ '+ str(int(self.time))+ 'ms ; m = '+str(int(self.m[i])))
             # filled contour plot
             plot = plt.contourf(nmesh*nped/nscaling, Temesh*Teped/Tscaling, np.log10(dql_re), levels=lvl,cmap=vcmap)
@@ -1009,7 +1095,7 @@ class postproc:
             fig = plt.figure(figsize=(16,8))
             # plotting
             dql_re = np.reshape(dqle22/self.da_res[i],(np.size(self.fac_n), np.size(self.fac_Te))).transpose()
-            
+
             plt.title(str(int(self.shot)) + ' @ '+ str(int(self.time))+ 'ms ; m = '+str(int(self.m[i])))
             # filled contour plot
             plot = plt.contourf(nmesh*nped/nscaling, Temesh*Teped/Tscaling, np.log10(dql_re), levels=lvl,cmap=vcmap)
@@ -1047,15 +1133,15 @@ class postproc:
             plt.xlabel('$n_{p} \, /10^{13} \, cm^{-3}$',fontsize = 14)
             plt.ylabel('$T_{p} \, /10^3 \, eV$', fontsize = 14)
             plt.show()
-            
+
 
             if save:
                 fig.savefig('plots/parscan_'+str(int(self.shot)) + '.'+ str(int(self.time))+'_m'+str(int(self.m[i]))+'.'+type_out, bbox_inches='tight', dpi=150)
-            
+
             i = i+1
 
     def plt_profile(self, prof_type='n', time='last', mode='f_5_2', title=False, save=False, out_type='pdf', y_range=0.1, r_range=0.5, scanid=''):
-        """ Plot a given profile for t = 0 and arbitrary second time. 
+        """ Plot a given profile for t = 0 and arbitrary second time.
         The second time is defaulted to the last time step.
         y_range and r_range are used to control the zoom window. The former is given in percent (of the value of the profile at the resonant surface) and the latter in cm."""
         if not (prof_type in self.profile_types.keys()):
@@ -1070,7 +1156,7 @@ class postproc:
             # get the last entry of the groups, i.e. the last time step
             self.f1000tlist = list(self.h5out[self.group_string(scanid, group='fort.1000', mode=mode)].keys())
             time = self.f1000tlist[-1]
-            time = int(time) - 1000  
+            time = int(time) - 1000
             #print(time)
         fig = plt.figure(figsize=(15,5))
         if title:
@@ -1109,7 +1195,7 @@ class postproc:
             fig.savefig('plots/'+"{:.0f}".format(self.shot)+'_'+"{:.0f}".format(self.time)+'_'+mode+ \
                 '_'+prof_type+'_prof_t.' + out_type, bbox_inches='tight', dpi=150)
         return list(map(plt.figure, plt.get_fignums()))
- 
+
     def check_mode(self, mode):
         if type(mode) == int:
             mode = 'f_' + "{:.0f}".format(self.m[mode]) + '_' + "{:.0f}".format(self.n[mode])

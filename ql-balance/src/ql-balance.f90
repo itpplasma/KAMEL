@@ -123,9 +123,9 @@ program ql_balance
 ! of Br is reached, only used if br_stopping = .false.
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
-    call MPI_Init(ierror); 
-    call MPI_Comm_size(MPI_COMM_WORLD, np_num, ierror); 
-    call MPI_Comm_rank(MPI_COMM_WORLD, irank, ierror); 
+    call MPI_Init(ierror);
+    call MPI_Comm_size(MPI_COMM_WORLD, np_num, ierror);
+    call MPI_Comm_rank(MPI_COMM_WORLD, irank, ierror);
     if (irank .eq. 0) then
         print *, ' '
         print *, '******************************'
@@ -136,9 +136,9 @@ program ql_balance
 
 !!!!! read the parameters from namelist file !!!!!
 
-    open (22, file='balance_conf.nml'); 
+    open (22, file='balance_conf.nml');
     read (22, NML=BALANCENML)
-    close (22); 
+    close (22);
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
     relchgmax = 0.1d0
@@ -247,19 +247,19 @@ program ql_balance
 ! code.
     if (debug_mode) write (*, *) "going into initialize wave code interface"
 
-    call initialize_wave_code_interface(npoib, rb); 
+    call initialize_wave_code_interface(npoib, rb);
     if (debug_mode) write (*, *) "coming out of initialize wave code interface"
 
     mode_m = m_vals(1)
     mode_n = n_vals(1)
 
-    if (debug_mode) write(*,*) 'mode_m = ', mode_m, 'mode_n = ', mode_n 
+    if (debug_mode) write(*,*) 'mode_m = ', mode_m, 'mode_n = ', mode_n
 
     ! allocate disk space for dqle22_res and timingarr, depending of the number of parameter scans done
-    
+
     allocate (dqle22_res(size(fac_n), size(fac_Te), size(fac_Ti), size(fac_vz)))
     if (paramscan) then
-        
+
         if (timing_mode) allocate (timingarr(size(fac_n), size(fac_Te), size(fac_Ti), size(fac_vz)))
         if (size(fac_vz) .ne. 1) allocate (Er_res(size(fac_n), size(fac_Te), size(fac_Ti), size(fac_vz)))
     end if
@@ -559,7 +559,7 @@ program ql_balance
 !Added by Philipp Ulbl 04.06.2020
 !Changed location by Markus Markl 08.04.2021
                     nlagr = 4; ! order of lagrange interpolation
-                    nder = 0; 
+                    nder = 0;
                     if (.not. allocated(coef)) allocate (coef(0:nder, nlagr))
 !binsearch
                     call binsrc(rb, 1, npoib, r_resonant, ibrabsres)
@@ -595,7 +595,7 @@ program ql_balance
                             if (ifac_n + ifac_Te + ifac_Ti + ifac_vz .eq. size(fac_n) + size(fac_Ti) + &
                                 size(fac_Te) + size(fac_vz)) then
                                 if (debug_mode) write(*,*) "Last parameter done. Finalize MPI"
-                                
+
                                 ! write the diffusion coefficient out
                                 write (h5_mode_groupname, "(A,I1,A,I1)") "f_", &
                                 mode_m, "_", mode_n
@@ -646,7 +646,7 @@ program ql_balance
 
                                 CALL deallocate_wave_code_data()
 
-                                CALL MPI_finalize(ierror); 
+                                CALL MPI_finalize(ierror);
                                 stop
                             else
                                 ! if it is not the last scan, skip the rest of the code and continue
@@ -705,7 +705,7 @@ program ql_balance
                                 CALL h5_close(h5_id)
                                 CALL h5_deinit()
                             end if
-                            call MPI_finalize(ierror); 
+                            call MPI_finalize(ierror);
                             stop  !! <<----- Stop for linear code usage
                         end if
     !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -806,7 +806,7 @@ program ql_balance
                             CALL h5_close(h5_id)
                             CALL h5_deinit()
 
-                            call MPI_finalize(ierror); 
+                            call MPI_finalize(ierror);
                             stop
                         end if
 
@@ -826,7 +826,7 @@ program ql_balance
                         !lagrange interpolation with order 4 only for function (0)
                         call plag_coeff(nlagr, nder, r_resonant, rb(ibeg:iend), coef)
                         write(*,*) "nlagr = ", nlagr
-                        write(*,*) "nder = ", nder 
+                        write(*,*) "nder = ", nder
                         write(*,*) "r_resonant = ", r_resonant
                         write(*,*) "rb(ibeg:iend) = ", rb(ibeg:iend)
                         write(*,*) "coef = ", coef
@@ -952,7 +952,7 @@ program ql_balance
                                                 CALL h5_close(h5_id)
                                                 CALL h5_deinit()
                                             end if
-                                            CALL MPI_finalize(ierror); 
+                                            CALL MPI_finalize(ierror);
                                             stop
                                         else
                                             ! if it is not the last scan, skip the rest of the
@@ -977,7 +977,7 @@ program ql_balance
                                         if (debug_mode) write(*,*) "Write br_time _data"
                                         CALL write_br_time_data(i, br_abs_time, br_abs_antenna_factor, br_abs)
 
-                                        CALL MPI_finalize(ierror); 
+                                        CALL MPI_finalize(ierror);
                                         print *, 'stop'
                                         stop
                                     end if
@@ -1007,12 +1007,28 @@ program ql_balance
                         if (antenna_factor .lt. (antenna_factor_max*antenna_max_stopping)) then
                             if (debug_mode) write(*,*) "-- ramp up antenna_factor --"
                             if (faster_ramp_up .eq. 0) then
+                               ! initial ramp up. This is a linear ramp up of the antenna factor in time.
                                 antenna_factor = time**2 + 1.d-4
                             else if (faster_ramp_up .eq. 1) then
+                               ! First try for faster ramp up. Is (usually) not stable.
                                 antenna_factor = antenna_factor + antenna_factor_max * (timstep/t_max_ramp_up)
                             else if (faster_ramp_up .eq. 2) then
+                               ! Use this for faster ramp up. Ramps up antenna factor to 100% of max value
+                               ! in t_max_ramp_up time.
                                 if (time .eq. 0) then
                                     antenna_factor = 1.d-4
+                                else
+                                    antenna_factor = antenna_factor_max * (time/t_max_ramp_up)
+                                end if
+                            else if (faster_ramp_up .eq. 3) then
+                               ! Ramp up to 100% of max and don't go further.
+                                if (time .eq. 0) then
+                                    antenna_factor = 1.d-4
+                                if (antenna_factor .ge. antenna_factor_max) then
+                                   antenna_factor = antenna_factor_max
+                                   write(*,*) " - - - - - - - - - - - "
+                                   write(*,*) "Antenna factor reached max value, will not be changed!"
+                                   write(*,*) " - - - - - - - - - - - "
                                 else
                                     antenna_factor = antenna_factor_max * (time/t_max_ramp_up)
                                 end if
@@ -1070,7 +1086,7 @@ program ql_balance
                                         CALL h5_close(h5_id)
                                         CALL h5_deinit()
                                     end if
-                                    CALL MPI_finalize(ierror); 
+                                    CALL MPI_finalize(ierror);
                                     stop
                                 else
                                     ! if it is not the last scan, skip the rest of the
@@ -1096,12 +1112,12 @@ program ql_balance
 
                                 if (debug_mode) write(*,*) "Write br_time _data"
                                 CALL write_br_time_data(i, br_abs_time, br_abs_antenna_factor, br_abs)
-                                CALL MPI_finalize(ierror); 
+                                CALL MPI_finalize(ierror);
                                 print *, 'stop'
                                 stop
                             end if
 
-                            call MPI_finalize(ierror); 
+                            call MPI_finalize(ierror);
                             stop
                         end if
 
@@ -1307,7 +1323,7 @@ program ql_balance
                         !close(5432)
                         timstep = max(timstep, timstep_min)
                         ! limit timestep from above:
-                        if (faster_ramp_up .ne. 0) timstep = min(timstep,0.001) 
+                        if (faster_ramp_up .ne. 0) timstep = min(timstep,0.001)
                         !
                         timstep_arr = timstep
                         !
@@ -1391,7 +1407,7 @@ program ql_balance
                     end do ! end of time loop
 
                     if (debug_mode) print *, 'deallocate data for next parameter scan'
-                    call deallocate_wave_code_data(); 
+                    call deallocate_wave_code_data();
 !deallocate(yprev)
                     deallocate (coef)
 !deallocate(tim_stack)
@@ -1403,8 +1419,8 @@ program ql_balance
         end do
     end do
 
-    write (*, *) 'Programm is finalized, without stopping criterion met'; 
-    call MPI_finalize(ierror); 
+    write (*, *) 'Programm is finalized, without stopping criterion met';
+    call MPI_finalize(ierror);
 
 contains
 
@@ -1456,7 +1472,7 @@ subroutine writefort1000(istep)
         if (.not. h5_exists_log) then
         	CALL h5_define_group(h5_id, trim(h5_currentgrp), group_id_1)
 		end if
- 
+
 
 
         write (*, *) "group defined"
@@ -1483,7 +1499,7 @@ subroutine writefort1000(istep)
         CALL h5_add_float_1(h5_id, trim(h5_currentgrp)//"sqg_btheta_overc", &
                             real(sqg_bthet_overcavg), lbound(sqg_bthet_overcavg), &
                             ubound(sqg_bthet_overcavg))
-        
+
         CALL h5_add_float_1(h5_id, trim(h5_currentgrp)//"Vth", &
                             real(Vth), lbound(Vth), ubound(Vth))
 
@@ -1660,7 +1676,7 @@ subroutine write_br_time_data(i, br_abs_time, br_abs_antenna_factor, br_abs)
 
         CALL h5_close(h5_id)
         CALL h5_deinit()
-        
+
     end if
 
 

@@ -1024,7 +1024,7 @@ program ql_balance
                                ! Ramp up to 100% of max and don't go further.
                                 if (time .eq. 0) then
                                     antenna_factor = 1.d-4
-                                if (antenna_factor .ge. antenna_factor_max) then
+                                else if (antenna_factor .ge. antenna_factor_max) then
                                    antenna_factor = antenna_factor_max
                                    write(*,*) " - - - - - - - - - - - "
                                    write(*,*) "Antenna factor reached max value, will not be changed!"

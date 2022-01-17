@@ -520,7 +520,7 @@ class postproc:
             self.Br_abs_res_time = np.array(self.h5out[self.group_string(scanid, mode=mode, group='br_abs_time')])
             self.antenna_factor = np.sqrt(np.array(self.h5out[self.group_string(scanid,mode=mode, group='br_abs_antenna_factor')]))
             if perc:
-                self.antenna_factor = self.antenna_factor/np.sqrt(self.scalefactors_sq[1])
+                self.antenna_factor = 100*self.antenna_factor/np.sqrt(self.scalefactors_sq[1])
 
             if plt_type == 'scatter':
                 plt.scatter(self.Br_abs_res_time, self.antenna_factor, label='m = ' + mode[2] + '; n = '+ mode[4])
@@ -563,7 +563,7 @@ class postproc:
             # If true, scale antenna factor with antenna factor max
             if perc:
                 #max_ant = np.sqrt(np.array(self.h5inp['/output/scalefactors_sq'])[1])
-                self.antenna_factor_x = self.antenna_factor/np.sqrt(self.scalefactors_sq[1])
+                self.antenna_factor_x = 100*self.antenna_factor/np.sqrt(self.scalefactors_sq[1])
 
             if plt_type == 'scatter':
                 plt.scatter(self.antenna_factor_x, self.Br_abs_res/self.brvac/self.antenna_factor, label='m = ' + mode[2] + '; n = '+ mode[4])

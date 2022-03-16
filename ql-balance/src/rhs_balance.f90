@@ -699,7 +699,7 @@ subroutine calc_dequi
     integer :: ipoi
     double precision :: rnorm, weight
 
-    character(1024) :: fname; 
+    character(1024) :: fname;
     integer :: nr, i, iunit_res, ibeg, iend, nlagr, nder!Changed by Philipp Ulbl 18.05.2020
 
     double precision, dimension(:, :), allocatable :: coef!Changed by Philipp Ulbl 18.05.2020
@@ -731,7 +731,7 @@ subroutine calc_dequi
         nr = ub
     else
         !code from gengrid to read Da file
-        fname = 'profiles/Da.dat'; 
+        fname = 'profiles/Da.dat';
         iunit_res = 157
         nr = 0
         open (iunit_res, file=fname)
@@ -752,13 +752,13 @@ subroutine calc_dequi
     !code from amn_of_r to interpolate (+do loop)
 
     !interpolate on balance grid
-    nlagr = 4; 
-    nder = 0; 
+    nlagr = 4;
+    nder = 0;
     allocate (coef(0:nder, nlagr))
 
     do ipoi = 1, npoib
 
-        r = rb(ipoi); 
+        r = rb(ipoi);
         if (r .gt. r_raw(nr)) then
             r = r_raw(nr)
         end if
@@ -853,7 +853,7 @@ subroutine get_dql(istep)
 !
     integer :: istep ! used to restrict the fort.5000 output, by only writing
     ! every "save_prof_time_step" to the hdf5 file
-    integer :: ierror, np_num, irank, modpernode, imin, imax; 
+    integer :: ierror, np_num, irank, modpernode, imin, imax;
     integer :: ipoi, ieq, i, npoi, i_mn, ierr, mwind_save
     double precision, dimension(:), allocatable :: dummy
     double complex, dimension(npoib) :: amn_psi, amn_theta, amn_theta_cyl
@@ -964,7 +964,7 @@ subroutine get_dql(istep)
             + (params_b(4, :)*ddr_params_nl(1, :)/params_b(1, :) + ddr_params_nl(4, :)) &
             /(Z_i*e_charge)
 !
-    call MPI_Comm_rank(MPI_COMM_WORLD, irank, ierror); 
+    call MPI_Comm_rank(MPI_COMM_WORLD, irank, ierror);
     if (irank .eq. 0) then
         if (write_diag_b) then
             do ipoi = 1, npoib
@@ -976,8 +976,8 @@ subroutine get_dql(istep)
 !
 ! Compute diffusion coefficient matrices:
 
-    call MPI_Comm_size(MPI_COMM_WORLD, np_num, ierror); 
-    call MPI_Comm_rank(MPI_COMM_WORLD, irank, ierror); 
+    call MPI_Comm_size(MPI_COMM_WORLD, np_num, ierror);
+    call MPI_Comm_rank(MPI_COMM_WORLD, irank, ierror);
 !sum over modes:
     if (np_num .gt. dim_mn) then
         print *, ' '
@@ -986,14 +986,14 @@ subroutine get_dql(istep)
         stop
     end if
 
-    modpernode = ceiling(float(dim_mn)/float(np_num)); 
-    imin = modpernode*irank + 1; 
-    imax = min(dim_mn, modpernode*(irank + 1)); 
+    modpernode = ceiling(float(dim_mn)/float(np_num));
+    imin = modpernode*irank + 1;
+    imax = min(dim_mn, modpernode*(irank + 1));
     if (debug_mode) write(*,*) "This is irf = ", irf
-    if (irf .eq. 1) call update_background_files(path2profs); 
-    if (irf .eq. 1) call get_wave_code_data(imin, imax); 
-    if (irf .eq. 1) call get_background_magnetic_fields_from_wave_code(flre_cd_ptr(imin), dim_r, r, B0t, B0z, B0); 
-    if (irf .eq. 1) call get_collision_frequences_from_wave_code(flre_cd_ptr(imin), dim_r, r, nui, nue); 
+    if (irf .eq. 1) call update_background_files(path2profs);
+    if (irf .eq. 1) call get_wave_code_data(imin, imax);
+    if (irf .eq. 1) call get_background_magnetic_fields_from_wave_code(flre_cd_ptr(imin), dim_r, r, B0t, B0z, B0);
+    if (irf .eq. 1) call get_collision_frequences_from_wave_code(flre_cd_ptr(imin), dim_r, r, nui, nue);
 !
 !  nu_e=15.4d-6*params_b(1,:)/sqrt(params_b(3,:)/ev)**3            &
 !      *(23.d0-0.5d0*log(params_b(1,:)/(params_b(3,:)/ev)**3))
@@ -1023,7 +1023,7 @@ subroutine get_dql(istep)
         call get_wave_fields_from_wave_code(flre_cd_ptr(i_mn), dim_r, r, &
                                             m_vals(i_mn), n_vals(i_mn), Er, Es, Ep, Et, Ez, Br, Bs, Bp, Bt, Bz)
 !
-        om_E = ks*c*dPhi0/B0; 
+        om_E = ks*c*dPhi0/B0;
 !
         vT_e = sqrt(params_b(3, :)/e_mass)
         vT_i = sqrt(params_b(4, :)/p_mass/am)
@@ -1090,17 +1090,23 @@ subroutine get_dql(istep)
                     nlagr = 4;
                     nder = 0;
                     if (.not. allocated(coef)) allocate(coef(0:nder,nlagr))
-                    call binsrc(rb, 1, npoib, r_resonant, ibrabsres)
+					if (debug_mode) write(*,*) "at r_resonant(1) = ", r_resonant(1)
+                    call binsrc(rb, 1, npoib, r_resonant(1), ibrabsres)
+                    if (debug_mode) write(*,*) "binary search found ibrabsres = ", ibrabsres
                     ibeg = max(1, ibrabsres - nlagr/2)
                     iend = ibeg + nlagr -1
+                    if (debug_mode) write(*,*) "ibeg = ", ibeg
+                    if (debug_mode) write(*,*) "iend = ", iend
                     if (iend .gt. npoib) then
                       iend = npoib
                       ibeg = iend - nlagr + 1
                     end if
-                    call plag_coeff(nlagr, nder, r_resonant, rb(ibeg:iend), coef)
+                    call plag_coeff(nlagr, nder, r_resonant(1), rb(ibeg:iend), coef)
+                    if (debug_mode) write(*,*) "coef = ", coef
                     brvac_interp = sum(coef(0,:)*abs(Br(ibeg:iend)))
 
                     write(*,*) "writing Brvac interpolation"
+                    write(*,*) "Brvac = ", brvac_interp
                     CALL h5_init()
                     CALL h5_open_rw(path2out, h5_id)
                     tempch = "/"//trim(h5_mode_groupname)//"/Brvac_res"
@@ -1168,23 +1174,23 @@ subroutine get_dql(istep)
     end do
 !
 
-    call MPI_Allreduce(dqle11_loc, dqle11, npoib, MPI_DOUBLE_PRECISION, MPI_SUM, MPI_COMM_WORLD, ierror); 
-    call MPI_Allreduce(dqle12_loc, dqle12, npoib, MPI_DOUBLE_PRECISION, MPI_SUM, MPI_COMM_WORLD, ierror); 
-    call MPI_Allreduce(dqle21_loc, dqle21, npoib, MPI_DOUBLE_PRECISION, MPI_SUM, MPI_COMM_WORLD, ierror); 
-    call MPI_Allreduce(dqle22_loc, dqle22, npoib, MPI_DOUBLE_PRECISION, MPI_SUM, MPI_COMM_WORLD, ierror); 
-    call MPI_Allreduce(dqli11_loc, dqli11, npoib, MPI_DOUBLE_PRECISION, MPI_SUM, MPI_COMM_WORLD, ierror); 
-    call MPI_Allreduce(dqli12_loc, dqli12, npoib, MPI_DOUBLE_PRECISION, MPI_SUM, MPI_COMM_WORLD, ierror); 
-    call MPI_Allreduce(dqli21_loc, dqli21, npoib, MPI_DOUBLE_PRECISION, MPI_SUM, MPI_COMM_WORLD, ierror); 
-    call MPI_Allreduce(dqli22_loc, dqli22, npoib, MPI_DOUBLE_PRECISION, MPI_SUM, MPI_COMM_WORLD, ierror); 
-    call MPI_Barrier(MPI_COMM_WORLD, ierror); 
-    deallocate (dqle11_loc); 
-    deallocate (dqle12_loc); 
-    deallocate (dqle21_loc); 
-    deallocate (dqle22_loc); 
-    deallocate (dqli11_loc); 
-    deallocate (dqli12_loc); 
-    deallocate (dqli21_loc); 
-    deallocate (dqli22_loc); 
+    call MPI_Allreduce(dqle11_loc, dqle11, npoib, MPI_DOUBLE_PRECISION, MPI_SUM, MPI_COMM_WORLD, ierror);
+    call MPI_Allreduce(dqle12_loc, dqle12, npoib, MPI_DOUBLE_PRECISION, MPI_SUM, MPI_COMM_WORLD, ierror);
+    call MPI_Allreduce(dqle21_loc, dqle21, npoib, MPI_DOUBLE_PRECISION, MPI_SUM, MPI_COMM_WORLD, ierror);
+    call MPI_Allreduce(dqle22_loc, dqle22, npoib, MPI_DOUBLE_PRECISION, MPI_SUM, MPI_COMM_WORLD, ierror);
+    call MPI_Allreduce(dqli11_loc, dqli11, npoib, MPI_DOUBLE_PRECISION, MPI_SUM, MPI_COMM_WORLD, ierror);
+    call MPI_Allreduce(dqli12_loc, dqli12, npoib, MPI_DOUBLE_PRECISION, MPI_SUM, MPI_COMM_WORLD, ierror);
+    call MPI_Allreduce(dqli21_loc, dqli21, npoib, MPI_DOUBLE_PRECISION, MPI_SUM, MPI_COMM_WORLD, ierror);
+    call MPI_Allreduce(dqli22_loc, dqli22, npoib, MPI_DOUBLE_PRECISION, MPI_SUM, MPI_COMM_WORLD, ierror);
+    call MPI_Barrier(MPI_COMM_WORLD, ierror);
+    deallocate (dqle11_loc);
+    deallocate (dqle12_loc);
+    deallocate (dqle21_loc);
+    deallocate (dqle22_loc);
+    deallocate (dqli11_loc);
+    deallocate (dqli12_loc);
+    deallocate (dqli21_loc);
+    deallocate (dqli22_loc);
     deallocate (formfactor)
 
     call calc_parallel_current_directly
@@ -1407,7 +1413,7 @@ subroutine smooth_array_gauss(dimx, ngauss, y, ys)
     real(8) :: sgauss, dummy
     real(8), dimension(dimx) :: y, ys
     double precision, dimension(:), allocatable :: wgauss
-    integer :: k, j; 
+    integer :: k, j;
     real(8) :: sum
 
     sgauss = dfloat(ngauss)/5.d0
@@ -1441,7 +1447,7 @@ subroutine equipotentials
 !
     implicit none
 !
-    integer :: ierror, irank; 
+    integer :: ierror, irank;
     integer :: nr, i, m, n, ipoi, ierr
     double complex :: amnp, amnt, ampl
     double precision, dimension(:), allocatable :: psi0, phi0
@@ -1481,7 +1487,7 @@ subroutine equipotentials
     psi1 = (0.d0, 1.d0)*Br*ampl
     phi1 = (0.d0, 1.d0)*Es/ks*ampl
 !
-    call MPI_Comm_rank(MPI_COMM_WORLD, irank, ierror); 
+    call MPI_Comm_rank(MPI_COMM_WORLD, irank, ierror);
     if (irank .eq. 0) then
         open (iunit_diag, file='equipotentials.dat')
         do i = 1, nr
@@ -1499,113 +1505,281 @@ end subroutine equipotentials
 !ccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
 !
 subroutine calc_parallel_current_directly
+    ! this subroutine calculates the electron parallel current (eq. (60) in Heyn et. al 2014)
 
     use grid_mod, only: npoib, rb, params_b, Ercov, ddr_params_nl
     use baseparam_mod, only: Z_i, e_charge, am, p_mass, c, btor, e_mass, ev, rtor
-    use control_mod, only: ihdf5test, diagnostics_output
+    use control_mod, only: ihdf5test, diagnostics_output, write_gyro_current, &
+        gyro_current_study
     use h5mod
     use wave_code_data
     use mpi
 !
     implicit none
 !
-    integer :: ierror, irank; 
+    integer :: ierror, irank;
     integer :: ipoi, i, iunit, mnmax
-    double precision, dimension(:), allocatable :: dummy, x1, x2, vT
+    double precision, dimension(:), allocatable :: dummy, x1, x2, vT, A1, A2
     double complex, dimension(:), allocatable :: curr_e_par
     double complex, dimension(:, :, :), allocatable :: symbI
+    integer :: study_i_omE
+    integer :: study_j_nue
 !
     character(len=1024) :: tempch
 !
+    write(*,*) " - "
+    write(*,*) "subroutine calc_parallel_current_density"
+    write(*,*) " - "
     iunit = 731
     mnmax = 3
-    allocate (x1(npoib), x2(npoib), symbI(0:mnmax, 0:mnmax, npoib))
+    allocate (x1(npoib), x2(npoib), A1(npoib), A2(npoib), symbI(0:mnmax, 0:mnmax, npoib))
     allocate (curr_e_par(npoib), vT(npoib))
 !
     vT = sqrt(params_b(3, :)/e_mass)
 !
-    x1 = kp*vT/nue
-    x2 = -om_E/nue
+
+    if (gyro_current_study .eq. 0) then
+        x1 = kp*vT/nue
+        x2 = -om_E/nue
 !
-    do i = 1, npoib
-        call getIfunc(x1(i), x2(i), symbI(:, :, i))
-    end do
+        do i = 1, npoib
+            call getIfunc(x1(i), x2(i), symbI(:, :, i))
+        end do
+
+
+        A2 = ddr_params_nl(3, :)/params_b(3, :)
+        A1 = ddr_params_nl(1, :)/params_b(1, :) + e_charge*Ercov/params_b(3, :) - 1.5d0*A2
 !
-! Here x1 and x2 are used for A_1 and A_2:
-    x2 = ddr_params_nl(3, :)/params_b(3, :)
-    x1 = ddr_params_nl(1, :)/params_b(1, :) + e_charge*Ercov/params_b(3, :) - 1.5d0*x2
+        curr_e_par = e_charge*params_b(1, :)*vT/(nue*B0) &
+                 *(c*Es*((A1 + A2)*symbI(1, 0, :) + 0.5d0*A2*symbI(2, 1, :)) &
+                   + vT*Br*((A1 + A2)*symbI(1, 1, :) + 0.5d0*A2*symbI(3, 1, :)))
 !
-    curr_e_par = e_charge*params_b(1, :)*vT/(nue*B0) &
-                 *(c*Es*((x1 + x2)*symbI(1, 0, :) + 0.5d0*x2*symbI(2, 1, :)) &
-                   + vT*Br*((x1 + x2)*symbI(1, 1, :) + 0.5d0*x2*symbI(3, 1, :)))
-!
-    call MPI_Comm_rank(MPI_COMM_WORLD, irank, ierror); 
-    if (irank .eq. 0) then
-        if (diagnostics_output) then
-            if (ihdf5test .eq. 1) then
-                print *, "writing par_current_e.dat"
+        call MPI_Comm_rank(MPI_COMM_WORLD, irank, ierror);
+        if (irank .eq. 0) then
+            write(*,*) "writing par_current_e.dat"
+            write(*,*) " - "
+
+            if (write_gyro_current) then
+                ! Write out gyro current which is different to KiLCA current Jpe.
+            ! The gyro current is calculated from (60) in Heyn et. al 2014
                 CALL h5_init()
                 CALL h5_open_rw(path2out, h5_id)
+                tempch = "/"//trim(h5_mode_groupname)//"/par_current_e/"
+                write(*,*) "In group: "//trim(tempch)
 
-            !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-                ! par_current_e data
-                tempch = "/"//trim(h5_mode_groupname)//"/par_current_e.dat"
+                CALL h5_define_group(h5_id, trim(tempch), group_id_1)
+                CALL h5_close_group(group_id_1)
 
-                CALL h5_obj_exists(h5_id, trim(tempch), h5_exists_log)
-                if (h5_exists_log) then
-                    CALL h5_delete(h5_id, trim(tempch))
-                end if
-
-                CALL h5_define_unlimited_matrix(h5_id, trim(tempch), &
-                                                H5T_NATIVE_DOUBLE, (/-1, 5/), dataset_id)
-                CALL h5_append_double_1(dataset_id, rb, 1)
-                CALL h5_append_double_1(dataset_id, real(curr_e_par), 2)
-                CALL h5_append_double_1(dataset_id, dimag(curr_e_par), 3)
-                CALL h5_append_double_1(dataset_id, real(Jpe), 4)
-                CALL h5_append_double_1(dataset_id, dimag(Jpe), 5)
-
-            !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-                ! cond_e data
-                tempch = "/"//trim(h5_mode_groupname)//"/cond_e.dat"
-
-                CALL h5_obj_exists(h5_id, trim(tempch), h5_exists_log)
-                if (h5_exists_log) then
-                    CALL h5_delete(h5_id, trim(tempch))
-                end if
-
-                CALL h5_define_unlimited_matrix(h5_id, trim(tempch), &
-                                                H5T_NATIVE_DOUBLE, (/-1, 9/), dataset_id)
-                CALL h5_append_double_1(dataset_id, rb, 1)
-                CALL h5_append_double_1(dataset_id, real(symbI(1, 0, :)), 2)
-                CALL h5_append_double_1(dataset_id, dimag(symbI(1, 0, :)), 3)
-                CALL h5_append_double_1(dataset_id, real(symbI(1, 1, :)), 4)
-                CALL h5_append_double_1(dataset_id, dimag(symbI(1, 1, :)), 5)
-                CALL h5_append_double_1(dataset_id, real(symbI(2, 1, :)), 6)
-                CALL h5_append_double_1(dataset_id, dimag(symbI(2, 1, :)), 7)
-                CALL h5_append_double_1(dataset_id, real(symbI(3, 1, :)), 8)
-                CALL h5_append_double_1(dataset_id, dimag(symbI(3, 1, :)), 9)
+                CALL h5_add_double_1(h5_id, trim(tempch)//"rb", &
+                    rb, lbound(rb), ubound(rb))
+                CALL h5_add_double_1(h5_id, trim(tempch)//"par_current_e_real", &
+                    real(curr_e_par), lbound(real(curr_e_par)), ubound(real(curr_e_par)))
+                CALL h5_add_double_1(h5_id, trim(tempch)//"par_current_e_imag", &
+                    dimag(curr_e_par), lbound(dimag(curr_e_par)), ubound(dimag(curr_e_par))) 
+                CALL h5_add_double_1(h5_id, trim(tempch)//"Jpe_real", &
+                    real(Jpe), lbound(real(Jpe)), ubound(real(Jpe)))
+                CALL h5_add_double_1(h5_id, trim(tempch)//"Jpe_imag", &
+                    dimag(Jpe), lbound(dimag(Jpe)), ubound(dimag(Jpe))) 
+                CALL h5_add_double_1(h5_id, trim(tempch)//"Jse_real", &
+                    real(Jse), lbound(real(Jse)), ubound(real(Jse)))
+                CALL h5_add_double_1(h5_id, trim(tempch)//"Jse_imag", &
+                    dimag(Jse), lbound(dimag(Jse)), ubound(dimag(Jse))) 
+                CALL h5_add_double_1(h5_id, trim(tempch)//"Jre_real", &
+                    real(Jpe), lbound(real(Jpe)), ubound(real(Jpe)))
+                CALL h5_add_double_1(h5_id, trim(tempch)//"Jre_imag", &
+                    dimag(Jre), lbound(dimag(Jre)), ubound(dimag(Jre))) 
+                CALL h5_add_double_1(h5_id, trim(tempch)//"kp", &
+                    kp, lbound(kp), ubound(kp))
+                CALL h5_add_double_1(h5_id, trim(tempch)//"ks", &
+                    ks, lbound(ks), ubound(ks)) 
 
                 CALL h5_close(h5_id)
                 CALL h5_deinit()
-            else
-                open (iunit, file='par_current_e.dat')
-                open (10000, file='cond_e.dat')
-                do ipoi = 1, npoib
-                    write (iunit, *) rb(ipoi) &
-                        , real(curr_e_par(ipoi)), dimag(curr_e_par(ipoi)) &
-                        , real(Jpe(ipoi)), dimag(Jpe(ipoi))
-                    write (10000, *) rb(ipoi) &
-                        , real(symbI(1, 0, ipoi)), dimag(symbI(1, 0, ipoi)) &
-                        , real(symbI(1, 1, ipoi)), dimag(symbI(1, 1, ipoi)) &
-                        , real(symbI(2, 1, ipoi)), dimag(symbI(2, 1, ipoi)) &
-                        , real(symbI(3, 1, ipoi)), dimag(symbI(3, 1, ipoi))
 
-                end do
-                close (10000)
-                close (iunit)
+            end if ! write_gyro_current
+
+
+            if (diagnostics_output) then
+                if (ihdf5test .eq. 1) then
+                    write(*,*) "writing par_current_e.dat"
+                    write(*,*) " - "
+                    CALL h5_init()
+                    CALL h5_open_rw(path2out, h5_id)
+
+                    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+                    ! par_current_e data
+                    tempch = "/"//trim(h5_mode_groupname)//"/par_current_e.dat"
+
+                    CALL h5_obj_exists(h5_id, trim(tempch), h5_exists_log)
+                    if (h5_exists_log) then
+                        CALL h5_delete(h5_id, trim(tempch))
+                    end if
+
+                    CALL h5_define_unlimited_matrix(h5_id, trim(tempch), &
+                                                H5T_NATIVE_DOUBLE, (/-1, 5/), dataset_id)
+                    CALL h5_append_double_1(dataset_id, rb, 1)
+                    CALL h5_append_double_1(dataset_id, real(curr_e_par), 2)
+                    CALL h5_append_double_1(dataset_id, dimag(curr_e_par), 3)
+                    CALL h5_append_double_1(dataset_id, real(Jpe), 4)
+                    CALL h5_append_double_1(dataset_id, dimag(Jpe), 5)
+
+                    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+                    ! cond_e data
+                    tempch = "/"//trim(h5_mode_groupname)//"/cond_e.dat"
+
+                    CALL h5_obj_exists(h5_id, trim(tempch), h5_exists_log)
+                    if (h5_exists_log) then
+                        CALL h5_delete(h5_id, trim(tempch))
+                    end if
+
+                    CALL h5_define_unlimited_matrix(h5_id, trim(tempch), &
+                                                H5T_NATIVE_DOUBLE, (/-1, 9/), dataset_id)
+                    CALL h5_append_double_1(dataset_id, rb, 1)
+                    CALL h5_append_double_1(dataset_id, real(symbI(1, 0, :)), 2)
+                    CALL h5_append_double_1(dataset_id, dimag(symbI(1, 0, :)), 3)
+                    CALL h5_append_double_1(dataset_id, real(symbI(1, 1, :)), 4)
+                    CALL h5_append_double_1(dataset_id, dimag(symbI(1, 1, :)), 5)
+                    CALL h5_append_double_1(dataset_id, real(symbI(2, 1, :)), 6)
+                    CALL h5_append_double_1(dataset_id, dimag(symbI(2, 1, :)), 7)
+                    CALL h5_append_double_1(dataset_id, real(symbI(3, 1, :)), 8)
+                    CALL h5_append_double_1(dataset_id, dimag(symbI(3, 1, :)), 9)
+
+                    CALL h5_close(h5_id)
+                    CALL h5_deinit()
+                else ! ihdf5test .eq. 1
+                    open (iunit, file='par_current_e.dat')
+                    open (10000, file='cond_e.dat')
+                    do ipoi = 1, npoib
+                        write (iunit, *) rb(ipoi) &
+                            , real(curr_e_par(ipoi)), dimag(curr_e_par(ipoi)) &
+                            , real(Jpe(ipoi)), dimag(Jpe(ipoi))
+                        write (10000, *) rb(ipoi) &
+                            , real(symbI(1, 0, ipoi)), dimag(symbI(1, 0, ipoi)) &
+                            , real(symbI(1, 1, ipoi)), dimag(symbI(1, 1, ipoi)) &
+                            , real(symbI(2, 1, ipoi)), dimag(symbI(2, 1, ipoi)) &
+                            , real(symbI(3, 1, ipoi)), dimag(symbI(3, 1, ipoi))
+
+                    end do
+                    close (10000)
+                    close (iunit)
+                end if
             end if
-        end if
+        end if ! irank .eq. 0
+
+    elseif (gyro_current_study .eq. 1) then
+        write(*,*) " - - - - - - - - - "
+        write(*,*) "Gyro current study"
+
+        CALL h5_init()
+        CALL h5_open_rw(path2out, h5_id)
+        tempch = "/"//trim(h5_mode_groupname)//"/gyro_current_study/"
+        write(*,*) "In group: "//trim(tempch)
+
+        CALL h5_define_group(h5_id, trim(tempch), group_id_1)
+        CALL h5_close_group(group_id_1)
+
+        ! Quantities that are not affected by parameter study:
+        CALL h5_add_double_1(h5_id, trim(tempch)//"rb", &
+            rb, lbound(rb), ubound(rb))
+        CALL h5_add_double_1(h5_id, trim(tempch)//"nue0", &
+            nue, lbound(nue), ubound(nue))
+        CALL h5_add_double_1(h5_id, trim(tempch)//"om_E", &
+            om_E, lbound(om_E), ubound(om_E))
+
+        CALL h5_add_double_1(h5_id, trim(tempch)//"B0", &
+            B0, lbound(B0), ubound(B0))
+
+        CALL h5_add_double_1(h5_id, trim(tempch)//"Br_real", &
+            real(Br), lbound(real(Br)), ubound(real(Br)))
+        CALL h5_add_double_1(h5_id, trim(tempch)//"Es_real", &
+            real(Es), lbound(real(Es)), ubound(real(Es)))
+
+        CALL h5_add_double_1(h5_id, trim(tempch)//"Br_imag", &
+            dimag(Br), lbound(dimag(Br)), ubound(dimag(Br)))
+        CALL h5_add_double_1(h5_id, trim(tempch)//"Es_imag", &
+            dimag(Es), lbound(dimag(Es)), ubound(dimag(Es)))
+        ! - - - - - - - - - - - - - - - - - - - - - - - - -
+
+        A2 = ddr_params_nl(3, :)/params_b(3, :)
+        A1 = ddr_params_nl(1, :)/params_b(1, :) + e_charge*Ercov/params_b(3, :) - 1.5d0*A2
+!
+        CALL h5_add_double_1(h5_id, trim(tempch)//"A1", &
+            A1, lbound(A1), ubound(A1))
+        CALL h5_add_double_1(h5_id, trim(tempch)//"A2", &
+            A2, lbound(A2), ubound(A2))
+
+        ! vary om_E/nue
+        do study_i_omE = 1, 5
+            tempch = "/"//trim(h5_mode_groupname)//"/gyro_current_study/"
+            write(tempch, "(A,i4.4,A)") trim(tempch), study_i_omE, "/"
+
+            CALL h5_define_group(h5_id, trim(tempch), group_id_1)
+            CALL h5_close_group(group_id_1)
+
+            do study_j_nue = 1, 5
+
+                om_E = om_E * study_i_omE * 0.2
+                nue = nue * study_j_nue * 0.2
+                x2 = -om_E/(nue)! * study_i * 0.5
+                x1 = kp*vT/(nue)! * study_i * 0.5
+!
+                do i = 1, npoib
+                    call getIfunc(x1(i), x2(i), symbI(:, :, i))
+                end do
+                tempch = "/"//trim(h5_mode_groupname)//"/gyro_current_study/"
+                write(tempch, "(A,i4.4,A,i4.4,A)") trim(tempch), study_i_omE, "/", &
+                    study_j_nue, "/"
+                write(*,*) "In group: ", trim(tempch)
+
+
+                CALL h5_define_group(h5_id, trim(tempch), group_id_1)
+                CALL h5_close_group(group_id_1)
+                ! write I functions 
+                ! real part
+                CALL h5_add_double_1(h5_id, trim(tempch)//"I10_real", &
+                    real(symbI(1,0,:)), lbound(real(symbI(1,0,:))), &
+                    ubound(real(symbI(1,0,:))))
+                CALL h5_add_double_1(h5_id, trim(tempch)//"I11_real", &
+                    real(symbI(1,1,:)), lbound(real(symbI(1,1,:))), &
+                    ubound(real(symbI(1,1,:))))
+                CALL h5_add_double_1(h5_id, trim(tempch)//"I21_real", &
+                    real(symbI(2,1,:)), lbound(real(symbI(2,1,:))), &
+                    ubound(real(symbI(2,1,:))))
+                CALL h5_add_double_1(h5_id, trim(tempch)//"I31_real", &
+                    real(symbI(3,1,:)), lbound(real(symbI(3,1,:))), &
+                    ubound(real(symbI(3,1,:))))
+                ! imag part
+
+                CALL h5_add_double_1(h5_id, trim(tempch)//"I10_imag", &
+                    dimag(symbI(1,0,:)), lbound(dimag(symbI(1,0,:))),&
+                    ubound(dimag(symbI(1,0,:))))
+                CALL h5_add_double_1(h5_id, trim(tempch)//"I11_imag", &
+                    dimag(symbI(1,1,:)), lbound(dimag(symbI(1,1,:))), &
+                    ubound(dimag(symbI(1,1,:))))
+                CALL h5_add_double_1(h5_id, trim(tempch)//"I21_imag", &
+                    dimag(symbI(2,1,:)), lbound(dimag(symbI(2,1,:))), &
+                    ubound(dimag(symbI(2,1,:))))
+                CALL h5_add_double_1(h5_id, trim(tempch)//"I31_imag", &
+                    dimag(symbI(3,1,:)), lbound(dimag(symbI(3,1,:))), &
+                    ubound(dimag(symbI(3,1,:))))
+
+                curr_e_par = e_charge*params_b(1, :)*vT/(nue*B0) &
+                 *(c*Es*((A1 + A2)*symbI(1, 0, :) + 0.5d0*A2*symbI(2, 1, :)) &
+                   + vT*Br*((A1 + A2)*symbI(1, 1, :) + 0.5d0*A2*symbI(3, 1, :)))
+!
+                CALL h5_add_double_1(h5_id, trim(tempch)//"par_current_e_real", &
+                    real(curr_e_par), lbound(real(curr_e_par)), ubound(real(curr_e_par)))
+                CALL h5_add_double_1(h5_id, trim(tempch)//"par_current_e_imag", &
+                    dimag(curr_e_par), lbound(dimag(curr_e_par)), ubound(dimag(curr_e_par))) 
+            end do ! study_j_nue
+        end do ! study_i_omE
+
+        CALL h5_close(h5_id)
+        CALL h5_deinit()
+
+        write(*,*) " - - - - - - - - - "
     end if
+
 !
     deallocate (x1, x2, symbI, curr_e_par, vT)
 !
@@ -1624,7 +1798,7 @@ subroutine calc_ion_parallel_current_directly
 !
     implicit none
 !
-    integer :: ierror, irank; 
+    integer :: ierror, irank;
     integer :: ipoi, i, iunit, mnmax
     double precision :: ei_charge
     double precision, dimension(:), allocatable :: dummy, x1, x2, vT
@@ -1658,7 +1832,7 @@ subroutine calc_ion_parallel_current_directly
                  *(c*Es*((x1 + x2)*symbI(1, 0, :) + 0.5d0*x2*symbI(2, 1, :)) &
                    + vT*Br*((x1 + x2)*symbI(1, 1, :) + 0.5d0*x2*symbI(3, 1, :)))
 !
-    call MPI_Comm_rank(MPI_COMM_WORLD, irank, ierror); 
+    call MPI_Comm_rank(MPI_COMM_WORLD, irank, ierror);
     if (irank .eq. 0) then
         if (diagnostics_output) then
             if (ihdf5test .eq. 1) then
@@ -1742,6 +1916,10 @@ subroutine writefort5000(istep)
                              r, lbound(r), ubound(r))
         CALL h5_add_double_1(h5_id, trim(tempch)//"Br_abs", &
                              abs(Br), lbound(Br), ubound(Br))
+        CALL h5_add_double_1(h5_id, trim(tempch)//"Jpe_abs", &
+                             abs(Jpe), lbound(Jpe), ubound(Jpe))
+        CALL h5_add_double_1(h5_id, trim(tempch)//"Jpi_abs", &
+                             abs(Jpi), lbound(Jpi), ubound(Jpi))
 
         ! write the whole content only if diagnostics_output is true
         if (diagnostics_output) then

@@ -460,18 +460,22 @@ end subroutine
 subroutine read_antenna_modes(path)
 
     use wave_code_data, only: dim_mn, m_vals, n_vals; 
+    use resonances_mod, only: numres
     implicit none; 
     character(1024) :: path; 
     character(1024) :: buffer; 
     integer :: l, i1, i2, i3; 
-    open (10, file=trim(path)//'antenna.in'); 
-    read (10, *) buffer; 
-    read (10, *) buffer; 
-    read (10, *) buffer; 
-    read (10, *) buffer; 
-    read (10, *) buffer; 
-    read (10, *) dim_mn; 
-    close (10); 
+
+    dim_mn = numres
+    !open (10, file=trim(path)//'antenna.in'); 
+    !read (10, *) buffer; 
+    !read (10, *) buffer; 
+    !read (10, *) buffer; 
+    !read (10, *) buffer; 
+    !read (10, *) buffer; 
+    !read (10, *) dim_mn; 
+    !close (10); 
+    !allocate (m_vals(dim_mn), n_vals(dim_mn)); 
     allocate (m_vals(dim_mn), n_vals(dim_mn)); 
     open (10, file=trim(path)//'modes.in'); 
     do l = 1, dim_mn

@@ -51,12 +51,14 @@
     logical :: debug_mode
     logical :: suppression_mode    ! added by Markus Markl 13.04.2021
     logical :: diagnostics_output
+    logical :: write_gyro_current
     integer :: irf
     integer :: icoll
     double precision :: relax
     integer :: zeitschritt
     integer :: save_prof_time_step ! added by Markus Markl 11.03.2021
     integer :: readfromtimestep ! added by Markus Markl 02.06.2021. Reads the background profiles from hdf5 file in which profiles of a ql time evolution are stored.
+    integer :: gyro_current_study
   end module control_mod
 
   module matrix_mod

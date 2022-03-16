@@ -29,7 +29,7 @@ function raw = read_in(path)
     %continue while tline is not empty
     while ~feof(fid)
         %add new line
-        raw{end+1} = fgetl(fid);
+%        raw{end+1} = fgetl(fid);
     end
     raw = raw';
     

@@ -22,14 +22,15 @@ function raw = read_in(path)
 %modified: 27.02.2020
     
     %open file
-    fid = fopen(path);
+    fid = fopen(path, 'r');
     %init cell array
     raw = {};
-    
+
     %continue while tline is not empty
     while ~feof(fid)
         %add new line
         raw{end+1} = fgetl(fid);
+		%disp(raw{end})
     end
     raw = raw';
     

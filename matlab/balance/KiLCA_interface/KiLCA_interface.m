@@ -43,7 +43,8 @@ classdef KiLCA_interface < handle
         
         %path to executable
         %EXEC_PATH = '/proj/plasma/soft/KiLCA-2.4.2/exe/KiLCA_Normal_V_2.4.2_MDNO_FPGEN_POLYNOMIAL_Release_64bit';
-        EXEC_PATH = '/temp/markl_m/KiLCA-2.4.2/exe/KiLCA_Normal_V_2.4.2_MDNO_FPGEN_POLYNOMIAL_Release_64bit';
+        EXEC_PATH = '/proj/plasma/soft/KiLCA-2.4.2/exe/KiLCA_Normal_V_2.4.2_MDNO_FPGEN_POLYNOMIAL_Release_64bit';
+        %EXEC_PATH = '/temp/markl_m/KiLCA-2.4.2/build/exe/KiLCA_Normal_V_2.4.2_MDNO_FPGEN_POLYNOMIAL_Release_64bit';
         %EXEC_PATH = '/proj/plasma/soft/KiLCA-2.4.2/exe/KiLCA_Normal_V_2.4.2_MDNO_NC_POLYNOMIAL_Release_64bit';
         %EXEC_PATH = '/proj/plasma/soft/KiLCA-2.4.2/exe/KiLCA_Normal_V_2.4.2_MDYES_FPGEN_POLYNOMIAL_Release_64bit';
         %EXEC_PATH = '/proj/plasma/soft/KiLCA-2.4.2/exe/KiLCA_EigParam_V_2.4.2_MDNO_FPGEN_POLYNOMIAL_Release_64bit';
@@ -360,7 +361,7 @@ classdef KiLCA_interface < handle
             start_time = datetime;
             disp(['Start of KiLCA at ', datestr(start_time)])
             disp(['Type: ', obj.run_type])
-            [obj.run_stat, obj.run_res] = system('./run_local');
+            [obj.run_stat, obj.run_res] = system('./run_local > log.txt');
             
             %write to log file
             if(obj.run_stat ~= 0)

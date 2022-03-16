@@ -62,7 +62,7 @@ bessel_lib_path = ./soft/math_libs/64bit/bessel/
 lapack_lib_path = ./soft/math_libs/64bit/lapack-3.2.1/lib/
 
 kilca_libs = \
--L$(kilca_lib_path) -lkilca_64bit \
+-L$(kilca_lib_path) -lkilca_64bit -lblas -lopenblas\
 -L$(cvode_lib_path) -lsundials_cvode -lsundials_nvecserial \
 -L$(slatec_lib_path) -lslatec \
 -L$(bessel_lib_path) -lbessel \

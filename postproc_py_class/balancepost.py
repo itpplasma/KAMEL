@@ -540,6 +540,85 @@ class postproc:
             fig.savefig('plots/'+"{:.0f}".format(self.shot)+'_'+"{:.0f}".format(self.time)+'_antenna_factor.'+ out_type, bbox_inches='tight', dpi=150)
         return list(map(plt.figure, plt.get_fignums()))
 
+    def plt_bif_crit_over_ant_fac(self, scanid='', save=False, title=False, out_type = 'pdf', plt_type = 'plot', perc = True):
+        """ Plot dqle22 over antenna factor for the case when the diagnostics output was turned off. If perc is True, it plots the antenna factor as percentage of the experimental value."""
+
+        if not (out_type == 'pdf' or out_type == 'jpg'):
+            raise ValueError('Wrong output type! Only jpg and pdf are supported.')
+        fig = plt.figure(figsize=(7.5,5))
+        plt.rc('font', size=18)
+        plt.tight_layout()
+        if title:
+            plt.suptitle('ELM Suppression in Hydrogen. Time evolution of shot ' + "{:.0f}".format(self.shot) \
+                + ' at ' + "{:.0f}".format(self.time) + 'ms.')
+
+        mode_names = self.get_mode_names('/'+scanid)
+
+        for mode in mode_names:
+            self.dqle22 = np.array(self.h5out[self.group_string(scanid, mode=mode, group ='dqle22_res_time')])
+            self.Br_abs_res = np.array(self.h5out[self.group_string(scanid,mode=mode, group='br_abs_res')])
+            self.Br_abs_res_time = np.array(self.h5out[self.group_string(scanid, mode=mode, group='br_abs_time')])
+            self.antenna_factor = np.sqrt(np.array(self.h5out[self.group_string(scanid,mode=mode, group='br_abs_antenna_factor')]))
+
+            # If true, scale antenna factor with antenna factor max
+            if perc:
+                #max_ant = np.sqrt(np.array(self.h5inp['/output/scalefactors_sq'])[1])
+                self.antenna_factor_x = 100*self.antenna_factor/np.sqrt(self.scalefactors_sq[1])
+
+            if plt_type == 'scatter':
+                plt.scatter(self.antenna_factor_x, self.dqle22/self.da_res[1], label='m = ' + mode[2] + '; n = '+ mode[4])
+            if plt_type == 'plot':
+                plt.plot(self.antenna_factor_x, self.dqle22/self.da_res[1], label='m = ' + mode[2] + '; n = '+ mode[4],lw=4)
+            else:
+                SystemError('Plot type not supported')
+
+        plt.xlabel(r'antenna factor / %')
+        plt.ylabel('$|D^{QL}_{e22}(t)/D^A|(r_{res})$')
+        plt.legend()
+        plt.grid()
+        if save==True:
+            fig.savefig('plots/'+"{:.0f}".format(self.shot)+'_'+"{:.0f}".format(self.time)+'_bif_crit_over_ant_fac.'+ out_type, bbox_inches='tight', dpi=150)
+        return list(map(plt.figure, plt.get_fignums()))
+
+
+    def plt_bif_crit(self, scanid='', save=False, title=False, out_type='pdf', plt_type='scatter'):
+        """ Plot Br over Br_vac absolute at the resonant surface, for the case when the diagnostics output was turned off.
+        Plots the values for all modes in one plot."""
+
+        if not (out_type == 'pdf' or out_type == 'jpg'):
+            raise ValueError('Wrong output type! Only jpg and pdf are supported.')
+
+        fig = plt.figure(figsize=(7.5,5))
+        plt.rc('font', size=18)
+        plt.tight_layout()
+        if title:
+            plt.suptitle('ELM Suppression in Hydrogen. Time evolution of shot ' + "{:.0f}".format(self.shot) \
+                + ' at ' + "{:.0f}".format(self.time) + 'ms.')
+
+        mode_names = self.get_mode_names('/'+scanid)
+
+        for mode in mode_names:
+
+            self.dqle22 = np.array(self.h5out[self.group_string(scanid, mode=mode, group ='dqle22_res_time')])
+            self.Br_abs_res = np.array(self.h5out[self.group_string(scanid,mode=mode, group='br_abs_res')])
+            self.Br_abs_res_time = np.array(self.h5out[self.group_string(scanid, mode=mode, group='br_abs_time')])
+            self.antenna_factor = np.sqrt(np.array(self.h5out[self.group_string(scanid,mode=mode, group='br_abs_antenna_factor')]))
+
+            if plt_type == 'scatter':
+                plt.scatter(self.Br_abs_res_time, self.dqle22/self.da_res[1], label='m = ' + mode[2] + '; n = '+ mode[4])
+            if plt_type == 'plot':
+                plt.plot(self.Br_abs_res_time, self.dqle22/self.da_res[1], label='m = ' + mode[2] + '; n = '+ mode[4],lw=4)
+            else:
+                SystemError('Plot type not supported')
+
+        plt.xlabel('t/s')
+        plt.ylabel('$|D^{QL}_{e22}(t)/D^A|(r_{res})$')
+        plt.legend()
+        plt.grid()
+        if save==True:
+            fig.savefig('plots/'+"{:.0f}".format(self.shot)+'_'+"{:.0f}".format(self.time)+'_bif_crit.'+ out_type, bbox_inches='tight', dpi=150)
+        return list(map(plt.figure, plt.get_fignums()))
+
     def plt_shielding_fac_over_ant_fac(self, scanid='', save=False, title=False, out_type = 'pdf', plt_type = 'plot', perc = True):
         """ Plot shielding factor over antenna factor for the case when the diagnostics output was turned off. If perc is True, it plots the antenna factor as percentage of the experimental value."""
 

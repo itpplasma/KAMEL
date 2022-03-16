@@ -32,7 +32,7 @@ if ans == 'y':
         f.write(neo2)
         f.close()
         
-        print dir_name
+        print(dir_name)
         
         fjobs.write(dir_name + "\n")
         

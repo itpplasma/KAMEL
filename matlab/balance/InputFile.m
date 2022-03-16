@@ -64,11 +64,14 @@ classdef InputFile < dynamicprops
             raw(cellfun(@(x) strcmp(x, ''), raw, 'UniformOutput', true)) = [];
             %delete comments
             raw(cellfun(@(x) strcmp(x(1), '!'), raw, 'UniformOutput', true)) = [];
+
+			%raw
+			%raw(1)
             
             %get namelists beginnings and ends
             nml1 = cellfun(@(x) strcmp(x(1), '&'), raw, 'UniformOutput', true);
             nml2 = cellfun(@(x) strcmp(x(1), '/'), raw, 'UniformOutput', true);
-            
+        
             %check for error
             if(sum(nml1) ~= sum(nml2))
                 error('error reading namelist inside file. number of & and / not the same.')
@@ -136,8 +139,9 @@ classdef InputFile < dynamicprops
                 
                 %write end of namelist
                 fid = fopen(pathto, 'a');
-                fprintf(fid, '%s\n', '/');
+                fprintf(fid, '%s\n','/');
                 fclose(fid);
+
             end
         end
     end

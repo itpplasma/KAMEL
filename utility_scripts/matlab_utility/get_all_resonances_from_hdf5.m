@@ -67,8 +67,9 @@ function [fl_wo_dTe, fl_w_dTe, el_res, res_surf, time] = get_all_resonances_from
 		%r_fluid_resonance = r_v(zero_crossing(v_fluid_wo_gradTe));
 		[r_fluid_resonance,more] = find_resonance(v_fluid_wo_gradTe, r_v, r_res);
 		disp([num2str(shot), '_', num2str(time(ti)), ' fluid more: ', num2str(more)])
-		fileID = fopen([outpath, 'fluid_resonance.dat'], 'a');
+		fileID = fopen([outpath, num2str(shot), '_fluid_resonance.dat'], 'a');
 		write_resonance_to_file(time(ti), r_fluid_resonance, fileID);
+		%fl_wo_dTe(ti) = r_fluid_resonance;
 
 		%if numel(r_fluid_resonance) > 1
 		%	[a, ind1] = min(abs(r_res - r_fluid_resonance), [], 2);
@@ -80,19 +81,21 @@ function [fl_wo_dTe, fl_w_dTe, el_res, res_surf, time] = get_all_resonances_from
 
 
 		[res_val ,more] = find_resonance(v_ExB + v_ed, r_v, r_res);
-		fileID = fopen([outpath, 'fluid_resonance_wdTe.dat'], 'a');
+		fileID = fopen([outpath, num2str(shot),'_fluid_resonance_wdTe.dat'], 'a');
 		write_resonance_to_file(time(ti), res_val, fileID);
+		%fl_w_dTe(ti) = res_val;
 
 
 		disp([num2str(shot), '_', num2str(time(ti)), ' fluid wdTe more: ', num2str(more)])
 
 		[res_val, more] = find_resonance(v_ExB, r_v, r_res);
-		fileID = fopen([outpath, 'electric_resonance.dat'], 'a');
+		fileID = fopen([outpath, num2str(shot), '_electric_resonance.dat'], 'a');
 		write_resonance_to_file(time(ti), res_val, fileID);
+		%el_res(ti) = res_val;
 
 		disp([num2str(shot), '_', num2str(time(ti)), ' electric more: ', num2str(more)])
 
-		fileID = fopen([outpath, 'resonant_surfaces.dat'], 'a');
+		fileID = fopen([outpath, num2str(shot), '_resonant_surfaces.dat'], 'a');
 		write_to_file(time(ti), r_res, fileID);
 
 		ti = ti+1;

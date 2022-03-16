@@ -272,9 +272,9 @@ classdef Balance < handle & hdf5_output
             obj.setKiLCAOptions();
 
             obj.kil_flre.antenna.nmod = 1;
-            obj.kil_flre.background.flag_recalc = -1;
+            obj.kil_flre.background.flag_recalc = 1;
             obj.kil_vacuum.antenna.nmod = 1;
-            obj.kil_vacuum.background.flag_recalc = -1;
+            obj.kil_vacuum.background.flag_recalc = 1;
 
             obj.setOptions();
         end
@@ -610,9 +610,9 @@ classdef Balance < handle & hdf5_output
 
                 %settings for balance run: single mode and profiles from
                 %interface
-                obj.(runs{k}).antenna.nmod = 1;
+                obj.(runs{k}).antenna.nmod = numel(obj.m);%1;
                 obj.(runs{k}).antenna.write(obj.(runs{k}).BLUE_PATH, obj.(runs{k}).pathofrun);
-                obj.(runs{k}).background.flag_recalc = -1;
+                obj.(runs{k}).background.flag_recalc = 1;
                 obj.(runs{k}).background.write(obj.(runs{k}).BLUE_PATH, obj.path_run);
             end
 
@@ -868,11 +868,11 @@ classdef Balance < handle & hdf5_output
 
             % create symbolic link to content of template_experimental -> balance code
             % saves space compared to copying
-            [~, ~] = system(['ln -sf /temp/markl_m/GITHUB/BalanceSuite/ql-balance/* ', obj.path_run]);
+            [~, ~] = system(['ln -sf /temp/markl_m/GITHUB/Balance/ql-balance/* ', obj.path_run]);
 			% need to be able to write to balance_conf.nml, i.e. remove 
 			% symbolic link and copy from blueprints folder
 			[~,~] = system(['rm ',obj.path_run,'balance_conf.nml']);
-			[~,~] = system(['cp /temp/markl_m/GITHUB/BalanceSuite/ql-balance/balance_conf.nml ', obj.path_run]);
+			[~,~] = system(['cp /temp/markl_m/GITHUB/Balance/matlab/blueprints/balance_conf.nml ', obj.path_run]);
             %FIELD DIVB0
             obj.fdb0 = field_divB0(obj.file_equi, obj.file_coil, obj.CONVEX_PATH, obj.path_fluxdata);
             obj.fdb0.write([obj.LIB_BALANCE, 'blueprints/'], obj.path_run);
@@ -988,7 +988,7 @@ classdef Balance < handle & hdf5_output
 
 			if (run_kilca == 1)
 				obj.reset_profiles();
-				obj.setKiLCAOptions(obj.m_ion);
+				obj.setKiLCAOptions(obj.m_ion, false);
 
             	runs = {'kil_vacuum', 'kil_flre'};
             	for k = 1:numel(runs)
@@ -1492,7 +1492,7 @@ classdef Balance < handle & hdf5_output
 
         end
 
-        function setKiLCAOptions(obj, ion_mass)
+        function setKiLCAOptions(obj, ion_mass, prerun)
             %##############################################################
             %function setKiLCAOptions(obj, flre, vac)
             %##############################################################
@@ -1510,9 +1510,16 @@ classdef Balance < handle & hdf5_output
 
            % if isempty(obj.r_big) |
 
+           % if it is prerun, use nmodes = 3 for the KiLCa run
+            if nargin < 3, prerun = true; end
+
 
             %number of modes
-            nmodes =1; %numel(obj.m);
+            if prerun
+                nmodes = numel(obj.m);
+            else
+                nmodes = 1;
+            end
 
             %build zones
             rad   = [obj.r_sta, obj.r_sep, obj.r_ant, obj.r_idw];
@@ -1532,6 +1539,7 @@ classdef Balance < handle & hdf5_output
                 obj.(runname).set_background(obj.r_big, obj.r_sep);
                 obj.(runname).background.Btor = obj.b_tor;
                 obj.(runname).background.flag_recalc = 1;
+                obj.(runname).background.flag_deb = 0;
 				obj.(runname).background.mi = ion_mass;
                 obj.(runname).set_antenna(obj.r_ant, nmodes);
                 obj.(runname).modes.set(obj.m, obj.n);

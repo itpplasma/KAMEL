@@ -6,6 +6,7 @@
 ! At the inner boundary fixed fluxes = 0 are always assumed
 !
   use grid_mod
+  use control_mod, only: debug_mode
 !
   implicit none
 !
@@ -13,7 +14,6 @@
   double precision :: hrmax,r,rnext,recnsp,rscale
   double precision, dimension(:),   allocatable :: x
   double precision, dimension(:,:), allocatable :: coef
-  logical :: debugging = .false.
 !
   nbaleqs=4
 !
@@ -27,12 +27,12 @@
   r=rmin
 !
   do while(r.lt.rmax)
-    if (debugging) print *, 'npoib: ', npoib
+    !if (debug_mode) print *, 'npoib: ', npoib
     call recnsplit(r,recnsp)
     rnext=r+hrmax/recnsp
     call recnsplit(rnext,recnsp)
     r=0.5d0*(rnext+r+hrmax/recnsp)
-    if (debugging) print *, 'r: ', r
+    !if (debug_mode) print *, 'r: ', r
     npoib=npoib+1
   enddo
   npoic=npoib-1
@@ -183,7 +183,7 @@
 !
   use resonances_mod
   use grid_mod, only: gg_width, gg_factor,r_resonant
-  use control_mod, only: ihdf5test
+  use control_mod, only: ihdf5test, debug_mode
   use h5mod
   use mpi
 !
@@ -195,19 +195,18 @@
   integer, dimension(:), allocatable :: m_a,n_a
   integer, dimension(:), allocatable :: m_aa,n_aa
   double precision, dimension(:), allocatable :: r,q
-  logical :: debugging = .false.
   integer :: lb, ub
 !
   iunit_res=157
 !
   ! added by Markus Markl, 08.04.2021
   if (ihdf5test .eq. 1) then
-    if (debugging) print *, "reading q from hdf5"
+    if (debug_mode) print *, "reading q from hdf5"
     CALL h5_init()
     CALL h5_open_rw(path2inp, h5_id)
     CALL h5_open_group(h5_id, '/preprocprof', group_id_1)
     CALL h5_get_bounds_1(group_id_1, 'q', lb, ub)
-    if (debugging) print *, "upper bound: ", ub, " lower bound: ", lb
+    if (debug_mode) print *, "upper bound: ", ub, " lower bound: ", lb
     allocate(r(ub),q(ub))
     CALL h5_get_double_1(group_id_1, 'q', q)
     !print *, 'q: ', q
@@ -218,7 +217,7 @@
     CALL h5_deinit()
     nr = ub
   else
-    if (debugging) print *, "get number of q data points"
+    if (debug_mode) print *, "get number of q data points"
     nr=0
     open(iunit_res,file='profiles/q.dat')
     do
@@ -229,7 +228,7 @@
     close(iunit_res)
     allocate(r(nr),q(nr))
 
-    if (debugging) print *, "reading profiles/q.dat"
+    if (debug_mode) print *, "reading profiles/q.dat"
     open(iunit_res,file='profiles/q.dat')
     do i=1,nr
       read(iunit_res,*) r(i),q(i)
@@ -248,7 +247,7 @@
   read(iunit_res,*)
   read(iunit_res,*) numres
   close(iunit_res)
-  if (debugging) print *, "numres = ", numres
+  if (debug_mode) write(*,*) "numres = ", numres
 !
   allocate(r_res(numres),width_res(numres),ampl_res(numres))
   allocate(r_resonant(numres))

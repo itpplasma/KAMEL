@@ -16,13 +16,13 @@ addpath('~/Dokumente/plasma/code/libneo_old/matlab/Utility/xxaxis');
 
 %shot = 33133;
 %time = [2100, 2200, 2400, 2600, 2800, 3000];
-shot = 39713;
+shot = 34214;
 %time =[1400, 1700, 1850, 2000, 2200, 2325, 2670, 2900];
-[time, type] = get_shot_times(shot, '/temp/markl_m/ELMsuppression_in_hydrogen/DATA/INDEX/');
+[time, type] = get_shot_times(shot);
 runname = [num2str(shot)];%, '_', num2str(time)];
 plotname =  [runname, '_exptdiag'];
 
-datapath = ['/temp/markl_m/ELMsuppression_in_hydrogen/DATA/ELMDIAG/', num2str(shot),'/'];
+datapath = ['/temp/markl_m/BALANCE_4CASES/EXPTDIAG/'];
 outpath = ['/temp/markl_m/'];
 
 Ipolsoli = [num2str(shot), '_MAC_Ipolsoli.dat'];
@@ -33,8 +33,8 @@ Ipolsoli_data = importdata([datapath, Ipolsoli]);
 IBl6_data = importdata([datapath, IBl6]);
 ELMi_data = importdata([datapath, ELMi]);
 
-I_ymax = 2.1e4;
-Da_ymax = 0.2;
+I_ymax = 2.3e4;
+Da_ymax = 0.7;
 
 fig = figure;
 

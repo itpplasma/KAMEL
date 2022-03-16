@@ -547,7 +547,7 @@ classdef profile_preprocessor < handle & hdf5_output
 
             %run python script create_surf_realspace.py
             cd(kpath);
-            [~, ~] = system('python2 create_surf_realspace.py');
+            [~, ~] = system('python create_surf_realspace.py');
 
             % RUN FOR NEO-2
             run_remote_neo2([obj.LIB_BALANCE, 'neo2/remote_run.conf'], kpath); %this is way better

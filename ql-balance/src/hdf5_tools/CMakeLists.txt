@@ -27,8 +27,8 @@ include_directories(${HDF5_INCLUDE_DIRS})
 
 ### Define executable
 add_library(hdf5_tools
-	${CMAKE_SOURCE_DIR}/src/hdf5_tools/hdf5_tools.f90
-	${CMAKE_SOURCE_DIR}/src/hdf5_tools/hdf5_tools_f2003.f90
+	${CMAKE_SOURCE_DIR}/hdf5_tools/hdf5_tools.f90
+	${CMAKE_SOURCE_DIR}/hdf5_tools/hdf5_tools_f2003.f90
 )
 
 if (CMAKE_Fortran_COMPILER_ID MATCHES "GNU")

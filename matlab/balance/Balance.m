@@ -387,6 +387,7 @@ classdef Balance < handle & hdf5_output
             obj.file_equi = gfile;
             % write g file to hdf5 file
             gfiledata = importdata(gfile, ' ', 1);
+			%gfiledata
             try
                 h5create(obj.hdf5file, '/input/gfile', size(gfiledata.data));
             catch
@@ -813,27 +814,17 @@ classdef Balance < handle & hdf5_output
 						% This is done, if the balance run is done without the
 						% prerun
 						% get the data from the hdf5 file
-						kil_r = h5read([obj.hdf5file,... 
-							num2str(obj.shot),'_', num2str(obj.time), '.hdf5'],...
-							'/KiLCA_vac/output/background/R');
-						kil_b0 = h5read([obj.hdf5file,...
-							num2str(obj.shot),'_', num2str(obj.time), '.hdf5'],...
-							'/KiLCA_vac/output/background/b0');
-						prof_r_out = h5read([obj.hdf5file,...
-							num2str(obj.shot),'_', num2str(obj.time), '.hdf5'],...
-							'/preprocprof/r_out');
+						kil_r = h5read(obj.hdf5file, '/KiLCA_vac/output/background/R');
+						kil_b0 = h5read(obj.hdf5file,'/KiLCA_vac/output/background/b0');
+						prof_r_out = h5read(obj.hdf5file,'/preprocprof/r_out');
 
 						% calculate the interpolated B0 field
 						obj.B0_ervzfac = interp1(...
 							kil_r,kil_b0, prof_r_out);
 
 						% load remaining data 
-						prof_q = h5read([obj.hdf5file,...
-							num2str(obj.shot),'_', num2str(obj.time), '.hdf5'],...
-							'/preprocprof/q');
-						prof_rbig = h5read([obj.hdf5file,...
-							num2str(obj.shot),'_', num2str(obj.time), '.hdf5'],...
-							'/input/r_big');
+						prof_q = h5read(obj.hdf5file, '/preprocprof/q');
+						prof_rbig = h5read(obj.hdf5file, '/input/r_big');
 						% calculate the factor used to rescale Er if vz is 
 						% changed and save it to the hdf5 file
 						obj.ErVzfac = prof_r_out .* obj.B0_ervzfac ./ ...
@@ -1481,7 +1472,7 @@ classdef Balance < handle & hdf5_output
 			kilca_r = h5read(obj.hdf5file, '/KiLCA_vac/output/background/R')';
 
             for i=1:numel(profs)
-                profile_y = interp1(prof_r, h5read(obj.hdf5file, ['/preprocprof/',profs{i}]), kilca_r);
+                profile_y = interp1(prof_r, h5read(obj.hdf5file, ['/preprocprof/',profs{i}]), kilca_r, 'spline');
                 fileID = fopen([obj.path_run, '/profiles/',profs{i},'.dat'],'w');
                 fprintf(fileID, "%.15e %.15e\n", [kilca_r; profile_y]);
                 fclose(fileID);
@@ -1539,7 +1530,7 @@ classdef Balance < handle & hdf5_output
                 obj.(runname).set_background(obj.r_big, obj.r_sep);
                 obj.(runname).background.Btor = obj.b_tor;
                 obj.(runname).background.flag_recalc = 1;
-                obj.(runname).background.flag_deb = 0;
+                obj.(runname).background.flag_deb = 1;
 				obj.(runname).background.mi = ion_mass;
                 obj.(runname).set_antenna(obj.r_ant, nmodes);
                 obj.(runname).modes.set(obj.m, obj.n);

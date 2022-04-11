@@ -76,6 +76,7 @@ program ql_balance
     DOUBLE PRECISION, DIMENSION(:, :, :, :), ALLOCATABLE :: dqle22_res
 ! Added by Markus Markl 12.05.2021, for velocity scan
     DOUBLE PRECISION, DIMENSION(:,:,:,:), ALLOCATABLE :: Er_res
+    DOUBLE PRECISION, DIMENSION(:, :, :, :), ALLOCATABLE :: br_abs_res_parscan
 ! Added by Markus Markl 18.03.2021, used for improved stopping criterion
     DOUBLE PRECISION, DIMENSION(:), ALLOCATABLE :: br_abs_time
 	DOUBLE PRECISION, DIMENSION(:), ALLOCATABLE :: br_abs_antenna_factor
@@ -266,7 +267,7 @@ program ql_balance
 
     allocate (dqle22_res(size(fac_n), size(fac_Te), size(fac_Ti), size(fac_vz)))
     if (paramscan) then
-
+        allocate(br_abs_res_parscan(size(fac_n), size(fac_Te), size(fac_Ti), size(fac_vz)))
         if (timing_mode) allocate (timingarr(size(fac_n), size(fac_Te), size(fac_Ti), size(fac_vz)))
         if (size(fac_vz) .ne. 1) allocate (Er_res(size(fac_n), size(fac_Te), size(fac_Ti), size(fac_vz)))
     end if
@@ -585,7 +586,8 @@ program ql_balance
                         ! added interpolation of dqle22, Markus Markl 08.04.2021
                         call plag_coeff(nlagr, nder, r_resonant, rb(ibeg:iend), coef)
                         dqle22_res(ifac_n, ifac_Te, ifac_Ti, ifac_vz) = sum(coef(0, :)*dqle22(ibeg:iend))
-
+                        br_abs_res_parscan(ifac_n, ifac_Te, ifac_Ti, ifac_vz) = sum(coef(0, :) &
+                            * abs(Br(ibeg:iend)))*sqrt(antenna_factor)
                         ! if velocity scan, determine Er_res for v_ExB velocity at resonant surface
                         if (size(fac_vz) .ne. 1) then
                             if (debug_mode) write (*, *) "determine Er_res"
@@ -597,6 +599,7 @@ program ql_balance
 
                         end if
                         write (*, *) 'dqle22 res = ', dqle22_res(ifac_n, ifac_Te, ifac_Ti, ifac_vz)
+                        write(*,*) "Br abs res = ", br_abs_res_parscan(ifac_n, ifac_Te, ifac_Ti, ifac_vz)
 
                         if (paramscan) then
                             ! if the last parameter scan is done, write data and stop the code
@@ -623,6 +626,11 @@ program ql_balance
                                                      reshape(dqle22_res, (/size(dqle22_res)/)), &
                                                      lbound(reshape(dqle22_res, (/size(dqle22_res)/))), &
                                                      ubound(reshape(dqle22_res, (/size(dqle22_res)/))))
+                                CALL h5_add_double_1(h5_id, trim(h5_mode_groupname)//'/br_abs_res', &
+                                                     reshape(br_abs_res_parscan, (/size(br_abs_res_parscan)/)), &
+                                                     lbound(reshape(br_abs_res_parscan, (/size(br_abs_res_parscan)/))), &
+                                                     ubound(reshape(br_abs_res_parscan, (/size(br_abs_res_parscan)/))))
+
                                 if (size(fac_vz) .ne. 1) then
                                     CALL h5_add_double_1(h5_id, trim(h5_mode_groupname)//'/Er_res', &
                                                          reshape(Er_res, (/size(Er_res)/)), &

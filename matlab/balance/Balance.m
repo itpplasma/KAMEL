@@ -1530,7 +1530,7 @@ classdef Balance < handle & hdf5_output
                 obj.(runname).set_background(obj.r_big, obj.r_sep);
                 obj.(runname).background.Btor = obj.b_tor;
                 obj.(runname).background.flag_recalc = 1;
-                obj.(runname).background.flag_deb = 1;
+                obj.(runname).background.flag_deb = 0;
 				obj.(runname).background.mi = ion_mass;
                 obj.(runname).set_antenna(obj.r_ant, nmodes);
                 obj.(runname).modes.set(obj.m, obj.n);

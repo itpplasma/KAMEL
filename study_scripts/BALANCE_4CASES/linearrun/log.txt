@@ -1,0 +1,750 @@
+Started run at 07-Dec-2021 13:43:05 
+Doing 41 different time slices
+
+Starting run at 07-Dec-2021 13:45:18 
+Doing 41 different time slices
+
+Currently running 1200
+Starting run at 07-Dec-2021 13:46:51 
+Doing 41 different time slices
+
+Currently running 1200
+Problem run for time 2000 at 07-Dec-2021 13:46:52 
+Currently running 1200
+Starting run at 07-Dec-2021 13:47:25 
+Doing 41 different time slices
+
+Currently running 1200
+Problem run for time 1200 at 07-Dec-2021 13:47:26 
+Currently running 1200
+Problem run for time 1200 at 07-Dec-2021 13:47:28 
+Currently running 1250
+Problem run for time 1250 at 07-Dec-2021 13:47:29 
+Currently running 1300
+Problem run for time 1300 at 07-Dec-2021 13:47:30 
+Currently running 1350
+Problem run for time 1350 at 07-Dec-2021 13:47:32 
+Currently running 1400
+Problem run for time 1400 at 07-Dec-2021 13:47:34 
+Currently running 1450
+Problem run for time 1450 at 07-Dec-2021 13:47:35 
+Currently running 1500
+Problem run for time 1500 at 07-Dec-2021 13:47:36 
+Currently running 1550
+Problem run for time 1550 at 07-Dec-2021 13:47:38 
+Currently running 1600
+Problem run for time 1600 at 07-Dec-2021 13:47:39 
+Currently running 1650
+Problem run for time 1650 at 07-Dec-2021 13:47:40 
+Currently running 1700
+Problem run for time 1700 at 07-Dec-2021 13:47:42 
+Currently running 1750
+Problem run for time 1750 at 07-Dec-2021 13:47:43 
+Currently running 1850
+Problem run for time 1850 at 07-Dec-2021 13:47:45 
+Currently running 1900
+Problem run for time 1900 at 07-Dec-2021 13:47:46 
+Currently running 1950
+Problem run for time 1950 at 07-Dec-2021 13:47:48 
+Currently running 2000
+Problem run for time 2000 at 07-Dec-2021 13:47:49 
+Currently running 2100
+Problem run for time 2100 at 07-Dec-2021 13:47:50 
+Currently running 2150
+Problem run for time 2150 at 07-Dec-2021 13:47:52 
+Currently running 2200
+Problem run for time 2200 at 07-Dec-2021 13:47:54 
+Currently running 2250
+Problem run for time 2250 at 07-Dec-2021 13:47:55 
+Currently running 2300
+Problem run for time 2300 at 07-Dec-2021 13:47:57 
+Currently running 2350
+Problem run for time 2350 at 07-Dec-2021 13:47:58 
+Currently running 2400
+Problem run for time 2400 at 07-Dec-2021 13:48:00 
+Currently running 2450
+Problem run for time 2450 at 07-Dec-2021 13:48:01 
+Currently running 2500
+Problem run for time 2500 at 07-Dec-2021 13:48:03 
+Currently running 2550
+Problem run for time 2550 at 07-Dec-2021 13:48:05 
+Currently running 2600
+Problem run for time 2600 at 07-Dec-2021 13:48:06 
+Currently running 2650
+Problem run for time 2650 at 07-Dec-2021 13:48:07 
+Currently running 2670
+Problem run for time 2670 at 07-Dec-2021 13:48:08 
+Currently running 2700
+Problem run for time 2700 at 07-Dec-2021 13:48:10 
+Currently running 2750
+Problem run for time 2750 at 07-Dec-2021 13:48:11 
+Currently running 2800
+Problem run for time 2800 at 07-Dec-2021 13:48:13 
+Currently running 2850
+Problem run for time 2850 at 07-Dec-2021 13:48:14 
+Currently running 2900
+Problem run for time 2900 at 07-Dec-2021 13:48:15 
+Currently running 2950
+Problem run for time 2950 at 07-Dec-2021 13:48:17 
+Currently running 3000
+Problem run for time 3000 at 07-Dec-2021 13:48:18 
+Currently running 3050
+Problem run for time 3050 at 07-Dec-2021 13:48:19 
+Currently running 3100
+Problem run for time 3100 at 07-Dec-2021 13:48:21 
+Currently running 3150
+Problem run for time 3150 at 07-Dec-2021 13:48:22 
+Currently running 3200
+Problem run for time 3200 at 07-Dec-2021 13:48:23 
+Starting run at 07-Dec-2021 13:53:41 
+Doing 41 different time slices
+
+Currently running 1200
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+Problem run for time 1200 at 07-Dec-2021 13:53:42 
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+Currently running 1200
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+Problem run for time 1200 at 07-Dec-2021 13:53:43 
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+Currently running 1250
+
+Starting run at 07-Dec-2021 13:59:36 
+Doing 41 different time slices
+
+Currently running 1200
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+Problem run for time 1200 at 07-Dec-2021 13:59:39 
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+Currently running 1200
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+Problem run for time 1200 at 07-Dec-2021 13:59:40 
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+Currently running 1250
+
+Starting run at 07-Dec-2021 14:00:08 
+Doing 41 different time slices
+
+Currently running 1200
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+Problem run for time 1200 at 07-Dec-2021 14:00:09 
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+Currently running 1200
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+Problem run for time 1200 at 07-Dec-2021 14:00:10 
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+Currently running 1250
+
+Starting run at 07-Dec-2021 14:02:47 
+Doing 41 different time slices
+
+Currently running 1200
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+Problem run for time 1200 at 07-Dec-2021 14:02:48 
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+Currently running 1200
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+Problem run for time 1200 at 07-Dec-2021 14:02:50 
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+Currently running 1250
+
+Starting run at 07-Dec-2021 14:11:45 
+Doing 41 different time slices
+
+Currently running 1200
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+Problem run for time 1200 at 07-Dec-2021 14:11:46 
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+Currently running 1200
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+Problem run for time 1200 at 07-Dec-2021 14:11:47 
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+Currently running 1250
+
+-------------------------------------------------
+Finished 1250 successfully at 07-Dec-2021 14:12:13 
+It took 25.6484 seconds
+-------------------------------------------------
+
+Currently running 1300
+
+-------------------------------------------------
+Finished 1300 successfully at 07-Dec-2021 14:12:39 
+It took 26.4894 seconds
+-------------------------------------------------
+
+Currently running 1350
+
+-------------------------------------------------
+Finished 1350 successfully at 07-Dec-2021 14:13:06 
+It took 27.0062 seconds
+-------------------------------------------------
+
+Currently running 1400
+
+-------------------------------------------------
+Finished 1400 successfully at 07-Dec-2021 14:13:34 
+It took 27.6133 seconds
+-------------------------------------------------
+
+Currently running 1450
+
+-------------------------------------------------
+Finished 1450 successfully at 07-Dec-2021 14:14:02 
+It took 28.3345 seconds
+-------------------------------------------------
+
+Currently running 1500
+
+-------------------------------------------------
+Finished 1500 successfully at 07-Dec-2021 14:14:30 
+It took 28.0128 seconds
+-------------------------------------------------
+
+Currently running 1550
+
+-------------------------------------------------
+Finished 1550 successfully at 07-Dec-2021 14:14:58 
+It took 28.0026 seconds
+-------------------------------------------------
+
+Currently running 1600
+
+-------------------------------------------------
+Finished 1600 successfully at 07-Dec-2021 14:15:26 
+It took 27.3743 seconds
+-------------------------------------------------
+
+Currently running 1650
+
+-------------------------------------------------
+Finished 1650 successfully at 07-Dec-2021 14:15:53 
+It took 27.013 seconds
+-------------------------------------------------
+
+Currently running 1700
+
+-------------------------------------------------
+Finished 1700 successfully at 07-Dec-2021 14:16:19 
+It took 25.9706 seconds
+-------------------------------------------------
+
+Currently running 1750
+
+-------------------------------------------------
+Finished 1750 successfully at 07-Dec-2021 14:16:45 
+It took 25.5943 seconds
+-------------------------------------------------
+
+Currently running 1850
+
+-------------------------------------------------
+Finished 1850 successfully at 07-Dec-2021 14:17:11 
+It took 26.5647 seconds
+-------------------------------------------------
+
+Currently running 1900
+
+-------------------------------------------------
+Finished 1900 successfully at 07-Dec-2021 14:17:37 
+It took 25.8768 seconds
+-------------------------------------------------
+
+Currently running 1950
+
+-------------------------------------------------
+Finished 1950 successfully at 07-Dec-2021 14:18:04 
+It took 26.9314 seconds
+-------------------------------------------------
+
+Currently running 2000
+
+-------------------------------------------------
+Finished 2000 successfully at 07-Dec-2021 14:18:30 
+It took 25.9067 seconds
+-------------------------------------------------
+
+Currently running 2100
+
+-------------------------------------------------
+Finished 2100 successfully at 07-Dec-2021 14:18:57 
+It took 27.1632 seconds
+-------------------------------------------------
+
+Currently running 2150
+
+-------------------------------------------------
+Finished 2150 successfully at 07-Dec-2021 14:19:27 
+It took 28.9406 seconds
+-------------------------------------------------
+
+Currently running 2200
+
+-------------------------------------------------
+Finished 2200 successfully at 07-Dec-2021 14:19:33 
+It took 6.5006 seconds
+-------------------------------------------------
+
+Currently running 2250
+
+-------------------------------------------------
+Finished 2250 successfully at 07-Dec-2021 14:20:02 
+It took 28.3833 seconds
+-------------------------------------------------
+
+Currently running 2300
+
+-------------------------------------------------
+Finished 2300 successfully at 07-Dec-2021 14:20:31 
+It took 29.593 seconds
+-------------------------------------------------
+
+Currently running 2350
+
+-------------------------------------------------
+Finished 2350 successfully at 07-Dec-2021 14:21:01 
+It took 29.3694 seconds
+-------------------------------------------------
+
+Currently running 2400
+
+-------------------------------------------------
+Finished 2400 successfully at 07-Dec-2021 14:21:31 
+It took 30.2916 seconds
+-------------------------------------------------
+
+Currently running 2450
+
+-------------------------------------------------
+Finished 2450 successfully at 07-Dec-2021 14:22:03 
+It took 31.599 seconds
+-------------------------------------------------
+
+Currently running 2500
+
+-------------------------------------------------
+Finished 2500 successfully at 07-Dec-2021 14:22:35 
+It took 31.8876 seconds
+-------------------------------------------------
+
+Currently running 2550
+
+-------------------------------------------------
+Finished 2550 successfully at 07-Dec-2021 14:23:10 
+It took 34.6811 seconds
+-------------------------------------------------
+
+Currently running 2600
+
+-------------------------------------------------
+Finished 2600 successfully at 07-Dec-2021 14:23:43 
+It took 33.2384 seconds
+-------------------------------------------------
+
+Currently running 2650
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+Problem run for time 2650 at 07-Dec-2021 14:23:46 
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+Currently running 2670
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+Problem run for time 2670 at 07-Dec-2021 14:23:48 
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+Currently running 2700
+
+-------------------------------------------------
+Finished 2700 successfully at 07-Dec-2021 14:24:21 
+It took 32.5057 seconds
+-------------------------------------------------
+
+Currently running 2750
+
+-------------------------------------------------
+Finished 2750 successfully at 07-Dec-2021 14:24:53 
+It took 32.2598 seconds
+-------------------------------------------------
+
+Currently running 2800
+
+-------------------------------------------------
+Finished 2800 successfully at 07-Dec-2021 14:25:26 
+It took 32.5873 seconds
+-------------------------------------------------
+
+Currently running 2850
+
+-------------------------------------------------
+Finished 2850 successfully at 07-Dec-2021 14:25:58 
+It took 32.1361 seconds
+-------------------------------------------------
+
+Currently running 2900
+
+-------------------------------------------------
+Finished 2900 successfully at 07-Dec-2021 14:26:30 
+It took 31.999 seconds
+-------------------------------------------------
+
+Currently running 2950
+
+-------------------------------------------------
+Finished 2950 successfully at 07-Dec-2021 14:27:04 
+It took 33.511 seconds
+-------------------------------------------------
+
+Currently running 3000
+
+-------------------------------------------------
+Finished 3000 successfully at 07-Dec-2021 14:27:39 
+It took 34.7852 seconds
+-------------------------------------------------
+
+Currently running 3050
+
+-------------------------------------------------
+Finished 3050 successfully at 07-Dec-2021 14:28:16 
+It took 37.1283 seconds
+-------------------------------------------------
+
+Currently running 3100
+
+-------------------------------------------------
+Finished 3100 successfully at 07-Dec-2021 14:28:53 
+It took 37.3257 seconds
+-------------------------------------------------
+
+Currently running 3150
+
+-------------------------------------------------
+Finished 3150 successfully at 07-Dec-2021 14:29:33 
+It took 39.7709 seconds
+-------------------------------------------------
+
+Currently running 3200
+
+-------------------------------------------------
+Finished 3200 successfully at 07-Dec-2021 14:30:09 
+It took 35.473 seconds
+-------------------------------------------------
+
+Starting run at 09-Dec-2021 15:12:03 
+Doing 43 different time slices
+
+Currently running 1200
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+Problem run for time 1200 at 09-Dec-2021 15:12:04 
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+Currently running 1200
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+Problem run for time 1200 at 09-Dec-2021 15:12:05 
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+Currently running 1250
+
+-------------------------------------------------
+Finished 1250 successfully at 09-Dec-2021 15:12:32 
+It took 26.5261 seconds
+-------------------------------------------------
+
+Currently running 1300
+
+-------------------------------------------------
+Finished 1300 successfully at 09-Dec-2021 15:12:59 
+It took 26.6746 seconds
+-------------------------------------------------
+
+Currently running 1350
+
+-------------------------------------------------
+Finished 1350 successfully at 09-Dec-2021 15:13:26 
+It took 27.3522 seconds
+-------------------------------------------------
+
+Currently running 1400
+
+-------------------------------------------------
+Finished 1400 successfully at 09-Dec-2021 15:13:54 
+It took 28.0064 seconds
+-------------------------------------------------
+
+Currently running 1450
+
+-------------------------------------------------
+Finished 1450 successfully at 09-Dec-2021 15:14:23 
+It took 28.7343 seconds
+-------------------------------------------------
+
+Currently running 1500
+
+-------------------------------------------------
+Finished 1500 successfully at 09-Dec-2021 15:14:52 
+It took 28.4426 seconds
+-------------------------------------------------
+
+Currently running 1550
+
+-------------------------------------------------
+Finished 1550 successfully at 09-Dec-2021 15:15:20 
+It took 28.1706 seconds
+-------------------------------------------------
+
+Currently running 1600
+
+-------------------------------------------------
+Finished 1600 successfully at 09-Dec-2021 15:15:48 
+It took 28.3165 seconds
+-------------------------------------------------
+
+Currently running 1650
+
+-------------------------------------------------
+Finished 1650 successfully at 09-Dec-2021 15:16:15 
+It took 27.0499 seconds
+-------------------------------------------------
+
+Currently running 1700
+
+-------------------------------------------------
+Finished 1700 successfully at 09-Dec-2021 15:16:42 
+It took 26.6599 seconds
+-------------------------------------------------
+
+Currently running 1750
+
+-------------------------------------------------
+Finished 1750 successfully at 09-Dec-2021 15:17:09 
+It took 26.5636 seconds
+-------------------------------------------------
+
+Currently running 1800
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+Problem run for time 1800 at 09-Dec-2021 15:17:12 
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+Currently running 1850
+
+-------------------------------------------------
+Finished 1850 successfully at 09-Dec-2021 15:17:39 
+It took 26.9448 seconds
+-------------------------------------------------
+
+Currently running 1900
+
+-------------------------------------------------
+Finished 1900 successfully at 09-Dec-2021 15:18:05 
+It took 26.5538 seconds
+-------------------------------------------------
+
+Currently running 1950
+
+-------------------------------------------------
+Finished 1950 successfully at 09-Dec-2021 15:18:33 
+It took 27.1466 seconds
+-------------------------------------------------
+
+Currently running 2000
+
+-------------------------------------------------
+Finished 2000 successfully at 09-Dec-2021 15:19:00 
+It took 27.2426 seconds
+-------------------------------------------------
+
+Currently running 2100
+
+-------------------------------------------------
+Finished 2100 successfully at 09-Dec-2021 15:19:28 
+It took 28.221 seconds
+-------------------------------------------------
+
+Currently running 2150
+
+-------------------------------------------------
+Finished 2150 successfully at 09-Dec-2021 15:19:58 
+It took 30.0789 seconds
+-------------------------------------------------
+
+Currently running 2200
+
+-------------------------------------------------
+Finished 2200 successfully at 09-Dec-2021 15:20:05 
+It took 6.0886 seconds
+-------------------------------------------------
+
+Currently running 2250
+
+-------------------------------------------------
+Finished 2250 successfully at 09-Dec-2021 15:20:32 
+It took 27.7966 seconds
+-------------------------------------------------
+
+Currently running 2300
+
+-------------------------------------------------
+Finished 2300 successfully at 09-Dec-2021 15:21:00 
+It took 27.7865 seconds
+-------------------------------------------------
+
+Currently running 2350
+
+-------------------------------------------------
+Finished 2350 successfully at 09-Dec-2021 15:21:30 
+It took 29.4419 seconds
+-------------------------------------------------
+
+Currently running 2400
+
+-------------------------------------------------
+Finished 2400 successfully at 09-Dec-2021 15:21:59 
+It took 28.9508 seconds
+-------------------------------------------------
+
+Currently running 2450
+
+-------------------------------------------------
+Finished 2450 successfully at 09-Dec-2021 15:22:28 
+It took 29.1772 seconds
+-------------------------------------------------
+
+Currently running 2500
+
+-------------------------------------------------
+Finished 2500 successfully at 09-Dec-2021 15:23:02 
+It took 33.5198 seconds
+-------------------------------------------------
+
+Currently running 2550
+
+-------------------------------------------------
+Finished 2550 successfully at 09-Dec-2021 15:23:33 
+It took 31.1659 seconds
+-------------------------------------------------
+
+Currently running 2600
+
+-------------------------------------------------
+Finished 2600 successfully at 09-Dec-2021 15:24:04 
+It took 31.5463 seconds
+-------------------------------------------------
+
+Currently running 2650
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+Problem run for time 2650 at 09-Dec-2021 15:24:06 
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+Currently running 2670
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+Problem run for time 2670 at 09-Dec-2021 15:24:07 
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+Currently running 2700
+
+-------------------------------------------------
+Finished 2700 successfully at 09-Dec-2021 15:24:40 
+It took 32.5145 seconds
+-------------------------------------------------
+
+Currently running 2750
+
+-------------------------------------------------
+Finished 2750 successfully at 09-Dec-2021 15:25:10 
+It took 30.2946 seconds
+-------------------------------------------------
+
+Currently running 2770
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+Problem with reading prerun data for time 2770 at 09-Dec-2021 15:25:10 
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+Currently running 2800
+
+-------------------------------------------------
+Finished 2800 successfully at 09-Dec-2021 15:25:41 
+It took 30.8908 seconds
+-------------------------------------------------
+
+Currently running 2850
+
+-------------------------------------------------
+Finished 2850 successfully at 09-Dec-2021 15:26:12 
+It took 30.356 seconds
+-------------------------------------------------
+
+Currently running 2900
+
+-------------------------------------------------
+Finished 2900 successfully at 09-Dec-2021 15:26:43 
+It took 31.0965 seconds
+-------------------------------------------------
+
+Currently running 2950
+
+-------------------------------------------------
+Finished 2950 successfully at 09-Dec-2021 15:27:15 
+It took 32.104 seconds
+-------------------------------------------------
+
+Currently running 3000
+
+-------------------------------------------------
+Finished 3000 successfully at 09-Dec-2021 15:27:48 
+It took 32.7944 seconds
+-------------------------------------------------
+
+Currently running 3050
+
+-------------------------------------------------
+Finished 3050 successfully at 09-Dec-2021 15:28:22 
+It took 34.3134 seconds
+-------------------------------------------------
+
+Currently running 3100
+
+-------------------------------------------------
+Finished 3100 successfully at 09-Dec-2021 15:28:57 
+It took 34.9461 seconds
+-------------------------------------------------
+
+Currently running 3150
+
+-------------------------------------------------
+Finished 3150 successfully at 09-Dec-2021 15:29:33 
+It took 35.9152 seconds
+-------------------------------------------------
+
+Currently running 3200
+
+-------------------------------------------------
+Finished 3200 successfully at 09-Dec-2021 15:30:07 
+It took 33.885 seconds
+-------------------------------------------------
+

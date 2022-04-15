@@ -266,8 +266,8 @@ program ql_balance
     ! allocate disk space for dqle22_res and timingarr, depending of the number of parameter scans done
 
     allocate (dqle22_res(size(fac_n), size(fac_Te), size(fac_Ti), size(fac_vz)))
+    allocate(br_abs_res_parscan(size(fac_n), size(fac_Te), size(fac_Ti), size(fac_vz)))
     if (paramscan) then
-        allocate(br_abs_res_parscan(size(fac_n), size(fac_Te), size(fac_Ti), size(fac_vz)))
         if (timing_mode) allocate (timingarr(size(fac_n), size(fac_Te), size(fac_Ti), size(fac_vz)))
         if (size(fac_vz) .ne. 1) allocate (Er_res(size(fac_n), size(fac_Te), size(fac_Ti), size(fac_vz)))
     end if

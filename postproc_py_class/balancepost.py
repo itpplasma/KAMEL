@@ -301,25 +301,36 @@ class postproc:
             self.deq22_res = self.get_deq22_res_read(scanid, time)
             self.bifurcfactors = self.deq22_res/self.da_res
             fig, ax = plt.subplots(figsize=(10,4))
+            plt.rc('font', size=16)
             ax_twin = plt.twinx()
-            ax.set_title(scanid)
+            ax.set_title('approximate criterion', weight='bold')
             ax.plot(self.r_res.transpose()[0], self.bifurcfactors,marker='o', label='bifurcation factors')
-            ax.axhline(y=1.0,linestyle = ':', color = 'grey' ,label='threshold')
+            ax.axhline(y=1.0,linestyle = '--', color = 'grey' ,label='threshold')
+            ax.text(65, 1, 'threshold', va='bottom', weight='bold')
             ax.set_yscale('log')
-            ax.set_ylabel('$D^{QL}_{e22}/D_a$ @ res')
-            ax.set_xlabel('r/cm')
+            ax.set_ylabel(r'(D$^{\mathrm{ql}}_{e22}$ / D$^{\mathrm{a}}$) (r$_{\mathrm{res}}$)')
+            ax.set_xlabel('r / cm')
             ax.set_xlim((40,70))
-            ax_twin.plot(self.prof_rc, self.prof_p*2, color='orange', label ='pressure')
-            ax_twin.set_ylabel('$p_{tot}$ / Pa', color='orange')
+            ax_twin.plot(self.prof_rc, self.prof_p, color='k', label ='pressure')
+            ax_twin.set_ylabel('$p_{tot}$ / Pa')
+            ax_twin.ticklabel_format(axis='y', style='sci', scilimits=(1,4))
             ax_twin.set_ylim((0,14e4))
 
-            ax_twin.ticklabel_format(useMathText=True)
+            #ax_twin.ticklabel_format(useMathText=True)
 
-            fluid_resonance = np.amax(np.array(self.h5inp['output/zero_veperp']))
-            ExB_resonance = np.amax(np.array(self.h5inp['output/zero_vExB']))
+            #fluid_resonance = np.amax(np.array(self.h5inp['output/zero_veperp']))
+            #ExB_resonance = np.amax(np.array(self.h5inp['output/zero_vExB']))
 
-            ax.axvline(x=fluid_resonance, color = 'grey', linestyle = '--', label='Fluid resonance')
-            ax.axvline(x=ExB_resonance, color = 'grey', linestyle = '-.', label='ExB resonance')
+            #ax.axvline(x=fluid_resonance, color = 'grey', linestyle = '--', label='Fluid resonance')
+            #ax.axvline(x=ExB_resonance, color = 'grey', linestyle = '-.', label='ExB resonance')
+
+            ax.annotate('5/2', [self.r_res[0], self.bifurcfactors[0]], weight='bold', ha='center',va='top')
+            ax.annotate('6/2', [self.r_res[1], self.bifurcfactors[1]], weight='bold')
+            ax.annotate('7/2', [self.r_res[2], self.bifurcfactors[2]], weight='bold')
+
+            offs = 10500
+            ax_twin.plot([self.prof_rc[offs], self.prof_rc[offs]+0.5], [self.prof_p[offs], self.prof_p[offs] + 3e4], c='k')
+            ax_twin.text(self.prof_rc[offs]+0.5, self.prof_p[offs]+3e4, r'p$_{tot}$', weight='bold', va='bottom', ha='center')
 
             #for elem in self.h5inp['output/zero_veperp']:
             #    if (not np.isnan(elem)):
@@ -328,7 +339,7 @@ class postproc:
             #for elem in self.h5inp['output/zero_vExB']:
             #    if (not np.isnan(elem)):
             #        ax.axvline(x=elem, color = 'grey', linestyle = '-.', label='ExB resonance')
-            ax.legend()
+            #ax.legend()
             #plt.show()
             return list(map(plt.figure, plt.get_fignums()))
 
@@ -401,7 +412,8 @@ class postproc:
         EVK = 1.1604e4
         self.load_profile(proftype='n', scanid=scanid)
         self.load_profile(proftype='Te', scanid=scanid)
-        self.prof_p = self.prof_n * self.prof_Te * k_B * EVK
+        self.load_profile(proftype='Ti', scanid=scanid)
+        self.prof_p = self.prof_n * (self.prof_Te + self.prof_Ti) * k_B * EVK
 
 
     def calc_total_pres(self, scanid='', time=0):
@@ -1059,7 +1071,7 @@ class postproc:
         #    count2 = 0
         dqle22 = np.array(self.h5out[mode+'/dqle22_res'])
         # toroidal rescaling of the diffusion coefficient
-        dqle22 = self.tor_resc(dqle22, mode)
+        #dqle22 = self.tor_resc(dqle22, mode)
 
         self.da_res = np.array(self.h5inp['output/Da_res']).transpose()[0]
 

@@ -31,7 +31,7 @@ policy = paramiko.client.AutoAddPolicy
 user = input("Username: ")
 passwd = getpass.getpass("Password: ")
 
-shot = 34214
+shot = 33353
 
 listpath = '/itp/MooseFS/markl_m/BALANCE_4CASES/DATA/'+ str(int(shot)) + '_time_list.txt'
 data = np.loadtxt(listpath, dtype='int')

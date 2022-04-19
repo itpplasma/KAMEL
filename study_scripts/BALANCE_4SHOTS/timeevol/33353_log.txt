@@ -1,0 +1,62 @@
+Starting timeevol run at 14-Apr-2022 10:59:40 
+Doing 4 different time slices
+
+Currently running 3250
+
+-------------------------------------------------
+Finished 3250 successfully at 14-Apr-2022 11:12:12 
+It took 751.4583 seconds
+=================================================
+
+Currently running 3300
+
+-------------------------------------------------
+Finished 3300 successfully at 14-Apr-2022 11:25:04 
+It took 772.3957 seconds
+=================================================
+
+Currently running 3350
+
+-------------------------------------------------
+Finished 3350 successfully at 14-Apr-2022 11:50:04 
+It took 1499.4867 seconds
+=================================================
+
+Currently running 3400
+
+-------------------------------------------------
+Finished 3400 successfully at 14-Apr-2022 12:02:09 
+It took 724.7586 seconds
+=================================================
+
+Starting timeevol run at 14-Apr-2022 12:21:57 
+Doing 4 different time slices
+
+Currently running 3250
+
+-------------------------------------------------
+Finished 3250 successfully at 14-Apr-2022 12:34:33 
+It took 755.4357 seconds
+=================================================
+
+Currently running 3300
+
+-------------------------------------------------
+Finished 3300 successfully at 14-Apr-2022 12:47:18 
+It took 765.753 seconds
+=================================================
+
+Currently running 3350
+
+-------------------------------------------------
+Finished 3350 successfully at 14-Apr-2022 13:12:16 
+It took 1497.9676 seconds
+=================================================
+
+Currently running 3400
+
+-------------------------------------------------
+Finished 3400 successfully at 14-Apr-2022 13:24:21 
+It took 724.5066 seconds
+=================================================
+

@@ -21,14 +21,13 @@
 # Created: 31.03.2021
 ##########################################################
 
-import os
-from h5py._hl import group
 import matplotlib.pyplot as plt
 from matplotlib.ticker import FormatStrFormatter
 import numpy as np
 import h5py
 from scipy.interpolate import CubicSpline
 import re
+from scipy.signal import argrelextrema
 
 class postproc:
 

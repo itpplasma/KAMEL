@@ -110,7 +110,7 @@ class postproc:
         return self.scanlist
 
 
-    def get_mode_names(self, scanname):
+    def get_mode_names(self, scanname='/'):
         """Get the mode names, e.g. f_5_2, for a specific scanname. If no parameter scan was done, use '/' to indicate the root group."""
         self.modes_list = []
         for key in self.h5out[scanname].keys():
@@ -1036,27 +1036,25 @@ class postproc:
 
         k_B = 1.3807e-16
         EVK = 1.1604e4
-        self.prof_rc = np.array(self.h5out['init_params/r'])[0:-1]
+        prof_rc = np.array(self.h5out['init_params/r'])[0:-1]
         prof_n = np.array(self.h5out['init_params/n'])
         prof_Te = np.array(self.h5out['init_params/Te'])
-        prof_p = prof_n * prof_Te * k_B * EVK
+        prof_Ti = np.array(self.h5out['init_params/Ti'])
+
+        prof_p = prof_n * (prof_Te + prof_Ti) * k_B * EVK
+        dprof_p = np.gradient(prof_p, prof_rc)
 
         # interpolate
-        interp_grad_p = CubicSpline(self.prof_rc, np.gradient(prof_p))
-        interp_grad_grad_p = CubicSpline(self.prof_rc, np.gradient(np.gradient(prof_p)))
-        interp_p = CubicSpline(self.prof_rc, prof_p)
+        interp_dp = CubicSpline(prof_rc, dprof_p)
+        interp_n = CubicSpline(prof_rc, prof_n)
+        interp_Te = CubicSpline(prof_rc, prof_Te)
 
+        indx = argrelextrema(dprof_p, np.greater)[0]
+        indx = indx[(np.abs(prof_rc[indx] - self.r_res[1])).argmin()]
 
-        #interp_n = CubicSpline(self.prof_rc, self.h5out['init_params/n'])
-        interp_n = CubicSpline(self.prof_rc, prof_n)
-        interp_grad_n = CubicSpline(self.prof_rc, np.gradient(prof_n))
-        interp_Te = CubicSpline(self.prof_rc, np.array(prof_Te))#/(1.6022*10**-12))
-
-        gradgradproots = interp_grad_grad_p.roots()
-        gradproots = interp_grad_p.roots()
-        gradnroots = interp_grad_n.roots()
-        Teped = interp_Te(gradgradproots[2])
-        nped = interp_n(gradgradproots[2])
+        print('ped at ' + str(prof_rc[indx]))
+        Teped = interp_Te(prof_rc[indx])
+        nped = interp_n(prof_rc[indx])
 
         self.get_mode_names(self.scans_list[1])
         #modelist = ['/f_5_2/dqle22_res','/f_6_2/dqle22_res','/f_7_2/dqle22_res']
@@ -1072,7 +1070,7 @@ class postproc:
         # toroidal rescaling of the diffusion coefficient
         #dqle22 = self.tor_resc(dqle22, mode)
 
-        self.da_res = np.array(self.h5inp['output/Da_res']).transpose()[0]
+        self.da_res = np.array(self.h5inp['output/Da_res']).transpose()[0][self.mode_to_index(mode)]
 
         nempval = 3.3e13
         tempval = 1e3
@@ -1087,50 +1085,49 @@ class postproc:
         lvl = nums#np.linspace(lower,upper,nums)
         vcmap = 'coolwarm'
 
-
-        fig = plt.figure(figsize=(16,8))
+        plt.rc('font', size=18)
+        fig = plt.figure(figsize=(12,7))
         # plotting
-        for i in range(0,1):
-            dql_re = np.transpose(np.reshape(dqle22/self.da_res[i],(np.size(self.fac_Te), np.size(self.fac_n))))
+        dql_re = np.transpose(np.reshape(dqle22/self.da_res,(np.size(self.fac_Te), np.size(self.fac_n))))
 
-            plt.title(str(int(self.shot)) + ' @ '+ str(int(self.time))+ 'ms ; m = '+str(int(self.m[i])))
-            # filled contour plot
-            plot = plt.contourf(nmesh*nped/nscaling, Temesh*Teped/Tscaling, np.log10(dql_re), levels=lvl,cmap=vcmap)
-            #plt.xlim(right=xlimright)
+        plt.title(str(int(self.shot)) + ' @ '+ str(int(self.time))+ 'ms ; m = '+str(int(self.m[self.mode_to_index(mode)])), weight='bold')
+        # filled contour plot
+        plot = plt.contourf(nmesh*nped/nscaling, Temesh*Teped/Tscaling, np.log10(dql_re), levels=lvl,cmap=vcmap)
+        #plt.xlim(right=xlimright)
 
-            # contours
-            conpltgrey = plt.contour(nmesh*nped/nscaling, Temesh*Teped/Tscaling, np.log10(dql_re), linestyles='solid', levels=lvl)
-            plt.clabel(conpltgrey, fmt='%2.1f', colors = 'k', fontsize=12)
+        # contours
+        conpltgrey = plt.contour(nmesh*nped/nscaling, Temesh*Teped/Tscaling, np.log10(dql_re), linestyles='solid', levels=lvl)
+        plt.clabel(conpltgrey, fmt='%2.1f', colors = 'k', fontsize=12)
 
-            # threshold line
-            conplt0 = plt.contour(nmesh*nped/nscaling, Temesh*Teped/Tscaling, np.log10(dql_re), levels=np.array([0.0]))
-            plt.clabel(conplt0,fmt='%2.1f', colors='k', fontsize=12)
-            h1,_ = conplt0.legend_elements() # handle for legend
+        # threshold line
+        conplt0 = plt.contour(nmesh*nped/nscaling, Temesh*Teped/Tscaling, np.log10(dql_re), levels=np.array([0.0]), linestyles='--')
+        plt.clabel(conplt0,fmt='%2.1f', colors='k', fontsize=12)
+        h1,_ = conplt0.legend_elements() # handle for legend
 
-            pltref = plt.scatter(1.0*nped/nscaling,1.0*Teped/Tscaling, color='k', marker='*')
+        pltref = plt.scatter(1.0*nped/nscaling,1.0*Teped/Tscaling, color='k', marker='*')
 
-            # color bar
-            cbar = plt.colorbar(plot)
-            cbar.set_label('$log_{10}(D^{ql}_{e22}/D_a)$')
+        # color bar
+        cbar = plt.colorbar(plot)
+        cbar.set_label(r'log$_{10}$(D$^{\mathrm{ql}}_{e22}$ / D$^{\mathrm{a}}$) at resonant surface')
 
-            # calculated points
-            pltcalc = plt.scatter(nmesh*nped/nscaling,Temesh*Teped/Tscaling, color = 'grey', marker = '.')
+        # calculated points
+        pltcalc = plt.scatter(nmesh*nped/nscaling,Temesh*Teped/Tscaling, color = 'grey', marker = '.')
 
-            #empirical bounds
-            pltnemp = plt.axvline(x=nempval/nscaling, linestyle='--', color='w')
-            #plt.text(nempval/nscaling + 0.2, plt.Axes.get_ylim()[1]*0.75 ,s='$n_{p}^{emp}$',color='w',rotation=90,fontsize=18)
+        #empirical bounds
+        pltnemp = plt.axvline(x=nempval/nscaling, linestyle='--', color='w')
+        #plt.text(nempval/nscaling + 0.2, plt.Axes.get_ylim()[1]*0.75 ,s='$n_{p}^{emp}$',color='w',rotation=90,fontsize=18)
 
-            plttemp = plt.axhline(y=tempval/Tscaling, linestyle='--',color='w')
-            #plt.text(plt.Axes.get_xlim()[1]*0.75, (tempval+300)/Tscaling,s='$T_{p}^{emp}$',color='w',fontsize=18)
+        plttemp = plt.axhline(y=tempval/Tscaling, linestyle='--',color='w')
+        #plt.text(plt.Axes.get_xlim()[1]*0.75, (tempval+300)/Tscaling,s='$T_{p}^{emp}$',color='w',fontsize=18)
 
-            # legend
-            plt.legend([h1[0], pltref,pltcalc] , ['Threshold','Reference point','Calculated values'])
+        # legend
+        plt.legend([h1[0], pltref,pltcalc, pltnemp] , ['Threshold','Reference point','Calculated values', 'Empirical bounds'])
 
-            # label
-            plt.xlabel('$n_{p} \, /10^{13} \, cm^{-3}$',fontsize = 14)
-            plt.ylabel('$T_{p} \, /10^3 \, eV$', fontsize = 14)
-            plt.show()
-            #fig.savefig('plots/parscan_'+str(int(np.array(Tnscan.shot)[0][0])) + '.'+ str(int(np.array(Tnscan.time)[0][0]))+'_m'+str(int(Tnscan.m.transpose()[0][i]))+'.pdf')
+        # label
+        plt.xlabel('$n_{p} \, /10^{13} \, cm^{-3}$',fontsize = 14)
+        plt.ylabel('$T_{p} \, /10^3 \, eV$', fontsize = 14)
+        plt.show()
+        #fig.savefig('plots/parscan_'+str(int(np.array(Tnscan.shot)[0][0])) + '.'+ str(int(np.array(Tnscan.time)[0][0]))+'_m'+str(int(Tnscan.m.transpose()[0][i]))+'.pdf')
 
 
     def plt_nTscan_all_modes(self, save=False, type_out='pdf', nums=15):
@@ -1290,3 +1287,13 @@ class postproc:
         if type(mode) == int:
             mode = 'f_' + "{:.0f}".format(self.m[mode]) + '_' + "{:.0f}".format(self.n[mode])
         return mode
+
+    def mode_to_index(self, mode):
+        if np.size(self.get_mode_names()) == 1:
+            return 0
+        if mode == 'f_5_2':
+            return 0
+        if mode == 'f_6_2':
+            return 1
+        if mode == 'f_7_2':
+            return 2

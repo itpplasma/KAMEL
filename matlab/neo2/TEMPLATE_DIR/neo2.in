@@ -36,7 +36,7 @@
 
 &collision 
 	conl_over_mfp = <conl_over_mfp>
-	lag = 4                  ! number of Laguerre polynomials
+	lag = 4                  ! 4, number of Laguerre polynomials
 	leg = 3                  ! number of Legendre polynomials
 	legmax = 5               ! maximum number of Legendre polynomials
 	z_eff = 0.0d0            ! effective charge

@@ -693,6 +693,7 @@ subroutine calc_dequi
     ! added by Markus Markl, 12.04.2021
     use h5mod
     use control_mod, only: ihdf5test, debug_mode
+    use paramscan_mod, only: viscosity_factor
     !
     implicit none
     !
@@ -789,7 +790,8 @@ subroutine calc_dequi
     dai11 = dae11
     dai12 = dae12
     dai22 = dae22
-    visca = dae11
+    visca = dae11 * viscosity_factor
+    write(*,*) "Anomalous viscosity: visca= ", visca
 
     !debug
     !open(855,file='da.dat')

@@ -43,7 +43,7 @@ classdef InputFile < dynamicprops
             
             obj.path = path;
         end
-        
+
         function read(obj)
             %##############################################################
             %function read(obj)

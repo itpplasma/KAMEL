@@ -753,6 +753,7 @@ classdef Balance < handle & hdf5_output
 			obj.optionsnml.BALANCENML.rsepar = obj.r_sep_real;
 			% write the balance options into the namelist file
 			obj.optionsnml.write([obj.path_run,'balance_conf.nml']);
+            obj.export_nml2hdf5(obj.optionsnml);
 
 			% if no parameter scan is done, set the factors to 1
 			if (not(obj.optionsnml.BALANCENML.paramscan))
@@ -1074,7 +1075,7 @@ classdef Balance < handle & hdf5_output
 
 				obj.optionsnml = InputFile(['balance_conf.nml']);
 				obj.optionsnml.read();
-				obj.optionsnml.BALANCENML.antenna_factor = scalefactorssq;
+				%obj.optionsnml.BALANCENML.antenna_factor = scalefactorssq;
 				obj.optionsnml.BALANCENML.path2out = obj.h5out;
 				obj.optionsnml.write([obj.path_run,'balance_conf.nml']);
                 
@@ -1360,6 +1361,61 @@ classdef Balance < handle & hdf5_output
         %##################################################################
         % METHODS FOR EXPORT
         %##################################################################
+
+        function export_nml2hdf5(obj, config)
+            %##############################################################
+            % function export_nml2hdf5(obj, config)
+            %##############################################################
+            % description:
+            %--------------------------------------------------------------
+            % export configuration written to namelist file balance_conf.nml
+            % into output hdf5 file
+            %##############################################################
+            % input:
+            %--------------------------------------------------------------
+            % config: namelist options object
+            %##############################################################
+
+            disp('--- exporting namelist configuration to hdf5 ---')
+
+            proplist = properties(config.BALANCENML)
+
+            if size(proplist) == 0
+                error('Property of balance_conf.nml list is empty')
+            end
+
+            obj.writeHDF5(obj.h5out, '/', 'shot', 'shot number', '1');
+            obj.writeHDF5(obj.h5out, '/', 'time', 'shot time', 'ms');
+
+            % loop over all variables in namelist
+            for i=1:size(proplist)
+                dtype = class(config.BALANCENML.(proplist{i}));
+                data = config.BALANCENML.(proplist{i});
+                if strcmp(dtype, 'char')
+                    % matlab's h5create does not support writing strings -.-
+                    continue
+                end
+                if strcmp(dtype, 'logical')
+                   if data == 0
+                        data = 0.0;
+                   end 
+                   if data == 1
+                        data = 1.0;
+                   end 
+
+                end
+                try
+                    h5create(obj.h5out, ['/balance_conf.nml/', proplist{i}], size(config.BALANCENML.(proplist{i})), 'DataType', 'double');
+                catch
+                    warning(['/balance_conf.nml/', proplist{i}, ' already exists'])
+                end
+                h5write(obj.h5out, ['/balance_conf.nml/', proplist{i}], data);
+            end
+
+            disp('--- finished exporting ---')
+
+        end
+
 
         function export2HDF5(obj, path, name)
             %##############################################################

@@ -108,4 +108,5 @@ module paramscan_mod
     double precision, dimension(:), allocatable :: fac_n, fac_Te, &
         fac_Ti, fac_vz
     character(len=1024) :: parscan_str
+    double precision :: viscosity_factor
 end module

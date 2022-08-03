@@ -56,4 +56,5 @@
  temperature_limit = 20.0 , ! lower temperature limit
  antenna_max_stopping = 2.0 , ! code stops when antenna factor has reached antenna_max stopping * antenna_factor_max
  gyro_current_study = 0 , 
+ viscosity_factor = 1 ,
 /

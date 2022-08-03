@@ -103,7 +103,7 @@ program ql_balance
         path2inp, path2out, timstep_min, paramscan, save_prof_time_step, &
         diagnostics_output, br_stopping, suppression_mode, debug_mode, timing_mode, &
         readfromtimestep, path2time, faster_ramp_up, t_max_ramp_up, temperature_limit, &
-        antenna_max_stopping, gyro_current_study
+        antenna_max_stopping, gyro_current_study, viscosity_factor
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !debug_mode = .true. !  debug mode variable that enables print debugging
 !timing_mode = .true.
@@ -208,6 +208,7 @@ program ql_balance
         write(*,*) "temperature_limit = ", temperature_limit
         write(*,*) "antenna_max_stopping = ", antenna_max_stopping
         write(*,*) "gyro_current_study = ", gyro_current_study
+        write(*,*) "viscosity_factor = ", viscosity_factor
         write(*,*) ''
     end if
 
@@ -600,6 +601,7 @@ program ql_balance
                         end if
                         write (*, *) 'dqle22 res = ', dqle22_res(ifac_n, ifac_Te, ifac_Ti, ifac_vz)
                         write(*,*) "Br abs res = ", br_abs_res_parscan(ifac_n, ifac_Te, ifac_Ti, ifac_vz)
+						write(*,*) "Antenna factor = ", antenna_factor
 
                         if (paramscan) then
                             ! if the last parameter scan is done, write data and stop the code

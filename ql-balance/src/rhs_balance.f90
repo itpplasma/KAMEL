@@ -1226,6 +1226,35 @@ subroutine get_dql(istep)
         deallocate (dummy)
     end if
 
+    ! set ion particle flux coefficients to zero
+    if (.false.) then
+        mwind_save = mwind
+        mwind = 30
+        allocate (dummy(npoib))
+        !call smooth_array_gauss(npoib, mwind, dqle11, dummy)
+        dqle11 = 0.d0!dummy
+        !call smooth_array_gauss(npoib, mwind, dqle12, dummy)
+        dqle12 = 0.d0!dummy
+        call smooth_array_gauss(npoib, mwind, dqle21, dummy)
+        dqle21 = dummy
+        call smooth_array_gauss(npoib, mwind, dqle22, dummy)
+        dqle22 = dummy
+!
+        mwind = 30
+        call smooth_array_gauss(npoib, mwind, dqli12, dummy)
+        dqli12 = dummy
+        call smooth_array_gauss(npoib, mwind, dqli21, dummy)
+        dqli21 = dummy
+        call smooth_array_gauss(npoib, mwind, dqli21, dummy)
+        dqli21 = dummy
+        call smooth_array_gauss(npoib, mwind, dqli22, dummy)
+        dqli22 = dummy
+        mwind = mwind_save
+        deallocate (dummy)
+    end if
+
+
+
     if (irank .eq. 0) then
         if (modulo(istep, save_prof_time_step) .eq. 0) then
             if (suppression_mode .eqv. .false.) then

@@ -1075,7 +1075,7 @@ classdef Balance < handle & hdf5_output
 
 				obj.optionsnml = InputFile(['balance_conf.nml']);
 				obj.optionsnml.read();
-				%obj.optionsnml.BALANCENML.antenna_factor = scalefactorssq;
+				obj.optionsnml.BALANCENML.antenna_factor = scalefactorssq;
 				obj.optionsnml.BALANCENML.path2out = obj.h5out;
 				obj.optionsnml.write([obj.path_run,'balance_conf.nml']);
                 

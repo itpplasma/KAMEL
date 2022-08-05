@@ -85,7 +85,7 @@ program ql_balance
     DOUBLE PRECISION :: br_predicted
 
 ! ramp up parameters
-	integer :: faster_ramp_up
+	integer :: ramp_up_mode
 	DOUBLE PRECISION :: t_max_ramp_up = 1e-2 ! 10ms ramp up
 !
     integer ::  ibrabsres, ibeg, iend, nlagr, nder
@@ -102,7 +102,7 @@ program ql_balance
         write_formfactors, flag_run_time_evolution, stop_time_step, &
         path2inp, path2out, timstep_min, paramscan, save_prof_time_step, &
         diagnostics_output, br_stopping, suppression_mode, debug_mode, timing_mode, &
-        readfromtimestep, path2time, faster_ramp_up, t_max_ramp_up, temperature_limit, &
+        readfromtimestep, path2time, ramp_up_mode, t_max_ramp_up, temperature_limit, &
         antenna_max_stopping, gyro_current_study, viscosity_factor
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !debug_mode = .true. !  debug mode variable that enables print debugging
@@ -203,7 +203,7 @@ program ql_balance
         print *, 'br_stopping = ', br_stopping
         print *, 'debug_mode = ', debug_mode
         print *, 'suppression_mode = ', suppression_mode
-		write(*,*) "faster_ramp_up = ", faster_ramp_up
+		write(*,*) "ramp_up_mode = ", ramp_up_mode
 		write(*,*) "t_max_ramp_up = ", t_max_ramp_up
         write(*,*) "temperature_limit = ", temperature_limit
         write(*,*) "antenna_max_stopping = ", antenna_max_stopping
@@ -1028,13 +1028,13 @@ program ql_balance
                         ! Stopping criterion that is always active
                         if (antenna_factor .lt. (antenna_factor_max*antenna_max_stopping)) then
                             if (debug_mode) write(*,*) "-- ramp up antenna_factor --"
-                            if (faster_ramp_up .eq. 0) then
+                            if (ramp_up_mode .eq. 0) then
                                ! initial ramp up. This is a linear ramp up of the antenna factor in time.
                                 antenna_factor = time**2 + 1.d-4
-                            else if (faster_ramp_up .eq. 1) then
+                            else if (ramp_up_mode .eq. 1) then
                                ! First try for faster ramp up. Is (usually) not stable.
                                 antenna_factor = antenna_factor + antenna_factor_max * (timstep/t_max_ramp_up)
-                            else if (faster_ramp_up .eq. 2) then
+                            else if (ramp_up_mode .eq. 2) then
                                ! Use this for faster ramp up. Ramps up antenna factor to 100% of max value
                                ! in t_max_ramp_up time.
                                 if (time .eq. 0) then
@@ -1042,11 +1042,11 @@ program ql_balance
                                 else
                                     antenna_factor = antenna_factor_max * (time/t_max_ramp_up)
                                 end if
-                            else if (faster_ramp_up .eq. 3) then
+                            else if (ramp_up_mode .eq. 3) then
                                ! Ramp up to 100% of max and don't go further.
                                 if (time .eq. 0) then
                                     antenna_factor = 1.d-4
-                                else if (time .ge. 10*t_max_ramp_up) then
+                                else if (time .ge. 20*t_max_ramp_up) then
                                     ! if max time value is reached, stop the code
                                     write(*,*) 'stop: reached antenna_factor_max * ', antenna_max_stopping
                                     if (suppression_mode .eqv. .false.) then
@@ -1423,7 +1423,7 @@ program ql_balance
                         !close(5432)
                         timstep = max(timstep, timstep_min)
                         ! limit timestep from above:
-                        if (faster_ramp_up .ne. 0) timstep = min(timstep,0.001)
+                        if (ramp_up_mode .ne. 0) timstep = min(timstep,0.001)
                         !
                         timstep_arr = timstep
                         !

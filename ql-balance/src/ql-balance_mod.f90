@@ -59,6 +59,7 @@
     integer :: save_prof_time_step ! added by Markus Markl 11.03.2021
     integer :: readfromtimestep ! added by Markus Markl 02.06.2021. Reads the background profiles from hdf5 file in which profiles of a ql time evolution are stored.
     integer :: gyro_current_study
+    logical :: misalign_diffusion ! trigger the calculation and addition of the diffusion due to misaligned equipotentials and flux surfaces
   end module control_mod
 
   module matrix_mod

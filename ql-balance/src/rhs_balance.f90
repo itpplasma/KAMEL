@@ -791,7 +791,7 @@ subroutine calc_dequi
     dai12 = dae12
     dai22 = dae22
     visca = dae11 * viscosity_factor
-    write(*,*) "Anomalous viscosity: visca= ", visca
+    !write(*,*) "Anomalous viscosity: visca= ", visca
 
     !debug
     !open(855,file='da.dat')
@@ -837,12 +837,12 @@ subroutine get_dql(istep)
                         , dqli11, dqli12, dqli21, dqli22 &
                         , de11, de12, de21, de22, di11, di12, di21, di22 &
                         , rb_cut_in, re_cut_in, rb_cut_out, re_cut_out, rb &
-                        , r_resonant
+                        , r_resonant, rmax
 
-    use baseparam_mod, only: Z_i, e_charge, am, p_mass, c, btor, e_mass, ev, rtor
+    use baseparam_mod, only: Z_i, e_charge, am, p_mass, c, btor, e_mass, ev, rtor, pi
     use control_mod, only: irf, write_formfactors, ihdf5test, &
                            save_prof_time_step, diagnostics_output, suppression_mode, &
-                           debug_mode
+                           debug_mode, misalign_diffusion
     use h5mod
     use wave_code_data
     use mpi
@@ -873,6 +873,7 @@ subroutine get_dql(istep)
     DOUBLE PRECISION, DIMENSION(:), ALLOCATABLE :: dqli12_loc
     DOUBLE PRECISION, DIMENSION(:), ALLOCATABLE :: dqli21_loc
     DOUBLE PRECISION, DIMENSION(:), ALLOCATABLE :: dqli22_loc
+    DOUBLE PRECISION, DIMENSION(:), ALLOCATABLE :: d11_misalign ! diffusion due to misalignment of equipotentials and flux surfaces
     double complex, dimension(:), allocatable :: formfactor
 !
     ! added variables for interpolation of Brvac
@@ -891,6 +892,7 @@ subroutine get_dql(istep)
     allocate (dqli21_loc(npoib))
     allocate (dqli22_loc(npoib))
     allocate (formfactor(npoib))
+    allocate (d11_misalign(npoib))
 !
     dqle11_loc = 0.0d0
     dqle12_loc = 0.0d0
@@ -1159,6 +1161,7 @@ subroutine get_dql(istep)
             close (10000 + n_vals(i_mn)*1000 + m_vals(i_mn))
         end if
 
+        
 !  spec_weight=1.0d0  ! for DIII-D
 !
         dqle11_loc = dqle11_loc + de11*spec_weight
@@ -1175,6 +1178,11 @@ subroutine get_dql(istep)
 !
     end do
 !
+    ! calculate diffusion due to misalignment of equipotentials and flux surfaces
+    !if (misalign_diffusion .eqv. .true.) then
+    !    d11_misalign = 16.0d0*sqrt(2.0d0) / (9.0d0 * sqrt(pi**3.0d0)) * (c * Es / B0)**2.0d0 * (rmax / rtor)**(1.5d0) / (0.5d0 * nu_e)
+    !end if
+
 
     call MPI_Allreduce(dqle11_loc, dqle11, npoib, MPI_DOUBLE_PRECISION, MPI_SUM, MPI_COMM_WORLD, ierror);
     call MPI_Allreduce(dqle12_loc, dqle12, npoib, MPI_DOUBLE_PRECISION, MPI_SUM, MPI_COMM_WORLD, ierror);
@@ -1951,11 +1959,14 @@ subroutine writefort5000(istep)
                              abs(Jpe), lbound(Jpe), ubound(Jpe))
         CALL h5_add_double_1(h5_id, trim(tempch)//"Jpi_abs", &
                              abs(Jpi), lbound(Jpi), ubound(Jpi))
+        CALL h5_add_double_1(h5_id, trim(tempch)//"dqle22", &
+                                 dqle22, lbound(dqle22), ubound(dqle22))
+
 
         ! write the whole content only if diagnostics_output is true
         if (diagnostics_output) then
-            CALL h5_add_double_1(h5_id, trim(tempch)//"dqle22", &
-                                 dqle22, lbound(dqle22), ubound(dqle22))
+            !CALL h5_add_double_1(h5_id, trim(tempch)//"dqle22", &
+            !                     dqle22, lbound(dqle22), ubound(dqle22))
             CALL h5_add_double_1(h5_id, trim(tempch)//"dqle11", &
                                  dqle11, lbound(dqle11), ubound(dqle11))
             CALL h5_add_double_1(h5_id, trim(tempch)//"dqle12", &

@@ -53,8 +53,10 @@
 	\item \textbf{ramp\_up\_mode} : (Integer) Enables different ramp up modes, 
 	\begin{itemize}
 		\item 0: standard ramp-up is used i.e. $antenna\_factor = antenna_\_factor_0 + time^2$
-		\item 1: the antenna factor reaches its experimental value at \texttt{t\_max\_ramp\_up}
+		\item 1: faster ramp-up. Is not stable though. Use 2 instead.
+		\item 2: the antenna factor reaches its experimental value at \texttt{t\_max\_ramp\_up}
 		\item 3: steady state mode. Goes up to antenna factor max and stays there for $10\cdot t\_max\_ramp\_up$.
+		\item 4: no RMP mode. Antenna factor is set to zero. Code stops when time is $10\cdot t\_max\_ramp\_up$.
 	\end{itemize}
 	\item \textbf{t\_max\_ramp\_up} : (Double) Time value at which the antenna factor reaches the experimental value. Given in seconds.
 	\item \textbf{temperature\_limit} : (Double) Lower electron and ion temperature limit in eV. Only relevant in time evolution. Simulations seem to be sensitive to this value. If it is bad, the calculation will get stuck in a permanent loop. Usually, the value is about $10$ to $50eV$. Best way to check if the code got stuck is checking the size of the output hdf5 file. It should increase at least every minute.
@@ -63,6 +65,7 @@
 	\begin{equation}
 		\mu_a = \alpha \cdot D_a
 	\end{equation}
+	\item \textbf{misalign\_diffusion} : (Boolean) \textbf{Not completely implemented as of 25.08.2022!!} If true, the diffusion due to the misalignment of the equipotential and flux surfaces is turned on.
 
 \end{itemize}
 

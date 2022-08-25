@@ -97,21 +97,26 @@ subroutine initialize_wave_code_interface(nrad, r_grid)
 
     use wave_code_data; 
     use h5mod
-    use control_mod, only: readfromtimestep, debug_mode
+    use control_mod, only: readfromtimestep, debug_mode, ihdf5test
     implicit none; 
     integer, intent(in) :: nrad; 
     real(8), dimension(nrad), intent(in) :: r_grid; 
+    character(1024) :: profile_path = "./profiles/"
     integer :: k; 
     call read_antenna_modes(flre_path); ! read antenna modes from modes.in file and allocate arrays for mode's numbers
 
     call allocate_wave_code_data(nrad, r_grid); 
 !call read_background_profiles(path2profs);
-    if (readfromtimestep .eq. 0) then
-        if(debug_mode) write(*,*) "reading initial profiles"
-        call read_background_profiles_h5
+    if (ihdf5test .eq. 1) then
+        if (readfromtimestep .eq. 0) then
+            if(debug_mode) write(*,*) "reading initial profiles"
+            call read_background_profiles_h5
+        else
+            if(debug_mode) write(*,*) "reading time evolved profiles"
+            call read_background_profiles_h5_timeevol(readfromtimestep)
+        end if
     else
-        if(debug_mode) write(*,*) "reading time evolved profiles"
-        call read_background_profiles_h5_timeevol(readfromtimestep)
+        call read_background_profiles(profile_path)
     end if
 
     call interp_background_profiles(); ! interpolate the initial profiles to the balance grid
@@ -241,12 +246,13 @@ subroutine update_background_files(path)
     use wave_code_data; 
     use grid_mod, only: params_b, Ercov; 
     use baseparam_mod; 
+    use control_mod, only: debug_mode
     implicit none; 
     character(1024), intent(in) :: path; 
     integer :: k; 
-    integer :: flag = 1; ! set it 1 if you want to store the background profiles to disk
+    integer :: flag = 0; ! set it 1 if you want to store the background profiles to disk
 
-    write(*,*) "here at update_background_profiles"
+    if (debug_mode) write(*,*) "Here at update_background_profiles: flag = ", flag
     do k = 1, dim_r !at cell boundaries
 
         n(k) = params_b(1, k); 
@@ -257,6 +263,7 @@ subroutine update_background_files(path)
     end do
 
     if (flag > 0) then
+        if (debug_mode) write(*,*) "Writing profiles to disk."
 
         open (10, file=trim(path)//'q.dat'); 
         open (20, file=trim(path)//'n.dat'); 
@@ -501,6 +508,9 @@ subroutine read_background_profiles(path)
     character(1024) :: path; 
     character(1024) :: file; 
     integer :: l; 
+
+    write(*,*) "Read background profiles from .dat files"
+
     file = trim(path)//'q.dat'; 
     call find_file_length(file, l); 
     allocate (rq(l), iq(l)); 
@@ -559,7 +569,7 @@ subroutine read_background_profiles_h5
     !Er, is read from hdf5 file
     ! is the same for every fac_vz
 
-    print *, 'Read background profiles from hdf5 file'
+    write(*,*) 'Read background profiles from hdf5 file'
     CALL h5_init()
     !CALL h5_check()
 
@@ -621,7 +631,7 @@ subroutine read_background_profiles_h5
 
     CALL h5_close(h5_id)
     CALL h5_deinit()
-    write (*, *) "finished reading background profiles"
+    write (*, *) "finished reading background profiles from hdf5"
 !file = trim(path)//'q.dat';
 !call find_file_length(file, l);
 !allocate(rq(l), iq(l));

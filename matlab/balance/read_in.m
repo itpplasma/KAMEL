@@ -22,7 +22,7 @@ function raw = read_in(path)
 %modified: 27.02.2020
     
     %open file
-    fid = fopen(path);
+    fid = fopen(path, 'r');
     %init cell array
     raw = {};
     

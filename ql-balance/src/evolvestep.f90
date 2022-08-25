@@ -102,6 +102,7 @@
 !ccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
 !
   subroutine genstartsource
+    ! calculates source terms in the balance equations. Is determined by assuming steady state.
 !
   use grid_mod, only : y,dery,dery_equisource &
                      , nbaleqs,neqset,iboutype,npoic,params 
@@ -129,22 +130,23 @@
     enddo
   enddo
 !  
-  if (debug_mode) print *, "initialize rhs"
+  if (debug_mode) write(*,*) "initialize rhs"
   call initialize_rhs(y,dery)
 !
   dery_equisource=0.d0
-  if (debug_mode) print *, "rhs balance"
+  if (debug_mode) write(*,*) "rhs balance"
   call rhs_balance(x,y,dery)
+  if (debug_mode) write(*,*) "after rhs_balance in evolvestep"
 !
   do k=1,nz
      dery_equisource(irow(k))=dery_equisource(irow(k))-amat(k)*y(icol(k))
   end do
 !
   dery_equisource=dery_equisource-rhsvec
-
 !print *, '----'
 ! edited by Markus Markl, 01.03.2021
 if (diagnostics_output) then
+  write(*,*) "Writing equisource"
     if (ihdf5test .eq. 1) then
         tempch = "/"//trim(h5_mode_groupname)//"/equisource.dat"
 

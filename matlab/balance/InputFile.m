@@ -58,6 +58,8 @@ classdef InputFile < dynamicprops
             
             %get data
             raw = read_in(obj.path);
+            disp(raw)
+            
             %trim all lines
             raw = cellfun(@(x) strtrim(x), raw, 'UniformOutput', false);
             %delete zero element lines
@@ -67,6 +69,7 @@ classdef InputFile < dynamicprops
 
 			%raw
 			%raw(1)
+
             
             %get namelists beginnings and ends
             nml1 = cellfun(@(x) strcmp(x(1), '&'), raw, 'UniformOutput', true);

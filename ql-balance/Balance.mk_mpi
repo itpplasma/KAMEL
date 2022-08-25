@@ -213,6 +213,9 @@ OBJS/umf4_f77wrapper64.o: $(SUITESPARSE_F90)umf4_f77wrapper.c Balance.mk_mpi
 OBJS/umf4_f77zwrapper64.o: $(SUITESPARSE_F90)umf4_f77zwrapper.c Balance.mk_mpi
 	$(CC) -I$(SUITESPARSE_HDR) -DZLONG -c $(SUITESPARSE_F90)umf4_f77zwrapper.c -o umf4_f77zwrapper64.o
 	mv umf4_f77zwrapper64.o OBJS
+OBJS/hdf5_tools.o: hdf5_tools/hdf5_tools.f90 Balance.mk_mpi src/ql-balance.f90
+	$(HFC) $(DEBUGFLAG) $(FFLAGS) -c hdf5_tools/hdf5_tools.f90 
+	mv hdf5_tools.o OBJS
 OBJS/ql-balance_mod.o: src/ql-balance_mod.f90 Balance.mk_mpi
 	$(FC) $(DEBUGFLAG) $(FFLAGS) -c src/ql-balance_mod.f90
 	mv ql-balance_mod.o OBJS
@@ -253,9 +256,6 @@ OBJS/wave_code_data_64bit.o: src/wave_code_data_64bit.f90 Balance.mk_mpi src/ql-
 OBJS/amn_of_r.o: src/amn_of_r.f90 Balance.mk_mpi src/ql-balance_mod.f90
 	$(FC) $(DEBUGFLAG) $(FFLAGS) -c src/amn_of_r.f90
 	mv amn_of_r.o OBJS
-OBJS/hdf5_tools.o: hdf5_tools/hdf5_tools.f90 Balance.mk_mpi src/ql-balance.f90
-	$(HFC) $(DEBUGFLAG) $(FFLAGS) -c hdf5_tools/hdf5_tools.f90 
-	mv hdf5_tools.o OBJS
 #.c.o:
 #	$(CC) $(CFLAGS) $(CDEFS) -I$(HEADER) -c $< $(VERBOSE)
 #ER) -c $< $(VERBOSE)

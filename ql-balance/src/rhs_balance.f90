@@ -13,7 +13,7 @@ subroutine rhs_balance(x, y, dy)
                         , params_lin, Ercov_lin, ddr_params_nl, fluxes_con_nl &
                         , init_params, params_b_lin
     use baseparam_mod, only: Z_i, e_charge, am, p_mass, c, btor
-    use control_mod, only: iwrite
+    use control_mod, only: iwrite, step_counter
     use wave_code_data, only: q, Vth
 
     use matrix_mod, only: isw_rhs, nz, nsize, irow, icol, amat, rhsvec
@@ -44,16 +44,20 @@ subroutine rhs_balance(x, y, dy)
     ddr_params = 0.0d0
     Ercov_lin = 0.0d0
 
+    open(2000+step_counter)
     do ipoi = 1, npoi
         do ieq = 1, nbaleqs
             i = nbaleqs*(ipoi - 1) + ieq
             params(ieq, ipoi) = y(i)
         end do
+        write(2000+step_counter, *) rc(ipoi), params(:, ipoi) 
     end do
+    close(2000+step_counter)
 
 !
 ! Interpolation:
 !
+    open(7000+step_counter)
     do ipoi = 1, npoib
         do ieq = 1, nbaleqs
 ! radial derivatives of equilibrium parameters at cell boundaries:
@@ -63,7 +67,9 @@ subroutine rhs_balance(x, y, dy)
             params_b(ieq, ipoi) &
                 = sum(params(ieq, ipbeg(ipoi):ipend(ipoi))*reint_coef(:, ipoi))
         end do
+        write(7000+step_counter, *) rb(ipoi), params_b(:, ipoi)
     end do
+    close(7000+step_counter)
 !
 ! Compute radial electric field:
 !
@@ -757,6 +763,7 @@ subroutine calc_dequi
     nder = 0;
     allocate (coef(0:nder, nlagr))
 
+    !open(77, FILE='dae12.dat')
     do ipoi = 1, npoib
 
         r = rb(ipoi);
@@ -779,10 +786,13 @@ subroutine calc_dequi
         !
         !Da estimated is dae12 -> see notes on conversion
         dae12(ipoi) = sum(coef(0, :)*Da_raw(ibeg:iend))
+        call localizer(-1.d0, rsepar, rsepar + 0.5d0, rb(ipoi), weight)
+        dae12(ipoi) = dae12(ipoi)*(1.d0 - weight) + weight*1d6
+    !    write(77, *) r, dae12(ipoi)
     end do
+    !close(77)
 
-    call localizer(-1.d0, rsepar, rsepar + 0.5d0, rb(ipoi), weight)
-    dae12(ipoi) = dae12(ipoi)*(1.d0 - weight) + weight*1d6
+
 
     !get other da
     dae11 = dae12/1.499999d0 !previously used instead of 1.5d0, no idea why
@@ -837,7 +847,7 @@ subroutine get_dql(istep)
                         , dqli11, dqli12, dqli21, dqli22 &
                         , de11, de12, de21, de22, di11, di12, di21, di22 &
                         , rb_cut_in, re_cut_in, rb_cut_out, re_cut_out, rb &
-                        , r_resonant, rmax
+                        , r_resonant, rmax, d11_misalign
 
     use baseparam_mod, only: Z_i, e_charge, am, p_mass, c, btor, e_mass, ev, rtor, pi
     use control_mod, only: irf, write_formfactors, ihdf5test, &
@@ -873,7 +883,7 @@ subroutine get_dql(istep)
     DOUBLE PRECISION, DIMENSION(:), ALLOCATABLE :: dqli12_loc
     DOUBLE PRECISION, DIMENSION(:), ALLOCATABLE :: dqli21_loc
     DOUBLE PRECISION, DIMENSION(:), ALLOCATABLE :: dqli22_loc
-    DOUBLE PRECISION, DIMENSION(:), ALLOCATABLE :: d11_misalign ! diffusion due to misalignment of equipotentials and flux surfaces
+    !DOUBLE PRECISION, DIMENSION(:), ALLOCATABLE :: d11_misalign ! diffusion due to misalignment of equipotentials and flux surfaces
     double complex, dimension(:), allocatable :: formfactor
 !
     ! added variables for interpolation of Brvac
@@ -891,8 +901,8 @@ subroutine get_dql(istep)
     allocate (dqli12_loc(npoib))
     allocate (dqli21_loc(npoib))
     allocate (dqli22_loc(npoib))
-    allocate (formfactor(npoib))
-    allocate (d11_misalign(npoib))
+    allocate (formfactor(npoib))  
+    if (.not. allocated(d11_misalign)) allocate (d11_misalign(npoib))
 !
     dqle11_loc = 0.0d0
     dqle12_loc = 0.0d0
@@ -1179,9 +1189,10 @@ subroutine get_dql(istep)
     end do
 !
     ! calculate diffusion due to misalignment of equipotentials and flux surfaces
-    !if (misalign_diffusion .eqv. .true.) then
-    !    d11_misalign = 16.0d0*sqrt(2.0d0) / (9.0d0 * sqrt(pi**3.0d0)) * (c * Es / B0)**2.0d0 * (rmax / rtor)**(1.5d0) / (0.5d0 * nu_e)
-    !end if
+    if (misalign_diffusion .eqv. .true.) then
+        ! rmax/rtor is the inverse aspect ratio
+        d11_misalign = (16.0d0*sqrt(2.0d0) / (9.0d0 * pi**1.5d0)) * (c * Es / B0)**2.0d0 * (rmax / rtor)**(1.5d0) / (0.5d0 * nu_e)
+   end if ! misalign_diffusion .eqv. .true.
 
 
     call MPI_Allreduce(dqle11_loc, dqle11, npoib, MPI_DOUBLE_PRECISION, MPI_SUM, MPI_COMM_WORLD, ierror);
@@ -1202,6 +1213,7 @@ subroutine get_dql(istep)
     deallocate (dqli21_loc);
     deallocate (dqli22_loc);
     deallocate (formfactor)
+    
 
     call calc_parallel_current_directly
     call calc_ion_parallel_current_directly
@@ -1595,10 +1607,9 @@ subroutine calc_parallel_current_directly
 !
         call MPI_Comm_rank(MPI_COMM_WORLD, irank, ierror);
         if (irank .eq. 0) then
-            write(*,*) "writing par_current_e.dat"
-            write(*,*) " - "
-
             if (write_gyro_current) then
+                write(*,*) "writing par_current_e.dat"
+                write(*,*) " - "
                 ! Write out gyro current which is different to KiLCA current Jpe.
             ! The gyro current is calculated from (60) in Heyn et. al 2014
                 CALL h5_init()
@@ -1920,10 +1931,10 @@ subroutine writefort5000(istep)
                         , rc, sqg_bthet_overc, Ercov &
                         , ddr_params_nl, y, mwind &
                         , dqle11, dqle12, dqle21, dqle22 &
-                        , dqli11, dqli12, dqli21, dqli22
+                        , dqli11, dqli12, dqli21, dqli22, d11_misalign
 
     use baseparam_mod, only: Z_i, e_charge, am, p_mass, c, btor, e_mass, ev, rtor
-    use control_mod, only: ihdf5test, diagnostics_output
+    use control_mod, only: ihdf5test, diagnostics_output, misalign_diffusion
     use h5mod
     use wave_code_data
 !DIAG:
@@ -1961,6 +1972,19 @@ subroutine writefort5000(istep)
                              abs(Jpi), lbound(Jpi), ubound(Jpi))
         CALL h5_add_double_1(h5_id, trim(tempch)//"dqle22", &
                                  dqle22, lbound(dqle22), ubound(dqle22))
+
+        if (misalign_diffusion .eqv. .true.) then
+            write(*,*) " "
+            write(*,*) "Writing misalignment diffusion to hdf5"
+            !CALL h5_init()
+            !CALL h5_open_rw(path2out, h5_id)
+            CALL h5_add_double_1(h5_id, trim(tempch)//"D11_MA", d11_misalign, lbound(d11_misalign), ubound(d11_misalign))
+            !CALL h5_close(h5_id)
+            !CALL h5_deinit()
+            write(*,*) "Carry on"
+            write(*,*) " "
+        end if ! hdf5test .eq. 1
+ 
 
 
         ! write the whole content only if diagnostics_output is true

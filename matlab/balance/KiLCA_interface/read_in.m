@@ -30,7 +30,6 @@ function raw = read_in(path)
     while ~feof(fid)
         %add new line
         raw{end+1} = fgetl(fid);
-		%disp(raw{end})
     end
     raw = raw';
     

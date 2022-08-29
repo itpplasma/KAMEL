@@ -58,7 +58,7 @@ classdef InputFile < dynamicprops
             
             %get data
             raw = read_in(obj.path);
-            disp(raw)
+            %disp(raw)
             
             %trim all lines
             raw = cellfun(@(x) strtrim(x), raw, 'UniformOutput', false);
@@ -127,6 +127,7 @@ classdef InputFile < dynamicprops
             %iterate through all properties that are not path and write
             for k = 1:numel(propnames)
                 
+                disp("Start writing namelist")
                 %skip property if not of type NameList
                 if(~isa(obj.(propnames{k}), 'NameList'))
                     continue;
@@ -135,16 +136,16 @@ classdef InputFile < dynamicprops
                 %write beginning of namelist
                 fid = fopen(pathto, 'a');
                 fprintf(fid, '%s\n', ['&', propnames{k}]);
-                fclose(fid);
+                fclose('all');
                 
                 %write content
                 obj.(propnames{k}).write(pathto);
                 
                 %write end of namelist
-                fid = fopen(pathto, 'a');
+                disp("write end of namelist")
+                fid = fopen(pathto, 'at+', 'n', 'UTF-8');
                 fprintf(fid, '%s\n','/');
                 fclose(fid);
-
             end
         end
     end

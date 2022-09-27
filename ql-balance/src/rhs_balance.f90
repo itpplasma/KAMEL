@@ -44,20 +44,20 @@ subroutine rhs_balance(x, y, dy)
     ddr_params = 0.0d0
     Ercov_lin = 0.0d0
 
-    open(2000+step_counter)
+    !open(2000+step_counter)
     do ipoi = 1, npoi
         do ieq = 1, nbaleqs
             i = nbaleqs*(ipoi - 1) + ieq
             params(ieq, ipoi) = y(i)
         end do
-        write(2000+step_counter, *) rc(ipoi), params(:, ipoi) 
+        !write(2000+step_counter, *) rc(ipoi), params(:, ipoi) 
     end do
-    close(2000+step_counter)
+    !close(2000+step_counter)
 
 !
 ! Interpolation:
 !
-    open(7000+step_counter)
+    !open(7000+step_counter)
     do ipoi = 1, npoib
         do ieq = 1, nbaleqs
 ! radial derivatives of equilibrium parameters at cell boundaries:
@@ -67,9 +67,9 @@ subroutine rhs_balance(x, y, dy)
             params_b(ieq, ipoi) &
                 = sum(params(ieq, ipbeg(ipoi):ipend(ipoi))*reint_coef(:, ipoi))
         end do
-        write(7000+step_counter, *) rb(ipoi), params_b(:, ipoi)
+        !write(7000+step_counter, *) rb(ipoi), params_b(:, ipoi)
     end do
-    close(7000+step_counter)
+    !close(7000+step_counter)
 !
 ! Compute radial electric field:
 !

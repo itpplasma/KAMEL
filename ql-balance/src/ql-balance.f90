@@ -114,7 +114,7 @@ program ql_balance
 ! if equal 1 - use hdf5, if
 ! equal 0 - use standard text output and input
 !integer :: ihdf5test = 1
-    ihdf5test = 0
+    ihdf5test = 1
     write(*,*) "ihdf5test = ", ihdf5test
 ! if h5overwrite = true, existing data will be deleted
 ! before new one is written
@@ -695,48 +695,48 @@ program ql_balance
 
                                 CYCLE
                             end if
-                        !else
+                        else
                             !Stop if mode is not time evolution
                             !Added by Philipp Ulbl 12.05.2020
-                            !write(*,*) 'stop: linear code only'
-                            !write (h5_mode_groupname, "(A,I1,A,I1)") "f_", &
-                            !    mode_m, "_", mode_n
-                            !if (debug_mode) write(*,*) "Write out results"
+                            write(*,*) 'stop: linear code only'
+                            write (h5_mode_groupname, "(A,I1,A,I1)") "f_", &
+                                mode_m, "_", mode_n
+                            if (debug_mode) write(*,*) "Write out results"
 
-                            !if (ihdf5test .eq. 1) then
-                            !    CALL h5_init()
-                            !    CALL h5_open_rw(path2out, h5_id)
-                            !    CALL h5_obj_exists(h5_id, trim(h5_mode_groupname), &
-                            !        h5_exists_log)
-                            !    if (.not. h5_exists_log) then
-                            !        CALL h5_define_group(h5_id, &
-                            !            trim(h5_mode_groupname), group_id_2)
-                            !        CALL h5_close_group(group_id_2)
-                            !    end if
+                            if (ihdf5test .eq. 1) then
+                                CALL h5_init()
+                                CALL h5_open_rw(path2out, h5_id)
+                                CALL h5_obj_exists(h5_id, trim(h5_mode_groupname), &
+                                    h5_exists_log)
+                                if (.not. h5_exists_log) then
+                                    CALL h5_define_group(h5_id, &
+                                        trim(h5_mode_groupname), group_id_2)
+                                    CALL h5_close_group(group_id_2)
+                                end if
 !
-                            !    CALL h5_add_double_1(h5_id, trim(h5_mode_groupname)//'/dqle22_res', &
-                            !                     reshape(dqle22_res, (/size(dqle22_res)/)), &
-                            !                     lbound(reshape(dqle22_res, (/size(dqle22_res)/))), &
-                            !                     ubound(reshape(dqle22_res, (/size(dqle22_res)/))))
-                            !    CALL h5_close(h5_id)
-                            !    CALL h5_deinit()
-                            !end if
+                                CALL h5_add_double_1(h5_id, trim(h5_mode_groupname)//'/dqle22_res', &
+                                                 reshape(dqle22_res, (/size(dqle22_res)/)), &
+                                                 lbound(reshape(dqle22_res, (/size(dqle22_res)/))), &
+                                                 ubound(reshape(dqle22_res, (/size(dqle22_res)/))))
+                                CALL h5_close(h5_id)
+                                CALL h5_deinit()
+                            end if
                             !!timing
-                            !if (timing_mode) then
-                            !    CALL system_clock(timing_t2, count_rate)
+                            if (timing_mode) then
+                                CALL system_clock(timing_t2, count_rate)
 !
-                            !    if (ihdf5test .eq. 1) then
-                            !        CALL h5_init()
-                            !        CALL h5_open_rw(path2out, h5_id)
-                            !        CALL h5_add_double_0(h5_id, trim(h5_mode_groupname)// &
-                            !                         timing_ds_total, (timing_t2 - timing_t1)/dble(count_rate), &
-                            !                         'total time', 's')
-                            !        CALL h5_close(h5_id)
-                            !        CALL h5_deinit()
-                            !    end if
-                            !end if
-                            !call MPI_finalize(ierror);
-                            !stop  !! <<----- Stop for linear code usage
+                                if (ihdf5test .eq. 1) then
+                                    CALL h5_init()
+                                    CALL h5_open_rw(path2out, h5_id)
+                                    CALL h5_add_double_0(h5_id, trim(h5_mode_groupname)// &
+                                                     timing_ds_total, (timing_t2 - timing_t1)/dble(count_rate), &
+                                                     'total time', 's')
+                                    CALL h5_close(h5_id)
+                                    CALL h5_deinit()
+                                end if
+                            end if
+                            call MPI_finalize(ierror);
+                            stop  !! <<----- Stop for linear code usage
                         end if
     !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
     !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -1554,6 +1554,9 @@ program ql_balance
                                 k = nbaleqs*(ipoi - 1) + ieq
                                 !timstep_arr(k)=timstep_arr(k)/timscal(ipoi)*tol
                                 timstep_arr(k) = timstep_arr(k)/max(timscal(ipoi), epsilon(1.d0))*tol
+                                if (ieq .gt. 1 .and. r(ipoi) .gt. rsepar-0.5d0) then
+                                    timstep_arr(k) = 0d0
+                                end if
                             end do
                         end do
                         !
@@ -1563,7 +1566,7 @@ program ql_balance
                             tim_stack = timstep_arr
                         end if
                         timstep_arr = 2.d0*timstep_arr*tim_stack/(timstep_arr + tim_stack)
-                        timstep = minval(timstep_arr)
+                        timstep = minval(timstep_arr, MASK = r .gt. rsepar - 0.5d0)
 
                         !This can be used to limit timestep
                         !Added by Philipp Ulbl, June 2020
@@ -1578,9 +1581,11 @@ program ql_balance
                         ! non-constant time step:
                         if (.true.) then
                             ! limit time step from below:
-                            !timstep = max(timstep, timstep_min)
+                            timstep = max(timstep, timstep_min)
                             ! limit timestep from above:
                             !if (ramp_up_mode .ne. 0) timstep = min(timstep,0.1)
+                            !timstep = min(timstep,0.1)
+
                         else
                             ! use for constant time step:
                             timstep = 0.002

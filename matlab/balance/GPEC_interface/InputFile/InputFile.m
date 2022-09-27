@@ -135,7 +135,7 @@ classdef InputFile < dynamicprops
                 obj.(propnames{k}).write(pathto);
                 
                 %write end of namelist
-                fid = fopen(pathto, 'a');
+                fid = fopen(pathto, 'a', 'n', 'UTF-8');
                 fprintf(fid, '%s\n', '/');
                 fclose(fid);
             end

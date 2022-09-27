@@ -35,6 +35,15 @@ class postproc:
     prof_t_plot_y_offset_lower = 1.0 # this is in percent of the profile
     prof_t_plot_y_offset_upper = 1.0 # this is in percent of the profile
 
+
+    # colors of TU Graz presentation template
+    col_tug = '#f70146'
+    col_green = '#78b743'
+    col_blue = '#285f82'
+    col_yellow = '#e59352'
+    col_cyan = '#77babf'
+    col_purple = '#6c2f91'
+
     path2inp = ''
     path2out = ''
 
@@ -259,7 +268,7 @@ class postproc:
         self.h5inp.close()
 
 
-    def plt_simple_criterion(self, scanid = '/', time=0):
+    def plt_simple_criterion(self, scanid = '/', time=0, rho_pol=True):
         """ Create a plot that illustrates the simple bifurcation criterion, i.e. the values of dqle22 at the resonant surfaces. Also plots the plasma pressure as a reference."""
         self.da_res = np.array(self.h5inp['output/Da_res']).transpose()[0]
         #if (scanid == ''):
@@ -274,7 +283,7 @@ class postproc:
                 fig, ax = plt.subplots(figsize=(10,4))
                 ax_twin = plt.twinx()
                 ax.set_title(scan)
-                ax.plot(self.r_res.transpose()[0], self.bifurcfactors,marker='o', label='bifurcation factors')
+                ax.plot(self.r_res.transpose()[0], self.bifurcfactors,marker='o', label='bifurcation factors', c=self.col_blue)
                 ax.axhline(y=1.0,linestyle = ':', color = 'grey' ,label='threshold')
                 ax.set_yscale('log')
                 ax.set_ylabel('$D^{QL}_{e22}/D_a$ @ res')
@@ -299,17 +308,21 @@ class postproc:
             self.calc_pres(scanid=scanid)
             self.deq22_res = self.get_deq22_res_read(scanid, time)
             self.bifurcfactors = self.deq22_res/self.da_res
-            fig, ax = plt.subplots(figsize=(10,4))
-            plt.rc('font', size=16)
-            ax_twin = plt.twinx()
-            ax.set_title('approximate criterion', weight='bold')
-            ax.plot(self.r_res.transpose()[0], self.bifurcfactors,marker='o', label='bifurcation factors')
-            ax.axhline(y=1.0,linestyle = '--', color = 'grey' ,label='threshold')
-            ax.text(65, 1, 'threshold', va='bottom', weight='bold')
-            ax.set_yscale('log')
-            ax.set_ylabel(r'(D$^{\mathrm{ql}}_{e22}$ / D$^{\mathrm{a}}$) (r$_{\mathrm{res}}$)')
-            ax.set_xlabel('r / cm')
-            ax.set_xlim((40,70))
+
+            plt.rc('font', size=12)
+            fig, ax = plt.subplots(2, figsize=(6.4,4.0), gridspec_kw={
+                           'width_ratios': [1],
+                           'height_ratios': [1,0]})
+            
+            ax_twin = ax[0].twinx()
+            ax[0].set_title('AUG ' + str(int(self.shot)) + ' at ' + "{:.1f}".format(self.time/1000)+'s')
+            ax[0].plot(self.r_res.transpose()[0], self.bifurcfactors,marker='o', label='bifurcation factors', c=self.col_blue)
+            ax[0].axhline(y=1.0,linestyle = '--', color = 'grey' ,label='threshold')
+            ax[0].text(65, 1, 'threshold', va='bottom')
+            ax[0].set_yscale('log')
+            ax[0].set_ylabel(r'(D$^{\mathrm{ql}}_{e22}$ / D$^{\mathrm{a}}$) (r$_{\mathrm{res}}$)')
+            ax[0].set_xlabel('r / cm')
+            ax[0].set_xlim((40,70))
             ax_twin.plot(self.prof_rc, self.prof_p, color='k', label ='pressure')
             ax_twin.set_ylabel('$p_{tot}$ / Pa')
             ax_twin.ticklabel_format(axis='y', style='sci', scilimits=(1,4))
@@ -323,13 +336,33 @@ class postproc:
             #ax.axvline(x=fluid_resonance, color = 'grey', linestyle = '--', label='Fluid resonance')
             #ax.axvline(x=ExB_resonance, color = 'grey', linestyle = '-.', label='ExB resonance')
 
-            ax.annotate('5/2', [self.r_res[0], self.bifurcfactors[0]], weight='bold', ha='center',va='top')
-            ax.annotate('6/2', [self.r_res[1], self.bifurcfactors[1]], weight='bold')
-            ax.annotate('7/2', [self.r_res[2], self.bifurcfactors[2]], weight='bold')
+            ax[0].annotate('5/2', [self.r_res[0], self.bifurcfactors[0]], weight='bold', ha='center',va='top')
+            ax[0].annotate('6/2', [self.r_res[1], self.bifurcfactors[1]], weight='bold')
+            ax[0].annotate('7/2', [self.r_res[2], self.bifurcfactors[2]], weight='bold')
 
             offs = 10500
             ax_twin.plot([self.prof_rc[offs], self.prof_rc[offs]+0.5], [self.prof_p[offs], self.prof_p[offs] + 3e4], c='k')
-            ax_twin.text(self.prof_rc[offs]+0.5, self.prof_p[offs]+3e4, r'p$_{tot}$', weight='bold', va='bottom', ha='center')
+            ax_twin.text(self.prof_rc[offs]+0.5, self.prof_p[offs]+3e4, r'p$_{tot}$', va='bottom', ha='center')
+
+
+            psi_pol_norm = np.array(self.h5inp['/preprocprof/equil/psi_pol_norm'])[0]
+            r_out = np.array(self.h5inp['/preprocprof/r_out'])[0]
+
+            ax[1].plot(r_out[0:10000], psi_pol_norm)
+            ax[1].set_xlim(ax[0].get_xlim())
+            #lpsi = np.interp(ax[0].get_xlim()[0], r_out[0:10000], psi_pol_norm)
+            #rho_eq = [el / 10 for el in np.linspace(lpsi*10, 10.0, 6)]
+            rho_eq = [0.7, 0.8, 0.85, 0.9, 0.95, 1.0] #np.linspace(0,1.0, 11)
+            r_eq = np.interp(rho_eq, psi_pol_norm, r_out[0:10000])
+            ax[1].set_xticks(r_eq)
+            tl = ["{:.2f}".format(el) for el in rho_eq]
+            ax[1].set_xticklabels(tl)
+            ax[1].get_yaxis().set_visible(False)
+            ax[1].set_xlabel(r'normalized poloidal flux $\rho_{pol}$')           
+
+
+            #ax[0].axvline(np.array(self.h5inp['input/r_sep_real'])[0])
+            plt.tight_layout()
 
             #for elem in self.h5inp['output/zero_veperp']:
             #    if (not np.isnan(elem)):

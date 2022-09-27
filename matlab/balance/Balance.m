@@ -235,8 +235,13 @@ classdef Balance < handle & hdf5_output
             obj.name = name;
             % create hdf5 input file, if it does not exist. Or overwrite
             % shot and time data
-			obj.writeHDF5(obj.hdf5file, '/', 'shot', 'shot number', '1');
-            obj.writeHDF5(obj.hdf5file, '/', 'time', 'shot time', 'ms');
+            try
+                h5read(obj.hdf5file, '/shot');
+            catch
+                disp('hdf5 input file does not exist')
+            end
+			%obj.writeHDF5(obj.hdf5file, '/', 'shot', 'shot number', '1');
+            %obj.writeHDF5(obj.hdf5file, '/', 'time', 'shot time', 'ms');
 
 			% path of the output hdf5 file
             obj.h5out = [obj.path_output, obj.name, '_', num2str(obj.shot), ...
@@ -1021,7 +1026,8 @@ classdef Balance < handle & hdf5_output
             start_time = datetime;
 			% save log file in run path
             logfile = [obj.path_output, 'balance_', obj.name, '_', strrep(datestr(start_time), ' ', '_'), '.log'];
-            fid = fopen(logfile, 'w');
+            disp('file id log')
+            %fid_log = fopen(logfile, 'wt', 'n', 'UTF-8')
 			%h5out = [obj.path_output, obj.name, '_', num2str(obj.shot), ...
 				%'_', num2str(obj.time), '.hdf5'];
 			% create the output hdf5 file
@@ -1035,7 +1041,11 @@ classdef Balance < handle & hdf5_output
 
             disp(['Start of Balance at ', datestr(start_time)])
             disp(['Shot: ', num2str(obj.shot), ', Time: ', num2str(obj.time), 'ms, Name: ', obj.name])
+
+
+
             for i = 1:numel(obj.m)
+                disp(['Starting mode m=', num2str(obj.m(i))])
 
                 %factors for this run
                 %facfile = [obj.path_factors, 'factors_', num2str(obj.m(i)), '_', num2str(obj.n(i)), '.in'];
@@ -1084,7 +1094,12 @@ classdef Balance < handle & hdf5_output
                 fix = 'LD_LIBRARY_PATH=/proj/plasma/soft/math_libs/64bit/sundials-2.6.2/lib/';
                 [stat, res] = system([fix, ' ./', obj.EXEC_NAME]);
                 %write to log file
-                fprintf(fid, '%s\n', res);
+                disp('file id log before logging')
+
+
+                fid_log = fopen(logfile, 'at', 'n', 'UTF-8');
+                fprintf(fid_log, '%s\n\n\n', res);
+                fclose(fid_log);
                 if(stat ~= 0)
                     error(['Error in Balance. Result = ', res, '. See log file in output directory.'])
                 end
@@ -1110,7 +1125,7 @@ classdef Balance < handle & hdf5_output
             disp(['Total runtime was ', string(datetime-start_time)])
 
             %close log file
-            fclose(fid);
+            %fclose(fid_log);
         end
 
         function loadOutput(obj)

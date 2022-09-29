@@ -1128,6 +1128,93 @@ classdef Balance < handle & hdf5_output
             %fclose(fid_log);
         end
 
+        function run_multimode(obj)
+            %##############################################################
+            % function run_multimode(obj)
+            %##############################################################
+            % description:
+            %--------------------------------------------------------------
+            % starts balance run with multiple RMP modes active
+            %##############################################################
+
+            currentpath = pwd();
+
+            % link the executable
+            [~, ~] = system(['ln -fs ', obj.LIB_BALANCE, '../ql-balance/', obj.EXEC_NAME, ' ', obj.path_run]);
+
+            %open log file
+            start_time = datetime;
+			% save log file in run path
+            logfile = [obj.path_output, 'balance_', obj.name, '_', strrep(datestr(start_time), ' ', '_'), '.log'];
+            %disp('file id log')
+
+			% create the output hdf5 file
+			obj.writeHDF5(obj.h5out, '/', 'shot', 'shot number', '1');
+            obj.writeHDF5(obj.h5out, '/', 'time', 'shot time', 'ms');
+			obj.writeHDF5(obj.h5out, '/', 'm', 'poloidal mode number', '1');
+			obj.writeHDF5(obj.h5out, '/', 'n', 'toroidal mode number', '1');
+			obj.writeHDF5(obj.h5out, '/', 'm_ion', 'ion mass number', '1');
+         
+            obj.reset_profiles();
+
+            disp(['Start of multi-mode Balance at ', datestr(start_time)]);
+            disp(['Shot: ', num2str(obj.shot), ', Time: ', num2str(obj.time), 'ms, Name: ', obj.name]);
+            disp(['Modes:']);
+
+            cd(obj.path_run);
+            system('rm modes.in');
+            fileid = fopen('modes.in', 'w');
+ 
+            scalefactorssq = h5read(obj.hdf5file, '/output/scalefactors_sq');
+            scalefactor_temp = [];
+
+            for i =1:numel(obj.m)
+                disp(['m = ', num2str(obj.m(i)), ', n = ', num2str(obj.n(i))]);
+                % write modes to modes.in file
+                fprintf(fileid, ['(', num2str(obj.m(i)), ',', num2str(obj.n(i)), ')']);
+                switch obj.m(i)
+                case 5
+                    scalefactor_temp = [scalefactor_temp, scalefactorssq(1)];
+                case 6
+                    scalefactor_temp = [scalefactor_temp, scalefactorssq(2)];
+                case 7
+                    scalefactor_temp = [scalefactor_temp, scalefactorssq(3)];
+                end
+            end
+
+            fclose(fileid);
+
+            obj.optionsnml = InputFile(['balance_conf.nml']);
+            obj.optionsnml.read();
+            obj.optionsnml.BALANCENML.antenna_factor = max(scalefactor_temp);
+            obj.optionsnml.BALANCENML.path2out = obj.h5out;
+            obj.optionsnml.write([obj.path_run, 'balance_conf.nml']);
+
+            % need to tell KiLCA that multiple RMP modes must be activated
+
+            obj.setKiLCAOptions(obj, obj.m_ion, true); % set prerun option true, meaning multiple modes are activated
+
+            disp(['Run!'])
+            fix = 'LD_LIBRARY_PATH=/proj/plasma/soft/math_libs/64bit/sundials-2.6.2/lib/';
+            [stat, res] = system([fix, ' ./', obj.EXEC_NAME]);
+            
+            fid_log = fopen(logfile, 'at', 'n', 'UTF-8');
+            fprintf(fid_log, '%s\n\n\n', res);
+            fprintf(fid_log, ['Finished at ', datestr(datetime), '\n', 'Total runtime: ', string(datetime-start_time)]);
+            fclose(fid_log);
+            if(stat ~= 0)
+                error(['Error in multi-mode Balance. Result = ', res, '. See log file in output directory.'])
+            end
+
+            obj.reset_profiles();
+
+            cd(currentpath);
+
+            disp(['Finished Balance at ', datestr(datetime)])
+            disp(['Total runtime was ', string(datetime-start_time)])
+
+        end
+
         function loadOutput(obj)
             %##############################################################
             %function loadOutput(obj)

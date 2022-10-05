@@ -1,3 +1,9 @@
+!> @file
+!> This is the main program file.
+
+!> @details This program runs the balance code that solves the balance equations described in Heyn et al. NF2014.
+!> The solution of the balance code includes envoking KiLCA. Note that KiLCA will read the profiles still from
+!> ASCII files, in contrast to the balance code, which can read them from a HDF5 file.
 program ql_balance
 
     use grid_mod
@@ -6,9 +12,9 @@ program ql_balance
     use h5mod ! added by Markus Markl, 25.02.2021
     use wave_code_data
     use recstep_mod, only: nstack, tol, tim_stack, y_stack, timstep_arr
-!DIAG:
+    !DIAG:
     use diag_mod, only: write_diag, iunit_diag, write_diag_b, iunit_diag_b
-!END DIAG
+    !END DIAG
     use resonances_mod, only: numres
     use hdf5_tools
     use paramscan_mod
@@ -21,15 +27,11 @@ program ql_balance
     logical :: toomuch, opnd, dostep, scratch
     logical :: flag_run_time_evolution !Added by Philipp Ulbl 12.05.2020
     logical :: firstiterationdone !Added by Markus Markl 25.02.2021. Some steps
-! in saving the data to hdf5 file need to be done only the first time iteration
-!
+    ! in saving the data to hdf5 file need to be done only the first time iteration
     logical :: br_stopping ! trigger Br stopping criterion
     logical :: discr_reached
-    !logical :: suppression_mode
-!
     integer :: npoimin, ipoi, i, nstep, nstepmax, Nstorage, npoi, k, ieq, l
     integer :: nmult, istage, itrans, ntrans, iunit_redo, ioddeven
-    !integer :: mode_m, mode_n
     double precision :: evoltime, timescale, timstep, eps, tmax, timstep_rec
     double precision :: tmax_factor, antenna_factor
     double precision :: antenna_factor_max !Added by Philipp Ulbl 12.05.2020
@@ -54,47 +56,40 @@ program ql_balance
     double precision, dimension(:), allocatable :: hold_n, hold_Te, hold_Ti, hold_Vz, hold_dphi0! variables to hold the initial bg profiles
     double precision, dimension(:, :), allocatable :: params_beg, params_begbeg
     double precision, dimension(:, :), allocatable :: params_num, params_denom
-    double precision, dimension(:), allocatable :: ErVzfac ! factor to rescale Er
+    
     integer, dimension(1) :: ind_dqle, ind_dqli
     integer :: lb, ub
     DOUBLE PRECISION :: temperature_limit ! limits ion and electron temperatures from below, in eV
     DOUBLE PRECISION :: antenna_max_stopping
 
-! timing variables
+    ! timing variables
     integer :: timing_t1, timing_t2 ! for total timing
     integer :: timing_parscan_t1, timing_parscan_t2 ! for timing of individual parameters
     double precision, dimension(:, :, :, :), allocatable :: timingarr ! used to hold the time values during parameter scan
     integer :: count_rate
     character(len=13) :: timing_ds_total = '/timing/total'
     character(len=15) :: timing_ds_parscan = '/timing/parscan'
-!logical :: timing_mode != .false.
 
-!needed for interpolation of br abs and stopping criterion
-!Added by Philipp Ulbl 04.06.2020
+    !needed for interpolation of br abs and stopping criterion
+    !Added by Philipp Ulbl 04.06.2020
     DOUBLE PRECISION, DIMENSION(:), ALLOCATABLE :: br_abs
-!Added by Markus Markl 08.04.2021
-    DOUBLE PRECISION, DIMENSION(:, :, :, :), ALLOCATABLE :: dqle22_res
-! Added by Markus Markl 12.05.2021, for velocity scan
-    DOUBLE PRECISION, DIMENSION(:,:,:,:), ALLOCATABLE :: Er_res
-    DOUBLE PRECISION, DIMENSION(:, :, :, :), ALLOCATABLE :: br_abs_res_parscan
-! Added by Markus Markl 18.03.2021, used for improved stopping criterion
+    ! Added by Markus Markl 18.03.2021, used for improved stopping criterion
     DOUBLE PRECISION, DIMENSION(:), ALLOCATABLE :: br_abs_time
 	DOUBLE PRECISION, DIMENSION(:), ALLOCATABLE :: br_abs_antenna_factor
     DOUBLE PRECISION, DIMENSION(:), ALLOCATABLE :: dqle22_res_time
     DOUBLE PRECISION :: br_beta = 0
     DOUBLE PRECISION :: br_predicted
 
-! ramp up parameters
-	integer :: ramp_up_mode
-	DOUBLE PRECISION :: t_max_ramp_up = 1e-2 ! 10ms ramp up
-!
+	integer :: ramp_up_mode !> control ramp up mode of the RMP coil current amplitude
+	DOUBLE PRECISION :: t_max_ramp_up = 1e-2 !> 10ms ramp up until antenna_factor_max is reached
     integer ::  ibrabsres, ibeg, iend, nlagr, nder
-    double precision, dimension(:, :), allocatable :: coef
-! Added by Markus Markl
-    character(len=1024) :: h5_currentgrp
-    integer(HID_T) :: time_dataset_id ! variable to save the time dataset id
+    double precision, dimension(:, :), allocatable :: coef !> coefficients for interpolation
+    ! Added by Markus Markl
+    character(len=1024) :: h5_currentgrp !> current hdf5 group string
+    integer(HID_T) :: time_dataset_id !> variable to save the time dataset id
     integer(HID_T) :: brabs_dataset_id
-! create namelist for the balance configuration input
+
+    !> namelist for the balance configuration input
     NAMELIST /BALANCENML/ flre_path, vac_path, btor, rtor, rmin, rmax, &
         rsepar, npoimin, gg_factor, gg_width, gg_r_res, Nstorage, &
         tmax_factor, antenna_factor, iboutype, iwrite, eps, dperp, &
@@ -104,32 +99,29 @@ program ql_balance
         diagnostics_output, br_stopping, suppression_mode, debug_mode, timing_mode, &
         readfromtimestep, path2time, ramp_up_mode, t_max_ramp_up, temperature_limit, &
         antenna_max_stopping, gyro_current_study, viscosity_factor, misalign_diffusion
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-!debug_mode = .true. !  debug mode variable that enables print debugging
-!timing_mode = .true.
-! timing
+
     if (timing_mode) CALL system_clock(timing_t1, count_rate)
-!
-! integer that toggles the use of hdf5 output/input
-! if equal 1 - use hdf5, if
-! equal 0 - use standard text output and input
-!integer :: ihdf5test = 1
+
+    ! integer that toggles the use of hdf5 output/input
+    ! if equal 1 - use hdf5, if
+    ! equal 0 - use standard text output and input
     ihdf5test = 1
     write(*,*) "ihdf5test = ", ihdf5test
-! if h5overwrite = true, existing data will be deleted
-! before new one is written
-! This is contained in hdf5_tools module
+
+    ! if h5overwrite = true, existing data will be deleted
+    ! before new one is written
+    ! This is contained in hdf5_tools module
     h5overwrite = .true.
+
     if (gyro_current_study .ne. 0) then
         write_gyro_current = .true.
     else
         write_gyro_current = .false.
     end if
-!
-!
-    discr_reached = .false. ! variable to says if discrepancy to linear regression
-! of Br is reached, only used if br_stopping = .false.
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+
+    discr_reached = .false. ! variable to say if discrepancy to linear regression
+    ! of Br is reached, only used if br_stopping = .false.
 
     call MPI_Init(ierror);
     call MPI_Comm_size(MPI_COMM_WORLD, np_num, ierror);
@@ -142,27 +134,25 @@ program ql_balance
         print *, '******************************'
     end if
 
-!!!!! read the parameters from namelist file !!!!!
-
+    ! read the parameters from namelist file
     open (22, file='balance_conf.nml');
     read (22, NML=BALANCENML)
     close (22);
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
-    relchgmax = 0.1d0
-    facdecr = 1.d1
+    relchgmax = 0.1d0 ! could be removed
+    facdecr = 1.d1 ! could be removed
     urelax = 0.0d0 !0.5d0  !0.9d0
-    nmult = 1 !10
-    nstack = 2
+    nmult = 1 !10 ! could be reomved
+    nstack = 2 ! could be removed ?
     tol_max = 3.d-2 !3.d-4 !3.d-3 !3.d-2
 !err_minfac=0.1d0
-    err_minfac = 1.d-2 !2.0d0/sqrt(dfloat(nmult))
-    tol_redfac = 0.5d0
-    tol_min = 3.d-5
-    epsnoise = 1.d-8
-    factolmax = 3.d0
-    factolred = 0.5d0
-    ntrans = 10
+    err_minfac = 1.d-2 !2.0d0/sqrt(dfloat(nmult)) ! could be removed
+    tol_redfac = 0.5d0 ! could be removed
+    tol_min = 3.d-5 ! could be removed
+    epsnoise = 1.d-8 ! could be removed
+    factolmax = 3.d0 ! keep
+    factolred = 0.5d0 ! keep
+    ntrans = 10 ! could be removed
 !
 !mwind=100
     mwind = 10
@@ -225,10 +215,7 @@ program ql_balance
     end if
     timstepmax = tmax
 
-    if (debug_mode) print *, "gengrid going in"
     call gengrid(npoimin)
-    if (debug_mode) print *, "gengrid going out"
-    !print *, 'irank = , npoib = ', irank, npoib
 
     ! boundary condition
     if (iboutype .eq. 1) then
@@ -237,40 +224,12 @@ program ql_balance
         npoi = npoic
     end if
 
-    ! if parameter scan, get the factors from the hdf5 file
-    if (paramscan) then
-        CALL getfactors
-        if (debug_mode) write (*, *) "got factors"
-    else
-        ! if no parameter scan, set each factor to 1.0
-        allocate(fac_n(1))
-        allocate(fac_Ti(1))
-        allocate(fac_Te(1))
-        allocate(fac_vz(1))
-        fac_n = (/1.d0/)
-        fac_Ti = (/1.d0/)
-        fac_Te = (/1.d0/)
-        fac_vz = (/1.d0/)
-    end if
-
-    ! initialize_wave_code_interface loads the background profiles
-    ! also reads in the mode numbers from modes.in
-    if (debug_mode) write (*, *) "going into initialize wave code interface"
-    call initialize_wave_code_interface(npoib, rb);
-    if (debug_mode) write (*, *) "coming out of initialize wave code interface"
+    CALL initialize_wave_code_interface(npoib, rb);
+    CALL initialize_parameter_scan_vars
 
     mode_m = m_vals(1)
     mode_n = n_vals(1)
-    if (debug_mode) write(*,*) 'mode_m = ', mode_m, 'mode_n = ', mode_n
-
-    ! allocate Dqle22 and |Br| arrays, both will be evaluated at the resonant surface
-    ! must be also done if paramscan is false
-    allocate(dqle22_res(size(fac_n), size(fac_Te), size(fac_Ti), size(fac_vz)))
-    allocate(br_abs_res_parscan(size(fac_n), size(fac_Te), size(fac_Ti), size(fac_vz)))
-    if (paramscan) then
-        if (timing_mode) allocate(timingarr(size(fac_n), size(fac_Te), size(fac_Ti), size(fac_vz)))
-        if (size(fac_vz) .ne. 1) allocate(Er_res(size(fac_n), size(fac_Te), size(fac_Ti), size(fac_vz)))
-    end if
+    if (debug_mode) write(*,*) 'Debug: mode_m = ', mode_m, 'mode_n = ', mode_n
 
     if (ihdf5test .eq. 1) then
         CALL creategroupstructure
@@ -314,17 +273,6 @@ program ql_balance
                         allocate (timstep_arr(neqset), tim_stack(neqset))
                     end if
 
-                    ! create the group structure in the hdf5 file, if first iteration
-                    ! Thus, the existence of a required group does not have
-                    ! to be checked anywhere else.
-                    !if (ifac_n + ifac_Ti + ifac_Te + ifac_vz .eq. 4) then
-
-                    !end if
-
-                    ! save mode names into string that is used for group structure
-                    ! the groupname is concatenated with the parameter scan string, saves coding
-                    ! effort
-                    write (*, *) "m = ", mode_m, "n = ", mode_n
                     ! if more than one RMP mode is used, use different group name
                     if (numres .eq. 1) then
                         write (h5_mode_groupname, "(A,I1,A,I1)") &
@@ -352,55 +300,13 @@ program ql_balance
                         end do
 
                         if (irank .eq. 0) then
-                            if (ihdf5test .eq. 1) then
-                            !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-                                ! write initial background profiles to hdf5 file
-                                !
-                                if (debug_mode) write(*,*) "writing initial background profiles"
-                                ! initialize hdf5 interface
-                                CALL h5_init()
-                                ! open hdf5 file
-                                CALL h5_open_rw(path2out, h5_id)
+                            CALL write_init_profiles
 
-                                CALL h5_obj_exists(h5_id, "/init_params/n", &
-                                                   h5_exists_log)
-                                if (.not. h5_exists_log) then
-                                    CALL h5_add_double_1(h5_id, "/init_params/n", &
-                                                         params(1, :), lbound(params(1, :)), ubound(params(1, :)))
-
-                                    CALL h5_add_double_1(h5_id, "/init_params/Vz", &
-                                                         params(2, :), lbound(params(2, :)), ubound(params(2, :)))
-
-                                    CALL h5_add_double_1(h5_id, "/init_params/Te", &
-                                                         params(3, :)/ev, lbound(params(3, :)), ubound(params(3, :)))
-
-                                    CALL h5_add_double_1(h5_id, "/init_params/Ti", &
-                                                         params(4, :)/ev, lbound(params(4, :)), ubound(params(4, :)))
-
-                                    CALL h5_add_double_1(h5_id, "/init_params/qsaf", &
-                                                         qsaf(:), lbound(qsaf(:)), ubound(qsaf(:)))
-
-                                    CALL h5_add_double_1(h5_id, "/init_params/r", &
-                                                         r, lbound(r), ubound(r))
-                                else
-                                    if (debug_mode) write(*,*) "they are already there -> skiping"
-                                end if
-
-                                CALL h5_close(h5_id)
-                                CALL h5_deinit()
-                                if (debug_mode) write(*,*) "finished writing initial background profiles"
-                                !stop ! for test purposes
-
-                            else
-                                open (123, form='unformatted', file='init_params.dat')
-                                write (123) params
-                                close (123)
-                            end if
-                            allocate (hold_n(npoib))
-                            allocate (hold_Vz(npoib))
-                            allocate (hold_Te(npoib))
-                            allocate (hold_Ti(npoib))
-                            allocate (hold_dphi0(npoib))
+                            allocate(hold_n(npoib))
+                            allocate(hold_Vz(npoib))
+                            allocate(hold_Te(npoib))
+                            allocate(hold_Ti(npoib))
+                            allocate(hold_dphi0(npoib))
                             hold_n = params(1, :)
                             hold_Vz = params(2, :)
                             hold_Te = params(3, :)
@@ -409,46 +315,11 @@ program ql_balance
                         end if
                     end if
 
-                    ! scale the profiles with the according factors
-                    if (paramscan) then
-                        params(1, :) = hold_n *fac_n(ifac_n)
-                        params(2, :) = hold_Vz*fac_vz(ifac_vz)
-                        params(3, :) = hold_Te*fac_Te(ifac_Te)
-                        params(4, :) = hold_Ti*fac_Ti(ifac_Ti)
-
-                        if (debug_mode) write (*, *) "fac_vz = ", fac_vz(ifac_vz)
-                        if (fac_vz(ifac_vz) .ne. 1.d0) then
-                            write (*, *) "get ErVzfac"
-                            CALL h5_init()
-                            CALL h5_open_rw(path2out, h5_id)
-                            CALL h5_get_bounds_1(h5_id, '/factors/ErVzfac', lb, ub)
-                            allocate (ErVzfac(ub))
-                            CALL h5_get_double_1(h5_id, '/factors/ErVzfac', ErVzfac)
-                            CALL h5_close(h5_id)
-                            CALL h5_deinit()
-                            write (*, *) "rescale Er"
-                            idPhi0 = hold_dphi0 + ErVzfac*params(2, :)*(fac_vz(ifac_vz) - 1.d0)
-                            deallocate (ErVzfac)
-                        end if
-                        write(*,*) "Parameter scan, current factors: "
-                        write(*,*) "fac_n = ", fac_n(ifac_n), "   ", ifac_n, &
-                            " of ", size(fac_n)
-                        write(*,*) "fac_Ti = ", fac_Ti(ifac_Ti), "   ", ifac_Ti, &
-                            " of ", size(fac_Ti)
-                        write(*,*) "fac_Te = ", fac_Te(ifac_Te), "   ", ifac_Te, &
-                            " of ", size(fac_Te)
-                        write(*,*) "fac_vz = ", fac_vz(ifac_vz), "   ", ifac_vz, &
-                            " of ", size(fac_vz)
-                    end if
-                    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-
-
+                    call rescale_profiles
                     call geomparprof
 
                     irf = 2
-                    if (debug_mode) print *, "going into get_dql"
                     call get_dql(0)
-                    if (debug_mode) print *, "coming out of get_dql"
 
                     if (flag_run_time_evolution) then
                         !For time evolution mode use antenna_factor as maximum
@@ -1497,6 +1368,7 @@ program ql_balance
                                     params(3, ipoi) = max(params(3, ipoi), temperature_limit*ev)
                                     params(4, ipoi) = max(params(4, ipoi), temperature_limit*ev)
                                 else 
+                                    !> Quick fix of steady state solution. Keep boundary inside the separatrix.
                                     if (r(ipoi) > rsepar-0.5d0) then
                                         params(3, ipoi) = hold_Te(ipoi)
                                         params(4, ipoi) = hold_Ti(ipoi)
@@ -1687,13 +1559,17 @@ program ql_balance
 
 contains
 
-! added by Markus Markl, 12.03.2021
-! This routine was added because of the change that only every
-! "save_prof_time_step"th timestep is written. If the program is to be stopped
-! because a stopping criterion was met, the profiles should be written for that
-! last time step. Because this occurs more than once, it is more convenient to
-! summarize this in a subroutine.
-!
+!> @brief subroutine writefort1000(istep). Writes the profile data to hdf5 files. 
+!> Formerly, this data was written to fort.1xxx ascii files.
+!> This routine was added because of the change that only every
+!>  "save_prof_time_step"th timestep is written. If the program is to be stopped
+!> because a stopping criterion was met, the profiles should be written for that
+!> last time step. Because this occurs more than once, it is more convenient to
+!> summarize this in a subroutine.
+!> @author Markus Markl
+!> @date 12.03.2021
+!> @param[in] istep Current step of the time evolution. Used to name the fort.1000 group in which
+!> the data is written.
 subroutine writefort1000(istep)
 
     use grid_mod
@@ -1785,9 +1661,9 @@ subroutine writefort1000(istep)
 
 end subroutine writefort1000
 
-! Added by Markus Markl, 12.03.2021
-! This subroutine creates the group structure for the balance
-! code in the hdf5 file.
+!> @brief subroutine creategroupstructure. Creates the group structure in the hdf5 file.
+!> @author  Markus Markl
+!> @date 12.03.2021
 subroutine creategroupstructure
 
     use h5mod
@@ -1925,6 +1801,14 @@ subroutine creategroupstructure
 end subroutine
 
 
+!> @brief subroutine write_br_time_data. Writes radial magnetic field perturbation evaluated at the resonant
+!> surface, the antenna factor, the time and Dqle22 evaluated at the resonant surface for a given 
+!> time step to the hdf5 file
+!> @param[in] i Integer of time step to which the data will be saved. Goes from 1:i.
+!> @param[in] br_abs_time Time value of the time evolution.
+!> @param[in] br_abs_antenna_factor Value of the antenna factor, i.e. the RMP coil current.
+!> @param[in] br_abs Absolute value of the radial magnetic field evaluated at the resonant surface in question.
+!> @param[in] dqle22_res_time Value of Dqle22 evaluated at the resonant surface during the time evolution.
 subroutine write_br_time_data(i, br_abs_time, br_abs_antenna_factor, br_abs, dqle22_res_time)
 
     use control_mod
@@ -1971,8 +1855,129 @@ subroutine write_br_time_data(i, br_abs_time, br_abs_antenna_factor, br_abs, dql
         write (777, *) i, time, antenna_factor, br_abs(i)
         close (777)
     end if
+end subroutine ! write_br_time_data
+
+!> @brief subroutine initialize_parameter_scan_vars. Read factors for parameter scan and allocate variables. Still needed if no parameter scan is done.
+!> @author Markus Markl
+!> @date 05.10.2022
+subroutine initialize_parameter_scan_vars
+
+    use paramscan_mod
+    use control_mod, only: paramscan
+
+    implicit none
+
+    if (paramscan) then
+        write(*,*) "Parameter scan: fetch factors for parameter scan"
+        CALL getfactors
+        if (timing_mode) allocate(timingarr(size(fac_n), size(fac_Te), size(fac_Ti), size(fac_vz)))
+        if (size(fac_vz) .ne. 1) allocate(Er_res(size(fac_n), size(fac_Te), size(fac_Ti), size(fac_vz)))
+    else
+        allocate(fac_n(1))
+        allocate(fac_Ti(1))
+        allocate(fac_Te(1))
+        allocate(fac_vz(1))
+        fac_n = (/1.d0/)
+        fac_Ti = (/1.d0/)
+        fac_Te = (/1.d0/)
+        fac_vz = (/1.d0/)
+    end if
+
+    allocate(dqle22_res(size(fac_n), size(fac_Te), size(fac_Ti), size(fac_vz)))
+    allocate(br_abs_res_parscan(size(fac_n), size(fac_Te), size(fac_Ti), size(fac_vz)))
+
+end subroutine ! initialize_parameter_scan_vars
+
+!> @brief subroutine write_init_profiles. Write initial profiles to hdf5 or ascii.
+!> @author Markus Markl
+!> @date 05.10.2022
+subroutine write_init_profiles
+
+    use grid_mod, only: params, qsaf
+    use control_mod, only: debug_mode, ihdf5test
+    use h5mod, only: h5_exists_log, h5_id, path2out
+    use wave_code_data, only: r
+
+    implicit none
+
+    if (debug_mode) write(*,*) "Debug: writing initial background profiles"
+    if (ihdf5test .eq. 1) then
+        CALL h5_init()
+        ! open hdf5 file
+        CALL h5_open_rw(path2out, h5_id)
+        CALL h5_obj_exists(h5_id, "/init_params/n", h5_exists_log)
+        if (.not. h5_exists_log) then
+            CALL h5_add_double_1(h5_id, "/init_params/n", &
+                params(1, :), lbound(params(1, :)), ubound(params(1, :)))
+            CALL h5_add_double_1(h5_id, "/init_params/Vz", &
+                params(2, :), lbound(params(2, :)), ubound(params(2, :)))
+            CALL h5_add_double_1(h5_id, "/init_params/Te", &
+                params(3, :)/ev, lbound(params(3, :)), ubound(params(3, :)))
+            CALL h5_add_double_1(h5_id, "/init_params/Ti", &
+                params(4, :)/ev, lbound(params(4, :)), ubound(params(4, :)))
+            CALL h5_add_double_1(h5_id, "/init_params/qsaf", &
+                qsaf(:), lbound(qsaf(:)), ubound(qsaf(:)))
+            CALL h5_add_double_1(h5_id, "/init_params/r", &
+                r, lbound(r), ubound(r))
+        else
+            if (debug_mode) write(*,*) "Debug: they are already there -> skiping"
+        end if
+
+        CALL h5_close(h5_id)
+        CALL h5_deinit()
+        if (debug_mode) write(*,*) "Debug: finished writing initial background profiles"
+                                !stop ! for test purposes
+
+    else
+        open (123, form='unformatted', file='init_params.dat')
+        write (123) params
+        close (123)
+    end if
+
+end subroutine ! write_initial_profiles
 
 
-end subroutine
+!> @brief subroutine rescale_profiles. Rescales kinetic profiles (n,Vz,Te,Ti).
+!> @author Markus Markl
+!> @date 05.10.2022
+subroutine rescale_profiles
+
+    use grid_mod, only: params
+    use control_mod, only: debug_mode
+    use paramscan_mod
+    implicit none
+
+    double precision, dimension(:), allocatable :: ErVzfac ! factor to rescale Er
+
+    if (debug_mode) write(*,*) "Debug: coming into rescaling profiles"
+
+    params(1, :) = hold_n * fac_n(ifac_n)
+    params(2, :) = hold_vz * fac_vz(ifac_vz)
+    params(3, :) = hold_Te * fac_Te(ifac_Te)
+    params(4, :) = hold_Ti * fac_Ti(ifac_Ti)
+
+    if (fac_vz(ifac_vz) .ne. 1.d0) then
+        if (debug_mode) write(*,*) "Debug: fac_vz not equal 1. need to rescale Er as well"
+        CALL h5_init()
+        CALL h5_open_rw(path2out, h5_id)
+        CALL h5_get_bounds_1(h5_id, '/factors/ErVzfac', lb, ub)
+        allocate (ErVzfac(ub))
+        CALL h5_get_double_1(h5_id, '/factors/ErVzfac', ErVzfac)
+        CALL h5_close(h5_id)
+        CALL h5_deinit()
+        write (*, *) "rescale Er"
+        idPhi0 = hold_dphi0 + ErVzfac*params(2, :)*(fac_vz(ifac_vz) - 1.d0)
+        deallocate (ErVzfac)
+    end if
+
+    write(*,*) "Parameter scan, current factors: "
+    write(*,*) "fac_n = ", fac_n(ifac_n), "   ", ifac_n, " of ", size(fac_n)
+    write(*,*) "fac_Ti = ", fac_Ti(ifac_Ti), "   ", ifac_Ti, " of ", size(fac_Ti)
+    write(*,*) "fac_Te = ", fac_Te(ifac_Te), "   ", ifac_Te, " of ", size(fac_Te)
+    write(*,*) "fac_vz = ", fac_vz(ifac_vz), "   ", ifac_vz, " of ", size(fac_vz)
+
+
+    if (debug_mode) write(*,*) "Debug: going out of rescaling profiles"
+end subroutine !rescale_profiles
 
 end program ql_balance

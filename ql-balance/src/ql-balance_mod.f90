@@ -114,4 +114,7 @@ module paramscan_mod
         fac_Ti, fac_vz
     character(len=1024) :: parscan_str
     double precision :: viscosity_factor
+    DOUBLE PRECISION, DIMENSION(:,:,:,:), ALLOCATABLE :: Er_res
+    DOUBLE PRECISION, DIMENSION(:, :, :, :), ALLOCATABLE :: br_abs_res_parscan
+    DOUBLE PRECISION, DIMENSION(:, :, :, :), ALLOCATABLE :: dqle22_res
 end module

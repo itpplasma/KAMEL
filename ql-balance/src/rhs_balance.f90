@@ -833,9 +833,9 @@ end subroutine calc_dequi
 !
 !ccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
 !
-! Changed by Markus Markl, 11.03.2021.
-! Added the argument istep
 !
+!> @brief subroutine get_dql(istep). Calculates quasilinear diffusion coefficients.
+!> @param[in] istep Step in the time evolution. Used fro writing fort.5xxx data.
 subroutine get_dql(istep)
 
     use grid_mod, only: nbaleqs, neqset, iboutype, npoic, npoib &
@@ -892,6 +892,8 @@ subroutine get_dql(istep)
     double precision :: brvac_interp
 
     CHARACTER(LEN=1024) :: tempch
+
+    if (debug_mode) write(*,*) "Debug: coming into get_dql"
 !
     allocate (dqle11_loc(npoib))
     allocate (dqle12_loc(npoib))
@@ -1285,6 +1287,8 @@ subroutine get_dql(istep)
             end if
         end if
     end if
+
+    if (debug_mode) write(*,*) "Debug: going out of get_dql"
 
 end subroutine get_dql
 

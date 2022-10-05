@@ -15,6 +15,7 @@
   double precision, dimension(:),   allocatable :: x
   double precision, dimension(:,:), allocatable :: coef
 !
+  if (debug_mode) write(*,*) "Debug: coming in gengrid"
   nbaleqs=4
 !
   nder=1
@@ -118,6 +119,8 @@
       Ercovavg(npoib))
   allocate(Ercov_lin(npoib))
 !
+
+  if (debug_mode) write(*,*) "Debug: going out in gengrid"
   return
   end subroutine gengrid
 !

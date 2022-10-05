@@ -93,9 +93,12 @@ end subroutine
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
+!> @brief subroutine initialize_wave_code_interface(nrad, r_grid). Loads and interpolates 
+!>the background profiles and reads the mode numbers from modes.in. Also,
+!> Calculates background EM fields and collision frequencies.
 subroutine initialize_wave_code_interface(nrad, r_grid)
 
-    use wave_code_data; 
+    use wave_code_data
     use h5mod
     use control_mod, only: readfromtimestep, debug_mode, ihdf5test
     implicit none; 
@@ -103,6 +106,9 @@ subroutine initialize_wave_code_interface(nrad, r_grid)
     real(8), dimension(nrad), intent(in) :: r_grid; 
     character(1024) :: profile_path = "./profiles/"
     integer :: k; 
+
+    if (debug_mode) write(*,*) "Debug: Coming into initialize_wave_code_interface"
+
     call read_antenna_modes(flre_path); ! read antenna modes from modes.in file and allocate arrays for mode's numbers
 
     call allocate_wave_code_data(nrad, r_grid); 
@@ -130,6 +136,8 @@ subroutine initialize_wave_code_interface(nrad, r_grid)
     call get_background_magnetic_fields_from_wave_code(vac_cd_ptr(1), dim_r, r, B0t, B0z, B0); 
     call get_collision_frequences_from_wave_code(vac_cd_ptr(1), dim_r, r, nui, nue); 
     vac_call_ind = vac_call_ind + 1; 
+
+    if (debug_mode) write(*,*) "Debug: Going out of initialize_wave_code_interface"
 end subroutine
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -252,9 +260,8 @@ subroutine update_background_files(path)
     ! always keep flag =1, since KiLCA reads profiles from ./profile directory
     integer :: flag = 1; ! set it 1 if you want to store the background profiles to disk
 
-    if (debug_mode) write(*,*) "Here at update_background_profiles: flag = ", flag
+    if (debug_mode) write(*,*) "Debug: here at update_background_profiles: flag = ", flag
     do k = 1, dim_r !at cell boundaries
-
         n(k) = params_b(1, k); 
         Te(k) = params_b(3, k)/ev; 
         Ti(k) = params_b(4, k)/ev; 

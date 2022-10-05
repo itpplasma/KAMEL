@@ -98,6 +98,8 @@ classdef Balance < handle & hdf5_output
         KiLCA_flab = 1;         %kilca frequency in lab frame
         KiLCA_sigma = 1.3e16;   %kilca conductivity of resistive wall
         KiLCA_vgalsys = -1e8;   %kilca velocity of moving frame
+
+        git_hash_string
     end
 
     properties(SetAccess = private)
@@ -246,6 +248,11 @@ classdef Balance < handle & hdf5_output
 			% path of the output hdf5 file
             obj.h5out = [obj.path_output, obj.name, '_', num2str(obj.shot), ...
 				'_', num2str(obj.time), '.hdf5'];
+
+            % get git commit version
+            %[status, git_hash_string] = system(['git -C ', obj.LIB_BALANCE, ' rev-parse HEAD']);
+            %obj.git_hash_string = convertCharsToStrings(git_hash_string);
+            %writeHDF5(obj.h5out, '/', obj.git_hash_string, 'git hash', '1')
 
         end
 
@@ -965,11 +972,19 @@ classdef Balance < handle & hdf5_output
             
         end
         
-		function write_kilca(obj, run_kilca)
+		function write_kilca(obj, run_kilca, multi_mode)
 			% the new version of the balance code can be split in pre 
 			% and main run. But, the pre run does not create the 
 			% necessary input files, e.g. antenna.in. Meaning, this 
 			% needs to be done in run() now.
+
+            if (nargin < 3 || isempty(multi_mode))
+                multi_mode = false;
+            end
+
+			if (nargin < 3 || isempty(run_kilca))
+				run_kilca = 1;
+			end
 
 		    %write KiLCA if not there
             runs = {'kil_vacuum', 'kil_flre'};
@@ -979,13 +994,10 @@ classdef Balance < handle & hdf5_output
                 end
             end
 
-			if (nargin < 2 || isempty(run_kilca))
-				run_kilca = 1;
-			end
 
 			if (run_kilca == 1)
 				obj.reset_profiles();
-				obj.setKiLCAOptions(obj.m_ion, false);
+				obj.setKiLCAOptions(obj.m_ion, multi_mode);
 
             	runs = {'kil_vacuum', 'kil_flre'};
             	for k = 1:numel(runs)
@@ -1171,7 +1183,7 @@ classdef Balance < handle & hdf5_output
             for i =1:numel(obj.m)
                 disp(['m = ', num2str(obj.m(i)), ', n = ', num2str(obj.n(i))]);
                 % write modes to modes.in file
-                fprintf(fileid, ['(', num2str(obj.m(i)), ',', num2str(obj.n(i)), ')']);
+                fprintf(fileid, ['(', num2str(obj.m(i)), ',', num2str(obj.n(i)), ')\n']);
                 switch obj.m(i)
                 case 5
                     scalefactor_temp = [scalefactor_temp, scalefactorssq(1)];
@@ -1191,8 +1203,7 @@ classdef Balance < handle & hdf5_output
             obj.optionsnml.write([obj.path_run, 'balance_conf.nml']);
 
             % need to tell KiLCA that multiple RMP modes must be activated
-
-            obj.setKiLCAOptions(obj, obj.m_ion, true); % set prerun option true, meaning multiple modes are activated
+            %obj.setKiLCAOptions(obj.m_ion, true); % set prerun option true, meaning multiple modes are activated
 
             disp(['Run!'])
             fix = 'LD_LIBRARY_PATH=/proj/plasma/soft/math_libs/64bit/sundials-2.6.2/lib/';
@@ -1200,7 +1211,7 @@ classdef Balance < handle & hdf5_output
             
             fid_log = fopen(logfile, 'at', 'n', 'UTF-8');
             fprintf(fid_log, '%s\n\n\n', res);
-            fprintf(fid_log, ['Finished at ', datestr(datetime), '\n', 'Total runtime: ', string(datetime-start_time)]);
+            %fprintf(fid_log, ['Finished at ', datestr(datetime), '\n', 'Total runtime: ', string(datetime-start_time)]);
             fclose(fid_log);
             if(stat ~= 0)
                 error(['Error in multi-mode Balance. Result = ', res, '. See log file in output directory.'])
@@ -1213,7 +1224,8 @@ classdef Balance < handle & hdf5_output
             disp(['Finished Balance at ', datestr(datetime)])
             disp(['Total runtime was ', string(datetime-start_time)])
 
-        end
+        end % run_multimode
+
 
         function loadOutput(obj)
             %##############################################################

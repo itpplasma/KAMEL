@@ -123,7 +123,6 @@ subroutine initialize_wave_code_interface(nrad, r_grid)
 
 ! vacuum fields for the whole spectrum:
     do k = 1, dim_mn
-
         call clear_wave_code_data(vac_cd_ptr(k)); 
         call calc_wave_code_data_for_mode(vac_cd_ptr(k), vac_path, len(trim(vac_path)), m_vals(k), n_vals(k)); 
     end do
@@ -250,7 +249,8 @@ subroutine update_background_files(path)
     implicit none; 
     character(1024), intent(in) :: path; 
     integer :: k; 
-    integer :: flag = 0; ! set it 1 if you want to store the background profiles to disk
+    ! always keep flag =1, since KiLCA reads profiles from ./profile directory
+    integer :: flag = 1; ! set it 1 if you want to store the background profiles to disk
 
     if (debug_mode) write(*,*) "Here at update_background_profiles: flag = ", flag
     do k = 1, dim_r !at cell boundaries
@@ -801,13 +801,13 @@ subroutine getfactors
     CALL h5_open_rw(path2out, h5_id)
     CALL h5_get_bounds_1(h5_id, "/factors/fac_n", lb, ub)
     write (*, *) "lower bound ", lb, " upper bound ", ub
-    allocate (fac_n(ub))
+    allocate(fac_n(ub))
     CALL h5_get_bounds_1(h5_id, "/factors/fac_Te", lb, ub)
-    allocate (fac_Te(ub))
+    allocate(fac_Te(ub))
     CALL h5_get_bounds_1(h5_id, "/factors/fac_Ti", lb, ub)
-    allocate (fac_Ti(ub))
+    allocate(fac_Ti(ub))
     CALL h5_get_bounds_1(h5_id, "/factors/fac_vz", lb, ub)
-    allocate (fac_vz(ub))
+    allocate(fac_vz(ub))
 
     CALL h5_get_double_1(h5_id, "/factors/fac_n", fac_n)
     CALL h5_get_double_1(h5_id, "/factors/fac_Te", fac_Te)

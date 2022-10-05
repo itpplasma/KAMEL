@@ -980,10 +980,13 @@ subroutine get_dql(istep)
 !
     call MPI_Comm_rank(MPI_COMM_WORLD, irank, ierror);
     if (irank .eq. 0) then
-        if (write_diag_b) then
+        if (write_diag_b) then !write_diag_b
+            write(*,*) "writing params in ", iunit_diag_b
+            open(iunit_diag_b)
             do ipoi = 1, npoib
                 write (iunit_diag_b, *) rb(ipoi), params_b(1:4, ipoi)
             end do
+            close(iunit_diag_b)
         end if
     end if
 

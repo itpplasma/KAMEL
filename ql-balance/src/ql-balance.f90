@@ -9,7 +9,7 @@ program ql_balance
 !DIAG:
     use diag_mod, only: write_diag, iunit_diag, write_diag_b, iunit_diag_b
 !END DIAG
-
+    use resonances_mod, only: numres
     use hdf5_tools
     use paramscan_mod
     use mpi
@@ -174,7 +174,8 @@ program ql_balance
         write(*,*) '====================================================================='
         write(*,*) 'Run time evolution: ', flag_run_time_evolution
         write(*,*) ''
-        write(*,*) 'Parameters from input file:'
+        write(*,*) 'Parameters from balance_conf.nml:'
+        write(*,*) '---------------------------------------------------------------------'
         write(*,*) 'flre path: ', trim(flre_path)
         write(*,*) 'vac path: ', trim(vac_path)
         write(*,*) 'B_tor = ', btor
@@ -203,6 +204,7 @@ program ql_balance
         write(*,*) 'diagnostics_output = ', diagnostics_output
         write(*,*) 'br_stopping = ', br_stopping
         write(*,*) 'debug_mode = ', debug_mode
+        write(*,*) 'readfromtimestep = ', readfromtimestep
         write(*,*) 'suppression_mode = ', suppression_mode
 		write(*,*) "ramp_up_mode = ", ramp_up_mode
 		write(*,*) "t_max_ramp_up = ", t_max_ramp_up
@@ -212,6 +214,7 @@ program ql_balance
         write(*,*) "viscosity_factor = ", viscosity_factor
         write(*,*) "misalign_diffusion = ", misalign_diffusion
         write(*,*) ''
+        write(*,*) '====================================================================='
     end if
 
     timescale = (rmax - rmin)**2/dperp
@@ -225,62 +228,60 @@ program ql_balance
     if (debug_mode) print *, "gengrid going in"
     call gengrid(npoimin)
     if (debug_mode) print *, "gengrid going out"
-    print *, 'irank = , npoib = ', irank, npoib
+    !print *, 'irank = , npoib = ', irank, npoib
 
+    ! boundary condition
     if (iboutype .eq. 1) then
         npoi = npoic - 1
     else
         npoi = npoic
     end if
 
-! if parameter scan, get the factors from the hdf5 file
+    ! if parameter scan, get the factors from the hdf5 file
     if (paramscan) then
         CALL getfactors
-        !write(*,*) "fac_n ", fac_n
-        !write(*,*) "fac_Ti ", fac_Ti
-        !write(*,*) "fac_Te ", fac_Te
-        !write(*,*) "fac_vz ", fac_vz
-        write (*, *) "got factors"
+        if (debug_mode) write (*, *) "got factors"
     else
         ! if no parameter scan, set each factor to 1.0
-        allocate (fac_n(1))
-        allocate (fac_Ti(1))
-        allocate (fac_Te(1))
-        allocate (fac_vz(1))
+        allocate(fac_n(1))
+        allocate(fac_Ti(1))
+        allocate(fac_Te(1))
+        allocate(fac_vz(1))
         fac_n = (/1.d0/)
         fac_Ti = (/1.d0/)
         fac_Te = (/1.d0/)
         fac_vz = (/1.d0/)
     end if
 
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-! this are the parameter scan loops that span over (nearly) the rest of the
-! code.
+    ! initialize_wave_code_interface loads the background profiles
+    ! also reads in the mode numbers from modes.in
     if (debug_mode) write (*, *) "going into initialize wave code interface"
-
     call initialize_wave_code_interface(npoib, rb);
     if (debug_mode) write (*, *) "coming out of initialize wave code interface"
 
     mode_m = m_vals(1)
     mode_n = n_vals(1)
-
     if (debug_mode) write(*,*) 'mode_m = ', mode_m, 'mode_n = ', mode_n
 
-    ! allocate disk space for dqle22_res and timingarr, depending of the number of parameter scans done
-
-    allocate (dqle22_res(size(fac_n), size(fac_Te), size(fac_Ti), size(fac_vz)))
+    ! allocate Dqle22 and |Br| arrays, both will be evaluated at the resonant surface
+    ! must be also done if paramscan is false
+    allocate(dqle22_res(size(fac_n), size(fac_Te), size(fac_Ti), size(fac_vz)))
     allocate(br_abs_res_parscan(size(fac_n), size(fac_Te), size(fac_Ti), size(fac_vz)))
     if (paramscan) then
-        if (timing_mode) allocate (timingarr(size(fac_n), size(fac_Te), size(fac_Ti), size(fac_vz)))
-        if (size(fac_vz) .ne. 1) allocate (Er_res(size(fac_n), size(fac_Te), size(fac_Ti), size(fac_vz)))
+        if (timing_mode) allocate(timingarr(size(fac_n), size(fac_Te), size(fac_Ti), size(fac_vz)))
+        if (size(fac_vz) .ne. 1) allocate(Er_res(size(fac_n), size(fac_Te), size(fac_Ti), size(fac_vz)))
     end if
 
+    if (ihdf5test .eq. 1) then
+        CALL creategroupstructure
+    end if
+
+    ! parameter scan loops that span over (nearly) the rest of the code
     do ifac_n = 1, size(fac_n)
         do ifac_Te = 1, size(fac_Te)
             do ifac_Ti = 1, size(fac_Ti)
                 do ifac_vz = 1, size(fac_vz)
                     if (timing_mode) CALL system_clock(timing_parscan_t1, count_rate)
-                    write (*, *) ifac_n, ifac_Te, ifac_Ti, ifac_vz
                     if (paramscan) then
                         ! change parameter scan string used for navigating the hdf5 file, only if
                         ! the suppression_mode is not activated
@@ -292,11 +293,14 @@ program ql_balance
                             parscan_str = ""
                         end if
                     else
+                        write(*,*) " "
+                        write(*,*) "- No parameter scan -"
+                        write(*,*) " "
                         ! leave it empty if no parameter scan
                         parscan_str = ""
                     end if
 
-                    ! allocate the variables the first time
+                    ! allocate variables in first parameter scan loop iteration
                     if (ifac_n + ifac_Ti + ifac_Te + ifac_vz .eq. 4) then
                         allocate (yprev(neqset))
                         allocate (dqle11_prev(npoib))
@@ -310,43 +314,43 @@ program ql_balance
                         allocate (timstep_arr(neqset), tim_stack(neqset))
                     end if
 
-                    ! initialize_wave_code_interface loads the background profiles
-                    ! also reads in the mode numbers from modes.in
-                    !call initialize_wave_code_interface(npoib, rb);
-
                     ! create the group structure in the hdf5 file, if first iteration
-                    ! Because of this, the existence of a required group does not have
+                    ! Thus, the existence of a required group does not have
                     ! to be checked anywhere else.
-                    if (ifac_n + ifac_Ti + ifac_Te + ifac_vz .eq. 4) then
-                        if (ihdf5test .eq. 1) then
-                            CALL creategroupstructure
-                        end if
-                    end if
+                    !if (ifac_n + ifac_Ti + ifac_Te + ifac_vz .eq. 4) then
+
+                    !end if
 
                     ! save mode names into string that is used for group structure
                     ! the groupname is concatenated with the parameter scan string, saves coding
                     ! effort
                     write (*, *) "m = ", mode_m, "n = ", mode_n
-                    write (h5_mode_groupname, "(A,A,I1,A,I1)") trim(parscan_str), "f_", &
-                        mode_m, "_", mode_n
+                    ! if more than one RMP mode is used, use different group name
+                    if (numres .eq. 1) then
+                        write (h5_mode_groupname, "(A,I1,A,I1)") &
+                            "f_", m_vals(1), "_", n_vals(1)
+                    else
+                        write (h5_mode_groupname, "(A,I1,A,I1)") &
+                            "multi_mode"
+                    end if
 
-                    !
-                    !initial background profiles:
-                    do ipoi = 1, npoic
-                        !safety factor:
-                        qsaf(ipoi) = 0.5*(q(ipoi) + q(ipoi + 1))
-                        !electron density :
-                        params(1, ipoi) = 0.5*(n(ipoi) + n(ipoi + 1))
-                        !toroidal rotation frequency :
-                        params(2, ipoi) = 0.5*(Vz(ipoi) + Vz(ipoi + 1))/rtor
-                        !electron temeperature :
-                        params(3, ipoi) = 0.5*(Te(ipoi) + Te(ipoi + 1))*ev
-                        !ion temeperature :
-                        params(4, ipoi) = 0.5*(Ti(ipoi) + Ti(ipoi + 1))*ev
-                    end do
-
-                    ! only save the initial background profile once
+                    ! write profiles to params the first loop iteration
+                    ! save the initial background profile first loop iteration
                     if (ifac_n + ifac_Ti + ifac_Te + ifac_vz .eq. 4) then
+                        !initial background profiles:
+                        do ipoi = 1, npoic
+                            !safety factor:
+                            qsaf(ipoi) = 0.5*(q(ipoi) + q(ipoi + 1))
+                            !electron density :
+                            params(1, ipoi) = 0.5*(n(ipoi) + n(ipoi + 1))
+                            !toroidal rotation frequency :
+                            params(2, ipoi) = 0.5*(Vz(ipoi) + Vz(ipoi + 1))/rtor
+                            !electron temeperature :
+                            params(3, ipoi) = 0.5*(Te(ipoi) + Te(ipoi + 1))*ev
+                            !ion temeperature :
+                            params(4, ipoi) = 0.5*(Ti(ipoi) + Ti(ipoi + 1))*ev
+                        end do
+
                         if (irank .eq. 0) then
                             if (ihdf5test .eq. 1) then
                             !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -405,15 +409,9 @@ program ql_balance
                         end if
                     end if
 
-            !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-                    ! parameter scan specific
                     ! scale the profiles with the according factors
                     if (paramscan) then
-                        !params(1, :) = params(1, :)*fac_n(ifac_n)
-                        !params(2, :) = params(2, :)*fac_vz(ifac_vz)
-                        !params(3, :) = params(3, :)*fac_Te(ifac_Te)
-                        !params(4, :) = params(4, :)*fac_Ti(ifac_Ti)
-                        params(1, :) = hold_n*fac_n(ifac_n)
+                        params(1, :) = hold_n *fac_n(ifac_n)
                         params(2, :) = hold_Vz*fac_vz(ifac_vz)
                         params(3, :) = hold_Te*fac_Te(ifac_Te)
                         params(4, :) = hold_Ti*fac_Ti(ifac_Ti)
@@ -443,6 +441,7 @@ program ql_balance
                             " of ", size(fac_vz)
                     end if
                     !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
 
                     call geomparprof
 
@@ -481,24 +480,23 @@ program ql_balance
                         end if
                     end if
 
-                    ! if no parameter scan, allocate quantities
                     if (ifac_n + ifac_Ti + ifac_Te + ifac_vz .eq. 4) then
-                        allocate (timscal(npoi), dummy(npoic))
-                        allocate (params_beg(nbaleqs, npoic), params_num(nbaleqs, npoic))
-                        allocate (params_denom(nbaleqs, npoic))
-                        allocate (params_begbeg(nbaleqs, npoic))
+                        allocate(timscal(npoi), dummy(npoic))
+                        allocate(params_beg(nbaleqs, npoic), params_num(nbaleqs, npoic))
+                        allocate(params_denom(nbaleqs, npoic))
+                        allocate(params_begbeg(nbaleqs, npoic))
                     end if
                     time = 0.d0
                     itrans = 0
                     tol = tol_max
                     istage = 1
-!DIAG:
+
+                    !DIAG:
                     write_diag = .false.
                     write_diag_b = .false.
-!END DIAG
-!
+                    !END DIAG
+
                     inquire (file='restart.dat', exist=opnd)
-!
                     if (opnd) then
                         !
                         if (irank .eq. 0) then
@@ -556,10 +554,10 @@ program ql_balance
 !
                     if (flag_run_time_evolution) then
                         if (ifac_n + ifac_Ti + ifac_Te + ifac_vz .eq. 4) then
-                            allocate (br_abs(Nstorage))
-                            allocate (br_abs_antenna_factor(Nstorage))
-                            allocate (br_abs_time(Nstorage))
-                            allocate (dqle22_res_time(Nstorage))
+                            allocate(br_abs(Nstorage))
+                            allocate(br_abs_antenna_factor(Nstorage))
+                            allocate(br_abs_time(Nstorage))
+                            allocate(dqle22_res_time(Nstorage))
                             !allocate (dqle22_res(Nstorage))
                         end if
                     end if
@@ -574,15 +572,12 @@ program ql_balance
                     params_begbeg = params
                     if (debug_mode) write(*,*) 'dql ready'
 
-!init variables for interpolation of Br abs res
-!Added by Philipp Ulbl 04.06.2020
-!Changed location by Markus Markl 08.04.2021
                     nlagr = 4; ! order of lagrange interpolation
                     nder = 0;
                     if (.not. allocated(coef)) allocate (coef(0:nder, nlagr))
-!binsearch
+                    !binsearch, get index of r_resonant
                     call binsrc(rb, 1, npoib, r_resonant, ibrabsres)
-!
+
                     ibeg = max(1, ibrabsres - nlagr/2)
                     iend = ibeg + nlagr - 1
                     if (iend .gt. npoib) then
@@ -592,9 +587,8 @@ program ql_balance
 
                     if (.not. flag_run_time_evolution) then
                         ! linear run
-                        ! added interpolation of dqle22, Markus Markl 08.04.2021
                         call plag_coeff(nlagr, nder, r_resonant, rb(ibeg:iend), coef)
-                        dqle22_res(ifac_n, ifac_Te, ifac_Ti, ifac_vz) = sum(coef(0, :)*dqle22(ibeg:iend))
+                        dqle22_res(ifac_n, ifac_Te, ifac_Ti, ifac_vz) = sum(coef(0, :) * dqle22(ibeg:iend))
                         br_abs_res_parscan(ifac_n, ifac_Te, ifac_Ti, ifac_vz) = sum(coef(0, :) &
                             * abs(Br(ibeg:iend)))*sqrt(antenna_factor)
                         ! if velocity scan, determine Er_res for v_ExB velocity at resonant surface
@@ -617,9 +611,10 @@ program ql_balance
                                 size(fac_Te) + size(fac_vz)) then
                                 if (debug_mode) write(*,*) "Last parameter done. Finalize MPI"
 
-                                ! write the diffusion coefficient out
-                                write (h5_mode_groupname, "(A,I1,A,I1)") "f_", &
-                                mode_m, "_", mode_n
+                                ! write the diffusion coefficient
+                                !write (h5_mode_groupname, "(A,I1,A,I1)") "f_", &
+                                !mode_m, "_", mode_n
+
                                 if (debug_mode) write(*,*) "Write out results"
 
                                 CALL h5_init()
@@ -699,8 +694,8 @@ program ql_balance
                             !Stop if mode is not time evolution
                             !Added by Philipp Ulbl 12.05.2020
                             write(*,*) 'stop: linear code only'
-                            write (h5_mode_groupname, "(A,I1,A,I1)") "f_", &
-                                mode_m, "_", mode_n
+                            !write (h5_mode_groupname, "(A,I1,A,I1)") "f_", &
+                            !    mode_m, "_", mode_n
                             if (debug_mode) write(*,*) "Write out results"
 
                             if (ihdf5test .eq. 1) then
@@ -1584,7 +1579,7 @@ program ql_balance
                             timstep = max(timstep, timstep_min)
                             ! limit timestep from above:
                             !if (ramp_up_mode .ne. 0) timstep = min(timstep,0.1)
-                            !timstep = min(timstep,0.1)
+                            !timstep = min(timstep,0.001)
 
                         else
                             ! use for constant time step:
@@ -1598,7 +1593,7 @@ program ql_balance
                         !
                         
                         if (irank .eq. 0) then
-                            print *, 'timstep', real(timstep), '   timescale', real(timescale), &
+                            write(*,*) 'timstep', real(timstep), '   timescale', real(timescale), &
                                 'tolerance', real(tol)
                         end if
                         !
@@ -1799,6 +1794,7 @@ subroutine creategroupstructure
     use paramscan_mod
     use control_mod
     use wave_code_data, only: m_vals, n_vals
+    use resonances_mod, only: numres
 
     implicit none
     !logical :: suppression_mode = .true.
@@ -1820,15 +1816,27 @@ subroutine creategroupstructure
                             write (parscan_str, "(A,F0.3,A,F0.3,A,F0.3,A,F0.3)") &
                                 "n", fac_n(ifac_n), "Te", fac_Te(ifac_Te), &
                                 "Ti", fac_Ti(ifac_Ti), "vz", fac_vz(ifac_vz)
-                            write (h5_mode_groupname, "(A,A,A,I1,A,I1)") &
-                                trim(parscan_str), "/", "f_", m_vals(1), &
-                                "_", n_vals(1)
+                            
+                            if (numres .eq. 1) then
+                                write (h5_mode_groupname, "(A,A,A,I1,A,I1)") &
+                                    trim(parscan_str), "/", "f_", m_vals(1), &
+                                    "_", n_vals(1)
+                            else
+                                write (h5_mode_groupname, "(A,A,A,I1,A,I1)") &
+                                    trim(parscan_str), "/", "multi_mode"
+                            end if
 
                         else
                             ! leave it empty if no parameter scan
                             parscan_str = ""
-                            write (h5_mode_groupname, "(A,I1,A,I1)") &
-                                "f_", m_vals(1), "_", n_vals(1)
+                            ! if more than one RMP mode is used, use different group name
+                            if (numres .eq. 1) then
+                                write (h5_mode_groupname, "(A,I1,A,I1)") &
+                                    "f_", m_vals(1), "_", n_vals(1)
+                            else
+                                write (h5_mode_groupname, "(A,I1,A,I1)") &
+                                    "multi_mode"
+                            end if
                         end if
                         ! create the groups that are furthest down: fort.1000,
                         ! fort.5000 and init_params
@@ -1881,8 +1889,15 @@ subroutine creategroupstructure
     else
         ! if suppression_mode is true, only a simple group structure is created
         ! i.e. /f_m_n and /init_params
-        write (h5_mode_groupname, "(A,I1,A,I1)") &
-            "f_", m_vals(1), "_", n_vals(1)
+        ! if more than one RMP mode is used, use different group name
+        if (numres .eq. 1) then
+            write (h5_mode_groupname, "(A,I1,A,I1)") &
+                "f_", m_vals(1), "_", n_vals(1)
+        else
+            write (h5_mode_groupname, "(A,I1,A,I1)") &
+                "multi_mode"
+        end if
+
         if (debug_mode) write (*,*) "h5_mode_groupname: ", trim(h5_mode_groupname)
         CALL h5_init()
         CALL h5_open_rw(path2out, h5_id)

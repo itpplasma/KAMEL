@@ -6,11 +6,11 @@
 
 #IncludeRegexTransform: 
 
-/itp/MooseFS/markl_m/GITHUB/Balance/ql-balance/src/constants.h
+/afs/itp.tugraz.at/user/markl_m/Dokumente/plasma/code/balance/ql-balance/src/constants.h
 complex
 -
 
-/itp/MooseFS/markl_m/GITHUB/Balance/ql-balance/src/cvodeint.cpp
+/afs/itp.tugraz.at/user/markl_m/Dokumente/plasma/code/balance/ql-balance/src/cvodeint.cpp
 stdio.h
 -
 stdlib.h
@@ -23,12 +23,14 @@ nvector/nvector_serial.h
 -
 cvode/cvode_dense.h
 -
-sundials/sundials_dense.h
--
 sundials/sundials_types.h
 -
+sunmatrix/sunmatrix_dense.h
+-
+sunlinsol/sunlinsol_dense.h
+-
 
-/itp/MooseFS/markl_m/GITHUB/Balance/ql-balance/src/vel_integral.cpp
+/afs/itp.tugraz.at/user/markl_m/Dokumente/plasma/code/balance/ql-balance/src/vel_integral.cpp
 stdlib.h
 -
 stdio.h
@@ -42,7 +44,7 @@ cstring
 climits
 -
 constants.h
-/itp/MooseFS/markl_m/GITHUB/Balance/ql-balance/src/constants.h
+/afs/itp.tugraz.at/user/markl_m/Dokumente/plasma/code/balance/ql-balance/src/constants.h
 gsl/gsl_errno.h
 -
 gsl/gsl_math.h

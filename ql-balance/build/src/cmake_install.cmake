@@ -1,4 +1,4 @@
-# Install script for directory: /itp/MooseFS/markl_m/GITHUB/Balance/ql-balance/src
+# Install script for directory: /afs/itp.tugraz.at/user/markl_m/Dokumente/plasma/code/balance/ql-balance/src
 
 # Set the install prefix
 if(NOT DEFINED CMAKE_INSTALL_PREFIX)
@@ -44,6 +44,6 @@ endif()
 
 if(NOT CMAKE_INSTALL_LOCAL_ONLY)
   # Include the install script for the subdirectory.
-  include("/itp/MooseFS/markl_m/GITHUB/Balance/ql-balance/build/src/hdf5_tools/cmake_install.cmake")
+  include("/afs/itp.tugraz.at/user/markl_m/Dokumente/plasma/code/balance/ql-balance/build/src/hdf5_tools/cmake_install.cmake")
 endif()
 

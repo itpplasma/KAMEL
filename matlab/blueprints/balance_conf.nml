@@ -58,4 +58,5 @@
  gyro_current_study = 0 , 
  viscosity_factor = 1 ,
  misalign_diffusion = .false. ,
+ equil_path = '/temp/markl_m/FLUXDATA/33353/2900/equil_r_q_psi.dat' ,
 /

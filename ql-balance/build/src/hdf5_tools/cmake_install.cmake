@@ -1,4 +1,4 @@
-# Install script for directory: /itp/MooseFS/markl_m/GITHUB/Balance/ql-balance/src/hdf5_tools
+# Install script for directory: /afs/itp.tugraz.at/user/markl_m/Dokumente/plasma/code/balance/ql-balance/src/hdf5_tools
 
 # Set the install prefix
 if(NOT DEFINED CMAKE_INSTALL_PREFIX)
@@ -44,25 +44,25 @@ endif()
 
 if("x${CMAKE_INSTALL_COMPONENT}x" STREQUAL "xUnspecifiedx" OR NOT CMAKE_INSTALL_COMPONENT)
   list(APPEND CMAKE_ABSOLUTE_DESTINATION_FILES
-   "/itp/MooseFS/markl_m/GITHUB/Balance/ql-balance/lib/libhdf5_tools.a")
+   "/afs/itp.tugraz.at/user/markl_m/Dokumente/plasma/code/balance/ql-balance/lib/libhdf5_tools.a")
   if(CMAKE_WARN_ON_ABSOLUTE_INSTALL_DESTINATION)
     message(WARNING "ABSOLUTE path INSTALL DESTINATION : ${CMAKE_ABSOLUTE_DESTINATION_FILES}")
   endif()
   if(CMAKE_ERROR_ON_ABSOLUTE_INSTALL_DESTINATION)
     message(FATAL_ERROR "ABSOLUTE path INSTALL DESTINATION forbidden (by caller): ${CMAKE_ABSOLUTE_DESTINATION_FILES}")
   endif()
-file(INSTALL DESTINATION "/itp/MooseFS/markl_m/GITHUB/Balance/ql-balance/lib" TYPE STATIC_LIBRARY FILES "/itp/MooseFS/markl_m/GITHUB/Balance/ql-balance/build/src/hdf5_tools/libhdf5_tools.a")
+file(INSTALL DESTINATION "/afs/itp.tugraz.at/user/markl_m/Dokumente/plasma/code/balance/ql-balance/lib" TYPE STATIC_LIBRARY FILES "/afs/itp.tugraz.at/user/markl_m/Dokumente/plasma/code/balance/ql-balance/build/src/hdf5_tools/libhdf5_tools.a")
 endif()
 
 if("x${CMAKE_INSTALL_COMPONENT}x" STREQUAL "xUnspecifiedx" OR NOT CMAKE_INSTALL_COMPONENT)
   list(APPEND CMAKE_ABSOLUTE_DESTINATION_FILES
-   "/itp/MooseFS/markl_m/GITHUB/Balance/ql-balance/include/")
+   "/afs/itp.tugraz.at/user/markl_m/Dokumente/plasma/code/balance/ql-balance/include/")
   if(CMAKE_WARN_ON_ABSOLUTE_INSTALL_DESTINATION)
     message(WARNING "ABSOLUTE path INSTALL DESTINATION : ${CMAKE_ABSOLUTE_DESTINATION_FILES}")
   endif()
   if(CMAKE_ERROR_ON_ABSOLUTE_INSTALL_DESTINATION)
     message(FATAL_ERROR "ABSOLUTE path INSTALL DESTINATION forbidden (by caller): ${CMAKE_ABSOLUTE_DESTINATION_FILES}")
   endif()
-file(INSTALL DESTINATION "/itp/MooseFS/markl_m/GITHUB/Balance/ql-balance/include" TYPE DIRECTORY FILES "/itp/MooseFS/markl_m/GITHUB/Balance/ql-balance/build/")
+file(INSTALL DESTINATION "/afs/itp.tugraz.at/user/markl_m/Dokumente/plasma/code/balance/ql-balance/include" TYPE DIRECTORY FILES "/afs/itp.tugraz.at/user/markl_m/Dokumente/plasma/code/balance/ql-balance/build/")
 endif()
 

@@ -187,6 +187,7 @@ classdef da_estimator < handle & hdf5_output
                 %V = interp1(rho_pol.^2, dat(:, 13), obj.psi_pol_norm, 'pchip') .* 1e6;
                 
             elseif(exist(radpowername, 'file') && exist(inppowername, 'file'))
+                disp('Calculate Da with power estimation!')
                 
                 %load radiated power time trace
                 P_rad_raw = load(radpowername);

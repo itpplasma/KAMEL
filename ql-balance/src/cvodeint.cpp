@@ -5,9 +5,15 @@
 
 #include <cvode/cvode.h>
 #include <nvector/nvector_serial.h>
+/* old version of sundials
 #include <cvode/cvode_dense.h>
-#include <sundials/sundials_dense.h>
+
+*/
+
+//#include <sundials/sundials_dense.h>
 #include <sundials/sundials_types.h>
+#include <sunmatrix/sunmatrix_dense.h>
+#include <sunlinsol/sunlinsol_dense.h>
 
 #define Ith(v,i)     NV_Ith_S(v,i-1)       // Ith numbers components 1..NEQ
 #define IJth(A,i,j)  DENSE_ELEM(A,i-1,j-1) // IJth numbers rows,cols 1..NEQ
@@ -20,6 +26,8 @@ static int f(realtype t, N_Vector y, N_Vector ydot, void *user_data);
 //               N_Vector tmp1, N_Vector tmp2, N_Vector tmp3);
 
 /******************************************************************************/
+
+static int check_flag(void *flagvalue, const char *funcname, int opt);
 
 extern "C"
 {
@@ -87,22 +95,41 @@ realtype t;
 int flag;
 
 // INTEGRATIONSMETHODE -----------------------------------------------------
-void *cvode_mem = CVodeCreate(CV_BDF, CV_NEWTON);
+// old method
+//void *cvode_mem = CVodeCreate(CV_BDF, CV_NEWTON);
+void *cvode_mem = CVodeCreate(CV_ADAMS);
+if (check_flag((void *) cvode_mem, "CVodeCreate", 0)) return 1;
+
 if (!cvode_mem)
 {
   fprintf(stderr, "\nerror: int_basis_vecs_: cvodecreate failed!..");
   return 1;
 }
 
+SUNMatrix A;
+SUNLinearSolver LS;
 
+// Create dense SUNMatrix for use in linear solver
+A = SUNDenseMatrix(neq, neq);
+if (check_flag((void *) A, "SUNDenseMatri", 0)) return 1;
+
+// Create dense linear solver for use by CVODE
+LS = SUNLinSol_Dense(yv,A);
+if (check_flag((void *) LS, "SUNLinSol_Dense", 0)) return 1;
+
+flag =CVodeSetLinearSolver(cvode_mem, LS, A);
+if (check_flag((void *) &flag, "CVodeSetLinearSolver", 1)) return 1;
+
+/* old version of sundials:
 // INITIALISIERUNG ---------------------------------------------------------
-flag = CVodeInit(cvode_mem, f, t0, yv);
+//flag = CVodeInit(cvode_mem, f, t0, yv);
 
 // RELATIVE UND ABSOLUTE GENAUIGKEIT ---------------------------------------
-flag = CVodeSStolerances(cvode_mem, reltol, abstol);
+//flag = CVodeSStolerances(cvode_mem, reltol, abstol);
 
 // AUFRUF DER INTEGRATIONSROUTINE ------------------------------------------
-flag = CVDense(cvode_mem, neq);
+//flag = CVDense(cvode_mem, neq);
+*/
 
 flag = CVode(cvode_mem, tfinal, yv, &t, CV_NORMAL);
 
@@ -181,9 +208,11 @@ static void PrintFinalStats(void *cvode_mem)
   flag = CVodeGetNumNonlinSolvConvFails(cvode_mem, &ncfn);
   check_flag(&flag, "CVodeGetNumNonlinSolvConvFails", 1);
 
-  flag = CVDlsGetNumJacEvals(cvode_mem, &nje);
+  //flag = CVDlsGetNumJacEvals(cvode_mem, &nje);
+  flag = CVodeGetNumJacEvals(cvode_mem, &nje);
   check_flag(&flag, "CVDlsGetNumJacEvals", 1);
-  flag = CVDlsGetNumRhsEvals(cvode_mem, &nfeLS);
+  //flag = CVDlsGetNumRhsEvals(cvode_mem, &nfeLS);
+  flag = CVodeGetNumRhsEvals(cvode_mem, &nfeLS);
   check_flag(&flag, "CVDlsGetNumRhsEvals", 1);
 
   flag = CVodeGetNumGEvals(cvode_mem, &nge);

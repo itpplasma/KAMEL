@@ -33,7 +33,7 @@ program ql_balance
     integer :: npoimin, ipoi, i, nstep, nstepmax, Nstorage, npoi, k, ieq, l
     integer :: nmult, istage, itrans, ntrans, iunit_redo, ioddeven
     double precision :: evoltime, timescale, timstep, eps, tmax, timstep_rec
-    double precision :: tmax_factor, antenna_factor
+    double precision :: tmax_factor!, antenna_factor
     double precision :: antenna_factor_max !Added by Philipp Ulbl 12.05.2020
     double precision :: relchg, relchgmax, facdecr, timstepmax
     double precision :: err_tot, err_loc, err_minfac, tol_redfac
@@ -98,7 +98,8 @@ program ql_balance
         path2inp, path2out, timstep_min, paramscan, save_prof_time_step, &
         diagnostics_output, br_stopping, suppression_mode, debug_mode, timing_mode, &
         readfromtimestep, path2time, ramp_up_mode, t_max_ramp_up, temperature_limit, &
-        antenna_max_stopping, gyro_current_study, viscosity_factor, misalign_diffusion
+        antenna_max_stopping, gyro_current_study, viscosity_factor, misalign_diffusion, &
+        equil_path
 
     if (timing_mode) CALL system_clock(timing_t1, count_rate)
 
@@ -203,6 +204,7 @@ program ql_balance
         write(*,*) "gyro_current_study = ", gyro_current_study
         write(*,*) "viscosity_factor = ", viscosity_factor
         write(*,*) "misalign_diffusion = ", misalign_diffusion
+        write(*,*) "equil_path = ", trim(equil_path)
         write(*,*) ''
         write(*,*) '====================================================================='
     end if
@@ -1451,7 +1453,7 @@ program ql_balance
                             timstep = max(timstep, timstep_min)
                             ! limit timestep from above:
                             !if (ramp_up_mode .ne. 0) timstep = min(timstep,0.1)
-                            !timstep = min(timstep,0.001)
+                            !timstep = min(timstep,0.005)
 
                         else
                             ! use for constant time step:
@@ -1674,7 +1676,7 @@ subroutine creategroupstructure
 
     implicit none
     !logical :: suppression_mode = .true.
-!
+
     write (*, *) "Creating group structure"
     ! if the profiles should be written out, i.e. suppression_mode = false, then an extended group
     ! structure is created to save them

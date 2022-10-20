@@ -19,7 +19,8 @@
     double precision, dimension(:),   allocatable :: dqli11,dqli12,dqli21,dqli22
     double precision, dimension(:),   allocatable :: de11,de12,de21,de22
     double precision, dimension(:),   allocatable :: di11,di12,di21,di22
-    double precision, dimension(:),   allocatable :: d11_misalign ! diffusion due to misalignment of equipotential and flux surfaces
+    double precision, dimension(:),   allocatable :: d11_misalign !> diffusion due to misalignment of equipotential and flux surfaces
+    complex(8), dimension(:),   allocatable :: Es_pert_flux !> part of Es from perturbed flux surface
     double precision, dimension(:),   allocatable :: qlheat_e,qlheat_i
     double precision, dimension(:),   allocatable :: cneo,gpp_av,qsafb,qsaf
     double precision, dimension(:,:), allocatable :: deriv_coef,reint_coef
@@ -64,6 +65,7 @@
     integer :: readfromtimestep ! added by Markus Markl 02.06.2021. Reads the background profiles from hdf5 file in which profiles of a ql time evolution are stored.
     integer :: gyro_current_study
     integer :: step_counter
+    character(len=1024) :: equil_path ! path to equil file containing q, psi, phi,...
   end module control_mod
 
   module matrix_mod

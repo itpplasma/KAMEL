@@ -847,9 +847,9 @@ subroutine get_dql(istep)
                         , dqli11, dqli12, dqli21, dqli22 &
                         , de11, de12, de21, de22, di11, di12, di21, di22 &
                         , rb_cut_in, re_cut_in, rb_cut_out, re_cut_out, rb &
-                        , r_resonant, rmax, d11_misalign
+                        , r_resonant, rmax, d11_misalign, Es_pert_flux, qsaf
 
-    use baseparam_mod, only: Z_i, e_charge, am, p_mass, c, btor, e_mass, ev, rtor, pi
+    use baseparam_mod, only: Z_i, e_charge, am, p_mass, c, btor, e_mass, ev, rtor, pi, rsepar
     use control_mod, only: irf, write_formfactors, ihdf5test, &
                            save_prof_time_step, diagnostics_output, suppression_mode, &
                            debug_mode, misalign_diffusion
@@ -883,6 +883,7 @@ subroutine get_dql(istep)
     DOUBLE PRECISION, DIMENSION(:), ALLOCATABLE :: dqli12_loc
     DOUBLE PRECISION, DIMENSION(:), ALLOCATABLE :: dqli21_loc
     DOUBLE PRECISION, DIMENSION(:), ALLOCATABLE :: dqli22_loc
+    DOUBLE PRECISION, DIMENSION(:), ALLOCATABLE :: Es_pert_flux_temp
     !DOUBLE PRECISION, DIMENSION(:), ALLOCATABLE :: d11_misalign ! diffusion due to misalignment of equipotentials and flux surfaces
     double complex, dimension(:), allocatable :: formfactor
 !
@@ -890,6 +891,7 @@ subroutine get_dql(istep)
     integer :: nlagr, nder, ibrabsres, ibeg, iend
     double precision, dimension(:,:), allocatable :: coef
     double precision :: brvac_interp
+    double precision :: MI_width
 
     CHARACTER(LEN=1024) :: tempch
 
@@ -905,6 +907,8 @@ subroutine get_dql(istep)
     allocate (dqli22_loc(npoib))
     allocate (formfactor(npoib))  
     if (.not. allocated(d11_misalign)) allocate (d11_misalign(npoib))
+    if (.not. allocated(Es_pert_flux)) allocate (Es_pert_flux(npoib))
+    if (.not. allocated(Es_pert_flux_temp)) allocate (Es_pert_flux_temp(npoib))
 !
     dqle11_loc = 0.0d0
     dqle12_loc = 0.0d0
@@ -1008,7 +1012,9 @@ subroutine get_dql(istep)
     modpernode = ceiling(float(dim_mn)/float(np_num));
     imin = modpernode*irank + 1;
     imax = min(dim_mn, modpernode*(irank + 1));
-    if (debug_mode) write(*,*) "This is irf = ", irf
+    if (irank .eq. 0) then
+        if (debug_mode) write(*,*) "This is irf = ", irf
+    end if
     if (irf .eq. 1) call update_background_files(path2profs);
     if (irf .eq. 1) call get_wave_code_data(imin, imax);
     if (irf .eq. 1) call get_background_magnetic_fields_from_wave_code(flre_cd_ptr(imin), dim_r, r, B0t, B0z, B0);
@@ -1031,6 +1037,7 @@ subroutine get_dql(istep)
     dqli12 = 0.0d0
     dqli21 = 0.0d0
     dqli22 = 0.0e0
+    Es_pert_flux = 0.0d0
 
 !sum over modes:
 
@@ -1066,6 +1073,42 @@ subroutine get_dql(istep)
             end if
         end if
 !
+        call get_wave_fields_from_wave_code(flre_cd_ptr(i_mn), dim_r, r, &
+                                            m_vals(i_mn), n_vals(i_mn), Er, Es, Ep, Et, Ez, Br, Bs, Bp, Bt, Bz)
+
+        if (misalign_diffusion .eqv. .true.) then
+            ! caluclate part of perpendicular electric field perturbation that comes from
+            nlagr = 4;
+            nder = 0;
+            if (.not. allocated(coef)) allocate(coef(0:nder,nlagr))
+			if (debug_mode) write(*,*) "at r_resonant(i_mn) = ", r_resonant(i_mn)
+            call binsrc(rb, 1, npoib, r_resonant(i_mn), ibrabsres)
+            if (debug_mode) write(*,*) "binary search found ibrabsres = ", ibrabsres
+            ibeg = max(1, ibrabsres - nlagr/2)
+            iend = ibeg + nlagr -1
+            if (debug_mode) write(*,*) "ibeg = ", ibeg
+            if (debug_mode) write(*,*) "iend = ", iend
+            if (iend .gt. npoib) then
+                iend = npoib
+                ibeg = iend - nlagr + 1
+            end if
+            call plag_coeff(nlagr, nder, r_resonant(i_mn), rb(ibeg:iend), coef)
+
+            CALL magnetic_island_width(coef, nder, nlagr, ibeg, iend, m_vals(i_mn), MI_width)
+ 
+            ! the perturbed flux surfaces
+            Es_pert_flux_temp = (-dPhi0) * Br * (m_vals(i_mn) * rtor**2d0 - n_vals(i_mn) * r**2d0 / qsaf) &
+            / (B0 * r * rtor * (n_vals(i_mn) + (m_vals(i_mn)) / qsaf))
+            ! cut magnetic island from diffusion 
+            !do ipoi = 1, npoi
+            !    if (r(ipoi) .gt. r_resonant(i_mn) - MI_width/2d0 .and. &
+            !    r(ipoi) .lt. r_resonant(i_mn) + MI_width/2d0) then
+            !        Es_pert_flux_temp(ipoi) = 0d0
+            !    end if
+            !end do
+            Es_pert_flux = Es_pert_flux + Es_pert_flux_temp
+        end if
+
 !    write(*,*) "1031"
         call get_wave_fields_from_wave_code(vac_cd_ptr(i_mn), dim_r, r, &
                                             m_vals(i_mn), n_vals(i_mn), Bz, Bz, Bz, Bz, Bz, Br, Bz, Bz, Bz, Bz)
@@ -1163,9 +1206,9 @@ subroutine get_dql(istep)
 !END DIAG
         end if
 !
+
         call get_wave_fields_from_wave_code(flre_cd_ptr(i_mn), dim_r, r, &
                                             m_vals(i_mn), n_vals(i_mn), Bz, Bz, Bz, Bz, Bz, Br, Bz, Bz, Bz, Bz)
-!
 !
         formfactor = Br*formfactor
         write(*,*) "sum(abs(formfactor))/size(formfactor) = ", sum(abs(formfactor))/size(formfactor)
@@ -1175,8 +1218,6 @@ subroutine get_dql(istep)
             end do
             close (10000 + n_vals(i_mn)*1000 + m_vals(i_mn))
         end if
-
-        
 !  spec_weight=1.0d0  ! for DIII-D
 !
         dqle11_loc = dqle11_loc + de11*spec_weight
@@ -1190,13 +1231,24 @@ subroutine get_dql(istep)
 !
         call get_current_densities_from_wave_code(flre_cd_ptr(i_mn), dim_r, r, &
                                                   m_vals(i_mn), n_vals(i_mn), Jri, Jsi, Jpi, Jre, Jse, Jpe)
-!
+
     end do
 !
+    
     ! calculate diffusion due to misalignment of equipotentials and flux surfaces
     if (misalign_diffusion .eqv. .true.) then
-        ! rmax/rtor is the inverse aspect ratio
-        d11_misalign = (16.0d0*sqrt(2.0d0) / (9.0d0 * pi**1.5d0)) * (c * Es / B0)**2.0d0 * (rmax / rtor)**(1.5d0) / (0.5d0 * nu_e)
+        ! rsepar/rtor is the inverse aspect ratio
+        d11_misalign = (16.0d0*sqrt(2.0d0) / (9.0d0 * pi**1.5d0)) * (c * abs(Es_pert_flux + Es) / B0)**2.0d0 &
+         * (rsepar / rtor)**(1.5d0) / (0.5d0 * nu_e)
+        !write(*,*) B0
+        !write(*,*) "r         Es     abs(Es)     nu_e"
+        !do ipoi = 1, npoib
+        !    write(*,*) r(ipoi), Es(ipoi), abs(Es(ipoi)), nu_e(ipoi)
+        !end do
+         !dqle11_loc = dqle11_loc + d11_misalign
+         !dqle12_loc = dqle12_loc + 3 * d11_misalign
+         !dqle21_loc = dqle21_loc + 3 * d11_misalign
+         !dqle22_loc = dqle22_loc + 12 * d11_misalign
    end if ! misalign_diffusion .eqv. .true.
 
 
@@ -1938,7 +1990,7 @@ subroutine writefort5000(istep)
                         , rc, sqg_bthet_overc, Ercov &
                         , ddr_params_nl, y, mwind &
                         , dqle11, dqle12, dqle21, dqle22 &
-                        , dqli11, dqli12, dqli21, dqli22, d11_misalign
+                        , dqli11, dqli12, dqli21, dqli22, d11_misalign, Es_pert_flux
 
     use baseparam_mod, only: Z_i, e_charge, am, p_mass, c, btor, e_mass, ev, rtor
     use control_mod, only: ihdf5test, diagnostics_output, misalign_diffusion
@@ -1986,6 +2038,20 @@ subroutine writefort5000(istep)
             !CALL h5_init()
             !CALL h5_open_rw(path2out, h5_id)
             CALL h5_add_double_1(h5_id, trim(tempch)//"D11_MA", d11_misalign, lbound(d11_misalign), ubound(d11_misalign))
+            CALL h5_add_double_1(h5_id, trim(tempch)//"Es_pert_flux_real", dreal(Es_pert_flux), & 
+                lbound(dreal(Es_pert_flux)), ubound(dreal(Es_pert_flux)))
+            CALL h5_add_double_1(h5_id, trim(tempch)//"Es_pert_flux_imag", dimag(Es_pert_flux), &
+                lbound(dimag(Es_pert_flux)), ubound(dimag(Es_pert_flux)))
+
+            CALL h5_add_double_1(h5_id, trim(tempch)//"Br_real", &
+                real(Br), lbound(real(Br)), ubound(real(Br)))
+            CALL h5_add_double_1(h5_id, trim(tempch)//"Es_real", &
+                real(Es), lbound(real(Es)), ubound(real(Es)))
+
+            CALL h5_add_double_1(h5_id, trim(tempch)//"Br_imag", &
+                dimag(Br), lbound(dimag(Br)), ubound(dimag(Br)))
+            CALL h5_add_double_1(h5_id, trim(tempch)//"Es_imag", &
+                dimag(Es), lbound(dimag(Es)), ubound(dimag(Es)))
             !CALL h5_close(h5_id)
             !CALL h5_deinit()
             write(*,*) "Carry on"
@@ -2042,3 +2108,81 @@ subroutine writefort5000(istep)
     end if
     print *, "Finished writing fort.5000 data"
 end subroutine writefort5000
+
+!> @brief subroutine magnetic_island_width Calculate the width of the magnetic island. Used to cut off the part of the perpendicular electric field coming from perturbed flux surfaces. This part would otherwise diverge at the resonant surface.
+!> @author Markus Markl
+!> @date 20.10.2022
+subroutine magnetic_island_width(coef, nder, nlagr, ibeg, iend, mode, mi_width)
+
+    use wave_code_data
+    use grid_mod, only: deriv_coef, npoib, ipbeg, ipend
+    use h5mod
+    use control_mod, only: equil_path, ihdf5test
+    use baseparam_mod, only: rsepar
+
+    implicit none
+    double precision, intent(out) :: mi_width
+    integer, intent(in) :: nder, nlagr, mode, ibeg, iend
+    double precision, dimension(0:nder, nlagr), intent(in) :: coef
+
+    double precision, dimension(:), allocatable :: diotadr
+    complex(8), dimension(:), allocatable :: Delta_r
+    double precision :: dummy, psi_tor_a
+    complex(8) :: eye
+    integer :: ipoi, iunit_equil
+    character(1024) :: tempch
+
+    allocate(diotadr(npoib))
+    allocate(Delta_r(npoib))
+
+    eye = (0.0, 1.0d0)
+
+    ! read psi_tor at the separatrix. this is the last entry
+    open(iunit_equil, file=trim(equil_path))
+    ! skip first three text lines
+    do ipoi = 1,3
+        read(iunit_equil, *)
+    end do
+    do
+        read(iunit_equil, *, end=1) dummy, dummy, dummy, psi_tor_a
+    end do
+1   continue
+    close(iunit_equil)
+        
+    ! calculate derivative of iota
+    do ipoi = 1, npoib
+        diotadr = sum(1.0d0/q(ipbeg(ipoi) : ipend(ipoi)) * deriv_coef(:,ipoi))
+    end do
+
+    !Delta_r = sqrt(- 4.0d0 * eye * r * Br * B0 / (diotadr * mode * psi_tor_a))
+    Delta_r = abs(sqrt(- eye * Br * sqrt(antenna_factor) * rsepar**4 / (diotadr * mode * psi_tor_a * r)))
+
+    write(*,*) "psi tor a", psi_tor_a
+    write(*,*) "eye ", eye
+    write(*,*) "mode ", mode
+    write(*,*) "sqrt(ant fac) ", sqrt(antenna_factor)
+
+    !open(77)
+    !do ipoi = 1, npoib
+    !    write(77,*) r(ipoi), real(Delta_r(ipoi)), imag(Delta_r(ipoi)), B0(ipoi), real(Br(ipoi)), imag(Br(ipoi))
+    !end do
+    !close(77)
+
+    mi_width = sum(Delta_r(ibeg:iend) * coef(0,:)) * 2
+    write(*,*) "magnetic island width for mode ", mode, " is ", mi_width
+
+    deallocate(diotadr)
+    deallocate(Delta_r)
+
+    if (ihdf5test .eq. 1) then
+        write(*,*) "Write island width to hdf5"
+        CALL h5_init()
+        CALL h5_open_rw(path2out, h5_id)
+        tempch = "/"//trim(h5_mode_groupname)
+        write(*,*) trim(tempch)
+        call h5_add_double_0(h5_id, trim(tempch)//"/mi_width", mi_width)
+        CALL h5_close(h5_id)
+        CALL h5_deinit()
+    end if
+
+end subroutine ! magnetic_island_width

@@ -13,9 +13,11 @@ endif()
 project(ql-balance)
 enable_language(Fortran)
 
+
 set(CMAKE_C_COMPILER "gcc")
 set(CMAKE_CXX_COMPILER "g++")
-set(CMAKE_Fortran_COMPILER "gfortran")
+#set(CMAKE_Fortran_COMPILER "gfortran")
+set(CMAKE_Fortran_COMPILER "mpif90.openmpi")
 
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -L/usr/lib64 -lstdc++")
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -L/usr/lib64 -lstdc++ -O3 -D DOUBLE_APPEND_FORTRAN")
@@ -30,7 +32,7 @@ set(lib ${PROJECT_SOURCE_DIR}/lib/)
 set(soft ${PROJECT_SOURCE_DIR}/soft/)
 set(ql-balance_lib "${lib}libql-balance.a")
 
-set(Fortran_MODULE_DIRECTORY objs)
+set(CMAKE_Fortran_MODULE_DIRECTORY "${objs}")
 
 add_library(ql-balance_lib "")
 add_subdirectory(${src})
@@ -39,17 +41,26 @@ add_subdirectory(${src})
 find_package(SuiteSparse REQUIRED)
 if("${SuiteSparse_FOUND}")
     message(" ====== SuiteSparse was found! ======")
-    target_link_libraries(ql-balance_lib PUBLIC ${SUITESPARSE_LIBRARIES})
-    target_include_directories(ql-balance_lib PUBLIC ${SUITESPARSE_INCLUDE_DIRS})
+    target_link_libraries(ql-balance_lib PUBLIC "${SUITESPARSE_LIBRARIES}")
+    target_include_directories(ql-balance_lib PUBLIC "${SUITESPARSE_INCLUDE_DIRS}")
 endif()
 
 find_package(HDF5 COMPONENTS C Fortran HL REQUIRED)
 if("${HDF5_FOUND}")
     message(" ====== HDF5 was found! ======")
-    target_link_libraries(ql-balance_lib PUBLIC ${HDF5_LIBRARIES})
-    target_include_directories(ql-balance_lib PUBLIC ${HDF5_INCLUDE_DIRS})
+    target_link_libraries(ql-balance_lib PUBLIC "${HDF5_LIBRARIES}")
+    target_include_directories(ql-balance_lib PUBLIC "${HDF5_INCLUDE_DIRS}")
 endif()
 
-find_library(HDF5_tools_lib hdf5_tools ${src}/hdf5_tools/ NO_DEFAULT_PATH)
+
+find_package(Sundials REQUIRED)
+if("${SUNDIALS_FOUND}")
+    message(" ====== Sundials was found! =====")
+    target_link_libraries(ql-balance_lib PUBLIC "${SUNDIALS_LIBRARIES}")
+    target_include_directories(ql-balance_lib PUBLIC "${SUNDIALS_INCLUDE_DIRS}")
+endif()
 
 
+add_executable(ql-balance "${src}/ql-balance.f90")
+
+target_link_libraries(ql-balance ql-balance_lib)

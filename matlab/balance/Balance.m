@@ -63,6 +63,7 @@ classdef Balance < handle & hdf5_output
         LIB_BALANCE     %path to libbalance
         LIB_KiLCA       %path to libkilca
         LIB_GPEC        %path to libgpec
+        balance_code_version = 1.1; % balance code version
 
         hdf5file        %path to hdf5 input file, pre run data
 		h5out           %path to hdf5 output file, balance run data
@@ -249,10 +250,7 @@ classdef Balance < handle & hdf5_output
             obj.h5out = [obj.path_output, obj.name, '_', num2str(obj.shot), ...
 				'_', num2str(obj.time), '.hdf5'];
 
-            % get git commit version
-            %[status, git_hash_string] = system(['git -C ', obj.LIB_BALANCE, ' rev-parse HEAD']);
-            %obj.git_hash_string = convertCharsToStrings(git_hash_string);
-            %writeHDF5(obj.h5out, '/', obj.git_hash_string, 'git hash', '1')
+            write_version_to_hdf5(obj.h5out, obj.balance_code_version); % write git commit hash to hdf5
 
         end
 
@@ -1086,14 +1084,31 @@ classdef Balance < handle & hdf5_output
 				scalefactorssq = h5read(obj.hdf5file, '/output/scalefactors_sq');
 				%disp(num2str(scalefactorssq))
 				m_mode =obj.m(i);
-				switch m_mode
-				case 5
-					scalefactorssq = scalefactorssq(1);
-				case 6
-					scalefactorssq = scalefactorssq(2);
-				case 7
-					scalefactorssq = scalefactorssq(3);
-				end
+                if numel(scalefactorssq) < 4
+				    switch m_mode
+				    case 5
+					    scalefactorssq = scalefactorssq(1);
+				    case 6
+					    scalefactorssq = scalefactorssq(2);
+				    case 7
+					    scalefactorssq = scalefactorssq(3);
+				    end
+                else
+                    switch m_mode
+                    case 4
+                        scalefactorssq = scalefactorssq(1);
+                    case 5
+                        scalefactorssq = scalefactorssq(2);
+                    case 6
+                        scalefactorssq = scalefactorssq(3);
+                    case 7
+                        scalefactorssq = scalefactorssq(4);
+                    case 8
+                        scalefactorssq = scalefactorssq(5);
+                    case 9
+                        scalefactorssq = scalefactorssq(6);
+                    end
+                end
 
 				obj.optionsnml = InputFile(['balance_conf.nml']);
 				obj.optionsnml.read();

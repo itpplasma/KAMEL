@@ -2,6 +2,7 @@
 #F90 = gfortran
 #F90 = mpif90
 F90 = mpif90.openmpi
+#F90  = mpifort
 #COMP = mpif90
 #COMP = /proj/plasma/RMP/MARTIN/mpi-lah/bin/mpif90
 #COMP = /proj/plasma/RMP/MARTIN/mpi-gf-4.7.2/bin/mpif90
@@ -85,6 +86,7 @@ INTEL81  = f95-intel8.1
 GNU_F95  = g95
 #GFORTRAN = gfortran
 GFORTRAN = mpif90.openmpi
+#GFORTRAN = mpifort
 
 # define standard Fortran90 compiler
 ifndef F90

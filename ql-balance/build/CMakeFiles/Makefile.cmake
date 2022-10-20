@@ -16,6 +16,7 @@ set(CMAKE_MAKEFILE_DEPENDS
   "CMakeFiles/hdf5/cmake_hdf5_test.f90"
   "src/hdf5_tools/CMakeFiles/hdf5/cmake_hdf5_test.f90"
   "../cmake/FindSuiteSparse.cmake"
+  "../cmake/FindSundials.cmake"
   "../src/CMakeLists.txt"
   "../src/hdf5_tools/CMakeLists.txt"
   "/usr/share/cmake-3.18/Modules/CMakeCInformation.cmake"
@@ -38,11 +39,13 @@ set(CMAKE_MAKEFILE_DEPENDS
   "/usr/share/cmake-3.18/Modules/Compiler/GNU-CXX.cmake"
   "/usr/share/cmake-3.18/Modules/Compiler/GNU-Fortran.cmake"
   "/usr/share/cmake-3.18/Modules/Compiler/GNU.cmake"
+  "/usr/share/cmake-3.18/Modules/FeatureSummary.cmake"
   "/usr/share/cmake-3.18/Modules/FindBLAS.cmake"
   "/usr/share/cmake-3.18/Modules/FindHDF5.cmake"
   "/usr/share/cmake-3.18/Modules/FindLAPACK.cmake"
   "/usr/share/cmake-3.18/Modules/FindPackageHandleStandardArgs.cmake"
   "/usr/share/cmake-3.18/Modules/FindPackageMessage.cmake"
+  "/usr/share/cmake-3.18/Modules/FindPkgConfig.cmake"
   "/usr/share/cmake-3.18/Modules/FindThreads.cmake"
   "/usr/share/cmake-3.18/Modules/Internal/CMakeCheckCompilerFlag.cmake"
   "/usr/share/cmake-3.18/Modules/Platform/Linux-GNU-C.cmake"
@@ -69,6 +72,7 @@ set(CMAKE_MAKEFILE_PRODUCTS
 
 # Dependency information for all targets:
 set(CMAKE_DEPEND_INFO_FILES
+  "CMakeFiles/ql-balance.dir/DependInfo.cmake"
   "CMakeFiles/ql-balance_lib.dir/DependInfo.cmake"
   "src/hdf5_tools/CMakeFiles/hdf5_tools.dir/DependInfo.cmake"
   )

@@ -28,21 +28,13 @@ import h5py
 from scipy.interpolate import CubicSpline
 import re
 from scipy.signal import argrelextrema
+from utility_class import utility
 
-class postproc:
+class postproc(utility):
 
     prof_t_plot_r_offset = 0.5  # this is in centimeters
     prof_t_plot_y_offset_lower = 1.0 # this is in percent of the profile
     prof_t_plot_y_offset_upper = 1.0 # this is in percent of the profile
-
-
-    # colors of TU Graz presentation template
-    col_tug = '#f70146'
-    col_green = '#78b743'
-    col_blue = '#285f82'
-    col_yellow = '#e59352'
-    col_cyan = '#77babf'
-    col_purple = '#6c2f91'
 
     path2inp = ''
     path2out = ''

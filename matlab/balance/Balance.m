@@ -970,19 +970,26 @@ classdef Balance < handle & hdf5_output
             
         end
         
-		function write_kilca(obj, run_kilca, multi_mode)
+		function write_kilca(obj, run_kilca, multi_mode,ce)
 			% the new version of the balance code can be split in pre 
 			% and main run. But, the pre run does not create the 
 			% necessary input files, e.g. antenna.in. Meaning, this 
 			% needs to be done in run() now.
 
-            if (nargin < 3 || isempty(multi_mode))
+            if (nargin < 4 || isempty(multi_mode))
                 multi_mode = false;
             end
 
-			if (nargin < 3 || isempty(run_kilca))
+			if (nargin < 4 || isempty(run_kilca))
 				run_kilca = 1;
 			end
+
+			if (nargin < 4 || isempty(ce))
+				ce = 1.0;
+            else
+                disp(['coll fac (wk) ', num2str(ce)])
+			end
+            
 
 		    %write KiLCA if not there
             runs = {'kil_vacuum', 'kil_flre'};
@@ -995,7 +1002,7 @@ classdef Balance < handle & hdf5_output
 
 			if (run_kilca == 1)
 				obj.reset_profiles();
-				obj.setKiLCAOptions(obj.m_ion, multi_mode);
+				obj.setKiLCAOptions(obj.m_ion, multi_mode,ce);
 
             	runs = {'kil_vacuum', 'kil_flre'};
             	for k = 1:numel(runs)
@@ -1668,7 +1675,7 @@ classdef Balance < handle & hdf5_output
 
         end
 
-        function setKiLCAOptions(obj, ion_mass, prerun)
+        function setKiLCAOptions(obj, ion_mass, prerun, ce)
             %##############################################################
             %function setKiLCAOptions(obj, flre, vac)
             %##############################################################
@@ -1680,6 +1687,7 @@ classdef Balance < handle & hdf5_output
             %--------------------------------------------------------------
             % flre  ... KiLCA_interface class with flre run type
             % vac   ... KiLCA_interface class with vacuum run type
+            % ce ... collision frequency factor of electrons
             %##############################################################
 
             %FLRE, VACUUM USING KiLCA CLASS
@@ -1687,7 +1695,10 @@ classdef Balance < handle & hdf5_output
            % if isempty(obj.r_big) |
 
            % if it is prerun, use nmodes = 3 for the KiLCa run
-            if nargin < 3, prerun = true; end
+            if nargin < 4 && isempty(prerun), prerun = true; end
+            if nargin < 4 && isempty(ce), ce=1.0; end
+                
+            disp(['coll fac ', num2str(ce)])
 
 
             %number of modes
@@ -1716,6 +1727,7 @@ classdef Balance < handle & hdf5_output
                 obj.(runname).background.Btor = obj.b_tor;
                 obj.(runname).background.flag_recalc = 1;
                 obj.(runname).background.flag_deb = 0;
+                obj.(runname).background.ce = ce;
 				obj.(runname).background.mi = ion_mass;
                 obj.(runname).set_antenna(obj.r_ant, nmodes);
                 obj.(runname).modes.set(obj.m, obj.n);

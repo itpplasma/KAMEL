@@ -20,7 +20,7 @@
     double precision, dimension(:),   allocatable :: de11,de12,de21,de22
     double precision, dimension(:),   allocatable :: di11,di12,di21,di22
     double precision, dimension(:),   allocatable :: d11_misalign !> diffusion due to misalignment of equipotential and flux surfaces
-    complex(8), dimension(:),   allocatable :: Es_pert_flux !> part of Es from perturbed flux surface
+    double complex, dimension(:),   allocatable :: Es_pert_flux !> part of Es from perturbed flux surface
     double precision, dimension(:),   allocatable :: qlheat_e,qlheat_i
     double precision, dimension(:),   allocatable :: cneo,gpp_av,qsafb,qsaf
     double precision, dimension(:,:), allocatable :: deriv_coef,reint_coef

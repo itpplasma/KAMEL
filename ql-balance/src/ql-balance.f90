@@ -113,12 +113,14 @@ program ql_balance
     ! before new one is written
     ! This is contained in hdf5_tools module
     h5overwrite = .true.
-
+    
     if (gyro_current_study .ne. 0) then
         write_gyro_current = .true.
     else
         write_gyro_current = .false.
     end if
+
+    !write_gyro_current = .true.
 
 
     discr_reached = .false. ! variable to say if discrepancy to linear regression

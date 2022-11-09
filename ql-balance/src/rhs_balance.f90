@@ -883,7 +883,7 @@ subroutine get_dql(istep)
     DOUBLE PRECISION, DIMENSION(:), ALLOCATABLE :: dqli12_loc
     DOUBLE PRECISION, DIMENSION(:), ALLOCATABLE :: dqli21_loc
     DOUBLE PRECISION, DIMENSION(:), ALLOCATABLE :: dqli22_loc
-    DOUBLE PRECISION, DIMENSION(:), ALLOCATABLE :: Es_pert_flux_temp
+    DOUBLE COMPLEX, DIMENSION(:), ALLOCATABLE :: Es_pert_flux_temp
     !DOUBLE PRECISION, DIMENSION(:), ALLOCATABLE :: d11_misalign ! diffusion due to misalignment of equipotentials and flux surfaces
     double complex, dimension(:), allocatable :: formfactor
 !
@@ -1097,8 +1097,10 @@ subroutine get_dql(istep)
             CALL magnetic_island_width(coef, nder, nlagr, ibeg, iend, m_vals(i_mn), MI_width)
  
             ! the perturbed flux surfaces
-            Es_pert_flux_temp = (-dPhi0) * Br * (m_vals(i_mn) * rtor**2d0 - n_vals(i_mn) * r**2d0 / qsaf) &
-            / (B0 * r * rtor * (n_vals(i_mn) + (m_vals(i_mn)) / qsaf))
+            !Es_pert_flux_temp = (-dPhi0) * Br * (m_vals(i_mn) * rtor**2d0 - n_vals(i_mn) * r**2d0 / qsaf) &
+            !/ (B0 * r * rtor * (n_vals(i_mn) + (m_vals(i_mn)) / qsaf))
+            Es_pert_flux_temp = (-dPhi0) * Br * ks / (B0 * kp) 
+
             ! cut magnetic island from diffusion 
             !do ipoi = 1, npoi
             !    if (r(ipoi) .gt. r_resonant(i_mn) - MI_width/2d0 .and. &
@@ -1651,6 +1653,10 @@ subroutine calc_parallel_current_directly
     if (gyro_current_study .eq. 0) then
         x1 = kp*vT/nue
         x2 = -om_E/nue
+
+        do i=1, npoib
+            write(7001, *) rb(i), x2(i), nue(i)
+        end do
 !
         do i = 1, npoib
             call getIfunc(x1(i), x2(i), symbI(:, :, i))
@@ -1701,6 +1707,12 @@ subroutine calc_parallel_current_directly
                     kp, lbound(kp), ubound(kp))
                 CALL h5_add_double_1(h5_id, trim(tempch)//"ks", &
                     ks, lbound(ks), ubound(ks)) 
+                CALL h5_add_double_1(h5_id, trim(tempch)//"x1", &
+                    x1, lbound(x1), ubound(x1))
+                CALL h5_add_double_1(h5_id, trim(tempch)//"x2", &
+                    x2, lbound(x2), ubound(x2)) 
+                CALL h5_add_double_1(h5_id, trim(tempch)//"nue", &
+                    nui, lbound(nue), ubound(nue)) 
 
                 CALL h5_close(h5_id)
                 CALL h5_deinit()
@@ -1901,7 +1913,7 @@ subroutine calc_ion_parallel_current_directly
     use grid_mod, only: npoib, rb, params_b, Ercov, ddr_params_nl
     use baseparam_mod, only: Z_i, e_charge, am, p_mass, c, btor, e_mass, ev, rtor
     use wave_code_data
-    use control_mod, only: ihdf5test, diagnostics_output
+    use control_mod, only: ihdf5test, diagnostics_output, write_gyro_current
     use h5mod
     use mpi
 !
@@ -1943,6 +1955,58 @@ subroutine calc_ion_parallel_current_directly
 !
     call MPI_Comm_rank(MPI_COMM_WORLD, irank, ierror);
     if (irank .eq. 0) then
+        if (write_gyro_current) then
+            write(*,*) "writing par_current_i.dat"
+            write(*,*) " - "
+            ! Write out gyro current which is different to KiLCA current Jpe.
+            ! The gyro current is calculated from (60) in Heyn et. al 2014
+            CALL h5_init()
+            CALL h5_open_rw(path2out, h5_id)
+            tempch = "/"//trim(h5_mode_groupname)//"/par_current_i/"
+            write(*,*) "In group: "//trim(tempch)
+
+            CALL h5_define_group(h5_id, trim(tempch), group_id_1)
+            CALL h5_close_group(group_id_1)
+
+                CALL h5_add_double_1(h5_id, trim(tempch)//"rb", &
+                    rb, lbound(rb), ubound(rb))
+                CALL h5_add_double_1(h5_id, trim(tempch)//"par_current_i_real", &
+                    real(curr_i_par), lbound(real(curr_i_par)), ubound(real(curr_i_par)))
+                CALL h5_add_double_1(h5_id, trim(tempch)//"par_current_i_imag", &
+                    dimag(curr_i_par), lbound(dimag(curr_i_par)), ubound(dimag(curr_i_par))) 
+                CALL h5_add_double_1(h5_id, trim(tempch)//"Jpi_real", &
+                    real(Jpi), lbound(real(Jpi)), ubound(real(Jpi)))
+                CALL h5_add_double_1(h5_id, trim(tempch)//"Jpi_imag", &
+                    dimag(Jpi), lbound(dimag(Jpi)), ubound(dimag(Jpi))) 
+                CALL h5_add_double_1(h5_id, trim(tempch)//"Jsi_real", &
+                    real(Jsi), lbound(real(Jsi)), ubound(real(Jsi)))
+                CALL h5_add_double_1(h5_id, trim(tempch)//"Jsi_imag", &
+                    dimag(Jsi), lbound(dimag(Jsi)), ubound(dimag(Jsi))) 
+                CALL h5_add_double_1(h5_id, trim(tempch)//"Jri_real", &
+                    real(Jpi), lbound(real(Jpi)), ubound(real(Jpi)))
+                CALL h5_add_double_1(h5_id, trim(tempch)//"Jri_imag", &
+                    dimag(Jri), lbound(dimag(Jri)), ubound(dimag(Jri))) 
+                CALL h5_add_double_1(h5_id, trim(tempch)//"kp", &
+                    kp, lbound(kp), ubound(kp))
+                CALL h5_add_double_1(h5_id, trim(tempch)//"ks", &
+                    ks, lbound(ks), ubound(ks)) 
+                CALL h5_add_double_1(h5_id, trim(tempch)//"x1", &
+                    x1, lbound(x1), ubound(x1))
+                CALL h5_add_double_1(h5_id, trim(tempch)//"x2", &
+                    x2, lbound(x2), ubound(x2)) 
+                CALL h5_add_double_1(h5_id, trim(tempch)//"nui", &
+                    nui, lbound(nui), ubound(nui)) 
+
+
+
+
+                CALL h5_close(h5_id)
+                CALL h5_deinit()
+
+            end if ! write_gyro_current
+
+
+
         if (diagnostics_output) then
             if (ihdf5test .eq. 1) then
                 print *, "writing par_current_i.dat"
@@ -2038,8 +2102,8 @@ subroutine writefort5000(istep)
             !CALL h5_init()
             !CALL h5_open_rw(path2out, h5_id)
             CALL h5_add_double_1(h5_id, trim(tempch)//"D11_MA", d11_misalign, lbound(d11_misalign), ubound(d11_misalign))
-            CALL h5_add_double_1(h5_id, trim(tempch)//"Es_pert_flux_real", dreal(Es_pert_flux), & 
-                lbound(dreal(Es_pert_flux)), ubound(dreal(Es_pert_flux)))
+            CALL h5_add_double_1(h5_id, trim(tempch)//"Es_pert_flux_real", real(Es_pert_flux), & 
+                lbound(real(Es_pert_flux)), ubound(dreal(Es_pert_flux)))
             CALL h5_add_double_1(h5_id, trim(tempch)//"Es_pert_flux_imag", dimag(Es_pert_flux), &
                 lbound(dimag(Es_pert_flux)), ubound(dimag(Es_pert_flux)))
 

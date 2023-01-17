@@ -397,6 +397,7 @@ classdef Balance < handle & hdf5_output
             obj.file_equi = gfile;
             % write g file to hdf5 file
             gfiledata = importdata(gfile, ' ', 1);
+            disp(gfiledata)
 			%gfiledata
             try
                 h5create(obj.hdf5file, '/input/gfile', size(gfiledata.data));
@@ -979,6 +980,8 @@ classdef Balance < handle & hdf5_output
             if (nargin < 4 || isempty(multi_mode))
                 multi_mode = false;
             end
+
+            disp(['Multi mode: ', num2str(multi_mode)])
 
 			if (nargin < 4 || isempty(run_kilca))
 				run_kilca = 1;
@@ -1676,6 +1679,7 @@ classdef Balance < handle & hdf5_output
         end
 
         function setKiLCAOptions(obj, ion_mass, prerun, ce)
+				%obj.setKiLCAOptions(obj.m_ion, multi_mode,ce);
             %##############################################################
             %function setKiLCAOptions(obj, flre, vac)
             %##############################################################
@@ -1695,8 +1699,8 @@ classdef Balance < handle & hdf5_output
            % if isempty(obj.r_big) |
 
            % if it is prerun, use nmodes = 3 for the KiLCa run
-            if nargin < 4 && isempty(prerun), prerun = true; end
-            if nargin < 4 && isempty(ce), ce=1.0; end
+            if nargin < 4 || isempty(prerun), prerun = true; end
+            if nargin < 4 || isempty(ce), ce=1.0; end
                 
             disp(['coll fac ', num2str(ce)])
 

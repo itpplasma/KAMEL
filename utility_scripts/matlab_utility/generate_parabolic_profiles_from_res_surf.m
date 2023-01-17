@@ -1,17 +1,23 @@
-function generate_parabolic_profiles(path, q0, n0, Te0, Ti0, Vz0, Er0, Vth0, rmin, rmax, num, a, const)
+function generate_parabolic_profiles_from_res_surf(path, q0, n0, Te0, Ti0,...
+		Vz0, Er0, Vth0, m_mode, n_mode, rmin, rmax, num, a, const)
 	if (nargin < 13 && isempty(const))
 		const = '';	
 	end
 
 	r = linspace(rmin, rmax, num);
+
+	q  = -(1.05 + q0 .* r.^2/a^2);
+
+	%disp(['-m/n = ', num2str(m_mode/n_mode)]);
+	rres = interp1(q,r,-m_mode/n_mode);
 	
-	n  = n0  .* (1- r.^2/a^2);
-	Te = Te0 .* (1- r.^2/a^2);
+	n  = n0  .* (1- r.^2/a^2)./(1-rres^2/a^2);
+	Te = Te0 .* (1- r.^2/a^2)./(1-rres^2/a^2);
 	Ti = Ti0 .* (1- r.^2/a^2);
 	Vz = Vz0 .* (1- r.^2/a^2);
 	Er = Er0 .* (1- r.^2/a^2);
 	Vth = Vth0 .* (1- r.^2/a^2);
-	q  = -(1.05 + q0 .* r.^2/a^2);
+
 
 	if ~strcmp(const,'')
 		disp(['profile ', const, ' is set constant'])

@@ -28,16 +28,29 @@ import h5py
 from scipy.interpolate import CubicSpline
 import re
 from scipy.signal import argrelextrema
-from utility_class import utility
 
-class postproc(utility):
+class postproc:
 
     prof_t_plot_r_offset = 0.5  # this is in centimeters
     prof_t_plot_y_offset_lower = 1.0 # this is in percent of the profile
     prof_t_plot_y_offset_upper = 1.0 # this is in percent of the profile
 
+
+    # colors of TU Graz presentation template
+    col_tug = '#f70146'
+    col_green = '#78b743'
+    col_blue = '#285f82'
+    col_yellow = '#e59352'
+    col_cyan = '#77babf'
+    col_purple = '#6c2f91'
+
+    spec_weight = 0.5 # spectral weight in the balance code is wrongly set to 2, has to be corrected
+
     path2inp = ''
     path2out = ''
+
+    majorgridlw = 1.5
+    minorgridlw = 1.0
 
     profile_types = {'n': r'/$cm^{-3}$', 'Te': r'/$eV$', 'Ti': r'/$eV$', 'Vz': r'/$cm/s$', 'Er': r'/$statV cm^{-1}$'}
 
@@ -126,6 +139,14 @@ class postproc(utility):
             scanid = scanid + '/'
         return scanid + mode + '/' + group + '/' + dataset
 
+    def get_res_radius(self, mode='f_6_2'):
+        res = np.array(self.h5inp['/output/r_res'])
+        if mode == 'f_5_2':
+            return res[0]
+        if mode == 'f_6_2':
+            return res[1]
+        if mode == 'f_7_2':
+            return res[2]
 
     def deql22(self, scanid, modes, time = 0):
         """Returns the profile of deql22"""
@@ -263,6 +284,7 @@ class postproc(utility):
     def plt_simple_criterion(self, scanid = '/', time=0, rho_pol=True):
         """ Create a plot that illustrates the simple bifurcation criterion, i.e. the values of dqle22 at the resonant surfaces. Also plots the plasma pressure as a reference."""
         self.da_res = np.array(self.h5inp['output/Da_res']).transpose()[0]
+        #print(self.da_res)
         #if (scanid == ''):
             #self.deq22_res = self.get_deq22_res(scanid, time)
         if (scanid == 'all'):
@@ -298,11 +320,11 @@ class postproc(utility):
 
         if (scanid == '/'):
             self.calc_pres(scanid=scanid)
-            self.deq22_res = self.get_deq22_res_read(scanid, time)
+            self.deq22_res = self.get_deq22_res_read(scanid, time) * self.spec_weight
             self.bifurcfactors = self.deq22_res/self.da_res
 
             plt.rc('font', size=12)
-            fig, ax = plt.subplots(2, figsize=(6.4,4.0), gridspec_kw={
+            fig, ax = plt.subplots(2, figsize=(6,3.5), gridspec_kw={
                            'width_ratios': [1],
                            'height_ratios': [1,0]})
             
@@ -310,15 +332,23 @@ class postproc(utility):
             ax[0].set_title('AUG ' + str(int(self.shot)) + ' at ' + "{:.1f}".format(self.time/1000)+'s')
             ax[0].plot(self.r_res.transpose()[0], self.bifurcfactors,marker='o', label='bifurcation factors', c=self.col_blue)
             ax[0].axhline(y=1.0,linestyle = '--', color = 'grey' ,label='threshold')
-            ax[0].text(65, 1, 'threshold', va='bottom')
+            ax[0].text(63, 1, 'threshold', va='top')
             ax[0].set_yscale('log')
-            ax[0].set_ylabel(r'(D$^{\mathrm{ql}}_{e22}$ / D$^{\mathrm{a}}$) (r$_{\mathrm{res}}$)')
+            ax[0].set_ylabel(r'D$^{\mathrm{ql}}_{e,22}$ / D$^{\mathrm{a}}$')
+
+            
+
             ax[0].set_xlabel('r / cm')
             ax[0].set_xlim((40,70))
-            ax_twin.plot(self.prof_rc, self.prof_p, color='k', label ='pressure')
+            ax_twin.plot(self.prof_rc, self.prof_p, color=self.col_yellow, label ='pressure')
             ax_twin.set_ylabel('$p_{tot}$ / Pa')
             ax_twin.ticklabel_format(axis='y', style='sci', scilimits=(1,4))
             ax_twin.set_ylim((0,14e4))
+
+            ax_twin.spines['right'].set_color(self.col_yellow)
+            ax_twin.spines['left'].set_color(self.col_blue)
+            ax_twin.tick_params(axis='y', colors=self.col_yellow)
+            ax_twin.yaxis.label.set_color(self.col_yellow)
 
             #ax_twin.ticklabel_format(useMathText=True)
 
@@ -329,12 +359,12 @@ class postproc(utility):
             #ax.axvline(x=ExB_resonance, color = 'grey', linestyle = '-.', label='ExB resonance')
 
             ax[0].annotate('5/2', [self.r_res[0], self.bifurcfactors[0]], weight='bold', ha='center',va='top')
-            ax[0].annotate('6/2', [self.r_res[1], self.bifurcfactors[1]], weight='bold')
+            ax[0].annotate('6/2', [self.r_res[1], self.bifurcfactors[1]], weight='bold', va='top')
             ax[0].annotate('7/2', [self.r_res[2], self.bifurcfactors[2]], weight='bold')
 
             offs = 10500
-            ax_twin.plot([self.prof_rc[offs], self.prof_rc[offs]+0.5], [self.prof_p[offs], self.prof_p[offs] + 3e4], c='k')
-            ax_twin.text(self.prof_rc[offs]+0.5, self.prof_p[offs]+3e4, r'p$_{tot}$', va='bottom', ha='center')
+            #ax_twin.plot([self.prof_rc[offs], self.prof_rc[offs]+0.5], [self.prof_p[offs], self.prof_p[offs] + 3e4], c='k')
+            #ax_twin.text(self.prof_rc[offs]+0.5, self.prof_p[offs]+3e4, r'p$_{tot}$', va='bottom', ha='center')
 
 
             psi_pol_norm = np.array(self.h5inp['/preprocprof/equil/psi_pol_norm'])[0]
@@ -350,8 +380,11 @@ class postproc(utility):
             tl = ["{:.2f}".format(el) for el in rho_eq]
             ax[1].set_xticklabels(tl)
             ax[1].get_yaxis().set_visible(False)
-            ax[1].set_xlabel(r'normalized poloidal flux $\rho_{pol}$')           
+            ax[1].set_xlabel(r'normalized poloidal flux $\psi_{n}$', usetex=True, fontsize=16)           
 
+            ax[0].spines['left'].set_color(self.col_blue)
+            ax[0].tick_params(axis='y', colors=self.col_blue)
+            ax[0].yaxis.label.set_color(self.col_blue)
 
             #ax[0].axvline(np.array(self.h5inp['input/r_sep_real'])[0])
             plt.tight_layout()
@@ -459,11 +492,11 @@ class postproc(utility):
 
         for it in iterates:
             self.Br_abs_ant = np.append(self.Br_abs_ant, self.h5out[scanid+mode+ '/fort.5000/'+it+'/Br_abs'][-1])
-        self.Br_ant_time = np.array(self.h5out[scanid+mode+'/timstep_evol.dat']).transpose()[5]
-        self.Br_ant_timesel = np.append(self.Br_ant_time[0::10], self.Br_ant_time[-1])
+        self.Br_ant_time = np.array(self.h5out[scanid+mode+'/br_abs_time'])
+        self.Br_ant_timesel = np.append(self.Br_ant_time[0::5], self.Br_ant_time[-1])
         self.Br_abs_ant_inter = CubicSpline(self.Br_ant_timesel, self.Br_abs_ant)
         self.Br_abs_ant_new = self.Br_abs_ant_inter(self.Br_ant_time)
-        self.antenna_factor = np.array(self.h5out[scanid+mode+'/br_abs_res.dat']).transpose()[2]
+        self.antenna_factor = np.array(self.h5out[scanid+mode+'/br_abs_antenna_factor'])
         fig = plt.figure()
         plt.plot(self.Br_ant_time, self.Br_abs_ant_new*np.sqrt(self.antenna_factor[0:-1]), marker='o')
         plt.xlabel('t/s')
@@ -1322,3 +1355,9 @@ class postproc(utility):
             return 1
         if mode == 'f_7_2':
             return 2
+
+
+    def add_grid_to_axis(self, axis):
+        axis.grid(which='major', color='#DDDDDD', linewidth=self.majorgridlw)
+        axis.grid(which='minor', color='#EEEEEE', linewidth=self.minorgridlw, ls=':')
+        axis.set_axisbelow(True)

@@ -120,7 +120,7 @@ program ql_balance
         write_gyro_current = .false.
     end if
 
-    !write_gyro_current = .true.
+    write_gyro_current = .false.
 
 
     discr_reached = .false. ! variable to say if discrepancy to linear regression
@@ -144,7 +144,7 @@ program ql_balance
 
     relchgmax = 0.1d0 ! could be removed
     facdecr = 1.d1 ! could be removed
-    urelax = 0.0d0 !0.5d0  !0.9d0
+    urelax = 0.5e0 !0.5d0  !0.9d0
     nmult = 1 !10 ! could be reomved
     nstack = 2 ! could be removed ?
     tol_max = 3.d-2 !3.d-4 !3.d-3 !3.d-2
@@ -262,6 +262,8 @@ program ql_balance
                         ! leave it empty if no parameter scan
                         parscan_str = ""
                     end if
+					write (h5_mode_groupname, "(A)") trim(parscan_str)
+					write(*,*) "h5_mode_groupname: ", trim(h5_mode_groupname)
 
                     ! allocate variables in first parameter scan loop iteration
                     if (ifac_n + ifac_Ti + ifac_Te + ifac_vz .eq. 4) then
@@ -276,15 +278,17 @@ program ql_balance
                         allocate (dqli22_prev(npoib))
                         allocate (timstep_arr(neqset), tim_stack(neqset))
                     end if
-
+				
                     ! if more than one RMP mode is used, use different group name
                     if (numres .eq. 1) then
-                        write (h5_mode_groupname, "(A,I1,A,I1)") &
+                        write (h5_mode_groupname, "(A,A,I1,A,I1)") trim(h5_mode_groupname), &
                             "f_", m_vals(1), "_", n_vals(1)
                     else
-                        write (h5_mode_groupname, "(A,I1,A,I1)") &
+                        write (h5_mode_groupname, "(A,A,I1,A,I1)") trim(h5_mode_groupname), &
                             "multi_mode"
                     end if
+
+					write(*,*) "h5_mode_groupname after f_m_n: ", trim(h5_mode_groupname)
 
                     ! write profiles to params the first loop iteration
                     ! save the initial background profile first loop iteration
@@ -349,6 +353,7 @@ program ql_balance
                     if (debug_mode) write(*,*) "Generating starting source"
                     call genstartsource
 
+					write(*,*) "h5_mode_groupname before writefort1000: ", trim(h5_mode_groupname)
                     if (irank .eq. 0) then
                         if (suppression_mode .eqv. .false.) then
                             CALL writefort1000(0) ! write the profiles to hdf5 file
@@ -485,6 +490,8 @@ program ql_balance
                             if (ifac_n + ifac_Te + ifac_Ti + ifac_vz .eq. size(fac_n) + size(fac_Ti) + &
                                 size(fac_Te) + size(fac_vz)) then
                                 if (debug_mode) write(*,*) "Last parameter done. Finalize MPI"
+                                    write (h5_mode_groupname, "(A,I1,A,I1)") "f_", m_vals(1), "_", n_vals(1)
+
 
                                 ! write the diffusion coefficient
                                 !write (h5_mode_groupname, "(A,I1,A,I1)") "f_", &
@@ -1367,8 +1374,10 @@ program ql_balance
                             !
                             !limits ion and electron temperatures from below (by 10 eV in this example).
                             !Added by Philipp Ulbl on 09.06.2020
+
+                            !write(*,*) "Limit Te and Ti from below"
                             do ipoi = 1, npoic
-                                if (.false.) then
+                                if (.true.) then
                                     params(3, ipoi) = max(params(3, ipoi), temperature_limit*ev)
                                     params(4, ipoi) = max(params(4, ipoi), temperature_limit*ev)
                                 else 
@@ -1406,7 +1415,7 @@ program ql_balance
                             end do
                             !
                             if (irank .eq. 0) then
-                                print *, 'maxval(timscal) = ', maxval(timscal)
+                                write(*,*) "maxval(timscal) = ", maxval(timscal)
                                 write(*,*) "tol*factolmax = ", tol*factolmax
                             end if
                             if (maxval(timscal) .lt. tol*factolmax) exit
@@ -1425,9 +1434,10 @@ program ql_balance
                                 k = nbaleqs*(ipoi - 1) + ieq
                                 !timstep_arr(k)=timstep_arr(k)/timscal(ipoi)*tol
                                 timstep_arr(k) = timstep_arr(k)/max(timscal(ipoi), epsilon(1.d0))*tol
-                                if (ieq .gt. 1 .and. r(ipoi) .gt. rsepar-0.5d0) then
-                                    timstep_arr(k) = 0d0
-                                end if
+                                ! steady state solution:
+                                !if (ieq .gt. 1 .and. r(ipoi) .gt. rsepar-0.5d0) then
+                                !    timstep_arr(k) = 0d0
+                                !end if
                             end do
                         end do
                         !
@@ -1437,7 +1447,8 @@ program ql_balance
                             tim_stack = timstep_arr
                         end if
                         timstep_arr = 2.d0*timstep_arr*tim_stack/(timstep_arr + tim_stack)
-                        timstep = minval(timstep_arr, MASK = r .gt. rsepar - 0.5d0)
+                        !timstep = minval(timstep_arr, MASK = r .gt. rsepar - 0.5d0)
+                        timstep = minval(timstep_arr)
 
                         !This can be used to limit timestep
                         !Added by Philipp Ulbl, June 2020

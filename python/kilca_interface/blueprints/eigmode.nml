@@ -1,0 +1,20 @@
+&EIGENMODE
+ fname = 'roots.dat' , ! file name with determinant values
+ search_flag = 1 , ! 0: roots search is used, 1: det is evaluated on a frequency grid
+ rdim = 1 , ! dimension of a grid for real part
+ rfmin = 0.0e6 , ! minimum real value of freq
+ rfmax = 1.0e6 , ! maximum real value of freq
+ idim = 100 , ! dimension of a grid for imag part
+ ifmin = 0.0e0 , ! minimum imag value of freq
+ ifmax = 2.1e5 , ! maximum imag value of freq
+ stop_flag = 1 , ! stopping criteria: 0 - det residial, 1 - root convergence
+ eps_res = 1.0e-14 , ! absolute value of the determinant
+ eps_abs = 1.0e-10 , ! absolute error for roots sequence
+ eps_rel = 1.0e-10 , ! relative error for roots sequence
+ delta = 1.0e-3 , ! delta freq used to compute derivative
+ test_roots = 0 , ! 1 - test roots by contour integration, 0 - skip test
+ flag_debug = 0 , ! flag for debugging
+ Nguess = 4 , ! number of starting points
+ kmin = 0 , ! starting index (from 0)
+ kmax = 3 ! ending index (from 0)
+/

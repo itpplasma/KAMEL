@@ -1,0 +1,9 @@
+&ANTENNA
+ ra = 70.0 , ! small radius (cm) of antenna location (msut match zones.in)
+ wa = 0.0 ,  ! current density layer width, 0 is delta function
+ I0 = 1.0e13 , ! current in the coils (statamp)
+ flab = (1.0e3, 0.0e0) , ! complex frequency in the lab frame
+ dma = 0 , ! number of antenna modes to be used from modes.in
+ flag_debug = 0 , ! flag for debugging
+ flag_eigmode = 0 ! flag to solve an eigenmode problem
+/

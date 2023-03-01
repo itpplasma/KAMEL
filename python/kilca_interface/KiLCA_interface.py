@@ -1,3 +1,9 @@
+# TODO:
+# - Add database part, i.e. write a database entry for everytime KiLCA is run. If the kilca interface
+# is used by the balance interface, this should be slimed.
+#
+
+
 import matplotlib.pyplot as plt
 import numpy as np
 import h5py
@@ -32,15 +38,22 @@ class KiLCA_interface:
     run_type = ''
 
 
-    def __init__(self, path, rtype):
+    def __init__(self, shot, time, path, rtype, machine='AUG'):
         """Constructor of KiLCA interface.
         input:
+                shot ... shot number
+                time ... time of the time slice in experiment
                 path ... path to run directory
-                rtype... run type, i.e. vacuum or flre"""
+                rtype... run type, i.e. vacuum or flre
+                machine ... e.g. AUG or LHD
+                """
 
         self.path = path
         self.path_of_profiles = path + self.PROF_PATH
         self.path_of_interface_file = os.getcwd()
+        self.shot = shot # shot number of the experiment
+        self.time = time # time of the time slice
+        self.machine = machine # machine, e.g. AUG or LHD
 
         if rtype == 'vacuum' or rtype == 'flre' or rtype == 'imhd':
             self.path_of_run = self.path + rtype + '/'

@@ -14,6 +14,9 @@ class KiLCA_antenna(InpOut):
     flag_deb    = 0 # flag for debugging
     flag_eig    = 0 # flag to solve eigenmode problem
 
+    ind = list(range(1,7+1))
+    sep = '#'
+
     def __init__(self, r, n):
         """
         Constructor takes radius r of antenna and number of modes n.
@@ -22,6 +25,13 @@ class KiLCA_antenna(InpOut):
         self.ra = r
         self.nmod = n
         self.READY = True
+
+    def data(self):
+        return [self.ra, self.width, self.I0, self.flab, self.nmod, self.flag_deb, self.flag_eig]
+
+    def export_to_dot_in(self, fname, loc):
+        """The antenna.in file is the input file for KiLCA."""
+        pass
 
     def export_to_hdf5(self, fname, loc):
         pass

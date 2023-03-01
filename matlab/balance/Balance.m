@@ -396,15 +396,15 @@ classdef Balance < handle & hdf5_output
 
             obj.file_equi = gfile;
             % write g file to hdf5 file
-            gfiledata = importdata(gfile, ' ', 1);
-            disp(gfiledata)
+            %gfiledata = importdata(gfile, ' ', 1);
+            %disp(gfiledata)
 			%gfiledata
-            try
-                h5create(obj.hdf5file, '/input/gfile', size(gfiledata.data));
-            catch
-                disp('gfile already exists, will overwrite')
-            end
-            h5write(obj.hdf5file, '/input/gfile', gfiledata.data);
+            %try
+            %    h5create(obj.hdf5file, '/input/gfile', size(gfiledata.data));
+            %catch
+            %    disp('gfile already exists, will overwrite')
+            %end
+            %h5write(obj.hdf5file, '/input/gfile', gfiledata.data);
             %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
             obj.path_fluxdata = fluxdatapath;

@@ -1137,7 +1137,7 @@ subroutine get_dql(istep)
 
         ! spec_weight was wrongly set to 2.0. In case that the tmhd code uses double sided Fourier series, it
         ! must be set to 4.0d0, since the factor 2.0d0 should occur in the fields.
-        spec_weight = 2.0d0
+        spec_weight = 1.0d0
 
         !Call of localizer which was initially contained in call_amn_of_r. This was removed, thus
         !we have to localize dql directly. Otherwise we have dql!=0 outside the separatrix which
@@ -1684,22 +1684,25 @@ subroutine calc_parallel_current_directly
 !
         call MPI_Comm_rank(MPI_COMM_WORLD, irank, ierror);
         if (irank .eq. 0) then
+            CALL h5_init()
+            CALL h5_open_rw(path2out, h5_id)
+            tempch = "/"//trim(h5_mode_groupname)//"/par_current_e/"
+            write(*,*) "In group: "//trim(tempch)
+
+            CALL h5_define_group(h5_id, trim(tempch), group_id_1)
+            CALL h5_close_group(group_id_1)
+
+            CALL h5_add_double_1(h5_id, trim(tempch)//"rb", &
+                    rb, lbound(rb), ubound(rb))
+            CALL h5_add_double_1(h5_id, trim(tempch)//"x2", &
+                    x2, lbound(x2), ubound(x2)) 
+
             if (write_gyro_current) then
                 write(*,*) "writing par_current_e.dat"
                 write(*,*) " - "
                 ! Write out gyro current which is different to KiLCA current Jpe.
             ! The gyro current is calculated from (60) in Heyn et. al 2014
-                CALL h5_init()
-                CALL h5_open_rw(path2out, h5_id)
-                tempch = "/"//trim(h5_mode_groupname)//"/par_current_e/"
-                write(*,*) "In group: "//trim(tempch)
-
-                CALL h5_define_group(h5_id, trim(tempch), group_id_1)
-                CALL h5_close_group(group_id_1)
-
-                CALL h5_add_double_1(h5_id, trim(tempch)//"rb", &
-                    rb, lbound(rb), ubound(rb))
-                !CALL h5_add_double_1(h5_id, trim(tempch)//"par_current_e_real", &
+               !CALL h5_add_double_1(h5_id, trim(tempch)//"par_current_e_real", &
                 !   real(curr_e_par), lbound(real(curr_e_par)), ubound(real(curr_e_par)))
                 !ALL h5_add_double_1(h5_id, trim(tempch)//"par_current_e_imag", &
                 !   dimag(curr_e_par), lbound(dimag(curr_e_par)), ubound(dimag(curr_e_par))) 
@@ -1721,8 +1724,6 @@ subroutine calc_parallel_current_directly
                     ks, lbound(ks), ubound(ks)) 
                 CALL h5_add_double_1(h5_id, trim(tempch)//"x1", &
                     x1, lbound(x1), ubound(x1))
-                CALL h5_add_double_1(h5_id, trim(tempch)//"x2", &
-                    x2, lbound(x2), ubound(x2)) 
                 CALL h5_add_double_1(h5_id, trim(tempch)//"nue", &
                     nue, lbound(nue), ubound(nue)) 
                 CALL h5_add_double_1(h5_id, trim(tempch)//"om_E", &
@@ -1745,20 +1746,10 @@ subroutine calc_parallel_current_directly
                 CALL h5_add_double_1(h5_id, trim(tempch)//"I22_im", &
                     dimag(symbI(2,2,:)), lbound(symbI(2,2,:)), ubound(symbI(2,2,:))) 
 
-
-
-
-
-
-
-
-
-
-
-                CALL h5_close(h5_id)
-                CALL h5_deinit()
-
             end if ! write_gyro_current
+            CALL h5_close(h5_id)
+            CALL h5_deinit()
+
 
 
             if (diagnostics_output) then

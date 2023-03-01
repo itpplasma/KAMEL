@@ -4,7 +4,7 @@
 72      #                               ntor         ! number of toroidal harmonics
 9.90e-01      #                             cutoff       ! inner cutoff in psi/psi_a units
 4      #                                icftype      ! type of coil file
-'/proj/plasma/DATA/BALANCE/EQUI/33353/g33353.2900_MICDU_EQB_ed1'      #         gfile        ! equilibrium file
+'/proj/plasma/DATA/BALANCE/EQUI/33353/g33353.2900_EQH'      #         gfile        ! equilibrium file
 '/proj/plasma/DATA/BALANCE/COIL/33353/33353.2900_coil.dat'      # !'DATA/ASDEX/MESH3D_30835/field.dat'    pfile        ! coil        file
 '/proj/plasma/RMP/DATA/convexwall.dat'      #           convexfile   ! convex file for stretchcoords
 './fluxdata/'      #               fluxdatapath ! directory with data in flux coord.

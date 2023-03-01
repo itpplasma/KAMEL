@@ -1,0 +1,5 @@
+&test
+    coil_name(1:2) = 'bu', 'bl'
+    coil_cur(1:2,1) = 1.0, 3.0
+    coil_cur(1:2,2) = 0, 0
+/

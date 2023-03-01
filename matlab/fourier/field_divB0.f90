@@ -459,14 +459,15 @@ subroutine read_eqfile1(nwEQD,nhEQD,psiSep, bt0, rzero, rad, zet, psiRZ)
       read(gunit,2010,end=55,err=250)(pprime(i),i=1,nwEQD)
       read(gunit,2010,end=55,err=250)((psiRZ(i,j),i=1,nwEQD),j=1,nhEQD)
       read(gunit,2010,end=55,err=250)(qpsi(i),i=1,nwEQD)
-      print *, 'Equilibrium Done.', trim(gfile)
+	  write(*,*) qpsi(nwEQD-2)
+      print *, 'Equilibrium Done.   ', trim(gfile)
 ! Boundary Data
       read(gunit,*,end=55,err=250)n_bndyxy,nlimEQD    
       allocate(LCFS(2*n_bndyxy))
       allocate(limEQD(2*nlimEQD))               
       read(gunit,2010,end=55,err=250)(LCFS(i),i=1,2*n_bndyxy)
       read(gunit,2010,end=55,err=250)(limEQD(i),i=1,2*nlimEQD)
-!      print *, 'Boundary Done.'
+      print *, 'Boundary Done.'
       close(gunit)
 
       call set_eqcoords(nwEQD,nhEQD,xdim,zdim,r1,zmid,rad,zet)           

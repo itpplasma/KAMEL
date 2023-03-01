@@ -1,0 +1,24 @@
+&coil_control
+    ceq_type = 'efit'
+    data_dir = ''
+    machine = 'aug'
+    ip_direction = 'positive'
+    bt_direction = 'negative'
+    coil_num = 2
+    cmpsi = 64
+    cmtheta = 480
+    cmzeta = 40
+    coil_name(1:2) = 'bu', 'bl'
+    coil_cur(1:2,1) = 1265.1824951171875, 1247.406005859375
+    coil_cur(1:2,2) = -1252.899169921875, -1265.6402587890625
+    coil_cur(1:2,3) = 1266.7083740234375, 1249.237060546875
+    coil_cur(1:2,4) = -1255.340576171875, -1268.9208984375
+    coil_cur(1:2,5) = 1271.4385986328125, -1272.430419921875
+    coil_cur(1:2,6) = -1245.9564208984375, 1245.1934814453125
+    coil_cur(1:2,7) = 1270.599365234375, -1273.651123046875
+    coil_cur(1:2,8) = -1249.0081787109375, 1244.354248046875
+/
+
+&coil_output
+    gpec_interface = .true.
+/

@@ -358,9 +358,9 @@ class postproc:
             #ax.axvline(x=fluid_resonance, color = 'grey', linestyle = '--', label='Fluid resonance')
             #ax.axvline(x=ExB_resonance, color = 'grey', linestyle = '-.', label='ExB resonance')
 
-            ax[0].annotate('5/2', [self.r_res[0], self.bifurcfactors[0]], weight='bold', ha='center',va='top')
-            ax[0].annotate('6/2', [self.r_res[1], self.bifurcfactors[1]], weight='bold', va='top')
-            ax[0].annotate('7/2', [self.r_res[2], self.bifurcfactors[2]], weight='bold')
+            ax[0].annotate('(5,2)', [self.r_res[0], self.bifurcfactors[0]], weight='bold', ha='center',va='top')
+            ax[0].annotate('(6,2)', [self.r_res[1], self.bifurcfactors[1]], weight='bold', va='top')
+            ax[0].annotate('(7,2)', [self.r_res[2], self.bifurcfactors[2]], weight='bold')
 
             offs = 10500
             #ax_twin.plot([self.prof_rc[offs], self.prof_rc[offs]+0.5], [self.prof_p[offs], self.prof_p[offs] + 3e4], c='k')
@@ -1040,6 +1040,29 @@ class postproc:
                 '_Erprof_t.' + out_type, bbox_inches='tight', dpi=150)
         return list(map(plt.figure, plt.get_fignums()))
 
+
+
+    def plt_initial_plasma_profiles(self):
+
+        self.init_r  = np.array(self.h5inp['/preprocprof/r_out'])[0]
+        self.init_ne = np.array(self.h5inp['/preprocprof/n'])[0]
+        self.init_Te = np.array(self.h5inp['/preprocprof/Te'])[0]
+        self.init_Ti = np.array(self.h5inp['/preprocprof/Ti'])[0]
+        self.init_Vz = np.array(self.h5inp['/preprocprof/Vz'])[0]
+        self.r_sep_real = np.array(self.h5inp['/input/r_sep_real'])[0]
+
+        plt.figure()
+        plt.plot(self.init_r, self.init_ne / np.max(self.init_ne), label='ne')
+        plt.plot(self.init_r, self.init_Te / np.max(self.init_Te), label='Te')
+        plt.plot(self.init_r, self.init_Ti / np.max(self.init_Ti), label='Ti')
+        plt.plot(self.init_r, self.init_Vz / np.max(self.init_Vz), label='Vtor')
+        plt.axvline(self.r_sep_real, ls='-', c='grey', label='separatrix')
+        for res in self.r_res:
+            plt.axvline(res, ls='--', c='dimgrey')
+        plt.legend()
+        ax = plt.gca()
+        self.add_grid_to_axis(ax)
+        
 
     def plt_all_profiles_t(self, time='last', scanid='', mode='f_5_2', save=False, title=False, out_type='pdf'):
         """ Plot all profiles over t. Contains zoomed in subplot."""

@@ -1,7 +1,7 @@
 !
   module grid_mod
-    implicit none
-    save
+    !implicit none
+    !save
     integer :: npoib,npoic,npoi_der,nbaleqs,neqset,iboutype
     integer :: mwind
     double precision :: rmin,rmax

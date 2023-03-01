@@ -1,0 +1,29 @@
+&equil_control
+    eq_type = 'efit'
+    eq_filename = '/proj/plasma/DATA/BALANCE/EQUI/33353/g33353.2900_MICDU_EQB_ed1'
+    jac_type = 'hamada'
+    power_bp = 0
+    power_b = 0
+    power_r = 0
+    grid_type = 'ldp'
+    psilow = 0.01
+    psihigh = 0.999
+    mpsi = 128
+    mtheta = 256
+    newq0 = 0
+    etol = 1e-07
+    use_classic_splines = .false.
+    use_galgrid = .true.
+    input_only = .false.
+/
+
+&equil_output
+    gse_flag = .true.
+    out_eq_1d = .false.
+    bin_eq_1d = .false.
+    out_eq_2d = .false.
+    bin_eq_2d = .true.
+    out_2d = .false.
+    bin_2d = .false.
+    dump_flag = .false.
+/

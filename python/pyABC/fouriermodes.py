@@ -24,16 +24,25 @@ def fouriermodes(fourierpath, fluxdatapath):
     os.chdir(fourierpath)
     time_start = datetime.datetime.now()
     print('Start of Fouriermodes at ' + str(time_start))
+    
     # execute fouriermodes
-    res = subprocess.Popen('./fouriermodes.x', stdout=subprocess.PIPE)
+    #res = subprocess.Popen('./fouriermodes.x', shell = True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, executable='/bin/bash')
+
+    res = subprocess.Popen('./fouriermodes.x', stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    #res.wait()
+    res_std, res_err = res.communicate()
+ 
     time_end = datetime.datetime.now()
+
     logname = fourierpath + 'fouriermodes_' + str(time_end) + '.log'
     fid = open(logname, 'w')
+
     fid.writelines('Start of Fouriermodes at ' + str(time_start) + '\n')
     fid.writelines('End of Fouriermodes at ' + str(time_end) + '\n\n')
     #fid.writelines(res)
-    with res as proc:
-        fid.write(str(proc.stdout.read()))
+    #with res as proc:
+    #    fid.write(proc.stdout.read().decode('UTF-8'))
+    fid.write(res_std)
     fid.close()
 
     os.system('mkdir -p ' + fluxdatapath)

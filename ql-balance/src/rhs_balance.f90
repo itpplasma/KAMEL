@@ -786,12 +786,13 @@ subroutine calc_dequi
         !
         !Da estimated is dae12 -> see notes on conversion
         dae12(ipoi) = sum(coef(0, :)*Da_raw(ibeg:iend))
-        call localizer(-1.d0, rsepar, rsepar + 0.5d0, rb(ipoi), weight)
-        dae12(ipoi) = dae12(ipoi)*(1.d0 - weight) + weight*1d6
+        !call localizer(-1.d0, rsepar, rsepar + 0.5d0, rb(ipoi), weight)
+        !dae12(ipoi) = dae12(ipoi)*(1.d0 - weight) + weight*1d6
     !    write(77, *) r, dae12(ipoi)
     end do
     !close(77)
-
+        call localizer(-1.d0, rsepar, rsepar + 0.5d0, rb(ipoi), weight)
+        dae12(ipoi) = dae12(ipoi)*(1.d0 - weight) + weight*1d6
 
 
     !get other da
@@ -1689,8 +1690,12 @@ subroutine calc_parallel_current_directly
             tempch = "/"//trim(h5_mode_groupname)//"/par_current_e/"
             write(*,*) "In group: "//trim(tempch)
 
-            CALL h5_define_group(h5_id, trim(tempch), group_id_1)
-            CALL h5_close_group(group_id_1)
+            CALL h5_obj_exists(h5_id, trim(tempch), h5_exists_log)
+            if (.not. h5_exists_log) then
+                CALL h5_define_group(h5_id, trim(tempch), group_id_1)
+                CALL h5_close_group(group_id_1)
+            end if
+            
 
             CALL h5_add_double_1(h5_id, trim(tempch)//"rb", &
                     rb, lbound(rb), ubound(rb))

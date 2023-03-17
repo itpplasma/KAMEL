@@ -48,7 +48,6 @@
  br_stopping = .true. ,
  suppression_mode = .true. ,
  debug_mode = .false. ,
- timing_mode = .false. ,
  readfromtimestep = 0 ,
  path2time = ' ' ,
  ramp_up_mode = 0, ! ramp up mode, if 0 no faster ramp up

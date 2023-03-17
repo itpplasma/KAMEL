@@ -167,7 +167,7 @@ class postproc:
         self.deq22_res_vec = np.empty([0])
         # iterate over given m values
         if (self.scanid == ''):
-             for i in range(0,len(self.m)):
+             for i in range(0,3):
                 self.modestring = 'f_'+ str(int(self.m[i])) + '_'+ str(int(self.n[i]))
                 # get r and De22 values for given mode number and scanid (=factor setting)
                 self.r = self.h5out[self.modestring]['fort.5000'][str(5000+time)]['r']
@@ -177,7 +177,7 @@ class postproc:
                 self.deq22_res_vec = np.append(self.deq22_res_vec, self.fun(self.r_res[i]))
 
         else:
-            for i in range(0,len(self.m)):
+            for i in range(0,3):
                 self.modestring = 'f_'+ str(int(self.m[i][0])) + '_'+ str(int(self.n[i][0]))
                 # get r and De22 values for given mode number and scanid (=factor setting)
                 self.r = self.h5out[self.scanid][self.modestring]['fort.5000'][str(5000+time)]['r']
@@ -284,6 +284,7 @@ class postproc:
     def plt_simple_criterion(self, scanid = '/', time=0, rho_pol=True):
         """ Create a plot that illustrates the simple bifurcation criterion, i.e. the values of dqle22 at the resonant surfaces. Also plots the plasma pressure as a reference."""
         self.da_res = np.array(self.h5inp['output/Da_res']).transpose()[0]
+        
         #print(self.da_res)
         #if (scanid == ''):
             #self.deq22_res = self.get_deq22_res(scanid, time)
@@ -293,6 +294,7 @@ class postproc:
             for scan in self.scans_list:
                 self.calc_pres(scan)
                 self.deq22_res = self.get_deq22_res(scan, time)
+                self.da_res = self.da_res[0:len(self.deq22_res)]
                 self.bifurcfactors = self.deq22_res/self.da_res
                 fig, ax = plt.subplots(figsize=(10,4))
                 ax_twin = plt.twinx()
@@ -321,6 +323,7 @@ class postproc:
         if (scanid == '/'):
             self.calc_pres(scanid=scanid)
             self.deq22_res = self.get_deq22_res_read(scanid, time) * self.spec_weight
+            self.da_res = self.da_res[0:len(self.deq22_res)]
             self.bifurcfactors = self.deq22_res/self.da_res
 
             plt.rc('font', size=12)
@@ -403,11 +406,13 @@ class postproc:
         else:
             self.calc_pres(scanid=scanid)
             self.deq22_res = self.get_deq22_res(scanid, time)
+            self.da_res = self.da_res[0:len(self.deq22_res)]
             self.bifurcfactors = self.deq22_res/self.da_res
             fig, ax = plt.subplots(figsize=(10,4))
             ax_twin = plt.twinx()
             ax.set_title(scanid)
-            ax.plot(self.r_res.transpose()[0], self.bifurcfactors,marker='o', label='bifurcation factors')
+            rres = self.r_res[0:len(self.deq22_res)]
+            ax.plot(rres, self.bifurcfactors,marker='o', label='bifurcation factors')
             ax.axhline(y=1.0,linestyle = ':', color = 'grey' ,label='threshold')
             ax.set_yscale('log')
             ax.set_ylabel('$D^{QL}_{e22}/D_a$ @ res')

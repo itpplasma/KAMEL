@@ -113,7 +113,6 @@ class GPEC_interface:
 
         # create sotlink to executable
         sourcepath = self.gpec_home + code + '/' + code
-        print(sourcepath)
         os.system('ln -sfT ' + sourcepath + ' ./' + code)
 
         # get time and create log file

@@ -17,11 +17,12 @@ class utility:
     majorgridlw = 1.5
     minorgridlw = 1.0
 
-	def __init__():
-		pass
-    def __new__(cls):
+    def __init__(self):
+        pass
+
+    def __call__(self, cls):
         if not hasattr(cls, 'instance'):
-            cls.instance = super(utility, cls).__new__(cls)
+            cls.instance = super(utility, cls).__call__(cls)
         return cls.instance
 
     def add_grid_to_axis(self, axis):

@@ -23,6 +23,7 @@ program ql_balance
     implicit none
 
     integer :: ierror, np_num, irank
+    integer :: iexit ! used for ramp-up skipping of saving
 
     logical :: toomuch, opnd, dostep, scratch
     logical :: flag_run_time_evolution !Added by Philipp Ulbl 12.05.2020
@@ -62,13 +63,6 @@ program ql_balance
     DOUBLE PRECISION :: temperature_limit ! limits ion and electron temperatures from below, in eV
     DOUBLE PRECISION :: antenna_max_stopping
 
-    ! timing variables
-    integer :: timing_t1, timing_t2 ! for total timing
-    integer :: timing_parscan_t1, timing_parscan_t2 ! for timing of individual parameters
-    double precision, dimension(:, :, :, :), allocatable :: timingarr ! used to hold the time values during parameter scan
-    integer :: count_rate
-    character(len=13) :: timing_ds_total = '/timing/total'
-    character(len=15) :: timing_ds_parscan = '/timing/parscan'
 
     !needed for interpolation of br abs and stopping criterion
     !Added by Philipp Ulbl 04.06.2020
@@ -81,6 +75,7 @@ program ql_balance
     DOUBLE PRECISION :: br_predicted
 
 	integer :: ramp_up_mode !> control ramp up mode of the RMP coil current amplitude
+    integer :: ramp_up_down = 0 !> used in hysteresis mode, tells if ramp-up (0) or ramp-down (1)
 	DOUBLE PRECISION :: t_max_ramp_up = 1e-2 !> 10ms ramp up until antenna_factor_max is reached
     integer ::  ibrabsres, ibeg, iend, nlagr, nder
     double precision, dimension(:, :), allocatable :: coef !> coefficients for interpolation
@@ -88,6 +83,7 @@ program ql_balance
     character(len=1024) :: h5_currentgrp !> current hdf5 group string
     integer(HID_T) :: time_dataset_id !> variable to save the time dataset id
     integer(HID_T) :: brabs_dataset_id
+    double precision :: t_hysteresis_turn = 0
 
     !> namelist for the balance configuration input
     NAMELIST /BALANCENML/ flre_path, vac_path, btor, rtor, rmin, rmax, &
@@ -96,18 +92,17 @@ program ql_balance
         icoll, Z_i, am, rb_cut_in, re_cut_in, rb_cut_out, re_cut_out, &
         write_formfactors, flag_run_time_evolution, stop_time_step, &
         path2inp, path2out, timstep_min, paramscan, save_prof_time_step, &
-        diagnostics_output, br_stopping, suppression_mode, debug_mode, timing_mode, &
+        diagnostics_output, br_stopping, suppression_mode, debug_mode, &
         readfromtimestep, path2time, ramp_up_mode, t_max_ramp_up, temperature_limit, &
         antenna_max_stopping, gyro_current_study, viscosity_factor, misalign_diffusion, &
         equil_path
-
-    if (timing_mode) CALL system_clock(timing_t1, count_rate)
 
     ! integer that toggles the use of hdf5 output/input
     ! if equal 1 - use hdf5, if
     ! equal 0 - use standard text output and input
     ihdf5test = 1
     write(*,*) "ihdf5test = ", ihdf5test
+    iexit = 0 ! 0 - don't skip, 1 - skip, 2 - stop
 
     ! if h5overwrite = true, existing data will be deleted
     ! before new one is written
@@ -130,11 +125,11 @@ program ql_balance
     call MPI_Comm_size(MPI_COMM_WORLD, np_num, ierror);
     call MPI_Comm_rank(MPI_COMM_WORLD, irank, ierror);
     if (irank .eq. 0) then
-        print *, ' '
-        print *, '******************************'
-        print *, 'number of processes:', np_num
-        print *, '              irank:', irank
-        print *, '******************************'
+        write(*,*) ' '
+        write(*,*) '******************************'
+        write(*,*) 'number of processes:', np_num
+        write(*,*) '              irank:', irank
+        write(*,*) '******************************'
     end if
 
     ! read the parameters from namelist file
@@ -142,20 +137,20 @@ program ql_balance
     read (22, NML=BALANCENML)
     close (22);
 
-    relchgmax = 0.1d0 ! could be removed
-    facdecr = 1.d1 ! could be removed
+    !relchgmax = 0.1d0 ! could be removed
+    !facdecr = 1.d1 ! could be removed
     urelax = 0.5e0 !0.5d0  !0.9d0
-    nmult = 1 !10 ! could be reomved
-    nstack = 2 ! could be removed ?
+    !nmult = 1 !10 ! could be reomved
+    !nstack = 2 ! could be removed ?
     tol_max = 3.d-2 !3.d-4 !3.d-3 !3.d-2
 !err_minfac=0.1d0
     err_minfac = 1.d-2 !2.0d0/sqrt(dfloat(nmult)) ! could be removed
-    tol_redfac = 0.5d0 ! could be removed
-    tol_min = 3.d-5 ! could be removed
-    epsnoise = 1.d-8 ! could be removed
+    !tol_redfac = 0.5d0 ! could be removed
+    !tol_min = 3.d-5 ! could be removed
+    !epsnoise = 1.d-8 ! could be removed
     factolmax = 3.d0 ! keep
     factolred = 0.5d0 ! keep
-    ntrans = 10 ! could be removed
+    !ntrans = 10 ! could be removed
 !
 !mwind=100
     mwind = 10
@@ -244,7 +239,6 @@ program ql_balance
         do ifac_Te = 1, size(fac_Te)
             do ifac_Ti = 1, size(fac_Ti)
                 do ifac_vz = 1, size(fac_vz)
-                    if (timing_mode) CALL system_clock(timing_parscan_t1, count_rate)
                     if (paramscan) then
                         ! change parameter scan string used for navigating the hdf5 file, only if
                         ! the suppression_mode is not activated
@@ -262,8 +256,9 @@ program ql_balance
                         ! leave it empty if no parameter scan
                         parscan_str = ""
                     end if
-					write (h5_mode_groupname, "(A)") trim(parscan_str)
-					write(*,*) "h5_mode_groupname: ", trim(h5_mode_groupname)
+
+                    write (h5_mode_groupname, "(A)") trim(parscan_str)
+                    write(*,*) "h5_mode_groupname: ", trim(h5_mode_groupname)
 
                     ! allocate variables in first parameter scan loop iteration
                     if (ifac_n + ifac_Ti + ifac_Te + ifac_vz .eq. 4) then
@@ -288,7 +283,7 @@ program ql_balance
                             "multi_mode"
                     end if
 
-					write(*,*) "h5_mode_groupname after f_m_n: ", trim(h5_mode_groupname)
+                    write(*,*) "h5_mode_groupname after f_m_n: ", trim(h5_mode_groupname)
 
                     ! write profiles to params the first loop iteration
                     ! save the initial background profile first loop iteration
@@ -334,10 +329,10 @@ program ql_balance
                         !and start with a very small value and ramp this up
                         !Added by Philipp Ulbl 12.05.2020
                         antenna_factor_max = antenna_factor
-                        antenna_factor = 1.d-4
-
                         if (ramp_up_mode .eq. 4) then 
                             antenna_factor = 0d0
+                        else
+                            antenna_factor = 1.d-4
                         end if
                     end if
                     dqle11 = dqle11*antenna_factor
@@ -350,7 +345,7 @@ program ql_balance
                     dqli22 = dqli22*antenna_factor
                     irf = 1
 !
-                    if (debug_mode) write(*,*) "Generating starting source"
+                    if (debug_mode) write(*,*) "Debug: Generating starting source"
                     call genstartsource
 
 					write(*,*) "h5_mode_groupname before writefort1000: ", trim(h5_mode_groupname)
@@ -450,7 +445,7 @@ program ql_balance
                     dqli21_prev = dqli21
                     dqli22_prev = dqli22
                     params_begbeg = params
-                    if (debug_mode) write(*,*) 'dql ready'
+                    if (debug_mode) write(*,*) 'Debug: dql ready'
 
                     nlagr = 4; ! order of lagrange interpolation
                     nder = 0;
@@ -473,12 +468,12 @@ program ql_balance
                             * abs(Br(ibeg:iend)))*sqrt(antenna_factor)
                         ! if velocity scan, determine Er_res for v_ExB velocity at resonant surface
                         if (size(fac_vz) .ne. 1) then
-                            if (debug_mode) write (*, *) "determine Er_res"
+                            if (debug_mode) write (*, *) "Debug: determine Er_res"
                             do ipoi = 1, npoic
                                 Ercovavg(ipoi) = 0.5d0*(Ercov(ipoi) + Ercov(ipoi + 1))
                             end do
                             Er_res(ifac_n, ifac_Te, ifac_Ti, ifac_vz) = sum(coef(0, :)*Ercovavg(ibeg:iend))
-                            if (debug_mode) write (*, *) "Er_res = ", Er_res(ifac_n, ifac_Te, ifac_Ti, ifac_vz)
+                            if (debug_mode) write (*, *) "Debug: Er_res = ", Er_res(ifac_n, ifac_Te, ifac_Ti, ifac_vz)
 
                         end if
                         write(*,*) "dqle22 res = ", dqle22_res(ifac_n, ifac_Te, ifac_Ti, ifac_vz)
@@ -489,15 +484,15 @@ program ql_balance
                             ! if the last parameter scan is done, write data and stop the code
                             if (ifac_n + ifac_Te + ifac_Ti + ifac_vz .eq. size(fac_n) + size(fac_Ti) + &
                                 size(fac_Te) + size(fac_vz)) then
-                                if (debug_mode) write(*,*) "Last parameter done. Finalize MPI"
-                                    write (h5_mode_groupname, "(A,I1,A,I1)") "f_", m_vals(1), "_", n_vals(1)
+                                if (debug_mode) write(*,*) "Debug: Last parameter done. Finalize MPI"
+                                write (h5_mode_groupname, "(A,I1,A,I1)") "f_", m_vals(1), "_", n_vals(1)
 
 
                                 ! write the diffusion coefficient
                                 !write (h5_mode_groupname, "(A,I1,A,I1)") "f_", &
                                 !mode_m, "_", mode_n
 
-                                if (debug_mode) write(*,*) "Write out results"
+                                if (debug_mode) write(*,*) "Debug: Write out results"
 
                                 CALL h5_init()
                                 CALL h5_open_rw(path2out, h5_id)
@@ -525,25 +520,6 @@ program ql_balance
                                                          ubound(reshape(Er_res, (/size(Er_res)/))))
                                 end if
 
-                                !timing mode
-                                if (timing_mode) then
-                                    CALL system_clock(timing_t2, count_rate)
-                                    CALL system_clock(timing_parscan_t2)
-                                    timingarr(ifac_n, ifac_Te, ifac_Ti, ifac_vz) = (timing_parscan_t2 - &
-                                                                                    timing_parscan_t1)/dble(count_rate)
-                                    CALL h5_init()
-                                    CALL h5_open_rw(path2out, h5_id)
-                                    CALL h5_add_double_0(h5_id, trim(h5_mode_groupname)// &
-                                                         timing_ds_total, (timing_t2 - timing_t1)/dble(count_rate), &
-                                                         'total time', 's')
-                                    CALL h5_add_double_1(h5_id, trim(h5_mode_groupname)// &
-                                                         timing_ds_parscan, reshape(timingarr, (/size(timingarr)/)), &
-                                                         lbound(reshape(timingarr, (/size(timingarr)/))), &
-                                                         ubound(reshape(timingarr, (/size(timingarr)/))), 'parameter time', 's')
-                                    write (*, *) 'parameter time: ', timingarr(ifac_n, ifac_Te, ifac_Ti, ifac_vz), ' s'
-                                    write (*, *) 'total time: ', (timing_t2 - timing_t1)/ &
-                                        dble(count_rate), ' s'
-                                end if
                                 CALL h5_close(h5_id)
                                 CALL h5_deinit()
 
@@ -555,21 +531,6 @@ program ql_balance
                                 ! if it is not the last scan, skip the rest of the code and continue
                                 ! with the next loop iteration
                                 !call deallocate_wave_code_data();
-                                !timing
-                                if (timing_mode) then
-                                    CALL system_clock(timing_parscan_t2)
-                                    timingarr(ifac_n, ifac_Te, ifac_Ti, ifac_vz) = (timing_parscan_t2 - &
-                                                                                    timing_parscan_t1)/dble(count_rate)
-                                    !CALL h5_init()
-                                    !CALL h5_open_rw(path2out, h5_id)
-                                    !CALL h5_add_double_0(h5_id, trim(h5_mode_groupname)// &
-                                    !                     timing_ds_parscan, (timing_parscan_t2 - timing_parscan_t1) &
-                                    !                     /dble(count_rate), 'parameter time', 's')
-                                    write (*, *) 'parameter time: ', timingarr(ifac_n, ifac_Te, ifac_Ti, ifac_vz), ' s'
-                                    !CALL h5_close(h5_id)
-                                    !CALL h5_deinit()
-                                end if
-
                                 CYCLE
                             end if
                         else
@@ -578,7 +539,7 @@ program ql_balance
                             write(*,*) 'stop: linear code only'
                             !write (h5_mode_groupname, "(A,I1,A,I1)") "f_", &
                             !    mode_m, "_", mode_n
-                            if (debug_mode) write(*,*) "Write out results"
+                            if (debug_mode) write(*,*) "Debug: Write out results"
 
                             if (ihdf5test .eq. 1) then
                                 CALL h5_init()
@@ -598,20 +559,6 @@ program ql_balance
                                 CALL h5_close(h5_id)
                                 CALL h5_deinit()
                             end if
-                            !!timing
-                            if (timing_mode) then
-                                CALL system_clock(timing_t2, count_rate)
-!
-                                if (ihdf5test .eq. 1) then
-                                    CALL h5_init()
-                                    CALL h5_open_rw(path2out, h5_id)
-                                    CALL h5_add_double_0(h5_id, trim(h5_mode_groupname)// &
-                                                     timing_ds_total, (timing_t2 - timing_t1)/dble(count_rate), &
-                                                     'total time', 's')
-                                    CALL h5_close(h5_id)
-                                    CALL h5_deinit()
-                                end if
-                            end if
                             call MPI_finalize(ierror);
                             stop  !! <<----- Stop for linear code usage
                         end if
@@ -627,6 +574,13 @@ program ql_balance
 ! #########################################################################################
 ! Time evolution
 !
+
+                    !if (flag_run_time_evolution) then
+                    !    if (ramp_up_mode .eq. 5) then
+                    !        ramp_up_down = 0 ! ramp up
+                    !        t_hysteresis_turn = 0
+                    !    end if
+                    !end if
                     firstiterationdone = .false. ! if first iteration is done, some variables are already allocated
 
                     if (ihdf5test .eq. 0) then
@@ -641,7 +595,7 @@ program ql_balance
                         step_counter = i
                         write (*, *) "i = ", i
                         !
-                        if (debug_mode) write(*,*) 'yprev loop'
+                        if (debug_mode) write(*,*) 'Debug: yprev loop'
                         do ipoi = 1, npoi
                             do ieq = 1, nbaleqs
                                 k = nbaleqs*(ipoi - 1) + ieq
@@ -672,24 +626,9 @@ program ql_balance
                         ! in get_dql the fort.5000 data is written. The argument is used
                         ! to restrict the writing of the data. Only every "save_prof_time_step"th
                         ! step the data is written
-                        if (debug_mode) print *, "get_dql(", i, ")"
+                        if (debug_mode) write(*,*) "Debug: get_dql(", i, ")"
                         call get_dql(i)
-                        if (debug_mode) print *, "coming out get_dql(", i, ")"
-
-                        !write fort.7000 (debug)
-                        !the difference between fort5000 and fort7000 turned out to be some compiling mistake
-                        !open(iunit_diag+2000)
-                        !do ipoi = 1, npoib
-                        !    write(iunit_diag+2000,*) r(ipoi),dqle11(ipoi),dqle12(ipoi) &
-                        !        ,dqle22(ipoi),dqli11(ipoi)        &
-                        !        ,dqli12(ipoi),dqli22(ipoi)        &
-                        !        ,abs(Br(ipoi))                    &
-                        !        ,abs(Br(ipoi)-c*kp(ipoi)*Es(ipoi)/om_E(ipoi)) &
-                        !        ,abs(Br(ipoi)-c*ks(ipoi)*Ep(ipoi)/om_E(ipoi)) &
-                        !        ,abs(Jpe(ipoi)),abs(Jpi(ipoi)) &
-                        !        ,abs(Jpe(ipoi)+Jpi(ipoi))
-                        !enddo
-                        !close(iunit_diag+2000)
+                        if (debug_mode) write(*,*) "Debug: coming out get_dql(", i, ")"
 
                         ! stopping criterion
                         !Stop if timestep becomes too small
@@ -699,21 +638,7 @@ program ql_balance
                             if (suppression_mode .eqv. .false.) then
                                 CALL writefort1000(i)
                             end if
-                            !timing
-                            if (timing_mode) then
-                                CALL system_clock(timing_t2, count_rate)
-
-                                if (ihdf5test .eq. 1) then
-                                    CALL h5_init()
-                                    CALL h5_open_rw(path2out, h5_id)
-                                    CALL h5_add_double_0(h5_id, trim(h5_mode_groupname)// &
-                                                     timing_ds_total, (timing_t2 - timing_t1)/dble(count_rate), &
-                                                     'total time', 's')
-                                    CALL h5_close(h5_id)
-                                    CALL h5_deinit()
-                                end if
-                            end if
-                            if (ihdf5test .eq. 1) then
+                           if (ihdf5test .eq. 1) then
                                 CALL h5_init()
                                 CALL h5_open_rw(path2out, h5_id)
                                 CALL h5_add_string(h5_id, trim(h5_mode_groupname)// &
@@ -742,18 +667,17 @@ program ql_balance
                         !lagrange interpolation with order 4 only for function (0)
                         call plag_coeff(nlagr, nder, r_resonant, rb(ibeg:iend), coef)
                         if (debug_mode) then
-                            write(*,*) "nlagr = ", nlagr
-                            write(*,*) "nder = ", nder
-                            write(*,*) "r_resonant = ", r_resonant
-                            write(*,*) "rb(ibeg:iend) = ", rb(ibeg:iend)
-                            write(*,*) "coef = ", coef
+                            write(*,*) "Debug: nlagr = ", nlagr
+                            write(*,*) "Debug: nder = ", nder
+                            write(*,*) "Debug: r_resonant = ", r_resonant
+                            write(*,*) "Debug: rb(ibeg:iend) = ", rb(ibeg:iend)
+                            write(*,*) "Debug: coef = ", coef
                         end if
                         br_abs(i) = sum(coef(0, :)*abs(Br(ibeg:iend)))*sqrt(antenna_factor)
                         dqle22_res_time(i) = sum(coef(0, :)*dqle22(ibeg:iend))
 
                         !output on console and save to file
 
-                        ! added by Markus Markl, 19.03.2021
                         ! save the time for the improved stopping criterion
                         br_abs_time(i) = time
 						br_abs_antenna_factor(i) = antenna_factor
@@ -770,481 +694,21 @@ program ql_balance
 
 						CALL write_br_time_data(i, br_abs_time, br_abs_antenna_factor, br_abs, dqle22_res_time)
 
-                        !if (ihdf5test .eq. 1) then
-                        !    h5_currentgrp = "/"//trim(h5_mode_groupname) &
-                        !                    //"/br_abs_res.dat"
-                        !    CALL h5_init()
-                        !    CALL h5_open_rw(path2out, h5_id)
-                        !    if (.not. firstiterationdone) then
-                        !        CALL h5_define_unlimited_matrix(h5_id, trim(h5_currentgrp), &
-                        !                                        H5T_NATIVE_DOUBLE, (/4, -1/), brabs_dataset_id)
-                        !    end if
-                        !    CALL h5_append_double_1(brabs_dataset_id, (/i*1.d0, time, &
-                        !                                                antenna_factor, br_abs(i)/), i)
-                        !    CALL h5_close(h5_id)
-                        !    CALL h5_deinit()
-                        !else
-                        !    open (777, file='br_abs_res.dat', position='append')
-                        !    write (777, *) i, time, antenna_factor, br_abs(i)
-                        !    close (777)
+                        ! check if linear discepancy in penetration ratio is reached
+                        !CALL linear_discrepancy_pen_ratio
+ 
+                        !if (iexit .eq. 1) then
+                        !    iexit = 0
+                        !    EXIT
+                        !end if                       
+
+                        ! ramp-up RMP coil current
+                        !CALL ramp_coil
+
+                        !if (iexit .eq. 1) then
+                        !    iexit = 0
+                        !    EXIT
                         !end if
-
-                        ! Old stopping criterion by Philipp Ulbl:
-                        !
-                        !Stop if time derivative of Abs(Br) at the resonance becomes negative
-                        !if (i .gt. 5.d0 .and. br_abs(i)-br_abs(i-1) .lt. 0.d0 &
-                        !                .and. br_abs(i-1)-br_abs(i-2) .lt. 0.d0 .and. time .gt. 1.0d-3) then
-                        !    print *, 'stop: time derivative of Br_Abs_Res negative'
-                        !    CALL writefort1000(i)
-                        !    call MPI_finalize(ierror);
-                        !    stop
-                        !endif
-                        !
-                        !!!!!!!!!!!
-                        ! Updated stopping criterion
-                        ! Edited: Markus Markl
-                        !
-                        ! Stopping by linear regression of Br_abs_res
-                        !
-                        ! Calculate br_beta from br_abs_res = br_beta * br_abs_time, which is
-                        ! essentially the slope of the curve. It is assumed that the curve
-                        ! intersects the y axis at 0. The slope is then used to calculate
-                        ! the "predicted" value for br_abs, which is compared to the actual
-                        ! value thereof. If the discrepancy becomes too big, the program is
-                        ! stopped.
-                        !
-                        if (i .gt. 50 .and. .not. discr_reached) then
-                            ! calculate beta only once
-                            if (br_beta .eq. 0) then
-                                ! Calculate slope from the data until this time step. (Simple linear regression algorithm)
-                                br_beta = sum(br_abs(3:i)*br_abs_time(3:i))/sum(br_abs_time(1:i)**2)
-                                write(*,*) 'br_beta = ', br_beta
-                            end if
-                            ! calculate the from the linear regression predicted value of Br_abs
-                            br_predicted = br_beta*br_abs_time(i)
-                            write(*,*) "Delta = ", abs(br_abs(i) - br_predicted)
-                            if (abs(br_abs(i) - br_predicted) .gt. 0.1) then
-                                write(*,*) 'discrepancy to linearly predicted value &
-                &                    of Br_abs_res > delta'
-                                if (modulo(i, save_prof_time_step) .ne. 0) then
-                                    if (suppression_mode .eqv. .false.) then
-                                        CALL writefort5000(i)
-                                    end if
-                                end if
-                                if (suppression_mode .eqv. .false.) then
-                                    CALL writefort1000(i)
-                                end if
-                                if (br_stopping) then
-                                    ! Write the cause of the stopping into the hdf5 file
-                                    CALL h5_init()
-                                    CALL h5_open_rw(path2out, h5_id)
-                                    CALL h5_add_string(h5_id, trim(h5_mode_groupname)// &
-                                        '/stopping_criterion', 'discrepancy to linearly predicted value of Br_abs_res > delta')
-                                    CALL h5_add_double_0(h5_id, trim(h5_mode_groupname)//'/br_beta', br_beta, &
-                                        'linear slope of br', 'G/s')
-                                    CALL h5_close(h5_id)
-                                    CALL h5_deinit()
-
-
-                                    if (paramscan) then
-                                        !timing
-                                        if (timing_mode) then
-                                            CALL system_clock(timing_parscan_t2, count_rate)
-                                            CALL h5_init()
-                                            CALL h5_open_rw(path2out, h5_id)
-                                            CALL h5_add_double_0(h5_id, trim(h5_mode_groupname)// &
-                                                                 timing_ds_parscan, (timing_parscan_t2 - &
-                                                                                     timing_parscan_t1)/dble(count_rate), &
-                                                                 'parameter time', 's')
-                                            CALL h5_close(h5_id)
-                                            CALL h5_deinit()
-                                        end if
-
-                                        if (ifac_n + ifac_Te + ifac_Ti + ifac_vz .eq. size(fac_n) + &
-                                            size(fac_Ti) + size(fac_Te) + size(fac_vz)) then
-                                            !timing
-                                            if (timing_mode) then
-                                                CALL system_clock(timing_t2, count_rate)
-
-                                                CALL h5_init()
-                                                CALL h5_open_rw(path2out, h5_id)
-                                                CALL h5_add_double_0(h5_id, trim(h5_mode_groupname)// &
-                                                                     timing_ds_total, (timing_t2 - timing_t1) &
-                                                                     /dble(count_rate), 'total time', 's')
-                                                CALL h5_close(h5_id)
-                                                CALL h5_deinit()
-                                            end if
-                                            CALL MPI_finalize(ierror);
-                                            stop
-                                        else
-                                            ! if it is not the last scan, skip the rest of the
-                                            ! code and continue with the next loop iteration
-                                            !call deallocate_wave_code_data()
-                                            print *, 'not last scan; will end time evolution &
-                &                                of this parameter choice'
-                                            EXIT
-                                        end if
-                                    else
-                                        if (timing_mode) then
-                                            CALL system_clock(timing_t2, count_rate)
-                                            CALL h5_init()
-                                            CALL h5_open_rw(path2out, h5_id)
-                                            CALL h5_add_double_0(h5_id, trim(h5_mode_groupname)// &
-                                                                 timing_ds_total, (timing_t2 - timing_t1) &
-                                                                 /dble(count_rate), 'total time', 's')
-                                            CALL h5_close(h5_id)
-                                            CALL h5_deinit()
-                                        end if
-                                        ! write br data to hdf5
-                                        if (debug_mode) write(*,*) "Write br_time _data"
-						                CALL write_br_time_data(i, br_abs_time, br_abs_antenna_factor, br_abs, dqle22_res_time)
-
-                                        CALL MPI_finalize(ierror);
-                                        print *, 'stop'
-                                        stop
-                                    end if
-                                else
-                                    ! Write the info into the hdf5 file
-                                    CALL h5_init()
-                                    CALL h5_open_rw(path2out, h5_id)
-                                    CALL h5_add_string(h5_id, trim(h5_mode_groupname)// &
-                                        '/info', 'discrepancy to linearly predicted value of Br_abs_res > delta')
-                                    CALL h5_add_double_1(h5_id, trim(h5_mode_groupname)// &
-                                                         '/discrep_time', (/i*1.d0, time/), (/1/), (/2/))
-
-                                    CALL h5_close(h5_id)
-                                    CALL h5_deinit()
-                                    discr_reached = .true.
-                                end if
-                            end if
-                        end if
-                        !end if
-                        !
-                        !
-                        !Ramp up antenna_factor: linear in Icoil or quadratic in D
-                        !Added by Philipp Ulbl 12.05.2020
-                        !
-                        ! Stopping criterion that is always active
-                        if (antenna_factor .lt. (antenna_factor_max*antenna_max_stopping)) then
-                            if (debug_mode) write(*,*) "-- ramp up antenna_factor --"
-                            if (ramp_up_mode .eq. 0) then
-                               ! initial ramp up. This is a linear ramp up of the antenna factor in time.
-                                antenna_factor = time**2 + 1.d-4
-                            else if (ramp_up_mode .eq. 1) then
-                               ! First try for faster ramp up. Is (usually) not stable.
-                                antenna_factor = antenna_factor + antenna_factor_max * (timstep/t_max_ramp_up)
-                            else if (ramp_up_mode .eq. 2) then
-                               ! Use this for faster ramp up. Ramps up antenna factor to 100% of max value
-                               ! in t_max_ramp_up time.
-                                if (time .eq. 0) then
-                                    antenna_factor = 1.d-4
-                                else
-                                    antenna_factor = antenna_factor_max * (time/t_max_ramp_up)
-                                end if
-                            else if (ramp_up_mode .eq. 3) then
-                               ! Ramp up to 100% of max and don't go further.
-                                if (time .eq. 0) then
-                                    antenna_factor = 1.d-4
-                                else if (time .ge. 10*t_max_ramp_up) then
-                                    ! if max time value is reached, stop the code
-                                    write(*,*) 'stop: reached time max: ', 10*t_max_ramp_up
-                                    if (suppression_mode .eqv. .false.) then
-                                        call writefort1000(i)
-                                    end if
-                                    ! Write the cause of the stopping into the hdf5 file
-                                    if (ihdf5test .eq. 1) then
-                                        CALL h5_init()
-                                        CALL h5_open_rw(path2out, h5_id)
-                                        CALL h5_add_string(h5_id, trim(h5_mode_groupname)// &
-                                               '/stopping_criterion', 'reached time max')
-                                        CALL h5_close(h5_id)
-                                        CALL h5_deinit()
-                                    end if
-                                    if (paramscan) then
-                                        !timing
-                                        if (timing_mode) then
-                                            if (ihdf5test .eq. 1) then
-                                                CALL system_clock(timing_parscan_t2, count_rate)
-                                                CALL h5_init()
-                                                CALL h5_open_rw(path2out, h5_id)
-                                                CALL h5_add_double_0(h5_id, trim(h5_mode_groupname)// &
-                                                         timing_ds_parscan, (timing_parscan_t2 - &
-                                                                             timing_parscan_t1)/dble(count_rate), &
-                                                         'parameter time', 's')
-                                                CALL h5_close(h5_id)
-                                                CALL h5_deinit()
-                                            end if
-                                        end if
-
-                                        if (debug_mode) then 
-                                            if (ihdf5test .eq. 1) write(*,*) "Write br_time _data"
-                                        end if
-						                CALL write_br_time_data(i, br_abs_time, br_abs_antenna_factor, br_abs, dqle22_res_time)
-
-                                        if (ifac_n + ifac_Te + ifac_Ti + ifac_vz .eq. size(fac_n) + &
-                                            size(fac_Ti) + size(fac_Te) + size(fac_vz)) then
-                                            !timing
-                                            if (timing_mode) then
-                                                CALL system_clock(timing_t2, count_rate)
-
-                                                if (ihdf5test .eq. 1) then
-                                                    CALL h5_init()
-                                                    CALL h5_open_rw(path2out, h5_id)
-                                                    CALL h5_add_double_0(h5_id, trim(h5_mode_groupname)// &
-                                                             timing_ds_total, (timing_t2 - timing_t1) &
-                                                             /dble(count_rate), 'total time', 's')
-                                                    CALL h5_close(h5_id)
-                                                    CALL h5_deinit()
-                                                end if
-                                            end if
-                                            CALL MPI_finalize(ierror);
-                                            stop
-                                        else
-                                            ! if it is not the last scan, skip the rest of the
-                                            ! code and continue with the next loop iteration
-                                            !call deallocate_wave_code_data()
-                                            ! exit this time evolution loop specific to a certain set
-                                            ! of parameters
-                                            EXIT
-                                        end if
-                                    else
-                                        !timing
-                                        if (timing_mode) then
-                                            CALL system_clock(timing_t2, count_rate)
-
-                                            if (ihdf5test .eq. 1) then
-                                                CALL h5_init()
-                                                CALL h5_open_rw(path2out, h5_id)
-                                                CALL h5_add_double_0(h5_id, trim(h5_mode_groupname)// &
-                                                         timing_ds_total, (timing_t2 - timing_t1) &
-                                                         /dble(count_rate), 'total time', 's')
-                                                CALL h5_close(h5_id)
-                                                CALL h5_deinit()
-                                            end if
-                                        end if
-
-                                        if (debug_mode) then 
-                                            if (ihdf5test .eq. 1) write(*,*) "Write br_time _data"
-                                        end if
-						                CALL write_br_time_data(i, br_abs_time, br_abs_antenna_factor, br_abs, dqle22_res_time)
-                                        CALL MPI_finalize(ierror);
-                                        print *, 'stop'
-                                        stop
-                                    end if
-
-                                    call MPI_finalize(ierror);
-                                    stop
- 
-                                else if (antenna_factor .ge. antenna_factor_max) then
-                                   antenna_factor = antenna_factor_max
-                                   write(*,*) "- - - - - - - - - - - - - - - - - - - - - - - - - - - -"
-                                   write(*,*) "Antenna factor reached max value, will not be changed!"
-                                   write(*,*) "- - - - - - - - - - - - - - - - - - - - - - - - - - - -"
-                                else
-                                    !antenna_factor = antenna_factor_max * (time/(t_max_ramp_up*2))
-                                    antenna_factor = antenna_factor_max!(time/t_max_ramp_up)**2 + 1.d-4
-                                    !antenna_factor = antenna_factor + antenna_factor_max * (timstep/t_max_ramp_up)
-                                end if
-
-                            else if (ramp_up_mode .eq. 4) then
-                                ! no ramp up at all
-                                 if (time .eq. 0) then
-                                     antenna_factor = 0d0
-                                 else if (time .ge. 10*t_max_ramp_up) then
-                                     ! if max time value is reached, stop the code
-                                    write(*,*) 'stop: time limit reached: ', time
-                                    if (suppression_mode .eqv. .false.) then
-                                         call writefort1000(i)
-                                    end if ! suppression mode
-                                     ! Write the cause of the stopping into the hdf5 file
-                                    if (ihdf5test .eq. 1) then
-                                        CALL h5_init()
-                                        CALL h5_open_rw(path2out, h5_id)
-                                        CALL h5_add_string(h5_id, trim(h5_mode_groupname)// &
-                                                '/stopping_criterion', 'time limit reached')
-                                        CALL h5_close(h5_id)
-                                        CALL h5_deinit()
-                                    end if ! ihdf5test
-                                    if (paramscan) then
-                                         !timing
-                                        if (timing_mode) then
-                                            CALL system_clock(timing_parscan_t2, count_rate)
-                                            if (ihdf5test .eq. 1) then
-                                                CALL h5_init()
-                                                CALL h5_open_rw(path2out, h5_id)
-                                                CALL h5_add_double_0(h5_id, trim(h5_mode_groupname)// &
-                                                        timing_ds_parscan, (timing_parscan_t2 - &
-                                                                            timing_parscan_t1)/dble(count_rate), &
-                                                          'parameter time', 's')
-                                                CALL h5_close(h5_id)
-                                                CALL h5_deinit()
-                                            end if ! ihdf5test
-                                        end if !timing_mode
- 
-                                        if (debug_mode) then
-                                            if (ihdf5test .eq. 1) write(*,*) "Write br_time _data"
-                                        end if
-                                        CALL write_br_time_data(i, br_abs_time, br_abs_antenna_factor, br_abs, dqle22_res_time)
- 
-                                        if (ifac_n + ifac_Te + ifac_Ti + ifac_vz .eq. size(fac_n) + &
-                                            size(fac_Ti) + size(fac_Te) + size(fac_vz)) then
-                                                !timing
-                                                if (timing_mode) then
-                                                    CALL system_clock(timing_t2, count_rate)
- 
-                                                    if (ihdf5test .eq. 1) then
-                                                        CALL h5_init()
-                                                        CALL h5_open_rw(path2out, h5_id)
-                                                        CALL h5_add_double_0(h5_id, trim(h5_mode_groupname)// &
-                                                              timing_ds_total, (timing_t2 - timing_t1) &
-                                                              /dble(count_rate), 'total time', 's')
-                                                        CALL h5_close(h5_id)
-                                                        CALL h5_deinit()
-                                                    end if 
-                                                end if
-                                             CALL MPI_finalize(ierror);
-                                             stop
-                                        else
-                                             ! if it is not the last scan, skip the rest of the
-                                             ! code and continue with the next loop iteration
-                                             !call deallocate_wave_code_data()
-                                             ! exit this time evolution loop specific to a certain set
-                                             ! of parameters
-                                             EXIT
-                                        end if
-                                     else
-                                         !timing
-                                         if (timing_mode) then
-                                             CALL system_clock(timing_t2, count_rate)
- 
-                                             if (ihdf5test .eq. 1) then
-                                                CALL h5_init()
-                                                CALL h5_open_rw(path2out, h5_id)
-                                                CALL h5_add_double_0(h5_id, trim(h5_mode_groupname)// &
-                                                          timing_ds_total, (timing_t2 - timing_t1) &
-                                                          /dble(count_rate), 'total time', 's')
-                                                CALL h5_close(h5_id)
-                                                CALL h5_deinit()
-                                             end if
-                                         end if
- 
-                                         if (debug_mode) write(*,*) "Write br_time _data"
-                                         CALL write_br_time_data(i, br_abs_time, br_abs_antenna_factor, br_abs, dqle22_res_time)
-                                         CALL MPI_finalize(ierror);
-                                         print *, 'stop'
-                                         stop
-                                     end if
- 
-                                     call MPI_finalize(ierror);
-                                     stop
-  
-                                 else
-                                     antenna_factor = 0d0!antenna_factor_max * (time/t_max_ramp_up)
-                                 end if
-
-                            end if
-                            
- 
-
-                            !This can be activated for runs without QL evolution to check steady state behaviour
-                            !antenna_factor = 1.d-4
-                            !if(i .gt. 200) then
-                            !    stop
-                            !endif
-                            write(*,*) " - - - "
-                            write(*,*) 'antenna_factor = ', antenna_factor
-                            write(*,*) "which are ", antenna_factor/antenna_factor_max*100, "% of the max"
-                            write(*,*) " - - - "
-                        else
-                            write(*,*) 'stop: reached antenna_factor_max * ', antenna_max_stopping
-                            if (suppression_mode .eqv. .false.) then
-                                call writefort1000(i)
-                            end if
-                            ! Write the cause of the stopping into the hdf5 file
-                            if (ihdf5test .eq. 1) then
-                                CALL h5_init()
-                                CALL h5_open_rw(path2out, h5_id)
-                                CALL h5_add_string(h5_id, trim(h5_mode_groupname)// &
-                                               '/stopping_criterion', 'reached antenna_factor_max * antenna_max_stopping')
-                                CALL h5_close(h5_id)
-                                CALL h5_deinit()
-                            end if
-                            if (paramscan) then
-                                !timing
-                                if (timing_mode) then
-                                    CALL system_clock(timing_parscan_t2, count_rate)
-                                    if (ihdf5test .eq. 1) then
-                                        CALL h5_init()
-                                        CALL h5_open_rw(path2out, h5_id)
-                                        CALL h5_add_double_0(h5_id, trim(h5_mode_groupname)// &
-                                                         timing_ds_parscan, (timing_parscan_t2 - &
-                                                                             timing_parscan_t1)/dble(count_rate), &
-                                                         'parameter time', 's')
-                                        CALL h5_close(h5_id)
-                                        CALL h5_deinit()
-                                    end if 
-                                end if
-
-                                if (debug_mode) then 
-                                    if (ihdf5test .eq.1 ) write(*,*) "Write br_time _data"
-                                end if
-						        CALL write_br_time_data(i, br_abs_time, br_abs_antenna_factor, br_abs, dqle22_res_time)
-
-                                if (ifac_n + ifac_Te + ifac_Ti + ifac_vz .eq. size(fac_n) + &
-                                    size(fac_Ti) + size(fac_Te) + size(fac_vz)) then
-                                    !timing
-                                    if (timing_mode) then
-                                        CALL system_clock(timing_t2, count_rate)
-
-                                        if (ihdf5test .eq. 1) then
-                                            CALL h5_init()
-                                            CALL h5_open_rw(path2out, h5_id)
-                                            CALL h5_add_double_0(h5_id, trim(h5_mode_groupname)// &
-                                                             timing_ds_total, (timing_t2 - timing_t1) &
-                                                             /dble(count_rate), 'total time', 's')
-                                            CALL h5_close(h5_id)
-                                            CALL h5_deinit()
-                                        end if
-                                    end if
-                                    CALL MPI_finalize(ierror);
-                                    stop
-                                else
-                                    ! if it is not the last scan, skip the rest of the
-                                    ! code and continue with the next loop iteration
-                                    !call deallocate_wave_code_data()
-                                    ! exit this time evolution loop specific to a certain set
-                                    ! of parameters
-                                    EXIT
-                                end if
-                            else
-                                !timing
-                                if (timing_mode) then
-                                    CALL system_clock(timing_t2, count_rate)
-
-                                    if (ihdf5test .eq. 1) then
-                                        CALL h5_init()
-                                        CALL h5_open_rw(path2out, h5_id)
-                                        CALL h5_add_double_0(h5_id, trim(h5_mode_groupname)// &
-                                                         timing_ds_total, (timing_t2 - timing_t1) &
-                                                         /dble(count_rate), 'total time', 's')
-                                        CALL h5_close(h5_id)
-                                        CALL h5_deinit()
-                                    end if
-                                end if
-
-                                if (debug_mode) then
-                                    if (ihdf5test .eq. 1) write(*,*) "Write br_time _data"
-                                end if
-						        CALL write_br_time_data(i, br_abs_time, br_abs_antenna_factor, br_abs, dqle22_res_time)
-                                CALL MPI_finalize(ierror);
-                                print *, 'stop'
-                                stop
-                            end if
-
-                            call MPI_finalize(ierror);
-                            stop
-                        end if
-
                         !Old ramp up by Martin: ramp up to 1s then ramp down to 2s
                         !to check hysteresis behaviour. afterwards small increases
                         !if (time.lt.1.d0) then
@@ -1470,7 +934,7 @@ program ql_balance
 
                         else
                             ! use for constant time step:
-                            timstep = 0.002
+                            timstep = 0.5
                             write(*,*) "constant time step = ", timstep
                         end if
                         
@@ -1540,8 +1004,8 @@ program ql_balance
                         !
                         !
                         if (irank .eq. 0) then
-                            print *, 'i = ', int2(i), 'time = ', real(time)
-                            print *, ' '
+                            write(*,*) 'i = ', int2(i), 'time = ', real(time)
+                            write(*,*) ' '
                         end if
                         !
                         !for debugging:
@@ -1554,9 +1018,27 @@ program ql_balance
                         end if
 !
                         if (firstiterationdone .eqv. .false.) firstiterationdone = .true.
-                    end do ! end of time loop
 
-                    if (debug_mode) print *, 'deallocate data for next parameter scan'
+                        ! check if linear discepancy in penetration ratio is reached
+                        CALL linear_discrepancy_pen_ratio
+ 
+                        if (iexit .eq. 1) then
+                            iexit = 0
+                            EXIT
+                        end if                       
+
+                        ! ramp-up RMP coil current
+                        CALL ramp_coil
+
+                        if (iexit .eq. 1) then
+                            iexit = 0
+                            EXIT
+                        end if
+                    end do ! end of time evol loop
+
+
+
+                    if (debug_mode) write(*,*) 'Debug: deallocate data for next parameter scan'
                     call deallocate_wave_code_data();
 !deallocate(yprev)
                     deallocate (coef)
@@ -1569,8 +1051,8 @@ program ql_balance
         end do
     end do
 
-    write (*, *) 'Programm is finalized, without stopping criterion met';
-    call MPI_finalize(ierror);
+    write (*, *) 'Programm is finalized without stopping criterion met';
+    call MPI_finalize(ierror)
 
 contains
 
@@ -1742,11 +1224,6 @@ subroutine creategroupstructure
                                                  trim(h5_mode_groupname)//"/fort.5000/", group_id_1)
                             CALL h5_close_group(group_id_1)
                         end if
-                        if (timing_mode) then
-                            CALL h5_define_group(h5_id, trim(h5_mode_groupname)// &
-                                                 '/timing', group_id_1)
-                            CALL h5_close_group(group_id_1)
-                        end if
                         CALL h5_obj_exists(h5_id, "/init_params", &
                                            h5_exists_log)
                         if (.not. h5_exists_log) then
@@ -1789,7 +1266,7 @@ subroutine creategroupstructure
                 "multi_mode"
         end if
 
-        if (debug_mode) write (*,*) "h5_mode_groupname: ", trim(h5_mode_groupname)
+        if (debug_mode) write (*,*) "Debug: h5_mode_groupname: ", trim(h5_mode_groupname)
         CALL h5_init()
         CALL h5_open_rw(path2out, h5_id)
         CALL h5_define_group(h5_id, trim(h5_mode_groupname), group_id_2)
@@ -1801,13 +1278,7 @@ subroutine creategroupstructure
                                  "/init_params", group_id_2)
             CALL h5_close_group(group_id_2)
         end if
-        CALL h5_obj_exists(h5_id, trim(h5_mode_groupname)//"/timing", &
-                           h5_exists_log)
-        if (.not. h5_exists_log) then
-            CALL h5_define_group(h5_id, &
-                                 trim(h5_mode_groupname)//"/timing", group_id_2)
-            CALL h5_close_group(group_id_2)
-        end if
+
         CALL h5_close(h5_id)
         CALL h5_deinit()
     end if
@@ -1839,7 +1310,7 @@ subroutine write_br_time_data(i, br_abs_time, br_abs_antenna_factor, br_abs, dql
     double precision, dimension(:), intent(in) :: dqle22_res_time
     character(len=1024) :: h5_currentgrp
 
-	if (debug_mode) write(*,*) "writing out br time evolution data"
+	if (debug_mode) write(*,*) "Debug: writing out br time evolution data"
 
     if (ihdf5test .eq. 1) then
        	CALL h5_init()
@@ -1885,7 +1356,6 @@ subroutine initialize_parameter_scan_vars
     if (paramscan) then
         write(*,*) "Parameter scan: fetch factors for parameter scan"
         CALL getfactors
-        if (timing_mode) allocate(timingarr(size(fac_n), size(fac_Te), size(fac_Ti), size(fac_vz)))
         if (size(fac_vz) .ne. 1) allocate(Er_res(size(fac_n), size(fac_Te), size(fac_Ti), size(fac_vz)))
     else
         allocate(fac_n(1))
@@ -1994,5 +1464,377 @@ subroutine rescale_profiles
 
     if (debug_mode) write(*,*) "Debug: going out of rescaling profiles"
 end subroutine !rescale_profiles
+
+!@> brief Check if discrepancy between penetration ratio and linear extrapolation exceeds critical value
+!> author> Markus Markl
+!> created 13.03.2023
+subroutine linear_discrepancy_pen_ratio
+
+    implicit none
+    ! Stopping by linear regression of Br_abs_res
+    !
+    ! Calculate br_beta from br_abs_res = br_beta * br_abs_time, which is
+    ! essentially the slope of the curve. It is assumed that the curve
+    ! intersects the y axis at 0. The slope is then used to calculate
+    ! the "predicted" value for br_abs, which is compared to the actual
+    ! value thereof. If the discrepancy becomes too big, the program is
+    ! stopped.
+    !
+    if (i .gt. 50 .and. .not. discr_reached) then
+        ! calculate beta only once
+        if (br_beta .eq. 0) then
+            ! Calculate slope from the data until this time step. (Simple linear regression algorithm)
+            br_beta = sum(br_abs(3:i)*br_abs_time(3:i))/sum(br_abs_time(1:i)**2)
+            write(*,*) 'br_beta = ', br_beta
+        end if
+        ! calculate the from the linear regression predicted value of Br_abs
+        br_predicted = br_beta*br_abs_time(i)
+        write(*,*) "Delta = ", abs(br_abs(i) - br_predicted)
+        if (abs(br_abs(i) - br_predicted) .gt. 0.1) then
+            write(*,*) 'discrepancy to linearly predicted value of Br_abs_res > delta'
+            if (modulo(i, save_prof_time_step) .ne. 0) then
+                if (suppression_mode .eqv. .false.) then
+                    CALL writefort5000(i)
+                end if
+            end if
+            if (suppression_mode .eqv. .false.) then
+                CALL writefort1000(i)
+            end if
+            if (br_stopping) then
+                ! Write the cause of the stopping into the hdf5 file
+                CALL h5_init()
+                CALL h5_open_rw(path2out, h5_id)
+                CALL h5_add_string(h5_id, trim(h5_mode_groupname)// &
+                    '/stopping_criterion', 'discrepancy to linearly predicted value of Br_abs_res > delta')
+                CALL h5_add_double_0(h5_id, trim(h5_mode_groupname)//'/br_beta', br_beta, &
+                    'linear slope of br', 'G/s')
+                CALL h5_close(h5_id)
+                CALL h5_deinit()
+
+                if (paramscan) then
+                    if (ifac_n + ifac_Te + ifac_Ti + ifac_vz .eq. size(fac_n) + &
+                        size(fac_Ti) + size(fac_Te) + size(fac_vz)) then
+                        CALL MPI_finalize(ierror);
+                        stop
+                    else
+                    ! if it is not the last scan, skip the rest of the
+                    ! code and continue with the next loop iteration
+                    !call deallocate_wave_code_data()
+                    write(*,*) 'not last scan; will end time evolution of this parameter choice'
+                    iexit = 1
+                    end if
+                else
+                    if (debug_mode) write(*,*) "Debug: Write br_time _data"
+                    CALL write_br_time_data(i, br_abs_time, br_abs_antenna_factor, br_abs, dqle22_res_time)
+                    CALL MPI_finalize(ierror);
+                    write(*,*) 'stop'
+                    stop
+                end if
+            else
+                ! Write the info into the hdf5 file
+                CALL h5_init()
+                CALL h5_open_rw(path2out, h5_id)
+                CALL h5_add_string(h5_id, trim(h5_mode_groupname)// &
+                    '/info', 'discrepancy to linearly predicted value of Br_abs_res > delta')
+                CALL h5_add_double_1(h5_id, trim(h5_mode_groupname)// &
+                    '/discrep_time', (/i*1.d0, time/), (/1/), (/2/))
+                CALL h5_close(h5_id)
+                CALL h5_deinit()
+                discr_reached = .true.
+            end if
+        end if
+    end if
+
+end subroutine
+
+!> @brief Ramp up/down the RMP coil current.
+!> @author Markus Markl
+!> @date 13.03.2023
+subroutine ramp_coil
+
+    use paramscan_mod
+    use control_mod
+    implicit none
+    !Ramp up antenna_factor: linear in Icoil or quadratic in D
+    !Added by Philipp Ulbl 12.05.2020, (strongly) edited by Markus Markl
+    !
+    ! Stopping criterion that is always active
+    if (antenna_factor .lt. (antenna_factor_max*antenna_max_stopping * 1.5)) then
+        if (debug_mode) write(*,*) "Debug: - - ramp up antenna_factor - -"
+        
+        if (ramp_up_mode .eq. 0) then
+            if (debug_mode) write(*,*) "Debug: ramp-up mode linear"
+            ! initial ramp up. This is a linear ramp up of the antenna factor in time.
+            antenna_factor = time**2 + 1.d-4
+        else if (ramp_up_mode .eq. 1) then
+            if (debug_mode) write(*,*) "Debug: ramp-up mode faster 1"
+            ! First try for faster ramp up. Is (usually) not stable.
+            antenna_factor = antenna_factor + antenna_factor_max * (timstep/t_max_ramp_up)
+        else if (ramp_up_mode .eq. 2) then
+            if (debug_mode) write(*,*) "Debug: ramp-up mode faster 2, stable"
+            ! Use this for faster ramp up. Ramps up antenna factor to 100% of max value
+            ! in t_max_ramp_up time, but ramps-up further after that.
+            if (time .eq. 0) then
+                antenna_factor = 1.d-4
+            else
+                antenna_factor = antenna_factor_max * (time/t_max_ramp_up)
+            end if
+        else if (ramp_up_mode .eq. 3) then ! ramp up instantly to 100% of max antenna factor
+            if (debug_mode) write(*,*) "Debug: ramp-up mode instant"
+            if (time .eq. 0) then
+                antenna_factor = 1.d-4
+            else if (time .ge. 10*t_max_ramp_up) then ! if max time value is reached, stop the code
+                write(*,*) 'stop: reached time max: ', 10*t_max_ramp_up
+                if (suppression_mode .eqv. .false.) then
+                    call writefort1000(i)
+                end if
+                ! Write the cause of the stopping into the hdf5 file
+                if (ihdf5test .eq. 1) then
+                    CALL h5_init()
+                    CALL h5_open_rw(path2out, h5_id)
+                    CALL h5_add_string(h5_id, trim(h5_mode_groupname)// &
+                            '/stopping_criterion', 'reached time max')
+                    CALL h5_close(h5_id)
+                    CALL h5_deinit()
+                end if
+                if (paramscan) then
+                    if (debug_mode) write(*,*) "Debug: Write br_time _data"
+                    if (ihdf5test .eq. 1) then
+                        CALL write_br_time_data(i, br_abs_time, br_abs_antenna_factor, br_abs, dqle22_res_time)
+                    end if
+                    if (ifac_n + ifac_Te + ifac_Ti + ifac_vz .eq. size(fac_n) + &
+                            size(fac_Ti) + size(fac_Te) + size(fac_vz)) then
+                        CALL MPI_finalize(ierror)
+                        stop
+                    else
+                        ! if it is not the last scan, skip the rest of the
+                        ! code and continue with the next loop iteration
+                        !call deallocate_wave_code_data()
+                        ! exit this time evolution loop specific to a certain set
+                        ! of parameters
+                        iexit = 1
+                    end if
+                else
+                    if (debug_mode) write(*,*) "Debug: Write br_time _data"
+                    if (ihdf5test .eq. 1) then
+                        CALL write_br_time_data(i, br_abs_time, br_abs_antenna_factor, br_abs, dqle22_res_time)
+                    end if
+                    CALL MPI_finalize(ierror);
+                    write(*,*) 'stop'
+                    stop
+                end if
+ 
+            else if (antenna_factor .ge. antenna_factor_max) then
+                antenna_factor = antenna_factor_max
+                write(*,*) "- - - - - - - - - - - - - - - - - - - - - - - - - - - -"
+                write(*,*) "Antenna factor reached max value, will not be changed!"
+                write(*,*) "- - - - - - - - - - - - - - - - - - - - - - - - - - - -"
+            else
+                !antenna_factor = antenna_factor_max * (time/(t_max_ramp_up*2))
+                antenna_factor = antenna_factor_max!(time/t_max_ramp_up)**2 + 1.d-4
+                !antenna_factor = antenna_factor + antenna_factor_max * (timstep/t_max_ramp_up)
+            end if
+
+        else if (ramp_up_mode .eq. 4) then ! no ramp-up at all
+            if (debug_mode) write(*,*) "Debug: ramp-up mode none"
+            if (time .eq. 0) then
+                antenna_factor = 0d0
+            else if (time .ge. 10*t_max_ramp_up) then
+                ! if max time value is reached, stop the code
+                write(*,*) 'stop: time limit reached: ', time
+                if (suppression_mode .eqv. .false.) then
+                    call writefort1000(i)
+                end if ! suppression mode
+                ! Write the cause of the stopping into the hdf5 file
+                if (ihdf5test .eq. 1) then
+                    CALL h5_init()
+                    CALL h5_open_rw(path2out, h5_id)
+                    CALL h5_add_string(h5_id, trim(h5_mode_groupname)// &
+                            '/stopping_criterion', 'time limit reached')
+                    CALL h5_close(h5_id)
+                    CALL h5_deinit()
+                end if ! ihdf5test
+                if (paramscan) then
+                    if (debug_mode) write(*,*) "Debug: Write br_time _data"
+                    if (ihdf5test .eq. 1) then 
+                        CALL write_br_time_data(i, br_abs_time, br_abs_antenna_factor, br_abs, dqle22_res_time)
+                    end if
+                    if (ifac_n + ifac_Te + ifac_Ti + ifac_vz .eq. size(fac_n) + &
+                        size(fac_Ti) + size(fac_Te) + size(fac_vz)) then
+                        CALL MPI_finalize(ierror)
+                        stop
+                    else
+                        ! if it is not the last scan, skip the rest of the
+                        ! code and continue with the next loop iteration
+                        !call deallocate_wave_code_data()
+                        ! exit this time evolution loop specific to a certain set
+                        ! of parameters
+                        iexit = 1
+                    end if
+                else
+                    if (debug_mode) write(*,*) "Debug: Write br_time _data"
+                    if (ihdf5test .eq. 1) then
+                        CALL write_br_time_data(i, br_abs_time, br_abs_antenna_factor, br_abs, dqle22_res_time)
+                    end if
+                    write(*,*) 'stop'
+                    call MPI_finalize(ierror);
+                    stop
+                end if
+  
+            else
+                antenna_factor = 0d0!antenna_factor_max * (time/t_max_ramp_up)
+            end if
+
+        else if (ramp_up_mode .eq. 5) then ! hysteresis mode
+            if (debug_mode) write(*,*) "Debug: ramp-up mode hysteresis"
+            if (debug_mode) write(*,*) "Debug: ramp_up_down = ", ramp_up_down
+            if (ramp_up_down .eq. 0) then ! ramp-up
+                if (debug_mode) write(*,*) "Ramp up ^"
+                antenna_factor = time**2 + 1.d-4
+                if (antenna_factor .ge. antenna_factor_max * antenna_max_stopping) then ! switch to ramp-down
+                    ramp_up_down = 1
+                    t_hysteresis_turn = time
+                    if (debug_mode) write(*,*) "Debug: Ramp turn at t = ", time
+                end if
+            else if (ramp_up_down .eq. 1) then !ramp down
+                if (debug_mode) write(*,*) "Debug: Ramp down v"
+                ! get linear ramp-up in coil current (scales with sqrt of antenna_factor):
+                antenna_factor = (sqrt(antenna_factor_max * antenna_max_stopping) - (time - t_hysteresis_turn))**2
+                if ((antenna_factor/antenna_factor_max * 100) .le. 1.0) then ! if antenna factor would get below some percentage of the max value
+                    write(*,*) 'stop: ramp-up/down finished '
+                    if (suppression_mode .eqv. .false.) then
+                        call writefort1000(i)
+                    end if
+                    ! Write the cause of the stopping into the hdf5 file
+                    if (ihdf5test .eq. 1) then
+                        CALL h5_init()
+                        CALL h5_open_rw(path2out, h5_id)
+                        CALL h5_add_string(h5_id, trim(h5_mode_groupname)// &
+                            '/stopping_criterion', 'ramp-up/down finished')
+                        CALL h5_close(h5_id)
+                        CALL h5_deinit()
+                    end if
+                    if (debug_mode) write(*,*) "Debug: Write br_time _data"
+                    if (ihdf5test .eq. 1) then
+                        CALL write_br_time_data(i, br_abs_time, br_abs_antenna_factor, br_abs, dqle22_res_time)
+                    end if
+                    if (paramscan) then
+                        if (ifac_n + ifac_Te + ifac_Ti + ifac_vz .eq. size(fac_n) + &
+                            size(fac_Ti) + size(fac_Te) + size(fac_vz)) then
+                            CALL MPI_finalize(ierror)
+                            stop
+                        else
+                            iexit = 1
+                        end if ! if last parameter scan
+                    else
+                        CALL MPI_finalize(ierror)
+                        stop
+                    end if ! if parameter scan
+                end if ! antenna_facotr less eq 0
+            end if ! ramp_up_down eq 1
+
+        else if (ramp_up_mode .eq. 6) then ! fast hysteresis mode
+            if (debug_mode) write(*,*) "Debug: ramp-up mode fast hysteresis"
+            if (debug_mode) write(*,*) "Debug: ramp_up_down = ", ramp_up_down
+            if (ramp_up_down .eq. 0) then ! ramp-up
+                if (debug_mode) write(*,*) "Ramp up ^"
+                !antenna_factor = time**2 + 1.d-4
+                antenna_factor = (antenna_factor_max/t_max_ramp_up * time)**2
+                if (antenna_factor .ge. antenna_factor_max * antenna_max_stopping) then ! switch to ramp-down
+                    ramp_up_down = 1
+                    t_hysteresis_turn = time
+                    if (debug_mode) write(*,*) "Debug: Ramp turn at t = ", time
+                end if
+            else if (ramp_up_down .eq. 1) then !ramp down
+                if (debug_mode) write(*,*) "Debug: Ramp down v"
+                ! get linear ramp-up in coil current (scales with sqrt of antenna_factor):
+                antenna_factor = (sqrt(antenna_factor_max * antenna_max_stopping) - (time - t_hysteresis_turn) &
+                * antenna_factor_max/t_max_ramp_up)**2
+                if ((antenna_factor/antenna_factor_max * 100) .le. 0.1) then ! if antenna factor would get below some percentage of the max value
+                    write(*,*) 'stop: ramp-up/down finished '
+                    if (suppression_mode .eqv. .false.) then
+                        call writefort1000(i)
+                    end if
+                    ! Write the cause of the stopping into the hdf5 file
+                    if (ihdf5test .eq. 1) then
+                        CALL h5_init()
+                        CALL h5_open_rw(path2out, h5_id)
+                        CALL h5_add_string(h5_id, trim(h5_mode_groupname)// &
+                            '/stopping_criterion', 'ramp-up/down finished')
+                        CALL h5_close(h5_id)
+                        CALL h5_deinit()
+                    end if
+                    if (debug_mode) write(*,*) "Debug: Write br_time _data"
+                    if (ihdf5test .eq. 1) then
+                        CALL write_br_time_data(i, br_abs_time, br_abs_antenna_factor, br_abs, dqle22_res_time)
+                    end if
+                    if (paramscan) then
+                        if (ifac_n + ifac_Te + ifac_Ti + ifac_vz .eq. size(fac_n) + &
+                            size(fac_Ti) + size(fac_Te) + size(fac_vz)) then
+                            CALL MPI_finalize(ierror)
+                            stop
+                        else
+                            iexit = 1
+                        end if ! if last parameter scan
+                    else
+                        CALL MPI_finalize(ierror)
+                        stop
+                    end if ! if parameter scan
+                end if ! antenna_facotr less eq 0
+            end if ! ramp_up_down eq 1
+
+        end if !ramp_up_mode
+            !This can be activated for runs without QL evolution to check steady state behaviour
+            !antenna_factor = 1.d-4
+            !if(i .gt. 200) then
+            !    stop
+            !endif
+        write(*,*) 'antenna_factor = ', antenna_factor
+        write(*,*) "which are ", antenna_factor/antenna_factor_max*100, "% of the max"
+        write(*,*) " - - - "
+    else
+            write(*,*) 'stop: reached antenna_factor_max * ', antenna_max_stopping
+            if (suppression_mode .eqv. .false.) then
+                call writefort1000(i)
+            end if
+            ! Write the cause of the stopping into the hdf5 file
+            if (ihdf5test .eq. 1) then
+                CALL h5_init()
+                CALL h5_open_rw(path2out, h5_id)
+                CALL h5_add_string(h5_id, trim(h5_mode_groupname)// &
+                    '/stopping_criterion', 'reached antenna_factor_max * antenna_max_stopping')
+                CALL h5_close(h5_id)
+                CALL h5_deinit()
+            end if
+
+            if (debug_mode) write(*,*) "Debug: Write br_time_data"
+            if (ihdf5test .eq. 1) then 
+                CALL write_br_time_data(i, br_abs_time, br_abs_antenna_factor, br_abs, dqle22_res_time)
+            end if
+
+            if (paramscan) then
+                if (ifac_n + ifac_Te + ifac_Ti + ifac_vz .eq. size(fac_n) + &
+                    size(fac_Ti) + size(fac_Te) + size(fac_vz)) then
+                    CALL MPI_finalize(ierror)
+                    stop
+                else
+                ! if it is not the last scan, skip the rest of the
+                ! code and continue with the next loop iteration
+                !call deallocate_wave_code_data()
+                ! exit this time evolution loop specific to a certain set
+                ! of parameters
+                    iexit = 1
+                end if
+            else
+            CALL MPI_finalize(ierror);
+            write(*,*) 'stop'
+            stop
+        end if
+
+        call MPI_finalize(ierror);
+        stop
+    end if
+
+end subroutine !ramp_coil
 
 end program ql_balance

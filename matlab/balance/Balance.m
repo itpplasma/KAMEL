@@ -424,7 +424,8 @@ classdef Balance < handle & hdf5_output
             if(run_fourier==true)
 
                 %path to exec
-                fourierpath = [obj.LIB_BALANCE, 'fourier/'];
+                fourierpath = [obj.LIB_BALANCE, 'fourier_test/'];
+                disp(fourierpath)
 
                 %check input
                 if(exist(obj.file_equi, 'file') ~= 2), error(['gfile not found in: ', obj.file_equi]); end

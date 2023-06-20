@@ -26,9 +26,9 @@ def opt2str(opt):
     if isinstance(opt, list):
         # for complex numbers:
         if len(opt) == 2:
-            if len(opt[0]) == 1:
-                return "(" + "{:.2e}".format(opt[0]) + ', ' + "{:.2e}".format(opt[1]) + ")"
+            #if len(opt[0]) == 1:
+            return "(" + "{:.2e}".format(opt[0]) + ', ' + "{:.2e}".format(opt[1]) + ")"
             if len(opt[0]) != 1:
                 l = []
                 for i in range(0, len(opt[0])):
-                    
+                   pass 

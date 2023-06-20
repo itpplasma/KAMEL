@@ -1,6 +1,8 @@
 # TODO:
 # - Add database part, i.e. write a database entry for everytime KiLCA is run. If the kilca interface
 # is used by the balance interface, this should be slimed. Database entry should also contain git hash.
+# - add remote connection, such that when cloned on different machine and a itp account is available
+# kilca can be run remotely.
 #
 
 
@@ -88,10 +90,18 @@ class KiLCA_interface:
                 m ... media between zone boundaries (1 element less than r)
                     (vacuum, medium, imhd, rmhd, flre)"""
 
+        # check if input is array
         if not (type(r)==np.ndarray):
             raise ValueError("r must be a vector")
+        # check if size is suitable
         if not (len(r) == len(b)):
             raise ValueError("Size of r and b does not match")
+        if not (len(r) == len(m)+1):
+            raise ValueError("Size of r and m does not match")
+
+        self.zones = []
+        for k in range(0,len(m)):
+            self.zones[k] = KiLCA_zone(k, r[k], b[k], m[k], r[k+1], b[k+1])
 
     def write(self):
         pass

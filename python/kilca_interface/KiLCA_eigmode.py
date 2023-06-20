@@ -4,7 +4,8 @@ import numpy as np
 class KiLCA_eigmode(InpOut):
 
     BLUEPRINT = 'eigmode.in'
-    ind = ([2,5,22] + list(range(7,12+1)) + list(range(15,18+1)) + list(range(24, 25+1)) + list(range(28, 30+1)) + list(range(33,39+1))).sort()
+    # indices of the relevant information in the blueprint file
+    ind = ([1,4,21] + list(range(7,12+1)) + list(range(15,18+1)) + list(range(24, 25+1)) + list(range(28, 30+1)) + list(range(33,39+1))).sort()
 
     ouput = 'roots.dat'         # file name with determinant values
     flag_fscan = 1              # choose if to use frequency scan or roots search: 0 - if roots search is used, 1 - if det is evaluated on a frequency grid

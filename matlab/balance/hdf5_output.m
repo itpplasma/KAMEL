@@ -110,7 +110,7 @@ classdef (Abstract) hdf5_output < handle
             %create entry with datatype of quantity
             try
                 h5create(fname, name, size(data), 'Datatype', class(data)); 
-                disp(['Create dataset ', name])
+                %disp(['Create dataset ', name])
             catch
                 disp(['Dataset entry ', name, ' exists, is overwritten'])
             end

@@ -1,4 +1,5 @@
 from InpOut import InpOut
+import numpy as np
 
 class KiLCA_eigmode(InpOut):
 
@@ -33,7 +34,7 @@ class KiLCA_eigmode(InpOut):
     rsearch_nstart = 4          # number of starting points
     rsearch_istart = 0          # starting index (from 0)
     rsearch_iend = 3            # ending index (from 0)
-    rsearch_points = [1e1, 1e2, 1e3, 1e4, 1e5, 1e6, 1e7]
+    rsearch_points = np.array((np.zeros(7), np.logspace(2,8,7))).T.tolist()
 
     def __init__(self):
         pass

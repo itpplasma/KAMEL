@@ -1,6 +1,6 @@
 # TODO:
 # - Add database part, i.e. write a database entry for everytime KiLCA is run. If the kilca interface
-# is used by the balance interface, this should be slimed.
+# is used by the balance interface, this should be slimed. Database entry should also contain git hash.
 #
 
 
@@ -31,9 +31,9 @@ class KiLCA_interface:
     zones = {}
 
     path = ''
-    pathofpyfile = ''
-    pathofprofiles = ''
-    pathofrun = ''
+    path_of_interface_file = ''
+    path_of_profiles = ''
+    path_of_run = ''
 
     run_type = ''
 
@@ -43,7 +43,7 @@ class KiLCA_interface:
         input:
                 shot ... shot number
                 time ... time of the time slice in experiment
-                path ... path to run directory
+                path ... path to run directory, must end with /
                 rtype... run type, i.e. vacuum or flre
                 machine ... e.g. AUG or LHD
                 """
@@ -60,6 +60,7 @@ class KiLCA_interface:
             self.run_type = rtype
         else:
             raise ValueError("Runtype not supported")
+
 
     def set_antenna(self, ra=67, nmod=1):
         """Initializes the antenna with the minimum amount of needed 

@@ -242,10 +242,9 @@ classdef Balance < handle & hdf5_output
                 h5read(obj.hdf5file, '/shot');
             catch
                 disp('hdf5 input file does not exist')
+    			obj.writeHDF5(obj.hdf5file, '/', 'shot', 'shot number', '1');
+                obj.writeHDF5(obj.hdf5file, '/', 'time', 'shot time', 'ms');
             end
-			%obj.writeHDF5(obj.hdf5file, '/', 'shot', 'shot number', '1');
-            %obj.writeHDF5(obj.hdf5file, '/', 'time', 'shot time', 'ms');
-
 			% path of the output hdf5 file
             obj.h5out = [obj.path_output, obj.name, '_', num2str(obj.shot), ...
 				'_', num2str(obj.time), '.hdf5'];
@@ -1051,8 +1050,8 @@ classdef Balance < handle & hdf5_output
 			%h5out = [obj.path_output, obj.name, '_', num2str(obj.shot), ...
 				%'_', num2str(obj.time), '.hdf5'];
 			% create the output hdf5 file
-			obj.writeHDF5(obj.h5out, '/', 'shot', 'shot number', '1');
-            obj.writeHDF5(obj.h5out, '/', 'time', 'shot time', 'ms');
+			%obj.writeHDF5(obj.h5out, '/', 'shot', 'shot number', '1');
+            %obj.writeHDF5(obj.h5out, '/', 'time', 'shot time', 'ms');
 			obj.writeHDF5(obj.h5out, '/', 'm', 'poloidal mode number', '1');
 			obj.writeHDF5(obj.h5out, '/', 'n', 'toroidal mode number', '1');
 			obj.writeHDF5(obj.h5out, '/', 'm_ion', 'ion mass number', '1');
@@ -1517,7 +1516,7 @@ classdef Balance < handle & hdf5_output
 
             disp('--- exporting namelist configuration to hdf5 ---')
 
-            proplist = properties(config.BALANCENML)
+            proplist = properties(config.BALANCENML);
 
             if size(proplist) == 0
                 error('Property of balance_conf.nml list is empty')

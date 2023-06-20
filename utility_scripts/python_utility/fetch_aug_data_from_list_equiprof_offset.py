@@ -31,9 +31,11 @@ policy = paramiko.client.AutoAddPolicy
 user = input("Username: ")
 passwd = getpass.getpass("Password: ")
 
-shot = 33353
+shot = 33133
 
-listpath = '/itp/MooseFS/markl_m/BALANCE_4CASES/DATA/'+ str(int(shot)) + '_time_list.txt'
+#listpath = '/itp/MooseFS/markl_m/BALANCE_4CASES/DATA/'+ str(int(shot)) + '_time_list.txt'
+
+listpath = '/proj/plasma/DATA/BALANCE/INDEX/'+ str(int(shot)) + '_index.txt'
 data = np.loadtxt(listpath, dtype='int')
 
 time_slices = data[:,0]

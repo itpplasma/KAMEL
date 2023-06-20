@@ -115,7 +115,7 @@ program ql_balance
         write_gyro_current = .false.
     end if
 
-    write_gyro_current = .false.
+    !write_gyro_current = .false.
 
 
     discr_reached = .false. ! variable to say if discrepancy to linear regression
@@ -556,6 +556,11 @@ program ql_balance
                                                  reshape(dqle22_res, (/size(dqle22_res)/)), &
                                                  lbound(reshape(dqle22_res, (/size(dqle22_res)/))), &
                                                  ubound(reshape(dqle22_res, (/size(dqle22_res)/))))
+                                CALL h5_add_double_1(h5_id, trim(h5_mode_groupname)//'/dqle22', &
+                                                     dqle22, &
+                                                     lbound(dqle22), &
+                                                     ubound(dqle22))
+ 
                                 CALL h5_close(h5_id)
                                 CALL h5_deinit()
                             end if
@@ -1356,7 +1361,9 @@ subroutine initialize_parameter_scan_vars
     if (paramscan) then
         write(*,*) "Parameter scan: fetch factors for parameter scan"
         CALL getfactors
+        write(*,*) "Got out of getfactors"
         if (size(fac_vz) .ne. 1) allocate(Er_res(size(fac_n), size(fac_Te), size(fac_Ti), size(fac_vz)))
+        write(*,*) "allocated Er_res"
     else
         allocate(fac_n(1))
         allocate(fac_Ti(1))
@@ -1370,6 +1377,7 @@ subroutine initialize_parameter_scan_vars
 
     allocate(dqle22_res(size(fac_n), size(fac_Te), size(fac_Ti), size(fac_vz)))
     allocate(br_abs_res_parscan(size(fac_n), size(fac_Te), size(fac_Ti), size(fac_vz)))
+    write(*,*) "Finished initialize parameter scan vars"
 
 end subroutine ! initialize_parameter_scan_vars
 

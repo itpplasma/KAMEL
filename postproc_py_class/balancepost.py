@@ -28,13 +28,20 @@ import h5py
 from scipy.interpolate import CubicSpline
 import re
 from scipy.signal import argrelextrema
+from a2bc import *
 
 class postproc:
+
+    k_B = 1.3807e-16 # Boltzman constant
+    EVK = 1.1604e4 # erg to kelvin
+
+    const_sol = 3e10
+    const_e = 4.8032e-10
+
 
     prof_t_plot_r_offset = 0.5  # this is in centimeters
     prof_t_plot_y_offset_lower = 1.0 # this is in percent of the profile
     prof_t_plot_y_offset_upper = 1.0 # this is in percent of the profile
-
 
     # colors of TU Graz presentation template
     col_tug = '#f70146'
@@ -54,15 +61,22 @@ class postproc:
 
     profile_types = {'n': r'/$cm^{-3}$', 'Te': r'/$eV$', 'Ti': r'/$eV$', 'Vz': r'/$cm/s$', 'Er': r'/$statV cm^{-1}$'}
 
-    def __init__(self, path2inp, path2out):
+    def __init__(self, path2inp, path2out=''):
         """ Constructor of class.
         input: path2inp ... path to the input hdf5 file containing also the file name
                path2out ... path to the output hdf5 file containing also the file name"""
 
-        self.path2inp = path2inp
-        self.path2out = path2out
-        self.loadfile()
-        self.loadquantities()
+        if path2out == '':
+            print('No hdf5 out given. Assuming analytical analysis.')
+            self.path2inp = path2inp
+            self.h5inp = h5py.File(self.path2inp, 'r')
+            self.shot = self.h5inp['shot'][0][0]
+            self.time = self.h5inp['time'][0][0]
+        else:
+            self.path2inp = path2inp
+            self.path2out = path2out
+            self.loadfile()
+            self.loadquantities()
 
 
     def loadfile(self):
@@ -341,10 +355,10 @@ class postproc:
 
             
 
-            ax[0].set_xlabel('r / cm')
+            ax[0].set_xlabel('r  [cm]')
             ax[0].set_xlim((40,70))
             ax_twin.plot(self.prof_rc, self.prof_p, color=self.col_yellow, label ='pressure')
-            ax_twin.set_ylabel('$p_{tot}$ / Pa')
+            ax_twin.set_ylabel('$p_{tot}$  [Pa]')
             ax_twin.ticklabel_format(axis='y', style='sci', scilimits=(1,4))
             ax_twin.set_ylim((0,14e4))
 
@@ -470,12 +484,11 @@ class postproc:
 
     def calc_pres(self, scanid='', time=0):
         """ Calculates the pressure from the density, electron temperature and constants. """
-        k_B = 1.3807e-16
-        EVK = 1.1604e4
+
         self.load_profile(proftype='n', scanid=scanid)
         self.load_profile(proftype='Te', scanid=scanid)
         self.load_profile(proftype='Ti', scanid=scanid)
-        self.prof_p = self.prof_n * (self.prof_Te + self.prof_Ti) * k_B * EVK
+        self.prof_p = self.prof_n * (self.prof_Te + self.prof_Ti) * self.k_B * self.EVK
 
 
     def calc_total_pres(self, scanid='', time=0):
@@ -1047,8 +1060,9 @@ class postproc:
 
 
 
-    def plt_initial_plasma_profiles(self):
+    def plt_initial_plasma_profiles(self, xtype='r'):
 
+        
         self.init_r  = np.array(self.h5inp['/preprocprof/r_out'])[0]
         self.init_ne = np.array(self.h5inp['/preprocprof/n'])[0]
         self.init_Te = np.array(self.h5inp['/preprocprof/Te'])[0]
@@ -1057,13 +1071,27 @@ class postproc:
         self.r_sep_real = np.array(self.h5inp['/input/r_sep_real'])[0]
 
         plt.figure()
-        plt.plot(self.init_r, self.init_ne / np.max(self.init_ne), label='ne')
-        plt.plot(self.init_r, self.init_Te / np.max(self.init_Te), label='Te')
-        plt.plot(self.init_r, self.init_Ti / np.max(self.init_Ti), label='Ti')
-        plt.plot(self.init_r, self.init_Vz / np.max(self.init_Vz), label='Vtor')
-        plt.axvline(self.r_sep_real, ls='-', c='grey', label='separatrix')
-        for res in self.r_res:
-            plt.axvline(res, ls='--', c='dimgrey')
+
+        if xtype == 'r':
+            plt.plot(self.init_r, self.init_ne / np.max(self.init_ne), label='ne')
+            plt.plot(self.init_r, self.init_Te / np.max(self.init_Te), label='Te')
+            plt.plot(self.init_r, self.init_Ti / np.max(self.init_Ti), label='Ti')
+            plt.plot(self.init_r, self.init_Vz / np.max(self.init_Vz), label='Vtor')
+            plt.axvline(self.r_sep_real, ls='-', c='grey', label='separatrix')
+            for res in self.r_res:
+                plt.axvline(res, ls='--', c='dimgrey')
+        elif xtype == 'psi_n': # normalized poloidal flux
+            self.psi_pol_norm = np.array(self.h5inp['/preprocprof/equil/psi_pol_norm'])[0]
+            self.r_equ = np.array(self.h5inp['/preprocprof/equil/r'])[0]
+            plt.plot(self.psi_pol_norm, np.interp(self.r_equ, self.init_r, self.init_ne / 1e13), label='ne')
+            plt.plot(self.psi_pol_norm, np.interp(self.r_equ, self.init_r, self.init_Te / 1e3), label='Te')
+            plt.plot(self.psi_pol_norm, np.interp(self.r_equ, self.init_r, self.init_Ti / 1e3), label='Ti')
+            plt.plot(self.psi_pol_norm, np.interp(self.r_equ, self.init_r, self.init_Vz / 1e7), label='Vtor')
+            plt.axvline(1, ls='-', c='grey', label='separatrix')
+            for res in self.r_res:
+                plt.axvline(np.interp(res, self.r_equ, self.psi_pol_norm), ls='--', c='dimgrey')
+        else:
+            raise ValueError('xtype not supported')
         plt.legend()
         ax = plt.gca()
         self.add_grid_to_axis(ax)
@@ -1115,103 +1143,85 @@ class postproc:
         self.grad_n = np.gradient(self.prof_n, self.prof_rc)
 
 
-    def plt_nTscan(self, mode='f_5_2'):
+    def plt_nTscan(self, mode='f_5_2', local_bif_thresh=1.0):
         """ Plot 2D parameter scan over density and electron temperature."""
-        self.get_scan_names() # saves possible scan names in list
-        Temesh, nmesh = np.meshgrid(self.fac_Te, self.fac_n)
+        #self.get_scan_names() # saves possible scan names in list
+        self.Temesh, self.nmesh = np.meshgrid(self.fac_Te, self.fac_n)
 
-        k_B = 1.3807e-16
-        EVK = 1.1604e4
         prof_rc = np.array(self.h5out['init_params/r'])[0:-1]
         prof_n = np.array(self.h5out['init_params/n'])
         prof_Te = np.array(self.h5out['init_params/Te'])
-        prof_Ti = np.array(self.h5out['init_params/Ti'])
 
-        prof_p = prof_n * (prof_Te + prof_Ti) * k_B * EVK
-        dprof_p = np.gradient(prof_p, prof_rc)
-
-        # interpolate
-        interp_dp = CubicSpline(prof_rc, dprof_p)
         interp_n = CubicSpline(prof_rc, prof_n)
         interp_Te = CubicSpline(prof_rc, prof_Te)
 
-        indx = argrelextrema(dprof_p, np.greater)[0]
-        indx = indx[(np.abs(prof_rc[indx] - self.r_res[1])).argmin()]
+        self.psi_pol_norm = np.array(self.h5inp['/preprocprof/equil/psi_pol_norm'])[0]
+        self.r_equ = np.array(self.h5inp['/preprocprof/equil/r'])[0]
 
-        print('ped at ' + str(prof_rc[indx]))
-        Teped = interp_Te(prof_rc[indx])
-        nped = interp_n(prof_rc[indx])
+        self.r_84 = np.interp(0.84, self.psi_pol_norm, self.r_equ)
 
-        self.get_mode_names(self.scans_list[1])
-        #modelist = ['/f_5_2/dqle22_res','/f_6_2/dqle22_res','/f_7_2/dqle22_res']
-        #count1 = 0
-        #count2 = 0
-        #for scan in self.scans_list:
-        #    for mode in self.modes_list:
-        #        dqle22[count1, count2] = np.array(self.h5out[mode+'/dqle22_res'])
-        #        count2 += 1
-        #    count1 += 1
-        #    count2 = 0
-        dqle22 = np.array(self.h5out[mode+'/dqle22_res'])
-        # toroidal rescaling of the diffusion coefficient
-        #dqle22 = self.tor_resc(dqle22, mode)
+        print('ped at ' + str(self.r_84))
+        Teped = interp_Te(self.r_84)
+        nped = interp_n(self.r_84)
 
+        self.Teped = Teped
+        self.nped = nped
+
+        self.dqle22 = np.array(self.h5out[mode+'/dqle22_res'])
         self.da_res = np.array(self.h5inp['output/Da_res']).transpose()[0][self.mode_to_index(mode)]
+        self.dql_re = np.transpose(np.reshape(self.dqle22/self.da_res,(np.size(self.fac_Te), np.size(self.fac_n))))
 
-        nempval = 3.3e13
+        # empirical boundaries
+        nempval = 3.3e13 
         tempval = 1e3
 
         nscaling = 1e13
         Tscaling = 1e3
 
-        upper = 3.5
-        lower = -4.5
-        xlimright = 35
         nums = 15
         lvl = nums#np.linspace(lower,upper,nums)
         vcmap = 'coolwarm'
 
-        plt.rc('font', size=18)
-        fig = plt.figure(figsize=(12,7))
+        plt.rc('font', size=14)
+        fig = plt.figure(figsize=(10,6))
         # plotting
-        dql_re = np.transpose(np.reshape(dqle22/self.da_res,(np.size(self.fac_Te), np.size(self.fac_n))))
 
-        plt.title(str(int(self.shot)) + ' @ '+ str(int(self.time))+ 'ms ; m = '+str(int(self.m[self.mode_to_index(mode)])), weight='bold')
+        plt.title('AUG ' + str(int(self.shot)) + ' at '+ "{:.2f}".format(self.time/1000)+ r's, $\mathbf{m}$ = ('+str(int(self.m[self.mode_to_index(mode)])) + ',' + str(int(self.n[self.mode_to_index(mode)])) + ')')
         # filled contour plot
-        plot = plt.contourf(nmesh*nped/nscaling, Temesh*Teped/Tscaling, np.log10(dql_re), levels=lvl,cmap=vcmap)
-        #plt.xlim(right=xlimright)
+        plot = plt.contourf(self.nmesh*nped/nscaling, self.Temesh*Teped/Tscaling, np.log10(self.dql_re), levels=lvl,cmap=vcmap)
 
         # contours
-        conpltgrey = plt.contour(nmesh*nped/nscaling, Temesh*Teped/Tscaling, np.log10(dql_re), linestyles='solid', levels=lvl)
+        conpltgrey = plt.contour(self.nmesh*nped/nscaling, self.Temesh*Teped/Tscaling, np.log10(self.dql_re), linestyles='solid', levels=lvl)
         plt.clabel(conpltgrey, fmt='%2.1f', colors = 'k', fontsize=12)
 
         # threshold line
-        conplt0 = plt.contour(nmesh*nped/nscaling, Temesh*Teped/Tscaling, np.log10(dql_re), levels=np.array([0.0]), linestyles='--')
+        conplt0 = plt.contour(self.nmesh*nped/nscaling, self.Temesh*Teped/Tscaling, np.log10(self.dql_re), levels=np.array([np.log10(local_bif_thresh)]), linestyles='-', linewidths=3)
         plt.clabel(conplt0,fmt='%2.1f', colors='k', fontsize=12)
         h1,_ = conplt0.legend_elements() # handle for legend
 
-        pltref = plt.scatter(1.0*nped/nscaling,1.0*Teped/Tscaling, color='k', marker='*')
+        pltref = plt.scatter(1.0*nped/nscaling,1.0*Teped/Tscaling, color='k', marker='*', s=150)
 
         # color bar
         cbar = plt.colorbar(plot)
-        cbar.set_label(r'log$_{10}$(D$^{\mathrm{ql}}_{e22}$ / D$^{\mathrm{a}}$) at resonant surface')
+        cbar.set_label(r'log$_{10}$(D$^{\mathrm{ql}}_{e,22}$ / D$^{\mathrm{a}}$)')
 
         # calculated points
-        pltcalc = plt.scatter(nmesh*nped/nscaling,Temesh*Teped/Tscaling, color = 'grey', marker = '.')
+        #pltcalc = plt.scatter(self.nmesh*nped/nscaling,self.Temesh*Teped/Tscaling, color = 'grey', marker = '.')
 
         #empirical bounds
-        pltnemp = plt.axvline(x=nempval/nscaling, linestyle='--', color='w')
+        pltnemp = plt.axvline(x=nempval/nscaling, linestyle='--', color='dimgrey')
         #plt.text(nempval/nscaling + 0.2, plt.Axes.get_ylim()[1]*0.75 ,s='$n_{p}^{emp}$',color='w',rotation=90,fontsize=18)
 
-        plttemp = plt.axhline(y=tempval/Tscaling, linestyle='--',color='w')
+        #plttemp = plt.axhline(y=tempval/Tscaling, linestyle='--',color='dimgrey')
         #plt.text(plt.Axes.get_xlim()[1]*0.75, (tempval+300)/Tscaling,s='$T_{p}^{emp}$',color='w',fontsize=18)
 
         # legend
-        plt.legend([h1[0], pltref,pltcalc, pltnemp] , ['Threshold','Reference point','Calculated values', 'Empirical bounds'])
+        plt.legend([h1[0], pltref, pltnemp] , ['Local bifurcation criterion','Initial parameter', 'Empirical threshold'])
 
         # label
-        plt.xlabel('$n_{p} \, /10^{13} \, cm^{-3}$',fontsize = 14)
-        plt.ylabel('$T_{p} \, /10^3 \, eV$', fontsize = 14)
+        plt.xlabel(r'n$_{\mathrm{ped}}$ /10$^{13}$ cm$^{-3}$')
+        plt.ylabel(r'T$_{e,\mathrm{ped}}$ /10$^3$ eV')
+        return fig
         plt.show()
         #fig.savefig('plots/parscan_'+str(int(np.array(Tnscan.shot)[0][0])) + '.'+ str(int(np.array(Tnscan.time)[0][0]))+'_m'+str(int(Tnscan.m.transpose()[0][i]))+'.pdf')
 
@@ -1389,3 +1399,124 @@ class postproc:
         axis.grid(which='major', color='#DDDDDD', linewidth=self.majorgridlw)
         axis.grid(which='minor', color='#EEEEEE', linewidth=self.minorgridlw, ls=':')
         axis.set_axisbelow(True)
+
+
+
+
+    def analytical_bifurcation_cirt(self, m,n, r_Da, Da, R0, B0, r, q, Te, Ti, ne, Er, Impar, Zi=1, mi=2):
+        '''Return diffusion ratio from analytical local bifurcation criterion.'''
+        return a2bc(m,n, r_Da, Da, R0, B0, r, q, Te, Ti, ne, Er, Impar, Zi=Zi, mi=mi)
+
+
+    def get_nTe_scan_analytical_local_bifurcation_crit(self, fac_n, fac_Te, m,n):
+        '''Calculate analytical local bifurcation criterion over 2 dimensional parameter space.'''
+
+        r_out = np.array(self.h5inp['/preprocprof/r_out'])[0]
+        Er = np.array(self.h5inp['/preprocprof/Er'])[0]
+        Te = np.array(self.h5inp['/preprocprof/Te'])[0]
+        Ti = np.array(self.h5inp['/preprocprof/Ti'])[0]
+        ne = np.array(self.h5inp['/preprocprof/n'])[0]
+        q = np.array(self.h5inp['/preprocprof/q'])[0]
+        R0 = np.array(self.h5inp['/input/r_big'])[0]
+        B0 = np.array(self.h5inp['/input/b_tor'])[0]
+        Da = np.array(self.h5inp['/da_estimation/Da'])[0]
+        r_Da = np.array(self.h5inp['da_estimation/r'])[0]
+
+        I_res = np.array(self.h5inp['/output/I_res'])
+
+        if m==5:
+            I_tmhd = np.array(self.h5inp['/GPEC/I_tmhd'])[0]
+        if m==6:
+            I_tmhd = np.array(self.h5inp['/GPEC/I_tmhd'])[1]
+        if m==7:
+            I_tmhd = np.array(self.h5inp['/GPEC/I_tmhd'])[2]
+
+        self.loc_analyt_crit = np.zeros((len(fac_Te), len(fac_n)))
+        count_n = 0
+        count_Te = 0
+
+        for fTe in fac_Te:
+            for fn in fac_n:
+                self.loc_analyt_crit[count_n,count_Te] = self.analytical_bifurcation_cirt(m,n,r_Da,Da,R0,B0,r_out,q,Te*fTe,Ti,ne*fn,Er,I_tmhd)
+                count_n = count_n + 1
+            count_Te = count_Te + 1
+            count_n = 0
+        
+        return self.loc_analyt_crit
+
+        
+
+
+    def plt_nT_scan_analytic_crit(self, fac_n, fac_Te, m,n):
+
+        
+        self.Temesh, self.nmesh = np.meshgrid(fac_Te, fac_n)
+
+        prof_rc = np.array(self.h5inp['/preprocprof/r_out'])[0]
+        prof_n = np.array(self.h5inp['/preprocprof/n'])[0]
+        prof_Te = np.array(self.h5inp['/preprocprof/Te'])[0]
+
+        interp_n = CubicSpline(prof_rc, prof_n)
+        interp_Te = CubicSpline(prof_rc, prof_Te)
+
+        self.psi_pol_norm = np.array(self.h5inp['/preprocprof/equil/psi_pol_norm'])[0]
+        self.r_equ = np.array(self.h5inp['/preprocprof/equil/r'])[0]
+
+        self.r_84 = np.interp(0.84, self.psi_pol_norm, self.r_equ)
+
+        print('ped at ' + str(self.r_84))
+        Teped = interp_Te(self.r_84)
+        nped = interp_n(self.r_84)
+
+        self.Teped = Teped
+        self.nped = nped
+
+        self.dql_re_albc = self.get_nTe_scan_analytical_local_bifurcation_crit(fac_n, fac_Te, m, n)
+
+        # empirical boundaries
+        nempval = 3.3e13 
+        tempval = 1e3
+
+        nscaling = 1e13
+        Tscaling = 1e3
+
+        nums = 15
+        lvl = nums#np.linspace(lower,upper,nums)
+        vcmap = 'coolwarm'
+
+        plt.rc('font', size=14)
+        fig = plt.figure(figsize=(10,6))
+        # plotting
+
+        plt.title('AUG ' + str(int(self.shot)) + ' at '+ "{:.2f}".format(self.time/1000)+ r's, $\mathbf{m}$ = ('+str(int(m)) + ',' + str(int(n)) + ')')
+        # filled contour plot
+        plot = plt.contourf(self.nmesh*nped/nscaling, self.Temesh*Teped/Tscaling, np.log10(self.dql_re_albc), levels=lvl,cmap=vcmap)
+
+        # contours
+        conpltgrey = plt.contour(self.nmesh*nped/nscaling, self.Temesh*Teped/Tscaling, np.log10(self.dql_re_albc), linestyles='solid', levels=lvl)
+        plt.clabel(conpltgrey, fmt='%2.1f', colors = 'k', fontsize=12)
+
+        # threshold line
+        conplt0 = plt.contour(self.nmesh*nped/nscaling, self.Temesh*Teped/Tscaling, np.log10(self.dql_re_albc), levels=np.array([0.0]), linestyles='-', linewidths=3)
+        plt.clabel(conplt0,fmt='%2.1f', colors='k', fontsize=12)
+        h1,_ = conplt0.legend_elements() # handle for legend
+
+        pltref = plt.scatter(1.0*nped/nscaling,1.0*Teped/Tscaling, color='k', marker='*', s=150)
+
+        # color bar
+        cbar = plt.colorbar(plot)
+        cbar.set_label(r'log$_{10}$(D$^{\mathrm{ql}}_{e,22}$ / D$^{\mathrm{a}}$)')
+
+        #empirical bounds
+        pltnemp = plt.axvline(x=nempval/nscaling, linestyle='--', color='dimgrey')
+
+        # legend
+        plt.legend([h1[0], pltref, pltnemp] , ['Local bifurcation criterion','Initial parameter', 'Empirical threshold'])
+
+        # label
+        plt.xlabel(r'n$_{\mathrm{ped}}$ /10$^{13}$ cm$^{-3}$')
+        plt.ylabel(r'T$_{e,\mathrm{ped}}$ /10$^3$ eV')
+        return fig
+        plt.show()
+        #fig.savefig('plots/parscan_'+str(int(np.array(Tnscan.shot)[0][0])) + '.'+ str(int(np.array(Tnscan.time)[0][0]))+'_m'+str(int(Tnscan.m.transpose()[0][i]))+'.pdf')
+

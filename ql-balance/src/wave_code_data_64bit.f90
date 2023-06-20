@@ -802,19 +802,19 @@ subroutine getfactors
     use h5mod
 
     integer :: lb, ub
-    ! integer ifac_n, ifac_Te, ifac_Ti, ifac_vz
-    ! integer numoffac
-    ! double precision, dimension(:), allocatable :: fac_n, fac_Te, fac_Ti, fac_vz
     CALL h5_init()
     CALL h5_open_rw(path2out, h5_id)
     CALL h5_get_bounds_1(h5_id, "/factors/fac_n", lb, ub)
-    write (*, *) "lower bound ", lb, " upper bound ", ub
+    write (*, *) "lower bound fac_n", lb, " upper bound ", ub
     allocate(fac_n(ub))
     CALL h5_get_bounds_1(h5_id, "/factors/fac_Te", lb, ub)
+    write (*, *) "lower bound fac_Te", lb, " upper bound ", ub
     allocate(fac_Te(ub))
     CALL h5_get_bounds_1(h5_id, "/factors/fac_Ti", lb, ub)
+    write (*, *) "lower bound fac_Ti", lb, " upper bound ", ub
     allocate(fac_Ti(ub))
     CALL h5_get_bounds_1(h5_id, "/factors/fac_vz", lb, ub)
+    write (*, *) "lower bound fac_vz", lb, " upper bound ", ub
     allocate(fac_vz(ub))
 
     CALL h5_get_double_1(h5_id, "/factors/fac_n", fac_n)

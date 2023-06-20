@@ -1647,6 +1647,7 @@ subroutine calc_parallel_current_directly
     double precision, dimension(:), allocatable :: dummy, x1, x2, vT, A1, A2
     double complex, dimension(:), allocatable :: curr_e_par
     double complex, dimension(:, :, :), allocatable :: symbI
+    double precision, dimension(1) :: coll_fac = (/1/)!(/10.0, 100.0, 1.0e3, 1.0e4, 1.0e5/)
     integer :: study_i_omE
     integer :: study_j_nue
 !
@@ -1824,7 +1825,7 @@ subroutine calc_parallel_current_directly
             end if
         end if ! irank .eq. 0
 
-    elseif (gyro_current_study .eq. 1) then
+    elseif (gyro_current_study .eq. 1) then ! used to scan over nue and omega_E, deprecated
         write(*,*) " - - - - - - - - - "
         write(*,*) "Gyro current study"
 
@@ -1867,17 +1868,17 @@ subroutine calc_parallel_current_directly
             A2, lbound(A2), ubound(A2))
 
         ! vary om_E/nue
-        do study_i_omE = 1, 5
+        do study_i_omE = 1, 1
             tempch = "/"//trim(h5_mode_groupname)//"/gyro_current_study/"
             write(tempch, "(A,i4.4,A)") trim(tempch), study_i_omE, "/"
 
             CALL h5_define_group(h5_id, trim(tempch), group_id_1)
             CALL h5_close_group(group_id_1)
 
-            do study_j_nue = 1, 5
+            do study_j_nue = 1, size(coll_fac)
 
-                om_E = om_E * study_i_omE * 0.2
-                nue = nue * study_j_nue * 0.2
+                om_E = om_E * study_i_omE
+                nue = nue * coll_fac(study_j_nue)
                 x2 = -om_E/(nue)! * study_i * 0.5
                 x1 = kp*vT/(nue)! * study_i * 0.5
 !
@@ -1894,41 +1895,49 @@ subroutine calc_parallel_current_directly
                 CALL h5_close_group(group_id_1)
                 ! write I functions 
                 ! real part
-                CALL h5_add_double_1(h5_id, trim(tempch)//"I10_real", &
-                    real(symbI(1,0,:)), lbound(real(symbI(1,0,:))), &
-                    ubound(real(symbI(1,0,:))))
-                CALL h5_add_double_1(h5_id, trim(tempch)//"I11_real", &
-                    real(symbI(1,1,:)), lbound(real(symbI(1,1,:))), &
-                    ubound(real(symbI(1,1,:))))
-                CALL h5_add_double_1(h5_id, trim(tempch)//"I21_real", &
-                    real(symbI(2,1,:)), lbound(real(symbI(2,1,:))), &
-                    ubound(real(symbI(2,1,:))))
-                CALL h5_add_double_1(h5_id, trim(tempch)//"I31_real", &
-                    real(symbI(3,1,:)), lbound(real(symbI(3,1,:))), &
-                    ubound(real(symbI(3,1,:))))
+                !CALL h5_add_double_1(h5_id, trim(tempch)//"I10_real", &
+                !    real(symbI(1,0,:)), lbound(real(symbI(1,0,:))), &
+                !    ubound(real(symbI(1,0,:))))
+                !CALL h5_add_double_1(h5_id, trim(tempch)//"I11_real", &
+                !    real(symbI(1,1,:)), lbound(real(symbI(1,1,:))), &
+                !    ubound(real(symbI(1,1,:))))
+                !CALL h5_add_double_1(h5_id, trim(tempch)//"I21_real", &
+                !    real(symbI(2,1,:)), lbound(real(symbI(2,1,:))), &
+                !    ubound(real(symbI(2,1,:))))
+                !CALL h5_add_double_1(h5_id, trim(tempch)//"I31_real", &
+                !    real(symbI(3,1,:)), lbound(real(symbI(3,1,:))), &
+                !    ubound(real(symbI(3,1,:))))
                 ! imag part
 
-                CALL h5_add_double_1(h5_id, trim(tempch)//"I10_imag", &
-                    dimag(symbI(1,0,:)), lbound(dimag(symbI(1,0,:))),&
-                    ubound(dimag(symbI(1,0,:))))
-                CALL h5_add_double_1(h5_id, trim(tempch)//"I11_imag", &
-                    dimag(symbI(1,1,:)), lbound(dimag(symbI(1,1,:))), &
-                    ubound(dimag(symbI(1,1,:))))
-                CALL h5_add_double_1(h5_id, trim(tempch)//"I21_imag", &
-                    dimag(symbI(2,1,:)), lbound(dimag(symbI(2,1,:))), &
-                    ubound(dimag(symbI(2,1,:))))
-                CALL h5_add_double_1(h5_id, trim(tempch)//"I31_imag", &
-                    dimag(symbI(3,1,:)), lbound(dimag(symbI(3,1,:))), &
-                    ubound(dimag(symbI(3,1,:))))
+                !CALL h5_add_double_1(h5_id, trim(tempch)//"I10_imag", &
+                !    dimag(symbI(1,0,:)), lbound(dimag(symbI(1,0,:))),&
+                !    ubound(dimag(symbI(1,0,:))))
+                !CALL h5_add_double_1(h5_id, trim(tempch)//"I11_imag", &
+                !    dimag(symbI(1,1,:)), lbound(dimag(symbI(1,1,:))), &
+                !    ubound(dimag(symbI(1,1,:))))
+                !CALL h5_add_double_1(h5_id, trim(tempch)//"I21_imag", &
+                !    dimag(symbI(2,1,:)), lbound(dimag(symbI(2,1,:))), &
+                !    ubound(dimag(symbI(2,1,:))))
+                !CALL h5_add_double_1(h5_id, trim(tempch)//"I31_imag", &
+                !    dimag(symbI(3,1,:)), lbound(dimag(symbI(3,1,:))), &
+                !    ubound(dimag(symbI(3,1,:))))
 
                 curr_e_par = e_charge*params_b(1, :)*vT/(nue*B0) &
                  *(c*Es*((A1 + A2)*symbI(1, 0, :) + 0.5d0*A2*symbI(2, 1, :)) &
                    + vT*Br*((A1 + A2)*symbI(1, 1, :) + 0.5d0*A2*symbI(3, 1, :)))
+
+                call get_current_densities_from_wave_code(flre_cd_ptr(1), dim_r, r, &
+                                                  m_vals(1), n_vals(1), Jri, Jsi, Jpi, Jre, Jse, Jpe)
 !
-                CALL h5_add_double_1(h5_id, trim(tempch)//"par_current_e_real", &
+                CALL h5_add_double_1(h5_id, trim(tempch)//"je_real", &
                     real(curr_e_par), lbound(real(curr_e_par)), ubound(real(curr_e_par)))
-                CALL h5_add_double_1(h5_id, trim(tempch)//"par_current_e_imag", &
+                CALL h5_add_double_1(h5_id, trim(tempch)//"je_imag", &
                     dimag(curr_e_par), lbound(dimag(curr_e_par)), ubound(dimag(curr_e_par))) 
+
+                CALL h5_add_double_1(h5_id, trim(tempch)//"Je_real", &
+                    real(Jpe), lbound(real(Jpe)), ubound(real(Jpe)))
+                CALL h5_add_double_1(h5_id, trim(tempch)//"Je_imag", &
+                    dimag(Jpe), lbound(dimag(Jpe)), ubound(dimag(Jpe))) 
             end do ! study_j_nue
         end do ! study_i_omE
 
@@ -1936,6 +1945,77 @@ subroutine calc_parallel_current_directly
         CALL h5_deinit()
 
         write(*,*) " - - - - - - - - - "
+
+    elseif (gyro_current_study .eq. 2) then
+        write(*,*) " - - - - - - - - - "
+        write(*,*) "Writing currents"
+        x1 = kp*vT/nue
+        x2 = -om_E/nue
+
+
+        CALL h5_init()
+        CALL h5_open_rw(path2out, h5_id)
+        tempch = "/"//trim(h5_mode_groupname)//"/currents/"
+        write(*,*) "In group: "//trim(tempch)
+
+        CALL h5_define_group(h5_id, trim(tempch), group_id_1)
+        CALL h5_close_group(group_id_1)
+
+        ! Quantities that are not affected by parameter study:
+        CALL h5_add_double_1(h5_id, trim(tempch)//"rb", &
+            rb, lbound(rb), ubound(rb))
+        CALL h5_add_double_1(h5_id, trim(tempch)//"nue0", &
+            nue, lbound(nue), ubound(nue))
+        CALL h5_add_double_1(h5_id, trim(tempch)//"om_E", &
+            om_E, lbound(om_E), ubound(om_E))
+
+        CALL h5_add_double_1(h5_id, trim(tempch)//"B0", &
+            B0, lbound(B0), ubound(B0))
+
+        CALL h5_add_double_1(h5_id, trim(tempch)//"Br_real", &
+            real(Br), lbound(real(Br)), ubound(real(Br)))
+        CALL h5_add_double_1(h5_id, trim(tempch)//"Es_real", &
+            real(Es), lbound(real(Es)), ubound(real(Es)))
+
+        CALL h5_add_double_1(h5_id, trim(tempch)//"Br_imag", &
+            dimag(Br), lbound(dimag(Br)), ubound(dimag(Br)))
+        CALL h5_add_double_1(h5_id, trim(tempch)//"Es_imag", &
+            dimag(Es), lbound(dimag(Es)), ubound(dimag(Es)))
+        ! - - - - - - - - - - - - - - - - - - - - - - - - -
+
+        A2 = ddr_params_nl(3, :)/params_b(3, :)
+        A1 = ddr_params_nl(1, :)/params_b(1, :) + e_charge*Ercov/params_b(3, :) - 1.5d0*A2
+!
+        CALL h5_add_double_1(h5_id, trim(tempch)//"A1", &
+            A1, lbound(A1), ubound(A1))
+        CALL h5_add_double_1(h5_id, trim(tempch)//"A2", &
+            A2, lbound(A2), ubound(A2))
+
+        do i = 1, npoib
+            call getIfunc(x1(i), x2(i), symbI(:, :, i))
+        end do
+        curr_e_par = e_charge*params_b(1, :)*vT/(nue*B0) &
+                    *(c*Es*((A1 + A2)*symbI(1, 0, :) + 0.5d0*A2*symbI(2, 1, :)) &
+                   + vT*Br*((A1 + A2)*symbI(1, 1, :) + 0.5d0*A2*symbI(3, 1, :)))
+
+        call get_current_densities_from_wave_code(flre_cd_ptr(1), dim_r, r, &
+                                    m_vals(1), n_vals(1), Jri, Jsi, Jpi, Jre, Jse, Jpe)
+!
+        CALL h5_add_double_1(h5_id, trim(tempch)//"je_real", & ! drift kinetic current (gyrocurrent)
+            real(curr_e_par), lbound(real(curr_e_par)), ubound(real(curr_e_par)))
+        CALL h5_add_double_1(h5_id, trim(tempch)//"je_imag", &
+            dimag(curr_e_par), lbound(dimag(curr_e_par)), ubound(dimag(curr_e_par))) 
+
+        CALL h5_add_double_1(h5_id, trim(tempch)//"Je_real", & ! kinetic current from KiLCA
+            real(Jpe), lbound(real(Jpe)), ubound(real(Jpe)))
+        CALL h5_add_double_1(h5_id, trim(tempch)//"Je_imag", &
+            dimag(Jpe), lbound(dimag(Jpe)), ubound(dimag(Jpe))) 
+
+        CALL h5_close(h5_id)
+        CALL h5_deinit()
+
+        write(*,*) " - - - - - - - - - "
+ 
     end if
 
 !

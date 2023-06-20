@@ -24,6 +24,7 @@ function [fl_wo_dTe, fl_w_dTe, el_res, res_surf, time] = get_all_resonances_from
 	end
 
 	fl_wo_dTe = zeros(numel(time), 1);
+	fl_const_psi = zeros(numel(time), 1);
 	fl_w_dTe = zeros(numel(time), 1);
 	el_res = zeros(numel(time), 1);
 	res_surf = zeros(3, numel(time));
@@ -71,6 +72,14 @@ function [fl_wo_dTe, fl_w_dTe, el_res, res_surf, time] = get_all_resonances_from
 		write_resonance_to_file(time(ti), r_fluid_resonance, fileID);
 		%fl_wo_dTe(ti) = r_fluid_resonance;
 
+		v_fluid_const_psi = v_ExB + v_ed - 0.5 .* (1/echarge) .* (grad_temp) ./ b0;
+		%zero_crossing = @(v) find(diff(sign(v)));
+		%r_fluid_resonance = r_v(zero_crossing(v_fluid_wo_gradTe));
+		[r_fluid_resonance_const_psi ,more] = find_resonance(v_fluid_const_psi, r_v, r_res);
+		disp([num2str(shot), '_', num2str(time(ti)), ' fluid const psi more: ', num2str(more)])
+		fileID = fopen([outpath, num2str(shot), '_fluid_const_psi_resonance.dat'], 'a');
+		write_resonance_to_file(time(ti), r_fluid_resonance_const_psi, fileID);
+	
 		%if numel(r_fluid_resonance) > 1
 		%	[a, ind1] = min(abs(r_res - r_fluid_resonance), [], 2);
 		%	[b, ind2] = min(a, [], 1);

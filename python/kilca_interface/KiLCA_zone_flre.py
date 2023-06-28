@@ -23,9 +23,8 @@ class KiLCA_zone_flre(InpOut):
         Controlling factor for ONS is rather important parameter, default values are good only for the N=1 order, for higher orders of FLRE it might be necessary to decrease it up to 3.0 or so and also increase accuracy of integration up to 1.0e-12. The quality of the solution can be checked by inspection of bp.dat file - the solution must be SMOOTH! The file poy_test_err.dat is also useful
     """
 
-    ind = (list(range(1,6+1)) + list(range(9, 17+1)) + list(range(20, 27+1)) + list(range(30, 33+1)) + [36] + [39,40]).sort()
+    ind = sorted(list(range(1,6+1)) + list(range(9, 17+1)) + list(range(20, 27+1)) + list(range(30, 33+1)) + [36] + [39,40])
     BLUEPRINT = 'zone_flre.in'
-    SEP = '#'
 
     order       = 1 # order of the FLR expansion: must match to sources used for conductivity
     max_cycharm = 1 # highest cyclotron harmonic normally should exceed the flre order
@@ -34,18 +33,17 @@ class KiLCA_zone_flre(InpOut):
     cond_maxdim = 3001 # maximum dimension of the radial grid for conductivity matrices: default=3001
     reswidth    = 3.0 # resonant layer width
     outer_err   = 1e-6 # error parameter used for adaptive radial grid generation outside the resonant layer: default=1.0e-6
-    inner_err   = 1e-6 # error parameter used for adaptive radial grid generation in the resonant layer:
-    default=1.0e-6
+    inner_err   = 1e-6 # error parameter used for adaptive radial grid generation in the resonant layer: default=1.0e-6
     flag_seqhom = 0 # flag if system of equations should be used in homogeneous limit: for flre order greater than 1
 
     # ODE solver settings:
     ode_maxdim  = 1e5  # max dimension of the radial grid for the solution: default=1e5
     ode_relacc  = 1e-8 # relative accuracy of the solution by ODE solver: default=1e-8
     ode_absacc  = 1e-8 # absolute accuracy of the solution by ODE solver: default=1e-8
-    ode_nons    = 5e4  # max number of the orthonormalization steps (ONS) for the solver: default=5e4
+    ode_nons    = 50000  # max number of the orthonormalization steps (ONS) for the solver: default=50000, needs to be written like this (integer)! the exponential form yields a float
     ode_cont    = 1e3  # controlling factor for ONS by QR: norm_max/norm_min > norm_fac: default =1e3
     ode_outer_step = 1e-3 # output grid step outside the resonance region for the ME solutions: default=1.0e-3
-    ode_innter_step = 1e-5 # output grid step inside the resonance region for the ME solutions: default=1.0e-5
+    ode_inner_step = 1e-5 # output grid step inside the resonance region for the ME solutions: default=1.0e-5
     ode_reswidth = 1 # width of the resonance region: default = 1.0
 
     # ME solution space out settings:
@@ -66,3 +64,6 @@ class KiLCA_zone_flre(InpOut):
             Constructor of the flre zone class. Empty.
         """
         pass
+
+    def data(self):
+        return [self.order, self.max_cycharm, self.flag_corr, self.splinedeg, self.cond_maxdim, self.reswidth, self.outer_err, self.inner_err, self.flag_seqhom, self.ode_maxdim, self.ode_relacc, self.ode_absacc, self.ode_nons, self.ode_cont, self.ode_outer_step, self. ode_inner_step, self.ode_reswidth, self.polydeg, self.sparse_relacc, self.sparse_absacc, self.maxgridstep, self.flag_deb, self.i_col ,self.e_col]

@@ -23,7 +23,7 @@ class KiLCA_background(InpOut):
     ci = 1              # collisions coefficient for ions
     flag_deb = 0        # flag for debugging mode (additional checks are performed in the code)
 
-    def __init__(self, R, r):
+    def __init__(self, R=170.0, r=63.0):
         """
         Constructor takes big torus radius and plasma radius.
         """

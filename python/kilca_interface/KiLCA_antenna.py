@@ -17,7 +17,7 @@ class KiLCA_antenna(InpOut):
     ind = list(range(1,7+1))
     sep = '#'
 
-    def __init__(self, r, n):
+    def __init__(self, r=67.0, n=1):
         """
         Constructor takes radius r of antenna and number of modes n.
         """

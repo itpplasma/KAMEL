@@ -17,7 +17,7 @@ class KiLCA_zone_vacuum(InpOut):
         plain()
     """
 
-    ind = (list(range(1,6+1)) + [9,23] + list(range(12,14+1)), list(range(17, 20+1))).sort()
+    ind = sorted(list(range(1,6+1)) + [9,23] + list(range(12,14+1))+ list(range(17, 20+1)))
     BLUEPRINT = 'zone_vacuum.in'
     SEP = '#'
 
@@ -29,7 +29,7 @@ class KiLCA_zone_vacuum(InpOut):
     # ME solution space out settings
     polydeg         = 3      # degree of the polynomial used to space out the solution (by checking the accuracy)
     sparse_relacc   = 1e-8   # relative accuracy of the sparse solution: default=1e-8
-    sparse_abs_acc  = 1e-8   # absolute accuracy of the sparse solution: default=1e-8
+    sparse_absacc  = 1e-8   # absolute accuracy of the sparse solution: default=1e-8
     maxgridstep     = 0.1    # max grid step in the solution: default=0.1
 
     flag_deb        = 0      # flag for debugging mode
@@ -41,3 +41,6 @@ class KiLCA_zone_vacuum(InpOut):
             Constructor of the vacuum zone class. Empty.
         """
         pass
+
+    def data(self):
+        return [self.sigma, self.rigid_maxdim, self.relacc, self.absacc, self.polydeg, self.sparse_relacc, self.sparse_absacc, self.maxgridstep, self.flag_deb]

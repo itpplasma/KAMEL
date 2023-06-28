@@ -31,5 +31,5 @@ add_library(mc_efit SHARED
  src/inthecore_mod.f90
  src/fouriermodes.f90)
 
- add_executable(fouriermodes.x src/fouriermodes.f90)
- target_link_libraries(fouriermodes.x mc_efit)
+add_executable(fouriermodes.x src/fouriermodes.f90)
+target_link_libraries(fouriermodes.x mc_efit)

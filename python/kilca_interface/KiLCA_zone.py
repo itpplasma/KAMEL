@@ -1,6 +1,9 @@
 from InpOut import InpOut
 from KiLCA_zone_vacuum import KiLCA_zone_vacuum
 from KiLCA_zone_flre import KiLCA_zone_flre
+from read_in import read_in
+from change_opts import change_opts
+from save_file import save_file
 
 class KiLCA_zone(InpOut):
     """
@@ -63,18 +66,18 @@ class KiLCA_zone(InpOut):
 
         if m =='vacuum':
             self.vacuum = KiLCA_zone_vacuum()
-            o = self.vacuum
+            self.o = self.vacuum
         elif m=='flre':
             self.flre = KiLCA_zone_flre()
-            o = self.flre
+            self.o = self.flre
         
         self.number = num
-        self.ind = o.ind
-        self.BLUEPRINT = o.BLUEPRINT
+        self.ind = self.o.ind
+        self.BLUEPRINT = self.o.BLUEPRINT
 
         self.READY = True
 
-        
+
 
     def get_typeBC1_num(self):
         return self.BC_num(self.typeBC1)
@@ -112,3 +115,28 @@ class KiLCA_zone(InpOut):
             return 3
         elif prop == 'flre':
             return 4
+        
+    def write(self, path_from, path_to):
+        """
+        Description:
+            writes propeties of the class into input file.
+            Overrides superclass method because output file name is different from file name.
+        Input:
+            path_from ... path where the blueprint is from
+            path_to   ... path where the input file will be written
+        """
+
+        if self.READY == False:
+            raise ValueError('Class is not ready to run')
+
+        # read blueprint
+
+        raw = read_in(path_from + self.BLUEPRINT)
+        raw = change_opts(raw, self.ind, self.data(), self.sep)
+        save_file(raw, path_to + '/' + (self.BLUEPRINT).replace('zone', 'zone_'+str(int(self.number)+1)))
+
+    def data(self):
+        return self.data_description_of_zone() + self.o.data()
+
+    def data_description_of_zone(self):
+        return [self.r1, self.typeBC1, self.model, self.modelvers, self.typeBC2, self.r2]

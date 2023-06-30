@@ -11,5 +11,16 @@ class InpOut:
         """Write Blueprint file."""
 
         raw = read_in(from_path)
-        raw = change_opts(raw, self.ind, self.data(), self.sep)
+        raw = change_opts(raw, self.ind, self.return_data(), self.sep)
         save_file(raw, to_path + '/' + self.BLUEPRINT)
+
+    
+    def return_data(self):
+        """
+        Description:
+            Return the data of the class used to write the corresponding .in file.
+        """
+        l = []
+        for key in self.data:
+            l.append(self.data[key])
+        return l

@@ -12,6 +12,8 @@ import h5py
 import os
 import inspect
 import subprocess as sp
+import warnings
+import time
 
 from KiLCA_antenna import KiLCA_antenna
 from KiLCA_background import KiLCA_background
@@ -21,6 +23,78 @@ from KiLCA_output import KiLCA_output
 from KiLCA_zone import KiLCA_zone
 
 class KiLCA_interface:
+    """
+    Description:
+        KiLCA interface class to manage input/output files of KiLCA and run the code.
+    Variables:
+        EXEC_PATH              ... path of the KiLCA executable
+        BLUE_PATH              ... path containing the blueprints for the input files
+        PROF_PATH              ... path to the input profiles
+        antenna                ... object of the KiLCA_antenna class
+        background             ... object of the KiLCA_background class
+        eigmode                ... object of the KiLCA_eigmode class
+        modes                  ... object of the KiLCA_modes class
+        output                 ... object of the KiLCA_output class
+        zones                  ... list of KiLCA_zone objects
+        path                   ... path of the directory containing the run path
+        path_of_interface_file ... path of the KiLCA_interface class file
+        path_of_profiles       ... path where the profiles will be copied to
+        path_of_run            ... run path. This is path + '/' + run type
+        run_type               ... type of the run (flre, vacuum)
+        machine                ... which machine, currently only AUG (ASDEX Upgrade)
+    Methods:
+        KiLCA_interface(shot: int, time: int, path: str, rtype: str, machine='AUG')
+            Constructor of the class.
+            Arguments:
+                shot ... int of the shot number
+                time ... int of the time slice
+                path ... path to the directory containing the run path
+                rtype ... run type (flre or vacuum)
+                machine ... for machine settings, currently only AUG (ASDEX Upgrade)
+        set_modes(m, n)
+            Set the RMP mode numbers.
+            Arguments:
+                m ... poloidal mode number, either int or list/numpy array of ints
+                n ... toroidal mode number, either int or list/numpy array of ints,
+                      must be same length as m
+        set_antenna(ra: float, nmod: int)
+            Initializes KiLCA_antenna object
+            Arguments:
+                ra   ... radius of the RMP antenna
+                nmod ... number of modes
+        set_background(Rtor: float, rpl: float)
+            Initializes KiLCA_background object
+            Arguments:
+                Rtor ... Major radius of the device (measured at the magnetic axis)
+                rpl  ... Minor plasma radius of the device
+        set_zones(r: list, b: list, m: list)
+            Initializes list of zone objects.
+            Arguments:
+                r ... list of positions of the zone boundaries
+                b ... list of type of zone boundaries (center, infinity, interface, antenna)
+                m ... list of media between zone boundaries
+        set_ASDEX(nmodes: int)
+            Sets AUG machine properties (background and antenna)
+            Arguments:
+                nmodes ... number of RMP modes
+        set_MASTU() !!! not implemented yet !!!
+        write()
+            Creates directory structure, copies all needed files
+
+        run()
+            Run KiLCA in path of run
+
+        run_remote() !!! not implemented yet !!!
+        run_condor() !!! not implemented yet !!!
+    ################################################################################
+    Minimum requirement for a run:
+        obj = KiLCA_interface(shot, time, path, rtype)
+        obj.PROF_PATH = 'path_to_existing_profiles'
+        obj.set_modes(m,n)
+        obj.write()
+        obj.run()
+    ################################################################################
+    """
 
     EXEC_PATH = '/proj/plasma/soft/KiLCA-2.4.2/exe/KiLCA_Normal_V_2.4.2_MDNO_FPGEN_POLYNOMIAL_Release_64bit'
     BLUE_PATH = 'blueprints/'
@@ -32,7 +106,7 @@ class KiLCA_interface:
     modes = KiLCA_modes
     output = KiLCA_output()
 
-    zones = {}
+    zones = []
 
     path = ''
     path_of_interface_file = ''
@@ -40,33 +114,58 @@ class KiLCA_interface:
     path_of_run = ''
 
     run_type = ''
+    machine = ''
 
 
-    def __init__(self, shot, time, path, rtype, machine='AUG'):
+    def __init__(self, shot: int, time: int, path: str, rtype: str, machine: str='AUG'):
         """Constructor of KiLCA interface.
         input:
                 shot ... shot number
                 time ... time of the time slice in experiment
-                path ... path to run directory, must end with /
+                path ... path to run directory, must end with /. Should contain profile directory '/profiles'. Otherwise, change PROF_PATH
                 rtype... run type, i.e. vacuum or flre
                 machine ... e.g. AUG or LHD
                 """
 
         self.path = path
+        try:
+            ls = os.listdir(self.path)
+        except:
+            raise ValueError('Path ' + self.path + ' does not exist.')
+
+        if not self.PROF_PATH[0:-1] in ls:
+            warnings.warn('No profile directory found in ' + self.path + '\nMake sure to change PROF_PATH of class to path where the profiles are.')
+            
         self.path_of_profiles = path + self.PROF_PATH
         self.path_of_interface_file = os.getcwd()
-        self.shot = shot # shot number of the experiment
-        self.time = time # time of the time slice
-        self.machine = machine # machine, e.g. AUG or MASTU
 
-        self.BLUE_PATH = inspect.getfile(KiLCA_interface)[0:-18] + self.BLUE_PATH
+        if not type(shot) == int:
+            raise ValueError('shot argument is not of type integer')
+        self.shot = shot # shot number of the experiment
+
+        if not type(time) == int:
+            raise ValueError('time argument is not of type integer')
+        self.time = time # time of the time slice
+
 
         if rtype == 'vacuum' or rtype == 'flre' or rtype == 'imhd':
             self.path_of_run = self.path + rtype + '/'
             self.run_type = rtype
         else:
-            raise ValueError("Runtype not supported")
+            raise ValueError('Runtype not supported')
 
+        self.machine = machine # machine, e.g. AUG (not implemented yet: MASTU)
+        if self.machine == 'AUG':
+            self.set_ASDEX()
+        elif self.machine == 'MASTU':
+            self.set_MASTU()
+        else:
+            raise ValueError('Machine not supported')
+
+        self.BLUE_PATH = inspect.getfile(KiLCA_interface)[0:-18] + self.BLUE_PATH
+
+        
+        
     def set_modes(self, m=3, n=2):
         """
         Description:    
@@ -80,20 +179,30 @@ class KiLCA_interface:
             print('single RMP mode')
         self.modes = KiLCA_modes(m, n)
 
-    def set_antenna(self, ra=67, nmod=1):
+    def set_antenna(self, ra: float = 67.0, nmod: int = 1):
         """Initializes the antenna with the minimum amount of needed 
         parameters to run.
         input:
                 ra  ... position of antenna in cm (small radius)
                 nmod... number of modes to calculate"""
+        
+        if ra < 0:
+            raise ValueError('Radius of antenna must be above 0')
+        if nmod < 0:
+            raise ValueError('Number of modes invalid')
+
         self.antenna = KiLCA_antenna(ra,nmod)
 
-    def set_background(self, Rtor=170, rpl=63):
+    def set_background(self, Rtor: float = 170.0, rpl: float = 63.0):
         """Initializes the background with the minimum amount of needed
         parameters to run.
         input:
                 Rtor ... big torus radius in cm
                 rpl  ... plasma radius in cm (small radius)"""
+        if Rtor < 0:
+            raise ValueError('Rtor must be above 0')
+        if rpl < 0:
+            raise ValueError('rpl must be above 0')
 
         self.background = KiLCA_background(Rtor, rpl)
 
@@ -196,11 +305,22 @@ class KiLCA_interface:
         self.ready_to_run = True
 
     def run(self):
+        """
+        Description:
+            Run KiLCA in path of run. Needs write first.
+        """
+        
+        if self.ready_to_run == False:
+            raise ValueError('Not ready to run!')
 
         cdir = os.getcwd()
         os.chdir(self.path_of_run)
+        start = time.time()
         self.output = sp.Popen("./run_local", stdout=sp.PIPE)
+        self.output.wait()
+        end = time.time()
         os.chdir(cdir)
+        print(f'The KiLCA run took {end-start}s')
 
         print(self.output.stdout.read())
         

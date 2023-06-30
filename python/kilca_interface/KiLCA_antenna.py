@@ -6,35 +6,24 @@ class KiLCA_antenna(InpOut):
     """
 
     BLUEPRINT = 'antenna.in'
-    ra          = 70         # radius (cm) of the antenna location (must match zones.in)
-    width       = 0.0     # current density layer width, if ==0 then use delta function
-    I0          = 4.5e12 # current in the coils (statamp). 4.5e12 same as 1.5kA
-    flab = [1e3,0] # complex frequency (1/c) in the laboratory frame
-    nmod        = 1    # number of antenna modes to be used from modes.in file
-    flag_deb    = 0 # flag for debugging
-    flag_eig    = 0 # flag to solve eigenmode problem
-
     ind = list(range(1,7+1))
     sep = '#'
+    data = {
+        'ra': 70, # radius (cm) of the antenna location (must match zones.in)
+        'width': 0.0, # current density layer width, if ==0 then use delta function
+        'I0': 4.5e12, # current in the coils (statamp). 4.5e12 same as 1.5kA
+        'flab': [1e3,0], # complex frequency (1/c) in the laboratory frame
+        'nmod': 1,    # number of antenna modes to be used from modes.in file
+        'flag_deb': 0, # flag for debugging
+        'flag_eig': 0 # flag to solve eigenmode problem
+    }
 
-    def __init__(self, r=67.0, n=1):
+    def __init__(self, r: float = 67.0, n: int = 1):
         """
         Constructor takes radius r of antenna and number of modes n.
         """
-
-        self.ra = r
-        self.nmod = n
+        # todo: check if ra is less than machine size and larger than plasma radius
+        self.data['ra'] = r
+        self.data['nmod'] = n
         self.READY = True
 
-    def data(self):
-        return [self.ra, self.width, self.I0, self.flab, self.nmod, self.flag_deb, self.flag_eig]
-
-    def export_to_dot_in(self, fname, loc):
-        """The antenna.in file is the input file for KiLCA."""
-        pass
-
-    def export_to_hdf5(self, fname, loc):
-        pass
-
-    def export_to_nml(self, fname, loc):
-        pass

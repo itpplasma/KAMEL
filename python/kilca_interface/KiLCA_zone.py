@@ -8,43 +8,54 @@ from save_file import save_file
 class KiLCA_zone(InpOut):
     """
     Description of the class:
-        Class containing the information of a zone in KiLCA. Corresponds to a zoneX.in
-        file for KiLCA.
+        Class containing the information of a zone in KiLCA. Corresponds to a zone_*.in
+        file for KiLCA. Inherits InpOut class to read and write files.
     ############################
     Variables:
-        r1, typeBC1, model, modelvers, typeBC2, r2
-        vacuum, imhd, flre
+        data, boundary_cond, model_type
         ind, BLUEPRINT, READY
     Methods:
         __init__(num, r1, b1, m, r2, b2)
-        plain()
-        indices
+            Constructor of the class. Writes arguments into data dict and creates appropriate
+            KiLCA zone instance of vacuum or flre class.
+        get_typeBC1_num()
+            Returns index of boundary condition 1.
+        get_typeBC2_num()
+            Returns index of boundary condition 2.
+        get_model_num()
+            Returns index of model.
+        return_data()
+            Method to overwrite the inherited method from InpOut since data is a combination
+            of zone description (r1, typeBC1,...) as well as zone class data.
+        return_description_of_zone()
+            Invoked in return data. Returns the description of the zone (r1, typeBC1,...)
     """
 
     BLUEPRINT = ''
     ind = []
     sep = '#'
 
-    number = 0 # number of zones
-    
-    r1 = []      # r1 - minimum radius of the zone (plasma radius)
-    typeBC1 = [] # type of BC at r1 (center, infinity, interface, antenna, idealwall)
-    model = []   # type of the plasma model (vacuum, medium, imhd, rmhd, flre)
-    modelvers = 0# code version for the model: MHD model (0- incompressible and flowless, 1 - compressible with flows)
-    typeBC2 = [] # type of BC at r2 (center, infinity, interface, antenna, idealwall)
-    r2 = []      # r2 - maximum radius of the zone (first wall boundary)
+    data = {
+        'number': 0, # number of zones
+        'r1': [], # r1 - minimum radius of the zone (plasma radius)
+        'typeBC1': [], # type of BC at r1 (center, infinity, interface, antenna, idealwall)
+        'model': [],   # type of the plasma model (vacuum, medium, imhd, rmhd, flre)
+        'modelvers': 0, # code version for the model: MHD model (0- incompressible and flowless, 1 - compressible with flows)
+        'typeBC2': [], # type of BC at r2 (center, infinity, interface, antenna, idealwall)
+        'r2': [],      # r2 - maximum radius of the zone (first wall boundary)
+        'vacuum': [], # contains vacuum information about the zone
+        'imhd': [],  # contains imhd information about the zone
+        'flre': [],  # contains flre information about the zone
 
-    vacuum = []  # contains vacuum information about the zone
-    imhd   = []  # contains imhd information about the zone
-    flre   = []  # contains flre information about the zone
+        'typeBC1_num': 0, # numeric type of BC at r1 (center=0, infinity=1, interface=2, antenna=3, idealwall=4)
+        'model_num': 0,   # numeric type of the plasma model (vacuum=0, medium=1, imhd=2, rmhd=3, flre=4)
+        'typeBC2_num': 0 # numeric type of BC at r2 (center=0, infinity=1, interface=2, antenna=3, idealwall=4)
+    }
 
-    typeBC1_num = 0 # numeric type of BC at r1 (center=0, infinity=1, interface=2, antenna=3, idealwall=4)
-    model_num = 0   # numeric type of the plasma model (vacuum=0, medium=1, imhd=2, rmhd=3, flre=4)
-    typeBC2_num = 0 # numeric type of BC at r2 (center=0, infinity=1, interface=2, antenna=3, idealwall=4)
+    boundary_cond = ['center', 'infinity', 'interface', 'antenna', 'idealwall']
+    model_type = ['vacuum', 'medium', 'imhd', 'rmhd', 'flre']
 
-
-
-    def __init__(self, num, r1, b1, m, r2, b2):
+    def __init__(self, num: int, r1: float, b1: str, m: str, r2: float, b2: str):
         """
         Constructor of the KiLCA_zone class.
         Input:
@@ -55,66 +66,37 @@ class KiLCA_zone(InpOut):
             r2 ... outer radius
             b2 ... outer boundary type
         """
-        self.r1 = r1
-        self.typeBC1 = b1
-        self.model = m
-        self.r2 = r2
-        self.typeBC2 = b2
+        self.data['r1'] = r1
+        self.data['typeBC1'] = b1
+        self.data['model'] = m
+        self.data['r2'] = r2
+        self.data['typeBC2'] = b2
 
         if m =='imhd' or m=='rmhd':
             raise ValueError('imhd or rmhd support not yet available')
 
         if m =='vacuum':
-            self.vacuum = KiLCA_zone_vacuum()
-            self.o = self.vacuum
+            self.data['vacuum'] = KiLCA_zone_vacuum()
+            self.o = self.data['vacuum']
         elif m=='flre':
-            self.flre = KiLCA_zone_flre()
-            self.o = self.flre
+            self.data['flre'] = KiLCA_zone_flre()
+            self.o = self.data['flre']
         
-        self.number = num
+        self.data['number'] = num
         self.ind = self.o.ind
         self.BLUEPRINT = self.o.BLUEPRINT
 
         self.READY = True
 
 
-
     def get_typeBC1_num(self):
-        return self.BC_num(self.typeBC1)
+        return self.boundary_cond.index(self.data['typeBC1'])
+
     def get_typeBC2_num(self):
-        return self.BC_num(self.typeBC2)
+        return self.boundary_cond.index(self.data['typeBC2'])
+
     def get_model_num(self):
-        return self.MD_num(self.model)
-
-    def BC_num(self, prop):
-        """
-        Boundary condition to number.
-        """
-        if prop == 'center':
-            return 0
-        elif prop == 'infinity':
-            return 1
-        elif prop == 'interface':
-            return 2
-        elif prop == 'antenna':
-            return 3
-        elif prop == 'idealwall':
-            return 4
-
-    def MD_num(self, prop):
-        """
-        Model numeric type.
-        """
-        if prop == 'vacuum':
-            return 0
-        elif prop == 'medium':
-            return 1
-        elif prop == 'imhd':
-            return 2
-        elif prop == 'rmhd':
-            return 3
-        elif prop == 'flre':
-            return 4
+        return self.model_type.index(self.data['model'])
         
     def write(self, path_from, path_to):
         """
@@ -132,11 +114,11 @@ class KiLCA_zone(InpOut):
         # read blueprint
 
         raw = read_in(path_from + self.BLUEPRINT)
-        raw = change_opts(raw, self.ind, self.data(), self.sep)
-        save_file(raw, path_to + '/' + (self.BLUEPRINT).replace('zone', 'zone_'+str(int(self.number)+1)))
+        raw = change_opts(raw, self.ind, self.return_data(), self.sep)
+        save_file(raw, path_to + '/' + (self.BLUEPRINT).replace('zone', 'zone_'+str(int(self.data['number'])+1)))
 
-    def data(self):
-        return self.data_description_of_zone() + self.o.data()
+    def return_data(self):
+        return self.data_description_of_zone() + self.o.return_data()
 
     def data_description_of_zone(self):
-        return [self.r1, self.typeBC1, self.model, self.modelvers, self.typeBC2, self.r2]
+        return [self.data['r1'], self.data['typeBC1'], self.data['model'], self.data['modelvers'], self.data['typeBC2'], self.data['r2']]

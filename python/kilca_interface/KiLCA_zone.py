@@ -12,7 +12,7 @@ class KiLCA_zone(InpOut):
         file for KiLCA. Inherits InpOut class to read and write files.
     ############################
     Variables:
-        data, boundary_cond, model_type
+        boundary_cond, model_type
         ind, BLUEPRINT, READY
     Methods:
         __init__(num, r1, b1, m, r2, b2)
@@ -35,25 +35,9 @@ class KiLCA_zone(InpOut):
     ind = []
     sep = '#'
 
-    data = {
-        'number': 0, # number of zones
-        'r1': [], # r1 - minimum radius of the zone (plasma radius)
-        'typeBC1': [], # type of BC at r1 (center, infinity, interface, antenna, idealwall)
-        'model': [],   # type of the plasma model (vacuum, medium, imhd, rmhd, flre)
-        'modelvers': 0, # code version for the model: MHD model (0- incompressible and flowless, 1 - compressible with flows)
-        'typeBC2': [], # type of BC at r2 (center, infinity, interface, antenna, idealwall)
-        'r2': [],      # r2 - maximum radius of the zone (first wall boundary)
-        'vacuum': [], # contains vacuum information about the zone
-        'imhd': [],  # contains imhd information about the zone
-        'flre': [],  # contains flre information about the zone
-
-        'typeBC1_num': 0, # numeric type of BC at r1 (center=0, infinity=1, interface=2, antenna=3, idealwall=4)
-        'model_num': 0,   # numeric type of the plasma model (vacuum=0, medium=1, imhd=2, rmhd=3, flre=4)
-        'typeBC2_num': 0 # numeric type of BC at r2 (center=0, infinity=1, interface=2, antenna=3, idealwall=4)
-    }
-
     boundary_cond = ['center', 'infinity', 'interface', 'antenna', 'idealwall']
     model_type = ['vacuum', 'medium', 'imhd', 'rmhd', 'flre']
+    o = None
 
     def __init__(self, num: int, r1: float, b1: str, m: str, r2: float, b2: str):
         """
@@ -66,6 +50,23 @@ class KiLCA_zone(InpOut):
             r2 ... outer radius
             b2 ... outer boundary type
         """
+
+        self.data = {
+            'number': 0, # number of zones
+            'r1': [], # r1 - minimum radius of the zone (plasma radius)
+            'typeBC1': [], # type of BC at r1 (center, infinity, interface, antenna, idealwall)
+            'model': [],   # type of the plasma model (vacuum, medium, imhd, rmhd, flre)
+            'modelvers': 0, # code version for the model: MHD model (0- incompressible and flowless, 1 - compressible with flows)
+            'typeBC2': [], # type of BC at r2 (center, infinity, interface, antenna, idealwall)
+            'r2': [],      # r2 - maximum radius of the zone (first wall boundary)
+            #'vacuum': [], # contains vacuum information about the zone
+            #'imhd': [],  # contains imhd information about the zone
+            #'flre': [],  # contains flre information about the zone
+
+            'typeBC1_num': 0, # numeric type of BC at r1 (center=0, infinity=1, interface=2, antenna=3, idealwall=4)
+            'model_num': 0,   # numeric type of the plasma model (vacuum=0, medium=1, imhd=2, rmhd=3, flre=4)
+            'typeBC2_num': 0 # numeric type of BC at r2 (center=0, infinity=1, interface=2, antenna=3, idealwall=4)
+        }
         self.data['r1'] = r1
         self.data['typeBC1'] = b1
         self.data['model'] = m
@@ -74,8 +75,7 @@ class KiLCA_zone(InpOut):
 
         if m =='imhd' or m=='rmhd':
             raise ValueError('imhd or rmhd support not yet available')
-
-        if m =='vacuum':
+        elif m =='vacuum':
             self.data['vacuum'] = KiLCA_zone_vacuum()
             self.o = self.data['vacuum']
         elif m=='flre':

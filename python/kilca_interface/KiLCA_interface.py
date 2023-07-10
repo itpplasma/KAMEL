@@ -14,6 +14,7 @@ import inspect
 import subprocess as sp
 import warnings
 import time
+import copy
 
 from KiLCA_antenna import KiLCA_antenna
 from KiLCA_background import KiLCA_background
@@ -159,6 +160,9 @@ class KiLCA_interface:
             self.set_ASDEX()
         elif self.machine == 'MASTU':
             self.set_MASTU()
+        elif self.machine == None:
+            # don't set the machine
+            print('Will not set a machine at constructor')
         else:
             raise ValueError('Machine not supported')
 
@@ -176,10 +180,10 @@ class KiLCA_interface:
         try:
             self.n_modes = len(m)
         except:
-            print('single RMP mode')
+            print('Single RMP mode')
         self.modes = KiLCA_modes(m, n)
 
-    def set_antenna(self, ra: float = 67.0, nmod: int = 1):
+    def set_antenna(self, ra: float = 67.0, nmod: int = 1, I0: float = 4.5e12):
         """Initializes the antenna with the minimum amount of needed 
         parameters to run.
         input:
@@ -191,7 +195,7 @@ class KiLCA_interface:
         if nmod < 0:
             raise ValueError('Number of modes invalid')
 
-        self.antenna = KiLCA_antenna(ra,nmod)
+        self.antenna = KiLCA_antenna(ra,nmod, I0)
 
     def set_background(self, Rtor: float = 170.0, rpl: float = 63.0):
         """Initializes the background with the minimum amount of needed
@@ -224,19 +228,24 @@ class KiLCA_interface:
         if not (len(r) == len(m)+1):
             raise ValueError("Size of r and m does not match")
 
-        self.zones = []
-        for k in range(0,len(m)):
-            self.zones.append(KiLCA_zone(k, r[k], b[k], m[k], r[k+1], b[k+1]))
+        self.zones = [copy.deepcopy(KiLCA_zone(k, r[k], b[k], m[k], r[k+1], b[k+1])) for k in range(0, len(m))]
 
-    def set_ASDEX(self, nmodes=1):
+    def set_ASDEX(self, nmodes: int = 1, ra: float = 70, I0: float = 4.5e12):
         """
         Description:
             Initializes the class for a standard run on ASDEX parameters.
         Input:
             nmodes ... number of modes to calculate, default=0
         """
+        self.machine = 'AUG'
+        print('Machine setting: AUG')
 
-        self.set_antenna(70, nmodes)
+        if ra < 67:
+            raise ValueError('Radius of antenna inside plasma')
+        if ra > 80:
+            raise ValueError('Radius of antenna outside wall')
+
+        self.set_antenna(ra, nmodes, I0 = I0)
         self.set_background(170.05, 67.0)
         self.background.Btor = -17563.3704
 
@@ -246,17 +255,30 @@ class KiLCA_interface:
         m = [self.run_type, 'vacuum', 'vacuum']
         self.set_zones(r,b,m)
     
-    def set_MASTU(self, nmodes=0):
+    def set_MASTU(self, nmodes=1):
         """
         Description:
             Initializes the class for a standard run on MASTU parameters
         Input:
             nmodes ... number of modes to calculate, default = 0
         """
+        self.machine = 'MASTU'
+        print('Machine setting: MASTU')
 
-        raise ValueError('Not implemented yet')
+        self.a_minor = 65.0
+        self.R0 = 85.0
+        self.r_antenna = self.a_minor + 1.0
 
-        pass
+        self.set_antenna(self.a_minor, nmodes)
+        self.set_background(self.R0, self.a_minor)
+        self.background.Btor = -6400.0
+
+        # set zones
+        r = [3.0, self.a_minor, self.r_antenna, self.r_antenna + 5.0]
+        b = ['center', 'interface', 'antenna', 'idealwall']
+        m = [self.run_type, 'vacuum', 'vacuum']
+        self.set_zones(r,b,m)
+
 
 
     def write(self):
@@ -316,13 +338,24 @@ class KiLCA_interface:
         cdir = os.getcwd()
         os.chdir(self.path_of_run)
         start = time.time()
-        self.output = sp.Popen("./run_local", stdout=sp.PIPE)
-        self.output.wait()
+        self.run_out = sp.Popen("./run_local", stdout=sp.PIPE, stderr=sp.PIPE)
+        self.run_out.wait()
         end = time.time()
         os.chdir(cdir)
         print(f'The KiLCA run took {end-start}s')
-
-        print(self.output.stdout.read())
+        
+        if self.run_out.stderr.read() == b'':
+            print('Output:')
+            for line in self.run_out.stdout:
+                print(line.decode('utf8'))
+            print('')
+        else:
+            print('KiLCA ran into problems!')
+            print('Errors:')
+            for line in self.run_out.stderr:
+                print(line.decode('utf8'))
+            print('')
+        #print(self.output.stdout.read())
         
 
     def run_remote(self):
@@ -331,4 +364,27 @@ class KiLCA_interface:
     def run_condor(self):
         pass
 
+
+    def create_parabolic_profiles_from_res_surf(self, path, q0, n0, Te0, Ti0, Vz0, Er0, Vth0, m_mode, n_mode, rmin, rmax, num, a, const=''):
+        """ Create parabolic profiles for fixed density and electron
+        temperature values at the rational surface. """
+        r = np.linspace(rmin, rmax, num)
+        q = -(1.05 + q0 * (r/a)**2)
+        rres = np.interp(-m_mode/n_mode, q, r)
+    
+        fac_par = 1 - (r/a)**2
+        n   = n0   * fac_par / (1-(rres/a)**2)
+        Te  = Te0  * fac_par / (1-(rres/a)**2)
+        Ti  = Ti0  * fac_par
+        Vz  = Vz0  * fac_par
+        Er  = Er0  * fac_par
+        Vth = Vth0 * fac_par
+
+        np.savetxt(path + 'q.dat', np.array((r,q)).transpose())
+        np.savetxt(path + 'Te.dat', np.array((r, Te)).transpose())
+        np.savetxt(path + 'Ti.dat', np.array((r, Ti)).transpose())
+        np.savetxt(path + 'n.dat', np.array((r, n)).transpose())
+        np.savetxt(path + 'Vz.dat', np.array((r, Vz)).transpose())
+        np.savetxt(path + 'Er.dat', np.array((r, Er)).transpose())
+        np.savetxt(path + 'Vth.dat', np.array((r, Vth)).transpose())
 

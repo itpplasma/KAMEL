@@ -1,10 +1,10 @@
 #Description of the zone:
-6.60e+01      # r1 - minimum radius of the zone (plasma radius)
-antenna      # type of BC at r1 (center, infinity, interface, antenna)
+6.50e+01      # r1 - minimum radius of the zone (plasma radius)
+interface      # type of BC at r1 (center, infinity, interface, antenna)
 vacuum      # type of the plasma model (vacuum, medium, imhd, rmhd, flre)
 0      # code version for the model
-idealwall      # type of BC at r2 (center, infinity, interface, antenna)
-7.10e+01      # r2 - maximum radius of the zone (first wall boundary)
+antenna      # type of BC at r2 (center, infinity, interface, antenna)
+6.60e+01      # r2 - maximum radius of the zone (first wall boundary)
 
 #Medium settings:
 (0.00e+00, 0.00e+00)      # vacuum conductivity

@@ -1,6 +1,6 @@
 #Machine settings:
-1.70e+02      # big torus radius (cm) of the machine: default=none
-6.70e+01      # plasma radius (cm)
+8.50e+01      # big torus radius (cm) of the machine: default=none
+6.50e+01      # plasma radius (cm)
 2.00e+04      # toroidal magnetic field (G) at the center: default=2.0e4
 
 #Background settings:

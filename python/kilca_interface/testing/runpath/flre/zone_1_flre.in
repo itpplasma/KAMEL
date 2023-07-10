@@ -1,10 +1,10 @@
 #Description of the zone:
-7.00e+01      # r1 - minimum radius of the zone (center of the cylinder)
-antenna      # type of BC at r1 (center, infinity, idealwall, interface, antenna)
-vacuum      # type of the plasma model (vacuum, medium, imhd, rmhd, flre)
+3.00e+00      # r1 - minimum radius of the zone (center of the cylinder)
+center      # type of BC at r1 (center, infinity, idealwall, interface, antenna)
+flre      # type of the plasma model (vacuum, medium, imhd, rmhd, flre)
 0      # code version for the model
-idealwall      # type of BC at r2 (center, infinity, idealwall, interface, antenna)
-8.00e+01      # r2 - maximum radius of the zone (plasma radius)
+interface      # type of BC at r2 (center, infinity, idealwall, interface, antenna)
+6.50e+01      # r2 - maximum radius of the zone (plasma radius)
 
 #Conductivity settings:
 1      # order of FLR expansion: must match to sources used for conductivity

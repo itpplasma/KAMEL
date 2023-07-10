@@ -1,5 +1,5 @@
 #Antenna settings:
-70      # small radius (cm) of antenna location (must match to zones.in)
+6.50e+01      # small radius (cm) of antenna location (must match to zones.in)
 0.00e+00      # current density layer width; if == 0 then use delta function
 4.50e+12      # current in the coils (statamp): default=4.5e12 (1.5 kA)
 (1.00e+03, 0.00e+00)      # complex frequency (1/c) in the laboratory frame: default=(1.0e3, 0.0e0)

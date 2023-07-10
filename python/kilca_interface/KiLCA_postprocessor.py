@@ -34,20 +34,27 @@ class KiLCA_postprocessor:
             self.time_slice = self.kil_in.time
             self.path_of_run = self.kil_in.path_of_run
             self.run_type = self.kil_in.run_type
+            self.machine = self.kil_in.machine
             print('    shot      : ' + str(self.shot))
             print('    time slice: ' + str(self.time_slice))
             print('    run path  : ' + self.path_of_run)
             print('    run type  : ' + self.run_type)
+            print('    machine   : ' + self.machine)
         elif isinstance(args[0], int):
             print('Path was parsed')
             self.shot = args[0]
             self.time_slice = args[1]
             self.path_of_run = args[2] + '/' + args[3] + '/'
             self.run_type = args[3]
+            if not len(args) > 4:
+                self.machine = 'AUG'
+            else:
+                self.machine = args[4]
             print('    shot      : ' + str(self.shot))
             print('    time slice: ' + str(self.time_slice))
             print('    run path  : ' + self.path_of_run)
             print('    run type  : ' + self.run_type)
+            print('    machine   : ' + self.machine)
         else:
             raise ValueError(str(args[0]) + ' is not a valid input.')
 

@@ -18,12 +18,13 @@ class KiLCA_antenna(InpOut):
         'flag_eig': 0 # flag to solve eigenmode problem
     }
 
-    def __init__(self, r: float = 67.0, n: int = 1):
+    def __init__(self, r: float = 67.0, n: int = 1, I0: float = 4.5e12):
         """
         Constructor takes radius r of antenna and number of modes n.
         """
         # todo: check if ra is less than machine size and larger than plasma radius
         self.data['ra'] = r
         self.data['nmod'] = n
+        self.data['I0'] = I0
         self.READY = True
 

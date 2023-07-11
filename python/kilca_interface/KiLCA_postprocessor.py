@@ -17,15 +17,17 @@ class KiLCA_postprocessor:
         read_Eb(path_to_file): reads in EB.dat output file
     """
 
-    EBdat = {}
-    m = np.empty(0)
-    n = np.empty(0)
+    
     uc = utility() # for colors and plotting stuff
 
     def __init__(self, *args):
         """
         Constructor of the postprocessor class.
         """
+        self.m = []
+        self.n =[]
+        self.EBdat = {}
+
         if isinstance(args[0], KiLCA_interface):
             print('KiLCA interface was parsed')
             self.kil_in = args[0]
@@ -59,25 +61,35 @@ class KiLCA_postprocessor:
             raise ValueError(str(args[0]) + ' is not a valid input.')
 
         fs = os.listdir(self.path_of_run + '/linear-data/')
+        self.fs = fs
+        print('available modes:')
         for el in fs:
             if re.search('m_*', el):
-                self.m = np.append(self.m ,el[3])
-                self.n = np.append(self.n, el[6])
+                self.m = np.append(self.m ,int(el[2]))
+                self.n = np.append(self.n, int(el[6]))
                 
-                self.read_EB(self.path_of_run + 'linear-data/'+ el + '/')
+                #self.read_EB(self.path_of_run + 'linear-data/'+ el + '/')
+                print(f'    m = {el[2]}    n = {el[6]}')
 
     
         
-    def read_EB(self, path_to_file, m=0, n=0):
+    def read_EB(self, path_to_file='', m=0, n=0):
         """
         Description:
             Read in EB.dat file which is the linear data output of KiLCA. Returns the data as numpy array if no mode number is given and as a dict otherwise. It also safes it in the EBdat variable of the class.
         """
-
-        if m==0 and n==0:
+        self.EBdat = {}
+        found_file = False
+        if m==0 and n==0 and not path_to_file=='':
             self.EBdat = np.loadtxt(path_to_file + 'EB.dat')
-        else:
-            self.EBdat[f'({m}, {n})'] = np.loadtxt(path_to_file + 'EB.dat')
+        elif path_to_file=='':
+            for f in self.fs[:]:
+                if str(m) == f[2]:
+                    self.EBdat[f'({m}, {n})'] = np.loadtxt(self.path_of_run + 'linear-data/'+ f + '/EB.dat')
+                    found_file = True
+            if not found_file:
+                raise ValueError('mode number not available')
+
         return self.EBdat
     
     def EB_to_fields(self, EBdat, m=0, n=0):
@@ -85,6 +97,7 @@ class KiLCA_postprocessor:
         Description:
             Takes EB dat numpy array as input an puts it into Br, Bth, Bz,... variables.
         """
+
         if type(EBdat)==np.ndarray:
             self.r          = EBdat[:,0]
             self.Er_real    = EBdat[:,1]
@@ -121,6 +134,14 @@ class KiLCA_postprocessor:
         Description:
             Plots the real and imag E field components in 3 subplots for a certain mode (if multiple are given.).
         """
+
+        found_file = False
+        for f in self.fs[:]:
+            if str(m) == f[2]:
+                self.read_EB(self.path_of_run + 'linear-data/'+ f + '/')
+                found_file = True
+        if not found_file:
+            raise ValueError('mode number not available')
         self.EB_to_fields(self.EBdat, m,n)
 
         fig, ax = plt.subplots(3, figsize=(4,6), sharex=True)
@@ -151,6 +172,14 @@ class KiLCA_postprocessor:
         Description:
             Plots the real and imag E field components in 3 subplots for a certain mode (if multiple are given.).
         """
+        found_file = False
+        for f in self.fs[:]:
+            if str(m) == f[2]:
+                self.read_EB(self.path_of_run + 'linear-data/'+ f + '/')
+                found_file = True
+        if not found_file:
+            raise ValueError('mode number not available')
+            
         self.EB_to_fields(self.EBdat, m,n)
 
         fig, ax = plt.subplots(3, figsize=(4,6), sharex=True)

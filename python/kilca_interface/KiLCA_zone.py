@@ -78,6 +78,8 @@ class KiLCA_zone(InpOut):
         elif m =='vacuum':
             self.data['vacuum'] = KiLCA_zone_vacuum()
             self.o = self.data['vacuum']
+            if self.data['typeBC2'] == 'idealwall':
+                self.o.data['sigma'] = [1.3e16,0]
         elif m=='flre':
             self.data['flre'] = KiLCA_zone_flre()
             self.o = self.data['flre']

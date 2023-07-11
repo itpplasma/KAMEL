@@ -138,6 +138,7 @@ class KiLCA_interface:
             warnings.warn('No profile directory found in ' + self.path + '\nMake sure to change PROF_PATH of class to path where the profiles are.')
             
         self.path_of_profiles = path + self.PROF_PATH
+        
         self.path_of_interface_file = os.getcwd()
 
         if not type(shot) == int:
@@ -246,8 +247,8 @@ class KiLCA_interface:
             raise ValueError('Radius of antenna outside wall')
 
         self.set_antenna(ra, nmodes, I0 = I0)
-        self.set_background(170.05, 67.0)
-        self.background.Btor = -17563.3704
+        self.set_background(Rtor=165.0, rpl=67.0)
+        self.background.data['Btor'] = -17563.3704
 
         # set zones
         r = [3.0, 67.0, 70.0, 80.0]
@@ -287,6 +288,8 @@ class KiLCA_interface:
             Creates directory structure, copies all needed files. Needs to be called before .run()
         """
 
+        self.check_profile_consistency()
+
         # create paths if they are not there
         os.system('mkdir -p ' + self.path)
         os.system('mkdir -p ' + self.path_of_profiles)
@@ -305,21 +308,21 @@ class KiLCA_interface:
         # create sym link to exe
         os.system('ln -sf ' + self.EXEC_PATH + ' ' + self.path_of_run + 'run_local')
         # create symbolic link to profiles directory
-        os.system('ln -sfT ' + self.path_of_profiles + ' ' + self.path_of_run + 'profiles')
+        os.system('ln -sfT ' + os.path.abspath(self.path_of_profiles) + ' ' + self.path_of_run + 'profiles')
 
         self.antenna.write(self.BLUE_PATH + self.antenna.BLUEPRINT, self.path_of_run)
 
         self.background.write(self.BLUE_PATH + self.background.BLUEPRINT, self.path)
-        os.system('ln -sf ' + self.path + self.background.BLUEPRINT + ' ' + self.path_of_run + self.background.BLUEPRINT)
+        os.system('ln -sf ' + os.path.abspath(self.path) + '/' + self.background.BLUEPRINT + ' ' + self.path_of_run + self.background.BLUEPRINT)
 
         self.eigmode.write(self.BLUE_PATH + self.eigmode.BLUEPRINT, self.path)
-        os.system('ln -sf ' + self.path + self.eigmode.BLUEPRINT + ' ' + self.path_of_run + self.eigmode.BLUEPRINT)
+        os.system('ln -sf ' + os.path.abspath(self.path) + '/' + self.eigmode.BLUEPRINT + ' ' + self.path_of_run + self.eigmode.BLUEPRINT)
 
         self.output.write(self.BLUE_PATH + self.output.BLUEPRINT, self.path)
-        os.system('ln -sf ' + self.path + self.output.BLUEPRINT + ' ' + self.path_of_run + self.output.BLUEPRINT)
+        os.system('ln -sf ' + os.path.abspath(self.path) + '/' + self.output.BLUEPRINT + ' ' + self.path_of_run + self.output.BLUEPRINT)
 
         self.modes.write(self.path)
-        os.system('ln -sf ' + self.path + self.modes.BLUEPRINT + ' ' + self.path_of_run + self.modes.BLUEPRINT)
+        os.system('ln -sf ' + os.path.abspath(self.path) + '/' + self.modes.BLUEPRINT + ' ' + self.path_of_run + self.modes.BLUEPRINT)
 
         for k in range(0, len(self.zones)):
             self.zones[k].write(self.BLUE_PATH, self.path_of_run)
@@ -387,4 +390,26 @@ class KiLCA_interface:
         np.savetxt(path + 'Vz.dat', np.array((r, Vz)).transpose())
         np.savetxt(path + 'Er.dat', np.array((r, Er)).transpose())
         np.savetxt(path + 'Vth.dat', np.array((r, Vth)).transpose())
+
+
+    def check_profile_consistency(self):
+        """Check consistency of profiles, i.e. if temperatures and density
+        are above zero and if all profile files exist."""
+
+        req_profs = ['n.dat', 'Te.dat', 'Ti.dat', 'Vz.dat', 'q.dat', 'Er.dat', 'Vth.dat']
+        ls = os.listdir(self.path_of_profiles)
+
+        count = 0
+        for prof_type in req_profs:
+            if not prof_type in ls:
+                raise ValueError(f'Profile file {prof_type} is missing in {self.path_of_profiles}')
+            if count < 3:
+                dat = np.loadtxt(self.path_of_profiles + prof_type)
+                if np.any(dat[:,1] <0):
+                    raise ValueError(f'Profile file {prof_type} contains negative values, but it should not!')
+            count = count +1
+        del dat
+        del ls
+        del req_profs
+
 

@@ -15,6 +15,9 @@ import subprocess as sp
 import warnings
 import time
 import copy
+import inspect
+import sys
+
 
 from KiLCA_antenna import KiLCA_antenna
 from KiLCA_background import KiLCA_background
@@ -22,6 +25,10 @@ from KiLCA_eigmode import KiLCA_eigmode
 from KiLCA_modes import KiLCA_modes
 from KiLCA_output import KiLCA_output
 from KiLCA_zone import KiLCA_zone
+
+sys.path.append(os.path.abspath(inspect.getfile(KiLCA_antenna)[0:-16] + '../../postproc_py_class/'))
+from utility_class import *
+
 
 class KiLCA_interface:
     """
@@ -117,6 +124,7 @@ class KiLCA_interface:
     run_type = ''
     machine = ''
 
+    uc = utility() # utility class for colors and adding grid lines to plots
 
     def __init__(self, shot: int, time: int, path: str, rtype: str, machine: str='AUG'):
         """Constructor of KiLCA interface.
@@ -373,7 +381,7 @@ class KiLCA_interface:
         temperature values at the rational surface. """
         r = np.linspace(rmin, rmax, num)
         q = -(1.05 + q0 * (r/a)**2)
-        rres = np.interp(-m_mode/n_mode, q, r)
+        rres = np.interp(m_mode/n_mode, np.abs(q), r)
     
         fac_par = 1 - (r/a)**2
         n   = n0   * fac_par / (1-(rres/a)**2)
@@ -392,19 +400,22 @@ class KiLCA_interface:
         np.savetxt(path + 'Vth.dat', np.array((r, Vth)).transpose())
 
 
-    def check_profile_consistency(self):
+    def check_profile_consistency(self, path_profiles=''):
         """Check consistency of profiles, i.e. if temperatures and density
         are above zero and if all profile files exist."""
 
+        if path_profiles=='':
+            path_profiles = self.path_of_profiles
+
         req_profs = ['n.dat', 'Te.dat', 'Ti.dat', 'Vz.dat', 'q.dat', 'Er.dat', 'Vth.dat']
-        ls = os.listdir(self.path_of_profiles)
+        ls = os.listdir(path_profiles)
 
         count = 0
         for prof_type in req_profs:
             if not prof_type in ls:
-                raise ValueError(f'Profile file {prof_type} is missing in {self.path_of_profiles}')
+                raise ValueError(f'Profile file {prof_type} is missing in {path_profiles}')
             if count < 3:
-                dat = np.loadtxt(self.path_of_profiles + prof_type)
+                dat = np.loadtxt(path_profiles + prof_type)
                 if np.any(dat[:,1] <0):
                     raise ValueError(f'Profile file {prof_type} contains negative values, but it should not!')
             count = count +1
@@ -413,3 +424,47 @@ class KiLCA_interface:
         del req_profs
 
 
+    def plt_profiles(self, path_profiles=''):
+        """Plot all profiles used in KiLCA."""
+        
+        if path_profiles=='':
+            path_profiles = self.path_of_profiles
+
+        self.check_profile_consistency()
+        req_profs = ['n.dat', 'Te.dat', 'Ti.dat', 'Vz.dat', 'q.dat', 'Er.dat', 'Vth.dat']
+
+        prof_data = {}
+        for prof in req_profs:
+            prof_data[prof] = np.loadtxt(path_profiles + prof)
+        
+        fig,ax = plt.subplots(4,2, figsize=(8,6), sharex=True)
+        ax[0,0].plot(prof_data['n.dat'][:,0], prof_data['n.dat'][:,1])
+        ax[0,0].set_ylabel(r'n [cm$^{-3}$]')
+
+        ax[1,0].plot(prof_data['Te.dat'][:,0], prof_data['Te.dat'][:,1])
+        ax[1,0].set_ylabel(r'T$_e$ [eV]')           
+
+        ax[2,0].plot(prof_data['Ti.dat'][:,0], prof_data['Ti.dat'][:,1])
+        ax[2,0].set_ylabel(r'T$_i$ [eV]')
+
+        ax[3,0].plot(prof_data['Vz.dat'][:,0], prof_data['Vz.dat'][:,1])
+        ax[3,0].set_ylabel(r'V$_z$ [cm s$^{-1}$]')
+        ax[3,0].set_xlabel('r [cm]')
+
+        ax[1,1].plot(prof_data['Vth.dat'][:,0], prof_data['Vth.dat'][:,1])
+        ax[1,1].set_ylabel(r'V$_\theta$ [cm s$^{-1}$]')
+
+        ax[2,1].plot(prof_data['Er.dat'][:,0], prof_data['Er.dat'][:,1])
+        ax[2,1].set_ylabel(r'E$_r$ [statV cm$^{-1}$]')
+
+        ax[3,1].plot(prof_data['q.dat'][:,0], prof_data['q.dat'][:,1])
+        ax[3,1].set_ylabel(r'q [1]')
+        ax[3,1].set_xlabel('r [cm]')
+
+        list(map(lambda x: self.uc.add_grid_to_axis(x), ax[:,0]))
+        list(map(lambda x: self.uc.add_grid_to_axis(x), ax[:,1]))
+
+        fig.delaxes(ax[0,1])
+        plt.tight_layout()
+        plt.subplots_adjust(hspace=0.15)
+        plt.show()

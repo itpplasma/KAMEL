@@ -162,6 +162,8 @@ class KiLCA_postprocessor:
         ax[2].set_ylabel(r'E$_z$ [statV cm$^{-1}$]')
         ax[2].legend()
 
+        list(map(lambda x: self.uc.add_grid_to_axis(x), ax))
+
         plt.tight_layout()
         plt.subplots_adjust(hspace=0.05)
         plt.show()
@@ -199,6 +201,8 @@ class KiLCA_postprocessor:
         ax[2].set_xlabel('r [cm]')
         ax[2].set_ylabel(r'B$_z$ [G]')
         ax[2].legend()
+
+        list(map(lambda x: self.uc.add_grid_to_axis(x), ax))
 
         plt.tight_layout()
         plt.subplots_adjust(hspace=0.05)

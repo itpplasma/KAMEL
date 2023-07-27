@@ -65,11 +65,17 @@ class KiLCA_postprocessor:
         print('available modes:')
         for el in fs:
             if re.search('m_*', el):
-                self.m = np.append(self.m ,int(el[2]))
-                self.n = np.append(self.n, int(el[6]))
+                nums = re.findall('\d+', el)
+                if el[2] == '-':
+                    self.m = np.append(self.m ,-int(nums[0]))
+                    print(f'    m = -{nums[0]}    n = {nums[1]}')
+                else:
+                    self.m = np.append(self.m ,int(nums[0]))
+                    print(f'    m = {nums[0]}    n = {nums[1]}')
+                self.n = np.append(self.n, int(nums[1]))
                 
                 #self.read_EB(self.path_of_run + 'linear-data/'+ el + '/')
-                print(f'    m = {el[2]}    n = {el[6]}')
+                
 
     
         
@@ -84,7 +90,12 @@ class KiLCA_postprocessor:
             self.EBdat = np.loadtxt(path_to_file + 'EB.dat')
         elif path_to_file=='':
             for f in self.fs[:]:
-                if str(m) == f[2]:
+                nums = re.findall('\d+', f)
+                if f[2] == '-':
+                    st = '-' + nums[0]
+                else:
+                    st = nums[0]
+                if str(m) == st:
                     self.EBdat[f'({m}, {n})'] = np.loadtxt(self.path_of_run + 'linear-data/'+ f + '/EB.dat')
                     found_file = True
             if not found_file:

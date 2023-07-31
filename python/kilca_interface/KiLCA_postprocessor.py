@@ -17,8 +17,8 @@ class KiLCA_postprocessor:
         read_Eb(path_to_file): reads in EB.dat output file
     """
 
-    
     uc = utility() # for colors and plotting stuff
+    debug = False
 
     def __init__(self, *args):
         """
@@ -29,21 +29,20 @@ class KiLCA_postprocessor:
         self.EBdat = {}
 
         if isinstance(args[0], KiLCA_interface):
-            print('KiLCA interface was parsed')
             self.kil_in = args[0]
-            print(self.kil_in)
             self.shot = self.kil_in.shot
             self.time_slice = self.kil_in.time
             self.path_of_run = self.kil_in.path_of_run
             self.run_type = self.kil_in.run_type
             self.machine = self.kil_in.machine
-            print('    shot      : ' + str(self.shot))
-            print('    time slice: ' + str(self.time_slice))
-            print('    run path  : ' + self.path_of_run)
-            print('    run type  : ' + self.run_type)
-            print('    machine   : ' + self.machine)
+            if self.debug:
+                print('KiLCA interface was parsed')
+                print('    shot      : ' + str(self.shot))
+                print('    time slice: ' + str(self.time_slice))
+                print('    run path  : ' + self.path_of_run)
+                print('    run type  : ' + self.run_type)
+                print('    machine   : ' + self.machine)
         elif isinstance(args[0], int):
-            print('Path was parsed')
             self.shot = args[0]
             self.time_slice = args[1]
             self.path_of_run = args[2] + '/' + args[3] + '/'
@@ -52,33 +51,35 @@ class KiLCA_postprocessor:
                 self.machine = 'AUG'
             else:
                 self.machine = args[4]
-            print('    shot      : ' + str(self.shot))
-            print('    time slice: ' + str(self.time_slice))
-            print('    run path  : ' + self.path_of_run)
-            print('    run type  : ' + self.run_type)
-            print('    machine   : ' + self.machine)
+            if self.debug:
+                print('Path was parsed')
+                print('    shot      : ' + str(self.shot))
+                print('    time slice: ' + str(self.time_slice))
+                print('    run path  : ' + self.path_of_run)
+                print('    run type  : ' + self.run_type)
+                print('    machine   : ' + self.machine)
         else:
             raise ValueError(str(args[0]) + ' is not a valid input.')
 
         fs = os.listdir(self.path_of_run + '/linear-data/')
         self.fs = fs
-        print('available modes:')
+        if self.debug:
+            print('available modes:')
         for el in fs:
             if re.search('m_*', el):
                 nums = re.findall('\d+', el)
                 if el[2] == '-':
                     self.m = np.append(self.m ,-int(nums[0]))
-                    print(f'    m = -{nums[0]}    n = {nums[1]}')
+                    if self.debug:
+                        print(f'    m = -{nums[0]}    n = {nums[1]}')
                 else:
                     self.m = np.append(self.m ,int(nums[0]))
-                    print(f'    m = {nums[0]}    n = {nums[1]}')
+                    if self.debug:
+                        print(f'    m = {nums[0]}    n = {nums[1]}')
                 self.n = np.append(self.n, int(nums[1]))
                 
                 #self.read_EB(self.path_of_run + 'linear-data/'+ el + '/')
-                
 
-    
-        
     def read_EB(self, path_to_file='', m=0, n=0):
         """
         Description:

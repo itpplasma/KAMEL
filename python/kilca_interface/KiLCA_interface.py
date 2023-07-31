@@ -1,11 +1,3 @@
-# TODO:
-# - Add database part, i.e. write a database entry for everytime KiLCA is run. If the kilca interface
-# is used by the balance interface, this should be slimed. Database entry should also contain git hash.
-# - add remote connection, such that when cloned on different machine and a itp account is available
-# kilca can be run remotely.
-#
-
-
 import matplotlib.pyplot as plt
 import numpy as np
 import h5py
@@ -17,7 +9,6 @@ import time
 import copy
 import inspect
 import sys
-
 
 from KiLCA_antenna import KiLCA_antenna
 from KiLCA_background import KiLCA_background
@@ -189,7 +180,8 @@ class KiLCA_interface:
         try:
             self.n_modes = len(m)
         except:
-            print('Single RMP mode')
+            #print(f'Single RMP mode: m = {int(m)}, n = {int(n)}')
+            pass
         self.modes = KiLCA_modes(m, n)
 
     def set_antenna(self, ra: float = 67.0, nmod: int = 1, I0: float = 4.5e12):
@@ -247,7 +239,7 @@ class KiLCA_interface:
             nmodes ... number of modes to calculate, default=0
         """
         self.machine = 'AUG'
-        print('Machine setting: AUG')
+        #print(f'Machine setting: AUG, type: {self.run_type}')
 
         if ra < 67:
             raise ValueError('Radius of antenna inside plasma')
@@ -272,11 +264,11 @@ class KiLCA_interface:
             nmodes ... number of modes to calculate, default = 0
         """
         self.machine = 'MASTU'
-        print('Machine setting: MASTU')
+        #print(f'Machine setting: MASTU, type: {self.run_type}')
 
         self.a_minor = 65.0
         self.R0 = 85.0
-        self.r_antenna = self.a_minor + 1.0
+        self.r_antenna = self.a_minor + 5.0
 
         self.set_antenna(self.a_minor, nmodes)
         self.set_background(self.R0, self.a_minor)
@@ -337,6 +329,7 @@ class KiLCA_interface:
 
         self.ready_to_run = True
 
+
     def run(self):
         """
         Description:
@@ -345,6 +338,12 @@ class KiLCA_interface:
         
         if self.ready_to_run == False:
             raise ValueError('Not ready to run!')
+
+        print(f'Machine setting: {self.machine}, type: {self.run_type}')
+        try:
+            self.n_modes = len(self.m)
+        except:
+            print(f'Single RMP mode: m = {int(self.m)}, n = {int(self.n)}')
 
         cdir = os.getcwd()
         os.chdir(self.path_of_run)
@@ -356,9 +355,10 @@ class KiLCA_interface:
         print(f'The KiLCA run took {end-start}s')
         
         if self.run_out.stderr.read() == b'':
-            print('Output:')
-            for line in self.run_out.stdout:
-                print(line.decode('utf8'))
+            if not (self.run_out.stdout.read() == b''):
+                print('Output:')
+                for line in self.run_out.stdout:
+                    print(line.decode('utf8'))
             print('')
         else:
             print('KiLCA ran into problems!')
@@ -419,9 +419,6 @@ class KiLCA_interface:
                 if np.any(dat[:,1] <0):
                     raise ValueError(f'Profile file {prof_type} contains negative values, but it should not!')
             count = count +1
-        del dat
-        del ls
-        del req_profs
 
 
     def plt_profiles(self, path_profiles=''):
@@ -468,3 +465,4 @@ class KiLCA_interface:
         plt.tight_layout()
         plt.subplots_adjust(hspace=0.15)
         plt.show()
+

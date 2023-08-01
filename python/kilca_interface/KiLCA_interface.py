@@ -76,7 +76,10 @@ class KiLCA_interface:
             Sets AUG machine properties (background and antenna)
             Arguments:
                 nmodes ... number of RMP modes
-        set_MASTU() !!! not implemented yet !!!
+        set_MASTU(nmodes: int) 
+            Sets MASTU machine properties (major radius, plasma radius, toroidal B field)
+            Arguments:
+                nmodes ... number of RMP modes
         write()
             Creates directory structure, copies all needed files
 
@@ -85,6 +88,17 @@ class KiLCA_interface:
 
         run_remote() !!! not implemented yet !!!
         run_condor() !!! not implemented yet !!!
+
+        create_parabolic_profiles_from_res_surf(path, q0, n0, Te0, Ti0, Vz0, Er0, Vth0, m_mode, n_mode, rmin, rmax, num, a, const='')
+            Creates parabolic profiles starting from the value of the pressure at the resonant surface.
+
+        check_profile_consistency(path_profiles)
+            Checks the consistency of the profiles, i.e. firstly, if they even exist and secondly,
+            if density and temperatures are greater than zero.
+            
+        plt_profiles(path_profiles)
+            Plot profiles (ne, Te, Ti, Vz, Vth, Er, q) for fast check.
+
     ################################################################################
     Minimum requirement for a run:
         obj = KiLCA_interface(shot, time, path, rtype)
@@ -131,7 +145,8 @@ class KiLCA_interface:
         try:
             ls = os.listdir(self.path)
         except:
-            raise ValueError('Path ' + self.path + ' does not exist.')
+            warnings.warn('Path ' + self.path + ' does not exist. I will make dir(s).')
+            os.makedirs(self.path)
 
         if not self.PROF_PATH[0:-1] in ls:
             warnings.warn('No profile directory found in ' + self.path + '\nMake sure to change PROF_PATH of class to path where the profiles are.')
@@ -170,7 +185,7 @@ class KiLCA_interface:
 
         
         
-    def set_modes(self, m=3, n=2):
+    def set_modes(self, m: int = 3, n: int = 2):
         """
         Description:    
             Set mode numbers m and n. Must either be scalar or lists/numpy arrays.
@@ -231,12 +246,14 @@ class KiLCA_interface:
 
         self.zones = [copy.deepcopy(KiLCA_zone(k, r[k], b[k], m[k], r[k+1], b[k+1])) for k in range(0, len(m))]
 
-    def set_ASDEX(self, nmodes: int = 1, ra: float = 70, I0: float = 4.5e12):
+    def set_ASDEX(self, nmodes: int = 1, ra: float = 70, I0: float = 5.1e12):
         """
         Description:
             Initializes the class for a standard run on ASDEX parameters.
         Input:
             nmodes ... number of modes to calculate, default=0
+            ra ... radius of the antenna
+            I0 ... RMP coil current value in statA, AUG: 1.7kA = 5.1e12 statA
         """
         self.machine = 'AUG'
         #print(f'Machine setting: AUG, type: {self.run_type}')
@@ -256,12 +273,13 @@ class KiLCA_interface:
         m = [self.run_type, 'vacuum', 'vacuum']
         self.set_zones(r,b,m)
     
-    def set_MASTU(self, nmodes=1):
+    def set_MASTU(self, nmodes: int = 1, I0: float = 6.3e12):
         """
         Description:
             Initializes the class for a standard run on MASTU parameters
         Input:
             nmodes ... number of modes to calculate, default = 0
+            I0 ... RMP coil current value in statA, MASTU: 2.1kA=6.3e12statA
         """
         self.machine = 'MASTU'
         #print(f'Machine setting: MASTU, type: {self.run_type}')
@@ -270,7 +288,7 @@ class KiLCA_interface:
         self.R0 = 85.0
         self.r_antenna = self.a_minor + 5.0
 
-        self.set_antenna(self.a_minor, nmodes)
+        self.set_antenna(self.a_minor, nmodes, I0 = I0)
         self.set_background(self.R0, self.a_minor)
         self.background.Btor = -6400.0
 

@@ -14,37 +14,55 @@ const_eVK = 1.604e4 # conversion factor eV to Kelvin
 const_eV_to_erg = 1.6022e-12
 e_mass = 9.1094e-28#511
 
-def a2bc(m, n,r_Da, Da, R0, B0, r, q, Te, Ti, ne, Er, Impar, Zi=1, mi=2):
+debug = False
+
+def analytical_local_criterion(m, n, r_Da, Da, R0, B0, r, q, Te, Ti, ne, Er, Impar, Zi=1, mi=2):
+    '''Analytical local bifurcation criterion.'''
     # all quantities need to be in cgs units, except for the temperatures
     # which need to be in eV
     # m ... poloidal mode number (int)
     # n ... toroidal mode number (int)
     # r_Da ... radial variable of the anomalous diffusion coefficient (array)
-    # Da ... anomalous diffusion coefficient (array)
+    # Da ... anomalous diffusion coefficient (array or double)
     # R0 ... major radius of the device (double)
     # r ... radial coordinate of profiles (array)
-    # q ... safety factor profile (array)
-    # Te ... electron temperature profile (array)
-    # ne ... electron density profile (array)
-    # Er ... radial electric field profile (array)
+    # q ... safety factor profile (array or double)
+    # Te ... electron temperature profile (array or double)
+    # ne ... electron density profile (array or double)
+    # Er ... radial electric field profile (array or double)
     # Impar ... parallel plasma response current from e.g. GPEC or KiLCA (double)
     # Zi ... charge number ions, default=1, (int)
     # mi ... mass number ions, default=2, (int)
-
-    
-
-    debug = False
 
     rm = get_rm(r,m,n,q)
 
     B0 = np.abs(B0)
 
-    Te_res = np.interp(rm, r, Te)
-    Ti_res = np.interp(rm, r, Ti)
-    ne_res = np.interp(rm, r, ne)
-    Er_res = np.interp(rm, r, Er)
-    q_res  = np.interp(rm, r, q)
-    Da_res = np.interp(rm, r_Da, Da)
+    # Check if input is array or scalar
+    if type(Te) == np.ndarray:
+        Te_res = np.interp(rm, r, Te)
+    else:
+        Te_res = Te
+    if type(Ti) == np.ndarray:
+        Ti_res = np.interp(rm, r, Ti)
+    else:
+        Ti_res = Ti
+    if type(ne) == np.ndarray:
+        ne_res = np.interp(rm, r, ne)
+    else:
+        ne_res = ne
+    if type(Er) == np.ndarray:
+        Er_res = np.interp(rm, r, Er)
+    else:
+        Er_res = Er
+    if type(q) == np.ndarray:
+        q_res  = np.interp(rm, r, q)
+    else:
+        q_res = q
+    if type(Da) == np.ndarray:
+        Da_res = np.interp(rm, r_Da, Da)
+    else:
+        Da_res = Da
 
     #rDe = 7.43e2 * Te_res**(1/2) * ne_res**(-1/2) # from NRL formulary 2019, is less accurate
     rDe = np.sqrt(Te_res * const_eV_to_erg/(4 * np.pi * ne_res * const_e**2)) # Debye length in cm
@@ -85,8 +103,9 @@ def a2bc(m, n,r_Da, Da, R0, B0, r, q, Te, Ti, ne, Er, Impar, Zi=1, mi=2):
     crit = crit1*crit2*crit3*crit4*crit5 # factor 2 is a spectral weight since the Fourier decomposition of the fields in KiLCA are only over positive integers, but GPEC uses pos and negative integers
     
 
-    if debug: print('a2bc')
+    
     if debug:
+        print('a2bc')
         print('rm      = ' + str(rm))
         print('Te res  = ' + str(Te_res))
         print('Ti res  = ' + str(Ti_res))
@@ -118,6 +137,7 @@ def a2bc(m, n,r_Da, Da, R0, B0, r, q, Te, Ti, ne, Er, Impar, Zi=1, mi=2):
 
 
 def Br_const_psi(m, n, R0, B0, r, q, Te, Ti, ne, Er, Impar, Zi=1, mi=2):
+    '''Calculate Br in constant psi approimation.'''
 
     rm = get_rm(r,m,n,q)
 
@@ -165,7 +185,7 @@ def Br_const_psi(m, n, R0, B0, r, q, Te, Ti, ne, Er, Impar, Zi=1, mi=2):
     bcp = bcp1 * bcp2 * bcp3
 
 
-    debug = False
+    #debug = False
 
     if debug: print('Br_const_psi')
     if debug:
@@ -199,6 +219,7 @@ def Br_const_psi(m, n, R0, B0, r, q, Te, Ti, ne, Er, Impar, Zi=1, mi=2):
 
 
 def crit_from_Br(m, n,r_Da, Da, R0, B0, r, q, Te, Ti, ne, Er, Impar, Br = 0, Zi=1, mi=2):
+    '''Determine criterion from a given Br.'''
 
     if Br==0:
         bcp = Br_const_psi(m, n, R0, B0, r, q, Te, Ti, ne, Er, Impar, Zi=Zi, mi=mi)
@@ -237,8 +258,7 @@ def crit_from_Br(m, n,r_Da, Da, R0, B0, r, q, Te, Ti, ne, Er, Impar, Br = 0, Zi=
     crit = crit1*crit2*crit3 / Da_res
     crit = np.interp(rm, r, crit)
 
-
-    debug = False
+    #debug = False
 
     if debug: print('crit_from_Br')
     if debug:
@@ -255,25 +275,16 @@ def crit_from_Br(m, n,r_Da, Da, R0, B0, r, q, Te, Ti, ne, Er, Impar, Br = 0, Zi=
     return crit
 
 def get_rm(r,m,n,q):
+    '''Get the radius of a rational surface between 45 < r < 65 cm.'''
 
-    #def find_nearest_index(array, value):
-    #    array = np.asarray(array)
-    #    idx = (np.abs(array - value)).argmin()
-    #    return idx
-
-    #rm_indx = find_nearest_index(q, -m/n)
-    #rm = (r[rm_indx] + r[rm_indx+1])/2
-
-    ind1 = np.where(r> 50)
-    ind2 = np.where(r< 62)
+    ind2 = np.where(r< 65)
 
     q_new = q[ind2]
     r_out_new = r[ind2]
 
-    ind1 = np.where(r_out_new> 50)
+    ind1 = np.where(r_out_new> 45)
     q_new = q_new[ind1]
     r_out_new = r_out_new[ind1]
-
 
     f = CubicSpline(np.abs(q_new), r_out_new)
 

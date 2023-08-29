@@ -27,7 +27,7 @@ subroutine read_from_text
     if (fstatus == 1) write(*,*) 'Status: Reading profiles from text files'
 
     call find_file_length(trim(profile_location)//'n.dat', iprof_length)
-    allocate(r_prof(iprof_length), n_prof(iprof_length), Te_prof(iprof_length), Ti_prof(iprof_length), &
+    allocate(r_prof(iprof_length), n_prof(iprof_length), Te_prof(iprof_length), Ti_prof(ispecies, iprof_length), &
     Er_prof(iprof_length), q_prof(iprof_length))
 
     open(11, file=trim(profile_location)//'n.dat')
@@ -44,7 +44,7 @@ subroutine read_from_text
 
     open(11, file=trim(profile_location)//'Ti.dat')
     do i=1,iprof_length
-        read(11, *) r_prof(i), Ti_prof(i)
+        read(11, *) r_prof(i), Ti_prof(1, i)
     end do
     close(11)
 
@@ -59,6 +59,10 @@ subroutine read_from_text
         read(11, *) r_prof(i), q_prof(i)
     end do
     close(11)
+
+    do i=2, ispecies
+        Ti_prof(i,:) = Ti_prof(1,:)
+    end do
 
     if (fstatus == 1) write(*,*) 'Status: Finished reading profiles from text files'
 

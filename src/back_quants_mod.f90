@@ -16,4 +16,7 @@ module back_quants
     double precision, dimension(:), allocatable :: omce ! cyclotron frequency electrons
     double precision, dimension(:,:), allocatable :: omci !cyclotron frequency ions
 
+    double precision, dimension(:), allocatable :: lambda_De ! Debye length electrons
+    double precision, dimension(:,:), allocatable :: lambda_Di ! Deby length ions
+
 end module

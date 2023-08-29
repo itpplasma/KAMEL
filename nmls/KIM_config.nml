@@ -13,6 +13,6 @@
  R0        = 170.0 ,   ! major radius in cm
  m_mode    = 6 ,       ! poloidal mode number
  n_mode    = 2 ,       ! toroidal mode number
- Zi        = 1 ,       ! ion charge number
- Ai        = 2 ,       ! ion mass number
+ Zi        = 1,       ! ion charge number
+ Ai        = 2,       ! ion mass number
 /

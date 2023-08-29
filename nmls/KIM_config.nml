@@ -1,0 +1,18 @@
+&KIM_CONFIG
+ profile_location = './profiles/' , ! path to profiles (either text or hdf5)
+ output_path      = './out/'      , ! output path
+ hdf5_input       = F , ! read input from hdf5 input if true
+ hdf5_output      = F , ! write output into hdf5 file
+ fdebug           = 1 , ! flag for debugging messages
+ fstatus          = 1 , ! flag for status messages
+ ispecies         = 1 , ! number of ion species
+/
+
+&KIM_SETUP
+ btor      = 17000.0 , ! toroidal magnetic field in Gauss
+ R0        = 170.0 ,   ! major radius in cm
+ m_mode    = 6 ,       ! poloidal mode number
+ n_mode    = 2 ,       ! toroidal mode number
+ Zi        = 1 ,       ! ion charge number
+ Ai        = 2 ,       ! ion mass number
+/

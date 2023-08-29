@@ -5,9 +5,6 @@ project(KIM VERSION 0.1
             LANGUAGES Fortran C CXX)
 enable_language(Fortran)
 
-
-set(exe "${CMAKE_SOURCE_DIR}/exe/")
-
 add_subdirectory(src)
 
 get_filename_component(Fortran_COMPILER_NAME ${CMAKE_Fortran_COMPILER} NAME)

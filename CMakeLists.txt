@@ -8,6 +8,7 @@ enable_language(Fortran)
 add_subdirectory(src)
 add_subdirectory(src/math/slatec)
 add_subdirectory(src/math/lapack-3.11.0)
+add_subdirectory(src/math/libcerf-main)
 
 get_filename_component(Fortran_COMPILER_NAME ${CMAKE_Fortran_COMPILER} NAME)
 if (Fortran_COMPILER_NAME MATCHES "gfortran.*")

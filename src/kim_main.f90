@@ -4,8 +4,11 @@ program kim_main
     use config
     use constants
     use setup
+    use use_libcerf
 
     implicit none
+
+    double complex :: z, res
 
     namelist /KIM_CONFIG/ profile_location, hdf5_input, hdf5_output, &
                           fdebug, fstatus, ispecies, output_path
@@ -44,5 +47,10 @@ program kim_main
     call read_profiles
     call calc_backs(.true.)
     call kernel_rho_phi
+
+    z = (1d0, 0d0)
+
+    res = cerfc_F(z)
+    write(*,*) res
 
 end program

@@ -9,6 +9,8 @@ subroutine kernel_rho_phi
 
     implicit none
 
+    double complex :: besselj ! complex bessel function from bessel.f90
+
     integer :: npoi_der, nder
     double precision, dimension(:,:), allocatable :: coef
     double precision, dimension(:), allocatable :: x

@@ -6,10 +6,12 @@ project(KIM VERSION 0.1
 enable_language(Fortran)
 
 add_subdirectory(src)
+add_subdirectory(src/math/slatec)
+add_subdirectory(src/math/lapack-3.11.0)
 
 get_filename_component(Fortran_COMPILER_NAME ${CMAKE_Fortran_COMPILER} NAME)
 if (Fortran_COMPILER_NAME MATCHES "gfortran.*")
-    set (CMAKE_Fortran_FLAGS "-O2 -mtune=generic")
+    set (CMAKE_Fortran_FLAGS "-std=f90 -O2 -mtune=generic")
 elseif (Fortran_COMPILER_NAME MATCHES "ifort.*")
     set (CMAKE_Fortran_FLAGS "")
 endif()

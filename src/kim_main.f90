@@ -45,12 +45,12 @@ program kim_main
     write(*,*) ' - - - - - - - - - - - - - - - - - -'
 
     call read_profiles
+    
+    call calculate_equil(.true.)
     call calc_backs(.true.)
+
+    
     call kernel_rho_phi
 
-    z = (1d0, 0d0)
-
-    res = cerfc_F(z)
-    write(*,*) res
 
 end program

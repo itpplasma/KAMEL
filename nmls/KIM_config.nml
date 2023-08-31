@@ -9,8 +9,8 @@
 /
 
 &KIM_SETUP
- btor      = 17000.0 , ! toroidal magnetic field in Gauss
- R0        = 170.0 ,   ! major radius in cm
+ btor      = -17977.413 , ! toroidal magnetic field in Gauss
+ R0        = 165.0 ,   ! major radius in cm
  m_mode    = 6 ,       ! poloidal mode number
  n_mode    = 2 ,       ! toroidal mode number
  Zi        = 1,       ! ion charge number

@@ -12,6 +12,7 @@ subroutine calc_backs(write_out)
     use plas_parameter
     use config
     use setup
+    use equil, only: hz, hth
 
     implicit none
 
@@ -31,8 +32,8 @@ subroutine calc_backs(write_out)
             omce(iprof_length), nue(iprof_length), lambda_De(iprof_length))
     allocate(A1i(ispecies, iprof_length), A2i(ispecies, iprof_length), &
             vTi(ispecies, iprof_length), omci(ispecies, iprof_length), &
-            nui(ispecies, iprof_length), lambda_Di(ispecies, iprof_length),&
-            ni_prof(ispecies, iprof_length))
+            nui(ispecies, iprof_length), lambda_Di(ispecies, iprof_length))
+    allocate(ks(iprof_length))
 
     call calc_plas_parameter_derivs
 
@@ -52,12 +53,13 @@ subroutine calc_backs(write_out)
         A1e(i) = dndr_prof(i) / n_prof(i) + e_charge/Te_prof(i) * Er_prof(i) - 3/(2*Te_prof(i)) * dTedr_prof(i)
         ! Second thermodynamic force
         A2e(i) = dTedr_prof(i) / Te_prof(i)
+
+        ! "senkrecht" wavenumber
+        ks(i) = (m_mode * hz(i) - n_mode * hth(i) / R0) / r_prof(i)
     end do
 
     do sigma=1, ispecies
         do i=1, iprof_length
-            ! ion density to fulfill quasineutrality
-            ni_prof(sigma, i) = n_prof(i) * Zi(sigma) / sum(Zi)
             ! Coulomb logarithm electrons ions (= ions electrons)
             Lei(sigma, i) = 24.0d0 - log(sqrt(n_prof(i)) / Ti_prof(sigma, i))
             ! thermal velocity
@@ -117,6 +119,7 @@ subroutine calc_backs(write_out)
             open(unit = 85, file = trim(output_path)//'backs/'//'dqdr.dat')
             open(unit = 86, file = trim(output_path)//'backs/'//'A1e.dat')
             open(unit = 87, file = trim(output_path)//'backs/'//'A2e.dat')
+            open(unit = 88, file = trim(output_path)//'backs/'//'ks.dat')
             do i=1, iprof_length
                 write(78, *) r_prof(i), vTe(i)
                 write(79, *) r_prof(i), nue(i)
@@ -126,6 +129,7 @@ subroutine calc_backs(write_out)
                 write(85, *) r_prof(i), dqdr_prof(i)
                 write(86, *) r_prof(i), A1e(i)
                 write(87, *) r_prof(i), A2e(i)
+                write(88, *) r_prof(i), ks(i)
             end do
             close(unit = 78)
             close(unit = 79)
@@ -137,6 +141,7 @@ subroutine calc_backs(write_out)
             close(unit = 85)
             close(unit = 86)
             close(unit = 87)
+            close(unit = 88)
 
             if (ispecies == 1) then
                 open(unit = 78, file = trim(output_path)//'backs/'//'vTi.dat')
@@ -234,13 +239,17 @@ subroutine calc_plas_parameter_derivs
     integer :: iend
     integer :: sigma
 
-    allocate(dndr_prof(iprof_length), dTedr_prof(iprof_length), dTidr_prof(ispecies,iprof_length), &
-    dqdr_prof(iprof_length), dnidr_prof(ispecies, iprof_length))
+    if (.not. allocated(dndr_prof)) then
+        write(*,*) 'dndr not allocated'
+        allocate(dndr_prof(iprof_length), dTedr_prof(iprof_length), dTidr_prof(ispecies,iprof_length), &
+        dqdr_prof(iprof_length), dnidr_prof(ispecies, iprof_length))
+    end if
 
     iend = iprof_length - 1
 
     do i=1, iend
         dndr_prof(i) = (n_prof(i+1) - n_prof(i))/(r_prof(i+1)- r_prof(i))
+
         dTedr_prof(i) = (Te_prof(i+1) - Te_prof(i))/(r_prof(i+1)- r_prof(i))
         dqdr_prof(i) = (q_prof(i+1) - q_prof(i))/(r_prof(i+1)- r_prof(i))
         do sigma=1, ispecies
@@ -248,5 +257,6 @@ subroutine calc_plas_parameter_derivs
             dTidr_prof(sigma, i) = (Ti_prof(sigma, i+1) - Ti_prof(sigma, i))/(r_prof(i+1)- r_prof(i))
         end do
     end do
+
 
 end subroutine

@@ -19,4 +19,5 @@ module back_quants
     double precision, dimension(:), allocatable :: lambda_De ! Debye length electrons
     double precision, dimension(:,:), allocatable :: lambda_Di ! Deby length ions
 
+    double precision, dimension(:), allocatable :: ks ! "senkrecht" wavenumber
 end module

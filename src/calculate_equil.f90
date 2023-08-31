@@ -42,7 +42,7 @@ subroutine calculate_equil(write_out)
     allocate(u(iprof_length), B0z(iprof_length), dpress_prof(iprof_length), &
              B0th(iprof_length), B0(iprof_length), hz(iprof_length), hth(iprof_length))
 
-    if (fstatus == 1) write(*,*) 'Status: Calculating equilibrium'
+    if (fstatus == 1) write(*,*) 'Status: Calculating equilibrium, write_out=', write_out
     if (.not. allocated(dndr_prof)) then
         call calc_plas_parameter_derivs
     end if

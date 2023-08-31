@@ -20,4 +20,10 @@ module back_quants
     double precision, dimension(:,:), allocatable :: lambda_Di ! Deby length ions
 
     double precision, dimension(:), allocatable :: ks ! "senkrecht" wavenumber
+    double precision, dimension(:), allocatable :: kp ! parallel wavenumber
+
+    double precision, dimension(:), allocatable :: om_E ! ExB rotation frequency
+
+    double complex, dimension(:), allocatable :: z0e ! parameter z for m_\phi=0 for electrons
+    double complex, dimension(:,:), allocatable :: z0i ! parameter z for m_\phi=0 for electrons
 end module

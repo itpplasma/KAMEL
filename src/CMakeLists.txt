@@ -9,8 +9,11 @@ set(KIM_mods plas_parameter_mod.f90
 set(KIM_subs read_profiles.f90
              plag_coeff.f90
              kernel_rho_phi.f90
+             kernel_rho_B.f90
              calc_backs.f90
              calculate_equil.f90
+             grid.f90
+             plasma_disp_func.f90
              math/bessel.f90
              math/bessk.f90
              math/use_libcerf_mod.f90)

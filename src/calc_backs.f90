@@ -12,7 +12,7 @@ subroutine calc_backs(write_out)
     use plas_parameter
     use config
     use setup
-    use equil, only: hz, hth
+    use equil, only: hz, hth, B0
 
     implicit none
 
@@ -23,7 +23,7 @@ subroutine calc_backs(write_out)
     double precision, dimension(:,:), allocatable :: Lei ! Coulomb log
     double precision, dimension(:,:,:), allocatable :: Lii ! Coulomb log
 
-    if (fstatus == 1) write(*,*) 'Status: Calculating background quantities'
+    if (fstatus == 1) write(*,*) 'Status: Calculating background quantities, write_out=',write_out
 
     allocate(Lee(iprof_length), Lei(ispecies, iprof_length), &
             Lii(ispecies, ispecies, iprof_length))
@@ -33,7 +33,8 @@ subroutine calc_backs(write_out)
     allocate(A1i(ispecies, iprof_length), A2i(ispecies, iprof_length), &
             vTi(ispecies, iprof_length), omci(ispecies, iprof_length), &
             nui(ispecies, iprof_length), lambda_Di(ispecies, iprof_length))
-    allocate(ks(iprof_length))
+    allocate(ks(iprof_length), kp(iprof_length), om_E(iprof_length), z0e(iprof_length))
+    allocate(z0i(ispecies, iprof_length))
 
     call calc_plas_parameter_derivs
 
@@ -56,6 +57,12 @@ subroutine calc_backs(write_out)
 
         ! "senkrecht" wavenumber
         ks(i) = (m_mode * hz(i) - n_mode * hth(i) / R0) / r_prof(i)
+        kp(i) = m_mode * hth(i) + n_mode / R0 * hz(i)
+
+        ! ExB rotation frequency
+        om_E(i) = - sol * ks(i) * Er_prof(i) / B0(i)
+
+        z0e(i) = - (om_E(i) - omega - com_unit * nue(i)) / (kp(i) * sqrt(2d0) * vTe(i) )
     end do
 
     do sigma=1, ispecies
@@ -91,6 +98,9 @@ subroutine calc_backs(write_out)
                         - 3/(2*Ti_prof(sigma, i)) * dTidr_prof(sigma, i)
             ! Second thermodynamic force
             A2i(sigma, i) = dTidr_prof(sigma, i) / Ti_prof(sigma, i)
+
+            z0i(sigma, i) = - (om_E(i) - omega - com_unit * nui(sigma, i)) / (kp(i) * sqrt(2d0) * vTi(sigma, i) )
+
         end do
     end do
 
@@ -120,6 +130,7 @@ subroutine calc_backs(write_out)
             open(unit = 86, file = trim(output_path)//'backs/'//'A1e.dat')
             open(unit = 87, file = trim(output_path)//'backs/'//'A2e.dat')
             open(unit = 88, file = trim(output_path)//'backs/'//'ks.dat')
+            open(unit = 89, file = trim(output_path)//'backs/'//'kp.dat')
             do i=1, iprof_length
                 write(78, *) r_prof(i), vTe(i)
                 write(79, *) r_prof(i), nue(i)
@@ -130,6 +141,7 @@ subroutine calc_backs(write_out)
                 write(86, *) r_prof(i), A1e(i)
                 write(87, *) r_prof(i), A2e(i)
                 write(88, *) r_prof(i), ks(i)
+                write(89, *) r_prof(i), kp(i)
             end do
             close(unit = 78)
             close(unit = 79)
@@ -142,6 +154,7 @@ subroutine calc_backs(write_out)
             close(unit = 86)
             close(unit = 87)
             close(unit = 88)
+            close(unit = 89)
 
             if (ispecies == 1) then
                 open(unit = 78, file = trim(output_path)//'backs/'//'vTi.dat')
@@ -257,6 +270,5 @@ subroutine calc_plas_parameter_derivs
             dTidr_prof(sigma, i) = (Ti_prof(sigma, i+1) - Ti_prof(sigma, i))/(r_prof(i+1)- r_prof(i))
         end do
     end do
-
 
 end subroutine

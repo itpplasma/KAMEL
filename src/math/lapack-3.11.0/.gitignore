@@ -2,7 +2,7 @@
 *.[oa]
 
 # test in INSTALL
-INSTALL/test*
+#INSTALL/test*
 
 # local make.inc
 make.inc

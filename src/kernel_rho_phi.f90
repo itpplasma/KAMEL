@@ -6,6 +6,7 @@ subroutine kernel_rho_phi(write_out)
     use config
     use grid
     use back_quants
+    use kernel, only: K_rho_phi
 
     implicit none
 
@@ -24,14 +25,11 @@ subroutine kernel_rho_phi(write_out)
     double precision, dimension(:,:,:), allocatable :: a0, a1, a2
     double precision, dimension(:,:,:), allocatable :: bp, bt ! b_+ and b_\times
 
-    ! kernel:
-    double complex, dimension(:,:), allocatable :: K_rho_phi
-
     integer :: sigma ! for loop over species
     integer :: i,j,n
     double precision :: int_fac
 
-    if (fstatus == 1) write(*,*) 'Status: Generating kernel rho phi'
+    if (fstatus == 1) write(*,*) 'Status: Generating kernel rho phi, write_out=', write_out
 
     npoi_der = 4 ! number of polynomials for derivative
     nder = 1 ! first derivative
@@ -131,8 +129,8 @@ subroutine kernel_rho_phi(write_out)
             implicit none
             integer :: i,j
 
-            open(unit=77, file=trim(output_path)//'kernel/K_rho_phi_im.dat')
-            open(unit=78, file=trim(output_path)//'kernel/K_rho_phi_re.dat')
+            open(unit=77, file=trim(output_path)//'kernel/K_rho_phi_kr_im.dat')
+            open(unit=78, file=trim(output_path)//'kernel/K_rho_phi_kr_re.dat')
             do i=1,k_space_dim
                 do j=1,k_space_dim
                     write(77,*) real(K_rho_phi(i,j))

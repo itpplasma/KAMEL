@@ -5,6 +5,7 @@ subroutine kernel_rho_B(write_out)
     use config
     use grid
     use back_quants
+    use kernel, only: K_rho_B
 
     implicit none
 
@@ -14,13 +15,12 @@ subroutine kernel_rho_B(write_out)
     double complex :: plasma_Z
 
     double precision, dimension(:,:,:), allocatable :: bp, bt
-    double complex, dimension(:,:), allocatable :: K_rho_B
 
     integer :: i, j, n, sigma
     double precision :: int_fac
 
 
-    if (fstatus == 1) write(*,*) 'Status: Generating kernel rho phi'
+    if (fstatus == 1) write(*,*) 'Status: Generating kernel rho B, write_out=',write_out
 
     allocate(bp(k_space_dim, k_space_dim, iprof_length), bt(k_space_dim, k_space_dim, iprof_length))
     allocate(K_rho_B(k_space_dim, k_space_dim))
@@ -81,8 +81,8 @@ subroutine kernel_rho_B(write_out)
             implicit none
             integer :: i,j
 
-            open(unit=77, file=trim(output_path)//'kernel/K_rho_B_im.dat')
-            open(unit=78, file=trim(output_path)//'kernel/K_rho_B_re.dat')
+            open(unit=77, file=trim(output_path)//'kernel/K_rho_B_kr_im.dat')
+            open(unit=78, file=trim(output_path)//'kernel/K_rho_B_kr_re.dat')
             do i=1,k_space_dim
                 do j=1,k_space_dim
                     write(77,*) real(K_rho_B(i,j))

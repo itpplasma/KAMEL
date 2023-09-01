@@ -15,7 +15,7 @@ program kim_main
     namelist /KIM_CONFIG/ profile_location, hdf5_input, hdf5_output, &
                           fdebug, fstatus, ispecies, output_path
 
-    namelist /KIM_SETUP/ btor, R0, m_mode, n_mode, Zi, Ai, k_space_dim, reduced_r_dim, omega
+    namelist /KIM_SETUP/ btor, R0, m_mode, n_mode, Zi, Ai, k_space_dim, reduce_r, reduced_r_dim, omega
 
     open(unit = 77, file = './nmls/KIM_config.nml')
     read(unit = 77, nml = KIM_CONFIG)
@@ -45,20 +45,23 @@ program kim_main
     write(*,*) '  Zi               = ', Zi
     write(*,*) '  Ai               = ', Ai
     write(*,*) '  k_space_dim      = ', k_space_dim
+    write(*,*) '  reduce_r         = ', reduce_r
     write(*,*) '  reduced_r_dim    = ', reduced_r_dim
     write(*,*) '  omega            = ', omega
     write(*,*) ' - - - - - - - - - - - - - - - - - -'
 
-    call generate_k_space_grid(.true.)
-    call read_profiles(.true.)
-    call calculate_equil(.true.)
-    call calc_backs(.true.)
+    call generate_k_space_grid(.false.)
+    call read_profiles(reduce_r)
 
-    !write(*,*) plasma_Z(z) 
+    ! calculate equilibrium B field and J
+    call calculate_equil(.true.)
+
+    ! calculate quantities used for the kernels, e.g. A1, A2, dndr, omega_c,...
+    call calc_backs(.true.)
     
+    ! calculate kernels
     call kernel_rho_phi(.true.)
     call kernel_rho_B(.true.)
 
-    !deallocate(r_prof)
 
 end program

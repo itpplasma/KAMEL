@@ -27,7 +27,7 @@ subroutine read_profiles(reduce)
         integer :: ios
         character(256) :: fileloc, cwd
 
-        if (fstatus == 1) write(*,*) 'Status: Reading profiles from text files'
+        if (fstatus == 1) write(*,*) 'Status: Reading profiles from text files, reduce=', reduce
 
         !call find_file_length(trim(profile_location)//'n.dat', iprof_length)
 
@@ -152,7 +152,7 @@ subroutine read_profiles(reduce)
 
 
         step_h = (r_prof(iprof_length) - r_prof(1)) / reduced_r_dim ! new step size
-        write(*,*) 'step_h = ', step_h
+        !write(*,*) 'step_h = ', step_h
         !write(*,*) 'r_prof = ', r_prof
         new_r_prof(1) = r_prof(1)
 

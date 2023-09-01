@@ -14,6 +14,7 @@ set(KIM_subs read_profiles.f90
              calculate_equil.f90
              grid.f90
              plasma_disp_func.f90
+             kernel_mod.f90
              math/bessel.f90
              math/bessk.f90
              math/use_libcerf_mod.f90)

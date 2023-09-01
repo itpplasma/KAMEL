@@ -16,6 +16,7 @@
  Zi			 = 1,           ! ion charge number
  Ai			 = 2,           ! ion mass number
  k_space_dim = 100 ,        ! dimension of kr space
+ reduce_r    = .true. ,		! if true reduces r dim of input profiles
  reduced_r_dim = 300 ,      ! reduced radial dim of initial profiles
  omega       = 1e3 ,	    ! perturbation frequency
 /

@@ -253,7 +253,7 @@ subroutine calc_plas_parameter_derivs
     integer :: sigma
 
     if (.not. allocated(dndr_prof)) then
-        write(*,*) 'dndr not allocated'
+        !write(*,*) 'dndr not allocated'
         allocate(dndr_prof(iprof_length), dTedr_prof(iprof_length), dTidr_prof(ispecies,iprof_length), &
         dqdr_prof(iprof_length), dnidr_prof(ispecies, iprof_length))
     end if

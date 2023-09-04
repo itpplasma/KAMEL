@@ -1,20 +1,21 @@
-set(KIM_mods plas_parameter_mod.f90 
-             config_mod.f90 
-             constants_mod.f90
-             setup_mod.f90
-             grid_mod.f90
-             back_quants_mod.f90
-             equil_mod.f90)
+set(KIM_mods modules/plas_parameter_mod.f90 
+             modules/config_mod.f90 
+             modules/constants_mod.f90
+             modules/setup_mod.f90
+             modules/grid_mod.f90
+             modules/back_quants_mod.f90
+             modules/kernel_mod.f90
+             modules/equil_mod.f90)
 
 set(KIM_subs read_profiles.f90
              plag_coeff.f90
              kernel_rho_phi.f90
              kernel_rho_B.f90
-             calc_backs.f90
+             calculate_backs.f90
              calculate_equil.f90
              grid.f90
              plasma_disp_func.f90
-             kernel_mod.f90
+             spline_function.f90
              math/bessel.f90
              math/bessk.f90
              math/use_libcerf_mod.f90)

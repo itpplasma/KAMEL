@@ -81,6 +81,10 @@ subroutine kernel_rho_B(write_out)
             implicit none
             integer :: i,j
 
+            inquire(file=trim(output_path)//'kernel', exist=ex)
+            if (.not. ex) then
+                call system('mkdir -p '//trim(output_path)//'kernel')
+            end if
             open(unit=77, file=trim(output_path)//'kernel/K_rho_B_kr_im.dat')
             open(unit=78, file=trim(output_path)//'kernel/K_rho_B_kr_re.dat')
             do i=1,k_space_dim

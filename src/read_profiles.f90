@@ -210,6 +210,11 @@ subroutine read_profiles(reduce)
 
         if (fstatus == 1) write(*,*) 'Status: writing profiles to output_path'
 
+        inquire(file=trim(output_path)//'profiles', exist=ex)
+        if (.not. ex) then
+            call system('mkdir -p '//trim(output_path)//'profiles')
+        end if
+
         open(11, file=trim(output_path)//'profiles/n.dat')
         do i=1,iprof_length
             write(11, *) r_prof(i), n_prof(i)

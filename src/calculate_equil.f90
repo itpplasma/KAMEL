@@ -136,6 +136,11 @@ subroutine calculate_equil(write_out)
             if (hdf5_output) then
 
             else
+
+                inquire(file=trim(output_path)//'backs', exist=ex)
+                if (.not. ex) then
+                    call system('mkdir -p '//trim(output_path)//'backs')
+                end if
                 open(unit = 78, file = trim(output_path)//'backs/'//'B0z.dat')
                 open(unit = 80, file = trim(output_path)//'backs/'//'B0th.dat')
                 open(unit = 81, file = trim(output_path)//'backs/'//'B0.dat')

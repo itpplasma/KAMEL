@@ -19,4 +19,6 @@
  reduce_r    = .true. ,		! if true reduces r dim of input profiles
  reduced_r_dim = 300 ,      ! reduced radial dim of initial profiles
  omega       = 1e3 ,	    ! perturbation frequency
+ spline_base = 1 ,          ! spline base functions: 1 - hat functions
+ grid_spacing= 1 ,          ! grid spacing of new grid: 1 - equidistant, 2 - non-equidistant, more points at rational surface
 /

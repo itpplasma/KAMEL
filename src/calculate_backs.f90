@@ -4,7 +4,7 @@
 !
 ! Comments: Formulas from the Coulomb logarithms and the collision frequencies
 ! are from the 2019 NRL Formulary
-subroutine calc_backs(write_out)
+subroutine calculate_backs(write_out)
 
     use back_quants
     use grid
@@ -120,6 +120,11 @@ subroutine calc_backs(write_out)
         if (hdf5_output) then
             ! write to hdf5
         else
+
+            inquire(file=trim(output_path)//'backs', exist=ex)
+            if (.not. ex) then
+                call system('mkdir -p '//trim(output_path)//'backs')
+            end if
             ! write to text files
             open(unit = 78, file = trim(output_path)//'backs/'//'vTe.dat')
             open(unit = 79, file = trim(output_path)//'backs/'//'nue.dat')

@@ -1,0 +1,84 @@
+subroutine calculate_fourier_trans_spline_funcs(write_out)
+
+    use constants, only: com_unit
+    use grid
+    use config, only: output_path
+    use plas_parameter, only: r_prof, iprof_length
+
+    implicit none
+    integer :: i,n
+    logical, intent(in) :: write_out
+
+    allocate(varphi_lkr(k_space_dim, iprof_length))
+
+    if (spline_base == 1) then
+        if (grid_spacing == 1) then
+        ! equidistant
+            do i=1, k_space_dim
+                do n =1, iprof_length-1
+                    varphi_lkr(i,n) = FT_hat_function_e(r_prof(n), r_prof(n+1), kr(i))
+                end do
+            end do
+
+        elseif(grid_spacing == 2) then
+        ! non-equidistant, more points around rational surface
+            do i=1, k_space_dim
+                do n =2, iprof_length-2
+                    varphi_lkr(i,n) = FT_hat_function_ne(r_prof(n), r_prof(n-1), r_prof(n+1), &
+                                                        r_prof(n+2), kr(i))
+                end do
+            end do
+        end if
+    end if
+
+    if (write_out) call write_FT_varphi
+
+    contains
+
+    ! varphi_{l,k_r} for non-equidistant grid
+    double complex function FT_hat_function_ne(xl, xlm1, xlp1, xlp2, krr) result (res)
+
+        implicit none
+        double precision, intent(in) :: xl, xlm1, xlp1, xlp2, krr
+
+        res = exp(- com_unit * krr * xl) * ((xlp1-xl) * (1- exp(com_unit * krr * (xl-xlm1))) + &
+        (xl-xlm1) * (1+com_unit * krr * (xlp1 - xl - xlp2 - xlp1) - exp(-com_unit * krr * (xlp2 - xlp1)))) / &
+        ((xlp1 - xl) * (xl - xlm1) * krr**2)
+
+    end function
+
+
+    ! varphi_{l,k_r} for equidistant grid
+    double complex function FT_hat_function_e(xl, xlp1, krr) result (res)
+
+        implicit none
+        double precision, intent(in) :: xl, xlp1, krr
+
+        res = 2 * exp(-com_unit * krr * xl) * (1 - cos((xlp1 - xl) * krr)) / ((xlp1 - xl) * krr**2)
+
+    end function
+
+
+    subroutine write_FT_varphi
+
+        implicit none
+        logical :: ex
+
+        inquire(file=trim(output_path)//'basis_transform', exist=ex)
+        if (.not. ex) then
+            call system('mkdir -p '//trim(output_path)//'basis_transform')
+        end if
+        open(unit = 77, file=trim(output_path)//'basis_transform/varphi_re.dat')
+        open(unit = 78, file=trim(output_path)//'basis_transform/varphi_im.dat')
+        do i=1, k_space_dim
+            do n=1, iprof_length
+                write(77,*) real(varphi_lkr(i,n))
+                write(78,*) dimag(varphi_lkr(i,n))
+            end do
+        end do
+        close(77)
+        close(78)
+
+    end subroutine
+
+end subroutine

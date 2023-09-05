@@ -16,6 +16,7 @@ set(KIM_subs read_profiles.f90
              grid.f90
              plasma_disp_func.f90
              spline_function.f90
+             basis_transform_kernel.f90
              math/bessel.f90
              math/bessk.f90
              math/use_libcerf_mod.f90)

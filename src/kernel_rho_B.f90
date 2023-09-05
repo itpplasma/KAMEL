@@ -80,6 +80,7 @@ subroutine kernel_rho_B(write_out)
 
             implicit none
             integer :: i,j
+            logical :: ex
 
             inquire(file=trim(output_path)//'kernel', exist=ex)
             if (.not. ex) then

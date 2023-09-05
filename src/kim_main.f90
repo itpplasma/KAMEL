@@ -17,7 +17,7 @@ program kim_main
 
     namelist /KIM_SETUP/ btor, R0, m_mode, n_mode, Zi, Ai, k_space_dim, &
                         reduce_r, reduced_r_dim, omega, spline_base, &
-                        grid_spacing
+                        grid_spacing, l_space_dim
 
     open(unit = 77, file = './nmls/KIM_config.nml')
     read(unit = 77, nml = KIM_CONFIG)
@@ -47,12 +47,16 @@ program kim_main
     write(*,*) '  Zi               = ', Zi
     write(*,*) '  Ai               = ', Ai
     write(*,*) '  k_space_dim      = ', k_space_dim
+    write(*,*) '  l_space_dim      = ', l_space_dim
     write(*,*) '  reduce_r         = ', reduce_r
     write(*,*) '  reduced_r_dim    = ', reduced_r_dim
     write(*,*) '  omega            = ', omega
     write(*,*) '  spline_base      = ', spline_base
     write(*,*) '  grid_spacing     = ', grid_spacing
     write(*,*) ' - - - - - - - - - - - - - - - - - -'
+
+    ! for the moment:
+    l_space_dim = reduced_r_dim
 
     call generate_k_space_grid(.false.)
     call read_profiles(reduce_r)
@@ -64,10 +68,11 @@ program kim_main
     call calculate_backs(.true.)
     
     ! calculate kernels
-    !call kernel_rho_phi(.true.)
-    !call kernel_rho_B(.true.)
+    call kernel_rho_phi(.true.)
+    call kernel_rho_B(.true.)
 
     call calculate_fourier_trans_spline_funcs(.true.)
 
+    call basis_transform_kernel(.true.)
 
 end program

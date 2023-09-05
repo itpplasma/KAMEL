@@ -207,6 +207,7 @@ subroutine read_profiles(reduce)
 
         implicit none
         integer :: i
+        logical :: ex
 
         if (fstatus == 1) write(*,*) 'Status: writing profiles to output_path'
 

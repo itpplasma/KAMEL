@@ -1,3 +1,6 @@
+! Subroutine to calculate the Fourier transformed spline functions
+! For the spline functions, hat functions are used, where the Fourier
+! transform was determined analytically
 subroutine calculate_fourier_trans_spline_funcs(write_out)
 
     use constants, only: com_unit
@@ -12,6 +15,7 @@ subroutine calculate_fourier_trans_spline_funcs(write_out)
     allocate(varphi_lkr(k_space_dim, iprof_length))
 
     if (spline_base == 1) then
+        ! hat functions
         if (grid_spacing == 1) then
         ! equidistant
             do i=1, k_space_dim
@@ -41,9 +45,13 @@ subroutine calculate_fourier_trans_spline_funcs(write_out)
         implicit none
         double precision, intent(in) :: xl, xlm1, xlp1, xlp2, krr
 
-        res = exp(- com_unit * krr * xl) * ((xlp1-xl) * (1- exp(com_unit * krr * (xl-xlm1))) + &
-        (xl-xlm1) * (1+com_unit * krr * (xlp1 - xl - xlp2 - xlp1) - exp(-com_unit * krr * (xlp2 - xlp1)))) / &
-        ((xlp1 - xl) * (xl - xlm1) * krr**2)
+        if (krr == 0) then ! analytical limit
+            res = 0.0d0
+        else 
+            res = exp(- com_unit * krr * xl) * ((xlp1-xl) * (1- exp(com_unit * krr * (xl-xlm1))) + &
+            (xl-xlm1) * (1+com_unit * krr * (2.0d0 * xlp1 - xl - xlp2) - exp(-com_unit * krr * (xlp2 - xlp1)))) / &
+            ((xlp1 - xl) * (xl - xlm1) * krr**2)
+        end if
 
     end function
 
@@ -54,10 +62,13 @@ subroutine calculate_fourier_trans_spline_funcs(write_out)
         implicit none
         double precision, intent(in) :: xl, xlp1, krr
 
-        res = 2 * exp(-com_unit * krr * xl) * (1 - cos((xlp1 - xl) * krr)) / ((xlp1 - xl) * krr**2)
+        if (krr == 0) then ! analytical limit
+            res = 0.0d0
+        else
+            res = 2 * exp(-com_unit * krr * xl) * (1 - cos((xlp1 - xl) * krr)) / ((xlp1 - xl) * krr**2)
+        end if
 
     end function
-
 
     subroutine write_FT_varphi
 

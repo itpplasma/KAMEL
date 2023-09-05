@@ -130,6 +130,7 @@ subroutine calculate_equil(write_out)
 
             implicit none
             character(1024) :: filename
+            logical :: ex
 
             if(fstatus == 1) write(*,*) 'Status: Writing equilibrium'
 

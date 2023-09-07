@@ -67,12 +67,13 @@ program kim_main
     ! calculate quantities used for the kernels, e.g. A1, A2, dndr, omega_c,...
     call calculate_backs(.true.)
     
+    !call generate_l_space_grid
     ! calculate kernels
     call kernel_rho_phi(.true.)
     call kernel_rho_B(.true.)
 
-    call calculate_fourier_trans_spline_funcs(.true.)
+    !call calculate_fourier_trans_spline_funcs(.true.)
 
-    call basis_transform_kernel(.true.)
+    !call basis_transform_kernel(.true.)
 
 end program

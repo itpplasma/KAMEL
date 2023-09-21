@@ -15,7 +15,7 @@ subroutine kernel_rho_phi(write_out)
     double complex :: besselI ! complex bessel function from bessel.f90
     double complex :: plasma_Z ! plasma dispersion function
 
-    integer :: npoi_der, nder
+    integer :: nder
     double precision, dimension(:,:), allocatable :: coef
     double precision, dimension(:), allocatable :: x
 

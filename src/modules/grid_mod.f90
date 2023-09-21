@@ -12,5 +12,18 @@ module grid
     double precision, dimension(:), allocatable :: krp ! radial wavenumber prime
 
     double complex, dimension(:,:), allocatable :: varphi_lkr
+
+    integer :: npoib, npoic, npoi_der, nbaleqs, neqset, iboutype
+    integer :: mwind
+    double precision :: rmin,rmax
+    double precision :: gg_factor = 50
+    double precision :: gg_width = 2 
+    double precision :: gg_r_res = 95.34
+    double precision :: rb_cut_in, re_cut_in, rb_cut_out, re_cut_out
+    integer,          dimension(:),   allocatable :: ipbeg, ipend
+    double precision, dimension(:),   allocatable :: rb, rc, Sb, Sc
+    double precision, dimension(:),   allocatable :: y, dery, dery_equisource
+    double precision, dimension(:),   allocatable :: r_resonant
+    double precision, dimension(:,:), allocatable :: deriv_coef, reint_coef
     
 end module

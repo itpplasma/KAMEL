@@ -1,325 +1,350 @@
 !
-  subroutine gengrid(npoimin)
-!
+  subroutine gengrid(npoimin, write_out)
+
 ! Generates the grid for two types of boundary conditions at the outer
 ! boundary: iboutype=1 - fixed parameters, iboutype=2 - fixed fluxes
 ! At the inner boundary fixed fluxes = 0 are always assumed
-!
-  use grid_mod
-  use control_mod, only: debug_mode
-!
-  implicit none
-!
-  integer :: npoimin,ipoib,nder,ipb,ipe
-  double precision :: hrmax,r,rnext,recnsp,rscale
-  double precision, dimension(:),   allocatable :: x
-  double precision, dimension(:,:), allocatable :: coef
-!
-  if (debug_mode) write(*,*) "Debug: coming in gengrid"
-  nbaleqs=4
-!
-  nder=1
-  npoi_der=4
-  allocate(x(npoi_der),coef(0:nder,npoi_der))
-!
-  hrmax=(rmax-rmin)/(npoimin+1)
-!
-  npoib=1
-  r=rmin
-!
-  do while(r.lt.rmax)
-    !if (debug_mode) print *, 'npoib: ', npoib
-    call recnsplit(r,recnsp)
-    rnext=r+hrmax/recnsp
-    call recnsplit(rnext,recnsp)
-    r=0.5d0*(rnext+r+hrmax/recnsp)
-    !if (debug_mode) print *, 'r: ', r
-    npoib=npoib+1
-  enddo
-  npoic=npoib-1
-!
-  allocate(rb(npoib),rc(npoic))
-  allocate(Sb(npoib),Sc(npoic))
-!
-  r=rmin
-  rb(1)=r
-!
-  do ipoib=2,npoib
-    call recnsplit(r,recnsp)
-    rnext=r+hrmax/recnsp
-    call recnsplit(rnext,recnsp)
-    r=0.5d0*(rnext+r+hrmax/recnsp)
-    rb(ipoib)=r
-    rc(ipoib-1)=0.5*(rb(ipoib-1)+rb(ipoib))
-  enddo
-!
-  if(iboutype.eq.1) then
-    rscale=(rmax-rmin)/(rc(npoic)-rmin)
-  else
-    rscale=(rmax-rmin)/(rb(npoib)-rmin)
-  endif
+
+    use grid
+    use config, only: fdebug, output_path
+    use plas_parameter, only: r_prof
+
+    implicit none
+
+    integer, intent(in) :: npoimin
+    logical, intent(in) :: write_out
+    integer :: ipoib, nder, ipb, ipe
+    double precision :: hrmax, r, rnext, recnsp, rscale
+    double precision, dimension(:),   allocatable :: x
+    double precision, dimension(:,:), allocatable :: coef
+
+    if (fdebug == 1) write(*,*) "Debug: coming in gengrid"
+    nbaleqs=4
+
+    nder=1
+    npoi_der=4
+    allocate(x(npoi_der),coef(0:nder,npoi_der))
+
+    rmin = minval(r_prof)
+    rmax = maxval(r_prof)
+
+
+    hrmax = (rmax - rmin)/(npoimin+1)
+
+    npoib = 1
+    r = rmin
+
+    do while(r .lt. rmax)
+        call recnsplit(r,recnsp)
+        rnext = r + hrmax / recnsp
+        call recnsplit(rnext,recnsp)
+        r = 0.5d0 * (rnext + r + hrmax / recnsp)
+        npoib= npoib + 1
+    enddo
+
+    npoic = npoib - 1
+
+    allocate(rb(npoib), rc(npoic))
+    allocate(Sb(npoib), Sc(npoic))
+
+    r = rmin
+    rb(1) = r
+
+    do ipoib=2,npoib
+        call recnsplit(r,recnsp)
+        rnext = r + hrmax / recnsp
+        call recnsplit(rnext,recnsp)
+        r = 0.5d0 * (rnext + r + hrmax / recnsp)
+        rb(ipoib) = r
+        rc(ipoib-1) = 0.5 * (rb(ipoib-1) + rb(ipoib))
+    enddo
+
+    if(iboutype .eq. 1) then
+        rscale = (rmax - rmin) / (rc(npoic) - rmin)
+    else
+        rscale = (rmax - rmin) / (rb(npoib) - rmin)
+    endif
   !rb=rmin+rscale*(rb-rmin)
   !rc=rmin+rscale*(rc-rmin)
-!
-  if(npoi_der.gt.npoic) then
-    print *,'gengrid : not enough grid points for derivatives'
-    stop
-  endif
-!
-  allocate(deriv_coef(npoi_der,npoib),ipbeg(npoib),ipend(npoib))
-  allocate(reint_coef(npoi_der,npoib))
-!
-  do ipoib=1,npoib
-    ipb=ipoib-npoi_der/2
-    ipe=ipb+npoi_der-1
-    if(ipb.lt.1) then
-      ipb=1
-      ipe=ipb+npoi_der-1
-    elseif(ipe.gt.npoic) then
-      ipe=npoic
-      ipb=ipe-npoi_der+1
-    endif
-    ipbeg(ipoib)=ipb
-    ipend(ipoib)=ipe
-    call plag_coeff(npoi_der,nder,rb(ipoib),rc(ipb:ipe),coef)
-    deriv_coef(:,ipoib)=coef(1,:)
-    reint_coef(:,ipoib)=coef(0,:)
-  enddo
-!
-  deallocate(coef)
-!
-  allocate(params(nbaleqs,npoic),dot_params(nbaleqs,npoic))
-  allocate(params_b(nbaleqs,npoib),ddr_params(nbaleqs,npoib),ddr_params_nl(nbaleqs,npoib))
-  allocate(params_lin(nbaleqs,npoic),params_b_lin(nbaleqs,npoib))
-  allocate(fluxes_dif(nbaleqs,npoib),fluxes_con(nbaleqs,npoib),fluxes_con_nl(nbaleqs,npoib))
-!
-  if(iboutype.eq.1) then
-    neqset=nbaleqs*(npoic-1)
-  else
-    neqset=nbaleqs*npoic
-  endif
-  allocate(y(neqset),dery(neqset),dery_equisource(neqset))
-  allocate(alpha(neqset*neqset))
-  allocate(source_term(neqset))
-!
-  allocate(dae11(npoib),dae12(npoib),dae22(npoib))
-  allocate(dai11(npoib),dai12(npoib),dai22(npoib))
-  allocate(dni22(npoib),visca(npoib))
-  allocate(dqle11(npoib),dqle12(npoib),dqle21(npoib),dqle22(npoib))
-  allocate(dqli11(npoib),dqli12(npoib),dqli21(npoib),dqli22(npoib))
-  allocate(de11(npoib),de12(npoib),de21(npoib),de22(npoib))
-  allocate(di11(npoib),di12(npoib),di21(npoib),di22(npoib))
-  allocate(polforce(npoib),qlheat_e(npoib),qlheat_i(npoib))
-!
-  dni22=0.d0
-!
-  allocate(cneo(npoib),gpp_av(npoib))
-  allocate(qsafb(npoib),qsaf(npoic))
-  allocate(sqg_bthet_overc(npoib),Ercov(npoib),sqg_bthet_overcavg(npoib), &
-      Ercovavg(npoib))
-  allocate(Ercov_lin(npoib))
-!
 
-  if (debug_mode) write(*,*) "Debug: going out in gengrid"
-  return
-  end subroutine gengrid
+    if(npoi_der .gt. npoic) then
+        write(*,*) '! Error : not enough grid points for derivatives'
+        stop
+    endif
+
+  allocate(deriv_coef(npoi_der, npoib), ipbeg(npoib), ipend(npoib))
+  allocate(reint_coef(npoi_der, npoib))
+
+    do ipoib = 1, npoib
+        ipb = ipoib - npoi_der / 2
+        ipe = ipb + npoi_der - 1
+        if(ipb .lt. 1) then
+            ipb = 1
+            ipe = ipb + npoi_der - 1
+        elseif(ipe .gt. npoic) then
+          ipe = npoic
+          ipb = ipe - npoi_der + 1
+        endif
+        ipbeg(ipoib) = ipb
+        ipend(ipoib) = ipe
+        call plag_coeff(npoi_der, nder, rb(ipoib), rc(ipb:ipe), coef)
+        deriv_coef(:, ipoib) = coef(1,:)
+        reint_coef(:, ipoib) = coef(0,:)
+    enddo
+
+    deallocate(coef)
+
+  !allocate(params(nbaleqs,npoic),dot_params(nbaleqs,npoic))
+  !allocate(params_b(nbaleqs,npoib),ddr_params(nbaleqs,npoib),ddr_params_nl(nbaleqs,npoib))
+  !allocate(params_lin(nbaleqs,npoic),params_b_lin(nbaleqs,npoib))
+  !allocate(fluxes_dif(nbaleqs,npoib),fluxes_con(nbaleqs,npoib),fluxes_con_nl(nbaleqs,npoib))
+
+    if(iboutype.eq.1) then
+        neqset=nbaleqs*(npoic-1)
+    else
+      neqset=nbaleqs*npoic
+    endif
+  !allocate(y(neqset),dery(neqset),dery_equisource(neqset))
+  !allocate(alpha(neqset*neqset))
+  !allocate(source_term(neqset))
+
+  !allocate(dae11(npoib),dae12(npoib),dae22(npoib))
+  !allocate(dai11(npoib),dai12(npoib),dai22(npoib))
+  !allocate(dni22(npoib),visca(npoib))
+  !allocate(dqle11(npoib),dqle12(npoib),dqle21(npoib),dqle22(npoib))
+  !allocate(dqli11(npoib),dqli12(npoib),dqli21(npoib),dqli22(npoib))
+  !allocate(de11(npoib),de12(npoib),de21(npoib),de22(npoib))
+  !allocate(di11(npoib),di12(npoib),di21(npoib),di22(npoib))
+  !allocate(polforce(npoib),qlheat_e(npoib),qlheat_i(npoib))
+
+  !dni22=0.d0
+
+  !allocate(cneo(npoib),gpp_av(npoib))
+  !allocate(qsafb(npoib),qsaf(npoic))
+  !allocate(sqg_bthet_overc(npoib),Ercov(npoib),sqg_bthet_overcavg(npoib), &
+  !    Ercovavg(npoib))
+  !allocate(Ercov_lin(npoib))
+
+
+    if (write_out) call write_new_grid
+
+    if (fdebug == 1) write(*,*) "Debug: going out in gengrid"
+
+
+    contains
+
+    subroutine write_new_grid
+
+        implicit none
+        integer :: i
+        logical :: ex
+
+        inquire(file = trim(output_path)//'grid', exist = ex)
+        if (.not. ex) then
+            call system('mkdir -p '//trim(output_path)//'grid')
+        end if
+
+        open(unit = 77, file=trim(output_path)//'grid/rb.dat')
+        do i = 1, npoib
+            write(77,*) i, rb(i)
+        end do
+        close(77)
+
+        open(unit = 78, file=trim(output_path)//'grid/rc.dat')
+        do i = 1, npoic
+            write(78,*) i, rc(i)
+        end do
+        close(78)
+
+    end subroutine
+
+end subroutine gengrid
+
+
+
+
 !
 !ccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
 !
   subroutine geomparprof
 !
-  use grid_mod
-  use baseparam_mod
+  use grid
+  use setup, only: R0
 !
   implicit none
 !
   integer :: ipoi
   double precision :: cneo_0,coullog,om_ci
 !
-  Sb=rb
-  Sc=rc
-  gpp_av=rtor**2
+  !Sb=rb
+  !Sc=rc
+  !gpp_av=R0**2
 !
-  coullog=15.d0
-  om_ci=Z_i*e_charge*btor/(am*p_mass*c)
+  !coullog=15.d0
+  !om_ci=Z_i*e_charge*btor/(am*p_mass*c)
 !  print *,'om_ci = ',om_ci
-  cneo_0=1.32*4.d0*sqrt(pi)*Z_i**3*e_charge**4*coullog &
-        /(3.d0*(am*p_mass)**1.5d0*om_ci**2)
-  do ipoi=1,npoib
-    qsafb(ipoi)=sum(qsaf(ipbeg(ipoi):ipend(ipoi))*reint_coef(:,ipoi))
-    cneo(ipoi)=(rtor/rb(ipoi))**1.5d0*qsafb(ipoi)**2*cneo_0
-    sqg_bthet_overc(ipoi)=btor*rb(ipoi)/qsafb(ipoi)/c
-  enddo
+  !cneo_0=1.32*4.d0*sqrt(pi)*Z_i**3*e_charge**4*coullog &
+  !      /(3.d0*(am*p_mass)**1.5d0*om_ci**2)
+  !do ipoi=1,npoib
+  !  qsafb(ipoi)=sum(qsaf(ipbeg(ipoi):ipend(ipoi))*reint_coef(:,ipoi))
+  !  cneo(ipoi)=(R0/rb(ipoi))**1.5d0*qsafb(ipoi)**2*cneo_0
+  !  sqg_bthet_overc(ipoi)=btor*rb(ipoi)/qsafb(ipoi)/c
+  !enddo
 !
   end subroutine geomparprof
 !
 !ccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
 !
-  subroutine recnsplit(r,recnsp)
+subroutine recnsplit(r,recnsp)
 
-  use resonances_mod
+    use resonances_mod
 !  use grid_mod, only: gg_width, gg_factor, gg_r_res;
 !
-  implicit none;
+    implicit none;
 !
-  logical :: prop=.true.
-  integer :: k
-  double precision :: r, recnsp;
+    logical :: prop=.true.
+    integer :: k
+    double precision :: r, recnsp;
 !
-  if(prop) then
-    prop=.false.
-    call prepare_resonances
-  endif
+    if(prop) then
+        prop=.false.
+        call prepare_resonances
+    endif
 !
 !  recnsp = 1.d0 + gg_factor*exp(-((r-gg_r_res)/gg_width)**2);
-  recnsp = 1.d0
-  do k=1,numres
-    recnsp = recnsp + ampl_res(k)*exp(-((r-r_res(k))/width_res(k))**2)
-  enddo
+    recnsp = 1.d0
+  !do k=1,numres
+    recnsp = recnsp +  ampl_res * exp(-((r - r_res) / width_res)**2)
+  !recnsp = recnsp + ampl_res(k)*exp(-((r-r_res(k))/width_res(k))**2)
+  !enddo
 !
-  return
-  end subroutine recnsplit
+    return
+end subroutine recnsplit
 !
 !ccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
 !
-  subroutine prepare_resonances
-!
-  use resonances_mod
-  use grid_mod, only: gg_width, gg_factor,r_resonant
-  use control_mod, only: ihdf5test, debug_mode
-  use h5mod
-  use mpi
-!
-  implicit none
-!
-  integer :: m,n,i,j,k,nr,jj,numres_orig,irank
-  double precision :: qres,qmin,qmax
-  complex :: a
-  integer, dimension(:), allocatable :: m_a,n_a
-  integer, dimension(:), allocatable :: m_aa,n_aa
-  double precision, dimension(:), allocatable :: r,q
-  integer :: lb, ub
-!
-  iunit_res=157
-!
-  ! added by Markus Markl, 08.04.2021
-  if (ihdf5test .eq. 1) then
-    if (debug_mode) write(*,*) "reading q from hdf5"
-    CALL h5_init()
-    CALL h5_open_rw(path2inp, h5_id)
-    CALL h5_open_group(h5_id, '/preprocprof', group_id_1)
-    CALL h5_get_bounds_1(group_id_1, 'q', lb, ub)
-    if (debug_mode) write(*,*) "upper bound: ", ub, " lower bound: ", lb
-    allocate(r(ub),q(ub))
-    CALL h5_get_double_1(group_id_1, 'q', q)
-    !print *, 'q: ', q
-    CALL h5_get_double_1(group_id_1, 'r_out', r)
-    !print *, 'r: ', r
-    CALL h5_close_group(group_id_1)
-    CALL h5_close(h5_id)
+subroutine prepare_resonances
 
-    CALL h5_deinit()
-    nr = ub
+    use resonances_mod
+    use grid, only: gg_width, gg_factor,r_resonant
+    use config, only: hdf5_output, fdebug
+    use setup, only: m_mode, n_mode
+    use plas_parameter, only: iprof_length, r_prof, q_prof
+    !use h5mod
+    !use mpi
 
-  else
-    if (debug_mode) print *, "get number of q data points"
-    nr=0
-    open(iunit_res,file='profiles/q.dat')
-    do
-      read(iunit_res,*,end=1)
-      nr=nr+1
-    enddo
-    1 continue
-    close(iunit_res)
-    allocate(r(nr),q(nr))
+    implicit none
 
-    if (debug_mode) print *, "reading profiles/q.dat"
-    open(iunit_res,file='profiles/q.dat')
-    do i=1,nr
-      read(iunit_res,*) r(i),q(i)
-    enddo
-    close(iunit_res)
-  end if
-  q=abs(q)
-  qmin=minval(q)
-  qmax=maxval(q)
-!
-  open(iunit_res,file='flre/antenna.in')
-  read(iunit_res,*)
-  read(iunit_res,*)
-  read(iunit_res,*)
-  read(iunit_res,*)
-  read(iunit_res,*)
-  read(iunit_res,*) numres
-  close(iunit_res)
-  if (debug_mode) write(*,*) "numres = ", numres
-!
-  allocate(r_res(numres),width_res(numres),ampl_res(numres))
-  allocate(r_resonant(numres))
-  width_res=gg_width
-  ampl_res=gg_factor
-  allocate(m_a(numres),n_a(numres))
-  allocate(m_aa(numres),n_aa(numres))
-  numres_orig=numres
-!
-  open(iunit_res,file='flre/modes.in')
-  k=1
-  jj=1
-  read(iunit_res,*) a
-  m=-abs(nint(real(a)))
-  n=abs(nint(imag(a)))
-  m_a(k)=m
-  n_a(k)=n
-  m_aa(jj)=m
-  n_aa(jj)=n
-  r_res(k)=abs(dfloat(m)/dfloat(n))
-  outer: do i=2,numres
-    read(iunit_res,*) a
-write(*,*) "This is read in from modes.in ", a
-    m=-abs(nint(real(a)))
-    n=abs(nint(imag(a)))
-    qres=abs(dfloat(m)/dfloat(n))
-!check for existence of resonant point:
-    if(qres.lt.qmin.or.qres.gt.qmax) cycle
-!check for repeated resonance radii:
-    jj=jj+1
-    m_aa(jj)=m
-    n_aa(jj)=n
-    do j=1,k
-      if(m*n_a(j)-n*m_a(j).eq.0) cycle outer
-    enddo
-    k=k+1
-    m_a(k)=m
-    n_a(k)=n
-    r_res(k)=qres
-  enddo outer
-  close(iunit_res)
-  numres=k
-!
-  do i=1,numres
-    qres=r_res(i)
-    do j=2,nr
-      if(qres.gt.q(j-1).and.qres.lt.q(j)) then
-        r_res(i)=(r(j-1)*(q(j)-qres)+r(j)*(qres-q(j-1)))/(q(j)-q(j-1))
+    integer :: j
+    double precision :: qres,qmin,qmax
+    double precision, dimension(:), allocatable :: q
+    integer :: lb, ub
+
+    iunit_res=157
+
+    allocate(q(iprof_length))
+
+    q = abs(q_prof)
+    qmin = minval(q)
+    qmax = maxval(q)
+
+    width_res = gg_width
+
+    ampl_res = gg_factor
+
+    qres = abs(dfloat(m_mode)/dfloat(n_mode))
+    if(qres.lt.qmin.or.qres.gt.qmax) write(*,*) "Resonance location not found in q"
+
+    r_res = qres
+
+    do j=2,iprof_length
+      if(qres .gt. q(j-1) .and. qres .lt. q(j)) then
+        r_res = (r_prof(j-1) * (q(j) - qres) + r_prof(j) * (qres-q(j-1))) / (q(j)-q(j-1))
         exit
       endif
     enddo
-  enddo
-  if (irank .eq. 0 ) then
-    print *,'gengrid: number of resonance points = ',numres
-    print *,'resonant radii: ',r_res(1:numres)
-  endif
-!
-  do i=1,numres_orig
-    do j=1,numres
-      if(m_aa(i)*n_a(j)-n_aa(i)*m_a(j).eq.0) r_resonant(i)=r_res(j)
-    enddo
-  enddo
-  if (irank .eq. 0 ) then
-    print *,'resonant radii for all modes: ',r_resonant(1:numres_orig)
-  endif
-  
-!
-  deallocate(m_a,n_a,r,q)
-!
-  end subroutine prepare_resonances
+
+    write(*,*) 'resonant radius: ',r_res
+
+end subroutine prepare_resonances
+
+
+! generate grid for spline function space
+subroutine generate_l_space_grid
+
+    use plas_parameter
+    use back_quants
+    use setup
+
+    implicit none
+    integer :: ind, ibeg, iend
+    integer :: nlagr = 4
+    integer :: nder = 0
+    double precision, dimension(:,:), allocatable :: coef
+    double precision :: r_res
+    double precision :: q_res
+
+    if(.not. allocated(coef)) allocate(coef(0:nder, nlagr))
+
+    q_res = -dble(m_mode) / dble(n_mode)
+    write(*,*) q_res
+    ! find center, i.e. rational surface
+    call binsrc(abs(q_prof), 1, iprof_length, abs(q_res), ind)
+    ibeg = max(1, ind - nlagr/2)
+    iend = ibeg + nlagr - 1
+    if (iend .gt. iprof_length) then
+        iend = iprof_length
+        ibeg = iend - nlagr + 1
+    end if
+
+    call plag_coeff(nlagr, nder, q_res, q_prof(ibeg:iend), coef)
+
+    r_res = sum(coef(0,:) * r_prof(ibeg:iend))
+    write(*,*) r_res
+
+end subroutine
+
+subroutine generate_k_space_grid(write_out)
+    
+    use grid
+    use setup
+    use config, only: output_path, fstatus
+
+    implicit none
+
+    integer :: i
+    logical, intent(in) :: write_out
+
+    if (fstatus == 1) write(*,*) 'Status: Generating k-space grid, write out=', write_out
+
+    allocate(kr(k_space_dim), krp(k_space_dim))
+
+    do i=1, k_space_dim
+        kr(i) = i
+        krp(i) = i
+    end do
+
+    ! center around zero
+    kr = kr - k_space_dim / 2d0
+    krp = (krp+0.1d0) - k_space_dim / 2d0
+
+    if (write_out) call write_k_space
+
+    contains
+
+        subroutine write_k_space
+
+            implicit none
+
+            open(unit = 78, file = trim(output_path)//'backs/kr.dat')
+            open(unit = 79, file = trim(output_path)//'backs/krp.dat')
+            do i = 1, k_space_dim
+                write(78,*) kr(i)
+                write(79,*) krp(i)
+            end do
+            close(78)
+            close(79)
+
+        end subroutine
+
+end subroutine

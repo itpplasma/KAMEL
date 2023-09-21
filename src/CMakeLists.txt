@@ -5,7 +5,8 @@ set(KIM_mods modules/plas_parameter_mod.f90
              modules/grid_mod.f90
              modules/back_quants_mod.f90
              modules/kernel_mod.f90
-             modules/equil_mod.f90)
+             modules/equil_mod.f90
+             modules/resonances_mod.f90)
 
 set(KIM_subs read_profiles.f90
              plag_coeff.f90
@@ -13,7 +14,7 @@ set(KIM_subs read_profiles.f90
              kernel_rho_B.f90
              calculate_backs.f90
              calculate_equil.f90
-             grid.f90
+             gengrid.f90
              plasma_disp_func.f90
              spline_function.f90
              basis_transform_kernel.f90

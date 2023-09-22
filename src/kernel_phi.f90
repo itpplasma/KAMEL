@@ -59,21 +59,18 @@ subroutine kernel_phi(write_out)
                     int_fac = 1.0d0
                 end if
                 
-                K_rho_phi(i,j) = K_rho_phi(i,j) + int_fac * omce(n) /(lambda_De(n)**2d0 * &
-                                vTe(n)) * exp(com_unit * (kr(i) - krp(j)) * r_prof(n)) * &
-                                ((sqrt(pi)/kp(n) * (plasma_Z(z0e(n)) * (a0 + sqrt(2d0) * &
-                                 vTe(n) * z0e(n) * a1 + vTe(n)**2 * a2 * 2 * z0e(n)**2) +&
-                                 vTe(n) * sqrt(2d0) * (a1 + vTe(n) * sqrt(2d0) * z0e(n) * a2))) &
-                                - sqrt(2d0 * pi) * vTe(n) / omce(n) &
-                                * (exp(-vTe(n)**2d0/(2d0 * omce(n)**2d0) * (krp(j) - kr(i))**2) &
-                                - exp(-eval_bp) * besselI(0, eval_bt, 0)))
+                K_rho_phi(i,j) = K_rho_phi(i,j) + int_fac * omce(n) /(lambda_De(n)**2d0 * vTe(n)) &
+                                * exp(com_unit * (kr(i) - krp(j)) * r_prof(n)) * ((sqrt(pi)/kp(n) * (plasma_Z(z0e(n)) &
+                                * (a0 + sqrt(2d0) * vTe(n) * z0e(n) * a1 + vTe(n)**2 * a2 * 2d0 * z0e(n)**2d0) + vTe(n) &
+                                * sqrt(2d0) * (a1 + vTe(n) * sqrt(2d0) * z0e(n) * a2))) - sqrt(2d0 * pi) * vTe(n) / omce(n) &
+                                * (exp(-vTe(n)**2d0/(2d0 * omce(n)**2d0) * (krp(j) - kr(i))**2d0) - exp(-eval_bp) &
+                                * besselI(0, eval_bt, 0)))
 
                 K_j_phi(i,j) = K_j_phi(i,j) + int_fac * omce(n) / (lambda_De(n)**2d0 * kp(n)) * exp(com_unit * (kr(i) - krp(j)) &
-                                * r_prof(n))* ((z0e(n) * plasma_Z(z0e(n)) + 1) * (a0 &
-                                + sqrt(2d0) * vTe(n) * z0e(n) * a1 + 2d0 * vTe(n) * z0e(n)**2d0 * a2) &
-                                + 2d0 * vTe(n) * a2 + ks(n) * vTe(n)**2d0 / (2d0 * omce(n)**2d0) * A2e(n) &
-                                * (exp(- vTe(n)**2d0 / (2d0 * omce(n)**2d0) * (krp(j)-kr(i))**2d0) & 
-                                - exp(- eval_bp) * besselI(0, eval_bt, 0))) 
+                                * r_prof(n))* ((z0e(n) * plasma_Z(z0e(n)) + 1d0) * (a0 + sqrt(2d0) * vTe(n) * z0e(n) * a1 &
+                                + 2d0 * vTe(n) * z0e(n)**2d0 * a2) + 2d0 * vTe(n) * a2 + ks(n) * vTe(n)**2d0 &
+                                / (2d0 * omce(n)**2d0) * A2e(n) * (exp(- vTe(n)**2d0 / (2d0 * omce(n)**2d0) &
+                                * (krp(j)-kr(i))**2d0) - exp(- eval_bp) * besselI(0, eval_bt, 0))) 
 
 
                 ! ions
@@ -85,7 +82,7 @@ subroutine kernel_phi(write_out)
                            sqrt(ks(n)**2d0 + krp(j)**2d0)
 
                     a0 = exp(-eval_bp) * besselI(0, eval_bt, 0) * (- om_E(n) / omci(sigma, n) + ks(n) * vTi(sigma, n)**2d0&
-                        / omci(sigma, n)**2d0 * (A1i(sigma, n) + (1 + eval_bp) * A2i(sigma, n))) + ks(n) * vTi(sigma, n)**2d0&
+                        / omci(sigma, n)**2d0 * (A1i(sigma, n) + (1d0 + eval_bp) * A2i(sigma, n))) + ks(n) * vTi(sigma, n)**2d0&
                         / omci(sigma, n)**2d0 * A2i(sigma, n) * eval_bt * exp(-eval_bp) * besselI(-1, eval_bt, 0)
                     a1 = - kp(n)/omci(sigma, n) * exp(-eval_bp) * besselI(0,eval_bt,0)
                     a2 = ks(n) / (2d0 * omci(sigma, n)**2d0) * A2i(sigma, n) * exp(-eval_bp) * besselI(0,eval_bt,0)
@@ -99,15 +96,15 @@ subroutine kernel_phi(write_out)
 
                     K_rho_phi(i,j) = K_rho_phi(i,j) + int_fac * omci(sigma, n) /(lambda_Di(sigma, n)**2d0 * vTi(sigma, n)) &
                                     * exp(com_unit * (kr(i) -krp(j)) * r_prof(n)) * ((sqrt(pi)/kp(n) * (plasma_Z(z0i(sigma, n)) &
-                                    * (a0 + sqrt(2d0) * vTi(sigma, n) * z0i(sigma, n) * a1 + vTi(sigma, n)**2 * a2 * 2 &
-                                    * z0i(sigma, n)**2) + vTi(sigma, n) * sqrt(2d0) * (a1 + vTi(sigma, n) * sqrt(2d0) &
+                                    * (a0 + sqrt(2d0) * vTi(sigma, n) * z0i(sigma, n) * a1 + vTi(sigma, n)**2d0 * a2 * 2d0 &
+                                    * z0i(sigma, n)**2d0) + vTi(sigma, n) * sqrt(2d0) * (a1 + vTi(sigma, n) * sqrt(2d0) &
                                     * z0i(sigma, n) * a2))) - sqrt(2d0) * vTi(sigma, n) / omci(sigma, n) * &
-                                    (exp(-vTi(sigma, n)**2/(2*omci(sigma, n)**2) * (krp(j) - kr(i))**2) &
+                                    (exp(-vTi(sigma, n)**2d0 / (2d0 * omci(sigma, n)**2d0) * (krp(j) - kr(i))**2d0) &
                                     - exp(-eval_bp) * besselI(0, eval_bt, 0)))
 
                     K_j_phi(i,j) = K_j_phi(i,j) + int_fac * omci(sigma, n) / (lambda_Di(sigma, n)**2d0 * kp(n)) &
                                     * exp(com_unit * (kr(i) - krp(j)) * r_prof(n))* ((z0i(sigma, n) * plasma_Z(z0i(sigma, n)) &
-                                    + 1) * (a0 + sqrt(2d0) * vTi(sigma, n) * z0i(sigma, n) * a1 &
+                                    + 1d0) * (a0 + sqrt(2d0) * vTi(sigma, n) * z0i(sigma, n) * a1 &
                                     + 2d0 * vTi(sigma, n) * z0i(sigma, n)**2d0 * a2) + 2d0 * vTi(sigma, n) * a2 &
                                     + ks(n) * vTi(sigma, n)**2d0 / (2d0 * omci(sigma, n)**2d0) * A2i(sigma, n) &
                                     * (exp(- vTi(sigma, n)**2d0 / (2d0 * omci(sigma, n)**2d0) * (krp(j)-kr(i))**2d0) & 
@@ -118,8 +115,8 @@ subroutine kernel_phi(write_out)
         end do
     end do 
 
-    K_rho_phi = K_rho_phi / (2**(7d0/2d0) * pi**(5d0/2d0)) * (r_prof(size(r_prof)) - r_prof(1))/iprof_length
-    K_rho_phi = K_rho_phi / (2**(3d0) * pi**(2d0)) * (r_prof(size(r_prof)) - r_prof(1))/iprof_length
+    K_rho_phi = K_rho_phi / (2d0**(7d0/2d0) * pi**(5d0/2d0)) * (r_prof(size(r_prof)) - r_prof(1))/iprof_length
+    K_rho_phi = K_rho_phi / (2d0**(3d0) * pi**(2d0)) * (r_prof(size(r_prof)) - r_prof(1))/iprof_length
 
     if (write_out) call write_kernel_phi
 

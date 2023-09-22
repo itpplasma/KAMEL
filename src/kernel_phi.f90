@@ -18,7 +18,8 @@ subroutine kernel_phi(write_out)
 
     integer :: nder
     double precision :: a0, a1, a2
-    double precision :: eval_bp, eval_bt ! b_+ and b_\times
+    !double precision :: eval_bp, eval_bt ! b_+ and b_\times
+    double complex :: eval_bp, eval_bt ! b_+ and b_\times
 
     integer :: sigma ! for loop over species
     integer :: i,j,n

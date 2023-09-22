@@ -1,8 +1,8 @@
 subroutine basis_transform_kernel(write_out)
 
     use kernel
-    use grid
-    use plas_parameter, only: iprof_length
+    use grid, only: npoib, kr, varphi_lkr, k_space_dim
+    !use plas_parameter, only: iprof_length
     use config
 
     implicit none
@@ -14,15 +14,18 @@ subroutine basis_transform_kernel(write_out)
 
     if (fstatus == 1) write(*,*) 'Status: Transforming basis of kernels, Fourier -> Spline, write_out=',write_out
 
-    allocate(K_rho_phi_llp(l_space_dim, l_space_dim),&
-             K_rho_B_llp(l_space_dim, l_space_dim))
+    allocate(K_rho_phi_llp(npoib, npoib),&
+             K_rho_B_llp(npoib, npoib))
+    
+    K_rho_phi_llp = 0.0d0
+    K_rho_B_llp = 0.0d0
 
     if (.not. allocated(varphi_lkr)) then
         call calculate_fourier_trans_spline_funcs(.true.)
     end if
 
-    do i=1, l_space_dim ! l
-        do j=1, l_space_dim ! l'
+    do i=1, npoib ! l
+        do j=1, npoib ! l'
             do k1=1, k_space_dim ! kr
                 do k2 = 1, k_space_dim !kr'
 
@@ -75,8 +78,8 @@ subroutine basis_transform_kernel(write_out)
         open(unit=79, file=trim(output_path)//'kernel/K_rho_B_llp_re.dat')
         open(unit=80, file=trim(output_path)//'kernel/K_rho_B_llp_im.dat')
 
-        do i=1, l_space_dim
-            do j=1, l_space_dim
+        do i=1, npoib
+            do j=1, npoib
                 write(77,*) real(K_rho_phi_llp(i,j))
                 write(78,*) dimag(K_rho_phi_llp(i,j))
                 write(79,*) real(K_rho_B_llp(i,j))

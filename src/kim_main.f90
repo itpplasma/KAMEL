@@ -68,13 +68,12 @@ program kim_main
     call calculate_backs(.true.)
     
     call gengrid(100, .true.)
-    !call generate_l_space_grid
+
     ! calculate kernels
-    !call kernel_phi(.true.)
+    call kernel_phi(.true.)
     call kernel_B(.true.)
 
-    !call calculate_fourier_trans_spline_funcs(.true.)
-
-    !call basis_transform_kernel(.true.)
+    ! transform the kernels from k space to spline space
+    call basis_transform_kernel(.true.)
 
 end program

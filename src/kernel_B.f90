@@ -14,7 +14,11 @@ subroutine kernel_B(write_out)
     double complex :: besselI
     double complex :: plasma_Z
 
-    double precision :: eval_bp, eval_bt
+    double complex :: eval_besselI0 = 0.0d0
+    double complex :: eval_besselIm1 = 0.0d0
+
+    !double precision :: eval_bp, eval_bt
+    double complex :: eval_bp, eval_bt
 
     integer :: i, j, n, sigma
     double precision :: int_fac
@@ -36,6 +40,9 @@ subroutine kernel_B(write_out)
                 eval_bt = vTe(n)**2d0 / (omce(n)**2d0) * sqrt(ks(n)**2d0 + kr(i)**2d0) *&
                            sqrt(ks(n)**2d0 + krp(j)**2d0)
 
+                eval_besselI0 = besselI(0, eval_bt, 0)
+                eval_besselIm1 = besselI(-1, eval_bt, 0)
+
                 ! for trapezoidal integration
                 if (n==1 .or. n==iprof_length) then
                     int_fac = 0.5d0
@@ -45,14 +52,15 @@ subroutine kernel_B(write_out)
 
                 K_rho_B(i,j) = K_rho_B(i,j) + int_fac * exp(com_unit * (kr(i) - krp(j))*r_prof(n)) *vTe(n)**2d0 &
                                 / (lambda_De(n)**2d0 * omce(n) * kp(n)) * exp(-eval_bp) * ((z0e(n) * plasma_Z(z0e(n)) + 1d0) &
-                                * ((A1e(n) + A2e(n) * (1d0 + eval_bp + z0e(n)**2d0)) * besselI(0,eval_bt,0) + A2e(n) * eval_bt &
-                                * besselI(-1, eval_bt, 0)) + 0.5d0 * A2e(n) * besselI(0, eval_bt, 0))
+                                * ((A1e(n) + A2e(n) * (1d0 + eval_bp + z0e(n)**2d0)) * eval_besselI0 + A2e(n) * eval_bt &
+                                * eval_besselIm1) + 0.5d0 * A2e(n) * eval_besselI0)
 
+                
                 K_j_B(i,j) = K_j_B(i,j) + int_fac * vTe(n)**3d0 / (lambda_De(n)**2d0 * omce(n) * kp(n)) &
                                 * exp(com_unit * (kr(i) - krp(j)) * r_prof(n)) * exp(-eval_bp) * z0e(n) &
                                 * ((z0e(n) * plasma_Z(z0e(n)) + 1d0) * ((A1e(n) + A2e(n) * (1d0 + eval_bp + z0e(n)**2d0)) &
-                                * besselI(0, eval_bt, 0) + A2e(n) * eval_bt * besselI(-1, eval_bt, 0)) + 0.5d0 * A2e(n) &
-                                * besselI(0, eval_bt, 0))
+                                * eval_besselI0 + A2e(n) * eval_bt * eval_besselIm1) + 0.5d0 * A2e(n) &
+                                * eval_besselI0)
 
                 ! ions
                 do sigma=1, ispecies
@@ -61,17 +69,20 @@ subroutine kernel_B(write_out)
                     eval_bt = vTi(sigma, n)**2d0 / (omci(sigma, n)**2d0) * sqrt(ks(n)**2d0 + kr(i)**2d0) *&
                                 sqrt(ks(n)**2d0 + krp(j)**2d0)
 
+                    eval_besselI0 = besselI(0, eval_bt, 0)
+                    eval_besselIm1 = besselI(-1, eval_bt, 0)
+
                     K_rho_B(i,j) = K_rho_B(i,j) + int_fac * exp(com_unit * (kr(i) - krp(j))*r_prof(n))* vTi(sigma, n)**2d0 &
                                     / (lambda_Di(sigma, n)**2d0 * kp(n) * omci(sigma, n)) * exp(-eval_bp) * ((z0i(sigma, n) &
                                     * plasma_Z(z0i(sigma, n)) + 1) * ((A1i(sigma, n) + A2i(sigma, n) * (1d0 + eval_bp &
-                                    + z0i(sigma, n)**2)) * besselI(0, eval_bt, 0) + A2i(sigma, n) * eval_bt &
-                                    * besselI(-1, eval_bt, 0)) + 0.5d0 * A2i(sigma, n) * besselI(0, eval_bt, 0))
+                                    + z0i(sigma, n)**2)) * eval_besselI0 + A2i(sigma, n) * eval_bt &
+                                    * eval_besselIm1) + 0.5d0 * A2i(sigma, n) * eval_besselI0)
 
                     K_j_B(i,j) = K_j_B(i,j) + int_fac * vTi(sigma, n)**3d0 / (lambda_Di(sigma, n)**2d0 * omci(sigma, n) * kp(n)) &
                                     * exp(com_unit * (kr(i) - krp(j)) * r_prof(n)) * exp(-eval_bp) * z0i(sigma, n) &
                                     * ((z0i(sigma, n) * plasma_Z(z0i(sigma, n)) + 1d0) * ((A1i(sigma, n) + A2i(sigma, n) &
-                                    * (1d0 + eval_bp + z0i(sigma, n)**2d0)) * besselI(0,eval_bt,0) + A2i(sigma, n) * eval_bt &
-                                    * besselI(-1, eval_bt, 0)) + 0.5d0 * A2i(sigma, n) * besselI(0, eval_bt, 0))
+                                    * (1d0 + eval_bp + z0i(sigma, n)**2d0)) * eval_besselI0 + A2i(sigma, n) * eval_bt &
+                                    * eval_besselIm1) + 0.5d0 * A2i(sigma, n) * eval_besselI0)
                 end do
             end do
         end do

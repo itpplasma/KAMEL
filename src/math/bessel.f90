@@ -37,7 +37,7 @@ recursive double complex function besselj (nu, zarg, n) result (res)
 	    return
     end if
     
-    allocate (bico(0:n,0:n))
+    if (.not. allocated(bico)) allocate (bico(0:n,0:n))
 
     !computes C^k_n = n!/k!/(n-k)! coefficients for n=0..N, k=0..n
     call binomial_coefficients(n, bico)
@@ -69,6 +69,9 @@ recursive double complex function besselj (nu, zarg, n) result (res)
                     coefss(n,k) = coefss(n-1, k-1) + coefss(n-1,k)
                 end do
             end do
+
+            deallocate(coefss)
+
         end subroutine
 
 end function

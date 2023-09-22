@@ -4,32 +4,32 @@
 subroutine calculate_fourier_trans_spline_funcs(write_out)
 
     use constants, only: com_unit
-    use grid
+    use grid, only: k_space_dim, kr, npoib, rb, varphi_lkr, grid_spacing, spline_base
     use config, only: output_path
-    use plas_parameter, only: r_prof, iprof_length
+    !use plas_parameter, only: r_prof, iprof_length
 
     implicit none
     integer :: i,n
     logical, intent(in) :: write_out
 
-    allocate(varphi_lkr(k_space_dim, iprof_length))
+    allocate(varphi_lkr(k_space_dim, npoib))
 
     if (spline_base == 1) then
         ! hat functions
         if (grid_spacing == 1) then
         ! equidistant
             do i=1, k_space_dim
-                do n =1, iprof_length-1
-                    varphi_lkr(i,n) = FT_hat_function_e(r_prof(n), r_prof(n+1), kr(i))
+                do n =1, npoib-1
+                    varphi_lkr(i,n) = FT_hat_function_e(rb(n), rb(n+1), kr(i))
                 end do
             end do
 
         elseif(grid_spacing == 2) then
         ! non-equidistant, more points around rational surface
             do i=1, k_space_dim
-                do n =2, iprof_length-2
-                    varphi_lkr(i,n) = FT_hat_function_ne(r_prof(n), r_prof(n-1), r_prof(n+1), &
-                                                        r_prof(n+2), kr(i))
+                do n =2, npoib-2
+                    varphi_lkr(i,n) = FT_hat_function_ne(rb(n), rb(n-1), rb(n+1), &
+                                                        rb(n+2), kr(i))
                 end do
             end do
         end if
@@ -82,7 +82,7 @@ subroutine calculate_fourier_trans_spline_funcs(write_out)
         open(unit = 77, file=trim(output_path)//'basis_transform/varphi_re.dat')
         open(unit = 78, file=trim(output_path)//'basis_transform/varphi_im.dat')
         do i=1, k_space_dim
-            do n=1, iprof_length
+            do n=1, npoib
                 write(77,*) real(varphi_lkr(i,n))
                 write(78,*) dimag(varphi_lkr(i,n))
             end do

@@ -1,4 +1,4 @@
-subroutine kernel_rho_B(write_out)
+subroutine kernel_B(write_out)
 
     use plas_parameter
     use constants

@@ -10,8 +10,8 @@ set(KIM_mods modules/plas_parameter_mod.f90
 
 set(KIM_subs read_profiles.f90
              plag_coeff.f90
-             kernel_rho_phi.f90
-             kernel_rho_B.f90
+             kernel_phi.f90
+             kernel_B.f90
              calculate_backs.f90
              calculate_equil.f90
              gengrid.f90

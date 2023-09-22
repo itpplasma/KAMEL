@@ -70,7 +70,7 @@ program kim_main
     call gengrid(100, .true.)
     !call generate_l_space_grid
     ! calculate kernels
-    !call kernel_rho_phi(.true.)
+    call kernel_phi(.true.)
     !call kernel_rho_B(.true.)
 
     !call calculate_fourier_trans_spline_funcs(.true.)

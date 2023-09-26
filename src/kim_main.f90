@@ -9,15 +9,15 @@ program kim_main
 
     implicit none
 
-    double complex :: z= (1d0, 1d0)
-    double complex :: plasma_Z
+    !double complex :: z= (1d0, 1d0)
+    !double complex :: plasma_Z
 
     namelist /KIM_CONFIG/ profile_location, hdf5_input, hdf5_output, &
                           fdebug, fstatus, ispecies, output_path
 
     namelist /KIM_SETUP/ btor, R0, m_mode, n_mode, Zi, Ai, k_space_dim, &
                         reduce_r, reduced_r_dim, omega, spline_base, &
-                        grid_spacing, l_space_dim
+                        grid_spacing, l_space_dim, cut_off_fac
 
     open(unit = 77, file = './nmls/KIM_config.nml')
     read(unit = 77, nml = KIM_CONFIG)
@@ -53,6 +53,7 @@ program kim_main
     write(*,*) '  omega            = ', omega
     write(*,*) '  spline_base      = ', spline_base
     write(*,*) '  grid_spacing     = ', grid_spacing
+    write(*,*) '  cut_off_fac      = ', cut_off_fac
     write(*,*) ' - - - - - - - - - - - - - - - - - -'
 
     ! for the moment:
@@ -62,18 +63,20 @@ program kim_main
     call read_profiles(reduce_r)
 
     ! calculate equilibrium B field and J
-    call calculate_equil(.true.)
+    call calculate_equil(.false.)
 
     ! calculate quantities used for the kernels, e.g. A1, A2, dndr, omega_c,...
-    call calculate_backs(.true.)
+    call calculate_backs(.false.)
     
-    call gengrid(100, .true.)
+    call gengrid(200, .true.)
 
     ! calculate kernels
-    call kernel_phi(.true.)
-    call kernel_B(.true.)
+    call kernel_phi(.false.)
+    call kernel_B(.false.)
 
     ! transform the kernels from k space to spline space
-    call basis_transform_kernel(.true.)
+    call basis_transform_kernel(.false.)
+
+    call solve_poisson
 
 end program

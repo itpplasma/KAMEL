@@ -13,7 +13,7 @@ add_subdirectory(src/math/ddeabm)
 
 get_filename_component(Fortran_COMPILER_NAME ${CMAKE_Fortran_COMPILER} NAME)
 if (Fortran_COMPILER_NAME MATCHES "gfortran.*")
-    set (CMAKE_Fortran_FLAGS "-O2 -mtune=generic")
+    set(CMAKE_Fortran_FLAGS "-O2 -mtune=generic")
 elseif (Fortran_COMPILER_NAME MATCHES "ifort.*")
     set (CMAKE_Fortran_FLAGS "")
 endif()

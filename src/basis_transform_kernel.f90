@@ -2,7 +2,6 @@ subroutine basis_transform_kernel(write_out)
 
     use kernel
     use grid, only: npoib, kr, varphi_lkr, k_space_dim
-    !use plas_parameter, only: iprof_length
     use config
 
     implicit none
@@ -17,15 +16,15 @@ subroutine basis_transform_kernel(write_out)
     allocate(K_rho_phi_llp(npoib, npoib),&
              K_rho_B_llp(npoib, npoib))
     
-    K_rho_phi_llp = 0.0d0
+    K_rho_phi_llp = 0.1d0
     K_rho_B_llp = 0.0d0
 
     if (.not. allocated(varphi_lkr)) then
         call calculate_fourier_trans_spline_funcs(.true.)
     end if
 
-    do i=1, npoib ! l
-        do j=1, npoib ! l'
+    do i=1, npoib ! l'
+        do j=1, npoib ! l
             do k1=1, k_space_dim ! kr
                 do k2 = 1, k_space_dim !kr'
 
@@ -52,8 +51,8 @@ subroutine basis_transform_kernel(write_out)
         end do
     end do
 
-    K_rho_phi_llp = K_rho_phi_llp * ((kr(size(kr)) - kr(1)) / k_space_dim)**2
-    K_rho_B_llp = K_rho_B_llp * ((kr(size(kr)) - kr(1)) / k_space_dim)**2
+    K_rho_phi_llp = K_rho_phi_llp * ((kr(size(kr)) - kr(1)) / k_space_dim)**2d0
+    K_rho_B_llp = K_rho_B_llp * ((kr(size(kr)) - kr(1)) / k_space_dim)**2d0
 
     if (write_out) call write_basis_trans_kernel
 

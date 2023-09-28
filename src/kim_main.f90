@@ -9,6 +9,8 @@ program kim_main
 
     implicit none
 
+    real :: t_start, t_finish
+
     !double complex :: z= (1d0, 1d0)
     !double complex :: plasma_Z
 
@@ -17,7 +19,7 @@ program kim_main
 
     namelist /KIM_SETUP/ btor, R0, m_mode, n_mode, Zi, Ai, k_space_dim, &
                         reduce_r, reduced_r_dim, omega, spline_base, &
-                        grid_spacing, l_space_dim, cut_off_fac
+                        grid_spacing, l_space_dim, cut_off_fac, num_gengrid_points
 
     open(unit = 77, file = './nmls/KIM_config.nml')
     read(unit = 77, nml = KIM_CONFIG)
@@ -25,7 +27,7 @@ program kim_main
     read(unit = 77, nml = KIM_SETUP)
     close(unit = 77)
 
-    write(*,*) ''
+    write(*,*) '+ + + + + + + + KIM + + + + + + + + + +'
     write(*,*) ' - - - - - - - - - - - - - - - - - -'
     write(*,*) 'Configuration namelist'
     write(*,*) '  profile_location = ', trim(profile_location)
@@ -36,8 +38,6 @@ program kim_main
     write(*,*) '  fstatus          = ', fstatus
     write(*,*) '  ispecies         = ', ispecies
     write(*,*) ' - - - - - - - - - - - - - - - - - -'
-
-    write(*,*) ''
     write(*,*) ' - - - - - - - - - - - - - - - - - -'
     write(*,*) 'Setup namelist'
     write(*,*) '  btor             = ', btor
@@ -54,29 +54,38 @@ program kim_main
     write(*,*) '  spline_base      = ', spline_base
     write(*,*) '  grid_spacing     = ', grid_spacing
     write(*,*) '  cut_off_fac      = ', cut_off_fac
+    write(*,*) '  num_gengrid_points = ', num_gengrid_points
     write(*,*) ' - - - - - - - - - - - - - - - - - -'
 
     ! for the moment:
-    l_space_dim = reduced_r_dim
+    !l_space_dim = reduced_r_dim
 
-    call generate_k_space_grid(.false.)
+    call cpu_time(t_start)
+
+    call generate_k_space_grid(.true.)
     call read_profiles(reduce_r)
 
     ! calculate equilibrium B field and J
-    call calculate_equil(.false.)
+    call calculate_equil(.true.)
 
     ! calculate quantities used for the kernels, e.g. A1, A2, dndr, omega_c,...
-    call calculate_backs(.false.)
+    call calculate_backs(.true.)
     
-    call gengrid(200, .true.)
+    ! generate non-equidistant grid for spline functions (i.e. real space)
+    call gengrid(num_gengrid_points, .true.)
 
     ! calculate kernels
-    call kernel_phi(.false.)
-    call kernel_B(.false.)
+    call kernel_phi(.true.)
+    call kernel_B(.true.)
 
     ! transform the kernels from k space to spline space
-    call basis_transform_kernel(.false.)
+    call basis_transform_kernel(.true.)
 
+    ! solve poisson's equation with spline solver
     call solve_poisson
+
+    call cpu_time(t_finish)
+
+    write(*,*) ' Time: ', (t_finish - t_start), ' s'
 
 end program

@@ -6,8 +6,8 @@ MODULE sparse_mod
   INTEGER :: sparse_solve_method = 3
 
   PUBLIC sparse_talk
-  !LOGICAL :: sparse_talk = .TRUE.
-  LOGICAL :: sparse_talk = .FALSE.
+  LOGICAL :: sparse_talk = .TRUE.
+  !LOGICAL :: sparse_talk = .FALSE.
 
   PRIVATE dp
   INTEGER, PARAMETER :: dp = KIND(1.0d0)

@@ -57,7 +57,8 @@ subroutine calculate_backs(write_out)
 
         ! "senkrecht" wavenumber
         ks(i) = (m_mode * hz(i) - n_mode * hth(i) / R0) / r_prof(i)
-        kp(i) = m_mode * hth(i) + n_mode / R0 * hz(i)
+        ! parallel wavenumber
+        kp(i) = m_mode/(r_prof(i)) * hth(i) + n_mode / R0 * hz(i)
 
         ! ExB rotation frequency
         om_E(i) = - sol * ks(i) * Er_prof(i) / B0(i)
@@ -103,6 +104,9 @@ subroutine calculate_backs(write_out)
 
         end do
     end do
+
+    !nue = 0.0d0
+    !nui = 0.0d0
 
     if (write_out) then
         call write_backs

@@ -7,6 +7,7 @@ module grid
     integer :: reduced_r_dim
     integer :: spline_base
     integer :: grid_spacing
+    integer :: num_gengrid_points
 
     double precision, dimension(:), allocatable :: kr  ! radial wavenumber
     double precision, dimension(:), allocatable :: krp ! radial wavenumber prime

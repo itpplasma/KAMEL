@@ -36,12 +36,12 @@ set_target_properties(KIM_lib PROPERTIES
                         RUNTIME_OUTPUT_DIRECTORY "${CMAKE_SOURCE_DIR}/lib/")
 
 find_package(SuiteSparse REQUIRED)
-#if("${SuiteSparse_FOUND}")
-#    message(" ====== SuiteSparse was found! ======")
-#    target_link_libraries(KIM_lib PUBLIC "${SUITESPARSE_LIBRARIES}")
-#    target_include_directories(KIM_lib PUBLIC "${SUITESPARSE_INCLUDE_DIRS}")
-#    message("${SUITESPARSE_INCLUDE_DIRS}")
-#endif()
+if("${SuiteSparse_FOUND}")
+    message(" ====== SuiteSparse was found! ======")
+    target_link_libraries(KIM_lib PUBLIC "${SUITESPARSE_LIBRARIES}")
+    target_include_directories(KIM_lib PUBLIC "${SUITESPARSE_INCLUDE_DIRS}")
+    message("${SUITESPARSE_INCLUDE_DIRS}")
+endif()
 
 find_package(UMFPACK REQUIRED)
 if("${UMFPACK_FOUND}")
@@ -79,5 +79,4 @@ target_link_libraries(KIM_exe KIM_lib
                               bessel 
                               lapack 
                               cerf 
-                              ddeabm
-                              ${UMFPACK_LIBRARY})
+                              ddeabm)

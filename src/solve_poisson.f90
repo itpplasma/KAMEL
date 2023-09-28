@@ -75,15 +75,21 @@ subroutine solve_poisson
         write(*,*) 'Debug: writing A matrix before sparse'
         open(unit=77, file=trim(output_path)//'kernel/A_mat_before_re.dat')
         open(unit=78, file=trim(output_path)//'kernel/A_mat_before_im.dat')
+        open(unit=79, file=trim(output_path)//'kernel/K_rho_phi_llp_sp_re.dat')
+        open(unit=80, file=trim(output_path)//'kernel/K_rho_phi_llp_sp_im.dat')
         do i = 1,npoib
             do j = 1,npoib
                 write(77,*) real(A_mat(i,j))
                 !write(*,*) real(A_mat(i,j))
                 write(78,*) dimag(A_mat(i,j))
+                write(79,*) real(K_rho_phi_llp(i,j))
+                write(80,*) dimag(K_rho_phi_llp(i,j))
             end do
         end do
         close(77)
         close(78)
+        close(79)
+        close(80)
     end if
 
     ! make A matrix sparse
@@ -93,7 +99,7 @@ subroutine solve_poisson
 
     !allocate(A_sparse_check(nrow,ncol))
 
-    if (fdebug == 1) then
+    if (fdebug == 3) then
         write(*,*) 'Debug: writing A matrix after sparse'
         call sp2fullComplex(irow, pcol, A_nz, nrow, ncol, A_sparse_check)
         open(unit=77, file=trim(output_path)//'kernel/A_sparse_check_re.dat')
@@ -113,7 +119,7 @@ subroutine solve_poisson
 
     if (.not. allocated(b_vec)) allocate(b_vec(npoib))
     b_vec = cmplx(1.0d0, 0.0d0)
-    b_vec = matmul(K_rho_B_llp, b_vec)
+    b_vec = - 4d0 * pi * matmul(K_rho_B_llp, b_vec)
     !b_vec = matmul(A_mat, b_vec)
 
     ! solve matrix vector problem
@@ -139,16 +145,19 @@ subroutine solve_poisson
     close(77)
     close(78)
 
-    open(unit = 80, file=trim(output_path)//'fields/A_mat_re.dat')
-    open(unit = 81, file=trim(output_path)//'fields/A_mat_im.dat')
-    do i = 1,npoib
-        do j = 1,npoib
-            write(80,*) real(A_mat(i,j))
-            write(81,*) dimag(A_mat(i,j))
+    if (fdebug == 3) then
+        write(*,*) 'Debug : write A matrix '
+        open(unit = 80, file=trim(output_path)//'fields/A_mat_re.dat')
+        open(unit = 81, file=trim(output_path)//'fields/A_mat_im.dat')
+        do i = 1,npoib
+            do j = 1,npoib
+                write(80,*) real(A_mat(i,j))
+                write(81,*) dimag(A_mat(i,j))
+            end do
         end do
-    end do
-    close(80)
-    close(81)
+        close(80)
+        close(81)
+    end if
 
     contains
 

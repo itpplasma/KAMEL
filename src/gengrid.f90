@@ -309,24 +309,30 @@ subroutine generate_k_space_grid(write_out)
     use grid
     use setup
     use config, only: output_path, fstatus
+    use constants, only: pi
 
     implicit none
 
     integer :: i
     logical, intent(in) :: write_out
+    double precision :: h
 
     if (fstatus == 1) write(*,*) 'Status: Generating k-space grid, write out=', write_out
 
     allocate(kr(k_space_dim), krp(k_space_dim))
 
+    h = pi / (k_space_dim + 1)
+
     do i=1, k_space_dim
-        kr(i) = i
-        krp(i) = i
+        !kr(i) = i
+        kr(i) = tan(- pi / 2.0d0 + i * h)
+        !krp(i) = i
     end do
 
     ! center around zero
-    kr = kr - k_space_dim / 2d0
-    krp = (krp+0.1d0) - k_space_dim / 2d0
+    kr = kr !- k_space_dim / 2d0
+    !krp = (krp+0.1d0) - k_space_dim / 2d0
+    krp = kr! +0.01
 
     if (write_out) call write_k_space
 

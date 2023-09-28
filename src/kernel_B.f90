@@ -74,8 +74,8 @@ subroutine kernel_B(write_out)
 
                     K_rho_B(i,j) = K_rho_B(i,j) + int_fac * exp(com_unit * (kr(i) - krp(j))*r_prof(n))* vTi(sigma, n)**2d0 &
                                     / (lambda_Di(sigma, n)**2d0 * kp(n) * omci(sigma, n)) * exp(-eval_bp) * ((z0i(sigma, n) &
-                                    * plasma_Z(z0i(sigma, n)) + 1) * ((A1i(sigma, n) + A2i(sigma, n) * (1d0 + eval_bp &
-                                    + z0i(sigma, n)**2)) * eval_besselI0 + A2i(sigma, n) * eval_bt &
+                                    * plasma_Z(z0i(sigma, n)) + 1d0) * ((A1i(sigma, n) + A2i(sigma, n) * (1d0 + eval_bp &
+                                    + z0i(sigma, n)**2d0)) * eval_besselI0 + A2i(sigma, n) * eval_bt &
                                     * eval_besselIm1) + 0.5d0 * A2i(sigma, n) * eval_besselI0)
 
                     K_j_B(i,j) = K_j_B(i,j) + int_fac * vTi(sigma, n)**3d0 / (lambda_Di(sigma, n)**2d0 * omci(sigma, n) * kp(n)) &
@@ -88,7 +88,7 @@ subroutine kernel_B(write_out)
         end do
     end do
 
-    K_rho_B = K_rho_B / (8d0 * pi**2d0 * sol)
+    K_rho_B = K_rho_B * com_unit / (8d0 * pi**2d0 * sol)
     K_j_B = K_j_B * com_unit / (2d0**(5d0/2d0) * pi**2d0 * sol)
 
     if (write_out) call write_kernel

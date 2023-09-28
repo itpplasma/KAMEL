@@ -17,15 +17,16 @@ subroutine kernel_phi(write_out)
     double complex :: plasma_Z ! plasma dispersion function
 
     integer :: nder
-    double precision :: a0, a1, a2
+    double complex :: a0, a1, a2
     !double precision :: eval_bp, eval_bt ! b_+ and b_\times
     double complex :: eval_bp, eval_bt ! b_+ and b_\times
 
     integer :: sigma ! for loop over species
     integer :: i,j,n
     double precision :: int_fac
+    double complex :: integr
 
-    if (fstatus == 1) write(*,*) 'Status: Generating kernels rho phi and j phi, write_out=', write_out
+    if (fstatus == 1) write(*,*) 'Status: Generating kernels rho phi and j phi, write_out = ', write_out
 
     npoi_der = 4 ! number of polynomials for derivative
     nder = 1 ! first derivative
@@ -39,6 +40,36 @@ subroutine kernel_phi(write_out)
     ! For the integration, the trapezoidal method is used.
     do i=1, k_space_dim ! kr
         do j = 1, k_space_dim ! krp
+
+            ! check integrand of rg integration
+            if (i == 10 .and. j==10) then
+                write(*,*) 'Writing out integrand for testing, kr=', kr(i)
+                open(unit=192, file=trim(output_path)//'kernel/integrand_re.dat')
+                open(unit=193, file=trim(output_path)//'kernel/integrand_im.dat')
+                do n=1, iprof_length
+                    eval_bp = vTe(n)**2d0 / (2d0*omce(n)**2d0) * &
+                            (2d0*ks(n)**2d0 + kr(i)**2d0 + krp(j)**2d0)
+                    eval_bt = vTe(n)**2d0 / (omce(n)**2d0) * sqrt(ks(n)**2d0 + kr(i)**2d0) *&
+                           sqrt(ks(n)**2d0 + krp(j)**2d0)
+
+                    a0 = exp(-eval_bp) * besselI(0, eval_bt, 0) * (- om_E(n) / omce(n) + ks(n) * vTe(n)**2d0 &
+                        / (omce(n)**2d0) * (A1e(n) + (1.0d0 + eval_bp) * A2e(n))) + ks(n) * vTe(n)**2d0 / (omce(n)**2d0) * A2e(n) &
+                        * eval_bt * exp(-eval_bp) * besselI(-1, eval_bt, 0)
+                    a1 = - kp(n)/omce(n) * exp(-eval_bp) * besselI(0,eval_bt,0)
+                    a2 = ks(n) / (2d0 * omce(n)**2d0) * A2e(n) * exp(-eval_bp) * besselI(0,eval_bt,0)
+                    integr = omce(n) /(lambda_De(n)**2d0 * vTe(n)) &
+                            * exp(com_unit * (kr(i) - krp(j)) * r_prof(n)) * (sqrt(pi)/kp(n) * (plasma_Z(z0e(n)) &
+                            * (a0 + sqrt(2d0) * vTe(n) * z0e(n) * a1 + vTe(n)**2d0 * a2 * 2d0 * z0e(n)**2d0) + vTe(n) &
+                            * sqrt(2d0) * (a1 + vTe(n) * sqrt(2d0) * z0e(n) * a2)) - sqrt(2d0 * pi) * vTe(n) / omce(n) &
+                            * (exp(-vTe(n)**2d0/(2d0 * omce(n)**2d0) * (krp(j) - kr(i))**2d0) - exp(-eval_bp) &
+                            * besselI(0, eval_bt, 0)))
+                    write(192,*) r_prof(n), real(integr)
+                    write(193,*) r_prof(n), dimag(integr)
+                end do
+                close(192)
+                close(193)
+            end if
+
             do n = 1, iprof_length ! r_prof
 
                 ! electrons
@@ -48,7 +79,7 @@ subroutine kernel_phi(write_out)
                            sqrt(ks(n)**2d0 + krp(j)**2d0)
 
                 a0 = exp(-eval_bp) * besselI(0, eval_bt, 0) * (- om_E(n) / omce(n) + ks(n) * vTe(n)**2d0 &
-                    / omce(n)**2d0 * (A1e(n) + (1 + eval_bp) * A2e(n))) + ks(n) * vTe(n)**2d0 / omce(n)**2d0 * A2e(n) &
+                    / (omce(n)**2d0) * (A1e(n) + (1.0d0 + eval_bp) * A2e(n))) + ks(n) * vTe(n)**2d0 / (omce(n)**2d0) * A2e(n) &
                     * eval_bt * exp(-eval_bp) * besselI(-1, eval_bt, 0)
                 a1 = - kp(n)/omce(n) * exp(-eval_bp) * besselI(0,eval_bt,0)
                 a2 = ks(n) / (2d0 * omce(n)**2d0) * A2e(n) * exp(-eval_bp) * besselI(0,eval_bt,0)
@@ -61,9 +92,9 @@ subroutine kernel_phi(write_out)
                 end if
                 
                 K_rho_phi(i,j) = K_rho_phi(i,j) + int_fac * omce(n) /(lambda_De(n)**2d0 * vTe(n)) &
-                                * exp(com_unit * (kr(i) - krp(j)) * r_prof(n)) * ((sqrt(pi)/kp(n) * (plasma_Z(z0e(n)) &
-                                * (a0 + sqrt(2d0) * vTe(n) * z0e(n) * a1 + vTe(n)**2 * a2 * 2d0 * z0e(n)**2d0) + vTe(n) &
-                                * sqrt(2d0) * (a1 + vTe(n) * sqrt(2d0) * z0e(n) * a2))) - sqrt(2d0 * pi) * vTe(n) / omce(n) &
+                                * exp(com_unit * (kr(i) - krp(j)) * r_prof(n)) * (sqrt(pi)/kp(n) * (plasma_Z(z0e(n)) &
+                                * (a0 + sqrt(2d0) * vTe(n) * z0e(n) * a1 + vTe(n)**2d0 * a2 * 2d0 * z0e(n)**2d0) + vTe(n) &
+                                * sqrt(2d0) * (a1 + vTe(n) * sqrt(2d0) * z0e(n) * a2)) - sqrt(2d0 * pi) * vTe(n) / omce(n) &
                                 * (exp(-vTe(n)**2d0/(2d0 * omce(n)**2d0) * (krp(j) - kr(i))**2d0) - exp(-eval_bp) &
                                 * besselI(0, eval_bt, 0)))
 
@@ -72,7 +103,6 @@ subroutine kernel_phi(write_out)
                                 + 2d0 * vTe(n) * z0e(n)**2d0 * a2) + 2d0 * vTe(n) * a2 + ks(n) * vTe(n)**2d0 &
                                 / (2d0 * omce(n)**2d0) * A2e(n) * (exp(- vTe(n)**2d0 / (2d0 * omce(n)**2d0) &
                                 * (krp(j)-kr(i))**2d0) - exp(- eval_bp) * besselI(0, eval_bt, 0))) 
-
 
                 ! ions
                 do sigma=1, ispecies

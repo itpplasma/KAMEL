@@ -19,7 +19,7 @@
     double precision, dimension(:,:), allocatable :: coef
 
     if (fdebug == 1) write(*,*) "Debug: coming in gengrid"
-    nbaleqs=4
+    !nbaleqs=4
 
     nder=1
     npoi_der=4
@@ -27,7 +27,6 @@
 
     rmin = minval(r_prof)
     rmax = maxval(r_prof)
-
 
     hrmax = (rmax - rmin)/(npoimin+1)
 
@@ -94,38 +93,6 @@
 
     deallocate(coef)
 
-  !allocate(params(nbaleqs,npoic),dot_params(nbaleqs,npoic))
-  !allocate(params_b(nbaleqs,npoib),ddr_params(nbaleqs,npoib),ddr_params_nl(nbaleqs,npoib))
-  !allocate(params_lin(nbaleqs,npoic),params_b_lin(nbaleqs,npoib))
-  !allocate(fluxes_dif(nbaleqs,npoib),fluxes_con(nbaleqs,npoib),fluxes_con_nl(nbaleqs,npoib))
-
-    if(iboutype.eq.1) then
-        neqset=nbaleqs*(npoic-1)
-    else
-      neqset=nbaleqs*npoic
-    endif
-  !allocate(y(neqset),dery(neqset),dery_equisource(neqset))
-  !allocate(alpha(neqset*neqset))
-  !allocate(source_term(neqset))
-
-  !allocate(dae11(npoib),dae12(npoib),dae22(npoib))
-  !allocate(dai11(npoib),dai12(npoib),dai22(npoib))
-  !allocate(dni22(npoib),visca(npoib))
-  !allocate(dqle11(npoib),dqle12(npoib),dqle21(npoib),dqle22(npoib))
-  !allocate(dqli11(npoib),dqli12(npoib),dqli21(npoib),dqli22(npoib))
-  !allocate(de11(npoib),de12(npoib),de21(npoib),de22(npoib))
-  !allocate(di11(npoib),di12(npoib),di21(npoib),di22(npoib))
-  !allocate(polforce(npoib),qlheat_e(npoib),qlheat_i(npoib))
-
-  !dni22=0.d0
-
-  !allocate(cneo(npoib),gpp_av(npoib))
-  !allocate(qsafb(npoib),qsaf(npoic))
-  !allocate(sqg_bthet_overc(npoib),Ercov(npoib),sqg_bthet_overcavg(npoib), &
-  !    Ercovavg(npoib))
-  !allocate(Ercov_lin(npoib))
-
-
     if (write_out) call write_new_grid
 
     if (fdebug == 1) write(*,*) "Debug: going out in gengrid"
@@ -160,38 +127,6 @@
 
 end subroutine gengrid
 
-
-
-
-!
-!ccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
-!
-  subroutine geomparprof
-!
-  use grid
-  use setup, only: R0
-!
-  implicit none
-!
-  integer :: ipoi
-  double precision :: cneo_0,coullog,om_ci
-!
-  !Sb=rb
-  !Sc=rc
-  !gpp_av=R0**2
-!
-  !coullog=15.d0
-  !om_ci=Z_i*e_charge*btor/(am*p_mass*c)
-!  print *,'om_ci = ',om_ci
-  !cneo_0=1.32*4.d0*sqrt(pi)*Z_i**3*e_charge**4*coullog &
-  !      /(3.d0*(am*p_mass)**1.5d0*om_ci**2)
-  !do ipoi=1,npoib
-  !  qsafb(ipoi)=sum(qsaf(ipbeg(ipoi):ipend(ipoi))*reint_coef(:,ipoi))
-  !  cneo(ipoi)=(R0/rb(ipoi))**1.5d0*qsafb(ipoi)**2*cneo_0
-  !  sqg_bthet_overc(ipoi)=btor*rb(ipoi)/qsafb(ipoi)/c
-  !enddo
-!
-  end subroutine geomparprof
 !
 !ccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
 !
@@ -203,7 +138,6 @@ subroutine recnsplit(r,recnsp)
     implicit none;
 !
     logical :: prop=.true.
-    integer :: k
     double precision :: r, recnsp;
 !
     if(prop) then
@@ -220,6 +154,23 @@ subroutine recnsplit(r,recnsp)
 !
     return
 end subroutine recnsplit
+
+
+subroutine recnsplit_kr(r,recnsp)
+
+    implicit none;
+!
+    double precision :: r, recnsp;
+    double precision :: kr_res = 0.0d0
+    double precision :: width_res = 2.0d0
+    double precision :: ampl_res = 40.0d0
+!
+!  recnsp = 1.d0 + gg_factor*exp(-((r-gg_r_res)/gg_width)**2);
+    recnsp = 1.d0
+    recnsp = recnsp +  ampl_res * exp(-((r - kr_res) / width_res)**2)
+
+end subroutine recnsplit_kr
+
 !
 !ccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
 !
@@ -270,41 +221,41 @@ end subroutine prepare_resonances
 
 
 ! generate grid for spline function space
-subroutine generate_l_space_grid
+!subroutine generate_l_space_grid
+!
+!    use plas_parameter
+!    use back_quants
+!    use setup
+!
+!    implicit none
+!    integer :: ind, ibeg, iend
+!    integer :: nlagr = 4
+!    integer :: nder = 0
+!    double precision, dimension(:,:), allocatable :: coef
+!    double precision :: r_res
+!    double precision :: q_res
+!!
+!    if(.not. allocated(coef)) allocate(coef(0:nder, nlagr))
+!
+!    q_res = -dble(m_mode) / dble(n_mode)
+!    write(*,*) q_res
+!    ! find center, i.e. rational surface
+!    call binsrc(abs(q_prof), 1, iprof_length, abs(q_res), ind)
+!    ibeg = max(1, ind - nlagr/2)
+!    iend = ibeg + nlagr - 1
+!    if (iend .gt. iprof_length) then
+!        iend = iprof_length
+!        ibeg = iend - nlagr + 1
+!    end if
+!
+!    call plag_coeff(nlagr, nder, q_res, q_prof(ibeg:iend), coef)
+!
+!    r_res = sum(coef(0,:) * r_prof(ibeg:iend))
+!    write(*,*) r_res
+!
+!end subroutine
 
-    use plas_parameter
-    use back_quants
-    use setup
-
-    implicit none
-    integer :: ind, ibeg, iend
-    integer :: nlagr = 4
-    integer :: nder = 0
-    double precision, dimension(:,:), allocatable :: coef
-    double precision :: r_res
-    double precision :: q_res
-
-    if(.not. allocated(coef)) allocate(coef(0:nder, nlagr))
-
-    q_res = -dble(m_mode) / dble(n_mode)
-    write(*,*) q_res
-    ! find center, i.e. rational surface
-    call binsrc(abs(q_prof), 1, iprof_length, abs(q_res), ind)
-    ibeg = max(1, ind - nlagr/2)
-    iend = ibeg + nlagr - 1
-    if (iend .gt. iprof_length) then
-        iend = iprof_length
-        ibeg = iend - nlagr + 1
-    end if
-
-    call plag_coeff(nlagr, nder, q_res, q_prof(ibeg:iend), coef)
-
-    r_res = sum(coef(0,:) * r_prof(ibeg:iend))
-    write(*,*) r_res
-
-end subroutine
-
-subroutine generate_k_space_grid(write_out)
+subroutine generate_k_space_grid(npoi_min, write_out)
     
     use grid
     use setup
@@ -315,24 +266,64 @@ subroutine generate_k_space_grid(write_out)
 
     integer :: i
     logical, intent(in) :: write_out
-    double precision :: h
+    double precision :: h, krmin, krmax, hrmax, kr_val, krnext, recnsp
+    integer :: k_grid_mode = 2
+
+    integer :: npoi_kr, npoi_min, ipoib
 
     if (fstatus == 1) write(*,*) 'Status: Generating k-space grid, write out=', write_out
 
-    allocate(kr(k_space_dim), krp(k_space_dim))
+    if (k_grid_mode==1) then
+        allocate(kr(k_space_dim), krp(k_space_dim))
+        do i=1, k_space_dim
+            kr(i) = i
+            krp(i) = i
+        end do
+        kr = kr - k_space_dim / 2d0
+        krp = (krp+0.1d0) - k_space_dim / 2d0
+    else if (k_grid_mode == 2) then
+        h = pi / (k_space_dim + 1)
+        allocate(kr(k_space_dim), krp(k_space_dim))
+        do i=1, k_space_dim
+            kr(i) = tan(- pi / 2.0d0 + i * h)
+        end do
+        krp = kr +0.01
+    else if (k_grid_mode == 3) then ! non-equidistant grid, similar to l grid
 
-    h = pi / (k_space_dim + 1)
+        krmin = -k_space_dim / 3.0d0
+        krmax = k_space_dim / 3.0d0
 
-    do i=1, k_space_dim
-        !kr(i) = i
-        kr(i) = tan(- pi / 2.0d0 + i * h)
-        !krp(i) = i
-    end do
+        hrmax = (krmax - krmin)/(npoi_min+1)
 
-    ! center around zero
-    kr = kr !- k_space_dim / 2d0
-    !krp = (krp+0.1d0) - k_space_dim / 2d0
-    krp = kr! +0.01
+        npoi_kr = 1
+        kr_val = krmin
+
+        do while(kr_val .lt. krmax)
+            call recnsplit_kr(kr_val,recnsp)
+            krnext = kr_val + hrmax / recnsp
+            call recnsplit_kr(krnext,recnsp)
+            kr_val = 0.5d0 * (krnext + kr_val + hrmax / recnsp)
+            npoi_kr = npoi_kr + 1
+        enddo
+
+        allocate(kr(npoi_kr), krp(npoi_kr))
+
+        kr_val = krmin
+        kr(1) = kr_val
+
+        do ipoib=2,npoi_kr
+            call recnsplit_kr(kr_val,recnsp)
+            krnext = kr_val + hrmax / recnsp
+            call recnsplit_kr(krnext,recnsp)
+            kr_val = 0.5d0 * (krnext + kr_val + hrmax / recnsp)
+            kr(ipoib) = kr_val
+            !rc(ipoib-1) = 0.5 * (rb(ipoib-1) + rb(ipoib))
+            krp(ipoib) = kr_val - 0.1d0
+        enddo
+        k_space_dim = npoi_kr
+        if (fstatus == 1) write(*,*) ' Status: new k space dim = ', k_space_dim
+
+    end if
 
     if (write_out) call write_k_space
 

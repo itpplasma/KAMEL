@@ -26,7 +26,8 @@ set(KIM_subs read_profiles.f90
              math/bessel.f90
              math/bessk.f90
              math/use_libcerf_mod.f90
-             math/sparse_mod.f90)
+             math/sparse_mod.f90
+             math/adaptive_int.f90)
 
 
 set(CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/cmake" ${CMAKE_MODULE_PATH})

@@ -11,9 +11,6 @@ program kim_main
 
     real :: t_start, t_finish
 
-    !double complex :: z= (1d0, 1d0)
-    !double complex :: plasma_Z
-
     namelist /KIM_CONFIG/ profile_location, hdf5_input, hdf5_output, &
                           fdebug, fstatus, ispecies, output_path
 
@@ -62,7 +59,7 @@ program kim_main
 
     call cpu_time(t_start)
 
-    call generate_k_space_grid(.true.)
+    call generate_k_space_grid(k_space_dim, .true.)
     call read_profiles(reduce_r)
 
     ! calculate equilibrium B field and J
@@ -73,6 +70,7 @@ program kim_main
     
     ! generate non-equidistant grid for spline functions (i.e. real space)
     call gengrid(num_gengrid_points, .true.)
+
 
     ! calculate kernels
     call kernel_phi(.true.)

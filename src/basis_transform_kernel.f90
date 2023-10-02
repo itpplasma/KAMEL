@@ -1,8 +1,9 @@
 subroutine basis_transform_kernel(write_out)
 
     use kernel
-    use grid, only: npoib, kr, varphi_lkr, k_space_dim
+    use grid, only: npoib, kr, varphi_lkr, k_space_dim, krp
     use config
+    use adaptive_int, only: odeint_c
 
     implicit none
     logical, intent(in) :: write_out
@@ -10,11 +11,26 @@ subroutine basis_transform_kernel(write_out)
     integer :: k1, k2
 
     double precision :: int_fac1, int_fac2
+    integer :: integration_mode = 2
+
+    double complex, dimension(:), allocatable :: vphi_l
+    double complex, dimension(:), allocatable :: kr_int1
+    double complex, dimension(1) :: res1, res2
+
+    integer :: nlagr = 4
+    integer :: nder = 0
+    double precision :: eps = 1d-3
+    double precision :: h1 = 0.1d0
+    double precision :: hmin = 0.0d0
+    integer :: nok, nbad
 
     if (fstatus == 1) write(*,*) 'Status: Transforming basis of kernels, Fourier -> Spline, write_out=',write_out
 
     allocate(K_rho_phi_llp(npoib, npoib),&
              K_rho_B_llp(npoib, npoib))
+    allocate(vphi_l(k_space_dim))
+    !allocate(kr_int1(npoib, k_space_dim))
+    allocate(kr_int1(k_space_dim))
     
     K_rho_phi_llp = 0.1d0
     K_rho_B_llp = 0.0d0
@@ -23,38 +39,66 @@ subroutine basis_transform_kernel(write_out)
         call calculate_fourier_trans_spline_funcs(.true.)
     end if
 
-    do i=1, npoib ! l'
-        do j=1, npoib ! l
-            do k1=1, k_space_dim ! kr
-                do k2 = 1, k_space_dim !kr'
+    if (integration_mode == 1) then ! trapezoidal
+        do i=1, npoib ! l'
+            do j=1, npoib ! l
+                do k1=1, k_space_dim ! kr
+                    do k2 = 1, k_space_dim !kr'
 
-                    if (k1==1 .or. k1==k_space_dim) then
-                        int_fac1 = 0.5d0
-                    else
-                        int_fac1 = 1.0d0
-                    end if
-                    if (k2==1 .or. k2==k_space_dim) then
-                        int_fac2 = 0.5d0
-                    else
-                        int_fac2 = 1.0d0
-                    end if
+                        if (k1==1 .or. k1==k_space_dim) then
+                            int_fac1 = 0.5d0
+                        else
+                            int_fac1 = 1.0d0
+                        end if
+                        if (k2==1 .or. k2==k_space_dim) then
+                            int_fac2 = 0.5d0
+                        else
+                            int_fac2 = 1.0d0
+                        end if
 
-                    K_rho_phi_llp(i,j) = K_rho_phi_llp(i,j) + int_fac1 * int_fac2 * varphi_lkr(i,k1) *&
+                        K_rho_phi_llp(i,j) = K_rho_phi_llp(i,j) + int_fac1 * int_fac2 * varphi_lkr(i,k1) *&
                                          conjg(varphi_lkr(j,k2)) * K_rho_phi(k2,k1)
-                    K_rho_B_llp(i,j) = K_rho_B_llp(i,j) + int_fac1 * int_fac2 * varphi_lkr(i,k1) *&
+                        K_rho_B_llp(i,j) = K_rho_B_llp(i,j) + int_fac1 * int_fac2 * varphi_lkr(i,k1) *&
                                          conjg(varphi_lkr(j,k2)) * K_rho_B(k2,k1)
-                    !if (isnan(real(K_rho_phi_llp(i,j)))) then
-                    !    write(*,*) 'NAN: i=', i, ', j=', j, ', k1=', k1, ', k2=', k2
-                    !end if
+                        !if (isnan(real(K_rho_phi_llp(i,j)))) then
+                        !   write(*,*) 'NAN: i=', i, ', j=', j, ', k1=', k1, ', k2=', k2
+                        !end if
+                    end do
                 end do
             end do
         end do
-    end do
 
-    K_rho_phi_llp = K_rho_phi_llp * ((kr(size(kr)) - kr(1)) / k_space_dim)**2d0
-    K_rho_B_llp = K_rho_B_llp * ((kr(size(kr)) - kr(1)) / k_space_dim)**2d0
+        K_rho_phi_llp = K_rho_phi_llp * ((kr(k_space_dim) - kr(1)) / k_space_dim)**2d0
+        K_rho_B_llp = K_rho_B_llp * ((kr(k_space_dim) - kr(1)) / k_space_dim)**2d0
 
-    if (write_out) call write_basis_trans_kernel
+    else if (integration_mode == 2) then ! adaptive RK
+
+        do i = 1, npoib ! l'
+            do j = 1, npoib ! l
+                do k1 = 1, k_space_dim ! kr'
+                    res1 = krp(1)
+                    vphi_l(:) = varphi_lkr(i,:)
+                    !write(*,*) 'i = ', i, '; j = ', j, '; k1 = ', k1 
+                    call odeint_c(res1, krp(1), krp(k_space_dim), eps, h1, hmin, nok, nbad, integrand_K_rho_phi_krp)
+                    kr_int1(k1) = res1(1)
+                end do
+                !write(*,*) kr_int1
+                res2 = kr(1)
+                
+                vphi_l(:) = conjg(varphi_lkr(j,:))
+                call odeint_c(res2, kr(1), kr(k_space_dim), eps, h1, hmin, nok, nbad, &
+                                  integrand_K_rho_phi_kr)
+                K_rho_phi_llp(i,j) = res2(1)
+
+            end do
+            write(*,*) ' integration status : ', dble(i) / dble(npoib) * 100.0d0 ,'%'
+        end do
+
+    end if
+
+    if (fstatus == 1) write(*,*) ' Status: finished basis transformation'
+
+    !if (write_out) call write_basis_trans_kernel
 
     contains
 
@@ -88,6 +132,82 @@ subroutine basis_transform_kernel(write_out)
 
         close(77)
         close(78)
+        close(79)
+        close(80)
+
+    end subroutine
+
+    subroutine integrand_K_rho_phi_krp(krp_val, y, dydkrp)
+
+        implicit none
+        double precision, intent(in) :: krp_val
+        double complex, dimension(:), intent(in) :: y
+        double complex, dimension(:), intent(out) :: dydkrp
+
+        integer :: ibeg, iend , ikrp
+
+        double precision, dimension(:,:), allocatable :: coef
+
+        double complex :: K_intp, vphi_intp
+
+        if(.not. allocated(coef)) allocate(coef(0:nder, nlagr))
+
+        dydkrp = 0.0d0
+        K_intp = 0.0d0
+        vphi_intp = 0.0d0
+
+        call binsrc(krp_val, 1, k_space_dim, krp, ikrp)
+        ibeg = max(1, ikrp - nlagr/2)
+        iend = ibeg + nlagr - 1
+        if (iend .gt. k_space_dim) then
+            iend = k_space_dim
+            ibeg = iend - nlagr + 1
+        end if
+
+        call plag_coeff(nlagr, nder, krp_val, krp(ibeg:iend), coef)
+
+        K_intp = sum(cmplx(coef(0,:)) * K_rho_phi(ibeg:iend, k1))
+        vphi_intp = sum(cmplx(coef(0,:)) * vphi_l(ibeg:iend))
+        !write(*,*) ' K_intp = ', K_intp, '; vphi_intp = ', vphi_intp
+
+        dydkrp = dydkrp + K_intp * vphi_intp
+        !write(*,*) 'dydkrp = ', dydkrp
+        deallocate(coef)
+
+    end subroutine
+
+
+    subroutine integrand_K_rho_phi_kr(kr_val, y, dydkr)
+
+        implicit none
+        double precision, intent(in) :: kr_val
+        double complex, dimension(:), intent(in) :: y
+        double complex, dimension(:), intent(out) :: dydkr
+
+        integer :: ibeg, iend , ikr
+
+        double precision, dimension(:,:), allocatable :: coef
+
+        double complex :: vphi_intp, K_intp
+
+        dydkr = 0.0d0
+
+        if(.not. allocated(coef)) allocate(coef(0:nder, nlagr))
+
+        call binsrc(kr_val, 1, k_space_dim, kr, ikr)
+        ibeg = max(1, ikr - nlagr/2)
+        iend = ibeg + nlagr - 1
+        if (iend .gt. k_space_dim) then
+            iend = k_space_dim
+            ibeg = iend - nlagr + 1
+        end if
+
+        call plag_coeff(nlagr, nder, kr_val, kr(ibeg:iend), coef)
+
+        vphi_intp = sum(coef(0,:) * vphi_l(ibeg:iend))
+        K_intp = sum(coef(0,:) * kr_int1(ibeg:iend))
+
+        dydkr = dydkr + K_intp * vphi_intp
 
     end subroutine
 

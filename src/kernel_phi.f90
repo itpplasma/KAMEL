@@ -17,7 +17,7 @@ subroutine kernel_phi(write_out)
     double complex :: besselI ! complex bessel function from bessel.f90
     double complex :: plasma_Z ! plasma dispersion function
 
-    double complex, dimension(:,:), allocatable :: K_rho_phi_limit
+    !double complex, dimension(:,:), allocatable :: K_rho_phi_limit
 
     integer :: nlagr = 4
     integer :: nder = 0
@@ -57,7 +57,7 @@ subroutine kernel_phi(write_out)
     res = 0.0d0
 
     allocate(K_rho_phi(k_space_dim, k_space_dim), K_j_phi(k_space_dim, k_space_dim))
-    allocate(K_rho_phi_limit(k_space_dim, k_space_dim))
+    !allocate(K_rho_phi_limit(k_space_dim, k_space_dim))
 
     K_rho_phi = 0.0d0
     K_j_phi = 0.0d0
@@ -203,7 +203,7 @@ subroutine kernel_phi(write_out)
     !K_rho_phi = K_rho_phi / (2d0**(3d0) * pi**(2d0)) * (r_prof(size(r_prof)) - r_prof(1))/iprof_length
     
     if (write_out) call write_kernel_phi
-    deallocate(K_rho_phi_limit)
+    !deallocate(K_rho_phi_limit)
 
     contains
 
@@ -228,8 +228,8 @@ subroutine kernel_phi(write_out)
                     write(78,*) dimag(K_rho_phi(i,j))
                     write(79,*) real(K_j_phi(i,j))
                     write(80,*) dimag(K_j_phi(i,j))
-                    write(81,*) real(K_rho_phi_limit(i,j))
-                    write(82,*) dimag(K_rho_phi_limit(i,j))
+                    !write(81,*) real(K_rho_phi_limit(i,j))
+                    !write(82,*) dimag(K_rho_phi_limit(i,j))
                 end do
             end do
             close(77)

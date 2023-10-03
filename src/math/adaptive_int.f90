@@ -4,7 +4,7 @@ module adaptive_int
 
     implicit none
 
-    logical :: save_steps = .true.
+    logical :: save_steps = .false. ! don't use this for normal execution of the code, uses too much memory
     integer, parameter :: MAXSTP=10000!, NMAX=50, KMAXX=200
     integer :: kmax = 0
     integer :: kount

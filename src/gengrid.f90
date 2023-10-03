@@ -15,7 +15,7 @@
     logical, intent(in) :: write_out
     integer :: ipoib, nder, ipb, ipe
     double precision :: hrmax, r, rnext, recnsp, rscale
-    double precision, dimension(:),   allocatable :: x
+    !double precision, dimension(:),   allocatable :: x
     double precision, dimension(:,:), allocatable :: coef
 
     if (fdebug == 1) write(*,*) "Debug: coming in gengrid"
@@ -23,7 +23,8 @@
 
     nder=1
     npoi_der=4
-    allocate(x(npoi_der),coef(0:nder,npoi_der))
+    allocate(coef(0:nder,npoi_der))
+    !allocate(x(npoi_der))
 
     rmin = minval(r_prof)
     rmax = maxval(r_prof)
@@ -216,6 +217,7 @@ subroutine prepare_resonances
     enddo
 
     write(*,*) 'resonant radius: ',r_res
+    deallocate(q)
 
 end subroutine prepare_resonances
 

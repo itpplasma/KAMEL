@@ -74,13 +74,13 @@ program kim_main
 
     ! calculate kernels
     call kernel_phi(.true.)
-    call kernel_B(.true.)
+    !call kernel_B(.true.)
 
     ! transform the kernels from k space to spline space
-    call basis_transform_kernel(.true.)
+    !call basis_transform_kernel(.true.)
 
     ! solve poisson's equation with spline solver
-    call solve_poisson
+    !call solve_poisson
 
     call cpu_time(t_finish)
 

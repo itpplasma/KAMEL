@@ -71,6 +71,10 @@ endif()
 
 find_library(UMFPACK_LIBRARY umfpack)
 
+find_package(OpenMP_Fortran REQUIRED)
+IF(OPENMP_FORTRAN_FOUND)
+    SET(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} ${OpenMP_Fortran_FLAGS}")
+ENDIF()
 
 add_executable(KIM_exe kim_main.f90)
 set_target_properties(KIM_exe PROPERTIES 

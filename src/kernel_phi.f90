@@ -9,6 +9,7 @@ subroutine kernel_phi(write_out)
     use back_quants
     use kernel, only: K_rho_phi, K_j_phi
     use adaptive_int, only: odeint_c
+    use omp_lib
 
     implicit none
 
@@ -40,6 +41,7 @@ subroutine kernel_phi(write_out)
 
     integer :: choose_mode = 2
 
+    if (fdebug == 1) write(*,*) ' Debug: Number of threads = ', OMP_GET_MAX_THREADS()
 
     if (fstatus == 1) write(*,*) 'Status: Generating kernels rho phi and j phi, write_out = ', write_out
     c_kr = kr(10)
@@ -181,6 +183,7 @@ subroutine kernel_phi(write_out)
     
     else if(choose_mode == 2) then ! odeint method from NR
 
+        !$OMP PARALLEL DO PRIVATE(c_kr, c_krp, res, nok, nbad, i,j) SHARED(K_rho_phi)
         do i=1, k_space_dim ! kr
             do j = 1, k_space_dim ! krp
                 res = 0.0d0
@@ -192,8 +195,11 @@ subroutine kernel_phi(write_out)
                 !K_rho_phi(i,j) = res(1)
                 K_rho_phi(i,j) = res(1)
             end do
-            if (fstatus == 1) write(*,*) '    ', dble(i) * 100.0d0/dble(k_space_dim), '% of kernel phi filled'
+            if (fstatus == 1 .and. OMP_GET_THREAD_NUM() == 0) then
+                write(*,*) '    ', dble(i) * 100.0d0/dble(k_space_dim), '% of kernel phi filled'
+            end if
         end do
+        !$OMP END PARALLEL DO
 
         K_rho_phi = K_rho_phi / (2.0d0**3.0d0 * pi**2.0d0)
 

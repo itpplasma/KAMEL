@@ -4,14 +4,16 @@ module adaptive_int
 
     implicit none
 
-    logical :: save_steps = .false. ! don't use this for normal execution of the code, uses too much memory
+    
+    !logical :: save_steps = .false. ! don't use this for normal execution of the code, uses too much memory
     integer, parameter :: MAXSTP=10000!, NMAX=50, KMAXX=200
-    integer :: kmax = 0
-    integer :: kount
-    double precision :: dxsav = 0.01d0
-    double precision, dimension(:), pointer :: xp
-    double precision, dimension(:,:), pointer :: yp
-    double complex, dimension(:,:), pointer :: yp_c
+    !integer :: kmax = 0
+    !integer :: count
+    !double precision :: dx_save = 0.01d0
+    !double precision, dimension(:), pointer :: xp
+    !double precision, dimension(:,:), pointer :: yp
+    !double complex, dimension(:,:), pointer :: yp_c
+
 
     contains
 
@@ -42,23 +44,23 @@ module adaptive_int
         h = sign(h1, x2 - x1) 
         nok  = 0 
         nbad = 0
-        kount= 0
+        !count= 0
 
         y(:)=ystart(:)
 
-        nullify(xp,yp)
+        !nullify(xp,yp)
 
-        if (save_steps) then
-            xsav = x-2.0d0 * dxsav
-            allocate(xp(256))
-            allocate(yp(size(ystart), size(xp)))
-        end if
+        !if (save_steps) then
+        !    xsav = x-2.0d0 * dx_save
+        !    allocate(xp(256))
+        !    allocate(yp(size(ystart), size(xp)))
+        !end if
 
         do nstp=1,MAXSTP
             call derivs(x,y,dydx) 
             yscal(:) = abs(y(:)) + abs(h * dydx(:)) + TINY 
 
-            if(save_steps .and. (abs(x-xsav) > abs(dxsav))) call save_a_step
+            !if(save_steps .and. (abs(x-xsav) > abs(dx_save))) call save_a_step
 
             if((x + h - x2) * (x+h-x1) > 0.0) h = x2-x
 
@@ -73,11 +75,11 @@ module adaptive_int
 
                 ystart(:)=y(:) 
 
-                if(kmax.ne.0)then 
-                    kount=kount+1
-                    xp(kount)=x 
-                    yp(:,kount)=y(:) 
-                endif
+                !if(kmax.ne.0)then 
+                !    count=count+1
+                !    xp(count)=x 
+                !    yp(:,count)=y(:) 
+                !endif
                 return 
             endif
         
@@ -93,27 +95,27 @@ module adaptive_int
 
         contains
 
-            subroutine save_a_step
-                kount = kount+1
-                if(kount > size(xp)) then
-                    xp=> reallocate_dv(xp, 2*size(xp))
-                    yp=> reallocate_dm(yp, size(yp,1), size(xp))
-                end if
-                xp(kount) = x
-                yp(:, kount) = y(:)
-                xsav = x
-            end subroutine
+            !subroutine save_a_step
+            !    count = count+1
+            !    if(count > size(xp)) then
+            !        xp=> realloc_dv(xp, 2*size(xp))
+            !        yp=> reallocate_dm(yp, size(yp,1), size(xp))
+            !    end if
+            !    xp(count) = x
+            !    yp(:, count) = y(:)
+            !    xsav = x
+            !end subroutine
 
-            function reallocate_dv(p,n)
-                double precision, dimension(:), pointer :: p, reallocate_dv
+            function realloc_dv(p,n)
+                double precision, dimension(:), pointer :: p, realloc_dv
                 integer, intent(in) :: n
                 integer :: nold, ierr
-                allocate(reallocate_dv(n), stat=ierr)
+                allocate(realloc_dv(n), stat=ierr)
                 if (ierr /= 0) write(*,*) ' not possible to reallocate'
                 if (.not. associated(p)) return
 
                 nold = size(p)
-                reallocate_dv(1:min(nold,n))=p(1:min(nold,n))
+                realloc_dv(1:min(nold,n))=p(1:min(nold,n))
                 deallocate(p)
             end function
 
@@ -277,23 +279,23 @@ module adaptive_int
         h = sign(h1, x2 - x1) 
         nok  = 0 
         nbad = 0
-        kount= 0
+        !count= 0
 
         y(:) = ystart(:)
 
-        nullify(xp,yp_c)
+        !nullify(xp,yp_c)
 
-        if (save_steps) then
-            xsav = x-2.0d0 * dxsav
-            allocate(xp(256))
-            allocate(yp_c(size(ystart), size(xp)))
-        end if
+        !if (save_steps) then
+        !    xsav = x-2.0d0 * dx_save
+        !    allocate(xp(256))
+        !    allocate(yp_c(size(ystart), size(xp)))
+        !end if
 
         do nstp = 1, MAXSTP
             call derivs(x,y,dydx) 
             yscal(:) = abs(y(:)) + abs(h * dydx(:)) + TINY 
 
-            if(save_steps .and. (abs(x-xsav) > abs(dxsav))) call save_a_step
+            !if(save_steps .and. (abs(x-xsav) > abs(dx_save))) call save_a_step
 
             if((x + h - x2) * (x+h-x1) > 0.0) h = x2-x
 
@@ -308,11 +310,11 @@ module adaptive_int
 
                 ystart(:)=y(:) 
 
-                if(kmax.ne.0)then 
-                    kount=kount+1
-                    xp(kount)=x 
-                    yp_c(:,kount)=y(:) 
-                endif
+                !if(kmax.ne.0)then 
+                !    count=count+1
+                !    xp(count)=x 
+                !    yp_c(:,count)=y(:) 
+                !endif
                 return 
             endif
         
@@ -328,27 +330,27 @@ module adaptive_int
 
         contains
 
-            subroutine save_a_step
-                kount = kount+1
-                if(kount > size(xp)) then
-                    xp=> reallocate_dv(xp, 2*size(xp))
-                    yp_c=> reallocate_cm(yp_c, size(yp_c,1), size(xp))
-                end if
-                xp(kount) = x
-                yp_c(:, kount) = y(:)
-                xsav = x
-            end subroutine
+            !subroutine save_a_step
+            !    count = count+1
+            !    if(count > size(xp)) then
+            !        xp=> realloc_dv(xp, 2*size(xp))
+            !        yp_c=> reallocate_cm(yp_c, size(yp_c,1), size(xp))
+            !    end if
+            !    xp(count) = x
+            !    yp_c(:, count) = y(:)
+            !    xsav = x
+            !end subroutine
 
-            function reallocate_dv(p,n)
-                double precision, dimension(:), pointer :: p, reallocate_dv
+            function realloc_dv(p,n)
+                double precision, dimension(:), pointer :: p, realloc_dv
                 integer, intent(in) :: n
                 integer :: nold, ierr
-                allocate(reallocate_dv(n), stat=ierr)
+                allocate(realloc_dv(n), stat=ierr)
                 if (ierr /= 0) write(*,*) ' not possible to reallocate'
                 if (.not. associated(p)) return
 
                 nold = size(p)
-                reallocate_dv(1:min(nold,n))=p(1:min(nold,n))
+                realloc_dv(1:min(nold,n))=p(1:min(nold,n))
                 deallocate(p)
             end function
 

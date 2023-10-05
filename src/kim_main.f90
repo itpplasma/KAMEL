@@ -6,6 +6,7 @@ program kim_main
     use setup
     use use_libcerf
     use grid
+    use omp_lib
 
     implicit none
 
@@ -57,7 +58,7 @@ program kim_main
     ! for the moment:
     !l_space_dim = reduced_r_dim
 
-    call cpu_time(t_start)
+    t_start = omp_get_wtime()
 
     call generate_k_space_grid(k_space_dim, .true.)
     call read_profiles(reduce_r)
@@ -74,7 +75,7 @@ program kim_main
 
     ! calculate kernels
     call kernel_phi(.true.)
-    !call kernel_B(.true.)
+    call kernel_B(.true.)
 
     ! transform the kernels from k space to spline space
     !call basis_transform_kernel(.true.)
@@ -82,7 +83,7 @@ program kim_main
     ! solve poisson's equation with spline solver
     !call solve_poisson
 
-    call cpu_time(t_finish)
+    t_finish =  omp_get_wtime()
 
     write(*,*) ' Time: ', (t_finish - t_start), ' s'
 

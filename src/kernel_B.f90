@@ -7,6 +7,7 @@ subroutine kernel_B(write_out)
     use back_quants
     use kernel, only: K_rho_B, K_j_B
     use adaptive_int, only: odeint_c
+    use omp_lib
 
     implicit none
 
@@ -23,6 +24,7 @@ subroutine kernel_B(write_out)
     !double precision :: eval_bp, eval_bt
     double complex :: eval_bp, eval_bt
 
+    integer :: max_threads
     integer :: i, j, n, sigma
     double precision :: int_fac
     integer :: choose_mode = 2
@@ -36,6 +38,8 @@ subroutine kernel_B(write_out)
 
     double complex, dimension(1) :: res
 
+    max_threads = OMP_GET_MAX_THREADS()
+    if (fdebug == 1) write(*,*) ' Debug: Number of threads = ', max_threads
     if (fstatus == 1) write(*,*) 'Status: Generating kernel rho B and j B, write_out=',write_out
 
     allocate(K_rho_B(k_space_dim, k_space_dim))
@@ -109,19 +113,26 @@ subroutine kernel_B(write_out)
         K_j_B = K_j_B * com_unit / (2d0**(5d0/2d0) * pi**2d0 * sol)
 
     else if(choose_mode == 2)then
+
+        !$OMP PARALLEL DO collapse(2) default(none) schedule(static) &
+        !$OMP PRIVATE(c_kr, c_krp, res, nok, nbad, i,j) &
+        !$OMP SHARED(K_rho_B, kr, krp, k_space_dim, r_prof, iprof_length, eps, h1, &
+        !$OMP hmin, fstatus, max_threads)
         do i=1, k_space_dim ! kr
             do j = 1, k_space_dim ! krp
                 res = 0.0d0
                 c_kr = kr(i)
                 c_krp = krp(j)
-                !call odeint_c(TODO)
-                !call odeint_c(res, r_prof(1), r_prof(10), eps, h1, hmin, nok, nbad, integrand_K_rho_phi)
                 call odeint_c(res, r_prof(1), r_prof(iprof_length), eps, h1, hmin, nok, nbad, integrand_K_rho_B_limit)
-                !K_rho_phi(i,j) = res(1)
                 K_rho_B(i,j) = res(1)
             end do
-            if (fstatus == 1) write(*,*) '    ', dble(i) * 100.0d0/dble(k_space_dim), '% of kernel B filled'
+            !!$OMP critical
+            !if (fstatus == 1 .and. OMP_GET_THREAD_NUM() == 0) then
+            !    write(*,*) '    ', dble(i) * 100.0d0/dble(k_space_dim) * max_threads, '% of kernel B filled'
+            !end if
+            !!$OMP end critical
         end do
+        !$OMP END PARALLEL DO
 
         K_rho_B = K_rho_B  * (-1.0d0) * com_unit /(8d0 * pi**2.0d0 * sol)
     end if
@@ -187,6 +198,7 @@ subroutine kernel_B(write_out)
             double precision :: vT_res, omc_res, ks_res, om_E_res, kp_res, &
                                 A1_res, A2_res, lambda_D_res, nu_res
             double complex :: z0_res
+            double complex :: eval_bp, eval_bt
 
             if(.not. allocated(coef)) allocate(coef(0:nder, nlagr))
 

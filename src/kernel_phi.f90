@@ -22,6 +22,7 @@ subroutine kernel_phi(write_out)
 
     integer :: nlagr = 4
     integer :: nder = 0
+    integer :: max_threads
     double complex :: a0, a1, a2
     !double precision :: eval_bp, eval_bt ! b_+ and b_\times
     double complex :: eval_bp, eval_bt ! b_+ and b_\times
@@ -41,7 +42,9 @@ subroutine kernel_phi(write_out)
 
     integer :: choose_mode = 2
 
-    if (fdebug == 1) write(*,*) ' Debug: Number of threads = ', OMP_GET_MAX_THREADS()
+    max_threads = OMP_GET_MAX_THREADS()
+
+    if (fdebug == 1) write(*,*) ' Debug: Number of threads = ', max_threads
 
     if (fstatus == 1) write(*,*) 'Status: Generating kernels rho phi and j phi, write_out = ', write_out
     c_kr = kr(10)
@@ -183,21 +186,23 @@ subroutine kernel_phi(write_out)
     
     else if(choose_mode == 2) then ! odeint method from NR
 
-        !$OMP PARALLEL DO PRIVATE(c_kr, c_krp, res, nok, nbad, i,j) SHARED(K_rho_phi)
+        !$OMP PARALLEL DO collapse(2) default(none) schedule(guided) &
+        !$OMP PRIVATE(c_kr, c_krp, res, nok, nbad, i,j) &
+        !$OMP SHARED(K_rho_phi, kr, krp, k_space_dim, r_prof, iprof_length, eps, h1, &
+        !$OMP hmin, fstatus, max_threads)
         do i=1, k_space_dim ! kr
             do j = 1, k_space_dim ! krp
                 res = 0.0d0
                 c_kr = kr(i)
                 c_krp = krp(j)
-                !call odeint_c(TODO)
-                !call odeint_c(res, r_prof(1), r_prof(10), eps, h1, hmin, nok, nbad, integrand_K_rho_phi)
                 call odeint_c(res, r_prof(1), r_prof(iprof_length), eps, h1, hmin, nok, nbad, integrand_K_rho_phi_limit)
-                !K_rho_phi(i,j) = res(1)
                 K_rho_phi(i,j) = res(1)
             end do
-            if (fstatus == 1 .and. OMP_GET_THREAD_NUM() == 0) then
-                write(*,*) '    ', dble(i) * 100.0d0/dble(k_space_dim), '% of kernel phi filled'
-            end if
+            !!$OMP critical
+            !if (fstatus == 1 .and. OMP_GET_THREAD_NUM() == 0) then
+            !    write(*,*) '    ', dble(i) * 100.0d0/dble(k_space_dim) * max_threads, '% of kernel phi filled'
+            !end if
+            !!$OMP end critical
         end do
         !$OMP END PARALLEL DO
 
@@ -258,6 +263,8 @@ subroutine kernel_phi(write_out)
             double precision, intent(in) :: r
             double complex, dimension(:), intent(in) :: y
             double complex, dimension(:), intent(out) :: dydr
+            double complex :: a0, a1, a2
+            double complex :: eval_bp, eval_bt ! b_+ and b_\times
 
             integer :: sigma ! for loop over species
             integer :: ibeg, iend
@@ -337,6 +344,8 @@ subroutine kernel_phi(write_out)
             double precision, intent(in) :: r
             double complex, dimension(:), intent(in) :: y
             double complex, dimension(:), intent(out) :: dydr
+            double complex :: a0, a1, a2
+            double complex :: eval_bp, eval_bt ! b_+ and b_\times
 
             integer :: sigma ! for loop over species
             integer :: ibeg, iend

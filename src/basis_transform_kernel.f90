@@ -4,11 +4,13 @@ subroutine basis_transform_kernel(write_out)
     use grid, only: npoib, kr, varphi_lkr, k_space_dim, krp
     use config
     use adaptive_int, only: odeint_c
+    use omp_lib
 
     implicit none
     logical, intent(in) :: write_out
     integer :: i,j
     integer :: k1, k2
+    integer :: max_threads
 
     double precision :: int_fac1, int_fac2
     integer :: integration_mode = 2
@@ -24,6 +26,8 @@ subroutine basis_transform_kernel(write_out)
     double precision :: hmin = 0.0d0
     integer :: nok, nbad
 
+    max_threads = OMP_GET_MAX_THREADS()
+    if (fdebug == 1) write(*,*) ' Debug: Number of threads = ', max_threads
     if (fstatus == 1) write(*,*) 'Status: Transforming basis of kernels, Fourier -> Spline, write_out=',write_out
 
     allocate(K_rho_phi_llp(npoib, npoib),&
@@ -73,6 +77,10 @@ subroutine basis_transform_kernel(write_out)
 
     else if (integration_mode == 2) then ! adaptive RK
 
+        !$OMP PARALLEL DO default(none) schedule(guided) &
+        !$OMP PRIVATE(i,j,k1, res1, res_B1, vphi_l, res2, res_B2, nok, nbad, kr_int1, kr_int_B1) &
+        !$OMP SHARED(k_space_dim, npoib, varphi_lkr, K_rho_phi_llp, K_rho_B_llp, kr, krp, eps,&
+        !$OMP h1,hmin, max_threads)
         do i = 1, npoib ! l'
             do j = 1, npoib ! l
                 ! integrate over kr'
@@ -101,8 +109,11 @@ subroutine basis_transform_kernel(write_out)
                 K_rho_B_llp(i,j) = res_B2(1)
 
             end do
-            write(*,*) ' integration status : ', dble(i) / dble(npoib) * 100.0d0 ,'%'
+            !$OMP critical
+            write(*,*) ' integration status : ', dble(i) / dble(npoib) * 100.0d0 * max_threads ,'%'
+            !$OMP end critical
         end do
+        !$OMP END PARALLEL DO
 
     end if
 

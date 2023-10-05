@@ -6,15 +6,14 @@ subroutine kernel_B(write_out)
     use grid
     use back_quants
     use kernel, only: K_rho_B, K_j_B
-    use adaptive_int, only: odeint_c
+    !use adaptive_int, only: odeint_c
     use omp_lib
 
     implicit none
 
-    logical, intent(in) :: write_out
-
     double complex :: besselI
     double complex :: plasma_Z
+    logical, intent(in) :: write_out
 
     !double complex, dimension(:,:), allocatable :: K_rho_B_limit
 
@@ -114,16 +113,17 @@ subroutine kernel_B(write_out)
 
     else if(choose_mode == 2)then
 
-        !$OMP PARALLEL DO collapse(2) default(none) schedule(static) &
-        !$OMP PRIVATE(c_kr, c_krp, res, nok, nbad, i,j) &
-        !$OMP SHARED(K_rho_B, kr, krp, k_space_dim, r_prof, iprof_length, eps, h1, &
-        !$OMP hmin, fstatus, max_threads)
+        !$OMP PARALLEL DO collapse(2) default(none) schedule(guided) &
+        !$OMP PRIVATE(res, nok, nbad, i,j) &
+        !$OMP SHARED(c_kr, c_krp, K_rho_B, kr, krp, r_prof, iprof_length, k_space_dim, eps,&
+        !$OMP h1, hmin, fstatus, max_threads) 
         do i=1, k_space_dim ! kr
             do j = 1, k_space_dim ! krp
                 res = 0.0d0
-                c_kr = kr(i)
-                c_krp = krp(j)
-                call odeint_c(res, r_prof(1), r_prof(iprof_length), eps, h1, hmin, nok, nbad, integrand_K_rho_B_limit)
+                !c_kr = kr(i)
+                !c_krp = krp(j)
+                call integrate_rg_c(res, size(res), kr(i), krp(j), r_prof(1), r_prof(iprof_length), eps, h1,&
+                                    hmin, nok, nbad, integrand_K_rho_B_limit_kr)
                 K_rho_B(i,j) = res(1)
             end do
             !!$OMP critical
@@ -184,6 +184,9 @@ subroutine kernel_B(write_out)
 
             use setup, only: omega
             implicit none
+
+            double complex :: besselI
+            double complex :: plasma_Z
 
             double precision, intent(in) :: r
             double complex, dimension(:), intent(in) :: y
@@ -253,5 +256,80 @@ subroutine kernel_B(write_out)
 
         end subroutine
 
+        subroutine integrand_K_rho_B_limit_kr(r, y, dydr, c_kr, c_krp)
+
+            use setup, only: omega
+            implicit none
+
+            double complex :: besselI
+            double complex :: plasma_Z
+
+            double precision, intent(in) :: r, c_kr, c_krp
+            double complex, dimension(:), intent(in) :: y
+            double complex, dimension(:), intent(out) :: dydr
+
+            integer :: sigma ! for loop over species
+            integer :: ibeg, iend
+            integer :: ir
+
+            double precision, dimension(:,:), allocatable :: coef
+
+            double precision :: vT_res, omc_res, ks_res, om_E_res, kp_res, &
+                                A1_res, A2_res, lambda_D_res, nu_res
+            double complex :: z0_res
+            double complex :: eval_bp, eval_bt
+
+            if(.not. allocated(coef)) allocate(coef(0:nder, nlagr))
+
+            call binsrc(r_prof, 1, iprof_length, r, ir)
+            ibeg = max(1, ir - nlagr/2)
+            iend = ibeg + nlagr - 1
+            if (iend .gt. iprof_length) then
+                iend = iprof_length
+                ibeg = iend - nlagr + 1
+            end if
+
+            call plag_coeff(nlagr, nder, r, r_prof(ibeg:iend), coef)
+
+            ks_res = sum(coef(0,:) * ks(ibeg:iend))
+            kp_res = sum(coef(0,:) * kp(ibeg:iend))
+            om_E_res = sum(coef(0,:) * om_E(ibeg:iend))
+
+            dydr = 0.0d0
+
+            do sigma = 0, ispecies
+                if (sigma == 0) then ! electrons
+                    vT_res = sum(coef(0,:) * vTe(ibeg:iend))
+                    omc_res = sum(coef(0,:) * omce(ibeg:iend))
+                    A1_res = sum(coef(0,:) * A1e(ibeg:iend))
+                    A2_res = sum(coef(0,:) * A2e(ibeg:iend))
+                    lambda_D_res = sum(coef(0,:) * lambda_De(ibeg:iend))
+                    z0_res = sum(coef(0,:) * z0e(ibeg:iend))
+                    nu_res = sum(coef(0,:) * nue(ibeg:iend))
+                else
+                    vT_res = sum(coef(0,:) * vTi(sigma, ibeg:iend))
+                    omc_res = sum(coef(0,:) * omci(sigma, ibeg:iend))
+                    A1_res = sum(coef(0,:) * A1i(sigma,ibeg:iend))
+                    A2_res = sum(coef(0,:) * A2i(sigma,ibeg:iend))
+                    lambda_D_res = sum(coef(0,:) * lambda_Di(sigma,ibeg:iend))
+                    z0_res = sum(coef(0,:) * z0i(sigma, ibeg:iend))
+                    nu_res = sum(coef(0,:) * nui(sigma, ibeg:iend))
+                end if
+
+                eval_bp = vT_res**2.0d0 / (2.0d0 * omc_res**2.0d0) * (2.0d0 * ks_res**2.0d0 &
+                        + c_kr**2.0d0 + c_krp**2.0d0)
+                eval_bt = vT_res**2.0d0 /(omc_res**2.0d0) * sqrt(ks_res**2.0d0 + c_kr**2.0d0)&
+                        * sqrt(ks_res**2.0d0 + c_krp**2.0d0)
+                
+                dydr = dydr + vT_res**4.0d0 * kp_res / (lambda_D_res**2.0d0 * omc_res) * exp(com_unit * (c_kr - c_krp) * r) &
+                      * exp(-eval_bp) &
+                      / (om_E_res - omega - com_unit * nu_res)**2.0d0 * ((A1_res + A2_res * (1 + eval_bp)) &
+                      * besselI(0,eval_bt,0) + A2_res * eval_bt * besselI(-1, eval_bt, 0))
+
+            end do
+
+            deallocate(coef)
+
+        end subroutine
 
 end subroutine

@@ -96,7 +96,7 @@
 
     if (write_out) call write_new_grid
 
-    if (fdebug == 1) write(*,*) "Debug: going out in gengrid"
+    if (fdebug == 1) write(*,*) "Debug: going out of gengrid"
 
 
     contains
@@ -269,7 +269,7 @@ subroutine generate_k_space_grid(npoi_min, write_out)
     integer :: i
     logical, intent(in) :: write_out
     double precision :: h, krmin, krmax, hrmax, kr_val, krnext, recnsp
-    integer :: k_grid_mode = 2
+    integer :: k_grid_mode = 3
 
     integer :: npoi_kr, npoi_min, ipoib
 
@@ -289,11 +289,11 @@ subroutine generate_k_space_grid(npoi_min, write_out)
         do i=1, k_space_dim
             kr(i) = tan(- pi / 2.0d0 + i * h)
         end do
-        krp = kr +0.01
+        krp = kr !+0.01d0
     else if (k_grid_mode == 3) then ! non-equidistant grid, similar to l grid
 
-        krmin = -k_space_dim / 3.0d0
-        krmax = k_space_dim / 3.0d0
+        krmin = -k_space_dim
+        krmax = k_space_dim
 
         hrmax = (krmax - krmin)/(npoi_min+1)
 
@@ -320,7 +320,7 @@ subroutine generate_k_space_grid(npoi_min, write_out)
             kr_val = 0.5d0 * (krnext + kr_val + hrmax / recnsp)
             kr(ipoib) = kr_val
             !rc(ipoib-1) = 0.5 * (rb(ipoib-1) + rb(ipoib))
-            krp(ipoib) = kr_val - 0.1d0
+            krp(ipoib) = kr_val !- 0.1d0
         enddo
         k_space_dim = npoi_kr
         if (fstatus == 1) write(*,*) ' Status: new k space dim = ', k_space_dim

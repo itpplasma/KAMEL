@@ -55,9 +55,6 @@ program kim_main
     write(*,*) '  num_gengrid_points = ', num_gengrid_points
     write(*,*) ' - - - - - - - - - - - - - - - - - -'
 
-    ! for the moment:
-    !l_space_dim = reduced_r_dim
-
     t_start = omp_get_wtime()
 
     call generate_k_space_grid(k_space_dim, .true.)

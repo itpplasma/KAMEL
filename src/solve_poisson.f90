@@ -37,15 +37,27 @@ subroutine solve_poisson
 
     ! create Laplacian:
     A_mat = cmplx(0.0d0, 0.0d0)
-    A_mat(1,1) = -1d0 / (rb(1)) - 1d0 / (rb(2) + rb(1)) * cmplx(1.0d0, 0.0d0)
-    A_mat(npoib,npoib) = 1d0 / (rb(npoib) - rb(npoib-1)) * cmplx(1.0d0, 0.0d0)
-    A_mat(1,2) = 1d0 / (rb(2) - rb(1)) * cmplx(1.0d0, 0.0d0)
+    A_mat(1,1) = -1d0 / (rb(1)) - 1d0 / (rb(2) + rb(1))
+    A_mat(npoib,npoib) = - 1d0 / (rb(npoib) - rb(npoib-1))
+    A_mat(1,2) = 1d0 / (rb(2) - rb(1))
+    A_mat(2,1) = 1d0 / (rb(2) - rb(1))
 
     do i = 2, npoib-1
-        A_mat(i,i) = - 1d0 / (rb(i) - rb(i-1)) - 1d0 / (rb(i+1) - rb(i)) * cmplx(1.0d0, 0.0d0)
-        A_mat(i, i+1) = 1d0 / (rb(i+1) - rb(i)) * cmplx(1.0d0, 0.0d0)
-        A_mat(i, i-1) = 1d0 / (rb(i) - rb(i-1)) * cmplx(1.0d0, 0.0d0)
+        A_mat(i,i) = - 1d0 / (rb(i) - rb(i-1)) - 1d0 / (rb(i+1) - rb(i))
+        A_mat(i, i+1) = 1d0 / (rb(i+1) - rb(i))
+        A_mat(i, i-1) = 1d0 / (rb(i) - rb(i-1))
     end do
+
+    if (fdebug == 1) then
+        write(*,*) 'Debug: writing Laplacian A matrix before sparse'
+        open(unit=77, file=trim(output_path)//'kernel/laplacian_re.dat')
+        do i = 1,npoib
+            do j = 1,npoib
+                write(77,*) real(A_mat(i,j))
+            end do
+        end do
+        close(77)
+    end if
 
     ! make kernel matrix sparse with cut_off_fac * ion Larmor radius cut off
     ! max value of the ion Larmor radius
@@ -60,11 +72,11 @@ subroutine solve_poisson
             if (abs(rb(i) - rb(j)) >= cut_off_fac * rho_L) then
                 !write(*,*) 'set kernel zero'
                 K_rho_phi_llp(i,j) = cmplx(0.0d0, 0.0d0)
+                !K_rho_B_llp(i,j) = cmplx(0.0d0, 0.0d0)
                 set_zero = set_zero + 1
             end if
             A_mat(i,j) = A_mat(i,j) + cmplx(4.0d0 * pi, 0.0d0) * K_rho_phi_llp(i,j)
             !write(*,*) (1.0d0, 0.0d0) * 4.0d0 * pi * K_rho_phi_llp(i,j)
-
         end do
     end do
     if (fdebug == 1) write(*,*) 'set_zero = ', set_zero

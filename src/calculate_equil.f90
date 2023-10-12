@@ -5,7 +5,7 @@ subroutine calculate_equil(write_out)
 ! method.
 
     use plas_parameter
-    use constants, only: kB, pi
+    use constants, only: ev, pi
     use setup, only: btor, R0
     use config
     use equil
@@ -48,12 +48,12 @@ subroutine calculate_equil(write_out)
     end if
 
     do i=1, iprof_length
-        dpress_prof(i) = kB *(dndr_prof(i) * Te_prof(i) + n_prof(i) * dTedr_prof(i))
+        dpress_prof(i) = ev *(dndr_prof(i) * Te_prof(i) + n_prof(i) * dTedr_prof(i))
     end do
 
     do sigma=1, ispecies
         do i=1, iprof_length
-            dpress_prof(i) = dpress_prof(i) + kB * (dnidr_prof(sigma,i) * &
+            dpress_prof(i) = dpress_prof(i) + ev * (dnidr_prof(sigma,i) * &
                 Ti_prof(sigma, i) + ni_prof(sigma,i) * dTidr_prof(sigma,i))
         end do
     end do
@@ -77,7 +77,7 @@ subroutine calculate_equil(write_out)
         call ddeabm(dudr, ineq, radius0, u0, r1, info, rtol, atol, idid, rwork, lrw, &
                     iwork, liw, rpar, ipar)
 
-        if (idid .lt. 2) write(*,*) 'Warning: calculate_equil: r=', r1, ' idid=', idid
+        if (idid .lt. 1) write(*,*) 'Warning: calculate_equil: r=', r1, ' idid=', idid
 
         u(i) = u0
         info(1) = 1
@@ -118,6 +118,7 @@ subroutine calculate_equil(write_out)
 
             q = sum(coef(0,:) * q_prof(ibeg:iend))
             dpress = sum(coef(0, :) * dpress_prof(ibeg:iend))
+            !write(*,*) 'dpress = ', dpress
 
             g = 1.0d0 + r**2 / (R0**2 * q**2)
             !write(*,*) 'q = ', q, ' dpress = ', dpress

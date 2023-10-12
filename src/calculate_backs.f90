@@ -43,13 +43,13 @@ subroutine calculate_backs(write_out)
         Lee(i) = 23.5d0 - log(sqrt(n_prof(i)) / Te_prof(i)**1.25) - &
         sqrt(1d-5 + (log(Te_prof(i)) -2.0)**2.0 / 16.0)
         ! Thermal velocity
-        vTe(i) = sqrt(Te_prof(i) * kB / e_mass)
+        vTe(i) = 4.19d7 * sqrt(Te_prof(i)) !sqrt(Te_prof(i) * ev / e_mass)
         ! cyclotron frequency
         omce(i) = e_charge * btor / (e_mass * sol)
         ! Collision frequency
         nue(i) = 5.8e-6 * n_prof(i) * Lee(i) / Te_prof(i)**(3.0/2.0)
         ! Debye length
-        lambda_De(i) = sqrt(Te_prof(i) *kB/ (4*pi*n_prof(i) * e_charge**2))
+        lambda_De(i) = sqrt(Te_prof(i) *ev/ (4*pi*n_prof(i) * e_charge**2))
         ! First thermodynamic force
         A1e(i) = dndr_prof(i) / n_prof(i) + e_charge/Te_prof(i) * Er_prof(i) - 3/(2*Te_prof(i)) * dTedr_prof(i)
         ! Second thermodynamic force
@@ -71,7 +71,7 @@ subroutine calculate_backs(write_out)
             ! Coulomb logarithm electrons ions (= ions electrons)
             Lei(sigma, i) = 24.0d0 - log(sqrt(n_prof(i)) / Ti_prof(sigma, i))
             ! thermal velocity
-            vTi(sigma, i) = sqrt(Ti_prof(sigma, i) * kB / (p_mass * Ai(sigma)))
+            vTi(sigma, i) = 9.79d5 * sqrt(Ti_prof(sigma,i)/Ai(sigma))!sqrt(Ti_prof(sigma, i) * ev / (p_mass * Ai(sigma)))
             ! Cyclotron frequency
             omci(sigma, i) = (e_charge * Zi(sigma)) * btor / (p_mass * Ai(sigma) * sol)
             ! Collision frequency of electrons with ions
@@ -93,7 +93,7 @@ subroutine calculate_backs(write_out)
             end do
 
             ! Debye length ions
-            lambda_Di(sigma, i) = sqrt(Ti_prof(sigma, i) * kB/ (4*pi*ni_prof(sigma,i) * (e_charge*Zi(sigma))**2))
+            lambda_Di(sigma, i) = sqrt(Ti_prof(sigma, i) * ev/ (4*pi*ni_prof(sigma,i) * (e_charge*Zi(sigma))**2))
             ! First thermodynamic force
             A1i(sigma, i) = dnidr_prof(sigma, i) / ni_prof(sigma, i) - (e_charge*Zi(sigma))/Ti_prof(sigma, i) * Er_prof(i)&
                         - 3/(2*Ti_prof(sigma, i)) * dTidr_prof(sigma, i)
@@ -105,8 +105,8 @@ subroutine calculate_backs(write_out)
         end do
     end do
 
-    !nue = 0.0d0
-    !nui = 0.0d0
+    nue = 0.0d0
+    nui = 0.0d0
 
     if (write_out) then
         call write_backs

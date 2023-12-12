@@ -89,25 +89,25 @@ subroutine basis_transform_kernel(write_out)
                     res_B1 = krp(1)
                     call integrate_kr_c(res1, size(res1), varphi_lkr(i,:), size(varphi_lkr(i,:)), k1, krp(1), &
                                         krp(k_space_dim), eps, h1, hmin, nok, nbad, integrand_K_rho_phi_krp)
-                    call integrate_kr_c(res_B1, size(res1), varphi_lkr(i,:), size(varphi_lkr(i,:)), k1, krp(1), &
-                                        krp(k_space_dim), eps, h1, hmin, nok, nbad, integrand_K_rho_B_krp)
+                    !call integrate_kr_c(res_B1, size(res1), varphi_lkr(i,:), size(varphi_lkr(i,:)), k1, krp(1), &
+                    !                    krp(k_space_dim), eps, h1, hmin, nok, nbad, integrand_K_rho_B_krp)
                     kr_int1(k1) = res1(1)
-                    kr_int_B1(k1) = res_B1(1)
+                    !kr_int_B1(k1) = res_B1(1)
                 end do
                 res2 = kr(1)
-                res_B2 = kr(1)
+                !res_B2 = kr(1)
                 
                 ! integrate over kr
                 call integrate_kr_c_final(res2, size(res2), conjg(varphi_lkr(j,:)), size(varphi_lkr(i,:)), &
                                           kr_int1, size(kr_int1), kr(1), kr(k_space_dim), eps, h1, hmin, nok,&
                                           nbad, integrand_K_rho_phi_kr)
-                call integrate_kr_c_final(res_B2, size(res_B2), conjg(varphi_lkr(j,:)), size(varphi_lkr(i,:)), &
-                                          kr_int_B1, size(kr_int_B1), kr(1), kr(k_space_dim), eps, h1, hmin, nok,&
-                                          nbad, integrand_K_rho_B_kr)
+                !call integrate_kr_c_final(res_B2, size(res_B2), conjg(varphi_lkr(j,:)), size(varphi_lkr(i,:)), &
+                !                          kr_int_B1, size(kr_int_B1), kr(1), kr(k_space_dim), eps, h1, hmin, nok,&
+                !                          nbad, integrand_K_rho_B_kr)
  
                 !$OMP critical
                 K_rho_phi_llp(i,j) = res2(1)
-                K_rho_B_llp(i,j) = res_B2(1)
+                !K_rho_B_llp(i,j) = res_B2(1)
                 !$OMP end critical
 
             end do
@@ -146,15 +146,15 @@ subroutine basis_transform_kernel(write_out)
         open(unit=77, file=trim(output_path)//'kernel/K_rho_phi_llp_re.dat')
         open(unit=78, file=trim(output_path)//'kernel/K_rho_phi_llp_im.dat')
 
-        open(unit=79, file=trim(output_path)//'kernel/K_rho_B_llp_re.dat')
-        open(unit=80, file=trim(output_path)//'kernel/K_rho_B_llp_im.dat')
+        !open(unit=79, file=trim(output_path)//'kernel/K_rho_B_llp_re.dat')
+        !open(unit=80, file=trim(output_path)//'kernel/K_rho_B_llp_im.dat')
 
         do i=1, npoib
             do j=1, npoib
                 write(77,*) real(K_rho_phi_llp(i,j))
                 write(78,*) dimag(K_rho_phi_llp(i,j))
-                write(79,*) real(K_rho_B_llp(i,j))
-                write(80,*) dimag(K_rho_B_llp(i,j))
+                !write(79,*) real(K_rho_B_llp(i,j))
+                !write(80,*) dimag(K_rho_B_llp(i,j))
             end do
         end do
 

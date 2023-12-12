@@ -19,6 +19,9 @@ set(KIM_subs read_profiles.f90
              spline_function.f90
              basis_transform_kernel.f90
              solve_poisson.f90
+             integrands.f90
+             integrate_krp_kr_rg.f90
+             integration.f90
              math/suitesparse/umf4_f77zwrapper.c
              math/suitesparse/umf4_f77wrapper.c
              math/superlu/c_fortran_dgssv.c

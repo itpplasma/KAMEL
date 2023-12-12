@@ -75,7 +75,7 @@ subroutine calculate_backs(write_out)
             ! Cyclotron frequency
             omci(sigma, i) = (e_charge * Zi(sigma)) * btor / (p_mass * Ai(sigma) * sol)
             ! Collision frequency of electrons with ions
-            nue(i) = nue(i) + 7.7d-6 * n_prof(i) * Lei(sigma, i) * Zi(sigma)**2 / Te_prof(i)**(3.0/2.0)
+            nue(i) = nue(i) + 7.7d-6 * ni_prof(sigma, i) * Lei(sigma, i) * Zi(sigma)**2 / Te_prof(i)**(3.0/2.0)
             ! Collision frequency ions with electrons
             nui(sigma, i) = 1.8d-7 * Ai(sigma)**(-1.0/2.0) * Ti_prof(sigma, i)**(-3.0/2.0) * n_prof(i) * &
                             Zi(sigma)**2 * Lei(sigma,i)

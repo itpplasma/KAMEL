@@ -26,7 +26,7 @@ subroutine kernel_B(write_out)
     double precision :: int_fac
     integer :: choose_mode = 2
     double precision :: c_kr, c_krp
-    double precision :: eps = 1d-6
+    double precision :: eps = 1d-4
     double precision :: h1 = 0.1d0
     double precision :: hmin = 0.0d0
     integer :: nok, nbad
@@ -40,8 +40,8 @@ subroutine kernel_B(write_out)
     if (fdebug == 1) write(*,*) ' Debug: Number of threads = ', max_threads
     if (fstatus == 1) write(*,*) 'Status: Generating kernel rho B and j B, write_out=',write_out
 
-    c_kr = kr(10)
-    c_krp = krp(30)
+    c_kr = 0.0d0 !kr(10)
+    c_krp = 0.0d0 !krp(30)
     open(unit=77, file=trim(output_path)//'kernel/integrand_B_re.dat')
     open(unit=78, file=trim(output_path)//'kernel/integrand_B_im.dat')
     do i = 1, iprof_length
@@ -52,7 +52,7 @@ subroutine kernel_B(write_out)
     end do
     close(77)
     close(78)
-
+    stop
     allocate(K_rho_B(k_space_dim, k_space_dim))
     allocate(K_j_B(k_space_dim, k_space_dim))
 
@@ -404,23 +404,27 @@ subroutine kernel_B(write_out)
                 eval_bt = vT_res**2.0d0 /(omc_res**2.0d0) * sqrt(ks_res**2.0d0 + c_kr**2.0d0)&
                         * sqrt(ks_res**2.0d0 + c_krp**2.0d0)
                 
-                if (real(eval_bt) > 10d0) then
+                if (real(eval_bt) > 5d0) then
                     ! limit close to magnetic axis (k_s -> infinity) and large k_r and k_rp
                     eval_besselI0 = exp(eval_bt - eval_bp) /(sqrt(2.0d0 * pi * eval_bt))
-                    eval_besselIm1 = exp(- eval_bp + asinh(-1.0d0/eval_bt) + eval_bt * sqrt(1.0d0 + 1/eval_bt**2.0d0)) &
+                    eval_besselIm1 = exp(- eval_bp + asinh(-1.0d0/eval_bt) + eval_bt * sqrt(1.0d0 + 1.0d0/eval_bt**2.0d0)) &
                             / (sqrt(2.0d0*pi*eval_bt * sqrt(1.0d0 + 1.0d0/eval_bt**2.0d0)))
                     !write(*,*) 'eval_besselI0 = ', eval_besselI0, ', eval_besselIm1 = ', eval_besselIm1 
                 else
                     eval_besselI0 = besselI(0, eval_bt, 0) * exp(-eval_bp)
                     eval_besselIm1 = besselI(-1, eval_bt, 0) * exp(-eval_bp)
-                end if 
+                end if
 
-                if (abs(z0_res) > 4.5d0) then
+                if (abs(z0_res) > 3d0) then
                     ! limit close to resonant surface, z -> infinity, k_parallel -> 0
-                    dydr = dydr + vT_res**4.0d0 * kp_res / (lambda_D_res**2.0d0 * omc_res) * exp(com_unit * (c_kr - c_krp) * r) &
+                    dydr = dydr - vT_res**4.0d0 * kp_res / (lambda_D_res**2.0d0 * omc_res) * exp(com_unit * (c_kr - c_krp) * r) &
                         !* exp(-eval_bp) &
-                        / (om_E_res - omega - com_unit * nu_res)**2.0d0 * ((A1_res + A2_res * (1 + eval_bp)) &
+                        / (om_E_res - omega - com_unit * nu_res)**2.0d0 * ((A1_res + A2_res * (1.0d0 + eval_bp)) &
                         * eval_besselI0 + A2_res * eval_bt * eval_besselIm1)
+                    write(*,*) 'spec = ', sigma, ', r = ', r, ', lambda_D = ', lambda_D_res, &!', omc_res = ', omc_res!eval_besselI0 = ', eval_besselI0, ', eval_besselIm1 = ', eval_besselIm1!', 
+                    ', vT = ', vT_res
+                    !'eval_bt = ', eval_bt, ', eval_bp = ', eval_bp
+                    !, k_p = ', kp_res!, ', omega_E = ', om_E_res
                 else
                     ! ideal region
                     dydr = dydr + vT_res**2.0d0 / (lambda_D_res**2.0d0 * omc_res * kp_res) &

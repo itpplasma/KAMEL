@@ -34,7 +34,7 @@ subroutine kernel_phi(write_out)
     double precision :: int_fac
     double complex :: integr
     double precision :: c_kr, c_krp
-    double precision :: eps = 1d-6
+    double precision :: eps = 1d-3
     double precision :: h1 = 0.1d0
     double precision :: hmin = 0.0d0
     integer :: nok, nbad
@@ -196,8 +196,11 @@ subroutine kernel_phi(write_out)
         do i=1, k_space_dim ! kr
             do j = 1, k_space_dim ! krp
                 res = 0.1d0
-                call integrate_rg_c(res, size(res), kr(i), krp(j), int_rmin, r_prof(iprof_length), eps, h1, &
+!                call integrate_rg_c(res, size(res), kr(i), krp(j), int_rmin, r_prof(iprof_length), eps, h1, &
+!                                    hmin, nok, nbad, integrand_K_rho_phi_stitching)
+                call integrate_rg_c(res, size(res), kr(i), krp(j), 10.0d0, r_prof(iprof_length), eps, h1, &
                                     hmin, nok, nbad, integrand_K_rho_phi_stitching)
+ 
                 K_rho_phi(i,j) = res(1)
                 !write(*,*) 'K_rho_phi(i,j) = ', K_rho_phi(i,j)
             end do
@@ -569,8 +572,8 @@ subroutine kernel_phi(write_out)
             !write(*,*) 'c_kr = ', c_kr, ', c_krp = ', c_krp
             dydr = 0.0d0
 
-            !do sigma = 0, ispecies
-            sigma = 0
+            do sigma = 0, ispecies
+            !sigma = 0
                 if (sigma == 0) then ! electrons
                     vT_res = sum(coef(0,:) * vTe(ibeg:iend))
                     omc_res = sum(coef(0,:) * omce(ibeg:iend))
@@ -638,7 +641,7 @@ subroutine kernel_phi(write_out)
 
                 end if
 
-            !end do
+            end do
 
             deallocate(coef)
 

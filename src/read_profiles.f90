@@ -26,6 +26,7 @@ subroutine read_profiles(reduce)
         integer :: ierr
         integer :: ios
         character(256) :: fileloc, cwd
+        double precision :: r_temp
 
         if (fstatus == 1) write(*,*) 'Status: Reading profiles from text files, reduce=', reduce
 
@@ -37,9 +38,11 @@ subroutine read_profiles(reduce)
         open(99, file=trim(profile_location)//'n.dat')
         ios = 0
         do while(ios == 0)
-            read(99, *, iostat=ios)
-            if (ios == 0) then
+            read(99, *, iostat=ios) r_temp
+            if (r_temp < r_plas) then
                 iprof_length = iprof_length + 1
+            else 
+                ios = 1
             end if
         end do
         close(99)

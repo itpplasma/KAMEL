@@ -16,8 +16,8 @@ subroutine calculate_equil(write_out)
 
     integer :: ineq = 1 ! numbers of equations to be solved
     integer :: idid     ! indicator reporting what the code did
-    double precision :: rtol = 1.0d-12 ! relative error tolerance
-    double precision :: atol = 1.0d-12 ! absolute error tolerance
+    double precision :: rtol = 1.0d-8 ! relative error tolerance
+    double precision :: atol = 1.0d-8 ! absolute error tolerance
     integer, dimension(4) :: info      ! info vector to control solver
     integer, parameter :: lrw = 151
     integer, parameter :: liw = 51
@@ -31,6 +31,7 @@ subroutine calculate_equil(write_out)
     double precision :: u0
     double precision, allocatable :: u(:)
     double precision, allocatable :: dpress_prof(:)
+    double precision, allocatable :: press_prof(:)
 
     integer :: nlagr = 4
     integer :: nder = 0
@@ -47,11 +48,13 @@ subroutine calculate_equil(write_out)
         call calc_plas_parameter_derivs
     end if
 
+    
     do i=1, iprof_length
         dpress_prof(i) = ev *(dndr_prof(i) * Te_prof(i) + n_prof(i) * dTedr_prof(i))
     end do
 
     do sigma=1, ispecies
+        press_prof = ev * n_prof * (Te_prof + Ti_prof(sigma, :))
         do i=1, iprof_length
             dpress_prof(i) = dpress_prof(i) + ev * (dnidr_prof(sigma,i) * &
                 Ti_prof(sigma, i) + ni_prof(sigma,i) * dTidr_prof(sigma,i))
@@ -67,17 +70,27 @@ subroutine calculate_equil(write_out)
     ! on the independent variable T
     info(4) = 1
 
+    rwork = 0.0d0
     rwork(1) = r_prof(iprof_length) ! rwork(1) has to be set to the r stopping point
 
     radius0 = r_prof(1)
-    u0 = btor**2 * (1 + radius0**2 / (R0**2 * q_prof(1)**2)) ! initial value
+    u0 = btor**2.0d0 * (1.0d0 + radius0**2.0d0 / (R0**2.0d0 * q_prof(1)**2.0d0)) ! initial value
+    u(1) = u0
 
-    do i=1, iprof_length
+    do i=2, iprof_length
         r1 = r_prof(i)
         call ddeabm(dudr, ineq, radius0, u0, r1, info, rtol, atol, idid, rwork, lrw, &
                     iwork, liw, rpar, ipar)
 
         if (idid .lt. 1) write(*,*) 'Warning: calculate_equil: r=', r1, ' idid=', idid
+        !if (idid .lt. 1) then
+        !    write(*,*) 'i = ', i
+        !    write(*,*) 'u0 = ', u0
+        !    write(*,*) 'r0 = ', radius0
+        !    write(*,*) 'r1 = ', r1
+        !    write(*,*) 'rwork = ', rwork
+        !    stop
+        !end if
 
         u(i) = u0
         info(1) = 1
@@ -120,10 +133,13 @@ subroutine calculate_equil(write_out)
             dpress = sum(coef(0, :) * dpress_prof(ibeg:iend))
             !write(*,*) 'dpress = ', dpress
 
-            g = 1.0d0 + r**2 / (R0**2 * q**2)
+            !g = 1.0d0 + r**2.0d0 / (R0**2.0d0 * q**2.0d0)
             !write(*,*) 'q = ', q, ' dpress = ', dpress
 
-            du = -2.0d0 * r * u / (q**2 * g * R0**2) - 8.0d0 * pi *dpress
+            !du = -2.0d0 * r * u / (q**2.0d0 * g * R0**2.0d0) - 8.0d0 * pi * dpress
+            du = -2.0d0 * r * u / (q**2.0d0 * R0**2.0d0 + r**2.0d0) - 8.0d0 * pi * dpress
+            !write(*,*) '1: ', -2.0d0 * r * u / (q**2.0d0 * g * R0**2.0d0)
+            !write(*,*) '2: ', - 8.0d0 * pi * dpress
 
         end subroutine
     
@@ -149,6 +165,7 @@ subroutine calculate_equil(write_out)
                 open(unit = 82, file = trim(output_path)//'backs/'//'hz.dat')
                 open(unit = 83, file = trim(output_path)//'backs/'//'hth.dat')
                 open(unit = 79, file = trim(output_path)//'backs/'//'dpress.dat')
+                open(unit = 87, file = trim(output_path)//'backs/'//'p_tot.dat')
 
                 do i = 1, iprof_length
                     write(78, *) r_prof(i), B0z(i)
@@ -157,6 +174,7 @@ subroutine calculate_equil(write_out)
                     write(82, *) r_prof(i), hz(i)
                     write(83, *) r_prof(i), hth(i)
                     write(79, *) r_prof(i), dpress_prof(i)
+                    write(87, *) r_prof(i), press_prof(i)
                 end do
                 close(78)
                 close(79)
@@ -164,6 +182,7 @@ subroutine calculate_equil(write_out)
                 close(82)
                 close(81)
                 close(83)
+                close(87)
 
             end if
 

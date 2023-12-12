@@ -1,9 +1,8 @@
 !
   subroutine gengrid(npoimin, write_out)
-
-! Generates the grid for two types of boundary conditions at the outer
-! boundary: iboutype=1 - fixed parameters, iboutype=2 - fixed fluxes
-! At the inner boundary fixed fluxes = 0 are always assumed
+    ! Generates the grid for two types of boundary conditions at the outer
+    ! boundary: iboutype=1 - fixed parameters, iboutype=2 - fixed fluxes
+    ! At the inner boundary fixed fluxes = 0 are always assumed
 
     use grid
     use config, only: fdebug, output_path
@@ -18,7 +17,7 @@
     !double precision, dimension(:),   allocatable :: x
     double precision, dimension(:,:), allocatable :: coef
 
-    if (fdebug == 1) write(*,*) "Debug: coming in gengrid"
+    if (fdebug == 1) write(*,*) "Debug: entering gengrid"
     !nbaleqs=4
 
     nder=1
@@ -96,7 +95,7 @@
 
     if (write_out) call write_new_grid
 
-    if (fdebug == 1) write(*,*) "Debug: going out of gengrid"
+    if (fdebug == 1) write(*,*) "Debug: exiting gengrid"
 
 
     contains
@@ -292,8 +291,8 @@ subroutine generate_k_space_grid(npoi_min, write_out)
         krp = kr !+0.01d0
     else if (k_grid_mode == 3) then ! non-equidistant grid, similar to l grid
 
-        krmin = -k_space_dim
-        krmax = k_space_dim
+        krmin = -k_space_dim * 0.5d0
+        krmax = k_space_dim * 0.5d0
 
         hrmax = (krmax - krmin)/(npoi_min+1)
 
@@ -312,6 +311,7 @@ subroutine generate_k_space_grid(npoi_min, write_out)
 
         kr_val = krmin
         kr(1) = kr_val
+        krp(1) = kr_val
 
         do ipoib=2,npoi_kr
             call recnsplit_kr(kr_val,recnsp)

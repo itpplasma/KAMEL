@@ -1,6 +1,8 @@
 module plas_parameter
 
     implicit none
+    
+    double precision :: r_plas
     integer :: iprof_length
     double precision, allocatable :: r_prof(:)
     double precision, allocatable :: n_prof(:)

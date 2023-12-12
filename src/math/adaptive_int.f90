@@ -185,7 +185,7 @@ subroutine integrate_rg_c(ystart, nvar, c_kr, c_krp, x1, x2, eps, h1, hmin, num_
         double precision, intent(in) :: c_kr, c_krp
         double complex, dimension(nvar), intent(inout) :: ystart
         double precision, parameter :: TINY=1.0d-30
-        integer, parameter :: max_steps = 10000
+        integer, parameter :: max_steps = 15000
 
         integer :: i, nstp
         double precision :: h,hdid,hnext,x,xsav

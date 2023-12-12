@@ -7,6 +7,7 @@ program kim_main
     use use_libcerf
     use grid
     use omp_lib
+    use integrate_krp_kr_rg
 
     implicit none
 
@@ -17,7 +18,8 @@ program kim_main
 
     namelist /KIM_SETUP/ btor, R0, m_mode, n_mode, Zi, Ai, k_space_dim, &
                         reduce_r, reduced_r_dim, omega, spline_base, &
-                        grid_spacing, l_space_dim, cut_off_fac, num_gengrid_points
+                        grid_spacing, l_space_dim, cut_off_fac, num_gengrid_points, &
+                        r_plas
 
     open(unit = 77, file = './nmls/KIM_config.nml')
     read(unit = 77, nml = KIM_CONFIG)
@@ -40,6 +42,7 @@ program kim_main
     write(*,*) 'Setup namelist'
     write(*,*) '  btor             = ', btor
     write(*,*) '  R0               = ', R0
+    write(*,*) '  r_plas           = ', r_plas
     write(*,*) '  m_mode           = ', m_mode
     write(*,*) '  n_mode           = ', n_mode
     write(*,*) '  Zi               = ', Zi
@@ -57,7 +60,7 @@ program kim_main
 
     t_start = omp_get_wtime()
 
-    call generate_k_space_grid(k_space_dim, .true.)
+    call generate_k_space_grid(100, .true.)
     call read_profiles(reduce_r)
 
     ! calculate equilibrium B field and J
@@ -70,9 +73,10 @@ program kim_main
     call gengrid(num_gengrid_points, .true.)
 
 
+    call integrate_kernel(.true.)
     ! calculate kernels
-    call kernel_phi(.true.)
-    call kernel_B(.true.)
+    !call kernel_phi(.true.)
+    !call kernel_B(.true.)
 
     ! transform the kernels from k space to spline space
     !call basis_transform_kernel(.true.)

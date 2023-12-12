@@ -15,11 +15,12 @@
  n_mode      = 2 ,          ! toroidal mode number
  Zi			 = 1,           ! ion charge number
  Ai			 = 2,           ! ion mass number
- k_space_dim = 20 ,        ! dimension of kr space
+ r_plas       = 64.7 ,       ! plasma radius
+ k_space_dim = 300 ,        ! dimension of kr space
  l_space_dim = 100 ,        ! spline space dimension
  reduce_r    = .false. ,		! if true reduces r dim of input profiles
  reduced_r_dim = 100 ,      ! reduced radial dim of initial profiles
- omega       = 1e0 ,	    ! perturbation frequency
+ omega       = 0e0 ,	    ! perturbation frequency
  spline_base = 1 ,          ! spline base functions: 1 - hat functions
  grid_spacing= 2 ,          ! grid spacing of new grid: 1 - equidistant, 2 - non-equidistant, more points at rational surface
  cut_off_fac = 5.0 ,        ! cut off factor for making the ll' kernel matrix sparse

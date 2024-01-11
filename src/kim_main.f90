@@ -8,6 +8,7 @@ program kim_main
     use grid
     use omp_lib
     use integrate_krp_kr_rg
+    use cut_off_integration
 
     implicit none
 
@@ -72,8 +73,11 @@ program kim_main
     ! generate non-equidistant grid for spline functions (i.e. real space)
     call gengrid(num_gengrid_points, .true.)
 
+    call basis_transformation_integration(.true.)
 
-    call integrate_kernel(.true.)
+
+
+   ! call integrate_kernel(.true.)
     ! calculate kernels
     !call kernel_phi(.true.)
     !call kernel_B(.true.)

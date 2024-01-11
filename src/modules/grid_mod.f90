@@ -1,8 +1,9 @@
 module grid
     implicit none
 
-    integer :: k_space_dim
-    integer :: l_space_dim
+    integer :: k_space_dim ! dimension of kr space grid
+    integer :: l_space_dim ! dimension of spline grid
+    integer :: r_space_dim ! dimension of r grid
     logical :: reduce_r
     integer :: reduced_r_dim
     integer :: spline_base
@@ -11,6 +12,8 @@ module grid
 
     double precision, dimension(:), allocatable :: kr  ! radial wavenumber
     double precision, dimension(:), allocatable :: krp ! radial wavenumber prime
+
+    double precision, dimension(:), allocatable :: xl  ! xl grid (real space)
 
     double complex, dimension(:,:), allocatable :: varphi_lkr
 

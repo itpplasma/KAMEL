@@ -20,8 +20,12 @@ set(KIM_subs read_profiles.f90
              basis_transform_kernel.f90
              solve_poisson.f90
              integrands.f90
-             integrate_krp_kr_rg.f90
-             integration.f90
+             loading_bar.f90
+             #integrate_krp_kr_rg.f90
+             #integration.f90
+             #fft_kernel.f90
+             cut_off_integration.f90
+             kernel_functions.f90
              math/suitesparse/umf4_f77zwrapper.c
              math/suitesparse/umf4_f77wrapper.c
              math/superlu/c_fortran_dgssv.c
@@ -79,6 +83,45 @@ IF(OPENMP_FORTRAN_FOUND)
     SET(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} ${OpenMP_Fortran_FLAGS}")
 ENDIF()
 
+#find_package(OpenMP REQUIRED)
+
+#if(OpenMP_C_FOUND)
+#    message(" ====== OPENMP_C was found! =====")
+#    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${OpenMP_C_FLAGS}")
+#    target_include_directories(KIM_lib PUBLIC "${OpenMP_C_INCLUDE_DIRS}")
+#endif()
+
+#find_package(FFTW3 COMPONENTS fftw3 REQUIRED)
+#IF("${FFTW3_FOUND}")
+#    message(" ====== FFTW3 was found! =====")
+#    target_link_libraries(KIM_lib PUBLIC "${FFTW3_fftw3_LIBRARY}")
+#    message("${FFTW3_fftw3_LIBRARY}")
+#    target_include_directories(KIM_lib PUBLIC "${FFTW3_INCLUDE_DIRS}")
+#    message("${FFTW3_INCLUDE_DIRS}")
+#endif()
+
+file(
+    DOWNLOAD
+    https://github.com/cpm-cmake/CPM.cmake/releases/download/v0.38.3/CPM.cmake
+    ${CMAKE_CURRENT_BINARY_DIR}/cmake/CPM.cmake
+    EXPECTED_HASH SHA256=cc155ce02e7945e7b8967ddfaff0b050e958a723ef7aad3766d368940cb15494
+)
+include(${CMAKE_CURRENT_BINARY_DIR}/cmake/CPM.cmake)
+
+#CPMAddPackage(
+#    NAME Finufft
+#    GIT_REPOSITORY https://github.com/flatironinstitute/finufft.git
+#    GIT_TAG master
+#    GIT_SHALLOW Yes
+#    GIT_PROGRESS Yes
+#    EXCLUDE_FROM_ALL Yes
+#    SYSTEM
+#)
+#target_link_libraries(KIM_lib PUBLIC finufft_static)
+
+# or for shared linking
+#target_link_library(KIM_lib [PUBLIC|PRIVATE|INTERFACE] finufft)
+
 add_executable(KIM_exe kim_main.f90)
 set_target_properties(KIM_exe PROPERTIES 
                         OUTPUT_NAME KIM_exe
@@ -88,3 +131,4 @@ target_link_libraries(KIM_exe KIM_lib
                               lapack 
                               cerf 
                               ddeabm)
+                              #finufft_static)

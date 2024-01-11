@@ -23,6 +23,8 @@ subroutine calculate_backs(write_out)
     double precision, dimension(:,:), allocatable :: Lei ! Coulomb log
     double precision, dimension(:,:,:), allocatable :: Lii ! Coulomb log
 
+    integer, dimension(2) :: max_ind
+
     if (fstatus == 1) write(*,*) 'Status: Calculating background quantities, write_out=',write_out
 
     allocate(Lee(iprof_length), Lei(ispecies, iprof_length), &
@@ -107,6 +109,11 @@ subroutine calculate_backs(write_out)
 
     nue = 0.0d0
     nui = 0.0d0
+
+
+    max_ind = maxloc(vTi)
+    rho_L = vTi(max_ind(1), max_ind(2)) * Ai(max_ind(1)) * p_mass * sol &
+            / (e_charge * Zi(max_ind(1)) * abs(btor))
 
     if (write_out) then
         call write_backs

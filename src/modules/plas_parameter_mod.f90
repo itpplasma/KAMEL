@@ -21,4 +21,6 @@ module plas_parameter
     double precision, allocatable :: dqdr_prof(:)
     double precision, allocatable :: dnidr_prof(:, :)
 
+    double precision :: rho_L
+
 end module plas_parameter

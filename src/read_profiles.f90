@@ -98,6 +98,8 @@ subroutine read_profiles(reduce)
 
         if (reduce) call reduce_dim
 
+        r_space_dim = size(r_prof)
+
         if (fstatus == 1) write(*,*) 'Status: Finished reading profiles from text files'
 
     end subroutine

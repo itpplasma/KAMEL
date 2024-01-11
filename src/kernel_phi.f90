@@ -254,6 +254,86 @@ subroutine kernel_phi(write_out)
 
         end subroutine
 
+
+        double complex function kernel_rho_phi_of_kr_krp_rg(val_kr, val_krp, val_rg)
+
+            implicit none
+
+            double precision, intent(in) :: val_kr, val_krp, val_rg
+            double complex :: a0, a1, a2
+            double complex :: eval_bp, eval_bt ! b_+ and b_\times
+
+            integer :: sigma ! for loop over species
+            integer :: ibeg, iend
+            integer :: ir
+
+            double precision, dimension(:,:), allocatable :: coef
+
+            double precision :: vT_res, omc_res, ks_res, om_E_res, kp_res, &
+                                A1_res, A2_res, lambda_D_res
+            double complex :: z0_res
+
+            kernel_rho_phi_of_kr_krp_rg = 0.0d0
+
+            if(.not. allocated(coef)) allocate(coef(0:nder, nlagr))
+
+            call binsrc(r_prof, 1, iprof_length, val_rg, ir)
+            ibeg = max(1, ir - nlagr/2)
+            iend = ibeg + nlagr - 1
+            if (iend .gt. iprof_length) then
+                iend = iprof_length
+                ibeg = iend - nlagr + 1
+            end if
+
+            call plag_coeff(nlagr, nder, val_rg, r_prof(ibeg:iend), coef)
+
+            ks_res = sum(coef(0,:) * ks(ibeg:iend))
+            kp_res = sum(coef(0,:) * kp(ibeg:iend))
+            om_E_res = sum(coef(0,:) * om_E(ibeg:iend))
+
+            do sigma = 0, ispecies
+                if (sigma == 0) then ! electrons
+                    vT_res = sum(coef(0,:) * vTe(ibeg:iend))
+                    omc_res = sum(coef(0,:) * omce(ibeg:iend))
+                    A1_res = sum(coef(0,:) * A1e(ibeg:iend))
+                    A2_res = sum(coef(0,:) * A2e(ibeg:iend))
+                    lambda_D_res = sum(coef(0,:) * lambda_De(ibeg:iend))
+                    z0_res = sum(coef(0,:) * z0e(ibeg:iend))
+                else
+                    vT_res = sum(coef(0,:) * vTi(sigma, ibeg:iend))
+                    omc_res = sum(coef(0,:) * omci(sigma, ibeg:iend))
+                    A1_res = sum(coef(0,:) * A1i(sigma,ibeg:iend))
+                    A2_res = sum(coef(0,:) * A2i(sigma,ibeg:iend))
+                    lambda_D_res = sum(coef(0,:) * lambda_Di(sigma,ibeg:iend))
+                    z0_res = sum(coef(0,:) * z0i(sigma, ibeg:iend))
+                end if
+
+                eval_bp = vT_res**2.0d0 / (2.0d0 * omc_res**2.0d0) * (2.0d0 * ks_res**2.0d0 &
+                        + val_kr**2.0d0 + val_krp**2.0d0)
+                eval_bt = vT_res**2.0d0 /(omc_res**2.0d0) * sqrt(ks_res**2.0d0 + val_kr**2.0d0)&
+                        * sqrt(ks_res**2.0d0 + val_krp**2.0d0)
+
+
+                a0 = exp(-eval_bp) * besselI(0, eval_bt, 0) * (- om_E_res / omc_res + ks_res * vT_res**2d0 &
+                    / (omc_res**2d0) * (A1_res + (1.0d0 + eval_bp) * A2_res)) + ks_res * vT_res**2d0 / (omc_res**2d0) * A2_res &
+                    * eval_bt * exp(-eval_bp) * besselI(-1, eval_bt, 0)
+                a1 = - kp_res/omc_res * exp(-eval_bp) * besselI(0,eval_bt,0)
+                a2 = ks_res / (2d0 * omc_res**2d0) * A2_res * exp(-eval_bp) * besselI(0,eval_bt,0)
+                
+                
+                kernel_rho_phi_of_kr_krp_rg = kernel_rho_phi_of_kr_krp_rg  &
+                                + omc_res /(lambda_D_res**2d0 * vT_res) &
+                                * (sqrt(pi)/kp_res * plasma_Z(z0_res) &
+                                * (a0 + sqrt(2.0d0) * vT_res * z0_res * a1 + vT_res**2d0 * a2 * 2d0 * z0_res**2d0) + vT_res &
+                                * sqrt(2d0) * (a1 + vT_res * sqrt(2d0) * z0_res * a2)) - sqrt(2d0 * pi) * vT_res / omc_res &
+                                * (exp(-vT_res**2d0/(2d0 * omc_res**2d0) * (val_krp - val_kr)**2d0) - exp(-eval_bp) &
+                                * besselI(0, eval_bt, 0))
+            end do
+
+            deallocate(coef)
+
+        end function kernel_rho_phi_of_kr_krp_rg
+
         ! used for the odeint RK integrator. Needs "derivs" subroutine that returns the right hand side of
         ! dy/dr = f(r,y)
         ! In this case, the right hand side is the integrand of the kernel
@@ -646,6 +726,87 @@ subroutine kernel_phi(write_out)
             deallocate(coef)
 
         end subroutine
+
+
+        !subroutine kernel_rho_phi
+!
+!            implicit none
+!
+!                eval_bp = vTe(n)**2d0 / (2d0*omce(n)**2d0) * &
+!                                (2d0*ks(n)**2d0 + kr(i)**2d0 + krp(j)**2d0)
+!                eval_bt = vTe(n)**2d0 / (omce(n)**2d0) * sqrt(ks(n)**2d0 + kr(i)**2d0) *&
+!                            sqrt(ks(n)**2d0 + krp(j)**2d0)
+!
+!                a0 = exp(-eval_bp) * besselI(0, eval_bt, 0) * (- om_E(n) / omce(n) + ks(n) * vTe(n)**2d0 &
+!                        / (omce(n)**2d0) * (A1e(n) + (1.0d0 + eval_bp) * A2e(n))) + ks(n) * vTe(n)**2d0 / (omce(n)**2d0) * A2e(n)&
+!                        * eval_bt * exp(-eval_bp) * besselI(-1, eval_bt, 0)
+!                a1 = - kp(n)/omce(n) * exp(-eval_bp) * besselI(0,eval_bt,0)
+!                a2 = ks(n) / (2d0 * omce(n)**2d0) * A2e(n) * exp(-eval_bp) * besselI(0,eval_bt,0)
+!                
+!                ! for the trapezoidal integration; first and last summands need factor 1/2
+!                if (n==1 .or. n==iprof_length) then
+!                    int_fac = 0.5d0
+!                else
+!                    int_fac = 1.0d0
+!                end if
+!                
+!                K_rho_phi(i,j) = K_rho_phi(i,j) + int_fac * omce(n) /(lambda_De(n)**2d0 * vTe(n)) &
+!                    * exp(com_unit * (kr(i) - krp(j)) * r_prof(n)) * (sqrt(pi)/kp(n) * (plasma_Z(z0e(n)) &
+!                    * (a0 + sqrt(2d0) * vTe(n) * z0e(n) * a1 + vTe(n)**2d0 * a2 * 2d0 * z0e(n)**2d0) + vTe(n) &
+!                    * sqrt(2d0) * (a1 + vTe(n) * sqrt(2d0) * z0e(n) * a2)) - sqrt(2d0 * pi) * vTe(n) / omce(n) &
+!                    * (exp(-vTe(n)**2d0/(2d0 * omce(n)**2d0) * (krp(j) - kr(i))**2d0) - exp(-eval_bp) &
+!                    * besselI(0, eval_bt, 0)))
+!
+!                K_j_phi(i,j) = K_j_phi(i,j) + int_fac * omce(n) / (lambda_De(n)**2d0 * kp(n)) &
+!                    * exp(com_unit * (kr(i) - krp(j)) &
+!                    * r_prof(n))* ((z0e(n) * plasma_Z(z0e(n)) + 1d0) * (a0 + sqrt(2d0) * vTe(n) * z0e(n) * a1 &
+!                    + 2d0 * vTe(n) * z0e(n)**2d0 * a2) + 2d0 * vTe(n) * a2 + ks(n) * vTe(n)**2d0 &
+!                    / (2d0 * omce(n)**2d0) * A2e(n) * (exp(- vTe(n)**2d0 / (2d0 * omce(n)**2d0) &
+!                    * (krp(j)-kr(i))**2d0) - exp(- eval_bp) * besselI(0, eval_bt, 0))) 
+!
+!                ! ions
+!                do sigma=1, ispecies
+!                    eval_bp = vTi(sigma, n)**2d0 / (2d0*omci(sigma, n)**2d0) * &
+!                        (2d0*ks(n)**2d0 + kr(i)**2d0 + krp(j)**2d0)
+!                    eval_bt = vTi(sigma, n)**2d0 / (omci(sigma, n)**2d0) * sqrt(ks(n)**2d0 + kr(i)**2d0) *&
+!                        sqrt(ks(n)**2d0 + krp(j)**2d0)
+!
+!                    a0 = exp(-eval_bp) * besselI(0, eval_bt, 0) * (- om_E(n) / omci(sigma, n) + ks(n) * vTi(sigma, n)**2d0&
+!                        / omci(sigma, n)**2d0 * (A1i(sigma, n) + (1d0 + eval_bp) * A2i(sigma, n))) + ks(n) &
+!                        * vTi(sigma, n)**2d0 &
+!                        / omci(sigma, n)**2d0 * A2i(sigma, n) * eval_bt * exp(-eval_bp) * besselI(-1, eval_bt, 0)
+!                    a1 = - kp(n)/omci(sigma, n) * exp(-eval_bp) * besselI(0,eval_bt,0)
+!                    a2 = ks(n) / (2d0 * omci(sigma, n)**2d0) * A2i(sigma, n) * exp(-eval_bp) * besselI(0,eval_bt,0)
+!
+!                    ! for the trapezoidal integration; first and last summands need factor 1/2
+!                    if (n==1 .or. n==iprof_length) then
+!                        int_fac = 0.5d0
+!                    else
+!                        int_fac = 1.0d0
+!                    end if
+!
+!                    K_rho_phi(i,j) = K_rho_phi(i,j) + int_fac * omci(sigma, n) /(lambda_Di(sigma, n)**2d0 * vTi(sigma, n)) &
+!                        * exp(com_unit * (kr(i) -krp(j)) * r_prof(n)) * ((sqrt(pi)/kp(n) &
+!                        * (plasma_Z(z0i(sigma, n))&
+!                        * (a0 + sqrt(2d0) * vTi(sigma, n) * z0i(sigma, n) * a1 + vTi(sigma, n)**2d0 * a2 * 2d0 &
+!                        * z0i(sigma, n)**2d0) + vTi(sigma, n) * sqrt(2d0) * (a1 + vTi(sigma, n) * sqrt(2d0) &
+!                        * z0i(sigma, n) * a2))) - sqrt(2d0) * vTi(sigma, n) / omci(sigma, n) * &
+!                        (exp(-vTi(sigma, n)**2d0 / (2d0 * omci(sigma, n)**2d0) * (krp(j) - kr(i))**2d0) &
+!                        - exp(-eval_bp) * besselI(0, eval_bt, 0)))
+!
+!                    K_j_phi(i,j) = K_j_phi(i,j) + int_fac * omci(sigma, n) / (lambda_Di(sigma, n)**2d0 * kp(n)) &
+!                        * exp(com_unit * (kr(i) - krp(j)) * r_prof(n))* ((z0i(sigma, n) * plasma_Z(z0i(sigma, n))&
+!                        + 1d0) * (a0 + sqrt(2d0) * vTi(sigma, n) * z0i(sigma, n) * a1 &
+!                        + 2d0 * vTi(sigma, n) * z0i(sigma, n)**2d0 * a2) + 2d0 * vTi(sigma, n) * a2 &
+!                        + ks(n) * vTi(sigma, n)**2d0 / (2d0 * omci(sigma, n)**2d0) * A2i(sigma, n) &
+!                        * (exp(- vTi(sigma, n)**2d0 / (2d0 * omci(sigma, n)**2d0) * (krp(j)-kr(i))**2d0) & 
+!                        - exp(- eval_bp) * besselI(0,eval_bt,0))) 
+!
+!                    K_rho_phi = K_rho_phi / (2d0**(7d0/2d0) * pi**(5d0/2d0)) * (r_prof(size(r_prof)) - r_prof(1))/iprof_length
+!    
+!
+!
+!        end subroutine ! kernel_rho_phi
 
 
 end subroutine

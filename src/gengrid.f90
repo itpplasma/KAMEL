@@ -41,10 +41,14 @@
         npoib= npoib + 1
     enddo
 
+    write(*,*) 'Number points post-grid: ', npoib
+
     npoic = npoib - 1
 
     allocate(rb(npoib), rc(npoic))
     allocate(Sb(npoib), Sc(npoic))
+
+    allocate(xl(npoib)) 
 
     r = rmin
     rb(1) = r
@@ -57,6 +61,10 @@
         rb(ipoib) = r
         rc(ipoib-1) = 0.5 * (rb(ipoib-1) + rb(ipoib))
     enddo
+
+    ! modifie this if xl and rg should have different grids
+    xl = rb !+ 0.01
+    l_space_dim = npoib
 
     if(iboutype .eq. 1) then
         rscale = (rmax - rmin) / (rc(npoic) - rmin)
@@ -112,16 +120,20 @@
         end if
 
         open(unit = 77, file=trim(output_path)//'grid/rb.dat')
+        open(unit = 78, file=trim(output_path)//'grid/xl.dat')
         do i = 1, npoib
             write(77,*) i, rb(i)
+            write(78,*) i, xl(i)
         end do
         close(77)
+        close(78)
 
         open(unit = 78, file=trim(output_path)//'grid/rc.dat')
         do i = 1, npoic
             write(78,*) i, rc(i)
         end do
         close(78)
+
 
     end subroutine
 

@@ -61,27 +61,27 @@ subroutine solve_poisson
 
     ! make kernel matrix sparse with cut_off_fac * ion Larmor radius cut off
     ! max value of the ion Larmor radius
-    max_ind = maxloc(vTi)
-    rho_L = vTi(max_ind(1), max_ind(2)) * Ai(max_ind(1)) * p_mass * sol &
-            / (e_charge * Zi(max_ind(1)) * abs(btor))
+    !max_ind = maxloc(vTi)
+    !rho_L = vTi(max_ind(1), max_ind(2)) * Ai(max_ind(1)) * p_mass * sol &
+    !        / (e_charge * Zi(max_ind(1)) * abs(btor))
 
-    write(*,*) "max(rho_Li) = ", rho_L
+    !write(*,*) "max(rho_Li) = ", rho_L
 
-    do i = 1, npoib
-        do j = 1, npoib
-            if (abs(rb(i) - rb(j)) >= cut_off_fac * rho_L) then
-                !write(*,*) 'set kernel zero'
-                K_rho_phi_llp(i,j) = cmplx(0.0d0, 0.0d0)
-                !K_rho_B_llp(i,j) = cmplx(0.0d0, 0.0d0)
-                set_zero = set_zero + 1
-            end if
-            A_mat(i,j) = A_mat(i,j) + cmplx(4.0d0 * pi, 0.0d0) * K_rho_phi_llp(i,j)
-            !write(*,*) (1.0d0, 0.0d0) * 4.0d0 * pi * K_rho_phi_llp(i,j)
-        end do
-    end do
-    if (fdebug == 1) write(*,*) 'set_zero = ', set_zero
+    !do i = 1, npoib
+    !    do j = 1, npoib
+    !        if (abs(rb(i) - rb(j)) >= cut_off_fac * rho_L) then
+    !            !write(*,*) 'set kernel zero'
+    !            K_rho_phi_llp(i,j) = cmplx(0.0d0, 0.0d0)
+    !            !K_rho_B_llp(i,j) = cmplx(0.0d0, 0.0d0)
+    !            set_zero = set_zero + 1
+    !        end if
+    !        A_mat(i,j) = A_mat(i,j) + cmplx(4.0d0 * pi, 0.0d0) * K_rho_phi_llp(i,j)
+    !        !write(*,*) (1.0d0, 0.0d0) * 4.0d0 * pi * K_rho_phi_llp(i,j)
+    !    end do
+    !end do
+    !if (fdebug == 1) write(*,*) 'set_zero = ', set_zero
 
-    !A_mat = A_mat + 4d0 * pi * K_rho_phi_llp
+    A_mat = A_mat + 4d0 * pi * K_rho_phi_llp
 
     if (fdebug == 1) then
         write(*,*) 'Debug: writing A matrix before sparse'
@@ -129,11 +129,14 @@ subroutine solve_poisson
 
     ! multiply B kernel with B^r vector
 
+    write(*,*) "create b vec"
+
     if (.not. allocated(b_vec)) allocate(b_vec(npoib))
     b_vec = cmplx(1.0d0, 0.0d0)
     b_vec = - 4d0 * pi * matmul(K_rho_B_llp, b_vec)
     !b_vec = matmul(A_mat, b_vec)
 
+    write(*,*) "after b vec"
     ! solve matrix vector problem
     !call column_pointer2full(pcol, icol)
     !write(*,*) 'A_nz = ', A_nz

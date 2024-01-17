@@ -20,9 +20,9 @@ module grid
     integer :: npoib, npoic, npoi_der, nbaleqs, neqset, iboutype
     integer :: mwind
     double precision :: rmin,rmax
-    double precision :: gg_factor = 50
-    double precision :: gg_width = 2 
-    double precision :: gg_r_res = 95.34
+    double precision :: gg_factor = 1.0
+    double precision :: gg_width = 0.0
+    double precision :: gg_r_res = 0.0!95.34
     double precision :: rb_cut_in, re_cut_in, rb_cut_out, re_cut_out
     integer,          dimension(:),   allocatable :: ipbeg, ipend
     double precision, dimension(:),   allocatable :: rb, rc, Sb, Sc

@@ -10,16 +10,16 @@ set(KIM_mods modules/plas_parameter_mod.f90
 
 set(KIM_subs read_profiles.f90
              plag_coeff.f90
-             kernel_phi.f90
-             kernel_B.f90
+             #kernel_phi.f90
+             #kernel_B.f90
              calculate_backs.f90
              calculate_equil.f90
              gengrid.f90
              plasma_disp_func.f90
              spline_function.f90
-             basis_transform_kernel.f90
+             #basis_transform_kernel.f90
              solve_poisson.f90
-             integrands.f90
+             #integrands.f90
              loading_bar.f90
              #integrate_krp_kr_rg.f90
              #integration.f90
@@ -34,7 +34,8 @@ set(KIM_subs read_profiles.f90
              math/bessk.f90
              math/use_libcerf_mod.f90
              math/sparse_mod.f90
-             math/adaptive_int.f90)
+             math/adaptive_int.f90
+             hdf5_tools/hdf5_tools.f90)
 
 
 set(CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/cmake" ${CMAKE_MODULE_PATH})

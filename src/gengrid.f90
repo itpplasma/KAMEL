@@ -63,7 +63,7 @@
     enddo
 
     ! modifie this if xl and rg should have different grids
-    xl = rb !+ 0.01
+    xl = rb + 0.01
     l_space_dim = npoib
 
     if(iboutype .eq. 1) then
@@ -174,7 +174,7 @@ subroutine recnsplit_kr(r,recnsp)
 !
     double precision :: r, recnsp;
     double precision :: kr_res = 0.0d0
-    double precision :: width_res = 2.0d0
+    double precision :: width_res = 1.0d0
     double precision :: ampl_res = 40.0d0
 !
 !  recnsp = 1.d0 + gg_factor*exp(-((r-gg_r_res)/gg_width)**2);
@@ -268,7 +268,7 @@ end subroutine prepare_resonances
 !
 !end subroutine
 
-subroutine generate_k_space_grid(npoi_min, write_out)
+subroutine generate_k_space_grid(npoi_min, write_out, kr_cut)
     
     use grid
     use setup
@@ -279,6 +279,7 @@ subroutine generate_k_space_grid(npoi_min, write_out)
 
     integer :: i
     logical, intent(in) :: write_out
+    double precision, intent(in) :: kr_cut
     double precision :: h, krmin, krmax, hrmax, kr_val, krnext, recnsp
     integer :: k_grid_mode = 3
 
@@ -303,8 +304,8 @@ subroutine generate_k_space_grid(npoi_min, write_out)
         krp = kr !+0.01d0
     else if (k_grid_mode == 3) then ! non-equidistant grid, similar to l grid
 
-        krmin = -k_space_dim * 0.5d0
-        krmax = k_space_dim * 0.5d0
+        krmin = - kr_cut
+        krmax = kr_cut
 
         hrmax = (krmax - krmin)/(npoi_min+1)
 

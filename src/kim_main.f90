@@ -6,9 +6,8 @@ program kim_main
     use setup
     use use_libcerf
     use grid
-    use omp_lib
-    use integrate_krp_kr_rg
     use cut_off_integration
+    use hdf5_tools
 
     implicit none
 
@@ -61,7 +60,9 @@ program kim_main
 
     t_start = omp_get_wtime()
 
-    call generate_k_space_grid(100, .true.)
+
+
+!    call generate_k_space_grid(100, .true.)
     call read_profiles(reduce_r)
 
     ! calculate equilibrium B field and J
@@ -75,18 +76,8 @@ program kim_main
 
     call basis_transformation_integration(.true.)
 
-
-
-   ! call integrate_kernel(.true.)
-    ! calculate kernels
-    !call kernel_phi(.true.)
-    !call kernel_B(.true.)
-
-    ! transform the kernels from k space to spline space
-    !call basis_transform_kernel(.true.)
-
     ! solve poisson's equation with spline solver
-    !call solve_poisson
+    call solve_poisson
 
     t_finish =  omp_get_wtime()
 

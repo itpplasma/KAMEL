@@ -10,6 +10,7 @@ add_subdirectory(src/math/slatec)
 add_subdirectory(src/math/lapack-3.11.0)
 add_subdirectory(src/math/libcerf-main)
 add_subdirectory(src/math/ddeabm)
+add_subdirectory(src/hdf5_tools)
 
 get_filename_component(Fortran_COMPILER_NAME ${CMAKE_Fortran_COMPILER} NAME)
 

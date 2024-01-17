@@ -1,28 +1,28 @@
-&KIM_CONFIG
- profile_location = './profiles/' , ! path to profiles (either text or hdf5)
- output_path      = './out/'      , ! output path
- hdf5_input       = F , ! read input from hdf5 input if true
- hdf5_output      = F , ! write output into hdf5 file
- fdebug           = 1 , ! flag for debugging messages
- fstatus          = 1 , ! flag for status messages
- ispecies         = 1 , ! number of ion species
+&kim_config
+    profile_location = './profiles/'
+    output_path = './out/'
+    hdf5_input = .false.
+    hdf5_output = .false.
+    fdebug = 1
+    fstatus = 1
+    ispecies = 1
 /
 
-&KIM_SETUP
- btor        = -17977.413 , ! toroidal magnetic field in Gauss
- R0          = 165.0 ,      ! major radius in cm
- m_mode      = 6 ,          ! poloidal mode number
- n_mode      = 2 ,          ! toroidal mode number
- Zi			 = 1,           ! ion charge number
- Ai			 = 2,           ! ion mass number
- r_plas       = 64.7 ,       ! plasma radius
- k_space_dim = 100 ,        ! dimension of kr space
- l_space_dim = 100 ,        ! spline space dimension
- reduce_r    = .false. ,		! if true reduces r dim of input profiles
- reduced_r_dim = 100 ,      ! reduced radial dim of initial profiles
- omega       = 0e0 ,	    ! perturbation frequency
- spline_base = 1 ,          ! spline base functions: 1 - hat functions
- grid_spacing= 2 ,          ! grid spacing of new grid: 1 - equidistant, 2 - non-equidistant, more points at rational surface
- cut_off_fac = 0.2 ,        ! cut off factor for making the ll' kernel matrix sparse
- num_gengrid_points = 100   ! min number of points of the non equidistant grid
+&kim_setup
+    btor = -17977.413
+    r0 = 165.0
+    m_mode = 7
+    n_mode = 2
+    zi = 1
+    ai = 2
+    r_plas = 64.7
+    k_space_dim = 100
+    l_space_dim = 100
+    reduce_r = .false.
+    reduced_r_dim = 100
+    omega = 0.0
+    spline_base = 1
+    grid_spacing = 2
+    cut_off_fac = 1.0
+    num_gengrid_points = 512
 /

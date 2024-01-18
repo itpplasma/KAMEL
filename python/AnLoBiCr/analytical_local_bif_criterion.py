@@ -34,7 +34,10 @@ def analytical_local_criterion(m, n, r_Da, Da, R0, B0, r, q, Te, Ti, ne, Er, Imp
     # Zi ... charge number ions, default=1, (int)
     # mi ... mass number ions, default=2, (int)
 
-    rm = get_rm(r,m,n,q)
+    if type(r) == np.ndarray:
+        rm = get_rm(r,m,n,q)
+    else:
+        rm = r
 
     B0 = np.abs(B0)
 

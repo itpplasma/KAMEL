@@ -1,13 +1,13 @@
-0                                                   ipert! 0=eq only, 1=vac, 2,3=vac+plas
+1                                                   ipert! 0=eq only, 1=vac, 2,3=vac+plas
 1                                                   iequil! 0=pert. alone, 1=with equil.
 1                                                   ampl! amplitude of perturbation, a.u.
 72                                                  ntor! number of toroidal harmonics
 0.99                                                cutoff! inner cutoff in psi/psi_a units
 4                                                   icftype! type of coil file
-'/proj/plasma/DATA/MAST-U/david_ryan/ModPack2/47051/g_EPQ_p47051_t0.61150'          gfile! equilibrium file
-''                                                         !'DATA/ASDEX/MESH3D_30835/field.dat'pfile! coilfile
-'/temp/markl_m/0projects/MASTU_RMPs/determine_equil_r_q_psi/convexwall.dat'                                        convexfile! convex file for stretchcoords
-'/temp/markl_m/0projects/MASTU_RMPs/determine_equil_r_q_psi/flux_data/'                                                         fluxdatapath ! directory with data in flux coord.
+'gfile'          gfile! equilibrium file
+'pfile'                     !'DATA/ASDEX/MESH3D_30835/field.dat'pfile! coilfile
+'convexfile'                     convexfile! convex file for stretchcoords
+'fluxdata'                                                         fluxdatapath ! directory with data in flux coord.
 0                                                   window size for filtering of psi array over R
 0                                                   window size for filtering of psi array over Z
 

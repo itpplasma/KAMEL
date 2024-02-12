@@ -7,7 +7,7 @@ subroutine calculate_fourier_trans_spline_funcs(write_out)
     use grid, only: k_space_dim, kr, npoib, rb, varphi_lkr, &
         grid_spacing, spline_base, xl
     use config, only: output_path
-    !use plas_parameter, only: r_prof, iprof_length
+    !use plasma_parameter, only: r_prof, iprof_length
 
     implicit none
     integer :: i,n

@@ -2,7 +2,7 @@ subroutine kernel_phi(write_out)
 ! fill kernels correlating phi with rho and j
 ! both are filled simultaneously, since they share the same coefficients
 
-    use plas_parameter
+    use plasma_parameter
     use constants
     use config
     use grid

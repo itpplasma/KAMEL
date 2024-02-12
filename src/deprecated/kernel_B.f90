@@ -1,6 +1,6 @@
 subroutine kernel_B(write_out)
 
-    use plas_parameter
+    use plasma_parameter
     use constants
     use config
     use grid

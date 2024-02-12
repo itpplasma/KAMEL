@@ -1,6 +1,6 @@
 module kernel_functions
 
-    use plas_parameter
+    use plasma_parameter
     use constants
     use config
     use grid

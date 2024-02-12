@@ -7,9 +7,9 @@ module cut_off_integration
     !use kernel, only: K_rho_phi_of_rg, K_rho_phi_llp, K_rho_B_llp
     use grid, only: k_space_dim, l_space_dim, r_space_dim, kr, krp, &
                     varphi_lkr, npoib, rb
-    !use plas_parameter, only: r_prof
+    !use plasma_parameter, only: r_prof
     use omp_lib
-    use plas_parameter, only: rho_L
+    use plasma_parameter, only: rho_L
     use setup, only: cut_off_fac
 
     implicit none

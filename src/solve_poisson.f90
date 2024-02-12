@@ -12,7 +12,7 @@ subroutine solve_poisson
     use constants, only: sol, p_mass, e_charge, e_mass, pi
     use grid, only: npoib, rb
     use back_quants, only: vTi, vTe
-    use plas_parameter, only: Zi, Ai
+    use plasma_parameter, only: Zi, Ai
     use setup, only: btor, cut_off_fac
 
     implicit none

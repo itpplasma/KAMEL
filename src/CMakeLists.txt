@@ -1,14 +1,12 @@
-set(KIM_mods modules/plas_parameter_mod.f90 
-             modules/config_mod.f90 
+set(KIM_mods modules/config_mod.f90 
              modules/constants_mod.f90
              modules/setup_mod.f90
              modules/grid_mod.f90
              modules/back_quants_mod.f90
              modules/kernel_mod.f90
-             modules/equil_mod.f90
              modules/resonances_mod.f90)
 
-set(KIM_subs read_profiles.f90
+set(KIM_subs plasma_parameter.f90
              plag_coeff.f90
              #kernel_phi.f90
              #kernel_B.f90

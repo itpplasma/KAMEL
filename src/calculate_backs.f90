@@ -9,10 +9,10 @@ subroutine calculate_backs(write_out)
     use back_quants
     use grid
     use constants
-    use plas_parameter
+    use plasma_parameter
     use config
     use setup
-    use equil, only: hz, hth, B0
+    use equilibrium, only: hz, hth, B0
 
     implicit none
 
@@ -38,7 +38,7 @@ subroutine calculate_backs(write_out)
     allocate(ks(iprof_length), kp(iprof_length), om_E(iprof_length), z0e(iprof_length))
     allocate(z0i(ispecies, iprof_length))
 
-    call calc_plas_parameter_derivs
+    call calc_plasma_parameter_derivs
 
     do i=1, iprof_length
         ! Coulomb logarithm
@@ -257,9 +257,9 @@ subroutine calculate_backs(write_out)
 end subroutine
 
 
-subroutine calc_plas_parameter_derivs
+subroutine calc_plasma_parameter_derivs
 
-    use plas_parameter
+    use plasma_parameter
     use grid
     use config
 

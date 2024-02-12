@@ -6,7 +6,7 @@
 
     use grid
     use config, only: fdebug, output_path
-    use plas_parameter, only: r_prof
+    use plasma_parameter, only: r_prof
 
     implicit none
 
@@ -192,7 +192,7 @@ subroutine prepare_resonances
     use grid, only: gg_width, gg_factor,r_resonant
     use config, only: hdf5_output, fdebug
     use setup, only: m_mode, n_mode
-    use plas_parameter, only: iprof_length, r_prof, q_prof
+    use plasma_parameter, only: iprof_length, r_prof, q_prof
     !use h5mod
     !use mpi
 
@@ -236,7 +236,7 @@ end subroutine prepare_resonances
 ! generate grid for spline function space
 !subroutine generate_l_space_grid
 !
-!    use plas_parameter
+!    use plasma_parameter
 !    use back_quants
 !    use setup
 !

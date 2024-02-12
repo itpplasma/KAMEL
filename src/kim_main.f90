@@ -1,6 +1,6 @@
 program kim_main
 
-    use plas_parameter
+    use plasma_parameter
     use config
     use constants
     use setup
@@ -8,6 +8,7 @@ program kim_main
     use grid
     use cut_off_integration
     use hdf5_tools
+    use equilibrium, only: calculate_equil
 
     implicit none
 
@@ -59,8 +60,6 @@ program kim_main
     write(*,*) ' - - - - - - - - - - - - - - - - - -'
 
     t_start = omp_get_wtime()
-
-
 
 !    call generate_k_space_grid(100, .true.)
     call read_profiles(reduce_r)

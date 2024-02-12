@@ -5,3 +5,6 @@ KIM_exe
 
 profiles
 profiles_parab
+
+__pycache__
+./*/__pycache__

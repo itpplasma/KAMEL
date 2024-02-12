@@ -24,5 +24,5 @@
     spline_base = 1
     grid_spacing = 2
     cut_off_fac = 1.0
-    num_gengrid_points = 512
+    num_gengrid_points = 100
 /

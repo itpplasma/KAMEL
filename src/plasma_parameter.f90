@@ -4,6 +4,8 @@ module plasma_parameter
 
     implicit none
 
+    integer :: set_profiles_constant = 1
+
     double precision :: r_plas
     integer :: iprof_length
     double precision, allocatable :: r_prof(:)
@@ -126,6 +128,18 @@ module plasma_parameter
                     ni_prof(sigma, i) = n_prof(i) * Zi(sigma) / sum(Zi)
                 end do
             end do
+
+
+            if (set_profiles_constant == 1) then
+                write(*,*) 'Info: Setting profiles to constant values'
+                n_prof(:) = n_prof(1)
+                Te_prof(:) = Te_prof(1)
+                Er_prof(:) = Er_prof(1)
+                do sigma = 1, ispecies
+                    ni_prof(sigma, :) = ni_prof(sigma, 1)
+                    Ti_prof(sigma, :) = Ti_prof(sigma, 1)
+                end do
+            end if
 
             if (fstatus == 1) write(*,*) 'Status: Finished reading profiles from text files'
 

@@ -21,7 +21,8 @@ subroutine calculate_fourier_trans_spline_funcs(write_out)
         ! equidistant
             do i=1, k_space_dim
                 do n =1, npoib-1
-                    varphi_lkr(i,n) = FT_hat_function_e(xl(n), xl(n+1), kr(i))
+                    !varphi_lkr(i,n) = FT_hat_function_e(xl(n), xl(n+1), kr(i))
+                    varphi_lkr(i,n) = tilde_varphi_lkr_e(xl(n), xl(n+1), kr(i))
                 end do
             end do
 
@@ -92,6 +93,20 @@ subroutine calculate_fourier_trans_spline_funcs(write_out)
             res = 0.0d0
         else
             res = 2d0 * exp(-com_unit * krr * xl) * (1d0 - cos((xlp1 - xl) * krr)) / ((xlp1 - xl) * krr**2)
+        end if
+
+    end function
+
+    ! tilde varphi_{l,k_r} for equidistant grid
+    double complex function tilde_varphi_lkr_e(xl, xlp1, krr) result (res)
+
+        implicit none
+        double precision, intent(in) :: xl, xlp1, krr
+
+        if (krr == 0) then ! analytical limit
+            res = 0.0d0
+        else
+            res = 2d0 * (1d0 - cos((xlp1 - xl) * krr)) / ((xlp1 - xl) * krr**2)
         end if
 
     end function

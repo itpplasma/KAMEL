@@ -7,7 +7,6 @@ program kim_main
     use use_libcerf
     use grid
     use cut_off_integration
-    use hdf5_tools
     use equilibrium, only: calculate_equil
 
     implicit none

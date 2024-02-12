@@ -1,2 +1,2 @@
-file(GLOB libbessel_files "*.f")
-add_library(bessel "${libbessel_files}")
+file(GLOB libslatec_files "*.f")
+add_library(slatec STATIC "${libslatec_files}")

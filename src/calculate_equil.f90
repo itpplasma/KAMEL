@@ -132,15 +132,8 @@ module equilibrium
 
                     q = sum(coef(0,:) * q_prof(ibeg:iend))
                     dpress = sum(coef(0, :) * dpress_prof(ibeg:iend))
-                    !write(*,*) 'dpress = ', dpress
-
-                    !g = 1.0d0 + r**2.0d0 / (R0**2.0d0 * q**2.0d0)
-                    !write(*,*) 'q = ', q, ' dpress = ', dpress
-
-                    !du = -2.0d0 * r * u / (q**2.0d0 * g * R0**2.0d0) - 8.0d0 * pi * dpress
+                    
                     du = -2.0d0 * r * u / (q**2.0d0 * R0**2.0d0 + r**2.0d0) - 8.0d0 * pi * dpress
-                    !write(*,*) '1: ', -2.0d0 * r * u / (q**2.0d0 * g * R0**2.0d0)
-                    !write(*,*) '2: ', - 8.0d0 * pi * dpress
 
                 end subroutine
     

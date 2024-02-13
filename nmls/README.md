@@ -25,5 +25,8 @@ KIM is configured via namelist the file KIM_config.nml containing multiple namel
 - omega ... double precision, perturbation frequency
 - spline_base ... integer, choose the spline basis functions (1=hat functions)
 - grid_spacing ... integer, choose type of grid spacing (1=equidistant, 2=non-equidistant)
-- cut_off_fac ... double precision
+- cut_off_fac ... double precision, factor to configure cut-off of off-diagonal elements of kernels in spline space, i.e. roughly
+
+    ```if abs(xl-xlp) > cut_off_fac*max(rho_Li) then K_llp = 0``` 
+
 - num_gengrid_points ... integer, minimal number of grid points in the l grid

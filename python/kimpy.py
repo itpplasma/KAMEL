@@ -1,12 +1,22 @@
 import subprocess
 import os
 import re
+import shutil
 
 class kimpy:
+
+    kim_config_nml = os.path.dirname(__file__) + '/../nmls/KIM_config.nml'
+    kim_exe_path = os.path.dirname(__file__) + '/../KIM_exe'
+
     def __init__(self, runpath):
 
         self.runpath = runpath
+
         self.command = './KIM_exe'
+        shutil.copyfile(self.kim_exe_path, self.runpath + 'KIM_exe')
+
+        shutil.copyfile(self.kim_config_nml, self.runpath + 'KIM_config.nml')
+        self.kim_config_nml = self.runpath + 'KIM_config.nml'
         
 
     def run(self):

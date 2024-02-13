@@ -39,13 +39,6 @@ module cut_off_integration
 
         double complex, dimension(1) :: res
 
-        !double complex, dimension(:,:), allocatable :: int_kr_rg
-        !double complex, dimension(:), allocatable :: int_rg
-        !double complex, dimension(:,:,:), allocatable :: K_rho_phi_llp_rg
-
-        !allocate(int_kr_rg(k_space_dim, npoib))
-        !allocate(int_rg(npoib))
-
         write(*,*) "max(rho_Li) = ", rho_L
 
         ! kr space adjustments:

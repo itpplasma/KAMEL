@@ -270,7 +270,6 @@ subroutine calc_plasma_parameter_derivs
     integer :: sigma
 
     if (.not. allocated(dndr_prof)) then
-        !write(*,*) 'dndr not allocated'
         allocate(dndr_prof(iprof_length), dTedr_prof(iprof_length), dTidr_prof(ispecies,iprof_length), &
         dqdr_prof(iprof_length), dnidr_prof(ispecies, iprof_length))
     end if
@@ -279,7 +278,6 @@ subroutine calc_plasma_parameter_derivs
 
     do i=1, iend
         dndr_prof(i) = (n_prof(i+1) - n_prof(i))/(r_prof(i+1)- r_prof(i))
-
         dTedr_prof(i) = (Te_prof(i+1) - Te_prof(i))/(r_prof(i+1)- r_prof(i))
         dqdr_prof(i) = (q_prof(i+1) - q_prof(i))/(r_prof(i+1)- r_prof(i))
         do sigma=1, ispecies

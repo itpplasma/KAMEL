@@ -1,0 +1,109 @@
+import numpy as np
+import matplotlib.pyplot as plt
+import os
+import sys
+sys.path.append('/afs/itp.tugraz.at/user/markl_m/Dokumente/plasma/code/balance/python/fieldpy/')
+from fieldpy import fieldpy
+
+sys.path.append('/afs/itp.tugraz.at/user/markl_m/Dokumente/plasma/code/balance/python/neo2_for_Er/')
+from neo2_for_Er import neo2_for_Er
+
+sys.path.append('/afs/itp.tugraz.at/user/markl_m/Dokumente/plasma/code/balance/python/profile_processor/')
+from profile_processor import profile_processor
+
+sys.path.append('/afs/itp.tugraz.at/user/markl_m/Dokumente/plasma/code/balance/python/AnLoBiCr')
+from analytical_local_bif_criterion import *
+
+sys.path.append('/afs/itp.tugraz.at/user/markl_m/Dokumente/plasma/code/balance/python/tMHD_current')
+from tMHD_current import *
+
+
+class KQ_processor:
+    """ Kilca QL-balance processor class to determine equilibrium and profiles for 
+        KiLCA and QL-Balance runs.
+    """
+
+    def __init__(self, shot, time, runpath):
+        
+        self.shot = shot
+        self.time = time
+        self.runpath = runpath
+        self.save_profs = os.path.join(self.runpath, 'profiles/')
+
+    def process_equilibrium(self, gfile, pfile='', convex_wall='', flux_data=''):
+        """Process the equilibrium EQDSK file with field_divB0 (without perturbations)."""
+
+        self.gfile = gfile 
+        self.pfile = pfile
+        self.convex_wall = convex_wall 
+        self.flux_data = flux_data 
+
+        self.fp = fieldpy(self.gfile, self.pfile, self.convex_wall, self.flux_data)
+        self.fp.write_field_divB0_inp(self.fp.path_to_fourier_modes_exe + 'template_field_divB0.inp', self.fp.path_to_fourier_modes_exe + 'field_divB0.inp')
+        self.fp.run_fourier_modes() 
+
+    def process_profiles(self, prof_path):
+        """Process the kinetic profiles. Map the 4 input profiles (density, electron temperature, 
+            ion temperature and toroidal rotation) onto the effective radius determined in the 
+            equilibrium processing. Use NEO-2 to determine Er profile.
+        """
+        
+        self.pp = profile_processor(self.runpath)
+
+        self.pp.run_fieldpy(self.gfile, self.convex_wall, self.flux_data, skip=True)
+
+        self.prof_path = prof_path 
+
+        self.pp.map_profs_to_reff(self.prof_path, self.save_profs, self.flux_data, plot=False)
+        self.pp.calc_Er_prof()
+        self.pp.determine_anomalous_diff_coeff()
+
+    def rescale_dens_prof(self, rescale_factor):
+        """Rescale the density profile by a constant factor."""
+
+        self.pp.ne = self.pp.ne * rescale_factor
+
+    def rescale_el_temp_prof(self, rescale_factor):
+        """Rescale the electron temperature profile by a constant factor."""
+
+        self.pp.Te = self.pp.Te * rescale_factor
+
+    def get_tMHD_current(self, curr_file, m_mode=10, delta_phi=0.0, coil_curr_scale_l=1.0, coil_curr_scale_u=1.0):
+        """Get the tMHD current for a given m_mode."""
+
+        self.tmhd = tMHD_current()
+
+        self.tmhd.set_equil(self.flux_data + 'equil_r_q_psi.dat', self.flux_data + 'btor_rbig.dat')
+        self.tmhd.load_curr_harmonics_MARSF(curr_file)
+        self.tmhd.mix_coil_rows(delta_phi=delta_phi, coil_curr_scale_l=coil_curr_scale_l, coil_curr_scale_u=coil_curr_scale_u)
+        self.tmhd.integrate_curr_dens(m_mode=m_mode)
+
+        return self.tmhd
+
+    def apply_analytical_criterion(self, m_mode=np.array([6]), n_mode=np.array([2]), Impar=1.0):
+
+        self.Dql = np.zeros((len(m_mode), len(n_mode)))
+
+        for i, n in enumerate(n_mode):
+            for j, m in enumerate(m_mode):
+                #print(analytical_local_criterion(m,n, self.pp.r_eff, self.pp.Da, self.pp.R0, self.pp.Btor, self.pp.r_eff, self.pp.q, self.pp.Te, self.pp.Ti, self.pp.ne, self.pp.Er, Impar))
+                self.Dql[j,i] = analytical_local_criterion(m,n, self.pp.r_eff, self.pp.Da, self.pp.R0, self.pp.Btor, self.pp.r_eff, self.pp.q, self.pp.Te, self.pp.Ti, self.pp.ne, self.pp.Er, Impar)
+
+        return self.Dql
+
+    def do_parameter_scan_analytical_crit(self, parameter, type, values):
+        """Do parameter scans of the input profiles.
+            input:
+                parameter ... string, either ne, Te, Ti or Vz
+                type ... string, either 'constant rescale' or , tbi
+                values ... numpy array of values, e.g. rescaling values
+        """
+
+        if parameter == 'ne':
+            pass
+    
+    def read_equil(self):
+        pass
+
+    def read_profiles(self):
+        pass

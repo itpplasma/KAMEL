@@ -76,8 +76,11 @@ class fieldpy:
             #    print(result.stderr)
 
             files = ['btor_rbig.dat', 'equil_r_q_psi.dat', 'axis.dat', 'box_size.dat', 'separ.dat', 'phinorm_arr.dat', 'thetabooz.dat', 'theta_of_theta_qt_flabel.dat', 'amn.dat']
+            
             for el in files:
-                shutil.move(el, self.fluxdata_path) 
+                if os.path.exists(self.fluxdata_path + el):
+                    os.remove(self.fluxdata_path + el)
+                shutil.move(el, self.fluxdata_path, copy_function=shutil.copy2)
 
             os.chdir(wd)
         except Exception as e:

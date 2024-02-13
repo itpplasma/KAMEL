@@ -19,7 +19,7 @@ from tMHD_current import *
 
 
 class KQ_processor:
-    """ Kilca QL-balance processor class to determine equilibrium and profiles for 
+    """ Kilca QL-balance processor class to calculate equilibrium and profiles for 
         KiLCA and QL-Balance runs.
     """
 
@@ -74,8 +74,10 @@ class KQ_processor:
         self.tmhd = tMHD_current()
 
         self.tmhd.set_equil(self.flux_data + 'equil_r_q_psi.dat', self.flux_data + 'btor_rbig.dat')
-        self.tmhd.load_curr_harmonics_MARSF(curr_file)
+        #self.tmhd.load_curr_harmonics_MARSF(curr_file)
+        self.tmhd.load_current_MARSF(curr_file)
         self.tmhd.mix_coil_rows(delta_phi=delta_phi, coil_curr_scale_l=coil_curr_scale_l, coil_curr_scale_u=coil_curr_scale_u)
+        self.tmhd.get_Jpar_over_B0_boozer_harmonics()
         self.tmhd.integrate_curr_dens(m_mode=m_mode)
 
         return self.tmhd

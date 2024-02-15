@@ -2,19 +2,19 @@ import numpy as np
 import matplotlib.pyplot as plt
 import os
 import sys
-sys.path.append('/afs/itp.tugraz.at/user/markl_m/Dokumente/plasma/code/balance/python/fieldpy/')
+sys.path.append(os.path.dirname(__file__) + '/../fieldpy/')
 from fieldpy import fieldpy
 
-sys.path.append('/afs/itp.tugraz.at/user/markl_m/Dokumente/plasma/code/balance/python/neo2_for_Er/')
+sys.path.append(os.path.dirname(__file__) + '/../neo2_for_Er/')
 from neo2_for_Er import neo2_for_Er
 
-sys.path.append('/afs/itp.tugraz.at/user/markl_m/Dokumente/plasma/code/balance/python/profile_processor/')
+sys.path.append(os.path.dirname(__file__) + '/../profile_processor/')
 from profile_processor import profile_processor
 
-sys.path.append('/afs/itp.tugraz.at/user/markl_m/Dokumente/plasma/code/balance/python/AnLoBiCr')
+sys.path.append(os.path.dirname(__file__) + '/../AnLoBiCr/')
 from analytical_local_bif_criterion import *
 
-sys.path.append('/afs/itp.tugraz.at/user/markl_m/Dokumente/plasma/code/balance/python/tMHD_current')
+sys.path.append(os.path.dirname(__file__) + '/../tMHD_current/')
 from tMHD_current import *
 
 
@@ -30,13 +30,16 @@ class KQ_processor:
         self.runpath = runpath
         self.save_profs = os.path.join(self.runpath, 'profiles/')
 
-    def process_equilibrium(self, gfile, pfile='', convex_wall='', flux_data=''):
+    def process_equilibrium(self, gfile, pfile='', convex_wall='', flux_data='', skip=False):
         """Process the equilibrium EQDSK file with field_divB0 (without perturbations)."""
 
         self.gfile = gfile 
         self.pfile = pfile
         self.convex_wall = convex_wall 
         self.flux_data = flux_data 
+
+        if skip == True:
+            return
 
         self.fp = fieldpy(self.gfile, self.pfile, self.convex_wall, self.flux_data)
         self.fp.write_field_divB0_inp(self.fp.path_to_fourier_modes_exe + 'template_field_divB0.inp', self.fp.path_to_fourier_modes_exe + 'field_divB0.inp')
@@ -78,7 +81,7 @@ class KQ_processor:
         self.tmhd.load_current_MARSF(curr_file)
         self.tmhd.mix_coil_rows(delta_phi=delta_phi, coil_curr_scale_l=coil_curr_scale_l, coil_curr_scale_u=coil_curr_scale_u)
         self.tmhd.get_Jpar_over_B0_boozer_harmonics()
-        self.tmhd.integrate_curr_dens(m_mode=m_mode)
+        #self.tmhd.integrate_curr_dens(m_mode=m_mode)
 
         return self.tmhd
 

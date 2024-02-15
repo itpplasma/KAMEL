@@ -1,6 +1,9 @@
+import scipy as sp
+import scipy.interpolate
+from scipy.interpolate import CubicSpline
 from scipy.io import loadmat
 import numpy as np
-#import libneo.efit2boozer
+from libneo.boozer import get_boozer_transform, get_boozer_harmonics_divide_f_by_B0
 
 class tMHD_current:
     """Class to handle (integrated) current from a toroidal MHD code.
@@ -41,15 +44,45 @@ class tMHD_current:
     def mix_coil_rows(self, delta_phi = 0.0, coil_curr_scale_l = 1.0, coil_curr_scale_u=1.0):
         """Mix the upper and lower coil current densities by a phase shift delta_phi and a scaling factor coil_curr_scale_l and coil_curr_scale_u."""
 
-        if not type(self.JparU_harm) is None:
+        if hasattr(self, 'JparU_harm'):
             self.Jpar_harm = coil_curr_scale_u * self.JparU_harm + coil_curr_scale_l * self.JparL_harm * np.exp(1j * delta_phi)
-        if not type(self.JparU) is None:
+        if hasattr(self, 'JparU'):
             self.Jpar = coil_curr_scale_u * self.JparU + coil_curr_scale_l * self.JparL * np.exp(1j * delta_phi)
 
-    def get_Jpar_over_B0_boozer_harmonics(self):
+    def get_Jpar_over_B0_boozer_harmonics(self, n=2):
         """Get the Fourier harmonics in Boozer coordinates of J_parallel / B0."""
         # TODO: Get B0 from libneo.efit2boozer module, use fourier harmonics function in boozer
-        pass
+        m0b = 24
+        nph = 16
+        nth = 16
+
+        dth_of_thb, G_of_thb = get_boozer_transform(self.s, nth)
+
+
+        def Jpar_over_B0(s,theta,phi):
+            """Jpar over B0 in geometrical theta and ignorable toroidal angle phi."""
+            Jpar_of_s = []
+            for i in np.arange(len(self.s)):
+                Jpar_of_s.append(CubicSpline(self.chi, self.Jpar[i,:])(theta) / self.B0_of_s_theta_geom[i](theta))
+            Jpar_ov_B0 = CubicSpline(self.s, Jpar_of_s)
+            #print(len(Jpar_ov_B0(s)))
+            return Jpar_ov_B0(s)
+        self.Jpar_over_B0 = Jpar_over_B0
+
+
+        #self.Jpar_over_B0_harm = get_boozer_harmonics(Jpar_over_B0, self.s, nth, nph, m0b, n, dth_of_thb, G_of_thb)
+        
+        def fun_Jpar(s, theta, phi):
+            Jpar_of_s = []
+
+            print(f"len(self.s) = {len(s)}")
+            print(f"len(self.theta) = {len(theta)}")
+            for i in np.arange(len(self.s)):
+                Jpar_of_s.append(CubicSpline(self.chi, self.Jpar[i,:])(theta[i]))
+            return CubicSpline(self.s, Jpar_of_s)(s)
+
+        self.Jpar_over_B0_harm = get_boozer_harmonics_divide_f_by_B0(fun_Jpar, self.s, nth, nph, m0b, n, dth_of_thb, G_of_thb)
+
 
     def integrate_curr_dens(self, m_mode=10):
         """Integrate the current density harmonics for a given m_mode. Returns the current for negative and positive m modes.
@@ -58,7 +91,7 @@ class tMHD_current:
         if not self.loaded_equilibrium:
             print("Error: Equilibrium data not loaded.")
             return
-        if not type(self.Jpar_ov_B0_harm) is None:
+        if not hasattr(self, Jpar_ov_B0_harm):
             print("Error: Jpar over B0 harmonics not available")
             return
 

@@ -1,5 +1,6 @@
 import sys
-sys.path.append('/afs/itp.tugraz.at/user/markl_m/Dokumente/plasma/code/balance/python/kilca_interface/')
+import os
+sys.path.append(os.path.dirname(__file__) + '/../kilca_interface/')
 from read_in import read_in
 from change_opts import change_opts_fieldpy
 from save_file import save_file

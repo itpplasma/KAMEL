@@ -7,7 +7,7 @@ import re
 import time
 from datetime import datetime
 import sys
-sys.path.append('/afs/itp.tugraz.at/user/markl_m/Dokumente/plasma/code/balance/python/fieldpy/')
+sys.path.append(os.path.dirname(__file__) + '/../fieldpy/')
 from fieldpy import fieldpy
 
 class neo2_for_Er():

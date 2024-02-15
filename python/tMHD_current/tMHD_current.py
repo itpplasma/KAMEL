@@ -77,9 +77,11 @@ class tMHD_current:
 
             print(f"len(self.s) = {len(s)}")
             print(f"len(self.theta) = {len(theta)}")
-            for i in np.arange(len(self.s)):
+            for i, _ in enumerate(s):
                 Jpar_of_s.append(CubicSpline(self.chi, self.Jpar[i,:])(theta[i]))
-            return CubicSpline(self.s, Jpar_of_s)(s)
+            
+            Jpar_of_s = np.array(Jpar_of_s)
+            return CubicSpline(s, Jpar_of_s)(s)
 
         self.Jpar_over_B0_harm = get_boozer_harmonics_divide_f_by_B0(fun_Jpar, self.s, nth, nph, m0b, n, dth_of_thb, G_of_thb)
 

@@ -3,7 +3,7 @@ import scipy.interpolate
 from scipy.interpolate import CubicSpline
 from scipy.io import loadmat
 import numpy as np
-from libneo.boozer import get_boozer_transform, get_boozer_harmonics_divide_f_by_B0
+from libneo.boozer import get_boozer_transform, get_boozer_harmonics_divide_f_by_B0, get_B0_of_s_theta_boozer
 
 class tMHD_current:
     """Class to handle (integrated) current from a toroidal MHD code.
@@ -12,6 +12,11 @@ class tMHD_current:
     curr_dens = []
     upper_curr_dens = []
     lower_curr_dens = []
+
+    m0b = 24
+    nph = 16
+    nth = 16
+
 
     def __init__(self, n_mode=2) -> None:
         self.n_mode = n_mode
@@ -52,66 +57,55 @@ class tMHD_current:
     def get_Jpar_over_B0_boozer_harmonics(self, n=2):
         """Get the Fourier harmonics in Boozer coordinates of J_parallel / B0."""
         # TODO: Get B0 from libneo.efit2boozer module, use fourier harmonics function in boozer
-        m0b = 24
-        nph = 16
-        nth = 16
-
-        dth_of_thb, G_of_thb = get_boozer_transform(self.s, nth)
-
-
-        def Jpar_over_B0(s,theta,phi):
-            """Jpar over B0 in geometrical theta and ignorable toroidal angle phi."""
-            Jpar_of_s = []
-            for i in np.arange(len(self.s)):
-                Jpar_of_s.append(CubicSpline(self.chi, self.Jpar[i,:])(theta) / self.B0_of_s_theta_geom[i](theta))
-            Jpar_ov_B0 = CubicSpline(self.s, Jpar_of_s)
-            #print(len(Jpar_ov_B0(s)))
-            return Jpar_ov_B0(s)
-        self.Jpar_over_B0 = Jpar_over_B0
-
-
-        #self.Jpar_over_B0_harm = get_boozer_harmonics(Jpar_over_B0, self.s, nth, nph, m0b, n, dth_of_thb, G_of_thb)
         
+        dth_of_thb, G_of_thb = get_boozer_transform(self.s, self.nth)
+
         def fun_Jpar(s, theta, phi):
+            """theta and phi should have length of s"""
             Jpar_of_s = []
 
-            print(f"len(self.s) = {len(s)}")
-            print(f"len(self.theta) = {len(theta)}")
             for i, _ in enumerate(s):
                 Jpar_of_s.append(CubicSpline(self.chi, self.Jpar[i,:])(theta[i]))
             
             Jpar_of_s = np.array(Jpar_of_s)
-            return CubicSpline(s, Jpar_of_s)(s)
+            #return CubicSpline(s, Jpar_of_s)(s)
+            return Jpar_of_s
 
-        self.Jpar_over_B0_harm = get_boozer_harmonics_divide_f_by_B0(fun_Jpar, self.s, nth, nph, m0b, n, dth_of_thb, G_of_thb)
+        self.Jpar_over_B0_harm = get_boozer_harmonics_divide_f_by_B0(fun_Jpar, self.s, self.nth, self.nph, self.m0b, n, dth_of_thb, G_of_thb)
 
+    def fetch_B0_of_s_theta_boozer(self, spol,nth):
+        return get_B0_of_s_theta_boozer(spol,nth)
 
-    def integrate_curr_dens(self, m_mode=10):
+    def integrate_curr_dens(self, m_mode=np.array([10])):
         """Integrate the current density harmonics for a given m_mode. Returns the current for negative and positive m modes.
         The current is given in statA."""
 
-        if not self.loaded_equilibrium:
-            print("Error: Equilibrium data not loaded.")
-            return
-        if not hasattr(self, Jpar_ov_B0_harm):
+        #if not self.loaded_equilibrium:
+        #    print("Error: Equilibrium data not loaded.")
+        #    return
+        if not hasattr(self, "Jpar_over_B0_harm"):
             print("Error: Jpar over B0 harmonics not available")
             return
 
-        ind_p = np.where(self.Mm[0] == m_mode)[0][0]
-        ind_m = np.where(self.Mm[0] == -m_mode)[0][0]
+        self.current_m = np.zeros(len(m_mode),dtype=complex)
+        self.current_p = np.zeros(len(m_mode),dtype=complex)
 
-        if ind_p == []:
-            print("Error: m_mode not found.")
-            return
-        if ind_m == []:
-            print("Error: n_mode not found.")
-            return
+        for i, m in enumerate(m_mode):
+            ind_p = np.where(np.arange(-self.m0b, self.m0b+1) == m)[0][0]
+            ind_m = np.where(np.arange(-self.m0b, self.m0b+1) == -m)[0][0]
 
-        curr_dens_m = self.Jpar_ov_B0_harm[ind_m,:]
-        curr_dens_p = self.Jpar_ov_B0_harm[ind_p,:]
+            if ind_p == []:
+                print("Error: m_mode not found.")
+                return
+            if ind_m == []:
+                print("Error: n_mode not found.")
+                return
 
-        self.current_m = np.trapz(curr_dens_m / self.btor * self.s * np.interp(self.s, self.s_equil, self.q)) * 2.0 * self.psi[-1] 
-        self.current_p = np.trapz(curr_dens_p / self.btor * self.s * np.interp(self.s, self.s_equil, self.q)) * 2.0 * self.psi[-1] 
+            curr_dens_m = self.Jpar_over_B0_harm[:,ind_m]
+            curr_dens_p = self.Jpar_over_B0_harm[:,ind_p]
+
+            self.current_m[i] = np.trapz(curr_dens_m * self.s[:-1] * np.interp(self.s[:-1], self.s_equil, self.q)) * 2.0 * self.psi[-1]
+            self.current_p[i] = np.trapz(curr_dens_p * self.s[:-1] * np.interp(self.s[:-1], self.s_equil, self.q)) * 2.0 * self.psi[-1]
 
         return [self.current_m, self.current_p]
 

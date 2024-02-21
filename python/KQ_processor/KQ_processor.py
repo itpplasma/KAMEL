@@ -31,7 +31,9 @@ class KQ_processor:
         self.save_profs = os.path.join(self.runpath, 'profiles/')
 
     def process_equilibrium(self, gfile, pfile='', convex_wall='', flux_data='', skip=False):
-        """Process the equilibrium EQDSK file with field_divB0 (without perturbations)."""
+        """Process the equilibrium EQDSK file with field_divB0 (without perturbations).
+        gfile ... path to the EQDSK file
+        flux_data ... path where the flux data will be moved to"""
 
         self.gfile = gfile 
         self.pfile = pfile
@@ -45,7 +47,7 @@ class KQ_processor:
         self.fp.write_field_divB0_inp(self.fp.path_to_fourier_modes_exe + 'template_field_divB0.inp', self.fp.path_to_fourier_modes_exe + 'field_divB0.inp')
         self.fp.run_fourier_modes() 
 
-    def process_profiles(self, prof_path):
+    def process_profiles(self, prof_path, skip=True):
         """Process the kinetic profiles. Map the 4 input profiles (density, electron temperature, 
             ion temperature and toroidal rotation) onto the effective radius determined in the 
             equilibrium processing. Use NEO-2 to determine Er profile.
@@ -58,7 +60,9 @@ class KQ_processor:
         self.prof_path = prof_path 
 
         self.pp.map_profs_to_reff(self.prof_path, self.save_profs, self.flux_data, plot=False)
-        self.pp.calc_Er_prof()
+
+        self.pp.calc_Er_prof(recalc=not skip)
+
         self.pp.determine_anomalous_diff_coeff()
 
     def rescale_dens_prof(self, rescale_factor):

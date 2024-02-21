@@ -16,7 +16,7 @@ class neo2_for_Er():
     echarge = 4.8031e-10
     eV = 1.6022e-12
 
-    neo2_path = '/afs/itp.tugraz.at/user/markl_m/Dokumente/plasma/code/balance/matlab/neo2/'
+    neo2_path = os.path.normpath(os.path.dirname(__file__)+'/../../matlab/neo2/')+'/'
 
     def __init__(self, profilepath, equil_r_q_psi):
 
@@ -58,12 +58,10 @@ class neo2_for_Er():
 
         #self.r_eff = self.equil_r_q_psi[:,0]
         self.r_min = self.r_eff[0] + 1.0
-        
 
         n_points = [5,3,9] # points between borders
 
         self.r_border = [[self.r_min, 10], [11, 53], [58, np.max(self.r_eff)-1]]
-
 
         r_neo = np.zeros(np.sum(n_points))
         k2 = 0
@@ -131,6 +129,7 @@ class neo2_for_Er():
         mem = []
         maxjob = []
 
+        # get the computers, cpu and ram from the config file
         with open(configfile, 'r') as file:
             for line in file:
                 if line[0] == '#':
@@ -194,16 +193,13 @@ class neo2_for_Er():
             if len(queuewait) > 0 and len(jobswait) > 0:
                 start = []
                 for k in np.arange(np.min([len(queuewait), len(jobswait)])):
-                    command = f"ssh {queuewait[k][0]} ''cd {self.kpath} ; cd {jobswait[k]} ; hostname > log.txt ; ./neo_2.x >> log.txt 2>&1 ; touch done.out'' &"
+                    command = f"ssh {queuewait[k][0]} ''cd {self.kpath}; cd {jobswait[k]}/ ; hostname > log.txt ; ./neo_2.x >> log.txt 2>&1 ; touch done.out'' &"
                     jobnum = len(jobsfinished) + len(jobsrun) + 1
                     print(f'Start job {jobnum}/{totaljobs} : {jobswait[k]} @ {queuewait[k][0]}')
-                    os.system(f"ssh {queuewait[k][0]} ''cd {self.kpath} ; cd {jobswait[k]} ; hostname > log.txt ; ./neo_2.x >> log.txt 2>&1 ; touch done.out'' &")
-                    #out = subprocess.che
-                    print('Started process')
+                    os.system(command)
                     jobsrun.append(jobswait[k])
                     queuerun.append(queuewait[k])
                     start.append(k)
-                print(len(queuewait))
                 queuewait = [value for index, value in enumerate(queuewait) if index not in start]
                 jobswait = [value for index, value in enumerate(jobswait) if index not in start]
 

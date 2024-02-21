@@ -11,7 +11,7 @@ import shutil
 class fieldpy:
 
     field_divB0_inp = {}
-    path_to_fourier_modes_exe = '/afs/itp.tugraz.at/user/markl_m/Dokumente/plasma/code/balance/matlab/fourier_test/'
+    path_to_fourier_modes_exe = os.path.dirname(__file__) + '/../../matlab/fourier_test/'
     
     def __init__(self, gfile, pfile, convex_file, fluxdata_path):
         '''

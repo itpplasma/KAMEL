@@ -67,14 +67,6 @@ class fieldpy:
             for line in iter(process.stdout.readline, ''):
                 print(line.strip())
 
-            #if result.returncode == 0:
-            #    print('Fouriermodes successful')
-            #    print('Output:')
-            #    print(result.stdout)
-            #else:
-            #    print(f'Execution failed with return code {result.returncode}')
-            #    print('Error output:')
-            #    print(result.stderr)
 
             files = ['btor_rbig.dat', 'equil_r_q_psi.dat', 'axis.dat', 'box_size.dat', 'separ.dat', 'phinorm_arr.dat', 'thetabooz.dat', 'theta_of_theta_qt_flabel.dat', 'amn.dat']
             

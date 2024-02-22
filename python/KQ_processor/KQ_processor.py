@@ -43,7 +43,9 @@ class KQ_processor:
         self.flux_data = flux_data 
 
         if skip == True:
+            print('Equilibrium already processed, skipping...')
             return
+        print('Processing equilibrium...')
 
         self.fp = fieldpy(self.gfile, self.pfile, self.convex_wall, self.flux_data)
         self.fp.write_field_divB0_inp(self.fp.path_to_fourier_modes_exe + 'template_field_divB0.inp', self.fp.path_to_fourier_modes_exe + 'field_divB0.inp')

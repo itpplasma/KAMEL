@@ -1,5 +1,6 @@
 import numpy as np
 import matplotlib.pyplot as plt
+import shutil
 import os
 import sys
 sys.path.append(os.path.dirname(__file__) + '/../fieldpy/')
@@ -29,6 +30,7 @@ class KQ_processor:
         self.time = time
         self.runpath = runpath
         self.save_profs = os.path.join(self.runpath, 'profiles/')
+        self.scriptpath = os.getcwd()
 
     def process_equilibrium(self, gfile, pfile='', convex_wall='', flux_data='', skip=False):
         """Process the equilibrium EQDSK file with field_divB0 (without perturbations).
@@ -84,10 +86,32 @@ class KQ_processor:
         #self.tmhd.load_curr_harmonics_MARSF(curr_file)
         self.tmhd.load_current_MARSF(curr_file)
         self.tmhd.mix_coil_rows(delta_phi=delta_phi, coil_curr_scale_l=coil_curr_scale_l, coil_curr_scale_u=coil_curr_scale_u)
+        self.prepare_efit2boozer_inp()
+        self.prepare_field_divB0_inp()
         self.tmhd.get_Jpar_over_B0_boozer_harmonics()
         self.tmhd.integrate_curr_dens(m_mode=m_mode)
 
         return self.tmhd
+
+    def prepare_efit2boozer_inp(self):
+        """Prepare the input files for efit2boozer."""
+
+        print(os.path.abspath(os.path.join(os.path.dirname(__file__)+ '/../../../efit_to_boozer/RUN/efit_to_boozer.inp')))
+        print(self.scriptpath + '/efit_to_boozer.inp')
+        shutil.copy(os.path.join(os.path.dirname(__file__)+ '/../../../efit_to_boozer/RUN/efit_to_boozer.inp'), self.scriptpath + '/efit_to_boozer.inp')
+        # get psi max
+        with open(self.flux_data + 'equil_r_q_psi.dat', 'r') as f:
+            lines = f.readlines()
+            psi_max = float(lines[1].split()[4])
+        # write psi max in efit file
+        with open(self.scriptpath + '/efit_to_boozer.inp', 'a') as f:
+            f.write(str(psi_max) + '   psimax - psi of plasma boundary\n')
+
+    def prepare_field_divB0_inp(self):
+        """Prepare the input files for field_divB0."""
+
+        fp = fieldpy(self.gfile, self.pfile, self.convex_wall, self.flux_data)
+        fp.write_field_divB0_inp(os.path.join(os.path.dirname(__file__)+ '/../../../efit_to_boozer/RUN/field_divB0.inp'), self.scriptpath + '/field_divB0.inp')
 
     def apply_analytical_criterion(self, m_mode=np.array([6]), n_mode=np.array([2]), Impar=1.0):
 

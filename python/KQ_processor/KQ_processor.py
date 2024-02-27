@@ -117,14 +117,14 @@ class KQ_processor:
 
     def apply_analytical_criterion(self, m_mode=np.array([6]), n_mode=np.array([2]), Impar=1.0):
 
-        self.Dql = np.zeros((len(m_mode), len(n_mode)))
+        self.crit = np.zeros((len(m_mode), len(n_mode)))
 
         for i, n in enumerate(n_mode):
             for j, m in enumerate(m_mode):
                 #print(analytical_local_criterion(m,n, self.pp.r_eff, self.pp.Da, self.pp.R0, self.pp.Btor, self.pp.r_eff, self.pp.q, self.pp.Te, self.pp.Ti, self.pp.ne, self.pp.Er, Impar))
-                self.Dql[j,i] = analytical_local_criterion(m,n, self.pp.r_eff, self.pp.Da, self.pp.R0, self.pp.Btor, self.pp.r_eff, self.pp.q, self.pp.Te, self.pp.Ti, self.pp.ne, self.pp.Er, Impar)
+                self.crit[j,i] = analytical_local_criterion(m,n, self.pp.r_eff, self.pp.Da, self.pp.R0, self.pp.Btor, self.pp.r_eff, self.pp.q, self.pp.Te, self.pp.Ti, self.pp.ne, self.pp.Er, Impar)
 
-        return self.Dql
+        return self.crit
 
     def do_parameter_scan_analytical_crit(self, parameter, type, values):
         """Do parameter scans of the input profiles.

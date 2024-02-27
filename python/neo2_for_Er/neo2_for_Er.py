@@ -193,13 +193,19 @@ class neo2_for_Er():
             if len(queuewait) > 0 and len(jobswait) > 0:
                 start = []
                 for k in np.arange(np.min([len(queuewait), len(jobswait)])):
-                    command = f"ssh {queuewait[k][0]} ''cd {self.kpath}; cd {jobswait[k]}/ ; hostname > log.txt ; ./neo_2.x >> log.txt 2>&1 ; touch done.out'' &"
+                    #command = f"ssh {queuewait[k][0]} ''cd {self.kpath}; cd {jobswait[k]}/ ; hostname > log.txt ; ./neo_2.x >> log.txt 2>&1 ; touch done.out &''"
+                    command =f"ssh {queuewait[k][0]} ''cd {self.kpath}; cd {jobswait[k]}/; hostname > log.txt; ./neo_2.x >> log.txt 2>&1; touch done.out'' &"
                     jobnum = len(jobsfinished) + len(jobsrun) + 1
                     print(f'Start job {jobnum}/{totaljobs} : {jobswait[k]} @ {queuewait[k][0]}')
-                    os.system(command)
+                    #os.system(command)
+                    proc = subprocess.Popen(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+                    #print(f"Started at {queuewait[k][0]}")
                     jobsrun.append(jobswait[k])
                     queuerun.append(queuewait[k])
                     start.append(k)
+                    stdout, stderr = proc.communicate()
+                    if stderr is not None:
+                        print("SSH stderr:", stderr)
                 queuewait = [value for index, value in enumerate(queuewait) if index not in start]
                 jobswait = [value for index, value in enumerate(jobswait) if index not in start]
 

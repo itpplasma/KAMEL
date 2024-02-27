@@ -14,7 +14,7 @@ const_eVK = 1.604e4 # conversion factor eV to Kelvin
 const_eV_to_erg = 1.6022e-12
 e_mass = 9.1094e-28#511
 
-debug = False
+debug = True
 
 def analytical_local_criterion(m, n, r_Da, Da, R0, B0, r, q, Te, Ti, ne, Er, Impar, Zi=1, mi=2):
     '''Analytical local bifurcation criterion.'''
@@ -109,6 +109,7 @@ def analytical_local_criterion(m, n, r_Da, Da, R0, B0, r, q, Te, Ti, ne, Er, Imp
     
     if debug:
         print('a2bc')
+        print(f'm = {m}, n = {n}')
         print('rm      = ' + str(rm))
         print('Te res  = ' + str(Te_res))
         print('Ti res  = ' + str(Ti_res))
@@ -280,7 +281,7 @@ def crit_from_Br(m, n,r_Da, Da, R0, B0, r, q, Te, Ti, ne, Er, Impar, Br = 0, Zi=
 def get_rm(r,m,n,q):
     '''Get the radius of a rational surface between 45 < r < 65 cm.'''
 
-    ind2 = np.where(r< 65)
+    ind2 = np.where(r < 75)
 
     q_new = q[ind2]
     r_out_new = r[ind2]
@@ -291,4 +292,4 @@ def get_rm(r,m,n,q):
 
     f = CubicSpline(np.abs(q_new), r_out_new)
 
-    return f(m/n)
+    return f(np.abs(m)/n)

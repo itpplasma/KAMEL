@@ -272,6 +272,7 @@ class profile_processor:
         self.Bz = Bz_ode
         self.Bth = Bth_ode
         self.B = np.sqrt(Bz_ode**2 + Bth_ode **2)
+        print(f'Cylinder B = {self.B[0]}')
 
 
     def get_resonant_radii(self, m_mode, n_mode):

@@ -117,7 +117,8 @@ class tMHD_current:
             self.r_eff = equil[:,0]
             self.q = equil[:,1]
             self.psi = equil[:,2]
-            self.s_equil = self.psi / self.psi[-1]
+            self.s_equil = np.sqrt(self.psi / self.psi[-1])
+            print("Equil data with square root.")
             self.loaded_equilibrium = True
 
             self.btor = np.abs(np.loadtxt(btor_file)[0])

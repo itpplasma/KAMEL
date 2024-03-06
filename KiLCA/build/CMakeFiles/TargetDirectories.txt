@@ -1,8 +1,0 @@
-/afs/itp.tugraz.at/proj/plasma/CODE/markl_m/KiLCA/build/CMakeFiles/slatec.dir
-/afs/itp.tugraz.at/proj/plasma/CODE/markl_m/KiLCA/build/CMakeFiles/kilca_lib.dir
-/afs/itp.tugraz.at/proj/plasma/CODE/markl_m/KiLCA/build/CMakeFiles/kilca_normal_exe.dir
-/afs/itp.tugraz.at/proj/plasma/CODE/markl_m/KiLCA/build/CMakeFiles/kilca_eigparam_exe.dir
-/afs/itp.tugraz.at/proj/plasma/CODE/markl_m/KiLCA/build/CMakeFiles/post_proc.dir
-/afs/itp.tugraz.at/proj/plasma/CODE/markl_m/KiLCA/build/CMakeFiles/doc.dir
-/afs/itp.tugraz.at/proj/plasma/CODE/markl_m/KiLCA/build/CMakeFiles/edit_cache.dir
-/afs/itp.tugraz.at/proj/plasma/CODE/markl_m/KiLCA/build/CMakeFiles/rebuild_cache.dir

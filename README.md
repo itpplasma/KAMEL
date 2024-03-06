@@ -1,5 +1,5 @@
 # Balance Code Framework
-This repository contains everything concerning the balance code in the hdf5 version. To do runs, a compiled version of KiLCA needs to be available.
+This repository contains the KiLCA/QL-Balance framework. 
 When using the template scripts, make sure to change the code, most importantly the paths, according to your project before using it.
 
 ## Content
@@ -12,8 +12,21 @@ Contains matlab scripts that can be used as templates for certain balance code r
 	
 ### ql-balance
 Contains the balance Fortran code itself. Compile with 
+```
+make -f Balance.mk_mpi
+```
+### KiLCA
+Contains the source code of KiLCA. In the directory, compile with
 
-	make -f Balance.mk_mpi
+```
+mkdir build
+cd build
+cmake ..
+make
+```
+
+Note that certain libraries (lapack-3.2.1, sundials-5.7.0 and gsl-2.4) have to be available. In the code framework of the ITP plasma group, use the setup_kilca.sh shell script in the scripts directory.
+So far, the compilation and execution of the (Normal, Release, NOMD, FPGEN) version of the code was tested on Linux and MacOS. 
 
 ### utility_scripts
 Contains matlab and python scripts that make life easier.

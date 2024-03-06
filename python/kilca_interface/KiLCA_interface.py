@@ -109,7 +109,7 @@ class KiLCA_interface:
     ################################################################################
     """
 
-    EXEC_PATH = '/proj/plasma/soft/KiLCA-2.4.2/exe/KiLCA_Normal_V_2.4.2_MDNO_FPGEN_POLYNOMIAL_Release_64bit'
+    EXEC_PATH = '../../KiLCA/build/exe/KiLCA_Normal_V_2.4.2_MDNO_FPGEN_POLYNOMIAL_Release_64bit'
     BLUE_PATH = 'blueprints/'
     PROF_PATH = 'profiles/'
 

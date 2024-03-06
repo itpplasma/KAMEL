@@ -1,0 +1,479 @@
+(************** Content-type: application/mathematica **************
+                     CreatedBy='Mathematica 5.1'
+
+                    Mathematica-Compatible Notebook
+
+This notebook can be used with any Mathematica-compatible
+application, such as Mathematica, MathReader or Publicon. The data
+for the notebook starts with the line containing stars above.
+
+To get the notebook into a Mathematica-compatible application, do
+one of the following:
+
+* Save the data starting with the line of stars above into a file
+  with a name ending in .nb, then open the file inside the
+  application;
+
+* Copy the data starting with the line of stars above to the
+  clipboard, then use the Paste menu command inside the application.
+
+Data for notebooks contains only printable 7-bit ASCII and can be
+sent directly in email or through ftp in text mode.  Newlines can be
+CR, LF or CRLF (Unix, Macintosh or MS-DOS style).
+
+NOTE: If you modify the data for this notebook not in a Mathematica-
+compatible application, you must delete the line below containing
+the word CacheID, otherwise Mathematica-compatible applications may
+try to use invalid cache data.
+
+For more information on notebooks and Mathematica-compatible 
+applications, contact Wolfram Research:
+  web: http://www.wolfram.com
+  email: info@wolfram.com
+  phone: +1-217-398-0700 (U.S.)
+
+Notebook reader applications are available free of charge from 
+Wolfram Research.
+*******************************************************************)
+
+(*CacheID: 232*)
+
+
+(*NotebookFileLineBreakTest
+NotebookFileLineBreakTest*)
+(*NotebookOptionsPosition[     12168,        361]*)
+(*NotebookOutlinePosition[     12816,        384]*)
+(*  CellTagsIndexPosition[     12772,        380]*)
+(*WindowFrame->Normal*)
+
+
+
+Notebook[{
+
+Cell[CellGroupData[{
+Cell[BoxData[
+    \(\(\( (*zero\ order\ orbits*) \)\(\[IndentingNewLine]\)\( (*rl = 
+        Sqrt[2 \( J/m\)/omc]*) \)\(\[IndentingNewLine]\)\(\(rho = 
+        List[\(-\ rl\)\ Cos[phi2], \ 
+          rl\ Sin[phi2]\ hz/r0, \ \(-rl\)\ Sin[phi2]\ ht/
+              r0];\)\[IndentingNewLine]
+    \(xg = List[r0, th2, z2];\)\n
+    \(xc = xg + rho;\)\n
+    \(theta = List[phi2, th2, z2];\)\[IndentingNewLine]\[IndentingNewLine]
+    \(dxcdth = D[xc, {theta}];\)\[IndentingNewLine]
+    MatrixForm[
+      dxcdth]\[IndentingNewLine]\n (*Exp\ factor*) \[IndentingNewLine] (*\(Fe \
+= Exp[I\ \((kt\ rho[\([2]\)] + kz\ rho[\([3]\)])\)];\)*) \[IndentingNewLine]
+    \(Fe = Exp[I\ ks\ rl\ Sin[phi2]];\)\[IndentingNewLine]\[IndentingNewLine]
+    T[k_, \ r_] := 
+      Sqrt[alpha] Sqrt[k + 1/2] 
+        LegendreP[k, 
+          alpha\ r\  + \ beta]\[IndentingNewLine]\[IndentingNewLine]
+    a[k_] := 
+      T[k, r0 + rho[\([1]\)]] 
+        Fe\ dxcdth\[IndentingNewLine]\[IndentingNewLine]
+    \($Assumptions = {{rl, ks, ht, hz, r0} \[Element] \ 
+            Reals, {rl} \[Element] \ 
+            NonNegative};\)\[IndentingNewLine]\[IndentingNewLine]
+    \(aF[k_, 
+          l_] := \(Integrate[
+              Exp[\(-I\)\ l\ phi2] a[k], {phi2, \ \(-Pi\), \ Pi}]/2\)/
+          Pi;\)\)\)\)], "Input"],
+
+Cell[BoxData[
+    TagBox[
+      RowBox[{"(", "\[NoBreak]", GridBox[{
+            {\(rl\ Sin[phi2]\), "0", "0"},
+            {\(\(hz\ rl\ Cos[phi2]\)\/r0\), "1", "0"},
+            {\(-\(\(ht\ rl\ Cos[phi2]\)\/r0\)\), "0", "1"}
+            },
+          RowSpacings->1,
+          ColumnSpacings->1,
+          ColumnAlignments->{Left}], "\[NoBreak]", ")"}],
+      Function[ BoxForm`e$, 
+        MatrixForm[ BoxForm`e$]]]], "Output"]
+}, Open  ]],
+
+Cell[CellGroupData[{
+
+Cell[BoxData[{
+    \(L[n_, k_] := 
+      Coefficient[LegendreP[k, z], z, n]\), "\[IndentingNewLine]", 
+    \(L1[m_, k_, r_] := 
+      Sum[L[n, k] Binomial[n, m] r^\((n - m)\), {n, m, 
+          k}]\), "\[IndentingNewLine]", 
+    \(L2[m_, \ k_] := 
+      Sqrt[alpha] Sqrt[k + 1/2] 
+        alpha^m\ L1[m, k, 
+          alpha\ r0\  + beta]\[IndentingNewLine]\), "\[IndentingNewLine]", 
+    \(\(mod[p1_, \ p2_] := \ Sqrt[p1^2 + p2^2];\)\), "\n", 
+    \(\(arg[p1_, \ p2_] := \ 
+        ArcTan[p2/p1];\)\[IndentingNewLine]\), "\[IndentingNewLine]", 
+    \(JE[l_, p1_, p2_] := 
+      BesselJ[l, mod[p1, \ p2]\ rl]\ Exp[
+          I\ l\ arg[p1, \ p2]]\[IndentingNewLine]\), "\[IndentingNewLine]", 
+    \(\(Der1[l_, m_, p1_, p2_] := 
+        D[JE[l, p1, p2], \ {p2, m}];\)\), "\[IndentingNewLine]", 
+    \(\(Der2[l_, m_, p1_, p2_] := 
+        D[Der1[l, m, p1, p2], \ {p1, 
+            1}];\)\[IndentingNewLine]\), "\[IndentingNewLine]", 
+    \(\(Dmat[l_, m_, ks_] := 
+        ReplaceAll[
+          List[{\(-I\)\ Der2[l, m, p1, p2], 0, 
+              0}, {\(-I\)\ hz/r0\ \ Der1[l, m + 1, p1, p2], \ 
+              Der1[l, m, p1, p2], 0}, {I\ ht/r0\ \ Der1[l, m + 1, p1, p2], 
+              0, \ Der1[l, m, p1, p2]}], {p2 \[Rule] 0, 
+            p1 \[Rule] ks}];\)\[IndentingNewLine]\), "\[IndentingNewLine]", 
+    \(\(aFa[k_, l_] := 
+        Refine[Sum[L2[m, k]\ I^m\ Dmat[l, m, ks], {m, 0, k}], 
+          ks >= 0];\)\)}], "Input"],
+
+Cell[BoxData[
+    RowBox[{\(General::"spell1"\), \(\(:\)\(\ \)\), "\<\"Possible spelling \
+error: new symbol name \\\"\\!\\(beta\\)\\\" is similar to existing symbol \\\
+\"\\!\\(Beta\\)\\\". \\!\\(\\*ButtonBox[\\\"More\[Ellipsis]\\\", \
+ButtonStyle->\\\"RefGuideLinkText\\\", ButtonFrame->None, \
+ButtonData:>\\\"General::spell1\\\"]\\)\"\>"}]], "Message"],
+
+Cell[BoxData[
+    RowBox[{\(General::"spell1"\), \(\(:\)\(\ \)\), "\<\"Possible spelling \
+error: new symbol name \\\"\\!\\(mod\\)\\\" is similar to existing symbol \
+\\\"\\!\\(Mod\\)\\\". \\!\\(\\*ButtonBox[\\\"More\[Ellipsis]\\\", \
+ButtonStyle->\\\"RefGuideLinkText\\\", ButtonFrame->None, \
+ButtonData:>\\\"General::spell1\\\"]\\)\"\>"}]], "Message"],
+
+Cell[BoxData[
+    RowBox[{\(General::"spell1"\), \(\(:\)\(\ \)\), "\<\"Possible spelling \
+error: new symbol name \\\"\\!\\(arg\\)\\\" is similar to existing symbol \
+\\\"\\!\\(Arg\\)\\\". \\!\\(\\*ButtonBox[\\\"More\[Ellipsis]\\\", \
+ButtonStyle->\\\"RefGuideLinkText\\\", ButtonFrame->None, \
+ButtonData:>\\\"General::spell1\\\"]\\)\"\>"}]], "Message"]
+}, Open  ]],
+
+Cell[BoxData[
+    \(aF11 = aF[1, 7]\)], "Input"],
+
+Cell[BoxData[
+    \(aFa11 = aFa[1, l]\)], "Input"],
+
+Cell[CellGroupData[{
+
+Cell[BoxData[
+    \(FullSimplify[aFa11 - aF11]\)], "Input"],
+
+Cell[BoxData[
+    \({{0, 0, 0}, {0, 0, 0}, {0, 0, 0}}\)], "Output"]
+}, Open  ]],
+
+Cell[CellGroupData[{
+
+Cell[BoxData[
+    \($Assumptions\)], "Input"],
+
+Cell[BoxData[
+    \({\((rl | ks | ht | hz | r0)\) \[Element] Reals, {rl} \[Element] 
+        NonNegative}\)], "Output"]
+}, Open  ]],
+
+Cell[CellGroupData[{
+
+Cell[BoxData[
+    \(FullSimplify[aFa11]\)], "Input"],
+
+Cell[BoxData[
+    \({{\(-\(\(1\/ks\^2\)\((\[ImaginaryI]\ \@\(3\/2\)\ \@alpha\ \((ks\ \
+\((beta\ ks + alpha\ \((\(-1\) + ks\ r0)\))\)\ rl\ BesselJ[0, 
+                      ks\ rl] - \((beta\ ks + 
+                        alpha\ \((\(-2\) + ks\ r0)\))\)\ BesselJ[1, 
+                      ks\ rl])\))\)\)\), 0, 
+        0}, {\(\@\(3\/2\)\ \@alpha\ hz\ \((\((beta + alpha\ r0)\)\ BesselJ[1, \
+ks\ rl] - alpha\ rl\ BesselJ[2, ks\ rl])\)\)\/\(ks\ r0\), \(\@\(3\/2\)\ \
+\@alpha\ \((beta\ ks + alpha\ \((\(-1\) + ks\ r0)\))\)\ BesselJ[1, ks\ \
+rl]\)\/ks, 
+        0}, {\(\@\(3\/2\)\ \@alpha\ ht\ \((\(-\((beta + alpha\ r0)\)\)\ \
+BesselJ[1, ks\ rl] + alpha\ rl\ BesselJ[2, ks\ rl])\)\)\/\(ks\ r0\), 
+        0, \(\@\(3\/2\)\ \@alpha\ \((beta\ ks + alpha\ \((\(-1\) + ks\ r0)\))\
+\)\ BesselJ[1, ks\ rl]\)\/ks}}\)], "Output"]
+}, Open  ]],
+
+Cell[BoxData[
+    \(For[k = 0, k \[LessEqual] Kmax, \(k++\); 
+      amat[k] = \ aFa[k, l]]\)], "Input"],
+
+Cell[BoxData[
+    RowBox[{
+      StyleBox["Array",
+        "MR"], 
+      StyleBox["[",
+        "MR"], 
+      RowBox[{
+        StyleBox["a",
+          "TI"], 
+        StyleBox[",",
+          "MR"], " ", "10"}], 
+      StyleBox["]",
+        "MR"]}]], "Input"],
+
+Cell[BoxData[{
+    \(\(H\  = \ Array[Ht, 2];\)\), "\[IndentingNewLine]", 
+    \(VE\  = \ Array[Ht, 2]\), "\[IndentingNewLine]", 
+    \(Omega = 
+      List[omc, H[\([1]\)]\ u\  + \ VE[\([2]\)], 
+        H[\([2]\)]\ u\  + \ VE[\([2]\)]]\)}], "Input"],
+
+Cell[BoxData[
+    \(DD := \((A\ \[PartialD]\_x\(+B\))\) \[PartialD]\_y\)], "Input"],
+
+Cell[CellGroupData[{
+
+Cell[BoxData[
+    \(DD = Derivative[1] + Derivative[2]\)], "Input"],
+
+Cell[BoxData[
+    \(Derivative[1] + Derivative[2]\)], "Output"]
+}, Open  ]],
+
+Cell[CellGroupData[{
+
+Cell[BoxData[""], "Input"],
+
+Cell[BoxData[
+    \(Derivative[1]\)], "Output"]
+}, Open  ]],
+
+Cell[CellGroupData[{
+
+Cell[BoxData[
+    \(DD\ Sin[x]\)], "Input"],
+
+Cell[BoxData[
+    \(\((Derivative[1] + Derivative[2])\)\ Sin[x]\)], "Output"]
+}, Open  ]],
+
+Cell[CellGroupData[{
+
+Cell[BoxData[
+    \(R = 
+      Integrate[
+        x^\((2\ b + 1)\)\ Exp[\(-a\)\ x^2] 
+          BesselJ[n, k1\ x]\ BesselJ[n, k2\ x]]\)], "Input"],
+
+Cell[BoxData[
+    RowBox[{\(Integrate::"argmu"\), \(\(:\)\(\ \)\), "\<\"\\!\\(Integrate\\) \
+called with 1 argument; \\!\\(2\\) or more arguments are expected. \
+\\!\\(\\*ButtonBox[\\\"More\[Ellipsis]\\\", ButtonStyle->\\\"RefGuideLinkText\
+\\\", ButtonFrame->None, ButtonData:>\\\"General::argmu\\\"]\\)\"\>"}]], \
+"Message"],
+
+Cell[BoxData[
+    \(Integrate[\[ExponentialE]\^\(\(-a\)\ x\^2\)\ x\^\(1 + 2\ b\)\ BesselJ[
+          n, k1\ x]\ BesselJ[n, k2\ x]]\)], "Output"]
+}, Open  ]],
+
+Cell[CellGroupData[{
+
+Cell[BoxData[
+    RowBox[{"NIntegrate", "[", 
+      RowBox[{\(ReplaceAll[\[ExponentialE]\^\(\(-a\)\ x\^2\)\ x\^\(1 + 2\ b\)\
+\ BesselJ[l, k1\ x]\ BesselJ[l, k2\ x], {a \[Rule] 2, b \[Rule] 3, 
+            l \[Rule] 0, k1 \[Rule] 10, k2 \[Rule] 2}]\), 
+        ",", \({x, 0, Infinity}\), ",", \(WorkingPrecision \[Rule] 50\), ",", 
+        
+        StyleBox[\(PrecisionGoal \[Rule] 20\),
+          "MR"]}], "]"}]], "Input"],
+
+Cell[BoxData[
+    \(\(-0.00023957566647725092149798824862891271`21.042990703833645\)\)], \
+"Output"]
+}, Open  ]],
+
+Cell[CellGroupData[{
+
+Cell[BoxData[
+    \(Jquad[n_, 
+        l_] = \((\(-1\))\)^
+          n\ D[\(1/2\)/a\ Exp[\(\(-\((k1^2 + k2^2)\)\)/4\)/a] 
+            BesselI[l, k1\ \(k2/2\)/a], {a, n}]\)], "Input"],
+
+Cell[BoxData[
+    \(\((\(-1\))\)\^n\ \[PartialD]\_{a, n}\(\(\[ExponentialE]\^\(\(\(-k1\^2\) \
+- k2\^2\)\/\(4\ a\)\)\ BesselI[
+                l, \(k1\ k2\)\/\(2\ a\)]\)\/\(2\ a\)\)\)], "Output"]
+}, Open  ]],
+
+Cell[CellGroupData[{
+
+Cell[BoxData[
+    \(ReplaceAll[
+      N[ReplaceAll[
+          Jquad[n, l], {n \[Rule] 3, b \[Rule] 0, l \[Rule] 0, k1 \[Rule] 10, 
+            k2 \[Rule] 2}], 20], a \[Rule] 2]\)], "Input"],
+
+Cell[BoxData[
+    \(\(-0.0002395756664772509214978432084916819`16.916961414961037\)\)], \
+"Output"]
+}, Open  ]],
+
+Cell[CellGroupData[{
+
+Cell[BoxData[
+    \(Jquad[n_, 
+        l_] = \((\(-1\))\)^
+          n\ D[\(1/2\)/a\ Exp[\(\(-\((k1^2 + k2^2)\)\)/4\)/a] 
+            BesselI[l, k1\ \(k2/2\)/a], {a, n}]\)], "Input"],
+
+Cell[BoxData[
+    \(\((\(-1\))\)\^n\ \[PartialD]\_{a, n}\(\(\[ExponentialE]\^\(\(\(-k1\^2\) \
+- k2\^2\)\/\(4\ a\)\)\ BesselI[
+                l, \(k1\ k2\)\/\(2\ a\)]\)\/\(2\ a\)\)\)], "Output"]
+}, Open  ]],
+
+Cell[CellGroupData[{
+
+Cell[BoxData[
+    \(FullSimplify[Jquad[1, l]]\)], "Input"],
+
+Cell[BoxData[
+    \(\(\[ExponentialE]\^\(-\(\(k1\^2 + k2\^2\)\/\(4\ a\)\)\)\ \((\(-\((k1\^2 \
++ k2\^2 - 4\ a\ \((1 + l)\))\)\)\ BesselI[l, \(k1\ k2\)\/\(2\ a\)] + 2\ k1\ \
+k2\ BesselI[1 + l, \(k1\ k2\)\/\(2\ a\)])\)\)\/\(8\ a\^3\)\)], "Output"]
+}, Open  ]],
+
+Cell[CellGroupData[{
+
+Cell[BoxData[
+    \(FullSimplify[Jquad[2, l]]\)], "Input"],
+
+Cell[BoxData[
+    \(\(\(1\/\(32\ a\^5\)\)\((\[ExponentialE]\^\(-\(\(k1\^2 + k2\^2\)\/\(4\ a\
+\)\)\)\ \((\(\(1\/\(k1\ k2\)\)\((4\ \((\(-k1\^2\)\ k2\^2\ \((k1\^2 + 
+                          k2\^2)\) - 
+                    8\ a\^2\ \((k1\^2 + k2\^2)\)\ \((1 + l)\)\ \((2 + l)\) + 
+                    16\ a\^3\ \((1 + l)\)\^2\ \((2 + l)\) + 
+                    a\ \((k1\^4\ \((1 + l)\) + k2\^4\ \((1 + l)\) + 
+                          6\ k1\^2\ k2\^2\ \((2 + l)\))\))\)\ BesselI[
+                  1 + l, \(k1\ k2\)\/\(2\ a\)])\)\) + \((k1\^4 + 
+                  6\ k1\^2\ k2\^2 + k2\^4 - 
+                  8\ a\ \((k1\^2 + k2\^2)\)\ \((2 + l)\) + 
+                  16\ a\^2\ \((1 + l)\)\ \((2 + l)\))\)\ BesselI[
+                2 + l, \(k1\ k2\)\/\(2\ a\)])\))\)\)\)], "Output"]
+}, Open  ]]
+},
+FrontEndVersion->"5.1 for X",
+ScreenRectangle->{{0, 1680}, {0, 1050}},
+WindowSize->{1668, 947},
+WindowMargins->{{0, Automatic}, {Automatic, 31}},
+Magnification->2
+]
+
+(*******************************************************************
+Cached data follows.  If you edit this Notebook file directly, not
+using Mathematica, you must remove the line containing CacheID at
+the top of  the file.  The cache data will then be recreated when
+you save this file from within Mathematica.
+*******************************************************************)
+
+(*CellTagsOutline
+CellTagsIndex->{}
+*)
+
+(*CellTagsIndex
+CellTagsIndex->{}
+*)
+
+(*NotebookFileOutline
+Notebook[{
+
+Cell[CellGroupData[{
+Cell[1776, 53, 1279, 27, 652, "Input"],
+Cell[3058, 82, 428, 11, 150, "Output"]
+}, Open  ]],
+
+Cell[CellGroupData[{
+Cell[3523, 98, 1423, 30, 532, "Input"],
+Cell[4949, 130, 356, 5, 43, "Message"],
+Cell[5308, 137, 354, 5, 43, "Message"],
+Cell[5665, 144, 354, 5, 43, "Message"]
+}, Open  ]],
+Cell[6034, 152, 48, 1, 52, "Input"],
+Cell[6085, 155, 50, 1, 52, "Input"],
+
+Cell[CellGroupData[{
+Cell[6160, 160, 59, 1, 52, "Input"],
+Cell[6222, 163, 67, 1, 52, "Output"]
+}, Open  ]],
+
+Cell[CellGroupData[{
+Cell[6326, 169, 45, 1, 52, "Input"],
+Cell[6374, 172, 119, 2, 52, "Output"]
+}, Open  ]],
+
+Cell[CellGroupData[{
+Cell[6530, 179, 52, 1, 52, "Input"],
+Cell[6585, 182, 817, 13, 711, "Output"]
+}, Open  ]],
+Cell[7417, 198, 103, 2, 52, "Input"],
+Cell[7523, 202, 257, 12, 52, "Input"],
+Cell[7783, 216, 248, 5, 112, "Input"],
+Cell[8034, 223, 83, 1, 56, "Input"],
+
+Cell[CellGroupData[{
+Cell[8142, 228, 67, 1, 52, "Input"],
+Cell[8212, 231, 63, 1, 52, "Output"]
+}, Open  ]],
+
+Cell[CellGroupData[{
+Cell[8312, 237, 26, 0, 52, "Input"],
+Cell[8341, 239, 47, 1, 52, "Output"]
+}, Open  ]],
+
+Cell[CellGroupData[{
+Cell[8425, 245, 43, 1, 52, "Input"],
+Cell[8471, 248, 77, 1, 77, "Output"]
+}, Open  ]],
+
+Cell[CellGroupData[{
+Cell[8585, 254, 146, 4, 52, "Input"],
+Cell[8734, 260, 326, 5, 43, "Message"],
+Cell[9063, 267, 144, 2, 91, "Output"]
+}, Open  ]],
+
+Cell[CellGroupData[{
+Cell[9244, 274, 422, 8, 108, "Input"],
+Cell[9669, 284, 100, 2, 77, "Output"]
+}, Open  ]],
+
+Cell[CellGroupData[{
+Cell[9806, 291, 182, 4, 52, "Input"],
+Cell[9991, 297, 194, 3, 141, "Output"]
+}, Open  ]],
+
+Cell[CellGroupData[{
+Cell[10222, 305, 189, 4, 52, "Input"],
+Cell[10414, 311, 99, 2, 77, "Output"]
+}, Open  ]],
+
+Cell[CellGroupData[{
+Cell[10550, 318, 182, 4, 52, "Input"],
+Cell[10735, 324, 194, 3, 141, "Output"]
+}, Open  ]],
+
+Cell[CellGroupData[{
+Cell[10966, 332, 58, 1, 52, "Input"],
+Cell[11027, 335, 244, 3, 141, "Output"]
+}, Open  ]],
+
+Cell[CellGroupData[{
+Cell[11308, 343, 58, 1, 52, "Input"],
+Cell[11369, 346, 783, 12, 284, "Output"]
+}, Open  ]]
+}
+]
+*)
+
+
+
+(*******************************************************************
+End of Mathematica Notebook file.
+*******************************************************************)
+

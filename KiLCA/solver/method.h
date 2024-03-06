@@ -1,0 +1,7 @@
+#define NORMAL_EXACT 0
+#define EIG_EXP_EXACT 1
+#define EIG_EXP_PHYS 2
+
+#define ODE_METHOD NORMAL_EXACT
+/*#define ODE_METHOD EIG_EXP_EXACT*/
+/*#define ODE_METHOD EIG_EXP_PHYS*/

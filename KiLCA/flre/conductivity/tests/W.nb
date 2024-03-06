@@ -1,0 +1,252 @@
+(* Content-type: application/mathematica *)
+
+(*** Wolfram Notebook File ***)
+(* http://www.wolfram.com/nb *)
+
+(* CreatedBy='Mathematica 7.0' *)
+
+(*CacheID: 234*)
+(* Internal cache information:
+NotebookFileLineBreakTest
+NotebookFileLineBreakTest
+NotebookDataPosition[       145,          7]
+NotebookDataLength[      7357,        242]
+NotebookOptionsPosition[      6951,        224]
+NotebookOutlinePosition[      7289,        239]
+CellTagsIndexPosition[      7246,        236]
+WindowFrame->Normal*)
+
+(* Beginning of Notebook Content *)
+Notebook[{
+Cell[BoxData[{
+ RowBox[{"AF", ":=", 
+  RowBox[{
+   RowBox[{"I", 
+    RowBox[{"(", 
+     RowBox[{"omega", "-", "omegaL"}], ")"}]}], "-", 
+   RowBox[{
+    RowBox[{"kp", "^", "2"}], " ", 
+    RowBox[{
+     RowBox[{"vT", "^", "2"}], "/", "nu"}]}]}]}], "\[IndentingNewLine]", 
+ RowBox[{
+  RowBox[{"BF", "[", 
+   RowBox[{"a_", ",", "b_"}], "]"}], ":=", 
+  RowBox[{
+   RowBox[{"vT", "^", "2"}], 
+   RowBox[{"(", 
+    RowBox[{"a", "+", 
+     RowBox[{"I", " ", 
+      RowBox[{"kp", "/", "nu"}]}]}], ")"}], 
+   RowBox[{"(", 
+    RowBox[{"b", "+", 
+     RowBox[{"I", " ", 
+      RowBox[{"kp", "/", "nu"}]}]}], ")"}]}]}], "\[IndentingNewLine]", 
+ RowBox[{
+  RowBox[{"CF", "[", 
+   RowBox[{"a_", ",", "b_"}], "]"}], ":=", 
+  RowBox[{
+   RowBox[{
+    RowBox[{"1", "/", "2"}], 
+    RowBox[{"vT", "^", "2"}], 
+    RowBox[{"(", 
+     RowBox[{
+      RowBox[{"a", "^", "2"}], "+", 
+      RowBox[{"b", "^", "2"}]}], ")"}]}], "-", 
+   RowBox[{"I", " ", 
+    RowBox[{"kp", " ", "/", "nu"}], " ", 
+    RowBox[{"vT", "^", "2"}], 
+    RowBox[{"(", 
+     RowBox[{"a", "+", "b"}], ")"}]}], "+", 
+   RowBox[{
+    RowBox[{"kp", "^", "2"}], " ", 
+    RowBox[{
+     RowBox[{"vT", "^", "2"}], "/", 
+     RowBox[{"nu", "^", "2"}]}]}]}]}], "\[IndentingNewLine]", 
+ RowBox[{
+  RowBox[{
+   RowBox[{"W", "[", 
+    RowBox[{"m_", ",", "n_"}], "]"}], ":=", 
+   RowBox[{
+    RowBox[{
+     RowBox[{"-", 
+      RowBox[{"Sqrt", "[", 
+       RowBox[{"2", "Pi"}], "]"}]}], 
+     RowBox[{"vT", "/", "AF"}], " ", 
+     RowBox[{"D", "[", 
+      RowBox[{
+       RowBox[{"D", "[", 
+        RowBox[{
+         RowBox[{
+          RowBox[{"Exp", "[", 
+           RowBox[{
+            RowBox[{"CF", "[", 
+             RowBox[{"a", ",", "b"}], "]"}], "+", 
+            RowBox[{"BF", "[", 
+             RowBox[{"a", ",", "b"}], "]"}]}], "]"}], 
+          RowBox[{
+           ButtonBox["Hypergeometric1F1",
+            BaseStyle->"Link",
+            ButtonData->"paclet:ref/Hypergeometric1F1"], "[", 
+           RowBox[{"1", ",", 
+            RowBox[{"1", "-", 
+             RowBox[{"AF", "/", "nu"}]}], ",", 
+            RowBox[{"-", 
+             RowBox[{"BF", "[", 
+              RowBox[{"a", ",", "b"}], "]"}]}]}], "]"}]}], ",", 
+         RowBox[{"{", 
+          RowBox[{"a", ",", "m"}], "}"}]}], "]"}], ",", 
+       RowBox[{"{", 
+        RowBox[{"b", ",", "n"}], "}"}]}], "]"}]}], "/.", 
+    RowBox[{"{", 
+     RowBox[{
+      RowBox[{"a", "\[Rule]", "0"}], ",", " ", 
+      RowBox[{"b", "\[Rule]", "0"}]}], "}"}]}]}], ";"}]}], "Input",
+ CellChangeTimes->{{3.54969529527283*^9, 3.5496954691731853`*^9}, {
+  3.549695524710692*^9, 3.54969557769316*^9}, {3.5496956102356243`*^9, 
+  3.54969569158427*^9}, {3.54969576837484*^9, 3.549695800252994*^9}, {
+  3.549695830438509*^9, 3.549695830673296*^9}, {3.549695882088791*^9, 
+  3.549695896279656*^9}}],
+
+Cell[CellGroupData[{
+
+Cell[BoxData[{
+ RowBox[{"FullSimplify", "[", 
+  RowBox[{"W", "[", 
+   RowBox[{"0", ",", "1"}], "]"}], "]"}], "\[IndentingNewLine]", 
+ RowBox[{"W", "[", 
+  RowBox[{"0", ",", "1"}], "]"}], "\[IndentingNewLine]"}], "Input",
+ CellChangeTimes->{
+  3.549695394930695*^9, {3.549695899620019*^9, 3.549695921037162*^9}, {
+   3.549696303227366*^9, 3.549696303274898*^9}, {3.549696358473523*^9, 
+   3.549696363417716*^9}, {3.5496964393448772`*^9, 3.549696541636436*^9}, {
+   3.549699775503784*^9, 3.549699786209209*^9}, {3.549699844090343*^9, 
+   3.5496998441715193`*^9}}],
+
+Cell[BoxData[
+ RowBox[{
+  RowBox[{"(", 
+   RowBox[{"kp", " ", 
+    SqrtBox[
+     RowBox[{"2", " ", "\[Pi]"}]], " ", 
+    SuperscriptBox["vT", "3"], " ", 
+    RowBox[{
+     SuperscriptBox[
+      ButtonBox["Hypergeometric1F1",
+       Appearance->Automatic,
+       BaseStyle->"Link",
+       ButtonData->"paclet:ref/Hypergeometric1F1",
+       Evaluator->Automatic,
+       Method->"Preemptive"], 
+      TagBox[
+       RowBox[{"(", 
+        RowBox[{"0", ",", "0", ",", "1"}], ")"}],
+       Derivative],
+      MultilineFunction->None], "[", 
+     RowBox[{"1", ",", 
+      RowBox[{
+       FractionBox["1", 
+        SuperscriptBox["nu", "2"]], 
+       RowBox[{"(", 
+        RowBox[{
+         SuperscriptBox["nu", "2"], "-", 
+         RowBox[{"\[ImaginaryI]", " ", "nu", " ", 
+          RowBox[{"(", 
+           RowBox[{"omega", "-", "omegaL"}], ")"}]}], "+", 
+         RowBox[{
+          SuperscriptBox["kp", "2"], " ", 
+          SuperscriptBox["vT", "2"]}]}], ")"}]}], ",", 
+      FractionBox[
+       RowBox[{
+        SuperscriptBox["kp", "2"], " ", 
+        SuperscriptBox["vT", "2"]}], 
+       SuperscriptBox["nu", "2"]]}], "]"}]}], ")"}], "/", 
+  RowBox[{"(", 
+   RowBox[{
+    RowBox[{"nu", " ", 
+     RowBox[{"(", 
+      RowBox[{"omega", "-", "omegaL"}], ")"}]}], "+", 
+    RowBox[{"\[ImaginaryI]", " ", 
+     SuperscriptBox["kp", "2"], " ", 
+     SuperscriptBox["vT", "2"]}]}], ")"}]}]], "Output",
+ CellChangeTimes->{3.549699787136322*^9, 3.549699844731081*^9}],
+
+Cell[BoxData[
+ RowBox[{
+  RowBox[{"(", 
+   RowBox[{"\[ImaginaryI]", " ", "kp", " ", 
+    SqrtBox[
+     RowBox[{"2", " ", "\[Pi]"}]], " ", 
+    SuperscriptBox["vT", "3"], " ", 
+    RowBox[{
+     SuperscriptBox[
+      ButtonBox["Hypergeometric1F1",
+       Appearance->Automatic,
+       BaseStyle->"Link",
+       ButtonData->"paclet:ref/Hypergeometric1F1",
+       Evaluator->Automatic,
+       Method->"Preemptive"], 
+      TagBox[
+       RowBox[{"(", 
+        RowBox[{"0", ",", "0", ",", "1"}], ")"}],
+       Derivative],
+      MultilineFunction->None], "[", 
+     RowBox[{"1", ",", 
+      RowBox[{"1", "-", 
+       RowBox[{
+        FractionBox["1", "nu"], 
+        RowBox[{"(", 
+         RowBox[{
+          RowBox[{"\[ImaginaryI]", " ", 
+           RowBox[{"(", 
+            RowBox[{"omega", "-", "omegaL"}], ")"}]}], "-", 
+          FractionBox[
+           RowBox[{
+            SuperscriptBox["kp", "2"], " ", 
+            SuperscriptBox["vT", "2"]}], "nu"]}], ")"}]}]}], ",", 
+      FractionBox[
+       RowBox[{
+        SuperscriptBox["kp", "2"], " ", 
+        SuperscriptBox["vT", "2"]}], 
+       SuperscriptBox["nu", "2"]]}], "]"}]}], ")"}], "/", 
+  RowBox[{"(", 
+   RowBox[{"nu", " ", 
+    RowBox[{"(", 
+     RowBox[{
+      RowBox[{"\[ImaginaryI]", " ", 
+       RowBox[{"(", 
+        RowBox[{"omega", "-", "omegaL"}], ")"}]}], "-", 
+      FractionBox[
+       RowBox[{
+        SuperscriptBox["kp", "2"], " ", 
+        SuperscriptBox["vT", "2"]}], "nu"]}], ")"}]}], ")"}]}]], "Output",
+ CellChangeTimes->{3.549699787136322*^9, 3.549699844739594*^9}]
+}, Open  ]]
+},
+WindowSize->{640, 750},
+WindowMargins->{{142, Automatic}, {Automatic, 27}},
+FrontEndVersion->"7.0 for Linux x86 (64-bit) (November 11, 2008)",
+StyleDefinitions->"Default.nb"
+]
+(* End of Notebook Content *)
+
+(* Internal cache information *)
+(*CellTagsOutline
+CellTagsIndex->{}
+*)
+(*CellTagsIndex
+CellTagsIndex->{}
+*)
+(*NotebookFileOutline
+Notebook[{
+Cell[545, 20, 2789, 87, 865, "Input"],
+Cell[CellGroupData[{
+Cell[3359, 111, 561, 11, 171, "Input"],
+Cell[3923, 124, 1459, 46, 409, "Output"],
+Cell[5385, 172, 1550, 49, 437, "Output"]
+}, Open  ]]
+}
+]
+*)
+
+(* End of internal cache information *)
+

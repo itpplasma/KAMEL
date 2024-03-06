@@ -1,0 +1,12 @@
+200.d0              R_0    - position of cyclotron resonance point, cm
+2.d4                B0     - magnetic field at the resonant point, G
+0.03d0              gam    - angle between mag. field and Z-axis
+1                   isort  - resonant minority (1 - hydrogen, 2 - deuterium)
+5d13                den    - electron density cm^{-3}
+0.2                 conc   - minority concentration
+4.d5                anu_e  - electron collision frequency
+1.d4                anu_h  - hydrogen collision frequency
+1.d4                anu_d  - deuterium collision frequency
+3.d3                T_e    - electron temperature
+3.d3                T_h    - hydrogen temperature
+3.d3                T_d    - deuterium temperature

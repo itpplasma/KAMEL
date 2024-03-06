@@ -1,0 +1,2 @@
+gfortran Wmn_NaN.f90 odeint_allroutines.f ../calc_I_array_drift.f90 ../newton.f90 ../bisection.f90 ../../../math/igamma/igamma.f90 -L/home/hare/mathlibs/ -lslatec -llapack
+

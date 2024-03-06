@@ -1,0 +1,21 @@
+#!/bin/bash
+
+kilca_lib_path="/home/hare/plasma/KiLCA-2.4/lib/"
+cvode_lib_path="/usr/local/lib/"
+slatec_lib_path="/home/hare/mathlibs/"
+bessel_lib_path="/home/hare/mathlibs/"
+lapack_lib_path="/usr/local/lib/"
+kilca_64bit="KiLCA_Lib_V_2.4_MDYES_FPGEN_POLYNOMIAL_Debug_64bit"
+kilca_64bit="KiLCA_Lib_V_2.4_MDYES_FPGEN_USUAL_Debug_64bit"
+kilca_64bit="KiLCA_Lib_V_2.4_MDNO_FPGEN_USUAL_Debug_64bit"
+
+#ITP:
+#kilca_lib_path="../lib/"
+#cvode_lib_path="/proj/plasma/RMP/soft/math_libs/64bit/sundials-2.4.0/lib/"
+#slatec_lib_path="/proj/plasma/RMP/soft/math_libs/64bit/slatec/lib/"
+#bessel_lib_path="/proj/plasma/RMP/soft/math_libs/64bit//bessel/"
+#lapack_lib_path="/proj/plasma/RMP/soft/math_libs/64bit/lapack-3.2.1/lib/"
+#kilca_64bit="KiLCA_Lib_V_2.4_MDYES_FPGEN_POLYNOMIAL_Debug_64bit"
+#kilca_64bit="libkilca_64bit"
+
+gfortran ql-balance_mod.f90 wave_code_data_64bit.f90 bessel.f90 amn_of_r.f90 test_interface.f90 -L$kilca_lib_path -l$kilca_64bit -L$cvode_lib_path -lsundials_cvode -lsundials_nvecserial -L$slatec_lib_path -lslatec -lgsl -lgslcblas -lblas -llapack -lm -lc -lgfortran -lstdc++

@@ -1,0 +1,321 @@
+(************** Content-type: application/mathematica **************
+                     CreatedBy='Mathematica 5.1'
+
+                    Mathematica-Compatible Notebook
+
+This notebook can be used with any Mathematica-compatible
+application, such as Mathematica, MathReader or Publicon. The data
+for the notebook starts with the line containing stars above.
+
+To get the notebook into a Mathematica-compatible application, do
+one of the following:
+
+* Save the data starting with the line of stars above into a file
+  with a name ending in .nb, then open the file inside the
+  application;
+
+* Copy the data starting with the line of stars above to the
+  clipboard, then use the Paste menu command inside the application.
+
+Data for notebooks contains only printable 7-bit ASCII and can be
+sent directly in email or through ftp in text mode.  Newlines can be
+CR, LF or CRLF (Unix, Macintosh or MS-DOS style).
+
+NOTE: If you modify the data for this notebook not in a Mathematica-
+compatible application, you must delete the line below containing
+the word CacheID, otherwise Mathematica-compatible applications may
+try to use invalid cache data.
+
+For more information on notebooks and Mathematica-compatible 
+applications, contact Wolfram Research:
+  web: http://www.wolfram.com
+  email: info@wolfram.com
+  phone: +1-217-398-0700 (U.S.)
+
+Notebook reader applications are available free of charge from 
+Wolfram Research.
+*******************************************************************)
+
+(*CacheID: 232*)
+
+
+(*NotebookFileLineBreakTest
+NotebookFileLineBreakTest*)
+(*NotebookOptionsPosition[      9163,        254]*)
+(*NotebookOutlinePosition[      9812,        277]*)
+(*  CellTagsIndexPosition[      9768,        273]*)
+(*WindowFrame->Normal*)
+
+
+
+Notebook[{
+
+Cell[CellGroupData[{
+Cell[BoxData[
+    \(\[Integral]\_\(-\[Infinity]\)\%\[Infinity] 
+          x^20\ Exp[\(\(-x^2\)/2\)/v^2] \[DifferentialD]x\)], "Input"],
+
+Cell[BoxData[
+    \(If[Re[v\^2] > 0, 654729075\ \@\(2\ \[Pi]\)\ \((v\^2)\)\^\(21/2\), 
+      Integrate[\[ExponentialE]\^\(-\(x\^2\/\(2\ v\^2\)\)\)\ x\^20, {x, \(-\
+\[Infinity]\), \[Infinity]}, 
+        Assumptions \[Rule] Re[v\^2] \[LessEqual] 0]]\)], "Output"]
+}, Open  ]],
+
+Cell[CellGroupData[{
+
+Cell[BoxData[{
+    \(m = 20\), "\[IndentingNewLine]", 
+    \(Sqrt[2\ \[Pi]] \(\((m - 1)\)!!\) v^\((m + 1)\)\)}], "Input"],
+
+Cell[BoxData[
+    \(20\)], "Output"],
+
+Cell[BoxData[
+    \(654729075\ \@\(2\ \[Pi]\)\ v\^21\)], "Output"]
+}, Open  ]],
+
+Cell[BoxData[""], "Input"],
+
+Cell[CellGroupData[{
+
+Cell[BoxData[{\(m = 5;\), "\[IndentingNewLine]", \(n = \ 
+        0\ ;\), "\[IndentingNewLine]", 
+    RowBox[{
+      RowBox[{"Int", "=", 
+        RowBox[{
+          RowBox[{"Assuming", "[", 
+            StyleBox[" ",
+              "MR"], 
+            RowBox[{
+              RowBox[{
+                StyleBox["{",
+                  "MR"], \(V > 0, a > 0\ , kp > 0, \ nu > 0, EE > 0\), "}"}], 
+              ",", 
+              RowBox[{
+                StyleBox["Integrate",
+                  "MR"], 
+                StyleBox["[",
+                  "MR"], 
+                RowBox[{
+                  RowBox[{
+                    StyleBox[\(w1^m\),
+                      "MR"], 
+                    StyleBox[" ",
+                      "MR"], 
+                    StyleBox[\(w2^n\),
+                      "MR"], 
+                    StyleBox[" ",
+                      "MR"], 
+                    RowBox[{
+                      StyleBox["Exp",
+                        "MR"], 
+                      StyleBox["[",
+                        "MR"], 
+                      RowBox[{
+                        StyleBox[\(\(\(-w2^2\)/2\)/V^2\),
+                          "MR"], 
+                        StyleBox["+",
+                          "MR"], 
+                        StyleBox[\(\[ImaginaryI]\ kp/nu \((w1 - w2)\)\),
+                          "MR"], 
+                        StyleBox["-",
+                          "MR"], 
+                        RowBox[{
+                          StyleBox[\(\(1/4\)/a\),
+                            "MR"], 
+                          RowBox[{
+                            RowBox[{
+                              StyleBox["(",
+                                "MR"], 
+                              RowBox[{
+                                StyleBox["w1",
+                                  "MR"], 
+                                StyleBox["-",
+                                  "MR"], 
+                                StyleBox[\(w2\ EE\),
+                                  "MR"], 
+                                StyleBox["+",
+                                  "MR"], \(\[ImaginaryI]\ b\)}], ")"}], "^", 
+                            "2"}]}]}], "]"}]}], 
+                  StyleBox[",",
+                    "MR"], " ", 
+                  RowBox[{
+                    StyleBox["{",
+                      "MR"], 
+                    RowBox[{
+                      StyleBox["w1",
+                        "MR"], 
+                      StyleBox[",",
+                        "MR"], " ", \(-\[Infinity]\), 
+                      StyleBox[",",
+                        "MR"], " ", "\[Infinity]"}], 
+                    StyleBox["}",
+                      "MR"]}], 
+                  StyleBox[",",
+                    "MR"], " ", 
+                  RowBox[{
+                    StyleBox["{",
+                      "MR"], 
+                    RowBox[{
+                      StyleBox["w2",
+                        "MR"], 
+                      StyleBox[",",
+                        "MR"], " ", 
+                      FormBox[\(-\[Infinity]\),
+                        "TraditionalForm"], 
+                      StyleBox[",",
+                        "MR"], " ", 
+                      FormBox["\[Infinity]",
+                        "TraditionalForm"]}], 
+                    StyleBox["}",
+                      "MR"]}]}], 
+                StyleBox["]",
+                  "MR"]}]}], " ", "]"}], "/", \(Sqrt[4  Pi\ a]\)}]}], 
+      ";"}], "\[IndentingNewLine]", \(Int\  = \ 
+      Simplify[Int /. {b \[Rule] 2\ kp\ V^2/nu \((1 - EE)\), \ 
+            a \[Rule] V^2/2 \((1 - EE^2)\)}]\)}], "Input"],
+
+Cell[BoxData[
+    \(\(\(1\/\(nu\^5\ \@\(\(-\((\(-1\) + EE\^2)\)\)\ V\^2\)\)\)\((\
+\[ImaginaryI]\ \[ExponentialE]\^\(-\(\(\((\(-1\) + EE)\)\ kp\^2\ \
+V\^2\)\/nu\^2\)\)\ \((\(-1\) + 
+            EE)\)\ \@\(1 - EE\^2\)\ kp\ \@\(2\ \[Pi]\)\ \@\(1\/V\^2\)\ V\^9\ \
+\((15\ nu\^4 - 
+            10\ \((\(-1\) + EE)\)\^2\ kp\^2\ nu\^2\ V\^2 + \((\(-1\) + \
+EE)\)\^4\ kp\^4\ V\^4)\))\)\)\)], "Output"]
+}, Open  ]],
+
+Cell[CellGroupData[{
+
+Cell[BoxData[{
+    \(\(m = 5;\)\), "\[IndentingNewLine]", 
+    \(\(n = 0;\)\), "\[IndentingNewLine]", 
+    \(\(BB[alpha_, \ beta_] := 
+        V^2 \((2  \[ImaginaryI]\ kp\ alpha/nu + 
+              alpha\ beta)\);\)\), "\[IndentingNewLine]", 
+    \(\(CC[alpha_, \ beta_] := 
+        V^2/2 \((alpha^2 + beta^2 - 
+              4\ \[ImaginaryI]\ kp/nu\ alpha)\);\)\), "\[IndentingNewLine]", 
+    \(Ans = 
+      Sqrt[2\ Pi]\ V\ D[
+          D[Exp[BB[alpha, \ beta]\ EE\  + CC[alpha, \ beta]], {beta, 
+              n}], {alpha, m}]\), "\[IndentingNewLine]", 
+    \(Ans\  = \ 
+      Ans /. {alpha \[Rule] \[ImaginaryI]\ kp/nu, \ 
+          beta\  \[Rule] \ \(-\[ImaginaryI]\)\ kp/nu}\)}], "Input"],
+
+Cell[BoxData[
+    \(\@\(2\ \[Pi]\)\ V\ \((15\ \[ExponentialE]\^\(EE\ \((alpha\ beta + \(2\ \
+\[ImaginaryI]\ alpha\ kp\)\/nu)\)\ V\^2 + 1\/2\ \((alpha\^2 + beta\^2 - \(4\ \
+\[ImaginaryI]\ alpha\ kp\)\/nu)\)\ V\^2\)\ V\^4\ \((EE\ \((beta + \(2\ \
+\[ImaginaryI]\ kp\)\/nu)\)\ V\^2 + 
+                1\/2\ \((2\ alpha - \(4\ \[ImaginaryI]\ kp\)\/nu)\)\ V\^2)\) \
++ 10\ \[ExponentialE]\^\(EE\ \((alpha\ beta + \(2\ \[ImaginaryI]\ alpha\ kp\)\
+\/nu)\)\ V\^2 + 1\/2\ \((alpha\^2 + beta\^2 - \(4\ \[ImaginaryI]\ alpha\ kp\)\
+\/nu)\)\ V\^2\)\ V\^2\ \((EE\ \((beta + \(2\ \[ImaginaryI]\ kp\)\/nu)\)\ V\^2 \
++ 1\/2\ \((2\ alpha - \(4\ \[ImaginaryI]\ kp\)\/nu)\)\ V\^2)\)\^3 + \
+\[ExponentialE]\^\(EE\ \((alpha\ beta + \(2\ \[ImaginaryI]\ alpha\ \
+kp\)\/nu)\)\ V\^2 + 1\/2\ \((alpha\^2 + beta\^2 - \(4\ \[ImaginaryI]\ alpha\ \
+kp\)\/nu)\)\ V\^2\)\ \((EE\ \((beta + \(2\ \[ImaginaryI]\ kp\)\/nu)\)\ V\^2 + \
+1\/2\ \((2\ alpha - \(4\ \[ImaginaryI]\ kp\)\/nu)\)\ V\^2)\)\^5)\)\)], \
+"Output"],
+
+Cell[BoxData[
+    \(\@\(2\ \[Pi]\)\ V\ \((15\ \[ExponentialE]\^\(\(kp\^2\ V\^2\)\/nu\^2 - \
+\(EE\ kp\^2\ V\^2\)\/nu\^2\)\ V\^4\ \((\(-\(\(\[ImaginaryI]\ kp\ V\^2\)\/nu\)\
+\) + \(\[ImaginaryI]\ EE\ kp\ V\^2\)\/nu)\) + 
+          10\ \[ExponentialE]\^\(\(kp\^2\ V\^2\)\/nu\^2 - \(EE\ kp\^2\ V\^2\)\
+\/nu\^2\)\ V\^2\ \((\(-\(\(\[ImaginaryI]\ kp\ V\^2\)\/nu\)\) + \
+\(\[ImaginaryI]\ EE\ kp\ V\^2\)\/nu)\)\^3 + \[ExponentialE]\^\(\(kp\^2\ \
+V\^2\)\/nu\^2 - \(EE\ kp\^2\ V\^2\)\/nu\^2\)\ \((\(-\(\(\[ImaginaryI]\ kp\ \
+V\^2\)\/nu\)\) + \(\[ImaginaryI]\ EE\ kp\ V\^2\)\/nu)\)\^5)\)\)], "Output"]
+}, Open  ]],
+
+Cell[CellGroupData[{
+
+Cell[BoxData[
+    \(Assuming[{V > 0}, Simplify[Ans - Int]]\)], "Input"],
+
+Cell[BoxData[
+    \(0\)], "Output"]
+}, Open  ]],
+
+Cell[CellGroupData[{
+
+Cell[BoxData[
+    RowBox[{
+      StyleBox["$Assumptions",
+        "MR"], " "}]], "Input"],
+
+Cell[BoxData[
+    \({{V, a, kp, nu} \[Element] Positive}\)], "Output"]
+}, Open  ]]
+},
+FrontEndVersion->"5.1 for X",
+ScreenRectangle->{{0, 1680}, {0, 1050}},
+WindowSize->{1501, 900},
+WindowMargins->{{30, Automatic}, {Automatic, 52}},
+Magnification->2
+]
+
+(*******************************************************************
+Cached data follows.  If you edit this Notebook file directly, not
+using Mathematica, you must remove the line containing CacheID at
+the top of  the file.  The cache data will then be recreated when
+you save this file from within Mathematica.
+*******************************************************************)
+
+(*CellTagsOutline
+CellTagsIndex->{}
+*)
+
+(*CellTagsIndex
+CellTagsIndex->{}
+*)
+
+(*NotebookFileOutline
+Notebook[{
+
+Cell[CellGroupData[{
+Cell[1776, 53, 134, 2, 84, "Input"],
+Cell[1913, 57, 261, 4, 151, "Output"]
+}, Open  ]],
+
+Cell[CellGroupData[{
+Cell[2211, 66, 121, 2, 82, "Input"],
+Cell[2335, 70, 36, 1, 77, "Output"],
+Cell[2374, 73, 66, 1, 83, "Output"]
+}, Open  ]],
+Cell[2455, 77, 26, 0, 52, "Input"],
+
+Cell[CellGroupData[{
+Cell[2506, 81, 3599, 95, 202, "Input"],
+Cell[6108, 178, 392, 7, 229, "Output"]
+}, Open  ]],
+
+Cell[CellGroupData[{
+Cell[6537, 190, 693, 15, 202, "Input"],
+Cell[7233, 207, 978, 14, 430, "Output"],
+Cell[8214, 223, 588, 8, 226, "Output"]
+}, Open  ]],
+
+Cell[CellGroupData[{
+Cell[8839, 236, 71, 1, 52, "Input"],
+Cell[8913, 239, 35, 1, 77, "Output"]
+}, Open  ]],
+
+Cell[CellGroupData[{
+Cell[8985, 245, 89, 3, 52, "Input"],
+Cell[9077, 250, 70, 1, 77, "Output"]
+}, Open  ]]
+}
+]
+*)
+
+
+
+(*******************************************************************
+End of Mathematica Notebook file.
+*******************************************************************)
+

@@ -1,0 +1,56 @@
+mdf0dJ = P00 + P01 J + P10 w1 + P20 w1^2;
+
+P00v = l omc + ks/omc Vt^2 (-dn/n + 3 dVt/Vt)
+P01v = ks/m0/omc m0 Vt^2 domcT (* domcT = (omc/T)' *)
+P10v = 1/r0/omc (r0 kp omc - drkxV) (* drkxV = (r0 (k x V)_r)' *)
+P20v = -1/r0/omc dkrVt (* dkrVt = (ks r0 Vt)'/Vt *)
+
+(*OMEGA = {omc, ht/r0 w1 + Vt/r0, hz w1 + Vz}*)
+OMEGA = {Q00p + Q10p w1, Q00t + Q10t w1, Q00z + Q10z w1}
+
+Q00pv = omc
+Q10pv = 0
+
+Q00tv = Vt/r0
+Q10tv = ht/r0
+
+Q00zv = Vz/r0
+Q10zv = hz/r0
+
+momom = R00 + R10 w1
+
+R00v = l omc + ks vE + kp Vp - omega
+R10v = kp
+
+df0dJ = {Z00p + Z01p J + Z10p w1 + Z20p w1^2, Z00t + Z01t J + Z10t w1 + Z20t w1^2, Z00z + Z01z J + Z10z w1 + Z20z w1^2}
+
+Z00pv = omc
+Z01pv = 0
+Z10pv = 0
+Z20pv = 0
+
+Z00tv =   1/m0/r0/omc hz m0 Vt^2 (-dn/n + 3 dVt/Vt)
+Z01tv =   1/m0/r0/omc hz m0 Vt^2 domcT (* domcT = (omc/T)' *)
+Z10tv =   1/m0/r0/omc m0 (omc ht - dVz)
+Z20tv = - 1/m0/r0/omc m0 dhzVt/Vt
+
+Z00zv = - 1/m0/r0/omc r0 ht m0 Vt^2 (-dn/n + 3 dVt/Vt)
+Z01zv = - 1/m0/r0/omc r0 ht m0 Vt^2 domcT (* domcT = (omc/T)' *)
+Z10zv =   1/m0/r0/omc m0 (r0 omc hz + dVth)
+Z20zv = - 1/m0/r0/omc m0 dhthVt/Vt
+
+FF = Collect[mdf0dJ OMEGA - momom df0dJ, {w1^(_:1) J^(_:1), w1^(_:1), J^(_:1)}];
+Print[FF];
+
+FFv = ReplaceAll[FF, {P00->P00v,P01->P01v,P10->P10v,P20->P20v}];
+
+FFv = ReplaceAll[FFv, {Q00p->Q00pv,Q10p->Q10pv,Q00t->Q00tv,Q10t->Q10tv,Q00z->Q00zv,Q10z->Q10zv}];
+
+FFv = ReplaceAll[FFv, {R00->R00v,R10->R10v}];
+
+FFv = ReplaceAll[FFv, {Z00p->Z00pv,Z10p->Z10pv,Z01p->Z01pv,Z20p->Z20pv}];
+FFv = ReplaceAll[FFv, {Z00t->Z00tv,Z10t->Z10tv,Z01t->Z01tv,Z20t->Z20tv}];
+FFv = ReplaceAll[FFv, {Z00z->Z00zv,Z10z->Z10zv,Z01z->Z01zv,Z20z->Z20zv}];
+
+FFv = Collect[FFv, {w1^(_:1) J^(_:1), w1^(_:1), J^(_:1)}, Simplify];
+Print[FFv];

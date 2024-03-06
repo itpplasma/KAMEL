@@ -1,0 +1,368 @@
+cmake_minimum_required (VERSION 3.12)
+
+if(CMAKE_HOST_SYSTEM_NAME MATCHES "Darwin")
+    # macOS specific configurations or commands
+    message("Building on macOS")
+    set(CMAKE_C_COMPILER /opt/homebrew/Cellar/gcc/13.2.0/bin//gcc-13)
+    set(CMAKE_CXX_COMPILER /opt/homebrew/Cellar/gcc/13.2.0/bin//g++-13)
+    # flag does not work for macos for some reason
+    set (CMAKE_CXX_OPT_FLAGS "")
+    set (CMAKE_F_OPT_FLAGS "")
+    set (CMAKE_CXX_OPT_FLAGS "")
+    set (CMAKE_F_OPT_FLAGS "")
+elseif(CMAKE_HOST_SYSTEM_NAME MATCHES "Linux")
+    # Linux specific configurations or commands
+    message("Building on Linux")
+    set (CMAKE_C_COMPILER   gcc)
+    set (CMAKE_CXX_COMPILER g++)
+    set (CMAKE_EXE_LINKER_FLAGS -static)
+    set (CMAKE_CXX_OPT_FLAGS "-msse2 -mfpmath=sse")
+    set (CMAKE_F_OPT_FLAGS "-msse2 -mfpmath=sse")
+else()
+    # Other operating system specific configurations or commands
+    message("Building on another operating system. Might not be implemented.")
+endif()
+
+set (CMAKE_Fortran_COMPILER gfortran)
+
+
+
+project (KiLCA C CXX Fortran)
+
+set (KiLCA_ARCHITECTURE 64bit) #possible values: 32bit, 64bit; must conform to compilers and libs versions in use
+
+set (KiLCA_VERSION_MAJOR 2)
+set (KiLCA_VERSION_MINOR 4.2)
+
+set (CMAKE_BUILD_TYPE Release) #possible values: Debug, Release
+
+set (MAGNETIC_DRIFT MDNO) #possible values: MDNO, MDYES
+
+set (COLLISION_MODEL FPGEN) #possible values: FPN, FPNE, FPNEP, FPGEN - with collisions, NC - no collisions
+
+set (JACOBIAN SIMPLIFIED) #possible values: SIMPLIFIED - simplifyed jacobian (preffered), FULL
+
+set (ADAPTIVE_GRID_GENERATOR POLYNOMIAL) #possible values: POLYNOMIAL - polynomial, USUAL -old
+#set (ADAPTIVE_GRID_GENERATOR USUAL) #possible values: POLYNOMIAL - polynomial, USUAL
+
+set (ADDITIONAL_COMMENT _) #possible values: anything
+
+set (DEBUG_FLAG 0) #possible values: 0 - no debugging, 1 - with debugging
+
+set (CALC_EIGEN_DECOMPOSITION 0) #possible values: 0 - if no, 1 - if yes
+
+set (SORT_DISPERSION_PROFILES 0) #possible values: 0 - if no, 1 - if yes
+
+set (USE_JACOBIAN_IN_ODE_SOLVER 1) #possible values: 0 - if no, 1 - if yes
+
+set (USE_SPLINES_IN_RHS_EVALUATION 0) #possible values: 0 - if no, 1 - if yes
+
+set (kilca_sign V_${KiLCA_VERSION_MAJOR}.${KiLCA_VERSION_MINOR}_${MAGNETIC_DRIFT}_${COLLISION_MODEL}_${ADAPTIVE_GRID_GENERATOR}_${CMAKE_BUILD_TYPE}${ADDITIONAL_COMMENT}${KiLCA_ARCHITECTURE})
+
+set (kilca_lib KiLCA_Lib_${kilca_sign})
+set (kilca_normal_exe KiLCA_Normal_${kilca_sign})
+set (kilca_eigparam_exe KiLCA_EigParam_${kilca_sign})
+
+set(CMAKE_Fortran_MODULE_DIRECTORY ${CMAKE_SOURCE_DIR}/mod)
+
+#Due to gcc compiler bug the code may produce wrong results if it is compiled with optimizations -O2 flags!!!
+
+if (CMAKE_BUILD_TYPE STREQUAL Release)
+
+    #set (CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -O2 -Wall -Wextra -Wshadow -mtune=generic -msse2 -mfpmath=sse")
+    set (CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -mtune=generic ${CMAKE_CXX_OPT_FLAGS}")
+
+    #set (CMAKE_Fortran_FLAGS_RELEASE "${CMAKE_Fortran_FLAGS_RELEASE} -O2 -Wall -Wextra -Wshadow -Wtabs -mtune=generic -msse2 -mfpmath=sse")
+    #set (CMAKE_Fortran_FLAGS_RELEASE "${CMAKE_Fortran_FLAGS_RELEASE} -O2 -mtune=generic -msse2 -mfpmath=sse")
+    set (CMAKE_Fortran_FLAGS_RELEASE "${CMAKE_Fortran_FLAGS_RELEASE} -O2 -mtune=generic ${CMAKE_F_OPT_FLAGS}")
+
+elseif (CMAKE_BUILD_TYPE STREQUAL Debug)
+
+    #set (CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -Wall -Wextra -Wshadow -Wno-unused -mtune=generic -msse2 -mfpmath=sse -g -ggdb")
+    set (CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -Wall -Wextra -Wshadow -mtune=generic -msse2 -mfpmath=sse")
+
+    #set (CMAKE_Fortran_FLAGS_DEBUG "${CMAKE_Fortran_FLAGS_DEBUG} -Wall -Wextra -Wshadow -Wtabs -Wno-unused -mtune=generic -msse2 -mfpmath=sse -g -ggdb -fbacktrace -ffpe-trap=invalid,zero,overflow,underflow,denormal -fbounds-check")
+    set (CMAKE_Fortran_FLAGS_DEBUG "${CMAKE_Fortran_FLAGS_DEBUG} -O2 -Wall -Wextra -Wshadow -Wtabs -mtune=generic -msse2 -mfpmath=sse")
+
+endif (CMAKE_BUILD_TYPE STREQUAL Release)
+
+#set (CMAKE_Fortran_FLAGS_DEBUG "${CMAKE_Fortran_FLAGS_DEBUG} -fimplicit-none -Wall -Wextra -Wshadow -Wtabs -mtune=generic -msse2 -mfpmath=sse -fbounds-check")
+#set (CMAKE_Fortran_FLAGS_RELEASE "${CMAKE_Fortran_FLAGS_RELEASE} -fimplicit-none -Wall -Wextra -Wshadow -Wtabs -O2 -mtune=generic -msse2 -mfpmath=sse")
+
+if (KiLCA_ARCHITECTURE STREQUAL 32bit)
+    set (arch _32bit)
+elseif (KiLCA_ARCHITECTURE STREQUAL 64bit)
+    set (arch _64bit)
+else (KiLCA_ARCHITECTURE STREQUAL 32bit)
+    message (FATAL_ERROR "Unknown KiLCA architecture: ${KiLCA_ARCHITECTURE}")
+endif (KiLCA_ARCHITECTURE STREQUAL 32bit)
+
+if (MAGNETIC_DRIFT STREQUAL MDNO)
+    set (drift )
+else (MAGNETIC_DRIFT STREQUAL MDYES)
+    set (drift _drift)
+endif (MAGNETIC_DRIFT STREQUAL MDNO)
+
+if (COLLISION_MODEL STREQUAL FPN)
+    set (coll _wc_n)
+elseif (COLLISION_MODEL STREQUAL FPNE)
+    set (coll _wc_ne)
+elseif (COLLISION_MODEL STREQUAL FPNEP)
+    set (coll _wc_nep)
+elseif (COLLISION_MODEL STREQUAL NC)
+    set (coll _nc)
+elseif (COLLISION_MODEL STREQUAL FPGEN)
+    set (coll _gen)
+else (COLLISION_MODEL STREQUAL FP)
+    message (FATAL_ERROR "Unknown collision model: ${COLLISION_MODEL}")
+endif (COLLISION_MODEL STREQUAL FPN)
+
+if (ADAPTIVE_GRID_GENERATOR STREQUAL POLYNOMIAL)
+    set (interp _pol)
+else (ADAPTIVE_GRID_GENERATOR STREQUAL POLYNOMIAL)
+    set (interp )
+endif (ADAPTIVE_GRID_GENERATOR STREQUAL POLYNOMIAL)
+
+if (JACOBIAN STREQUAL SIMPLIFIED)
+    set (Jac _J0)
+else (JACOBIAN STREQUAL SIMPLIFIED)
+    set (Jac )
+endif (JACOBIAN STREQUAL SIMPLIFIED)
+
+set (kilca_normal_main progs/main_linear.cpp)
+set (kilca_eigparam_main progs/main_eig_param.cpp)
+
+set (libs_root_path ${CMAKE_SOURCE_DIR}/../libs)
+
+
+#include paths:
+set (sundials_include_path ${libs_root_path}/sundials/include)
+set (sundials_include_path_build ${libs_root_path}/sundials/build/include)
+#set (sundials_include_path /usr/local/lib/sundials-2.4.0/include)
+
+
+#libraries paths:
+
+set (slatec_lib_fullpath ${libs_root_path}/slatec/libslatec.a)
+
+#set (bessel_lib_fullpath ${libs_root_path}/bessel/lib/libbessel.a)
+#set (bessel_lib_fullpath /proj/plasma/ARCHIVE/soft/math_libs/64bit/bessel/libbessel.a)
+
+
+#set (lapack_lib_fullpath /usr/lib/liblapack.a)
+set (lapack_lib_fullpath ${libs_root_path}/lapack-3.2.1/lapack_LINUX.a)
+
+#set (blas_lib_fullpath /usr/lib/libblas.a)
+#set (blas_lib_fullpath ${libs_root_path}/lapack-3.2.1/lapack_LINUX.a)
+set (blas_lib_fullpath ${libs_root_path}/lapack-3.2.1/blas_LINUX.a)
+
+set (tmg_lib_fullpath ${libs_root_path}/lapack-3.2.1/tmglib_LINUX.a)
+
+#set (cvode_lib_fullpath /usr/local/sundials-2.4.0/lib/libsundials_cvode.a)
+#set (nvecserial_lib_fullpath /usr/local/sundials-2.4.0/lib/libsundials_nvecserial.a)
+set (cvode_lib_fullpath ${libs_root_path}/sundials/build/src/cvode/libsundials_cvode.a)
+set (nvecserial_lib_fullpath ${libs_root_path}/sundials/build/src/nvector/serial/libsundials_nvecserial.a)
+
+set (gsl_lib_fullpath ${libs_root_path}/gsl-2.4/.libs/libgsl.a)
+set (gslcblas_lib_fullpath ${libs_root_path}/gsl-2.4/cblas/.libs/libgslcblas.a)
+set (gsl_include_path ${libs_root_path}/gsl-2.4/)
+
+file(GLOB libslatec_files "${CMAKE_SOURCE_DIR}/math/bessel/slatec/*.f")
+add_library (slatec STATIC "${libslatec_files}")
+#add_library (slatec STATIC IMPORTED)
+#set_target_properties (slatec PROPERTIES IMPORTED_LOCATION "${slatec_lib_fullpath}")
+
+#add_library (bessel STATIC IMPORTED)
+#set_target_properties (bessel PROPERTIES IMPORTED_LOCATION "${bessel_lib_fullpath}")
+
+add_library (lapack STATIC IMPORTED)
+set_target_properties (lapack PROPERTIES IMPORTED_LOCATION "${lapack_lib_fullpath}")
+
+add_library (blas STATIC IMPORTED)
+set_target_properties (blas PROPERTIES IMPORTED_LOCATION "${blas_lib_fullpath}")
+
+add_library (tmg STATIC IMPORTED)
+set_target_properties (tmg PROPERTIES IMPORTED_LOCATION "${tmg_lib_fullpath}")
+
+add_library (cvode STATIC IMPORTED)
+set_target_properties (cvode PROPERTIES IMPORTED_LOCATION "${cvode_lib_fullpath}")
+
+add_library (nvecserial STATIC IMPORTED)
+set_target_properties (nvecserial PROPERTIES IMPORTED_LOCATION "${nvecserial_lib_fullpath}")
+
+add_library (gsl STATIC IMPORTED)
+set_target_properties (gsl PROPERTIES IMPORTED_LOCATION "${gsl_lib_fullpath}")
+
+add_library (gslcblas STATIC IMPORTED)
+set_target_properties (gslcblas PROPERTIES IMPORTED_LOCATION "${gslcblas_lib_fullpath}")
+
+#set (EXTERNAL_LIBS ${EXTERNAL_LIBS} slatec lapack blas tmg cvode nvecserial gsl gslcblas gfortran)
+#set (EXTERNAL_LIBS ${EXTERNAL_LIBS} slatec bessel lapack blas cvode nvecserial gsl gslcblas gfortran)
+set (EXTERNAL_LIBS ${EXTERNAL_LIBS} slatec lapack blas cvode nvecserial gsl gslcblas gfortran)
+
+# configure a header file to pass some of the CMake settings to the source code
+configure_file ("${PROJECT_SOURCE_DIR}/code_settings.h.in" "${PROJECT_BINARY_DIR}/code_settings.h")
+
+#include dirs:
+include_directories ("${sundials_include_path}")
+include_directories ("${sundials_include_path_build}")
+include_directories ("${gsl_include_path}")
+include_directories ("${PROJECT_BINARY_DIR}")
+include_directories ("${PROJECT_SOURCE_DIR}/antenna")
+include_directories ("${PROJECT_SOURCE_DIR}/background")
+include_directories ("${PROJECT_SOURCE_DIR}/core")
+include_directories ("${PROJECT_SOURCE_DIR}/eigmode")
+include_directories ("${PROJECT_SOURCE_DIR}/flre")
+include_directories ("${PROJECT_SOURCE_DIR}/flre/conductivity")
+include_directories ("${PROJECT_SOURCE_DIR}/flre/dispersion")
+include_directories ("${PROJECT_SOURCE_DIR}/flre/maxwell_eqs")
+include_directories ("${PROJECT_SOURCE_DIR}/flre/quants")
+include_directories ("${PROJECT_SOURCE_DIR}/hom_medium")
+include_directories ("${PROJECT_SOURCE_DIR}/imhd")
+include_directories ("${PROJECT_SOURCE_DIR}/interface")
+include_directories ("${PROJECT_SOURCE_DIR}/interp")
+include_directories ("${PROJECT_SOURCE_DIR}/io")
+include_directories ("${PROJECT_SOURCE_DIR}/math")
+include_directories ("${PROJECT_SOURCE_DIR}/math/adapt_grid")
+include_directories ("${PROJECT_SOURCE_DIR}/math/zersol-0.0.0/src")
+include_directories ("${PROJECT_SOURCE_DIR}/mod")
+include_directories ("${PROJECT_SOURCE_DIR}/mode")
+include_directories ("${PROJECT_SOURCE_DIR}/progs")
+include_directories ("${PROJECT_SOURCE_DIR}/solver")
+include_directories ("${PROJECT_SOURCE_DIR}/spline")
+
+#cpp source files for kilca lib:
+set(kilca_lib_cpp_sources
+    core/shared.cpp
+    core/core.cpp
+    core/settings.cpp
+    core/output_sett.cpp
+    background/back_sett.cpp
+    background/background.cpp
+    background/calc_back.cpp
+    background/eval_back.cpp
+    eigmode/eigmode_sett.cpp
+    eigmode/calc_eigmode.cpp
+    eigmode/find_eigmodes.cpp
+    antenna/antenna.cpp
+    flre/flre_zone.cpp
+    flre/conductivity/calc_cond.cpp
+    flre/conductivity/cond_profs${interp}.cpp
+    flre/conductivity/eval_cond.cpp
+    flre/dispersion/disp_profs.cpp
+    flre/maxwell_eqs/eval_sysmat.cpp
+    flre/maxwell_eqs/maxwell_eqs_data.cpp
+    flre/maxwell_eqs/sysmat_profs.cpp
+    flre/quants/calc_flre_quants.cpp
+    flre/quants/flre_quants.cpp
+    hom_medium/hmedium_zone.cpp
+    imhd/compressible_flow.cpp
+    imhd/imhd_zone.cpp
+    imhd/incompressible.cpp
+    interface/wave_code_interface.cpp
+    interp/interp.cpp
+    io/inout.cpp
+    mode/mode.cpp
+    mode/calc_mode.cpp
+    mode/zone.cpp
+    mode/transforms.cpp
+    solver/solver.cpp
+    solver/rhs_func.cpp
+    spline/spline.cpp
+    math/hyper/hyper1F1.cpp
+    math/adapt_grid/adaptive_grid.cpp
+    math/adapt_grid/adaptive_grid_pol.cpp
+)
+
+#fortran source files for kilca lib:
+set(kilca_lib_fortran_sources
+    core/constants_m${arch}.f90
+    core/core_m.f90
+    antenna/antenna_m.f90
+    background/background_m.f90
+    flre/flre_sett_m.f90
+    mode/mode_m.f90
+    flre/maxwell_eqs/maxwell_eqs_m.f90
+    background/f0moments${Jac}.f90
+    background/density_p${Jac}.f90
+    antenna/antenna_spectrum.f90
+    flre/conductivity/calc_D_array_1_fac${drift}.f90
+    flre/conductivity/calc_D_array_3_fac${drift}.f90
+    flre/conductivity/calc_D_array_5_fac${drift}.f90
+    flre/conductivity/calc_D_array${drift}.f90
+    #flre/conductivity/calc_I_array${drift}_serg.f90
+    flre/conductivity/calc_I_array${drift}.f90
+    flre/conductivity/calc_W2_array${coll}${drift}.f90
+    flre/conductivity/conduct_arrays${drift}.f90
+    flre/conductivity/conduct_parameters.f90
+    flre/conductivity/conductivity.f90
+    flre/conductivity/delC.f90
+    flre/conductivity/gcorr.f90
+    flre/conductivity/kmatrices${drift}.f90
+    flre/conductivity/newton.f90
+    flre/conductivity/bisection.f90
+    flre/conductivity/gaussfilter.f90
+    flre/dispersion/dispersion.f90
+    flre/dispersion/dpsort.f
+    flre/maxwell_eqs/eqs_matrix_9.f90
+    flre/maxwell_eqs/diff_sys.f90
+    flre/maxwell_eqs/start_vals.f90
+    flre/maxwell_eqs/flre.f90
+    hom_medium/hmedium.f90
+    imhd/imhd.f90
+    interface/dummy.f90
+    mode/stitching.f90
+    math/eigsys/eigsys.f90
+    math/bessel/bessel.f90
+    math/solsubsys.f90
+    math/transform.f90
+    math/zgeev_tuned.f
+    math/odeint_allroutines.f
+    math/W/wofz.f
+    math/W/wfunc.f90
+    math/W/wmfunc.f90
+    math/W/wm_asympt.f90
+    math/det/calc_det.f90
+    math/det/solve_hom_syst.f90
+)
+
+add_library (kilca_lib STATIC ${kilca_lib_fortran_sources} ${kilca_lib_cpp_sources})
+set_target_properties(kilca_lib PROPERTIES
+    OUTPUT_NAME ${kilca_lib}
+    ARCHIVE_OUTPUT_DIRECTORY lib
+    Fortran_MODULE_DIRECTORY mod)
+
+add_executable (kilca_normal_exe ${kilca_normal_main})
+set_target_properties(kilca_normal_exe PROPERTIES
+    OUTPUT_NAME ${kilca_normal_exe}
+    RUNTIME_OUTPUT_DIRECTORY exe)
+target_link_libraries (kilca_normal_exe kilca_lib ${EXTERNAL_LIBS})
+
+add_executable (kilca_eigparam_exe ${kilca_eigparam_main})
+set_target_properties(kilca_eigparam_exe PROPERTIES
+    OUTPUT_NAME ${kilca_eigparam_exe}
+    RUNTIME_OUTPUT_DIRECTORY exe)
+target_link_libraries (kilca_eigparam_exe kilca_lib ${EXTERNAL_LIBS})
+
+add_executable (post_proc post_processing/main_post_proc.cpp post_processing/save_fortran.f90)
+set_target_properties(post_proc PROPERTIES
+    OUTPUT_NAME post_processor_${KiLCA_ARCHITECTURE}
+    RUNTIME_OUTPUT_DIRECTORY exe)
+target_link_libraries (post_proc kilca_lib ${EXTERNAL_LIBS})
+
+# add a target to generate API documentation with Doxygen
+find_package (Doxygen)
+
+if (DOXYGEN_FOUND)
+  configure_file (${CMAKE_CURRENT_SOURCE_DIR}/doc/doxygen/Doxyfile.in ${CMAKE_CURRENT_SOURCE_DIR}/doc/doxygen/Doxyfile @ONLY)
+  add_custom_target (doc ${DOXYGEN_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/doc/doxygen/Doxyfile
+    WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/doc/doxygen
+    COMMENT "Generating API documentation with Doxygen" VERBATIM)
+else (DOXYGEN_FOUND)
+  message (FATAL_ERROR "No doxygen tool is found in the system!")
+endif (DOXYGEN_FOUND)
+
+# add the install targets
+#install (TARGETS Tutorial DESTINATION bin)
+#install (FILES "${PROJECT_BINARY_DIR}/TutorialConfig.h"
+#  DESTINATION include)

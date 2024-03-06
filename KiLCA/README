@@ -1,0 +1,13 @@
+To compile KiLCA code for the first time or on a new machine:
+
+$ rm -R ./CMakeFiles ./CMakeCache.txt ./cmake_install.cmake ./Makefile
+$ cmake .
+$ make
+
+If you want to build Doxygen documentation:
+
+$ make doc
+
+If you want to change compiler or other build settings please look at CMakeLists.txt.
+
+Examples of runs are in ./examples.

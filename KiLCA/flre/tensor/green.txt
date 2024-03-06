@@ -1,0 +1,32 @@
+(*Green function definitions:*)
+
+Ass1 = {Element[{omega0, kp, nu, Vt, tau}, Reals], Vt > 0, nu > 0, tau >= 0};
+
+$Assumptions = Ass1;
+
+a[tau_, nu_] := Vt^2/2*(1 - Exp[-2nu*tau]);
+
+b[tau_, nu_] := 2*kp*Vt^2/nu(1 - Exp[-nu*tau]);
+
+c[tau_, nu_] := (I*(omega0 - omega) + kp^2*Vt^2/nu)*tau;
+
+argG[w1_, w2_, tau_, nu_] := I*kp/nu*(w1 - w2) - c[tau, nu] - 1/4/a[tau, nu]*(w1 - w2*Exp[-nu*tau] + I*b[tau, nu])^2;
+
+G[w1_, w2_, tau_, nu_] := 1/Sqrt[4*Pi*a[tau, nu]]*Exp[argG[w1, w2, tau, nu]];
+
+(*Check the solution of KE :*)
+dt = D[G[w1, w2, tau, nu], {tau, 1}];
+d1 = D[G[w1, w2, tau, nu], {w1, 1}];
+d2 = D[G[w1, w2, tau, nu], {w1, 2}];
+
+tst = Simplify[Expand[dt + (I*omega0 + I*kp*w1 - nu)*G[w1, w2, tau, nu] - nu*Vt^2*d2 - nu*w1*d1]] /. omega -> 0;
+
+Print[tst];
+
+(*Limit nu = 0*)
+
+Print[Simplify[Series[argG[w1, w2, tau, nu], {nu, 0, 1}]]];
+
+tst = Integrate[Exp[I(omega - omega0 - kp*w) tau], {tau, 0, Infinity}];
+
+Print[tst];

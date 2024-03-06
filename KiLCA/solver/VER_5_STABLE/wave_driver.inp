@@ -1,0 +1,18 @@
+0.02d0      vecy    - k_y, 1/cm
+0.02d0      vecz    - k_z, 1/cm
+8000        ndisp   - number of points for dispersion curves    
+80000      npoi    - number of points for Runge-Kutta integration
+100.d0      x_in    - inner boundary for x=R variable, cm
+300.d0      x_out   - outer boundary for x=R variable, cm
+299.d0      x_A     - antenna position over x, cm
+175.d0      xmid    - localiation center of the additional damping term, cm
+3.0d0       sigma   - Gaussian width of the additional damping term, cm
+0.5       ampnu0  - amplitude of the damping term for solution 0, N_A^2 units
+0.25      ampnu1  - amplitude of the damping term for solution 1, N_A^2 units
+1.0       ampnu2  - amplitude of the damping term for solution 2, N_A^2 units
+50         nx_harm - number of Fourier harmonics in x-expansion
+12.0         delx    - width of the conversion layer, cm
+0.3         xmargin - cut-off point of the localizer, in delx units
+0.20        delta_band - half-width of the minimization region, in delx units
+1           iswitch_cold_warm - permittivity: 1 - cold plasma, 2 - warm plasma
+

@@ -1,0 +1,13 @@
+Solver for all zeros of a complex analytic function that lie within a rectangular region, version 0.0.0.
+
+Copyright (C) 2012 Ivan B. Ivanov. All rights reserved. (navi.adler@gmail.com)
+
+Locating all the zeros of an analytic function in one complex variable that are contained
+in a given region of a complex plane is a classical problem of complex analysis.
+The standard approach is based on the argument principle and recursive subdivisions of the given region
+coupled with the Newton's iterations at the final stage of the search.
+
+The ZerSol library assumes that evaluation of the function is expensive and tries to minimize the number of the function calls
+by using of effective algorithms and special data structures.
+Although easy to use, the library provides an extensive set of interface functions that allow to customize the search options
+for a particular problem. The library is tested on many hard problems and demonstrates a good performance.

@@ -1,0 +1,9 @@
+(*Main driver script for FP collisions model:*)
+
+<< "green.txt";
+
+(*
+<< "W2_func.txt";
+*)
+
+<< "D_func.txt";

@@ -1,2 +1,0 @@
-/usr/bin/ar qc libhdf5_tools.a CMakeFiles/hdf5_tools.dir/__/__/hdf5_tools/hdf5_tools.f90.o CMakeFiles/hdf5_tools.dir/__/__/hdf5_tools/hdf5_tools_f2003.f90.o
-/usr/bin/ranlib libhdf5_tools.a

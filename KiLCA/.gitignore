@@ -3,6 +3,7 @@ exe
 obj
 mod
 CMakeCache.txt
-doc/doxygen/
+doc/doxygen/Doxyfile
+doc/doxygen/html
 build
 

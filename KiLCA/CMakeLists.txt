@@ -331,6 +331,7 @@ set_target_properties(kilca_lib PROPERTIES
     OUTPUT_NAME ${kilca_lib}
     ARCHIVE_OUTPUT_DIRECTORY lib
     Fortran_MODULE_DIRECTORY mod)
+target_link_libraries(kilca_lib PUBLIC ${EXTERNAL_LIBS})
 
 add_executable (kilca_normal_exe ${kilca_normal_main})
 set_target_properties(kilca_normal_exe PROPERTIES

@@ -40,26 +40,11 @@ add_subdirectory(${src})
 
 #add_subdirectory(hdf5_tools)
 
-set(umfpack_path ${libs_root_path}/SuiteSparse/UMFPACK/Lib/libumfpack.a)
-add_library(umfpack STATIC IMPORTED)
-set_target_properties(umfpack PROPERTIES IMPORTED_LOCATION "${umfpack_path}")
-
 set (sundials_include_path ${libs_root_path}/sundials/include)
 set (sundials_include_path_build ${libs_root_path}/sundials/build/include)
-
-set (cvode_lib_fullpath ${libs_root_path}/sundials/build/src/cvode/libsundials_cvode.a)
-add_library (cvode STATIC IMPORTED)
-set_target_properties (cvode PROPERTIES IMPORTED_LOCATION "${cvode_lib_fullpath}")
-
-set (nvecserial_lib_fullpath ${libs_root_path}/sundials/build/src/nvector/serial/libsundials_nvecserial.a)
-add_library (nvecserial STATIC IMPORTED)
-set_target_properties (nvecserial PROPERTIES IMPORTED_LOCATION "${nvecserial_lib_fullpath}")
-
-set(superlu_path ${libs_root_path}/SuperLU_4.1/lib/libsuperlu_4.1.a)
-add_library(superlu STATIC IMPORTED)
-set_target_properties(superlu PROPERTIES IMPORTED_LOCATION "${superlu_path}")
-
-set(EXTERNAL_LIBS ${EXTERNAL_LIBS} umfpack superlu cvode nvecserial)
+include_directories ("${sundials_include_path}")
+include_directories ("${sundials_include_path_build}")
+#include_directories ("${gsl_include_path}")
 
 
 set(balance_lib_fortran_sources
@@ -70,7 +55,7 @@ set(balance_lib_fortran_sources
     ${src}/Wmn.f90
     ${src}/evolvestep.f90 
     ${src}/gengrid.f90
-    ${src}/localizer.f90
+    #${src}/localizer.f90
     ${src}/plag_coeff.f90
     ${src}/amn_of_r.f90
     ${src}/hdf5_tools/hdf5_tools.f90
@@ -92,49 +77,94 @@ set_target_properties(ql-balance_lib PROPERTIES LINKER_LANGUAGE Fortran
     ARCHIVE_OUTPUT_DIRECTORY "${lib}"
     Fortran_MODULE_DIRECTORY "${objs}")
 
-target_include_directories(ql-balance_lib PUBLIC "${libs_root_path}/SuiteSparse/UMFPACK/Include/")
-target_include_directories(ql-balance_lib PUBLIC "${libs_root_path}/SuiteSparse/UFconfig/")
-target_include_directories(ql-balance_lib PUBLIC "${libs_root_path}/SuiteSparse/AMD/Include/")
+
+target_link_libraries(ql-balance_lib PUBLIC "${KiLCA_lib_path}")
+
 target_include_directories(ql-balance_lib PUBLIC "${sundials_include_path}")
 target_include_directories(ql-balance_lib PUBLIC "${sundials_include_path_build}")
+target_include_directories(ql-balance_lib PUBLIC ${CMAKE_SOURCE_DIR}/../KiLCA/math/)
 
-set (slatec_lib_fullpath ${libs_root_path}/slatec/libslatec.a)
-set (lapack_lib_fullpath ${libs_root_path}/lapack-3.2.1/lapack_LINUX.a)
-set (blas_lib_fullpath ${libs_root_path}/lapack-3.2.1/blas_LINUX.a)
-set (tmg_lib_fullpath ${libs_root_path}/lapack-3.2.1/tmglib_LINUX.a)
-set (cvode_lib_fullpath ${libs_root_path}/sundials/build/src/cvode/libsundials_cvode.a)
-set (nvecserial_lib_fullpath ${libs_root_path}/sundials/build/src/nvector/serial/libsundials_nvecserial.a)
 
-set (gsl_lib_fullpath ${libs_root_path}/gsl-2.4/.libs/libgsl.a)
-set (gslcblas_lib_fullpath ${libs_root_path}/gsl-2.4/cblas/.libs/libgslcblas.a)
-set (gsl_include_path ${libs_root_path}/gsl-2.4/)
+#set (slatec_lib_fullpath ${libs_root_path}/slatec/libslatec.a)
+#set (lapack_lib_fullpath ${libs_root_path}/lapack-3.2.1/lapack_LINUX.a)
+#set (blas_lib_fullpath ${libs_root_path}/lapack-3.2.1/blas_LINUX.a)
+#set (tmg_lib_fullpath ${libs_root_path}/lapack-3.2.1/tmglib_LINUX.a)
+
+
+
+#set (gsl_lib_fullpath ${libs_root_path}/gsl-2.4/.libs/libgsl.a)
+#set (gslcblas_lib_fullpath ${libs_root_path}/gsl-2.4/cblas/.libs/libgslcblas.a)
+#set (gsl_include_path ${libs_root_path}/gsl-2.4/)
 
 file(GLOB libslatec_files "${CMAKE_SOURCE_DIR}/../KiLCA/math/bessel/slatec/*.f")
 add_library (slatec STATIC "${libslatec_files}")
 
-add_library (lapack STATIC IMPORTED)
-set_target_properties (lapack PROPERTIES IMPORTED_LOCATION "${lapack_lib_fullpath}")
+#add_library (lapack STATIC IMPORTED)
+#set_target_properties (lapack PROPERTIES IMPORTED_LOCATION "${lapack_lib_fullpath}")
 
-add_library (blas STATIC IMPORTED)
-set_target_properties (blas PROPERTIES IMPORTED_LOCATION "${blas_lib_fullpath}")
+#add_library (blas STATIC IMPORTED)
+#set_target_properties (blas PROPERTIES IMPORTED_LOCATION "${blas_lib_fullpath}")
 
-add_library (tmg STATIC IMPORTED)
-set_target_properties (tmg PROPERTIES IMPORTED_LOCATION "${tmg_lib_fullpath}")
+#add_library (tmg STATIC IMPORTED)
+#set_target_properties (tmg PROPERTIES IMPORTED_LOCATION "${tmg_lib_fullpath}")
 
-add_library (gsl STATIC IMPORTED)
-set_target_properties (gsl PROPERTIES IMPORTED_LOCATION "${gsl_lib_fullpath}")
+#add_library (gsl STATIC IMPORTED)
+#set_target_properties (gsl PROPERTIES IMPORTED_LOCATION "${gsl_lib_fullpath}")
 
-add_library (gslcblas STATIC IMPORTED)
-set_target_properties (gslcblas PROPERTIES IMPORTED_LOCATION "${gslcblas_lib_fullpath}")
+#add_library (gslcblas STATIC IMPORTED)
+#set_target_properties (gslcblas PROPERTIES IMPORTED_LOCATION "${gslcblas_lib_fullpath}")
 
 #set (EXTERNAL_LIBS ${EXTERNAL_LIBS} slatec lapack blas tmg cvode nvecserial gsl gslcblas gfortran)
 #set (EXTERNAL_LIBS ${EXTERNAL_LIBS} slatec bessel lapack blas cvode nvecserial gsl gslcblas gfortran)
-set (EXTERNAL_LIBS_KiLCA ${EXTERNAL_LIBS_KiLCA} slatec lapack blas gsl gslcblas gfortran)
-target_link_libraries(ql-balance_lib PUBLIC "${EXTERNAL_LIBS_KiLCA}")
 
-include_directories ("${sundials_include_path}")
-include_directories ("${sundials_include_path_build}")
-include_directories ("${gsl_include_path}")
+
+set(superlu_path ${libs_root_path}/SuperLU_4.1/lib/libsuperlu_4.1.a)
+add_library(superlu STATIC IMPORTED)
+set_target_properties(superlu PROPERTIES IMPORTED_LOCATION "${superlu_path}")
+
+set (cvode_lib_fullpath ${libs_root_path}/sundials/build/src/cvode/libsundials_cvode.a)
+add_library (cvode STATIC IMPORTED)
+set_target_properties (cvode PROPERTIES IMPORTED_LOCATION "${cvode_lib_fullpath}")
+
+set (nvecserial_lib_fullpath ${libs_root_path}/sundials/build/src/nvector/serial/libsundials_nvecserial.a)
+add_library (nvecserial STATIC IMPORTED)
+set_target_properties (nvecserial PROPERTIES IMPORTED_LOCATION "${nvecserial_lib_fullpath}")
+
+find_package(GSL REQUIRED)
+if("${GSL_FOUND}")
+    message(" ====== GSL was found! ======")
+    target_link_libraries(ql-balance_lib PUBLIC "${GSL_LIBRARIES}")
+    target_link_libraries(ql-balance_lib PUBLIC "${GSL_CBLAS_LIBRARIES}")
+    target_include_directories(ql-balance_lib PUBLIC "${GSL_INCLUDE_DIRS}")
+endif()
+
+find_package(MPI REQUIRED)
+if("${MPI_FOUND}")
+    message(" ====== MPI was found! ======")
+    target_link_libraries(ql-balance_lib PUBLIC "${MPI_Fortran_LIBRARIES}")
+    target_include_directories(ql-balance_lib PUBLIC "${MPI_Fortran_INCLUDE_PATH}")
+endif()
+
+find_package(SuiteSparse REQUIRED)
+if("${SUITESPARSE_FOUND}")
+    message(" ====== SuiteSparse was found! ======")
+    target_link_libraries(ql-balance_lib PUBLIC "${SUITESPARSE_LIBRARIES}")
+    target_include_directories(ql-balance_lib PUBLIC "${SUITESPARSE_INCLUDE_DIRS}")
+endif()
+
+find_package(BLAS REQUIRED)
+if("${BLAS_FOUND}")
+    message(" ====== BLAS was found! ======")
+    target_link_libraries(ql-balance_lib PUBLIC "${BLAS_LIBRARIES}")
+    target_include_directories(ql-balance_lib PUBLIC "${BLAS_INCLUDE_DIRS}")
+endif()
+
+find_package(LAPACK REQUIRED)
+if("${LAPACK_FOUND}")
+    message(" ====== LAPACK was found! ======")
+    target_link_libraries(ql-balance_lib PUBLIC "${LAPACK_LIBRARIES}")
+    target_include_directories(ql-balance_lib PUBLIC "${LAPACK_INCLUDE_DIRS}")
+endif()
 
 find_package(HDF5 COMPONENTS C Fortran HL REQUIRED)
 if("${HDF5_FOUND}")
@@ -145,14 +175,12 @@ if("${HDF5_FOUND}")
     target_include_directories(ql-balance_lib PUBLIC "${HDF5_INCLUDE_DIRS}")
 endif()
 
-find_package(MPI REQUIRED)
-if("${MPI_FOUND}")
-    message(" ====== MPI was found! ======")
-    target_link_libraries(ql-balance_lib PUBLIC "${MPI_Fortran_LIBRARIES}")
-    target_include_directories(ql-balance_lib PUBLIC "${MPI_Fortran_INCLUDE_PATH}")
-endif()
+target_sources(ql-balance_lib PUBLIC 
+    ${libs_root_path}/SuperLU_4.1/FORTRAN/c_fortran_zgssv.c
+    ${libs_root_path}/SuperLU_4.1/FORTRAN/c_fortran_dgssv.c)
+target_include_directories(ql-balance_lib PUBLIC ${libs_root_path}/SuperLU_4.1/SRC/)
 
-target_link_libraries(ql-balance_lib PUBLIC "${KiLCA_lib_path}")
+target_link_libraries(ql-balance_lib PUBLIC slatec gfortran superlu cvode nvecserial)
 
 
 add_executable(ql-balance ${src}/ql-balance.f90)

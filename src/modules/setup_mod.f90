@@ -8,5 +8,6 @@ module setup
     integer          :: n_mode ! toroidal mode number
     double precision :: omega  ! perturbation frequency
     double precision :: cut_off_fac ! factor for cut off distance in creating the sparse matrix
+    double precision :: kr_cut_off_fac ! 
 
 end module

@@ -174,8 +174,10 @@ subroutine recnsplit_kr(r,recnsp)
 !
     double precision :: r, recnsp;
     double precision :: kr_res = 0.0d0
-    double precision :: width_res = 1.0d0
-    double precision :: ampl_res = 40.0d0
+    double precision :: width_res = 2.0d0
+    double precision :: ampl_res = 1.0d0
+    !write(*,*) 'k space: width res: ', width_res
+    !write(*,*) 'k space: ampl res: ', ampl_res
 !
 !  recnsp = 1.d0 + gg_factor*exp(-((r-gg_r_res)/gg_width)**2);
     recnsp = 1.d0
@@ -189,7 +191,7 @@ end subroutine recnsplit_kr
 subroutine prepare_resonances
 
     use resonances_mod
-    use grid, only: gg_width, gg_factor,r_resonant
+    use grid, only: gg_width, gg_factor,r_resonant, grid_spacing
     use config, only: hdf5_output, fdebug
     use setup, only: m_mode, n_mode
     use plasma_parameter, only: iprof_length, r_prof, q_prof
@@ -211,9 +213,18 @@ subroutine prepare_resonances
     qmin = minval(q)
     qmax = maxval(q)
 
-    width_res = gg_width
+    !width_res = gg_width
+    !ampl_res = gg_factor
 
-    ampl_res = gg_factor
+    if (grid_spacing == 1) then
+        write(*,*) 'grid_spacing = 1'
+        width_res = 1.0
+        ampl_res = 0.0
+    elseif (grid_spacing == 2) then
+        write(*,*) 'grid_spacing = 2'
+        width_res = 2.0
+        ampl_res = 1.0
+    end if
 
     qres = abs(dfloat(m_mode)/dfloat(n_mode))
     if(qres.lt.qmin.or.qres.gt.qmax) write(*,*) "Resonance location not found in q"

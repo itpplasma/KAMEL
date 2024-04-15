@@ -117,20 +117,20 @@ module kernel_functions
                 !if (abs(kp_res) < 0.0002d0) then
                     ! with 1/z_0^2 and 1/z_0 terms
                     kernel_rho_phi_of_kr_krp_rg = kernel_rho_phi_of_kr_krp_rg &
-                        + omc_res / lambda_D_res**2.0d0  &
+                        + 1.0d0 / lambda_D_res**2.0d0  &
                         * ((a0 * (1.0d0 + (2.0d0 * vT_res**2.0d0 *kp_res**2.0d0)/ (om_E_res - omega - com_unit * nu_res)**2.0d0) &
                         - (vT_res**2.0d0 * kp_res * a1)/ (om_E_res - omega - com_unit * nu_res) &
                         + vT_res**2.0d0 * a2)&
-                        / (om_E_res - omega - com_unit * nu_res) &
-                        - 1.0d0 / omc_res * (exp(-vT_res**2d0/(2d0 * omc_res**2d0) * (val_krp - val_kr)**2d0) &
+                        * omc_res / (om_E_res - omega - com_unit * nu_res) &
+                        - (exp(-vT_res**2d0/(2d0 * omc_res**2d0) * (val_krp - val_kr)**2d0) &
                         - eval_besselI0)) 
                 else
                     ! ideal region, k_parallel not near zero
-                    kernel_rho_phi_of_kr_krp_rg = kernel_rho_phi_of_kr_krp_rg + omc_res /(lambda_D_res**2d0 * vT_res) &
-                            * (sqrt(pi)/kp_res * plasma_Z(z0_res) &
+                    kernel_rho_phi_of_kr_krp_rg = kernel_rho_phi_of_kr_krp_rg + 1.0d0 /(lambda_D_res**2d0) &
+                            * (omc_res/(sqrt(2.0d0) * kp_res * vT_res) * (plasma_Z(z0_res) &
                             * (a0 + sqrt(2.0d0) * vT_res * z0_res * a1 + vT_res**2d0 * a2 * 2d0 * z0_res**2d0) + vT_res &
-                            * sqrt(2d0) * (a1 + vT_res * sqrt(2d0) * z0_res * a2)) - sqrt(2d0 * pi) * vT_res / omc_res &
-                            * (exp(-vT_res**2d0/(2d0 * omc_res**2d0) * (val_krp - val_kr)**2d0) - eval_besselI0)
+                            * sqrt(2d0) * (a1 + vT_res * sqrt(2d0) * z0_res * a2)) &
+                            - (exp(-vT_res**2d0/(2d0 * omc_res**2d0) * (val_krp - val_kr)**2d0) - eval_besselI0))
                 end if
 
             end do
@@ -211,6 +211,7 @@ module kernel_functions
                 
                 if (real(eval_bt) > b_times_limit) then
                     ! limit close to magnetic axis (k_s -> infinity) and large k_r and k_rp
+                    !write(*,*) 'limit close to magnetic axis, val_rg = ', val_rg 
                     eval_besselI0 = exp(eval_bt - eval_bp) /(sqrt(2.0d0 * pi * eval_bt))
                     eval_besselIm1 = exp(- eval_bp + asinh(-1.0d0/eval_bt) + eval_bt * sqrt(1.0d0 + 1.0d0/eval_bt**2.0d0)) &
                             / (sqrt(2.0d0*pi*eval_bt * sqrt(1.0d0 + 1.0d0/eval_bt**2.0d0)))
@@ -240,7 +241,7 @@ module kernel_functions
 
             deallocate(coef)
 
-            kernel_rho_B_of_kr_krp_rg = kernel_rho_B_of_kr_krp_rg * com_unit / (8d0 * pi**2 * sol)
+            kernel_rho_B_of_kr_krp_rg = kernel_rho_B_of_kr_krp_rg * com_unit / (8d0 * pi**2)! * sol)
 
         end function kernel_rho_B_of_kr_krp_rg
 

@@ -10,7 +10,7 @@ module cut_off_integration
     !use plasma_parameter, only: r_prof
     use omp_lib
     use plasma_parameter, only: rho_L
-    use setup, only: cut_off_fac
+    use setup, only: cut_off_fac, kr_cut_off_fac
 
     implicit none
 
@@ -43,12 +43,14 @@ module cut_off_integration
 
         ! kr space adjustments:
         ! determine cut-off in kr and corresponding indices
-        kr_cutoff = 1.5d0 !cut_off_fac / rho_L
-        call generate_k_space_grid(5, .true., kr_cutoff)
+        !kr_cutoff = 1.5d0 !cut_off_fac / rho_L
+        kr_cutoff = kr_cut_off_fac / rho_L
+        call generate_k_space_grid(20, .true., kr_cutoff)
         closest_kr_ind_upper = findClosestIndex(kr, kr_cutoff)
         closest_kr_ind_lower = findClosestIndex(-kr, kr_cutoff)
-        write(*,*) 'kr cut-off: ', kr_cutoff
+        write(*,*) ' kr cut-off: ', kr_cutoff
         write(*,*) ' closest index lower: ', closest_kr_ind_lower, ', closest index upper: ', closest_kr_ind_upper
+        write(*,*) ' closest lower: ', kr(closest_kr_ind_lower), ', closest upper: ', kr(closest_kr_ind_upper)
 
 
         if (.not. allocated(K_rho_phi_llp)) allocate(K_rho_phi_llp(l_space_dim, l_space_dim))

@@ -8,6 +8,7 @@ program kim_main
     use grid
     use cut_off_integration
     use equilibrium, only: calculate_equil
+    use kernel_functions, only: kernel_rho_phi_of_kr_krp_rg, kernel_rho_B_of_kr_krp_rg
 
     implicit none
 
@@ -18,10 +19,10 @@ program kim_main
 
     namelist /KIM_SETUP/ btor, R0, m_mode, n_mode, Zi, Ai, k_space_dim, &
                         reduce_r, reduced_r_dim, omega, spline_base, &
-                        grid_spacing, l_space_dim, cut_off_fac, num_gengrid_points, &
+                        grid_spacing, l_space_dim, cut_off_fac, kr_cut_off_fac, num_gengrid_points, &
                         r_plas
 
-    open(unit = 77, file = './nmls/KIM_config.nml')
+    open(unit = 77, file = './KIM_config.nml')
     read(unit = 77, nml = KIM_CONFIG)
     allocate(Zi(ispecies), Ai(ispecies))
     read(unit = 77, nml = KIM_SETUP)
@@ -55,6 +56,7 @@ program kim_main
     write(*,*) '  spline_base      = ', spline_base
     write(*,*) '  grid_spacing     = ', grid_spacing
     write(*,*) '  cut_off_fac      = ', cut_off_fac
+    write(*,*) '  kr_cut_off_fac   = ', kr_cut_off_fac
     write(*,*) '  num_gengrid_points = ', num_gengrid_points
     write(*,*) ' - - - - - - - - - - - - - - - - - -'
 
@@ -73,6 +75,9 @@ program kim_main
     call gengrid(num_gengrid_points, .true.)
 
     call basis_transformation_integration(.true.)
+
+    !write(*,*) 'Kernel rho phi: ', kernel_rho_phi_of_kr_krp_rg(1.0d0, 2.0d0, 50.0d0)
+    !write(*,*) 'Kernel rho B  : ', kernel_rho_B_of_kr_krp_rg(1.0d0, 2.0d0, 50.0d0)
 
     ! solve poisson's equation with spline solver
     call solve_poisson

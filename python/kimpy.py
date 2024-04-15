@@ -13,9 +13,11 @@ class kimpy:
         self.runpath = runpath
 
         self.command = './KIM_exe'
-        shutil.copyfile(self.kim_exe_path, self.runpath + 'KIM_exe')
-
-        shutil.copyfile(self.kim_config_nml, self.runpath + 'KIM_config.nml')
+        if os.path.exists(self.runpath + 'KIM_exe'):
+            os.remove(self.runpath + 'KIM_exe')
+        shutil.copy2(self.kim_exe_path, self.runpath + 'KIM_exe')
+        
+        shutil.copy2(self.kim_config_nml, self.runpath + 'KIM_config.nml')
         self.kim_config_nml = self.runpath + 'KIM_config.nml'
         
 

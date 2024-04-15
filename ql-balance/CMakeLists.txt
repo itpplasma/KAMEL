@@ -13,15 +13,32 @@ endif()
 project(ql-balance)
 enable_language(Fortran)
 
+if(CMAKE_HOST_SYSTEM_NAME MATCHES "Darwin")
+    # macOS specific configurations or commands
+    message("Building on macOS")
+    set(CMAKE_C_COMPILER gcc-13)
+    set(CMAKE_CXX_COMPILER g++-13)
+    # flag does not work for macos for some reason
+    set (CMAKE_CXX_OPT_FLAGS "")
+    set (CMAKE_F_OPT_FLAGS "")
+    set (CMAKE_CXX_OPT_FLAGS "")
+    set (CMAKE_F_OPT_FLAGS "")
+elseif(CMAKE_HOST_SYSTEM_NAME MATCHES "Linux")
+    # Linux specific configurations or commands
+    message("Building on Linux")
+    set(CMAKE_C_COMPILER "gcc")
+    set(CMAKE_CXX_COMPILER "g++")
+    #set(CMAKE_Fortran_COMPILER "gfortran")
+    set(CMAKE_Fortran_COMPILER "mpif90")
 
-set(CMAKE_C_COMPILER "gcc")
-set(CMAKE_CXX_COMPILER "g++")
-#set(CMAKE_Fortran_COMPILER "gfortran")
-set(CMAKE_Fortran_COMPILER "mpif90")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -L/usr/lib64 -lstdc++")
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -L/usr/lib64 -lstdc++ -O3 -D DOUBLE_APPEND_FORTRAN")
+    set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -openmp -O3")
+else()
+    # Other operating system specific configurations or commands
+    message("Building on another operating system. Might not be implemented.")
+endif()
 
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -L/usr/lib64 -lstdc++")
-set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -L/usr/lib64 -lstdc++ -O3 -D DOUBLE_APPEND_FORTRAN")
-set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -openmp -O3")
 
 set(CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/cmake" ${CMAKE_MODULE_PATH})
 

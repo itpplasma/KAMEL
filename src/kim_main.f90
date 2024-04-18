@@ -20,7 +20,7 @@ program kim_main
     namelist /KIM_SETUP/ btor, R0, m_mode, n_mode, Zi, Ai, k_space_dim, &
                         reduce_r, reduced_r_dim, omega, spline_base, &
                         grid_spacing, l_space_dim, cut_off_fac, kr_cut_off_fac, num_gengrid_points, &
-                        r_plas
+                        r_plas, type_br_field
 
     open(unit = 77, file = './KIM_config.nml')
     read(unit = 77, nml = KIM_CONFIG)
@@ -58,6 +58,7 @@ program kim_main
     write(*,*) '  cut_off_fac      = ', cut_off_fac
     write(*,*) '  kr_cut_off_fac   = ', kr_cut_off_fac
     write(*,*) '  num_gengrid_points = ', num_gengrid_points
+    write(*,*) '  type_br_field    = ', type_br_field
     write(*,*) ' - - - - - - - - - - - - - - - - - -'
 
     t_start = omp_get_wtime()

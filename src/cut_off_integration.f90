@@ -45,7 +45,7 @@ module cut_off_integration
         ! determine cut-off in kr and corresponding indices
         !kr_cutoff = 1.5d0 !cut_off_fac / rho_L
         kr_cutoff = kr_cut_off_fac / rho_L
-        call generate_k_space_grid(20, .true., kr_cutoff)
+        call generate_k_space_grid(l_space_dim+1, .true., kr_cutoff)
         closest_kr_ind_upper = findClosestIndex(kr, kr_cutoff)
         closest_kr_ind_lower = findClosestIndex(-kr, kr_cutoff)
         write(*,*) ' kr cut-off: ', kr_cutoff
@@ -245,9 +245,9 @@ module cut_off_integration
         !!$OMP PRIVATE(i_kr, i_krp) &
         !!$OMP SHARED(func_trapz_int_2D, kr, krp, k_space_dim, kr_cutoff, l, lp, i_rg, com_unit, &
         !!$OMP xl, rb, varphi_lkr, K_rho_phi_of_rg, closest_kr_ind_upper, closest_kr_ind_lower)
-        do i_kr = closest_kr_ind_lower+1, closest_kr_ind_upper
+        do i_kr = closest_kr_ind_lower+1, closest_kr_ind_upper-1
             !if (kr_cutoff - abs(kr(i_kr)) .ge. 0.0d0) then
-                do i_krp = closest_kr_ind_lower+1, closest_kr_ind_upper 
+                do i_krp = closest_kr_ind_lower+1, closest_kr_ind_upper -1
                     !if (kr_cutoff - abs(krp(i_krp)) .ge. 0.0d0) then
                         func_trapz_int_2D = func_trapz_int_2D + 0.25d0 * ((kr(i_kr)- kr(i_kr-1)) * (krp(i_krp) - krp(i_krp-1)) &
                             * (integrand_w_exp_facs(l,lp, i_kr, i_krp, i_rg) + integrand_w_exp_facs(l,lp,i_kr,i_krp-1, i_rg) &
@@ -327,9 +327,9 @@ module cut_off_integration
         !!$OMP PRIVATE(i_kr, i_krp) &
         !!$OMP SHARED(func_trapz_int_2D, kr, krp, k_space_dim, kr_cutoff, l, lp, i_rg, com_unit, &
         !!$OMP xl, rb, varphi_lkr, K_rho_phi_of_rg, closest_kr_ind_upper, closest_kr_ind_lower)
-        do i_kr = closest_kr_ind_lower+1, closest_kr_ind_upper
+        do i_kr = closest_kr_ind_lower+1, closest_kr_ind_upper-1
             !if (kr_cutoff - abs(kr(i_kr)) .ge. 0.0d0) then
-                do i_krp = closest_kr_ind_lower+1, closest_kr_ind_upper 
+                do i_krp = closest_kr_ind_lower+1, closest_kr_ind_upper-1 
                     !if (kr_cutoff - abs(krp(i_krp)) .ge. 0.0d0) then
                         func_trapz_int_2D_rho_B = func_trapz_int_2D_rho_B + 0.25d0 &
                             * ((kr(i_kr)- kr(i_kr-1)) * (krp(i_krp) - krp(i_krp-1)) &

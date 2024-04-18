@@ -13,7 +13,7 @@ subroutine solve_poisson
     use grid, only: npoib, rb
     use back_quants, only: vTi, vTe
     use plasma_parameter, only: Zi, Ai
-    use setup, only: btor, cut_off_fac
+    use setup, only: btor, cut_off_fac, type_br_field
 
     implicit none
 
@@ -30,6 +30,7 @@ subroutine solve_poisson
     integer :: set_zero
     integer :: iopt
 
+
     if (fstatus == 1) write(*,*) 'Status: solve poisson equation'
 
     ! create A matrix (Laplacian + 4 pi K^phi) in l space
@@ -37,7 +38,7 @@ subroutine solve_poisson
 
     ! create Laplacian:
     A_mat = cmplx(0.0d0, 0.0d0)
-    A_mat(1,1) = -1d0 / (rb(1)) - 1d0 / (rb(2) + rb(1))
+    A_mat(1,1) = -1d0 / (rb(1)) - 1d0 / (rb(2) - rb(1))
     A_mat(npoib,npoib) = - 1d0 / (rb(npoib) - rb(npoib-1))
     A_mat(1,2) = 1d0 / (rb(2) - rb(1))
     A_mat(2,1) = 1d0 / (rb(2) - rb(1))
@@ -132,8 +133,38 @@ subroutine solve_poisson
     write(*,*) "create b vec"
 
     if (.not. allocated(b_vec)) allocate(b_vec(npoib))
-    b_vec = cmplx(1.0d0, 0.0d0)
-    b_vec = - 4d0 * pi * matmul(K_rho_B_llp, b_vec)
+    b_vec = cmplx(0.0d0, 0.0d0)
+
+    if (type_br_field ==1) then
+        ! constant Br field
+        b_vec = cmplx(-4.0d0 * pi, 0.0d0)
+    elseif(type_br_field == 2) then
+        ! point charge like Br field
+        b_vec(size(b_vec)/2) = cmplx(-4.0d0 * pi, 0.0d0)
+    elseif(type_br_field ==3) then
+        do i = 5/6 *size(b_vec), size(b_vec)
+            b_vec(i) = (i - size(b_vec)/2) * 0.02d0 * cmplx(1.0d0, 0.0d0) - 0.2d0
+        end do 
+    end if
+
+    inquire(file=trim(output_path)//'fields', exist=ex)
+    if (.not. ex) then
+        call system('mkdir -p '//trim(output_path)//'fields')
+    end if
+    open(unit = 79, file=trim(output_path)//'fields/br_re.dat')
+    open(unit = 80, file=trim(output_path)//'fields/br_im.dat')
+    do i = 1,npoib
+        write(79,*) rb(i), real(b_vec(i))
+        write(80,*) rb(i), dimag(b_vec(i))
+    end do
+    close(79)
+    close(80)
+
+    if (.not. type_br_field == 2) then
+        ! multiply with K_rho_B_llp if not point charge case
+        b_vec = - 4d0 * pi * matmul(K_rho_B_llp, b_vec)
+    end if
+    
     !b_vec = matmul(A_mat, b_vec)
 
     write(*,*) "after b vec"
@@ -147,10 +178,6 @@ subroutine solve_poisson
     !call sparse_solve_suitesparseComplex_b1(nrow, ncol, nz_out, irow, pcol, A_nz, b_vec, 0)
     !write(*,*) b_vec
 
-    inquire(file=trim(output_path)//'fields', exist=ex)
-    if (.not. ex) then
-        call system('mkdir -p '//trim(output_path)//'fields')
-    end if
     open(unit = 77, file=trim(output_path)//'fields/phi_re.dat')
     open(unit = 78, file=trim(output_path)//'fields/phi_im.dat')
     do i = 1,npoib

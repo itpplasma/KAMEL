@@ -56,6 +56,8 @@ module cut_off_integration
         if (.not. allocated(K_rho_phi_llp)) allocate(K_rho_phi_llp(l_space_dim, l_space_dim))
         if (.not. allocated(K_rho_B_llp)) allocate(K_rho_B_llp(l_space_dim, l_space_dim))
         !if (.not. allocated(K_rho_phi_llp_rg)) allocate(K_rho_phi_llp_rg(l_space_dim, l_space_dim, npoib))
+        K_rho_phi_llp = 0.0d0
+        K_rho_B_llp = 0.0d0
 
         if (.not. allocated(varphi_lkr)) then
             if (fstatus == 1) write(*,*) 'Status: Calculate Fourier transformed spline functions'
@@ -98,9 +100,11 @@ module cut_off_integration
                     ! integrate over r_g
                     do i_rg = 2, npoib
                         !K_rho_phi_llp_rg(l, lp, i_rg) = func_trapz_int_2D(l, lp, i_rg) ! + remaining terms
-                        K_rho_phi_llp(l,lp) = 0.5d0 * (func_trapz_int_2D(l,lp, i_rg) + func_trapz_int_2D(l,lp, i_rg-1)) &
+                        K_rho_phi_llp(l,lp) = K_rho_phi_llp(l,lp) + 0.5d0 * &
+                        (func_trapz_int_2D(l,lp, i_rg) + func_trapz_int_2D(l,lp, i_rg-1)) &
                             * (rb(i_rg) - rb(i_rg - 1))
-                        K_rho_B_llp(l,lp) = 0.5d0 * (func_trapz_int_2D_rho_B(l,lp, i_rg) + func_trapz_int_2D_rho_B(l,lp, i_rg-1)) &
+                        K_rho_B_llp(l,lp) = K_rho_B_llp(l,lp) + 0.5d0 * &
+                        (func_trapz_int_2D_rho_B(l,lp, i_rg) + func_trapz_int_2D_rho_B(l,lp, i_rg-1)) &
                             * (rb(i_rg) - rb(i_rg - 1))
                     end do
                     

@@ -32,8 +32,7 @@ subroutine calculate_fourier_trans_spline_funcs(write_out)
                 do n =2, npoib-2
                     !varphi_lkr(i,n) = FT_hat_function_ne(rb(n), rb(n-1), rb(n+1), &
                     !                                    rb(n+2), kr(i))
-                    varphi_lkr(i,n) = tilde_varphi_lkr(xl(n), xl(n-1), xl(n+1), &
-                                                        xl(n+2), kr(i))
+                    varphi_lkr(i,n) = tilde_varphi_lkr(xl(n), xl(n-1), xl(n+1), kr(i))
 
                 end do
             end do
@@ -53,9 +52,6 @@ subroutine calculate_fourier_trans_spline_funcs(write_out)
         if (krr == 0.0d0) then ! analytical limit
             res = 0.5d0 * (xlp1 - xlm1)
         else 
-            !res = exp(- com_unit * krr * xl) * ((xlp1-xl) * (1d0 - exp(com_unit * krr * (xl-xlm1))) + &
-            !(xl-xlm1) * (1d0 + com_unit * krr * (2.0d0 * xlp1 - xl - xlp2) - exp(-com_unit * krr * (xlp2 - xlp1)))) / &
-            !((xlp1 - xl) * (xl - xlm1) * krr**2d0)
             res = exp(- com_unit * krr * xl) * ((xlp1-xl) * (1.0d0 - exp(com_unit * krr * (xl-xlm1))) &
                   + (xl-xlm1) * (1.0d0 - exp(-com_unit * krr * (xlp1 - xl)))) &
                   / ((xlp1 - xl) * (xl - xlm1) * krr**2d0)
@@ -64,17 +60,14 @@ subroutine calculate_fourier_trans_spline_funcs(write_out)
     end function
 
     ! \tilde varphi_{l,k_r} for non-equidistant grid, i.e. without the factor exp(-i kr xl)
-    double complex function tilde_varphi_lkr(xl, xlm1, xlp1, xlp2, krr) result (res)
+    double complex function tilde_varphi_lkr(xl, xlm1, xlp1, krr) result (res)
 
         implicit none
-        double precision, intent(in) :: xl, xlm1, xlp1, xlp2, krr
+        double precision, intent(in) :: xl, xlm1, xlp1, krr
 
         if (krr == 0.0d0) then ! analytical limit
             res = 0.5d0 * (xlp1 - xlm1)
         else 
-            !res = exp(- com_unit * krr * xl) * ((xlp1-xl) * (1d0 - exp(com_unit * krr * (xl-xlm1))) + &
-            !(xl-xlm1) * (1d0 + com_unit * krr * (2.0d0 * xlp1 - xl - xlp2) - exp(-com_unit * krr * (xlp2 - xlp1)))) / &
-            !((xlp1 - xl) * (xl - xlm1) * krr**2d0)
             res = ((xlp1-xl) * (1.0d0 - exp(com_unit * krr * (xl-xlm1))) &
                   + (xl-xlm1) * (1.0d0 - exp(-com_unit * krr * (xlp1 - xl)))) &
                   / ((xlp1 - xl) * (xl - xlm1) * krr**2d0)
@@ -138,22 +131,19 @@ end subroutine
 
 
     ! \tilde varphi_{l,k_r} for non-equidistant grid, i.e. without the factor exp(-i kr xl)
-    double complex function tilde_varphi_lkr(xl, xlm1, xlp1, xlp2, krr) result (res)
+    !double complex function tilde_varphi_lkr(xl, xlm1, xlp1, krr) result (res)
 
-        use constants, only: com_unit        
+    !    use constants, only: com_unit        
 
-        implicit none
-        double precision, intent(in) :: xl, xlm1, xlp1, xlp2, krr
-
-        if (krr == 0.0d0) then ! analytical limit
-            res = 0.5d0 * (xlp1 - xlm1)
-        else 
-            !res = exp(- com_unit * krr * xl) * ((xlp1-xl) * (1d0 - exp(com_unit * krr * (xl-xlm1))) + &
-            !(xl-xlm1) * (1d0 + com_unit * krr * (2.0d0 * xlp1 - xl - xlp2) - exp(-com_unit * krr * (xlp2 - xlp1)))) / &
-            !((xlp1 - xl) * (xl - xlm1) * krr**2d0)
-            res = ((xlp1-xl) * (1.0d0 - exp(com_unit * krr * (xl-xlm1))) &
-                  + (xl-xlm1) * (1.0d0 - exp(-com_unit * krr * (xlp1 - xl)))) &
-                  / ((xlp1 - xl) * (xl - xlm1) * krr**2d0)
-        end if
-
-    end function
+    !    implicit none
+    !    double precision, intent(in) :: xl, xlm1, xlp1, krr
+!
+!        if (krr == 0.0d0) then ! analytical limit
+!            res = 0.5d0 * (xlp1 - xlm1)
+!        else 
+!            res = ((xlp1-xl) * (1.0d0 - exp(com_unit * krr * (xl-xlm1))) &
+!                  + (xl-xlm1) * (1.0d0 - exp(-com_unit * krr * (xlp1 - xl)))) &
+!                  / ((xlp1 - xl) * (xl - xlm1) * krr**2d0)
+!        end if
+!
+!    end function

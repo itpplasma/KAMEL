@@ -53,7 +53,7 @@ subroutine calculate_backs(write_out)
         ! Debye length
         lambda_De(i) = sqrt(Te_prof(i) *ev/ (4*pi*n_prof(i) * e_charge**2))
         ! First thermodynamic force
-        A1e(i) = dndr_prof(i) / n_prof(i) + e_charge/Te_prof(i) * Er_prof(i) - 3/(2*Te_prof(i)) * dTedr_prof(i)
+        A1e(i) = dndr_prof(i) / n_prof(i) + e_charge/(Te_prof(i) * ev) * Er_prof(i) - 3/(2*Te_prof(i)) * dTedr_prof(i)
         ! Second thermodynamic force
         A2e(i) = dTedr_prof(i) / Te_prof(i)
 
@@ -65,7 +65,7 @@ subroutine calculate_backs(write_out)
         ! ExB rotation frequency
         om_E(i) = - sol * ks(i) * Er_prof(i) / B0(i)
 
-        z0e(i) = - (om_E(i) - omega - com_unit * nue(i)) / (kp(i) * sqrt(2d0) * vTe(i) )
+        
     end do
 
     do sigma=1, ispecies
@@ -97,18 +97,21 @@ subroutine calculate_backs(write_out)
             ! Debye length ions
             lambda_Di(sigma, i) = sqrt(Ti_prof(sigma, i) * ev/ (4*pi*ni_prof(sigma,i) * (e_charge*Zi(sigma))**2))
             ! First thermodynamic force
-            A1i(sigma, i) = dnidr_prof(sigma, i) / ni_prof(sigma, i) - (e_charge*Zi(sigma))/Ti_prof(sigma, i) * Er_prof(i)&
+            A1i(sigma, i) = dnidr_prof(sigma, i) / ni_prof(sigma, i) - (e_charge*Zi(sigma))/(Ti_prof(sigma, i) * ev) * Er_prof(i)&
                         - 3/(2*Ti_prof(sigma, i)) * dTidr_prof(sigma, i)
             ! Second thermodynamic force
             A2i(sigma, i) = dTidr_prof(sigma, i) / Ti_prof(sigma, i)
 
-            z0i(sigma, i) = - (om_E(i) - omega - com_unit * nui(sigma, i)) / (kp(i) * sqrt(2d0) * vTi(sigma, i) )
+            if (collisions_off .eqv. .true.)then
+                nue(i) = 0.0d0
+                nui(sigma, i) = 0.0d0
+            end if
 
+            z0i(sigma, i) = - (om_E(i) - omega - com_unit * nui(sigma, i)) / (kp(i) * sqrt(2d0) * vTi(sigma, i) )
+            z0e(i) = - (om_E(i) - omega - com_unit * nue(i)) / (kp(i) * sqrt(2d0) * vTe(i) )
         end do
     end do
 
-    nue = 0.0d0
-    nui = 0.0d0
 
 
     max_ind = maxloc(vTi)

@@ -263,32 +263,33 @@ module cut_off_integration
                 ! second term of transformation (integral over kr', kr at boundary)
                 ! use loop over kr for integration over krp. That's why here the i_kr index is used.
                 func_trapz_int_2D = func_trapz_int_2D + 0.5d0 * com_unit / (rb(i_rg) - xl(l)) &
-                    * (varphi_lkr(closest_kr_ind_upper, l) &
+                    * (varphi_lkr(closest_kr_ind_upper, l) * exp(com_unit * kr(closest_kr_ind_upper) * (rb(i_rg) - xl(l))) &
+                        ! first integral
                         * (exp(com_unit * krp(i_kr) * (xl(lp) - rb(i_rg))) * conjg(varphi_lkr(i_kr, lp)) &
                         * K_rho_phi_of_rg(i_kr, closest_kr_ind_upper, i_rg) &
                         - exp(com_unit * krp(i_kr-1) * (xl(lp) - rb(i_rg))) * conjg(varphi_lkr(i_kr-1, lp))&
                         * K_rho_phi_of_rg(i_kr-1, closest_kr_ind_upper, i_rg)) &
                     ! second term in bracket:
-                    - varphi_lkr(closest_kr_ind_lower, l) &
+                    - varphi_lkr(closest_kr_ind_lower, l) * exp(com_unit * kr(closest_kr_ind_lower) * (rb(i_rg) - xl(l)))&
                         * (exp(com_unit * krp(i_kr) * (xl(lp) - rb(i_rg))) * conjg(varphi_lkr(i_kr, lp)) &
                         * K_rho_phi_of_rg(i_kr, closest_kr_ind_lower, i_rg) &
-                        - exp(com_unit * krp(i_kr-1) * (xl(lp) - rb(i_rg))) &
-                        * conjg(varphi_lkr(i_kr-1, lp)) * K_rho_phi_of_rg(i_kr-1, closest_kr_ind_lower, i_rg))) &
+                        - exp(com_unit * krp(i_kr-1) * (xl(lp) - rb(i_rg)))* conjg(varphi_lkr(i_kr-1, lp))&
+                        * K_rho_phi_of_rg(i_kr-1, closest_kr_ind_lower, i_rg))) &
                     * (krp(i_kr) - krp(i_kr-1))
 
                 ! third term of transformation (integral over kr, kr' at boundary)
                 func_trapz_int_2D = func_trapz_int_2D + 0.5d0 * com_unit / (xl(lp) - rb(i_rg)) &
                     ! first term in bracket, kr' upper limit
-                    * (conjg(varphi_lkr(closest_kr_ind_upper, lp)) &
+                    * (conjg(varphi_lkr(closest_kr_ind_upper, lp)) * exp(com_unit * kr(closest_kr_ind_upper) * (xl(lp) - rb(i_rg)))&
                         * (exp(com_unit * kr(i_kr) * (rb(i_rg) - xl(l))) * varphi_lkr(i_kr, l) &
                         * K_rho_phi_of_rg(closest_kr_ind_upper, i_kr, i_rg) &
-                        -  exp(com_unit * kr(i_kr-1) * (rb(i_rg) - xl(lp))) &
+                        -  exp(com_unit * kr(i_kr-1) * (rb(i_rg) - xl(l))) &
                         * varphi_lkr(i_kr-1, l) * K_rho_phi_of_rg(closest_kr_ind_upper, i_kr-1, i_rg)) &
                     ! second term in bracket, kr' lower limit
-                    - conjg(varphi_lkr(closest_kr_ind_lower, lp)) &
+                    - conjg(varphi_lkr(closest_kr_ind_lower, lp)) * exp(com_unit * kr(closest_kr_ind_lower) * (xl(lp) - rb(i_rg)))&
                         * (exp(com_unit * kr(i_kr) * (rb(i_rg) - xl(l))) * varphi_lkr(i_kr, l) &
                         * K_rho_phi_of_rg(closest_kr_ind_lower, i_kr, i_rg) &
-                        -  exp(com_unit * kr(i_kr-1) * (rb(i_rg) - xl(lp))) &
+                        -  exp(com_unit * kr(i_kr-1) * (rb(i_rg) - xl(l))) &
                         * varphi_lkr(i_kr-1, l) * K_rho_phi_of_rg(closest_kr_ind_lower, i_kr-1, i_rg))) &
                     * (kr(i_kr) - kr(i_kr-1))
 
@@ -303,12 +304,16 @@ module cut_off_integration
 
         ! fourth term of transformation (term on the boundaries in kr and kr')
         func_trapz_int_2D = func_trapz_int_2D + 1.0d0 / ((xl(lp) - rb(i_rg)) * (xl(l) - rb(i_rg))) &
-            * (conjg(varphi_lkr(closest_kr_ind_upper, lp)) &
-            * (varphi_lkr(closest_kr_ind_upper, l) * K_rho_phi_of_rg(closest_kr_ind_upper, closest_kr_ind_upper, i_rg) &
-            - varphi_lkr(closest_kr_ind_lower, l) * K_rho_phi_of_rg(closest_kr_ind_upper, closest_kr_ind_lower, i_rg)))&
-            * (conjg(varphi_lkr(closest_kr_ind_lower, lp)) &
-            * (varphi_lkr(closest_kr_ind_upper, l) * K_rho_phi_of_rg(closest_kr_ind_lower, closest_kr_ind_upper, i_rg) &
-            - varphi_lkr(closest_kr_ind_lower, l) * K_rho_phi_of_rg(closest_kr_ind_lower, closest_kr_ind_lower, i_rg)))
+            * (conjg(varphi_lkr(closest_kr_ind_upper, lp)) * exp(com_unit * kr(closest_kr_ind_upper) * (xl(lp) - rb(i_rg)))&
+            * (varphi_lkr(closest_kr_ind_upper, l) * exp(com_unit * kr(closest_kr_ind_upper) * (rb(i_rg) - xl(l)))&
+                * K_rho_phi_of_rg(closest_kr_ind_upper, closest_kr_ind_upper, i_rg) &
+            - varphi_lkr(closest_kr_ind_lower, l)* exp(com_unit * kr(closest_kr_ind_lower) * (rb(i_rg) - xl(l)))&
+                * K_rho_phi_of_rg(closest_kr_ind_upper, closest_kr_ind_lower, i_rg)))&
+            * (conjg(varphi_lkr(closest_kr_ind_lower, lp)) * exp(com_unit * kr(closest_kr_ind_lower) * (xl(lp) - rb(i_rg)))&
+            * (varphi_lkr(closest_kr_ind_upper, l) * exp(com_unit * kr(closest_kr_ind_upper) * (rb(i_rg) - xl(l)))&
+                * K_rho_phi_of_rg(closest_kr_ind_lower, closest_kr_ind_upper, i_rg) &
+            - varphi_lkr(closest_kr_ind_lower, l) * exp(com_unit * kr(closest_kr_ind_lower) * (rb(i_rg) - xl(l)))&
+                * K_rho_phi_of_rg(closest_kr_ind_lower, closest_kr_ind_lower, i_rg)))
 
     end function func_trapz_int_2D
 

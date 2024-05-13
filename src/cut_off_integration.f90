@@ -26,9 +26,12 @@ module cut_off_integration
         !use integrands, only: integrand_K_rho_phi_krp, integrand_K_rho_phi_kr
         !use integration, only: integrate_krp, integrate_kr
         use config, only: fstatus
+        use setup, only: eps_reg
         use kernel, only: fill_all_kernels, K_rho_phi_llp, K_rho_B_llp, K_rho_phi_of_rg
         use grid, only: xl
+        use resonances_mod, only: r_res
         use loading_bar
+        use constants, only: pi
 
         implicit none
 
@@ -101,11 +104,13 @@ module cut_off_integration
                     do i_rg = 2, npoib
                         !K_rho_phi_llp_rg(l, lp, i_rg) = func_trapz_int_2D(l, lp, i_rg) ! + remaining terms
                         K_rho_phi_llp(l,lp) = K_rho_phi_llp(l,lp) + 0.5d0 * &
-                        (func_trapz_int_2D(l,lp, i_rg) + func_trapz_int_2D(l,lp, i_rg-1)) &
-                            * (rb(i_rg) - rb(i_rg - 1))
+                        (func_trapz_int_2D(l,lp, i_rg)   * exp(- 0.5d0 *eps_reg * (rb(i_rg)   - r_res)**2) &
+                        +func_trapz_int_2D(l,lp, i_rg-1) * exp(- 0.5d0 *eps_reg * (rb(i_rg-1) - r_res)**2)) &
+                            * (rb(i_rg) - rb(i_rg - 1))  * (sqrt(eps_reg / 2.0d0 * pi))
                         K_rho_B_llp(l,lp) = K_rho_B_llp(l,lp) + 0.5d0 * &
-                        (func_trapz_int_2D_rho_B(l,lp, i_rg) + func_trapz_int_2D_rho_B(l,lp, i_rg-1)) &
-                            * (rb(i_rg) - rb(i_rg - 1))
+                        (func_trapz_int_2D_rho_B(l,lp, i_rg)    * exp(- 0.5d0*eps_reg * (rb(i_rg)   - r_res)**2) &
+                        +func_trapz_int_2D_rho_B(l,lp, i_rg-1)  * exp(- 0.5d0*eps_reg * (rb(i_rg-1) - r_res)**2))  &
+                            * (rb(i_rg) - rb(i_rg - 1)) * (sqrt(eps_reg / 2.0d0 * pi))
                     end do
                     
                     call updateLoadingBar(element_counter, count_elem_to_calc)

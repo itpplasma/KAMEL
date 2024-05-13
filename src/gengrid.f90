@@ -7,6 +7,7 @@
     use grid
     use config, only: fdebug, output_path
     use plasma_parameter, only: r_prof
+    use resonances_mod, only: index_res, r_res
 
     implicit none
 
@@ -63,8 +64,11 @@
     enddo
 
     ! modifie this if xl and rg should have different grids
-    xl = rb + 0.01
+    xl = rb + 0.1
     l_space_dim = npoib
+
+    ! get index for resonant radius
+    call binsrc(abs(xl), 1, npoib, abs(r_res), index_res)
 
     if(iboutype .eq. 1) then
         rscale = (rmax - rmin) / (rc(npoic) - rmin)
@@ -191,7 +195,7 @@ end subroutine recnsplit_kr
 subroutine prepare_resonances
 
     use resonances_mod
-    use grid, only: gg_width, gg_factor,r_resonant, grid_spacing
+    use grid, only: gg_width, gg_factor, grid_spacing
     use config, only: hdf5_output, fdebug
     use setup, only: m_mode, n_mode
     use plasma_parameter, only: iprof_length, r_prof, q_prof
@@ -237,6 +241,7 @@ subroutine prepare_resonances
         exit
       endif
     enddo
+    
 
     write(*,*) 'resonant radius: ',r_res
     deallocate(q)

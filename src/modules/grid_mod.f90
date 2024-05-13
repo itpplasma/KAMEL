@@ -27,7 +27,6 @@ module grid
     integer,          dimension(:),   allocatable :: ipbeg, ipend
     double precision, dimension(:),   allocatable :: rb, rc, Sb, Sc
     double precision, dimension(:),   allocatable :: y, dery, dery_equisource
-    double precision, dimension(:),   allocatable :: r_resonant
     double precision, dimension(:,:), allocatable :: deriv_coef, reint_coef
     
 end module

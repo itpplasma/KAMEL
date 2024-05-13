@@ -5,5 +5,6 @@ module resonances_mod
     integer :: iunit_res
     !double precision, dimension(:), allocatable :: r_res,width_res,ampl_res
     double precision :: r_res, width_res, ampl_res
+    integer :: index_res
 
 end module resonances_mod

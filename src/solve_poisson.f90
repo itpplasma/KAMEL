@@ -14,6 +14,7 @@ subroutine solve_poisson
     use back_quants, only: vTi, vTe
     use plasma_parameter, only: Zi, Ai
     use setup, only: btor, cut_off_fac, type_br_field
+    use resonances_mod, only: index_res
 
     implicit none
 
@@ -145,6 +146,15 @@ subroutine solve_poisson
         do i = 5/6 *size(b_vec), size(b_vec)
             b_vec(i) = (i - size(b_vec)/2) * 0.02d0 * cmplx(1.0d0, 0.0d0) - 0.2d0
         end do 
+    elseif(type_br_field == 4) then
+        ! put point charge at resonant surface
+        b_vec(index_res) = cmplx(-1.0d0, 0.0d0)
+    end if
+
+    if (type_br_field /= 2 .and. type_br_field /= 4) then
+        ! multiply with K_rho_B_llp if not point charge case
+        write(*,*) "multiply with K_rho_B_llp"
+        b_vec = - 4d0 * pi * matmul(K_rho_B_llp, b_vec)
     end if
 
     inquire(file=trim(output_path)//'fields', exist=ex)
@@ -160,10 +170,6 @@ subroutine solve_poisson
     close(79)
     close(80)
 
-    if (.not. type_br_field == 2) then
-        ! multiply with K_rho_B_llp if not point charge case
-        b_vec = - 4d0 * pi * matmul(K_rho_B_llp, b_vec)
-    end if
     
     !b_vec = matmul(A_mat, b_vec)
 

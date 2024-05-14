@@ -48,7 +48,7 @@ class kimpy:
 
     def generate_constant_profiles(self, r_max=65.0, ne=1e13, Te=1e3, Ti=1e3, Vz=1e5, Er=0.5):
         self.profile_path = self.runpath + 'profiles/'
-        r = np.linspace(0, r_max, 1000)
+        r = np.linspace(0.1, r_max, 1000)
         ne = ne * np.ones_like(r)
         Te = Te * np.ones_like(r)
         Ti = Ti * np.ones_like(r)
@@ -66,4 +66,15 @@ class kimpy:
                    
 
     def take_existing_profiles(self, from_path):
-       os.symlink(from_path, self.runpath + 'profiles/') 
+        
+        if os.path.islink(self.runpath + 'profiles/'):
+            # Remove the symlink
+            os.unlink(self.runpath + 'profiles/')
+            print("Symlink removed successfully.")
+        else:
+            print("The specified path is either not a symlink or does not exist.")
+        try:
+            shutil.rmtree(self.runpath + 'profiles/')
+        except:
+            print("No profiles directory found in runpath.")
+        os.symlink(from_path, self.runpath + 'profiles/') 

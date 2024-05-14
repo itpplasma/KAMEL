@@ -23,7 +23,7 @@ module kernel_functions
     !double precision :: eval_bp, eval_bt ! b_+ and b_\times
     double complex :: eval_bp, eval_bt ! b_+ and b_\times
 
-    double precision :: b_times_limit = 3d0
+    double precision :: b_times_limit = 3d0!3d0
     double precision :: z0_limit = 4.5d0
 
 
@@ -110,7 +110,6 @@ module kernel_functions
                     * A2_res * eval_bt * eval_besselIm1 ! *exp(-eval_bp) 
                 a1 = - kp_res/omc_res * eval_besselI0 ! * exp(-eval_bp) 
                 a2 = ks_res / (2d0 * omc_res**2d0) * A2_res * eval_besselI0 ! * exp(-eval_bp) 
-
 
                 ! large z limit applies for large k_parallel, i.e. close to the resonant surface
                 if (abs(z0_res) > z0_limit) then

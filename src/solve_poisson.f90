@@ -82,6 +82,23 @@ subroutine solve_poisson
     !    end do
     !end do
     !if (fdebug == 1) write(*,*) 'set_zero = ', set_zero
+    if (any(isnan(real(K_rho_phi_llp)))) then
+        print *, "K_rho_phi_llp contains NaN values."
+    else
+        print *, "K_rho_phi_llp does not contain NaN values."
+    end if
+
+    if (any(isnan(real(K_rho_B_llp)))) then
+        print *, "K_rho_B_llp contains NaN values."
+    else
+        print *, "K_rho_B_llp does not contain NaN values."
+    end if
+
+    if (any(isnan(real(A_mat)))) then
+        print *, "A_mat contains NaN values."
+    else
+        print *, "A_mat does not contain NaN values."
+    end if
 
     A_mat = A_mat + 4d0 * pi * K_rho_phi_llp
 
@@ -138,7 +155,7 @@ subroutine solve_poisson
 
     if (type_br_field ==1) then
         ! constant Br field
-        b_vec = cmplx(-4.0d0 * pi, 0.0d0)
+        b_vec = cmplx(1.0d0, 0.0d0)
     elseif(type_br_field == 2) then
         ! point charge like Br field
         b_vec(size(b_vec)/2) = cmplx(-4.0d0 * pi, 0.0d0)

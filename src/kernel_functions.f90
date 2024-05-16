@@ -25,6 +25,7 @@ module kernel_functions
 
     double precision :: b_times_limit = 3d0!3d0
     double precision :: z0_limit = 4.5d0
+    logical :: debye_limit = .true.
 
 
     contains 
@@ -105,11 +106,23 @@ module kernel_functions
                     eval_besselI0 = besselI(0, eval_bt, 0) * exp(-eval_bp)
                     eval_besselIm1 = besselI(-1, eval_bt, 0) * exp(-eval_bp)
                 end if 
-                a0 = eval_besselI0 * (- om_E_res / omc_res + ks_res * vT_res**2d0 &
+
+                
+                if (debye_limit .eqv. .true.)then
+                    eval_besselI0 = cmplx(0.0d0, 0.0d0)
+                    A1_res = 0.0d0
+                    A2_res = 0.0d0
+                    z0_res = 0.0d0
+                    a0 = 0.0d0
+                    a1 = 0.0d0
+                    a2 = 0.0d0
+                else
+                    a0 = eval_besselI0 * (- om_E_res / omc_res + ks_res * vT_res**2d0 &
                     / (omc_res**2d0) * (A1_res + (1.0d0 + eval_bp) * A2_res)) + ks_res * vT_res**2d0 / (omc_res**2d0) &
                     * A2_res * eval_bt * eval_besselIm1 ! *exp(-eval_bp) 
-                a1 = - kp_res/omc_res * eval_besselI0 ! * exp(-eval_bp) 
-                a2 = ks_res / (2d0 * omc_res**2d0) * A2_res * eval_besselI0 ! * exp(-eval_bp) 
+                    a1 = - kp_res/omc_res * eval_besselI0 ! * exp(-eval_bp) 
+                    a2 = ks_res / (2d0 * omc_res**2d0) * A2_res * eval_besselI0 ! * exp(-eval_bp) 
+                end if
 
                 ! large z limit applies for large k_parallel, i.e. close to the resonant surface
                 if (abs(z0_res) > z0_limit) then
@@ -136,7 +149,15 @@ module kernel_functions
 
             deallocate(coef)
 
-            kernel_rho_phi_of_kr_krp_rg = kernel_rho_phi_of_kr_krp_rg / (2d0**3 * pi**2)
+            if (debye_limit .eqv. .true.)then
+                if (val_kr == val_krp) then
+                    kernel_rho_phi_of_kr_krp_rg = - 1.0d0 / (4.0d0 * lambda_D_res**2.0d0)
+                else 
+                    kernel_rho_phi_of_kr_krp_rg = 0.0d0
+                end if
+            else
+                kernel_rho_phi_of_kr_krp_rg = kernel_rho_phi_of_kr_krp_rg / (2d0**3 * pi**2)
+            end if
 
         end function kernel_rho_phi_of_kr_krp_rg
 

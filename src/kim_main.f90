@@ -9,10 +9,13 @@ program kim_main
     use cut_off_integration
     use equilibrium, only: calculate_equil
     use kernel_functions, only: kernel_rho_phi_of_kr_krp_rg, kernel_rho_B_of_kr_krp_rg
+    use unit_tests, only: test_all, test_sparse_solver
+    use poisson_solver, only: solve_poisson
 
     implicit none
 
     real :: t_start, t_finish
+    integer :: ierr = 0
 
     namelist /KIM_CONFIG/ profile_location, hdf5_input, hdf5_output, &
                           fdebug, fstatus, ispecies, output_path
@@ -73,14 +76,27 @@ program kim_main
 
     ! calculate quantities used for the kernels, e.g. A1, A2, dndr, omega_c,...
     call calculate_backs(.true.)
+
+    call test_all(ierr)
+    if (ierr /= 0) then
+        write(*,*) 'Unit tests failed with sum of errors: ', ierr
+        stop
+    end if
     
     ! generate non-equidistant grid for spline functions (i.e. real space)
     call gengrid(num_gengrid_points, .true.)
 
-    call basis_transformation_integration(.true.)
+    !call basis_transformation_integration(.true.)
+    call fill_spline_kernel_debye(.true.)
 
     !write(*,*) 'Kernel rho phi: ', kernel_rho_phi_of_kr_krp_rg(1.0d0, 2.0d0, 50.0d0)
     !write(*,*) 'Kernel rho B  : ', kernel_rho_B_of_kr_krp_rg(1.0d0, 2.0d0, 50.0d0)
+
+    !call test_sparse_solver(ierr)
+    !if (ierr /= 0) then
+    !    write(*,*) 'Unit tests failed with sum of errors: ', ierr
+    !    stop
+    !end if
 
     ! solve poisson's equation with spline solver
     call solve_poisson

@@ -15,6 +15,9 @@ set(KIM_subs plasma_parameter.f90
              spline_function.f90
              solve_poisson.f90
              loading_bar.f90
+             integrands.f90
+             unit_tests.f90
+             debye_kernel.f90
              cut_off_integration.f90
              kernel_functions.f90
              math/suitesparse/umf4_f77zwrapper.c

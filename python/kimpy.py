@@ -8,6 +8,7 @@ class kimpy:
 
     kim_config_nml = os.path.dirname(__file__) + '/../nmls/KIM_config.nml'
     kim_exe_path = os.path.dirname(__file__) + '/../KIM_exe'
+    omp_num_threads = 6
 
     def __init__(self, runpath):
 
@@ -28,7 +29,7 @@ class kimpy:
             os.chdir(self.runpath)
             print(os.getcwd())
             # Run the command and capture the output in real-time
-            process = subprocess.Popen(self.command, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, bufsize=1, universal_newlines=True)
+            process = subprocess.Popen(self.command, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, bufsize=1, universal_newlines=True, env=dict(os.environ, OMP_NUM_THREADS=str(self.omp_num_threads)))
 
             # Read and print the output line by line
             if (not no_out):

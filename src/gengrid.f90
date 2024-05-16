@@ -75,7 +75,7 @@
     enddo
 
     ! modifie this if xl and rg should have different grids
-    xl = rb + 0.1
+    xl = rb !+ 0.1
     l_space_dim = npoib
 
     ! get index for resonant radius

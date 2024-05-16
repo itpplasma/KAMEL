@@ -240,7 +240,7 @@ module kernel_functions
 
             deallocate(coef)
 
-            kernel_rho_B_of_kr_krp_rg = kernel_rho_B_of_kr_krp_rg * com_unit / (8d0 * pi**2)! * sol)
+            kernel_rho_B_of_kr_krp_rg = kernel_rho_B_of_kr_krp_rg * com_unit / (8d0 * pi**2 * sol)
 
         end function kernel_rho_B_of_kr_krp_rg
 

@@ -7,7 +7,7 @@
     use grid
     use config, only: fdebug, output_path
     use plasma_parameter, only: r_prof
-    use resonances_mod, only: index_res, r_res
+    use resonances_mod, only: index_res, r_res, width_res, ampl_res
 
     implicit none
 
@@ -25,6 +25,17 @@
     npoi_der=4
     allocate(coef(0:nder,npoi_der))
     !allocate(x(npoi_der))
+
+    ! set parameters for grid spacing. grid_spacing=1: quidistant grid, grid_spacing=2: non-equidistant grid
+    if (grid_spacing == 1) then
+        write(*,*) 'grid_spacing = 1'
+        width_res = 1.0
+        ampl_res = 0.0
+    elseif (grid_spacing == 2) then
+        write(*,*) 'grid_spacing = 2'
+        width_res = 3.0
+        ampl_res = 0.3
+    end if
 
     rmin = minval(r_prof)
     rmax = maxval(r_prof)
@@ -220,16 +231,6 @@ subroutine prepare_resonances
     !width_res = gg_width
     !ampl_res = gg_factor
 
-    if (grid_spacing == 1) then
-        write(*,*) 'grid_spacing = 1'
-        width_res = 1.0
-        ampl_res = 0.0
-    elseif (grid_spacing == 2) then
-        write(*,*) 'grid_spacing = 2'
-        width_res = 2.0
-        ampl_res = 1.0
-    end if
-
     qres = abs(dfloat(m_mode)/dfloat(n_mode))
     if(qres.lt.qmin.or.qres.gt.qmax) write(*,*) "Resonance location not found in q"
 
@@ -248,41 +249,6 @@ subroutine prepare_resonances
 
 end subroutine prepare_resonances
 
-
-! generate grid for spline function space
-!subroutine generate_l_space_grid
-!
-!    use plasma_parameter
-!    use back_quants
-!    use setup
-!
-!    implicit none
-!    integer :: ind, ibeg, iend
-!    integer :: nlagr = 4
-!    integer :: nder = 0
-!    double precision, dimension(:,:), allocatable :: coef
-!    double precision :: r_res
-!    double precision :: q_res
-!!
-!    if(.not. allocated(coef)) allocate(coef(0:nder, nlagr))
-!
-!    q_res = -dble(m_mode) / dble(n_mode)
-!    write(*,*) q_res
-!    ! find center, i.e. rational surface
-!    call binsrc(abs(q_prof), 1, iprof_length, abs(q_res), ind)
-!    ibeg = max(1, ind - nlagr/2)
-!    iend = ibeg + nlagr - 1
-!    if (iend .gt. iprof_length) then
-!        iend = iprof_length
-!        ibeg = iend - nlagr + 1
-!    end if
-!
-!    call plag_coeff(nlagr, nder, q_res, q_prof(ibeg:iend), coef)
-!
-!    r_res = sum(coef(0,:) * r_prof(ibeg:iend))
-!    write(*,*) r_res
-!
-!end subroutine
 
 subroutine generate_k_space_grid(npoi_min, write_out, kr_cut)
     

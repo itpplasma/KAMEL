@@ -82,7 +82,7 @@ subroutine calculate_fourier_trans_spline_funcs(write_out)
         implicit none
         double precision, intent(in) :: xl, xlp1, krr
 
-        if (krr == 0) then ! analytical limit
+        if (krr == 0.0d0) then ! analytical limit
             res = 0.0d0
         else
             res = 2d0 * exp(-com_unit * krr * xl) * (1d0 - cos((xlp1 - xl) * krr)) / ((xlp1 - xl) * krr**2)
@@ -96,7 +96,7 @@ subroutine calculate_fourier_trans_spline_funcs(write_out)
         implicit none
         double precision, intent(in) :: xl, xlp1, krr
 
-        if (krr == 0) then ! analytical limit
+        if (krr == 0.0d0) then ! analytical limit
             res = 0.0d0
         else
             res = 2d0 * (1d0 - cos((xlp1 - xl) * krr)) / ((xlp1 - xl) * krr**2)

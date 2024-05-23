@@ -158,12 +158,8 @@ module cut_off_integration
         !use integrands, only: integrand_K_rho_phi_krp, integrand_K_rho_phi_kr
         !use integration, only: integrate_krp, integrate_kr
         use config, only: fstatus
-        use setup, only: eps_reg
         use debye_kernel, only: func_debye_kernel
         use grid, only: xl
-        use resonances_mod, only: r_res
-        use loading_bar
-        use constants, only: pi
         use kernel, only: K_rho_phi_llp, K_rho_B_llp
 
         implicit none
@@ -171,7 +167,6 @@ module cut_off_integration
         integer :: l, lp, i_rg, i_k
         logical, intent(in) :: write_out
         integer :: count_elem_to_calc
-        integer :: element_counter = 0
 
         if (fstatus==1) write(*,*) 'Status: Basis transformation'
 
@@ -188,24 +183,9 @@ module cut_off_integration
         if (.not. allocated(K_rho_B_llp)) allocate(K_rho_B_llp(l_space_dim, l_space_dim))
         K_rho_B_llp = 0.0d0
 
-        element_counter = 0
-
-        ! integrate over kr and krp for every spline base element
-        !$OMP PARALLEL DO PRIVATE(l, lp, i_rg) &
-        !$OMP SHARED(l_space_dim, xl, cut_off_fac, rho_L, element_counter, K_rho_phi_llp, rb, npoib) schedule(guided)
         do l = 1, l_space_dim ! first index of basis transformed kernel
-            do lp = 1, l_space_dim ! second index of basis transformed kernel
-                if (abs(xl(l) - xl(lp)) <= cut_off_fac * rho_L ) then
-
-                    element_counter = element_counter + 1
-                    K_rho_phi_llp(l,lp) = func_debye_kernel(0.0d0,0.0d0)!int_debye_kernel(l,lp)
-                    
-                    !call updateLoadingBar(element_counter, count_elem_to_calc)
-
-                end if
-            end do
+            K_rho_phi_llp(l,l) = func_debye_kernel(0.0d0,0.0d0)!int_debye_kernel(l,lp)
         end do
-        !$OMP END PARALLEL DO
 
         write(*,*) ''
         write(*,*) 'finished basis trafo'

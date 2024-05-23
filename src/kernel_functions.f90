@@ -25,7 +25,7 @@ module kernel_functions
 
     double precision :: b_times_limit = 3d0!3d0
     double precision :: z0_limit = 4.5d0
-    logical :: debye_limit = .true.
+    logical :: debye_limit = .false.
 
 
     contains 
@@ -151,12 +151,17 @@ module kernel_functions
 
             if (debye_limit .eqv. .true.)then
                 if (val_kr == val_krp) then
-                    kernel_rho_phi_of_kr_krp_rg = - 1.0d0 / (4.0d0 * lambda_D_res**2.0d0)
+                    kernel_rho_phi_of_kr_krp_rg = - 1.0d0 / (4.0d0 * pi * lambda_D_res**2.0d0)
                 else 
                     kernel_rho_phi_of_kr_krp_rg = 0.0d0
                 end if
             else
+
                 kernel_rho_phi_of_kr_krp_rg = kernel_rho_phi_of_kr_krp_rg / (2d0**3 * pi**2)
+
+                if (isnan(real(kernel_rho_phi_of_kr_krp_rg))) then
+                    write(*,*) "kernel_rho_phi_of_kr_krp_rg: NaN detected"
+                end if
             end if
 
         end function kernel_rho_phi_of_kr_krp_rg

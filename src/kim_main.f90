@@ -86,8 +86,8 @@ program kim_main
     ! generate non-equidistant grid for spline functions (i.e. real space)
     call gengrid(num_gengrid_points, .true.)
 
-    !call basis_transformation_integration(.true.)
-    call fill_spline_kernel_debye(.true.)
+    call basis_transformation_integration(.true.)
+    !call fill_spline_kernel_debye(.true.)
 
     !write(*,*) 'Kernel rho phi: ', kernel_rho_phi_of_kr_krp_rg(1.0d0, 2.0d0, 50.0d0)
     !write(*,*) 'Kernel rho B  : ', kernel_rho_B_of_kr_krp_rg(1.0d0, 2.0d0, 50.0d0)

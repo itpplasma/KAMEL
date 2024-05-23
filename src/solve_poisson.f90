@@ -41,7 +41,8 @@ module poisson_solver
 
         call check_kernels_for_nans
 
-        A_mat = A_mat + 4d0 * pi * K_rho_phi_llp
+        ! divide by npoib for normalization of the sum
+        A_mat = (A_mat + 4d0 * pi * K_rho_phi_llp) / npoib
 
         if (fdebug == 1) then
             write(*,*) 'Debug: writing A matrix before sparse'
@@ -158,28 +159,19 @@ module poisson_solver
             call initialize_grid_spacing(dr, xl)
             ! create Laplacian:
             A_mat = cmplx(0.0d0, 0.0d0)
-            !A_mat(1,1) = -1d0 / (rb(1)) - 1d0 / (rb(2) - rb(1))
-            !A_mat(npoib,npoib) = - 1d0 / (rb(npoib) - rb(npoib-1))
-            !A_mat(1,2) = 1d0 / (rb(2) - rb(1))
-            !A_mat(2,1) = 1d0 / (rb(2) - rb(1))
 
-            !do i = 2, npoib-1
-            !    A_mat(i,i) = - 1d0 / (rb(i) - rb(i-1)) - 1d0 / (rb(i+1) - rb(i))
-            !    A_mat(i, i+1) = 1d0 / (rb(i+1) - rb(i))
-            !    A_mat(i, i-1) = 1d0 / (rb(i) - rb(i-1))
-            !end do
-
-            do i = 1, npoib
-                do j=1, npoib
-                    if (i==j) then
-                        A_mat(i,j) = -2.0d0 / (dr(i) * dr(i))
-                    else if (abs(i-j) == 1) then
-                        A_mat(i,j) = 1.0 / (dr(i) * dr(min(i,j)))
-                    else
-                        A_mat(i,j) = 0.0d0
-                    end if
-                end do
+            do i = 2, npoib-1
+                A_mat(i,i) = - 1d0 / (rb(i) - rb(i-1)) - 1d0 / (rb(i+1) - rb(i))
+                A_mat(i, i+1) = 1d0 / (rb(i+1) - rb(i))
+                A_mat(i, i-1) = 1d0 / (rb(i) - rb(i-1))
             end do
+
+            ! boundary conditions:
+            A_mat(1,1) = -1d0 / (rb(1)) !- 1d0 / (rb(2) - rb(1))
+            A_mat(npoib,npoib) = - 1d0 / (rb(npoib) - rb(npoib-1))
+            A_mat(1,2) = 0.0d0 !1d0 / (rb(2) - rb(1))
+            A_mat(npoib, npoib-1) = 0.0d0
+
 
             if (fdebug == 1) then
                 write(*,*) 'Debug: writing Laplacian A matrix before sparse'
@@ -256,19 +248,21 @@ module poisson_solver
                 rhs_vec = cmplx(1.0d0, 0.0d0)
             elseif(type == 2) then
                 ! point charge like Br field
-                rhs_vec(size(rhs_vec)/2) = cmplx(-4.0d0 * pi, 0.0d0)
+                rhs_vec(size(rhs_vec)/2) = cmplx(-4.0d0 * pi, 0.0d0)  * e_charge 
             elseif(type ==3) then
                 do i = 5/6 *size(b_vec), size(b_vec)
                     rhs_vec(i) = (i - size(rhs_vec)/2) * 0.02d0 * cmplx(1.0d0, 0.0d0) - 0.2d0
                 end do 
             elseif(type == 4) then
                 ! put point charge at resonant surface
-                rhs_vec(index_res) = cmplx(-4.0d0 * pi, 0.0d0) * e_charge
+                rhs_vec(index_res) = cmplx(-4.0d0 * pi, 0.0d0) * e_charge 
             elseif(type == 5) then
                 ! read from file
                 print *, "Reading B vector from file not implemented yet"
                 stop
             end if
+
+            rhs_vec = rhs_vec / npoib
 
             inquire(file=trim(output_path)//'fields', exist=ex)
             if (.not. ex) then

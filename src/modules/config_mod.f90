@@ -7,5 +7,6 @@ module config
     logical :: hdf5_input, hdf5_output
     integer :: fdebug, fstatus
     integer :: ispecies ! number of ion species
+    logical :: artificial_debye_case
 
 end module

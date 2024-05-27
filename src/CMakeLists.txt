@@ -1,28 +1,22 @@
 set(KIM_mods modules/config_mod.f90 
              modules/constants_mod.f90
              modules/setup_mod.f90
-             modules/grid_mod.f90
              modules/back_quants_mod.f90
              modules/kernel_mod.f90
-             modules/resonances_mod.f90
-             modules/kr_grid_mod.f90)
+             modules/resonances_mod.f90)
 
 set(KIM_subs plasma_parameter.f90
              plag_coeff.f90
              calculate_backs.f90
              calculate_equil.f90
-             gengrid.f90
              plasma_disp_func.f90
-             spline_function.f90
              solve_poisson.f90
              loading_bar.f90
              integrands.f90
              unit_tests.f90
-             debye_kernel.f90
              cut_off_integration.f90
              kernel_functions.f90
              dense_to_sparse.f90
-             generate_k_space_grid.f90
              math/suitesparse/umf4_f77zwrapper.c
              math/suitesparse/umf4_f77wrapper.c
              math/superlu/c_fortran_dgssv.c
@@ -32,10 +26,23 @@ set(KIM_subs plasma_parameter.f90
              math/use_libcerf_mod.f90
              math/sparse_mod.f90)
 
+set(KIM_debye debye_case/debye_kernel.f90
+              debye_case/fill_spline_kernel_debye.f90)
+
+set(KIM_grid grid/generate_k_space_grid.f90
+             grid/gengrid.f90
+             grid/kr_space_adjustments.f90
+             grid/spline_function.f90
+             grid/kr_grid_mod.f90
+             grid/grid_mod.f90
+             )
+
+set(KIM_util util/findClosestIndex.f90)
+
 
 set(CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/cmake" ${CMAKE_MODULE_PATH})
 
-add_library(KIM_lib STATIC "${KIM_mods}" "${KIM_subs}")
+add_library(KIM_lib STATIC "${KIM_mods}" "${KIM_subs}" "${KIM_debye}" "${KIM_grid}" "${KIM_util}")
 #set_target_properties(KIM_lib PROPERTIES
 #                        RUNTIME_OUTPUT_DIRECTORY "${CMAKE_SOURCE_DIR}/")
 

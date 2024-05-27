@@ -23,8 +23,8 @@ module kernel
             !use kernel_functions, only: K_rho_phi_of_rg, K_rho_B_of_rg, K_j_phi_of_rg, K_j_B_of_rg
             use config, only: fstatus
             use loading_bar
-            use grid, only: k_space_dim, l_space_dim, r_space_dim, kr, krp, &
-                    varphi_lkr, npoib, rb
+            use grid, only: l_space_dim, r_space_dim, varphi_lkr, npoib, rb
+            use kr_grid, only: k_space_dim, kr, krp
 
             implicit none
             integer :: i_kr, i_krp, i_rg

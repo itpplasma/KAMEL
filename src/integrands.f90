@@ -13,7 +13,8 @@ module integrands
         use kernel_functions, only: kernel_rho_phi_of_kr_krp_rg
         use kernel, only: K_rho_phi_of_rg
         use constants, only: com_unit
-        use grid, only: varphi_lkr, xl, kr, krp, rb
+        use grid, only: varphi_lkr, xl, rb
+        use kr_grid, only: kr, krp
 
         implicit none
         integer, intent(in) :: l, lp
@@ -40,7 +41,8 @@ module integrands
         use kernel_functions, only: kernel_rho_B_of_kr_krp_rg
         use kernel, only: K_rho_B_of_rg
         use constants, only: com_unit
-        use grid, only: varphi_lkr, xl, kr, krp, rb
+        use grid, only: varphi_lkr, xl, rb
+        use kr_grid, only: kr, krp
 
         implicit none
         integer, intent(in) :: l, lp

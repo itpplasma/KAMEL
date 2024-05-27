@@ -6,6 +6,7 @@ program kim_main
     use setup
     use use_libcerf
     use grid
+    use kr_grid
     use cut_off_integration
     use equilibrium, only: calculate_equil
     use kernel_functions, only: kernel_rho_phi_of_kr_krp_rg, kernel_rho_B_of_kr_krp_rg
@@ -20,19 +21,21 @@ program kim_main
     namelist /KIM_CONFIG/ profile_location, hdf5_input, hdf5_output, &
                           fdebug, fstatus, ispecies, output_path
 
-    namelist /KIM_SETUP/ btor, R0, m_mode, n_mode, Zi, Ai, k_space_dim, &
-                        reduce_r, reduced_r_dim, omega, spline_base, &
-                        grid_spacing, l_space_dim, cut_off_fac, kr_cut_off_fac, num_gengrid_points, &
-                        r_plas, type_br_field, collisions_off, eps_reg
+    namelist /KIM_SETUP/ btor, R0, m_mode, n_mode, Zi, Ai, omega, spline_base, &
+                        cut_off_fac, kr_cut_off_fac, r_plas, type_br_field, collisions_off, eps_reg
+
+    namelist /KIM_GRID/ k_space_dim, reduce_r, grid_spacing, l_space_dim, num_gengrid_points, &
+                        reduced_r_dim, kr_grid_width_res, kr_grid_ampl_res
 
     open(unit = 77, file = './KIM_config.nml')
     read(unit = 77, nml = KIM_CONFIG)
     allocate(Zi(ispecies), Ai(ispecies))
     read(unit = 77, nml = KIM_SETUP)
+    read(unit = 77, nml = KIM_GRID)
     close(unit = 77)
 
-    write(*,*) '+ + + + + + + + KIM + + + + + + + + + +'
-    write(*,*) ' - - - - - - - - - - - - - - - - - -'
+    write(*,*) '+ + + + + + + + KIM + + + + + + + + + + + + + + + +'
+    write(*,*) ' - - - - - - - - - - - - - - - - - - - - - - - -'
     write(*,*) 'Configuration namelist'
     write(*,*) '  profile_location = ', trim(profile_location)
     write(*,*) '  output_path      = ', trim(output_path)
@@ -41,8 +44,7 @@ program kim_main
     write(*,*) '  fdebug           = ', fdebug
     write(*,*) '  fstatus          = ', fstatus
     write(*,*) '  ispecies         = ', ispecies
-    write(*,*) ' - - - - - - - - - - - - - - - - - -'
-    write(*,*) ' - - - - - - - - - - - - - - - - - -'
+    write(*,*) ' - - - - - - - - - - - - - - - - - - - - - - - -'
     write(*,*) 'Setup namelist'
     write(*,*) '  btor             = ', btor
     write(*,*) '  R0               = ', R0
@@ -51,20 +53,25 @@ program kim_main
     write(*,*) '  n_mode           = ', n_mode
     write(*,*) '  Zi               = ', Zi
     write(*,*) '  Ai               = ', Ai
+    write(*,*) '  omega            = ', omega
+    write(*,*) '  spline_base      = ', spline_base
+    write(*,*) '  cut_off_fac      = ', cut_off_fac
+    write(*,*) '  kr_cut_off_fac   = ', kr_cut_off_fac 
+    write(*,*) '  type_br_field    = ', type_br_field
+    write(*,*) '  collisions_off   = ', collisions_off
+    write(*,*) '  eps_reg          = ', eps_reg
+    write(*,*) ' - - - - - - - - - - - - - - - - - - - - - - - -'
+    write(*,*) 'Grid namelist'
     write(*,*) '  k_space_dim      = ', k_space_dim
     write(*,*) '  l_space_dim      = ', l_space_dim
     write(*,*) '  reduce_r         = ', reduce_r
     write(*,*) '  reduced_r_dim    = ', reduced_r_dim
-    write(*,*) '  omega            = ', omega
-    write(*,*) '  spline_base      = ', spline_base
-    write(*,*) '  grid_spacing     = ', grid_spacing
-    write(*,*) '  cut_off_fac      = ', cut_off_fac
-    write(*,*) '  kr_cut_off_fac   = ', kr_cut_off_fac
     write(*,*) '  num_gengrid_points = ', num_gengrid_points
-    write(*,*) '  type_br_field    = ', type_br_field
-    write(*,*) '  collisions_off   = ', collisions_off
-    write(*,*) '  eps_reg          = ', eps_reg
-    write(*,*) ' - - - - - - - - - - - - - - - - - -'
+    write(*,*) '  grid_spacing     = ', grid_spacing
+    write(*,*) '  kr_grid_width_res = ', kr_grid_width_res
+    write(*,*) '  kr_grid_ampl_res = ', kr_grid_ampl_res
+    write(*,*) ' - - - - - - - - - - - - - - - - - - - - - - - -'
+    write(*,*) ' - - - - - - - - - - - - - - - - - - - - - - - -'
 
     t_start = omp_get_wtime()
 

@@ -42,7 +42,7 @@ module poisson_solver
         call check_kernels_for_nans
 
         ! divide by npoib for normalization of the sum
-        A_mat = (A_mat + 4d0 * pi * K_rho_phi_llp) / npoib
+        A_mat = (A_mat + 4d0 * pi * K_rho_phi_llp) !/ npoib
 
         if (fdebug == 1) then
             write(*,*) 'Debug: writing A matrix before sparse'
@@ -92,7 +92,7 @@ module poisson_solver
 
         call create_rhs_vector(type_br_field, b_vec)
 
-        if (type_br_field /= 2 .and. type_br_field /= 4) then
+        if (type_br_field == 1 .or. type_br_field == 3) then
             ! multiply with K_rho_B_llp if not point charge case
             write(*,*) "multiply with K_rho_B_llp"
             b_vec = - 4d0 * pi * matmul(K_rho_B_llp, b_vec)
@@ -260,9 +260,12 @@ module poisson_solver
                 ! read from file
                 print *, "Reading B vector from file not implemented yet"
                 stop
+            elseif(type == 6) then
+                rhs_vec = cmplx(-4.0d0 * pi, 0.0d0) * e_charge * exp(- (rb - maxval(rb)/2)**2 / 0.1d0**2) &
+                        * sqrt(pi / 0.1d0**2)
             end if
 
-            rhs_vec = rhs_vec / npoib
+            rhs_vec = rhs_vec !/ npoib
 
             inquire(file=trim(output_path)//'fields', exist=ex)
             if (.not. ex) then
@@ -281,61 +284,60 @@ module poisson_solver
         end subroutine
 
     end subroutine
+subroutine dense_to_sparse(A, irow, pcol, A_nz, nrow, ncol, nz_out)
 
-    subroutine dense_to_sparse(A, irow, pcol, A_nz, nrow, ncol, nz_out)
-
-            use sparse_mod, only: column_full2pointer
+    use sparse_mod, only: column_full2pointer
         
-            implicit none
+    implicit none
 
-            double complex, dimension(:,:), intent(in) :: A
-            double complex, dimension(:), allocatable, intent(inout) :: A_nz
-            integer, dimension(:), allocatable, intent(inout) :: irow, pcol
-            integer, optional, intent(out) :: nz_out
-            integer, intent(out) :: nrow, ncol
+    double complex, dimension(:,:), intent(in) :: A
+    double complex, dimension(:), allocatable, intent(inout) :: A_nz
+    integer, dimension(:), allocatable, intent(inout) :: irow, pcol
+    integer, optional, intent(out) :: nz_out
+    integer, intent(out) :: nrow, ncol
 
-            integer, dimension(:), allocatable :: icol
-            integer :: nz, nc, nr, n
+    integer, dimension(:), allocatable :: icol
+    integer :: nz, nc, nr, n
         
-            nrow = size(A,1)
-            ncol = size(A,2)
-            nz = 0
+    nrow = size(A,1)
+    ncol = size(A,2)
+    nz = 0
 
-            do nc = 1, ncol
-                do nr = 1, nrow
-                    if (.not.(A(nr,nc) == 0.0d0)) then
-                        nz = nz + 1
-                    end if
-                end do
-            end do
+    do nc = 1, ncol
+        do nr = 1, nrow
+            if (.not.(A(nr,nc) == 0.0d0)) then
+                nz = nz + 1
+            end if
+        end do
+    end do
 
-            if (allocated(irow)) deallocate(irow)
-            allocate(irow(nz))
-            if (allocated(icol)) deallocate(icol)
-            allocate(icol(nz))
-            if (allocated(A_nz)) deallocate(A_nz)
-            allocate(A_nz(nz))
+    if (allocated(irow)) deallocate(irow)
+    allocate(irow(nz))
+    if (allocated(icol)) deallocate(icol)
+    allocate(icol(nz))
+    if (allocated(A_nz)) deallocate(A_nz)
+    allocate(A_nz(nz))
 
-            A_nz = 0.0d0
+    A_nz = 0.0d0
 
-            n = 0
-            do nc = 1, ncol
-                do nr = 1, nrow
-                    if (.not.(A(nr, nc) == 0.0d0)) then
-                        n = n + 1
-                        irow(n) = nr
-                        icol(n) = nc
-                        A_nz(n) = A_nz(n) + A(nr, nc)
-                    end if
-                end do
-            end do
+    n = 0
+    do nc = 1, ncol
+        do nr = 1, nrow
+            if (.not.(A(nr, nc) == 0.0d0)) then
+                n = n + 1
+                irow(n) = nr
+                icol(n) = nc
+                A_nz(n) = A_nz(n) + A(nr, nc)
+            end if
+        end do
+    end do
 
-            call column_full2pointer(icol, pcol)
+    call column_full2pointer(icol, pcol)
 
-            if (present(nz_out)) nz_out = nz
-            if (allocated(icol)) deallocate(icol)
+    if (present(nz_out)) nz_out = nz
+    if (allocated(icol)) deallocate(icol)
 
-        end subroutine
+end subroutine
 
 
 

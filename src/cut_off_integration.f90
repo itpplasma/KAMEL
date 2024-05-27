@@ -5,8 +5,8 @@
 module cut_off_integration
 
     !use kernel, only: K_rho_phi_of_rg, K_rho_phi_llp, K_rho_B_llp
-    use grid, only: k_space_dim, l_space_dim, r_space_dim, kr, krp, &
-                    varphi_lkr, npoib, rb
+    use grid, only: l_space_dim, r_space_dim, varphi_lkr, npoib, rb
+    use kr_grid, only: k_space_dim, kr ,krp
     !use plasma_parameter, only: r_prof
     use omp_lib
     use plasma_parameter, only: rho_L
@@ -94,13 +94,13 @@ module cut_off_integration
                     do i_rg = 2, npoib
                         !K_rho_phi_llp_rg(l, lp, i_rg) = func_trapz_int_2D(l, lp, i_rg) ! + remaining terms
                         K_rho_phi_llp(l,lp) = K_rho_phi_llp(l,lp) + 0.5d0 * &
-                        (func_trapz_int_2D_rho_phi(l,lp, i_rg)   * exp(- 0.5d0 *eps_reg * (rb(i_rg)   - r_res)**2) &
-                        +func_trapz_int_2D_rho_phi(l,lp, i_rg-1) * exp(- 0.5d0 *eps_reg * (rb(i_rg-1) - r_res)**2)) &
-                            * (rb(i_rg) - rb(i_rg - 1))  * (sqrt(eps_reg / 2.0d0 * pi))
+                        (func_trapz_int_2D_rho_phi(l,lp, i_rg)   * exp(- eps_reg * (rb(i_rg)   - r_res)**2) &
+                        +func_trapz_int_2D_rho_phi(l,lp, i_rg-1) * exp(- eps_reg * (rb(i_rg-1) - r_res)**2)) &
+                            * (rb(i_rg) - rb(i_rg - 1))  * (sqrt(eps_reg / pi))
                         K_rho_B_llp(l,lp) = K_rho_B_llp(l,lp) + 0.5d0 * &
-                        (func_trapz_int_2D_rho_B(l,lp, i_rg)    * exp(- 0.5d0*eps_reg * (rb(i_rg)   - r_res)**2) &
-                        +func_trapz_int_2D_rho_B(l,lp, i_rg-1)  * exp(- 0.5d0*eps_reg * (rb(i_rg-1) - r_res)**2))  &
-                            * (rb(i_rg) - rb(i_rg - 1)) * (sqrt(eps_reg / 2.0d0 * pi))
+                        (func_trapz_int_2D_rho_B(l,lp, i_rg)    * exp(- eps_reg * (rb(i_rg)   - r_res)**2) &
+                        +func_trapz_int_2D_rho_B(l,lp, i_rg-1)  * exp(- eps_reg * (rb(i_rg-1) - r_res)**2))  &
+                            * (rb(i_rg) - rb(i_rg - 1)) * (sqrt(eps_reg / pi))
                     end do
                     
                     call updateLoadingBar(element_counter, count_elem_to_calc)
@@ -605,7 +605,7 @@ module cut_off_integration
         ! determine cut-off in kr and corresponding indices
         kr_cutoff = kr_cut_off_fac / rho_L
 
-        call generate_k_space_grid(l_space_dim+1, .true., kr_cutoff)
+        call generate_k_space_grid(k_space_dim, .true., kr_cutoff)
 
         closest_kr_ind_upper = findClosestIndex(kr, kr_cutoff)
         closest_kr_ind_lower = findClosestIndex(-kr, kr_cutoff)

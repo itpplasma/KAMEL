@@ -4,7 +4,8 @@ set(KIM_mods modules/config_mod.f90
              modules/grid_mod.f90
              modules/back_quants_mod.f90
              modules/kernel_mod.f90
-             modules/resonances_mod.f90)
+             modules/resonances_mod.f90
+             modules/kr_grid_mod.f90)
 
 set(KIM_subs plasma_parameter.f90
              plag_coeff.f90
@@ -20,6 +21,8 @@ set(KIM_subs plasma_parameter.f90
              debye_kernel.f90
              cut_off_integration.f90
              kernel_functions.f90
+             dense_to_sparse.f90
+             generate_k_space_grid.f90
              math/suitesparse/umf4_f77zwrapper.c
              math/suitesparse/umf4_f77wrapper.c
              math/superlu/c_fortran_dgssv.c

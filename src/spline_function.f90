@@ -4,8 +4,9 @@
 subroutine calculate_fourier_trans_spline_funcs(write_out)
 
     use constants, only: com_unit
-    use grid, only: k_space_dim, kr, npoib, rb, varphi_lkr, &
+    use grid, only: npoib, rb, varphi_lkr, &
         grid_spacing, spline_base, xl
+    use kr_grid, only: k_space_dim, kr
     use config, only: output_path
     !use plasma_parameter, only: r_prof, iprof_length
 

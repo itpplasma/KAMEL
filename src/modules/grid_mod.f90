@@ -1,7 +1,7 @@
 module grid
+
     implicit none
 
-    integer :: k_space_dim ! dimension of kr space grid
     integer :: l_space_dim ! dimension of spline grid
     integer :: r_space_dim ! dimension of r grid
     logical :: reduce_r
@@ -9,9 +9,6 @@ module grid
     integer :: spline_base
     integer :: grid_spacing
     integer :: num_gengrid_points
-
-    double precision, dimension(:), allocatable :: kr  ! radial wavenumber
-    double precision, dimension(:), allocatable :: krp ! radial wavenumber prime
 
     double precision, dimension(:), allocatable :: xl  ! xl grid (real space)
 

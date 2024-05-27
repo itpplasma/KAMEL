@@ -7,7 +7,7 @@ module kr_grid
     double precision :: kr_grid_width_res
     double precision :: kr_res = 0.0d0
 
-    double precision :: closest_kr_ind_lower
-    double precision :: closest_kr_ind_upper
+    integer :: closest_kr_ind_lower
+    integer :: closest_kr_ind_upper
 
 end module

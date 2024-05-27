@@ -11,7 +11,6 @@ set(KIM_subs plasma_parameter.f90
              calculate_equil.f90
              plasma_disp_func.f90
              solve_poisson.f90
-             loading_bar.f90
              integrands.f90
              unit_tests.f90
              cut_off_integration.f90
@@ -37,7 +36,9 @@ set(KIM_grid grid/generate_k_space_grid.f90
              grid/grid_mod.f90
              )
 
-set(KIM_util util/findClosestIndex.f90)
+set(KIM_util util/findIndex.f90
+             util/loading_bar.f90
+)
 
 
 set(CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/cmake" ${CMAKE_MODULE_PATH})

@@ -41,7 +41,6 @@ module poisson_solver
 
         call check_kernels_for_nans
 
-        ! divide by npoib for normalization of the sum
         A_mat = (A_mat + 4d0 * pi * K_rho_phi_llp) !/ npoib
 
         if (fdebug == 1) then
@@ -161,14 +160,15 @@ module poisson_solver
             A_mat = cmplx(0.0d0, 0.0d0)
 
             do i = 2, npoib-1
-                A_mat(i,i) = - 1d0 / (rb(i) - rb(i-1)) - 1d0 / (rb(i+1) - rb(i))
-                A_mat(i, i+1) = 1d0 / (rb(i+1) - rb(i))
-                A_mat(i, i-1) = 1d0 / (rb(i) - rb(i-1))
+                A_mat(i,i) = (- 1d0 / (rb(i) - rb(i-1)) - 1d0 / (rb(i+1) - rb(i)) ) !* 2 &
+                !* (rb(i+1) - rb(i-1))
+                A_mat(i, i+1) = 1d0 / (rb(i+1) - rb(i)) !* 2 * (rb(i+1) - rb(i-1))
+                A_mat(i, i-1) = 1d0 / (rb(i) - rb(i-1)) !* 2 * (rb(i+1) - rb(i-1))
             end do
 
             ! boundary conditions:
-            A_mat(1,1) = -1d0 / (rb(1)) !- 1d0 / (rb(2) - rb(1))
-            A_mat(npoib,npoib) = - 1d0 / (rb(npoib) - rb(npoib-1))
+            A_mat(1,1) = -1d0 / (rb(1)) !* 2 * (rb(2) - rb(1)) !- 1d0 / (rb(2) - rb(1))
+            A_mat(npoib,npoib) = - 1d0 / (rb(npoib) - rb(npoib-1)) !* 2 * (rb(npoib) - rb(npoib-1))
             A_mat(1,2) = 0.0d0 !1d0 / (rb(2) - rb(1))
             A_mat(npoib, npoib-1) = 0.0d0
 
@@ -249,6 +249,8 @@ module poisson_solver
             elseif(type == 2) then
                 ! point charge like Br field
                 rhs_vec(size(rhs_vec)/2) = cmplx(-4.0d0 * pi, 0.0d0)  * e_charge 
+                rhs_vec(1) = cmplx(1.0d-13, 0.0d0)
+                rhs_vec(npoib) = cmplx(1.0d-13, 0.0d0)
             elseif(type ==3) then
                 do i = 5/6 *size(b_vec), size(b_vec)
                     rhs_vec(i) = (i - size(rhs_vec)/2) * 0.02d0 * cmplx(1.0d0, 0.0d0) - 0.2d0
@@ -284,6 +286,7 @@ module poisson_solver
         end subroutine
 
     end subroutine
+
 subroutine dense_to_sparse(A, irow, pcol, A_nz, nrow, ncol, nz_out)
 
     use sparse_mod, only: column_full2pointer

@@ -167,10 +167,10 @@ module poisson_solver
             end do
 
             ! boundary conditions:
-            A_mat(1,1) = -1d0 / (rb(1)) !* 2 * (rb(2) - rb(1)) !- 1d0 / (rb(2) - rb(1))
-            A_mat(npoib,npoib) = - 1d0 / (rb(npoib) - rb(npoib-1)) !* 2 * (rb(npoib) - rb(npoib-1))
-            A_mat(1,2) = 0.0d0 !1d0 / (rb(2) - rb(1))
-            A_mat(npoib, npoib-1) = 0.0d0
+            A_mat(1,1) = - 2d0 / (rb(2) - rb(1)) !* 2 * (rb(2) - rb(1)) !- 1d0 / (rb(2) - rb(1))
+            A_mat(npoib,npoib) = - 2d0 / (rb(npoib) - rb(npoib-1)) !* 2 * (rb(npoib) - rb(npoib-1))
+            A_mat(1,2) = 1d0 / (rb(2) - rb(1))
+            A_mat(npoib, npoib-1) = 1d0 / (rb(npoib) - rb(npoib-1))
 
 
             if (fdebug == 1) then
@@ -249,8 +249,9 @@ module poisson_solver
             elseif(type == 2) then
                 ! point charge like Br field
                 rhs_vec(size(rhs_vec)/2) = cmplx(-4.0d0 * pi, 0.0d0)  * e_charge 
-                rhs_vec(1) = cmplx(1.0d-13, 0.0d0)
-                rhs_vec(npoib) = cmplx(1.0d-13, 0.0d0)
+                !rhs_vec = rhs_vec / sqrt(2.0d0 * pi)
+                !rhs_vec(1) = cmplx(1.0d-10, 0.0d0)
+                !rhs_vec(npoib) = cmplx(1.0d-10, 0.0d0)
             elseif(type ==3) then
                 do i = 5/6 *size(b_vec), size(b_vec)
                     rhs_vec(i) = (i - size(rhs_vec)/2) * 0.02d0 * cmplx(1.0d0, 0.0d0) - 0.2d0
@@ -267,7 +268,7 @@ module poisson_solver
                         * sqrt(pi / 0.1d0**2)
             end if
 
-            rhs_vec = rhs_vec !/ npoib
+            !rhs_vec = rhs_vec !/ npoib
 
             inquire(file=trim(output_path)//'fields', exist=ex)
             if (.not. ex) then

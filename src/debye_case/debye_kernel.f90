@@ -24,7 +24,7 @@ module debye_kernel
 
         lambda_D = 1.0d0/sqrt(lambda_D)
 
-        write(*,*) "Debye length: ", lambda_D
+        write(*,*) "Debye length: ", lambda_D, " cm"
         write(*,*) "n_prof(1): ", n_prof(1)
         write(*,*) "Te_prof(1): ", Te_prof(1)
         

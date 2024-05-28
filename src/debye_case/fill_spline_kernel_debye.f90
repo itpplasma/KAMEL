@@ -3,7 +3,7 @@ subroutine fill_spline_kernel_debye(write_out)
     !use integrands, only: integrand_K_rho_phi_krp, integrand_K_rho_phi_kr
     !use integration, only: integrate_krp, integrate_kr
     use config, only: fstatus
-    use debye_kernel, only: func_debye_kernel
+    use debye_kernel, only: lambda_D, calculate_debye_length
     use grid, only: xl, varphi_lkr, l_space_dim
     use kernel, only: K_rho_phi_llp, K_rho_B_llp
     use constants, only: pi
@@ -30,24 +30,25 @@ subroutine fill_spline_kernel_debye(write_out)
     K_rho_B_llp = 0.0d0
 
 
-    K_rho_phi_llp(1,1) = func_debye_kernel(0.0d0,0.0d0) * pi * 2.0d0 / 3.0d0 &
-                        * (xl(2) - xl(1))
-    K_rho_phi_llp(l_space_dim,l_space_dim) = func_debye_kernel(0.0d0,0.0d0) &
-                        * pi * 2.0d0 / 3.0d0 * (xl(l_space_dim) - xl(l_space_dim-1))
+    if (lambda_D == 0.0d0) then
+        call calculate_debye_length
+    end if
 
-    K_rho_phi_llp(l_space_dim-1,l_space_dim) = (xl(l_space_dim) - xl(l_space_dim-1)) * &
-                                    func_debye_kernel(0.0d0,0.0d0) * pi /3.0d0
+    K_rho_phi_llp(1,1) = - (xl(2) - xl(1)) / (6.0d0 * lambda_D**2)
+    K_rho_phi_llp(l_space_dim,l_space_dim) = - (xl(l_space_dim) - xl(l_space_dim-1)) / (6.0d0 * lambda_D**2)
 
-    K_rho_phi_llp(2,1) = (xl(2) - xl(1)) * func_debye_kernel(0.0d0,0.0d0) * pi /3.0d0
+    K_rho_phi_llp(l_space_dim-1,l_space_dim) = -(xl(l_space_dim) - xl(l_space_dim-1)) &
+    / (12.0d0 * lambda_D**2)                                    
+
+    K_rho_phi_llp(2,1) = -(xl(2) - xl(1)) / (12.0d0 * lambda_D**2)
     
     do l = 2, l_space_dim-1 ! first index of basis transformed kernel
-        K_rho_phi_llp(l,l) = func_debye_kernel(0.0d0,0.0d0) * pi * 2.0d0 / 3.0d0 &
-                            * (xl(l+1) - xl(l-1))
-        K_rho_phi_llp(l-1,l) = (xl(l) - xl(l-1)) * func_debye_kernel(0.0d0,0.0d0) * pi /3.0d0
-        K_rho_phi_llp(l+1,l) = (xl(l+1) - xl(l)) * func_debye_kernel(0.0d0,0.0d0) * pi /3.0d0
+        K_rho_phi_llp(l,l)   = -(xl(l+1) - xl(l-1)) / (6.0d0 * lambda_D**2)
+        K_rho_phi_llp(l-1,l) = -(xl(l) - xl(l-1))   / (12.0d0 * lambda_D**2)
+        K_rho_phi_llp(l+1,l) = -(xl(l+1) - xl(l))   / (12.0d0 * lambda_D**2)
     end do
 
-    K_rho_phi_llp = K_rho_phi_llp / (4.0d0 * pi**2)
+    K_rho_phi_llp = K_rho_phi_llp / (2.0d0 * pi)
 
     write(*,*) ''
     write(*,*) 'Finished basis trafo for Debye kernel'

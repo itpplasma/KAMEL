@@ -19,7 +19,7 @@ module cut_off_integration
     
     contains
 
-    subroutine basis_transformation_integration(write_out)
+    subroutine basis_transformation_of_kernels(write_out)
 
         !use integrands, only: integrand_K_rho_phi_krp, integrand_K_rho_phi_kr
         !use integration, only: integrate_krp, integrate_kr
@@ -38,13 +38,10 @@ module cut_off_integration
         integer :: count_elem_to_calc
         integer :: element_counter = 0
 
-        double complex, dimension(1) :: res
-
         call kr_space_adjustments
 
         if (.not. allocated(K_rho_phi_llp)) allocate(K_rho_phi_llp(l_space_dim, l_space_dim))
         if (.not. allocated(K_rho_B_llp)) allocate(K_rho_B_llp(l_space_dim, l_space_dim))
-        !if (.not. allocated(K_rho_phi_llp_rg)) allocate(K_rho_phi_llp_rg(l_space_dim, l_space_dim, npoib))
         K_rho_phi_llp = 0.0d0
         K_rho_B_llp = 0.0d0
 

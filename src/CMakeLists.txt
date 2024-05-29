@@ -1,32 +1,24 @@
-set(KIM_mods modules/config_mod.f90 
-             modules/constants_mod.f90
-             modules/setup_mod.f90
-             modules/back_quants_mod.f90
-             modules/kernel_mod.f90
-             modules/resonances_mod.f90)
+set(KIM_setup setup/config_mod.f90 
+              setup/setup_mod.f90
+)
 
-set(KIM_subs plasma_parameter.f90
-             plag_coeff.f90
-             calculate_backs.f90
-             calculate_equil.f90
-             plasma_disp_func.f90
-             solve_poisson.f90
-             integrands.f90
-             unit_tests.f90
-             cut_off_integration.f90
-             kernel_functions.f90
-             dense_to_sparse.f90
-             math/suitesparse/umf4_f77zwrapper.c
+set(KIM_poisson poisson_equation/solve_poisson.f90
+)
+
+set(KIM_math math/suitesparse/umf4_f77zwrapper.c
              math/suitesparse/umf4_f77wrapper.c
              math/superlu/c_fortran_dgssv.c
              math/superlu/c_fortran_zgssv.c
              math/bessel.f90
              math/bessk.f90
              math/use_libcerf_mod.f90
-             math/sparse_mod.f90)
+             math/sparse_mod.f90
+             math/plasma_disp_func.f90
+)
 
 set(KIM_debye debye_case/debye_kernel.f90
-              debye_case/fill_spline_kernel_debye.f90)
+              debye_case/fill_spline_kernel_debye.f90
+)
 
 set(KIM_grid grid/generate_k_space_grid.f90
              grid/gengrid.f90
@@ -34,18 +26,41 @@ set(KIM_grid grid/generate_k_space_grid.f90
              grid/spline_function.f90
              grid/kr_grid_mod.f90
              grid/grid_mod.f90
-             )
+             grid/resonances_mod.f90
+)
 
 set(KIM_util util/findIndex.f90
              util/loading_bar.f90
+             util/plag_coeff.f90
+             util/unit_tests.f90
+             util/dense_to_sparse.f90
+             util/write_config_to_hdf5.f90
+             util/constants_mod.f90
 )
 
+set(KIM_kernels kernels/integrands.f90
+                kernels/kernel_functions.f90
+                kernels/cut_off_integration.f90
+                kernels/kernel_mod.f90
+)
+
+set(KIM_background_equilibrium background_equilibrium/calculate_backs.f90
+                               background_equilibrium/calculate_equil.f90
+                               background_equilibrium/plasma_parameter.f90
+                               background_equilibrium/back_quants_mod.f90
+)
 
 set(CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/cmake" ${CMAKE_MODULE_PATH})
 
-add_library(KIM_lib STATIC "${KIM_mods}" "${KIM_subs}" "${KIM_debye}" "${KIM_grid}" "${KIM_util}")
-#set_target_properties(KIM_lib PROPERTIES
-#                        RUNTIME_OUTPUT_DIRECTORY "${CMAKE_SOURCE_DIR}/")
+add_library(KIM_lib STATIC "${KIM_setup}" 
+                           "${KIM_poisson}" 
+                           "${KIM_debye}" 
+                           "${KIM_grid}" 
+                           "${KIM_util}"
+                           "${KIM_kernels}"
+                           "${KIM_background_equilibrium}"
+                           "${KIM_math}"
+)
 
 find_package(LAPACK REQUIRED)
 if("${LAPACK_FOUND}")
@@ -54,14 +69,6 @@ if("${LAPACK_FOUND}")
     target_include_directories(KIM_lib PUBLIC "${LAPACK_INCLUDE_DIRS}")
     message("${LAPACK_INCLUDE_DIRS}")
 endif()
-
-#find_package(SLATEC REQUIRED)
-#if("${SLATEC_FOUND}")
-#    message(" ====== SLATEC was found! ======")
-#    target_link_libraries(KIM_lib PUBLIC "${SLATEC_LIBRARIES}")
-#    target_include_directories(KIM_lib PUBLIC "${SLATEC_INCLUDE_DIRS}")
-#    message("${SLATEC_INCLUDE_DIRS}")
-#endif()
 
 find_package(SuiteSparse REQUIRED)
 if("${SuiteSparse_FOUND}")
@@ -114,4 +121,3 @@ target_link_libraries(KIM_exe KIM_lib
                               cerf 
                               slatec 
                               ddeabm)
-                              #finufft_static)

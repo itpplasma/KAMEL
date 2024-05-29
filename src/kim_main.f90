@@ -98,11 +98,8 @@ program kim_main
         write(*,*) ' === Artificial Debye case ==='
         call fill_spline_kernel_debye(.true.)
     else
-        call basis_transformation_integration(.true.)
+        call basis_transformation_of_kernels(.true.)
     end if
-
-    !write(*,*) 'Kernel rho phi: ', kernel_rho_phi_of_kr_krp_rg(1.0d0, 2.0d0, 50.0d0)
-    !write(*,*) 'Kernel rho B  : ', kernel_rho_B_of_kr_krp_rg(1.0d0, 2.0d0, 50.0d0)
 
     !call test_sparse_solver(ierr)
     !if (ierr /= 0) then

@@ -3,9 +3,6 @@ module poisson_solver
     contains
     
     ! Solve A x = b
-    ! test sparse solver by using known b vector, e.g.
-    ! multiply A with x vector of 2d0, which gives b. Use
-    ! this b to solve for x again
     subroutine solve_poisson
 
         use config, only: fstatus, fdebug
@@ -23,16 +20,13 @@ module poisson_solver
 
         double complex, dimension(:), allocatable :: A_nz ! non-zero elements of A matrix
         double complex, dimension(:,:), allocatable :: A_mat ! A matrix
-        double complex, dimension(:,:), allocatable :: A_sparse_check ! A matrix reconfigured from sparse matrix
         double complex, dimension(:), allocatable :: b_vec ! b vector and x vector
         integer, dimension(:), allocatable :: irow, pcol, icol
         integer :: nz_out, nrow, ncol
         integer :: i,j
-        logical :: ex
+        logical :: exists
         double precision :: rho_L
-        integer, dimension(2) :: max_ind
-        integer :: set_zero
-        integer :: iopt
+        integer :: sparse_solver_option
 
 
         if (fstatus == 1) write(*,*) 'Status: solve poisson equation'
@@ -41,35 +35,88 @@ module poisson_solver
 
         call check_kernels_for_nans
 
-        A_mat = (A_mat + 4d0 * pi * K_rho_phi_llp) !/ npoib
+        A_mat = (A_mat + 4d0 * pi * K_rho_phi_llp) 
 
-        if (fdebug == 1) then
-            write(*,*) 'Debug: writing A matrix before sparse'
-            open(unit=77, file=trim(output_path)//'kernel/A_mat_before_re.dat')
-            open(unit=78, file=trim(output_path)//'kernel/A_mat_before_im.dat')
-            open(unit=79, file=trim(output_path)//'kernel/K_rho_phi_llp_sp_re.dat')
-            open(unit=80, file=trim(output_path)//'kernel/K_rho_phi_llp_sp_im.dat')
+        if (fdebug == 3) then
+            call write_A_matrix_sparse_check_to_file
+        end if
+
+        call dense_to_sparse(A_mat, irow, pcol, A_nz, nrow, ncol, nz_out)
+        
+        call create_rhs_vector(type_br_field, b_vec)
+        
+        sparse_solver_option = 0
+        sparse_solve_method = 1 ! this works, don't know why. Default value of 3 does not work. I.e. need 
+        !to use superlu instead of suitesparse
+        call sparse_solveComplex_b1(nrow, ncol, nz_out, irow, pcol, A_nz, b_vec, sparse_solver_option)
+        !call sparse_solve_suitesparseComplex_b1(nrow, ncol, nz_out, irow, pcol, A_nz, b_vec, 0)
+
+        call write_phi_to_file
+
+        if (fdebug == 3) then
+            call write_A_matrix_to_file
+        end if
+
+        contains
+
+        subroutine write_A_matrix_to_file
+
+            implicit none
+
+            write(*,*) 'Debug : write A matrix '
+            open(unit = 80, file=trim(output_path)//'fields/A_mat_re.dat')
+            open(unit = 81, file=trim(output_path)//'fields/A_mat_im.dat')
             do i = 1,npoib
                 do j = 1,npoib
-                    write(77,*) real(A_mat(i,j))
-                    !write(*,*) real(A_mat(i,j))
-                    write(78,*) dimag(A_mat(i,j))
-                    write(79,*) real(K_rho_phi_llp(i,j))
-                    write(80,*) dimag(K_rho_phi_llp(i,j))
+                    write(80,*) real(A_mat(i,j))
+                    write(81,*) dimag(A_mat(i,j))
                 end do
+            end do
+            close(80)
+            close(81)
+
+        end subroutine
+
+        subroutine write_phi_to_file
+
+            implicit none
+
+            open(unit = 77, file=trim(output_path)//'fields/phi_re.dat')
+            open(unit = 78, file=trim(output_path)//'fields/phi_im.dat')
+            do i = 1,npoib
+                write(77,*) rb(i), real(b_vec(i))
+                write(78,*) rb(i), dimag(b_vec(i))
             end do
             close(77)
             close(78)
+
+        end subroutine
+
+
+        subroutine write_K_times_b_to_file
+
+            implicit none
+
+            inquire(file=trim(output_path)//'fields', exist=exists)
+            if (.not. exists) then
+                call system('mkdir -p '//trim(output_path)//'fields')
+            end if
+            open(unit = 79, file=trim(output_path)//'fields/Kbr_re.dat')
+            open(unit = 80, file=trim(output_path)//'fields/Kbr_im.dat')
+            do i = 1,npoib
+                write(79,*) rb(i), real(b_vec(i))
+                write(80,*) rb(i), dimag(b_vec(i))
+            end do
             close(79)
             close(80)
-        end if
 
-        ! make A matrix sparse
-        call dense_to_sparse(A_mat, irow, pcol, A_nz, nrow, ncol, nz_out)
+        end subroutine
 
-        write(*,*) 'nz_out = ', nz_out, '; nrow = ', nrow, '; ncol = ', ncol
+        subroutine write_A_matrix_sparse_check_to_file
 
-        if (fdebug == 3) then
+            implicit none
+            double complex, dimension(:,:), allocatable :: A_sparse_check ! A matrix reconfigured from sparse matrix
+
             write(*,*) 'Debug: writing A matrix after sparse'
             call sp2fullComplex(irow, pcol, A_nz, nrow, ncol, A_sparse_check)
             open(unit=77, file=trim(output_path)//'kernel/A_sparse_check_re.dat')
@@ -83,66 +130,8 @@ module poisson_solver
             close(77)
             close(78)
             deallocate(A_sparse_check)
-        end if
 
-        ! multiply B kernel with B^r vector
-
-        write(*,*) "create b vec"
-
-        call create_rhs_vector(type_br_field, b_vec)
-
-        if (type_br_field == 1 .or. type_br_field == 3) then
-            ! multiply with K_rho_B_llp if not point charge case
-            write(*,*) "multiply with K_rho_B_llp"
-            b_vec = - 4d0 * pi * matmul(K_rho_B_llp, b_vec)
-        end if
-
-        inquire(file=trim(output_path)//'fields', exist=ex)
-        if (.not. ex) then
-            call system('mkdir -p '//trim(output_path)//'fields')
-        end if
-        open(unit = 79, file=trim(output_path)//'fields/Kbr_re.dat')
-        open(unit = 80, file=trim(output_path)//'fields/Kbr_im.dat')
-        do i = 1,npoib
-            write(79,*) rb(i), real(b_vec(i))
-            write(80,*) rb(i), dimag(b_vec(i))
-        end do
-        close(79)
-        close(80)
-
-        write(*,*) "after b vec"
-
-        iopt = 0
-        sparse_solve_method = 1 ! this works, don't know why. Default value of 3 does not work. I.e. need 
-        !to use superlu instead of suitesparse
-        call sparse_solveComplex_b1(nrow, ncol, nz_out, irow, pcol, A_nz, b_vec, iopt)
-        !call sparse_solve_suitesparseComplex_b1(nrow, ncol, nz_out, irow, pcol, A_nz, b_vec, 0)
-        !write(*,*) b_vec
-
-        open(unit = 77, file=trim(output_path)//'fields/phi_re.dat')
-        open(unit = 78, file=trim(output_path)//'fields/phi_im.dat')
-        do i = 1,npoib
-            write(77,*) rb(i), real(b_vec(i))
-            write(78,*) rb(i), dimag(b_vec(i))
-        end do
-        close(77)
-        close(78)
-
-        if (fdebug == 3) then
-            write(*,*) 'Debug : write A matrix '
-            open(unit = 80, file=trim(output_path)//'fields/A_mat_re.dat')
-            open(unit = 81, file=trim(output_path)//'fields/A_mat_im.dat')
-            do i = 1,npoib
-                do j = 1,npoib
-                    write(80,*) real(A_mat(i,j))
-                    write(81,*) dimag(A_mat(i,j))
-                end do
-            end do
-            close(80)
-            close(81)
-        end if
-
-        contains
+        end subroutine
 
         subroutine prepare_Laplace_matrix
 
@@ -243,35 +232,31 @@ module poisson_solver
             allocate(rhs_vec(npoib))
             rhs_vec = cmplx(0.0d0, 0.0d0)
 
-            if (type ==1) then
-                ! constant Br field
+            if (type ==1) then ! constant br
                 rhs_vec = cmplx(1.0d0, 0.0d0)
-            elseif(type == 2) then
-                ! point charge like Br field
+            elseif(type == 2) then ! point charge like Br field
                 rhs_vec(size(rhs_vec)/2) = cmplx(-4.0d0 * pi, 0.0d0)  * e_charge 
-                !rhs_vec = rhs_vec / sqrt(2.0d0 * pi)
+
+                ! possible boundary conditions:
                 !rhs_vec(1) = cmplx(1.0d-10, 0.0d0)
                 !rhs_vec(npoib) = cmplx(1.0d-10, 0.0d0)
-            elseif(type ==3) then
+            elseif(type ==3) then ! linear increase from the center of the plasma
                 do i = 5/6 *size(b_vec), size(b_vec)
                     rhs_vec(i) = (i - size(rhs_vec)/2) * 0.02d0 * cmplx(1.0d0, 0.0d0) - 0.2d0
                 end do 
-            elseif(type == 4) then
-                ! put point charge at resonant surface
+            elseif(type == 4) then ! point charge at resonant surface
                 rhs_vec(index_res) = cmplx(-4.0d0 * pi, 0.0d0) * e_charge 
-            elseif(type == 5) then
-                ! read from file
+            elseif(type == 5) then ! read br from file (not implemented yet)
                 print *, "Reading B vector from file not implemented yet"
                 stop
-            elseif(type == 6) then
+            elseif(type == 6) then ! gaussian distribution
                 rhs_vec = cmplx(-4.0d0 * pi, 0.0d0) * e_charge * exp(- (rb - maxval(rb)/2)**2 / 0.1d0**2) &
                         * sqrt(pi / 0.1d0**2)
             end if
 
-            !rhs_vec = rhs_vec !/ npoib
 
-            inquire(file=trim(output_path)//'fields', exist=ex)
-            if (.not. ex) then
+            inquire(file=trim(output_path)//'fields', exist=exists)
+            if (.not. exists) then
                 call system('mkdir -p '//trim(output_path)//'fields')
             end if
             open(unit = 79, file=trim(output_path)//'fields/br_re.dat')
@@ -283,6 +268,12 @@ module poisson_solver
             close(79)
             close(80)
 
+            if (type_br_field == 1 .or. type_br_field == 3) then
+                ! multiply with K_rho_B_llp if not point charge case
+                write(*,*) "multiply with K_rho_B_llp"
+                b_vec = - 4d0 * pi * matmul(K_rho_B_llp, b_vec)
+                call write_K_times_b_to_file
+            end if
 
         end subroutine
 

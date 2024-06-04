@@ -39,7 +39,7 @@ set(KIM_util util/findIndex.f90
 )
 
 set(KIM_kernels kernels/integrands.f90
-                kernels/kernel_functions.f90
+                #kernels/kernel_functions.f90
                 kernels/cut_off_integration.f90
                 kernels/kernel_mod.f90
 )

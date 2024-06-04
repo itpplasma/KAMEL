@@ -19,7 +19,8 @@ program kim_main
     integer :: ierr = 0
 
     namelist /KIM_CONFIG/ profile_location, hdf5_input, hdf5_output, &
-                          fdebug, fstatus, ispecies, output_path, artificial_debye_case
+                          fdebug, fstatus, number_of_ion_species, output_path, artificial_debye_case, &
+                          kernel_debye_case
 
     namelist /KIM_SETUP/ btor, R0, m_mode, n_mode, Zi, Ai, omega, spline_base, &
                         cut_off_fac, kr_cut_off_fac, r_plas, type_br_field, collisions_off, eps_reg
@@ -29,7 +30,7 @@ program kim_main
 
     open(unit = 77, file = './KIM_config.nml')
     read(unit = 77, nml = KIM_CONFIG)
-    allocate(Zi(ispecies), Ai(ispecies))
+    allocate(Zi(number_of_ion_species), Ai(number_of_ion_species))
     read(unit = 77, nml = KIM_SETUP)
     read(unit = 77, nml = KIM_GRID)
     close(unit = 77)
@@ -43,7 +44,9 @@ program kim_main
     write(*,*) '  hdf5_output      = ', hdf5_output
     write(*,*) '  fdebug           = ', fdebug
     write(*,*) '  fstatus          = ', fstatus
-    write(*,*) '  ispecies         = ', ispecies
+    write(*,*) '  number_of_ion_species         = ', number_of_ion_species
+    write(*,*) '  artificial_debye_case= ', artificial_debye_case
+    write(*,*) '  kernel_debye_case= ', kernel_debye_case
     write(*,*) ' - - - - - - - - - - - - - - - - - - - - - - - -'
     write(*,*) 'Setup namelist'
     write(*,*) '  btor             = ', btor

@@ -11,14 +11,14 @@ module debye_kernel
 
     subroutine calculate_debye_length
 
-        use config, only: ispecies
+        use config, only: number_of_ion_species
         use constants, only: pi, ev, e_charge
         use plasma_parameter, only: Te_prof, Ti_prof, n_prof, ni_prof, Zi
         implicit none
         integer :: i
 
         lambda_D = ((4.0d0 * pi * n_prof(1) * e_charge**2) / (Te_prof(1) * ev))
-        do i=1, ispecies
+        do i=1, number_of_ion_species
             lambda_D = lambda_D + ((4.0d0 * pi * ni_prof(i,1) * e_charge**2 * Zi(i)) / (Ti_prof(i,1) * ev))
         end do
 

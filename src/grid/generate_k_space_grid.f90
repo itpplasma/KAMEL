@@ -13,6 +13,7 @@ subroutine generate_k_space_grid(npoi_min, write_out, kr_cut)
     double precision, intent(in) :: kr_cut
     double precision :: h, krmin, krmax, hrmax, kr_val, krnext, recnsp
     integer :: k_grid_mode = 3
+    double precision, allocatable, dimension(:) :: delta_kr
 
     integer :: npoi_kr, npoi_min, ipoib
 
@@ -52,12 +53,13 @@ subroutine generate_k_space_grid(npoi_min, write_out, kr_cut)
         enddo
 
         allocate(kr(npoi_kr), krp(npoi_kr))
+        allocate(delta_kr(npoi_kr))
 
         kr_val = krmin
-        kr(1) = kr_val
-        krp(1) = kr_val
+        kr(1) = krmin
+        krp(1) = krmin
 
-        do ipoib=2,npoi_kr
+        do ipoib=2,npoi_kr-1
             call recnsplit_kr(kr_val,recnsp)
             krnext = kr_val + hrmax / recnsp
             call recnsplit_kr(krnext,recnsp)
@@ -65,11 +67,24 @@ subroutine generate_k_space_grid(npoi_min, write_out, kr_cut)
             kr(ipoib) = kr_val
             !rc(ipoib-1) = 0.5 * (rb(ipoib-1) + rb(ipoib))
             krp(ipoib) = kr_val !- 0.1d0
+            delta_kr(ipoib-1) = kr(ipoib) - kr(ipoib-1)
         enddo
+        krp(npoi_kr) = krmax
+        kr(npoi_kr) = krmax
+
         k_space_dim = npoi_kr
-        if (fstatus == 1) write(*,*) ' Status: new k space dim = ', k_space_dim
 
     end if
+    
+    if (fstatus == 1) then 
+        write(*,*) '- - - k space: - - -'
+        write(*,*) '    new k space dim = ', k_space_dim
+        write(*,*) '    min delta kr    = ', minval(delta_kr)
+        write(*,*) '    max delta kr    = ', maxval(delta_kr)
+        write(*,*) '- - - - - - - - - -'
+    end if
+
+    if (allocated(delta_kr)) deallocate(delta_kr)
 
     if (write_out) call write_k_space
 

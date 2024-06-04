@@ -53,7 +53,7 @@ module plasma_parameter
     
         subroutine read_from_text
 
-            use config, only: ispecies, profile_location
+            use config, only: number_of_ion_species, profile_location
 
             integer :: i, sigma
             integer :: ierr
@@ -85,8 +85,8 @@ module plasma_parameter
             if (ierr /= 0) print *, "array: Allocation request denied"
         
             !write(*,*) r_prof
-            allocate(n_prof(iprof_length), Te_prof(iprof_length), Ti_prof(ispecies, iprof_length), &
-            Er_prof(iprof_length), q_prof(iprof_length), ni_prof(ispecies, iprof_length))
+            allocate(n_prof(iprof_length), Te_prof(iprof_length), Ti_prof(number_of_ion_species, iprof_length), &
+            Er_prof(iprof_length), q_prof(iprof_length), ni_prof(number_of_ion_species, iprof_length))
 
             open(11, file=trim(profile_location)//'n.dat')
             do i=1,iprof_length
@@ -118,12 +118,12 @@ module plasma_parameter
             end do
             close(11)
 
-            do i=2, ispecies
+            do i=2, number_of_ion_species
                 Ti_prof(i,:) = Ti_prof(1,:)
             end do
 
             do i = 1, iprof_length
-                do sigma = 1, ispecies
+                do sigma = 1, number_of_ion_species
                     ! ion density to fulfill quasineutrality
                     ni_prof(sigma, i) = n_prof(i) * Zi(sigma) / sum(Zi)
                 end do
@@ -135,7 +135,7 @@ module plasma_parameter
                 n_prof(:) = n_prof(1)
                 Te_prof(:) = Te_prof(1)
                 Er_prof(:) = Er_prof(1)
-                do sigma = 1, ispecies
+                do sigma = 1, number_of_ion_species
                     ni_prof(sigma, :) = ni_prof(sigma, 1)
                     Ti_prof(sigma, :) = Ti_prof(sigma, 1)
                 end do
@@ -172,7 +172,7 @@ module plasma_parameter
 
         subroutine reduce_dim
 
-            use config, only: output_path, ispecies
+            use config, only: output_path, number_of_ion_species
             use grid, only: reduced_r_dim
 
             double precision :: step_h
@@ -189,7 +189,7 @@ module plasma_parameter
             if (fstatus==1) write(*,*) 'Status: Reducing input profile r dimension'
 
             allocate(new_n_prof(reduced_r_dim), new_Te_prof(reduced_r_dim), &
-                    new_Ti_prof(ispecies, reduced_r_dim), new_ni_prof(ispecies, reduced_r_dim), &
+                    new_Ti_prof(number_of_ion_species, reduced_r_dim), new_ni_prof(number_of_ion_species, reduced_r_dim), &
                     new_Er_prof(reduced_r_dim), new_q_prof(reduced_r_dim), new_r_prof(reduced_r_dim))
 
 
@@ -216,7 +216,7 @@ module plasma_parameter
                 new_Er_prof(i) = sum(coef(0,:) * Er_prof(ibeg:iend))
                 new_q_prof(i) = sum(coef(0,:) * q_prof(ibeg:iend))
 
-                do sigma=1, ispecies 
+                do sigma=1, number_of_ion_species 
                     new_Ti_prof(sigma, i) = sum(coef(0,:) * Ti_prof(sigma, ibeg:iend))
                     new_ni_prof(sigma, i) = sum(coef(0,:) * ni_prof(sigma, ibeg:iend))
                 end do
@@ -226,7 +226,7 @@ module plasma_parameter
 
             deallocate(r_prof, n_prof, Te_prof, Ti_prof, ni_prof, Er_prof, q_prof)
             allocate(r_prof(reduced_r_dim), n_prof(reduced_r_dim), Te_prof(reduced_r_dim), &
-                    Ti_prof(ispecies, reduced_r_dim), ni_prof(ispecies, reduced_r_dim), &
+                    Ti_prof(number_of_ion_species, reduced_r_dim), ni_prof(number_of_ion_species, reduced_r_dim), &
                     Er_prof(reduced_r_dim), q_prof(reduced_r_dim))
 
             r_prof = new_r_prof

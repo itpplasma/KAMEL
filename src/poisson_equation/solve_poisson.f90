@@ -6,7 +6,7 @@ module poisson_solver
     subroutine solve_poisson
 
         use config, only: fstatus, fdebug
-        use kernel, only: K_rho_phi_llp, K_rho_B_llp
+        use kernels, only: K_rho_phi_llp, K_rho_B_llp
         use sparse_mod, only: sp2fullComplex, sparse_solveComplex_b1, column_pointer2full, sparse_solve_suitesparseComplex_b1, &
                             sparse_solve_method
         use config, only: output_path

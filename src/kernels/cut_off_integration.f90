@@ -4,14 +4,17 @@
 ! integration. All integrals are done with the trapezoidal method.
 module cut_off_integration
 
-    !use kernel, only: K_rho_phi_of_rg, K_rho_phi_llp, K_rho_B_llp
-    use grid, only: l_space_dim, r_space_dim, varphi_lkr, npoib, rb
-    use kr_grid, only: k_space_dim, kr ,krp, closest_kr_ind_lower, closest_kr_ind_upper
-    !use plasma_parameter, only: r_prof
+    use grid, only: l_space_dim, r_space_dim, varphi_lkr, npoib, rb, xl
+    use resonances_mod, only: r_res
+    use kr_grid, only: k_space_dim, kr ,krp
     use omp_lib
     use plasma_parameter, only: rho_L
-    use setup, only: cut_off_fac, kr_cut_off_fac
+    use setup, only: cut_off_fac, kr_cut_off_fac, eps_reg
     use config, only: fstatus
+    use kernels, only: fill_rho_kernels, K_rho_phi_llp, K_rho_B_llp, K_rho_phi_of_rg
+    use loading_bar
+    use constants, only: pi
+    use use_libcerf, only: cerf_F
 
     implicit none
 
@@ -20,16 +23,6 @@ module cut_off_integration
     contains
 
     subroutine basis_transformation_of_kernels(write_out)
-
-        !use integrands, only: integrand_K_rho_phi_krp, integrand_K_rho_phi_kr
-        !use integration, only: integrate_krp, integrate_kr
-        use config, only: fstatus
-        use setup, only: eps_reg
-        use kernel, only: fill_all_kernels, K_rho_phi_llp, K_rho_B_llp, K_rho_phi_of_rg
-        use grid, only: xl
-        use resonances_mod, only: r_res
-        use loading_bar
-        use constants, only: pi
 
         implicit none
 
@@ -52,9 +45,7 @@ module cut_off_integration
 
         ! fill kernel matrix
         if (.not. allocated(K_rho_phi_of_rg)) then
-            !allocate(K_rho_phi(k_space_dim, k_space_dim))
-            !call fill_kernel_rho_phi
-            call fill_all_kernels
+            call fill_rho_kernels
         end if
 
         if (fstatus==1) write(*,*) 'Status: Basis transformation'
@@ -64,6 +55,7 @@ module cut_off_integration
         do l = 1, l_space_dim
             do lp = 1, l_space_dim
                 if (abs(xl(l) - xl(lp)) <= cut_off_fac * rho_L ) then
+                !if (abs(l-lp) <= 1) then
                     count_elem_to_calc = count_elem_to_calc + 1
                 end if
             end do
@@ -81,6 +73,7 @@ module cut_off_integration
         do l = 1, l_space_dim ! first index of basis transformed kernel
             do lp = 1, l_space_dim ! second index of basis transformed kernel
                 if (abs(xl(l) - xl(lp)) <= cut_off_fac * rho_L ) then
+                !if (abs(l-lp) <= 1) then
 
                     element_counter = element_counter + 1
                     ! integrate over r_g
@@ -89,7 +82,7 @@ module cut_off_integration
                         K_rho_phi_llp(l,lp) = K_rho_phi_llp(l,lp) + 0.5d0 * &
                         (func_trapz_int_2D_rho_phi(l,lp, i_rg)   * exp(- eps_reg * (rb(i_rg)   - r_res)**2) &
                         +func_trapz_int_2D_rho_phi(l,lp, i_rg-1) * exp(- eps_reg * (rb(i_rg-1) - r_res)**2)) &
-                            * (rb(i_rg) - rb(i_rg - 1))  * (sqrt(eps_reg / pi))
+                            * (rb(i_rg) - rb(i_rg - 1))  
                         !K_rho_B_llp(l,lp) = K_rho_B_llp(l,lp) + 0.5d0 * &
                         !(func_trapz_int_2D_rho_B(l,lp, i_rg)    * exp(- eps_reg * (rb(i_rg)   - r_res)**2) &
                         !+func_trapz_int_2D_rho_B(l,lp, i_rg-1)  * exp(- eps_reg * (rb(i_rg-1) - r_res)**2))  &
@@ -103,8 +96,18 @@ module cut_off_integration
         end do
         !$OMP END PARALLEL DO
 
-        !K_rho_phi_llp = K_rho_phi_llp / (2.0d0 * pi)
-        !K_rho_B_llp = K_rho_B_llp / (2.0d0 * pi)
+        ! From Fourier transformation of spline functions
+        !K_rho_phi_llp = K_rho_phi_llp / (2.0d0 * pi) * (sqrt(eps_reg / pi))  * (2.0d0 * pi**2)
+        ! error functions are from normalization of the regularization with a Gaussian over a finite interval
+        K_rho_phi_llp = K_rho_phi_llp / (2.0d0 * pi) * (2 * sqrt(eps_reg / pi)) &
+                        / (cerf_F(cmplx((rb(npoib) - r_res) * sqrt(eps_reg), 0.0d0, kind=kind(1.0d0))) &
+                        -  cerf_F(cmplx((rb(1) - r_res) * sqrt(eps_reg), 0.0d0, kind=kind(1.0d0))))  &
+                        * (2.0d0 * pi**2)
+        K_rho_B_llp = K_rho_B_llp / (2.0d0 * pi) * (2 * sqrt(eps_reg / pi)) &
+                        / (cerf_F(cmplx((rb(npoib) - r_res) * sqrt(eps_reg), 0.0d0, kind=kind(1.0d0))) &
+                        -  cerf_F(cmplx((rb(1) - r_res) * sqrt(eps_reg), 0.0d0, kind=kind(1.0d0))))  &
+                        * (2.0d0 * pi**2)
+
 
         write(*,*) ''
         write(*,*) 'finished basis trafo'
@@ -147,76 +150,6 @@ module cut_off_integration
 
     end subroutine
 
-    subroutine fill_kernel_rho_phi
-
-        use kernel_functions, only: kernel_rho_phi_of_kr_krp_rg
-        use kernel, only: K_rho_phi_of_rg
-        use config, only: fstatus
-        use loading_bar
-
-        implicit none
-        integer :: i_kr, i_krp, i_rg
-        integer :: count_loading = 0
-        integer :: total_count_loading = 0
-
-
-        if (fstatus == 1) write(*,*) 'Status: Fill kernel rho phi'
-
-        if (.not. allocated(K_rho_phi_of_rg)) allocate(K_rho_phi_of_rg(k_space_dim, k_space_dim, npoib))
-
-        total_count_loading = k_space_dim * k_space_dim * npoib
-        
-        !$OMP PARALLEL DO collapse(3) default(none) schedule(guided) &
-        !$OMP PRIVATE(i_krp, i_kr, i_rg, total_count_loading) &
-        !$OMP SHARED(K_rho_phi_of_rg, kr, krp, rb, k_space_dim, npoib, count_loading)
-        do i_krp = 1, k_space_dim
-            do i_kr = 1, k_space_dim
-                do i_rg = 1, npoib
-                    K_rho_phi_of_rg(i_krp, i_kr, i_rg) = kernel_rho_phi_of_kr_krp_rg(kr(i_kr), krp(i_krp), rb(i_rg)) 
-                end do
-            end do
-        end do
-        !$OMP END PARALLEL DO
-
-        if (fstatus == 1) write(*,*) 'Status: Finished filling kernel rho phi'
-
-    end subroutine fill_kernel_rho_phi
-
-    subroutine fill_kernel_rho_B
-
-        use kernel_functions, only: kernel_rho_B_of_kr_krp_rg
-        use kernel, only: K_rho_B_of_rg
-        use config, only: fstatus
-        use loading_bar
-
-        implicit none
-        integer :: i_kr, i_krp, i_rg
-        integer :: count_loading = 0
-        integer :: total_count_loading = 0
-
-
-        if (fstatus == 1) write(*,*) 'Status: Fill kernel rho B'
-
-        if (.not. allocated(K_rho_B_of_rg)) allocate(K_rho_B_of_rg(k_space_dim, k_space_dim, npoib))
-
-        total_count_loading = k_space_dim * k_space_dim * npoib
-        
-        !$OMP PARALLEL DO collapse(3) default(none) schedule(guided) &
-        !$OMP PRIVATE(i_krp, i_kr, i_rg, total_count_loading) &
-        !$OMP SHARED(K_rho_B_of_rg, kr, krp, rb, k_space_dim, npoib, count_loading)
-        do i_krp = 1, k_space_dim
-            do i_kr = 1, k_space_dim
-                do i_rg = 1, npoib
-                    K_rho_B_of_rg(i_krp, i_kr, i_rg) = kernel_rho_B_of_kr_krp_rg(kr(i_kr), krp(i_krp), rb(i_rg)) 
-                end do
-            end do
-        end do
-        !$OMP END PARALLEL DO
-
-        if (fstatus == 1) write(*,*) 'Status: Finished filling kernel rho B'
-
-    end subroutine fill_kernel_rho_B
-
 
     ! integrate 2D integral over k_r and k_r' with the trapezoidal rule
     double complex function func_trapz_int_2D_rho_phi(l, lp, i_rg)
@@ -224,7 +157,7 @@ module cut_off_integration
         use setup, only: cut_off_fac
         use grid, only: xl
         use constants, only: com_unit
-        use kernel, only: K_rho_phi_of_rg
+        use kernels, only: K_rho_phi_of_rg
         use integrands, only: integrand_w_exp_facs_rho_phi
 
         implicit none
@@ -239,9 +172,9 @@ module cut_off_integration
         !!$OMP PARALLEL DO default(none) schedule(guided) &
         !!$OMP PRIVATE(i_kr, i_krp) &
         !!$OMP SHARED(func_trapz_int_2D, kr, krp, k_space_dim, kr_cutoff, l, lp, i_rg, com_unit, &
-        !!$OMP xl, rb, varphi_lkr, K_rho_phi_of_rg, closest_kr_ind_upper, closest_kr_ind_lower)
-        do i_kr = closest_kr_ind_lower+1, closest_kr_ind_upper-1
-            do i_krp = closest_kr_ind_lower+1, closest_kr_ind_upper -1
+        !!$OMP xl, rb, varphi_lkr, K_rho_phi_of_rg)
+        do i_kr = 2, k_space_dim
+            do i_krp = 2, k_space_dim
                 func_trapz_int_2D_rho_phi = func_trapz_int_2D_rho_phi + 0.25d0 * ((kr(i_kr)- kr(i_kr-1))&
                     * (krp(i_krp) - krp(i_krp-1)) &
                     * (integrand_w_exp_facs_rho_phi(l,lp, i_kr, i_krp, i_rg)& 
@@ -253,57 +186,50 @@ module cut_off_integration
                 ! second term of transformation (integral over kr', kr at boundary)
                 ! use loop over kr for integration over krp. That's why here the i_kr index is used.
                 func_trapz_int_2D_rho_phi = func_trapz_int_2D_rho_phi + 0.5d0 * com_unit / (rb(i_rg) - xl(l)) &
-                    * (varphi_lkr(closest_kr_ind_upper, l) * exp(com_unit * kr(closest_kr_ind_upper) * (rb(i_rg) - xl(l))) &
+                    * (varphi_lkr(k_space_dim, l) * exp(com_unit * kr(k_space_dim) * (rb(i_rg) - xl(l))) &
                         ! first integral
                         * (exp(com_unit * krp(i_kr) * (xl(lp) - rb(i_rg))) * conjg(varphi_lkr(i_kr, lp)) &
-                        * K_rho_phi_of_rg(i_kr, closest_kr_ind_upper, i_rg) &
+                        * K_rho_phi_of_rg(i_kr, k_space_dim, i_rg) &
                         - exp(com_unit * krp(i_kr-1) * (xl(lp) - rb(i_rg))) * conjg(varphi_lkr(i_kr-1, lp))&
-                        * K_rho_phi_of_rg(i_kr-1, closest_kr_ind_upper, i_rg)) &
+                        * K_rho_phi_of_rg(i_kr-1, k_space_dim, i_rg)) &
                     ! second term in bracket:
-                    - varphi_lkr(closest_kr_ind_lower, l) * exp(com_unit * kr(closest_kr_ind_lower) * (rb(i_rg) - xl(l)))&
+                    - varphi_lkr(1, l) * exp(com_unit * kr(1) * (rb(i_rg) - xl(l)))&
                         * (exp(com_unit * krp(i_kr) * (xl(lp) - rb(i_rg))) * conjg(varphi_lkr(i_kr, lp)) &
-                        * K_rho_phi_of_rg(i_kr, closest_kr_ind_lower, i_rg) &
+                        * K_rho_phi_of_rg(i_kr, 1, i_rg) &
                         - exp(com_unit * krp(i_kr-1) * (xl(lp) - rb(i_rg)))* conjg(varphi_lkr(i_kr-1, lp))&
-                        * K_rho_phi_of_rg(i_kr-1, closest_kr_ind_lower, i_rg))) &
+                        * K_rho_phi_of_rg(i_kr-1, 1, i_rg))) &
                     * (krp(i_kr) - krp(i_kr-1))
 
-                ! third term of transformation (integral over kr, kr' at boundary)
+                !! third term of transformation (integral over kr, kr' at boundary)
                 func_trapz_int_2D_rho_phi = func_trapz_int_2D_rho_phi + 0.5d0 * com_unit / (xl(lp) - rb(i_rg)) &
                     ! first term in bracket, kr' upper limit
-                    * (conjg(varphi_lkr(closest_kr_ind_upper, lp)) * exp(com_unit * kr(closest_kr_ind_upper) * (xl(lp) - rb(i_rg)))&
+                    * (conjg(varphi_lkr(k_space_dim, lp)) * exp(com_unit * kr(k_space_dim) * (xl(lp) - rb(i_rg)))&
                         * (exp(com_unit * kr(i_kr) * (rb(i_rg) - xl(l))) * varphi_lkr(i_kr, l) &
-                        * K_rho_phi_of_rg(closest_kr_ind_upper, i_kr, i_rg) &
+                        * K_rho_phi_of_rg(k_space_dim, i_kr, i_rg) &
                         -  exp(com_unit * kr(i_kr-1) * (rb(i_rg) - xl(l))) &
-                        * varphi_lkr(i_kr-1, l) * K_rho_phi_of_rg(closest_kr_ind_upper, i_kr-1, i_rg)) &
+                        * varphi_lkr(i_kr-1, l) * K_rho_phi_of_rg(k_space_dim, i_kr-1, i_rg)) &
                     ! second term in bracket, kr' lower limit
-                    - conjg(varphi_lkr(closest_kr_ind_lower, lp)) * exp(com_unit * kr(closest_kr_ind_lower) * (xl(lp) - rb(i_rg)))&
+                    - conjg(varphi_lkr(1, lp)) * exp(com_unit * kr(1) * (xl(lp) - rb(i_rg)))&
                         * (exp(com_unit * kr(i_kr) * (rb(i_rg) - xl(l))) * varphi_lkr(i_kr, l) &
-                        * K_rho_phi_of_rg(closest_kr_ind_lower, i_kr, i_rg) &
+                        * K_rho_phi_of_rg(1, i_kr, i_rg) &
                         -  exp(com_unit * kr(i_kr-1) * (rb(i_rg) - xl(l))) &
-                        * varphi_lkr(i_kr-1, l) * K_rho_phi_of_rg(closest_kr_ind_lower, i_kr-1, i_rg))) &
+                        * varphi_lkr(i_kr-1, l) * K_rho_phi_of_rg(1, i_kr-1, i_rg))) &
                     * (kr(i_kr) - kr(i_kr-1))
-
-            !end if
-            !!$OMP critical
-            !if (OMP_GET_THREAD_NUM() == 0) then
-            !    write(*,*) '    ', dble(i_kr) * 100.0d0/dble(k_space_dim), '% of kernel phi filled'
-            !end if
-            !!$OMP end critical
         end do
         !!$OMP END PARALLEL DO
 
         ! fourth term of transformation (term on the boundaries in kr and kr')
         func_trapz_int_2D_rho_phi = func_trapz_int_2D_rho_phi + 1.0d0 / ((xl(lp) - rb(i_rg)) * (xl(l) - rb(i_rg))) &
-            * (conjg(varphi_lkr(closest_kr_ind_upper, lp)) * exp(com_unit * kr(closest_kr_ind_upper) * (xl(lp) - rb(i_rg)))&
-            * (varphi_lkr(closest_kr_ind_upper, l) * exp(com_unit * kr(closest_kr_ind_upper) * (rb(i_rg) - xl(l)))&
-                * K_rho_phi_of_rg(closest_kr_ind_upper, closest_kr_ind_upper, i_rg) &
-            - varphi_lkr(closest_kr_ind_lower, l)* exp(com_unit * kr(closest_kr_ind_lower) * (rb(i_rg) - xl(l)))&
-                * K_rho_phi_of_rg(closest_kr_ind_upper, closest_kr_ind_lower, i_rg)))&
-            * (conjg(varphi_lkr(closest_kr_ind_lower, lp)) * exp(com_unit * kr(closest_kr_ind_lower) * (xl(lp) - rb(i_rg)))&
-            * (varphi_lkr(closest_kr_ind_upper, l) * exp(com_unit * kr(closest_kr_ind_upper) * (rb(i_rg) - xl(l)))&
-                * K_rho_phi_of_rg(closest_kr_ind_lower, closest_kr_ind_upper, i_rg) &
-            - varphi_lkr(closest_kr_ind_lower, l) * exp(com_unit * kr(closest_kr_ind_lower) * (rb(i_rg) - xl(l)))&
-                * K_rho_phi_of_rg(closest_kr_ind_lower, closest_kr_ind_lower, i_rg)))
+            * (conjg(varphi_lkr(k_space_dim, lp)) * exp(com_unit * kr(k_space_dim) * (xl(lp) - rb(i_rg)))&
+            * (varphi_lkr(k_space_dim, l) * exp(com_unit * kr(k_space_dim) * (rb(i_rg) - xl(l)))&
+                * K_rho_phi_of_rg(k_space_dim, k_space_dim, i_rg) &
+            - varphi_lkr(1, l)* exp(com_unit * kr(1) * (rb(i_rg) - xl(l)))&
+                * K_rho_phi_of_rg(k_space_dim, 1, i_rg)))&
+            * (conjg(varphi_lkr(1, lp)) * exp(com_unit * kr(1) * (xl(lp) - rb(i_rg)))&
+            * (varphi_lkr(k_space_dim, l) * exp(com_unit * kr(k_space_dim) * (rb(i_rg) - xl(l)))&
+                * K_rho_phi_of_rg(1, k_space_dim, i_rg) &
+            - varphi_lkr(1, l) * exp(com_unit * kr(1) * (rb(i_rg) - xl(l)))&
+                * K_rho_phi_of_rg(1, 1, i_rg)))
 
         if (isnan(real(func_trapz_int_2D_rho_phi))) then
             write(*,*) 'NaN in func_trapz_int_2D_rho_phi, l = ', l, ', lp = ', lp, ', i_rg = ', i_rg
@@ -320,7 +246,7 @@ module cut_off_integration
         use setup, only: cut_off_fac
         use grid, only: xl
         use constants, only: com_unit
-        use kernel, only: K_rho_B_of_rg
+        use kernels, only: K_rho_B_of_rg
         use integrands, only: integrand_w_exp_facs_rho_B
 
         implicit none
@@ -332,9 +258,9 @@ module cut_off_integration
         !!$OMP PARALLEL DO default(none) schedule(guided) &
         !!$OMP PRIVATE(i_kr, i_krp) &
         !!$OMP SHARED(func_trapz_int_2D, kr, krp, k_space_dim, kr_cutoff, l, lp, i_rg, com_unit, &
-        !!$OMP xl, rb, varphi_lkr, K_rho_phi_of_rg, closest_kr_ind_upper, closest_kr_ind_lower)
-        do i_kr = closest_kr_ind_lower+1, closest_kr_ind_upper-1
-            do i_krp = closest_kr_ind_lower+1, closest_kr_ind_upper-1 
+        !!$OMP xl, rb, varphi_lkr, K_rho_phi_of_rg, k_space_dim, 1)
+        do i_kr = 1+1, k_space_dim-1
+            do i_krp = 1+1, k_space_dim-1 
                 func_trapz_int_2D_rho_B = func_trapz_int_2D_rho_B + 0.25d0 &
                     * ((kr(i_kr)- kr(i_kr-1)) * (krp(i_krp) - krp(i_krp-1)) &
                     * (integrand_w_exp_facs_rho_B(l,lp, i_kr, i_krp, i_rg) &
@@ -346,33 +272,33 @@ module cut_off_integration
                 ! second term of transformation (integral over kr', kr at boundary)
                 ! use loop over kr for integration over krp. That's why here the i_kr index is used.
                 func_trapz_int_2D_rho_B = func_trapz_int_2D_rho_B + 0.5d0 * com_unit / (rb(i_rg) - xl(l)) &
-                    * (varphi_lkr(closest_kr_ind_upper, l) * exp(com_unit * kr(closest_kr_ind_upper) * (rb(i_rg) - xl(l))) &
+                    * (varphi_lkr(k_space_dim, l) * exp(com_unit * kr(k_space_dim) * (rb(i_rg) - xl(l))) &
                         * (exp(com_unit * krp(i_kr) * (xl(lp) - rb(i_rg))) * conjg(varphi_lkr(i_kr, lp)) &
-                        * K_rho_B_of_rg(i_kr, closest_kr_ind_upper, i_rg) &
+                        * K_rho_B_of_rg(i_kr, k_space_dim, i_rg) &
                         - exp(com_unit * krp(i_kr-1) * (xl(lp) - rb(i_rg))) * conjg(varphi_lkr(i_kr-1, lp))&
-                        * K_rho_B_of_rg(i_kr-1, closest_kr_ind_upper, i_rg)) &
+                        * K_rho_B_of_rg(i_kr-1, k_space_dim, i_rg)) &
                     ! second term in bracket:
-                    - varphi_lkr(closest_kr_ind_lower, l) * exp(com_unit * kr(closest_kr_ind_lower) * (rb(i_rg) - xl(l))) &
+                    - varphi_lkr(1, l) * exp(com_unit * kr(1) * (rb(i_rg) - xl(l))) &
                         * (exp(com_unit * krp(i_kr) * (xl(lp) - rb(i_rg))) * conjg(varphi_lkr(i_kr, lp)) &
-                        * K_rho_B_of_rg(i_kr, closest_kr_ind_lower, i_rg) &
+                        * K_rho_B_of_rg(i_kr, 1, i_rg) &
                         - exp(com_unit * krp(i_kr-1) * (xl(lp) - rb(i_rg))) &
-                        * conjg(varphi_lkr(i_kr-1, lp)) * K_rho_B_of_rg(i_kr-1, closest_kr_ind_lower, i_rg))) &
+                        * conjg(varphi_lkr(i_kr-1, lp)) * K_rho_B_of_rg(i_kr-1, 1, i_rg))) &
                     * (krp(i_kr) - krp(i_kr-1))
 
                 ! third term of transformation (integral over kr, kr' at boundary)
                 func_trapz_int_2D_rho_B = func_trapz_int_2D_rho_B + 0.5d0 * com_unit / (xl(lp) - rb(i_rg)) &
                     ! first term in bracket, kr' upper limit
-                    * (conjg(varphi_lkr(closest_kr_ind_upper, lp)) * exp(com_unit * kr(closest_kr_ind_upper) * (xl(lp) - rb(i_rg)))&
+                    * (conjg(varphi_lkr(k_space_dim, lp)) * exp(com_unit * kr(k_space_dim) * (xl(lp) - rb(i_rg)))&
                         * (exp(com_unit * kr(i_kr) * (rb(i_rg) - xl(l))) * varphi_lkr(i_kr, l) &
-                        * K_rho_B_of_rg(closest_kr_ind_upper, i_kr, i_rg) &
+                        * K_rho_B_of_rg(k_space_dim, i_kr, i_rg) &
                         -  exp(com_unit * kr(i_kr-1) * (rb(i_rg) - xl(lp))) &
-                        * varphi_lkr(i_kr-1, l) * K_rho_B_of_rg(closest_kr_ind_upper, i_kr-1, i_rg)) &
+                        * varphi_lkr(i_kr-1, l) * K_rho_B_of_rg(k_space_dim, i_kr-1, i_rg)) &
                     ! second term in bracket, kr' lower limit
-                    - conjg(varphi_lkr(closest_kr_ind_lower, lp)) * exp(com_unit * kr(closest_kr_ind_lower) * (xl(lp) - rb(i_rg)))&
+                    - conjg(varphi_lkr(1, lp)) * exp(com_unit * kr(1) * (xl(lp) - rb(i_rg)))&
                         * (exp(com_unit * kr(i_kr) * (rb(i_rg) - xl(l))) * varphi_lkr(i_kr, l) &
-                        * K_rho_B_of_rg(closest_kr_ind_lower, i_kr, i_rg) &
+                        * K_rho_B_of_rg(1, i_kr, i_rg) &
                         -  exp(com_unit * kr(i_kr-1) * (rb(i_rg) - xl(lp))) &
-                        * varphi_lkr(i_kr-1, l) * K_rho_B_of_rg(closest_kr_ind_lower, i_kr-1, i_rg))) &
+                        * varphi_lkr(i_kr-1, l) * K_rho_B_of_rg(1, i_kr-1, i_rg))) &
                     * (kr(i_kr) - kr(i_kr-1))
 
             !end if
@@ -386,24 +312,24 @@ module cut_off_integration
 
         ! fourth term of transformation (term on the boundaries in kr and kr')
         !func_trapz_int_2D_rho_B = func_trapz_int_2D_rho_B + 1.0d0 / ((xl(lp) - rb(i_rg)) * (xl(l) - rb(i_rg))) &
-        !    * (conjg(varphi_lkr(closest_kr_ind_upper, lp)) &
-        !    * (varphi_lkr(closest_kr_ind_upper, l) * K_rho_B_of_rg(closest_kr_ind_upper, closest_kr_ind_upper, i_rg) &
-        !    - varphi_lkr(closest_kr_ind_lower, l) * K_rho_B_of_rg(closest_kr_ind_upper, closest_kr_ind_lower, i_rg)))&
-        !   * (conjg(varphi_lkr(closest_kr_ind_lower, lp)) &
-        !   * (varphi_lkr(closest_kr_ind_upper, l) * K_rho_B_of_rg(closest_kr_ind_lower, closest_kr_ind_upper, i_rg) &
-        !    - varphi_lkr(closest_kr_ind_lower, l) * K_rho_B_of_rg(closest_kr_ind_lower, closest_kr_ind_lower, i_rg)))
+        !    * (conjg(varphi_lkr(k_space_dim, lp)) &
+        !    * (varphi_lkr(k_space_dim, l) * K_rho_B_of_rg(k_space_dim, k_space_dim, i_rg) &
+        !    - varphi_lkr(1, l) * K_rho_B_of_rg(k_space_dim, 1, i_rg)))&
+        !   * (conjg(varphi_lkr(1, lp)) &
+        !   * (varphi_lkr(k_space_dim, l) * K_rho_B_of_rg(1, k_space_dim, i_rg) &
+        !    - varphi_lkr(1, l) * K_rho_B_of_rg(1, 1, i_rg)))
 
         func_trapz_int_2D_rho_B = func_trapz_int_2D_rho_B + 1.0d0 / ((xl(lp) - rb(i_rg)) * (xl(l) - rb(i_rg))) &
-            * (conjg(varphi_lkr(closest_kr_ind_upper, lp)) * exp(com_unit * kr(closest_kr_ind_upper) * (xl(lp) - rb(i_rg)))&
-            * (varphi_lkr(closest_kr_ind_upper, l) * exp(com_unit * kr(closest_kr_ind_upper) * (rb(i_rg) - xl(l)))&
-                * K_rho_B_of_rg(closest_kr_ind_upper, closest_kr_ind_upper, i_rg) &
-            - varphi_lkr(closest_kr_ind_lower, l)* exp(com_unit * kr(closest_kr_ind_lower) * (rb(i_rg) - xl(l)))&
-                * K_rho_B_of_rg(closest_kr_ind_upper, closest_kr_ind_lower, i_rg)))&
-            * (conjg(varphi_lkr(closest_kr_ind_lower, lp)) * exp(com_unit * kr(closest_kr_ind_lower) * (xl(lp) - rb(i_rg)))&
-            * (varphi_lkr(closest_kr_ind_upper, l) * exp(com_unit * kr(closest_kr_ind_upper) * (rb(i_rg) - xl(l)))&
-                * K_rho_B_of_rg(closest_kr_ind_lower, closest_kr_ind_upper, i_rg) &
-            - varphi_lkr(closest_kr_ind_lower, l) * exp(com_unit * kr(closest_kr_ind_lower) * (rb(i_rg) - xl(l)))&
-                * K_rho_B_of_rg(closest_kr_ind_lower, closest_kr_ind_lower, i_rg)))
+            * (conjg(varphi_lkr(k_space_dim, lp)) * exp(com_unit * kr(k_space_dim) * (xl(lp) - rb(i_rg)))&
+            * (varphi_lkr(k_space_dim, l) * exp(com_unit * kr(k_space_dim) * (rb(i_rg) - xl(l)))&
+                * K_rho_B_of_rg(k_space_dim, k_space_dim, i_rg) &
+            - varphi_lkr(1, l)* exp(com_unit * kr(1) * (rb(i_rg) - xl(l)))&
+                * K_rho_B_of_rg(k_space_dim, 1, i_rg)))&
+            * (conjg(varphi_lkr(1, lp)) * exp(com_unit * kr(1) * (xl(lp) - rb(i_rg)))&
+            * (varphi_lkr(k_space_dim, l) * exp(com_unit * kr(k_space_dim) * (rb(i_rg) - xl(l)))&
+                * K_rho_B_of_rg(1, k_space_dim, i_rg) &
+            - varphi_lkr(1, l) * exp(com_unit * kr(1) * (rb(i_rg) - xl(l)))&
+                * K_rho_B_of_rg(1, 1, i_rg)))
 
     end function func_trapz_int_2D_rho_B
 

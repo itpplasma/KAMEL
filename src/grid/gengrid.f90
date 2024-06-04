@@ -28,11 +28,9 @@
 
     ! set parameters for grid spacing. grid_spacing=1: quidistant grid, grid_spacing=2: non-equidistant grid
     if (grid_spacing == 1) then
-        write(*,*) 'grid_spacing = 1'
         width_res = 1.0
         ampl_res = 0.0
     elseif (grid_spacing == 2) then
-        write(*,*) 'grid_spacing = 2'
         width_res = 3.0
         ampl_res = 0.3
     end if
@@ -53,8 +51,6 @@
         npoib= npoib + 1
     enddo
 
-    write(*,*) 'Number points post-grid: ', npoib
-
     npoic = npoib - 1
 
     allocate(rb(npoib), rc(npoic))
@@ -73,6 +69,11 @@
         rb(ipoib) = r
         rc(ipoib-1) = 0.5 * (rb(ipoib-1) + rb(ipoib))
     enddo
+
+    write(*,*) " - - - r grid: - - - "
+    write(*,*) "    h = ", rb(2) - rb(1)
+    write(*,*) '    Number points post-grid: ', npoib
+    write(*,*) " - - - - - - - - - - "
 
     ! modifie this if xl and rg should have different grids
     xl = rb + 0.1

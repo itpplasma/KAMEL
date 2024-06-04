@@ -62,7 +62,7 @@ module equilibrium
                 dpress_prof(i) = ev *(dndr_prof(i) * Te_prof(i) + n_prof(i) * dTedr_prof(i))
             end do
 
-            do sigma=1, ispecies
+            do sigma=1, number_of_ion_species
                 press_prof = ev * n_prof * (Te_prof + Ti_prof(sigma, :))
                 do i=1, iprof_length
                     dpress_prof(i) = dpress_prof(i) + ev * (dnidr_prof(sigma,i) * &

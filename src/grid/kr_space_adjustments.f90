@@ -4,7 +4,6 @@ subroutine kr_space_adjustments
     use kr_grid, only: kr, k_space_dim
     use setup, only: kr_cut_off_fac
     use plasma_parameter, only: rho_L
-    use kr_grid, only: closest_kr_ind_upper, closest_kr_ind_lower
     use config, only: fstatus
     use findIndex, only: findClosestIndex
 
@@ -17,14 +16,16 @@ subroutine kr_space_adjustments
 
     call generate_k_space_grid(k_space_dim, .true., kr_cutoff)
 
-    call findClosestIndex(kr, kr_cutoff, closest_kr_ind_upper)
-    call findClosestIndex(-kr, kr_cutoff, closest_kr_ind_lower)
+    !call findClosestIndex(kr, kr_cutoff, closest_kr_ind_upper)
+    !call findClosestIndex(-kr, kr_cutoff, closest_kr_ind_lower)
 
     if (fstatus == 1) then
+        write(*,*) '- - - kr space adjustment - - -'
         write(*,*) ' rho_L      = ', rho_L, ' cm'
         write(*,*) ' kr cut-off = ', kr_cutoff
-        write(*,*) ' closest index lower = ', closest_kr_ind_lower, ', closest index upper = ', closest_kr_ind_upper
-        write(*,*) ' closest lower = ', kr(closest_kr_ind_lower), ', closest upper = ', kr(closest_kr_ind_upper)
+        write(*,*) ' min kr = ', kr(1), ', max kr = ', kr(k_space_dim)
+        write(*,*) ' minval kr = ', minval(kr), ', maxval kr = ', maxval(kr)
+        write(*,*) '- - - - - - - - - - - - - - - -'
     end if
 
 end subroutine

@@ -27,16 +27,16 @@ subroutine calculate_backs(write_out)
 
     if (fstatus == 1) write(*,*) 'Status: Calculating background quantities, write_out=',write_out
 
-    allocate(Lee(iprof_length), Lei(ispecies, iprof_length), &
-            Lii(ispecies, ispecies, iprof_length))
+    allocate(Lee(iprof_length), Lei(number_of_ion_species, iprof_length), &
+            Lii(number_of_ion_species, number_of_ion_species, iprof_length))
 
     allocate(A1e(iprof_length), A2e(iprof_length), vTe(iprof_length), &
             omce(iprof_length), nue(iprof_length), lambda_De(iprof_length))
-    allocate(A1i(ispecies, iprof_length), A2i(ispecies, iprof_length), &
-            vTi(ispecies, iprof_length), omci(ispecies, iprof_length), &
-            nui(ispecies, iprof_length), lambda_Di(ispecies, iprof_length))
+    allocate(A1i(number_of_ion_species, iprof_length), A2i(number_of_ion_species, iprof_length), &
+            vTi(number_of_ion_species, iprof_length), omci(number_of_ion_species, iprof_length), &
+            nui(number_of_ion_species, iprof_length), lambda_Di(number_of_ion_species, iprof_length))
     allocate(ks(iprof_length), kp(iprof_length), om_E(iprof_length), z0e(iprof_length))
-    allocate(z0i(ispecies, iprof_length))
+    allocate(z0i(number_of_ion_species, iprof_length))
 
     call calc_plasma_parameter_derivs
 
@@ -68,7 +68,7 @@ subroutine calculate_backs(write_out)
         
     end do
 
-    do sigma=1, ispecies
+    do sigma=1, number_of_ion_species
         do i=1, iprof_length
             ! Coulomb logarithm electrons ions (= ions electrons)
             Lei(sigma, i) = 24.0d0 - log(sqrt(n_prof(i)) / Ti_prof(sigma, i))
@@ -82,7 +82,7 @@ subroutine calculate_backs(write_out)
             nui(sigma, i) = 1.8d-7 * Ai(sigma)**(-1.0/2.0) * Ti_prof(sigma, i)**(-3.0/2.0) * n_prof(i) * &
                             Zi(sigma)**2 * Lei(sigma,i)
 
-            do sigma_col=sigma, ispecies
+            do sigma_col=sigma, number_of_ion_species
                 ! Coulomb logarithm ions - ions'
                 Lii(sigma, sigma_col, i) = 23.0 - log(Zi(sigma) * Zi(sigma_col) * (Ai(sigma)+Ai(sigma_col)) /&
                                          (Ti_prof(sigma, i)*Ai(sigma) + Ti_prof(sigma_col, i) * Ai(sigma_col)) * &
@@ -176,7 +176,7 @@ subroutine calculate_backs(write_out)
             close(unit = 88)
             close(unit = 89)
 
-            if (ispecies == 1) then
+            if (number_of_ion_species == 1) then
                 open(unit = 78, file = trim(output_path)//'backs/'//'vTi.dat')
                 open(unit = 79, file = trim(output_path)//'backs/'//'nui.dat')
                 open(unit = 80, file = trim(output_path)//'backs/'//'lambda_Di.dat')
@@ -201,7 +201,7 @@ subroutine calculate_backs(write_out)
                 close(unit = 83)
                 close(unit = 84)
             else
-                do sigma = 1, ispecies
+                do sigma = 1, number_of_ion_species
                     ! thermal velocity
                     write(filename, "(A3, I1, A4)") 'vT_', sigma, '.dat'
                     open(unit = 78, file = trim(output_path)//'backs/'//filename)
@@ -273,8 +273,8 @@ subroutine calc_plasma_parameter_derivs
     integer :: sigma
 
     if (.not. allocated(dndr_prof)) then
-        allocate(dndr_prof(iprof_length), dTedr_prof(iprof_length), dTidr_prof(ispecies,iprof_length), &
-        dqdr_prof(iprof_length), dnidr_prof(ispecies, iprof_length))
+        allocate(dndr_prof(iprof_length), dTedr_prof(iprof_length), dTidr_prof(number_of_ion_species,iprof_length), &
+        dqdr_prof(iprof_length), dnidr_prof(number_of_ion_species, iprof_length))
     end if
 
     iend = iprof_length - 1
@@ -283,7 +283,7 @@ subroutine calc_plasma_parameter_derivs
         dndr_prof(i) = (n_prof(i+1) - n_prof(i))/(r_prof(i+1)- r_prof(i))
         dTedr_prof(i) = (Te_prof(i+1) - Te_prof(i))/(r_prof(i+1)- r_prof(i))
         dqdr_prof(i) = (q_prof(i+1) - q_prof(i))/(r_prof(i+1)- r_prof(i))
-        do sigma=1, ispecies
+        do sigma=1, number_of_ion_species
             dnidr_prof(sigma,i) = (ni_prof(sigma,i+1) - ni_prof(sigma,i))/(r_prof(i+1)- r_prof(i))
             dTidr_prof(sigma, i) = (Ti_prof(sigma, i+1) - Ti_prof(sigma, i))/(r_prof(i+1)- r_prof(i))
         end do

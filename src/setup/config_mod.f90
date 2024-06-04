@@ -6,7 +6,8 @@ module config
     character(1024) :: output_path         ! path to output directory
     logical :: hdf5_input, hdf5_output
     integer :: fdebug, fstatus
-    integer :: ispecies ! number of ion species
+    integer :: number_of_ion_species ! number of ion species
     logical :: artificial_debye_case
+    logical :: kernel_debye_case
 
 end module

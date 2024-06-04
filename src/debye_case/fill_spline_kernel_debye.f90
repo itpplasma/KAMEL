@@ -5,7 +5,7 @@ subroutine fill_spline_kernel_debye(write_out)
     use config, only: fstatus
     use debye_kernel, only: lambda_D, calculate_debye_length
     use grid, only: xl, varphi_lkr, l_space_dim
-    use kernel, only: K_rho_phi_llp, K_rho_B_llp
+    use kernels, only: K_rho_phi_llp, K_rho_B_llp
     use constants, only: pi
 
     implicit none

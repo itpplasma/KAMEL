@@ -5,7 +5,7 @@
     hdf5_output = .false.
     fdebug = 1
     fstatus = 1
-    ispecies = 1
+    number_of_ion_species = 1
 /
 
 &kim_setup

@@ -21,7 +21,7 @@ KIM is configured via namelist the file KIM_config.nml containing multiple namel
 - k_space_dim ... integer, dimension of the k space
 - l_space_dim ... integer, dimension of the spline space
 - reduce_r ... boolean, if true reduces r dim of the input profiles
-- reduced_r_dim ... integer, dimension of reduced r dim
+- reduced_rg_dim ... integer, dimension of reduced r dim
 - omega ... double precision, perturbation frequency
 - spline_base ... integer, choose the spline basis functions (1=hat functions)
 - grid_spacing ... integer, choose type of grid spacing (1=equidistant, 2=non-equidistant)

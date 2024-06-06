@@ -13,7 +13,7 @@ module cut_off_integration
     use config, only: fstatus
     use kernels, only: fill_rho_kernels, K_rho_phi_llp, K_rho_B_llp, K_rho_phi_of_rg
     use loading_bar
-    use constants, only: pi
+    use constants, only: pi, com_unit
     use use_libcerf, only: cerf_F
 
     implicit none
@@ -54,8 +54,8 @@ module cut_off_integration
         count_elem_to_calc = 0
         do l = 1, l_space_dim
             do lp = 1, l_space_dim
-                if (abs(xl(l) - xl(lp)) <= cut_off_fac * rho_L ) then
-                !if (abs(l-lp) <= 1) then
+                !if (abs(xl(l) - xl(lp)) <= cut_off_fac * rho_L ) then
+                if (abs(l-lp) <= 1) then
                     count_elem_to_calc = count_elem_to_calc + 1
                 end if
             end do
@@ -72,8 +72,8 @@ module cut_off_integration
         !$OMP SHARED(l_space_dim, xl, cut_off_fac, rho_L, element_counter, K_rho_phi_llp, rb, npoib) schedule(guided)
         do l = 1, l_space_dim ! first index of basis transformed kernel
             do lp = 1, l_space_dim ! second index of basis transformed kernel
-                if (abs(xl(l) - xl(lp)) <= cut_off_fac * rho_L ) then
-                !if (abs(l-lp) <= 1) then
+                !if (abs(xl(l) - xl(lp)) <= cut_off_fac * rho_L ) then
+                if (abs(l-lp) <= 1) then
 
                     element_counter = element_counter + 1
                     ! integrate over r_g
@@ -81,7 +81,7 @@ module cut_off_integration
                         !K_rho_phi_llp_rg(l, lp, i_rg) = func_trapz_int_2D(l, lp, i_rg) ! + remaining terms
                         K_rho_phi_llp(l,lp) = K_rho_phi_llp(l,lp) + 0.5d0 * &
                         (func_trapz_int_2D_rho_phi(l,lp, i_rg)   * exp(- eps_reg * (rb(i_rg)   - r_res)**2) &
-                        +func_trapz_int_2D_rho_phi(l,lp, i_rg-1) * exp(- eps_reg * (rb(i_rg-1) - r_res)**2)) &
+                        +func_trapz_int_2D_rho_phi(l,lp, i_rg-1) * exp(- eps_reg * (rb(i_rg-1) - r_res)**2) )&
                             * (rb(i_rg) - rb(i_rg - 1))  
                         !K_rho_B_llp(l,lp) = K_rho_B_llp(l,lp) + 0.5d0 * &
                         !(func_trapz_int_2D_rho_B(l,lp, i_rg)    * exp(- eps_reg * (rb(i_rg)   - r_res)**2) &
@@ -97,16 +97,17 @@ module cut_off_integration
         !$OMP END PARALLEL DO
 
         ! From Fourier transformation of spline functions
-        !K_rho_phi_llp = K_rho_phi_llp / (2.0d0 * pi) * (sqrt(eps_reg / pi))  * (2.0d0 * pi**2)
+        K_rho_phi_llp = K_rho_phi_llp / (2.0d0 * pi) * (sqrt(eps_reg / pi))  !* (2.0d0 * pi**2)
+        !K_rho_phi_llp = K_rho_phi_llp / (2.0d0 * pi)
         ! error functions are from normalization of the regularization with a Gaussian over a finite interval
-        K_rho_phi_llp = K_rho_phi_llp / (2.0d0 * pi) * (2 * sqrt(eps_reg / pi)) &
-                        / (cerf_F(cmplx((rb(npoib) - r_res) * sqrt(eps_reg), 0.0d0, kind=kind(1.0d0))) &
-                        -  cerf_F(cmplx((rb(1) - r_res) * sqrt(eps_reg), 0.0d0, kind=kind(1.0d0))))  &
-                        * (2.0d0 * pi**2)
-        K_rho_B_llp = K_rho_B_llp / (2.0d0 * pi) * (2 * sqrt(eps_reg / pi)) &
-                        / (cerf_F(cmplx((rb(npoib) - r_res) * sqrt(eps_reg), 0.0d0, kind=kind(1.0d0))) &
-                        -  cerf_F(cmplx((rb(1) - r_res) * sqrt(eps_reg), 0.0d0, kind=kind(1.0d0))))  &
-                        * (2.0d0 * pi**2)
+        !K_rho_phi_llp = K_rho_phi_llp / (2.0d0 * pi) * (2 * sqrt(eps_reg / pi)) &
+                        !/ (cerf_F(cmplx((rb(npoib) - r_res) * sqrt(eps_reg), 0.0d0, kind=kind(1.0d0))) &
+                        !-  cerf_F(cmplx((rb(1) - r_res) * sqrt(eps_reg), 0.0d0, kind=kind(1.0d0))))  !&
+                        !* (4.0d0 * pi**2) * exp(1.0d0/2.0d0)
+        !K_rho_B_llp = K_rho_B_llp / (2.0d0 * pi) * (2 * sqrt(eps_reg / pi)) &
+        !                / (cerf_F(cmplx((rb(npoib) - r_res) * sqrt(eps_reg), 0.0d0, kind=kind(1.0d0))) &
+        !                -  cerf_F(cmplx((rb(1) - r_res) * sqrt(eps_reg), 0.0d0, kind=kind(1.0d0))))  &
+        !                * (2.0d0 * pi**2)
 
 
         write(*,*) ''
@@ -154,9 +155,7 @@ module cut_off_integration
     ! integrate 2D integral over k_r and k_r' with the trapezoidal rule
     double complex function func_trapz_int_2D_rho_phi(l, lp, i_rg)
 
-        use setup, only: cut_off_fac
         use grid, only: xl
-        use constants, only: com_unit
         use kernels, only: K_rho_phi_of_rg
         use integrands, only: integrand_w_exp_facs_rho_phi
 
@@ -164,15 +163,8 @@ module cut_off_integration
         integer, intent(in) :: l, lp, i_rg
         integer :: i_kr, i_krp
                 
-        integer :: max_threads
-
-
         func_trapz_int_2D_rho_phi = 0.0d0
 
-        !!$OMP PARALLEL DO default(none) schedule(guided) &
-        !!$OMP PRIVATE(i_kr, i_krp) &
-        !!$OMP SHARED(func_trapz_int_2D, kr, krp, k_space_dim, kr_cutoff, l, lp, i_rg, com_unit, &
-        !!$OMP xl, rb, varphi_lkr, K_rho_phi_of_rg)
         do i_kr = 2, k_space_dim
             do i_krp = 2, k_space_dim
                 func_trapz_int_2D_rho_phi = func_trapz_int_2D_rho_phi + 0.25d0 * ((kr(i_kr)- kr(i_kr-1))&
@@ -216,7 +208,6 @@ module cut_off_integration
                         * varphi_lkr(i_kr-1, l) * K_rho_phi_of_rg(1, i_kr-1, i_rg))) &
                     * (kr(i_kr) - kr(i_kr-1))
         end do
-        !!$OMP END PARALLEL DO
 
         ! fourth term of transformation (term on the boundaries in kr and kr')
         func_trapz_int_2D_rho_phi = func_trapz_int_2D_rho_phi + 1.0d0 / ((xl(lp) - rb(i_rg)) * (xl(l) - rb(i_rg))) &
@@ -243,9 +234,7 @@ module cut_off_integration
 
     double complex function func_trapz_int_2D_rho_B(l, lp, i_rg)
 
-        use setup, only: cut_off_fac
         use grid, only: xl
-        use constants, only: com_unit
         use kernels, only: K_rho_B_of_rg
         use integrands, only: integrand_w_exp_facs_rho_B
 
@@ -255,10 +244,6 @@ module cut_off_integration
                 
         func_trapz_int_2D_rho_B = 0.0d0
 
-        !!$OMP PARALLEL DO default(none) schedule(guided) &
-        !!$OMP PRIVATE(i_kr, i_krp) &
-        !!$OMP SHARED(func_trapz_int_2D, kr, krp, k_space_dim, kr_cutoff, l, lp, i_rg, com_unit, &
-        !!$OMP xl, rb, varphi_lkr, K_rho_phi_of_rg, k_space_dim, 1)
         do i_kr = 1+1, k_space_dim-1
             do i_krp = 1+1, k_space_dim-1 
                 func_trapz_int_2D_rho_B = func_trapz_int_2D_rho_B + 0.25d0 &
@@ -302,13 +287,7 @@ module cut_off_integration
                     * (kr(i_kr) - kr(i_kr-1))
 
             !end if
-            !!$OMP critical
-            !if (OMP_GET_THREAD_NUM() == 0) then
-            !    write(*,*) '    ', dble(i_kr) * 100.0d0/dble(k_space_dim), '% of kernel phi filled'
-            !end if
-            !!$OMP end critical
         end do
-        !!$OMP END PARALLEL DO
 
         ! fourth term of transformation (term on the boundaries in kr and kr')
         !func_trapz_int_2D_rho_B = func_trapz_int_2D_rho_B + 1.0d0 / ((xl(lp) - rb(i_rg)) * (xl(l) - rb(i_rg))) &

@@ -25,9 +25,9 @@ subroutine calculate_fourier_trans_spline_funcs(write_out)
                     !varphi_lkr(i,n) = FT_hat_function_e(xl(n), xl(n+1), kr(i))
                     varphi_lkr(i,n) = tilde_varphi_lkr_e(xl(n), xl(n+1), kr(i))
                 end do
-                varphi_lkr(i,1) = exp(-com_unit * kr(i) * xl(1)) / ((xl(2) - xl(1)) * kr(i)**2) * &
+                varphi_lkr(i,1) =  1.0d0 / ((xl(2) - xl(1)) * kr(i)**2) * &
                                   (1.0d0 - exp(-com_unit * kr(i) * (xl(2) - xl(1))) - com_unit * kr(i) * (xl(2) - xl(1)))
-                varphi_lkr(i,npoib) = exp(-com_unit * kr(i) * xl(npoib)) / ((xl(npoib) - xl(npoib-1)) * kr(i)**2) &
+                varphi_lkr(i,npoib) = 1.0d0 / ((xl(npoib) - xl(npoib-1)) * kr(i)**2) &
                                   * (1.0d0 - exp(com_unit * kr(i) * (xl(npoib) - xl(npoib-1))) &
                                   + com_unit * kr(i) * (xl(npoib) - xl(npoib-1)))
             end do
@@ -40,9 +40,9 @@ subroutine calculate_fourier_trans_spline_funcs(write_out)
                     !                                    rb(n+2), kr(i))
                     varphi_lkr(i,n) = tilde_varphi_lkr(xl(n), xl(n-1), xl(n+1), kr(i))
                 end do
-                varphi_lkr(i,1) = 1.0d0 / ((xl(2) - xl(1)) * kr(i)**2) * exp(-com_unit * kr(i) * xl(1)) * &
+                varphi_lkr(i,1) = 1.0d0 / ((xl(2) - xl(1)) * kr(i)**2) * &
                                   (1.0d0 - exp(-com_unit * kr(i) * (xl(2) - xl(1))) - com_unit * kr(i) * (xl(2) - xl(1)))
-                varphi_lkr(i,npoib) = exp(-com_unit * kr(i) * xl(npoib)) / ((xl(npoib) - xl(npoib-1)) * kr(i)**2)  * &
+                varphi_lkr(i,npoib) = 1.0d0 / ((xl(npoib) - xl(npoib-1)) * kr(i)**2)  * &
                                   (1.0d0 - exp(com_unit * kr(i) * (xl(npoib) - xl(npoib-1))) &
                                   + com_unit * kr(i) * (xl(npoib) - xl(npoib-1)))
             end do

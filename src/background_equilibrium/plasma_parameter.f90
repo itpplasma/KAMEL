@@ -173,7 +173,7 @@ module plasma_parameter
         subroutine reduce_dim
 
             use config, only: output_path, number_of_ion_species
-            use grid, only: reduced_r_dim
+            use grid, only: reduced_rg_dim
 
             double precision :: step_h
             double precision, allocatable :: new_n_prof(:), new_Te_prof(:), new_Ti_prof(:,:), &
@@ -188,19 +188,19 @@ module plasma_parameter
 
             if (fstatus==1) write(*,*) 'Status: Reducing input profile r dimension'
 
-            allocate(new_n_prof(reduced_r_dim), new_Te_prof(reduced_r_dim), &
-                    new_Ti_prof(number_of_ion_species, reduced_r_dim), new_ni_prof(number_of_ion_species, reduced_r_dim), &
-                    new_Er_prof(reduced_r_dim), new_q_prof(reduced_r_dim), new_r_prof(reduced_r_dim))
+            allocate(new_n_prof(reduced_rg_dim), new_Te_prof(reduced_rg_dim), &
+                    new_Ti_prof(number_of_ion_species, reduced_rg_dim), new_ni_prof(number_of_ion_species, reduced_rg_dim), &
+                    new_Er_prof(reduced_rg_dim), new_q_prof(reduced_rg_dim), new_r_prof(reduced_rg_dim))
 
 
-            step_h = (r_prof(iprof_length) - r_prof(1)) / reduced_r_dim ! new step size
+            step_h = (r_prof(iprof_length) - r_prof(1)) / reduced_rg_dim ! new step size
             new_r_prof(1) = r_prof(1)
 
-            do i = 2, reduced_r_dim
+            do i = 2, reduced_rg_dim
                 new_r_prof(i) = new_r_prof(i-1) + step_h
             end do
 
-            do i = 1, reduced_r_dim
+            do i = 1, reduced_rg_dim
                 call binsrc(r_prof, 1, iprof_length, new_r_prof(i), ir) 
                 ibeg = max(1, ir - nlagr/2)
                 iend = ibeg + nlagr - 1
@@ -222,12 +222,12 @@ module plasma_parameter
                 end do
             end do
             
-            iprof_length = reduced_r_dim
+            iprof_length = reduced_rg_dim
 
             deallocate(r_prof, n_prof, Te_prof, Ti_prof, ni_prof, Er_prof, q_prof)
-            allocate(r_prof(reduced_r_dim), n_prof(reduced_r_dim), Te_prof(reduced_r_dim), &
-                    Ti_prof(number_of_ion_species, reduced_r_dim), ni_prof(number_of_ion_species, reduced_r_dim), &
-                    Er_prof(reduced_r_dim), q_prof(reduced_r_dim))
+            allocate(r_prof(reduced_rg_dim), n_prof(reduced_rg_dim), Te_prof(reduced_rg_dim), &
+                    Ti_prof(number_of_ion_species, reduced_rg_dim), ni_prof(number_of_ion_species, reduced_rg_dim), &
+                    Er_prof(reduced_rg_dim), q_prof(reduced_rg_dim))
 
             r_prof = new_r_prof
             n_prof = new_n_prof

@@ -25,7 +25,7 @@
     k_space_dim = 100
     l_space_dim = 100
     reduce_r = .false.
-    reduced_r_dim = 100
+    reduced_rg_dim = 100
     grid_spacing = 2
     num_gengrid_points = 100
     kr_grid_width_res = 5.0d0

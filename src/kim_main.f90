@@ -26,7 +26,7 @@ program kim_main
                         cut_off_fac, kr_cut_off_fac, r_plas, type_br_field, collisions_off, eps_reg
 
     namelist /KIM_GRID/ k_space_dim, reduce_r, grid_spacing, l_space_dim, num_gengrid_points, &
-                        reduced_r_dim, kr_grid_width_res, kr_grid_ampl_res
+                        reduced_rg_dim, kr_grid_width_res, kr_grid_ampl_res
 
     open(unit = 77, file = './KIM_config.nml')
     read(unit = 77, nml = KIM_CONFIG)
@@ -68,7 +68,7 @@ program kim_main
     write(*,*) '  k_space_dim      = ', k_space_dim
     write(*,*) '  l_space_dim      = ', l_space_dim
     write(*,*) '  reduce_r         = ', reduce_r
-    write(*,*) '  reduced_r_dim    = ', reduced_r_dim
+    write(*,*) '  reduced_rg_dim    = ', reduced_rg_dim
     write(*,*) '  num_gengrid_points = ', num_gengrid_points
     write(*,*) '  grid_spacing     = ', grid_spacing
     write(*,*) '  kr_grid_width_res = ', kr_grid_width_res

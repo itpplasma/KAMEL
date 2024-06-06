@@ -5,7 +5,7 @@ module grid
     integer :: l_space_dim ! dimension of spline grid
     integer :: r_space_dim ! dimension of r grid
     logical :: reduce_r
-    integer :: reduced_r_dim
+    integer :: reduced_rg_dim
     integer :: spline_base
     integer :: grid_spacing
     integer :: num_gengrid_points
@@ -14,7 +14,7 @@ module grid
 
     double complex, dimension(:,:), allocatable :: varphi_lkr
 
-    integer :: npoib, npoic, npoi_der, nbaleqs, neqset, iboutype
+    integer :: number_points_rg, npoi_der, nbaleqs, neqset, iboutype
     integer :: mwind
     double precision :: rmin,rmax
     double precision :: gg_factor = 1.0

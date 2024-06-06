@@ -12,7 +12,7 @@ subroutine kr_space_adjustments
     double precision :: kr_cutoff
 
     ! determine cut-off in kr and corresponding indices
-    kr_cutoff = kr_cut_off_fac / rho_L
+    kr_cutoff = kr_cut_off_fac !* rho_L
 
     call generate_k_space_grid(k_space_dim, .true., kr_cutoff)
 

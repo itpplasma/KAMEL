@@ -155,7 +155,7 @@ module kernels
 
                     kernel_rho_phi_of_kr_krp_rg = kernel_rho_phi_of_kr_krp_rg + 1.0d0 / lambda_D_interp**2.0d0 &
                                             * exp(-vT_interp**2.0d0 / (2.0d0 * omc_interp ** 2.0d0) &
-                                            * (val_krp - val_kr)**2.0d0)
+                                            * (val_kr - val_krp)**2.0d0)
                 else
                     if (real(eval_bt) > bessel_large_arg_limit) then
                         ! limit close to magnetic axis (k_s -> infinity) and large k_r and k_rp

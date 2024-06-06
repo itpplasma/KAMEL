@@ -23,9 +23,8 @@ module integrands
 
         integrand_w_exp_facs_rho_phi = 0.0d0
 
-        integrand_w_exp_facs_rho_phi = varphi_lkr(i_kr, l) &!rb(l), rb(l-1), rb(l+1), rb(l+2), kr(i_kr)) &
-            * conjg(varphi_lkr(i_krp, lp)) &!, rb(lp-1), rb(lp+1), rb(lp+2), krp(i_krp))) &
-            * exp(com_unit * kr(i_kr) * (rb(i_rg)-xl(l)) + com_unit * krp(i_krp) * (xl(lp)-rb(i_rg))) &
+        integrand_w_exp_facs_rho_phi = varphi_lkr(i_kr, l) * conjg(varphi_lkr(i_krp, lp)) &
+            * exp(com_unit * kr(i_kr) * (rb(i_rg) - xl(l)) + com_unit * krp(i_krp) * (xl(lp) - rb(i_rg))) &
             * K_rho_phi_of_rg(i_krp, i_kr, i_rg)
 
     end function integrand_w_exp_facs_rho_phi
@@ -39,8 +38,7 @@ module integrands
 
         integrand_w_exp_facs_rho_B = 0.0d0
 
-        integrand_w_exp_facs_rho_B = varphi_lkr(i_kr, l) &!rb(l), rb(l-1), rb(l+1), rb(l+2), kr(i_kr)) &
-            * conjg(varphi_lkr(i_krp, lp)) &!, rb(lp-1), rb(lp+1), rb(lp+2), krp(i_krp))) &
+        integrand_w_exp_facs_rho_B = varphi_lkr(i_kr, l) * conjg(varphi_lkr(i_krp, lp)) &
             * exp(com_unit * kr(i_kr) * (rb(i_rg)-xl(l)) + com_unit * krp(i_krp) * (xl(lp)-rb(i_rg))) &
             * K_rho_B_of_rg(i_krp, i_kr, i_rg)
 

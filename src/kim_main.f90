@@ -93,9 +93,7 @@ program kim_main
         stop
     end if
     
-    ! generate non-equidistant grid for spline functions (i.e. real space)
-    call gengrid(num_gengrid_points, .true.)
-
+    call generate_grids
 
     if (artificial_debye_case .eqv. .true.) then
         write(*,*) ' === Artificial Debye case ==='

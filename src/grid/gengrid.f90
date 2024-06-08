@@ -1,352 +1,314 @@
-!
-  subroutine gengrid(npoimin, write_out)
-    ! Generates the grid for two types of boundary conditions at the outer
-    ! boundary: iboutype=1 - fixed parameters, iboutype=2 - fixed fluxes
-    ! At the inner boundary fixed fluxes = 0 are always assumed
+subroutine generate_grids
 
     use grid
     use config, only: fdebug, output_path
-    use plasma_parameter, only: r_prof
-    use resonances_mod, only: index_rg_res, r_res, width_res, ampl_res
+    use plasma_parameter, only: r_prof, iprof_length
 
     implicit none
 
-    integer, intent(in) :: npoimin
-    logical, intent(in) :: write_out
-    integer :: ipoib, nder, ipb, ipe
-    double precision :: hrmax, r, rnext, recnsp, rscale
-    !double precision, dimension(:),   allocatable :: x
-    double precision, dimension(:,:), allocatable :: coef
+    call rg_grid%grid_init(reduced_rg_dim, rprof(1), rprof(iprof_length))
+    call xl_grid%grid_init(l_space_dim, rprof(1), rprof(iprof_length))
+    call kr_grid%grid_init(k_space_dim, rprof(1), rprof(iprof_length))
+    call krp_grid%grid_init(k_space_dim, rprof(1), rprof(iprof_length))
 
-    if (fdebug == 1) write(*,*) "Debug: entering gengrid"
-    !nbaleqs=4
+    call rg_grid%grid_generate()
+    call xl_grid%grid_generate()
+    call kr_grid%grid_generate()
+    call krp_grid%grid_generate()
 
-    nder=1
-    npoi_der=4
-    allocate(coef(0:nder,npoi_der))
-    !allocate(x(npoi_der))
+end subroutine
 
-    ! set parameters for grid spacing. grid_spacing=1: quidistant grid, grid_spacing=2: non-equidistant grid
-    if (grid_spacing == 1) then
-        width_res = 1.0
-        ampl_res = 0.0
-    elseif (grid_spacing == 2) then
-        width_res = 3.0
-        ampl_res = 0.3
-    end if
+!!
+  !subroutine gengrid(npoimin, write_out)
+    !! Generates the grid for two types of boundary conditions at the outer
+    !! boundary: iboutype=1 - fixed parameters, iboutype=2 - fixed fluxes
+    !! At the inner boundary fixed fluxes = 0 are always assumed
 
-    rmin = minval(r_prof)
-    rmax = maxval(r_prof)
+    !use grid
+    !use config, only: fdebug, output_path
+    !use plasma_parameter, only: r_prof
+    !use resonances_mod, only: index_rg_res, r_res, width_res, ampl_res
 
-    hrmax = (rmax - rmin)/(npoimin+1)
+    !implicit none
 
-    npoib = 1
-    r = rmin
+    !integer, intent(in) :: npoimin
+    !logical, intent(in) :: write_out
+    !integer :: ipoib, nder, ipb, ipe
+    !double precision :: hrmax, r, rnext, recnsp, rscale
+    !!double precision, dimension(:),   allocatable :: x
+    !double precision, dimension(:,:), allocatable :: coef
 
-    do while(r .lt. rmax)
-        call recnsplit(r,recnsp)
-        rnext = r + hrmax / recnsp
-        call recnsplit(rnext,recnsp)
-        r = 0.5d0 * (rnext + r + hrmax / recnsp)
-        npoib= npoib + 1
-    enddo
+    !if (fdebug == 1) write(*,*) "Debug: entering gengrid"
+    !!nbaleqs=4
 
-    npoic = npoib - 1
+    !nder=1
+    !npoi_der=4
+    !allocate(coef(0:nder,npoi_der))
+    !!allocate(x(npoi_der))
 
-    allocate(rb(npoib), rc(npoic))
-    allocate(Sb(npoib), Sc(npoic))
+    !! set parameters for grid spacing. grid_spacing=1: quidistant grid, grid_spacing=2: non-equidistant grid
+    !if (grid_spacing == 1) then
+        !width_res = 1.0
+        !ampl_res = 0.0
+    !elseif (grid_spacing == 2) then
+        !width_res = 3.0
+        !ampl_res = 0.3
+    !end if
 
-    allocate(xl(npoib)) 
+    !rmin = minval(r_prof)
+    !rmax = maxval(r_prof)
 
-    r = rmin
-    rb(1) = r
+    !hrmax = (rmax - rmin)/(npoimin+1)
 
-    do ipoib=2,npoib
-        call recnsplit(r,recnsp)
-        rnext = r + hrmax / recnsp
-        call recnsplit(rnext,recnsp)
-        r = 0.5d0 * (rnext + r + hrmax / recnsp)
-        rb(ipoib) = r
-        rc(ipoib-1) = 0.5 * (rb(ipoib-1) + rb(ipoib))
-    enddo
+    !npoib = 1
+    !r = rmin
 
-    write(*,*) " - - - r grid: - - - "
-    write(*,*) "    h = ", rb(2) - rb(1)
-    write(*,*) '    Number points r (l) grid: ', npoib
-    write(*,*) " - - - - - - - - - - "
+    !do while(r .lt. rmax)
+        !call recnsplit(r,recnsp)
+        !rnext = r + hrmax / recnsp
+        !call recnsplit(rnext,recnsp)
+        !r = 0.5d0 * (rnext + r + hrmax / recnsp)
+        !npoib= npoib + 1
+    !enddo
 
-    ! modifie this if xl and rg should have different grids
-    xl = rb + 0.3
-    l_space_dim = npoib
+    !npoic = npoib - 1
 
-    ! get index for resonant radius
-    call binsrc(abs(xl), 1, npoib, abs(r_res), index_rg_res)
+    !allocate(rb(npoib), rc(npoic))
+    !allocate(Sb(npoib), Sc(npoic))
 
-    if(iboutype .eq. 1) then
-        rscale = (rmax - rmin) / (rc(npoic) - rmin)
-    else
-        rscale = (rmax - rmin) / (rb(npoib) - rmin)
-    endif
-  !rb=rmin+rscale*(rb-rmin)
-  !rc=rmin+rscale*(rc-rmin)
+    !allocate(xl(npoib)) 
 
-    if(npoi_der .gt. npoic) then
-        write(*,*) '! Error : not enough grid points for derivatives'
-        stop
-    endif
+    !r = rmin
+    !rb(1) = r
 
-  allocate(deriv_coef(npoi_der, npoib), ipbeg(npoib), ipend(npoib))
-  allocate(reint_coef(npoi_der, npoib))
+    !do ipoib=2,npoib
+        !call recnsplit(r,recnsp)
+        !rnext = r + hrmax / recnsp
+        !call recnsplit(rnext,recnsp)
+        !r = 0.5d0 * (rnext + r + hrmax / recnsp)
+        !rb(ipoib) = r
+        !rc(ipoib-1) = 0.5 * (rb(ipoib-1) + rb(ipoib))
+    !enddo
 
-    do ipoib = 1, npoib
-        ipb = ipoib - npoi_der / 2
-        ipe = ipb + npoi_der - 1
-        if(ipb .lt. 1) then
-            ipb = 1
-            ipe = ipb + npoi_der - 1
-        elseif(ipe .gt. npoic) then
-          ipe = npoic
-          ipb = ipe - npoi_der + 1
-        endif
-        ipbeg(ipoib) = ipb
-        ipend(ipoib) = ipe
-        call plag_coeff(npoi_der, nder, rb(ipoib), rc(ipb:ipe), coef)
-        deriv_coef(:, ipoib) = coef(1,:)
-        reint_coef(:, ipoib) = coef(0,:)
-    enddo
+    !write(*,*) " - - - r grid: - - - "
+    !write(*,*) "    h = ", rb(2) - rb(1)
+    !write(*,*) '    Number points r (l) grid: ', npoib
+    !write(*,*) " - - - - - - - - - - "
 
-    deallocate(coef)
+    !! modifie this if xl and rg should have different grids
+    !xl = rb + 0.3
+    !l_space_dim = npoib
 
-    if (write_out) call write_new_grid
-
-    if (fdebug == 1) write(*,*) "Debug: exiting gengrid"
-
-
-    contains
-
-    subroutine write_new_grid
-
-        implicit none
-        integer :: i
-        logical :: ex
-
-        inquire(file = trim(output_path)//'grid', exist = ex)
-        if (.not. ex) then
-            call system('mkdir -p '//trim(output_path)//'grid')
-        end if
-
-        open(unit = 77, file=trim(output_path)//'grid/rb.dat')
-        open(unit = 78, file=trim(output_path)//'grid/xl.dat')
-        do i = 1, npoib
-            write(77,*) i, rb(i)
-            write(78,*) i, xl(i)
-        end do
-        close(77)
-        close(78)
-
-        open(unit = 78, file=trim(output_path)//'grid/rc.dat')
-        do i = 1, npoic
-            write(78,*) i, rc(i)
-        end do
-        close(78)
-
-
-    end subroutine
-
-end subroutine gengrid
-
-subroutine generate_rg_grid(write_out)
-
-    use grid, only: rg, reduced_rg_dim, number_points_rg
-    use config, only: fdebug, output_path
-    use plasma_parameter, only: r_prof
-    use resonances_mod, only: index_rg_res, r_res, width_res, ampl_res
-
-    implicit none
-
-    logical, intent(in) :: write_out
-    integer :: ipoib, nder, ipb, ipe
-    double precision :: hrmax, r, rnext, recnsp, rscale
-    double precision, dimension(:,:), allocatable :: coef
-
-    if (fdebug == 1) write(*,*) "Debug: entering generate_rg_grid"
-
-    nder=1
-    npoi_der=4
-    allocate(coef(0:nder,npoi_der))
-    
-    ! set parameters for grid spacing. grid_spacing=1: quidistant grid, grid_spacing=2: non-equidistant grid
-    if (grid_spacing == 1) then
-        width_res = 1.0
-        ampl_res = 0.0
-    elseif (grid_spacing == 2) then
-        width_res = 3.0
-        ampl_res = 0.3
-    end if
-
-    rmin = minval(r_prof)
-    rmax = maxval(r_prof)
-
-    hrmax = (rmax - rmin)/(reduced_rg_dim+1)
-
-    number_points_rg = 1
-    r = rmin
-
-    do while(r .lt. rmax)
-        call recnsplit(r,recnsp)
-        rnext = r + hrmax / recnsp
-        call recnsplit(rnext,recnsp)
-        r = 0.5d0 * (rnext + r + hrmax / recnsp)
-        number_points_rg = number_points_rg + 1
-    enddo
-
-    allocate(rg(npoib))
-    allocate(Sg(npoib))
-
-    r = rmin
-    rg(1) = r
-
-    do ipoib=2, number_points_rg
-        call recnsplit(r,recnsp)
-        rnext = r + hrmax / recnsp
-        call recnsplit(rnext,recnsp)
-        r = 0.5d0 * (rnext + r + hrmax / recnsp)
-        rg(ipoib) = r
-    enddo
-
-    write(*,*) " - - - rg grid: - - - "
-    write(*,*) "    h1 = ", rg(2) - rg(1)
-    write(*,*) '    Number points r (l) grid: ', number_points_rg
-    write(*,*) " - - - - - - - - - - "
-
-    ! get index for resonant radius
-    call binsrc(abs(rg), 1, number_points_rg, abs(r_res), index_rg_res)
+    !! get index for resonant radius
+    !call binsrc(abs(xl), 1, npoib, abs(r_res), index_rg_res)
 
     !if(iboutype .eq. 1) then
-    !    rscale = (rmax - rmin) / (rc(npoic) - rmin)
+        !rscale = (rmax - rmin) / (rc(npoic) - rmin)
     !else
-    !    rscale = (rmax - rmin) / (rb(npoib) - rmin)
+        !rscale = (rmax - rmin) / (rb(npoib) - rmin)
     !endif
-    !rb=rmin+rscale*(rb-rmin)
-    !rc=rmin+rscale*(rc-rmin)
+  !!rb=rmin+rscale*(rb-rmin)
+  !!rc=rmin+rscale*(rc-rmin)
 
-    allocate(deriv_coef(npoi_der, npoib), ipbeg(npoib), ipend(npoib))
-    allocate(reint_coef(npoi_der, npoib))
+    !if(npoi_der .gt. npoic) then
+        !write(*,*) '! Error : not enough grid points for derivatives'
+        !stop
+    !endif
 
-    do ipoib = 1, number_points_rg
-        ipb = ipoib - npoi_der / 2
-        ipe = ipb + npoi_der - 1
-        if(ipb .lt. 1) then
-            ipb = 1
-            ipe = ipb + npoi_der - 1
-        elseif(ipe .gt. npoic) then
-          ipe = npoic
-          ipb = ipe - npoi_der + 1
-        endif
-        ipbeg(ipoib) = ipb
-        ipend(ipoib) = ipe
-        call plag_coeff(npoi_der, nder, rb(ipoib), rc(ipb:ipe), coef)
-        deriv_coef(:, ipoib) = coef(1,:)
-        reint_coef(:, ipoib) = coef(0,:)
-    enddo
+  !allocate(deriv_coef(npoi_der, npoib), ipbeg(npoib), ipend(npoib))
+  !allocate(reint_coef(npoi_der, npoib))
 
-    deallocate(coef)
+    !do ipoib = 1, npoib
+        !ipb = ipoib - npoi_der / 2
+        !ipe = ipb + npoi_der - 1
+        !if(ipb .lt. 1) then
+            !ipb = 1
+            !ipe = ipb + npoi_der - 1
+        !elseif(ipe .gt. npoic) then
+          !ipe = npoic
+          !ipb = ipe - npoi_der + 1
+        !endif
+        !ipbeg(ipoib) = ipb
+        !ipend(ipoib) = ipe
+        !call plag_coeff(npoi_der, nder, rb(ipoib), rc(ipb:ipe), coef)
+        !deriv_coef(:, ipoib) = coef(1,:)
+        !reint_coef(:, ipoib) = coef(0,:)
+    !enddo
 
-    if (write_out) call write_new_grid
+    !deallocate(coef)
 
-    if (fdebug == 1) write(*,*) "Debug: exiting gengrid"
+    !if (write_out) call write_new_grid
 
-
-end subroutine
-
-subroutine generate_spline_grid
-
-    implicit none
-
-end subroutine
+    !if (fdebug == 1) write(*,*) "Debug: exiting gengrid"
 
 
-!
-!ccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
-!
-subroutine recnsplit(r,recnsp)
+    !contains
 
-    use resonances_mod
-!  use grid_mod, only: gg_width, gg_factor, gg_r_res;
-!
-    implicit none;
-!
-    logical :: prop=.true.
-    double precision :: r, recnsp;
-!
-    if(prop) then
-        prop=.false.
-        call prepare_resonances
-    endif
-!
-!  recnsp = 1.d0 + gg_factor*exp(-((r-gg_r_res)/gg_width)**2);
-    recnsp = 1.d0
-  !do k=1,numres
-    recnsp = recnsp +  ampl_res * exp(-((r - r_res) / width_res)**2)
-  !recnsp = recnsp + ampl_res(k)*exp(-((r-r_res(k))/width_res(k))**2)
-  !enddo
-!
-    return
-end subroutine recnsplit
+    !subroutine write_new_grid
 
+        !implicit none
+        !integer :: i
+        !logical :: ex
 
+        !inquire(file = trim(output_path)//'grid', exist = ex)
+        !if (.not. ex) then
+            !call system('mkdir -p '//trim(output_path)//'grid')
+        !end if
 
-!
-!ccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
-!
-subroutine prepare_resonances
+        !open(unit = 77, file=trim(output_path)//'grid/rb.dat')
+        !open(unit = 78, file=trim(output_path)//'grid/xl.dat')
+        !do i = 1, npoib
+            !write(77,*) i, rb(i)
+            !write(78,*) i, xl(i)
+        !end do
+        !close(77)
+        !close(78)
 
-    use resonances_mod
-    use grid, only: gg_width, gg_factor, grid_spacing
-    use config, only: hdf5_output, fdebug
-    use setup, only: m_mode, n_mode, type_br_field
-    use plasma_parameter, only: iprof_length, r_prof, q_prof
-    !use h5mod
-    !use mpi
-
-    implicit none
-
-    integer :: j
-    double precision :: qres,qmin,qmax
-    double precision, dimension(:), allocatable :: q
-    integer :: lb, ub
-
-    iunit_res=157
-
-    allocate(q(iprof_length))
-
-    q = abs(q_prof)
-    qmin = minval(q)
-    qmax = maxval(q)
-
-    !width_res = gg_width
-    !ampl_res = gg_factor
-
-    qres = abs(dfloat(m_mode)/dfloat(n_mode))
-    if(qres.lt.qmin.or.qres.gt.qmax) write(*,*) "Resonance location not found in q"
-
-    r_res = qres
+        !open(unit = 78, file=trim(output_path)//'grid/rc.dat')
+        !do i = 1, npoic
+            !write(78,*) i, rc(i)
+        !end do
+        !close(78)
 
 
-    do j=2,iprof_length
-      if(qres .gt. q(j-1) .and. qres .lt. q(j)) then
-        r_res = (r_prof(j-1) * (q(j) - qres) + r_prof(j) * (qres-q(j-1))) / (q(j)-q(j-1))
-        exit
-      endif
-    enddo
+    !end subroutine
 
-     if (type_br_field == 2) then
-        r_res = r_prof(iprof_length)/2
-    end if   
+!end subroutine gengrid
 
-    write(*,*) 'resonant radius: ',r_res
-    deallocate(q)
+!subroutine generate_rg_grid(write_out)
+    !! Generates the grid for two types of boundary conditions at the outer
+    !! boundary: iboutype=1 - fixed parameters, iboutype=2 - fixed fluxes
+    !! At the inner boundary fixed fluxes = 0 are always assumed
 
-end subroutine prepare_resonances
+    !use grid, rg_b, rg_c, number_points_rg_b, number_points_rg_c, reduced_rg_dim
+    !use config, only: fdebug, output_path
+    !use plasma_parameter, only: r_prof
+    !use resonances_mod, only: index_rg_res, r_res, width_res, ampl_res
 
+    !implicit none
+
+    !logical, intent(in) :: write_out
+    !integer :: ipoib, nder, ipb, ipe
+    !double precision :: hrmax, r, rnext, recnsp, rscale
+    !double precision, dimension(:,:), allocatable :: coef
+
+    !if (fdebug == 1) write(*,*) "Debug: entering generate_rg_grid"
+
+    !nder=1
+    !npoi_der=4
+    !allocate(coef(0:nder,npoi_der))
+
+    !! set parameters for grid spacing. grid_spacing=1: quidistant grid, grid_spacing=2: non-equidistant grid
+    !if (grid_spacing == 1) then
+        !width_res = 1.0
+        !ampl_res = 0.0
+    !elseif (grid_spacing == 2) then
+        !width_res = 3.0
+        !ampl_res = 0.3
+    !end if
+
+    !rmin = minval(r_prof)
+    !rmax = maxval(r_prof)
+
+    !hrmax = (rmax - rmin) / (reduced_rg_dim + 1)
+
+    !number_points_rg_b = 1
+    !r = rmin
+
+    !do while(r .lt. rmax)
+        !call recnsplit(r,recnsp)
+        !rnext = r + hrmax / recnsp
+        !call recnsplit(rnext,recnsp)
+        !r = 0.5d0 * (rnext + r + hrmax / recnsp)
+        !number_points_rg_b = number_points_rg_b + 1
+    !enddo
+
+    !number_points_rg_c = number_points_rg_b - 1
+
+    !allocate(rg_b(number_points_rg_b), rg_c(number_points_rg_c))
+    !!allocate(S_b(number_points_rg_b), S_c(npoic))
+
+    !r = rmin
+    !rg_b(1) = r
+
+    !do ipoib=2, number_points_rg_b
+        !call recnsplit(r,recnsp)
+        !rnext = r + hrmax / recnsp
+        !call recnsplit(rnext,recnsp)
+        !r = 0.5d0 * (rnext + r + hrmax / recnsp)
+        !rg_b(ipoib) = r
+        !rg_c(ipoib-1) = 0.5 * (rg_b(ipoib-1) + rg_b(ipoib))
+    !enddo
+
+    !write(*,*) " - - - r grid: - - - "
+    !write(*,*) "    h = ", rb(2) - rb(1)
+    !write(*,*) '    Number points r grid (boundary): ', number_points_rg_b
+    !write(*,*) " - - - - - - - - - - "
+
+    !! get index for resonant radius
+    !call binsrc(abs(rg_b), 1, number_points_rg_b, abs(r_res), index_rg_res)
+
+    !if(npoi_der .gt. number_points_rg_c) then
+        !write(*,*) '! Error : not enough grid points for derivatives'
+        !stop
+    !endif
+
+
+    !! determine coefficients for derivatives
+    !allocate(deriv_coef(npoi_der, number_points_rg_b), ipbeg(number_points_rg_b), ipend(number_points_rg_b))
+    !allocate(reint_coef(npoi_der, number_points_rg_b))
+
+    !do ipoib = 1, number_points_rg_b
+
+        !ipb = ipoib - npoi_der / 2
+        !ipe = ipb + npoi_der - 1
+
+        !if(ipb .lt. 1) then
+            !ipb = 1
+            !ipe = ipb + npoi_der - 1
+        !elseif(ipe .gt. npoic) then
+            !ipe = number_points_rg_c
+            !ipb = ipe - npoi_der + 1
+        !endif
+
+        !ipbeg(ipoib) = ipb
+        !ipend(ipoib) = ipe
+
+        !call plag_coeff(npoi_der, nder, rg_b(ipoib), rg_c(ipb:ipe), coef)
+        !deriv_coef(:, ipoib) = coef(1,:)
+        !reint_coef(:, ipoib) = coef(0,:)
+
+    !enddo
+
+    !deallocate(coef)
+
+    !if (write_out) call write_new_grid
+
+    !if (fdebug == 1) write(*,*) "Debug: exiting generate_rg_grid"
+
+    !contains
+
+    !subroutine write_new_grid
+
+        !implicit none
+        !integer :: i
+        !logical :: ex
+
+        !inquire(file = trim(output_path)//'grid', exist = ex)
+        !if (.not. ex) then
+            !call system('mkdir -p '//trim(output_path)//'grid')
+        !end if
+
+        !open(unit = 77, file=trim(output_path)//'grid/rg_b.dat')
+        !open(unit = 78, file=trim(output_path)//'grid/rg_c.dat')
+        !do i = 1, npoib
+            !write(77,*) i, rg_b(i)
+            !write(78,*) i, rg_c(i)
+        !end do
+        !close(77)
+        !close(78)
+
+    !end subroutine
+
+!end subroutine generate_rg_grid
 

@@ -24,9 +24,10 @@ set(KIM_grid grid/generate_k_space_grid.f90
              grid/gengrid.f90
              grid/kr_space_adjustments.f90
              grid/spline_function.f90
-             grid/kr_grid_mod.f90
              grid/grid_mod.f90
              grid/resonances_mod.f90
+             grid/prepare_resonances.f90
+             grid/recnsplit.f90
 )
 
 set(KIM_util util/findIndex.f90

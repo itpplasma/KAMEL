@@ -21,7 +21,6 @@ module kernels
     logical :: write_out
 
     integer :: nlagr = 4
-    integer :: nder = 0
     integer :: max_threads
 
     double precision :: bessel_large_arg_limit = 3d0
@@ -33,34 +32,34 @@ module kernels
 
             use config, only: fstatus
             use loading_bar
-            use grid, only: l_space_dim, r_space_dim, varphi_lkr, npoib, rb
-            use kr_grid, only: k_space_dim, kr, krp
-
+            use grid, only: varphi_lkr, rg_grid, kr_grid, krp_grid
+            
             implicit none
             integer :: i_kr, i_krp, i_rg
             integer :: count_loading = 0
 
             if (fstatus == 1) write(*,*) 'Status: Fill rho kernels'
-            if (.not. allocated(K_rho_phi_of_rg)) allocate(K_rho_phi_of_rg(k_space_dim, k_space_dim, npoib))
-            if (.not. allocated(K_rho_B_of_rg)) allocate(K_rho_B_of_rg(k_space_dim, k_space_dim, npoib))
+            if (.not. allocated(K_rho_phi_of_rg)) allocate(K_rho_phi_of_rg(krp_grid%npts_b, kr_grid%npts_b, rg_grid%npts_b))
+            if (.not. allocated(K_rho_B_of_rg)) allocate(K_rho_B_of_rg(kr_grid%npts_b, krp_grid%npts_b, rg_grid%npts_b))
 
             K_rho_phi_of_rg = 0.0d0
             K_rho_B_of_rg = 0.0d0
 
             !$OMP PARALLEL DO collapse(3) default(none) schedule(guided) &
             !$OMP PRIVATE(i_krp, i_kr, i_rg) &
-            !$OMP SHARED(K_rho_phi_of_rg, kr, K_rho_B_of_rg, &
-            !$OMP krp, rb, k_space_dim, npoib, count_loading)
-            do i_krp = 1, k_space_dim
-                do i_kr = 1, k_space_dim
-                    do i_rg = 1, npoib
-                        K_rho_phi_of_rg(i_krp, i_kr, i_rg) = kernel_rho_phi_of_kr_krp_rg(kr(i_kr), krp(i_krp), rb(i_rg)) 
+            !$OMP SHARED(K_rho_phi_of_rg, K_rho_B_of_rg, &
+            !$OMP kr_grid, krp_grid, rg_grid, count_loading)
+            do i_krp = 1, krp_grid%npts_b
+                do i_kr = 1, kr_grid%npts_b
+                    do i_rg = 1, rg_grid%npts_b
+                        K_rho_phi_of_rg(i_krp, i_kr, i_rg) = kernel_rho_phi_of_kr_krp_rg(krp_grid%xb(i_kr), kr_grid%xb(i_krp)&
+                                                            , rg_grid%xb(i_rg)) 
                         !K_rho_B_of_rg(i_krp, i_kr, i_rg) = kernel_rho_B_of_kr_krp_rg(kr(i_kr), krp(i_krp), rb(i_rg)) 
 
                         if (isnan(real(K_rho_phi_of_rg(i_krp, i_kr, i_rg)))) then
-                            write(*,*) "K_rho_phi_of_rg: NaN detected, kr = ", kr(i_kr), ", krp = ", krp(i_krp), ", rb = ", rb(i_rg)
+                            write(*,*) "K_rho_phi_of_rg: NaN detected, kr = ", kr_grid%xb(i_kr), ", krp = ", krp_grid%xb(i_krp)&
+                                        , ", rg = ", rg_grid%xb(i_rg)
                         end if
-                        !write(*,*) 'K_rho_phi_of_rg: ', i_krp, ', ', i_kr, ', ', i_rg, ', ', K_rho_phi_of_rg(i_krp, i_kr, i_rg)
                     end do
                 end do
             end do

@@ -6,7 +6,6 @@ program kim_main
     use setup
     use use_libcerf
     use grid
-    use kr_grid
     use cut_off_integration
     use equilibrium, only: calculate_equil
     use kernel_functions, only: kernel_rho_phi_of_kr_krp_rg, kernel_rho_B_of_kr_krp_rg
@@ -25,8 +24,8 @@ program kim_main
     namelist /KIM_SETUP/ btor, R0, m_mode, n_mode, Zi, Ai, omega, spline_base, &
                         cut_off_fac, kr_cut_off_fac, r_plas, type_br_field, collisions_off, eps_reg
 
-    namelist /KIM_GRID/ k_space_dim, reduce_r, grid_spacing, l_space_dim, num_gengrid_points, &
-                        reduced_rg_dim, kr_grid_width_res, kr_grid_ampl_res
+    namelist /KIM_GRID/ reduce_r, grid_spacing, l_space_dim, num_gengrid_points, &
+                        reduced_rg_dim, kr_grid_width_res, kr_grid_ampl_res, k_space_dim
 
     open(unit = 77, file = './KIM_config.nml')
     read(unit = 77, nml = KIM_CONFIG)

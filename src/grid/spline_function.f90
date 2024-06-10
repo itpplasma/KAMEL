@@ -4,9 +4,8 @@
 subroutine calculate_fourier_trans_spline_funcs(write_out)
 
     use constants, only: com_unit
-    use grid, only: npoib, rb, varphi_lkr, &
-        grid_spacing, spline_base, xl
-    use kr_grid, only: k_space_dim, kr
+    use grid, only: rg_grid, varphi_lkr, &
+        grid_spacing, spline_base, xl_grid, kr_grid
     use config, only: output_path
     !use plasma_parameter, only: r_prof, iprof_length
 
@@ -14,37 +13,44 @@ subroutine calculate_fourier_trans_spline_funcs(write_out)
     integer :: i,n
     logical, intent(in) :: write_out
 
-    allocate(varphi_lkr(k_space_dim, npoib))
+    allocate(varphi_lkr(kr_grid%npts_b, xl_grid%npts_b))
 
     if (spline_base == 1) then
         ! hat functions
         if (grid_spacing == 1) then
         ! equidistant
-            do i=1, k_space_dim
-                do n =2, npoib-1
-                    !varphi_lkr(i,n) = FT_hat_function_e(xl(n), xl(n+1), kr(i))
-                    varphi_lkr(i,n) = tilde_varphi_lkr_e(xl(n), xl(n+1), kr(i))
+            do i=1, kr_grid%npts_b
+                do n =2, xl_grid%npts_b-1
+                    !varphi_lkr(i,n) = FT_hat_function_e(xl_grid%xb(n), xl_grid%xb(n+1), kr_grid%xb(i))
+                    varphi_lkr(i,n) = tilde_varphi_lkr_e(xl_grid%xb(n), xl_grid%xb(n+1), kr_grid%xb(i))
                 end do
-                varphi_lkr(i,1) =  1.0d0 / ((xl(2) - xl(1)) * kr(i)**2) * &
-                                  (1.0d0 - exp(-com_unit * kr(i) * (xl(2) - xl(1))) - com_unit * kr(i) * (xl(2) - xl(1)))
-                varphi_lkr(i,npoib) = 1.0d0 / ((xl(npoib) - xl(npoib-1)) * kr(i)**2) &
-                                  * (1.0d0 - exp(com_unit * kr(i) * (xl(npoib) - xl(npoib-1))) &
-                                  + com_unit * kr(i) * (xl(npoib) - xl(npoib-1)))
+                varphi_lkr(i,1) =  1.0d0 / ((xl_grid%xb(2) - xl_grid%xb(1)) * kr_grid%xb(i)**2) * &
+                                  (1.0d0 - exp(-com_unit * kr_grid%xb(i) * (xl_grid%xb(2) - xl_grid%xb(1))) &
+                                  - com_unit * kr_grid%xb(i) * (xl_grid%xb(2) - xl_grid%xb(1)))
+                varphi_lkr(i,xl_grid%npts_b) = 1.0d0 / ((xl_grid%xb(xl_grid%npts_b) &
+                                  - xl_grid%xb(xl_grid%npts_b-1)) * kr_grid%xb(i)**2) &
+                                  * (1.0d0 - exp(com_unit * kr_grid%xb(i) &
+                                  * (xl_grid%xb(xl_grid%npts_b) - xl_grid%xb(xl_grid%npts_b-1))) &
+                                  + com_unit * kr_grid%xb(i) * (xl_grid%max_val - xl_grid%xb(xl_grid%npts_b-1)))
             end do
 
         elseif(grid_spacing == 2) then
         ! non-equidistant, more points around rational surface
-            do i=1, k_space_dim
-                do n =2, npoib-2
+            do i=1, kr_grid%npts_b
+                do n =2, xl_grid%npts_b-2
                     !varphi_lkr(i,n) = FT_hat_function_ne(rb(n), rb(n-1), rb(n+1), &
-                    !                                    rb(n+2), kr(i))
-                    varphi_lkr(i,n) = tilde_varphi_lkr(xl(n), xl(n-1), xl(n+1), kr(i))
+                    !                                    rb(n+2), kr_grid%xb(i))
+                    varphi_lkr(i,n) = tilde_varphi_lkr(xl_grid%xb(n), xl_grid%xb(n-1), xl_grid%xb(n+1), kr_grid%xb(i))
                 end do
-                varphi_lkr(i,1) = 1.0d0 / ((xl(2) - xl(1)) * kr(i)**2) * &
-                                  (1.0d0 - exp(-com_unit * kr(i) * (xl(2) - xl(1))) - com_unit * kr(i) * (xl(2) - xl(1)))
-                varphi_lkr(i,npoib) = 1.0d0 / ((xl(npoib) - xl(npoib-1)) * kr(i)**2)  * &
-                                  (1.0d0 - exp(com_unit * kr(i) * (xl(npoib) - xl(npoib-1))) &
-                                  + com_unit * kr(i) * (xl(npoib) - xl(npoib-1)))
+                varphi_lkr(i,1) = 1.0d0 / ((xl_grid%xb(2) - xl_grid%xb(1)) * kr_grid%xb(i)**2) * &
+                                  (1.0d0 - exp(-com_unit * kr_grid%xb(i) &
+                                  * (xl_grid%xb(2) - xl_grid%xb(1))) - com_unit &
+                                  * kr_grid%xb(i) * (xl_grid%xb(2) - xl_grid%xb(1)))
+                varphi_lkr(i,xl_grid%npts_b) = 1.0d0 / ((xl_grid%xb(xl_grid%npts_b) - xl_grid%xb(xl_grid%npts_b-1)) &
+                                  * kr_grid%xb(i)**2)  * &
+                                  (1.0d0 - exp(com_unit * kr_grid%xb(i) * (xl_grid%xb(xl_grid%npts_b) &
+                                  - xl_grid%xb(xl_grid%npts_b-1))) &
+                                  + com_unit * kr_grid%xb(i) * (xl_grid%xb(xl_grid%npts_b) - xl_grid%xb(xl_grid%npts_b-1)))
             end do
         end if
     end if
@@ -125,8 +131,8 @@ subroutine calculate_fourier_trans_spline_funcs(write_out)
         end if
         open(unit = 77, file=trim(output_path)//'basis_transform/varphi_re.dat')
         open(unit = 78, file=trim(output_path)//'basis_transform/varphi_im.dat')
-        do i=1, k_space_dim
-            do n=1, npoib
+        do i=1, kr_grid%npts_b
+            do n=1, xl_grid%npts_b
                 write(77,*) real(varphi_lkr(i,n))
                 write(78,*) dimag(varphi_lkr(i,n))
             end do

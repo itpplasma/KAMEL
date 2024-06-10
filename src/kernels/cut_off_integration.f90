@@ -30,7 +30,7 @@ module cut_off_integration
         integer :: count_elem_to_calc
         integer :: element_counter = 0
 
-        call kr_space_adjustments
+        !call kr_space_adjustments
 
         if (.not. allocated(K_rho_phi_llp)) allocate(K_rho_phi_llp(xl_grid%npts_b, xl_grid%npts_b))
         if (.not. allocated(K_rho_B_llp)) allocate(K_rho_B_llp(xl_grid%npts_b, xl_grid%npts_b))
@@ -68,7 +68,7 @@ module cut_off_integration
 
         ! integrate over kr and krp for every spline base element
         !$OMP PARALLEL DO PRIVATE(l, lp, i_rg) &
-        !$OMP SHARED(l_space_dim, xl, cut_off_fac, rho_L, element_counter, K_rho_phi_llp, rb, number_points_rg) schedule(guided)
+        !$OMP SHARED(xl_grid, cut_off_fac, rho_L, element_counter, K_rho_phi_llp, rg_grid) schedule(guided)
         do l = 1, xl_grid%npts_b ! first index of basis transformed kernel
             do lp = 1, xl_grid%npts_b ! second index of basis transformed kernel
                 !if (abs(xl(l) - xl(lp)) <= cut_off_fac * rho_L ) then
@@ -79,9 +79,9 @@ module cut_off_integration
                     do i_rg = 2, rg_grid%npts_b
                         !K_rho_phi_llp_rg(l, lp, i_rg) = func_trapz_int_2D(l, lp, i_rg) ! + remaining terms
                         K_rho_phi_llp(l,lp) = K_rho_phi_llp(l,lp) + 0.5d0 * &
-                        (func_trapz_int_2D_rho_phi(l,lp, i_rg)   * exp(- eps_reg * (rb(i_rg)   - r_res)**2) &
-                        +func_trapz_int_2D_rho_phi(l,lp, i_rg-1) * exp(- eps_reg * (rb(i_rg-1) - r_res)**2) )&
-                            * (rb(i_rg) - rb(i_rg - 1))  
+                        (func_trapz_int_2D_rho_phi(l,lp, i_rg)   * exp(- eps_reg * (rg_grid%xb(i_rg)   - r_res)**2) &
+                        +func_trapz_int_2D_rho_phi(l,lp, i_rg-1) * exp(- eps_reg * (rg_grid%xb(i_rg-1) - r_res)**2) )&
+                            * (rg_grid%xb(i_rg) - rg_grid%xb(i_rg - 1))  
                         !K_rho_B_llp(l,lp) = K_rho_B_llp(l,lp) + 0.5d0 * &
                         !(func_trapz_int_2D_rho_B(l,lp, i_rg)    * exp(- eps_reg * (rb(i_rg)   - r_res)**2) &
                         !+func_trapz_int_2D_rho_B(l,lp, i_rg-1)  * exp(- eps_reg * (rb(i_rg-1) - r_res)**2))  &
@@ -189,7 +189,7 @@ module cut_off_integration
                 ! second term of transformation (integral over kr', kr at boundary)
                 ! use loop over kr for integration over krp. That's why here the i_kr index is used.
                 func_trapz_int_2D_rho_phi = func_trapz_int_2D_rho_phi + 0.5d0 * com_unit / (rg_grid%xb(i_rg) - xl_grid%xb(l)) &
-                    * (varphi_lkr(kr_grid%npts_b, l) * exp(com_unit * kr_grid%max_value * (rg_grid%xb(i_rg) - xl_grid%xb(l))) &
+                    * (varphi_lkr(kr_grid%npts_b, l) * exp(com_unit * kr_grid%max_val * (rg_grid%xb(i_rg) - xl_grid%xb(l))) &
                         ! first integral
                         * (exp(com_unit * krp_grid%xb(i_kr) * (xl_grid%xb(lp) - rg_grid%xb(i_rg))) * conjg(varphi_lkr(i_kr, lp)) &
                         * K_rho_phi_of_rg(i_kr, kr_grid%npts_b, i_rg) &
@@ -197,40 +197,43 @@ module cut_off_integration
                         * K_rho_phi_of_rg(i_kr-1, kr_grid%npts_b, i_rg)) &
                     ! second term in bracket:
                     - varphi_lkr(1, l) * exp(com_unit * kr_grid%min_val * (rg_grid%xb(i_rg) - xl_grid%xb(l)))&
-                        * (exp(com_unit * krp_grid%xb(i_kr) * (xl(lp) - rb(i_rg))) * conjg(varphi_lkr(i_kr, lp)) &
+                        * (exp(com_unit * krp_grid%xb(i_kr) * (xl_grid%xb(lp) - rg_grid%xb(i_rg))) * conjg(varphi_lkr(i_kr, lp)) &
                         * K_rho_phi_of_rg(i_kr, 1, i_rg) &
-                        - exp(com_unit * krp_grid%xb(i_kr-1) * (xl(lp) - rb(i_rg)))* conjg(varphi_lkr(i_kr-1, lp))&
+                        - exp(com_unit * krp_grid%xb(i_kr-1) * (xl_grid%xb(lp) - rg_grid%xb(i_rg)))* conjg(varphi_lkr(i_kr-1, lp))&
                         * K_rho_phi_of_rg(i_kr-1, 1, i_rg))) &
                     * (krp_grid%xb(i_kr) - krp_grid%xb(i_kr-1))
 
                 !! third term of transformation (integral over kr, kr' at boundary)
-                func_trapz_int_2D_rho_phi = func_trapz_int_2D_rho_phi + 0.5d0 * com_unit / (xl(lp) - rb(i_rg)) &
+                func_trapz_int_2D_rho_phi = func_trapz_int_2D_rho_phi + 0.5d0 * com_unit / (xl_grid%xb(lp) - rg_grid%xb(i_rg)) &
                     ! first term in bracket, kr' upper limit
-                    * (conjg(varphi_lkr(k_space_dim, lp)) * exp(com_unit * kr(k_space_dim) * (xl(lp) - rb(i_rg)))&
-                        * (exp(com_unit * kr(i_kr) * (rb(i_rg) - xl(l))) * varphi_lkr(i_kr, l) &
-                        * K_rho_phi_of_rg(k_space_dim, i_kr, i_rg) &
-                        -  exp(com_unit * kr(i_kr-1) * (rb(i_rg) - xl(l))) &
-                        * varphi_lkr(i_kr-1, l) * K_rho_phi_of_rg(k_space_dim, i_kr-1, i_rg)) &
+                    * (conjg(varphi_lkr(kr_grid%npts_b, lp)) &
+                    * exp(com_unit * kr_grid%max_val * (xl_grid%xb(lp) - rg_grid%xb(i_rg)))&
+                        * (exp(com_unit * kr_grid%xb(i_kr) * (rg_grid%xb(i_rg) &
+                        - xl_grid%xb(l))) * varphi_lkr(i_kr, l) &
+                        * K_rho_phi_of_rg(kr_grid%npts_b, i_kr, i_rg) &
+                        -  exp(com_unit * kr_grid%xb(i_kr-1) * (rg_grid%xb(i_rg) - xl_grid%xb(l))) &
+                        * varphi_lkr(i_kr-1, l) * K_rho_phi_of_rg(kr_grid%npts_b, i_kr-1, i_rg)) &
                     ! second term in bracket, kr' lower limit
-                    - conjg(varphi_lkr(1, lp)) * exp(com_unit * kr(1) * (xl(lp) - rb(i_rg)))&
-                        * (exp(com_unit * kr(i_kr) * (rb(i_rg) - xl(l))) * varphi_lkr(i_kr, l) &
+                    - conjg(varphi_lkr(1, lp)) * exp(com_unit * kr_grid%min_val * (xl_grid%xb(lp) - rg_grid%xb(i_rg)))&
+                        * (exp(com_unit * kr_grid%xb(i_kr) * (rg_grid%xb(i_rg) - xl_grid%xb(l))) * varphi_lkr(i_kr, l) &
                         * K_rho_phi_of_rg(1, i_kr, i_rg) &
-                        -  exp(com_unit * kr(i_kr-1) * (rb(i_rg) - xl(l))) &
+                        -  exp(com_unit * kr_grid%xb(i_kr-1) * (rg_grid%xb(i_rg) - xl_grid%xb(l))) &
                         * varphi_lkr(i_kr-1, l) * K_rho_phi_of_rg(1, i_kr-1, i_rg))) &
-                    * (kr(i_kr) - kr(i_kr-1))
+                    * (kr_grid%xb(i_kr) - kr_grid%xb(i_kr-1))
         end do
 
         ! fourth term of transformation (term on the boundaries in kr and kr')
-        func_trapz_int_2D_rho_phi = func_trapz_int_2D_rho_phi + 1.0d0 / ((xl(lp) - rb(i_rg)) * (xl(l) - rb(i_rg))) &
-            * (conjg(varphi_lkr(k_space_dim, lp)) * exp(com_unit * kr(k_space_dim) * (xl(lp) - rb(i_rg)))&
-            * (varphi_lkr(k_space_dim, l) * exp(com_unit * kr(k_space_dim) * (rb(i_rg) - xl(l)))&
-                * K_rho_phi_of_rg(k_space_dim, k_space_dim, i_rg) &
-            - varphi_lkr(1, l)* exp(com_unit * kr(1) * (rb(i_rg) - xl(l)))&
-                * K_rho_phi_of_rg(k_space_dim, 1, i_rg)))&
-            * (conjg(varphi_lkr(1, lp)) * exp(com_unit * kr(1) * (xl(lp) - rb(i_rg)))&
-            * (varphi_lkr(k_space_dim, l) * exp(com_unit * kr(k_space_dim) * (rb(i_rg) - xl(l)))&
-                * K_rho_phi_of_rg(1, k_space_dim, i_rg) &
-            - varphi_lkr(1, l) * exp(com_unit * kr(1) * (rb(i_rg) - xl(l)))&
+        func_trapz_int_2D_rho_phi = func_trapz_int_2D_rho_phi + 1.0d0 / ((xl_grid%xb(lp) - rg_grid%xb(i_rg)) &
+            * (xl_grid%xb(l) - rg_grid%xb(i_rg))) &
+            * (conjg(varphi_lkr(kr_grid%npts_b, lp)) * exp(com_unit * kr_grid%max_val * (xl_grid%xb(lp) - rg_grid%xb(i_rg)))&
+            * (varphi_lkr(kr_grid%npts_b, l) * exp(com_unit * kr_grid%max_val * (rg_grid%xb(i_rg) - xl_grid%xb(l)))&
+                * K_rho_phi_of_rg(kr_grid%npts_b, kr_grid%npts_b, i_rg) &
+            - varphi_lkr(1, l)* exp(com_unit * kr_grid%min_val * (rg_grid%xb(i_rg) - xl_grid%xb(l)))&
+                * K_rho_phi_of_rg(kr_grid%npts_b, 1, i_rg)))&
+            * (conjg(varphi_lkr(1, lp)) * exp(com_unit * kr_grid%min_val * (xl_grid%xb(lp) - rg_grid%xb(i_rg)))&
+            * (varphi_lkr(kr_grid%npts_b, l) * exp(com_unit * kr_grid%max_val * (rg_grid%xb(i_rg) - xl_grid%xb(l)))&
+                * K_rho_phi_of_rg(1, kr_grid%npts_b, i_rg) &
+            - varphi_lkr(1, l) * exp(com_unit * kr_grid%min_val * (rg_grid%xb(i_rg) - xl_grid%xb(l)))&
                 * K_rho_phi_of_rg(1, 1, i_rg)))
 
         if (isnan(real(func_trapz_int_2D_rho_phi))) then
@@ -258,7 +261,7 @@ module cut_off_integration
         do i_kr = 1+1, kr_grid%npts_b - 1
             do i_krp = 1+1, krp_grid%npts_b - 1 
                 func_trapz_int_2D_rho_B = func_trapz_int_2D_rho_B + 0.25d0 &
-                    * ((kr(i_kr)- kr(i_kr-1)) * (krp_grid%xb(i_krp) - krp_grid%xb(i_krp-1)) &
+                    * ((kr_grid%xb(i_kr)- kr_grid%xb(i_kr-1)) * (krp_grid%xb(i_krp) - krp_grid%xb(i_krp-1)) &
                     * (integrand_w_exp_facs_rho_B(l,lp, i_kr, i_krp, i_rg) &
                     + integrand_w_exp_facs_rho_B(l,lp,i_kr,i_krp-1, i_rg) &
                     + integrand_w_exp_facs_rho_B(l,lp, i_kr-1, i_krp, i_rg) &
@@ -291,7 +294,7 @@ module cut_off_integration
                         -  exp(com_unit * kr_grid%xb(i_kr-1) * (rg_grid%xb(i_rg) - xl_grid%xb(lp))) &
                         * varphi_lkr(i_kr-1, l) * K_rho_B_of_rg(kr_grid%npts_b, i_kr-1, i_rg)) &
                     ! second term in bracket, kr' lower limit
-                    - conjg(varphi_lkr(1, lp)) * exp(com_unit * kr_grid%npts_b(1) * (xl_grid%xb(lp) - rg_grid%xb(i_rg)))&
+                    - conjg(varphi_lkr(1, lp)) * exp(com_unit * kr_grid%min_val * (xl_grid%xb(lp) - rg_grid%xb(i_rg)))&
                         * (exp(com_unit * kr_grid%xb(i_kr) * (rg_grid%xb(i_rg) - xl_grid%xb(l))) * varphi_lkr(i_kr, l) &
                         * K_rho_B_of_rg(1, i_kr, i_rg) &
                         -  exp(com_unit * kr_grid%xb(i_kr-1) * (rg_grid%xb(i_rg) - xl_grid%xb(lp))) &

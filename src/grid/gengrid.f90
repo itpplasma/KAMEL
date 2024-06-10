@@ -6,10 +6,10 @@ subroutine generate_grids
 
     implicit none
 
-    call rg_grid%grid_init(reduced_rg_dim, rprof(1), rprof(iprof_length))
-    call xl_grid%grid_init(l_space_dim, rprof(1), rprof(iprof_length))
-    call kr_grid%grid_init(k_space_dim, rprof(1), rprof(iprof_length))
-    call krp_grid%grid_init(k_space_dim, rprof(1), rprof(iprof_length))
+    call rg_grid%grid_init(reduced_rg_dim, r_prof(1), r_prof(iprof_length), 'rg')
+    call xl_grid%grid_init(l_space_dim, r_prof(1), r_prof(iprof_length), 'xl')
+    call kr_grid%grid_init(k_space_dim, r_prof(1), r_prof(iprof_length), 'kr')
+    call krp_grid%grid_init(k_space_dim, r_prof(1), r_prof(iprof_length), 'krp')
 
     call rg_grid%grid_generate()
     call xl_grid%grid_generate()

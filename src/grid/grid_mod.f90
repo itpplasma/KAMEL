@@ -4,6 +4,7 @@ module grid
 
     integer :: l_space_dim ! dimension of spline grid
     integer :: r_space_dim ! dimension of r grid
+    integer :: k_space_dim ! dimension of kr space grid
     logical :: reduce_r
     integer :: reduced_rg_dim
     integer :: spline_base
@@ -24,7 +25,6 @@ module grid
     integer, dimension(:),   allocatable :: ipbeg, ipend
 
     ! k-space specific
-    integer :: k_space_dim ! dimension of kr space grid
     double precision :: kr_grid_ampl_res
     double precision :: kr_grid_width_res
     double precision :: kr_res = 0.0d0
@@ -37,6 +37,7 @@ module grid
         double precision, dimension(:), allocatable :: xc
         double precision, dimension(:,:), allocatable :: deriv_coef
         double precision, dimension(:,:), allocatable :: reint_coef
+        character(len=:), allocatable :: name
         contains
             procedure :: grid_init
             procedure :: grid_generate
@@ -46,7 +47,7 @@ module grid
 
     contains
 
-    subroutine grid_init(this, npts, min_val, max_val)
+    subroutine grid_init(this, npts, min_val, max_val, name)
 
         use resonances_mod, only: width_res, ampl_res
         implicit none
@@ -55,6 +56,7 @@ module grid
 
         integer, intent(inout) :: npts
         double precision, intent(in) :: min_val, max_val
+        character(len=*), intent(in) :: name
 
         integer :: i
         double precision :: hrmax
@@ -64,6 +66,8 @@ module grid
         this%npts_b = npts
         this%min_val = min_val
         this%max_val = max_val
+        allocate(character(len=len(name)) :: this%name)
+        this%name = name
 
 
         ! set parameters for grid spacing. grid_spacing=1: quidistant grid, grid_spacing=2: non-equidistant grid
@@ -124,7 +128,7 @@ module grid
             this%xc(ipoib-1) = 0.5 * (this%xb(ipoib-1) + this%xb(ipoib))
         enddo
 
-        write(*,*) " - - - grid: - - - "
+        write(*,*) " - - - grid ", this%name, ": - - - "
         write(*,*) "    h = ", this%xb(2) - this%xb(1)
         write(*,*) '    Number points r (l) grid: ', this%npts_b
         write(*,*) " - - - - - - - - - - "
@@ -137,7 +141,8 @@ module grid
             stop
         endif
 
-        allocate(this%deriv_coef(npoi_der, this%npts_b), ipbeg(this%npts_b), ipend(this%npts_b))
+        if (.not. allocated(ipbeg)) allocate(ipbeg(this%npts_b), ipend(this%npts_b))
+        allocate(this%deriv_coef(npoi_der, this%npts_b))
         allocate(this%reint_coef(npoi_der, this%npts_b))
 
         do ipoib = 1, this%npts_b
@@ -170,16 +175,25 @@ module grid
             subroutine write_new_grid
 
                 implicit none
-                integer :: i
+                integer :: i, iostat
                 logical :: ex
+                character(len=256) :: out_str
 
                 inquire(file = trim(output_path)//'grid', exist = ex)
                 if (.not. ex) then
                     call system('mkdir -p '//trim(output_path)//'grid')
                 end if
+                
+                write(out_str, *) trim(output_path)//'grid/'//trim(this%name)//'_xb.dat' 
+                write(*,*) 'Writing grid to '//trim(out_str)
+                open(unit = 77, file=trim(out_str), iostat=iostat, status='replace')
+                if(iostat /= 0) then
+                    write(*,*) 'Error: could not open file '//trim(out_str)
+                    stop
+                end if
 
-                open(unit = 77, file=trim(output_path)//'grid/xb.dat')
-                open(unit = 77, file=trim(output_path)//'grid/xc.dat')
+                write(out_str,*) trim(output_path)//'grid/'//trim(this%name)//'_xc.dat' 
+                open(unit = 77, file=trim(out_str))
                 do i = 1, this%npts_b
                     write(77,*) i, this%xb(i)
                     write(78,*) i, this%xc(i)

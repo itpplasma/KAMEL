@@ -16,7 +16,7 @@ subroutine fill_spline_kernel_debye(write_out)
 
     if (fstatus==1) write(*,*) 'Status: Basis transformation'
 
-    call kr_space_adjustments
+    !call kr_space_adjustments
 
     if (.not. allocated(varphi_lkr)) then
         if (fstatus == 1) write(*,*) 'Status: Calculate Fourier transformed spline functions'

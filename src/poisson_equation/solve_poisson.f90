@@ -11,7 +11,7 @@ module poisson_solver
                             sparse_solve_method
         use config, only: output_path
         use constants, only: sol, p_mass, e_charge, e_mass, pi
-        use grid, only: number_points_rg, rb
+        use grid, only: rg_grid
         use back_quants, only: vTi, vTe
         use plasma_parameter, only: Zi, Ai
         use setup, only: btor, cut_off_fac, type_br_field
@@ -66,8 +66,8 @@ module poisson_solver
             write(*,*) 'Debug : write A matrix '
             open(unit = 80, file=trim(output_path)//'fields/A_mat_re.dat')
             open(unit = 81, file=trim(output_path)//'fields/A_mat_im.dat')
-            do i = 1,number_points_rg
-                do j = 1,number_points_rg
+            do i = 1,rg_grid%npts_b
+                do j = 1,rg_grid%npts_b
                     write(80,*) real(A_mat(i,j))
                     write(81,*) dimag(A_mat(i,j))
                 end do
@@ -83,9 +83,9 @@ module poisson_solver
 
             open(unit = 77, file=trim(output_path)//'fields/phi_re.dat')
             open(unit = 78, file=trim(output_path)//'fields/phi_im.dat')
-            do i = 1,number_points_rg
-                write(77,*) rb(i), real(b_vec(i))
-                write(78,*) rb(i), dimag(b_vec(i))
+            do i = 1,rg_grid%npts_b
+                write(77,*) rg_grid%xb(i), real(b_vec(i))
+                write(78,*) rg_grid%xb(i), dimag(b_vec(i))
             end do
             close(77)
             close(78)
@@ -103,9 +103,9 @@ module poisson_solver
             end if
             open(unit = 79, file=trim(output_path)//'fields/Kbr_re.dat')
             open(unit = 80, file=trim(output_path)//'fields/Kbr_im.dat')
-            do i = 1,number_points_rg
-                write(79,*) rb(i), real(b_vec(i))
-                write(80,*) rb(i), dimag(b_vec(i))
+            do i = 1,rg_grid%npts_b
+                write(79,*) rg_grid%xb(i), real(b_vec(i))
+                write(80,*) rg_grid%xb(i), dimag(b_vec(i))
             end do
             close(79)
             close(80)
@@ -141,32 +141,32 @@ module poisson_solver
             double precision, allocatable :: dr(:)
 
             ! create A matrix (Laplacian + 4 pi K^phi) in l space
-            allocate(A_mat(number_points_rg, number_points_rg))
-            allocate(dr(number_points_rg))
+            allocate(A_mat(rg_grid%npts_b, rg_grid%npts_b))
+            allocate(dr(rg_grid%npts_b))
 
             call initialize_grid_spacing(dr, xl)
             ! create Laplacian:
             A_mat = cmplx(0.0d0, 0.0d0)
 
-            do i = 2, number_points_rg-1
-                A_mat(i,i) = (- 1d0 / (rb(i) - rb(i-1)) - 1d0 / (rb(i+1) - rb(i)) ) !* 2 &
-                !* (rb(i+1) - rb(i-1))
-                A_mat(i, i+1) = 1d0 / (rb(i+1) - rb(i)) !* 2 * (rb(i+1) - rb(i-1))
-                A_mat(i, i-1) = 1d0 / (rb(i) - rb(i-1)) !* 2 * (rb(i+1) - rb(i-1))
+            do i = 2, rg_grid%npts_b-1
+                A_mat(i,i) = (- 1d0 / (rg_grid%xb(i) - rg_grid%xb(i-1)) - 1d0 / (rg_grid%xb(i+1) - rg_grid%xb(i)) ) !* 2 &
+                !* (rg_grid%xb(i+1) - rg_grid%xb(i-1))
+                A_mat(i, i+1) = 1d0 / (rg_grid%xb(i+1) - rg_grid%xb(i)) !* 2 * (rg_grid%xb(i+1) - rg_grid%xb(i-1))
+                A_mat(i, i-1) = 1d0 / (rg_grid%xb(i) - rg_grid%xb(i-1)) !* 2 * (rg_grid%xb(i+1) - rg_grid%xb(i-1))
             end do
 
             ! boundary conditions:
-            A_mat(1,1) = - 2d0 / (rb(2) - rb(1)) !* 2 * (rb(2) - rb(1)) !- 1d0 / (rb(2) - rb(1))
-            A_mat(number_points_rg,number_points_rg) = - 2d0 / (rb(number_points_rg) - rb(number_points_rg-1)) !* 2 * (rb(number_points_rg) - rb(number_points_rg-1))
-            A_mat(1,2) = 1d0 / (rb(2) - rb(1))
-            A_mat(number_points_rg, number_points_rg-1) = 1d0 / (rb(number_points_rg) - rb(number_points_rg-1))
+            A_mat(1,1) = - 2d0 / (rg_grid%xb(2) - rg_grid%xb(1)) !* 2 * (rg_grid%xb(2) - rg_grid%xb(1)) !- 1d0 / (rg_grid%xb(2) - rg_grid%xb(1))
+            A_mat(rg_grid%npts_b,rg_grid%npts_b) = - 2d0 / (rg_grid%max_val - rg_grid%xb(rg_grid%npts_b-1)) !* 2 * (rg_grid%max_val - rg_grid%xl(rg_grid%npts_b-1))
+            A_mat(1,2) = 1d0 / (rg_grid%xb(2) - rg_grid%xb(1))
+            A_mat(rg_grid%npts_b, rg_grid%npts_b-1) = 1d0 / (rg_grid%max_val - rg_grid%xb(rg_grid%npts_b-1))
 
 
             if (fdebug == 1) then
                 write(*,*) 'Debug: writing Laplacian A matrix before sparse'
                 open(unit=77, file=trim(output_path)//'kernel/laplacian_re.dat')
-                do i = 1,number_points_rg
-                    do j = 1,number_points_rg
+                do i = 1,rg_grid%npts_b
+                    do j = 1,rg_grid%npts_b
                         write(77,*) real(A_mat(i,j))
                     end do
                 end do
@@ -229,7 +229,7 @@ module poisson_solver
             double complex, allocatable, intent(out) :: rhs_vec(:)
             integer :: i
 
-            allocate(rhs_vec(number_points_rg))
+            allocate(rhs_vec(rg_grid%npts_b))
             rhs_vec = cmplx(0.0d0, 0.0d0)
 
             if (type ==1) then ! constant br
@@ -239,7 +239,7 @@ module poisson_solver
 
                 ! possible boundary conditions:
                 !rhs_vec(1) = cmplx(1.0d-10, 0.0d0)
-                !rhs_vec(number_points_rg) = cmplx(1.0d-10, 0.0d0)
+                !rhs_vec(rg_grid%npts_b) = cmplx(1.0d-10, 0.0d0)
             elseif(type ==3) then ! linear increase from the center of the plasma
                 do i = 5/6 *size(b_vec), size(b_vec)
                     rhs_vec(i) = (i - size(rhs_vec)/2) * 0.02d0 * cmplx(1.0d0, 0.0d0) - 0.2d0
@@ -250,7 +250,7 @@ module poisson_solver
                 print *, "Reading B vector from file not implemented yet"
                 stop
             elseif(type == 6) then ! gaussian distribution
-                rhs_vec = cmplx(-4.0d0 * pi, 0.0d0) * e_charge * exp(- (rb - maxval(rb)/2)**2 / 0.1d0**2) &
+                rhs_vec = cmplx(-4.0d0 * pi, 0.0d0) * e_charge * exp(- (rg_grid%xb - rg_grid%max_val/2)**2 / 0.1d0**2) &
                         * sqrt(pi / 0.1d0**2)
             end if
 
@@ -261,9 +261,9 @@ module poisson_solver
             end if
             open(unit = 79, file=trim(output_path)//'fields/br_re.dat')
             open(unit = 80, file=trim(output_path)//'fields/br_im.dat')
-            do i = 1,number_points_rg
-                write(79,*) rb(i), real(b_vec(i))
-                write(80,*) rb(i), dimag(b_vec(i))
+            do i = 1,rg_grid%npts_b
+                write(79,*) rg_grid%xb(i), real(b_vec(i))
+                write(80,*) rg_grid%xb(i), dimag(b_vec(i))
             end do
             close(79)
             close(80)

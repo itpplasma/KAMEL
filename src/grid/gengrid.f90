@@ -3,18 +3,32 @@ subroutine generate_grids
     use grid
     use config, only: fdebug, output_path
     use plasma_parameter, only: r_prof, iprof_length
+    use setup, only: kr_cut_off_fac
 
     implicit none
 
     call rg_grid%grid_init(reduced_rg_dim, r_prof(1), r_prof(iprof_length), 'rg')
     call xl_grid%grid_init(l_space_dim, r_prof(1), r_prof(iprof_length), 'xl')
-    call kr_grid%grid_init(k_space_dim, r_prof(1), r_prof(iprof_length), 'kr')
-    call krp_grid%grid_init(k_space_dim, r_prof(1), r_prof(iprof_length), 'krp')
+    call kr_grid%grid_init(k_space_dim, -kr_cut_off_fac, kr_cut_off_fac, 'kr')
+    call krp_grid%grid_init(k_space_dim, -kr_cut_off_fac, kr_cut_off_fac, 'krp')
 
-    call rg_grid%grid_generate()
-    call xl_grid%grid_generate()
-    call kr_grid%grid_generate()
-    call krp_grid%grid_generate()
+    if (grid_spacing == 2) then
+        write(*,*) "Generating linear grids"
+        call rg_grid%grid_generate_linear()
+        call xl_grid%grid_generate_linear()
+        call kr_grid%grid_generate_linear()
+        call krp_grid%grid_generate_linear()
+    else if (grid_spacing == 3) then
+        call rg_grid%grid_generate()
+        call xl_grid%grid_generate()
+        call kr_grid%grid_generate_integer()
+        call krp_grid%grid_generate_integer()
+    else
+        call rg_grid%grid_generate()
+        call xl_grid%grid_generate()
+        call kr_grid%grid_generate()
+        call krp_grid%grid_generate()
+    end if
 
 end subroutine
 

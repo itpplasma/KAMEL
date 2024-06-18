@@ -18,6 +18,7 @@ set(KIM_math math/suitesparse/umf4_f77zwrapper.c
 
 set(KIM_debye debye_case/debye_kernel.f90
               debye_case/fill_spline_kernel_debye.f90
+              debye_case/solve_debye_in_kr_space.f90
 )
 
 set(KIM_grid #grid/generate_k_space_grid.f90

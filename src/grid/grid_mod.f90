@@ -30,7 +30,7 @@ module grid
     double precision :: kr_res = 0.0d0
     
     type grid_type
-        integer :: npts_b, npts_c
+        integer :: npts_b, npts_c, npts
         double precision :: min_val
         double precision :: max_val
         double precision, dimension(:), allocatable :: xb
@@ -41,6 +41,8 @@ module grid
         contains
             procedure :: grid_init
             procedure :: grid_generate
+            procedure :: grid_generate_linear
+            procedure :: grid_generate_integer
     end type grid_type
 
     type(grid_type) :: rg_grid, xl_grid, kr_grid, krp_grid
@@ -63,6 +65,7 @@ module grid
         double precision :: x_current, x_next
         double precision :: recnsp
 
+        this%npts = npts
         this%npts_b = npts
         this%min_val = min_val
         this%max_val = max_val
@@ -177,23 +180,14 @@ module grid
                 implicit none
                 integer :: i, iostat
                 logical :: ex
-                character(len=256) :: out_str
 
                 inquire(file = trim(output_path)//'grid', exist = ex)
                 if (.not. ex) then
                     call system('mkdir -p '//trim(output_path)//'grid')
                 end if
                 
-                write(out_str, *) trim(output_path)//'grid/'//trim(this%name)//'_xb.dat' 
-                write(*,*) 'Writing grid to '//trim(out_str)
-                open(unit = 77, file=trim(out_str), iostat=iostat, status='replace')
-                if(iostat /= 0) then
-                    write(*,*) 'Error: could not open file '//trim(out_str)
-                    stop
-                end if
-
-                write(out_str,*) trim(output_path)//'grid/'//trim(this%name)//'_xc.dat' 
-                open(unit = 77, file=trim(out_str))
+                open(unit = 77, file=trim(output_path)//'grid/'//trim(this%name)//'_xb.dat')
+                open(unit = 78, file=trim(output_path)//'grid/'//trim(this%name)//'_xc.dat')
                 do i = 1, this%npts_b
                     write(77,*) i, this%xb(i)
                     write(78,*) i, this%xc(i)
@@ -205,5 +199,202 @@ module grid
 
     end subroutine grid_generate
 
+
+    subroutine grid_generate_linear(this)
+
+        use resonances_mod, only: r_res, index_rg_res
+        use config, only: fdebug, output_path
+
+        implicit none
+
+        class(grid_type), intent(inout) :: this
+
+        double precision :: x_current, x_next
+        double precision :: h
+        integer :: ipoib, ipb, ipe
+        double precision, dimension(:,:), allocatable :: coef
+        double precision :: recnsp
+
+        allocate(this%xb(this%npts), this%xc(this%npts -1))
+
+        h = (this%max_val - this%min_val) / (this%npts-1)
+
+        this%xb(1) = this%min_val
+        do ipoib=2, this%npts
+            this%xb(ipoib) = this%min_val + (ipoib - 1) * h
+            this%xc(ipoib-1) = 0.5 * (this%xb(ipoib-1) + this%xb(ipoib))
+        end do
+        
+        allocate(coef(0:nder,npoi_der))
+
+        this%npts_b = this%npts
+
+        write(*,*) " - - - grid ", this%name, ": - - - "
+        write(*,*) "    h = ", this%xb(2) - this%xb(1)
+        write(*,*) '    Number points r (l) grid: ', this%npts_b
+        write(*,*) " - - - - - - - - - - "
+
+        ! get index for resonant radius
+        call binsrc(abs(this%xb), 1, this%npts_b, abs(r_res), index_rg_res)
+
+        if(npoi_der .gt. this%npts_c) then
+            write(*,*) '! Error : not enough grid points for derivatives'
+            stop
+        endif
+
+        if (.not. allocated(ipbeg)) allocate(ipbeg(this%npts_b), ipend(this%npts_b))
+        allocate(this%deriv_coef(npoi_der, this%npts_b))
+        allocate(this%reint_coef(npoi_der, this%npts_b))
+
+        do ipoib = 1, this%npts_b
+            ipb = ipoib - npoi_der / 2
+            ipe = ipb + npoi_der - 1
+            if(ipb .lt. 1) then
+                ipb = 1
+                ipe = ipb + npoi_der - 1
+            elseif(ipe .gt. this%npts_c) then
+                ipe = this%npts_c
+                ipb = ipe - npoi_der + 1
+            endif
+            ipbeg(ipoib) = ipb
+            ipend(ipoib) = ipe
+            call plag_coeff(npoi_der, nder, this%xb(ipoib), this%xc(ipb:ipe), coef)
+
+            this%deriv_coef(:, ipoib) = coef(1,:)
+            this%reint_coef(:, ipoib) = coef(0,:)
+
+        enddo
+
+        deallocate(coef)
+
+        call write_new_grid
+
+        if (fdebug == 1) write(*,*) "Debug: exiting gengrid"
+
+        contains
+
+            subroutine write_new_grid
+
+                implicit none
+                integer :: i, iostat
+                logical :: ex
+
+                inquire(file = trim(output_path)//'grid', exist = ex)
+                if (.not. ex) then
+                    call system('mkdir -p '//trim(output_path)//'grid')
+                end if
+                
+                open(unit = 77, file=trim(output_path)//'grid/'//trim(this%name)//'_xb.dat')
+                open(unit = 78, file=trim(output_path)//'grid/'//trim(this%name)//'_xc.dat')
+                do i = 1, this%npts_b
+                    write(77,*) i, this%xb(i)
+                    write(78,*) i, this%xc(i)
+                end do
+                close(77)
+                close(78)
+
+            end subroutine
+
+    end subroutine grid_generate_linear
+
+
+    subroutine grid_generate_integer(this)
+
+        use resonances_mod, only: r_res, index_rg_res
+        use config, only: fdebug, output_path
+
+        implicit none
+
+        class(grid_type), intent(inout) :: this
+
+        double precision :: x_current, x_next
+        double precision :: h
+        integer :: ipoib, ipb, ipe
+        double precision, dimension(:,:), allocatable :: coef
+        double precision :: recnsp
+
+        this%npts = this%npts +1 
+        this%npts_b = this%npts
+        this%npts_c = this%npts
+
+        allocate(this%xb(this%npts), this%xc(this%npts -1))
+
+        this%xb(1) = -(this%npts-1)/2
+        do ipoib=2, this%npts
+            this%xb(ipoib) = this%xb(1) + ipoib - 1 
+            this%xc(ipoib-1) = 0.5 * (this%xb(ipoib-1) + this%xb(ipoib))
+        end do
+        
+        allocate(coef(0:nder,npoi_der))
+
+        this%npts_b = this%npts
+
+        write(*,*) " - - - grid ", this%name, ": - - - "
+        write(*,*) "    h = ", this%xb(2) - this%xb(1)
+        write(*,*) '    Number points r (l) grid: ', this%npts_b
+        write(*,*) " - - - - - - - - - - "
+
+        ! get index for resonant radius
+        call binsrc(abs(this%xb), 1, this%npts_b, abs(r_res), index_rg_res)
+
+        if(npoi_der .gt. this%npts_c) then
+            write(*,*) '! Error : not enough grid points for derivatives'
+            stop
+        endif
+
+        if (.not. allocated(ipbeg)) allocate(ipbeg(this%npts_b), ipend(this%npts_b))
+        allocate(this%deriv_coef(npoi_der, this%npts_b))
+        allocate(this%reint_coef(npoi_der, this%npts_b))
+
+        do ipoib = 1, this%npts_b
+            ipb = ipoib - npoi_der / 2
+            ipe = ipb + npoi_der - 1
+            if(ipb .lt. 1) then
+                ipb = 1
+                ipe = ipb + npoi_der - 1
+            elseif(ipe .gt. this%npts_c) then
+                ipe = this%npts_c
+                ipb = ipe - npoi_der + 1
+            endif
+            ipbeg(ipoib) = ipb
+            ipend(ipoib) = ipe
+            call plag_coeff(npoi_der, nder, this%xb(ipoib), this%xc(ipb:ipe), coef)
+
+            this%deriv_coef(:, ipoib) = coef(1,:)
+            this%reint_coef(:, ipoib) = coef(0,:)
+
+        enddo
+
+        deallocate(coef)
+
+        call write_new_grid
+
+        if (fdebug == 1) write(*,*) "Debug: exiting gengrid"
+
+        contains
+
+            subroutine write_new_grid
+
+                implicit none
+                integer :: i, iostat
+                logical :: ex
+
+                inquire(file = trim(output_path)//'grid', exist = ex)
+                if (.not. ex) then
+                    call system('mkdir -p '//trim(output_path)//'grid')
+                end if
+                
+                open(unit = 77, file=trim(output_path)//'grid/'//trim(this%name)//'_xb.dat')
+                open(unit = 78, file=trim(output_path)//'grid/'//trim(this%name)//'_xc.dat')
+                do i = 1, this%npts_b
+                    write(77,*) i, this%xb(i)
+                    write(78,*) i, this%xc(i)
+                end do
+                close(77)
+                close(78)
+
+            end subroutine
+
+    end subroutine grid_generate_integer
 
 end module

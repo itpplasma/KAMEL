@@ -8,7 +8,6 @@ program kim_main
     use grid
     use cut_off_integration
     use equilibrium, only: calculate_equil
-    use kernel_functions, only: kernel_rho_phi_of_kr_krp_rg, kernel_rho_B_of_kr_krp_rg
     use unit_tests, only: test_all, test_sparse_solver
     use poisson_solver, only: solve_poisson
 

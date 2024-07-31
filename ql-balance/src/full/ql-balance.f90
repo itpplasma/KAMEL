@@ -108,7 +108,6 @@ program ql_balance
     if (irank .eq. 0) then
         write(*,*) "timstep = ", timstep
     end if
-    
 
     call gengrid
 

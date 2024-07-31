@@ -101,7 +101,7 @@ subroutine initialize_wave_code_interface(nrad, r_grid)
 
     use wave_code_data
     use h5mod
-    use control_mod, only: readfromtimestep, debug_mode, ihdf5test
+    use control_mod, only: readfromtimestep, debug_mode, ihdf5IO
     implicit none; 
     integer, intent(in) :: nrad; 
     real(8), dimension(nrad), intent(in) :: r_grid; 
@@ -114,7 +114,7 @@ subroutine initialize_wave_code_interface(nrad, r_grid)
 
     call allocate_wave_code_data(nrad, r_grid); 
 !call read_background_profiles(path2profs);
-    if (ihdf5test .eq. 1) then
+    if (ihdf5IO .eq. 1) then
         if (readfromtimestep .eq. 0) then
             if(debug_mode) write(*,*) "reading initial profiles"
             call read_background_profiles_h5

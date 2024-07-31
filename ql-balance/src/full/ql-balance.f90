@@ -19,6 +19,7 @@ program ql_balance
     use hdf5_tools
     use paramscan_mod
     use mpi
+    use time_evolution
 
     implicit none
 
@@ -84,8 +85,6 @@ program ql_balance
     ! integer that toggles the use of hdf5 output/input
     ! if equal 1 - use hdf5, if
     ! equal 0 - use standard text output and input
-    ihdf5test = 1
-    write(*,*) "ihdf5test = ", ihdf5test
     iexit = 0 ! 0 - don't skip, 1 - skip, 2 - stop
 
     ! if h5overwrite = true, existing data will be deleted
@@ -106,7 +105,7 @@ program ql_balance
 
     urelax = 0.5e0 !0.5d0  !0.9d0
     tol_max = 3.d-2 !3.d-4 !3.d-3 !3.d-2
-    err_minfac = 1.d-2 !2.0d0/sqrt(dfloat(nmult)) ! could be removed
+    !err_minfac = 1.d-2 !2.0d0/sqrt(dfloat(nmult)) ! could be removed
     factolmax = 3.d0 ! keep
     factolred = 0.5d0 ! keep
     mwind = 10
@@ -148,7 +147,7 @@ program ql_balance
     mode_n = n_vals(1)
     if (debug_mode) write(*,*) 'Debug: mode_m = ', mode_m, 'mode_n = ', mode_n
 
-    if (ihdf5test .eq. 1) then
+    if (ihdf5IO .eq. 1) then
         CALL creategroupstructure
     end if
 
@@ -459,7 +458,7 @@ program ql_balance
                             !    mode_m, "_", mode_n
                             if (debug_mode) write(*,*) "Debug: Write out results"
 
-                            if (ihdf5test .eq. 1) then
+                            if (ihdf5IO .eq. 1) then
                                 CALL h5_init()
                                 CALL h5_open_rw(path2out, h5_id)
                                 CALL h5_obj_exists(h5_id, trim(h5_mode_groupname), &
@@ -493,7 +492,7 @@ program ql_balance
                     iunit_diag_b = 8138
 !write_diag_b=.true.
                     ioddeven = 1
-! ihdf5test = 0 -> use file output
+! ihdf5IO = 0 -> use file output
 ! #########################################################################################
 ! Time evolution
 !
@@ -506,7 +505,7 @@ program ql_balance
                     !end if
                     firstiterationdone = .false. ! if first iteration is done, some variables are already allocated
 
-                    if (ihdf5test .eq. 0) then
+                    if (ihdf5IO .eq. 0) then
                         ! sweep files that are only appended to
                         open(4321, file='timstep_evol.dat', status='replace')
                         close(4321)
@@ -561,7 +560,7 @@ program ql_balance
                             if (suppression_mode .eqv. .false.) then
                                 CALL writefort1000(i)
                             end if
-                           if (ihdf5test .eq. 1) then
+                           if (ihdf5IO .eq. 1) then
                                 CALL h5_init()
                                 CALL h5_open_rw(path2out, h5_id)
                                 CALL h5_add_string(h5_id, trim(h5_mode_groupname)// &
@@ -668,7 +667,7 @@ program ql_balance
                                 print *, 'maximum dqle at r = ', rc(ind_dqle(1)) &
                                     , 'maximum dqli at r = ', rc(ind_dqli(1))
                                 ! Edited by Markus Markl, 26.02.2021
-                                if (ihdf5test .eq. 1) then
+                                if (ihdf5IO .eq. 1) then
                                     ! write fort.9999 data to hdf5 file
                                     h5_currentgrp = trim("/"//trim(h5_mode_groupname) &
                                                          //"/fort.9999")
@@ -872,7 +871,7 @@ program ql_balance
                         end if
                         !
                         if (irank .eq. 0) then
-                            if (ihdf5test .eq. 1) then
+                            if (ihdf5IO .eq. 1) then
                                 ! write timstep_evol data to hdf5 file
                                 h5_currentgrp = trim("/"//trim(h5_mode_groupname)// &
                                                      "/timstep_evol.dat")
@@ -1004,7 +1003,7 @@ subroutine writefort1000(istep)
     integer :: ipoi
     character(len=1024) :: h5_currentgrp
 
-    if (ihdf5test .eq. 1) then
+    if (ihdf5IO .eq. 1) then
         !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
         ! write profiles to hdf5 (former fort.1000+ files)
         !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -1235,7 +1234,7 @@ subroutine write_br_time_data(i, br_abs_time, br_abs_antenna_factor, br_abs, dql
 
 	if (debug_mode) write(*,*) "Debug: writing out br time evolution data"
 
-    if (ihdf5test .eq. 1) then
+    if (ihdf5IO .eq. 1) then
        	CALL h5_init()
         CALL h5_open_rw(path2out, h5_id)
 
@@ -1305,14 +1304,14 @@ end subroutine ! initialize_parameter_scan_vars
 subroutine write_init_profiles
 
     use grid_mod, only: params, qsaf
-    use control_mod, only: debug_mode, ihdf5test
+    use control_mod, only: debug_mode, ihdf5IO
     use h5mod, only: h5_exists_log, h5_id, path2out
     use wave_code_data, only: r
 
     implicit none
 
     if (debug_mode) write(*,*) "Debug: writing initial background profiles"
-    if (ihdf5test .eq. 1) then
+    if (ihdf5IO .eq. 1) then
         CALL h5_init()
         ! open hdf5 file
         CALL h5_open_rw(path2out, h5_id)
@@ -1515,7 +1514,7 @@ subroutine ramp_coil
                     call writefort1000(i)
                 end if
                 ! Write the cause of the stopping into the hdf5 file
-                if (ihdf5test .eq. 1) then
+                if (ihdf5IO .eq. 1) then
                     CALL h5_init()
                     CALL h5_open_rw(path2out, h5_id)
                     CALL h5_add_string(h5_id, trim(h5_mode_groupname)// &
@@ -1525,7 +1524,7 @@ subroutine ramp_coil
                 end if
                 if (paramscan) then
                     if (debug_mode) write(*,*) "Debug: Write br_time _data"
-                    if (ihdf5test .eq. 1) then
+                    if (ihdf5IO .eq. 1) then
                         CALL write_br_time_data(i, br_abs_time, br_abs_antenna_factor, br_abs, dqle22_res_time)
                     end if
                     if (ifac_n + ifac_Te + ifac_Ti + ifac_vz .eq. size(fac_n) + &
@@ -1542,7 +1541,7 @@ subroutine ramp_coil
                     end if
                 else
                     if (debug_mode) write(*,*) "Debug: Write br_time _data"
-                    if (ihdf5test .eq. 1) then
+                    if (ihdf5IO .eq. 1) then
                         CALL write_br_time_data(i, br_abs_time, br_abs_antenna_factor, br_abs, dqle22_res_time)
                     end if
                     CALL MPI_finalize(ierror);
@@ -1572,17 +1571,17 @@ subroutine ramp_coil
                     call writefort1000(i)
                 end if ! suppression mode
                 ! Write the cause of the stopping into the hdf5 file
-                if (ihdf5test .eq. 1) then
+                if (ihdf5IO .eq. 1) then
                     CALL h5_init()
                     CALL h5_open_rw(path2out, h5_id)
                     CALL h5_add_string(h5_id, trim(h5_mode_groupname)// &
                             '/stopping_criterion', 'time limit reached')
                     CALL h5_close(h5_id)
                     CALL h5_deinit()
-                end if ! ihdf5test
+                end if ! ihdf5IO
                 if (paramscan) then
                     if (debug_mode) write(*,*) "Debug: Write br_time _data"
-                    if (ihdf5test .eq. 1) then 
+                    if (ihdf5IO .eq. 1) then 
                         CALL write_br_time_data(i, br_abs_time, br_abs_antenna_factor, br_abs, dqle22_res_time)
                     end if
                     if (ifac_n + ifac_Te + ifac_Ti + ifac_vz .eq. size(fac_n) + &
@@ -1599,7 +1598,7 @@ subroutine ramp_coil
                     end if
                 else
                     if (debug_mode) write(*,*) "Debug: Write br_time _data"
-                    if (ihdf5test .eq. 1) then
+                    if (ihdf5IO .eq. 1) then
                         CALL write_br_time_data(i, br_abs_time, br_abs_antenna_factor, br_abs, dqle22_res_time)
                     end if
                     write(*,*) 'stop'
@@ -1632,7 +1631,7 @@ subroutine ramp_coil
                         call writefort1000(i)
                     end if
                     ! Write the cause of the stopping into the hdf5 file
-                    if (ihdf5test .eq. 1) then
+                    if (ihdf5IO .eq. 1) then
                         CALL h5_init()
                         CALL h5_open_rw(path2out, h5_id)
                         CALL h5_add_string(h5_id, trim(h5_mode_groupname)// &
@@ -1641,7 +1640,7 @@ subroutine ramp_coil
                         CALL h5_deinit()
                     end if
                     if (debug_mode) write(*,*) "Debug: Write br_time _data"
-                    if (ihdf5test .eq. 1) then
+                    if (ihdf5IO .eq. 1) then
                         CALL write_br_time_data(i, br_abs_time, br_abs_antenna_factor, br_abs, dqle22_res_time)
                     end if
                     if (paramscan) then
@@ -1682,7 +1681,7 @@ subroutine ramp_coil
                         call writefort1000(i)
                     end if
                     ! Write the cause of the stopping into the hdf5 file
-                    if (ihdf5test .eq. 1) then
+                    if (ihdf5IO .eq. 1) then
                         CALL h5_init()
                         CALL h5_open_rw(path2out, h5_id)
                         CALL h5_add_string(h5_id, trim(h5_mode_groupname)// &
@@ -1691,7 +1690,7 @@ subroutine ramp_coil
                         CALL h5_deinit()
                     end if
                     if (debug_mode) write(*,*) "Debug: Write br_time _data"
-                    if (ihdf5test .eq. 1) then
+                    if (ihdf5IO .eq. 1) then
                         CALL write_br_time_data(i, br_abs_time, br_abs_antenna_factor, br_abs, dqle22_res_time)
                     end if
                     if (paramscan) then
@@ -1724,7 +1723,7 @@ subroutine ramp_coil
                 call writefort1000(i)
             end if
             ! Write the cause of the stopping into the hdf5 file
-            if (ihdf5test .eq. 1) then
+            if (ihdf5IO .eq. 1) then
                 CALL h5_init()
                 CALL h5_open_rw(path2out, h5_id)
                 CALL h5_add_string(h5_id, trim(h5_mode_groupname)// &
@@ -1734,7 +1733,7 @@ subroutine ramp_coil
             end if
 
             if (debug_mode) write(*,*) "Debug: Write br_time_data"
-            if (ihdf5test .eq. 1) then 
+            if (ihdf5IO .eq. 1) then 
                 CALL write_br_time_data(i, br_abs_time, br_abs_antenna_factor, br_abs, dqle22_res_time)
             end if
 

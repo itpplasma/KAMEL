@@ -698,7 +698,7 @@ subroutine calc_dequi
     use baseparam_mod, only: dperp, rsepar
     ! added by Markus Markl, 12.04.2021
     use h5mod
-    use control_mod, only: ihdf5test, debug_mode
+    use control_mod, only: ihdf5IO, debug_mode
     use paramscan_mod, only: viscosity_factor
     !
     implicit none
@@ -723,7 +723,7 @@ subroutine calc_dequi
     !Changed by Philipp Ulbl 18.05.2020
     ! Added the option to read from hdf5 file by Markus Markl 12.04.2021
 
-    if (ihdf5test .eq. 1) then
+    if (ihdf5IO .eq. 1) then
         ! read Da data from hdf5 input file
         if (debug_mode) print *, "get Da data from hdf5"
         fname = "/da_estimation/" ! fname is used for the group name in the hdf5 version
@@ -802,32 +802,7 @@ subroutine calc_dequi
     dai12 = dae12
     dai22 = dae22
     visca = dae11 * viscosity_factor
-    !write(*,*) "Anomalous viscosity: visca= ", visca
-
-    !debug
-    !open(855,file='da.dat')
-    !    do ipoi=1,npoib
-    !      write (855,*) rb(ipoi),dae12(ipoi)
-    !    end do
-    !close(855)
-
-    !previous calculation of Da. double commented lines were commented before
-    !  do ipoi=1,npoib
-    !!    rnorm=rb(ipoi)/rb(npoib)
-    !    rnorm=rb(ipoi)/rsepar
-    !    dae11(ipoi)=dperp*(1.d0-(1.d0-0.2d0)*rnorm**3)
-    !    call localizer(-1.d0,rsepar,rsepar+0.5d0,rb(ipoi),weight)
-    !    dae11(ipoi)=dae11(ipoi)*(1.d0-weight)+weight*1d6
-    !  enddo
-    !!  dae12=1.5d0*dae11
-    !  dae12=1.499999d0*dae11
-    !  dae22=3.75d0*dae11
-    !  dai11=dae11
-    !  dai12=dae12
-    !  dai22=dae22
-    !  visca=dae11
-    !!  visca=100.d0*dae11
-    !
+    
     dni22 = cneo*params_b(1, :)/sqrt(abs(params_b(4, :)))
     !
 end subroutine calc_dequi
@@ -851,9 +826,10 @@ subroutine get_dql(istep)
                         , r_resonant, rmax, d11_misalign, Es_pert_flux, qsaf
 
     use baseparam_mod, only: Z_i, e_charge, am, p_mass, c, btor, e_mass, ev, rtor, pi, rsepar
-    use control_mod, only: irf, write_formfactors, ihdf5test, &
-                           save_prof_time_step, diagnostics_output, suppression_mode, &
+    use control_mod, only: irf, write_formfactors, ihdf5IO, &
+                           diagnostics_output, suppression_mode, &
                            debug_mode, misalign_diffusion
+    use time_evolution, only: save_prof_time_step
     use h5mod
     use wave_code_data
     use mpi
@@ -1156,7 +1132,7 @@ subroutine get_dql(istep)
 
         if (irank .eq. 0) then
             if (istep .le. 1) then
-                if (ihdf5test .eq. 1) then
+                if (ihdf5IO .eq. 1) then
                     if (debug_mode) write(*,*) "Interpolation of Brvac"
                     nlagr = 4;
                     nder = 0;
@@ -1634,7 +1610,7 @@ subroutine calc_parallel_current_directly
 
     use grid_mod, only: npoib, rb, params_b, Ercov, ddr_params_nl
     use baseparam_mod, only: Z_i, e_charge, am, p_mass, c, btor, e_mass, ev, rtor
-    use control_mod, only: ihdf5test, diagnostics_output, write_gyro_current, &
+    use control_mod, only: ihdf5IO, diagnostics_output, write_gyro_current, &
         gyro_current_study
     use h5mod
     use wave_code_data
@@ -1759,7 +1735,7 @@ subroutine calc_parallel_current_directly
 
 
             if (diagnostics_output) then
-                if (ihdf5test .eq. 1) then
+                if (ihdf5IO .eq. 1) then
                     write(*,*) "writing par_current_e.dat"
                     write(*,*) " - "
                     CALL h5_init()
@@ -1805,7 +1781,7 @@ subroutine calc_parallel_current_directly
 
                     CALL h5_close(h5_id)
                     CALL h5_deinit()
-                else ! ihdf5test .eq. 1
+                else ! ihdf5IO .eq. 1
                     open (iunit, file='par_current_e.dat')
                     open (10000, file='cond_e.dat')
                     do ipoi = 1, npoib
@@ -2030,7 +2006,7 @@ subroutine calc_ion_parallel_current_directly
     use grid_mod, only: npoib, rb, params_b, Ercov, ddr_params_nl
     use baseparam_mod, only: Z_i, e_charge, am, p_mass, c, btor, e_mass, ev, rtor
     use wave_code_data
-    use control_mod, only: ihdf5test, diagnostics_output, write_gyro_current
+    use control_mod, only: ihdf5IO, diagnostics_output, write_gyro_current
     use h5mod
     use mpi
 !
@@ -2125,7 +2101,7 @@ subroutine calc_ion_parallel_current_directly
 
 
         if (diagnostics_output) then
-            if (ihdf5test .eq. 1) then
+            if (ihdf5IO .eq. 1) then
                 print *, "writing par_current_i.dat"
                 CALL h5_init()
                 CALL h5_open_rw(path2out, h5_id)
@@ -2174,7 +2150,7 @@ subroutine writefort5000(istep)
                         , dqli11, dqli12, dqli21, dqli22, d11_misalign, Es_pert_flux
 
     use baseparam_mod, only: Z_i, e_charge, am, p_mass, c, btor, e_mass, ev, rtor
-    use control_mod, only: ihdf5test, diagnostics_output, misalign_diffusion
+    use control_mod, only: ihdf5IO, diagnostics_output, misalign_diffusion
     use h5mod
     use wave_code_data
 !DIAG:
@@ -2191,7 +2167,7 @@ subroutine writefort5000(istep)
 
     write(*,*) "writing fort.5000"
 
-    if (ihdf5test .eq. 1) then
+    if (ihdf5IO .eq. 1) then
 
         CALL h5_init()
         CALL h5_open_rw(path2out, h5_id)
@@ -2303,7 +2279,7 @@ subroutine magnetic_island_width(coef, nder, nlagr, ibeg, iend, mode, mi_width)
     use wave_code_data
     use grid_mod, only: deriv_coef, npoib, ipbeg, ipend
     use h5mod
-    use control_mod, only: equil_path, ihdf5test
+    use control_mod, only: equil_path, ihdf5IO
     use baseparam_mod, only: rsepar
 
     implicit none
@@ -2360,7 +2336,7 @@ subroutine magnetic_island_width(coef, nder, nlagr, ibeg, iend, mode, mi_width)
     deallocate(diotadr)
     deallocate(Delta_r)
 
-    if (ihdf5test .eq. 1) then
+    if (ihdf5IO .eq. 1) then
         write(*,*) "Write island width to hdf5"
         CALL h5_init()
         CALL h5_open_rw(path2out, h5_id)

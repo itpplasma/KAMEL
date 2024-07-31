@@ -186,7 +186,7 @@
 !
   use resonances_mod
   use grid_mod, only: gg_width, gg_factor,r_resonant
-  use control_mod, only: ihdf5test, debug_mode
+  use control_mod, only: ihdf5IO, debug_mode
   use h5mod
   use mpi
 !
@@ -203,7 +203,7 @@
   iunit_res=157
 !
   ! added by Markus Markl, 08.04.2021
-  if (ihdf5test .eq. 1) then
+  if (ihdf5IO .eq. 1) then
     if (debug_mode) write(*,*) "reading q from hdf5"
     CALL h5_init()
     CALL h5_open_rw(path2inp, h5_id)

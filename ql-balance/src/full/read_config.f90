@@ -4,14 +4,14 @@ subroutine read_config
     use baseparam_mod, only: btor, rtor, rsepar, dperp, Z_i, am
     use grid_mod, only: rmin, rmax, npoimin, gg_factor, gg_width, &
         gg_r_res, iboutype, rb_cut_in, re_cut_in, rb_cut_out, re_cut_out
-    use control_mod, only: Nstorage, tmax_factor, iwrite, eps, icoll, &
-        write_formfactors, flag_run_time_evolution, stop_time_step, &
-        timstep_min, paramscan, save_prof_time_step, diagnostics_output, br_stopping, &
-        suppression_mode, debug_mode, readfromtimestep, ramp_up_mode, &
-        t_max_ramp_up, temperature_limit, antenna_max_stopping, gyro_current_study, &
-        misalign_diffusion, equil_path
+    use control_mod, only: iwrite, eps, icoll, &
+        write_formfactors, paramscan, diagnostics_output, &
+        suppression_mode, debug_mode, readfromtimestep, &
+        temperature_limit, gyro_current_study, &
+        misalign_diffusion, equil_path, ihdf5IO
     use h5mod, only: path2inp, path2out, path2time
     use paramscan_mod, only: viscosity_factor
+    use time_evolution
 
     implicit none
 
@@ -25,7 +25,7 @@ subroutine read_config
         diagnostics_output, br_stopping, suppression_mode, debug_mode, &
         readfromtimestep, path2time, ramp_up_mode, t_max_ramp_up, temperature_limit, &
         antenna_max_stopping, gyro_current_study, viscosity_factor, misalign_diffusion, &
-        equil_path
+        equil_path, ihdf5IO
 
     ! read the parameters from namelist file
     open (22, file='balance_conf.nml');
@@ -78,6 +78,7 @@ subroutine read_config
     write(*,*) "viscosity_factor = ", viscosity_factor
     write(*,*) "misalign_diffusion = ", misalign_diffusion
     write(*,*) "equil_path = ", trim(equil_path)
+    write(*,*) "ihdf5IO = ", ihdf5IO
     write(*,*) ''
     write(*,*) '====================================================================='
 

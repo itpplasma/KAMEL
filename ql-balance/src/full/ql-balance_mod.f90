@@ -49,7 +49,7 @@
   module control_mod
     logical :: write_formfactors
     integer :: iwrite
-    integer :: ihdf5test ! added: Markus Markl
+    integer :: ihdf5IO ! added: Markus Markl
     logical :: paramscan ! added: Markus Markl, 03.03.2021
     logical :: timing_mode         ! added by Markus Markl 06.04.2021
     logical :: debug_mode
@@ -61,14 +61,17 @@
     integer :: icoll
     double precision :: relax
     integer :: zeitschritt
-    integer :: save_prof_time_step ! added by Markus Markl 11.03.2021
     integer :: readfromtimestep ! added by Markus Markl 02.06.2021. Reads the background profiles from hdf5 file in which profiles of a ql time evolution are stored.
     integer :: gyro_current_study
     integer :: step_counter
     character(len=1024) :: equil_path ! path to equil file containing q, psi, phi,...
+    double precision :: eps
+    DOUBLE PRECISION :: temperature_limit ! limits ion and electron temperatures from below, in eV
+  end module control_mod
+
+  module time_evolution
     integer :: Nstorage
     double precision :: tmax_factor!, antenna_factor
-    double precision :: eps
     logical :: flag_run_time_evolution !Added by Philipp Ulbl 12.05.2020
     double precision :: stop_time_step !Added by Philipp Ulbl 13.05.2020
     double precision :: timstep_min
@@ -76,9 +79,8 @@
     integer :: ramp_up_mode !> control ramp up mode of the RMP coil current amplitude
     DOUBLE PRECISION :: t_max_ramp_up = 1e-2 !> 10ms ramp up until antenna_factor_max is reached
     DOUBLE PRECISION :: antenna_max_stopping
-
-    DOUBLE PRECISION :: temperature_limit ! limits ion and electron temperatures from below, in eV
-  end module control_mod
+    integer :: save_prof_time_step ! added by Markus Markl 11.03.2021
+  end module
 
   module matrix_mod
     integer :: isw_rhs

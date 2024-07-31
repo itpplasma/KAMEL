@@ -107,7 +107,7 @@
   use grid_mod, only : y,dery,dery_equisource &
                      , nbaleqs,neqset,iboutype,npoic,params 
 
-  use control_mod, only: iwrite, ihdf5test, diagnostics_output, debug_mode
+  use control_mod, only: iwrite, ihdf5IO, diagnostics_output, debug_mode
   use h5mod
   use matrix_mod
 !
@@ -147,7 +147,7 @@
 ! edited by Markus Markl, 01.03.2021
 if (diagnostics_output) then
   write(*,*) "Writing equisource"
-    if (ihdf5test .eq. 1) then
+    if (ihdf5IO .eq. 1) then
         tempch = "/"//trim(h5_mode_groupname)//"/equisource.dat"
 
         CALL h5_init()

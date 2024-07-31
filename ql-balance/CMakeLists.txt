@@ -86,8 +86,8 @@ set(balance_lib_cpp_sources
     ${src}/cvodeint.cpp
     ${src}/umf4_f77wrapper.c
     ${src}/umf4_f77zwrapper.c
-    ${src}/superlu/c_fortran_zgssv.c
-    ${src}/superlu/c_fortran_dgssv.c
+    #${src}/superlu/c_fortran_zgssv.c
+    #${src}/superlu/c_fortran_dgssv.c
     )
 
 add_library(ql-balance_lib STATIC ${balance_lib_fortran_sources} ${balance_lib_cpp_sources})

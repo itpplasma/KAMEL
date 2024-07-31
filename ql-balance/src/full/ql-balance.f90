@@ -26,19 +26,22 @@ program ql_balance
     integer :: ierror, np_num, irank
     integer :: iexit ! used for ramp-up skipping of saving
 
-    logical :: toomuch, opnd, dostep, scratch
+    logical :: opnd, dostep, scratch
     logical :: firstiterationdone !Added by Markus Markl 25.02.2021. Some steps
     ! in saving the data to hdf5 file need to be done only the first time iteration
-    logical :: discr_reached
-    integer :: ipoi, i, nstep, nstepmax, npoi, k, ieq, l
-    integer :: nmult, istage, itrans, ntrans, iunit_redo, ioddeven
-    double precision :: evoltime, timescale, timstep, tmax, timstep_rec
+    logical :: discr_reached = .false. ! variable to say if discrepancy to linear regression
+    ! of Br is reached, only used if br_stopping = .false.
+    integer :: ipoi, i, npoi, k, ieq, l
+    integer :: iunit_redo, ioddeven
+    double precision :: evoltime, timescale, timstep, tmax
     double precision :: antenna_factor_max !Added by Philipp Ulbl 12.05.2020
-    double precision :: relchg, relchgmax, facdecr, timstepmax
-    double precision :: err_tot, err_loc, err_minfac, tol_redfac
-    double precision :: tol_min, epsnoise, w, timstep_red, tol_max
-    double precision :: urelax, time, factolmax, factolred
-    double precision :: timscal_dql, rate_dql, timscal_dqli, rate_dqli
+    double precision :: time
+    double precision :: timscal_dql, rate_dql, timscal_dqli
+
+    double precision :: urelax = 0.5e0 !0.5d0  !0.9d0
+    double precision :: tol_max = 3.d-2 !3.d-4 !3.d-3 !3.d-2
+    double precision :: factolmax = 3.d0 ! keep
+    double precision :: factolred = 0.5d0 ! keep
 
     DOUBLE PRECISION, DIMENSION(:), ALLOCATABLE :: yprev
     DOUBLE PRECISION, DIMENSION(:), ALLOCATABLE :: dqle11_prev
@@ -59,7 +62,6 @@ program ql_balance
     integer, dimension(1) :: ind_dqle, ind_dqli
     integer :: lb, ub
     
-
     !needed for interpolation of br abs and stopping criterion
     !Added by Philipp Ulbl 04.06.2020
     DOUBLE PRECISION, DIMENSION(:), ALLOCATABLE :: br_abs
@@ -76,16 +78,13 @@ program ql_balance
     ! Added by Markus Markl
     character(len=1024) :: h5_currentgrp !> current hdf5 group string
     integer(HID_T) :: time_dataset_id !> variable to save the time dataset id
-    integer(HID_T) :: brabs_dataset_id
     double precision :: t_hysteresis_turn = 0
 
 
     call read_config
 
-    ! integer that toggles the use of hdf5 output/input
-    ! if equal 1 - use hdf5, if
-    ! equal 0 - use standard text output and input
     iexit = 0 ! 0 - don't skip, 1 - skip, 2 - stop
+    mwind = 10
 
     ! if h5overwrite = true, existing data will be deleted
     ! before new one is written
@@ -97,18 +96,6 @@ program ql_balance
     else
         write_gyro_current = .false.
     end if
-
-    !write_gyro_current = .false.
-
-    discr_reached = .false. ! variable to say if discrepancy to linear regression
-    ! of Br is reached, only used if br_stopping = .false.
-
-    urelax = 0.5e0 !0.5d0  !0.9d0
-    tol_max = 3.d-2 !3.d-4 !3.d-3 !3.d-2
-    !err_minfac = 1.d-2 !2.0d0/sqrt(dfloat(nmult)) ! could be removed
-    factolmax = 3.d0 ! keep
-    factolred = 0.5d0 ! keep
-    mwind = 10
 
     call MPI_Init(ierror);
     call MPI_Comm_size(MPI_COMM_WORLD, np_num, ierror);
@@ -129,7 +116,7 @@ program ql_balance
     if (irank .eq. 0) then
         write(*,*) "timstep = ", timstep
     end if
-    timstepmax = tmax
+    
 
     call gengrid
 
@@ -279,9 +266,7 @@ program ql_balance
                         allocate(params_begbeg(nbaleqs, npoic))
                     end if
                     time = 0.d0
-                    itrans = 0
                     tol = tol_max
-                    istage = 1
 
                     !DIAG:
                     write_diag = .false.
@@ -658,7 +643,6 @@ program ql_balance
                         timscal_dqli = maxval(abs(dqli11_prev - dqli11))/maxval(dqli11_prev + dqli11)
                         ind_dqli = maxloc(abs(dqli11_prev - dqli11))
                         rate_dql = timscal_dql/timstep
-                        rate_dqli = timscal_dqli/timstep
                         ! write fort.9999 data if diagnostics output is done
                         if (diagnostics_output) then
                             if (irank .eq. 0) then
@@ -1265,38 +1249,6 @@ subroutine write_br_time_data(i, br_abs_time, br_abs_antenna_factor, br_abs, dql
     end if
 end subroutine ! write_br_time_data
 
-!> @brief subroutine initialize_parameter_scan_vars. Read factors for parameter scan and allocate variables. Still needed if no parameter scan is done.
-!> @author Markus Markl
-!> @date 05.10.2022
-subroutine initialize_parameter_scan_vars
-
-    use paramscan_mod
-    use control_mod, only: paramscan
-
-    implicit none
-
-    if (paramscan) then
-        write(*,*) "Parameter scan: fetch factors for parameter scan"
-        CALL getfactors
-        write(*,*) "Got out of getfactors"
-        if (size(fac_vz) .ne. 1) allocate(Er_res(size(fac_n), size(fac_Te), size(fac_Ti), size(fac_vz)))
-        write(*,*) "allocated Er_res"
-    else
-        allocate(fac_n(1))
-        allocate(fac_Ti(1))
-        allocate(fac_Te(1))
-        allocate(fac_vz(1))
-        fac_n = (/1.d0/)
-        fac_Ti = (/1.d0/)
-        fac_Te = (/1.d0/)
-        fac_vz = (/1.d0/)
-    end if
-
-    allocate(dqle22_res(size(fac_n), size(fac_Te), size(fac_Ti), size(fac_vz)))
-    allocate(br_abs_res_parscan(size(fac_n), size(fac_Te), size(fac_Ti), size(fac_vz)))
-    write(*,*) "Finished initialize parameter scan vars"
-
-end subroutine ! initialize_parameter_scan_vars
 
 !> @brief subroutine write_init_profiles. Write initial profiles to hdf5 or ascii.
 !> @author Markus Markl

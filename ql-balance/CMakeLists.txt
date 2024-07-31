@@ -172,5 +172,3 @@ target_link_libraries(ql-balance_lib PUBLIC slatec superlu cvode nvecserial gfor
 add_executable(ql-balance ${full_balance_src}/ql-balance.f90)
 target_link_libraries(ql-balance PUBLIC ql-balance_lib)
 
-add_executable(ql-light ${light_balance_src}/ql-light.f90)
-target_link_libraries(ql-light PUBLIC ql-balance_lib superlu)

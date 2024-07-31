@@ -127,15 +127,3 @@ module h5mod
 
 end module h5mod
 
-! added by Markus Markl 04.03.2021
-module paramscan_mod
-    integer :: ifac_n, ifac_Te, ifac_Ti, ifac_vz ! counter for the do loops
-    integer :: numoffac                          ! total number of factors
-    double precision, dimension(:), allocatable :: fac_n, fac_Te, &
-        fac_Ti, fac_vz
-    character(len=1024) :: parscan_str
-    double precision :: viscosity_factor
-    DOUBLE PRECISION, DIMENSION(:,:,:,:), ALLOCATABLE :: Er_res
-    DOUBLE PRECISION, DIMENSION(:, :, :, :), ALLOCATABLE :: br_abs_res_parscan
-    DOUBLE PRECISION, DIMENSION(:, :, :, :), ALLOCATABLE :: dqle22_res
-end module

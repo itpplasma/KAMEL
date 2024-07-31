@@ -1,32 +1,86 @@
 
-subroutine getfactors
+module paramscan_mod
+    integer :: ifac_n, ifac_Te, ifac_Ti, ifac_vz ! counter for the do loops
+    integer :: numoffac                          ! total number of factors
+    double precision, dimension(:), allocatable :: fac_n, fac_Te, &
+        fac_Ti, fac_vz
+    character(len=1024) :: parscan_str
+    double precision :: viscosity_factor
+    DOUBLE PRECISION, DIMENSION(:,:,:,:), ALLOCATABLE :: Er_res
+    DOUBLE PRECISION, DIMENSION(:, :, :, :), ALLOCATABLE :: br_abs_res_parscan
+    DOUBLE PRECISION, DIMENSION(:, :, :, :), ALLOCATABLE :: dqle22_res
 
-    use paramscan_mod
-    use wave_code_data
-    use h5mod
+    contains
 
-    integer :: lb, ub
-    CALL h5_init()
-    CALL h5_open_rw(path2out, h5_id)
-    CALL h5_get_bounds_1(h5_id, "/factors/fac_n", lb, ub)
-    write (*, *) "lower bound fac_n", lb, " upper bound ", ub
-    allocate(fac_n(ub))
-    CALL h5_get_bounds_1(h5_id, "/factors/fac_Te", lb, ub)
-    write (*, *) "lower bound fac_Te", lb, " upper bound ", ub
-    allocate(fac_Te(ub))
-    CALL h5_get_bounds_1(h5_id, "/factors/fac_Ti", lb, ub)
-    write (*, *) "lower bound fac_Ti", lb, " upper bound ", ub
-    allocate(fac_Ti(ub))
-    CALL h5_get_bounds_1(h5_id, "/factors/fac_vz", lb, ub)
-    write (*, *) "lower bound fac_vz", lb, " upper bound ", ub
-    allocate(fac_vz(ub))
+    !> @brief subroutine initialize_parameter_scan_vars. Read factors for parameter scan and allocate variables. Still needed if no parameter scan is done.
+    !> @author Markus Markl
+    !> @date 05.10.2022
+    subroutine initialize_parameter_scan_vars
 
-    CALL h5_get_double_1(h5_id, "/factors/fac_n", fac_n)
-    CALL h5_get_double_1(h5_id, "/factors/fac_Te", fac_Te)
-    CALL h5_get_double_1(h5_id, "/factors/fac_Ti", fac_Ti)
-    CALL h5_get_double_1(h5_id, "/factors/fac_vz", fac_vz)
+        use control_mod, only: paramscan
 
-    CALL h5_close(h5_id)
-    CALL h5_deinit()
+        implicit none
 
-end subroutine
+        if (paramscan) then
+            write(*,*) "Parameter scan: fetch factors for parameter scan"
+            CALL getfactors
+            write(*,*) "Got out of getfactors"
+            if (size(fac_vz) .ne. 1) allocate(Er_res(size(fac_n), size(fac_Te), size(fac_Ti), size(fac_vz)))
+            write(*,*) "allocated Er_res"
+        else
+            allocate(fac_n(1))
+            allocate(fac_Ti(1))
+            allocate(fac_Te(1))
+            allocate(fac_vz(1))
+            fac_n = (/1.d0/)
+            fac_Ti = (/1.d0/)
+            fac_Te = (/1.d0/)
+            fac_vz = (/1.d0/)
+        end if
+
+        allocate(dqle22_res(size(fac_n), size(fac_Te), size(fac_Ti), size(fac_vz)))
+        allocate(br_abs_res_parscan(size(fac_n), size(fac_Te), size(fac_Ti), size(fac_vz)))
+        write(*,*) "Finished initialize parameter scan vars"
+
+    end subroutine ! initialize_parameter_scan_vars
+
+
+    subroutine getfactors
+
+        use wave_code_data
+        use h5mod
+
+        integer :: lb, ub
+        CALL h5_init()
+        CALL h5_open_rw(path2out, h5_id)
+        CALL h5_get_bounds_1(h5_id, "/factors/fac_n", lb, ub)
+        write (*, *) "lower bound fac_n", lb, " upper bound ", ub
+        allocate(fac_n(ub))
+        CALL h5_get_bounds_1(h5_id, "/factors/fac_Te", lb, ub)
+        write (*, *) "lower bound fac_Te", lb, " upper bound ", ub
+        allocate(fac_Te(ub))
+        CALL h5_get_bounds_1(h5_id, "/factors/fac_Ti", lb, ub)
+        write (*, *) "lower bound fac_Ti", lb, " upper bound ", ub
+        allocate(fac_Ti(ub))
+        CALL h5_get_bounds_1(h5_id, "/factors/fac_vz", lb, ub)
+        write (*, *) "lower bound fac_vz", lb, " upper bound ", ub
+        allocate(fac_vz(ub))
+
+        CALL h5_get_double_1(h5_id, "/factors/fac_n", fac_n)
+        CALL h5_get_double_1(h5_id, "/factors/fac_Te", fac_Te)
+        CALL h5_get_double_1(h5_id, "/factors/fac_Ti", fac_Ti)
+        CALL h5_get_double_1(h5_id, "/factors/fac_vz", fac_vz)
+
+        CALL h5_close(h5_id)
+        CALL h5_deinit()
+
+    end subroutine
+
+
+
+    subroutine run_parameter_scan
+
+
+    end subroutine
+
+end module

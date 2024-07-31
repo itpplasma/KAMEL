@@ -77,6 +77,7 @@ set(balance_lib_fortran_sources
     ${src}/amn_of_r.f90
     ${src}/hdf5_tools/hdf5_tools.f90
     ${src}/sparse_mod.f90
+    ${src}/paramscan.f90
     ${src}/W2_arr.f90
     ${src}/sample_matrix.f90)
 
@@ -85,6 +86,8 @@ set(balance_lib_cpp_sources
     ${src}/cvodeint.cpp
     ${src}/umf4_f77wrapper.c
     ${src}/umf4_f77zwrapper.c
+    ${src}/superlu/c_fortran_zgssv.c
+    ${src}/superlu/c_fortran_dgssv.c
     )
 
 add_library(ql-balance_lib STATIC ${balance_lib_fortran_sources} ${balance_lib_cpp_sources})

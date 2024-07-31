@@ -564,7 +564,6 @@ subroutine read_background_profiles_h5
 
     use h5mod
     use wave_code_data, only: rq, iq, rn, in, rTi, iTi, rTe, iTe, rVth, iVth, rVz, iVz, rep, idPhi0; 
-    use paramscan_mod, only: ifac_vz, fac_vz
     use control_mod, only: paramscan, debug_mode
 
     implicit none; 
@@ -624,26 +623,10 @@ subroutine read_background_profiles_h5
     rVz = rq
     rep = rq
 
-    ! close
     CALL h5_close_group(group_id_1)
-    ! if the vz profile is changed, the Er profile has to also be adjusted
-    !if (debug_mode) write(*,*) "fac_vz = ", fac_vz(ifac_vz)
-    !if (fac_vz(ifac_vz) .ne. 1.d0) then
-    !    write (*, *) "get ErVzfac"
-    !    allocate (ErVzfac(ub))
-    !    CALL h5_get_double_1(h5_id, '/factors/ErVzfac', ErVzfac)
-    !    write (*, *) "rescale Er"
-    !    idPhi0 = idPhi0 + ErVzfac*iVz*(fac_vz(ifac_vz) - 1.d0)
-    !    deallocate (ErVzfac)
-    !end if
-
     CALL h5_close(h5_id)
     CALL h5_deinit()
     write (*, *) "finished reading background profiles from hdf5"
-!file = trim(path)//'q.dat';
-!call find_file_length(file, l);
-!allocate(rq(l), iq(l));
-!call load_profile(file, l, rq, iq);
 
     idPhi0 = -idPhi0; ! Er was loaded from Er.dat
 
@@ -794,35 +777,3 @@ subroutine interp_profile(dim_old, r_old, q_old, dim_new, r_new, q_new)
 end subroutine
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-
-subroutine getfactors
-
-    use paramscan_mod
-    use wave_code_data
-    use h5mod
-
-    integer :: lb, ub
-    CALL h5_init()
-    CALL h5_open_rw(path2out, h5_id)
-    CALL h5_get_bounds_1(h5_id, "/factors/fac_n", lb, ub)
-    write (*, *) "lower bound fac_n", lb, " upper bound ", ub
-    allocate(fac_n(ub))
-    CALL h5_get_bounds_1(h5_id, "/factors/fac_Te", lb, ub)
-    write (*, *) "lower bound fac_Te", lb, " upper bound ", ub
-    allocate(fac_Te(ub))
-    CALL h5_get_bounds_1(h5_id, "/factors/fac_Ti", lb, ub)
-    write (*, *) "lower bound fac_Ti", lb, " upper bound ", ub
-    allocate(fac_Ti(ub))
-    CALL h5_get_bounds_1(h5_id, "/factors/fac_vz", lb, ub)
-    write (*, *) "lower bound fac_vz", lb, " upper bound ", ub
-    allocate(fac_vz(ub))
-
-    CALL h5_get_double_1(h5_id, "/factors/fac_n", fac_n)
-    CALL h5_get_double_1(h5_id, "/factors/fac_Te", fac_Te)
-    CALL h5_get_double_1(h5_id, "/factors/fac_Ti", fac_Ti)
-    CALL h5_get_double_1(h5_id, "/factors/fac_vz", fac_vz)
-
-    CALL h5_close(h5_id)
-    CALL h5_deinit()
-
-end subroutine

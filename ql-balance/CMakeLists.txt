@@ -45,6 +45,9 @@ set(CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/cmake" ${CMAKE_MODULE_PATH})
 set (libs_root_path ${CMAKE_SOURCE_DIR}/../../libs)
 
 set(src ${PROJECT_SOURCE_DIR}/src)
+set(full_balance_src ${src}/full/)
+set(light_balance_src ${src}/light/)
+
 set(hdf5_tools ${PROJECT_SOURCE_DIR}/hdf5_tools/)
 set(objs ${PROJECT_SOURCE_DIR}/OBJS/)
 set(lib ${PROJECT_SOURCE_DIR}/lib/)
@@ -66,26 +69,25 @@ include_directories ("${sundials_include_path_build}")
 
 set(balance_lib_fortran_sources
     #${src}/ql-balance.f90
-    ${src}/ql-balance_mod.f90
-    ${src}/rhs_balance.f90
-    ${src}/wave_code_data_64bit.f90
-    ${src}/Wmn.f90
-    ${src}/evolvestep.f90 
-    ${src}/gengrid.f90
-    #${src}/localizer.f90
-    ${src}/plag_coeff.f90
-    ${src}/amn_of_r.f90
+    ${full_balance_src}/ql-balance_mod.f90
+    ${full_balance_src}/rhs_balance.f90
+    ${full_balance_src}/wave_code_data_64bit.f90
+    ${full_balance_src}/Wmn.f90
+    ${full_balance_src}/evolvestep.f90 
+    ${full_balance_src}/gengrid.f90
+    ${full_balance_src}/plag_coeff.f90
+    ${full_balance_src}/amn_of_r.f90
     ${src}/hdf5_tools/hdf5_tools.f90
-    ${src}/sparse_mod.f90
-    ${src}/paramscan.f90
-    ${src}/W2_arr.f90
-    ${src}/sample_matrix.f90)
+    ${full_balance_src}/sparse_mod.f90
+    ${full_balance_src}/paramscan.f90
+    ${full_balance_src}/W2_arr.f90
+    ${full_balance_src}/sample_matrix.f90)
 
 set(balance_lib_cpp_sources
-    ${src}/vel_integral.cpp
-    ${src}/cvodeint.cpp
-    ${src}/umf4_f77wrapper.c
-    ${src}/umf4_f77zwrapper.c
+    ${full_balance_src}/vel_integral.cpp
+    ${full_balance_src}/cvodeint.cpp
+    ${full_balance_src}/umf4_f77wrapper.c
+    ${full_balance_src}/umf4_f77zwrapper.c
     #${src}/superlu/c_fortran_zgssv.c
     #${src}/superlu/c_fortran_dgssv.c
     )
@@ -200,8 +202,10 @@ target_sources(ql-balance_lib PUBLIC
     ${libs_root_path}/SuperLU_4.1/FORTRAN/c_fortran_dgssv.c)
 target_include_directories(ql-balance_lib PUBLIC ${libs_root_path}/SuperLU_4.1/SRC/)
 
-target_link_libraries(ql-balance_lib PUBLIC slatec gfortran superlu cvode nvecserial)
+target_link_libraries(ql-balance_lib PUBLIC slatec superlu cvode nvecserial gfortran)
 
+add_executable(ql-balance ${full_balance_src}/ql-balance.f90)
+target_link_libraries(ql-balance PUBLIC ql-balance_lib)
 
-add_executable(ql-balance ${src}/ql-balance.f90)
-target_link_libraries(ql-balance PUBLIC ql-balance_lib ${EXTERNAL_LIBS} ${EXTERNAL_LIBS_KiLCA})
+add_executable(ql-light ${light_balance_src}/ql-light.f90)
+target_link_libraries(ql-light PUBLIC ql-balance_lib superlu)

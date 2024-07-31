@@ -13,3 +13,7 @@ Use
 LD_LIBRARY_PATH=/proj/plasma/soft/math_libs/64bit/sundials-2.6.2/lib/ ./balance.x.mpif90.openmpi_x86_64
 
 in the run directory.
+
+
+# ql-light
+Light version of the balance code that only calculates Dqle22 for the local bifurcation criterion. Also includes constant-psi approximation.

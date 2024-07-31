@@ -117,7 +117,6 @@ program ql_balance
 
     !write_gyro_current = .false.
 
-
     discr_reached = .false. ! variable to say if discrepancy to linear regression
     ! of Br is reached, only used if br_stopping = .false.
 
@@ -137,24 +136,12 @@ program ql_balance
     read (22, NML=BALANCENML)
     close (22);
 
-    !relchgmax = 0.1d0 ! could be removed
-    !facdecr = 1.d1 ! could be removed
     urelax = 0.5e0 !0.5d0  !0.9d0
-    !nmult = 1 !10 ! could be reomved
-    !nstack = 2 ! could be removed ?
     tol_max = 3.d-2 !3.d-4 !3.d-3 !3.d-2
-!err_minfac=0.1d0
     err_minfac = 1.d-2 !2.0d0/sqrt(dfloat(nmult)) ! could be removed
-    !tol_redfac = 0.5d0 ! could be removed
-    !tol_min = 3.d-5 ! could be removed
-    !epsnoise = 1.d-8 ! could be removed
     factolmax = 3.d0 ! keep
     factolred = 0.5d0 ! keep
-    !ntrans = 10 ! could be removed
-!
-!mwind=100
     mwind = 10
-!
 
     if (irank .eq. 0) then
         write(*,*) ''

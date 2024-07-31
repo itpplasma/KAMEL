@@ -80,6 +80,17 @@
     DOUBLE PRECISION :: t_max_ramp_up = 1e-2 !> 10ms ramp up until antenna_factor_max is reached
     DOUBLE PRECISION :: antenna_max_stopping
     integer :: save_prof_time_step ! added by Markus Markl 11.03.2021
+    
+    DOUBLE PRECISION, DIMENSION(:), ALLOCATABLE :: yprev
+    DOUBLE PRECISION, DIMENSION(:), ALLOCATABLE :: dqle11_prev
+    DOUBLE PRECISION, DIMENSION(:), ALLOCATABLE :: dqle12_prev
+    DOUBLE PRECISION, DIMENSION(:), ALLOCATABLE :: dqle21_prev
+    DOUBLE PRECISION, DIMENSION(:), ALLOCATABLE :: dqle22_prev
+    DOUBLE PRECISION, DIMENSION(:), ALLOCATABLE :: dqli11_prev
+    DOUBLE PRECISION, DIMENSION(:), ALLOCATABLE :: dqli12_prev
+    DOUBLE PRECISION, DIMENSION(:), ALLOCATABLE :: dqli21_prev
+    DOUBLE PRECISION, DIMENSION(:), ALLOCATABLE :: dqli22_prev
+
   end module
 
   module matrix_mod

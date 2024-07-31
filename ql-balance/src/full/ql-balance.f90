@@ -20,6 +20,7 @@ program ql_balance
     use paramscan_mod
     use mpi
     use time_evolution
+    use linear_run
 
     implicit none
 
@@ -43,19 +44,10 @@ program ql_balance
     double precision :: factolmax = 3.d0 ! keep
     double precision :: factolred = 0.5d0 ! keep
 
-    DOUBLE PRECISION, DIMENSION(:), ALLOCATABLE :: yprev
-    DOUBLE PRECISION, DIMENSION(:), ALLOCATABLE :: dqle11_prev
-    DOUBLE PRECISION, DIMENSION(:), ALLOCATABLE :: dqle12_prev
-    DOUBLE PRECISION, DIMENSION(:), ALLOCATABLE :: dqle21_prev
-    DOUBLE PRECISION, DIMENSION(:), ALLOCATABLE :: dqle22_prev
-    DOUBLE PRECISION, DIMENSION(:), ALLOCATABLE :: dqli11_prev
-    DOUBLE PRECISION, DIMENSION(:), ALLOCATABLE :: dqli12_prev
-    DOUBLE PRECISION, DIMENSION(:), ALLOCATABLE :: dqli21_prev
-    DOUBLE PRECISION, DIMENSION(:), ALLOCATABLE :: dqli22_prev
     DOUBLE PRECISION, DIMENSION(:), ALLOCATABLE :: ych_one, ych_tot
     double precision, dimension(:), allocatable :: timscal
     double precision, dimension(:), allocatable :: dummy
-    double precision, dimension(:), allocatable :: hold_n, hold_Te, hold_Ti, hold_Vz, hold_dphi0! variables to hold the initial bg profiles
+    
     double precision, dimension(:, :), allocatable :: params_beg, params_begbeg
     double precision, dimension(:, :), allocatable :: params_num, params_denom
     
@@ -138,6 +130,15 @@ program ql_balance
         CALL creategroupstructure
     end if
 
+    call allocate_prev_variables
+
+    call init_background_profiles
+
+    if (irank .eq. 0) then
+        CALL write_init_profiles
+        call alloc_hold_parameters
+    end if
+
     ! parameter scan loops that span over (nearly) the rest of the code
     do ifac_n = 1, size(fac_n)
         do ifac_Te = 1, size(fac_Te)
@@ -165,18 +166,9 @@ program ql_balance
                     write(*,*) "h5_mode_groupname: ", trim(h5_mode_groupname)
 
                     ! allocate variables in first parameter scan loop iteration
-                    if (ifac_n + ifac_Ti + ifac_Te + ifac_vz .eq. 4) then
-                        allocate (yprev(neqset))
-                        allocate (dqle11_prev(npoib))
-                        allocate (dqle12_prev(npoib))
-                        allocate (dqle21_prev(npoib))
-                        allocate (dqle22_prev(npoib))
-                        allocate (dqli11_prev(npoib))
-                        allocate (dqli12_prev(npoib))
-                        allocate (dqli21_prev(npoib))
-                        allocate (dqli22_prev(npoib))
-                        allocate (timstep_arr(neqset), tim_stack(neqset))
-                    end if
+                    !if (ifac_n + ifac_Ti + ifac_Te + ifac_vz .eq. 4) then
+                    !    call allocate_prev_variables
+                    !end if
 				
                     ! if more than one RMP mode is used, use different group name
                     if (numres .eq. 1) then
@@ -189,39 +181,7 @@ program ql_balance
 
                     write(*,*) "h5_mode_groupname after f_m_n: ", trim(h5_mode_groupname)
 
-                    ! write profiles to params the first loop iteration
-                    ! save the initial background profile first loop iteration
-                    if (ifac_n + ifac_Ti + ifac_Te + ifac_vz .eq. 4) then
-                        !initial background profiles:
-                        do ipoi = 1, npoic
-                            !safety factor:
-                            qsaf(ipoi) = 0.5*(q(ipoi) + q(ipoi + 1))
-                            !electron density :
-                            params(1, ipoi) = 0.5*(n(ipoi) + n(ipoi + 1))
-                            !toroidal rotation frequency :
-                            params(2, ipoi) = 0.5*(Vz(ipoi) + Vz(ipoi + 1))/rtor
-                            !electron temeperature :
-                            params(3, ipoi) = 0.5*(Te(ipoi) + Te(ipoi + 1))*ev
-                            !ion temeperature :
-                            params(4, ipoi) = 0.5*(Ti(ipoi) + Ti(ipoi + 1))*ev
-                        end do
-
-                        if (irank .eq. 0) then
-                            CALL write_init_profiles
-
-                            allocate(hold_n(npoib))
-                            allocate(hold_Vz(npoib))
-                            allocate(hold_Te(npoib))
-                            allocate(hold_Ti(npoib))
-                            allocate(hold_dphi0(npoib))
-                            hold_n = params(1, :)
-                            hold_Vz = params(2, :)
-                            hold_Te = params(3, :)
-                            hold_Ti = params(4, :)
-                            hold_dphi0 = idPhi0
-                        end if
-                    end if
-
+                    
                     call rescale_profiles
                     call geomparprof
 

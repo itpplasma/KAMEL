@@ -10,6 +10,9 @@ module paramscan_mod
     DOUBLE PRECISION, DIMENSION(:, :, :, :), ALLOCATABLE :: br_abs_res_parscan
     DOUBLE PRECISION, DIMENSION(:, :, :, :), ALLOCATABLE :: dqle22_res
 
+
+    double precision, dimension(:), allocatable :: hold_n, hold_Te, hold_Ti, hold_Vz, hold_dphi0! variables to hold the initial bg profiles
+
     contains
 
     !> @brief subroutine initialize_parameter_scan_vars. Read factors for parameter scan and allocate variables. Still needed if no parameter scan is done.
@@ -73,6 +76,26 @@ module paramscan_mod
 
         CALL h5_close(h5_id)
         CALL h5_deinit()
+
+    end subroutine
+
+    subroutine alloc_hold_parameters
+        
+        use grid_mod, only: npoib, params
+        use wave_code_data, only: idPhi0
+
+        implicit none
+
+        allocate(hold_n(npoib))
+        allocate(hold_Vz(npoib))
+        allocate(hold_Te(npoib))
+        allocate(hold_Ti(npoib))
+        allocate(hold_dphi0(npoib))
+        hold_n = params(1, :)
+        hold_Vz = params(2, :)
+        hold_Te = params(3, :)
+        hold_Ti = params(4, :)
+        hold_dphi0 = idPhi0
 
     end subroutine
 

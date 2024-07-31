@@ -77,6 +77,7 @@ set(balance_lib_fortran_sources
     ${src}/hdf5_tools/hdf5_tools.f90
     ${full_balance_src}/sparse_mod.f90
     ${full_balance_src}/paramscan.f90
+    ${full_balance_src}/linear_run.f90
     ${full_balance_src}/W2_arr.f90
     ${full_balance_src}/sample_matrix.f90)
 

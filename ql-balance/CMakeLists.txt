@@ -58,22 +58,19 @@ set(CMAKE_Fortran_MODULE_DIRECTORY "${objs}")
 
 add_subdirectory(${src})
 
-#add_subdirectory(hdf5_tools)
-
 set (sundials_include_path ${libs_root_path}/sundials/include)
 set (sundials_include_path_build ${libs_root_path}/sundials/build/include)
 include_directories ("${sundials_include_path}")
 include_directories ("${sundials_include_path_build}")
-#include_directories ("${gsl_include_path}")
 
 
 set(balance_lib_fortran_sources
-    #${src}/ql-balance.f90
     ${full_balance_src}/ql-balance_mod.f90
     ${full_balance_src}/rhs_balance.f90
     ${full_balance_src}/wave_code_data_64bit.f90
     ${full_balance_src}/Wmn.f90
     ${full_balance_src}/evolvestep.f90 
+    ${full_balance_src}/read_config.f90 
     ${full_balance_src}/gengrid.f90
     ${full_balance_src}/plag_coeff.f90
     ${full_balance_src}/amn_of_r.f90
@@ -88,8 +85,6 @@ set(balance_lib_cpp_sources
     ${full_balance_src}/cvodeint.cpp
     ${full_balance_src}/umf4_f77wrapper.c
     ${full_balance_src}/umf4_f77zwrapper.c
-    #${src}/superlu/c_fortran_zgssv.c
-    #${src}/superlu/c_fortran_dgssv.c
     )
 
 add_library(ql-balance_lib STATIC ${balance_lib_fortran_sources} ${balance_lib_cpp_sources})
@@ -107,38 +102,8 @@ target_include_directories(ql-balance_lib PUBLIC "${sundials_include_path_build}
 target_include_directories(ql-balance_lib PUBLIC ${CMAKE_SOURCE_DIR}/../KiLCA/math/)
 
 
-#set (slatec_lib_fullpath ${libs_root_path}/slatec/libslatec.a)
-#set (lapack_lib_fullpath ${libs_root_path}/lapack-3.2.1/lapack_LINUX.a)
-#set (blas_lib_fullpath ${libs_root_path}/lapack-3.2.1/blas_LINUX.a)
-#set (tmg_lib_fullpath ${libs_root_path}/lapack-3.2.1/tmglib_LINUX.a)
-
-
-
-#set (gsl_lib_fullpath ${libs_root_path}/gsl-2.4/.libs/libgsl.a)
-#set (gslcblas_lib_fullpath ${libs_root_path}/gsl-2.4/cblas/.libs/libgslcblas.a)
-#set (gsl_include_path ${libs_root_path}/gsl-2.4/)
-
 file(GLOB libslatec_files "${CMAKE_SOURCE_DIR}/../KiLCA/math/bessel/slatec/*.f")
 add_library (slatec STATIC "${libslatec_files}")
-
-#add_library (lapack STATIC IMPORTED)
-#set_target_properties (lapack PROPERTIES IMPORTED_LOCATION "${lapack_lib_fullpath}")
-
-#add_library (blas STATIC IMPORTED)
-#set_target_properties (blas PROPERTIES IMPORTED_LOCATION "${blas_lib_fullpath}")
-
-#add_library (tmg STATIC IMPORTED)
-#set_target_properties (tmg PROPERTIES IMPORTED_LOCATION "${tmg_lib_fullpath}")
-
-#add_library (gsl STATIC IMPORTED)
-#set_target_properties (gsl PROPERTIES IMPORTED_LOCATION "${gsl_lib_fullpath}")
-
-#add_library (gslcblas STATIC IMPORTED)
-#set_target_properties (gslcblas PROPERTIES IMPORTED_LOCATION "${gslcblas_lib_fullpath}")
-
-#set (EXTERNAL_LIBS ${EXTERNAL_LIBS} slatec lapack blas tmg cvode nvecserial gsl gslcblas gfortran)
-#set (EXTERNAL_LIBS ${EXTERNAL_LIBS} slatec bessel lapack blas cvode nvecserial gsl gslcblas gfortran)
-
 
 set(superlu_path ${libs_root_path}/SuperLU_4.1/lib/libsuperlu_4.1.a)
 add_library(superlu STATIC IMPORTED)

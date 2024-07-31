@@ -1,5 +1,5 @@
 !
-  subroutine gengrid(npoimin)
+  subroutine gengrid
 !
 ! Generates the grid for two types of boundary conditions at the outer
 ! boundary: iboutype=1 - fixed parameters, iboutype=2 - fixed fluxes
@@ -10,7 +10,7 @@
 !
   implicit none
 !
-  integer :: npoimin,ipoib,nder,ipb,ipe
+  integer :: ipoib,nder,ipb,ipe
   double precision :: hrmax,r,rnext,recnsp,rscale
   double precision, dimension(:),   allocatable :: x
   double precision, dimension(:,:), allocatable :: coef

@@ -26,22 +26,19 @@ program ql_balance
     integer :: iexit ! used for ramp-up skipping of saving
 
     logical :: toomuch, opnd, dostep, scratch
-    logical :: flag_run_time_evolution !Added by Philipp Ulbl 12.05.2020
     logical :: firstiterationdone !Added by Markus Markl 25.02.2021. Some steps
     ! in saving the data to hdf5 file need to be done only the first time iteration
-    logical :: br_stopping ! trigger Br stopping criterion
     logical :: discr_reached
-    integer :: npoimin, ipoi, i, nstep, nstepmax, Nstorage, npoi, k, ieq, l
+    integer :: ipoi, i, nstep, nstepmax, npoi, k, ieq, l
     integer :: nmult, istage, itrans, ntrans, iunit_redo, ioddeven
-    double precision :: evoltime, timescale, timstep, eps, tmax, timstep_rec
-    double precision :: tmax_factor!, antenna_factor
+    double precision :: evoltime, timescale, timstep, tmax, timstep_rec
     double precision :: antenna_factor_max !Added by Philipp Ulbl 12.05.2020
     double precision :: relchg, relchgmax, facdecr, timstepmax
     double precision :: err_tot, err_loc, err_minfac, tol_redfac
     double precision :: tol_min, epsnoise, w, timstep_red, tol_max
-    double precision :: urelax, time, factolmax, factolred, timstep_min
+    double precision :: urelax, time, factolmax, factolred
     double precision :: timscal_dql, rate_dql, timscal_dqli, rate_dqli
-    double precision :: stop_time_step !Added by Philipp Ulbl 13.05.2020
+
     DOUBLE PRECISION, DIMENSION(:), ALLOCATABLE :: yprev
     DOUBLE PRECISION, DIMENSION(:), ALLOCATABLE :: dqle11_prev
     DOUBLE PRECISION, DIMENSION(:), ALLOCATABLE :: dqle12_prev
@@ -60,9 +57,7 @@ program ql_balance
     
     integer, dimension(1) :: ind_dqle, ind_dqli
     integer :: lb, ub
-    DOUBLE PRECISION :: temperature_limit ! limits ion and electron temperatures from below, in eV
-    DOUBLE PRECISION :: antenna_max_stopping
-
+    
 
     !needed for interpolation of br abs and stopping criterion
     !Added by Philipp Ulbl 04.06.2020
@@ -74,9 +69,7 @@ program ql_balance
     DOUBLE PRECISION :: br_beta = 0
     DOUBLE PRECISION :: br_predicted
 
-	integer :: ramp_up_mode !> control ramp up mode of the RMP coil current amplitude
     integer :: ramp_up_down = 0 !> used in hysteresis mode, tells if ramp-up (0) or ramp-down (1)
-	DOUBLE PRECISION :: t_max_ramp_up = 1e-2 !> 10ms ramp up until antenna_factor_max is reached
     integer ::  ibrabsres, ibeg, iend, nlagr, nder
     double precision, dimension(:, :), allocatable :: coef !> coefficients for interpolation
     ! Added by Markus Markl
@@ -85,17 +78,8 @@ program ql_balance
     integer(HID_T) :: brabs_dataset_id
     double precision :: t_hysteresis_turn = 0
 
-    !> namelist for the balance configuration input
-    NAMELIST /BALANCENML/ flre_path, vac_path, btor, rtor, rmin, rmax, &
-        rsepar, npoimin, gg_factor, gg_width, gg_r_res, Nstorage, &
-        tmax_factor, antenna_factor, iboutype, iwrite, eps, dperp, &
-        icoll, Z_i, am, rb_cut_in, re_cut_in, rb_cut_out, re_cut_out, &
-        write_formfactors, flag_run_time_evolution, stop_time_step, &
-        path2inp, path2out, timstep_min, paramscan, save_prof_time_step, &
-        diagnostics_output, br_stopping, suppression_mode, debug_mode, &
-        readfromtimestep, path2time, ramp_up_mode, t_max_ramp_up, temperature_limit, &
-        antenna_max_stopping, gyro_current_study, viscosity_factor, misalign_diffusion, &
-        equil_path
+
+    call read_config
 
     ! integer that toggles the use of hdf5 output/input
     ! if equal 1 - use hdf5, if
@@ -120,9 +104,17 @@ program ql_balance
     discr_reached = .false. ! variable to say if discrepancy to linear regression
     ! of Br is reached, only used if br_stopping = .false.
 
+    urelax = 0.5e0 !0.5d0  !0.9d0
+    tol_max = 3.d-2 !3.d-4 !3.d-3 !3.d-2
+    err_minfac = 1.d-2 !2.0d0/sqrt(dfloat(nmult)) ! could be removed
+    factolmax = 3.d0 ! keep
+    factolred = 0.5d0 ! keep
+    mwind = 10
+
     call MPI_Init(ierror);
     call MPI_Comm_size(MPI_COMM_WORLD, np_num, ierror);
     call MPI_Comm_rank(MPI_COMM_WORLD, irank, ierror);
+
     if (irank .eq. 0) then
         write(*,*) ' '
         write(*,*) '******************************'
@@ -131,67 +123,6 @@ program ql_balance
         write(*,*) '******************************'
     end if
 
-    ! read the parameters from namelist file
-    open (22, file='balance_conf.nml');
-    read (22, NML=BALANCENML)
-    close (22);
-
-    urelax = 0.5e0 !0.5d0  !0.9d0
-    tol_max = 3.d-2 !3.d-4 !3.d-3 !3.d-2
-    err_minfac = 1.d-2 !2.0d0/sqrt(dfloat(nmult)) ! could be removed
-    factolmax = 3.d0 ! keep
-    factolred = 0.5d0 ! keep
-    mwind = 10
-
-    if (irank .eq. 0) then
-        write(*,*) ''
-        write(*,*) 'balance code V7'
-        write(*,*) '====================================================================='
-        write(*,*) 'Run time evolution: ', flag_run_time_evolution
-        write(*,*) ''
-        write(*,*) 'Parameters from balance_conf.nml:'
-        write(*,*) '---------------------------------------------------------------------'
-        write(*,*) 'flre path: ', trim(flre_path)
-        write(*,*) 'vac path: ', trim(vac_path)
-        write(*,*) 'B_tor = ', btor
-        write(*,*) 'R_tor = ', rtor
-        write(*,*) 'r_min = ', rmin
-        write(*,*) 'r_max = ', rmax
-        write(*,*) 'npoimin = ', npoimin
-        write(*,*) 'gg_factor = ', gg_factor
-        write(*,*) 'gg_width = ', gg_width
-        write(*,*) 'gg_r_res = ', gg_r_res
-        write(*,*) 'Nstorage = ', Nstorage
-        write(*,*) 'tmax_factor = ', tmax_factor
-        write(*,*) "timstep_min = ", timstep_min
-        write(*,*) 'antenna_factor = ', antenna_factor
-        write(*,*) 'iboutype = ', iboutype
-        write(*,*) 'iwrite = ', iwrite
-        write(*,*) 'eps = ', eps
-        write(*,*) 'dperp = ', dperp
-        write(*,*) 'icoll = ', icoll
-        write(*,*) 'Z_i = ', Z_i
-        write(*,*) 'am = ', am
-        write(*,*) 'stop_time_step = ', stop_time_step
-        write(*,*) 'path2inp = ', trim(path2inp)
-        write(*,*) 'path2out = ', trim(path2out)
-        write(*,*) 'paramscan = ', paramscan
-        write(*,*) 'diagnostics_output = ', diagnostics_output
-        write(*,*) 'br_stopping = ', br_stopping
-        write(*,*) 'debug_mode = ', debug_mode
-        write(*,*) 'readfromtimestep = ', readfromtimestep
-        write(*,*) 'suppression_mode = ', suppression_mode
-		write(*,*) "ramp_up_mode = ", ramp_up_mode
-		write(*,*) "t_max_ramp_up = ", t_max_ramp_up
-        write(*,*) "temperature_limit = ", temperature_limit
-        write(*,*) "antenna_max_stopping = ", antenna_max_stopping
-        write(*,*) "gyro_current_study = ", gyro_current_study
-        write(*,*) "viscosity_factor = ", viscosity_factor
-        write(*,*) "misalign_diffusion = ", misalign_diffusion
-        write(*,*) "equil_path = ", trim(equil_path)
-        write(*,*) ''
-        write(*,*) '====================================================================='
-    end if
 
     timescale = (rmax - rmin)**2/dperp
     tmax = timescale*tmax_factor
@@ -201,7 +132,7 @@ program ql_balance
     end if
     timstepmax = tmax
 
-    call gengrid(npoimin)
+    call gengrid
 
     ! boundary condition
     if (iboutype .eq. 1) then

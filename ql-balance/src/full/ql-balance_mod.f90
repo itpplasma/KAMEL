@@ -2,7 +2,7 @@
   module grid_mod
     !implicit none
     !save
-    integer :: npoib,npoic,npoi_der,nbaleqs,neqset,iboutype
+    integer :: npoib,npoic,npoi_der,nbaleqs,neqset,iboutype, npoimin
     integer :: mwind
     double precision :: rmin,rmax
     double precision :: gg_factor, gg_width, gg_r_res;
@@ -66,6 +66,18 @@
     integer :: gyro_current_study
     integer :: step_counter
     character(len=1024) :: equil_path ! path to equil file containing q, psi, phi,...
+    integer :: Nstorage
+    double precision :: tmax_factor!, antenna_factor
+    double precision :: eps
+    logical :: flag_run_time_evolution !Added by Philipp Ulbl 12.05.2020
+    double precision :: stop_time_step !Added by Philipp Ulbl 13.05.2020
+    double precision :: timstep_min
+    logical :: br_stopping ! trigger Br stopping criterion
+    integer :: ramp_up_mode !> control ramp up mode of the RMP coil current amplitude
+    DOUBLE PRECISION :: t_max_ramp_up = 1e-2 !> 10ms ramp up until antenna_factor_max is reached
+    DOUBLE PRECISION :: antenna_max_stopping
+
+    DOUBLE PRECISION :: temperature_limit ! limits ion and electron temperatures from below, in eV
   end module control_mod
 
   module matrix_mod
@@ -98,7 +110,11 @@ double precision, dimension(:), allocatable :: field_fac_old
 end module diag_mod
 
 module h5mod
-    USE hdf5_tools
+
+    use hdf5_tools
+
+    implicit none
+
     integer(HID_T) :: h5_id, group_id_1, group_id_2, group_id_3, dataset_id
     logical :: h5_exists_log
     integer :: mode_n, mode_m
@@ -106,6 +122,7 @@ module h5mod
     character(len=1024) :: path2time ! path to hdf5 file from which time evolved profiles are read
     character(len=1024) :: path2out ! path to hdf5 file where output is written
     character(len=1024) :: h5_mode_groupname
+
 end module h5mod
 
 ! added by Markus Markl 04.03.2021

@@ -205,7 +205,7 @@
                 else if (time .ge. 10*t_max_ramp_up) then ! if max time value is reached, stop the code
                     write(*,*) 'stop: reached time max: ', 10*t_max_ramp_up
                     if (suppression_mode .eqv. .false.) then
-                        call writefort1000(i)
+                        call writeKinProfileDataToDisk(i)
                     end if
                     ! Write the cause of the stopping into the hdf5 file
                     if (ihdf5IO .eq. 1) then
@@ -262,7 +262,7 @@
                     ! if max time value is reached, stop the code
                     write(*,*) 'stop: time limit reached: ', time
                     if (suppression_mode .eqv. .false.) then
-                        call writefort1000(i)
+                        call writeKinProfileDataToDisk(i)
                     end if ! suppression mode
                     ! Write the cause of the stopping into the hdf5 file
                     if (ihdf5IO .eq. 1) then
@@ -322,7 +322,7 @@
                     if ((antenna_factor/antenna_factor_max * 100) .le. 1.0) then ! if antenna factor would get below some percentage of the max value
                         write(*,*) 'stop: ramp-up/down finished '
                         if (suppression_mode .eqv. .false.) then
-                            call writefort1000(i)
+                            call writeKinProfileDataToDisk(i)
                         end if
                         ! Write the cause of the stopping into the hdf5 file
                         if (ihdf5IO .eq. 1) then
@@ -372,7 +372,7 @@
                     if ((antenna_factor/antenna_factor_max * 100) .le. 0.1) then ! if antenna factor would get below some percentage of the max value
                         write(*,*) 'stop: ramp-up/down finished '
                         if (suppression_mode .eqv. .false.) then
-                            call writefort1000(i)
+                            call writeKinProfileDataToDisk(i)
                         end if
                         ! Write the cause of the stopping into the hdf5 file
                         if (ihdf5IO .eq. 1) then
@@ -414,7 +414,7 @@
         else
                 write(*,*) 'stop: reached antenna_factor_max * ', antenna_max_stopping
                 if (suppression_mode .eqv. .false.) then
-                    call writefort1000(i)
+                    call writeKinProfileDataToDisk(i)
                 end if
                 ! Write the cause of the stopping into the hdf5 file
                 if (ihdf5IO .eq. 1) then
@@ -456,7 +456,7 @@
 
     end subroutine !ramp_coil
 
-    !> @brief subroutine writefort1000(istep). Writes the profile data to hdf5 files. 
+    !> @brief subroutine writeKinProfileDataToDisk(istep). Writes the profile data to hdf5 files. 
     !> Formerly, this data was written to fort.1xxx ascii files.
     !> This routine was added because of the change that only every
     !>  "save_prof_time_step"th timestep is written. If the program is to be stopped
@@ -467,7 +467,7 @@
     !> @date 12.03.2021
     !> @param[in] istep Current step of the time evolution. Used to name the fort.1000 group in which
     !> the data is written.
-    subroutine writefort1000(istep)
+    subroutine writeKinProfileDataToDisk(istep)
 
         use grid_mod
         use control_mod
@@ -556,7 +556,7 @@
             close (1000 + istep)
         end if
 
-    end subroutine writefort1000
+    end subroutine writeKinProfileDataToDisk
 
 
 end module

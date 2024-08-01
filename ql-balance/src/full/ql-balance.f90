@@ -196,10 +196,10 @@ program ql_balance
 !
                     call genstartsource
 
-					write(*,*) "h5_mode_groupname before writefort1000: ", trim(h5_mode_groupname)
+					write(*,*) "h5_mode_groupname before writeKinProfileDataToDisk: ", trim(h5_mode_groupname)
                     if (irank .eq. 0) then
                         if (suppression_mode .eqv. .false.) then
-                            CALL writefort1000(0) ! write the profiles to hdf5 file
+                            CALL writeKinProfileDataToDisk(0) ! write the profiles to hdf5 file
                         end if
                     end if
 
@@ -420,7 +420,7 @@ program ql_balance
                         if (timstep .lt. stop_time_step .and. time .gt. 1.0d-3) then
                             write(*,*) 'stop: timestep smaller than stop limit'
                             if (suppression_mode .eqv. .false.) then
-                                CALL writefort1000(i)
+                                CALL writeKinProfileDataToDisk(i)
                             end if
                            if (ihdf5IO .eq. 1) then
                                 CALL h5_init()
@@ -464,15 +464,7 @@ program ql_balance
                         !    antenna_factor = (2.d0 - time)**2
                         !endif
                         !antenna_factor = antenna_factor + 1.d-4
-
-                        dqle11 = dqle11*antenna_factor
-                        dqle12 = dqle12*antenna_factor
-                        dqle21 = dqle21*antenna_factor
-                        dqle22 = dqle22*antenna_factor
-                        dqli11 = dqli11*antenna_factor
-                        dqli12 = dqli12*antenna_factor
-                        dqli21 = dqli21*antenna_factor
-                        dqli22 = dqli22*antenna_factor
+                        call rescaleTranspCoefficientsByAntennaFac
 
                         !
                         !DIAG:
@@ -758,7 +750,7 @@ program ql_balance
                         if (irank .eq. 0) then
                             if (modulo(i, save_prof_time_step) .eq. 0) then
                                 if (suppression_mode .eqv. .false.) then
-                                    CALL writefort1000(i)
+                                    CALL writeKinProfileDataToDisk(i)
                                 end if
                             end if
                         end if
@@ -1059,7 +1051,7 @@ subroutine linear_discrepancy_pen_ratio
                 end if
             end if
             if (suppression_mode .eqv. .false.) then
-                CALL writefort1000(i)
+                CALL writeKinProfileDataToDisk(i)
             end if
             if (br_stopping) then
                 ! Write the cause of the stopping into the hdf5 file

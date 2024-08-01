@@ -7,13 +7,13 @@
 !
   use grid_mod
   use control_mod, only: debug_mode
+  use PolyLagrangeInterpolation
 !
   implicit none
 !
-  integer :: ipoib,nder,ipb,ipe
+  integer :: ipoib, ipb, ipe
   double precision :: hrmax,r,rnext,recnsp,rscale
   double precision, dimension(:),   allocatable :: x
-  double precision, dimension(:,:), allocatable :: coef
 !
   if (debug_mode) write(*,*) "Debug: coming in gengrid"
   nbaleqs=4

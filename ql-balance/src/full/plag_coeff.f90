@@ -1,6 +1,15 @@
-!ccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
-!
-  SUBROUTINE plag_coeff(npoi,nder,x,xp,coef)
+module PolyLagrangeInterpolation
+    implicit none
+  ! This module contains the subroutine plag_coeff which computes the
+  ! weights for the computation of the function and its derivatives
+  ! using the Lagrange interpolation polynomial.
+
+    integer :: nlagr = 4 ! order of lagrange interpolation
+    integer :: nder = 0
+    double precision, dimension(:, :), allocatable :: coef !> coefficients for interpolation
+  
+    contains
+    SUBROUTINE plag_coeff(npoi,nder,x,xp,coef)
     !
     ! npoi - number of points (determines the order of Lagrange
     ! polynomial
@@ -25,11 +34,11 @@
     double precision                                      :: fac
     !
     DO i=1,npoi
-       coef(0,i)=1.d0
-       DO k=1,npoi
-          IF(k.EQ.i) CYCLE
-          coef(0,i)=coef(0,i)*(x-xp(k))/(xp(i)-xp(k))
-       ENDDO
+        coef(0,i)=1.d0
+        DO k=1,npoi
+            IF(k.EQ.i) CYCLE
+            coef(0,i)=coef(0,i)*(x-xp(k))/(xp(i)-xp(k))
+        ENDDO
     ENDDO
     !
     IF(nder.EQ.0) RETURN
@@ -88,3 +97,4 @@
   return
   end subroutine binsrc
 !
+end module

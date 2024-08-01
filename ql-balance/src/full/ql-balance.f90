@@ -21,21 +21,22 @@ program ql_balance
     use mpi
     use time_evolution
     use linear_run
+    use parallelTools
+    use restart_mod
+    use PolyLagrangeInterpolation
 
     implicit none
 
-    integer :: ierror, np_num, irank
+    integer :: ierror, np_num
     integer :: iexit ! used for ramp-up skipping of saving
 
-    logical :: opnd, dostep, scratch
     logical :: firstiterationdone !Added by Markus Markl 25.02.2021. Some steps
     ! in saving the data to hdf5 file need to be done only the first time iteration
     logical :: discr_reached = .false. ! variable to say if discrepancy to linear regression
     ! of Br is reached, only used if br_stopping = .false.
-    integer :: ipoi, i, npoi, k, ieq, l
+    integer :: ipoi, i, ieq, l, k
     integer :: iunit_redo, ioddeven
-    double precision :: evoltime, timescale, timstep, tmax
-    double precision :: antenna_factor_max !Added by Philipp Ulbl 12.05.2020
+    double precision :: evoltime, timescale, tmax
     double precision :: time
     double precision :: timscal_dql, rate_dql, timscal_dqli
 
@@ -54,20 +55,12 @@ program ql_balance
     integer, dimension(1) :: ind_dqle, ind_dqli
     integer :: lb, ub
     
-    !needed for interpolation of br abs and stopping criterion
-    !Added by Philipp Ulbl 04.06.2020
-    DOUBLE PRECISION, DIMENSION(:), ALLOCATABLE :: br_abs
-    ! Added by Markus Markl 18.03.2021, used for improved stopping criterion
-    DOUBLE PRECISION, DIMENSION(:), ALLOCATABLE :: br_abs_time
-	DOUBLE PRECISION, DIMENSION(:), ALLOCATABLE :: br_abs_antenna_factor
-    DOUBLE PRECISION, DIMENSION(:), ALLOCATABLE :: dqle22_res_time
     DOUBLE PRECISION :: br_beta = 0
     DOUBLE PRECISION :: br_predicted
 
     integer :: ramp_up_down = 0 !> used in hysteresis mode, tells if ramp-up (0) or ramp-down (1)
-    integer ::  ibrabsres, ibeg, iend, nlagr, nder
-    double precision, dimension(:, :), allocatable :: coef !> coefficients for interpolation
-    ! Added by Markus Markl
+    integer ::  ibrabsres, ibeg, iend
+    
     character(len=1024) :: h5_currentgrp !> current hdf5 group string
     integer(HID_T) :: time_dataset_id !> variable to save the time dataset id
     double precision :: t_hysteresis_turn = 0
@@ -77,6 +70,9 @@ program ql_balance
 
     iexit = 0 ! 0 - don't skip, 1 - skip, 2 - stop
     mwind = 10
+
+    write_diag = .false.
+    write_diag_b = .false.
 
     ! if h5overwrite = true, existing data will be deleted
     ! before new one is written
@@ -188,16 +184,9 @@ program ql_balance
                     call get_dql(0)
 
                     if (flag_run_time_evolution) then
-                        !For time evolution mode use antenna_factor as maximum
-                        !and start with a very small value and ramp this up
-                        !Added by Philipp Ulbl 12.05.2020
-                        antenna_factor_max = antenna_factor
-                        if (ramp_up_mode .eq. 4) then 
-                            antenna_factor = 0d0
-                        else
-                            antenna_factor = 1.d-4
-                        end if
+                        call initAntennaFactor
                     end if
+
                     dqle11 = dqle11*antenna_factor
                     dqle12 = dqle12*antenna_factor
                     dqle21 = dqle21*antenna_factor
@@ -208,7 +197,6 @@ program ql_balance
                     dqli22 = dqli22*antenna_factor
                     irf = 1
 !
-                    if (debug_mode) write(*,*) "Debug: Generating starting source"
                     call genstartsource
 
 					write(*,*) "h5_mode_groupname before writefort1000: ", trim(h5_mode_groupname)
@@ -227,92 +215,32 @@ program ql_balance
                     time = 0.d0
                     tol = tol_max
 
-                    !DIAG:
-                    write_diag = .false.
-                    write_diag_b = .false.
-                    !END DIAG
+                    call InquiryToRestart
 
-                    inquire (file='restart.dat', exist=opnd)
-                    if (opnd) then
-                        !
-                        if (irank .eq. 0) then
-                            print *, 'restart'
-                        end if
-                        !
-                        open (201, file='final.restart')
-                        do ipoi = 1, npoi
-                            read (201, *) timstep, params(:, ipoi)
-                            params(3:4, ipoi) = params(3:4, ipoi)*ev
-                            do ieq = 1, nbaleqs
-                                k = nbaleqs*(ipoi - 1) + ieq
-                                y(k) = params(ieq, ipoi)
-                            end do
-                        end do
-                        close (201)
-                        open (201, file='restart.dat')
-                        read (201, *) timstep
-                        close (201)
-                        scratch = .false.
-                        !
-                    else
-                        !
-                        timstep = timstep*tol
-                        !timstep = 1.0d-12
-                        scratch = .true.
-                        if (irank .eq. 0) then
-                            write(*,*) 'start from scratch'
-                            write(*,*) "timstep = ", timstep
-                        end if
-                       !
-                    end if
-!
-                    timstep_arr = 0.d0
-!
-!  call evolvestep(timstep, eps)
-!
                     timstep_arr = timstep
                     tim_stack = timstep_arr
-!
-!
+
                     write(*,*) 'start balance, irank = ', irank
                     iunit_diag = 5000
-                    write_diag = .false.
-!
+
                     call get_dql(0) ! also writes out diffusion coefficients and other data
-                    dqle11 = dqle11*antenna_factor
-                    dqle12 = dqle12*antenna_factor
-                    dqle21 = dqle21*antenna_factor
-                    dqle22 = dqle22*antenna_factor
-                    dqli11 = dqli11*antenna_factor
-                    dqli12 = dqli12*antenna_factor
-                    dqli21 = dqli21*antenna_factor
-                    dqli22 = dqli22*antenna_factor
+                    call rescaleTranspCoefficientsByAntennaFac
 !
                     if (flag_run_time_evolution) then
                         if (ifac_n + ifac_Ti + ifac_Te + ifac_vz .eq. 4) then
-                            allocate(br_abs(Nstorage))
-                            allocate(br_abs_antenna_factor(Nstorage))
-                            allocate(br_abs_time(Nstorage))
-                            allocate(dqle22_res_time(Nstorage))
-                            !allocate (dqle22_res(Nstorage))
+                            call allocateBrAndDqleForTimeEvolution
                         end if
                     end if
-                    dqle11_prev = dqle11
-                    dqle12_prev = dqle12
-                    dqle21_prev = dqle21
-                    dqle22_prev = dqle22
-                    dqli11_prev = dqli11
-                    dqli12_prev = dqli12
-                    dqli21_prev = dqli21
-                    dqli22_prev = dqli22
+
+                    call savePrevTranspCoefficients
+
                     params_begbeg = params
                     if (debug_mode) write(*,*) 'Debug: dql ready'
 
-                    nlagr = 4; ! order of lagrange interpolation
-                    nder = 0;
+
                     if (.not. allocated(coef)) allocate (coef(0:nder, nlagr))
                     !binsearch, get index of r_resonant
-                    call binsrc(rb, 1, npoib, r_resonant, ibrabsres)
+                    call binsrc(rb, 1, npoib, r_resonant(1), ibrabsres)
 
                     ibeg = max(1, ibrabsres - nlagr/2)
                     iend = ibeg + nlagr - 1
@@ -323,7 +251,7 @@ program ql_balance
 
                     if (.not. flag_run_time_evolution) then
                         ! linear run
-                        call plag_coeff(nlagr, nder, r_resonant, rb(ibeg:iend), coef)
+                        call plag_coeff(nlagr, nder, r_resonant(1), rb(ibeg:iend), coef)
                         dqle22_res(ifac_n, ifac_Te, ifac_Ti, ifac_vz) = sum(coef(0, :) * dqle22(ibeg:iend))
                         br_abs_res_parscan(ifac_n, ifac_Te, ifac_Ti, ifac_vz) = sum(coef(0, :) &
                             * abs(Br(ibeg:iend)))*sqrt(antenna_factor)
@@ -434,9 +362,7 @@ program ql_balance
 
                     iunit_diag = 137
                     iunit_diag_b = 8138
-!write_diag_b=.true.
                     ioddeven = 1
-! ihdf5IO = 0 -> use file output
 ! #########################################################################################
 ! Time evolution
 !
@@ -521,7 +447,7 @@ program ql_balance
                         !Added by Philipp Ulbl 04.06.2020
 
                         !binsearch - is also already done before time evolution
-                        call binsrc(rb, 1, npoib, r_resonant, ibrabsres)
+                        call binsrc(rb, 1, npoib, r_resonant(1), ibrabsres)
                         !
                         ibeg = max(1, ibrabsres - nlagr/2)
                         iend = ibeg + nlagr - 1
@@ -531,7 +457,7 @@ program ql_balance
                         end if
 
                         !lagrange interpolation with order 4 only for function (0)
-                        call plag_coeff(nlagr, nder, r_resonant, rb(ibeg:iend), coef)
+                        call plag_coeff(nlagr, nder, r_resonant(1), rb(ibeg:iend), coef)
                         if (debug_mode) then
                             write(*,*) "Debug: nlagr = ", nlagr
                             write(*,*) "Debug: nder = ", nder

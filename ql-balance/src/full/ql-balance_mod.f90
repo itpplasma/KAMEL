@@ -2,7 +2,7 @@
   module grid_mod
     !implicit none
     !save
-    integer :: npoib,npoic,npoi_der,nbaleqs,neqset,iboutype, npoimin
+    integer :: npoib,npoic,npoi_der,nbaleqs,neqset,iboutype, npoimin, npoi
     integer :: mwind
     double precision :: rmin,rmax
     double precision :: gg_factor, gg_width, gg_r_res;
@@ -69,29 +69,6 @@
     DOUBLE PRECISION :: temperature_limit ! limits ion and electron temperatures from below, in eV
   end module control_mod
 
-  module time_evolution
-    integer :: Nstorage
-    double precision :: tmax_factor!, antenna_factor
-    logical :: flag_run_time_evolution !Added by Philipp Ulbl 12.05.2020
-    double precision :: stop_time_step !Added by Philipp Ulbl 13.05.2020
-    double precision :: timstep_min
-    logical :: br_stopping ! trigger Br stopping criterion
-    integer :: ramp_up_mode !> control ramp up mode of the RMP coil current amplitude
-    DOUBLE PRECISION :: t_max_ramp_up = 1e-2 !> 10ms ramp up until antenna_factor_max is reached
-    DOUBLE PRECISION :: antenna_max_stopping
-    integer :: save_prof_time_step ! added by Markus Markl 11.03.2021
-    
-    DOUBLE PRECISION, DIMENSION(:), ALLOCATABLE :: yprev
-    DOUBLE PRECISION, DIMENSION(:), ALLOCATABLE :: dqle11_prev
-    DOUBLE PRECISION, DIMENSION(:), ALLOCATABLE :: dqle12_prev
-    DOUBLE PRECISION, DIMENSION(:), ALLOCATABLE :: dqle21_prev
-    DOUBLE PRECISION, DIMENSION(:), ALLOCATABLE :: dqle22_prev
-    DOUBLE PRECISION, DIMENSION(:), ALLOCATABLE :: dqli11_prev
-    DOUBLE PRECISION, DIMENSION(:), ALLOCATABLE :: dqli12_prev
-    DOUBLE PRECISION, DIMENSION(:), ALLOCATABLE :: dqli21_prev
-    DOUBLE PRECISION, DIMENSION(:), ALLOCATABLE :: dqli22_prev
-
-  end module
 
   module matrix_mod
     integer :: isw_rhs
@@ -138,3 +115,8 @@ module h5mod
 
 end module h5mod
 
+module parallelTools
+    use mpi
+    implicit none
+    integer :: irank
+end module parallelTools

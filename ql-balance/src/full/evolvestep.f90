@@ -117,6 +117,8 @@
   double precision :: x
   character(len=1024) :: tempch
 !
+  if (debug_mode) write(*,*) "Debug: Generating starting source"
+  
   if(iboutype.eq.1) then
     npoi=npoic-1
   else

@@ -700,6 +700,7 @@ subroutine calc_dequi
     use h5mod
     use control_mod, only: ihdf5IO, debug_mode
     use paramscan_mod, only: viscosity_factor
+    use PolyLagrangeInterpolation
     !
     implicit none
     !
@@ -707,15 +708,10 @@ subroutine calc_dequi
     double precision :: rnorm, weight
 
     character(1024) :: fname;
-    integer :: nr, i, iunit_res, ibeg, iend, nlagr, nder!Changed by Philipp Ulbl 18.05.2020
-
-    double precision, dimension(:, :), allocatable :: coef!Changed by Philipp Ulbl 18.05.2020
-
+    integer :: nr, i, iunit_res, ibeg, iend
     double precision :: r
-
-    double precision, dimension(:), allocatable :: r_raw; !Changed by Philipp Ulbl 18.05.2020
-    double precision, dimension(:), allocatable :: Da_raw; !Changed by Philipp Ulbl 18.05.2020
-    !
+    double precision, dimension(:), allocatable :: r_raw
+    double precision, dimension(:), allocatable :: Da_raw
     integer :: lb, ub
 
     !This subroutine was changed to include estimated Da from outside of this code
@@ -759,8 +755,6 @@ subroutine calc_dequi
     !code from amn_of_r to interpolate (+do loop)
 
     !interpolate on balance grid
-    nlagr = 4;
-    nder = 0;
     allocate (coef(0:nder, nlagr))
 
     !open(77, FILE='dae12.dat')
@@ -833,10 +827,9 @@ subroutine get_dql(istep)
     use h5mod
     use wave_code_data
     use mpi
-!DIAG:
     use diag_mod, only: write_diag, iunit_diag, write_diag_b, iunit_diag_b, i_mn_loop
-!END DIAG
-!
+    use PolyLagrangeInterpolation    
+
     implicit none
     !logical :: suppression_mode = .true.
 !
@@ -865,8 +858,7 @@ subroutine get_dql(istep)
     double complex, dimension(:), allocatable :: formfactor
 !
     ! added variables for interpolation of Brvac
-    integer :: nlagr, nder, ibrabsres, ibeg, iend
-    double precision, dimension(:,:), allocatable :: coef
+    integer :: ibrabsres, ibeg, iend
     double precision :: brvac_interp
     double precision :: MI_width
 
@@ -1056,8 +1048,6 @@ subroutine get_dql(istep)
 
 
             ! caluclate part of perpendicular electric field perturbation that comes from
-            nlagr = 4;
-            nder = 0;
             if (.not. allocated(coef)) allocate(coef(0:nder,nlagr))
 			if (debug_mode) write(*,*) "at r_resonant(i_mn) = ", r_resonant(i_mn)
             call binsrc(rb, 1, npoib, r_resonant(i_mn), ibrabsres)
@@ -1134,8 +1124,6 @@ subroutine get_dql(istep)
             if (istep .le. 1) then
                 if (ihdf5IO .eq. 1) then
                     if (debug_mode) write(*,*) "Interpolation of Brvac"
-                    nlagr = 4;
-                    nder = 0;
                     if (.not. allocated(coef)) allocate(coef(0:nder,nlagr))
 					if (debug_mode) write(*,*) "at r_resonant(1) = ", r_resonant(1)
                     call binsrc(rb, 1, npoib, r_resonant(1), ibrabsres)

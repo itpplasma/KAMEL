@@ -119,4 +119,5 @@ module parallelTools
     use mpi
     implicit none
     integer :: irank
+    integer :: ierror
 end module parallelTools

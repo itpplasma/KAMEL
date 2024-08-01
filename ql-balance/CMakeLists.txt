@@ -81,6 +81,7 @@ set(balance_lib_fortran_sources
     ${full_balance_src}/time_evolution.f90
     ${full_balance_src}/restart.f90
     ${full_balance_src}/W2_arr.f90
+    ${full_balance_src}/resonant_values.f90
     ${full_balance_src}/sample_matrix.f90)
 
 set(balance_lib_cpp_sources

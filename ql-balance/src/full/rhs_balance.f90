@@ -708,7 +708,7 @@ subroutine calc_dequi
     double precision :: rnorm, weight
 
     character(1024) :: fname;
-    integer :: nr, i, iunit_res, ibeg, iend
+    integer :: nr, i, iunit_res
     double precision :: r
     double precision, dimension(:), allocatable :: r_raw
     double precision, dimension(:), allocatable :: Da_raw
@@ -755,7 +755,7 @@ subroutine calc_dequi
     !code from amn_of_r to interpolate (+do loop)
 
     !interpolate on balance grid
-    allocate (coef(0:nder, nlagr))
+    if (.not. allocated(coef)) allocate (coef(0:nder, nlagr))
 
     !open(77, FILE='dae12.dat')
     do ipoi = 1, npoib
@@ -767,19 +767,13 @@ subroutine calc_dequi
 
         !binsearch
         call binsrc(r_raw, 1, nr, r, i)
-        !
-        ibeg = max(1, i - nlagr/2)
-        iend = ibeg + nlagr - 1
-        if (iend .gt. nr) then
-            iend = nr
-            ibeg = iend - nlagr + 1
-        end if
+        call getIndicesForLagrangeInterp(i)
         !lagrange interpolation with order 4 only for function (0)
 
-        call plag_coeff(nlagr, nder, r, r_raw(ibeg:iend), coef)
+        call plag_coeff(nlagr, nder, r, r_raw(indBeginInterp:indEndInterp), coef)
         !
         !Da estimated is dae12 -> see notes on conversion
-        dae12(ipoi) = sum(coef(0, :)*Da_raw(ibeg:iend))
+        dae12(ipoi) = sum(coef(0, :)*Da_raw(indBeginInterp:indEndInterp))
         !call localizer(-1.d0, rsepar, rsepar + 0.5d0, rb(ipoi), weight)
         !dae12(ipoi) = dae12(ipoi)*(1.d0 - weight) + weight*1d6
     !    write(77, *) r, dae12(ipoi)
@@ -858,7 +852,7 @@ subroutine get_dql(istep)
     double complex, dimension(:), allocatable :: formfactor
 !
     ! added variables for interpolation of Brvac
-    integer :: ibrabsres, ibeg, iend
+    integer :: ibrabsres
     double precision :: brvac_interp
     double precision :: MI_width
 
@@ -1052,17 +1046,12 @@ subroutine get_dql(istep)
 			if (debug_mode) write(*,*) "at r_resonant(i_mn) = ", r_resonant(i_mn)
             call binsrc(rb, 1, npoib, r_resonant(i_mn), ibrabsres)
             if (debug_mode) write(*,*) "binary search found ibrabsres = ", ibrabsres
-            ibeg = max(1, ibrabsres - nlagr/2)
-            iend = ibeg + nlagr -1
-            if (debug_mode) write(*,*) "ibeg = ", ibeg
-            if (debug_mode) write(*,*) "iend = ", iend
-            if (iend .gt. npoib) then
-                iend = npoib
-                ibeg = iend - nlagr + 1
-            end if
-            call plag_coeff(nlagr, nder, r_resonant(i_mn), rb(ibeg:iend), coef)
 
-            CALL magnetic_island_width(coef, nder, nlagr, ibeg, iend, m_vals(i_mn), MI_width)
+            call getIndicesForLagrangeInterp(ibrabsres)
+
+            call plag_coeff(nlagr, nder, r_resonant(i_mn), rb(indBeginInterp:indEndInterp), coef)
+
+            CALL magnetic_island_width(coef, nder, nlagr, indBeginInterp, indEndInterp, m_vals(i_mn), MI_width)
  
             ! the perturbed flux surfaces
             !Es_pert_flux_temp = (-dPhi0) * Br * (m_vals(i_mn) * rtor**2d0 - n_vals(i_mn) * r**2d0 / qsaf) &
@@ -1128,17 +1117,13 @@ subroutine get_dql(istep)
 					if (debug_mode) write(*,*) "at r_resonant(1) = ", r_resonant(1)
                     call binsrc(rb, 1, npoib, r_resonant(1), ibrabsres)
                     if (debug_mode) write(*,*) "binary search found ibrabsres = ", ibrabsres
-                    ibeg = max(1, ibrabsres - nlagr/2)
-                    iend = ibeg + nlagr -1
-                    if (debug_mode) write(*,*) "ibeg = ", ibeg
-                    if (debug_mode) write(*,*) "iend = ", iend
-                    if (iend .gt. npoib) then
-                      iend = npoib
-                      ibeg = iend - nlagr + 1
-                    end if
-                    call plag_coeff(nlagr, nder, r_resonant(1), rb(ibeg:iend), coef)
+
+                    call getIndicesForLagrangeInterp(ibrabsres)
+
+                    call plag_coeff(nlagr, nder, r_resonant(1), rb(indBeginInterp:indEndInterp), coef)
+
                     if (debug_mode) write(*,*) "coef = ", coef
-                    brvac_interp = sum(coef(0,:)*abs(Br(ibeg:iend)))
+                    brvac_interp = sum(coef(0,:)*abs(Br(indBeginInterp:indEndInterp)))
 
                     write(*,*) "writing Brvac interpolation"
                     write(*,*) "Brvac = ", brvac_interp

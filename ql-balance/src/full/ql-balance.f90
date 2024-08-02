@@ -24,7 +24,6 @@ program ql_balance
     use parallelTools
     use restart_mod
     use PolyLagrangeInterpolation
-    use resonantValues
 
     implicit none
 
@@ -173,7 +172,6 @@ program ql_balance
 
                     write(*,*) "h5_mode_groupname after f_m_n: ", trim(h5_mode_groupname)
 
-                    
                     call rescale_profiles
                     call geomparprof
 
@@ -184,16 +182,10 @@ program ql_balance
                         call initAntennaFactor
                     end if
 
-                    dqle11 = dqle11*antenna_factor
-                    dqle12 = dqle12*antenna_factor
-                    dqle21 = dqle21*antenna_factor
-                    dqle22 = dqle22*antenna_factor
-                    dqli11 = dqli11*antenna_factor
-                    dqli12 = dqli12*antenna_factor
-                    dqli21 = dqli21*antenna_factor
-                    dqli22 = dqli22*antenna_factor
+                    call rescaleTranspCoefficientsByAntennaFac
+                    
                     irf = 1
-!
+
                     call genstartsource
 
 					write(*,*) "h5_mode_groupname before writeKinProfileDataToDisk: ", trim(h5_mode_groupname)
@@ -203,12 +195,6 @@ program ql_balance
                         end if
                     end if
 
-                    if (ifac_n + ifac_Ti + ifac_Te + ifac_vz .eq. 4) then
-                        allocate(timscal(npoi), dummy(npoic))
-                        allocate(params_beg(nbaleqs, npoic), params_num(nbaleqs, npoic))
-                        allocate(params_denom(nbaleqs, npoic))
-                        allocate(params_begbeg(nbaleqs, npoic))
-                    end if
                     time = 0.d0
                     tol = tol_max
 
@@ -217,12 +203,11 @@ program ql_balance
                     timstep_arr = timstep
                     tim_stack = timstep_arr
 
-                    write(*,*) 'start balance, irank = ', irank
                     iunit_diag = 5000
 
                     call get_dql(0) ! also writes out diffusion coefficients and other data
                     call rescaleTranspCoefficientsByAntennaFac
-!
+
                     if (flag_run_time_evolution) then
                         if (ifac_n + ifac_Ti + ifac_Te + ifac_vz .eq. 4) then
                             call allocateBrAndDqleForTimeEvolution
@@ -231,14 +216,18 @@ program ql_balance
 
                     call savePrevTranspCoefficients
 
-                    params_begbeg = params
-                    if (debug_mode) write(*,*) 'Debug: dql ready'
+                    if (ifac_n + ifac_Ti + ifac_Te + ifac_vz .eq. 4) then
+                        allocate(timscal(npoi), dummy(npoic))
+                        allocate(params_beg(nbaleqs, npoic), params_num(nbaleqs, npoic))
+                        allocate(params_denom(nbaleqs, npoic))
+                        allocate(params_begbeg(nbaleqs, npoic))
+                    end if
 
+                    params_begbeg = params
 
                     if (.not. allocated(coef)) allocate (coef(0:nder, nlagr))
                     !binsearch, get index of r_resonant
                     call binsrc(rb, 1, npoib, r_resonant(1), indResRadius)
-
                     call getIndicesForLagrangeInterp(indResRadius)
 
                     if (.not. flag_run_time_evolution) then
@@ -332,7 +321,7 @@ program ql_balance
                                         trim(h5_mode_groupname), group_id_2)
                                     CALL h5_close_group(group_id_2)
                                 end if
-!
+
                                 CALL h5_add_double_1(h5_id, trim(h5_mode_groupname)//'/dqle22_res', &
                                                  reshape(dqle22_res, (/size(dqle22_res)/)), &
                                                  lbound(reshape(dqle22_res, (/size(dqle22_res)/))), &
@@ -348,23 +337,13 @@ program ql_balance
                             call MPI_finalize(ierror);
                             stop  !! <<----- Stop for linear code usage
                         end if
-    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
                     end if
 
                     iunit_diag = 137
                     iunit_diag_b = 8138
                     ioddeven = 1
-! #########################################################################################
-! Time evolution
-!
-
-                    !if (flag_run_time_evolution) then
-                    !    if (ramp_up_mode .eq. 5) then
-                    !        ramp_up_down = 0 ! ramp up
-                    !        t_hysteresis_turn = 0
-                    !    end if
-                    !end if
+                    
+                    ! time evolution
                     firstiterationdone = .false. ! if first iteration is done, some variables are already allocated
 
                     if (ihdf5IO .eq. 0) then
@@ -386,15 +365,10 @@ program ql_balance
                                 yprev(k) = params(ieq, ipoi)
                             end do
                         end do
-                        !
-                        !
+
                         dostep = .true.
-                        !
-                        !do while(dostep)
 
                         if (irank .eq. 0) then
-                            !
-                            !DIAG:
                             iunit_diag = 5000 + i
                             if (write_diag_b) then
                                 if (ioddeven/2*2 .eq. ioddeven) then
@@ -437,7 +411,7 @@ program ql_balance
 
                         !calculate Br abs at the resonant surface for stopping criterion
 
-                        call interpBrAndDqlAtResonance(i)
+                        call interpBrAndDqlAtResonanceTimeEvol(i)
 
 						CALL write_br_time_data(i)!, br_abs_time, br_abs_antenna_factor, br_abs, dqle22_res_time)
 
@@ -516,28 +490,14 @@ program ql_balance
                         !    if(timscal_dql.lt.tol*factolmax) then
                         if (.true.) then
                             dostep = .false.
-                            dqle11_prev = dqle11
-                            dqle12_prev = dqle12
-                            dqle21_prev = dqle21
-                            dqle22_prev = dqle22
-                            dqli11_prev = dqli11
-                            dqli12_prev = dqli12
-                            dqli21_prev = dqli21
-                            dqli22_prev = dqli22
+                            call savePrevTranspCoefficients
                             params_begbeg = params
                             ioddeven = ioddeven + 1
                         else
                             if (irank .eq. 0) then
                                 print *, 'redo step with old DQL'
                             end if
-                            dqle11 = dqle11_prev
-                            dqle12 = dqle12_prev
-                            dqle21 = dqle21_prev
-                            dqle22 = dqle22_prev
-                            dqli11 = dqli11_prev
-                            dqli12 = dqli12_prev
-                            dqli21 = dqli21_prev
-                            dqli22 = dqli22_prev
+                            call savePrevTranspCoefficients
                             iunit_redo = 137
 
                             if (irank .eq. 0) then
@@ -794,138 +754,6 @@ program ql_balance
 
 contains
 
-
-!> @brief subroutine creategroupstructure. Creates the group structure in the hdf5 file.
-!> @author  Markus Markl
-!> @date 12.03.2021
-subroutine creategroupstructure
-
-    use h5mod
-    use paramscan_mod
-    use control_mod
-    use wave_code_data, only: m_vals, n_vals
-    use resonances_mod, only: numres
-
-    implicit none
-    !logical :: suppression_mode = .true.
-
-    write (*, *) "Creating group structure"
-    ! if the profiles should be written out, i.e. suppression_mode = false, then an extended group
-    ! structure is created to save them
-    if (.not. suppression_mode) then
-        CALL h5_init()
-        CALL h5_open_rw(path2out, h5_id)
-        do ifac_n = 1, size(fac_n)
-            do ifac_Te = 1, size(fac_Te)
-                do ifac_Ti = 1, size(fac_Ti)
-                    do ifac_vz = 1, size(fac_vz)
-                        write (*, *) ifac_n, ifac_Te, ifac_Ti, ifac_vz
-                        if (paramscan) then
-                            ! change parameter scan string used for the
-                            !group structure in hdf5 file
-                            write (parscan_str, "(A,F0.3,A,F0.3,A,F0.3,A,F0.3)") &
-                                "n", fac_n(ifac_n), "Te", fac_Te(ifac_Te), &
-                                "Ti", fac_Ti(ifac_Ti), "vz", fac_vz(ifac_vz)
-                            
-                            if (numres .eq. 1) then
-                                write (h5_mode_groupname, "(A,A,A,I1,A,I1)") &
-                                    trim(parscan_str), "/", "f_", m_vals(1), &
-                                    "_", n_vals(1)
-                            else
-                                write (h5_mode_groupname, "(A,A,A,I1,A,I1)") &
-                                    trim(parscan_str), "/", "multi_mode"
-                            end if
-
-                        else
-                            ! leave it empty if no parameter scan
-                            parscan_str = ""
-                            ! if more than one RMP mode is used, use different group name
-                            if (numres .eq. 1) then
-                                write (h5_mode_groupname, "(A,I1,A,I1)") &
-                                    "f_", m_vals(1), "_", n_vals(1)
-                            else
-                                write (h5_mode_groupname, "(A,I1,A,I1)") &
-                                    "multi_mode"
-                            end if
-                        end if
-                        ! create the groups that are furthest down: fort.1000,
-                        ! fort.5000 and init_params
-                        write(*,*) "h5_mode_groupname ", trim(h5_mode_groupname)
-                        CALL h5_create_parent_groups(h5_id, trim(h5_mode_groupname) &
-                                                     //'/')
-
-                        if (suppression_mode .eqv. .false.) then
-                            CALL h5_create_parent_groups(h5_id, &
-                                                         trim(h5_mode_groupname)//"/fort.1000/")
-                            CALL h5_define_group(h5_id, &
-                                                 trim(h5_mode_groupname)//"/fort.5000/", group_id_1)
-                            CALL h5_close_group(group_id_1)
-                        end if
-                        CALL h5_obj_exists(h5_id, "/init_params", &
-                                           h5_exists_log)
-                        if (.not. h5_exists_log) then
-                            CALL h5_define_group(h5_id, &
-                                                 "/init_params", group_id_2)
-                            CALL h5_close_group(group_id_2)
-                        end if
-                    end do
-                end do
-            end do
-        end do
-        CALL h5_close(h5_id)
-        CALL h5_deinit()
-
-        ! reset loop variables, since they are also used in main code
-        ifac_n = 1
-        ifac_Te = 1
-        ifac_Ti = 1
-        ifac_vz = 1
-        ! reset h5_mode_groupname string
-        if (paramscan) then
-            ! change parameter scan string used for the
-            !group structure in hdf5 file
-            write (parscan_str, "(A,F0.3,A,F0.3,A,F0.3,A,F0.3,A)") &
-                "n", fac_n(ifac_n), "Te", fac_Te(ifac_Te), &
-                "Ti", fac_Ti(ifac_Ti), "vz", fac_vz(ifac_vz), "/"
-        else
-            ! leave it empty if no parameter scan
-            parscan_str = ""
-        end if
-    else
-        ! if suppression_mode is true, only a simple group structure is created
-        ! i.e. /f_m_n and /init_params
-        ! if more than one RMP mode is used, use different group name
-        if (numres .eq. 1) then
-            write (h5_mode_groupname, "(A,I1,A,I1)") &
-                "f_", m_vals(1), "_", n_vals(1)
-        else
-            write (h5_mode_groupname, "(A,I1,A,I1)") &
-                "multi_mode"
-        end if
-
-        if (debug_mode) write (*,*) "Debug: h5_mode_groupname: ", trim(h5_mode_groupname)
-        CALL h5_init()
-        CALL h5_open_rw(path2out, h5_id)
-        CALL h5_define_group(h5_id, trim(h5_mode_groupname), group_id_2)
-        CALL h5_close_group(group_id_2)
-        CALL h5_obj_exists(h5_id, "/init_params", &
-                           h5_exists_log)
-        if (.not. h5_exists_log) then
-            CALL h5_define_group(h5_id, &
-                                 "/init_params", group_id_2)
-            CALL h5_close_group(group_id_2)
-        end if
-
-        CALL h5_close(h5_id)
-        CALL h5_deinit()
-    end if
-
-    write (*, *) "finished creating group structure"
-end subroutine
-
-
-
-
 !> @brief subroutine write_init_profiles. Write initial profiles to hdf5 or ascii.
 !> @author Markus Markl
 !> @date 05.10.2022
@@ -975,48 +803,6 @@ subroutine write_init_profiles
 end subroutine ! write_initial_profiles
 
 
-!> @brief subroutine rescale_profiles. Rescales kinetic profiles (n,Vz,Te,Ti).
-!> @author Markus Markl
-!> @date 05.10.2022
-subroutine rescale_profiles
-
-    use grid_mod, only: params
-    use control_mod, only: debug_mode
-    use paramscan_mod
-    implicit none
-
-    double precision, dimension(:), allocatable :: ErVzfac ! factor to rescale Er
-
-    if (debug_mode) write(*,*) "Debug: coming into rescaling profiles"
-
-    params(1, :) = hold_n * fac_n(ifac_n)
-    params(2, :) = hold_vz * fac_vz(ifac_vz)
-    params(3, :) = hold_Te * fac_Te(ifac_Te)
-    params(4, :) = hold_Ti * fac_Ti(ifac_Ti)
-
-    if (fac_vz(ifac_vz) .ne. 1.d0) then
-        if (debug_mode) write(*,*) "Debug: fac_vz not equal 1. need to rescale Er as well"
-        CALL h5_init()
-        CALL h5_open_rw(path2out, h5_id)
-        CALL h5_get_bounds_1(h5_id, '/factors/ErVzfac', lb, ub)
-        allocate (ErVzfac(ub))
-        CALL h5_get_double_1(h5_id, '/factors/ErVzfac', ErVzfac)
-        CALL h5_close(h5_id)
-        CALL h5_deinit()
-        write (*, *) "rescale Er"
-        idPhi0 = hold_dphi0 + ErVzfac*params(2, :)*(fac_vz(ifac_vz) - 1.d0)
-        deallocate (ErVzfac)
-    end if
-
-    write(*,*) "Parameter scan, current factors: "
-    write(*,*) "fac_n = ", fac_n(ifac_n), "   ", ifac_n, " of ", size(fac_n)
-    write(*,*) "fac_Ti = ", fac_Ti(ifac_Ti), "   ", ifac_Ti, " of ", size(fac_Ti)
-    write(*,*) "fac_Te = ", fac_Te(ifac_Te), "   ", ifac_Te, " of ", size(fac_Te)
-    write(*,*) "fac_vz = ", fac_vz(ifac_vz), "   ", ifac_vz, " of ", size(fac_vz)
-
-
-    if (debug_mode) write(*,*) "Debug: going out of rescaling profiles"
-end subroutine !rescale_profiles
 
 !@> brief Check if discrepancy between penetration ratio and linear extrapolation exceeds critical value
 !> author> Markus Markl

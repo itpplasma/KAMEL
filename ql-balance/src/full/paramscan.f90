@@ -1,5 +1,10 @@
 
 module paramscan_mod
+
+    use control_mod
+
+    implicit none
+
     integer :: ifac_n, ifac_Te, ifac_Ti, ifac_vz ! counter for the do loops
     integer :: numoffac                          ! total number of factors
     double precision, dimension(:), allocatable :: fac_n, fac_Te, &
@@ -9,8 +14,6 @@ module paramscan_mod
     DOUBLE PRECISION, DIMENSION(:,:,:,:), ALLOCATABLE :: Er_res
     DOUBLE PRECISION, DIMENSION(:, :, :, :), ALLOCATABLE :: br_abs_res_parscan
     DOUBLE PRECISION, DIMENSION(:, :, :, :), ALLOCATABLE :: dqle22_res
-
-
     double precision, dimension(:), allocatable :: hold_n, hold_Te, hold_Ti, hold_Vz, hold_dphi0! variables to hold the initial bg profiles
 
     contains
@@ -148,11 +151,48 @@ module paramscan_mod
 
     subroutine interpBrAndDqlAtResonanceParamScan
 
-    end subroutine interpBrAndDqlAtResonanceParamScan
+        use PolyLagrangeInterpolation
+        use grid_mod, only: npoib, rb, r_resonant, dqle22
+        use wave_code_data, only: Br, antenna_factor
 
+        implicit none
 
-    subroutine run_parameter_scan
+        if (.not. allocated(coef)) allocate (coef(0:nder, nlagr))
+        call binsrc(rb, 1, npoib, r_resonant(1), indResRadius)
+        call getIndicesForLagrangeInterp(indResRadius)
+        call plag_coeff(nlagr, nder, r_resonant(1), rb(indBeginInterp:indEndInterp), coef)
+        
+        dqle22_res(ifac_n, ifac_Te, ifac_Ti, ifac_vz) = sum(coef(0, :) * dqle22(indBeginInterp:indEndInterp))
+        br_abs_res_parscan(ifac_n, ifac_Te, ifac_Ti, ifac_vz) = sum(coef(0, :) &
+            * abs(Br(indBeginInterp:indEndInterp)))*sqrt(antenna_factor)
 
+        write(*,*) ""
+        write(*,*) "Dqle22 res = ", dqle22_res(ifac_n, ifac_Te, ifac_Ti, ifac_vz)
+        write(*,*) "|Br| res   = ", br_abs_res_parscan(ifac_n, ifac_Te, ifac_Ti, ifac_vz)
+		write(*,*) "Antenna factor = ", antenna_factor
+        write(*,*) ""
+
+        if (size(fac_vz) .ne. 1) then
+            call determineErAtResonance
+        end if
+
+    end subroutine 
+
+    subroutine determineErAtResonance
+        
+        use grid_mod, only: npoic, Ercovavg, Ercov
+        use PolyLagrangeInterpolation, only: indEndInterp, indBeginInterp, coef
+
+        implicit none
+
+        integer :: ipoi
+        
+        do ipoi = 1, npoic
+            Ercovavg(ipoi) = 0.5d0*(Ercov(ipoi) + Ercov(ipoi + 1))
+        end do
+        
+        Er_res(ifac_n, ifac_Te, ifac_Ti, ifac_vz) = sum(coef(0, :)*Ercovavg(indBeginInterp:indEndInterp))
+        if (debug_mode) write (*, *) "Er_res = ", Er_res(ifac_n, ifac_Te, ifac_Ti, ifac_vz)
 
     end subroutine
 

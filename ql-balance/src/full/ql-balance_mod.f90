@@ -63,7 +63,6 @@
     integer :: zeitschritt
     integer :: readfromtimestep ! added by Markus Markl 02.06.2021. Reads the background profiles from hdf5 file in which profiles of a ql time evolution are stored.
     integer :: gyro_current_study
-    integer :: step_counter
     character(len=1024) :: equil_path ! path to equil file containing q, psi, phi,...
     double precision :: eps
     DOUBLE PRECISION :: temperature_limit ! limits ion and electron temperatures from below, in eV

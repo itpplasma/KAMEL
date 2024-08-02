@@ -7,7 +7,7 @@ module PolyLagrangeInterpolation
     integer :: nlagr = 4 ! order of lagrange interpolation
     integer :: nder = 0
     double precision, dimension(:, :), allocatable :: coef !> coefficients for interpolation
-    integer :: indBeginInterp, indEndInterp
+    integer :: indBeginInterp, indEndInterp, indResRadius
   
     contains
 

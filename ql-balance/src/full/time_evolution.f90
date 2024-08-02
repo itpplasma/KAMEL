@@ -1,5 +1,7 @@
   module time_evolution
 
+    use control_mod
+
     implicit none
 
     logical :: flag_run_time_evolution !Added by Philipp Ulbl 12.05.2020
@@ -10,6 +12,7 @@
     integer :: save_prof_time_step ! added by Markus Markl 11.03.2021
     integer :: iexit ! used for ramp-up skipping of saving
     integer :: ramp_up_down = 0 !> used in hysteresis mode, tells if ramp-up (0) or ramp-down (1)
+    integer :: timeStep
 
     double precision :: tmax_factor!, antenna_factor
     double precision :: stop_time_step !Added by Philipp Ulbl 13.05.2020
@@ -37,7 +40,48 @@
 	DOUBLE PRECISION, DIMENSION(:), ALLOCATABLE :: br_abs_antenna_factor
     DOUBLE PRECISION, DIMENSION(:), ALLOCATABLE :: dqle22_res_time
 
+    logical :: firstiterationdone = .false. !Some steps in saving the data to hdf5 file 
+    !need to be done only the first time iteration
+
     contains
+
+    subroutine allocate_prev_variables
+
+        use recstep_mod, only: timstep_arr, tim_stack
+        use grid_mod, only: neqset, npoib
+
+        implicit none
+
+        allocate (yprev(neqset))
+        allocate (dqle11_prev(npoib))
+        allocate (dqle12_prev(npoib))
+        allocate (dqle21_prev(npoib))
+        allocate (dqle22_prev(npoib))
+        allocate (dqli11_prev(npoib))
+        allocate (dqli12_prev(npoib))
+        allocate (dqli21_prev(npoib))
+        allocate (dqli22_prev(npoib))
+        allocate (timstep_arr(neqset), tim_stack(neqset))
+
+    end subroutine
+
+    subroutine saveKinProfilesToYPrev
+
+        use grid_mod, only: npoi, nbaleqs, params
+
+        implicit none
+
+        integer :: ipoi, ieq, k
+
+        if (debug_mode) write(*,*) 'Debug: yprev loop'
+        do ipoi = 1, npoi
+            do ieq = 1, nbaleqs
+                k = nbaleqs*(ipoi - 1) + ieq
+                yprev(k) = params(ieq, ipoi)
+            end do
+        end do
+
+    end subroutine
 
     subroutine initAntennaFactor
         !For time evolution mode use antenna_factor as maximum
@@ -567,7 +611,6 @@
         implicit none
 
         integer, intent(in) :: i
-        integer :: indResRadius
         
         call binsrc(rb, 1, npoib, r_resonant(1), indResRadius)
         call getIndicesForLagrangeInterp(indResRadius)
@@ -587,5 +630,29 @@
         write(*,*) 'time = ', br_abs_time(i)
 
     end subroutine
+
+    subroutine stopIfTimeStepTooSmall
+
+        use h5mod
+        use parallelTools, only: ierror
+        use mpi
+
+        implicit none
+
+        character(*), parameter :: reason = 'timestep < stop time step'
+
+        if (timstep .lt. stop_time_step .and. time .gt. 1.0d-3) then
+            write(*,*) 'stop: timestep smaller than stop limit'
+            if (suppression_mode .eqv. .false.) then
+                CALL writeKinProfileDataToDisk(timeStep)
+            end if
+
+            call writeReasonForStopToH5(reason)
+            call MPI_finalize(ierror);
+            stop
+        end if
+
+    end subroutine
+
 
 end module

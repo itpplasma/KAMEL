@@ -29,8 +29,6 @@ program ql_balance
 
     integer :: np_num
 
-    logical :: firstiterationdone !Added by Markus Markl 25.02.2021. Some steps
-    ! in saving the data to hdf5 file need to be done only the first time iteration
     logical :: discr_reached = .false. ! variable to say if discrepancy to linear regression
     ! of Br is reached, only used if br_stopping = .false.
     integer :: ipoi, i, ieq, l, k
@@ -56,8 +54,6 @@ program ql_balance
     DOUBLE PRECISION :: br_beta = 0
     DOUBLE PRECISION :: br_predicted
 
-    integer ::  indResRadius
-    
     character(len=1024) :: h5_currentgrp !> current hdf5 group string
     integer(HID_T) :: time_dataset_id !> variable to save the time dataset id
 
@@ -225,117 +221,29 @@ program ql_balance
 
                     params_begbeg = params
 
-                    if (.not. allocated(coef)) allocate (coef(0:nder, nlagr))
-                    !binsearch, get index of r_resonant
-                    call binsrc(rb, 1, npoib, r_resonant(1), indResRadius)
-                    call getIndicesForLagrangeInterp(indResRadius)
-
                     if (.not. flag_run_time_evolution) then
                         ! linear run
-                        call plag_coeff(nlagr, nder, r_resonant(1), rb(indBeginInterp:indEndInterp), coef)
-                        dqle22_res(ifac_n, ifac_Te, ifac_Ti, ifac_vz) = sum(coef(0, :) * dqle22(indBeginInterp:indEndInterp))
-                        br_abs_res_parscan(ifac_n, ifac_Te, ifac_Ti, ifac_vz) = sum(coef(0, :) &
-                            * abs(Br(indBeginInterp:indEndInterp)))*sqrt(antenna_factor)
                         ! if velocity scan, determine Er_res for v_ExB velocity at resonant surface
-                        if (size(fac_vz) .ne. 1) then
-                            if (debug_mode) write (*, *) "Debug: determine Er_res"
-                            do ipoi = 1, npoic
-                                Ercovavg(ipoi) = 0.5d0*(Ercov(ipoi) + Ercov(ipoi + 1))
-                            end do
-                            Er_res(ifac_n, ifac_Te, ifac_Ti, ifac_vz) = sum(coef(0, :)*Ercovavg(indBeginInterp:indEndInterp))
-                            if (debug_mode) write (*, *) "Debug: Er_res = ", Er_res(ifac_n, ifac_Te, ifac_Ti, ifac_vz)
-
-                        end if
-                        write(*,*) "dqle22 res = ", dqle22_res(ifac_n, ifac_Te, ifac_Ti, ifac_vz)
-                        write(*,*) "Br abs res = ", br_abs_res_parscan(ifac_n, ifac_Te, ifac_Ti, ifac_vz)
-						write(*,*) "Antenna factor = ", antenna_factor
+                        call interpBrAndDqlAtResonanceParamScan
 
                         if (paramscan) then
                             ! if the last parameter scan is done, write data and stop the code
                             if (ifac_n + ifac_Te + ifac_Ti + ifac_vz .eq. size(fac_n) + size(fac_Ti) + &
                                 size(fac_Te) + size(fac_vz)) then
                                 if (debug_mode) write(*,*) "Debug: Last parameter done. Finalize MPI"
-                                write (h5_mode_groupname, "(A,I1,A,I1)") "f_", m_vals(1), "_", n_vals(1)
 
-
-                                ! write the diffusion coefficient
-                                !write (h5_mode_groupname, "(A,I1,A,I1)") "f_", &
-                                !mode_m, "_", mode_n
-
-                                if (debug_mode) write(*,*) "Debug: Write out results"
-
-                                CALL h5_init()
-                                CALL h5_open_rw(path2out, h5_id)
-                                CALL h5_obj_exists(h5_id, trim(h5_mode_groupname), &
-                                    h5_exists_log)
-                                if (.not. h5_exists_log) then
-                                    CALL h5_define_group(h5_id, &
-                                        trim(h5_mode_groupname), group_id_2)
-                                    CALL h5_close_group(group_id_2)
-                                end if
-
-                                CALL h5_add_double_1(h5_id, trim(h5_mode_groupname)//'/dqle22_res', &
-                                                     reshape(dqle22_res, (/size(dqle22_res)/)), &
-                                                     lbound(reshape(dqle22_res, (/size(dqle22_res)/))), &
-                                                     ubound(reshape(dqle22_res, (/size(dqle22_res)/))))
-                                CALL h5_add_double_1(h5_id, trim(h5_mode_groupname)//'/br_abs_res', &
-                                                     reshape(br_abs_res_parscan, (/size(br_abs_res_parscan)/)), &
-                                                     lbound(reshape(br_abs_res_parscan, (/size(br_abs_res_parscan)/))), &
-                                                     ubound(reshape(br_abs_res_parscan, (/size(br_abs_res_parscan)/))))
-
-                                if (size(fac_vz) .ne. 1) then
-                                    CALL h5_add_double_1(h5_id, trim(h5_mode_groupname)//'/Er_res', &
-                                                         reshape(Er_res, (/size(Er_res)/)), &
-                                                         lbound(reshape(Er_res, (/size(Er_res)/))), &
-                                                         ubound(reshape(Er_res, (/size(Er_res)/))))
-                                end if
-
-                                CALL h5_close(h5_id)
-                                CALL h5_deinit()
-
+                                call writeBrAndDqlAtResonanceToH5
                                 CALL deallocate_wave_code_data()
-
                                 CALL MPI_finalize(ierror);
                                 stop
                             else
                                 ! if it is not the last scan, skip the rest of the code and continue
                                 ! with the next loop iteration
-                                !call deallocate_wave_code_data();
                                 CYCLE
                             end if
                         else
                             !Stop if mode is not time evolution
-                            !Added by Philipp Ulbl 12.05.2020
-                            write(*,*) 'stop: linear code only'
-                            !write (h5_mode_groupname, "(A,I1,A,I1)") "f_", &
-                            !    mode_m, "_", mode_n
-                            if (debug_mode) write(*,*) "Debug: Write out results"
-
-                            if (ihdf5IO .eq. 1) then
-                                CALL h5_init()
-                                CALL h5_open_rw(path2out, h5_id)
-                                CALL h5_obj_exists(h5_id, trim(h5_mode_groupname), &
-                                    h5_exists_log)
-                                if (.not. h5_exists_log) then
-                                    CALL h5_define_group(h5_id, &
-                                        trim(h5_mode_groupname), group_id_2)
-                                    CALL h5_close_group(group_id_2)
-                                end if
-
-                                CALL h5_add_double_1(h5_id, trim(h5_mode_groupname)//'/dqle22_res', &
-                                                 reshape(dqle22_res, (/size(dqle22_res)/)), &
-                                                 lbound(reshape(dqle22_res, (/size(dqle22_res)/))), &
-                                                 ubound(reshape(dqle22_res, (/size(dqle22_res)/))))
-                                CALL h5_add_double_1(h5_id, trim(h5_mode_groupname)//'/dqle22', &
-                                                     dqle22, &
-                                                     lbound(dqle22), &
-                                                     ubound(dqle22))
- 
-                                CALL h5_close(h5_id)
-                                CALL h5_deinit()
-                            end if
-                            call MPI_finalize(ierror);
-                            stop  !! <<----- Stop for linear code usage
+                            call finalizeLinearRun
                         end if
                     end if
 
@@ -344,7 +252,6 @@ program ql_balance
                     ioddeven = 1
                     
                     ! time evolution
-                    firstiterationdone = .false. ! if first iteration is done, some variables are already allocated
 
                     if (ihdf5IO .eq. 0) then
                         ! sweep files that are only appended to
@@ -355,16 +262,10 @@ program ql_balance
                     end if
 
                     do i = 1, Nstorage ! loop over time steps
-                        step_counter = i
-                        write (*, *) "i = ", i
-                        !
-                        if (debug_mode) write(*,*) 'Debug: yprev loop'
-                        do ipoi = 1, npoi
-                            do ieq = 1, nbaleqs
-                                k = nbaleqs*(ipoi - 1) + ieq
-                                yprev(k) = params(ieq, ipoi)
-                            end do
-                        end do
+                        timeStep = i
+                        write (*, *) "Time Step = ", timeStep
+                        
+                        call saveKinProfilesToYPrev
 
                         dostep = .true.
 
@@ -377,43 +278,15 @@ program ql_balance
                                     open (iunit_diag_b, file='params_b_redostep.odd')
                                 end if
                             end if
-                            !END DIAG
-                            !
                         end if
 
                         ! in get_dql the fort.5000 data is written. The argument is used
                         ! to restrict the writing of the data. Only every "save_prof_time_step"th
                         ! step the data is written
-                        if (debug_mode) write(*,*) "Debug: get_dql(", i, ")"
                         call get_dql(i)
-                        if (debug_mode) write(*,*) "Debug: coming out get_dql(", i, ")"
-
-                        ! stopping criterion
-                        !Stop if timestep becomes too small
-                        !Added by Philipp Ulbl 13.05.2020
-                        if (timstep .lt. stop_time_step .and. time .gt. 1.0d-3) then
-                            write(*,*) 'stop: timestep smaller than stop limit'
-                            if (suppression_mode .eqv. .false.) then
-                                CALL writeKinProfileDataToDisk(i)
-                            end if
-                           if (ihdf5IO .eq. 1) then
-                                CALL h5_init()
-                                CALL h5_open_rw(path2out, h5_id)
-                                CALL h5_add_string(h5_id, trim(h5_mode_groupname)// &
-                                '/stopping_criterion', 'timestep < stop time step')
-                                CALL h5_close(h5_id)
-                                CALL h5_deinit()
-                            end if
-
-                            call MPI_finalize(ierror);
-                            stop
-                        end if
-
-                        !calculate Br abs at the resonant surface for stopping criterion
-
+                        call stopIfTimeStepTooSmall
                         call interpBrAndDqlAtResonanceTimeEvol(i)
-
-						CALL write_br_time_data(i)!, br_abs_time, br_abs_antenna_factor, br_abs, dqle22_res_time)
+						CALL write_br_time_data(i)
 
                         ! check if linear discepancy in penetration ratio is reached
                         !CALL linear_discrepancy_pen_ratio
@@ -833,7 +706,7 @@ subroutine linear_discrepancy_pen_ratio
             write(*,*) 'discrepancy to linearly predicted value of Br_abs_res > delta'
             if (modulo(i, save_prof_time_step) .ne. 0) then
                 if (suppression_mode .eqv. .false.) then
-                    CALL writefort5000(i)
+                    CALL writefort5000
                 end if
             end if
             if (suppression_mode .eqv. .false.) then

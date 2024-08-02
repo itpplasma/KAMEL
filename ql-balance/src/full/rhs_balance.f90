@@ -13,7 +13,8 @@ subroutine rhs_balance(x, y, dy)
                         , params_lin, Ercov_lin, ddr_params_nl, fluxes_con_nl &
                         , init_params, params_b_lin
     use baseparam_mod, only: Z_i, e_charge, am, p_mass, c, btor
-    use control_mod, only: iwrite, step_counter
+    use control_mod, only: iwrite
+    !use time_evolution, only: timeStep
     use wave_code_data, only: q, Vth
 
     use matrix_mod, only: isw_rhs, nz, nsize, irow, icol, amat, rhsvec
@@ -44,20 +45,20 @@ subroutine rhs_balance(x, y, dy)
     ddr_params = 0.0d0
     Ercov_lin = 0.0d0
 
-    !open(2000+step_counter)
+    !open(2000+timeStep)
     do ipoi = 1, npoi
         do ieq = 1, nbaleqs
             i = nbaleqs*(ipoi - 1) + ieq
             params(ieq, ipoi) = y(i)
         end do
-        !write(2000+step_counter, *) rc(ipoi), params(:, ipoi) 
+        !write(2000+timeStep, *) rc(ipoi), params(:, ipoi) 
     end do
-    !close(2000+step_counter)
+    !close(2000+timeStep)
 
 !
 ! Interpolation:
 !
-    !open(7000+step_counter)
+    !open(7000+timeStep)
     do ipoi = 1, npoib
         do ieq = 1, nbaleqs
 ! radial derivatives of equilibrium parameters at cell boundaries:
@@ -67,9 +68,9 @@ subroutine rhs_balance(x, y, dy)
             params_b(ieq, ipoi) &
                 = sum(params(ieq, ipbeg(ipoi):ipend(ipoi))*reint_coef(:, ipoi))
         end do
-        !write(7000+step_counter, *) rb(ipoi), params_b(:, ipoi)
+        !write(7000+timeStep, *) rb(ipoi), params_b(:, ipoi)
     end do
-    !close(7000+step_counter)
+    !close(7000+timeStep)
 !
 ! Compute radial electric field:
 !
@@ -798,9 +799,8 @@ end subroutine calc_dequi
 !ccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
 !
 !
-!> @brief subroutine get_dql(istep). Calculates quasilinear diffusion coefficients.
-!> @param[in] istep Step in the time evolution. Used fro writing fort.5xxx data.
-subroutine get_dql(istep)
+!> @brief subroutine get_dql(timeStep). Calculates quasilinear diffusion coefficients.
+subroutine get_dql
 
     use grid_mod, only: nbaleqs, neqset, iboutype, npoic, npoib &
                         , params, ddr_params, deriv_coef &
@@ -823,22 +823,20 @@ subroutine get_dql(istep)
     use mpi
     use diag_mod, only: write_diag, iunit_diag, write_diag_b, iunit_diag_b, i_mn_loop
     use PolyLagrangeInterpolation    
+    use time_evolution, only: timeStep
 
     implicit none
     !logical :: suppression_mode = .true.
-!
-    integer :: istep ! used to restrict the fort.5000 output, by only writing
-    ! every "save_prof_time_step" to the hdf5 file
+
     integer :: ierror, np_num, irank, modpernode, imin, imax;
     integer :: ipoi, ieq, i, npoi, i_mn, ierr, mwind_save
     double precision, dimension(:), allocatable :: dummy
     double complex, dimension(npoib) :: amn_psi, amn_theta, amn_theta_cyl
-!
+
     double precision, dimension(npoib) :: spec_weight
-!double precision :: r_res, D,rnorm
     double precision :: weight
     double precision, dimension(npoib) :: vT_e, vT_i, nu_e, nu_i
-!
+
     DOUBLE PRECISION, DIMENSION(:), ALLOCATABLE :: dqle11_loc
     DOUBLE PRECISION, DIMENSION(:), ALLOCATABLE :: dqle12_loc
     DOUBLE PRECISION, DIMENSION(:), ALLOCATABLE :: dqle21_loc
@@ -1110,7 +1108,7 @@ subroutine get_dql(istep)
 
 
         if (irank .eq. 0) then
-            if (istep .le. 1) then
+            if (timeStep .le. 1) then
                 if (ihdf5IO .eq. 1) then
                     if (debug_mode) write(*,*) "Interpolation of Brvac"
                     if (.not. allocated(coef)) allocate(coef(0:nder,nlagr))
@@ -1161,29 +1159,20 @@ subroutine get_dql(istep)
                     close (7000)
                 end if
             end if
-!END DIAG
         end if
-!
 
         call get_wave_fields_from_wave_code(flre_cd_ptr(i_mn), dim_r, r, &
                                             m_vals(i_mn), n_vals(i_mn), Bz, Bz, Bz, Bz, Bz, Br, Bz, Bz, Bz, Bz)
-!
         formfactor = Br*formfactor
-        write(*,*) "sum(abs(formfactor))/size(formfactor) = ", sum(abs(formfactor))/size(formfactor)
+        !write(*,*) "sum(abs(formfactor))/size(formfactor) = ", sum(abs(formfactor))/size(formfactor)
         if (write_formfactors) then
             do ipoi = 1, npoib
                 write (10000 + n_vals(i_mn)*1000 + m_vals(i_mn), *) r(ipoi), abs(formfactor(ipoi))
             end do
             close (10000 + n_vals(i_mn)*1000 + m_vals(i_mn))
         end if
-!  spec_weight=1.0d0  ! for DIII-D
+        !  spec_weight=1.0d0  ! for DIII-D
 
-        !open(7777)
-        !do ipoi = 1, npoib
-        !    write(7777, *) r(ipoi), spec_weight(ipoi)
-        !end do
-        !close(7777)
-!
         dqle11_loc = dqle11_loc + de11*spec_weight
         dqle12_loc = dqle12_loc + de12*spec_weight
         dqle21_loc = dqle21_loc + de21*spec_weight
@@ -1297,9 +1286,9 @@ subroutine get_dql(istep)
 
 
     if (irank .eq. 0) then
-        if (modulo(istep, save_prof_time_step) .eq. 0) then
+        if (modulo(timeStep, save_prof_time_step) .eq. 0) then
             if (suppression_mode .eqv. .false.) then
-                CALL writefort5000(istep)
+                CALL writefort5000
             end if
         end if
     end if
@@ -2111,213 +2100,3 @@ subroutine calc_ion_parallel_current_directly
 !
 end subroutine calc_ion_parallel_current_directly
 
-! Added by Markus Markl, 18.03.2021
-! Used to save the fort5000 data.
-subroutine writefort5000(istep)
-    use grid_mod, only: nbaleqs, neqset, iboutype, npoic, npoib &
-                        , params, ddr_params, deriv_coef &
-                        , ipbeg, ipend, rb, params_b, reint_coef &
-                        , rc, sqg_bthet_overc, Ercov &
-                        , ddr_params_nl, y, mwind &
-                        , dqle11, dqle12, dqle21, dqle22 &
-                        , dqli11, dqli12, dqli21, dqli22, d11_misalign, Es_pert_flux
-
-    use baseparam_mod, only: Z_i, e_charge, am, p_mass, c, btor, e_mass, ev, rtor
-    use control_mod, only: ihdf5IO, diagnostics_output, misalign_diffusion
-    use h5mod
-    use wave_code_data
-!DIAG:
-    use diag_mod, only: write_diag, iunit_diag, write_diag_b, iunit_diag_b, i_mn_loop
-!END DIAG
-!
-    implicit none
-!
-    integer :: istep ! used to restrict the fort.5000 output, by only writing
-    ! every "save_prof_time_step" to the hdf5 file
-    !integer :: ierror,np_num,irank,modpernode,imin,imax;
-    integer :: ipoi, ieq, i, npoi!,i_mn,ierr,mwind_save
-    character(len=1024) :: tempch
-
-    write(*,*) "writing fort.5000"
-
-    if (ihdf5IO .eq. 1) then
-
-        CALL h5_init()
-        CALL h5_open_rw(path2out, h5_id)
-        tempch = "/"//trim(h5_mode_groupname)//"/fort.5000"
-
-        write (tempch, "(A,A,I4,A)") trim(tempch), "/", iunit_diag, "/"
-
-        CALL h5_define_group(h5_id, trim(tempch), group_id_1)
-        CALL h5_close_group(group_id_1)
-
-        CALL h5_add_double_1(h5_id, trim(tempch)//"r", &
-                             r, lbound(r), ubound(r))
-        CALL h5_add_double_1(h5_id, trim(tempch)//"Br_abs", &
-                             abs(Br), lbound(Br), ubound(Br))
-        CALL h5_add_double_1(h5_id, trim(tempch)//"Re_Br", &
-                             real(Br), lbound(Br), ubound(Br))
-        CALL h5_add_double_1(h5_id, trim(tempch)//"Im_Br", &
-                             dimag(Br), lbound(Br), ubound(Br))
- 
-        CALL h5_add_double_1(h5_id, trim(tempch)//"Jpe_abs", &
-                             abs(Jpe), lbound(Jpe), ubound(Jpe))
-        CALL h5_add_double_1(h5_id, trim(tempch)//"Jpi_abs", &
-                             abs(Jpi), lbound(Jpi), ubound(Jpi))
-        CALL h5_add_double_1(h5_id, trim(tempch)//"dqle22", &
-                                 dqle22, lbound(dqle22), ubound(dqle22))
-
-        if (misalign_diffusion .eqv. .true.) then
-            write(*,*) " "
-            write(*,*) "Writing misalignment diffusion to hdf5"
-            !CALL h5_init()
-            !CALL h5_open_rw(path2out, h5_id)
-            CALL h5_add_double_1(h5_id, trim(tempch)//"D11_MA", d11_misalign, lbound(d11_misalign), ubound(d11_misalign))
-            CALL h5_add_double_1(h5_id, trim(tempch)//"Es_pert_flux_real", real(Es_pert_flux), & 
-                lbound(real(Es_pert_flux)), ubound(dreal(Es_pert_flux)))
-            CALL h5_add_double_1(h5_id, trim(tempch)//"Es_pert_flux_imag", dimag(Es_pert_flux), &
-                lbound(dimag(Es_pert_flux)), ubound(dimag(Es_pert_flux)))
-
-            CALL h5_add_double_1(h5_id, trim(tempch)//"Br_real", &
-                real(Br), lbound(real(Br)), ubound(real(Br)))
-            CALL h5_add_double_1(h5_id, trim(tempch)//"Es_real", &
-                real(Es), lbound(real(Es)), ubound(real(Es)))
-
-            CALL h5_add_double_1(h5_id, trim(tempch)//"Br_imag", &
-                dimag(Br), lbound(dimag(Br)), ubound(dimag(Br)))
-            CALL h5_add_double_1(h5_id, trim(tempch)//"Es_imag", &
-                dimag(Es), lbound(dimag(Es)), ubound(dimag(Es)))
-            !CALL h5_close(h5_id)
-            !CALL h5_deinit()
-            write(*,*) "Carry on"
-            write(*,*) " "
-        end if ! hdf5test .eq. 1
- 
-
-
-        ! write the whole content only if diagnostics_output is true
-        if (diagnostics_output) then
-            !CALL h5_add_double_1(h5_id, trim(tempch)//"dqle22", &
-            !                     dqle22, lbound(dqle22), ubound(dqle22))
-            CALL h5_add_double_1(h5_id, trim(tempch)//"dqle11", &
-                                 dqle11, lbound(dqle11), ubound(dqle11))
-            CALL h5_add_double_1(h5_id, trim(tempch)//"dqle12", &
-                                 dqle12, lbound(dqle12), ubound(dqle12))
-            CALL h5_add_double_1(h5_id, trim(tempch)//"dqli11", &
-                                 dqli11, lbound(dqli11), ubound(dqli11))
-            CALL h5_add_double_1(h5_id, trim(tempch)//"dqli12", &
-                                 dqli12, lbound(dqli12), ubound(dqli12))
-            CALL h5_add_double_1(h5_id, trim(tempch)//"dqli22", &
-                                 dqli22, lbound(dqli22), ubound(dqli22))
-            CALL h5_add_double_1(h5_id, trim(tempch)//"Br-ckpEs_om_E", &
-                                 abs(Br - c*kp*Es/om_E), lbound(Br), ubound(Br))
-            CALL h5_add_double_1(h5_id, trim(tempch)//"Br-cksEp_om_E", &
-                                 abs(Br - c*ks*Ep/om_E), lbound(Br), ubound(Br))
-            CALL h5_add_double_1(h5_id, trim(tempch)//"Jpe_abs", &
-                                 abs(Jpe), lbound(Jpe), ubound(Jpe))
-            CALL h5_add_double_1(h5_id, trim(tempch)//"Jpi_abs", &
-                                 abs(Jpi), lbound(Jpi), ubound(Jpi))
-            CALL h5_add_double_1(h5_id, trim(tempch)//"JpeJpi_abs", &
-                                 abs(Jpe + Jpi), lbound(Jpe), ubound(Jpe))
-        end if
-        CALL h5_close(h5_id)
-        CALL h5_deinit()
-    else
-        do ipoi = 1, npoib
-!      write(iunit_diag,*) r(ipoi),dqle11(ipoi),dqli11(ipoi) &
-!                            ,real(Br(ipoi)),imag(Br(ipoi))  &
-!                            ,real(Ep(ipoi)),imag(Ep(ipoi))  &
-!                            ,real(Er(ipoi)),imag(Er(ipoi))  &
-!                            ,om_E(ipoi) &
-!                            ,abs(c*ks(ipoi)*Ep(ipoi) - om_E(ipoi)*Br(ipoi))**2
-            write (iunit_diag, *) r(ipoi), dqle11(ipoi), dqle12(ipoi) &
-                , dqle22(ipoi), dqli11(ipoi) &
-                , dqli12(ipoi), dqli22(ipoi) &
-                , abs(Br(ipoi)) &
-                , abs(Br(ipoi) - c*kp(ipoi)*Es(ipoi)/om_E(ipoi)) &
-                , abs(Br(ipoi) - c*ks(ipoi)*Ep(ipoi)/om_E(ipoi)) &
-                , abs(Jpe(ipoi)), abs(Jpi(ipoi)) &
-                , abs(Jpe(ipoi) + Jpi(ipoi))
-        end do
-        close (iunit_diag)
-    end if
-    print *, "Finished writing fort.5000 data"
-end subroutine writefort5000
-
-!> @brief subroutine magnetic_island_width Calculate the width of the magnetic island. Used to cut off the part of the perpendicular electric field coming from perturbed flux surfaces. This part would otherwise diverge at the resonant surface.
-!> @author Markus Markl
-!> @date 20.10.2022
-subroutine magnetic_island_width(coef, nder, nlagr, ibeg, iend, mode, mi_width)
-
-    use wave_code_data
-    use grid_mod, only: deriv_coef, npoib, ipbeg, ipend
-    use h5mod
-    use control_mod, only: equil_path, ihdf5IO
-    use baseparam_mod, only: rsepar
-
-    implicit none
-    double precision, intent(out) :: mi_width
-    integer, intent(in) :: nder, nlagr, mode, ibeg, iend
-    double precision, dimension(0:nder, nlagr), intent(in) :: coef
-
-    double precision, dimension(:), allocatable :: diotadr
-    complex(8), dimension(:), allocatable :: Delta_r
-    double precision :: dummy, psi_tor_a
-    complex(8) :: eye
-    integer :: ipoi, iunit_equil
-    character(1024) :: tempch
-
-    allocate(diotadr(npoib))
-    allocate(Delta_r(npoib))
-
-    eye = (0.0, 1.0d0)
-
-    ! read psi_tor at the separatrix. this is the last entry
-    open(iunit_equil, file=trim(equil_path))
-    ! skip first three text lines
-    do ipoi = 1,3
-        read(iunit_equil, *)
-    end do
-    do
-        read(iunit_equil, *, end=1) dummy, dummy, dummy, psi_tor_a
-    end do
-1   continue
-    close(iunit_equil)
-        
-    ! calculate derivative of iota
-    do ipoi = 1, npoib
-        diotadr = sum(1.0d0/q(ipbeg(ipoi) : ipend(ipoi)) * deriv_coef(:,ipoi))
-    end do
-
-    !Delta_r = sqrt(- 4.0d0 * eye * r * Br * B0 / (diotadr * mode * psi_tor_a))
-    Delta_r = abs(sqrt(- eye * Br * sqrt(antenna_factor) * rsepar**4 / (diotadr * mode * psi_tor_a * r)))
-
-    write(*,*) "psi tor a", psi_tor_a
-    write(*,*) "eye ", eye
-    write(*,*) "mode ", mode
-    write(*,*) "sqrt(ant fac) ", sqrt(antenna_factor)
-
-    !open(77)
-    !do ipoi = 1, npoib
-    !    write(77,*) r(ipoi), real(Delta_r(ipoi)), imag(Delta_r(ipoi)), B0(ipoi), real(Br(ipoi)), imag(Br(ipoi))
-    !end do
-    !close(77)
-
-    mi_width = sum(Delta_r(ibeg:iend) * coef(0,:)) * 2
-    write(*,*) "magnetic island width for mode ", mode, " is ", mi_width
-
-    deallocate(diotadr)
-    deallocate(Delta_r)
-
-    if (ihdf5IO .eq. 1) then
-        write(*,*) "Write island width to hdf5"
-        CALL h5_init()
-        CALL h5_open_rw(path2out, h5_id)
-        tempch = "/"//trim(h5_mode_groupname)
-        write(*,*) trim(tempch)
-        call h5_add_double_0(h5_id, trim(tempch)//"/mi_width", mi_width)
-        CALL h5_close(h5_id)
-        CALL h5_deinit()
-    end if
-
-end subroutine ! magnetic_island_width

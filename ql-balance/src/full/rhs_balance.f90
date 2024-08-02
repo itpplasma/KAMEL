@@ -722,7 +722,6 @@ subroutine calc_dequi
 
     if (ihdf5IO .eq. 1) then
         ! read Da data from hdf5 input file
-        if (debug_mode) print *, "get Da data from hdf5"
         fname = "/da_estimation/" ! fname is used for the group name in the hdf5 version
         CALL h5_init()
         CALL h5_open_rw(path2inp, h5_id)
@@ -1110,21 +1109,17 @@ subroutine get_dql
         if (irank .eq. 0) then
             if (timeStep .le. 1) then
                 if (ihdf5IO .eq. 1) then
-                    if (debug_mode) write(*,*) "Interpolation of Brvac"
                     if (.not. allocated(coef)) allocate(coef(0:nder,nlagr))
-					if (debug_mode) write(*,*) "at r_resonant(1) = ", r_resonant(1)
                     call binsrc(rb, 1, npoib, r_resonant(1), ibrabsres)
-                    if (debug_mode) write(*,*) "binary search found ibrabsres = ", ibrabsres
 
                     call getIndicesForLagrangeInterp(ibrabsres)
 
                     call plag_coeff(nlagr, nder, r_resonant(1), rb(indBeginInterp:indEndInterp), coef)
 
-                    if (debug_mode) write(*,*) "coef = ", coef
                     brvac_interp = sum(coef(0,:)*abs(Br(indBeginInterp:indEndInterp)))
 
-                    write(*,*) "writing Brvac interpolation"
-                    write(*,*) "Brvac = ", brvac_interp
+                    if (debug_mode) write(*,*) "Debug: writing Brvac interpolation"
+                    if (debug_mode) write(*,*) "Debug: Brvac = ", brvac_interp, " at r_res = ", r_resonant(1)
                     CALL h5_init()
                     CALL h5_open_rw(path2out, h5_id)
                     tempch = "/"//trim(h5_mode_groupname)//"/Brvac_res"
@@ -1288,7 +1283,7 @@ subroutine get_dql
     if (irank .eq. 0) then
         if (modulo(timeStep, save_prof_time_step) .eq. 0) then
             if (suppression_mode .eqv. .false.) then
-                CALL writefort5000
+                CALL writeFieldsCurrentsAndTranspCoeffsToH5
             end if
         end if
     end if
@@ -1591,9 +1586,6 @@ subroutine calc_parallel_current_directly
 !
     character(len=1024) :: tempch
 !
-    write(*,*) " - "
-    write(*,*) "subroutine calc_parallel_current_density"
-    write(*,*) " - "
     iunit = 731
     mnmax = 3
     allocate (x1(npoib), x2(npoib), A1(npoib), A2(npoib), symbI(0:mnmax, 0:mnmax, npoib))
@@ -1605,10 +1597,6 @@ subroutine calc_parallel_current_directly
     if (gyro_current_study .eq. 0) then
         x1 = kp*vT/nue
         x2 = -om_E/nue
-
-        !do i=1, npoib
-        !    write(7001, *) rb(i), x2(i), nue(i)
-        !end do
 !
         do i = 1, npoib
             call getIfunc(x1(i), x2(i), symbI(:, :, i))

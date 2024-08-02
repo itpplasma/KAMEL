@@ -83,6 +83,7 @@ set(balance_lib_fortran_sources
     ${full_balance_src}/h5mod.f90
     ${full_balance_src}/W2_arr.f90
     ${full_balance_src}/magnetic_island_width.f90
+    ${full_balance_src}/diagnostic_mod.f90
     ${full_balance_src}/sample_matrix.f90)
 
 set(balance_lib_cpp_sources

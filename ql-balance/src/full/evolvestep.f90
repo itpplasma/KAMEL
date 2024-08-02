@@ -30,12 +30,10 @@
       y(i)=params(ieq,ipoi)
     enddo
   enddo
-!
-  if (debug_mode) print *, "initialize rhs in evolvestep"
+
   call initialize_rhs(y,dery)
-  if (debug_mode) print *, "rhs balance in evolvestep"
   call rhs_balance(x1,y,dery)
-!
+
   nz_sp=nz+nsize
   nrow=nsize
   ncol=nsize
@@ -132,13 +130,10 @@
     enddo
   enddo
 !  
-  if (debug_mode) write(*,*) "initialize rhs"
   call initialize_rhs(y,dery)
 !
   dery_equisource=0.d0
-  if (debug_mode) write(*,*) "rhs balance"
   call rhs_balance(x,y,dery)
-  if (debug_mode) write(*,*) "after rhs_balance in evolvestep"
 !
   do k=1,nz
      dery_equisource(irow(k))=dery_equisource(irow(k))-amat(k)*y(icol(k))

@@ -1,8 +1,11 @@
 module restart_mod
 
+    use control_mod
+
     implicit none
 
-    logical :: opnd, dostep, scratch
+    logical :: opnd, redostep, scratch
+    integer :: iunit_redo
 
     contains
     subroutine InquiryToRestart
@@ -48,4 +51,51 @@ module restart_mod
 
 
     end subroutine
+
+    subroutine redoTimeStep
+
+        use parallelTools, only: irank
+        use time_evolution, only: savePrevTranspCoefficients, timstep
+        use recstep_mod, only: timstep_arr
+        use grid_mod, only: npoic, rc, params, Ercov, params_begbeg
+        use baseparam_mod, only: eV, factolmax
+
+        implicit none
+
+        integer :: ipoi
+
+        if (irank .eq. 0) then
+            print *, 'redo step with old DQL'
+        end if
+
+        call savePrevTranspCoefficients
+        iunit_redo = 137
+
+        if (irank .eq. 0) then
+            open (iunit_redo, file='params_redostep.after')
+            do ipoi = 1, npoic
+                write (iunit_redo, *) rc(ipoi), params(1:2, ipoi) &
+                    , params(3, ipoi)/ev &
+                    , params(4, ipoi)/ev &
+                    , 0.5d0*(Ercov(ipoi) + Ercov(ipoi + 1))
+            end do
+            close (iunit_redo)
+        end if
+        params = params_begbeg
+        if (irank .eq. 0) then
+            open (iunit_redo, file='params_redostep.before')
+            do ipoi = 1, npoic
+                write (iunit_redo, *) rc(ipoi), params(1:2, ipoi) &
+                    , params(3, ipoi)/ev &
+                    , params(4, ipoi)/ev &
+                    , 0.5d0*(Ercov(ipoi) + Ercov(ipoi + 1))
+            end do
+            close (iunit_redo)
+        end if
+
+        timstep = timstep/factolmax
+        timstep_arr = timstep
+
+    end subroutine
+
 end module

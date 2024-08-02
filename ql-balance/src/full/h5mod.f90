@@ -2,6 +2,7 @@
 module h5mod
 
     use hdf5_tools
+    use control_mod
 
     implicit none
 
@@ -12,6 +13,7 @@ module h5mod
     character(len=1024) :: path2time ! path to hdf5 file from which time evolved profiles are read
     character(len=1024) :: path2out ! path to hdf5 file where output is written
     character(len=1024) :: h5_mode_groupname
+    character(len=1024) :: h5_currentgrp !> current hdf5 group string
 
     contains
     !> @brief subroutine creategroupstructure. Creates the group structure in the hdf5 file.
@@ -228,7 +230,7 @@ module h5mod
 
     ! Added by Markus Markl, 18.03.2021
     ! Used to save the fort5000 data.
-    subroutine writefort5000
+    subroutine writeFieldsCurrentsAndTranspCoeffsToH5
         use grid_mod, only: nbaleqs, neqset, iboutype, npoic, npoib &
                             , params, ddr_params, deriv_coef &
                             , ipbeg, ipend, rb, params_b, reint_coef &
@@ -247,8 +249,6 @@ module h5mod
 
         integer :: ipoi, ieq, i, npoi!,i_mn,ierr,mwind_save
         character(len=1024) :: tempch
-
-        write(*,*) "writing fort.5000"
 
         if (ihdf5IO .eq. 1) then
 
@@ -351,10 +351,60 @@ module h5mod
             end do
             close (iunit_diag)
         end if
-        print *, "Finished writing fort.5000 data"
-    end subroutine writefort5000
+    end subroutine writeFieldsCurrentsAndTranspCoeffsToH5
 
-    
+    subroutine writefort9999
+        
+        use grid_mod, only: dqle11, dqli11, rb, rc, npoib
+        use diag_mod, only: timscal_dql, timscal_dqli, ind_dqle, ind_dqli, &
+            determineDqlDiagnostic
+        use time_evolution, only: dqle11_prev, dqli11_prev
+        use ParallelTools, only: irank
+
+        implicit none
+
+        integer :: ipoi
+        
+        if (diagnostics_output) then
+            if (irank .eq. 0) then
+
+                call determineDqlDiagnostic
+
+                print *, 'timscal_dqle = ', sngl(timscal_dql) &
+                    , 'timscal_dqli = ', sngl(timscal_dqli)
+                print *, 'maximum dqle at r = ', rc(ind_dqle(1)) &
+                    , 'maximum dqli at r = ', rc(ind_dqli(1))
+                ! Edited by Markus Markl, 26.02.2021
+                if (ihdf5IO .eq. 1) then
+                    ! write fort.9999 data to hdf5 file
+                    h5_currentgrp = trim("/"//trim(h5_mode_groupname) &
+                                            //"/fort.9999")
+                    CALL h5_init()
+                    CALL h5_open_rw(path2out, h5_id)
+                    CALL h5_obj_exists(h5_id, trim(h5_currentgrp), h5_exists_log)
+                    if (h5_exists_log) then
+                        CALL h5_delete(h5_id, trim(h5_currentgrp))
+                    end if
+
+                    CALL h5_define_unlimited_matrix(h5_id, trim(h5_currentgrp), &
+                                                    H5T_NATIVE_DOUBLE, (/-1, 3/), dataset_id)
+                    CALL h5_append_double_1(dataset_id, rb, 1)
+                    CALL h5_append_double_1(dataset_id, abs(dqle11_prev - dqle11), 2)
+                    CALL h5_append_double_1(dataset_id, abs(dqli11_prev - dqli11), 3)
+
+                    CALL h5_close(h5_id)
+                    CALL h5_deinit()
+
+                else
+                    do ipoi = 1, npoib
+                        write (9999, *) rb(ipoi), abs(dqle11_prev(ipoi) - dqle11(ipoi)), &
+                            abs(dqli11_prev(ipoi) - dqli11(ipoi))
+                    end do
+                    close (9999)
+                end if
+            end if
+        end if
+    end subroutine
 
 
 end module h5mod

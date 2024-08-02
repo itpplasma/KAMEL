@@ -155,7 +155,7 @@
     !> @param[in] br_abs_antenna_factor Value of the antenna factor, i.e. the RMP coil current.
     !> @param[in] br_abs Absolute value of the radial magnetic field evaluated at the resonant surface in question.
     !> @param[in] dqle22_res_time Value of Dqle22 evaluated at the resonant surface during the time evolution.
-    subroutine write_br_time_data(i)
+    subroutine write_br_time_data
 
         use control_mod
         use baseparam_mod
@@ -164,12 +164,6 @@
         use wave_code_data, only: antenna_factor
 
         implicit none
-	    integer, intent(in) :: i
-        !double precision, dimension(:), intent(in) :: br_abs_time
-        !double precision, dimension(:), intent(in) :: br_abs_antenna_factor
-        !double precision, dimension(:), intent(in) :: br_abs
-        !double precision, dimension(:), intent(in) :: dqle22_res_time
-        character(len=1024) :: h5_currentgrp
 
 	    if (debug_mode) write(*,*) "Debug: writing out br time evolution data"
 
@@ -178,20 +172,20 @@
             CALL h5_open_rw(path2out, h5_id)
 
  		    h5_currentgrp = "/"//trim(h5_mode_groupname) //"/br_abs_time"
-		    CALL h5_add_double_1(h5_id, trim(h5_currentgrp), br_abs_time(1:i), &
-			    lbound(br_abs_time(1:i)), ubound(br_abs_time(1:i)))
+		    CALL h5_add_double_1(h5_id, trim(h5_currentgrp), br_abs_time(1:timeStep), &
+			    lbound(br_abs_time(1:timeStep)), ubound(br_abs_time(1:timeStep)))
 
  		    h5_currentgrp = "/"//trim(h5_mode_groupname) //"/br_abs_antenna_factor"
-		    CALL h5_add_double_1(h5_id, trim(h5_currentgrp), br_abs_antenna_factor(1:i), &
-			    lbound(br_abs_antenna_factor(1:i)), ubound(br_abs_antenna_factor(1:i)))
+		    CALL h5_add_double_1(h5_id, trim(h5_currentgrp), br_abs_antenna_factor(1:timeStep), &
+			    lbound(br_abs_antenna_factor(1:timeStep)), ubound(br_abs_antenna_factor(1:timeStep)))
 
  		    h5_currentgrp = "/"//trim(h5_mode_groupname) //"/br_abs_res"
-		    CALL h5_add_double_1(h5_id, trim(h5_currentgrp), br_abs(1:i), &
-			    lbound(br_abs(1:i)), ubound(br_abs(1:i)))
+		    CALL h5_add_double_1(h5_id, trim(h5_currentgrp), br_abs(1:timeStep), &
+			    lbound(br_abs(1:timeStep)), ubound(br_abs(1:timeStep)))
 
  		    h5_currentgrp = "/"//trim(h5_mode_groupname) //"/dqle22_res_time"
-		    CALL h5_add_double_1(h5_id, trim(h5_currentgrp), dqle22_res_time(1:i), &
-			    lbound(dqle22_res_time(1:i)), ubound(dqle22_res_time(1:i)))
+		    CALL h5_add_double_1(h5_id, trim(h5_currentgrp), dqle22_res_time(1:timeStep), &
+			    lbound(dqle22_res_time(1:timeStep)), ubound(dqle22_res_time(1:timeStep)))
 
 
             CALL h5_close(h5_id)
@@ -199,7 +193,7 @@
 
         else
             open (777, file='br_abs_res.dat', position='append')
-            write (777, *) i, time, antenna_factor, br_abs(i)
+            write (777, *) timeStep, time, antenna_factor, br_abs(timeStep)
             close (777)
         end if
     end subroutine ! write_br_time_data
@@ -263,7 +257,7 @@
                     if (paramscan) then
                         if (debug_mode) write(*,*) "Debug: Write br_time _data"
                         if (ihdf5IO .eq. 1) then
-                            CALL write_br_time_data(i)!, br_abs_time, br_abs_antenna_factor, br_abs, dqle22_res_time)
+                            CALL write_br_time_data!, br_abs_time, br_abs_antenna_factor, br_abs, dqle22_res_time)
                         end if
                         if (ifac_n + ifac_Te + ifac_Ti + ifac_vz .eq. size(fac_n) + &
                                 size(fac_Ti) + size(fac_Te) + size(fac_vz)) then
@@ -280,7 +274,7 @@
                     else
                         if (debug_mode) write(*,*) "Debug: Write br_time _data"
                         if (ihdf5IO .eq. 1) then
-                            CALL write_br_time_data(i)!, br_abs_time, br_abs_antenna_factor, br_abs, dqle22_res_time)
+                            CALL write_br_time_data!, br_abs_time, br_abs_antenna_factor, br_abs, dqle22_res_time)
                         end if
                         CALL MPI_finalize(ierror);
                         write(*,*) 'stop'
@@ -320,7 +314,7 @@
                     if (paramscan) then
                         if (debug_mode) write(*,*) "Debug: Write br_time _data"
                         if (ihdf5IO .eq. 1) then 
-                            CALL write_br_time_data(i)!, br_abs_time, br_abs_antenna_factor, br_abs, dqle22_res_time)
+                            CALL write_br_time_data!, br_abs_time, br_abs_antenna_factor, br_abs, dqle22_res_time)
                         end if
                         if (ifac_n + ifac_Te + ifac_Ti + ifac_vz .eq. size(fac_n) + &
                             size(fac_Ti) + size(fac_Te) + size(fac_vz)) then
@@ -337,7 +331,7 @@
                     else
                         if (debug_mode) write(*,*) "Debug: Write br_time _data"
                         if (ihdf5IO .eq. 1) then
-                            CALL write_br_time_data(i)!, br_abs_time, br_abs_antenna_factor, br_abs, dqle22_res_time)
+                            CALL write_br_time_data!, br_abs_time, br_abs_antenna_factor, br_abs, dqle22_res_time)
                         end if
                         write(*,*) 'stop'
                         call MPI_finalize(ierror);
@@ -379,7 +373,7 @@
                         end if
                         if (debug_mode) write(*,*) "Debug: Write br_time _data"
                         if (ihdf5IO .eq. 1) then
-                            CALL write_br_time_data(i)!, br_abs_time, br_abs_antenna_factor, br_abs, dqle22_res_time)
+                            CALL write_br_time_data!, br_abs_time, br_abs_antenna_factor, br_abs, dqle22_res_time)
                         end if
                         if (paramscan) then
                             if (ifac_n + ifac_Te + ifac_Ti + ifac_vz .eq. size(fac_n) + &
@@ -429,7 +423,7 @@
                         end if
                         if (debug_mode) write(*,*) "Debug: Write br_time _data"
                         if (ihdf5IO .eq. 1) then
-                            CALL write_br_time_data(i)!, br_abs_time, br_abs_antenna_factor, br_abs, dqle22_res_time)
+                            CALL write_br_time_data!, br_abs_time, br_abs_antenna_factor, br_abs, dqle22_res_time)
                         end if
                         if (paramscan) then
                             if (ifac_n + ifac_Te + ifac_Ti + ifac_vz .eq. size(fac_n) + &
@@ -472,7 +466,7 @@
 
                 if (debug_mode) write(*,*) "Debug: Write br_time_data"
                 if (ihdf5IO .eq. 1) then 
-                    CALL write_br_time_data(i)!, br_abs_time, br_abs_antenna_factor, br_abs, dqle22_res_time)
+                    CALL write_br_time_data!, br_abs_time, br_abs_antenna_factor, br_abs, dqle22_res_time)
                 end if
 
                 if (paramscan) then
@@ -523,7 +517,6 @@
         implicit none
         integer, intent(in) :: istep
         integer :: ipoi
-        character(len=1024) :: h5_currentgrp
 
         if (ihdf5IO .eq. 1) then
             !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -602,32 +595,30 @@
 
     end subroutine writeKinProfileDataToDisk
 
-    subroutine interpBrAndDqlAtResonanceTimeEvol(i)
+    subroutine interpBrAndDqlAtResonanceTimeEvol
 
         use PolyLagrangeInterpolation
         use grid_mod, only: npoib, r_resonant, rb, dqle22
         use wave_code_data, only: antenna_factor, Br
 
         implicit none
-
-        integer, intent(in) :: i
         
         call binsrc(rb, 1, npoib, r_resonant(1), indResRadius)
         call getIndicesForLagrangeInterp(indResRadius)
         call plag_coeff(nlagr, nder, r_resonant(1), rb(indBeginInterp:indEndInterp), coef)
 
-        br_abs(i) = sum(coef(0, :)*abs(Br(indBeginInterp:indEndInterp)))*sqrt(antenna_factor)
-        dqle22_res_time(i) = sum(coef(0, :)*dqle22(indBeginInterp:indEndInterp))
+        br_abs(timeStep) = sum(coef(0, :)*abs(Br(indBeginInterp:indEndInterp)))*sqrt(antenna_factor)
+        dqle22_res_time(timeStep) = sum(coef(0, :)*dqle22(indBeginInterp:indEndInterp))
 
         ! save the time for the improved stopping criterion
-        br_abs_time(i) = time
-		br_abs_antenna_factor(i) = antenna_factor
+        br_abs_time(timeStep) = time
+		br_abs_antenna_factor(timeStep) = antenna_factor
 
-        write(*,*) 'Br abs res * C_mn= ', br_abs(i)
-        write(*,*) 'Br abs res       = ', br_abs(i)/sqrt(antenna_factor)
-        write(*,*) 'Dqle22 res       = ', dqle22_res_time(i)
+        write(*,*) 'Br abs res * C_mn= ', br_abs(timeStep)
+        write(*,*) 'Br abs res       = ', br_abs(timeStep)/sqrt(antenna_factor)
+        write(*,*) 'Dqle22 res       = ', dqle22_res_time(timeStep)
         write(*,*) 'Antenna factor   = ', antenna_factor
-        write(*,*) 'time = ', br_abs_time(i)
+        write(*,*) 'time = ', br_abs_time(timeStep)
 
     end subroutine
 

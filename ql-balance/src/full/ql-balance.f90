@@ -9,12 +9,10 @@ program ql_balance
     use grid_mod
     use baseparam_mod
     use control_mod
-    use h5mod ! added by Markus Markl, 25.02.2021
+    use h5mod 
     use wave_code_data
     use recstep_mod, only: nstack, tol, tim_stack, y_stack, timstep_arr
-    !DIAG:
-    use diag_mod, only: write_diag, iunit_diag, write_diag_b, iunit_diag_b
-    !END DIAG
+    use diag_mod
     use resonances_mod, only: numres
     use hdf5_tools
     use paramscan_mod
@@ -32,29 +30,19 @@ program ql_balance
     logical :: discr_reached = .false. ! variable to say if discrepancy to linear regression
     ! of Br is reached, only used if br_stopping = .false.
     integer :: ipoi, i, ieq, l, k
-    integer :: iunit_redo, ioddeven
+    integer :: ioddeven
     double precision :: evoltime, timescale, tmax
-    double precision :: timscal_dql, rate_dql, timscal_dqli
-
-    double precision :: urelax = 0.5e0 !0.5d0  !0.9d0
-    double precision :: tol_max = 3.d-2 !3.d-4 !3.d-3 !3.d-2
-    double precision :: factolmax = 3.d0 ! keep
-    double precision :: factolred = 0.5d0 ! keep
 
     DOUBLE PRECISION, DIMENSION(:), ALLOCATABLE :: ych_one, ych_tot
     double precision, dimension(:), allocatable :: timscal
     double precision, dimension(:), allocatable :: dummy
     
-    double precision, dimension(:, :), allocatable :: params_beg, params_begbeg
-    double precision, dimension(:, :), allocatable :: params_num, params_denom
-    
-    integer, dimension(1) :: ind_dqle, ind_dqli
     integer :: lb, ub
     
     DOUBLE PRECISION :: br_beta = 0
     DOUBLE PRECISION :: br_predicted
 
-    character(len=1024) :: h5_currentgrp !> current hdf5 group string
+    
     integer(HID_T) :: time_dataset_id !> variable to save the time dataset id
 
 
@@ -171,8 +159,8 @@ program ql_balance
                     call rescale_profiles
                     call geomparprof
 
-                    irf = 2
-                    call get_dql(0)
+                    irf = 2 ! initialize dql variables and set to zero !
+                    call get_dql
 
                     if (flag_run_time_evolution) then
                         call initAntennaFactor
@@ -201,7 +189,7 @@ program ql_balance
 
                     iunit_diag = 5000
 
-                    call get_dql(0) ! also writes out diffusion coefficients and other data
+                    call get_dql ! also writes out diffusion coefficients and other data
                     call rescaleTranspCoefficientsByAntennaFac
 
                     if (flag_run_time_evolution) then
@@ -267,7 +255,7 @@ program ql_balance
                         
                         call saveKinProfilesToYPrev
 
-                        dostep = .true.
+                        redostep = .false.
 
                         if (irank .eq. 0) then
                             iunit_diag = 5000 + i
@@ -283,134 +271,34 @@ program ql_balance
                         ! in get_dql the fort.5000 data is written. The argument is used
                         ! to restrict the writing of the data. Only every "save_prof_time_step"th
                         ! step the data is written
-                        call get_dql(i)
+                        call get_dql
                         call stopIfTimeStepTooSmall
-                        call interpBrAndDqlAtResonanceTimeEvol(i)
-						CALL write_br_time_data(i)
-
-                        ! check if linear discepancy in penetration ratio is reached
-                        !CALL linear_discrepancy_pen_ratio
- 
-                        !if (iexit .eq. 1) then
-                        !    iexit = 0
-                        !    EXIT
-                        !end if                       
-
-                        ! ramp-up RMP coil current
-                        !CALL ramp_coil
-
-                        !if (iexit .eq. 1) then
-                        !    iexit = 0
-                        !    EXIT
-                        !end if
-                        !Old ramp up by Martin: ramp up to 1s then ramp down to 2s
-                        !to check hysteresis behaviour. afterwards small increases
-                        !if (time.lt.1.d0) then
-                        !    antenna_factor = time**2
-                        !elseif (time.gt.1.d0.AND.time.lt.2.d0 ) then
-                        !    antenna_factor = (2.d0 - time)**2
-                        !endif
-                        !antenna_factor = antenna_factor + 1.d-4
+                        call interpBrAndDqlAtResonanceTimeEvol
+						call write_br_time_data
                         call rescaleTranspCoefficientsByAntennaFac
 
-                        !
-                        !DIAG:
                         if (write_diag_b) close (iunit_diag_b)
-                        !END DIAG
-                        timscal_dql = maxval(abs(dqle11_prev - dqle11))/maxval(dqle11_prev + dqle11)
-                        ind_dqle = maxloc(abs(dqle11_prev - dqle11))
-                        timscal_dqli = maxval(abs(dqli11_prev - dqli11))/maxval(dqli11_prev + dqli11)
-                        ind_dqli = maxloc(abs(dqli11_prev - dqli11))
-                        rate_dql = timscal_dql/timstep
-                        ! write fort.9999 data if diagnostics output is done
-                        if (diagnostics_output) then
-                            if (irank .eq. 0) then
-                                print *, 'timscal_dqle = ', sngl(timscal_dql) &
-                                    , 'timscal_dqli = ', sngl(timscal_dqli)
-                                print *, 'maximum dqle at r = ', rc(ind_dqle(1)) &
-                                    , 'maximum dqli at r = ', rc(ind_dqli(1))
-                                ! Edited by Markus Markl, 26.02.2021
-                                if (ihdf5IO .eq. 1) then
-                                    ! write fort.9999 data to hdf5 file
-                                    h5_currentgrp = trim("/"//trim(h5_mode_groupname) &
-                                                         //"/fort.9999")
-                                    CALL h5_init()
-                                    CALL h5_open_rw(path2out, h5_id)
-                                    CALL h5_obj_exists(h5_id, trim(h5_currentgrp), h5_exists_log)
-                                    if (h5_exists_log) then
-                                        CALL h5_delete(h5_id, trim(h5_currentgrp))
-                                    end if
 
-                                    CALL h5_define_unlimited_matrix(h5_id, trim(h5_currentgrp), &
-                                                                    H5T_NATIVE_DOUBLE, (/-1, 3/), dataset_id)
-                                    CALL h5_append_double_1(dataset_id, rb, 1)
-                                    CALL h5_append_double_1(dataset_id, abs(dqle11_prev - dqle11), 2)
-                                    CALL h5_append_double_1(dataset_id, abs(dqli11_prev - dqli11), 3)
-
-                                    CALL h5_close(h5_id)
-                                    CALL h5_deinit()
-
-                                else
-                                    do ipoi = 1, npoib
-                                        write (9999, *) rb(ipoi), abs(dqle11_prev(ipoi) - dqle11(ipoi)), &
-                                            abs(dqli11_prev(ipoi) - dqli11(ipoi))
-                                    end do
-                                    close (9999)
-                                end if
-                            end if
-                        end if
-                        !    timscal_dql=timscal_dql+timscal_dqli
-                        !    if(timscal_dql.lt.tol*factolmax) then
-                        if (.true.) then
-                            dostep = .false.
+                        call writefort9999
+                        
+                        if (.not. redostep) then
                             call savePrevTranspCoefficients
                             params_begbeg = params
                             ioddeven = ioddeven + 1
                         else
-                            if (irank .eq. 0) then
-                                print *, 'redo step with old DQL'
-                            end if
-                            call savePrevTranspCoefficients
-                            iunit_redo = 137
-
-                            if (irank .eq. 0) then
-                                open (iunit_redo, file='params_redostep.after')
-                                do ipoi = 1, npoic
-                                    write (iunit_redo, *) rc(ipoi), params(1:2, ipoi) &
-                                        , params(3, ipoi)/ev &
-                                        , params(4, ipoi)/ev &
-                                        , 0.5d0*(Ercov(ipoi) + Ercov(ipoi + 1))
-                                end do
-                                close (iunit_redo)
-                            end if
-                            params = params_begbeg
-                            if (irank .eq. 0) then
-                                open (iunit_redo, file='params_redostep.before')
-                                do ipoi = 1, npoic
-                                    write (iunit_redo, *) rc(ipoi), params(1:2, ipoi) &
-                                        , params(3, ipoi)/ev &
-                                        , params(4, ipoi)/ev &
-                                        , 0.5d0*(Ercov(ipoi) + Ercov(ipoi + 1))
-                                end do
-                                close (iunit_redo)
-                            end if
-                            timstep = timstep/factolmax
-                            timstep_arr = timstep
+                            call redoTimeStep
                         end if
-                        !
+                        
                         do ! redo step loop
-                            !
+                            
                             params_beg = params
-                            !
-                            write(*,*) "timstep before evolvestep is ", timstep
-                            write(*,*) "eps before evolvestep is ", eps
+                            
+                            write(*,*) "before evolvestep: timstep =", timstep, ", eps=", eps, &
+                                ", time=", time
                             call evolvestep(timstep, eps)
                             write(*,*) "timstep after evolvestep is ", timstep
-                            !
-                            !limits ion and electron temperatures from below (by 10 eV in this example).
-                            !Added by Philipp Ulbl on 09.06.2020
-
-                            !write(*,*) "Limit Te and Ti from below"
+                            
+                            !limit ion and electron temperatures from below (by 10 eV in this example).
                             do ipoi = 1, npoic
                                 if (.true.) then
                                     params(3, ipoi) = max(params(3, ipoi), temperature_limit*ev)
@@ -558,9 +446,8 @@ program ql_balance
                                 close (4321)
                             end if
                         end if
-                        !
-                        !enddo ! do while(dostep)
-                        !
+                        
+
                         do ipoi = 1, npoi
                             do ieq = 1, nbaleqs
                                 k = nbaleqs*(ipoi - 1) + ieq
@@ -706,7 +593,7 @@ subroutine linear_discrepancy_pen_ratio
             write(*,*) 'discrepancy to linearly predicted value of Br_abs_res > delta'
             if (modulo(i, save_prof_time_step) .ne. 0) then
                 if (suppression_mode .eqv. .false.) then
-                    CALL writefort5000
+                    CALL writeFieldsCurrentsAndTranspCoeffsToH5
                 end if
             end if
             if (suppression_mode .eqv. .false.) then
@@ -737,7 +624,7 @@ subroutine linear_discrepancy_pen_ratio
                     end if
                 else
                     if (debug_mode) write(*,*) "Debug: Write br_time _data"
-                    CALL write_br_time_data(i)!, br_abs_time, br_abs_antenna_factor, br_abs, dqle22_res_time)
+                    CALL write_br_time_data!, br_abs_time, br_abs_antenna_factor, br_abs, dqle22_res_time)
                     CALL MPI_finalize(ierror);
                     write(*,*) 'stop'
                     stop

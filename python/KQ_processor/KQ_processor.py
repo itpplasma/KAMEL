@@ -40,7 +40,7 @@ class KQ_processor:
         gfile ... path to the EQDSK file
         flux_data ... path where the flux data will be moved to"""
 
-        self.gfile = gfile 
+        self.gfile = gfile
         self.pfile = pfile
         self.convex_wall = convex_wall 
         self.flux_data = flux_data 
@@ -82,14 +82,14 @@ class KQ_processor:
 
         self.pp.Te = self.pp.Te * rescale_factor
 
-    def get_tMHD_current(self, curr_file, m_mode=np.array([10]), delta_phi=0.0, coil_curr_scale_l=1.0, coil_curr_scale_u=1.0):
+    def get_tMHD_current(self, curr_file, m_mode=np.array([10]), delta_phi=0.0, coil_curr_scale_l=1.0, coil_curr_scale_u=1.0, case='standard', InputFile='', **kwargs):
         """Get the tMHD current for a given m_mode."""
 
         self.tmhd = tMHD_current()
 
         self.tmhd.set_equil(self.flux_data + 'equil_r_q_psi.dat', self.flux_data + 'btor_rbig.dat')
         #self.tmhd.load_curr_harmonics_MARSF(curr_file)
-        self.tmhd.load_current_MARSF(curr_file)
+        self.tmhd.load_current_MARSF(curr_file, case, kwargs)
         self.tmhd.mix_coil_rows(delta_phi=delta_phi, coil_curr_scale_l=coil_curr_scale_l, coil_curr_scale_u=coil_curr_scale_u)
         self.prepare_efit2boozer_inp()
         self.prepare_field_divB0_inp()

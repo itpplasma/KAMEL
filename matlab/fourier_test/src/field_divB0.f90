@@ -322,7 +322,7 @@ subroutine read_dimeq0(nrad,nzet)
 
   read(11,111) nrad
   read(11,111) nzet
-111  format(12x,i3)
+111  format(12x,i4)
 
   close(11)
   return
@@ -437,7 +437,7 @@ subroutine read_eqfile1(nwEQD,nhEQD,psiSep, bt0, rzero, rad, zet, psiRZ)
 
 ! Equilibrium Parameters
   read(gunit,2000)(dummy(i),i=1,6),idum,nwEQD,nhEQD
-  write(*,*) 'READ_EQFILE1: ',trim(gfile),nwEQD,nhEQD
+  write(*,*) 'READ_EQFILE1: ',trim(gfile), nwEQD,nhEQD
   read(gunit,2010,end=55,err=250)xdim,zdim,rzero,r1,zmid
   write(*,*) xdim, zdim, rzero, r1, zmid
   read(gunit,2010,end=55,err=250)rmaxis,zmaxis,psiAxis,psiSep,bt0

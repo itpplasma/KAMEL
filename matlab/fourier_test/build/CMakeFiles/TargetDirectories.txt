@@ -1,4 +1,0 @@
-/afs/itp.tugraz.at/user/markl_m/Dokumente/plasma/code/balance/matlab/fourier_test/build/CMakeFiles/rebuild_cache.dir
-/afs/itp.tugraz.at/user/markl_m/Dokumente/plasma/code/balance/matlab/fourier_test/build/CMakeFiles/fouriermodes.x.dir
-/afs/itp.tugraz.at/user/markl_m/Dokumente/plasma/code/balance/matlab/fourier_test/build/CMakeFiles/edit_cache.dir
-/afs/itp.tugraz.at/user/markl_m/Dokumente/plasma/code/balance/matlab/fourier_test/build/CMakeFiles/mc_efit.dir

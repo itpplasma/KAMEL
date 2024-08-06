@@ -1,1 +1,0 @@
-/usr/bin/gfortran CMakeFiles/fouriermodes.x.dir/src/fouriermodes.f90.o -o fouriermodes.x  -Wl,-rpath,/afs/itp.tugraz.at/user/markl_m/Dokumente/plasma/code/balance/matlab/fourier_test/build libmc_efit.so 

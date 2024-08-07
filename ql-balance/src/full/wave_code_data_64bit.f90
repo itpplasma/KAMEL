@@ -1,95 +1,23 @@
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-
-module wave_code_data
-
-    implicit none; 
-    integer, parameter :: pp = 8; !pp = 4 for 32 bit and pp = 8 for 64 bit
-
-    integer(pp), allocatable, dimension(:) :: flre_cd_ptr; !pointer to kilca's core data object for each mode
-    integer(pp), allocatable, dimension(:) :: vac_cd_ptr; !pointer to kilca's core data object for each mode
-
-    character(1024) :: flre_path; 
-    character(1024) :: vac_path; 
-    integer :: flre_call_ind = 0; 
-    integer :: vac_call_ind = 0; 
-    integer :: dim_mn; 
-    integer, allocatable, dimension(:) :: m_vals, n_vals; 
-!radial grid:
-    integer :: dim_r; !radial grid dimension
-    real(8), allocatable, dimension(:) :: r; !radial grid array
-
-!wave fields (Gauss system units) for a mode:
-    complex(8), allocatable, dimension(:) :: Er; !E field in rsp coordinates
-    complex(8), allocatable, dimension(:) :: Es; !E field in rsp coordinates
-    complex(8), allocatable, dimension(:) :: Ep; !E field in rsp coordinates
-    complex(8), allocatable, dimension(:) :: Et; !Etheta field in cyl coordinates
-    complex(8), allocatable, dimension(:) :: Ez; !Ez field in cyl coordinates
-
-    complex(8), allocatable, dimension(:) :: Br; !B field in rsp coordinates
-    complex(8), allocatable, dimension(:) :: Bs; !B field in rsp coordinates
-    complex(8), allocatable, dimension(:) :: Bp; !B field in rsp coordinates
-    complex(8), allocatable, dimension(:) :: Bt; !Btheta field in cyl coordinates
-    complex(8), allocatable, dimension(:) :: Bz; !Bz field in cyl coordinates
-
-!current densities (Gauss system units) for a mode:
-    complex(8), allocatable, dimension(:) :: Jri; !Jr for ions
-    complex(8), allocatable, dimension(:) :: Jsi; !Js for ions
-    complex(8), allocatable, dimension(:) :: Jpi; !Jp for ions
-    complex(8), allocatable, dimension(:) :: Jre; !Jr for electrons
-    complex(8), allocatable, dimension(:) :: Jse; !Js for electrons
-    complex(8), allocatable, dimension(:) :: Jpe; !Jp for electrons
-
-!background profiles:
-    real(8), allocatable, dimension(:) :: q; !safety factor
-    real(8), allocatable, dimension(:) :: n; !1/cm^3
-    real(8), allocatable, dimension(:) :: Ti; !eV
-    real(8), allocatable, dimension(:) :: Te; !eV
-    real(8), allocatable, dimension(:) :: Vth; !cm/c
-    real(8), allocatable, dimension(:) :: Vz; !cm/c
-    real(8), allocatable, dimension(:) :: dPhi0; !electric potential, Gauss units
-
-    real(8), allocatable, dimension(:) :: nui; !ions collision frequency
-    real(8), allocatable, dimension(:) :: nue; !electrons collision frequency
-
-    real(8), allocatable, dimension(:) :: B0t; 
-    real(8), allocatable, dimension(:) :: B0z; 
-    real(8), allocatable, dimension(:) :: B0; 
-!misc data for a mode:
-    real(8), allocatable, dimension(:) :: kp; 
-    real(8), allocatable, dimension(:) :: ks; 
-    real(8), allocatable, dimension(:) :: om_E; 
-!for a spectrum:
-    real(8), allocatable, dimension(:) :: diss_pow_dens; 
-! initial background profiles to be loaded from files:
-    real(8), allocatable, dimension(:) :: rq, iq; !safety factor
-    real(8), allocatable, dimension(:) :: rn, in; !1/cm^3
-    real(8), allocatable, dimension(:) :: rTi, iTi; !eV
-    real(8), allocatable, dimension(:) :: rTe, iTe; !eV
-    real(8), allocatable, dimension(:) :: rVth, iVth; !cm/c
-    real(8), allocatable, dimension(:) :: rVz, iVz; !cm/c
-    real(8), allocatable, dimension(:) :: rep, idPhi0; !electric potential, Gauss units
-    double precision :: antenna_factor
-
-    character(1024) :: path2profs = './profiles/'; ! path to background profiles
-end module
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
+    !runs wave code to compute (E,B) - fields.
 subroutine get_wave_code_data(imin, imax)
 
-!runs wave code to compute (E,B) - fields.
+    use wave_code_data
 
-    use wave_code_data; 
-    implicit none; 
-    integer, intent(in) :: imin, imax; 
-    integer :: k; 
+    implicit none
+
+    integer, intent(in) :: imin, imax
+    integer :: k
+
     do k = imin, imax
-
-        call clear_wave_code_data(flre_cd_ptr(k)); 
-        call calc_wave_code_data_for_mode(flre_cd_ptr(k), flre_path, len(trim(flre_path)), m_vals(k), n_vals(k)); 
+        call clear_wave_code_data(flre_cd_ptr(k))
+        call calc_wave_code_data_for_mode(flre_cd_ptr(k), flre_path, len(trim(flre_path)), m_vals(k), n_vals(k))
     end do
 
-    flre_call_ind = flre_call_ind + 1; 
+    flre_call_ind = flre_call_ind + 1
+
 end subroutine
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -102,17 +30,19 @@ subroutine initialize_wave_code_interface(nrad, r_grid)
     use wave_code_data
     use h5mod
     use control_mod, only: readfromtimestep, debug_mode, ihdf5IO
-    implicit none; 
-    integer, intent(in) :: nrad; 
-    real(8), dimension(nrad), intent(in) :: r_grid; 
+
+    implicit none
+
+    integer, intent(in) :: nrad
+    real(8), dimension(nrad), intent(in) :: r_grid
     character(1024) :: profile_path = "./profiles/"
-    integer :: k; 
+    integer :: k
 
     if (debug_mode) write(*,*) "Debug: Coming into initialize_wave_code_interface"
 
-    call read_antenna_modes(flre_path); ! read antenna modes from modes.in file and allocate arrays for mode's numbers
+    call read_antenna_modes(flre_path) ! read antenna modes from modes.in file and allocate arrays for mode's numbers
 
-    call allocate_wave_code_data(nrad, r_grid); 
+    call allocate_wave_code_data(nrad, r_grid)
 !call read_background_profiles(path2profs);
     if (ihdf5IO .eq. 1) then
         if (readfromtimestep .eq. 0) then
@@ -126,7 +56,7 @@ subroutine initialize_wave_code_interface(nrad, r_grid)
         call read_background_profiles(profile_path)
     end if
 
-    call interp_background_profiles(); ! interpolate the initial profiles to the balance grid
+    call interp_background_profiles() ! interpolate the initial profiles to the balance grid
 
 ! vacuum fields for the whole spectrum:
     do k = 1, dim_mn
@@ -205,52 +135,52 @@ end subroutine
 
 subroutine save_wave_code_data()
 
-    use wave_code_data; 
-    implicit none; 
-    integer :: k; 
-    character(64) :: string; 
-    character(16) :: ind_str; 
-    integer :: width; 
+    use wave_code_data
+
+    implicit none
+
+    integer :: k
+    character(64) :: string
+    character(16) :: ind_str
+    integer :: width
+
     if (flre_call_ind > 0) then
-        width = log10(real(flre_call_ind)) + 1; 
+        width = log10(real(flre_call_ind)) + 1
     else
-        width = 1; 
+        width = 1
     end if
 
-    write (unit=ind_str, fmt='(I8)') width; 
-    write (unit=ind_str, fmt=*) trim(ind_str); 
-    write (unit=string, fmt='(A5,I'//ind_str//',A4)') 'back_', flre_call_ind, '.dat'; 
-    open (10, file=trim(string)); 
-    write (unit=string, fmt='(A5,I'//ind_str//',A4)') 'misc_', flre_call_ind, '.dat'; 
-    open (20, file=trim(string)); 
-    write (unit=string, fmt='(A7,I'//ind_str//',A4)') 'fields_', flre_call_ind, '.dat'; 
+    write (unit=ind_str, fmt='(I8)') width
+    write (unit=ind_str, fmt=*) trim(ind_str)
+    write (unit=string, fmt='(A5,I'//ind_str//',A4)') 'back_', flre_call_ind, '.dat'
+    open (10, file=trim(string))
+    write (unit=string, fmt='(A5,I'//ind_str//',A4)') 'misc_', flre_call_ind, '.dat'
+    open (20, file=trim(string))
+    write (unit=string, fmt='(A7,I'//ind_str//',A4)') 'fields_', flre_call_ind, '.dat'
     open (30, file=trim(string)); 
-!write(unit=string, fmt='(A12,I'//ind_str//',A4)') 'disspowdens_', flre_call_ind, '.dat';
-!open (40, file=trim(string));
 
     do k = 1, dim_r
 
-        write (10, *) r(k), q(k), n(k), Ti(k), Te(k), Vth(k), Vz(k), dPhi0(k); 
-        write (20, *) r(k), kp(k), ks(k), B0t(k), B0z(k), B0(k), om_E(k); 
+        write (10, *) r(k), q(k), n(k), Ti(k), Te(k), Vth(k), Vz(k), dPhi0(k)
+        write (20, *) r(k), kp(k), ks(k), B0t(k), B0z(k), B0(k), om_E(k)
         write (30, *) r(k), real(Er(k)), aimag(Er(k)), real(Es(k)), aimag(Es(k)), &
             real(Ep(k)), aimag(Ep(k)), real(Et(k)), aimag(Et(k)), &
             real(Ez(k)), aimag(Ez(k)), real(Br(k)), aimag(Br(k)), &
             real(Bs(k)), aimag(Bs(k)), real(Bp(k)), aimag(Bp(k)), &
-            real(Bt(k)), aimag(Bt(k)), real(Bz(k)), aimag(Bz(k)); 
-!    write (40,*) r(k), diss_pow_dens(k);
+            real(Bt(k)), aimag(Bt(k)), real(Bz(k)), aimag(Bz(k))
 
     end do
 
-    close (10); 
-    close (20); 
-    close (30); 
-!close (40);
+    close (10)
+    close (20)
+    close (30)
 
 end subroutine
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
 subroutine update_background_files(path)
+
     use wave_code_data 
     use grid_mod, only: Ercov
     use plasma_parameters, only: params_b

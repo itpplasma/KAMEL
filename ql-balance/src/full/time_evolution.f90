@@ -2,19 +2,25 @@
 
     use control_mod
     use parallelTools
+    use h5mod
 
     implicit none
 
     logical :: flag_run_time_evolution !Added by Philipp Ulbl 12.05.2020
     logical :: br_stopping ! trigger Br stopping criterion
+    logical :: discr_reached = .false. ! variable to say if discrepancy to linear regression
+    logical :: scratch
 
     integer :: Nstorage
     integer :: ramp_up_mode !> control ramp up mode of the RMP coil current amplitude
     integer :: save_prof_time_step ! added by Markus Markl 11.03.2021
     integer :: iexit ! used for ramp-up skipping of saving
     integer :: ramp_up_down = 0 !> used in hysteresis mode, tells if ramp-up (0) or ramp-down (1)
-    integer :: timeStep, timescale
-    
+    integer :: timeIndex, timescale
+
+    double precision :: tmax
+    DOUBLE PRECISION :: br_beta = 0
+    DOUBLE PRECISION :: br_predicted
 
     double precision :: tmax_factor!, antenna_factor
     double precision :: stop_time_step !Added by Philipp Ulbl 13.05.2020
@@ -47,6 +53,8 @@
 
     logical :: firstiterationdone = .false. !Some steps in saving the data to hdf5 file 
     !need to be done only the first time iteration
+
+    integer(HID_T) :: time_dataset_id !> variable to save the time dataset id
 
     contains
 
@@ -178,20 +186,20 @@
             CALL h5_open_rw(path2out, h5_id)
 
  		    h5_currentgrp = "/"//trim(h5_mode_groupname) //"/br_abs_time"
-		    CALL h5_add_double_1(h5_id, trim(h5_currentgrp), br_abs_time(1:timeStep), &
-			    lbound(br_abs_time(1:timeStep)), ubound(br_abs_time(1:timeStep)))
+		    CALL h5_add_double_1(h5_id, trim(h5_currentgrp), br_abs_time(1:timeIndex), &
+			    lbound(br_abs_time(1:timeIndex)), ubound(br_abs_time(1:timeIndex)))
 
  		    h5_currentgrp = "/"//trim(h5_mode_groupname) //"/br_abs_antenna_factor"
-		    CALL h5_add_double_1(h5_id, trim(h5_currentgrp), br_abs_antenna_factor(1:timeStep), &
-			    lbound(br_abs_antenna_factor(1:timeStep)), ubound(br_abs_antenna_factor(1:timeStep)))
+		    CALL h5_add_double_1(h5_id, trim(h5_currentgrp), br_abs_antenna_factor(1:timeIndex), &
+			    lbound(br_abs_antenna_factor(1:timeIndex)), ubound(br_abs_antenna_factor(1:timeIndex)))
 
  		    h5_currentgrp = "/"//trim(h5_mode_groupname) //"/br_abs_res"
-		    CALL h5_add_double_1(h5_id, trim(h5_currentgrp), br_abs(1:timeStep), &
-			    lbound(br_abs(1:timeStep)), ubound(br_abs(1:timeStep)))
+		    CALL h5_add_double_1(h5_id, trim(h5_currentgrp), br_abs(1:timeIndex), &
+			    lbound(br_abs(1:timeIndex)), ubound(br_abs(1:timeIndex)))
 
  		    h5_currentgrp = "/"//trim(h5_mode_groupname) //"/dqle22_res_time"
-		    CALL h5_add_double_1(h5_id, trim(h5_currentgrp), dqle22_res_time(1:timeStep), &
-			    lbound(dqle22_res_time(1:timeStep)), ubound(dqle22_res_time(1:timeStep)))
+		    CALL h5_add_double_1(h5_id, trim(h5_currentgrp), dqle22_res_time(1:timeIndex), &
+			    lbound(dqle22_res_time(1:timeIndex)), ubound(dqle22_res_time(1:timeIndex)))
 
 
             CALL h5_close(h5_id)
@@ -199,7 +207,7 @@
 
         else
             open (777, file='br_abs_res.dat', position='append')
-            write (777, *) timeStep, time, antenna_factor, br_abs(timeStep)
+            write (777, *) timeIndex, time, antenna_factor, br_abs(timeIndex)
             close (777)
         end if
     end subroutine ! write_br_time_data
@@ -500,6 +508,92 @@
 
     end subroutine !ramp_coil
 
+
+    !@> brief Check if discrepancy between penetration ratio and linear extrapolation exceeds critical value
+    !> author> Markus Markl
+    !> created 13.03.2023
+    subroutine checkIfLinearDiscrepancyOfPenRatioReached
+
+        use paramscan_mod, only: fac_n, fac_Te, fac_Ti, fac_vz, ifac_n, ifac_Te, &
+                                ifac_Ti, ifac_vz
+        implicit none
+        ! Stopping by linear regression of Br_abs_res
+        !
+        ! Calculate br_beta from br_abs_res = br_beta * br_abs_time, which is
+        ! essentially the slope of the curve. It is assumed that the curve
+        ! intersects the y axis at 0. The slope is then used to calculate
+        ! the "predicted" value for br_abs, which is compared to the actual
+        ! value thereof. If the discrepancy becomes too big, the program is
+        ! stopped.
+        !
+        if (timeIndex .gt. 50 .and. .not. discr_reached) then
+            ! calculate beta only once
+            if (br_beta .eq. 0) then
+                ! Calculate slope from the data until this time step. (Simple linear regression algorithm)
+                br_beta = sum(br_abs(3:timeIndex)*br_abs_time(3:timeIndex))/sum(br_abs_time(1:timeIndex)**2)
+                write(*,*) 'br_beta = ', br_beta
+            end if
+            ! calculate the from the linear regression predicted value of Br_abs
+            br_predicted = br_beta*br_abs_time(timeIndex)
+            write(*,*) "Delta = ", abs(br_abs(timeIndex) - br_predicted)
+            if (abs(br_abs(timeIndex) - br_predicted) .gt. 0.1) then
+                write(*,*) 'discrepancy to linearly predicted value of Br_abs_res > delta'
+                if (modulo(timeIndex, save_prof_time_step) .ne. 0) then
+                    if (suppression_mode .eqv. .false.) then
+                        CALL writeFieldsCurrentsAndTranspCoeffsToH5
+                    end if
+                end if
+                if (suppression_mode .eqv. .false.) then
+                    CALL writeKinProfileDataToDisk(timeIndex)
+                end if
+                if (br_stopping) then
+                    ! Write the cause of the stopping into the hdf5 file
+                    CALL h5_init()
+                    CALL h5_open_rw(path2out, h5_id)
+                    CALL h5_add_string(h5_id, trim(h5_mode_groupname)// &
+                        '/stopping_criterion', 'discrepancy to linearly predicted value of Br_abs_res > delta')
+                    CALL h5_add_double_0(h5_id, trim(h5_mode_groupname)//'/br_beta', br_beta, &
+                        'linear slope of br', 'G/s')
+                    CALL h5_close(h5_id)
+                    CALL h5_deinit()
+
+                    if (paramscan) then
+                        if (ifac_n + ifac_Te + ifac_Ti + ifac_vz .eq. size(fac_n) + &
+                            size(fac_Ti) + size(fac_Te) + size(fac_vz)) then
+                            CALL MPI_finalize(ierror);
+                            stop
+                        else
+                        ! if it is not the last scan, skip the rest of the
+                        ! code and continue with the next loop iteration
+                        !call deallocate_wave_code_data()
+                        write(*,*) 'not last scan; will end time evolution of this parameter choice'
+                        iexit = 1
+                        end if
+                    else
+                        if (debug_mode) write(*,*) "Debug: Write br_time _data"
+                        CALL write_br_time_data!, br_abs_time, br_abs_antenna_factor, br_abs, dqle22_res_time)
+                        CALL MPI_finalize(ierror);
+                        write(*,*) 'stop'
+                        stop
+                    end if
+                else
+                    ! Write the info into the hdf5 file
+                    CALL h5_init()
+                    CALL h5_open_rw(path2out, h5_id)
+                    CALL h5_add_string(h5_id, trim(h5_mode_groupname)// &
+                        '/info', 'discrepancy to linearly predicted value of Br_abs_res > delta')
+                    CALL h5_add_double_1(h5_id, trim(h5_mode_groupname)// &
+                        '/discrep_time', (/timeIndex*1.d0, time/), (/1/), (/2/))
+                    CALL h5_close(h5_id)
+                    CALL h5_deinit()
+                    discr_reached = .true.
+                end if
+            end if
+        end if
+
+    end subroutine
+
+
     !> @brief subroutine writeKinProfileDataToDisk(istep). Writes the profile data to hdf5 files. 
     !> Formerly, this data was written to fort.1xxx ascii files.
     !> This routine was added because of the change that only every
@@ -602,6 +696,20 @@
 
     end subroutine writeKinProfileDataToDisk
 
+    subroutine writeKinProfileAtTimeIndex
+
+        implicit none
+        if (irank .eq. 0) then
+            if (modulo(timeIndex, save_prof_time_step) .eq. 0) then
+                if (suppression_mode .eqv. .false.) then
+                    CALL writeKinProfileDataToDisk(timeIndex)
+                end if
+            end if
+        end if
+
+    end subroutine
+
+
     subroutine interpBrAndDqlAtResonanceTimeEvol
 
         use PolyLagrangeInterpolation
@@ -614,18 +722,18 @@
         call getIndicesForLagrangeInterp(indResRadius)
         call plag_coeff(nlagr, nder, r_resonant(1), rb(indBeginInterp:indEndInterp), coef)
 
-        br_abs(timeStep) = sum(coef(0, :)*abs(Br(indBeginInterp:indEndInterp)))*sqrt(antenna_factor)
-        dqle22_res_time(timeStep) = sum(coef(0, :)*dqle22(indBeginInterp:indEndInterp))
+        br_abs(timeIndex) = sum(coef(0, :)*abs(Br(indBeginInterp:indEndInterp)))*sqrt(antenna_factor)
+        dqle22_res_time(timeIndex) = sum(coef(0, :)*dqle22(indBeginInterp:indEndInterp))
 
         ! save the time for the improved stopping criterion
-        br_abs_time(timeStep) = time
-		br_abs_antenna_factor(timeStep) = antenna_factor
+        br_abs_time(timeIndex) = time
+		br_abs_antenna_factor(timeIndex) = antenna_factor
 
-        write(*,*) 'Br abs res * C_mn= ', br_abs(timeStep)
-        write(*,*) 'Br abs res       = ', br_abs(timeStep)/sqrt(antenna_factor)
-        write(*,*) 'Dqle22 res       = ', dqle22_res_time(timeStep)
+        write(*,*) 'Br abs res * C_mn= ', br_abs(timeIndex)
+        write(*,*) 'Br abs res       = ', br_abs(timeIndex)/sqrt(antenna_factor)
+        write(*,*) 'Dqle22 res       = ', dqle22_res_time(timeIndex)
         write(*,*) 'Antenna factor   = ', antenna_factor
-        write(*,*) 'time = ', br_abs_time(timeStep)
+        write(*,*) 'time = ', br_abs_time(timeIndex)
 
     end subroutine
 
@@ -642,7 +750,7 @@
         if (timstep .lt. stop_time_step .and. time .gt. 1.0d-3) then
             write(*,*) 'stop: timestep smaller than stop limit'
             if (suppression_mode .eqv. .false.) then
-                CALL writeKinProfileDataToDisk(timeStep)
+                CALL writeKinProfileDataToDisk(timeIndex)
             end if
 
             call writeReasonForStopToH5(reason)
@@ -713,7 +821,6 @@
     subroutine rescaleTimStepArr
 
         use grid_mod, only: npoi, nbaleqs
-        use restart_mod, only: scratch
         use recstep_mod, only: tim_stack, timstep_arr, tol
         use diag_mod, only: timscal_dql
 
@@ -779,6 +886,125 @@
         
         timstep_arr = timstep
         tim_stack = timstep_arr
+
+    end subroutine
+
+    subroutine writeTimeInfoToDisk
+
+        implicit none
+        
+        if (irank .eq. 0) then
+            if (ihdf5IO .eq. 1) then
+                call writeTimeInfoToH5
+            else
+                call writeTimeInfoToTxt
+            end if
+        end if
+
+
+    end subroutine
+
+    subroutine writeTimeInfoToTxt
+
+        use diag_mod, only: rate_dql, timscal_dql
+
+        implicit none
+
+        open (4321, file='timstep_evol.dat', position='append')
+        write (4321, *) timeIndex, timstep, timscal_dql, timscal(1), rate_dql, time
+        close (4321)
+
+    end subroutine
+
+    subroutine writeTimeInfoToH5
+
+        use diag_mod, only: rate_dql, timscal_dql
+
+        implicit none
+
+        h5_currentgrp = trim("/"//trim(h5_mode_groupname)//"/timstep_evol.dat")
+
+        CALL h5_init()
+        CALL h5_open_rw(path2out, h5_id)
+
+        if (.not. firstiterationdone) then
+            if (diagnostics_output) then
+                CALL h5_define_unlimited_matrix(h5_id, trim(h5_currentgrp), &
+                                                H5T_NATIVE_DOUBLE, (/6, -1/), time_dataset_id)
+            else
+                CALL h5_define_unlimited_matrix(h5_id, trim(h5_currentgrp), &
+                                                H5T_NATIVE_DOUBLE, (/3, -1/), time_dataset_id)
+            end if
+        end if
+        ! this output works differently, because it is done for each
+        ! time step and not all at once. For every time step a row
+        ! is appended to the data. This is different to the case
+        ! where the whole data is written at once. In the latter
+        ! the data for one variable is saved in one row, i.e. there
+        ! are length(variable) number of columns.
+        if (diagnostics_output) then
+            CALL h5_append_double_1(time_dataset_id, (/timeIndex*1.d0, timstep, &
+                                                        timscal_dql, timscal(1), rate_dql, time/), timeIndex)
+        else
+            CALL h5_append_double_1(time_dataset_id, (/timeIndex*1.d0, timstep, &
+                                                        time/), timeIndex)
+        end if
+        CALL h5_close(h5_id)
+        CALL h5_deinit()
+
+    end subroutine
+
+    subroutine relaxPlasmaParameters
+
+        use grid_mod, only: npoi, nbaleqs
+        use plasma_parameters, only: params
+        use baseparam_mod, only: urelax
+
+        implicit none
+
+        integer :: ipoi, ieq, k
+
+        do ipoi = 1, npoi
+            do ieq = 1, nbaleqs
+                k = nbaleqs*(ipoi - 1) + ieq
+                params(ieq, ipoi) = yprev(k)*urelax + params(ieq, ipoi)*(1.d0 - urelax)
+            end do
+        end do
+
+    end subroutine
+
+    subroutine messageTimeInfo
+
+        implicit none
+        if (irank .eq. 0) then
+            write(*,*) ' '
+            write(*,*) 'i = ', int2(timeIndex), 'time = ', real(time)
+            write(*,*) ' '
+        end if
+
+    end subroutine
+
+    subroutine setFirstIterationTrue
+
+        implicit none
+
+        if (firstiterationdone .eqv. .false.) firstiterationdone = .true.
+
+    end subroutine
+
+
+    subroutine determineDqlDiagnostic
+
+        use grid_mod, only: dqle11, dqli11
+        use diag_mod
+
+        implicit none
+
+        timscal_dql = maxval(abs(dqle11_prev - dqle11))/maxval(dqle11_prev + dqle11)
+        ind_dqle = maxloc(abs(dqle11_prev - dqle11))
+        timscal_dqli = maxval(abs(dqli11_prev - dqli11))/maxval(dqli11_prev + dqli11)
+        ind_dqli = maxloc(abs(dqli11_prev - dqli11))
+        rate_dql = timscal_dql/timstep
 
     end subroutine
 

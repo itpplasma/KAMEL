@@ -827,7 +827,7 @@ subroutine get_dql
     use mpi
     use diag_mod, only: write_diag, iunit_diag, write_diag_b, iunit_diag_b, i_mn_loop
     use PolyLagrangeInterpolation    
-    use time_evolution, only: timeStep
+    use time_evolution, only: timeIndex
 
     implicit none
     !logical :: suppression_mode = .true.
@@ -1112,7 +1112,7 @@ subroutine get_dql
 
 
         if (irank .eq. 0) then
-            if (timeStep .le. 1) then
+            if (timeIndex .le. 1) then
                 if (ihdf5IO .eq. 1) then
                     if (.not. allocated(coef)) allocate(coef(0:nder,nlagr))
                     call binsrc(rb, 1, npoib, r_resonant(1), ibrabsres)
@@ -1286,7 +1286,7 @@ subroutine get_dql
 
 
     if (irank .eq. 0) then
-        if (modulo(timeStep, save_prof_time_step) .eq. 0) then
+        if (modulo(timeIndex, save_prof_time_step) .eq. 0) then
             if (suppression_mode .eqv. .false.) then
                 CALL writeFieldsCurrentsAndTranspCoeffsToH5
             end if

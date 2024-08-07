@@ -66,8 +66,10 @@ include_directories ("${sundials_include_path_build}")
 
 set(balance_lib_fortran_sources
     ${full_balance_src}/ql-balance_mod.f90
+    ${full_balance_src}/grid_mod.f90
+    ${full_balance_src}/h5mod.f90
     ${full_balance_src}/rhs_balance.f90
-    ${full_balance_src}/wave_code_data_64bit.f90
+    ${full_balance_src}/wave_code_data_mod.f90
     ${full_balance_src}/Wmn.f90
     ${full_balance_src}/evolvestep.f90 
     ${full_balance_src}/read_config.f90 
@@ -77,14 +79,16 @@ set(balance_lib_fortran_sources
     ${src}/hdf5_tools/hdf5_tools.f90
     ${full_balance_src}/sparse_mod.f90
     ${full_balance_src}/paramscan.f90
+    ${full_balance_src}/parallelTools.f90
     ${full_balance_src}/linear_run.f90
+    ${full_balance_src}/writeData.f90
     ${full_balance_src}/time_evolution.f90
     ${full_balance_src}/restart.f90
     ${full_balance_src}/plasma_parameters.f90
-    ${full_balance_src}/h5mod.f90
     ${full_balance_src}/W2_arr.f90
     ${full_balance_src}/magnetic_island_width.f90
     ${full_balance_src}/diagnostic_mod.f90
+    ${full_balance_src}/wave_code_data_64bit.f90
     ${full_balance_src}/sample_matrix.f90)
 
 set(balance_lib_cpp_sources

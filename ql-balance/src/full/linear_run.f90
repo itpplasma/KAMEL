@@ -34,6 +34,7 @@ module linear_run
         use mpi
         use parallelTools, only: ierror
         use control_mod, only: ihdf5IO
+        use paramscan_mod, only: writeDqle22
 
         implicit none
 

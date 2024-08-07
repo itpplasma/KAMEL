@@ -14,7 +14,7 @@ module paramscan_mod
     DOUBLE PRECISION, DIMENSION(:,:,:,:), ALLOCATABLE :: Er_res
     DOUBLE PRECISION, DIMENSION(:, :, :, :), ALLOCATABLE :: br_abs_res_parscan
     DOUBLE PRECISION, DIMENSION(:, :, :, :), ALLOCATABLE :: dqle22_res
-    double precision, dimension(:), allocatable :: hold_n, hold_Te, hold_Ti, hold_Vz, hold_dphi0! variables to hold the initial bg profiles
+    
 
     contains
 
@@ -22,8 +22,6 @@ module paramscan_mod
     !> @author Markus Markl
     !> @date 05.10.2022
     subroutine initialize_parameter_scan_vars
-
-        use control_mod, only: paramscan
 
         implicit none
 
@@ -53,10 +51,12 @@ module paramscan_mod
 
     subroutine getfactors
 
-        use wave_code_data
         use h5mod
 
+        implicit none
+
         integer :: lb, ub
+
         CALL h5_init()
         CALL h5_open_rw(path2out, h5_id)
         CALL h5_get_bounds_1(h5_id, "/factors/fac_n", lb, ub)
@@ -82,33 +82,13 @@ module paramscan_mod
 
     end subroutine
 
-    subroutine alloc_hold_parameters
-        
-        use grid_mod, only: npoib
-        use plasma_parameters, only: params
-        use wave_code_data, only: idPhi0
-
-        implicit none
-
-        allocate(hold_n(npoib))
-        allocate(hold_Vz(npoib))
-        allocate(hold_Te(npoib))
-        allocate(hold_Ti(npoib))
-        allocate(hold_dphi0(npoib))
-        hold_n = params(1, :)
-        hold_Vz = params(2, :)
-        hold_Te = params(3, :)
-        hold_Ti = params(4, :)
-        hold_dphi0 = idPhi0
-
-    end subroutine
 
     !> @brief subroutine rescale_profiles. Rescales kinetic profiles (n,Vz,Te,Ti).
     !> @author Markus Markl
     !> @date 05.10.2022
     subroutine rescale_profiles
 
-        use plasma_parameters, only: params
+        use plasma_parameters, only: params, hold_n, hold_vz, hold_Te, hold_Ti, hold_dphi0
         use control_mod, only: debug_mode
         use h5mod
         use wave_code_data, only: idPhi0
@@ -194,6 +174,206 @@ module paramscan_mod
         
         Er_res(ifac_n, ifac_Te, ifac_Ti, ifac_vz) = sum(coef(0, :)*Ercovavg(indBeginInterp:indEndInterp))
         if (debug_mode) write (*, *) "Er_res = ", Er_res(ifac_n, ifac_Te, ifac_Ti, ifac_vz)
+
+    end subroutine
+
+    !> @brief subroutine creategroupstructure. Creates the group structure in the hdf5 file.
+    !> @author  Markus Markl
+    !> @date 12.03.2021
+    subroutine creategroupstructure
+
+        use control_mod
+        use wave_code_data, only: m_vals, n_vals
+        use resonances_mod, only: numres
+        use h5mod
+
+        implicit none
+        !logical :: suppression_mode = .true.
+
+        write (*, *) "Creating group structure"
+        ! if the profiles should be written out, i.e. suppression_mode = false, then an extended group
+        ! structure is created to save them
+        if (.not. suppression_mode) then
+            CALL h5_init()
+            CALL h5_open_rw(path2out, h5_id)
+            do ifac_n = 1, size(fac_n)
+                do ifac_Te = 1, size(fac_Te)
+                    do ifac_Ti = 1, size(fac_Ti)
+                        do ifac_vz = 1, size(fac_vz)
+                            write (*, *) ifac_n, ifac_Te, ifac_Ti, ifac_vz
+                            if (paramscan) then
+                                ! change parameter scan string used for the
+                                !group structure in hdf5 file
+                                write (parscan_str, "(A,F0.3,A,F0.3,A,F0.3,A,F0.3)") &
+                                    "n", fac_n(ifac_n), "Te", fac_Te(ifac_Te), &
+                                    "Ti", fac_Ti(ifac_Ti), "vz", fac_vz(ifac_vz)
+                            
+                                if (numres .eq. 1) then
+                                    write (h5_mode_groupname, "(A,A,A,I1,A,I1)") &
+                                        trim(parscan_str), "/", "f_", m_vals(1), &
+                                        "_", n_vals(1)
+                                else
+                                    write (h5_mode_groupname, "(A,A,A,I1,A,I1)") &
+                                        trim(parscan_str), "/", "multi_mode"
+                                end if
+
+                            else
+                                ! leave it empty if no parameter scan
+                                parscan_str = ""
+                                ! if more than one RMP mode is used, use different group name
+                                if (numres .eq. 1) then
+                                    write (h5_mode_groupname, "(A,I1,A,I1)") &
+                                        "f_", m_vals(1), "_", n_vals(1)
+                                else
+                                    write (h5_mode_groupname, "(A,I1,A,I1)") &
+                                        "multi_mode"
+                                end if
+                            end if
+                            ! create the groups that are furthest down: fort.1000,
+                            ! fort.5000 and init_params
+                            write(*,*) "h5_mode_groupname ", trim(h5_mode_groupname)
+                            CALL h5_create_parent_groups(h5_id, trim(h5_mode_groupname) &
+                                                        //'/')
+
+                            if (suppression_mode .eqv. .false.) then
+                                CALL h5_create_parent_groups(h5_id, &
+                                                            trim(h5_mode_groupname)//"/fort.1000/")
+                                CALL h5_define_group(h5_id, &
+                                                    trim(h5_mode_groupname)//"/fort.5000/", group_id_1)
+                                CALL h5_close_group(group_id_1)
+                            end if
+                            CALL h5_obj_exists(h5_id, "/init_params", &
+                                            h5_exists_log)
+                            if (.not. h5_exists_log) then
+                                CALL h5_define_group(h5_id, &
+                                                    "/init_params", group_id_2)
+                                CALL h5_close_group(group_id_2)
+                            end if
+                        end do
+                    end do
+                end do
+            end do
+            CALL h5_close(h5_id)
+            CALL h5_deinit()
+
+            ! reset loop variables, since they are also used in main code
+            ifac_n = 1
+            ifac_Te = 1
+            ifac_Ti = 1
+            ifac_vz = 1
+            ! reset h5_mode_groupname string
+            if (paramscan) then
+                ! change parameter scan string used for the
+                !group structure in hdf5 file
+                write (parscan_str, "(A,F0.3,A,F0.3,A,F0.3,A,F0.3,A)") &
+                    "n", fac_n(ifac_n), "Te", fac_Te(ifac_Te), &
+                    "Ti", fac_Ti(ifac_Ti), "vz", fac_vz(ifac_vz), "/"
+            else
+                ! leave it empty if no parameter scan
+                parscan_str = ""
+            end if
+        else
+            ! if suppression_mode is true, only a simple group structure is created
+            ! i.e. /f_m_n and /init_params
+            ! if more than one RMP mode is used, use different group name
+            if (numres .eq. 1) then
+                write (h5_mode_groupname, "(A,I1,A,I1)") &
+                    "f_", m_vals(1), "_", n_vals(1)
+            else
+                write (h5_mode_groupname, "(A,I1,A,I1)") &
+                    "multi_mode"
+            end if
+
+            if (debug_mode) write (*,*) "Debug: h5_mode_groupname: ", trim(h5_mode_groupname)
+            CALL h5_init()
+            CALL h5_open_rw(path2out, h5_id)
+            CALL h5_define_group(h5_id, trim(h5_mode_groupname), group_id_2)
+            CALL h5_close_group(group_id_2)
+            CALL h5_obj_exists(h5_id, "/init_params", &
+                            h5_exists_log)
+            if (.not. h5_exists_log) then
+                CALL h5_define_group(h5_id, &
+                                    "/init_params", group_id_2)
+                CALL h5_close_group(group_id_2)
+            end if
+
+            CALL h5_close(h5_id)
+            CALL h5_deinit()
+        end if
+
+        write (*, *) "finished creating group structure"
+    end subroutine
+
+    subroutine writeBrAndDqlAtResonanceToH5
+
+        !use paramscan_mod, only: dqle22_res, br_abs_res_parscan, Er_res, &
+        !    fac_vz
+        use wave_code_data, only: m_vals, n_vals
+        use h5mod
+
+        implicit none
+        
+        write (h5_mode_groupname, "(A,I1,A,I1)") "f_", m_vals(1), "_", n_vals(1)
+
+        CALL h5_init()
+        CALL h5_open_rw(path2out, h5_id)
+        CALL h5_obj_exists(h5_id, trim(h5_mode_groupname), &
+            h5_exists_log)
+        if (.not. h5_exists_log) then
+            CALL h5_define_group(h5_id, &
+                trim(h5_mode_groupname), group_id_2)
+            CALL h5_close_group(group_id_2)
+        end if
+
+        CALL h5_add_double_1(h5_id, trim(h5_mode_groupname)//'/dqle22_res', &
+                                reshape(dqle22_res, (/size(dqle22_res)/)), &
+                                lbound(reshape(dqle22_res, (/size(dqle22_res)/))), &
+                                ubound(reshape(dqle22_res, (/size(dqle22_res)/))))
+        CALL h5_add_double_1(h5_id, trim(h5_mode_groupname)//'/br_abs_res', &
+                                reshape(br_abs_res_parscan, (/size(br_abs_res_parscan)/)), &
+                                lbound(reshape(br_abs_res_parscan, (/size(br_abs_res_parscan)/))), &
+                                ubound(reshape(br_abs_res_parscan, (/size(br_abs_res_parscan)/))))
+
+        if (size(fac_vz) .ne. 1) then
+            CALL h5_add_double_1(h5_id, trim(h5_mode_groupname)//'/Er_res', &
+                                    reshape(Er_res, (/size(Er_res)/)), &
+                                    lbound(reshape(Er_res, (/size(Er_res)/))), &
+                                    ubound(reshape(Er_res, (/size(Er_res)/))))
+        end if
+
+        CALL h5_close(h5_id)
+        CALL h5_deinit()
+
+    end subroutine
+
+
+    subroutine writeDqle22
+
+        use grid_mod, only: dqle22
+        use h5mod
+
+        implicit none
+
+        !print *, "In write dqle22"
+        
+        CALL h5_init()
+        CALL h5_open_rw(path2out, h5_id)
+        CALL h5_obj_exists(h5_id, trim(h5_mode_groupname), &
+            h5_exists_log)
+        if (.not. h5_exists_log) then
+            CALL h5_define_group(h5_id, trim(h5_mode_groupname), group_id_2)
+            CALL h5_close_group(group_id_2)
+        end if
+
+        CALL h5_add_double_1(h5_id, trim(h5_mode_groupname)//'/dqle22_res', &
+                            reshape(dqle22_res, (/size(dqle22_res)/)), &
+                            lbound(reshape(dqle22_res, (/size(dqle22_res)/))), &
+                            ubound(reshape(dqle22_res, (/size(dqle22_res)/))))
+        CALL h5_add_double_1(h5_id, trim(h5_mode_groupname)//'/dqle22', &
+                                dqle22, lbound(dqle22), ubound(dqle22))
+ 
+        CALL h5_close(h5_id)
+        CALL h5_deinit()
 
     end subroutine
 

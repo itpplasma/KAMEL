@@ -26,23 +26,8 @@ program ql_balance
 
     implicit none
 
-    integer :: np_num
-
-    logical :: discr_reached = .false. ! variable to say if discrepancy to linear regression
-    ! of Br is reached, only used if br_stopping = .false.
     integer :: ipoi, i, ieq, l, k
     integer :: ioddeven
-    double precision :: evoltime, tmax
-
-    DOUBLE PRECISION, DIMENSION(:), ALLOCATABLE :: ych_one, ych_tot
-    
-    
-    integer :: lb, ub
-    
-    DOUBLE PRECISION :: br_beta = 0
-    DOUBLE PRECISION :: br_predicted
-    
-    integer(HID_T) :: time_dataset_id !> variable to save the time dataset id
 
     call read_config
 
@@ -63,34 +48,19 @@ program ql_balance
         write_gyro_current = .false.
     end if
 
-    call MPI_Init(ierror);
-    call MPI_Comm_size(MPI_COMM_WORLD, np_num, ierror);
-    call MPI_Comm_rank(MPI_COMM_WORLD, irank, ierror);
-
-    if (irank .eq. 0) then
-        write(*,*) ' '
-        write(*,*) '******************************'
-        write(*,*) 'number of processes:', np_num
-        write(*,*) '              irank:', irank
-        write(*,*) '******************************'
-    end if
-
+    call initMPI
 
     timescale = (rmax - rmin)**2/dperp
     tmax = timescale*tmax_factor
     timstep = tmax/Nstorage
+    
     if (irank .eq. 0) then
         write(*,*) "timstep = ", timstep
     end if
 
     call gengrid
 
-    ! boundary condition
-    if (iboutype .eq. 1) then
-        npoi = npoic - 1
-    else
-        npoi = npoic
-    end if
+    call setBoundaryCondition
 
     CALL initialize_wave_code_interface(npoib, rb);
     CALL initialize_parameter_scan_vars
@@ -108,7 +78,7 @@ program ql_balance
     call init_background_profiles
 
     if (irank .eq. 0) then
-        CALL write_init_profiles
+        CALL writeInitialParameters
         call alloc_hold_parameters
     end if
 
@@ -248,8 +218,8 @@ program ql_balance
                     end if
 
                     do i = 1, Nstorage ! loop over time steps
-                        timeStep = i
-                        write (*, *) "Time Step = ", timeStep
+                        timeIndex = i
+                        write (*, *) "Time Index = ", timeIndex
                         
                         call saveKinProfilesToYPrev
 
@@ -311,81 +281,18 @@ program ql_balance
                         call rescaleTimStepArr
                         call setTimStep
                         call resetTimStepArrWithTimstep
-                        
+                        call writeTimeInfoToDisk
+                        call relaxPlasmaParameters
 
-                        
-                        if (irank .eq. 0) then
-                            if (ihdf5IO .eq. 1) then
-                                ! write timstep_evol data to hdf5 file
-                                h5_currentgrp = trim("/"//trim(h5_mode_groupname)// &
-                                                     "/timstep_evol.dat")
-
-                                CALL h5_init()
-                                CALL h5_open_rw(path2out, h5_id)
-
-                                if (.not. firstiterationdone) then
-                                    if (diagnostics_output) then
-                                        CALL h5_define_unlimited_matrix(h5_id, trim(h5_currentgrp), &
-                                                                        H5T_NATIVE_DOUBLE, (/6, -1/), time_dataset_id)
-                                    else
-                                        CALL h5_define_unlimited_matrix(h5_id, trim(h5_currentgrp), &
-                                                                        H5T_NATIVE_DOUBLE, (/3, -1/), time_dataset_id)
-                                    end if
-                                end if
-                                ! this output works differently, because it is done for each
-                                ! time step and not all at once. For every time step a row
-                                ! is appended to the data. This is different to the case
-                                ! where the whole data is written at once. In the latter
-                                ! the data for one variable is saved in one row, i.e. there
-                                ! are length(variable) number of columns.
-                                if (diagnostics_output) then
-                                    CALL h5_append_double_1(time_dataset_id, (/i*1.d0, timstep, &
-                                                                               timscal_dql, timscal(1), rate_dql, time/), i)
-                                else
-                                    CALL h5_append_double_1(time_dataset_id, (/i*1.d0, timstep, &
-                                                                               time/), i)
-                                end if
-                                CALL h5_close(h5_id)
-                                CALL h5_deinit()
-                            else
-                                open (4321, file='timstep_evol.dat', position='append')
-                                write (4321, *) i, timstep, timscal_dql, timscal(1), rate_dql, time
-                                close (4321)
-                            end if
-                        end if
-                        
-
-                        do ipoi = 1, npoi
-                            do ieq = 1, nbaleqs
-                                k = nbaleqs*(ipoi - 1) + ieq
-                                params(ieq, ipoi) = yprev(k)*urelax + params(ieq, ipoi)*(1.d0 - urelax)
-                            end do
-                        end do
                         timstep_arr = 0.d0
                         call evolvestep(timstep, eps)
                         timstep_arr = timstep
-                        !
                         time = time + timstep
-                        !
-                        !
-                        if (irank .eq. 0) then
-                            write(*,*) 'i = ', int2(i), 'time = ', real(time)
-                            write(*,*) ' '
-                        end if
-                        !
-                        !for debugging:
-                        if (irank .eq. 0) then
-                            if (modulo(i, save_prof_time_step) .eq. 0) then
-                                if (suppression_mode .eqv. .false.) then
-                                    CALL writeKinProfileDataToDisk(i)
-                                end if
-                            end if
-                        end if
-!
-                        if (firstiterationdone .eqv. .false.) firstiterationdone = .true.
 
-                        ! check if linear discepancy in penetration ratio is reached
-                        CALL linear_discrepancy_pen_ratio
+                        call messageTimeInfo
+                        call writeKinProfileAtTimeIndex
+                        call setFirstIterationTrue
+                        CALL checkIfLinearDiscrepancyOfPenRatioReached
  
                         if (iexit .eq. 1) then
                             iexit = 0
@@ -405,12 +312,8 @@ program ql_balance
 
                     if (debug_mode) write(*,*) 'Debug: deallocate data for next parameter scan'
                     call deallocate_wave_code_data();
-!deallocate(yprev)
-                    deallocate (coef)
-!deallocate(tim_stack)
-!deallocate(timscal,params_beg,params_num,params_denom,dummy)
+                    !deallocate (coef)
 
-! end of loops of the parameter scan
                 end do
             end do
         end do
@@ -418,140 +321,5 @@ program ql_balance
 
     write (*, *) 'Programm is finalized without stopping criterion met';
     call MPI_finalize(ierror)
-
-contains
-
-!> @brief subroutine write_init_profiles. Write initial profiles to hdf5 or ascii.
-!> @author Markus Markl
-!> @date 05.10.2022
-subroutine write_init_profiles
-
-    use plasma_parameters, only: params, qsaf
-    use control_mod, only: debug_mode, ihdf5IO
-    use h5mod, only: h5_exists_log, h5_id, path2out
-    use wave_code_data, only: r
-
-    implicit none
-
-    if (debug_mode) write(*,*) "Debug: writing initial background profiles"
-    if (ihdf5IO .eq. 1) then
-        CALL h5_init()
-        ! open hdf5 file
-        CALL h5_open_rw(path2out, h5_id)
-        CALL h5_obj_exists(h5_id, "/init_params/n", h5_exists_log)
-        if (.not. h5_exists_log) then
-            CALL h5_add_double_1(h5_id, "/init_params/n", &
-                params(1, :), lbound(params(1, :)), ubound(params(1, :)))
-            CALL h5_add_double_1(h5_id, "/init_params/Vz", &
-                params(2, :), lbound(params(2, :)), ubound(params(2, :)))
-            CALL h5_add_double_1(h5_id, "/init_params/Te", &
-                params(3, :)/ev, lbound(params(3, :)), ubound(params(3, :)))
-            CALL h5_add_double_1(h5_id, "/init_params/Ti", &
-                params(4, :)/ev, lbound(params(4, :)), ubound(params(4, :)))
-            CALL h5_add_double_1(h5_id, "/init_params/qsaf", &
-                qsaf(:), lbound(qsaf(:)), ubound(qsaf(:)))
-            CALL h5_add_double_1(h5_id, "/init_params/r", &
-                r, lbound(r), ubound(r))
-        else
-            if (debug_mode) write(*,*) "Debug: they are already there -> skiping"
-        end if
-
-        CALL h5_close(h5_id)
-        CALL h5_deinit()
-        if (debug_mode) write(*,*) "Debug: finished writing initial background profiles"
-                                !stop ! for test purposes
-
-    else
-        open (123, form='unformatted', file='init_params.dat')
-        write (123) params
-        close (123)
-    end if
-
-end subroutine ! write_initial_profiles
-
-
-
-!@> brief Check if discrepancy between penetration ratio and linear extrapolation exceeds critical value
-!> author> Markus Markl
-!> created 13.03.2023
-subroutine linear_discrepancy_pen_ratio
-
-    implicit none
-    ! Stopping by linear regression of Br_abs_res
-    !
-    ! Calculate br_beta from br_abs_res = br_beta * br_abs_time, which is
-    ! essentially the slope of the curve. It is assumed that the curve
-    ! intersects the y axis at 0. The slope is then used to calculate
-    ! the "predicted" value for br_abs, which is compared to the actual
-    ! value thereof. If the discrepancy becomes too big, the program is
-    ! stopped.
-    !
-    if (i .gt. 50 .and. .not. discr_reached) then
-        ! calculate beta only once
-        if (br_beta .eq. 0) then
-            ! Calculate slope from the data until this time step. (Simple linear regression algorithm)
-            br_beta = sum(br_abs(3:i)*br_abs_time(3:i))/sum(br_abs_time(1:i)**2)
-            write(*,*) 'br_beta = ', br_beta
-        end if
-        ! calculate the from the linear regression predicted value of Br_abs
-        br_predicted = br_beta*br_abs_time(i)
-        write(*,*) "Delta = ", abs(br_abs(i) - br_predicted)
-        if (abs(br_abs(i) - br_predicted) .gt. 0.1) then
-            write(*,*) 'discrepancy to linearly predicted value of Br_abs_res > delta'
-            if (modulo(i, save_prof_time_step) .ne. 0) then
-                if (suppression_mode .eqv. .false.) then
-                    CALL writeFieldsCurrentsAndTranspCoeffsToH5
-                end if
-            end if
-            if (suppression_mode .eqv. .false.) then
-                CALL writeKinProfileDataToDisk(i)
-            end if
-            if (br_stopping) then
-                ! Write the cause of the stopping into the hdf5 file
-                CALL h5_init()
-                CALL h5_open_rw(path2out, h5_id)
-                CALL h5_add_string(h5_id, trim(h5_mode_groupname)// &
-                    '/stopping_criterion', 'discrepancy to linearly predicted value of Br_abs_res > delta')
-                CALL h5_add_double_0(h5_id, trim(h5_mode_groupname)//'/br_beta', br_beta, &
-                    'linear slope of br', 'G/s')
-                CALL h5_close(h5_id)
-                CALL h5_deinit()
-
-                if (paramscan) then
-                    if (ifac_n + ifac_Te + ifac_Ti + ifac_vz .eq. size(fac_n) + &
-                        size(fac_Ti) + size(fac_Te) + size(fac_vz)) then
-                        CALL MPI_finalize(ierror);
-                        stop
-                    else
-                    ! if it is not the last scan, skip the rest of the
-                    ! code and continue with the next loop iteration
-                    !call deallocate_wave_code_data()
-                    write(*,*) 'not last scan; will end time evolution of this parameter choice'
-                    iexit = 1
-                    end if
-                else
-                    if (debug_mode) write(*,*) "Debug: Write br_time _data"
-                    CALL write_br_time_data!, br_abs_time, br_abs_antenna_factor, br_abs, dqle22_res_time)
-                    CALL MPI_finalize(ierror);
-                    write(*,*) 'stop'
-                    stop
-                end if
-            else
-                ! Write the info into the hdf5 file
-                CALL h5_init()
-                CALL h5_open_rw(path2out, h5_id)
-                CALL h5_add_string(h5_id, trim(h5_mode_groupname)// &
-                    '/info', 'discrepancy to linearly predicted value of Br_abs_res > delta')
-                CALL h5_add_double_1(h5_id, trim(h5_mode_groupname)// &
-                    '/discrep_time', (/i*1.d0, time/), (/1/), (/2/))
-                CALL h5_close(h5_id)
-                CALL h5_deinit()
-                discr_reached = .true.
-            end if
-        end if
-    end if
-
-end subroutine
-
 
 end program ql_balance

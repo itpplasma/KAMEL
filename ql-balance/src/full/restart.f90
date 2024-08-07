@@ -4,7 +4,7 @@ module restart_mod
 
     implicit none
 
-    logical :: opnd, redostep, scratch
+    logical :: opnd, redostep
     integer :: iunit_redo
 
     contains
@@ -13,7 +13,7 @@ module restart_mod
         use parallelTools, only: irank
         use grid_mod, only: npoi, nbaleqs, y
         use plasma_parameters, only: params
-        use time_evolution, only: timstep
+        use time_evolution, only: timstep, scratch
         use recstep_mod, only: tol
         use baseparam_mod, only: ev
         use control_mod, only: debug_mode

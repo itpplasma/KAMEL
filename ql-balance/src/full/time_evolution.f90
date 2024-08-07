@@ -67,7 +67,8 @@
 
     subroutine saveKinProfilesToYPrev
 
-        use grid_mod, only: npoi, nbaleqs, params
+        use grid_mod, only: npoi, nbaleqs
+        use plasma_parameters, only: params
 
         implicit none
 
@@ -508,6 +509,7 @@
     subroutine writeKinProfileDataToDisk(istep)
 
         use grid_mod
+        use plasma_parameters
         use control_mod
         use baseparam_mod
         use h5mod
@@ -641,6 +643,58 @@
             call writeReasonForStopToH5(reason)
             call MPI_finalize(ierror);
             stop
+        end if
+
+    end subroutine
+
+
+    subroutine calcParamsNumAndDenom
+
+        implicit none
+
+        params_num = (params - params_beg)**2
+        params_denom = params**2 + params_beg**2
+
+    end subroutine
+
+    subroutine smoothParamsNumAndDenom
+    
+        use grid_mod, only: npoi, nbaleqs, mwind, dummy
+        implicit none
+        
+        integer :: ieq
+
+        do ieq = 1, nbaleqs
+            call smooth_array_gauss(npoi, mwind, params_num(ieq, :), dummy)
+            params_num(ieq, :) = dummy
+            call smooth_array_gauss(npoi, mwind, params_denom(ieq, :), dummy)
+            params_denom(ieq, :) = dummy
+        end do
+
+    end subroutine
+
+    subroutine determineTimscal
+
+        use grid, only: npoi, rc
+        use plasma_parameters, only: params_num, params_denom
+
+        implicit none
+
+        integer :: ipoi
+
+        do ipoi = 1, npoi
+            if (rc(ipoi) .lt. 0.95d0*rc(npoi)) then
+                timscal(ipoi) = sum(sqrt(params_num(3:4, ipoi)/params_denom(3:4, ipoi)))
+            else
+                timscal(ipoi) = 1d-30 !0.d0
+            end if
+        end do
+
+        if (debug_mode) then
+            if (irank .eq. 0) then
+                write(*,*) "maxval(timscal) = ", maxval(timscal)
+                write(*,*) "tol*factolmax = ", tol*factolmax
+            end if
         end if
 
     end subroutine

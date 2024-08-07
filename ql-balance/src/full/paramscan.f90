@@ -84,7 +84,8 @@ module paramscan_mod
 
     subroutine alloc_hold_parameters
         
-        use grid_mod, only: npoib, params
+        use grid_mod, only: npoib
+        use plasma_parameters, only: params
         use wave_code_data, only: idPhi0
 
         implicit none
@@ -107,7 +108,7 @@ module paramscan_mod
     !> @date 05.10.2022
     subroutine rescale_profiles
 
-        use grid_mod, only: params
+        use plasma_parameters, only: params
         use control_mod, only: debug_mode
         use h5mod
         use wave_code_data, only: idPhi0

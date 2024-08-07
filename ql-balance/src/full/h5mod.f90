@@ -232,13 +232,13 @@ module h5mod
     ! Used to save the fort5000 data.
     subroutine writeFieldsCurrentsAndTranspCoeffsToH5
         use grid_mod, only: nbaleqs, neqset, iboutype, npoic, npoib &
-                            , params, ddr_params, deriv_coef &
-                            , ipbeg, ipend, rb, params_b, reint_coef &
+                            , deriv_coef &
+                            , ipbeg, ipend, rb, reint_coef &
                             , rc, sqg_bthet_overc, Ercov &
-                            , ddr_params_nl, y, mwind &
+                            , y, mwind &
                             , dqle11, dqle12, dqle21, dqle22 &
                             , dqli11, dqli12, dqli21, dqli22, d11_misalign, Es_pert_flux
-
+        use plasma_parameters, only: params, ddr_params, params_b, ddr_params_nl
         use baseparam_mod, only: Z_i, e_charge, am, p_mass, c, btor, e_mass, ev, rtor
         use control_mod, only: ihdf5IO, diagnostics_output, misalign_diffusion
         use wave_code_data

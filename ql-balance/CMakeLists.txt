@@ -16,8 +16,8 @@ enable_language(Fortran)
 if(CMAKE_HOST_SYSTEM_NAME MATCHES "Darwin")
     # macOS specific configurations or commands
     message("Building on macOS")
-    set(CMAKE_C_COMPILER gcc-13)
-    set(CMAKE_CXX_COMPILER g++-13)
+    set(CMAKE_C_COMPILER gcc-14)
+    set(CMAKE_CXX_COMPILER g++-14)
     # flag does not work for macos for some reason
     set (CMAKE_CXX_OPT_FLAGS "")
     set (CMAKE_F_OPT_FLAGS "")
@@ -80,6 +80,7 @@ set(balance_lib_fortran_sources
     ${full_balance_src}/linear_run.f90
     ${full_balance_src}/time_evolution.f90
     ${full_balance_src}/restart.f90
+    ${full_balance_src}/plasma_parameters.f90
     ${full_balance_src}/h5mod.f90
     ${full_balance_src}/W2_arr.f90
     ${full_balance_src}/magnetic_island_width.f90
@@ -168,7 +169,7 @@ if("${HDF5_FOUND}")
     target_include_directories(ql-balance_lib PUBLIC "${HDF5_INCLUDE_DIRS}")
 endif()
 
-target_sources(ql-balance_lib PUBLIC 
+target_sources(ql-balance_lib PUBLIC
     ${libs_root_path}/SuperLU_4.1/FORTRAN/c_fortran_zgssv.c
     ${libs_root_path}/SuperLU_4.1/FORTRAN/c_fortran_dgssv.c)
 target_include_directories(ql-balance_lib PUBLIC ${libs_root_path}/SuperLU_4.1/SRC/)

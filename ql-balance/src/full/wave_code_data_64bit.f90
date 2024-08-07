@@ -251,11 +251,14 @@ end subroutine
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
 subroutine update_background_files(path)
-    use wave_code_data; 
-    use grid_mod, only: params_b, Ercov; 
-    use baseparam_mod; 
+    use wave_code_data 
+    use grid_mod, only: Ercov
+    use plasma_parameters, only: params_b
+    use baseparam_mod
     use control_mod, only: debug_mode
-    implicit none; 
+
+    implicit none
+
     character(1024), intent(in) :: path; 
     integer :: k; 
     ! always keep flag =1, since KiLCA reads profiles from ./profile directory

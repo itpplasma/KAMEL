@@ -566,7 +566,8 @@ end subroutine test
   subroutine calc_transport_coeffs_ornuhl_drift(isp,ndim,D_11,D_12,D_21,D_22)
 !
   use baseparam_mod, only     : Z_i,e_charge,am,p_mass,c,btor,e_mass
-  use grid_mod, only          : npoib,rb,params_b
+  use grid_mod, only          : npoib,rb
+  use plasma_parameters, only: params_b
   use wave_code_data, only    : nui,nue,Es,Br,B0
   use get_matrix_tmp, only    : ispec
   use sample_matrix_mod, only : nlagr,itermax,xbeg,xend,eps,npoi,xarr,amat_arr
@@ -652,7 +653,8 @@ close(8888)
   subroutine get_matrix
 !
   use baseparam_mod, only     : Z_i,e_charge,am,p_mass,c,e_mass,ev
-  use grid_mod, only          : npoib,rb,params_b
+  use grid_mod, only          : npoib,rb
+  use plasma_parameters, only : params_b
   use wave_code_data, only    : kp,ks,om_E,B0t,B0,nui,nue
   use get_matrix_tmp, only    : ispec
   use sample_matrix_mod, only : n1,n2,x,amat

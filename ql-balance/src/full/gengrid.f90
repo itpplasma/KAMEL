@@ -6,6 +6,7 @@
 ! At the inner boundary fixed fluxes = 0 are always assumed
 !
   use grid_mod
+  use plasma_parameters
   use control_mod, only: debug_mode
   use PolyLagrangeInterpolation
 !
@@ -99,7 +100,7 @@
     neqset=nbaleqs*npoic
   endif
   allocate(y(neqset),dery(neqset),dery_equisource(neqset))
-  allocate(alpha(neqset*neqset))
+  !allocate(alpha(neqset*neqset))
   allocate(source_term(neqset))
 !
   allocate(dae11(npoib),dae12(npoib),dae22(npoib))
@@ -129,6 +130,7 @@
   subroutine geomparprof
 !
   use grid_mod
+  use plasma_parameters
   use baseparam_mod
 !
   implicit none
@@ -204,12 +206,10 @@
 !
   ! added by Markus Markl, 08.04.2021
   if (ihdf5IO .eq. 1) then
-    if (debug_mode) write(*,*) "reading q from hdf5"
     CALL h5_init()
     CALL h5_open_rw(path2inp, h5_id)
     CALL h5_open_group(h5_id, '/preprocprof', group_id_1)
     CALL h5_get_bounds_1(group_id_1, 'q', lb, ub)
-    if (debug_mode) write(*,*) "upper bound: ", ub, " lower bound: ", lb
     allocate(r(ub),q(ub))
     CALL h5_get_double_1(group_id_1, 'q', q)
     !print *, 'q: ', q

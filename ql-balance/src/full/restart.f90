@@ -11,7 +11,8 @@ module restart_mod
     subroutine InquiryToRestart
 
         use parallelTools, only: irank
-        use grid_mod, only: npoi, nbaleqs, params, y
+        use grid_mod, only: npoi, nbaleqs, y
+        use plasma_parameters, only: params
         use time_evolution, only: timstep
         use recstep_mod, only: tol
         use baseparam_mod, only: ev
@@ -57,7 +58,8 @@ module restart_mod
         use parallelTools, only: irank
         use time_evolution, only: savePrevTranspCoefficients, timstep
         use recstep_mod, only: timstep_arr
-        use grid_mod, only: npoic, rc, params, Ercov, params_begbeg
+        use grid_mod, only: npoic, rc, Ercov
+        use plasma_parameters, only: params, params_begbeg
         use baseparam_mod, only: eV, factolmax
 
         implicit none

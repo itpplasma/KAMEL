@@ -1,6 +1,7 @@
   subroutine evolvestep(timstep,eps)
 !
-  use grid_mod, only : nbaleqs,neqset,iboutype,npoic,params,y,dery
+  use grid_mod, only : nbaleqs,neqset,iboutype,npoic,y,dery
+  use plasma_parameters, only: params
   USE sparse_mod, ONLY : sparse_talk,sparse_solve_method,sparse_solve, &
        column_full2pointer,remap_rc,sparse_solver_test
   use matrix_mod
@@ -103,7 +104,8 @@
     ! calculates source terms in the balance equations. Is determined by assuming steady state.
 !
   use grid_mod, only : y,dery,dery_equisource &
-                     , nbaleqs,neqset,iboutype,npoic,params 
+                     , nbaleqs,neqset,iboutype,npoic
+  use plasma_parameters, only: params
 
   use control_mod, only: iwrite, ihdf5IO, diagnostics_output, debug_mode
   use h5mod

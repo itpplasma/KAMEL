@@ -1,12 +1,11 @@
 module linear_run
 
-
     contains
 
-    
     subroutine init_background_profiles
 
-        use grid_mod, only: npoic, qsaf, params
+        use grid_mod, only: npoic
+        use plasma_parameters, only: params, qsaf
         use wave_code_data, only: q, n, Vz, Te, Ti
         use baseparam_mod, only: ev, rtor
 

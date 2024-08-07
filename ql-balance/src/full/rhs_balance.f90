@@ -2,16 +2,18 @@
 subroutine rhs_balance(x, y, dy)
 
     use grid_mod, only: nbaleqs, neqset, iboutype, npoic, npoib &
-                        , params, ddr_params, Sc, Sb, deriv_coef &
-                        , ipbeg, ipend, rb, params_b, reint_coef &
-                        , fluxes_dif, fluxes_con, rc, dot_params &
+                        , Sc, Sb, deriv_coef &
+                        , ipbeg, ipend, rb, reint_coef &
+                        , fluxes_dif, fluxes_con, rc &
                         , dae11, dae12, dae22, dai11, dai12, dai22 &
                         , dni22, visca, gpp_av, dery_equisource &
                         , dqle11, dqle12, dqle21, dqle22 &
                         , dqli11, dqli12, dqli21, dqli22 &
                         , sqg_bthet_overc, Ercov, polforce, qlheat_e, qlheat_i &
-                        , params_lin, Ercov_lin, ddr_params_nl, fluxes_con_nl &
-                        , init_params, params_b_lin
+                        , Ercov_lin, fluxes_con_nl
+                        
+    use plasma_parameters, only: params, ddr_params, params_lin, ddr_params_nl &
+                        , init_params, params_b_lin, params_b, dot_params
     use baseparam_mod, only: Z_i, e_charge, am, p_mass, c, btor
     use control_mod, only: iwrite
     !use time_evolution, only: timeStep
@@ -411,16 +413,18 @@ end subroutine initialize_rhs
 subroutine rhs_balance_source(x, y, dy)
 
     use grid_mod, only: nbaleqs, neqset, iboutype, npoic, npoib &
-                        , params, ddr_params, Sc, Sb, deriv_coef &
-                        , ipbeg, ipend, rb, params_b, reint_coef &
-                        , fluxes_dif, fluxes_con, rc, dot_params &
+                        , Sc, Sb, deriv_coef &
+                        , ipbeg, ipend, rb, reint_coef &
+                        , fluxes_dif, fluxes_con, rc &
                         , dae11, dae12, dae22, dai11, dai12, dai22 &
                         , dni22, visca, gpp_av, dery_equisource &
                         , dqle11, dqle12, dqle21, dqle22 &
                         , dqli11, dqli12, dqli21, dqli22 &
                         , sqg_bthet_overc, Ercov, polforce, qlheat_e, qlheat_i &
-                        , params_lin, Ercov_lin, ddr_params_nl, fluxes_con_nl &
-                        , init_params, params_b_lin
+                        , Ercov_lin, fluxes_con_nl 
+                        
+    use plasma_parameters, only: params, ddr_params, params_b, params_lin &
+                        , init_params, params_b_lin, ddr_params_nl, dot_params
     use baseparam_mod, only: Z_i, e_charge, am, p_mass, c, btor
     use control_mod, only: iwrite
     use wave_code_data, only: q, Vth
@@ -694,8 +698,9 @@ end subroutine rhs_balance_source
 !
 subroutine calc_dequi
     !
-    use grid_mod, only: npoib, params_b, dae11, dae12, dae22, dai11, dai12, dai22 &
+    use grid_mod, only: npoib, dae11, dae12, dae22, dai11, dai12, dai22 &
                         , dni22, visca, rb, cneo
+    use plasma_parameters, only: params_b
     use baseparam_mod, only: dperp, rsepar
     ! added by Markus Markl, 12.04.2021
     use h5mod
@@ -802,16 +807,16 @@ end subroutine calc_dequi
 subroutine get_dql
 
     use grid_mod, only: nbaleqs, neqset, iboutype, npoic, npoib &
-                        , params, ddr_params, deriv_coef &
-                        , ipbeg, ipend, rb, params_b, reint_coef &
+                        , deriv_coef &
+                        , ipbeg, ipend, rb, reint_coef &
                         , rc, sqg_bthet_overc, Ercov &
-                        , ddr_params_nl, y, mwind &
+                        , y, mwind &
                         , dqle11, dqle12, dqle21, dqle22 &
                         , dqli11, dqli12, dqli21, dqli22 &
                         , de11, de12, de21, de22, di11, di12, di21, di22 &
                         , rb_cut_in, re_cut_in, rb_cut_out, re_cut_out, rb &
-                        , r_resonant, rmax, d11_misalign, Es_pert_flux, qsaf
-
+                        , r_resonant, rmax, d11_misalign, Es_pert_flux
+    use plasma_parameters
     use baseparam_mod, only: Z_i, e_charge, am, p_mass, c, btor, e_mass, ev, rtor, pi, rsepar
     use control_mod, only: irf, write_formfactors, ihdf5IO, &
                            diagnostics_output, suppression_mode, &
@@ -1565,7 +1570,8 @@ end subroutine equipotentials
 subroutine calc_parallel_current_directly
     ! this subroutine calculates the electron parallel current (eq. (60) in Heyn et. al 2014)
 
-    use grid_mod, only: npoib, rb, params_b, Ercov, ddr_params_nl
+    use grid_mod, only: npoib, rb, Ercov
+    use plasma_parameters, only: params_b, ddr_params_nl
     use baseparam_mod, only: Z_i, e_charge, am, p_mass, c, btor, e_mass, ev, rtor
     use control_mod, only: ihdf5IO, diagnostics_output, write_gyro_current, &
         gyro_current_study
@@ -1953,7 +1959,8 @@ end subroutine calc_parallel_current_directly
 !
 subroutine calc_ion_parallel_current_directly
 
-    use grid_mod, only: npoib, rb, params_b, Ercov, ddr_params_nl
+    use grid_mod, only: npoib, rb, Ercov
+    use plasma_parameters, only: params_b, ddr_params_nl
     use baseparam_mod, only: Z_i, e_charge, am, p_mass, c, btor, e_mass, ev, rtor
     use wave_code_data
     use control_mod, only: ihdf5IO, diagnostics_output, write_gyro_current

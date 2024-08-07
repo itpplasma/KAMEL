@@ -22,6 +22,7 @@ program ql_balance
     use parallelTools
     use restart_mod
     use PolyLagrangeInterpolation
+    use plasma_parameters
 
     implicit none
 
@@ -35,16 +36,13 @@ program ql_balance
 
     DOUBLE PRECISION, DIMENSION(:), ALLOCATABLE :: ych_one, ych_tot
     double precision, dimension(:), allocatable :: timscal
-    double precision, dimension(:), allocatable :: dummy
     
     integer :: lb, ub
     
     DOUBLE PRECISION :: br_beta = 0
     DOUBLE PRECISION :: br_predicted
-
     
     integer(HID_T) :: time_dataset_id !> variable to save the time dataset id
-
 
     call read_config
 
@@ -293,65 +291,25 @@ program ql_balance
                             
                             params_beg = params
                             
-                            write(*,*) "before evolvestep: timstep =", timstep, ", eps=", eps, &
-                                ", time=", time
                             call evolvestep(timstep, eps)
-                            write(*,*) "timstep after evolvestep is ", timstep
+                            call limitTemperaturesFromBelow
+                            call calcParamsNumAndDenom
+                            call smoothParamsNumAndDenom
                             
-                            !limit ion and electron temperatures from below (by 10 eV in this example).
-                            do ipoi = 1, npoic
-                                if (.true.) then
-                                    params(3, ipoi) = max(params(3, ipoi), temperature_limit*ev)
-                                    params(4, ipoi) = max(params(4, ipoi), temperature_limit*ev)
-                                else 
-                                    !> Quick fix of steady state solution. Keep boundary inside the separatrix.
-                                    if (r(ipoi) > rsepar-0.5d0) then
-                                        params(3, ipoi) = hold_Te(ipoi)
-                                        params(4, ipoi) = hold_Ti(ipoi)
-                                    end if
-                                end if
-                            end do
-                            !
-                            params_num = (params - params_beg)**2
-                            !write(1234,*) params_num
-                            params_denom = params**2 + params_beg**2
-                            !write(1235, *) params_denom
-                            !
-                            do ieq = 1, nbaleqs
-                                !
-                                call smooth_array_gauss(npoi, mwind, params_num(ieq, :), dummy)
-                                !
-                                params_num(ieq, :) = dummy
-                                !
-                                call smooth_array_gauss(npoi, mwind, params_denom(ieq, :), dummy)
-                                !
-                                params_denom(ieq, :) = dummy
-                            end do
-                            !
-                            do ipoi = 1, npoi
-                                if (rc(ipoi) .lt. 0.95d0*rc(npoi)) then
-                                    timscal(ipoi) = sum(sqrt(params_num(3:4, ipoi)/params_denom(3:4, ipoi)))
-                                    !write(*,*) "timscal(", ipoi,")= ", timscal(ipoi)
-                                else
-                                    timscal(ipoi) = 1d-30 !0.d0
-                                end if
-                            end do
-                            !
-                            if (irank .eq. 0) then
-                                write(*,*) "maxval(timscal) = ", maxval(timscal)
-                                write(*,*) "tol*factolmax = ", tol*factolmax
-                            end if
-                            if (maxval(timscal) .lt. tol*factolmax) exit
-                            !
-                            timstep_arr = timstep_arr*factolred
+                            call determineTimscal 
+                            if (maxval(timscal) .lt. tol * factolmax) exit
+                            
+                            timstep_arr = timstep_arr * factolred
+
                             params = params_beg
+
                             if (irank .eq. 0) then
                                 write(*,*) 'redo step'
                             end if
                         end do ! end of redo step loop
-                        !
+                        
                         timscal = timscal + timscal_dql
-                        !
+                        
                         do ipoi = 1, npoi
                             do ieq = 1, nbaleqs
                                 k = nbaleqs*(ipoi - 1) + ieq
@@ -519,7 +477,7 @@ contains
 !> @date 05.10.2022
 subroutine write_init_profiles
 
-    use grid_mod, only: params, qsaf
+    use plasma_parameters, only: params, qsaf
     use control_mod, only: debug_mode, ihdf5IO
     use h5mod, only: h5_exists_log, h5_id, path2out
     use wave_code_data, only: r

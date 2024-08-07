@@ -32,10 +32,10 @@ program ql_balance
     ! of Br is reached, only used if br_stopping = .false.
     integer :: ipoi, i, ieq, l, k
     integer :: ioddeven
-    double precision :: evoltime, timescale, tmax
+    double precision :: evoltime, tmax
 
     DOUBLE PRECISION, DIMENSION(:), ALLOCATABLE :: ych_one, ych_tot
-    double precision, dimension(:), allocatable :: timscal
+    
     
     integer :: lb, ub
     
@@ -308,63 +308,12 @@ program ql_balance
                             end if
                         end do ! end of redo step loop
                         
-                        timscal = timscal + timscal_dql
+                        call rescaleTimStepArr
+                        call setTimStep
+                        call resetTimStepArrWithTimstep
                         
-                        do ipoi = 1, npoi
-                            do ieq = 1, nbaleqs
-                                k = nbaleqs*(ipoi - 1) + ieq
-                                !timstep_arr(k)=timstep_arr(k)/timscal(ipoi)*tol
-                                timstep_arr(k) = timstep_arr(k)/max(timscal(ipoi), epsilon(1.d0))*tol
-                                ! steady state solution:
-                                !if (ieq .gt. 1 .and. r(ipoi) .gt. rsepar-0.5d0) then
-                                !    timstep_arr(k) = 0d0
-                                !end if
-                            end do
-                        end do
-                        !
-                        timstep_arr = timstep_arr*timescale/(timstep_arr + timescale)
-                        if (scratch) then
-                            scratch = .false.
-                            tim_stack = timstep_arr
-                        end if
-                        timstep_arr = 2.d0*timstep_arr*tim_stack/(timstep_arr + tim_stack)
-                        !timstep = minval(timstep_arr, MASK = r .gt. rsepar - 0.5d0)
-                        timstep = minval(timstep_arr)
 
-                        !This can be used to limit timestep
-                        !Added by Philipp Ulbl, June 2020
-                        !if(time .gt. 1.2 .and. timstep .gt. 1.d-4) then
-                        !    timstep = 1.d-4
-                        !endif
-                        ! the rimstep_min variable was added to the namelist, the file
-                        ! timstep_min.inp is redundant now^A&M2B5* d3v F MB(e)A(v)
-                        !open(5432,file='timstep_min.inp')
-                        !read (5432,*) timstep_min
-                        !close(5432)
-                        ! non-constant time step:
-                        if (.true.) then
-                            ! limit time step from below:
-                            timstep = max(timstep, timstep_min)
-                            ! limit timestep from above:
-                            !if (ramp_up_mode .ne. 0) timstep = min(timstep,0.1)
-                            !timstep = min(timstep,0.005)
-
-                        else
-                            ! use for constant time step:
-                            timstep = 0.5
-                            write(*,*) "constant time step = ", timstep
-                        end if
                         
-                        timstep_arr = timstep
-                        !
-                        tim_stack = timstep_arr
-                        !
-                        
-                        if (irank .eq. 0) then
-                            write(*,*) 'timstep', real(timstep), '   timescale', real(timescale), &
-                                'tolerance', real(tol)
-                        end if
-                        !
                         if (irank .eq. 0) then
                             if (ihdf5IO .eq. 1) then
                                 ! write timstep_evol data to hdf5 file

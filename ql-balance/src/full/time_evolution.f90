@@ -1,6 +1,7 @@
   module time_evolution
 
     use control_mod
+    use parallelTools
 
     implicit none
 
@@ -12,7 +13,8 @@
     integer :: save_prof_time_step ! added by Markus Markl 11.03.2021
     integer :: iexit ! used for ramp-up skipping of saving
     integer :: ramp_up_down = 0 !> used in hysteresis mode, tells if ramp-up (0) or ramp-down (1)
-    integer :: timeStep
+    integer :: timeStep, timescale
+    
 
     double precision :: tmax_factor!, antenna_factor
     double precision :: stop_time_step !Added by Philipp Ulbl 13.05.2020
@@ -21,6 +23,9 @@
     double precision :: timstep
     double precision :: time
     double precision :: t_hysteresis_turn = 0
+
+    double precision, dimension(:), allocatable :: timscal
+
     DOUBLE PRECISION, DIMENSION(:), ALLOCATABLE :: yprev
     DOUBLE PRECISION, DIMENSION(:), ALLOCATABLE :: dqle11_prev
     DOUBLE PRECISION, DIMENSION(:), ALLOCATABLE :: dqle12_prev
@@ -650,6 +655,8 @@
 
     subroutine calcParamsNumAndDenom
 
+        use plasma_parameters, only: params_num, params_denom, params, params_beg
+
         implicit none
 
         params_num = (params - params_beg)**2
@@ -660,6 +667,8 @@
     subroutine smoothParamsNumAndDenom
     
         use grid_mod, only: npoi, nbaleqs, mwind, dummy
+        use plasma_parameters, only: params_num, params_denom
+
         implicit none
         
         integer :: ieq
@@ -675,8 +684,10 @@
 
     subroutine determineTimscal
 
-        use grid, only: npoi, rc
+        use grid_mod, only: npoi, rc
         use plasma_parameters, only: params_num, params_denom
+        use baseparam_mod, only: factolmax
+        use recstep_mod, only: tol
 
         implicit none
 
@@ -699,5 +710,76 @@
 
     end subroutine
 
+    subroutine rescaleTimStepArr
+
+        use grid_mod, only: npoi, nbaleqs
+        use restart_mod, only: scratch
+        use recstep_mod, only: tim_stack, timstep_arr, tol
+        use diag_mod, only: timscal_dql
+
+        implicit none
+
+        integer :: ipoi, ieq, k
+
+        timscal = timscal + timscal_dql
+                        
+        do ipoi = 1, npoi
+            do ieq = 1, nbaleqs
+                k = nbaleqs*(ipoi - 1) + ieq
+                !timstep_arr(k)=timstep_arr(k)/timscal(ipoi)*tol
+                timstep_arr(k) = timstep_arr(k)/max(timscal(ipoi), epsilon(1.d0))*tol
+                ! steady state solution:
+                !if (ieq .gt. 1 .and. r(ipoi) .gt. rsepar-0.5d0) then
+                !    timstep_arr(k) = 0d0
+                !end if
+            end do
+        end do
+        
+        timstep_arr = timstep_arr*timescale/(timstep_arr + timescale)
+        if (scratch) then
+            scratch = .false.
+            tim_stack = timstep_arr
+        end if
+        timstep_arr = 2.d0*timstep_arr*tim_stack/(timstep_arr + tim_stack)
+
+    end subroutine
+
+    subroutine setTimStep
+
+        use recstep_mod, only: timstep_arr, tol
+        
+        implicit none
+
+        timstep = minval(timstep_arr)
+
+        if (.true.) then
+            ! limit time step from below:
+            timstep = max(timstep, timstep_min)
+            ! limit timestep from above:
+            !if (ramp_up_mode .ne. 0) timstep = min(timstep,0.1)
+            !timstep = min(timstep,0.005)
+        else
+        ! use for constant time step:
+            timstep = 0.5
+            write(*,*) "constant time step = ", timstep
+        end if
+
+        if (irank .eq. 0) then
+            write(*,*) 'timstep', real(timstep), '   timescale', real(timescale), &
+                'tolerance', real(tol)
+        end if
+
+    end subroutine
+
+    subroutine resetTimStepArrWithTimstep
+        
+        use recstep_mod, only: tim_stack, timstep_arr
+
+        implicit none
+        
+        timstep_arr = timstep
+        tim_stack = timstep_arr
+
+    end subroutine
 
 end module

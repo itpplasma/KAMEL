@@ -11,9 +11,13 @@ Note however, that this class is currently a mess and needs some changes.
 Contains matlab scripts that can be used as templates for certain balance code runs.
 	
 ### ql-balance
-Contains the balance Fortran code itself. Compile with 
+Quasilinear transport code based on KiLCA. Compile with
 ```
-make -f Balance.mk_mpi
+cd ql-balance
+mkdir build
+cd build
+cmake ..
+make
 ```
 ### KiLCA
 Contains the source code of KiLCA. In the directory, compile with

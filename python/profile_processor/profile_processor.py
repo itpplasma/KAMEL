@@ -91,6 +91,8 @@ class profile_processor:
         self.s = np.sqrt(self.psi_n)
 
         marsf_pattern = re.compile(r'^PROF*')
+        kilca_pattern = r'\.dat$'
+        
 
         for filename in os.listdir(prof_path):
             if marsf_pattern.match(filename):
@@ -104,6 +106,12 @@ class profile_processor:
                     self.ne_orig[:,1] = self.ne_orig[:,1] * 1e-6
                 #rescale Vz since it is given in m/s instead of cm/s
                 self.Vz_orig[:,1] = self.Vz_orig[:,1] * 1e2
+                break
+            elif re.search(kilca_pattern, filename):
+                self.ne_orig = np.loadtxt(prof_path + 'n.dat')
+                self.Te_orig = np.loadtxt(prof_path + 'Te.dat')
+                self.Ti_orig = np.loadtxt(prof_path + 'Ti.dat')
+                self.Vz_orig = np.loadtxt(prof_path + 'Vz.dat')
                 break
             else:
                 raise ValueError('Other input profiles not yet implemented')

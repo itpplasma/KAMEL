@@ -27,6 +27,7 @@ class KQ_processor:
         KiLCA and QL-Balance runs.
     """
 
+
     def __init__(self, shot, time, runpath):
         
         self.shot = shot
@@ -68,7 +69,7 @@ class KQ_processor:
 
         self.pp.map_profs_to_reff(self.prof_path, self.save_profs, self.flux_data, plot=False)
 
-        self.pp.calc_Er_prof(recalc=not skip)
+        #self.pp.calc_Er_prof(recalc=not skip)
 
         self.pp.determine_anomalous_diff_coeff()
 
@@ -82,14 +83,14 @@ class KQ_processor:
 
         self.pp.Te = self.pp.Te * rescale_factor
 
-    def get_tMHD_current(self, curr_file, m_mode=np.array([10]), delta_phi=0.0, coil_curr_scale_l=1.0, coil_curr_scale_u=1.0, case='standard', InputFile='', **kwargs):
+    def get_tMHD_current(self, curr_file, m_mode=np.array([10]), delta_phi=0.0, coil_curr_scale_l=1.0, coil_curr_scale_u=1.0, case='standard', InputFile='', dictKey=''):
         """Get the tMHD current for a given m_mode."""
 
-        self.tmhd = tMHD_current()
+        self.tmhd = tMHD_current(case=case)
 
         self.tmhd.set_equil(self.flux_data + 'equil_r_q_psi.dat', self.flux_data + 'btor_rbig.dat')
         #self.tmhd.load_curr_harmonics_MARSF(curr_file)
-        self.tmhd.load_current_MARSF(curr_file, case, kwargs)
+        self.tmhd.load_current_MARSF(curr_file, dictKey, InputFile)
         self.tmhd.mix_coil_rows(delta_phi=delta_phi, coil_curr_scale_l=coil_curr_scale_l, coil_curr_scale_u=coil_curr_scale_u)
         self.prepare_efit2boozer_inp()
         self.prepare_field_divB0_inp()

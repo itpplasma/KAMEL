@@ -45,6 +45,8 @@ class neo2_for_Er():
         self.Ti = np.loadtxt(profilepath + 'Ti.dat')[:,1]
         self.Vz = np.loadtxt(profilepath + 'Vz.dat')[:,1]
 
+        print(self.neo2_path)
+
 
 
     def run_neo2(self, gfile, convex_wall, flux_data):
@@ -56,7 +58,6 @@ class neo2_for_Er():
         # prepare profiles for neo-2
         # set points for neo-2
 
-        #self.r_eff = self.equil_r_q_psi[:,0]
         self.r_min = self.r_eff[0] + 1.0
 
         n_points = [5,3,9] # points between borders
@@ -90,12 +91,6 @@ class neo2_for_Er():
             shutil.rmtree(self.kpath)
 
         shutil.copytree(self.neo2_path, self.kpath)
-        #for filename in os.listdir(self.neo2_path):
-        #    source_file = os.path.join(self.neo2_path, filename)
-        #    if os.path.isfile(source_file):
-        #        destination_file = os.path.join(self.kpath, filename)
-        #        shutil.copy2(source_file, destination_file)
-
         shutil.copy2(convex_wall, os.path.join(self.kpath, 'convexwall.dat'))
 
         # output matrix

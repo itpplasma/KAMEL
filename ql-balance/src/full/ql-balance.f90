@@ -23,64 +23,14 @@ program ql_balance
     use restart_mod
     use PolyLagrangeInterpolation
     use plasma_parameters
+    use balance_mod
 
     implicit none
 
     integer :: ipoi, i, ieq, l, k
     integer :: ioddeven
 
-    call read_config
-
-    iexit = 0 ! 0 - don't skip, 1 - skip, 2 - stop
-    mwind = 10
-
-    write_diag = .false.
-    write_diag_b = .false.
-
-    ! if h5overwrite = true, existing data will be deleted
-    ! before new one is written
-    ! This is contained in hdf5_tools module
-    h5overwrite = .true.
-    
-    if (gyro_current_study .ne. 0) then
-        write_gyro_current = .true.
-    else
-        write_gyro_current = .false.
-    end if
-
-    call initMPI
-
-    timescale = (rmax - rmin)**2/dperp
-    tmax = timescale*tmax_factor
-    timstep = tmax/Nstorage
-    
-    if (irank .eq. 0) then
-        write(*,*) "timstep = ", timstep
-    end if
-
-    call gengrid
-
-    call setBoundaryCondition
-
-    CALL initialize_wave_code_interface(npoib, rb);
-    CALL initialize_parameter_scan_vars
-
-    mode_m = m_vals(1)
-    mode_n = n_vals(1)
-    if (debug_mode) write(*,*) 'Debug: mode_m = ', mode_m, 'mode_n = ', mode_n
-
-    if (ihdf5IO .eq. 1) then
-        CALL creategroupstructure
-    end if
-
-    call allocate_prev_variables
-
-    call init_background_profiles
-
-    if (irank .eq. 0) then
-        CALL writeInitialParameters
-        call alloc_hold_parameters
-    end if
+    call balanceInit
 
     ! parameter scan loops that span over (nearly) the rest of the code
     do ifac_n = 1, size(fac_n)

@@ -333,7 +333,7 @@
                         if (ifac_n + ifac_Te + ifac_Ti + ifac_vz .eq. size(fac_n) + &
                             size(fac_Ti) + size(fac_Te) + size(fac_vz)) then
                             CALL MPI_finalize(ierror)
-                            stop
+                            stop "Finished parameter scan"
                         else
                             ! if it is not the last scan, skip the rest of the
                             ! code and continue with the next loop iteration

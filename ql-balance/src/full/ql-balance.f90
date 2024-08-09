@@ -18,7 +18,7 @@ program ql_balance
     use paramscan_mod
     use mpi
     use time_evolution
-    use linear_run
+    use singleStep
     use parallelTools
     use restart_mod
     use PolyLagrangeInterpolation
@@ -29,6 +29,14 @@ program ql_balance
 
     integer :: ipoi, i, ieq, l, k
     integer :: ioddeven
+    character(100) :: typeOfRun = "SingleStep"
+    
+    class(balance_t), allocatable :: balanceInstance
+
+    call fromBalanceFactoryGetBalance(typeOfRun, balanceInstance)
+    call balanceInstance%initBalance()
+    call balanceInstance%runBalance()
+
 
     call balanceInit
 
@@ -149,7 +157,7 @@ program ql_balance
                             end if
                         else
                             !Stop if mode is not time evolution
-                            call finalizeLinearRun
+                            call finalizeSingleStepRun
                         end if
                     end if
 

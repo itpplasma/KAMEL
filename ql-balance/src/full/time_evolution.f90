@@ -3,6 +3,7 @@
     use control_mod
     use parallelTools
     use h5mod
+    use balanceBase, only: balance_t
 
     implicit none
 
@@ -56,7 +57,25 @@
 
     integer(HID_T) :: time_dataset_id !> variable to save the time dataset id
 
+
+    type, extends(balance_t) :: TimeEvolution_t
+        contains
+            procedure :: initBalance => initTimeEvolution
+            procedure :: runBalance => runTimeEvolution
+    end type
+
     contains
+
+    subroutine initTimeEvolution(this)
+        class(TimeEvolution_t), intent(inout) :: this
+        this%runType = "TimeEvolution"
+    end subroutine
+
+    subroutine runTimeEvolution(this)
+        class(TimeEvolution_t), intent(inout) :: this
+        write(*,*) "Running TimeEvolution"
+    end subroutine
+
 
     subroutine allocate_prev_variables
 

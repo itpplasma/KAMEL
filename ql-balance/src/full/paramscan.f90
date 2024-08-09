@@ -2,6 +2,7 @@
 module paramscan_mod
 
     use control_mod
+    use balanceBase, only: balance_t
 
     implicit none
 
@@ -15,8 +16,24 @@ module paramscan_mod
     DOUBLE PRECISION, DIMENSION(:, :, :, :), ALLOCATABLE :: br_abs_res_parscan
     DOUBLE PRECISION, DIMENSION(:, :, :, :), ALLOCATABLE :: dqle22_res
     
+    type, extends(balance_t) :: ParameterScan_t
+        contains
+            procedure :: initBalance => initParameterScan
+            procedure :: runBalance => runParameterScan
+    end type
 
     contains
+
+    subroutine initParameterScan(this)
+        class(ParameterScan_t), intent(inout) :: this
+        this%runType = "ParameterScan"
+    end subroutine
+
+    subroutine runParameterScan(this)
+        class(ParameterScan_t), intent(inout) :: this
+        write(*,*) "Running ParameterScan"
+    end subroutine
+
 
     !> @brief subroutine initialize_parameter_scan_vars. Read factors for parameter scan and allocate variables. Still needed if no parameter scan is done.
     !> @author Markus Markl

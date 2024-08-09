@@ -1,6 +1,24 @@
-module linear_run
+module singleStep
+
+    use balanceBase, only: balance_t
+
+    type, extends(balance_t) :: singleStep_t
+        contains
+            procedure :: initBalance => initSingleStep
+            procedure :: runBalance => runSingleStep
+    end type
 
     contains
+    
+    subroutine initSingleStep(this)
+        class(SingleStep_t), intent(inout) :: this
+        this%runType = "SingleStep"
+    end subroutine
+
+    subroutine runSingleStep(this)
+        class(SingleStep_t), intent(inout) :: this
+        write(*,*) "Running SingleStep"
+    end subroutine
 
     subroutine init_background_profiles
 
@@ -28,7 +46,7 @@ module linear_run
 
     end subroutine
 
-    subroutine finalizeLinearRun
+    subroutine finalizeSingleStepRun
 
         use h5mod
         use mpi

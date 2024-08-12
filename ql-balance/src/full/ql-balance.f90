@@ -34,11 +34,14 @@ program ql_balance
     class(balance_t), allocatable :: balanceInstance
 
     call fromBalanceFactoryGetBalance(typeOfRun, balanceInstance)
+    
+    !call balanceInstance%runBalance()
+
+    !call balanceInit
     call balanceInstance%initBalance()
     call balanceInstance%runBalance()
 
-
-    call balanceInit
+    stop "to test SingleStep run"
 
     ! parameter scan loops that span over (nearly) the rest of the code
     do ifac_n = 1, size(fac_n)

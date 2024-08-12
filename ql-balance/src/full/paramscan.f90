@@ -25,13 +25,52 @@ module paramscan_mod
     contains
 
     subroutine initParameterScan(this)
+
+        use balance_mod, only: balanceInit
+
+        implicit none
+
         class(ParameterScan_t), intent(inout) :: this
         this%runType = "ParameterScan"
+
+        call balanceInit
+
     end subroutine
 
     subroutine runParameterScan(this)
+
+        implicit none
+
         class(ParameterScan_t), intent(inout) :: this
-        write(*,*) "Running ParameterScan"
+        print *, "Running ParameterScan"
+
+        integer :: iParScan, iParScanMax
+
+        iParScanMax = size(fac_n) + size(fac_Te) + size(fac_Ti) + size(fac_vz)
+
+        do iParScan = 1, iParScanMax
+
+        end do
+
+        do ifac_n = 1, size(fac_n)
+            do ifac_Te = 1, size(fac_Te)
+                do ifac_Ti = 1, size(fac_Ti)
+                    do ifac_vz = 1, size(fac_vz)
+                        if (.not. suppression_mode) then
+                            write (parscan_str, "(A,F0.3,A,F0.3,A,F0.3,A,F0.3,A)") "n", fac_n(ifac_n), &
+                                "Te", fac_Te(ifac_Te), "Ti", fac_Ti(ifac_Ti), "vz", fac_vz(ifac_vz) &
+                                , "/"
+                        else
+                            parscan_str = ""
+                        end if
+
+                        write (h5_mode_groupname, "(A)") trim(parscan_str)
+                        write(*,*) "h5_mode_groupname: ", trim(h5_mode_groupname)
+                    end do
+                end do
+            end do
+        end do
+
     end subroutine
 
 
@@ -254,9 +293,9 @@ module paramscan_mod
 
                             if (suppression_mode .eqv. .false.) then
                                 CALL h5_create_parent_groups(h5_id, &
-                                                            trim(h5_mode_groupname)//"/fort.1000/")
+                                                            trim(h5_mode_groupname)//"/KinProfiles/")
                                 CALL h5_define_group(h5_id, &
-                                                    trim(h5_mode_groupname)//"/fort.5000/", group_id_1)
+                                                    trim(h5_mode_groupname)//"/LinearProfiles/", group_id_1)
                                 CALL h5_close_group(group_id_1)
                             end if
                             CALL h5_obj_exists(h5_id, "/init_params", &

@@ -124,39 +124,38 @@
   if (debug_mode) write(*,*) "Debug: going out in gengrid"
   return
   end subroutine gengrid
-!
-!ccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
-!
-  subroutine geomparprof
-!
-  use grid_mod
-  use plasma_parameters
-  use baseparam_mod
-!
-  implicit none
-!
-  integer :: ipoi
-  double precision :: cneo_0,coullog,om_ci
-!
-  Sb=rb
-  Sc=rc
-  gpp_av=rtor**2
-!
-  coullog=15.d0
-  om_ci=Z_i*e_charge*btor/(am*p_mass*c)
-!  print *,'om_ci = ',om_ci
-  cneo_0=1.32*4.d0*sqrt(pi)*Z_i**3*e_charge**4*coullog &
-        /(3.d0*(am*p_mass)**1.5d0*om_ci**2)
-  do ipoi=1,npoib
-    qsafb(ipoi)=sum(qsaf(ipbeg(ipoi):ipend(ipoi))*reint_coef(:,ipoi))
-    cneo(ipoi)=(rtor/rb(ipoi))**1.5d0*qsafb(ipoi)**2*cneo_0
-    sqg_bthet_overc(ipoi)=btor*rb(ipoi)/qsafb(ipoi)/c
-  enddo
-!
-  end subroutine geomparprof
-!
-!ccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
-!
+  
+
+subroutine geomparprof
+
+    use grid_mod
+    use plasma_parameters
+    use baseparam_mod
+
+    implicit none
+
+    integer :: ipoi
+    double precision :: cneo_0,coullog,om_ci
+
+    Sb=rb
+    Sc=rc
+    gpp_av=rtor**2
+
+    coullog=15.d0
+    om_ci=Z_i*e_charge*btor/(am*p_mass*c)
+  !  print *,'om_ci = ',om_ci
+    cneo_0=1.32*4.d0*sqrt(pi)*Z_i**3*e_charge**4*coullog &
+          /(3.d0*(am*p_mass)**1.5d0*om_ci**2)
+
+    do ipoi=1,npoib
+        qsafb(ipoi)=sum(qsaf(ipbeg(ipoi):ipend(ipoi))*reint_coef(:,ipoi))
+        cneo(ipoi)=(rtor/rb(ipoi))**1.5d0*qsafb(ipoi)**2*cneo_0
+        sqg_bthet_overc(ipoi)=btor*rb(ipoi)/qsafb(ipoi)/c
+    enddo
+
+end subroutine geomparprof
+
+
   subroutine recnsplit(r,recnsp)
 
   use resonances_mod

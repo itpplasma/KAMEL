@@ -639,9 +639,7 @@
         integer :: ipoi
 
         if (ihdf5IO .eq. 1) then
-            !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-            ! write profiles to hdf5 (former fort.1000+ files)
-            !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+            print *, "Write kinetic profiles"
             do ipoi = 1, npoic
                 sqg_bthet_overcavg(ipoi) = 0.5d0*(sqg_bthet_overc(ipoi) &
                                                 + sqg_bthet_overc(ipoi + 1))
@@ -649,7 +647,7 @@
             end do
             ! h5_mode_groupname
             h5_currentgrp = "/"//trim(h5_mode_groupname) &
-                            //"/fort.1000"
+                            //"/KinProfiles"
 
             CALL h5_init()
             CALL h5_open_rw(path2out, h5_id)
@@ -659,7 +657,7 @@
                 "/", 1000 + istep, "/"
 
             write (*, *) "h5_currentgrp ", trim(h5_currentgrp)
-            write (*, *) "defining fort.1000/1000 group ", 1000 + istep
+            write (*, *) "defining KinProfiles/1000 group ", 1000 + istep
             ! define group 1000+istep
             CALL h5_obj_exists(h5_id, trim(h5_currentgrp), h5_exists_log)
             if (.not. h5_exists_log) then
@@ -699,7 +697,7 @@
             CALL h5_close_group(group_id_1)
             CALL h5_close(h5_id)
             CALL h5_deinit()
-            write (*, *) "finished writing fort.1000"
+            write (*, *) "finished writing KinProfiles"
 
         else
             do ipoi = 1, npoic

@@ -24,9 +24,12 @@ module balance_mod
                 allocate(balanceInstance, source=TimeEvolution_t())
             case("ParameterScan")
                 allocate(balanceInstance, source=ParameterScan_t())
+            !case("TimeEvolutionParameterScan") ! TODO
             !case("ConstantPsi") ! TODO
             case default
-                print *, "Invalid balance type of run " // trim(typeOfRun) 
+                print *, "Invalid balance type of run " // trim(typeOfRun)
+                print *, "Options are: SingleStep, TimeEvolution, ParameterScan"
+                stop "Due to invalid type of run"
         end select
 
     end subroutine

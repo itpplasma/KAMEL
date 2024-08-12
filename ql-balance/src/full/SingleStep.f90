@@ -2,6 +2,8 @@ module singleStep
 
     use balanceBase, only: balance_t
 
+    double precision :: dqle22_res_single, br_abs_res_single
+
     type, extends(balance_t) :: singleStep_t
         contains
             procedure :: initBalance => initSingleStep
@@ -11,13 +13,62 @@ module singleStep
     contains
     
     subroutine initSingleStep(this)
+
+        use balance_mod, only: balanceInit
+
+        implicit none
+
         class(SingleStep_t), intent(inout) :: this
         this%runType = "SingleStep"
+        print *, "Initialize Single Step run"
+
+        call balanceInit
+
     end subroutine
 
     subroutine runSingleStep(this)
+
+        use control_mod, only: irf
+        use time_evolution, only: rescaleTranspCoefficientsByAntennaFac
+
+        implicit none
+
         class(SingleStep_t), intent(inout) :: this
-        write(*,*) "Running SingleStep"
+
+        print *, "Running SingleStep"
+
+        irf = 2 ! initialize transport coefficients
+        call get_dql
+        irf = 1 ! calculate transport coefficients
+        call get_dql
+        call rescaleTranspCoefficientsByAntennaFac
+
+        call interpBrAndDqlAtResonance
+
+    end subroutine
+
+    subroutine interpBrAndDqlAtResonance
+
+        use PolyLagrangeInterpolation
+        use wave_code_data, only: Br, antenna_factor
+        use grid_mod, only: npoib, rb, r_resonant, dqle22
+        
+        implicit none
+
+        if (.not. allocated(coef)) allocate (coef(0:nder, nlagr))
+        call binsrc(rb, 1, npoib, r_resonant(1), indResRadius)
+        call getIndicesForLagrangeInterp(indResRadius)
+        call plag_coeff(nlagr, nder, r_resonant(1), rb(indBeginInterp:indEndInterp), coef)
+        
+        dqle22_res_single = sum(coef(0, :) * dqle22(indBeginInterp:indEndInterp))
+        br_abs_res_single = sum(coef(0, :) * abs(Br(indBeginInterp:indEndInterp)))*sqrt(antenna_factor)
+
+        write(*,*) ""
+        write(*,*) "Dqle22 res = ", dqle22_res_single
+        write(*,*) "|Br| res   = ", br_abs_res_single
+		write(*,*) "Antenna factor = ", antenna_factor
+        write(*,*) ""
+
     end subroutine
 
     subroutine init_background_profiles

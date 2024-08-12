@@ -23,7 +23,7 @@ subroutine writeFieldsCurrentsAndTranspCoeffsToH5
 
         CALL h5_init()
         CALL h5_open_rw(path2out, h5_id)
-        tempch = "/"//trim(h5_mode_groupname)//"/fort.5000"
+        tempch = "/"//trim(h5_mode_groupname)//"/LinearProfiles"
 
         write (tempch, "(A,A,I4,A)") trim(tempch), "/", timeIndex, "/"
 
@@ -34,9 +34,9 @@ subroutine writeFieldsCurrentsAndTranspCoeffsToH5
                             r, lbound(r), ubound(r))
         CALL h5_add_double_1(h5_id, trim(tempch)//"Br_abs", &
                             abs(Br), lbound(Br), ubound(Br))
-        CALL h5_add_double_1(h5_id, trim(tempch)//"Re_Br", &
+        CALL h5_add_double_1(h5_id, trim(tempch)//"Br_Re", &
                             real(Br), lbound(Br), ubound(Br))
-        CALL h5_add_double_1(h5_id, trim(tempch)//"Im_Br", &
+        CALL h5_add_double_1(h5_id, trim(tempch)//"Br_Im", &
                             dimag(Br), lbound(Br), ubound(Br))
  
         CALL h5_add_double_1(h5_id, trim(tempch)//"Jpe_abs", &
@@ -72,8 +72,6 @@ subroutine writeFieldsCurrentsAndTranspCoeffsToH5
             write(*,*) " "
         end if ! hdf5test .eq. 1
  
-
-
         ! write the whole content only if diagnostics_output is true
         if (diagnostics_output) then
             !CALL h5_add_double_1(h5_id, trim(tempch)//"dqle22", &

@@ -852,7 +852,7 @@ subroutine get_dql
     DOUBLE COMPLEX, DIMENSION(:), ALLOCATABLE :: Es_pert_flux_temp
     !DOUBLE PRECISION, DIMENSION(:), ALLOCATABLE :: d11_misalign ! diffusion due to misalignment of equipotentials and flux surfaces
     double complex, dimension(:), allocatable :: formfactor
-!
+
     ! added variables for interpolation of Brvac
     integer :: ibrabsres
     double precision :: brvac_interp
@@ -861,7 +861,7 @@ subroutine get_dql
     CHARACTER(LEN=1024) :: tempch
 
     if (debug_mode) write(*,*) "Debug: coming into get_dql"
-!
+
     allocate (dqle11_loc(npoib))
     allocate (dqle12_loc(npoib))
     allocate (dqle21_loc(npoib))
@@ -874,7 +874,7 @@ subroutine get_dql
     if (.not. allocated(d11_misalign)) allocate (d11_misalign(npoib))
     if (.not. allocated(Es_pert_flux)) allocate (Es_pert_flux(npoib))
     if (.not. allocated(Es_pert_flux_temp)) allocate (Es_pert_flux_temp(npoib))
-!
+
     dqle11_loc = 0.0d0
     dqle12_loc = 0.0d0
     dqle21_loc = 0.0d0
@@ -883,7 +883,7 @@ subroutine get_dql
     dqli12_loc = 0.0d0
     dqli21_loc = 0.0d0
     dqli22_loc = 0.0d0
-!
+
     if (irf .eq. 0) then
         return
     elseif (irf .eq. 2) then
@@ -897,39 +897,26 @@ subroutine get_dql
         dqli22 = 0.0e0
         return
     end if
-!
+
     if (iboutype .eq. 1) then
         npoi = npoic - 1
     else
         npoi = npoic
     end if
-!
-! equilibrium parameters:
-!
-!  do ipoi=1,npoi
-!    do ieq=1,nbaleqs
-!      i=nbaleqs*(ipoi-1)+ieq
-!      params(ieq,ipoi)=y(i)
-!    end do
-!  end do
-!
-! Interpolation:
-!
+
     do ipoi = 1, npoib
         do ieq = 1, nbaleqs
-! radial derivatives of equilibrium parameters at cell boundaries:
+            ! radial derivatives of equilibrium parameters at cell boundaries:
             ddr_params_nl(ieq, ipoi) &
                 = sum(params(ieq, ipbeg(ipoi):ipend(ipoi))*deriv_coef(:, ipoi))
-! equilibrium parameters at cell boundaries:
+            ! equilibrium parameters at cell boundaries:
             params_b(ieq, ipoi) &
                 = sum(params(ieq, ipbeg(ipoi):ipend(ipoi))*reint_coef(:, ipoi))
         end do
     end do
-!
-! Smooth input for KILCA
-!
-!  if(.true.) then
-    if (.false.) then
+
+    ! Smooth input for KILCA
+    if (.true.) then
         allocate (dummy(npoib))
         do ieq = 1, nbaleqs
             call smooth_array_gauss(npoib, mwind, ddr_params_nl(ieq, :), dummy)
@@ -939,16 +926,12 @@ subroutine get_dql
         end do
         deallocate (dummy)
     end if
-!
-! End smooth input for KILCA
-!
-! Compute radial electric field:
-!
-!   Ercov=sqg_bthet_overc*params_b(2,:)                                 & !OLD
+
+    ! Compute radial electric field:
     Ercov = sqg_bthet_overc*(params_b(2, :) - Vth*q/rb) &
             + (params_b(4, :)*ddr_params_nl(1, :)/params_b(1, :) + ddr_params_nl(4, :)) &
             /(Z_i*e_charge)
-!
+
     call MPI_Comm_rank(MPI_COMM_WORLD, irank, ierror);
     if (irank .eq. 0) then
         if (write_diag_b) then !write_diag_b
@@ -961,12 +944,12 @@ subroutine get_dql
         end if
     end if
 
-!
-! Compute diffusion coefficient matrices:
+
+    ! Compute diffusion coefficient matrices:
 
     call MPI_Comm_size(MPI_COMM_WORLD, np_num, ierror);
     call MPI_Comm_rank(MPI_COMM_WORLD, irank, ierror);
-!sum over modes:
+    !sum over modes:
     if (np_num .gt. dim_mn) then
         print *, ' '
         print *, 'Number of processes', np_num, 'is larger than number of modes', dim_mn
@@ -984,16 +967,16 @@ subroutine get_dql
     if (irf .eq. 1) call get_wave_code_data(imin, imax);
     if (irf .eq. 1) call get_background_magnetic_fields_from_wave_code(flre_cd_ptr(imin), dim_r, r, B0t, B0z, B0);
     if (irf .eq. 1) call get_collision_frequences_from_wave_code(flre_cd_ptr(imin), dim_r, r, nui, nue);
-!
-!  nu_e=15.4d-6*params_b(1,:)/sqrt(params_b(3,:)/ev)**3            &
-!      *(23.d0-0.5d0*log(params_b(1,:)/(params_b(3,:)/ev)**3))
-!  nu_i=1.d-7*params_b(1,:)/sqrt(params_b(4,:)/ev)**3              &
-!      *(23.d0-0.5d0*log(2.d0*params_b(1,:)/(params_b(4,:)/ev)**3))
-!
+
+    !  nu_e=15.4d-6*params_b(1,:)/sqrt(params_b(3,:)/ev)**3            &
+    !      *(23.d0-0.5d0*log(params_b(1,:)/(params_b(3,:)/ev)**3))
+    !  nu_i=1.d-7*params_b(1,:)/sqrt(params_b(4,:)/ev)**3              &
+    !      *(23.d0-0.5d0*log(2.d0*params_b(1,:)/(params_b(4,:)/ev)**3))
+
     nu_e = nue
     nu_i = nui
-!
-!initialization before summing up over modes:
+
+    !initialization before summing up over modes:
     dqle11 = 0.0d0
     dqle12 = 0.0d0
     dqle21 = 0.0d0
@@ -1004,32 +987,26 @@ subroutine get_dql
     dqli22 = 0.0e0
     Es_pert_flux = 0.0d0
 
-!sum over modes:
-
+    !sum over modes:
     do i_mn = imin, imax
-!
         call get_wave_vectors_from_wave_code(flre_cd_ptr(i_mn), dim_r, r, &
                                              m_vals(i_mn), n_vals(i_mn), ks, kp)
-!
         call get_wave_fields_from_wave_code(flre_cd_ptr(i_mn), dim_r, r, &
                                             m_vals(i_mn), n_vals(i_mn), Er, Es, Ep, Et, Ez, Br, Bs, Bp, Bt, Bz)
-!
-        om_E = ks*c*dPhi0/B0;
-!
+        om_E = ks*c*dPhi0/B0
         vT_e = sqrt(params_b(3, :)/e_mass)
         vT_i = sqrt(params_b(4, :)/p_mass/am)
-!
-!    if(.true.) then
+
         i_mn_loop = i_mn
+
+        ! TODO: add switch to choose calculation of collisionless transport coefficients.
         if (.false.) then
             call calc_transport_coeffs_collisionless(npoib, vT_e, de11, de12, de22)
             de21 = de12
             call calc_transport_coeffs_collisionless(npoib, vT_i, di11, di12, di22)
             di21 = di12
         else
-!    write(*,*) "1022"
-            if (.true.) then
-!      if(.false.) then
+        if (.true.) then
                 call calc_transport_coeffs_ornuhl(npoib, vT_e, nu_e, de11, de12, de21, de22)
                 call calc_transport_coeffs_ornuhl(npoib, vT_i, nu_i, di11, di12, di21, di22)
             else
@@ -1037,7 +1014,7 @@ subroutine get_dql
                 call calc_transport_coeffs_ornuhl_drift(2, npoib, di11, di12, di21, di22)
             end if
         end if
-!
+
         if (misalign_diffusion .eqv. .true.) then
             call get_wave_fields_from_wave_code(flre_cd_ptr(i_mn), dim_r, r, &
                                             m_vals(i_mn), n_vals(i_mn), Er, Es, Ep, Et, Ez, Br, Bs, Bp, Bt, Bz)
@@ -1070,38 +1047,14 @@ subroutine get_dql
             Es_pert_flux = Es_pert_flux + Es_pert_flux_temp
         end if
 
-!    write(*,*) "1031"
         call get_wave_fields_from_wave_code(vac_cd_ptr(i_mn), dim_r, r, &
                                             m_vals(i_mn), n_vals(i_mn), Bz, Bz, Bz, Bz, Bz, Br, Bz, Bz, Bz, Bz)
-!
-        formfactor = (1.d0, 0.d0)/Br
-!
-        !Exclusion of Amn -> this should be done in GPEC or other toroidal MHD code
-        !rescaling comes from antenna_factor now.
-        !Changed by Philipp Ulbl 13.05.2020
 
-        !do ipoi = 1, npoib
-        !  call amn_of_r(-m_vals(i_mn),n_vals(i_mn),r(ipoi),                     &
-        !                amn_psi(ipoi),amn_theta(ipoi),ierr)
-        !  if(ierr.ne.0) then
-!            print *,'amn_of_r error ',ierr
-        !    amn_psi(ipoi)=amn_psi(ipoi-1)
-        !    amn_theta(ipoi)=amn_theta(ipoi-1)
-!            stop
-        !  endif
-        !end do
-        !amn_theta_cyl = r*rtor/n_vals(i_mn)*Br
-        !spec_weight = 2.0d0*(abs(amn_theta)**2/abs(amn_theta_cyl)**2)
+        formfactor = (1.d0, 0.d0)/Br
 
         ! spec_weight was wrongly set to 2.0. In case that the tmhd code uses double sided Fourier series, it
         ! must be set to 4.0d0, since the factor 2.0d0 should occur in the fields.
         spec_weight = 1.0d0
-
-        !Call of localizer which was initially contained in call_amn_of_r. This was removed, thus
-        !we have to localize dql directly. Otherwise we have dql!=0 outside the separatrix which
-        !will affect the whole time evolution.
-        !Changed by Philipp Ulbl 03.06.2020
-!    write(*,*) "1058"
 
         do ipoi = 1, npoib
             call localizer(1.d0, rb_cut_out, re_cut_out, r(ipoi), weight)
@@ -1109,7 +1062,6 @@ subroutine get_dql
             call localizer(-1.d0, rb_cut_in, rb_cut_in, r(ipoi), weight)
             spec_weight(ipoi) = spec_weight(ipoi)*weight
         end do
-
 
         if (irank .eq. 0) then
             if (timeIndex .le. 1) then
@@ -1181,12 +1133,12 @@ subroutine get_dql
         dqli12_loc = dqli12_loc + di12*spec_weight
         dqli21_loc = dqli21_loc + di21*spec_weight
         dqli22_loc = dqli22_loc + di22*spec_weight
-!
+
         call get_current_densities_from_wave_code(flre_cd_ptr(i_mn), dim_r, r, &
                                                   m_vals(i_mn), n_vals(i_mn), Jri, Jsi, Jpi, Jre, Jse, Jpe)
 
     end do
-!
+
     
     ! calculate diffusion due to misalignment of equipotentials and flux surfaces
     if (misalign_diffusion .eqv. .true.) then
@@ -1227,9 +1179,8 @@ subroutine get_dql
 
     call calc_parallel_current_directly
     call calc_ion_parallel_current_directly
-!
 
-!if(.false.) then
+
     if (.true.) then
         mwind_save = mwind
         mwind = 30
@@ -1242,7 +1193,6 @@ subroutine get_dql
         dqle21 = dummy
         call smooth_array_gauss(npoib, mwind, dqle22, dummy)
         dqle22 = dummy
-!
         mwind = 30
         call smooth_array_gauss(npoib, mwind, dqli11, dummy)
         dqli11 = dummy
@@ -1269,7 +1219,6 @@ subroutine get_dql
         dqle21 = dummy
         call smooth_array_gauss(npoib, mwind, dqle22, dummy)
         dqle22 = dummy
-!
         mwind = 30
         call smooth_array_gauss(npoib, mwind, dqli12, dummy)
         dqli12 = dummy
@@ -1296,6 +1245,18 @@ subroutine get_dql
     if (debug_mode) write(*,*) "Debug: going out of get_dql"
 
 end subroutine get_dql
+
+subroutine initialize_get_dql
+
+    use control_mod, only: irf
+
+    implicit none
+
+    irf = 2
+    call get_dql
+    irf = 1
+
+end subroutine
 
 !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
 

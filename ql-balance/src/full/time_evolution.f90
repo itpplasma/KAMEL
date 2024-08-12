@@ -160,25 +160,6 @@
     
     end subroutine
 
-    subroutine rescaleTranspCoefficientsByAntennaFac
-
-        use grid_mod, only: dqle11, dqle12, dqle21, dqle22, &
-                            dqli11, dqli12, dqli21, dqli22
-        use wave_code_data, only: antenna_factor
-
-        implicit none
-
-        dqle11 = dqle11*antenna_factor
-        dqle12 = dqle12*antenna_factor
-        dqle21 = dqle21*antenna_factor
-        dqle22 = dqle22*antenna_factor
-        dqli11 = dqli11*antenna_factor
-        dqli12 = dqli12*antenna_factor
-        dqli21 = dqli21*antenna_factor
-        dqli22 = dqli22*antenna_factor
-
-    end subroutine
-
 
     !> @brief subroutine write_br_time_data. Writes radial magnetic field perturbation evaluated at the resonant
     !> surface, the antenna factor, the time and Dqle22 evaluated at the resonant surface for a given 

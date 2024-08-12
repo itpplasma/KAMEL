@@ -29,7 +29,6 @@ module singleStep
     subroutine runSingleStep(this)
 
         use control_mod, only: irf
-        use time_evolution, only: rescaleTranspCoefficientsByAntennaFac
 
         implicit none
 
@@ -41,7 +40,7 @@ module singleStep
         call get_dql
         irf = 1 ! calculate transport coefficients
         call get_dql
-        call rescaleTranspCoefficientsByAntennaFac
+        call rescale_transp_coeffs_by_ant_fac
 
         call interpBrAndDqlAtResonance
 
@@ -107,12 +106,32 @@ module singleStep
 
         implicit none
 
-        write(*,*) '-> Finalize linear run |'
+        
         if (ihdf5IO .eq. 1) then
             call writeDqle22
         end if
         call MPI_finalize(ierror);
-        stop  !! <<----- Stop for linear code usage
+        stop '-> Finished linear run |'
+
+    end subroutine
+
+
+    subroutine rescale_transp_coeffs_by_ant_fac
+
+        use grid_mod, only: dqle11, dqle12, dqle21, dqle22, &
+                            dqli11, dqli12, dqli21, dqli22
+        use wave_code_data, only: antenna_factor
+
+        implicit none
+
+        dqle11 = dqle11*antenna_factor
+        dqle12 = dqle12*antenna_factor
+        dqle21 = dqle21*antenna_factor
+        dqle22 = dqle22*antenna_factor
+        dqli11 = dqli11*antenna_factor
+        dqli12 = dqli12*antenna_factor
+        dqli21 = dqli21*antenna_factor
+        dqli22 = dqli22*antenna_factor
 
     end subroutine
 

@@ -126,7 +126,7 @@
   end subroutine gengrid
   
 
-subroutine geomparprof
+subroutine calc_geometric_parameter_profiles
 
     use grid_mod
     use plasma_parameters
@@ -153,7 +153,7 @@ subroutine geomparprof
         sqg_bthet_overc(ipoi)=btor*rb(ipoi)/qsafb(ipoi)/c
     enddo
 
-end subroutine geomparprof
+end subroutine calc_geometric_parameter_profiles
 
 
   subroutine recnsplit(r,recnsp)

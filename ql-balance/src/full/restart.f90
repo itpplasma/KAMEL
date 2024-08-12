@@ -8,7 +8,7 @@ module restart_mod
     integer :: iunit_redo
 
     contains
-    subroutine InquiryToRestart
+    subroutine inquiry_to_restart
 
         use parallelTools, only: irank
         use grid_mod, only: npoi, nbaleqs, y

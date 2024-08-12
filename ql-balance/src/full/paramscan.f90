@@ -39,37 +39,76 @@ module paramscan_mod
 
     subroutine runParameterScan(this)
 
+        use singleStep, only: rescale_transp_coeffs_by_ant_fac
+            
         implicit none
 
         class(ParameterScan_t), intent(inout) :: this
+
         print *, "Running ParameterScan"
-
-        integer :: iParScan, iParScanMax
-
-        iParScanMax = size(fac_n) + size(fac_Te) + size(fac_Ti) + size(fac_vz)
-
-        do iParScan = 1, iParScanMax
-
-        end do
 
         do ifac_n = 1, size(fac_n)
             do ifac_Te = 1, size(fac_Te)
                 do ifac_Ti = 1, size(fac_Ti)
                     do ifac_vz = 1, size(fac_vz)
-                        if (.not. suppression_mode) then
-                            write (parscan_str, "(A,F0.3,A,F0.3,A,F0.3,A,F0.3,A)") "n", fac_n(ifac_n), &
-                                "Te", fac_Te(ifac_Te), "Ti", fac_Ti(ifac_Ti), "vz", fac_vz(ifac_vz) &
-                                , "/"
-                        else
-                            parscan_str = ""
-                        end if
-
-                        write (h5_mode_groupname, "(A)") trim(parscan_str)
-                        write(*,*) "h5_mode_groupname: ", trim(h5_mode_groupname)
+                        call prepare_h5_group_name
+                        call rescale_profiles
+                        call calc_geometric_parameter_profiles
+                        call initialize_get_dql
+                        call get_dql
+                        call rescale_transp_coeffs_by_ant_fac
+                        call interpolate_Br_Dql_at_res_parscan
                     end do
                 end do
             end do
         end do
+
+        call finalize_parscan_run
+
+    end subroutine
+
+    subroutine prepare_h5_group_name
+
+        use resonances_mod, only: add_mode_group_to_h5_mode_groupname
+        use h5mod, only: h5_mode_groupname
+
+        implicit none
+
+        call determine_h5_mode_groupname_of_scan
+        call add_mode_group_to_h5_mode_groupname
+        if (debug_mode) then
+            print *, "h5_mode_groupname: ", trim(h5_mode_groupname)
+        end if
+
+    end subroutine
+
+    subroutine determine_h5_mode_groupname_of_scan
+
+        use h5mod
+
+        implicit none
+
+        if (.not. suppression_mode) then
+            write (parscan_str, "(A,F0.3,A,F0.3,A,F0.3,A,F0.3,A)") "n", fac_n(ifac_n), &
+                "Te", fac_Te(ifac_Te), "Ti", fac_Ti(ifac_Ti), "vz", fac_vz(ifac_vz) &
+                , "/"
+        else
+            parscan_str = ""
+        end if
+        write (h5_mode_groupname, "(A)") trim(parscan_str)
+
+    end subroutine
+
+    subroutine finalize_parscan_run
+
+        use parallelTools
+
+        implicit none
+
+        call write_Br_Dql_at_res_to_hdf5
+        call deallocate_wave_code_data
+        call MPI_finalize(ierror)
+        stop '-> Finished parameter scan run |'
 
     end subroutine
 
@@ -186,7 +225,7 @@ module paramscan_mod
     end subroutine !rescale_profiles
 
 
-    subroutine interpBrAndDqlAtResonanceParamScan
+    subroutine interpolate_Br_Dql_at_res_parscan
 
         use PolyLagrangeInterpolation
         use grid_mod, only: npoib, rb, r_resonant, dqle22
@@ -360,7 +399,7 @@ module paramscan_mod
         write (*, *) "finished creating group structure"
     end subroutine
 
-    subroutine writeBrAndDqlAtResonanceToH5
+    subroutine write_Br_Dql_at_res_to_hdf5
 
         !use paramscan_mod, only: dqle22_res, br_abs_res_parscan, Er_res, &
         !    fac_vz

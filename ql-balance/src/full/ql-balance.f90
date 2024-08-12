@@ -48,45 +48,41 @@ program ql_balance
         do ifac_Te = 1, size(fac_Te)
             do ifac_Ti = 1, size(fac_Ti)
                 do ifac_vz = 1, size(fac_vz)
-                    if (paramscan) then
+                    !if (paramscan) then
                         ! change parameter scan string used for navigating the hdf5 file, only if
                         ! the suppression_mode is not activated
-                        if (.not. suppression_mode) then
-                            write (parscan_str, "(A,F0.3,A,F0.3,A,F0.3,A,F0.3,A)") "n", fac_n(ifac_n), &
-                                "Te", fac_Te(ifac_Te), "Ti", fac_Ti(ifac_Ti), "vz", fac_vz(ifac_vz) &
-                                , "/"
-                        else
-                            parscan_str = ""
-                        end if
-                    else
-                        write(*,*) " "
-                        write(*,*) "- No parameter scan -"
-                        write(*,*) " "
+                    !    if (.not. suppression_mode) then
+                    !        write (parscan_str, "(A,F0.3,A,F0.3,A,F0.3,A,F0.3,A)") "n", fac_n(ifac_n), &
+                    !            "Te", fac_Te(ifac_Te), "Ti", fac_Ti(ifac_Ti), "vz", fac_vz(ifac_vz) &
+                    !            , "/"
+                    !    else
+                    !        parscan_str = ""
+                    !    end if
+                    !else
+                    !    write(*,*) " "
+                    !    write(*,*) "- No parameter scan -"
+                    !    write(*,*) " "
                         ! leave it empty if no parameter scan
-                        parscan_str = ""
-                    end if
-
-                    write (h5_mode_groupname, "(A)") trim(parscan_str)
-                    write(*,*) "h5_mode_groupname: ", trim(h5_mode_groupname)
-
-                    ! allocate variables in first parameter scan loop iteration
-                    !if (ifac_n + ifac_Ti + ifac_Te + ifac_vz .eq. 4) then
-                    !    call allocate_prev_variables
+                    !    parscan_str = ""
                     !end if
+
+                    !write (h5_mode_groupname, "(A)") trim(parscan_str)
+                    !write(*,*) "h5_mode_groupname: ", trim(h5_mode_groupname)
+
 				
                     ! if more than one RMP mode is used, use different group name
-                    if (numres .eq. 1) then
-                        write (h5_mode_groupname, "(A,A,I1,A,I1)") trim(h5_mode_groupname), &
-                            "f_", m_vals(1), "_", n_vals(1)
-                    else
-                        write (h5_mode_groupname, "(A,A,I1,A,I1)") trim(h5_mode_groupname), &
-                            "multi_mode"
-                    end if
+                    !if (numres .eq. 1) then
+                    !    write (h5_mode_groupname, "(A,A,I1,A,I1)") trim(h5_mode_groupname), &
+                    !        "f_", m_vals(1), "_", n_vals(1)
+                    !else
+                    !    write (h5_mode_groupname, "(A,A,I1,A,I1)") trim(h5_mode_groupname), &
+                    !        "multi_mode"
+                    !end if
 
-                    write(*,*) "h5_mode_groupname after f_m_n: ", trim(h5_mode_groupname)
+                    !write(*,*) "h5_mode_groupname after f_m_n: ", trim(h5_mode_groupname)
 
                     call rescale_profiles
-                    call geomparprof
+                    call calc_geometric_parameter_profiles
 
                     irf = 2 ! initialize dql variables and set to zero !
                     call get_dql
@@ -95,11 +91,11 @@ program ql_balance
                         call initAntennaFactor
                     end if
 
-                    call rescaleTranspCoefficientsByAntennaFac
+                    call rescale_transp_coeffs_by_ant_fac
                     
                     irf = 1
 
-                    call genstartsource
+                    call genstartsource ! calcs source term in balance equations, needed for time evolution
 
 					write(*,*) "h5_mode_groupname before writeKinProfileDataToDisk: ", trim(h5_mode_groupname)
                     if (irank .eq. 0) then
@@ -111,7 +107,7 @@ program ql_balance
                     time = 0.d0
                     tol = tol_max
 
-                    call InquiryToRestart
+                    call inquiry_to_restart
 
                     timstep_arr = timstep
                     tim_stack = timstep_arr
@@ -119,7 +115,7 @@ program ql_balance
                     iunit_diag = 5000
 
                     call get_dql ! also writes out diffusion coefficients and other data
-                    call rescaleTranspCoefficientsByAntennaFac
+                    call rescale_transp_coeffs_by_ant_fac
 
                     if (flag_run_time_evolution) then
                         if (ifac_n + ifac_Ti + ifac_Te + ifac_vz .eq. 4) then
@@ -141,7 +137,7 @@ program ql_balance
                     if (.not. flag_run_time_evolution) then
                         ! linear run
                         ! if velocity scan, determine Er_res for v_ExB velocity at resonant surface
-                        call interpBrAndDqlAtResonanceParamScan
+                        call interpolate_Br_Dql_at_res_parscan
 
                         if (paramscan) then
                             ! if the last parameter scan is done, write data and stop the code
@@ -149,7 +145,7 @@ program ql_balance
                                 size(fac_Te) + size(fac_vz)) then
                                 if (debug_mode) write(*,*) "Debug: Last parameter done. Finalize MPI"
 
-                                call writeBrAndDqlAtResonanceToH5
+                                call write_Br_Dql_at_res_to_hdf5
                                 CALL deallocate_wave_code_data()
                                 CALL MPI_finalize(ierror);
                                 stop
@@ -204,7 +200,7 @@ program ql_balance
                         call stopIfTimeStepTooSmall
                         call interpBrAndDqlAtResonanceTimeEvol
 						call write_br_time_data
-                        call rescaleTranspCoefficientsByAntennaFac
+                        call rescale_transp_coeffs_by_ant_fac
 
                         if (write_diag_b) close (iunit_diag_b)
 

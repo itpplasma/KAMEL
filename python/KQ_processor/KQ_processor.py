@@ -69,7 +69,7 @@ class KQ_processor:
 
         self.pp.map_profs_to_reff(self.prof_path, self.save_profs, self.flux_data, plot=False)
 
-        #self.pp.calc_Er_prof(recalc=not skip)
+        self.pp.calc_Er_prof(recalc=not skip)
 
         self.pp.determine_anomalous_diff_coeff()
 

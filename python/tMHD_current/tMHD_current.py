@@ -46,7 +46,6 @@ class tMHD_current:
             self.loadCurrentMARSFSepDensScan(file, dictKey, InputFile)
     
     def loadCurrentMARSFSepDensScan(self, file, dictKey, InputFile):
-        
         dat = mat4py_loadmat(file)
         inp = mat4py_loadmat(InputFile)
         print(dictKey + 'U')
@@ -57,9 +56,7 @@ class tMHD_current:
         
 
     def loadCurrentMARSFStandard(self, file):
-
         mat = loadmat(file)
-
         self.JparU = mat['JparU[A/m^2]'] / 10**5 # conversion from A/m^2 to statA/cm^2
         self.JparL = mat['JparL[A/m^2]'] / 10**5
         self.chi = mat['chi'][0]

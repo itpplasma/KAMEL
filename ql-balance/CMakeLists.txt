@@ -46,7 +46,6 @@ set (libs_root_path ${CMAKE_SOURCE_DIR}/../../libs)
 
 set(src ${PROJECT_SOURCE_DIR}/src)
 set(full_balance_src ${src}/full/)
-set(light_balance_src ${src}/light/)
 
 set(hdf5_tools ${PROJECT_SOURCE_DIR}/hdf5_tools/)
 set(objs ${PROJECT_SOURCE_DIR}/OBJS/)
@@ -78,6 +77,7 @@ set(balance_lib_fortran_sources
     ${full_balance_src}/wave_code_data_mod.f90
     ${full_balance_src}/Wmn.f90
     ${full_balance_src}/evolvestep.f90 
+    ${full_balance_src}/transp_coeffs_mod.f90 
     ${full_balance_src}/read_config.f90 
     ${full_balance_src}/gengrid.f90
     ${full_balance_src}/plag_coeff.f90

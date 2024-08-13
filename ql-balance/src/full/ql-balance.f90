@@ -29,7 +29,7 @@ program ql_balance
 
     integer :: ipoi, i, ieq, l, k
     integer :: ioddeven
-    character(100) :: typeOfRun = "SingleStep"
+    character(100) :: typeOfRun = "ParameterScan"
     
     class(balance_t), allocatable :: balanceInstance
 

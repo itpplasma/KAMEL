@@ -437,7 +437,7 @@ subroutine read_eqfile1(nwEQD,nhEQD,psiSep, bt0, rzero, rad, zet, psiRZ)
 
 ! Equilibrium Parameters
   read(gunit,2000)(dummy(i),i=1,6),idum,nwEQD,nhEQD
-  write(*,*) 'READ_EQFILE1: ',trim(gfile), nwEQD,nhEQD
+  write(*,*) 'READ_EQFILE1:HERE??? ',trim(gfile), nwEQD,nhEQD
   read(gunit,2010,end=55,err=250)xdim,zdim,rzero,r1,zmid
   write(*,*) xdim, zdim, rzero, r1, zmid
   read(gunit,2010,end=55,err=250)rmaxis,zmaxis,psiAxis,psiSep,bt0
@@ -505,7 +505,7 @@ subroutine read_eqfile2(nwEQD,nhEQD,psiAxis,psiSep,bt0,rzero,fpol,rad,zet,psiRZ)
 
 ! Equilibrium Parameters
   read(gunit,2000)(dummy(i),i=1,6),idum,nwEQD,nhEQD
-  write(*,*) 'READ_EQFILE1: ',trim(gfile),nwEQD,nhEQD
+  write(*,*) 'READ_EQFILE2: ',trim(gfile),nwEQD,nhEQD
   read(gunit,2010,end=55,err=250)xdim,zdim,rzero,r1,zmid
   write(*,*) xdim, zdim, rzero, r1, zmid
   read(gunit,2010,end=55,err=250)rmaxis,zmaxis,psiAxis,psiSep,bt0

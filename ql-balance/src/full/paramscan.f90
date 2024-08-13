@@ -26,7 +26,7 @@ module paramscan_mod
 
     subroutine initParameterScan(this)
 
-        use balance_mod, only: balanceInit
+        !use balance_mod, only: balanceInit
 
         implicit none
 
@@ -39,7 +39,7 @@ module paramscan_mod
 
     subroutine runParameterScan(this)
 
-        use singleStep, only: rescale_transp_coeffs_by_ant_fac
+        use transp_coeffs_mod, only: rescale_transp_coeffs_by_ant_fac
             
         implicit none
 

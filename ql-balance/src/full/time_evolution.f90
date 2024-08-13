@@ -67,13 +67,116 @@
     contains
 
     subroutine initTimeEvolution(this)
+
+        implicit none
+
         class(TimeEvolution_t), intent(inout) :: this
         this%runType = "TimeEvolution"
+
+        call balanceInit
+
     end subroutine
 
     subroutine runTimeEvolution(this)
+
+        use parallelTools, only: irank
+        use baseparam_mod, only: factolmax, factolred, tol_max
+        use recstep_mod, only: tol
+        use plasma_parameters, only: params, params_beg, params_begbeg, limitTemperaturesFromBelow
+        use restart_mod, only: redostep, inquiry_to_restart, redoTimeStep
+        use recstep_mod, only: tim_stack, timstep_arr
+        use transp_coeffs_mod, only: rescale_transp_coeffs_by_ant_fac
+
+        implicit none
+
+        integer :: timeIndex
         class(TimeEvolution_t), intent(inout) :: this
+
         write(*,*) "Running TimeEvolution"
+
+        call calc_geometric_parameter_profiles
+        call initialize_get_dql
+        call initAntennaFactor
+        call genstartsource
+
+        if (irank .eq. 0) then
+            call writeKinProfileDataToDisk(0)
+        end if
+
+        time = 0.0d0
+        tol = tol_max
+
+        call inquiry_to_restart
+
+        timstep_arr = timstep
+        tim_stack = timstep_arr
+
+        call get_dql
+        call rescale_transp_coeffs_by_ant_fac
+
+        call allocateBrAndDqleForTimeEvolution
+        call savePrevTranspCoefficients
+        call allocate_timscal_and_params
+
+        params_begbeg = params
+
+        do timeIndex = 1, Nstorage
+            print *, "TimeIndex: ", timeIndex
+            call saveKinProfilesToYPrev
+            redostep = .false.
+
+            call get_dql
+            call stopIfTimeStepTooSmall
+            call interpBrAndDqlAtResonanceTimeEvol
+            call write_br_time_data
+            call rescale_transp_coeffs_by_ant_fac
+
+            call writefort9999
+
+            if (.not. redostep) then
+                call savePrevTranspCoefficients
+                params_begbeg = params
+            else 
+                call redoTimeStep
+            end if
+
+            do ! redo step loop
+                params_beg = params
+                call evolvestep(timstep, eps)
+                call limitTemperaturesFromBelow
+                call calcParamsNumAndDenom
+                call smoothParamsNumAndDenom
+                call determineTimscal
+                if (maxval(timscal) .lt. tol * factolmax) exit
+                timstep_arr = timstep_arr * factolred
+                params = params_beg
+
+                if (irank .eq. 0) then
+                    print *, "Redoing step"
+                end if
+            end do
+
+            call rescaleTimStepArr
+            call setTimStep
+            call resetTimStepArrWithTimstep
+            call writeTimeInfoToDisk
+            call relaxPlasmaParameters
+
+            timstep_arr = 0.0d0
+            call evolvestep(timstep, eps)
+            timstep_arr = timstep
+            time = time + timstep
+
+            call messageTimeInfo
+            call writeKinProfileAtTimeIndex
+            call setFirstIterationTrue
+            call checkIfLinearDiscrepancyOfPenRatioReached
+
+            call ramp_coil(timeIndex)
+        end do
+
+
+
     end subroutine
 
 
@@ -158,6 +261,20 @@
         dqli21_prev = dqli21
         dqli22_prev = dqli22
     
+    end subroutine
+
+    subroutine allocate_timscal_and_params
+
+        use grid_mod, only: npoi, npoic, nbaleqs, dummy
+        use plasma_parameters, only: params_beg, params_num, params_denom, params_begbeg
+
+        implicit none
+
+        allocate(timscal(npoi), dummy(npoic))
+        allocate(params_beg(nbaleqs, npoic), params_num(nbaleqs, npoic))
+        allocate(params_denom(nbaleqs, npoic))
+        allocate(params_begbeg(nbaleqs, npoic))
+
     end subroutine
 
 

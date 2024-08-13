@@ -34,7 +34,10 @@ module balance_mod
 
     end subroutine
 
-    subroutine balanceInit
+    
+end module
+
+subroutine balanceInit
 
         use time_evolution, only: iexit, timescale, tmax, timstep, Nstorage, &
                                   allocate_prev_variables, tmax_factor
@@ -107,7 +110,4 @@ module balance_mod
         end if
 
     end subroutine
-
-end module
-
 

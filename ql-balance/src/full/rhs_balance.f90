@@ -960,9 +960,7 @@ subroutine get_dql
     modpernode = ceiling(float(dim_mn)/float(np_num));
     imin = modpernode*irank + 1;
     imax = min(dim_mn, modpernode*(irank + 1));
-    if (irank .eq. 0) then
-        if (debug_mode) write(*,*) "This is irf = ", irf
-    end if
+
     if (irf .eq. 1) call update_background_files(path2profs);
     if (irf .eq. 1) call get_wave_code_data(imin, imax);
     if (irf .eq. 1) call get_background_magnetic_fields_from_wave_code(flre_cd_ptr(imin), dim_r, r, B0t, B0z, B0);

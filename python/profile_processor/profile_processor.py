@@ -95,6 +95,8 @@ class profile_processor:
         
 
         for filename in os.listdir(prof_path):
+            if filename == 'kprof':
+                continue
             if marsf_pattern.match(filename):
                 self.ne_orig = np.loadtxt(prof_path + 'PROFDEN.IN',skiprows=1)
                 self.Te_orig = np.loadtxt(prof_path + 'PROFTE.IN', skiprows=1)

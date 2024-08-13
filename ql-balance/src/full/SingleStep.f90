@@ -14,8 +14,6 @@ module singleStep
     
     subroutine initSingleStep(this)
 
-        use balance_mod, only: balanceInit
-
         implicit none
 
         class(SingleStep_t), intent(inout) :: this
@@ -29,6 +27,7 @@ module singleStep
     subroutine runSingleStep(this)
 
         use control_mod, only: irf
+        use transp_coeffs_mod, only: rescale_transp_coeffs_by_ant_fac
 
         implicit none
 
@@ -102,36 +101,41 @@ module singleStep
         use mpi
         use parallelTools, only: ierror
         use control_mod, only: ihdf5IO
-        use paramscan_mod, only: writeDqle22
 
         implicit none
 
-        
         if (ihdf5IO .eq. 1) then
-            call writeDqle22
+            call writeDqle22_SingleStep
         end if
         call MPI_finalize(ierror);
         stop '-> Finished linear run |'
 
     end subroutine
 
+    subroutine writeDqle22_SingleStep
 
-    subroutine rescale_transp_coeffs_by_ant_fac
-
-        use grid_mod, only: dqle11, dqle12, dqle21, dqle22, &
-                            dqli11, dqli12, dqli21, dqli22
-        use wave_code_data, only: antenna_factor
+        use grid_mod, only: dqle22
+        use h5mod
 
         implicit none
 
-        dqle11 = dqle11*antenna_factor
-        dqle12 = dqle12*antenna_factor
-        dqle21 = dqle21*antenna_factor
-        dqle22 = dqle22*antenna_factor
-        dqli11 = dqli11*antenna_factor
-        dqli12 = dqli12*antenna_factor
-        dqli21 = dqli21*antenna_factor
-        dqli22 = dqli22*antenna_factor
+        !print *, "In write dqle22"
+        
+        CALL h5_init()
+        CALL h5_open_rw(path2out, h5_id)
+        CALL h5_obj_exists(h5_id, trim(h5_mode_groupname), &
+            h5_exists_log)
+        if (.not. h5_exists_log) then
+            CALL h5_define_group(h5_id, trim(h5_mode_groupname), group_id_2)
+            CALL h5_close_group(group_id_2)
+        end if
+
+        CALL h5_add_double_0(h5_id, trim(h5_mode_groupname)//'/dqle22_res', dqle22_res_single)
+        CALL h5_add_double_1(h5_id, trim(h5_mode_groupname)//'/dqle22', &
+                                dqle22, lbound(dqle22), ubound(dqle22))
+ 
+        CALL h5_close(h5_id)
+        CALL h5_deinit()
 
     end subroutine
 

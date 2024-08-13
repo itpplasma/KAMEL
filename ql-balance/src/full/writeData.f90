@@ -132,43 +132,42 @@ subroutine writefort9999
 
     integer :: ipoi
         
-    if (diagnostics_output) then
-        if (irank .eq. 0) then
+    if (irank .eq. 0) then
 
-            call determineDqlDiagnostic
+        call determineDqlDiagnostic
 
-            print *, 'timscal_dqle = ', sngl(timscal_dql) &
-                , 'timscal_dqli = ', sngl(timscal_dqli)
-            print *, 'maximum dqle at r = ', rc(ind_dqle(1)) &
-                , 'maximum dqli at r = ', rc(ind_dqli(1))
-            ! Edited by Markus Markl, 26.02.2021
-            if (ihdf5IO .eq. 1) then
-                ! write fort.9999 data to hdf5 file
-                h5_currentgrp = trim("/"//trim(h5_mode_groupname) &
-                                        //"/fort.9999")
-                CALL h5_init()
-                CALL h5_open_rw(path2out, h5_id)
-                CALL h5_obj_exists(h5_id, trim(h5_currentgrp), h5_exists_log)
-                if (h5_exists_log) then
-                    CALL h5_delete(h5_id, trim(h5_currentgrp))
-                end if
-
-                CALL h5_define_unlimited_matrix(h5_id, trim(h5_currentgrp), &
-                                                H5T_NATIVE_DOUBLE, (/-1, 3/), dataset_id)
-                CALL h5_append_double_1(dataset_id, rb, 1)
-                CALL h5_append_double_1(dataset_id, abs(dqle11_prev - dqle11), 2)
-                CALL h5_append_double_1(dataset_id, abs(dqli11_prev - dqli11), 3)
-
-                CALL h5_close(h5_id)
-                CALL h5_deinit()
-
-            else
-                do ipoi = 1, npoib
-                    write (9999, *) rb(ipoi), abs(dqle11_prev(ipoi) - dqle11(ipoi)), &
-                        abs(dqli11_prev(ipoi) - dqli11(ipoi))
-                end do
-                close (9999)
+        print *, 'timscal_dqle = ', sngl(timscal_dql) &
+            , 'timscal_dqli = ', sngl(timscal_dqli)
+        print *, 'maximum dqle at r = ', rc(ind_dqle(1)) &
+            , 'maximum dqli at r = ', rc(ind_dqli(1))
+        ! Edited by Markus Markl, 26.02.2021
+        if (ihdf5IO .eq. 1) then
+            ! write fort.9999 data to hdf5 file
+            h5_currentgrp = trim("/"//trim(h5_mode_groupname) &
+                                    //"/fort.9999")
+            CALL h5_init()
+            CALL h5_open_rw(path2out, h5_id)
+            CALL h5_obj_exists(h5_id, trim(h5_currentgrp), h5_exists_log)
+            if (h5_exists_log) then
+                CALL h5_delete(h5_id, trim(h5_currentgrp))
             end if
+
+            CALL h5_define_unlimited_matrix(h5_id, trim(h5_currentgrp), &
+                                            H5T_NATIVE_DOUBLE, (/-1, 3/), dataset_id)
+            CALL h5_append_double_1(dataset_id, rb, 1)
+            CALL h5_append_double_1(dataset_id, abs(dqle11_prev - dqle11), 2)
+            CALL h5_append_double_1(dataset_id, abs(dqli11_prev - dqli11), 3)
+
+            CALL h5_close(h5_id)
+            CALL h5_deinit()
+
+        else
+            do ipoi = 1, npoib
+                write (9999, *) rb(ipoi), abs(dqle11_prev(ipoi) - dqle11(ipoi)), &
+                    abs(dqli11_prev(ipoi) - dqli11(ipoi))
+            end do
+            close (9999)
         end if
     end if
+
 end subroutine

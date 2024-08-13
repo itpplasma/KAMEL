@@ -178,7 +178,7 @@ program ql_balance
                         timeIndex = i
                         write (*, *) "Time Index = ", timeIndex
                         
-                        call saveKinProfilesToYPrev
+                        call copy_kin_profs_to_yprev
 
                         redostep = .false.
 
@@ -199,7 +199,7 @@ program ql_balance
                         call get_dql
                         call stopIfTimeStepTooSmall
                         call interpBrAndDqlAtResonanceTimeEvol
-						call write_br_time_data
+						call write_br_dqle22_time_data
                         call rescale_transp_coeffs_by_ant_fac
 
                         if (write_diag_b) close (iunit_diag_b)

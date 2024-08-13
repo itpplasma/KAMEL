@@ -77,9 +77,6 @@ subroutine balanceInit
 
         call initMPI
 
-        timescale = (rmax - rmin)**2/dperp
-        tmax = timescale*tmax_factor
-        timstep = tmax/Nstorage
     
         if (irank .eq. 0) then
             write(*,*) "timstep = ", timstep

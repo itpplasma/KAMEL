@@ -68,31 +68,21 @@
 
     subroutine initTimeEvolution(this)
 
+        use grid_mod, only: rmax, rmin
+        use baseparam_mod, only: dperp, tol_max
+        use plasma_parameters, only: params, params_begbeg
+        use recstep_mod, only: tim_stack, timstep_arr
+        use recstep_mod, only: tol
+        use transp_coeffs_mod, only: rescale_transp_coeffs_by_ant_fac
+
         implicit none
 
         class(TimeEvolution_t), intent(inout) :: this
         this%runType = "TimeEvolution"
 
+        print *, "Initializing TimeEvolution"
+
         call balanceInit
-
-    end subroutine
-
-    subroutine runTimeEvolution(this)
-
-        use parallelTools, only: irank
-        use baseparam_mod, only: factolmax, factolred, tol_max
-        use recstep_mod, only: tol
-        use plasma_parameters, only: params, params_beg, params_begbeg, limitTemperaturesFromBelow
-        use restart_mod, only: redostep, inquiry_to_restart, redoTimeStep
-        use recstep_mod, only: tim_stack, timstep_arr
-        use transp_coeffs_mod, only: rescale_transp_coeffs_by_ant_fac
-
-        implicit none
-
-        integer :: timeIndex
-        class(TimeEvolution_t), intent(inout) :: this
-
-        write(*,*) "Running TimeEvolution"
 
         call calc_geometric_parameter_profiles
         call initialize_get_dql
@@ -103,13 +93,18 @@
             call writeKinProfileDataToDisk(0)
         end if
 
+        timescale = (rmax - rmin)**2/dperp
+        tmax = timescale*tmax_factor
+        timstep = tmax/Nstorage
+
         time = 0.0d0
         tol = tol_max
 
-        call inquiry_to_restart
+        !call inquiry_to_restart ! most likely not needed
 
-        timstep_arr = timstep
-        tim_stack = timstep_arr
+        call resetTimStepArrWithTimstep
+        !timstep_arr = timstep
+        !tim_stack = timstep_arr
 
         call get_dql
         call rescale_transp_coeffs_by_ant_fac
@@ -120,18 +115,40 @@
 
         params_begbeg = params
 
+    end subroutine
+
+    subroutine runTimeEvolution(this)
+
+        use parallelTools, only: irank
+        use baseparam_mod, only: factolmax, factolred, tol_max
+        use recstep_mod, only: tol
+        use plasma_parameters, only: params, params_beg, params_begbeg, limitTemperaturesFromBelow
+        use restart_mod, only: redostep, inquiry_to_restart, redoTimeStep
+        use transp_coeffs_mod, only: rescale_transp_coeffs_by_ant_fac
+        use recstep_mod, only: timstep_arr
+
+        implicit none
+
+        integer :: timeIndex
+        class(TimeEvolution_t), intent(inout) :: this
+
+        write(*,*) "Running TimeEvolution"
+
         do timeIndex = 1, Nstorage
             print *, "TimeIndex: ", timeIndex
-            call saveKinProfilesToYPrev
+
+            call copy_kin_profs_to_yprev
             redostep = .false.
 
             call get_dql
             call stopIfTimeStepTooSmall
             call interpBrAndDqlAtResonanceTimeEvol
-            call write_br_time_data
             call rescale_transp_coeffs_by_ant_fac
+            call write_br_dqle22_time_data
 
-            call writefort9999
+            if (diagnostics_output)then
+                call writefort9999
+            end if
 
             if (.not. redostep) then
                 call savePrevTranspCoefficients
@@ -147,7 +164,11 @@
                 call calcParamsNumAndDenom
                 call smoothParamsNumAndDenom
                 call determineTimscal
-                if (maxval(timscal) .lt. tol * factolmax) exit
+
+                if (maxval(timscal) .lt. tol * factolmax) then
+                    exit
+                end if
+
                 timstep_arr = timstep_arr * factolred
                 params = params_beg
 
@@ -175,8 +196,6 @@
             call ramp_coil(timeIndex)
         end do
 
-
-
     end subroutine
 
 
@@ -200,7 +219,7 @@
 
     end subroutine
 
-    subroutine saveKinProfilesToYPrev
+    subroutine copy_kin_profs_to_yprev
 
         use grid_mod, only: npoi, nbaleqs
         use plasma_parameters, only: params
@@ -278,7 +297,7 @@
     end subroutine
 
 
-    !> @brief subroutine write_br_time_data. Writes radial magnetic field perturbation evaluated at the resonant
+    !> @brief subroutine write_br_dqle22_time_data. Writes radial magnetic field perturbation evaluated at the resonant
     !> surface, the antenna factor, the time and Dqle22 evaluated at the resonant surface for a given 
     !> time step to the hdf5 file
     !> @param[in] i Integer of time step to which the data will be saved. Goes from 1:i.
@@ -286,7 +305,7 @@
     !> @param[in] br_abs_antenna_factor Value of the antenna factor, i.e. the RMP coil current.
     !> @param[in] br_abs Absolute value of the radial magnetic field evaluated at the resonant surface in question.
     !> @param[in] dqle22_res_time Value of Dqle22 evaluated at the resonant surface during the time evolution.
-    subroutine write_br_time_data
+    subroutine write_br_dqle22_time_data
 
         use control_mod
         use baseparam_mod
@@ -327,7 +346,7 @@
             write (777, *) timeIndex, time, antenna_factor, br_abs(timeIndex)
             close (777)
         end if
-    end subroutine ! write_br_time_data
+    end subroutine ! write_br_dqle22_time_data
 
     !> @brief Ramp up/down the RMP coil current.
     !> @author Markus Markl
@@ -388,7 +407,7 @@
                     if (paramscan) then
                         if (debug_mode) write(*,*) "Debug: Write br_time _data"
                         if (ihdf5IO .eq. 1) then
-                            CALL write_br_time_data!, br_abs_time, br_abs_antenna_factor, br_abs, dqle22_res_time)
+                            CALL write_br_dqle22_time_data!, br_abs_time, br_abs_antenna_factor, br_abs, dqle22_res_time)
                         end if
                         if (ifac_n + ifac_Te + ifac_Ti + ifac_vz .eq. size(fac_n) + &
                                 size(fac_Ti) + size(fac_Te) + size(fac_vz)) then
@@ -405,7 +424,7 @@
                     else
                         if (debug_mode) write(*,*) "Debug: Write br_time _data"
                         if (ihdf5IO .eq. 1) then
-                            CALL write_br_time_data!, br_abs_time, br_abs_antenna_factor, br_abs, dqle22_res_time)
+                            CALL write_br_dqle22_time_data!, br_abs_time, br_abs_antenna_factor, br_abs, dqle22_res_time)
                         end if
                         CALL MPI_finalize(ierror);
                         write(*,*) 'stop'
@@ -445,7 +464,7 @@
                     if (paramscan) then
                         if (debug_mode) write(*,*) "Debug: Write br_time _data"
                         if (ihdf5IO .eq. 1) then 
-                            CALL write_br_time_data!, br_abs_time, br_abs_antenna_factor, br_abs, dqle22_res_time)
+                            CALL write_br_dqle22_time_data!, br_abs_time, br_abs_antenna_factor, br_abs, dqle22_res_time)
                         end if
                         if (ifac_n + ifac_Te + ifac_Ti + ifac_vz .eq. size(fac_n) + &
                             size(fac_Ti) + size(fac_Te) + size(fac_vz)) then
@@ -462,7 +481,7 @@
                     else
                         if (debug_mode) write(*,*) "Debug: Write br_time _data"
                         if (ihdf5IO .eq. 1) then
-                            CALL write_br_time_data!, br_abs_time, br_abs_antenna_factor, br_abs, dqle22_res_time)
+                            CALL write_br_dqle22_time_data!, br_abs_time, br_abs_antenna_factor, br_abs, dqle22_res_time)
                         end if
                         write(*,*) 'stop'
                         call MPI_finalize(ierror);
@@ -504,7 +523,7 @@
                         end if
                         if (debug_mode) write(*,*) "Debug: Write br_time _data"
                         if (ihdf5IO .eq. 1) then
-                            CALL write_br_time_data!, br_abs_time, br_abs_antenna_factor, br_abs, dqle22_res_time)
+                            CALL write_br_dqle22_time_data!, br_abs_time, br_abs_antenna_factor, br_abs, dqle22_res_time)
                         end if
                         if (paramscan) then
                             if (ifac_n + ifac_Te + ifac_Ti + ifac_vz .eq. size(fac_n) + &
@@ -554,7 +573,7 @@
                         end if
                         if (debug_mode) write(*,*) "Debug: Write br_time _data"
                         if (ihdf5IO .eq. 1) then
-                            CALL write_br_time_data!, br_abs_time, br_abs_antenna_factor, br_abs, dqle22_res_time)
+                            CALL write_br_dqle22_time_data!, br_abs_time, br_abs_antenna_factor, br_abs, dqle22_res_time)
                         end if
                         if (paramscan) then
                             if (ifac_n + ifac_Te + ifac_Ti + ifac_vz .eq. size(fac_n) + &
@@ -597,7 +616,7 @@
 
                 if (debug_mode) write(*,*) "Debug: Write br_time_data"
                 if (ihdf5IO .eq. 1) then 
-                    CALL write_br_time_data!, br_abs_time, br_abs_antenna_factor, br_abs, dqle22_res_time)
+                    CALL write_br_dqle22_time_data!, br_abs_time, br_abs_antenna_factor, br_abs, dqle22_res_time)
                 end if
 
                 if (paramscan) then
@@ -625,24 +644,10 @@
 
     end subroutine !ramp_coil
 
-
-    !@> brief Check if discrepancy between penetration ratio and linear extrapolation exceeds critical value
-    !> author> Markus Markl
-    !> created 13.03.2023
     subroutine checkIfLinearDiscrepancyOfPenRatioReached
 
-        use paramscan_mod, only: fac_n, fac_Te, fac_Ti, fac_vz, ifac_n, ifac_Te, &
-                                ifac_Ti, ifac_vz
         implicit none
-        ! Stopping by linear regression of Br_abs_res
-        !
-        ! Calculate br_beta from br_abs_res = br_beta * br_abs_time, which is
-        ! essentially the slope of the curve. It is assumed that the curve
-        ! intersects the y axis at 0. The slope is then used to calculate
-        ! the "predicted" value for br_abs, which is compared to the actual
-        ! value thereof. If the discrepancy becomes too big, the program is
-        ! stopped.
-        !
+        
         if (timeIndex .gt. 50 .and. .not. discr_reached) then
             ! calculate beta only once
             if (br_beta .eq. 0) then
@@ -665,50 +670,133 @@
                 end if
                 if (br_stopping) then
                     ! Write the cause of the stopping into the hdf5 file
-                    CALL h5_init()
-                    CALL h5_open_rw(path2out, h5_id)
-                    CALL h5_add_string(h5_id, trim(h5_mode_groupname)// &
-                        '/stopping_criterion', 'discrepancy to linearly predicted value of Br_abs_res > delta')
-                    CALL h5_add_double_0(h5_id, trim(h5_mode_groupname)//'/br_beta', br_beta, &
-                        'linear slope of br', 'G/s')
-                    CALL h5_close(h5_id)
-                    CALL h5_deinit()
+                    call writeReasonForStopToH5("discrepancy to " //&
+                        "linearly predicted value of Br_abs_res > delta")                    
 
-                    if (paramscan) then
-                        if (ifac_n + ifac_Te + ifac_Ti + ifac_vz .eq. size(fac_n) + &
-                            size(fac_Ti) + size(fac_Te) + size(fac_vz)) then
-                            CALL MPI_finalize(ierror);
-                            stop
-                        else
-                        ! if it is not the last scan, skip the rest of the
-                        ! code and continue with the next loop iteration
-                        !call deallocate_wave_code_data()
-                        write(*,*) 'not last scan; will end time evolution of this parameter choice'
-                        iexit = 1
-                        end if
-                    else
-                        if (debug_mode) write(*,*) "Debug: Write br_time _data"
-                        CALL write_br_time_data!, br_abs_time, br_abs_antenna_factor, br_abs, dqle22_res_time)
-                        CALL MPI_finalize(ierror);
-                        write(*,*) 'stop'
-                        stop
-                    end if
+                    !CALL h5_init()
+                    !CALL h5_open_rw(path2out, h5_id)
+                    !CALL h5_add_string(h5_id, trim(h5_mode_groupname)// &
+                        !'/stopping_criterion', 'discrepancy to linearly predicted value of Br_abs_res > delta')
+                    !CALL h5_add_double_0(h5_id, trim(h5_mode_groupname)//'/br_beta', br_beta, &
+                        !'linear slope of br', 'G/s')
+                    !CALL h5_close(h5_id)
+                    !CALL h5_deinit()
+
+                    CALL write_br_dqle22_time_data!, br_abs_time, br_abs_antenna_factor, br_abs, dqle22_res_time)
+                    CALL MPI_finalize(ierror);
+                    stop "Finished time evolution: br_stopping"
+                    
                 else
-                    ! Write the info into the hdf5 file
-                    CALL h5_init()
-                    CALL h5_open_rw(path2out, h5_id)
-                    CALL h5_add_string(h5_id, trim(h5_mode_groupname)// &
-                        '/info', 'discrepancy to linearly predicted value of Br_abs_res > delta')
-                    CALL h5_add_double_1(h5_id, trim(h5_mode_groupname)// &
-                        '/discrep_time', (/timeIndex*1.d0, time/), (/1/), (/2/))
-                    CALL h5_close(h5_id)
-                    CALL h5_deinit()
+                    call write_br_discrepancy_reached_info
                     discr_reached = .true.
                 end if
             end if
         end if
 
     end subroutine
+
+    subroutine write_br_discrepancy_reached_info
+
+        use h5mod
+
+        implicit none
+
+        CALL h5_init()
+        CALL h5_open_rw(path2out, h5_id)
+        CALL h5_add_string(h5_id, trim(h5_mode_groupname)// &
+            '/info', 'discrepancy to linearly predicted value of Br_abs_res > delta')
+        CALL h5_add_double_1(h5_id, trim(h5_mode_groupname)// &
+            '/discrep_time', (/timeIndex*1.d0, time/), (/1/), (/2/))
+        CALL h5_close(h5_id)
+        CALL h5_deinit()
+
+    end subroutine
+
+
+
+    !@> brief Check if discrepancy between penetration ratio and linear extrapolation exceeds critical value
+    !> author> Markus Markl
+    !> created 13.03.2023
+    !subroutine checkIfLinearDiscrepancyOfPenRatioReachedParamScan
+
+        !use paramscan_mod, only: fac_n, fac_Te, fac_Ti, fac_vz, ifac_n, ifac_Te, &
+                                !ifac_Ti, ifac_vz
+        !implicit none
+        !! Stopping by linear regression of Br_abs_res
+        !!
+        !! Calculate br_beta from br_abs_res = br_beta * br_abs_time, which is
+        !! essentially the slope of the curve. It is assumed that the curve
+        !! intersects the y axis at 0. The slope is then used to calculate
+        !! the "predicted" value for br_abs, which is compared to the actual
+        !! value thereof. If the discrepancy becomes too big, the program is
+        !! stopped.
+        !!
+        !if (timeIndex .gt. 50 .and. .not. discr_reached) then
+            !! calculate beta only once
+            !if (br_beta .eq. 0) then
+                !! Calculate slope from the data until this time step. (Simple linear regression algorithm)
+                !br_beta = sum(br_abs(3:timeIndex)*br_abs_time(3:timeIndex))/sum(br_abs_time(1:timeIndex)**2)
+                !write(*,*) 'br_beta = ', br_beta
+            !end if
+            !! calculate the from the linear regression predicted value of Br_abs
+            !br_predicted = br_beta*br_abs_time(timeIndex)
+            !write(*,*) "Delta = ", abs(br_abs(timeIndex) - br_predicted)
+            !if (abs(br_abs(timeIndex) - br_predicted) .gt. 0.1) then
+                !write(*,*) 'discrepancy to linearly predicted value of Br_abs_res > delta'
+                !if (modulo(timeIndex, save_prof_time_step) .ne. 0) then
+                    !if (suppression_mode .eqv. .false.) then
+                        !CALL writeFieldsCurrentsAndTranspCoeffsToH5
+                    !end if
+                !end if
+                !if (suppression_mode .eqv. .false.) then
+                    !CALL writeKinProfileDataToDisk(timeIndex)
+                !end if
+                !if (br_stopping) then
+                    !! Write the cause of the stopping into the hdf5 file
+                    !CALL h5_init()
+                    !CALL h5_open_rw(path2out, h5_id)
+                    !CALL h5_add_string(h5_id, trim(h5_mode_groupname)// &
+                        !'/stopping_criterion', 'discrepancy to linearly predicted value of Br_abs_res > delta')
+                    !CALL h5_add_double_0(h5_id, trim(h5_mode_groupname)//'/br_beta', br_beta, &
+                        !'linear slope of br', 'G/s')
+                    !CALL h5_close(h5_id)
+                    !CALL h5_deinit()
+
+                    !if (paramscan) then
+                        !if (ifac_n + ifac_Te + ifac_Ti + ifac_vz .eq. size(fac_n) + &
+                            !size(fac_Ti) + size(fac_Te) + size(fac_vz)) then
+                            !CALL MPI_finalize(ierror);
+                            !stop
+                        !else
+                        !! if it is not the last scan, skip the rest of the
+                        !! code and continue with the next loop iteration
+                        !!call deallocate_wave_code_data()
+                        !write(*,*) 'not last scan; will end time evolution of this parameter choice'
+                        !iexit = 1
+                        !end if
+                    !else
+                        !if (debug_mode) write(*,*) "Debug: Write br_time _data"
+                        !CALL write_br_dqle22_time_data!, br_abs_time, br_abs_antenna_factor, br_abs, dqle22_res_time)
+                        !CALL MPI_finalize(ierror);
+                        !write(*,*) 'stop'
+                        !stop
+                    !end if
+                !else
+                    !! Write the info into the hdf5 file
+                    !CALL h5_init()
+                    !CALL h5_open_rw(path2out, h5_id)
+                    !CALL h5_add_string(h5_id, trim(h5_mode_groupname)// &
+                        !'/info', 'discrepancy to linearly predicted value of Br_abs_res > delta')
+                    !CALL h5_add_double_1(h5_id, trim(h5_mode_groupname)// &
+                        !'/discrep_time', (/timeIndex*1.d0, time/), (/1/), (/2/))
+                    !CALL h5_close(h5_id)
+                    !CALL h5_deinit()
+                    !discr_reached = .true.
+                !end if
+            !end if
+        !end if
+
+    !end subroutine
 
 
     !> @brief subroutine writeKinProfileDataToDisk(istep). Writes the profile data to hdf5 files. 

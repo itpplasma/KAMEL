@@ -68,25 +68,60 @@
 
     subroutine initTimeEvolution(this)
 
-        use grid_mod, only: rmax, rmin
-        use baseparam_mod, only: dperp, tol_max
-        use plasma_parameters, only: params, params_begbeg
-        use recstep_mod, only: tim_stack, timstep_arr
-        use recstep_mod, only: tol
+        use recstep_mod, only: tim_stack, timstep_arr, tol
         use transp_coeffs_mod, only: rescale_transp_coeffs_by_ant_fac
-
+        use grid_mod, only: mwind, rmax, rmin, setBoundaryCondition, npoib, rb
+        use baseparam_mod, only: dperp, tol_max
+        use diag_mod, only: write_diag, write_diag_b
+        use hdf5_tools, only: h5overwrite
+        use h5mod, only: mode_m, mode_n
+        use control_mod, only: gyro_current_study, write_gyro_current, debug_mode, &
+                          ihdf5IO
+        use parallelTools, only: initMPI, irank
+        use wave_code_data, only: m_vals, n_vals
+        use plasma_parameters, only: writeInitialParameters, alloc_hold_parameters, &
+                                params, params_begbeg, init_background_profiles
         implicit none
 
         class(TimeEvolution_t), intent(inout) :: this
         this%runType = "TimeEvolution"
 
-        print *, "Initializing TimeEvolution"
-
-        call initialize_balance_code
+        
         if (irank .eq. 0) then
+            print *, "Initializing TimeEvolution"
+            iexit = 0 ! 0 - don't skip, 1 - skip, 2 - stop
+            mwind = 10
+            write_diag = .false.
+            write_diag_b = .false.
+            ! if h5overwrite = true, existing data will be deleted
+            ! before new one is written
+            ! This is contained in hdf5_tools module
+            h5overwrite = .true.
+    
+            if (gyro_current_study .ne. 0) then
+                write_gyro_current = .true.
+            else
+                write_gyro_current = .false.
+            end if
+
+            call read_config
+            write(*,*) "timstep = ", timstep
+            call gengrid
+            call setBoundaryCondition
+            CALL initialize_wave_code_interface(npoib, rb);
+            !CALL initialize_parameter_scan_vars
+
             if (ihdf5IO .eq. 1) then
                 CALL create_group_structure_timeevol
             end if
+
+            mode_m = m_vals(1)
+            mode_n = n_vals(1)
+            if (debug_mode) write(*,*) 'Debug: mode_m = ', mode_m, 'mode_n = ', mode_n
+            call allocate_prev_variables
+            call init_background_profiles
+            CALL writeInitialParameters
+            call alloc_hold_parameters
         end if
 
         call calc_geometric_parameter_profiles
@@ -137,7 +172,10 @@
         integer :: timeIndex
         class(TimeEvolution_t), intent(inout) :: this
 
-        write(*,*) "Running TimeEvolution"
+        write(*,*) ""
+        write(*,*) "========================================================"
+        write(*,*) "                Running TimeEvolution"
+        write(*,*) ""
 
         do timeIndex = 1, Nstorage
             print *, "TimeIndex: ", timeIndex
@@ -937,11 +975,23 @@
         br_abs_time(timeIndex) = time
 		br_abs_antenna_factor(timeIndex) = antenna_factor
 
-        write(*,*) 'Br abs res * C_mn= ', br_abs(timeIndex)
-        write(*,*) 'Br abs res       = ', br_abs(timeIndex)/sqrt(antenna_factor)
-        write(*,*) 'Dqle22 res       = ', dqle22_res_time(timeIndex)
-        write(*,*) 'Antenna factor   = ', antenna_factor
-        write(*,*) 'time = ', br_abs_time(timeIndex)
+    end subroutine
+
+
+    subroutine message_Br_Dqle_values
+
+        use grid_mod, only: npoib, r_resonant, rb, dqle22
+        use wave_code_data, only: antenna_factor, Br
+
+        implicit none
+
+        write(*,*) " "
+        write(*,*) '    Br abs res * C_mn= ', br_abs(timeIndex), " G"
+        write(*,*) '    Br abs res       = ', br_abs(timeIndex)/sqrt(antenna_factor), " G"
+        write(*,*) '    Dqle22 res       = ', dqle22_res_time(timeIndex), " cm^2/s"
+        write(*,*) '    Antenna factor   = ', antenna_factor
+        write(*,*) '    time = ', br_abs_time(timeIndex), " s, timeIndex = ", timeIndex
+        write(*,*) " "
 
     end subroutine
 

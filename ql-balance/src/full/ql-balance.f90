@@ -43,12 +43,13 @@ program ql_balance
     call read_config
     call fromBalanceFactoryGetBalance(type_of_run, balanceInstance)
 
-    !call initialize_balance_code
+    call initMPI
+    
     call balanceInstance%initBalance()
     call balanceInstance%runBalance()
 
     call MPI_finalize(ierror)
-    stop "to test SingleStep run"
+    stop "for testing"
 
     ! parameter scan loops that span over (nearly) the rest of the code
     do ifac_n = 1, size(fac_n)

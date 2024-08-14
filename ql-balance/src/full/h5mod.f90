@@ -31,6 +31,22 @@ module h5mod
         CALL h5_deinit()
 
     end subroutine
+
+    subroutine create_group_if_not_existent(group_name)
+
+        implicit none
+
+        character(*), intent(in) :: group_name
+
+        if (debug_mode) print *, "Creating group ", trim(group_name)
+
+        call h5_obj_exists(h5_id, trim(group_name), h5_exists_log)
+        if (.not. h5_exists_log) then
+            call h5_define_group(h5_id, trim(group_name), group_id_1)
+            call h5_close_group(group_id_1)
+        end if
+
+    end subroutine
     
 
 end module h5mod

@@ -23,12 +23,12 @@ subroutine writeFieldsCurrentsAndTranspCoeffsToH5
 
         CALL h5_init()
         CALL h5_open_rw(path2out, h5_id)
+        print *, trim(h5_mode_groupname)
         tempch = "/"//trim(h5_mode_groupname)//"/LinearProfiles"
 
         write (tempch, "(A,A,I4,A)") trim(tempch), "/", timeIndex, "/"
 
-        CALL h5_define_group(h5_id, trim(tempch), group_id_1)
-        CALL h5_close_group(group_id_1)
+        call create_group_if_not_existent(tempch)
 
         CALL h5_add_double_1(h5_id, trim(tempch)//"r", &
                             r, lbound(r), ubound(r))
@@ -47,66 +47,16 @@ subroutine writeFieldsCurrentsAndTranspCoeffsToH5
                                 dqle22, lbound(dqle22), ubound(dqle22))
 
         if (misalign_diffusion .eqv. .true.) then
-            write(*,*) " "
-            write(*,*) "Writing misalignment diffusion to hdf5"
-            !CALL h5_init()
-            !CALL h5_open_rw(path2out, h5_id)
-            CALL h5_add_double_1(h5_id, trim(tempch)//"D11_MA", d11_misalign, lbound(d11_misalign), ubound(d11_misalign))
-            CALL h5_add_double_1(h5_id, trim(tempch)//"Es_pert_flux_real", real(Es_pert_flux), & 
-                lbound(real(Es_pert_flux)), ubound(dreal(Es_pert_flux)))
-            CALL h5_add_double_1(h5_id, trim(tempch)//"Es_pert_flux_imag", dimag(Es_pert_flux), &
-                lbound(dimag(Es_pert_flux)), ubound(dimag(Es_pert_flux)))
-
-            CALL h5_add_double_1(h5_id, trim(tempch)//"Br_real", &
-                real(Br), lbound(real(Br)), ubound(real(Br)))
-            CALL h5_add_double_1(h5_id, trim(tempch)//"Es_real", &
-                real(Es), lbound(real(Es)), ubound(real(Es)))
-
-            CALL h5_add_double_1(h5_id, trim(tempch)//"Br_imag", &
-                dimag(Br), lbound(dimag(Br)), ubound(dimag(Br)))
-            CALL h5_add_double_1(h5_id, trim(tempch)//"Es_imag", &
-                dimag(Es), lbound(dimag(Es)), ubound(dimag(Es)))
-            !CALL h5_close(h5_id)
-            !CALL h5_deinit()
-            write(*,*) "Carry on"
-            write(*,*) " "
-        end if ! hdf5test .eq. 1
- 
-        ! write the whole content only if diagnostics_output is true
+            call write_misalignment_data_to_hdf5(tempch)
+        end if 
         if (diagnostics_output) then
-            !CALL h5_add_double_1(h5_id, trim(tempch)//"dqle22", &
-            !                     dqle22, lbound(dqle22), ubound(dqle22))
-            CALL h5_add_double_1(h5_id, trim(tempch)//"dqle11", &
-                                dqle11, lbound(dqle11), ubound(dqle11))
-            CALL h5_add_double_1(h5_id, trim(tempch)//"dqle12", &
-                                dqle12, lbound(dqle12), ubound(dqle12))
-            CALL h5_add_double_1(h5_id, trim(tempch)//"dqli11", &
-                                dqli11, lbound(dqli11), ubound(dqli11))
-            CALL h5_add_double_1(h5_id, trim(tempch)//"dqli12", &
-                                dqli12, lbound(dqli12), ubound(dqli12))
-            CALL h5_add_double_1(h5_id, trim(tempch)//"dqli22", &
-                                dqli22, lbound(dqli22), ubound(dqli22))
-            CALL h5_add_double_1(h5_id, trim(tempch)//"Br-ckpEs_om_E", &
-                                abs(Br - c*kp*Es/om_E), lbound(Br), ubound(Br))
-            CALL h5_add_double_1(h5_id, trim(tempch)//"Br-cksEp_om_E", &
-                                abs(Br - c*ks*Ep/om_E), lbound(Br), ubound(Br))
-            CALL h5_add_double_1(h5_id, trim(tempch)//"Jpe_abs", &
-                                abs(Jpe), lbound(Jpe), ubound(Jpe))
-            CALL h5_add_double_1(h5_id, trim(tempch)//"Jpi_abs", &
-                                abs(Jpi), lbound(Jpi), ubound(Jpi))
-            CALL h5_add_double_1(h5_id, trim(tempch)//"JpeJpi_abs", &
-                                abs(Jpe + Jpi), lbound(Jpe), ubound(Jpe))
+            call write_dql_Br_Jp_profiles_to_hdf5(tempch)
         end if
+
         CALL h5_close(h5_id)
         CALL h5_deinit()
     else
         do ipoi = 1, npoib
-!      write(iunit_diag,*) r(ipoi),dqle11(ipoi),dqli11(ipoi) &
-!                            ,real(Br(ipoi)),imag(Br(ipoi))  &
-!                            ,real(Ep(ipoi)),imag(Ep(ipoi))  &
-!                            ,real(Er(ipoi)),imag(Er(ipoi))  &
-!                            ,om_E(ipoi) &
-!                            ,abs(c*ks(ipoi)*Ep(ipoi) - om_E(ipoi)*Br(ipoi))**2
             write (iunit_diag, *) r(ipoi), dqle11(ipoi), dqle12(ipoi) &
                 , dqle22(ipoi), dqli11(ipoi) &
                 , dqli12(ipoi), dqli22(ipoi) &
@@ -119,6 +69,72 @@ subroutine writeFieldsCurrentsAndTranspCoeffsToH5
         close (iunit_diag)
     end if
 end subroutine writeFieldsCurrentsAndTranspCoeffsToH5
+
+
+subroutine write_misalignment_data_to_hdf5(tempch)
+
+    use h5mod
+    use control_mod, only: debug_mode
+    use grid_mod
+    use wave_code_data
+    
+    implicit none
+
+    character(*), intent(in) :: tempch
+
+    if (debug_mode) write(*,*) "Writing misalignment diffusion to hdf5"
+    CALL h5_add_double_1(h5_id, trim(tempch)//"D11_MA", d11_misalign, lbound(d11_misalign), ubound(d11_misalign))
+    CALL h5_add_double_1(h5_id, trim(tempch)//"Es_pert_flux_real", real(Es_pert_flux), & 
+        lbound(real(Es_pert_flux)), ubound(dreal(Es_pert_flux)))
+    CALL h5_add_double_1(h5_id, trim(tempch)//"Es_pert_flux_imag", dimag(Es_pert_flux), &
+        lbound(dimag(Es_pert_flux)), ubound(dimag(Es_pert_flux)))
+
+    CALL h5_add_double_1(h5_id, trim(tempch)//"Br_real", &
+        real(Br), lbound(real(Br)), ubound(real(Br)))
+    CALL h5_add_double_1(h5_id, trim(tempch)//"Es_real", &
+        real(Es), lbound(real(Es)), ubound(real(Es)))
+
+    CALL h5_add_double_1(h5_id, trim(tempch)//"Br_imag", &
+        dimag(Br), lbound(dimag(Br)), ubound(dimag(Br)))
+    CALL h5_add_double_1(h5_id, trim(tempch)//"Es_imag", &
+        dimag(Es), lbound(dimag(Es)), ubound(dimag(Es)))
+    if (debug_mode) write(*,*) "Carry on from writing misalignment diffusion to hdf5"
+
+end subroutine
+
+subroutine write_dql_Br_Jp_profiles_to_hdf5(tempch)
+
+    use grid_mod
+    use wave_code_data
+    use h5mod
+    use baseparam_mod, only: c
+
+    implicit none
+
+    character(*), intent(in) :: tempch
+
+    CALL h5_add_double_1(h5_id, trim(tempch)//"dqle11", &
+                        dqle11, lbound(dqle11), ubound(dqle11))
+    CALL h5_add_double_1(h5_id, trim(tempch)//"dqle12", &
+                        dqle12, lbound(dqle12), ubound(dqle12))
+    CALL h5_add_double_1(h5_id, trim(tempch)//"dqli11", &
+                        dqli11, lbound(dqli11), ubound(dqli11))
+    CALL h5_add_double_1(h5_id, trim(tempch)//"dqli12", &
+                        dqli12, lbound(dqli12), ubound(dqli12))
+    CALL h5_add_double_1(h5_id, trim(tempch)//"dqli22", &
+                        dqli22, lbound(dqli22), ubound(dqli22))
+    CALL h5_add_double_1(h5_id, trim(tempch)//"Br-ckpEs_om_E", &
+                        abs(Br - c*kp*Es/om_E), lbound(Br), ubound(Br))
+    CALL h5_add_double_1(h5_id, trim(tempch)//"Br-cksEp_om_E", &
+                        abs(Br - c*ks*Ep/om_E), lbound(Br), ubound(Br))
+    CALL h5_add_double_1(h5_id, trim(tempch)//"Jpe_abs", &
+                        abs(Jpe), lbound(Jpe), ubound(Jpe))
+    CALL h5_add_double_1(h5_id, trim(tempch)//"Jpi_abs", &
+                        abs(Jpi), lbound(Jpi), ubound(Jpi))
+    CALL h5_add_double_1(h5_id, trim(tempch)//"JpeJpi_abs", &
+                        abs(Jpe + Jpi), lbound(Jpe), ubound(Jpe))
+
+end subroutine
 
 subroutine writefort9999
         
@@ -171,3 +187,4 @@ subroutine writefort9999
     end if
 
 end subroutine
+

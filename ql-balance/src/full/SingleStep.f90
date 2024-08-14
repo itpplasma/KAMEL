@@ -21,7 +21,7 @@ module singleStep
         use h5mod, only: mode_m, mode_n
         use control_mod, only: gyro_current_study, write_gyro_current, debug_mode, &
                           ihdf5IO
-        use parallelTools, only: initMPI, irank
+        use parallelTools, only: irank
         use wave_code_data, only: m_vals, n_vals
         use plasma_parameters, only: writeInitialParameters, alloc_hold_parameters, &
                                 init_background_profiles
@@ -31,7 +31,6 @@ module singleStep
         class(SingleStep_t), intent(inout) :: this
         this%runType = "SingleStep"
         
-        call initMPI
 
         if (irank .eq. 0) then
             print *, "Initialize Single Step run"
@@ -71,16 +70,17 @@ module singleStep
 
         use control_mod, only: irf
         use transp_coeffs_mod, only: rescale_transp_coeffs_by_ant_fac
+        use parallelTools, only: irank
 
         implicit none
 
         class(SingleStep_t), intent(inout) :: this
 
-        print *, "Running SingleStep"
+        if (irank .eq. 0) then
+            print *, "Running SingleStep"
+        end if
 
-        irf = 2 ! initialize transport coefficients
-        call get_dql
-        irf = 1 ! calculate transport coefficients
+        call initialize_get_dql
         call get_dql
         call rescale_transp_coeffs_by_ant_fac
 
@@ -144,12 +144,14 @@ module singleStep
         
         CALL h5_init()
         CALL h5_open_rw(path2out, h5_id)
-        CALL h5_obj_exists(h5_id, trim(h5_mode_groupname), &
-            h5_exists_log)
-        if (.not. h5_exists_log) then
-            CALL h5_define_group(h5_id, trim(h5_mode_groupname), group_id_2)
-            CALL h5_close_group(group_id_2)
-        end if
+        !CALL h5_obj_exists(h5_id, trim(h5_mode_groupname), &
+        !    h5_exists_log)
+        !if (.not. h5_exists_log) then
+        !    CALL h5_define_group(h5_id, trim(h5_mode_groupname), group_id_2)
+        !    CALL h5_close_group(group_id_2)
+        !end if
+
+        call create_group_if_not_existent(h5_mode_groupname)
 
         CALL h5_add_double_0(h5_id, trim(h5_mode_groupname)//'/dqle22_res', dqle22_res_single)
         CALL h5_add_double_1(h5_id, trim(h5_mode_groupname)//'/dqle22', &

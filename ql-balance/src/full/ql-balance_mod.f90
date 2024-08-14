@@ -37,59 +37,59 @@ module balance_mod
     
 end module
 
-subroutine initialize_balance_code
+!subroutine initialize_balance_code
 
-        use time_evolution, only: iexit, timescale, tmax, timstep, Nstorage, &
-                                  allocate_prev_variables, tmax_factor
-        use grid_mod, only: mwind, rmax, rmin, setBoundaryCondition, npoib, rb
-        use baseparam_mod, only: dperp
-        use diag_mod, only: write_diag, write_diag_b
-        use hdf5_tools, only: h5overwrite
-        use h5mod, only: mode_m, mode_n
-        use control_mod, only: gyro_current_study, write_gyro_current, debug_mode, &
-                          ihdf5IO
-        use parallelTools, only: initMPI, irank
-        use wave_code_data, only: m_vals, n_vals
-        use paramscan_mod, only: initialize_parameter_scan_vars, create_group_structure_paramscan
-        use plasma_parameters, only: writeInitialParameters, alloc_hold_parameters, &
-                                init_background_profiles
+        !use time_evolution, only: iexit, timescale, tmax, timstep, Nstorage, &
+                                  !allocate_prev_variables, tmax_factor
+        !use grid_mod, only: mwind, rmax, rmin, setBoundaryCondition, npoib, rb
+        !use baseparam_mod, only: dperp
+        !use diag_mod, only: write_diag, write_diag_b
+        !use hdf5_tools, only: h5overwrite
+        !use h5mod, only: mode_m, mode_n
+        !use control_mod, only: gyro_current_study, write_gyro_current, debug_mode, &
+                          !ihdf5IO
+        !use parallelTools, only: initMPI, irank
+        !use wave_code_data, only: m_vals, n_vals
+        !use paramscan_mod, only: initialize_parameter_scan_vars, create_group_structure_paramscan
+        !use plasma_parameters, only: writeInitialParameters, alloc_hold_parameters, &
+                                !init_background_profiles
 
-        implicit none
+        !implicit none
 
         
-        call initMPI
+        !call initMPI
 
-        if (irank .eq. 0) then
-            iexit = 0 ! 0 - don't skip, 1 - skip, 2 - stop
-            mwind = 10
-            write_diag = .false.
-            write_diag_b = .false.
-            ! if h5overwrite = true, existing data will be deleted
-            ! before new one is written
-            ! This is contained in hdf5_tools module
-            h5overwrite = .true.
+        !if (irank .eq. 0) then
+            !iexit = 0 ! 0 - don't skip, 1 - skip, 2 - stop
+            !mwind = 10
+            !write_diag = .false.
+            !write_diag_b = .false.
+            !! if h5overwrite = true, existing data will be deleted
+            !! before new one is written
+            !! This is contained in hdf5_tools module
+            !h5overwrite = .true.
     
-            if (gyro_current_study .ne. 0) then
-                write_gyro_current = .true.
-            else
-                write_gyro_current = .false.
-            end if
+            !if (gyro_current_study .ne. 0) then
+                !write_gyro_current = .true.
+            !else
+                !write_gyro_current = .false.
+            !end if
 
-            call read_config
-            write(*,*) "timstep = ", timstep
-            call gengrid
-            call setBoundaryCondition
-            CALL initialize_wave_code_interface(npoib, rb);
-            CALL initialize_parameter_scan_vars
+            !call read_config
+            !write(*,*) "timstep = ", timstep
+            !call gengrid
+            !call setBoundaryCondition
+            !CALL initialize_wave_code_interface(npoib, rb);
+            !CALL initialize_parameter_scan_vars
 
-            mode_m = m_vals(1)
-            mode_n = n_vals(1)
-            if (debug_mode) write(*,*) 'Debug: mode_m = ', mode_m, 'mode_n = ', mode_n
-            call allocate_prev_variables
-            call init_background_profiles
-            CALL writeInitialParameters
-            call alloc_hold_parameters
-        end if
+            !mode_m = m_vals(1)
+            !mode_n = n_vals(1)
+            !if (debug_mode) write(*,*) 'Debug: mode_m = ', mode_m, 'mode_n = ', mode_n
+            !call allocate_prev_variables
+            !call init_background_profiles
+            !CALL writeInitialParameters
+            !call alloc_hold_parameters
+        !end if
 
-    end subroutine
+    !end subroutine
 

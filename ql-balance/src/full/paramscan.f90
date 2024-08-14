@@ -33,7 +33,7 @@ module paramscan_mod
         use h5mod, only: mode_m, mode_n
         use control_mod, only: gyro_current_study, write_gyro_current, debug_mode, &
                           ihdf5IO
-        use parallelTools, only: initMPI, irank
+        use parallelTools, only: irank
         use wave_code_data, only: m_vals, n_vals
         use plasma_parameters, only: writeInitialParameters, alloc_hold_parameters, &
                                 init_background_profiles
@@ -42,10 +42,6 @@ module paramscan_mod
 
         class(ParameterScan_t), intent(inout) :: this
         this%runType = "ParameterScan"
-
-        !call initialize_balance_code
-
-        call initMPI
 
         if (irank .eq. 0) then
             !iexit = 0 ! 0 - don't skip, 1 - skip, 2 - stop

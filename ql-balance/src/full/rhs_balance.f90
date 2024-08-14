@@ -1229,6 +1229,7 @@ subroutine get_dql
     end if
 
 
+    if (debug_mode) print *, "Debug: writeFieldsCurrentsAndTranspCoeffsToH5"
 
     if (irank .eq. 0) then
         if (modulo(timeIndex, save_prof_time_step) .eq. 0) then

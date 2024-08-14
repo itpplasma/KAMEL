@@ -183,142 +183,141 @@ end subroutine calc_geometric_parameter_profiles
 !
 !ccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
 !
-  subroutine prepare_resonances
-!
-  use resonances_mod
-  use grid_mod, only: gg_width, gg_factor,r_resonant
-  use control_mod, only: ihdf5IO, debug_mode
-  use h5mod
-  use mpi
-!
-  implicit none
-!
-  integer :: m,n,i,j,k,nr,jj,numres_orig,irank
-  double precision :: qres,qmin,qmax
-  complex :: a
-  integer, dimension(:), allocatable :: m_a,n_a
-  integer, dimension(:), allocatable :: m_aa,n_aa
-  double precision, dimension(:), allocatable :: r,q
-  integer :: lb, ub
-!
-  iunit_res=157
-!
-  ! added by Markus Markl, 08.04.2021
-  if (ihdf5IO .eq. 1) then
-    CALL h5_init()
-    CALL h5_open_rw(path2inp, h5_id)
-    CALL h5_open_group(h5_id, '/preprocprof', group_id_1)
-    CALL h5_get_bounds_1(group_id_1, 'q', lb, ub)
-    allocate(r(ub),q(ub))
-    CALL h5_get_double_1(group_id_1, 'q', q)
-    !print *, 'q: ', q
-    CALL h5_get_double_1(group_id_1, 'r_out', r)
-    !print *, 'r: ', r
-    CALL h5_close_group(group_id_1)
-    CALL h5_close(h5_id)
+subroutine prepare_resonances
 
-    CALL h5_deinit()
-    nr = ub
+    use resonances_mod
+    use grid_mod, only: gg_width, gg_factor,r_resonant
+    use control_mod, only: ihdf5IO, debug_mode
+    use h5mod
+    use mpi
+    use parallelTools, only: irank
 
-  else
-    if (debug_mode) print *, "get number of q data points"
-    nr=0
-    open(iunit_res,file='profiles/q.dat')
-    do
-      read(iunit_res,*,end=1)
-      nr=nr+1
-    enddo
-    1 continue
+    implicit none
+
+    integer :: m,n,i,j,k,nr,jj,numres_orig
+    double precision :: qres,qmin,qmax
+    complex :: a
+    integer, dimension(:), allocatable :: m_a,n_a
+    integer, dimension(:), allocatable :: m_aa,n_aa
+    double precision, dimension(:), allocatable :: r,q
+    integer :: lb, ub
+
+    iunit_res=157
+
+    if (ihdf5IO .eq. 1) then
+        CALL h5_init()
+        CALL h5_open_rw(path2inp, h5_id)
+        CALL h5_open_group(h5_id, '/preprocprof', group_id_1)
+        CALL h5_get_bounds_1(group_id_1, 'q', lb, ub)
+        allocate(r(ub),q(ub))
+        CALL h5_get_double_1(group_id_1, 'q', q)
+        !print *, 'q: ', q
+        CALL h5_get_double_1(group_id_1, 'r_out', r)
+        !print *, 'r: ', r
+        CALL h5_close_group(group_id_1)
+        CALL h5_close(h5_id)
+
+        CALL h5_deinit()
+        nr = ub
+
+    else
+        if (debug_mode) print *, "get number of q data points"
+        nr=0
+        open(iunit_res,file='profiles/q.dat')
+        do
+            read(iunit_res,*,end=1)
+            nr=nr+1
+        enddo
+        1 continue
+        close(iunit_res)
+        allocate(r(nr),q(nr))
+
+        if (debug_mode) print *, "reading profiles/q.dat"
+        open(iunit_res,file='profiles/q.dat')
+        do i=1,nr
+            read(iunit_res,*) r(i),q(i)
+        enddo
+        close(iunit_res)
+    end if
+    q=abs(q)
+    qmin=minval(q)
+    qmax=maxval(q)
+
+    open(iunit_res,file='flre/antenna.in')
+    read(iunit_res,*)
+    read(iunit_res,*)
+    read(iunit_res,*)
+    read(iunit_res,*)
+    read(iunit_res,*)
+    read(iunit_res,*) numres
     close(iunit_res)
-    allocate(r(nr),q(nr))
+    if (debug_mode) write(*,*) "numres = ", numres
 
-    if (debug_mode) print *, "reading profiles/q.dat"
-    open(iunit_res,file='profiles/q.dat')
-    do i=1,nr
-      read(iunit_res,*) r(i),q(i)
-    enddo
-    close(iunit_res)
-  end if
-  q=abs(q)
-  qmin=minval(q)
-  qmax=maxval(q)
-!
-  open(iunit_res,file='flre/antenna.in')
-  read(iunit_res,*)
-  read(iunit_res,*)
-  read(iunit_res,*)
-  read(iunit_res,*)
-  read(iunit_res,*)
-  read(iunit_res,*) numres
-  close(iunit_res)
-  if (debug_mode) write(*,*) "numres = ", numres
-!
-  allocate(r_res(numres),width_res(numres),ampl_res(numres))
-  allocate(r_resonant(numres))
-  width_res=gg_width
-  ampl_res=gg_factor
-  allocate(m_a(numres),n_a(numres))
-  allocate(m_aa(numres),n_aa(numres))
-  numres_orig=numres
-!
-  open(iunit_res,file='flre/modes.in')
-  k=1
-  jj=1
-  read(iunit_res,*) a
-  m=-abs(nint(real(a)))
-  n=abs(nint(imag(a)))
-  m_a(k)=m
-  n_a(k)=n
-  m_aa(jj)=m
-  n_aa(jj)=n
-  r_res(k)=abs(dfloat(m)/dfloat(n))
-  outer: do i=2,numres
+    allocate(r_res(numres),width_res(numres),ampl_res(numres))
+    allocate(r_resonant(numres))
+    width_res=gg_width
+    ampl_res=gg_factor
+    allocate(m_a(numres),n_a(numres))
+    allocate(m_aa(numres),n_aa(numres))
+    numres_orig=numres
+
+    open(iunit_res,file='flre/modes.in')
+    k=1
+    jj=1
     read(iunit_res,*) a
-write(*,*) "This is read in from modes.in ", a
     m=-abs(nint(real(a)))
     n=abs(nint(imag(a)))
-    qres=abs(dfloat(m)/dfloat(n))
-!check for existence of resonant point:
-    if(qres.lt.qmin.or.qres.gt.qmax) cycle
-!check for repeated resonance radii:
-    jj=jj+1
-    m_aa(jj)=m
-    n_aa(jj)=n
-    do j=1,k
-      if(m*n_a(j)-n*m_a(j).eq.0) cycle outer
-    enddo
-    k=k+1
     m_a(k)=m
     n_a(k)=n
-    r_res(k)=qres
-  enddo outer
-  close(iunit_res)
-  numres=k
-!
-  do i=1,numres
-    qres=r_res(i)
-    do j=2,nr
-      if(qres.gt.q(j-1).and.qres.lt.q(j)) then
-        r_res(i)=(r(j-1)*(q(j)-qres)+r(j)*(qres-q(j-1)))/(q(j)-q(j-1))
-        exit
-      endif
+    m_aa(jj)=m
+    n_aa(jj)=n
+    r_res(k)=abs(dfloat(m)/dfloat(n))
+    outer: do i=2,numres
+        read(iunit_res,*) a
+        m=-abs(nint(real(a)))
+        n=abs(nint(imag(a)))
+        qres=abs(dfloat(m)/dfloat(n))
+        !check for existence of resonant point:
+        if(qres.lt.qmin.or.qres.gt.qmax) cycle
+        !check for repeated resonance radii:
+        jj=jj+1
+        m_aa(jj)=m
+        n_aa(jj)=n
+        do j=1,k
+          if(m*n_a(j)-n*m_a(j).eq.0) cycle outer
+        enddo
+        k=k+1
+        m_a(k)=m
+        n_a(k)=n
+        r_res(k)=qres
+    enddo outer
+    close(iunit_res)
+    numres=k
+
+    do i=1,numres
+        qres=r_res(i)
+        do j=2,nr
+            if(qres.gt.q(j-1).and.qres.lt.q(j)) then
+                r_res(i)=(r(j-1)*(q(j)-qres)+r(j)*(qres-q(j-1)))/(q(j)-q(j-1))
+                exit
+            endif
+        enddo
     enddo
-  enddo
-  if (irank .eq. 0 ) then
-    print *,'gengrid: number of resonance points = ',numres
-    print *,'resonant radii: ',r_res(1:numres)
-  endif
-!
-  do i=1,numres_orig
-    do j=1,numres
-      if(m_aa(i)*n_a(j)-n_aa(i)*m_a(j).eq.0) r_resonant(i)=r_res(j)
+
+    if (irank .eq. 0 ) then
+        print *,'gengrid: number of resonance points = ',numres
+        print *,'resonant radii: ',r_res(1:numres)
+    endif
+
+    do i=1,numres_orig
+        do j=1,numres
+          if(m_aa(i)*n_a(j)-n_aa(i)*m_a(j).eq.0) then
+              r_resonant(i)=r_res(j)
+          end if
+        enddo
     enddo
-  enddo
-  if (irank .eq. 0 ) then
-    print *,'resonant radii for all modes: ',r_resonant(1:numres_orig)
-  endif
   
-!
-  deallocate(m_a,n_a,r,q)
-!
+
+    deallocate(m_a,n_a,r,q)
+
   end subroutine prepare_resonances

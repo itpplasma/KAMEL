@@ -37,10 +37,11 @@ program ql_balance
     
     !call balanceInstance%runBalance()
 
-    !call balanceInit
+    !call initialize_balance_code
     call balanceInstance%initBalance()
     call balanceInstance%runBalance()
 
+    call MPI_finalize(ierror)
     stop "to test SingleStep run"
 
     ! parameter scan loops that span over (nearly) the rest of the code
@@ -88,14 +89,14 @@ program ql_balance
                     call get_dql
 
                     if (flag_run_time_evolution) then
-                        call initAntennaFactor
+                        call initialize_antenna_factor
                     end if
 
                     call rescale_transp_coeffs_by_ant_fac
                     
                     irf = 1
 
-                    call genstartsource ! calcs source term in balance equations, needed for time evolution
+                    call det_balance_eqs_source_terms ! calcs source term in balance equations, needed for time evolution
 
 					write(*,*) "h5_mode_groupname before writeKinProfileDataToDisk: ", trim(h5_mode_groupname)
                     if (irank .eq. 0) then
@@ -119,11 +120,11 @@ program ql_balance
 
                     if (flag_run_time_evolution) then
                         if (ifac_n + ifac_Ti + ifac_Te + ifac_vz .eq. 4) then
-                            call allocateBrAndDqleForTimeEvolution
+                            call alloc_Br_Dqle_for_timeevol
                         end if
                     end if
 
-                    call savePrevTranspCoefficients
+                    call hold_prev_transp_coeffs
 
                     if (ifac_n + ifac_Ti + ifac_Te + ifac_vz .eq. 4) then
                         allocate(timscal(npoi), dummy(npoic))
@@ -207,7 +208,7 @@ program ql_balance
                         call writefort9999
                         
                         if (.not. redostep) then
-                            call savePrevTranspCoefficients
+                            call hold_prev_transp_coeffs
                             params_begbeg = params
                             ioddeven = ioddeven + 1
                         else
@@ -237,7 +238,7 @@ program ql_balance
                         
                         call rescaleTimStepArr
                         call setTimStep
-                        call resetTimStepArrWithTimstep
+                        call reset_timstep_arr_w_timstep
                         call writeTimeInfoToDisk
                         call relaxPlasmaParameters
 

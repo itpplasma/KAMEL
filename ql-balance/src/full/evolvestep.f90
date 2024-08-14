@@ -99,7 +99,7 @@
   end subroutine evolvestep
 
 
-subroutine genstartsource
+subroutine det_balance_eqs_source_terms
       
     ! calculates source terms in the balance equations. Is determined by assuming steady state.
 
@@ -190,4 +190,4 @@ subroutine genstartsource
         close (666)
     end if
 
-end subroutine genstartsource
+end subroutine det_balance_eqs_source_terms

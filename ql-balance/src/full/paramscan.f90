@@ -26,26 +26,79 @@ module paramscan_mod
 
     subroutine initParameterScan(this)
 
-        !use balance_mod, only: balanceInit
+        use parallelTools, only: irank
+        use grid_mod, only: mwind, rmax, rmin, setBoundaryCondition, npoib, rb
+        use baseparam_mod, only: dperp
+        use diag_mod, only: write_diag, write_diag_b
+        use hdf5_tools, only: h5overwrite
+        use h5mod, only: mode_m, mode_n
+        use control_mod, only: gyro_current_study, write_gyro_current, debug_mode, &
+                          ihdf5IO
+        use parallelTools, only: initMPI, irank
+        use wave_code_data, only: m_vals, n_vals
+        use plasma_parameters, only: writeInitialParameters, alloc_hold_parameters, &
+                                init_background_profiles
 
         implicit none
 
         class(ParameterScan_t), intent(inout) :: this
         this%runType = "ParameterScan"
 
-        call balanceInit
+        !call initialize_balance_code
+
+        call initMPI
+
+        if (irank .eq. 0) then
+            !iexit = 0 ! 0 - don't skip, 1 - skip, 2 - stop
+            mwind = 10
+            write_diag = .false.
+            write_diag_b = .false.
+            ! if h5overwrite = true, existing data will be deleted
+            ! before new one is written
+            ! This is contained in hdf5_tools module
+            h5overwrite = .true.
+    
+            if (gyro_current_study .ne. 0) then
+                write_gyro_current = .true.
+            else
+                write_gyro_current = .false.
+            end if
+
+            call read_config
+            call gengrid
+            call setBoundaryCondition
+            CALL initialize_wave_code_interface(npoib, rb);
+            CALL initialize_parameter_scan_vars
+
+            mode_m = m_vals(1)
+            mode_n = n_vals(1)
+            if (debug_mode) write(*,*) 'Debug: mode_m = ', mode_m, 'mode_n = ', mode_n
+            !call allocate_prev_variables
+
+            if (ihdf5IO .eq. 1) then
+                CALL create_group_structure_paramscan
+            end if
+            call init_background_profiles
+            CALL writeInitialParameters
+
+            !call alloc_hold_parameters
+
+        end if
 
     end subroutine
 
     subroutine runParameterScan(this)
 
         use transp_coeffs_mod, only: rescale_transp_coeffs_by_ant_fac
+        use parallelTools
             
         implicit none
 
         class(ParameterScan_t), intent(inout) :: this
 
-        print *, "Running ParameterScan"
+        if (irank .eq. 0) then
+            print *, "Running ParameterScan"
+        end if
 
         do ifac_n = 1, size(fac_n)
             do ifac_Te = 1, size(fac_Te)
@@ -249,12 +302,12 @@ module paramscan_mod
         write(*,*) ""
 
         if (size(fac_vz) .ne. 1) then
-            call determineErAtResonance
+            call determine_Er_at_resonance
         end if
 
     end subroutine 
 
-    subroutine determineErAtResonance
+    subroutine determine_Er_at_resonance
         
         use grid_mod, only: npoic, Ercovavg, Ercov
         use PolyLagrangeInterpolation, only: indEndInterp, indBeginInterp, coef
@@ -272,10 +325,10 @@ module paramscan_mod
 
     end subroutine
 
-    !> @brief subroutine creategroupstructure. Creates the group structure in the hdf5 file.
+    !> @brief subroutine create_group_structure_paramscan. Creates the group structure in the hdf5 file.
     !> @author  Markus Markl
     !> @date 12.03.2021
-    subroutine creategroupstructure
+    subroutine create_group_structure_paramscan
 
         use control_mod
         use wave_code_data, only: m_vals, n_vals
@@ -288,89 +341,54 @@ module paramscan_mod
         write (*, *) "Creating group structure"
         ! if the profiles should be written out, i.e. suppression_mode = false, then an extended group
         ! structure is created to save them
+        CALL h5_init()
+        CALL h5_open_rw(path2out, h5_id)
+        CALL h5_obj_exists(h5_id, "/init_params", h5_exists_log)
+        if (.not. h5_exists_log) then
+            CALL h5_define_group(h5_id, "/init_params", group_id_2)
+            CALL h5_close_group(group_id_2)
+        end if
+
         if (.not. suppression_mode) then
-            CALL h5_init()
-            CALL h5_open_rw(path2out, h5_id)
             do ifac_n = 1, size(fac_n)
                 do ifac_Te = 1, size(fac_Te)
                     do ifac_Ti = 1, size(fac_Ti)
                         do ifac_vz = 1, size(fac_vz)
                             write (*, *) ifac_n, ifac_Te, ifac_Ti, ifac_vz
-                            if (paramscan) then
-                                ! change parameter scan string used for the
-                                !group structure in hdf5 file
-                                write (parscan_str, "(A,F0.3,A,F0.3,A,F0.3,A,F0.3)") &
-                                    "n", fac_n(ifac_n), "Te", fac_Te(ifac_Te), &
-                                    "Ti", fac_Ti(ifac_Ti), "vz", fac_vz(ifac_vz)
+                            write (parscan_str, "(A,F0.3,A,F0.3,A,F0.3,A,F0.3)") &
+                                "n", fac_n(ifac_n), "Te", fac_Te(ifac_Te), &
+                                "Ti", fac_Ti(ifac_Ti), "vz", fac_vz(ifac_vz)
                             
-                                if (numres .eq. 1) then
-                                    write (h5_mode_groupname, "(A,A,A,I1,A,I1)") &
-                                        trim(parscan_str), "/", "f_", m_vals(1), &
-                                        "_", n_vals(1)
-                                else
-                                    write (h5_mode_groupname, "(A,A,A,I1,A,I1)") &
-                                        trim(parscan_str), "/", "multi_mode"
-                                end if
-
+                            if (numres .eq. 1) then
+                                write (h5_mode_groupname, "(A,A,A,I1,A,I1)") &
+                                    trim(parscan_str), "/", "f_", m_vals(1), &
+                                    "_", n_vals(1)
                             else
-                                ! leave it empty if no parameter scan
-                                parscan_str = ""
-                                ! if more than one RMP mode is used, use different group name
-                                if (numres .eq. 1) then
-                                    write (h5_mode_groupname, "(A,I1,A,I1)") &
-                                        "f_", m_vals(1), "_", n_vals(1)
-                                else
-                                    write (h5_mode_groupname, "(A,I1,A,I1)") &
-                                        "multi_mode"
-                                end if
+                                write (h5_mode_groupname, "(A,A,A,I1,A,I1)") &
+                                    trim(parscan_str), "/", "multi_mode"
                             end if
+
                             ! create the groups that are furthest down: fort.1000,
                             ! fort.5000 and init_params
                             write(*,*) "h5_mode_groupname ", trim(h5_mode_groupname)
-                            CALL h5_create_parent_groups(h5_id, trim(h5_mode_groupname) &
-                                                        //'/')
-
-                            if (suppression_mode .eqv. .false.) then
-                                CALL h5_create_parent_groups(h5_id, &
-                                                            trim(h5_mode_groupname)//"/KinProfiles/")
-                                CALL h5_define_group(h5_id, &
-                                                    trim(h5_mode_groupname)//"/LinearProfiles/", group_id_1)
-                                CALL h5_close_group(group_id_1)
-                            end if
-                            CALL h5_obj_exists(h5_id, "/init_params", &
-                                            h5_exists_log)
-                            if (.not. h5_exists_log) then
-                                CALL h5_define_group(h5_id, &
-                                                    "/init_params", group_id_2)
-                                CALL h5_close_group(group_id_2)
-                            end if
+                            CALL h5_create_parent_groups(h5_id, trim(h5_mode_groupname) //'/')
+                            CALL h5_create_parent_groups(h5_id, trim(h5_mode_groupname)//"/KinProfiles/")
+                            CALL h5_define_group(h5_id, trim(h5_mode_groupname)//"/LinearProfiles/", group_id_1)
+                            CALL h5_close_group(group_id_1)
                         end do
                     end do
                 end do
             end do
-            CALL h5_close(h5_id)
-            CALL h5_deinit()
 
             ! reset loop variables, since they are also used in main code
             ifac_n = 1
             ifac_Te = 1
             ifac_Ti = 1
             ifac_vz = 1
-            ! reset h5_mode_groupname string
-            if (paramscan) then
-                ! change parameter scan string used for the
-                !group structure in hdf5 file
-                write (parscan_str, "(A,F0.3,A,F0.3,A,F0.3,A,F0.3,A)") &
+            write (parscan_str, "(A,F0.3,A,F0.3,A,F0.3,A,F0.3,A)") &
                     "n", fac_n(ifac_n), "Te", fac_Te(ifac_Te), &
                     "Ti", fac_Ti(ifac_Ti), "vz", fac_vz(ifac_vz), "/"
-            else
-                ! leave it empty if no parameter scan
-                parscan_str = ""
-            end if
         else
-            ! if suppression_mode is true, only a simple group structure is created
-            ! i.e. /f_m_n and /init_params
-            ! if more than one RMP mode is used, use different group name
             if (numres .eq. 1) then
                 write (h5_mode_groupname, "(A,I1,A,I1)") &
                     "f_", m_vals(1), "_", n_vals(1)
@@ -380,21 +398,12 @@ module paramscan_mod
             end if
 
             if (debug_mode) write (*,*) "Debug: h5_mode_groupname: ", trim(h5_mode_groupname)
-            CALL h5_init()
-            CALL h5_open_rw(path2out, h5_id)
             CALL h5_define_group(h5_id, trim(h5_mode_groupname), group_id_2)
             CALL h5_close_group(group_id_2)
-            CALL h5_obj_exists(h5_id, "/init_params", &
-                            h5_exists_log)
-            if (.not. h5_exists_log) then
-                CALL h5_define_group(h5_id, &
-                                    "/init_params", group_id_2)
-                CALL h5_close_group(group_id_2)
-            end if
 
-            CALL h5_close(h5_id)
-            CALL h5_deinit()
         end if
+        CALL h5_close(h5_id)
+        CALL h5_deinit()
 
         write (*, *) "finished creating group structure"
     end subroutine

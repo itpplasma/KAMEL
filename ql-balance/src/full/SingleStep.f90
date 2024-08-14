@@ -14,13 +14,23 @@ module singleStep
     
     subroutine initSingleStep(this)
 
+        use control_mod, only: ihdf5IO
+        use parallelTools, only: irank
+
         implicit none
 
         class(SingleStep_t), intent(inout) :: this
         this%runType = "SingleStep"
         print *, "Initialize Single Step run"
 
-        call balanceInit
+        ! TODO: rewrite initialize balance code in here
+        call initialize_balance_code
+
+        if (irank .eq. 0) then
+            if (ihdf5IO .eq. 1) then
+                CALL create_group_structure_singlestep
+            end if
+        end if
 
     end subroutine
 
@@ -69,31 +79,6 @@ module singleStep
 
     end subroutine
 
-    subroutine init_background_profiles
-
-        use grid_mod, only: npoic
-        use plasma_parameters, only: params, qsaf
-        use wave_code_data, only: q, n, Vz, Te, Ti
-        use baseparam_mod, only: ev, rtor
-
-
-        implicit none    
-        integer :: ipoi                    !initial background profiles:
-
-        do ipoi = 1, npoic
-            !safety factor:
-            qsaf(ipoi) = 0.5*(q(ipoi) + q(ipoi + 1))
-            !electron density :
-            params(1, ipoi) = 0.5*(n(ipoi) + n(ipoi + 1))
-            !toroidal rotation frequency :
-            params(2, ipoi) = 0.5*(Vz(ipoi) + Vz(ipoi + 1))/rtor
-            !electron temeperature :
-            params(3, ipoi) = 0.5*(Te(ipoi) + Te(ipoi + 1))*ev
-            !ion temeperature :
-            params(4, ipoi) = 0.5*(Ti(ipoi) + Ti(ipoi + 1))*ev
-        end do
-
-    end subroutine
 
     subroutine finalizeSingleStepRun
 
@@ -138,5 +123,54 @@ module singleStep
         CALL h5_deinit()
 
     end subroutine
+
+    subroutine create_group_structure_singlestep
+
+        use control_mod
+        use wave_code_data, only: m_vals, n_vals
+        use resonances_mod, only: numres
+        use h5mod
+
+        implicit none
+
+        print *, "Creating group structure for Single Step"
+
+        if (numres .eq. 1) then
+            write (h5_mode_groupname, "(A,I1,A,I1)") "f_", m_vals(1), "_", n_vals(1)
+        else
+            write (h5_mode_groupname, "(A,I1,A,I1)") "multi_mode"
+        end if
+
+        CALL h5_init()
+        CALL h5_open_rw(path2out, h5_id)
+
+        if (.not. suppression_mode) then
+            write(*,*) "h5_mode_groupname ", trim(h5_mode_groupname)
+            CALL h5_create_parent_groups(h5_id, trim(h5_mode_groupname)//'/')
+            CALL h5_create_parent_groups(h5_id, trim(h5_mode_groupname)//"/KinProfiles/")
+            CALL h5_define_group(h5_id, trim(h5_mode_groupname)//"/LinearProfiles/", group_id_1)
+            CALL h5_close_group(group_id_1)
+            CALL h5_obj_exists(h5_id, "/init_params", h5_exists_log)
+            if (.not. h5_exists_log) then
+                CALL h5_define_group(h5_id, "/init_params", group_id_2)
+                CALL h5_close_group(group_id_2)
+            end if
+        else
+            if (debug_mode) write (*,*) "Debug: h5_mode_groupname: ", trim(h5_mode_groupname)
+            CALL h5_define_group(h5_id, trim(h5_mode_groupname), group_id_2)
+            CALL h5_close_group(group_id_2)
+            CALL h5_obj_exists(h5_id, "/init_params", h5_exists_log)
+            if (.not. h5_exists_log) then
+                CALL h5_define_group(h5_id, "/init_params", group_id_2)
+                CALL h5_close_group(group_id_2)
+            end if
+        end if
+
+        CALL h5_close(h5_id)
+        CALL h5_deinit()
+
+        write (*, *) "finished creating group structure for Single Step"
+    end subroutine
+
 
 end module

@@ -82,12 +82,17 @@
 
         print *, "Initializing TimeEvolution"
 
-        call balanceInit
+        call initialize_balance_code
+        if (irank .eq. 0) then
+            if (ihdf5IO .eq. 1) then
+                CALL create_group_structure_timeevol
+            end if
+        end if
 
         call calc_geometric_parameter_profiles
         call initialize_get_dql
-        call initAntennaFactor
-        call genstartsource
+        call initialize_antenna_factor
+        call det_balance_eqs_source_terms
 
         if (irank .eq. 0) then
             call writeKinProfileDataToDisk(0)
@@ -102,15 +107,15 @@
 
         !call inquiry_to_restart ! most likely not needed
 
-        call resetTimStepArrWithTimstep
+        call reset_timstep_arr_w_timstep
         !timstep_arr = timstep
         !tim_stack = timstep_arr
 
         call get_dql
         call rescale_transp_coeffs_by_ant_fac
 
-        call allocateBrAndDqleForTimeEvolution
-        call savePrevTranspCoefficients
+        call alloc_Br_Dqle_for_timeevol
+        call hold_prev_transp_coeffs
         call allocate_timscal_and_params
 
         params_begbeg = params
@@ -123,7 +128,7 @@
         use baseparam_mod, only: factolmax, factolred, tol_max
         use recstep_mod, only: tol
         use plasma_parameters, only: params, params_beg, params_begbeg, limitTemperaturesFromBelow
-        use restart_mod, only: redostep, inquiry_to_restart, redoTimeStep
+        use restart_mod, only: redostep
         use transp_coeffs_mod, only: rescale_transp_coeffs_by_ant_fac
         use recstep_mod, only: timstep_arr
 
@@ -151,7 +156,7 @@
             end if
 
             if (.not. redostep) then
-                call savePrevTranspCoefficients
+                call hold_prev_transp_coeffs
                 params_begbeg = params
             else 
                 call redoTimeStep
@@ -179,7 +184,7 @@
 
             call rescaleTimStepArr
             call setTimStep
-            call resetTimStepArrWithTimstep
+            call reset_timstep_arr_w_timstep
             call writeTimeInfoToDisk
             call relaxPlasmaParameters
 
@@ -238,7 +243,7 @@
 
     end subroutine
 
-    subroutine initAntennaFactor
+    subroutine initialize_antenna_factor
         !For time evolution mode use antenna_factor as maximum
         !and start with a very small value and ramp this up
 
@@ -254,7 +259,7 @@
 
     end subroutine
 
-    subroutine allocateBrAndDqleForTimeEvolution
+    subroutine alloc_Br_Dqle_for_timeevol
 
         implicit none
 
@@ -265,7 +270,7 @@
 
     end subroutine
 
-    subroutine savePrevTranspCoefficients
+    subroutine hold_prev_transp_coeffs
 
         use grid_mod, only: dqle11, dqle12, dqle21, dqle22, &
                             dqli11, dqli12, dqli21, dqli22
@@ -1081,7 +1086,7 @@
 
     end subroutine
 
-    subroutine resetTimStepArrWithTimstep
+    subroutine reset_timstep_arr_w_timstep
         
         use recstep_mod, only: tim_stack, timstep_arr
 
@@ -1208,6 +1213,147 @@
         timscal_dqli = maxval(abs(dqli11_prev - dqli11))/maxval(dqli11_prev + dqli11)
         ind_dqli = maxloc(abs(dqli11_prev - dqli11))
         rate_dql = timscal_dql/timstep
+
+    end subroutine
+
+    subroutine create_group_structure_timeevol
+
+        use control_mod
+        use wave_code_data, only: m_vals, n_vals
+        use resonances_mod, only: numres
+        use h5mod
+
+        implicit none
+
+        write (*, *) "Creating group structure for TimeEvol"
+
+        if (numres .eq. 1) then
+            write (h5_mode_groupname, "(A,I1,A,I1)") "f_", m_vals(1), "_", n_vals(1)
+        else
+            write (h5_mode_groupname, "(A,I1,A,I1)") "multi_mode"
+        end if
+
+        CALL h5_init()
+        CALL h5_open_rw(path2out, h5_id)
+
+        if (.not. suppression_mode) then
+            write(*,*) "h5_mode_groupname ", trim(h5_mode_groupname)
+            CALL h5_create_parent_groups(h5_id, trim(h5_mode_groupname) //'/')
+            CALL h5_create_parent_groups(h5_id, trim(h5_mode_groupname)//"/KinProfiles/")
+            CALL h5_define_group(h5_id, trim(h5_mode_groupname)//"/LinearProfiles/", group_id_1)
+            CALL h5_close_group(group_id_1)
+            CALL h5_obj_exists(h5_id, "/init_params", h5_exists_log)
+            if (.not. h5_exists_log) then
+                CALL h5_define_group(h5_id, "/init_params", group_id_2)
+                CALL h5_close_group(group_id_2)
+            end if
+        else
+            if (debug_mode) write (*,*) "Debug: h5_mode_groupname: ", trim(h5_mode_groupname)
+            CALL h5_define_group(h5_id, trim(h5_mode_groupname), group_id_2)
+            CALL h5_close_group(group_id_2)
+            CALL h5_obj_exists(h5_id, "/init_params", h5_exists_log)
+            if (.not. h5_exists_log) then
+                CALL h5_define_group(h5_id, "/init_params", group_id_2)
+                CALL h5_close_group(group_id_2)
+            end if
+        end if
+
+        CALL h5_close(h5_id)
+        CALL h5_deinit()
+
+        write (*, *) "finished creating group structure for TimeEvol"
+    end subroutine
+
+
+    subroutine inquiry_to_restart
+
+        use parallelTools, only: irank
+        use grid_mod, only: npoi, nbaleqs, y
+        use plasma_parameters, only: params
+        use recstep_mod, only: tol
+        use baseparam_mod, only: ev
+        use control_mod, only: debug_mode
+        use restart_mod
+
+        implicit none
+
+        integer :: k, ipoi, ieq
+
+        inquire(file='restart.dat', exist=opnd)
+        if (opnd) then
+            if (irank .eq. 0) then
+                print *, 'restart'
+            end if
+            open (201, file='final.restart')
+            do ipoi = 1, npoi
+                read (201, *) timstep, params(:, ipoi)
+                params(3:4, ipoi) = params(3:4, ipoi)*ev
+                do ieq = 1, nbaleqs
+                    k = nbaleqs*(ipoi - 1) + ieq
+                    y(k) = params(ieq, ipoi)
+                end do
+            end do
+            close (201)
+            open (201, file='restart.dat')
+            read (201, *) timstep
+            close (201)
+            scratch = .false.
+        else
+            timstep = timstep*tol
+            scratch = .true.
+            if (irank .eq. 0) then
+                if (debug_mode) write(*,*) 'Debug: start from scratch'
+                write(*,*) "timstep = ", timstep
+            end if
+        end if
+
+
+    end subroutine
+
+    subroutine redoTimeStep
+
+        use parallelTools, only: irank
+        use recstep_mod, only: timstep_arr
+        use grid_mod, only: npoic, rc, Ercov
+        use plasma_parameters, only: params, params_begbeg
+        use baseparam_mod, only: eV, factolmax
+        use restart_mod
+
+        implicit none
+
+        integer :: ipoi
+
+        if (irank .eq. 0) then
+            print *, 'redo step with old DQL'
+        end if
+
+        call hold_prev_transp_coeffs
+        iunit_redo = 137
+
+        if (irank .eq. 0) then
+            open (iunit_redo, file='params_redostep.after')
+            do ipoi = 1, npoic
+                write (iunit_redo, *) rc(ipoi), params(1:2, ipoi) &
+                    , params(3, ipoi)/ev &
+                    , params(4, ipoi)/ev &
+                    , 0.5d0*(Ercov(ipoi) + Ercov(ipoi + 1))
+            end do
+            close (iunit_redo)
+        end if
+        params = params_begbeg
+        if (irank .eq. 0) then
+            open (iunit_redo, file='params_redostep.before')
+            do ipoi = 1, npoic
+                write (iunit_redo, *) rc(ipoi), params(1:2, ipoi) &
+                    , params(3, ipoi)/ev &
+                    , params(4, ipoi)/ev &
+                    , 0.5d0*(Ercov(ipoi) + Ercov(ipoi + 1))
+            end do
+            close (iunit_redo)
+        end if
+
+        timstep = timstep/factolmax
+        timstep_arr = timstep
 
     end subroutine
 

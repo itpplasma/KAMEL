@@ -196,7 +196,7 @@
                 call writefort9999
             end if
 
-            if (.not. redostep) then
+            if (.true.) then
                 call hold_prev_transp_coeffs
                 params_begbeg = params
             else 
@@ -205,10 +205,28 @@
 
             do ! redo step loop
                 params_beg = params
+
                 print *, ""
                 write(*,*) "Timstep before evolvestep is ", timstep, " eps = " , eps
+
+                ! somewhere here: ölend
+                ! could also be due to source of balance equations?
+                print *, "Before evolvestep "
+                print *, "params(1,1) = ", params(1,1)
+                print *, "params(2,1) = ", params(2,1)
+                print *, "params(3,1) = ", params(3,1)
+                print *, "params(4,1) = ", params(4,1)
                 call evolvestep(timstep, eps)
+                print *, "After evolvestep "
+                print *, "params(1,1) = ", params(1,1)
+                print *, "params(2,1) = ", params(2,1)
+                print *, "params(3,1) = ", params(3,1)
+                print *, "params(4,1) = ", params(4,1)
+                ! ------
+
+
                 call limit_temps_from_below
+
                 call calcParamsNumAndDenom
                 call smoothParamsNumAndDenom
                 call determineTimscal
@@ -216,6 +234,7 @@
                 if (maxval(timscal) .lt. tol * factolmax) then
                     exit
                 end if
+                
 
                 timstep_arr = timstep_arr * factolred
                 params = params_beg
@@ -1032,6 +1051,11 @@
 
         params_num = (params - params_beg)**2
         params_denom = params**2 + params_beg**2
+        write(*,*) " params(1,1) = ", params(1,1)
+        write(*,*) " params(2,1) = ", params(2,1)
+        write(*,*) " params(3,1) = ", params(3,1)
+        write(*,*) " params(4,1) = ", params(4,1)
+        write(*,*) " params_beg(3,1) = ", params_beg(3,1)
 
     end subroutine
 
@@ -1268,6 +1292,7 @@
         timscal_dqli = maxval(abs(dqli11_prev - dqli11))/maxval(dqli11_prev + dqli11)
         ind_dqli = maxloc(abs(dqli11_prev - dqli11))
         rate_dql = timscal_dql/timstep
+        write(*,*) 'rate_dql = ', rate_dql
 
     end subroutine
 

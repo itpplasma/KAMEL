@@ -18,7 +18,7 @@
 !
   x1=0.d0
 !  x2=timstep
-!
+    write(*,*) " timstep_arr(1) in evolvestep = ", timstep_arr(1)
   if(iboutype.eq.1) then
     npoi=npoic-1
   else

@@ -194,7 +194,6 @@ subroutine update_background_files(path)
     ! always keep flag =1, since KiLCA reads profiles from ./profile directory
     integer :: flag = 1; ! set it 1 if you want to store the background profiles to disk
 
-    if (debug_mode) write(*,*) "Debug: here at update_background_profiles: flag = ", flag
     do k = 1, dim_r !at cell boundaries
         n(k) = params_b(1, k); 
         Te(k) = params_b(3, k)/ev; 
@@ -434,8 +433,7 @@ subroutine read_antenna_modes(path)
         i3 = index(buffer, ')'); 
         read (buffer(i1 + 1:i2 - 1), *) m_vals(l); 
         read (buffer(i2 + 1:i3 - 1), *) n_vals(l); 
-        write(*,*) "modes.in -> m = ", m_vals(l)
-        write(*,*) "modes.in -> n = ", n_vals(l)
+        write(*,*) "modes.in -> m = ", m_vals(l), ", n = ", n_vals(l)
     end do
     close (10); 
 end subroutine

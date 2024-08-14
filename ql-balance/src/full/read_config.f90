@@ -25,7 +25,7 @@ subroutine read_config
         diagnostics_output, br_stopping, suppression_mode, debug_mode, &
         readfromtimestep, path2time, ramp_up_mode, t_max_ramp_up, temperature_limit, &
         antenna_max_stopping, gyro_current_study, viscosity_factor, misalign_diffusion, &
-        equil_path, ihdf5IO
+        equil_path, ihdf5IO, type_of_run
 
     ! read the parameters from namelist file
     open (22, file='balance_conf.nml');
@@ -34,9 +34,9 @@ subroutine read_config
 
 
     write(*,*) ''
-    write(*,*) '                                       QL-Balance          '
+    !write(*,*) '                                       QL-Balance          '
     write(*,*) '========================================================================================'
-    write(*,*) '    Run time evolution: ', flag_run_time_evolution
+    write(*,*) '    Type of Run: ', type_of_run
     write(*,*) '    '
     write(*,*) '    Parameters from balance_conf.nml:'
     write(*,*) '    ------------------------------------------------------------------------------------'

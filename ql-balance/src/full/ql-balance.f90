@@ -29,13 +29,19 @@ program ql_balance
 
     integer :: ipoi, i, ieq, l, k
     integer :: ioddeven
-    character(100) :: typeOfRun = "ParameterScan"
+    !character(100) :: type_of_run = "ParameterScan"
     
     class(balance_t), allocatable :: balanceInstance
 
-    call fromBalanceFactoryGetBalance(typeOfRun, balanceInstance)
-    
-    !call balanceInstance%runBalance()
+    write(*,*) ' ________  .____             __________        .__                              '
+    write(*,*) ' \_____  \ |    |            \______   \_____  |  | _____    ____   ____  ____  '
+    write(*,*) '  /  / \  \|    |      ______ |    |  _/\__  \ |  | \__  \  /    \_/ ___\/ __ \ '
+    write(*,*) ' /   \_/.  \    |___  /_____/ |    |   \ / __ \|  |__/ __ \|   |  \  \__\  ___/ '
+    write(*,*) ' \_____\ \_/_______ \         |______  /(____  /____(____  /___|  /\___  >___  >'
+    write(*,*) '        \__>       \/                \/      \/          \/     \/     \/    \/ '
+
+    call read_config
+    call fromBalanceFactoryGetBalance(type_of_run, balanceInstance)
 
     !call initialize_balance_code
     call balanceInstance%initBalance()

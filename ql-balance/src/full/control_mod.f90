@@ -1,4 +1,5 @@
 module control_mod
+    character(100) :: type_of_run
     logical :: write_formfactors
     integer :: iwrite
     integer :: ihdf5IO ! added: Markus Markl

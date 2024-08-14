@@ -5,7 +5,7 @@ module balance_mod
 
     contains
 
-    subroutine fromBalanceFactoryGetBalance(typeOfRun, balanceInstance)
+    subroutine fromBalanceFactoryGetBalance(type_of_run, balanceInstance)
 
         use balanceBase, only: balance_t
         use singleStep, only: SingleStep_t
@@ -14,10 +14,10 @@ module balance_mod
 
         implicit none
 
-        character(100), intent(in) :: typeOfRun
+        character(100), intent(in) :: type_of_run
         class(balance_t), allocatable, intent(out) :: balanceInstance
 
-        select case(trim(typeOfRun))
+        select case(trim(type_of_run))
             case("SingleStep")
                 allocate(balanceInstance, source=SingleStep_t())
             case("TimeEvolution")
@@ -27,7 +27,7 @@ module balance_mod
             !case("TimeEvolutionParameterScan") ! TODO
             !case("ConstantPsi") ! TODO
             case default
-                print *, "Invalid balance type of run " // trim(typeOfRun)
+                print *, "Invalid balance type of run " // trim(type_of_run)
                 print *, "Options are: SingleStep, TimeEvolution, ParameterScan"
                 stop "Due to invalid type of run"
         end select

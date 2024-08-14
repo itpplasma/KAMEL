@@ -26,7 +26,6 @@ module paramscan_mod
 
     subroutine initParameterScan(this)
 
-        use parallelTools, only: irank
         use grid_mod, only: mwind, rmax, rmin, setBoundaryCondition, npoib, rb
         use baseparam_mod, only: dperp
         use diag_mod, only: write_diag, write_diag_b
@@ -64,7 +63,6 @@ module paramscan_mod
                 write_gyro_current = .false.
             end if
 
-            call read_config
             call gengrid
             call setBoundaryCondition
             CALL initialize_wave_code_interface(npoib, rb);
@@ -90,7 +88,7 @@ module paramscan_mod
     subroutine runParameterScan(this)
 
         use transp_coeffs_mod, only: rescale_transp_coeffs_by_ant_fac
-        use parallelTools
+        use parallelTools, only: irank
             
         implicit none
 

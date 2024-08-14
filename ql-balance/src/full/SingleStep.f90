@@ -14,22 +14,55 @@ module singleStep
     
     subroutine initSingleStep(this)
 
-        use control_mod, only: ihdf5IO
-        use parallelTools, only: irank
+        use grid_mod, only: mwind, rmax, rmin, setBoundaryCondition, npoib, rb
+        use baseparam_mod, only: dperp
+        use diag_mod, only: write_diag, write_diag_b
+        use hdf5_tools, only: h5overwrite
+        use h5mod, only: mode_m, mode_n
+        use control_mod, only: gyro_current_study, write_gyro_current, debug_mode, &
+                          ihdf5IO
+        use parallelTools, only: initMPI, irank
+        use wave_code_data, only: m_vals, n_vals
+        use plasma_parameters, only: writeInitialParameters, alloc_hold_parameters, &
+                                init_background_profiles
 
         implicit none
 
         class(SingleStep_t), intent(inout) :: this
         this%runType = "SingleStep"
-        print *, "Initialize Single Step run"
-
-        ! TODO: rewrite initialize balance code in here
-        call initialize_balance_code
+        
+        call initMPI
 
         if (irank .eq. 0) then
-            if (ihdf5IO .eq. 1) then
-                CALL create_group_structure_singlestep
+            print *, "Initialize Single Step run"
+            mwind = 10
+            write_diag = .false.
+            write_diag_b = .false.
+            ! if h5overwrite = true, existing data will be deleted
+            ! before new one is written
+            ! This is contained in hdf5_tools module
+            h5overwrite = .true.
+    
+            if (gyro_current_study .ne. 0) then
+                write_gyro_current = .true.
+            else
+                write_gyro_current = .false.
             end if
+
+            call gengrid
+            call setBoundaryCondition
+            CALL initialize_wave_code_interface(npoib, rb);
+
+            mode_m = m_vals(1)
+            mode_n = n_vals(1)
+            if (debug_mode) write(*,*) 'Debug: mode_m = ', mode_m, 'mode_n = ', mode_n
+            !call allocate_prev_variables
+            if (ihdf5IO .eq. 1) then
+                call create_group_structure_singlestep
+            end if
+            call init_background_profiles
+            CALL writeInitialParameters
+            !call alloc_hold_parameters
         end if
 
     end subroutine
@@ -71,11 +104,14 @@ module singleStep
         dqle22_res_single = sum(coef(0, :) * dqle22(indBeginInterp:indEndInterp))
         br_abs_res_single = sum(coef(0, :) * abs(Br(indBeginInterp:indEndInterp)))*sqrt(antenna_factor)
 
-        write(*,*) ""
-        write(*,*) "Dqle22 res = ", dqle22_res_single
-        write(*,*) "|Br| res   = ", br_abs_res_single
-		write(*,*) "Antenna factor = ", antenna_factor
-        write(*,*) ""
+        write(*,*) " "
+        write(*,*) "=== === === Results of Single Step: === === ==="
+        write(*,*) "    Dqle22 res  = ", dqle22_res_single
+        write(*,*) "    |Br| res    = ", br_abs_res_single
+        write(*,*) " "
+		write(*,*) "    With the Antenna factor = ", antenna_factor
+        write(*,*) "=== === === === === === === === === === === ==="
+        write(*,*) " "
 
     end subroutine
 
@@ -133,7 +169,9 @@ module singleStep
 
         implicit none
 
-        print *, "Creating group structure for Single Step"
+        if (debug_mode) then
+            print *, "Creating group structure for Single Step"
+        end if
 
         if (numres .eq. 1) then
             write (h5_mode_groupname, "(A,I1,A,I1)") "f_", m_vals(1), "_", n_vals(1)
@@ -145,7 +183,9 @@ module singleStep
         CALL h5_open_rw(path2out, h5_id)
 
         if (.not. suppression_mode) then
-            write(*,*) "h5_mode_groupname ", trim(h5_mode_groupname)
+            if (debug_mode) then
+                write(*,*) "h5_mode_groupname ", trim(h5_mode_groupname)
+            end if
             CALL h5_create_parent_groups(h5_id, trim(h5_mode_groupname)//'/')
             CALL h5_create_parent_groups(h5_id, trim(h5_mode_groupname)//"/KinProfiles/")
             CALL h5_define_group(h5_id, trim(h5_mode_groupname)//"/LinearProfiles/", group_id_1)
@@ -156,7 +196,9 @@ module singleStep
                 CALL h5_close_group(group_id_2)
             end if
         else
-            if (debug_mode) write (*,*) "Debug: h5_mode_groupname: ", trim(h5_mode_groupname)
+            if (debug_mode) then 
+                write (*,*) "Debug: h5_mode_groupname: ", trim(h5_mode_groupname)
+            end if
             CALL h5_define_group(h5_id, trim(h5_mode_groupname), group_id_2)
             CALL h5_close_group(group_id_2)
             CALL h5_obj_exists(h5_id, "/init_params", h5_exists_log)
@@ -169,8 +211,11 @@ module singleStep
         CALL h5_close(h5_id)
         CALL h5_deinit()
 
-        write (*, *) "finished creating group structure for Single Step"
+        if (debug_mode) then
+            write (*, *) "finished creating group structure for Single Step"
+        end if
     end subroutine
+
 
 
 end module

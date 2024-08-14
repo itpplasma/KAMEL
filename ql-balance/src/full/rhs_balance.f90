@@ -860,8 +860,6 @@ subroutine get_dql
 
     CHARACTER(LEN=1024) :: tempch
 
-    if (debug_mode) write(*,*) "Debug: coming into get_dql"
-
     allocate (dqle11_loc(npoib))
     allocate (dqle12_loc(npoib))
     allocate (dqle21_loc(npoib))

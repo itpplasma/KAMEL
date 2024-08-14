@@ -38,7 +38,7 @@ module plasma_parameters
 
     end subroutine
 
-    subroutine limitTemperaturesFromBelow
+    subroutine limit_temps_from_below
 
         use grid_mod, only: npoic
         use wave_code_data, only: r
@@ -62,7 +62,7 @@ module plasma_parameters
         end do
 
 
-    end subroutine limitTemperaturesFromBelow
+    end subroutine limit_temps_from_below
 
 
 

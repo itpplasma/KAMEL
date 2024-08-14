@@ -17,9 +17,9 @@
     integer :: save_prof_time_step ! added by Markus Markl 11.03.2021
     integer :: iexit ! used for ramp-up skipping of saving
     integer :: ramp_up_down = 0 !> used in hysteresis mode, tells if ramp-up (0) or ramp-down (1)
-    integer :: timeIndex, timescale
+    integer :: timeIndex
 
-    double precision :: tmax
+    double precision :: tmax, timescale
     DOUBLE PRECISION :: br_beta = 0
     DOUBLE PRECISION :: br_predicted
 
@@ -70,7 +70,7 @@
 
         use recstep_mod, only: tim_stack, timstep_arr, tol
         use transp_coeffs_mod, only: rescale_transp_coeffs_by_ant_fac
-        use grid_mod, only: mwind, rmax, rmin, setBoundaryCondition, npoib, rb
+        use grid_mod, only: mwind, rmax, rmin, setBoundaryCondition, npoib, rb, dqle11
         use baseparam_mod, only: dperp, tol_max
         use diag_mod, only: write_diag, write_diag_b
         use hdf5_tools, only: h5overwrite
@@ -105,23 +105,31 @@
             end if
 
             call read_config
+
+            timescale = (rmax - rmin)**2/dperp
+            tmax = timescale*tmax_factor
+            timstep = tmax/Nstorage
+            time = 0.0d0
+            tol = tol_max
             write(*,*) "timstep = ", timstep
+
             call gengrid
             call setBoundaryCondition
+
             CALL initialize_wave_code_interface(npoib, rb);
             !CALL initialize_parameter_scan_vars
 
+            mode_m = m_vals(1)
+            mode_n = n_vals(1)
             if (ihdf5IO .eq. 1) then
                 CALL create_group_structure_timeevol
             end if
-
-            mode_m = m_vals(1)
-            mode_n = n_vals(1)
             if (debug_mode) write(*,*) 'Debug: mode_m = ', mode_m, 'mode_n = ', mode_n
+
             call allocate_prev_variables
             call init_background_profiles
             CALL writeInitialParameters
-            call alloc_hold_parameters
+            !call alloc_hold_parameters
         end if
 
         call calc_geometric_parameter_profiles
@@ -130,17 +138,11 @@
         call det_balance_eqs_source_terms
 
         if (irank .eq. 0) then
-            call writeKinProfileDataToDisk(0)
+            call writeKinProfileDataToDisk
         end if
 
-        timescale = (rmax - rmin)**2/dperp
-        tmax = timescale*tmax_factor
-        timstep = tmax/Nstorage
-
-        time = 0.0d0
-        tol = tol_max
-
-        !call inquiry_to_restart ! most likely not needed
+        call allocate_timscal_and_params
+        call inquiry_to_restart ! most likely not needed
 
         call reset_timstep_arr_w_timstep
         !timstep_arr = timstep
@@ -148,10 +150,8 @@
 
         call get_dql
         call rescale_transp_coeffs_by_ant_fac
-
         call alloc_Br_Dqle_for_timeevol
         call hold_prev_transp_coeffs
-        call allocate_timscal_and_params
 
         params_begbeg = params
 
@@ -162,7 +162,7 @@
         use parallelTools, only: irank
         use baseparam_mod, only: factolmax, factolred, tol_max
         use recstep_mod, only: tol
-        use plasma_parameters, only: params, params_beg, params_begbeg, limitTemperaturesFromBelow
+        use plasma_parameters, only: params, params_beg, params_begbeg, limit_temps_from_below
         use restart_mod, only: redostep
         use transp_coeffs_mod, only: rescale_transp_coeffs_by_ant_fac
         use recstep_mod, only: timstep_arr
@@ -187,7 +187,10 @@
             call stopIfTimeStepTooSmall
             call interpBrAndDqlAtResonanceTimeEvol
             call rescale_transp_coeffs_by_ant_fac
+            call determineDqlDiagnostic
+
             call write_br_dqle22_time_data
+            call message_Br_Dqle_values
 
             if (diagnostics_output)then
                 call writefort9999
@@ -202,8 +205,10 @@
 
             do ! redo step loop
                 params_beg = params
+                print *, ""
+                write(*,*) "Timstep before evolvestep is ", timstep, " eps = " , eps
                 call evolvestep(timstep, eps)
-                call limitTemperaturesFromBelow
+                call limit_temps_from_below
                 call calcParamsNumAndDenom
                 call smoothParamsNumAndDenom
                 call determineTimscal
@@ -217,6 +222,7 @@
 
                 if (irank .eq. 0) then
                     print *, "Redoing step"
+                    print *, ""
                 end if
             end do
 
@@ -436,7 +442,7 @@
                 else if (time .ge. 10*t_max_ramp_up) then ! if max time value is reached, stop the code
                     write(*,*) 'stop: reached time max: ', 10*t_max_ramp_up
                     if (suppression_mode .eqv. .false.) then
-                        call writeKinProfileDataToDisk(i)
+                        call writeKinProfileDataToDisk
                     end if
                     ! Write the cause of the stopping into the hdf5 file
                     if (ihdf5IO .eq. 1) then
@@ -493,7 +499,7 @@
                     ! if max time value is reached, stop the code
                     write(*,*) 'stop: time limit reached: ', time
                     if (suppression_mode .eqv. .false.) then
-                        call writeKinProfileDataToDisk(i)
+                        call writeKinProfileDataToDisk
                     end if ! suppression mode
                     ! Write the cause of the stopping into the hdf5 file
                     if (ihdf5IO .eq. 1) then
@@ -553,7 +559,7 @@
                     if ((antenna_factor/antenna_factor_max * 100) .le. 1.0) then ! if antenna factor would get below some percentage of the max value
                         write(*,*) 'stop: ramp-up/down finished '
                         if (suppression_mode .eqv. .false.) then
-                            call writeKinProfileDataToDisk(i)
+                            call writeKinProfileDataToDisk
                         end if
                         ! Write the cause of the stopping into the hdf5 file
                         if (ihdf5IO .eq. 1) then
@@ -603,7 +609,7 @@
                     if ((antenna_factor/antenna_factor_max * 100) .le. 0.1) then ! if antenna factor would get below some percentage of the max value
                         write(*,*) 'stop: ramp-up/down finished '
                         if (suppression_mode .eqv. .false.) then
-                            call writeKinProfileDataToDisk(i)
+                            call writeKinProfileDataToDisk
                         end if
                         ! Write the cause of the stopping into the hdf5 file
                         if (ihdf5IO .eq. 1) then
@@ -645,7 +651,7 @@
         else
                 write(*,*) 'stop: reached antenna_factor_max * ', antenna_max_stopping
                 if (suppression_mode .eqv. .false.) then
-                    call writeKinProfileDataToDisk(i)
+                    call writeKinProfileDataToDisk
                 end if
                 ! Write the cause of the stopping into the hdf5 file
                 if (ihdf5IO .eq. 1) then
@@ -709,7 +715,7 @@
                     end if
                 end if
                 if (suppression_mode .eqv. .false.) then
-                    CALL writeKinProfileDataToDisk(timeIndex)
+                    CALL writeKinProfileDataToDisk
                 end if
                 if (br_stopping) then
                     ! Write the cause of the stopping into the hdf5 file
@@ -842,7 +848,7 @@
     !end subroutine
 
 
-    !> @brief subroutine writeKinProfileDataToDisk(istep). Writes the profile data to hdf5 files. 
+    !> @brief subroutine writeKinProfileDataToDisk(timeIndex). Writes the profile data to hdf5 files. 
     !> Formerly, this data was written to fort.1xxx ascii files.
     !> This routine was added because of the change that only every
     !>  "save_prof_time_step"th timestep is written. If the program is to be stopped
@@ -851,9 +857,9 @@
     !> summarize this in a subroutine.
     !> @author Markus Markl
     !> @date 12.03.2021
-    !> @param[in] istep Current step of the time evolution. Used to name the fort.1000 group in which
+    !> @param[in] timeIndex Current step of the time evolution. Used to name the fort.1000 group in which
     !> the data is written.
-    subroutine writeKinProfileDataToDisk(istep)
+    subroutine writeKinProfileDataToDisk
 
         use grid_mod
         use plasma_parameters
@@ -864,7 +870,6 @@
         use wave_code_data, only: Vth
 
         implicit none
-        integer, intent(in) :: istep
         integer :: ipoi
 
         if (ihdf5IO .eq. 1) then
@@ -883,11 +888,11 @@
 
             ! create datasets
             write (h5_currentgrp, "(A,A,I4,A)") trim(h5_currentgrp), &
-                "/", 1000 + istep, "/"
+                "/", 1000 + timeIndex, "/"
 
             write (*, *) "h5_currentgrp ", trim(h5_currentgrp)
-            write (*, *) "defining KinProfiles/1000 group ", 1000 + istep
-            ! define group 1000+istep
+            write (*, *) "defining KinProfiles/1000 group ", 1000 + timeIndex
+            ! define group 1000+timeIndex
             CALL h5_obj_exists(h5_id, trim(h5_currentgrp), h5_exists_log)
             if (.not. h5_exists_log) then
         	    CALL h5_define_group(h5_id, trim(h5_currentgrp), group_id_1)
@@ -930,14 +935,14 @@
 
         else
             do ipoi = 1, npoic
-                write (1000 + istep, *) rc(ipoi), params(1:2, ipoi) &
+                write (1000 + timeIndex, *) rc(ipoi), params(1:2, ipoi) &
                     , params(3, ipoi)/ev &
                     , params(4, ipoi)/ev &
                     , 0.5d0*(Ercov(ipoi) + Ercov(ipoi + 1)) &
                     , 0.5d0*(sqg_bthet_overc(ipoi) + &
                             sqg_bthet_overc(ipoi + 1))
             end do
-            close (1000 + istep)
+            close (1000 + timeIndex)
         end if
 
     end subroutine writeKinProfileDataToDisk
@@ -948,7 +953,7 @@
         if (irank .eq. 0) then
             if (modulo(timeIndex, save_prof_time_step) .eq. 0) then
                 if (suppression_mode .eqv. .false.) then
-                    CALL writeKinProfileDataToDisk(timeIndex)
+                    CALL writeKinProfileDataToDisk
                 end if
             end if
         end if
@@ -1008,7 +1013,7 @@
         if (timstep .lt. stop_time_step .and. time .gt. 1.0d-3) then
             write(*,*) 'stop: timestep smaller than stop limit'
             if (suppression_mode .eqv. .false.) then
-                CALL writeKinProfileDataToDisk(timeIndex)
+                CALL writeKinProfileDataToDisk
             end if
 
             call writeReasonForStopToH5(reason)
@@ -1290,22 +1295,13 @@
             write(*,*) "h5_mode_groupname ", trim(h5_mode_groupname)
             CALL h5_create_parent_groups(h5_id, trim(h5_mode_groupname) //'/')
             CALL h5_create_parent_groups(h5_id, trim(h5_mode_groupname)//"/KinProfiles/")
-            CALL h5_define_group(h5_id, trim(h5_mode_groupname)//"/LinearProfiles/", group_id_1)
-            CALL h5_close_group(group_id_1)
-            CALL h5_obj_exists(h5_id, "/init_params", h5_exists_log)
-            if (.not. h5_exists_log) then
-                CALL h5_define_group(h5_id, "/init_params", group_id_2)
-                CALL h5_close_group(group_id_2)
-            end if
+
+            call create_group_if_not_existent(trim(h5_mode_groupname)//"/LinearProfiles/")
+            call create_group_if_not_existent("/init_params")
         else
             if (debug_mode) write (*,*) "Debug: h5_mode_groupname: ", trim(h5_mode_groupname)
-            CALL h5_define_group(h5_id, trim(h5_mode_groupname), group_id_2)
-            CALL h5_close_group(group_id_2)
-            CALL h5_obj_exists(h5_id, "/init_params", h5_exists_log)
-            if (.not. h5_exists_log) then
-                CALL h5_define_group(h5_id, "/init_params", group_id_2)
-                CALL h5_close_group(group_id_2)
-            end if
+            call create_group_if_not_existent(trim(h5_mode_groupname))
+            call create_group_if_not_existent("/init_params")
         end if
 
         CALL h5_close(h5_id)
@@ -1356,7 +1352,6 @@
                 write(*,*) "timstep = ", timstep
             end if
         end if
-
 
     end subroutine
 

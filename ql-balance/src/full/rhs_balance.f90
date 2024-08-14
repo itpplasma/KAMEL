@@ -821,18 +821,17 @@ subroutine get_dql
     use control_mod, only: irf, write_formfactors, ihdf5IO, &
                            diagnostics_output, suppression_mode, &
                            debug_mode, misalign_diffusion
-    use time_evolution, only: save_prof_time_step
+    use time_evolution, only: save_prof_time_step, timeIndex
     use h5mod
     use wave_code_data
-    use mpi
+    use parallelTools
     use diag_mod, only: write_diag, iunit_diag, write_diag_b, iunit_diag_b, i_mn_loop
     use PolyLagrangeInterpolation    
-    use time_evolution, only: timeIndex
 
     implicit none
     !logical :: suppression_mode = .true.
 
-    integer :: ierror, np_num, irank, modpernode, imin, imax;
+    integer :: modpernode, imin, imax;
     integer :: ipoi, ieq, i, npoi, i_mn, ierr, mwind_save
     double precision, dimension(:), allocatable :: dummy
     double complex, dimension(npoib) :: amn_psi, amn_theta, amn_theta_cyl
@@ -894,12 +893,6 @@ subroutine get_dql
         dqli21 = 0.0d0
         dqli22 = 0.0e0
         return
-    end if
-
-    if (iboutype .eq. 1) then
-        npoi = npoic - 1
-    else
-        npoi = npoic
     end if
 
     do ipoi = 1, npoib

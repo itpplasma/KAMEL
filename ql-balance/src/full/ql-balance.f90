@@ -108,7 +108,7 @@ program ql_balance
 					write(*,*) "h5_mode_groupname before writeKinProfileDataToDisk: ", trim(h5_mode_groupname)
                     if (irank .eq. 0) then
                         if (suppression_mode .eqv. .false.) then
-                            CALL writeKinProfileDataToDisk(0) ! write the profiles to hdf5 file
+                            CALL writeKinProfileDataToDisk ! write the profiles to hdf5 file
                         end if
                     end if
 
@@ -227,7 +227,7 @@ program ql_balance
                             params_beg = params
                             
                             call evolvestep(timstep, eps)
-                            call limitTemperaturesFromBelow
+                            call limit_temps_from_below
                             call calcParamsNumAndDenom
                             call smoothParamsNumAndDenom
                             

@@ -64,6 +64,7 @@ class profile_processor:
             non_mon_index = next((i for i, (x,y,) in enumerate(zip(data[:-1], data[1:])) if x > y), None)
             if non_mon_index is not None:
                 return [data[:non_mon_index+1], non_mon_index]
+                print('Motonous tail found and removed')
             else:
                 return [data, len(data) - 1]
 
@@ -103,11 +104,9 @@ class profile_processor:
                 self.Ti_orig = np.loadtxt(prof_path + 'PROFTI.IN', skiprows=1)
                 self.Vz_orig = np.loadtxt(prof_path + 'PROFROT.IN', skiprows=1)
 
-                if int(np.floor(np.log10(np.abs(self.ne_orig[0,1])))) > 16:
-                    # rescale since density is given in cubic meter instead of centimeter
-                    self.ne_orig[:,1] = self.ne_orig[:,1] * 1e-6
                 #rescale Vz since it is given in m/s instead of cm/s
                 self.Vz_orig[:,1] = self.Vz_orig[:,1] * 1e2
+
                 break
             elif re.search(kilca_pattern, filename):
                 self.ne_orig = np.loadtxt(prof_path + 'n.dat')
@@ -117,6 +116,9 @@ class profile_processor:
                 break
             else:
                 raise ValueError('Other input profiles not yet implemented')
+        if int(np.floor(np.log10(np.abs(self.ne_orig[0,1])))) > 16:
+            # rescale since density is given in cubic meter instead of centimeter
+            self.ne_orig[:,1] = self.ne_orig[:,1] * 1e-6
 
 
         #self.ne = np.interp(self.s, self.ne_orig[:,0], self.ne_orig[:,1])
@@ -156,8 +158,6 @@ class profile_processor:
             plt.grid(which='major')
             plt.tight_layout()
             plt.show()
-
-
 
     def determine_anomalous_diff_coeff(self):
         

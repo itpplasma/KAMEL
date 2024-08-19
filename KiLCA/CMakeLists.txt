@@ -327,6 +327,9 @@ set(kilca_lib_fortran_sources
 )
 
 add_library (kilca_lib STATIC ${kilca_lib_fortran_sources} ${kilca_lib_cpp_sources})
+#add_library (kilca_lib SHARED ${kilca_lib_fortran_sources} ${kilca_lib_cpp_sources})
+target_compile_options(kilca_lib PRIVATE -fPIC)
+
 set_target_properties(kilca_lib PROPERTIES
     OUTPUT_NAME ${kilca_lib}
     ARCHIVE_OUTPUT_DIRECTORY lib

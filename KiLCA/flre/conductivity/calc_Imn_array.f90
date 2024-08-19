@@ -10,8 +10,8 @@ integer, parameter :: dp = 8;
 integer, parameter :: dpc = 8;
 complex(8), parameter :: I = cmplx(0.0d0, 1.0d0, 8), one = cmplx(1.0d0, 0.0d0, 8);
 
-complex(dpc) :: x1_in, x2_in;
-complex(dpc), dimension(0:3,0:3) :: Imn;
+complex(dpc), intent(in) :: x1_in, x2_in;
+complex(dpc), dimension(0:3,0:3), intent(out) :: Imn;
 
 complex(dpc) :: t1, t2, F11m;
 real(dp) :: F_im, F_re;

@@ -1171,6 +1171,7 @@
 
         implicit none
         
+        timstep_arr = 0.0d0
         timstep_arr = timstep
         tim_stack = timstep_arr
 

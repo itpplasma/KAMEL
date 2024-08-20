@@ -7,7 +7,7 @@ MODULE sparse_mod
 
   PUBLIC sparse_talk
   !LOGICAL :: sparse_talk = .TRUE.
-  LOGICAL :: sparse_talk = .FALSE.
+  LOGICAL :: sparse_talk = .TRUE.
 
   PRIVATE dp
   INTEGER, PARAMETER :: dp = KIND(1.0d0)

@@ -1,1 +1,12 @@
-f2py -c src/getIfunc.f90 src/W2_arr.f90 /proj/plasma/CODE/markl_m/KiLCA-QB/KiLCA/flre/conductivity/calc_Imn_array.f90 -m susc_funcs -llapack -lblas -L/proj/plasma/CODE/markl_m/KiLCA-QB/python/susc_functions/ -lkilca  -L/temp/markl_m/Codes/sundials-5.7.0/lib/ -lsundials_cvode -lsundials_nvecserial -L/temp/markl_m/Codes/slatec/lib/ -lslatec -L/temp/markl_m/Codes/bessel/lib/ -lbessel -lgsl -lgslcblas -lm -lc -lstdc++
+f2py -c src/getIfunc.f90 src/W2_arr.f90 ../../KiLCA/flre/conductivity/calc_Imn_array.f90 -m susc_funcs \
+	-llapack \
+	-lblas \
+	-lkilca  \
+	-L../../../libs/sundials/build/src/cvode/ -lsundials_cvode \
+	-L../../../libs/sundials/build/src/nvector/serial/ -lsundials_nvecserial \
+	-L../../../libs/slatec/ -lslatec \
+	-L../../../bessel/lib/ -lbessel \
+	-lgsl \
+	-lgslcblas \
+	-lm \
+	-lc

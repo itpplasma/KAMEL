@@ -42,6 +42,8 @@ class KIM_WKB():
                'n_points': 50,
                'omega': 0,
                'radius': 250,
+               'r_per': 0.9,
+               'r_range_start': 10,
                'omegaOfk': False,
                'kOfr': True,
                'mode': 'KIM2',
@@ -83,13 +85,15 @@ class KIM_WKB():
     ion_species = ['D']
 
     general_dat = {}
-    general_dat_keys = ['r', 'Er']
+    general_dat_keys = ['r', 'Er', 'ks', 'kp', 'om_E', 'q', 'prof_length']
+    general_dat_units = {'r': 'cm', 'Er': 'statV/cm', 'ks': '1/cm', 'kp': '1/cm', 'om_E': '1/s', 'q': '1', 'prof_length': '1'}
 
     spec_keys = ['n', 'T', 'vT', 'nu', 'mass', 'Ai', 'charge', 'Zi']
     spec_dat_units = {'n': 'cm', 'T': 'erg', 'vT': 'cm/s', 'nu': '1/s', 'mass': 'g', 'Ai': '1', 'charge': 'statC', 'Zi': '1'}
     spec_dat = {}
 
     equil_keys = ['u', 'B0z', 'B0th', 'B0', 'hz', 'hth']
+    equil_dat_units = {'u': 'G^2', 'B0z': 'G', 'B0th': 'G', 'B0': 'G', 'hz': '1', 'hth': '1'}
     equil_dat = {}
 
     def __init__(self, species=['e', 'D'], spec_mass = [e_mass, 2*p_mass], spec_charge_num = [-1, 1]):
@@ -102,6 +106,12 @@ class KIM_WKB():
             self.spec_dat[spec]['charge'] = spec_charge_num[self.species.index(spec)] * e_charge
             self.spec_dat[spec]['Zi'] = spec_charge_num[self.species.index(spec)]
         self.ion_species = [spec for spec in self.species if spec != 'e']
+
+        self.set_plot_options()
+
+    def set_plot_options(self):
+        plt.rcParams.update({"font.size": 12})
+        plt.rcParams.update({"lines.markersize": 10})
 
     def load_prof(self, name, mode="const"):
         loadR = False
@@ -192,9 +202,23 @@ class KIM_WKB():
 
     
     def calc_parameters(self):
+        self.calc_equilibrium_fields()
+        self.calc_collision_frequency()
+        self.calc_all_derivs()
         for spec in self.species:
-            pass
-    
+            self.spec_dat[spec]['vT'] = np.sqrt(self.spec_dat[spec]['T'] * ev / self.spec_dat[spec]['mass'])
+            self.spec_dat[spec]['omega_c'] = self.spec_dat[spec]['charge'] * self.B0 / (self.spec_dat[spec]['mass'] * sol)
+            self.spec_dat[spec]['lambda_D'] = np.sqrt(self.spec_dat[spec]['T'] * ev / (4.0 * np.pi * self.spec_dat[spec]['n'] * self.spec_dat[spec]['charge']**2))
+            self.spec_dat[spec]['A1'] = self.spec_dat[spec]['dndr'] / self.spec_dat[spec]['n'] \
+                - self.spec_dat[spec]['charge'] / (self.spec_dat[spec]['T'] * ev) * self.general_dat['Er'] \
+                - 3 / (2 * self.spec_dat[spec]['T']) * self.spec_dat[spec]['dTdr']
+            self.spec_dat[spec]['A2'] = self.spec_dat[spec]['dTdr'] / self.spec_dat[spec]['T']
+
+        self.general_dat['ks'] = (self.m_mode * self.hz - self.n_mode * self.hth / self.R0) / self.r_prof  #'senkrecht' wavenumber ->look it up
+        self.general_dat['kp'] = self.m_mode / self.general_dat['r'] * self.equil_dat['hth'] + self.n_mode / self.R0 * self.equil_dat['hz']  # parallel wavenumber ->look it up
+        self.general_dat['om_E'] = -sol * self.general_dat['ks'] * self.general_dat['Er'] / self.equil_dat['B0']  # ExB rotation frequency
+
+        
     def calc_collision_frequency(self):
 
         Lee = 23.5 - np.log(np.sqrt(self.spec_dat['e']['n']) * self.spec_dat['e']['T'] ** (-5 / 4)) \
@@ -218,78 +242,6 @@ class KIM_WKB():
                 
         return [self.spec_dat[spec]['nu'] for spec in self.species]
 
-
-    def calcParameters(self):
-        ##Electrons
-        Lee = (
-            23.5
-            - np.log(np.sqrt(self.n_prof) * self.Te_prof ** (-5 / 4))
-            - np.sqrt(1e-5 + ((np.log(self.Te_prof) - 2) ** 2) / 16)
-        )  # Coulomb logarithm
-        vTe = np.sqrt(self.Te_prof * ev / e_mass)  # Thermal velocity
-        omce = e_charge * self.B0 / (e_mass * sol)  # Cyclotron frequency btor or B0?
-        nue = 5.8e-6 * self.n_prof * Lee * self.Te_prof ** (-3 / 2)  # Collision frequency
-        lambda_De = np.sqrt(
-            self.Te_prof * ev / (4 * np.pi * self.n_prof * e_charge**2)
-        )  # Debye length
-        A1 = (
-            self.dndr / self.n_prof + e_charge / (self.Te_prof * ev) * self.E_prof - 3 / (2 * self.Te_prof) * self.dTedr
-        )  # first thermodynamic force
-        A2 = self.dTedr / self.Te_prof  # second thermodynamic force
-
-        ks = (
-            self.m_mode * self.hz - self.n_mode * self.hth / self.R0
-        ) / self.r_prof  #'senkrecht' wavenumber ->look it up
-        kp = self.m_mode / self.r_prof * self.hth + self.n_mode / self.R0 * self.hz  # parallel wavenumber ->look it up
-
-        om_E = -sol * ks * self.E_prof / self.B0  # ExB rotation frequency
-        ##Ions
-        Lei = 24 - np.log(
-            np.sqrt(self.n_prof) / self.Te_prof
-        )  # Coulomb logarithm electrons-ions -> in KIM Ti_prof instead of Te_prof
-        vTi = np.sqrt(ev * self.Ti_prof / (p_mass*self.Ai))  # Thermal velocity
-        omci = e_charge * self.Zi * self.B0 / (p_mass * self.Ai * sol)  # Cyclotron frequency
-        nue = nue + 7.7e-6 * self.ni_prof * Lei * self.Zi**2 * self.Te_prof ** (
-            -3 / 2
-        )  # Add ions to electrons collision frequency
-        nui = (
-            1.8e-7 * self.Ai ** (-1 / 2) * self.Ti_prof ** (-3 / 2) * self.n_prof * self.Zi**2 * Lei
-        )  # Collision frequency ions with electrons
-        Lii = 23 - np.log(
-            self.Zi**2 * self.Ai * 2 / ((self.Ti_prof * self.Ai) * 2) * np.sqrt((self.ni_prof * self.Zi**2 / (self.Ti_prof)) * 2)
-        )  # Coulomb logarithm ions-ions
-        nui = nui + 1.8e-7 * self.ni_prof * self.Zi**4 * Lii * self.Ai ** (-1 / 2) * self.Ti_prof ** (
-            -3 / 2
-        )  # Add ion ion collisions
-        lambda_Di = np.sqrt(
-            self.Ti_prof * ev / (4 * np.pi * self.ni_prof * (e_charge * self.Zi) ** 2)
-        )  # Debye length
-        A1i = (
-            self.dnidr / self.ni_prof
-            - (e_charge * self.Zi) / (self.Ti_prof * ev) * self.E_prof
-            - 3 / (2 * self.Ti_prof) * self.dTidr
-        )  # first thermodynamic force
-        A2i = self.dTidr / self.Ti_prof  # second thermodynamic force
-        if self.noCollisions:
-            nue=np.zeros(self.prof_length)
-            nui=np.zeros(self.prof_length)
-        return (
-            vTe,
-            omce,
-            nue,
-            lambda_De,
-            A1,
-            A2,
-            ks,
-            kp,
-            om_E,
-            vTi,
-            omci,
-            nui,
-            lambda_Di,
-            A1i,
-            A2i,
-        )
 
 
     # For convenience
@@ -454,6 +406,7 @@ class KIM_WKB():
         self.general_dat['Er'] = self.E_prof
         self.general_dat['q'] = self.q_prof
         self.general_dat['r'] = self.r_prof
+        self.general_dat['prof_length'] = len(self.r_prof)
 
         for spec in self.ion_species:
             self.spec_dat[spec]['T'] = self.Ti_prof
@@ -481,7 +434,7 @@ class KIM_WKB():
                 self.spec_dat[spec][f'd{deriv}dr'] = np.gradient(self.spec_dat[spec][deriv], self.general_dat['r'])
     
     def calc_general_derivs(self):
-        derivs_in_general_for = ['Er', 'q']
+        derivs_in_general_for = ['q']
         for deriv in derivs_in_general_for:
             self.general_dat[f'd{deriv}dr'] = np.gradient(self.general_dat[deriv], self.general_dat['r'])
 
@@ -531,6 +484,62 @@ class KIM_WKB():
         self.idx_res = self.val2ind(-self.m_mode / self.n_mode, self.q_prof)
 
 
+    def createDispersionEquation_profile(self, kr, omega, position, mode="KIM"):
+        
+        assert mode in self.possible_operation_modes, f"Mode {mode} not supported"
+        
+        self.general_dat['kperp'] = self.general_dat['ks']**2 + kr**2
+        # Use either KIM or horton
+        if mode == 'KIM2':
+            dispersion_equation = self.calc_dispersion_equation_KIM_profile(kr)
+        elif mode == "horton":
+            dispersion_equation = self.calc_dispersion_equation_horton_profile(kr)
+        return dispersion_equation
+
+    def calc_dispersion_equation_KIM_profile(self, kr):
+        dispersion_equation = kr**2 + self.general_dat['ks']**2 + self.general_dat['kp']**2
+        for spec in self.species:
+            self.spec_dat[spec]['z0'] = -(self.general_dat['om_E'] - self.options['omega'] - 1j * self.spec_dat[spec]['nu']) \
+                / (self.general_dat['kp'] * np.sqrt(2) * self.spec_dat['vT'])
+            self.spec_dat[spec]['rho_TL'] = self.spec_dat[spec]['vT'] / self.spec_dat[spec]['omega_c']
+        
+            self.spec_dat[spec]['eval_b'] = self.general_dat['kperp'] * self.spec_dat[spec]['rho_TL']**2
+            if self.spec_dat[spec]['eval_b'].real>100:
+                BesselProd0=1/(np.sqrt(2*np.pi*self.spec_dat[spec]['eval_b']))
+                BesselProd1=1/(np.sqrt(2*np.pi*self.spec_dat[spec]['eval_b'])*(1 + 1 / self.spec_dat[spec]['eval_b']**2)**(1/4)) \
+                    * np.exp(np.arcsinh(-1 / self.spec_dat[spec]['eval_b']) + self.spec_dat[spec]['eval_b'] \
+                    * np.sqrt(1 + 1 / self.spec_dat[spec]['eval_b']**2) - self.spec_dat[spec]['eval_b'])
+            else:
+                BesselProd0 = Bessel(0, self.spec_dat[spec]['eval_b'])*np.exp(-self.spec_dat[spec]['eval_b'])
+                BesselProd1 = Bessel(-1, self.spec_dat[spec]['eval_b'])*np.exp(-self.spec_dat[spec]['eval_b'])
+            dispersion_equation -= self.spec_dat[spec]['lambda_D']**-2 * (1 - self.general_dat['ks'] * self.spec_dat[spec]['rho_TL'] \
+                / (self.general_dat['kp'] * np.sqrt(2)) * (self.spec_dat[spec]['A1'] * BesselProd0 * plasma_disp(self.spec_dat[spec]['z0']) + \
+                self.spec_dat[spec]['A2'] * (plasma_disp(self.spec_dat[spec]['z0']) * (1 + self.spec_dat[spec]['eval_b'] + self.spec_dat[spec]['z0']**2)\
+                * np.exp(-self.spec_dat[spec]['eval_b']) + BesselProd1 * self.spec_dat[spec]['eval_b'] + self.spec_dat[spec]['z0'] * BesselProd0)))
+        return dispersion_equation
+
+    def calc_dispersion_equation_horton_profile(self, kr):
+        ky = self.general_dat['ks']
+        om_prime = self.options['omega'] - self.general_dat['om_E']
+        
+        dispersion_equation = 0
+        for spec in self.species:
+            self.spec_dat[spec]['om_n'] = ky * sol / (self.spec_dat[spec]['charge'] * self.equil_dat['B0'] \
+                * self.spec_dat[spec]['n']) * self.spec_dat[spec]['Te'] * ev * self.spec_dat[spec]['dndr']
+            self.spec_dat[spec]['om_T'] = ky * sol / (self.spec_dat[spec]['charge'] * self.equil_dat['B0']) * self.spec_dat[spec]['dTdr'] * ev
+            self.spec_dat[spec]['z'] = om_prime / (np.sqrt(2) * self.general_dat['kp'] * self.spec_dat[spec]['vT'])
+            self.spec_dat[spec]['W'] = self.spec_dat[spec]['om_ne'] - om_prime + self.spec_dat[spec]['om_Te'] * (self.spec_dat[spec]['z']**2 + 1 / 2) \
+                * self.spec_dat[spec]['z'] / om_prime * plasma_disp(self.spec_dat[spec]['z']) + self.spec_dat[spec]['om_Te'] * self.spec_dat[spec]['z']**2 / om_prime
+            self.spec_dat[spec]['nom'] = self.spec_dat[spec]['lambda_D']**-2 * (self.spec_dat[spec]['W'] - 1 \
+                -self.spec_dat[spec]['om_T'] * self.spec_dat[spec]['z'] / om_prime * plasma_disp(self.spec_dat[spec]['z']))
+            self.spec_dat[spec]['denom'] = self.spec_dat[spec]['W'] * self.spec_dat[spec]['vT']**2 / (self.spec_dat[spec]['omega_c']**2 \
+                * self.spec_dat[spec]['lambda_D']**2)
+
+            dispersion_equation += self.spec_dat[spec]['nom']
+        dispersion_equation = dispersion_equation / (1 + np.sum([self.spec_dat[spec]['denom'] for spec in self.species])) - ky**2 - kr**2
+        
+        return dispersion_equation
+
     # Create dispersion equation
     def createDispersionEquation(self, kr, omega, position, mode="KIM"):
         
@@ -559,100 +568,9 @@ class KIM_WKB():
                 [self.om_E, self.omce, self.omci, self.vTe, self.vTi, self.lambda_De, self.lambda_Di, self.nue, self.nui, self.kp, self.ks, self.A1, self.A2, self.A1i, self.A2i],
             )
         )
-        m_phi = 0
         kperp_wkb = ks_wkb**2 + kr**2
         # Use either KIM or horton
-        if mode == "KIM":
-            z0e_wkb = -(om_E_wkb - omega - 1j * nue_wkb) / (kp_wkb * np.sqrt(2) * vTe_wkb)
-            # In WKB bp and bt are the same
-            eval_b = kperp_wkb**2 * vTe_wkb**2 / omce_wkb**2
-            if eval_b.real>100:
-                BesselProd0=1/(np.sqrt(2*np.pi*eval_b))
-                BesselProd1=1/(np.sqrt(2*np.pi*eval_b)*(1+1/eval_b**2)**(1/4))*np.exp(np.arcsinh(-1/eval_b)+eval_b*np.sqrt(1+1/eval_b**2))*np.exp(-eval_b)
-            else:
-                BesselProd0=1/(np.sqrt(2*np.pi*eval_b))
-                BesselProd1=1/(np.sqrt(2*np.pi*eval_b)*(1+1/eval_b**2)**(1/4))*np.exp(np.arcsinh(-1/eval_b)+eval_b*np.sqrt(1+1/eval_b**2)-eval_b)
-            a0 = BesselProd0 * (
-                -m_phi
-                - om_E_wkb / omce_wkb
-                + ks_wkb
-                * vTe_wkb**2
-                / omce_wkb**2
-                * (A1_wkb + (1 + eval_b + m_phi) * A2_wkb)
-            ) + ks_wkb * vTe_wkb**2 / omce_wkb**2 * A2_wkb * eval_b * BesselProd1
-            a1 = -kp_wkb / omce_wkb *BesselProd0
-            a2 = (
-                ks_wkb
-                / (2 * omce_wkb**2)
-                * A2_wkb
-                * BesselProd0
-            )
-            dispersionEquation = (
-                kr**2
-                + ks_wkb**2
-                + kp_wkb**2
-                - 1
-                / lambda_De_wkb**2
-                * (
-                    BesselProd0
-                    + omce_wkb
-                    / (np.sqrt(2) * kp_wkb * vTe_wkb)
-                    * (
-                        plasma_disp(z0e_wkb)
-                        * (
-                            a0
-                            + np.sqrt(2) * vTe_wkb * z0e_wkb * a1
-                            + vTe_wkb**2 * a2 * 2 * z0e_wkb**2
-                        )
-                        + vTe_wkb * np.sqrt(2) * (a1 + vTe_wkb * np.sqrt(2) * z0e_wkb * a2)
-                    )
-                )
-            )
-            ##Calculate dispersion equation for ions
-            z0i_wkb = -(om_E_wkb - omega - 1j * nui_wkb) / (kp_wkb * np.sqrt(2) * vTi_wkb)
-            # In WKB bp and bt are the same
-            eval_bi = kperp_wkb * vTi_wkb**2 / omci_wkb**2
-            if eval_bi.real>100:
-                BesselProd0=1/(np.sqrt(2*np.pi*eval_bi))
-                BesselProd1=1/(np.sqrt(2*np.pi*eval_bi)*(1+1/eval_bi**2)**(1/4))*np.exp(np.arcsinh(-1/eval_bi)+eval_bi*np.sqrt(1+1/eval_bi**2)-eval_bi)
-            else:
-                BesselProd0=Bessel(0,eval_bi)*np.exp(-eval_bi)
-                BesselProd1=Bessel(-1,eval_bi)*np.exp(-eval_bi)
-            a0 = BesselProd0 * (
-                -m_phi
-                - om_E_wkb / omci_wkb
-                + ks_wkb
-                * vTi_wkb**2
-                / omci_wkb**2
-                * (A1i_wkb + (1 + eval_bi + m_phi) * A2i_wkb)
-            ) + ks_wkb * vTi_wkb**2 / omci_wkb**2 * A2i_wkb * BesselProd1
-            a1 = -kp_wkb / omci_wkb * BesselProd0
-            a2 = (
-                ks_wkb
-                / (2 * omci_wkb**2)
-                * A2i_wkb
-                * BesselProd0
-            )
-            # Add ion part to dispersion equation
-            dispersionEquation -= (
-                1
-                / lambda_Di_wkb**2
-                * (
-                    BesselProd0
-                    + omci_wkb
-                    / (np.sqrt(2) * kp_wkb * vTi_wkb)
-                    * (
-                        plasma_disp(z0i_wkb)
-                        * (
-                            a0
-                            + np.sqrt(2) * vTi_wkb * z0i_wkb * a1
-                            + vTi_wkb**2 * a2 * 2 * z0i_wkb**2
-                        )
-                        + vTi_wkb * np.sqrt(2) * (a1 + vTi_wkb * np.sqrt(2) * z0i_wkb * a2)
-                    )
-                )
-            )
-        elif mode == 'KIM2':
+        if mode == 'KIM2':
             z0e_wkb = -(om_E_wkb - omega - 1j * nue_wkb) / (kp_wkb * np.sqrt(2) * vTe_wkb)
             rho_TLe = vTe_wkb / omce_wkb
         
@@ -665,21 +583,8 @@ class KIM_WKB():
                 BesselProd0=Bessel(0,eval_b)*np.exp(-eval_b)
                 BesselProd1=Bessel(-1,eval_b)*np.exp(-eval_b)
             dispersionEquation = (
-                kr**2
-                + ks_wkb**2
-                + kp_wkb**2
-                - 1 / lambda_De_wkb**2
-                * (1 - ks_wkb * rho_TLe / (kp_wkb * np.sqrt(2))
-                * (
-                    A1_wkb * BesselProd0 * plasma_disp(z0e_wkb) + 
-                    A2_wkb * (
-                        plasma_disp(z0e_wkb) * (1 + eval_b + z0e_wkb**2) * np.exp(-eval_b)
-                        + BesselProd1 * eval_b
-                        + z0e_wkb * BesselProd0
-                    )
-                )
-                )
-            )
+                kr**2 + ks_wkb**2 + kp_wkb**2 - 1 / lambda_De_wkb**2 * (1 - ks_wkb * rho_TLe / (kp_wkb * np.sqrt(2)) * (A1_wkb * BesselProd0 * plasma_disp(z0e_wkb) + 
+                    A2_wkb * (plasma_disp(z0e_wkb) * (1 + eval_b + z0e_wkb**2) * np.exp(-eval_b) + BesselProd1 * eval_b + z0e_wkb * BesselProd0))))
 
             rho_TLi = vTi_wkb / omci_wkb
             z0i_wkb = -(om_E_wkb - omega - 1j * nui_wkb) / (kp_wkb * np.sqrt(2) * vTi_wkb)
@@ -757,85 +662,107 @@ class KIM_WKB():
             )
         return dispersionEquation
 
+    
+    def calc_dispersion_relation_k_of_r(self, mode=mode):
 
-    def createDispersionEquationKIM(self, kr, omega, r_pos):
-        # Use rewritten kernel for dispersion equation derived by plugging in 
-        # a_i coefficients.
-        # Looks a bit simpler and does not use a_i abbreviations
-        (
-            om_E_wkb,
-            vTe_wkb,
-            vTi_wkb,
-            lambda_De_wkb,
-            lambda_Di_wkb,
-            kp_wkb,
-            ks_wkb,
-            A1_wkb,
-            A2_wkb,
-            A1i_wkb,
-            A2i_wkb,
-        ) = list(
-            map(
-                lambda x: np.interp(r_pos, r_prof, x),
-                [om_E, vTe, vTi, lambda_De, lambda_Di, kp, ks, A1, A2, A1i, A2i],
-            )
+        self.load_all_profs()
+        self.calc_all_derivs()
+        self.calc_equilibrium_fields()
+        self.find_res_surface()
+        
+        idx = int(self.general_dat['prof_length'] * self.options['r_per'])
+        idx_range = np.linspace(self.options['r_range_start'], self.general_dat['prof_length'] - 1, self.options['n_points'])
+
+        res = []
+        r_used = []
+
+        for r in idx_range:
+            equation_k = lambda k: self.createDispersionEquation(k, self.options['omega'], int(r), mode=self.options['mode'])
+            iterations=0
+            roots_number=contour.count_roots(equation_k)
+            while roots_number!=2:
+                if roots_number>4:
+                    contour=cx.Rectangle(np.array(contour.x_range)/2,np.array(contour.y_range)/2)
+                elif roots_number>2:
+                    if np.max(contour.x_range)<2:
+                        break
+                    contour=cx.Rectangle(np.array(contour.x_range)*3/4,np.array(contour.y_range)*3/4)
+                elif roots_number<2:
+                    contour=cx.Rectangle(np.array(contour.x_range)*2,np.array(contour.y_range)*2)
+                roots_number=contour.count_roots(equation_k)
+                iterations+=1
+                if iterations>100:
+                    print("Abort. Too many iterations")
+                    break
+            if self.options['der']:
+                roots = contour.roots(equation_k, df=lambda k: complex(grad(equation_k, holomorphic=True)(k)), guess_roots_symmetry=lambda z: [-z],verbose=True)
+            else:
+                roots = contour.roots(equation_k,guess_roots_symmetry=lambda z: [-z],int_method=self.int_method,verbose=True,int_abs_tol=0.1,root_err_tol=1e-3)
+            res.append(roots)
+            r_used.append(self.r_prof[int(r)])
+        k_r1 = list()
+        k_r2 = list()
+        r_found = list()
+        for k in range(len(res)):
+            if len(res[k].roots)==2:
+                if res[k].roots[0].real > 0:
+                    k_r1.append(res[k].roots[0])
+                    k_r2.append(res[k].roots[1])
+                    r_found.append(r_used[k])
+                else:
+                    k_r1.append(res[k].roots[1])
+                    k_r2.append(res[k].roots[0])
+                    r_found.append(r_used[k])
+        k_r1 = np.array(k_r1)
+        k_r2 = np.array(k_r2) 
+
+        self.r_found = r_found
+        self.k_r1 = k_r1
+        self.k_r2 = k_r2
+
+        self.save_found_kr_of_r()
+
+    def save_found_kr_of_r(self):
+        file_name = self.options['mode'] + "_" + self.options['prof'] + "_" + "k(r)"
+        if self.der:
+            self.save2txt(self.r_found, self.k_r1, self.k_r2, file_name + "_jax" + ".txt",)
+        else:
+            self.save2txt(self.r_found, self.k_r1, self.k_r2, file_name + ".txt")
+
+    def plot_kr_of_r(self):
+        plt.figure()
+        plt.grid()
+        plt.plot(self.r_found, self.k_r1.real, ".k")
+        plt.plot(self.r_found, self.k_r2.real, ".k")
+        plt.vlines(
+            self.general_dat['r'][self.idx_res],
+            np.min(np.append(self.k_r1.real, self.k_r2.real)),
+            np.max(np.append(self.k_r1.real, self.k_r2.real)),
+            colors="r",
+            linestyles="dashed",
+            label="Resonant surface",
         )
+        plt.title("Real")
+        plt.xlabel("r")
+        plt.ylabel("Re(k)")
 
-        omce = e_charge * B0 / (e_mass * sol)
-        omci = e_charge * B0 / (p_mass * sol)
-        omce_wkb = np.interp(r_pos, r_prof, omce)
-        omci_wkb = np.interp(r_pos, r_prof, omci)
-    
-        m_phi = 0
-        # Do WKB
-        nue_wkb = 0#np.interp(r_pos, r_prof, nue)
-        nui_wkb = 0#np.interp(r_pos, r_prof, nui)
-        z0e_wkb = -(om_E_wkb - omega - 1j * nue_wkb) / (kp_wkb * np.sqrt(2) * vTe_wkb)
-        rho_TLe = vTe_wkb / omce_wkb
-        kperp_wkb = np.sqrt(ks_wkb**2 + kr**2)
-    
-        # In WKB bp and bt are the same
-        eval_b = kperp_wkb**2 * rho_TLe**2
-    
-        dispersionEquation = (
-            kr**2
-            + ks_wkb**2
-            + kp_wkb**2
-            + 1 / lambda_De_wkb**2
-            * (1 - np.exp(-eval_b)
-            * ks_wkb * rho_TLe / (kp_wkb * np.sqrt(2))
-            * (
-                A1_wkb * Bessel(0, eval_b) * plasma_disp(z0e_wkb) + 
-                A2_wkb * (
-                    plasma_disp(z0e_wkb) * (1 + eval_b + z0e_wkb**2)
-                    + Bessel(-1, eval_b) * eval_b
-                    + z0e_wkb * Bessel(0, eval_b)
-                )
-            )
-            )
+        plt.figure()
+        plt.grid()
+        plt.plot(self.r_found, self.k_r1.imag, ".k")
+        plt.plot(self.r_found, self.k_r2.imag, ".k")
+        plt.vlines(
+            self.general_dat['r'][self.idx_res],
+            np.min(np.append(self.k_r1.imag, self.k_r2.imag)),
+            np.max(np.append(self.k_r1.imag, self.k_r2.imag)),
+            colors="r",
+            linestyles="dashed",
+            label="Resonant surface",
         )
+        plt.title("Imaginary")
+        plt.xlabel("r")
+        plt.ylabel("Im(k)")
+        plt.show()
 
-        rho_TLi = vTi_wkb / omci_wkb
-        z0i_wkb = -(om_E_wkb - omega - 1j * nui_wkb) / (kp_wkb * np.sqrt(2) * vTi_wkb)
-        eval_b = kperp_wkb**2 * rho_TLi**2
-
-        dispersionEquation += (
-            1 / lambda_De_wkb**2
-            * (1 - np.exp(-eval_b)
-            * ks_wkb * rho_TLi / (kp_wkb * np.sqrt(2))
-            * (
-                A1i_wkb * Bessel(0, eval_b) * plasma_disp(z0i_wkb) + 
-                A2i_wkb * (
-                    plasma_disp(z0i_wkb) * (1 + eval_b + z0i_wkb**2)
-                    + Bessel(-1, eval_b) * eval_b
-                    + z0i_wkb * Bessel(0, eval_b)
-                )
-            )
-            )
-        )
-        return dispersionEquation
- 
-    
 
     def calculate_dispersion_relation_and_plot(self, mode=mode):
 
@@ -1019,6 +946,81 @@ class KIM_WKB():
             plt.ylabel("Im(k)")
             plt.show()
 
+#######################################################################
+    # dispose later:
+    def calcParameters(self):
+        ##Electrons
+        Lee = (
+            23.5
+            - np.log(np.sqrt(self.n_prof) * self.Te_prof ** (-5 / 4))
+            - np.sqrt(1e-5 + ((np.log(self.Te_prof) - 2) ** 2) / 16)
+        )  # Coulomb logarithm
+        vTe = np.sqrt(self.Te_prof * ev / e_mass)  # Thermal velocity
+        omce = e_charge * self.B0 / (e_mass * sol)  # Cyclotron frequency btor or B0?
+        nue = 5.8e-6 * self.n_prof * Lee * self.Te_prof ** (-3 / 2)  # Collision frequency
+        lambda_De = np.sqrt(
+            self.Te_prof * ev / (4 * np.pi * self.n_prof * e_charge**2)
+        )  # Debye length
+        A1 = (
+            self.dndr / self.n_prof + e_charge / (self.Te_prof * ev) * self.E_prof - 3 / (2 * self.Te_prof) * self.dTedr
+        )  # first thermodynamic force
+        A2 = self.dTedr / self.Te_prof  # second thermodynamic force
+
+        ks = (
+            self.m_mode * self.hz - self.n_mode * self.hth / self.R0
+        ) / self.r_prof  #'senkrecht' wavenumber ->look it up
+        kp = self.m_mode / self.r_prof * self.hth + self.n_mode / self.R0 * self.hz  # parallel wavenumber ->look it up
+
+        om_E = -sol * ks * self.E_prof / self.B0  # ExB rotation frequency
+        ##Ions
+        Lei = 24 - np.log(
+            np.sqrt(self.n_prof) / self.Te_prof
+        )  # Coulomb logarithm electrons-ions -> in KIM Ti_prof instead of Te_prof
+        vTi = np.sqrt(ev * self.Ti_prof / (p_mass*self.Ai))  # Thermal velocity
+        omci = e_charge * self.Zi * self.B0 / (p_mass * self.Ai * sol)  # Cyclotron frequency
+        nue = nue + 7.7e-6 * self.ni_prof * Lei * self.Zi**2 * self.Te_prof ** (
+            -3 / 2
+        )  # Add ions to electrons collision frequency
+        nui = (
+            1.8e-7 * self.Ai ** (-1 / 2) * self.Ti_prof ** (-3 / 2) * self.n_prof * self.Zi**2 * Lei
+        )  # Collision frequency ions with electrons
+        Lii = 23 - np.log(
+            self.Zi**2 * self.Ai * 2 / ((self.Ti_prof * self.Ai) * 2) * np.sqrt((self.ni_prof * self.Zi**2 / (self.Ti_prof)) * 2)
+        )  # Coulomb logarithm ions-ions
+        nui = nui + 1.8e-7 * self.ni_prof * self.Zi**4 * Lii * self.Ai ** (-1 / 2) * self.Ti_prof ** (
+            -3 / 2
+        )  # Add ion ion collisions
+        lambda_Di = np.sqrt(
+            self.Ti_prof * ev / (4 * np.pi * self.ni_prof * (e_charge * self.Zi) ** 2)
+        )  # Debye length
+        A1i = (
+            self.dnidr / self.ni_prof
+            - (e_charge * self.Zi) / (self.Ti_prof * ev) * self.E_prof
+            - 3 / (2 * self.Ti_prof) * self.dTidr
+        )  # first thermodynamic force
+        A2i = self.dTidr / self.Ti_prof  # second thermodynamic force
+        if self.noCollisions:
+            nue=np.zeros(self.prof_length)
+            nui=np.zeros(self.prof_length)
+        return (
+            vTe,
+            omce,
+            nue,
+            lambda_De,
+            A1,
+            A2,
+            ks,
+            kp,
+            om_E,
+            vTi,
+            omci,
+            nui,
+            lambda_Di,
+            A1i,
+            A2i,
+        )
+
+
 
 if __name__ == "__main__":
     kwkb = KIM_WKB()
@@ -1028,17 +1030,11 @@ if __name__ == "__main__":
     kwkb.calc_all_derivs()
     kwkb.calc_equilibrium_fields()
     kwkb.calc_all_parameters()
+    kwkb.calc_parameters()
     nue, nui = kwkb.calc_collision_frequency()
 
-    plt.figure()
-    plt.plot(kwkb.r_prof, kwkb.nue, label='e, old', c='tab:blue', ls='-', lw=3)
-    plt.plot(kwkb.r_prof, kwkb.nui, label='i, old', c='tab:orange', ls='-', lw=3)
+    print(kwkb.equil_dat.keys())
+    print(kwkb.general_dat.keys())
 
-    plt.plot(kwkb.r_prof, kwkb.spec_dat['e']['nu'], label='e, new', c='tab:red', ls='--', lw=1)
-    plt.plot(kwkb.r_prof, kwkb.spec_dat['D']['nu'], label='i, new', c='tab:green', ls='--', lw=1)
-    plt.legend()
-    plt.show()
-
-    
 
     #kwkb.calculate_dispersion_relation_and_plot()

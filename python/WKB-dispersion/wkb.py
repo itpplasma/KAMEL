@@ -25,15 +25,34 @@ kB = 1.380649e-16
 
 class KIM_WKB():
     ##Setup
-    btor = -17977.413  # toroidal magnetic field in Gauss
+    btor = -17977.413  # AUG config
     R0 = 165.0  # major radius in cm
-    m_mode = 6  # poloidal mode number
-    n_mode = 2  # toroidal mode number
-    Zi = 1  # Ion charge number
-    Ai = 2  # Ion mass number
     r_plas = 64.7  # plasma radius
 
+    m_mode = 6  # poloidal mode number
+    n_mode = 2  # toroidal mode number
+
+    Zi = 1  # Ion charge number
+    Ai = 2  # Ion mass number
+
+    prof_path = ''
+    
     ##Options
+    options = {'prof': 'parab',
+               'n_points': 50,
+               'omega': 0,
+               'radius': 250,
+               'omegaOfk': False,
+               'kOfr': True,
+               'mode': 'KIM2',
+               'int_method': 'quad',
+               'der': False,
+               'save': True,
+               'noCollisions': True}
+    options['omega_range'] = np.linspace(0, 50, options['n_points'])
+
+    possible_operation_modes = ['KIM2', 'horton']
+
     # which profile should be loaded: const, parab or full
     prof = "parab"
     # number of points to evaluate
@@ -50,7 +69,7 @@ class KIM_WKB():
     omegaOfk = False
     # Calculate k(r)
     kOfr = True
-    # Choose model: KIM or horton
+    # Choose model: KIM2 or horton
     mode = "KIM2"
     # Choose method for integration: quad or romb
     int_method = "quad"
@@ -58,25 +77,32 @@ class KIM_WKB():
     der = False
     # Should the results be saved
     save = True
-    noCollisions=True
+    noCollisions=False
 
-    species = ['e', 'i'] # could be extended to multiple species, e.g. ['e', 'D', 'He'], ...
+    species = ['e', 'D']
+    ion_species = ['D']
 
     general_dat = {}
-    general_dat_keys = ['Er', 'Vz']
+    general_dat_keys = ['r', 'Er']
 
-    spec_keys = ['n', 'T', 'vT', 'nu']
-    spec_dat_units = ['cm', 'erg', 'cm/s', '1/s']
+    spec_keys = ['n', 'T', 'vT', 'nu', 'mass', 'Ai', 'charge', 'Zi']
+    spec_dat_units = {'n': 'cm', 'T': 'erg', 'vT': 'cm/s', 'nu': '1/s', 'mass': 'g', 'Ai': '1', 'charge': 'statC', 'Zi': '1'}
     spec_dat = {}
 
-    equil_keys = ['B0z', 'B0th', 'B0', 'hz', 'hth']
+    equil_keys = ['u', 'B0z', 'B0th', 'B0', 'hz', 'hth']
     equil_dat = {}
 
-    def __init__(self):
+    def __init__(self, species=['e', 'D'], spec_mass = [e_mass, 2*p_mass], spec_charge_num = [-1, 1]):
         for spec in self.species:
             self.spec_dat[spec] = {}
+            if spec != 'e':
+                self.spec_dat[spec]['Ai'] = spec_mass[self.species.index(spec)] / p_mass
+            self.spec_dat[spec]['mass'] = spec_mass[self.species.index(spec)]
 
-    # Load profiles
+            self.spec_dat[spec]['charge'] = spec_charge_num[self.species.index(spec)] * e_charge
+            self.spec_dat[spec]['Zi'] = spec_charge_num[self.species.index(spec)]
+        self.ion_species = [spec for spec in self.species if spec != 'e']
+
     def load_prof(self, name, mode="const"):
         loadR = False
         if name == "r":
@@ -164,26 +190,33 @@ class KIM_WKB():
         # Maybe add more if nder !=0 later
         return coef
 
+    
+    def calc_parameters(self):
+        for spec in self.species:
+            pass
+    
+    def calc_collision_frequency(self):
 
-    # Calc parameters and derivatives
-    def calcDerivatives(self):
-        dndr = np.zeros(prof_length)
-        dTedr = np.zeros(prof_length)
-        dqdr = np.zeros(prof_length)
-        dnidr = np.zeros(prof_length)
-        dTidr = np.zeros(prof_length)
-        for k in range(prof_length - 1):
-            dndr[k] = (n_prof[k + 1] - n_prof[k]) / (r_prof[k + 1] - r_prof[k])
-            dTedr[k] = (Te_prof[k + 1] - Te_prof[k]) / (r_prof[k + 1] - r_prof[k])
-            dqdr[k] = (q_prof[k + 1] - q_prof[k]) / (r_prof[k + 1] - r_prof[k])
-            dnidr[k] = (ni_prof[k + 1] - ni_prof[k]) / (r_prof[k + 1] - r_prof[k])
-            dTidr[k] = (Ti_prof[k + 1] - Ti_prof[k]) / (r_prof[k + 1] - r_prof[k])
-        dndr[prof_length - 1] = dndr[prof_length - 2]
-        dTedr[prof_length - 1] = dTedr[prof_length - 2]
-        dqdr[prof_length - 1] = dqdr[prof_length - 2]
-        dnidr[prof_length - 1] = dnidr[prof_length - 2]
-        dTidr[prof_length - 1] = dTidr[prof_length - 2]
-        return dndr, dTedr, dqdr, dnidr, dTidr
+        Lee = 23.5 - np.log(np.sqrt(self.spec_dat['e']['n']) * self.spec_dat['e']['T'] ** (-5 / 4)) \
+            - np.sqrt(1e-5 + ((np.log(self.spec_dat['e']['T']) - 2) ** 2) / 16)
+        self.spec_dat['e']['nu'] = 5.8e-6 * self.spec_dat['e']['n'] * Lee * self.spec_dat['e']['T'] ** (-3 / 2)  # Collision frequency
+        Lei = 24 - np.log(np.sqrt(self.spec_dat['e']['n']) / self.spec_dat['e']['T'])
+
+        # test particle (first index) collides with field particles (second index)
+        for test in self.ion_species:
+            # nue ei: collision frequency electrons with ions
+            self.spec_dat['e']['nu'] = self.spec_dat['e']['nu'] + 7.7e-6 * self.spec_dat['e']['T']**-1.5 * self.spec_dat[test]['n'] * Lei * self.spec_dat[test]['Zi']**2
+            # nui ie: collision frequency ions with electrons
+            self.spec_dat[test]['nu'] = 1.8e-7 * self.spec_dat[test]['Ai'] ** (-1 / 2) * self.spec_dat[test]['T'] ** (-3 / 2) * self.spec_dat['e']['n'] * self.spec_dat[test]['Zi'] ** 2 * Lei
+            for field in self.ion_species:
+                Liiprime = 23 - np.log(self.spec_dat[test]['Zi']*self.spec_dat[field]['Zi'] * (self.spec_dat[test]['Ai'] + self.spec_dat[field]['Ai']) \
+                    / (self.spec_dat[test]['T'] * self.spec_dat[field]['Ai'] + self.spec_dat[field]['T'] * self.spec_dat[test]['Ai']) \
+                    * np.sqrt(self.spec_dat[test]['n'] * self.spec_dat[test]['Zi'] ** 2 / self.spec_dat[test]['T'] \
+                    + self.spec_dat[field]['n'] * self.spec_dat[field]['Zi'] ** 2 / self.spec_dat[field]['T'] ))
+
+                self.spec_dat[test]['nu'] = self.spec_dat[test]['nu'] + 1.8e-7 * self.spec_dat[test]['Ai']**-0.5 * self.spec_dat[test]['T']**-1.5 * self.spec_dat[field]['n'] * self.spec_dat[test]['Zi']**2 * self.spec_dat[field]['Zi']**2 * Liiprime
+                
+        return [self.spec_dat[spec]['nu'] for spec in self.species]
 
 
     def calcParameters(self):
@@ -223,7 +256,7 @@ class KIM_WKB():
             1.8e-7 * self.Ai ** (-1 / 2) * self.Ti_prof ** (-3 / 2) * self.n_prof * self.Zi**2 * Lei
         )  # Collision frequency ions with electrons
         Lii = 23 - np.log(
-            self.Zi**2 * self.Ai * 2 / ((self.Ti_prof * self.Ai) * 2) * (self.ni_prof * self.Zi**2 / (self.Ti_prof)) * 2
+            self.Zi**2 * self.Ai * 2 / ((self.Ti_prof * self.Ai) * 2) * np.sqrt((self.ni_prof * self.Zi**2 / (self.Ti_prof)) * 2)
         )  # Coulomb logarithm ions-ions
         nui = nui + 1.8e-7 * self.ni_prof * self.Zi**4 * Lii * self.Ai ** (-1 / 2) * self.Ti_prof ** (
             -3 / 2
@@ -403,34 +436,94 @@ class KIM_WKB():
             plt.title("Imaginary: " + prof)
         return
 
-
     def load_all_profs(self):
-        # Load profiles
-        self.r_prof = self.load_prof("r", self.prof)
-        self.E_prof = self.load_prof("Er.dat", self.prof)
-        self.n_prof = self.load_prof("n.dat", self.prof)
-        self.ni_prof = self.n_prof  # Quasineutrality for single ion species
-        self.q_prof = self.load_prof("q.dat", self.prof)
-        self.Te_prof = self.load_prof("Te.dat", self.prof)
-        self.Ti_prof = self.load_prof("Ti.dat", self.prof)
-        self.Vth_prof = self.load_prof("Vth.dat", self.prof)
-        # Vz=load_prof('Vz.dat')
+        try:
+            self.r_prof = np.loadtxt(self.prof_path + 'n.dat')[:,0]
+        except:
+            raise ValueError("No n.dat found in path " + self.prof_path)
+        self.E_prof = np.loadtxt(self.prof_path + 'Er.dat')[:,1]
+        self.n_prof = np.loadtxt(self.prof_path + 'n.dat')[:,1]
+        self.q_prof = np.loadtxt(self.prof_path + 'q.dat')[:,1]
+        self.Te_prof = np.loadtxt(self.prof_path + 'Te.dat')[:,1]
+        self.Ti_prof = np.loadtxt(self.prof_path + 'Ti.dat')[:,1]
         self.prof_length = len(self.r_prof)
+
+        self.spec_dat['e']['n'] = self.n_prof
+        self.spec_dat['e']['T'] = self.Te_prof
+        self.spec_dat['e']['vT'] = np.sqrt(self.spec_dat['e']['T'] * ev / self.spec_dat['e']['mass'])
+        self.general_dat['Er'] = self.E_prof
+        self.general_dat['q'] = self.q_prof
+        self.general_dat['r'] = self.r_prof
+
+        for spec in self.ion_species:
+            self.spec_dat[spec]['T'] = self.Ti_prof
+
+        self.set_ion_densities()
+
+    def set_ion_densities(self):
+        for spec in self.species:
+            if spec != 'e':
+                self.ni_prof = self.n_prof
+                self.spec_dat[spec]['n'] = self.ni_prof
+
     
     def calc_all_derivs(self):
         # Calculate derivatives
+        self.calc_species_derivs()
+        self.calc_general_derivs()
         #dndr, dTedr, dqdr, dnidr, dTidr = calcDerivatives()
         self.dndr, self.dTedr, self.dqdr, self.dnidr, self.dTidr = list(map(lambda x: np.gradient(x,self.r_prof),[self.n_prof,self.Te_prof,self.q_prof,self.ni_prof,self.Ti_prof]))
+    
+    def calc_species_derivs(self):
+        derivs_in_species_for = ['n', 'T']
+        for spec in self.species:
+            for deriv in derivs_in_species_for:
+                self.spec_dat[spec][f'd{deriv}dr'] = np.gradient(self.spec_dat[spec][deriv], self.general_dat['r'])
+    
+    def calc_general_derivs(self):
+        derivs_in_general_for = ['Er', 'q']
+        for deriv in derivs_in_general_for:
+            self.general_dat[f'd{deriv}dr'] = np.gradient(self.general_dat[deriv], self.general_dat['r'])
 
     def calc_equilibrium_fields(self):
         # Calculate equilibrium fields
         self.u, self.B0z, self.B0th, self.B0, self.hz, self.hth = self.calcEquilibrium()
+
+        #self.equil_dat['u'], \
+        #self.equil_dat['B0z'], \
+        #self.equil_dat['B0th'], \
+        #self.equil_dat['B0'], \
+        #self.equil_dat['hz'], \
+        #self.equil_dat['hth'] = self.calcEquilibrium()
+
+        self.equil_dat['u'] = self.u
+        self.equil_dat['B0z'] = self.B0z
+        self.equil_dat['B0th'] = self.B0th
+        self.equil_dat['B0'] = self.B0
+        self.equil_dat['hz'] = self.hz
+        self.equil_dat['hth'] = self.hth
+
+        self.calc_all_parameters()
+        
+    def calc_all_parameters(self):
         # Calculate parameters
         self.vTe, self.omce, self.nue, self.lambda_De, self.A1, self.A2, \
             self.ks, self.kp, self.om_E, self.vTi, self.omci, self.nui, \
             self.lambda_Di, self.A1i, self.A2i = (
             self.calcParameters()
         )
+        #self.spec_dat['e']['vT'] = self.vTe
+        #self.spec_dat['e']['omega_c'] = self.omce
+        #self.spec_dat['e']['nu'] = self.nue
+        #self.spec_dat['e']['lambda_D'] = self.lambda_De
+        #self.spec_dat['e']['A1'] = self.A1
+        #self.spec_dat['e']['A2'] = self.A2
+
+        
+        self.general_dat['ks'] = self.ks
+        self.general_dat['kp'] = self.kp
+        self.general_dat['om_E'] = self.om_E
+        
 
     def find_res_surface(self):
         # Find resonant surface
@@ -440,6 +533,9 @@ class KIM_WKB():
 
     # Create dispersion equation
     def createDispersionEquation(self, kr, omega, position, mode="KIM"):
+        
+        assert mode in self.possible_operation_modes, f"Mode {mode} not supported"
+        
         # Do WKB
         (
             om_E_wkb,
@@ -760,7 +856,7 @@ class KIM_WKB():
         if self.omegaOfk:
             for w in self.omega_range:
                 equation_k = lambda k: self.createDispersionEquation(k, w, int(idx), mode=mode)
-                contour = cx.Circle(0, radius)
+                contour = cx.Circle(0, self.options['radius'])
                 if self.der:
                     roots = contour.roots(
                         equation_k,
@@ -828,7 +924,7 @@ class KIM_WKB():
 
         if self.kOfr:
             for r in idx_range:
-                equation_k = lambda k: self.createDispersionEquation(k, self.omega, int(r), mode=self.mode)
+                equation_k = lambda k: self.createDispersionEquation(k, self.options['omega'], int(r), mode=self.options['mode'])
                 #equation_k = lambda k: createDispersionEquationKIM(k, omega, r_prof[int(r)])
                 iterations=0
                 roots_number=contour.count_roots(equation_k)
@@ -885,10 +981,10 @@ class KIM_WKB():
                         r_found,
                         k_r1,
                         k_r2,
-                        self.mode + "_" + self.prof + "_" + "k(r)" + "_" + "_jax" + ".txt",
+                        self.options['mode'] + "_" + self.prof + "_" + "k(r)" + "_" + "_jax" + ".txt",
                     )
                 else:
-                    self.save2txt(r_found, k_r1, k_r2, self.mode + "_" + self.prof + "_" + "k(r)" + ".txt")
+                    self.save2txt(r_found, k_r1, k_r2, self.options['mode'] + "_" + self.prof + "_" + "k(r)" + ".txt")
 
             plt.figure()
             plt.grid()
@@ -926,4 +1022,23 @@ class KIM_WKB():
 
 if __name__ == "__main__":
     kwkb = KIM_WKB()
-    kwkb.calculate_dispersion_relation_and_plot()
+    kwkb.prof_path = '../../../kim-wkb/profiles_parab/'
+
+    kwkb.load_all_profs()
+    kwkb.calc_all_derivs()
+    kwkb.calc_equilibrium_fields()
+    kwkb.calc_all_parameters()
+    nue, nui = kwkb.calc_collision_frequency()
+
+    plt.figure()
+    plt.plot(kwkb.r_prof, kwkb.nue, label='e, old', c='tab:blue', ls='-', lw=3)
+    plt.plot(kwkb.r_prof, kwkb.nui, label='i, old', c='tab:orange', ls='-', lw=3)
+
+    plt.plot(kwkb.r_prof, kwkb.spec_dat['e']['nu'], label='e, new', c='tab:red', ls='--', lw=1)
+    plt.plot(kwkb.r_prof, kwkb.spec_dat['D']['nu'], label='i, new', c='tab:green', ls='--', lw=1)
+    plt.legend()
+    plt.show()
+
+    
+
+    #kwkb.calculate_dispersion_relation_and_plot()

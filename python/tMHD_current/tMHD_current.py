@@ -45,12 +45,21 @@ class tMHD_current:
         elif self.case == 'Separatrix Density Scan':
             self.loadCurrentMARSFSepDensScan(file, dictKey, InputFile)
     
-    def loadCurrentMARSFSepDensScan(self, file, dictKey, InputFile):
+    def loadCurrentMARSFSepDensScan(self, file, kind, InputFile):
+        kinds = ['orig', 'smooth', 'X1', 'X2', 'X3', 'X4', 'X5', \
+            'X6', 'X7', 'X8', 'X9', 'X10']
+        assert kind in kinds, f'kind {kind} not in {kinds}'
+
         dat = mat4py_loadmat(file)
         inp = mat4py_loadmat(InputFile)
-        print(dictKey + 'U')
-        self.JparU = np.array(dat[dictKey + 'U']) / 10**5
-        self.JparL = np.array(dat[dictKey + 'L']) / 10**5
+
+        if kind == 'orig' or kind == 'smooth':
+            self.JparU = np.array(dat['jparU']) / 10**5
+            self.JparL = np.array(dat['jparL']) / 10**5
+        else:
+            self.JparU = np.array(dat['SCAN']['Jpars'][kind]['UPPER']) / 10**5
+            self.JparL = np.array(dat['SCAN']['Jpars'][kind]['LOWER']) / 10**5
+
         self.chi = np.array(inp['chi'])
         self.s = np.array(inp['s'])
         

@@ -36,6 +36,9 @@ class KIM_WKB():
     Ai = 2  # Ion mass number
 
     prof_path = ''
+
+    bessel_large_arg_limit = 5
+    contour_limit = 10
     
     ##Options
     options = {'prof': 'parab',
@@ -74,12 +77,12 @@ class KIM_WKB():
     # Choose model: KIM2 or horton
     mode = "KIM2"
     # Choose method for integration: quad or romb
-    int_method = "quad"
+    int_method = "romb"
     # Should the derivative be approximated with jax.grad
     der = False
     # Should the results be saved
     save = True
-    noCollisions=False
+    noCollisions=True
 
     species = ['e', 'D']
     ion_species = ['D']
@@ -145,25 +148,23 @@ class KIM_WKB():
         return out
 
 
-    # Calc equilibrium field
     def calcEquilibrium(self):
         # Pressure due to electrons
-        dpress_prof = ev * (self.dndr * self.Te_prof + self.n_prof * self.dTedr)
-        # Pressure due to ions
-        press_prof = ev * self.n_prof * (self.Te_prof + self.Ti_prof)
-        dpress_prof += ev * (self.dnidr * self.Ti_prof + self.ni_prof * self.dTidr)
+        press_prof = np.zeros(len(self.general_dat['r']))
+        for spec in self.species:
+            press_prof += ev * self.spec_dat[spec]['n'] * self.spec_dat[spec]['T']
+        dpress_prof = np.gradient(press_prof, self.general_dat['r'])
         # solve ivp
         #f = lambda r, u: dudr(r, u, r_prof, q_prof, dpress_prof)
-        f = lambda r,u: -2*r*u/(self.R0**2 * self.q_prof[self.val2ind(r, self.r_prof)]**2 + r**2)-8*pi*dpress_prof[self.val2ind(r, self.r_prof)]
-        u0 = self.btor**2 * (1 + self.r_prof[0] ** 2 / (self.R0**2 * self.q_prof[0] ** 2))
-        u = solve_ivp(f, t_span=[self.r_prof[0], self.r_prof[-1]], y0=[u0], t_eval=self.r_prof)
+        f = lambda r,u: -2*r*u/(self.R0**2 * self.general_dat['q'][self.val2ind(r, self.general_dat['r'])]**2 + r**2)-8*pi*dpress_prof[self.val2ind(r, self.general_dat['r'])]
+        u0 = self.btor**2 * (1 + self.general_dat['r'][0] ** 2 / (self.R0**2 * self.general_dat['q'][0] ** 2))
+        u = solve_ivp(f, t_span=[self.general_dat['r'][0], self.general_dat['r'][-1]], y0=[u0], t_eval=self.general_dat['r'])
         u = u.y[0]
-        B0z = np.sign(self.btor) * np.sqrt(u / (1 + self.r_prof**2 / (self.R0**2 * self.q_prof**2)))
-        B0th = B0z * self.r_prof / (self.q_prof * self.R0)
-        B0 = np.sqrt(B0th**2 + B0z**2)
-        hz = B0z / B0
-        hth = B0th / B0
-        return u, B0z, B0th, B0, hz, hth
+        self.equil_dat['B0z'] = np.sign(self.btor) * np.sqrt(u / (1 + self.general_dat['r']**2 / (self.R0**2 * self.general_dat['q']**2)))
+        self.equil_dat['B0th'] = self.equil_dat['B0z'] * self.general_dat['r'] / (self.general_dat['q'] * self.R0)
+        self.equil_dat['B0'] = np.sqrt(self.equil_dat['B0th']**2 + self.equil_dat['B0z']**2)
+        self.equil_dat['hz'] = self.equil_dat['B0z'] / self.equil_dat['B0']
+        self.equil_dat['hth'] = self.equil_dat['B0th'] / self.equil_dat['B0']
 
 
     def dudr(self, r, u, r_prof, q_prof, dpress_prof):
@@ -202,21 +203,31 @@ class KIM_WKB():
 
     
     def calc_parameters(self):
-        self.calc_equilibrium_fields()
-        self.calc_collision_frequency()
+        self.calcEquilibrium()
+        if self.options['noCollisions']:
+            for spec in self.species:
+                self.spec_dat[spec]['nu'] = np.zeros(self.general_dat['prof_length'])
+        else:
+            self.calc_collision_frequency()
         self.calc_all_derivs()
+
+        self.general_dat['ks'] = (self.m_mode * self.equil_dat['hz'] - self.n_mode * self.equil_dat['hth'] / self.R0) / self.general_dat['r']  #'senkrecht' wavenumber ->look it up
+        self.general_dat['kp'] = self.m_mode / self.general_dat['r'] * self.equil_dat['hth'] + self.n_mode / self.R0 * self.equil_dat['hz']  # parallel wavenumber ->look it up
+        self.general_dat['om_E'] = -sol * self.general_dat['ks'] * self.general_dat['Er'] / self.equil_dat['B0']  # ExB rotation frequency
+
         for spec in self.species:
             self.spec_dat[spec]['vT'] = np.sqrt(self.spec_dat[spec]['T'] * ev / self.spec_dat[spec]['mass'])
-            self.spec_dat[spec]['omega_c'] = self.spec_dat[spec]['charge'] * self.B0 / (self.spec_dat[spec]['mass'] * sol)
+            self.spec_dat[spec]['omega_c'] = self.spec_dat[spec]['charge'] * self.equil_dat['B0'] / (self.spec_dat[spec]['mass'] * sol)
             self.spec_dat[spec]['lambda_D'] = np.sqrt(self.spec_dat[spec]['T'] * ev / (4.0 * np.pi * self.spec_dat[spec]['n'] * self.spec_dat[spec]['charge']**2))
             self.spec_dat[spec]['A1'] = self.spec_dat[spec]['dndr'] / self.spec_dat[spec]['n'] \
                 - self.spec_dat[spec]['charge'] / (self.spec_dat[spec]['T'] * ev) * self.general_dat['Er'] \
                 - 3 / (2 * self.spec_dat[spec]['T']) * self.spec_dat[spec]['dTdr']
             self.spec_dat[spec]['A2'] = self.spec_dat[spec]['dTdr'] / self.spec_dat[spec]['T']
 
-        self.general_dat['ks'] = (self.m_mode * self.hz - self.n_mode * self.hth / self.R0) / self.r_prof  #'senkrecht' wavenumber ->look it up
-        self.general_dat['kp'] = self.m_mode / self.general_dat['r'] * self.equil_dat['hth'] + self.n_mode / self.R0 * self.equil_dat['hz']  # parallel wavenumber ->look it up
-        self.general_dat['om_E'] = -sol * self.general_dat['ks'] * self.general_dat['Er'] / self.equil_dat['B0']  # ExB rotation frequency
+
+            self.spec_dat[spec]['z0'] = -(self.general_dat['om_E'] - self.options['omega'] - 1j * self.spec_dat[spec]['nu']) \
+                / (self.general_dat['kp'] * np.sqrt(2) * self.spec_dat[spec]['vT'])
+            self.spec_dat[spec]['rho_TL'] = self.spec_dat[spec]['vT'] / self.spec_dat[spec]['omega_c']
 
         
     def calc_collision_frequency(self):
@@ -438,85 +449,106 @@ class KIM_WKB():
         for deriv in derivs_in_general_for:
             self.general_dat[f'd{deriv}dr'] = np.gradient(self.general_dat[deriv], self.general_dat['r'])
 
-    def calc_equilibrium_fields(self):
-        # Calculate equilibrium fields
-        self.u, self.B0z, self.B0th, self.B0, self.hz, self.hth = self.calcEquilibrium()
+    #def calc_equilibrium_fields(self):
+        ## Calculate equilibrium fields
+        #self.u, self.B0z, self.B0th, self.B0, self.hz, self.hth = self.calcEquilibrium()
 
-        #self.equil_dat['u'], \
-        #self.equil_dat['B0z'], \
-        #self.equil_dat['B0th'], \
-        #self.equil_dat['B0'], \
-        #self.equil_dat['hz'], \
-        #self.equil_dat['hth'] = self.calcEquilibrium()
+        ##self.equil_dat['u'], \
+        ##self.equil_dat['B0z'], \
+        ##self.equil_dat['B0th'], \
+        ##self.equil_dat['B0'], \
+        ##self.equil_dat['hz'], \
+        ##self.equil_dat['hth'] = self.calcEquilibrium()
 
-        self.equil_dat['u'] = self.u
-        self.equil_dat['B0z'] = self.B0z
-        self.equil_dat['B0th'] = self.B0th
-        self.equil_dat['B0'] = self.B0
-        self.equil_dat['hz'] = self.hz
-        self.equil_dat['hth'] = self.hth
+        #self.equil_dat['u'] = self.u
+        #self.equil_dat['B0z'] = self.B0z
+        #self.equil_dat['B0th'] = self.B0th
+        #self.equil_dat['B0'] = self.B0
+        #self.equil_dat['hz'] = self.hz
+        #self.equil_dat['hth'] = self.hth
 
-        self.calc_all_parameters()
+        #self.calc_all_parameters()
         
-    def calc_all_parameters(self):
-        # Calculate parameters
-        self.vTe, self.omce, self.nue, self.lambda_De, self.A1, self.A2, \
-            self.ks, self.kp, self.om_E, self.vTi, self.omci, self.nui, \
-            self.lambda_Di, self.A1i, self.A2i = (
-            self.calcParameters()
-        )
-        #self.spec_dat['e']['vT'] = self.vTe
-        #self.spec_dat['e']['omega_c'] = self.omce
-        #self.spec_dat['e']['nu'] = self.nue
-        #self.spec_dat['e']['lambda_D'] = self.lambda_De
-        #self.spec_dat['e']['A1'] = self.A1
-        #self.spec_dat['e']['A2'] = self.A2
+    #def calc_all_parameters(self):
+        ## Calculate parameters
+        #self.vTe, self.omce, self.nue, self.lambda_De, self.A1, self.A2, \
+            #self.ks, self.kp, self.om_E, self.vTi, self.omci, self.nui, \
+            #self.lambda_Di, self.A1i, self.A2i = (
+            #self.calcParameters()
+        #)
+        ##self.spec_dat['e']['vT'] = self.vTe
+        ##self.spec_dat['e']['omega_c'] = self.omce
+        ##self.spec_dat['e']['nu'] = self.nue
+        ##self.spec_dat['e']['lambda_D'] = self.lambda_De
+        ##self.spec_dat['e']['A1'] = self.A1
+        ##self.spec_dat['e']['A2'] = self.A2
 
         
-        self.general_dat['ks'] = self.ks
-        self.general_dat['kp'] = self.kp
-        self.general_dat['om_E'] = self.om_E
+        #self.general_dat['ks'] = self.ks
+        #self.general_dat['kp'] = self.kp
+        #self.general_dat['om_E'] = self.om_E
         
-
     def find_res_surface(self):
         # Find resonant surface
-        self.q = self.r_prof * self.B0z / (self.R0 * self.B0th)
-        self.idx_res = self.val2ind(-self.m_mode / self.n_mode, self.q_prof)
+        self.idx_res = self.val2ind(-self.m_mode / self.n_mode, self.general_dat['q'])
 
 
-    def createDispersionEquation_profile(self, kr, omega, position, mode="KIM"):
+    def calc_dispersion_equation_for_kr_values_at_r(self, kr, position, mode="KIM"):
+        if type(position) == int:
+            r_eval = self.general_dat['r'][position]
+        if type(kr) == complex or type(kr) == np.complex128:
+            disp_prof = self.create_dispersion_equation_profile(kr, mode)
+            dispersion_equation = np.interp(r_eval, self.general_dat['r'], disp_prof)
+        else:
+            dispersion_equation = np.zeros(len(kr))
+            for i, val in enumerate(kr):
+                disp_prof = self.create_dispersion_equation_profile(val, mode)
+                dispersion_equation[i] = np.interp(r_eval, self.r_prof, disp_prof)
+        return dispersion_equation
+
+    def create_dispersion_equation_profile(self, kr, mode="KIM"):
         
         assert mode in self.possible_operation_modes, f"Mode {mode} not supported"
         
-        self.general_dat['kperp'] = self.general_dat['ks']**2 + kr**2
-        # Use either KIM or horton
+        self.general_dat['kperp'] = np.sqrt(self.general_dat['ks']**2 + kr**2)
         if mode == 'KIM2':
             dispersion_equation = self.calc_dispersion_equation_KIM_profile(kr)
         elif mode == "horton":
             dispersion_equation = self.calc_dispersion_equation_horton_profile(kr)
+        #if np.isnan(dispersion_equation).any():
+        #    print(f'dispersion_equation contains NaNs')
         return dispersion_equation
 
     def calc_dispersion_equation_KIM_profile(self, kr):
         dispersion_equation = kr**2 + self.general_dat['ks']**2 + self.general_dat['kp']**2
         for spec in self.species:
-            self.spec_dat[spec]['z0'] = -(self.general_dat['om_E'] - self.options['omega'] - 1j * self.spec_dat[spec]['nu']) \
-                / (self.general_dat['kp'] * np.sqrt(2) * self.spec_dat['vT'])
-            self.spec_dat[spec]['rho_TL'] = self.spec_dat[spec]['vT'] / self.spec_dat[spec]['omega_c']
-        
-            self.spec_dat[spec]['eval_b'] = self.general_dat['kperp'] * self.spec_dat[spec]['rho_TL']**2
-            if self.spec_dat[spec]['eval_b'].real>100:
-                BesselProd0=1/(np.sqrt(2*np.pi*self.spec_dat[spec]['eval_b']))
-                BesselProd1=1/(np.sqrt(2*np.pi*self.spec_dat[spec]['eval_b'])*(1 + 1 / self.spec_dat[spec]['eval_b']**2)**(1/4)) \
-                    * np.exp(np.arcsinh(-1 / self.spec_dat[spec]['eval_b']) + self.spec_dat[spec]['eval_b'] \
-                    * np.sqrt(1 + 1 / self.spec_dat[spec]['eval_b']**2) - self.spec_dat[spec]['eval_b'])
-            else:
-                BesselProd0 = Bessel(0, self.spec_dat[spec]['eval_b'])*np.exp(-self.spec_dat[spec]['eval_b'])
-                BesselProd1 = Bessel(-1, self.spec_dat[spec]['eval_b'])*np.exp(-self.spec_dat[spec]['eval_b'])
-            dispersion_equation -= self.spec_dat[spec]['lambda_D']**-2 * (1 - self.general_dat['ks'] * self.spec_dat[spec]['rho_TL'] \
+            self.spec_dat[spec]['eval_b'] = self.general_dat['kperp']**2 * self.spec_dat[spec]['rho_TL']**2
+            BesselProd0, BesselProd1 = self.calc_needed_bessel(spec, self.spec_dat[spec]['eval_b'])
+
+            dispersion_equation -= self.spec_dat[spec]['lambda_D']**-2 * \
+                (
+                    1.0 - self.general_dat['ks'] * self.spec_dat[spec]['rho_TL'] \
                 / (self.general_dat['kp'] * np.sqrt(2)) * (self.spec_dat[spec]['A1'] * BesselProd0 * plasma_disp(self.spec_dat[spec]['z0']) + \
                 self.spec_dat[spec]['A2'] * (plasma_disp(self.spec_dat[spec]['z0']) * (1 + self.spec_dat[spec]['eval_b'] + self.spec_dat[spec]['z0']**2)\
-                * np.exp(-self.spec_dat[spec]['eval_b']) + BesselProd1 * self.spec_dat[spec]['eval_b'] + self.spec_dat[spec]['z0'] * BesselProd0)))
+                * np.exp(-self.spec_dat[spec]['eval_b']) + BesselProd1 * self.spec_dat[spec]['eval_b'] + self.spec_dat[spec]['z0'] * BesselProd0))
+                )
+        #print(dispersion_equation)
         return dispersion_equation
+    
+    def calc_needed_bessel(self, spec, eval_b):
+        BesselProd0 = np.zeros(len(self.general_dat['r']), dtype=complex)
+        BesselProd1 = np.zeros(len(self.general_dat['r']), dtype=complex)
+        for i, eval_b in enumerate(self.spec_dat[spec]['eval_b']):
+            if np.abs(eval_b)>self.bessel_large_arg_limit:
+                BesselProd0[i] = 1.0 / (np.sqrt(2*np.pi*eval_b))
+                BesselProd1[i] = 1.0 / (np.sqrt(2*np.pi*eval_b)*(1 + 1 / eval_b**2)**(1/4)) * np.exp(np.arcsinh(-1 / eval_b) + eval_b \
+                    * np.sqrt(1 + 1 / eval_b**2) - eval_b)
+            else:
+                BesselProd0[i] = Bessel(0, eval_b)*np.exp(-eval_b)
+                BesselProd1[i] = Bessel(-1, eval_b)*np.exp(-eval_b)
+
+        return BesselProd0, BesselProd1
+
 
     def calc_dispersion_equation_horton_profile(self, kr):
         ky = self.general_dat['ks']
@@ -525,18 +557,18 @@ class KIM_WKB():
         dispersion_equation = 0
         for spec in self.species:
             self.spec_dat[spec]['om_n'] = ky * sol / (self.spec_dat[spec]['charge'] * self.equil_dat['B0'] \
-                * self.spec_dat[spec]['n']) * self.spec_dat[spec]['Te'] * ev * self.spec_dat[spec]['dndr']
+                * self.spec_dat[spec]['n']) * self.spec_dat[spec]['T'] * ev * self.spec_dat[spec]['dndr']
             self.spec_dat[spec]['om_T'] = ky * sol / (self.spec_dat[spec]['charge'] * self.equil_dat['B0']) * self.spec_dat[spec]['dTdr'] * ev
             self.spec_dat[spec]['z'] = om_prime / (np.sqrt(2) * self.general_dat['kp'] * self.spec_dat[spec]['vT'])
-            self.spec_dat[spec]['W'] = self.spec_dat[spec]['om_ne'] - om_prime + self.spec_dat[spec]['om_Te'] * (self.spec_dat[spec]['z']**2 + 1 / 2) \
-                * self.spec_dat[spec]['z'] / om_prime * plasma_disp(self.spec_dat[spec]['z']) + self.spec_dat[spec]['om_Te'] * self.spec_dat[spec]['z']**2 / om_prime
+            self.spec_dat[spec]['W'] = self.spec_dat[spec]['om_n'] - om_prime + self.spec_dat[spec]['om_T'] * (self.spec_dat[spec]['z']**2 + 1 / 2) \
+                * self.spec_dat[spec]['z'] / om_prime * plasma_disp(self.spec_dat[spec]['z']) + self.spec_dat[spec]['om_T'] * self.spec_dat[spec]['z']**2 / om_prime
             self.spec_dat[spec]['nom'] = self.spec_dat[spec]['lambda_D']**-2 * (self.spec_dat[spec]['W'] - 1 \
                 -self.spec_dat[spec]['om_T'] * self.spec_dat[spec]['z'] / om_prime * plasma_disp(self.spec_dat[spec]['z']))
             self.spec_dat[spec]['denom'] = self.spec_dat[spec]['W'] * self.spec_dat[spec]['vT']**2 / (self.spec_dat[spec]['omega_c']**2 \
                 * self.spec_dat[spec]['lambda_D']**2)
 
             dispersion_equation += self.spec_dat[spec]['nom']
-        dispersion_equation = dispersion_equation / (1 + np.sum([self.spec_dat[spec]['denom'] for spec in self.species])) - ky**2 - kr**2
+        dispersion_equation = dispersion_equation / (1 + np.sum([self.spec_dat[spec]['denom'] for spec in self.species])) - self.general_dat['kperp']**2
         
         return dispersion_equation
 
@@ -568,7 +600,7 @@ class KIM_WKB():
                 [self.om_E, self.omce, self.omci, self.vTe, self.vTi, self.lambda_De, self.lambda_Di, self.nue, self.nui, self.kp, self.ks, self.A1, self.A2, self.A1i, self.A2i],
             )
         )
-        kperp_wkb = ks_wkb**2 + kr**2
+        kperp_wkb = np.sqrt(ks_wkb**2 + kr**2)
         # Use either KIM or horton
         if mode == 'KIM2':
             z0e_wkb = -(om_E_wkb - omega - 1j * nue_wkb) / (kp_wkb * np.sqrt(2) * vTe_wkb)
@@ -666,8 +698,8 @@ class KIM_WKB():
     def calc_dispersion_relation_k_of_r(self, mode=mode):
 
         self.load_all_profs()
-        self.calc_all_derivs()
-        self.calc_equilibrium_fields()
+        #self.calc_all_derivs()
+        self.calc_parameters()
         self.find_res_surface()
         
         idx = int(self.general_dat['prof_length'] * self.options['r_per'])
@@ -675,9 +707,12 @@ class KIM_WKB():
 
         res = []
         r_used = []
+        
+        contour=cx.Rectangle([-self.contour_limit,self.contour_limit],[-self.contour_limit,self.contour_limit])
 
         for r in idx_range:
-            equation_k = lambda k: self.createDispersionEquation(k, self.options['omega'], int(r), mode=self.options['mode'])
+            #equation_k = lambda k: self.createDispersionEquation(k, self.options['omega'], int(r), mode=self.options['mode'])
+            equation_k = lambda k: self.calc_dispersion_equation_for_kr_values_at_r(k, int(r), mode=mode)
             iterations=0
             roots_number=contour.count_roots(equation_k)
             while roots_number!=2:
@@ -697,7 +732,7 @@ class KIM_WKB():
             if self.options['der']:
                 roots = contour.roots(equation_k, df=lambda k: complex(grad(equation_k, holomorphic=True)(k)), guess_roots_symmetry=lambda z: [-z],verbose=True)
             else:
-                roots = contour.roots(equation_k,guess_roots_symmetry=lambda z: [-z],int_method=self.int_method,verbose=True,int_abs_tol=0.1,root_err_tol=1e-3)
+                roots = contour.roots(equation_k,guess_roots_symmetry=lambda z: [-z],int_method=self.options['int_method'],verbose=True,int_abs_tol=0.1,root_err_tol=1e-3)
             res.append(roots)
             r_used.append(self.r_prof[int(r)])
         k_r1 = list()
@@ -720,10 +755,10 @@ class KIM_WKB():
         self.k_r1 = k_r1
         self.k_r2 = k_r2
 
-        self.save_found_kr_of_r()
+        self.save_found_kr_of_r(mode)
 
-    def save_found_kr_of_r(self):
-        file_name = self.options['mode'] + "_" + self.options['prof'] + "_" + "k(r)"
+    def save_found_kr_of_r(self, mode):
+        file_name = mode + "_" + self.options['prof'] + "_" + "k(r)"
         if self.der:
             self.save2txt(self.r_found, self.k_r1, self.k_r2, file_name + "_jax" + ".txt",)
         else:
@@ -794,7 +829,7 @@ class KIM_WKB():
                     roots = contour.roots(
                         equation_k,
                         guess_roots_symmetry=lambda z: [-z],
-                        int_method=self.int_method,
+                        int_method=self.options['int_method'],
                     )
                 res.append(roots)
                 omega_used.append(w)
@@ -879,7 +914,7 @@ class KIM_WKB():
                     roots = contour.roots(
                         equation_k,
                         guess_roots_symmetry=lambda z: [-z],
-                        int_method=self.int_method,
+                        int_method=self.options['int_method'],
                         verbose=True,
                         int_abs_tol=0.1,
                         root_err_tol=1e-3
@@ -1020,21 +1055,32 @@ class KIM_WKB():
             A2i,
         )
 
+    def print_species_data(self, spec):
+        print("")
+        print(f"Species: {spec}")
+        [print(f"{key}: {value}") for key, value in self.spec_dat[spec].items()]
 
 
 if __name__ == "__main__":
     kwkb = KIM_WKB()
     kwkb.prof_path = '../../../kim-wkb/profiles_parab/'
 
-    kwkb.load_all_profs()
-    kwkb.calc_all_derivs()
-    kwkb.calc_equilibrium_fields()
-    kwkb.calc_all_parameters()
-    kwkb.calc_parameters()
-    nue, nui = kwkb.calc_collision_frequency()
+    #kwkb.load_all_profs()
+    #kwkb.calc_all_derivs()
+    #kwkb.calc_equilibrium_fields()
+    #kwkb.calc_all_parameters()
+    #kwkb.calc_parameters()
+    #nue, nui = kwkb.calc_collision_frequency()
 
-    print(kwkb.equil_dat.keys())
-    print(kwkb.general_dat.keys())
+    kwkb.calc_dispersion_relation_k_of_r(mode='horton')
+    kwkb.plot_kr_of_r()
+
+    #kwkb.load_all_profs()
+    #kwkb.calc_parameters()
+    #kwkb.find_res_surface()
+    #for spec in kwkb.species:
+        #kwkb.print_species_data(spec)
+
 
 
     #kwkb.calculate_dispersion_relation_and_plot()

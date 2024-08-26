@@ -905,86 +905,12 @@ class KIM_WKB():
             plt.ylabel("Im(k)")
             plt.show()
 
-#######################################################################
-    # dispose later:
-    def calcParameters(self):
-        ##Electrons
-        Lee = (
-            23.5
-            - np.log(np.sqrt(self.n_prof) * self.Te_prof ** (-5 / 4))
-            - np.sqrt(1e-5 + ((np.log(self.Te_prof) - 2) ** 2) / 16)
-        )  # Coulomb logarithm
-        vTe = np.sqrt(self.Te_prof * ev / e_mass)  # Thermal velocity
-        omce = e_charge * self.B0 / (e_mass * sol)  # Cyclotron frequency btor or B0?
-        nue = 5.8e-6 * self.n_prof * Lee * self.Te_prof ** (-3 / 2)  # Collision frequency
-        lambda_De = np.sqrt(
-            self.Te_prof * ev / (4 * np.pi * self.n_prof * e_charge**2)
-        )  # Debye length
-        A1 = (
-            self.dndr / self.n_prof + e_charge / (self.Te_prof * ev) * self.E_prof - 3 / (2 * self.Te_prof) * self.dTedr
-        )  # first thermodynamic force
-        A2 = self.dTedr / self.Te_prof  # second thermodynamic force
-
-        ks = (
-            self.m_mode * self.hz - self.n_mode * self.hth / self.R0
-        ) / self.r_prof  #'senkrecht' wavenumber ->look it up
-        kp = self.m_mode / self.r_prof * self.hth + self.n_mode / self.R0 * self.hz  # parallel wavenumber ->look it up
-
-        om_E = -sol * ks * self.E_prof / self.B0  # ExB rotation frequency
-        ##Ions
-        Lei = 24 - np.log(
-            np.sqrt(self.n_prof) / self.Te_prof
-        )  # Coulomb logarithm electrons-ions -> in KIM Ti_prof instead of Te_prof
-        vTi = np.sqrt(ev * self.Ti_prof / (p_mass*self.Ai))  # Thermal velocity
-        omci = e_charge * self.Zi * self.B0 / (p_mass * self.Ai * sol)  # Cyclotron frequency
-        nue = nue + 7.7e-6 * self.ni_prof * Lei * self.Zi**2 * self.Te_prof ** (
-            -3 / 2
-        )  # Add ions to electrons collision frequency
-        nui = (
-            1.8e-7 * self.Ai ** (-1 / 2) * self.Ti_prof ** (-3 / 2) * self.n_prof * self.Zi**2 * Lei
-        )  # Collision frequency ions with electrons
-        Lii = 23 - np.log(
-            self.Zi**2 * self.Ai * 2 / ((self.Ti_prof * self.Ai) * 2) * np.sqrt((self.ni_prof * self.Zi**2 / (self.Ti_prof)) * 2)
-        )  # Coulomb logarithm ions-ions
-        nui = nui + 1.8e-7 * self.ni_prof * self.Zi**4 * Lii * self.Ai ** (-1 / 2) * self.Ti_prof ** (
-            -3 / 2
-        )  # Add ion ion collisions
-        lambda_Di = np.sqrt(
-            self.Ti_prof * ev / (4 * np.pi * self.ni_prof * (e_charge * self.Zi) ** 2)
-        )  # Debye length
-        A1i = (
-            self.dnidr / self.ni_prof
-            - (e_charge * self.Zi) / (self.Ti_prof * ev) * self.E_prof
-            - 3 / (2 * self.Ti_prof) * self.dTidr
-        )  # first thermodynamic force
-        A2i = self.dTidr / self.Ti_prof  # second thermodynamic force
-        if self.noCollisions:
-            nue=np.zeros(self.prof_length)
-            nui=np.zeros(self.prof_length)
-        return (
-            vTe,
-            omce,
-            nue,
-            lambda_De,
-            A1,
-            A2,
-            ks,
-            kp,
-            om_E,
-            vTi,
-            omci,
-            nui,
-            lambda_Di,
-            A1i,
-            A2i,
-        )
-
-    def print_species_data(self, spec):
+def print_species_data(self, spec):
         print("")
         print(f"Species: {spec}")
         [print(f"{key}: {value}") for key, value in self.spec_dat[spec].items()]
 
-
+    
 if __name__ == "__main__":
 
     if len(sys.argv) > 1:

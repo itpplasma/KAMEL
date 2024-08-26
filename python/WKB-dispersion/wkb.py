@@ -6,11 +6,13 @@ import matplotlib.pyplot as plt
 from plasmapy.dispersion import plasma_dispersion_func as plasma_disp
 
 import os
+import sys
 from scipy.integrate import solve_ivp
 from scipy.special import iv as Bessel
 from jax import grad
 import jax
 import jax.numpy as jnp
+import h5py
 
 
 ##Define constants
@@ -211,9 +213,9 @@ class KIM_WKB():
             self.calc_collision_frequency()
         self.calc_all_derivs()
 
-        self.general_dat['ks'] = (self.m_mode * self.equil_dat['hz'] - self.n_mode * self.equil_dat['hth'] / self.R0) / self.general_dat['r']  #'senkrecht' wavenumber ->look it up
-        self.general_dat['kp'] = self.m_mode / self.general_dat['r'] * self.equil_dat['hth'] + self.n_mode / self.R0 * self.equil_dat['hz']  # parallel wavenumber ->look it up
-        self.general_dat['om_E'] = -sol * self.general_dat['ks'] * self.general_dat['Er'] / self.equil_dat['B0']  # ExB rotation frequency
+        self.general_dat['ks'] = (self.m_mode * self.equil_dat['hz'] - self.n_mode * self.equil_dat['hth'] / self.R0) / self.general_dat['r'] 
+        self.general_dat['kp'] = self.m_mode / self.general_dat['r'] * self.equil_dat['hth'] + self.n_mode / self.R0 * self.equil_dat['hz'] 
+        self.general_dat['om_E'] = -sol * self.general_dat['ks'] * self.general_dat['Er'] / self.equil_dat['B0'] 
 
         for spec in self.species:
             self.spec_dat[spec]['vT'] = np.sqrt(self.spec_dat[spec]['T'] * ev / self.spec_dat[spec]['mass'])
@@ -413,7 +415,7 @@ class KIM_WKB():
 
         self.spec_dat['e']['n'] = self.n_prof
         self.spec_dat['e']['T'] = self.Te_prof
-        self.spec_dat['e']['vT'] = np.sqrt(self.spec_dat['e']['T'] * ev / self.spec_dat['e']['mass'])
+        #self.spec_dat['e']['vT'] = np.sqrt(self.spec_dat['e']['T'] * ev / self.spec_dat['e']['mass'])
         self.general_dat['Er'] = self.E_prof
         self.general_dat['q'] = self.q_prof
         self.general_dat['r'] = self.r_prof
@@ -448,45 +450,6 @@ class KIM_WKB():
         derivs_in_general_for = ['q']
         for deriv in derivs_in_general_for:
             self.general_dat[f'd{deriv}dr'] = np.gradient(self.general_dat[deriv], self.general_dat['r'])
-
-    #def calc_equilibrium_fields(self):
-        ## Calculate equilibrium fields
-        #self.u, self.B0z, self.B0th, self.B0, self.hz, self.hth = self.calcEquilibrium()
-
-        ##self.equil_dat['u'], \
-        ##self.equil_dat['B0z'], \
-        ##self.equil_dat['B0th'], \
-        ##self.equil_dat['B0'], \
-        ##self.equil_dat['hz'], \
-        ##self.equil_dat['hth'] = self.calcEquilibrium()
-
-        #self.equil_dat['u'] = self.u
-        #self.equil_dat['B0z'] = self.B0z
-        #self.equil_dat['B0th'] = self.B0th
-        #self.equil_dat['B0'] = self.B0
-        #self.equil_dat['hz'] = self.hz
-        #self.equil_dat['hth'] = self.hth
-
-        #self.calc_all_parameters()
-        
-    #def calc_all_parameters(self):
-        ## Calculate parameters
-        #self.vTe, self.omce, self.nue, self.lambda_De, self.A1, self.A2, \
-            #self.ks, self.kp, self.om_E, self.vTi, self.omci, self.nui, \
-            #self.lambda_Di, self.A1i, self.A2i = (
-            #self.calcParameters()
-        #)
-        ##self.spec_dat['e']['vT'] = self.vTe
-        ##self.spec_dat['e']['omega_c'] = self.omce
-        ##self.spec_dat['e']['nu'] = self.nue
-        ##self.spec_dat['e']['lambda_D'] = self.lambda_De
-        ##self.spec_dat['e']['A1'] = self.A1
-        ##self.spec_dat['e']['A2'] = self.A2
-
-        
-        #self.general_dat['ks'] = self.ks
-        #self.general_dat['kp'] = self.kp
-        #self.general_dat['om_E'] = self.om_E
         
     def find_res_surface(self):
         # Find resonant surface
@@ -559,15 +522,18 @@ class KIM_WKB():
             self.spec_dat[spec]['om_n'] = ky * sol / (self.spec_dat[spec]['charge'] * self.equil_dat['B0'] \
                 * self.spec_dat[spec]['n']) * self.spec_dat[spec]['T'] * ev * self.spec_dat[spec]['dndr']
             self.spec_dat[spec]['om_T'] = ky * sol / (self.spec_dat[spec]['charge'] * self.equil_dat['B0']) * self.spec_dat[spec]['dTdr'] * ev
+
             self.spec_dat[spec]['z'] = om_prime / (np.sqrt(2) * self.general_dat['kp'] * self.spec_dat[spec]['vT'])
             self.spec_dat[spec]['W'] = self.spec_dat[spec]['om_n'] - om_prime + self.spec_dat[spec]['om_T'] * (self.spec_dat[spec]['z']**2 + 1 / 2) \
                 * self.spec_dat[spec]['z'] / om_prime * plasma_disp(self.spec_dat[spec]['z']) + self.spec_dat[spec]['om_T'] * self.spec_dat[spec]['z']**2 / om_prime
+
             self.spec_dat[spec]['nom'] = self.spec_dat[spec]['lambda_D']**-2 * (self.spec_dat[spec]['W'] - 1 \
                 -self.spec_dat[spec]['om_T'] * self.spec_dat[spec]['z'] / om_prime * plasma_disp(self.spec_dat[spec]['z']))
             self.spec_dat[spec]['denom'] = self.spec_dat[spec]['W'] * self.spec_dat[spec]['vT']**2 / (self.spec_dat[spec]['omega_c']**2 \
                 * self.spec_dat[spec]['lambda_D']**2)
 
             dispersion_equation += self.spec_dat[spec]['nom']
+        dispersion_equation = dispersion_equation - self.general_dat['kp']**2
         dispersion_equation = dispersion_equation / (1 + np.sum([self.spec_dat[spec]['denom'] for spec in self.species])) - self.general_dat['kperp']**2
         
         return dispersion_equation
@@ -1062,6 +1028,15 @@ class KIM_WKB():
 
 
 if __name__ == "__main__":
+
+    if len(sys.argv) > 1:
+        assert sys.argv[1] in ['horton', 'KIM2'], "Mode not supported"
+        mode = sys.argv[1]
+    else:
+        mode = 'horton'
+    
+    print('Mode is ', mode)
+
     kwkb = KIM_WKB()
     kwkb.prof_path = '../../../kim-wkb/profiles_parab/'
 
@@ -1072,7 +1047,7 @@ if __name__ == "__main__":
     #kwkb.calc_parameters()
     #nue, nui = kwkb.calc_collision_frequency()
 
-    kwkb.calc_dispersion_relation_k_of_r(mode='horton')
+    kwkb.calc_dispersion_relation_k_of_r(mode=mode)
     kwkb.plot_kr_of_r()
 
     #kwkb.load_all_profs()

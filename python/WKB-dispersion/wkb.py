@@ -1,4 +1,3 @@
-# %%
 import cxroots as cx
 import numpy as np
 import matplotlib.pyplot as plt
@@ -157,7 +156,6 @@ class KIM_WKB():
             press_prof += ev * self.spec_dat[spec]['n'] * self.spec_dat[spec]['T']
         dpress_prof = np.gradient(press_prof, self.general_dat['r'])
         # solve ivp
-        #f = lambda r, u: dudr(r, u, r_prof, q_prof, dpress_prof)
         f = lambda r,u: -2*r*u/(self.R0**2 * self.general_dat['q'][self.val2ind(r, self.general_dat['r'])]**2 + r**2)-8*pi*dpress_prof[self.val2ind(r, self.general_dat['r'])]
         u0 = self.btor**2 * (1 + self.general_dat['r'][0] ** 2 / (self.R0**2 * self.general_dat['q'][0] ** 2))
         u = solve_ivp(f, t_span=[self.general_dat['r'][0], self.general_dat['r'][-1]], y0=[u0], t_eval=self.general_dat['r'])
@@ -167,41 +165,6 @@ class KIM_WKB():
         self.equil_dat['B0'] = np.sqrt(self.equil_dat['B0th']**2 + self.equil_dat['B0z']**2)
         self.equil_dat['hz'] = self.equil_dat['B0z'] / self.equil_dat['B0']
         self.equil_dat['hth'] = self.equil_dat['B0th'] / self.equil_dat['B0']
-
-
-    def dudr(self, r, u, r_prof, q_prof, dpress_prof):
-        nlagr = 4
-        nder = 0
-        # Find index which satisfies: p(i-1)<xi<p(i)
-        ir = (np.abs(r_prof - r)).argmin()
-        if r_prof[ir] < r:
-            ir += 1
-        if (ir - nlagr / 2) > 0:
-            ibeg = ir - nlagr / 2
-        else:
-            ibeg = 0
-        iend = ibeg + nlagr
-        if iend > prof_length:
-            iend = prof_length
-            ibeg = iend - nlagr
-        ibeg = int(ibeg)
-        iend = int(iend)
-        coef = self.plag_coeff(nlagr, nder, r, r_prof[ibeg:iend])
-        q = np.sum(coef[0, :] * q_prof[ibeg:iend])
-        dpress = np.sum(coef[0, :] * dpress_prof[ibeg:iend])
-        return -2 * r * u / (q**2 * self.R0**2 + r**2) - 8 * pi * dpress
-
-
-    def plag_coeff(self, npoi, nder, x, xp):
-        coef = np.zeros((1, npoi))
-        for k in range(npoi):
-            coef[0, k] = 1
-            for m in range(npoi):
-                if k == m:
-                    continue
-                coef[0, k] = coef[0, k] * (x - xp[m]) / (xp[k] - xp[m])
-        # Maybe add more if nder !=0 later
-        return coef
 
     
     def calc_parameters(self):
@@ -219,7 +182,7 @@ class KIM_WKB():
 
         for spec in self.species:
             self.spec_dat[spec]['vT'] = np.sqrt(self.spec_dat[spec]['T'] * ev / self.spec_dat[spec]['mass'])
-            self.spec_dat[spec]['omega_c'] = self.spec_dat[spec]['charge'] * self.equil_dat['B0'] / (self.spec_dat[spec]['mass'] * sol)
+            self.spec_dat[spec]['omega_c'] = np.abs(self.spec_dat[spec]['charge']) * self.equil_dat['B0'] / (self.spec_dat[spec]['mass'] * sol)
             self.spec_dat[spec]['lambda_D'] = np.sqrt(self.spec_dat[spec]['T'] * ev / (4.0 * np.pi * self.spec_dat[spec]['n'] * self.spec_dat[spec]['charge']**2))
             self.spec_dat[spec]['A1'] = self.spec_dat[spec]['dndr'] / self.spec_dat[spec]['n'] \
                 - self.spec_dat[spec]['charge'] / (self.spec_dat[spec]['T'] * ev) * self.general_dat['Er'] \
@@ -261,23 +224,6 @@ class KIM_WKB():
     def val2ind(self, value, array):
         idx = np.argmin(np.abs(array - value))
         return idx
-
-
-    def makePlot(self, y):
-        plt.figure()
-        plt.grid()
-        plt.plot(self.r_prof, y)
-        return
-
-
-    def save4compare(self, r1, r2):
-        out1 = list()
-        out2 = list()
-        for k in range(len(r1)):
-            out1.append(r1[k])
-            out2.append(r2[k])
-        return np.array(out1), np.array(out2)
-
 
     def save2txt(self, r_or_omega, k1, k2, name):
         if self.kOfr:
@@ -466,6 +412,7 @@ class KIM_WKB():
         else:
             raise ValueError("Other types of kr not implemented yet")
         return dispersion_equation
+        
 
     def create_dispersion_equation_single(self, kr, r_indx, mode="KIM"):
         assert mode in self.possible_operation_modes, f"Mode {mode} not supported"
@@ -481,10 +428,12 @@ class KIM_WKB():
 
 
     def calc_dispersion_equation_KIM_single(self, kr, r_indx):
-        dispersion_equation = kr**2 + self.general_dat['ks'][r_indx]**2 + self.general_dat['kp'][r_indx]**2
+        dispersion_equation = self.general_dat['kperp'][r_indx]**2 + self.general_dat['kp'][r_indx]**2
         for spec in self.species:
             eval_b = self.general_dat['kperp'][r_indx]**2 * self.spec_dat[spec]['rho_TL'][r_indx]**2
             BesselProd0, BesselProd1 = self.calc_needed_bessel_single(eval_b)
+            if np.isnan(BesselProd0) or np.isnan(BesselProd1):
+                print(f'BesselProd0 or BesselProd1 contains NaNs')
 
             dispersion_equation += self.spec_dat[spec]['lambda_D'][r_indx]**-2 * \
                 (
@@ -498,7 +447,7 @@ class KIM_WKB():
 
 
     def calc_needed_bessel_single(self, eval_b):
-        if np.abs(eval_b)>self.bessel_large_arg_limit:
+        if np.real(eval_b)>self.bessel_large_arg_limit:
             BesselProd0 = 1.0 / (np.sqrt(2*np.pi*eval_b))
             BesselProd1 = 1.0 / (np.sqrt(2*np.pi*eval_b)*(1 + 1 / eval_b**2)**(1/4)) * np.exp(np.arcsinh(-1 / eval_b) + eval_b \
                 * np.sqrt(1 + 1 / eval_b**2) - eval_b)
@@ -667,7 +616,7 @@ class KIM_WKB():
         #self.calc_all_derivs()
         self.calc_parameters()
         self.find_res_surface()
-        
+
         idx = int(self.general_dat['prof_length'] * self.options['r_per'])
         idx_range = np.linspace(self.options['r_range_start'], self.general_dat['prof_length'] - 1, self.options['n_points'])
 
@@ -1049,23 +998,5 @@ if __name__ == "__main__":
     kwkb = KIM_WKB()
     kwkb.prof_path = '../../../kim-wkb/profiles_parab/'
 
-    #kwkb.load_all_profs()
-    #kwkb.calc_all_derivs()
-    #kwkb.calc_equilibrium_fields()
-    #kwkb.calc_all_parameters()
-    #kwkb.calc_parameters()
-    #nue, nui = kwkb.calc_collision_frequency()
-
     kwkb.calc_dispersion_relation_k_of_r(mode=mode)
     kwkb.plot_kr_of_r()
-    #kwkb.plot_from_file('horton_parab_k_of_r.txt')
-
-    #kwkb.load_all_profs()
-    #kwkb.calc_parameters()
-    #kwkb.find_res_surface()
-    #for spec in kwkb.species:
-        #kwkb.print_species_data(spec)
-
-
-
-    #kwkb.calculate_dispersion_relation_and_plot()

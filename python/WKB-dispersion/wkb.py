@@ -229,7 +229,7 @@ class KIM_WKB():
 
             self.spec_dat[spec]['z0'] = -(self.general_dat['om_E'] - self.options['omega'] - 1j * self.spec_dat[spec]['nu']) \
                 / (self.general_dat['kp'] * np.sqrt(2) * self.spec_dat[spec]['vT'])
-            self.spec_dat[spec]['rho_TL'] = self.spec_dat[spec]['vT'] / self.spec_dat[spec]['omega_c']
+            self.spec_dat[spec]['rho_TL'] = self.spec_dat[spec]['vT'] / np.abs(self.spec_dat[spec]['omega_c'])
 
         
     def calc_collision_frequency(self):
@@ -464,10 +464,7 @@ class KIM_WKB():
             dispersion_equation = self.create_dispersion_equation_single(kr, position, mode)
             #dispersion_equation = np.interp(r_eval, self.general_dat['r'], disp_prof)
         else:
-            dispersion_equation = np.zeros(len(kr))
-            for i, val in enumerate(kr):
-                disp_prof = self.create_dispersion_equation_profile(val, mode)
-                dispersion_equation[i] = np.interp(r_eval, self.r_prof, disp_prof)
+            raise ValueError("Other types of kr not implemented yet")
         return dispersion_equation
 
     def create_dispersion_equation_single(self, kr, r_indx, mode="KIM"):
@@ -475,63 +472,19 @@ class KIM_WKB():
 
         self.general_dat['kperp'] = np.sqrt(self.general_dat['ks']**2 + kr**2)
         if mode == 'KIM2':
-            dispersion_equation = self.calc_dispersion_equation_KIM_of_r_index(kr, r_indx)
+            dispersion_equation = self.calc_dispersion_equation_KIM_single(kr, r_indx)
         elif mode == "horton":
-            raise ValueError("Horton mode not supported for single calculation")
-            #dispersion_equation = self.calc_dispersion_equation_horton_profile(kr)
+            dispersion_equation = self.calc_dispersion_equation_horton_single(kr, r_indx)
         #if np.isnan(dispersion_equation).any():
         #    print(f'dispersion_equation contains NaNs')
         return dispersion_equation
 
-    def create_dispersion_equation_profile(self, kr, mode="KIM"):
-        
-        assert mode in self.possible_operation_modes, f"Mode {mode} not supported"
-        
-        self.general_dat['kperp'] = np.sqrt(self.general_dat['ks']**2 + kr**2)
-        if mode == 'KIM2':
-            dispersion_equation = self.calc_dispersion_equation_KIM_profile(kr)
-        elif mode == "horton":
-            dispersion_equation = self.calc_dispersion_equation_horton_profile(kr)
-        #if np.isnan(dispersion_equation).any():
-        #    print(f'dispersion_equation contains NaNs')
-        return dispersion_equation
 
-    def calc_dispersion_equation_KIM_profile(self, kr):
-        dispersion_equation = kr**2 + self.general_dat['ks']**2 + self.general_dat['kp']**2
-        for spec in self.species:
-            self.spec_dat[spec]['eval_b'] = self.general_dat['kperp']**2 * self.spec_dat[spec]['rho_TL']**2
-            BesselProd0, BesselProd1 = self.calc_needed_bessel(spec, self.spec_dat[spec]['eval_b'])
-
-            dispersion_equation += self.spec_dat[spec]['lambda_D']**-2 * \
-                (
-                    1.0 - self.general_dat['ks'] * self.spec_dat[spec]['rho_TL'] \
-                / (self.general_dat['kp'] * np.sqrt(2)) * (self.spec_dat[spec]['A1'] * BesselProd0 * plasma_disp(self.spec_dat[spec]['z0']) + \
-                self.spec_dat[spec]['A2'] * (plasma_disp(self.spec_dat[spec]['z0']) * (1 + self.spec_dat[spec]['eval_b'] + self.spec_dat[spec]['z0']**2)\
-                * np.exp(-self.spec_dat[spec]['eval_b']) + BesselProd1 * self.spec_dat[spec]['eval_b'] + self.spec_dat[spec]['z0'] * BesselProd0))
-                )
-        #print(dispersion_equation)
-        return dispersion_equation
-    
-    def calc_needed_bessel(self, spec, eval_b):
-        BesselProd0 = np.zeros(len(self.general_dat['r']), dtype=complex)
-        BesselProd1 = np.zeros(len(self.general_dat['r']), dtype=complex)
-        for i, eval_b in enumerate(self.spec_dat[spec]['eval_b']):
-            if np.abs(eval_b)>self.bessel_large_arg_limit:
-                BesselProd0[i] = 1.0 / (np.sqrt(2*np.pi*eval_b))
-                BesselProd1[i] = 1.0 / (np.sqrt(2*np.pi*eval_b)*(1 + 1 / eval_b**2)**(1/4)) * np.exp(np.arcsinh(-1 / eval_b) + eval_b \
-                    * np.sqrt(1 + 1 / eval_b**2) - eval_b)
-            else:
-                BesselProd0[i] = Bessel(0, eval_b)*np.exp(-eval_b)
-                BesselProd1[i] = Bessel(-1, eval_b)*np.exp(-eval_b)
-
-        return BesselProd0, BesselProd1
-
-
-    def calc_dispersion_equation_KIM_of_r_index(self, kr, r_indx):
+    def calc_dispersion_equation_KIM_single(self, kr, r_indx):
         dispersion_equation = kr**2 + self.general_dat['ks'][r_indx]**2 + self.general_dat['kp'][r_indx]**2
         for spec in self.species:
             eval_b = self.general_dat['kperp'][r_indx]**2 * self.spec_dat[spec]['rho_TL'][r_indx]**2
-            BesselProd0, BesselProd1 = self.calc_needed_bessel_single(spec, eval_b)
+            BesselProd0, BesselProd1 = self.calc_needed_bessel_single(eval_b)
 
             dispersion_equation += self.spec_dat[spec]['lambda_D'][r_indx]**-2 * \
                 (
@@ -544,7 +497,7 @@ class KIM_WKB():
         return dispersion_equation
 
 
-    def calc_needed_bessel_single(self, spec, eval_b):
+    def calc_needed_bessel_single(self, eval_b):
         if np.abs(eval_b)>self.bessel_large_arg_limit:
             BesselProd0 = 1.0 / (np.sqrt(2*np.pi*eval_b))
             BesselProd1 = 1.0 / (np.sqrt(2*np.pi*eval_b)*(1 + 1 / eval_b**2)**(1/4)) * np.exp(np.arcsinh(-1 / eval_b) + eval_b \
@@ -554,34 +507,36 @@ class KIM_WKB():
             BesselProd1 = Bessel(-1, eval_b)*np.exp(-eval_b)
         return BesselProd0, BesselProd1
 
-    def calc_dispersion_equation_horton_profile(self, kr):
-        ky = self.general_dat['ks']
-        om_prime = self.options['omega'] - self.general_dat['om_E']
+
+    def calc_dispersion_equation_horton_single(self, kr, r_indx):
+        ky = self.general_dat['ks'][r_indx]
+        om_prime = self.options['omega'] - self.general_dat['om_E'][r_indx]
         
         dispersion_equation = 0 + 0j
         denom = 0 + 0j
         nom = 0 + 0j
         for spec in self.species:
-            self.spec_dat[spec]['om_n'] = ky * sol / (self.spec_dat[spec]['charge'] * self.equil_dat['B0'] \
-                * self.spec_dat[spec]['n']) * self.spec_dat[spec]['T'] * ev * self.spec_dat[spec]['dndr']
-            self.spec_dat[spec]['om_T'] = ky * sol / (self.spec_dat[spec]['charge'] * self.equil_dat['B0']) * self.spec_dat[spec]['dTdr'] * ev
+            self.spec_dat[spec]['om_n'] = ky * sol / (self.spec_dat[spec]['charge'] * self.equil_dat['B0'][r_indx] \
+                * self.spec_dat[spec]['n'][r_indx]) * self.spec_dat[spec]['T'][r_indx] * ev * self.spec_dat[spec]['dndr'][r_indx]
+            self.spec_dat[spec]['om_T'] = ky * sol / (self.spec_dat[spec]['charge'] * self.equil_dat['B0'][r_indx]) * self.spec_dat[spec]['dTdr'][r_indx] * ev
 
-            self.spec_dat[spec]['z'] = om_prime / (np.sqrt(2) * self.general_dat['kp'] * self.spec_dat[spec]['vT'])
+            self.spec_dat[spec]['z'] = om_prime / (np.sqrt(2) * self.general_dat['kp'][r_indx] * self.spec_dat[spec]['vT'][r_indx])
             self.spec_dat[spec]['W'] = (self.spec_dat[spec]['om_n'] - om_prime + self.spec_dat[spec]['om_T'] * (self.spec_dat[spec]['z']**2 + 0.5)) \
                 * self.spec_dat[spec]['z'] / om_prime * plasma_disp(self.spec_dat[spec]['z']) + self.spec_dat[spec]['om_T'] * self.spec_dat[spec]['z']**2 / om_prime
 
-            self.spec_dat[spec]['nom'] = self.spec_dat[spec]['lambda_D']**-2 * (self.spec_dat[spec]['W'] - 1.0 \
+            self.spec_dat[spec]['nom'] = self.spec_dat[spec]['lambda_D'][r_indx]**-2 * (self.spec_dat[spec]['W'] - 1.0 \
                 -self.spec_dat[spec]['om_T'] * self.spec_dat[spec]['z'] / om_prime * plasma_disp(self.spec_dat[spec]['z']))
-            self.spec_dat[spec]['denom'] = self.spec_dat[spec]['W'] * self.spec_dat[spec]['vT']**2 / (self.spec_dat[spec]['omega_c']**2 \
-                * self.spec_dat[spec]['lambda_D']**2)
+            self.spec_dat[spec]['denom'] = self.spec_dat[spec]['W'] * self.spec_dat[spec]['vT'][r_indx]**2 / (self.spec_dat[spec]['omega_c'][r_indx]**2 \
+                * self.spec_dat[spec]['lambda_D'][r_indx]**2)
 
             nom += self.spec_dat[spec]['nom']
             denom += self.spec_dat[spec]['denom']
 
-        nom -= self.general_dat['kp']**2
-        dispersion_equation = nom / (1 + denom) - self.general_dat['kperp']**2
+        nom -= self.general_dat['kp'][r_indx]**2
+        dispersion_equation = nom / (1 + denom) - self.general_dat['kperp'][r_indx]**2
         
         return dispersion_equation
+
 
     # Create dispersion equation
     def createDispersionEquation(self, kr, omega, position, mode="KIM"):

@@ -38,8 +38,8 @@ class KIM_WKB():
 
     prof_path = ''
 
-    bessel_large_arg_limit = 5
-    contour_limit = 10
+    bessel_large_arg_limit = 3
+    contour_limit = 10 # 50 works for H, 20 for D
     
     ##Options
     options = {'prof': 'parab',
@@ -50,14 +50,14 @@ class KIM_WKB():
                'r_range_start': 10,
                'omegaOfk': False,
                'kOfr': True,
-               'mode': 'KIM2',
+               'mode': 'KIM',
                'int_method': 'quad',
                'der': False,
                'save': True,
-               'noCollisions': True}
+               'noCollisions': False}
     options['omega_range'] = np.linspace(0, 50, options['n_points'])
 
-    possible_operation_modes = ['KIM2', 'horton']
+    possible_operation_modes = ['KIM', 'horton']
 
     # which profile should be loaded: const, parab or full
     prof = "parab"
@@ -75,8 +75,8 @@ class KIM_WKB():
     omegaOfk = False
     # Calculate k(r)
     kOfr = True
-    # Choose model: KIM2 or horton
-    mode = "KIM2"
+    # Choose model: KIM or horton
+    mode = "KIM"
     # Choose method for integration: quad or romb
     int_method = "romb"
     # Should the derivative be approximated with jax.grad
@@ -101,6 +101,7 @@ class KIM_WKB():
     equil_dat = {}
 
     def __init__(self, species=['e', 'D'], spec_mass = [e_mass, 2*p_mass], spec_charge_num = [-1, 1]):
+        self.species = species
         for spec in self.species:
             self.spec_dat[spec] = {}
             if spec != 'e':
@@ -384,7 +385,7 @@ class KIM_WKB():
         self.calc_species_derivs()
         self.calc_general_derivs()
         #dndr, dTedr, dqdr, dnidr, dTidr = calcDerivatives()
-        self.dndr, self.dTedr, self.dqdr, self.dnidr, self.dTidr = list(map(lambda x: np.gradient(x,self.r_prof),[self.n_prof,self.Te_prof,self.q_prof,self.ni_prof,self.Ti_prof]))
+        #self.dndr, self.dTedr, self.dqdr, self.dnidr, self.dTidr = list(map(lambda x: np.gradient(x,self.r_prof),[self.n_prof,self.Te_prof,self.q_prof,self.ni_prof,self.Ti_prof]))
     
     def calc_species_derivs(self):
         derivs_in_species_for = ['n', 'T']
@@ -418,7 +419,7 @@ class KIM_WKB():
         assert mode in self.possible_operation_modes, f"Mode {mode} not supported"
 
         self.general_dat['kperp'] = np.sqrt(self.general_dat['ks']**2 + kr**2)
-        if mode == 'KIM2':
+        if mode == 'KIM':
             dispersion_equation = self.calc_dispersion_equation_KIM_single(kr, r_indx)
         elif mode == "horton":
             dispersion_equation = self.calc_dispersion_equation_horton_single(kr, r_indx)
@@ -517,7 +518,7 @@ class KIM_WKB():
         )
         kperp_wkb = np.sqrt(ks_wkb**2 + kr**2)
         # Use either KIM or horton
-        if mode == 'KIM2':
+        if mode == 'KIM':
             z0e_wkb = -(om_E_wkb - omega - 1j * nue_wkb) / (kp_wkb * np.sqrt(2) * vTe_wkb)
             rho_TLe = vTe_wkb / omce_wkb
         
@@ -914,15 +915,29 @@ def print_species_data(self, spec):
 if __name__ == "__main__":
 
     if len(sys.argv) > 1:
-        assert sys.argv[1] in ['horton', 'KIM2'], "Mode not supported"
+        assert sys.argv[1] in ['horton', 'KIM'], "Mode not supported"
         mode = sys.argv[1]
     else:
         mode = 'horton'
     
-    print('Mode is ', mode)
+    
 
-    kwkb = KIM_WKB()
-    kwkb.prof_path = '../../../kim-wkb/profiles_parab/'
+    specs = {0: ['e', 'H'], 1: ['e', 'D']}
+    specs = {0: ['e', 'D']}
+    spec_mass = {0: [e_mass, p_mass], 1: [e_mass, 2*p_mass]}
+    spec_mass = {0: [e_mass, 2*p_mass]}
+    spec_charge_num = {0: [-1,1]}
+    modes = {0: 'KIM', 1: 'horton'}
 
-    kwkb.calc_dispersion_relation_k_of_r(mode=mode)
-    kwkb.plot_kr_of_r()
+    for i, spec in specs.items():
+        print(spec)
+        for j, mode in modes.items():
+            
+            kwkb = KIM_WKB(species=spec, spec_mass=spec_mass[i], spec_charge_num=spec_charge_num[i])
+            kwkb.options['n_points'] = 300
+            kwkb.prof_path = '../../../kim-wkb/profiles_parab/'
+
+            print('Mode is ', mode, ', Collisions: ', not kwkb.options['noCollisions'])
+            kwkb.calc_dispersion_relation_k_of_r(mode=mode)
+            #kwkb.plot_kr_of_r()
+            np.savetxt(f'./{mode}_{spec[1]}.dat',np.vstack((np.real(kwkb.r_found),np.real(kwkb.k_r1), np.imag(kwkb.k_r1), np.real(kwkb.k_r2), np.imag(kwkb.k_r2))).T)

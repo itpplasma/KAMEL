@@ -8,10 +8,12 @@ import os
 import sys
 from scipy.integrate import solve_ivp
 from scipy.special import iv as Bessel
+from scipy.special import ive as BesselExp
 from jax import grad
 import jax
 import jax.numpy as jnp
 import h5py
+import logging
 
 sys.path.append(os.path.join(os.path.dirname(__file__), '../../../KiLCA-QB/python/susc_functions/'))
 import susc_funcs
@@ -41,7 +43,7 @@ class KIM_WKB():
 
     prof_path = ''
 
-    bessel_large_arg_limit = 100
+    bessel_large_arg_limit = 5
     contour_limit = 0 # 50 works for H, 20 for D
     
     ##Options
@@ -57,6 +59,7 @@ class KIM_WKB():
                'int_method': 'quad',
                'der': False,
                'save': True,
+               'log': False,
                'Collisions': 'collisionless', # Possible: collisionless, Krook, FokkerPlanck
                'max_cyclotron_harmonic': 0}
     options['omega_range'] = np.linspace(0, 50, options['n_points'])
@@ -427,7 +430,6 @@ class KIM_WKB():
         return dispersion_equation
 
     def calc_needed_bessel_single(self, eval_b):
-        #if np.abs(np.real(eval_b))>self.bessel_large_arg_limit or np.abs(np.imag(eval_b))>self.bessel_large_arg_limit:
         if np.real(eval_b)>self.bessel_large_arg_limit:
             BesselProd0 = 1.0 / (np.sqrt(2*np.pi*eval_b)) + 0j
             BesselProd1 = 1.0 / (np.sqrt(2*np.pi*eval_b)*(1 + 1 / eval_b**2)**(1/4)) * np.exp(np.arcsinh(-1 / eval_b) + eval_b \
@@ -436,6 +438,7 @@ class KIM_WKB():
             BesselProd0 = Bessel(0, eval_b)*np.exp(-eval_b) + 0j
             BesselProd1 = Bessel(-1, eval_b)*np.exp(-eval_b) + 0j
         return BesselProd0, BesselProd1
+    
 
     def calc_dispersion_equation_KIM_FokkerPlanck(self, kr, r_indx):
         dispersion_equation = self.general_dat['kperp'][r_indx]**2 + self.general_dat['kp'][r_indx]**2
@@ -444,9 +447,10 @@ class KIM_WKB():
             eval_b = self.general_dat['kperp'][r_indx]**2 * self.spec_dat[spec]['rho_TL'][r_indx]**2
             
             for m_phi in range(0, self.options['max_cyclotron_harmonic']+1):
-                BesselProd0, BesselProd1 = self.calc_needed_bessel_of_mphi(m_phi, eval_b)
+                BesselProd0, BesselProd1 = self.calc_needed_bessel_of_mphi(mphi=m_phi, eval_b=eval_b)
                 if np.isnan(BesselProd0) or np.isnan(BesselProd1):
-                    print(f'BesselProd0 or BesselProd1 contains NaNs')
+                    print(f'FokkerPlanck: BesselProd0 or BesselProd1 contains NaNs, eval_b = {eval_b}, m_phi = {m_phi}')
+                    print(f'BesselProd0: {BesselProd0}, BesselProd1: {BesselProd1}')
 
                 dispersion_equation -= \
                     (1j * self.spec_dat[spec]['vT'][r_indx]**2.0 * self.general_dat['ks'][r_indx]) / (self.spec_dat[spec]['lambda_D'][r_indx]**2 \
@@ -454,19 +458,21 @@ class KIM_WKB():
                         * (self.spec_dat[spec]['I00'][m_phi][r_indx] * (BesselProd0 * (self.spec_dat[spec]['A1'][r_indx] + \
                             self.spec_dat[spec]['A2'][r_indx] * (1.0 + eval_b + m_phi)) + self.spec_dat[spec]['A2'][r_indx] * eval_b * BesselProd1)\
                         + self.spec_dat[spec]['I20'][m_phi][r_indx] * 0.5 * self.spec_dat[spec]['A2'][r_indx]*BesselProd0)
+        #print(dispersion_equation)
         return dispersion_equation
 
     def calc_needed_bessel_of_mphi(self, mphi, eval_b):
-        if np.real(eval_b)>self.bessel_large_arg_limit:
+        if np.abs(np.real(eval_b))>self.bessel_large_arg_limit:
             # asymptotic form for Bessel function:
+
             BesselProd0 = 1.0 / (np.sqrt(2*np.pi*eval_b) * (1+ mphi**2 / eval_b**2)**(1/4)) * np.exp(- mphi * np.arcsinh(mphi / eval_b) + eval_b \
-                * np.sqrt(1 + mphi**2 / eval_b**2)) + 0j
+                * np.sqrt(1 + mphi**2 / eval_b**2) - eval_b) + 0j
             BesselProd1 = 1.0 / (np.sqrt(2*np.pi*eval_b) * (1+ (mphi-1)**2 / eval_b**2)**(1/4)) * np.exp(- (mphi-1) * np.arcsinh((mphi-1) / eval_b) + eval_b \
-                * np.sqrt(1 + (mphi-1)**2 / eval_b**2)) + 0j
+                * np.sqrt(1 + (mphi-1)**2 / eval_b**2) - eval_b) + 0j
         else:
-            BesselProd0 = Bessel(mphi, eval_b)
-            BesselProd1 = Bessel(mphi-1, eval_b)
-        return BesselProd0 * np.exp(-eval_b), BesselProd1 * np.exp(-eval_b)
+            BesselProd0 = Bessel(mphi, eval_b)* np.exp(-eval_b)
+            BesselProd1 = Bessel(mphi-1, eval_b)* np.exp(-eval_b)
+        return BesselProd0, BesselProd1 
 
     def plot_dispersion_equation_KIM_FokkerPlanck(self):
 
@@ -538,11 +544,18 @@ class KIM_WKB():
         
         contour=cx.Rectangle([-self.contour_limit,self.contour_limit],[-self.contour_limit,self.contour_limit])
 
+        if self.options['log']:
+            logging.basicConfig(level=logging.INFO)
+
         for r in idx_range:
             #equation_k = lambda k: self.createDispersionEquation(k, self.options['omega'], int(r), mode=self.options['mode'])
             equation_k = lambda k: self.calc_dispersion_equation_for_kr_values_at_r(k, int(r), mode=mode)
             iterations=0
-            roots_number=contour.count_roots(equation_k)
+            try:
+                roots_number=contour.count_roots(equation_k)
+            except:
+                print(f"Error in count_roots for r = {r}")
+                continue
             while roots_number!=2:
                 if roots_number>4:
                     contour=cx.Rectangle(np.array(contour.x_range)/2,np.array(contour.y_range)/2)
@@ -563,6 +576,9 @@ class KIM_WKB():
                 roots = contour.roots(equation_k,guess_roots_symmetry=lambda z: [-z],int_method=self.options['int_method'],verbose=True,int_abs_tol=0.1,root_err_tol=1e-3)
             res.append(roots)
             r_used.append(self.r_prof[int(r)])
+            print(f"Found roots for {r}: {roots}")
+        print(res)
+        print(r_used)
         k_r1 = list()
         k_r2 = list()
         r_found = list()
@@ -583,6 +599,10 @@ class KIM_WKB():
         self.k_r1 = k_r1
         self.k_r2 = k_r2
 
+        print(f"Found r: {r_found}")
+        print(f"Found k_r1: {k_r1}")
+        print(f"Found k_r2: {k_r2}")
+
         self.save_found_kr_of_r(mode)
         
     def calc_needed_susc_funcs(self):
@@ -600,6 +620,16 @@ class KIM_WKB():
                     self.spec_dat[spec]['I00'][m_phi][i] = I[0,0]
                     self.spec_dat[spec]['I20'][m_phi][i] = I[2,0]
 
+    def plot_x2(self):
+        self.load_all_profs()
+        self.calc_parameters()
+        self.calc_collision_frequency()
+        self.calc_needed_susc_funcs()
+        plt.figure()
+        for spec in self.species:
+            plt.plot(self.general_dat['r'], self.spec_dat[spec]['x2'], label=spec)
+        plt.legend()
+        plt.show()
     
     def test_susc_funcs(self):
         self.load_all_profs()
@@ -762,7 +792,12 @@ class KIM_WKB():
                 equation_k = lambda k: self.createDispersionEquation(k, self.options['omega'], int(r), mode=self.options['mode'])
                 #equation_k = lambda k: createDispersionEquationKIM(k, omega, r_prof[int(r)])
                 iterations=0
-                roots_number=contour.count_roots(equation_k)
+                
+                try:
+                    roots_number=contour.count_roots(equation_k)
+                except:
+                    print("Error in count_roots")
+                    continue
                 while roots_number!=2:
                     if roots_number>4:
                         contour=cx.Rectangle(np.array(contour.x_range)/2,np.array(contour.y_range)/2)
@@ -794,6 +829,7 @@ class KIM_WKB():
                     )
                 res.append(roots)
                 r_used.append(self.general_dat['r'][int(r)])
+                
             k_r1 = list()
             k_r2 = list()
             r_found = list()
@@ -901,7 +937,10 @@ def test_FokkerPlanck():
     #exit()
     kwkb.options['Collisions'] = 'FokkerPlanck'
     kwkb.options['max_cyclotron_harmonic'] = 0
-    #kwkb.test_susc_funcs()
+    kwkb.options['der'] = False
+    kwkb.options['log'] = False
+    #kwkb.plot_x2()
+    #exit()
     #kwkb.plot_dispersion_equation_KIM_FokkerPlanck()
     print('Mode is ', mode, ', Collisions: ', kwkb.options['Collisions'])
     kwkb.calc_dispersion_relation_k_of_r(mode=mode)

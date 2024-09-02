@@ -3,17 +3,18 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 from plasmapy.dispersion import plasma_dispersion_func as plasma_disp
+from wkb_grid import WKB_Grid
 
 import os
 import sys
 from scipy.integrate import solve_ivp
 from scipy.special import iv as Bessel
-from scipy.special import ive as BesselExp
 from jax import grad
 import jax
 import jax.numpy as jnp
 import h5py
 import logging
+
 
 sys.path.append(os.path.join(os.path.dirname(__file__), '../../../KiLCA-QB/python/susc_functions/'))
 import susc_funcs
@@ -60,6 +61,7 @@ class KIM_WKB():
                'der': False,
                'save': True,
                'log': False,
+               'new_grid': False,
                'Collisions': 'collisionless', # Possible: collisionless, Krook, FokkerPlanck
                'max_cyclotron_harmonic': 0}
     options['omega_range'] = np.linspace(0, 50, options['n_points'])
@@ -379,6 +381,7 @@ class KIM_WKB():
     def find_res_surface(self):
         # Find resonant surface
         self.idx_res = self.val2ind(-self.m_mode / self.n_mode, self.general_dat['q'])
+        self.res_surf_val = np.interp(self.m_mode / self.n_mode, np.abs(self.general_dat['q']), self.general_dat['r'])
 
 
     def calc_dispersion_equation_for_kr_values_at_r(self, kr, position, mode="KIM"):
@@ -524,17 +527,23 @@ class KIM_WKB():
         
         return dispersion_equation
 
-    
-    def calc_dispersion_relation_k_of_r(self, mode):
-
+    def initialize_data(self):
         self.load_all_profs()
         #self.calc_all_derivs()
-        self.calc_parameters()
         self.find_res_surface()
+        if self.options['new_grid']:
+            self.interpolate_on_non_uniform_grid()
+        self.calc_parameters()
+
         if self.options['Collisions'] == 'FokkerPlanck':
             if self.options['max_cyclotron_harmonic'] > 0:
                 raise ValueError('Higher cylcotron harmonic than lowest order not yet implemented!')
             self.calc_needed_susc_funcs()
+     
+    
+    def calc_dispersion_relation_k_of_r(self, mode):   
+
+        self.initialize_data()
 
         idx = int(self.general_dat['prof_length'] * self.options['r_per'])
         idx_range = np.linspace(self.options['r_range_start'], self.general_dat['prof_length'] - 1, self.options['n_points'])
@@ -592,6 +601,16 @@ class KIM_WKB():
                     k_r1.append(res[k].roots[1])
                     k_r2.append(res[k].roots[0])
                     r_found.append(r_used[k])
+            if len(res[k].roots)>=2:
+                print(f"More than two roots found for r = {r_used[k]}")
+                if res[k].roots[0].real > 0:
+                    k_r1.append(res[k].roots[0])
+                    k_r2.append(res[k].roots[1])
+                    r_found.append(r_used[k])
+                else:
+                    k_r1.append(res[k].roots[1])
+                    k_r2.append(res[k].roots[0])
+                    r_found.append(r_used[k])
         k_r1 = np.array(k_r1)
         k_r2 = np.array(k_r2) 
 
@@ -621,13 +640,13 @@ class KIM_WKB():
                     self.spec_dat[spec]['I20'][m_phi][i] = I[2,0]
 
     def plot_x2(self):
-        self.load_all_profs()
-        self.calc_parameters()
-        self.calc_collision_frequency()
-        self.calc_needed_susc_funcs()
+        self.initialize_data()
         plt.figure()
         for spec in self.species:
-            plt.plot(self.general_dat['r'], self.spec_dat[spec]['x2'], label=spec)
+            plt.plot(self.general_dat['r'], np.real(self.spec_dat[spec]['I00'][0]), label=spec, marker='.')
+            #plt.plot(self.general_dat['r'], np.imag(self.spec_dat[spec]['I00'][0]), label=spec,ls='--')
+            #plt.plot(self.general_dat['r'], np.real(self.spec_dat[spec]['I20'][0]), label=spec)
+            #plt.plot(self.general_dat['r'], np.imag(self.spec_dat[spec]['I20'][0]), label=spec, ls='--')
         plt.legend()
         plt.show()
     
@@ -701,6 +720,7 @@ class KIM_WKB():
         self.k_r2 = dat[:,3] + 1j*dat[:,4]
         self.plot_kr_of_r()
 
+    
 
     def calculate_dispersion_relation_and_plot(self, mode):
 
@@ -903,6 +923,45 @@ class KIM_WKB():
         plt.grid()
         plt.show()
 
+    def generate_non_uniform_grid(self):
+        gobj = WKB_Grid(self.general_dat['r'], self.res_surf_val)
+        print(self.res_surf_val)
+        #self.r_new = gobj.generate_non_equidistant_grid(gobj.r_min, gobj.r_max, 30, gobj.r_res, 3)
+        self.r_new = np.array(gobj.gen_grid(self.general_dat['r'], gobj.r_res, 5.0, 50))
+
+    def interpolate_on_non_uniform_grid(self):
+        self.generate_non_uniform_grid()
+        self.general_dat['old_r'] = np.copy(self.general_dat['r'])
+        self.general_dat['r'] = self.r_new
+
+        for key in self.general_dat:
+            try:
+                if len(self.general_dat[key]) == self.general_dat['prof_length']:
+                    if key == 'old_r':
+                        continue
+                    self.general_dat[key] = np.interp(self.r_new, self.general_dat['old_r'], self.general_dat[key])
+            except:
+                pass
+        for spec in self.species:
+            for key in self.spec_dat[spec]:
+                if key =='n' or key =='T':
+                    self.spec_dat[spec][key] = np.interp(self.general_dat['r'], self.general_dat['old_r'], self.spec_dat[spec][key])
+        self.general_dat['old_prof_length'] = self.general_dat['prof_length']  
+        self.general_dat['prof_length'] = len(self.r_new)
+        
+        print('New grid length is ', self.general_dat['prof_length'])
+            
+    def test_non_uniform_grid(self):
+        self.load_all_profs()
+        self.calc_parameters()
+        self.find_res_surface()
+        self.interpolate_on_non_uniform_grid()
+        plt.figure()
+        plt.plot(self.r_new, np.zeros_like(self.r_new), marker='.')
+        plt.axvline(self.res_surf_val, color='r')
+        plt.grid()
+        plt.show()
+
 def determine_dispersion_for_all_species():
     specs = {0: ['e', 'H'], 1: ['e', 'D']}
     specs = {0: ['e', 'D']}
@@ -923,6 +982,7 @@ def determine_dispersion_for_all_species():
             #kwkb.plot_kr_of_r()
             np.savetxt(f'./{mode}_{spec[1]}.dat',np.vstack((np.real(kwkb.r_found),np.real(kwkb.k_r1), np.imag(kwkb.k_r1), np.real(kwkb.k_r2), np.imag(kwkb.k_r2))).T)
 
+
 def test_FokkerPlanck():
     
     specs = {0: ['e', 'D']}
@@ -935,10 +995,13 @@ def test_FokkerPlanck():
     kwkb.prof_path = '../../../kim-wkb/profiles_parab/'
     #kwkb.plot_ks()
     #exit()
+    kwkb.options['n_points'] = 200
     kwkb.options['Collisions'] = 'FokkerPlanck'
     kwkb.options['max_cyclotron_harmonic'] = 0
     kwkb.options['der'] = False
     kwkb.options['log'] = False
+    kwkb.options['new_grid'] = True
+    #kwkb.test_non_uniform_grid()
     #kwkb.plot_x2()
     #exit()
     #kwkb.plot_dispersion_equation_KIM_FokkerPlanck()

@@ -532,12 +532,13 @@ class KIM_WKB():
         #self.calc_all_derivs()
         self.find_res_surface()
         if self.options['new_grid']:
+            self.generate_non_uniform_grid()
             self.interpolate_on_non_uniform_grid()
         self.calc_parameters()
 
         if self.options['Collisions'] == 'FokkerPlanck':
-            if self.options['max_cyclotron_harmonic'] > 0:
-                raise ValueError('Higher cylcotron harmonic than lowest order not yet implemented!')
+            #if self.options['max_cyclotron_harmonic'] > 0:
+                #raise ValueError('Higher cylcotron harmonic than lowest order not yet implemented!')
             self.calc_needed_susc_funcs()
      
     
@@ -557,42 +558,60 @@ class KIM_WKB():
             logging.basicConfig(level=logging.INFO)
 
         for r in idx_range:
-            #equation_k = lambda k: self.createDispersionEquation(k, self.options['omega'], int(r), mode=self.options['mode'])
-            equation_k = lambda k: self.calc_dispersion_equation_for_kr_values_at_r(k, int(r), mode=mode)
-            iterations=0
-            try:
-                roots_number=contour.count_roots(equation_k)
-            except:
-                print(f"Error in count_roots for r = {r}")
+            roots = self.find_roots(int(r), contour)
+            if roots == 1:
                 continue
-            while roots_number!=2:
-                if roots_number>4:
-                    contour=cx.Rectangle(np.array(contour.x_range)/2,np.array(contour.y_range)/2)
-                elif roots_number>2:
-                    if np.max(contour.x_range)<2:
-                        break
-                    contour=cx.Rectangle(np.array(contour.x_range)*3/4,np.array(contour.y_range)*3/4)
-                elif roots_number<2:
-                    contour=cx.Rectangle(np.array(contour.x_range)*2,np.array(contour.y_range)*2)
-                roots_number=contour.count_roots(equation_k)
-                iterations+=1
-                if iterations>100:
-                    print("Abort. Too many iterations")
-                    break
-            if self.options['der']:
-                roots = contour.roots(equation_k, df=lambda k: complex(grad(equation_k, holomorphic=True)(k)), guess_roots_symmetry=lambda z: [-z],verbose=True)
-            else:
-                roots = contour.roots(equation_k,guess_roots_symmetry=lambda z: [-z],int_method=self.options['int_method'],verbose=True,int_abs_tol=0.1,root_err_tol=1e-3)
             res.append(roots)
-            r_used.append(self.r_prof[int(r)])
-            print(f"Found roots for {r}: {roots}")
-        print(res)
-        print(r_used)
+            r_used.append(self.general_dat['r'][int(r)])
+
+            print(f"Found roots for index {int(r)} at {self.general_dat['r'][int(r)]}:")
+            print(f"{roots}")
+        
+        self.r_found, self.k_r1, self.k_r2 = self.store_roots_in_variables(res, r_used)
+
+        self.save_found_kr_of_r(mode)
+
+        
+    def find_roots(self, r_ind, contour):
+        #equation_k = lambda k: self.createDispersionEquation(k, self.options['omega'], int(r), mode=self.options['mode'])
+        equation_k = lambda k: self.calc_dispersion_equation_for_kr_values_at_r(k, r_ind, mode=mode)
+        iterations=0
+        try:
+            roots_number=contour.count_roots(equation_k)
+        except:
+            print(f"Error in count_roots for r_ind = {r_ind}")
+            return 1
+        while roots_number!=2:
+            if roots_number>4:
+                contour=cx.Rectangle(np.array(contour.x_range)/2,np.array(contour.y_range)/2)
+            elif roots_number>2:
+                if np.max(contour.x_range)<2:
+                    break
+                contour=cx.Rectangle(np.array(contour.x_range)*3/4,np.array(contour.y_range)*3/4)
+            elif roots_number<2:
+                contour=cx.Rectangle(np.array(contour.x_range)*2,np.array(contour.y_range)*2)
+            roots_number=contour.count_roots(equation_k)
+            iterations+=1
+            if iterations>100:
+                print("Abort. Too many iterations")
+                break
+        if self.options['der']:
+            roots = contour.roots(equation_k, df=lambda k: complex(grad(equation_k, holomorphic=True)(k)), guess_roots_symmetry=lambda z: [-z],verbose=True)
+        else:
+            try:
+                roots = contour.roots(equation_k,guess_roots_symmetry=lambda z: [-z],int_method=self.options['int_method'],verbose=True,int_abs_tol=0.1,root_err_tol=1e-3)
+            except:
+                print(f"Error in roots for r = {r_ind}")
+                return 1
+        return roots
+    
+    def store_roots_in_variables(self, res, r_used):
         k_r1 = list()
         k_r2 = list()
         r_found = list()
         for k in range(len(res)):
             if len(res[k].roots)==2:
+                print(f"Two roots found for r = {r_used[k]}")
                 if res[k].roots[0].real > 0:
                     k_r1.append(res[k].roots[0])
                     k_r2.append(res[k].roots[1])
@@ -601,7 +620,7 @@ class KIM_WKB():
                     k_r1.append(res[k].roots[1])
                     k_r2.append(res[k].roots[0])
                     r_found.append(r_used[k])
-            if len(res[k].roots)>=2:
+            if len(res[k].roots)>2:
                 print(f"More than two roots found for r = {r_used[k]}")
                 if res[k].roots[0].real > 0:
                     k_r1.append(res[k].roots[0])
@@ -611,19 +630,8 @@ class KIM_WKB():
                     k_r1.append(res[k].roots[1])
                     k_r2.append(res[k].roots[0])
                     r_found.append(r_used[k])
-        k_r1 = np.array(k_r1)
-        k_r2 = np.array(k_r2) 
-
-        self.r_found = r_found
-        self.k_r1 = k_r1
-        self.k_r2 = k_r2
-
-        print(f"Found r: {r_found}")
-        print(f"Found k_r1: {k_r1}")
-        print(f"Found k_r2: {k_r2}")
-
-        self.save_found_kr_of_r(mode)
-        
+        return np.array(r_found), np.array(k_r1), np.array(k_r2)
+    
     def calc_needed_susc_funcs(self):
         for spec in self.species:
             self.spec_dat[spec]['x1'] = self.general_dat['kp'] * self.spec_dat[spec]['vT'] / self.spec_dat[spec]['nu']
@@ -930,7 +938,6 @@ class KIM_WKB():
         self.r_new = np.array(gobj.gen_grid(self.general_dat['r'], gobj.r_res, 5.0, 50))
 
     def interpolate_on_non_uniform_grid(self):
-        self.generate_non_uniform_grid()
         self.general_dat['old_r'] = np.copy(self.general_dat['r'])
         self.general_dat['r'] = self.r_new
 
@@ -955,12 +962,32 @@ class KIM_WKB():
         self.load_all_profs()
         self.calc_parameters()
         self.find_res_surface()
+        self.generate_non_uniform_grid()    
         self.interpolate_on_non_uniform_grid()
         plt.figure()
         plt.plot(self.r_new, np.zeros_like(self.r_new), marker='.')
         plt.axvline(self.res_surf_val, color='r')
         plt.grid()
         plt.show()
+        
+    def write_dispersion_relation_to_h5(self, file):
+        self.disp_rel_to_h5(file, '', 'w')
+    
+    def append_dispersion_relation_to_h5(self, file, study='D'):
+        self.disp_rel_to_h5(file, study, 'a')
+        
+    def disp_rel_to_h5(self, file, study, mode):
+        h5f = h5py.File(file, mode)
+        try:
+            h5f.create_dataset(study + '/r_found', data=self.r_found)
+        except:
+            raise ValueError(f"Study {study} already exists")
+        h5f.create_dataset(study + '/k_r1', data=self.k_r1)
+        h5f.create_dataset(study + '/k_r2', data=self.k_r2)
+        for option in self.options.keys():
+            h5f.create_dataset(study + '/options/'+ option, data=self.options[option])
+        h5f.create_dataset(study + '/r_res', data=self.res_surf_val)
+        h5f.close()
 
 def determine_dispersion_for_all_species():
     specs = {0: ['e', 'H'], 1: ['e', 'D']}
@@ -995,9 +1022,10 @@ def test_FokkerPlanck():
     kwkb.prof_path = '../../../kim-wkb/profiles_parab/'
     #kwkb.plot_ks()
     #exit()
-    kwkb.options['n_points'] = 200
+    mphi_max = 2
+    kwkb.options['n_points'] = 50
     kwkb.options['Collisions'] = 'FokkerPlanck'
-    kwkb.options['max_cyclotron_harmonic'] = 0
+    kwkb.options['max_cyclotron_harmonic'] = mphi_max
     kwkb.options['der'] = False
     kwkb.options['log'] = False
     kwkb.options['new_grid'] = True
@@ -1007,7 +1035,10 @@ def test_FokkerPlanck():
     #kwkb.plot_dispersion_equation_KIM_FokkerPlanck()
     print('Mode is ', mode, ', Collisions: ', kwkb.options['Collisions'])
     kwkb.calc_dispersion_relation_k_of_r(mode=mode)
-    np.savetxt(f'./{mode}_{kwkb.options["Collisions"]}_{specs[0][1]}.dat',np.vstack((np.real(kwkb.r_found),np.real(kwkb.k_r1), np.imag(kwkb.k_r1), np.real(kwkb.k_r2), np.imag(kwkb.k_r2))).T)
+
+    kwkb.write_dispersion_relation_to_h5(f'./{mode}_{kwkb.options["Collisions"]}_{specs[0][1]}_mphimax{mphi_max}.h5')
+
+#    np.savetxt(,np.vstack((np.real(kwkb.r_found),np.real(kwkb.k_r1), np.imag(kwkb.k_r1), np.real(kwkb.k_r2), np.imag(kwkb.k_r2))).T)
     
 if __name__ == "__main__":
 

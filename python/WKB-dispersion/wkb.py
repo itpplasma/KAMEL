@@ -66,6 +66,8 @@ class KIM_WKB():
                'max_cyclotron_harmonic': 0}
     options['omega_range'] = np.linspace(0, 50, options['n_points'])
 
+    possible_coll_models = ['collisionless', 'Krook', 'FokkerPlanck']
+
     possible_operation_modes = ['KIM', 'horton']
 
     species = ['e', 'D']
@@ -251,86 +253,6 @@ class KIM_WKB():
                 k2.append(float(line.split(";")[3]) + 1j * float(line.split(";")[4]))
         return np.array(r_or_omega), np.array(k1), np.array(k2)
 
-
-    def plotHortonKIM(self, rh, rk, h1, h2, k1, k2, prof, omega=0):
-        if omegaOfk:
-            fig1, ax1 = plt.subplots()
-            ax2 = ax1.twiny()
-            plt.grid()
-            ax1.plot(h1.real, omega, "k.", label="Horton")
-            ax1.plot(h2.real, omega, "k.")
-            ax2.plot(k1.real, omega, "rx", label="KIM")
-            ax2.plot(k2.real, omega, "rx")
-            ax1.set_ylabel("$\omega$ [$s^{-1}$]")
-            ax1.set_xlabel("k Horton [$cm^{-1}$]")
-            ax2.set_xlabel("k KIM [$cm^{-1}$]")
-            lines, labels = ax1.get_legend_handles_labels()
-            lines2, labels2 = ax2.get_legend_handles_labels()
-            ax2.legend(lines2 + lines, labels2 + labels, loc=2)
-            plt.title("Real: " + prof)
-
-            fig2, ax3 = plt.subplots()
-            ax4 = ax3.twiny()
-            plt.grid()
-            ax3.plot(h1.imag, omega, "k.", label="Horton")
-            ax3.plot(h2.imag, omega, "k.")
-            ax4.plot(k1.imag, omega, "rx", label="KIM")
-            ax4.plot(k2.imag, omega, "rx")
-            ax3.set_ylabel("$\omega$ [$s^{-1}$]")
-            ax3.set_xlabel("k horton [$cm^{-1}$]")
-            ax4.set_xlabel("k KIM [$cm^{-1}$]")
-            lines, labels = ax3.get_legend_handles_labels()
-            lines2, labels2 = ax4.get_legend_handles_labels()
-            ax3.legend(lines2 + lines, labels2 + labels, loc=2)
-            plt.title("Imaginary: " + prof)
-        elif kOfr:
-            fig1, ax1 = plt.subplots()
-            ax2 = ax1.twinx()
-            plt.grid()
-            ax1.plot(rh, h1.real, "k.", label="Horton")
-            ax1.plot(rh, h2.real, "k.")
-            ax2.plot(rk, k1.real, "rx", label="KIM")
-            ax2.plot(rk, k2.real, "rx")
-            ax1.vlines(
-                self.r_prof[self.idx_res],
-                np.min(np.append(h1.real, h2.real)),
-                np.max(np.append(h1.real, h2.real)),
-                colors="b",
-                linestyles="dashed",
-                label="Resonant surface",
-            )
-            ax1.set_ylabel("k Horton [$cm^{-1}$]")
-            ax2.set_ylabel("k KIM [$cm^{-1}$]")
-            lines, labels = ax1.get_legend_handles_labels()
-            lines2, labels2 = ax2.get_legend_handles_labels()
-            ax2.legend(lines2 + lines, labels2 + labels, loc=2)
-            ax1.set_xlabel("r [$cm$]")
-            plt.title("Real: " + prof)
-
-            fig2, ax3 = plt.subplots()
-            ax4 = ax3.twinx()
-            plt.grid()
-            ax3.plot(rh, h1.imag, "k.", label="Horton")
-            ax3.plot(rh, h2.imag, "k.")
-            ax4.plot(rk, k1.imag, "rx", label="KIM")
-            ax4.plot(rk, k2.imag, "rx")
-            ax3.vlines(
-                self.r_prof[self.idx_res],
-                np.min(np.append(h1.imag, h2.imag)),
-                np.max(np.append(h1.imag, h2.imag)),
-                colors="b",
-                linestyles="dashed",
-                label="Resonant surface",
-            )
-            ax3.set_ylabel("k Horton [$cm^{-1}$]")
-            ax4.set_ylabel("k KIM [$cm^{-1}$]")
-            lines, labels = ax3.get_legend_handles_labels()
-            lines2, labels2 = ax4.get_legend_handles_labels()
-            ax3.legend(lines2 + lines, labels2 + labels, loc=2)
-            ax3.set_xlabel("r [$cm$]")
-            plt.title("Imaginary: " + prof)
-        return
-
     def load_all_profs(self):
         try:
             self.r_prof = np.loadtxt(self.prof_path + 'n.dat')[:,0]
@@ -357,6 +279,7 @@ class KIM_WKB():
         self.set_ion_densities()
 
     def set_ion_densities(self):
+        # TODO: needs correct implementation for more than 1 ion species
         for spec in self.species:
             if spec != 'e':
                 self.ni_prof = self.n_prof
@@ -412,6 +335,8 @@ class KIM_WKB():
             return self.calc_dispersion_equation_KIM_Krook(kr, r_indx)
         elif self.options['Collisions'] == 'FokkerPlanck':
             return self.calc_dispersion_equation_KIM_FokkerPlanck(kr, r_indx)
+        else:
+            raise ValueError(f'Collision model {self.options["Collisions"]} not supported')
         
 
     def calc_dispersion_equation_KIM_Krook(self, kr, r_indx):
@@ -544,6 +469,7 @@ class KIM_WKB():
     
     def calc_dispersion_relation_k_of_r(self, mode):   
 
+        self.set_model_mode(mode)
         self.initialize_data()
 
         idx = int(self.general_dat['prof_length'] * self.options['r_per'])
@@ -551,7 +477,7 @@ class KIM_WKB():
 
         res = []
         r_used = []
-        
+         
         contour=cx.Rectangle([-self.contour_limit,self.contour_limit],[-self.contour_limit,self.contour_limit])
 
         if self.options['log']:
@@ -561,40 +487,53 @@ class KIM_WKB():
             roots = self.find_roots(int(r), contour)
             if roots == 1:
                 continue
-            res.append(roots)
-            r_used.append(self.general_dat['r'][int(r)])
-
             print(f"Found roots for index {int(r)} at {self.general_dat['r'][int(r)]}:")
             print(f"{roots}")
+            roots = self.sort_roots(roots)
+            res.append(roots)
+            r_used.append(self.general_dat['r'][int(r)])
         
         self.r_found, self.k_r1, self.k_r2 = self.store_roots_in_variables(res, r_used)
 
         self.save_found_kr_of_r(mode)
-
         
     def find_roots(self, r_ind, contour):
         #equation_k = lambda k: self.createDispersionEquation(k, self.options['omega'], int(r), mode=self.options['mode'])
-        equation_k = lambda k: self.calc_dispersion_equation_for_kr_values_at_r(k, r_ind, mode=mode)
+        equation_k = lambda k: self.calc_dispersion_equation_for_kr_values_at_r(k, r_ind, mode=self.options['mode'])
         iterations=0
+        roots_number = 0
+        search_scale_bigger = 2.0
+        search_scale_smaller = 1.5
+        iteration = 0
         try:
-            roots_number=contour.count_roots(equation_k)
+            while roots_number != 2:
+                roots_number=contour.count_roots(equation_k)
+                print(f"roots number: {roots_number}")
+                if roots_number == 0:
+                    contour=cx.Rectangle(np.array(contour.x_range)*search_scale_bigger,np.array(contour.y_range)*search_scale_bigger)
+                if roots_number > 2:
+                    contour=cx.Rectangle(np.array(contour.x_range)/search_scale_smaller,np.array(contour.y_range)/search_scale_smaller)
+                iteration += 1
+                if iteration > 100:
+                    print("Abort. Too many iterations")
+                    return 1
         except:
             print(f"Error in count_roots for r_ind = {r_ind}")
             return 1
-        while roots_number!=2:
-            if roots_number>4:
-                contour=cx.Rectangle(np.array(contour.x_range)/2,np.array(contour.y_range)/2)
-            elif roots_number>2:
-                if np.max(contour.x_range)<2:
-                    break
-                contour=cx.Rectangle(np.array(contour.x_range)*3/4,np.array(contour.y_range)*3/4)
-            elif roots_number<2:
-                contour=cx.Rectangle(np.array(contour.x_range)*2,np.array(contour.y_range)*2)
-            roots_number=contour.count_roots(equation_k)
-            iterations+=1
-            if iterations>100:
-                print("Abort. Too many iterations")
-                break
+        #while roots_number!=2:
+            #if roots_number>4:
+                #contour=cx.Rectangle(np.array(contour.x_range)/2,np.array(contour.y_range)/2)
+            #elif roots_number>2:
+                #if np.max(contour.x_range)<2:
+                    #break
+                #contour=cx.Rectangle(np.array(contour.x_range)*3/4,np.array(contour.y_range)*3/4)
+            #elif roots_number<2:
+                #contour=cx.Rectangle(np.array(contour.x_range)*2,np.array(contour.y_range)*2)
+            #roots_number=contour.count_roots(equation_k)
+            #iterations+=1
+            #if iterations>100:
+                #print("Abort. Too many iterations")
+                #break
         if self.options['der']:
             roots = contour.roots(equation_k, df=lambda k: complex(grad(equation_k, holomorphic=True)(k)), guess_roots_symmetry=lambda z: [-z],verbose=True)
         else:
@@ -604,31 +543,37 @@ class KIM_WKB():
                 print(f"Error in roots for r = {r_ind}")
                 return 1
         return roots
+
+    def sort_roots(self, roots):
+        roots = np.array(roots.roots)
+        idx = np.argsort(np.real(roots))
+        return roots[idx]
     
     def store_roots_in_variables(self, res, r_used):
         k_r1 = list()
         k_r2 = list()
         r_found = list()
         for k in range(len(res)):
-            if len(res[k].roots)==2:
-                print(f"Two roots found for r = {r_used[k]}")
-                if res[k].roots[0].real > 0:
-                    k_r1.append(res[k].roots[0])
-                    k_r2.append(res[k].roots[1])
+            if len(res[k])==2:
+                #print(f"Two roots found for r = {r_used[k]}")
+                print(f'Roots: {res[k]}')
+                if res[k][0].real > 0:
+                    k_r1.append(res[k][0])
+                    k_r2.append(res[k][1])
                     r_found.append(r_used[k])
                 else:
-                    k_r1.append(res[k].roots[1])
-                    k_r2.append(res[k].roots[0])
+                    k_r1.append(res[k][1])
+                    k_r2.append(res[k][0])
                     r_found.append(r_used[k])
-            if len(res[k].roots)>2:
-                print(f"More than two roots found for r = {r_used[k]}")
-                if res[k].roots[0].real > 0:
-                    k_r1.append(res[k].roots[0])
-                    k_r2.append(res[k].roots[1])
+            if len(res[k])>2:
+                #print(f"More than two roots found for r = {r_used[k]}")
+                if res[k].real > 0:
+                    k_r1.append(res[k][0])
+                    k_r2.append(res[k][1])
                     r_found.append(r_used[k])
                 else:
-                    k_r1.append(res[k].roots[1])
-                    k_r2.append(res[k].roots[0])
+                    k_r1.append(res[k][1])
+                    k_r2.append(res[k][0])
                     r_found.append(r_used[k])
         return np.array(r_found), np.array(k_r1), np.array(k_r2)
     
@@ -988,6 +933,53 @@ class KIM_WKB():
             h5f.create_dataset(study + '/options/'+ option, data=self.options[option])
         h5f.create_dataset(study + '/r_res', data=self.res_surf_val)
         h5f.close()
+    
+    def species_data_to_h5(self, file, study, mode):
+        h5f = h5py.File(file, mode)
+        for spec in self.species:
+            print(f"Species {spec}")
+            for key in self.spec_dat[spec]:
+                if key == 'I00' or key == 'I20':
+                    for mphi in range(0, self.options['max_cyclotron_harmonic']+1):
+                        #try:
+                        h5f.create_dataset(study + '/'+ spec + '/'+ key + '/mphi_' + str(mphi), data=self.spec_dat[spec][key][mphi])
+                        #except:
+                            #raise ValueError(f"Species {spec} problem with key {key}")
+                else:
+                    try:
+                        h5f.create_dataset(study + '/'+ spec + '/'+ key, data=self.spec_dat[spec][key])
+                    except:
+                        raise ValueError(f"Species {spec} with key {key} already exists")
+        h5f.close()
+    
+    def general_data_to_h5(self, file, study, mode):
+        h5f = h5py.File(file, mode)
+        for key in self.general_dat:
+            try:
+                h5f.create_dataset(study + '/general/'+ key, data=self.general_dat[key])
+            except:
+                raise ValueError(f"Key {key} already exists")
+        h5f.close()
+        
+    def write_all_data_to_h5(self, file, study='', mode='a'):
+        if os.path.isfile(file) and mode == 'w':
+            os.remove(file)
+        elif not os.path.isfile(file) and mode == 'a':
+            mode = 'w'
+        mode2 = 'a'
+        
+        self.disp_rel_to_h5(file, study, mode)
+        self.species_data_to_h5(file, study, mode2)
+        self.general_data_to_h5(file, study, mode2)
+    
+    def set_collision_mode(self, collisions):
+        assert collisions in self.possible_coll_models, "Collision model not supported"
+        self.options['Collisions'] = collisions
+    
+    def set_model_mode(self, mode):
+        assert mode in self.possible_operation_modes, "Mode not supported"
+        self.options['mode'] = mode
+    
 
 def determine_dispersion_for_all_species():
     specs = {0: ['e', 'H'], 1: ['e', 'D']}
@@ -1015,16 +1007,18 @@ def test_FokkerPlanck():
     specs = {0: ['e', 'D']}
     spec_mass = {0: [e_mass, 2*p_mass]}
     spec_charge_num = {0: [-1,1]}
-    mode = 'KIM'
+    mode = 'horton'
 
+    print(specs[0])
+    #kwkb = KIM_WKB(species=specs[0], spec_mass=spec_mass[0], spec_charge_num=spec_charge_num[0])
     kwkb = KIM_WKB(species=specs[0], spec_mass=spec_mass[0], spec_charge_num=spec_charge_num[0])
-    kwkb.contour_limit = 10 # 50 works for H, 20 for D
+    kwkb.contour_limit = 20 # 50 works for H, 20 for D
     kwkb.prof_path = '../../../kim-wkb/profiles_parab/'
     #kwkb.plot_ks()
     #exit()
     mphi_max = 2
     kwkb.options['n_points'] = 50
-    kwkb.options['Collisions'] = 'FokkerPlanck'
+    kwkb.set_collision_mode('collisionless')
     kwkb.options['max_cyclotron_harmonic'] = mphi_max
     kwkb.options['der'] = False
     kwkb.options['log'] = False
@@ -1036,7 +1030,7 @@ def test_FokkerPlanck():
     print('Mode is ', mode, ', Collisions: ', kwkb.options['Collisions'])
     kwkb.calc_dispersion_relation_k_of_r(mode=mode)
 
-    kwkb.write_dispersion_relation_to_h5(f'./{mode}_{kwkb.options["Collisions"]}_{specs[0][1]}_mphimax{mphi_max}.h5')
+    kwkb.write_all_data_to_h5(f'./{mode}_{kwkb.options["Collisions"]}.h5', mode = 'w')
 
 #    np.savetxt(,np.vstack((np.real(kwkb.r_found),np.real(kwkb.k_r1), np.imag(kwkb.k_r1), np.real(kwkb.k_r2), np.imag(kwkb.k_r2))).T)
     

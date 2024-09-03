@@ -62,6 +62,7 @@ class KIM_WKB():
                'save': True,
                'log': False,
                'new_grid': False,
+               'number_of_roots_to_find': 2,
                'Collisions': 'collisionless', # Possible: collisionless, Krook, FokkerPlanck
                'max_cyclotron_harmonic': 0}
     options['omega_range'] = np.linspace(0, 50, options['n_points'])
@@ -466,6 +467,9 @@ class KIM_WKB():
                 #raise ValueError('Higher cylcotron harmonic than lowest order not yet implemented!')
             self.calc_needed_susc_funcs()
      
+    def set_output_h5_file(self, file, append_or_write='w'):
+        self.h5f = file
+        self.h5_append_or_write = append_or_write
     
     def calc_dispersion_relation_k_of_r(self, mode):   
 
@@ -477,6 +481,7 @@ class KIM_WKB():
 
         res = []
         r_used = []
+        res_sorted = []
          
         contour=cx.Rectangle([-self.contour_limit,self.contour_limit],[-self.contour_limit,self.contour_limit])
 
@@ -489,13 +494,15 @@ class KIM_WKB():
                 continue
             print(f"Found roots for index {int(r)} at {self.general_dat['r'][int(r)]}:")
             print(f"{roots}")
-            roots = self.sort_roots(roots)
+            #sorted_roots = self.sort_roots(roots)
             res.append(roots)
             r_used.append(self.general_dat['r'][int(r)])
+            #res_sorted.append(sorted_roots)
         
+        self.write_roots_to_h5(res, r_used)
         self.r_found, self.k_r1, self.k_r2 = self.store_roots_in_variables(res, r_used)
 
-        self.save_found_kr_of_r(mode)
+        #self.save_found_kr_of_r(mode)
         
     def find_roots(self, r_ind, contour):
         #equation_k = lambda k: self.createDispersionEquation(k, self.options['omega'], int(r), mode=self.options['mode'])
@@ -506,16 +513,17 @@ class KIM_WKB():
         search_scale_smaller = 1.5
         iteration = 0
         try:
-            while roots_number != 2:
+            #while roots_number != self.options['number_of_roots_to_find']:
+            while roots_number > self.options['number_of_roots_to_find'] or roots_number < 2:
                 roots_number=contour.count_roots(equation_k)
-                print(f"roots number: {roots_number}")
+                print(f"roots found: {roots_number}")
                 if roots_number == 0:
                     contour=cx.Rectangle(np.array(contour.x_range)*search_scale_bigger,np.array(contour.y_range)*search_scale_bigger)
-                if roots_number > 2:
+                if roots_number > self.options['number_of_roots_to_find']:
                     contour=cx.Rectangle(np.array(contour.x_range)/search_scale_smaller,np.array(contour.y_range)/search_scale_smaller)
                 iteration += 1
                 if iteration > 100:
-                    print("Abort. Too many iterations")
+                    print(f"Abort. Too many iterations. Did not find exactly {self.options['number_of_roots_to_find']} roots")
                     return 1
         except:
             print(f"Error in count_roots for r_ind = {r_ind}")
@@ -548,33 +556,49 @@ class KIM_WKB():
         roots = np.array(roots.roots)
         idx = np.argsort(np.real(roots))
         return roots[idx]
+
+
+    def write_roots_to_h5(self, res, r_used):
+        h5f = h5py.File(self.h5f, self.h5_append_or_write)
+        for i, r in enumerate(r_used):
+            try:
+                h5f.create_dataset(f'roots/r_{r}', data=res[i].roots)
+            except:
+                print(f"Error in writing roots for r = {r}")
+        h5f.close()
     
     def store_roots_in_variables(self, res, r_used):
         k_r1 = list()
         k_r2 = list()
         r_found = list()
         for k in range(len(res)):
-            if len(res[k])==2:
+            for root in res[k].roots:
+                k_r1.append(root)
+                k_r2.append(root)
+                r_found.append(r_used[k])
+            #if len(res[k])==2:
                 #print(f"Two roots found for r = {r_used[k]}")
-                print(f'Roots: {res[k]}')
-                if res[k][0].real > 0:
-                    k_r1.append(res[k][0])
-                    k_r2.append(res[k][1])
-                    r_found.append(r_used[k])
-                else:
-                    k_r1.append(res[k][1])
-                    k_r2.append(res[k][0])
-                    r_found.append(r_used[k])
-            if len(res[k])>2:
-                #print(f"More than two roots found for r = {r_used[k]}")
-                if res[k].real > 0:
-                    k_r1.append(res[k][0])
-                    k_r2.append(res[k][1])
-                    r_found.append(r_used[k])
-                else:
-                    k_r1.append(res[k][1])
-                    k_r2.append(res[k][0])
-                    r_found.append(r_used[k])
+                #print(f'Roots: {res[k]}')
+
+                    
+                #if res[k].roots[0].real > 0:
+                    #k_r1.append(res[k][0])
+                    #k_r2.append(res[k][1])
+                    #r_found.append(r_used[k])
+                #else:
+                    #k_r1.append(res[k][1])
+                    #k_r2.append(res[k][0])
+                    #r_found.append(r_used[k])
+            #if len(res[k])>2:
+                ##print(f"More than two roots found for r = {r_used[k]}")
+                #if res[k].roots[0].real > 0:
+                    #k_r1.append(res[k][0])
+                    #k_r2.append(res[k][1])
+                    #r_found.append(r_used[k])
+                #else:
+                    #k_r1.append(res[k][1])
+                    #k_r2.append(res[k][0])
+                    #r_found.append(r_used[k])
         return np.array(r_found), np.array(k_r1), np.array(k_r2)
     
     def calc_needed_susc_funcs(self):
@@ -1007,18 +1031,17 @@ def test_FokkerPlanck():
     specs = {0: ['e', 'D']}
     spec_mass = {0: [e_mass, 2*p_mass]}
     spec_charge_num = {0: [-1,1]}
-    mode = 'horton'
+    mode = 'KIM'
 
-    print(specs[0])
-    #kwkb = KIM_WKB(species=specs[0], spec_mass=spec_mass[0], spec_charge_num=spec_charge_num[0])
     kwkb = KIM_WKB(species=specs[0], spec_mass=spec_mass[0], spec_charge_num=spec_charge_num[0])
-    kwkb.contour_limit = 20 # 50 works for H, 20 for D
+    kwkb.contour_limit = 10 # 50 works for H, 20 for D
     kwkb.prof_path = '../../../kim-wkb/profiles_parab/'
     #kwkb.plot_ks()
     #exit()
     mphi_max = 2
     kwkb.options['n_points'] = 50
-    kwkb.set_collision_mode('collisionless')
+    kwkb.options['number_of_roots_to_find'] = 8
+    kwkb.set_collision_mode('FokkerPlanck')
     kwkb.options['max_cyclotron_harmonic'] = mphi_max
     kwkb.options['der'] = False
     kwkb.options['log'] = False
@@ -1028,9 +1051,9 @@ def test_FokkerPlanck():
     #exit()
     #kwkb.plot_dispersion_equation_KIM_FokkerPlanck()
     print('Mode is ', mode, ', Collisions: ', kwkb.options['Collisions'])
+    kwkb.set_output_h5_file(f'./{mode}_{kwkb.options["Collisions"]}.h5', append_or_write = 'w')
     kwkb.calc_dispersion_relation_k_of_r(mode=mode)
-
-    kwkb.write_all_data_to_h5(f'./{mode}_{kwkb.options["Collisions"]}.h5', mode = 'w')
+    kwkb.write_all_data_to_h5(f'./{mode}_{kwkb.options["Collisions"]}.h5', mode = 'a')
 
 #    np.savetxt(,np.vstack((np.real(kwkb.r_found),np.real(kwkb.k_r1), np.imag(kwkb.k_r1), np.real(kwkb.k_r2), np.imag(kwkb.k_r2))).T)
     

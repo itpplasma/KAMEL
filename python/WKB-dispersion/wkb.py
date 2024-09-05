@@ -16,19 +16,16 @@ import h5py
 import logging
 
 from Bessel_calculation import calc_needed_bessel_of_mphi
+from KIMDispersion_Horton import KIMDispersion_Horton
+from KIMDispersion_Krook import KIMDispersion_Krook
+from KIMDispersion_FokkerPlanck import KIMDispersion_FokkerPlanck
+from DispersionEquationFactory import *
 
 sys.path.append(os.path.join(os.path.dirname(__file__), '../../../KiLCA-QB/python/susc_functions/'))
 import susc_funcs
 
-
-##Define constants
-pi = np.pi
-e_mass = 9.1094e-28
-p_mass = 1.6726e-24
-e_charge = 4.8032e-10
-ev = 1.6022e-12
-sol = 29979245800.0
-kB = 1.380649e-16
+sys.path.append(os.path.join(os.path.dirname(__file__), '../'))
+from constants import *
 
 
 class KIM_WKB():
@@ -322,73 +319,12 @@ class KIM_WKB():
         
 
     def create_dispersion_equation_single(self, kr, r_indx, mode="KIM"):
-        assert mode in self.possible_operation_modes, f"Mode {mode} not supported"
+        #assert mode in self.possible_operation_modes, f"Mode {mode} not supported"
 
-        self.general_dat['kperp'] = np.sqrt(self.general_dat['ks']**2 + kr**2)
-        if mode == 'KIM':
-            dispersion_equation = self.calc_dispersion_equation_KIM(kr, r_indx)
-        elif mode == "horton":
-            dispersion_equation = self.calc_dispersion_equation_horton_single(kr, r_indx)
-        return dispersion_equation
-
-
-    def calc_dispersion_equation_KIM(self, kr, r_indx):
-        if self.options['Collisions'] == 'collisionless' or self.options['Collisions'] == 'Krook':
-            return self.calc_dispersion_equation_KIM_Krook(kr, r_indx)
-        elif self.options['Collisions'] == 'FokkerPlanck':
-            return self.calc_dispersion_equation_KIM_FokkerPlanck(kr, r_indx)
-        else:
-            raise ValueError(f'Collision model {self.options["Collisions"]} not supported')
-        
-
-    def calc_dispersion_equation_KIM_Krook(self, kr, r_indx):
-        dispersion_equation = self.general_dat['kperp'][r_indx]**2 + self.general_dat['kp'][r_indx]**2
-        for spec in self.species:
-            eval_b = self.general_dat['kperp'][r_indx]**2 * self.spec_dat[spec]['rho_TL'][r_indx]**2
-            BesselProd0, BesselProd1 = calc_needed_bessel_of_mphi(0, eval_b)
-            if np.isnan(BesselProd0) or np.isnan(BesselProd1):
-                print(f'BesselProd0 or BesselProd1 contains NaNs')
-
-            dispersion_equation += self.spec_dat[spec]['lambda_D'][r_indx]**-2 * \
-                (
-                    1.0 - self.general_dat['ks'][r_indx] * self.spec_dat[spec]['rho_TL'][r_indx] \
-                / (self.general_dat['kp'][r_indx] * np.sqrt(2)) * (self.spec_dat[spec]['A1'][r_indx] * BesselProd0 * plasma_disp(self.spec_dat[spec]['z0'][r_indx]) + \
-                self.spec_dat[spec]['A2'][r_indx] * (plasma_disp(self.spec_dat[spec]['z0'][r_indx]) * (1 + eval_b + self.spec_dat[spec]['z0'][r_indx]**2)\
-                * np.exp(-eval_b) + BesselProd1 * eval_b + self.spec_dat[spec]['z0'][r_indx] * BesselProd0))
-                )
-        #print(dispersion_equation)
-        return dispersion_equation
-    
-
-    def calc_dispersion_equation_KIM_FokkerPlanck(self, kr, r_indx):
-        dispersion_equation = self.general_dat['kperp'][r_indx]**2 + self.general_dat['kp'][r_indx]**2
-        #print(dispersion_equation)
-        for spec in self.species:
-            eval_b = self.general_dat['kperp'][r_indx]**2 * self.spec_dat[spec]['rho_TL'][r_indx]**2
-            for m_phi in range(0, self.options['max_cyclotron_harmonic']+1):
-                BesselProd0, BesselProd1 = calc_needed_bessel_of_mphi(mphi=m_phi, eval_b=eval_b)
-                if np.isnan(BesselProd0) or np.isnan(BesselProd1):
-                    print(f'FokkerPlanck: BesselProd0 or BesselProd1 contains NaNs, eval_b = {eval_b}, m_phi = {m_phi}')
-                    print(f'BesselProd0: {BesselProd0}, BesselProd1: {BesselProd1}')
-
-                
-                dispersion_equation_temp = \
-                   (1j * self.spec_dat[spec]['vT'][r_indx]**2.0 * self.general_dat['ks'][r_indx]) \
-                       / (self.spec_dat[spec]['lambda_D'][r_indx]**2 * self.spec_dat[spec]['omega_c'][r_indx] * self.spec_dat[spec]['nu'][r_indx]) \
-                    * (
-                        self.spec_dat[spec]['A1'][r_indx] * self.spec_dat[spec]['I00'][m_phi][r_indx] * BesselProd0 \
-                        + self.spec_dat[spec]['A2'][r_indx] \
-                        * (
-                           self.spec_dat[spec]['I00'][m_phi][r_indx] * (
-                                 BesselProd0 * (1 + eval_b + m_phi) + eval_b * BesselProd1
-                            ) 
-                           + 0.5 * self.spec_dat[spec]['I20'][m_phi][r_indx] * BesselProd0
-                        )
-                    )
-                
-                dispersion_equation -= dispersion_equation_temp
-        #print(dispersion_equation)
-        
+        #if mode == 'KIM':
+         #   dispersion_equation = self.calc_dispersion_equation_KIM(kr, r_indx)
+        #elif mode == "horton":
+        dispersion_equation = self.dispersion_model.dispersion_equation(kr, r_indx)
         return dispersion_equation
 
 
@@ -435,34 +371,6 @@ class KIM_WKB():
         plt.grid()
         plt.show()
 
-    def calc_dispersion_equation_horton_single(self, kr, r_indx):
-        ky = self.general_dat['ks'][r_indx]
-        om_prime = self.options['omega'] - self.general_dat['om_E'][r_indx]
-        
-        dispersion_equation = 0 + 0j
-        denom = 0 + 0j
-        nom = 0 + 0j
-        for spec in self.species:
-            self.spec_dat[spec]['om_n'] = ky * sol / (self.spec_dat[spec]['charge'] * self.equil_dat['B0'][r_indx] \
-                * self.spec_dat[spec]['n'][r_indx]) * self.spec_dat[spec]['T'][r_indx] * ev * self.spec_dat[spec]['dndr'][r_indx]
-            self.spec_dat[spec]['om_T'] = ky * sol / (self.spec_dat[spec]['charge'] * self.equil_dat['B0'][r_indx]) * self.spec_dat[spec]['dTdr'][r_indx] * ev
-
-            self.spec_dat[spec]['z'] = om_prime / (np.sqrt(2) * self.general_dat['kp'][r_indx] * self.spec_dat[spec]['vT'][r_indx])
-            self.spec_dat[spec]['W'] = (self.spec_dat[spec]['om_n'] - om_prime + self.spec_dat[spec]['om_T'] * (self.spec_dat[spec]['z']**2 + 0.5)) \
-                * self.spec_dat[spec]['z'] / om_prime * plasma_disp(self.spec_dat[spec]['z']) + self.spec_dat[spec]['om_T'] * self.spec_dat[spec]['z']**2 / om_prime
-
-            self.spec_dat[spec]['nom'] = self.spec_dat[spec]['lambda_D'][r_indx]**-2 * (self.spec_dat[spec]['W'] - 1.0 \
-                -self.spec_dat[spec]['om_T'] * self.spec_dat[spec]['z'] / om_prime * plasma_disp(self.spec_dat[spec]['z']))
-            self.spec_dat[spec]['denom'] = self.spec_dat[spec]['W'] * self.spec_dat[spec]['vT'][r_indx]**2 / (self.spec_dat[spec]['omega_c'][r_indx]**2 \
-                * self.spec_dat[spec]['lambda_D'][r_indx]**2)
-
-            nom += self.spec_dat[spec]['nom']
-            denom += self.spec_dat[spec]['denom']
-
-        nom -= self.general_dat['kp'][r_indx]**2
-        dispersion_equation = nom / (1 + denom) - self.general_dat['kperp'][r_indx]**2
-        
-        return dispersion_equation
 
     def initialize_data(self):
         self.load_all_profs()
@@ -482,10 +390,13 @@ class KIM_WKB():
         self.h5f = file
         self.h5_append_or_write = append_or_write
     
-    def calc_dispersion_relation_k_of_r(self, mode):   
+    def calc_dispersion_relation_k_of_r(self, mode, collisions):  
 
         self.set_model_mode(mode)
+        self.set_collision_mode(collisions)
         self.initialize_data()
+        
+        self.init_dispersion_equation()
 
         idx = int(self.general_dat['prof_length'] * self.options['r_per'])
         idx_range = np.linspace(self.options['r_range_start'], self.general_dat['prof_length'] - 1, self.options['n_points'])
@@ -523,8 +434,8 @@ class KIM_WKB():
         search_scale_bigger = 2.0
         search_scale_smaller = 1.5
         iteration = 0
-        try:
-        #if True:
+        #try:
+        if True:
             #while roots_number != self.options['number_of_roots_to_find']:
             while roots_number > self.options['number_of_roots_to_find'] or roots_number < 2:
                 roots_number=contour.count_roots(equation_k)
@@ -537,9 +448,9 @@ class KIM_WKB():
                 if iteration > 100:
                     print(f"Abort. Too many iterations. Did not find exactly {self.options['number_of_roots_to_find']} roots")
                     return 1
-        except:
-            print(f"Error in count_roots for r_ind = {r_ind}")
-            return 1
+        #except:
+            #print(f"Error in count_roots for r_ind = {r_ind}")
+            #return 1
         if self.options['der']:
             roots = contour.roots(equation_k, df=lambda k: complex(grad(equation_k, holomorphic=True)(k)), guess_roots_symmetry=lambda z: [-z],verbose=True)
         else:
@@ -996,13 +907,24 @@ class KIM_WKB():
         self.general_data_to_h5(file, study, mode2)
     
     def set_collision_mode(self, collisions):
-        assert collisions in self.possible_coll_models, "Collision model not supported"
+        if self.options['mode'] != 'horton':
+            assert collisions in self.possible_coll_models, "Collision model not supported"
         self.options['Collisions'] = collisions
     
     def set_model_mode(self, mode):
         assert mode in self.possible_operation_modes, "Mode not supported"
         self.options['mode'] = mode
     
+
+    def init_dispersion_equation(self):
+        if self.options['mode'] == 'horton':
+            self.dispersion_model = KIMDispersion_Horton_Factory.get_dispersion_model()
+        if self.options['mode'] == 'KIM':
+            if self.options['Collisions'] == 'Krook':
+                self.dispersion_model = KIMDispersion_Krook_Factory.get_dispersion_model()
+            if self.options['Collisions'] == 'FokkerPlanck':
+                self.dispersion_model = KIMDispersion_FokkerPlanck_Factory.get_dispersion_model()
+        self.dispersion_model.initialize(self.options, self.species, self.spec_dat, self.general_dat, self.equil_dat)
 
 def determine_dispersion_for_all_species():
     specs = {0: ['e', 'H'], 1: ['e', 'D']}
@@ -1054,7 +976,29 @@ def test_FokkerPlanck():
     kwkb.write_all_data_to_h5(f'./{mode}_{kwkb.options["Collisions"]}.h5', mode = 'a')
 
 #    np.savetxt(,np.vstack((np.real(kwkb.r_found),np.real(kwkb.k_r1), np.imag(kwkb.k_r1), np.real(kwkb.k_r2), np.imag(kwkb.k_r2))).T)
-    
+
+def test_ABC():
+    specs = {0: ['e', 'D']}
+    spec_mass = {0: [e_mass, 2*p_mass]}
+    spec_charge_num = {0: [-1,1]}
+    mode = 'horton'
+    collisions = ''
+
+    kwkb = KIM_WKB(species=specs[0], spec_mass=spec_mass[0], spec_charge_num=spec_charge_num[0])
+    kwkb.contour_limit = 10 # 50 works for H, 20 for D
+    kwkb.prof_path = '../../../kim-wkb/profiles_parab/'
+    kwkb.options['n_points'] = 50
+    kwkb.options['number_of_roots_to_find'] = 8
+    kwkb.options['der'] = False # set True if jax is used for differentiation
+    kwkb.options['log'] = False
+    kwkb.options['new_grid'] = True
+
+    study = 'ABC_test'
+    kwkb.set_output_h5_file(f'./'+study+f'_{mode}_{kwkb.options["Collisions"]}.h5', append_or_write = 'w')
+    kwkb.calc_dispersion_relation_k_of_r(mode=mode, collisions=collisions)
+    kwkb.write_all_data_to_h5(f'./'+study+f'_{mode}_{kwkb.options["Collisions"]}.h5', mode = 'a')
+
+
 if __name__ == "__main__":
 
     if len(sys.argv) > 1:
@@ -1064,4 +1008,5 @@ if __name__ == "__main__":
         mode = 'horton'
 
 
-    test_FokkerPlanck()
+    #test_FokkerPlanck()
+    test_ABC()

@@ -9,6 +9,8 @@ import os
 import sys
 from scipy.integrate import solve_ivp
 from scipy.special import iv as Bessel
+from scipy.special import gamma as Gamma
+from math import factorial
 from jax import grad
 import jax
 import jax.numpy as jnp
@@ -359,49 +361,116 @@ class KIM_WKB():
         return dispersion_equation
 
     def calc_needed_bessel_single(self, eval_b):
-        if np.real(eval_b)>self.bessel_large_arg_limit:
-            BesselProd0 = 1.0 / (np.sqrt(2*np.pi*eval_b)) + 0j
-            BesselProd1 = 1.0 / (np.sqrt(2*np.pi*eval_b)*(1 + 1 / eval_b**2)**(1/4)) * np.exp(np.arcsinh(-1 / eval_b) + eval_b \
-                * np.sqrt(1 + 1 / eval_b**2) - eval_b) + 0j
-        else:
-            BesselProd0 = Bessel(0, eval_b)*np.exp(-eval_b) + 0j
-            BesselProd1 = Bessel(-1, eval_b)*np.exp(-eval_b) + 0j
-        return BesselProd0, BesselProd1
+        #if np.real(eval_b)>self.bessel_large_arg_limit:
+            #BesselProd0 = 1.0 / (np.sqrt(2*np.pi*eval_b)) + 0j
+            #BesselProd1 = 1.0 / (np.sqrt(2*np.pi*eval_b)*(1 + 1 / eval_b**2)**(1/4)) * np.exp(np.arcsinh(-1 / eval_b) + eval_b \
+                #* np.sqrt(1 + 1 / eval_b**2) - eval_b) + 0j
+        #else:
+            #BesselProd0 = Bessel(0, eval_b)*np.exp(-eval_b) + 0j
+            #BesselProd1 = Bessel(-1, eval_b)*np.exp(-eval_b) + 0j
+
+        return self.calc_needed_bessel_of_mphi( 0, eval_b)
+        #return BesselProd0, BesselProd1
     
 
     def calc_dispersion_equation_KIM_FokkerPlanck(self, kr, r_indx):
         dispersion_equation = self.general_dat['kperp'][r_indx]**2 + self.general_dat['kp'][r_indx]**2
+        #print(dispersion_equation)
         for spec in self.species:
-            
             eval_b = self.general_dat['kperp'][r_indx]**2 * self.spec_dat[spec]['rho_TL'][r_indx]**2
-            
             for m_phi in range(0, self.options['max_cyclotron_harmonic']+1):
                 BesselProd0, BesselProd1 = self.calc_needed_bessel_of_mphi(mphi=m_phi, eval_b=eval_b)
                 if np.isnan(BesselProd0) or np.isnan(BesselProd1):
                     print(f'FokkerPlanck: BesselProd0 or BesselProd1 contains NaNs, eval_b = {eval_b}, m_phi = {m_phi}')
                     print(f'BesselProd0: {BesselProd0}, BesselProd1: {BesselProd1}')
 
-                dispersion_equation -= \
-                    (1j * self.spec_dat[spec]['vT'][r_indx]**2.0 * self.general_dat['ks'][r_indx]) / (self.spec_dat[spec]['lambda_D'][r_indx]**2 \
-                        * self.spec_dat[spec]['omega_c'][r_indx] * 2.0 * np.pi * self.spec_dat[spec]['nu'][r_indx]) \
-                        * (self.spec_dat[spec]['I00'][m_phi][r_indx] * (BesselProd0 * (self.spec_dat[spec]['A1'][r_indx] + \
-                            self.spec_dat[spec]['A2'][r_indx] * (1.0 + eval_b + m_phi)) + self.spec_dat[spec]['A2'][r_indx] * eval_b * BesselProd1)\
-                        + self.spec_dat[spec]['I20'][m_phi][r_indx] * 0.5 * self.spec_dat[spec]['A2'][r_indx]*BesselProd0)
+                #dispersion_equation_temp = \
+                #    (1j * self.spec_dat[spec]['vT'][r_indx]**2.0 * self.general_dat['ks'][r_indx]) / (self.spec_dat[spec]['lambda_D'][r_indx]**2 \
+                #        * self.spec_dat[spec]['omega_c'][r_indx] * self.spec_dat[spec]['nu'][r_indx]) \
+                        #* (self.spec_dat[spec]['I00'][m_phi][r_indx] * (BesselProd0 * (self.spec_dat[spec]['A1'][r_indx] + \
+                            #self.spec_dat[spec]['A2'][r_indx] * (1.0 + eval_b + m_phi)) + self.spec_dat[spec]['A2'][r_indx] * eval_b * BesselProd1)\
+                        #+ self.spec_dat[spec]['I20'][m_phi][r_indx] * 0.5 * self.spec_dat[spec]['A2'][r_indx]*BesselProd0)
+                #print(dispersion_equation_temp)
+                
+                dispersion_equation_temp = \
+                   (1j * self.spec_dat[spec]['vT'][r_indx]**2.0 * self.general_dat['ks'][r_indx]) \
+                       / (self.spec_dat[spec]['lambda_D'][r_indx]**2 * self.spec_dat[spec]['omega_c'][r_indx] * self.spec_dat[spec]['nu'][r_indx]) \
+                    * (
+                        self.spec_dat[spec]['A1'][r_indx] * self.spec_dat[spec]['I00'][m_phi][r_indx] * BesselProd0 \
+                        + self.spec_dat[spec]['A2'][r_indx] \
+                        * (
+                           self.spec_dat[spec]['I00'][m_phi][r_indx] * (
+                                 BesselProd0 * (1 + eval_b + m_phi) + eval_b * BesselProd1
+                            ) 
+                           + 0.5 * self.spec_dat[spec]['I20'][m_phi][r_indx] * BesselProd0
+                        )
+                    )
+                
+                dispersion_equation -= dispersion_equation_temp
         #print(dispersion_equation)
+        
         return dispersion_equation
 
-    def calc_needed_bessel_of_mphi(self, mphi, eval_b):
-        if np.abs(np.real(eval_b))>self.bessel_large_arg_limit:
-            # asymptotic form for Bessel function:
+    #def calc_needed_bessel_of_mphi(self, mphi, eval_b):
+        #if np.abs(np.real(eval_b))>self.bessel_large_arg_limit:
+            ## asymptotic form for Bessel function:
 
-            BesselProd0 = 1.0 / (np.sqrt(2*np.pi*eval_b) * (1+ mphi**2 / eval_b**2)**(1/4)) * np.exp(- mphi * np.arcsinh(mphi / eval_b) + eval_b \
-                * np.sqrt(1 + mphi**2 / eval_b**2) - eval_b) + 0j
-            BesselProd1 = 1.0 / (np.sqrt(2*np.pi*eval_b) * (1+ (mphi-1)**2 / eval_b**2)**(1/4)) * np.exp(- (mphi-1) * np.arcsinh((mphi-1) / eval_b) + eval_b \
-                * np.sqrt(1 + (mphi-1)**2 / eval_b**2) - eval_b) + 0j
-        else:
-            BesselProd0 = Bessel(mphi, eval_b)* np.exp(-eval_b)
-            BesselProd1 = Bessel(mphi-1, eval_b)* np.exp(-eval_b)
+            #BesselProd0 = 1.0 / (np.sqrt(2*np.pi*eval_b + 0j) * (1+ mphi**2 / eval_b**2)**(1/4)) * np.exp(- mphi * np.arcsinh(mphi / eval_b) + eval_b \
+                #* np.sqrt(1 + mphi**2 / eval_b**2) - eval_b) + 0j
+            #BesselProd1 = 1.0 / (np.sqrt(2*np.pi*eval_b + 0j) * (1+ (mphi-1)**2 / eval_b**2)**(1/4)) * np.exp(- (mphi-1) * np.arcsinh((mphi-1) / eval_b) + eval_b \
+                #* np.sqrt(1 + (mphi-1)**2 / eval_b**2) - eval_b) + 0j
+        #else:
+            #BesselProd0 = Bessel(mphi, eval_b)* np.exp(-eval_b)
+            #BesselProd1 = Bessel(mphi-1, eval_b)* np.exp(-eval_b)
+        #return BesselProd0, BesselProd1 
+    
+    def calc_needed_bessel_of_mphi(self, mphi, eval_b):
+        
+        #if np.abs(eval_b)>self.bessel_large_arg_limit:
+        if True:
+            # use definition via sum
+            BesselProd0 = 0 + 0j
+            BesselProd1 = 0 + 0j
+            BesselProd0_store = 1.0 + 0j
+            BesselProd1_store = 1.0 + 0j
+            k = 0
+            while (np.abs(BesselProd0 - BesselProd0_store) > 1e-10 or np.abs(BesselProd1 - BesselProd1_store) > 1e-10):
+                BesselProd0_store = 1.0 * BesselProd0
+                BesselProd1_store = 1.0 * BesselProd1
+                BesselProd0 += (0.5 * eval_b)**(2*k) / (factorial(k) * Gamma(k+mphi+1) + 0j) * np.exp(-eval_b)
+                BesselProd1 += (0.5 * eval_b)**(2*k) / (factorial(k) * Gamma(k+mphi) + 0j) * np.exp(-eval_b)
+                k +=1
+                if k > 50:
+                    break
+            BesselProd0 *= (0.5 * eval_b)**mphi
+            BesselProd1 *= (0.5 * eval_b)**(mphi-1)
+        #else:
+        #    BesselProd0 = Bessel(mphi, eval_b)* np.exp(-eval_b)
+        #    BesselProd1 = Bessel(mphi-1, eval_b)* np.exp(-eval_b)
+        
         return BesselProd0, BesselProd1 
+    
+    def test_bessel_of_mphi(self):
+        mphi_list = [0]
+        eval_b = np.linspace(-7,7,100)
+        plt.figure(figsize=(8,6))
+        Bess0 = np.zeros(len(eval_b), dtype=complex)
+        Bess1 = np.zeros(len(eval_b), dtype=complex)
+        self.bessel_large_arg_limit = 1
+        for i, mphi in enumerate(mphi_list):
+            for j, b in enumerate(eval_b):
+                Bess0[j], Bess1[j] = self.calc_needed_bessel_of_mphi(mphi, b)
+            plt.plot(eval_b, np.real(Bess0), label=f'Re, Bessel0, mphi = {mphi}', marker='x')
+            plt.plot(eval_b, np.real(Bess1), label=f'Re, Bessel1, mphi = {mphi}', marker='x')
+            plt.plot(eval_b, np.imag(Bess0), label=f'Im, Bessel0, mphi = {mphi}', ls=':', marker='.')
+            plt.plot(eval_b, np.imag(Bess1), label=f'Im, Bessel1, mphi = {mphi}', ls=':', marker='.')
+        plt.legend(bbox_to_anchor=(1.05, 1), loc='upper left')
+        plt.tight_layout()
+        plt.grid()
+        #plt.yscale('log')
+        plt.show()
+        
+        
 
     def plot_dispersion_equation_KIM_FokkerPlanck(self):
 
@@ -483,7 +552,7 @@ class KIM_WKB():
         r_used = []
         res_sorted = []
          
-        contour=cx.Rectangle([-self.contour_limit,self.contour_limit],[-self.contour_limit,self.contour_limit])
+        contour=cx.Rectangle(x_range=[-self.contour_limit,self.contour_limit], y_range=[-self.contour_limit,self.contour_limit])
 
         if self.options['log']:
             logging.basicConfig(level=logging.INFO)
@@ -513,6 +582,7 @@ class KIM_WKB():
         search_scale_smaller = 1.5
         iteration = 0
         try:
+        #if True:
             #while roots_number != self.options['number_of_roots_to_find']:
             while roots_number > self.options['number_of_roots_to_find'] or roots_number < 2:
                 roots_number=contour.count_roots(equation_k)
@@ -528,25 +598,12 @@ class KIM_WKB():
         except:
             print(f"Error in count_roots for r_ind = {r_ind}")
             return 1
-        #while roots_number!=2:
-            #if roots_number>4:
-                #contour=cx.Rectangle(np.array(contour.x_range)/2,np.array(contour.y_range)/2)
-            #elif roots_number>2:
-                #if np.max(contour.x_range)<2:
-                    #break
-                #contour=cx.Rectangle(np.array(contour.x_range)*3/4,np.array(contour.y_range)*3/4)
-            #elif roots_number<2:
-                #contour=cx.Rectangle(np.array(contour.x_range)*2,np.array(contour.y_range)*2)
-            #roots_number=contour.count_roots(equation_k)
-            #iterations+=1
-            #if iterations>100:
-                #print("Abort. Too many iterations")
-                #break
         if self.options['der']:
             roots = contour.roots(equation_k, df=lambda k: complex(grad(equation_k, holomorphic=True)(k)), guess_roots_symmetry=lambda z: [-z],verbose=True)
         else:
             try:
                 roots = contour.roots(equation_k,guess_roots_symmetry=lambda z: [-z],int_method=self.options['int_method'],verbose=True,int_abs_tol=0.1,root_err_tol=1e-3)
+                #roots = contour.roots(equation_k,int_method=self.options['int_method'],verbose=True,int_abs_tol=0.1,root_err_tol=1e-3)
             except:
                 print(f"Error in roots for r = {r_ind}")
                 return 1
@@ -1038,7 +1095,7 @@ def test_FokkerPlanck():
     kwkb.prof_path = '../../../kim-wkb/profiles_parab/'
     #kwkb.plot_ks()
     #exit()
-    mphi_max = 2
+    mphi_max = 0
     kwkb.options['n_points'] = 50
     kwkb.options['number_of_roots_to_find'] = 8
     kwkb.set_collision_mode('FokkerPlanck')
@@ -1048,6 +1105,7 @@ def test_FokkerPlanck():
     kwkb.options['new_grid'] = True
     #kwkb.test_non_uniform_grid()
     #kwkb.plot_x2()
+    #kwkb.test_bessel_of_mphi()
     #exit()
     #kwkb.plot_dispersion_equation_KIM_FokkerPlanck()
     print('Mode is ', mode, ', Collisions: ', kwkb.options['Collisions'])

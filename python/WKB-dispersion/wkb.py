@@ -536,6 +536,23 @@ class KIM_WKB():
                 plt.plot(self.general_dat['r'], self.spec_dat[spec]['I00'][m_phi].real, label=spec)
         plt.legend()
         plt.show()
+
+    def plot_dispersion_equation_KIM_FokkerPlanck(self):
+        self.initialize_data()
+
+        kr = 1j*np.linspace(-100, 100, 100)
+        r_indx = 0
+        
+        disp_eq = np.zeros(len(kr), dtype=complex)
+        for i,k in enumerate(kr):
+            self.general_dat['kperp'] = np.sqrt(self.general_dat['ks']**2 + k**2)
+            disp_eq[i] = self.calc_dispersion_equation_KIM_FokkerPlanck(k, r_indx)
+        print(disp_eq)
+        plt.figure()
+        plt.plot(np.imag(kr), np.real(disp_eq))
+        plt.plot(np.imag(kr), np.imag(disp_eq))
+        plt.grid()
+        plt.show()
         
 def determine_dispersion_for_all_species():
     specs = {0: ['e', 'H'], 1: ['e', 'D']}
@@ -557,24 +574,6 @@ def determine_dispersion_for_all_species():
             #kwkb.plot_kr_of_r()
             np.savetxt(f'./{mode}_{spec[1]}.dat',np.vstack((np.real(kwkb.r_found),np.real(kwkb.k_r1), np.imag(kwkb.k_r1), np.real(kwkb.k_r2), np.imag(kwkb.k_r2))).T)
 
-    def plot_dispersion_equation_KIM_FokkerPlanck(self):
-        self.initialize_data()
-
-        kr = 1j*np.linspace(-100, 100, 100)
-        r_indx = 0
-        
-        disp_eq = np.zeros(len(kr), dtype=complex)
-        for i,k in enumerate(kr):
-            self.general_dat['kperp'] = np.sqrt(self.general_dat['ks']**2 + k**2)
-            disp_eq[i] = self.calc_dispersion_equation_KIM_FokkerPlanck(k, r_indx)
-        print(disp_eq)
-        plt.figure()
-        plt.plot(np.imag(kr), np.real(disp_eq))
-        plt.plot(np.imag(kr), np.imag(disp_eq))
-        plt.grid()
-        plt.show()
-
-
 def test_FokkerPlanck(mode, collisions):
     specs = {0: ['e', 'D']}
     spec_mass = {0: [e_mass, 2*p_mass]}
@@ -595,12 +594,10 @@ def test_FokkerPlanck(mode, collisions):
     kwkb.calc_dispersion_relation_k_of_r(mode=mode, collisions=collisions)
     kwkb.write_all_data_to_h5(f'./{mode}_{kwkb.options["Collisions"]}.h5', mode = 'a')
 
-def test_ABC():
+def test_ABC(mode, collisions):
     specs = {0: ['e', 'D']}
     spec_mass = {0: [e_mass, 2*p_mass]}
     spec_charge_num = {0: [-1,1]}
-    mode = 'KIM'
-    collisions = 'Krook'
 
     kwkb = KIM_WKB(species=specs[0], spec_mass=spec_mass[0], spec_charge_num=spec_charge_num[0])
     kwkb.contour_limit = 10 # 50 works for H, 20 for D
@@ -624,4 +621,4 @@ if __name__ == "__main__":
     else:
         mode = 'horton'
 
-    test_ABC('KIM', 'FokkerPlanck')
+    test_FokkerPlanck('KIM', 'FokkerPlanck')

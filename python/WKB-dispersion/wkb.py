@@ -336,7 +336,7 @@ class KIM_WKB():
         if self.options['mode'] == 'horton':
             self.dispersion_model = KIMDispersion_Horton_Factory.get_dispersion_model()
         if self.options['mode'] == 'KIM':
-            if self.options['Collisions'] == 'Krook':
+            if self.options['Collisions'] == 'Krook' or self.options['Collisions'] == 'collisionless':
                 self.dispersion_model = KIMDispersion_Krook_Factory.get_dispersion_model()
             if self.options['Collisions'] == 'FokkerPlanck':
                 self.dispersion_model = KIMDispersion_FokkerPlanck_Factory.get_dispersion_model()
@@ -592,9 +592,10 @@ def test_FokkerPlanck(mode, collisions):
     kwkb.options['der'] = False
     kwkb.options['log'] = False
 
-    kwkb.set_output_h5_file(f'./{mode}_{kwkb.options["Collisions"]}.h5', append_or_write = 'w')
+    outfile = f'./{mode}_{kwkb.options["Collisions"]}.h5'
+    kwkb.set_output_h5_file(outfile, append_or_write = 'w')
     kwkb.calc_dispersion_relation_k_of_r(mode=mode, collisions=collisions)
-    kwkb.write_all_data_to_h5(f'./{mode}_{kwkb.options["Collisions"]}.h5', mode = 'a')
+    kwkb.write_all_data_to_h5(outfile, mode = 'a')
 
 def test_ABC(mode, collisions):
     specs = {0: ['e', 'D']}
@@ -623,4 +624,4 @@ if __name__ == "__main__":
     else:
         mode = 'horton'
 
-    test_FokkerPlanck('KIM', 'FokkerPlanck')
+    test_FokkerPlanck('KIM', 'collisionless')

@@ -1,4 +1,11 @@
 from KIMDispersionEquation import KIMDispersionEquation
+from plasmapy.dispersion import plasma_dispersion_func as plasma_disp
+import os
+import sys
+sys.path.append(os.path.join(os.path.dirname(__file__), '../'))
+from constants import *
+import numpy as np
+from Bessel_calculation import calc_needed_bessel_of_mphi
 
 class KIMDispersion_Krook(KIMDispersionEquation):
     """
@@ -6,7 +13,7 @@ class KIMDispersion_Krook(KIMDispersionEquation):
         The former is determined by simply setting the collision frequency to zero.
     """
     
-    def init_dispersion_model(self, options: dict, species: dict, spec_dat: dict, general_dat: dict, equil_dat: dict):
+    def initialize(self, options: dict, species: dict, spec_dat: dict, general_dat: dict, equil_dat: dict):
         self.options = options
         self.species = species
         self.spec_dat = spec_dat
@@ -14,6 +21,7 @@ class KIMDispersion_Krook(KIMDispersionEquation):
         self.equil_dat = equil_dat
     
     def dispersion_equation(self, kr: complex, r_indx: int):
+        self.general_dat['kperp'] = np.sqrt(self.general_dat['ks']**2 + kr**2)
         dispersion_equation = self.general_dat['kperp'][r_indx]**2 + self.general_dat['kp'][r_indx]**2
         for spec in self.species:
             eval_b = self.general_dat['kperp'][r_indx]**2 * self.spec_dat[spec]['rho_TL'][r_indx]**2

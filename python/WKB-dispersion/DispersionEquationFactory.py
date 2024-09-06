@@ -5,17 +5,6 @@ from KIMDispersion_FokkerPlanck import KIMDispersion_FokkerPlanck
 from KIMDispersionEquation import KIMDispersionEquation
     
 
-class KIMDispersion_FokkerPlanck(KIMDispersionEquation):
-    
-    def initialize(self, options, species, spec_dat, general_dat, equil_dat):
-        self.options = options
-        self.species = species
-        self.spec_dat = spec_dat
-        self.general_dat = general_dat
-        print("Disepersion model: Fokker-Planck")
-    
-    def dispersion_equation(self):
-        pass
     
 class DispersionEquationFactory(ABC):
 

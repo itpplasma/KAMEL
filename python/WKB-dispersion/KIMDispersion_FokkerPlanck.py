@@ -1,8 +1,11 @@
 from KIMDispersionEquation import KIMDispersionEquation
+from Bessel_calculation import calc_needed_bessel_of_mphi
+import numpy as np
+
 
 class KIMDispersion_FokkerPlanck(KIMDispersionEquation):
     
-    def init_dispersion_model(self, options:dict, species:dict, spec_dat: dict, general_dat: dict, equil_dat: dict):
+    def initialize(self, options:dict, species:dict, spec_dat: dict, general_dat: dict, equil_dat: dict):
         self.options = options
         self.species = species
         self.spec_dat = spec_dat
@@ -10,6 +13,7 @@ class KIMDispersion_FokkerPlanck(KIMDispersionEquation):
         self.equil_dat = equil_dat
     
     def dispersion_equation(self, kr, r_indx):
+        self.general_dat['kperp'] = np.sqrt(self.general_dat['ks']**2 + kr**2)
         dispersion_equation = self.general_dat['kperp'][r_indx]**2 + self.general_dat['kp'][r_indx]**2
         #print(dispersion_equation)
         for spec in self.species:

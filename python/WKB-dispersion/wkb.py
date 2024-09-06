@@ -107,6 +107,12 @@ class KIM_WKB():
     equil_dat = {}
 
     def __init__(self, species=['e', 'D'], spec_mass = [e_mass, 2*p_mass], spec_charge_num = [-1, 1]):
+        print(" ____  __.___   _____     __      __ ____  __.__________ ")
+        print("|    |/ _|   | /     \   /  \    /  \    |/ _|\______   \\")
+        print("|      < |   |/  \ /  \  \   \/\/   /      <   |    |  _/")
+        print("|    |  \|   /    Y    \  \        /|    |  \  |    |   \\")
+        print("|____|__ \___\____|__  /   \__/\  / |____|__ \ |______  /")
+        print("        \/           \/         \/          \/        \/ ")
         self.species = species
         for spec in self.species:
             self.spec_dat[spec] = {}
@@ -226,8 +232,6 @@ class KIM_WKB():
 
     def generate_non_uniform_grid(self):
         gobj = WKB_Grid(self.general_dat['r'], self.res_surf_val)
-        print(self.res_surf_val)
-        #self.r_new = gobj.generate_non_equidistant_grid(gobj.r_min, gobj.r_max, 30, gobj.r_res, 3)
         self.r_new = np.array(gobj.gen_grid(self.general_dat['r'], gobj.r_res, 5.0, 50))
 
     def interpolate_on_non_uniform_grid(self):
@@ -248,8 +252,6 @@ class KIM_WKB():
                     self.spec_dat[spec][key] = np.interp(self.general_dat['r'], self.general_dat['old_r'], self.spec_dat[spec][key])
         self.general_dat['old_prof_length'] = self.general_dat['prof_length']  
         self.general_dat['prof_length'] = len(self.r_new)
-        
-        print('New grid length is ', self.general_dat['prof_length'])
 
     def calc_parameters(self):
         self.calc_equilibrium()
@@ -341,7 +343,7 @@ class KIM_WKB():
         self.dispersion_model.initialize(self.options, self.species, self.spec_dat, self.general_dat, self.equil_dat)
         
     def find_roots(self, r_ind, contour):
-        equation_k = lambda k: self.calc_dispersion_equation_for_kr_values_at_r(k, r_ind, mode=self.options['mode'])
+        equation_k = lambda k: self.calc_dispersion_equation_for_kr_values_at_r(k, r_ind)
         iterations=0
         roots_number = 0
         search_scale_bigger = 2.0

@@ -135,6 +135,7 @@ class KIM_WKB():
         self.initialize_data()
         
         self.init_dispersion_equation()
+        print(f"Calculating dispersion relation for mode {mode} and collision model {collisions}")
 
         idx = int(self.general_dat['prof_length'] * self.options['r_per'])
         idx_range = np.linspace(self.options['r_range_start'], self.general_dat['prof_length'] - 1, self.options['n_points'])
@@ -574,25 +575,24 @@ def determine_dispersion_for_all_species():
         plt.show()
 
 
-def test_FokkerPlanck():
+def test_FokkerPlanck(mode, collisions):
     specs = {0: ['e', 'D']}
     spec_mass = {0: [e_mass, 2*p_mass]}
     spec_charge_num = {0: [-1,1]}
-    mode = 'KIM'
 
     kwkb = KIM_WKB(species=specs[0], spec_mass=spec_mass[0], spec_charge_num=spec_charge_num[0])
     kwkb.contour_limit = 10 # 50 works for H, 20 for D
-    kwkb.prof_path = '../../../kim-wkb/profiles_parab/'
+    kwkb.prof_path = './parab_profiles/'
     mphi_max = 0
-    
+
     kwkb.options['n_points'] = 50
     kwkb.options['number_of_roots_to_find'] = 8
-    kwkb.set_collision_mode('Krook')
     kwkb.options['max_cyclotron_harmonic'] = mphi_max
     kwkb.options['der'] = False
     kwkb.options['log'] = False
+
     kwkb.set_output_h5_file(f'./{mode}_{kwkb.options["Collisions"]}.h5', append_or_write = 'w')
-    kwkb.calc_dispersion_relation_k_of_r(mode=mode)
+    kwkb.calc_dispersion_relation_k_of_r(mode=mode, collisions=collisions)
     kwkb.write_all_data_to_h5(f'./{mode}_{kwkb.options["Collisions"]}.h5', mode = 'a')
 
 def test_ABC():
@@ -604,7 +604,7 @@ def test_ABC():
 
     kwkb = KIM_WKB(species=specs[0], spec_mass=spec_mass[0], spec_charge_num=spec_charge_num[0])
     kwkb.contour_limit = 10 # 50 works for H, 20 for D
-    kwkb.prof_path = '../../../kim-wkb/profiles_parab/'
+    kwkb.prof_path = './parab_profiles/'
     kwkb.options['n_points'] = 50
     kwkb.options['number_of_roots_to_find'] = 8
     kwkb.options['der'] = False # set True if jax is used for differentiation
@@ -624,4 +624,4 @@ if __name__ == "__main__":
     else:
         mode = 'horton'
 
-    test_ABC()
+    test_ABC('KIM', 'FokkerPlanck')

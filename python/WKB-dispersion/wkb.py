@@ -232,7 +232,7 @@ class KIM_WKB():
 
     def generate_non_uniform_grid(self):
         gobj = WKB_Grid(self.general_dat['r'], self.res_surf_val)
-        self.r_new = np.array(gobj.gen_grid(self.general_dat['r'], gobj.r_res, 5.0, 50))
+        self.r_new = np.array(gobj.gen_grid(self.general_dat['r'], gobj.r_res, 5.0, self.options['n_points']))
 
     def interpolate_on_non_uniform_grid(self):
         self.general_dat['old_r'] = np.copy(self.general_dat['r'])
@@ -586,7 +586,7 @@ def test_FokkerPlanck(mode, collisions):
     kwkb.prof_path = './parab_profiles/'
     mphi_max = 0
 
-    kwkb.options['n_points'] = 50
+    kwkb.options['n_points'] = 150
     kwkb.options['number_of_roots_to_find'] = 8
     kwkb.options['max_cyclotron_harmonic'] = mphi_max
     kwkb.options['der'] = False

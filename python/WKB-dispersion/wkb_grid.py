@@ -43,7 +43,6 @@ class WKB_Grid:
     
     def gen_grid(self, grid, center, spread, num_points):
             # Convert grid to a numpy array if it's not already
-        grid_temp = np.linspace(np.min(grid), np.max(grid), num_points)
         grid_max = np.max(grid)
         
         hrmax = (np.max(grid) - np.min(grid)) / num_points

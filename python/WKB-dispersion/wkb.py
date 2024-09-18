@@ -592,7 +592,8 @@ def test_FokkerPlanck(mode, collisions):
     kwkb.options['der'] = False
     kwkb.options['log'] = False
 
-    outfile = f'./{mode}_{kwkb.options["Collisions"]}.h5'
+    outfile = f'./{mode}_{collisions}.h5'
+    print(outfile)
     kwkb.set_output_h5_file(outfile, append_or_write = 'w')
     kwkb.calc_dispersion_relation_k_of_r(mode=mode, collisions=collisions)
     kwkb.write_all_data_to_h5(outfile, mode = 'a')
@@ -625,3 +626,5 @@ if __name__ == "__main__":
         mode = 'horton'
 
     test_FokkerPlanck('KIM', 'collisionless')
+    test_FokkerPlanck('KIM', 'Krook')
+    test_FokkerPlanck('KIM', 'FokkerPlanck')

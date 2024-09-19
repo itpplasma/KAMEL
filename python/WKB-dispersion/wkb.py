@@ -598,6 +598,28 @@ def test_FokkerPlanck(mode, collisions):
     kwkb.calc_dispersion_relation_k_of_r(mode=mode, collisions=collisions)
     kwkb.write_all_data_to_h5(outfile, mode = 'a')
 
+def calculate_for_single_species(species, spec_mass_num, spec_charge_num, mode, collisions):
+    specs = {0: ['e', species]}
+    spec_mass = {0: [e_mass, spec_mass_num*p_mass]}
+    spec_charge_num = {0: [-1, spec_charge_num]}
+
+    kwkb = KIM_WKB(species=specs[0], spec_mass=spec_mass[0], spec_charge_num=spec_charge_num[0])
+    kwkb.contour_limit = 10 # 50 works for H, 20 for D
+    kwkb.prof_path = './parab_profiles/'
+    mphi_max = 0
+
+    kwkb.options['n_points'] = 150
+    kwkb.options['number_of_roots_to_find'] = 8
+    kwkb.options['max_cyclotron_harmonic'] = mphi_max
+    kwkb.options['der'] = False
+    kwkb.options['log'] = False
+
+    outfile = f'./data/{species}_{mode}_{collisions}.h5'
+    print(outfile)
+    kwkb.set_output_h5_file(outfile, append_or_write = 'w')
+    kwkb.calc_dispersion_relation_k_of_r(mode=mode, collisions=collisions)
+    kwkb.write_all_data_to_h5(outfile, mode = 'a')
+
 def test_ABC(mode, collisions):
     specs = {0: ['e', 'D']}
     spec_mass = {0: [e_mass, 2*p_mass]}
@@ -606,7 +628,7 @@ def test_ABC(mode, collisions):
     kwkb = KIM_WKB(species=specs[0], spec_mass=spec_mass[0], spec_charge_num=spec_charge_num[0])
     kwkb.contour_limit = 10 # 50 works for H, 20 for D
     kwkb.prof_path = './parab_profiles/'
-    kwkb.options['n_points'] = 50
+    kwkb.options['n_points'] = 150
     kwkb.options['number_of_roots_to_find'] = 8
     kwkb.options['der'] = False # set True if jax is used for differentiation
     kwkb.options['log'] = False
@@ -625,6 +647,13 @@ if __name__ == "__main__":
     else:
         mode = 'horton'
 
-    test_FokkerPlanck('KIM', 'collisionless')
-    test_FokkerPlanck('KIM', 'Krook')
-    test_FokkerPlanck('KIM', 'FokkerPlanck')
+    specs = ['H', 'D', 'He']
+    specs_mass_nums = [1, 2, 4]
+    specs_charge_nums = [1, 1, 2]
+    for i, spec in enumerate(specs):
+        calculate_for_single_species(spec, specs_mass_nums[i], specs_charge_nums[i], 'KIM', 'collisionless')
+        #calculate_for_single_species(spec, specs_mass_nums[i], specs_charge_nums[i], mode, 'Krook')
+        #calculate_for_single_species(spec, specs_mass_nums[i], specs_charge_nums[i], mode, 'FokkerPlanck')
+    #test_FokkerPlanck('KIM', 'collisionless')
+    #test_FokkerPlanck('KIM', 'Krook')
+    #test_FokkerPlanck('KIM', 'FokkerPlanck')

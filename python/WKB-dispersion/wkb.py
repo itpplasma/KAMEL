@@ -68,6 +68,8 @@ class KIM_WKB():
 
     bessel_large_arg_limit = 5
     contour_limit = 10
+
+    reduce_coll_frequency = False
     
     options = {'prof': 'parab',
                'n_points': 50,
@@ -260,6 +262,9 @@ class KIM_WKB():
                 self.spec_dat[spec]['nu'] = np.zeros(self.general_dat['prof_length'])
         else:
             self.calc_collision_frequency()
+            if self.reduce_coll_frequency:
+                for spec in self.species:
+                    self.spec_dat[spec]['nu'] = self.spec_dat[spec]['nu'] / 1000
         self.calc_all_derivs()
 
         self.general_dat['ks'] = (self.m_mode * self.equil_dat['hz'] - self.n_mode * self.equil_dat['hth'] / self.R0) / self.general_dat['r'] 

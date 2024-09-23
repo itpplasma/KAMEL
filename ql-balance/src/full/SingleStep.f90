@@ -85,6 +85,7 @@ module singleStep
         call rescale_transp_coeffs_by_ant_fac
 
         call interpBrAndDqlAtResonance
+        call finalizeSingleStepRun
 
     end subroutine
 

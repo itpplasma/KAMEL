@@ -4,6 +4,7 @@
 # - TUGraz colors
 # author: Markus Markl
 # created: 07.11.2022
+import subprocess
 
 class utility:
     # colors of TU Graz presentation template
@@ -30,3 +31,10 @@ class utility:
         axis.grid(which='minor', color='#EEEEEE',
                   linewidth=self.minorgridlw, ls=':')
         axis.set_axisbelow(True)
+
+    def get_git_version(self):
+        try:
+            git_hash = subprocess.check_output(['git', 'rev-parse', 'HEAD']).strip().decode('utf-8')
+            return git_hash
+        except subprocess.CalledProcessError:
+            return None

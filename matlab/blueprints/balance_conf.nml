@@ -9,7 +9,7 @@
  btor = -18009.167 ,
  rtor = 165 ,
  rmin = 3 ,
- rmax = 70 ,
+ rmax = 69.9 ,
  rsepar = 64.37086 ,
  npoimin = 3000 ,
 ! gg_factor can also be 200
@@ -58,4 +58,6 @@
  viscosity_factor = 1 ,
  misalign_diffusion = .false. ,
  equil_path = '/temp/markl_m/FLUXDATA/33353/2900/equil_r_q_psi.dat' ,
+ type_of_run = 'SingleStep'
+ ihdf5IO = 1
 /

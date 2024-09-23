@@ -11,11 +11,14 @@ sys.path.append(os.path.dirname(__file__) + '/../kilca_interface/')
 from KiLCA_interface import *
 
 from balance_conf import *
+from balance_input_h5 import *
 
 class QL_Balance_interface():
 
     machine = 'AUG' # default machine is AUG
     executable_path = os.path.join(os.path.dirname(__file__) + '/../../ql-balance/build/ql-balance')
+
+    run_types = ['SingleStep', 'TimeEvolution', 'ParameterScan']
 
     def __init__(self, run_path, shot, time, name, input_file=""):
         ''' Constructor of the QL-Balance interface class.
@@ -51,6 +54,11 @@ class QL_Balance_interface():
             self.input_h5_file = input_file
         self.util = utility()
 
+    def set_type_of_run(self, run_type='SingleStep'):
+        '''Set the type of the run, e.g. 'SingleStep', 'TimeEvolution' or 'ParameterScan'''
+        assert run_type in self.run_types, f'Run type {run_type} not supported.'
+        self.run_type = run_type
+        
     def set_modes(self, m_mode, n_mode):
         self.m_mode = m_mode
         self.n_mode = n_mode
@@ -102,6 +110,7 @@ class QL_Balance_interface():
         self.output_h5_file = output_file
         self.check_if_factors_set()
         self.write_factors_to_h5(self.output_h5_file)
+        self.prepare_input_h5()
     
     def check_if_factors_set(self):
         if not hasattr(self, 'fac_n'):
@@ -166,17 +175,25 @@ class QL_Balance_interface():
         self.conf.conf['balancenml']['flre_path'] = os.path.join(os.path.abspath(self.run_path), 'flre/')
         self.conf.conf['balancenml']['vac_path'] = os.path.join(os.path.abspath(self.run_path), 'vacuum/')
         self.conf.conf['balancenml']['path2out'] = os.path.abspath(self.output_h5_file)
-        self.conf.conf['balancenml']['path2inp'] = self.input_h5_file
+        self.conf.conf['balancenml']['path2inp'] = os.path.abspath(self.input_h5_file)
     
     def write_config_nml(self, path):
         """Write the balance configuration file."""
         self.conf.write_conf(path)
     
+    def prepare_input_h5(self):
+        self.input_h5 = Balance_Input_h5(self.input_h5_file, os.path.join(self.run_path, 'profiles'))
+        self.input_h5.get_required_data()
+        self.input_h5.write_data_to_h5(self.input_h5_file)
     
-    def run_balance(self):
+    def run_balance(self, suppress_console_output=True):
         """Run the balance code."""
+        if suppress_console_output:
+            options = '>/dev/null 2>&1'
+        else:
+            options = ''
         os.chdir(self.run_path)
-        out = os.system(f'./ql-balance | tee balance.log >/dev/null 2>&1')
+        out = os.system(f'./ql-balance | tee balance.log {options}')
         os.chdir(os.path.dirname(__file__))
         print(f'Balance run {self.name} finished.')
     

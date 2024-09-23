@@ -14,7 +14,7 @@ class KIMDispersion_FokkerPlanck(KIMDispersionEquation):
     
     def dispersion_equation(self, kr, r_indx):
         self.general_dat['kperp'] = np.sqrt(self.general_dat['ks']**2 + kr**2)
-        dispersion_equation = self.general_dat['kperp'][r_indx]**2 + self.general_dat['kp'][r_indx]**2
+        dispersion_equation = self.general_dat['kperp'][r_indx]**2 + self.general_dat['kp'][r_indx]**2 + 0j
         #print(dispersion_equation)
         for spec in self.species:
             eval_b = self.general_dat['kperp'][r_indx]**2 * self.spec_dat[spec]['rho_TL'][r_indx]**2

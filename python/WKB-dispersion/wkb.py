@@ -69,7 +69,8 @@ class KIM_WKB():
     bessel_large_arg_limit = 5
     contour_limit = 10
 
-    reduce_coll_frequency = False
+    scale_coll_frequency = False
+    coll_frequency_scale_factor = 1.0
     
     options = {'prof': 'parab',
                'n_points': 50,
@@ -262,9 +263,9 @@ class KIM_WKB():
                 self.spec_dat[spec]['nu'] = np.zeros(self.general_dat['prof_length'])
         else:
             self.calc_collision_frequency()
-            if self.reduce_coll_frequency:
+            if self.scale_coll_frequency:
                 for spec in self.species:
-                    self.spec_dat[spec]['nu'] = self.spec_dat[spec]['nu'] / 1000
+                    self.spec_dat[spec]['nu'] = self.spec_dat[spec]['nu'] * self.coll_frequency_scale_factor
         self.calc_all_derivs()
 
         self.general_dat['ks'] = (self.m_mode * self.equil_dat['hz'] - self.n_mode * self.equil_dat['hth'] / self.R0) / self.general_dat['r'] 
@@ -652,13 +653,13 @@ if __name__ == "__main__":
     else:
         mode = 'horton'
 
-    specs = ['H', 'D', 'He']
-    specs_mass_nums = [1, 2, 4]
-    specs_charge_nums = [1, 1, 2]
-    for i, spec in enumerate(specs):
-        calculate_for_single_species(spec, specs_mass_nums[i], specs_charge_nums[i], 'KIM', 'collisionless')
+    #specs = ['H', 'D', 'He']
+    #specs_mass_nums = [1, 2, 4]
+    #specs_charge_nums = [1, 1, 2]
+    #for i, spec in enumerate(specs):
+        #calculate_for_single_species(spec, specs_mass_nums[i], specs_charge_nums[i], 'KIM', 'collisionless')
         #calculate_for_single_species(spec, specs_mass_nums[i], specs_charge_nums[i], mode, 'Krook')
         #calculate_for_single_species(spec, specs_mass_nums[i], specs_charge_nums[i], mode, 'FokkerPlanck')
     #test_FokkerPlanck('KIM', 'collisionless')
     #test_FokkerPlanck('KIM', 'Krook')
-    #test_FokkerPlanck('KIM', 'FokkerPlanck')
+    test_FokkerPlanck('KIM', 'FokkerPlanck')

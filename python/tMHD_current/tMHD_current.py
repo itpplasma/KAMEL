@@ -46,22 +46,38 @@ class tMHD_current:
             self.loadCurrentMARSFSepDensScan(file, dictKey, InputFile)
     
     def loadCurrentMARSFSepDensScan(self, file, kind, InputFile):
-        kinds = ['orig', 'smooth', 'X1', 'X2', 'X3', 'X4', 'X5', \
+
+        if 'Scan' in file:
+            kinds = ['X1', 'X2', 'X3', 'X4', 'X5', \
             'X6', 'X7', 'X8', 'X9', 'X10']
+        else:
+            kinds = ['orig', 'smooth']
+        
+
         assert kind in kinds, f'kind {kind} not in {kinds}'
 
         dat = mat4py_loadmat(file)
         inp = mat4py_loadmat(InputFile)
 
+
         if kind == 'orig' or kind == 'smooth':
-            self.JparU = np.array(dat['jparU']) / 10**5
-            self.JparL = np.array(dat['jparL']) / 10**5
+            self.JparU = np.array(dat['jparU'], dtype=complex) / 10**5
+            self.JparL = np.array(dat['jparL'], dtype=complex) / 10**5
         else:
-            self.JparU = np.array(dat['SCAN']['Jpars'][kind]['UPPER']) / 10**5
-            self.JparL = np.array(dat['SCAN']['Jpars'][kind]['LOWER']) / 10**5
+            self.JparU = np.array(dat['Jpars'][kind]['UPPER'], dtype=complex) / 10**5
+            self.JparL = np.array(dat['Jpars'][kind]['LOWER'], dtype=complex) / 10**5
 
         self.chi = np.array(inp['chi'])
         self.s = np.array(inp['s'])
+
+        # interpolate to equilibrium s_pol so we can use equilibrium s_tor for integration
+        JparU = np.zeros((len(self.s_equil), len(self.JparU[0,:])), dtype=complex)
+        JparL = np.zeros((len(self.s_equil), len(self.JparU[0,:])), dtype=complex)
+        for i in range(len(self.JparU[0,:])):
+            JparU[:,i] = np.interp(self.s_equil, self.s, self.JparU[:,i])
+            JparL[:,i] = np.interp(self.s_equil, self.s, self.JparL[:,i])
+        self.JparU = JparU
+        self.JparL = JparL
         
 
     def loadCurrentMARSFStandard(self, file):
@@ -84,7 +100,7 @@ class tMHD_current:
         """Get the Fourier harmonics in Boozer coordinates of J_parallel / B0."""
         # TODO: Get B0 from libneo.efit2boozer module, use fourier harmonics function in boozer
         
-        dth_of_thb, G_of_thb = get_boozer_transform(self.s, self.nth)
+        dth_of_thb, G_of_thb = get_boozer_transform(self.stor, self.nth)
 
         def fun_Jpar(s, theta, phi):
             """theta and phi should have length of s"""
@@ -97,10 +113,10 @@ class tMHD_current:
             #return CubicSpline(s, Jpar_of_s)(s)
             return Jpar_of_s
 
-        self.Jpar_over_B0_harm = get_boozer_harmonics_divide_f_by_B0(fun_Jpar, self.s, self.nth, self.nph, self.m0b, n, dth_of_thb, G_of_thb)
+        self.Jpar_over_B0_harm = get_boozer_harmonics_divide_f_by_B0(fun_Jpar, self.stor, self.nth, self.nph, self.m0b, n, dth_of_thb, G_of_thb)
 
-    def fetch_B0_of_s_theta_boozer(self, spol,nth):
-        return get_B0_of_s_theta_boozer(spol,nth)
+    def fetch_B0_of_s_theta_boozer(self, stor,nth):
+        return get_B0_of_s_theta_boozer(stor,nth)
 
     def integrate_curr_dens(self, m_mode=np.array([10])):
         """Integrate the current density harmonics for a given m_mode. Returns the current for negative and positive m modes.
@@ -130,8 +146,9 @@ class tMHD_current:
             curr_dens_m = self.Jpar_over_B0_harm[:,ind_m]
             curr_dens_p = self.Jpar_over_B0_harm[:,ind_p]
 
-            self.current_m[i] = np.trapz(curr_dens_m * self.s[:-1] * np.interp(self.s[:-1], self.s_equil, self.q)) * 2.0 * self.psi[-1]
-            self.current_p[i] = np.trapz(curr_dens_p * self.s[:-1] * np.interp(self.s[:-1], self.s_equil, self.q)) * 2.0 * self.psi[-1]
+            self.current_m[i] = np.trapz(curr_dens_m * self.stor[:-1]) * 2.0 * self.psi_tor[-1]
+            self.current_p[i] = np.trapz(curr_dens_p * self.stor[:-1]) * 2.0 * self.psi_tor[-1]
+
 
         return [self.current_m, self.current_p]
 
@@ -144,6 +161,8 @@ class tMHD_current:
             self.q = equil[:,1]
             self.psi = equil[:,2]
             self.s_equil = np.sqrt(self.psi / self.psi[-1])
+            self.psi_tor = equil[:,3]
+            self.stor = np.sqrt(self.psi_tor / self.psi_tor[-1])
             print("Equil data with square root.")
             self.loaded_equilibrium = True
 

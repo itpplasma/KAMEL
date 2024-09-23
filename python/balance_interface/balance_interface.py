@@ -36,3 +36,22 @@ class QL_Balance_interface():
         self.output_path = os.path.join(self.run_path, 'out')
         os.path.makedirs(self.output_path, exist_ok=True)
 
+
+    def prepare_balance_input(self, input_file):
+        """"Prepare the input files for the balance code."""
+        self.input_file = input_file
+
+        if os.path.exists(self.input_file):
+            raise Warning(f'Input file {self.input_file} already exists. Overwriting...')
+            os.remove(self.input_file)
+        else:
+            try:
+                h5_input = h5py.File(self.input_file, 'w')
+            except:
+                raise ValueError(f'Error creating input file {self.input_file}.')
+
+        h5_input.create_dataset('shot', data=self.shot)
+        h5_input.create_dataset('time', data=self.time)
+        print('Git version: ', self.get_git_version())
+        h5_input.create_dataset('git_version', data=self.get_git_version())
+        h5_input.close()

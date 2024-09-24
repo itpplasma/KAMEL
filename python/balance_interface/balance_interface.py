@@ -66,7 +66,7 @@ class QL_Balance_interface():
     def copy_profiles(self, profile_path):
         '''Copy the profiles to the run directory.'''
         os.makedirs(os.path.join(self.run_path, 'profiles'), exist_ok=True)
-        files = [f for f in os.listdir(profile_path)]
+        files = [f for f in os.listdir(profile_path) if os.path.isfile(os.path.join(profile_path, f))]
         for f in files:
             shutil.copy2(profile_path + f, os.path.join(self.run_path, 'profiles'))
         

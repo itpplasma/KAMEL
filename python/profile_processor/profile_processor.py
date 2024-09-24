@@ -30,7 +30,15 @@ class profile_processor:
         self.runpath = runpath
         self.plot_dir = self.runpath + '/plots/'
 
-        os.makedirs(self.runpath + '/profiles/', exist_ok=True)
+        self.profile_meta_path = self.runpath + '/profiles/'
+        self.profile_r_eff_path = self.runpath + '/profiles/r_eff/'
+        self.profile_extended_path = self.runpath + '/profiles/extended/'
+        self.profile_orig_path = self.runpath + '/profiles/orig/'
+
+        os.makedirs(profile_meta_path, exist_ok=True)
+        os.makedirs(profile_r_eff_path, exist_ok=True)
+        os.makedirs(profile_extended_path, exist_ok=True)
+        os.makedirs(profile_orig_path, exist_ok=True)
 
     def run_fieldpy(self, gfile, convex_wall, flux_data, pfile='', skip=False):
         '''Run field_divB0 to get equilibrium data containing r_eff, q, psi (pol. flux), phi (tor. flux) and more.
@@ -159,6 +167,26 @@ class profile_processor:
             plt.tight_layout()
             plt.show()
 
+    def extend_profiles(self):
+        self.extend_kinetic_profiles(prof_path, save_path)
+        self.extend_q_profile()
+
+    def extend_kinetic_profiles(self, prof_path, save_path):
+        if not hasattr(self, 'r_eff'):
+            self.load_profiles(self.profile_r_eff_path)
+        
+        self.ne_ext = Profile_Extender(self.profile_r_eff_path, self.profile_extended_path + 'n.dat', 1.0, 'exp')
+    
+    def load_profiles(self, prof_path):
+        self.r_eff = np.loadtxt(prof_path + 'n.dat')[:,0]
+        self.ne = np.loadtxt(prof_path + 'n.dat')[:,1]
+        self.Te = np.loadtxt(prof_path + 'Te.dat')[:,1]
+        self.Ti = np.loadtxt(prof_path + 'Ti.dat')[:,1]
+        self.Vz = np.loadtxt(prof_path + 'Vz.dat')[:,1]
+    
+    def extend_q_profile(self):
+        pass
+
     def determine_anomalous_diff_coeff(self):
         
         self.Da = np.ones_like(self.r_eff) * 1e4
@@ -201,13 +229,14 @@ class profile_processor:
 
         #self.vth = self.k * self.v_hat
 
-        #self.Vpol = self.k * self.c * self.dTi / self.echarge/ self.ne
+        self.Vpol = self.k * self.c * self.dTi / (self.echarge* self.B)
 
         self.Er = self.Ti * self.eV_to_erg * self.dne / (self.echarge * self.ne) + (1.0 - self.k) * self.dTi / self.echarge + self.r_eff * self.B * self.Vz / (self.c * self.q * self.R0)
 
         #self.Er = 1.0 / (self.echarge * self.ne) * self.dpress_ion - self.k * self.dTi / self.echarge
         #self.Er = self.Er + self.r_eff * self.Vz * self.B / (self.R0 * self.c * self.q)
         np.savetxt(self.save_path + 'Er.dat', np.column_stack((self.r_eff, self.Er)))
+        np.savetxt(self.save_path + 'Vth.dat', np.column_stack((self.r_eff, self.Vpol)))
 
 
 

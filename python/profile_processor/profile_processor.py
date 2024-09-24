@@ -10,10 +10,13 @@ from fieldpy import fieldpy
 sys.path.append(os.path.dirname(__file__) + '/../neo2_for_Er/')
 from neo2_for_Er import neo2_for_Er
 
-from scipy.integrate import solve_ivp
+from profile_extender import Profile_Extender
+
+from scipy.integrate import solve_ivp, cumtrapz, odeint
+from scipy.interpolate import CubicSpline
 
 
-class profile_processor:
+class Profile_Processor:
 
     flux_data = ''
 
@@ -25,20 +28,33 @@ class profile_processor:
 
     m_mode = [11,12,13,14,15,16]
     n_mode = [2]
+    
+    d_list = [0.3, 0.25, 0.5, 0.5]
+    kin_prof_list = ['n.dat', 'Te.dat', 'Ti.dat', 'Vz.dat']
+    factor = [1.0, 1.0, 1.0, 1.0]
+    y_inf_list = [1e-1, 10.0, 10.0, 1e-3]
+    dr_cut_list = [0.3, 0.2, 1.0, 0.2]
 
-    def __init__(self, runpath):
+    Jth_inf = 0.0
+    Jz_inf = 0.0
+
+    def __init__(self, runpath, device: object):
+        """ Device has to be a class object from device_config"""
+
         self.runpath = runpath
         self.plot_dir = self.runpath + '/plots/'
+
+        self.device = device
 
         self.profile_meta_path = self.runpath + '/profiles/'
         self.profile_r_eff_path = self.runpath + '/profiles/r_eff/'
         self.profile_extended_path = self.runpath + '/profiles/extended/'
         self.profile_orig_path = self.runpath + '/profiles/orig/'
 
-        os.makedirs(profile_meta_path, exist_ok=True)
-        os.makedirs(profile_r_eff_path, exist_ok=True)
-        os.makedirs(profile_extended_path, exist_ok=True)
-        os.makedirs(profile_orig_path, exist_ok=True)
+        os.makedirs(self.profile_meta_path, exist_ok=True)
+        os.makedirs(self.profile_r_eff_path, exist_ok=True)
+        os.makedirs(self.profile_extended_path, exist_ok=True)
+        os.makedirs(self.profile_orig_path, exist_ok=True)
 
     def run_fieldpy(self, gfile, convex_wall, flux_data, pfile='', skip=False):
         '''Run field_divB0 to get equilibrium data containing r_eff, q, psi (pol. flux), phi (tor. flux) and more.
@@ -168,14 +184,19 @@ class profile_processor:
             plt.show()
 
     def extend_profiles(self):
-        self.extend_kinetic_profiles(prof_path, save_path)
+        self.extend_kinetic_profiles()
         self.extend_q_profile()
 
-    def extend_kinetic_profiles(self, prof_path, save_path):
-        if not hasattr(self, 'r_eff'):
-            self.load_profiles(self.profile_r_eff_path)
-        
-        self.ne_ext = Profile_Extender(self.profile_r_eff_path, self.profile_extended_path + 'n.dat', 1.0, 'exp')
+    def extend_kinetic_profiles(self):
+        for i, prof in enumerate(self.kin_prof_list):
+            self.ext = Profile_Extender(self.profile_r_eff_path + prof, self.profile_extended_path + prof, self.factor[i])
+            self.ext.read()
+            self.ext.d = self.d_list[i]
+            self.ext.dr_cut = self.dr_cut_list[i]
+            if prof == 'Vz.dat':
+                self.y_inf_list[i] = self.ext.y_in[-1] * self.y_inf_list[i]
+            self.ext.process(self.ext.r_eff_in, self.device.r_eff_wall, self.y_inf_list[i], 'exp')
+            self.ext.write()
     
     def load_profiles(self, prof_path):
         self.r_eff = np.loadtxt(prof_path + 'n.dat')[:,0]
@@ -185,12 +206,92 @@ class profile_processor:
         self.Vz = np.loadtxt(prof_path + 'Vz.dat')[:,1]
     
     def extend_q_profile(self):
-        pass
+
+        self.load_profiles(self.profile_extended_path)
+        q_ode = -np.loadtxt(self.profile_r_eff_path + 'q.dat')[:,1]
+        r_ode = np.loadtxt(self.profile_r_eff_path + 'q.dat')[:,0]
+
+        dat = np.loadtxt(self.flux_data + 'btor_rbig.dat')
+        self.Btor = dat[0]
+        self.R0 = dat[1]
+
+        Te_ode = CubicSpline(self.r_eff, self.Te, bc_type='natural')
+        Te_ode = Te_ode(r_ode)
+        Ti_ode = CubicSpline(self.r_eff, self.Ti, bc_type='natural')
+        Ti_ode = Ti_ode(r_ode)
+        ne_ode = CubicSpline(self.r_eff, self.ne, bc_type='natural')
+        ne_ode = ne_ode(r_ode)
+        
+        p_tot = ne_ode * (Te_ode + Ti_ode) * self.kB * self.eVK
+        
+        g_ode = 1.0 + (r_ode / -q_ode / self.R0)**2
+        
+        dp_tot = np.gradient(p_tot, r_ode)
+        
+        fq = lambda x: np.interp(x, r_ode, q_ode)
+        fg = lambda x: np.interp(x, r_ode, g_ode)
+        fdp = lambda x: np.interp(x, r_ode, dp_tot)
+        
+        odefun = lambda x,y: -2.0 * x * y / fq(x)**2 / fg(x) / self.R0**2 - 8.0 * np.pi * fdp(x)
+        
+        u0 = self.Btor**2 * g_ode[0]
+
+        u_ode = odeint(odefun, u0, t=r_ode)
+        print(u_ode[:,0])
+
+        Bz_ode = np.sign(self.Btor) * np.sqrt(u_ode[:,0] / g_ode)
+        print(Bz_ode)
+        Bth_ode = r_ode * Bz_ode / q_ode / self.R0
+
+        self.Bth = Bth_ode
+        self.dBth_ode = np.gradient(Bth_ode, r_ode)
+
+        self.Bz = Bz_ode
+        self.dBz_ode = np.gradient(Bz_ode, r_ode)
+
+        self.B0 = np.sqrt(Bz_ode**2 + Bth_ode **2)
+
+        np.savetxt(self.profile_r_eff_path + 'B.dat', np.column_stack((r_ode, self.B0)))
+        np.savetxt(self.profile_r_eff_path + 'Bth.dat', np.column_stack((r_ode, self.Bth)))
+        np.savetxt(self.profile_r_eff_path + 'Bz.dat', np.column_stack((r_ode, self.Bz)))
+
+        Jth_ode = - self.c / 4.0 / np.pi * self.dBz_ode
+        Jz_ode = self.c / 4 / np.pi * (self.Bth / r_ode + self.dBth_ode)
+
+        self.Jth = Profile_Extender('Jth', self.profile_extended_path + 'Jth.dat', 1.0)
+        self.Jth.r_eff_in = r_ode
+        self.Jth.y_in = Jth_ode
+        self.Jth.d = 0.2
+        self.Jth.dr_cut = -0.3
+        self.Jth.process(r_ode, self.device.r_eff_wall, self.Jth_inf, 'ee')
+        self.Jth.write()
+        
+        self.Jz = Profile_Extender('Jz', self.profile_extended_path + 'Jz.dat', 1.0)
+        self.Jz.r_eff_in = r_ode
+        self.Jz.y_in = Jz_ode
+        self.Jz.d = 0.2
+        self.Jz.dr_cut = -0.3
+        self.Jz.process(r_ode, self.device.r_eff_wall, self.Jth_inf, 'ee')
+        self.Jz.write()
+
+        self.Bth_out = 4 * np.pi / self.c * cumtrapz(self.Jz.r_out, self.Jz.r_out * self.Jz.y_out, initial=0.0) / self.Jz.r_out + Bth_ode[0] * r_ode[0] / self.Jz.r_out
+        self.Bz_out = -4.0 * np.pi / self.c *cumtrapz(self.Jth.r_out, self.Jth.y_out, initial=0.0) + Bz_ode[0]
+        self.B0_out = np.sqrt(self.Bth_out**2 + self.Bz_out**2)
+        
+        np.savetxt(self.profile_extended_path + 'B.dat', np.column_stack((self.r_eff, self.B0_out)))
+        np.savetxt(self.profile_extended_path + 'Bth.dat', np.column_stack((self.r_eff, self.Bth_out)))
+        np.savetxt(self.profile_extended_path + 'Bz.dat', np.column_stack((self.r_eff, self.Bz_out)))
+
+
+        q_out = self.r_eff / self.R0 * self.Bz_out / self.Bth_out
+        self.qp = Profile_Extender('q', self.profile_extended_path + 'q.dat', 1.0)
+        self.qp.r_out = self.r_eff
+        self.qp.y_out = q_out
+        self.qp.write()
+        
 
     def determine_anomalous_diff_coeff(self):
-        
         self.Da = np.ones_like(self.r_eff) * 1e4
-
         np.savetxt(self.save_path + 'Da.dat', np.column_stack((self.r_eff, self.Da)))
 
     def calc_Er_prof(self, recalc=False):

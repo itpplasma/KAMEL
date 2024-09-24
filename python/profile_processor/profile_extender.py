@@ -16,10 +16,10 @@ class Profile_Extender:
 
     def read(self):
         dat = np.loadtxt(self.file_in)
-        self.psi_in = dat[:, 0]
+        self.r_eff_in = dat[:, 0]
         self.y_in = dat[:, 1]
 
-    def process(self, r_eff, r_min, r_max, y_inf, type_of_cut):
+    def process(self, r_eff, r_max, y_inf, type_of_cut):
         
         r_end = r_eff[-1]
         dr = r_eff[-1] - r_eff[-2]

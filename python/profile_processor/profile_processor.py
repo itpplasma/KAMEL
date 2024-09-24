@@ -258,6 +258,9 @@ class Profile_Processor:
         Jth_ode = - self.c / 4.0 / np.pi * self.dBz_ode
         Jz_ode = self.c / 4 / np.pi * (self.Bth / r_ode + self.dBth_ode)
 
+        np.savetxt(self.profile_r_eff_path + 'Jz.dat', np.column_stack((r_ode, Jz_ode)))
+        np.savetxt(self.profile_r_eff_path + 'Jth.dat', np.column_stack((r_ode, Jth_ode)))
+
         self.Jth = Profile_Extender('Jth', self.profile_extended_path + 'Jth.dat', 1.0)
         self.Jth.r_eff_in = r_ode
         self.Jth.y_in = Jth_ode
@@ -274,8 +277,8 @@ class Profile_Processor:
         self.Jz.process(r_ode, self.device.r_eff_wall, self.Jth_inf, 'ee')
         self.Jz.write()
 
-        self.Bth_out = 4 * np.pi / self.c * cumtrapz(self.Jz.r_out, self.Jz.r_out * self.Jz.y_out, initial=0.0) / self.Jz.r_out + Bth_ode[0] * r_ode[0] / self.Jz.r_out
-        self.Bz_out = -4.0 * np.pi / self.c *cumtrapz(self.Jth.r_out, self.Jth.y_out, initial=0.0) + Bz_ode[0]
+        self.Bth_out = 4 * np.pi / self.c * cumtrapz(self.Jz.r_out * self.Jz.y_out, self.Jz.r_out, initial=0.0) / self.Jz.r_out + Bth_ode[0] * r_ode[0] / self.Jz.r_out
+        self.Bz_out = -4.0 * np.pi / self.c *cumtrapz(self.Jth.y_out, self.Jth.r_out, initial=0.0) + Bz_ode[0]
         self.B0_out = np.sqrt(self.Bth_out**2 + self.Bz_out**2)
         
         np.savetxt(self.profile_extended_path + 'B.dat', np.column_stack((self.r_eff, self.B0_out)))
@@ -286,7 +289,7 @@ class Profile_Processor:
         q_out = self.r_eff / self.R0 * self.Bz_out / self.Bth_out
         self.qp = Profile_Extender('q', self.profile_extended_path + 'q.dat', 1.0)
         self.qp.r_out = self.r_eff
-        self.qp.y_out = q_out
+        self.qp.y_out = -q_out
         self.qp.write()
         
 

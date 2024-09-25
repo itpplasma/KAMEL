@@ -9,7 +9,7 @@ version = "1.0.0"
 [project]
 name = "KiLCA_QB"
 version = "1.0.0"
-dependencies = ["numpy"]
+dependencies = ["numpy", "scipy", "h5py", "f90nml"]
 authors = [
   { name="Markus Markl", email="markl@tugraz.at" },
 ]

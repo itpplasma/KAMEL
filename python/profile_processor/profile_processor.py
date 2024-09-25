@@ -32,11 +32,14 @@ class Profile_Processor:
     d_list = [0.3, 0.25, 0.5, 0.5]
     kin_prof_list = ['n.dat', 'Te.dat', 'Ti.dat', 'Vz.dat']
     factor = [1.0, 1.0, 1.0, 1.0]
-    y_inf_list = [1e-1, 10.0, 10.0, 1e-3]
-    dr_cut_list = [0.3, 0.2, 1.0, 0.2]
+    y_inf_list = [1e-0, 10.0, 10.0, 1e-3]
+    dr_cut_list = [0.3, 0.2, -2.0, 0.2]
 
     Jth_inf = 0.0
     Jz_inf = 0.0
+
+    smooth_Er_to_zero = True
+    smooth_Vpol_to_zero = True
 
     def __init__(self, runpath, device: object):
         """ Device has to be a class object from device_config"""
@@ -210,6 +213,7 @@ class Profile_Processor:
         self.load_profiles(self.profile_extended_path)
         q_ode = -np.loadtxt(self.profile_r_eff_path + 'q.dat')[:,1]
         r_ode = np.loadtxt(self.profile_r_eff_path + 'q.dat')[:,0]
+        self.r_sep = r_ode[-1]
 
         dat = np.loadtxt(self.flux_data + 'btor_rbig.dat')
         self.Btor = dat[0]
@@ -291,6 +295,7 @@ class Profile_Processor:
         self.qp.r_out = self.r_eff
         self.qp.y_out = -q_out
         self.qp.write()
+        self.q = -q_out
         
 
     def determine_anomalous_diff_coeff(self):
@@ -306,14 +311,14 @@ class Profile_Processor:
 
         self.solve_cyl_equilibrium()
 
-        if not os.path.exists(self.save_path + 'kprof/k.dat') or recalc:
+        if not os.path.exists(self.profile_r_eff_path + 'kprof/k.dat') or recalc:
             # don't calculate k if it exists and if the recalculation is not needed
             self.neo2 = neo2_for_Er(self.save_path, self.flux_data + 'equil_r_q_psi.dat')
             self.neo2.run_neo2(self.gfile, self.convex_wall, self.flux_data)
             self.collect_k_profile(self.save_path + 'kprof/', self.save_path + 'kprof/')
         else:
             # read k profile
-            k_dat = np.loadtxt(self.save_path + '/kprof/k.dat')
+            k_dat = np.loadtxt(self.profile_r_eff_path + '/kprof/k.dat')
             self.k_prof = k_dat[:,1]
             self.k_prof_r = k_dat[:,0]
 
@@ -334,15 +339,28 @@ class Profile_Processor:
         #self.vth = self.k * self.v_hat
 
         self.Vpol = self.k * self.c * self.dTi / (self.echarge* self.B)
+        if self.smooth_Vpol_to_zero:
+            self.Vpol_ext = Profile_Extender('Vpol', self.profile_extended_path + 'Vth.dat', 1.0)
+            self.Vpol_ext.r_eff_in = self.r_eff
+            self.Vpol_ext.y_in = self.Vpol
+            self.Vpol_ext.d = 0.2
+            self.Vpol_ext.dr_cut = - (self.device.r_eff_wall - self.r_sep)
+            self.Vpol_ext.process(self.r_eff, self.device.r_eff_wall, 0.0, 'exp')
+            self.Vpol = self.Vpol_ext.y_out
 
         self.Er = self.Ti * self.eV_to_erg * self.dne / (self.echarge * self.ne) + (1.0 - self.k) * self.dTi / self.echarge + self.r_eff * self.B * self.Vz / (self.c * self.q * self.R0)
-
+        if self.smooth_Er_to_zero:
+            self.Er_ext = Profile_Extender('Er', self.profile_extended_path + 'Er.dat', 1.0)
+            self.Er_ext.r_eff_in = self.r_eff
+            self.Er_ext.y_in = self.Er
+            self.Er_ext.d = 0.2
+            self.Er_ext.dr_cut = - (self.device.r_eff_wall - self.r_sep)
+            self.Er_ext.process(self.r_eff, self.device.r_eff_wall, 0.0, 'exp')
+            self.Er = self.Er_ext.y_out
         #self.Er = 1.0 / (self.echarge * self.ne) * self.dpress_ion - self.k * self.dTi / self.echarge
         #self.Er = self.Er + self.r_eff * self.Vz * self.B / (self.R0 * self.c * self.q)
-        np.savetxt(self.save_path + 'Er.dat', np.column_stack((self.r_eff, self.Er)))
-        np.savetxt(self.save_path + 'Vth.dat', np.column_stack((self.r_eff, self.Vpol)))
-
-
+        np.savetxt(self.profile_extended_path + 'Er.dat', np.column_stack((self.r_eff, self.Er)))
+        np.savetxt(self.profile_extended_path + 'Vth.dat', np.column_stack((self.r_eff, self.Vpol)))
 
     def collect_k_profile(self, kpath, fname):
         """Collect the k profile from the NEO-2 output."""

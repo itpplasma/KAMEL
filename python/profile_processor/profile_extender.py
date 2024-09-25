@@ -25,8 +25,11 @@ class Profile_Extender:
         dr = r_eff[-1] - r_eff[-2]
         self.r_out = np.concatenate((r_eff, np.arange(r_end + dr, r_max, dr)))
         
-        self.r_eff = np.append(r_eff, self.r_out[-1])
-        self.y_in = np.append(self.y_in, y_inf)
+        if r_eff[-1] < self.r_out[-1]:
+            self.r_eff = np.append(r_eff, self.r_out[-1])
+            self.y_in = np.append(self.y_in, y_inf)
+        else:
+            self.r_eff = r_eff
         self.y_interp = CubicSpline(self.r_eff, self.y_in * self.factor, bc_type='natural')
         self.y_inf = y_inf * self.factor
         

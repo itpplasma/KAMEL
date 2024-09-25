@@ -10,15 +10,15 @@ import copy
 import inspect
 import sys
 
-from KiLCA_antenna import KiLCA_antenna
-from KiLCA_background import KiLCA_background
-from KiLCA_eigmode import KiLCA_eigmode
-from KiLCA_modes import KiLCA_modes
-from KiLCA_output import KiLCA_output
-from KiLCA_zone import KiLCA_zone
+from .KiLCA_antenna import KiLCA_antenna
+from .KiLCA_background import KiLCA_background
+from .KiLCA_eigmode import KiLCA_eigmode
+from .KiLCA_modes import KiLCA_modes
+from .KiLCA_output import KiLCA_output
+from .KiLCA_zone import KiLCA_zone
 
-sys.path.append(os.path.abspath(inspect.getfile(KiLCA_antenna)[0:-16] + '../../postproc_py_class/'))
-from utility_class import *
+#sys.path.append(os.path.abspath(inspect.getfile(KiLCA_antenna)[0:-16] + '../../postproc_py_class/'))
+from postproc_class import utility_class
 
 
 class KiLCA_interface:
@@ -129,7 +129,7 @@ class KiLCA_interface:
     run_type = ''
     machine = ''
 
-    uc = utility() # utility class for colors and adding grid lines to plots
+    uc = utility_class.utility() # utility class for colors and adding grid lines to plots
 
     def __init__(self, shot: int, time: int, path: str, rtype: str, machine: str='AUG'):
         """Constructor of KiLCA interface.

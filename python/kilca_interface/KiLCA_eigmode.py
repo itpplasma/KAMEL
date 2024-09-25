@@ -1,4 +1,4 @@
-from InpOut import InpOut
+from .InpOut import InpOut
 import numpy as np
 
 class KiLCA_eigmode(InpOut):

@@ -1,4 +1,4 @@
-from save_file import save_file
+from .save_file import save_file
 import numpy as np
 
 class KiLCA_modes:

@@ -1,9 +1,9 @@
-from InpOut import InpOut
-from KiLCA_zone_vacuum import KiLCA_zone_vacuum
-from KiLCA_zone_flre import KiLCA_zone_flre
-from read_in import read_in
-from change_opts import change_opts
-from save_file import save_file
+from .InpOut import InpOut
+from .KiLCA_zone_vacuum import KiLCA_zone_vacuum
+from .KiLCA_zone_flre import KiLCA_zone_flre
+from .read_in import read_in
+from .change_opts import change_opts
+from .save_file import save_file
 
 class KiLCA_zone(InpOut):
     """

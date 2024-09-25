@@ -1,0 +1,22 @@
+[build-system]
+requires = ["setuptools", "numpy", "scipy", "h5py", "f90nml"]
+build-backend = "setuptools.build_meta"
+
+[metadata]
+name = "KiLCA_QB"
+version = "1.0.0"
+
+[project]
+name = "KiLCA_QB"
+version = "1.0.0"
+dependencies = ["numpy"]
+authors = [
+  { name="Markus Markl", email="markl@tugraz.at" },
+]
+description = "Python interface for KiLCA"
+readme = "README.md"
+requires-python = ">=3.8"
+classifiers = [
+    "License :: OSI Approved :: MIT License",
+]
+

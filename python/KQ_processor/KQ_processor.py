@@ -6,19 +6,10 @@ import os
 import sys
 import subprocess
 
-sys.path.append(os.path.dirname(__file__) + '/../fieldpy/')
 from fieldpy import fieldpy
-
-sys.path.append(os.path.dirname(__file__) + '/../neo2_for_Er/')
 from neo2_for_Er import neo2_for_Er
-
-sys.path.append(os.path.dirname(__file__) + '/../profile_processor/')
 from profile_processor import profile_processor
-
-sys.path.append(os.path.dirname(__file__) + '/../AnLoBiCr/')
 from analytical_local_bif_criterion import *
-
-sys.path.append(os.path.dirname(__file__) + '/../tMHD_current/')
 from tMHD_current import *
 
 
@@ -60,16 +51,12 @@ class KQ_processor:
             equilibrium processing. Use NEO-2 to determine Er profile.
         """
         
-        self.pp = profile_processor(self.runpath)
-
+        self.pp = Profile_Processor(self.runpath)
         self.pp.run_fieldpy(self.gfile, self.convex_wall, self.flux_data, skip=True)
-
         self.prof_path = prof_path 
-
         self.pp.map_profs_to_reff(self.prof_path, self.save_profs, self.flux_data, plot=False)
-
+        self.pp.extend_profiles()
         self.pp.calc_Er_prof(recalc=not skip)
-
         self.pp.determine_anomalous_diff_coeff()
 
     def rescale_dens_prof(self, rescale_factor):

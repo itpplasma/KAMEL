@@ -1,6 +1,6 @@
-from read_in import *
-from change_opts import *
-from save_file import *
+from .read_in import *
+from .change_opts import *
+from .save_file import *
 
 class InpOut:
 

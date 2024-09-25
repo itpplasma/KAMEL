@@ -1,4 +1,4 @@
-from InpOut import InpOut
+from .InpOut import InpOut
 
 class KiLCA_zone_flre(InpOut):
     """

@@ -1,5 +1,5 @@
 import numpy as np
-from scipy.interpolate import CubicSpline
+from scipy.interpolate import CubicSpline, interp1d
 
 class Profile_Extender:
     
@@ -30,7 +30,8 @@ class Profile_Extender:
             self.y_in = np.append(self.y_in, y_inf)
         else:
             self.r_eff = r_eff
-        self.y_interp = CubicSpline(self.r_eff, self.y_in * self.factor, bc_type='natural')
+        #self.y_interp = CubicSpline(self.r_eff, self.y_in * self.factor, bc_type='clamped')
+        self.y_interp = interp1d(self.r_eff, self.y_in * self.factor, kind='linear')
         self.y_inf = y_inf * self.factor
         
         cut = r_end + self.dr_cut

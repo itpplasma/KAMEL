@@ -5,12 +5,12 @@ import os
 import h5py
 from scipy.interpolate import interp1d
 import sys
-sys.path.append(os.path.dirname(__file__) + '/../fieldpy/')
+#sys.path.append(os.path.dirname(__file__) + '/../fieldpy/')
 from fieldpy import fieldpy
-sys.path.append(os.path.dirname(__file__) + '/../neo2_for_Er/')
+#sys.path.append(os.path.dirname(__file__) + '/../neo2_for_Er/')
 from neo2_for_Er import neo2_for_Er
 
-from profile_extender import Profile_Extender
+from .profile_extender import Profile_Extender
 
 from scipy.integrate import solve_ivp, cumtrapz, odeint
 from scipy.interpolate import CubicSpline
@@ -32,8 +32,8 @@ class Profile_Processor:
     d_list = [0.3, 0.25, 0.5, 0.5]
     kin_prof_list = ['n.dat', 'Te.dat', 'Ti.dat', 'Vz.dat']
     factor = [1.0, 1.0, 1.0, 1.0]
-    y_inf_list = [1e-0, 10.0, 10.0, 1e-3]
-    dr_cut_list = [0.3, 0.2, -2.0, 0.2]
+    y_inf_list = [1e2, 10.0, 10.0, 1e-3]
+    dr_cut_list = [0.2, 0.3, -2.0, 0.2]
 
     Jth_inf = 0.0
     Jz_inf = 0.0
@@ -197,6 +197,7 @@ class Profile_Processor:
             self.ext.d = self.d_list[i]
             self.ext.dr_cut = self.dr_cut_list[i]
             if prof == 'Vz.dat':
+                self.y_inf_list[i] = 1e-3
                 self.y_inf_list[i] = self.ext.y_in[-1] * self.y_inf_list[i]
             self.ext.process(self.ext.r_eff_in, self.device.r_eff_wall, self.y_inf_list[i], 'exp')
             self.ext.write()
@@ -241,10 +242,8 @@ class Profile_Processor:
         u0 = self.Btor**2 * g_ode[0]
 
         u_ode = odeint(odefun, u0, t=r_ode)
-        print(u_ode[:,0])
 
         Bz_ode = np.sign(self.Btor) * np.sqrt(u_ode[:,0] / g_ode)
-        print(Bz_ode)
         Bth_ode = r_ode * Bz_ode / q_ode / self.R0
 
         self.Bth = Bth_ode
@@ -298,9 +297,9 @@ class Profile_Processor:
         self.q = -q_out
         
 
-    def determine_anomalous_diff_coeff(self):
+    def determine_anomalous_diff_coeff(self, path):
         self.Da = np.ones_like(self.r_eff) * 1e4
-        np.savetxt(self.save_path + 'Da.dat', np.column_stack((self.r_eff, self.Da)))
+        np.savetxt(path + 'Da.dat', np.column_stack((self.r_eff, self.Da)))
 
     def calc_Er_prof(self, recalc=False):
         '''Caluclate Er profile with NEO-2.'''
@@ -433,7 +432,6 @@ class Profile_Processor:
         self.Bz = Bz_ode
         self.Bth = Bth_ode
         self.B = np.sqrt(Bz_ode**2 + Bth_ode **2)
-        print(f'Cylinder B = {self.B[0]}')
 
 
     def get_resonant_radii(self, m_mode, n_mode):

@@ -8,15 +8,17 @@ import subprocess
 
 from fieldpy import fieldpy
 from neo2_for_Er import neo2_for_Er
-from profile_processor import profile_processor
+from profile_processor import Profile_Processor
 from analytical_local_bif_criterion import *
 from tMHD_current import *
-
+from device_config import *
 
 class KQ_processor:
     """ Kilca QL-balance processor class to calculate equilibrium and profiles for 
         KiLCA and QL-Balance runs.
     """
+
+    device = MASTU_config()
 
     def __init__(self, shot, time, runpath):
         
@@ -51,13 +53,20 @@ class KQ_processor:
             equilibrium processing. Use NEO-2 to determine Er profile.
         """
         
-        self.pp = Profile_Processor(self.runpath)
+        if not os.path.exists(self.save_profs + '/r_eff/kprof/k.dat'):
+            try:
+                shutil.copytree(self.save_profs + 'kprof', self.save_profs + '/r_eff/kprof')
+            except OSError as exc: # python >2.5
+                if exc.errno in (errno.ENOTDIR, errno.EINVAL):
+                    shutil.copy(self.save_profs + 'kprof', self.save_profs + '/r_eff/kprof')
+            else: raise ValueError('Error copying kprof to r_eff/kprof')
+        self.pp = Profile_Processor(self.runpath, self.device)
         self.pp.run_fieldpy(self.gfile, self.convex_wall, self.flux_data, skip=True)
         self.prof_path = prof_path 
-        self.pp.map_profs_to_reff(self.prof_path, self.save_profs, self.flux_data, plot=False)
+        self.pp.map_profs_to_reff(self.prof_path + 'orig/', self.save_profs + '/r_eff/', self.flux_data, plot=False)
         self.pp.extend_profiles()
         self.pp.calc_Er_prof(recalc=not skip)
-        self.pp.determine_anomalous_diff_coeff()
+        self.pp.determine_anomalous_diff_coeff(self.save_profs)
 
     def rescale_dens_prof(self, rescale_factor):
         """Rescale the density profile by a constant factor."""

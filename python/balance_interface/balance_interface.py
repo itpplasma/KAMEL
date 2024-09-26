@@ -67,7 +67,17 @@ class QL_Balance_interface():
         files = [f for f in os.listdir(profile_path) if os.path.isfile(os.path.join(profile_path, f))]
         for f in files:
             shutil.copy2(profile_path + f, os.path.join(self.run_path, 'profiles'))
-        
+
+    def link_profiles(self, profile_path):
+        if not os.path.exists(profile_path):
+            raise FileNotFoundError(f'Profile path {profile_path} not found.')
+        else:
+            try:
+                os.unlink(self.run_path + 'profiles')
+            except:
+                pass
+            os.symlink(profile_path, self.run_path + 'profiles')
+           
     def set_factors(self, fac_n, fac_Te, fac_Ti, fac_vz):
         """Set the factors for the balance run."""
         self.fac_n = fac_n
@@ -180,7 +190,7 @@ class QL_Balance_interface():
         self.conf.write_conf(path)
     
     def prepare_input_h5(self):
-        self.input_h5 = Balance_Input_h5(self.input_h5_file, os.path.join(self.run_path, 'profiles'))
+        self.input_h5 = Balance_Input_h5(self.input_h5_file, os.path.join(self.run_path, 'profiles/'))
         self.input_h5.get_required_data()
         self.input_h5.write_data_to_h5(self.input_h5_file)
     
@@ -191,7 +201,7 @@ class QL_Balance_interface():
         else:
             options = ''
         os.chdir(self.run_path)
-        out = os.system(f'./ql-balance | tee balance.log {options}')
+        out = os.system(f'./ql-balance | tee out/balance.log {options}')
         os.chdir(os.path.dirname(__file__))
         print(f'Balance run {self.name} finished.')
     

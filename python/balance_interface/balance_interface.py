@@ -156,6 +156,7 @@ class QL_Balance_interface():
         kil.set_modes(self.m_mode,self.n_mode)
         kil.antenna.data['flab'] = [1.0, 0.0]
         kil.write()
+        self.I_KiLCA = self.get_KiLCA_current()
         kil = KiLCA_interface(self.shot, self.time, self.run_path, 'vacuum', self.machine)
         kil.background.data['Btor'] = Btor
         kil.a_minor = a_minor
@@ -164,6 +165,12 @@ class QL_Balance_interface():
         kil.antenna.data['flab'] = [1.0, 0.0]
         kil.write()
 
+    def get_KiLCA_current(self):
+        if not hasattr(self, kil):
+            raise ValueError('KiLCA not prepared.')
+        kil.calculate_parallel_current_density(self.m_mode, self.n_mode, self.run_path + f'flre/linear-data/m_{self.m_mode}_n_{self.n_mode}_flab_[1,0]', self.run_path + f'flre/background-data/')
+        kil.calculate_layer_width()
+        return kil.integrate_par_current_dens()
     
     def link_executable(self):
         """Link the executable to the run directory."""

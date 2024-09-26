@@ -7,6 +7,7 @@ import sys
 import inspect
 #sys.path.append(inspect.getfile(KiLCA_interface)[0:-18] + '../../postproc_py_class/')
 from postproc_class import utility_class
+from scipy.optimize import curve_fit
 
 class KiLCA_postprocessor:
     """
@@ -220,3 +221,38 @@ class KiLCA_postprocessor:
         plt.subplots_adjust(hspace=0.05)
         plt.show()
         return fig
+    
+    def calculate_parallel_current_density(self, m_mode, n_mode, path_to_linear, path_to_background):
+        self.read_EB(self, path_to_file=path_to_linear, m=0, n=0)
+        self.read_background_field(path_to_background)
+
+        self.kth = m_mode / self.r_eff
+        self.kz = self.n_mode / self.R0
+
+        self.Br = self.Br_real + 1j * self.Br_imag
+        self.Bth = self.Bth_real + 1j * self.Bth_imag
+        self.Bz = self.Bz_real + 1j * self.Bz_imag
+        self.dBr = np.gradient(self.Br, self.r)
+        self.dBth = np.gradient(self.Bth, self.r)
+        self.dBz = np.gradient(self.Bz, self.r)
+
+        #self.Jr = 1j / (4*np.pi) * (self.kth * self.Bz - self.kz * self.Bth)
+        self.Jth = 1 /(4*np.pi) * (1j * self.kz * self.Br - self.dBz)
+        self.Jz = 1 / (4 * np.pi) * (self.Bth / self.r + self.dBth - 1j * self.kth * self.Br)
+
+        self.Jpar = (self.Jth * self.B0th + self.Jz * self.B0z) / self.B0
+
+    def calculate_layer_width(self):
+        model = lambda r, b, c: c * (1/np.sqrt(2*np.pi*b**2)) * np.exp(-(r-self.r_res)**2/(2*b**2))
+        popt, popcov = curve_fit(model, self.r, self.Jpar)
+        self.d = np.real(5 * np.sqrt(popt[0]))
+        
+    def integrate_par_current_dens(self):
+        ind = np.where(self.r >= self.r_res - self.d/2 and self.r <= self.r_res + self.d/2)
+        self.Ipar = np.abs(2 * np.pi * np.trapz(self.Jpar[ind] * self.r[ind], self.r[ind]))
+        return self.Ipar
+        
+    def read_background_field(self, path):
+        self.B0 = np.loadtxt(path + 'b0.dat')[:,1]
+        self.B0th = np.loadtxt(path + 'b0th.dat')[:,1]
+        self.B0z = np.loadtxt(path + 'b0z.dat')[:,1]

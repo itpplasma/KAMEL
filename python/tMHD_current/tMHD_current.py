@@ -56,16 +56,18 @@ class tMHD_current:
 
         assert kind in kinds, f'kind {kind} not in {kinds}'
 
-        dat = mat4py_loadmat(file)
+        dat = loadmat(file)
         inp = mat4py_loadmat(InputFile)
 
 
         if kind == 'orig' or kind == 'smooth':
-            self.JparU = np.array(dat['jparU'], dtype=complex) / 10**5
+            self.JparU = np.array(dat.get('jparU'), dtype=complex) / 10**5
             self.JparL = np.array(dat['jparL'], dtype=complex) / 10**5
         else:
-            self.JparU = np.array(dat['Jpars'][kind]['UPPER'], dtype=complex) / 10**5
-            self.JparL = np.array(dat['Jpars'][kind]['LOWER'], dtype=complex) / 10**5
+            #self.JparU = np.array(dat.get('Jpars/'+kind+'/UPPER'), dtype=complex) / 10**5
+            self.JparU = dat['Jpars'][kind][0][0]['UPPER'][0][0] / 10**5
+            #self.JparL = np.array(dat.get('Jpars/'+kind+'/LOWER'), dtype=complex) / 10**5
+            self.JparL = dat['Jpars'][kind][0][0]['LOWER'][0][0] / 10**5
 
         self.chi = np.array(inp['chi'])
         self.s = np.array(inp['s'])

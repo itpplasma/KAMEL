@@ -4,10 +4,10 @@
 72                                                  ntor! number of toroidal harmonics
 0.99                                                cutoff! inner cutoff in psi/psi_a units
 4                                                   icftype! type of coil file
-'/Users/markusmarkl/plasma/7data/MASTU/47051_n2/initial_data/gfiles/g47051.611_EFIT_orig'          gfile! equilibrium file
+'/proj/plasma/DATA/MAST-U/edoardo/separatrix_density_scan/47051_n2/gfiles/g47051.611_EFIT_orig'          gfile! equilibrium file
 ''                                                         !'DATA/ASDEX/MESH3D_30835/field.dat'pfile! coilfile
 '/proj/plasma/DATA/MAST-U/david_ryan/ModPack2/convexwall.dat'                                        convexfile! convex file for stretchcoords
-'/Users/markusmarkl/plasma/7data/MASTU/47051_n2/preprocessed/orig/flux_data/'                                                         fluxdatapath ! directory with data in flux coord.
+'/temp/markl_m/0projects/2024-mastu-rmps/sep-dens-scan/orig/flux_data/'                                                         fluxdatapath ! directory with data in flux coord.
 0                                                   window size for filtering of psi array over R
 0                                                   window size for filtering of psi array over Z
 

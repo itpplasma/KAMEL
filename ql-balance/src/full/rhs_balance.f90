@@ -1293,6 +1293,8 @@ subroutine calc_transport_coeffs_ornuhl(dim, vT, nu, D_11, D_12, D_21, D_22)
 
     allocate (comfac(dim), d_12a(dim), epm2(dim), brm2(dim), epbr_re(dim), epbr_im(dim))
     allocate (x1(dim), x2(dim), symbI(0:mnmax, 0:mnmax, dim))
+
+    symbI = 0.d0
 !
 !    if  Br=c*kp*Es/om_E diffusion tensor iz zero
 
@@ -1308,7 +1310,7 @@ subroutine calc_transport_coeffs_ornuhl(dim, vT, nu, D_11, D_12, D_21, D_22)
 
     x1 = kp*vT/nu
     x2 = -om_E/nu
-    symbI = (0.d0, 0.d0)
+    
     do i = 1, dim
         if (rb(i) .lt. r_resonant(i_mn_loop) - 2.d0*gg_width) cycle
         if (rb(i) .gt. r_resonant(i_mn_loop) + 2.d0*gg_width) cycle
@@ -1360,9 +1362,11 @@ end subroutine
 subroutine getIfunc(x1, x2, symbI)
     integer, parameter :: mnmax = 3
     integer :: m, n
-    double precision :: x1, x2, z
+    double precision, intent(in) :: x1, x2
+    double precision :: z
     double complex :: denom
-    double complex, dimension(0:mnmax, 0:mnmax) :: symbI, Imn
+    double complex, dimension(0:mnmax, 0:mnmax), intent(out) :: symbI
+    double complex, dimension(0:mnmax, 0:mnmax) :: Imn
 !
 !  if(.true.) then
     if (.false.) then

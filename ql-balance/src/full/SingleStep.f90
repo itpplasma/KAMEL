@@ -136,7 +136,7 @@ module singleStep
 
     subroutine writeDqle22_SingleStep
 
-        use grid_mod, only: dqle22
+        use grid_mod, only: dqle22, rb
         use h5mod
 
         implicit none
@@ -157,6 +157,8 @@ module singleStep
         CALL h5_add_double_0(h5_id, trim(h5_mode_groupname)//'/dqle22_res', dqle22_res_single)
         CALL h5_add_double_1(h5_id, trim(h5_mode_groupname)//'/dqle22', &
                                 dqle22, lbound(dqle22), ubound(dqle22))
+        CALL h5_add_double_1(h5_id, trim(h5_mode_groupname)//'/r_eff', &
+                                rb, lbound(rb), ubound(rb))
  
         CALL h5_close(h5_id)
         CALL h5_deinit()
@@ -177,9 +179,13 @@ module singleStep
         end if
 
         if (numres .eq. 1) then
-            write (h5_mode_groupname, "(A,I1,A,I1)") "f_", m_vals(1), "_", n_vals(1)
+            if (m_vals(1) <= 9) then
+                write (h5_mode_groupname, "(A,I1,A,I1)") "f_", m_vals(1), "_", n_vals(1)
+            else
+                write (h5_mode_groupname, "(A,I2,A,I1)") "f_", m_vals(1), "_", n_vals(1)
+            end if
         else
-            write (h5_mode_groupname, "(A,I1,A,I1)") "multi_mode"
+            write (h5_mode_groupname, "(A)") "multi_mode"
         end if
 
         CALL h5_init()

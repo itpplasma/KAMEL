@@ -1,6 +1,6 @@
 import sys
 import os
-sys.path.append(os.path.dirname(__file__) + '/../kilca_interface/')
+sys.path.append(os.path.dirname(__file__) + '/../KiLCA_interface/')
 from read_in import read_in
 from change_opts import change_opts_fieldpy
 from save_file import save_file

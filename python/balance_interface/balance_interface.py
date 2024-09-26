@@ -85,8 +85,8 @@ class QL_Balance_interface():
         self.fac_Ti = fac_Ti
         self.fac_vz = fac_vz
         
-    def prepare_balance(self):
-        self.prepare_KiLCA()
+    def prepare_balance(self, Btor, a_minor):
+        self.prepare_KiLCA(Btor, a_minor)
         #self.prepare_balance_input(self.input_h5_file)
         self.prepare_balance_output(self.output_h5_file)
         self.link_executable()
@@ -148,15 +148,22 @@ class QL_Balance_interface():
 
         f.close()
     
-    def prepare_KiLCA(self):
+    def prepare_KiLCA(self, Btor, a_minor):
         kil = KiLCA_interface(self.shot, self.time, self.run_path, 'flre', self.machine)
+        kil.background.data['Btor'] = Btor
+        kil.a_minor = a_minor
+        kil.set_machine()
         kil.set_modes(self.m_mode,self.n_mode)
         kil.antenna.data['flab'] = [1.0, 0.0]
         kil.write()
         kil = KiLCA_interface(self.shot, self.time, self.run_path, 'vacuum', self.machine)
+        kil.background.data['Btor'] = Btor
+        kil.a_minor = a_minor
+        kil.set_machine()
         kil.set_modes(self.m_mode,self.n_mode)
         kil.antenna.data['flab'] = [1.0, 0.0]
         kil.write()
+
     
     def link_executable(self):
         """Link the executable to the run directory."""

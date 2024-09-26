@@ -33,7 +33,8 @@ elseif(CMAKE_HOST_SYSTEM_NAME MATCHES "Linux")
 
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -L/usr/lib64 -lstdc++")
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -L/usr/lib64 -lstdc++ -O3 -D DOUBLE_APPEND_FORTRAN")
-    set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -openmp -O3")
+    #set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -openmp -O3")
+    set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -openmp")
 else()
     # Other operating system specific configurations or commands
     message("Building on another operating system. Might not be implemented.")

@@ -66,7 +66,7 @@ class KQ_processor:
         self.pp.map_profs_to_reff(self.prof_path + 'orig/', self.save_profs + '/r_eff/', self.flux_data, plot=False)
         self.pp.extend_profiles()
         self.pp.calc_Er_prof(recalc=not skip)
-        self.pp.determine_anomalous_diff_coeff(self.save_profs)
+        self.pp.determine_anomalous_diff_coeff(self.save_profs+'/extended/')
 
     def rescale_dens_prof(self, rescale_factor):
         """Rescale the density profile by a constant factor."""

@@ -171,6 +171,11 @@ class KiLCA_interface:
             raise ValueError('Runtype not supported')
 
         self.machine = machine # machine, e.g. AUG (not implemented yet: MASTU)
+        #self.set_machine()
+
+        self.BLUE_PATH = inspect.getfile(KiLCA_interface)[0:-18] + self.BLUE_PATH
+
+    def set_machine(self):
         if self.machine == 'AUG':
             self.set_ASDEX()
         elif self.machine == 'MASTU':
@@ -180,9 +185,6 @@ class KiLCA_interface:
             print('Will not set a machine at constructor')
         else:
             raise ValueError('Machine not supported')
-
-        self.BLUE_PATH = inspect.getfile(KiLCA_interface)[0:-18] + self.BLUE_PATH
-
         
         
     def set_modes(self, m: int = 3, n: int = 2):
@@ -273,24 +275,25 @@ class KiLCA_interface:
         m = [self.run_type, 'vacuum', 'vacuum']
         self.set_zones(r,b,m)
     
-    def set_MASTU(self, nmodes: int = 1, I0: float = 6.3e12):
+    def set_MASTU(self, nmodes: int = 1, I0: float = 6.0e12):
         """
         Description:
             Initializes the class for a standard run on MASTU parameters
         Input:
             nmodes ... number of modes to calculate, default = 0
-            I0 ... RMP coil current value in statA, MASTU: 2.1kA=6.3e12statA
+            I0 ... RMP coil current value in statA, MASTU: 2.0kA=6.0e12statA (MAST-U has 4 turns 
+            per RMP coil with a maximum current of 8kAt)
         """
         self.machine = 'MASTU'
         #print(f'Machine setting: MASTU, type: {self.run_type}')
 
-        self.a_minor = 65.0
+        #self.a_minor = 85.0
         self.R0 = 85.0
         self.r_antenna = self.a_minor + 5.0
 
         self.set_antenna(self.a_minor, nmodes, I0 = I0)
         self.set_background(self.R0, self.a_minor)
-        self.background.Btor = -6400.0
+        #self.background.data['Btor'] = -6400.0
 
         # set zones
         r = [3.0, self.a_minor, self.r_antenna, self.r_antenna + 5.0]

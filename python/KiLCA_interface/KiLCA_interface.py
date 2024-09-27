@@ -109,7 +109,7 @@ class KiLCA_interface:
     ################################################################################
     """
 
-    EXEC_PATH = '../../KiLCA/build/exe/KiLCA_Normal_V_2.4.2_MDNO_FPGEN_POLYNOMIAL_Release_64bit'
+    EXEC_PATH = os.path.join(os.path.dirname(__file__) + '/../../KiLCA/build/exe/KiLCA_Normal_V_2.4.2_MDNO_FPGEN_POLYNOMIAL_Release_64bit')
     BLUE_PATH = 'blueprints/'
     PROF_PATH = 'profiles/'
 
@@ -329,7 +329,7 @@ class KiLCA_interface:
         # create sym link to exe
         os.system('ln -sf ' + self.EXEC_PATH + ' ' + self.path_of_run + 'run_local')
         # create symbolic link to profiles directory
-        os.system('ln -sfT ' + os.path.abspath(self.path_of_profiles) + ' ' + self.path_of_run + 'profiles')
+        os.system('ln -sf ' + os.path.abspath(self.path_of_profiles) + ' ' + self.path_of_run + 'profiles')
 
         self.antenna.write(self.BLUE_PATH + self.antenna.BLUEPRINT, self.path_of_run)
 
@@ -349,7 +349,13 @@ class KiLCA_interface:
             self.zones[k].write(self.BLUE_PATH, self.path_of_run)
 
         self.ready_to_run = True
-
+    
+    def get_r_res(self, m_mode, n_mode):
+        q_prof = np.loadtxt(self.path_of_profiles + 'q.dat')
+        self.r_res = np.interp(m_mode/n_mode, np.abs(q_prof[:,1]), q_prof[:,0])
+        print(self.r_res)
+        return self.r_res
+        
 
     def run(self):
         """

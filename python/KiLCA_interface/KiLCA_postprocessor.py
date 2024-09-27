@@ -1,6 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 from .KiLCA_interface import KiLCA_interface
+from .KiLCA_data import KiLCA_data
 import os
 import re
 import sys
@@ -223,11 +224,13 @@ class KiLCA_postprocessor:
         return fig
     
     def calculate_parallel_current_density(self, m_mode, n_mode, path_to_linear, path_to_background):
-        self.read_EB(self, path_to_file=path_to_linear, m=0, n=0)
+        print(path_to_linear)
+        self.read_EB(path_to_file=path_to_linear, m=0, n=0)
+        self.EB_to_fields(self.EBdat, m=0, n=0)
         self.read_background_field(path_to_background)
 
-        self.kth = m_mode / self.r_eff
-        self.kz = self.n_mode / self.R0
+        self.kth = m_mode / self.r
+        self.kz = n_mode / self.kil_in.R0
 
         self.Br = self.Br_real + 1j * self.Br_imag
         self.Bth = self.Bth_real + 1j * self.Bth_imag
@@ -240,19 +243,23 @@ class KiLCA_postprocessor:
         self.Jth = 1 /(4*np.pi) * (1j * self.kz * self.Br - self.dBz)
         self.Jz = 1 / (4 * np.pi) * (self.Bth / self.r + self.dBth - 1j * self.kth * self.Br)
 
-        self.Jpar = (self.Jth * self.B0th + self.Jz * self.B0z) / self.B0
+        self.Jpar = (self.Jth * np.interp(self.r, self.bg_r_eff, self.B0th) + self.Jz * np.interp(self.r, self.bg_r_eff, self.B0z)) / np.interp(self.r, self.bg_r_eff, self.B0)
 
-    def calculate_layer_width(self):
-        model = lambda r, b, c: c * (1/np.sqrt(2*np.pi*b**2)) * np.exp(-(r-self.r_res)**2/(2*b**2))
-        popt, popcov = curve_fit(model, self.r, self.Jpar)
+    def calculate_layer_width(self, m_mode, n_mode):
+        self.kil_in.get_r_res(m_mode, n_mode)
+        r_ind = np.where(self.r < self.kil_in.a_minor-0.1)
+        model = lambda r, b, c: c * (1/np.sqrt(2*np.pi*b**2)) * np.exp(-(r-self.kil_in.r_res)**2/(2*b**2))
+        popt, popcov = curve_fit(model, self.r[r_ind], self.Jpar[r_ind])
         self.d = np.real(5 * np.sqrt(popt[0]))
         
     def integrate_par_current_dens(self):
-        ind = np.where(self.r >= self.r_res - self.d/2 and self.r <= self.r_res + self.d/2)
-        self.Ipar = np.abs(2 * np.pi * np.trapz(self.Jpar[ind] * self.r[ind], self.r[ind]))
+        ind_lower = np.where(self.r >= self.kil_in.r_res - self.d/2)[0][0]
+        ind_upper = np.where(self.r <= self.kil_in.r_res + self.d/2)[0][-1]
+        self.Ipar = 2 * np.pi * np.trapz(self.Jpar[ind_lower:ind_upper] * self.r[ind_lower:ind_upper], self.r[ind_lower:ind_upper])
         return self.Ipar
         
     def read_background_field(self, path):
+        self.bg_r_eff = np.loadtxt(path + 'b0.dat')[:,0]
         self.B0 = np.loadtxt(path + 'b0.dat')[:,1]
         self.B0th = np.loadtxt(path + 'b0th.dat')[:,1]
         self.B0z = np.loadtxt(path + 'b0z.dat')[:,1]

@@ -4,6 +4,7 @@ from .InpOut import *
 from .change_opts import *
 from postproc_class import utility_class
 
+from .KiLCA_data import *
 from .KiLCA_antenna import *
 from .KiLCA_background import *
 from .KiLCA_coil import *
@@ -17,4 +18,5 @@ from .KiLCA_zone_flre import *
 from .KiLCA_zone_vacuum import *
 from .KiLCA_zone import *
 from .KiLCA_interface import *
+
 

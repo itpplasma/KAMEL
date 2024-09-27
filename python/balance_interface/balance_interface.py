@@ -149,28 +149,31 @@ class QL_Balance_interface():
         f.close()
     
     def prepare_KiLCA(self, Btor, a_minor):
-        kil = KiLCA_interface(self.shot, self.time, self.run_path, 'flre', self.machine)
-        kil.background.data['Btor'] = Btor
-        kil.a_minor = a_minor
-        kil.set_machine()
-        kil.set_modes(self.m_mode,self.n_mode)
-        kil.antenna.data['flab'] = [1.0, 0.0]
-        kil.write()
+        self.kil_flre = KiLCA_interface(self.shot, self.time, self.run_path, 'flre', self.machine)
+        self.kil_flre.background.data['Btor'] = Btor
+        self.kil_flre.a_minor = a_minor
+        self.kil_flre.set_machine()
+        self.kil_flre.set_modes(self.m_mode,self.n_mode)
+        self.kil_flre.antenna.data['flab'] = [1.0, 0.0]
+        self.kil_flre.write()
+        self.kil_flre.run()
+        self.kil_flre_post = KiLCA_postprocessor(self.kil_flre)
         self.I_KiLCA = self.get_KiLCA_current()
-        kil = KiLCA_interface(self.shot, self.time, self.run_path, 'vacuum', self.machine)
-        kil.background.data['Btor'] = Btor
-        kil.a_minor = a_minor
-        kil.set_machine()
-        kil.set_modes(self.m_mode,self.n_mode)
-        kil.antenna.data['flab'] = [1.0, 0.0]
-        kil.write()
+        kil_vac = KiLCA_interface(self.shot, self.time, self.run_path, 'vacuum', self.machine)
+        kil_vac.background.data['Btor'] = Btor
+        kil_vac.a_minor = a_minor
+        kil_vac.set_machine()
+        kil_vac.set_modes(self.m_mode,self.n_mode)
+        kil_vac.antenna.data['flab'] = [1.0, 0.0]
+        kil_vac.write()
+        kil_vac.run()
 
     def get_KiLCA_current(self):
-        if not hasattr(self, kil):
+        if not hasattr(self, 'kil_flre'):
             raise ValueError('KiLCA not prepared.')
-        kil.calculate_parallel_current_density(self.m_mode, self.n_mode, self.run_path + f'flre/linear-data/m_{self.m_mode}_n_{self.n_mode}_flab_[1,0]', self.run_path + f'flre/background-data/')
-        kil.calculate_layer_width()
-        return kil.integrate_par_current_dens()
+        self.kil_flre_post.calculate_parallel_current_density(self.m_mode, self.n_mode, self.run_path + f'flre/linear-data/m_{self.m_mode}_n_{self.n_mode}_flab_[1,0]/', self.run_path + f'flre/background-data/')
+        self.kil_flre_post.calculate_layer_width(self.m_mode, self.n_mode)
+        return self.kil_flre_post.integrate_par_current_dens()
     
     def link_executable(self):
         """Link the executable to the run directory."""

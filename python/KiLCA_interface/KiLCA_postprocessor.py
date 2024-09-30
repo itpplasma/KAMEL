@@ -224,7 +224,6 @@ class KiLCA_postprocessor:
         return fig
     
     def calculate_parallel_current_density(self, m_mode, n_mode, path_to_linear, path_to_background):
-        print(path_to_linear)
         self.read_EB(path_to_file=path_to_linear, m=0, n=0)
         self.EB_to_fields(self.EBdat, m=0, n=0)
         self.read_background_field(path_to_background)
@@ -253,10 +252,6 @@ class KiLCA_postprocessor:
         
 
         self.Jpar = (self.Jth * np.interp(self.r, self.bg_r_eff, self.B0th) + self.Jz * np.interp(self.r, self.bg_r_eff, self.B0z)) / np.interp(self.r, self.bg_r_eff, self.B0)
-        plt.figure()
-        plt.plot(self.r, np.abs(self.Jpar))
-        plt.plot(self.r, np.real(self.Jpar))
-        plt.plot(self.r, np.imag(self.Jpar))
 
     def calculate_layer_width(self, m_mode, n_mode):
         print(f'Calculating layer width for m = {m_mode}, n = {n_mode}')
@@ -264,13 +259,7 @@ class KiLCA_postprocessor:
         r_ind = np.where(self.r < self.kil_in.a_minor-0.1)
         model = lambda r, b, c: c * (1/np.sqrt(2*np.pi*b**2)) * np.exp(-(r-self.kil_in.r_res)**2/(2*b**2))
         popt, popcov = curve_fit(model, self.r[r_ind], self.Jpar[r_ind])
-        self.d = np.real(5 * np.sqrt(popt[0]))
-        print(f'Layer width: {self.d} cm')
-        plt.plot(self.r, model(self.r, *popt))
-        plt.axvline(self.kil_in.r_res - self.d/2, color='r')
-        plt.axvline(self.kil_in.r_res + self.d/2, color='r')
-        plt.axvline(self.kil_in.r_res, color='b')
-        plt.show()
+        self.d = np.real(5 * np.sqrt(popt[0]**2))
         
     def integrate_par_current_dens(self):
         ind_lower = np.where(self.r >= self.kil_in.r_res - self.d/2)[0][0]

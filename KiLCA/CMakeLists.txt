@@ -47,7 +47,7 @@ set (ADAPTIVE_GRID_GENERATOR POLYNOMIAL) #possible values: POLYNOMIAL - polynomi
 
 set (ADDITIONAL_COMMENT _) #possible values: anything
 
-set (DEBUG_FLAG 0) #possible values: 0 - no debugging, 1 - with debugging
+set (DEBUG_FLAG 1) #possible values: 0 - no debugging, 1 - with debugging
 
 set (CALC_EIGEN_DECOMPOSITION 0) #possible values: 0 - if no, 1 - if yes
 

@@ -36,7 +36,7 @@ return q(x, P->bp) - P->q_res;
 
 int mode_data::find_resonance_location (void)
 {
-double q_res = - ((double)(wd->m))/((double)(wd->n));
+double q_res = sign(q(30, bp)) * ((double)(wd->m))/((double)(wd->n));
 
 double r1 = bp->x[0], r2 = bp->x[bp->dimx-1];
 

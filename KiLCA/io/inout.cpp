@@ -578,7 +578,6 @@ for (i=0; i<dim; i++)
         fprintf (stderr, "\nload_data_file: file %s reading error!\n", file_name);
         exit(1);
     }
-
     rgrid[i] = strtod (char_buf, &str2);
     if (str2 == char_buf) err++;
     str1 = str2;

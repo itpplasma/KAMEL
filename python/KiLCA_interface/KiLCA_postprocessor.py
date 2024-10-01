@@ -241,15 +241,6 @@ class KiLCA_postprocessor:
         #self.Jr = 1j / (4*np.pi) * (self.kth * self.Bz - self.kz * self.Bth)
         self.Jth = 1 /(4*np.pi) * (1j * self.kz * self.Br - self.dBz)
         self.Jz = 1 / (4 * np.pi) * (self.Bth / self.r + self.dBth - 1j * self.kth * self.Br)
-        plt.figure()
-        plt.plot(self.r, np.abs(self.Jth))
-        plt.plot(self.r, np.real(self.Jth))
-        plt.plot(self.r, np.imag(self.Jth))
-        plt.figure()
-        plt.plot(self.r, np.abs(self.Jz))
-        plt.plot(self.r, np.real(self.Jz))
-        plt.plot(self.r, np.imag(self.Jz))
-        
 
         self.Jpar = (self.Jth * np.interp(self.r, self.bg_r_eff, self.B0th) + self.Jz * np.interp(self.r, self.bg_r_eff, self.B0z)) / np.interp(self.r, self.bg_r_eff, self.B0)
 

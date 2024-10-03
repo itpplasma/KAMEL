@@ -243,6 +243,8 @@ class KiLCA_postprocessor:
         self.Jz = 1 / (4 * np.pi) * (self.Bth / self.r + self.dBth - 1j * self.kth * self.Br)
 
         self.Jpar = (self.Jth * np.interp(self.r, self.bg_r_eff, self.B0th) + self.Jz * np.interp(self.r, self.bg_r_eff, self.B0z)) / np.interp(self.r, self.bg_r_eff, self.B0)
+        #plt.figure()
+        #plt.plot(self.r, self.Jpar)
 
     def calculate_layer_width(self, m_mode, n_mode):
         print(f'Calculating layer width for m = {m_mode}, n = {n_mode}')
@@ -251,11 +253,17 @@ class KiLCA_postprocessor:
         model = lambda r, b, c: c * (1/np.sqrt(2*np.pi*b**2)) * np.exp(-(r-self.kil_in.r_res)**2/(2*b**2))
         popt, popcov = curve_fit(model, self.r[r_ind], self.Jpar[r_ind])
         self.d = np.real(5 * np.sqrt(popt[0]**2))
+        #plt.plot(self.r, model(self.r, *popt))
+        #plt.axvline(self.kil_in.r_res, color='r')
+        #plt.xlim([self.kil_in.r_res-1, self.kil_in.r_res+1])
+        
         
     def integrate_par_current_dens(self):
         ind_lower = np.where(self.r >= self.kil_in.r_res - self.d/2)[0][0]
         ind_upper = np.where(self.r <= self.kil_in.r_res + self.d/2)[0][-1]
         self.Ipar = 2 * np.pi * np.trapz(self.Jpar[ind_lower:ind_upper] * self.r[ind_lower:ind_upper], self.r[ind_lower:ind_upper])
+        #plt.title(f'Integrated parallel current density: {np.abs(self.Ipar):.2f}')
+        #plt.show()
         return self.Ipar
         
     def read_background_field(self, path):

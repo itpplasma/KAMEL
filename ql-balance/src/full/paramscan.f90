@@ -43,6 +43,8 @@ module paramscan_mod
         class(ParameterScan_t), intent(inout) :: this
         this%runType = "ParameterScan"
 
+        paramscan = .true.
+
         if (irank .eq. 0) then
             !iexit = 0 ! 0 - don't skip, 1 - skip, 2 - stop
             mwind = 10
@@ -85,6 +87,7 @@ module paramscan_mod
 
         use transp_coeffs_mod, only: rescale_transp_coeffs_by_ant_fac
         use parallelTools, only: irank
+        use plasma_parameters, only: alloc_hold_parameters
             
         implicit none
 
@@ -94,16 +97,25 @@ module paramscan_mod
             print *, "Running ParameterScan"
         end if
 
+        call alloc_hold_parameters
+
         do ifac_n = 1, size(fac_n)
             do ifac_Te = 1, size(fac_Te)
                 do ifac_Ti = 1, size(fac_Ti)
                     do ifac_vz = 1, size(fac_vz)
+                        print *, "Before prepare h5 group_name"
                         call prepare_h5_group_name
+                        print *, "Before rescale"
                         call rescale_profiles
+                        print *, "Before calc geom"
                         call calc_geometric_parameter_profiles
+                        print *, "Before initialize get dql"
                         call initialize_get_dql
+                        print *, "Before get dql"
                         call get_dql
+                        print *, "Before rescale transp"
                         call rescale_transp_coeffs_by_ant_fac
+                        print *, "Before interpolate Br Dql"
                         call interpolate_Br_Dql_at_res_parscan
                     end do
                 end do
@@ -242,10 +254,12 @@ module paramscan_mod
 
         if (debug_mode) write(*,*) "Debug: coming into rescaling profiles"
 
+        print *, "hold times fac"
         params(1, :) = hold_n * fac_n(ifac_n)
         params(2, :) = hold_vz * fac_vz(ifac_vz)
         params(3, :) = hold_Te * fac_Te(ifac_Te)
         params(4, :) = hold_Ti * fac_Ti(ifac_Ti)
+        print *, "After hold times fac"
 
         if (fac_vz(ifac_vz) .ne. 1.d0) then
             if (debug_mode) write(*,*) "Debug: fac_vz not equal 1. need to rescale Er as well"
@@ -354,9 +368,15 @@ module paramscan_mod
                                 "Ti", fac_Ti(ifac_Ti), "vz", fac_vz(ifac_vz)
                             
                             if (numres .eq. 1) then
-                                write (h5_mode_groupname, "(A,A,A,I1,A,I1)") &
-                                    trim(parscan_str), "/", "f_", m_vals(1), &
-                                    "_", n_vals(1)
+                                if (m_vals(1) < 10) then
+                                    write (h5_mode_groupname, "(A,A,A,I1,A,I1)") &
+                                        trim(parscan_str), "/", "f_", m_vals(1), &
+                                        "_", n_vals(1)
+                                else
+                                    write (h5_mode_groupname, "(A,A,A,I2,A,I1)") &
+                                        trim(parscan_str), "/", "f_", m_vals(1), &
+                                        "_", n_vals(1)
+                                end if
                             else
                                 write (h5_mode_groupname, "(A,A,A,I1,A,I1)") &
                                     trim(parscan_str), "/", "multi_mode"

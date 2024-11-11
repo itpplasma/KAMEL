@@ -56,6 +56,10 @@ class QL_Balance_interface():
         '''Set the type of the run, e.g. 'SingleStep', 'TimeEvolution' or 'ParameterScan'''
         assert run_type in self.run_types, f'Run type {run_type} not supported.'
         self.run_type = run_type
+        try:
+            self.conf.conf['balancenml']['type_of_run'] = run_type
+        except:
+            raise ValueWarning(f'Namelist config not read to write run type {run_type}.')
         
     def set_modes(self, m_mode, n_mode):
         self.m_mode = m_mode
@@ -219,8 +223,9 @@ class QL_Balance_interface():
             options = '>/dev/null 2>&1'
         else:
             options = ''
+        cwd = os.getcwd()
         os.chdir(self.run_path)
         out = os.system(f'./ql-balance | tee out/balance.log {options}')
-        os.chdir(os.path.dirname(__file__))
+        os.chdir(cwd)
         print(f'Balance run {self.name} finished.')
     

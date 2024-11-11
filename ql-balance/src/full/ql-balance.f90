@@ -106,10 +106,10 @@ program ql_balance
 
                     call det_balance_eqs_source_terms ! calcs source term in balance equations, needed for time evolution
 
-					write(*,*) "h5_mode_groupname before writeKinProfileDataToDisk: ", trim(h5_mode_groupname)
+					write(*,*) "h5_mode_groupname before write_kin_prof_data_to_disk: ", trim(h5_mode_groupname)
                     if (irank .eq. 0) then
                         if (suppression_mode .eqv. .false.) then
-                            CALL writeKinProfileDataToDisk ! write the profiles to hdf5 file
+                            CALL write_kin_prof_data_to_disk ! write the profiles to hdf5 file
                         end if
                     end if
 
@@ -256,7 +256,7 @@ program ql_balance
                         time = time + timstep
 
                         call messageTimeInfo
-                        call writeKinProfileAtTimeIndex
+                        call write_kin_profile_at_time_index
                         call setFirstIterationTrue
                         CALL checkIfLinearDiscrepancyOfPenRatioReached
  

@@ -138,7 +138,7 @@
         call det_balance_eqs_source_terms
 
         if (irank .eq. 0) then
-            call writeKinProfileDataToDisk
+            if (.not. suppression_mode) call write_kin_prof_data_to_disk
         end if
 
         call allocate_timscal_and_params
@@ -257,7 +257,7 @@
             time = time + timstep
 
             call messageTimeInfo
-            call writeKinProfileAtTimeIndex
+            if (.not. suppression_mode) call write_kin_profile_at_time_index
             call setFirstIterationTrue
             call checkIfLinearDiscrepancyOfPenRatioReached
 
@@ -461,7 +461,7 @@
                 else if (time .ge. 10*t_max_ramp_up) then ! if max time value is reached, stop the code
                     write(*,*) 'stop: reached time max: ', 10*t_max_ramp_up
                     if (suppression_mode .eqv. .false.) then
-                        call writeKinProfileDataToDisk
+                        call write_kin_prof_data_to_disk
                     end if
                     ! Write the cause of the stopping into the hdf5 file
                     if (ihdf5IO .eq. 1) then
@@ -518,7 +518,7 @@
                     ! if max time value is reached, stop the code
                     write(*,*) 'stop: time limit reached: ', time
                     if (suppression_mode .eqv. .false.) then
-                        call writeKinProfileDataToDisk
+                        call write_kin_prof_data_to_disk
                     end if ! suppression mode
                     ! Write the cause of the stopping into the hdf5 file
                     if (ihdf5IO .eq. 1) then
@@ -578,7 +578,7 @@
                     if ((antenna_factor/antenna_factor_max * 100) .le. 1.0) then ! if antenna factor would get below some percentage of the max value
                         write(*,*) 'stop: ramp-up/down finished '
                         if (suppression_mode .eqv. .false.) then
-                            call writeKinProfileDataToDisk
+                            call write_kin_prof_data_to_disk
                         end if
                         ! Write the cause of the stopping into the hdf5 file
                         if (ihdf5IO .eq. 1) then
@@ -628,7 +628,7 @@
                     if ((antenna_factor/antenna_factor_max * 100) .le. 0.1) then ! if antenna factor would get below some percentage of the max value
                         write(*,*) 'stop: ramp-up/down finished '
                         if (suppression_mode .eqv. .false.) then
-                            call writeKinProfileDataToDisk
+                            call write_kin_prof_data_to_disk
                         end if
                         ! Write the cause of the stopping into the hdf5 file
                         if (ihdf5IO .eq. 1) then
@@ -670,7 +670,7 @@
         else
                 write(*,*) 'stop: reached antenna_factor_max * ', antenna_max_stopping
                 if (suppression_mode .eqv. .false.) then
-                    call writeKinProfileDataToDisk
+                    call write_kin_prof_data_to_disk
                 end if
                 ! Write the cause of the stopping into the hdf5 file
                 if (ihdf5IO .eq. 1) then
@@ -734,7 +734,7 @@
                     end if
                 end if
                 if (suppression_mode .eqv. .false.) then
-                    CALL writeKinProfileDataToDisk
+                    CALL write_kin_prof_data_to_disk
                 end if
                 if (br_stopping) then
                     ! Write the cause of the stopping into the hdf5 file
@@ -817,7 +817,7 @@
                     !end if
                 !end if
                 !if (suppression_mode .eqv. .false.) then
-                    !CALL writeKinProfileDataToDisk(timeIndex)
+                    !CALL write_kin_prof_data_to_disk(timeIndex)
                 !end if
                 !if (br_stopping) then
                     !! Write the cause of the stopping into the hdf5 file
@@ -867,7 +867,7 @@
     !end subroutine
 
 
-    !> @brief subroutine writeKinProfileDataToDisk(timeIndex). Writes the profile data to hdf5 files. 
+    !> @brief subroutine write_kin_prof_data_to_disk(timeIndex). Writes the profile data to hdf5 files. 
     !> Formerly, this data was written to fort.1xxx ascii files.
     !> This routine was added because of the change that only every
     !>  "save_prof_time_step"th timestep is written. If the program is to be stopped
@@ -878,7 +878,7 @@
     !> @date 12.03.2021
     !> @param[in] timeIndex Current step of the time evolution. Used to name the fort.1000 group in which
     !> the data is written.
-    subroutine writeKinProfileDataToDisk
+    subroutine write_kin_prof_data_to_disk
 
         use grid_mod
         use plasma_parameters
@@ -899,7 +899,8 @@
                 Ercovavg(ipoi) = 0.5d0*(Ercov(ipoi) + Ercov(ipoi + 1))
             end do
             ! h5_mode_groupname
-            h5_currentgrp = "/"//trim(h5_mode_groupname) &
+            !h5_currentgrp = "/"//trim(h5_mode_groupname) &
+            h5_currentgrp = trim(h5_mode_groupname) &
                             //"/KinProfiles"
 
             CALL h5_init()
@@ -914,10 +915,9 @@
             ! define group 1000+timeIndex
             CALL h5_obj_exists(h5_id, trim(h5_currentgrp), h5_exists_log)
             if (.not. h5_exists_log) then
-        	    CALL h5_define_group(h5_id, trim(h5_currentgrp), group_id_1)
+                write(*,*) "group does not exist"
+        	    CALL h5_create_parent_groups(h5_id, trim(h5_currentgrp))
 		    end if
-
-
 
             write (*, *) "group defined"
             ! edited 26.03.2021, Markus Markl
@@ -947,7 +947,6 @@
             CALL h5_add_float_1(h5_id, trim(h5_currentgrp)//"Vth", &
                                 real(Vth), lbound(Vth), ubound(Vth))
 
-            CALL h5_close_group(group_id_1)
             CALL h5_close(h5_id)
             CALL h5_deinit()
             write (*, *) "finished writing KinProfiles"
@@ -964,16 +963,16 @@
             close (1000 + timeIndex)
         end if
 
-    end subroutine writeKinProfileDataToDisk
+    end subroutine write_kin_prof_data_to_disk
 
-    subroutine writeKinProfileAtTimeIndex
+
+    subroutine write_kin_profile_at_time_index
 
         implicit none
         if (irank .eq. 0) then
+            write(*,*) "write kinetic profiles at time index ", timeIndex
             if (modulo(timeIndex, save_prof_time_step) .eq. 0) then
-                if (suppression_mode .eqv. .false.) then
-                    CALL writeKinProfileDataToDisk
-                end if
+                CALL write_kin_prof_data_to_disk
             end if
         end if
 
@@ -1032,7 +1031,7 @@
         if (timstep .lt. stop_time_step .and. time .gt. 1.0d-3) then
             write(*,*) 'stop: timestep smaller than stop limit'
             if (suppression_mode .eqv. .false.) then
-                CALL writeKinProfileDataToDisk
+                CALL write_kin_prof_data_to_disk
             end if
 
             call writeReasonForStopToH5(reason)

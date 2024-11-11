@@ -51,6 +51,7 @@ program ql_balance
     call MPI_finalize(ierror)
     stop "for testing"
 
+    ! start of old version of the code. TODO: remove this part
     ! parameter scan loops that span over (nearly) the rest of the code
     do ifac_n = 1, size(fac_n)
         do ifac_Te = 1, size(fac_Te)

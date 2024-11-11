@@ -22,6 +22,7 @@ class fieldpy:
             convex_file ... path to convexfile
             fluxdata_path ... path to fluxdata directory
         '''
+        print("Path to Fourier modes exec: ", self.path_to_fourier_modes_exe)
         
         # default values of field_divB0.inp:
         self.field_divB0_inp['ipert']         = 0    #0=eq only, 1=vac, 2,3=vac+plas

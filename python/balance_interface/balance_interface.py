@@ -150,9 +150,11 @@ class QL_Balance_interface():
     
     def prepare_KiLCA(self, Btor, a_minor):
         self.kil_flre = KiLCA_interface(self.shot, self.time, self.run_path, 'flre', self.machine)
-        self.kil_flre.background.data['Btor'] = Btor
-        self.kil_flre.a_minor = a_minor
         self.kil_flre.set_machine()
+        self.kil_flre.background.data['Btor'] = Btor
+        #self.kil_flre.a_minor = a_minor
+        #self.kil_flre.R0 = R0
+        
         self.kil_flre.set_modes(self.m_mode,self.n_mode)
         self.kil_flre.antenna.data['flab'] = [1.0, 0.0]
         self.kil_flre.write()

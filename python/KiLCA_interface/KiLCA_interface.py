@@ -265,8 +265,11 @@ class KiLCA_interface:
         if ra > 80:
             raise ValueError('Radius of antenna outside wall')
 
+        self.a_minor = 67.0
+        self.R0 = 165.0
+
         self.set_antenna(ra, nmodes, I0 = I0)
-        self.set_background(Rtor=165.0, rpl=67.0)
+        self.set_background(Rtor=self.R0, rpl=self.a_minor)
         self.background.data['Btor'] = -17563.3704
 
         # set zones
@@ -287,7 +290,7 @@ class KiLCA_interface:
         self.machine = 'MASTU'
         #print(f'Machine setting: MASTU, type: {self.run_type}')
 
-        #self.a_minor = 85.0
+        self.a_minor = 85.0
         self.R0 = 85.0
         self.r_antenna = self.a_minor + 5.0
 

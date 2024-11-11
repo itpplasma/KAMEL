@@ -1,15 +1,17 @@
 # Balance Code Framework
-This repository contains the KiLCA/QL-Balance framework. 
-When using the template scripts, make sure to change the code, most importantly the paths, according to your project before using it.
+This repository contains the KiLCA/QL-Balance framework. KiLCA is a cylindrical linear plasma response solver and QL-Balance is a quasilinear 1D radial transport code. In combination, they are used to determine the plasma response to external magnetic perturbation in toroidally confined fusion plasmas. 
+
+
+Note, when using the template scripts, make sure to change the code, most importantly the paths, according to your project before using it.
 
 ## Content
-### postproc_py_class
-Contains a python class used for the post processing of the hdf5 version of the balance code
-Note however, that this class is currently a mess and needs some changes.
+
+### Python
+Contains python classes and functions to use the code.
 
 ### template_scripts
 Contains matlab scripts that can be used as templates for certain balance code runs.
-	
+
 ### ql-balance
 Quasilinear transport code based on KiLCA. Compile with
 ```

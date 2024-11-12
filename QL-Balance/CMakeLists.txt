@@ -43,7 +43,7 @@ endif()
 
 set(CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/cmake" ${CMAKE_MODULE_PATH})
 
-set (libs_root_path ${CMAKE_SOURCE_DIR}/../../libs)
+set (libs_root_path ${CMAKE_SOURCE_DIR}/../../external)
 
 set(src ${PROJECT_SOURCE_DIR}/src)
 set(full_balance_src ${src}/full/)

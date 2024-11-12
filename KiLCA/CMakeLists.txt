@@ -132,7 +132,7 @@ endif (JACOBIAN STREQUAL SIMPLIFIED)
 set (kilca_normal_main progs/main_linear.cpp)
 set (kilca_eigparam_main progs/main_eig_param.cpp)
 
-set (libs_root_path ${CMAKE_SOURCE_DIR}/../../libs)
+set (libs_root_path ${CMAKE_SOURCE_DIR}/../../external)
 
 
 #include paths:

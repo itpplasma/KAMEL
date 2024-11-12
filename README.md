@@ -1,26 +1,10 @@
-# Balance Code Framework
-This repository contains the KiLCA/QL-Balance framework. KiLCA is a cylindrical linear plasma response solver and QL-Balance is a quasilinear 1D radial transport code. In combination, they are used to determine the plasma response to external magnetic perturbation in toroidally confined fusion plasmas. 
-
+# KAMEL - Kinetic plAsma response ModEL
+This repository contains the kinetic plasma response framework containing the linear plasma response codes KiLCA and KIM, as well as the quasilinear transport code QL-Balance. KiLCA and KIM are cylindrical linear plasma response solvers based on a finite Larmor radius and an integral formalism, respectively. QL-Balance is a quasilinear 1D radial transport code. In combination, they are used to determine the plasma response to external magnetic perturbation in toroidally confined fusion plasmas. 
 
 Note, when using the template scripts, make sure to change the code, most importantly the paths, according to your project before using it.
 
 ## Content
 
-### Python
-Contains python classes and functions to use the code.
-
-### template_scripts
-Contains matlab scripts that can be used as templates for certain balance code runs.
-
-### ql-balance
-Quasilinear transport code based on KiLCA. Compile with
-```
-cd ql-balance
-mkdir build
-cd build
-cmake ..
-make
-```
 ### KiLCA
 Contains the source code of KiLCA. In the directory, compile with
 
@@ -33,6 +17,25 @@ make
 
 Note that certain libraries (lapack-3.2.1, sundials-5.7.0 and gsl-2.4) have to be available. In the code framework of the ITP plasma group, use the setup_kilca.sh shell script in the scripts directory.
 So far, the compilation and execution of the (Normal, Release, NOMD, FPGEN) version of the code was tested on Linux and MacOS. 
+
+### KIM
+
+### ql-balance
+Quasilinear transport code based on KiLCA. Compile with
+```
+cd ql-balance
+mkdir build
+cd build
+cmake ..
+make
+```
+
+### python
+Contains python classes and functions to use the code.
+
+### template_scripts
+Contains matlab scripts that can be used as templates for certain balance code runs.
+
 
 ### utility_scripts
 Contains matlab and python scripts that make life easier.

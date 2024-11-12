@@ -4,7 +4,7 @@ subroutine read_config
     use baseparam_mod, only: btor, rtor, rsepar, dperp, Z_i, am
     use grid_mod, only: rmin, rmax, npoimin, gg_factor, gg_width, &
         gg_r_res, iboutype, rb_cut_in, re_cut_in, rb_cut_out, re_cut_out
-    use control_mod, only: iwrite, eps, icoll, &
+    use control_mod, only: iwrite, eps, &
         write_formfactors, paramscan, diagnostics_output, &
         suppression_mode, debug_mode, readfromtimestep, &
         temperature_limit, gyro_current_study, &
@@ -19,7 +19,7 @@ subroutine read_config
     NAMELIST /BALANCENML/ flre_path, vac_path, btor, rtor, rmin, rmax, &
         rsepar, npoimin, gg_factor, gg_width, gg_r_res, Nstorage, &
         tmax_factor, antenna_factor, iboutype, iwrite, eps, dperp, &
-        icoll, Z_i, am, rb_cut_in, re_cut_in, rb_cut_out, re_cut_out, &
+        Z_i, am, rb_cut_in, re_cut_in, rb_cut_out, re_cut_out, &
         write_formfactors, flag_run_time_evolution, stop_time_step, &
         path2inp, path2out, timstep_min, paramscan, save_prof_time_step, &
         diagnostics_output, br_stopping, suppression_mode, debug_mode, &
@@ -58,7 +58,6 @@ subroutine read_config
     write(*,*) '    iwrite = ', iwrite
     write(*,*) '    eps = ', eps
     write(*,*) '    dperp = ', dperp
-    write(*,*) '    icoll = ', icoll
     write(*,*) '    Z_i = ', Z_i
     write(*,*) '    am = ', am
     write(*,*) '    stop_time_step = ', stop_time_step

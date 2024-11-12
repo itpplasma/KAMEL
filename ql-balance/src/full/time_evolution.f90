@@ -184,10 +184,10 @@
             redostep = .false.
 
             call get_dql
-            call stopIfTimeStepTooSmall
-            call interpBrAndDqlAtResonanceTimeEvol
+            call stop_if_time_step_too_small
+            call interp_Br_Dql_at_resonance_timeevol
             call rescale_transp_coeffs_by_ant_fac
-            call determineDqlDiagnostic
+            call determine_Dql_diagnostic
 
             call write_br_dqle22_time_data
             call message_Br_Dqle_values
@@ -227,9 +227,9 @@
 
                 call limit_temps_from_below
 
-                call calcParamsNumAndDenom
-                call smoothParamsNumAndDenom
-                call determineTimscal
+                call calc_params_num_and_denom
+                call smooth_params_num_and_denom
+                call determine_timscal
 
                 if (maxval(timscal) .lt. tol * factolmax) then
                     exit
@@ -240,7 +240,11 @@
                 params = params_beg
 
                 if (irank .eq. 0) then
-                    print *, "Redoing step"
+                    print *, "Redoing step: Maxval(timscal) is not lesser than tol * factolmax"
+                    print *, "Maxval(timscal) = ", maxval(timscal)
+                    print *, "tol = ", tol
+                    print *, "factolmax = ", factolmax
+                    print *, "tol * factolmax = ", tol * factolmax
                     print *, ""
                 end if
             end do
@@ -979,7 +983,7 @@
     end subroutine
 
 
-    subroutine interpBrAndDqlAtResonanceTimeEvol
+    subroutine interp_Br_Dql_at_resonance_timeevol
 
         use PolyLagrangeInterpolation
         use grid_mod, only: npoib, r_resonant, rb, dqle22
@@ -1018,7 +1022,7 @@
 
     end subroutine
 
-    subroutine stopIfTimeStepTooSmall
+    subroutine stop_if_time_step_too_small
 
         use h5mod
         use parallelTools, only: ierror
@@ -1042,7 +1046,7 @@
     end subroutine
 
 
-    subroutine calcParamsNumAndDenom
+    subroutine calc_params_num_and_denom
 
         use plasma_parameters, only: params_num, params_denom, params, params_beg
 
@@ -1050,15 +1054,12 @@
 
         params_num = (params - params_beg)**2
         params_denom = params**2 + params_beg**2
-        write(*,*) " params(1,1) = ", params(1,1)
-        write(*,*) " params(2,1) = ", params(2,1)
-        write(*,*) " params(3,1) = ", params(3,1)
-        write(*,*) " params(4,1) = ", params(4,1)
-        write(*,*) " params_beg(3,1) = ", params_beg(3,1)
+        write(*,*) "params_num(1, 1) = ", params_num(1, 1)
+        write(*,*) "params_denom(1, 1) = ", params_denom(1, 1)
 
     end subroutine
 
-    subroutine smoothParamsNumAndDenom
+    subroutine smooth_params_num_and_denom
     
         use grid_mod, only: npoi, nbaleqs, mwind, dummy
         use plasma_parameters, only: params_num, params_denom
@@ -1076,7 +1077,7 @@
 
     end subroutine
 
-    subroutine determineTimscal
+    subroutine determine_timscal
 
         use grid_mod, only: npoi, rc
         use plasma_parameters, only: params_num, params_denom
@@ -1280,7 +1281,7 @@
     end subroutine
 
 
-    subroutine determineDqlDiagnostic
+    subroutine determine_Dql_diagnostic
 
         use grid_mod, only: dqle11, dqli11
         use diag_mod

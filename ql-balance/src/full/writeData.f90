@@ -140,7 +140,7 @@ subroutine writefort9999
         
     use grid_mod, only: dqle11, dqli11, rb, rc, npoib
     use diag_mod, only: timscal_dql, timscal_dqli, ind_dqle, ind_dqli 
-    use time_evolution, only: dqle11_prev, dqli11_prev, determineDqlDiagnostic
+    use time_evolution, only: dqle11_prev, dqli11_prev, determine_Dql_diagnostic
     use ParallelTools, only: irank
     use h5mod
 
@@ -150,7 +150,7 @@ subroutine writefort9999
         
     if (irank .eq. 0) then
 
-        call determineDqlDiagnostic
+        call determine_Dql_diagnostic
 
         print *, 'timscal_dqle = ', sngl(timscal_dql) &
             , 'timscal_dqli = ', sngl(timscal_dqli)

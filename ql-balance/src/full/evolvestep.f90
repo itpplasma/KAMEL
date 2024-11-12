@@ -17,6 +17,7 @@
     DOUBLE PRECISION, DIMENSION(:),   ALLOCATABLE :: amat_sp,bvec_sp
 
     x1=0.d0
+    sparse_talk = .true.
     !  x2=timstep
 
     if(iboutype.eq.1) then
@@ -120,7 +121,6 @@
             params(ieq,ipoi)=y(i)
         enddo
     enddo
-
 
     contains
 

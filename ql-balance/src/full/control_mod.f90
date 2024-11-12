@@ -11,7 +11,6 @@ module control_mod
     logical :: diagnostics_output
     logical :: write_gyro_current
     integer :: irf
-    integer :: icoll
     double precision :: relax
     integer :: zeitschritt
     integer :: readfromtimestep ! added by Markus Markl 02.06.2021. Reads the background profiles from hdf5 file in which profiles of a ql time evolution are stored.

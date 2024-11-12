@@ -3,7 +3,7 @@ MODULE sparse_mod
   IMPLICIT NONE
 
   PUBLIC sparse_solve_method
-  INTEGER :: sparse_solve_method = 3
+  INTEGER :: sparse_solve_method = 1
 
   PUBLIC sparse_talk
   !LOGICAL :: sparse_talk = .TRUE.

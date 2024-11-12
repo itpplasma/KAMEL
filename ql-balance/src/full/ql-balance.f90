@@ -206,8 +206,8 @@ program ql_balance
                         ! to restrict the writing of the data. Only every "save_prof_time_step"th
                         ! step the data is written
                         call get_dql
-                        call stopIfTimeStepTooSmall
-                        call interpBrAndDqlAtResonanceTimeEvol
+                        call stop_if_time_step_too_small
+                        call interp_Br_Dql_at_resonance_timeevol
 						call write_br_dqle22_time_data
                         call rescale_transp_coeffs_by_ant_fac
 
@@ -229,10 +229,10 @@ program ql_balance
                             
                             call evolvestep(timstep, eps)
                             call limit_temps_from_below
-                            call calcParamsNumAndDenom
-                            call smoothParamsNumAndDenom
+                            call calc_params_num_and_denom
+                            call smooth_params_num_and_denom
                             
-                            call determineTimscal 
+                            call determine_timscal 
                             if (maxval(timscal) .lt. tol * factolmax) exit
                             
                             timstep_arr = timstep_arr * factolred

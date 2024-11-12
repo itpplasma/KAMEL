@@ -1,0 +1,56 @@
+# for use with clang-format version 9 or higher
+
+# put this in the root source directory, then call: clang-format -i -style=file <sources>
+
+Language: Cpp
+Standard: Cpp11
+BasedOnStyle: WebKit
+IndentWidth: 4
+
+AccessModifierOffset: -3
+AlignAfterOpenBracket: AlwaysBreak
+AlignConsecutiveAssignments: false
+AlignConsecutiveDeclarations: false
+AlignOperands: false
+AllowShortBlocksOnASingleLine: true
+AllowShortCaseLabelsOnASingleLine : true
+AllowShortFunctionsOnASingleLine: Inline
+AllowShortIfStatementsOnASingleLine: false
+AllowShortLambdasOnASingleLine: All
+AllowShortLoopsOnASingleLine: false
+AlwaysBreakAfterReturnType: None
+BinPackArguments: true
+BinPackParameters: true
+BreakBeforeBinaryOperators: NonAssignment
+BreakBeforeBraces: Custom
+BreakConstructorInitializers: BeforeComma
+BraceWrapping:
+    AfterCaseLabel: false
+    AfterEnum: false
+    AfterFunction: true
+    SplitEmptyFunction: true
+ColumnLimit: 100
+CommentPragmas: \/\/!
+ConstructorInitializerAllOnOneLineOrOnePerLine: true
+ConstructorInitializerIndentWidth: 4
+ContinuationIndentWidth: 4
+Cpp11BracedListStyle: true
+DerivePointerAlignment: false
+FixNamespaceComments: false
+IndentCaseLabels: true
+IndentWrappedFunctionNames: false
+MaxEmptyLinesToKeep: 2
+NamespaceIndentation: None
+PenaltyBreakAssignment: 10
+PenaltyBreakBeforeFirstCallParameter: 33
+PenaltyBreakFirstLessLess: 3
+PenaltyBreakString: 120
+PenaltyBreakTemplateDeclaration: 0
+PenaltyReturnTypeOnItsOwnLine: 1000
+PointerAlignment: Left
+SpaceBeforeCpp11BracedList: false
+SpaceBeforeParens: ControlStatements
+SpaceInEmptyParentheses: false
+SpacesBeforeTrailingComments: 1
+SpacesInAngles: false
+UseTab: Never

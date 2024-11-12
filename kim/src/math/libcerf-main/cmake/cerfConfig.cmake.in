@@ -1,0 +1,103 @@
+# cerfConfig.cmake
+# ----------------
+#
+# cerf cmake module.
+# This module sets the following variables in your project:
+#
+# ::
+#
+#   cerf_FOUND - true if cerf and all required components found on the system
+#
+#
+# Available components: shared static
+#
+# ::
+#
+#   shared - search for only shared library
+#   static - search for only static library
+#   C - search for C library only
+#   CXX - search for CXX library only
+#
+#
+# Exported targets:
+#
+# ::
+#
+# If cerf is found, this module defines the following :prop_tgt:`IMPORTED`
+# targets. Target is shared _or_ static, so, for both, use separate, not
+# overlapping, installations. ::
+#
+#   cerf::cerf - the main cerf library with header attached.
+#   cerf::cerfcpp - the C++ cerf library
+#
+#
+# Suggested usage:
+#
+# ::
+#
+#   find_package(cerf)
+#   find_package(cerf 1.17.0 EXACT CONFIG REQUIRED COMPONENTS shared C)
+#
+#
+# The following variables can be set to guide the search for this package:
+#
+# ::
+#
+#   cerf_DIR - CMake variable, set to directory containing this Config file
+#   CMAKE_PREFIX_PATH - CMake variable, set to root directory of this package
+#   PATH - environment variable, set to bin directory of this package
+#   CMAKE_DISABLE_FIND_PACKAGE_cerf - CMake variable, disables
+#     find_package(cerf) when not REQUIRED, perhaps to force internal build
+
+@PACKAGE_INIT@
+
+set(PN cerf)
+set (_valid_components
+    static
+    shared
+    C
+    CXX
+)
+
+# check library style component
+if(@BUILD_SHARED_LIBS@)
+    set(${PN}_shared_FOUND 1)
+else()
+    set(${PN}_static_FOUND 1)
+endif()
+list(FIND ${PN}_FIND_COMPONENTS "shared" _seek_shared)
+list(FIND ${PN}_FIND_COMPONENTS "static" _seek_static)
+
+# check library language component
+if(@CERF_CPP@)
+    set(${PN}_CXX_FOUND 1)
+    set(_target "cerfcpp")
+else()
+    set(${PN}_C_FOUND 1)
+    set(_target "cerf")
+endif()
+list(FIND ${PN}_FIND_COMPONENTS "C" _seek_C)
+list(FIND ${PN}_FIND_COMPONENTS "CXX" _seek_CXX)
+
+check_required_components(${PN})
+
+#-----------------------------------------------------------------------------
+# Don't include targets if this file is being picked up by another
+# project which has already built this as a subproject
+#-----------------------------------------------------------------------------
+if(NOT TARGET ${PN}::${_target})
+
+    include("${CMAKE_CURRENT_LIST_DIR}/${PN}Targets.cmake")
+
+    get_property(_loc TARGET ${PN}::${_target} PROPERTY LOCATION)
+    get_property(_ill TARGET ${PN}::${_target} PROPERTY INTERFACE_LINK_LIBRARIES)
+
+    get_property(_id TARGET ${PN}::${_target} PROPERTY INCLUDE_DIRECTORIES)
+    get_property(_iid TARGET ${PN}::${_target} PROPERTY INTERFACE_INCLUDE_DIRECTORIES)
+
+    # message("cerf::${_target}")
+    # message("loc ${_loc}")
+    # message("ill ${_ill}")
+    # message("id  ${_id}")
+    # message("iid ${_iid}")
+endif()

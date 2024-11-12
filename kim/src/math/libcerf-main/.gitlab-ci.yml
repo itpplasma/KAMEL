@@ -1,0 +1,79 @@
+stages:
+  - build
+
+mac_x64:
+  tags:
+  - mac_x64
+  stage: build
+  script: &macbuild
+    - OPTDIR=/Users/Shared/Software
+    - mkdir build
+    - cd build
+    - cmake -DCMAKE_INSTALL_PREFIX="$OPTDIR" -DCMAKE_BUILD_TYPE=Release -S..
+    - make
+    - ctest --output-on-failure
+    - cpack .
+    - if [ "$CI_COMMIT_REF_NAME" == "main" ]; then make install; fi
+  artifacts:
+    paths:
+    - build/*zip
+    expire_in: 10 days
+
+mac_arm:
+  tags:
+  - mac_arm
+  stage: build
+  script: *macbuild
+
+windows:
+  tags:
+  - Windows
+  stage: build
+  script:
+    - mkdir -Force "build"
+    - cd build
+    - cmake -G "Visual Studio 17 2022" -A x64 -T host=x64 -DCERF_CPP=ON -DLIB_MAN=OFF -DCMAKE_INSTALL_PREFIX=C:\opt\x64 -B. ..
+    - cmake --build . --config Release
+    - Get-Location
+    - dir
+    - dir Release
+    - ctest -C Release --output-on-failure
+    - cpack .
+    - if ("$CI_COMMIT_REF_NAME" -eq "main") { cmake --install . ; }
+  artifacts:
+    paths:
+    - build/*zip
+    expire_in: 10 days
+
+Debian_clang:
+  tags:
+  - Debian
+  before_script:
+    - export CC=clang; export CXX=clang++
+    - cmake --version
+    - clang --version
+  stage: build
+  script: &native_scr
+    - pwd && ls
+    - mkdir build
+    - cd build
+    - cmake -DWERROR=ON ..
+    - make -j6
+    - ctest -j6 --output-on-failure
+    - if [ "$CI_COMMIT_REF_NAME" == "main" ]; then make install; fi
+
+Debian_gcc:
+  tags:
+  - Debian
+  before_script: &debian_clang
+    - export CC=gcc; export CXX=g++
+    - cmake --version
+    - clang --version
+  stage: build
+  script:
+    - pwd && ls
+    - mkdir build
+    - cd build
+    - cmake -DWERROR=ON ..
+    - make -j6
+    - ctest -j6 --output-on-failure

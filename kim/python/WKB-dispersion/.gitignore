@@ -1,0 +1,7 @@
+*.dat
+*.txt
+*.h5
+._*
+plots
+*profiles*
+data

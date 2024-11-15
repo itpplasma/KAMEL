@@ -21,7 +21,7 @@ from KIMDispersion_Krook import KIMDispersion_Krook
 from KIMDispersion_FokkerPlanck import KIMDispersion_FokkerPlanck
 from DispersionEquationFactory import *
 
-sys.path.append(os.path.join(os.path.dirname(__file__), '../../../KiLCA-QB/python/susc_functions/'))
+sys.path.append(os.path.join(os.path.dirname(__file__), '../../../python/susc_functions/'))
 import susc_funcs
 
 sys.path.append(os.path.join(os.path.dirname(__file__), '../'))

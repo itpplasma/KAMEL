@@ -57,6 +57,7 @@
 
     integer(HID_T) :: time_dataset_id !> variable to save the time dataset id
 
+    !integer :: timeIndex
 
     type, extends(balance_t) :: TimeEvolution_t
         contains
@@ -79,7 +80,7 @@
                           ihdf5IO
         use parallelTools, only: initMPI, irank
         use wave_code_data, only: m_vals, n_vals
-        use plasma_parameters, only: writeInitialParameters, alloc_hold_parameters, &
+        use plasma_parameters, only: write_initial_parameters, alloc_hold_parameters, &
                                 params, params_begbeg, init_background_profiles
         implicit none
 
@@ -106,9 +107,9 @@
 
             call read_config
 
-            timescale = (rmax - rmin)**2/dperp
-            tmax = timescale*tmax_factor
-            timstep = tmax/Nstorage
+            timescale = (rmax - rmin)**2 / dperp
+            tmax = timescale * tmax_factor
+            timstep = tmax / Nstorage
             time = 0.0d0
             tol = tol_max
             write(*,*) "timstep = ", timstep
@@ -128,7 +129,7 @@
 
             call allocate_prev_variables
             call init_background_profiles
-            CALL writeInitialParameters
+            CALL write_initial_parameters
             !call alloc_hold_parameters
         end if
 
@@ -169,7 +170,6 @@
 
         implicit none
 
-        integer :: timeIndex
         class(TimeEvolution_t), intent(inout) :: this
 
         write(*,*) ""
@@ -209,7 +209,6 @@
                 print *, ""
                 write(*,*) "Timstep before evolvestep is ", timstep, " eps = " , eps
 
-                ! somewhere here: ölend
                 ! could also be due to source of balance equations?
                 print *, "Before evolvestep "
                 print *, "params(1,1) = ", params(1,1)
@@ -245,15 +244,17 @@
                     print *, "tol = ", tol
                     print *, "factolmax = ", factolmax
                     print *, "tol * factolmax = ", tol * factolmax
+                    print *, "timstep_arr(1) = ", timstep_arr(1)
+                    print *, "timstep_arr(100) = ", timstep_arr(100)
                     print *, ""
                 end if
             end do
 
-            call rescaleTimStepArr
+            call rescale_time_step_array
             call setTimStep
             call reset_timstep_arr_w_timstep
             call writeTimeInfoToDisk
-            call relaxPlasmaParameters
+            call relax_plasma_parameters
 
             timstep_arr = 0.0d0
             call evolvestep(timstep, eps)
@@ -389,7 +390,8 @@
 
 	    if (debug_mode) write(*,*) "Debug: writing out br time evolution data"
 
-        if (ihdf5IO .eq. 1) then
+        !if (ihdf5IO .eq. 1) then
+        if (.false.) then
        	    CALL h5_init()
             CALL h5_open_rw(path2out, h5_id)
 
@@ -1105,7 +1107,7 @@
 
     end subroutine
 
-    subroutine rescaleTimStepArr
+    subroutine rescale_time_step_array
 
         use grid_mod, only: npoi, nbaleqs
         use recstep_mod, only: tim_stack, timstep_arr, tol
@@ -1242,7 +1244,7 @@
 
     end subroutine
 
-    subroutine relaxPlasmaParameters
+    subroutine relax_plasma_parameters
 
         use grid_mod, only: npoi, nbaleqs
         use plasma_parameters, only: params

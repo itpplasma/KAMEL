@@ -36,6 +36,8 @@
     call initialize_rhs(y,dery)
     call rhs_balance(x1,y,dery)
 
+    call write_amat
+
     nz_sp=nz+nsize
     nrow=nsize
     ncol=nsize
@@ -64,12 +66,12 @@
 
     CALL column_full2pointer(icol_sp(1:nz_sp),ipcol)
 
-    if (.true.) then
+    if (.false.) then
         iopt=0
         !write(*,*) " timstep_arr(1) in evolvestep = ", timstep_arr(1)
         !write(*,*) " amat_sp(1) = ", amat_sp(1)
         !call cpu_time(time_start)
-        !call write_bvec_sp_to_txt
+        call write_bvec_sp_to_txt
         
         !CALL sparse_solve(nrow,ncol,nz_sp,irow_sp(1:nz_sp),ipcol,amat_sp(1:nz_sp),       &
         CALL sparse_solve(nrow, ncol, nz_sp, irow_sp, ipcol, amat_sp, bvec_sp, iopt)
@@ -95,23 +97,7 @@
 
     end if
     
-    !iopt=1
-    !CALL sparse_solve(nrow,ncol,nz_sp,irow_sp(1:nz_sp),ipcol,amat_sp(1:nz_sp),       &
-                      !bvec_sp,iopt)
-    
-    !write(*,*) " bvec_sp(1) = ", bvec_sp(1)
-    !  call cpu_time(time_factorization)
-    !  print *,'factorization completed ',time_factorization - time_start,' sec'
-    !
-    !  iopt=2
-    !
-    ! Solution of inhomogeneus equation (account of sources):
-    !
-    !  CALL sparse_solve(nrow,ncol,nz_sp,irow_sp(1:nz_sp),ipcol,amat_sp(1:nz_sp),       &
-    !                    bvec_sp,iopt)
     y=bvec_sp
-    !  iopt=3
-    !  CALL sparse_solve(nrow,ncol,nz_sp,irow_sp(1:nz),ipcol,amat_sp(1:nz_sp),bvec_sp,iopt)
 
     deallocate(ipcol)
     deallocate(amat_sp,irow_sp,icol_sp,bvec_sp)
@@ -135,6 +121,16 @@
 
     end subroutine
 
+    subroutine write_amat
+
+        implicit none
+
+        open(666, file='amat.txt')
+        write(666,*) amat
+        close(666)
+
+    end subroutine
+
 end subroutine evolvestep
 
 
@@ -149,7 +145,7 @@ subroutine det_balance_eqs_source_terms
                       , nbaleqs,neqset,iboutype,npoic
     use plasma_parameters, only: params
 
-    use control_mod, only: iwrite, ihdf5IO, diagnostics_output, debug_mode
+    use control_mod, only: iwrite, ihdf5IO, diagnostics_output, debug_mode, irf
     use h5mod
     use matrix_mod
 
@@ -174,10 +170,14 @@ subroutine det_balance_eqs_source_terms
       enddo
     enddo
   
+    irf = 0
+    print *, "Before initialize_rhs"
     call initialize_rhs(y,dery)
 
     dery_equisource=0.d0
+    print *, "Before rhs_balance"
     call rhs_balance(x,y,dery)
+    irf = 1
 
     do k=1,nz
       dery_equisource(irow(k))=dery_equisource(irow(k))-amat(k)*y(icol(k))

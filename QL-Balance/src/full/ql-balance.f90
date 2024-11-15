@@ -244,11 +244,11 @@ program ql_balance
                             end if
                         end do ! end of redo step loop
                         
-                        call rescaleTimStepArr
+                        call rescale_time_step_array
                         call setTimStep
                         call reset_timstep_arr_w_timstep
                         call writeTimeInfoToDisk
-                        call relaxPlasmaParameters
+                        call relax_plasma_parameters
 
                         timstep_arr = 0.d0
                         call evolvestep(timstep, eps)

@@ -93,7 +93,7 @@ module plasma_parameters
     !> @brief subroutine write_init_profiles. Write initial profiles to hdf5 or ascii.
     !> @author Markus Markl
     !> @date 05.10.2022
-    subroutine writeInitialParameters
+    subroutine write_initial_parameters
 
         use control_mod, only: debug_mode, ihdf5IO
         use wave_code_data, only: r

@@ -15,7 +15,7 @@ subroutine rhs_balance(x, y, dy)
     use plasma_parameters, only: params, ddr_params, params_lin, ddr_params_nl &
                         , init_params, params_b_lin, params_b, dot_params
     use baseparam_mod, only: Z_i, e_charge, am, p_mass, c, btor
-    use control_mod, only: iwrite
+    use control_mod, only: iwrite, irf
     use wave_code_data, only: q, Vth
     use matrix_mod, only: isw_rhs, nz, nsize, irow, icol, amat, rhsvec
     use hdf5_tools
@@ -35,6 +35,8 @@ subroutine rhs_balance(x, y, dy)
     else
         npoi = npoic
     end if
+
+    iwrite = 1
 
     ! isw_rhs is the switch for initializing the RHS vector, if isw_rhs=0, then the RHS vector is initialized
 
@@ -60,6 +62,7 @@ subroutine rhs_balance(x, y, dy)
                 = sum(params(ieq, ipbeg(ipoi):ipend(ipoi))*reint_coef(:, ipoi))
         end do
     end do
+
     
     Ercov = sqg_bthet_overc*(params_b(2, :) - Vth*q/rb) &
             + (params_b(4, :)*ddr_params_nl(1, :)/params_b(1, :) + ddr_params_nl(4, :)) &
@@ -224,6 +227,55 @@ subroutine rhs_balance(x, y, dy)
         fluxes_dif(:, 1) = 0.d0
         fluxes_con(:, 1) = 0.d0
         fluxes_con_nl(:, 1) = 0.d0
+
+    if (irf .eq. 100) then
+        if (iwrite .eq. 1) then
+            open (15, file = 'fluxes_dif.dat')
+            open (16, file = 'fluxes_con.dat')
+            open (17, file = 'fluxes_con_nl.dat')
+            open (18, file = 'polforce.dat')
+            open (19, file = 'qlheat_e.dat')
+            open (20, file = 'qlheat_i.dat')
+            open (22, file = 'dqle22.dat')
+            open (24, file = 'dae22.dat')
+            open (23, file = 'params_b.dat')
+            open(21, file = 'Sb.dat')
+            open(25, file = 'ddr_params.dat')
+            open(26, file = 'params_lin.dat')
+            do ipoi = 1, npoi
+                write (15, *) rb(ipoi), fluxes_dif(1, ipoi), fluxes_dif(2, ipoi), fluxes_dif(3, ipoi), fluxes_dif(4, ipoi)
+                write (16, *) rb(ipoi), fluxes_con(1, ipoi), fluxes_con(2, ipoi), fluxes_con(3, ipoi), fluxes_con(4, ipoi)
+                write (17, *) rb(ipoi), fluxes_con_nl(1, ipoi), fluxes_con_nl(2, ipoi), fluxes_con_nl(3, ipoi), &
+                fluxes_con_nl(4, ipoi)
+                write (18, *) rb(ipoi), polforce(ipoi)
+                write (19, *) rb(ipoi), qlheat_e(ipoi)
+                write (20, *) rb(ipoi), qlheat_i(ipoi)
+                write (21, *) rb(ipoi), Sb(ipoi)
+                write (22, *) rb(ipoi), dqle22(ipoi)
+                write (24, *) rb(ipoi), dae22(ipoi)
+                write (23, *) rb(ipoi), params_b(:, ipoi)
+                write (25, *) rb(ipoi), ddr_params(:, ipoi)
+                write (26, *) rb(ipoi), params_lin(:, ipoi)
+                write (27, *) rb(ipoi), deriv_coef(:, ipoi)
+            end do
+            close(15)
+            close(16)
+            close(17)
+            close(18)
+            close(19)
+            close(20)
+            close(21)
+            close(22)
+            close(23)
+            close(24)
+            close(25)
+            close(26)
+            close(27)
+
+
+        end if
+        print *, 'After writing fluxes'
+    end if
 
         ! Partial time derivatives of equilibrium parameters:
         do ipoi = ibeg, iend
@@ -401,6 +453,7 @@ subroutine rhs_balance_source(x, y, dy)
 !
     y_lin = 0.0d0
     params_lin = 0.0d0
+    !params_lin = 0.0d0
 
     params_lin = params
 
@@ -429,6 +482,7 @@ subroutine rhs_balance_source(x, y, dy)
                 = sum(params_lin(ieq, ipbeg(ipoi):ipend(ipoi))*reint_coef(:, ipoi))
         end do
     end do
+
 !
 ! Compute radial electric field:
 !
@@ -564,6 +618,7 @@ subroutine rhs_balance_source(x, y, dy)
     fluxes_dif(:, 1) = 0.d0
     fluxes_con(:, 1) = 0.d0
     fluxes_con_nl(:, 1) = 0.d0
+
 !
 !
 ! Partial time derivatives of equilibrium parameters:
@@ -592,6 +647,11 @@ subroutine rhs_balance_source(x, y, dy)
                 end if
             end if
         end do
+        if (iwrite .eq. 1) write (13, *) rc(ipoi), dot_params(2, ipoi) &
+            , dot_params(3, ipoi), dot_params(4, ipoi) &
+            , 0.5d0*(polforce(ipoi) + polforce(ipoi + 1)) &
+            , 0.5d0*(qlheat_e(ipoi) + qlheat_e(ipoi + 1)) &
+            , 0.5d0*(qlheat_i(ipoi) + qlheat_i(ipoi + 1))
 
         !
         ! Add internal sources:
@@ -628,6 +688,7 @@ subroutine rhs_balance_source(x, y, dy)
 
     if (iwrite .eq. 1) then
         close (10)
+        close (13)
         close (21)
     end if
 
@@ -858,7 +919,7 @@ subroutine get_dql
     end do
 
     ! Smooth input for KILCA
-    if (.true.) then
+    if (.false.) then
         allocate (dummy(npoib))
         do ieq = 1, nbaleqs
             call smooth_array_gauss(npoib, mwind, ddr_params_nl(ieq, :), dummy)

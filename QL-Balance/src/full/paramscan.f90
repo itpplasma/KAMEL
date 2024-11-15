@@ -35,7 +35,7 @@ module paramscan_mod
                           ihdf5IO
         use parallelTools, only: irank
         use wave_code_data, only: m_vals, n_vals
-        use plasma_parameters, only: writeInitialParameters, alloc_hold_parameters, &
+        use plasma_parameters, only: write_initial_parameters, alloc_hold_parameters, &
                                 init_background_profiles
 
         implicit none
@@ -75,7 +75,7 @@ module paramscan_mod
                 CALL create_group_structure_paramscan
             end if
             call init_background_profiles
-            CALL writeInitialParameters
+            CALL write_initial_parameters
 
             !call alloc_hold_parameters
 

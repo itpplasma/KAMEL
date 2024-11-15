@@ -51,7 +51,7 @@ end module
         !use parallelTools, only: initMPI, irank
         !use wave_code_data, only: m_vals, n_vals
         !use paramscan_mod, only: initialize_parameter_scan_vars, create_group_structure_paramscan
-        !use plasma_parameters, only: writeInitialParameters, alloc_hold_parameters, &
+        !use plasma_parameters, only: write_initial_parameters, alloc_hold_parameters, &
                                 !init_background_profiles
 
         !implicit none
@@ -87,7 +87,7 @@ end module
             !if (debug_mode) write(*,*) 'Debug: mode_m = ', mode_m, 'mode_n = ', mode_n
             !call allocate_prev_variables
             !call init_background_profiles
-            !CALL writeInitialParameters
+            !CALL write_initial_parameters
             !call alloc_hold_parameters
         !end if
 

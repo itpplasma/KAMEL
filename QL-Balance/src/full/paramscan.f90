@@ -433,8 +433,15 @@ module paramscan_mod
         use h5mod
 
         implicit none
-        
-        write (h5_mode_groupname, "(A,I1,A,I1)") "f_", m_vals(1), "_", n_vals(1)
+                if (numres .eq. 1) then
+            if (m_vals(1) <= 9) then
+                write (h5_mode_groupname, "(A,I1,A,I1)") "f_", m_vals(1), "_", n_vals(1)
+            else
+                write (h5_mode_groupname, "(A,I2,A,I1)") "f_", m_vals(1), "_", n_vals(1)
+            end if
+        else
+            write (h5_mode_groupname, "(A)") "multi_mode"
+        end if
 
         CALL h5_init()
         CALL h5_open_rw(path2out, h5_id)

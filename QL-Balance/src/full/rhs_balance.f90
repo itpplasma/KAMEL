@@ -1067,6 +1067,8 @@ subroutine get_dql
         if (irank .eq. 0) then
             if (timeIndex .le. 1) then
                 if (ihdf5IO .eq. 1) then
+
+                    print *, "Writing Brvac to hdf5 file"
                     if (.not. allocated(coef)) allocate(coef(0:nder,nlagr))
                     call binsrc(rb, 1, npoib, r_resonant(1), ibrabsres)
 
@@ -1080,15 +1082,13 @@ subroutine get_dql
                     if (debug_mode) write(*,*) "Debug: Brvac = ", brvac_interp, " at r_res = ", r_resonant(1)
                     CALL h5_init()
                     CALL h5_open_rw(path2out, h5_id)
+                    !call create_group_if_not_existent("/"//trim(h5_mode_groupname))
                     tempch = "/"//trim(h5_mode_groupname)//"/Brvac_res"
+                    write(*,*) "group name: ", trim(tempch)
                     CALL h5_add_double_0(h5_id, trim(tempch), brvac_interp)
-                    CALL h5_close(h5_id)
-                    CALL h5_deinit()
 
                     if (diagnostics_output) then
                       write (*, *) "writing Brvac.dat"
-                      CALL h5_init()
-                      CALL h5_open_rw(path2out, h5_id)
                       tempch = "/"//trim(h5_mode_groupname)//"/Brvac.dat"
 
                       CALL h5_obj_exists(h5_id, trim(tempch), h5_exists_log)
@@ -1100,9 +1100,10 @@ subroutine get_dql
                                                     H5T_NATIVE_DOUBLE, (/-1, 2/), dataset_id)
                       CALL h5_append_double_1(dataset_id, r, 1)
                       CALL h5_append_double_1(dataset_id, abs(Br), 2)
-                      CALL h5_close(h5_id)
-                      CALL h5_deinit()
                     end if
+
+                    CALL h5_close(h5_id)
+                    CALL h5_deinit()
 
                 else
                     open (7000, file='Brvac.dat')

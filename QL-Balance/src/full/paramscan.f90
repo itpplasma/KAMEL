@@ -94,7 +94,9 @@ module paramscan_mod
         class(ParameterScan_t), intent(inout) :: this
 
         if (irank .eq. 0) then
-            print *, "Running ParameterScan"
+            print *, ""
+            print *, "  Running ParameterScan   "
+            print *, ""
         end if
 
         call alloc_hold_parameters
@@ -133,10 +135,11 @@ module paramscan_mod
 
         implicit none
 
-        call determine_h5_mode_groupname_of_scan
         call add_mode_group_to_h5_mode_groupname
+        call determine_h5_mode_groupname_of_scan
+        print *, "Prepare_h5_group_name : h5_mode_groupname: ", trim(h5_mode_groupname)
         if (debug_mode) then
-            print *, "h5_mode_groupname: ", trim(h5_mode_groupname)
+            print *, "Prepare_h5_group_name : h5_mode_groupname: ", trim(h5_mode_groupname)
         end if
 
     end subroutine
@@ -154,7 +157,7 @@ module paramscan_mod
         else
             parscan_str = ""
         end if
-        write (h5_mode_groupname, "(A)") trim(parscan_str)
+        write (h5_mode_groupname, "(A,A,A)") trim(h5_mode_groupname), '/', trim(parscan_str)
 
     end subroutine
 
@@ -369,17 +372,16 @@ module paramscan_mod
                             
                             if (numres .eq. 1) then
                                 if (m_vals(1) < 10) then
-                                    write (h5_mode_groupname, "(A,A,A,I1,A,I1)") &
-                                        trim(parscan_str), "/", "f_", m_vals(1), &
-                                        "_", n_vals(1)
+                                    write (h5_mode_groupname, "(A,I1,A,I1,A,A)") &
+                                        "f_", m_vals(1), "_", n_vals(1), '/', &
+                                        trim(parscan_str)
                                 else
-                                    write (h5_mode_groupname, "(A,A,A,I2,A,I1)") &
-                                        trim(parscan_str), "/", "f_", m_vals(1), &
-                                        "_", n_vals(1)
+                                    write (h5_mode_groupname, "(A,I2,A,I1,A,A)") &
+                                        "f_", m_vals(1), "_", n_vals(1), '/', trim(parscan_str)
                                 end if
                             else
                                 write (h5_mode_groupname, "(A,A,A,I1,A,I1)") &
-                                    trim(parscan_str), "/", "multi_mode"
+                                    "multi_mode/", trim(parscan_str)
                             end if
 
                             ! create the groups that are furthest down: fort.1000,
@@ -403,11 +405,13 @@ module paramscan_mod
                     "Ti", fac_Ti(ifac_Ti), "vz", fac_vz(ifac_vz), "/"
         else
             if (numres .eq. 1) then
-                write (h5_mode_groupname, "(A,I1,A,I1)") &
-                    "f_", m_vals(1), "_", n_vals(1)
+                if (m_vals(1) < 10) then
+                    write (h5_mode_groupname, "(A,I1,A,I1)") "f_", m_vals(1), "_", n_vals(1)
+                else
+                    write (h5_mode_groupname, "(A,I2,A,I1)") "f_", m_vals(1), "_", n_vals(1)
+                end if
             else
-                write (h5_mode_groupname, "(A,I1,A,I1)") &
-                    "multi_mode"
+                write (h5_mode_groupname, "(A)") "multi_mode"
             end if
 
             if (debug_mode) write (*,*) "Debug: h5_mode_groupname: ", trim(h5_mode_groupname)

@@ -16,11 +16,13 @@ module resonances_mod
         implicit none
 
         if (numres .eq. 1) then
-            write (h5_mode_groupname, "(A,A,I1,A,I1)") trim(h5_mode_groupname), &
-                "f_", m_vals(1), "_", n_vals(1)
+            if (m_vals(1) <= 9) then
+                write (h5_mode_groupname, "(A,I1,A,I1)") "f_", m_vals(1), "_", n_vals(1)
+            else
+                write (h5_mode_groupname, "(A,I2,A,I1)") "f_", m_vals(1), "_", n_vals(1)
+            end if
         else
-            write (h5_mode_groupname, "(A,A)") trim(h5_mode_groupname), &
-                "multi_mode"
+            write (h5_mode_groupname, "(A)") "multi_mode"
         end if
 
     end subroutine

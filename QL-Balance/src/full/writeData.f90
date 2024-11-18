@@ -1,4 +1,4 @@
-subroutine writeFieldsCurrentsAndTranspCoeffsToH5
+subroutine write_fields_currs_transp_coefs_to_h5
     use grid_mod, only: nbaleqs, neqset, iboutype, npoic, npoib &
                         , deriv_coef &
                         , ipbeg, ipend, rb, reint_coef &
@@ -68,7 +68,7 @@ subroutine writeFieldsCurrentsAndTranspCoeffsToH5
         end do
         close (iunit_diag)
     end if
-end subroutine writeFieldsCurrentsAndTranspCoeffsToH5
+end subroutine write_fields_currs_transp_coefs_to_h5
 
 
 subroutine write_misalignment_data_to_hdf5(tempch)

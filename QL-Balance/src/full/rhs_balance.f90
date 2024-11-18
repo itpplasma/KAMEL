@@ -1234,12 +1234,12 @@ subroutine get_dql
     end if
 
 
-    if (debug_mode) print *, "Debug: writeFieldsCurrentsAndTranspCoeffsToH5"
+    if (debug_mode) print *, "Debug: write_fields_currs_transp_coefs_to_h5"
 
     if (irank .eq. 0) then
         if (modulo(timeIndex, save_prof_time_step) .eq. 0) then
             if (suppression_mode .eqv. .false.) then
-                CALL writeFieldsCurrentsAndTranspCoeffsToH5
+                CALL write_fields_currs_transp_coefs_to_h5
             end if
         end if
     end if

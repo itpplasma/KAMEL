@@ -736,7 +736,7 @@
                 write(*,*) 'discrepancy to linearly predicted value of Br_abs_res > delta'
                 if (modulo(timeIndex, save_prof_time_step) .ne. 0) then
                     if (suppression_mode .eqv. .false.) then
-                        CALL writeFieldsCurrentsAndTranspCoeffsToH5
+                        CALL write_fields_currs_transp_coefs_to_h5
                     end if
                 end if
                 if (suppression_mode .eqv. .false.) then
@@ -819,7 +819,7 @@
                 !write(*,*) 'discrepancy to linearly predicted value of Br_abs_res > delta'
                 !if (modulo(timeIndex, save_prof_time_step) .ne. 0) then
                     !if (suppression_mode .eqv. .false.) then
-                        !CALL writeFieldsCurrentsAndTranspCoeffsToH5
+                        !CALL write_fields_currs_transp_coefs_to_h5
                     !end if
                 !end if
                 !if (suppression_mode .eqv. .false.) then

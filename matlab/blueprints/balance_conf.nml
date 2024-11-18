@@ -24,7 +24,6 @@
  iwrite = 0 ,
  eps = 1e-06 ,
  dperp = 10000 ,
- icoll = 0 ,
  Z_i = 1 ,
  am = 2 ,
  rb_cut_in = 20 ,

@@ -81,13 +81,10 @@ class QL_Balance_interface():
             except:
                 pass
             os.symlink(profile_path, self.run_path + 'profiles')
-           
+
     def set_factors(self, fac_n, fac_Te, fac_Ti, fac_vz):
         """Set the factors for the balance run."""
-        self.fac_n = fac_n
-        self.fac_Te = fac_Te
-        self.fac_Ti = fac_Ti
-        self.fac_vz = fac_vz
+        self.facs = {'fac_n': fac_n, 'fac_Te': fac_Te, 'fac_Ti': fac_Ti, 'fac_vz': fac_vz}
         
     def prepare_balance(self, Btor, a_minor):
         self.prepare_KiLCA(Btor, a_minor)
@@ -121,36 +118,21 @@ class QL_Balance_interface():
     def prepare_balance_output(self, output_file):
         self.output_h5_file = output_file
         self.check_if_factors_set()
-        self.write_factors_to_h5(self.output_h5_file)
         self.prepare_input_h5()
+        self.prepare_output_h5()
+    
+    def prepare_output_h5(self):
+        h5f = h5py.File(self.output_h5_file, 'w')
+        self.input_h5.write_fac_with_bound_info(h5f, '/factors/fac_n', data=[self.facs['fac_n']])
+        self.input_h5.write_fac_with_bound_info(h5f, '/factors/fac_Te', data=[self.facs['fac_Te']])
+        self.input_h5.write_fac_with_bound_info(h5f, '/factors/fac_Ti', data=[self.facs['fac_Ti']])
+        self.input_h5.write_fac_with_bound_info(h5f, '/factors/fac_vz', data=[self.facs['fac_vz']])
+        h5f.close()
     
     def check_if_factors_set(self):
-        if not hasattr(self, 'fac_n'):
+        if not hasattr(self, 'facs'):
             print('No factors set, will use ones.')
-            self.fac_n = np.array([1.0])
-            self.fac_Te = np.array([1.0])
-            self.fac_Ti = np.array([1.0])
-            self.fac_vz = np.array([1.0])
-        
-    def write_factors_to_h5(self, h5_file):
-        f = h5py.File(h5_file, 'w')
-        ds = f.create_dataset('/factors/fac_n', data=self.fac_n)
-        ds.attrs['lbounds'] = 0
-        ds.attrs['ubounds'] = len(self.fac_n)
-
-        ds = f.create_dataset('/factors/fac_Te', data=self.fac_Te)
-        ds.attrs['lbounds'] = 0
-        ds.attrs['ubounds'] = len(self.fac_Te)
-
-        ds = f.create_dataset('/factors/fac_Ti', data=self.fac_Ti)
-        ds.attrs['lbounds'] = 0
-        ds.attrs['ubounds'] = len(self.fac_Ti)
-
-        ds = f.create_dataset('/factors/fac_vz', data=self.fac_vz)
-        ds.attrs['lbounds'] = 0
-        ds.attrs['ubounds'] = len(self.fac_vz)
-
-        f.close()
+            self.facs = {'fac_n': np.array([1.0]), 'fac_Te': np.array([1.0]), 'fac_Ti': np.array([1.0]), 'fac_vz': np.array([1.0])}
     
     def prepare_KiLCA(self, Btor, a_minor):
         self.kil_flre = KiLCA_interface(self.shot, self.time, self.run_path, 'flre', self.machine)
@@ -215,7 +197,7 @@ class QL_Balance_interface():
     def prepare_input_h5(self):
         self.input_h5 = Balance_Input_h5(self.input_h5_file, os.path.join(self.run_path, 'profiles/'))
         self.input_h5.get_required_data()
-        self.input_h5.write_data_to_h5(self.input_h5_file)
+        self.input_h5.write_data_to_h5(self.input_h5_file, self.facs)
     
     def run_balance(self, suppress_console_output=True):
         """Run the balance code."""

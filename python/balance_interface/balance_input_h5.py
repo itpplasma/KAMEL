@@ -17,7 +17,7 @@ class Balance_Input_h5:
         self.Er = np.loadtxt(self.profile_path + '/Er.dat')
         self.q = np.loadtxt(self.profile_path + '/q.dat')
     
-    def write_data_to_h5(self, file_name):
+    def write_data_to_h5(self, file_name, facs):
         print('Writing data to h5 file: ', file_name)
         h5f = h5py.File(file_name, 'w')
         self.write_with_bound_info(h5f, '/da_estimation/Da', data=self.Da[:,1])
@@ -32,10 +32,22 @@ class Balance_Input_h5:
 
         self.write_with_bound_info(h5f, '/preprocprof/Er', data=self.Er[:,1])
         self.write_with_bound_info(h5f, '/preprocprof/q', data=self.q[:,1])
+
+        self.write_fac_with_bound_info(h5f, '/factors/fac_n', data=[facs['fac_n']])
+        self.write_fac_with_bound_info(h5f, '/factors/fac_Te', data=[facs['fac_Te']])
+        self.write_fac_with_bound_info(h5f, '/factors/fac_Ti', data=[facs['fac_Ti']])
+        self.write_fac_with_bound_info(h5f, '/factors/fac_vz', data=[facs['fac_vz']])
+        
         h5f.close()
+        print('finished writing to h5 file')
     
     def write_with_bound_info(self, file, dataset, data):
         ds = file.create_dataset(dataset, data=data)
-        ds.attrs['lbounds'] = 0
-        ds.attrs['ubounds'] = len(data)
+        ds.attrs['lbounds'] = [1]
+        ds.attrs['ubounds'] = [len(data)]
+
+    def write_fac_with_bound_info(self, file, dataset, data):
+        ds = file.create_dataset(dataset, data=data)
+        ds.attrs['lbounds'] = [1]
+        ds.attrs['ubounds'] = [len(data[0])]
         

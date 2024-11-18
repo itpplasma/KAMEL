@@ -387,8 +387,7 @@ module paramscan_mod
                             write(*,*) "h5_mode_groupname ", trim(h5_mode_groupname)
                             CALL h5_create_parent_groups(h5_id, trim(h5_mode_groupname) //'/')
                             CALL h5_create_parent_groups(h5_id, trim(h5_mode_groupname)//"/KinProfiles/")
-                            CALL h5_define_group(h5_id, trim(h5_mode_groupname)//"/LinearProfiles/", group_id_1)
-                            CALL h5_close_group(group_id_1)
+                            CALL h5_create_parent_groups(h5_id, trim(h5_mode_groupname)//"/LinearProfiles/")
                         end do
                     end do
                 end do

@@ -430,10 +430,12 @@ module paramscan_mod
         !use paramscan_mod, only: dqle22_res, br_abs_res_parscan, Er_res, &
         !    fac_vz
         use wave_code_data, only: m_vals, n_vals
+        use resonances_mod, only: numres
         use h5mod
 
         implicit none
-                if (numres .eq. 1) then
+
+        if (numres .eq. 1) then
             if (m_vals(1) <= 9) then
                 write (h5_mode_groupname, "(A,I1,A,I1)") "f_", m_vals(1), "_", n_vals(1)
             else

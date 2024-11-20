@@ -19,6 +19,8 @@ class QL_Balance_interface():
 
     run_types = ['SingleStep', 'TimeEvolution', 'ParameterScan']
 
+    delta_r_antenna = 3.0 # distance of RMP antenna from plasma boundary
+
     def __init__(self, run_path, shot, time, name, input_file="", debug=True):
         ''' Constructor of the QL-Balance interface class.
         Args:
@@ -91,7 +93,7 @@ class QL_Balance_interface():
     def prepare_balance(self, Btor, a_minor):
         self.prepare_KiLCA(Btor, a_minor)
         #self.prepare_balance_input(self.input_h5_file)
-        if debug: print("D: Prepare balance output")
+        if self.debug: print("D: Prepare balance output")
         self.prepare_balance_output(self.output_h5_file)
         self.link_executable()
 
@@ -114,7 +116,7 @@ class QL_Balance_interface():
         h5_input.create_dataset('shot', data=self.shot)
         h5_input.create_dataset('time', data=self.time)
         
-        if debug: print('D: Git version: ', self.util.get_git_version())
+        if self.debug: print('D: Git version: ', self.util.get_git_version())
         h5_input.create_dataset('git_version', data=self.util.get_git_version())
         h5_input.close()
     
@@ -138,9 +140,9 @@ class QL_Balance_interface():
             self.facs = {'fac_n': np.array([1.0]), 'fac_Te': np.array([1.0]), 'fac_Ti': np.array([1.0]), 'fac_vz': np.array([1.0])}
     
     def prepare_KiLCA(self, Btor, a_minor):
-        if debug: print('D: Prepare KiLCA')
+        if self.debug: print('D: Prepare KiLCA')
         self.kil_flre = KiLCA_interface(self.shot, self.time, self.run_path, 'flre', self.machine)
-        self.kil_flre.set_machine()
+        self.kil_flre.set_machine(delta_r_antenna=self.delta_r_antenna)
         self.kil_flre.background.data['Btor'] = Btor
         
         self.kil_flre.set_modes(self.m_mode,self.n_mode)
@@ -158,7 +160,7 @@ class QL_Balance_interface():
         kil_vac.antenna.data['flab'] = [1.0, 0.0]
         kil_vac.write()
         kil_vac.run()
-        if debug: print("D: Finished KiLCA preperation")
+        if self.debug: print("D: Finished KiLCA preperation")
 
     def get_KiLCA_current(self):
         if not hasattr(self, 'kil_flre'):

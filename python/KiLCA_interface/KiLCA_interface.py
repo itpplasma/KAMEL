@@ -175,11 +175,11 @@ class KiLCA_interface:
 
         self.BLUE_PATH = inspect.getfile(KiLCA_interface)[0:-18] + self.BLUE_PATH
 
-    def set_machine(self):
+    def set_machine(self, delta_r_antenna: float = 3.0):
         if self.machine == 'AUG':
             self.set_ASDEX()
         elif self.machine == 'MASTU':
-            self.set_MASTU()
+            self.set_MASTU(delta_r_antenna=delta_r_antenna)
         elif self.machine == None:
             # don't set the machine
             print('Will not set a machine at constructor')
@@ -278,7 +278,7 @@ class KiLCA_interface:
         m = [self.run_type, 'vacuum', 'vacuum']
         self.set_zones(r,b,m)
     
-    def set_MASTU(self, nmodes: int = 1, I0: float = 6.0e12):
+    def set_MASTU(self, nmodes: int = 1, I0: float = 6.0e12, delta_r_antenna: float = 3.0):
         """
         Description:
             Initializes the class for a standard run on MASTU parameters
@@ -286,13 +286,14 @@ class KiLCA_interface:
             nmodes ... number of modes to calculate, default = 0
             I0 ... RMP coil current value in statA, MASTU: 2.0kA=6.0e12statA (MAST-U has 4 turns 
             per RMP coil with a maximum current of 8kAt)
+            delta_r_antenna ... effective radius distance of antenna to plasma
         """
         self.machine = 'MASTU'
         #print(f'Machine setting: MASTU, type: {self.run_type}')
 
         self.a_minor = 85.0
         self.R0 = 85.0
-        self.r_antenna = self.a_minor + 5.0
+        self.r_antenna = self.a_minor + delta_r_antenna
 
         self.set_antenna(self.a_minor, nmodes, I0 = I0)
         self.set_background(self.R0, self.a_minor)

@@ -154,8 +154,7 @@ class QL_Balance_interface():
         
         kil_vac = KiLCA_interface(self.shot, self.time, self.run_path, 'vacuum', self.machine)
         kil_vac.background.data['Btor'] = Btor
-        kil_vac.a_minor = a_minor
-        kil_vac.set_machine()
+        kil_vac.set_machine(delta_r_antenna=self.delta_r_antenna)
         kil_vac.set_modes(self.m_mode,self.n_mode)
         kil_vac.antenna.data['flab'] = [1.0, 0.0]
         kil_vac.write()

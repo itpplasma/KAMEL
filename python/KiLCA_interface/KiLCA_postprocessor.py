@@ -114,18 +114,19 @@ class KiLCA_postprocessor:
 
         if type(EBdat)==np.ndarray:
             self.r          = EBdat[:,0]
-            self.Er_real    = EBdat[:,1]
-            self.Er_imag    = EBdat[:,2]
-            self.Eth_real   = EBdat[:,3]
-            self.Eth_imag   = EBdat[:,4]
-            self.Ez_real    = EBdat[:,5]
-            self.Ez_imag    = EBdat[:,6]
-            self.Br_real    = EBdat[:,7]
-            self.Br_imag    = EBdat[:,8]
-            self.Bth_real   = EBdat[:,9]
-            self.Bth_imag   = EBdat[:,10]
-            self.Bz_real    = EBdat[:,11]
-            self.Bz_imag    = EBdat[:,12]
+            self.r, ind = np.unique(self.r, return_index=True)  # returns unique sorted r values
+            self.Er_real    = EBdat[ind,1]
+            self.Er_imag    = EBdat[ind,2]
+            self.Eth_real   = EBdat[ind,3]
+            self.Eth_imag   = EBdat[ind,4]
+            self.Ez_real    = EBdat[ind,5]
+            self.Ez_imag    = EBdat[ind,6]
+            self.Br_real    = EBdat[ind,7]
+            self.Br_imag    = EBdat[ind,8]
+            self.Bth_real   = EBdat[ind,9]
+            self.Bth_imag   = EBdat[ind,10]
+            self.Bz_real    = EBdat[ind,11]
+            self.Bz_imag    = EBdat[ind,12]
         elif type(EBdat)==dict:
             self.r          = EBdat[f'({m}, {n})'][:,0]
             self.Er_real    = EBdat[f'({m}, {n})'][:,1]
@@ -234,9 +235,11 @@ class KiLCA_postprocessor:
         self.Br = self.Br_real + 1j * self.Br_imag
         self.Bth = self.Bth_real + 1j * self.Bth_imag
         self.Bz = self.Bz_real + 1j * self.Bz_imag
-        self.dBr = np.gradient(self.Br, self.r)
+
+        self.dBr = np.gradient(self.Br, self.r, edge_order=2) # gives runtime warning divide by zero
         self.dBth = np.gradient(self.Bth, self.r)
         self.dBz = np.gradient(self.Bz, self.r)
+
 
         #self.Jr = 1j / (4*np.pi) * (self.kth * self.Bz - self.kz * self.Bth)
         self.Jth = 1 /(4*np.pi) * (1j * self.kz * self.Br - self.dBz)
@@ -247,7 +250,7 @@ class KiLCA_postprocessor:
         #plt.plot(self.r, self.Jpar)
 
     def calculate_layer_width(self, m_mode, n_mode):
-        print(f'Calculating layer width for m = {m_mode}, n = {n_mode}')
+        if self.debug: print(f'Calculating layer width for m = {m_mode}, n = {n_mode}')
         self.kil_in.get_r_res(m_mode, n_mode)
         r_ind = np.where(self.r < self.kil_in.a_minor-0.1)
         model = lambda r, b, c: c * (1/np.sqrt(2*np.pi*b**2)) * np.exp(-(r-self.kil_in.r_res)**2/(2*b**2))

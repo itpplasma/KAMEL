@@ -207,6 +207,7 @@ class QL_Balance_interface():
     
     def run_balance(self, suppress_console_output=True):
         """Run the balance code."""
+        print("")
         print(f"== Start balance run {self.name} ==")
         if suppress_console_output:
             options = '>/dev/null 2>&1'
@@ -217,4 +218,5 @@ class QL_Balance_interface():
         out = os.system(f'./ql-balance | tee out/balance.log {options}')
         os.chdir(cwd)
         print(f'== Balance run {self.name} finished. ==')
+        print("")
     

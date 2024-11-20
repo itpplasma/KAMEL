@@ -17,6 +17,8 @@ from .KiLCA_modes import KiLCA_modes
 from .KiLCA_output import KiLCA_output
 from .KiLCA_zone import KiLCA_zone
 
+from device_config import MASTU_config, AUG_config
+
 #sys.path.append(os.path.abspath(inspect.getfile(KiLCA_antenna)[0:-16] + '../../postproc_py_class/'))
 from postproc_class import utility_class
 
@@ -290,17 +292,19 @@ class KiLCA_interface:
         """
         self.machine = 'MASTU'
         #print(f'Machine setting: MASTU, type: {self.run_type}')
+        self.machine_config = MASTU_config()
+        self.R0 = self.machine_config.R0
+        self.a_minor = self.machine_config.r_eff_plasma
 
-        self.a_minor = 85.0
-        self.R0 = 85.0
-        self.r_antenna = self.a_minor + delta_r_antenna
+        self.r_antenna = self.machine_config.r_eff_plasma + delta_r_antenna
+        print('r antenna: ', self.r_antenna)
 
-        self.set_antenna(self.a_minor, nmodes, I0 = I0)
-        self.set_background(self.R0, self.a_minor)
+        self.set_antenna(self.r_antenna, nmodes, I0 = I0)
+        self.set_background(self.machine_config.R0, self.machine_config.r_eff_plasma)
         #self.background.data['Btor'] = -6400.0
 
         # set zones
-        r = [3.0, self.a_minor, self.r_antenna, self.r_antenna + 5.0]
+        r = [3.0, self.machine_config.r_eff_plasma, self.r_antenna, self.machine_config.r_eff_wall]
         b = ['center', 'interface', 'antenna', 'idealwall']
         m = [self.run_type, 'vacuum', 'vacuum']
         self.set_zones(r,b,m)

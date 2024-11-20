@@ -4,8 +4,11 @@ import numpy as np
 class Balance_Input_h5:
     """ Class to prepare the input h5 file for the balance code."""
     
-    def __init__(self, h5_file_path, profile_path):
+    debug = False
+    
+    def __init__(self, h5_file_path, profile_path, debug=False):
         self.profile_path = profile_path
+        self.debug = debug
 
     def get_required_data(self):
         self.Da = np.loadtxt(self.profile_path + '/Da.dat')
@@ -18,7 +21,7 @@ class Balance_Input_h5:
         self.q = np.loadtxt(self.profile_path + '/q.dat')
     
     def write_data_to_h5(self, file_name, facs):
-        print('Writing data to h5 file: ', file_name)
+        if self.debug: print('Writing data to input h5 file: ', file_name)
         h5f = h5py.File(file_name, 'w')
         self.write_with_bound_info(h5f, '/da_estimation/Da', data=self.Da[:,1])
         self.write_with_bound_info(h5f, '/da_estimation/r', data=self.Da[:,0])
@@ -39,7 +42,6 @@ class Balance_Input_h5:
         self.write_fac_with_bound_info(h5f, '/factors/fac_vz', data=[facs['fac_vz']])
         
         h5f.close()
-        print('finished writing to h5 file')
     
     def write_with_bound_info(self, file, dataset, data):
         ds = file.create_dataset(dataset, data=data)

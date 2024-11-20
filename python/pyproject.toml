@@ -1,22 +1,29 @@
 [build-system]
-requires = ["setuptools", "numpy", "scipy", "h5py", "f90nml"]
+requires = ["setuptools", "wheel"]
 build-backend = "setuptools.build_meta"
 
-[metadata]
-name = "KiLCA_QB"
-version = "1.0.0"
-
 [project]
-name = "KiLCA_QB"
+name = "KAMELpy"
 version = "1.0.0"
-dependencies = ["numpy", "scipy", "h5py", "f90nml"]
-authors = [
-  { name="Markus Markl", email="markl@tugraz.at" },
-]
-description = "Python interface for KiLCA"
+description = "Python interface for KiLCA, KIM and QL-Balance"
 readme = "README.md"
 requires-python = ">=3.8"
+dependencies = [
+    "numpy",
+    "scipy",
+    "h5py",
+    "f90nml"
+]
+authors = [
+    { name = "Markus Markl", email = "markl@tugraz.at" }
+]
 classifiers = [
     "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11"
 ]
+[tool.setuptools]
+packages = { find = { include = ["*"] } }
 

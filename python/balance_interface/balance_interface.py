@@ -6,7 +6,8 @@ import shutil
 
 from postproc_class import utility_class
 
-from KiLCA_interface import *
+from KiLCA_interface import KiLCA_interface
+from KiLCA_interface.KiLCA_postprocessor import KiLCA_postprocessor
 
 from .balance_conf import *
 from .balance_input_h5 import *

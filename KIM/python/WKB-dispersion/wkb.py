@@ -21,12 +21,12 @@ from KIMDispersion_Krook import KIMDispersion_Krook
 from KIMDispersion_FokkerPlanck import KIMDispersion_FokkerPlanck
 from DispersionEquationFactory import *
 
-sys.path.append(os.path.join(os.path.dirname(__file__), '../../../python/susc_functions/'))
+CODE = os.environ["CODE"]
+sys.path.append(os.path.join(CODE, 'KAMEL/python/susc_functions/'))
 import susc_funcs
 
-sys.path.append(os.path.join(os.path.dirname(__file__), '../'))
+sys.path.append(os.path.join(CODE, 'KAMEL/KIM/python/'))
 from constants import *
-
 
 class KIM_WKB():
     """

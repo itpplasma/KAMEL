@@ -10,7 +10,7 @@ import copy
 import inspect
 import sys
 
-from .KiLCA_antenna import KiLCA_antenna
+from .KiLCA_antenna import *#KiLCA_antenna
 from .KiLCA_background import KiLCA_background
 from .KiLCA_eigmode import KiLCA_eigmode
 from .KiLCA_modes import KiLCA_modes

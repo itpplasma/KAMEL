@@ -155,6 +155,7 @@ module singleStep
         call create_group_if_not_existent(h5_mode_groupname)
 
         CALL h5_add_double_0(h5_id, trim(h5_mode_groupname)//'/dqle22_res', dqle22_res_single)
+        CALL h5_add_double_0(h5_id, trim(h5_mode_groupname)//'/Br_abs_res', br_abs_res_single)
         CALL h5_add_double_1(h5_id, trim(h5_mode_groupname)//'/dqle22', &
                                 dqle22, lbound(dqle22), ubound(dqle22))
         CALL h5_add_double_1(h5_id, trim(h5_mode_groupname)//'/r_eff', &

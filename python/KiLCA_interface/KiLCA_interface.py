@@ -361,7 +361,6 @@ class KiLCA_interface:
     def get_r_res(self, m_mode, n_mode):
         q_prof = np.loadtxt(self.path_of_profiles + 'q.dat')
         self.r_res = np.interp(m_mode/n_mode, np.abs(q_prof[:,1]), q_prof[:,0])
-        print(self.r_res)
         return self.r_res
         
 

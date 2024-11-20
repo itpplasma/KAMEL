@@ -246,6 +246,7 @@ class KiLCA_postprocessor:
         self.Jz = 1 / (4 * np.pi) * (self.Bth / self.r + self.dBth - 1j * self.kth * self.Br)
 
         self.Jpar = (self.Jth * np.interp(self.r, self.bg_r_eff, self.B0th) + self.Jz * np.interp(self.r, self.bg_r_eff, self.B0z)) / np.interp(self.r, self.bg_r_eff, self.B0)
+        return self.r, self.Jpar
         #plt.figure()
         #plt.plot(self.r, self.Jpar)
 
@@ -257,9 +258,7 @@ class KiLCA_postprocessor:
         popt_real, popcov_real = curve_fit(model, self.r[r_ind], np.real(self.Jpar[r_ind]))
         popt_imag, popcov_imag = curve_fit(model, self.r[r_ind], np.imag(self.Jpar[r_ind]))
         self.d = np.real(5 * np.sqrt((popt_real[0] + 1j * popt_imag[0])**2))
-        #plt.plot(self.r, model(self.r, *popt))
-        #plt.axvline(self.kil_in.r_res, color='r')
-        #plt.xlim([self.kil_in.r_res-1, self.kil_in.r_res+1])
+        return self.d
         
         
     def integrate_par_current_dens(self):

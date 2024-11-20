@@ -164,8 +164,8 @@ class QL_Balance_interface():
     def get_KiLCA_current(self):
         if not hasattr(self, 'kil_flre'):
             raise ValueError('KiLCA not prepared.')
-        self.kil_flre_post.calculate_parallel_current_density(self.m_mode, self.n_mode, self.run_path + f'flre/linear-data/m_{self.m_mode}_n_{self.n_mode}_flab_[1,0]/', self.run_path + f'flre/background-data/')
-        self.kil_flre_post.calculate_layer_width(self.m_mode, self.n_mode)
+        self.r_kilca, self.jpar_kilca = self.kil_flre_post.calculate_parallel_current_density(self.m_mode, self.n_mode, self.run_path + f'flre/linear-data/m_{self.m_mode}_n_{self.n_mode}_flab_[1,0]/', self.run_path + f'flre/background-data/')
+        self.layer_width = self.kil_flre_post.calculate_layer_width(self.m_mode, self.n_mode)
         return self.kil_flre_post.integrate_par_current_dens()
     
     def link_executable(self):
@@ -203,6 +203,16 @@ class QL_Balance_interface():
         self.input_h5 = Balance_Input_h5(self.input_h5_file, os.path.join(self.run_path, 'profiles/'))
         self.input_h5.get_required_data()
         self.input_h5.write_data_to_h5(self.input_h5_file, self.facs)
+        self.write_KiLCA_data_to_input_h5()
+        
+    def write_KiLCA_data_to_input_h5(self):
+        h5f = h5py.File(self.input_h5_file, 'a')
+        grp = h5f.create_group('KiLCA')
+        grp.create_dataset('I_KiLCA', data=[self.I_KiLCA])
+        grp.create_dataset('r', data=self.r_kilca)
+        grp.create_dataset('jpar', data=self.jpar_kilca)
+        grp.create_dataset('layer_width', data=[self.layer_width])
+        h5f.close()
     
     def run_balance(self, suppress_console_output=True):
         """Run the balance code."""

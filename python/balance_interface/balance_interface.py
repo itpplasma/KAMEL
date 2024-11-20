@@ -19,7 +19,7 @@ class QL_Balance_interface():
 
     run_types = ['SingleStep', 'TimeEvolution', 'ParameterScan']
 
-    def __init__(self, run_path, shot, time, name, input_file=""):
+    def __init__(self, run_path, shot, time, name, input_file="", debug=True):
         ''' Constructor of the QL-Balance interface class.
         Args:
             run_path (str): Path to the run directory.
@@ -33,6 +33,7 @@ class QL_Balance_interface():
         self.shot = shot
         self.time = time
         self.name = name 
+        self.debug = debug
 
         #if not os.path.exists(self.input_h5_file):
             #raise FileNotFoundError(f'Input file {self.input_h5_file} not found.')
@@ -90,7 +91,7 @@ class QL_Balance_interface():
     def prepare_balance(self, Btor, a_minor):
         self.prepare_KiLCA(Btor, a_minor)
         #self.prepare_balance_input(self.input_h5_file)
-        print("Prepare balance output")
+        if debug: print("D: Prepare balance output")
         self.prepare_balance_output(self.output_h5_file)
         self.link_executable()
 
@@ -113,7 +114,7 @@ class QL_Balance_interface():
         h5_input.create_dataset('shot', data=self.shot)
         h5_input.create_dataset('time', data=self.time)
         
-        print('Git version: ', self.util.get_git_version())
+        if debug: print('D: Git version: ', self.util.get_git_version())
         h5_input.create_dataset('git_version', data=self.util.get_git_version())
         h5_input.close()
     
@@ -137,12 +138,10 @@ class QL_Balance_interface():
             self.facs = {'fac_n': np.array([1.0]), 'fac_Te': np.array([1.0]), 'fac_Ti': np.array([1.0]), 'fac_vz': np.array([1.0])}
     
     def prepare_KiLCA(self, Btor, a_minor):
-        print('STart KiLCA flre')
+        if debug: print('D: Prepare KiLCA')
         self.kil_flre = KiLCA_interface(self.shot, self.time, self.run_path, 'flre', self.machine)
         self.kil_flre.set_machine()
         self.kil_flre.background.data['Btor'] = Btor
-        #self.kil_flre.a_minor = a_minor
-        #self.kil_flre.R0 = R0
         
         self.kil_flre.set_modes(self.m_mode,self.n_mode)
         self.kil_flre.antenna.data['flab'] = [1.0, 0.0]
@@ -150,7 +149,6 @@ class QL_Balance_interface():
         self.kil_flre.run()
         self.kil_flre_post = KiLCA_postprocessor(self.kil_flre)
         self.I_KiLCA = self.get_KiLCA_current()
-        print("Finished KiLCA flre")
         
         kil_vac = KiLCA_interface(self.shot, self.time, self.run_path, 'vacuum', self.machine)
         kil_vac.background.data['Btor'] = Btor
@@ -160,7 +158,7 @@ class QL_Balance_interface():
         kil_vac.antenna.data['flab'] = [1.0, 0.0]
         kil_vac.write()
         kil_vac.run()
-        print("Finished KiLCA vacuum")
+        if debug: print("D: Finished KiLCA preperation")
 
     def get_KiLCA_current(self):
         if not hasattr(self, 'kil_flre'):
@@ -207,7 +205,7 @@ class QL_Balance_interface():
     
     def run_balance(self, suppress_console_output=True):
         """Run the balance code."""
-        print(f"Start balance run {self.name}")
+        print(f"== Start balance run {self.name} ==")
         if suppress_console_output:
             options = '>/dev/null 2>&1'
         else:
@@ -216,5 +214,5 @@ class QL_Balance_interface():
         os.chdir(self.run_path)
         out = os.system(f'./ql-balance | tee out/balance.log {options}')
         os.chdir(cwd)
-        print(f'Balance run {self.name} finished.')
+        print(f'== Balance run {self.name} finished. ==')
     

@@ -136,7 +136,7 @@ module singleStep
 
     subroutine writeDqle22_SingleStep
 
-        use grid_mod, only: dqle22, rb
+        use grid_mod, only: dqle22, rb, r_resonant
         use h5mod
 
         implicit none
@@ -159,6 +159,7 @@ module singleStep
                                 dqle22, lbound(dqle22), ubound(dqle22))
         CALL h5_add_double_1(h5_id, trim(h5_mode_groupname)//'/r_eff', &
                                 rb, lbound(rb), ubound(rb))
+        CALL h5_add_double_0(h5_id, trim(h5_mode_groupname)//'/r_res', r_resonant(1))
  
         CALL h5_close(h5_id)
         CALL h5_deinit()

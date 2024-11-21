@@ -60,7 +60,7 @@
     !  bvec_sp=y+timstep*dery
     bvec_sp=y+timstep_arr*dery
 
-    call  remap_rc(nz_sp,nz_sq,irow_sp,icol_sp,amat_sp)
+    call remap_rc(nz_sp,nz_sq,irow_sp,icol_sp,amat_sp)
 
     nz_sp=nz_sq
 
@@ -75,11 +75,11 @@
         
         !CALL sparse_solve(nrow,ncol,nz_sp,irow_sp(1:nz_sp),ipcol,amat_sp(1:nz_sp),       &
         CALL sparse_solve(nrow, ncol, nz_sp, irow_sp, ipcol, amat_sp, bvec_sp, iopt)
-                          !bvec_sp,iopt)
+                        !bvec_sp,iopt)
     else
         iopt=1
         CALL sparse_solve(nrow,ncol,nz_sp,irow_sp(1:nz_sp),ipcol,amat_sp(1:nz_sp),       &
-                      bvec_sp,iopt)
+                        bvec_sp,iopt)
     
         !  call cpu_time(time_factorization)
         !  print *,'factorization completed ',time_factorization - time_start,' sec'
@@ -113,11 +113,11 @@
 
     subroutine write_bvec_sp_to_txt
 
-      implicit none
-      
-      open(666,file='bvec_sp.txt')
-      write(666,*) bvec_sp
-      close (666)
+        implicit none
+
+        open(666,file='bvec_sp.txt')
+        write(666,*) bvec_sp
+        close (666)
 
     end subroutine
 
@@ -138,11 +138,11 @@ end subroutine evolvestep
 
 
 subroutine det_balance_eqs_source_terms
-      
+    
     ! calculates source terms in the balance equations. Is determined by assuming steady state.
 
     use grid_mod, only : y,dery,dery_equisource &
-                      , nbaleqs,neqset,iboutype,npoic
+                    , nbaleqs,neqset,iboutype,npoic
     use plasma_parameters, only: params
 
     use control_mod, only: iwrite, ihdf5IO, diagnostics_output, debug_mode, irf
@@ -156,37 +156,37 @@ subroutine det_balance_eqs_source_terms
     character(len=1024) :: tempch
 
     if (debug_mode) write(*,*) "Debug: Generating starting source"
-  
+
     if(iboutype.eq.1) then
-      npoi=npoic-1
+        npoi=npoic-1
     else
-      npoi=npoic
+        npoi=npoic
     endif
 
     do ipoi=1,npoi
-      do ieq=1,nbaleqs
-        i=nbaleqs*(ipoi-1)+ieq
-        y(i)=params(ieq,ipoi)
-      enddo
+        do ieq=1,nbaleqs
+            i=nbaleqs*(ipoi-1)+ieq
+            y(i)=params(ieq,ipoi)
+        enddo
     enddo
-  
-    irf = 0
+
+    !irf = 0
     print *, "Before initialize_rhs"
     call initialize_rhs(y,dery)
 
     dery_equisource=0.d0
     print *, "Before rhs_balance"
     call rhs_balance(x,y,dery)
-    irf = 1
+    !irf = 1
 
     do k=1,nz
-      dery_equisource(irow(k))=dery_equisource(irow(k))-amat(k)*y(icol(k))
+        dery_equisource(irow(k))=dery_equisource(irow(k))-amat(k)*y(icol(k))
     end do
 
     dery_equisource=dery_equisource-rhsvec
 
     if (diagnostics_output) then
-      write(*,*) "Writing equisource"
+        write(*,*) "Writing equisource"
         if (ihdf5IO .eq. 1) then
             tempch = "/"//trim(h5_mode_groupname)//"/equisource.dat"
 

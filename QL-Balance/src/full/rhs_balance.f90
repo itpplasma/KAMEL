@@ -73,10 +73,10 @@ subroutine rhs_balance(x, y, dy)
     do ipoi = 1, npoib
         ! Thermodynamic forces for zero radial electric field:
         A_noE_1e_nl = ddr_params_nl(1, ipoi)/params_b(1, ipoi) &
-                      - 1.5d0*ddr_params_nl(3, ipoi)/params_b(3, ipoi)
+                    - 1.5d0*ddr_params_nl(3, ipoi)/params_b(3, ipoi)
         A_noE_2e_nl = ddr_params_nl(3, ipoi)/params_b(3, ipoi)
         A_noE_1i_nl = ddr_params_nl(1, ipoi)/params_b(1, ipoi) &
-                      - 1.5d0*ddr_params_nl(4, ipoi)/params_b(4, ipoi)
+                    - 1.5d0*ddr_params_nl(4, ipoi)/params_b(4, ipoi)
         A_noE_2i_nl = ddr_params_nl(4, ipoi)/params_b(4, ipoi)
         
         ! Thermodynamic forces for finite radial electric field:
@@ -86,13 +86,14 @@ subroutine rhs_balance(x, y, dy)
 
         ! particle flux densities:
         gamma_e_nl = -(dae11(ipoi)*A_noE_1e_nl + dae12(ipoi)*A_noE_2e_nl &
-                       + dqle11(ipoi)*A_1e_nl + dqle12(ipoi)*A_noE_2e_nl &
-                       )*params_b(1, ipoi)
+                        + dqle11(ipoi)*A_1e_nl + dqle12(ipoi)*A_noE_2e_nl &
+                        )*params_b(1, ipoi)
 
         ! total particle flux:
         fluxes_con_nl(1, ipoi) = (Sb(ipoi)*gamma_e_nl - &
-                                  (-Sb(ipoi)*ddr_params_nl(1, ipoi)*(dae11(ipoi) &
-                                                + dqle11(ipoi)*(1.d0 + params_b(4, ipoi)/params_b(3, ipoi)/Z_i))))/params_b(1, ipoi)
+                                    (-Sb(ipoi)*ddr_params_nl(1, ipoi)*(dae11(ipoi) &
+                                + dqle11(ipoi)*(1.d0 + params_b(4, ipoi)/params_b(3, ipoi)/Z_i))))&
+                                /params_b(1, ipoi)
                                                 
         ! toroidal moment flux density divided by mass:
         ! total toroidal moment flux:
@@ -101,24 +102,24 @@ subroutine rhs_balance(x, y, dy)
         ! electron heat flux density:
         !colli    Q_e_nl=-(dae12(ipoi)*A_noE_1e_nl+dqle12(ipoi)*A_1e_nl    &
         Q_e_nl = -(dae12(ipoi)*A_noE_1e_nl + dqle21(ipoi)*A_1e_nl &
-                   + (dae22(ipoi) + dqle22(ipoi))*A_noE_2e_nl) &
+                + (dae22(ipoi) + dqle22(ipoi))*A_noE_2e_nl) &
                  *params_b(1, ipoi)*params_b(3, ipoi)
 
         ! ion heat flux density:
         !colli    Q_i_nl=-(dai12(ipoi)*A_noE_1i_nl+dqli12(ipoi)*A_1i_nl    &
         Q_i_nl = -(dai12(ipoi)*A_noE_1i_nl + dqli21(ipoi)*A_1i_nl &
-                   + (dai22(ipoi) + dni22(ipoi) + dqli22(ipoi))*A_noE_2i_nl) &
+                + (dai22(ipoi) + dni22(ipoi) + dqli22(ipoi))*A_noE_2i_nl) &
                  *params_b(1, ipoi)/Z_i*params_b(4, ipoi)
 
         ! total heat fluxes:
         fluxes_con_nl(3, ipoi) = (Sb(ipoi)*Q_e_nl - &
-                                  (-Sb(ipoi)*(dae22(ipoi) + dqle22(ipoi))*params_b(1, ipoi)*ddr_params_nl(3, ipoi))) &
-                                 /params_b(3, ipoi)
+                                (-Sb(ipoi)*(dae22(ipoi) + dqle22(ipoi))*params_b(1, ipoi) &
+                                * ddr_params_nl(3, ipoi))) /params_b(3, ipoi)
         fluxes_con_nl(4, ipoi) = (Sb(ipoi)*Q_i_nl - &
-                                  !colli    (-Sb(ipoi)*(dai22(ipoi)+dni22(ipoi)+dqli22(ipoi)-2.5d0*dqli12(ipoi)) &
-                                  (-Sb(ipoi)*(dai22(ipoi) + dni22(ipoi) + dqli22(ipoi) - 2.5d0*dqli21(ipoi)) &
+                                !colli    (-Sb(ipoi)*(dai22(ipoi)+dni22(ipoi)+dqli22(ipoi)-2.5d0*dqli12(ipoi)) &
+                                (-Sb(ipoi)*(dai22(ipoi) + dni22(ipoi) + dqli22(ipoi) - 2.5d0*dqli21(ipoi)) &
                                    *params_b(1, ipoi)/Z_i*ddr_params_nl(4, ipoi))) &
-                                 /params_b(4, ipoi)
+                                /params_b(4, ipoi)
     end do
 
     nshift = 4
@@ -162,18 +163,18 @@ subroutine rhs_balance(x, y, dy)
 
         Ercov_lin(ibegb:iendb) &
             = sqg_bthet_overc(ibegb:iendb)*params_b_lin(2, ibegb:iendb) &
-              + (params_b(4, ibegb:iendb)*ddr_params(1, ibegb:iendb) &
-                 /params_b(1, ibegb:iendb) + ddr_params(4, ibegb:iendb)) &
-              /(Z_i*e_charge)
+                + (params_b(4, ibegb:iendb)*ddr_params(1, ibegb:iendb) &
+                /params_b(1, ibegb:iendb) + ddr_params(4, ibegb:iendb)) &
+                /(Z_i*e_charge)
 
 
         do ipoi = ibegb, iendb
         ! Thermodynamic forces for zero radial electric field:
             A_noE_1e = ddr_params(1, ipoi)/params_b(1, ipoi) &
-                       - 1.5d0*ddr_params(3, ipoi)/params_b(3, ipoi)
+                        - 1.5d0*ddr_params(3, ipoi)/params_b(3, ipoi)
             A_noE_2e = ddr_params(3, ipoi)/params_b(3, ipoi)
             A_noE_1i = ddr_params(1, ipoi)/params_b(1, ipoi) &
-                       - 1.5d0*ddr_params(4, ipoi)/params_b(4, ipoi)
+                        - 1.5d0*ddr_params(4, ipoi)/params_b(4, ipoi)
             A_noE_2i = ddr_params(4, ipoi)/params_b(4, ipoi)
         ! Thermodynamic forces for finite radial electric field:
             A_1e = A_noE_1e + Ercov_lin(ipoi)*e_charge/params_b(3, ipoi)
@@ -188,7 +189,7 @@ subroutine rhs_balance(x, y, dy)
             gamma_i = gamma_i + gamma_ql_i
         ! total particle flux:
             fluxes_dif(1, ipoi) = -Sb(ipoi)*ddr_params(1, ipoi)*(dae11(ipoi) &
-                                                                 + dqle11(ipoi)*(1.d0 + params_b(4, ipoi)/params_b(3, ipoi)/Z_i))
+                                    + dqle11(ipoi)*(1.d0 + params_b(4, ipoi)/params_b(3, ipoi)/Z_i))
             fluxes_con(1, ipoi) = (Sb(ipoi)*gamma_e - fluxes_dif(1, ipoi))/params_b(1, ipoi)
         ! toroidal moment flux density divided by mass:
             dfluxvphi = -visca(ipoi)*ddr_params(2, ipoi)*params_b(1, ipoi)/Z_i*gpp_av(ipoi)
@@ -211,12 +212,12 @@ subroutine rhs_balance(x, y, dy)
             fluxes_con(3, ipoi) = (Sb(ipoi)*Q_e - fluxes_dif(3, ipoi))/params_b(3, ipoi)
 
             fluxes_dif(4, ipoi) = -Sb(ipoi)*(dai22(ipoi) + dni22(ipoi) + dqli22(ipoi) &
-                                             !colli             - 2.5d0*dqli12(ipoi))*params_b(1,ipoi)/Z_i*ddr_params(4,ipoi)
-                                             - 2.5d0*dqli21(ipoi))*params_b(1, ipoi)/Z_i*ddr_params(4, ipoi)
+                                !colli             - 2.5d0*dqli12(ipoi))*params_b(1,ipoi)/Z_i*ddr_params(4,ipoi)
+                                - 2.5d0*dqli21(ipoi))*params_b(1, ipoi)/Z_i*ddr_params(4, ipoi)
             fluxes_con(4, ipoi) = (Sb(ipoi)*Q_i - fluxes_dif(4, ipoi))/params_b(4, ipoi)
         ! Momentum source due to the polarization current:
             polforce(ipoi) = (gamma_e - Z_i*gamma_i)*e_charge*sqg_bthet_overc(ipoi) &
-                             /(am*p_mass)
+                            /(am*p_mass)
 
         ! Heat sources due to the radial QL drift in the equilibrium electric field:
             qlheat_e(ipoi) = -Ercov(ipoi)*gamma_ql_e*e_charge
@@ -294,7 +295,7 @@ subroutine rhs_balance(x, y, dy)
                 else
                     if (ipoi .gt. 1) then
                         dot_params(ieq, ipoi) = dot_params(ieq, ipoi) &
-                                              - convel*(params_lin(ieq, ipoi - 1) - params_lin(ieq, ipoi))/(rc(ipoi - 1) - rc(ipoi))
+                                            - convel*(params_lin(ieq, ipoi - 1) - params_lin(ieq, ipoi))/(rc(ipoi - 1) - rc(ipoi))
                     else
                         dot_params(ieq, ipoi) = dot_params(ieq, ipoi) &
                                                 - convel*(params_b_lin(ieq, 1) - params_lin(ieq, 1))/(rb(1) - rc(1))
@@ -306,15 +307,15 @@ subroutine rhs_balance(x, y, dy)
             ! Add internal sources:
             ! Momentum:
             dot_params(2, ipoi) = dot_params(2, ipoi) &
-                                  + 0.5d0*(polforce(ipoi) + polforce(ipoi + 1))
+                                + 0.5d0*(polforce(ipoi) + polforce(ipoi + 1))
 
             ! Heat into electrons:
             dot_params(3, ipoi) = dot_params(3, ipoi) &
-                                  + 0.5d0*(qlheat_e(ipoi) + qlheat_e(ipoi + 1))
+                                + 0.5d0*(qlheat_e(ipoi) + qlheat_e(ipoi + 1))
 
             ! Heat into ions:
             dot_params(4, ipoi) = dot_params(4, ipoi) &
-                                  + 0.5d0*(qlheat_i(ipoi) + qlheat_i(ipoi + 1))
+                                + 0.5d0*(qlheat_i(ipoi) + qlheat_i(ipoi + 1))
 
             ! Covert momentum time derivative to time derivative of the rotation frequency:
             dot_params(2, ipoi) = dot_params(2, ipoi)*Z_i/params(1, ipoi) &
@@ -322,10 +323,10 @@ subroutine rhs_balance(x, y, dy)
 
             ! Convert dot_params from d(nT_{e,i})/dt to d(T_{e,i})/dt:
             dot_params(3, ipoi) = (-params(3, ipoi)*dot_params(1, ipoi) &
-                                   + dot_params(3, ipoi)/1.5d0)/params(1, ipoi)
+                                + dot_params(3, ipoi)/1.5d0)/params(1, ipoi)
 
             dot_params(4, ipoi) = (-params(4, ipoi)*dot_params(1, ipoi) &
-                                   + dot_params(4, ipoi)/1.5d0)/params(1, ipoi)
+                                + dot_params(4, ipoi)/1.5d0)/params(1, ipoi)
 
         end do
 

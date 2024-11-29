@@ -1,9 +1,9 @@
-  subroutine evolvestep(timstep,eps)
+subroutine evolvestep(timstep,eps)
 
     use grid_mod, only : nbaleqs,neqset,iboutype,npoic,y,dery
     use plasma_parameters, only: params
     USE sparse_mod, ONLY : sparse_talk,sparse_solve_method,sparse_solve, &
-        column_full2pointer,remap_rc,sparse_solver_test
+        column_full2pointer,remap_rc,sparse_solver_test, sparse2full
     use matrix_mod
     use recstep_mod, only : timstep_arr
     use control_mod, only : debug_mode
@@ -37,6 +37,7 @@
     call rhs_balance(x1,y,dery)
 
     call write_amat
+    
 
     nz_sp=nz+nsize
     nrow=nsize
@@ -56,6 +57,9 @@
         icol_sp(k)=i 
         amat_sp(k)=1.d0
     enddo
+
+
+    !call write_amat_as_matrix
 
     !  bvec_sp=y+timstep*dery
     bvec_sp=y+timstep_arr*dery
@@ -127,6 +131,27 @@
 
         open(666, file='amat.txt')
         write(666,*) amat
+        close(666)
+
+    end subroutine
+
+    subroutine write_amat_as_matrix
+
+        implicit none
+        double precision, dimension(:,:), allocatable :: A
+        double precision, dimension(:), allocatable :: val
+
+        allocate(A(nsize,nsize))
+        val = 0.0d0
+
+        write(*,*) "ncol = ", ncol
+        write(*,*) "nrow = ", nrow
+
+
+        call sparse2full(irow_sp, ipcol, amat_sp, nrow, ncol, A)
+
+        open(666, file='amat_matrix.txt')
+        write(666,*) A
         close(666)
 
     end subroutine

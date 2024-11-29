@@ -66,6 +66,7 @@ include_directories ("${sundials_include_path_build}")
 
 set(balance_lib_fortran_sources
     ${full_balance_src}/ql-balance_mod.f90
+    ${full_balance_src}/sparse_mod.f90
     ${full_balance_src}/balanceBase.f90
     ${full_balance_src}/grid_mod.f90
     ${full_balance_src}/control_mod.f90
@@ -84,7 +85,6 @@ set(balance_lib_fortran_sources
     ${full_balance_src}/plag_coeff.f90
     ${full_balance_src}/amn_of_r.f90
     ${src}/hdf5_tools/hdf5_tools.f90
-    ${full_balance_src}/sparse_mod.f90
     ${full_balance_src}/paramscan.f90
     ${full_balance_src}/parallelTools.f90
     ${full_balance_src}/SingleStep.f90

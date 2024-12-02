@@ -120,7 +120,7 @@ class tMHD_current:
     def fetch_B0_of_s_theta_boozer(self, stor,nth):
         return get_B0_of_s_theta_boozer(stor,nth)
 
-    def integrate_curr_dens(self, m_mode=np.array([10])):
+    def integrate_curr_dens(self, q, m_mode=np.array([10])):
         """Integrate the current density harmonics for a given m_mode. Returns the current for negative and positive m modes.
         The current is given in statA."""
 
@@ -148,9 +148,8 @@ class tMHD_current:
             curr_dens_m = self.Jpar_over_B0_harm[:,ind_m]
             curr_dens_p = self.Jpar_over_B0_harm[:,ind_p]
 
-            self.current_m[i] = np.trapz(curr_dens_m * self.stor[:-1]) * 2.0 * self.psi_tor[-1]
-            self.current_p[i] = np.trapz(curr_dens_p * self.stor[:-1]) * 2.0 * self.psi_tor[-1]
-
+            self.current_m[i] = np.trapz(curr_dens_m * self.stor[:-1] * q) * 2.0 * self.psi_tor[-1]
+            self.current_p[i] = np.trapz(curr_dens_p * self.stor[:-1] * q) * 2.0 * self.psi_tor[-1]
 
         return [self.current_m, self.current_p]
 

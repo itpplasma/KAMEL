@@ -79,7 +79,7 @@ class KQ_processor:
 
         self.pp.Te = self.pp.Te * rescale_factor
 
-    def get_tMHD_current(self, curr_file, m_mode=np.array([10]), delta_phi=0.0, coil_curr_scale_l=1.0, coil_curr_scale_u=1.0, case='standard', InputFile='', kind='orig'):
+    def get_tMHD_current(self, curr_file, flux_data_path, m_mode=np.array([10]), delta_phi=0.0, coil_curr_scale_l=1.0, coil_curr_scale_u=1.0, case='standard', InputFile='', kind='orig'):
         """Get the tMHD current for a given m_mode."""
 
         self.tmhd = tMHD_current(case=case)
@@ -91,7 +91,9 @@ class KQ_processor:
         self.prepare_efit2boozer_inp()
         self.prepare_field_divB0_inp()
         self.tmhd.get_Jpar_over_B0_boozer_harmonics()
-        self.tmhd.integrate_curr_dens(m_mode=m_mode)
+        equil_r_q = np.loadtxt(flux_data_path + 'equil_r_q_psi.dat')
+        self.q = equil_r_q[:,1]
+        self.tmhd.integrate_curr_dens(self.q, m_mode=m_mode)
 
         return self.tmhd
     

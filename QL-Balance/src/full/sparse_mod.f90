@@ -3,7 +3,7 @@ MODULE sparse_mod
   IMPLICIT NONE
 
   PUBLIC sparse_solve_method
-  INTEGER :: sparse_solve_method = 2
+  INTEGER :: sparse_solve_method = 3
   ! method: 1 = SuperLU, 2 = SuiteSparse with refinement, 3 = SuiteSparse without refinement
 
   PUBLIC sparse_talk

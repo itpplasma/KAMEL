@@ -61,8 +61,8 @@ class tMHD_current:
 
 
         if kind == 'orig' or kind == 'smooth':
-            self.JparU = np.array(dat.get('jparU'), dtype=complex) / 10**5
-            self.JparL = np.array(dat['jparL'], dtype=complex) / 10**5
+            self.JparU = np.array(dat['UPPER'], dtype=complex) / 10**5
+            self.JparL = np.array(dat['LOWER'], dtype=complex) / 10**5
         else:
             #self.JparU = np.array(dat.get('Jpars/'+kind+'/UPPER'), dtype=complex) / 10**5
             self.JparU = dat['Jpars'][kind][0][0]['UPPER'][0][0] / 10**5

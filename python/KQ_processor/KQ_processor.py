@@ -29,14 +29,14 @@ class KQ_processor:
         self.save_profs = os.path.join(self.runpath, 'profiles/')
         self.scriptpath = os.getcwd()
 
-    def process_equilibrium(self, gfile, pfile='', convex_wall='', flux_data='', skip=False):
+    def process_equilibrium(self, gfile, pfile='', flux_data='', skip=False):
         """Process the equilibrium EQDSK file with field_divB0 (without perturbations).
         gfile ... path to the EQDSK file
         flux_data ... path where the flux data will be moved to"""
 
         self.gfile = gfile
         self.pfile = pfile
-        self.convex_wall = convex_wall 
+        self.convex_wall = self.device.convex_wall 
         self.flux_data = flux_data 
 
         if skip == True:

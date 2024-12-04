@@ -96,7 +96,7 @@ class tMHD_current:
         if hasattr(self, 'JparU_harm'):
             self.Jpar_harm = coil_curr_scale_u * self.JparU_harm + coil_curr_scale_l * self.JparL_harm * np.exp(1j * delta_phi)
         if hasattr(self, 'JparU'):
-            self.Jpar = coil_curr_scale_u * self.JparU + coil_curr_scale_l * self.JparL * np.exp(1j * delta_phi)
+            self.Jpar = coil_curr_scale_u * self.JparU + coil_curr_scale_l * self.JparL * np.exp(-1j * delta_phi)
 
     def get_Jpar_over_B0_boozer_harmonics(self, n=2):
         """Get the Fourier harmonics in Boozer coordinates of J_parallel / B0."""
@@ -149,8 +149,8 @@ class tMHD_current:
             curr_dens_p = self.Jpar_over_B0_harm[:,ind_p]
 
             print("new integration")
-            self.current_m[i] = np.trapz(curr_dens_m * self.stor[:-1] * q[:-1], self.stor[:-1]) * 2.0 * self.psi_tor[-1]
-            self.current_p[i] = np.trapz(curr_dens_p * self.stor[:-1] * q[:-1], self.stor[:-1]) * 2.0 * self.psi_tor[-1]
+            self.current_m[i] = np.trapz(curr_dens_m * self.stor[:-1], self.stor[:-1]) * 2.0 * self.psi_tor[-1]
+            self.current_p[i] = np.trapz(curr_dens_p * self.stor[:-1], self.stor[:-1]) * 2.0 * self.psi_tor[-1]
 
         return [self.current_m, self.current_p]
 

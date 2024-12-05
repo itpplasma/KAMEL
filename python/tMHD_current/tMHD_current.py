@@ -18,6 +18,7 @@ class tMHD_current:
     nph = 16
     nth = 16
 
+    Apermsq_to_statApercmsq = 3 * 10**6
 
     def __init__(self, n_mode=2, case='standard') -> None:
         self.n_mode = n_mode
@@ -30,8 +31,8 @@ class tMHD_current:
         """
         mat = loadmat(file)
 
-        self.JparU_harm = mat['JparU_harm[A/m^2]'] / 10**5 # conversion from A/m^2 to statA/cm^2
-        self.JparL_harm = mat['JparL_harm[A/m^2]'] / 10**5
+        self.JparU_harm = mat['JparU_harm[A/m^2]'] * self.Apermsq_to_statApercmsq # conversion from A/m^2 to statA/cm^2
+        self.JparL_harm = mat['JparL_harm[A/m^2]'] * self.Apermsq_to_statApercmsq
         self.Mm = mat['Mm'][0]
         self.s = mat['s'][0]
         self.s_rat = mat['s_rat'][0]
@@ -61,13 +62,13 @@ class tMHD_current:
 
 
         if kind == 'orig' or kind == 'smooth':
-            self.JparU = np.array(dat['UPPER'], dtype=complex) / 10**5
-            self.JparL = np.array(dat['LOWER'], dtype=complex) / 10**5
+            self.JparU = np.array(dat['UPPER'], dtype=complex) * self.Apermsq_to_statApercmsq
+            self.JparL = np.array(dat['LOWER'], dtype=complex) * self.Apermsq_to_statApercmsq
         else:
             #self.JparU = np.array(dat.get('Jpars/'+kind+'/UPPER'), dtype=complex) / 10**5
-            self.JparU = dat['Jpars'][kind][0][0]['UPPER'][0][0] / 10**5
+            self.JparU = dat['Jpars'][kind][0][0]['UPPER'][0][0] * self.Apermsq_to_statApercmsq
             #self.JparL = np.array(dat.get('Jpars/'+kind+'/LOWER'), dtype=complex) / 10**5
-            self.JparL = dat['Jpars'][kind][0][0]['LOWER'][0][0] / 10**5
+            self.JparL = dat['Jpars'][kind][0][0]['LOWER'][0][0] * self.Apermsq_to_statApercmsq
 
         self.chi = np.array(inp['chi'])
         self.s = np.array(inp['s'])
@@ -84,8 +85,8 @@ class tMHD_current:
 
     def loadCurrentMARSFStandard(self, file):
         mat = loadmat(file)
-        self.JparU = mat['JparU[A/m^2]'] / 10**5 # conversion from A/m^2 to statA/cm^2
-        self.JparL = mat['JparL[A/m^2]'] / 10**5
+        self.JparU = mat['JparU[A/m^2]'] * self.Apermsq_to_statApercmsq # conversion from A/m^2 to statA/cm^2
+        self.JparL = mat['JparL[A/m^2]'] * self.Apermsq_to_statApercmsq
         self.chi = mat['chi'][0]
         self.s = mat['s'][0]
         self.s_rat = mat['s_rat'][0]
@@ -94,7 +95,7 @@ class tMHD_current:
         """Mix the upper and lower coil current densities by a phase shift delta_phi and a scaling factor coil_curr_scale_l and coil_curr_scale_u."""
 
         if hasattr(self, 'JparU_harm'):
-            self.Jpar_harm = coil_curr_scale_u * self.JparU_harm + coil_curr_scale_l * self.JparL_harm * np.exp(1j * delta_phi)
+            self.Jpar_harm = coil_curr_scale_u * self.JparU_harm + coil_curr_scale_l * self.JparL_harm * np.exp(-1j * delta_phi)
         if hasattr(self, 'JparU'):
             self.Jpar = coil_curr_scale_u * self.JparU + coil_curr_scale_l * self.JparL * np.exp(-1j * delta_phi)
 

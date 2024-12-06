@@ -311,9 +311,12 @@ class Profile_Processor:
         self.solve_cyl_equilibrium()
 
         try:
+            wd = os.getcwd()
             self.collect_k_profile(self.save_path + 'kprof/', self.save_path + 'kprof/')
         except:
             print('Error collecting k profile')
+            os.chdir(wd)
+
 
         if not os.path.exists(self.profile_r_eff_path + 'kprof/k.dat') or recalc:
             # don't calculate k if it exists and if the recalculation is not needed

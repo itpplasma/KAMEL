@@ -18,9 +18,7 @@ class tMHD_current:
     nph = 16
     nth = 16
 
-    sol = 29979245800.0 # speed of light in cm/s
-
-    Apermsq_to_statApercmsq = 3 * 10**5 #3 * 10**6
+    Apermsq_to_statApercmsq = 3 * 10**5
 
     def __init__(self, n_mode=2, case='standard') -> None:
         self.n_mode = n_mode
@@ -47,7 +45,7 @@ class tMHD_current:
             self.loadCurrentMARSFStandard(file)
         elif self.case == 'Separatrix Density Scan':
             self.loadCurrentMARSFSepDensScan(file, dictKey, InputFile)
-
+    
     def loadCurrentMARSFSepDensScan(self, file, kind, InputFile):
 
         if 'Scan' in file:
@@ -55,19 +53,21 @@ class tMHD_current:
             'X6', 'X7', 'X8', 'X9', 'X10']
         else:
             kinds = ['orig', 'smooth']
+        
 
         assert kind in kinds, f'kind {kind} not in {kinds}'
 
         dat = loadmat(file)
         inp = mat4py_loadmat(InputFile)
 
+
         if kind == 'orig' or kind == 'smooth':
             self.JparU = np.array(dat['UPPER'], dtype=complex) * self.Apermsq_to_statApercmsq
             self.JparL = np.array(dat['LOWER'], dtype=complex) * self.Apermsq_to_statApercmsq
         else:
-            # self.JparU = np.array(dat.get('Jpars/'+kind+'/UPPER'), dtype=complex) / 10**5
+            #self.JparU = np.array(dat.get('Jpars/'+kind+'/UPPER'), dtype=complex) / 10**5
             self.JparU = dat['Jpars'][kind][0][0]['UPPER'][0][0] * self.Apermsq_to_statApercmsq
-            # self.JparL = np.array(dat.get('Jpars/'+kind+'/LOWER'), dtype=complex) / 10**5
+            #self.JparL = np.array(dat.get('Jpars/'+kind+'/LOWER'), dtype=complex) / 10**5
             self.JparL = dat['Jpars'][kind][0][0]['LOWER'][0][0] * self.Apermsq_to_statApercmsq
 
         self.chi = np.array(inp['chi'])
@@ -81,6 +81,7 @@ class tMHD_current:
             JparL[:,i] = np.interp(self.s_equil, self.s, self.JparL[:,i])
         self.JparU = JparU
         self.JparL = JparL
+        
 
     def loadCurrentMARSFStandard(self, file):
         mat = loadmat(file)
@@ -101,7 +102,7 @@ class tMHD_current:
     def get_Jpar_over_B0_boozer_harmonics(self, n=2):
         """Get the Fourier harmonics in Boozer coordinates of J_parallel / B0."""
         # TODO: Get B0 from libneo.efit2boozer module, use fourier harmonics function in boozer
-
+        
         dth_of_thb, G_of_thb = get_boozer_transform(self.stor, self.nth)
 
         def fun_Jpar(s, theta, phi):
@@ -110,11 +111,10 @@ class tMHD_current:
 
             for i, _ in enumerate(s):
                 Jpar_of_s.append(CubicSpline(self.chi, self.Jpar[i,:])(theta[i]))
-
+            
             Jpar_of_s = np.array(Jpar_of_s)
-            # return CubicSpline(s, Jpar_of_s)(s)
+            #return CubicSpline(s, Jpar_of_s)(s)
             return Jpar_of_s
-
         self.Jpar_over_B0_harm = get_boozer_harmonics_divide_f_by_B0(fun_Jpar, self.stor, self.nth, self.nph, self.m0b, n, dth_of_thb, G_of_thb)
 
     def fetch_B0_of_s_theta_boozer(self, stor,nth):
@@ -124,7 +124,7 @@ class tMHD_current:
         """Integrate the current density harmonics for a given m_mode. Returns the current for negative and positive m modes.
         The current is given in statA."""
 
-        # if not self.loaded_equilibrium:
+        #if not self.loaded_equilibrium:
         #    print("Error: Equilibrium data not loaded.")
         #    return
         if not hasattr(self, "Jpar_over_B0_harm"):
@@ -153,6 +153,7 @@ class tMHD_current:
             self.current_p[i] = np.trapz(curr_dens_p * self.stor[:-1], self.stor[:-1]) * 2.0 * self.psi_tor[-1]
 
         return [self.current_m, self.current_p]
+
 
     def set_equil(self, equil_file, btor_file):
         """Read equilibrium data for the current density integration."""

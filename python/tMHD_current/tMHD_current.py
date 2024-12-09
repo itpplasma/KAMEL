@@ -148,7 +148,6 @@ class tMHD_current:
             curr_dens_m = self.Jpar_over_B0_harm[:,ind_m]
             curr_dens_p = self.Jpar_over_B0_harm[:,ind_p]
 
-            print("new integration")
             self.current_m[i] = np.trapz(curr_dens_m * self.stor[:-1], self.stor[:-1]) * 2.0 * self.psi_tor[-1]
             self.current_p[i] = np.trapz(curr_dens_p * self.stor[:-1], self.stor[:-1]) * 2.0 * self.psi_tor[-1]
 

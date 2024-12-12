@@ -3,7 +3,7 @@ import scipy.interpolate
 from scipy.interpolate import CubicSpline
 from scipy.io import loadmat
 import numpy as np
-from libneo.boozer import get_boozer_transform, get_boozer_harmonics_divide_f_by_B0, get_B0_of_s_theta_boozer
+from libneo.boozer import get_boozer_transform, get_boozer_harmonics_divide_f_by_B0_1D_fft, get_B0_of_s_theta_boozer
 from mat4py import loadmat as mat4py_loadmat
 
 class tMHD_current:
@@ -14,9 +14,9 @@ class tMHD_current:
     upper_curr_dens = []
     lower_curr_dens = []
 
-    m0b = 24
-    nph = 16
-    nth = 16
+    #m0b = 24
+    nph = 1
+    nth = 128
 
     Apermsq_to_statApercmsq = 3 * 10**5
 
@@ -101,21 +101,15 @@ class tMHD_current:
 
     def get_Jpar_over_B0_boozer_harmonics(self, n=2):
         """Get the Fourier harmonics in Boozer coordinates of J_parallel / B0."""
-        # TODO: Get B0 from libneo.efit2boozer module, use fourier harmonics function in boozer
-        
-        dth_of_thb, G_of_thb = get_boozer_transform(self.stor, self.nth)
 
-        def fun_Jpar(s, theta, phi):
-            """theta and phi should have length of s"""
+        def fun_Jpar(ind_stor, theta):
             Jpar_of_s = []
-
-            for i, _ in enumerate(s):
-                Jpar_of_s.append(CubicSpline(self.chi, self.Jpar[i,:])(theta[i]))
-            
+            for i, _ in enumerate(theta):
+                Jpar_of_s.append(CubicSpline(self.chi, self.Jpar[ind_stor, :])(theta[i]))
             Jpar_of_s = np.array(Jpar_of_s)
-            #return CubicSpline(s, Jpar_of_s)(s)
             return Jpar_of_s
-        self.Jpar_over_B0_harm = get_boozer_harmonics_divide_f_by_B0(fun_Jpar, self.stor, self.nth, self.nph, self.m0b, n, dth_of_thb, G_of_thb)
+
+        self.Jpar_over_B0_harm = get_boozer_harmonics_divide_f_by_B0_1D_fft(fun_Jpar, self.stor, self.nth, n)
 
     def fetch_B0_of_s_theta_boozer(self, stor,nth):
         return get_B0_of_s_theta_boozer(stor,nth)
@@ -133,10 +127,15 @@ class tMHD_current:
 
         self.current_m = np.zeros(len(m_mode),dtype=complex)
         self.current_p = np.zeros(len(m_mode),dtype=complex)
+        
+        modes = np.concatenate((np.arange(0, self.nth/2-1), np.arange(-self.nth/2, 0)))
+        print(f"modes = {modes}")
 
         for i, m in enumerate(m_mode):
-            ind_p = np.where(np.arange(-self.m0b, self.m0b+1) == m)[0][0]
-            ind_m = np.where(np.arange(-self.m0b, self.m0b+1) == -m)[0][0]
+            ind_p = np.where(modes == m)[0][0]
+            print(f"ind_p = {ind_p}")
+            ind_m = np.where(modes == -m)[0][0]
+            print(f"ind_m = {ind_m}")
 
             if ind_p == []:
                 print("Error: m_mode not found.")

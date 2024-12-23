@@ -11,7 +11,7 @@ class MASTU_config:
     delta_r_antenna = 3.0 # distance of RMP antenna from plasma boundary in cm
     r_eff_antenna = r_eff_plasma + delta_r_antenna # antenna effective radius default
     Btor = 6550.0 # approximate value to give order of magnitudeo
-    I0_rmp = 6.0e12
+    I0_rmp = 6.0e12 # 2kA or 8kAt with 4 windings
     convex_wall = DATA + '/MASTU/convexwall.dat'
 
     def __init__(self):

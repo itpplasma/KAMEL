@@ -16,7 +16,7 @@ class tMHD_current:
 
     #m0b = 24
     nph = 1
-    nth = 128
+    nth = 64 # number of poloidal Boozer harmonics
 
     Apermsq_to_statApercmsq = 3 * 10**5
 
@@ -54,21 +54,19 @@ class tMHD_current:
         else:
             kinds = ['orig', 'smooth']
         
-
         assert kind in kinds, f'kind {kind} not in {kinds}'
 
         dat = loadmat(file)
         inp = mat4py_loadmat(InputFile)
-
 
         if kind == 'orig' or kind == 'smooth':
             self.JparU = np.array(dat['UPPER'], dtype=complex) * self.Apermsq_to_statApercmsq
             self.JparL = np.array(dat['LOWER'], dtype=complex) * self.Apermsq_to_statApercmsq
         else:
             #self.JparU = np.array(dat.get('Jpars/'+kind+'/UPPER'), dtype=complex) / 10**5
-            self.JparU = dat['Jpars'][kind][0][0]['UPPER'][0][0] * self.Apermsq_to_statApercmsq
+            self.JparU = np.array(dat['Jpars'][kind][0][0]['UPPER'][0][0], dtype=complex) * self.Apermsq_to_statApercmsq
             #self.JparL = np.array(dat.get('Jpars/'+kind+'/LOWER'), dtype=complex) / 10**5
-            self.JparL = dat['Jpars'][kind][0][0]['LOWER'][0][0] * self.Apermsq_to_statApercmsq
+            self.JparL = np.array(dat['Jpars'][kind][0][0]['LOWER'][0][0], dtype=complex) * self.Apermsq_to_statApercmsq
 
         self.chi = np.array(inp['chi'])
         self.s = np.array(inp['s'])
@@ -91,8 +89,10 @@ class tMHD_current:
         self.s = mat['s'][0]
         self.s_rat = mat['s_rat'][0]
 
-    def mix_coil_rows(self, delta_phi = 0.0, coil_curr_scale_l = 1.0, coil_curr_scale_u=1.0):
-        """Mix the upper and lower coil current densities by a phase shift delta_phi and a scaling factor coil_curr_scale_l and coil_curr_scale_u."""
+    def mix_coil_rows(self, delta_phi = 0.0, coil_curr_scale_l = 1.6, coil_curr_scale_u=1.5):
+        """Mix the upper and lower coil current densities by a phase shift delta_phi and a scaling factor coil_curr_scale_l and coil_curr_scale_u.
+        Default scale values mixed to have perturbation like 1kAt for n=2.
+        """
 
         if hasattr(self, 'JparU_harm'):
             self.Jpar_harm = coil_curr_scale_u * self.JparU_harm + coil_curr_scale_l * self.JparL_harm * np.exp(-1j * delta_phi)
@@ -111,16 +111,11 @@ class tMHD_current:
 
         self.Jpar_over_B0_harm = get_boozer_harmonics_divide_f_by_B0_1D_fft(fun_Jpar, self.stor, self.nth, n)
 
-    def fetch_B0_of_s_theta_boozer(self, stor,nth):
-        return get_B0_of_s_theta_boozer(stor,nth)
 
-    def integrate_curr_dens(self, q, m_mode=np.array([10])):
+    def integrate_curr_dens(self, m_mode=np.array([10])):
         """Integrate the current density harmonics for a given m_mode. Returns the current for negative and positive m modes.
         The current is given in statA."""
 
-        #if not self.loaded_equilibrium:
-        #    print("Error: Equilibrium data not loaded.")
-        #    return
         if not hasattr(self, "Jpar_over_B0_harm"):
             print("Error: Jpar over B0 harmonics not available")
             return
@@ -128,14 +123,11 @@ class tMHD_current:
         self.current_m = np.zeros(len(m_mode),dtype=complex)
         self.current_p = np.zeros(len(m_mode),dtype=complex)
         
-        modes = np.concatenate((np.arange(0, self.nth/2-1), np.arange(-self.nth/2, 0)))
-        print(f"modes = {modes}")
+        modes = np.concatenate((np.arange(0, self.nth/2), np.arange(-self.nth/2, 0)))
 
         for i, m in enumerate(m_mode):
             ind_p = np.where(modes == m)[0][0]
-            print(f"ind_p = {ind_p}")
             ind_m = np.where(modes == -m)[0][0]
-            print(f"ind_m = {ind_m}")
 
             if ind_p == []:
                 print("Error: m_mode not found.")

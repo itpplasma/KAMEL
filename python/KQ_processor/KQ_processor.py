@@ -92,8 +92,7 @@ class KQ_processor:
         self.prepare_field_divB0_inp()
         self.tmhd.get_Jpar_over_B0_boozer_harmonics()
         equil_r_q = np.loadtxt(flux_data_path + 'equil_r_q_psi.dat')
-        self.q = equil_r_q[:,1]
-        self.tmhd.integrate_curr_dens(self.q, m_mode=m_mode)
+        self.tmhd.integrate_curr_dens(m_mode=m_mode)
 
         return self.tmhd
     

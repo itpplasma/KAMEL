@@ -52,6 +52,11 @@ set(KIM_background_equilibrium background_equilibrium/calculate_backs.f90
                                background_equilibrium/back_quants_mod.f90
 )
 
+set(external_zeal external/Zeal/zeal_input.f90
+                  external/Zeal/zeal.f90
+                  external/Zeal/zeros.f90
+                  external/Zeal/prec.f90)
+
 set(CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/cmake" ${CMAKE_MODULE_PATH})
 
 add_library(KIM_lib STATIC "${KIM_setup}" 

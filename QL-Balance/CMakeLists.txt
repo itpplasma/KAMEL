@@ -16,10 +16,11 @@ enable_language(Fortran)
 if(CMAKE_HOST_SYSTEM_NAME MATCHES "Darwin")
     # macOS specific configurations or commands
     message("Building on macOS")
-    set(CMAKE_C_COMPILER gcc-14)
-    set(CMAKE_CXX_COMPILER g++-14)
+    set(CMAKE_C_COMPILER clang)
+    set(CMAKE_CXX_COMPILER clang++)
     # flag does not work for macos for some reason
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -D__FLT_EVAL_METHOD__=0")
+    #set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -D__FLT_EVAL_METHOD__=0")
+    #add_compile_definitions(__FLT_EVAL_METHOD__=0)
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -L/usr/lib64 -lstdc++ -O3 -D DOUBLE_APPEND_FORTRAN")
     set (CMAKE_CXX_OPT_FLAGS "")
     set (CMAKE_F_OPT_FLAGS "")
@@ -125,7 +126,8 @@ target_include_directories(ql-balance_lib PUBLIC ${CMAKE_SOURCE_DIR}/../KiLCA/ma
 file(GLOB libslatec_files "${CMAKE_SOURCE_DIR}/../KiLCA/math/bessel/slatec/*.f")
 add_library (slatec STATIC "${libslatec_files}")
 
-set(superlu_path ${libs_root_path}/SuperLU_4.1/lib/libsuperlu_4.1.a)
+#set(superlu_path ${libs_root_path}/SuperLU_4.1/lib/libsuperlu_4.1.a)
+set(superlu_path ${libs_root_path}/superlu/build/SRC/libsuperlu.a)
 add_library(superlu STATIC IMPORTED)
 set_target_properties(superlu PROPERTIES IMPORTED_LOCATION "${superlu_path}")
 
@@ -154,8 +156,8 @@ endif()
 
 set(SUITESPARSE_DIR "${libs_root_path}/SuiteSparse/")
 message(${SUITESPARSE_DIR})
-find_package(SUITESPARSE
-            HINTS ${SUITESPARSE_DIR})# 3.6.0 EXACT REQUIRED)
+find_package(SUITESPARSE REQUIRED)
+            #HINTS ${SUITESPARSE_DIR})# 3.6.0 EXACT REQUIRED)
 if("${SUITESPARSE_FOUND}")
     message(STATUS "SuiteSparse found, version: ${SUITESPARSE_VERSION}")
     message(STATUS "SuiteSparse found, incl dirs: ${SUITESPARSE_INCLUDE_DIRS}")

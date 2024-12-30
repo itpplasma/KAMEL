@@ -3,8 +3,10 @@ cmake_minimum_required (VERSION 3.12)
 if(CMAKE_HOST_SYSTEM_NAME MATCHES "Darwin")
     # macOS specific configurations or commands
     message("Building on macOS")
-    set(CMAKE_C_COMPILER gcc-14)
-    set(CMAKE_CXX_COMPILER g++-14)
+    #set(CMAKE_C_COMPILER gcc-14)
+    set(CMAKE_C_COMPILER clang)
+    #set(CMAKE_CXX_COMPILER g++-14)
+    set(CMAKE_CXX_COMPILER clang++)
     # flag does not work for macos for some reason
     set (CMAKE_CXX_OPT_FLAGS "")
     set (CMAKE_F_OPT_FLAGS "")

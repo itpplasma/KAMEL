@@ -151,7 +151,7 @@ if (INFO)
 }
 
 delete [] IPIV;
-delete [] A;
+//delete [] A;
 return 0;
 }
 

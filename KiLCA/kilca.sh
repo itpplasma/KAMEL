@@ -28,6 +28,19 @@ echo "Finished building Slatec..."
 cd ../ # external
 echo ""
 
+
+echo ""
+echo "Building Sundials..."
+git clone git@github.com:LLNL/sundials.git
+cd sundials 
+git checkout v5.7.0
+mkdir build
+cd build
+cmake ..
+make
+cd ../../
+echo "Finished building Sundials..."
+
 #echo "Building Bessel..."
 #mkdir bessel
 #cd bessel

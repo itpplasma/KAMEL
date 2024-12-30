@@ -1,33 +1,41 @@
 # KAMEL - Kinetic plAsma response ModEL
-This repository contains the kinetic plasma response framework containing the linear plasma response codes KiLCA and KIM, as well as the quasilinear transport code QL-Balance. KiLCA and KIM are cylindrical linear plasma response solvers based on a finite Larmor radius and an integral formalism, respectively. QL-Balance is a quasilinear 1D radial transport code. In combination, they are used to determine the plasma response to external magnetic perturbation in toroidally confined fusion plasmas. 
+This repository contains the kinetic plasma response framework containing the linear plasma response codes KiLCA and KIM, as well as the quasilinear transport code QL-Balance. KiLCA and KIM are cylindrical linear plasma response solvers based on a finite Larmor radius and an integral formalism, respectively. QL-Balance is a quasilinear 1D radial transport code. In combination, they are used to model the plasma response to external magnetic perturbation in toroidally confined fusion plasmas. 
 
 Note, when using the template scripts, make sure to change the code, most importantly the paths, according to your project before using it.
 
-## Content
+## Compilation
+To compile the whole framework, use the top-level shell script
+
+```
+./kamel.sh
+```
+
+This invokes the sub-level shell scripts of the individual codes, which can also be called individually (see below). Note that in the compilation process the folder 'external' is created which contains libraries required for the compilation. The libraries are downloaded during the execution of the script. For more details, see the respective scripts.
+
+## Codes
 
 ### KiLCA
-Contains the source code of KiLCA. In the directory, compile with
+Contains the source code of KiLCA. Compile in top level directory KAMEL with the shell script
 
 ```
-mkdir build
-cd build
-cmake ..
-make
+./KiLCA/kilca.sh
 ```
 
-Note that certain libraries (lapack-3.2.1, sundials-5.7.0 and gsl-2.4) have to be available. In the code framework of the ITP plasma group, use the setup_kilca.sh shell script in the scripts directory.
+This also installs the necessary external libraries like gsl, sundials, etc in the 'external' directory.
 So far, the compilation and execution of the (Normal, Release, NOMD, FPGEN) version of the code was tested on Linux and MacOS. 
 
 ### KIM
+Contains the source code of KiLCA and additional python code (e.g. calculation of the dispersion relation). Compile in top level directory KAMEL with the shell script
 
-### ql-balance
-Quasilinear transport code based on KiLCA. Compile with
 ```
-cd ql-balance
-mkdir build
-cd build
-cmake ..
-make
+./KIM/kim.sh
+```
+
+### QL-Balance
+Quasilinear transport code based on KiLCA. Requires the prior compilation of KiLCA. Compile in top level directory KAMEL with the shell script
+
+```
+./QL-Balance/ql-balance.sh
 ```
 
 ### python

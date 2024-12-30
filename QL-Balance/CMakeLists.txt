@@ -16,9 +16,11 @@ enable_language(Fortran)
 if(CMAKE_HOST_SYSTEM_NAME MATCHES "Darwin")
     # macOS specific configurations or commands
     message("Building on macOS")
-    set(CMAKE_C_COMPILER gcc-12)
-    set(CMAKE_CXX_COMPILER g++-12)
+    set(CMAKE_C_COMPILER gcc-14)
+    set(CMAKE_CXX_COMPILER g++-14)
     # flag does not work for macos for some reason
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -D__FLT_EVAL_METHOD__=0")
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -L/usr/lib64 -lstdc++ -O3 -D DOUBLE_APPEND_FORTRAN")
     set (CMAKE_CXX_OPT_FLAGS "")
     set (CMAKE_F_OPT_FLAGS "")
     set (CMAKE_CXX_OPT_FLAGS "")
@@ -43,7 +45,7 @@ endif()
 
 set(CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/cmake" ${CMAKE_MODULE_PATH})
 
-set (libs_root_path ${CMAKE_SOURCE_DIR}/../../external)
+set (libs_root_path ${CMAKE_SOURCE_DIR}/../external)
 
 set(src ${PROJECT_SOURCE_DIR}/src)
 set(full_balance_src ${src}/full/)
@@ -151,7 +153,9 @@ if("${MPI_FOUND}")
 endif()
 
 set(SUITESPARSE_DIR "${libs_root_path}/SuiteSparse/")
-find_package(SUITESPARSE 3.6.0 EXACT REQUIRED)
+message(${SUITESPARSE_DIR})
+find_package(SUITESPARSE
+            HINTS ${SUITESPARSE_DIR})# 3.6.0 EXACT REQUIRED)
 if("${SUITESPARSE_FOUND}")
     message(STATUS "SuiteSparse found, version: ${SUITESPARSE_VERSION}")
     message(STATUS "SuiteSparse found, incl dirs: ${SUITESPARSE_INCLUDE_DIRS}")

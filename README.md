@@ -4,7 +4,7 @@ This repository contains the kinetic plasma response framework containing the li
 Note, when using the template scripts, make sure to change the code, most importantly the paths, according to your project before using it.
 
 ## Compilation
-To compile the whole framework, use the top-level shell script
+For the initial compilation of the whole framework, use the top-level shell script
 
 ```
 ./kamel.sh

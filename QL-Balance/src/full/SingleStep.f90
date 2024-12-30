@@ -6,8 +6,8 @@ module singleStep
 
     type, extends(balance_t) :: singleStep_t
         contains
-            procedure :: initBalance => initSingleStep
-            procedure :: runBalance => runSingleStep
+            procedure :: init_balance => initSingleStep
+            procedure :: run_balance => runSingleStep
     end type
 
     contains

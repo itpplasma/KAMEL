@@ -31,7 +31,7 @@ program ql_balance
     integer :: ioddeven
     !character(100) :: type_of_run = "ParameterScan"
     
-    class(balance_t), allocatable :: balanceInstance
+    class(balance_t), allocatable :: balance_instance
 
     write(*,*) ' ________  .____             __________        .__                              '
     write(*,*) ' \_____  \ |    |            \______   \_____  |  | _____    ____   ____  ____  '
@@ -41,12 +41,12 @@ program ql_balance
     write(*,*) '        \__>       \/                \/      \/          \/     \/     \/    \/ '
 
     call read_config
-    call fromBalanceFactoryGetBalance(type_of_run, balanceInstance)
+    call from_balance_factory_get_balance(type_of_run, balance_instance)
 
     call initMPI
     
-    call balanceInstance%initBalance()
-    call balanceInstance%runBalance()
+    call balance_instance%init_balance()
+    call balance_instance%run_balance()
 
     call MPI_finalize(ierror)
     stop "for testing"

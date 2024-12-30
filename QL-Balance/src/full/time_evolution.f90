@@ -61,8 +61,8 @@ module time_evolution
 
     type, extends(balance_t) :: TimeEvolution_t
         contains
-            procedure :: initBalance => initTimeEvolution
-            procedure :: runBalance => runTimeEvolution
+            procedure :: init_balance => initTimeEvolution
+            procedure :: run_balance => runTimeEvolution
     end type
 
     contains

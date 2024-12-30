@@ -3,7 +3,7 @@ subroutine evolvestep(timstep,eps)
     use grid_mod, only : nbaleqs,neqset,iboutype,npoic,y,dery
     use plasma_parameters, only: params
     USE sparse_mod, ONLY : sparse_talk,sparse_solve_method,sparse_solve, &
-        column_full2pointer,remap_rc,sparse_solver_test, sparse2full
+        column_full2pointer,remap_rc,sparse_solver_test, sparse_example, sparse2full
     use matrix_mod
     use recstep_mod, only : timstep_arr
     use control_mod, only : debug_mode
@@ -18,7 +18,13 @@ subroutine evolvestep(timstep,eps)
 
     x1=0.d0
     sparse_talk = .true.
+    sparse_solve_method = 3
     !  x2=timstep
+
+    print *, "doing sparse example"
+    call sparse_example(1,0)
+    print *, "After sparse example"
+    stop
 
     if(iboutype.eq.1) then
         npoi=npoic-1

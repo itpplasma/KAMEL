@@ -5,7 +5,7 @@ module balance_mod
 
     contains
 
-    subroutine fromBalanceFactoryGetBalance(type_of_run, balanceInstance)
+    subroutine from_balance_factory_get_balance(type_of_run, balance_instance)
 
         use balanceBase, only: balance_t
         use singleStep, only: SingleStep_t
@@ -15,15 +15,15 @@ module balance_mod
         implicit none
 
         character(100), intent(in) :: type_of_run
-        class(balance_t), allocatable, intent(out) :: balanceInstance
+        class(balance_t), allocatable, intent(out) :: balance_instance
 
         select case(trim(type_of_run))
             case("SingleStep")
-                allocate(balanceInstance, source=SingleStep_t())
+                allocate(balance_instance, source=SingleStep_t())
             case("TimeEvolution")
-                allocate(balanceInstance, source=TimeEvolution_t())
+                allocate(balance_instance, source=TimeEvolution_t())
             case("ParameterScan")
-                allocate(balanceInstance, source=ParameterScan_t())
+                allocate(balance_instance, source=ParameterScan_t())
             !case("TimeEvolutionParameterScan") ! TODO
             !case("ConstantPsi") ! TODO
             case default

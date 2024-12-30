@@ -190,9 +190,9 @@ if("${HDF5_FOUND}")
 endif()
 
 target_sources(ql-balance_lib PUBLIC
-    ${libs_root_path}/SuperLU_4.1/FORTRAN/c_fortran_zgssv.c
-    ${libs_root_path}/SuperLU_4.1/FORTRAN/c_fortran_dgssv.c)
-target_include_directories(ql-balance_lib PUBLIC ${libs_root_path}/SuperLU_4.1/SRC/)
+    ${libs_root_path}/superlu/FORTRAN/c_fortran_zgssv.c
+    ${libs_root_path}/superlu/FORTRAN/c_fortran_dgssv.c)
+#target_include_directories(ql-balance_lib PUBLIC ${libs_root_path}/SuperLU_4.1/SRC/)
 
 target_link_libraries(ql-balance_lib PUBLIC slatec superlu cvode nvecserial gfortran)
 

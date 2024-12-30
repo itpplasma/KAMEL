@@ -18,8 +18,8 @@ module paramscan_mod
     
     type, extends(balance_t) :: ParameterScan_t
         contains
-            procedure :: initBalance => initParameterScan
-            procedure :: runBalance => runParameterScan
+            procedure :: init_balance => initParameterScan
+            procedure :: run_balance => runParameterScan
     end type
 
     contains

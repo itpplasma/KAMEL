@@ -7,8 +7,8 @@ module balanceBase
     type, abstract :: balance_t
         character(100) :: runType = ""
         contains
-            procedure(init), deferred :: initBalance
-            procedure(run), deferred :: runBalance
+            procedure(init), deferred :: init_balance
+            procedure(run), deferred :: run_balance
     end type balance_t
     
     abstract interface

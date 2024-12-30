@@ -3,8 +3,8 @@ cmake_minimum_required (VERSION 3.12)
 if(CMAKE_HOST_SYSTEM_NAME MATCHES "Darwin")
     # macOS specific configurations or commands
     message("Building on macOS")
-    set(CMAKE_C_COMPILER gcc-12)
-    set(CMAKE_CXX_COMPILER g++-12)
+    set(CMAKE_C_COMPILER gcc-14)
+    set(CMAKE_CXX_COMPILER g++-14)
     # flag does not work for macos for some reason
     set (CMAKE_CXX_OPT_FLAGS "")
     set (CMAKE_F_OPT_FLAGS "")
@@ -24,8 +24,6 @@ else()
 endif()
 
 set (CMAKE_Fortran_COMPILER gfortran)
-
-
 
 project (KiLCA C CXX Fortran)
 
@@ -138,42 +136,20 @@ set (libs_root_path ${CMAKE_SOURCE_DIR}/../../external)
 #include paths:
 set (sundials_include_path ${libs_root_path}/sundials/include)
 set (sundials_include_path_build ${libs_root_path}/sundials/build/include)
-#set (sundials_include_path /usr/local/lib/sundials-2.4.0/include)
-
 
 #libraries paths:
-
 set (slatec_lib_fullpath ${libs_root_path}/slatec/libslatec.a)
-
-#set (bessel_lib_fullpath ${libs_root_path}/bessel/lib/libbessel.a)
-#set (bessel_lib_fullpath /proj/plasma/ARCHIVE/soft/math_libs/64bit/bessel/libbessel.a)
-
-
-#set (lapack_lib_fullpath /usr/lib/liblapack.a)
 set (lapack_lib_fullpath ${libs_root_path}/lapack-3.2.1/lapack_LINUX.a)
-
-#set (blas_lib_fullpath /usr/lib/libblas.a)
-#set (blas_lib_fullpath ${libs_root_path}/lapack-3.2.1/lapack_LINUX.a)
 set (blas_lib_fullpath ${libs_root_path}/lapack-3.2.1/blas_LINUX.a)
-
 set (tmg_lib_fullpath ${libs_root_path}/lapack-3.2.1/tmglib_LINUX.a)
-
-#set (cvode_lib_fullpath /usr/local/sundials-2.4.0/lib/libsundials_cvode.a)
-#set (nvecserial_lib_fullpath /usr/local/sundials-2.4.0/lib/libsundials_nvecserial.a)
 set (cvode_lib_fullpath ${libs_root_path}/sundials/build/src/cvode/libsundials_cvode.a)
 set (nvecserial_lib_fullpath ${libs_root_path}/sundials/build/src/nvector/serial/libsundials_nvecserial.a)
-
 set (gsl_lib_fullpath ${libs_root_path}/gsl-2.4/.libs/libgsl.a)
 set (gslcblas_lib_fullpath ${libs_root_path}/gsl-2.4/cblas/.libs/libgslcblas.a)
 set (gsl_include_path ${libs_root_path}/gsl-2.4/)
 
 file(GLOB libslatec_files "${CMAKE_SOURCE_DIR}/math/bessel/slatec/*.f")
 add_library (slatec STATIC "${libslatec_files}")
-#add_library (slatec STATIC IMPORTED)
-#set_target_properties (slatec PROPERTIES IMPORTED_LOCATION "${slatec_lib_fullpath}")
-
-#add_library (bessel STATIC IMPORTED)
-#set_target_properties (bessel PROPERTIES IMPORTED_LOCATION "${bessel_lib_fullpath}")
 
 add_library (lapack STATIC IMPORTED)
 set_target_properties (lapack PROPERTIES IMPORTED_LOCATION "${lapack_lib_fullpath}")
@@ -196,8 +172,6 @@ set_target_properties (gsl PROPERTIES IMPORTED_LOCATION "${gsl_lib_fullpath}")
 add_library (gslcblas STATIC IMPORTED)
 set_target_properties (gslcblas PROPERTIES IMPORTED_LOCATION "${gslcblas_lib_fullpath}")
 
-#set (EXTERNAL_LIBS ${EXTERNAL_LIBS} slatec lapack blas tmg cvode nvecserial gsl gslcblas gfortran)
-#set (EXTERNAL_LIBS ${EXTERNAL_LIBS} slatec bessel lapack blas cvode nvecserial gsl gslcblas gfortran)
 set (EXTERNAL_LIBS ${EXTERNAL_LIBS} slatec lapack blas cvode nvecserial gsl gslcblas gfortran)
 
 # configure a header file to pass some of the CMake settings to the source code
@@ -366,7 +340,3 @@ else (DOXYGEN_FOUND)
   message (FATAL_ERROR "No doxygen tool is found in the system!")
 endif (DOXYGEN_FOUND)
 
-# add the install targets
-#install (TARGETS Tutorial DESTINATION bin)
-#install (FILES "${PROJECT_BINARY_DIR}/TutorialConfig.h"
-#  DESTINATION include)

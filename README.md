@@ -12,6 +12,8 @@ For the initial compilation of the whole framework, use the top-level shell scri
 
 This invokes the sub-level shell scripts of the individual codes, which can also be called individually (see below). Note that in the compilation process the folder 'external' is created which contains libraries required for the compilation. The libraries are downloaded during the execution of the script. For more details, see the respective scripts.
 
+Generally, for Apple Silicon the clang/gfortran compiler combination is tested.
+
 ## Codes
 
 ### KiLCA
@@ -43,7 +45,6 @@ Contains python classes and functions to use the code.
 
 ### template_scripts
 Contains matlab scripts that can be used as templates for certain balance code runs.
-
 
 ### utility_scripts
 Contains matlab and python scripts that make life easier.

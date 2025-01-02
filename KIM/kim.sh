@@ -7,9 +7,9 @@ rm file_downloaded
 echo "Building Zeal..."
 cd Zeal
 make -j
-cd ..
 echo "Finished building Zeal..."
 echo ""
+cd ../../KIM/
 
 mkdir build
 cd build

@@ -4,7 +4,7 @@ This repository contains the kinetic plasma response framework containing the li
 Note, when using the template scripts, make sure to change the code, most importantly the paths, according to your project before using it.
 
 ## Compilation
-For the initial compilation of the whole framework, use the top-level shell script
+For the **initial** compilation of the whole framework, use the top-level shell script
 
 ```
 ./kamel.sh
@@ -12,7 +12,9 @@ For the initial compilation of the whole framework, use the top-level shell scri
 
 This invokes the sub-level shell scripts of the individual codes, which can also be called individually (see below). Note that in the compilation process the folder 'external' is created which contains libraries required for the compilation. The libraries are downloaded during the execution of the script. For more details, see the respective scripts.
 
-Generally, for Apple Silicon the clang/gfortran compiler combination is tested.
+Generally, for Apple Silicon the clang/gfortran (version 16.0 and 14.2., respectively) compiler combination is tested. On debian, the gnu compiler version 12.2.0 is tested.
+
+After code changes, use the usual cmake and make commands in the respective colde folders for building.
 
 ## Codes
 

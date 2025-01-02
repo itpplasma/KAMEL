@@ -10,7 +10,7 @@ For the **initial** compilation of the whole framework, use the top-level shell 
 ./kamel.sh
 ```
 
-This invokes the sub-level shell scripts of the individual codes, which can also be called individually (see below). Note that in the compilation process the folder 'external' is created which contains libraries required for the compilation. The libraries are downloaded during the execution of the script. For more details, see the respective scripts.
+This invokes the sub-level shell scripts of the individual codes, which can also be called individually (see below). Note that in the compilation process the folder 'external' is created which contains libraries required for the compilation. It is assumed that the libraries are not present on the system and the libraries are therefore downloaded during the execution of the script. For more details, see the respective scripts.
 
 Generally, for Apple Silicon the clang/gfortran (version 16.0 and 14.2., respectively) compiler combination is tested. On debian, the gnu compiler version 12.2.0 is tested.
 

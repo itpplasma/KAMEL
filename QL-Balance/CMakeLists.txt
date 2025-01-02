@@ -104,8 +104,8 @@ set(balance_lib_fortran_sources
 set(balance_lib_cpp_sources
     ${full_balance_src}/vel_integral.cpp
     ${full_balance_src}/cvodeint.cpp
-    ${full_balance_src}/umf4_f77wrapper.c
-    ${full_balance_src}/umf4_f77zwrapper.c
+    ${libs_root_path}/SuiteSparse/UMFPACK/Demo/umf4_f77wrapper.c
+    ${libs_root_path}/SuiteSparse/UMFPACK/Demo/umf4_f77zwrapper.c
     )
 
 add_library(ql-balance_lib STATIC ${balance_lib_fortran_sources} ${balance_lib_cpp_sources})
@@ -130,6 +130,7 @@ add_library (slatec STATIC "${libslatec_files}")
 set(superlu_path ${libs_root_path}/superlu/build/SRC/libsuperlu.a)
 add_library(superlu STATIC IMPORTED)
 set_target_properties(superlu PROPERTIES IMPORTED_LOCATION "${superlu_path}")
+target_include_directories(ql-balance_lib PUBLIC ${libs_root_path}/superlu/SRC/)
 
 set (cvode_lib_fullpath ${libs_root_path}/sundials/build/src/cvode/libsundials_cvode.a)
 add_library (cvode STATIC IMPORTED)
@@ -154,17 +155,13 @@ if("${MPI_FOUND}")
     target_include_directories(ql-balance_lib PUBLIC "${MPI_Fortran_INCLUDE_PATH}")
 endif()
 
+#UMFPACK from SuiteSparse
 set(SUITESPARSE_DIR "${libs_root_path}/SuiteSparse/")
-message(${SUITESPARSE_DIR})
-find_package(SUITESPARSE REQUIRED)
-            #HINTS ${SUITESPARSE_DIR})# 3.6.0 EXACT REQUIRED)
-if("${SUITESPARSE_FOUND}")
-    message(STATUS "SuiteSparse found, version: ${SUITESPARSE_VERSION}")
-    message(STATUS "SuiteSparse found, incl dirs: ${SUITESPARSE_INCLUDE_DIRS}")
-    message(" ====== SuiteSparse was found! ======")
-    target_link_libraries(ql-balance_lib PUBLIC "${SUITESPARSE_LIBRARIES}")
-    target_include_directories(ql-balance_lib PUBLIC "${SUITESPARSE_INCLUDE_DIRS}")
-endif()
+target_link_libraries(ql-balance_lib PUBLIC "${SUITESPARSE_DIR}/lib/libsuitesparseconfig.a")
+target_link_libraries(ql-balance_lib PUBLIC "${SUITESPARSE_DIR}/lib/libamd.a")
+target_link_libraries(ql-balance_lib PUBLIC "${SUITESPARSE_DIR}/lib/libcholmod.a")
+target_link_libraries(ql-balance_lib PUBLIC "${SUITESPARSE_DIR}/lib/libumfpack.a")
+target_include_directories(ql-balance_lib PUBLIC "${SUITESPARSE_DIR}/include/suitesparse/")
 
 find_package(BLAS REQUIRED)
 if("${BLAS_FOUND}")

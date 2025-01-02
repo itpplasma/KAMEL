@@ -98,6 +98,13 @@ class tMHD_current:
             self.Jpar_harm = coil_curr_scale_u * self.JparU_harm + coil_curr_scale_l * self.JparL_harm * np.exp(-1j * delta_phi)
         if hasattr(self, 'JparU'):
             self.Jpar = coil_curr_scale_u * self.JparU + coil_curr_scale_l * self.JparL * np.exp(-1j * delta_phi)
+        self.make_Jpar_periodic()
+
+    def make_Jpar_periodic(self):
+        for js in range(0, len(self.s_equil)):
+            if np.abs(self.Jpar[js,0] - self.Jpar[js,-1]) > 1e-3:
+                raise ValueError(f"js = {js}, curr[0] = {curr[js,0]}, curr[-1] = {curr[js,-1]}, diff = {np.abs(curr[js,0] - curr[js,-1])}")
+            self.Jpar[js,-1] = self.Jpar[js,0]
 
     def get_Jpar_over_B0_boozer_harmonics(self, n=2):
         """Get the Fourier harmonics in Boozer coordinates of J_parallel / B0."""
@@ -105,7 +112,7 @@ class tMHD_current:
         def fun_Jpar(ind_stor, theta):
             Jpar_of_s = []
             for i, _ in enumerate(theta):
-                Jpar_of_s.append(CubicSpline(self.chi, self.Jpar[ind_stor, :])(theta[i]))
+                Jpar_of_s.append(CubicSpline(self.chi, self.Jpar[ind_stor, :], bc_type='periodic')(theta[i]))
             Jpar_of_s = np.array(Jpar_of_s)
             return Jpar_of_s
 
@@ -139,8 +146,8 @@ class tMHD_current:
             curr_dens_m = self.Jpar_over_B0_harm[:,ind_m]
             curr_dens_p = self.Jpar_over_B0_harm[:,ind_p]
 
-            self.current_m[i] = np.trapz(curr_dens_m * self.stor[:-1], self.stor[:-1]) * 2.0 * self.psi_tor[-1]
-            self.current_p[i] = np.trapz(curr_dens_p * self.stor[:-1], self.stor[:-1]) * 2.0 * self.psi_tor[-1]
+            self.current_m[i] = np.trapz(curr_dens_m * self.stor[:-1], self.stor[:-1]) * 2.0 * self.psi_tor[-1] * 2.0 * np.pi # the equil r q psi psi tor is the *small* psi not the large one which is used in the formulation of the integration, hence the factor 2pi
+            self.current_p[i] = np.trapz(curr_dens_p * self.stor[:-1], self.stor[:-1]) * 2.0 * self.psi_tor[-1] * 2.0 * np.pi 
 
         return [self.current_m, self.current_p]
 

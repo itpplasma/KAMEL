@@ -159,7 +159,6 @@ endif()
 set(SUITESPARSE_DIR "${libs_root_path}/SuiteSparse/")
 target_link_libraries(ql-balance_lib PUBLIC "${SUITESPARSE_DIR}/lib/libsuitesparseconfig.a")
 target_link_libraries(ql-balance_lib PUBLIC "${SUITESPARSE_DIR}/lib/libamd.a")
-target_link_libraries(ql-balance_lib PUBLIC "${SUITESPARSE_DIR}/lib/libcholmod.a")
 target_link_libraries(ql-balance_lib PUBLIC "${SUITESPARSE_DIR}/lib/libumfpack.a")
 target_include_directories(ql-balance_lib PUBLIC "${SUITESPARSE_DIR}/include/suitesparse/")
 

@@ -22,7 +22,7 @@ subroutine evolvestep(timstep,eps)
     !  x2=timstep
 
     print *, "doing sparse example"
-    call sparse_example(1,0)
+    call sparse_example(1)
     print *, "After sparse example"
     stop
 

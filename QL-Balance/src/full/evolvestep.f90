@@ -17,7 +17,7 @@ subroutine evolvestep(timstep,eps)
     DOUBLE PRECISION, DIMENSION(:),   ALLOCATABLE :: amat_sp,bvec_sp
 
     x1=0.d0
-    sparse_talk = .true.
+    sparse_talk = .false.
     sparse_solve_method = 3
     !  x2=timstep
 
@@ -37,9 +37,6 @@ subroutine evolvestep(timstep,eps)
     call initialize_rhs(y,dery)
     call rhs_balance(x1,y,dery)
 
-    call write_amat
-    
-
     nz_sp=nz+nsize
     nrow=nsize
     ncol=nsize
@@ -48,7 +45,6 @@ subroutine evolvestep(timstep,eps)
     allocate(amat_sp(nz_sp),irow_sp(nz_sp),icol_sp(nz_sp),bvec_sp(nsize))
     irow_sp(1:nz)=irow
     icol_sp(1:nz)=icol
-    !  amat_sp(1:nz)=-timstep*amat
     amat_sp(1:nz)=-timstep_arr(irow)*amat!
 
     k=nz
@@ -59,9 +55,6 @@ subroutine evolvestep(timstep,eps)
         amat_sp(k)=1.d0
     enddo
 
-
-    !call write_amat_as_matrix
-
     !  bvec_sp=y+timstep*dery
     bvec_sp=y+timstep_arr*dery
 
@@ -71,37 +64,17 @@ subroutine evolvestep(timstep,eps)
 
     CALL column_full2pointer(icol_sp(1:nz_sp),ipcol)
 
-    if (.false.) then
-        iopt=0
-        !write(*,*) " timstep_arr(1) in evolvestep = ", timstep_arr(1)
-        !write(*,*) " amat_sp(1) = ", amat_sp(1)
-        !call cpu_time(time_start)
-        call write_bvec_sp_to_txt
-        
-        !CALL sparse_solve(nrow,ncol,nz_sp,irow_sp(1:nz_sp),ipcol,amat_sp(1:nz_sp),       &
-        CALL sparse_solve(nrow, ncol, nz_sp, irow_sp, ipcol, amat_sp, bvec_sp, iopt)
+    iopt=0
+    CALL sparse_solve(nrow, ncol, nz_sp, irow_sp, ipcol, amat_sp, bvec_sp, iopt)
+
+    ! for debugging:
+    !iopt=1
+    !CALL sparse_solve(nrow,ncol,nz_sp,irow_sp(1:nz_sp),ipcol,amat_sp(1:nz_sp),       &
+                    !bvec_sp,iopt)
+    !iopt=2
+    !CALL sparse_solve(nrow,ncol,nz_sp,irow_sp(1:nz_sp),ipcol,amat_sp(1:nz_sp),       &
                         !bvec_sp,iopt)
-    else
-        iopt=1
-        CALL sparse_solve(nrow,ncol,nz_sp,irow_sp(1:nz_sp),ipcol,amat_sp(1:nz_sp),       &
-                        bvec_sp,iopt)
-    
-        !  call cpu_time(time_factorization)
-        !  print *,'factorization completed ',time_factorization - time_start,' sec'
-        print *, "After factorization"
-        !
-        iopt=2
-        !
-        ! Solution of inhomogeneus equation (account of sources):
-        !
-        CALL sparse_solve(nrow,ncol,nz_sp,irow_sp(1:nz_sp),ipcol,amat_sp(1:nz_sp),       &
-                            bvec_sp,iopt)
 
-        !iopt=3
-        !CALL sparse_solve(nrow,ncol,nz_sp,irow_sp(1:nz),ipcol,amat_sp(1:nz_sp),bvec_sp,iopt)
-
-    end if
-    
     y=bvec_sp
 
     deallocate(ipcol)
@@ -114,53 +87,7 @@ subroutine evolvestep(timstep,eps)
         enddo
     enddo
 
-    contains
-
-    subroutine write_bvec_sp_to_txt
-
-        implicit none
-
-        open(666,file='bvec_sp.txt')
-        write(666,*) bvec_sp
-        close (666)
-
-    end subroutine
-
-    subroutine write_amat
-
-        implicit none
-
-        open(666, file='amat.txt')
-        write(666,*) amat
-        close(666)
-
-    end subroutine
-
-    subroutine write_amat_as_matrix
-
-        implicit none
-        double precision, dimension(:,:), allocatable :: A
-        double precision, dimension(:), allocatable :: val
-
-        allocate(A(nsize,nsize))
-        val = 0.0d0
-
-        write(*,*) "ncol = ", ncol
-        write(*,*) "nrow = ", nrow
-
-
-        call sparse2full(irow_sp, ipcol, amat_sp, nrow, ncol, A)
-
-        open(666, file='amat_matrix.txt')
-        write(666,*) A
-        close(666)
-
-    end subroutine
-
 end subroutine evolvestep
-
-
-
 
 
 subroutine det_balance_eqs_source_terms
@@ -197,11 +124,11 @@ subroutine det_balance_eqs_source_terms
     enddo
 
     !irf = 0
-    print *, "Before initialize_rhs"
+    if (debug_mode) print *, "Debug: Before initialize_rhs"
     call initialize_rhs(y,dery)
 
     dery_equisource=0.d0
-    print *, "Before rhs_balance"
+    if (debug_mode) print *, "Debug: Before rhs_balance"
     call rhs_balance(x,y,dery)
     !irf = 1
 
@@ -212,7 +139,7 @@ subroutine det_balance_eqs_source_terms
     dery_equisource=dery_equisource-rhsvec
 
     if (diagnostics_output) then
-        write(*,*) "Writing equisource"
+        if (debug_mode) write(*,*) "Debug: Writing equisource"
         if (ihdf5IO .eq. 1) then
             tempch = "/"//trim(h5_mode_groupname)//"/equisource.dat"
 

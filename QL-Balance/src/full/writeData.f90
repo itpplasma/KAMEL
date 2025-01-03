@@ -23,7 +23,7 @@ subroutine write_fields_currs_transp_coefs_to_h5
 
         CALL h5_init()
         CALL h5_open_rw(path2out, h5_id)
-        print *, trim(h5_mode_groupname)
+        if (debug_mode) print *, "Debug: ", trim(h5_mode_groupname)
         tempch = "/"//trim(h5_mode_groupname)//"/LinearProfiles"
 
         write (tempch, "(A,A,I4,A)") trim(tempch), "/", timeIndex, "/"
@@ -152,9 +152,9 @@ subroutine writefort9999
 
         call determine_Dql_diagnostic
 
-        print *, 'timscal_dqle = ', sngl(timscal_dql) &
+        if (debug_mode) print *, 'Debug: timscal_dqle = ', sngl(timscal_dql) &
             , 'timscal_dqli = ', sngl(timscal_dqli)
-        print *, 'maximum dqle at r = ', rc(ind_dqle(1)) &
+        if (debug_mode) print *, 'Debug: maximum dqle at r = ', rc(ind_dqle(1)) &
             , 'maximum dqli at r = ', rc(ind_dqli(1))
         ! Edited by Markus Markl, 26.02.2021
         if (ihdf5IO .eq. 1) then

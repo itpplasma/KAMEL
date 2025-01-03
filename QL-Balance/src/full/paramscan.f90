@@ -349,7 +349,7 @@ module paramscan_mod
         implicit none
         !logical :: suppression_mode = .true.
 
-        write (*, *) "Creating group structure"
+        if (debug_mode) write (*, *) "Debug: Creating group structure"
         ! if the profiles should be written out, i.e. suppression_mode = false, then an extended group
         ! structure is created to save them
         CALL h5_init()
@@ -386,7 +386,7 @@ module paramscan_mod
 
                             ! create the groups that are furthest down: fort.1000,
                             ! fort.5000 and init_params
-                            write(*,*) "h5_mode_groupname ", trim(h5_mode_groupname)
+                            if (debug_mode) write(*,*) "Debug: h5_mode_groupname ", trim(h5_mode_groupname)
                             CALL h5_create_parent_groups(h5_id, trim(h5_mode_groupname) //'/')
                             CALL h5_create_parent_groups(h5_id, trim(h5_mode_groupname)//"/KinProfiles/")
                             CALL h5_create_parent_groups(h5_id, trim(h5_mode_groupname)//"/LinearProfiles/")
@@ -422,7 +422,7 @@ module paramscan_mod
         CALL h5_close(h5_id)
         CALL h5_deinit()
 
-        write (*, *) "finished creating group structure"
+        if (debug_mode) write (*, *) "Debug: finished creating group structure"
     end subroutine
 
     subroutine write_Br_Dql_at_res_to_hdf5

@@ -51,6 +51,8 @@ module time_evolution
     DOUBLE PRECISION, DIMENSION(:), ALLOCATABLE :: br_abs_time
 	DOUBLE PRECISION, DIMENSION(:), ALLOCATABLE :: br_abs_antenna_factor
     DOUBLE PRECISION, DIMENSION(:), ALLOCATABLE :: dqle22_res_time
+    DOUBLE PRECISION, DIMENSION(:), ALLOCATABLE :: dae22_res_time
+    DOUBLE PRECISION, DIMENSION(:), ALLOCATABLE :: bif_criterion
 
     logical :: firstiterationdone = .false. !Some steps in saving the data to hdf5 file 
     !need to be done only the first time iteration
@@ -88,7 +90,6 @@ module time_evolution
         this%runType = "TimeEvolution"
         
         if (irank .eq. 0) then
-            print *, "Initializing TimeEvolution"
             iexit = 0 ! 0 - don't skip, 1 - skip, 2 - stop
             mwind = 10
             write_diag = .false.
@@ -104,14 +105,13 @@ module time_evolution
                 write_gyro_current = .false.
             end if
 
-            call read_config
+            !call read_config
 
             timescale = (rmax - rmin)**2 / dperp
             tmax = timescale * tmax_factor
             timstep = tmax / Nstorage
             time = 0.0d0
             tol = tol_max
-            write(*,*) "timstep = ", timstep
 
             call gengrid
             call setBoundaryCondition
@@ -171,14 +171,7 @@ module time_evolution
 
         class(TimeEvolution_t), intent(inout) :: this
 
-        write(*,*) ""
-        write(*,*) "========================================================"
-        write(*,*) "                Running TimeEvolution"
-        write(*,*) ""
-
         do timeIndex = 1, Nstorage
-            print *, "TimeIndex: ", timeIndex
-
             call copy_kin_profs_to_yprev
             redostep = .false.
 
@@ -206,22 +199,8 @@ module time_evolution
                 params_beg = params
 
                 print *, ""
-                write(*,*) "Timstep before evolvestep is ", timstep, " eps = " , eps
-
-                ! could also be due to source of balance equations?
-                print *, "Before evolvestep "
-                print *, "params(1,1) = ", params(1,1)
-                print *, "params(2,1) = ", params(2,1)
-                print *, "params(3,1) = ", params(3,1)
-                print *, "params(4,1) = ", params(4,1)
+                if (debug_mode) write(*,*) "Debug: Timstep before evolvestep is ", timstep, " eps = " , eps
                 call evolvestep(timstep, eps)
-                print *, "After evolvestep "
-                print *, "params(1,1) = ", params(1,1)
-                print *, "params(2,1) = ", params(2,1)
-                print *, "params(3,1) = ", params(3,1)
-                print *, "params(4,1) = ", params(4,1)
-                ! ------
-
 
                 call limit_temps_from_below
 
@@ -260,7 +239,7 @@ module time_evolution
             timstep_arr = timstep
             time = time + timstep
 
-            call messageTimeInfo
+            if (debug_mode) call messageTimeInfo
             if (.not. suppression_mode) call write_kin_profile_at_time_index
             call setFirstIterationTrue
             call checkIfLinearDiscrepancyOfPenRatioReached
@@ -334,6 +313,8 @@ module time_evolution
         allocate(br_abs_antenna_factor(Nstorage))
         allocate(br_abs_time(Nstorage))
         allocate(dqle22_res_time(Nstorage))
+        allocate(dae22_res_time(Nstorage))
+        allocate(bif_criterion(Nstorage))
 
     end subroutine
 
@@ -387,29 +368,32 @@ module time_evolution
 
         implicit none
 
-	    if (debug_mode) write(*,*) "Debug: writing out br time evolution data"
+        if (debug_mode) write(*,*) "Debug: writing out br time evolution data"
 
         !if (ihdf5IO .eq. 1) then
         if (.false.) then
-       	    CALL h5_init()
+            CALL h5_init()
             CALL h5_open_rw(path2out, h5_id)
 
  		    h5_currentgrp = "/"//trim(h5_mode_groupname) //"/br_abs_time"
-		    CALL h5_add_double_1(h5_id, trim(h5_currentgrp), br_abs_time(1:timeIndex), &
-			    lbound(br_abs_time(1:timeIndex)), ubound(br_abs_time(1:timeIndex)))
+            CALL h5_add_double_1(h5_id, trim(h5_currentgrp), br_abs_time(1:timeIndex), &
+                lbound(br_abs_time(1:timeIndex)), ubound(br_abs_time(1:timeIndex)))
 
  		    h5_currentgrp = "/"//trim(h5_mode_groupname) //"/br_abs_antenna_factor"
-		    CALL h5_add_double_1(h5_id, trim(h5_currentgrp), br_abs_antenna_factor(1:timeIndex), &
-			    lbound(br_abs_antenna_factor(1:timeIndex)), ubound(br_abs_antenna_factor(1:timeIndex)))
+            CALL h5_add_double_1(h5_id, trim(h5_currentgrp), br_abs_antenna_factor(1:timeIndex), &
+                lbound(br_abs_antenna_factor(1:timeIndex)), ubound(br_abs_antenna_factor(1:timeIndex)))
 
  		    h5_currentgrp = "/"//trim(h5_mode_groupname) //"/br_abs_res"
-		    CALL h5_add_double_1(h5_id, trim(h5_currentgrp), br_abs(1:timeIndex), &
-			    lbound(br_abs(1:timeIndex)), ubound(br_abs(1:timeIndex)))
+            CALL h5_add_double_1(h5_id, trim(h5_currentgrp), br_abs(1:timeIndex), &
+                lbound(br_abs(1:timeIndex)), ubound(br_abs(1:timeIndex)))
 
  		    h5_currentgrp = "/"//trim(h5_mode_groupname) //"/dqle22_res_time"
-		    CALL h5_add_double_1(h5_id, trim(h5_currentgrp), dqle22_res_time(1:timeIndex), &
-			    lbound(dqle22_res_time(1:timeIndex)), ubound(dqle22_res_time(1:timeIndex)))
+            CALL h5_add_double_1(h5_id, trim(h5_currentgrp), dqle22_res_time(1:timeIndex), &
+                lbound(dqle22_res_time(1:timeIndex)), ubound(dqle22_res_time(1:timeIndex)))
 
+ 		    h5_currentgrp = "/"//trim(h5_mode_groupname) //"/bifurcation_criterion"
+            CALL h5_add_double_1(h5_id, trim(h5_currentgrp), bif_criterion(1:timeIndex), &
+                lbound(bif_criterion(1:timeIndex)), ubound(bif_criterion(1:timeIndex)))
 
             CALL h5_close(h5_id)
             CALL h5_deinit()
@@ -560,7 +544,6 @@ module time_evolution
                         call MPI_finalize(ierror);
                         stop
                     end if
-  
                 else
                     antenna_factor = 0d0!antenna_factor_max * (time/t_max_ramp_up)
                 end if
@@ -669,9 +652,6 @@ module time_evolution
                 !if(i .gt. 200) then
                 !    stop
                 !endif
-            write(*,*) 'antenna_factor = ', antenna_factor
-            write(*,*) "which are ", antenna_factor/antenna_factor_max*100, "% of the max"
-            write(*,*) " - - - "
         else
                 write(*,*) 'stop: reached antenna_factor_max * ', antenna_max_stopping
                 if (suppression_mode .eqv. .false.) then
@@ -897,7 +877,7 @@ module time_evolution
         integer :: ipoi
 
         if (ihdf5IO .eq. 1) then
-            print *, "Write kinetic profiles"
+            if (debug_mode) print *, "Debug: Write kinetic profiles"
             do ipoi = 1, npoic
                 sqg_bthet_overcavg(ipoi) = 0.5d0*(sqg_bthet_overc(ipoi) &
                                                 + sqg_bthet_overc(ipoi + 1))
@@ -915,16 +895,14 @@ module time_evolution
             write (h5_currentgrp, "(A,A,I4,A)") trim(h5_currentgrp), &
                 "/", 1000 + timeIndex, "/"
 
-            write (*, *) "h5_currentgrp ", trim(h5_currentgrp)
-            write (*, *) "defining KinProfiles/1000 group ", 1000 + timeIndex
+            if (debug_mode) write (*, *) "Debug: h5_currentgrp ", trim(h5_currentgrp)
+            if (debug_mode) write (*, *) "Debug: defining KinProfiles/1000 group ", 1000 + timeIndex
             ! define group 1000+timeIndex
             CALL h5_obj_exists(h5_id, trim(h5_currentgrp), h5_exists_log)
             if (.not. h5_exists_log) then
-                write(*,*) "group does not exist"
-        	    CALL h5_create_parent_groups(h5_id, trim(h5_currentgrp))
-		    end if
+                CALL h5_create_parent_groups(h5_id, trim(h5_currentgrp))
+            end if
 
-            write (*, *) "group defined"
             ! edited 26.03.2021, Markus Markl
             ! The profiles are now saved in single precision
             CALL h5_add_float_1(h5_id, trim(h5_currentgrp)//"rc", &
@@ -954,7 +932,7 @@ module time_evolution
 
             CALL h5_close(h5_id)
             CALL h5_deinit()
-            write (*, *) "finished writing KinProfiles"
+            if (debug_mode) write (*, *) "Debug: finished writing KinProfiles"
 
         else
             do ipoi = 1, npoic
@@ -975,7 +953,7 @@ module time_evolution
 
         implicit none
         if (irank .eq. 0) then
-            write(*,*) "write kinetic profiles at time index ", timeIndex
+            if (debug_mode) write(*,*) "Debug: Write kinetic profiles at time index: ", timeIndex
             if (modulo(timeIndex, save_prof_time_step) .eq. 0) then
                 CALL write_kin_prof_data_to_disk
             end if
@@ -987,7 +965,7 @@ module time_evolution
     subroutine interp_Br_Dql_at_resonance_timeevol
 
         use PolyLagrangeInterpolation
-        use grid_mod, only: npoib, r_resonant, rb, dqle22
+        use grid_mod, only: npoib, r_resonant, rb, dqle22, dae22
         use wave_code_data, only: antenna_factor, Br
 
         implicit none
@@ -998,6 +976,13 @@ module time_evolution
 
         br_abs(timeIndex) = sum(coef(0, :)*abs(Br(indBeginInterp:indEndInterp)))*sqrt(antenna_factor)
         dqle22_res_time(timeIndex) = sum(coef(0, :)*dqle22(indBeginInterp:indEndInterp))
+        dae22_res_time(timeIndex) = sum(coef(0, :)*dae22(indBeginInterp:indEndInterp))
+        bif_criterion(timeIndex) = dqle22_res_time(timeIndex)/dae22_res_time(timeIndex)
+
+        if (bif_criterion(timeIndex) .ge. 1.0d0) then
+            write(*,*) "!!! Bifurcation criterion met !!!"
+            write(*,*) "bif_criterion = ", bif_criterion(timeIndex)
+        end if
 
         ! save the time for the improved stopping criterion
         br_abs_time(timeIndex) = time
@@ -1014,11 +999,14 @@ module time_evolution
         implicit none
 
         write(*,*) " "
-        write(*,*) '    Br abs res * C_mn= ', br_abs(timeIndex), " G"
-        write(*,*) '    Br abs res       = ', br_abs(timeIndex)/sqrt(antenna_factor), " G"
-        write(*,*) '    Dqle22 res       = ', dqle22_res_time(timeIndex), " cm^2/s"
-        write(*,*) '    Antenna factor   = ', antenna_factor
-        write(*,*) '    time = ', br_abs_time(timeIndex), " s, timeIndex = ", timeIndex
+        write(*,*) "+ + + + + + + + + + + + + + + + + + + + + + + + + + + + + + + + + + +"
+        WRITE(*,'(A9,F10.2,A16,I4)') '  time = ', br_abs_time(timeIndex), " s, timeIndex = ", timeIndex
+        WRITE(*,'(A23,F10.5,A11,F6.2,A12)') '    Antenna_factor   = ', antenna_factor, " which are ", antenna_factor/antenna_factor_max*100, "% of the max"
+        WRITE(*,'(A23,F10.5,A2)') '    Br abs res * C_mn= ', br_abs(timeIndex), " G"
+        WRITE(*,'(A23,F10.5,A2)') '    Br abs res       = ', br_abs(timeIndex)/SQRT(antenna_factor), " G"
+        WRITE(*,'(A23,F10.5,A7)') '    Dqle22 res       = ', dqle22_res_time(timeIndex), " cm^2/s"
+        WRITE(*,'(A23,F10.5)')    '    bif crit         = ', bif_criterion(timeIndex)
+        write(*,*) "+ + + + + + + + + + + + + + + + + + + + + + + + + + + + + + + + + + +"
         write(*,*) " "
 
     end subroutine
@@ -1055,8 +1043,6 @@ module time_evolution
 
         params_num = (params - params_beg)**2
         params_denom = params**2 + params_beg**2
-        write(*,*) "params_num(1, 1) = ", params_num(1, 1)
-        write(*,*) "params_denom(1, 1) = ", params_denom(1, 1)
 
     end subroutine
 
@@ -1160,7 +1146,7 @@ module time_evolution
         end if
 
         if (irank .eq. 0) then
-            write(*,*) 'timstep', real(timstep), '   timescale', real(timescale), &
+            if (debug_mode) write(*,*) 'Debug: timstep', real(timstep), '   timescale', real(timescale), &
                 'tolerance', real(tol)
         end if
 
@@ -1267,7 +1253,7 @@ module time_evolution
         implicit none
         if (irank .eq. 0) then
             write(*,*) ' '
-            write(*,*) 'i = ', int2(timeIndex), 'time = ', real(time)
+            write(*,*) 'Debug: i = ', int2(timeIndex), 'time = ', real(time)
             write(*,*) ' '
         end if
 
@@ -1294,7 +1280,6 @@ module time_evolution
         timscal_dqli = maxval(abs(dqli11_prev - dqli11))/maxval(dqli11_prev + dqli11)
         ind_dqli = maxloc(abs(dqli11_prev - dqli11))
         rate_dql = timscal_dql/timstep
-        write(*,*) 'rate_dql = ', rate_dql
 
     end subroutine
 
@@ -1307,7 +1292,7 @@ module time_evolution
 
         implicit none
 
-        write (*, *) "Creating group structure for TimeEvol"
+        if (debug_mode) write (*, *) "Debug: Creating group structure for TimeEvol"
 
         if (numres .eq. 1) then
             write (h5_mode_groupname, "(A,I1,A,I1)") "f_", m_vals(1), "_", n_vals(1)
@@ -1319,7 +1304,7 @@ module time_evolution
         CALL h5_open_rw(path2out, h5_id)
 
         if (.not. suppression_mode) then
-            write(*,*) "h5_mode_groupname ", trim(h5_mode_groupname)
+            if (debug_mode) write(*,*) "Debug: h5_mode_groupname ", trim(h5_mode_groupname)
             CALL h5_create_parent_groups(h5_id, trim(h5_mode_groupname) //'/')
             CALL h5_create_parent_groups(h5_id, trim(h5_mode_groupname)//"/KinProfiles/")
 
@@ -1334,7 +1319,7 @@ module time_evolution
         CALL h5_close(h5_id)
         CALL h5_deinit()
 
-        write (*, *) "finished creating group structure for TimeEvol"
+        if (debug_mode) write (*, *) "Debug: finished creating group structure for TimeEvol"
     end subroutine
 
 
@@ -1376,7 +1361,7 @@ module time_evolution
             scratch = .true.
             if (irank .eq. 0) then
                 if (debug_mode) write(*,*) 'Debug: start from scratch'
-                write(*,*) "timstep = ", timstep
+                if (debug_mode) write(*,*) "Debug: timstep = ", timstep
             end if
         end if
 

@@ -222,9 +222,7 @@ module singleStep
         CALL h5_close(h5_id)
         CALL h5_deinit()
 
-        if (debug_mode) then
-            write (*, *) "finished creating group structure for Single Step"
-        end if
+        if (debug_mode) write (*, *) "Debug: finished creating group structure for Single Step"
     end subroutine
 
 

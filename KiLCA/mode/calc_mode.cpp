@@ -94,8 +94,6 @@ int mode_data::find_resonance_location(void)
     {
         fprintf(stdout, "\nresonant surface for the mode m=%d n=%d is found at:\nr=%.16le,  q(r)=%.16le\n", wd->m, wd->n, wd->r_res, q(wd->r_res, bp));
     }
-    fprintf(stdout, "\nresonant surface for the mode m=%d n=%d is found at:\nr=%.16le,  q(r)=%.16le\n", wd->m, wd->n, wd->r_res, q(wd->r_res, bp));
-
     return 1;
 }
 

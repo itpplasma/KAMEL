@@ -408,6 +408,7 @@ subroutine read_antenna_modes(path)
 
     use wave_code_data, only: dim_mn, m_vals, n_vals; 
     use resonances_mod, only: numres
+    use control_mod, only: debug_mode
     implicit none; 
     character(1024) :: path; 
     character(1024) :: buffer; 
@@ -433,7 +434,7 @@ subroutine read_antenna_modes(path)
         i3 = index(buffer, ')'); 
         read (buffer(i1 + 1:i2 - 1), *) m_vals(l); 
         read (buffer(i2 + 1:i3 - 1), *) n_vals(l); 
-        write(*,*) "modes.in -> m = ", m_vals(l), ", n = ", n_vals(l)
+        if (debug_mode) write(*,*) "Debug: modes.in -> m = ", m_vals(l), ", n = ", n_vals(l)
     end do
     close (10); 
 end subroutine
@@ -443,12 +444,13 @@ end subroutine
 subroutine read_background_profiles(path)
 
     use wave_code_data, only: rq, iq, rn, in, rTi, iTi, rTe, iTe, rVth, iVth, rVz, iVz, rep, idPhi0; 
+    use control_mod, only: debug_mode
     implicit none; 
     character(1024) :: path; 
     character(1024) :: file; 
     integer :: l; 
 
-    write(*,*) "Read background profiles from .dat files"
+    if (debug_mode) write(*,*) "Debug: Read background profiles from .dat files"
 
     file = trim(path)//'q.dat'; 
     call find_file_length(file, l); 
@@ -507,7 +509,7 @@ subroutine read_background_profiles_h5
     !Er, is read from hdf5 file
     ! is the same for every fac_vz
 
-    write(*,*) 'Read background profiles from hdf5 file'
+    if (debug_mode) write(*,*) 'Debug: Read background profiles from hdf5 file'
     CALL h5_init()
     !CALL h5_check()
 
@@ -557,7 +559,7 @@ subroutine read_background_profiles_h5
     CALL h5_close_group(group_id_1)
     CALL h5_close(h5_id)
     CALL h5_deinit()
-    write (*, *) "finished reading background profiles from hdf5"
+    if (debug_mode) write (*, *) "Debug: finished reading background profiles from hdf5"
 
     idPhi0 = -idPhi0; ! Er was loaded from Er.dat
 
@@ -663,7 +665,7 @@ subroutine read_background_profiles_h5_timeevol(tstep)
     CALL h5_close(h5_id)
 
     CALL h5_deinit()
-    write (*, *) "finished reading background profiles"
+    if (debug_mode) write (*, *) "Debug: finished reading background profiles"
     idPhi0 = -idPhi0; ! Er was loaded from Er.dat
 
 

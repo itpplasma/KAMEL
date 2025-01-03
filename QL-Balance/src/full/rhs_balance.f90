@@ -939,7 +939,7 @@ subroutine get_dql
     call MPI_Comm_rank(MPI_COMM_WORLD, irank, ierror);
     if (irank .eq. 0) then
         if (write_diag_b) then !write_diag_b
-            write(*,*) "writing params in ", iunit_diag_b
+            if (debug_mode) write(*,*) "Debug: writing params in ", iunit_diag_b
             open(iunit_diag_b)
             do ipoi = 1, npoib
                 write (iunit_diag_b, *) rb(ipoi), params_b(1:4, ipoi)
@@ -1068,8 +1068,7 @@ subroutine get_dql
         if (irank .eq. 0) then
             if (timeIndex .le. 1) then
                 if (ihdf5IO .eq. 1) then
-
-                    print *, "Writing Brvac to hdf5 file"
+                    if (debug_mode) print *, "Debug: Writing Brvac to hdf5 file"
                     if (.not. allocated(coef)) allocate(coef(0:nder,nlagr))
                     call binsrc(rb, 1, npoib, r_resonant(1), ibrabsres)
 
@@ -1085,22 +1084,21 @@ subroutine get_dql
                     CALL h5_open_rw(path2out, h5_id)
                     !call create_group_if_not_existent("/"//trim(h5_mode_groupname))
                     tempch = "/"//trim(h5_mode_groupname)//"/Brvac_res"
-                    write(*,*) "group name: ", trim(tempch)
+                    if (debug_mode) write(*,*) "Debug: group name: ", trim(tempch)
                     CALL h5_add_double_0(h5_id, trim(tempch), brvac_interp)
 
                     if (diagnostics_output) then
-                      write (*, *) "writing Brvac.dat"
-                      tempch = "/"//trim(h5_mode_groupname)//"/Brvac.dat"
-
-                      CALL h5_obj_exists(h5_id, trim(tempch), h5_exists_log)
-                      if (h5_exists_log) then
+                        if (debug_mode) write (*, *) "Debug: writing Brvac.dat"
+                        tempch = "/"//trim(h5_mode_groupname)//"/Brvac.dat"
+                        CALL h5_obj_exists(h5_id, trim(tempch), h5_exists_log)
+                        if (h5_exists_log) then
                         CALL h5_delete(h5_id, trim(tempch))
-                      end if
+                        end if
 
-                      CALL h5_define_unlimited_matrix(h5_id, trim(tempch), &
+                        CALL h5_define_unlimited_matrix(h5_id, trim(tempch), &
                                                     H5T_NATIVE_DOUBLE, (/-1, 2/), dataset_id)
-                      CALL h5_append_double_1(dataset_id, r, 1)
-                      CALL h5_append_double_1(dataset_id, abs(Br), 2)
+                        CALL h5_append_double_1(dataset_id, r, 1)
+                        CALL h5_append_double_1(dataset_id, abs(Br), 2)
                     end if
 
                     CALL h5_close(h5_id)
@@ -1138,7 +1136,7 @@ subroutine get_dql
         dqli22_loc = dqli22_loc + di22*spec_weight
 
         call get_current_densities_from_wave_code(flre_cd_ptr(i_mn), dim_r, r, &
-                                                  m_vals(i_mn), n_vals(i_mn), Jri, Jsi, Jpi, Jre, Jse, Jpe)
+                            m_vals(i_mn), n_vals(i_mn), Jri, Jsi, Jpi, Jre, Jse, Jpe)
 
     end do
 
@@ -1153,11 +1151,11 @@ subroutine get_dql
         !do ipoi = 1, npoib
         !    write(*,*) r(ipoi), Es(ipoi), abs(Es(ipoi)), nu_e(ipoi)
         !end do
-         !dqle11_loc = dqle11_loc + d11_misalign
+        !dqle11_loc = dqle11_loc + d11_misalign
          !dqle12_loc = dqle12_loc + 3 * d11_misalign
          !dqle21_loc = dqle21_loc + 3 * d11_misalign
          !dqle22_loc = dqle22_loc + 12 * d11_misalign
-   end if ! misalign_diffusion .eqv. .true.
+    end if ! misalign_diffusion .eqv. .true.
 
 
     call MPI_Allreduce(dqle11_loc, dqle11, npoib, MPI_DOUBLE_PRECISION, MPI_SUM, MPI_COMM_WORLD, ierror);
@@ -1590,7 +1588,7 @@ subroutine calc_parallel_current_directly
             CALL h5_init()
             CALL h5_open_rw(path2out, h5_id)
             tempch = "/"//trim(h5_mode_groupname)//"/par_current_e/"
-            write(*,*) "In group: "//trim(tempch)
+            if (debug_mode) write(*,*) "Debug: In group: "//trim(tempch)
 
             CALL h5_obj_exists(h5_id, trim(tempch), h5_exists_log)
             if (.not. h5_exists_log) then
@@ -1605,8 +1603,7 @@ subroutine calc_parallel_current_directly
                     x2, lbound(x2), ubound(x2)) 
 
             if (write_gyro_current) then
-                write(*,*) "writing par_current_e.dat"
-                write(*,*) " - "
+                if (debug_mode) write(*,*) "Debug: writing par_current_e.dat"
                 ! Write out gyro current which is different to KiLCA current Jpe.
             ! The gyro current is calculated from (60) in Heyn et. al 2014
                !CALL h5_add_double_1(h5_id, trim(tempch)//"par_current_e_real", &
@@ -1661,8 +1658,7 @@ subroutine calc_parallel_current_directly
 
             if (diagnostics_output) then
                 if (ihdf5IO .eq. 1) then
-                    write(*,*) "writing par_current_e.dat"
-                    write(*,*) " - "
+                    if (debug_mode) write(*,*) "Debug: writing par_current_e.dat"
                     CALL h5_init()
                     CALL h5_open_rw(path2out, h5_id)
 
@@ -1733,7 +1729,7 @@ subroutine calc_parallel_current_directly
         CALL h5_init()
         CALL h5_open_rw(path2out, h5_id)
         tempch = "/"//trim(h5_mode_groupname)//"/gyro_current_study/"
-        write(*,*) "In group: "//trim(tempch)
+        if (debug_mode) write(*,*) "Debug: In group: "//trim(tempch)
 
         CALL h5_define_group(h5_id, trim(tempch), group_id_1)
         CALL h5_close_group(group_id_1)
@@ -1789,8 +1785,7 @@ subroutine calc_parallel_current_directly
                 tempch = "/"//trim(h5_mode_groupname)//"/gyro_current_study/"
                 write(tempch, "(A,i4.4,A,i4.4,A)") trim(tempch), study_i_omE, "/", &
                     study_j_nue, "/"
-                write(*,*) "In group: ", trim(tempch)
-
+                if (debug_mode) write(*,*) "Debug: In group: "//trim(tempch)
 
                 CALL h5_define_group(h5_id, trim(tempch), group_id_1)
                 CALL h5_close_group(group_id_1)
@@ -1857,7 +1852,7 @@ subroutine calc_parallel_current_directly
         CALL h5_init()
         CALL h5_open_rw(path2out, h5_id)
         tempch = "/"//trim(h5_mode_groupname)//"/currents/"
-        write(*,*) "In group: "//trim(tempch)
+        if (debug_mode) write(*,*) "Debug: In group: "//trim(tempch)
 
         CALL h5_define_group(h5_id, trim(tempch), group_id_1)
         CALL h5_close_group(group_id_1)
@@ -1975,14 +1970,13 @@ subroutine calc_ion_parallel_current_directly
     call MPI_Comm_rank(MPI_COMM_WORLD, irank, ierror);
     if (irank .eq. 0) then
         if (write_gyro_current) then
-            write(*,*) "writing par_current_i.dat"
-            write(*,*) " - "
+            if (debug_mode) write(*,*) "Debug: writing par_current_i.dat"
             ! Write out gyro current which is different to KiLCA current Jpe.
             ! The gyro current is calculated from (60) in Heyn et. al 2014
             CALL h5_init()
             CALL h5_open_rw(path2out, h5_id)
             tempch = "/"//trim(h5_mode_groupname)//"/par_current_i/"
-            write(*,*) "In group: "//trim(tempch)
+            if (debug_mode) write(*,*) "Debug: In group: "//trim(tempch)
 
             CALL h5_define_group(h5_id, trim(tempch), group_id_1)
             CALL h5_close_group(group_id_1)
@@ -2028,7 +2022,7 @@ subroutine calc_ion_parallel_current_directly
 
         if (diagnostics_output) then
             if (ihdf5IO .eq. 1) then
-                print *, "writing par_current_i.dat"
+                if (debug_mode) print *, "Debug: writing par_current_i.dat"
                 CALL h5_init()
                 CALL h5_open_rw(path2out, h5_id)
                 tempch = "/"//trim(h5_mode_groupname)//"/par_current_i.dat"

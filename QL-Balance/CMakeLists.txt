@@ -62,10 +62,8 @@ set (sundials_include_path_build ${libs_root_path}/sundials/build/include)
 include_directories ("${sundials_include_path}")
 include_directories ("${sundials_include_path_build}")
 
-
 set(balance_lib_fortran_sources
     ${full_balance_src}/ql-balance_mod.f90
-    #${full_balance_src}/sparse_mod.f90
     ${full_balance_src}/balanceBase.f90
     ${full_balance_src}/grid_mod.f90
     ${full_balance_src}/control_mod.f90
@@ -100,17 +98,12 @@ set(balance_lib_fortran_sources
 set(balance_lib_cpp_sources
     ${full_balance_src}/vel_integral.cpp
     ${full_balance_src}/cvodeint.cpp
-    #${libs_root_path}/SuiteSparse/UMFPACK/Demo/umf4_f77wrapper.c
-    #${libs_root_path}/SuiteSparse/UMFPACK/Demo/umf4_f77zwrapper.c
     )
 
 add_library(sparse SHARED
     ${full_balance_src}/sparse_mod.f90
 	${UMFPACK_WRAPPERS}
 )
-#set_source_files_properties(${libs_root_path}/SuiteSparse/UMFPACK/Demo/umf4_f77wrapper.c PROPERTIES COMPILE_FLAGS "-I${UMFPACK_INCLUDE_DIR} -DDLONG" GENERATED TRUE)
-#set_source_files_properties(${libs_root_path}/SuiteSparse/UMFPACK/Demo/umf4_f77zwrapper.c PROPERTIES COMPILE_FLAGS "-I${UMFPACK_INCLUDE_DIR} -DZLONG" GENERATED TRUE)
-#set_source_files_properties(${full_balance_src}/vel_integral.cpp PROPERTIES COMPILE_FLAGS "-I${UMFPACK_INCLUDE_DIR} -DZLONG" GENERATED TRUE)
 
 add_library(ql-balance_lib STATIC ${balance_lib_fortran_sources} ${balance_lib_cpp_sources})
 
@@ -125,15 +118,8 @@ target_include_directories(ql-balance_lib PUBLIC "${sundials_include_path}")
 target_include_directories(ql-balance_lib PUBLIC "${sundials_include_path_build}")
 target_include_directories(ql-balance_lib PUBLIC ${CMAKE_SOURCE_DIR}/../KiLCA/math/)
 
-
 file(GLOB libslatec_files "${CMAKE_SOURCE_DIR}/../KiLCA/math/bessel/slatec/*.f")
 add_library (slatec STATIC "${libslatec_files}")
-
-#set(superlu_path ${libs_root_path}/SuperLU_4.1/lib/libsuperlu_4.1.a)
-set(superlu_path ${libs_root_path}/superlu/build/SRC/libsuperlu.a)
-add_library(superlu STATIC IMPORTED)
-set_target_properties(superlu PROPERTIES IMPORTED_LOCATION "${superlu_path}")
-target_include_directories(ql-balance_lib PUBLIC ${libs_root_path}/superlu/SRC/)
 
 set (cvode_lib_fullpath ${libs_root_path}/sundials/build/src/cvode/libsundials_cvode.a)
 add_library (cvode STATIC IMPORTED)
@@ -157,15 +143,6 @@ if("${MPI_FOUND}")
     target_link_libraries(ql-balance_lib PUBLIC "${MPI_Fortran_LIBRARIES}")
     target_include_directories(ql-balance_lib PUBLIC "${MPI_Fortran_INCLUDE_PATH}")
 endif()
-
-#UMFPACK from SuiteSparse
-#set(SUITESPARSE_DIR "${libs_root_path}/SuiteSparse/")
-#set(UMFPACK_INCLUDE_DIR "${SUITESPARSE_DIR}/include/suitesparse")
-#set(UMFPACK_LIB_DIR "${SUITESPARSE_DIR}/lib")
-#target_link_libraries(ql-balance_lib PUBLIC "${UMFPACK_LIB_DIR}/libsuitesparseconfig.a")
-#target_link_libraries(ql-balance_lib PUBLIC "${UMFPACK_LIB_DIR}/libamd.a")
-#target_link_libraries(ql-balance_lib PUBLIC "${UMFPACK_LIB_DIR}/libumfpack.a")
-#target_include_directories(ql-balance_lib PUBLIC "${UMFPACK_INCLUDE_DIR}/")
 
 add_dependencies(sparse SuiteSparse)
 target_link_libraries(sparse PUBLIC SuiteSparse::suitesparse_config)
@@ -198,12 +175,7 @@ if("${HDF5_FOUND}")
     target_include_directories(ql-balance_lib PUBLIC "${HDF5_INCLUDE_DIRS}")
 endif()
 
-target_sources(ql-balance_lib PUBLIC
-    ${libs_root_path}/superlu/FORTRAN/c_fortran_zgssv.c
-    ${libs_root_path}/superlu/FORTRAN/c_fortran_dgssv.c)
-#target_include_directories(ql-balance_lib PUBLIC ${libs_root_path}/SuperLU_4.1/SRC/)
-
-target_link_libraries(ql-balance_lib PUBLIC slatec superlu cvode nvecserial sparse)
+target_link_libraries(ql-balance_lib PUBLIC slatec cvode nvecserial sparse)
 
 add_executable(ql-balance ${full_balance_src}/ql-balance.f90)
 target_link_libraries(ql-balance PUBLIC ql-balance_lib)

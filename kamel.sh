@@ -1,4 +1,5 @@
 #!/bin/bash
 ./KiLCA/kilca.sh
 ./KIM/kim.sh
-./QL-Balance/ql-balance.sh
+cd QL-Balance
+./ql-balance.sh

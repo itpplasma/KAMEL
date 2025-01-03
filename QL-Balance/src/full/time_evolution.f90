@@ -423,7 +423,7 @@ module time_evolution
         !Added by Philipp Ulbl 12.05.2020, (strongly) edited by Markus Markl
         !
         ! Stopping criterion that is always active
-        if (antenna_factor .lt. (antenna_factor_max*antenna_max_stopping * 1.5)) then
+        if (antenna_factor .lt. (antenna_factor_max*antenna_max_stopping)) then
             if (debug_mode) write(*,*) "Debug: - - ramp up antenna_factor - -"
         
             if (ramp_up_mode .eq. 0) then
@@ -653,42 +653,23 @@ module time_evolution
                 !    stop
                 !endif
         else
-                write(*,*) 'stop: reached antenna_factor_max * ', antenna_max_stopping
-                if (suppression_mode .eqv. .false.) then
-                    call write_kin_prof_data_to_disk
-                end if
-                ! Write the cause of the stopping into the hdf5 file
-                if (ihdf5IO .eq. 1) then
-                    CALL h5_init()
-                    CALL h5_open_rw(path2out, h5_id)
-                    CALL h5_add_string(h5_id, trim(h5_mode_groupname)// &
-                        '/stopping_criterion', 'reached antenna_factor_max * antenna_max_stopping')
-                    CALL h5_close(h5_id)
-                    CALL h5_deinit()
-                end if
+            write(*,*) 'stop: reached antenna_factor_max * ', antenna_max_stopping
+            if (suppression_mode .eqv. .false.) then
+                call write_kin_prof_data_to_disk
+            end if
+            ! Write the cause of the stopping into the hdf5 file
+            if (ihdf5IO .eq. 1) then
+                CALL h5_init()
+                CALL h5_open_rw(path2out, h5_id)
+                CALL h5_add_string(h5_id, trim(h5_mode_groupname)// &
+                    '/stopping_criterion', 'reached antenna_factor_max * antenna_max_stopping')
+                CALL h5_close(h5_id)
+                CALL h5_deinit()
+            end if
 
-                if (debug_mode) write(*,*) "Debug: Write br_time_data"
-                if (ihdf5IO .eq. 1) then 
-                    CALL write_br_dqle22_time_data!, br_abs_time, br_abs_antenna_factor, br_abs, dqle22_res_time)
-                end if
-
-                if (paramscan) then
-                    if (ifac_n + ifac_Te + ifac_Ti + ifac_vz .eq. size(fac_n) + &
-                        size(fac_Ti) + size(fac_Te) + size(fac_vz)) then
-                        CALL MPI_finalize(ierror)
-                        stop
-                    else
-                    ! if it is not the last scan, skip the rest of the
-                    ! code and continue with the next loop iteration
-                    !call deallocate_wave_code_data()
-                    ! exit this time evolution loop specific to a certain set
-                    ! of parameters
-                        iexit = 1
-                    end if
-                else
-                CALL MPI_finalize(ierror);
-                write(*,*) 'stop'
-                stop
+            if (debug_mode) write(*,*) "Debug: Write br_time_data"
+            if (ihdf5IO .eq. 1) then 
+                CALL write_br_dqle22_time_data!, br_abs_time, br_abs_antenna_factor, br_abs, dqle22_res_time)
             end if
 
             call MPI_finalize(ierror);
@@ -1000,11 +981,11 @@ module time_evolution
 
         write(*,*) " "
         write(*,*) "+ + + + + + + + + + + + + + + + + + + + + + + + + + + + + + + + + + +"
-        WRITE(*,'(A9,F10.2,A16,I4)') '  time = ', br_abs_time(timeIndex), " s, timeIndex = ", timeIndex
+        WRITE(*,'(A9,F10.4,A16,I4)') '  time = ', br_abs_time(timeIndex), " s, timeIndex = ", timeIndex
         WRITE(*,'(A23,F10.5,A11,F6.2,A12)') '    Antenna_factor   = ', antenna_factor, " which are ", antenna_factor/antenna_factor_max*100, "% of the max"
         WRITE(*,'(A23,F10.5,A2)') '    Br abs res * C_mn= ', br_abs(timeIndex), " G"
         WRITE(*,'(A23,F10.5,A2)') '    Br abs res       = ', br_abs(timeIndex)/SQRT(antenna_factor), " G"
-        WRITE(*,'(A23,F10.5,A7)') '    Dqle22 res       = ', dqle22_res_time(timeIndex), " cm^2/s"
+        WRITE(*,'(A23,F10.3,A7)') '    Dqle22 res       = ', dqle22_res_time(timeIndex), " cm^2/s"
         WRITE(*,'(A23,F10.5)')    '    bif crit         = ', bif_criterion(timeIndex)
         write(*,*) "+ + + + + + + + + + + + + + + + + + + + + + + + + + + + + + + + + + +"
         write(*,*) " "

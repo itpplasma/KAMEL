@@ -2,11 +2,9 @@
 QL-Balance calculates the quasilinear plasma response, i.e. the impact of magnetic perturbations on the plasma profiles, within a set of transport equations. The quasilinear transport coefficients are computed with the EM perturbation fields provided by KiLCA. Relevant publications are Heyn NF 2014 and Markl NF 2023.
 
 To compile the code, use
-
-	mkdir build
-	cd build
-	cmake ..
-	make
+```
+./build.sh
+```
 
 This will compile the code and create the executables ql-balance and ql-light in the build directory.
 

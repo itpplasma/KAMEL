@@ -20,7 +20,7 @@ elseif(CMAKE_HOST_SYSTEM_NAME MATCHES "Linux")
     set(CMAKE_Fortran_COMPILER "mpif90")
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -O3 -D DOUBLE_APPEND_FORTRAN")
-    set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -openmp")
+    set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -fopenmp")
 else()
     # Other operating system specific configurations or commands
     message("Building on another operating system might not be implemented.")

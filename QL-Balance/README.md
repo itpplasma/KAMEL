@@ -13,22 +13,4 @@ The file balance_conf.nml is the blueprint namelist file required by the code.
 Note that the prior build system was make with the make file Balance.mk_mpi. This created the executable balance.x.mpif90.openmpi_x86_64.
 
 # Run balance code
-Use
-
-LD_LIBRARY_PATH=/proj/plasma/soft/math_libs/64bit/sundials-2.6.2/lib/ ./balance.x.mpif90.openmpi_x86_64
-
-in the run directory.
-
-
-# QL-Light
-Light version of the balance code that only calculates Dqle22 for the local bifurcation criterion. Also includes constant-psi approximation.
-
-### todo:
-- [ ] Read in data
-- [ ] Determine gradients
-- [ ] Calculate quasilinear diffusion coefficient Dqle22
-- [ ] Calculate quasilinear diffusion coefficient Dqle22 in const-psi
-- [ ] Optional: calculate torque
-- [ ] Optional: calculate torque in const-psi
-- [ ] interpolate results
-- [ ] write out results
+Running the balance code requires the balance_conf.nml file in the run directory, as well as the usual KiLCA input files.

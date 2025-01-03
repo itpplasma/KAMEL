@@ -36,10 +36,10 @@ Contains the source code of KiLCA and additional python code (e.g. calculation o
 ```
 
 ### QL-Balance
-Quasilinear transport code based on KiLCA. Requires the prior compilation of KiLCA. Compile in top level directory KAMEL with the shell script
+Quasilinear transport code based on KiLCA. Requires the prior compilation of KiLCA. Compile in QL-Balance folder with
 
 ```
-./ql-balance.sh
+make
 ```
 
 ### python

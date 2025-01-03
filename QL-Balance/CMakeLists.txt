@@ -1,8 +1,4 @@
-cmake_minimum_required(VERSION 3.7...3.21)
-
-if(${CMAKE_VERSION} VERSION_LESS 3.12)
-    cmake_policy(VERSION ${CMAKE_MAJOR_VERSION}.${CMAKE_MINOR_VERSION})
-endif()
+cmake_minimum_required(VERSION 3.24)
 
 set(CMAKE_DISABLE_IN_SOURCE_BUILD ON)
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${CMAKE_SOURCE_DIR}/cmake)
@@ -16,28 +12,18 @@ if(CMAKE_HOST_SYSTEM_NAME MATCHES "Darwin")
     set(CMAKE_C_COMPILER clang)
     set(CMAKE_CXX_COMPILER clang++)
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -O3 -D DOUBLE_APPEND_FORTRAN")
-    #set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -L/usr/lib64 -lstdc++ -O3 -D DOUBLE_APPEND_FORTRAN")
-    set (CMAKE_CXX_OPT_FLAGS "")
-    set (CMAKE_F_OPT_FLAGS "")
-    set (CMAKE_CXX_OPT_FLAGS "")
-    set (CMAKE_F_OPT_FLAGS "")
 elseif(CMAKE_HOST_SYSTEM_NAME MATCHES "Linux")
     # Linux specific configurations or commands
     message("Building on Linux")
     set(CMAKE_C_COMPILER "gcc")
     set(CMAKE_CXX_COMPILER "g++")
-    #set(CMAKE_Fortran_COMPILER "gfortran")
     set(CMAKE_Fortran_COMPILER "mpif90")
-
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
-    #set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -L/usr/lib64 -lstdc++")
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -O3 -D DOUBLE_APPEND_FORTRAN")
-    #set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -L/usr/lib64 -lstdc++ -O3 -D DOUBLE_APPEND_FORTRAN")
-    #set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -openmp -O3")
     set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -openmp")
 else()
     # Other operating system specific configurations or commands
-    message("Building on another operating system. Might not be implemented.")
+    message("Building on another operating system might not be implemented.")
 endif()
 
 include(FetchSuiteSparse)
@@ -108,7 +94,7 @@ add_library(sparse SHARED
 add_library(ql-balance_lib STATIC ${balance_lib_fortran_sources} ${balance_lib_cpp_sources})
 
 set_target_properties(ql-balance_lib PROPERTIES LINKER_LANGUAGE Fortran
-    OUTPUT_NAME ql-balance-lib
+    OUTPUT_NAME ql-balance
     ARCHIVE_OUTPUT_DIRECTORY "${lib}"
     Fortran_MODULE_DIRECTORY "${objs}")
 
@@ -130,19 +116,12 @@ add_library (nvecserial STATIC IMPORTED)
 set_target_properties (nvecserial PROPERTIES IMPORTED_LOCATION "${nvecserial_lib_fullpath}")
 
 find_package(GSL REQUIRED)
-if("${GSL_FOUND}")
-    message(" ====== GSL was found! ======")
-    target_link_libraries(ql-balance_lib PUBLIC "${GSL_LIBRARIES}")
-    target_link_libraries(ql-balance_lib PUBLIC "${GSL_CBLAS_LIBRARIES}")
-    target_include_directories(ql-balance_lib PUBLIC "${GSL_INCLUDE_DIRS}")
-endif()
+message(" ====== GSL was found! ======")
+target_link_libraries(ql-balance_lib PUBLIC GSL::gsl)
 
 find_package(MPI REQUIRED)
-if("${MPI_FOUND}")
-    message(" ====== MPI was found! ======")
-    target_link_libraries(ql-balance_lib PUBLIC "${MPI_Fortran_LIBRARIES}")
-    target_include_directories(ql-balance_lib PUBLIC "${MPI_Fortran_INCLUDE_PATH}")
-endif()
+message(" ====== MPI was found! ======")
+target_link_libraries(ql-balance_lib PUBLIC MPI::MPI_Fortran)
 
 add_dependencies(sparse SuiteSparse)
 target_link_libraries(sparse PUBLIC SuiteSparse::suitesparse_config)
@@ -151,29 +130,20 @@ target_link_libraries(sparse PUBLIC SuiteSparse::umfpack)
 target_include_directories(sparse PUBLIC "${UMFPACK_INCLUDE_DIR}")
 
 find_package(BLAS REQUIRED)
-if("${BLAS_FOUND}")
-    message(" ====== BLAS was found! ======")
-    target_link_libraries(ql-balance_lib PUBLIC "${BLAS_LIBRARIES}")
-    target_include_directories(ql-balance_lib PUBLIC "${BLAS_INCLUDE_DIRS}")
-    target_link_libraries(sparse PUBLIC "${BLAS_LIBRARIES}")
-    target_include_directories(sparse PUBLIC "${BLAS_INCLUDE_DIRS}")
-endif()
+message(" ====== BLAS was found! ======")
+target_link_libraries(ql-balance_lib PUBLIC BLAS::BLAS)
+target_link_libraries(sparse PUBLIC BLAS::BLAS)
 
 find_package(LAPACK REQUIRED)
-if("${LAPACK_FOUND}")
-    message(" ====== LAPACK was found! ======")
-    target_link_libraries(ql-balance_lib PUBLIC "${LAPACK_LIBRARIES}")
-    target_include_directories(ql-balance_lib PUBLIC "${LAPACK_INCLUDE_DIRS}")
-endif()
+message(" ====== LAPACK was found! ======")
+target_link_libraries(ql-balance_lib PUBLIC LAPACK::LAPACK)
 
 find_package(HDF5 COMPONENTS C Fortran HL REQUIRED)
-if("${HDF5_FOUND}")
-    message(" ====== HDF5 was found! ======")
-    target_link_libraries(ql-balance_lib PUBLIC "${HDF5_LIBRARIES}")
-    target_link_libraries(ql-balance_lib PUBLIC "${HDF5_C_LIBRARIES}")
-    target_link_libraries(ql-balance_lib PUBLIC "${HDF5_HL_LIBRARIES}")
-    target_include_directories(ql-balance_lib PUBLIC "${HDF5_INCLUDE_DIRS}")
-endif()
+message(" ====== HDF5 was found! ======")
+target_link_libraries(ql-balance_lib PUBLIC hdf5::hdf5
+                                            hdf5::hdf5_hl
+                                            hdf5::hdf5_fortran
+                                            hdf5::hdf5_hl_fortran)
 
 target_link_libraries(ql-balance_lib PUBLIC slatec cvode nvecserial sparse)
 

@@ -3,7 +3,7 @@ QL-Balance calculates the quasilinear plasma response, i.e. the impact of magnet
 
 To compile the code, use
 ```
-./build.sh
+./ql-balance.sh
 ```
 
 This will compile the code and create the executables ql-balance and ql-light in the build directory.

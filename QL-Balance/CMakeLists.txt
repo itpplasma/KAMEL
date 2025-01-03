@@ -47,9 +47,9 @@ set (libs_root_path ${CMAKE_SOURCE_DIR}/../external)
 set(src ${PROJECT_SOURCE_DIR}/src)
 set(full_balance_src ${src}/full/)
 
-set(hdf5_tools ${PROJECT_SOURCE_DIR}/hdf5_tools/)
-set(objs ${PROJECT_SOURCE_DIR}/OBJS/)
-set(lib ${PROJECT_SOURCE_DIR}/lib/)
+set(hdf5_tools ${PROJECT_SOURCE_DIR}/src/hdf5_tools/)
+set(objs ${PROJECT_BINARY_DIR}/OBJS/)
+set(lib ${PROJECT_BINARY_DIR}/lib/)
 set(ql-balance_lib "${lib}libql-balance.a")
 set(KiLCA_lib_path ${CMAKE_SOURCE_DIR}/../KiLCA/build/lib/libKiLCA_Lib_V_2.4.2_MDNO_FPGEN_POLYNOMIAL_Release_64bit.a)
 
@@ -177,6 +177,6 @@ endif()
 
 target_link_libraries(ql-balance_lib PUBLIC slatec cvode nvecserial sparse)
 
-add_executable(ql-balance ${full_balance_src}/ql-balance.f90)
-target_link_libraries(ql-balance PUBLIC ql-balance_lib)
+add_executable(ql-balance.x ${full_balance_src}/ql-balance.f90)
+target_link_libraries(ql-balance.x PUBLIC ql-balance_lib)
 

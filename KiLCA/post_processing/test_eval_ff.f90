@@ -28,4 +28,4 @@ end do
 end program
 
 !compilation string:
-!gfortran -o test_ff -O2 -fimplicit-none -Wall -Wtabs -O2 -mtune=generic -msse2 -mfpmath=sse -static test_eval_ff.f90 eval_form_factors.f90
+!gfortran -o test_ff -O2 -fimplicit-none -Wall -Wtabs -O2 -mtune=generic -static test_eval_ff.f90 eval_form_factors.f90

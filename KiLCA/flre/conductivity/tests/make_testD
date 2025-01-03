@@ -1,1 +1,1 @@
-gfortran -o testD.x -Wall -Wextra -Wshadow -mtune=generic -msse2 -mfpmath=sse -g -ggdb -fbacktrace -ffpe-trap=invalid,zero,overflow,underflow,denormal -fbounds-check test_mods.f90 calc_D_array_drift.f90 test_D.f90 -static
+gfortran -o testD.x -Wall -Wextra -Wshadow -mtune=generic -g -ggdb -fbacktrace -ffpe-trap=invalid,zero,overflow,underflow,denormal -fbounds-check test_mods.f90 calc_D_array_drift.f90 test_D.f90 -static

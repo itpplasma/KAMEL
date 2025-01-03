@@ -42,18 +42,21 @@ Quasilinear transport code based on KiLCA. Requires the prior compilation of KiL
 make
 ```
 
-### python
+### PreProc
+PreProc contains the fouriermodes code used to calculate r_eff, q, and the toroidal and poloidal fluxes. Also, it contains the neo-2 templates used to run NEO-2 on the ITP machines with condor. This requires the NEO-2 code (see github.com/itpplasma/neo-2).
+
+## python
 Contains python classes and functions to use the code.
 
-### template_scripts
+## template_scripts
 Contains matlab scripts that can be used as templates for certain balance code runs.
 
-### utility_scripts
+## utility_scripts
 Contains matlab and python scripts that make life easier.
 
-### matlab
+## matlab
 Contains the matlab interface classes for the ql-balance, KiLCA and GPEC code, as well as things like NEO-2 and the kisslinger code. Also, blueprints for e.g. balance_conf.nml can be found there.
 
-### Documentation
+## Documentation
 - Short introduction to the balance code framework.
 - List of variables contained in the balance configuration namelist balance_conf.nml.

@@ -21,11 +21,6 @@ subroutine evolvestep(timstep,eps)
     sparse_solve_method = 3
     !  x2=timstep
 
-    print *, "doing sparse example"
-    call sparse_example(1)
-    print *, "After sparse example"
-    stop
-
     if(iboutype.eq.1) then
         npoi=npoic-1
     else

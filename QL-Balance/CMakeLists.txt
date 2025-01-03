@@ -4,24 +4,19 @@ if(${CMAKE_VERSION} VERSION_LESS 3.12)
     cmake_policy(VERSION ${CMAKE_MAJOR_VERSION}.${CMAKE_MINOR_VERSION})
 endif()
 
-# require out-of-source builds
-file(TO_CMAKE_PATH "${PROJECT_BINARY_DIR}/CMakeLists.txt" LOC_PATH)
-if(EXISTS "${LOC_PATH}")
-    message(FATAL_ERROR "You cannot build in a source directory (or any directory with a CMakeLists.txt file. Please make a build subdirectory. Feel free to remove CMakeCache and CMakeFiles.")
-endif()
+set(CMAKE_DISABLE_IN_SOURCE_BUILD ON)
+set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${CMAKE_SOURCE_DIR}/cmake)
 
 project(ql-balance)
-enable_language(Fortran)
+enable_language(C Fortran)
 
 if(CMAKE_HOST_SYSTEM_NAME MATCHES "Darwin")
     # macOS specific configurations or commands
     message("Building on macOS")
     set(CMAKE_C_COMPILER clang)
     set(CMAKE_CXX_COMPILER clang++)
-    # flag does not work for macos for some reason
-    #set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -D__FLT_EVAL_METHOD__=0")
-    #add_compile_definitions(__FLT_EVAL_METHOD__=0)
-    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -L/usr/lib64 -lstdc++ -O3 -D DOUBLE_APPEND_FORTRAN")
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -O3 -D DOUBLE_APPEND_FORTRAN")
+    #set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -L/usr/lib64 -lstdc++ -O3 -D DOUBLE_APPEND_FORTRAN")
     set (CMAKE_CXX_OPT_FLAGS "")
     set (CMAKE_F_OPT_FLAGS "")
     set (CMAKE_CXX_OPT_FLAGS "")
@@ -34,8 +29,10 @@ elseif(CMAKE_HOST_SYSTEM_NAME MATCHES "Linux")
     #set(CMAKE_Fortran_COMPILER "gfortran")
     set(CMAKE_Fortran_COMPILER "mpif90")
 
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -L/usr/lib64 -lstdc++")
-    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -L/usr/lib64 -lstdc++ -O3 -D DOUBLE_APPEND_FORTRAN")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
+    #set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -L/usr/lib64 -lstdc++")
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -O3 -D DOUBLE_APPEND_FORTRAN")
+    #set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -L/usr/lib64 -lstdc++ -O3 -D DOUBLE_APPEND_FORTRAN")
     #set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -openmp -O3")
     set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -openmp")
 else()
@@ -43,8 +40,7 @@ else()
     message("Building on another operating system. Might not be implemented.")
 endif()
 
-
-set(CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/cmake" ${CMAKE_MODULE_PATH})
+include(FetchSuiteSparse)
 
 set (libs_root_path ${CMAKE_SOURCE_DIR}/../external)
 
@@ -69,7 +65,7 @@ include_directories ("${sundials_include_path_build}")
 
 set(balance_lib_fortran_sources
     ${full_balance_src}/ql-balance_mod.f90
-    ${full_balance_src}/sparse_mod.f90
+    #${full_balance_src}/sparse_mod.f90
     ${full_balance_src}/balanceBase.f90
     ${full_balance_src}/grid_mod.f90
     ${full_balance_src}/control_mod.f90
@@ -104,9 +100,17 @@ set(balance_lib_fortran_sources
 set(balance_lib_cpp_sources
     ${full_balance_src}/vel_integral.cpp
     ${full_balance_src}/cvodeint.cpp
-    ${libs_root_path}/SuiteSparse/UMFPACK/Demo/umf4_f77wrapper.c
-    ${libs_root_path}/SuiteSparse/UMFPACK/Demo/umf4_f77zwrapper.c
+    #${libs_root_path}/SuiteSparse/UMFPACK/Demo/umf4_f77wrapper.c
+    #${libs_root_path}/SuiteSparse/UMFPACK/Demo/umf4_f77zwrapper.c
     )
+
+add_library(sparse SHARED
+    ${full_balance_src}/sparse_mod.f90
+	${UMFPACK_WRAPPERS}
+)
+#set_source_files_properties(${libs_root_path}/SuiteSparse/UMFPACK/Demo/umf4_f77wrapper.c PROPERTIES COMPILE_FLAGS "-I${UMFPACK_INCLUDE_DIR} -DDLONG" GENERATED TRUE)
+#set_source_files_properties(${libs_root_path}/SuiteSparse/UMFPACK/Demo/umf4_f77zwrapper.c PROPERTIES COMPILE_FLAGS "-I${UMFPACK_INCLUDE_DIR} -DZLONG" GENERATED TRUE)
+#set_source_files_properties(${full_balance_src}/vel_integral.cpp PROPERTIES COMPILE_FLAGS "-I${UMFPACK_INCLUDE_DIR} -DZLONG" GENERATED TRUE)
 
 add_library(ql-balance_lib STATIC ${balance_lib_fortran_sources} ${balance_lib_cpp_sources})
 
@@ -117,7 +121,6 @@ set_target_properties(ql-balance_lib PROPERTIES LINKER_LANGUAGE Fortran
 
 
 target_link_libraries(ql-balance_lib PUBLIC "${KiLCA_lib_path}")
-
 target_include_directories(ql-balance_lib PUBLIC "${sundials_include_path}")
 target_include_directories(ql-balance_lib PUBLIC "${sundials_include_path_build}")
 target_include_directories(ql-balance_lib PUBLIC ${CMAKE_SOURCE_DIR}/../KiLCA/math/)
@@ -156,17 +159,27 @@ if("${MPI_FOUND}")
 endif()
 
 #UMFPACK from SuiteSparse
-set(SUITESPARSE_DIR "${libs_root_path}/SuiteSparse/")
-target_link_libraries(ql-balance_lib PUBLIC "${SUITESPARSE_DIR}/lib/libsuitesparseconfig.a")
-target_link_libraries(ql-balance_lib PUBLIC "${SUITESPARSE_DIR}/lib/libamd.a")
-target_link_libraries(ql-balance_lib PUBLIC "${SUITESPARSE_DIR}/lib/libumfpack.a")
-target_include_directories(ql-balance_lib PUBLIC "${SUITESPARSE_DIR}/include/suitesparse/")
+#set(SUITESPARSE_DIR "${libs_root_path}/SuiteSparse/")
+#set(UMFPACK_INCLUDE_DIR "${SUITESPARSE_DIR}/include/suitesparse")
+#set(UMFPACK_LIB_DIR "${SUITESPARSE_DIR}/lib")
+#target_link_libraries(ql-balance_lib PUBLIC "${UMFPACK_LIB_DIR}/libsuitesparseconfig.a")
+#target_link_libraries(ql-balance_lib PUBLIC "${UMFPACK_LIB_DIR}/libamd.a")
+#target_link_libraries(ql-balance_lib PUBLIC "${UMFPACK_LIB_DIR}/libumfpack.a")
+#target_include_directories(ql-balance_lib PUBLIC "${UMFPACK_INCLUDE_DIR}/")
+
+add_dependencies(sparse SuiteSparse)
+target_link_libraries(sparse PUBLIC SuiteSparse::suitesparse_config)
+target_link_libraries(sparse PUBLIC SuiteSparse::amd)
+target_link_libraries(sparse PUBLIC SuiteSparse::umfpack)
+target_include_directories(sparse PUBLIC "${UMFPACK_INCLUDE_DIR}")
 
 find_package(BLAS REQUIRED)
 if("${BLAS_FOUND}")
     message(" ====== BLAS was found! ======")
     target_link_libraries(ql-balance_lib PUBLIC "${BLAS_LIBRARIES}")
     target_include_directories(ql-balance_lib PUBLIC "${BLAS_INCLUDE_DIRS}")
+    target_link_libraries(sparse PUBLIC "${BLAS_LIBRARIES}")
+    target_include_directories(sparse PUBLIC "${BLAS_INCLUDE_DIRS}")
 endif()
 
 find_package(LAPACK REQUIRED)
@@ -190,7 +203,7 @@ target_sources(ql-balance_lib PUBLIC
     ${libs_root_path}/superlu/FORTRAN/c_fortran_dgssv.c)
 #target_include_directories(ql-balance_lib PUBLIC ${libs_root_path}/SuperLU_4.1/SRC/)
 
-target_link_libraries(ql-balance_lib PUBLIC slatec superlu cvode nvecserial gfortran)
+target_link_libraries(ql-balance_lib PUBLIC slatec superlu cvode nvecserial sparse)
 
 add_executable(ql-balance ${full_balance_src}/ql-balance.f90)
 target_link_libraries(ql-balance PUBLIC ql-balance_lib)

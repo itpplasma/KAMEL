@@ -2,6 +2,7 @@ import scipy as sp
 import scipy.interpolate
 from scipy.interpolate import CubicSpline
 from scipy.io import loadmat
+from scipy import integrate
 import numpy as np
 from libneo.boozer import get_boozer_transform, get_boozer_harmonics_divide_f_by_B0_1D_fft, get_B0_of_s_theta_boozer
 from mat4py import loadmat as mat4py_loadmat
@@ -127,10 +128,13 @@ class tMHD_current:
             print("Error: Jpar over B0 harmonics not available")
             return
 
-        self.current_m = np.zeros(len(m_mode),dtype=complex)
-        self.current_p = np.zeros(len(m_mode),dtype=complex)
+        self.current_m = np.zeros((len(m_mode), len(self.stor)-1),dtype=complex)
+        self.current_p = np.zeros((len(m_mode), len(self.stor)-1),dtype=complex)
         
         modes = np.concatenate((np.arange(0, self.nth/2), np.arange(-self.nth/2, 0)))
+
+        #import matplotlib.pyplot as plt
+        #plt.figure()
 
         for i, m in enumerate(m_mode):
             ind_p = np.where(modes == m)[0][0]
@@ -146,10 +150,13 @@ class tMHD_current:
             curr_dens_m = self.Jpar_over_B0_harm[:,ind_m]
             curr_dens_p = self.Jpar_over_B0_harm[:,ind_p]
 
-            self.current_m[i] = np.trapz(curr_dens_m * self.stor[:-1], self.stor[:-1]) * 2.0 * self.psi_tor[-1] * 2.0 * np.pi # the equil r q psi psi tor is the *small* psi not the large one which is used in the formulation of the integration, hence the factor 2pi
-            self.current_p[i] = np.trapz(curr_dens_p * self.stor[:-1], self.stor[:-1]) * 2.0 * self.psi_tor[-1] * 2.0 * np.pi 
+            #plt.plot(self.stor[:-1], np.abs(curr_dens_p), label=f'm = {m}')
+        
+            self.current_m[i,:] = integrate.cumtrapz(curr_dens_m * self.stor[:-1], self.stor[:-1], initial=0) * 2.0 * self.psi_tor[-1] * 2.0 * np.pi # the equil r q psi psi tor is the *small* psi not the large one which is used in the formulation of the integration, hence the factor 2pi
+            self.current_p[i,:] = integrate.cumtrapz(curr_dens_p * self.stor[:-1], self.stor[:-1], initial=0) * 2.0 * self.psi_tor[-1] * 2.0 * np.pi 
 
-        return [self.current_m, self.current_p]
+        # plt.show()
+        return self.current_m, self.current_p, self.stor
 
 
     def set_equil(self, equil_file, btor_file):

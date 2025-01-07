@@ -982,7 +982,8 @@ module time_evolution
         write(*,*) " "
         write(*,*) "+ + + + + + + + + + + + + + + + + + + + + + + + + + + + + + + + + + +"
         WRITE(*,'(A9,F10.4,A16,I4)') '  time = ', br_abs_time(timeIndex), " s, timeIndex = ", timeIndex
-        WRITE(*,'(A23,F10.5,A11,F6.2,A12)') '    Antenna_factor   = ', antenna_factor, " which are ", antenna_factor/antenna_factor_max*100, "% of the max"
+        WRITE(*,'(A23,F10.5,A11,F6.2,A12)') '    Antenna_factor   = ', antenna_factor, " which are ", &
+            antenna_factor/antenna_factor_max*100, "% of the max"
         WRITE(*,'(A23,F10.5,A2)') '    Br abs res * C_mn= ', br_abs(timeIndex), " G"
         WRITE(*,'(A23,F10.5,A2)') '    Br abs res       = ', br_abs(timeIndex)/SQRT(antenna_factor), " G"
         WRITE(*,'(A23,F10.3,A7)') '    Dqle22 res       = ', dqle22_res_time(timeIndex), " cm^2/s"

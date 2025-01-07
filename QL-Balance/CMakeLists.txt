@@ -153,8 +153,6 @@ target_link_libraries(ql-balance_lib PUBLIC hdf5::hdf5
                                             hdf5::hdf5_fortran
                                             hdf5::hdf5_hl_fortran)
 
-
-
 target_link_libraries(ql-balance_lib PUBLIC slatec cvode nvecserial sparse)
 
 add_executable(ql-balance.x ${full_balance_src}/ql-balance.f90)

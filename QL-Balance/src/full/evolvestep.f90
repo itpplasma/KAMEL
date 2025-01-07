@@ -2,8 +2,7 @@ subroutine evolvestep(timstep,eps)
 
     use grid_mod, only : nbaleqs,neqset,iboutype,npoic,y,dery
     use plasma_parameters, only: params
-    USE sparse_mod, ONLY : sparse_talk,sparse_solve_method,sparse_solve, &
-        column_full2pointer,remap_rc,sparse_solver_test, sparse_example, sparse2full
+    USE sparse_mod
     use matrix_mod
     use recstep_mod, only : timstep_arr
     use control_mod, only : debug_mode

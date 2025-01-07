@@ -18,7 +18,7 @@ elseif(CMAKE_HOST_SYSTEM_NAME MATCHES "Linux")
     set(CMAKE_C_COMPILER "gcc")
     set(CMAKE_CXX_COMPILER "g++")
     set(CMAKE_Fortran_COMPILER "mpif90")
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fopenmp")
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -O3 -D DOUBLE_APPEND_FORTRAN")
     set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -fopenmp")
 else()
@@ -86,10 +86,14 @@ set(balance_lib_cpp_sources
     ${full_balance_src}/cvodeint.cpp
     )
 
-add_library(sparse SHARED
+add_library(sparse STATIC
     ${full_balance_src}/sparse_mod.f90
 	${UMFPACK_WRAPPERS}
 )
+set_target_properties(sparse PROPERTIES LINKER_LANGUAGE Fortran
+    OUTPUT_NAME sparse
+    ARCHIVE_OUTPUT_DIRECTORY "${lib}"
+    Fortran_MODULE_DIRECTORY "${objs}")
 
 add_library(ql-balance_lib STATIC ${balance_lib_fortran_sources} ${balance_lib_cpp_sources})
 
@@ -106,6 +110,10 @@ target_include_directories(ql-balance_lib PUBLIC ${CMAKE_SOURCE_DIR}/../KiLCA/ma
 
 file(GLOB libslatec_files "${CMAKE_SOURCE_DIR}/../KiLCA/math/bessel/slatec/*.f")
 add_library (slatec STATIC "${libslatec_files}")
+set_target_properties(slatec PROPERTIES LINKER_LANGUAGE Fortran
+    OUTPUT_NAME slatec
+    ARCHIVE_OUTPUT_DIRECTORY "${lib}"
+    Fortran_MODULE_DIRECTORY "${objs}")
 
 set (cvode_lib_fullpath ${libs_root_path}/sundials/build/src/cvode/libsundials_cvode.a)
 add_library (cvode STATIC IMPORTED)
@@ -145,8 +153,11 @@ target_link_libraries(ql-balance_lib PUBLIC hdf5::hdf5
                                             hdf5::hdf5_fortran
                                             hdf5::hdf5_hl_fortran)
 
+
+
 target_link_libraries(ql-balance_lib PUBLIC slatec cvode nvecserial sparse)
 
 add_executable(ql-balance.x ${full_balance_src}/ql-balance.f90)
 target_link_libraries(ql-balance.x PUBLIC ql-balance_lib)
+
 

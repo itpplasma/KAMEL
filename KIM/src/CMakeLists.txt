@@ -105,10 +105,10 @@ if("${SUPERLU_FOUND}")
 endif()
 
 
-find_package(OpenMP_Fortran REQUIRED)
-IF(OPENMP_FORTRAN_FOUND)
-    SET(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} ${OpenMP_Fortran_FLAGS}")
-ENDIF()
+#find_package(OpenMP_Fortran REQUIRED)
+#IF(OPENMP_FORTRAN_FOUND)
+    #SET(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} ${OpenMP_Fortran_FLAGS}")
+#ENDIF()
 
 file(
     DOWNLOAD

@@ -121,10 +121,11 @@ include(${CMAKE_CURRENT_BINARY_DIR}/cmake/CPM.cmake)
 
 add_executable(KIM_exe kim_main.f90)
 set_target_properties(KIM_exe PROPERTIES 
-                        OUTPUT_NAME KIM_exe
+                        OUTPUT_NAME KIM.x
                         RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/")
-target_link_libraries(KIM_exe KIM_lib 
-                              lapack 
-                              cerf 
-                              slatec 
-                              ddeabm)
+target_link_libraries(KIM_exe 
+                            KIM_lib 
+                            lapack 
+                            cerf 
+                            slatec 
+                            ddeabm)

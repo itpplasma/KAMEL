@@ -104,21 +104,6 @@ if("${SUPERLU_FOUND}")
     message("${SUPERLU_INCLUDES}")
 endif()
 
-
-#find_package(OpenMP_Fortran REQUIRED)
-#IF(OPENMP_FORTRAN_FOUND)
-    #SET(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} ${OpenMP_Fortran_FLAGS}")
-#ENDIF()
-
-file(
-    DOWNLOAD
-    https://github.com/cpm-cmake/CPM.cmake/releases/download/v0.38.3/CPM.cmake
-    ${CMAKE_CURRENT_BINARY_DIR}/cmake/CPM.cmake
-    EXPECTED_HASH SHA256=cc155ce02e7945e7b8967ddfaff0b050e958a723ef7aad3766d368940cb15494
-)
-include(${CMAKE_CURRENT_BINARY_DIR}/cmake/CPM.cmake)
-
-
 add_executable(KIM_exe kim_main.f90)
 set_target_properties(KIM_exe PROPERTIES 
                         OUTPUT_NAME KIM.x

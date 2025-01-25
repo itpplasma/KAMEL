@@ -12,7 +12,7 @@ class KiLCA_antenna(InpOut):
         'ra': 70, # radius (cm) of the antenna location (must match zones.in)
         'width': 0.0, # current density layer width, if ==0 then use delta function
         'I0': 4.5e12, # current in the coils (statamp). 4.5e12 same as 1.5kA
-        'flab': [1e3,0], # complex frequency (1/c) in the laboratory frame
+        'flab': [1e0,0], # complex frequency (1/c) in the laboratory frame
         'nmod': 1,    # number of antenna modes to be used from modes.in file
         'flag_deb': 0, # flag for debugging
         'flag_eig': 0 # flag to solve eigenmode problem

@@ -11,7 +11,7 @@ import shutil
 class fieldpy:
 
     field_divB0_inp = {}
-    path_to_fourier_modes_exe = os.path.dirname(__file__) + '/../../matlab/fourier/'
+    path_to_fourier_modes_exe = os.path.dirname(__file__) + '/../../PreProc/fourier/'
     
     def __init__(self, gfile, pfile, convex_file, fluxdata_path):
         '''

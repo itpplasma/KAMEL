@@ -212,7 +212,7 @@ class Profile_Processor:
     def extend_q_profile(self):
 
         self.load_profiles(self.profile_extended_path)
-        q_ode = -np.loadtxt(self.profile_r_eff_path + 'q.dat')[:,1]
+        q_ode = np.loadtxt(self.profile_r_eff_path + 'q.dat')[:,1]
         r_ode = np.loadtxt(self.profile_r_eff_path + 'q.dat')[:,0]
         self.r_sep = r_ode[-1]
 
@@ -229,7 +229,7 @@ class Profile_Processor:
         
         p_tot = ne_ode * (Te_ode + Ti_ode) * self.kB * self.eVK
         
-        g_ode = 1.0 + (r_ode / -q_ode / self.R0)**2
+        g_ode = 1.0 + (r_ode / q_ode / self.R0)**2
         
         dp_tot = np.gradient(p_tot, r_ode)
         
@@ -345,7 +345,7 @@ class Profile_Processor:
 
         #self.vth = self.k * self.v_hat
 
-        self.Vpol = self.k * self.c * self.dTi / (self.echarge* self.B)
+        self.Vpol = self.k * self.c * self.dTi / (self.echarge* self.B * np.sign(self.Btor))
         if self.smooth_Vpol_to_zero:
             self.Vpol_ext = Profile_Extender('Vpol', self.profile_extended_path + 'Vth.dat', 1.0)
             self.Vpol_ext.r_eff_in = self.r_eff
@@ -417,10 +417,10 @@ class Profile_Processor:
     def solve_cyl_equilibrium(self):
 
         r_ode = self.r_eff
-        q_ode = - self.q
+        q_ode = self.q # was -self.q
         p_tot = self.ne * (self.Te + self.Ti) * self.kB * self.eVK
 
-        g_ode = 1.0 + (r_ode / -q_ode / self.R0)**2
+        g_ode = 1.0 + (r_ode / q_ode / self.R0)**2
 
         dp_tot = np.gradient(p_tot, r_ode)
 

@@ -345,7 +345,7 @@ class Profile_Processor:
 
         #self.vth = self.k * self.v_hat
 
-        self.Vpol = self.k * self.c * self.dTi / (self.echarge* self.B * np.sign(self.Btor))
+        self.Vpol = self.k * self.c * self.Bz * self.dTi/ (self.echarge* self.B**2)
         if self.smooth_Vpol_to_zero:
             self.Vpol_ext = Profile_Extender('Vpol', self.profile_extended_path + 'Vth.dat', 1.0)
             self.Vpol_ext.r_eff_in = self.r_eff
@@ -355,7 +355,10 @@ class Profile_Processor:
             self.Vpol_ext.process(self.r_eff, self.device.r_eff_wall, 0.0, 'exp')
             self.Vpol = self.Vpol_ext.y_out
 
-        self.Er = self.Ti * self.eV_to_erg * self.dne / (self.echarge * self.ne) + (1.0 - self.k) * self.dTi / self.echarge + self.r_eff * self.B * self.Vz / (self.c * self.q * self.R0)
+        self.Er = self.Ti * self.eV_to_erg * self.dne / (self.echarge * self.ne) + (1.0 - self.k) * self.dTi / self.echarge \
+            + self.r_eff * self.B * self.Vz / (self.c * self.q * self.R0)
+        print(np.sign(self.q[0]))
+        print(np.sign(self.B[0]))
         if self.smooth_Er_to_zero:
             self.Er_ext = Profile_Extender('Er', self.profile_extended_path + 'Er.dat', 1.0)
             self.Er_ext.r_eff_in = self.r_eff

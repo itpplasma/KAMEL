@@ -152,9 +152,6 @@ subroutine calc_geometric_parameter_profiles
         cneo(ipoi)=(rtor/rb(ipoi))**1.5d0*qsafb(ipoi)**2*cneo_0
         sqg_bthet_overc(ipoi)=btor*rb(ipoi)/qsafb(ipoi)/c
     enddo
-    print *, sqg_bthet_overc
-    print *, btor
-    stop "testing"
 
 end subroutine calc_geometric_parameter_profiles
 

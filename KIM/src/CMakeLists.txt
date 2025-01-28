@@ -63,6 +63,9 @@ set(external_zeal ${CMAKE_SOURCE_DIR}/../external/Zeal/zeal_input.f90
                 ${CMAKE_SOURCE_DIR}/../external/Zeal/error.f90
                 ${CMAKE_SOURCE_DIR}/../external/Zeal/zeal.f90
                 ${CMAKE_SOURCE_DIR}/../external/Zeal/zeros.f90
+                ${CMAKE_SOURCE_DIR}/../external/Zeal/dqag.f #quadpack
+                ${CMAKE_SOURCE_DIR}/../external/Zeal/dqagx.f # quadpack
+                ${CMAKE_SOURCE_DIR}/../external/Zeal/dlamch.f # quadpack
                 ${CMAKE_SOURCE_DIR}/../external/Zeal/prec.f90)
 
 set(CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/cmake" ${CMAKE_MODULE_PATH})
@@ -78,6 +81,9 @@ add_library(KIM_lib STATIC "${KIM_setup}"
                            "${KIM_dispersion}"
                            "${external_zeal}"
 )
+set_target_properties(KIM_lib PROPERTIES 
+                        OUTPUT_NAME KIM_lib.a
+                        ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib/")
 
 find_package(LAPACK REQUIRED)
 if("${LAPACK_FOUND}")

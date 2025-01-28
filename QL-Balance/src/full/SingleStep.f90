@@ -61,6 +61,7 @@ module singleStep
             end if
             call init_background_profiles
             CALL write_initial_parameters
+            call calc_geometric_parameter_profiles
             !call alloc_hold_parameters
         end if
 

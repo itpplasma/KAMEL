@@ -52,10 +52,18 @@ set(KIM_background_equilibrium background_equilibrium/calculate_backs.f90
                                background_equilibrium/back_quants_mod.f90
 )
 
-set(external_zeal external/Zeal/zeal_input.f90
-                  external/Zeal/zeal.f90
-                  external/Zeal/zeros.f90
-                  external/Zeal/prec.f90)
+set(KIM_dispersion dispersion/fun_input.f90
+)
+
+set(external_zeal ${CMAKE_SOURCE_DIR}/../external/Zeal/zeal_input.f90
+                ${CMAKE_SOURCE_DIR}/../external/Zeal/integr_input.f90
+                ${CMAKE_SOURCE_DIR}/../external/Zeal/split.f90
+                ${CMAKE_SOURCE_DIR}/../external/Zeal/quad.f90
+                ${CMAKE_SOURCE_DIR}/../external/Zeal/refine.f90
+                ${CMAKE_SOURCE_DIR}/../external/Zeal/error.f90
+                ${CMAKE_SOURCE_DIR}/../external/Zeal/zeal.f90
+                ${CMAKE_SOURCE_DIR}/../external/Zeal/zeros.f90
+                ${CMAKE_SOURCE_DIR}/../external/Zeal/prec.f90)
 
 set(CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/cmake" ${CMAKE_MODULE_PATH})
 
@@ -67,6 +75,8 @@ add_library(KIM_lib STATIC "${KIM_setup}"
                            "${KIM_kernels}"
                            "${KIM_background_equilibrium}"
                            "${KIM_math}"
+                           "${KIM_dispersion}"
+                           "${external_zeal}"
 )
 
 find_package(LAPACK REQUIRED)

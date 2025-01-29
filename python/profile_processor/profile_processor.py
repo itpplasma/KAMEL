@@ -12,7 +12,7 @@ from neo2_for_Er import neo2_for_Er
 
 from .profile_extender import Profile_Extender
 
-from scipy.integrate import solve_ivp, cumtrapz, odeint
+from scipy.integrate import solve_ivp, cumulative_trapezoid, odeint
 from scipy.interpolate import CubicSpline
 
 
@@ -280,8 +280,8 @@ class Profile_Processor:
         self.Jz.process(r_ode, self.device.r_eff_wall, self.Jth_inf, 'ee')
         self.Jz.write()
 
-        self.Bth_out = 4 * np.pi / self.c * cumtrapz(self.Jz.r_out * self.Jz.y_out, self.Jz.r_out, initial=0.0) / self.Jz.r_out + Bth_ode[0] * r_ode[0] / self.Jz.r_out
-        self.Bz_out = -4.0 * np.pi / self.c *cumtrapz(self.Jth.y_out, self.Jth.r_out, initial=0.0) + Bz_ode[0]
+        self.Bth_out = 4 * np.pi / self.c * cumulative_trapezoid(self.Jz.r_out * self.Jz.y_out, self.Jz.r_out, initial=0.0) / self.Jz.r_out + Bth_ode[0] * r_ode[0] / self.Jz.r_out
+        self.Bz_out = -4.0 * np.pi / self.c *cumulative_trapezoid(self.Jth.y_out, self.Jth.r_out, initial=0.0) + Bz_ode[0]
         self.B0_out = np.sqrt(self.Bth_out**2 + self.Bz_out**2)
         
         np.savetxt(self.profile_extended_path + 'B.dat', np.column_stack((self.r_eff, self.B0_out)))
@@ -357,8 +357,7 @@ class Profile_Processor:
 
         self.Er = self.Ti * self.eV_to_erg * self.dne / (self.echarge * self.ne) + (1.0 - self.k) * self.dTi / self.echarge \
             + self.r_eff * self.B * self.Vz / (self.c * self.q * self.R0)
-        print(np.sign(self.q[0]))
-        print(np.sign(self.B[0]))
+        
         if self.smooth_Er_to_zero:
             self.Er_ext = Profile_Extender('Er', self.profile_extended_path + 'Er.dat', 1.0)
             self.Er_ext.r_eff_in = self.r_eff

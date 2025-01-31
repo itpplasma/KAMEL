@@ -5,7 +5,8 @@
     hdf5_output = .false.
     fdebug = 1
     fstatus = 1
-    number_of_ion_species = 1
+    number_of_ion_species = 1,
+    type_of_run = "WKB_dispersion"
 /
 
 &kim_setup
@@ -19,6 +20,7 @@
     omega = 0.0
     spline_base = 1
     cut_off_fac = 1.0
+    kr_cut_off_fac = 10.0
 /
 
 &kim_grid

@@ -3,21 +3,20 @@ import os
 import re
 import shutil
 import numpy as np
+CODE = os.environ['CODE']
 
-class kimpy:
+class KIMpy:
 
-    kim_config_nml = os.path.dirname(__file__) + '/../nmls/KIM_config.nml'
-    kim_exe_path = os.path.dirname(__file__) + '/../KIM_exe'
+    kim_config_nml = CODE + 'KAMEL/KIM/nmls/KIM_config.nml'
+    kim_exe_path = CODE + 'KAMEL/KIM/build/KIM.x'
     omp_num_threads = 6
 
     def __init__(self, runpath):
 
         self.runpath = runpath
 
-        self.command = './KIM_exe'
-        if os.path.exists(self.runpath + 'KIM_exe'):
-            os.remove(self.runpath + 'KIM_exe')
-        shutil.copy2(self.kim_exe_path, self.runpath + 'KIM_exe')
+        self.command = './KIM.x'
+        os.system('ln -sf ' + self.kim_exe_path + ' '+ self.runpath + 'KIM.x')
         
         shutil.copy2(self.kim_config_nml, self.runpath + 'KIM_config.nml')
         self.kim_config_nml = self.runpath + 'KIM_config.nml'
@@ -64,7 +63,6 @@ class kimpy:
         np.savetxt(self.profile_path + 'Vz.dat', np.column_stack((r, Vz)))
         np.savetxt(self.profile_path + 'Er.dat', np.column_stack((r, Er)))
         np.savetxt(self.profile_path + 'q.dat', np.column_stack((r, q)))
-                   
 
     def take_existing_profiles(self, from_path):
         
@@ -79,6 +77,3 @@ class kimpy:
         except:
             print("No profiles directory found in runpath.")
         os.symlink(from_path, self.runpath + 'profiles/') 
-
-
-   

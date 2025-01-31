@@ -5,7 +5,8 @@
     hdf5_output = .false.
     fdebug = 1
     fstatus = 1
-    number_of_ion_species = 1
+    number_of_ion_species = 1,
+    type_of_run = "WKB_dispersion"
 /
 
 &kim_setup

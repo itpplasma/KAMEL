@@ -258,6 +258,7 @@ module grid
             endif
             ipbeg(ipoib) = ipb
             ipend(ipoib) = ipe
+            print *, ipoib, ipb, ipe
             call plag_coeff(npoi_der, nder, this%xb(ipoib), this%xc(ipb:ipe), coef)
 
             this%deriv_coef(:, ipoib) = coef(1,:)

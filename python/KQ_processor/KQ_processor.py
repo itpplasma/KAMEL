@@ -45,7 +45,7 @@ class KQ_processor:
         print('Processing equilibrium...')
 
         self.fp = fieldpy(self.gfile, self.pfile, self.convex_wall, self.flux_data)
-        self.fp.write_field_divB0_inp(self.fp.path_to_fourier_modes_exe + 'template_field_divB0.inp', self.fp.path_to_fourier_modes_exe + 'field_divB0.inp')
+        self.fp.write_field_divB0_inp(self.fp.path_to_field_divB0_inp + 'template_field_divB0.inp', self.flux_data + 'field_divB0.inp')
         self.fp.run_fourier_modes() 
 
     def process_profiles(self, prof_path, skip=True):

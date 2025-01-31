@@ -6,12 +6,15 @@ from change_opts import change_opts_fieldpy
 from save_file import save_file
 import subprocess
 import os
+CODE = os.environ['CODE']
 import shutil
 
 class fieldpy:
 
     field_divB0_inp = {}
-    path_to_fourier_modes_exe = os.path.dirname(__file__) + '/../../PreProc/fourier/'
+    path_to_fourier_modes_exe = CODE + 'KAMEL/PreProc/fourier/build/'
+    path_to_field_divB0_inp = CODE + 'KAMEL/PreProc/fourier/inp/'
+    path_to_fouriermodes_inp = CODE + 'KAMEL/PreProc/fourier/inp/fouriermodes.inp'
     
     def __init__(self, gfile, pfile, convex_file, fluxdata_path):
         '''
@@ -62,7 +65,10 @@ class fieldpy:
         
         try:
             wd = os.getcwd()
-            os.chdir(self.path_to_fourier_modes_exe)
+            os.chdir(self.fluxdata_path)
+            os.system('cp ' + self.path_to_fouriermodes_inp + ' ./fouriermodes.inp')
+            os.system('ln -sf ' + self.path_to_fourier_modes_exe + 'fouriermodes.x ./fouriermodes.x')
+            
             process = subprocess.Popen('./fouriermodes.x', stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, bufsize=1, universal_newlines=True)
 
             for line in iter(process.stdout.readline, ''):

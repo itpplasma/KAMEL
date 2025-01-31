@@ -9,6 +9,4 @@ set_target_properties(test_zeal PROPERTIES
 target_link_libraries(test_zeal PUBLIC KIM_lib)
 target_include_directories(test_zeal PUBLIC "${CMAKE_BINARY_DIR}/src")
 
-message(" ====== KIM_lib: ${KIM_lib} ======")
-
 add_test(NAME test_zeal COMMAND "${CMAKE_BINARY_DIR}/tests/test_zeal.x")

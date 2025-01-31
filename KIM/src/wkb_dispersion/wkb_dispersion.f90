@@ -6,8 +6,8 @@ module WKB_dispersion
 
     type, extends(kim_t) :: WKB_dispersion_t
         contains
-            procedure :: init_kim => init_wkb_dispersion
-            procedure :: run_kim => run_wkb_dispersion
+            procedure :: init => init_wkb_dispersion
+            procedure :: run => run_wkb_dispersion
     end type WKB_dispersion_t
 
     contains
@@ -19,6 +19,8 @@ module WKB_dispersion
         class(WKB_dispersion_t), intent(inout) :: this
 
         this%run_type = "WKB_dispersion"
+
+        call generate_grids
 
     end subroutine
 

@@ -20,6 +20,7 @@
     omega = 0.0
     spline_base = 1
     cut_off_fac = 1.0
+    kr_cut_off_fac = 10.0
 /
 
 &kim_grid

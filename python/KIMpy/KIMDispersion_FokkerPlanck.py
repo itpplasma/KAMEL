@@ -1,7 +1,6 @@
-from KIMDispersionEquation import KIMDispersionEquation
-from Bessel_calculation import calc_needed_bessel_of_mphi
+from .KIMDispersionEquation import KIMDispersionEquation
+from .Bessel_calculation import calc_needed_bessel_of_mphi
 import numpy as np
-
 
 class KIMDispersion_FokkerPlanck(KIMDispersionEquation):
     

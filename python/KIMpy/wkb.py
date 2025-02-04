@@ -3,7 +3,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 from plasmapy.dispersion import plasma_dispersion_func as plasma_disp
-from wkb_grid import WKB_Grid
+from .wkb_grid import WKB_Grid
 
 import os
 import sys
@@ -15,18 +15,17 @@ import jax.numpy as jnp
 import h5py
 import logging
 
-from Bessel_calculation import calc_needed_bessel_of_mphi
-from KIMDispersion_Horton import KIMDispersion_Horton
-from KIMDispersion_Krook import KIMDispersion_Krook
-from KIMDispersion_FokkerPlanck import KIMDispersion_FokkerPlanck
-from DispersionEquationFactory import *
+from .Bessel_calculation import calc_needed_bessel_of_mphi
+from .KIMDispersion_Horton import KIMDispersion_Horton
+from .KIMDispersion_Krook import KIMDispersion_Krook
+from .KIMDispersion_FokkerPlanck import KIMDispersion_FokkerPlanck
+from .DispersionEquationFactory import *
 
 CODE = os.environ["CODE"]
 sys.path.append(os.path.join(CODE, 'KAMEL/python/susc_functions/'))
 import susc_funcs
 
-sys.path.append(os.path.join(CODE, 'KAMEL/KIM/python/'))
-from constants import *
+from .constants import *
 
 class KIM_WKB():
     """
@@ -589,11 +588,11 @@ def test_FokkerPlanck(mode, collisions):
 
     kwkb = KIM_WKB(species=specs[0], spec_mass=spec_mass[0], spec_charge_num=spec_charge_num[0])
     kwkb.contour_limit = 10 # 50 works for H, 20 for D
-    kwkb.prof_path = './parab_profiles/'
+    kwkb.prof_path = '/Users/markusmarkl/plasma/6codes/0projects/2025-test-kim/fort_wkb/runpath/profiles/'
     mphi_max = 0
 
-    kwkb.options['n_points'] = 150
-    kwkb.options['number_of_roots_to_find'] = 8
+    kwkb.options['n_points'] = 50
+    kwkb.options['number_of_roots_to_find'] = 4
     kwkb.options['max_cyclotron_harmonic'] = mphi_max
     kwkb.options['der'] = False
     kwkb.options['log'] = False

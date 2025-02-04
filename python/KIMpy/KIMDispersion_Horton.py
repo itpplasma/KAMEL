@@ -1,9 +1,9 @@
-from KIMDispersionEquation import KIMDispersionEquation
+from .KIMDispersionEquation import KIMDispersionEquation
 from plasmapy.dispersion import plasma_dispersion_func as plasma_disp
 import os
 import sys
 sys.path.append(os.path.join(os.path.dirname(__file__), '../'))
-from constants import *
+from .constants import *
 
 class KIMDispersion_Horton(KIMDispersionEquation):
     

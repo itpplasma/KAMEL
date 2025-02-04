@@ -54,19 +54,18 @@ module WKB_dispersion
         output = .true.
         if (output) then
             print *
-            print *
             print *, 'Total number of zeros = ', totalnumber
-            print *
             print *, 'Number of mutually distinct zeros = ', distinctnumber
-            print *
             print *, 'Approximations for the zeros and verification:'
             print *, zeros
+            print *, size(zeros)
+            print *, refinednumber
+            print *, size(refinement_ok)
             do j = 1, distinctnumber
                 print *, "zero No. ", j
                 print *, 'z = ',real(zeros(j)), aimag(zeros(j)), &
                         'f(z) = ',real(fzeros(j)), aimag(fzeros(j)), &
                         multiplicities(j)
-                if (.not. refinement_ok(j)) print *, 'refinement not succesful'
             end do
         end if
 
@@ -86,9 +85,8 @@ SUBROUTINE FDF_WKB(Z,F,DF)
     double complex, intent(in)   :: Z
     double complex, intent(out)  :: F, DF
 
-    F = EXP(3.0*Z) + 2.0d0*Z*COS(Z) - 1.0d0
-    DF = 3.0*EXP(3.0*Z) + 2.0d0*COS(Z) - 2.0d0*Z*SIN(Z)
-
+    F = Z**3.0d0 - 5.0d0 * Z + 4.0d0!EXP(3.0*Z) + 2.0d0*Z*COS(Z) - 1.0d0
+    DF = 3.0d0 * Z**2 - 5.0d0!3.0*EXP(3.0*Z) + 2.0d0*COS(Z) - 2.0d0*Z*SIN(Z)
 !
 !  Other examples
 !

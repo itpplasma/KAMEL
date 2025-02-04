@@ -81,7 +81,6 @@ module grid
         end if
 
         hrmax = (this%max_val - this%min_val) / (this%npts_b)
-        print *, this%name, " hrmax = ",hrmax
 
         this%npts_b = 1
         x_current = this%min_val
@@ -95,8 +94,6 @@ module grid
         enddo
 
         this%npts_c = this%npts_b - 1
-        print *, this%name, " npts_b = ",this%npts_b
-        print *, this%name, " npts_c = ",this%npts_c
 
     end subroutine
 

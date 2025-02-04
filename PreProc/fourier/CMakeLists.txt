@@ -22,12 +22,36 @@ set(lib ${PROJECT_BINARY_DIR}/lib/)
 
 set(CMAKE_Fortran_MODULE_DIRECTORY "${objs}")
 
+file(DOWNLOAD https://raw.githubusercontent.com/itpplasma/libneo/da0a410ecb16e693080fcfd65a26b720d4fbe830/src/magfie/field_divB0.f90
+    ${CMAKE_SOURCE_DIR}/src/field_divB0_libneo.f90)
+file(DOWNLOAD https://raw.githubusercontent.com/itpplasma/libneo/da0a410ecb16e693080fcfd65a26b720d4fbe830/src/magfie/inthecore_mod.f90
+    ${CMAKE_SOURCE_DIR}/src/inthecore_mod_libneo.f90)
+file(DOWNLOAD https://raw.githubusercontent.com/itpplasma/libneo/da0a410ecb16e693080fcfd65a26b720d4fbe830/src/libneo_kinds.f90
+    ${CMAKE_SOURCE_DIR}/src/libneo_kinds.f90)
+file(DOWNLOAD https://raw.githubusercontent.com/itpplasma/libneo/da0a410ecb16e693080fcfd65a26b720d4fbe830/src/magfie/input_files.f90
+    ${CMAKE_SOURCE_DIR}/src/input_files_libneo.f90)
+file(DOWNLOAD https://raw.githubusercontent.com/itpplasma/libneo/da0a410ecb16e693080fcfd65a26b720d4fbe830/src/magfie/field_eq_mod.f90
+    ${CMAKE_SOURCE_DIR}/src/field_eq_mod_libneo.f90)
+file(DOWNLOAD https://raw.githubusercontent.com/itpplasma/libneo/da0a410ecb16e693080fcfd65a26b720d4fbe830/src/magfie/field_c_mod.f90
+    ${CMAKE_SOURCE_DIR}/src/field_c_mod_libneo.f90)
+file(DOWNLOAD https://raw.githubusercontent.com/itpplasma/libneo/da0a410ecb16e693080fcfd65a26b720d4fbe830/src/magfie/field_mod.f90
+    ${CMAKE_SOURCE_DIR}/src/field_mod_libneo.f90)
+file(DOWNLOAD https://raw.githubusercontent.com/itpplasma/libneo/da0a410ecb16e693080fcfd65a26b720d4fbe830/src/math_constants.f90
+    ${CMAKE_SOURCE_DIR}/src/math_constants_libneo.f90)
+
 set(source_files 
     ${src}/rhs_flt.f90
     ${src}/bdivfree.f90
     ${src}/change_q_sign.f90
     ${src}/checksizeff.f90
-    ${src}/field_divB0.f90
+    ${src}/field_divB0_libneo.f90
+    ${src}/inthecore_mod_libneo.f90
+    ${src}/math_constants_libneo.f90
+    ${src}/input_files_libneo.f90
+    ${src}/field_eq_mod_libneo.f90
+    ${src}/field_mod_libneo.f90
+    ${src}/field_c_mod_libneo.f90
+    ${src}/libneo_kinds.f90
     ${src}/mag.f90
     ${src}/reload_amns.f90
     ${src}/rk4dc.f90

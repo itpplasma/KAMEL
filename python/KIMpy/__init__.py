@@ -2,6 +2,7 @@ from .kimpy import *
 from .constants import *
 from .wkb_grid import *
 from .wkb import *
+from .wkb_auxiliary import *
 from .Bessel_calculation import *
 from .KIMDispersion_Horton import *
 from .KIMDispersion_Krook import *

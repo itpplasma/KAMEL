@@ -26,6 +26,9 @@
 !
 !  Called routines:  field_eq
 !
+      use field_sub
+
+
       double precision x,bmod,sqrtg,bder,hcovar,hctrvr,hcoder,hctder
       double precision hr,hf,hz
 !

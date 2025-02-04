@@ -149,6 +149,7 @@ class KIM_WKB():
         print(f"Calculating dispersion relation for mode {mode} and collision model {collisions}")
 
         idx = int(self.general_dat['prof_length'] * self.options['r_per'])
+
         idx_range = np.arange(self.options['r_range_start'], self.general_dat['prof_length'])
 
         res = []
@@ -159,8 +160,8 @@ class KIM_WKB():
         if self.options['log']:
             logging.basicConfig(level=logging.INFO)
 
-        #with ProcessPoolExecutor(max_workers=num_cores) as executor:  
-        with ThreadPoolExecutor(max_workers=num_cores) as executor:  
+        with ProcessPoolExecutor(max_workers=num_cores) as executor:  
+        #with ThreadPoolExecutor(max_workers=num_cores) as executor:  
             future_to_r = {executor.submit(self.process_index, r, self.general_dat['r'][int(r)], contour): int(r) for r in idx_range}
 
             for future in as_completed(future_to_r):

@@ -1,1 +1,3 @@
 build
+src/*_libneo.f90
+src/libneo*

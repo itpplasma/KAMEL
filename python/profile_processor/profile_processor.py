@@ -292,9 +292,9 @@ class Profile_Processor:
         q_out = self.r_eff / self.R0 * self.Bz_out / self.Bth_out
         self.qp = Profile_Extender('q', self.profile_extended_path + 'q.dat', 1.0)
         self.qp.r_out = self.r_eff
-        self.qp.y_out = q_out
+        self.qp.y_out = -q_out # minus sign is required for transition of cocos from 3 (EFIT g-file) to 7 (KiLCA: r, theta, z)
         self.qp.write()
-        self.q = q_out
+        self.q = -q_out
         
 
     def determine_anomalous_diff_coeff(self, path):

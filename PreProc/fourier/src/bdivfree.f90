@@ -58,6 +58,7 @@
              br,bp,bz)
 !
   use bdivfree_mod
+  use field_sub
 !
   implicit none
 !
@@ -1527,6 +1528,8 @@
 ! Computes the field and its derivatives using central differences 
 ! for the field components computed by "field_fourier".
 !
+  use field_sub
+
   implicit none
 !
   double precision, parameter :: eps=1.d-7
@@ -1663,6 +1666,7 @@
 !
   use inthecore_mod, only : psi_sep,psi_cut
   use theta_rz_mod,  only : psiaxis
+  use field_sub
 !
   implicit none
 !

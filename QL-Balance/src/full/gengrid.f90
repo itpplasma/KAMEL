@@ -263,19 +263,18 @@ subroutine prepare_resonances
     k=1
     jj=1
     read(iunit_res,*) a
-    m=nint(real(a))
+    m=-abs(nint(real(a)))
     n=abs(nint(imag(a)))
     m_a(k)=m
     n_a(k)=n
     m_aa(jj)=m
     n_aa(jj)=n
-    r_res(k)=-dfloat(m)/dfloat(n)
+    r_res(k)=abs(dfloat(m)/dfloat(n))
     outer: do i=2,numres
         read(iunit_res,*) a
         m=-abs(nint(real(a)))
         n=abs(nint(imag(a)))
-        qres=-dfloat(m)/dfloat(n)
-        print *, qres
+        qres=abs(dfloat(m)/dfloat(n))
         !check for existence of resonant point:
         if(qres.lt.qmin.or.qres.gt.qmax) cycle
         !check for repeated resonance radii:
@@ -306,13 +305,8 @@ subroutine prepare_resonances
     if (irank .eq. 0 ) then
         if (debug_mode) print *,'Debug: gengrid: number of resonance points = ',numres
         do i=1,numres
-          if (r_res(i) .lt. r(1) .or. r_res(i) .gt. r(size(r))) then
-              write(*,*) "m = ", m_a(i), " n = ", n_a(i), " sign(q) = ", sign(1.d0,r_res(i))
-              stop "!!! NO resonant surface found !!! Check sign of q profile and poloidal mode"
-          else
-              write(*,"(A18,I4,A1,I4,A29,F6.3,A3)") 'For mode (m,n) = (',m,',',n,&
-              '), the resonant radius is at ', r_res(i), ' cm'
-          end if
+          write(*,"(A18,I4,A1,I4,A29,F6.3,A3)") 'For mode (m,n) = (',m,',',n,&
+          '), the resonant radius is at ', r_res(i), ' cm'
         end do
     endif
 

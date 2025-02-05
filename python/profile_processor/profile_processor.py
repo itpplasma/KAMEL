@@ -357,7 +357,7 @@ class Profile_Processor:
             self.Vpol = self.Vpol_ext.y_out
 
         self.Er = self.Ti * self.eV_to_erg * self.dne / (self.echarge * self.ne) + (1.0 - self.k) * self.dTi / self.echarge \
-            + self.r_eff * self.B * self.Vz / (self.c * self.q * self.R0)
+            - self.r_eff * self.B * self.Vz / (self.c * self.q * self.R0)
         
         if self.smooth_Er_to_zero:
             self.Er_ext = Profile_Extender('Er', self.profile_extended_path + 'Er.dat', 1.0)
@@ -420,7 +420,7 @@ class Profile_Processor:
     def solve_cyl_equilibrium(self):
 
         r_ode = self.r_eff
-        q_ode = self.q # was -self.q
+        q_ode = -self.q
         p_tot = self.ne * (self.Te + self.Ti) * self.kB * self.eVK
 
         g_ode = 1.0 + (r_ode / q_ode / self.R0)**2

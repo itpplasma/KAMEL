@@ -320,6 +320,7 @@ class Profile_Processor:
 
         if not os.path.exists(self.profile_r_eff_path + 'kprof/k.dat') or recalc:
             # don't calculate k if it exists and if the recalculation is not needed
+            print("Calculating k profile with NEO-2")
             self.neo2 = neo2_for_Er(self.save_path, self.flux_data + 'equil_r_q_psi.dat')
             self.neo2.run_neo2(self.gfile, self.convex_wall, self.flux_data)
             self.collect_k_profile(self.save_path + 'kprof/', self.save_path + 'kprof/')

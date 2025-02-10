@@ -11,8 +11,6 @@ import sys
 from scipy.integrate import solve_ivp
 from scipy.special import iv as Bessel
 from jax import grad
-import jax
-import jax.numpy as jnp
 import h5py
 import logging
 
@@ -83,7 +81,7 @@ class KIM_WKB():
                'omegaOfk': False,
                'kOfr': True,
                'mode': 'KIM',
-               'int_method': 'quad',
+               'int_method': 'quad', # or romb
                'der': False,
                'save': True,
                'log': False,
@@ -155,17 +153,19 @@ class KIM_WKB():
         res = []
         r_used = []
         res_sorted = []
-        contour=cx.Rectangle(x_range=[-self.contour_limit,self.contour_limit], y_range=[-self.contour_limit,self.contour_limit])
+        contour = cx.Rectangle(x_range=[-self.contour_limit,self.contour_limit], y_range=[-self.contour_limit,self.contour_limit])
 
         if self.options['log']:
             logging.basicConfig(level=logging.INFO)
 
-        with ProcessPoolExecutor(max_workers=num_cores) as executor:  
-        #with ThreadPoolExecutor(max_workers=num_cores) as executor:  
+        #with ProcessPoolExecutor(max_workers=num_cores) as executor:  
+        with ThreadPoolExecutor(max_workers=num_cores) as executor:  
             future_to_r = {executor.submit(self.process_index, r, self.general_dat['r'][int(r)], contour): int(r) for r in idx_range}
 
             for future in as_completed(future_to_r):
                 result = future.result()
+                print("Future : ", future)
+                print("Result: ", result)
                 if result is not None:
                     r, roots, r_value = result
                     res.append(roots)
@@ -182,6 +182,8 @@ class KIM_WKB():
             #r_used.append(self.general_dat['r'][int(r)])
             ##res_sorted.append(sorted_roots)
 
+        print(res)
+        print(r_used)
         self.write_roots_to_h5(res, r_used)
         self.r_found, self.k_r1, self.k_r2 = self.store_roots_in_variables(res, r_used)
 
@@ -370,7 +372,6 @@ class KIM_WKB():
         
     def find_roots(self, r_ind, contour):
         equation_k = lambda k: self.calc_dispersion_equation_for_kr_values_at_r(k, r_ind)
-        iterations=0
         roots_number = 0
         search_scale_bigger = 2.0
         search_scale_smaller = 1.5
@@ -395,7 +396,8 @@ class KIM_WKB():
             roots = contour.roots(equation_k, df=lambda k: complex(grad(equation_k, holomorphic=True)(k)), guess_roots_symmetry=lambda z: [-z],verbose=True)
         else:
             try:
-                roots = contour.roots(equation_k,guess_roots_symmetry=lambda z: [-z],int_method=self.options['int_method'],verbose=False,int_abs_tol=0.1,root_err_tol=1e-3)
+                roots = contour.roots(equation_k, guess_roots_symmetry = lambda z: [-z], int_method=self.options['int_method'], \
+                    verbose = False, int_abs_tol = 0.1, root_err_tol = 1e-3)
             except:
                 print(f"Error in roots for r = {r_ind}")
                 return 1

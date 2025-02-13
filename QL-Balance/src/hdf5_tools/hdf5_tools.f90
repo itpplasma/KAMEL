@@ -1,4 +1,4 @@
-module hdf5_tools
+module QLBalance_hdf5_tools
   !**********************************************************
   ! Compilation of useful HDF-5 wrapper functions
   ! Date:   30.11.2015
@@ -1699,4 +1699,4 @@ contains
     call h5_check()
   end subroutine h5_add_string
 
-end module hdf5_tools
+end module QLBalance_hdf5_tools

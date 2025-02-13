@@ -18,7 +18,7 @@ subroutine rhs_balance(x, y, dy)
     use control_mod, only: iwrite, irf
     use wave_code_data, only: q, Vth
     use matrix_mod, only: isw_rhs, nz, nsize, irow, icol, amat, rhsvec
-    use hdf5_tools
+    use QLBalance_hdf5_tools
 
     implicit none
 
@@ -838,7 +838,7 @@ subroutine get_dql
     use h5mod
     use wave_code_data
     use parallelTools
-    use diag_mod, only: write_diag, iunit_diag, write_diag_b, iunit_diag_b, i_mn_loop
+    use QLbalance_diag, only: write_diag, iunit_diag, write_diag_b, iunit_diag_b, i_mn_loop
     use PolyLagrangeInterpolation    
 
     implicit none
@@ -1305,7 +1305,7 @@ subroutine calc_transport_coeffs_ornuhl(dim, vT, nu, D_11, D_12, D_21, D_22)
 
     use baseparam_mod
     use wave_code_data, only: om_E, kp, Es, Br, B0, r, ks, Ep
-    use diag_mod, only: i_mn_loop
+    use QLbalance_diag, only: i_mn_loop
     use grid_mod, only: r_resonant, gg_width, rb
 
     integer, parameter :: mnmax = 3
@@ -1471,7 +1471,7 @@ subroutine equipotentials
     use baseparam_mod, only: c, rtor
     use wave_code_data, only: dim_r, m_vals, n_vals, r, om_E, ks, kp, Es, Br, B0 &
                               , vac_cd_ptr
-    use diag_mod, only: iunit_diag
+    use QLbalance_diag, only: iunit_diag
 
     use mpi
 !

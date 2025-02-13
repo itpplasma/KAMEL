@@ -9,8 +9,8 @@ enable_language(C Fortran)
 if(CMAKE_HOST_SYSTEM_NAME MATCHES "Darwin")
     # macOS specific configurations or commands
     message("Building on macOS")
-    set(CMAKE_C_COMPILER /opt/homebrew/opt/llvm/bin/clang)
-    set(CMAKE_CXX_COMPILER /opt/homebrew/opt/llvm/bin/clang++)
+    #set(CMAKE_C_COMPILER /opt/homebrew/opt/llvm/bin/clang)
+    #set(CMAKE_CXX_COMPILER /opt/homebrew/opt/llvm/bin/clang++)
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Xclang -fopenmp -O3 -D DOUBLE_APPEND_FORTRAN")
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Xclang -fopenmp")
     set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -fopenmp")
@@ -29,6 +29,7 @@ else()
 endif()
 
 include(FetchSuiteSparse)
+include(Util)
 
 set (libs_root_path ${CMAKE_SOURCE_DIR}/../external)
 
@@ -52,6 +53,7 @@ include_directories ("${sundials_include_path_build}")
 
 set(balance_lib_fortran_sources
     ${full_balance_src}/ql-balance_mod.f90
+    ${full_balance_src}/diagnostic_mod.f90
     ${full_balance_src}/balanceBase.f90
     ${full_balance_src}/grid_mod.f90
     ${full_balance_src}/control_mod.f90
@@ -79,7 +81,6 @@ set(balance_lib_fortran_sources
     ${full_balance_src}/plasma_parameters.f90
     ${full_balance_src}/W2_arr.f90
     ${full_balance_src}/magnetic_island_width.f90
-    ${full_balance_src}/diagnostic_mod.f90
     ${full_balance_src}/wave_code_data_64bit.f90
     ${full_balance_src}/sample_matrix.f90)
 
@@ -155,7 +156,34 @@ target_link_libraries(ql-balance_lib PUBLIC hdf5::hdf5
                                             hdf5::hdf5_fortran
                                             hdf5::hdf5_hl_fortran)
 
-target_link_libraries(ql-balance_lib PUBLIC slatec cvode nvecserial sparse)
+
+find_or_fetch(libneo)
+target_link_libraries(ql-balance_lib PUBLIC 
+    LIBNEO::neo 
+    LIBNEO::collision_freqs)
+
+include(FetchNetcdf)
+#target_link_libraries(ql-balance_lib PUBLIC ${NETCDFLIB_DIR}/libnetcdf.a)
+#target_link_libraries(ql-balance_lib PUBLIC ${NETCDF_FLIBS})
+#set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} ${NETCDF_FLIBS}")
+#target_include_directories(ql-balance_lib PUBLIC ${NETCDFINCLUDE_DIR})
+
+include_directories(${NETCDFINCLUDE_DIR})
+link_directories(${NETCDFLIB_DIR})
+
+# Extract the path (anything that starts with -L)
+string(REGEX MATCHALL "-L[^ ]+" NETCDF_F_PATH_ONLY "${NETCDF_FLIBS}")
+
+# Remove the "-L" prefix to get only the raw path
+string(REPLACE "-L" "" NETCDF_F_PATH "${NETCDF_F_PATH_ONLY}")
+
+add_link_options(${NETCDF_F_PATH_ONLY})
+
+target_link_libraries(ql-balance_lib PUBLIC slatec 
+                                            cvode 
+                                            nvecserial 
+                                            sparse
+                                            LIBNEO::collision_freqs)
 
 add_executable(ql-balance.x ${full_balance_src}/ql-balance.f90)
 target_link_libraries(ql-balance.x PUBLIC ql-balance_lib)

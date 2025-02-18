@@ -5,13 +5,19 @@ set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${CMAKE_SOURCE_DIR}/cmake)
 
 project(ql-balance)
 enable_language(C Fortran)
+enable_testing()
 
 if(CMAKE_HOST_SYSTEM_NAME MATCHES "Darwin")
     # macOS specific configurations or commands
     message("Building on macOS")
-    #set(CMAKE_C_COMPILER /opt/homebrew/opt/llvm/bin/clang)
-    #set(CMAKE_CXX_COMPILER /opt/homebrew/opt/llvm/bin/clang++)
-    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Xclang -fopenmp -O3 -D DOUBLE_APPEND_FORTRAN")
+    #set(CMAKE_C_COMPILER /opt/homebrew/bin/gfortran-12)
+    #set(CMAKE_CXX_COMPILER /opt/homebrew/bin/gfortran-12)
+    #set(CMAKE_CXX_COMPILER /Library/Developer/CommandLineTools/usr/bin/c++)
+    #set(CMAKE_C_COMPILER /Library/Developer/CommandLineTools/usr/bin/cc)
+
+    set(CMAKE_C_COMPILER /opt/homebrew/opt/llvm/bin/clang)
+    set(CMAKE_CXX_COMPILER /opt/homebrew/opt/llvm/bin/clang++)
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Xclang -fopenmp -O3 -DDOUBLE_APPEND_FORTRAN")
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Xclang -fopenmp")
     set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -fopenmp")
 elseif(CMAKE_HOST_SYSTEM_NAME MATCHES "Linux")
@@ -45,6 +51,7 @@ set(KiLCA_lib_path ${CMAKE_SOURCE_DIR}/../KiLCA/build/lib/libKiLCA_Lib_V_2.4.2_M
 set(CMAKE_Fortran_MODULE_DIRECTORY "${objs}")
 
 add_subdirectory(${src})
+add_subdirectory(${src}/tests)
 
 set (sundials_include_path ${libs_root_path}/sundials/include)
 set (sundials_include_path_build ${libs_root_path}/sundials/build/include)
@@ -157,10 +164,8 @@ target_link_libraries(ql-balance_lib PUBLIC hdf5::hdf5
                                             hdf5::hdf5_hl_fortran)
 
 
-find_or_fetch(libneo)
-target_link_libraries(ql-balance_lib PUBLIC 
-    LIBNEO::neo 
-    LIBNEO::collision_freqs)
+#find_or_fetch(libneo)
+#include_directories(${CMAKE_CURRENT_BINARY_DIR}/libneo/include)
 
 include(FetchNetcdf)
 #target_link_libraries(ql-balance_lib PUBLIC ${NETCDFLIB_DIR}/libnetcdf.a)
@@ -182,8 +187,9 @@ add_link_options(${NETCDF_F_PATH_ONLY})
 target_link_libraries(ql-balance_lib PUBLIC slatec 
                                             cvode 
                                             nvecserial 
-                                            sparse
-                                            LIBNEO::collision_freqs)
+                                            sparse)
+                                            #LIBNEO::neo
+                                            #LIBNEO::collision_freqs)
 
 add_executable(ql-balance.x ${full_balance_src}/ql-balance.f90)
 target_link_libraries(ql-balance.x PUBLIC ql-balance_lib)

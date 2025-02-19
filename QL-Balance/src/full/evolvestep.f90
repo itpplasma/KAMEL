@@ -16,7 +16,6 @@ subroutine evolvestep(timstep,eps)
     DOUBLE PRECISION, DIMENSION(:),   ALLOCATABLE :: amat_sp,bvec_sp
 
     x1=0.d0
-    sparse_talk = .true.
     sparse_solve_method = 3
     !  x2=timstep
 

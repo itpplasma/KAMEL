@@ -7,34 +7,24 @@ project(ql-balance)
 enable_language(C Fortran)
 enable_testing()
 
+set(CMAKE_Fortran_STANDARD 2018)
+set(CMAKE_Fortran_STANDARD_REQUIRED ON)
+
 if(CMAKE_HOST_SYSTEM_NAME MATCHES "Darwin")
     # macOS specific configurations or commands
     message("Building on macOS")
     #set(CMAKE_C_COMPILER "gcc-13")
     #set(CMAKE_CXX_COMPILER "g++-13")
-    set(CMAKE_THREAD_LIBS_INIT "-lpthread")
-    set(CMAKE_HAVE_THREADS_LIBRARY 1)
-    #set(OpenMP_C_FLAGS "-Xpreprocessor -fopenmp -I/opt/homebrew/include")
-    #set(OpenMP_C_LIB_NAMES "omp")
-    #set(OpenMP_CXX_FLAGS "-Xpreprocessor -fopenmp -I/opt/homebrew/include")
-    #set(OpenMP_CXX_LIB_NAMES "omp")
-    #set(OpenMP_omp_LIBRARY "/opt/homebrew/lib/libomp.dylib")
-
-    #set(CMAKE_C_COMPILER /opt/homebrew/bin/gfortran-12)
-    #set(CMAKE_CXX_COMPILER /opt/homebrew/bin/gfortran-12)
-    #set(CMAKE_CXX_COMPILER /Library/Developer/CommandLineTools/usr/bin/c++)
-    #set(CMAKE_C_COMPILER /Library/Developer/CommandLineTools/usr/bin/cc)
-
-    #set(CMAKE_C_COMPILER /opt/homebrew/opt/llvm/bin/clang)
-    #set(CMAKE_CXX_COMPILER /opt/homebrew/opt/llvm/bin/clang++)
+    #set(CMAKE_THREAD_LIBS_INIT "-lpthread")
+    #set(CMAKE_HAVE_THREADS_LIBRARY 1)
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Xclang -fopenmp -O3 -DDOUBLE_APPEND_FORTRAN")
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Xclang -fopenmp")
     set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -fopenmp")
 elseif(CMAKE_HOST_SYSTEM_NAME MATCHES "Linux")
     # Linux specific configurations or commands
     message("Building on Linux")
-    set(CMAKE_C_COMPILER "gcc")
-    set(CMAKE_CXX_COMPILER "g++")
+    set(CMAKE_C_COMPILER /usr/bin/gcc)
+    set(CMAKE_CXX_COMPILER /usr/bin/g++)
     set(CMAKE_Fortran_COMPILER "mpif90")
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fopenmp")
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -O3 -D DOUBLE_APPEND_FORTRAN")
@@ -72,17 +62,14 @@ include(CMakeSources.in)
 
 add_library(sparse STATIC
     ${full_balance_src}/sparse_mod.f90
-	${UMFPACK_WRAPPERS}
 )
 set_target_properties(sparse PROPERTIES LINKER_LANGUAGE Fortran
     OUTPUT_NAME sparse
     ARCHIVE_OUTPUT_DIRECTORY "${lib}"
     Fortran_MODULE_DIRECTORY "${objs}")
 add_dependencies(sparse SuiteSparse)
-target_link_libraries(sparse PUBLIC BLAS::BLAS)
-target_link_libraries(sparse PUBLIC SuiteSparse::suitesparse_config)
-target_link_libraries(sparse PUBLIC SuiteSparse::amd)
 target_link_libraries(sparse PUBLIC SuiteSparse::umfpack)
+target_link_libraries(sparse PUBLIC SuiteSparse::umfpack_wrappers)
 target_include_directories(sparse PUBLIC "${UMFPACK_INCLUDE_DIR}")
 
 add_library(ql-balance_lib STATIC ${balance_lib_fortran_sources} ${balance_lib_cpp_sources})
@@ -120,6 +107,7 @@ find_package(MPI REQUIRED)
 message(" ====== MPI was found! ======")
 target_link_libraries(ql-balance_lib PUBLIC MPI::MPI_Fortran)
 target_link_libraries(ql-balance_lib PUBLIC MPI::MPI_C)
+target_link_libraries(ql-balance_lib PUBLIC MPI::MPI_CXX)
 
 find_package(BLAS REQUIRED)
 message(" ====== BLAS was found! ======")

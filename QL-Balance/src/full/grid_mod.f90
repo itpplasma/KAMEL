@@ -16,8 +16,13 @@ module grid_mod
     double precision, dimension(:),   allocatable :: dae11,dae12,dae22
     double precision, dimension(:),   allocatable :: dai11,dai12,dai22
     double precision, dimension(:),   allocatable :: dni22,visca,polforce
+    ! ql RMP-induced diffusion
     double precision, dimension(:),   allocatable :: dqle11,dqle12,dqle21,dqle22
     double precision, dimension(:),   allocatable :: dqli11,dqli12,dqli21,dqli22
+    ! 1/nu diffusion
+    double precision, dimension(:),   allocatable :: Donue11,Donue12,Donue21,Donue22
+    double precision, dimension(:),   allocatable :: Donui11,Donui12,Donui21,Donui22
+    ! total diffusion
     double precision, dimension(:),   allocatable :: de11,de12,de21,de22
     double precision, dimension(:),   allocatable :: di11,di12,di21,di22
     double precision, dimension(:),   allocatable :: d11_misalign !> diffusion due to misalignment of equipotential and flux surfaces

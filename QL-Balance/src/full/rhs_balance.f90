@@ -6,15 +6,15 @@ subroutine rhs_balance(x, y, dy)
                         , ipbeg, ipend, rb, reint_coef &
                         , fluxes_dif, fluxes_con, rc &
                         , dae11, dae12, dae22, dai11, dai12, dai22 &
-                        , dni22, visca, gpp_av, dery_equisource &
+                        , dni22, visca, gpp_av &
                         , dqle11, dqle12, dqle21, dqle22 &
                         , dqli11, dqli12, dqli21, dqli22 &
                         , sqg_bthet_overc, Ercov, polforce, qlheat_e, qlheat_i &
                         , Ercov_lin, fluxes_con_nl
                         
     use plasma_parameters, only: params, ddr_params, params_lin, ddr_params_nl &
-                        , init_params, params_b_lin, params_b, dot_params
-    use baseparam_mod, only: Z_i, e_charge, am, p_mass, c, btor
+                        , params_b_lin, params_b, dot_params
+    use baseparam_mod, only: Z_i, e_charge, am, p_mass, c
     use control_mod, only: iwrite, irf
     use wave_code_data, only: q, Vth
     use matrix_mod, only: isw_rhs, nz, nsize, irow, icol, amat, rhsvec
@@ -428,8 +428,8 @@ subroutine rhs_balance_source(x, y, dy)
                         , Ercov_lin, fluxes_con_nl 
                         
     use plasma_parameters, only: params, ddr_params, params_b, params_lin &
-                        , init_params, params_b_lin, ddr_params_nl, dot_params
-    use baseparam_mod, only: Z_i, e_charge, am, p_mass, c, btor
+                        , params_b_lin, ddr_params_nl, dot_params
+    use baseparam_mod, only: Z_i, e_charge, am, p_mass, c
     use control_mod, only: iwrite
     use wave_code_data, only: q, Vth
 
@@ -714,7 +714,7 @@ subroutine calc_equil_diffusion_coeffs
     use grid_mod, only: npoib, dae11, dae12, dae22, dai11, dai12, dai22 &
                         , dni22, visca, rb, cneo
     use plasma_parameters, only: params_b
-    use baseparam_mod, only: dperp, rsepar
+    use baseparam_mod, only: rsepar
     ! added by Markus Markl, 12.04.2021
     use h5mod
     use control_mod, only: ihdf5IO, debug_mode
@@ -724,7 +724,7 @@ subroutine calc_equil_diffusion_coeffs
     implicit none
     !
     integer :: ipoi
-    double precision :: rnorm, weight
+    double precision :: weight
 
     character(1024) :: fname;
     integer :: nr, i, iunit_res
@@ -819,18 +819,18 @@ end subroutine calc_equil_diffusion_coeffs
 !> @brief subroutine get_dql(timeStep). Calculates quasilinear diffusion coefficients.
 subroutine get_dql
 
-    use grid_mod, only: nbaleqs, neqset, iboutype, npoic, npoib &
+    use grid_mod, only: nbaleqs, npoib &
                         , deriv_coef &
                         , ipbeg, ipend, rb, reint_coef &
-                        , rc, sqg_bthet_overc, Ercov &
-                        , y, mwind &
+                        , sqg_bthet_overc, Ercov &
+                        , mwind &
                         , dqle11, dqle12, dqle21, dqle22 &
                         , dqli11, dqli12, dqli21, dqli22 &
                         , de11, de12, de21, de22, di11, di12, di21, di22 &
-                        , rb_cut_in, re_cut_in, rb_cut_out, re_cut_out, rb &
-                        , r_resonant, rmax, d11_misalign, Es_pert_flux
+                        , rb_cut_in, rb_cut_out, re_cut_out, rb &
+                        , r_resonant, d11_misalign, Es_pert_flux
     use plasma_parameters
-    use baseparam_mod, only: Z_i, e_charge, am, p_mass, c, btor, e_mass, ev, rtor, pi, rsepar
+    use baseparam_mod, only: Z_i, e_charge, am, p_mass, c, e_mass, ev, rtor, pi, rsepar
     use control_mod, only: irf, write_formfactors, ihdf5IO, &
                            diagnostics_output, suppression_mode, &
                            debug_mode, misalign_diffusion
@@ -838,16 +838,15 @@ subroutine get_dql
     use h5mod
     use wave_code_data
     use parallelTools
-    use QLbalance_diag, only: write_diag, iunit_diag, write_diag_b, iunit_diag_b, i_mn_loop
+    use QLBalance_diag, only: write_diag_b, iunit_diag_b, i_mn_loop
     use PolyLagrangeInterpolation    
 
     implicit none
     !logical :: suppression_mode = .true.
 
     integer :: modpernode, imin, imax;
-    integer :: ipoi, ieq, i, npoi, i_mn, ierr, mwind_save
+    integer :: ipoi, ieq, i_mn, mwind_save
     double precision, dimension(:), allocatable :: dummy
-    double complex, dimension(npoib) :: amn_psi, amn_theta, amn_theta_cyl
 
     double precision, dimension(npoib) :: spec_weight
     double precision :: weight
@@ -1024,7 +1023,7 @@ subroutine get_dql
 
             ! caluclate part of perpendicular electric field perturbation that comes from
             if (.not. allocated(coef)) allocate(coef(0:nder,nlagr))
-			if (debug_mode) write(*,*) "at r_resonant(i_mn) = ", r_resonant(i_mn)
+            if (debug_mode) write(*,*) "at r_resonant(i_mn) = ", r_resonant(i_mn)
             call binsrc(rb, 1, npoib, r_resonant(i_mn), ibrabsres)
             if (debug_mode) write(*,*) "binary search found ibrabsres = ", ibrabsres
 
@@ -1033,7 +1032,7 @@ subroutine get_dql
             call plag_coeff(nlagr, nder, r_resonant(i_mn), rb(indBeginInterp:indEndInterp), coef)
 
             CALL magnetic_island_width(coef, nder, nlagr, indBeginInterp, indEndInterp, m_vals(i_mn), MI_width)
- 
+
             ! the perturbed flux surfaces
             !Es_pert_flux_temp = (-dPhi0) * Br * (m_vals(i_mn) * rtor**2d0 - n_vals(i_mn) * r**2d0 / qsaf) &
             !/ (B0 * r * rtor * (n_vals(i_mn) + (m_vals(i_mn)) / qsaf))
@@ -1265,8 +1264,7 @@ end subroutine
 subroutine calc_transport_coeffs_collisionless(dim, vT, D_11, D_12, D_22)
 
     use baseparam_mod
-!use wave_code_data, only: om_E, kp, ks, Ep, Br
-    use wave_code_data, only: om_E, kp, ks, Ep, Br, Bs, Bp, r, B0, Te
+    use wave_code_data, only: om_E, kp, ks, Ep, Br
 
     integer, intent(in) :: dim
     real(8), dimension(dim), intent(in) :: vT
@@ -1304,7 +1302,7 @@ end subroutine
 subroutine calc_transport_coeffs_ornuhl(dim, vT, nu, D_11, D_12, D_21, D_22)
 
     use baseparam_mod
-    use wave_code_data, only: om_E, kp, Es, Br, B0, r, ks, Ep
+    use wave_code_data, only: om_E, kp, Es, Br, B0
     use QLbalance_diag, only: i_mn_loop
     use grid_mod, only: r_resonant, gg_width, rb
 
@@ -1443,7 +1441,6 @@ subroutine smooth_array_gauss(dimx, ngauss, y, ys)
     real(8) :: sgauss, dummy
     real(8), dimension(dimx) :: y, ys
     double precision, dimension(:), allocatable :: wgauss
-    integer :: k, j;
     real(8) :: sum
 
     sgauss = dfloat(ngauss)/5.d0
@@ -1470,7 +1467,7 @@ subroutine equipotentials
 !
     use baseparam_mod, only: c, rtor
     use wave_code_data, only: dim_r, m_vals, n_vals, r, om_E, ks, kp, Es, Br, B0 &
-                              , vac_cd_ptr
+                            , vac_cd_ptr
     use QLbalance_diag, only: iunit_diag
 
     use mpi
@@ -1478,8 +1475,8 @@ subroutine equipotentials
     implicit none
 !
     integer :: ierror, irank;
-    integer :: nr, i, m, n, ipoi, ierr
-    double complex :: amnp, amnt, ampl
+    integer :: nr, i, m, n, ipoi
+    double complex :: ampl
     double precision, dimension(:), allocatable :: psi0, phi0
     double complex, dimension(:), allocatable :: psi1, phi1, dum, Brv
     integer :: ind = 1
@@ -1539,7 +1536,7 @@ subroutine calc_parallel_current_directly
 
     use grid_mod, only: npoib, rb, Ercov
     use plasma_parameters, only: params_b, ddr_params_nl
-    use baseparam_mod, only: Z_i, e_charge, am, p_mass, c, btor, e_mass, ev, rtor
+    use baseparam_mod, only: e_charge, p_mass, c, e_mass, ev
     use control_mod, only: ihdf5IO, diagnostics_output, write_gyro_current, &
         gyro_current_study
     use h5mod
@@ -1550,7 +1547,7 @@ subroutine calc_parallel_current_directly
 !
     integer :: ierror, irank;
     integer :: ipoi, i, iunit, mnmax
-    double precision, dimension(:), allocatable :: dummy, x1, x2, vT, A1, A2
+    double precision, dimension(:), allocatable :: x1, x2, vT, A1, A2
     double complex, dimension(:), allocatable :: curr_e_par
     double complex, dimension(:, :, :), allocatable :: symbI
     double precision, dimension(1) :: coll_fac = (/1/)!(/10.0, 100.0, 1.0e3, 1.0e4, 1.0e5/)
@@ -1925,7 +1922,7 @@ subroutine calc_ion_parallel_current_directly
 
     use grid_mod, only: npoib, rb, Ercov
     use plasma_parameters, only: params_b, ddr_params_nl
-    use baseparam_mod, only: Z_i, e_charge, am, p_mass, c, btor, e_mass, ev, rtor
+    use baseparam_mod, only: Z_i, e_charge, p_mass, c, e_mass, ev
     use wave_code_data
     use control_mod, only: ihdf5IO, diagnostics_output, write_gyro_current
     use h5mod
@@ -1936,7 +1933,7 @@ subroutine calc_ion_parallel_current_directly
     integer :: ierror, irank;
     integer :: ipoi, i, iunit, mnmax
     double precision :: ei_charge
-    double precision, dimension(:), allocatable :: dummy, x1, x2, vT
+    double precision, dimension(:), allocatable :: x1, x2, vT
     double complex, dimension(:), allocatable :: curr_i_par
     double complex, dimension(:, :, :), allocatable :: symbI
 !

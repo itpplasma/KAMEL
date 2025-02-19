@@ -19,7 +19,9 @@ if(CMAKE_HOST_SYSTEM_NAME MATCHES "Darwin")
     #set(CMAKE_HAVE_THREADS_LIBRARY 1)
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Xclang -fopenmp -O3 -DDOUBLE_APPEND_FORTRAN")
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Xclang -fopenmp")
-    set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -fopenmp")
+    set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -cpp -fPIC -g -Og -Wall \
+            -Wno-unused-function -fbacktrace")
+    set(CMAKE_EXE_LINKER_FLAGS "-L/opt/homebrew/lib")
 elseif(CMAKE_HOST_SYSTEM_NAME MATCHES "Linux")
     # Linux specific configurations or commands
     message("Building on Linux")
@@ -51,7 +53,7 @@ set(KiLCA_lib_path ${CMAKE_SOURCE_DIR}/../KiLCA/build/lib/libKiLCA_Lib_V_2.4.2_M
 set(CMAKE_Fortran_MODULE_DIRECTORY "${objs}")
 
 add_subdirectory(${src})
-add_subdirectory(${src}/tests)
+add_subdirectory(${src}/test)
 
 set (sundials_include_path ${libs_root_path}/sundials/include)
 set (sundials_include_path_build ${libs_root_path}/sundials/build/include)
@@ -124,17 +126,28 @@ target_link_libraries(ql-balance_lib PUBLIC hdf5::hdf5
                                             hdf5::hdf5_fortran
                                             hdf5::hdf5_hl_fortran)
 
+#set (CMAKE_Fortran_FLAGS "-cpp -g -Og -fPIC -fcheck=all -fbacktrace \
+#        -fno-realloc-lhs -fopenmp -Wall -Wextra -Werror \
+#        -Wno-unused-function -fmax-errors=1")
 
-#find_or_fetch(libneo)
-#include_directories(${CMAKE_CURRENT_BINARY_DIR}/libneo/include)
+find_or_fetch(libneo)
+include_directories(${CMAKE_CURRENT_BINARY_DIR}/libneo/include)
+
 include(FetchNetcdf)
 
 target_link_libraries(ql-balance_lib PUBLIC slatec 
                                             cvode 
                                             nvecserial 
-                                            sparse)
-                                            #LIBNEO::neo
-                                            #LIBNEO::collision_freqs)
+                                            sparse
+                                            netcdf
+                                            netcdff
+                                            LIBNEO::neo
+                                            LIBNEO::species
+                                            LIBNEO::collision_freqs
+                                            LIBNEO::transport
+                                            )
+
+#set_property(TARGET ql-balance_lib PROPERTY LINKER_LANGUAGE Fortran)
 
 add_executable(ql-balance.x ${full_balance_src}/ql-balance.f90)
 target_link_libraries(ql-balance.x PUBLIC ql-balance_lib)

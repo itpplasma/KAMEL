@@ -5,8 +5,8 @@ program test_sparse
     implicit none
 
     sparse_talk = .true.
-    sparse_solve_method = 3
-
-    print *, "Sparse talk: ", sparse_talk
+    call sparse_example(1)
+    print *, "This should be the answer: "
+    print *, "{-1.17021, 0.234043, -0.0212766, -2.28723, 0.255319}"
 
 end program

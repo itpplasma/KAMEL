@@ -10,13 +10,23 @@ enable_testing()
 if(CMAKE_HOST_SYSTEM_NAME MATCHES "Darwin")
     # macOS specific configurations or commands
     message("Building on macOS")
+    #set(CMAKE_C_COMPILER "gcc-13")
+    #set(CMAKE_CXX_COMPILER "g++-13")
+    set(CMAKE_THREAD_LIBS_INIT "-lpthread")
+    set(CMAKE_HAVE_THREADS_LIBRARY 1)
+    #set(OpenMP_C_FLAGS "-Xpreprocessor -fopenmp -I/opt/homebrew/include")
+    #set(OpenMP_C_LIB_NAMES "omp")
+    #set(OpenMP_CXX_FLAGS "-Xpreprocessor -fopenmp -I/opt/homebrew/include")
+    #set(OpenMP_CXX_LIB_NAMES "omp")
+    #set(OpenMP_omp_LIBRARY "/opt/homebrew/lib/libomp.dylib")
+
     #set(CMAKE_C_COMPILER /opt/homebrew/bin/gfortran-12)
     #set(CMAKE_CXX_COMPILER /opt/homebrew/bin/gfortran-12)
     #set(CMAKE_CXX_COMPILER /Library/Developer/CommandLineTools/usr/bin/c++)
     #set(CMAKE_C_COMPILER /Library/Developer/CommandLineTools/usr/bin/cc)
 
-    set(CMAKE_C_COMPILER /opt/homebrew/opt/llvm/bin/clang)
-    set(CMAKE_CXX_COMPILER /opt/homebrew/opt/llvm/bin/clang++)
+    #set(CMAKE_C_COMPILER /opt/homebrew/opt/llvm/bin/clang)
+    #set(CMAKE_CXX_COMPILER /opt/homebrew/opt/llvm/bin/clang++)
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Xclang -fopenmp -O3 -DDOUBLE_APPEND_FORTRAN")
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Xclang -fopenmp")
     set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -fopenmp")
@@ -58,43 +68,7 @@ set (sundials_include_path_build ${libs_root_path}/sundials/build/include)
 include_directories ("${sundials_include_path}")
 include_directories ("${sundials_include_path_build}")
 
-set(balance_lib_fortran_sources
-    ${full_balance_src}/ql-balance_mod.f90
-    ${full_balance_src}/diagnostic_mod.f90
-    ${full_balance_src}/balanceBase.f90
-    ${full_balance_src}/grid_mod.f90
-    ${full_balance_src}/control_mod.f90
-    ${full_balance_src}/resonances_mod.f90
-    ${full_balance_src}/matrix_mod.f90
-    ${full_balance_src}/recstep_mod.f90
-    ${full_balance_src}/baseparam_mod.f90
-    ${full_balance_src}/h5mod.f90
-    ${full_balance_src}/rhs_balance.f90
-    ${full_balance_src}/wave_code_data_mod.f90
-    ${full_balance_src}/Wmn.f90
-    ${full_balance_src}/evolvestep.f90 
-    ${full_balance_src}/transp_coeffs_mod.f90 
-    ${full_balance_src}/read_config.f90 
-    ${full_balance_src}/gengrid.f90
-    ${full_balance_src}/plag_coeff.f90
-    ${full_balance_src}/amn_of_r.f90
-    ${src}/hdf5_tools/hdf5_tools.f90
-    ${full_balance_src}/paramscan.f90
-    ${full_balance_src}/parallelTools.f90
-    ${full_balance_src}/SingleStep.f90
-    ${full_balance_src}/writeData.f90
-    ${full_balance_src}/time_evolution.f90
-    ${full_balance_src}/restart.f90
-    ${full_balance_src}/plasma_parameters.f90
-    ${full_balance_src}/W2_arr.f90
-    ${full_balance_src}/magnetic_island_width.f90
-    ${full_balance_src}/wave_code_data_64bit.f90
-    ${full_balance_src}/sample_matrix.f90)
-
-set(balance_lib_cpp_sources
-    ${full_balance_src}/vel_integral.cpp
-    ${full_balance_src}/cvodeint.cpp
-    )
+include(CMakeSources.in)
 
 add_library(sparse STATIC
     ${full_balance_src}/sparse_mod.f90
@@ -104,6 +78,12 @@ set_target_properties(sparse PROPERTIES LINKER_LANGUAGE Fortran
     OUTPUT_NAME sparse
     ARCHIVE_OUTPUT_DIRECTORY "${lib}"
     Fortran_MODULE_DIRECTORY "${objs}")
+add_dependencies(sparse SuiteSparse)
+target_link_libraries(sparse PUBLIC BLAS::BLAS)
+target_link_libraries(sparse PUBLIC SuiteSparse::suitesparse_config)
+target_link_libraries(sparse PUBLIC SuiteSparse::amd)
+target_link_libraries(sparse PUBLIC SuiteSparse::umfpack)
+target_include_directories(sparse PUBLIC "${UMFPACK_INCLUDE_DIR}")
 
 add_library(ql-balance_lib STATIC ${balance_lib_fortran_sources} ${balance_lib_cpp_sources})
 
@@ -111,7 +91,6 @@ set_target_properties(ql-balance_lib PROPERTIES LINKER_LANGUAGE Fortran
     OUTPUT_NAME ql-balance
     ARCHIVE_OUTPUT_DIRECTORY "${lib}"
     Fortran_MODULE_DIRECTORY "${objs}")
-
 
 target_link_libraries(ql-balance_lib PUBLIC "${KiLCA_lib_path}")
 target_include_directories(ql-balance_lib PUBLIC "${sundials_include_path}")
@@ -140,17 +119,11 @@ target_link_libraries(ql-balance_lib PUBLIC GSL::gsl)
 find_package(MPI REQUIRED)
 message(" ====== MPI was found! ======")
 target_link_libraries(ql-balance_lib PUBLIC MPI::MPI_Fortran)
-
-add_dependencies(sparse SuiteSparse)
-target_link_libraries(sparse PUBLIC SuiteSparse::suitesparse_config)
-target_link_libraries(sparse PUBLIC SuiteSparse::amd)
-target_link_libraries(sparse PUBLIC SuiteSparse::umfpack)
-target_include_directories(sparse PUBLIC "${UMFPACK_INCLUDE_DIR}")
+target_link_libraries(ql-balance_lib PUBLIC MPI::MPI_C)
 
 find_package(BLAS REQUIRED)
 message(" ====== BLAS was found! ======")
 target_link_libraries(ql-balance_lib PUBLIC BLAS::BLAS)
-target_link_libraries(sparse PUBLIC BLAS::BLAS)
 
 find_package(LAPACK REQUIRED)
 message(" ====== LAPACK was found! ======")
@@ -166,23 +139,7 @@ target_link_libraries(ql-balance_lib PUBLIC hdf5::hdf5
 
 #find_or_fetch(libneo)
 #include_directories(${CMAKE_CURRENT_BINARY_DIR}/libneo/include)
-
 include(FetchNetcdf)
-#target_link_libraries(ql-balance_lib PUBLIC ${NETCDFLIB_DIR}/libnetcdf.a)
-#target_link_libraries(ql-balance_lib PUBLIC ${NETCDF_FLIBS})
-#set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} ${NETCDF_FLIBS}")
-#target_include_directories(ql-balance_lib PUBLIC ${NETCDFINCLUDE_DIR})
-
-include_directories(${NETCDFINCLUDE_DIR})
-link_directories(${NETCDFLIB_DIR})
-
-# Extract the path (anything that starts with -L)
-string(REGEX MATCHALL "-L[^ ]+" NETCDF_F_PATH_ONLY "${NETCDF_FLIBS}")
-
-# Remove the "-L" prefix to get only the raw path
-string(REPLACE "-L" "" NETCDF_F_PATH "${NETCDF_F_PATH_ONLY}")
-
-add_link_options(${NETCDF_F_PATH_ONLY})
 
 target_link_libraries(ql-balance_lib PUBLIC slatec 
                                             cvode 
@@ -193,5 +150,3 @@ target_link_libraries(ql-balance_lib PUBLIC slatec
 
 add_executable(ql-balance.x ${full_balance_src}/ql-balance.f90)
 target_link_libraries(ql-balance.x PUBLIC ql-balance_lib)
-
-

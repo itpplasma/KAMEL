@@ -23,7 +23,7 @@ ExternalProject_Add(
 	    -DCMAKE_POSITION_INDEPENDENT_CODE=ON
         #-DCMAKE_C_FLAGS=${CMAKE_C_FLAGS}
         #-DCMAKE_CXX_FLAGS=${CMAKE_CXX_FLAGS}
-        -DBUILD_SHARED_LIBS=OFF
+        #-DBUILD_SHARED_LIBS=OFF
         -DUMFPACK_USE_CHOLMOD=OFF
         -DCMAKE_INSTALL_PREFIX=${CMAKE_BINARY_DIR}/install
     BUILD_COMMAND ${CMAKE_COMMAND} --build <BINARY_DIR> --target UMFPACK/install
@@ -72,5 +72,5 @@ add_library(umfpack_wrappers STATIC ${UMFPACK_WRAPPERS})
 add_library(SuiteSparse::umfpack_wrappers ALIAS umfpack_wrappers)
 add_dependencies(umfpack_wrappers SuiteSparse)
 target_link_libraries(umfpack_wrappers PUBLIC BLAS::BLAS OpenMP::OpenMP_C)
-target_include_directories(umfpack_wrappers PUBLIC ${SUITESPARSE_INCLUDE_DIR})
-target_compile_options(umfpack_wrappers PUBLIC -DDLONG -DZLONG)
+target_include_directories(umfpack_wrappers PRIVATE ${SUITESPARSE_INCLUDE_DIR})
+target_compile_options(umfpack_wrappers PRIVATE -DDLONG -DZLONG)

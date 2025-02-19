@@ -19,9 +19,9 @@ message(STATUS "QL-Balance: NetCDF include path: " ${NETCDFINCLUDE_DIR})
 message(STATUS "QL-Balance: NetCDF lib path: " ${NETCDFLIB_DIR})
 message(STATUS "QL-Balance: NetCDF Fortran libs: " ${NETCDF_FLIBS})
 
-# Replace space by semicolon in the Fortran libs
-#string(REPLACE " " ";" NETCDF_FLIBS ${NETCDF_FLIBS})
 
-message(STATUS "QL-Balance: NetCDF include path: " ${NETCDFINCLUDE_DIR})
-message(STATUS "QL-Balance: NetCDF lib path: " ${NETCDFLIB_DIR})
-message(STATUS "QL-Balance: NetCDF Fortran libs: " ${NETCDF_FLIBS})
+include_directories(${NETCDFINCLUDE_DIR})
+link_directories(${NETCDFLIB_DIR})
+string(REGEX MATCHALL "-L[^ ]+" NETCDF_F_PATH_ONLY "${NETCDF_FLIBS}")
+string(REPLACE "-L" "" NETCDF_F_PATH "${NETCDF_F_PATH_ONLY}")
+add_link_options(${NETCDF_F_PATH_ONLY})

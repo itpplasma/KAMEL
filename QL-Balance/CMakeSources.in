@@ -1,39 +1,48 @@
-set(balance_lib_fortran_sources
-    ${full_balance_src}/ql-balance_mod.f90
-    ${full_balance_src}/diagnostic_mod.f90
-    ${full_balance_src}/balanceBase.f90
-    ${full_balance_src}/grid_mod.f90
-    ${full_balance_src}/control_mod.f90
-    ${full_balance_src}/resonances_mod.f90
-    ${full_balance_src}/matrix_mod.f90
-    ${full_balance_src}/recstep_mod.f90
-    ${full_balance_src}/baseparam_mod.f90
-    ${full_balance_src}/h5mod.f90
-    ${full_balance_src}/rhs_balance.f90
-    ${full_balance_src}/wave_code_data_mod.f90
-    ${full_balance_src}/Wmn.f90
-    ${full_balance_src}/evolvestep.f90 
-    ${full_balance_src}/transp_coeffs_mod.f90 
-    ${full_balance_src}/read_config.f90 
-    ${full_balance_src}/gengrid.f90
-    ${full_balance_src}/plag_coeff.f90
-    ${full_balance_src}/amn_of_r.f90
+set(src ${PROJECT_SOURCE_DIR}/src)
+set(base_balance_src ${src}/base/)
+
+set(balance_lib_base_fortran_sources
+    ${base_balance_src}/ql-balance_mod.f90
+    ${base_balance_src}/diagnostic_mod.f90
+    ${base_balance_src}/balanceBase.f90
+    ${base_balance_src}/grid_mod.f90
+    ${base_balance_src}/control_mod.f90
+    ${base_balance_src}/resonances_mod.f90
+    ${base_balance_src}/matrix_mod.f90
+    ${base_balance_src}/recstep_mod.f90
+    ${base_balance_src}/baseparam_mod.f90
+    ${base_balance_src}/h5mod.f90
+    ${base_balance_src}/rhs_balance.f90
+    ${base_balance_src}/wave_code_data_mod.f90
+    ${base_balance_src}/Wmn.f90
+    ${base_balance_src}/evolvestep.f90 
+    ${base_balance_src}/transp_coeffs_mod.f90 
+    ${base_balance_src}/read_config.f90 
+    ${base_balance_src}/gengrid.f90
+    ${base_balance_src}/plag_coeff.f90
+    ${base_balance_src}/amn_of_r.f90
     ${src}/hdf5_tools/hdf5_tools.f90
-    ${full_balance_src}/paramscan.f90
-    ${full_balance_src}/parallelTools.f90
-    ${full_balance_src}/SingleStep.f90
-    ${full_balance_src}/writeData.f90
-    ${full_balance_src}/time_evolution.f90
-    ${full_balance_src}/restart.f90
-    ${full_balance_src}/plasma_parameters.f90
-    ${full_balance_src}/W2_arr.f90
-    ${full_balance_src}/magnetic_island_width.f90
-    ${full_balance_src}/wave_code_data_64bit.f90
-    ${full_balance_src}/sample_matrix.f90
-    ${full_balance_src}/D_one_over_nu.f90
+    ${base_balance_src}/paramscan.f90
+    ${base_balance_src}/parallelTools.f90
+    ${base_balance_src}/SingleStep.f90
+    ${base_balance_src}/writeData.f90
+    ${base_balance_src}/time_evolution.f90
+    ${base_balance_src}/restart.f90
+    ${base_balance_src}/plasma_parameters.f90
+    ${base_balance_src}/W2_arr.f90
+    ${base_balance_src}/magnetic_island_width.f90
+    ${base_balance_src}/wave_code_data_64bit.f90
+    ${base_balance_src}/sample_matrix.f90
+)
+
+set(balance_lib_stellarator_fortran_sources
+    ${src}/stellarator/D_one_over_nu.f90
 )
 
 set(balance_lib_cpp_sources
-    ${full_balance_src}/vel_integral.cpp
-    ${full_balance_src}/cvodeint.cpp
+    ${base_balance_src}/vel_integral.cpp
+    ${base_balance_src}/cvodeint.cpp
     )
+
+add_subdirectory(${src})
+add_subdirectory(${src}/test)

@@ -6,7 +6,7 @@
 !> ASCII files, in contrast to the balance code, which can read them from a HDF5 file.
 program ql_balance
 
-    use balanceBase
+    use balance_base
     use parallelTools
     use plasma_parameters
     use balance_mod

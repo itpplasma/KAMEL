@@ -1,6 +1,6 @@
 module singleStep
 
-    use balanceBase, only: balance_t
+    use balance_base, only: balance_t
 
     double precision :: dqle22_res_single, br_abs_res_single
 

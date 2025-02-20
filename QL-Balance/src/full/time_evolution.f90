@@ -3,7 +3,7 @@ module time_evolution
     use control_mod
     use parallelTools
     use h5mod
-    use balanceBase, only: balance_t
+    use balance_base, only: balance_t
 
     implicit none
 

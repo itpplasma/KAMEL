@@ -7,7 +7,7 @@ module balance_mod
 
     subroutine from_balance_factory_get_balance(type_of_run, balance_instance)
 
-        use balanceBase, only: balance_t
+        use balance_base, only: balance_t
         use singleStep, only: SingleStep_t
         use time_evolution, only: TimeEvolution_t
         use paramscan_mod, only: ParameterScan_t

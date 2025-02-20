@@ -389,9 +389,8 @@ subroutine rhs_balance(x, y, dy)
     end if
 
 end subroutine rhs_balance
-!
-!cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
-!
+
+
 subroutine initialize_rhs(y, dy)
 
     use grid_mod, only: neqset

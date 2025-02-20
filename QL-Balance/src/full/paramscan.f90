@@ -2,7 +2,7 @@
 module paramscan_mod
 
     use control_mod
-    use balanceBase, only: balance_t
+    use balance_base, only: balance_t
 
     implicit none
 

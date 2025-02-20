@@ -1,6 +1,6 @@
 program test_D_one_over_nu
 
-    use balanceBase, only: balance_t
+    use balance_base, only: balance_t
     use balance_mod
     use parallelTools
 

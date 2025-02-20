@@ -1,4 +1,4 @@
-module balanceBase
+module balance_base
 
     implicit none
 

@@ -295,7 +295,8 @@ subroutine prepare_resonances
     do i=1,numres
         qres=r_res(i)
         do j=2,nr
-            if(qres.gt.q(j-1).and.qres.lt.q(j)) then
+            print *, "j = ", j, " q(nr) = ", q(j)
+            if((qres .ge. min(q(j-1), q(j))) .and. (qres .le. max(q(j-1), q(j)))) then
                 r_res(i)=(r(j-1)*(q(j)-qres)+r(j)*(qres-q(j-1)))/(q(j)-q(j-1))
                 exit
             endif

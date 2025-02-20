@@ -1,6 +1,5 @@
 subroutine get_D_one_over_nu
 
-
     use libneo_transport, only: calc_D_one_over_nu_e, init_gauss_laguerre_integration,&
         calc_D_one_over_nu, w, x, gauss_laguerre_order
     use libneo_species, only: species_t, init_deuterium_plasma
@@ -53,7 +52,7 @@ subroutine get_D_one_over_nu
         x = x52
         call calc_D_one_over_nu(1, 2, species_array, Rtor, diff_coeff)
         Donue11(ipoi) = diff_coeff
-        print *, "ipoi = ", ipoi, " Donue11 = ", diff_coeff
+        
         call calc_D_one_over_nu(2, 2, species_array, Rtor, diff_coeff)
         Donui11(ipoi) = diff_coeff
 
@@ -73,15 +72,19 @@ subroutine get_D_one_over_nu
         call calc_D_one_over_nu(2, 2, species_array, Rtor, diff_coeff)
         Donui22(ipoi) = diff_coeff
 
+        if (.false.) print *, "ipoi = ", ipoi, " npoic = ", npoic, " e11 = ", Donue11(ipoi), " e12 = ", Donue12(ipoi), " e21 = ", &
+            Donue21(ipoi), " e22 = ", Donue22(ipoi), " i11 = ", Donui11(ipoi), " i12 = ", Donui12(ipoi), &
+            " i21 = ", Donui21(ipoi), " i22 = ", Donui22(ipoi)
+
     end do
 
-    print *, "D_one_over_nu calculated"
-
-    open(10, file='D_one_over_nu.dat')
-    do ipoi=1, npoic
-        write(10,*) rb(ipoi), Donue11(ipoi), Donue12(ipoi), Donue21(ipoi), Donue22(ipoi), &
-            Donui11(ipoi), Donui12(ipoi), Donui21(ipoi), Donui22(ipoi)
-    end do
-    close(10)
+    if (.false.) then
+        open(10, file='D_one_over_nu.dat')
+        do ipoi=1, npoic
+            write(10,*) rb(ipoi), Donue11(ipoi), Donue12(ipoi), Donue21(ipoi), Donue22(ipoi), &
+                Donui11(ipoi), Donui12(ipoi), Donui21(ipoi), Donui22(ipoi)
+        end do
+        close(10)
+    end if
 
 end subroutine

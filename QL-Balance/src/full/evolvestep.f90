@@ -1,17 +1,17 @@
 subroutine evolvestep(timstep,eps)
 
-    use grid_mod, only : nbaleqs,neqset,iboutype,npoic,y,dery
+    use grid_mod, only : nbaleqs,iboutype,npoic,y,dery
     use plasma_parameters, only: params
     USE sparse_mod
-    use matrix_mod
+    use matrix_mod, only: amat
+    use matrix_mod, only: nz, nsize, irow, icol, amat
     use recstep_mod, only : timstep_arr
-    use control_mod, only : debug_mode
 
     implicit none
 
     external :: rhs_balance !, rhs_func, gslint
     integer :: ipoi,ieq,i,k,npoi,iopt,nz_sp,nz_sq,nrow,ncol
-    double precision :: timstep,x1,x2,eps,time_start!,time_factorization,time_solver
+    double precision :: timstep,x1,eps
     INTEGER,          DIMENSION(:),   ALLOCATABLE :: ipcol,irow_sp,icol_sp
     DOUBLE PRECISION, DIMENSION(:),   ALLOCATABLE :: amat_sp,bvec_sp
 

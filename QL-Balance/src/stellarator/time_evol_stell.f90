@@ -1,9 +1,11 @@
-module time_evolution
+module time_evolution_stellarator
 
     use control_mod
     use parallelTools
     use h5mod
     use balance_base, only: balance_t
+    use time_evolution, only: Nstorage, ramp_up_mode, save_prof_time_step, iexit, ramp_up_down, timeIndex, &
+        antenna_max_stopping, timstep_min, tmax_factor, t_max_ramp_up
 
     implicit none
 
@@ -11,21 +13,11 @@ module time_evolution
     logical :: discr_reached = .false. ! variable to say if discrepancy to linear regression
     logical :: scratch
 
-    integer :: Nstorage
-    integer :: ramp_up_mode !> control ramp up mode of the RMP coil current amplitude
-    integer :: save_prof_time_step
-    integer :: iexit ! used for ramp-up skipping of saving
-    integer :: ramp_up_down = 0 !> used in hysteresis mode, tells if ramp-up (0) or ramp-down (1)
-    integer :: timeIndex
-
     double precision :: tmax, timescale
     DOUBLE PRECISION :: br_beta = 0
     DOUBLE PRECISION :: br_predicted
 
-    double precision :: tmax_factor!, antenna_factor
     double precision :: stop_time_step
-    double precision :: timstep_min
-    DOUBLE PRECISION :: t_max_ramp_up = 1e-2 !> 10ms ramp up until antenna_factor_max is reached
     double precision :: timstep
     double precision :: time
     double precision :: t_hysteresis_turn = 0
@@ -43,7 +35,6 @@ module time_evolution
     DOUBLE PRECISION, DIMENSION(:), ALLOCATABLE :: dqli22_prev
 
     double precision :: antenna_factor_max
-    DOUBLE PRECISION :: antenna_max_stopping
 
     !needed for interpolation of br abs and stopping criterion
     DOUBLE PRECISION, DIMENSION(:), ALLOCATABLE :: br_abs
@@ -58,9 +49,7 @@ module time_evolution
 
     integer(HID_T) :: time_dataset_id !> variable to save the time dataset id
 
-    !integer :: timeIndex
-
-    type, extends(balance_t) :: TimeEvolution_t
+    type, extends(balance_t) :: time_evolution_stellarator_t
         contains
             procedure :: init_balance => initTimeEvolution
             procedure :: run_balance => runTimeEvolution
@@ -85,7 +74,7 @@ module time_evolution
                                 params, params_begbeg, init_background_profiles
         implicit none
 
-        class(TimeEvolution_t), intent(inout) :: this
+        class(time_evolution_stellarator_t), intent(inout) :: this
         this%runType = "TimeEvolution"
         
         if (irank .eq. 0) then
@@ -105,7 +94,6 @@ module time_evolution
             end if
 
             !call read_config
-
             timescale = (rmax - rmin)**2 / dperp
             tmax = timescale * tmax_factor
             timstep = tmax / Nstorage
@@ -167,9 +155,10 @@ module time_evolution
 
         implicit none
 
-        class(TimeEvolution_t), intent(inout) :: this
+        class(time_evolution_stellarator_t), intent(inout) :: this
 
         do timeIndex = 1, Nstorage
+
             call copy_kin_profs_to_yprev
             redostep = .false.
 
@@ -183,7 +172,7 @@ module time_evolution
             call message_Br_Dqle_values
 
             if (diagnostics_output)then
-                call writefort9999
+                call writefort9999_stellarator
             end if
 
             if (.true.) then
@@ -198,7 +187,7 @@ module time_evolution
 
                 print *, ""
                 if (debug_mode) write(*,*) "Debug: Timstep before evolvestep is ", timstep, " eps = " , eps
-                call evolvestep(timstep, eps)
+                call evolvestep_stell(timstep, eps)
 
                 call limit_temps_from_below
 

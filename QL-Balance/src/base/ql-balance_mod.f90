@@ -10,6 +10,7 @@ module balance_mod
         use balance_base, only: balance_t
         use singleStep, only: SingleStep_t
         use time_evolution, only: TimeEvolution_t
+        use time_evolution_stellarator, only: time_evolution_stellarator_t
         use paramscan_mod, only: ParameterScan_t
 
         implicit none
@@ -24,6 +25,8 @@ module balance_mod
                 allocate(balance_instance, source=TimeEvolution_t())
             case("ParameterScan")
                 allocate(balance_instance, source=ParameterScan_t())
+            case("TimeEvolutionStellarator")
+                allocate(balance_instance, source=time_evolution_stellarator_t())
             !case("TimeEvolutionParameterScan") ! TODO
             !case("ConstantPsi") ! TODO
             case default
@@ -36,60 +39,3 @@ module balance_mod
 
     
 end module
-
-!subroutine initialize_balance_code
-
-        !use time_evolution, only: iexit, timescale, tmax, timstep, Nstorage, &
-                                  !allocate_prev_variables, tmax_factor
-        !use grid_mod, only: mwind, rmax, rmin, setBoundaryCondition, npoib, rb
-        !use baseparam_mod, only: dperp
-        !use QLbalance_diag, only: write_diag, write_diag_b
-        !use QLBalance_hdf5_tools, only: h5overwrite
-        !use h5mod, only: mode_m, mode_n
-        !use control_mod, only: gyro_current_study, write_gyro_current, debug_mode, &
-                          !ihdf5IO
-        !use parallelTools, only: initMPI, irank
-        !use wave_code_data, only: m_vals, n_vals
-        !use paramscan_mod, only: initialize_parameter_scan_vars, create_group_structure_paramscan
-        !use plasma_parameters, only: write_initial_parameters, alloc_hold_parameters, &
-                                !init_background_profiles
-
-        !implicit none
-
-        
-        !call initMPI
-
-        !if (irank .eq. 0) then
-            !iexit = 0 ! 0 - don't skip, 1 - skip, 2 - stop
-            !mwind = 10
-            !write_diag = .false.
-            !write_diag_b = .false.
-            !! if h5overwrite = true, existing data will be deleted
-            !! before new one is written
-            !! This is contained in hdf5_tools module
-            !h5overwrite = .true.
-    
-            !if (gyro_current_study .ne. 0) then
-                !write_gyro_current = .true.
-            !else
-                !write_gyro_current = .false.
-            !end if
-
-            !call read_config
-            !write(*,*) "timstep = ", timstep
-            !call gengrid
-            !call setBoundaryCondition
-            !CALL initialize_wave_code_interface(npoib, rb);
-            !CALL initialize_parameter_scan_vars
-
-            !mode_m = m_vals(1)
-            !mode_n = n_vals(1)
-            !if (debug_mode) write(*,*) 'Debug: mode_m = ', mode_m, 'mode_n = ', mode_n
-            !call allocate_prev_variables
-            !call init_background_profiles
-            !CALL write_initial_parameters
-            !call alloc_hold_parameters
-        !end if
-
-    !end subroutine
-

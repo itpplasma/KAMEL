@@ -1,22 +1,15 @@
 subroutine write_fields_currs_transp_coefs_to_h5
-    use grid_mod, only: nbaleqs, neqset, iboutype, npoic, npoib &
-                        , deriv_coef &
-                        , ipbeg, ipend, rb, reint_coef &
-                        , rc, sqg_bthet_overc, Ercov &
-                        , y, mwind &
-                        , dqle11, dqle12, dqle21, dqle22 &
-                        , dqli11, dqli12, dqli21, dqli22, d11_misalign, Es_pert_flux
-    use plasma_parameters, only: params, ddr_params, params_b, ddr_params_nl
-    use baseparam_mod, only: Z_i, e_charge, am, p_mass, c, btor, e_mass, ev, rtor
+    use grid_mod, only: npoib, dqle11, dqle12, dqle22, dqli11, dqli12, dqli22
+    use baseparam_mod, only: e_charge, p_mass, c, e_mass, ev
     use control_mod, only: ihdf5IO, diagnostics_output, misalign_diffusion
     use wave_code_data
-    use QLbalance_diag, only: write_diag, iunit_diag, write_diag_b, iunit_diag_b, i_mn_loop
+    use QLbalance_diag, only: iunit_diag
     use time_evolution, only: timeIndex
     use h5mod
     
     implicit none
 
-    integer :: ipoi, ieq, i, npoi!,i_mn,ierr,mwind_save
+    integer :: ipoi
     character(len=1024) :: tempch
 
     if (ihdf5IO .eq. 1) then
@@ -141,6 +134,58 @@ subroutine writefort9999
     use grid_mod, only: dqle11, dqli11, rb, rc, npoib
     use QLbalance_diag, only: timscal_dql, timscal_dqli, ind_dqle, ind_dqli 
     use time_evolution, only: dqle11_prev, dqli11_prev, determine_Dql_diagnostic
+    use ParallelTools, only: irank
+    use h5mod
+
+    implicit none
+
+    integer :: ipoi
+        
+    if (irank .eq. 0) then
+
+        call determine_Dql_diagnostic
+
+        if (debug_mode) print *, 'Debug: timscal_dqle = ', sngl(timscal_dql) &
+            , 'timscal_dqli = ', sngl(timscal_dqli)
+        if (debug_mode) print *, 'Debug: maximum dqle at r = ', rc(ind_dqle(1)) &
+            , 'maximum dqli at r = ', rc(ind_dqli(1))
+        ! Edited by Markus Markl, 26.02.2021
+        if (ihdf5IO .eq. 1) then
+            ! write fort.9999 data to hdf5 file
+            h5_currentgrp = trim("/"//trim(h5_mode_groupname) &
+                                    //"/fort.9999")
+            CALL h5_init()
+            CALL h5_open_rw(path2out, h5_id)
+            CALL h5_obj_exists(h5_id, trim(h5_currentgrp), h5_exists_log)
+            if (h5_exists_log) then
+                CALL h5_delete(h5_id, trim(h5_currentgrp))
+            end if
+
+            CALL h5_define_unlimited_matrix(h5_id, trim(h5_currentgrp), &
+                                            H5T_NATIVE_DOUBLE, (/-1, 3/), dataset_id)
+            CALL h5_append_double_1(dataset_id, rb, 1)
+            CALL h5_append_double_1(dataset_id, abs(dqle11_prev - dqle11), 2)
+            CALL h5_append_double_1(dataset_id, abs(dqli11_prev - dqli11), 3)
+
+            CALL h5_close(h5_id)
+            CALL h5_deinit()
+
+        else
+            do ipoi = 1, npoib
+                write (9999, *) rb(ipoi), abs(dqle11_prev(ipoi) - dqle11(ipoi)), &
+                    abs(dqli11_prev(ipoi) - dqli11(ipoi))
+            end do
+            close (9999)
+        end if
+    end if
+
+end subroutine
+
+subroutine writefort9999_stellarator
+        
+    use grid_mod, only: dqle11, dqli11, rb, rc, npoib
+    use QLbalance_diag, only: timscal_dql, timscal_dqli, ind_dqle, ind_dqli 
+    use time_evolution_stellarator, only: dqle11_prev, dqli11_prev, determine_Dql_diagnostic
     use ParallelTools, only: irank
     use h5mod
 

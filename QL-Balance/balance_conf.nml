@@ -31,7 +31,6 @@
  rb_cut_out = 67.5 ,
  re_cut_out = 68 ,
  write_formfactors = .false. ,
- flag_run_time_evolution = .false. , 
 ! stop timestep for time evolution mode
  stop_time_step = 1e-06 ,
 ! path to the hdf5 file that is used to read from

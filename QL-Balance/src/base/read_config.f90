@@ -20,7 +20,7 @@ subroutine read_config
         rsepar, npoimin, gg_factor, gg_width, gg_r_res, Nstorage, &
         tmax_factor, antenna_factor, iboutype, iwrite, eps, dperp, &
         Z_i, am, rb_cut_in, re_cut_in, rb_cut_out, re_cut_out, &
-        write_formfactors, flag_run_time_evolution, stop_time_step, &
+        write_formfactors, stop_time_step, &
         path2inp, path2out, timstep_min, paramscan, save_prof_time_step, &
         diagnostics_output, br_stopping, suppression_mode, debug_mode, &
         readfromtimestep, path2time, ramp_up_mode, t_max_ramp_up, temperature_limit, &

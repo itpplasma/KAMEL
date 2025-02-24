@@ -13,8 +13,10 @@ set(balance_lib_base_fortran_sources
     ${base_balance_src}/baseparam_mod.f90
     ${base_balance_src}/h5mod.f90
     ${base_balance_src}/rhs_balance.f90
+    ${base_balance_src}/calc_current_densities.f90
     ${base_balance_src}/wave_code_data_mod.f90
     ${base_balance_src}/Wmn.f90
+    ${base_balance_src}/balance_eqs_source_terms.f90 
     ${base_balance_src}/evolvestep.f90 
     ${base_balance_src}/transp_coeffs_mod.f90 
     ${base_balance_src}/read_config.f90 

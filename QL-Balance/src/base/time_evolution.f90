@@ -49,7 +49,7 @@ module time_evolution
     !needed for interpolation of br abs and stopping criterion
     DOUBLE PRECISION, DIMENSION(:), ALLOCATABLE :: br_abs
     DOUBLE PRECISION, DIMENSION(:), ALLOCATABLE :: br_abs_time
-	DOUBLE PRECISION, DIMENSION(:), ALLOCATABLE :: br_abs_antenna_factor
+    DOUBLE PRECISION, DIMENSION(:), ALLOCATABLE :: br_abs_antenna_factor
     DOUBLE PRECISION, DIMENSION(:), ALLOCATABLE :: dqle22_res_time
     DOUBLE PRECISION, DIMENSION(:), ALLOCATABLE :: dae22_res_time
     DOUBLE PRECISION, DIMENSION(:), ALLOCATABLE :: bif_criterion
@@ -71,9 +71,9 @@ module time_evolution
 
     subroutine initTimeEvolution(this)
 
-        use recstep_mod, only: tim_stack, timstep_arr, tol
+        use recstep_mod, only: tol
         use transp_coeffs_mod, only: rescale_transp_coeffs_by_ant_fac
-        use grid_mod, only: mwind, rmax, rmin, setBoundaryCondition, npoib, rb, dqle11
+        use grid_mod, only: mwind, rmax, rmin, setBoundaryCondition, npoib, rb
         use baseparam_mod, only: dperp, tol_max
         use QLbalance_diag, only: write_diag, write_diag_b
         use QLBalance_hdf5_tools, only: h5overwrite
@@ -90,7 +90,7 @@ module time_evolution
         this%runType = "TimeEvolution"
         
         if (irank .eq. 0) then
-            iexit = 0 ! 0 - don't skip, 1 - skip, 2 - stop
+            iexit = 0 ! 0 - dont skip, 1 - skip, 2 - stop
             mwind = 10
             write_diag = .false.
             write_diag_b = .false.
@@ -117,7 +117,6 @@ module time_evolution
             call setBoundaryCondition
 
             CALL initialize_wave_code_interface(npoib, rb);
-            !CALL initialize_parameter_scan_vars
 
             mode_m = m_vals(1)
             mode_n = n_vals(1)
@@ -160,7 +159,7 @@ module time_evolution
     subroutine runTimeEvolution(this)
 
         use parallelTools, only: irank
-        use baseparam_mod, only: factolmax, factolred, tol_max
+        use baseparam_mod, only: factolmax, factolred
         use recstep_mod, only: tol
         use plasma_parameters, only: params, params_beg, params_begbeg, limit_temps_from_below
         use restart_mod, only: redostep
@@ -244,7 +243,7 @@ module time_evolution
             call setFirstIterationTrue
             call checkIfLinearDiscrepancyOfPenRatioReached
 
-            call ramp_coil(timeIndex)
+            call ramp_coil
         end do
 
     end subroutine
@@ -375,23 +374,23 @@ module time_evolution
             CALL h5_init()
             CALL h5_open_rw(path2out, h5_id)
 
- 		    h5_currentgrp = "/"//trim(h5_mode_groupname) //"/br_abs_time"
+            h5_currentgrp = "/"//trim(h5_mode_groupname) //"/br_abs_time"
             CALL h5_add_double_1(h5_id, trim(h5_currentgrp), br_abs_time(1:timeIndex), &
                 lbound(br_abs_time(1:timeIndex)), ubound(br_abs_time(1:timeIndex)))
 
- 		    h5_currentgrp = "/"//trim(h5_mode_groupname) //"/br_abs_antenna_factor"
+            h5_currentgrp = "/"//trim(h5_mode_groupname) //"/br_abs_antenna_factor"
             CALL h5_add_double_1(h5_id, trim(h5_currentgrp), br_abs_antenna_factor(1:timeIndex), &
                 lbound(br_abs_antenna_factor(1:timeIndex)), ubound(br_abs_antenna_factor(1:timeIndex)))
 
- 		    h5_currentgrp = "/"//trim(h5_mode_groupname) //"/br_abs_res"
+            h5_currentgrp = "/"//trim(h5_mode_groupname) //"/br_abs_res"
             CALL h5_add_double_1(h5_id, trim(h5_currentgrp), br_abs(1:timeIndex), &
                 lbound(br_abs(1:timeIndex)), ubound(br_abs(1:timeIndex)))
 
- 		    h5_currentgrp = "/"//trim(h5_mode_groupname) //"/dqle22_res_time"
+            h5_currentgrp = "/"//trim(h5_mode_groupname) //"/dqle22_res_time"
             CALL h5_add_double_1(h5_id, trim(h5_currentgrp), dqle22_res_time(1:timeIndex), &
                 lbound(dqle22_res_time(1:timeIndex)), ubound(dqle22_res_time(1:timeIndex)))
 
- 		    h5_currentgrp = "/"//trim(h5_mode_groupname) //"/bifurcation_criterion"
+            h5_currentgrp = "/"//trim(h5_mode_groupname) //"/bifurcation_criterion"
             CALL h5_add_double_1(h5_id, trim(h5_currentgrp), bif_criterion(1:timeIndex), &
                 lbound(bif_criterion(1:timeIndex)), ubound(bif_criterion(1:timeIndex)))
 
@@ -408,7 +407,7 @@ module time_evolution
     !> @brief Ramp up/down the RMP coil current.
     !> @author Markus Markl
     !> @date 13.03.2023
-    subroutine ramp_coil(i)
+    subroutine ramp_coil
 
         use paramscan_mod
         use control_mod
@@ -418,7 +417,6 @@ module time_evolution
         
 
         implicit none
-        integer, intent(in) :: i
         !Ramp up antenna_factor: linear in Icoil or quadratic in D
         !Added by Philipp Ulbl 12.05.2020, (strongly) edited by Markus Markl
         !
@@ -967,15 +965,14 @@ module time_evolution
 
         ! save the time for the improved stopping criterion
         br_abs_time(timeIndex) = time
-		br_abs_antenna_factor(timeIndex) = antenna_factor
+        br_abs_antenna_factor(timeIndex) = antenna_factor
 
     end subroutine
 
 
     subroutine message_Br_Dqle_values
 
-        use grid_mod, only: npoib, r_resonant, rb, dqle22
-        use wave_code_data, only: antenna_factor, Br
+        use wave_code_data, only: antenna_factor
 
         implicit none
 

@@ -32,10 +32,10 @@ contains
 
     function dispersion_equation_KIMDispersion_Horton(this, kr, r_indx) result(dispersion_equation)
         class(KIMDispersion_Horton), intent(inout) :: this
-        complex(16), intent(in) :: kr
+        complex(8), intent(in) :: kr
         integer, intent(in) :: r_indx
-        complex(16) :: dispersion_equation
-        complex(16) :: nom, denom
+        complex(8) :: dispersion_equation
+        complex(8) :: nom, denom
         real(8) :: ky, om_prime
         integer :: spec
 

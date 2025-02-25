@@ -1,6 +1,6 @@
 module KIMDispersionEquation_module
     implicit none
-    
+
     real(8), parameter :: pi = 3.1415
     real(8), parameter :: e_mass = 9.1094e-28
     real(8), parameter :: p_mass = 1.6726e-24
@@ -8,7 +8,7 @@ module KIMDispersionEquation_module
     real(8), parameter :: ev = 1.6022e-12
     real(8), parameter :: sol = 29979245800.0
     real(8), parameter :: kB = 1.380649e-16
-    
+
     ! Type for options
     type :: OptionsType
         real(8) :: omega
@@ -27,10 +27,10 @@ module KIMDispersionEquation_module
         real(8), allocatable :: omega_c(:)
         real(8) :: om_n
         real(8) :: om_T
-        complex(16) :: z
-        complex(16) :: W
-        complex(16) :: nom
-        complex(16) :: denom
+        complex(8) :: z
+        complex(8) :: W
+        complex(8) :: nom
+        complex(8) :: denom
     end type SpeciesDataType
 
     ! Type for general data
@@ -45,7 +45,7 @@ module KIMDispersionEquation_module
     type :: EquilDataType
         real(8), allocatable :: B0(:)
     end type EquilDataType
-    
+
     ! Abstract base type
     type, abstract :: KIMDispersionEquation
     contains
@@ -71,18 +71,18 @@ module KIMDispersionEquation_module
         function dispersion_equation_interface(this, kr, r_indx) result(dispersion_equation)
             import :: KIMDispersionEquation
             class(KIMDispersionEquation), intent(inout) :: this
-            complex(16), intent(in) :: kr
+            complex(8), intent(in) :: kr
             integer, intent(in) :: r_indx
-            complex(16) :: dispersion_equation
+            complex(8) :: dispersion_equation
         end function dispersion_equation_interface
     end interface
-    
+
 contains
 
     function plasma_disp(x) result(y)
-        complex(16), intent(in) :: x
-        complex(16) :: y
-        
+        complex(8), intent(in) :: x
+        complex(8) :: y
+
         y = 1.0d0
     end function
 

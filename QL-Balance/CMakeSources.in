@@ -44,6 +44,7 @@ set(balance_lib_base_fortran_sources
 set(balance_lib_stellarator_fortran_sources
     ${src}/stellarator/D_one_over_nu.f90
     ${src}/stellarator/rhs_balance_stell.f90
+    ${src}/stellarator/balance_eqs_source_terms_stell.f90
     ${src}/stellarator/time_evol_stell.f90
     ${src}/stellarator/evolvestep_stell.f90
 )

@@ -4,13 +4,14 @@
 \geometry{verbose,tmargin=2cm,bmargin=2cm,lmargin=2cm,rmargin=2cm}
 
 
-\title{\Huge \texttt{balance\_conf.nml} \\ \Large Explanation of the configuration parameters}
+\title{Namelists of QL-Balance}
 \author{Markus Markl}
 
 \begin{document}
 
 \maketitle
 
+\section{balance\_conf.nml}
 \begin{itemize}
 	\item \textbf{flre\_path} : (String) Path to the KiLCA flre data of the pre run
 	\item \textbf{vac\_path} : (String) Similar as flre\_path
@@ -67,6 +68,15 @@
 	\end{equation}
 	\item \textbf{misalign\_diffusion} : (Boolean) \textbf{Not completely implemented as of 25.08.2022!!} If true, the diffusion due to the misalignment of the equipotential and flux surfaces is turned on.
 
+\end{itemize}
+
+\section{stell\_conf.nml}
+Namelist to configure the stellarator mode of QL-Balance. Most notably, in this mode $1/\nu$ transport coefficients are calculated and added to the quasilinear ones. Since the ion coefficients dominate significantly over the electron coefficients this mostly affects ions. In particular, the motivation was to keep the $E_r$ profile approximately in the steady-state in the time evolution. To trigger this mode of peration, set \texttt{type\_of\_run} to \textit{TimeEvolutionStellarator} in the \texttt{balance\_conf.nml} file.
+
+\begin{itemize}
+	\item \textbf{set\_momentum\_source\_to\_zero} : (Boolean) If true, the momentum source is set to zero which should always be the case in this mode.
+	\item \textbf{set\_Q\_neo\_to\_zero} : (Boolean) If true, the neoclassical heat flux is set to zero.
+	\item \textbf{update\_transport\_coefficients} : (Boolean) If true, the $1/\nu$ coefficients are calculated in every time step.
 \end{itemize}
 
 

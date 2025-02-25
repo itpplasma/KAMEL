@@ -1,0 +1,5 @@
+&BALANCE_STELL
+ set_momentum_source_to_zero = .true.,
+ set_Q_neo_to_zero = .true.,
+ update_transport_coefficients = .false.
+/

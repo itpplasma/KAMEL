@@ -1,13 +1,14 @@
-subroutine det_balance_eqs_source_terms
+subroutine det_balance_eqs_source_terms_stell
     
     ! calculates source terms in the balance equations. Is determined by assuming steady state.
 
-    use grid_mod, only : y,dery,dery_equisource, nbaleqs,neqset,iboutype,npoic
+    use grid_mod, only : y, dery, dery_equisource, nbaleqs,neqset,iboutype,npoic
     use plasma_parameters, only: params
 
     use control_mod, only: iwrite, ihdf5IO, diagnostics_output, debug_mode, irf
     use h5mod
     use matrix_mod
+    use time_evolution_stellarator, only: set_momentum_source_to_zero
 
     implicit none
 
@@ -30,18 +31,25 @@ subroutine det_balance_eqs_source_terms
         enddo
     enddo
 
-    if (debug_mode) print *, "Debug: Before initialize_rhs"
-    call initialize_rhs(y,dery)
+    if (debug_mode) print *, "Debug: Before initialize_rhs_stell"
+    call initialize_rhs_stell(y,dery)
 
     dery_equisource=0.d0
-    if (debug_mode) print *, "Debug: Before rhs_balance"
-    call rhs_balance(x,y,dery)
+    if (debug_mode) print *, "Debug: Before rhs_balance_stell"
+    call rhs_balance_stell(x,y,dery)
 
     do k=1,nz
         dery_equisource(irow(k))=dery_equisource(irow(k))-amat(k)*y(icol(k))
     end do
 
     dery_equisource=dery_equisource-rhsvec
+
+    if (set_momentum_source_to_zero) then
+        do ipoi = 1, npoi
+            ! set momentum source term to zero
+            dery_equisource(4*(ipoi-1)+2) = 0
+        enddo
+    end if
 
     if (diagnostics_output) then
         if (debug_mode) write(*,*) "Debug: Writing equisource"
@@ -84,4 +92,4 @@ subroutine det_balance_eqs_source_terms
         end if
     end if
 
-end subroutine det_balance_eqs_source_terms
+end subroutine det_balance_eqs_source_terms_stell

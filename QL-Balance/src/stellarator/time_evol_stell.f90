@@ -12,6 +12,7 @@ module time_evolution_stellarator
     logical :: br_stopping ! trigger Br stopping criterion
     logical :: discr_reached = .false. ! variable to say if discrepancy to linear regression
     logical :: scratch
+    logical :: set_momentum_source_to_zero, set_Q_neo_to_zero, update_transport_coefficients
 
     double precision :: tmax, timescale
     DOUBLE PRECISION :: br_beta = 0
@@ -61,7 +62,8 @@ module time_evolution_stellarator
 
         use recstep_mod, only: tol
         use transp_coeffs_mod, only: rescale_transp_coeffs_by_ant_fac
-        use grid_mod, only: mwind, rmax, rmin, setBoundaryCondition, npoib, rb
+        use grid_mod, only: mwind, rmax, rmin, setBoundaryCondition, npoib, rb, npoi, nbaleqs, &
+            dery_equisource, y
         use baseparam_mod, only: dperp, tol_max
         use QLbalance_diag, only: write_diag, write_diag_b
         use QLBalance_hdf5_tools, only: h5overwrite
@@ -74,10 +76,16 @@ module time_evolution_stellarator
                                 params, params_begbeg, init_background_profiles
         implicit none
 
+        integer :: ipoi, i, ieq
+
         class(time_evolution_stellarator_t), intent(inout) :: this
         this%runType = "TimeEvolution"
         
         if (irank .eq. 0) then
+
+            call read_stell_config
+            call print_stell_config
+
             iexit = 0 ! 0 - dont skip, 1 - skip, 2 - stop
             mwind = 10
             write_diag = .false.
@@ -115,13 +123,13 @@ module time_evolution_stellarator
             call allocate_prev_variables
             call init_background_profiles
             CALL write_initial_parameters
-            !call alloc_hold_parameters
         end if
 
         call calc_geometric_parameter_profiles
         call initialize_get_dql
+        call get_D_one_over_nu
         call initialize_antenna_factor
-        call det_balance_eqs_source_terms
+        call det_balance_eqs_source_terms_stell
 
         if (irank .eq. 0) then
             if (.not. suppression_mode) call write_kin_prof_data_to_disk
@@ -162,6 +170,7 @@ module time_evolution_stellarator
             call copy_kin_profs_to_yprev
             redostep = .false.
 
+            if (update_transport_coefficients) call get_D_one_over_nu
             call get_dql
             call stop_if_time_step_too_small
             call interp_Br_Dql_at_resonance_timeevol
@@ -236,6 +245,32 @@ module time_evolution_stellarator
 
     end subroutine
 
+    subroutine read_stell_config
+
+        implicit none
+
+        NAMELIST /BALANCE_STELL/ set_momentum_source_to_zero, set_Q_neo_to_zero, &
+            update_transport_coefficients
+
+        ! read the parameters from namelist file
+        open (22, file='stell_conf.nml');
+        read (22, NML=BALANCE_STELL)
+        close (22);
+
+    end subroutine
+
+    subroutine print_stell_config
+
+        implicit none
+
+        print *, "============================================================================="
+        print *, "    Stellarator mode configuration"
+        print *, "        set_momentum_source_to_zero           = ", set_momentum_source_to_zero
+        print *, "        set_Q_neo_to_zero                     = ", set_Q_neo_to_zero
+        print *, "        update_transport_coefficients         = ", update_transport_coefficients
+        print *, "============================================================================="
+
+    end subroutine
 
     subroutine allocate_prev_variables
 
@@ -633,11 +668,6 @@ module time_evolution_stellarator
                 end if ! ramp_up_down eq 1
 
             end if !ramp_up_mode
-                !This can be activated for runs without QL evolution to check steady state behaviour
-                !antenna_factor = 1.d-4
-                !if(i .gt. 200) then
-                !    stop
-                !endif
         else
             write(*,*) 'stop: reached antenna_factor_max * ', antenna_max_stopping
             if (suppression_mode .eqv. .false.) then
@@ -692,16 +722,6 @@ module time_evolution_stellarator
                     ! Write the cause of the stopping into the hdf5 file
                     call writeReasonForStopToH5("discrepancy to " //&
                         "linearly predicted value of Br_abs_res > delta")                    
-
-                    !CALL h5_init()
-                    !CALL h5_open_rw(path2out, h5_id)
-                    !CALL h5_add_string(h5_id, trim(h5_mode_groupname)// &
-                        !'/stopping_criterion', 'discrepancy to linearly predicted value of Br_abs_res > delta')
-                    !CALL h5_add_double_0(h5_id, trim(h5_mode_groupname)//'/br_beta', br_beta, &
-                        !'linear slope of br', 'G/s')
-                    !CALL h5_close(h5_id)
-                    !CALL h5_deinit()
-
                     CALL write_br_dqle22_time_data!, br_abs_time, br_abs_antenna_factor, br_abs, dqle22_res_time)
                     CALL MPI_finalize(ierror);
                     stop "Finished time evolution: br_stopping"
@@ -784,7 +804,6 @@ module time_evolution_stellarator
                 CALL h5_create_parent_groups(h5_id, trim(h5_currentgrp))
             end if
 
-            ! edited 26.03.2021, Markus Markl
             ! The profiles are now saved in single precision
             CALL h5_add_float_1(h5_id, trim(h5_currentgrp)//"rc", &
                                 real(rc), lbound(rc), ubound(rc))

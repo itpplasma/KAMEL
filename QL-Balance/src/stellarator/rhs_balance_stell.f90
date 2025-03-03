@@ -18,22 +18,23 @@ subroutine rhs_balance_stell(x, y, dy)
     use plasma_parameters, only: params, ddr_params, params_lin, ddr_params_nl &
                         , params_b_lin, params_b, dot_params
     use baseparam_mod, only: Z_i, e_charge, am, p_mass, c
-    use control_mod, only: iwrite, irf
+    use control_mod, only: iwrite
     use wave_code_data, only: q, Vth
     use matrix_mod, only: isw_rhs, nz, nsize, irow, icol, amat, rhsvec
     use QLBalance_hdf5_tools
+    use QLBalance_kinds, only: dp
     use time_evolution_stellarator, only: set_Q_neo_to_zero
 
     implicit none
 
     integer :: ipoi, ieq, i, npoi, ibeg, iend, nshift, ibegb, iendb, ibegtot, iendtot, k, iprobe
-    double precision :: x, A_noE_1e, A_noE_2e, A_noE_1i, A_noE_2i, convel
-    double precision :: A_noE_1e_nl, A_noE_2e_nl, A_noE_1i_nl, A_noE_2i_nl
-    double precision :: gamma_e, gamma_i, dfluxvphi, Q_e, Q_i, A_1e, A_1i
-    double precision :: gamma_e_nl, Q_e_nl, Q_i_nl, A_1e_nl, A_1i_nl
-    double precision :: gamma_ql_e, gamma_ql_i
-    double precision, dimension(neqset) :: y, dy, y_lin ! y is a profile vector, holding the data of all profiles
-    double precision :: De11, De12, De21, De22, Di11, Di12, Di21, Di22
+    real(dp) :: x, A_noE_1e, A_noE_2e, A_noE_1i, A_noE_2i, convel
+    real(dp) :: A_noE_1e_nl, A_noE_2e_nl, A_noE_1i_nl, A_noE_2i_nl
+    real(dp) :: gamma_e, gamma_i, dfluxvphi, Q_e, Q_i, A_1e, A_1i
+    real(dp) :: gamma_e_nl, Q_e_nl, Q_i_nl, A_1e_nl, A_1i_nl
+    real(dp) :: gamma_ql_e, gamma_ql_i, gamma_onu_e, gamma_onu_i ! ql from RMPs, oonu from 1/nu transport
+    real(dp), dimension(neqset) :: y, dy, y_lin ! y is a profile vector, holding the data of all profiles
+    real(dp) :: De11, De12, De21, De22, Di11, Di12, Di21, Di22
 
     if (iboutype .eq. 1) then
         npoi = npoic - 1
@@ -73,7 +74,7 @@ subroutine rhs_balance_stell(x, y, dy)
             + (params_b(4, :)*ddr_params_nl(1, :)/params_b(1, :) + ddr_params_nl(4, :)) &
             /(Z_i*e_charge)
 
-    if (set_Q_neo_to_zero) cneo = 0.0d0
+    if (set_Q_neo_to_zero) cneo = 0.0d0 ! sets Dni22 to zero
     call calc_equil_diffusion_coeffs
 
     do ipoi = 1, npoib
@@ -115,13 +116,11 @@ subroutine rhs_balance_stell(x, y, dy)
         fluxes_con_nl(2, ipoi) = 0.d0
 
         ! electron heat flux density:
-        !colli    Q_e_nl=-(dae12(ipoi)*A_noE_1e_nl+dqle12(ipoi)*A_1e_nl    &
         Q_e_nl = -(dae12(ipoi)*A_noE_1e_nl + De21*A_1e_nl &
                 + (dae22(ipoi) + De22)*A_noE_2e_nl) &
                  *params_b(1, ipoi)*params_b(3, ipoi)
 
         ! ion heat flux density:
-        !colli    Q_i_nl=-(dai12(ipoi)*A_noE_1i_nl+dqli12(ipoi)*A_1i_nl    &
         Q_i_nl = -(dai12(ipoi)*A_noE_1i_nl + Di21*A_1i_nl &
                 + (dai22(ipoi) + dni22(ipoi) + Di22)*A_noE_2i_nl) &
                  *params_b(1, ipoi)/Z_i*params_b(4, ipoi)
@@ -203,16 +202,17 @@ subroutine rhs_balance_stell(x, y, dy)
 
             ! Thermodynamic forces for finite radial electric field:
             A_1e = A_noE_1e + Ercov_lin(ipoi)*e_charge/params_b(3, ipoi)
-            !ERROR    A_1i=A_noE_1e-Ercov_lin(ipoi)*e_charge*Z_i/params_b(4,ipoi)
-            A_1i = A_noE_1i - Ercov_lin(ipoi)*e_charge*Z_i/params_b(4, ipoi) !<-FIXED
+            A_1i = A_noE_1i - Ercov_lin(ipoi)*e_charge*Z_i/params_b(4, ipoi)
         
             ! particle flux densities:
             gamma_e = -(dae11(ipoi)*A_noE_1e + dae12(ipoi)*A_noE_2e)*params_b(1, ipoi)
-            gamma_ql_e = -(De11*A_1e + De12*A_noE_2e)*params_b(1, ipoi)
-            gamma_e = gamma_e + gamma_ql_e
+            gamma_ql_e = -(dqle11(ipoi)*A_1e + dqle12(ipoi)*A_noE_2e)*params_b(1, ipoi)
+            gamma_onu_e = -(Donue11(ipoi)*A_1e + Donue12(ipoi)*A_noE_2e)*params_b(1, ipoi)
+            gamma_e = gamma_e + gamma_ql_e + gamma_onu_e
             gamma_i = -(dai11(ipoi)*A_noE_1i + dai12(ipoi)*A_noE_2i)*params_b(1, ipoi)/Z_i
-            gamma_ql_i = -(Di11*A_1i + Di12*A_noE_2i)*params_b(1, ipoi)/Z_i
-            gamma_i = gamma_i + gamma_ql_i
+            gamma_ql_i = -(dqli11(ipoi)*A_1i + dqli12(ipoi)*A_noE_2i)*params_b(1, ipoi)/Z_i
+            gamma_onu_i = -(Donui11(ipoi)*A_1i + Donui12(ipoi)*A_noE_2i)*params_b(1, ipoi) / Z_i
+            gamma_i = gamma_i + gamma_ql_i + gamma_onu_i
 
             ! total particle flux:
             fluxes_dif(1, ipoi) = -Sb(ipoi)*ddr_params(1, ipoi)*(dae11(ipoi) &
@@ -242,7 +242,7 @@ subroutine rhs_balance_stell(x, y, dy)
             fluxes_con(3, ipoi) = (Sb(ipoi)*Q_e - fluxes_dif(3, ipoi))/params_b(3, ipoi)
 
             fluxes_dif(4, ipoi) = -Sb(ipoi)*(dai22(ipoi) + dni22(ipoi) + Di22 &
-                                - 2.5d0*dqli21(ipoi))*params_b(1, ipoi)/Z_i*ddr_params(4, ipoi)
+                                - 2.5d0*Di21)*params_b(1, ipoi)/Z_i*ddr_params(4, ipoi)
             fluxes_con(4, ipoi) = (Sb(ipoi)*Q_i - fluxes_dif(4, ipoi))/params_b(4, ipoi)
             
             ! Momentum source due to the polarization current:
@@ -250,8 +250,8 @@ subroutine rhs_balance_stell(x, y, dy)
                             /(am*p_mass)
 
             ! Heat sources due to the radial QL drift in the equilibrium electric field:
-            qlheat_e(ipoi) = -Ercov(ipoi)*gamma_ql_e*e_charge
-            qlheat_i(ipoi) = Z_i*Ercov(ipoi)*gamma_ql_i*e_charge
+            qlheat_e(ipoi) = -Ercov(ipoi)*(gamma_ql_e + gamma_onu_e)*e_charge
+            qlheat_i(ipoi) = Z_i*Ercov(ipoi)*(gamma_ql_i + gamma_onu_i)*e_charge
         end do
 
         ! Condition of zero flux at the inner boundary:
@@ -365,7 +365,7 @@ subroutine rhs_balance_stell(x, y, dy)
         nz = k
         nsize = neqset
     else
-        call rhs_balance_source(x, y, dy)
+        call rhs_balance_source_stell(x, y, dy)
         rhsvec = dy
     end if
 
@@ -376,24 +376,24 @@ subroutine initialize_rhs_stell(y, dy)
 
     use grid_mod, only: neqset
     use matrix_mod
+    use QLBalance_kinds, only: dp
 
     implicit none
-    double precision :: x
-    double precision, dimension(neqset) :: y, dy
+    real(dp) :: x
+    real(dp), dimension(neqset) :: y, dy
 
     x = 0.d0
     isw_rhs = 0
-!
+
     call rhs_balance_stell(x, y, dy)
-!
+
     isw_rhs = 1
     if (allocated(amat)) deallocate (irow, icol, amat, rhsvec)
     allocate (irow(nz), icol(nz), amat(nz), rhsvec(nsize))
-!
+
 end subroutine initialize_rhs_stell
-!
-!ccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
-!
+
+
 subroutine rhs_balance_source_stell(x, y, dy)
 
     use grid_mod, only: nbaleqs, neqset, iboutype, npoic, npoib &
@@ -405,7 +405,8 @@ subroutine rhs_balance_source_stell(x, y, dy)
                         , dqle11, dqle12, dqle21, dqle22 &
                         , dqli11, dqli12, dqli21, dqli22 &
                         , sqg_bthet_overc, Ercov, polforce, qlheat_e, qlheat_i &
-                        , Ercov_lin, fluxes_con_nl, cneo
+                        , Ercov_lin, fluxes_con_nl, cneo, Donue11, Donue12, Donue21, Donue22 &
+                        , Donui11, Donui12, Donui21, Donui22
                         
     use plasma_parameters, only: params, ddr_params, params_b, params_lin &
                         , params_b_lin, ddr_params_nl, dot_params
@@ -413,16 +414,18 @@ subroutine rhs_balance_source_stell(x, y, dy)
     use control_mod, only: iwrite
     use wave_code_data, only: q, Vth
     use time_evolution_stellarator, only: set_Q_neo_to_zero
+    use QLBalance_kinds, only: dp
 
     implicit none
 
     integer :: ipoi, ieq, i, npoi
-    double precision :: x, A_noE_1e, A_noE_2e, A_noE_1i, A_noE_2i, convel
-    double precision :: A_noE_1e_nl, A_noE_2e_nl, A_noE_1i_nl, A_noE_2i_nl
-    double precision :: gamma_e, gamma_i, dfluxvphi, Q_e, Q_i, A_1e, A_1i
-    double precision :: gamma_e_nl, Q_e_nl, Q_i_nl, A_1e_nl, A_1i_nl
-    double precision :: gamma_ql_e, gamma_ql_i
-    double precision, dimension(neqset) :: y, dy, y_lin
+    real(dp) :: x, A_noE_1e, A_noE_2e, A_noE_1i, A_noE_2i, convel
+    real(dp) :: A_noE_1e_nl, A_noE_2e_nl, A_noE_1i_nl, A_noE_2i_nl
+    real(dp) :: gamma_e, gamma_i, dfluxvphi, Q_e, Q_i, A_1e, A_1i
+    real(dp) :: gamma_e_nl, Q_e_nl, Q_i_nl, A_1e_nl, A_1i_nl
+    real(dp) :: gamma_ql_e, gamma_ql_i
+    real(dp), dimension(neqset) :: y, dy, y_lin
+    real(dp) :: De11, De12, De21, De22, Di11, Di12, Di21, Di22
 
     if (iboutype .eq. 1) then
         npoi = npoic - 1
@@ -478,6 +481,16 @@ subroutine rhs_balance_source_stell(x, y, dy)
     !
 
     do ipoi = 1, npoib
+        De11 = dqle11(ipoi) + Donue11(ipoi)
+        De12 = dqle12(ipoi) + Donue12(ipoi)
+        De21 = dqle21(ipoi) + Donue21(ipoi)
+        De22 = dqle22(ipoi) + Donue22(ipoi)
+
+        Di11 = dqli11(ipoi) + Donui11(ipoi)
+        Di12 = dqli12(ipoi) + Donui12(ipoi)
+        Di21 = dqli21(ipoi) + Donui21(ipoi)
+        Di22 = dqli22(ipoi) + Donui22(ipoi)
+
         ! Thermodynamic forces for zero radial electric field:
         A_noE_1e = ddr_params(1, ipoi)/params_b(1, ipoi) &
                     - 1.5d0*ddr_params(3, ipoi)/params_b(3, ipoi)
@@ -503,23 +516,23 @@ subroutine rhs_balance_source_stell(x, y, dy)
 
         ! particle flux densities:
         gamma_e = -(dae11(ipoi)*A_noE_1e + dae12(ipoi)*A_noE_2e)*params_b(1, ipoi)
-        gamma_ql_e = -(dqle11(ipoi)*A_1e + dqle12(ipoi)*A_noE_2e)*params_b(1, ipoi)
+        gamma_ql_e = -(De11*A_1e + De12*A_noE_2e)*params_b(1, ipoi)
         gamma_e = gamma_e + gamma_ql_e
         gamma_i = -(dai11(ipoi)*A_noE_1i + dai12(ipoi)*A_noE_2i)*params_b(1, ipoi)/Z_i
-        gamma_ql_i = -(dqli11(ipoi)*A_1i + dqli12(ipoi)*A_noE_2i)*params_b(1, ipoi)/Z_i
+        gamma_ql_i = -(Di11*A_1i + Di12*A_noE_2i)*params_b(1, ipoi)/Z_i
         gamma_i = gamma_i + gamma_ql_i
 
         gamma_e_nl = -(dae11(ipoi)*A_noE_1e_nl + dae12(ipoi)*A_noE_2e_nl &
-                        + dqle11(ipoi)*A_1e_nl + dqle12(ipoi)*A_noE_2e_nl &
+                        + De11*A_1e_nl + De12*A_noE_2e_nl &
                         )*params_b(1, ipoi)
 
         ! total particle flux:
         fluxes_dif(1, ipoi) = -Sb(ipoi)*ddr_params(1, ipoi)*(dae11(ipoi) &
-                            + dqle11(ipoi)*(1.d0 + params_b(4, ipoi)/params_b(3, ipoi)/Z_i))
+                            + De11*(1.d0 + params_b(4, ipoi)/params_b(3, ipoi)/Z_i))
         fluxes_con(1, ipoi) = (Sb(ipoi)*gamma_e - fluxes_dif(1, ipoi))/params_b(1, ipoi)
         fluxes_con_nl(1, ipoi) = (Sb(ipoi)*gamma_e_nl - &
                                 (-Sb(ipoi)*ddr_params_nl(1, ipoi)*(dae11(ipoi) &
-                            + dqle11(ipoi)*(1.d0 + params_b(4, ipoi)/params_b(3, ipoi)/Z_i))))/params_b(1, ipoi)
+                            + De11*(1.d0 + params_b(4, ipoi)/params_b(3, ipoi)/Z_i))))/params_b(1, ipoi)
 
         ! toroidal moment flux density divided by mass:
         dfluxvphi = -visca(ipoi)*ddr_params(2, ipoi)*params_b(1, ipoi)/Z_i*gpp_av(ipoi)
@@ -529,38 +542,36 @@ subroutine rhs_balance_source_stell(x, y, dy)
         fluxes_con_nl(2, ipoi) = 0.d0
 
         ! electron heat flux density:
-        Q_e = -(dae12(ipoi)*A_noE_1e + dqle21(ipoi)*A_1e &
-                + (dae22(ipoi) + dqle22(ipoi))*A_noE_2e) &
+        Q_e = -(dae12(ipoi)*A_noE_1e + De21*A_1e &
+                + (dae22(ipoi) + De22)*A_noE_2e) &
               *params_b(1, ipoi)*params_b(3, ipoi)
 
-        Q_e_nl = -(dae12(ipoi)*A_noE_1e_nl + dqle21(ipoi)*A_1e_nl &
-                + (dae22(ipoi) + dqle22(ipoi))*A_noE_2e_nl) &
+        Q_e_nl = -(dae12(ipoi)*A_noE_1e_nl + De21*A_1e_nl &
+                + (dae22(ipoi) + De22)*A_noE_2e_nl) &
                 *params_b(1, ipoi)*params_b(3, ipoi)
 
         ! ion heat flux density:
-        Q_i = -(dai12(ipoi)*A_noE_1i + dqli21(ipoi)*A_1i &
-                + (dai22(ipoi) + dni22(ipoi) + dqli22(ipoi))*A_noE_2i) &
+        Q_i = -(dai12(ipoi)*A_noE_1i + Di21*A_1i &
+                + (dai22(ipoi) + dni22(ipoi) + Di22)*A_noE_2i) &
               *params_b(1, ipoi)/Z_i*params_b(4, ipoi)
 
-        Q_i_nl = -(dai12(ipoi)*A_noE_1i_nl + dqli21(ipoi)*A_1i_nl &
-                + (dai22(ipoi) + dni22(ipoi) + dqli22(ipoi))*A_noE_2i_nl) &
+        Q_i_nl = -(dai12(ipoi)*A_noE_1i_nl + Di21*A_1i_nl &
+                + (dai22(ipoi) + dni22(ipoi) + Di22)*A_noE_2i_nl) &
                  *params_b(1, ipoi)/Z_i*params_b(4, ipoi)
 
         ! total heat fluxes:
-        fluxes_dif(3, ipoi) = -Sb(ipoi)*(dae22(ipoi) + dqle22(ipoi)) &
+        fluxes_dif(3, ipoi) = -Sb(ipoi)*(dae22(ipoi) + De22) &
                               *params_b(1, ipoi)*ddr_params(3, ipoi)
         fluxes_con(3, ipoi) = (Sb(ipoi)*Q_e - fluxes_dif(3, ipoi))/params_b(3, ipoi)
         fluxes_con_nl(3, ipoi) = (Sb(ipoi)*Q_e_nl - &
-                            (-Sb(ipoi)*(dae22(ipoi) + dqle22(ipoi))*params_b(1, ipoi)*ddr_params_nl(3, ipoi))) &
+                            (-Sb(ipoi)*(dae22(ipoi) + De22)*params_b(1, ipoi)*ddr_params_nl(3, ipoi))) &
                             /params_b(3, ipoi)
 
-        fluxes_dif(4, ipoi) = -Sb(ipoi)*(dai22(ipoi) + dni22(ipoi) + dqli22(ipoi) &
-                        !colli             - 2.5d0*dqli12(ipoi))*params_b(1,ipoi)/Z_i*ddr_params(4,ipoi)
-                            - 2.5d0*dqli21(ipoi))*params_b(1, ipoi)/Z_i*ddr_params(4, ipoi)
+        fluxes_dif(4, ipoi) = -Sb(ipoi)*(dai22(ipoi) + dni22(ipoi) + Di22 &
+                            - 2.5d0*Di21)*params_b(1, ipoi)/Z_i*ddr_params(4, ipoi)
         fluxes_con(4, ipoi) = (Sb(ipoi)*Q_i - fluxes_dif(4, ipoi))/params_b(4, ipoi)
         fluxes_con_nl(4, ipoi) = (Sb(ipoi)*Q_i_nl - &
-                            !colli    (-Sb(ipoi)*(dai22(ipoi)+dni22(ipoi)+dqli22(ipoi)-2.5d0*dqli12(ipoi)) &
-                            (-Sb(ipoi)*(dai22(ipoi) + dni22(ipoi) + dqli22(ipoi) - 2.5d0*dqli21(ipoi)) &
+                            (-Sb(ipoi)*(dai22(ipoi) + dni22(ipoi) + Di22 - 2.5d0*Di21) &
                             *params_b(1, ipoi)/Z_i*ddr_params_nl(4, ipoi))) &
                             /params_b(4, ipoi)
 

@@ -2,18 +2,18 @@ subroutine det_balance_eqs_source_terms_stell
     
     ! calculates source terms in the balance equations. Is determined by assuming steady state.
 
-    use grid_mod, only : y, dery, dery_equisource, nbaleqs,neqset,iboutype,npoic
+    use grid_mod, only : y, dery, dery_equisource, nbaleqs, iboutype, npoic
     use plasma_parameters, only: params
-
-    use control_mod, only: iwrite, ihdf5IO, diagnostics_output, debug_mode, irf
+    use control_mod, only: ihdf5IO, diagnostics_output, debug_mode
     use h5mod
     use matrix_mod
     use time_evolution_stellarator, only: set_momentum_source_to_zero
+    use QLBalance_kinds, only: dp
 
     implicit none
 
-    integer :: ipoi,ieq,i,npoi,icount,k
-    double precision :: x
+    integer :: ipoi, ieq, i, npoi, k
+    real(dp) :: x
     character(len=1024) :: tempch
 
     if (debug_mode) write(*,*) "Debug: Generating starting source"
@@ -45,6 +45,7 @@ subroutine det_balance_eqs_source_terms_stell
     dery_equisource=dery_equisource-rhsvec
 
     if (set_momentum_source_to_zero) then
+        print *, "Setting momentum source term zero"
         do ipoi = 1, npoi
             ! set momentum source term to zero
             dery_equisource(4*(ipoi-1)+2) = 0

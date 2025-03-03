@@ -6,14 +6,14 @@ subroutine evolvestep_stell(timstep,eps)
     use matrix_mod, only: amat
     use matrix_mod, only: nz, nsize, irow, icol, amat
     use recstep_mod, only : timstep_arr
+    use QLBalance_kinds, only: dp
 
     implicit none
 
-    external :: rhs_balance_stell !, rhs_func, gslint
     integer :: ipoi,ieq,i,k,npoi,iopt,nz_sp,nz_sq,nrow,ncol
-    double precision :: timstep,x1,eps
-    INTEGER,          DIMENSION(:),   ALLOCATABLE :: ipcol,irow_sp,icol_sp
-    DOUBLE PRECISION, DIMENSION(:),   ALLOCATABLE :: amat_sp,bvec_sp
+    real(dp) :: timstep,x1,eps
+    integer, dimension(:), allocatable :: ipcol,irow_sp,icol_sp
+    real(dp), dimension(:), allocatable :: amat_sp,bvec_sp
 
     x1=0.d0
     sparse_solve_method = 3

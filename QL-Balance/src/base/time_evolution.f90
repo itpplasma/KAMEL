@@ -168,6 +168,7 @@ module time_evolution
         implicit none
 
         class(TimeEvolution_t), intent(inout) :: this
+        integer :: iredo = 0
 
         do timeIndex = 1, Nstorage
             call copy_kin_profs_to_yprev
@@ -194,6 +195,7 @@ module time_evolution
             end if
 
             do ! redo step loop
+                iredo = iredo + 1
                 params_beg = params
 
                 print *, ""
@@ -215,14 +217,19 @@ module time_evolution
                 params = params_beg
 
                 if (irank .eq. 0) then
-                    print *, "Redoing step: Maxval(timscal) is not lesser than tol * factolmax"
-                    print *, "Maxval(timscal) = ", maxval(timscal)
-                    print *, "tol = ", tol
-                    print *, "factolmax = ", factolmax
-                    print *, "tol * factolmax = ", tol * factolmax
-                    print *, "timstep_arr(1) = ", timstep_arr(1)
-                    print *, "timstep_arr(100) = ", timstep_arr(100)
-                    print *, ""
+                    if (debug_mode) then
+                        print *, "Redoing step: Maxval(timscal) is not lesser than tol * factolmax"
+                        print *, "Maxval(timscal) = ", maxval(timscal)
+                        print *, "tol = ", tol
+                        print *, "factolmax = ", factolmax
+                        print *, "tol * factolmax = ", tol * factolmax
+                        print *, "timstep_arr(1) = ", timstep_arr(1)
+                        print *, "timstep_arr(100) = ", timstep_arr(100)
+                        print *, ""
+                    end if
+                end if 
+                if (iredo > 100) then
+                    stop "Redoing step: Maxval(timscal) is not lesser than tol * factolmax after 100 redos"
                 end if
             end do
 

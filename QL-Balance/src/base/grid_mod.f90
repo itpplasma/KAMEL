@@ -22,6 +22,8 @@ module grid_mod
     ! 1/nu diffusion
     double precision, dimension(:),   allocatable :: Donue11,Donue12,Donue21,Donue22
     double precision, dimension(:),   allocatable :: Donui11,Donui12,Donui21,Donui22
+    double precision, dimension(:),   allocatable :: init_Donue11, init_Donue12, init_Donue21, init_Donue22
+    double precision, dimension(:),   allocatable :: init_Donui11, init_Donui12, init_Donui21, init_Donui22
     ! total diffusion
     double precision, dimension(:),   allocatable :: de11,de12,de21,de22
     double precision, dimension(:),   allocatable :: di11,di12,di21,di22

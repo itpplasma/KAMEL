@@ -4,126 +4,127 @@
 ! Generates the grid for two types of boundary conditions at the outer
 ! boundary: iboutype=1 - fixed parameters, iboutype=2 - fixed fluxes
 ! At the inner boundary fixed fluxes = 0 are always assumed
-!
-  use grid_mod
-  use plasma_parameters
-  use control_mod, only: debug_mode
-  use PolyLagrangeInterpolation
-!
-  implicit none
-!
-  integer :: ipoib, ipb, ipe
-  double precision :: hrmax,r,rnext,recnsp,rscale
-  double precision, dimension(:),   allocatable :: x
-!
-  if (debug_mode) write(*,*) "Debug: coming in gengrid"
-  nbaleqs=4
-!
-  nder=1
-  npoi_der=4
-  allocate(x(npoi_der),coef(0:nder,npoi_der))
-!
-  hrmax=(rmax-rmin)/(npoimin+1)
-!
-  npoib=1
-  r=rmin
-!
-  do while(r.lt.rmax)
-    !if (debug_mode) print *, 'npoib: ', npoib
-    call recnsplit(r,recnsp)
-    rnext=r+hrmax/recnsp
-    call recnsplit(rnext,recnsp)
-    r=0.5d0*(rnext+r+hrmax/recnsp)
-    !if (debug_mode) print *, 'r: ', r
-    npoib=npoib+1
-  enddo
-  npoic=npoib-1
-!
-  allocate(rb(npoib),rc(npoic))
-  allocate(Sb(npoib),Sc(npoic))
-!
-  r=rmin
-  rb(1)=r
-!
-  do ipoib=2,npoib
-    call recnsplit(r,recnsp)
-    rnext=r+hrmax/recnsp
-    call recnsplit(rnext,recnsp)
-    r=0.5d0*(rnext+r+hrmax/recnsp)
-    rb(ipoib)=r
-    rc(ipoib-1)=0.5*(rb(ipoib-1)+rb(ipoib))
-  enddo
-!
-  if(iboutype.eq.1) then
-    rscale=(rmax-rmin)/(rc(npoic)-rmin)
-  else
-    rscale=(rmax-rmin)/(rb(npoib)-rmin)
-  endif
-  !rb=rmin+rscale*(rb-rmin)
-  !rc=rmin+rscale*(rc-rmin)
-!
-  if(npoi_der.gt.npoic) then
-    print *,'gengrid : not enough grid points for derivatives'
-    stop
-  endif
-!
-  allocate(deriv_coef(npoi_der,npoib),ipbeg(npoib),ipend(npoib))
-  allocate(reint_coef(npoi_der,npoib))
-!
-  do ipoib=1,npoib
-    ipb=ipoib-npoi_der/2
-    ipe=ipb+npoi_der-1
-    if(ipb.lt.1) then
-      ipb=1
-      ipe=ipb+npoi_der-1
-    elseif(ipe.gt.npoic) then
-      ipe=npoic
-      ipb=ipe-npoi_der+1
-    endif
-    ipbeg(ipoib)=ipb
-    ipend(ipoib)=ipe
-    call plag_coeff(npoi_der,nder,rb(ipoib),rc(ipb:ipe),coef)
-    deriv_coef(:,ipoib)=coef(1,:)
-    reint_coef(:,ipoib)=coef(0,:)
-  enddo
-!
-  deallocate(coef)
-!
-  allocate(params(nbaleqs,npoic),dot_params(nbaleqs,npoic))
-  allocate(params_b(nbaleqs,npoib),ddr_params(nbaleqs,npoib),ddr_params_nl(nbaleqs,npoib))
-  allocate(params_lin(nbaleqs,npoic),params_b_lin(nbaleqs,npoib))
-  allocate(fluxes_dif(nbaleqs,npoib),fluxes_con(nbaleqs,npoib),fluxes_con_nl(nbaleqs,npoib))
-!
-  if(iboutype.eq.1) then
-    neqset=nbaleqs*(npoic-1)
-  else
-    neqset=nbaleqs*npoic
-  endif
-  allocate(y(neqset),dery(neqset),dery_equisource(neqset))
-  !allocate(alpha(neqset*neqset))
-  allocate(source_term(neqset))
-!
-  allocate(dae11(npoib),dae12(npoib),dae22(npoib))
-  allocate(dai11(npoib),dai12(npoib),dai22(npoib))
-  allocate(dni22(npoib),visca(npoib))
-  allocate(dqle11(npoib),dqle12(npoib),dqle21(npoib),dqle22(npoib))
-  allocate(dqli11(npoib),dqli12(npoib),dqli21(npoib),dqli22(npoib))
-  allocate(de11(npoib),de12(npoib),de21(npoib),de22(npoib))
-  allocate(di11(npoib),di12(npoib),di21(npoib),di22(npoib))
-  allocate(polforce(npoib),qlheat_e(npoib),qlheat_i(npoib))
-!
-  dni22=0.d0
-!
-  allocate(cneo(npoib),gpp_av(npoib))
-  allocate(qsafb(npoib),qsaf(npoic))
-  allocate(sqg_bthet_overc(npoib),Ercov(npoib),sqg_bthet_overcavg(npoib), &
-      Ercovavg(npoib))
-  allocate(Ercov_lin(npoib))
-!
 
-  if (debug_mode) write(*,*) "Debug: going out in gengrid"
-  return
-  end subroutine gengrid
+    use grid_mod
+    use plasma_parameters
+    use control_mod, only: debug_mode
+    use PolyLagrangeInterpolation
+
+    implicit none
+
+    integer :: ipoib, ipb, ipe
+    double precision :: hrmax,r,rnext,recnsp,rscale
+    double precision, dimension(:),   allocatable :: x
+
+    if (debug_mode) write(*,*) "Debug: coming in gengrid"
+    nbaleqs=4
+
+    nder=1
+    npoi_der=4
+    allocate(x(npoi_der),coef(0:nder,npoi_der))
+
+    hrmax=(rmax-rmin)/(npoimin+1)
+
+    npoib=1
+    r=rmin
+
+    do while(r.lt.rmax)
+      !if (debug_mode) print *, 'npoib: ', npoib
+      call recnsplit(r,recnsp)
+      rnext=r+hrmax/recnsp
+      call recnsplit(rnext,recnsp)
+      r=0.5d0*(rnext+r+hrmax/recnsp)
+      !if (debug_mode) print *, 'r: ', r
+      npoib=npoib+1
+    enddo
+    npoic=npoib-1
+
+    allocate(rb(npoib),rc(npoic))
+    allocate(Sb(npoib),Sc(npoic))
+
+    r=rmin
+    rb(1)=r
+
+    do ipoib=2,npoib
+      call recnsplit(r,recnsp)
+      rnext=r+hrmax/recnsp
+      call recnsplit(rnext,recnsp)
+      r=0.5d0*(rnext+r+hrmax/recnsp)
+      rb(ipoib)=r
+      rc(ipoib-1)=0.5*(rb(ipoib-1)+rb(ipoib))
+    enddo
+
+    if(iboutype.eq.1) then
+      rscale=(rmax-rmin)/(rc(npoic)-rmin)
+    else
+      rscale=(rmax-rmin)/(rb(npoib)-rmin)
+    endif
+    !rb=rmin+rscale*(rb-rmin)
+    !rc=rmin+rscale*(rc-rmin)
+
+    if(npoi_der.gt.npoic) then
+      print *,'gengrid : not enough grid points for derivatives'
+      stop
+    endif
+
+    allocate(deriv_coef(npoi_der,npoib),ipbeg(npoib),ipend(npoib))
+    allocate(reint_coef(npoi_der,npoib))
+
+    do ipoib=1,npoib
+      ipb=ipoib-npoi_der/2
+      ipe=ipb+npoi_der-1
+      if(ipb.lt.1) then
+        ipb=1
+        ipe=ipb+npoi_der-1
+      elseif(ipe.gt.npoic) then
+        ipe=npoic
+        ipb=ipe-npoi_der+1
+      endif
+      ipbeg(ipoib)=ipb
+      ipend(ipoib)=ipe
+      call plag_coeff(npoi_der,nder,rb(ipoib),rc(ipb:ipe),coef)
+      deriv_coef(:,ipoib)=coef(1,:)
+      reint_coef(:,ipoib)=coef(0,:)
+    enddo
+
+    deallocate(coef)
+
+    allocate(params(nbaleqs,npoic),dot_params(nbaleqs,npoic))
+    allocate(init_params(nbaleqs,npoic))
+    allocate(params_b(nbaleqs,npoib),ddr_params(nbaleqs,npoib),ddr_params_nl(nbaleqs,npoib))
+    allocate(params_lin(nbaleqs,npoic),params_b_lin(nbaleqs,npoib))
+    allocate(fluxes_dif(nbaleqs,npoib),fluxes_con(nbaleqs,npoib),fluxes_con_nl(nbaleqs,npoib))
+
+    if(iboutype.eq.1) then
+      neqset=nbaleqs*(npoic-1)
+    else
+      neqset=nbaleqs*npoic
+    endif
+    allocate(y(neqset),dery(neqset),dery_equisource(neqset))
+    !allocate(alpha(neqset*neqset))
+    allocate(source_term(neqset))
+
+    allocate(dae11(npoib),dae12(npoib),dae22(npoib))
+    allocate(dai11(npoib),dai12(npoib),dai22(npoib))
+    allocate(dni22(npoib),visca(npoib))
+    allocate(dqle11(npoib),dqle12(npoib),dqle21(npoib),dqle22(npoib))
+    allocate(dqli11(npoib),dqli12(npoib),dqli21(npoib),dqli22(npoib))
+    allocate(de11(npoib),de12(npoib),de21(npoib),de22(npoib))
+    allocate(di11(npoib),di12(npoib),di21(npoib),di22(npoib))
+    allocate(polforce(npoib),qlheat_e(npoib),qlheat_i(npoib))
+
+    dni22=0.d0
+
+    allocate(cneo(npoib),gpp_av(npoib))
+    allocate(qsafb(npoib),qsaf(npoic))
+    allocate(sqg_bthet_overc(npoib),Ercov(npoib),sqg_bthet_overcavg(npoib), &
+        Ercovavg(npoib))
+    allocate(Ercov_lin(npoib))
+
+
+    if (debug_mode) write(*,*) "Debug: going out in gengrid"
+    return
+end subroutine gengrid
   
 
 subroutine calc_geometric_parameter_profiles
@@ -143,7 +144,6 @@ subroutine calc_geometric_parameter_profiles
 
     coullog=15.d0
     om_ci=Z_i*e_charge*btor/(am*p_mass*c)
-  !  print *,'om_ci = ',om_ci
     cneo_0=1.32*4.d0*sqrt(pi)*Z_i**3*e_charge**4*coullog &
           /(3.d0*(am*p_mass)**1.5d0*om_ci**2)
 
@@ -170,17 +170,16 @@ subroutine recnsplit(r,recnsp)
         call prepare_resonances
     endif
 
-!  recnsp = 1.d0 + gg_factor*exp(-((r-gg_r_res)/gg_width)**2);
-  recnsp = 1.d0
-  do k=1,numres
-    recnsp = recnsp + ampl_res(k)*exp(-((r-r_res(k))/width_res(k))**2)
-  enddo
-!
-  return
-  end subroutine recnsplit
-!
-!ccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
-!
+    !  recnsp = 1.d0 + gg_factor*exp(-((r-gg_r_res)/gg_width)**2);
+    recnsp = 1.d0
+    do k=1,numres
+      recnsp = recnsp + ampl_res(k)*exp(-((r-r_res(k))/width_res(k))**2)
+    enddo
+
+    return
+end subroutine recnsplit
+
+
 subroutine prepare_resonances
 
     use resonances_mod

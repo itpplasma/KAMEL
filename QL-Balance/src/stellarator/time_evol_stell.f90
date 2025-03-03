@@ -6,44 +6,46 @@ module time_evolution_stellarator
     use balance_base, only: balance_t
     use time_evolution, only: Nstorage, ramp_up_mode, save_prof_time_step, iexit, ramp_up_down, timeIndex, &
         antenna_max_stopping, timstep_min, tmax_factor, t_max_ramp_up
+    use QLBalance_kinds, only: dp
 
     implicit none
 
     logical :: br_stopping ! trigger Br stopping criterion
-    logical :: discr_reached = .false. ! variable to say if discrepancy to linear regression
+    logical :: discr_reached = .false. ! variable to say if discrepancy to linear regression is reached
     logical :: scratch
-    logical :: set_momentum_source_to_zero, set_Q_neo_to_zero, update_transport_coefficients
+    logical :: set_momentum_source_to_zero, set_Q_neo_to_zero
+    integer :: update_transport_coefficients
 
-    double precision :: tmax, timescale
-    DOUBLE PRECISION :: br_beta = 0
-    DOUBLE PRECISION :: br_predicted
+    real(dp) :: tmax, timescale
+    real(dp) :: br_beta = 0
+    real(dp) :: br_predicted
 
-    double precision :: stop_time_step
-    double precision :: timstep
-    double precision :: time
-    double precision :: t_hysteresis_turn = 0
+    real(dp) :: stop_time_step
+    real(dp) :: timstep
+    real(dp) :: time
+    real(dp) :: t_hysteresis_turn = 0
 
-    double precision, dimension(:), allocatable :: timscal
+    real(dp), dimension(:), allocatable :: timscal
 
-    DOUBLE PRECISION, DIMENSION(:), ALLOCATABLE :: yprev
-    DOUBLE PRECISION, DIMENSION(:), ALLOCATABLE :: dqle11_prev
-    DOUBLE PRECISION, DIMENSION(:), ALLOCATABLE :: dqle12_prev
-    DOUBLE PRECISION, DIMENSION(:), ALLOCATABLE :: dqle21_prev
-    DOUBLE PRECISION, DIMENSION(:), ALLOCATABLE :: dqle22_prev
-    DOUBLE PRECISION, DIMENSION(:), ALLOCATABLE :: dqli11_prev
-    DOUBLE PRECISION, DIMENSION(:), ALLOCATABLE :: dqli12_prev
-    DOUBLE PRECISION, DIMENSION(:), ALLOCATABLE :: dqli21_prev
-    DOUBLE PRECISION, DIMENSION(:), ALLOCATABLE :: dqli22_prev
+    real(dp), DIMENSION(:), ALLOCATABLE :: yprev
+    real(dp), DIMENSION(:), ALLOCATABLE :: dqle11_prev
+    real(dp), DIMENSION(:), ALLOCATABLE :: dqle12_prev
+    real(dp), DIMENSION(:), ALLOCATABLE :: dqle21_prev
+    real(dp), DIMENSION(:), ALLOCATABLE :: dqle22_prev
+    real(dp), DIMENSION(:), ALLOCATABLE :: dqli11_prev
+    real(dp), DIMENSION(:), ALLOCATABLE :: dqli12_prev
+    real(dp), DIMENSION(:), ALLOCATABLE :: dqli21_prev
+    real(dp), DIMENSION(:), ALLOCATABLE :: dqli22_prev
 
-    double precision :: antenna_factor_max
+    real(dp) :: antenna_factor_max
 
     !needed for interpolation of br abs and stopping criterion
-    DOUBLE PRECISION, DIMENSION(:), ALLOCATABLE :: br_abs
-    DOUBLE PRECISION, DIMENSION(:), ALLOCATABLE :: br_abs_time
-    DOUBLE PRECISION, DIMENSION(:), ALLOCATABLE :: br_abs_antenna_factor
-    DOUBLE PRECISION, DIMENSION(:), ALLOCATABLE :: dqle22_res_time
-    DOUBLE PRECISION, DIMENSION(:), ALLOCATABLE :: dae22_res_time
-    DOUBLE PRECISION, DIMENSION(:), ALLOCATABLE :: bif_criterion
+    real(dp), DIMENSION(:), ALLOCATABLE :: br_abs
+    real(dp), DIMENSION(:), ALLOCATABLE :: br_abs_time
+    real(dp), DIMENSION(:), ALLOCATABLE :: br_abs_antenna_factor
+    real(dp), DIMENSION(:), ALLOCATABLE :: dqle22_res_time
+    real(dp), DIMENSION(:), ALLOCATABLE :: dae22_res_time
+    real(dp), DIMENSION(:), ALLOCATABLE :: bif_criterion
 
     logical :: firstiterationdone = .false. !Some steps in saving the data to hdf5 file 
     !need to be done only the first time iteration
@@ -62,8 +64,7 @@ module time_evolution_stellarator
 
         use recstep_mod, only: tol
         use transp_coeffs_mod, only: rescale_transp_coeffs_by_ant_fac
-        use grid_mod, only: mwind, rmax, rmin, setBoundaryCondition, npoib, rb, npoi, nbaleqs, &
-            dery_equisource, y
+        use grid_mod, only: mwind, rmax, rmin, setBoundaryCondition, npoib, rb
         use baseparam_mod, only: dperp, tol_max
         use QLbalance_diag, only: write_diag, write_diag_b
         use QLBalance_hdf5_tools, only: h5overwrite
@@ -75,8 +76,6 @@ module time_evolution_stellarator
         use plasma_parameters, only: write_initial_parameters, alloc_hold_parameters, &
                                 params, params_begbeg, init_background_profiles
         implicit none
-
-        integer :: ipoi, i, ieq
 
         class(time_evolution_stellarator_t), intent(inout) :: this
         this%runType = "TimeEvolution"
@@ -127,7 +126,7 @@ module time_evolution_stellarator
 
         call calc_geometric_parameter_profiles
         call initialize_get_dql
-        call get_D_one_over_nu
+        call initialize_D_one_over_nu
         call initialize_antenna_factor
         call det_balance_eqs_source_terms_stell
 
@@ -164,13 +163,19 @@ module time_evolution_stellarator
         implicit none
 
         class(time_evolution_stellarator_t), intent(inout) :: this
+        integer :: iredo = 0
 
         do timeIndex = 1, Nstorage
 
             call copy_kin_profs_to_yprev
             redostep = .false.
 
-            if (update_transport_coefficients) call get_D_one_over_nu
+            if (update_transport_coefficients .eq. 1) then
+                call get_D_one_over_nu
+            else if (update_transport_coefficients .eq. 2) then
+                call rescale_D_one_over_nu_to_new_n_and_T
+            end if
+
             call get_dql
             call stop_if_time_step_too_small
             call interp_Br_Dql_at_resonance_timeevol
@@ -192,6 +197,7 @@ module time_evolution_stellarator
             end if
 
             do ! redo step loop
+                iredo = iredo +1
                 params_beg = params
 
                 print *, ""
@@ -213,14 +219,19 @@ module time_evolution_stellarator
                 params = params_beg
 
                 if (irank .eq. 0) then
-                    print *, "Redoing step: Maxval(timscal) is not lesser than tol * factolmax"
-                    print *, "Maxval(timscal) = ", maxval(timscal)
-                    print *, "tol = ", tol
-                    print *, "factolmax = ", factolmax
-                    print *, "tol * factolmax = ", tol * factolmax
-                    print *, "timstep_arr(1) = ", timstep_arr(1)
-                    print *, "timstep_arr(100) = ", timstep_arr(100)
-                    print *, ""
+                    if (debug_mode) then
+                        print *, "Redoing step: Maxval(timscal) is not lesser than tol * factolmax"
+                        print *, "Maxval(timscal) = ", maxval(timscal)
+                        print *, "tol = ", tol
+                        print *, "factolmax = ", factolmax
+                        print *, "tol * factolmax = ", tol * factolmax
+                        print *, "timstep_arr(1) = ", timstep_arr(1)
+                        print *, "timstep_arr(100) = ", timstep_arr(100)
+                        print *, ""
+                    end if
+                end if
+                if (iredo > 100) then
+                    stop "Redoing step: Maxval(timscal) is not lesser than tol * factolmax after 100 redos"
                 end if
             end do
 

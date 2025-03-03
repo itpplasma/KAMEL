@@ -80,12 +80,16 @@ module plasma_parameters
             qsaf(ipoi) = 0.5*(q(ipoi) + q(ipoi + 1))
             !electron density :
             params(1, ipoi) = 0.5*(n(ipoi) + n(ipoi + 1))
+            init_params(1, ipoi) = params(1, ipoi)
             !toroidal rotation frequency :
             params(2, ipoi) = 0.5*(Vz(ipoi) + Vz(ipoi + 1))/rtor
+            init_params(2, ipoi) = params(2, ipoi)
             !electron temeperature :
             params(3, ipoi) = 0.5*(Te(ipoi) + Te(ipoi + 1))*ev
+            init_params(3, ipoi) = params(3, ipoi)
             !ion temeperature :
             params(4, ipoi) = 0.5*(Ti(ipoi) + Ti(ipoi + 1))*ev
+            init_params(4, ipoi) = params(4, ipoi)
         end do
 
     end subroutine

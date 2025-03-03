@@ -84,7 +84,7 @@ subroutine get_dql
         dqli11 = 0.0d0
         dqli12 = 0.0d0
         dqli21 = 0.0d0
-        dqli22 = 0.0e0
+        dqli22 = 0.0d0
         return
     end if
 

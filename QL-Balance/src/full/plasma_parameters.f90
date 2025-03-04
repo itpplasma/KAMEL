@@ -96,7 +96,7 @@ module plasma_parameters
     subroutine write_initial_parameters
 
         use control_mod, only: debug_mode, ihdf5IO
-        use wave_code_data, only: r
+        use wave_code_data, only: r, Vth, dPhi0; 
         use baseparam_mod, only: ev
         use h5mod
 
@@ -121,6 +121,10 @@ module plasma_parameters
                     qsaf(:), lbound(qsaf(:)), ubound(qsaf(:)))
                 CALL h5_add_double_1(h5_id, "/init_params/r", &
                     r, lbound(r), ubound(r))
+                CALL h5_add_double_1(h5_id, "/init_params/Er", &
+                    -dPhi0, lbound(dPhi0), ubound(dPhi0))
+                CALL h5_add_double_1(h5_id, "/init_params/Vth", &
+                    Vth, lbound(Vth), ubound(Vth))
             else
                 if (debug_mode) write(*,*) "Debug: they are already there -> skiping"
             end if

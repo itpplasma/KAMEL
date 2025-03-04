@@ -23,3 +23,5 @@ Data is handled with dictionaries. Different dicts are:
     is calculated in calc_equilibrium
                 
 The output data is written to the hdf5 file format using the h5py module. 
+
+CXroots needs: wrapt, numpydoc

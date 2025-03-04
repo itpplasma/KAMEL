@@ -5,6 +5,7 @@
   use field_eq_mod, only : icall_eq,rtf,btf,nrad,nzet,rad,zet             &
                          , psif,dpsidr,dpsidz,d2psidr2,d2psidrdz,d2psidz2
   use field_c_mod,  only : icall_c
+  use field_sub
 !
   implicit none
 !
@@ -55,7 +56,7 @@
 ! Initialization of the field:
 !
   icall_eq=-1
-  icall_c=-1
+  icall_c=1 ! -1
   rrr=0.d0
   ppp=0.d0
   zzz=0.d0
@@ -118,9 +119,9 @@
 !
   psi_axis=psif
   print *,'toroidal field = ',btf
-  open(1,file='btor_rbig.dat')
-  write (1,*) btf,rtf
-  close(1)
+  open(101,file='btor_rbig.dat')
+  write (101,*) btf,rtf
+  close(101)
 !
 ! End of search for the magnetic axis
 !

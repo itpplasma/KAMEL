@@ -1,10 +1,8 @@
 from abc import ABC, abstractmethod
-from KIMDispersion_Horton import KIMDispersion_Horton
-from KIMDispersion_Krook import KIMDispersion_Krook
-from KIMDispersion_FokkerPlanck import KIMDispersion_FokkerPlanck
-from KIMDispersionEquation import KIMDispersionEquation
-    
-
+from .KIMDispersion_Horton import KIMDispersion_Horton
+from .KIMDispersion_Krook import KIMDispersion_Krook
+from .KIMDispersion_FokkerPlanck import KIMDispersion_FokkerPlanck
+from .KIMDispersionEquation import KIMDispersionEquation
     
 class DispersionEquationFactory(ABC):
 

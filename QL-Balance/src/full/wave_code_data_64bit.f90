@@ -13,7 +13,7 @@ subroutine get_wave_code_data(imin, imax)
 
     do k = imin, imax
         call clear_wave_code_data(flre_cd_ptr(k))
-        call calc_wave_code_data_for_mode(flre_cd_ptr(k), flre_path, len(trim(flre_path)), m_vals(k), n_vals(k))
+        call calc_wave_code_data_for_mode(flre_cd_ptr(k), trim(flre_path), len(trim(flre_path)), m_vals(k), n_vals(k))
     end do
 
     flre_call_ind = flre_call_ind + 1
@@ -61,7 +61,7 @@ subroutine initialize_wave_code_interface(nrad, r_grid)
 ! vacuum fields for the whole spectrum:
     do k = 1, dim_mn
         call clear_wave_code_data(vac_cd_ptr(k)); 
-        call calc_wave_code_data_for_mode(vac_cd_ptr(k), vac_path, len(trim(vac_path)), m_vals(k), n_vals(k)); 
+        call calc_wave_code_data_for_mode(vac_cd_ptr(k), trim(vac_path), len(trim(vac_path)), m_vals(k), n_vals(k)); 
     end do
 
     call get_background_magnetic_fields_from_wave_code(vac_cd_ptr(1), dim_r, r, B0t, B0z, B0); 

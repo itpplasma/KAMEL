@@ -9,3 +9,5 @@ ninja: build/build.ninja
 
 clean:
 	rm -rf build
+	rm src/libneo*.f90
+	rm src/*libneo.f90

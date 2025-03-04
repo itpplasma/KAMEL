@@ -43,8 +43,8 @@ end module
                                   !allocate_prev_variables, tmax_factor
         !use grid_mod, only: mwind, rmax, rmin, setBoundaryCondition, npoib, rb
         !use baseparam_mod, only: dperp
-        !use diag_mod, only: write_diag, write_diag_b
-        !use hdf5_tools, only: h5overwrite
+        !use QLbalance_diag, only: write_diag, write_diag_b
+        !use QLBalance_hdf5_tools, only: h5overwrite
         !use h5mod, only: mode_m, mode_n
         !use control_mod, only: gyro_current_study, write_gyro_current, debug_mode, &
                           !ihdf5IO

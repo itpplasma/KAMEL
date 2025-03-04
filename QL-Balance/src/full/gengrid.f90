@@ -305,7 +305,7 @@ subroutine prepare_resonances
     if (irank .eq. 0 ) then
         if (debug_mode) print *,'Debug: gengrid: number of resonance points = ',numres
         do i=1,numres
-          write(*,"(A18,I2,A1,I1,A29,F6.3,A3)") 'For mode (m,n) = (',m,',',n,&
+          write(*,"(A18,I4,A1,I4,A29,F6.3,A3)") 'For mode (m,n) = (',m,',',n,&
           '), the resonant radius is at ', r_res(i), ' cm'
         end do
     endif

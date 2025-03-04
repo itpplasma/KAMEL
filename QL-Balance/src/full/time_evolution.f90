@@ -75,8 +75,8 @@ module time_evolution
         use transp_coeffs_mod, only: rescale_transp_coeffs_by_ant_fac
         use grid_mod, only: mwind, rmax, rmin, setBoundaryCondition, npoib, rb, dqle11
         use baseparam_mod, only: dperp, tol_max
-        use diag_mod, only: write_diag, write_diag_b
-        use hdf5_tools, only: h5overwrite
+        use QLbalance_diag, only: write_diag, write_diag_b
+        use QLBalance_hdf5_tools, only: h5overwrite
         use h5mod, only: mode_m, mode_n
         use control_mod, only: gyro_current_study, write_gyro_current, debug_mode, &
                         ihdf5IO
@@ -363,7 +363,7 @@ module time_evolution
         use control_mod
         use baseparam_mod
         use h5mod
-        use hdf5_tools
+        use QLBalance_hdf5_tools
         use wave_code_data, only: antenna_factor
 
         implicit none
@@ -851,7 +851,7 @@ module time_evolution
         use control_mod
         use baseparam_mod
         use h5mod
-        use hdf5_tools
+        use QLBalance_hdf5_tools
         use wave_code_data, only: Vth
 
         implicit none
@@ -1078,7 +1078,7 @@ module time_evolution
 
         use grid_mod, only: npoi, nbaleqs
         use recstep_mod, only: tim_stack, timstep_arr, tol
-        use diag_mod, only: timscal_dql
+        use QLbalance_diag, only: timscal_dql
 
         implicit none
 
@@ -1163,7 +1163,7 @@ module time_evolution
 
     subroutine writeTimeInfoToTxt
 
-        use diag_mod, only: rate_dql, timscal_dql
+        use QLbalance_diag, only: rate_dql, timscal_dql
 
         implicit none
 
@@ -1175,7 +1175,7 @@ module time_evolution
 
     subroutine writeTimeInfoToH5
 
-        use diag_mod, only: rate_dql, timscal_dql
+        use QLbalance_diag, only: rate_dql, timscal_dql
 
         implicit none
 
@@ -1253,7 +1253,7 @@ module time_evolution
     subroutine determine_Dql_diagnostic
 
         use grid_mod, only: dqle11, dqli11
-        use diag_mod
+        use QLbalance_diag
 
         implicit none
 

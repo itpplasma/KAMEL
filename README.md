@@ -29,10 +29,11 @@ This also installs the necessary external libraries like gsl, sundials, etc in t
 So far, the compilation and execution of the (Normal, Release, NOMD, FPGEN) version of the code was tested on Linux and MacOS. 
 
 ### KIM
-Contains the source code of KiLCA and additional python code (e.g. calculation of the dispersion relation). Compile in top level directory KAMEL with the shell script
+Contains the source code of KiLCA and additional python code (e.g. calculation of the dispersion relation). Compile in top level directory KAMEL with
 
 ```
-./KIM/kim.sh
+cd KIM
+make
 ```
 
 ### QL-Balance

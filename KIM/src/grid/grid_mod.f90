@@ -60,7 +60,6 @@ module grid
         double precision, intent(in) :: min_val, max_val
         character(len=*), intent(in) :: name
 
-        integer :: i
         double precision :: hrmax
         double precision :: x_current, x_next
         double precision :: recnsp
@@ -72,7 +71,6 @@ module grid
         allocate(character(len=len(name)) :: this%name)
         this%name = name
 
-
         ! set parameters for grid spacing. grid_spacing=1: quidistant grid, grid_spacing=2: non-equidistant grid
         if (grid_spacing == 1) then
             width_res = 1.0
@@ -82,7 +80,7 @@ module grid
             ampl_res = 0.3
         end if
 
-        hrmax = (this%max_val - this%min_val) / (this%npts_b + 1)
+        hrmax = (this%max_val - this%min_val) / (this%npts_b)
 
         this%npts_b = 1
         x_current = this%min_val
@@ -148,7 +146,7 @@ module grid
         allocate(this%deriv_coef(npoi_der, this%npts_b))
         allocate(this%reint_coef(npoi_der, this%npts_b))
 
-        do ipoib = 1, this%npts_b
+        do ipoib = 1, this%npts_c
             ipb = ipoib - npoi_der / 2
             ipe = ipb + npoi_der - 1
             if(ipb .lt. 1) then
@@ -178,7 +176,7 @@ module grid
             subroutine write_new_grid
 
                 implicit none
-                integer :: i, iostat
+                integer :: i
                 logical :: ex
 
                 inquire(file = trim(output_path)//'grid', exist = ex)
@@ -209,25 +207,21 @@ module grid
 
         class(grid_type), intent(inout) :: this
 
-        double precision :: x_current, x_next
         double precision :: h
         integer :: ipoib, ipb, ipe
         double precision, dimension(:,:), allocatable :: coef
-        double precision :: recnsp
 
-        allocate(this%xb(this%npts), this%xc(this%npts -1))
+        allocate(this%xb(this%npts_b), this%xc(this%npts_c))
 
         h = (this%max_val - this%min_val) / (this%npts-1)
 
         this%xb(1) = this%min_val
-        do ipoib=2, this%npts
+        do ipoib=2, this%npts_b
             this%xb(ipoib) = this%min_val + (ipoib - 1) * h
             this%xc(ipoib-1) = 0.5 * (this%xb(ipoib-1) + this%xb(ipoib))
         end do
         
         allocate(coef(0:nder,npoi_der))
-
-        this%npts_b = this%npts
 
         write(*,*) " - - - grid ", this%name, ": - - - "
         write(*,*) "    h = ", this%xb(2) - this%xb(1)
@@ -243,10 +237,10 @@ module grid
         endif
 
         if (.not. allocated(ipbeg)) allocate(ipbeg(this%npts_b), ipend(this%npts_b))
-        allocate(this%deriv_coef(npoi_der, this%npts_b))
-        allocate(this%reint_coef(npoi_der, this%npts_b))
+        allocate(this%deriv_coef(npoi_der, this%npts_c))
+        allocate(this%reint_coef(npoi_der, this%npts_c))
 
-        do ipoib = 1, this%npts_b
+        do ipoib = 1, this%npts_c
             ipb = ipoib - npoi_der / 2
             ipe = ipb + npoi_der - 1
             if(ipb .lt. 1) then
@@ -258,6 +252,7 @@ module grid
             endif
             ipbeg(ipoib) = ipb
             ipend(ipoib) = ipe
+            
             call plag_coeff(npoi_der, nder, this%xb(ipoib), this%xc(ipb:ipe), coef)
 
             this%deriv_coef(:, ipoib) = coef(1,:)
@@ -276,7 +271,7 @@ module grid
             subroutine write_new_grid
 
                 implicit none
-                integer :: i, iostat
+                integer :: i
                 logical :: ex
 
                 inquire(file = trim(output_path)//'grid', exist = ex)
@@ -286,7 +281,7 @@ module grid
                 
                 open(unit = 77, file=trim(output_path)//'grid/'//trim(this%name)//'_xb.dat')
                 open(unit = 78, file=trim(output_path)//'grid/'//trim(this%name)//'_xc.dat')
-                do i = 1, this%npts_b
+                do i = 1, this%npts_c
                     write(77,*) i, this%xb(i)
                     write(78,*) i, this%xc(i)
                 end do
@@ -307,11 +302,8 @@ module grid
 
         class(grid_type), intent(inout) :: this
 
-        double precision :: x_current, x_next
-        double precision :: h
         integer :: ipoib, ipb, ipe
         double precision, dimension(:,:), allocatable :: coef
-        double precision :: recnsp
 
         this%npts = this%npts +1 
         this%npts_b = this%npts
@@ -376,7 +368,7 @@ module grid
             subroutine write_new_grid
 
                 implicit none
-                integer :: i, iostat
+                integer :: i
                 logical :: ex
 
                 inquire(file = trim(output_path)//'grid', exist = ex)

@@ -16,8 +16,7 @@ module singleStep
 
         use grid_mod, only: mwind, rmax, rmin, setBoundaryCondition, npoib, rb
         use baseparam_mod, only: dperp
-        use diag_mod, only: write_diag, write_diag_b
-        use hdf5_tools, only: h5overwrite
+        use QLBalance_hdf5_tools, only: h5overwrite
         use h5mod, only: mode_m, mode_n
         use control_mod, only: gyro_current_study, write_gyro_current, debug_mode, &
                           ihdf5IO
@@ -25,6 +24,7 @@ module singleStep
         use wave_code_data, only: m_vals, n_vals
         use plasma_parameters, only: write_initial_parameters, alloc_hold_parameters, &
                                 init_background_profiles
+        use QLbalance_diag, only: write_diag, write_diag_b
 
         implicit none
 
@@ -61,6 +61,7 @@ module singleStep
             end if
             call init_background_profiles
             CALL write_initial_parameters
+            call calc_geometric_parameter_profiles
             !call alloc_hold_parameters
         end if
 

@@ -16,7 +16,7 @@ class neo2_for_Er():
     echarge = 4.8031e-10
     eV = 1.6022e-12
 
-    neo2_path = os.path.normpath(os.path.dirname(__file__)+'/../../matlab/neo2/')+'/'
+    neo2_path = os.path.normpath(os.path.dirname(__file__)+'/../../PreProc/neo2/')+'/'
 
     def __init__(self, profilepath, equil_r_q_psi):
 
@@ -99,7 +99,7 @@ class neo2_for_Er():
 
         self.fp = fieldpy(gfile, '',  convex_wall, flux_data)
         self.fp.field_divB0_inp['ipert'] = 0
-        self.fp.write_field_divB0_inp(self.fp.path_to_fourier_modes_exe + 'template_field_divB0.inp', self.kpath + 'TEMPLATE_DIR/field_divB0.inp')
+        self.fp.write_field_divB0_inp(self.fp.path_to_field_divB0_inp + 'template_field_divB0.inp', self.kpath + 'TEMPLATE_DIR/field_divB0.inp')
 
         wd = os.getcwd()
         os.chdir(self.kpath)

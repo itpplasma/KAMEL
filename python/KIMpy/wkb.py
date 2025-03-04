@@ -1,32 +1,32 @@
 import cxroots as cx
 import numpy as np
 import matplotlib.pyplot as plt
+from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor, as_completed
 
 from plasmapy.dispersion import plasma_dispersion_func as plasma_disp
-from wkb_grid import WKB_Grid
+from .wkb_grid import WKB_Grid
 
 import os
 import sys
 from scipy.integrate import solve_ivp
 from scipy.special import iv as Bessel
 from jax import grad
-import jax
-import jax.numpy as jnp
 import h5py
 import logging
 
-from Bessel_calculation import calc_needed_bessel_of_mphi
-from KIMDispersion_Horton import KIMDispersion_Horton
-from KIMDispersion_Krook import KIMDispersion_Krook
-from KIMDispersion_FokkerPlanck import KIMDispersion_FokkerPlanck
-from DispersionEquationFactory import *
+from .Bessel_calculation import calc_needed_bessel_of_mphi
+from .KIMDispersion_Horton import KIMDispersion_Horton
+from .KIMDispersion_Krook import KIMDispersion_Krook
+from .KIMDispersion_FokkerPlanck import KIMDispersion_FokkerPlanck
+from .DispersionEquationFactory import *
 
 CODE = os.environ["CODE"]
 sys.path.append(os.path.join(CODE, 'KAMEL/python/susc_functions/'))
 import susc_funcs
 
-sys.path.append(os.path.join(CODE, 'KAMEL/KIM/python/'))
-from constants import *
+from .constants import *
+
+num_cores = 8
 
 class KIM_WKB():
     """
@@ -77,11 +77,11 @@ class KIM_WKB():
                'omega': 0,
                'radius': 250,
                'r_per': 0.9,
-               'r_range_start': 10,
+               'r_range_start': 0,
                'omegaOfk': False,
                'kOfr': True,
                'mode': 'KIM',
-               'int_method': 'quad',
+               'int_method': 'quad', # or romb
                'der': False,
                'save': True,
                'log': False,
@@ -147,30 +147,52 @@ class KIM_WKB():
         print(f"Calculating dispersion relation for mode {mode} and collision model {collisions}")
 
         idx = int(self.general_dat['prof_length'] * self.options['r_per'])
-        idx_range = np.linspace(self.options['r_range_start'], self.general_dat['prof_length'] - 1, self.options['n_points'])
+
+        idx_range = np.arange(self.options['r_range_start'], self.general_dat['prof_length'])
 
         res = []
         r_used = []
         res_sorted = []
-         
-        contour=cx.Rectangle(x_range=[-self.contour_limit,self.contour_limit], y_range=[-self.contour_limit,self.contour_limit])
+        contour = cx.Rectangle(x_range=[-self.contour_limit,self.contour_limit], y_range=[-self.contour_limit,self.contour_limit])
 
         if self.options['log']:
             logging.basicConfig(level=logging.INFO)
 
-        for r in idx_range:
-            roots = self.find_roots(int(r), contour)
-            if roots == 1:
-                continue
-            print(f"Found roots for index {int(r)} at {self.general_dat['r'][int(r)]}:")
-            print(f"{roots}")
-            #sorted_roots = self.sort_roots(roots)
-            res.append(roots)
-            r_used.append(self.general_dat['r'][int(r)])
-            #res_sorted.append(sorted_roots)
-        
+        #with ProcessPoolExecutor(max_workers=num_cores) as executor:  
+        with ThreadPoolExecutor(max_workers=num_cores) as executor:  
+            future_to_r = {executor.submit(self.process_index, r, self.general_dat['r'][int(r)], contour): int(r) for r in idx_range}
+
+            for future in as_completed(future_to_r):
+                result = future.result()
+                print("Future : ", future)
+                print("Result: ", result)
+                if result is not None:
+                    r, roots, r_value = result
+                    res.append(roots)
+                    r_used.append(r_value)
+
+        #for r in idx_range:
+            #roots = self.find_roots(int(r), contour)
+            #if roots == 1:
+                #continue
+            #print(f"Found roots for index {int(r)} at {self.general_dat['r'][int(r)]}:")
+            #print(f"{roots}")
+            ##sorted_roots = self.sort_roots(roots)
+            #res.append(roots)
+            #r_used.append(self.general_dat['r'][int(r)])
+            ##res_sorted.append(sorted_roots)
+
+        print(res)
+        print(r_used)
         self.write_roots_to_h5(res, r_used)
         self.r_found, self.k_r1, self.k_r2 = self.store_roots_in_variables(res, r_used)
+
+    def process_index(self, r, r_val, contour):
+        """ Function to find roots for a given index r. """
+        roots = self.find_roots(int(r), contour)
+        if roots == 1:
+            return None  # Skip this index
+        return int(r), roots, r_val
 
     def set_model_mode(self, mode):
         assert mode in self.possible_operation_modes, "Mode not supported"
@@ -350,7 +372,6 @@ class KIM_WKB():
         
     def find_roots(self, r_ind, contour):
         equation_k = lambda k: self.calc_dispersion_equation_for_kr_values_at_r(k, r_ind)
-        iterations=0
         roots_number = 0
         search_scale_bigger = 2.0
         search_scale_smaller = 1.5
@@ -359,7 +380,7 @@ class KIM_WKB():
             #while roots_number != self.options['number_of_roots_to_find']:
             while roots_number > self.options['number_of_roots_to_find'] or roots_number < 2:
                 roots_number=contour.count_roots(equation_k)
-                print(f"roots found: {roots_number}")
+                print(f"for r_ind = {r_ind}, roots found: {roots_number}")
                 if roots_number == 0:
                     contour=cx.Rectangle(np.array(contour.x_range)*search_scale_bigger,np.array(contour.y_range)*search_scale_bigger)
                 if roots_number > self.options['number_of_roots_to_find']:
@@ -375,15 +396,16 @@ class KIM_WKB():
             roots = contour.roots(equation_k, df=lambda k: complex(grad(equation_k, holomorphic=True)(k)), guess_roots_symmetry=lambda z: [-z],verbose=True)
         else:
             try:
-                roots = contour.roots(equation_k,guess_roots_symmetry=lambda z: [-z],int_method=self.options['int_method'],verbose=True,int_abs_tol=0.1,root_err_tol=1e-3)
+                roots = contour.roots(equation_k, guess_roots_symmetry = lambda z: [-z], int_method=self.options['int_method'], \
+                    verbose = False, int_abs_tol = 0.1, root_err_tol = 1e-3)
             except:
                 print(f"Error in roots for r = {r_ind}")
                 return 1
         return roots
     
     def calc_dispersion_equation_for_kr_values_at_r(self, kr, position):
-        if type(position) == int:
-            r_eval = self.general_dat['r'][position]
+        #if type(position) == int:
+        #    r_eval = self.general_dat['r'][position]
         if type(kr) == complex or type(kr) == np.complex128:
             dispersion_equation = self.dispersion_model.dispersion_equation(kr, position)
         else:
@@ -399,7 +421,7 @@ class KIM_WKB():
         h5f = h5py.File(self.h5f, self.h5_append_or_write)
         for i, r in enumerate(r_used):
             try:
-                h5f.create_dataset(f'roots/r_{r}', data=res[i].roots)
+                h5f.create_dataset(f'roots/r_{r:.3f}', data=res[i].roots)
             except:
                 print(f"Error in writing roots for r = {r}")
         h5f.close()
@@ -589,11 +611,11 @@ def test_FokkerPlanck(mode, collisions):
 
     kwkb = KIM_WKB(species=specs[0], spec_mass=spec_mass[0], spec_charge_num=spec_charge_num[0])
     kwkb.contour_limit = 10 # 50 works for H, 20 for D
-    kwkb.prof_path = './parab_profiles/'
+    kwkb.prof_path = '/Users/markusmarkl/plasma/6codes/0projects/2025-test-kim/fort_wkb/runpath/profiles/'
     mphi_max = 0
 
-    kwkb.options['n_points'] = 150
-    kwkb.options['number_of_roots_to_find'] = 8
+    kwkb.options['n_points'] = 50
+    kwkb.options['number_of_roots_to_find'] = 4
     kwkb.options['max_cyclotron_harmonic'] = mphi_max
     kwkb.options['der'] = False
     kwkb.options['log'] = False

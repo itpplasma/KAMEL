@@ -12,7 +12,7 @@ from neo2_for_Er import neo2_for_Er
 
 from .profile_extender import Profile_Extender
 
-from scipy.integrate import solve_ivp, cumtrapz, odeint
+from scipy.integrate import solve_ivp, cumulative_trapezoid, odeint
 from scipy.interpolate import CubicSpline
 
 
@@ -75,7 +75,7 @@ class Profile_Processor:
 
         if not skip:
             self.fp = fieldpy(self.gfile, self.pfile, self.convex_wall, self.flux_data)
-            self.fp.write_field_divB0_inp(self.fp.path_to_fourier_modes_exe + 'template_field_divB0.inp', self.fp.path_to_fourier_modes_exe + 'field_divB0.inp')
+            self.fp.write_field_divB0_inp(self.fp.path_to_field_divB0_inp + 'template_field_divB0.inp', self.flux_data + 'field_divB0.inp')
             self.fp.run_fourier_modes()
 
 
@@ -212,7 +212,7 @@ class Profile_Processor:
     def extend_q_profile(self):
 
         self.load_profiles(self.profile_extended_path)
-        q_ode = -np.loadtxt(self.profile_r_eff_path + 'q.dat')[:,1]
+        q_ode = np.loadtxt(self.profile_r_eff_path + 'q.dat')[:,1]
         r_ode = np.loadtxt(self.profile_r_eff_path + 'q.dat')[:,0]
         self.r_sep = r_ode[-1]
 
@@ -229,7 +229,7 @@ class Profile_Processor:
         
         p_tot = ne_ode * (Te_ode + Ti_ode) * self.kB * self.eVK
         
-        g_ode = 1.0 + (r_ode / -q_ode / self.R0)**2
+        g_ode = 1.0 + (r_ode / q_ode / self.R0)**2
         
         dp_tot = np.gradient(p_tot, r_ode)
         
@@ -280,8 +280,8 @@ class Profile_Processor:
         self.Jz.process(r_ode, self.device.r_eff_wall, self.Jth_inf, 'ee')
         self.Jz.write()
 
-        self.Bth_out = 4 * np.pi / self.c * cumtrapz(self.Jz.r_out * self.Jz.y_out, self.Jz.r_out, initial=0.0) / self.Jz.r_out + Bth_ode[0] * r_ode[0] / self.Jz.r_out
-        self.Bz_out = -4.0 * np.pi / self.c *cumtrapz(self.Jth.y_out, self.Jth.r_out, initial=0.0) + Bz_ode[0]
+        self.Bth_out = 4 * np.pi / self.c * cumulative_trapezoid(self.Jz.r_out * self.Jz.y_out, self.Jz.r_out, initial=0.0) / self.Jz.r_out + Bth_ode[0] * r_ode[0] / self.Jz.r_out
+        self.Bz_out = -4.0 * np.pi / self.c *cumulative_trapezoid(self.Jth.y_out, self.Jth.r_out, initial=0.0) + Bz_ode[0]
         self.B0_out = np.sqrt(self.Bth_out**2 + self.Bz_out**2)
         
         np.savetxt(self.profile_extended_path + 'B.dat', np.column_stack((self.r_eff, self.B0_out)))
@@ -292,7 +292,7 @@ class Profile_Processor:
         q_out = self.r_eff / self.R0 * self.Bz_out / self.Bth_out
         self.qp = Profile_Extender('q', self.profile_extended_path + 'q.dat', 1.0)
         self.qp.r_out = self.r_eff
-        self.qp.y_out = -q_out
+        self.qp.y_out = -q_out # minus sign is required for transition of cocos from 3 (EFIT g-file) to 7 (KiLCA: r, theta, z)
         self.qp.write()
         self.q = -q_out
         
@@ -320,6 +320,7 @@ class Profile_Processor:
 
         if not os.path.exists(self.profile_r_eff_path + 'kprof/k.dat') or recalc:
             # don't calculate k if it exists and if the recalculation is not needed
+            print("Calculating k profile with NEO-2")
             self.neo2 = neo2_for_Er(self.save_path, self.flux_data + 'equil_r_q_psi.dat')
             self.neo2.run_neo2(self.gfile, self.convex_wall, self.flux_data)
             self.collect_k_profile(self.save_path + 'kprof/', self.save_path + 'kprof/')
@@ -345,7 +346,7 @@ class Profile_Processor:
 
         #self.vth = self.k * self.v_hat
 
-        self.Vpol = self.k * self.c * self.dTi / (self.echarge* self.B)
+        self.Vpol = self.k * self.c * self.Bz * self.dTi/ (self.echarge* self.B**2)
         if self.smooth_Vpol_to_zero:
             self.Vpol_ext = Profile_Extender('Vpol', self.profile_extended_path + 'Vth.dat', 1.0)
             self.Vpol_ext.r_eff_in = self.r_eff
@@ -355,7 +356,9 @@ class Profile_Processor:
             self.Vpol_ext.process(self.r_eff, self.device.r_eff_wall, 0.0, 'exp')
             self.Vpol = self.Vpol_ext.y_out
 
-        self.Er = self.Ti * self.eV_to_erg * self.dne / (self.echarge * self.ne) + (1.0 - self.k) * self.dTi / self.echarge + self.r_eff * self.B * self.Vz / (self.c * self.q * self.R0)
+        self.Er = self.Ti * self.eV_to_erg * self.dne / (self.echarge * self.ne) + (1.0 - self.k) * self.dTi / self.echarge \
+            - self.r_eff * self.B * self.Vz / (self.c * self.q * self.R0)
+        
         if self.smooth_Er_to_zero:
             self.Er_ext = Profile_Extender('Er', self.profile_extended_path + 'Er.dat', 1.0)
             self.Er_ext.r_eff_in = self.r_eff
@@ -417,10 +420,10 @@ class Profile_Processor:
     def solve_cyl_equilibrium(self):
 
         r_ode = self.r_eff
-        q_ode = - self.q
+        q_ode = -self.q
         p_tot = self.ne * (self.Te + self.Ti) * self.kB * self.eVK
 
-        g_ode = 1.0 + (r_ode / -q_ode / self.R0)**2
+        g_ode = 1.0 + (r_ode / q_ode / self.R0)**2
 
         dp_tot = np.gradient(p_tot, r_ode)
 

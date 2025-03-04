@@ -12,9 +12,9 @@ program ql_balance
     use h5mod 
     use wave_code_data
     use recstep_mod, only: nstack, tol, tim_stack, y_stack, timstep_arr
-    use diag_mod
+    use QLbalance_diag
     use resonances_mod, only: numres
-    use hdf5_tools
+    use QLBalance_hdf5_tools
     use paramscan_mod
     use mpi
     use time_evolution

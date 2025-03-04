@@ -10,7 +10,7 @@ module hdf5_tools_f2003
   ! Include hdf5 module, hdf5 lite interface and
   ! ISO_C_BINDING for long-integer support
   !**********************************************************
-  use hdf5_tools
+  use QLBalance_hdf5_tools
   use ISO_C_BINDING
 
   implicit none

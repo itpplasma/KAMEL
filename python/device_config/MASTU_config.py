@@ -10,7 +10,7 @@ class MASTU_config:
     r_eff_plasma = 85.0 # approximate effective plasma radius determined by separatrix
     delta_r_antenna = 3.0 # distance of RMP antenna from plasma boundary in cm
     r_eff_antenna = r_eff_plasma + delta_r_antenna # antenna effective radius default
-    Btor = 6550.0 # approximate value to give order of magnitudeo
+    Btor = -6550.0 # approximate value to give order of magnitude
     I0_rmp = 6.0e12 # 2kA or 8kAt with 4 windings
     convex_wall = DATA + '/MASTU/convexwall.dat'
 

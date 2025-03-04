@@ -1,12 +1,8 @@
 **/*/__pycache__
 *.DS_Store
 .DS*
-build
-out
-KIM_exe
-
-profiles
-profiles_parab
+.vscode
+*/build
 
 __pycache__
 ./*/__pycache__

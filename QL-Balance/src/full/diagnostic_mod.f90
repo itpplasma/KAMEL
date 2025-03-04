@@ -1,8 +1,9 @@
-module diag_mod
+module QLbalance_diag
 
     use control_mod
 
     implicit none
+    
     logical :: write_diag = .false.
     logical :: write_diag_b = .false.
     logical :: toggle
@@ -15,4 +16,4 @@ module diag_mod
     double precision, dimension(:), allocatable :: field_fac_old
     double precision :: timscal_dql, rate_dql, timscal_dqli
 
-end module diag_mod
+end module QLbalance_diag

@@ -1,43 +1,48 @@
 set(KIM_setup setup/config_mod.f90 
-              setup/setup_mod.f90
+            setup/setup_mod.f90
+)
+
+set(KIM_general general/read_config.f90
+                general/KIM_base.f90
+                general/KIM_mod.f90
+                general/KIM_init.f90
 )
 
 set(KIM_poisson poisson_equation/solve_poisson.f90
 )
 
 set(KIM_math math/suitesparse/umf4_f77zwrapper.c
-             math/suitesparse/umf4_f77wrapper.c
-             math/superlu/c_fortran_dgssv.c
-             math/superlu/c_fortran_zgssv.c
-             math/bessel.f90
-             math/bessk.f90
-             math/use_libcerf_mod.f90
-             math/sparse_mod.f90
-             math/plasma_disp_func.f90
+            math/suitesparse/umf4_f77wrapper.c
+            math/superlu/c_fortran_dgssv.c
+            math/superlu/c_fortran_zgssv.c
+            math/bessel.f90
+            math/bessk.f90
+            math/use_libcerf_mod.f90
+            math/sparse_mod.f90
+            math/plasma_disp_func.f90
 )
 
 set(KIM_debye debye_case/debye_kernel.f90
-              debye_case/fill_spline_kernel_debye.f90
-              debye_case/solve_debye_in_kr_space.f90
+            debye_case/fill_spline_kernel_debye.f90
+            debye_case/solve_debye_in_kr_space.f90
 )
 
 set(KIM_grid #grid/generate_k_space_grid.f90
-             grid/grid_mod.f90
-             grid/gengrid.f90
-             #grid/kr_space_adjustments.f90
-             grid/spline_function.f90
-             grid/resonances_mod.f90
-             grid/prepare_resonances.f90
-             grid/recnsplit.f90
+            grid/grid_mod.f90
+            grid/gengrid.f90
+            #grid/kr_space_adjustments.f90
+            grid/spline_function.f90
+            grid/resonances_mod.f90
+            grid/prepare_resonances.f90
+            grid/recnsplit.f90
 )
 
 set(KIM_util util/findIndex.f90
-             util/loading_bar.f90
-             util/plag_coeff.f90
-             util/unit_tests.f90
-             util/dense_to_sparse.f90
-             util/write_config_to_hdf5.f90
-             util/constants_mod.f90
+            util/loading_bar.f90
+            util/plag_coeff.f90
+            util/dense_to_sparse.f90
+            util/write_config_to_hdf5.f90
+            util/constants_mod.f90
 )
 
 set(KIM_kernels kernels/integrands.f90
@@ -47,27 +52,48 @@ set(KIM_kernels kernels/integrands.f90
 )
 
 set(KIM_background_equilibrium background_equilibrium/calculate_backs.f90
-                               background_equilibrium/calculate_equil.f90
-                               background_equilibrium/plasma_parameter.f90
-                               background_equilibrium/back_quants_mod.f90
+                            background_equilibrium/calculate_equil.f90
+                            background_equilibrium/plasma_parameter.f90
+                            background_equilibrium/back_quants_mod.f90
 )
 
-set(external_zeal external/Zeal/zeal_input.f90
-                  external/Zeal/zeal.f90
-                  external/Zeal/zeros.f90
-                  external/Zeal/prec.f90)
+set(KIM_dispersion dispersion/fun_input.f90
+)
+
+set(KIM_WKB_dispersion wkb_dispersion/wkb_dispersion.f90
+)
+
+set(external_zeal ${CMAKE_SOURCE_DIR}/../external/Zeal/zeal_input.f90
+                ${CMAKE_SOURCE_DIR}/../external/Zeal/integr_input.f90
+                ${CMAKE_SOURCE_DIR}/../external/Zeal/split.f90
+                ${CMAKE_SOURCE_DIR}/../external/Zeal/quad.f90
+                ${CMAKE_SOURCE_DIR}/../external/Zeal/refine.f90
+                ${CMAKE_SOURCE_DIR}/../external/Zeal/error.f90
+                ${CMAKE_SOURCE_DIR}/../external/Zeal/zeal.f90
+                ${CMAKE_SOURCE_DIR}/../external/Zeal/zeros.f90
+                ${CMAKE_SOURCE_DIR}/../external/Zeal/dqag.f #quadpack
+                ${CMAKE_SOURCE_DIR}/../external/Zeal/dqagx.f # quadpack
+                ${CMAKE_SOURCE_DIR}/../external/Zeal/dlamch.f # quadpack
+                ${CMAKE_SOURCE_DIR}/../external/Zeal/prec.f90)
 
 set(CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/cmake" ${CMAKE_MODULE_PATH})
 
 add_library(KIM_lib STATIC "${KIM_setup}" 
-                           "${KIM_poisson}" 
-                           "${KIM_debye}" 
-                           "${KIM_grid}" 
-                           "${KIM_util}"
-                           "${KIM_kernels}"
-                           "${KIM_background_equilibrium}"
-                           "${KIM_math}"
+                        "${KIM_general}" 
+                        "${KIM_poisson}" 
+                        "${KIM_debye}" 
+                        "${KIM_grid}" 
+                        "${KIM_util}"
+                        "${KIM_kernels}"
+                        "${KIM_background_equilibrium}"
+                        "${KIM_math}"
+                        "${KIM_dispersion}"
+                        "${KIM_WKB_dispersion}"
+                        "${external_zeal}"
 )
+set_target_properties(KIM_lib PROPERTIES 
+                        OUTPUT_NAME KIM_lib.a
+                        ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib/")
 
 find_package(LAPACK REQUIRED)
 if("${LAPACK_FOUND}")

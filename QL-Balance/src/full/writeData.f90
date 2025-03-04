@@ -10,7 +10,7 @@ subroutine write_fields_currs_transp_coefs_to_h5
     use baseparam_mod, only: Z_i, e_charge, am, p_mass, c, btor, e_mass, ev, rtor
     use control_mod, only: ihdf5IO, diagnostics_output, misalign_diffusion
     use wave_code_data
-    use diag_mod, only: write_diag, iunit_diag, write_diag_b, iunit_diag_b, i_mn_loop
+    use QLbalance_diag, only: write_diag, iunit_diag, write_diag_b, iunit_diag_b, i_mn_loop
     use time_evolution, only: timeIndex
     use h5mod
     
@@ -139,7 +139,7 @@ end subroutine
 subroutine writefort9999
         
     use grid_mod, only: dqle11, dqli11, rb, rc, npoib
-    use diag_mod, only: timscal_dql, timscal_dqli, ind_dqle, ind_dqli 
+    use QLbalance_diag, only: timscal_dql, timscal_dqli, ind_dqle, ind_dqli 
     use time_evolution, only: dqle11_prev, dqli11_prev, determine_Dql_diagnostic
     use ParallelTools, only: irank
     use h5mod

@@ -1,7 +1,7 @@
 
 module h5mod
 
-    use hdf5_tools
+    use QLBalance_hdf5_tools
     use control_mod
 
     implicit none

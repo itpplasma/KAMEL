@@ -1,21 +1,20 @@
-/* ========================================================================== */
-/* === umf4_f77wrapper ====================================================== */
-/* ========================================================================== */
+//------------------------------------------------------------------------------
+// UMFPACK/Demo/umf4_f77wrapper: Fortran interface for UMFPACK
+//------------------------------------------------------------------------------
 
-/* -------------------------------------------------------------------------- */
-/* UMFPACK Copyright (c) Timothy A. Davis, CISE,                              */
-/* Univ. of Florida.  All Rights Reserved.  See ../Doc/License for License.   */
-/* web: http://www.cise.ufl.edu/research/sparse/umfpack                       */
-/* -------------------------------------------------------------------------- */
+// UMFPACK, Copyright (c) 2005-2022, Timothy A. Davis, All Rights Reserved.
+// SPDX-License-Identifier: GPL-2.0+
+
+//------------------------------------------------------------------------------
 
 /* FORTRAN interface for the C-callable UMFPACK library (double / int version
- * only and double / UF_long versions only).  This is HIGHLY non-portable.  You
- * will need to modify this depending on how your FORTRAN and C compilers
- * behave.  This has been tested in Linux, Sun Solaris, SGI IRIX, and IBM AIX,
- * with various compilers.  It has not been exhaustively tested on all possible
- * combinations of C and FORTRAN compilers.  The UF_long version works on
- * Solaris, SGI IRIX, and IBM AIX when the UMFPACK library is compiled in
- * 64-bit mode.
+ * only and double / int64_t versions only).  This is HIGHLY
+ * non-portable.  You will need to modify this depending on how your FORTRAN
+ * and C compilers behave.  This has been tested in Linux, Sun Solaris, SGI
+ * IRIX, and IBM AIX, with various compilers.  It has not been exhaustively
+ * tested on all possible combinations of C and FORTRAN compilers.  The
+ * int64_t version works on Solaris, SGI IRIX, and IBM AIX when the
+ * UMFPACK library is compiled in 64-bit mode.
  *
  * Only a subset of UMFPACK's capabilities are provided.  Refer to the UMFPACK
  * User Guide for details.
@@ -53,25 +52,6 @@
  * integer*8, in the FORTRAN routine that calls these wrapper routines.
  * The latter is required on Solaris, SGI IRIX, and IBM AIX when UMFPACK is
  * compiled in 64-bit mode.
- *
- * If you want to use 64-bit integers, try compiling this file with the -DDLONG
- * compiler option (via "make fortran64").  First modify your UFconfig.mk
- * file to compile UMFPACK in LP64 mode (see the User Guide for details).
- * Your FORTRAN code should use integer*8.  See umf4hb64.f for an example.
- *
- * Tested with the following compilers:
- *	* Solaris with cc and f77 from Sun WorkShop 6 update 1
- *	    (32-bit and 64-bit modes)
- *	* SGI Irix with MIPSpro cc and f77 compilers version 7.4
- *	    (32-bit and 64-bit modes)
- *	* Linux with GNU gcc and Intel's icc, and GNU g77 and Intel's
- *	    ifc FORTRAN compiler.  See the comments above about g77 and
- *	    underscores.  Only supports 32-bit mode.
- *	* IBM AIX xlc and xlf compilers.
- *	    (32-bit and 64-bit modes)
- *
- * This interface files when using the ABSOFT Fortran compiler on both
- * Linux and Windows.  There is no known fix.
  */
 
 #include "umfpack.h"
@@ -84,12 +64,12 @@
 #define LEN 200
 
 /* -------------------------------------------------------------------------- */
-/* integer type: int or UF_long */
+/* integer type: int32_t or int64_t */
 /* -------------------------------------------------------------------------- */
 
 #if defined (DLONG)
 
-#define Int UF_long
+#define Int int64_t
 #define UMFPACK_defaults	 umfpack_dl_defaults
 #define UMFPACK_free_numeric	 umfpack_dl_free_numeric
 #define UMFPACK_free_symbolic	 umfpack_dl_free_symbolic
@@ -131,7 +111,7 @@ static void make_filename (Int filenum, char *prefix, char *filename)
 {
     char *psrc, *pdst ;
 #ifdef DLONG
-    sprintf (filename, "%s%ld.umf", prefix, filenum) ;
+    sprintf (filename, "%s%"PRId64".umf", prefix, filenum) ;
 #else
     sprintf (filename, "%s%d.umf", prefix, filenum) ;
 #endif
@@ -150,358 +130,66 @@ static void make_filename (Int filenum, char *prefix, char *filename)
 
 /* Solaris, Linux, and SGI IRIX.  Probably Compaq Alpha as well. */
 
-/* -------------------------------------------------------------------------- */
-/* umf4def: set default control parameters */
-/* -------------------------------------------------------------------------- */
+#define umf4def_FORTRAN  umf4def_
+#define umf4pcon_FORTRAN umf4pcon_
+#define umf4sym_FORTRAN  umf4sym_
+#define umf4num_FORTRAN  umf4num_
+#define umf4solr_FORTRAN umf4solr_
+#define umf4sol_FORTRAN  umf4sol_
+#define umf4scal_FORTRAN umf4scal_
+#define umf4pinf_FORTRAN umf4pinf_
+#define umf4fnum_FORTRAN umf4fnum_
+#define umf4fsym_FORTRAN umf4fsym_
+#define umf4snum_FORTRAN umf4snum_
+#define umf4ssym_FORTRAN umf4ssym_
+#define umf4lnum_FORTRAN umf4lnum_
+#define umf4lsym_FORTRAN umf4lsym_
 
-/* call umf4def (control) */
-
-void umf4def_ (double Control [UMFPACK_CONTROL])
-{
-    UMFPACK_defaults (Control) ;
-}
-
-/* -------------------------------------------------------------------------- */
-/* umf4pcon: print control parameters */
-/* -------------------------------------------------------------------------- */
-
-/* call umf4pcon (control) */
-
-void umf4pcon_ (double Control [UMFPACK_CONTROL])
-{
-    fflush (stdout) ;
-    UMFPACK_report_control (Control) ;
-    fflush (stdout) ;
-}
-
-/* -------------------------------------------------------------------------- */
-/* umf4sym: pre-ordering and symbolic factorization */
-/* -------------------------------------------------------------------------- */
-
-/* call umf4sym (m, n, Ap, Ai, Ax, symbolic, control, info) */
-
-void umf4sym_ (Int *m, Int *n, Int Ap [ ], Int Ai [ ],
-    double Ax [ ], void **Symbolic,
-    double Control [UMFPACK_CONTROL], double Info [UMFPACK_INFO])
-{
-    (void) UMFPACK_symbolic (*m, *n, Ap, Ai, Ax, Symbolic, Control, Info) ;
-}
-
-/* -------------------------------------------------------------------------- */
-/* umf4num: numeric factorization */
-/* -------------------------------------------------------------------------- */
-
-/* call umf4num (Ap, Ai, Ax, symbolic, numeric, control, info) */
-
-void umf4num_ (Int Ap [ ], Int Ai [ ], double Ax [ ],
-    void **Symbolic, void **Numeric,
-    double Control [UMFPACK_CONTROL], double Info [UMFPACK_INFO])
-{
-    (void) UMFPACK_numeric (Ap, Ai, Ax, *Symbolic, Numeric, Control, Info);
-}
-
-/* -------------------------------------------------------------------------- */
-/* umf4solr: solve a linear system with iterative refinement */
-/* -------------------------------------------------------------------------- */
-
-/* call umf4solr (sys, Ap, Ai, Ax, x, b, numeric, control, info) */
-
-void umf4solr_ (Int *sys, Int Ap [ ], Int Ai [ ], double Ax [ ],
-    double x [ ], double b [ ], void **Numeric,
-    double Control [UMFPACK_CONTROL], double Info [UMFPACK_INFO])
-{
-    (void) UMFPACK_solve (*sys, Ap, Ai, Ax, x, b, *Numeric, Control, Info) ;
-}
-
-/* -------------------------------------------------------------------------- */
-/* umf4sol: solve a linear system without iterative refinement */
-/* -------------------------------------------------------------------------- */
-
-/* call umf4sol (sys, x, b, numeric, control, info) */
-
-void umf4sol_ (Int *sys, double x [ ], double b [ ], void **Numeric,
-    double Control [UMFPACK_CONTROL], double Info [UMFPACK_INFO])
-{
-    Control [UMFPACK_IRSTEP] = 0 ;
-    (void) UMFPACK_solve (*sys, (Int *) NULL, (Int *) NULL, (double *) NULL,
-	x, b, *Numeric, Control, Info) ;
-}
-
-/* -------------------------------------------------------------------------- */
-/* umf4scal: scale a vector using UMFPACK's scale factors */
-/* -------------------------------------------------------------------------- */
-
-/* call umf4scal (x, b, numeric, status) */
-
-void umf4scal_ (double x [ ], double b [ ], void **Numeric, Int *status)
-{
-    *status = UMFPACK_scale (x, b, *Numeric) ;
-}
-
-/* -------------------------------------------------------------------------- */
-/* umf4pinf: print info */
-/* -------------------------------------------------------------------------- */
-
-/* call umf4pinf (control) */
-
-void umf4pinf_ (double Control [UMFPACK_CONTROL], double Info [UMFPACK_INFO])
-{
-    fflush (stdout) ;
-    UMFPACK_report_info (Control, Info) ;
-    fflush (stdout) ;
-}
-
-/* -------------------------------------------------------------------------- */
-/* umf4fnum: free the Numeric object */
-/* -------------------------------------------------------------------------- */
-
-/* call umf4fnum (numeric) */
-
-void umf4fnum_ (void **Numeric)
-{
-    UMFPACK_free_numeric (Numeric) ;
-}
-
-/* -------------------------------------------------------------------------- */
-/* umf4fsym: free the Symbolic object */
-/* -------------------------------------------------------------------------- */
-
-/* call umf4fsym (symbolic) */
-
-void umf4fsym_ (void **Symbolic)
-{
-    UMFPACK_free_symbolic (Symbolic) ;
-}
-
-/* -------------------------------------------------------------------------- */
-/* umf4snum: save the Numeric object to a file */
-/* -------------------------------------------------------------------------- */
-
-/* call umf4snum (numeric, filenum, status) */
-
-void umf4snum_ (void **Numeric, Int *filenum, Int *status)
-{
-    char filename [LEN] ;
-    make_filename (*filenum, "n", filename) ;
-    *status = UMFPACK_save_numeric (*Numeric, filename) ;
-}
-
-/* -------------------------------------------------------------------------- */
-/* umf4ssym: save the Symbolic object to a file */
-/* -------------------------------------------------------------------------- */
-
-/* call umf4ssym (symbolic, filenum, status) */
-
-void umf4ssym_ (void **Symbolic, Int *filenum, Int *status)
-{
-    char filename [LEN] ;
-    make_filename (*filenum, "s", filename) ;
-    *status = UMFPACK_save_symbolic (*Symbolic, filename) ;
-}
-
-/* -------------------------------------------------------------------------- */
-/* umf4lnum: load the Numeric object from a file */
-/* -------------------------------------------------------------------------- */
-
-/* call umf4lnum (numeric, filenum, status) */
-
-void umf4lnum_ (void **Numeric, Int *filenum, Int *status)
-{
-    char filename [LEN] ;
-    make_filename (*filenum, "n", filename) ;
-    *status = UMFPACK_load_numeric (Numeric, filename) ;
-}
-
-/* -------------------------------------------------------------------------- */
-/* umf4lsym: load the Symbolic object from a file */
-/* -------------------------------------------------------------------------- */
-
-/* call umf4lsym (symbolic, filenum, status) */
-
-void umf4lsym_ (void **Symbolic, Int *filenum, Int *status)
-{
-    char filename [LEN] ;
-    make_filename (*filenum, "s", filename) ;
-    *status = UMFPACK_load_symbolic (Symbolic, filename) ;
-}
+#include "umf4_f77wrapper_methods.h"
 
 /* ========================================================================== */
 /* === with no underscore =================================================== */
 /* ========================================================================== */
 
-/* IBM AIX.  Probably Microsoft Windows and HP Unix as well.  */
+/* IBM AIX and HP Unix */
 
-/* -------------------------------------------------------------------------- */
-/* umf4def: set default control parameters */
-/* -------------------------------------------------------------------------- */
+#define umf4def_FORTRAN  umf4def
+#define umf4pcon_FORTRAN umf4pcon
+#define umf4sym_FORTRAN  umf4sym
+#define umf4num_FORTRAN  umf4num
+#define umf4solr_FORTRAN umf4solr
+#define umf4sol_FORTRAN  umf4sol
+#define umf4scal_FORTRAN umf4scal
+#define umf4pinf_FORTRAN umf4pinf
+#define umf4fnum_FORTRAN umf4fnum
+#define umf4fsym_FORTRAN umf4fsym
+#define umf4snum_FORTRAN umf4snum
+#define umf4ssym_FORTRAN umf4ssym
+#define umf4lnum_FORTRAN umf4lnum
+#define umf4lsym_FORTRAN umf4lsym
 
-/* call umf4def (control) */
+#include "umf4_f77wrapper_methods.h"
 
-void umf4def (double Control [UMFPACK_CONTROL])
-{
-    UMFPACK_defaults (Control) ;
-}
+/* ========================================================================== */
+/* === upper case, no underscore ============================================ */
+/* ========================================================================== */
 
-/* -------------------------------------------------------------------------- */
-/* umf4pcon: print control parameters */
-/* -------------------------------------------------------------------------- */
+/* Microsoft Windows */
 
-/* call umf4pcon (control) */
+#define umf4def_FORTRAN  UMF4DEF
+#define umf4pcon_FORTRAN UMF4PCON
+#define umf4sym_FORTRAN  UMF4SYM
+#define umf4num_FORTRAN  UMF4NUM
+#define umf4solr_FORTRAN UMF4SOLR
+#define umf4sol_FORTRAN  UMF4SOL
+#define umf4scal_FORTRAN UMF4SCAL
+#define umf4pinf_FORTRAN UMF4PINF
+#define umf4fnum_FORTRAN UMF4FNUM
+#define umf4fsym_FORTRAN UMF4FSYM
+#define umf4snum_FORTRAN UMF4SNUM
+#define umf4ssym_FORTRAN UMF4SSYM
+#define umf4lnum_FORTRAN UMF4LNUM
+#define umf4lsym_FORTRAN UMF4LSYM
 
-void umf4pcon (double Control [UMFPACK_CONTROL])
-{
-    fflush (stdout) ;
-    UMFPACK_report_control (Control) ;
-    fflush (stdout) ;
-}
+#include "umf4_f77wrapper_methods.h"
 
-/* -------------------------------------------------------------------------- */
-/* umf4sym: pre-ordering and symbolic factorization */
-/* -------------------------------------------------------------------------- */
-
-/* call umf4sym (m, n, Ap, Ai, Ax, symbolic, control, info) */
-
-void umf4sym (Int *m, Int *n, Int Ap [ ], Int Ai [ ],
-    double Ax [ ], void **Symbolic,
-    double Control [UMFPACK_CONTROL], double Info [UMFPACK_INFO])
-{
-    (void) UMFPACK_symbolic (*m, *n, Ap, Ai, Ax, Symbolic, Control, Info) ;
-}
-
-/* -------------------------------------------------------------------------- */
-/* umf4num: numeric factorization */
-/* -------------------------------------------------------------------------- */
-
-/* call umf4num (Ap, Ai, Ax, symbolic, numeric, control, info) */
-
-void umf4num (Int Ap [ ], Int Ai [ ], double Ax [ ],
-    void **Symbolic, void **Numeric,
-    double Control [UMFPACK_CONTROL], double Info [UMFPACK_INFO])
-{
-    (void) UMFPACK_numeric (Ap, Ai, Ax, *Symbolic, Numeric, Control, Info);
-}
-
-/* -------------------------------------------------------------------------- */
-/* umf4solr: solve a linear system with iterative refinement */
-/* -------------------------------------------------------------------------- */
-
-/* call umf4solr (sys, Ap, Ai, Ax, x, b, numeric, control, info) */
-
-void umf4solr (Int *sys, Int Ap [ ], Int Ai [ ], double Ax [ ],
-    double x [ ], double b [ ], void **Numeric,
-    double Control [UMFPACK_CONTROL], double Info [UMFPACK_INFO])
-{
-    (void) UMFPACK_solve (*sys, Ap, Ai, Ax, x, b, *Numeric, Control, Info) ;
-}
-
-/* -------------------------------------------------------------------------- */
-/* umf4sol: solve a linear system without iterative refinement */
-/* -------------------------------------------------------------------------- */
-
-/* call umf4sol (sys, x, b, numeric, control, info) */
-
-void umf4sol (Int *sys, double x [ ], double b [ ], void **Numeric,
-    double Control [UMFPACK_CONTROL], double Info [UMFPACK_INFO])
-{
-    Control [UMFPACK_IRSTEP] = 0 ;
-    (void) UMFPACK_solve (*sys, (Int *) NULL, (Int *) NULL, (double *) NULL,
-	x, b, *Numeric, Control, Info) ;
-}
-
-/* -------------------------------------------------------------------------- */
-/* umf4scal: scale a vector using UMFPACK's scale factors */
-/* -------------------------------------------------------------------------- */
-
-/* call umf4scal (x, b, numeric, status) */
-
-void umf4scal (double x [ ], double b [ ], void **Numeric, Int *status)
-{
-    *status = UMFPACK_scale (x, b, *Numeric) ;
-}
-
-/* -------------------------------------------------------------------------- */
-/* umf4pinf: print info */
-/* -------------------------------------------------------------------------- */
-
-/* call umf4pinf (control) */
-
-void umf4pinf (double Control [UMFPACK_CONTROL], double Info [UMFPACK_INFO])
-{
-    fflush (stdout) ;
-    UMFPACK_report_info (Control, Info) ;
-    fflush (stdout) ;
-}
-
-/* -------------------------------------------------------------------------- */
-/* umf4fnum: free the Numeric object */
-/* -------------------------------------------------------------------------- */
-
-/* call umf4fnum (numeric) */
-
-void umf4fnum (void **Numeric)
-{
-    UMFPACK_free_numeric (Numeric) ;
-}
-
-/* -------------------------------------------------------------------------- */
-/* umf4fsym: free the Symbolic object */
-/* -------------------------------------------------------------------------- */
-
-/* call umf4fsym (symbolic) */
-
-void umf4fsym (void **Symbolic)
-{
-    UMFPACK_free_symbolic (Symbolic) ;
-}
-
-/* -------------------------------------------------------------------------- */
-/* umf4snum: save the Numeric object to a file */
-/* -------------------------------------------------------------------------- */
-
-/* call umf4snum (numeric, filenum, status) */
-
-void umf4snum (void **Numeric, Int *filenum, Int *status)
-{
-    char filename [LEN] ;
-    make_filename (*filenum, "n", filename) ;
-    *status = UMFPACK_save_numeric (*Numeric, filename) ;
-}
-
-/* -------------------------------------------------------------------------- */
-/* umf4ssym: save the Symbolic object to a file */
-/* -------------------------------------------------------------------------- */
-
-/* call umf4ssym (symbolic, filenum, status) */
-
-void umf4ssym (void **Symbolic, Int *filenum, Int *status)
-{
-    char filename [LEN] ;
-    make_filename (*filenum, "s", filename) ;
-    *status = UMFPACK_save_symbolic (*Symbolic, filename) ;
-}
-
-/* -------------------------------------------------------------------------- */
-/* umf4lnum: load the Numeric object from a file */
-/* -------------------------------------------------------------------------- */
-
-/* call umf4lnum (numeric, filenum, status) */
-
-void umf4lnum (void **Numeric, Int *filenum, Int *status)
-{
-    char filename [LEN] ;
-    make_filename (*filenum, "n", filename) ;
-    *status = UMFPACK_load_numeric (Numeric, filename) ;
-}
-
-/* -------------------------------------------------------------------------- */
-/* umf4lsym: load the Symbolic object from a file */
-/* -------------------------------------------------------------------------- */
-
-/* call umf4lsym (symbolic, filenum, status) */
-
-void umf4lsym (void **Symbolic, Int *filenum, Int *status)
-{
-    char filename [LEN] ;
-    make_filename (*filenum, "s", filename) ;
-    *status = UMFPACK_load_symbolic (Symbolic, filename) ;
-}

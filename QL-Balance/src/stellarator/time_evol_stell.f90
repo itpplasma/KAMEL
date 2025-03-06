@@ -15,6 +15,7 @@ module time_evolution_stellarator
     logical :: scratch
     logical :: set_momentum_source_to_zero, set_Q_neo_to_zero
     integer :: update_transport_coefficients
+    logical :: reduce_time_step, turn_off_heat_sources
 
     real(dp) :: tmax, timescale
     real(dp) :: br_beta = 0
@@ -213,7 +214,6 @@ module time_evolution_stellarator
                 if (maxval(timscal) .lt. tol * factolmax) then
                     exit
                 end if
-                
 
                 timstep_arr = timstep_arr * factolred
                 params = params_beg
@@ -230,7 +230,7 @@ module time_evolution_stellarator
                         print *, ""
                     end if
                 end if
-                if (iredo > 100) then
+                if (iredo > 300) then
                     stop "Redoing step: Maxval(timscal) is not lesser than tol * factolmax after 100 redos"
                 end if
             end do
@@ -261,7 +261,7 @@ module time_evolution_stellarator
         implicit none
 
         NAMELIST /BALANCE_STELL/ set_momentum_source_to_zero, set_Q_neo_to_zero, &
-            update_transport_coefficients
+            update_transport_coefficients, reduce_time_step, turn_off_heat_sources
 
         ! read the parameters from namelist file
         open (22, file='stell_conf.nml');
@@ -279,6 +279,8 @@ module time_evolution_stellarator
         print *, "        set_momentum_source_to_zero           = ", set_momentum_source_to_zero
         print *, "        set_Q_neo_to_zero                     = ", set_Q_neo_to_zero
         print *, "        update_transport_coefficients         = ", update_transport_coefficients
+        print *, "        reduce_time_step                      = ", reduce_time_step
+        print *, "        turn_off_heat_sources                 = ", turn_off_heat_sources
         print *, "============================================================================="
 
     end subroutine
@@ -479,8 +481,8 @@ module time_evolution_stellarator
                 if (debug_mode) write(*,*) "Debug: ramp-up mode instant"
                 if (time .eq. 0) then
                     antenna_factor = 1.d-4
-                else if (time .ge. 10*t_max_ramp_up) then ! if max time value is reached, stop the code
-                    write(*,*) 'stop: reached time max: ', 10*t_max_ramp_up
+                else if (time .ge. t_max_ramp_up) then ! if max time value is reached, stop the code
+                    write(*,*) 'stop: reached time max: ', t_max_ramp_up
                     if (suppression_mode .eqv. .false.) then
                         call write_kin_prof_data_to_disk
                     end if
@@ -535,7 +537,7 @@ module time_evolution_stellarator
                 if (debug_mode) write(*,*) "Debug: ramp-up mode none"
                 if (time .eq. 0) then
                     antenna_factor = 0d0
-                else if (time .ge. 10*t_max_ramp_up) then
+                else if (time .ge. t_max_ramp_up) then
                     ! if max time value is reached, stop the code
                     write(*,*) 'stop: time limit reached: ', time
                     if (suppression_mode .eqv. .false.) then
@@ -1039,20 +1041,24 @@ module time_evolution_stellarator
     subroutine setTimStep
 
         use recstep_mod, only: timstep_arr, tol
+        use time_evolution, only: set_constant_time_step, constant_time_step
         
         implicit none
 
         timstep = minval(timstep_arr)
 
-        if (.true.) then
+        if (.not. set_constant_time_step) then
             ! limit time step from below:
             timstep = max(timstep, timstep_min)
+            if (reduce_time_step) then
+                timstep = timstep * 0.3
+            end if
             ! limit timestep from above:
             !if (ramp_up_mode .ne. 0) timstep = min(timstep,0.1)
             !timstep = min(timstep,0.005)
         else
         ! use for constant time step:
-            timstep = 0.5
+            timstep = constant_time_step
             write(*,*) "constant time step = ", timstep
         end if
 

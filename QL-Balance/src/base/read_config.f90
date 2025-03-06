@@ -1,7 +1,7 @@
 subroutine read_config
 
     use wave_code_data, only: flre_path, vac_path, antenna_factor
-    use baseparam_mod, only: btor, rtor, rsepar, dperp, Z_i, am
+    use baseparam_mod, only: btor, rtor, rsepar, dperp, Z_i, am, urelax
     use grid_mod, only: rmin, rmax, npoimin, gg_factor, gg_width, &
         gg_r_res, iboutype, rb_cut_in, re_cut_in, rb_cut_out, re_cut_out
     use control_mod, only: iwrite, eps, &
@@ -25,7 +25,7 @@ subroutine read_config
         diagnostics_output, br_stopping, suppression_mode, debug_mode, &
         readfromtimestep, path2time, ramp_up_mode, t_max_ramp_up, temperature_limit, &
         antenna_max_stopping, gyro_current_study, viscosity_factor, misalign_diffusion, &
-        equil_path, ihdf5IO, type_of_run
+        equil_path, ihdf5IO, type_of_run, set_constant_time_step, constant_time_step, urelax
 
     ! read the parameters from namelist file
     open (22, file='balance_conf.nml');
@@ -42,10 +42,10 @@ subroutine read_config
     write(*,*) '    ------------------------------------------------------------------------------------'
     write(*,*) '    flre path: ', trim(flre_path)
     write(*,*) '    vac path: ', trim(vac_path)
-    write(*,*) '    B_tor = ', btor
-    write(*,*) '    R_tor = ', rtor
-    write(*,*) '    r_min = ', rmin
-    write(*,*) '    r_max = ', rmax
+    write(*,*) '    B_tor = ', btor , " G"
+    write(*,*) '    R_tor = ', rtor, " cm"
+    write(*,*) '    r_min = ', rmin, " cm"
+    write(*,*) '    r_max = ', rmax, " cm"
     write(*,*) '    npoimin = ', npoimin
     write(*,*) '    gg_factor = ', gg_factor
     write(*,*) '    gg_width = ', gg_width
@@ -70,14 +70,17 @@ subroutine read_config
     write(*,*) '    readfromtimestep = ', readfromtimestep
     write(*,*) '    suppression_mode = ', suppression_mode
     write(*,*) "    ramp_up_mode = ", ramp_up_mode
-    write(*,*) "    t_max_ramp_up = ", t_max_ramp_up
-    write(*,*) "    temperature_limit = ", temperature_limit
+    write(*,*) "    t_max_ramp_up = ", t_max_ramp_up, " s"
+    write(*,*) "    temperature_limit = ", temperature_limit, " eV"
     write(*,*) "    antenna_max_stopping = ", antenna_max_stopping
     write(*,*) "    gyro_current_study = ", gyro_current_study
     write(*,*) "    viscosity_factor = ", viscosity_factor
     write(*,*) "    misalign_diffusion = ", misalign_diffusion
     write(*,*) "    equil_path = ", trim(equil_path)
     write(*,*) "    ihdf5IO = ", ihdf5IO
+    write(*,*) "    set_constant_time_step = ", set_constant_time_step
+    write(*,*) "    constant_time_step = ", constant_time_step, " s"
+    write(*,*) "    urelax = ", urelax
     write(*,*) ''
     write(*,*) '========================================================================================'
 

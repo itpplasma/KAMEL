@@ -81,7 +81,7 @@ const gsl_odeiv_step_type * T = gsl_odeiv_step_rk8pd; //the best I have found
 
 gsl_odeiv_step * step = gsl_odeiv_step_alloc (T, Neq);
 
-gsl_odeiv_control * control = gsl_odeiv_control_y_new (1.0e-12, 1.0e-12);
+gsl_odeiv_control * control = gsl_odeiv_control_y_new (1.0e-16, 1.0e-16);
 
 gsl_odeiv_evolve * evolve = gsl_odeiv_evolve_alloc (Neq);
 
@@ -112,21 +112,21 @@ for (int i = 1; i < dimx; ++i)
 
     while (rc < rf)
     {
-      status = gsl_odeiv_evolve_apply (evolve, control, step, &sys, &rc, rf, &h, uval);
+        status = gsl_odeiv_evolve_apply (evolve, control, step, &sys, &rc, rf, &h, uval);
 
-      if (status != GSL_SUCCESS)
-      {
-        fprintf (stderr, "\ncalculate_equilibrium: ODE solver failed at r = %le", rc);
-        exit (1);
-      }
+        if (status != GSL_SUCCESS)
+        {
+            fprintf (stderr, "\ncalculate_equilibrium: ODE solver failed at r = %le", rc);
+            exit (1);
+        }
 
-      if (iter == 100000)
-      {
-        fprintf (stderr, "\nMaximum allowed iteration number is reached: iter=%d r=%le", iter, rc);
-        exit (1);
-      }
+        if (iter == 100000)
+        {
+            fprintf (stderr, "\nMaximum allowed iteration number is reached: iter=%d r=%le", iter, rc);
+            exit (1);
+        }
 
-      ++iter;
+        ++iter;
     }
 
     u[i] = uval[0];

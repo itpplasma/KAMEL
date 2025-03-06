@@ -29,6 +29,8 @@ module time_evolution
     double precision :: timstep
     double precision :: time
     double precision :: t_hysteresis_turn = 0
+    double precision :: constant_time_step
+    logical :: set_constant_time_step
 
     double precision, dimension(:), allocatable :: timscal
 
@@ -451,8 +453,8 @@ module time_evolution
                 if (debug_mode) write(*,*) "Debug: ramp-up mode instant"
                 if (time .eq. 0) then
                     antenna_factor = 1.d-4
-                else if (time .ge. 10*t_max_ramp_up) then ! if max time value is reached, stop the code
-                    write(*,*) 'stop: reached time max: ', 10*t_max_ramp_up
+                else if (time .ge. t_max_ramp_up) then ! if max time value is reached, stop the code
+                    write(*,*) 'stop: reached time max: ', t_max_ramp_up
                     if (suppression_mode .eqv. .false.) then
                         call write_kin_prof_data_to_disk
                     end if
@@ -507,7 +509,7 @@ module time_evolution
                 if (debug_mode) write(*,*) "Debug: ramp-up mode none"
                 if (time .eq. 0) then
                     antenna_factor = 0d0
-                else if (time .ge. 10*t_max_ramp_up) then
+                else if (time .ge. t_max_ramp_up) then
                     ! if max time value is reached, stop the code
                     write(*,*) 'stop: time limit reached: ', time
                     if (suppression_mode .eqv. .false.) then

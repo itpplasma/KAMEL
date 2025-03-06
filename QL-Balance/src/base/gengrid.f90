@@ -13,78 +13,68 @@
     implicit none
 
     integer :: ipoib, ipb, ipe
-    double precision :: hrmax,r,rnext,recnsp,rscale
-    double precision, dimension(:),   allocatable :: x
+    double precision :: hrmax, r, rnext, recnsp
+    double precision, dimension(:), allocatable :: x
 
     if (debug_mode) write(*,*) "Debug: coming in gengrid"
-    nbaleqs=4
+    nbaleqs = 4
 
-    nder=1
-    npoi_der=4
-    allocate(x(npoi_der),coef(0:nder,npoi_der))
+    nder = 1
+    npoi_der = 4
+    allocate(x(npoi_der), coef(0:nder,npoi_der))
 
-    hrmax=(rmax-rmin)/(npoimin+1)
+    hrmax = (rmax - rmin)/(npoimin + 1)
 
-    npoib=1
-    r=rmin
+    npoib = 1
+    r = rmin
 
-    do while(r.lt.rmax)
-      !if (debug_mode) print *, 'npoib: ', npoib
+    do while(r .lt. rmax)
       call recnsplit(r,recnsp)
-      rnext=r+hrmax/recnsp
+      rnext = r + hrmax / recnsp
       call recnsplit(rnext,recnsp)
-      r=0.5d0*(rnext+r+hrmax/recnsp)
-      !if (debug_mode) print *, 'r: ', r
-      npoib=npoib+1
+      r = 0.5d0 * (rnext + r + hrmax / recnsp)
+      npoib = npoib + 1
     enddo
-    npoic=npoib-1
+    npoic = npoib - 1
 
-    allocate(rb(npoib),rc(npoic))
-    allocate(Sb(npoib),Sc(npoic))
+    allocate(rb(npoib), rc(npoic))
+    allocate(Sb(npoib), Sc(npoic))
 
-    r=rmin
-    rb(1)=r
+    r = rmin
 
-    do ipoib=2,npoib
+    rb(1) = r
+
+    do ipoib = 2,npoib
       call recnsplit(r,recnsp)
-      rnext=r+hrmax/recnsp
+      rnext = r + hrmax / recnsp
       call recnsplit(rnext,recnsp)
-      r=0.5d0*(rnext+r+hrmax/recnsp)
-      rb(ipoib)=r
-      rc(ipoib-1)=0.5*(rb(ipoib-1)+rb(ipoib))
+      r = 0.5d0 * (rnext + r + hrmax / recnsp)
+      rb(ipoib) = r
+      rc(ipoib - 1) = 0.5d0 * (rb(ipoib - 1) + rb(ipoib))
     enddo
-
-    if(iboutype.eq.1) then
-      rscale=(rmax-rmin)/(rc(npoic)-rmin)
-    else
-      rscale=(rmax-rmin)/(rb(npoib)-rmin)
-    endif
-    !rb=rmin+rscale*(rb-rmin)
-    !rc=rmin+rscale*(rc-rmin)
 
     if(npoi_der.gt.npoic) then
-      print *,'gengrid : not enough grid points for derivatives'
-      stop
+      stop 'gengrid : not enough grid points for derivatives'
     endif
 
     allocate(deriv_coef(npoi_der,npoib),ipbeg(npoib),ipend(npoib))
     allocate(reint_coef(npoi_der,npoib))
 
-    do ipoib=1,npoib
-      ipb=ipoib-npoi_der/2
-      ipe=ipb+npoi_der-1
-      if(ipb.lt.1) then
-        ipb=1
-        ipe=ipb+npoi_der-1
+    do ipoib = 1, npoib
+      ipb = ipoib - npoi_der / 2
+      ipe = ipb + npoi_der - 1
+      if(ipb .lt. 1) then
+        ipb = 1
+        ipe = ipb + npoi_der - 1
       elseif(ipe.gt.npoic) then
-        ipe=npoic
-        ipb=ipe-npoi_der+1
+        ipe = npoic
+        ipb = ipe - npoi_der + 1
       endif
-      ipbeg(ipoib)=ipb
-      ipend(ipoib)=ipe
-      call plag_coeff(npoi_der,nder,rb(ipoib),rc(ipb:ipe),coef)
-      deriv_coef(:,ipoib)=coef(1,:)
-      reint_coef(:,ipoib)=coef(0,:)
+      ipbeg(ipoib) = ipb
+      ipend(ipoib) = ipe
+      call plag_coeff(npoi_der, nder, rb(ipoib), rc(ipb:ipe), coef)
+      deriv_coef(:,ipoib) = coef(1,:)
+      reint_coef(:,ipoib) = coef(0,:)
     enddo
 
     deallocate(coef)
@@ -161,9 +151,8 @@ subroutine recnsplit(r,recnsp)
     use resonances_mod
     implicit none;
 
-    logical :: prop=.true.
     integer :: k
-    double precision :: r, recnsp;
+    double precision :: r, recnsp
 
     if(prop) then
         prop=.false.
@@ -176,7 +165,6 @@ subroutine recnsplit(r,recnsp)
       recnsp = recnsp + ampl_res(k)*exp(-((r-r_res(k))/width_res(k))**2)
     enddo
 
-    return
 end subroutine recnsplit
 
 

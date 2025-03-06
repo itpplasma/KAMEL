@@ -42,9 +42,10 @@ subroutine evolvestep_stell(timstep,eps)
     allocate(amat_sp(nz_sp),irow_sp(nz_sp),icol_sp(nz_sp),bvec_sp(nsize))
     irow_sp(1:nz)=irow
     icol_sp(1:nz)=icol
-    amat_sp(1:nz)=-timstep_arr(irow)*amat!
+    amat_sp(1:nz)=-timstep_arr(irow) * amat
 
     k=nz
+    ! adding identity matrix to diagonal
     do i=1,nsize
         k=k+1
         irow_sp(k)=i 
@@ -53,7 +54,7 @@ subroutine evolvestep_stell(timstep,eps)
     enddo
 
     !  bvec_sp=y+timstep*dery
-    bvec_sp=y+timstep_arr*dery
+    bvec_sp= y + timstep_arr * dery
 
     call remap_rc(nz_sp,nz_sq,irow_sp,icol_sp,amat_sp)
 

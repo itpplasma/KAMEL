@@ -23,7 +23,7 @@ subroutine rhs_balance_stell(x, y, dy)
     use matrix_mod, only: isw_rhs, nz, nsize, irow, icol, amat, rhsvec
     use QLBalance_hdf5_tools
     use QLBalance_kinds, only: dp
-    use time_evolution_stellarator, only: set_Q_neo_to_zero
+    use time_evolution_stellarator, only: set_Q_neo_to_zero, turn_off_heat_sources
 
     implicit none
 
@@ -254,6 +254,11 @@ subroutine rhs_balance_stell(x, y, dy)
             qlheat_i(ipoi) = Z_i*Ercov(ipoi)*(gamma_ql_i + gamma_onu_i)*e_charge
         end do
 
+        if (turn_off_heat_sources) then
+            qlheat_e = 0.d0
+            qlheat_i = 0.d0
+        end if
+
         ! Condition of zero flux at the inner boundary:
         fluxes_dif(:, 1) = 0.d0
         fluxes_con(:, 1) = 0.d0
@@ -413,7 +418,7 @@ subroutine rhs_balance_source_stell(x, y, dy)
     use baseparam_mod, only: Z_i, e_charge, am, p_mass, c
     use control_mod, only: iwrite
     use wave_code_data, only: q, Vth
-    use time_evolution_stellarator, only: set_Q_neo_to_zero
+    use time_evolution_stellarator, only: set_Q_neo_to_zero, turn_off_heat_sources
     use QLBalance_kinds, only: dp
 
     implicit none
@@ -587,6 +592,11 @@ subroutine rhs_balance_source_stell(x, y, dy)
     fluxes_dif(:, 1) = 0.d0
     fluxes_con(:, 1) = 0.d0
     fluxes_con_nl(:, 1) = 0.d0
+
+    if (turn_off_heat_sources) then
+        qlheat_e = 0.d0
+        qlheat_i = 0.d0
+    end if
 
     ! Partial time derivatives of equilibrium parameters:
     do ipoi = 1, npoi

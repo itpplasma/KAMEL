@@ -94,7 +94,7 @@ subroutine calc_equil_diffusion_coeffs
     dai22 = dae22
     visca = dae11 * viscosity_factor
     
-    dni22 = cneo*params_b(1, :)/sqrt(abs(params_b(4, :)))
+    dni22 = cneo * params_b(1, :)/sqrt(abs(params_b(4, :)))
 
 end subroutine calc_equil_diffusion_coeffs
 
@@ -110,13 +110,13 @@ subroutine calc_transport_coeffs_collisionless(dim, vT, D_11, D_12, D_22)
     real(8), dimension(dim) :: Z
     double precision, dimension(dim) :: field_fac
 
-    Z = om_E/sqrt(2.0)/kp/vT
+    Z = om_E/sqrt(2.0d0)/kp/vT
 
     field_fac = abs(c*ks*Ep - om_E*Br)**2
 
-    D_11 = sqrt(pi)*vT**2/btor**2*(abs(Z/om_E))**3*exp(-Z**2)*field_fac
-    D_12 = (1.0 + Z**2)*D_11
-    D_22 = (1.0 + (1.0 + Z**2)**2)*D_11
+    D_11 = sqrt(pi)*vT**2.0d0/btor**2.0d0*(abs(Z/om_E))**3.0d0*exp(-Z**2.0d0)*field_fac
+    D_12 = (1.0d0 + Z**2.0d0)*D_11
+    D_22 = (1.0d0 + (1.0d0 + Z**2.0d0)**2.0d0)*D_11
 
 end subroutine
 

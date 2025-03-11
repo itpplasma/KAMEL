@@ -4,8 +4,8 @@ subroutine read_config
     use baseparam_mod, only: btor, rtor, rsepar, dperp, Z_i, am, urelax
     use grid_mod, only: rmin, rmax, npoimin, gg_factor, gg_width, &
         gg_r_res, iboutype, rb_cut_in, re_cut_in, rb_cut_out, re_cut_out
-    use control_mod, only: iwrite, eps, &
-        write_formfactors, paramscan, diagnostics_output, &
+    use control_mod, only: eps, &
+        paramscan, diagnostics_output, &
         suppression_mode, debug_mode, readfromtimestep, &
         temperature_limit, gyro_current_study, &
         misalign_diffusion, equil_path, ihdf5IO
@@ -18,9 +18,9 @@ subroutine read_config
     !> namelist for the balance configuration input
     NAMELIST /BALANCENML/ flre_path, vac_path, btor, rtor, rmin, rmax, &
         rsepar, npoimin, gg_factor, gg_width, gg_r_res, Nstorage, &
-        tmax_factor, antenna_factor, iboutype, iwrite, eps, dperp, &
+        tmax_factor, antenna_factor, iboutype, eps, dperp, &
         Z_i, am, rb_cut_in, re_cut_in, rb_cut_out, re_cut_out, &
-        write_formfactors, stop_time_step, &
+        stop_time_step, &
         path2inp, path2out, timstep_min, paramscan, save_prof_time_step, &
         diagnostics_output, br_stopping, suppression_mode, debug_mode, &
         readfromtimestep, path2time, ramp_up_mode, t_max_ramp_up, temperature_limit, &
@@ -55,7 +55,6 @@ subroutine read_config
     write(*,*) "    timstep_min = ", timstep_min
     write(*,*) '    antenna_factor = ', antenna_factor
     write(*,*) '    iboutype = ', iboutype
-    write(*,*) '    iwrite = ', iwrite
     write(*,*) '    eps = ', eps
     write(*,*) '    dperp = ', dperp
     write(*,*) '    Z_i = ', Z_i

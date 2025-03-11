@@ -1,6 +1,7 @@
 module QLbalance_diag
 
     use control_mod
+    use QLBalance_kinds, only: dp
 
     implicit none
     
@@ -12,8 +13,6 @@ module QLbalance_diag
     integer :: i_mn_loop
     integer, dimension(1) :: ind_dqle, ind_dqli
     
-    double precision :: relax_ff
-    double precision, dimension(:), allocatable :: field_fac_old
-    double precision :: timscal_dql, rate_dql, timscal_dqli
+    real(dp) :: timscal_dql, rate_dql, timscal_dqli
 
 end module QLbalance_diag

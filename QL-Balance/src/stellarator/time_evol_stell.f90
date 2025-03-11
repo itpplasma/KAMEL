@@ -5,7 +5,7 @@ module time_evolution_stellarator
     use h5mod
     use balance_base, only: balance_t
     use time_evolution, only: Nstorage, ramp_up_mode, save_prof_time_step, iexit, ramp_up_down, timeIndex, &
-        antenna_max_stopping, timstep_min, tmax_factor, t_max_ramp_up
+        antenna_max_stopping, timstep_min, tmax_factor, t_max_ramp_up, br_formfactor, br_vac_res
     use QLBalance_kinds, only: dp
 
     implicit none
@@ -125,6 +125,7 @@ module time_evolution_stellarator
             CALL write_initial_parameters
         end if
 
+        call alloc_Br_Dqle_for_timeevol
         call calc_geometric_parameter_profiles
         call initialize_get_dql
         call initialize_D_one_over_nu
@@ -136,7 +137,6 @@ module time_evolution_stellarator
         end if
 
         call allocate_timscal_and_params
-        call inquiry_to_restart ! most likely not needed
 
         call reset_timstep_arr_w_timstep
         !timstep_arr = timstep
@@ -144,7 +144,6 @@ module time_evolution_stellarator
 
         call get_dql
         call rescale_transp_coeffs_by_ant_fac
-        call alloc_Br_Dqle_for_timeevol
         call hold_prev_transp_coeffs
 
         params_begbeg = params
@@ -178,9 +177,8 @@ module time_evolution_stellarator
             end if
 
             call get_dql
-            call stop_if_time_step_too_small
-            call interp_Br_Dql_at_resonance_timeevol
             call rescale_transp_coeffs_by_ant_fac
+            call interp_Br_Dql_at_resonance_timeevol
             call determine_Dql_diagnostic
 
             call write_br_dqle22_time_data
@@ -197,8 +195,8 @@ module time_evolution_stellarator
                 call redoTimeStep
             end if
 
-            do ! redo step loop
-                iredo = iredo +1
+            do ! evolve in time, reduce time step if too large
+                iredo = iredo + 1
                 params_beg = params
 
                 print *, ""
@@ -237,12 +235,15 @@ module time_evolution_stellarator
 
             call rescale_time_step_array
             call setTimStep
+            call stop_if_time_step_too_small
+
             call reset_timstep_arr_w_timstep
             call writeTimeInfoToDisk
+
             call relax_plasma_parameters
 
             timstep_arr = 0.0d0
-            call evolvestep(timstep, eps)
+            call evolvestep_stell(timstep, eps)
             timstep_arr = timstep
             time = time + timstep
 
@@ -345,6 +346,8 @@ module time_evolution_stellarator
         implicit none
 
         allocate(br_abs(Nstorage))
+        allocate(br_formfactor(Nstorage))
+        allocate(br_vac_res(Nstorage))
         allocate(br_abs_antenna_factor(Nstorage))
         allocate(br_abs_time(Nstorage))
         allocate(dqle22_res_time(Nstorage))
@@ -405,8 +408,8 @@ module time_evolution_stellarator
 
         if (debug_mode) write(*,*) "Debug: writing out br time evolution data"
 
-        !if (ihdf5IO .eq. 1) then
-        if (.false.) then
+        if (ihdf5IO .eq. 1) then
+        !if (.false.) then
             CALL h5_init()
             CALL h5_open_rw(path2out, h5_id)
 
@@ -429,6 +432,14 @@ module time_evolution_stellarator
             h5_currentgrp = "/"//trim(h5_mode_groupname) //"/bifurcation_criterion"
             CALL h5_add_double_1(h5_id, trim(h5_currentgrp), bif_criterion(1:timeIndex), &
                 lbound(bif_criterion(1:timeIndex)), ubound(bif_criterion(1:timeIndex)))
+
+            h5_currentgrp = "/"//trim(h5_mode_groupname) //"/br_formfactor"
+            CALL h5_add_complex_1(h5_id, trim(h5_currentgrp), br_formfactor(1:timeIndex), &
+                lbound(real(br_formfactor(1:timeIndex))), ubound(real(br_formfactor(1:timeIndex))))
+
+            h5_currentgrp = "/"//trim(h5_mode_groupname) //"/br_vac_res"
+            CALL h5_add_complex_1(h5_id, trim(h5_currentgrp), br_vac_res(1:timeIndex), &
+                lbound(real(br_vac_res(1:timeIndex))), ubound(real(br_vac_res(1:timeIndex))))
 
             CALL h5_close(h5_id)
             CALL h5_deinit()
@@ -457,7 +468,7 @@ module time_evolution_stellarator
         !Added by Philipp Ulbl 12.05.2020, (strongly) edited by Markus Markl
         !
         ! Stopping criterion that is always active
-        if (antenna_factor .lt. (antenna_factor_max*antenna_max_stopping)) then
+        if (antenna_factor .lt. (antenna_factor_max * antenna_max_stopping)) then
             if (debug_mode) write(*,*) "Debug: - - ramp up antenna_factor - -"
         
             if (ramp_up_mode .eq. 0) then
@@ -882,9 +893,11 @@ module time_evolution_stellarator
         use wave_code_data, only: antenna_factor, Br
 
         implicit none
+
+        integer :: indResRadius, indBeginInterp, indEndInterp
         
         call binsrc(rb, 1, npoib, r_resonant(1), indResRadius)
-        call getIndicesForLagrangeInterp(indResRadius)
+        call get_ind_Lagr_interp(indResRadius, indBeginInterp, indEndInterp)
         call plag_coeff(nlagr, nder, r_resonant(1), rb(indBeginInterp:indEndInterp), coef)
 
         br_abs(timeIndex) = sum(coef(0, :)*abs(Br(indBeginInterp:indEndInterp)))*sqrt(antenna_factor)
@@ -897,7 +910,6 @@ module time_evolution_stellarator
             write(*,*) "bif_criterion = ", bif_criterion(timeIndex)
         end if
 
-        ! save the time for the improved stopping criterion
         br_abs_time(timeIndex) = time
         br_abs_antenna_factor(timeIndex) = antenna_factor
 
@@ -913,12 +925,13 @@ module time_evolution_stellarator
         write(*,*) " "
         write(*,*) "+ + + + + + + + + + + + + + + + + + + + + + + + + + + + + + + + + + +"
         WRITE(*,'(A9,F10.4,A16,I4)') '  time = ', br_abs_time(timeIndex), " s, timeIndex = ", timeIndex
-        WRITE(*,'(A23,F10.5,A11,F6.2,A12)') '    Antenna_factor   = ', antenna_factor, " which are ", &
+        WRITE(*,'(A23,E10.5,A11,F6.2,A12)') '    Antenna_factor   = ', antenna_factor, " which are ", &
             antenna_factor/antenna_factor_max*100, "% of the max"
         WRITE(*,'(A23,F10.5,A2)') '    Br abs res * C_mn= ', br_abs(timeIndex), " G"
         WRITE(*,'(A23,F10.5,A2)') '    Br abs res       = ', br_abs(timeIndex)/SQRT(antenna_factor), " G"
         WRITE(*,'(A23,F10.3,A7)') '    Dqle22 res       = ', dqle22_res_time(timeIndex), " cm^2/s"
         WRITE(*,'(A23,F10.5)')    '    bif crit         = ', bif_criterion(timeIndex)
+        write(*,*) '   Form factor      = ', abs(br_formfactor(timeIndex))
         write(*,*) "+ + + + + + + + + + + + + + + + + + + + + + + + + + + + + + + + + + +"
         write(*,*) " "
 
@@ -1237,51 +1250,6 @@ module time_evolution_stellarator
         CALL h5_deinit()
 
         if (debug_mode) write (*, *) "Debug: finished creating group structure for TimeEvol"
-    end subroutine
-
-
-    subroutine inquiry_to_restart
-
-        use parallelTools, only: irank
-        use grid_mod, only: npoi, nbaleqs, y
-        use plasma_parameters, only: params
-        use recstep_mod, only: tol
-        use baseparam_mod, only: ev
-        use control_mod, only: debug_mode
-        use restart_mod
-
-        implicit none
-
-        integer :: k, ipoi, ieq
-
-        inquire(file='restart.dat', exist=opnd)
-        if (opnd) then
-            if (irank .eq. 0) then
-                print *, 'restart'
-            end if
-            open (201, file='final.restart')
-            do ipoi = 1, npoi
-                read (201, *) timstep, params(:, ipoi)
-                params(3:4, ipoi) = params(3:4, ipoi)*ev
-                do ieq = 1, nbaleqs
-                    k = nbaleqs*(ipoi - 1) + ieq
-                    y(k) = params(ieq, ipoi)
-                end do
-            end do
-            close (201)
-            open (201, file='restart.dat')
-            read (201, *) timstep
-            close (201)
-            scratch = .false.
-        else
-            timstep = timstep*tol
-            scratch = .true.
-            if (irank .eq. 0) then
-                if (debug_mode) write(*,*) 'Debug: start from scratch'
-                if (debug_mode) write(*,*) "Debug: timstep = ", timstep
-            end if
-        end if
-
     end subroutine
 
     subroutine redoTimeStep

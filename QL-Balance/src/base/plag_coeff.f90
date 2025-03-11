@@ -7,7 +7,7 @@ module PolyLagrangeInterpolation
     integer :: nlagr = 4 ! order of lagrange interpolation
     integer :: nder = 0
     double precision, dimension(:, :), allocatable :: coef !> coefficients for interpolation
-    integer :: indBeginInterp, indEndInterp, indResRadius
+    !integer :: indBeginInterp, indEndInterp, indResRadius
   
     contains
 
@@ -95,12 +95,13 @@ module PolyLagrangeInterpolation
 
     end subroutine binsrc
 
-    subroutine getIndicesForLagrangeInterp(indResRadius)
+    subroutine get_ind_Lagr_interp(indResRadius, indBeginInterp, indEndInterp)
 
         use grid_mod, only: npoib
 
         implicit none
 
+        integer, intent(out) :: indBeginInterp, indEndInterp
         integer , intent(in) :: indResRadius
 
         indBeginInterp = max(1, indResRadius - nlagr/2)

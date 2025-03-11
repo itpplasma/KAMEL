@@ -15,7 +15,7 @@ subroutine rhs_balance(x, y, dy)
     use plasma_parameters, only: params, ddr_params, params_lin, ddr_params_nl &
                         , params_b_lin, params_b, dot_params
     use baseparam_mod, only: Z_i, e_charge, am, p_mass, c
-    use control_mod, only: iwrite, irf
+    use control_mod, only: irf
     use wave_code_data, only: q, Vth
     use matrix_mod, only: isw_rhs, nz, nsize, irow, icol, amat, rhsvec
     use QLBalance_hdf5_tools
@@ -36,7 +36,6 @@ subroutine rhs_balance(x, y, dy)
         npoi = npoic
     end if
 
-    iwrite = 1
 
     ! isw_rhs is the switch for initializing the RHS vector, if isw_rhs=0, then the RHS vector is initialized
 
@@ -228,54 +227,8 @@ subroutine rhs_balance(x, y, dy)
         fluxes_con(:, 1) = 0.d0
         fluxes_con_nl(:, 1) = 0.d0
 
-    if (irf .eq. 100) then
-        if (iwrite .eq. 1) then
-            open (15, file = 'fluxes_dif.dat')
-            open (16, file = 'fluxes_con.dat')
-            open (17, file = 'fluxes_con_nl.dat')
-            open (18, file = 'polforce.dat')
-            open (19, file = 'qlheat_e.dat')
-            open (20, file = 'qlheat_i.dat')
-            open (22, file = 'dqle22.dat')
-            open (24, file = 'dae22.dat')
-            open (23, file = 'params_b.dat')
-            open(21, file = 'Sb.dat')
-            open(25, file = 'ddr_params.dat')
-            open(26, file = 'params_lin.dat')
-            do ipoi = 1, npoi
-                write (15, *) rb(ipoi), fluxes_dif(1, ipoi), fluxes_dif(2, ipoi), fluxes_dif(3, ipoi), fluxes_dif(4, ipoi)
-                write (16, *) rb(ipoi), fluxes_con(1, ipoi), fluxes_con(2, ipoi), fluxes_con(3, ipoi), fluxes_con(4, ipoi)
-                write (17, *) rb(ipoi), fluxes_con_nl(1, ipoi), fluxes_con_nl(2, ipoi), fluxes_con_nl(3, ipoi), &
-                fluxes_con_nl(4, ipoi)
-                write (18, *) rb(ipoi), polforce(ipoi)
-                write (19, *) rb(ipoi), qlheat_e(ipoi)
-                write (20, *) rb(ipoi), qlheat_i(ipoi)
-                write (21, *) rb(ipoi), Sb(ipoi)
-                write (22, *) rb(ipoi), dqle22(ipoi)
-                write (24, *) rb(ipoi), dae22(ipoi)
-                write (23, *) rb(ipoi), params_b(:, ipoi)
-                write (25, *) rb(ipoi), ddr_params(:, ipoi)
-                write (26, *) rb(ipoi), params_lin(:, ipoi)
-                write (27, *) rb(ipoi), deriv_coef(:, ipoi)
-            end do
-            close(15)
-            close(16)
-            close(17)
-            close(18)
-            close(19)
-            close(20)
-            close(21)
-            close(22)
-            close(23)
-            close(24)
-            close(25)
-            close(26)
-            close(27)
+        ! TODO: Add here subroutine to write all fluxes when switch is activated
 
-
-        end if
-        print *, 'After writing fluxes'
-    end if
 
         ! Partial time derivatives of equilibrium parameters:
         do ipoi = ibeg, iend

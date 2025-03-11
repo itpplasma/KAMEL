@@ -4,6 +4,7 @@ module time_evolution
     use parallelTools
     use h5mod
     use balance_base, only: balance_t
+    use QLBalance_kinds, only: dp
 
     implicit none
 
@@ -18,42 +19,44 @@ module time_evolution
     integer :: ramp_up_down = 0 !> used in hysteresis mode, tells if ramp-up (0) or ramp-down (1)
     integer :: timeIndex
 
-    double precision :: tmax, timescale
-    DOUBLE PRECISION :: br_beta = 0
-    DOUBLE PRECISION :: br_predicted
+    real(dp) :: tmax, timescale
+    real(dp) :: br_beta = 0
+    real(dp) :: br_predicted
 
-    double precision :: tmax_factor!, antenna_factor
-    double precision :: stop_time_step
-    double precision :: timstep_min
-    DOUBLE PRECISION :: t_max_ramp_up = 1e-2 !> 10ms ramp up until antenna_factor_max is reached
-    double precision :: timstep
-    double precision :: time
-    double precision :: t_hysteresis_turn = 0
-    double precision :: constant_time_step
+    real(dp) :: tmax_factor!, antenna_factor
+    real(dp) :: stop_time_step
+    real(dp) :: timstep_min
+    real(dp) :: t_max_ramp_up = 1e-2 !> 10ms ramp up until antenna_factor_max is reached
+    real(dp) :: timstep
+    real(dp) :: time
+    real(dp) :: t_hysteresis_turn = 0
+    real(dp) :: constant_time_step
     logical :: set_constant_time_step
 
-    double precision, dimension(:), allocatable :: timscal
+    real(dp), dimension(:), allocatable :: timscal
 
-    DOUBLE PRECISION, DIMENSION(:), ALLOCATABLE :: yprev
-    DOUBLE PRECISION, DIMENSION(:), ALLOCATABLE :: dqle11_prev
-    DOUBLE PRECISION, DIMENSION(:), ALLOCATABLE :: dqle12_prev
-    DOUBLE PRECISION, DIMENSION(:), ALLOCATABLE :: dqle21_prev
-    DOUBLE PRECISION, DIMENSION(:), ALLOCATABLE :: dqle22_prev
-    DOUBLE PRECISION, DIMENSION(:), ALLOCATABLE :: dqli11_prev
-    DOUBLE PRECISION, DIMENSION(:), ALLOCATABLE :: dqli12_prev
-    DOUBLE PRECISION, DIMENSION(:), ALLOCATABLE :: dqli21_prev
-    DOUBLE PRECISION, DIMENSION(:), ALLOCATABLE :: dqli22_prev
+    real(dp), DIMENSION(:), ALLOCATABLE :: yprev
+    real(dp), DIMENSION(:), ALLOCATABLE :: dqle11_prev
+    real(dp), DIMENSION(:), ALLOCATABLE :: dqle12_prev
+    real(dp), DIMENSION(:), ALLOCATABLE :: dqle21_prev
+    real(dp), DIMENSION(:), ALLOCATABLE :: dqle22_prev
+    real(dp), DIMENSION(:), ALLOCATABLE :: dqli11_prev
+    real(dp), DIMENSION(:), ALLOCATABLE :: dqli12_prev
+    real(dp), DIMENSION(:), ALLOCATABLE :: dqli21_prev
+    real(dp), DIMENSION(:), ALLOCATABLE :: dqli22_prev
 
-    double precision :: antenna_factor_max
-    DOUBLE PRECISION :: antenna_max_stopping
+    real(dp) :: antenna_factor_max
+    real(dp) :: antenna_max_stopping
 
     !needed for interpolation of br abs and stopping criterion
-    DOUBLE PRECISION, DIMENSION(:), ALLOCATABLE :: br_abs
-    DOUBLE PRECISION, DIMENSION(:), ALLOCATABLE :: br_abs_time
-    DOUBLE PRECISION, DIMENSION(:), ALLOCATABLE :: br_abs_antenna_factor
-    DOUBLE PRECISION, DIMENSION(:), ALLOCATABLE :: dqle22_res_time
-    DOUBLE PRECISION, DIMENSION(:), ALLOCATABLE :: dae22_res_time
-    DOUBLE PRECISION, DIMENSION(:), ALLOCATABLE :: bif_criterion
+    real(dp), DIMENSION(:), ALLOCATABLE :: br_abs
+    complex(dp), DIMENSION(:), ALLOCATABLE :: br_formfactor
+    complex(dp), DIMENSION(:), ALLOCATABLE :: br_vac_res
+    real(dp), DIMENSION(:), ALLOCATABLE :: br_abs_time
+    real(dp), DIMENSION(:), ALLOCATABLE :: br_abs_antenna_factor
+    real(dp), DIMENSION(:), ALLOCATABLE :: dqle22_res_time
+    real(dp), DIMENSION(:), ALLOCATABLE :: dae22_res_time
+    real(dp), DIMENSION(:), ALLOCATABLE :: bif_criterion
 
     logical :: firstiterationdone = .false. !Some steps in saving the data to hdf5 file 
     !need to be done only the first time iteration
@@ -142,7 +145,6 @@ module time_evolution
         end if
 
         call allocate_timscal_and_params
-        call inquiry_to_restart ! most likely not needed
 
         call reset_timstep_arr_w_timstep
         !timstep_arr = timstep
@@ -177,9 +179,8 @@ module time_evolution
             redostep = .false.
 
             call get_dql
-            call stop_if_time_step_too_small
-            call interp_Br_Dql_at_resonance_timeevol
             call rescale_transp_coeffs_by_ant_fac
+            call interp_Br_Dql_at_resonance_timeevol
             call determine_Dql_diagnostic
 
             call write_br_dqle22_time_data
@@ -237,6 +238,7 @@ module time_evolution
 
             call rescale_time_step_array
             call setTimStep
+            call stop_if_time_step_too_small
             call reset_timstep_arr_w_timstep
             call writeTimeInfoToDisk
             call relax_plasma_parameters
@@ -317,6 +319,8 @@ module time_evolution
         implicit none
 
         allocate(br_abs(Nstorage))
+        allocate(br_formfactor(Nstorage))
+        allocate(br_vac_res(Nstorage))
         allocate(br_abs_antenna_factor(Nstorage))
         allocate(br_abs_time(Nstorage))
         allocate(dqle22_res_time(Nstorage))
@@ -377,8 +381,8 @@ module time_evolution
 
         if (debug_mode) write(*,*) "Debug: writing out br time evolution data"
 
-        !if (ihdf5IO .eq. 1) then
-        if (.false.) then
+        if (ihdf5IO .eq. 1) then
+        !if (.false.) then
             CALL h5_init()
             CALL h5_open_rw(path2out, h5_id)
 
@@ -402,6 +406,10 @@ module time_evolution
             CALL h5_add_double_1(h5_id, trim(h5_currentgrp), bif_criterion(1:timeIndex), &
                 lbound(bif_criterion(1:timeIndex)), ubound(bif_criterion(1:timeIndex)))
 
+            h5_currentgrp = "/"//trim(h5_mode_groupname) //"/br_formfactor"
+            CALL h5_add_complex_1(h5_id, trim(h5_currentgrp), br_formfactor(1:timeIndex), &
+                lbound(real(br_formfactor(1:timeIndex))), ubound(real(br_formfactor(1:timeIndex))))
+
             CALL h5_close(h5_id)
             CALL h5_deinit()
 
@@ -411,6 +419,8 @@ module time_evolution
             close (777)
         end if
     end subroutine ! write_br_dqle22_time_data
+
+
 
     !> @brief Ramp up/down the RMP coil current.
     !> @author Markus Markl
@@ -870,9 +880,11 @@ module time_evolution
         use wave_code_data, only: antenna_factor, Br
 
         implicit none
+
+        integer :: indResRadius, indBeginInterp, indEndInterp
         
         call binsrc(rb, 1, npoib, r_resonant(1), indResRadius)
-        call getIndicesForLagrangeInterp(indResRadius)
+        call get_ind_Lagr_interp(indResRadius, indBeginInterp, indEndInterp)
         call plag_coeff(nlagr, nder, r_resonant(1), rb(indBeginInterp:indEndInterp), coef)
 
         br_abs(timeIndex) = sum(coef(0, :)*abs(Br(indBeginInterp:indEndInterp)))*sqrt(antenna_factor)
@@ -907,6 +919,7 @@ module time_evolution
         WRITE(*,'(A23,F10.5,A2)') '    Br abs res       = ', br_abs(timeIndex)/SQRT(antenna_factor), " G"
         WRITE(*,'(A23,F10.3,A7)') '    Dqle22 res       = ', dqle22_res_time(timeIndex), " cm^2/s"
         WRITE(*,'(A23,F10.5)')    '    bif crit         = ', bif_criterion(timeIndex)
+        write(*,*) '   Form factor      = ', abs(br_formfactor(timeIndex))
         write(*,*) "+ + + + + + + + + + + + + + + + + + + + + + + + + + + + + + + + + + +"
         write(*,*) " "
 
@@ -1224,49 +1237,6 @@ module time_evolution
     end subroutine
 
 
-    subroutine inquiry_to_restart
-
-        use parallelTools, only: irank
-        use grid_mod, only: npoi, nbaleqs, y
-        use plasma_parameters, only: params
-        use recstep_mod, only: tol
-        use baseparam_mod, only: ev
-        use control_mod, only: debug_mode
-        use restart_mod
-
-        implicit none
-
-        integer :: k, ipoi, ieq
-
-        inquire(file='restart.dat', exist=opnd)
-        if (opnd) then
-            if (irank .eq. 0) then
-                print *, 'restart'
-            end if
-            open (201, file='final.restart')
-            do ipoi = 1, npoi
-                read (201, *) timstep, params(:, ipoi)
-                params(3:4, ipoi) = params(3:4, ipoi)*ev
-                do ieq = 1, nbaleqs
-                    k = nbaleqs*(ipoi - 1) + ieq
-                    y(k) = params(ieq, ipoi)
-                end do
-            end do
-            close (201)
-            open (201, file='restart.dat')
-            read (201, *) timstep
-            close (201)
-            scratch = .false.
-        else
-            timstep = timstep*tol
-            scratch = .true.
-            if (irank .eq. 0) then
-                if (debug_mode) write(*,*) 'Debug: start from scratch'
-                if (debug_mode) write(*,*) "Debug: timstep = ", timstep
-            end if
-        end if
-
-    end subroutine
 
     subroutine redoTimeStep
 

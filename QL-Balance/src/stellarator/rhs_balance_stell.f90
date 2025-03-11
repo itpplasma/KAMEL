@@ -18,7 +18,6 @@ subroutine rhs_balance_stell(x, y, dy)
     use plasma_parameters, only: params, ddr_params, params_lin, ddr_params_nl &
                         , params_b_lin, params_b, dot_params
     use baseparam_mod, only: Z_i, e_charge, am, p_mass, c
-    use control_mod, only: iwrite
     use wave_code_data, only: q, Vth
     use matrix_mod, only: isw_rhs, nz, nsize, irow, icol, amat, rhsvec
     use QLBalance_hdf5_tools
@@ -41,8 +40,6 @@ subroutine rhs_balance_stell(x, y, dy)
     else
         npoi = npoic
     end if
-
-    iwrite = 1
 
     ! isw_rhs is the switch for initializing the RHS vector, if isw_rhs=0, then the RHS vector is initialized
 
@@ -416,7 +413,6 @@ subroutine rhs_balance_source_stell(x, y, dy)
     use plasma_parameters, only: params, ddr_params, params_b, params_lin &
                         , params_b_lin, ddr_params_nl, dot_params
     use baseparam_mod, only: Z_i, e_charge, am, p_mass, c
-    use control_mod, only: iwrite
     use wave_code_data, only: q, Vth
     use time_evolution_stellarator, only: set_Q_neo_to_zero, turn_off_heat_sources
     use QLBalance_kinds, only: dp
@@ -622,17 +618,12 @@ subroutine rhs_balance_source_stell(x, y, dy)
                 end if
             end if
         end do
-        if (iwrite .eq. 1) write (13, *) rc(ipoi), dot_params(2, ipoi) &
-            , dot_params(3, ipoi), dot_params(4, ipoi) &
-            , 0.5d0*(polforce(ipoi) + polforce(ipoi + 1)) &
-            , 0.5d0*(qlheat_e(ipoi) + qlheat_e(ipoi + 1)) &
-            , 0.5d0*(qlheat_i(ipoi) + qlheat_i(ipoi + 1))
+
 
         ! Add internal sources:
         ! Momentum:
         dot_params(2, ipoi) = dot_params(2, ipoi) &
                             + 0.5d0*(polforce(ipoi) + polforce(ipoi + 1))
-        if (iwrite .eq. 1) write (11, *) rc(ipoi), dot_params(2, ipoi)
 
         ! Heat into electrons:
         dot_params(3, ipoi) = dot_params(3, ipoi) &
@@ -653,18 +644,8 @@ subroutine rhs_balance_source_stell(x, y, dy)
         dot_params(4, ipoi) = (-params(4, ipoi)*dot_params(1, ipoi) &
                             + dot_params(4, ipoi)/1.5d0)/params(1, ipoi)
 
-        if (iwrite .eq. 1) write (10, *) rc(ipoi), dot_params(2, ipoi) &
-            , dot_params(3, ipoi), dot_params(4, ipoi) &
-            , 0.5d0*(polforce(ipoi) + polforce(ipoi + 1)) &
-            , 0.5d0*(qlheat_e(ipoi) + qlheat_e(ipoi + 1)) &
-            , 0.5d0*(qlheat_i(ipoi) + qlheat_i(ipoi + 1))
     end do
 
-    if (iwrite .eq. 1) then
-        close (10)
-        close (13)
-        close (21)
-    end if
 
     ! RHS vector of ODE system
     do ipoi = 1, npoi

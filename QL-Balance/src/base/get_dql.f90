@@ -1,5 +1,5 @@
 
-!> @brief subroutine get_dql(timeStep). Calculates quasilinear diffusion coefficients.
+!> @brief subroutine get_dql. Calculates quasilinear diffusion coefficients.
 subroutine get_dql
 
     use grid_mod, only: nbaleqs, npoib &
@@ -14,43 +14,40 @@ subroutine get_dql
                         , r_resonant, d11_misalign, Es_pert_flux
     use plasma_parameters
     use baseparam_mod, only: Z_i, e_charge, am, p_mass, c, e_mass, ev, rtor, pi, rsepar
-    use control_mod, only: irf, write_formfactors, ihdf5IO, &
-                            diagnostics_output, suppression_mode, &
-                            debug_mode, misalign_diffusion
-    use time_evolution, only: save_prof_time_step, timeIndex
+    use control_mod, only: irf, suppression_mode, misalign_diffusion
+    use time_evolution, only: save_prof_time_step, timeIndex, br_formfactor, br_vac_res
     use h5mod
     use wave_code_data
     use parallelTools
-    use QLBalance_diag, only: write_diag_b, iunit_diag_b, i_mn_loop
-    use PolyLagrangeInterpolation    
+    use QLBalance_diag, only: i_mn_loop
+    use QLBalance_kinds, only: dp
+    use PolyLagrangeInterpolation
 
     implicit none
 
     integer :: modpernode, imin, imax;
     integer :: ipoi, ieq, i_mn, mwind_save
-    double precision, dimension(:), allocatable :: dummy
+    real(dp), dimension(:), allocatable :: dummy
 
-    double precision, dimension(npoib) :: spec_weight
-    double precision :: weight
-    double precision, dimension(npoib) :: vT_e, vT_i, nu_e, nu_i
+    real(dp), dimension(npoib) :: spec_weight
+    real(dp) :: weight
+    real(dp), dimension(npoib) :: vT_e, vT_i, nu_e, nu_i
 
-    DOUBLE PRECISION, DIMENSION(:), ALLOCATABLE :: dqle11_loc
-    DOUBLE PRECISION, DIMENSION(:), ALLOCATABLE :: dqle12_loc
-    DOUBLE PRECISION, DIMENSION(:), ALLOCATABLE :: dqle21_loc
-    DOUBLE PRECISION, DIMENSION(:), ALLOCATABLE :: dqle22_loc
-    DOUBLE PRECISION, DIMENSION(:), ALLOCATABLE :: dqli11_loc
-    DOUBLE PRECISION, DIMENSION(:), ALLOCATABLE :: dqli12_loc
-    DOUBLE PRECISION, DIMENSION(:), ALLOCATABLE :: dqli21_loc
-    DOUBLE PRECISION, DIMENSION(:), ALLOCATABLE :: dqli22_loc
-    DOUBLE COMPLEX, DIMENSION(:), ALLOCATABLE :: Es_pert_flux_temp
-    double complex, dimension(:), allocatable :: formfactor
+    real(dp), DIMENSION(:), ALLOCATABLE :: dqle11_loc
+    real(dp), DIMENSION(:), ALLOCATABLE :: dqle12_loc
+    real(dp), DIMENSION(:), ALLOCATABLE :: dqle21_loc
+    real(dp), DIMENSION(:), ALLOCATABLE :: dqle22_loc
+    real(dp), DIMENSION(:), ALLOCATABLE :: dqli11_loc
+    real(dp), DIMENSION(:), ALLOCATABLE :: dqli12_loc
+    real(dp), DIMENSION(:), ALLOCATABLE :: dqli21_loc
+    real(dp), DIMENSION(:), ALLOCATABLE :: dqli22_loc
+    complex(dp), DIMENSION(:), ALLOCATABLE :: Es_pert_flux_temp
+    complex(dp), dimension(:), allocatable :: formfactor
 
     ! added variables for interpolation of Brvac
-    integer :: ibrabsres
-    double precision :: brvac_interp
-    double precision :: MI_width
-
-    CHARACTER(LEN=1024) :: tempch
+    integer :: ibrabsres, indBeginInterp, indEndInterp
+    complex(dp) :: brvac_interp
+    real(dp) :: MI_width
 
     allocate (dqle11_loc(npoib))
     allocate (dqle12_loc(npoib))
@@ -100,7 +97,7 @@ subroutine get_dql
     end do
 
     ! Smooth input for KILCA
-    if (.false.) then
+    if (.true.) then
         allocate (dummy(npoib))
         do ieq = 1, nbaleqs
             call smooth_array_gauss(npoib, mwind, ddr_params_nl(ieq, :), dummy)
@@ -116,18 +113,7 @@ subroutine get_dql
             + (params_b(4, :)*ddr_params_nl(1, :)/params_b(1, :) + ddr_params_nl(4, :)) &
             /(Z_i*e_charge)
 
-    call MPI_Comm_rank(MPI_COMM_WORLD, irank, ierror);
-    if (irank .eq. 0) then
-        if (write_diag_b) then !write_diag_b
-            if (debug_mode) write(*,*) "Debug: writing params in ", iunit_diag_b
-            open(iunit_diag_b)
-            do ipoi = 1, npoib
-                write (iunit_diag_b, *) rb(ipoi), params_b(1:4, ipoi)
-            end do
-            close(iunit_diag_b)
-        end if
-    end if
-
+    call MPI_Comm_rank(MPI_COMM_WORLD, irank, ierror)
 
     ! Compute diffusion coefficient matrices:
 
@@ -175,7 +161,7 @@ subroutine get_dql
                                                 m_vals(i_mn), n_vals(i_mn), ks, kp)
         call get_wave_fields_from_wave_code(flre_cd_ptr(i_mn), dim_r, r, &
                                             m_vals(i_mn), n_vals(i_mn), Er, Es, Ep, Et, Ez, Br, Bs, Bp, Bt, Bz)
-        om_E = ks*c*dPhi0/B0
+        om_E = ks * c * dPhi0 / B0
         vT_e = sqrt(params_b(3, :)/e_mass)
         vT_i = sqrt(params_b(4, :)/p_mass/am)
 
@@ -187,8 +173,8 @@ subroutine get_dql
             de21 = de12
             call calc_transport_coeffs_collisionless(npoib, vT_i, di11, di12, di22)
             di21 = di12
-        else
-        if (.true.) then
+        else 
+            if (.true.) then
                 call calc_transport_coeffs_ornuhl(npoib, vT_e, nu_e, de11, de12, de21, de22)
                 call calc_transport_coeffs_ornuhl(npoib, vT_i, nu_i, di11, di12, di21, di22)
             else
@@ -207,10 +193,8 @@ subroutine get_dql
             call binsrc(rb, 1, npoib, r_resonant(i_mn), ibrabsres)
             if (debug_mode) write(*,*) "binary search found ibrabsres = ", ibrabsres
 
-            call getIndicesForLagrangeInterp(ibrabsres)
-
+            call get_ind_Lagr_interp(ibrabsres, indBeginInterp, indEndInterp)
             call plag_coeff(nlagr, nder, r_resonant(i_mn), rb(indBeginInterp:indEndInterp), coef)
-
             CALL magnetic_island_width(coef, nder, nlagr, indBeginInterp, indEndInterp, m_vals(i_mn), MI_width)
 
             ! the perturbed flux surfaces
@@ -233,7 +217,7 @@ subroutine get_dql
 
         formfactor = (1.d0, 0.d0)/Br
 
-        ! spec_weight was wrongly set to 2.0. In case that the tmhd code uses double sided Fourier series, it
+        ! In case that the tmhd code uses double sided Fourier series, it
         ! must be set to 4.0d0, since the factor 2.0d0 should occur in the fields.
         spec_weight = 1.0d0
 
@@ -245,65 +229,17 @@ subroutine get_dql
         end do
 
         if (irank .eq. 0) then
-            if (timeIndex .le. 1) then
-                if (ihdf5IO .eq. 1) then
-                    if (debug_mode) print *, "Debug: Writing Brvac to hdf5 file"
-                    if (.not. allocated(coef)) allocate(coef(0:nder,nlagr))
-                    call binsrc(rb, 1, npoib, r_resonant(1), ibrabsres)
-
-                    call getIndicesForLagrangeInterp(ibrabsres)
-
-                    call plag_coeff(nlagr, nder, r_resonant(1), rb(indBeginInterp:indEndInterp), coef)
-
-                    brvac_interp = sum(coef(0,:)*abs(Br(indBeginInterp:indEndInterp)))
-
-                    if (debug_mode) write(*,*) "Debug: writing Brvac interpolation"
-                    if (debug_mode) write(*,*) "Debug: Brvac = ", brvac_interp, " at r_res = ", r_resonant(1)
-                    CALL h5_init()
-                    CALL h5_open_rw(path2out, h5_id)
-                    !call create_group_if_not_existent("/"//trim(h5_mode_groupname))
-                    tempch = "/"//trim(h5_mode_groupname)//"/Brvac_res"
-                    if (debug_mode) write(*,*) "Debug: group name: ", trim(tempch)
-                    CALL h5_add_double_0(h5_id, trim(tempch), brvac_interp)
-
-                    if (diagnostics_output) then
-                        if (debug_mode) write (*, *) "Debug: writing Brvac.dat"
-                        tempch = "/"//trim(h5_mode_groupname)//"/Brvac.dat"
-                        CALL h5_obj_exists(h5_id, trim(tempch), h5_exists_log)
-                        if (h5_exists_log) then
-                        CALL h5_delete(h5_id, trim(tempch))
-                        end if
-
-                        CALL h5_define_unlimited_matrix(h5_id, trim(tempch), &
-                                                    H5T_NATIVE_DOUBLE, (/-1, 2/), dataset_id)
-                        CALL h5_append_double_1(dataset_id, r, 1)
-                        CALL h5_append_double_1(dataset_id, abs(Br), 2)
-                    end if
-
-                    CALL h5_close(h5_id)
-                    CALL h5_deinit()
-
-                else
-                    open (7000, file='Brvac.dat')
-                    do ipoi = 1, npoib
-                        write (7000, *) r(ipoi), abs(Br(ipoi))
-                    end do
-                    close (7000)
-                end if
-            end if
+            call interp_rb_at_r0(Br, r_resonant(i_mn), br_vac_res(timeIndex))
         end if
 
         call get_wave_fields_from_wave_code(flre_cd_ptr(i_mn), dim_r, r, &
                                             m_vals(i_mn), n_vals(i_mn), Bz, Bz, Bz, Bz, Bz, Br, Bz, Bz, Bz, Bz)
-        formfactor = Br*formfactor
-        !write(*,*) "sum(abs(formfactor))/size(formfactor) = ", sum(abs(formfactor))/size(formfactor)
-        if (write_formfactors) then
-            do ipoi = 1, npoib
-                write (10000 + n_vals(i_mn)*1000 + m_vals(i_mn), *) r(ipoi), abs(formfactor(ipoi))
-            end do
-            close (10000 + n_vals(i_mn)*1000 + m_vals(i_mn))
+        formfactor = Br * formfactor
+
+        ! todo: interpolate formfactor at resonant surface and write out. This is Brtot/Brvac at the resonant surface
+        if (irank .eq. 0) then
+            call interp_rb_at_r0(formfactor, r_resonant(i_mn), br_formfactor(timeIndex))
         end if
-        !  spec_weight=1.0d0  ! for DIII-D
 
         dqle11_loc = dqle11_loc + de11*spec_weight
         dqle12_loc = dqle12_loc + de12*spec_weight
@@ -336,7 +272,6 @@ subroutine get_dql
          !dqle22_loc = dqle22_loc + 12 * d11_misalign
     end if ! misalign_diffusion .eqv. .true.
 
-
     call MPI_Allreduce(dqle11_loc, dqle11, npoib, MPI_DOUBLE_PRECISION, MPI_SUM, MPI_COMM_WORLD, ierror);
     call MPI_Allreduce(dqle12_loc, dqle12, npoib, MPI_DOUBLE_PRECISION, MPI_SUM, MPI_COMM_WORLD, ierror);
     call MPI_Allreduce(dqle21_loc, dqle21, npoib, MPI_DOUBLE_PRECISION, MPI_SUM, MPI_COMM_WORLD, ierror);
@@ -356,7 +291,6 @@ subroutine get_dql
     deallocate (dqli22_loc);
     deallocate (formfactor)
     
-
     call calc_parallel_current_directly
     call calc_ion_parallel_current_directly
 
@@ -384,10 +318,8 @@ subroutine get_dql
         dqli22 = dummy
         mwind = mwind_save
         deallocate (dummy)
-    end if
-
-    ! set ion particle flux coefficients to zero
-    if (.false.) then
+    else
+        ! set ion particle flux coefficients to zero
         mwind_save = mwind
         mwind = 30
         allocate (dummy(npoib))
@@ -436,5 +368,110 @@ subroutine initialize_get_dql
     irf = 2
     call get_dql
     irf = 1
+
+end subroutine
+
+
+subroutine interp_rb_at_r0(func, r0, func_res)
+
+    ! interpolate a function on the rb grid at r0 using Lagrange interpolation
+
+    use PolyLagrangeInterpolation, only: nder, nlagr, binsrc, get_ind_Lagr_interp, plag_coeff
+    use grid_mod, only: rb, npoib
+    use QLBalance_kinds, only: dp
+
+    implicit none
+
+    complex(dp), dimension(npoib), intent(in) :: func
+    complex(dp), intent(out) :: func_res
+    real(dp), intent(in) :: r0
+    integer :: ibrabsres, indBeginInterp, indEndInterp
+    real(dp), dimension(:, :), allocatable :: coef 
+
+    if (.not. allocated(coef)) allocate(coef(0:nder,nlagr))
+
+    call binsrc(rb, 1, npoib, r0, ibrabsres)
+    call get_ind_Lagr_interp(ibrabsres, indBeginInterp, indEndInterp)
+    call plag_coeff(nlagr, nder, r0, rb(indBeginInterp:indEndInterp), coef)
+
+    func_res = sum(coef(0,:) * func(indBeginInterp:indEndInterp))
+
+end subroutine
+
+subroutine get_Brvac(brvac_interp)
+
+    use PolyLagrangeInterpolation
+    use grid_mod, only: rb, npoib, r_resonant
+    use QLBalance_kinds, only: dp
+    use h5mod
+    use wave_code_data, only: Br
+
+    implicit none
+
+    integer :: ibrabsres, indBeginInterp, indEndInterp
+    complex(dp), intent(out) :: brvac_interp
+
+    if (.not. allocated(coef)) allocate(coef(0:nder,nlagr))
+
+    call binsrc(rb, 1, npoib, r_resonant(1), ibrabsres)
+    call get_ind_Lagr_interp(ibrabsres, indBeginInterp, indEndInterp)
+    call plag_coeff(nlagr, nder, r_resonant(1), rb(indBeginInterp:indEndInterp), coef)
+
+    brvac_interp = sum(coef(0,:) * abs(Br(indBeginInterp:indEndInterp)))
+
+end subroutine 
+
+subroutine write_Brvac(brvac_interp)
+
+    use h5mod
+    use QLBalance_kinds, only: dp
+    use grid_mod, only: npoib, r_resonant
+    use wave_code_data, only: Br, r
+    use control_mod, only: ihdf5IO
+
+    implicit none
+
+    character(len=1024) :: tempch
+    complex(dp), intent(in) :: brvac_interp
+    integer :: ipoi
+
+        if (ihdf5IO .eq. 1) then
+            if (debug_mode) print *, "Debug: Writing Brvac to hdf5 file"
+            if (debug_mode) write(*,*) "Debug: Brvac = ", brvac_interp, " at r_res = ", r_resonant(1)
+            CALL h5_init()
+            CALL h5_open_rw(path2out, h5_id)
+            !call create_group_if_not_existent("/"//trim(h5_mode_groupname))
+            tempch = "/"//trim(h5_mode_groupname)//"/Brvac_res_real"
+            if (debug_mode) write(*,*) "Debug: group name: ", trim(tempch)
+            CALL h5_add_double_0(h5_id, trim(tempch), real(brvac_interp))
+
+            tempch = "/"//trim(h5_mode_groupname)//"/Brvac_res_imag"
+            if (debug_mode) write(*,*) "Debug: group name: ", trim(tempch)
+            CALL h5_add_double_0(h5_id, trim(tempch), aimag(brvac_interp))
+
+            if (diagnostics_output) then
+                if (debug_mode) write (*, *) "Debug: writing Brvac.dat"
+                tempch = "/"//trim(h5_mode_groupname)//"/Brvac.dat"
+                CALL h5_obj_exists(h5_id, trim(tempch), h5_exists_log)
+                if (h5_exists_log) then
+                CALL h5_delete(h5_id, trim(tempch))
+                end if
+
+                CALL h5_define_unlimited_matrix(h5_id, trim(tempch), &
+                                            H5T_NATIVE_DOUBLE, (/-1, 2/), dataset_id)
+                CALL h5_append_double_1(dataset_id, r, 1)
+                CALL h5_append_double_1(dataset_id, abs(Br), 2)
+            end if
+
+            CALL h5_close(h5_id)
+            CALL h5_deinit()
+
+        else
+            open (7000, file='Brvac.dat')
+            do ipoi = 1, npoib
+                write (7000, *) r(ipoi), abs(Br(ipoi))
+            end do
+            close (7000)
+        end if
 
 end subroutine

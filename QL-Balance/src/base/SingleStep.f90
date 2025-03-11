@@ -19,7 +19,7 @@ module singleStep
         use QLBalance_hdf5_tools, only: h5overwrite
         use h5mod, only: mode_m, mode_n
         use control_mod, only: gyro_current_study, write_gyro_current, debug_mode, &
-                          ihdf5IO
+                        ihdf5IO
         use parallelTools, only: irank
         use wave_code_data, only: m_vals, n_vals
         use plasma_parameters, only: write_initial_parameters, alloc_hold_parameters, &
@@ -98,9 +98,11 @@ module singleStep
         
         implicit none
 
+        integer :: indResRadius, indBeginInterp, indEndInterp
+
         if (.not. allocated(coef)) allocate (coef(0:nder, nlagr))
         call binsrc(rb, 1, npoib, r_resonant(1), indResRadius)
-        call getIndicesForLagrangeInterp(indResRadius)
+        call get_ind_Lagr_interp(indResRadius, indBeginInterp, indEndInterp)
         call plag_coeff(nlagr, nder, r_resonant(1), rb(indBeginInterp:indEndInterp), coef)
         
         dqle22_res_single = sum(coef(0, :) * dqle22(indBeginInterp:indEndInterp))

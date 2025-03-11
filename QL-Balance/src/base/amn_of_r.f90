@@ -123,7 +123,7 @@ end module amn_of_r_mod
 !                                           3 - r out of range
 !
   use amn_of_r_mod
-  use grid_mod, only : rb_cut_in,re_cut_in,rb_cut_out,re_cut_out
+  use grid_mod, only : rb_cut_in, rb_cut_out,re_cut_out
 !
   implicit none
 !

@@ -5,7 +5,7 @@ subroutine det_balance_eqs_source_terms
     use grid_mod, only : y,dery,dery_equisource, nbaleqs,neqset,iboutype,npoic
     use plasma_parameters, only: params
 
-    use control_mod, only: iwrite, ihdf5IO, diagnostics_output, debug_mode, irf
+    use control_mod, only: ihdf5IO, diagnostics_output, debug_mode, irf
     use h5mod
     use matrix_mod
 

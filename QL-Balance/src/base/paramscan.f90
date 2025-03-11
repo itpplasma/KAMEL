@@ -297,9 +297,11 @@ module paramscan_mod
 
         implicit none
 
+        integer :: indResRadius, indBeginInterp, indEndInterp
+
         if (.not. allocated(coef)) allocate (coef(0:nder, nlagr))
         call binsrc(rb, 1, npoib, r_resonant(1), indResRadius)
-        call getIndicesForLagrangeInterp(indResRadius)
+        call get_ind_Lagr_interp(indResRadius, indBeginInterp, indEndInterp)
         call plag_coeff(nlagr, nder, r_resonant(1), rb(indBeginInterp:indEndInterp), coef)
         
         dqle22_res(ifac_n, ifac_Te, ifac_Ti, ifac_vz) = sum(coef(0, :) * dqle22(indBeginInterp:indEndInterp))
@@ -321,11 +323,11 @@ module paramscan_mod
     subroutine determine_Er_at_resonance
         
         use grid_mod, only: npoic, Ercovavg, Ercov
-        use PolyLagrangeInterpolation, only: indEndInterp, indBeginInterp, coef
+        use PolyLagrangeInterpolation, only: coef
 
         implicit none
 
-        integer :: ipoi
+        integer :: ipoi, indEndInterp, indBeginInterp
         
         do ipoi = 1, npoic
             Ercovavg(ipoi) = 0.5d0*(Ercov(ipoi) + Ercov(ipoi + 1))

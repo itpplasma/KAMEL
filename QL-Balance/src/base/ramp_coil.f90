@@ -25,6 +25,8 @@ subroutine ramp_coil
             call ramp_up_hysteresis
         case(6)
             call ramp_up_fast_hysteresis
+        case(10)
+            call ramp_up_hyst_mod
         case default
             stop 'Error: ramp_up_mode not defined'
     end select
@@ -257,6 +259,44 @@ subroutine stop_if_antenna_fac_max_reached
 
 end subroutine
 
+subroutine ramp_up_hyst_mod
+    ! 1: ramp up linearlly,
+    ! 2: flat top
+    ! 3: modulation of flat top with sine function
+
+    use time_evolution, only: bif_criterion, time_ind, time
+    use wave_code_data, only: antenna_factor
+    use time_evolution_stellarator, only: hyst_mod_stage, hyst_mod_amp_fac, hyst_mod_freq, hyst_mod_phase, t_flattop_begin, &
+        bif_crit_flattop, t_flattop_end, ant_fac_flattop, delta_t_flattop
+    use baseparam_mod, only: pi
+
+    implicit none
+
+    if (bif_criterion(time_ind) .lt. bif_crit_flattop .and. hyst_mod_stage .eq. 0) then
+        call ramp_up_faster_2
+        print *, " ramp up phase 0: linear"
+    else if(bif_criterion(time_ind) .ge. bif_crit_flattop .and. hyst_mod_stage .eq. 0) then
+        hyst_mod_stage = 1
+        t_flattop_begin = time
+        print *, " begin of ramp up phase 1: flat top"
+        print *, " time = ", time
+    else if (hyst_mod_stage .eq. 1 .and. abs(time - t_flattop_begin) .gt. delta_t_flattop) then
+        ! flat top
+        hyst_mod_stage = 2
+        ant_fac_flattop = antenna_factor
+        t_flattop_end = time
+        print *, " end of ramp up phase 1: flat top"
+        print *, " time = ", time
+    else if (hyst_mod_stage .eq. 2) then
+        print *, " ramp up phase 2: oscillation"
+        antenna_factor = ant_fac_flattop * (1.0d0 + hyst_mod_amp_fac * sin(2.0d0 * pi * (time - t_flattop_end) * hyst_mod_freq + hyst_mod_phase))
+        if (time .ge. t_flattop_end + 2.0d0/hyst_mod_freq) then
+            call stop_evolution
+        end if
+    end if
+
+end subroutine
+
 subroutine stop_if_t_max_reached
 
     use time_evolution, only: time, t_max_ramp_up, write_kin_prof_data_to_disk, write_br_dqle22_time_data
@@ -288,6 +328,27 @@ subroutine stop_if_t_max_reached
         CALL MPI_finalize(ierror)
         stop
     end if
+
+end subroutine
+
+subroutine stop_evolution
+
+    use time_evolution, only: time, t_max_ramp_up, write_kin_prof_data_to_disk, write_br_dqle22_time_data
+    use control_mod, only: suppression_mode, ihdf5IO
+    use h5mod
+
+    implicit none
+
+    integer :: ierror
+
+    if (suppression_mode .eqv. .false.) then
+        call write_kin_prof_data_to_disk
+    end if
+    ! Write the cause of the stopping into the hdf5 file
+    CALL write_br_dqle22_time_data!, br_abs_time, br_abs_antenna_factor, br_abs, dqle22_res_time)
+                
+    CALL MPI_finalize(ierror)
+    stop
 
 end subroutine
 

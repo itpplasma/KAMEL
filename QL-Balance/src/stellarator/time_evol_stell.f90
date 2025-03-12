@@ -13,6 +13,12 @@ module time_evolution_stellarator
     integer :: update_transport_coefficients
     logical :: reduce_time_step, turn_off_heat_sources
 
+    integer :: hyst_mod_stage = 0
+    integer :: ant_fac_flattop
+    real(dp) :: t_flattop_begin, t_flattop_end
+
+    real(dp) :: hyst_mod_amp_fac, hyst_mod_freq, hyst_mod_phase, bif_crit_flattop
+    real(dp) :: delta_t_flattop
 
     type, extends(balance_t) :: time_evolution_stellarator_t
         contains
@@ -225,7 +231,8 @@ module time_evolution_stellarator
         implicit none
 
         NAMELIST /BALANCE_STELL/ set_momentum_source_to_zero, set_Q_neo_to_zero, &
-            update_transport_coefficients, reduce_time_step, turn_off_heat_sources
+            update_transport_coefficients, reduce_time_step, turn_off_heat_sources, &
+            hyst_mod_amp_fac, hyst_mod_freq, hyst_mod_phase, bif_crit_flattop, delta_t_flattop
 
         ! read the parameters from namelist file
         open (22, file='stell_conf.nml');
@@ -245,6 +252,11 @@ module time_evolution_stellarator
         print *, "        update_transport_coefficients         = ", update_transport_coefficients
         print *, "        reduce_time_step                      = ", reduce_time_step
         print *, "        turn_off_heat_sources                 = ", turn_off_heat_sources
+        print *, "        hyst_mod_amp_fac                      = ", hyst_mod_amp_fac
+        print *, "        hyst_mod_freq                         = ", hyst_mod_freq
+        print *, "        hyst_mod_phase                        = ", hyst_mod_phase
+        print *, "        bif_crit_flattop                      = ", bif_crit_flattop
+        print *, "        delta_t_flattop                       = ", delta_t_flattop
         print *, "============================================================================="
 
     end subroutine

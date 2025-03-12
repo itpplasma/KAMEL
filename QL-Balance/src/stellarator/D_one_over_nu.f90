@@ -85,7 +85,7 @@ subroutine rescale_D_one_over_nu_to_new_n_and_T
         init_Donui11, init_Donui12, init_Donui21, init_Donui22
     
     use plasma_parameters, only: params, init_params
-    use baseparam_mod, only: c, Btor, Rtor, ev, e_charge
+    use baseparam_mod, only: c, Rtor, ev, e_charge
 
     implicit none
 
@@ -98,18 +98,18 @@ subroutine rescale_D_one_over_nu_to_new_n_and_T
         Donui11(ipoi) = init_Donui11(ipoi) * init_params(1, ipoi) / params(1, ipoi) &
             * params(4, ipoi) / init_params(4, ipoi)
 
-        Donue12(ipoi) = Donue12(ipoi) * init_params(1, ipoi) / params(1, ipoi) &
+        Donue12(ipoi) = init_Donue12(ipoi) * init_params(1, ipoi) / params(1, ipoi) &
             * params(3, ipoi) / init_params(3, ipoi)
-        Donue21(ipoi) = Donue21(ipoi) * init_params(1, ipoi) / params(1, ipoi) &
+        Donue21(ipoi) = init_Donue21(ipoi) * init_params(1, ipoi) / params(1, ipoi) &
             * params(3, ipoi) / init_params(3, ipoi)
-        Donui12(ipoi) = Donui12(ipoi) * init_params(1, ipoi) / params(1, ipoi) &
+        Donui12(ipoi) = init_Donui12(ipoi) * init_params(1, ipoi) / params(1, ipoi) &
             * params(4, ipoi) / init_params(4, ipoi)
-        Donui21(ipoi) = Donui21(ipoi) * init_params(1, ipoi) / params(1, ipoi) &
+        Donui21(ipoi) = init_Donui21(ipoi) * init_params(1, ipoi) / params(1, ipoi) &
             * params(4, ipoi) / init_params(4, ipoi)
 
-        Donue22(ipoi) = Donue22(ipoi) * init_params(1, ipoi) / params(1, ipoi) &
+        Donue22(ipoi) = init_Donue22(ipoi) * init_params(1, ipoi) / params(1, ipoi) &
             * params(3, ipoi) / init_params(3, ipoi)
-        Donui22(ipoi) = Donui22(ipoi) * init_params(1, ipoi) / params(1, ipoi) &
+        Donui22(ipoi) = init_Donui22(ipoi) * init_params(1, ipoi) / params(1, ipoi) &
             * params(4, ipoi) / init_params(4, ipoi)
 
         if (.false.) print *, "ipoi = ", ipoi, " npoic = ", npoic, " e11 = ", Donue11(ipoi), " e12 = ", Donue12(ipoi), " e21 = ", &

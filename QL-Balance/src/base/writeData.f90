@@ -233,3 +233,38 @@ subroutine writefort9999_stellarator
 
 end subroutine
 
+subroutine write_D_one_over_nu_to_h5
+
+    use grid_mod, only: Donue11, Donue12, Donue21, Donue22, &
+        Donui11, Donui12, Donui21, Donui22
+    use h5mod
+    use time_evolution, only: time_ind
+
+    implicit none
+
+    character(256) :: tempch
+    tempch = "/"//trim(h5_mode_groupname)//"/LinearProfiles"
+    write (tempch, "(A,A,I4,A)") trim(tempch), "/", time_ind, "/"
+
+    CALL h5_init()
+    CALL h5_open_rw(path2out, h5_id)
+    CALL h5_add_double_1(h5_id, trim(tempch)//"Donue11", &
+                        Donue11, lbound(Donue11), ubound(Donue11))
+    CALL h5_add_double_1(h5_id, trim(tempch)//"Donue12", &
+                        Donue12, lbound(Donue12), ubound(Donue12))
+    CALL h5_add_double_1(h5_id, trim(tempch)//"Donue21", &
+                        Donue21, lbound(Donue21), ubound(Donue21))
+    CALL h5_add_double_1(h5_id, trim(tempch)//"Donue22", &
+                        Donue22, lbound(Donue22), ubound(Donue22))
+
+    CALL h5_add_double_1(h5_id, trim(tempch)//"Donui11", &
+                        Donui11, lbound(Donui11), ubound(Donui11))
+    CALL h5_add_double_1(h5_id, trim(tempch)//"Donui12", &
+                        Donui12, lbound(Donui12), ubound(Donui12))
+    CALL h5_add_double_1(h5_id, trim(tempch)//"Donui21", &
+                        Donui21, lbound(Donui21), ubound(Donui21))
+    CALL h5_add_double_1(h5_id, trim(tempch)//"Donui22", &
+                        Donui22, lbound(Donui22), ubound(Donui22))
+    CALL h5_close(h5_id)
+    CALL h5_deinit()
+end subroutine

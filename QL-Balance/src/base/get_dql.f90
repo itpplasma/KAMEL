@@ -46,7 +46,6 @@ subroutine get_dql
 
     ! added variables for interpolation of Brvac
     integer :: ibrabsres, ind_begin_interp, ind_end_interp
-    complex(dp) :: brvac_interp
     real(dp) :: MI_width
 
     allocate (dqle11_loc(npoib))
@@ -351,6 +350,7 @@ subroutine get_dql
         if (modulo(time_ind, save_prof_time_step) .eq. 0) then
             if (suppression_mode .eqv. .false.) then
                 CALL write_fields_currs_transp_coefs_to_h5
+                call write_D_one_over_nu_to_h5
             end if
         end if
     end if

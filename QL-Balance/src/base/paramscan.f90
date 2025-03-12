@@ -3,18 +3,19 @@ module paramscan_mod
 
     use control_mod
     use balance_base, only: balance_t
+    use QLBalance_kinds, only: dp
 
     implicit none
 
     integer :: ifac_n, ifac_Te, ifac_Ti, ifac_vz ! counter for the do loops
     integer :: numoffac                          ! total number of factors
-    double precision, dimension(:), allocatable :: fac_n, fac_Te, &
+    real(dp), dimension(:), allocatable :: fac_n, fac_Te, &
         fac_Ti, fac_vz
     character(len=1024) :: parscan_str
-    double precision :: viscosity_factor
-    DOUBLE PRECISION, DIMENSION(:,:,:,:), ALLOCATABLE :: Er_res
-    DOUBLE PRECISION, DIMENSION(:, :, :, :), ALLOCATABLE :: br_abs_res_parscan
-    DOUBLE PRECISION, DIMENSION(:, :, :, :), ALLOCATABLE :: dqle22_res
+    real(dp) :: viscosity_factor
+    real(dp), DIMENSION(:,:,:,:), ALLOCATABLE :: Er_res
+    real(dp), DIMENSION(:, :, :, :), ALLOCATABLE :: br_abs_res_parscan
+    real(dp), DIMENSION(:, :, :, :), ALLOCATABLE :: dqle22_res
     
     type, extends(balance_t) :: ParameterScan_t
         contains
@@ -26,13 +27,12 @@ module paramscan_mod
 
     subroutine initParameterScan(this)
 
-        use grid_mod, only: mwind, rmax, rmin, setBoundaryCondition, npoib, rb
-        use baseparam_mod, only: dperp
+        use grid_mod, only: mwind, set_boundary_condition, npoib, rb
         use QLbalance_diag, only: write_diag, write_diag_b
         use QLBalance_hdf5_tools, only: h5overwrite
         use h5mod, only: mode_m, mode_n
         use control_mod, only: gyro_current_study, write_gyro_current, debug_mode, &
-                          ihdf5IO
+                        ihdf5IO
         use parallelTools, only: irank
         use wave_code_data, only: m_vals, n_vals
         use plasma_parameters, only: write_initial_parameters, alloc_hold_parameters, &
@@ -46,7 +46,7 @@ module paramscan_mod
         paramscan = .true.
 
         if (irank .eq. 0) then
-            !iexit = 0 ! 0 - don't skip, 1 - skip, 2 - stop
+            !iexit = 0 ! 0 - dont skip, 1 - skip, 2 - stop
             mwind = 10
             write_diag = .false.
             write_diag_b = .false.
@@ -62,7 +62,7 @@ module paramscan_mod
             end if
 
             call gengrid
-            call setBoundaryCondition
+            call set_boundary_condition
             CALL initialize_wave_code_interface(npoib, rb);
             CALL initialize_parameter_scan_vars
 
@@ -292,51 +292,38 @@ module paramscan_mod
     subroutine interpolate_Br_Dql_at_res_parscan
 
         use PolyLagrangeInterpolation
-        use grid_mod, only: npoib, rb, r_resonant, dqle22
+        use grid_mod, only: npoib, rb, r_resonant, dqle22, npoic, Ercovavg, Ercov
         use wave_code_data, only: Br, antenna_factor
 
         implicit none
 
-        integer :: indResRadius, indBeginInterp, indEndInterp
+        integer :: indResRadius, ind_begin_interp, ind_end_interp
+        integer :: ipoi
 
         if (.not. allocated(coef)) allocate (coef(0:nder, nlagr))
         call binsrc(rb, 1, npoib, r_resonant(1), indResRadius)
-        call get_ind_Lagr_interp(indResRadius, indBeginInterp, indEndInterp)
-        call plag_coeff(nlagr, nder, r_resonant(1), rb(indBeginInterp:indEndInterp), coef)
+        call get_ind_Lagr_interp(indResRadius, ind_begin_interp, ind_end_interp)
+        call plag_coeff(nlagr, nder, r_resonant(1), rb(ind_begin_interp:ind_end_interp), coef)
         
-        dqle22_res(ifac_n, ifac_Te, ifac_Ti, ifac_vz) = sum(coef(0, :) * dqle22(indBeginInterp:indEndInterp))
+        dqle22_res(ifac_n, ifac_Te, ifac_Ti, ifac_vz) = sum(coef(0, :) * dqle22(ind_begin_interp:ind_end_interp))
         br_abs_res_parscan(ifac_n, ifac_Te, ifac_Ti, ifac_vz) = sum(coef(0, :) &
-            * abs(Br(indBeginInterp:indEndInterp)))*sqrt(antenna_factor)
+            * abs(Br(ind_begin_interp:ind_end_interp)))*sqrt(antenna_factor)
 
         write(*,*) ""
         write(*,*) "Dqle22 res = ", dqle22_res(ifac_n, ifac_Te, ifac_Ti, ifac_vz)
         write(*,*) "|Br| res   = ", br_abs_res_parscan(ifac_n, ifac_Te, ifac_Ti, ifac_vz)
-		write(*,*) "Antenna factor = ", antenna_factor
+        write(*,*) "Antenna factor = ", antenna_factor
         write(*,*) ""
 
         if (size(fac_vz) .ne. 1) then
-            call determine_Er_at_resonance
+            do ipoi = 1, npoic
+                Ercovavg(ipoi) = 0.5d0*(Ercov(ipoi) + Ercov(ipoi + 1))
+            end do
+            Er_res(ifac_n, ifac_Te, ifac_Ti, ifac_vz) = sum(coef(0, :)*Ercovavg(ind_begin_interp:ind_end_interp))
+            if (debug_mode) write (*, *) "Er_res = ", Er_res(ifac_n, ifac_Te, ifac_Ti, ifac_vz)
         end if
 
     end subroutine 
-
-    subroutine determine_Er_at_resonance
-        
-        use grid_mod, only: npoic, Ercovavg, Ercov
-        use PolyLagrangeInterpolation, only: coef
-
-        implicit none
-
-        integer :: ipoi, indEndInterp, indBeginInterp
-        
-        do ipoi = 1, npoic
-            Ercovavg(ipoi) = 0.5d0*(Ercov(ipoi) + Ercov(ipoi + 1))
-        end do
-        
-        Er_res(ifac_n, ifac_Te, ifac_Ti, ifac_vz) = sum(coef(0, :)*Ercovavg(indBeginInterp:indEndInterp))
-        if (debug_mode) write (*, *) "Er_res = ", Er_res(ifac_n, ifac_Te, ifac_Ti, ifac_vz)
-
-    end subroutine
 
     !> @brief subroutine create_group_structure_paramscan. Creates the group structure in the hdf5 file.
     !> @author  Markus Markl

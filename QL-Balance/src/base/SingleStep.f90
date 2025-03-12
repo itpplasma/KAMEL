@@ -14,7 +14,7 @@ module singleStep
     
     subroutine initSingleStep(this)
 
-        use grid_mod, only: mwind, rmax, rmin, setBoundaryCondition, npoib, rb
+        use grid_mod, only: mwind, rmax, rmin, set_boundary_condition, npoib, rb
         use baseparam_mod, only: dperp
         use QLBalance_hdf5_tools, only: h5overwrite
         use h5mod, only: mode_m, mode_n
@@ -49,7 +49,7 @@ module singleStep
             end if
 
             call gengrid
-            call setBoundaryCondition
+            call set_boundary_condition
             CALL initialize_wave_code_interface(npoib, rb);
 
             mode_m = m_vals(1)
@@ -98,15 +98,15 @@ module singleStep
         
         implicit none
 
-        integer :: indResRadius, indBeginInterp, indEndInterp
+        integer :: indResRadius, ind_begin_interp, ind_end_interp
 
         if (.not. allocated(coef)) allocate (coef(0:nder, nlagr))
         call binsrc(rb, 1, npoib, r_resonant(1), indResRadius)
-        call get_ind_Lagr_interp(indResRadius, indBeginInterp, indEndInterp)
-        call plag_coeff(nlagr, nder, r_resonant(1), rb(indBeginInterp:indEndInterp), coef)
+        call get_ind_Lagr_interp(indResRadius, ind_begin_interp, ind_end_interp)
+        call plag_coeff(nlagr, nder, r_resonant(1), rb(ind_begin_interp:ind_end_interp), coef)
         
-        dqle22_res_single = sum(coef(0, :) * dqle22(indBeginInterp:indEndInterp))
-        br_abs_res_single = sum(coef(0, :) * abs(Br(indBeginInterp:indEndInterp)))*sqrt(antenna_factor)
+        dqle22_res_single = sum(coef(0, :) * dqle22(ind_begin_interp:ind_end_interp))
+        br_abs_res_single = sum(coef(0, :) * abs(Br(ind_begin_interp:ind_end_interp)))*sqrt(antenna_factor)
 
         write(*,*) " "
         write(*,*) "=== === === Results of Single Step: === === ==="

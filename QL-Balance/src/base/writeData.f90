@@ -4,7 +4,7 @@ subroutine write_fields_currs_transp_coefs_to_h5
     use control_mod, only: ihdf5IO, diagnostics_output, misalign_diffusion
     use wave_code_data
     use QLbalance_diag, only: iunit_diag
-    use time_evolution, only: timeIndex
+    use time_evolution, only: time_ind
     use h5mod
     
     implicit none
@@ -19,7 +19,7 @@ subroutine write_fields_currs_transp_coefs_to_h5
         if (debug_mode) print *, "Debug: ", trim(h5_mode_groupname)
         tempch = "/"//trim(h5_mode_groupname)//"/LinearProfiles"
 
-        write (tempch, "(A,A,I4,A)") trim(tempch), "/", timeIndex, "/"
+        write (tempch, "(A,A,I4,A)") trim(tempch), "/", time_ind, "/"
 
         call create_group_if_not_existent(tempch)
 

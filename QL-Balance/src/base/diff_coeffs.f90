@@ -20,7 +20,7 @@ subroutine calc_equil_diffusion_coeffs
     double precision :: r
     double precision, dimension(:), allocatable :: r_raw
     double precision, dimension(:), allocatable :: Da_raw
-    integer :: lb, ub, indBeginInterp, indEndInterp
+    integer :: lb, ub, ind_begin_interp, ind_end_interp
 
     !This subroutine was changed to include estimated Da from outside of this code
     !file Da.dat which is located in profiles is read and the other Da.. calculated based on this
@@ -72,13 +72,13 @@ subroutine calc_equil_diffusion_coeffs
 
         !binsearch
         call binsrc(r_raw, 1, nr, r, i)
-        call get_ind_Lagr_interp(i, indBeginInterp, indEndInterp)
+        call get_ind_Lagr_interp(i, ind_begin_interp, ind_end_interp)
         !lagrange interpolation with order 4 only for function (0)
 
-        call plag_coeff(nlagr, nder, r, r_raw(indBeginInterp:indEndInterp), coef)
+        call plag_coeff(nlagr, nder, r, r_raw(ind_begin_interp:ind_end_interp), coef)
         !
         !Da estimated is dae12 -> see notes on conversion
-        dae12(ipoi) = sum(coef(0, :)*Da_raw(indBeginInterp:indEndInterp))
+        dae12(ipoi) = sum(coef(0, :)*Da_raw(ind_begin_interp:ind_end_interp))
         !call localizer(-1.d0, rsepar, rsepar + 0.5d0, rb(ipoi), weight)
         !dae12(ipoi) = dae12(ipoi)*(1.d0 - weight) + weight*1d6
         !write(77, *) r, dae12(ipoi)

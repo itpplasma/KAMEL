@@ -43,7 +43,7 @@ module grid_mod
 
     contains
 
-    subroutine setBoundaryCondition
+    subroutine set_boundary_condition
 
         implicit none
 

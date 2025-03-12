@@ -4,7 +4,7 @@ module time_evolution_stellarator
     use parallelTools
     use h5mod
     use balance_base, only: balance_t
-    use time_evolution, only: Nstorage, ramp_up_mode, save_prof_time_step, iexit, ramp_up_down, timeIndex, &
+    use time_evolution, only: Nstorage, ramp_up_mode, save_prof_time_step, iexit, ramp_up_down, time_ind, &
         antenna_max_stopping, timstep_min, tmax_factor, t_max_ramp_up, br_formfactor, br_vac_res
     use QLBalance_kinds, only: dp
 
@@ -65,7 +65,7 @@ module time_evolution_stellarator
 
         use recstep_mod, only: tol
         use transp_coeffs_mod, only: rescale_transp_coeffs_by_ant_fac
-        use grid_mod, only: mwind, rmax, rmin, setBoundaryCondition, npoib, rb
+        use grid_mod, only: mwind, rmax, rmin, set_boundary_condition, npoib, rb
         use baseparam_mod, only: dperp, tol_max
         use QLbalance_diag, only: write_diag, write_diag_b
         use QLBalance_hdf5_tools, only: h5overwrite
@@ -90,6 +90,7 @@ module time_evolution_stellarator
             mwind = 10
             write_diag = .false.
             write_diag_b = .false.
+
             ! if h5overwrite = true, existing data will be deleted
             ! before new one is written
             ! This is contained in hdf5_tools module
@@ -109,7 +110,7 @@ module time_evolution_stellarator
             tol = tol_max
 
             call gengrid
-            call setBoundaryCondition
+            call set_boundary_condition
 
             CALL initialize_wave_code_interface(npoib, rb);
 
@@ -137,10 +138,10 @@ module time_evolution_stellarator
         end if
 
         call allocate_timscal_and_params
+        timstep = timstep*tol
+        scratch = .true.
 
         call reset_timstep_arr_w_timstep
-        !timstep_arr = timstep
-        !tim_stack = timstep_arr
 
         call get_dql
         call rescale_transp_coeffs_by_ant_fac
@@ -165,7 +166,7 @@ module time_evolution_stellarator
         class(time_evolution_stellarator_t), intent(inout) :: this
         integer :: iredo = 0
 
-        do timeIndex = 1, Nstorage
+        do time_ind = 1, Nstorage
 
             call copy_kin_profs_to_yprev
             redostep = .false.
@@ -234,11 +235,11 @@ module time_evolution_stellarator
             end do
 
             call rescale_time_step_array
-            call setTimStep
+            call set_time_step
             call stop_if_time_step_too_small
 
             call reset_timstep_arr_w_timstep
-            call writeTimeInfoToDisk
+            call write_time_info
 
             call relax_plasma_parameters
 
@@ -249,8 +250,8 @@ module time_evolution_stellarator
 
             if (debug_mode) call messageTimeInfo
             if (.not. suppression_mode) call write_kin_profile_at_time_index
-            call setFirstIterationTrue
-            call checkIfLinearDiscrepancyOfPenRatioReached
+            call set_first_iteration_true
+            call check_linear_discr_pen_ratio
 
             call ramp_coil
         end do
@@ -414,39 +415,39 @@ module time_evolution_stellarator
             CALL h5_open_rw(path2out, h5_id)
 
             h5_currentgrp = "/"//trim(h5_mode_groupname) //"/br_abs_time"
-            CALL h5_add_double_1(h5_id, trim(h5_currentgrp), br_abs_time(1:timeIndex), &
-                lbound(br_abs_time(1:timeIndex)), ubound(br_abs_time(1:timeIndex)))
+            CALL h5_add_double_1(h5_id, trim(h5_currentgrp), br_abs_time(1:time_ind), &
+                lbound(br_abs_time(1:time_ind)), ubound(br_abs_time(1:time_ind)))
 
             h5_currentgrp = "/"//trim(h5_mode_groupname) //"/br_abs_antenna_factor"
-            CALL h5_add_double_1(h5_id, trim(h5_currentgrp), br_abs_antenna_factor(1:timeIndex), &
-                lbound(br_abs_antenna_factor(1:timeIndex)), ubound(br_abs_antenna_factor(1:timeIndex)))
+            CALL h5_add_double_1(h5_id, trim(h5_currentgrp), br_abs_antenna_factor(1:time_ind), &
+                lbound(br_abs_antenna_factor(1:time_ind)), ubound(br_abs_antenna_factor(1:time_ind)))
 
             h5_currentgrp = "/"//trim(h5_mode_groupname) //"/br_abs_res"
-            CALL h5_add_double_1(h5_id, trim(h5_currentgrp), br_abs(1:timeIndex), &
-                lbound(br_abs(1:timeIndex)), ubound(br_abs(1:timeIndex)))
+            CALL h5_add_double_1(h5_id, trim(h5_currentgrp), br_abs(1:time_ind), &
+                lbound(br_abs(1:time_ind)), ubound(br_abs(1:time_ind)))
 
             h5_currentgrp = "/"//trim(h5_mode_groupname) //"/dqle22_res_time"
-            CALL h5_add_double_1(h5_id, trim(h5_currentgrp), dqle22_res_time(1:timeIndex), &
-                lbound(dqle22_res_time(1:timeIndex)), ubound(dqle22_res_time(1:timeIndex)))
+            CALL h5_add_double_1(h5_id, trim(h5_currentgrp), dqle22_res_time(1:time_ind), &
+                lbound(dqle22_res_time(1:time_ind)), ubound(dqle22_res_time(1:time_ind)))
 
             h5_currentgrp = "/"//trim(h5_mode_groupname) //"/bifurcation_criterion"
-            CALL h5_add_double_1(h5_id, trim(h5_currentgrp), bif_criterion(1:timeIndex), &
-                lbound(bif_criterion(1:timeIndex)), ubound(bif_criterion(1:timeIndex)))
+            CALL h5_add_double_1(h5_id, trim(h5_currentgrp), bif_criterion(1:time_ind), &
+                lbound(bif_criterion(1:time_ind)), ubound(bif_criterion(1:time_ind)))
 
             h5_currentgrp = "/"//trim(h5_mode_groupname) //"/br_formfactor"
-            CALL h5_add_complex_1(h5_id, trim(h5_currentgrp), br_formfactor(1:timeIndex), &
-                lbound(real(br_formfactor(1:timeIndex))), ubound(real(br_formfactor(1:timeIndex))))
+            CALL h5_add_complex_1(h5_id, trim(h5_currentgrp), br_formfactor(1:time_ind), &
+                lbound(real(br_formfactor(1:time_ind))), ubound(real(br_formfactor(1:time_ind))))
 
             h5_currentgrp = "/"//trim(h5_mode_groupname) //"/br_vac_res"
-            CALL h5_add_complex_1(h5_id, trim(h5_currentgrp), br_vac_res(1:timeIndex), &
-                lbound(real(br_vac_res(1:timeIndex))), ubound(real(br_vac_res(1:timeIndex))))
+            CALL h5_add_complex_1(h5_id, trim(h5_currentgrp), br_vac_res(1:time_ind), &
+                lbound(real(br_vac_res(1:time_ind))), ubound(real(br_vac_res(1:time_ind))))
 
             CALL h5_close(h5_id)
             CALL h5_deinit()
 
         else
             open (777, file='br_abs_res.dat', position='append')
-            write (777, *) timeIndex, time, antenna_factor, br_abs(timeIndex)
+            write (777, *) time_ind, time, antenna_factor, br_abs(time_ind)
             close (777)
         end if
     end subroutine ! write_br_dqle22_time_data
@@ -718,23 +719,23 @@ module time_evolution_stellarator
 
     end subroutine !ramp_coil
 
-    subroutine checkIfLinearDiscrepancyOfPenRatioReached
+    subroutine check_linear_discr_pen_ratio
 
         implicit none
         
-        if (timeIndex .gt. 50 .and. .not. discr_reached) then
+        if (time_ind .gt. 50 .and. .not. discr_reached) then
             ! calculate beta only once
             if (br_beta .eq. 0) then
                 ! Calculate slope from the data until this time step. (Simple linear regression algorithm)
-                br_beta = sum(br_abs(3:timeIndex)*br_abs_time(3:timeIndex))/sum(br_abs_time(1:timeIndex)**2)
+                br_beta = sum(br_abs(3:time_ind)*br_abs_time(3:time_ind))/sum(br_abs_time(1:time_ind)**2)
                 write(*,*) 'br_beta = ', br_beta
             end if
             ! calculate the from the linear regression predicted value of Br_abs
-            br_predicted = br_beta*br_abs_time(timeIndex)
-            write(*,*) "Delta = ", abs(br_abs(timeIndex) - br_predicted)
-            if (abs(br_abs(timeIndex) - br_predicted) .gt. 0.1) then
+            br_predicted = br_beta*br_abs_time(time_ind)
+            write(*,*) "Delta = ", abs(br_abs(time_ind) - br_predicted)
+            if (abs(br_abs(time_ind) - br_predicted) .gt. 0.1) then
                 write(*,*) 'discrepancy to linearly predicted value of Br_abs_res > delta'
-                if (modulo(timeIndex, save_prof_time_step) .ne. 0) then
+                if (modulo(time_ind, save_prof_time_step) .ne. 0) then
                     if (suppression_mode .eqv. .false.) then
                         CALL write_fields_currs_transp_coefs_to_h5
                     end if
@@ -770,14 +771,14 @@ module time_evolution_stellarator
         CALL h5_add_string(h5_id, trim(h5_mode_groupname)// &
             '/info', 'discrepancy to linearly predicted value of Br_abs_res > delta')
         CALL h5_add_double_1(h5_id, trim(h5_mode_groupname)// &
-            '/discrep_time', (/timeIndex*1.d0, time/), (/1/), (/2/))
+            '/discrep_time', (/time_ind*1.d0, time/), (/1/), (/2/))
         CALL h5_close(h5_id)
         CALL h5_deinit()
 
     end subroutine
 
 
-    !> @brief subroutine write_kin_prof_data_to_disk(timeIndex). Writes the profile data to hdf5 files. 
+    !> @brief subroutine write_kin_prof_data_to_disk(time_ind). Writes the profile data to hdf5 files. 
     !> Formerly, this data was written to fort.1xxx ascii files.
     !> This routine was added because of the change that only every
     !>  "save_prof_time_step"th timestep is written. If the program is to be stopped
@@ -786,7 +787,7 @@ module time_evolution_stellarator
     !> summarize this in a subroutine.
     !> @author Markus Markl
     !> @date 12.03.2021
-    !> @param[in] timeIndex Current step of the time evolution. Used to name the fort.1000 group in which
+    !> @param[in] time_ind Current step of the time evolution. Used to name the fort.1000 group in which
     !> the data is written.
     subroutine write_kin_prof_data_to_disk
 
@@ -799,6 +800,7 @@ module time_evolution_stellarator
         use wave_code_data, only: Vth
 
         implicit none
+
         integer :: ipoi
 
         if (ihdf5IO .eq. 1) then
@@ -818,11 +820,11 @@ module time_evolution_stellarator
 
             ! create datasets
             write (h5_currentgrp, "(A,A,I4,A)") trim(h5_currentgrp), &
-                "/", 1000 + timeIndex, "/"
+                "/", 1000 + time_ind, "/"
 
             if (debug_mode) write (*, *) "Debug: h5_currentgrp ", trim(h5_currentgrp)
-            if (debug_mode) write (*, *) "Debug: defining KinProfiles/1000 group ", 1000 + timeIndex
-            ! define group 1000+timeIndex
+            if (debug_mode) write (*, *) "Debug: defining KinProfiles/1000 group ", 1000 + time_ind
+            ! define group 1000+time_ind
             CALL h5_obj_exists(h5_id, trim(h5_currentgrp), h5_exists_log)
             if (.not. h5_exists_log) then
                 CALL h5_create_parent_groups(h5_id, trim(h5_currentgrp))
@@ -860,14 +862,14 @@ module time_evolution_stellarator
 
         else
             do ipoi = 1, npoic
-                write (1000 + timeIndex, *) rc(ipoi), params(1:2, ipoi) &
+                write (1000 + time_ind, *) rc(ipoi), params(1:2, ipoi) &
                     , params(3, ipoi)/ev &
                     , params(4, ipoi)/ev &
                     , 0.5d0*(Ercov(ipoi) + Ercov(ipoi + 1)) &
                     , 0.5d0*(sqg_bthet_overc(ipoi) + &
                             sqg_bthet_overc(ipoi + 1))
             end do
-            close (1000 + timeIndex)
+            close (1000 + time_ind)
         end if
 
     end subroutine write_kin_prof_data_to_disk
@@ -876,9 +878,10 @@ module time_evolution_stellarator
     subroutine write_kin_profile_at_time_index
 
         implicit none
+
         if (irank .eq. 0) then
-            if (debug_mode) write(*,*) "Debug: Write kinetic profiles at time index: ", timeIndex
-            if (modulo(timeIndex, save_prof_time_step) .eq. 0) then
+            if (debug_mode) write(*,*) "Debug: Write kinetic profiles at time index: ", time_ind
+            if (modulo(time_ind, save_prof_time_step) .eq. 0) then
                 CALL write_kin_prof_data_to_disk
             end if
         end if
@@ -894,24 +897,24 @@ module time_evolution_stellarator
 
         implicit none
 
-        integer :: indResRadius, indBeginInterp, indEndInterp
+        integer :: indResRadius, ind_begin_interp, ind_end_interp
         
         call binsrc(rb, 1, npoib, r_resonant(1), indResRadius)
-        call get_ind_Lagr_interp(indResRadius, indBeginInterp, indEndInterp)
-        call plag_coeff(nlagr, nder, r_resonant(1), rb(indBeginInterp:indEndInterp), coef)
+        call get_ind_Lagr_interp(indResRadius, ind_begin_interp, ind_end_interp)
+        call plag_coeff(nlagr, nder, r_resonant(1), rb(ind_begin_interp:ind_end_interp), coef)
 
-        br_abs(timeIndex) = sum(coef(0, :)*abs(Br(indBeginInterp:indEndInterp)))*sqrt(antenna_factor)
-        dqle22_res_time(timeIndex) = sum(coef(0, :)*dqle22(indBeginInterp:indEndInterp))
-        dae22_res_time(timeIndex) = sum(coef(0, :)*dae22(indBeginInterp:indEndInterp))
-        bif_criterion(timeIndex) = dqle22_res_time(timeIndex)/dae22_res_time(timeIndex)
+        br_abs(time_ind) = sum(coef(0, :)*abs(Br(ind_begin_interp:ind_end_interp)))*sqrt(antenna_factor)
+        dqle22_res_time(time_ind) = sum(coef(0, :)*dqle22(ind_begin_interp:ind_end_interp))
+        dae22_res_time(time_ind) = sum(coef(0, :)*dae22(ind_begin_interp:ind_end_interp))
+        bif_criterion(time_ind) = dqle22_res_time(time_ind)/dae22_res_time(time_ind)
 
-        if (bif_criterion(timeIndex) .ge. 1.0d0) then
+        if (bif_criterion(time_ind) .ge. 1.0d0) then
             write(*,*) "!!! Bifurcation criterion met !!!"
-            write(*,*) "bif_criterion = ", bif_criterion(timeIndex)
+            write(*,*) "bif_criterion = ", bif_criterion(time_ind)
         end if
 
-        br_abs_time(timeIndex) = time
-        br_abs_antenna_factor(timeIndex) = antenna_factor
+        br_abs_time(time_ind) = time
+        br_abs_antenna_factor(time_ind) = antenna_factor
 
     end subroutine
 
@@ -924,14 +927,14 @@ module time_evolution_stellarator
 
         write(*,*) " "
         write(*,*) "+ + + + + + + + + + + + + + + + + + + + + + + + + + + + + + + + + + +"
-        WRITE(*,'(A9,F10.4,A16,I4)') '  time = ', br_abs_time(timeIndex), " s, timeIndex = ", timeIndex
+        WRITE(*,'(A9,F10.4,A16,I4)') '  time = ', br_abs_time(time_ind), " s, time_ind = ", time_ind
         WRITE(*,'(A23,E10.5,A11,F6.2,A12)') '    Antenna_factor   = ', antenna_factor, " which are ", &
             antenna_factor/antenna_factor_max*100, "% of the max"
-        WRITE(*,'(A23,F10.5,A2)') '    Br abs res * C_mn= ', br_abs(timeIndex), " G"
-        WRITE(*,'(A23,F10.5,A2)') '    Br abs res       = ', br_abs(timeIndex)/SQRT(antenna_factor), " G"
-        WRITE(*,'(A23,F10.3,A7)') '    Dqle22 res       = ', dqle22_res_time(timeIndex), " cm^2/s"
-        WRITE(*,'(A23,F10.5)')    '    bif crit         = ', bif_criterion(timeIndex)
-        write(*,*) '   Form factor      = ', abs(br_formfactor(timeIndex))
+        WRITE(*,'(A23,F10.5,A2)') '    Br abs res * C_mn= ', br_abs(time_ind), " G"
+        WRITE(*,'(A23,F10.5,A2)') '    Br abs res       = ', br_abs(time_ind)/SQRT(antenna_factor), " G"
+        WRITE(*,'(A23,F10.3,A7)') '    Dqle22 res       = ', dqle22_res_time(time_ind), " cm^2/s"
+        WRITE(*,'(A23,F10.5)')    '    bif crit         = ', bif_criterion(time_ind)
+        write(*,*) '   Form factor      = ', abs(br_formfactor(time_ind))
         write(*,*) "+ + + + + + + + + + + + + + + + + + + + + + + + + + + + + + + + + + +"
         write(*,*) " "
 
@@ -1051,7 +1054,7 @@ module time_evolution_stellarator
 
     end subroutine
 
-    subroutine setTimStep
+    subroutine set_time_step
 
         use recstep_mod, only: timstep_arr, tol
         use time_evolution, only: set_constant_time_step, constant_time_step
@@ -1094,7 +1097,7 @@ module time_evolution_stellarator
 
     end subroutine
 
-    subroutine writeTimeInfoToDisk
+    subroutine write_time_info
 
         implicit none
         
@@ -1116,7 +1119,7 @@ module time_evolution_stellarator
         implicit none
 
         open (4321, file='timstep_evol.dat', position='append')
-        write (4321, *) timeIndex, timstep, timscal_dql, timscal(1), rate_dql, time
+        write (4321, *) time_ind, timstep, timscal_dql, timscal(1), rate_dql, time
         close (4321)
 
     end subroutine
@@ -1148,11 +1151,11 @@ module time_evolution_stellarator
         ! the data for one variable is saved in one row, i.e. there
         ! are length(variable) number of columns.
         if (diagnostics_output) then
-            CALL h5_append_double_1(time_dataset_id, (/timeIndex*1.d0, timstep, &
-                                                        timscal_dql, timscal(1), rate_dql, time/), timeIndex)
+            CALL h5_append_double_1(time_dataset_id, (/time_ind*1.d0, timstep, &
+                                                        timscal_dql, timscal(1), rate_dql, time/), time_ind)
         else
-            CALL h5_append_double_1(time_dataset_id, (/timeIndex*1.d0, timstep, &
-                                                        time/), timeIndex)
+            CALL h5_append_double_1(time_dataset_id, (/time_ind*1.d0, timstep, &
+                                                        time/), time_ind)
         end if
         CALL h5_close(h5_id)
         CALL h5_deinit()
@@ -1183,13 +1186,13 @@ module time_evolution_stellarator
         implicit none
         if (irank .eq. 0) then
             write(*,*) ' '
-            write(*,*) 'Debug: i = ', int2(timeIndex), 'time = ', real(time)
+            write(*,*) 'Debug: i = ', int2(time_ind), 'time = ', real(time)
             write(*,*) ' '
         end if
 
     end subroutine
 
-    subroutine setFirstIterationTrue
+    subroutine set_first_iteration_true
 
         implicit none
 

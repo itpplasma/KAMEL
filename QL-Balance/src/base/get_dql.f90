@@ -15,7 +15,7 @@ subroutine get_dql
     use plasma_parameters
     use baseparam_mod, only: Z_i, e_charge, am, p_mass, c, e_mass, ev, rtor, pi, rsepar
     use control_mod, only: irf, suppression_mode, misalign_diffusion
-    use time_evolution, only: save_prof_time_step, timeIndex, br_formfactor, br_vac_res
+    use time_evolution, only: save_prof_time_step, time_ind, br_formfactor, br_vac_res
     use h5mod
     use wave_code_data
     use parallelTools
@@ -45,7 +45,7 @@ subroutine get_dql
     complex(dp), dimension(:), allocatable :: formfactor
 
     ! added variables for interpolation of Brvac
-    integer :: ibrabsres, indBeginInterp, indEndInterp
+    integer :: ibrabsres, ind_begin_interp, ind_end_interp
     complex(dp) :: brvac_interp
     real(dp) :: MI_width
 
@@ -193,9 +193,9 @@ subroutine get_dql
             call binsrc(rb, 1, npoib, r_resonant(i_mn), ibrabsres)
             if (debug_mode) write(*,*) "binary search found ibrabsres = ", ibrabsres
 
-            call get_ind_Lagr_interp(ibrabsres, indBeginInterp, indEndInterp)
-            call plag_coeff(nlagr, nder, r_resonant(i_mn), rb(indBeginInterp:indEndInterp), coef)
-            CALL magnetic_island_width(coef, nder, nlagr, indBeginInterp, indEndInterp, m_vals(i_mn), MI_width)
+            call get_ind_Lagr_interp(ibrabsres, ind_begin_interp, ind_end_interp)
+            call plag_coeff(nlagr, nder, r_resonant(i_mn), rb(ind_begin_interp:ind_end_interp), coef)
+            CALL magnetic_island_width(coef, nder, nlagr, ind_begin_interp, ind_end_interp, m_vals(i_mn), MI_width)
 
             ! the perturbed flux surfaces
             !Es_pert_flux_temp = (-dPhi0) * Br * (m_vals(i_mn) * rtor**2d0 - n_vals(i_mn) * r**2d0 / qsaf) &
@@ -229,7 +229,7 @@ subroutine get_dql
         end do
 
         if (irank .eq. 0) then
-            call interp_rb_at_r0(Br, r_resonant(i_mn), br_vac_res(timeIndex))
+            call interp_rb_at_r0(Br, r_resonant(i_mn), br_vac_res(time_ind))
         end if
 
         call get_wave_fields_from_wave_code(flre_cd_ptr(i_mn), dim_r, r, &
@@ -238,7 +238,7 @@ subroutine get_dql
 
         ! todo: interpolate formfactor at resonant surface and write out. This is Brtot/Brvac at the resonant surface
         if (irank .eq. 0) then
-            call interp_rb_at_r0(formfactor, r_resonant(i_mn), br_formfactor(timeIndex))
+            call interp_rb_at_r0(formfactor, r_resonant(i_mn), br_formfactor(time_ind))
         end if
 
         dqle11_loc = dqle11_loc + de11*spec_weight
@@ -348,7 +348,7 @@ subroutine get_dql
     if (debug_mode) print *, "Debug: write_fields_currs_transp_coefs_to_h5"
 
     if (irank .eq. 0) then
-        if (modulo(timeIndex, save_prof_time_step) .eq. 0) then
+        if (modulo(time_ind, save_prof_time_step) .eq. 0) then
             if (suppression_mode .eqv. .false.) then
                 CALL write_fields_currs_transp_coefs_to_h5
             end if
@@ -385,16 +385,16 @@ subroutine interp_rb_at_r0(func, r0, func_res)
     complex(dp), dimension(npoib), intent(in) :: func
     complex(dp), intent(out) :: func_res
     real(dp), intent(in) :: r0
-    integer :: ibrabsres, indBeginInterp, indEndInterp
+    integer :: ibrabsres, ind_begin_interp, ind_end_interp
     real(dp), dimension(:, :), allocatable :: coef 
 
     if (.not. allocated(coef)) allocate(coef(0:nder,nlagr))
 
     call binsrc(rb, 1, npoib, r0, ibrabsres)
-    call get_ind_Lagr_interp(ibrabsres, indBeginInterp, indEndInterp)
-    call plag_coeff(nlagr, nder, r0, rb(indBeginInterp:indEndInterp), coef)
+    call get_ind_Lagr_interp(ibrabsres, ind_begin_interp, ind_end_interp)
+    call plag_coeff(nlagr, nder, r0, rb(ind_begin_interp:ind_end_interp), coef)
 
-    func_res = sum(coef(0,:) * func(indBeginInterp:indEndInterp))
+    func_res = sum(coef(0,:) * func(ind_begin_interp:ind_end_interp))
 
 end subroutine
 
@@ -408,16 +408,16 @@ subroutine get_Brvac(brvac_interp)
 
     implicit none
 
-    integer :: ibrabsres, indBeginInterp, indEndInterp
+    integer :: ibrabsres, ind_begin_interp, ind_end_interp
     complex(dp), intent(out) :: brvac_interp
 
     if (.not. allocated(coef)) allocate(coef(0:nder,nlagr))
 
     call binsrc(rb, 1, npoib, r_resonant(1), ibrabsres)
-    call get_ind_Lagr_interp(ibrabsres, indBeginInterp, indEndInterp)
-    call plag_coeff(nlagr, nder, r_resonant(1), rb(indBeginInterp:indEndInterp), coef)
+    call get_ind_Lagr_interp(ibrabsres, ind_begin_interp, ind_end_interp)
+    call plag_coeff(nlagr, nder, r_resonant(1), rb(ind_begin_interp:ind_end_interp), coef)
 
-    brvac_interp = sum(coef(0,:) * abs(Br(indBeginInterp:indEndInterp)))
+    brvac_interp = sum(coef(0,:) * abs(Br(ind_begin_interp:ind_end_interp)))
 
 end subroutine 
 

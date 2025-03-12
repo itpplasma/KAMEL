@@ -4,19 +4,7 @@ module time_evolution_stellarator
     use parallelTools
     use h5mod
     use balance_base, only: balance_t
-    use time_evolution, only: Nstorage, ramp_up_mode, save_prof_time_step, iexit, ramp_up_down, time_ind, &
-        antenna_max_stopping, timstep_min, tmax_factor, t_max_ramp_up, br_formfactor, br_vac_res, &
-        antenna_factor_max, br_beta, br_predicted, scratch, br_abs, br_abs_time, br_abs_antenna_factor, &
-        dqle22_res_time, dae22_res_time, bif_criterion, firstiterationdone, dqle11_prev, dqle12_prev, &
-        dqle21_prev, dqle22_prev, dqli11_prev, dqli12_prev, dqli21_prev, dqli22_prev, yprev, stop_time_step, &
-        write_kin_prof_data_to_disk, write_br_dqle22_time_data, redoTimeStep, create_group_structure_timeevol, &
-        determine_Dql_diagnostic, set_first_iteration_true, msg_time_info, relax_plasma_parameters, &
-        write_time_info_to_h5, write_time_info_to_txt, write_time_info, reset_timstep_arr_w_timstep, &
-        set_time_step, reset_timstep_arr_w_timstep, determine_timscal, smooth_params_num_and_denom, &
-        calc_params_num_and_denom, stop_if_time_step_too_small, message_Br_Dqle_values, &
-        interp_Br_Dql_at_resonance_timeevol, rescale_time_step_array, write_kin_profile_at_time_index, &
-        allocate_timscal_and_params, hold_prev_transp_coeffs, alloc_Br_Dqle_for_timeevol, &
-        initialize_antenna_factor, copy_kin_profs_to_yprev, allocate_prev_variables
+    use time_evolution
     use QLBalance_kinds, only: dp
 
     implicit none
@@ -25,14 +13,6 @@ module time_evolution_stellarator
     integer :: update_transport_coefficients
     logical :: reduce_time_step, turn_off_heat_sources
 
-    real(dp) :: tmax, timescale
-
-    real(dp) :: timstep
-    real(dp) :: time
-
-    real(dp), dimension(:), allocatable :: timscal
-
-    integer(HID_T) :: time_dataset_id !> variable to save the time dataset id
 
     type, extends(balance_t) :: time_evolution_stellarator_t
         contains

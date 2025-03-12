@@ -71,6 +71,9 @@ module time_evolution
             procedure :: run_balance => runTimeEvolution
     end type
 
+    private :: initTimeEvolution
+    private :: runTimeEvolution
+
     contains
 
     subroutine initTimeEvolution(this)

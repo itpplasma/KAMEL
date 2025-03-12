@@ -17,7 +17,7 @@ module h5mod
 
     contains
 
-    subroutine writeReasonForStopToH5(reason)
+    subroutine write_reason_for_stop_to_h5(reason)
 
         implicit none
 

@@ -719,7 +719,7 @@ module time_evolution
                 end if
                 if (br_stopping) then
 
-                    call writeReasonForStopToH5("discrepancy to " //&
+                    call write_reason_for_stop_to_h5("discrepancy to " //&
                         "linearly predicted value of Br_abs_res > delta")                    
                     CALL write_br_dqle22_time_data!, br_abs_time, br_abs_antenna_factor, br_abs, dqle22_res_time)
                     CALL MPI_finalize(ierror);
@@ -927,7 +927,7 @@ module time_evolution
                 CALL write_kin_prof_data_to_disk
             end if
 
-            call writeReasonForStopToH5(reason)
+            call write_reason_for_stop_to_h5(reason)
             call MPI_finalize(ierror);
             stop
         end if

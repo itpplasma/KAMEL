@@ -9,15 +9,16 @@ subroutine calc_parallel_current_directly
     use h5mod
     use wave_code_data
     use mpi
+    use QLBalance_kinds, only: dp
 
     implicit none
 
     integer :: ierror, irank;
     integer :: ipoi, i, iunit, mnmax
-    double precision, dimension(:), allocatable :: x1, x2, vT, A1, A2
-    double complex, dimension(:), allocatable :: curr_e_par
-    double complex, dimension(:, :, :), allocatable :: symbI
-    double precision, dimension(1) :: coll_fac = (/1/)!(/10.0, 100.0, 1.0e3, 1.0e4, 1.0e5/)
+    real(dp), dimension(:), allocatable :: x1, x2, vT, A1, A2
+    complex(dp), dimension(:), allocatable :: curr_e_par
+    complex(dp), dimension(:, :, :), allocatable :: symbI
+    real(dp), dimension(1) :: coll_fac = (/1/)!(/10.0, 100.0, 1.0e3, 1.0e4, 1.0e5/)
     integer :: study_i_omE
     integer :: study_j_nue
 
@@ -388,15 +389,16 @@ subroutine calc_ion_parallel_current_directly
     use control_mod, only: ihdf5IO, diagnostics_output, write_gyro_current
     use h5mod
     use mpi
+    use QLBalance_kinds, only: dp
 
     implicit none
 
     integer :: ierror, irank;
     integer :: ipoi, i, iunit, mnmax
-    double precision :: ei_charge
-    double precision, dimension(:), allocatable :: x1, x2, vT
-    double complex, dimension(:), allocatable :: curr_i_par
-    double complex, dimension(:, :, :), allocatable :: symbI
+    real(dp) :: ei_charge
+    real(dp), dimension(:), allocatable :: x1, x2, vT
+    complex(dp), dimension(:), allocatable :: curr_i_par
+    complex(dp), dimension(:, :, :), allocatable :: symbI
 
     character(len=1024) :: tempch
 

@@ -250,7 +250,7 @@ module time_evolution
             timstep_arr = timstep
             time = time + timstep
 
-            if (debug_mode) call messageTimeInfo
+            if (debug_mode) call msg_time_info
             if (.not. suppression_mode) call write_kin_profile_at_time_index
             call set_first_iteration_true
             call check_linear_discr_pen_ratio
@@ -1070,16 +1070,16 @@ module time_evolution
         
         if (irank .eq. 0) then
             if (ihdf5IO .eq. 1) then
-                call writeTimeInfoToH5
+                call write_time_info_to_h5
             else
-                call writeTimeInfoToTxt
+                call write_time_info_to_txt
             end if
         end if
 
 
     end subroutine
 
-    subroutine writeTimeInfoToTxt
+    subroutine write_time_info_to_txt
 
         use QLbalance_diag, only: rate_dql, timscal_dql
 
@@ -1091,7 +1091,7 @@ module time_evolution
 
     end subroutine
 
-    subroutine writeTimeInfoToH5
+    subroutine write_time_info_to_h5
 
         use QLbalance_diag, only: rate_dql, timscal_dql
 
@@ -1148,7 +1148,7 @@ module time_evolution
 
     end subroutine
 
-    subroutine messageTimeInfo
+    subroutine msg_time_info
 
         implicit none
         if (irank .eq. 0) then

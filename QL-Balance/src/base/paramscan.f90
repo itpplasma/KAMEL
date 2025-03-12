@@ -291,7 +291,7 @@ module paramscan_mod
 
     subroutine interpolate_Br_Dql_at_res_parscan
 
-        use PolyLagrangeInterpolation
+        use PolyLagrangeInterpolation, only: nder, nlagr, binsrc, coef, get_ind_Lagr_interp, plag_coeff
         use grid_mod, only: npoib, rb, r_resonant, dqle22, npoic, Ercovavg, Ercov
         use wave_code_data, only: Br, antenna_factor
 
@@ -300,6 +300,7 @@ module paramscan_mod
         integer :: indResRadius, ind_begin_interp, ind_end_interp
         integer :: ipoi
 
+        ! TODO: Correct for multi resonance run
         if (.not. allocated(coef)) allocate (coef(0:nder, nlagr))
         call binsrc(rb, 1, npoib, r_resonant(1), indResRadius)
         call get_ind_Lagr_interp(indResRadius, ind_begin_interp, ind_end_interp)
@@ -466,15 +467,13 @@ module paramscan_mod
     end subroutine
 
 
-    subroutine writeDqle22
+    subroutine write_Dqle22
 
         use grid_mod, only: dqle22
         use h5mod
 
         implicit none
 
-        !print *, "In write dqle22"
-        
         CALL h5_init()
         CALL h5_open_rw(path2out, h5_id)
         CALL h5_obj_exists(h5_id, trim(h5_mode_groupname), &

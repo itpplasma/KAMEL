@@ -1,8 +1,11 @@
 module singleStep
 
     use balance_base, only: balance_t
+    use QLBalance_kinds, only: dp
 
-    double precision :: dqle22_res_single, br_abs_res_single
+    implicit none
+
+    real(dp) :: dqle22_res_single, br_abs_res_single
 
     type, extends(balance_t) :: singleStep_t
         contains
@@ -14,8 +17,7 @@ module singleStep
     
     subroutine initSingleStep(this)
 
-        use grid_mod, only: mwind, rmax, rmin, set_boundary_condition, npoib, rb
-        use baseparam_mod, only: dperp
+        use grid_mod, only: mwind, set_boundary_condition, npoib, rb
         use QLBalance_hdf5_tools, only: h5overwrite
         use h5mod, only: mode_m, mode_n
         use control_mod, only: gyro_current_study, write_gyro_current, debug_mode, &
@@ -69,7 +71,6 @@ module singleStep
 
     subroutine runSingleStep(this)
 
-        use control_mod, only: irf
         use transp_coeffs_mod, only: rescale_transp_coeffs_by_ant_fac
         use parallelTools, only: irank
 
@@ -85,14 +86,14 @@ module singleStep
         call get_dql
         call rescale_transp_coeffs_by_ant_fac
 
-        call interpBrAndDqlAtResonance
-        call finalizeSingleStepRun
+        call interp_Br_Dql_at_res
+        call finalize_singlestep_run
 
     end subroutine
 
-    subroutine interpBrAndDqlAtResonance
+    subroutine interp_Br_Dql_at_res
 
-        use PolyLagrangeInterpolation
+        use PolyLagrangeInterpolation, only: coef, plag_coeff, binsrc, get_ind_Lagr_interp, nder, nlagr
         use wave_code_data, only: Br, antenna_factor
         use grid_mod, only: npoib, rb, r_resonant, dqle22
         
@@ -100,6 +101,7 @@ module singleStep
 
         integer :: indResRadius, ind_begin_interp, ind_end_interp
 
+        ! TODO: Correct for multi mode
         if (.not. allocated(coef)) allocate (coef(0:nder, nlagr))
         call binsrc(rb, 1, npoib, r_resonant(1), indResRadius)
         call get_ind_Lagr_interp(indResRadius, ind_begin_interp, ind_end_interp)
@@ -113,14 +115,14 @@ module singleStep
         write(*,*) "    Dqle22 res  = ", dqle22_res_single
         write(*,*) "    |Br| res    = ", br_abs_res_single
         write(*,*) " "
-		write(*,*) "    With the Antenna factor = ", antenna_factor
+        write(*,*) "    With the Antenna factor = ", antenna_factor
         write(*,*) "=== === === === === === === === === === === ==="
         write(*,*) " "
 
     end subroutine
 
 
-    subroutine finalizeSingleStepRun
+    subroutine finalize_singlestep_run
 
         use h5mod
         use mpi
@@ -130,14 +132,14 @@ module singleStep
         implicit none
 
         if (ihdf5IO .eq. 1) then
-            call writeDqle22_SingleStep
+            call write_Dqle22_SingleStep
         end if
         call MPI_finalize(ierror);
         stop '-> Finished linear run |'
 
     end subroutine
 
-    subroutine writeDqle22_SingleStep
+    subroutine write_Dqle22_SingleStep
 
         use grid_mod, only: dqle22, rb, r_resonant
         use h5mod
@@ -227,7 +229,5 @@ module singleStep
 
         if (debug_mode) write (*, *) "Debug: finished creating group structure for Single Step"
     end subroutine
-
-
 
 end module

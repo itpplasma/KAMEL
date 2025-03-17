@@ -27,6 +27,8 @@ subroutine ramp_coil
             call ramp_up_fast_hysteresis
         case(10)
             call ramp_up_hyst_mod
+        case(11)
+            call ramp_oscillation
         case default
             stop 'Error: ramp_up_mode not defined'
     end select
@@ -76,7 +78,7 @@ subroutine ramp_up_faster_2
     if (time .eq. 0) then
         antenna_factor = 1.d-4
     else
-        antenna_factor = antenna_factor_max * (time/t_max_ramp_up)
+        antenna_factor = antenna_factor_max * (time/t_max_ramp_up)**2.0d0
     end if
 
 end subroutine
@@ -289,10 +291,29 @@ subroutine ramp_up_hyst_mod
         print *, " time = ", time
     else if (hyst_mod_stage .eq. 2) then
         print *, " ramp up phase 2: oscillation"
-        antenna_factor = ant_fac_flattop * (1.0d0 + hyst_mod_amp_fac * sin(2.0d0 * pi * (time - t_flattop_end) * hyst_mod_freq + hyst_mod_phase))
+        antenna_factor = ant_fac_flattop * (1.0d0 + hyst_mod_amp_fac * sin(2.0d0 * pi * (time - t_flattop_end) &
+            * hyst_mod_freq + hyst_mod_phase))
         if (time .ge. t_flattop_end + 2.0d0/hyst_mod_freq) then
             call stop_evolution
         end if
+    end if
+
+end subroutine
+
+subroutine ramp_oscillation
+
+    use time_evolution, only: time_ind, time
+    use wave_code_data, only: antenna_factor
+    use time_evolution_stellarator, only: hyst_mod_freq, hyst_mod_phase, hyst_mod_amp_fac
+    use time_evolution, only: antenna_factor_max, t_max_ramp_up
+    use baseparam_mod, only: pi
+
+    implicit none
+
+    antenna_factor = antenna_factor_max * (hyst_mod_amp_fac * sin(2.0d0 * pi * time * hyst_mod_freq + hyst_mod_phase))**2
+
+    if (time .ge. t_max_ramp_up) then
+        call stop_evolution
     end if
 
 end subroutine

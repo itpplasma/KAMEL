@@ -57,6 +57,7 @@ module time_evolution
     real(dp), DIMENSION(:), ALLOCATABLE :: dqle22_res_time
     real(dp), DIMENSION(:), ALLOCATABLE :: dae22_res_time
     real(dp), DIMENSION(:), ALLOCATABLE :: bif_criterion
+    complex(dp), dimension(:), allocatable :: Ipar_time
 
     logical :: firstiterationdone = .false. !Some steps in saving the data to hdf5 file 
     !need to be done only the first time iteration
@@ -329,6 +330,7 @@ module time_evolution
         allocate(dqle22_res_time(Nstorage))
         allocate(dae22_res_time(Nstorage))
         allocate(bif_criterion(Nstorage))
+        allocate(Ipar_time(Nstorage))
 
     end subroutine
 
@@ -392,6 +394,10 @@ module time_evolution
             h5_currentgrp = "/"//trim(h5_mode_groupname) //"/br_abs_time"
             CALL h5_add_double_1(h5_id, trim(h5_currentgrp), br_abs_time(1:time_ind), &
                 lbound(br_abs_time(1:time_ind)), ubound(br_abs_time(1:time_ind)))
+                
+            h5_currentgrp = "/"//trim(h5_mode_groupname) //"/br_vac_res"
+            CALL h5_add_double_1(h5_id, trim(h5_currentgrp), abs(br_vac_res(1:time_ind)), &
+                lbound(br_vac_res(1:time_ind)), ubound(br_vac_res(1:time_ind)))
 
             h5_currentgrp = "/"//trim(h5_mode_groupname) //"/br_abs_antenna_factor"
             CALL h5_add_double_1(h5_id, trim(h5_currentgrp), br_abs_antenna_factor(1:time_ind), &
@@ -412,6 +418,10 @@ module time_evolution
             h5_currentgrp = "/"//trim(h5_mode_groupname) //"/br_formfactor"
             CALL h5_add_complex_1(h5_id, trim(h5_currentgrp), br_formfactor(1:time_ind), &
                 lbound(real(br_formfactor(1:time_ind))), ubound(real(br_formfactor(1:time_ind))))
+
+            h5_currentgrp = "/"//trim(h5_mode_groupname) //"/Ipar"
+            CALL h5_add_complex_1(h5_id, trim(h5_currentgrp), Ipar_time(1:time_ind), &
+                lbound(real(Ipar_time(1:time_ind))), ubound(real(Ipar_time(1:time_ind))))
 
             CALL h5_close(h5_id)
             CALL h5_deinit()
@@ -604,7 +614,7 @@ module time_evolution
         call get_ind_Lagr_interp(indResRadius, ind_begin_interp, ind_end_interp)
         call plag_coeff(nlagr, nder, r_resonant(1), rb(ind_begin_interp:ind_end_interp), coef)
 
-        br_abs(time_ind) = sum(coef(0, :)*abs(Br(ind_begin_interp:ind_end_interp)))*sqrt(antenna_factor)
+        br_abs(time_ind) = sum(coef(0, :)*abs(Br(ind_begin_interp:ind_end_interp)))!*sqrt(antenna_factor)
         dqle22_res_time(time_ind) = sum(coef(0, :)*dqle22(ind_begin_interp:ind_end_interp))
         dae22_res_time(time_ind) = sum(coef(0, :)*dae22(ind_begin_interp:ind_end_interp))
         bif_criterion(time_ind) = dqle22_res_time(time_ind)/dae22_res_time(time_ind)
@@ -632,11 +642,12 @@ module time_evolution
         WRITE(*,'(A9,F10.4,A16,I4)') '  time = ', br_abs_time(time_ind), " s, time_ind = ", time_ind
         WRITE(*,'(A23,E10.5,A11,F6.2,A12)') '    Antenna_factor   = ', antenna_factor, " which are ", &
             antenna_factor/antenna_factor_max*100, "% of the max"
-        WRITE(*,'(A23,F10.5,A2)') '    Br abs res * C_mn= ', br_abs(time_ind), " G"
-        WRITE(*,'(A23,F10.5,A2)') '    Br abs res       = ', br_abs(time_ind)/SQRT(antenna_factor), " G"
+        WRITE(*,'(A23,F10.5,A2)') '    Br abs res * C_mn= ', br_abs(time_ind) * SQRT(antenna_factor), " G"
+        WRITE(*,'(A23,F10.5,A2)') '    Br abs res       = ', br_abs(time_ind), " G"
         WRITE(*,'(A23,F10.3,A7)') '    Dqle22 res       = ', dqle22_res_time(time_ind), " cm^2/s"
         WRITE(*,'(A23,F10.5)')    '    bif crit         = ', bif_criterion(time_ind)
         write(*,*) '   Form factor      = ', abs(br_formfactor(time_ind))
+        write(*,*) '   Ipar             = ', abs(Ipar_time(time_ind))
         write(*,*) "+ + + + + + + + + + + + + + + + + + + + + + + + + + + + + + + + + + +"
         write(*,*) " "
 
@@ -764,15 +775,15 @@ module time_evolution
 
         timstep = minval(timstep_arr)
 
-        if (.true.) then
+        if (.not. set_constant_time_step) then
             ! limit time step from below:
             timstep = max(timstep, timstep_min)
             ! limit timestep from above:
             !if (ramp_up_mode .ne. 0) timstep = min(timstep,0.1)
             !timstep = min(timstep,0.005)
         else
-        ! use for constant time step:
-            timstep = 0.5
+            ! use for constant time step:
+            timstep = constant_time_step
             write(*,*) "constant time step = ", timstep
         end if
 

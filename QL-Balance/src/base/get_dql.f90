@@ -11,7 +11,7 @@ subroutine get_dql
                         , dqli11, dqli12, dqli21, dqli22 &
                         , de11, de12, de21, de22, di11, di12, di21, di22 &
                         , rb_cut_in, rb_cut_out, re_cut_out, rb &
-                        , r_resonant, d11_misalign, Es_pert_flux
+                        , r_resonant, d11_misalign, Es_pert_flux, Ipar
     use plasma_parameters
     use baseparam_mod, only: Z_i, e_charge, am, p_mass, c, e_mass, ev, rtor, pi, rsepar
     use control_mod, only: irf, suppression_mode, misalign_diffusion
@@ -25,7 +25,7 @@ subroutine get_dql
 
     implicit none
 
-    integer :: modpernode, imin, imax;
+    integer :: modpernode, imin, imax
     integer :: ipoi, ieq, i_mn, mwind_save
     real(dp), dimension(:), allocatable :: dummy
 
@@ -126,14 +126,14 @@ subroutine get_dql
         stop
     end if
 
-    modpernode = ceiling(float(dim_mn)/float(np_num));
-    imin = modpernode*irank + 1;
-    imax = min(dim_mn, modpernode*(irank + 1));
+    modpernode = ceiling(float(dim_mn)/float(np_num))
+    imin = modpernode*irank + 1
+    imax = min(dim_mn, modpernode*(irank + 1))
 
-    if (irf .eq. 1) call update_background_files(path2profs);
-    if (irf .eq. 1) call get_wave_code_data(imin, imax);
-    if (irf .eq. 1) call get_background_magnetic_fields_from_wave_code(flre_cd_ptr(imin), dim_r, r, B0t, B0z, B0);
-    if (irf .eq. 1) call get_collision_frequences_from_wave_code(flre_cd_ptr(imin), dim_r, r, nui, nue);
+    if (irf .eq. 1) call update_background_files(path2profs)
+    if (irf .eq. 1) call get_wave_code_data(imin, imax)
+    if (irf .eq. 1) call get_background_magnetic_fields_from_wave_code(flre_cd_ptr(imin), dim_r, r, B0t, B0z, B0)
+    if (irf .eq. 1) call get_collision_frequences_from_wave_code(flre_cd_ptr(imin), dim_r, r, nui, nue)
 
     !  nu_e=15.4d-6*params_b(1,:)/sqrt(params_b(3,:)/ev)**3            &
     !      *(23.d0-0.5d0*log(params_b(1,:)/(params_b(3,:)/ev)**3))
@@ -252,6 +252,7 @@ subroutine get_dql
         call get_current_densities_from_wave_code(flre_cd_ptr(i_mn), dim_r, r, &
                             m_vals(i_mn), n_vals(i_mn), Jri, Jsi, Jpi, Jre, Jse, Jpe)
 
+        call integrate_parallel_current(dim_r, r, Jpe, Jpi, Ipar)
     end do
 
     

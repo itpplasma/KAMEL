@@ -168,7 +168,6 @@ subroutine save_wave_code_data()
             real(Ez(k)), aimag(Ez(k)), real(Br(k)), aimag(Br(k)), &
             real(Bs(k)), aimag(Bs(k)), real(Bp(k)), aimag(Bp(k)), &
             real(Bt(k)), aimag(Bt(k)), real(Bz(k)), aimag(Bz(k))
-
     end do
 
     close (10)

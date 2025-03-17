@@ -39,6 +39,7 @@ set(balance_lib_base_fortran_sources
     ${base_balance_src}/plasma_parameters.f90
     ${base_balance_src}/W2_arr.f90
     ${base_balance_src}/magnetic_island_width.f90
+    ${base_balance_src}/integrate_parallel_current.f90
     ${base_balance_src}/wave_code_data_64bit.f90
     ${base_balance_src}/sample_matrix.f90
 )

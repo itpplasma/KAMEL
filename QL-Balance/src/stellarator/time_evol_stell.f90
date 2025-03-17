@@ -127,6 +127,7 @@ module time_evolution_stellarator
         use restart_mod, only: redostep
         use transp_coeffs_mod, only: rescale_transp_coeffs_by_ant_fac
         use recstep_mod, only: timstep_arr
+        use grid_mod, only: Ipar
 
         implicit none
 
@@ -145,6 +146,7 @@ module time_evolution_stellarator
             end if
 
             call get_dql
+            Ipar_time(time_ind) = Ipar
             call rescale_transp_coeffs_by_ant_fac
             call interp_Br_Dql_at_resonance_timeevol
             call determine_Dql_diagnostic

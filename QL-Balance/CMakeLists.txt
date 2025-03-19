@@ -25,9 +25,9 @@ if(CMAKE_HOST_SYSTEM_NAME MATCHES "Darwin")
 elseif(CMAKE_HOST_SYSTEM_NAME MATCHES "Linux")
     # Linux specific configurations or commands
     message("Building on Linux")
-    set(CMAKE_C_COMPILER /usr/bin/gcc)
-    set(CMAKE_CXX_COMPILER /usr/bin/g++)
-    set(CMAKE_Fortran_COMPILER "mpif90")
+    #set(CMAKE_C_COMPILER /usr/bin/gcc)
+    #set(CMAKE_CXX_COMPILER /usr/bin/g++)
+    set(CMAKE_Fortran_COMPILER /usr/bin/mpif90)
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fopenmp")
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -O3 -D DOUBLE_APPEND_FORTRAN")
     set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -fopenmp")
@@ -64,8 +64,8 @@ set_target_properties(sparse PROPERTIES LINKER_LANGUAGE Fortran
     ARCHIVE_OUTPUT_DIRECTORY "${lib}"
     Fortran_MODULE_DIRECTORY "${objs}")
 add_dependencies(sparse SuiteSparse)
-target_link_libraries(sparse PUBLIC SuiteSparse::umfpack)
 target_link_libraries(sparse PUBLIC SuiteSparse::umfpack_wrappers)
+target_link_libraries(sparse PUBLIC SuiteSparse::umfpack)
 target_include_directories(sparse PUBLIC "${UMFPACK_INCLUDE_DIR}")
 
 add_library(ql-balance_lib STATIC ${balance_lib_base_fortran_sources} 

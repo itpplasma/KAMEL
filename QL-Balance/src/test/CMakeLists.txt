@@ -9,6 +9,7 @@ endfunction()
 add_executable(test_sparse.x test_sparse.f90)
 add_dependencies(test_sparse.x sparse)
 target_link_libraries(test_sparse.x PUBLIC sparse)
+target_link_libraries(test_sparse.x PUBLIC SuiteSparse::umfpack_wrappers)
 target_link_libraries(test_sparse.x PUBLIC SuiteSparse::umfpack)
 target_include_directories(test_sparse.x PUBLIC "${UMFPACK_INCLUDE_DIR}")
 

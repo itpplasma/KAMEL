@@ -68,8 +68,8 @@ set_target_properties(sparse PROPERTIES LINKER_LANGUAGE Fortran
     ARCHIVE_OUTPUT_DIRECTORY "${lib}"
     Fortran_MODULE_DIRECTORY "${objs}")
 add_dependencies(sparse SuiteSparse)
-target_link_libraries(sparse PUBLIC SuiteSparse::umfpack)
 target_link_libraries(sparse PUBLIC SuiteSparse::umfpack_wrappers)
+target_link_libraries(sparse PUBLIC SuiteSparse::umfpack)
 target_include_directories(sparse PUBLIC "${UMFPACK_INCLUDE_DIR}")
 
 add_library(ql-balance_lib STATIC ${balance_lib_fortran_sources} ${balance_lib_cpp_sources})

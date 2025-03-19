@@ -29,6 +29,8 @@ subroutine ramp_coil
             call ramp_up_hyst_mod
         case(11)
             call ramp_oscillation
+        case(12)
+            call ramp_up_down_zero
         case default
             stop 'Error: ramp_up_mode not defined'
     end select
@@ -311,6 +313,28 @@ subroutine ramp_oscillation
     implicit none
 
     antenna_factor = antenna_factor_max * (hyst_mod_amp_fac * sin(2.0d0 * pi * time * hyst_mod_freq + hyst_mod_phase))**2
+
+    if (time .ge. t_max_ramp_up) then
+        call stop_evolution
+    end if
+
+end subroutine
+
+subroutine ramp_up_down_zero
+
+    use time_evolution, only: time_ind, time
+    use wave_code_data, only: antenna_factor
+    use time_evolution_stellarator, only: hyst_mod_freq, hyst_mod_phase, hyst_mod_amp_fac
+    use time_evolution, only: antenna_factor_max, t_max_ramp_up
+    use baseparam_mod, only: pi
+
+    implicit none
+
+    if (time .lt. t_max_ramp_up/2.0d0) then
+        antenna_factor = antenna_factor_max * (hyst_mod_amp_fac * sin(2.0d0 * pi * time * hyst_mod_freq + hyst_mod_phase))**2
+    else
+        antenna_factor = 0.0d0
+    end if
 
     if (time .ge. t_max_ramp_up) then
         call stop_evolution

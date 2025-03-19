@@ -411,6 +411,10 @@ module time_evolution
             CALL h5_add_double_1(h5_id, trim(h5_currentgrp), dqle22_res_time(1:time_ind), &
                 lbound(dqle22_res_time(1:time_ind)), ubound(dqle22_res_time(1:time_ind)))
 
+            h5_currentgrp = "/"//trim(h5_mode_groupname) //"/dae22_res_time"
+            CALL h5_add_double_1(h5_id, trim(h5_currentgrp), dae22_res_time(1:time_ind), &
+                lbound(dae22_res_time(1:time_ind)), ubound(dae22_res_time(1:time_ind)))
+
             h5_currentgrp = "/"//trim(h5_mode_groupname) //"/bifurcation_criterion"
             CALL h5_add_double_1(h5_id, trim(h5_currentgrp), bif_criterion(1:time_ind), &
                 lbound(bif_criterion(1:time_ind)), ubound(bif_criterion(1:time_ind)))

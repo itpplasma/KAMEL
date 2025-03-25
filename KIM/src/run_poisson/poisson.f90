@@ -32,11 +32,14 @@ module rt_poisson
 
     subroutine run_poisson(this)
 
+        use kernels, only: fill_rho_kernels
+
         implicit none
         class(poisson_t), intent(inout) :: this
 
         ! calculate kernels
         ! write kernels
+        call fill_rho_kernels
 
     
     end subroutine

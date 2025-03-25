@@ -7,7 +7,6 @@ subroutine read_config
     use grid
     use cut_off_integration
     use equilibrium, only: calculate_equil
-    use unit_tests, only: test_all, test_sparse_solver
     use poisson_solver, only: solve_poisson
 
     implicit none

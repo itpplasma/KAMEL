@@ -6,28 +6,30 @@ module kernels
     use grid
     use back_quants
     use omp_lib
+    use KIM_kinds, only: dp
 
     implicit none
 
-    double complex, dimension(:,:,:), allocatable :: K_rho_phi_of_rg
-    double complex, dimension(:,:,:), allocatable :: K_rho_B_of_rg
+    complex(dp), dimension(:,:,:), allocatable :: K_rho_phi_of_rg
+    complex(dp), dimension(:,:,:), allocatable :: K_rho_B_of_rg
 
-    double complex, dimension(:,:), allocatable :: K_rho_phi_llp
-    double complex, dimension(:,:), allocatable :: K_rho_B_llp
+    complex(dp), dimension(:,:), allocatable :: K_rho_phi_llp
+    complex(dp), dimension(:,:), allocatable :: K_rho_B_llp
 
-    double complex, dimension(:,:), allocatable :: K_j_phi_llp
-    double complex, dimension(:,:), allocatable :: K_j_B_llp
+    complex(dp), dimension(:,:), allocatable :: K_j_phi_llp
+    complex(dp), dimension(:,:), allocatable :: K_j_B_llp
 
     logical :: write_out
 
     integer :: nlagr = 4
     integer :: max_threads
 
-    double precision :: bessel_large_arg_limit = 3d0
-    double precision :: large_z0_limit = 4.5d0
+    real(dp) :: bessel_large_arg_limit = 3d0
+    real(dp) :: large_z0_limit = 4.5d0
 
 
     contains
+
         subroutine fill_rho_kernels
 
             use config, only: fstatus
@@ -71,30 +73,32 @@ module kernels
 
         
         ! This is without the exp(i k_r(r_g - x_l)) factor
-        double complex function kernel_rho_phi_of_kr_krp_rg(val_kr, val_krp, val_rg)
+        complex(dp) function kernel_rho_phi_of_kr_krp_rg(val_kr, val_krp, val_rg)
 
             use setup, only: omega
             use constants, only: pi
+            use KIM_kinds, only: dp
+
             implicit none
 
-            double precision, dimension(:,:), allocatable :: coef
+            real(dp), dimension(:,:), allocatable :: coef
             integer :: ibeg, iend            
-            double precision, intent(in) :: val_kr, val_krp, val_rg
+            real(dp), intent(in) :: val_kr, val_krp, val_rg
             integer :: ir
 
             ! sub functions appearing in the kernels
-            double complex :: a0, a1, a2
-            double complex :: eval_bp, eval_bt ! b_+ and b_\times
-            double complex :: z0_interp
-            double complex :: eval_besselI0, eval_besselIm1
+            complex(dp) :: a0, a1, a2
+            complex(dp) :: eval_bp, eval_bt ! b_+ and b_\times
+            complex(dp) :: z0_interp
+            complex(dp) :: eval_besselI0, eval_besselIm1
 
-            double complex :: besselI ! complex bessel function from bessel.f90
-            double complex :: plasma_Z ! plasma dispersion function
+            complex(dp) :: besselI ! complex bessel function from bessel.f90
+            complex(dp) :: plasma_Z ! plasma dispersion function
 
             integer :: sigma ! for loop over species
 
             ! interpolated values of the parameters
-            double precision :: vT_interp, omc_interp, ks_interp, om_E_interp, kp_interp, &
+            real(dp) :: vT_interp, omc_interp, ks_interp, om_E_interp, kp_interp, &
                                         A1_interp, A2_interp, lambda_D_interp, nu_interp
 
             kernel_rho_phi_of_kr_krp_rg = 0.0d0
@@ -211,30 +215,33 @@ module kernels
 
 
         ! TODO: implement the following functions
-        double complex function kernel_rho_B_of_kr_krp_rg(val_kr, val_krp, val_rg)
+        complex(dp) function kernel_rho_B_of_kr_krp_rg(val_kr, val_krp, val_rg)
 
             use setup, only: omega
             use constants, only: sol, com_unit, pi
-            implicit none
-            double precision, intent(in) :: val_kr, val_krp, val_rg
+            use KIM_kinds, only: dp
 
-            double precision, dimension(:,:), allocatable :: coef
+            implicit none
+
+            real(dp), intent(in) :: val_kr, val_krp, val_rg
+
+            real(dp), dimension(:,:), allocatable :: coef
             integer :: ibeg, iend            
             integer :: ir
             
             ! sub functions appearing in the kernels
-            double complex :: a0, a1, a2
-            double complex :: eval_bp, eval_bt ! b_+ and b_\times
-            double complex :: z0_interp
-            double complex :: eval_besselI0, eval_besselIm1
+            complex(dp) :: a0, a1, a2
+            complex(dp) :: eval_bp, eval_bt ! b_+ and b_\times
+            complex(dp) :: z0_interp
+            complex(dp) :: eval_besselI0, eval_besselIm1
 
-            double complex :: besselI ! complex bessel function from bessel.f90
-            double complex :: plasma_Z ! plasma dispersion function
+            complex(dp) :: besselI ! complex bessel function from bessel.f90
+            complex(dp) :: plasma_Z ! plasma dispersion function
 
             integer :: sigma ! for loop over species
 
             ! interpolated values of the parameters
-            double precision :: vT_interp, omc_interp, ks_interp, om_E_interp, kp_interp, &
+            real(dp) :: vT_interp, omc_interp, ks_interp, om_E_interp, kp_interp, &
                                         A1_interp, A2_interp, lambda_D_interp, nu_interp
 
 
@@ -339,19 +346,19 @@ module kernels
         end function kernel_rho_B_of_kr_krp_rg
 
 
-        double complex function kernel_j_phi_of_kr_krp_rg(val_kr, val_krp, val_rg)
+        complex(dp) function kernel_j_phi_of_kr_krp_rg(val_kr, val_krp, val_rg)
 
             implicit none
-            double precision, intent(in) :: val_kr, val_krp, val_rg
+            real(dp), intent(in) :: val_kr, val_krp, val_rg
 
             kernel_j_phi_of_kr_krp_rg = 0.0d0
 
         end function kernel_j_phi_of_kr_krp_rg
 
-        double complex function kernel_j_B_of_kr_krp_rg(val_kr, val_krp, val_rg)
+        complex(dp) function kernel_j_B_of_kr_krp_rg(val_kr, val_krp, val_rg)
 
             implicit none
-            double precision, intent(in) :: val_kr, val_krp, val_rg
+            real(dp), intent(in) :: val_kr, val_krp, val_rg
 
             kernel_j_B_of_kr_krp_rg = 0.0d0
 

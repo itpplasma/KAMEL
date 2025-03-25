@@ -4,10 +4,11 @@ program kim_main
     use kim_mod, only: from_kim_factory_get_kim
     use config, only: type_of_run
     use omp_lib, only: omp_get_wtime
+    use KIM_kinds, only: dp
 
     implicit none
 
-    double precision :: t_start, t_finish
+    real(dp) :: t_start, t_finish
     class(kim_t), allocatable :: kim_instance
     
     call kim_init

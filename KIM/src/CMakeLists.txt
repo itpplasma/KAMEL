@@ -6,10 +6,9 @@ set(KIM_general general/read_config.f90
                 general/KIM_base.f90
                 general/KIM_mod.f90
                 general/KIM_init.f90
+                general/KIM_kinds.f90
 )
 
-set(KIM_poisson poisson_equation/solve_poisson.f90
-)
 
 set(KIM_math math/suitesparse/umf4_f77zwrapper.c
             math/suitesparse/umf4_f77wrapper.c
@@ -60,7 +59,11 @@ set(KIM_background_equilibrium background_equilibrium/calculate_backs.f90
 set(KIM_dispersion dispersion/fun_input.f90
 )
 
-set(KIM_WKB_dispersion wkb_dispersion/wkb_dispersion.f90
+set(KIM_poisson    run_poisson/poisson.f90
+                    run_poisson/solve_poisson.f90
+)
+
+set(KIM_WKB_dispersion run_wkb_dispersion/wkb_dispersion.f90
 )
 
 set(external_zeal ${CMAKE_SOURCE_DIR}/../external/Zeal/zeal_input.f90
@@ -135,8 +138,8 @@ set_target_properties(KIM_exe PROPERTIES
                         OUTPUT_NAME KIM.x
                         RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/")
 target_link_libraries(KIM_exe 
-                            KIM_lib 
-                            lapack 
-                            cerf 
-                            slatec 
-                            ddeabm)
+                        KIM_lib 
+                        lapack 
+                        cerf 
+                        slatec 
+                        ddeabm)

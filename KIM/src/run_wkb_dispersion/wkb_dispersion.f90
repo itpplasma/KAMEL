@@ -1,4 +1,4 @@
-module WKB_dispersion
+module rt_WKB_dispersion
 
     use kim_base, only: kim_t
 
@@ -8,7 +8,6 @@ module WKB_dispersion
         contains
             procedure :: init => init_wkb_dispersion
             procedure :: run => run_wkb_dispersion
-            !procedure :: D_of_kr_r => D_of_kr_r
     end type WKB_dispersion_t
 
     contains

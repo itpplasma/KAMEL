@@ -23,6 +23,7 @@
     spline_base = 1,
     cut_off_fac = 1.0,
     kr_cut_off_fac = 10.0
+	collisions_off = .true.
 /
 
 &kim_grid

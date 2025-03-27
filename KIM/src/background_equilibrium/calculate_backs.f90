@@ -1,3 +1,21 @@
+subroutine allocate_backs
+
+    use back_quants
+    use plasma_parameter, only: iprof_length
+    use config, only: number_of_ion_species
+
+    implicit none
+
+    allocate(A1e(iprof_length), A2e(iprof_length), vTe(iprof_length), &
+            omce(iprof_length), nue(iprof_length), lambda_De(iprof_length))
+    allocate(A1i(number_of_ion_species, iprof_length), A2i(number_of_ion_species, iprof_length), &
+            vTi(number_of_ion_species, iprof_length), omci(number_of_ion_species, iprof_length), &
+            nui(number_of_ion_species, iprof_length), lambda_Di(number_of_ion_species, iprof_length))
+    allocate(ks(iprof_length), kp(iprof_length), om_E(iprof_length), z0e(iprof_length))
+    allocate(z0i(number_of_ion_species, iprof_length))
+
+end subroutine
+
 ! calculate background quantities, e.g. thermodynamic forces, thermal
 ! velocity, etc.
 ! input: write_out ... bool, if true, writes out background quantities
@@ -25,18 +43,11 @@ subroutine calculate_backs(write_out)
 
     integer, dimension(2) :: max_ind
 
-    if (fstatus == 1) write(*,*) 'Status: Calculating background quantities, write_out=',write_out
-
     allocate(Lee(iprof_length), Lei(number_of_ion_species, iprof_length), &
             Lii(number_of_ion_species, number_of_ion_species, iprof_length))
 
-    allocate(A1e(iprof_length), A2e(iprof_length), vTe(iprof_length), &
-            omce(iprof_length), nue(iprof_length), lambda_De(iprof_length))
-    allocate(A1i(number_of_ion_species, iprof_length), A2i(number_of_ion_species, iprof_length), &
-            vTi(number_of_ion_species, iprof_length), omci(number_of_ion_species, iprof_length), &
-            nui(number_of_ion_species, iprof_length), lambda_Di(number_of_ion_species, iprof_length))
-    allocate(ks(iprof_length), kp(iprof_length), om_E(iprof_length), z0e(iprof_length))
-    allocate(z0i(number_of_ion_species, iprof_length))
+
+    if (fstatus == 1) write(*,*) 'Status: Calculating background quantities, write_out=',write_out
 
     call calc_plasma_parameter_derivs
 
@@ -47,7 +58,7 @@ subroutine calculate_backs(write_out)
         ! Thermal velocity
         vTe(i) = 4.19d7 * sqrt(Te_prof(i)) !sqrt(Te_prof(i) * ev / e_mass)
         ! cyclotron frequency
-        omce(i) = e_charge * btor / (e_mass * sol)
+        omce(i) = -e_charge * abs(btor) / (e_mass * sol)
         ! Collision frequency
         nue(i) = 5.8e-6 * n_prof(i) * Lee(i) / Te_prof(i)**(3.0/2.0)
         ! Debye length
@@ -75,7 +86,7 @@ subroutine calculate_backs(write_out)
             ! thermal velocity
             vTi(sigma, i) = 9.79d5 * sqrt(Ti_prof(sigma,i)/Ai(sigma))!sqrt(Ti_prof(sigma, i) * ev / (p_mass * Ai(sigma)))
             ! Cyclotron frequency
-            omci(sigma, i) = (e_charge * Zi(sigma)) * btor / (p_mass * Ai(sigma) * sol)
+            omci(sigma, i) = (e_charge * Zi(sigma)) * abs(btor) / (p_mass * Ai(sigma) * sol)
             ! Collision frequency of electrons with ions
             nue(i) = nue(i) + 7.7d-6 * ni_prof(sigma, i) * Lei(sigma, i) * Zi(sigma)**2 / Te_prof(i)**(3.0/2.0)
             ! Collision frequency ions with electrons
@@ -111,8 +122,6 @@ subroutine calculate_backs(write_out)
             z0e(i) = - (om_E(i) - omega - com_unit * nue(i)) / (kp(i) * sqrt(2d0) * vTe(i) )
         end do
     end do
-
-
 
     max_ind = maxloc(vTi)
     rho_L = vTi(max_ind(1), max_ind(2)) * Ai(max_ind(1)) * p_mass * sol &

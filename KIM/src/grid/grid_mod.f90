@@ -1,5 +1,7 @@
 module grid
 
+    use KIM_kinds, only: dp
+
     implicit none
 
     integer :: l_space_dim ! dimension of spline grid
@@ -14,29 +16,29 @@ module grid
     integer :: nder=1
     integer :: npoi_der=4
 
-    double precision, dimension(:), allocatable :: xl  ! xl grid (real space)
+    real(dp), dimension(:), allocatable :: xl  ! xl grid (real space)
 
-    double complex, dimension(:,:), allocatable :: varphi_lkr
+    complex(dp), dimension(:,:), allocatable :: varphi_lkr
 
 !    integer :: number_points_rg_b, number_points_rg_c
-    double precision :: gg_factor = 1.0
-    double precision :: gg_width = 0.0
-    double precision :: gg_r_res = 0.0!95.34
+    real(dp) :: gg_factor = 1.0
+    real(dp) :: gg_width = 0.0
+    real(dp) :: gg_r_res = 0.0!95.34
     integer, dimension(:),   allocatable :: ipbeg, ipend
 
     ! k-space specific
-    double precision :: kr_grid_ampl_res
-    double precision :: kr_grid_width_res
-    double precision :: kr_res = 0.0d0
+    real(dp) :: kr_grid_ampl_res
+    real(dp) :: kr_grid_width_res
+    real(dp) :: kr_res = 0.0d0
     
     type grid_type
         integer :: npts_b, npts_c, npts
-        double precision :: min_val
-        double precision :: max_val
-        double precision, dimension(:), allocatable :: xb
-        double precision, dimension(:), allocatable :: xc
-        double precision, dimension(:,:), allocatable :: deriv_coef
-        double precision, dimension(:,:), allocatable :: reint_coef
+        real(dp) :: min_val
+        real(dp) :: max_val
+        real(dp), dimension(:), allocatable :: xb
+        real(dp), dimension(:), allocatable :: xc
+        real(dp), dimension(:,:), allocatable :: deriv_coef
+        real(dp), dimension(:,:), allocatable :: reint_coef
         character(len=:), allocatable :: name
         contains
             procedure :: grid_init
@@ -57,12 +59,12 @@ module grid
         class(grid_type), intent(inout) :: this
 
         integer, intent(inout) :: npts
-        double precision, intent(in) :: min_val, max_val
+        real(dp), intent(in) :: min_val, max_val
         character(len=*), intent(in) :: name
 
-        double precision :: hrmax
-        double precision :: x_current, x_next
-        double precision :: recnsp
+        real(dp) :: hrmax
+        real(dp) :: x_current, x_next
+        real(dp) :: recnsp
 
         this%npts = npts
         this%npts_b = npts
@@ -106,11 +108,11 @@ module grid
 
         class(grid_type), intent(inout) :: this
 
-        double precision :: x_current, x_next
-        double precision :: hrmax
+        real(dp) :: x_current, x_next
+        real(dp) :: hrmax
         integer :: ipoib, ipb, ipe
-        double precision, dimension(:,:), allocatable :: coef
-        double precision :: recnsp
+        real(dp), dimension(:,:), allocatable :: coef
+        real(dp) :: recnsp
         
         allocate(this%xb(this%npts_b), this%xc(this%npts_c))
         allocate(coef(0:nder,npoi_der))
@@ -207,9 +209,9 @@ module grid
 
         class(grid_type), intent(inout) :: this
 
-        double precision :: h
+        real(dp) :: h
         integer :: ipoib, ipb, ipe
-        double precision, dimension(:,:), allocatable :: coef
+        real(dp), dimension(:,:), allocatable :: coef
 
         allocate(this%xb(this%npts_b), this%xc(this%npts_c))
 
@@ -303,7 +305,7 @@ module grid
         class(grid_type), intent(inout) :: this
 
         integer :: ipoib, ipb, ipe
-        double precision, dimension(:,:), allocatable :: coef
+        real(dp), dimension(:,:), allocatable :: coef
 
         this%npts = this%npts +1 
         this%npts_b = this%npts

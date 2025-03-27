@@ -44,6 +44,7 @@ subroutine kim_init_for_test
     hz = B0z / B0
     hth = B0th / B0
     ! calculate quantities used for the kernels, e.g. A1, A2, dndr, omega_c,...
+    call allocate_backs
     call calculate_backs(.false.)
 
 end subroutine

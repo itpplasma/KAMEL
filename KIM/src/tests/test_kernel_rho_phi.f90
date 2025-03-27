@@ -2,7 +2,7 @@ program test_kernel_rho_phi
 
     use kernels, only: kernel_rho_phi_of_kr_krp_rg
     use KIM_kinds, only: dp
-    use plasma_parameter, only: r_prof, n_prof, ni_prof, Te_prof, Ti_prof, iprof_length
+    use plasma_parameter, only: r_prof, n_prof, ni_prof, Te_prof, Ti_prof, iprof_length, Er_prof
     use constants, only: pi, ev, e_charge
 
     implicit none
@@ -55,6 +55,61 @@ program test_kernel_rho_phi
     call calculate_backs(.false.)
 
     kernel_value = kernel_rho_phi_of_kr_krp_rg(kr, krp, rg)
-    print*, "kernel value = ", kernel_value
+    if (abs(abs(kernel_value) - 669.313) < 1.0d-2) then
+        print *, "Test linear n passed"
+        print *, ""
+    else
+        print *, "Test failed, value: ", abs(kernel_value), " should be: 669.313"
+    end if
+
+
+    do i=2, iprof_length
+        n_prof(i) = ne_core
+        Te_prof(i) = Te_prof(1) * (1.0d0 - r_prof(i) / delta_r)
+    end do
+
+    call calculate_backs(.false.)
+
+    kernel_value = kernel_rho_phi_of_kr_krp_rg(kr, krp, rg)
+    if (abs(abs(kernel_value) - 1454.16) < 1.0d-2) then
+        print *, "Test linear n passed"
+        print *, ""
+    else
+        print *, "Test failed, value: ", abs(kernel_value), " should be: 1454.16"
+    end if
+
+
+    do i=2, iprof_length
+        Te_prof(i) = Te_prof(1)
+        Er_prof(i) = 0.3d0
+    end do
+
+    call calculate_backs(.false.)
+
+    kernel_value = kernel_rho_phi_of_kr_krp_rg(kr, krp, rg)
+    if (abs(abs(kernel_value) - 913.4) < 1.0d-1) then
+        print *, "Test constant Er passed"
+        print *, ""
+    else
+        print *, "Test failed, value: ", abs(kernel_value), " should be: 913.4"
+    end if
+
+
+    do i=2, iprof_length
+        Te_prof(i) = Te_prof(1) * (1.0d0 - r_prof(i) / delta_r)
+        Er_prof(i) = 0.3d0
+    end do
+
+    call calculate_backs(.false.)
+
+    kernel_value = kernel_rho_phi_of_kr_krp_rg(kr, krp, rg)
+    if (abs(abs(kernel_value) - 913.4) < 1.0d-1) then
+        print *, "Test constant Er linear Te passed"
+        print *, ""
+    else
+        print *, "Test failed, value: ", abs(kernel_value), " should be: 913.4"
+    end if
+
+
 
 end program

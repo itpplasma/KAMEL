@@ -31,15 +31,16 @@ subroutine calculate_backs(write_out)
     use config
     use setup
     use equilibrium, only: hz, hth, B0
+    use KIM_kinds, only: dp
 
     implicit none
 
     logical, intent(in) :: write_out
-    integer :: i  
+    integer :: i
     integer :: sigma, sigma_col
-    double precision, dimension(:), allocatable :: Lee ! Coulomb log
-    double precision, dimension(:,:), allocatable :: Lei ! Coulomb log
-    double precision, dimension(:,:,:), allocatable :: Lii ! Coulomb log
+    real(dp), dimension(:), allocatable :: Lee ! Coulomb log
+    real(dp), dimension(:,:), allocatable :: Lei ! Coulomb log
+    real(dp), dimension(:,:,:), allocatable :: Lii ! Coulomb log
 
     integer, dimension(2) :: max_ind
 
@@ -62,7 +63,7 @@ subroutine calculate_backs(write_out)
         ! Collision frequency
         nue(i) = 5.8e-6 * n_prof(i) * Lee(i) / Te_prof(i)**(3.0/2.0)
         ! Debye length
-        lambda_De(i) = sqrt(Te_prof(i) *ev/ (4*pi*n_prof(i) * e_charge**2))
+        lambda_De(i) = sqrt(Te_prof(i) *ev/ (4.0d0*pi*n_prof(i) * e_charge**2.0d0))
         ! First thermodynamic force
         A1e(i) = dndr_prof(i) / n_prof(i) + e_charge/(Te_prof(i) * ev) * Er_prof(i) - 3/(2*Te_prof(i)) * dTedr_prof(i)
         ! Second thermodynamic force
@@ -76,7 +77,6 @@ subroutine calculate_backs(write_out)
         ! ExB rotation frequency
         om_E(i) = - sol * ks(i) * Er_prof(i) / B0(i)
 
-        
     end do
 
     do sigma=1, number_of_ion_species
@@ -95,7 +95,7 @@ subroutine calculate_backs(write_out)
 
             do sigma_col=sigma, number_of_ion_species
                 ! Coulomb logarithm ions - ions'
-                Lii(sigma, sigma_col, i) = 23.0 - log(Zi(sigma) * Zi(sigma_col) * (Ai(sigma)+Ai(sigma_col)) /&
+                Lii(sigma, sigma_col, i) = 23.0d0 - log(Zi(sigma) * Zi(sigma_col) * (Ai(sigma)+Ai(sigma_col)) /&
                                          (Ti_prof(sigma, i)*Ai(sigma) + Ti_prof(sigma_col, i) * Ai(sigma_col)) * &
                                           (ni_prof(sigma, i) * Zi(sigma)**2 / Ti_prof(sigma,i) + &
                                            ni_prof(sigma_col, i) * Zi(sigma_col)**2) / Ti_prof(sigma_col, i))
@@ -106,7 +106,7 @@ subroutine calculate_backs(write_out)
             end do
 
             ! Debye length ions
-            lambda_Di(sigma, i) = sqrt(Ti_prof(sigma, i) * ev/ (4*pi*ni_prof(sigma,i) * (e_charge*Zi(sigma))**2))
+            lambda_Di(sigma, i) = sqrt(Ti_prof(sigma, i) * ev/ (4.0d0*pi*ni_prof(sigma,i) * (e_charge*Zi(sigma))**2.0d0))
             ! First thermodynamic force
             A1i(sigma, i) = dnidr_prof(sigma, i) / ni_prof(sigma, i) - (e_charge*Zi(sigma))/(Ti_prof(sigma, i) * ev) * Er_prof(i)&
                         - 3/(2*Ti_prof(sigma, i)) * dTidr_prof(sigma, i)
@@ -134,7 +134,7 @@ subroutine calculate_backs(write_out)
     contains
     ! write background quantities
     subroutine write_backs
-        
+
         implicit none
         character(1024) :: filename
         logical :: ex
@@ -217,7 +217,7 @@ subroutine calculate_backs(write_out)
                     do i=1, iprof_length
                         write(78, *) r_prof(i), vTi(sigma, i)
                     end do
-                    close(unit = 78)               
+                    close(unit = 78)
                     ! Collision frequency
                     write(filename, "(A4, I1, A4)") 'nui_', sigma, '.dat'
                     open(unit = 78, file = trim(output_path)//'backs/'//filename)

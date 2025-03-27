@@ -4,7 +4,7 @@ CONFIG ?= Release
 all: ninja
 
 build/build.ninja:
-	cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=$(CONFIG)
+	cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=$(CONFIG) -DCMAKE_Fortran_COMPILER=/usr/bin/mpif90
 
 ninja: build/build.ninja
 	cmake --build build

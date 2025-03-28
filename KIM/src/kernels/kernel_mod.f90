@@ -78,7 +78,7 @@ module kernels
             use setup, only: omega
             use constants, only: pi
             use KIM_kinds, only: dp
-            use bessel_mod, only: gsl_sf_bessel_In
+            use gsl_mod, only: gsl_sf_bessel_In
 
             implicit none
 

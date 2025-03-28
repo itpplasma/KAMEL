@@ -15,6 +15,7 @@ set(KIM_math math/suitesparse/umf4_f77zwrapper.c
             math/superlu/c_fortran_dgssv.c
             math/superlu/c_fortran_zgssv.c
             math/bessel.f90
+            math/gsl_mod.f90
             math/bessk.f90
             math/use_libcerf_mod.f90
             math/sparse_mod.f90

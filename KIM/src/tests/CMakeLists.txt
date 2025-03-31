@@ -25,3 +25,20 @@ target_link_libraries(test_kernel_rho_phi   PUBLIC KIM_lib
 )
 target_include_directories(test_kernel_rho_phi PUBLIC "${CMAKE_BINARY_DIR}/src")
 add_test(NAME test_kernel_rho_phi COMMAND "${CMAKE_BINARY_DIR}/tests/test_kernel_rho_phi.x")
+
+
+add_executable(test_kernel_rho_B test_kernel_rho_B.f90
+                                    kim_init_for_test.f90)
+set(KIM_lib "${CMAKE_BINARY_DIR}/lib/KIM_lib.a")
+add_dependencies(test_kernel_rho_B KIM_lib)
+set_target_properties(test_kernel_rho_B PROPERTIES 
+                        OUTPUT_NAME test_kernel_rho_B.x
+                        RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/tests/")
+target_link_libraries(test_kernel_rho_B   PUBLIC KIM_lib
+                                            lapack 
+                                            cerf 
+                                            slatec 
+                                            ddeabm
+)
+target_include_directories(test_kernel_rho_B PUBLIC "${CMAKE_BINARY_DIR}/src")
+add_test(NAME test_kernel_rho_B COMMAND "${CMAKE_BINARY_DIR}/tests/test_kernel_rho_B.x")

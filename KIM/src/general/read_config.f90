@@ -38,8 +38,6 @@ subroutine read_config
         write(*,*) 'Namelist path provided: ', nml_config_path
     end if
 
-    
-
     open(unit = 77, file = trim(nml_config_path))
     read(unit = 77, nml = KIM_CONFIG)
     allocate(Zi(number_of_ion_species), Ai(number_of_ion_species))

@@ -2,14 +2,14 @@ module config
 
     implicit none
 
-    character(1024) :: profile_location ! path to profile directory
-    character(1024) :: output_path         ! path to output directory
+    character(256) :: profile_location ! path to profile directory
+    character(256) :: output_path         ! path to output directory
     character(100) :: type_of_run         ! path to output directory
     logical :: hdf5_input, hdf5_output
     integer :: fdebug, fstatus
     integer :: number_of_ion_species ! number of ion species
     logical :: artificial_debye_case
     logical :: kernel_debye_case
-    character(1024) :: nml_config_path = "./KIM_config.nml" ! path to the namelist file
+    character(256) :: nml_config_path = "./KIM_config.nml" ! path to the namelist file
 
 end module

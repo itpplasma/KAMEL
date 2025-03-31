@@ -5,7 +5,7 @@ program test_kernel_localizer
     use grid, only: rg_grid
     use plasma_parameter, only: r_prof, n_prof, ni_prof, Te_prof, Ti_prof, iprof_length, Er_prof
     use resonances_mod, only: r_res
-    use regularization_funcs, only: theta_middle
+    use regularization_funcs, only: theta_middle, theta_right, theta_left
 
     implicit none
 
@@ -15,7 +15,9 @@ program test_kernel_localizer
     integer :: r_ind = 50
     complex(dp) :: kernel_value
     real(dp) :: kr, krp, rg
-    real(dp), allocatable :: localizer(:)
+    real(dp), allocatable :: localizer_middle(:)
+    real(dp), allocatable :: localizer_right(:)
+    real(dp), allocatable :: localizer_left(:)
 
     call kim_init_for_test
     ne_core = n_prof(1)
@@ -28,16 +30,21 @@ program test_kernel_localizer
     call calculate_backs(.false.)
     call generate_grids
 
-    allocate(localizer(rg_grid%npts_b))
+    allocate(localizer_right(rg_grid%npts_b), localizer_middle(rg_grid%npts_b), &
+        localizer_left(rg_grid%npts_b))
 
     r_res = 45.0d0
 
     open(unit=10, file='localizer.txt', status='replace')
     do i = 1, rg_grid%npts_b
-        localizer(i) = theta_middle(rg_grid%xb(i))
-        write(10,*) rg_grid%xb(i), localizer(i)
+        localizer_right(i) = theta_right(rg_grid%xb(i))
+        localizer_middle(i) = theta_middle(rg_grid%xb(i))
+        localizer_left(i) = theta_left(rg_grid%xb(i))
+        write(10,*) rg_grid%xb(i), localizer_right(i), localizer_middle(i), localizer_left(i)
     end do
     close(10)
+    call system('gnuplot -e "p ''localizer.txt'' using 1:2 w l title ''right'', '''' &
+    using 1:3 w l title ''middle'', '''' using 1:4 w l title ''left''; pause -1"')
 
     kr = 1.0d0
     krp = 1.0d0

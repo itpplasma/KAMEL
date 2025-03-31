@@ -78,7 +78,7 @@ module kernels
             use setup, only: omega
             use constants, only: pi
             use KIM_kinds, only: dp
-            use bessel_mod, only: gsl_sf_bessel_In
+            use gsl_mod, only: gsl_sf_bessel_In
 
             implicit none
 
@@ -124,13 +124,6 @@ module kernels
             kperp = sqrt(ks_interp**2 + val_kr**2)
             kperpp = sqrt(ks_interp**2 + val_krp**2)
 
-            print *, ""
-            print *, "ks_interp = ", ks_interp
-            print *, "kp_interp = ", kp_interp
-            print *, "kperp = ", kperp
-            print *, "kperpp = ", kperpp
-            print *, ""
-
             do sigma = 0, number_of_ion_species
 
                 if (sigma == 0) then ! electrons
@@ -152,22 +145,9 @@ module kernels
                 end if
 
                 rhoL_interp = vT_interp/abs(omc_interp)
-                print *, ""
 
                 eval_bp = rhoL_interp**2.0d0 / 2.0d0 * (kperp**2.0d0 + kperpp**2.0d0)
                 eval_bt = rhoL_interp**2.0d0 * kperp * kperpp
-
-                print *, "z0_interp = ", z0_interp
-                print *, "vT_interp = ", vT_interp
-                print *, "omc_interp = ", omc_interp
-                print *, "A1_interp = ", A1_interp
-                print *, "A2_interp = ", A2_interp
-                print *, "rhoL_interp = ", rhoL_interp
-                print *, "plasma_Z = ", plasma_Z(z0_interp)
-                print *, "eval_bp = ", eval_bp
-                print *, "eval_bt = ", eval_bt
-                print *, "Lambda_D = ", lambda_D_interp
-
 
                 if (kernel_debye_case .eqv. .true.)then
                     eval_besselI0 = 0.0d0
@@ -187,19 +167,9 @@ module kernels
                         eval_besselIm1 = exp(- eval_bp + asinh(-1.0d0/eval_bt) + eval_bt * sqrt(1.0d0 + 1/eval_bt**2.0d0)) &
                                 / (sqrt(2.0d0*pi*eval_bt * sqrt(1.0d0 + 1.0d0/eval_bt**2.0d0)))
                     else
-                        !eval_besselI0 = besselI(0, eval_bt, 0) * exp(-eval_bp)
-                        !eval_besselIm1 = besselI(-1, eval_bt, 0) * exp(-eval_bp)
-
                         eval_besselI0 = gsl_sf_bessel_In(0, real(eval_bt, dp)) * exp(-eval_bp)
                         eval_besselIm1 = gsl_sf_bessel_In(-1, real(eval_bt, dp)) * exp(-eval_bp)
-
                     end if
-
-                    print *, ""
-                    print *, "eval_besselI0 = ", eval_besselI0
-                    print *, "Bessel0 = ", gsl_sf_bessel_In(0, real(eval_bt,dp))
-                    print *, "eval_besselIm1 = ", eval_besselIm1
-                    print *, "Bessel-1 = ", gsl_sf_bessel_In(-1, real(eval_bt,dp))
 
                     kernel_rho_phi_of_kr_krp_rg = kernel_rho_phi_of_kr_krp_rg + &
                         1.0d0/(lambda_D_interp**2.0d0) * exp(com_unit * (val_kr - val_krp) * val_rg) &
@@ -209,7 +179,6 @@ module kernels
                             + A2_interp * (plasma_Z(z0_interp) * eval_besselI0 * (1 + eval_bp + z0_interp**2.0d0) &
                             + eval_besselIm1 * eval_bt + z0_interp * eval_besselI0))&
                         )
-                    print *, "kernel_rho_phi_of_kr_krp_rg = ", kernel_rho_phi_of_kr_krp_rg
                 end if
             end do
 
@@ -230,6 +199,7 @@ module kernels
             use setup, only: omega
             use constants, only: sol, com_unit, pi
             use KIM_kinds, only: dp
+            use gsl_mod, only: gsl_sf_bessel_In
 
             implicit none
 
@@ -317,8 +287,8 @@ module kernels
                         eval_besselIm1 = exp(- eval_bp + asinh(-1.0d0/eval_bt) + eval_bt * sqrt(1.0d0 + 1/eval_bt**2.0d0)) &
                                 / (sqrt(2.0d0*pi*eval_bt * sqrt(1.0d0 + 1.0d0/eval_bt**2.0d0)))
                     else
-                        eval_besselI0 = besselI(0, eval_bt, 0) * exp(-eval_bp)
-                        eval_besselIm1 = besselI(-1, eval_bt, 0) * exp(-eval_bp)
+                        eval_besselI0 = gsl_sf_bessel_In(0, real(eval_bt, dp)) * exp(-eval_bp)
+                        eval_besselIm1 = gsl_sf_bessel_In(-1, real(eval_bt, dp)) * exp(-eval_bp)
                     end if
 
                     a0 = eval_besselI0 * (- om_E_interp / omc_interp + ks_interp * vT_interp**2d0 &

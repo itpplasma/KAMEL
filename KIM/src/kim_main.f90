@@ -10,7 +10,7 @@ program kim_main
 
     real(dp) :: t_start, t_finish
     class(kim_t), allocatable :: kim_instance
-    
+
     call kim_init
     call from_kim_factory_get_kim(type_of_run, kim_instance)
 

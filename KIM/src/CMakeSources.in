@@ -35,6 +35,7 @@ set(KIM_grid #grid/generate_k_space_grid.f90
             grid/resonances_mod.f90
             grid/prepare_resonances.f90
             grid/recnsplit.f90
+            grid/regularization_funcs.f90
 )
 
 set(KIM_util util/findIndex.f90

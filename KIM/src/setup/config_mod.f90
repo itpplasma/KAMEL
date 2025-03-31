@@ -10,5 +10,6 @@ module config
     integer :: number_of_ion_species ! number of ion species
     logical :: artificial_debye_case
     logical :: kernel_debye_case
+    character(1024) :: nml_config_path = "./KIM_config.nml" ! path to the namelist file
 
 end module

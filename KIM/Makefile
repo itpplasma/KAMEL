@@ -1,3 +1,5 @@
+BUILD_DIR := build
+
 .PHONY: all ninja test install clean
 all: ninja
 
@@ -10,6 +12,9 @@ build/build.ninja:
 
 ninja: build/build.ninja
 	cmake --build build
+
+test: ninja
+	cd $(BUILD_DIR) && ctest
 
 clean:
 	rm -rf ../external/Zeal

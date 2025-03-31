@@ -16,7 +16,8 @@ set(KIM_lib "${CMAKE_BINARY_DIR}/lib/KIM_lib.a")
 add_dependencies(test_kernel_rho_phi KIM_lib)
 set_target_properties(test_kernel_rho_phi PROPERTIES 
                         OUTPUT_NAME test_kernel_rho_phi.x
-                        RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/tests/")
+                        RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/tests/"
+)
 target_link_libraries(test_kernel_rho_phi   PUBLIC KIM_lib
                                             lapack 
                                             cerf 
@@ -24,4 +25,4 @@ target_link_libraries(test_kernel_rho_phi   PUBLIC KIM_lib
                                             ddeabm
 )
 target_include_directories(test_kernel_rho_phi PUBLIC "${CMAKE_BINARY_DIR}/src")
-add_test(NAME test_kernel_rho_phi COMMAND "${CMAKE_BINARY_DIR}/tests/test_kernel_rho_phi.x")
+add_test(NAME test_kernel_rho_phi COMMAND ${CMAKE_BINARY_DIR}/tests/test_kernel_rho_phi.x ${CMAKE_SOURCE_DIR}/nmls/KIM_config.nml)

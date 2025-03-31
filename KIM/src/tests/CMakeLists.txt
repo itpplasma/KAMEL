@@ -43,3 +43,21 @@ target_link_libraries(test_kernel_rho_B   PUBLIC KIM_lib
 )
 target_include_directories(test_kernel_rho_B PUBLIC "${CMAKE_BINARY_DIR}/src")
 add_test(NAME test_kernel_rho_B COMMAND ${CMAKE_BINARY_DIR}/tests/test_kernel_rho_B.x ${CMAKE_SOURCE_DIR}/nmls/KIM_config.nml)
+
+
+
+add_executable(test_kernel_localizer test_kernel_localizer.f90
+                                    kim_init_for_test.f90)
+set(KIM_lib "${CMAKE_BINARY_DIR}/lib/KIM_lib.a")
+add_dependencies(test_kernel_localizer KIM_lib)
+set_target_properties(test_kernel_localizer PROPERTIES 
+                        OUTPUT_NAME test_kernel_localizer.x
+                        RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/tests/")
+target_link_libraries(test_kernel_localizer   PUBLIC KIM_lib
+                                            lapack 
+                                            cerf 
+                                            slatec 
+                                            ddeabm
+)
+target_include_directories(test_kernel_localizer PUBLIC "${CMAKE_BINARY_DIR}/src")
+add_test(NAME test_kernel_localizer COMMAND ${CMAKE_BINARY_DIR}/tests/test_kernel_localizer.x ${CMAKE_SOURCE_DIR}/nmls/KIM_config.nml)

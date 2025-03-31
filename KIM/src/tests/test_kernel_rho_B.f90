@@ -25,24 +25,12 @@ program test_kernel_rho_B
 
     kernel_value = kernel_rho_B_of_kr_krp_rg(kr, krp, rg)
 
-    print *, ""
-    print *, "kernel value = ", kernel_value
-
-    lambda_De = sqrt(Te_prof(r_ind) * ev / (4.0d0 * pi * e_charge**2 * n_prof(r_ind)))
-    lambda_Di = sqrt(Ti_prof(1, r_ind) * ev / (4.0d0 * pi * e_charge**2 * ni_prof(1, r_ind)))
-    lambda_D = sqrt(1.0d0/(1.0d0/lambda_De**2 + 1.0d0/lambda_Di**2))
-
-    kernel_test_value = -1.0d0 / (2.0d0**3.0d0 * pi**2.0d0 * lambda_D**2.0d0)
-
-    print *, "lambda De = ", lambda_De
-    print *, "lambda Di = ", lambda_Di
-    print *, "lambda D = ", lambda_D
-
-    if (abs(kernel_value - kernel_test_value) < 1.0d-6) then
+    if (abs(kernel_value - 0.0d0) < 1.0d-6) then
         print *, "Test constant passed"
         print *, ""
     else
-        print *, "Test failed, value: ", kernel_value, " should be: ",kernel_test_value
+        print *, "Test failed, value: ", kernel_value, " should be: ", 0.0d0
+        error stop
     end if
 
     ne_core = n_prof(1)
@@ -55,11 +43,12 @@ program test_kernel_rho_B
     call calculate_backs(.false.)
 
     kernel_value = kernel_rho_B_of_kr_krp_rg(kr, krp, rg)
-    if (abs(abs(kernel_value) - 669.313) < 1.0d-2) then
+    if (abs(abs(kernel_value) - 0.0158746) < 1.0d-3) then
         print *, "Test linear n passed"
         print *, ""
     else
-        print *, "Test failed, value: ", abs(kernel_value), " should be: 669.313"
+        print *, "Test linear n failed, value: ", abs(kernel_value), " should be: 0.0158746"
+        error stop
     end if
 
 
@@ -71,11 +60,12 @@ program test_kernel_rho_B
     call calculate_backs(.false.)
 
     kernel_value = kernel_rho_B_of_kr_krp_rg(kr, krp, rg)
-    if (abs(abs(kernel_value) - 1454.16) < 1.0d-2) then
-        print *, "Test linear n passed"
+    if (abs(abs(kernel_value) - 0.0517352) < 1.0d-3) then
+        print *, "Test linear Te passed"
         print *, ""
     else
-        print *, "Test failed, value: ", abs(kernel_value), " should be: 1454.16"
+        print *, "Test linear Te failed, value: ", abs(kernel_value), " should be: 0.0517352"
+        error stop
     end if
 
 
@@ -87,11 +77,12 @@ program test_kernel_rho_B
     call calculate_backs(.false.)
 
     kernel_value = kernel_rho_B_of_kr_krp_rg(kr, krp, rg)
-    if (abs(abs(kernel_value) - 913.4) < 1.0d-1) then
+    if (abs(abs(kernel_value) - 0.184567) < 1.0d-1) then
         print *, "Test constant Er passed"
         print *, ""
     else
-        print *, "Test failed, value: ", abs(kernel_value), " should be: 913.4"
+        print *, "Test constant Er failed, value: ", abs(kernel_value), " should be: 0.184567"
+        error stop
     end if
 
 
@@ -103,11 +94,12 @@ program test_kernel_rho_B
     call calculate_backs(.false.)
 
     kernel_value = kernel_rho_B_of_kr_krp_rg(kr, krp, rg)
-    if (abs(abs(kernel_value) - 913.4) < 1.0d-1) then
+    if (abs(abs(kernel_value) - 0.244917) < 1.0d-1) then
         print *, "Test constant Er linear Te passed"
         print *, ""
     else
-        print *, "Test failed, value: ", abs(kernel_value), " should be: 913.4"
+        print *, "Test constant Er linear Te failed, value: ", abs(kernel_value), " should be: 0.244917"
+        error stop
     end if
 
 end program

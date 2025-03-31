@@ -215,7 +215,7 @@ module grid
 
         allocate(this%xb(this%npts_b), this%xc(this%npts_c))
 
-        h = (this%max_val - this%min_val) / (this%npts-1)
+        h = (this%max_val - this%min_val) / (this%npts_b-1)
 
         this%xb(1) = this%min_val
         do ipoib=2, this%npts_b
@@ -227,8 +227,9 @@ module grid
 
         write(*,*) " - - - grid ", this%name, ": - - - "
         write(*,*) "    h = ", this%xb(2) - this%xb(1)
+        write(*,*) "    max = ", this%max_val
         write(*,*) '    Number points r (l) grid: ', this%npts_b
-        write(*,*) " - - - - - - - - - - "
+        write(*,*) "    generating linear grid..."
 
         ! get index for resonant radius
         call binsrc(abs(this%xb), 1, this%npts_b, abs(r_res), index_rg_res)
@@ -238,7 +239,7 @@ module grid
             stop
         endif
 
-        if (.not. allocated(ipbeg)) allocate(ipbeg(this%npts_b), ipend(this%npts_b))
+        if (.not. allocated(ipbeg)) allocate(ipbeg(this%npts_c), ipend(this%npts_c))
         allocate(this%deriv_coef(npoi_der, this%npts_c))
         allocate(this%reint_coef(npoi_der, this%npts_c))
 
@@ -262,7 +263,7 @@ module grid
 
         enddo
 
-        deallocate(coef)
+        deallocate(coef, ipbeg, ipend)
 
         call write_new_grid
 

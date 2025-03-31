@@ -18,7 +18,7 @@
     n_mode = 2,
     zi = 1,
     ai = 2,
-    r_plas = 64.7,
+    r_plas = 70.0,
     omega = 0.0,
     spline_base = 1,
     cut_off_fac = 1.0,

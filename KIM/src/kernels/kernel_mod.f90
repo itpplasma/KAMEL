@@ -24,7 +24,7 @@ module kernels
     integer :: nlagr = 4
     integer :: max_threads
 
-    real(dp) :: bessel_large_arg_limit = 3d0
+    real(dp) :: bessel_large_arg_limit = 10d0
     real(dp) :: large_z0_limit = 4.5d0
 
 
@@ -46,26 +46,29 @@ module kernels
 
             K_rho_phi_of_rg = 0.0d0
             K_rho_B_of_rg = 0.0d0
-
-            !$OMP PARALLEL DO collapse(3) default(none) schedule(guided) &
-            !$OMP PRIVATE(i_krp, i_kr, i_rg) &
-            !$OMP SHARED(K_rho_phi_of_rg, K_rho_B_of_rg, &
-            !$OMP kr_grid, krp_grid, rg_grid, count_loading)
+            !!$OMP PARALLEL DO collapse(3) default(none) schedule(guided) &
+            !!$OMP PRIVATE(i_krp, i_kr, i_rg) &
+            !!$OMP SHARED(K_rho_phi_of_rg, K_rho_B_of_rg, &
+            !!$OMP kr_grid, krp_grid, rg_grid, count_loading)
             do i_krp = 1, krp_grid%npts_b
                 do i_kr = 1, kr_grid%npts_b
                     do i_rg = 1, rg_grid%npts_b
                         K_rho_phi_of_rg(i_krp, i_kr, i_rg) = kernel_rho_phi_of_kr_krp_rg(krp_grid%xb(i_kr), kr_grid%xb(i_krp)&
                                                             , rg_grid%xb(i_rg))
-                        !K_rho_B_of_rg(i_krp, i_kr, i_rg) = kernel_rho_B_of_kr_krp_rg(kr(i_kr), krp(i_krp), rb(i_rg))
-
+                        K_rho_B_of_rg(i_krp, i_kr, i_rg) = kernel_rho_B_of_kr_krp_rg(krp_grid%xb(i_kr), kr_grid%xb(i_krp)&
+                                                            , rg_grid%xb(i_rg))
                         if (isnan(real(K_rho_phi_of_rg(i_krp, i_kr, i_rg)))) then
                             write(*,*) "K_rho_phi_of_rg: NaN detected, kr = ", kr_grid%xb(i_kr), ", krp = ", krp_grid%xb(i_krp)&
+                                        , ", rg = ", rg_grid%xb(i_rg)
+                        end if
+                        if (isnan(real(K_rho_B_of_rg(i_krp, i_kr, i_rg)))) then
+                            write(*,*) "K_rho_B_of_rg: NaN detected, kr = ", kr_grid%xb(i_kr), ", krp = ", krp_grid%xb(i_krp)&
                                         , ", rg = ", rg_grid%xb(i_rg)
                         end if
                     end do
                 end do
             end do
-            !$OMP END PARALLEL DO
+            !!$OMP END PARALLEL DO
 
             if (fstatus == 1) write(*,*) 'Status: Finished filling rho kernels'
 
@@ -210,7 +213,6 @@ module kernels
             integer :: ir
 
             ! sub functions appearing in the kernels
-            complex(dp) :: a0, a1, a2
             complex(dp) :: eval_bp, eval_bt ! b_+ and b_\times
             complex(dp) :: z0_interp
             complex(dp) :: eval_besselI0, eval_besselIm1
@@ -222,7 +224,8 @@ module kernels
 
             ! interpolated values of the parameters
             real(dp) :: vT_interp, omc_interp, ks_interp, om_E_interp, kp_interp, &
-                                        A1_interp, A2_interp, lambda_D_interp, nu_interp
+                        A1_interp, A2_interp, lambda_D_interp, nu_interp, rhoL_interp,&
+                        kperp, kperpp
 
 
             kernel_rho_B_of_kr_krp_rg = 0.0d0
@@ -244,6 +247,8 @@ module kernels
             ks_interp = sum(coef(0,:) * ks(ibeg:iend))
             kp_interp = sum(coef(0,:) * kp(ibeg:iend))
             om_E_interp = sum(coef(0,:) * om_E(ibeg:iend))
+            kperp = sqrt(ks_interp**2 + val_kr**2)
+            kperpp = sqrt(ks_interp**2 + val_krp**2)
 
             do sigma = 0, number_of_ion_species
 
@@ -265,10 +270,10 @@ module kernels
                     nu_interp = sum(coef(0,:) * nui(sigma, ibeg:iend))
                 end if
 
-                eval_bp = vT_interp**2.0d0 / (2.0d0 * omc_interp**2.0d0) * (2.0d0 * ks_interp**2.0d0 &
-                        + val_kr**2.0d0 + val_krp**2.0d0)
-                eval_bt = vT_interp**2.0d0 /(omc_interp**2.0d0) * sqrt(ks_interp**2.0d0 + val_kr**2.0d0)&
-                        * sqrt(ks_interp**2.0d0 + val_krp**2.0d0)
+                rhoL_interp = vT_interp/abs(omc_interp)
+
+                eval_bp = rhoL_interp**2.0d0 / 2.0d0 * (kperp**2.0d0 + kperpp**2.0d0)
+                eval_bt = rhoL_interp**2.0d0 * kperp * kperpp
 
                 if (kernel_debye_case .eqv. .true.)then
                     eval_besselI0 = 0.0d0
@@ -276,9 +281,6 @@ module kernels
                     A1_interp = 0.0d0
                     A2_interp = 0.0d0
                     z0_interp = 0.0d0
-                    a0 = 0.0d0
-                    a1 = 0.0d0
-                    a2 = 0.0d0
                 else
                     if (real(eval_bt) > bessel_large_arg_limit) then
                         ! limit close to magnetic axis (k_s -> infinity) and large k_r and k_rp
@@ -290,32 +292,29 @@ module kernels
                         eval_besselI0 = gsl_sf_bessel_In(0, real(eval_bt, dp)) * exp(-eval_bp)
                         eval_besselIm1 = gsl_sf_bessel_In(-1, real(eval_bt, dp)) * exp(-eval_bp)
                     end if
-
-                    a0 = eval_besselI0 * (- om_E_interp / omc_interp + ks_interp * vT_interp**2d0 &
-                    / (omc_interp**2d0) * (A1_interp + (1.0d0 + eval_bp) * A2_interp)) &
-                    + ks_interp * vT_interp**2d0 / (omc_interp**2d0) &
-                    * A2_interp * eval_bt * eval_besselIm1 ! *exp(-eval_bp)
-
-                    a1 = - kp_interp/omc_interp * eval_besselI0 ! * exp(-eval_bp)
-                    a2 = ks_interp / (2d0 * omc_interp**2d0) * A2_interp * eval_besselI0 ! * exp(-eval_bp)
-
                 end if
 
-                if (abs(z0_interp) > large_z0_limit) then
-                    ! limit close to resonant surface, z -> infinity, k_parallel -> 0
-                    kernel_rho_B_of_kr_krp_rg = kernel_rho_B_of_kr_krp_rg - vT_interp**4.0d0 * kp_interp &
-                        / (lambda_D_interp**2.0d0 * omc_interp)  &
-                        / (om_E_interp - omega - com_unit * nu_interp)**2.0d0 * ((A1_interp + A2_interp * (1.0d0 + eval_bp)) &
-                        * eval_besselI0 + A2_interp * eval_bt * eval_besselIm1)
-                    !write(*,*) 'spec = ', sigma, ', r = ', r, ', lambda_D = ', lambda_D_interp, &!', omc_interp = ', omc_interp!eval_besselI0 = ', eval_besselI0, ', eval_besselIm1 = ', eval_besselIm1!',
-                else
-                    ! ideal region
-                    kernel_rho_B_of_kr_krp_rg = kernel_rho_B_of_kr_krp_rg + vT_interp**2.0d0 &
-                        / (lambda_D_interp**2.0d0 * omc_interp * kp_interp) &
-                          * ((z0_interp * plasma_Z(z0_interp) + 1.0d0) &
-                          * ((A1_interp + A2_interp * (1 + eval_bp + z0_interp**2.0d0)) * eval_besselI0 &
-                          + A2_interp * eval_bp * eval_besselIm1) + 0.5d0 * A2_interp * eval_besselI0)
-                end if
+                !if (abs(z0_interp) > large_z0_limit) then
+                    !! limit close to resonant surface, z -> infinity, k_parallel -> 0
+                    !kernel_rho_B_of_kr_krp_rg = kernel_rho_B_of_kr_krp_rg - vT_interp**4.0d0 * kp_interp &
+                        !/ (lambda_D_interp**2.0d0 * omc_interp)  &
+                        !/ (om_E_interp - omega - com_unit * nu_interp)**2.0d0 * ((A1_interp + A2_interp * (1.0d0 + eval_bp)) &
+                        !* eval_besselI0 + A2_interp * eval_bt * eval_besselIm1)
+                    !!write(*,*) 'spec = ', sigma, ', r = ', r, ', lambda_D = ', lambda_D_interp, &!', omc_interp = ', omc_interp!eval_besselI0 = ', eval_besselI0, ', eval_besselIm1 = ', eval_besselIm1!',
+                !else
+                    !! ideal region
+                    !kernel_rho_B_of_kr_krp_rg = kernel_rho_B_of_kr_krp_rg + vT_interp**2.0d0 &
+                        !/ (lambda_D_interp**2.0d0 * omc_interp * kp_interp) &
+                          !* ((z0_interp * plasma_Z(z0_interp) + 1.0d0) &
+                          !* ((A1_interp + A2_interp * (1 + eval_bp + z0_interp**2.0d0)) * eval_besselI0 &
+                          !+ A2_interp * eval_bp * eval_besselIm1) + 0.5d0 * A2_interp * eval_besselI0)
+                !end if
+
+                kernel_rho_B_of_kr_krp_rg = kernel_rho_B_of_kr_krp_rg + exp(com_unit * (val_kr - val_krp) * val_rg) &
+                    * vT_interp**2.0d0 / (lambda_D_interp**2.0d0 * omc_interp * kp_interp) &
+                    * (0.5d0 * A1_interp * eval_besselI0 *(z0_interp * plasma_Z(z0_interp) + 1.0d0) &
+                    + A2_interp * (0.5d0 * eval_besselI0 + (z0_interp * plasma_Z(z0_interp) + 1.0d0) &
+                    * ((1+eval_bp + z0_interp**2.0d0) * eval_besselI0 + eval_bp * eval_besselIm1)))
 
             end do
 

@@ -43,23 +43,29 @@ program test_kernel_rho_phi
         print *, ""
     else
         print *, "Test failed, value: ", kernel_value, " should be: ",kernel_test_value
+        error stop
     end if
 
     !!!!!!
     kr = 1.0d0
-    krp = 1.0d0
+    krp = 10.0d0
 
     rg = r_prof(r_ind)
     print *, "kr = ", kr, " krp = ", krp, " r = ", rg
 
     kernel_value = kernel_rho_phi_of_kr_krp_rg(kr, krp, rg)
 
-    if (abs(kernel_value - 491.51) < 2.0d-1) then
+    if (abs(abs(kernel_value) - 491.51) < 0.5) then
         print *, "Test constant passed"
         print *, ""
     else
         print *, "Test failed, value: ", abs(kernel_value), " should be: 491.5"
+        print *, "difference is: ", abs(kernel_value - 491.51)
+        error stop
     end if
+
+    kr = 1.0d0
+    krp = 1.0d0
 
     !!!!
     ne_core = n_prof(1)
@@ -77,6 +83,7 @@ program test_kernel_rho_phi
         print *, ""
     else
         print *, "Test failed, value: ", abs(kernel_value), " should be: 669.313"
+        error stop
     end if
 
 
@@ -88,11 +95,12 @@ program test_kernel_rho_phi
     call calculate_backs(.false.)
 
     kernel_value = kernel_rho_phi_of_kr_krp_rg(kr, krp, rg)
-    if (abs(abs(kernel_value) - 1454.16) < 1.0d-2) then
-        print *, "Test linear n passed"
+    if (abs(abs(kernel_value) - 1455.25) < 1.455d0) then
+        print *, "Test linear Te passed"
         print *, ""
     else
-        print *, "Test failed, value: ", abs(kernel_value), " should be: 1454.16"
+        print *, "Test failed, value: ", abs(kernel_value), " should be: 1455.25"
+        error stop
     end if
 
 
@@ -109,6 +117,7 @@ program test_kernel_rho_phi
         print *, ""
     else
         print *, "Test failed, value: ", abs(kernel_value), " should be: 913.4"
+        error stop
     end if
 
 

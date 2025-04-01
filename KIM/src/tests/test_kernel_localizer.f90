@@ -43,8 +43,14 @@ program test_kernel_localizer
         write(10,*) rg_grid%xb(i), localizer_right(i), localizer_middle(i), localizer_left(i)
     end do
     close(10)
-    call system('gnuplot -e "p ''localizer.txt'' using 1:2 w l title ''right'', '''' &
-    using 1:3 w l title ''middle'', '''' using 1:4 w l title ''left''; pause -1"')
+    call system('gnuplot -p -e "&
+                set xlabel ''r_g [cm]''; &
+                set ylabel ''localizer''; &
+                set grid;&
+                p ''localizer.txt'' using 1:2 w linespoints title ''right'',&
+                '''' using 1:3 w linespoints title ''middle'', &
+                '''' using 1:4 w linespoints title ''left''; &
+                "')
 
     kr = 1.0d0
     krp = 1.0d0
@@ -57,10 +63,15 @@ program test_kernel_localizer
     do i = 1, rg_grid%npts_b
         write(10,*) rg_grid%xb(i), real(K_rho_phi_of_rg(ikr,ikrp,i)) * theta_middle(rg_grid%xb(i)),&
             dimag(K_rho_phi_of_rg(ikr,ikrp,i)) * theta_middle(rg_grid%xb(i))
-        print *, rg_grid%xb(i), real(K_rho_phi_of_rg(ikr,ikrp,i)), dimag(K_rho_phi_of_rg(ikr,ikrp,i))
+        !print *, rg_grid%xb(i), real(K_rho_phi_of_rg(ikr,ikrp,i)), dimag(K_rho_phi_of_rg(ikr,ikrp,i))
     end do
     close(10)
 
-    call system('gnuplot -e "p ''data.txt'' using 1:2 w l title ''real'', '''' using 1:3 w l title ''imag''; pause -1"')
+    call system('gnuplot -p -e "&
+                set xlabel ''r_g [cm]''; &
+                set ylabel ''localizer''; &
+                set grid;&
+                p ''data.txt'' using 1:2 w linespoints title ''real'',&
+                '''' using 1:3 w linespoints title ''imag'';"')
 
 end program

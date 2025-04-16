@@ -25,6 +25,7 @@ module rt_reduced
         print *, "|____|__ \___\____|__  /"
         print *, "        \/           \/ "
         print *, "Reduced model initialized."
+
         call generate_grids
 
     end subroutine
@@ -33,9 +34,20 @@ module rt_reduced
 
         use gauss_quad
         use KIM_kinds, only: dp
+        use reduced_kernel, only: fill_kernel_phi, kernel_spl_t
+        use grid, only: xl_grid
 
         implicit none
         class(reduced_t), intent(inout) :: this
+        type(kernel_spl_t) :: kernel_phi_llp
+        integer :: npts_l, npts_lp
+
+        npts_l = xl_grid%npts_b
+        npts_lp = npts_l
+
+        call kernel_phi_llp%init_kernel(npts_l, npts_lp)
+
+        !call fill_kernel_phi(this%kernel_phi_llp)
     
     end subroutine
 

@@ -7,10 +7,11 @@ subroutine allocate_backs
     implicit none
 
     allocate(A1e(iprof_length), A2e(iprof_length), vTe(iprof_length), &
-            omce(iprof_length), nue(iprof_length), lambda_De(iprof_length))
+            omce(iprof_length), nue(iprof_length), lambda_De(iprof_length), rho_Le(iprof_length))
     allocate(A1i(number_of_ion_species, iprof_length), A2i(number_of_ion_species, iprof_length), &
             vTi(number_of_ion_species, iprof_length), omci(number_of_ion_species, iprof_length), &
-            nui(number_of_ion_species, iprof_length), lambda_Di(number_of_ion_species, iprof_length))
+            nui(number_of_ion_species, iprof_length), lambda_Di(number_of_ion_species, iprof_length),&
+            rho_Li(number_of_ion_species, iprof_length))
     allocate(ks(iprof_length), kp(iprof_length), om_E(iprof_length), z0e(iprof_length))
     allocate(z0i(number_of_ion_species, iprof_length))
 
@@ -77,6 +78,8 @@ subroutine calculate_backs(write_out)
         ! ExB rotation frequency
         om_E(i) = - sol * ks(i) * Er_prof(i) / B0(i)
 
+        rho_Le(i) = vTe(i) / omce(i)
+
     end do
 
     do sigma=1, number_of_ion_species
@@ -107,6 +110,9 @@ subroutine calculate_backs(write_out)
 
             ! Debye length ions
             lambda_Di(sigma, i) = sqrt(Ti_prof(sigma, i) * ev/ (4.0d0*pi*ni_prof(sigma,i) * (e_charge*Zi(sigma))**2.0d0))
+
+            rho_Li(sigma, i) = vTi(sigma, i) / omci(sigma, i)
+
             ! First thermodynamic force
             A1i(sigma, i) = dnidr_prof(sigma, i) / ni_prof(sigma, i) - (e_charge*Zi(sigma))/(Ti_prof(sigma, i) * ev) * Er_prof(i)&
                         - 3/(2*Ti_prof(sigma, i)) * dTidr_prof(sigma, i)

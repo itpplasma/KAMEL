@@ -27,27 +27,101 @@ module reduced_kernel
 
     end subroutine init_kernel
 
-    subroutine fill_kernel_phi(kernel_phi_llp)
+    subroutine fill_kernel_phi(kernel_rho_phi_llp)
 
-        use grid, only: rg_grid, kr_grid, krp_grid
-        use functions, only: varphi_l
         use KIM_kinds, only: dp
+        use gsl_mod, only: erf => gsl_sf_erf
+        use gauss_quad, only: gauss_config_t, init_gauss_int
 
         implicit none
 
-        type(kernel_spl_t), intent(inout) :: kernel_phi_llp
-
+        type(kernel_spl_t), intent(inout) :: kernel_rho_phi_llp
+        type(gauss_config_t) :: gauss_conf
         integer :: j, l, lp
+        complex(dp) :: kernel_llp
 
-        do l = 1, kernel_phi_llp%npts_l
-            do lp = 1, kernel_phi_llp%npts_lp
-                if (abs(l-lp).gt. 1) cycle
-                do j = 1, rg_grid%npts_b
-                    kernel_phi_llp%Kllp(l, lp) = l + lp !varphi_l(kr_grid%xb(j), xl_grid%xb(l-1), xl_grid%xb(l), xl_grid%xb(l+1))
-                end do
+        gauss_conf%n = 10
+        call init_gauss_int(gauss_conf)
+
+        !$omp parallel do collapse(2) private(l,lp, kernel_llp)
+        do l = 2, kernel_rho_phi_llp%npts_l-1
+            do lp = 2, kernel_rho_phi_llp%npts_lp-1
+                if (abs(l - lp) > 1) cycle
+                call calc_kernel_rho_phi(l, lp, kernel_llp, gauss_conf)
+                kernel_rho_phi_llp%Kllp(l, lp) = kernel_llp
+            end do
+        end do
+        !$omp end parallel do
+
+    end subroutine fill_kernel_phi
+
+    subroutine calc_kernel_rho_phi(l, lp, kernel_llp, gauss_conf)
+
+        use KIM_kinds, only: dp
+        use grid, only: xl_grid, rg_grid
+        use gsl_mod, only: erf => gsl_sf_erf
+        use gauss_quad, only: gauss_integrate, gauss_config_t
+        use config, only: number_of_ion_species
+        use back_quants, only: rho_Le, rho_Li
+        
+        implicit none
+
+        integer, intent(in) :: l, lp
+        complex(dp) :: kernel_llp
+        integer :: j, sigma
+        type(gauss_config_t), intent(in) :: gauss_conf
+        real(dp) :: integral_val
+        real(dp) :: rhoT
+        
+        kernel_llp = 0.0d0
+
+        rhoT = 1.0d0
+        do j = 2, xl_grid%npts_b-1
+            do sigma = 0, number_of_ion_species
+                !if (sigma == 0) then
+                    !rhoT = rho_Le()
+                !end if
+                call gauss_integrate(integrand_mathcal_B0, xl_grid%xb(j-1), xl_grid%xb(j+1), integral_val, gauss_conf)
+                kernel_llp = kernel_llp + integral_val
             end do
         end do
 
-    end subroutine fill_kernel_phi
+        contains
+
+            function integrand_mathcal_B0(r) result(val)
+
+                use grid, only: xl_grid, rg_grid
+                use functions, only: varphi_l
+                use gsl_mod, only: erf => gsl_sf_erf
+
+                implicit none
+
+                real(dp), intent(in) :: r
+                real(dp) :: val
+
+                ! You can access l, lp, j from the host scope here
+                val = varphi_l(r, xl_grid%xb(l-1), xl_grid%xb(l), xl_grid%xb(l+1)) &
+                    * varphi_l(r, xl_grid%xb(lp-1), xl_grid%xb(lp), xl_grid%xb(lp+1)) &
+                    * (&
+                        erf((r - rg_grid%xb(j))/(sqrt(2.0d0) * rhoT)) - erf((r - rg_grid%xb(j+1))/(sqrt(2.0d0) * rhoT))&
+                    )
+            end function integrand_mathcal_B0
+
+            function mathcal_A0(j) result(val)
+
+                use grid, only: xl_grid, rg_grid
+                use gsl_mod, only: erf => gsl_sf_erf
+                use back_quants, only: lambda_De, lambda_Di
+
+                implicit none
+
+                integer, intent(in) :: j
+                real(dp) :: val
+
+                
+
+            end function mathcal_A0
+
+    end subroutine
 
 end module

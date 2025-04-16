@@ -1,29 +1,36 @@
 module back_quants
 
+    use KIM_kinds, only: dp
+
     implicit none
 
-    double precision, dimension(:), allocatable :: A1e !thermodynamic force electrons
-    double precision, dimension(:), allocatable :: A2e !thermodynamic force electrons
-    double precision, dimension(:,:), allocatable :: A1i !thermodynamic force ions
-    double precision, dimension(:,:), allocatable :: A2i ! thermodynamic force ions
+    real(dp), dimension(:), allocatable :: A1e !thermodynamic force electrons
+    real(dp), dimension(:), allocatable :: A2e !thermodynamic force electrons
+    real(dp), dimension(:,:), allocatable :: A1i !thermodynamic force ions
+    real(dp), dimension(:,:), allocatable :: A2i ! thermodynamic force ions
 
-    double precision, dimension(:), allocatable :: nue !collision frequency electrons
-    double precision, dimension(:,:), allocatable :: nui !collision frequency ions
+    real(dp), dimension(:), allocatable :: nue !collision frequency electrons
+    real(dp), dimension(:,:), allocatable :: nui !collision frequency ions
 
-    double precision, dimension(:), allocatable :: vTe !thermal velocity electrons
-    double precision, dimension(:,:), allocatable :: vTi !thermal velocity ions
+    real(dp), dimension(:), allocatable :: vTe !thermal velocity electrons
+    real(dp), dimension(:,:), allocatable :: vTi !thermal velocity ions
 
-    double precision, dimension(:), allocatable :: omce ! cyclotron frequency electrons
-    double precision, dimension(:,:), allocatable :: omci !cyclotron frequency ions
+    real(dp), dimension(:), allocatable :: omce ! cyclotron frequency electrons
+    real(dp), dimension(:,:), allocatable :: omci !cyclotron frequency ions
 
-    double precision, dimension(:), allocatable :: lambda_De ! Debye length electrons
-    double precision, dimension(:,:), allocatable :: lambda_Di ! Deby length ions
+    real(dp), dimension(:), allocatable :: lambda_De ! Debye length electrons
+    real(dp), dimension(:,:), allocatable :: lambda_Di ! Deby length ions
 
-    double precision, dimension(:), allocatable :: ks ! "senkrecht" wavenumber
-    double precision, dimension(:), allocatable :: kp ! parallel wavenumber
+    real(dp), dimension(:), allocatable :: rho_Le ! Debye length electrons
+    real(dp), dimension(:,:), allocatable :: rho_Li ! Deby length ions
 
-    double precision, dimension(:), allocatable :: om_E ! ExB rotation frequency
+    real(dp), dimension(:), allocatable :: ks ! "senkrecht" wavenumber
+    real(dp), dimension(:), allocatable :: kp ! parallel wavenumber
 
-    double complex, dimension(:), allocatable :: z0e ! parameter z for m_\phi=0 for electrons
-    double complex, dimension(:,:), allocatable :: z0i ! parameter z for m_\phi=0 for electrons
+    real(dp), dimension(:), allocatable :: om_E ! ExB rotation frequency
+
+    complex(dp), dimension(:), allocatable :: z0e ! parameter z for m_\phi=0 for electrons
+    complex(dp), dimension(:,:), allocatable :: z0i ! parameter z for m_\phi=0 for electrons
+
+
 end module

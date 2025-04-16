@@ -21,6 +21,7 @@ set(KIM_math math/suitesparse/umf4_f77zwrapper.c
             math/sparse_mod.f90
             math/plasma_disp_func.f90
             math/functions.f90
+            math/gauss_legendre_int.f90
 )
 
 set(KIM_debye debye_case/debye_kernel.f90

@@ -61,3 +61,19 @@ target_link_libraries(test_kernel_localizer   PUBLIC KIM_lib
 )
 target_include_directories(test_kernel_localizer PUBLIC "${CMAKE_BINARY_DIR}/src")
 add_test(NAME test_kernel_localizer COMMAND ${CMAKE_BINARY_DIR}/tests/test_kernel_localizer.x ${CMAKE_SOURCE_DIR}/nmls/KIM_config.nml)
+
+
+add_executable(test_gauss_int test_gauss_int.f90)
+set(KIM_lib "${CMAKE_BINARY_DIR}/lib/KIM_lib.a")
+add_dependencies(test_gauss_int KIM_lib)
+set_target_properties(test_gauss_int PROPERTIES 
+                        OUTPUT_NAME test_gauss_int.x
+                        RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/tests/")
+target_link_libraries(test_gauss_int   PUBLIC KIM_lib
+                                            lapack 
+                                            cerf 
+                                            slatec 
+                                            ddeabm
+)
+target_include_directories(test_gauss_int PUBLIC "${CMAKE_BINARY_DIR}/src")
+add_test(NAME test_gauss_int COMMAND ${CMAKE_BINARY_DIR}/tests/test_gauss_int.x ${CMAKE_SOURCE_DIR}/nmls/KIM_config.nml)

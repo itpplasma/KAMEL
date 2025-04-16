@@ -18,6 +18,7 @@ program test_kernel_localizer
     real(dp), allocatable :: localizer_middle(:)
     real(dp), allocatable :: localizer_right(:)
     real(dp), allocatable :: localizer_left(:)
+    logical :: plot = .false.
 
     call kim_init_for_test
     ne_core = n_prof(1)
@@ -35,22 +36,24 @@ program test_kernel_localizer
 
     r_res = 45.0d0
 
-    open(unit=10, file='localizer.txt', status='replace')
-    do i = 1, rg_grid%npts_b
-        localizer_right(i) = theta_right(rg_grid%xb(i))
-        localizer_middle(i) = theta_middle(rg_grid%xb(i))
-        localizer_left(i) = theta_left(rg_grid%xb(i))
-        write(10,*) rg_grid%xb(i), localizer_right(i), localizer_middle(i), localizer_left(i)
-    end do
-    close(10)
-    call system('gnuplot -p -e "&
-                set xlabel ''r_g [cm]''; &
-                set ylabel ''localizer''; &
-                set grid;&
-                p ''localizer.txt'' using 1:2 w linespoints title ''right'',&
-                '''' using 1:3 w linespoints title ''middle'', &
-                '''' using 1:4 w linespoints title ''left''; &
-                "')
+    if (plot) then
+        open(unit=10, file='localizer.txt', status='replace')
+        do i = 1, rg_grid%npts_b
+            localizer_right(i) = theta_right(rg_grid%xb(i))
+            localizer_middle(i) = theta_middle(rg_grid%xb(i))
+            localizer_left(i) = theta_left(rg_grid%xb(i))
+            write(10,*) rg_grid%xb(i), localizer_right(i), localizer_middle(i), localizer_left(i)
+        end do
+        close(10)
+        call system('gnuplot -p -e "&
+                    set xlabel ''r_g [cm]''; &
+                    set ylabel ''localizer''; &
+                    set grid;&
+                    p ''localizer.txt'' using 1:2 w linespoints title ''right'',&
+                    '''' using 1:3 w linespoints title ''middle'', &
+                    '''' using 1:4 w linespoints title ''left''; &
+                    "')
+    end if
 
     kr = 1.0d0
     krp = 1.0d0
@@ -59,19 +62,21 @@ program test_kernel_localizer
 
     ikr = 1
     ikrp = 100
-    open(unit=10, file='data.txt', status='replace')
-    do i = 1, rg_grid%npts_b
-        write(10,*) rg_grid%xb(i), real(K_rho_phi_of_rg(ikr,ikrp,i)) * theta_middle(rg_grid%xb(i)),&
-            dimag(K_rho_phi_of_rg(ikr,ikrp,i)) * theta_middle(rg_grid%xb(i))
-        !print *, rg_grid%xb(i), real(K_rho_phi_of_rg(ikr,ikrp,i)), dimag(K_rho_phi_of_rg(ikr,ikrp,i))
-    end do
-    close(10)
+    if (plot) then
+        open(unit=10, file='data.txt', status='replace')
+        do i = 1, rg_grid%npts_b
+            write(10,*) rg_grid%xb(i), real(K_rho_phi_of_rg(ikr,ikrp,i)) * theta_middle(rg_grid%xb(i)),&
+                dimag(K_rho_phi_of_rg(ikr,ikrp,i)) * theta_middle(rg_grid%xb(i))
+            !print *, rg_grid%xb(i), real(K_rho_phi_of_rg(ikr,ikrp,i)), dimag(K_rho_phi_of_rg(ikr,ikrp,i))
+        end do
+        close(10)
 
-    call system('gnuplot -p -e "&
-                set xlabel ''r_g [cm]''; &
-                set ylabel ''localizer''; &
-                set grid;&
-                p ''data.txt'' using 1:2 w linespoints title ''real'',&
-                '''' using 1:3 w linespoints title ''imag'';"')
+        call system('gnuplot -p -e "&
+                    set xlabel ''r_g [cm]''; &
+                    set ylabel ''localizer''; &
+                    set grid;&
+                    p ''data.txt'' using 1:2 w linespoints title ''real'',&
+                    '''' using 1:3 w linespoints title ''imag'';"')
+    end if
 
 end program

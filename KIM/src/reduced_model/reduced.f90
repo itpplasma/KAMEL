@@ -24,17 +24,18 @@ module rt_reduced
         print *, "|    |  \|   /    Y    \"
         print *, "|____|__ \___\____|__  /"
         print *, "        \/           \/ "
-
+        print *, "Reduced model initialized."
         call generate_grids
 
     end subroutine
 
     subroutine run_reduced(this)
 
+        use gauss_quad
+        use KIM_kinds, only: dp
+
         implicit none
         class(reduced_t), intent(inout) :: this
-
-
     
     end subroutine
 

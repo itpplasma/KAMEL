@@ -34,6 +34,8 @@ module species
         real(dp), allocatable :: z0(:) ! Larmor radius
     end type
 
+    type(plasma_t) :: plasma
+
     contains
 
     subroutine init_deuterium_plasma(plasma)

@@ -62,7 +62,8 @@ module reduced_kernel
         use gsl_mod, only: erf => gsl_sf_erf
         use gauss_quad, only: gauss_integrate, gauss_config_t
         use config, only: number_of_ion_species
-        use back_quants, only: rho_Le, rho_Li
+        use species, only: plasma
+        use constants, only: pi
         
         implicit none
 
@@ -75,16 +76,15 @@ module reduced_kernel
         
         kernel_llp = 0.0d0
 
-        rhoT = 1.0d0
-        do j = 2, xl_grid%npts_b-1
-            do sigma = 0, number_of_ion_species
-                !if (sigma == 0) then
-                    !rhoT = rho_Le()
-                !end if
+        do sigma = 0, number_of_ion_species
+            do j = 2, xl_grid%npts_b-1
+                rhoT = 0.5d0 * (plasma%spec(sigma)%rho_L(j) + plasma%spec(sigma)%rho_L(j+1))
                 call gauss_integrate(integrand_mathcal_B0, xl_grid%xb(j-1), xl_grid%xb(j+1), integral_val, gauss_conf)
-                kernel_llp = kernel_llp + integral_val
+                kernel_llp = kernel_llp + integral_val * mathcal_A0(j, plasma%spec(sigma))
             end do
         end do
+
+        kernel_llp = kernel_llp / (8.0d0 * pi**3.0d0)
 
         contains
 
@@ -105,20 +105,26 @@ module reduced_kernel
                     * (&
                         erf((r - rg_grid%xb(j))/(sqrt(2.0d0) * rhoT)) - erf((r - rg_grid%xb(j+1))/(sqrt(2.0d0) * rhoT))&
                     )
+                    
             end function integrand_mathcal_B0
 
-            function mathcal_A0(j) result(val)
+            function mathcal_A0(j, spec) result(val)
 
                 use grid, only: xl_grid, rg_grid
                 use gsl_mod, only: erf => gsl_sf_erf
                 use back_quants, only: lambda_De, lambda_Di
+                use species, only: plasma, species_t
+                use constants, only: pi
 
                 implicit none
 
                 integer, intent(in) :: j
+                type(species_t), intent(in) :: spec
                 real(dp) :: val
+                real(dp) :: lambda
 
-                
+                lambda = 0.5d0 * (spec%lambda_D(j) + spec%lambda_D(j+1))
+                val = 8.0d0 * pi**3.0d0 / lambda**2.0d0
 
             end function mathcal_A0
 

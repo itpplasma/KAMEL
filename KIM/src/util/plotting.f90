@@ -36,7 +36,7 @@ module plotting
         open(unit=10, file=filename, status='replace')
 
         do j = 1, ny
-            write(10, '(1000(f10.5,1x))') (A(i,j), i = 1, nx)
+            write(10, *) (A(i,j), i = 1, nx)
         end do
 
         close(10)
@@ -73,6 +73,36 @@ module plotting
     end subroutine write_profile
 
 
+    subroutine write_complex_profile(x, y, n, filename)
+
+        use KIM_kinds, only: dp
+
+        implicit none
+
+        integer, intent(in) :: n
+        real(dp), intent(in) :: x(n)
+        complex(dp), intent(in) :: y(n)
+        character(len=*), intent(in) :: filename
+
+        ! Local variables
+        integer :: i
+        integer :: unit
+
+        ! Choose a unit number (any unused unit number)
+        unit = 10
+
+        ! Open the file for writing
+        open(unit=unit, file=filename, status='replace', action='write')
+
+        ! Write data as two columns
+        do i = 1, n
+            write(unit, *) x(i), real(y(i)), dimag(y(i))
+        end do
+
+        close(unit)
+
+    end subroutine write_complex_profile
+
     subroutine plot_2D(datafile)
 
         implicit none
@@ -95,6 +125,20 @@ module plotting
         character(len=256) :: cmd
 
         write(cmd, '(A)') 'gnuplot -persist -e "plot '''//trim(datafile)//''' using 1:2 with lines"'
+
+        call execute_command_line(trim(cmd))
+
+    end subroutine
+
+
+    subroutine plot_complex_1D(datafile)
+
+        implicit none
+
+        character(*), intent(in) :: datafile
+        character(len=256) :: cmd
+
+        write(cmd, '(A)') 'gnuplot -persist -e "plot '''//trim(datafile)//''' using 1:2 with lines; plot '''//trim(datafile)//''' using 1:3 with lines"'
 
         call execute_command_line(trim(cmd))
 

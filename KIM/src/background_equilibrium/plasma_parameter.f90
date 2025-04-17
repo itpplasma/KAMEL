@@ -5,7 +5,7 @@ module plasma_parameter
 
     implicit none
 
-    integer :: set_profiles_constant = 0
+    integer :: set_profiles_constant = 1
 
     real(dp) :: r_plas
     integer :: iprof_length

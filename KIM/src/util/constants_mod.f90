@@ -12,6 +12,6 @@ module constants
     real(dp) :: ev       = 1.6022d-12
     real(dp) :: kB       = 1.380649e-16
 
-    complex(dp) :: com_unit = (0.0, 1.0)
+    complex(dp) :: com_unit = (0.0d0, 1.0d0)
 
 end module

@@ -34,9 +34,6 @@ module rt_reduced
         call init_deuterium_plasma(plasma)
         call set_deuterium_plasma(plasma)
 
-        call write_profile(r_prof, plasma%spec(0)%lambda_D, iprof_length, "lambda_De.txt")
-        call plot_1D("lambda_De.txt")
-
     end subroutine
 
     subroutine run_reduced(this)
@@ -47,6 +44,7 @@ module rt_reduced
         use grid, only: xl_grid, rg_grid
         use plotting, only: write_matrix, plot_matrix, write_complex_profile, plot_complex_1D
         use poisson_solver, only: solve_poisson
+        use species, only: plasma
 
         implicit none
         class(reduced_t), intent(inout) :: this
@@ -59,6 +57,9 @@ module rt_reduced
         npts_l = xl_grid%npts_b
         npts_lp = npts_l
 
+        print *, plasma%spec(0)%lambda_D(1)
+        print *, plasma%spec(1)%lambda_D(1)
+
         call kernel_phi_llp%init_kernel(npts_l, npts_lp)
 
         call fill_kernel_phi(kernel_phi_llp)
@@ -68,7 +69,6 @@ module rt_reduced
         call solve_poisson(kernel_phi_llp%Kllp, phi_sol)
 
         call write_complex_profile(rg_grid%xb, phi_sol, rg_grid%npts_b, "phi_sol.txt")
-        call plot_complex_1D("phi_sol.txt")
     
     end subroutine
 

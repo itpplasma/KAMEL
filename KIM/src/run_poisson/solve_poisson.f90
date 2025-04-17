@@ -176,7 +176,7 @@ module poisson_solver
             if (type ==1) then ! constant br
                 rhs_vec = cmplx(1.0d0, 0.0d0, dp)
             elseif(type == 2) then ! point charge like Br field
-                rhs_vec(size(rhs_vec)/2) = cmplx(-4.0d0 * pi, 0.0d0, dp)  * e_charge 
+                rhs_vec(size(rhs_vec)/2) = cmplx(4.0d0 * pi, 0.0d0, dp)  * e_charge
 
                 ! possible boundary conditions:
                 !rhs_vec(1) = cmplx(1.0d-10, 0.0d0)

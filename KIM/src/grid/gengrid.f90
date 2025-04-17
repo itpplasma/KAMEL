@@ -21,8 +21,8 @@ subroutine generate_grids
     else if (grid_spacing == 3) then
         call rg_grid%grid_generate()
         call xl_grid%grid_generate()
-        call kr_grid%grid_generate_integer()
-        call krp_grid%grid_generate_integer()
+        !call kr_grid%grid_generate_integer()
+        !call krp_grid%grid_generate_integer()
     else
         call rg_grid%grid_generate()
         call xl_grid%grid_generate()

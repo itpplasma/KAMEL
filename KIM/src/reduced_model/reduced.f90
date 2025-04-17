@@ -63,7 +63,7 @@ module rt_reduced
         call kernel_phi_llp%init_kernel(npts_l, npts_lp)
 
         call fill_kernel_phi(kernel_phi_llp)
-        !call write_matrix("kernel_phi_llp.txt", real(kernel_phi_llp%Kllp), npts_l, npts_lp)
+        call write_matrix("kernel_phi_llp.txt", real(kernel_phi_llp%Kllp), npts_l, npts_lp)
         !call plot_matrix("kernel_phi_llp.txt")
 
         call solve_poisson(kernel_phi_llp%Kllp, phi_sol)

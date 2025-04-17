@@ -163,12 +163,17 @@ module poisson_solver
         subroutine create_rhs_vector(type, rhs_vec)
 
             use resonances_mod, only: index_rg_res
+            use functions, only: varphi_l
+            use grid, only: xl_grid
 
             implicit none
 
             integer, intent(in) :: type
             double complex, allocatable, intent(out) :: rhs_vec(:)
-            integer :: i
+            integer :: i, idx
+            real(dp) :: x0, tot_charge
+
+            x0 = 35.0d0
 
             allocate(rhs_vec(rg_grid%npts_b))
             rhs_vec = cmplx(0.0d0, 0.0d0, dp)
@@ -176,7 +181,12 @@ module poisson_solver
             if (type ==1) then ! constant br
                 rhs_vec = cmplx(1.0d0, 0.0d0, dp)
             elseif(type == 2) then ! point charge like Br field
-                rhs_vec(size(rhs_vec)/2) = cmplx(4.0d0 * pi, 0.0d0, dp)  * e_charge
+
+                !rhs_vec(size(rhs_vec)/2) = cmplx(4.0d0 * pi, 0.0d0, dp)  * e_charge
+
+                idx = minloc(abs(rg_grid%xb - x0), dim=1)
+
+                rhs_vec(idx) = cmplx(4.0d0 * pi, 0.0d0, dp) * e_charge ! * exp(- (rg_grid%xb(idx) - 35.0d0)**2 / 0.1d0**2)
 
                 ! possible boundary conditions:
                 !rhs_vec(1) = cmplx(1.0d-10, 0.0d0)
@@ -193,8 +203,19 @@ module poisson_solver
             elseif(type == 6) then ! gaussian distribution
                 rhs_vec = cmplx(-4.0d0 * pi, 0.0d0, dp) * e_charge * exp(- (rg_grid%xb - rg_grid%max_val/2)**2 / 0.1d0**2) &
                         * sqrt(pi / 0.1d0**2)
+            elseif(type==7) then
+                rhs_vec = cmplx(0.0d0, 0.0d0, dp)
+                tot_charge = 0.0d0
+                do i = 2, rg_grid%npts_b-1
+                    rhs_vec(i) = e_charge * varphi_l(x0, rg_grid%xb(i-1), rg_grid%xb(i), rg_grid%xb(i+1))
+                    tot_charge = tot_charge + 0.5d0 * (rhs_vec(i) + rhs_vec(i-1)) * (xl_grid%xb(i)-xl_grid%xb(i-1))  ! Accumulate total charge
+                end do
+                rhs_vec(1) = 0.0d0  ! Set boundary condition for the first element
+                rhs_vec(rg_grid%npts_b) = 0.0d0  ! Set boundary condition for the last element
+                print *, "Total charge: ", tot_charge  ! Print total charge for debugging
             end if
 
+            rhs_vec = - 4d0 * pi * rhs_vec
 
             inquire(file=trim(output_path)//'fields', exist=exists)
             if (.not. exists) then
@@ -247,23 +268,38 @@ module poisson_solver
         implicit none
 
         complex(dp), intent(inout) :: A_mat(:,:)
+        real(dp) :: h
         integer :: i,j
 
         ! create Laplacian:
         A_mat = cmplx(0.0d0, 0.0d0, dp)
 
-        do i = 2, rg_grid%npts_b-1
-            A_mat(i,i) = (- 1d0 / (rg_grid%xb(i) - rg_grid%xb(i-1)) - 1d0 / (rg_grid%xb(i+1) - rg_grid%xb(i)) ) !* 2 &
-            !* (rg_grid%xb(i+1) - rg_grid%xb(i-1))
-            A_mat(i, i+1) = 1d0 / (rg_grid%xb(i+1) - rg_grid%xb(i)) !* 2 * (rg_grid%xb(i+1) - rg_grid%xb(i-1))
-            A_mat(i, i-1) = 1d0 / (rg_grid%xb(i) - rg_grid%xb(i-1)) !* 2 * (rg_grid%xb(i+1) - rg_grid%xb(i-1))
-        end do
+        !do i = 2, rg_grid%npts_b-1
+            !A_mat(i,i) = (- 1d0 / (rg_grid%xb(i) - rg_grid%xb(i-1)) - 1d0 / (rg_grid%xb(i+1) - rg_grid%xb(i)) ) !* 2 &
+            !!* (rg_grid%xb(i+1) - rg_grid%xb(i-1))
+            !A_mat(i, i+1) = 1d0 / (rg_grid%xb(i+1) - rg_grid%xb(i)) !* 2 * (rg_grid%xb(i+1) - rg_grid%xb(i-1))
+            !A_mat(i, i-1) = 1d0 / (rg_grid%xb(i) - rg_grid%xb(i-1)) !* 2 * (rg_grid%xb(i+1) - rg_grid%xb(i-1))
+        !end do
 
-        ! boundary conditions:
-        A_mat(1,1) = - 2d0 / (rg_grid%xb(2) - rg_grid%xb(1)) !* 2 * (rg_grid%xb(2) - rg_grid%xb(1)) !- 1d0 / (rg_grid%xb(2) - rg_grid%xb(1))
-        A_mat(rg_grid%npts_b,rg_grid%npts_b) = - 2d0 / (rg_grid%max_val - rg_grid%xb(rg_grid%npts_b-1)) !* 2 * (rg_grid%max_val - rg_grid%xl(rg_grid%npts_b-1))
-        A_mat(1,2) = 1d0 / (rg_grid%xb(2) - rg_grid%xb(1))
-        A_mat(rg_grid%npts_b, rg_grid%npts_b-1) = 1d0 / (rg_grid%max_val - rg_grid%xb(rg_grid%npts_b-1))
+        !! boundary conditions:
+        !A_mat(1,1) = - 2d0 / (rg_grid%xb(2) - rg_grid%xb(1)) !* 2 * (rg_grid%xb(2) - rg_grid%xb(1)) !- 1d0 / (rg_grid%xb(2) - rg_grid%xb(1))
+        !A_mat(rg_grid%npts_b,rg_grid%npts_b) = - 2d0 / (rg_grid%max_val - rg_grid%xb(rg_grid%npts_b-1)) !* 2 * (rg_grid%max_val - rg_grid%xl(rg_grid%npts_b-1))
+        !A_mat(1,2) = 1d0 / (rg_grid%xb(2) - rg_grid%xb(1))
+        !A_mat(rg_grid%npts_b, rg_grid%npts_b-1) = 1d0 / (rg_grid%max_val - rg_grid%xb(rg_grid%npts_b-1))
+
+        A_mat = 0.0_dp
+
+        do i = 1, rg_grid%npts_b - 1
+            h = rg_grid%xb(i+1) - rg_grid%xb(i)
+
+            A_mat(i,   i  ) = A_mat(i,   i  ) - 1.0_dp / h
+            A_mat(i,   i+1) = A_mat(i,   i+1) + 1.0_dp / h
+            A_mat(i+1, i  ) = A_mat(i+1, i  ) + 1.0_dp / h
+            A_mat(i+1, i+1) = A_mat(i+1, i+1) - 1.0_dp / h
+        end do
+        A_mat(1,:) = 0.0_dp
+        A_mat(:,1) = 0.0_dp
+        A_mat(1,1) = 1.0_dp
 
 
         if (fdebug == 1) then

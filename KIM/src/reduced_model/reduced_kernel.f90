@@ -105,7 +105,7 @@ module reduced_kernel
                     * (&
                         erf((r - rg_grid%xb(j))/(sqrt(2.0d0) * rhoT)) - erf((r - rg_grid%xb(j+1))/(sqrt(2.0d0) * rhoT))&
                     )
-                    
+
             end function integrand_mathcal_B0
 
             function mathcal_A0(j, spec) result(val)
@@ -124,7 +124,7 @@ module reduced_kernel
                 real(dp) :: lambda
 
                 lambda = 0.5d0 * (spec%lambda_D(j) + spec%lambda_D(j+1))
-                val = 8.0d0 * pi**3.0d0 / lambda**2.0d0
+                val = 8.0d0 * pi**3.0d0 / (-lambda**2.0d0)
 
             end function mathcal_A0
 

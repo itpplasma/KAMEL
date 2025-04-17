@@ -54,6 +54,7 @@ module grid
     subroutine grid_init(this, npts, min_val, max_val, name)
 
         use resonances_mod, only: width_res, ampl_res
+
         implicit none
 
         class(grid_type), intent(inout) :: this
@@ -80,6 +81,9 @@ module grid
         elseif (grid_spacing == 2) then
             width_res = 3.0
             ampl_res = 0.3
+        else 
+            width_res = 0.2
+            ampl_res = 15.0
         end if
 
         hrmax = (this%max_val - this%min_val) / (this%npts_b)
@@ -190,6 +194,7 @@ module grid
                 open(unit = 78, file=trim(output_path)//'grid/'//trim(this%name)//'_xc.dat')
                 do i = 1, this%npts_b
                     write(77,*) i, this%xb(i)
+                    if (i > this%npts_c) cycle
                     write(78,*) i, this%xc(i)
                 end do
                 close(77)

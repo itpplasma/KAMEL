@@ -38,7 +38,7 @@ module poisson_solver
 
         call check_kernels_for_nans(K_rho_phi)
 
-        A_mat = (A_mat + 4d0 * pi * K_rho_phi) 
+        A_mat = (A_mat + 4.0d0 * pi * K_rho_phi) 
 
         if (fdebug == 3) then
             call write_A_matrix_sparse_check_to_file
@@ -165,13 +165,14 @@ module poisson_solver
             use resonances_mod, only: index_rg_res
             use functions, only: varphi_l
             use grid, only: xl_grid
+            use plotting, only: write_profile
 
             implicit none
 
             integer, intent(in) :: type
             double complex, allocatable, intent(out) :: rhs_vec(:)
             integer :: i, idx
-            real(dp) :: x0, tot_charge
+            real(dp) :: x0
 
             x0 = 35.0d0
 
@@ -205,37 +206,15 @@ module poisson_solver
                         * sqrt(pi / 0.1d0**2)
             elseif(type==7) then
                 rhs_vec = cmplx(0.0d0, 0.0d0, dp)
-                tot_charge = 0.0d0
                 do i = 2, rg_grid%npts_b-1
-                    rhs_vec(i) = e_charge * varphi_l(x0, rg_grid%xb(i-1), rg_grid%xb(i), rg_grid%xb(i+1))
-                    tot_charge = tot_charge + 0.5d0 * (rhs_vec(i) + rhs_vec(i-1)) * (xl_grid%xb(i)-xl_grid%xb(i-1))  ! Accumulate total charge
+                    rhs_vec(i) = e_charge * varphi_l(x0, xl_grid%xb(i-1), xl_grid%xb(i), xl_grid%xb(i+1))
                 end do
-                rhs_vec(1) = 0.0d0  ! Set boundary condition for the first element
-                rhs_vec(rg_grid%npts_b) = 0.0d0  ! Set boundary condition for the last element
-                print *, "Total charge: ", tot_charge  ! Print total charge for debugging
             end if
 
             rhs_vec = - 4d0 * pi * rhs_vec
 
-            inquire(file=trim(output_path)//'fields', exist=exists)
-            if (.not. exists) then
-                call system('mkdir -p '//trim(output_path)//'fields')
-            end if
-            open(unit = 79, file=trim(output_path)//'fields/br_re.dat')
-            open(unit = 80, file=trim(output_path)//'fields/br_im.dat')
-            do i = 1,rg_grid%npts_b
-                write(79,*) rg_grid%xb(i), real(b_vec(i))
-                write(80,*) rg_grid%xb(i), dimag(b_vec(i))
-            end do
-            close(79)
-            close(80)
-
-            if (type_br_field == 1 .or. type_br_field == 3) then
-                ! multiply with K_rho_B_llp if not point charge case
-                write(*,*) "multiply with K_rho_B_llp"
-                b_vec = - 4d0 * pi !* matmul(K_rho_B_llp, b_vec)
-                call write_K_times_b_to_file
-            end if
+            call write_profile(xl_grid%xb, real(rhs_vec), xl_grid%npts_b, trim(output_path)//'fields/rhs_vec_re.dat')
+            call write_profile(xl_grid%xb, dimag(rhs_vec), xl_grid%npts_b, trim(output_path)//'fields/rhs_vec_im.dat')
 
         end subroutine
 
@@ -264,6 +243,7 @@ module poisson_solver
         use KIM_kinds, only: dp
         use config, only: fdebug, output_path
         use constants, only: pi
+        use plotting, only: write_matrix
 
         implicit none
 
@@ -289,29 +269,32 @@ module poisson_solver
 
         A_mat = 0.0_dp
 
-        do i = 1, rg_grid%npts_b - 1
-            h = rg_grid%xb(i+1) - rg_grid%xb(i)
-
+        do i = 1, xl_grid%npts_b - 1
+            h = xl_grid%xb(i+1) - xl_grid%xb(i)
             A_mat(i,   i  ) = A_mat(i,   i  ) - 1.0_dp / h
             A_mat(i,   i+1) = A_mat(i,   i+1) + 1.0_dp / h
             A_mat(i+1, i  ) = A_mat(i+1, i  ) + 1.0_dp / h
             A_mat(i+1, i+1) = A_mat(i+1, i+1) - 1.0_dp / h
         end do
-        A_mat(1,:) = 0.0_dp
-        A_mat(:,1) = 0.0_dp
-        A_mat(1,1) = 1.0_dp
+
+        !A_mat(1,:) = 0.0_dp
+        !A_mat(:,1) = 0.0_dp
+        !A_mat(1,1) = A_mat(1,1) - 1d0 / (xl_grid%xb(2) - xl_grid%xb(1))! 1.0_dp
+        !A_mat(rg_grid%npts_b,rg_grid%npts_b) = A_mat(rg_grid%npts_b,rg_grid%npts_b) - 1d0 / (rg_grid%max_val - rg_grid%xb(rg_grid%npts_b-1)) !* 2 * (rg_grid%max_val - rg_grid%xl(rg_grid%npts_b-1))
 
 
-        if (fdebug == 1) then
-            write(*,*) 'Debug: writing Laplacian A matrix before sparse'
-            open(unit=77, file=trim(output_path)//'kernel/laplacian_re.dat')
-            do i = 1,rg_grid%npts_b
-                do j = 1,rg_grid%npts_b
-                    write(77,*) real(A_mat(i,j))
-                end do
-            end do
-            close(77)
-        end if
+        !if (fdebug == 1) then
+            !write(*,*) 'Debug: writing Laplacian A matrix before sparse'
+            !open(unit=77, file=trim(output_path)//'kernel/laplacian_re.dat')
+            !do i = 1,rg_grid%npts_b
+                !do j = 1,rg_grid%npts_b
+                    !write(77,*) real(A_mat(i,j))
+                !end do
+            !end do
+            !close(77)
+        !end if
+
+        call write_matrix(trim(output_path)//'kernel/laplacian_re.dat', real(A_mat), rg_grid%npts_b, rg_grid%npts_b)
 
     end subroutine
 

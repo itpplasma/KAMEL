@@ -71,6 +71,7 @@ set(KIM_poisson    run_poisson/poisson.f90
 
 set(KIM_reduced reduced_model/reduced.f90
                 reduced_model/reduced_kernel.f90
+                reduced_model/reduced_integrands.f90
                 )
 
 set(KIM_WKB_dispersion run_wkb_dispersion/wkb_dispersion.f90

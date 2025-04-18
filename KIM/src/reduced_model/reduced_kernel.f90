@@ -37,7 +37,7 @@ module reduced_kernel
 
         type(kernel_spl_t), intent(inout) :: kernel_rho_phi_llp
         type(gauss_config_t) :: gauss_conf
-        integer :: j, l, lp
+        integer :: l, lp
         complex(dp) :: kernel_llp
 
         gauss_conf%n = 10
@@ -49,6 +49,11 @@ module reduced_kernel
                 if (abs(l - lp) > 1) cycle
                 call calc_kernel_rho_phi(l, lp, kernel_llp, gauss_conf)
                 kernel_rho_phi_llp%Kllp(l, lp) = kernel_llp
+                if (isnan(real(kernel_llp))) then
+                    print *, "kernel_llp is NaN for l = ", l, " lp = ", lp
+                    print *, "kernel_llp = ", kernel_llp
+                    stop
+                end if
             end do
         end do
         !$omp end parallel do
@@ -60,10 +65,11 @@ module reduced_kernel
         use KIM_kinds, only: dp
         use grid, only: xl_grid, rg_grid
         use gsl_mod, only: erf => gsl_sf_erf
-        use gauss_quad, only: gauss_integrate, gauss_config_t
+        use gauss_quad, only: gauss_integrate_B0, gauss_integrate_B1, gauss_config_t
         use config, only: number_of_ion_species
         use species, only: plasma
         use constants, only: pi
+        use reduced_integrands, only: int_B0_t, mathcal_A0, int_B1_t, mathcal_A1
         
         implicit none
 
@@ -72,62 +78,34 @@ module reduced_kernel
         integer :: j, sigma
         type(gauss_config_t), intent(in) :: gauss_conf
         real(dp) :: integral_val
-        real(dp) :: rhoT
+        type(int_B0_t) :: int_B0
+        type(int_B1_t) :: int_B1
         
         kernel_llp = 0.0d0
+        int_B0%l = l
+        int_B0%lp = lp
+
+        int_B1%l = l
+        int_B1%lp = lp
 
         do sigma = 0, number_of_ion_species
             do j = 2, xl_grid%npts_b-1
-                rhoT = 0.5d0 * (plasma%spec(sigma)%rho_L(j) + plasma%spec(sigma)%rho_L(j+1))
-                call gauss_integrate(integrand_mathcal_B0, xl_grid%xb(j-1), xl_grid%xb(j+1), integral_val, gauss_conf)
-                kernel_llp = kernel_llp + integral_val * mathcal_A0(j, plasma%spec(sigma))
+                int_B0%j = j
+                int_B0%rhoT = 0.5d0 * (plasma%spec(sigma)%rho_L(j) + plasma%spec(sigma)%rho_L(j+1))
+                !rhoT = 0.5d0 * (plasma%spec(sigma)%rho_L(j) + plasma%spec(sigma)%rho_L(j+1))
+                call gauss_integrate_B0(int_B0, rg_grid%xb(j-1), rg_grid%xb(j+1), integral_val, gauss_conf)
+                kernel_llp = kernel_llp + integral_val * mathcal_A0(j, plasma%spec(sigma)) 
+
+                int_B1%j = j
+                int_B1%rhoT = 0.5d0 * (plasma%spec(sigma)%rho_L(j) + plasma%spec(sigma)%rho_L(j+1))
+                call gauss_integrate_B1(int_B1, integral_val, gauss_conf)
+                kernel_llp = kernel_llp + integral_val * mathcal_A1(j, plasma%spec(sigma))
             end do
         end do
 
-        kernel_llp = kernel_llp / (8.0d0 * pi**3.0d0)
-
-        contains
-
-            function integrand_mathcal_B0(r) result(val)
-
-                use grid, only: xl_grid, rg_grid
-                use functions, only: varphi_l
-                use gsl_mod, only: erf => gsl_sf_erf
-
-                implicit none
-
-                real(dp), intent(in) :: r
-                real(dp) :: val
-
-                ! You can access l, lp, j from the host scope here
-                val = varphi_l(r, xl_grid%xb(l-1), xl_grid%xb(l), xl_grid%xb(l+1)) &
-                    * varphi_l(r, xl_grid%xb(lp-1), xl_grid%xb(lp), xl_grid%xb(lp+1)) &
-                    * (&
-                        erf((r - rg_grid%xb(j))/(sqrt(2.0d0) * rhoT)) - erf((r - rg_grid%xb(j+1))/(sqrt(2.0d0) * rhoT))&
-                    )
-
-            end function integrand_mathcal_B0
-
-            function mathcal_A0(j, spec) result(val)
-
-                use grid, only: xl_grid, rg_grid
-                use gsl_mod, only: erf => gsl_sf_erf
-                use back_quants, only: lambda_De, lambda_Di
-                use species, only: plasma, species_t
-                use constants, only: pi
-
-                implicit none
-
-                integer, intent(in) :: j
-                type(species_t), intent(in) :: spec
-                real(dp) :: val
-                real(dp) :: lambda
-
-                lambda = 0.5d0 * (spec%lambda_D(j) + spec%lambda_D(j+1))
-                val = 8.0d0 * pi**3.0d0 / (-lambda**2.0d0)
-
-            end function mathcal_A0
-
+        kernel_llp = kernel_llp / (8.0d0 * pi**3.0d0) 
+            
     end subroutine
 
 end module
+

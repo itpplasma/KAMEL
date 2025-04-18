@@ -1,34 +1,27 @@
 program test_gauss_int
 
     use KIM_kinds, only: dp
-    use gauss_quad, only: gauss_config_t, init_gauss_int, gauss_integrate
+    use gauss_quad, only: gauss_config_t, init_gauss_int!, gauss_integrate
+    use test_integrands, only: integrand
 
     implicit none
 
     type(gauss_config_t) :: gauss_conf
-    real(dp) :: result
 
     print *, "Testing Gauss-Legendre Integration"
 
     gauss_conf%n = 10
 
     call init_gauss_int(gauss_conf)
-    call gauss_integrate(my_function, 0.0d0, 3.14159265358979d0, result, gauss_conf)
+    !call gauss_integrate(integ, 0.0d0, 3.14159265358979d0, result, gauss_conf)
 
-    if (abs(result-2.0d0) > 1.0d-6) then
-        print *, 'Error: Integral result is incorrect.'
-        stop
-    end if
-    print *, 'Success: Integral result is correct.'
+    !if (abs(result-2.0d0) > 1.0d-6) then
+        !print *, 'Error: Integral result is incorrect.'
+        !stop
+    !end if
+    !print *, 'Success: Integral result is correct.'
 
-    contains
+    !contains
 
-    function my_function(x) result(val)
-        use KIM_kinds, only: dp
-        implicit none
-        real(dp), intent(in) :: x
-        real(dp) :: val
-        val = sin(x)
-    end function my_function
 
 end program

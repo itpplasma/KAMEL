@@ -162,7 +162,7 @@ module species
             allocate(plasma%spec(sp)%omega_c(iprof_length))
 
             do i=1, iprof_length
-                plasma%spec(sp)%vT(i) = 4.19d7 * sqrt(plasma%spec(sp)%T(i))
+                plasma%spec(sp)%vT(i) = sqrt(plasma%spec(sp)%T(i) * ev / (plasma%spec(sp)%mass))
                 plasma%spec(sp)%omega_c(i) = plasma%spec(sp)%Zspec * e_charge * abs(B0(i)) &
                     / (plasma%spec(sp)%mass * sol)
                 !nue(i) = 5.8e-6 * n_prof(i) * Lee(i) / Te_prof(i)**(3.0/2.0)

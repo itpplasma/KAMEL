@@ -24,25 +24,27 @@ module gauss_quad
 
     end subroutine
 
-    subroutine gauss_integrate(f, a, b, result, gauss_conf)
+    subroutine gauss_integrate_B0(int_B, a, b, result, gauss_conf)
 
         use KIM_kinds, only: dp
+        use reduced_integrands, only: int_B0_t
 
         implicit none
 
         ! Integrates function f over [a, b] using Gauss-Legendre quadrature
-        interface
-            function f(x) result(val)
-                use KIM_kinds, only: dp
-                implicit none
-                real(dp), intent(in) :: x
-                real(dp) :: val
-            end function f
-        end interface
+        !interface
+            !function f(x) result(val)
+                !use KIM_kinds, only: dp
+                !implicit none
+                !real(dp), intent(in) :: x
+                !real(dp) :: val
+            !end function f
+        !end interface
 
         real(dp), intent(in) :: a, b
         type(gauss_config_t), intent(in) :: gauss_conf
         real(dp), intent(out) :: result
+        type(int_B0_t), intent(in) :: int_B
 
         integer :: i
         real(dp) :: xm, xr
@@ -52,11 +54,49 @@ module gauss_quad
         xr = 0.5d0 * (b - a)
 
         do i = 1, gauss_conf%n
-            result = result + gauss_conf%w(i) * f(xr * gauss_conf%x(i) + xm)
+            result = result + gauss_conf%w(i) * int_B%f(xr * gauss_conf%x(i) + xm)
         end do
         result = result * xr
 
-    end subroutine gauss_integrate
+    end subroutine gauss_integrate_B0
+
+    subroutine gauss_integrate_B1(int_B1, result, gauss_conf)
+
+        use KIM_kinds, only: dp
+        use reduced_integrands, only: int_B1_t
+        use grid, only: xl_grid
+        use constants, only: pi
+
+        implicit none
+
+        class(int_B1_t), intent(in) :: int_B1
+
+        type(gauss_config_t), intent(in) :: gauss_conf
+        real(dp), intent(out) :: result
+        real(dp) :: x_mapped, xp_mapped, theta_mapped
+        integer :: i,j,k
+
+
+        do i=1,gauss_conf%n ! theta
+            theta_mapped = 0.5d0 * (pi * gauss_conf%x(i) + pi)
+
+            do j=1,gauss_conf%n ! xp 
+                xp_mapped = 0.5d0 * ((xl_grid%xb(int_B1%lp+1) - xl_grid%xb(int_B1%lp-1)) * gauss_conf%x(j) + &
+                    xl_grid%xb(int_B1%lp+1) + xl_grid%xb(int_B1%lp-1))
+
+                do k=1,gauss_conf%n !x
+                    x_mapped = 0.5d0 * ((xl_grid%xb(int_B1%l+1) - xl_grid%xb(int_B1%l-1)) * gauss_conf%x(k) + &
+                        xl_grid%xb(int_B1%l+1) + xl_grid%xb(int_B1%l-1))
+
+                    result = result + gauss_conf%w(i) * gauss_conf%w(j) * gauss_conf%w(k) &
+                        * int_B1%f(x_mapped, xp_mapped, theta_mapped) &
+                        * pi * (xl_grid%xb(int_B1%l+1) - xl_grid%xb(int_B1%l-1)) & ! normalization due to integral range shift
+                        * (xl_grid%xb(int_B1%lp+1) - xl_grid%xb(int_B1%lp-1)) / 8.0d0
+                end do
+            end do
+        end do
+
+    end subroutine
 
     subroutine compute_nodes_weights(n, x, w)
 

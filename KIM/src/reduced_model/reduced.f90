@@ -16,7 +16,6 @@ module rt_reduced
 
         use species, only: init_deuterium_plasma, set_deuterium_plasma, plasma
         use plotting, only: write_profile, plot_1D
-        use plasma_parameter, only: r_prof, iprof_length
 
         implicit none
         class(reduced_t), intent(inout) :: this

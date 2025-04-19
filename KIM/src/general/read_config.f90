@@ -7,10 +7,12 @@ subroutine read_config
     use grid
     use cut_off_integration
     use equilibrium, only: calculate_equil
-    use unit_tests, only: test_all, test_sparse_solver
     use poisson_solver, only: solve_poisson
 
     implicit none
+
+    character(len=256), dimension(:), allocatable :: args
+    integer :: ix, num_args
 
     namelist /KIM_CONFIG/ profile_location, hdf5_input, hdf5_output, &
                         fdebug, fstatus, number_of_ion_species, output_path, artificial_debye_case, &
@@ -22,7 +24,21 @@ subroutine read_config
     namelist /KIM_GRID/ reduce_r, grid_spacing, l_space_dim, num_gengrid_points, &
                         reduced_rg_dim, kr_grid_width_res, kr_grid_ampl_res, k_space_dim
 
-    open(unit = 77, file = './KIM_config.nml')
+    num_args = command_argument_count()
+    if (num_args > 1) then
+        write(*,*) 'Too many arguments'
+        stop
+    else if (num_args == 1) then
+        allocate(args(num_args))  ! I've omitted checking the return status of the allocation 
+        do ix = 1, num_args
+            call get_command_argument(ix,args(ix))
+            print *, 'Argument ', ix, ': ', args(ix)
+        end do
+        nml_config_path = trim(args(1))
+        write(*,*) 'Namelist path provided: ', nml_config_path
+    end if
+
+    open(unit = 77, file = trim(nml_config_path))
     read(unit = 77, nml = KIM_CONFIG)
     allocate(Zi(number_of_ion_species), Ai(number_of_ion_species))
     read(unit = 77, nml = KIM_SETUP)

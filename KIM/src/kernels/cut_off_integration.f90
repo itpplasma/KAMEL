@@ -14,10 +14,11 @@ module cut_off_integration
     use loading_bar
     use constants, only: pi, com_unit
     use use_libcerf, only: cerf_F
+    use KIM_kinds, only: dp
 
     implicit none
 
-    double precision :: kr_cutoff
+    real(dp) :: kr_cutoff
     
     contains
 

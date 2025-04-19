@@ -1,31 +1,32 @@
 module plasma_parameter
 
     use config, only: fstatus
+    use KIM_kinds, only: dp
 
     implicit none
 
     integer :: set_profiles_constant = 1
 
-    double precision :: r_plas
+    real(dp) :: r_plas
     integer :: iprof_length
-    double precision, allocatable :: r_prof(:)
-    double precision, allocatable :: n_prof(:)
-    double precision, allocatable :: Te_prof(:) 
-    double precision, allocatable :: Er_prof(:)
-    double precision, allocatable :: q_prof(:)
+    real(dp), allocatable :: r_prof(:)
+    real(dp), allocatable :: n_prof(:)
+    real(dp), allocatable :: Te_prof(:) 
+    real(dp), allocatable :: Er_prof(:)
+    real(dp), allocatable :: q_prof(:)
 
-    double precision, allocatable :: ni_prof(:, :)
-    double precision, allocatable :: Ti_prof(:, :)
+    real(dp), allocatable :: ni_prof(:, :)
+    real(dp), allocatable :: Ti_prof(:, :)
     integer, dimension(:), allocatable :: Zi ! ion charge number
     integer, dimension(:), allocatable :: Ai ! ion mass number
     
-    double precision, allocatable :: dndr_prof(:)
-    double precision, allocatable :: dTedr_prof(:)
-    double precision, allocatable :: dTidr_prof(:,:)
-    double precision, allocatable :: dqdr_prof(:)
-    double precision, allocatable :: dnidr_prof(:, :)
+    real(dp), allocatable :: dndr_prof(:)
+    real(dp), allocatable :: dTedr_prof(:)
+    real(dp), allocatable :: dTidr_prof(:,:)
+    real(dp), allocatable :: dqdr_prof(:)
+    real(dp), allocatable :: dnidr_prof(:, :)
 
-    double precision :: rho_L
+    real(dp) :: rho_L
 
     contains 
         ! Read the plasma profiles into global variables 
@@ -54,12 +55,15 @@ module plasma_parameter
         subroutine read_from_text
 
             use config, only: number_of_ion_species, profile_location
+            use KIM_kinds, only: dp
+
+            implicit none
 
             integer :: i, sigma
             integer :: ierr
             integer :: ios
             character(256) :: fileloc, cwd
-            double precision :: r_temp
+            real(dp) :: r_temp
 
             if (fstatus == 1) write(*,*) 'Status: Reading profiles from text files'
 
@@ -79,7 +83,6 @@ module plasma_parameter
                 end if
             end do
             close(99)
-
 
             if (.not. allocated(r_prof)) allocate(r_prof(iprof_length), stat=ierr)
             if (ierr /= 0) print *, "array: Allocation request denied"
@@ -155,6 +158,8 @@ module plasma_parameter
         ! find the length of a profile file
         subroutine find_file_length(filename, l)
 
+            implicit none
+
             character(256), intent(in) :: filename
             integer, intent(out) :: l
             integer :: ios = 0
@@ -174,15 +179,18 @@ module plasma_parameter
 
             use config, only: output_path, number_of_ion_species
             use grid, only: reduced_rg_dim
+            use KIM_kinds, only: dp
 
-            double precision :: step_h
-            double precision, allocatable :: new_n_prof(:), new_Te_prof(:), new_Ti_prof(:,:), &
+            implicit none
+
+            real(dp) :: step_h
+            real(dp), allocatable :: new_n_prof(:), new_Te_prof(:), new_Ti_prof(:,:), &
                                             new_ni_prof(:,:), new_Er_prof(:), new_q_prof(:), new_r_prof(:)
             integer :: i, sigma
             integer :: nlagr = 4
             integer :: nder = 0
             integer :: ibeg, iend, ir
-            double precision, dimension(:,:), allocatable :: coef
+            real(dp), dimension(:,:), allocatable :: coef
 
             if (.not. allocated(coef)) allocate(coef(0:nder, nlagr))
 
@@ -246,6 +254,8 @@ module plasma_parameter
         subroutine write_profiles
 
             use config, only: output_path
+
+            implicit none
 
             integer :: i
             logical :: ex

@@ -6,34 +6,36 @@ module kernels
     use grid
     use back_quants
     use omp_lib
+    use KIM_kinds, only: dp
 
     implicit none
 
-    double complex, dimension(:,:,:), allocatable :: K_rho_phi_of_rg
-    double complex, dimension(:,:,:), allocatable :: K_rho_B_of_rg
+    complex(dp), dimension(:,:,:), allocatable :: K_rho_phi_of_rg
+    complex(dp), dimension(:,:,:), allocatable :: K_rho_B_of_rg
 
-    double complex, dimension(:,:), allocatable :: K_rho_phi_llp
-    double complex, dimension(:,:), allocatable :: K_rho_B_llp
+    complex(dp), dimension(:,:), allocatable :: K_rho_phi_llp
+    complex(dp), dimension(:,:), allocatable :: K_rho_B_llp
 
-    double complex, dimension(:,:), allocatable :: K_j_phi_llp
-    double complex, dimension(:,:), allocatable :: K_j_B_llp
+    complex(dp), dimension(:,:), allocatable :: K_j_phi_llp
+    complex(dp), dimension(:,:), allocatable :: K_j_B_llp
 
     logical :: write_out
 
     integer :: nlagr = 4
     integer :: max_threads
 
-    double precision :: bessel_large_arg_limit = 3d0
-    double precision :: large_z0_limit = 4.5d0
+    real(dp) :: bessel_large_arg_limit = 10d0
+    real(dp) :: large_z0_limit = 4.5d0
 
 
     contains
+
         subroutine fill_rho_kernels
 
             use config, only: fstatus
             use loading_bar
             use grid, only: varphi_lkr, rg_grid, kr_grid, krp_grid
-            
+
             implicit none
             integer :: i_kr, i_krp, i_rg
             integer :: count_loading = 0
@@ -44,58 +46,64 @@ module kernels
 
             K_rho_phi_of_rg = 0.0d0
             K_rho_B_of_rg = 0.0d0
-
-            !$OMP PARALLEL DO collapse(3) default(none) schedule(guided) &
-            !$OMP PRIVATE(i_krp, i_kr, i_rg) &
-            !$OMP SHARED(K_rho_phi_of_rg, K_rho_B_of_rg, &
-            !$OMP kr_grid, krp_grid, rg_grid, count_loading)
+            !!$OMP PARALLEL DO collapse(3) default(none) schedule(guided) &
+            !!$OMP PRIVATE(i_krp, i_kr, i_rg) &
+            !!$OMP SHARED(K_rho_phi_of_rg, K_rho_B_of_rg, &
+            !!$OMP kr_grid, krp_grid, rg_grid, count_loading)
             do i_krp = 1, krp_grid%npts_b
                 do i_kr = 1, kr_grid%npts_b
                     do i_rg = 1, rg_grid%npts_b
                         K_rho_phi_of_rg(i_krp, i_kr, i_rg) = kernel_rho_phi_of_kr_krp_rg(krp_grid%xb(i_kr), kr_grid%xb(i_krp)&
-                                                            , rg_grid%xb(i_rg)) 
-                        !K_rho_B_of_rg(i_krp, i_kr, i_rg) = kernel_rho_B_of_kr_krp_rg(kr(i_kr), krp(i_krp), rb(i_rg)) 
-
+                                                            , rg_grid%xb(i_rg))
+                        K_rho_B_of_rg(i_krp, i_kr, i_rg) = kernel_rho_B_of_kr_krp_rg(krp_grid%xb(i_kr), kr_grid%xb(i_krp)&
+                                                            , rg_grid%xb(i_rg))
                         if (isnan(real(K_rho_phi_of_rg(i_krp, i_kr, i_rg)))) then
                             write(*,*) "K_rho_phi_of_rg: NaN detected, kr = ", kr_grid%xb(i_kr), ", krp = ", krp_grid%xb(i_krp)&
+                                        , ", rg = ", rg_grid%xb(i_rg)
+                        end if
+                        if (isnan(real(K_rho_B_of_rg(i_krp, i_kr, i_rg)))) then
+                            write(*,*) "K_rho_B_of_rg: NaN detected, kr = ", kr_grid%xb(i_kr), ", krp = ", krp_grid%xb(i_krp)&
                                         , ", rg = ", rg_grid%xb(i_rg)
                         end if
                     end do
                 end do
             end do
-            !$OMP END PARALLEL DO
+            !!$OMP END PARALLEL DO
 
             if (fstatus == 1) write(*,*) 'Status: Finished filling rho kernels'
 
         end subroutine fill_rho_kernels
 
-        
+
         ! This is without the exp(i k_r(r_g - x_l)) factor
-        double complex function kernel_rho_phi_of_kr_krp_rg(val_kr, val_krp, val_rg)
+        complex(dp) function kernel_rho_phi_of_kr_krp_rg(val_kr, val_krp, val_rg)
 
             use setup, only: omega
             use constants, only: pi
+            use KIM_kinds, only: dp
+            use gsl_mod, only: gsl_sf_bessel_In
+
             implicit none
 
-            double precision, dimension(:,:), allocatable :: coef
-            integer :: ibeg, iend            
-            double precision, intent(in) :: val_kr, val_krp, val_rg
+            real(dp), dimension(:,:), allocatable :: coef
+            integer :: ibeg, iend
+            real(dp), intent(in) :: val_kr, val_krp, val_rg
             integer :: ir
 
             ! sub functions appearing in the kernels
-            double complex :: a0, a1, a2
-            double complex :: eval_bp, eval_bt ! b_+ and b_\times
-            double complex :: z0_interp
-            double complex :: eval_besselI0, eval_besselIm1
+            complex(dp) :: eval_bp, eval_bt ! b_+ and b_\times
+            complex(dp) :: z0_interp
+            complex(dp) :: eval_besselI0, eval_besselIm1
 
-            double complex :: besselI ! complex bessel function from bessel.f90
-            double complex :: plasma_Z ! plasma dispersion function
+            complex(dp) :: besselI ! complex bessel function from bessel.f90
+            complex(dp) :: plasma_Z ! plasma dispersion function
 
             integer :: sigma ! for loop over species
 
             ! interpolated values of the parameters
-            double precision :: vT_interp, omc_interp, ks_interp, om_E_interp, kp_interp, &
-                                        A1_interp, A2_interp, lambda_D_interp, nu_interp
+            real(dp) :: vT_interp, omc_interp, ks_interp, om_E_interp, kp_interp, &
+                        A1_interp, A2_interp, lambda_D_interp, nu_interp, rhoL_interp,&
+                        kperp, kperpp
 
             kernel_rho_phi_of_kr_krp_rg = 0.0d0
 
@@ -112,10 +120,12 @@ module kernels
             end if
 
             call plag_coeff(nlagr, nder, val_rg, r_prof(ibeg:iend), coef)
-            
+
             ks_interp = sum(coef(0,:) * ks(ibeg:iend))
             kp_interp = sum(coef(0,:) * kp(ibeg:iend))
             om_E_interp = sum(coef(0,:) * om_E(ibeg:iend))
+            kperp = sqrt(ks_interp**2 + val_kr**2)
+            kperpp = sqrt(ks_interp**2 + val_krp**2)
 
             do sigma = 0, number_of_ion_species
 
@@ -137,20 +147,17 @@ module kernels
                     nu_interp = sum(coef(0,:) * nui(sigma, ibeg:iend))
                 end if
 
-                eval_bp = vT_interp**2.0d0 / (2.0d0 * omc_interp**2.0d0) * (2.0d0 * ks_interp**2.0d0 &
-                        + val_kr**2.0d0 + val_krp**2.0d0)
-                eval_bt = vT_interp**2.0d0 /(omc_interp**2.0d0) * sqrt(ks_interp**2.0d0 + val_kr**2.0d0)&
-                        * sqrt(ks_interp**2.0d0 + val_krp**2.0d0)
+                rhoL_interp = vT_interp/abs(omc_interp)
+
+                eval_bp = rhoL_interp**2.0d0 / 2.0d0 * (kperp**2.0d0 + kperpp**2.0d0)
+                eval_bt = rhoL_interp**2.0d0 * kperp * kperpp
 
                 if (kernel_debye_case .eqv. .true.)then
-                    eval_besselI0 = cmplx(0.0d0, 0.0d0)
-                    eval_besselIm1 = cmplx(0.0d0, 0.0d0)
+                    eval_besselI0 = 0.0d0
+                    eval_besselIm1 = 0.0d0
                     A1_interp = 0.0d0
                     A2_interp = 0.0d0
                     z0_interp = 0.0d0
-                    a0 = 0.0d0
-                    a1 = 0.0d0
-                    a2 = 0.0d0
 
                     kernel_rho_phi_of_kr_krp_rg = kernel_rho_phi_of_kr_krp_rg + 1.0d0 / lambda_D_interp**2.0d0 &
                                             * exp(-vT_interp**2.0d0 / (2.0d0 * omc_interp ** 2.0d0) &
@@ -163,45 +170,24 @@ module kernels
                         eval_besselIm1 = exp(- eval_bp + asinh(-1.0d0/eval_bt) + eval_bt * sqrt(1.0d0 + 1/eval_bt**2.0d0)) &
                                 / (sqrt(2.0d0*pi*eval_bt * sqrt(1.0d0 + 1.0d0/eval_bt**2.0d0)))
                     else
-                        eval_besselI0 = besselI(0, eval_bt, 0) * exp(-eval_bp)
-                        eval_besselIm1 = besselI(-1, eval_bt, 0) * exp(-eval_bp)
-                    end if 
-
-                    a0 = eval_besselI0 * (- om_E_interp / omc_interp + ks_interp * vT_interp**2d0 &
-                    / (omc_interp**2d0) * (A1_interp + (1.0d0 + eval_bp) * A2_interp)) &
-                    + ks_interp * vT_interp**2d0 / (omc_interp**2d0) &
-                    * A2_interp * eval_bt * eval_besselIm1 ! *exp(-eval_bp) 
-
-                    a1 = - kp_interp/omc_interp * eval_besselI0 ! * exp(-eval_bp) 
-                    a2 = ks_interp / (2d0 * omc_interp**2d0) * A2_interp * eval_besselI0 ! * exp(-eval_bp) 
-
-                    ! large z limit applies for large k_parallel, i.e. close to the resonant surface
-                    if (abs(z0_interp) > large_z0_limit) then
-                        ! with 1/z_0^2 and 1/z_0 terms
-                        kernel_rho_phi_of_kr_krp_rg = kernel_rho_phi_of_kr_krp_rg &
-                            + 1.0d0 / lambda_D_interp**2.0d0  &
-                            * ((a0 * (1.0d0 + (2.0d0 * vT_interp**2.0d0 *kp_interp**2.0d0) &
-                            / (om_E_interp - omega - com_unit * nu_interp)**2.0d0) &
-                            - (vT_interp**2.0d0 * kp_interp * a1)/ (om_E_interp - omega - com_unit * nu_interp) &
-                            + vT_interp**2.0d0 * a2)&
-                            * omc_interp / (om_E_interp - omega - com_unit * nu_interp) &
-                            - (exp(-vT_interp**2d0/(2d0 * omc_interp**2d0) * (val_krp - val_kr)**2d0) &
-                            - eval_besselI0)) 
-                    else
-                        ! ideal region, k_parallel not near zero
-                        kernel_rho_phi_of_kr_krp_rg = kernel_rho_phi_of_kr_krp_rg + 1.0d0 /(lambda_D_interp**2d0) &
-                                * (omc_interp/(sqrt(2.0d0) * kp_interp * vT_interp) * (plasma_Z(z0_interp) &
-                                * (a0 + sqrt(2.0d0) * vT_interp * z0_interp * a1 + vT_interp**2d0 * a2 * 2d0 * z0_interp**2d0) &
-                                + vT_interp * sqrt(2d0) * (a1 + vT_interp * sqrt(2d0) * z0_interp * a2)) &
-                                - (exp(-vT_interp**2d0/(2d0 * omc_interp**2d0) * (val_krp - val_kr)**2d0) - eval_besselI0))
+                        eval_besselI0 = gsl_sf_bessel_In(0, real(eval_bt, dp)) * exp(-eval_bp)
+                        eval_besselIm1 = gsl_sf_bessel_In(-1, real(eval_bt, dp)) * exp(-eval_bp)
                     end if
 
+                    kernel_rho_phi_of_kr_krp_rg = kernel_rho_phi_of_kr_krp_rg + &
+                        1.0d0/(lambda_D_interp**2.0d0) * exp(com_unit * (val_kr - val_krp) * val_rg) &
+                        * (-exp(-rhoL_interp**2.0d0/ 2.0d0 * (val_kr - val_krp)**2.0d0) &
+                        + ks_interp * rhoL_interp / (kp_interp * sqrt(2.0d0)) &
+                            * (A1_interp * eval_besselI0 * plasma_Z(z0_interp)  &
+                            + A2_interp * (plasma_Z(z0_interp) * eval_besselI0 * (1 + eval_bp + z0_interp**2.0d0) &
+                            + eval_besselIm1 * eval_bt + z0_interp * eval_besselI0))&
+                        )
                 end if
             end do
 
             deallocate(coef)
 
-            kernel_rho_phi_of_kr_krp_rg = -kernel_rho_phi_of_kr_krp_rg / (2d0**3 * pi**2)
+            kernel_rho_phi_of_kr_krp_rg = kernel_rho_phi_of_kr_krp_rg / (2d0**3 * pi**2)
 
             if (isnan(real(kernel_rho_phi_of_kr_krp_rg))) then
                 write(*,*) "kernel_rho_phi_of_kr_krp_rg: NaN detected"
@@ -211,31 +197,35 @@ module kernels
 
 
         ! TODO: implement the following functions
-        double complex function kernel_rho_B_of_kr_krp_rg(val_kr, val_krp, val_rg)
+        complex(dp) function kernel_rho_B_of_kr_krp_rg(val_kr, val_krp, val_rg)
 
             use setup, only: omega
             use constants, only: sol, com_unit, pi
+            use KIM_kinds, only: dp
+            use gsl_mod, only: gsl_sf_bessel_In
+
             implicit none
-            double precision, intent(in) :: val_kr, val_krp, val_rg
 
-            double precision, dimension(:,:), allocatable :: coef
-            integer :: ibeg, iend            
+            real(dp), intent(in) :: val_kr, val_krp, val_rg
+
+            real(dp), dimension(:,:), allocatable :: coef
+            integer :: ibeg, iend
             integer :: ir
-            
-            ! sub functions appearing in the kernels
-            double complex :: a0, a1, a2
-            double complex :: eval_bp, eval_bt ! b_+ and b_\times
-            double complex :: z0_interp
-            double complex :: eval_besselI0, eval_besselIm1
 
-            double complex :: besselI ! complex bessel function from bessel.f90
-            double complex :: plasma_Z ! plasma dispersion function
+            ! sub functions appearing in the kernels
+            complex(dp) :: eval_bp, eval_bt ! b_+ and b_\times
+            complex(dp) :: z0_interp
+            complex(dp) :: eval_besselI0, eval_besselIm1
+
+            complex(dp) :: besselI ! complex bessel function from bessel.f90
+            complex(dp) :: plasma_Z ! plasma dispersion function
 
             integer :: sigma ! for loop over species
 
             ! interpolated values of the parameters
-            double precision :: vT_interp, omc_interp, ks_interp, om_E_interp, kp_interp, &
-                                        A1_interp, A2_interp, lambda_D_interp, nu_interp
+            real(dp) :: vT_interp, omc_interp, ks_interp, om_E_interp, kp_interp, &
+                        A1_interp, A2_interp, lambda_D_interp, nu_interp, rhoL_interp,&
+                        kperp, kperpp
 
 
             kernel_rho_B_of_kr_krp_rg = 0.0d0
@@ -257,6 +247,8 @@ module kernels
             ks_interp = sum(coef(0,:) * ks(ibeg:iend))
             kp_interp = sum(coef(0,:) * kp(ibeg:iend))
             om_E_interp = sum(coef(0,:) * om_E(ibeg:iend))
+            kperp = sqrt(ks_interp**2 + val_kr**2)
+            kperpp = sqrt(ks_interp**2 + val_krp**2)
 
             do sigma = 0, number_of_ion_species
 
@@ -278,20 +270,17 @@ module kernels
                     nu_interp = sum(coef(0,:) * nui(sigma, ibeg:iend))
                 end if
 
-                eval_bp = vT_interp**2.0d0 / (2.0d0 * omc_interp**2.0d0) * (2.0d0 * ks_interp**2.0d0 &
-                        + val_kr**2.0d0 + val_krp**2.0d0)
-                eval_bt = vT_interp**2.0d0 /(omc_interp**2.0d0) * sqrt(ks_interp**2.0d0 + val_kr**2.0d0)&
-                        * sqrt(ks_interp**2.0d0 + val_krp**2.0d0)
+                rhoL_interp = vT_interp/abs(omc_interp)
+
+                eval_bp = rhoL_interp**2.0d0 / 2.0d0 * (kperp**2.0d0 + kperpp**2.0d0)
+                eval_bt = rhoL_interp**2.0d0 * kperp * kperpp
 
                 if (kernel_debye_case .eqv. .true.)then
-                    eval_besselI0 = cmplx(0.0d0, 0.0d0)
-                    eval_besselIm1 = cmplx(0.0d0, 0.0d0)
+                    eval_besselI0 = 0.0d0
+                    eval_besselIm1 = 0.0d0
                     A1_interp = 0.0d0
                     A2_interp = 0.0d0
                     z0_interp = 0.0d0
-                    a0 = 0.0d0
-                    a1 = 0.0d0
-                    a2 = 0.0d0
                 else
                     if (real(eval_bt) > bessel_large_arg_limit) then
                         ! limit close to magnetic axis (k_s -> infinity) and large k_r and k_rp
@@ -300,35 +289,32 @@ module kernels
                         eval_besselIm1 = exp(- eval_bp + asinh(-1.0d0/eval_bt) + eval_bt * sqrt(1.0d0 + 1/eval_bt**2.0d0)) &
                                 / (sqrt(2.0d0*pi*eval_bt * sqrt(1.0d0 + 1.0d0/eval_bt**2.0d0)))
                     else
-                        eval_besselI0 = besselI(0, eval_bt, 0) * exp(-eval_bp)
-                        eval_besselIm1 = besselI(-1, eval_bt, 0) * exp(-eval_bp)
-                    end if 
-
-                    a0 = eval_besselI0 * (- om_E_interp / omc_interp + ks_interp * vT_interp**2d0 &
-                    / (omc_interp**2d0) * (A1_interp + (1.0d0 + eval_bp) * A2_interp)) &
-                    + ks_interp * vT_interp**2d0 / (omc_interp**2d0) &
-                    * A2_interp * eval_bt * eval_besselIm1 ! *exp(-eval_bp) 
-
-                    a1 = - kp_interp/omc_interp * eval_besselI0 ! * exp(-eval_bp) 
-                    a2 = ks_interp / (2d0 * omc_interp**2d0) * A2_interp * eval_besselI0 ! * exp(-eval_bp) 
-
+                        eval_besselI0 = gsl_sf_bessel_In(0, real(eval_bt, dp)) * exp(-eval_bp)
+                        eval_besselIm1 = gsl_sf_bessel_In(-1, real(eval_bt, dp)) * exp(-eval_bp)
+                    end if
                 end if
-                
-                if (abs(z0_interp) > large_z0_limit) then
-                    ! limit close to resonant surface, z -> infinity, k_parallel -> 0
-                    kernel_rho_B_of_kr_krp_rg = kernel_rho_B_of_kr_krp_rg - vT_interp**4.0d0 * kp_interp &
-                        / (lambda_D_interp**2.0d0 * omc_interp)  &
-                        / (om_E_interp - omega - com_unit * nu_interp)**2.0d0 * ((A1_interp + A2_interp * (1.0d0 + eval_bp)) &
-                        * eval_besselI0 + A2_interp * eval_bt * eval_besselIm1)
-                    !write(*,*) 'spec = ', sigma, ', r = ', r, ', lambda_D = ', lambda_D_interp, &!', omc_interp = ', omc_interp!eval_besselI0 = ', eval_besselI0, ', eval_besselIm1 = ', eval_besselIm1!', 
-                else
-                    ! ideal region
-                    kernel_rho_B_of_kr_krp_rg = kernel_rho_B_of_kr_krp_rg + vT_interp**2.0d0 & 
-                        / (lambda_D_interp**2.0d0 * omc_interp * kp_interp) &
-                          * ((z0_interp * plasma_Z(z0_interp) + 1.0d0) &
-                          * ((A1_interp + A2_interp * (1 + eval_bp + z0_interp**2.0d0)) * eval_besselI0 &
-                          + A2_interp * eval_bp * eval_besselIm1) + 0.5d0 * A2_interp * eval_besselI0)
-                end if
+
+                !if (abs(z0_interp) > large_z0_limit) then
+                    !! limit close to resonant surface, z -> infinity, k_parallel -> 0
+                    !kernel_rho_B_of_kr_krp_rg = kernel_rho_B_of_kr_krp_rg - vT_interp**4.0d0 * kp_interp &
+                        !/ (lambda_D_interp**2.0d0 * omc_interp)  &
+                        !/ (om_E_interp - omega - com_unit * nu_interp)**2.0d0 * ((A1_interp + A2_interp * (1.0d0 + eval_bp)) &
+                        !* eval_besselI0 + A2_interp * eval_bt * eval_besselIm1)
+                    !!write(*,*) 'spec = ', sigma, ', r = ', r, ', lambda_D = ', lambda_D_interp, &!', omc_interp = ', omc_interp!eval_besselI0 = ', eval_besselI0, ', eval_besselIm1 = ', eval_besselIm1!',
+                !else
+                    !! ideal region
+                    !kernel_rho_B_of_kr_krp_rg = kernel_rho_B_of_kr_krp_rg + vT_interp**2.0d0 &
+                        !/ (lambda_D_interp**2.0d0 * omc_interp * kp_interp) &
+                          !* ((z0_interp * plasma_Z(z0_interp) + 1.0d0) &
+                          !* ((A1_interp + A2_interp * (1 + eval_bp + z0_interp**2.0d0)) * eval_besselI0 &
+                          !+ A2_interp * eval_bp * eval_besselIm1) + 0.5d0 * A2_interp * eval_besselI0)
+                !end if
+
+                kernel_rho_B_of_kr_krp_rg = kernel_rho_B_of_kr_krp_rg + exp(com_unit * (val_kr - val_krp) * val_rg) &
+                    * vT_interp**2.0d0 / (lambda_D_interp**2.0d0 * omc_interp * kp_interp) &
+                    * (0.5d0 * A1_interp * eval_besselI0 *(z0_interp * plasma_Z(z0_interp) + 1.0d0) &
+                    + A2_interp * (0.5d0 * eval_besselI0 + (z0_interp * plasma_Z(z0_interp) + 1.0d0) &
+                    * ((1+eval_bp + z0_interp**2.0d0) * eval_besselI0 + eval_bp * eval_besselIm1)))
 
             end do
 
@@ -339,19 +325,19 @@ module kernels
         end function kernel_rho_B_of_kr_krp_rg
 
 
-        double complex function kernel_j_phi_of_kr_krp_rg(val_kr, val_krp, val_rg)
+        complex(dp) function kernel_j_phi_of_kr_krp_rg(val_kr, val_krp, val_rg)
 
             implicit none
-            double precision, intent(in) :: val_kr, val_krp, val_rg
+            real(dp), intent(in) :: val_kr, val_krp, val_rg
 
             kernel_j_phi_of_kr_krp_rg = 0.0d0
 
         end function kernel_j_phi_of_kr_krp_rg
 
-        double complex function kernel_j_B_of_kr_krp_rg(val_kr, val_krp, val_rg)
+        complex(dp) function kernel_j_B_of_kr_krp_rg(val_kr, val_krp, val_rg)
 
             implicit none
-            double precision, intent(in) :: val_kr, val_krp, val_rg
+            real(dp), intent(in) :: val_kr, val_krp, val_rg
 
             kernel_j_B_of_kr_krp_rg = 0.0d0
 

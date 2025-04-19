@@ -6,9 +6,12 @@ module loading_bar
 
         subroutine updateLoadingBar(current_step, total_steps)
 
+            use KIM_kinds, only: dp
+
             implicit none 
+
             integer, intent(in) :: current_step, total_steps
-            real(kind=8) :: percentage
+            real(dp) :: percentage
 
             ! Calculate the percentage completion
             percentage = real(current_step) / real(total_steps) * 100.0
@@ -23,8 +26,11 @@ module loading_bar
 
         subroutine drawLoadingBar(percentage)
 
+            use KIM_kinds, only: dp
+
             implicit none
-            real(kind=8), intent(in) :: percentage
+
+            real(dp), intent(in) :: percentage
             integer :: num_blocks, i
 
             ! Calculate the number of blocks to display

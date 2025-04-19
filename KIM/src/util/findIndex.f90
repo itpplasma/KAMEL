@@ -3,11 +3,14 @@ module findIndex
 
     subroutine findClosestIndex(array, target, closest_index)
 
+        use KIM_kinds, only: dp
+
         implicit none
-        double precision, dimension(:), intent(in) :: array
-        double precision, intent(in) :: target
+
+        real(dp), dimension(:), intent(in) :: array
+        real(dp), intent(in) :: target
         integer, intent(out) :: closest_index
-        double precision :: min_difference
+        real(dp) :: min_difference
         integer :: i
 
         ! Initialize with a large value

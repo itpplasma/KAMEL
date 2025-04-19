@@ -14,7 +14,6 @@ module unit_tests
 
     end subroutine
 
-
     subroutine test_debye_kernel(ierr)
 
         use debye_kernel
@@ -92,8 +91,6 @@ module unit_tests
         end do
         close(79)
         close(80)
-
-
 
     end subroutine
 

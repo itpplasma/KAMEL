@@ -1,0 +1,91 @@
+set(KIM_setup setup/config_mod.f90 
+            setup/setup_mod.f90
+)
+
+set(KIM_general general/read_config.f90
+                general/KIM_base.f90
+                general/KIM_mod.f90
+                general/KIM_init.f90
+                general/KIM_kinds.f90
+)
+
+
+set(KIM_math math/suitesparse/umf4_f77zwrapper.c
+            math/suitesparse/umf4_f77wrapper.c
+            math/superlu/c_fortran_dgssv.c
+            math/superlu/c_fortran_zgssv.c
+            math/bessel.f90
+            math/gsl_mod.f90
+            math/bessk.f90
+            math/use_libcerf_mod.f90
+            math/sparse_mod.f90
+            math/plasma_disp_func.f90
+            math/functions.f90
+            math/gauss_legendre_int.f90
+)
+
+set(KIM_debye debye_case/debye_kernel.f90
+            debye_case/fill_spline_kernel_debye.f90
+            debye_case/solve_debye_in_kr_space.f90
+)
+
+set(KIM_grid #grid/generate_k_space_grid.f90
+            grid/grid_mod.f90
+            grid/gengrid.f90
+            #grid/kr_space_adjustments.f90
+            grid/spline_function.f90
+            grid/resonances_mod.f90
+            grid/prepare_resonances.f90
+            grid/recnsplit.f90
+            grid/regularization_funcs.f90
+)
+
+set(KIM_util util/findIndex.f90
+            util/loading_bar.f90
+            util/plag_coeff.f90
+            util/dense_to_sparse.f90
+            util/write_config_to_hdf5.f90
+            util/constants_mod.f90
+            util/plotting.f90
+)
+
+set(KIM_kernels kernels/integrands.f90
+                #kernels/kernel_functions.f90
+                kernels/cut_off_integration.f90
+                kernels/kernel_mod.f90
+)
+
+set(KIM_background_equilibrium background_equilibrium/calculate_backs.f90
+                            background_equilibrium/calculate_equil.f90
+                            background_equilibrium/plasma_parameter.f90
+                            background_equilibrium/back_quants_mod.f90
+                            background_equilibrium/species_mod.f90
+)
+
+set(KIM_dispersion dispersion/fun_input.f90
+)
+
+set(KIM_poisson    run_poisson/poisson.f90
+                    run_poisson/solve_poisson.f90
+)
+
+set(KIM_reduced reduced_model/reduced.f90
+                reduced_model/reduced_kernel.f90
+                reduced_model/reduced_integrands.f90
+                )
+
+set(KIM_WKB_dispersion run_wkb_dispersion/wkb_dispersion.f90
+)
+
+set(external_zeal ${CMAKE_SOURCE_DIR}/../external/Zeal/zeal_input.f90
+                ${CMAKE_SOURCE_DIR}/../external/Zeal/integr_input.f90
+                ${CMAKE_SOURCE_DIR}/../external/Zeal/split.f90
+                ${CMAKE_SOURCE_DIR}/../external/Zeal/quad.f90
+                ${CMAKE_SOURCE_DIR}/../external/Zeal/refine.f90
+                ${CMAKE_SOURCE_DIR}/../external/Zeal/error.f90
+                ${CMAKE_SOURCE_DIR}/../external/Zeal/zeal.f90
+                ${CMAKE_SOURCE_DIR}/../external/Zeal/zeros.f90
+                ${CMAKE_SOURCE_DIR}/../external/Zeal/dqag.f #quadpack
+                ${CMAKE_SOURCE_DIR}/../external/Zeal/dqagx.f # quadpack
+                ${CMAKE_SOURCE_DIR}/../external/Zeal/dlamch.f # quadpack
+                ${CMAKE_SOURCE_DIR}/../external/Zeal/prec.f90)

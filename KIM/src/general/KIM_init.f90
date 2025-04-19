@@ -11,6 +11,7 @@ subroutine kim_init
     ! calculate equilibrium B field and J
     call calculate_equil(.true.)
     ! calculate quantities used for the kernels, e.g. A1, A2, dndr, omega_c,...
+    call allocate_backs
     call calculate_backs(.true.)
 
 end subroutine

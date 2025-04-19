@@ -10,7 +10,6 @@ project(KIM VERSION 0.1
             DESCRIPTION "KiLCA Integral Model"
             LANGUAGES Fortran C CXX)
 enable_language(Fortran)
-
 enable_testing()
 
 add_subdirectory(src)

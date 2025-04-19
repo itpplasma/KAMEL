@@ -91,7 +91,7 @@ module equilibrium
                 call ddeabm(dudr, ineq, radius0, u0, r1, info, rtol, atol, idid, rwork, lrw, &
                             iwork, liw, rpar, ipar)
 
-        if (idid .lt. 1) write(*,*) 'Warning: calculate_equil: r=', r1, ' idid=', idid
+                if (idid .lt. 1) write(*,*) 'Warning: calculate_equil: r=', r1, ' idid=', idid
 
                 u(i) = u0
                 info(1) = 1

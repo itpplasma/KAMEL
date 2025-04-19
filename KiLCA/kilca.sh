@@ -52,7 +52,7 @@ echo "Finished building gsl-2.4..."
 echo ""
 
 cd ../KiLCA
-mkdir build
+mkdir -p build
 cd build
 cmake ..
 make -j

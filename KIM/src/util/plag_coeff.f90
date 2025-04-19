@@ -15,14 +15,19 @@
     ! df=sum(fun(1:npoi)*coef(1,1:npoi) gives the derivative value value
     !
     !
+
+    use KIM_kinds, only: dp
+
+    implicit none
+
     INTEGER, INTENT(in)                                :: npoi,nder
-    double precision, INTENT(in)                          :: x
-    double precision, DIMENSION(npoi), INTENT(in)         :: xp
-    double precision, DIMENSION(0:nder,npoi), INTENT(out) :: coef
-    double precision, DIMENSION(:), ALLOCATABLE           :: dummy
+    real(dp), INTENT(in)                          :: x
+    real(dp), DIMENSION(npoi), INTENT(in)         :: xp
+    real(dp), DIMENSION(0:nder,npoi), INTENT(out) :: coef
+    real(dp), DIMENSION(:), ALLOCATABLE           :: dummy
     !
     INTEGER                                            :: i,k,j
-    double precision                                      :: fac
+    real(dp)                                      :: fac
     !
     DO i=1,npoi
        coef(0,i)=1.d0
@@ -63,11 +68,12 @@
 ! Finds the index  i  of the array of increasing numbers   p  with dimension  n
 ! which satisfies   p(i-1) <  xi  <  p(i) . Uses binary search algorithm.
 !
+  use KIM_kinds, only: dp
   implicit none
 !
   integer                                :: n,nmin,nmax,i,imin,imax,k
-  double precision                       :: xi
-  double precision, dimension(nmin:nmax) :: p
+  real(dp)                       :: xi
+  real(dp), dimension(nmin:nmax) :: p
 !
   imin=nmin
   imax=nmax

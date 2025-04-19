@@ -4,7 +4,7 @@ CONFIG ?= Release
 all: ninja
 
 build/build.ninja:
-	cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=$(CONFIG)
+	cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=$(CONFIG) 
 
 ninja: build/build.ninja
 	cmake --build build

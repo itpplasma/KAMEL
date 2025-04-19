@@ -8,6 +8,7 @@ set(UMFPACK_LIBRARY_PATH ${CMAKE_BINARY_DIR}/install/lib/libumfpack${CMAKE_STATI
 set(SUITESPARSE_CONFIG_LIBRARY_PATH ${CMAKE_BINARY_DIR}/install/lib/libsuitesparseconfig${CMAKE_STATIC_LIBRARY_SUFFIX})
 set(AMD_LIBRARY_PATH ${CMAKE_BINARY_DIR}/install/lib/libamd${CMAKE_STATIC_LIBRARY_SUFFIX})
 set(SUITESPARSE_INCLUDE_DIR ${CMAKE_BINARY_DIR}/install/include/suitesparse)
+set(UMFPACK_INCLUDE_DIR ${CMAKE_BINARY_DIR}/install/include/suitesparse)
 
 execute_process(
     COMMAND ${CMAKE_COMMAND} -E make_directory ${SUITESPARSE_INCLUDE_DIR}

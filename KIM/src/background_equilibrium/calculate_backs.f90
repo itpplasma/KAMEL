@@ -1,3 +1,22 @@
+subroutine allocate_backs
+
+    use back_quants
+    use plasma_parameter, only: iprof_length
+    use config, only: number_of_ion_species
+
+    implicit none
+
+    allocate(A1e(iprof_length), A2e(iprof_length), vTe(iprof_length), &
+            omce(iprof_length), nue(iprof_length), lambda_De(iprof_length), rho_Le(iprof_length))
+    allocate(A1i(number_of_ion_species, iprof_length), A2i(number_of_ion_species, iprof_length), &
+            vTi(number_of_ion_species, iprof_length), omci(number_of_ion_species, iprof_length), &
+            nui(number_of_ion_species, iprof_length), lambda_Di(number_of_ion_species, iprof_length),&
+            rho_Li(number_of_ion_species, iprof_length))
+    allocate(ks(iprof_length), kp(iprof_length), om_E(iprof_length), z0e(iprof_length))
+    allocate(z0i(number_of_ion_species, iprof_length))
+
+end subroutine
+
 ! calculate background quantities, e.g. thermodynamic forces, thermal
 ! velocity, etc.
 ! input: write_out ... bool, if true, writes out background quantities
@@ -13,30 +32,24 @@ subroutine calculate_backs(write_out)
     use config
     use setup
     use equilibrium, only: hz, hth, B0
+    use KIM_kinds, only: dp
 
     implicit none
 
     logical, intent(in) :: write_out
-    integer :: i  
+    integer :: i
     integer :: sigma, sigma_col
-    double precision, dimension(:), allocatable :: Lee ! Coulomb log
-    double precision, dimension(:,:), allocatable :: Lei ! Coulomb log
-    double precision, dimension(:,:,:), allocatable :: Lii ! Coulomb log
+    real(dp), dimension(:), allocatable :: Lee ! Coulomb log
+    real(dp), dimension(:,:), allocatable :: Lei ! Coulomb log
+    real(dp), dimension(:,:,:), allocatable :: Lii ! Coulomb log
 
     integer, dimension(2) :: max_ind
-
-    if (fstatus == 1) write(*,*) 'Status: Calculating background quantities, write_out=',write_out
 
     allocate(Lee(iprof_length), Lei(number_of_ion_species, iprof_length), &
             Lii(number_of_ion_species, number_of_ion_species, iprof_length))
 
-    allocate(A1e(iprof_length), A2e(iprof_length), vTe(iprof_length), &
-            omce(iprof_length), nue(iprof_length), lambda_De(iprof_length))
-    allocate(A1i(number_of_ion_species, iprof_length), A2i(number_of_ion_species, iprof_length), &
-            vTi(number_of_ion_species, iprof_length), omci(number_of_ion_species, iprof_length), &
-            nui(number_of_ion_species, iprof_length), lambda_Di(number_of_ion_species, iprof_length))
-    allocate(ks(iprof_length), kp(iprof_length), om_E(iprof_length), z0e(iprof_length))
-    allocate(z0i(number_of_ion_species, iprof_length))
+
+    if (fstatus == 1) write(*,*) 'Status: Calculating background quantities, write_out=',write_out
 
     call calc_plasma_parameter_derivs
 
@@ -47,11 +60,11 @@ subroutine calculate_backs(write_out)
         ! Thermal velocity
         vTe(i) = 4.19d7 * sqrt(Te_prof(i)) !sqrt(Te_prof(i) * ev / e_mass)
         ! cyclotron frequency
-        omce(i) = e_charge * btor / (e_mass * sol)
+        omce(i) = -e_charge * abs(btor) / (e_mass * sol)
         ! Collision frequency
         nue(i) = 5.8e-6 * n_prof(i) * Lee(i) / Te_prof(i)**(3.0/2.0)
         ! Debye length
-        lambda_De(i) = sqrt(Te_prof(i) *ev/ (4*pi*n_prof(i) * e_charge**2))
+        lambda_De(i) = sqrt(Te_prof(i) *ev/ (4.0d0*pi*n_prof(i) * e_charge**2.0d0))
         ! First thermodynamic force
         A1e(i) = dndr_prof(i) / n_prof(i) + e_charge/(Te_prof(i) * ev) * Er_prof(i) - 3/(2*Te_prof(i)) * dTedr_prof(i)
         ! Second thermodynamic force
@@ -65,7 +78,8 @@ subroutine calculate_backs(write_out)
         ! ExB rotation frequency
         om_E(i) = - sol * ks(i) * Er_prof(i) / B0(i)
 
-        
+        rho_Le(i) = vTe(i) / omce(i)
+
     end do
 
     do sigma=1, number_of_ion_species
@@ -75,7 +89,7 @@ subroutine calculate_backs(write_out)
             ! thermal velocity
             vTi(sigma, i) = 9.79d5 * sqrt(Ti_prof(sigma,i)/Ai(sigma))!sqrt(Ti_prof(sigma, i) * ev / (p_mass * Ai(sigma)))
             ! Cyclotron frequency
-            omci(sigma, i) = (e_charge * Zi(sigma)) * btor / (p_mass * Ai(sigma) * sol)
+            omci(sigma, i) = (e_charge * Zi(sigma)) * abs(btor) / (p_mass * Ai(sigma) * sol)
             ! Collision frequency of electrons with ions
             nue(i) = nue(i) + 7.7d-6 * ni_prof(sigma, i) * Lei(sigma, i) * Zi(sigma)**2 / Te_prof(i)**(3.0/2.0)
             ! Collision frequency ions with electrons
@@ -84,7 +98,7 @@ subroutine calculate_backs(write_out)
 
             do sigma_col=sigma, number_of_ion_species
                 ! Coulomb logarithm ions - ions'
-                Lii(sigma, sigma_col, i) = 23.0 - log(Zi(sigma) * Zi(sigma_col) * (Ai(sigma)+Ai(sigma_col)) /&
+                Lii(sigma, sigma_col, i) = 23.0d0 - log(Zi(sigma) * Zi(sigma_col) * (Ai(sigma)+Ai(sigma_col)) /&
                                          (Ti_prof(sigma, i)*Ai(sigma) + Ti_prof(sigma_col, i) * Ai(sigma_col)) * &
                                           (ni_prof(sigma, i) * Zi(sigma)**2 / Ti_prof(sigma,i) + &
                                            ni_prof(sigma_col, i) * Zi(sigma_col)**2) / Ti_prof(sigma_col, i))
@@ -95,7 +109,10 @@ subroutine calculate_backs(write_out)
             end do
 
             ! Debye length ions
-            lambda_Di(sigma, i) = sqrt(Ti_prof(sigma, i) * ev/ (4*pi*ni_prof(sigma,i) * (e_charge*Zi(sigma))**2))
+            lambda_Di(sigma, i) = sqrt(Ti_prof(sigma, i) * ev/ (4.0d0*pi*ni_prof(sigma,i) * (e_charge*Zi(sigma))**2.0d0))
+
+            rho_Li(sigma, i) = vTi(sigma, i) / omci(sigma, i)
+
             ! First thermodynamic force
             A1i(sigma, i) = dnidr_prof(sigma, i) / ni_prof(sigma, i) - (e_charge*Zi(sigma))/(Ti_prof(sigma, i) * ev) * Er_prof(i)&
                         - 3/(2*Ti_prof(sigma, i)) * dTidr_prof(sigma, i)
@@ -112,8 +129,6 @@ subroutine calculate_backs(write_out)
         end do
     end do
 
-
-
     max_ind = maxloc(vTi)
     rho_L = vTi(max_ind(1), max_ind(2)) * Ai(max_ind(1)) * p_mass * sol &
             / (e_charge * Zi(max_ind(1)) * abs(btor))
@@ -125,7 +140,7 @@ subroutine calculate_backs(write_out)
     contains
     ! write background quantities
     subroutine write_backs
-        
+
         implicit none
         character(1024) :: filename
         logical :: ex
@@ -208,7 +223,7 @@ subroutine calculate_backs(write_out)
                     do i=1, iprof_length
                         write(78, *) r_prof(i), vTi(sigma, i)
                     end do
-                    close(unit = 78)               
+                    close(unit = 78)
                     ! Collision frequency
                     write(filename, "(A4, I1, A4)") 'nui_', sigma, '.dat'
                     open(unit = 78, file = trim(output_path)//'backs/'//filename)

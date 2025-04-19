@@ -291,7 +291,7 @@ class KIM_WKB():
         self.calc_all_derivs()
 
         self.general_dat['ks'] = (self.m_mode * self.equil_dat['hz'] - self.n_mode * self.equil_dat['hth'] / self.R0) / self.general_dat['r'] 
-        self.general_dat['kp'] = self.m_mode / self.general_dat['r'] * self.equil_dat['hth'] + self.n_mode / self.R0 * self.equil_dat['hz'] 
+        self.general_dat['kp'] = np.abs(self.m_mode / self.general_dat['r'] * self.equil_dat['hth'] + self.n_mode / self.R0 * self.equil_dat['hz'] )
         self.general_dat['om_E'] = -sol * self.general_dat['ks'] * self.general_dat['Er'] / self.equil_dat['B0'] 
 
         for spec in self.species:

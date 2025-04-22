@@ -72,7 +72,6 @@ module reduced_integrands
         use grid, only: rg_grid, xl_grid
         use KIM_kinds, only: dp
         use functions, only: varphi_l
-        use, intrinsic :: ieee_arithmetic
 
         implicit none
 
@@ -215,6 +214,5 @@ module reduced_integrands
         val = A2 * (z0 * plasma_Z(z0) + 1.0d0)
 
     end function
-
 
 end module

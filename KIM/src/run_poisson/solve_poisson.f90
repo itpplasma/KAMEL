@@ -209,6 +209,11 @@ module poisson_solver
             elseif(type==11) then
                 rhs_vec = 1.0d0
                 rhs_vec = matmul(K_rho_B, rhs_vec)
+            elseif(type==12) then
+                !rhs_vec = 1.0d0
+                rhs_vec = cmplx(1.0d0, 0.0d0, dp) * exp(- (xl_grid%xb - x0)**2 / 1.0d0**2) &
+                        * sqrt(pi / 0.1d0**2)
+                rhs_vec = matmul(K_rho_B, rhs_vec)
             end if
 
             rhs_vec = - 4d0 * pi * rhs_vec

@@ -13,6 +13,7 @@ module species
         real(dp), allocatable :: q(:) ! safety factor profile
         real(dp), allocatable :: dqdr(:)
         real(dp), allocatable :: Er(:)
+        real(dp), allocatable :: r_grid(:)
     end type
 
     type :: species_t
@@ -119,6 +120,7 @@ module species
         plasma%q = q_prof
         plasma%Er = Er_prof
         plasma%dqdr = dqdr_prof
+        plasma%r_grid = r_prof
 
         call calc_plasma_parameter_derivs
 
@@ -135,6 +137,8 @@ module species
         use equilibrium, only: hz, hth, B0
         use plasma_parameter, only: iprof_length, r_prof
         use setup, only: m_mode, n_mode, omega, R0
+        use grid, only: rg_grid
+        use plotting, only: plot_profile
 
         implicit none
 
@@ -149,6 +153,8 @@ module species
             ! ExB rotation frequency
             plasma%om_E(i) = - sol * plasma%ks(i) * plasma%Er(i) / B0(i)
         end do
+
+        call plot_profile(r_prof, plasma%kp)
 
         do sp = 0, plasma%n_species-1
 
@@ -176,7 +182,122 @@ module species
                 plasma%spec(sp)%z0(i) = - (plasma%om_E(i) - omega - com_unit * plasma%spec(sp)%nu(i)) &
                     / (abs(plasma%kp(i)) * sqrt(2d0) * plasma%spec(sp)%vT(i) )
             end do
+
         end do
+
+        
+
+    end subroutine
+
+    subroutine interpolate_plasma_backs(plasma_in, grid)
+
+        use KIM_kinds, only: dp
+
+        implicit none
+
+        type(plasma_t), intent(inout) :: plasma_in
+        type(plasma_t), allocatable :: plasma_temp
+        real(dp), intent(in) :: grid(:)
+        integer :: i, sp
+        integer :: nlagr = 4
+        integer :: nder = 0
+        integer :: ibeg, iend, ir
+        real(dp), dimension(:,:), allocatable :: coef
+
+        if (.not. allocated(coef)) allocate(coef(0:nder, nlagr))
+
+        plasma_temp = plasma_in
+
+        do sp = 0, plasma_temp%n_species-1
+            deallocate(plasma_temp%spec(sp)%n)
+            allocate(plasma_temp%spec(sp)%n(size(grid)))
+            deallocate(plasma_temp%spec(sp)%dndr)
+            allocate(plasma_temp%spec(sp)%dndr(size(grid)))
+            deallocate(plasma_temp%spec(sp)%T)
+            allocate(plasma_temp%spec(sp)%T(size(grid)))
+            deallocate(plasma_temp%spec(sp)%dTdr)
+            allocate(plasma_temp%spec(sp)%dTdr(size(grid)))
+            deallocate(plasma_temp%spec(sp)%A1)
+            allocate(plasma_temp%spec(sp)%A1(size(grid)))
+            deallocate(plasma_temp%spec(sp)%A2)
+            allocate(plasma_temp%spec(sp)%A2(size(grid)))
+            deallocate(plasma_temp%spec(sp)%nu)
+            allocate(plasma_temp%spec(sp)%nu(size(grid)))
+            deallocate(plasma_temp%spec(sp)%vT)
+            allocate(plasma_temp%spec(sp)%vT(size(grid)))
+            deallocate(plasma_temp%spec(sp)%omega_c)
+            allocate(plasma_temp%spec(sp)%omega_c(size(grid)))
+            deallocate(plasma_temp%spec(sp)%lambda_D)
+            allocate(plasma_temp%spec(sp)%lambda_D(size(grid)))
+            deallocate(plasma_temp%spec(sp)%rho_L)
+            allocate(plasma_temp%spec(sp)%rho_L(size(grid)))
+            deallocate(plasma_temp%spec(sp)%z0)
+            allocate(plasma_temp%spec(sp)%z0(size(grid)))
+
+            deallocate(plasma_temp%kp)
+            allocate(plasma_temp%kp(size(grid)))
+            deallocate(plasma_temp%ks)
+            allocate(plasma_temp%ks(size(grid)))
+            deallocate(plasma_temp%om_E)
+            allocate(plasma_temp%om_E(size(grid)))
+
+        end do
+
+        do sp = 0, plasma_temp%n_species-1
+            do i = 1, size(grid)
+                call binsrc(plasma_temp%r_grid, 1, size(plasma_temp%r_grid), grid, ir) 
+                ibeg = max(1, ir - nlagr/2)
+                iend = ibeg + nlagr - 1
+                if (iend .gt. size(plasma_temp%r_grid)) then
+                    iend = size(plasma_temp%r_grid)
+                    ibeg = iend -nlagr + 1
+                end if
+
+                call plag_coeff(nlagr, nder, grid(i), plasma_temp%r_grid(ibeg:iend), coef)
+
+                plasma_temp%spec(sp)%n(i) = sum(coef(0,:) * plasma_in%spec(sp)%n(ibeg:iend))
+                plasma_temp%spec(sp)%dndr(i) = sum(coef(0,:) * plasma_in%spec(sp)%dndr(ibeg:iend))
+                plasma_temp%spec(sp)%T(i) = sum(coef(0,:) * plasma_in%spec(sp)%T(ibeg:iend))
+                plasma_temp%spec(sp)%dTdr(i) = sum(coef(0,:) * plasma_in%spec(sp)%dTdr(ibeg:iend))
+                plasma_temp%spec(sp)%A1(i) = sum(coef(0,:) * plasma_in%spec(sp)%A1(ibeg:iend))
+                plasma_temp%spec(sp)%A2(i) = sum(coef(0,:) * plasma_in%spec(sp)%A2(ibeg:iend))
+                plasma_temp%spec(sp)%nu(i) = sum(coef(0,:) * plasma_in%spec(sp)%nu(ibeg:iend))
+                plasma_temp%spec(sp)%vT(i) = sum(coef(0,:) * plasma_in%spec(sp)%vT(ibeg:iend))
+                plasma_temp%spec(sp)%omega_c(i) = sum(coef(0,:) * plasma_in%spec(sp)%omega_c(ibeg:iend))
+                plasma_temp%spec(sp)%lambda_D(i) = sum(coef(0,:) * plasma_in%spec(sp)%lambda_D(ibeg:iend))
+                plasma_temp%spec(sp)%rho_L(i) = sum(coef(0,:) * plasma_in%spec(sp)%rho_L(ibeg:iend))
+                plasma_temp%spec(sp)%z0(i) = sum(coef(0,:) * plasma_in%spec(sp)%z0(ibeg:iend))
+
+                plasma_temp%ks(i) = sum(coef(0,:) * plasma_in%ks(ibeg:iend))
+                plasma_temp%kp(i) = sum(coef(0,:) * plasma_in%kp(ibeg:iend))
+                plasma_temp%om_E(i) = sum(coef(0,:) * plasma_in%om_E(ibeg:iend))
+                plasma_temp%q(i) = sum(coef(0,:) * plasma_in%q(ibeg:iend))
+                plasma_temp%dqdr(i) = sum(coef(0,:) * plasma_in%dqdr(ibeg:iend))
+                plasma_temp%Er(i) = sum(coef(0,:) * plasma_in%Er(ibeg:iend))
+
+            end do
+        end do
+
+        plasma_temp%r_grid = grid
+        plasma_in = plasma_temp
+
+        deallocate(plasma_temp)
+
+    end subroutine
+
+
+    subroutine plot_species(spec)
+
+        use plotting, only: plot_1D_labeled, write_profile, remove_file
+        use grid, only: rg_grid
+
+        implicit none
+
+        type(species_t), intent(in) :: spec
+
+        call write_profile(rg_grid%xb, spec%rho_L, rg_grid%npts_b, 'rho_L.dat')
+        call plot_1D_labeled('rho_L.dat', ' r [cm] ', ' rho_L [cm] ', '')
+        call remove_file('rho_L.dat')
 
     end subroutine
 

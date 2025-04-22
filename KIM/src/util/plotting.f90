@@ -130,6 +130,19 @@ module plotting
 
     end subroutine
 
+    subroutine plot_profile(x,y)
+
+        use KIM_kinds, only: dp
+
+        implicit none
+
+        real(dp), intent(in) :: x(:), y(:)
+
+        call write_profile(x, y, size(x), 'profile.dat')
+        call plot_1D('profile.dat')
+        call remove_file('profile.dat')
+
+    end subroutine
 
     subroutine plot_complex_1D(datafile)
 
@@ -152,6 +165,41 @@ module plotting
         write(cmd, '(A)') 'gnuplot -persist -e "plot '''//trim(datafile)//''' matrix with image"'
         call execute_command_line(trim(cmd))
     end subroutine plot_matrix
+
+    subroutine plot_1D_labeled(datafile, xlabel, ylabel, title)
+
+        implicit none
+
+        character(*), intent(in) :: datafile
+        character(*), intent(in) :: xlabel, ylabel, title
+        character(len=1024) :: cmd
+        character(len=1024) :: plot_cmd
+
+        plot_cmd = 'set xlabel ''' // trim(xlabel) // '''; ' // &
+                'set ylabel ''' // trim(ylabel) // '''; ' // &
+                'set title '''  // trim(title)  // '''; ' // &
+                'plot ''' // trim(datafile) // ''' using 1:2 with lines;'
+
+        write(cmd, '(A)') 'gnuplot -persist -e "' // trim(plot_cmd) // '"'
+
+        call execute_command_line(trim(cmd))
+
+    end subroutine
+
+    subroutine remove_file(filename)
+        implicit none
+
+        character(*), intent(in) :: filename
+        character(len=300) :: cmd
+
+        ! Build the command to remove the file
+        write(cmd, '(A)') 'rm -f "' // trim(filename) // '"'
+
+        ! Execute the command
+        call execute_command_line(trim(cmd))
+
+    end subroutine
+
 
 
 end module

@@ -14,8 +14,9 @@ module rt_reduced
 
     subroutine init_reduced(this)
 
-        use species, only: init_deuterium_plasma, set_deuterium_plasma, plasma
+        use species, only: init_deuterium_plasma, set_deuterium_plasma, plasma, interpolate_plasma_backs
         use plotting, only: write_profile, plot_1D
+        use grid, only: rg_grid
 
         implicit none
         class(reduced_t), intent(inout) :: this
@@ -32,6 +33,7 @@ module rt_reduced
         call generate_grids
         call init_deuterium_plasma(plasma)
         call set_deuterium_plasma(plasma)
+        call interpolate_plasma_backs(plasma, rg_grid%xb)
 
     end subroutine
 

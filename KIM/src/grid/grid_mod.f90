@@ -171,7 +171,7 @@ module grid
 
         enddo
 
-        deallocate(coef)
+        deallocate(coef, ipbeg, ipend)
 
         call write_new_grid
 

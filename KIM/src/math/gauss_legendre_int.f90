@@ -27,7 +27,7 @@ module gauss_quad
     subroutine gauss_integrate_B0(int_B, a, b, result, gauss_conf)
 
         use KIM_kinds, only: dp
-        use reduced_integrands, only: int_B0_t
+        use reduced_integrands, only: int_B0_rho_phi_t
 
         implicit none
 
@@ -44,7 +44,7 @@ module gauss_quad
         real(dp), intent(in) :: a, b
         type(gauss_config_t), intent(in) :: gauss_conf
         real(dp), intent(out) :: result
-        type(int_B0_t), intent(in) :: int_B
+        type(int_B0_rho_phi_t), intent(in) :: int_B
 
         integer :: i
         real(dp) :: xm, xr
@@ -63,13 +63,13 @@ module gauss_quad
     subroutine gauss_integrate_B1(int_B1, result, gauss_conf)
 
         use KIM_kinds, only: dp
-        use reduced_integrands, only: int_B1_t
+        use reduced_integrands, only: int_B1_rho_phi_t
         use grid, only: xl_grid
         use constants, only: pi
 
         implicit none
 
-        class(int_B1_t), intent(in) :: int_B1
+        class(int_B1_rho_phi_t), intent(in) :: int_B1
 
         type(gauss_config_t), intent(in) :: gauss_conf
         real(dp), intent(out) :: result

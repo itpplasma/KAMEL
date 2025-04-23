@@ -47,7 +47,7 @@ module reduced_kernel
         !$omp parallel do collapse(2) private(l,lp, kernel_phi_llp, kernel_B_llp)
         do l = 1, kernel_rho_phi_llp%npts_l
             do lp = 1, kernel_rho_phi_llp%npts_lp
-                if (abs(l - lp) > 2) cycle
+                if (abs(l - lp) > 1) cycle
 
                 call calc_kernel_rho(l, lp, kernel_phi_llp, kernel_B_llp, gauss_conf)
                 kernel_rho_phi_llp%Kllp(l, lp) = kernel_phi_llp
@@ -74,13 +74,11 @@ module reduced_kernel
         use KIM_kinds, only: dp
         use gsl_mod, only: erf => gsl_sf_erf
         use gauss_quad, only: gauss_integrate_B0, gauss_integrate_B1, gauss_config_t
-        use config, only: number_of_ion_species
         use species, only: plasma
         use constants, only: pi, sol, com_unit
         use reduced_integrands, only: int_B0_rho_phi_t, mathcal_A0_rho_phi, int_B1_rho_phi_t, mathcal_A1_rho_phi,&
             mathcal_A1_rho_B, mathcal_A2_rho_B
         use config, only: artificial_debye_case
-        use grid, only: xl_grid
         
         implicit none
 
@@ -97,11 +95,11 @@ module reduced_kernel
 
         call set_xl_at_edge(l, lp, int_B0, int_B1)
 
-        do sigma = 0, number_of_ion_species
+        do sigma = 0, plasma%n_species - 1
             do j = 2, size(plasma%r_grid)-1
                 int_B0%j = j
                 int_B0%rhoT = 0.5d0 * (plasma%spec(sigma)%rho_L(j) + plasma%spec(sigma)%rho_L(j+1))
-                call gauss_integrate_B0(int_B0, plasma%r_grid(j-1), plasma%r_grid(j+1), integral_val, gauss_conf)
+                call gauss_integrate_B0(int_B0, int_B0%xlm1, int_B0%xlp1, integral_val, gauss_conf)
                 kernel_phi_llp = kernel_phi_llp + integral_val * mathcal_A0_rho_phi(j, plasma%spec(sigma)) 
 
                 if (artificial_debye_case) cycle
@@ -109,8 +107,8 @@ module reduced_kernel
                 int_B1%j = j
                 int_B1%rhoT = 0.5d0 * (plasma%spec(sigma)%rho_L(j) + plasma%spec(sigma)%rho_L(j+1))
                 call gauss_integrate_B1(int_B1, integral_val, gauss_conf)
-                kernel_phi_llp = kernel_phi_llp + integral_val * mathcal_A1_rho_phi(j, plasma%spec(sigma))
-                kernel_B_llp = kernel_B_llp + integral_val * mathcal_A1_rho_B(j, plasma%spec(sigma)) &
+                kernel_phi_llp = kernel_phi_llp - integral_val * mathcal_A1_rho_phi(j, plasma%spec(sigma))
+                kernel_B_llp = kernel_B_llp - integral_val * mathcal_A1_rho_B(j, plasma%spec(sigma)) &
                                 * (0.5d0 * (plasma%spec(sigma)%vT(j) + plasma%spec(sigma)%vT(j+1)))**2.0d0 &
                                 / (0.5d0 * (plasma%spec(sigma)%lambda_D(j) + plasma%spec(sigma)%lambda_D(j+1)))**2.0d0 &
                                 / (0.5d0 * (plasma%spec(sigma)%omega_c(j) + plasma%spec(sigma)%omega_c(j+1))) &

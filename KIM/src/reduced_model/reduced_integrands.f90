@@ -24,7 +24,7 @@ module reduced_integrands
 
     contains
 
-    function integrand_mathcal_B0_rho_phi(this, r) result(val)
+    function integrand_mathcal_B0_rho_phi(this, x) result(val)
 
         use grid, only: xl_grid, rg_grid
         use functions, only: varphi_l
@@ -33,18 +33,15 @@ module reduced_integrands
 
         implicit none
 
-        real(dp), intent(in) :: r
+        real(dp), intent(in) :: x
         real(dp) :: val
         class(int_B0_rho_phi_t), intent(in) :: this
 
-        ! You can access l, lp, j from the host scope here
-        !val = varphi_l(r, xl_grid%xb(this%l-1), xl_grid%xb(this%l), xl_grid%xb(this%l+1)) &
-            !* varphi_l(r, xl_grid%xb(this%lp-1), xl_grid%xb(this%lp), xl_grid%xb(this%lp+1)) &
-        val = varphi_l(r, this%xlm1, this%xl, this%xlp1) &
-            * varphi_l(r, this%xlpm1, this%xlp, this%xlpp1) &
+        val = varphi_l(x, this%xlm1, this%xl, this%xlp1) &
+            * varphi_l(x, this%xlpm1, this%xlp, this%xlpp1) &
             * (&
-                erf((r - rg_grid%xb(this%j))/(sqrt(2.0d0) * this%rhoT)) &
-                - erf((r - rg_grid%xb(this%j+1))/(sqrt(2.0d0) * this%rhoT))&
+                erf((x - rg_grid%xb(this%j))/(sqrt(2.0d0) * this%rhoT)) &
+                - erf((x - rg_grid%xb(this%j+1))/(sqrt(2.0d0) * this%rhoT))&
             )
 
     end function integrand_mathcal_B0_rho_phi
@@ -62,7 +59,7 @@ module reduced_integrands
         real(dp) :: lambda
 
         lambda = 0.5d0 * (spec%lambda_D(j) + spec%lambda_D(j+1))
-        val = 2.0d0 * pi**2.0d0 / (-lambda**2.0d0)  !/ (8.0d0)
+        val = 2.0d0 * pi**2.0d0 / (-lambda**2.0d0)  !/ sqrt(2.0d0)
 
     end function mathcal_A0_rho_phi
 
@@ -85,11 +82,9 @@ module reduced_integrands
 
         ks_val = 0.5d0 * (plasma%ks(this%j) + plasma%ks(this%j+1))
 
-        val = - sqrt(pi) / (sqrt(1.0d0 - cos(theta))) * exp(- ks_val**2.0d0 * this%rhoT**2.0d0) &
-            !* varphi_l(xp, xl_grid%xb(this%lp-1), xl_grid%xb(this%lp), xl_grid%xb(this%lp+1)) &
-            !* varphi_l(x, xl_grid%xb(this%l-1), xl_grid%xb(this%l), xl_grid%xb(this%l+1)) &
-            * varphi_l(xp, this%xlm1, this%xl, this%xlp1) &
-            * varphi_l(x, this%xlpm1, this%xlp, this%xlpp1) &
+        val = - sqrt(pi) / (sqrt(1.0d0 - cos(theta)) * this%rhoT) * exp(- ks_val**2.0d0 * this%rhoT**2.0d0) &
+            * varphi_l(xp, this%xlpm1, this%xlp, this%xlpp1) &
+            * varphi_l(x, this%xlm1, this%xl, this%xlp1) &
             * exp(- (x+xp)**2.0d0 / (4.0d0 * this%rhoT**2.0d0 * (1.0d0 - cos(theta)))) &
             * (&
                 erf((0.5d0 * (xp - x) + rg_grid%xb(this%j+1))/(this%rhoT * sin(theta)**2.0d0) * sqrt(1.0d0 - cos(theta))) &
@@ -109,7 +104,7 @@ module reduced_integrands
         type(species_t), intent(in) :: spec
         complex(dp) :: val
         real(dp) :: ks_val, lambda, kpar, A1, A2, z0, rhoT
-        complex(dp) :: plasma_Z ! plasma dispersion function
+        complex(dp) :: plasma_Z
 
         ks_val = 0.5d0 * (plasma%ks(j) + plasma%ks(j+1))
         lambda = 0.5d0 * (spec%lambda_D(j) + spec%lambda_D(j+1))
@@ -119,7 +114,7 @@ module reduced_integrands
         z0 = 0.5d0 * (spec%z0(j) + spec%z0(j+1))
         rhoT = 0.5d0 * (spec%rho_L(j) + spec%rho_L(j+1))
 
-        val = ks_val /(lambda**2.0d0 * abs(kpar) * sqrt(2.0d0)) &
+        val = ks_val * rhoT /(lambda**2.0d0 * abs(kpar) * sqrt(2.0d0)) &
             * (&
                 A1 * plasma_Z(z0) + A2 * plasma_Z(z0) * (1.0d0 + z0**2.0d0) + z0 * A2 &
             )
@@ -137,7 +132,7 @@ module reduced_integrands
         type(species_t), intent(in) :: spec
         complex(dp) :: val
         real(dp) :: ks_val, lambda, kpar, A1, A2, z0, rhoT
-        complex(dp) :: plasma_Z ! plasma dispersion function
+        complex(dp) :: plasma_Z
 
         ks_val = 0.5d0 * (plasma%ks(j) + plasma%ks(j+1))
         lambda = 0.5d0 * (spec%lambda_D(j) + spec%lambda_D(j+1))
@@ -187,7 +182,7 @@ module reduced_integrands
         type(species_t), intent(in) :: spec
         complex(dp) :: val
         real(dp) :: ks_val, lambda, kpar, A1, A2, z0, rhoT
-        complex(dp) :: plasma_Z ! plasma dispersion function
+        complex(dp) :: plasma_Z
 
         A1 = 0.5d0 * (spec%A1(j) + spec%A1(j+1))
         A2 = 0.5d0 * (spec%A2(j) + spec%A2(j+1))
@@ -211,7 +206,7 @@ module reduced_integrands
         type(species_t),intent(in) :: spec
         complex(dp) :: val
         real(dp) :: ks_val, lambda, kpar, A1, A2, z0, rhoT
-        complex(dp) :: plasma_Z ! plasma dispersion function
+        complex(dp) :: plasma_Z
 
         A2 = 0.5d0 * (spec%A2(j) + spec%A2(j+1))
         z0 = 0.5d0 * (spec%z0(j) + spec%z0(j+1))

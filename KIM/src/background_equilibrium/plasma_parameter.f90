@@ -137,7 +137,7 @@ module plasma_parameter
                 write(*,*) 'Info: Setting profiles to constant values'
                 n_prof(:) = n_prof(1)
                 Te_prof(:) = Te_prof(1)
-                Er_prof(:) = Er_prof(1)
+                Er_prof(:) = 0.0d0 !Er_prof(1)
                 do sigma = 1, number_of_ion_species
                     ni_prof(sigma, :) = ni_prof(sigma, 1)
                     Ti_prof(sigma, :) = Ti_prof(sigma, 1)

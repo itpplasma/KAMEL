@@ -6,14 +6,18 @@ module reduced_integrands
 
     type :: int_B0_rho_phi_t
         real(dp) :: rhoT
-        integer :: l, lp, j
+        integer :: j
+        real(dp) :: xlm1, xlp1, xl
+        real(dp) :: xlpm1, xlpp1, xlp
         contains
             procedure :: f => integrand_mathcal_B0_rho_phi
     end type
 
     type :: int_B1_rho_phi_t
         real(dp) :: rhoT
-        integer :: l, lp, j
+        integer :: j
+        real(dp) :: xlm1, xlp1, xl
+        real(dp) :: xlpm1, xlpp1, xlp
         contains
             procedure :: f => integrand_mathcal_B1_rho_phi
     end type
@@ -34,8 +38,10 @@ module reduced_integrands
         class(int_B0_rho_phi_t), intent(in) :: this
 
         ! You can access l, lp, j from the host scope here
-        val = varphi_l(r, xl_grid%xb(this%l-1), xl_grid%xb(this%l), xl_grid%xb(this%l+1)) &
-            * varphi_l(r, xl_grid%xb(this%lp-1), xl_grid%xb(this%lp), xl_grid%xb(this%lp+1)) &
+        !val = varphi_l(r, xl_grid%xb(this%l-1), xl_grid%xb(this%l), xl_grid%xb(this%l+1)) &
+            !* varphi_l(r, xl_grid%xb(this%lp-1), xl_grid%xb(this%lp), xl_grid%xb(this%lp+1)) &
+        val = varphi_l(r, this%xlm1, this%xl, this%xlp1) &
+            * varphi_l(r, this%xlpm1, this%xlp, this%xlpp1) &
             * (&
                 erf((r - rg_grid%xb(this%j))/(sqrt(2.0d0) * this%rhoT)) &
                 - erf((r - rg_grid%xb(this%j+1))/(sqrt(2.0d0) * this%rhoT))&
@@ -45,9 +51,6 @@ module reduced_integrands
 
     function mathcal_A0_rho_phi(j, spec) result(val)
 
-        use grid, only: xl_grid, rg_grid
-        use gsl_mod, only: erf => gsl_sf_erf
-        use back_quants, only: lambda_De, lambda_Di
         use species, only: plasma, species_t
         use constants, only: pi
 
@@ -83,8 +86,10 @@ module reduced_integrands
         ks_val = 0.5d0 * (plasma%ks(this%j) + plasma%ks(this%j+1))
 
         val = - sqrt(pi) / (sqrt(1.0d0 - cos(theta))) * exp(- ks_val**2.0d0 * this%rhoT**2.0d0) &
-            * varphi_l(xp, xl_grid%xb(this%lp-1), xl_grid%xb(this%lp), xl_grid%xb(this%lp+1)) &
-            * varphi_l(x, xl_grid%xb(this%l-1), xl_grid%xb(this%l), xl_grid%xb(this%l+1)) &
+            !* varphi_l(xp, xl_grid%xb(this%lp-1), xl_grid%xb(this%lp), xl_grid%xb(this%lp+1)) &
+            !* varphi_l(x, xl_grid%xb(this%l-1), xl_grid%xb(this%l), xl_grid%xb(this%l+1)) &
+            * varphi_l(xp, this%xlm1, this%xl, this%xlp1) &
+            * varphi_l(x, this%xlpm1, this%xlp, this%xlpp1) &
             * exp(- (x+xp)**2.0d0 / (4.0d0 * this%rhoT**2.0d0 * (1.0d0 - cos(theta)))) &
             * (&
                 erf((0.5d0 * (xp - x) + rg_grid%xb(this%j+1))/(this%rhoT * sin(theta)**2.0d0) * sqrt(1.0d0 - cos(theta))) &

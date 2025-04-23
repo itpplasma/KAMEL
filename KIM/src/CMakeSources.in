@@ -46,7 +46,7 @@ set(KIM_util util/findIndex.f90
             util/dense_to_sparse.f90
             util/write_config_to_hdf5.f90
             util/constants_mod.f90
-            util/plotting.f90
+            util/IO_collection.f90
 )
 
 set(KIM_kernels kernels/integrands.f90
@@ -72,6 +72,7 @@ set(KIM_poisson    run_poisson/poisson.f90
 set(KIM_reduced reduced_model/reduced.f90
                 reduced_model/reduced_kernel.f90
                 reduced_model/reduced_integrands.f90
+                reduced_model/fields_mod.f90
                 )
 
 set(KIM_WKB_dispersion run_wkb_dispersion/wkb_dispersion.f90

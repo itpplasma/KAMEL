@@ -1,4 +1,4 @@
-module plotting
+module IO_collection
 
     use KIM_kinds, only: dp
 
@@ -200,6 +200,32 @@ module plotting
 
     end subroutine
 
+    subroutine create_output_directories
+
+        use config, only: output_path
+
+        implicit none
+
+        logical :: ex
+
+        inquire(file=trim(output_path)//'fields', exist=ex)
+        if (.not. ex) then
+            call system('mkdir -p '//trim(output_path)//'fields')
+        end if
+        inquire(file=trim(output_path)//'kernel', exist=ex)
+        if (.not. ex) then
+            call system('mkdir -p '//trim(output_path)//'kernel')
+        end if
+        inquire(file=trim(output_path)//'backs', exist=ex)
+        if (.not. ex) then
+            call system('mkdir -p '//trim(output_path)//'backs')
+        end if
+        inquire(file = trim(output_path)//'grid', exist = ex)
+        if (.not. ex) then
+            call system('mkdir -p '//trim(output_path)//'grid')
+        end if
+
+    end subroutine
 
 
 end module

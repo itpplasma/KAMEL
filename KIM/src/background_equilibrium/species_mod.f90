@@ -39,6 +39,35 @@ module species
 
     contains
 
+!    subroutine read_species_from_nml(plasma_in)
+
+        !use KIM_kinds, only: dp
+        !use config, only: number_of_ion_species, nml_config_path
+        !use constants, only: e_mass, p_mass
+
+        !implicit none
+
+        !type(plasma_t), intent(inout) :: plasma_in
+        !integer, allocatable :: ai(:), zi(:)
+        !integer :: i
+
+        !allocate(ai(number_of_ion_species), zi(number_of_ion_species))
+
+        !namelist /KIM_species/ ai, zi
+
+        !open(unit=77, file=nml_config_path)
+        !read(unit=77, nml=KIM_species)
+        !close(unit=77)
+
+        !do i = 1, number_of_ion_species
+            !plasma_in%spec(i)%Aspec = ai(i)
+            !plasma_in%spec(i)%Zspec = zi(i)
+            !plasma_in%spec(i)%name = 'i'
+            !plasma_in%spec(i)%mass = p_mass * plasma_in%spec(i)%Aspec
+        !end do
+
+    !end subroutine
+
     subroutine init_deuterium_plasma(plasma)
 
         implicit none
@@ -189,7 +218,7 @@ module species
     subroutine write_species_backs(spec, r_grid)
 
         use KIM_kinds, only: dp
-        use plotting, only: plot_1D_labeled, write_profile, remove_file
+        use IO_collection, only: plot_1D_labeled, write_profile, remove_file
         use config, only: output_path
 
         implicit none
@@ -221,7 +250,7 @@ module species
     subroutine interpolate_plasma_backs(plasma_in, grid)
 
         use KIM_kinds, only: dp
-        use plotting, only: plot_profile
+        use IO_collection, only: plot_profile
 
         implicit none
 
@@ -341,7 +370,7 @@ module species
 
     subroutine plot_species(spec)
 
-        use plotting, only: plot_1D_labeled, write_profile, remove_file
+        use IO_collection, only: plot_1D_labeled, write_profile, remove_file
         use grid, only: rg_grid
 
         implicit none

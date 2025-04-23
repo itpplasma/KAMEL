@@ -9,11 +9,9 @@ module poisson_solver
         use sparse_mod, only: sp2fullComplex, sparse_solveComplex_b1, column_pointer2full, sparse_solve_suitesparseComplex_b1, &
                             sparse_solve_method
         use config, only: output_path
-        use constants, only: sol, p_mass, e_charge, e_mass, pi
+        use constants, only: sol, e_charge, pi
         use grid, only: xl_grid
-        use back_quants, only: vTi, vTe
-        use plasma_parameter, only: Zi, Ai
-        use setup, only: btor, cut_off_fac, type_br_field
+        use setup, only: type_br_field
         use KIM_kinds, only: dp
 
         implicit none
@@ -24,11 +22,9 @@ module poisson_solver
         complex(dp), dimension(:,:), allocatable :: A_mat ! A matrix
         complex(dp), dimension(:), allocatable :: b_vec ! b vector and x vector
         complex(dp), dimension(:), allocatable :: phi_sol
-        integer, dimension(:), allocatable :: irow, pcol, icol
+        integer, dimension(:), allocatable :: irow, pcol
         integer :: nz_out, nrow, ncol
         integer :: i,j
-        logical :: exists
-        real(dp) :: rho_L
         integer :: sparse_solver_option
 
 
@@ -102,10 +98,6 @@ module poisson_solver
 
             implicit none
 
-            inquire(file=trim(output_path)//'fields', exist=exists)
-            if (.not. exists) then
-                call system('mkdir -p '//trim(output_path)//'fields')
-            end if
             open(unit = 79, file=trim(output_path)//'fields/Kbr_re.dat')
             open(unit = 80, file=trim(output_path)//'fields/Kbr_im.dat')
             do i = 1,xl_grid%npts_b
@@ -165,8 +157,10 @@ module poisson_solver
             use resonances_mod, only: index_rg_res
             use functions, only: varphi_l
             use grid, only: xl_grid
-            use plotting, only: write_profile, write_complex_profile, plot_profile
+            use IO_collection, only: write_profile, write_complex_profile, plot_profile
             use KIM_kinds, only: dp
+            use fields, only: EBdat
+            use config, only: output_path
 
             implicit none
 
@@ -208,8 +202,7 @@ module poisson_solver
                 end do
             !!! type > 10 uses kernel
             elseif(type==11) then ! constant Br field with kernel
-                rhs_vec = 1.0d0
-                rhs_vec = matmul(K_rho_B, rhs_vec)
+                rhs_vec = matmul(K_rho_B, EBdat%Br)
             elseif(type==12) then 
                 !rhs_vec = 1.0d0
                 rhs_vec = cmplx(1.0d0, 0.0d0, dp) * exp(- (xl_grid%xb - x0)**2 / 1.0d0**2) &
@@ -256,32 +249,17 @@ module poisson_solver
 
         use grid, only: xl_grid, rg_grid
         use KIM_kinds, only: dp
-        use config, only: fdebug, output_path
-        use constants, only: pi
-        use plotting, only: write_matrix
+        use config, only: output_path
+        use IO_collection, only: write_matrix
 
         implicit none
 
         complex(dp), intent(inout) :: A_mat(:,:)
         real(dp) :: h
-        integer :: i,j
+        integer :: i
 
         ! create Laplacian:
         A_mat = cmplx(0.0d0, 0.0d0, dp)
-
-        !do i = 2, rg_grid%npts_b-1
-            !A_mat(i,i) = (- 1d0 / (rg_grid%xb(i) - rg_grid%xb(i-1)) - 1d0 / (rg_grid%xb(i+1) - rg_grid%xb(i)) ) !* 2 &
-            !!* (rg_grid%xb(i+1) - rg_grid%xb(i-1))
-            !A_mat(i, i+1) = 1d0 / (rg_grid%xb(i+1) - rg_grid%xb(i)) !* 2 * (rg_grid%xb(i+1) - rg_grid%xb(i-1))
-            !A_mat(i, i-1) = 1d0 / (rg_grid%xb(i) - rg_grid%xb(i-1)) !* 2 * (rg_grid%xb(i+1) - rg_grid%xb(i-1))
-        !end do
-
-        !! boundary conditions:
-        !A_mat(1,1) = - 2d0 / (rg_grid%xb(2) - rg_grid%xb(1)) !* 2 * (rg_grid%xb(2) - rg_grid%xb(1)) !- 1d0 / (rg_grid%xb(2) - rg_grid%xb(1))
-        !A_mat(rg_grid%npts_b,rg_grid%npts_b) = - 2d0 / (rg_grid%max_val - rg_grid%xb(rg_grid%npts_b-1)) !* 2 * (rg_grid%max_val - rg_grid%xl(rg_grid%npts_b-1))
-        !A_mat(1,2) = 1d0 / (rg_grid%xb(2) - rg_grid%xb(1))
-        !A_mat(rg_grid%npts_b, rg_grid%npts_b-1) = 1d0 / (rg_grid%max_val - rg_grid%xb(rg_grid%npts_b-1))
-
         A_mat = 0.0_dp
 
         do i = 1, xl_grid%npts_b - 1
@@ -291,24 +269,7 @@ module poisson_solver
             A_mat(i+1, i  ) = A_mat(i+1, i  ) + 1.0_dp / h
             A_mat(i+1, i+1) = A_mat(i+1, i+1) - 1.0_dp / h
         end do
-
-        !A_mat(1,:) = 0.0_dp
-        !A_mat(:,1) = 0.0_dp
-        !A_mat(1,1) = A_mat(1,1) - 1d0 / (xl_grid%xb(2) - xl_grid%xb(1))! 1.0_dp
-        !A_mat(rg_grid%npts_b,rg_grid%npts_b) = A_mat(rg_grid%npts_b,rg_grid%npts_b) - 1d0 / (rg_grid%max_val - rg_grid%xb(rg_grid%npts_b-1)) !* 2 * (rg_grid%max_val - rg_grid%xl(rg_grid%npts_b-1))
-
-
-        !if (fdebug == 1) then
-            !write(*,*) 'Debug: writing Laplacian A matrix before sparse'
-            !open(unit=77, file=trim(output_path)//'kernel/laplacian_re.dat')
-            !do i = 1,rg_grid%npts_b
-                !do j = 1,rg_grid%npts_b
-                    !write(77,*) real(A_mat(i,j))
-                !end do
-            !end do
-            !close(77)
-        !end if
-
+        
         call write_matrix(trim(output_path)//'kernel/laplacian_re.dat', real(A_mat), rg_grid%npts_b, rg_grid%npts_b)
 
     end subroutine
@@ -368,7 +329,5 @@ module poisson_solver
         if (allocated(icol)) deallocate(icol)
 
     end subroutine
-
-
 
 end module

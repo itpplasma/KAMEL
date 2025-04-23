@@ -1,33 +1,35 @@
 module equilibrium
 
+    use KIM_kinds, only: dp
+
     implicit none
     
-    double precision, allocatable :: B0z(:), B0th(:), B0(:), J0z(:), J0th(:)
-    double precision, allocatable :: hz(:), hth(:)
+    real(dp), allocatable :: B0z(:), B0th(:), B0(:), J0z(:), J0th(:)
+    real(dp), allocatable :: hz(:), hth(:)
     
     integer :: ineq = 1 ! numbers of equations to be solved
     integer :: idid     ! indicator reporting what the code did
-    double precision :: rtol = 1.0d-8 ! relative error tolerance
-    double precision :: atol = 1.0d-8 ! absolute error tolerance
+    real(dp) :: rtol = 1.0d-8 ! relative error tolerance
+    real(dp) :: atol = 1.0d-8 ! absolute error tolerance
     integer, dimension(4) :: info      ! info vector to control solver
     integer, parameter :: lrw = 151
     integer, parameter :: liw = 51
-    double precision, dimension(lrw) :: rwork
+    real(dp), dimension(lrw) :: rwork
     integer, dimension(liw) :: iwork
-    double precision :: rpar
+    real(dp) :: rpar
     integer :: ipar
 
     integer :: i, sigma
-    double precision :: r1, radius0
-    double precision :: u0
-    double precision, allocatable :: u(:)
-    double precision, allocatable :: dpress_prof(:)
-    double precision, allocatable :: press_prof(:)
+    real(dp) :: r1, radius0
+    real(dp) :: u0
+    real(dp), allocatable :: u(:)
+    real(dp), allocatable :: dpress_prof(:)
+    real(dp), allocatable :: press_prof(:)
 
     integer :: nlagr = 4
     integer :: nder = 0
     integer :: ibeg, iend, ir
-    double precision, dimension(:,:), allocatable :: coef
+    real(dp), dimension(:,:), allocatable :: coef
 
 
     contains
@@ -113,11 +115,11 @@ module equilibrium
 
                 subroutine dudr(r, u, du)
                     implicit none
-                    double precision, intent(in) :: r
-                    double precision, intent(in) :: u
-                    double precision, intent(out) :: du
+                    real(dp), intent(in) :: r
+                    real(dp), intent(in) :: u
+                    real(dp), intent(out) :: du
 
-                    double precision :: q, dpress, g
+                    real(dp) :: q, dpress, g
             
                     ! interpolate q and pressure profiles at radial variable
                     call binsrc(r_prof, 1, iprof_length, r, ir)

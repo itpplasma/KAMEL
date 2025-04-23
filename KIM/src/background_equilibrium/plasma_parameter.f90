@@ -254,7 +254,7 @@ module plasma_parameter
         subroutine write_profiles
 
             use config, only: output_path
-            use plotting, only: write_profile
+            use IO_collection, only: write_profile
 
             implicit none
 

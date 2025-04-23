@@ -83,7 +83,7 @@ module grid
             ampl_res = 0.3
         else 
             width_res = 0.2
-            ampl_res = 15.0
+            ampl_res = 10.0
         end if
 
         hrmax = (this%max_val - this%min_val) / (this%npts_b)
@@ -121,7 +121,7 @@ module grid
         allocate(this%xb(this%npts_b), this%xc(this%npts_c))
         allocate(coef(0:nder,npoi_der))
 
-        hrmax = (this%max_val - this%min_val) / (this%npts_b + 1)
+        hrmax = (this%max_val - this%min_val) / (this%npts_b)
 
         x_current = this%min_val
         this%xb(1) = x_current
@@ -184,11 +184,6 @@ module grid
                 implicit none
                 integer :: i
                 logical :: ex
-
-                inquire(file = trim(output_path)//'grid', exist = ex)
-                if (.not. ex) then
-                    call system('mkdir -p '//trim(output_path)//'grid')
-                end if
                 
                 open(unit = 77, file=trim(output_path)//'grid/'//trim(this%name)//'_xb.dat')
                 open(unit = 78, file=trim(output_path)//'grid/'//trim(this%name)//'_xc.dat')
@@ -281,11 +276,6 @@ module grid
                 implicit none
                 integer :: i
                 logical :: ex
-
-                inquire(file = trim(output_path)//'grid', exist = ex)
-                if (.not. ex) then
-                    call system('mkdir -p '//trim(output_path)//'grid')
-                end if
                 
                 open(unit = 77, file=trim(output_path)//'grid/'//trim(this%name)//'_xb.dat')
                 open(unit = 78, file=trim(output_path)//'grid/'//trim(this%name)//'_xc.dat')
@@ -378,11 +368,6 @@ module grid
                 implicit none
                 integer :: i
                 logical :: ex
-
-                inquire(file = trim(output_path)//'grid', exist = ex)
-                if (.not. ex) then
-                    call system('mkdir -p '//trim(output_path)//'grid')
-                end if
                 
                 open(unit = 77, file=trim(output_path)//'grid/'//trim(this%name)//'_xb.dat')
                 open(unit = 78, file=trim(output_path)//'grid/'//trim(this%name)//'_xc.dat')

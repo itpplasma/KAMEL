@@ -12,7 +12,6 @@ subroutine recnsplit(r,recnsp)
         call prepare_resonances
     endif
 
-    r_res = 35.0d0
-
     recnsp = 1.0d0 +  ampl_res * exp(-((r - r_res) / width_res)**2.0d0)
+
 end subroutine recnsplit

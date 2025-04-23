@@ -181,6 +181,41 @@ module species
             end do
         end do
 
+        call write_species_backs(plasma%spec(0), plasma%r_grid)
+        call write_species_backs(plasma%spec(1), plasma%r_grid)
+
+    end subroutine
+
+    subroutine write_species_backs(spec, r_grid)
+
+        use KIM_kinds, only: dp
+        use plotting, only: plot_1D_labeled, write_profile, remove_file
+        use config, only: output_path
+
+        implicit none
+
+        type(species_t), intent(in) :: spec
+        real(dp), intent(in) :: r_grid(:)
+        logical :: ex
+
+        inquire(file=trim(output_path)//'profiles', exist=ex)
+        if (.not. ex) then
+            call system('mkdir -p '//trim(output_path)//'backs/'//trim(spec%name))
+        end if
+
+        call write_profile(r_grid, spec%lambda_D, size(r_grid), trim(output_path)//'backs/'//trim(spec%name)//'/lambda_D.dat')
+        call write_profile(r_grid, spec%rho_L, size(r_grid), trim(output_path)//'backs/'//trim(spec%name)//'/rho_L.dat')
+        call write_profile(r_grid, spec%vT, size(r_grid), trim(output_path)//'backs/'//trim(spec%name)//'/vT.dat')
+        call write_profile(r_grid, spec%omega_c, size(r_grid), trim(output_path)//'backs/'//trim(spec%name)//'/omega_c.dat')
+        call write_profile(r_grid, spec%nu, size(r_grid), trim(output_path)//'backs/'//trim(spec%name)//'/nu.dat')
+        call write_profile(r_grid, spec%A1, size(r_grid), trim(output_path)//'backs/'//trim(spec%name)//'/A1.dat')
+        call write_profile(r_grid, spec%A2, size(r_grid), trim(output_path)//'backs/'//trim(spec%name)//'/A2.dat')
+        call write_profile(r_grid, spec%z0, size(r_grid), trim(output_path)//'backs/'//trim(spec%name)//'/z0.dat')
+        call write_profile(r_grid, spec%dTdr, size(r_grid), trim(output_path)//'backs/'//trim(spec%name)//'/dTdr.dat')
+        call write_profile(r_grid, spec%dndr, size(r_grid), trim(output_path)//'backs/'//trim(spec%name)//'/dndr.dat')
+        call write_profile(r_grid, spec%T, size(r_grid), trim(output_path)//'backs/'//trim(spec%name)//'/T.dat')
+        call write_profile(r_grid, spec%n, size(r_grid), trim(output_path)//'backs/'//trim(spec%name)//'/n.dat')
+
     end subroutine
 
     subroutine interpolate_plasma_backs(plasma_in, grid)
@@ -211,7 +246,7 @@ module species
 
         do sp = 0, plasma_temp%n_species-1
             do i = 1, size(grid)
-                call binsrc(plasma_in%r_grid, 1, size(plasma_in%r_grid), grid, ir) 
+                call binsrc(plasma_in%r_grid, 1, size(plasma_in%r_grid), grid(i), ir) 
                 ibeg = max(1, ir - nlagr/2)
                 iend = ibeg + nlagr - 1
                 if (iend .gt. size(plasma_in%r_grid)) then
@@ -242,6 +277,7 @@ module species
                 plasma_temp%Er(i) = sum(coef(0,:) * plasma_in%Er(ibeg:iend))
 
             end do
+            
         end do
         
         plasma_in = plasma_temp

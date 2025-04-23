@@ -31,16 +31,6 @@ module gauss_quad
 
         implicit none
 
-        ! Integrates function f over [a, b] using Gauss-Legendre quadrature
-        !interface
-            !function f(x) result(val)
-                !use KIM_kinds, only: dp
-                !implicit none
-                !real(dp), intent(in) :: x
-                !real(dp) :: val
-            !end function f
-        !end interface
-
         real(dp), intent(in) :: a, b
         type(gauss_config_t), intent(in) :: gauss_conf
         real(dp), intent(out) :: result
@@ -81,17 +71,24 @@ module gauss_quad
             theta_mapped = 0.5d0 * (pi * gauss_conf%x(i) + pi)
 
             do j=1,gauss_conf%n ! xp 
-                xp_mapped = 0.5d0 * ((xl_grid%xb(int_B1%lp+1) - xl_grid%xb(int_B1%lp-1)) * gauss_conf%x(j) + &
-                    xl_grid%xb(int_B1%lp+1) + xl_grid%xb(int_B1%lp-1))
+                !xp_mapped = 0.5d0 * ((xl_grid%xb(int_B1%lp+1) - xl_grid%xb(int_B1%lp-1)) * gauss_conf%x(j) + &
+                !    xl_grid%xb(int_B1%lp+1) + xl_grid%xb(int_B1%lp-1))
+                xp_mapped = 0.5d0 * ((int_B1%xlpp1 - int_B1%xlpm1) * gauss_conf%x(j) + &
+                    int_B1%xlpp1 + int_B1%xlpm1)
+
 
                 do k=1,gauss_conf%n !x
-                    x_mapped = 0.5d0 * ((xl_grid%xb(int_B1%l+1) - xl_grid%xb(int_B1%l-1)) * gauss_conf%x(k) + &
-                        xl_grid%xb(int_B1%l+1) + xl_grid%xb(int_B1%l-1))
+                    !x_mapped = 0.5d0 * ((xl_grid%xb(int_B1%l+1) - xl_grid%xb(int_B1%l-1)) * gauss_conf%x(k) + &
+                        !xl_grid%xb(int_B1%l+1) + xl_grid%xb(int_B1%l-1))
+                    x_mapped = 0.5d0 * ((int_B1%xlp1 - int_B1%xlm1) * gauss_conf%x(j) + &
+                        int_B1%xlp1 + int_B1%xlm1)
 
                     result = result + gauss_conf%w(i) * gauss_conf%w(j) * gauss_conf%w(k) &
                         * int_B1%f(x_mapped, xp_mapped, theta_mapped) &
-                        * pi * (xl_grid%xb(int_B1%l+1) - xl_grid%xb(int_B1%l-1)) & ! normalization due to integral range shift
-                        * (xl_grid%xb(int_B1%lp+1) - xl_grid%xb(int_B1%lp-1)) / 8.0d0
+                        * pi * (int_B1%xlp1 - int_B1%xlm1) & ! normalization due to integral range shift
+                        * (int_B1%xlpp1 - int_B1%xlp-1) / 8.0d0
+                        !* pi * (xl_grid%xb(int_B1%l+1) - xl_grid%xb(int_B1%l-1)) & ! normalization due to integral range shift
+                        !* (xl_grid%xb(int_B1%lp+1) - xl_grid%xb(int_B1%lp-1)) / 8.0d0
                 end do
             end do
         end do

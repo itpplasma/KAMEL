@@ -32,7 +32,6 @@ module reduced_kernel
         use KIM_kinds, only: dp
         use gsl_mod, only: erf => gsl_sf_erf
         use gauss_quad, only: gauss_config_t, init_gauss_int
-        use grid, only: rg_grid
 
         implicit none
 
@@ -46,9 +45,9 @@ module reduced_kernel
         call init_gauss_int(gauss_conf)
 
         !$omp parallel do collapse(2) private(l,lp, kernel_phi_llp, kernel_B_llp)
-        do l = 2, kernel_rho_phi_llp%npts_l-1
-            do lp = 2, kernel_rho_phi_llp%npts_lp-1
-                if (abs(l - lp) > 1) cycle
+        do l = 1, kernel_rho_phi_llp%npts_l
+            do lp = 1, kernel_rho_phi_llp%npts_lp
+                if (abs(l - lp) > 2) cycle
 
                 call calc_kernel_rho(l, lp, kernel_phi_llp, kernel_B_llp, gauss_conf)
                 kernel_rho_phi_llp%Kllp(l, lp) = kernel_phi_llp
@@ -73,7 +72,6 @@ module reduced_kernel
     subroutine calc_kernel_rho(l, lp, kernel_phi_llp, kernel_B_llp, gauss_conf)
 
         use KIM_kinds, only: dp
-        use grid, only: xl_grid, rg_grid
         use gsl_mod, only: erf => gsl_sf_erf
         use gauss_quad, only: gauss_integrate_B0, gauss_integrate_B1, gauss_config_t
         use config, only: number_of_ion_species
@@ -81,6 +79,8 @@ module reduced_kernel
         use constants, only: pi, sol, com_unit
         use reduced_integrands, only: int_B0_rho_phi_t, mathcal_A0_rho_phi, int_B1_rho_phi_t, mathcal_A1_rho_phi,&
             mathcal_A1_rho_B, mathcal_A2_rho_B
+        use config, only: artificial_debye_case
+        use grid, only: xl_grid
         
         implicit none
 
@@ -94,18 +94,54 @@ module reduced_kernel
         
         kernel_phi_llp = 0.0d0
         kernel_B_llp = 0.0d0
-        int_B0%l = l
-        int_B0%lp = lp
+        !int_B0%l = l
+        !int_B0%lp = lp
+        
+        !int_B1%l = l
+        !int_B1%lp = lp
+        int_B0%xl = xl_grid%xb(l)
+        int_B0%xlp = xl_grid%xb(lp)
+        int_B1%xl = xl_grid%xb(l)
+        int_B1%xlp = xl_grid%xb(lp)
 
-        int_B1%l = l
-        int_B1%lp = lp
+        ! handle kernel edges
+        if (l == 1) then
+            int_B0%xlm1 = xl_grid%xb(l)
+            int_B1%xlm1 = xl_grid%xb(l)
+        else
+            int_B0%xlm1 = xl_grid%xb(l-1)
+            int_B1%xlm1 = xl_grid%xb(l-1)
+        end if
+        if (lp == 1) then
+            int_B0%xlpm1 = xl_grid%xb(lp)
+            int_B1%xlpm1 = xl_grid%xb(lp)
+        else
+            int_B0%xlpm1 = xl_grid%xb(lp-1)
+            int_B1%xlpm1 = xl_grid%xb(lp-1)
+        end if
+        if (l == xl_grid%npts_b) then
+            int_B0%xlp1 = xl_grid%xb(l)
+            int_B1%xlp1 = xl_grid%xb(l)
+        else
+            int_B0%xlp1 = xl_grid%xb(l+1)
+            int_B1%xlp1 = xl_grid%xb(l+1)
+        end if
+        if (lp == xl_grid%npts_b) then
+            int_B0%xlpp1 = xl_grid%xb(lp)
+            int_B1%xlpp1 = xl_grid%xb(lp)
+        else
+            int_B0%xlpp1 = xl_grid%xb(lp+1)
+            int_B1%xlpp1 = xl_grid%xb(lp+1)
+        end if
 
         do sigma = 0, number_of_ion_species
-            do j = 2, rg_grid%npts_b-1
+            do j = 2, size(plasma%r_grid)-1
                 int_B0%j = j
                 int_B0%rhoT = 0.5d0 * (plasma%spec(sigma)%rho_L(j) + plasma%spec(sigma)%rho_L(j+1))
-                call gauss_integrate_B0(int_B0, rg_grid%xb(j-1), rg_grid%xb(j+1), integral_val, gauss_conf)
+                call gauss_integrate_B0(int_B0, plasma%r_grid(j-1), plasma%r_grid(j+1), integral_val, gauss_conf)
                 kernel_phi_llp = kernel_phi_llp + integral_val * mathcal_A0_rho_phi(j, plasma%spec(sigma)) 
+
+                if (artificial_debye_case) cycle
 
                 int_B1%j = j
                 int_B1%rhoT = 0.5d0 * (plasma%spec(sigma)%rho_L(j) + plasma%spec(sigma)%rho_L(j+1))

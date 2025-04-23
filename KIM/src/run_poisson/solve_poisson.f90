@@ -165,7 +165,7 @@ module poisson_solver
             use resonances_mod, only: index_rg_res
             use functions, only: varphi_l
             use grid, only: xl_grid
-            use plotting, only: write_profile
+            use plotting, only: write_profile, write_complex_profile, plot_profile
             use KIM_kinds, only: dp
 
             implicit none
@@ -206,13 +206,23 @@ module poisson_solver
                 do i = 2, xl_grid%npts_b-1
                     rhs_vec(i) = e_charge * varphi_l(x0, xl_grid%xb(i-1), xl_grid%xb(i), xl_grid%xb(i+1))
                 end do
-            elseif(type==11) then
+            !!! type > 10 uses kernel
+            elseif(type==11) then ! constant Br field with kernel
                 rhs_vec = 1.0d0
                 rhs_vec = matmul(K_rho_B, rhs_vec)
-            elseif(type==12) then
+            elseif(type==12) then 
                 !rhs_vec = 1.0d0
                 rhs_vec = cmplx(1.0d0, 0.0d0, dp) * exp(- (xl_grid%xb - x0)**2 / 1.0d0**2) &
                         * sqrt(pi / 0.1d0**2)
+                rhs_vec = matmul(K_rho_B, rhs_vec)
+            elseif(type==13) then ! linear increase including kernel
+                rhs_vec = 0.0d0
+                do i = 1, size(b_vec)
+                    if (xl_grid%xb(i) > 50.0d0) then
+                        rhs_vec(i) = (xl_grid%xb(i) - 50.0d0) * 0.1d0
+                    end if
+                end do 
+                call write_complex_profile(xl_grid%xb, rhs_vec, xl_grid%npts_b, trim(output_path)//'fields/br_pert.dat')
                 rhs_vec = matmul(K_rho_B, rhs_vec)
             end if
 

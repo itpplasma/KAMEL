@@ -138,7 +138,6 @@ module species
         use plasma_parameter, only: iprof_length, r_prof
         use setup, only: m_mode, n_mode, omega, R0
         use grid, only: rg_grid
-        use plotting, only: plot_profile
 
         implicit none
 
@@ -153,8 +152,6 @@ module species
             ! ExB rotation frequency
             plasma%om_E(i) = - sol * plasma%ks(i) * plasma%Er(i) / B0(i)
         end do
-
-        call plot_profile(r_prof, plasma%kp)
 
         do sp = 0, plasma%n_species-1
 
@@ -182,16 +179,14 @@ module species
                 plasma%spec(sp)%z0(i) = - (plasma%om_E(i) - omega - com_unit * plasma%spec(sp)%nu(i)) &
                     / (abs(plasma%kp(i)) * sqrt(2d0) * plasma%spec(sp)%vT(i) )
             end do
-
         end do
-
-        
 
     end subroutine
 
     subroutine interpolate_plasma_backs(plasma_in, grid)
 
         use KIM_kinds, only: dp
+        use plotting, only: plot_profile
 
         implicit none
 
@@ -209,51 +204,22 @@ module species
         plasma_temp = plasma_in
 
         do sp = 0, plasma_temp%n_species-1
-            deallocate(plasma_temp%spec(sp)%n)
-            allocate(plasma_temp%spec(sp)%n(size(grid)))
-            deallocate(plasma_temp%spec(sp)%dndr)
-            allocate(plasma_temp%spec(sp)%dndr(size(grid)))
-            deallocate(plasma_temp%spec(sp)%T)
-            allocate(plasma_temp%spec(sp)%T(size(grid)))
-            deallocate(plasma_temp%spec(sp)%dTdr)
-            allocate(plasma_temp%spec(sp)%dTdr(size(grid)))
-            deallocate(plasma_temp%spec(sp)%A1)
-            allocate(plasma_temp%spec(sp)%A1(size(grid)))
-            deallocate(plasma_temp%spec(sp)%A2)
-            allocate(plasma_temp%spec(sp)%A2(size(grid)))
-            deallocate(plasma_temp%spec(sp)%nu)
-            allocate(plasma_temp%spec(sp)%nu(size(grid)))
-            deallocate(plasma_temp%spec(sp)%vT)
-            allocate(plasma_temp%spec(sp)%vT(size(grid)))
-            deallocate(plasma_temp%spec(sp)%omega_c)
-            allocate(plasma_temp%spec(sp)%omega_c(size(grid)))
-            deallocate(plasma_temp%spec(sp)%lambda_D)
-            allocate(plasma_temp%spec(sp)%lambda_D(size(grid)))
-            deallocate(plasma_temp%spec(sp)%rho_L)
-            allocate(plasma_temp%spec(sp)%rho_L(size(grid)))
-            deallocate(plasma_temp%spec(sp)%z0)
-            allocate(plasma_temp%spec(sp)%z0(size(grid)))
-
-            deallocate(plasma_temp%kp)
-            allocate(plasma_temp%kp(size(grid)))
-            deallocate(plasma_temp%ks)
-            allocate(plasma_temp%ks(size(grid)))
-            deallocate(plasma_temp%om_E)
-            allocate(plasma_temp%om_E(size(grid)))
-
+            call allocate_species_fields(plasma_temp%spec(sp), size(grid))
+            call allocate_plasma_fields(plasma_temp, size(grid))
+            plasma_temp%r_grid = grid
         end do
 
         do sp = 0, plasma_temp%n_species-1
             do i = 1, size(grid)
-                call binsrc(plasma_temp%r_grid, 1, size(plasma_temp%r_grid), grid, ir) 
+                call binsrc(plasma_in%r_grid, 1, size(plasma_in%r_grid), grid, ir) 
                 ibeg = max(1, ir - nlagr/2)
                 iend = ibeg + nlagr - 1
-                if (iend .gt. size(plasma_temp%r_grid)) then
-                    iend = size(plasma_temp%r_grid)
+                if (iend .gt. size(plasma_in%r_grid)) then
+                    iend = size(plasma_in%r_grid)
                     ibeg = iend -nlagr + 1
                 end if
 
-                call plag_coeff(nlagr, nder, grid(i), plasma_temp%r_grid(ibeg:iend), coef)
+                call plag_coeff(nlagr, nder, grid(i), plasma_in%r_grid(ibeg:iend), coef)
 
                 plasma_temp%spec(sp)%n(i) = sum(coef(0,:) * plasma_in%spec(sp)%n(ibeg:iend))
                 plasma_temp%spec(sp)%dndr(i) = sum(coef(0,:) * plasma_in%spec(sp)%dndr(ibeg:iend))
@@ -277,14 +243,65 @@ module species
 
             end do
         end do
-
-        plasma_temp%r_grid = grid
+        
         plasma_in = plasma_temp
 
         deallocate(plasma_temp)
 
     end subroutine
 
+    subroutine allocate_species_fields(spec, grid_size)
+
+        implicit none
+
+        integer, intent(in) :: grid_size
+
+        type(species_t), intent(inout) :: spec
+
+        call reallocate(spec%n, grid_size)
+        call reallocate(spec%dndr, grid_size)
+        call reallocate(spec%T, grid_size)
+        call reallocate(spec%dTdr, grid_size)
+        call reallocate(spec%A1, grid_size)
+        call reallocate(spec%A2, grid_size)
+        call reallocate(spec%nu, grid_size)
+        call reallocate(spec%vT, grid_size)
+        call reallocate(spec%omega_c, grid_size)
+        call reallocate(spec%lambda_D, grid_size)
+        call reallocate(spec%rho_L, grid_size)
+        call reallocate(spec%z0, grid_size)
+
+    end subroutine
+
+    subroutine allocate_plasma_fields(plasma_in, grid_size)
+
+        implicit none
+
+        integer, intent(in) :: grid_size
+        type(plasma_t), intent(inout) :: plasma_in
+
+        call reallocate(plasma_in%ks, grid_size)
+        call reallocate(plasma_in%kp, grid_size)
+        call reallocate(plasma_in%Er, grid_size)
+        call reallocate(plasma_in%q, grid_size)
+        call reallocate(plasma_in%dqdr, grid_size)
+        call reallocate(plasma_in%r_grid, grid_size)
+
+    end subroutine
+
+    subroutine reallocate(array, n)
+
+        use KIM_kinds, only: dp
+
+        implicit none
+
+        real(dp), allocatable, intent(inout) :: array(:)
+        integer, intent(in) :: n
+
+        if (allocated(array)) deallocate(array)
+        allocate(array(n))
+
+    end subroutine
 
     subroutine plot_species(spec)
 

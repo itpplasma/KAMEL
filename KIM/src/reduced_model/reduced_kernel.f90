@@ -94,45 +94,8 @@ module reduced_kernel
         
         kernel_phi_llp = 0.0d0
         kernel_B_llp = 0.0d0
-        !int_B0%l = l
-        !int_B0%lp = lp
-        
-        !int_B1%l = l
-        !int_B1%lp = lp
-        int_B0%xl = xl_grid%xb(l)
-        int_B0%xlp = xl_grid%xb(lp)
-        int_B1%xl = xl_grid%xb(l)
-        int_B1%xlp = xl_grid%xb(lp)
 
-        ! handle kernel edges
-        if (l == 1) then
-            int_B0%xlm1 = xl_grid%xb(l)
-            int_B1%xlm1 = xl_grid%xb(l)
-        else
-            int_B0%xlm1 = xl_grid%xb(l-1)
-            int_B1%xlm1 = xl_grid%xb(l-1)
-        end if
-        if (lp == 1) then
-            int_B0%xlpm1 = xl_grid%xb(lp)
-            int_B1%xlpm1 = xl_grid%xb(lp)
-        else
-            int_B0%xlpm1 = xl_grid%xb(lp-1)
-            int_B1%xlpm1 = xl_grid%xb(lp-1)
-        end if
-        if (l == xl_grid%npts_b) then
-            int_B0%xlp1 = xl_grid%xb(l)
-            int_B1%xlp1 = xl_grid%xb(l)
-        else
-            int_B0%xlp1 = xl_grid%xb(l+1)
-            int_B1%xlp1 = xl_grid%xb(l+1)
-        end if
-        if (lp == xl_grid%npts_b) then
-            int_B0%xlpp1 = xl_grid%xb(lp)
-            int_B1%xlpp1 = xl_grid%xb(lp)
-        else
-            int_B0%xlpp1 = xl_grid%xb(lp+1)
-            int_B1%xlpp1 = xl_grid%xb(lp+1)
-        end if
+        call set_xl_at_edge(l, lp, int_B0, int_B1)
 
         do sigma = 0, number_of_ion_species
             do j = 2, size(plasma%r_grid)-1
@@ -159,6 +122,55 @@ module reduced_kernel
         kernel_phi_llp = kernel_phi_llp / (8.0d0 * pi**3.0d0) 
         kernel_B_llp = kernel_B_llp / (8.0d0 * pi**3.0d0 * sol) * com_unit
             
+    end subroutine
+
+    subroutine set_xl_at_edge(l, lp, intB0, intB1)
+        
+        use grid, only: xl_grid
+        use KIM_kinds, only: dp
+        use reduced_integrands, only: int_B0_rho_phi_t, int_B1_rho_phi_t
+
+        implicit none
+
+        integer, intent(in) :: l, lp
+        type(int_B0_rho_phi_t), intent(inout) :: intB0
+        type(int_B1_rho_phi_t), intent(inout) :: intB1   
+
+        intB0%xl = xl_grid%xb(l)
+        intB0%xlp = xl_grid%xb(lp)
+        intB1%xl = xl_grid%xb(l)
+        intB1%xlp = xl_grid%xb(lp)
+
+        ! handle kernel edges
+        if (l == 1) then
+            intB0%xlm1 = xl_grid%xb(l)
+            intB1%xlm1 = xl_grid%xb(l)
+        else
+            intB0%xlm1 = xl_grid%xb(l-1)
+            intB1%xlm1 = xl_grid%xb(l-1)
+        end if
+        if (lp == 1) then
+            intB0%xlpm1 = xl_grid%xb(lp)
+            intB1%xlpm1 = xl_grid%xb(lp)
+        else
+            intB0%xlpm1 = xl_grid%xb(lp-1)
+            intB1%xlpm1 = xl_grid%xb(lp-1)
+        end if
+        if (l == xl_grid%npts_b) then
+            intB0%xlp1 = xl_grid%xb(l)
+            intB1%xlp1 = xl_grid%xb(l)
+        else
+            intB0%xlp1 = xl_grid%xb(l+1)
+            intB1%xlp1 = xl_grid%xb(l+1)
+        end if
+        if (lp == xl_grid%npts_b) then
+            intB0%xlpp1 = xl_grid%xb(lp)
+            intB1%xlpp1 = xl_grid%xb(lp)
+        else
+            intB0%xlpp1 = xl_grid%xb(lp+1)
+            intB1%xlpp1 = xl_grid%xb(lp+1)
+        end if
+
     end subroutine
 
 end module

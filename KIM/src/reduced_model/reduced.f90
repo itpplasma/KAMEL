@@ -79,7 +79,7 @@ module rt_reduced
         call calculate_E_perp_psi(plasma, EBdat)
         call write_complex_profile(xl_grid%xb, EBdat%E_perp_psi, xl_grid%npts_b, trim(output_path)//"/fields/E_perp_psi.dat")
         call calculate_E_perp(EBdat)
-        call write_complex_profile(xl_grid%xb, EBdat%E_perp, xl_grid%npts_b, trim(output_path)//"/fields/E_r.dat")
+        call write_complex_profile(xl_grid%xb(1:xl_grid%npts_b-1), EBdat%E_perp, xl_grid%npts_b-1, trim(output_path)//"/fields/E_r.dat")
     
     end subroutine
 

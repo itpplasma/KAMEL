@@ -35,6 +35,7 @@ module grid
         integer :: npts_b, npts_c, npts
         real(dp) :: min_val
         real(dp) :: max_val
+        real(dp) :: hrmax
         real(dp), dimension(:), allocatable :: xb
         real(dp), dimension(:), allocatable :: xc
         real(dp), dimension(:,:), allocatable :: deriv_coef
@@ -63,7 +64,6 @@ module grid
         real(dp), intent(in) :: min_val, max_val
         character(len=*), intent(in) :: name
 
-        real(dp) :: hrmax
         real(dp) :: x_current, x_next
         real(dp) :: recnsp
 
@@ -83,19 +83,19 @@ module grid
             ampl_res = 0.3
         else 
             width_res = 0.2
-            ampl_res = 10.0
+            ampl_res = 15.0
         end if
 
-        hrmax = (this%max_val - this%min_val) / (this%npts_b)
+        this%hrmax = (this%max_val - this%min_val) / (this%npts_b)
 
         this%npts_b = 1
         x_current = this%min_val
 
         do while(x_current .lt. this%max_val)
             call recnsplit(x_current, recnsp)
-            x_next = x_current + hrmax / recnsp
+            x_next = x_current + this%hrmax / recnsp
             call recnsplit(x_next, recnsp)
-            x_current = 0.5d0 * (x_next + x_current + hrmax / recnsp)
+            x_current = 0.5d0 * (x_next + x_current + this%hrmax / recnsp)
             this%npts_b = this%npts_b + 1
         enddo
 
@@ -113,7 +113,6 @@ module grid
         class(grid_type), intent(inout) :: this
 
         real(dp) :: x_current, x_next
-        real(dp) :: hrmax
         integer :: ipoib, ipb, ipe
         real(dp), dimension(:,:), allocatable :: coef
         real(dp) :: recnsp
@@ -121,24 +120,25 @@ module grid
         allocate(this%xb(this%npts_b), this%xc(this%npts_c))
         allocate(coef(0:nder,npoi_der))
 
-        hrmax = (this%max_val - this%min_val) / (this%npts_b)
 
         x_current = this%min_val
         this%xb(1) = x_current
 
         do ipoib=2, this%npts_b
             call recnsplit(x_current, recnsp)
-            x_next = x_current + hrmax / recnsp
+            x_next = x_current + this%hrmax / recnsp
             call recnsplit(x_next, recnsp)
-            x_current = 0.5d0 * (x_next + x_current + hrmax / recnsp)
+            x_current = 0.5d0 * (x_next + x_current + this%hrmax / recnsp)
             this%xb(ipoib) = x_current
             this%xc(ipoib-1) = 0.5 * (this%xb(ipoib-1) + this%xb(ipoib))
         enddo
 
-        write(*,*) " - - - grid ", this%name, ": - - - "
-        write(*,*) "    h = ", this%xb(2) - this%xb(1)
-        write(*,*) '    Number points r (l) grid: ', this%npts_b
-        write(*,*) " - - - - - - - - - - "
+        if (fdebug == 1) then
+            write(*,*) " - - - grid ", this%name, ": - - - "
+            write(*,*) "    h = ", this%xb(2) - this%xb(1)
+            write(*,*) '    Number points r (l) grid: ', this%npts_b
+            write(*,*) " - - - - - - - - - - "
+        end if
 
         ! get index for resonant radius
         call binsrc(abs(this%xb), 1, this%npts_b, abs(r_res), index_rg_res)
@@ -183,7 +183,6 @@ module grid
 
                 implicit none
                 integer :: i
-                logical :: ex
                 
                 open(unit = 77, file=trim(output_path)//'grid/'//trim(this%name)//'_xb.dat')
                 open(unit = 78, file=trim(output_path)//'grid/'//trim(this%name)//'_xc.dat')
@@ -275,7 +274,6 @@ module grid
 
                 implicit none
                 integer :: i
-                logical :: ex
                 
                 open(unit = 77, file=trim(output_path)//'grid/'//trim(this%name)//'_xb.dat')
                 open(unit = 78, file=trim(output_path)//'grid/'//trim(this%name)//'_xc.dat')
@@ -367,7 +365,6 @@ module grid
 
                 implicit none
                 integer :: i
-                logical :: ex
                 
                 open(unit = 77, file=trim(output_path)//'grid/'//trim(this%name)//'_xb.dat')
                 open(unit = 78, file=trim(output_path)//'grid/'//trim(this%name)//'_xc.dat')

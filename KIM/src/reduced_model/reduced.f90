@@ -46,14 +46,15 @@ module rt_reduced
         use IO_collection, only: write_matrix, write_complex_profile
         use poisson_solver, only: solve_poisson
         use config, only: output_path
-        use fields, only: EBdat, calculate_E_perp_psi, set_Br_constant, calculate_E_perp
+        use fields, only: EBdat, calculate_E_perp_psi, set_Br_constant, calculate_E_perp, get_Br_from_txt
         use species, only: plasma
 
         implicit none
         class(reduced_t), intent(inout) :: this
         type(kernel_spl_t) :: kernel_rho_phi_llp
         type(kernel_spl_t) :: kernel_rho_B_llp
-        complex(dp) :: Br_const
+        !complex(dp) :: Br_const
+        character(len=256) :: file_path
 
         call kernel_rho_phi_llp%init_kernel(xl_grid%npts_b, xl_grid%npts_b)
         call kernel_rho_B_llp%init_kernel(xl_grid%npts_b, xl_grid%npts_b)
@@ -65,17 +66,20 @@ module rt_reduced
         allocate(EBdat%Phi(xl_grid%npts_b), EBdat%Br(xl_grid%npts_b), EBdat%E_perp_psi(xl_grid%npts_b), &
                 EBdat%r_grid(xl_grid%npts_b), EBdat%E_perp(xl_grid%npts_b-1))
         EBdat%r_grid = xl_grid%xb
-        Br_const = 1.0d0
-        call set_Br_constant(EBdat, Br_const)
+        !Br_const = 1.0d0
+        !call set_Br_constant(EBdat, Br_const)
+        file_path = './inp/Br_in.dat'
+        call get_Br_from_txt(EBdat, file_path)
+        call write_complex_profile(xl_grid%xb, EBdat%Br, xl_grid%npts_b, trim(output_path)//"/fields/Br.dat")
 
         call solve_poisson(kernel_rho_phi_llp%Kllp, kernel_rho_B_llp%Kllp, EBdat%Phi)
 
-        call write_complex_profile(xl_grid%xb, EBdat%Phi, xl_grid%npts_b, "phi_sol.dat")
+        call write_complex_profile(xl_grid%xb, EBdat%Phi, xl_grid%npts_b, trim(output_path)//"/fields/phi_sol.dat")
 
         call calculate_E_perp_psi(plasma, EBdat)
-        call write_complex_profile(xl_grid%xb, EBdat%E_perp_psi, xl_grid%npts_b, "E_perp_psi.dat")
+        call write_complex_profile(xl_grid%xb, EBdat%E_perp_psi, xl_grid%npts_b, trim(output_path)//"/fields/E_perp_psi.dat")
         call calculate_E_perp(EBdat)
-        call write_complex_profile(xl_grid%xb, EBdat%E_perp, xl_grid%npts_b, "E_perp.dat")
+        call write_complex_profile(xl_grid%xb, EBdat%E_perp, xl_grid%npts_b, trim(output_path)//"/fields/E_r.dat")
     
     end subroutine
 

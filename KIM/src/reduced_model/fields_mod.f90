@@ -92,4 +92,63 @@ module fields
 
     end subroutine
 
+    subroutine get_Br_from_txt(EBdat_in, file_path)
+
+        use KIM_kinds, only: dp
+        use constants, only: com_unit
+
+        implicit none
+
+        type(EBdat_t) , intent(inout) :: EBdat_in
+        character(len=*), intent(in) :: file_path
+        real(dp), allocatable :: Br_in_re(:), Br_in_im(:), r_in(:)
+        integer :: i, ios, l
+        integer :: nlagr = 4
+        integer :: nder = 0
+        integer :: ibeg, iend, ir
+        real(dp), dimension(:,:), allocatable :: coef
+        character(len=256) :: buffer
+
+        if (.not. allocated(coef)) allocate(coef(0:nder, nlagr))
+
+        open(10, file=file_path, status='old', action='read', iostat=ios)
+        if (ios /= 0) then
+            print *, "Error opening file: ", file_path
+            stop
+        end if
+
+        l = 0
+        do while (ios == 0)
+            read(10, '(A)', iostat=ios) buffer
+            if (ios == 0) then
+                l = l + 1;
+            end if
+        end do
+
+        allocate(Br_in_re(l), Br_in_im(l), r_in(l))
+
+        rewind(10)
+
+        do i = 1, l
+            read(10, *) r_in(i), Br_in_re(i), Br_in_im(i)
+        end do
+
+        close(10)
+
+        do i = 1, size(EBdat_in%r_grid)
+            call binsrc(r_in, 1, size(r_in), EBdat_in%r_grid(i), ir) 
+            ibeg = max(1, ir - nlagr/2)
+            iend = ibeg + nlagr - 1
+            if (iend .gt. size(r_in)) then
+                iend = size(r_in)
+                ibeg = iend -nlagr + 1
+            end if
+
+            call plag_coeff(nlagr, nder, EBdat_in%r_grid(i), r_in(ibeg:iend), coef)
+
+            EBdat%Br(i) = sum(coef(0,:) * Br_in_re(ibeg:iend)) + com_unit * sum(coef(0,:) * Br_in_im(ibeg:iend))
+        end do
+
+    end subroutine
+
 end module

@@ -9,6 +9,11 @@ module fields
         complex(dp), allocatable :: Br(:)
         complex(dp), allocatable :: E_perp_psi(:)
         complex(dp), allocatable :: E_perp(:)
+        complex(dp), allocatable :: Er(:)
+        complex(dp), allocatable :: Etheta(:)
+        complex(dp), allocatable :: Ez(:)
+        complex(dp), allocatable :: Es(:) ! E "senkrecht", i.e. perpendicular to radial and parallel direction
+        complex(dp), allocatable :: Ep(:) ! parallel to the equilibrium magnetic field
         complex(dp), allocatable :: Phi(:)
     end type
 
@@ -147,6 +152,56 @@ module fields
             call plag_coeff(nlagr, nder, EBdat_in%r_grid(i), r_in(ibeg:iend), coef)
 
             EBdat%Br(i) = sum(coef(0,:) * Br_in_re(ibeg:iend)) + com_unit * sum(coef(0,:) * Br_in_im(ibeg:iend))
+        end do
+
+    end subroutine
+
+    subroutine calculate_E_from_phi(EBdat)
+
+        use KIM_kinds, only: dp
+        use constants, only: com_unit
+        use setup, only: m_mode, n_mode, R0
+        use grid, only: xl_grid
+        use functions, only: dvarphi_l_dx
+
+        implicit none
+
+        type(EBdat_t), intent(inout) :: EBdat
+        integer :: i, j
+
+        if (.not. allocated(EBdat%Er)) allocate(EBdat%Er(size(EBdat%r_grid)), EBdat%Etheta(size(EBdat%r_grid)), EBdat%Ez(size(EBdat%r_grid)))
+
+
+        do i = 1, size(EBdat%r_grid)
+
+            EBdat%Etheta(i) = - com_unit * m_mode * EBdat%Phi(i) / EBdat%r_grid(i)
+            EBdat%Ez(i) = - com_unit * n_mode * EBdat%Phi(i) / R0
+            EBdat%Er(i) = 0.0d0
+            do j = 2, size(xl_grid%xb)-1
+                EBdat%Er(i) = EBdat%Er(i) - dvarphi_l_dx(EBdat%r_grid(i), xl_grid%xb(j-1), xl_grid%xb(j), xl_grid%xb(j+1)) * EBdat%Phi(j)
+            end do
+
+        end do
+
+    end subroutine
+
+    subroutine calculate_E_in_rsp_from_cyl(EBdat)
+
+        use KIM_kinds, only: dp
+        use equilibrium, only: hz, hth
+
+        implicit none
+
+        type(EBdat_t), intent(inout) :: EBdat
+        integer :: i
+
+        if (.not. allocated(EBdat%Es)) allocate(EBdat%Es(size(EBdat%r_grid)), EBdat%Ep(size(EBdat%r_grid)))
+
+        do i = 1, size(EBdat%r_grid)
+
+            EBdat%Es(i) = hz(i) * EBdat%Etheta(i) - hth(i) * EBdat%Ez(i)
+            EBdat%Ep(i) = hth(i) * EBdat%Etheta(i) + hz(i) * EBdat%Ez(i)
+
         end do
 
     end subroutine

@@ -31,7 +31,7 @@ module electrostatic_kernel
 
         use KIM_kinds, only: dp
         use gsl_mod, only: erf => gsl_sf_erf
-        use gauss_quad, only: gauss_config_t, init_gauss_int
+        use electrostatic_integrals, only: gauss_config_t, init_gauss_int
 
         implicit none
 
@@ -73,7 +73,7 @@ module electrostatic_kernel
 
         use KIM_kinds, only: dp
         use gsl_mod, only: erf => gsl_sf_erf
-        use gauss_quad, only: gauss_integrate_B0, gauss_integrate_B1, gauss_config_t
+        use electrostatic_integrals, only: gauss_integrate_B0, gauss_integrate_B1, gauss_config_t
         use species, only: plasma
         use constants, only: pi, sol, com_unit
         use electrostatic_integrands, only: int_B0_rho_phi_t, mathcal_A0_rho_phi, int_B1_rho_phi_t, mathcal_A1_rho_phi,&

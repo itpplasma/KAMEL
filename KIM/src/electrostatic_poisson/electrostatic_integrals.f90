@@ -1,4 +1,6 @@
 module electrostatic_integrals
+    ! module for integrals of the electrostatic problem
+    ! uses gauss legendre quadrature for integration
 
     use KIM_kinds, only: dp
 

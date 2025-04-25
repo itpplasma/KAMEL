@@ -162,6 +162,8 @@ module electrostatic_integrals
         real(dp) :: x_mapped, xp_mapped, theta_mapped, rg_mapped
         integer :: i, k, p, q
 
+        val = 0.0d0
+
         do p=1,gauss_conf%n ! xp 
             xp_mapped = 0.5d0 * ((int_struct%xlpp1 - int_struct%xlpm1) * gauss_conf%x(p) + &
                         int_struct%xlpp1 + int_struct%xlpm1)

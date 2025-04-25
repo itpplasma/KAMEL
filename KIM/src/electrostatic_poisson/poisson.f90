@@ -41,7 +41,7 @@ module rt_electrostatic
     subroutine run_electrostatic(this)
 
         use KIM_kinds, only: dp
-        use electrostatic_kernel, only: fill_kernel_phi_semi_analytic, kernel_spl_t
+        use electrostatic_kernel, only: fill_kernel_phi_semi_analytic, fill_kernel_phi_numerical, kernel_spl_t
         use grid, only: xl_grid
         use IO_collection, only: write_matrix, write_complex_profile
         use poisson_solver, only: solve_poisson
@@ -55,6 +55,7 @@ module rt_electrostatic
         type(kernel_spl_t) :: kernel_rho_B_llp
         !complex(dp) :: Br_const
         character(len=256) :: file_path
+        complex(dp), allocatable :: phi_numerical(:)
 
         call kernel_rho_phi_llp%init_kernel(xl_grid%npts_b, xl_grid%npts_b)
         call kernel_rho_B_llp%init_kernel(xl_grid%npts_b, xl_grid%npts_b)
@@ -64,7 +65,7 @@ module rt_electrostatic
         call write_matrix(trim(output_path)//"kernel/kernel_phi_llp_im.dat", dimag(kernel_rho_phi_llp%Kllp), xl_grid%npts_b, xl_grid%npts_b)
 
         allocate(EBdat%Phi(xl_grid%npts_b), EBdat%Br(xl_grid%npts_b), EBdat%E_perp_psi(xl_grid%npts_b), &
-                EBdat%r_grid(xl_grid%npts_b), EBdat%E_perp(xl_grid%npts_b-1))
+                EBdat%r_grid(xl_grid%npts_b), EBdat%E_perp(xl_grid%npts_b-1), phi_numerical(xl_grid%npts_b))
         EBdat%r_grid = xl_grid%xb
         !Br_const = 1.0d0
         !call set_Br_constant(EBdat, Br_const)
@@ -73,23 +74,27 @@ module rt_electrostatic
         call write_complex_profile(xl_grid%xb, EBdat%Br, xl_grid%npts_b, trim(output_path)//"/fields/Br.dat")
 
         call solve_poisson(kernel_rho_phi_llp%Kllp, kernel_rho_B_llp%Kllp, EBdat%Phi)
-
         call write_complex_profile(xl_grid%xb, EBdat%Phi, xl_grid%npts_b, trim(output_path)//"/fields/phi_sol.dat")
 
-        call calculate_E_perp_psi(plasma, EBdat)
-        call write_complex_profile(xl_grid%xb, EBdat%E_perp_psi, xl_grid%npts_b, trim(output_path)//"/fields/E_perp_psi.dat")
-        call calculate_E_perp(EBdat)
-        call write_complex_profile(xl_grid%xb(1:xl_grid%npts_b-1), EBdat%E_perp, xl_grid%npts_b-1, trim(output_path)//"/fields/E_perp.dat")
+        call fill_kernel_phi_numerical(kernel_rho_phi_llp, kernel_rho_B_llp)
+        call solve_poisson(kernel_rho_phi_llp%Kllp, kernel_rho_B_llp%Kllp, phi_numerical)
+        call write_complex_profile(xl_grid%xb, phi_numerical, xl_grid%npts_b, trim(output_path)//"/fields/phi_sol_numerical.dat")
 
-        call calculate_E_from_phi(EBdat)
-        call calculate_E_in_rsp_from_cyl(EBdat)
 
-        call write_complex_profile(EBdat%r_grid, EBdat%Er, size(EBdat%r_grid), trim(output_path)//"/fields/Er.dat")
-        call write_complex_profile(EBdat%r_grid, EBdat%Etheta, size(EBdat%r_grid), trim(output_path)//"/fields/Etheta.dat")
-        call write_complex_profile(EBdat%r_grid, EBdat%Ez, size(EBdat%r_grid), trim(output_path)//"/fields/Ez.dat")
+       ! call calculate_E_perp_psi(plasma, EBdat)
+        !call write_complex_profile(xl_grid%xb, EBdat%E_perp_psi, xl_grid%npts_b, trim(output_path)//"/fields/E_perp_psi.dat")
+        !call calculate_E_perp(EBdat)
+        !call write_complex_profile(xl_grid%xb(1:xl_grid%npts_b-1), EBdat%E_perp, xl_grid%npts_b-1, trim(output_path)//"/fields/E_perp.dat")
 
-        call write_complex_profile(EBdat%r_grid, EBdat%Es, size(EBdat%r_grid), trim(output_path)//"/fields/Es.dat")
-        call write_complex_profile(EBdat%r_grid, EBdat%Ep, size(EBdat%r_grid), trim(output_path)//"/fields/Ep.dat")
+        !call calculate_E_from_phi(EBdat)
+        !call calculate_E_in_rsp_from_cyl(EBdat)
+
+        !call write_complex_profile(EBdat%r_grid, EBdat%Er, size(EBdat%r_grid), trim(output_path)//"/fields/Er.dat")
+        !call write_complex_profile(EBdat%r_grid, EBdat%Etheta, size(EBdat%r_grid), trim(output_path)//"/fields/Etheta.dat")
+        !call write_complex_profile(EBdat%r_grid, EBdat%Ez, size(EBdat%r_grid), trim(output_path)//"/fields/Ez.dat")
+
+        !call write_complex_profile(EBdat%r_grid, EBdat%Es, size(EBdat%r_grid), trim(output_path)//"/fields/Es.dat")
+        !call write_complex_profile(EBdat%r_grid, EBdat%Ep, size(EBdat%r_grid), trim(output_path)//"/fields/Ep.dat")
 
     
     end subroutine

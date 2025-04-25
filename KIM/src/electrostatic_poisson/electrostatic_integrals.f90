@@ -77,7 +77,7 @@ module electrostatic_integrals
                     int_B1%xlpp1 + int_B1%xlpm1)
 
                 do k=1,gauss_conf%n !x
-                    x_mapped = 0.5d0 * ((int_B1%xlp1 - int_B1%xlm1) * gauss_conf%x(j) + &
+                    x_mapped = 0.5d0 * ((int_B1%xlp1 - int_B1%xlm1) * gauss_conf%x(k) + &
                         int_B1%xlp1 + int_B1%xlm1)
 
                     result = result + gauss_conf%w(i) * gauss_conf%w(j) * gauss_conf%w(k) &
@@ -133,6 +133,66 @@ module electrostatic_integrals
             w(i) = 2.0d0 / ((1.0d0 - z*z) * pp * pp)
             w(n + 1 - i) = w(i)
         end do
+
     end subroutine compute_nodes_weights
+
+
+    function compute_Mllpj(int_struct, int_B, gauss_conf) result(val)
+
+        use KIM_kinds, only: dp
+        use grid, only: xl_grid
+        use constants, only: pi
+        use electrostatic_integrands, only: int_struct_t
+        use functions, only: varphi_l
+        use species, only: plasma
+
+        implicit none
+        real(dp) :: val, rhoT, ks
+        type(int_struct_t), intent(in) :: int_struct
+        type(gauss_config_t), intent(in) :: gauss_conf
+        interface
+            function int_B(x, xp, rg, theta, rhoT, ks) result(val)
+                use KIM_kinds, only: dp
+                implicit none
+                real(dp), intent(in) :: x, xp, rg, theta, rhoT, ks
+                real(dp) :: val
+            end function
+        end interface
+
+        real(dp) :: x_mapped, xp_mapped, theta_mapped, rg_mapped
+        integer :: i, k, p, q
+
+        do p=1,gauss_conf%n ! xp 
+            xp_mapped = 0.5d0 * ((int_struct%xlpp1 - int_struct%xlpm1) * gauss_conf%x(p) + &
+                        int_struct%xlpp1 + int_struct%xlpm1)
+
+            do k=1,gauss_conf%n !x
+                x_mapped = 0.5d0 * ((int_struct%xlp1 - int_struct%xlm1) * gauss_conf%x(k) + &
+                    int_struct%xlp1 + int_struct%xlm1)
+
+                do i=1,gauss_conf%n ! theta
+                    theta_mapped = 0.5d0 * (pi * gauss_conf%x(i) + pi)
+                
+                    do q=1,gauss_conf%n ! rg
+                        rg_mapped = 0.5d0 * ((int_struct%rgjp1 - int_struct%rgj) * gauss_conf%x(k) + &
+                                    int_struct%rgjp1 + int_struct%rgj)
+
+                        rhoT = 0.5d0 * (plasma%spec(int_struct%sp)%rho_L(q) + plasma%spec(int_struct%sp)%rho_L(q+1))
+                        ks = 0.5d0 * (plasma%ks(q) + plasma%ks(q+1))
+                                        
+                        val = val + gauss_conf%w(i) * gauss_conf%w(p) * gauss_conf%w(k) * gauss_conf%w(q)&
+                        * int_B(x_mapped, xp_mapped, rg_mapped, theta_mapped, rhoT, ks) &
+                        * varphi_l(x_mapped, int_struct%xlm1, int_struct%xl, int_struct%xlp1) &
+                        * varphi_l(xp_mapped, int_struct%xlpm1, int_struct%xlp, int_struct%xlpp1) &
+                        ! normalization due to integral range shift:
+                        * pi * (int_struct%xlp1 - int_struct%xlm1) & 
+                        * (int_struct%xlpp1 - int_struct%xlpm1) &
+                        * (int_struct%rgjp1 - int_struct%rgj) / 16.0d0
+                    end do
+                end do
+            end do
+        end do
+
+    end function
 
 end module electrostatic_integrals

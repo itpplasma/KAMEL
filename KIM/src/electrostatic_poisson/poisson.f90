@@ -41,7 +41,7 @@ module rt_electrostatic
     subroutine run_electrostatic(this)
 
         use KIM_kinds, only: dp
-        use electrostatic_kernel, only: fill_kernel_phi, kernel_spl_t
+        use electrostatic_kernel, only: fill_kernel_phi_semi_analytic, kernel_spl_t
         use grid, only: xl_grid
         use IO_collection, only: write_matrix, write_complex_profile
         use poisson_solver, only: solve_poisson
@@ -59,7 +59,7 @@ module rt_electrostatic
         call kernel_rho_phi_llp%init_kernel(xl_grid%npts_b, xl_grid%npts_b)
         call kernel_rho_B_llp%init_kernel(xl_grid%npts_b, xl_grid%npts_b)
 
-        call fill_kernel_phi(kernel_rho_phi_llp, kernel_rho_B_llp)
+        call fill_kernel_phi_semi_analytic(kernel_rho_phi_llp, kernel_rho_B_llp)
         call write_matrix(trim(output_path)//"kernel/kernel_phi_llp_re.dat", real(kernel_rho_phi_llp%Kllp), xl_grid%npts_b, xl_grid%npts_b)
         call write_matrix(trim(output_path)//"kernel/kernel_phi_llp_im.dat", dimag(kernel_rho_phi_llp%Kllp), xl_grid%npts_b, xl_grid%npts_b)
 

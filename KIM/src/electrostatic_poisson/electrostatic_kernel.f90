@@ -27,7 +27,7 @@ module electrostatic_kernel
 
     end subroutine init_kernel
 
-    subroutine fill_kernel_phi(kernel_rho_phi_llp, kernel_rho_B_llp)
+    subroutine fill_kernel_phi_semi_analytic(kernel_rho_phi_llp, kernel_rho_B_llp)
 
         use KIM_kinds, only: dp
         use gsl_mod, only: erf => gsl_sf_erf
@@ -49,7 +49,7 @@ module electrostatic_kernel
             do lp = 1, kernel_rho_phi_llp%npts_lp
                 if (abs(l - lp) > 1) cycle
 
-                call calc_kernel_rho(l, lp, kernel_phi_llp, kernel_B_llp, gauss_conf)
+                call calc_kernel_rho_semi_analytic(l, lp, kernel_phi_llp, kernel_B_llp, gauss_conf)
                 kernel_rho_phi_llp%Kllp(l, lp) = kernel_phi_llp
                 kernel_rho_B_llp%Kllp(l, lp) = kernel_B_llp
 
@@ -67,9 +67,9 @@ module electrostatic_kernel
         end do
         !$omp end parallel do
 
-    end subroutine fill_kernel_phi
+    end subroutine
 
-    subroutine calc_kernel_rho(l, lp, kernel_phi_llp, kernel_B_llp, gauss_conf)
+    subroutine calc_kernel_rho_semi_analytic(l, lp, kernel_phi_llp, kernel_B_llp, gauss_conf)
 
         use KIM_kinds, only: dp
         use gsl_mod, only: erf => gsl_sf_erf

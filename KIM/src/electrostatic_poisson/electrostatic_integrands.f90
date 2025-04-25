@@ -1,4 +1,4 @@
-module reduced_integrands
+module electrostatic_integrands
 
     use KIM_kinds, only: dp
 

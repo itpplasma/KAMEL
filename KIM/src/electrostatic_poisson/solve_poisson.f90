@@ -52,7 +52,7 @@ module poisson_solver
         call sparse_solveComplex_b1(nrow, ncol, nz_out, irow, pcol, A_nz, b_vec, sparse_solver_option)
         !call sparse_solve_suitesparseComplex_b1(nrow, ncol, nz_out, irow, pcol, A_nz, b_vec, 0)
         phi_sol = b_vec
-        call write_phi_to_file
+        !call write_phi_to_file
 
         if (fdebug == 3) then
             call write_A_matrix_to_file
@@ -204,9 +204,7 @@ module poisson_solver
             elseif(type==11) then ! constant Br field with kernel
                 rhs_vec = matmul(K_rho_B, EBdat%Br)
             elseif(type==12) then 
-                !rhs_vec = 1.0d0
-                rhs_vec = cmplx(1.0d0, 0.0d0, dp) * exp(- (xl_grid%xb - x0)**2 / 1.0d0**2) &
-                        * sqrt(pi / 0.1d0**2)
+                rhs_vec = 1.0d0
                 rhs_vec = matmul(K_rho_B, rhs_vec)
             elseif(type==13) then ! linear increase including kernel
                 rhs_vec = 0.0d0

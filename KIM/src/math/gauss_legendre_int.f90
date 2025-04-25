@@ -27,7 +27,7 @@ module gauss_quad
     subroutine gauss_integrate_B0(int_B, a, b, result, gauss_conf)
 
         use KIM_kinds, only: dp
-        use reduced_integrands, only: int_B0_rho_phi_t
+        use electrostatic_integrands, only: int_B0_rho_phi_t
 
         implicit none
 
@@ -53,7 +53,7 @@ module gauss_quad
     subroutine gauss_integrate_B1(int_B1, result, gauss_conf)
 
         use KIM_kinds, only: dp
-        use reduced_integrands, only: int_B1_rho_phi_t
+        use electrostatic_integrands, only: int_B1_rho_phi_t
         use grid, only: xl_grid
         use constants, only: pi
 

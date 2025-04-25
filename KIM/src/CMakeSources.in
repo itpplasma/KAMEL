@@ -65,15 +65,12 @@ set(KIM_background_equilibrium background_equilibrium/calculate_backs.f90
 set(KIM_dispersion dispersion/fun_input.f90
 )
 
-set(KIM_poisson    run_poisson/poisson.f90
-                    run_poisson/solve_poisson.f90
+set(KIM_poisson electrostatic_poisson/poisson.f90
+                electrostatic_poisson/solve_poisson.f90
+                electrostatic_poisson/electrostatic_kernel.f90
+                electrostatic_poisson/electrostatic_integrands.f90
+                electrostatic_poisson/fields_mod.f90
 )
-
-set(KIM_reduced reduced_model/reduced.f90
-                reduced_model/reduced_kernel.f90
-                reduced_model/reduced_integrands.f90
-                reduced_model/fields_mod.f90
-                )
 
 set(KIM_WKB_dispersion run_wkb_dispersion/wkb_dispersion.f90
 )

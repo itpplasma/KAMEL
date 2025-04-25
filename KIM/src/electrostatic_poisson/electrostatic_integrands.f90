@@ -239,7 +239,7 @@ module electrostatic_integrands
         real(dp), intent(in) :: x, xp, rg, theta, rhoT, ks
         real(dp) :: val
 
-        if (abs(x-xp) <= 1e-6) then
+        if (abs(x-xp) <= 1e-15) then
             val = (sqrt(2.0d0 * pi))**3.0d0 / rhoT * exp(- (x - rg)**2.0d0 / (2.0d0 * rhoT**2.0d0))
         else
             val = 0.0d0
@@ -262,6 +262,33 @@ module electrostatic_integrands
         val = zeta(x, xp, rg, theta, rhoT, ks) * 2.0d0 / (rhoT**2.0d0 * sin(theta))
 
     end function
+
+    function int_B2_rho_phi(x, xp, rg, theta, rhoT, ks) result(val)
+
+        use grid, only: xl_grid, rg_grid
+        use functions, only: varphi_l
+        use gsl_mod, only: erf => gsl_sf_erf
+        use constants, only: pi
+
+        implicit none
+
+        real(dp), intent(in) :: x, xp, rg, theta, rhoT, ks
+        real(dp) :: val
+
+        val = -zeta(x, xp, rg, theta, rhoT, ks) /(4.0d0 * rhoT**4.0d0 * sin(theta)**5.0d0) &
+            * (&
+                2.0d0 * cos(2.0d0*theta) &
+                * (&
+                    (x - rg)**2.0d0 + (xp + rg)**2.0d0 + 2.0d0 * rhoT**2.0d0 * (ks**2.0d0 * rhoT**2.0d0 + 1.0d0) &
+                )&
+                - ks**2.0d0 * rhoT**4.0d0 * cos(4.0d0*theta) &
+                - rhoT**2.0d0 * (3.0d0 * ks**2.0d0 * rhoT**2.0d0 + 4.0d0) &
+                + 6.0d0 * ((x - rg)**2.0d0 + (xp + rg)**2.0d0) &
+                + 16.0d0 * cos(theta) * (x - rg) * (xp + rg) &
+            )
+
+    end function
+
 
     function zeta(x, xp, rg, theta, rhoT, ks) result(val)
 

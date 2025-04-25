@@ -154,7 +154,7 @@ module poisson_solver
 
         subroutine create_rhs_vector(type, K_rho_B, rhs_vec)
 
-            use resonances_mod, only: index_rg_res
+            use resonances_mod, only: index_rg_res, r_res
             use functions, only: varphi_l
             use grid, only: xl_grid
             use IO_collection, only: write_profile, write_complex_profile, plot_profile
@@ -180,7 +180,7 @@ module poisson_solver
                 rhs_vec = cmplx(1.0d0, 0.0d0, dp) * e_charge
             elseif(type == 2) then ! point charge like Br field
 
-                idx = minloc(abs(xl_grid%xb - x0), dim=1)
+                idx = minloc(abs(xl_grid%xb - r_res), dim=1)
                 rhs_vec(idx) = cmplx(1.0d0, 0.0d0, dp) * e_charge ! * exp(- (rg_grid%xb(idx) - 35.0d0)**2 / 0.1d0**2)
 
             elseif(type ==3) then ! linear increase from the center of the plasma

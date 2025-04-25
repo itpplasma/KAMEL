@@ -1,34 +1,34 @@
-module rt_reduced
+module rt_electrostatic
 
     use kim_base, only: kim_t
 
     implicit none
 
-    type, extends(kim_t) :: reduced_t
+    type, extends(kim_t) :: electrostatic_t
         contains
-            procedure :: init => init_reduced
-            procedure :: run => run_reduced
-    end type reduced_t
+            procedure :: init => init_electrostatic
+            procedure :: run => run_electrostatic
+    end type electrostatic_t
 
     contains
 
-    subroutine init_reduced(this)
+    subroutine init_electrostatic(this)
 
         use species, only: init_deuterium_plasma, set_deuterium_plasma, plasma, interpolate_plasma_backs
         use IO_collection, only: create_output_directories
         use grid, only: rg_grid
 
         implicit none
-        class(reduced_t), intent(inout) :: this
+        class(electrostatic_t), intent(inout) :: this
 
-        this%run_type = "reduced"
+        this%run_type = "electrostatic"
         print *, " ____  __.___   _____  "
         print *, "|    |/ _|   | /     \  "
         print *, "|      < |   |/  \ /  \ "
         print *, "|    |  \|   /    Y    \"
         print *, "|____|__ \___\____|__  /"
         print *, "        \/           \/ "
-        print *, "Reduced model initialized."
+        print *, "electrostatic model initialized."
 
         call create_output_directories
         call generate_grids
@@ -38,10 +38,10 @@ module rt_reduced
 
     end subroutine
 
-    subroutine run_reduced(this)
+    subroutine run_electrostatic(this)
 
         use KIM_kinds, only: dp
-        use reduced_kernel, only: fill_kernel_phi, kernel_spl_t
+        use electrostatic_kernel, only: fill_kernel_phi, kernel_spl_t
         use grid, only: xl_grid
         use IO_collection, only: write_matrix, write_complex_profile
         use poisson_solver, only: solve_poisson
@@ -50,7 +50,7 @@ module rt_reduced
         use species, only: plasma
 
         implicit none
-        class(reduced_t), intent(inout) :: this
+        class(electrostatic_t), intent(inout) :: this
         type(kernel_spl_t) :: kernel_rho_phi_llp
         type(kernel_spl_t) :: kernel_rho_B_llp
         !complex(dp) :: Br_const

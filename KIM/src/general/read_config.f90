@@ -46,6 +46,8 @@ subroutine read_config
     read(unit = 77, nml = KIM_GRID)
     close(unit = 77)
 
+    write(output_path, '(A,A,I0,A,I0,A)') trim(output_path), '/m', m_mode, '_n', n_mode, '/'
+
     write(*,*) '+ + + + + + + + KIM + + + + + + + + + + + + + + + +'
     write(*,*) ' type of run = ', type_of_run
     write(*,*) ' - - - - - - - - - - - - - - - - - - - - - - - -'

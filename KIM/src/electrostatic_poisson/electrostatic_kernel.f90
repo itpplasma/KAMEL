@@ -1,4 +1,4 @@
-module reduced_kernel
+module electrostatic_kernel
 
     use KIM_kinds, only: dp
 
@@ -76,7 +76,7 @@ module reduced_kernel
         use gauss_quad, only: gauss_integrate_B0, gauss_integrate_B1, gauss_config_t
         use species, only: plasma
         use constants, only: pi, sol, com_unit
-        use reduced_integrands, only: int_B0_rho_phi_t, mathcal_A0_rho_phi, int_B1_rho_phi_t, mathcal_A1_rho_phi,&
+        use electrostatic_integrands, only: int_B0_rho_phi_t, mathcal_A0_rho_phi, int_B1_rho_phi_t, mathcal_A1_rho_phi,&
             mathcal_A1_rho_B, mathcal_A2_rho_B
         use config, only: artificial_debye_case
         
@@ -126,7 +126,7 @@ module reduced_kernel
         
         use grid, only: xl_grid
         use KIM_kinds, only: dp
-        use reduced_integrands, only: int_B0_rho_phi_t, int_B1_rho_phi_t
+        use electrostatic_integrands, only: int_B0_rho_phi_t, int_B1_rho_phi_t
 
         implicit none
 

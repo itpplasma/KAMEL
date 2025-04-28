@@ -5,7 +5,6 @@ set(CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/cmake" ${CMAKE_MODULE_PATH})
 add_library(KIM_lib STATIC "${KIM_setup}" 
                         "${KIM_general}" 
                         "${KIM_poisson}" 
-                        "${KIM_reduced}" 
                         "${KIM_debye}" 
                         "${KIM_grid}" 
                         "${KIM_util}"

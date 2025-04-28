@@ -2,28 +2,56 @@ module functions
 
     contains
 
-    function varphi_l(r, r_lm1, r_l, r_lp1) result(phi)
+    function varphi_l(x, x_lm1, x_l, x_lp1) result(phi)
 
         use KIM_kinds, only: dp
 
         implicit none
 
-        real(dp), intent(in) :: r        ! Evaluation point
-        real(dp), intent(in) :: r_lm1    ! r_{l-1}
-        real(dp), intent(in) :: r_l      ! r_l
-        real(dp), intent(in) :: r_lp1    ! r_{l+1}
+        real(dp), intent(in) :: x        ! Evaluation point
+        real(dp), intent(in) :: x_lm1    ! x_{l-1}
+        real(dp), intent(in) :: x_l      ! x_l
+        real(dp), intent(in) :: x_lp1    ! x_{l+1}
         real(dp) :: h_lm1, h_l
         real(dp) :: phi
 
-        h_lm1 = r_l - r_lm1
-        h_l   = r_lp1 - r_l
+        h_lm1 = x_l - x_lm1
+        h_l   = x_lp1 - x_l
 
-        if (r >= r_lm1 .and. r < r_l) then
-            phi = (r - r_lm1) / h_lm1
-        else if (r >= r_l .and. r < r_lp1) then
-            phi = (r_lp1 - r) / h_l
+        if (x >= x_lm1 .and. x < x_l) then
+            phi = (x - x_lm1) / h_lm1
+        else if (x >= x_l .and. x < x_lp1) then
+            phi = (x_lp1 - x) / h_l
         else
             phi = 0.0d0
         end if
+
     end function varphi_l
+
+    function dvarphi_l_dx(x, x_lm1, x_l, x_lp1) result(dphi)
+
+        use KIM_kinds, only: dp
+
+        implicit none
+
+        real(dp), intent(in) :: x        ! Evaluation point
+        real(dp), intent(in) :: x_lm1    ! r_{l-1}
+        real(dp), intent(in) :: x_l      ! r_l
+        real(dp), intent(in) :: x_lp1    ! r_{l+1}
+        real(dp) :: h_lm1, h_l
+        real(dp) :: dphi
+
+        h_lm1 = x_l - x_lm1
+        h_l   = x_lp1 - x_l
+
+        if (x >= x_lm1 .and. x < x_l) then
+            dphi = 1.0d0 / h_lm1
+        else if (x >= x_l .and. x < x_lp1) then
+            dphi = -1.0d0 / h_l
+        else
+            dphi = 0.0d0
+        end if
+
+    end function dvarphi_l_dx
+
 end module

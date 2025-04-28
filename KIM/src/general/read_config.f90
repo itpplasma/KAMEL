@@ -19,7 +19,8 @@ subroutine read_config
                         kernel_debye_case, type_of_run
 
     namelist /KIM_SETUP/ btor, R0, m_mode, n_mode, Zi, Ai, omega, spline_base, &
-                        cut_off_fac, kr_cut_off_fac, r_plas, type_br_field, collisions_off, eps_reg
+                        cut_off_fac, kr_cut_off_fac, r_plas, type_br_field, collisions_off, eps_reg, &
+                        set_profiles_constant
 
     namelist /KIM_GRID/ reduce_r, grid_spacing, l_space_dim, num_gengrid_points, &
                         reduced_rg_dim, kr_grid_width_res, kr_grid_ampl_res, k_space_dim
@@ -44,6 +45,8 @@ subroutine read_config
     read(unit = 77, nml = KIM_SETUP)
     read(unit = 77, nml = KIM_GRID)
     close(unit = 77)
+
+    write(output_path, '(A,A,I0,A,I0,A)') trim(output_path), '/m', m_mode, '_n', n_mode, '/'
 
     write(*,*) '+ + + + + + + + KIM + + + + + + + + + + + + + + + +'
     write(*,*) ' type of run = ', type_of_run
@@ -74,6 +77,7 @@ subroutine read_config
     write(*,*) '  type_br_field    = ', type_br_field
     write(*,*) '  collisions_off   = ', collisions_off
     write(*,*) '  eps_reg          = ', eps_reg
+    write(*,*) '  set_profiles_constant= ', set_profiles_constant
     write(*,*) ' - - - - - - - - - - - - - - - - - - - - - - - -'
     write(*,*) 'Grid namelist'
     write(*,*) '  k_space_dim      = ', k_space_dim

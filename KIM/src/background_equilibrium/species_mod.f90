@@ -13,6 +13,7 @@ module species
         real(dp), allocatable :: q(:) ! safety factor profile
         real(dp), allocatable :: dqdr(:)
         real(dp), allocatable :: Er(:)
+        real(dp), allocatable :: r_grid(:)
     end type
 
     type :: species_t
@@ -37,6 +38,35 @@ module species
     type(plasma_t) :: plasma
 
     contains
+
+!    subroutine read_species_from_nml(plasma_in)
+
+        !use KIM_kinds, only: dp
+        !use config, only: number_of_ion_species, nml_config_path
+        !use constants, only: e_mass, p_mass
+
+        !implicit none
+
+        !type(plasma_t), intent(inout) :: plasma_in
+        !integer, allocatable :: ai(:), zi(:)
+        !integer :: i
+
+        !allocate(ai(number_of_ion_species), zi(number_of_ion_species))
+
+        !namelist /KIM_species/ ai, zi
+
+        !open(unit=77, file=nml_config_path)
+        !read(unit=77, nml=KIM_species)
+        !close(unit=77)
+
+        !do i = 1, number_of_ion_species
+            !plasma_in%spec(i)%Aspec = ai(i)
+            !plasma_in%spec(i)%Zspec = zi(i)
+            !plasma_in%spec(i)%name = 'i'
+            !plasma_in%spec(i)%mass = p_mass * plasma_in%spec(i)%Aspec
+        !end do
+
+    !end subroutine
 
     subroutine init_deuterium_plasma(plasma)
 
@@ -119,6 +149,7 @@ module species
         plasma%q = q_prof
         plasma%Er = Er_prof
         plasma%dqdr = dqdr_prof
+        plasma%r_grid = r_prof
 
         call calc_plasma_parameter_derivs
 
@@ -135,6 +166,7 @@ module species
         use equilibrium, only: hz, hth, B0
         use plasma_parameter, only: iprof_length, r_prof
         use setup, only: m_mode, n_mode, omega, R0
+        use grid, only: rg_grid
 
         implicit none
 
@@ -177,6 +209,177 @@ module species
                     / (abs(plasma%kp(i)) * sqrt(2d0) * plasma%spec(sp)%vT(i) )
             end do
         end do
+
+        call write_species_backs(plasma%spec(0), plasma%r_grid)
+        call write_species_backs(plasma%spec(1), plasma%r_grid)
+
+    end subroutine
+
+    subroutine write_species_backs(spec, r_grid)
+
+        use KIM_kinds, only: dp
+        use IO_collection, only: plot_1D_labeled, write_profile, remove_file
+        use config, only: output_path
+
+        implicit none
+
+        type(species_t), intent(in) :: spec
+        real(dp), intent(in) :: r_grid(:)
+        logical :: ex
+
+        inquire(file=trim(output_path)//'profiles', exist=ex)
+        if (.not. ex) then
+            call system('mkdir -p '//trim(output_path)//'backs/'//trim(spec%name))
+        end if
+
+        call write_profile(r_grid, spec%lambda_D, size(r_grid), trim(output_path)//'backs/'//trim(spec%name)//'/lambda_D.dat')
+        call write_profile(r_grid, spec%rho_L, size(r_grid), trim(output_path)//'backs/'//trim(spec%name)//'/rho_L.dat')
+        call write_profile(r_grid, spec%vT, size(r_grid), trim(output_path)//'backs/'//trim(spec%name)//'/vT.dat')
+        call write_profile(r_grid, spec%omega_c, size(r_grid), trim(output_path)//'backs/'//trim(spec%name)//'/omega_c.dat')
+        call write_profile(r_grid, spec%nu, size(r_grid), trim(output_path)//'backs/'//trim(spec%name)//'/nu.dat')
+        call write_profile(r_grid, spec%A1, size(r_grid), trim(output_path)//'backs/'//trim(spec%name)//'/A1.dat')
+        call write_profile(r_grid, spec%A2, size(r_grid), trim(output_path)//'backs/'//trim(spec%name)//'/A2.dat')
+        call write_profile(r_grid, spec%z0, size(r_grid), trim(output_path)//'backs/'//trim(spec%name)//'/z0.dat')
+        call write_profile(r_grid, spec%dTdr, size(r_grid), trim(output_path)//'backs/'//trim(spec%name)//'/dTdr.dat')
+        call write_profile(r_grid, spec%dndr, size(r_grid), trim(output_path)//'backs/'//trim(spec%name)//'/dndr.dat')
+        call write_profile(r_grid, spec%T, size(r_grid), trim(output_path)//'backs/'//trim(spec%name)//'/T.dat')
+        call write_profile(r_grid, spec%n, size(r_grid), trim(output_path)//'backs/'//trim(spec%name)//'/n.dat')
+
+    end subroutine
+
+    subroutine interpolate_plasma_backs(plasma_in, grid)
+
+        use KIM_kinds, only: dp
+        use IO_collection, only: plot_profile
+
+        implicit none
+
+        type(plasma_t), intent(inout) :: plasma_in
+        type(plasma_t), allocatable :: plasma_temp
+        real(dp), intent(in) :: grid(:)
+        integer :: i, sp
+        integer :: nlagr = 4
+        integer :: nder = 0
+        integer :: ibeg, iend, ir
+        real(dp), dimension(:,:), allocatable :: coef
+
+        if (.not. allocated(coef)) allocate(coef(0:nder, nlagr))
+
+        plasma_temp = plasma_in
+
+        do sp = 0, plasma_temp%n_species-1
+            call allocate_species_fields(plasma_temp%spec(sp), size(grid))
+            call allocate_plasma_fields(plasma_temp, size(grid))
+            plasma_temp%r_grid = grid
+        end do
+
+        do sp = 0, plasma_temp%n_species-1
+            do i = 1, size(grid)
+                call binsrc(plasma_in%r_grid, 1, size(plasma_in%r_grid), grid(i), ir) 
+                ibeg = max(1, ir - nlagr/2)
+                iend = ibeg + nlagr - 1
+                if (iend .gt. size(plasma_in%r_grid)) then
+                    iend = size(plasma_in%r_grid)
+                    ibeg = iend -nlagr + 1
+                end if
+
+                call plag_coeff(nlagr, nder, grid(i), plasma_in%r_grid(ibeg:iend), coef)
+
+                plasma_temp%spec(sp)%n(i) = sum(coef(0,:) * plasma_in%spec(sp)%n(ibeg:iend))
+                plasma_temp%spec(sp)%dndr(i) = sum(coef(0,:) * plasma_in%spec(sp)%dndr(ibeg:iend))
+                plasma_temp%spec(sp)%T(i) = sum(coef(0,:) * plasma_in%spec(sp)%T(ibeg:iend))
+                plasma_temp%spec(sp)%dTdr(i) = sum(coef(0,:) * plasma_in%spec(sp)%dTdr(ibeg:iend))
+                plasma_temp%spec(sp)%A1(i) = sum(coef(0,:) * plasma_in%spec(sp)%A1(ibeg:iend))
+                plasma_temp%spec(sp)%A2(i) = sum(coef(0,:) * plasma_in%spec(sp)%A2(ibeg:iend))
+                plasma_temp%spec(sp)%nu(i) = sum(coef(0,:) * plasma_in%spec(sp)%nu(ibeg:iend))
+                plasma_temp%spec(sp)%vT(i) = sum(coef(0,:) * plasma_in%spec(sp)%vT(ibeg:iend))
+                plasma_temp%spec(sp)%omega_c(i) = sum(coef(0,:) * plasma_in%spec(sp)%omega_c(ibeg:iend))
+                plasma_temp%spec(sp)%lambda_D(i) = sum(coef(0,:) * plasma_in%spec(sp)%lambda_D(ibeg:iend))
+                plasma_temp%spec(sp)%rho_L(i) = sum(coef(0,:) * plasma_in%spec(sp)%rho_L(ibeg:iend))
+                plasma_temp%spec(sp)%z0(i) = sum(coef(0,:) * plasma_in%spec(sp)%z0(ibeg:iend))
+
+                plasma_temp%ks(i) = sum(coef(0,:) * plasma_in%ks(ibeg:iend))
+                plasma_temp%kp(i) = sum(coef(0,:) * plasma_in%kp(ibeg:iend))
+                plasma_temp%om_E(i) = sum(coef(0,:) * plasma_in%om_E(ibeg:iend))
+                plasma_temp%q(i) = sum(coef(0,:) * plasma_in%q(ibeg:iend))
+                plasma_temp%dqdr(i) = sum(coef(0,:) * plasma_in%dqdr(ibeg:iend))
+                plasma_temp%Er(i) = sum(coef(0,:) * plasma_in%Er(ibeg:iend))
+
+            end do
+            
+        end do
+        
+        plasma_in = plasma_temp
+
+        deallocate(plasma_temp)
+
+    end subroutine
+
+    subroutine allocate_species_fields(spec, grid_size)
+
+        implicit none
+
+        integer, intent(in) :: grid_size
+
+        type(species_t), intent(inout) :: spec
+
+        call reallocate(spec%n, grid_size)
+        call reallocate(spec%dndr, grid_size)
+        call reallocate(spec%T, grid_size)
+        call reallocate(spec%dTdr, grid_size)
+        call reallocate(spec%A1, grid_size)
+        call reallocate(spec%A2, grid_size)
+        call reallocate(spec%nu, grid_size)
+        call reallocate(spec%vT, grid_size)
+        call reallocate(spec%omega_c, grid_size)
+        call reallocate(spec%lambda_D, grid_size)
+        call reallocate(spec%rho_L, grid_size)
+        call reallocate(spec%z0, grid_size)
+
+    end subroutine
+
+    subroutine allocate_plasma_fields(plasma_in, grid_size)
+
+        implicit none
+
+        integer, intent(in) :: grid_size
+        type(plasma_t), intent(inout) :: plasma_in
+
+        call reallocate(plasma_in%ks, grid_size)
+        call reallocate(plasma_in%kp, grid_size)
+        call reallocate(plasma_in%Er, grid_size)
+        call reallocate(plasma_in%q, grid_size)
+        call reallocate(plasma_in%dqdr, grid_size)
+        call reallocate(plasma_in%r_grid, grid_size)
+
+    end subroutine
+
+    subroutine reallocate(array, n)
+
+        use KIM_kinds, only: dp
+
+        implicit none
+
+        real(dp), allocatable, intent(inout) :: array(:)
+        integer, intent(in) :: n
+
+        if (allocated(array)) deallocate(array)
+        allocate(array(n))
+
+    end subroutine
+
+    subroutine plot_species(spec)
+
+        use IO_collection, only: plot_1D_labeled, write_profile, remove_file
+        use grid, only: rg_grid
+
+        implicit none
+
+        type(species_t), intent(in) :: spec
+
+        call write_profile(rg_grid%xb, spec%rho_L, rg_grid%npts_b, 'rho_L.dat')
+        call plot_1D_labeled('rho_L.dat', ' r [cm] ', ' rho_L [cm] ', '')
+        call remove_file('rho_L.dat')
 
     end subroutine
 

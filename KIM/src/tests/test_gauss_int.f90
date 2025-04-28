@@ -1,8 +1,7 @@
 program test_gauss_int
 
     use KIM_kinds, only: dp
-    use gauss_quad, only: gauss_config_t, init_gauss_int!, gauss_integrate
-    use test_integrands, only: integrand
+    use electrostatic_integrals, only: gauss_config_t, init_gauss_int!, gauss_integrate
 
     implicit none
 

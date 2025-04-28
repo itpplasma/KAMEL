@@ -151,10 +151,6 @@ subroutine calculate_backs(write_out)
             ! write to hdf5
         else
 
-            inquire(file=trim(output_path)//'backs', exist=ex)
-            if (.not. ex) then
-                call system('mkdir -p '//trim(output_path)//'backs')
-            end if
             ! write to text files
             open(unit = 78, file = trim(output_path)//'backs/'//'vTe.dat')
             open(unit = 79, file = trim(output_path)//'backs/'//'nue.dat')

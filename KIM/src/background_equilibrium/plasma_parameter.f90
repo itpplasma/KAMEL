@@ -5,7 +5,7 @@ module plasma_parameter
 
     implicit none
 
-    integer :: set_profiles_constant = 1
+    integer :: set_profiles_constant
 
     real(dp) :: r_plas
     integer :: iprof_length
@@ -137,7 +137,7 @@ module plasma_parameter
                 write(*,*) 'Info: Setting profiles to constant values'
                 n_prof(:) = n_prof(1)
                 Te_prof(:) = Te_prof(1)
-                Er_prof(:) = Er_prof(1)
+                Er_prof(:) = 0.0d0 !Er_prof(1)
                 do sigma = 1, number_of_ion_species
                     ni_prof(sigma, :) = ni_prof(sigma, 1)
                     Ti_prof(sigma, :) = Ti_prof(sigma, 1)
@@ -254,6 +254,7 @@ module plasma_parameter
         subroutine write_profiles
 
             use config, only: output_path
+            use IO_collection, only: write_profile
 
             implicit none
 
@@ -267,35 +268,11 @@ module plasma_parameter
                 call system('mkdir -p '//trim(output_path)//'profiles')
             end if
 
-            open(11, file=trim(output_path)//'profiles/n.dat')
-            do i=1,iprof_length
-                write(11, *) r_prof(i), n_prof(i)
-            end do
-            close(11)
-
-            open(11, file=trim(output_path)//'profiles/Te.dat')
-            do i=1,iprof_length
-                write(11, *) r_prof(i), Te_prof(i)
-            end do
-            close(11)
-
-            open(11, file=trim(output_path)//'profiles/Ti.dat')
-            do i=1,iprof_length
-                write(11, *) r_prof(i), Ti_prof(1, i)
-            end do
-            close(11)
-
-            open(11, file=trim(output_path)//'profiles/Er.dat')
-            do i=1,iprof_length
-                write(11, *) r_prof(i), Er_prof(i)
-            end do
-            close(11)
-
-            open(11, file=trim(output_path)//'profiles/q.dat')
-            do i=1,iprof_length
-                write(11, *) r_prof(i), q_prof(i)
-            end do
-            close(11)
+            call write_profile(r_prof, n_prof, iprof_length, trim(output_path)//'profiles/n.dat')
+            call write_profile(r_prof, Te_prof, iprof_length, trim(output_path)//'profiles/Te.dat')
+            call write_profile(r_prof, Ti_prof, iprof_length, trim(output_path)//'profiles/Ti.dat')
+            call write_profile(r_prof, Er_prof, iprof_length, trim(output_path)//'profiles/Er.dat')
+            call write_profile(r_prof, q_prof, iprof_length, trim(output_path)//'profiles/q.dat')
 
         end subroutine
 

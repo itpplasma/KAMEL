@@ -1,3 +1,5 @@
+This branch is an example on how to use `f90wrap` for Python bindings.
+
 # KAMEL - Kinetic plAsma response ModEL
 This repository contains the kinetic plasma response framework containing the linear plasma response codes KiLCA and KIM, as well as the quasilinear transport code QL-Balance. KiLCA and KIM are cylindrical linear plasma response solvers based on a finite Larmor radius and an integral formalism, respectively. QL-Balance is a quasilinear 1D radial transport code. In combination, they are used to model the plasma response to external magnetic perturbation in toroidally confined fusion plasmas. 
 

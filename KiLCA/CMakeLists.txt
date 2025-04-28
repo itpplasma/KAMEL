@@ -8,18 +8,17 @@ if(CMAKE_HOST_SYSTEM_NAME MATCHES "Darwin")
     #set(CMAKE_CXX_COMPILER g++-14)
     set(CMAKE_CXX_COMPILER clang++)
     # flag does not work for macos for some reason
-    set (CMAKE_CXX_OPT_FLAGS "")
-    set (CMAKE_F_OPT_FLAGS "")
-    set (CMAKE_CXX_OPT_FLAGS "")
-    set (CMAKE_F_OPT_FLAGS "")
-elseif(CMAKE_HOST_SYSTEM_NAME MATCHES "Linux")
+    set (CMAKE_CXX_OPT_FLAGS "-O3")
+    set (CMAKE_F_OPT_FLAGS "-O3")
+elseif(CMAKE_HOST_SYSTEM_NAME MATCHES "Linux" AND
+       CMAKE_SYSTEM_PROCESSOR MATCHES "(x86|i386|i686|amd64|x86_64)")
     # Linux specific configurations or commands
     message("Building on Linux")
     set (CMAKE_C_COMPILER   gcc)
     set (CMAKE_CXX_COMPILER g++)
     set (CMAKE_EXE_LINKER_FLAGS -static)
-    set (CMAKE_CXX_OPT_FLAGS "-msse2 -mfpmath=sse")
-    set (CMAKE_F_OPT_FLAGS "-msse2 -mfpmath=sse")
+    set (CMAKE_CXX_OPT_FLAGS "-O3 -march=x86-64-v2 -mtune=generic")
+    set (CMAKE_F_OPT_FLAGS "-O3 -march=x86-64-v2 -mtune=generic")
 else()
     # Other operating system specific configurations or commands
     message("Building on another operating system. Might not be implemented.")
@@ -68,26 +67,12 @@ set(CMAKE_Fortran_MODULE_DIRECTORY ${CMAKE_SOURCE_DIR}/mod)
 #Due to gcc compiler bug the code may produce wrong results if it is compiled with optimizations -O2 flags!!!
 
 if (CMAKE_BUILD_TYPE STREQUAL Release)
-
-    #set (CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -O2 -Wall -Wextra -Wshadow -mtune=generic -msse2 -mfpmath=sse")
     set (CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -mtune=generic ${CMAKE_CXX_OPT_FLAGS}")
-
-    #set (CMAKE_Fortran_FLAGS_RELEASE "${CMAKE_Fortran_FLAGS_RELEASE} -O2 -Wall -Wextra -Wshadow -Wtabs -mtune=generic -msse2 -mfpmath=sse")
-    #set (CMAKE_Fortran_FLAGS_RELEASE "${CMAKE_Fortran_FLAGS_RELEASE} -O2 -mtune=generic -msse2 -mfpmath=sse")
     set (CMAKE_Fortran_FLAGS_RELEASE "${CMAKE_Fortran_FLAGS_RELEASE} -O2 -mtune=generic ${CMAKE_F_OPT_FLAGS}")
-
 elseif (CMAKE_BUILD_TYPE STREQUAL Debug)
-
-    #set (CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -Wall -Wextra -Wshadow -Wno-unused -mtune=generic -msse2 -mfpmath=sse -g -ggdb")
-    set (CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -Wall -Wextra -Wshadow -mtune=generic -msse2 -mfpmath=sse")
-
-    #set (CMAKE_Fortran_FLAGS_DEBUG "${CMAKE_Fortran_FLAGS_DEBUG} -Wall -Wextra -Wshadow -Wtabs -Wno-unused -mtune=generic -msse2 -mfpmath=sse -g -ggdb -fbacktrace -ffpe-trap=invalid,zero,overflow,underflow,denormal -fbounds-check")
-    set (CMAKE_Fortran_FLAGS_DEBUG "${CMAKE_Fortran_FLAGS_DEBUG} -O2 -Wall -Wextra -Wshadow -Wtabs -mtune=generic -msse2 -mfpmath=sse")
-
+    set (CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -Wall -Wextra -Wshadow -mtune=generic")
+    set (CMAKE_Fortran_FLAGS_DEBUG "${CMAKE_Fortran_FLAGS_DEBUG} -O2 -Wall -Wextra -Wshadow -Wtabs -mtune=generic")
 endif (CMAKE_BUILD_TYPE STREQUAL Release)
-
-#set (CMAKE_Fortran_FLAGS_DEBUG "${CMAKE_Fortran_FLAGS_DEBUG} -fimplicit-none -Wall -Wextra -Wshadow -Wtabs -mtune=generic -msse2 -mfpmath=sse -fbounds-check")
-#set (CMAKE_Fortran_FLAGS_RELEASE "${CMAKE_Fortran_FLAGS_RELEASE} -fimplicit-none -Wall -Wextra -Wshadow -Wtabs -O2 -mtune=generic -msse2 -mfpmath=sse")
 
 if (KiLCA_ARCHITECTURE STREQUAL 32bit)
     set (arch _32bit)
@@ -341,4 +326,3 @@ if (DOXYGEN_FOUND)
 else (DOXYGEN_FOUND)
   message (FATAL_ERROR "No doxygen tool is found in the system!")
 endif (DOXYGEN_FOUND)
-

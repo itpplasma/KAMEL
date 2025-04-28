@@ -1,5 +1,5 @@
 cd slatec
-gfortran -c -Wall -Wtabs -mtune=generic -msse2 -mfpmath=sse *.f
+gfortran -c -Wall -Wtabs -mtune=generic *.f
 ar -crs libbessel.a *.o
 rm -f *.o
 mv libbessel.a ../lib/

@@ -8,17 +8,7 @@ cd slatec
 mkdir lib
 curl -L https://www.netlib.org/slatec/slatec_src.tgz -o - | tar xz
 
-# Check the operating system
-if [[ "$(uname)" == "Darwin" ]]; then
-    # macOS specific compiler flags
-    CFLAGS="-O2"
-elif [[ "$(uname)" == "Linux" ]]; then
-    # Linux specific compiler flags
-    CFLAGS="-msse2 -mfpmath=sse"
-else
-    # Default compiler flags for other operating systems
-    CFLAGS=""
-fi
+CFLAGS="-O2"
 gfortran -c -Wall -Wtabs -mtune=generic $CFLAGS src/*.f
 ar rcs libslatec.a *.o
 rm *.o
@@ -32,7 +22,7 @@ echo ""
 echo ""
 echo "Building Sundials..."
 git clone git@github.com:LLNL/sundials.git
-cd sundials 
+cd sundials
 git checkout v5.7.0
 mkdir build
 cd build

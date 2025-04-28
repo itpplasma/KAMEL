@@ -40,6 +40,11 @@ ExternalProject_Add(
         <SOURCE_DIR>UMFPACK/Demo/umf4_f77zwrapper.c
 )
 
+set(UMFPACK_LIBRARY_PATH ${CMAKE_BINARY_DIR}/install/lib/libumfpack${CMAKE_STATIC_LIBRARY_SUFFIX})
+set(SUITESPARSE_CONFIG_LIBRARY_PATH ${CMAKE_BINARY_DIR}/install/lib/libsuitesparseconfig${CMAKE_STATIC_LIBRARY_SUFFIX})
+set(AMD_LIBRARY_PATH ${CMAKE_BINARY_DIR}/install/lib/libamd${CMAKE_STATIC_LIBRARY_SUFFIX})
+set(UMFPACK_INCLUDE_DIR ${CMAKE_BINARY_DIR}/install/include/suitesparse)
+
 ExternalProject_Get_Property(SuiteSparse SOURCE_DIR)
 
 add_library(SuiteSparse::suitesparse_config STATIC IMPORTED)

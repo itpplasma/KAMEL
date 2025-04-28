@@ -3,15 +3,15 @@ ROOT_PATH = /home/hare/ivi/zersol
 
 # CPP compiler options:
 CXX = g++
-CXXFLAGS = -I$(SRC_INC) -O2 -mtune=generic -msse2 -mfpmath=sse -Wall -Wshadow -Wclobbered -Wempty-body -Wignored-qualifiers -Wmissing-field-initializers -Wsign-compare -Wtype-limits -Wuninitialized -Wunused-but-set-parameter
+CXXFLAGS = -I$(SRC_INC) -O2 -mtune=generic -Wall -Wshadow -Wclobbered -Wempty-body -Wignored-qualifiers -Wmissing-field-initializers -Wsign-compare -Wtype-limits -Wuninitialized -Wunused-but-set-parameter
 
 # C compiler options:
 CC = gcc
-CFLAGS  = -I$(SRC_INC) -O2 -mtune=generic -msse2 -mfpmath=sse -Wall -Wshadow -Wclobbered -Wempty-body -Wignored-qualifiers -Wmissing-field-initializers -Wsign-compare -Wtype-limits -Wuninitialized -Wunused-but-set-parameter
+CFLAGS  = -I$(SRC_INC) -O2 -mtune=generic -Wall -Wshadow -Wclobbered -Wempty-body -Wignored-qualifiers -Wmissing-field-initializers -Wsign-compare -Wtype-limits -Wuninitialized -Wunused-but-set-parameter
 
 # Fortran compiler options:
 FC = gfortran
-FFLAGS = -ffree-form -O2 -Wall -Wextra -Wshadow -mtune=generic -msse2 -mfpmath=sse
+FFLAGS = -ffree-form -O2 -Wall -Wextra -Wshadow -mtune=generic
 
 # Linker options:
 LDFLAGS =

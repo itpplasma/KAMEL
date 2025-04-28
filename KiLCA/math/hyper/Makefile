@@ -31,17 +31,15 @@ COMPILER_PREFIX = -4.3.0
 
 #fortran:
 fcomp = gfortran$(COMPILER_PREFIX)
-fopts = -fimplicit-none -Wall -Wtabs -O2 -mtune=generic -msse2 -mfpmath=sse
+fopts = -fimplicit-none -Wall -Wtabs -O2 -mtune=generic
 #-fbounds-check
-fopts77 = -Wall -Wtabs -O2 -mtune=generic -msse2 -mfpmath=sse
-#for klib compilation:
-#fopts = -fimplicit-none -Wall -Wtabs -mtune=generic -msse2 -mfpmath=sse
+fopts77 = -Wall -Wtabs -O2 -mtune=generic
 
 mod_dir = Mods
 
 #C/C++:
 ccomp = g++$(COMPILER_PREFIX)
-copts = -O2 -Wall -mtune=generic -msse2 -mfpmath=sse
+copts = -O2 -Wall -mtune=generic
 inc_dirs = $(addprefix -I, ${VPATH})
 
 #Linker info:

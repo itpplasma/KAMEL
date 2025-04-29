@@ -146,7 +146,7 @@ module electrostatic_kernel
         !$omp parallel do collapse(2) private(l,lp, kernel_phi_llp, kernel_B_llp)
         do l = 1, kernel_rho_phi_llp%npts_l
             do lp = 1, kernel_rho_phi_llp%npts_lp
-                if (abs(l - lp) > 10) cycle
+                if (abs(l - lp) > 5) cycle
 
                 call calc_kernel_rho_numerical(l, lp, kernel_phi_llp, kernel_B_llp, gauss_conf)
                 kernel_rho_phi_llp%Kllp(l, lp) = kernel_phi_llp
@@ -180,12 +180,11 @@ module electrostatic_kernel
             mathcal_A1_rho_B, mathcal_A2_rho_B, int_struct_t
         use electrostatic_integrals, only: compute_Mllpj
         use config, only: artificial_debye_case
-        use grid, only: xl_grid
         
         implicit none
 
         integer, intent(in) :: l, lp
-        complex(dp) :: kernel_phi_llp, kernel_B_llp
+        complex(dp), intent(out) :: kernel_phi_llp, kernel_B_llp
         integer :: j, sigma
         type(gauss_config_t), intent(in) :: gauss_conf
         real(dp) :: integral_val
@@ -201,6 +200,8 @@ module electrostatic_kernel
                 int_struct%rgj = plasma%r_grid(j)
                 int_struct%rgjp1 = plasma%r_grid(j+1)
                 int_struct%sp = sigma
+                int_struct%rhoT = 0.5d0 * (plasma%spec(sigma)%rho_L(j) + plasma%spec(sigma)%rho_L(j+1))
+                int_struct%ks = 0.5d0 * (plasma%ks(j) + plasma%ks(j+1))
 
                 if ((abs(l - lp) <= 1)) then
                     integral_val = compute_Mllpj(int_struct, int_B0_rho_phi, gauss_conf)

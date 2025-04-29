@@ -47,12 +47,10 @@ module poisson_solver
         call create_rhs_vector(type_br_field, K_rho_B, b_vec)
         
         sparse_solver_option = 0
-        sparse_solve_method = 1 ! this works, don't know why. Default value of 3 does not work. I.e. need 
-        !to use superlu instead of suitesparse
+        sparse_solve_method = 1 
         call sparse_solveComplex_b1(nrow, ncol, nz_out, irow, pcol, A_nz, b_vec, sparse_solver_option)
-        !call sparse_solve_suitesparseComplex_b1(nrow, ncol, nz_out, irow, pcol, A_nz, b_vec, 0)
+
         phi_sol = b_vec
-        !call write_phi_to_file
 
         if (fdebug == 3) then
             call write_A_matrix_to_file
@@ -112,7 +110,8 @@ module poisson_solver
         subroutine write_A_matrix_sparse_check_to_file
 
             implicit none
-            double complex, dimension(:,:), allocatable :: A_sparse_check ! A matrix reconfigured from sparse matrix
+
+            complex(dp), dimension(:,:), allocatable :: A_sparse_check ! A matrix reconfigured from sparse matrix
 
             write(*,*) 'Debug: writing A matrix after sparse'
             call sp2fullComplex(irow, pcol, A_nz, nrow, ncol, A_sparse_check)
@@ -134,8 +133,8 @@ module poisson_solver
         subroutine initialize_grid_spacing(dr, r_in)
 
             implicit none
-            double precision, allocatable, intent(in) :: r_in(:)
-            double precision, allocatable, intent(out) :: dr(:)
+            real(dp), allocatable, intent(in) :: r_in(:)
+            real(dp), allocatable, intent(out) :: dr(:)
 
             integer :: i
 
@@ -276,11 +275,12 @@ module poisson_solver
     subroutine dense_to_sparse(A, irow, pcol, A_nz, nrow, ncol, nz_out)
 
         use sparse_mod, only: column_full2pointer
+        use KIM_kinds, only: dp
         
         implicit none
 
-        double complex, dimension(:,:), intent(in) :: A
-        double complex, dimension(:), allocatable, intent(inout) :: A_nz
+        complex(dp), dimension(:,:), intent(in) :: A
+        complex(dp), dimension(:), allocatable, intent(inout) :: A_nz
         integer, dimension(:), allocatable, intent(inout) :: irow, pcol
         integer, optional, intent(out) :: nz_out
         integer, intent(out) :: nrow, ncol

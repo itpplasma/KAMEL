@@ -4,7 +4,7 @@ set(CMAKE_DISABLE_IN_SOURCE_BUILD ON)
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${CMAKE_SOURCE_DIR}/cmake)
 
 set(CMAKE_Fortran_COMPILER "mpif90")
-set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -fopenmp -O2 -mtune=generic -g -fbacktrace -fcheck=all -Wall")
+set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -fopenmp -O3 -mtune=generic -g -fbacktrace -fcheck=all -Wall")
 
 project(KIM VERSION 0.1
             DESCRIPTION "KiLCA Integral Model"

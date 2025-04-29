@@ -26,6 +26,7 @@ module electrostatic_integrands
         real(dp) :: xlm1, xlp1, xl
         real(dp) :: xlpm1, xlpp1, xlp
         real(dp) :: rgj, rgjp1
+        real(dp) :: rhoT, ks
         integer :: sp
     end type
 
@@ -229,10 +230,8 @@ module electrostatic_integrands
 
     function int_B0_rho_phi(x, xp, rg, theta, rhoT, ks) result(val)
 
-        use grid, only: xl_grid, rg_grid
-        use functions, only: varphi_l
-        use gsl_mod, only: erf => gsl_sf_erf
         use constants, only: pi
+        use KIM_kinds, only: dp
 
         implicit none
 
@@ -249,10 +248,7 @@ module electrostatic_integrands
 
     function int_B1_rho_phi(x, xp, rg, theta, rhoT, ks) result(val)
 
-        use grid, only: xl_grid, rg_grid
-        use functions, only: varphi_l
-        use gsl_mod, only: erf => gsl_sf_erf
-        use constants, only: pi
+        use KIM_kinds, only: dp
 
         implicit none
 
@@ -265,10 +261,7 @@ module electrostatic_integrands
 
     function int_B2_rho_phi(x, xp, rg, theta, rhoT, ks) result(val)
 
-        use grid, only: xl_grid, rg_grid
-        use functions, only: varphi_l
-        use gsl_mod, only: erf => gsl_sf_erf
-        use constants, only: pi
+        use KIM_kinds, only: dp
 
         implicit none
 

@@ -75,13 +75,17 @@ module rt_electrostatic
 
         call solve_poisson(kernel_rho_phi_llp%Kllp, kernel_rho_B_llp%Kllp, EBdat%Phi)
         call write_complex_profile(xl_grid%xb, EBdat%Phi, xl_grid%npts_b, trim(output_path)//"/fields/phi_sol.dat")
+        
+        deallocate(kernel_rho_phi_llp%Kllp, kernel_rho_B_llp%Kllp)
+        call kernel_rho_phi_llp%init_kernel(xl_grid%npts_b, xl_grid%npts_b)
+        call kernel_rho_B_llp%init_kernel(xl_grid%npts_b, xl_grid%npts_b)
 
         call fill_kernel_phi_numerical(kernel_rho_phi_llp, kernel_rho_B_llp)
         call solve_poisson(kernel_rho_phi_llp%Kllp, kernel_rho_B_llp%Kllp, phi_numerical)
         call write_complex_profile(xl_grid%xb, phi_numerical, xl_grid%npts_b, trim(output_path)//"/fields/phi_sol_numerical.dat")
 
 
-       ! call calculate_E_perp_psi(plasma, EBdat)
+        ! call calculate_E_perp_psi(plasma, EBdat)
         !call write_complex_profile(xl_grid%xb, EBdat%E_perp_psi, xl_grid%npts_b, trim(output_path)//"/fields/E_perp_psi.dat")
         !call calculate_E_perp(EBdat)
         !call write_complex_profile(xl_grid%xb(1:xl_grid%npts_b-1), EBdat%E_perp, xl_grid%npts_b-1, trim(output_path)//"/fields/E_perp.dat")

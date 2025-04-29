@@ -174,20 +174,17 @@ module electrostatic_integrals
 
                 do i=1,gauss_conf%n ! theta
                     theta_mapped = 0.5d0 * (pi * gauss_conf%x(i) + pi)
-                
+
                     do q=1,gauss_conf%n ! rg
-                        rg_mapped = 0.5d0 * ((int_struct%rgjp1 - int_struct%rgj) * gauss_conf%x(k) + &
+                        rg_mapped = 0.5d0 * ((int_struct%rgjp1 - int_struct%rgj) * gauss_conf%x(q) + &
                                     int_struct%rgjp1 + int_struct%rgj)
 
-                        rhoT = 0.5d0 * (plasma%spec(int_struct%sp)%rho_L(q) + plasma%spec(int_struct%sp)%rho_L(q+1))
-                        ks = 0.5d0 * (plasma%ks(q) + plasma%ks(q+1))
-                                        
                         val = val + gauss_conf%w(i) * gauss_conf%w(p) * gauss_conf%w(k) * gauss_conf%w(q)&
-                        * int_B(x_mapped, xp_mapped, rg_mapped, theta_mapped, rhoT, ks) &
+                        * int_B(x_mapped, xp_mapped, rg_mapped, theta_mapped, int_struct%rhoT, int_struct%ks) &
                         * varphi_l(x_mapped, int_struct%xlm1, int_struct%xl, int_struct%xlp1) &
                         * varphi_l(xp_mapped, int_struct%xlpm1, int_struct%xlp, int_struct%xlpp1) &
                         ! normalization due to integral range shift:
-                        * pi * (int_struct%xlp1 - int_struct%xlm1) & 
+                        * pi * (int_struct%xlp1 - int_struct%xlm1) &
                         * (int_struct%xlpp1 - int_struct%xlpm1) &
                         * (int_struct%rgjp1 - int_struct%rgj) / 16.0d0
                     end do

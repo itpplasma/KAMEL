@@ -4,50 +4,36 @@ This repository contains the kinetic plasma response framework containing the li
 Note, when using the template scripts, make sure to change the code, most importantly the paths, according to your project before using it.
 
 ## Compilation
-For the **initial** compilation of the whole framework, use the top-level shell script
-
+For compilation of the codes use in the repositories root directory either
 ```
-./kamel.sh
+make all
 ```
-
-This invokes the sub-level shell scripts of the individual codes, which can also be called individually (see below). Note that in the compilation process the folder 'external' is created which contains libraries required for the compilation. It is assumed that the libraries are not present on the system and the libraries are therefore downloaded during the execution of the script. For more details, see the respective scripts.
+to compile all three codes (QL-Balance needs a compiled version of KiLCA in any case), or 
+```
+make $CODE_NAME
+```
+to compile each code individually. Each specific code directory comes also with its own Makefile.
 
 Generally, for Apple Silicon the clang/gfortran (version 16.0 and 14.2., respectively) compiler combination is tested. On debian, the gnu compiler version 12.2.0 is tested.
-
-After code changes, use the usual cmake and make commands in the respective colde folders for building.
 
 ## Codes
 
 ### KiLCA
-Contains the source code of KiLCA. Compile in top level directory KAMEL with the shell script
+Contains the source code of KiLCA.
 
-```
-./KiLCA/kilca.sh
-```
-
-This also installs the necessary external libraries like gsl, sundials, etc in the 'external' directory.
 So far, the compilation and execution of the (Normal, Release, NOMD, FPGEN) version of the code was tested on Linux and MacOS. 
 
 ### KIM
-Contains the source code of KiLCA and additional python code (e.g. calculation of the dispersion relation). Compile in top level directory KAMEL with
-
-```
-cd KIM
-make
-```
+Contains the source code of KIM (KiLCA Integral Model).
 
 ### QL-Balance
-Quasilinear transport code based on KiLCA. Requires the prior compilation of KiLCA. Compile in QL-Balance folder with
-
-```
-make
-```
+Quasilinear transport code based on KiLCA. Requires the prior compilation of KiLCA.
 
 ### PreProc
 PreProc contains the fouriermodes code used to calculate r_eff, q, and the toroidal and poloidal fluxes. Also, it contains the neo-2 templates used to run NEO-2 on the ITP machines with condor. This requires the NEO-2 code (see github.com/itpplasma/neo-2).
 
 ## python
-Contains python classes and functions to use the code.
+Contains python classes and functions to use the code. Comes with its own Makefile.
 
 ## template_scripts
 Contains matlab scripts that can be used as templates for certain balance code runs.

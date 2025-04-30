@@ -159,31 +159,29 @@ class KIM_WKB():
             logging.basicConfig(level=logging.INFO)
 
         #with ProcessPoolExecutor(max_workers=num_cores) as executor:  
-        with ThreadPoolExecutor(max_workers=num_cores) as executor:  
-            future_to_r = {executor.submit(self.process_index, r, self.general_dat['r'][int(r)], contour): int(r) for r in idx_range}
+        #with ThreadPoolExecutor(max_workers=num_cores) as executor:  
+            #future_to_r = {executor.submit(self.process_index, r, self.general_dat['r'][int(r)], contour): int(r) for r in idx_range}
 
-            for future in as_completed(future_to_r):
-                result = future.result()
-                print("Future : ", future)
-                print("Result: ", result)
-                if result is not None:
-                    r, roots, r_value = result
-                    res.append(roots)
-                    r_used.append(r_value)
+            #for future in as_completed(future_to_r):
+                #result = future.result()
+                #print("Future : ", future)
+                #print("Result: ", result)
+                #if result is not None:
+                    #r, roots, r_value = result
+                    #res.append(roots)
+                    #r_used.append(r_value)
 
-        #for r in idx_range:
-            #roots = self.find_roots(int(r), contour)
-            #if roots == 1:
-                #continue
-            #print(f"Found roots for index {int(r)} at {self.general_dat['r'][int(r)]}:")
-            #print(f"{roots}")
-            ##sorted_roots = self.sort_roots(roots)
-            #res.append(roots)
-            #r_used.append(self.general_dat['r'][int(r)])
-            ##res_sorted.append(sorted_roots)
+        for r in idx_range:
+            roots = self.find_roots(int(r), contour)
+            if roots == 1:
+                continue
+            print(f"Found roots for index {int(r)} at {self.general_dat['r'][int(r)]}:")
+            print(f"{roots}")
+            #sorted_roots = self.sort_roots(roots)
+            res.append(roots)
+            r_used.append(self.general_dat['r'][int(r)])
+            #res_sorted.append(sorted_roots)
 
-        print(res)
-        print(r_used)
         self.write_roots_to_h5(res, r_used)
         self.r_found, self.k_r1, self.k_r2 = self.store_roots_in_variables(res, r_used)
 

@@ -14,7 +14,7 @@ subroutine get_dql
                         , r_resonant, d11_misalign, Es_pert_flux, Ipar
     use plasma_parameters
     use baseparam_mod, only: Z_i, e_charge, am, p_mass, c, e_mass, ev, rtor, pi, rsepar
-    use control_mod, only: irf, suppression_mode, misalign_diffusion
+    use control_mod, only: irf, suppression_mode, misalign_diffusion, type_of_run
     use time_evolution, only: save_prof_time_step, time_ind, br_formfactor, br_vac_res
     use h5mod
     use wave_code_data
@@ -227,8 +227,10 @@ subroutine get_dql
             spec_weight(ipoi) = spec_weight(ipoi)*weight
         end do
 
-        if (irank .eq. 0) then
-            call interp_rb_at_r0(Br, r_resonant(i_mn), br_vac_res(time_ind))
+        if (trim(type_of_run) .eq. "TimeEvolution") then !TODO: this is a very bad solution... Make it better
+            if (irank .eq. 0) then
+                call interp_rb_at_r0(Br, r_resonant(i_mn), br_vac_res(time_ind))
+            end if
         end if
 
         call get_wave_fields_from_wave_code(flre_cd_ptr(i_mn), dim_r, r, &
@@ -236,8 +238,10 @@ subroutine get_dql
         formfactor = Br * formfactor
 
         ! todo: interpolate formfactor at resonant surface and write out. This is Brtot/Brvac at the resonant surface
-        if (irank .eq. 0) then
-            call interp_rb_at_r0(formfactor, r_resonant(i_mn), br_formfactor(time_ind))
+        if (trim(type_of_run) .eq. "TimeEvolution") then !TODO: this is a very bad solution... Make it better
+            if (irank .eq. 0) then
+                call interp_rb_at_r0(formfactor, r_resonant(i_mn), br_formfactor(time_ind))
+            end if
         end if
 
         dqle11_loc = dqle11_loc + de11*spec_weight
@@ -383,7 +387,7 @@ subroutine interp_rb_at_r0(func, r0, func_res)
 
     implicit none
 
-    complex(dp), dimension(npoib), intent(in) :: func
+    complex(dp), intent(in) :: func(npoib)
     complex(dp), intent(out) :: func_res
     real(dp), intent(in) :: r0
     integer :: ibrabsres, ind_begin_interp, ind_end_interp

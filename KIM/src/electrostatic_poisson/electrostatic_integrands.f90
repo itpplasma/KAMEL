@@ -223,7 +223,7 @@ module electrostatic_integrands
         lambda = 0.5d0 * (spec%lambda_D(j) + spec%lambda_D(j+1))
         val = 2.0d0 * pi**2.0d0 / (-lambda**2.0d0)  !/ sqrt(2.0d0)
 
-    end function mathcal_A0_rho_phi
+    end function
 
 
     ! completely numerical integration
@@ -239,7 +239,7 @@ module electrostatic_integrands
         real(dp) :: val
 
         if (abs(x-xp) <= 1e-15) then
-            val = (sqrt(2.0d0 * pi))**3.0d0 / rhoT * exp(- (x - rg)**2.0d0 / (2.0d0 * rhoT**2.0d0))
+            val = (sqrt(2.0d0 * pi))**(1.5d0) / rhoT * exp(- (x - rg)**2.0d0 / (2.0d0 * rhoT**2.0d0))
         else
             val = 0.0d0
         end if
@@ -255,7 +255,7 @@ module electrostatic_integrands
         real(dp), intent(in) :: x, xp, rg, theta, rhoT, ks
         real(dp) :: val
 
-        val = zeta(x, xp, rg, theta, rhoT, ks) * 2.0d0 / (rhoT**2.0d0 * sin(theta))
+        val = 2.0d0 / (rhoT**2.0d0 * sin(theta)) * zeta(x, xp, rg, theta, rhoT, ks)
 
     end function
 

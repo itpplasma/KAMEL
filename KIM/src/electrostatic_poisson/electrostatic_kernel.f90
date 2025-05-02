@@ -120,7 +120,7 @@ module electrostatic_kernel
             end do
         end do
 
-        kernel_phi_llp = kernel_phi_llp / (8.0d0 * pi**3.0d0) 
+        kernel_phi_llp = kernel_phi_llp / (8.0d0 * pi**3.0d0)  /2.0d0 ! factor 1/2 is somehow missing. Including this factor nicely reproduces the debye case.
         kernel_B_llp = kernel_B_llp / (8.0d0 * pi**3.0d0 * sol) * com_unit
             
     end subroutine
@@ -146,7 +146,7 @@ module electrostatic_kernel
         !$omp parallel do collapse(2) private(l,lp, kernel_phi_llp, kernel_B_llp)
         do l = 1, kernel_rho_phi_llp%npts_l
             do lp = 1, kernel_rho_phi_llp%npts_lp
-                if (abs(l - lp) > 5) cycle
+                if (abs(l - lp) > 1) cycle
 
                 call calc_kernel_rho_numerical(l, lp, kernel_phi_llp, kernel_B_llp, gauss_conf)
                 kernel_rho_phi_llp%Kllp(l, lp) = kernel_phi_llp
@@ -196,22 +196,22 @@ module electrostatic_kernel
         call set_xl_at_edge_struct(l, lp, int_struct)
 
         do sigma = 0, plasma%n_species - 1
-            do j = 1, size(plasma%r_grid)-1
+            int_struct%sp = sigma
+            do j = 1, size(plasma%r_grid) - 1
                 int_struct%rgj = plasma%r_grid(j)
                 int_struct%rgjp1 = plasma%r_grid(j+1)
-                int_struct%sp = sigma
                 int_struct%rhoT = 0.5d0 * (plasma%spec(sigma)%rho_L(j) + plasma%spec(sigma)%rho_L(j+1))
                 int_struct%ks = 0.5d0 * (plasma%ks(j) + plasma%ks(j+1))
 
                 if ((abs(l - lp) <= 1)) then
                     integral_val = compute_Mllpj(int_struct, int_B0_rho_phi, gauss_conf)
-                    kernel_phi_llp = kernel_phi_llp + integral_val * mathcal_A0_rho_phi(j, plasma%spec(sigma)) 
+                    kernel_phi_llp = kernel_phi_llp + mathcal_A0_rho_phi(j, plasma%spec(sigma)) * integral_val
                 end if
 
                 if (artificial_debye_case) cycle
 
                 integral_val = compute_Mllpj(int_struct, int_B1_rho_phi, gauss_conf)
-                kernel_phi_llp = kernel_phi_llp - integral_val * mathcal_A1_rho_phi(j, plasma%spec(sigma))
+                kernel_phi_llp = kernel_phi_llp - mathcal_A1_rho_phi(j, plasma%spec(sigma)) * integral_val
                 kernel_B_llp = kernel_B_llp - integral_val * mathcal_A1_rho_B(j, plasma%spec(sigma)) &
                                 * (0.5d0 * (plasma%spec(sigma)%vT(j) + plasma%spec(sigma)%vT(j+1)))**2.0d0 &
                                 / (0.5d0 * (plasma%spec(sigma)%lambda_D(j) + plasma%spec(sigma)%lambda_D(j+1)))**2.0d0 &

@@ -140,14 +140,13 @@ module electrostatic_integrals
     function compute_Mllpj(int_struct, int_B, gauss_conf) result(val)
 
         use KIM_kinds, only: dp
-        use grid, only: xl_grid
         use constants, only: pi
         use electrostatic_integrands, only: int_struct_t
         use functions, only: varphi_l
         use species, only: plasma
 
         implicit none
-        real(dp) :: val, rhoT, ks
+        real(dp) :: val
         type(int_struct_t), intent(in) :: int_struct
         type(gauss_config_t), intent(in) :: gauss_conf
         interface
@@ -159,31 +158,33 @@ module electrostatic_integrals
             end function
         end interface
 
-        real(dp) :: x_mapped, xp_mapped, theta_mapped, rg_mapped
-        integer :: i, k, p, q
+        real(dp), allocatable :: x_mapped(:), xp_mapped(:), theta_mapped(:), rg_mapped(:)
+        integer :: itheta, ix, ixp, irg
+        real(dp) :: calcd_varphi_l, calcd_varphi_lp
+
+        allocate(x_mapped(gauss_conf%n), xp_mapped(gauss_conf%n), &
+            theta_mapped(gauss_conf%n), rg_mapped(gauss_conf%n))
+        
+        x_mapped = 0.5d0 * ((int_struct%xlp1 - int_struct%xlm1) * gauss_conf%x + &
+            int_struct%xlp1 + int_struct%xlm1)
+        xp_mapped = 0.5d0 * ((int_struct%xlpp1 - int_struct%xlpm1) * gauss_conf%x + &
+            int_struct%xlpp1 + int_struct%xlpm1)
+        theta_mapped = 0.5d0 * (pi * gauss_conf%x + pi)
+        rg_mapped = 0.5d0 * ((int_struct%rgjp1 - int_struct%rgj) * gauss_conf%x + &
+            int_struct%rgjp1 + int_struct%rgj)
 
         val = 0.0d0
 
-        do p=1,gauss_conf%n ! xp 
-            xp_mapped = 0.5d0 * ((int_struct%xlpp1 - int_struct%xlpm1) * gauss_conf%x(p) + &
-                        int_struct%xlpp1 + int_struct%xlpm1)
-
-            do k=1,gauss_conf%n !x
-                x_mapped = 0.5d0 * ((int_struct%xlp1 - int_struct%xlm1) * gauss_conf%x(k) + &
-                    int_struct%xlp1 + int_struct%xlm1)
-
-                do i=1,gauss_conf%n ! theta
-                    theta_mapped = 0.5d0 * (pi * gauss_conf%x(i) + pi)
-
-                    do q=1,gauss_conf%n ! rg
-                        rg_mapped = 0.5d0 * ((int_struct%rgjp1 - int_struct%rgj) * gauss_conf%x(q) + &
-                                    int_struct%rgjp1 + int_struct%rgj)
-
-                        val = val + gauss_conf%w(i) * gauss_conf%w(p) * gauss_conf%w(k) * gauss_conf%w(q)&
-                        * int_B(x_mapped, xp_mapped, rg_mapped, theta_mapped, int_struct%rhoT, int_struct%ks) &
-                        * varphi_l(x_mapped, int_struct%xlm1, int_struct%xl, int_struct%xlp1) &
-                        * varphi_l(xp_mapped, int_struct%xlpm1, int_struct%xlp, int_struct%xlpp1) &
-                        ! normalization due to integral range shift:
+        do ixp=1,gauss_conf%n ! xp 
+            calcd_varphi_lp = varphi_l(xp_mapped(ixp), int_struct%xlpm1, int_struct%xlp, int_struct%xlpp1)
+            do ix=1,gauss_conf%n !x
+                calcd_varphi_l = varphi_l(x_mapped(ix), int_struct%xlm1, int_struct%xl, int_struct%xlp1)
+                do itheta=1,gauss_conf%n ! theta
+                    do irg=1,gauss_conf%n ! rg
+                        val = val + gauss_conf%w(itheta) * gauss_conf%w(ixp) * gauss_conf%w(ix) * gauss_conf%w(irg)&
+                        * int_B(x_mapped(ix), xp_mapped(ixp), rg_mapped(irg), theta_mapped(itheta), int_struct%rhoT, int_struct%ks) &
+                        * calcd_varphi_l * calcd_varphi_lp &
+                        ! normalization due to integration range change:
                         * pi * (int_struct%xlp1 - int_struct%xlm1) &
                         * (int_struct%xlpp1 - int_struct%xlpm1) &
                         * (int_struct%rgjp1 - int_struct%rgj) / 16.0d0

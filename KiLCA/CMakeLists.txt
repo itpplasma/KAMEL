@@ -11,7 +11,7 @@ if(CMAKE_HOST_SYSTEM_NAME MATCHES "Darwin")
     set (CMAKE_CXX_OPT_FLAGS "-O3")
     set (CMAKE_F_OPT_FLAGS "-O3")
 elseif(CMAKE_HOST_SYSTEM_NAME MATCHES "Linux" AND
-       CMAKE_SYSTEM_PROCESSOR MATCHES "(x86|i386|i686|amd64|x86_64)")
+        CMAKE_SYSTEM_PROCESSOR MATCHES "(x86|i386|i686|amd64|x86_64)")
     # Linux specific configurations or commands
     message("Building on Linux")
     set (CMAKE_C_COMPILER   gcc)

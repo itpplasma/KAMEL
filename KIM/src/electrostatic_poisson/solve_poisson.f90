@@ -170,7 +170,7 @@ module poisson_solver
             integer :: i, idx
             real(dp) :: x0
 
-            x0 = 35.0d0
+            x0 = 58.5d0
 
             allocate(rhs_vec(xl_grid%npts_b))
             rhs_vec = cmplx(0.0d0, 0.0d0, dp)
@@ -218,8 +218,7 @@ module poisson_solver
 
             rhs_vec = - 4d0 * pi * rhs_vec
 
-            call write_profile(xl_grid%xb, real(rhs_vec), xl_grid%npts_b, trim(output_path)//'fields/rhs_vec_re.dat')
-            call write_profile(xl_grid%xb, dimag(rhs_vec), xl_grid%npts_b, trim(output_path)//'fields/rhs_vec_im.dat')
+            call write_complex_profile(xl_grid%xb, rhs_vec, xl_grid%npts_b, trim(output_path)//'fields/rhs_vec.dat')
 
         end subroutine
 

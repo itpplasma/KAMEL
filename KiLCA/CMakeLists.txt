@@ -117,56 +117,26 @@ endif ()
 set (kilca_normal_main progs/main_linear.cpp)
 set (kilca_eigparam_main progs/main_eig_param.cpp)
 
-set (libs_root_path ${CMAKE_SOURCE_DIR}/../external)
+# --- Dependencies ---
+list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake")
+include(FetchGSL)
+include(FetchLapack)
+include(FetchSundials)
 
-
-#include paths:
+# include paths:
+set (libs_root_path ${CMAKE_BINARY_DIR}/external-install)
 set (sundials_include_path ${libs_root_path}/sundials/include)
-set (sundials_include_path_build ${libs_root_path}/sundials/build/include)
-
-#libraries paths:
-set (slatec_lib_fullpath ${libs_root_path}/slatec/libslatec.a)
-set (lapack_lib_fullpath ${libs_root_path}/lapack-3.2.1/lapack_LINUX.a)
-set (blas_lib_fullpath ${libs_root_path}/lapack-3.2.1/blas_LINUX.a)
-set (tmg_lib_fullpath ${libs_root_path}/lapack-3.2.1/tmglib_LINUX.a)
-set (cvode_lib_fullpath ${libs_root_path}/sundials/build/src/cvode/libsundials_cvode.a)
-set (nvecserial_lib_fullpath ${libs_root_path}/sundials/build/src/nvector/serial/libsundials_nvecserial.a)
-set (gsl_lib_fullpath ${libs_root_path}/gsl-2.4/.libs/libgsl.a)
-set (gslcblas_lib_fullpath ${libs_root_path}/gsl-2.4/cblas/.libs/libgslcblas.a)
-set (gsl_include_path ${libs_root_path}/gsl-2.4/)
+set (gsl_include_path ${libs_root_path}/gsl)
 
 file(GLOB libslatec_files "${CMAKE_SOURCE_DIR}/math/bessel/slatec/*.f")
 add_library (slatec STATIC "${libslatec_files}")
 
-add_library (lapack STATIC IMPORTED)
-set_target_properties (lapack PROPERTIES IMPORTED_LOCATION "${lapack_lib_fullpath}")
-
-add_library (blas STATIC IMPORTED)
-set_target_properties (blas PROPERTIES IMPORTED_LOCATION "${blas_lib_fullpath}")
-
-add_library (tmg STATIC IMPORTED)
-set_target_properties (tmg PROPERTIES IMPORTED_LOCATION "${tmg_lib_fullpath}")
-
-add_library (cvode STATIC IMPORTED)
-set_target_properties (cvode PROPERTIES IMPORTED_LOCATION "${cvode_lib_fullpath}")
-
-add_library (nvecserial STATIC IMPORTED)
-set_target_properties (nvecserial PROPERTIES IMPORTED_LOCATION "${nvecserial_lib_fullpath}")
-
-add_library (gsl STATIC IMPORTED)
-set_target_properties (gsl PROPERTIES IMPORTED_LOCATION "${gsl_lib_fullpath}")
-
-add_library (gslcblas STATIC IMPORTED)
-set_target_properties (gslcblas PROPERTIES IMPORTED_LOCATION "${gslcblas_lib_fullpath}")
-
-set (EXTERNAL_LIBS ${EXTERNAL_LIBS} slatec lapack blas cvode nvecserial gsl gslcblas gfortran)
+set(EXTERNAL_LIBS slatec lapack blas cvode nvecserial gsl gslcblas)
 
 # configure a header file to pass some of the CMake settings to the source code
 configure_file ("${PROJECT_SOURCE_DIR}/code_settings.h.in" "${PROJECT_BINARY_DIR}/code_settings.h")
 
-#include dirs:
 include_directories ("${sundials_include_path}")
-include_directories ("${sundials_include_path_build}")
 include_directories ("${gsl_include_path}")
 include_directories ("${PROJECT_BINARY_DIR}")
 include_directories ("${PROJECT_SOURCE_DIR}/antenna")
@@ -295,24 +265,28 @@ set_target_properties(kilca_lib PROPERTIES
     OUTPUT_NAME ${kilca_lib}
     ARCHIVE_OUTPUT_DIRECTORY lib
     Fortran_MODULE_DIRECTORY mod)
+add_dependencies(kilca_lib ${EXTERNAL_LIBS})
 target_link_libraries(kilca_lib PUBLIC ${EXTERNAL_LIBS})
 
 add_executable (kilca_normal_exe ${kilca_normal_main})
 set_target_properties(kilca_normal_exe PROPERTIES
     OUTPUT_NAME ${kilca_normal_exe}
     RUNTIME_OUTPUT_DIRECTORY exe)
+add_dependencies(kilca_normal_exe ${EXTERNAL_LIBS})
 target_link_libraries (kilca_normal_exe kilca_lib ${EXTERNAL_LIBS})
 
 add_executable (kilca_eigparam_exe ${kilca_eigparam_main})
 set_target_properties(kilca_eigparam_exe PROPERTIES
     OUTPUT_NAME ${kilca_eigparam_exe}
     RUNTIME_OUTPUT_DIRECTORY exe)
+add_dependencies(kilca_eigparam_exe ${EXTERNAL_LIBS})
 target_link_libraries (kilca_eigparam_exe kilca_lib ${EXTERNAL_LIBS})
 
 add_executable (post_proc post_processing/main_post_proc.cpp post_processing/save_fortran.f90)
 set_target_properties(post_proc PROPERTIES
     OUTPUT_NAME post_processor_${KiLCA_ARCHITECTURE}
     RUNTIME_OUTPUT_DIRECTORY exe)
+add_dependencies(post_proc ${EXTERNAL_LIBS})
 target_link_libraries (post_proc kilca_lib ${EXTERNAL_LIBS})
 
 # add a target to generate API documentation with Doxygen

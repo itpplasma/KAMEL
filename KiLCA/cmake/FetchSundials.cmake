@@ -6,7 +6,7 @@ if(NOT DEFINED SUNDIALS_INSTALL_DIR)
         CACHE PATH "Where Sundials will be installed")
 endif()
 
-ExternalProject_Add(EXTERNAL_sundials
+ExternalProject_Add(sundials # needs to be named like this due to libneo depending on it and finding it via a path
     PREFIX ${CMAKE_BINARY_DIR}/download
     GIT_REPOSITORY https://github.com/LLNL/sundials.git
     GIT_TAG v5.7.0
@@ -34,11 +34,11 @@ set_target_properties(cvode PROPERTIES
     IMPORTED_LOCATION
     "${SUNDIALS_INSTALL_DIR}/lib/libsundials_cvode.a"
 )
-add_dependencies(cvode EXTERNAL_sundials)
+add_dependencies(cvode sundials)
 
 add_library(nvecserial STATIC IMPORTED GLOBAL)
 set_target_properties(nvecserial PROPERTIES
     IMPORTED_LOCATION
     "${SUNDIALS_INSTALL_DIR}/lib/libsundials_nvecserial.a"
 )
-add_dependencies(nvecserial EXTERNAL_sundials)
+add_dependencies(nvecserial sundials)

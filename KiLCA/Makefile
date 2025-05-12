@@ -1,11 +1,13 @@
+CONFIG ?= Release
+
 .PHONY: all ninja test install clean
 all: ninja
 
 build/build.ninja:
-	cmake -GNinja -S . -B build
+	cmake -G Ninja -S . -B build -DCMAKE_BUILD_TYPE=$(CONFIG)
 
 ninja: build/build.ninja
-	cmake --build build
+	cmake --build build --config $(CONFIG)
 
 clean:
 	rm -rf build

@@ -75,15 +75,18 @@ set(KIM_poisson electrostatic_poisson/poisson.f90
 set(KIM_WKB_dispersion run_wkb_dispersion/wkb_dispersion.f90
 )
 
-set(external_zeal ${CMAKE_SOURCE_DIR}/../external/Zeal/zeal_input.f90
-                ${CMAKE_SOURCE_DIR}/../external/Zeal/integr_input.f90
-                ${CMAKE_SOURCE_DIR}/../external/Zeal/split.f90
-                ${CMAKE_SOURCE_DIR}/../external/Zeal/quad.f90
-                ${CMAKE_SOURCE_DIR}/../external/Zeal/refine.f90
-                ${CMAKE_SOURCE_DIR}/../external/Zeal/error.f90
-                ${CMAKE_SOURCE_DIR}/../external/Zeal/zeal.f90
-                ${CMAKE_SOURCE_DIR}/../external/Zeal/zeros.f90
-                ${CMAKE_SOURCE_DIR}/../external/Zeal/dqag.f #quadpack
-                ${CMAKE_SOURCE_DIR}/../external/Zeal/dqagx.f # quadpack
-                ${CMAKE_SOURCE_DIR}/../external/Zeal/dlamch.f # quadpack
-                ${CMAKE_SOURCE_DIR}/../external/Zeal/prec.f90)
+set(external_dir ${CMAKE_BINARY_DIR}/_deps/zeal-src)
+set(external_zeal
+    ${external_dir}/zeal_input.f90
+    ${external_dir}/integr_input.f90
+    ${external_dir}/split.f90
+    ${external_dir}/quad.f90
+    ${external_dir}/refine.f90
+    ${external_dir}/error.f90
+    ${external_dir}/zeal.f90
+    ${external_dir}/zeros.f90
+    ${external_dir}/dqag.f # quadpack
+    ${external_dir}/dqagx.f # quadpack
+    ${external_dir}/dlamch.f # quadpack
+    ${external_dir}/prec.f90
+)

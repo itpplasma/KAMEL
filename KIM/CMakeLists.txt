@@ -4,7 +4,18 @@ set(CMAKE_DISABLE_IN_SOURCE_BUILD ON)
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${CMAKE_SOURCE_DIR}/cmake)
 
 set(CMAKE_Fortran_COMPILER "mpif90")
-set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -fopenmp -O3 -mtune=generic -g -fbacktrace -fcheck=all -Wall")
+set(CMAKE_Fortran_FLAGS
+    "${CMAKE_Fortran_FLAGS}"
+    "-O3"
+    "-Wall"
+    "-fbacktrace"
+    "-fcheck=all"
+    "-ffree-line-length-none"
+    "-fopenmp"
+    "-g"
+    "-mtune=generic"
+)
+string(REPLACE ";" " " CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS}")
 
 project(KIM VERSION 0.1
             DESCRIPTION "KiLCA Integral Model"
@@ -12,6 +23,7 @@ project(KIM VERSION 0.1
 enable_language(Fortran)
 enable_testing()
 
+include(FetchZeal)
 add_subdirectory(src)
 add_subdirectory(src/math/slatec)
 add_subdirectory(src/math/libcerf-main)

@@ -107,7 +107,7 @@
 
     allocate(cneo(npoib),gpp_av(npoib))
     allocate(qsafb(npoib),qsaf(npoic))
-    allocate(sqg_bthet_overc(npoib),Ercov(npoib),sqg_bthet_overcavg(npoib), &
+    allocate(sqrt_g_times_B_theta_over_c(npoib),Ercov(npoib),sqg_bthet_overcavg(npoib), &
         Ercovavg(npoib))
     allocate(Ercov_lin(npoib))
 
@@ -140,7 +140,7 @@ subroutine calc_geometric_parameter_profiles
     do ipoi=1,npoib
         qsafb(ipoi)=sum(qsaf(ipbeg(ipoi):ipend(ipoi))*reint_coef(:,ipoi))
         cneo(ipoi)=(rtor/rb(ipoi))**1.5d0*qsafb(ipoi)**2*cneo_0
-        sqg_bthet_overc(ipoi)=btor*rb(ipoi)/qsafb(ipoi)/c
+        sqrt_g_times_B_theta_over_c(ipoi)=btor*rb(ipoi)/qsafb(ipoi)/c
     enddo
 
 end subroutine calc_geometric_parameter_profiles

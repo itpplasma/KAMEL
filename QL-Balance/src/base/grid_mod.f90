@@ -14,7 +14,7 @@ module grid_mod
 
     integer, dimension(:),   allocatable :: ipbeg,ipend
     real(dp), dimension(:),   allocatable :: rb,rc,Sb,Sc
-    real(dp), dimension(:),   allocatable :: sqg_bthet_overc,Ercov
+    real(dp), dimension(:),   allocatable :: sqrt_g_times_B_theta_over_c,Ercov
     real(dp), dimension(:),   allocatable :: sqg_bthet_overcavg,Ercovavg
     real(dp), dimension(:),   allocatable :: y,dery,dery_equisource
     real(dp), dimension(:),   allocatable :: dae11,dae12,dae22

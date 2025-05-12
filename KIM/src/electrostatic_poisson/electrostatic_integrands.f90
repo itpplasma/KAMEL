@@ -79,8 +79,8 @@ module electrostatic_integrands
             * varphi_l(x, this%xlm1, this%xl, this%xlp1) &
             * exp(- (x+xp)**2.0d0 / (4.0d0 * this%rhoT**2.0d0 * (1.0d0 - cos(theta)))) &
             * (&
-                erf((0.5d0 * (xp - x) + rg_grid%xb(this%j+1))/(this%rhoT * sin(theta)**2.0d0) * sqrt(1.0d0 - cos(theta))) &
-                -erf((0.5d0 * (xp - x) + rg_grid%xb(this%j))/(this%rhoT * sin(theta)**2.0d0) * sqrt(1.0d0 - cos(theta))) &
+                erf(0.5d0 * (xp - x) + rg_grid%xb(this%j+1))/(this%rhoT * sqrt(1.0d0 + cos(theta))) &
+                -erf(0.5d0 * (xp - x) + rg_grid%xb(this%j))/(this%rhoT * sqrt(1.0d0 + cos(theta))) &
             ) 
 
     end function

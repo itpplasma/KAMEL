@@ -156,9 +156,9 @@ module time_evolution
         !timstep_arr = timstep
         !tim_stack = timstep_arr
 
+        call alloc_Br_Dqle_for_timeevol
         call get_dql
         call rescale_transp_coeffs_by_ant_fac
-        call alloc_Br_Dqle_for_timeevol
         call hold_prev_transp_coeffs
 
         params_begbeg = params

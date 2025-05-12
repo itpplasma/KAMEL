@@ -4,7 +4,6 @@ set(CMAKE_DISABLE_IN_SOURCE_BUILD ON)
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${CMAKE_SOURCE_DIR}/cmake)
 
 project(ql-balance)
-enable_language(C Fortran)
 enable_testing()
 
 set(CMAKE_Fortran_STANDARD 2018)
@@ -25,9 +24,7 @@ if(CMAKE_HOST_SYSTEM_NAME MATCHES "Darwin")
 elseif(CMAKE_HOST_SYSTEM_NAME MATCHES "Linux")
     # Linux specific configurations or commands
     message("Building on Linux")
-    #set(CMAKE_C_COMPILER /usr/bin/gcc)
-    #set(CMAKE_CXX_COMPILER /usr/bin/g++)
-    set(CMAKE_Fortran_COMPILER /usr/bin/mpif90)
+    set(CMAKE_Fortran_COMPILER /usr/bin/mpifort)
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fopenmp")
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -O3 -D DOUBLE_APPEND_FORTRAN")
     set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -fopenmp")
@@ -35,17 +32,20 @@ else()
     # Other operating system specific configurations or commands
     message("Building on another operating system might not be implemented.")
 endif()
+enable_language(C Fortran)
+
+set(KILCA_PATH ${CMAKE_SOURCE_DIR}/../KiLCA)
 
 include(FetchSuiteSparse)
 include(Util)
 
-set (libs_root_path ${CMAKE_SOURCE_DIR}/../external)
+set(libs_root_path ${KILCA_PATH}/build/download/src) # libneo depends on this, cannot easily be changed
 
 set(hdf5_tools ${PROJECT_SOURCE_DIR}/src/hdf5_tools/)
 set(objs ${PROJECT_BINARY_DIR}/OBJS/)
 set(lib ${PROJECT_BINARY_DIR}/lib/)
 set(ql-balance_lib "${lib}libql-balance.a")
-set(KiLCA_lib_path ${CMAKE_SOURCE_DIR}/../KiLCA/build/lib/libKiLCA_Lib_V_2.4.2_MDNO_FPGEN_POLYNOMIAL_Release_64bit.a)
+set(KiLCA_lib_path ${KILCA_PATH}/build/lib/libKiLCA_Lib_V_2.4.2_MDNO_FPGEN_POLYNOMIAL_Release_64bit.a)
 
 set(CMAKE_Fortran_MODULE_DIRECTORY "${objs}")
 
@@ -81,8 +81,9 @@ target_link_libraries(ql-balance_lib PUBLIC "${KiLCA_lib_path}")
 target_include_directories(ql-balance_lib PUBLIC "${sundials_include_path}")
 target_include_directories(ql-balance_lib PUBLIC "${sundials_include_path_build}")
 target_include_directories(ql-balance_lib PUBLIC ${CMAKE_SOURCE_DIR}/../KiLCA/math/)
+target_include_directories(ql-balance_lib PUBLIC ${KILCA_PATH}/math/)
 
-file(GLOB libslatec_files "${CMAKE_SOURCE_DIR}/../KiLCA/math/bessel/slatec/*.f")
+file(GLOB libslatec_files "${KILCA_PATH}/math/bessel/slatec/*.f")
 add_library (slatec STATIC "${libslatec_files}")
 set_target_properties(slatec PROPERTIES LINKER_LANGUAGE Fortran
     OUTPUT_NAME slatec
@@ -121,10 +122,6 @@ target_link_libraries(ql-balance_lib PUBLIC hdf5::hdf5
                                             hdf5::hdf5_hl
                                             hdf5::hdf5_fortran
                                             hdf5::hdf5_hl_fortran)
-
-#set (CMAKE_Fortran_FLAGS "-cpp -g -Og -fPIC -fcheck=all -fbacktrace \
-#        -fno-realloc-lhs -fopenmp -Wall -Wextra -Werror \
-#        -Wno-unused-function -fmax-errors=1")
 
 find_or_fetch(libneo)
 include_directories(${CMAKE_CURRENT_BINARY_DIR}/libneo/include)

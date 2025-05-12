@@ -126,7 +126,7 @@ include(FetchSundials)
 # include paths:
 set (libs_root_path ${CMAKE_BINARY_DIR}/external-install)
 set (sundials_include_path ${libs_root_path}/sundials/include)
-set (gsl_include_path ${libs_root_path}/gsl)
+set (gsl_include_path ${libs_root_path}/gsl/include)
 
 file(GLOB libslatec_files "${CMAKE_SOURCE_DIR}/math/bessel/slatec/*.f")
 add_library (slatec STATIC "${libslatec_files}")

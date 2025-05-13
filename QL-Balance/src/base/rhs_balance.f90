@@ -374,9 +374,10 @@ subroutine rhs_balance_source(x, y, dy)
                         , dni22, visca, gpp_av, dery_equisource &
                         , dqle11, dqle12, dqle21, dqle22 &
                         , dqli11, dqli12, dqli21, dqli22 &
+                        , T_EM_phi_e, T_EM_phi_i &
                         , sqrt_g_times_B_theta_over_c, Ercov, polforce, qlheat_e, qlheat_i &
                         , Ercov_lin, fluxes_con_nl 
-                        
+
     use plasma_parameters, only: params, ddr_params, params_b, params_lin &
                         , params_b_lin, ddr_params_nl, dot_params
     use baseparam_mod, only: Z_i, e_charge, am, p_mass, c
@@ -531,9 +532,12 @@ subroutine rhs_balance_source(x, y, dy)
                             *params_b(1, ipoi)/Z_i*ddr_params_nl(4, ipoi))) &
                             /params_b(4, ipoi)
 
-        ! Momentum source due to the polarization current:
-        polforce(ipoi) = (gamma_e - Z_i*gamma_i)* &
-                        e_charge*sqrt_g_times_B_theta_over_c(ipoi) /(am*p_mass)
+        ! Toroidal torque densities
+        T_EM_phi_e(ipoi) = +e_charge * sqrt_g_times_B_theta_over_c(ipoi) * gamma_e
+        T_EM_phi_i(ipoi) = -Z_i * e_charge * sqrt_g_times_B_theta_over_c(ipoi) * gamma_i
+
+        ! Momentum source due to the polarization current
+        polforce(ipoi) = (T_EM_phi_i(ipoi) - T_EM_phi_e(ipoi)) / (am * p_mass)
 
         ! Heat sources due to the radial QL drift in the equilibrium electric field:
         qlheat_e(ipoi) = -Ercov(ipoi)*gamma_ql_e*e_charge

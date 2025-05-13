@@ -101,6 +101,7 @@
     allocate(dqli11(npoib),dqli12(npoib),dqli21(npoib),dqli22(npoib))
     allocate(de11(npoib),de12(npoib),de21(npoib),de22(npoib))
     allocate(di11(npoib),di12(npoib),di21(npoib),di22(npoib))
+    allocate(T_EM_phi_e(npoib), T_EM_phi_i(npoib))
     allocate(polforce(npoib),qlheat_e(npoib),qlheat_i(npoib))
 
     dni22=0.d0

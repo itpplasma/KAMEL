@@ -20,6 +20,7 @@ module grid_mod
     real(dp), dimension(:),   allocatable :: dae11,dae12,dae22
     real(dp), dimension(:),   allocatable :: dai11,dai12,dai22
     real(dp), dimension(:),   allocatable :: dni22,visca,polforce
+    real(dp), dimension(:), allocatable :: T_EM_phi_e, T_EM_phi_i
     ! ql RMP-induced diffusion
     real(dp), dimension(:),   allocatable :: dqle11,dqle12,dqle21,dqle22
     real(dp), dimension(:),   allocatable :: dqli11,dqli12,dqli21,dqli22

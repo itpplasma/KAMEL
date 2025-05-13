@@ -5,7 +5,7 @@ BUILD_DIR := build
 all: ninja
 
 build/build.ninja:
-	cmake -G Ninja -S . -B build
+	cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=$(CONFIG) -D CMAKE_EXPORT_COMPILE_COMMANDS=ON
 
 ninja: build/build.ninja
 	cmake --build build

@@ -22,6 +22,24 @@ module kernel_plasma_prefacs
 
     end function
 
+    function kappa_rho_B(j, spec) result(val)
+
+        use species, only: plasma, species_t
+        use KIM_kinds, only: dp
+
+        implicit none
+
+        integer, intent(in) :: j
+        type(species_t), intent(in) :: spec
+        real(dp) :: val
+
+        val = (0.5d0 * (spec%vT(j) + spec%vT(j+1)))**2.0d0 &
+            / (0.5d0 * (spec%lambda_D(j) + spec%lambda_D(j+1)))**2.0d0 &
+            / (0.5d0 * (spec%omega_c(j) + spec%omega_c(j+1))) &
+            / abs(0.5d0 * (plasma%kp(j) + plasma%kp(j+1)))
+
+    end function
+
 
     function G0_rho_phi(j, spec) result(val)
 
@@ -142,6 +160,7 @@ module kernel_plasma_prefacs
             (&
                 0.5d0 + (z0 * plasma_Z(z0) + 1.0d0) * (1.0d0 + z0**2.0d0) &
             )
+        val = val * kappa_rho_B(j, spec)
 
     end function
 

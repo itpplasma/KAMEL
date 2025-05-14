@@ -76,7 +76,7 @@ module electrostatic_kernel
         use electrostatic_integrals, only: gauss_integrate_F0, gauss_integrate_F1, gauss_config_t
         use species, only: plasma
         use constants, only: pi, sol, com_unit
-        use electrostatic_integrands, only: int_F0_rho_phi_t, int_F1_rho_phi_t
+        use electrostatic_integrands, only: int_F0_rho_phi_t, int_F1_rho_phi_t, integration_point_t
         use kernel_plasma_prefacs, only: G1_rho_phi, G1_rho_B, G2_rho_B, G0_rho_phi, kappa_rho_phi
         use config, only: artificial_debye_case
         
@@ -87,34 +87,33 @@ module electrostatic_kernel
         integer :: j, sigma
         type(gauss_config_t), intent(in) :: gauss_conf
         real(dp) :: integral_val
+
+        type(integration_point_t) :: int_point
         type(int_F0_rho_phi_t) :: int_F0
         type(int_F1_rho_phi_t) :: int_F1
         
         kernel_phi_llp = 0.0d0
         kernel_B_llp = 0.0d0
 
-        call set_xl_at_edge(l, lp, int_F0, int_F1)
+        call set_xl_at_edge(l, lp, int_point)
 
         do sigma = 0, plasma%n_species - 1
             do j = 2, size(plasma%r_grid)-1
                 
                 if (abs(l - lp) <= 1) then
-                    int_F0%j = j
-                    int_F0%rhoT = 0.5d0 * (plasma%spec(sigma)%rho_L(j) + plasma%spec(sigma)%rho_L(j+1))
-                    call gauss_integrate_F0(int_F0, int_F0%xlm1, int_F0%xlp1, integral_val, gauss_conf)
+                    int_point%j = j
+                    int_point%rhoT = 0.5d0 * (plasma%spec(sigma)%rho_L(j) + plasma%spec(sigma)%rho_L(j+1))
+                    int_F0%int_point = int_point
+                    call gauss_integrate_F0(int_F0, int_point%xlm1, int_point%xlp1, integral_val, gauss_conf)
                     kernel_phi_llp = kernel_phi_llp + integral_val * G0_rho_phi(j, plasma%spec(sigma)) 
                 end if
 
+                int_F1%int_point = int_point
+
                 if (.not. artificial_debye_case) then
-                    int_F1%j = j
-                    int_F1%rhoT = 0.5d0 * (plasma%spec(sigma)%rho_L(j) + plasma%spec(sigma)%rho_L(j+1))
                     call gauss_integrate_F1(int_F1, integral_val, gauss_conf)
                     kernel_phi_llp = kernel_phi_llp - integral_val * G1_rho_phi(j, plasma%spec(sigma))
-                    kernel_B_llp = kernel_B_llp - integral_val * G1_rho_B(j, plasma%spec(sigma)) &
-                                    * (0.5d0 * (plasma%spec(sigma)%vT(j) + plasma%spec(sigma)%vT(j+1)))**2.0d0 &
-                                    / (0.5d0 * (plasma%spec(sigma)%lambda_D(j) + plasma%spec(sigma)%lambda_D(j+1)))**2.0d0 &
-                                    / (0.5d0 * (plasma%spec(sigma)%omega_c(j) + plasma%spec(sigma)%omega_c(j+1))) &
-                                    / abs(0.5d0 * (plasma%kp(j) + plasma%kp(j+1)))
+                    kernel_B_llp = kernel_B_llp - integral_val * G1_rho_B(j, plasma%spec(sigma))
                 end if
                 
             end do
@@ -126,51 +125,40 @@ module electrostatic_kernel
     end subroutine
 
 
-    subroutine set_xl_at_edge(l, lp, intB0, intB1)
+    subroutine set_xl_at_edge(l, lp, int_point)
         
         use grid, only: xl_grid
         use KIM_kinds, only: dp
-        use electrostatic_integrands, only: int_F0_rho_phi_t, int_F1_rho_phi_t
+        use electrostatic_integrands, only: integration_point_t
 
         implicit none
 
         integer, intent(in) :: l, lp
-        type(int_F0_rho_phi_t), intent(inout) :: intB0
-        type(int_F1_rho_phi_t), intent(inout) :: intB1   
+        type(integration_point_t), intent(inout) :: int_point
 
-        intB0%xl = xl_grid%xb(l)
-        intB0%xlp = xl_grid%xb(lp)
-        intB1%xl = xl_grid%xb(l)
-        intB1%xlp = xl_grid%xb(lp)
+        int_point%xl = xl_grid%xb(l)
+        int_point%xlp = xl_grid%xb(lp)
 
         ! handle kernel edges
         if (l == 1) then
-            intB0%xlm1 = xl_grid%xb(l)
-            intB1%xlm1 = xl_grid%xb(l)
+            int_point%xlm1 = xl_grid%xb(l)
         else
-            intB0%xlm1 = xl_grid%xb(l-1)
-            intB1%xlm1 = xl_grid%xb(l-1)
+            int_point%xlm1 = xl_grid%xb(l-1)
         end if
         if (lp == 1) then
-            intB0%xlpm1 = xl_grid%xb(lp)
-            intB1%xlpm1 = xl_grid%xb(lp)
+            int_point%xlpm1 = xl_grid%xb(lp)
         else
-            intB0%xlpm1 = xl_grid%xb(lp-1)
-            intB1%xlpm1 = xl_grid%xb(lp-1)
+            int_point%xlpm1 = xl_grid%xb(lp-1)
         end if
         if (l == xl_grid%npts_b) then
-            intB0%xlp1 = xl_grid%xb(l)
-            intB1%xlp1 = xl_grid%xb(l)
+            int_point%xlp1 = xl_grid%xb(l)
         else
-            intB0%xlp1 = xl_grid%xb(l+1)
-            intB1%xlp1 = xl_grid%xb(l+1)
+            int_point%xlp1 = xl_grid%xb(l+1)
         end if
         if (lp == xl_grid%npts_b) then
-            intB0%xlpp1 = xl_grid%xb(lp)
-            intB1%xlpp1 = xl_grid%xb(lp)
+            int_point%xlpp1 = xl_grid%xb(lp)
         else
-            intB0%xlpp1 = xl_grid%xb(lp+1)
-            intB1%xlpp1 = xl_grid%xb(lp+1)
+            int_point%xlpp1 = xl_grid%xb(lp+1)
         end if
 
     end subroutine

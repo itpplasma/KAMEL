@@ -76,8 +76,8 @@ module electrostatic_kernel
         use electrostatic_integrals, only: gauss_integrate_F0, gauss_integrate_F1, gauss_config_t
         use species, only: plasma
         use constants, only: pi, sol, com_unit
-        use electrostatic_integrands, only: int_F0_rho_phi_t, G0_rho_phi, int_F1_rho_phi_t, G1_rho_phi,&
-            G1_rho_B, G2_rho_B
+        use electrostatic_integrands, only: int_F0_rho_phi_t, int_F1_rho_phi_t
+        use kernel_plasma_prefacs, only: G1_rho_phi, G1_rho_B, G2_rho_B, G0_rho_phi, kappa_rho_phi
         use config, only: artificial_debye_case
         
         implicit none
@@ -105,18 +105,18 @@ module electrostatic_kernel
                     kernel_phi_llp = kernel_phi_llp + integral_val * G0_rho_phi(j, plasma%spec(sigma)) 
                 end if
 
-                if (artificial_debye_case) cycle
-
-                int_F1%j = j
-                int_F1%rhoT = 0.5d0 * (plasma%spec(sigma)%rho_L(j) + plasma%spec(sigma)%rho_L(j+1))
-                call gauss_integrate_F1(int_F1, integral_val, gauss_conf)
-                kernel_phi_llp = kernel_phi_llp - integral_val * G1_rho_phi(j, plasma%spec(sigma))
-                kernel_B_llp = kernel_B_llp - integral_val * G1_rho_B(j, plasma%spec(sigma)) &
-                                * (0.5d0 * (plasma%spec(sigma)%vT(j) + plasma%spec(sigma)%vT(j+1)))**2.0d0 &
-                                / (0.5d0 * (plasma%spec(sigma)%lambda_D(j) + plasma%spec(sigma)%lambda_D(j+1)))**2.0d0 &
-                                / (0.5d0 * (plasma%spec(sigma)%omega_c(j) + plasma%spec(sigma)%omega_c(j+1))) &
-                                / abs(0.5d0 * (plasma%kp(j) + plasma%kp(j+1)))
-
+                if (.not. artificial_debye_case) then
+                    int_F1%j = j
+                    int_F1%rhoT = 0.5d0 * (plasma%spec(sigma)%rho_L(j) + plasma%spec(sigma)%rho_L(j+1))
+                    call gauss_integrate_F1(int_F1, integral_val, gauss_conf)
+                    kernel_phi_llp = kernel_phi_llp - integral_val * G1_rho_phi(j, plasma%spec(sigma))
+                    kernel_B_llp = kernel_B_llp - integral_val * G1_rho_B(j, plasma%spec(sigma)) &
+                                    * (0.5d0 * (plasma%spec(sigma)%vT(j) + plasma%spec(sigma)%vT(j+1)))**2.0d0 &
+                                    / (0.5d0 * (plasma%spec(sigma)%lambda_D(j) + plasma%spec(sigma)%lambda_D(j+1)))**2.0d0 &
+                                    / (0.5d0 * (plasma%spec(sigma)%omega_c(j) + plasma%spec(sigma)%omega_c(j+1))) &
+                                    / abs(0.5d0 * (plasma%kp(j) + plasma%kp(j+1)))
+                end if
+                
             end do
         end do
 

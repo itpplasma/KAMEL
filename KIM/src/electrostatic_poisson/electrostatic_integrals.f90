@@ -50,7 +50,7 @@ module electrostatic_integrals
         end do
         result = result * xr
 
-    end subroutine gauss_integrate_F0
+    end subroutine
 
     subroutine gauss_integrate_F1(int_F1, result, gauss_conf)
 

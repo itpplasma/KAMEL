@@ -70,6 +70,7 @@ set(KIM_poisson electrostatic_poisson/poisson.f90
                 electrostatic_poisson/electrostatic_integrands.f90
                 electrostatic_poisson/fields_mod.f90
                 electrostatic_poisson/electrostatic_integrals.f90
+                electrostatic_poisson/kernel_plasma_prefacs.f90
 )
 
 set(KIM_WKB_dispersion run_wkb_dispersion/wkb_dispersion.f90

@@ -10,7 +10,7 @@ module electrostatic_integrands
         real(dp) :: xlm1, xlp1, xl
         real(dp) :: xlpm1, xlpp1, xlp
         contains
-            procedure :: f => integrand_mathcal_B0_rho_phi_semi_analytic
+            procedure :: f => integrand_F0_rho_phi
     end type
 
     type :: int_F1_rho_phi_t
@@ -19,20 +19,31 @@ module electrostatic_integrands
         real(dp) :: xlm1, xlp1, xl
         real(dp) :: xlpm1, xlpp1, xlp
         contains
-            procedure :: f => integrand_mathcal_B1_rho_phi_semi_analytic
+            procedure :: f => integrand_F1_rho_phi
     end type
 
-    type :: int_struct_t
+    type :: int_F2_rho_phi_t
+        real(dp) :: rhoT
+        integer :: j
         real(dp) :: xlm1, xlp1, xl
         real(dp) :: xlpm1, xlpp1, xlp
-        real(dp) :: rgj, rgjp1
-        real(dp) :: rhoT, ks
-        integer :: sp
+        contains
+            procedure :: f => integrand_F2_rho_phi
     end type
+
+    type :: int_F3_rho_phi_t
+        real(dp) :: rhoT
+        integer :: j
+        real(dp) :: xlm1, xlp1, xl
+        real(dp) :: xlpm1, xlpp1, xlp
+        contains
+            procedure :: f => integrand_F3_rho_phi
+    end type
+
 
     contains
 
-    function integrand_mathcal_B0_rho_phi_semi_analytic(this, x) result(val)
+    function integrand_F0_rho_phi(this, x) result(val)
 
         use grid, only: xl_grid, rg_grid
         use functions, only: varphi_l
@@ -54,7 +65,7 @@ module electrostatic_integrands
 
     end function
 
-    function integrand_mathcal_B1_rho_phi_semi_analytic(this, x, xp, theta) result(val)
+    function integrand_F1_rho_phi(this, x, xp, theta) result(val)
 
         use constants, only: pi
         use species, only: plasma
@@ -83,145 +94,50 @@ module electrostatic_integrands
 
     end function
 
-    function G1_rho_phi(j, spec) result(val)
 
-        use KIM_kinds, only: dp
-        use species, only: species_t, plasma
+    function integrand_F2_rho_phi(this, x, xp, theta) result(val)
 
-        implicit none
-
-        integer, intent(in) :: j
-        type(species_t), intent(in) :: spec
-        complex(dp) :: val
-        real(dp) :: ks_val, lambda, kpar, A1, A2, z0, rhoT
-        complex(dp) :: plasma_Z
-
-        ks_val = 0.5d0 * (plasma%ks(j) + plasma%ks(j+1))
-        lambda = 0.5d0 * (spec%lambda_D(j) + spec%lambda_D(j+1))
-        kpar = 0.5d0 * (plasma%kp(j) + plasma%kp(j+1))
-        A1 = 0.5d0 * (spec%A1(j) + spec%A1(j+1))
-        A2 = 0.5d0 * (spec%A2(j) + spec%A2(j+1))
-        z0 = 0.5d0 * (spec%z0(j) + spec%z0(j+1))
-        rhoT = 0.5d0 * (spec%rho_L(j) + spec%rho_L(j+1))
-
-        val = ks_val * rhoT /(lambda**2.0d0 * abs(kpar) * sqrt(2.0d0)) &
-            * (&
-                A1 * plasma_Z(z0) + A2 * plasma_Z(z0) * (1.0d0 + z0**2.0d0) + z0 * A2 &
-            )
-
-    end function
-
-    function G2_rho_phi(j, spec) result(val)
-
-        use KIM_kinds, only: dp
-        use species, only: species_t, plasma
-
-        implicit none
-
-        integer, intent(in) :: j
-        type(species_t), intent(in) :: spec
-        complex(dp) :: val
-        real(dp) :: ks_val, lambda, kpar, A1, A2, z0, rhoT
-        complex(dp) :: plasma_Z
-
-        ks_val = 0.5d0 * (plasma%ks(j) + plasma%ks(j+1))
-        lambda = 0.5d0 * (spec%lambda_D(j) + spec%lambda_D(j+1))
-        kpar = 0.5d0 * (plasma%kp(j) + plasma%kp(j+1))
-        A1 = 0.5d0 * (spec%A1(j) + spec%A1(j+1))
-        A2 = 0.5d0 * (spec%A2(j) + spec%A2(j+1))
-        z0 = 0.5d0 * (spec%z0(j) + spec%z0(j+1))
-        rhoT = 0.5d0 * (spec%rho_L(j) + spec%rho_L(j+1))
-
-        val = ks_val /(lambda**2.0d0 * abs(kpar) * sqrt(2.0d0)) * A2
-
-    end function
-
-    function G3_rho_phi(j, spec) result(val)
-
-        use KIM_kinds, only: dp
-        use species, only: species_t, plasma
-
-        implicit none
-
-        integer, intent(in) :: j
-        type(species_t), intent(in) :: spec
-        complex(dp) :: val
-        real(dp) :: ks_val, lambda, kpar, A1, A2, z0, rhoT
-        complex(dp) :: plasma_Z ! plasma dispersion function
-
-        ks_val = 0.5d0 * (plasma%ks(j) + plasma%ks(j+1))
-        lambda = 0.5d0 * (spec%lambda_D(j) + spec%lambda_D(j+1))
-        kpar = 0.5d0 * (plasma%kp(j) + plasma%kp(j+1))
-        A1 = 0.5d0 * (spec%A1(j) + spec%A1(j+1))
-        A2 = 0.5d0 * (spec%A2(j) + spec%A2(j+1))
-        z0 = 0.5d0 * (spec%z0(j) + spec%z0(j+1))
-        rhoT = 0.5d0 * (spec%rho_L(j) + spec%rho_L(j+1))
-
-        val = ks_val /(lambda**2.0d0 * abs(kpar) * sqrt(2.0d0)) * A2
-
-    end function
-
-    function G1_rho_B(j, spec) result(val)
-
-        use KIM_kinds, only: dp
-        use species, only: species_t, plasma
-
-        implicit none
-
-        integer, intent(in) :: j
-        type(species_t), intent(in) :: spec
-        complex(dp) :: val
-        real(dp) :: ks_val, lambda, kpar, A1, A2, z0, rhoT
-        complex(dp) :: plasma_Z
-
-        A1 = 0.5d0 * (spec%A1(j) + spec%A1(j+1))
-        A2 = 0.5d0 * (spec%A2(j) + spec%A2(j+1))
-        z0 = 0.5d0 * (spec%z0(j) + spec%z0(j+1))
-
-        val = 0.5d0 * A1 * (z0 * plasma_Z(z0) + 1.0d0) + A2 * &
-            (&
-                0.5d0 + (z0 * plasma_Z(z0) + 1.0d0) * (1.0d0 + z0**2.0d0) &
-            )
-
-    end function
-
-    function G2_rho_B(j, spec) result(val)
-
-        use KIM_kinds, only: dp
-        use species, only: species_t, plasma
-    
-        implicit none
-
-        integer, intent(in) :: j
-        type(species_t),intent(in) :: spec
-        complex(dp) :: val
-        real(dp) :: ks_val, lambda, kpar, A1, A2, z0, rhoT
-        complex(dp) :: plasma_Z
-
-        A2 = 0.5d0 * (spec%A2(j) + spec%A2(j+1))
-        z0 = 0.5d0 * (spec%z0(j) + spec%z0(j+1))
-
-        val = A2 * (z0 * plasma_Z(z0) + 1.0d0)
-
-    end function
-
-
-    function G0_rho_phi(j, spec) result(val)
-
-        use species, only: plasma, species_t
         use constants, only: pi
+        use species, only: plasma
+        use gsl_mod, only: erf => gsl_sf_erf
+        use grid, only: rg_grid, xl_grid
+        use KIM_kinds, only: dp
+        use functions, only: varphi_l
 
         implicit none
 
-        integer, intent(in) :: j
-        type(species_t), intent(in) :: spec
+        class(int_F2_rho_phi_t), intent(in) :: this
+        real(dp), intent(in) :: x, xp, theta
         real(dp) :: val
-        real(dp) :: lambda
+        real(dp) :: ks_val
 
-        lambda = 0.5d0 * (spec%lambda_D(j) + spec%lambda_D(j+1))
-        val = 2.0d0 * pi**2.0d0 / (-lambda**2.0d0)  !/ sqrt(2.0d0)
+        ks_val = 0.5d0 * (plasma%ks(this%j) + plasma%ks(this%j+1))
+
+        val = 0.0d0
 
     end function
 
+
+    function integrand_F3_rho_phi(this, x, xp, theta) result(val)
+
+        use constants, only: pi
+        use species, only: plasma
+        use gsl_mod, only: erf => gsl_sf_erf
+        use grid, only: rg_grid, xl_grid
+        use KIM_kinds, only: dp
+        use functions, only: varphi_l
+
+        implicit none
+
+        class(int_F3_rho_phi_t), intent(in) :: this
+        real(dp), intent(in) :: x, xp, theta
+        real(dp) :: val
+        real(dp) :: ks_val
+
+        ks_val = 0.5d0 * (plasma%ks(this%j) + plasma%ks(this%j+1))
+
+        val = 0.0d0
+
+    end function
 
 end module

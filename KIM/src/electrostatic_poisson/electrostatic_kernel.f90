@@ -76,8 +76,8 @@ module electrostatic_kernel
         use electrostatic_integrals, only: gauss_integrate_B0, gauss_integrate_B1, gauss_config_t
         use species, only: plasma
         use constants, only: pi, sol, com_unit
-        use electrostatic_integrands, only: int_B0_rho_phi_t, mathcal_A0_rho_phi, int_B1_rho_phi_t, mathcal_A1_rho_phi,&
-            mathcal_A1_rho_B, mathcal_A2_rho_B
+        use electrostatic_integrands, only: int_B0_rho_phi_t, G0_rho_phi, int_B1_rho_phi_t, G1_rho_phi,&
+            G1_rho_B, G2_rho_B
         use config, only: artificial_debye_case
         
         implicit none
@@ -102,7 +102,7 @@ module electrostatic_kernel
                     int_B0%j = j
                     int_B0%rhoT = 0.5d0 * (plasma%spec(sigma)%rho_L(j) + plasma%spec(sigma)%rho_L(j+1))
                     call gauss_integrate_B0(int_B0, int_B0%xlm1, int_B0%xlp1, integral_val, gauss_conf)
-                    kernel_phi_llp = kernel_phi_llp + integral_val * mathcal_A0_rho_phi(j, plasma%spec(sigma)) 
+                    kernel_phi_llp = kernel_phi_llp + integral_val * G0_rho_phi(j, plasma%spec(sigma)) 
                 end if
 
                 if (artificial_debye_case) cycle
@@ -110,8 +110,8 @@ module electrostatic_kernel
                 int_B1%j = j
                 int_B1%rhoT = 0.5d0 * (plasma%spec(sigma)%rho_L(j) + plasma%spec(sigma)%rho_L(j+1))
                 call gauss_integrate_B1(int_B1, integral_val, gauss_conf)
-                kernel_phi_llp = kernel_phi_llp - integral_val * mathcal_A1_rho_phi(j, plasma%spec(sigma))
-                kernel_B_llp = kernel_B_llp - integral_val * mathcal_A1_rho_B(j, plasma%spec(sigma)) &
+                kernel_phi_llp = kernel_phi_llp - integral_val * G1_rho_phi(j, plasma%spec(sigma))
+                kernel_B_llp = kernel_B_llp - integral_val * G1_rho_B(j, plasma%spec(sigma)) &
                                 * (0.5d0 * (plasma%spec(sigma)%vT(j) + plasma%spec(sigma)%vT(j+1)))**2.0d0 &
                                 / (0.5d0 * (plasma%spec(sigma)%lambda_D(j) + plasma%spec(sigma)%lambda_D(j+1)))**2.0d0 &
                                 / (0.5d0 * (plasma%spec(sigma)%omega_c(j) + plasma%spec(sigma)%omega_c(j+1))) &
@@ -176,8 +176,8 @@ module electrostatic_kernel
         use electrostatic_integrals, only: gauss_config_t
         use species, only: plasma
         use constants, only: pi, sol, com_unit
-        use electrostatic_integrands, only: int_B0_rho_phi, mathcal_A0_rho_phi, int_B1_rho_phi, mathcal_A1_rho_phi,&
-            mathcal_A1_rho_B, mathcal_A2_rho_B, int_struct_t
+        use electrostatic_integrands, only: int_B0_rho_phi, G0_rho_phi, int_B1_rho_phi, G1_rho_phi,&
+            G1_rho_B, G2_rho_B, int_struct_t
         use electrostatic_integrals, only: compute_Mllpj
         use config, only: artificial_debye_case
         
@@ -205,14 +205,14 @@ module electrostatic_kernel
 
                 if ((abs(l - lp) <= 1)) then
                     integral_val = compute_Mllpj(int_struct, int_B0_rho_phi, gauss_conf)
-                    kernel_phi_llp = kernel_phi_llp + mathcal_A0_rho_phi(j, plasma%spec(sigma)) * integral_val
+                    kernel_phi_llp = kernel_phi_llp + G0_rho_phi(j, plasma%spec(sigma)) * integral_val
                 end if
 
                 if (artificial_debye_case) cycle
 
                 integral_val = compute_Mllpj(int_struct, int_B1_rho_phi, gauss_conf)
-                kernel_phi_llp = kernel_phi_llp - mathcal_A1_rho_phi(j, plasma%spec(sigma)) * integral_val
-                kernel_B_llp = kernel_B_llp - integral_val * mathcal_A1_rho_B(j, plasma%spec(sigma)) &
+                kernel_phi_llp = kernel_phi_llp - G1_rho_phi(j, plasma%spec(sigma)) * integral_val
+                kernel_B_llp = kernel_B_llp - integral_val * G1_rho_B(j, plasma%spec(sigma)) &
                                 * (0.5d0 * (plasma%spec(sigma)%vT(j) + plasma%spec(sigma)%vT(j+1)))**2.0d0 &
                                 / (0.5d0 * (plasma%spec(sigma)%lambda_D(j) + plasma%spec(sigma)%lambda_D(j+1)))**2.0d0 &
                                 / (0.5d0 * (plasma%spec(sigma)%omega_c(j) + plasma%spec(sigma)%omega_c(j+1))) &

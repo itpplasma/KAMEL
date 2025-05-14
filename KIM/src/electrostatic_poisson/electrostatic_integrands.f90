@@ -54,8 +54,6 @@ module electrostatic_integrands
 
     end function
 
-
-
     function integrand_mathcal_B1_rho_phi_semi_analytic(this, x, xp, theta) result(val)
 
         use constants, only: pi
@@ -85,7 +83,7 @@ module electrostatic_integrands
 
     end function
 
-    function mathcal_A1_rho_phi(j, spec) result(val)
+    function G1_rho_phi(j, spec) result(val)
 
         use KIM_kinds, only: dp
         use species, only: species_t, plasma
@@ -113,7 +111,7 @@ module electrostatic_integrands
 
     end function
 
-    function mathcal_A2_rho_phi(j, spec) result(val)
+    function G2_rho_phi(j, spec) result(val)
 
         use KIM_kinds, only: dp
         use species, only: species_t, plasma
@@ -138,7 +136,7 @@ module electrostatic_integrands
 
     end function
 
-    function mathcal_A3_rho_phi(j, spec) result(val)
+    function G3_rho_phi(j, spec) result(val)
 
         use KIM_kinds, only: dp
         use species, only: species_t, plasma
@@ -163,7 +161,7 @@ module electrostatic_integrands
 
     end function
 
-    function mathcal_A1_rho_B(j, spec) result(val)
+    function G1_rho_B(j, spec) result(val)
 
         use KIM_kinds, only: dp
         use species, only: species_t, plasma
@@ -187,7 +185,7 @@ module electrostatic_integrands
 
     end function
 
-    function mathcal_A2_rho_B(j, spec) result(val)
+    function G2_rho_B(j, spec) result(val)
 
         use KIM_kinds, only: dp
         use species, only: species_t, plasma
@@ -208,7 +206,7 @@ module electrostatic_integrands
     end function
 
 
-    function mathcal_A0_rho_phi(j, spec) result(val)
+    function G0_rho_phi(j, spec) result(val)
 
         use species, only: plasma, species_t
         use constants, only: pi

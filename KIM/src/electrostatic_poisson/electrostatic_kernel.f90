@@ -73,10 +73,10 @@ module electrostatic_kernel
 
         use KIM_kinds, only: dp
         use gsl_mod, only: erf => gsl_sf_erf
-        use electrostatic_integrals, only: gauss_integrate_B0, gauss_integrate_B1, gauss_config_t
+        use electrostatic_integrals, only: gauss_integrate_F0, gauss_integrate_F1, gauss_config_t
         use species, only: plasma
         use constants, only: pi, sol, com_unit
-        use electrostatic_integrands, only: int_B0_rho_phi_t, G0_rho_phi, int_B1_rho_phi_t, G1_rho_phi,&
+        use electrostatic_integrands, only: int_F0_rho_phi_t, G0_rho_phi, int_F1_rho_phi_t, G1_rho_phi,&
             G1_rho_B, G2_rho_B
         use config, only: artificial_debye_case
         
@@ -87,29 +87,29 @@ module electrostatic_kernel
         integer :: j, sigma
         type(gauss_config_t), intent(in) :: gauss_conf
         real(dp) :: integral_val
-        type(int_B0_rho_phi_t) :: int_B0
-        type(int_B1_rho_phi_t) :: int_B1
+        type(int_F0_rho_phi_t) :: int_F0
+        type(int_F1_rho_phi_t) :: int_F1
         
         kernel_phi_llp = 0.0d0
         kernel_B_llp = 0.0d0
 
-        call set_xl_at_edge(l, lp, int_B0, int_B1)
+        call set_xl_at_edge(l, lp, int_F0, int_F1)
 
         do sigma = 0, plasma%n_species - 1
             do j = 2, size(plasma%r_grid)-1
                 
                 if (abs(l - lp) <= 1) then
-                    int_B0%j = j
-                    int_B0%rhoT = 0.5d0 * (plasma%spec(sigma)%rho_L(j) + plasma%spec(sigma)%rho_L(j+1))
-                    call gauss_integrate_B0(int_B0, int_B0%xlm1, int_B0%xlp1, integral_val, gauss_conf)
+                    int_F0%j = j
+                    int_F0%rhoT = 0.5d0 * (plasma%spec(sigma)%rho_L(j) + plasma%spec(sigma)%rho_L(j+1))
+                    call gauss_integrate_F0(int_F0, int_F0%xlm1, int_F0%xlp1, integral_val, gauss_conf)
                     kernel_phi_llp = kernel_phi_llp + integral_val * G0_rho_phi(j, plasma%spec(sigma)) 
                 end if
 
                 if (artificial_debye_case) cycle
 
-                int_B1%j = j
-                int_B1%rhoT = 0.5d0 * (plasma%spec(sigma)%rho_L(j) + plasma%spec(sigma)%rho_L(j+1))
-                call gauss_integrate_B1(int_B1, integral_val, gauss_conf)
+                int_F1%j = j
+                int_F1%rhoT = 0.5d0 * (plasma%spec(sigma)%rho_L(j) + plasma%spec(sigma)%rho_L(j+1))
+                call gauss_integrate_F1(int_F1, integral_val, gauss_conf)
                 kernel_phi_llp = kernel_phi_llp - integral_val * G1_rho_phi(j, plasma%spec(sigma))
                 kernel_B_llp = kernel_B_llp - integral_val * G1_rho_B(j, plasma%spec(sigma)) &
                                 * (0.5d0 * (plasma%spec(sigma)%vT(j) + plasma%spec(sigma)%vT(j+1)))**2.0d0 &
@@ -130,13 +130,13 @@ module electrostatic_kernel
         
         use grid, only: xl_grid
         use KIM_kinds, only: dp
-        use electrostatic_integrands, only: int_B0_rho_phi_t, int_B1_rho_phi_t
+        use electrostatic_integrands, only: int_F0_rho_phi_t, int_F1_rho_phi_t
 
         implicit none
 
         integer, intent(in) :: l, lp
-        type(int_B0_rho_phi_t), intent(inout) :: intB0
-        type(int_B1_rho_phi_t), intent(inout) :: intB1   
+        type(int_F0_rho_phi_t), intent(inout) :: intB0
+        type(int_F1_rho_phi_t), intent(inout) :: intB1   
 
         intB0%xl = xl_grid%xb(l)
         intB0%xlp = xl_grid%xb(lp)
@@ -174,45 +174,6 @@ module electrostatic_kernel
         end if
 
     end subroutine
-
-    subroutine set_xl_at_edge_struct(l, lp, int_struct)
-        
-        use grid, only: xl_grid
-        use KIM_kinds, only: dp
-        use electrostatic_integrands, only: int_struct_t
-
-        implicit none
-
-        integer, intent(in) :: l, lp
-        type(int_struct_t), intent(inout) :: int_struct
-
-        int_struct%xl = xl_grid%xb(l)
-        int_struct%xlp = xl_grid%xb(lp)
-
-        ! handle kernel edges
-        if (l == 1) then
-            int_struct%xlm1 = xl_grid%xb(l)
-        else
-            int_struct%xlm1 = xl_grid%xb(l-1)
-        end if
-        if (lp == 1) then
-            int_struct%xlpm1 = xl_grid%xb(lp)
-        else
-            int_struct%xlpm1 = xl_grid%xb(lp-1)
-        end if
-        if (l == xl_grid%npts_b) then
-            int_struct%xlp1 = xl_grid%xb(l)
-        else
-            int_struct%xlp1 = xl_grid%xb(l+1)
-        end if
-        if (lp == xl_grid%npts_b) then
-            int_struct%xlpp1 = xl_grid%xb(lp)
-        else
-            int_struct%xlpp1 = xl_grid%xb(lp+1)
-        end if
-
-    end subroutine
-
 
 end module
 

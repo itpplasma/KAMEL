@@ -4,7 +4,7 @@ module electrostatic_integrands
 
     implicit none
 
-    type :: int_B0_rho_phi_t
+    type :: int_F0_rho_phi_t
         real(dp) :: rhoT
         integer :: j
         real(dp) :: xlm1, xlp1, xl
@@ -13,7 +13,7 @@ module electrostatic_integrands
             procedure :: f => integrand_mathcal_B0_rho_phi_semi_analytic
     end type
 
-    type :: int_B1_rho_phi_t
+    type :: int_F1_rho_phi_t
         real(dp) :: rhoT
         integer :: j
         real(dp) :: xlm1, xlp1, xl
@@ -43,7 +43,7 @@ module electrostatic_integrands
 
         real(dp), intent(in) :: x
         real(dp) :: val
-        class(int_B0_rho_phi_t), intent(in) :: this
+        class(int_F0_rho_phi_t), intent(in) :: this
 
         val = varphi_l(x, this%xlm1, this%xl, this%xlp1) &
             * varphi_l(x, this%xlpm1, this%xlp, this%xlpp1) &
@@ -65,7 +65,7 @@ module electrostatic_integrands
 
         implicit none
 
-        class(int_B1_rho_phi_t), intent(in) :: this
+        class(int_F1_rho_phi_t), intent(in) :: this
         real(dp), intent(in) :: x, xp, theta
         real(dp) :: val
         real(dp) :: ks_val

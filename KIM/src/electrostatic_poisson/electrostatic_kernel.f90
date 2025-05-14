@@ -27,7 +27,7 @@ module electrostatic_kernel
 
     end subroutine init_kernel
 
-    subroutine fill_kernel_phi_semi_analytic(kernel_rho_phi_llp, kernel_rho_B_llp)
+    subroutine fill_kernel_phi(kernel_rho_phi_llp, kernel_rho_B_llp)
 
         use KIM_kinds, only: dp
         use gsl_mod, only: erf => gsl_sf_erf
@@ -49,7 +49,7 @@ module electrostatic_kernel
             do lp = 1, kernel_rho_phi_llp%npts_lp
                 if (abs(l - lp) > 5) cycle
 
-                call calc_kernel_rho_semi_analytic(l, lp, kernel_phi_llp, kernel_B_llp, gauss_conf)
+                call calc_kernel_rho(l, lp, kernel_phi_llp, kernel_B_llp, gauss_conf)
                 kernel_rho_phi_llp%Kllp(l, lp) = kernel_phi_llp
                 kernel_rho_B_llp%Kllp(l, lp) = kernel_B_llp
 
@@ -69,7 +69,7 @@ module electrostatic_kernel
 
     end subroutine
 
-    subroutine calc_kernel_rho_semi_analytic(l, lp, kernel_phi_llp, kernel_B_llp, gauss_conf)
+    subroutine calc_kernel_rho(l, lp, kernel_phi_llp, kernel_B_llp, gauss_conf)
 
         use KIM_kinds, only: dp
         use gsl_mod, only: erf => gsl_sf_erf
@@ -121,106 +121,6 @@ module electrostatic_kernel
         end do
 
         kernel_phi_llp = kernel_phi_llp / (8.0d0 * pi**3.0d0)  /2.0d0 ! factor 1/2 is somehow missing. Including this factor nicely reproduces the debye case.
-        kernel_B_llp = kernel_B_llp / (8.0d0 * pi**3.0d0 * sol) * com_unit
-            
-    end subroutine
-
-
-    subroutine fill_kernel_phi_numerical(kernel_rho_phi_llp, kernel_rho_B_llp)
-
-        use KIM_kinds, only: dp
-        use gsl_mod, only: erf => gsl_sf_erf
-        use electrostatic_integrals, only: gauss_config_t, init_gauss_int
-
-        implicit none
-
-        type(kernel_spl_t), intent(inout) :: kernel_rho_phi_llp
-        type(kernel_spl_t), intent(inout) :: kernel_rho_B_llp
-        type(gauss_config_t) :: gauss_conf
-        integer :: l, lp
-        complex(dp) :: kernel_phi_llp, kernel_B_llp
-
-        gauss_conf%n = 5
-        call init_gauss_int(gauss_conf)
-
-        !$omp parallel do collapse(2) private(l,lp, kernel_phi_llp, kernel_B_llp)
-        do l = 1, kernel_rho_phi_llp%npts_l
-            do lp = 1, kernel_rho_phi_llp%npts_lp
-                if (abs(l - lp) > 1) cycle
-
-                call calc_kernel_rho_numerical(l, lp, kernel_phi_llp, kernel_B_llp, gauss_conf)
-                kernel_rho_phi_llp%Kllp(l, lp) = kernel_phi_llp
-                kernel_rho_B_llp%Kllp(l, lp) = kernel_B_llp
-
-                if (isnan(real(kernel_phi_llp))) then
-                    print *, "numerical kernel_llp is NaN for l = ", l, " lp = ", lp
-                    print *, "numerical kernel_llp = ", kernel_phi_llp
-                    stop
-                end if
-                if (isnan(real(kernel_B_llp))) then
-                    print *, "numerical kernel_B_llp is NaN for l = ", l, " lp = ", lp
-                    print *, "numerical kernel_B_llp = ", kernel_B_llp
-                    stop
-                end if
-            end do
-        end do
-        !$omp end parallel do
-
-    end subroutine
-
-
-    subroutine calc_kernel_rho_numerical(l, lp, kernel_phi_llp, kernel_B_llp, gauss_conf)
-
-        use KIM_kinds, only: dp
-        use gsl_mod, only: erf => gsl_sf_erf
-        use electrostatic_integrals, only: gauss_config_t
-        use species, only: plasma
-        use constants, only: pi, sol, com_unit
-        use electrostatic_integrands, only: int_B0_rho_phi, G0_rho_phi, int_B1_rho_phi, G1_rho_phi,&
-            G1_rho_B, G2_rho_B, int_struct_t
-        use electrostatic_integrals, only: compute_Mllpj
-        use config, only: artificial_debye_case
-        
-        implicit none
-
-        integer, intent(in) :: l, lp
-        complex(dp), intent(out) :: kernel_phi_llp, kernel_B_llp
-        integer :: j, sigma
-        type(gauss_config_t), intent(in) :: gauss_conf
-        real(dp) :: integral_val
-        type(int_struct_t) :: int_struct
-        
-        kernel_phi_llp = 0.0d0
-        kernel_B_llp = 0.0d0
-
-        call set_xl_at_edge_struct(l, lp, int_struct)
-
-        do sigma = 0, plasma%n_species - 1
-            int_struct%sp = sigma
-            do j = 1, size(plasma%r_grid) - 1
-                int_struct%rgj = plasma%r_grid(j)
-                int_struct%rgjp1 = plasma%r_grid(j+1)
-                int_struct%rhoT = 0.5d0 * (plasma%spec(sigma)%rho_L(j) + plasma%spec(sigma)%rho_L(j+1))
-                int_struct%ks = 0.5d0 * (plasma%ks(j) + plasma%ks(j+1))
-
-                if ((abs(l - lp) <= 1)) then
-                    integral_val = compute_Mllpj(int_struct, int_B0_rho_phi, gauss_conf)
-                    kernel_phi_llp = kernel_phi_llp + G0_rho_phi(j, plasma%spec(sigma)) * integral_val
-                end if
-
-                if (artificial_debye_case) cycle
-
-                integral_val = compute_Mllpj(int_struct, int_B1_rho_phi, gauss_conf)
-                kernel_phi_llp = kernel_phi_llp - G1_rho_phi(j, plasma%spec(sigma)) * integral_val
-                kernel_B_llp = kernel_B_llp - integral_val * G1_rho_B(j, plasma%spec(sigma)) &
-                                * (0.5d0 * (plasma%spec(sigma)%vT(j) + plasma%spec(sigma)%vT(j+1)))**2.0d0 &
-                                / (0.5d0 * (plasma%spec(sigma)%lambda_D(j) + plasma%spec(sigma)%lambda_D(j+1)))**2.0d0 &
-                                / (0.5d0 * (plasma%spec(sigma)%omega_c(j) + plasma%spec(sigma)%omega_c(j+1))) &
-                                / abs(0.5d0 * (plasma%kp(j) + plasma%kp(j+1)))
-            end do
-        end do
-
-        kernel_phi_llp = kernel_phi_llp / (8.0d0 * pi**3.0d0) 
         kernel_B_llp = kernel_B_llp / (8.0d0 * pi**3.0d0 * sol) * com_unit
             
     end subroutine

@@ -301,3 +301,6 @@ if (DOXYGEN_FOUND)
 else ()
   message (FATAL_ERROR "No doxygen tool is found in the system!")
 endif ()
+
+enable_testing()
+add_subdirectory(tests)

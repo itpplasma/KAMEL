@@ -18,7 +18,6 @@ subroutine read_namelist(n, m, l) bind(C, name="read_namelist")
 end subroutine read_namelist
 
 subroutine read_namelist_unit_test(a, b, c) bind(C, name="read_namelist_unit_test")
-
     use, intrinsic :: iso_c_binding, only: c_int, c_double, c_char
     implicit none
 

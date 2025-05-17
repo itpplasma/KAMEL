@@ -1,11 +1,14 @@
-**/*/__pycache__
+# ignore VS Code settings
+.vscode/
+
+# ignore generated build directories
+build/
+
+# ignore caches
+__pycache__/
+.cache/
+
+# ignore Python bytecode
 *.DS_Store
 .DS*
-.vscode
-*/build
-
-__pycache__
-./*/__pycache__
-
 external
-build

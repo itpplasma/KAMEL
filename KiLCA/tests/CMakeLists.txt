@@ -1,13 +1,15 @@
+# simplified version
 configure_file(
-    ${PROJECT_SOURCE_DIR}/tests/test_namelist.nml
-    ${CMAKE_CURRENT_BINARY_DIR}/test_namelist.nml
+    ${PROJECT_SOURCE_DIR}/tests/simplified_namelist.nml
+    ${CMAKE_CURRENT_BINARY_DIR}/simplified_namelist.nml
     COPYONLY
 )
-add_executable(test_namelist
-    test_namelist.cpp
+add_executable(test_namelist_simplified
+    test_namelist_simplified.cpp
 )
-target_include_directories(test_namelist PRIVATE "${PROJECT_SOURCE_DIR}/io")
-target_link_libraries(test_namelist PRIVATE kilca_io)
-add_test(NAME test_namelist
-    COMMAND test_namelist
+target_include_directories(test_namelist_simplified PRIVATE "${PROJECT_SOURCE_DIR}/io")
+target_link_libraries(test_namelist_simplified PRIVATE kilca_io)
+add_test(NAME test_namelist_simplified
+    COMMAND test_namelist_simplified
+)
 )

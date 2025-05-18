@@ -2,18 +2,15 @@
     \brief The implementation of disp_profiles class.
 */
 
-#include <stdlib.h>
-#include <stdio.h>
+#include "disp_profs.h"
+#include "inout.h"
+
+#include <cfloat>
+#include <climits>
 #include <cmath>
 #include <cstring>
-#include <climits>
-#include <cfloat>
-
-#include "code_settings.h"
-
-#include "disp_profs.h"
-#include "shared.h"
-#include "inout.h"
+#include <stdio.h>
+#include <stdlib.h>
 
 /*******************************************************************/
 
@@ -55,7 +52,9 @@ sort_dispersion_profiles ();
 
 #endif
 
-if (DEBUG_FLAG) fprintf (stdout, "\n\ndispersion profiles are computed.\n");
+#if DEBUG_FLAG
+    fprintf (stdout, "\n\ndispersion profiles are computed.\n");
+#endif
 }
 
 /*******************************************************************/

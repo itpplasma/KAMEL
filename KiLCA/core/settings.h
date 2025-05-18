@@ -3,17 +3,14 @@
 */
 
 #ifndef SETTINGS_INCLUDE
-
 #define SETTINGS_INCLUDE
-
-#include <cstring>
-
-#include "code_settings.h"
 
 #include "antenna.h"
 #include "back_sett.h"
 #include "output_sett.h"
 #include "eigmode_sett.h"
+
+#include <cstring>
 
 using namespace :: std;
 

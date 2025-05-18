@@ -116,6 +116,13 @@ endif ()
 
 set (kilca_normal_main progs/main_linear.cpp)
 set (kilca_eigparam_main progs/main_eig_param.cpp)
+add_compile_definitions(
+    DEBUG_FLAG=0
+    CALC_EIGEN_DECOMPOSITION=0
+    SORT_DISPERSION_PROFILES=0
+    USE_JACOBIAN_IN_ODE_SOLVER=1
+    USE_SPLINES_IN_RHS_EVALUATION=0
+)
 
 # --- Dependencies ---
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake")
@@ -132,9 +139,6 @@ file(GLOB libslatec_files "${CMAKE_SOURCE_DIR}/math/bessel/slatec/*.f")
 add_library (slatec STATIC "${libslatec_files}")
 
 set(EXTERNAL_LIBS slatec lapack blas cvode nvecserial gsl gslcblas)
-
-# configure a header file to pass some of the CMake settings to the source code
-configure_file ("${PROJECT_SOURCE_DIR}/code_settings.h.in" "${PROJECT_BINARY_DIR}/code_settings.h")
 
 include_directories ("${sundials_include_path}")
 include_directories ("${gsl_include_path}")
@@ -206,7 +210,6 @@ set(kilca_lib_cpp_sources
 
 #fortran source files for kilca lib:
 set(kilca_lib_fortran_sources
-    core/constants_m${arch}.f90
     core/core_m.f90
     antenna/antenna_m.f90
     background/background_m.f90
@@ -216,6 +219,7 @@ set(kilca_lib_fortran_sources
     background/f0moments${Jac}.f90
     background/density_p${Jac}.f90
     antenna/antenna_spectrum.f90
+    core/constants_m.f90
     flre/conductivity/calc_D_array_1_fac${drift}.f90
     flre/conductivity/calc_D_array_3_fac${drift}.f90
     flre/conductivity/calc_D_array_5_fac${drift}.f90

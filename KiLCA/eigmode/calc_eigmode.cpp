@@ -179,7 +179,6 @@ for (k=es->kmin; k<=es->kmax; k++)
 
     if (DEBUG_FLAG)
     {
-        //print_f_search_state (iter, s);
         print_fdf_search_state (iter, s);
     }
 

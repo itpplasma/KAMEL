@@ -69,6 +69,7 @@ read_line_2get_int (in, &(flag_debug));
 read_line_2skip_it (in, &str_buf);
 
 // ZerSol parameters:
+//! WTF is happening here? These are not defined in the .in file, but the starting points are. How did this ever work?
 read_line_2skip_it (in, &str_buf);
 read_line_2get_int (in, &(n_zeros));
 read_line_2get_int (in, &(use_winding));

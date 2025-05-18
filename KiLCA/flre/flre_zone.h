@@ -6,8 +6,6 @@
 
 #define FLRE_ZONE
 
-#include "code_settings.h"
-
 #include "zone.h"
 #include "hmedium_zone.h"
 #include "maxwell_eqs_data.h"

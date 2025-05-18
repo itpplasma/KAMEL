@@ -2,16 +2,13 @@
     \brief The implementation of the reliable zeros search algorithm.
 */
 
-#include <complex>
-#include <cmath>
-#include <iostream>
-
+#include "calc_eigmode.h"
+#include "eigmode_sett.h"
+#include "mode.h"
 #include "zerosolver.hpp"
 
-#include "eigmode_sett.h"
-#include "calc_eigmode.h"
-#include "inout.h"
-#include "mode.h"
+#include <cmath>
+#include <complex>
 
 /**********************************************************************************/
 

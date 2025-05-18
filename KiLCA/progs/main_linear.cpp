@@ -2,17 +2,13 @@
     \brief The basic driver program to run KiLCA code.
 */
 
-#include <stdlib.h>
-#include <stdio.h>
+#include "core.h"
+
+#include <climits>
 #include <cmath>
 #include <cstring>
-#include <climits>
-#include <iostream>
-#include <fstream>
+#include <stdlib.h>
 #include <unistd.h>
-
-#include "core.h"
-#include "main_linear.h"
 
 using namespace std;
 

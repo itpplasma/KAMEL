@@ -2,23 +2,21 @@
     \brief The additional driver program to make parameter studies of eigenmodes.
 */
 
-#include <stdlib.h>
-#include <stdio.h>
+#include "core.h"
+#include "inout.h"
+#include "shared.h"
+
+#include <climits>
 #include <cmath>
 #include <cstring>
-#include <climits>
-#include <inttypes.h>
 #include <cstring>
 #include <dirent.h>
 #include <fnmatch.h>
-#include <iostream>
 #include <fstream>
+#include <inttypes.h>
+#include <stdio.h>
+#include <stdlib.h>
 #include <unistd.h>
-
-#include "inout.h"
-#include "core.h"
-#include "shared.h"
-#include "main_linear.h"
 
 using namespace std;
 

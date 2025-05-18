@@ -2,14 +2,12 @@
     \brief The declarations of functions for generation of adaptive grids according to accuracy of polymomial interpolation.
 */
 
-#include <stdlib.h>
-#include <stdio.h>
+#include <climits>
 #include <cmath>
 #include <complex>
 #include <cstring>
-#include <climits>
-
-#include "code_settings.h"
+#include <stdio.h>
+#include <stdlib.h>
 
 using namespace std;
 

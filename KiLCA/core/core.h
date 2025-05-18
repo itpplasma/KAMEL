@@ -3,16 +3,13 @@
 */
 
 #ifndef CORE_INCLUDE
-
 #define CORE_INCLUDE
-
-#include <cstring>
-
-#include "code_settings.h"
 
 #include "settings.h"
 #include "background.h"
 #include "mode.h"
+
+#include <cstring>
 
 using namespace :: std;
 

@@ -42,17 +42,48 @@ subroutine read_namelist(rtor, rp, B0, path2profiles_C, calc_back, flag_back, N,
     path2profiles_C(strlen + 1) = c_null_char
 end subroutine read_namelist
 
-subroutine read_namelist_unit_test(a, b, c) bind(C, name="read_namelist_unit_test")
-    use, intrinsic :: iso_c_binding, only: c_int, c_double, c_char
+subroutine read_namelist_unit_test(a, b, c, d_C, &
+                                   e_C, f_C) bind(C, name="read_namelist_unit_test")
+
+    use, intrinsic :: iso_c_binding, only: c_int, c_double, c_char, c_null_char, &
+                                           c_double_complex
     implicit none
 
-    integer(kind=c_int), intent(inout) :: a
-    real(kind=c_double), intent(inout) :: b
-    character(kind=c_char), intent(inout) :: c
+    integer(kind=c_int), intent(out) :: a
+    real(kind=c_double), intent(out) :: b
+    character(kind=c_char), intent(out) :: c
+    character(kind=c_char), intent(out) :: d_C(*)
+    integer(kind=c_int), intent(out) :: e_C(*)
+    complex(kind=c_double_complex), intent(out) :: f_C(*)
 
-    namelist /testnml/ a, b, c
+    ! internal variables
+    character(len=16) :: d
+    integer(kind=c_int), dimension(3) :: e
+    complex(kind=c_double_complex), dimension(3) :: f
+    integer :: unit, i, strlen
 
-    open (unit=100, file="test_namelist.nml", status="old")
-    read (unit=100, nml=testnml)
-    close (unit=100)
+    namelist /testnml/ a, b, c, d, e, f
+
+    unit = 100
+    open (unit, file="simplified_namelist.nml", status="old")
+    read (unit, nml=testnml)
+    close (unit)
+
+    ! Copy the string buffer to the output variable
+    strlen = min(len_trim(d), 15)
+    do i = 1, strlen
+      d_C(i) = transfer(d(i:i), c_null_char)
+    end do
+    d_C(strlen + 1) = c_null_char
+
+    ! Copy the integer array to the output variable
+    do i = 1, 3
+      e_C(i) = e(i)
+    end do
+
+    ! Copy the complex array to the output variable
+    do i = 1, 3
+      f_C(i) = f(i)
+    end do
+
 end subroutine read_namelist_unit_test

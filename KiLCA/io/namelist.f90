@@ -1,14 +1,17 @@
 ! taken from: https://stackoverflow.com/a/17598866/16527499
 
-subroutine read_namelist(rtor, rp, B0, path2profiles_C, calc_back, flag_back, N, &
-                         V_gal_sys, V_scale, m_i, zele, zion, &
-                         flag_debug) bind(C, name="read_namelist")
+subroutine read_namelist( &
+    rtor, rp, B0, path2profiles_C, calc_back, flag_back, N, V_gal_sys, V_scale, m_i, &
+    zele, zion, & ! background
+    fname_C, search_flag, rdim, rfmin, rfmax, idim, ifmin, ifmax, stop_flag, eps_res, &
+    eps_abs, eps_rel, delta, test_roots, Nguess, kmin, kmax, fstart_C, & ! eigmode
+    flag_debug) bind(C, name="read_namelist")
 
-    use, intrinsic :: iso_c_binding, only: c_int, c_double, c_char, c_bool, c_size_t, &
-                                           c_null_char
+    use, intrinsic :: iso_c_binding, only: c_int, c_double, c_char, c_null_char, &
+                                           c_bool, c_double_complex
     implicit none
 
-    ! background
+    ! --- background ---
     ! Machine settings
     real(kind=c_double), intent(out) :: rtor, rp, B0
 
@@ -20,26 +23,77 @@ subroutine read_namelist(rtor, rp, B0, path2profiles_C, calc_back, flag_back, N,
     real(kind=c_double), intent(out) :: V_gal_sys, V_scale
     real(kind=c_double), intent(out) :: m_i, zele, zion
 
-    ! Debug settings
+    ! --- eigmode ---
+    ! Output
+    character(kind=c_char), intent(out) :: fname_C(*)
+
+    ! Search settings
+    logical(kind=c_bool), intent(out) :: search_flag
+
+    ! Frequency grid settings
+    integer(kind=c_int), intent(out) :: rdim
+    real(kind=c_double), intent(out) :: rfmin, rfmax
+    integer(kind=c_int), intent(out) :: idim
+    real(kind=c_double), intent(out) :: ifmin, ifmax
+
+    ! Stopping criteria
+    logical(kind=c_bool), intent(out) :: stop_flag
+    real(kind=c_double), intent(out) :: eps_res, eps_abs, eps_rel
+
+    ! Omega derivative settings
+    real(kind=c_double), intent(out) :: delta
+
+    ! Test roots
+    logical(kind=c_bool), intent(out) :: test_roots
+
+    ! Starting points
+    integer(kind=c_int), intent(out) :: Nguess, kmin, kmax
+    complex(kind=c_double_complex), intent(out) :: fstart_C(*)
+
+    ! --- debuggroup ---
     logical(kind=c_bool), intent(out) :: flag_debug
 
-    ! internal variables
-    character(len=256) :: path2profiles
-    integer :: i, strlen
+
+    ! --- INTERNAL VARIABLES ---
+    integer, parameter :: maxlen = 256 ! for strings
+    integer, parameter :: maxsize = 100 ! for arrays
+    character(len=maxlen) :: path2profiles
+    character(len=maxlen) :: fname
+    complex(kind=c_double_complex), dimension(maxsize) :: fstart
+    integer :: unit, i, strlen
 
     namelist /background/ rtor, rp, B0, path2profiles, calc_back, flag_back, &
-                          N, V_gal_sys, V_scale, m_i, zele, zion, flag_debug
+                          N, V_gal_sys, V_scale, m_i, zele, zion
+    namelist /eigmode/ fname, search_flag, rdim, rfmin, rfmax, idim, ifmin, ifmax, &
+                       stop_flag, eps_res, eps_abs, eps_rel, delta, test_roots, &
+                       Nguess, kmin, kmax, fstart
+    namelist /debuggroup/ flag_debug
 
-    open (unit=100, file="kilca_config.nml", status="old")
-    read (unit=100, nml=background)
-    close (unit=100)
+    unit = 10
+    open (unit, file="kilca_config.nml", status="old")
+    read (unit, nml=background)
+    read (unit, nml=eigmode)
+    read (unit, nml=debuggroup)
+    close (unit)
 
-    ! Copy the string buffer to the output variable
-    strlen = min(len_trim(path2profiles), 255)
+    ! Copy the string buffers to the output variables
+    strlen = min(len_trim(path2profiles), maxlen - 1)
     do i = 1, strlen
       path2profiles_C(i) = transfer(path2profiles(i:i), c_null_char)
     end do
     path2profiles_C(strlen + 1) = c_null_char
+
+    strlen = min(len_trim(fname), maxlen - 1)
+    do i = 1, strlen
+      fname_C(i) = transfer(fname(i:i), c_null_char)
+    end do
+    fname_C(strlen + 1) = c_null_char
+
+    ! Copy the complex array to the output variable
+    do i = 1, maxsize
+      fstart_C(i) = fstart(i)
+    end do
+
 end subroutine read_namelist
 
 subroutine read_namelist_unit_test(a, b, c, d_C, &

@@ -5,7 +5,7 @@
     B0 = -17977.413 ! toroidal magnetic field (G) at the center: default=2.0e4
 
     ! Background settings
-    path2profiles = "./profiles/" ! path to input background profiles: default=./profiles/
+    path2profiles = "./profiles/" ! path to input background profiles: default=./profiles/ - max. 255 characters!
     calc_back = 1 ! 1 - if background must be recalculated (7 input profiles are needed), 0 - otherwise (11 input profiles are needed), -1 - from interface
     flag_back = "f" ! flag for background ('f'-full, 'w'-wkb, 'h'-hom): default=f
     N = 9 ! splines degree: >= NC + 2N+1, where N - order of flr expansion, NC - spl degree for C matrices, must be odd!!!
@@ -14,7 +14,42 @@
     m_i = 2 ! ions mass in units of proton mass: default=2
     zele = 1 ! collisions coefficient for electrons: default=1.0
     zion = 1 ! collisions coefficient for ions: default=1.0
+&end
 
-    ! Debug setting
-    flag_debug = .false. ! flag for debugging mode (additional checks are performed in the code): default=.true.
+&eigmode
+    ! Output
+    fname = "roots.dat" ! file name with determinat values (either from roots search, or on a grid)
+
+    ! choose if to use frequency scan or roots search
+    search_flag = .true. ! false if roots search is used, true if det is evaluated on a frequency grid
+
+    ! frequency grid settings
+    rdim = 1 ! dimension of a grid for real part
+    rfmin = 0 ! minimum real value of frequency
+    rfmax = 1e6 ! maximum real value of frequency
+    idim = 100 ! dimension of a grid for imag part
+    ifmin = 0 ! minimum imag value of frequency
+    ifmax = 21e4 ! maximum imag value of frequency
+
+    ! Stopping criteria for roots search
+    stop_flag = .true. ! stopping criteria: false: det residial, true: root convergence
+    eps_res = 1e-14 ! absolute value of the determinant
+    eps_abs = 1e-10 ! absolute error for roots sequence
+    eps_rel = 1e-10 ! relative error for roots sequence
+
+    ! For omega derivative
+    delta = 0.001 ! delta freq used to compute derivative over omega numerically
+
+    ! Test roots
+    test_roots = .false. ! true - test roots by contour integration, false - skip test
+
+    ! Starting points indices for roots search
+    Nguess = 4 ! number of starting points
+    kmin = 0 ! starting index (0-indexed)
+    kmax = 3 ! ending index (0-indexed)
+    fstart = (0,1e2), (0,1e3), (0,1e4), (0,1e5), (0,1e6), (0,1e7), (0,1e8) ! starting points array - max 100 entries!
+&end
+
+&debuggroup
+    flag_debug = .false. ! flag for debugging
 &end

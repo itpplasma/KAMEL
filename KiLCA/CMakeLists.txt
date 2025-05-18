@@ -258,37 +258,35 @@ set(kilca_lib_fortran_sources
 
 add_subdirectory(io)
 
-add_library (kilca_lib STATIC ${kilca_lib_fortran_sources} ${kilca_lib_cpp_sources})
-#add_library (kilca_lib SHARED ${kilca_lib_fortran_sources} ${kilca_lib_cpp_sources})
+add_library (kilca_lib STATIC
+    ${kilca_lib_fortran_sources}
+    ${kilca_lib_cpp_sources}
+    $<TARGET_OBJECTS:kilca_io>
+)
 target_compile_options(kilca_lib PRIVATE -fPIC)
-
 set_target_properties(kilca_lib PROPERTIES
     OUTPUT_NAME ${kilca_lib}
     ARCHIVE_OUTPUT_DIRECTORY lib
     Fortran_MODULE_DIRECTORY mod)
-add_dependencies(kilca_lib ${EXTERNAL_LIBS})
-target_link_libraries(kilca_lib PUBLIC ${EXTERNAL_LIBS} kilca_io)
+target_link_libraries(kilca_lib PUBLIC ${EXTERNAL_LIBS})
 
 add_executable (kilca_normal_exe ${kilca_normal_main})
 set_target_properties(kilca_normal_exe PROPERTIES
     OUTPUT_NAME ${kilca_normal_exe}
     RUNTIME_OUTPUT_DIRECTORY exe)
-add_dependencies(kilca_normal_exe ${EXTERNAL_LIBS})
-target_link_libraries (kilca_normal_exe kilca_lib ${EXTERNAL_LIBS} kilca_io)
+target_link_libraries (kilca_normal_exe kilca_lib ${EXTERNAL_LIBS})
 
 add_executable (kilca_eigparam_exe ${kilca_eigparam_main})
 set_target_properties(kilca_eigparam_exe PROPERTIES
     OUTPUT_NAME ${kilca_eigparam_exe}
     RUNTIME_OUTPUT_DIRECTORY exe)
-add_dependencies(kilca_eigparam_exe ${EXTERNAL_LIBS})
-target_link_libraries (kilca_eigparam_exe kilca_lib ${EXTERNAL_LIBS} kilca_io)
+target_link_libraries (kilca_eigparam_exe kilca_lib ${EXTERNAL_LIBS})
 
 add_executable (post_proc post_processing/main_post_proc.cpp post_processing/save_fortran.f90)
 set_target_properties(post_proc PROPERTIES
     OUTPUT_NAME post_processor_${KiLCA_ARCHITECTURE}
     RUNTIME_OUTPUT_DIRECTORY exe)
-add_dependencies(post_proc ${EXTERNAL_LIBS})
-target_link_libraries (post_proc kilca_lib ${EXTERNAL_LIBS} kilca_io)
+target_link_libraries (post_proc kilca_lib ${EXTERNAL_LIBS})
 
 # add a target to generate API documentation with Doxygen
 find_package (Doxygen)

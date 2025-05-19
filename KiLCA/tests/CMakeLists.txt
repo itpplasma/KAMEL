@@ -1,6 +1,6 @@
 # simplified version
 configure_file(
-    ${PROJECT_SOURCE_DIR}/tests/simplified_namelist.nml
+    ${PROJECT_SOURCE_DIR}/tests/data/simplified_namelist.nml
     ${CMAKE_CURRENT_BINARY_DIR}/simplified_namelist.nml
     COPYONLY
 )
@@ -13,7 +13,7 @@ add_test(NAME test_namelist_simplified COMMAND test_namelist_simplified)
 
 # full version used for real runs
 configure_file(
-    ${PROJECT_SOURCE_DIR}/tests/kilca_config.nml
+    ${PROJECT_SOURCE_DIR}/tests/data/kilca_config.nml
     ${CMAKE_CURRENT_BINARY_DIR}/kilca_config.nml
     COPYONLY
 )

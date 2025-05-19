@@ -74,7 +74,9 @@ complex<double> Ef[2] = {Es_re+Es_im*I, Ep_re+Ep_im*I}; //Es_a, Ep_a
 //total energy absorbed in the plasma: = - (work of Ef on Ja)
 qp->JaE = 0.5*(qp->vol_fac)*(qp->x[ia])*real(ja[0]*conj(Ef[0]) + ja[1]*conj(Ef[1]));
 
-if (DEBUG_FLAG) fprintf (stdout, "\nzone %d: - JaE: %le.\n", qp->zone->index, - qp->JaE);
+#if DEBUG_FLAG
+fprintf(stdout, "\nzone %d: - JaE: %le.\n", qp->zone->index, -qp->JaE);
+#endif
 
 if (qp->zone->sd->os->flag_emfield > 1)
 {
@@ -126,7 +128,9 @@ integrate_over_cylinder (qp->dimx, qp->x, qp->jaE, qp->vol_fac, qp->jaEi);
 
 qp->JaE = qp->jaEi[qp->dimx-1];
 
-if (DEBUG_FLAG) fprintf (stdout, "\nzone %d: - JaE: %le.\n", qp->zone->index, - qp->JaE);
+#if DEBUG_FLAG
+fprintf(stdout, "\nzone %d: - JaE: %le.\n", qp->zone->index, -qp->JaE);
+#endif
 
 if (qp->zone->sd->os->flag_emfield > 1)
 {
@@ -266,7 +270,9 @@ for (spec=0; spec<3; spec++) //over species
 
 delete [] filename;
 
-if (DEBUG_FLAG) fprintf (stdout, "\n%s is saved.", qp->name[qp->CURRENT_DENS]);
+#if DEBUG_FLAG
+fprintf(stdout, "\n%s is saved.", qp->name[qp->CURRENT_DENS]);
+#endif
 }
 
 /*******************************************************************/
@@ -383,7 +389,9 @@ for (int spec=0; spec<3; spec++) //over species
 
 delete [] filename;
 
-if (DEBUG_FLAG) fprintf (stdout, "\n%s is saved.", qp->name[qp->ABS_POWER_DENS]);
+#if DEBUG_FLAG
+fprintf(stdout, "\n%s is saved.", qp->name[qp->ABS_POWER_DENS]);
+#endif
 }
 
 /*******************************************************************/
@@ -536,7 +544,9 @@ for (int spec=0; spec<3; spec++) //over species
 
 delete [] filename;
 
-if (DEBUG_FLAG) fprintf (stdout, "\n%s is saved.", qp->name[qp->DISS_POWER_DENS]);
+#if DEBUG_FLAG
+fprintf(stdout, "\n%s is saved.", qp->name[qp->DISS_POWER_DENS]);
+#endif
 }
 
 /*******************************************************************/
@@ -669,7 +679,9 @@ for (int spec=0; spec<3; spec++) //over species
 
 delete [] filename;
 
-if (DEBUG_FLAG) fprintf (stdout, "\n%s is saved.", qp->name[qp->KIN_FLUX]);
+#if DEBUG_FLAG
+fprintf(stdout, "\n%s is saved.", qp->name[qp->KIN_FLUX]);
+#endif
 }
 
 /*******************************************************************/
@@ -724,7 +736,9 @@ save_real_array (qp->dimx, qp->x, PF, filename);
 
 delete [] filename;
 
-if (DEBUG_FLAG) fprintf (stdout, "\n%s is saved.", qp->name[qp->POY_FLUX]);
+#if DEBUG_FLAG
+fprintf(stdout, "\n%s is saved.", qp->name[qp->POY_FLUX]);
+#endif
 }
 
 /*******************************************************************/
@@ -792,7 +806,9 @@ for (k=0; k<qp->dimx-1; k++) //the last point is excluded
 //average error:
 avrg_err /= (qp->dimx-1);
 
-if (DEBUG_FLAG) fprintf (stdout, "\naverage error of the solution: %le.\n", avrg_err);
+#if DEBUG_FLAG
+fprintf(stdout, "\naverage error of the solution: %le.\n", avrg_err);
+#endif
 
 if (qp->zone->sd->os->flag_additional > 1)
 {
@@ -865,7 +881,9 @@ save_real_array (qp->dimx, qp->x, TF, filename);
 
 delete [] filename;
 
-if (DEBUG_FLAG) fprintf (stdout, "\n%s is saved.", qp->name[qp->TOT_FLUX]);
+#if DEBUG_FLAG
+fprintf(stdout, "\n%s is saved.", qp->name[qp->TOT_FLUX]);
+#endif
 }
 
 /*******************************************************************/
@@ -1009,7 +1027,9 @@ for (int spec=0; spec<3; spec++) //over species
 
 delete [] filename;
 
-if (DEBUG_FLAG) fprintf (stdout, "\n%s is saved.", qp->name[qp->NUMBER_DENS]);
+#if DEBUG_FLAG
+fprintf(stdout, "\n%s is saved.", qp->name[qp->NUMBER_DENS]);
+#endif
 }
 
 /*******************************************************************/
@@ -1176,7 +1196,9 @@ for (int spec=0; spec<3; spec++) //over species
 
 delete [] filename;
 
-if (DEBUG_FLAG) fprintf (stdout, "\n%s is saved.", qp->name[qp->LOR_TORQUE_DENS]);
+#if DEBUG_FLAG
+fprintf(stdout, "\n%s is saved.", qp->name[qp->LOR_TORQUE_DENS]);
+#endif
 }
 
 /*******************************************************************/
@@ -1366,7 +1388,10 @@ for (int spec=0; spec<3; spec++) //over species
 
 delete [] filename;
 
-if (DEBUG_FLAG) fprintf (stdout, "\n%s in %s frame in %s coordinates is saved.", qp->name[qp->CURRENT_DENS], frame, comp);
+#if DEBUG_FLAG
+fprintf(stdout, "\n%s in %s frame in %s coordinates is saved.",
+        qp->name[qp->CURRENT_DENS], frame, comp);
+#endif
 }
 
 /*******************************************************************/

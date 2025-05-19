@@ -520,7 +520,9 @@ for (int k=0; k<dim; k++)
                                               r[k], &EB_mov[2*Ncomps*k], &EB[2*Ncomps*k]);
 }
 
-if (DEBUG_FLAG) save_system_vector_in_mov_frame ();
+#if DEBUG_FLAG
+save_system_vector_in_mov_frame();
+#endif
 
 //clean up:
 delete [] rnew;

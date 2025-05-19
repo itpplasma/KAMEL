@@ -177,10 +177,9 @@ for (k=es->kmin; k<=es->kmax; k++)
     //gsl_multiroot_fsolver_set (s, &f, x);
     gsl_multiroot_fdfsolver_set (s, &f, x);
 
-    if (DEBUG_FLAG)
-    {
-        print_fdf_search_state (iter, s);
-    }
+#if DEBUG_FLAG
+    print_fdf_search_state (iter, s);
+#endif
 
     fprintf (out, "\n%5u\t%.20le  %.20le\t%.20le  %.20le", iter, gsl_vector_get (s->x, 0), gsl_vector_get (s->x, 1), gsl_vector_get (s->f, 0), gsl_vector_get (s->f, 1));
 
@@ -191,11 +190,9 @@ for (k=es->kmin; k<=es->kmax; k++)
         //status = gsl_multiroot_fsolver_iterate (s);
         status = gsl_multiroot_fdfsolver_iterate (s);
 
-        if (DEBUG_FLAG)
-        {
-            print_fdf_search_state (iter, s);
-            //print_f_search_state (iter, s);
-        }
+#if DEBUG_FLAG
+        print_fdf_search_state (iter, s);
+#endif
 
         fprintf (out, "\n%5u\t%.20le  %.20le\t%.20le  %.20le", iter, gsl_vector_get (s->x, 0), gsl_vector_get (s->x, 1), gsl_vector_get (s->f, 0), gsl_vector_get (s->f, 1));
         fflush (out);
@@ -224,10 +221,9 @@ for (k=es->kmin; k<=es->kmax; k++)
     }
     while (status == GSL_CONTINUE && iter < 1e6);
 
-    if (DEBUG_FLAG)
-    {
+#if DEBUG_FLAG
         printf ("\nstatus = %s", gsl_strerror (status));
-    }
+#endif
     fprintf (out, "\n%%status = %s", gsl_strerror (status));
 
     //check if it is really root:

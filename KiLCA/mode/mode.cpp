@@ -36,12 +36,11 @@ double omov_re = real(omov), omov_im = imag(omov);
 
 set_wave_parameters_in_mode_data_module_ (&m, &n, &olab_re, &olab_im, &omov_re, &omov_im);
 
-if (DEBUG_FLAG)
-{
-    fprintf (stdout, "\n(m=%d, n=%d): f_lab=(%le, %le) f_mov=(%le, %le)\n",
-                     m, n, real((wd->olab)/2.0/pi), imag((wd->olab)/2.0/pi),
-                           real((wd->omov)/2.0/pi), imag((wd->omov)/2.0/pi));
-}
+#if DEBUG_FLAG
+fprintf(stdout, "\n(m=%d, n=%d): f_lab=(%le, %le) f_mov=(%le, %le)\n", m, n,
+        real((wd->olab) / 2.0 / pi), imag((wd->olab) / 2.0 / pi),
+        real((wd->omov) / 2.0 / pi), imag((wd->omov) / 2.0 / pi));
+#endif
 
 if (sd->os->flag_background > 0)
 {

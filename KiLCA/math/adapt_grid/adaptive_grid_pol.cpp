@@ -129,32 +129,33 @@ for (int iter=1; 1; iter++) //checks interpolation accuracy in the centers and a
         //check xnew for dimension:
         if (node >= *xdim-2)
         {
-            if (DEBUG_FLAG)
-            {
-                fprintf (stdout, "\n\nadaptive_grid_polynom: warning: maximum dimension is reached: node=%d: exit with the previous grid.", node);
-                fflush (stdout);
+#if DEBUG_FLAG
+          fprintf(stdout,
+                  "\n\nadaptive_grid_polynom: warning: maximum dimension is "
+                  "reached: node=%d: exit with the previous grid.",
+                  node);
+          fflush(stdout);
+#endif
+
+          if (x1 != xold) {
+            for (int m = 0; m < dimx; m++) {
+              x1[m] = xold[m];
+              for (int j = 0; j < dimy; j++)
+                y1[m * dimy + j] = yold[m * dimy + j];
             }
+          }
 
-            if (x1 != xold)
-            {
-                for (int m=0; m<dimx; m++)
-                {
-                    x1[m] = xold[m];
-                    for (int j=0; j<dimy; j++) y1[m*dimy+j] = yold[m*dimy+j];
-                }
-            }
+          *xdim = dimx;
+          *eps = peps;
 
-            *xdim = dimx;
-            *eps = peps;
+          delete[] x2;
+          delete[] y2;
 
-            delete [] x2;
-            delete [] y2;
+          delete[] ym;
+          delete[] yr;
+          delete[] yl;
 
-            delete [] ym;
-            delete [] yr;
-            delete [] yl;
-
-            return 1;
+          return 1;
         }
 
         if (!flag) continue; //accuracy is good: go to the next point in the old grid
@@ -333,32 +334,33 @@ for (int iter=1; 1; iter++) //checks interpolation accuracy in the centers and a
         //check xnew for dimension:
         if (node >= *xdim-2)
         {
-            if (DEBUG_FLAG)
-            {
-                fprintf (stdout, "\n\nadaptive_grid_polynom: warning: maximum dimension is reached: node=%d: exit with the previous grid.", node);
-                fflush (stdout);
+#if DEBUG_FLAG
+          fprintf(stdout,
+                  "\n\nadaptive_grid_polynom: warning: maximum dimension is "
+                  "reached: node=%d: exit with the previous grid.",
+                  node);
+          fflush(stdout);
+#endif
+
+          if (x1 != xold) {
+            for (int m = 0; m < dimx; m++) {
+              x1[m] = xold[m];
+              for (int j = 0; j < dimy; j++)
+                y1[m * dimy + j] = yold[m * dimy + j];
             }
+          }
 
-            if (x1 != xold)
-            {
-                for (int m=0; m<dimx; m++)
-                {
-                    x1[m] = xold[m];
-                    for (int j=0; j<dimy; j++) y1[m*dimy+j] = yold[m*dimy+j];
-                }
-            }
+          *xdim = dimx;
+          *eps = peps;
 
-            *xdim = dimx;
-            *eps = peps;
+          delete[] x2;
+          delete[] y2;
 
-            delete [] x2;
-            delete [] y2;
+          delete[] ym;
+          delete[] yr;
+          delete[] yl;
 
-            delete [] ym;
-            delete [] yr;
-            delete [] yl;
-
-            return 1;
+          return 1;
         }
 
         if (!flag) continue; //accuracy is good: go to the next point in the old grid
@@ -539,32 +541,33 @@ for (int iter=1; 1; iter++) //checks interpolation accuracy in the centers and a
         //check xnew for dimension:
         if (node >= *xdim-2)
         {
-            if (DEBUG_FLAG)
-            {
-                fprintf (stdout, "\n\nadaptive_grid_polynom: warning: maximum dimension is reached: node=%d: exit with the previous grid.", node);
-                fflush (stdout);
+#if DEBUG_FLAG
+          fprintf(stdout,
+                  "\n\nadaptive_grid_polynom: warning: maximum dimension is "
+                  "reached: node=%d: exit with the previous grid.",
+                  node);
+          fflush(stdout);
+#endif
+
+          if (x1 != xold) {
+            for (int m = 0; m < dimx; m++) {
+              x1[m] = xold[m];
+              for (int j = 0; j < dimy; j++)
+                y1[m * dimy + j] = yold[m * dimy + j];
             }
+          }
 
-            if (x1 != xold)
-            {
-                for (int m=0; m<dimx; m++)
-                {
-                    x1[m] = xold[m];
-                    for (int j=0; j<dimy; j++) y1[m*dimy+j] = yold[m*dimy+j];
-                }
-            }
+          *xdim = dimx;
+          *eps = peps;
 
-            *xdim = dimx;
-            *eps = peps;
+          delete[] x2;
+          delete[] y2;
 
-            delete [] x2;
-            delete [] y2;
+          delete[] ym;
+          delete[] yr;
+          delete[] yl;
 
-            delete [] ym;
-            delete [] yr;
-            delete [] yl;
-
-            return 1;
+          return 1;
         }
 
         if (!flag) continue; //accuracy is good: go to the next point in the old grid

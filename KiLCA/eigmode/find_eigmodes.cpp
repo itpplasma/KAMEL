@@ -26,18 +26,15 @@ cd->mda[ind]->calc_all_mode_data ();
 
 complex<double> det = (cd->mda[ind])->wd->det;
 
-//if (DEBUG_FLAG)
-//{
-    FILE *out;
-    if (!(out = fopen ("det.dat", "a")))
-    {
-        fprintf (stderr, "\nFailed to open file %s\a\n", "det.dat");
-    }
+FILE *out;
+if (!(out = fopen("det.dat", "a"))) {
+  fprintf(stderr, "\nFailed to open file %s\a\n", "det.dat");
+}
 
-    fprintf (out, "\n%.20le %.20le\t%.20le %.20le", real(freq), imag(freq), real(det), imag(det));
+fprintf(out, "\n%.20le %.20le\t%.20le %.20le", real(freq), imag(freq),
+        real(det), imag(det));
 
-    fclose (out);
-//}
+fclose(out);
 
 //clean up:
 delete cd->mda[ind];
@@ -92,7 +89,9 @@ S.set_print_level(1);                // set the print level (amount of the detai
 
 alg::zersol::ZeroSolver<P> solver(F, B, S); // define the solver with the specified F, B, S
 
-if (DEBUG_FLAG) std::cout << S;
+#if DEBUG_FLAG
+std::cout << S;
+#endif
 
 int max_n_zeros = 128, n_zeros = 0;              // specify maximum and current number of wanted zeros
 
@@ -107,12 +106,9 @@ if (status)  // do something: throw an exception, try another settings, etc...
 
 solver.print_status();       // the solver prints information about the search status
 
-//if (DEBUG_FLAG) // dump the solver data to file
-//{
-    std::ofstream file("search.dump", std::ofstream::out);
-    file << solver;
-    file.close();
-//}
+std::ofstream file("search.dump", std::ofstream::out);
+file << solver;
+file.close();
 
 //output file:
 char *full_name = new char[1024];

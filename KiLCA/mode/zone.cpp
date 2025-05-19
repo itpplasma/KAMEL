@@ -228,10 +228,10 @@ else
     exit (1);
 }
 
-if (DEBUG_FLAG)
-{
-    fprintf (stdout, "\nNzones = %d", Nzones); fflush (stdout);
-}
+#if DEBUG_FLAG
+fprintf(stdout, "\nNzones = %d", Nzones);
+fflush(stdout);
+#endif
 
 return Nzones;
 }
@@ -273,11 +273,11 @@ else
   exit (1);
 }
 
-if (DEBUG_FLAG)
-{
-  fprintf (stdout, "\nget_zone_file_name: file name for zone %d is: %s", zone_index, file_name);
-  fflush (stdout);
-}
+#if DEBUG_FLAG
+fprintf(stdout, "\nget_zone_file_name: file name for zone %d is: %s",
+        zone_index, file_name);
+fflush(stdout);
+#endif
 
 if (!count)
 {

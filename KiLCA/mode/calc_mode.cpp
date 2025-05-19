@@ -42,12 +42,14 @@ int mode_data::find_resonance_location(void)
 
     if ((q(r1, bp) - q_res) * (q(r2, bp) - q_res) > 0)
     {
-        if (DEBUG_FLAG)
-        {
-            fprintf(stdout, "\nfind_resonance_location: resonant surface for the mode m=%d n=%d is absent", wd->m, wd->n);
-        }
-        wd->r_res = 0.0e0;
-        return 0;
+#if DEBUG_FLAG
+      fprintf(stdout,
+              "\nfind_resonance_location: resonant surface for the mode m=%d "
+              "n=%d is absent",
+              wd->m, wd->n);
+#endif
+      wd->r_res = 0.0e0;
+      return 0;
     }
 
     int status;
@@ -90,10 +92,12 @@ int mode_data::find_resonance_location(void)
 
     gsl_root_fsolver_free(s);
 
-    if (DEBUG_FLAG)
-    {
-        fprintf(stdout, "\nresonant surface for the mode m=%d n=%d is found at:\nr=%.16le,  q(r)=%.16le\n", wd->m, wd->n, wd->r_res, q(wd->r_res, bp));
-    }
+#if DEBUG_FLAG
+    fprintf(stdout,
+            "\nresonant surface for the mode m=%d n=%d is found at:\nr=%.16le, "
+            " q(r)=%.16le\n",
+            wd->m, wd->n, wd->r_res, q(wd->r_res, bp));
+#endif
     return 1;
 }
 
@@ -134,10 +138,9 @@ void mode_data::check_zones_parameters(void)
         exit(1);
     }
 
-    if (DEBUG_FLAG)
-    {
-        fprintf(stdout, "\nzones consistency check passed...\n");
-    }
+#if DEBUG_FLAG
+    fprintf(stdout, "\nzones consistency check passed...\n");
+#endif
 }
 
 /*******************************************************************/
@@ -237,10 +240,9 @@ void mode_data::calc_all_mode_data(int flag)
     if (sd->os->flag_emfield > 1)
         save_final_wave_fields();
 
-    if (DEBUG_FLAG)
-    {
-        calc_and_save_divEB();
-    }
+#if DEBUG_FLAG
+    calc_and_save_divEB();
+#endif
 
     if (sd->os->flag_additional > 0)
     {
@@ -296,10 +298,9 @@ void mode_data::calc_stitching_equations(void)
         Nc += zones[iz]->get_dim_of_basis();
     }
 
-    if (DEBUG_FLAG)
-    {
-        fprintf(stdout, "\ncalc_stitching_equations: Nc = %d\n", Nc);
-    }
+#if DEBUG_FLAG
+    fprintf(stdout, "\ncalc_stitching_equations: Nc = %d\n", Nc);
+#endif
 
     A = new double[2 * Nc * 2 * Nc]; // complex system matrix
     B = new double[2 * Nc];          // complex system rhs vector
@@ -663,15 +664,15 @@ void mode_data::solve_stitching_equations(void)
 
     find_superposition_coeffs_(&Nc, A, B, S);
 
-    if (DEBUG_FLAG)
-    {
-        fprintf(stdout, "\ndeterminat = %.20le %+.20lei\n", real(wd->det), imag(wd->det));
-        fprintf(stdout, "\ncheck for superposition coefficients below:");
-        for (int i = 0; i < Nc; i++)
-        {
-            fprintf(stdout, "\ni = %d: S = %.20le %+.20lei", i, S[2 * i + 0], S[2 * i + 1]);
-        }
+#if DEBUG_FLAG
+    fprintf(stdout, "\ndeterminat = %.20le %+.20lei\n", real(wd->det),
+            imag(wd->det));
+    fprintf(stdout, "\ncheck for superposition coefficients below:");
+    for (int i = 0; i < Nc; i++) {
+      fprintf(stdout, "\ni = %d: S = %.20le %+.20lei", i, S[2 * i + 0],
+              S[2 * i + 1]);
     }
+#endif
 }
 
 /*****************************************************************************/
@@ -696,8 +697,9 @@ void mode_data::space_out_fields_in_zones(void)
     {
         zones[iz]->calc_final_fields();
 
-        if (DEBUG_FLAG)
-            zones[iz]->save_final_fields(path2linear);
+#if DEBUG_FLAG
+        zones[iz]->save_final_fields(path2linear);
+#endif
     }
 }
 

@@ -139,7 +139,9 @@ spline_alloc_ (cp->NK, 1, cp->dimx, cp->x, cp->CK, &(cp->sidK));
 int ierr;
 spline_calc_ (cp->sidK, cp->K, 0, cp->dimK-1, NULL, &ierr);
 
-if (DEBUG_FLAG) fprintf (stdout, "\nK profiles are splined...\n");
+#if DEBUG_FLAG
+fprintf(stdout, "\nK profiles are splined...\n");
+#endif
 }
 
 /*******************************************************************/
@@ -184,7 +186,9 @@ spline_alloc_ (cp->NK, 1, cp->dimx, cp->x, cp->CK, &(cp->sidK));
 int ierr;
 spline_calc_ (cp->sidK, cp->K, 0, cp->dimK-1, NULL, &ierr);
 
-if (DEBUG_FLAG) fprintf (stdout, "\nK profiles are splined...\n");
+#if DEBUG_FLAG
+fprintf(stdout, "\nK profiles are splined...\n");
+#endif
 }
 
 /*******************************************************************/
@@ -223,7 +227,9 @@ spline_alloc_ (cp->NC, 1, cp->dimx, cp->x, cp->CC, &(cp->sidC));
 int ierr;
 spline_calc_ (cp->sidC, cp->C, 0, cp->dimC-1, NULL, &ierr);
 
-if (DEBUG_FLAG) fprintf (stdout, "\nC profiles are splined...\n");
+#if DEBUG_FLAG
+fprintf(stdout, "\nC profiles are splined...\n");
+#endif
 }
 
 /*******************************************************************/

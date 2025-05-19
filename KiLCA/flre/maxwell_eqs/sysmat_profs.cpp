@@ -114,14 +114,22 @@ delete [] yt;
 
 spline_alloc_ (N, 1, dimx, x, C, &sidM);
 
-if (DEBUG_FLAG) fprintf (stdout, "\neval_and_spline_sysmatrix_profiles: dimx = %d\tdimy = %d\tmax_err = %le\n", dimx, dimM, eps);
+#if DEBUG_FLAG
+fprintf(stdout,
+        "\neval_and_spline_sysmatrix_profiles: dimx = %d\tdimy = %d\tmax_err = "
+        "%le\n",
+        dimx, dimM, eps);
+#endif
 
 int ierr;
 spline_calc_ (sidM, M, 0, dimM-1, NULL, &ierr);
 
-if (DEBUG_FLAG) fprintf (stdout, "\nM profiles are splined...\n");
+#if DEBUG_FLAG
+fprintf(stdout, "\nM profiles are splined...\n");
+#endif
 
-if (flag_debug > 1) save_M_matrix (10);
+if (flag_debug > 1)
+  save_M_matrix(10);
 }
 
 /*******************************************************************/

@@ -127,15 +127,14 @@ jaEi = new double[dimx];
 
 cdlab = new double[(dimq[CURRENT_DENS])*(dimx)];
 
-if (DEBUG_FLAG)
-{
-    fprintf (stdout, "\nThere are %d additional quantities to compute:\n", numq);
-    for (int i=0; i<numq; i++)
-    {
-        fprintf (stdout, "\n%s: dim=%d ind=%d", name[dni[i]], dimq[dni[i]], ind[dni[i]]);
-    }
-    fprintf (stdout, "\n");
+#if DEBUG_FLAG
+fprintf(stdout, "\nThere are %d additional quantities to compute:\n", numq);
+for (int i = 0; i < numq; i++) {
+  fprintf(stdout, "\n%s: dim=%d ind=%d", name[dni[i]], dimq[dni[i]],
+          ind[dni[i]]);
 }
+fprintf(stdout, "\n");
+#endif
 }
 
 /*******************************************************************/

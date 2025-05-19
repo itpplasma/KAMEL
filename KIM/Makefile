@@ -1,3 +1,4 @@
+CONFIG ?= Release
 BUILD_DIR := build
 
 .PHONY: all ninja test install clean

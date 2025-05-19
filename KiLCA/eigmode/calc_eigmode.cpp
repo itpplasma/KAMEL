@@ -25,7 +25,7 @@ const double fim = gsl_vector_get (x, 1);
 
 complex<double> olab = 2.0*pi*(fre + I*fim);
 
-cd->mda[ind] = new mode_data (m, n, olab, (const settings *)cd->sd, (const background *)cd->bp);
+cd->mda[ind] = new mode_data (m, n, olab, (const settings_t *)cd->sd, (const background *)cd->bp);
 
 cd->mda[ind]->calc_all_mode_data ();
 
@@ -405,7 +405,7 @@ for (int i=0; i<es->rdim; i++)
 
         complex<double> olab = 2.0*pi*(fre + I*fim);
 
-        cd->mda[ind] = new mode_data (m, n, olab, (const settings *)cd->sd, (const background *)cd->bp);
+        cd->mda[ind] = new mode_data (m, n, olab, (const settings_t *)cd->sd, (const background *)cd->bp);
 
         cd->mda[ind]->calc_all_mode_data ();
 

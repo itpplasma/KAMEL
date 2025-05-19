@@ -38,7 +38,7 @@ public:
     }
 
 public:
-    hmedium_zone (const settings *sd_p, const background *bp_p, const wave_data *wd_p,
+    hmedium_zone (const settings_t *sd_p, const background *bp_p, const wave_data *wd_p,
                   char *path_p, int index_p) : zone (sd_p, bp_p, wd_p, path_p, index_p) {}
 
     ~hmedium_zone (void) {}

@@ -173,7 +173,7 @@ delete *cp_ptr;
 
 /*******************************************************************/
 
-void calc_and_spline_conductivity_for_point_ (settings **sd_ptr, background **bp_ptr,
+void calc_and_spline_conductivity_for_point_ (settings_t **sd_ptr, background **bp_ptr,
 					      wave_data **wd_ptr, char *flag_back,
 					      double *r, cond_profiles **cp_ptr)
 {
@@ -183,7 +183,7 @@ alloc_conductivity_profiles_ (cp_ptr);
 
 cond_profiles *cp = (cond_profiles *)(*cp_ptr);
 
-cp->sd = (const settings *)  (*sd_ptr);
+cp->sd = (const settings_t *)  (*sd_ptr);
 cp->bp = (const background *)(*bp_ptr);
 cp->wd = (const wave_data *) (*wd_ptr);
 

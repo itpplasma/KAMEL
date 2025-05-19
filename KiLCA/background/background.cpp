@@ -22,7 +22,7 @@
 
 /*-----------------------------------------------------------------*/
 
-background::background (const settings *s)
+background::background (const settings_t *s)
 {
 sd = s;
 

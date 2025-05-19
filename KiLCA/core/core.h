@@ -21,7 +21,7 @@ class core_data
 public:
     char *path2project; //!<project path
 
-    settings *sd; //!<pointer to settings object
+    settings_t *sd; //!<pointer to settings object
 
     background *bp; //!<pointer to background object
 
@@ -56,7 +56,7 @@ void set_core_data_in_core_module_ (core_data **);
 
 void set_background_in_core_module_ (background **);
 
-void set_settings_in_core_module_ (settings **);
+void set_settings_in_core_module_ (settings_t **);
 
 void clear_all_data_in_mode_data_module_ (void);
 }

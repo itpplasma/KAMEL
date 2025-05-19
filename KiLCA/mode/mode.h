@@ -30,7 +30,7 @@ class mode_data
 {
 public:
     //pointers to common structures:
-    const settings *sd;         //!<pointer to settings
+    const settings_t *sd;         //!<pointer to settings
     const background *bp;       //!<pointer to background
 
     //pointers to structures for the given mode:
@@ -56,7 +56,7 @@ public:
     double *S;   //!<superposition coefficients
 
 public:
-    mode_data (int m, int n, complex<double> olab, const settings *, const background *);
+    mode_data (int m, int n, complex<double> olab, const settings_t *, const background *);
 
     ~mode_data (void)
     {
@@ -169,7 +169,7 @@ void eval_path_to_poincare_data (const char *path2project, int m, int n, complex
 
 extern "C"
 {
-void set_settings_in_mode_data_module_ (const settings **);
+void set_settings_in_mode_data_module_ (const settings_t **);
 
 void set_back_profiles_in_mode_data_module_ (const background **);
 

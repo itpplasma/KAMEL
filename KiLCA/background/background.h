@@ -16,7 +16,7 @@
 class background
 {
 public:
-    const settings *sd; //!<pointer to settings data
+    const settings_t *sd; //!<pointer to settings data
 
     ///below are local data calculated and stored in this structure:
     ///profiles:
@@ -69,7 +69,7 @@ public:
     int flag_dPhi0_calc; //flag to recalculate dPhi0 or not
 
 public:
-    background (const settings *s);
+    background (const settings_t *s);
 
     ~background (void);
 

@@ -22,7 +22,7 @@ class cond_profiles
 {
 public:
     ///external data which are used for calculations:
-    const settings *sd;   //!<pointer to settings data
+    const settings_t *sd;   //!<pointer to settings data
     const background *bp; //!<pointer to background
     const wave_data *wd;  //!<wave data
 
@@ -141,7 +141,7 @@ extern "C"
 {
 void alloc_conductivity_profiles_ (cond_profiles **cpptr);
 
-void calc_and_spline_conductivity_for_point_ (settings **sd_ptr, background **bp_ptr,
+void calc_and_spline_conductivity_for_point_ (settings_t **sd_ptr, background **bp_ptr,
 					      wave_data **wd_ptr, char *flag_back, double *r,
 					      cond_profiles **cp_ptr);
 

@@ -13,7 +13,7 @@
 
 /*******************************************************************/
 
-mode_data::mode_data (int m, int n, complex<double> olab, const settings *sd_p, const background *bp_p)
+mode_data::mode_data (int m, int n, complex<double> olab, const settings_t *sd_p, const background *bp_p)
 {
 //set const pointers to common structures:
 sd = sd_p;

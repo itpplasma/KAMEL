@@ -18,7 +18,7 @@
 
 /*****************************************************************************/
 
-zone::zone (const settings *sd_p, const background *bp_p, const wave_data *wd_p, char *path_p, int index_p)
+zone::zone (const settings_t *sd_p, const background *bp_p, const wave_data *wd_p, char *path_p, int index_p)
 {
 sd = sd_p;
 bp = bp_p;

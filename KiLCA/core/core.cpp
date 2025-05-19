@@ -79,7 +79,7 @@ mda = 0;
 
 void core_data::calc_and_set_mode_independent_core_data (void)
 {
-sd = new settings (path2project);
+sd = new settings_t (path2project);
 
 set_settings_in_core_module_ (&sd);
 
@@ -122,7 +122,7 @@ for (int ind=0; ind<dim; ind++)
     int m = sd->as->modes[2*ind+0];
     int n = sd->as->modes[2*ind+1];
 
-    mda[ind] = new mode_data (m, n, olab, (const settings *)sd, (const background *)bp);
+    mda[ind] = new mode_data (m, n, olab, (const settings_t *)sd, (const background *)bp);
 
     mda[ind]->calc_all_mode_data ();
 
@@ -186,7 +186,7 @@ for (int ind=0; ind<dim; ind++)
     int m = sd->as->modes[2*ind+0];
     int n = sd->as->modes[2*ind+1];
 
-    mda[ind] = new mode_data (m, n, olab, (const settings *)sd, (const background *)bp);
+    mda[ind] = new mode_data (m, n, olab, (const settings_t *)sd, (const background *)bp);
 
     mda[ind]->calc_all_mode_data ();
 
@@ -207,7 +207,7 @@ complex<double> olab = (2.0*pi)*(sd->as->flab);
 //loop over modes array:
 for (int ind=0; ind<dim; ind++)
 {
-    mda[ind] = new mode_data (m, n, olab, (const settings *)sd, (const background *)bp);
+    mda[ind] = new mode_data (m, n, olab, (const settings_t *)sd, (const background *)bp);
 
     mda[ind]->calc_all_mode_data (flag);
 

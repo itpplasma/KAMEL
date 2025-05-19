@@ -53,7 +53,7 @@ public:
 
     int index;      //!<zone index
 
-    const settings   *sd;       //!<pointer to settings structure
+    const settings_t   *sd;       //!<pointer to settings structure
     const background *bp;       //!<pointer to background structure
     const wave_data  *wd;       //!<pointer to wave data
 
@@ -101,7 +101,7 @@ public:
 
 public:
 
-    zone (const settings *, const background *, const wave_data *, char *, int);
+    zone (const settings_t *, const background *, const wave_data *, char *, int);
 
     virtual ~zone (void); //very important to have it virtual: otherwise...
 
@@ -125,7 +125,7 @@ public:
 
     double * get_basis_at_right_boundary (void) const { return &basis[ib(dim-1, 0, 0, 0)]; }
 
-    const settings * get_settings (void) const { return sd; }
+    const settings_t * get_settings (void) const { return sd; }
 
     const background * get_background (void) const { return bp; }
 

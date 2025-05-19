@@ -20,7 +20,7 @@ int n   = ((det_params *) params)->n;
 
 core_data *cd = ((det_params *) params)->cd;
 
-cd->mda[ind] = new mode_data (m, n, 2.0*pi*freq, (const settings *)cd->sd, (const background *)cd->bp);
+cd->mda[ind] = new mode_data (m, n, 2.0*pi*freq, (const settings_t *)cd->sd, (const background *)cd->bp);
 
 cd->mda[ind]->calc_all_mode_data ();
 

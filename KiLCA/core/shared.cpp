@@ -21,7 +21,7 @@ void dgesv_ (int *, int *, double *, int *, int *, double *, int *, int *);
 
 void * xmalloc (size_t size)
 {
-register void *value = (void *) malloc (size);
+void *value = (void *) malloc (size);
 if (!value)
 {
 	fprintf(stderr,"\nxmalloc: memory allocation failed: exit!");
@@ -34,7 +34,7 @@ return value;
 
 void * xrealloc (void *ptr, size_t size)
 {
-register void *value = (void *) realloc (ptr, size);
+void *value = (void *) realloc (ptr, size);
 if (!value)
 {
 	fprintf(stderr,"\nxrealloc: memory reallocation failed: exit!");

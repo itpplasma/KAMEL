@@ -69,6 +69,7 @@ include_directories(
     "${sundials_include_path}"
     "${PROJECT_SOURCE_DIR}/antenna"
     "${PROJECT_SOURCE_DIR}/background"
+    "${PROJECT_SOURCE_DIR}/config"
     "${PROJECT_SOURCE_DIR}/core"
     "${PROJECT_SOURCE_DIR}/eigmode"
     "${PROJECT_SOURCE_DIR}/flre"
@@ -91,16 +92,16 @@ include_directories(
 
 set(cpp_sources
     antenna/antenna.cpp
-    background/back_sett.cpp
     background/background.cpp
     background/calc_back.cpp
     background/eval_back.cpp
+    config/back_sett.cpp
+    config/eigmode_sett.cpp
+    config/settings.cpp
     core/core.cpp
     core/output_sett.cpp
-    core/settings.cpp
     core/shared.cpp
     eigmode/calc_eigmode.cpp
-    eigmode/eigmode_sett.cpp
     eigmode/find_eigmodes.cpp
     flre/conductivity/calc_cond.cpp
     flre/conductivity/cond_profs${interp}.cpp

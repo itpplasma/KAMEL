@@ -17,7 +17,7 @@ as = new antenna;
 as->read_settings (path2project);
 copy_antenna_data_to_antenna_module_ (&as);
 
-bs = new back_sett;
+bs = new background_settings_t;
 bs->read_settings (path2project);
 copy_background_data_to_background_module_ (&bs);
 

@@ -2,17 +2,17 @@
     \brief The implementation of back_sett class.
 */
 
-#include <stdlib.h>
-#include <stdio.h>
-#include <cmath>
-#include <cstring>
-#include <climits>
-#include <ctime>
+#include "back_sett.h"
 
 #include "constants.h"
-#include "back_sett.h"
 #include "inout.h"
-#include "shared.h"
+
+#include <climits>
+#include <cmath>
+#include <cstring>
+#include <ctime>
+#include <stdio.h>
+#include <stdlib.h>
 
 /*-----------------------------------------------------------------*/
 

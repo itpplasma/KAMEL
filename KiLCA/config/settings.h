@@ -24,7 +24,7 @@ public:
 
     antenna      *as; //!<antenna settings
 
-    back_sett    *bs; //!<background settings
+    background_settings_t    *bs; //!<background settings
 
     output_sett  *os; //!<output settings
 
@@ -56,7 +56,7 @@ extern "C"
 {
 void copy_antenna_data_to_antenna_module_ (antenna **);
 
-void copy_background_data_to_background_module_ (back_sett **);
+void copy_background_data_to_background_module_ (background_settings_t **);
 }
 
 /*******************************************************************/

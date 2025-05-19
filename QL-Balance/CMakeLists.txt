@@ -45,7 +45,7 @@ set(hdf5_tools ${PROJECT_SOURCE_DIR}/src/hdf5_tools/)
 set(objs ${PROJECT_BINARY_DIR}/OBJS/)
 set(lib ${PROJECT_BINARY_DIR}/lib/)
 set(ql-balance_lib "${lib}libql-balance.a")
-set(KiLCA_lib_path ${KILCA_PATH}/build/lib/libKiLCA_Lib_V_2.4.2_MDNO_FPGEN_POLYNOMIAL_Release_64bit.a)
+set(KiLCA_lib_path ${KILCA_PATH}/build/lib/libKiLCA.a)
 
 set(CMAKE_Fortran_MODULE_DIRECTORY "${objs}")
 
@@ -80,7 +80,6 @@ set_target_properties(ql-balance_lib PROPERTIES LINKER_LANGUAGE Fortran
 target_link_libraries(ql-balance_lib PUBLIC "${KiLCA_lib_path}")
 target_include_directories(ql-balance_lib PUBLIC "${sundials_include_path}")
 target_include_directories(ql-balance_lib PUBLIC "${sundials_include_path_build}")
-target_include_directories(ql-balance_lib PUBLIC ${CMAKE_SOURCE_DIR}/../KiLCA/math/)
 target_include_directories(ql-balance_lib PUBLIC ${KILCA_PATH}/math/)
 
 file(GLOB libslatec_files "${KILCA_PATH}/math/bessel/slatec/*.f")

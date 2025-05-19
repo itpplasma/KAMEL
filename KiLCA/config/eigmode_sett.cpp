@@ -1,109 +1,11 @@
-/*! \file eigmode_sett.cpp
-    \brief The implementation of eigmode_sett class.
-*/
+#include "eigmode_sett.h"
 
 #include <stdlib.h>
 #include <stdio.h>
 #include <complex>
 #include <cstring>
 
-#include "eigmode_sett.h"
-#include "inout.h"
-
-/*****************************************************************************/
-
-void eigmode_sett::read_settings (char *path)
-{
-char *file_set = new char[1024];
-
-sprintf (file_set, "%s/eigmode.in", path);
-
-FILE *in;
-
-if ((in=fopen (file_set, "r"))==NULL)
-{
-    fprintf(stderr, "\nerror: read_settings: failed to open file %s\a\n", file_set);
-    exit(0);
-}
-
-char *str_buf = new char[1024]; //str buffer
-
-//Output:
-read_line_2skip_it (in, &str_buf);
-fname = new char[1024];
-read_line_2get_string (in, &(fname));
-read_line_2skip_it (in, &str_buf);
-
-//frequency scan or root search:
-read_line_2skip_it (in, &str_buf);
-read_line_2get_int (in, &(search_flag));
-read_line_2skip_it (in, &str_buf);
-
-//frequency grid:
-read_line_2skip_it (in, &str_buf);
-read_line_2get_int (in, &(rdim));
-read_line_2get_double (in, &(rfmin));
-read_line_2get_double (in, &(rfmax));
-read_line_2get_int (in, &(idim));
-read_line_2get_double (in, &(ifmin));
-read_line_2get_double (in, &(ifmax));
-read_line_2skip_it (in, &str_buf);
-
-//Stopping criteria:
-read_line_2skip_it (in, &str_buf);
-read_line_2get_int (in, &(stop_flag));
-read_line_2get_double (in, &(eps_res));
-read_line_2get_double (in, &(eps_abs));
-read_line_2get_double (in, &(eps_rel));
-read_line_2skip_it (in, &str_buf);
-
-//For derivative:
-read_line_2skip_it (in, &str_buf);
-read_line_2get_double (in, &(delta));
-read_line_2skip_it (in, &str_buf);
-
-//For testing:
-read_line_2skip_it (in, &str_buf);
-read_line_2get_int (in, &(test_roots));
-read_line_2get_int (in, &(flag_debug));
-read_line_2skip_it (in, &str_buf);
-
-// ZerSol parameters:
-//! WTF is happening here? These are not defined in the .in file, but the starting points are. How did this ever work?
-read_line_2skip_it (in, &str_buf);
-read_line_2get_int (in, &(n_zeros));
-read_line_2get_int (in, &(use_winding));
-read_line_2skip_it (in, &str_buf);
-
-//Starting points:
-read_line_2skip_it (in, &str_buf);
-read_line_2get_int (in, &(Nguess));
-read_line_2get_int (in, &(kmin));
-read_line_2get_int (in, &(kmax));
-read_line_2skip_it (in, &str_buf);
-
-fstart = new complex<double>[Nguess];
-
-int k;
-
-read_line_2skip_it (in, &str_buf);
-
-for (k=0; k<Nguess; k++)
-{
-    read_line_2get_complex (in, &(fstart[k]));
-}
-
-fclose (in);
-
-delete [] file_set;
-delete [] str_buf;
-
-if (flag_debug) print_settings ();
-}
-
-/*****************************************************************************/
-
-void eigmode_sett::print_settings (void)
+void eigmode_sett::print_settings()
 {
 fprintf(stdout, "\nCheck for eigmode settings below:\n");
 
@@ -137,5 +39,3 @@ for (k=0; k<Nguess; k++)
 
 fprintf(stdout, "\n");
 }
-
-/*****************************************************************************/

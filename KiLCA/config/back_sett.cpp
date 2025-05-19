@@ -1,11 +1,4 @@
-/*! \file back_sett.cpp
-    \brief The implementation of back_sett class.
-*/
-
 #include "back_sett.h"
-
-#include "constants.h"
-#include "inout.h"
 
 #include <climits>
 #include <cmath>
@@ -14,75 +7,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-/*-----------------------------------------------------------------*/
-
-void back_sett::read_settings (char *path)
-{
-char *file_set = new char[1024];
-
-sprintf (file_set, "%s/background.in", path);
-
-FILE *in;
-
-if ((in=fopen (file_set, "r"))==NULL)
-{
-    fprintf(stderr, "\nerror: read_background_settings: failed to open file %s\a\n", file_set);
-    exit(0);
-}
-
-//reading: check for consistence with file!
-char *str_buf = new char[1024]; //str buffer
-
-//Machine settings:
-read_line_2skip_it (in, &str_buf);
-read_line_2get_double (in, &(rtor));
-read_line_2get_double (in, &(rp));
-read_line_2get_double (in, &(B0));
-read_line_2skip_it (in, &str_buf);
-
-//Backround field and plasma settings:
-read_line_2skip_it (in, &str_buf);
-path2profiles = new char[1024];
-read_line_2get_string (in, &(path2profiles));
-read_line_2get_int (in, &(calc_back));
-flag_back = new char[8];
-read_line_2get_string (in, &(flag_back));
-read_line_2get_int (in, &(N));
-read_line_2get_double (in, &(V_gal_sys));
-read_line_2get_double (in, &(V_scale));
-read_line_2get_double (in, &(m_i));
-read_line_2get_double (in, &(zele));
-read_line_2get_double (in, &(zion));
-read_line_2skip_it (in, &str_buf);
-
-//Checkings setting:
-read_line_2skip_it (in, &str_buf);
-read_line_2get_int (in, &(flag_debug));
-read_line_2skip_it (in, &str_buf);
-
-fclose (in);
-
-delete [] str_buf;
-delete [] file_set;
-
-//Particles settings:
-mass = new double[2];
-charge = new double[2];
-
-mass[0] = (m_i)*m_p;    /*ions mass*/
-mass[1] = m_e;              /*electrons mass*/
-
-charge[0] = e;  //ions charge
-charge[1] = -e; //electrons charge
-
-huge_factor = 1.0e20;
-
-if (flag_debug) print_settings ();
-}
-
-/*-----------------------------------------------------------------*/
-
-void back_sett::print_settings (void)
+void back_sett::print_settings()
 {
 fprintf(stdout, "\nCheck for background parameters below:\n");
 

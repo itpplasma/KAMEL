@@ -77,33 +77,24 @@ mda = 0;
 
 /*******************************************************************/
 
-void core_data::calc_and_set_mode_independent_core_data (void)
-{
-sd = new settings_t (path2project);
+void core_data::calc_and_set_mode_independent_core_data() {
+  sd = new settings_t{path2project};
+  set_settings_in_core_module_(&sd);
 
-set_settings_in_core_module_ (&sd);
+  bp = new background(sd);
+  set_background_in_core_module_(&bp);
 
-sd->read_settings ();
-
-bp = new background (sd);
-
-set_background_in_core_module_ (&bp);
-
-//loads and splines initial background profiles, computes equilibrium magnetic field,
-//currents, f0 parameters and other stuff:
-if (sd->bs->calc_back > 0)
-{
-    bp->set_background_profiles_from_files ();
-}
-else if(sd->bs->calc_back < 0)
-{
-    bp->set_background_profiles_from_interface ();
-}
-else
-{
-    fprintf (stderr, "\nwarning: calc_and_set_mode_independent_core_data: unknown flag in background.in!\n");
+  // loads and splines initial background profiles, computes equilibrium
+  // magnetic field, currents, f0 parameters and other stuff:
+  if (sd->bs->calc_back > 0) {
+    bp->set_background_profiles_from_files();
+  } else if (sd->bs->calc_back < 0) {
+    bp->set_background_profiles_from_interface();
+  } else {
+    fprintf(stderr, "\nwarning: calc_and_set_mode_independent_core_data: "
+                    "unknown flag in background.in!\n");
     exit(1);
-}
+  }
 }
 
 /*******************************************************************/

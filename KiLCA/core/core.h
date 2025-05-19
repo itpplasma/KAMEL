@@ -36,7 +36,7 @@ public:
 
     void delete_modes_array (void);
 
-    void calc_and_set_mode_independent_core_data (void);
+    void calc_and_set_mode_independent_core_data();
 
     void calc_and_set_mode_dependent_core_data_antenna (void);
 

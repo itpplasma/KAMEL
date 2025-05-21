@@ -14,7 +14,7 @@ settings_t::settings_t(char *path) {
   es = new eigmode_sett;
   es->fstart = new std::complex<double>[100];
 
-  as = new antenna;
+  as = new antenna_sett;
   os = new output_sett;
 
   read_namelist(

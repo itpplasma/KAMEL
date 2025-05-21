@@ -1,18 +1,16 @@
-/*! \file antenna.cpp
-    \brief The implementation of antenna class.
-*/
+#include "antenna_sett.h"
 
-#include <stdlib.h>
-#include <stdio.h>
+#include "inout.h"
+
 #include <cmath>
 #include <cstring>
+#include <stdio.h>
+#include <stdlib.h>
 
-#include "antenna.h"
-#include "inout.h"
 
 /*-----------------------------------------------------------------*/
 
-void antenna::read_settings (char *path)
+void antenna_sett::read_settings (char *path)
 {
 /*! \fn read_settings (char *path)
     \brief
@@ -82,7 +80,7 @@ if (flag_debug) print_settings ();
 
 /*-----------------------------------------------------------------*/
 
-void antenna::print_settings (void)
+void antenna_sett::print_settings (void)
 {
 fprintf(stdout, "\nCheck for antenna parameters below:\n");
 
@@ -108,7 +106,7 @@ fprintf(stdout, "\n");
 
 /*-----------------------------------------------------------------*/
 
-void set_antenna_settings_c_ (antenna **ptr, double *ra, double *wa, double *I0, double *flab_re, double *flab_im, int *dma, int *flag_debug)
+void set_antenna_settings_c_ (antenna_sett **ptr, double *ra, double *wa, double *I0, double *flab_re, double *flab_im, int *dma, int *flag_debug)
 {
 /*! \fn set_antenna_settings_c_ (antenna **ptr, double *ra, double *wa, double *I0, double *flab_re, double *flab_im, int *dma, int *flag_debug)
     \brief The function copies class variables to the parameters which are in fact members of the antenna module. The parameter ptr is an address of an address of the antenna object passed.
@@ -116,7 +114,7 @@ void set_antenna_settings_c_ (antenna **ptr, double *ra, double *wa, double *I0,
     \param
 */
 
-antenna *ap = *ptr;
+antenna_sett *ap = *ptr;
 
 *ra = ap->ra;
 *wa = ap->wa;

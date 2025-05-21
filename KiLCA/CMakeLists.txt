@@ -91,10 +91,10 @@ include_directories(
 )
 
 set(cpp_sources
-    antenna/antenna.cpp
     background/background.cpp
     background/calc_back.cpp
     background/eval_back.cpp
+    config/antenna_sett.cpp
     config/back_sett.cpp
     config/eigmode_sett.cpp
     config/settings.cpp

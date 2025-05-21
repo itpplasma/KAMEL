@@ -5,6 +5,7 @@ subroutine read_namelist( &
     zele, zion, & ! background
     fname_C, search_flag, rdim, rfmin, rfmax, idim, ifmin, ifmax, stop_flag, eps_res, &
     eps_abs, eps_rel, delta, test_roots, Nguess, kmin, kmax, fstart_C, & ! eigmode
+    ra, wa, I0, flab, dma, modes_C, flag_eigmode, & ! antenna
     flag_debug) bind(C, name="read_namelist")
 
     use, intrinsic :: iso_c_binding, only: c_int, c_double, c_char, c_null_char, &
@@ -50,6 +51,13 @@ subroutine read_namelist( &
     integer(kind=c_int), intent(out) :: Nguess, kmin, kmax
     complex(kind=c_double_complex), intent(out) :: fstart_C(*)
 
+    ! --- antenna ---
+    real(kind=c_double), intent(out) :: ra, wa, I0
+    complex(kind=c_double_complex), intent(out) :: flab
+    integer(kind=c_int), intent(out) :: dma
+    integer(kind=c_int), intent(out) :: modes_C(*)
+    logical(kind=c_bool), intent(out) :: flag_eigmode
+
     ! --- debuggroup ---
     logical(kind=c_bool), intent(out) :: flag_debug
 
@@ -60,6 +68,7 @@ subroutine read_namelist( &
     character(len=maxlen) :: path2profiles
     character(len=maxlen) :: fname
     complex(kind=c_double_complex), dimension(maxsize) :: fstart
+    integer(kind=c_int), dimension(maxsize) :: modes
     integer :: unit, i, strlen
 
     namelist /background/ rtor, rp, B0, path2profiles, calc_back, flag_back, &
@@ -67,12 +76,14 @@ subroutine read_namelist( &
     namelist /eigmode/ fname, search_flag, rdim, rfmin, rfmax, idim, ifmin, ifmax, &
                        stop_flag, eps_res, eps_abs, eps_rel, delta, test_roots, &
                        Nguess, kmin, kmax, fstart
+    namelist /antenna/ ra, wa, I0, flab, dma, modes, flag_eigmode
     namelist /debuggroup/ flag_debug
 
     unit = 10
     open (unit, file="kilca_config.nml", status="old")
     read (unit, nml=background)
     read (unit, nml=eigmode)
+    read (unit, nml=antenna)
     read (unit, nml=debuggroup)
     close (unit)
 
@@ -89,9 +100,13 @@ subroutine read_namelist( &
     end do
     fname_C(strlen + 1) = c_null_char
 
-    ! Copy the complex array to the output variable
+    ! Copy the arrays to the output variables
     do i = 1, maxsize
       fstart_C(i) = fstart(i)
+    end do
+
+    do i = 1, maxsize
+      modes_C(i) = modes(i)
     end do
 
 end subroutine read_namelist

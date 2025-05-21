@@ -40,6 +40,15 @@ int main() {
     int kmax;
     std::vector<std::complex<double>> fstart(100);
 
+    // antenna
+    double ra;
+    double wa;
+    double I0;
+    std::complex<double> flab;
+    int dma;
+    bool flag_eigmode;
+    std::vector<int> modes(200);
+
     // debuggroup
     bool flag_debug;
 
@@ -48,12 +57,14 @@ int main() {
                   fname_buffer, &search_flag, &rdim, &rfmin, &rfmax, &idim, &ifmin, &ifmax,
                   &stop_flag, &eps_res, &eps_abs, &eps_rel, &delta, &test_roots, &Nguess,
                   &kmin, &kmax, fstart.data(),
+                  &ra, &wa, &I0, &flab, &dma, modes.data(), &flag_eigmode,
                   &flag_debug);
 
     // convert buffers
     std::string path2profiles{path2profiles_buffer};
     std::string fname{fname_buffer};
     fstart.resize(Nguess);
+    modes.resize(2 * dma);
 
     std::cout << "rtor: " << rtor
               << ", rp: " << rp
@@ -88,6 +99,19 @@ int main() {
     for (size_t i = 0; i < fstart.size(); ++i) {
         std::cout << fstart[i];
         if (i < fstart.size() - 1) {
+            std::cout << ", ";
+        }
+    }
+    std::cout << "]"
+                << ", ra: " << ra
+                << ", wa: " << wa
+                << ", I0: " << I0
+                << ", flab: " << flab
+                << ", dma: " << dma
+                << ", modes: [";
+    for (size_t i = 0; i < modes.size(); ++i) {
+        std::cout << modes[i];
+        if (i < modes.size() - 1) {
             std::cout << ", ";
         }
     }
@@ -132,6 +156,15 @@ int main() {
         assert(approx(fstart[i].real(), 0.0));
         assert(approx(fstart[i].imag(), imag));
     }
+
+    assert(approx(ra, 70.0));
+    assert(approx(wa, 0.0));
+    assert(approx(I0, 1e13));
+    assert(approx(flab.real(), 1.0));
+    assert(approx(flab.imag(), 0.0));
+    assert(dma == 1);
+    assert(modes[0] == 5);
+    assert(modes[1] == 2);
 
     assert(flag_debug == false);
 

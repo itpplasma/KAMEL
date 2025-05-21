@@ -50,6 +50,16 @@
     fstart = (0,1e2), (0,1e3), (0,1e4), (0,1e5), (0,1e6), (0,1e7), (0,1e8) ! starting points array - max 100 entries!
 &end
 
+&antenna
+    ra = 70 ! small radius (cm) of antenna location (must match to zones.in)
+    wa = 0 ! current density layer width; if == 0 then use delta function
+    I0 = 1e13 ! current in the coils (statamp): default=4.5e12 (1.5 kA)
+    flab = (1,0) ! complex frequency (1/c) in the laboratory frame: default=(1.0e3, 0.0e0)
+    dma = 1 ! number of antenna modes to be used
+    modes = 5,2, 6,2, 7,2 ! (m - poloidal, n - toroidal), max 100 pairs!
+    flag_eigmode = .false. ! flag whether to solve an eigenmode problem
+&end
+
 &debuggroup
     flag_debug = .false. ! flag for debugging
 &end

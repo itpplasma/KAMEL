@@ -11,6 +11,8 @@ void read_namelist(double *rtor, double *rp, double *B0, char *path2profiles, in
                    int *idim, double *ifmin, double *ifmax, bool *stop_flag, double *eps_res,
                    double *eps_abs, double *eps_rel, double *delta, bool *test_roots, int *Nguess,
                    int *kmin, int *kmax, std::complex<double> *fstart,
+                   double *ra, double *wa, double *I0, std::complex<double> *flab, int *dma,
+                   int *modes, bool *flag_eigmode,
                    bool *flag_debug);
 
 void read_namelist_unit_test(int *a, double *b, char *c, char *d, int *e, std::complex<double> *f);

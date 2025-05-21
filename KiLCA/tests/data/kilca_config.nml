@@ -62,4 +62,5 @@
 
 &debuggroup
     flag_debug = .false. ! flag for debugging
+    print_content_of_this_file = .false.
 &end

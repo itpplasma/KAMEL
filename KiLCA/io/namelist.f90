@@ -63,6 +63,7 @@ subroutine read_namelist( &
 
 
     ! --- INTERNAL VARIABLES ---
+    logical :: print_content_of_this_file
     integer, parameter :: maxlen = 256 ! for strings
     integer, parameter :: maxsize = 100 ! for arrays
     character(len=maxlen) :: path2profiles
@@ -77,7 +78,7 @@ subroutine read_namelist( &
                        stop_flag, eps_res, eps_abs, eps_rel, delta, test_roots, &
                        Nguess, kmin, kmax, fstart
     namelist /antenna/ ra, wa, I0, flab, dma, modes, flag_eigmode
-    namelist /debuggroup/ flag_debug
+    namelist /debuggroup/ flag_debug, print_content_of_this_file
 
     unit = 10
     open (unit, file="kilca_config.nml", status="old")
@@ -86,6 +87,16 @@ subroutine read_namelist( &
     read (unit, nml=antenna)
     read (unit, nml=debuggroup)
     close (unit)
+
+    if (print_content_of_this_file) then
+      write(*,*) "Content of the namelist file:"
+      write(*,*) "--------------------------------------------------------------------"
+      write(*, nml=background)
+      write(*, nml=eigmode)
+      write(*, nml=antenna)
+      write(*, nml=debuggroup)
+      write(*,*) "--------------------------------------------------------------------"
+    end if
 
     ! Copy the string buffers to the output variables
     strlen = min(len_trim(path2profiles), maxlen - 1)

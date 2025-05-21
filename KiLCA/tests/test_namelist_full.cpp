@@ -107,6 +107,32 @@ int main() {
     assert(approx(m_i, 2.0));
     assert(approx(zele, 1.0));
     assert(approx(zion, 1.0));
+
+    assert(fname == "roots.dat");
+    assert(search_flag == true);
+    assert(rdim == 1);
+    assert(approx(rfmin, 0.0));
+    assert(approx(rfmax, 1e6));
+    assert(idim == 100);
+    assert(approx(ifmin, 0.0));
+    assert(approx(ifmax, 21e4));
+    assert(stop_flag == true);
+    assert(approx(eps_res, 1e-14));
+    assert(approx(eps_abs, 1e-10));
+    assert(approx(eps_rel, 1e-10));
+    assert(approx(delta, 0.001));
+    assert(test_roots == false);
+    assert(Nguess == 4);
+    assert(kmin == 0);
+    assert(kmax == 3);
+
+    double imag = 10.0;
+    for (size_t i = 0; i < fstart.size(); ++i) {
+        imag *= 10.0;
+        assert(approx(fstart[i].real(), 0.0));
+        assert(approx(fstart[i].imag(), imag));
+    }
+
     assert(flag_debug == false);
 
     return 0;

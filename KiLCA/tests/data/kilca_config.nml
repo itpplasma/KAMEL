@@ -44,7 +44,7 @@
     test_roots = .false. ! true - test roots by contour integration, false - skip test
 
     ! Starting points indices for roots search
-    Nguess = 4 ! number of starting points
+    Nguess = 4 ! number of starting points to actually use
     kmin = 0 ! starting index (0-indexed)
     kmax = 3 ! ending index (0-indexed)
     fstart = (0,1e2), (0,1e3), (0,1e4), (0,1e5), (0,1e6), (0,1e7), (0,1e8) ! starting points array - max 100 entries!

@@ -10,7 +10,7 @@ real (dp) :: I0;       !current in antenna coils (statamp)
 complex (dpc) :: flab; !frequency (Hz) in the laboratory frame
 integer :: dma;        !dimension of modes array
 integer, dimension(:), allocatable :: modes; !array of modes (m,n)
-integer :: flag_debug; !debug flag
+logical :: flag_debug; !debug flag
 
 complex(dpc), dimension(2) :: Ja_cyl
 
@@ -32,7 +32,7 @@ flab = flab_re + im*flab_im;
 
 !array 'modes' is not set!
 
-if (flag_debug > 0) call print_antenna_module_data ();
+if (flag_debug) call print_antenna_module_data ();
 
 end subroutine
 

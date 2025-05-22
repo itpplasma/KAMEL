@@ -3,16 +3,19 @@
 #include "constants.h"
 #include "namelist.h"
 
+#include <cstdlib>
 #include <cstring>
 
 settings_t::settings_t(char *path) {
-  path2project = new char[256];
-  strncpy(path2project, path, 256);
+  using complx = std::complex<double>;
+
+  path2project = new char[1024];
+  strncpy(path2project, path, 1024);
 
   bs = new back_sett;
 
   es = new eigmode_sett;
-  es->fstart = new std::complex<double>[100];
+  es->fstart = static_cast<complx*>(malloc(100 * sizeof(complx)));
 
   as = new antenna_sett;
   os = new output_sett;
@@ -25,16 +28,22 @@ settings_t::settings_t(char *path) {
       &es->eps_abs, &es->eps_rel, &es->delta, &es->test_roots, &es->Nguess,
       &es->kmin, &es->kmax, es->fstart, &this->flag_debug);
 
+  // complete background settings
   bs->mass[0] = bs->m_i * m_p; // ions mass
+  bs->flag_debug = this->flag_debug;
 
   as->read_settings(path2project);
+  // complete eigmode settings
+  es->fstart = static_cast<complx*>(realloc(es->fstart, es->Nguess));
+  es->flag_debug = this->flag_debug;
+
   copy_antenna_data_to_antenna_module_(&as);
   copy_background_data_to_background_module_(&bs);
   os->read_settings(path2project);
 }
 
 settings_t::~settings_t() {
-  delete[] es->fstart;
+  free(es->fstart);
 
   delete as;
   delete bs;

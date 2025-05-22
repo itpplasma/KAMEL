@@ -18,6 +18,8 @@ settings_t::settings_t(char *path) {
   es->fstart = static_cast<complx*>(malloc(100 * sizeof(complx)));
 
   as = new antenna_sett;
+  as->modes = static_cast<int*>(malloc(200 * sizeof(int)));
+
   os = new output_sett;
 
   read_namelist(
@@ -26,16 +28,21 @@ settings_t::settings_t(char *path) {
       es->fname, &es->search_flag, &es->rdim, &es->rfmin, &es->rfmax,
       &es->idim, &es->ifmin, &es->ifmax, &es->stop_flag, &es->eps_res,
       &es->eps_abs, &es->eps_rel, &es->delta, &es->test_roots, &es->Nguess,
-      &es->kmin, &es->kmax, es->fstart, &this->flag_debug);
+      &es->kmin, &es->kmax, es->fstart,
+      &as->ra, &as->wa, &as->I0, &as->flab, &as->dma, as->modes, &as->flag_eigmode,
+      &this->flag_debug);
 
   // complete background settings
   bs->mass[0] = bs->m_i * m_p; // ions mass
   bs->flag_debug = this->flag_debug;
 
-  as->read_settings(path2project);
   // complete eigmode settings
   es->fstart = static_cast<complx*>(realloc(es->fstart, es->Nguess));
   es->flag_debug = this->flag_debug;
+
+  // complete antenna settings
+  as->modes = static_cast<int*>(realloc(as->modes, 2 * as->dma));
+  as->flag_debug = this->flag_debug;
 
   copy_antenna_data_to_antenna_module_(&as);
   copy_background_data_to_background_module_(&bs);
@@ -44,6 +51,7 @@ settings_t::settings_t(char *path) {
 
 settings_t::~settings_t() {
   free(es->fstart);
+  free(as->modes);
 
   delete as;
   delete bs;

@@ -1,5 +1,5 @@
 indent = 4
-line-length = 88
+line-length = 100
 whitespace-comma = true
 whitespace-assignment = true
 whitespace-decl = true

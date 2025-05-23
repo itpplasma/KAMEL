@@ -61,7 +61,7 @@ module electrostatic_integrals
 
         implicit none
 
-        class(int_F1_rho_phi_t), intent(in) :: int_F1
+        class(int_F1_rho_phi_t), intent(inout) :: int_F1
 
         type(gauss_config_t), intent(in) :: gauss_conf
         real(dp), intent(out) :: result

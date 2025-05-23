@@ -99,11 +99,11 @@ module electrostatic_kernel
 
         do sigma = 0, plasma%n_species - 1
             do j = 2, size(plasma%r_grid)-1
-                
+                int_point%j = j
+                int_point%rhoT = 0.5d0 * (plasma%spec(sigma)%rho_L(j) + plasma%spec(sigma)%rho_L(j+1))
+                int_F0%int_point = int_point
+
                 if (abs(l - lp) <= 1) then
-                    int_point%j = j
-                    int_point%rhoT = 0.5d0 * (plasma%spec(sigma)%rho_L(j) + plasma%spec(sigma)%rho_L(j+1))
-                    int_F0%int_point = int_point
                     call gauss_integrate_F0(int_F0, int_point%xlm1, int_point%xlp1, integral_val, gauss_conf)
                     kernel_phi_llp = kernel_phi_llp + integral_val * G0_rho_phi(j, plasma%spec(sigma)) 
                 end if

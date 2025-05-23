@@ -82,21 +82,31 @@ module electrostatic_integrands
 
         implicit none
 
-        class(int_F1_rho_phi_t), intent(in) :: this
+        class(int_F1_rho_phi_t), intent(inout) :: this
         real(dp), intent(in) :: x, xp, theta
         real(dp) :: val
         real(dp) :: ks_val
 
         ks_val = 0.5d0 * (plasma%ks(this%int_point%j) + plasma%ks(this%int_point%j+1))
+        this%int_point%a_coef = sqrt(1.0d0 / (1.0d0 + cos(theta))) / this%int_point%rhoT
+        this%int_point%b_coef = 0.5d0 * (xp - x)
+        call this%int_point%calc_Jrg1()
 
-        val = - sqrt(pi) / (sqrt(1.0d0 - cos(theta)) * this%int_point%rhoT) * exp(- ks_val**2.0d0 * this%int_point%rhoT**2.0d0) &
+        !val =- sqrt(pi) / (sqrt(1.0d0 - cos(theta)) * this%int_point%rhoT) * exp(- ks_val**2.0d0 * this%int_point%rhoT**2.0d0) &
+            !* varphi_l(xp, this%int_point%xlpm1, this%int_point%xlp, this%int_point%xlpp1) &
+            !* varphi_l(x, this%int_point%xlm1, this%int_point%xl, this%int_point%xlp1) &
+            !* exp(- (x+xp)**2.0d0 / (4.0d0 * this%int_point%rhoT**2.0d0 * (1.0d0 - cos(theta)))) &
+            !* (&
+            !    erf(0.5d0 * (xp - x) + rg_grid%xb(this%int_point%j+1))/(this%int_point%rhoT * sqrt(1.0d0 + cos(theta))) &
+            !    -erf(0.5d0 * (xp - x) + rg_grid%xb(this%int_point%j))/(this%int_point%rhoT * sqrt(1.0d0 + cos(theta))) &
+            !) 
+
+        val = 2.0d0 * pi / (this%int_point%rhoT**2.0d0 * sin(theta))&!- sqrt(pi) / (sqrt(1.0d0 - cos(theta)) * this%int_point%rhoT) &
+            * exp(- ks_val**2.0d0 * this%int_point%rhoT**2.0d0) &
             * varphi_l(xp, this%int_point%xlpm1, this%int_point%xlp, this%int_point%xlpp1) &
             * varphi_l(x, this%int_point%xlm1, this%int_point%xl, this%int_point%xlp1) &
             * exp(- (x+xp)**2.0d0 / (4.0d0 * this%int_point%rhoT**2.0d0 * (1.0d0 - cos(theta)))) &
-            * (&
-                erf(0.5d0 * (xp - x) + rg_grid%xb(this%int_point%j+1))/(this%int_point%rhoT * sqrt(1.0d0 + cos(theta))) &
-                -erf(0.5d0 * (xp - x) + rg_grid%xb(this%int_point%j))/(this%int_point%rhoT * sqrt(1.0d0 + cos(theta))) &
-            ) 
+            * this%int_point%Jrg1
 
     end function
 

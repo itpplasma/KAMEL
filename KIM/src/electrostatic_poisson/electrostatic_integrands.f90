@@ -32,19 +32,13 @@ module electrostatic_integrands
     end type
 
     type :: int_F2_rho_phi_t
-        real(dp) :: rhoT
-        integer :: j
-        real(dp) :: xlm1, xlp1, xl
-        real(dp) :: xlpm1, xlpp1, xlp
+        type(integration_point_t) :: int_point
         contains
             procedure :: f => integrand_F2_rho_phi
     end type
 
     type :: int_F3_rho_phi_t
-        real(dp) :: rhoT
-        integer :: j
-        real(dp) :: xlm1, xlp1, xl
-        real(dp) :: xlpm1, xlpp1, xlp
+        type(integration_point_t) :: int_point
         contains
             procedure :: f => integrand_F3_rho_phi
     end type
@@ -94,6 +88,7 @@ module electrostatic_integrands
         ks_val = 0.5d0 * (plasma%ks(this%int_point%j) + plasma%ks(this%int_point%j+1))
         this%int_point%a_coef = sqrt(1.0d0 / (1.0d0 + cos(theta))) / this%int_point%rhoT
         this%int_point%b_coef = 0.5d0 * (xp - x)
+
         call this%int_point%calc_Jrg1()
 
         val = varphi_l(xp, this%int_point%xlpm1, this%int_point%xlp, this%int_point%xlpp1) &
@@ -117,14 +112,34 @@ module electrostatic_integrands
 
         implicit none
 
-        class(int_F2_rho_phi_t), intent(in) :: this
+        class(int_F2_rho_phi_t), intent(inout) :: this
         real(dp), intent(in) :: x, xp, theta
         real(dp) :: val
         real(dp) :: ks_val
 
-        ks_val = 0.5d0 * (plasma%ks(this%j) + plasma%ks(this%j+1))
+        ks_val = 0.5d0 * (plasma%ks(this%int_point%j) + plasma%ks(this%int_point%j+1))
+        this%int_point%a_coef = sqrt(1.0d0 / (1.0d0 + cos(theta))) / this%int_point%rhoT
+        this%int_point%b_coef = 0.5d0 * (xp - x)
+        
+        call this%int_point%calc_Jrg1()
+        call this%int_point%calc_Jrg2()
+        call this%int_point%calc_Jrg3()
+        call this%int_point%calc_Jrg4()
 
-        val = 0.0d0
+        val = varphi_l(xp, this%int_point%xlpm1, this%int_point%xlp, this%int_point%xlpp1) &
+            * varphi_l(x, this%int_point%xlm1, this%int_point%xl, this%int_point%xlp1) &
+            * pi / (4.0d0 * this%int_point%rhoT**4.0d0 * sin(theta)**5.0d0) &
+            * exp(- ks_val**2.0d0 * this%int_point%rhoT**2.0d0 &
+                  - (x + xp)**2.0d0 / (4.0d0 * this%int_point%rhoT**2.0d0 * (1.0d0 - cos(theta)))) & 
+            * ( &
+                this%int_point%Jrg1 * (&
+                    4.0d0 * cos(2.0d0 * theta) * this%int_point%rhoT**2.0d0 *(ks_val**2.0d0 * this%int_point%rhoT**2.0d0 + 1.0d0) &
+                    - ks_val**2.0d0 * this%int_point%rhoT**4.0d0 * cos(4.0d0 * theta)  &
+                    - this%int_point%rhoT**2.0d0 * (3.0d0 * ks_val**2.0d0 * this%int_point%rhoT**2.0d0 + 4.0d0) &
+                ) &
+                + (2.0d0 * cos(2.0d0 * theta) + 6) * (this%int_point%Jrg2 + this%int_point%Jrg3) &
+                + 16.0d0 * cos(theta) * this%int_point%Jrg4 &
+            )
 
     end function
 
@@ -140,12 +155,12 @@ module electrostatic_integrands
 
         implicit none
 
-        class(int_F3_rho_phi_t), intent(in) :: this
+        class(int_F3_rho_phi_t), intent(inout) :: this
         real(dp), intent(in) :: x, xp, theta
         real(dp) :: val
         real(dp) :: ks_val
 
-        ks_val = 0.5d0 * (plasma%ks(this%j) + plasma%ks(this%j+1))
+        ks_val = 0.5d0 * (plasma%ks(this%int_point%j) + plasma%ks(this%int_point%j+1))
 
         val = 0.0d0
 
@@ -175,12 +190,11 @@ module electrostatic_integrands
 
         class(integration_point_t), intent(inout) :: this
 
-        this%Jrg2 = - sqrt(pi) / (4.0d0 * this%a_coef**3.0d0) &
+        this%Jrg2 = 1.0d0 / (4.0d0 * this%a_coef**3.0d0) &
                     * ( &
-                        (2.0d0 * this%a_coef**2.0d0 * (this%b_coef + this%xl)**2.0d0 + 1.0d0) &
-                            * erf(this%a_coef * (this%b_coef + rg_grid%xb(this%j))) &
-                        + sqrt(pi) * (2.0d0 * this%a_coef**2.0d0 * (this%b_coef + this%xl)**2.0d0 + 1.0d0) &
-                            * erf(this%a_coef * (this%b_coef + rg_grid%xb(this%j+1))) &
+                        sqrt(pi) * (2.0d0 * this%a_coef**2.0d0 * (this%b_coef + this%xl)**2.0d0 + 1.0d0) &
+                            * (erf(this%a_coef * (this%b_coef + rg_grid%xb(this%j+1))) &
+                                - erf(this%a_coef * (this%b_coef + rg_grid%xb(this%j)))) &
                         - 2.0d0 * this%a_coef * exp(-this%a_coef**2.0d0 * (this%b_coef + rg_grid%xb(this%j))**2.0d0) &
                             * (this%b_coef - rg_grid%xb(this%j) + 2.0d0 * this%xl) &
                         + 2.0d0 * this%a_coef * exp(-this%a_coef**2.0d0 * (this%b_coef + rg_grid%xb(this%j+1))**2.0d0) &
@@ -199,12 +213,11 @@ module electrostatic_integrands
 
         class(integration_point_t), intent(inout) :: this
 
-        this%Jrg3 = - sqrt(pi) / (4.0d0 * this%a_coef**3.0d0) &
+        this%Jrg3 = 1.0d0 / (4.0d0 * this%a_coef**3.0d0) &
                     * ( &
-                        (2.0d0 * this%a_coef**2.0d0 * (this%b_coef - this%xlp)**2.0d0 + 1.0d0) &
-                            * erf(this%a_coef * (this%b_coef + rg_grid%xb(this%j))) &
-                        + sqrt(pi) * (2.0d0 * this%a_coef**2.0d0 * (this%b_coef - this%xlp)**2.0d0 + 1.0d0) &
-                            * erf(this%a_coef * (this%b_coef + rg_grid%xb(this%j+1))) &
+                        sqrt(pi) * (2.0d0 * this%a_coef**2.0d0 * (this%b_coef - this%xlp)**2.0d0 + 1.0d0) &
+                            * (erf(this%a_coef * (this%b_coef + rg_grid%xb(this%j+1))) &
+                                - erf(this%a_coef * (this%b_coef + rg_grid%xb(this%j)))) &
                         - 2.0d0 * this%a_coef * exp(-this%a_coef**2.0d0 * (this%b_coef + rg_grid%xb(this%j))**2.0d0) &
                             * (this%b_coef - rg_grid%xb(this%j) - 2.0d0 * this%xlp) &
                         + 2.0d0 * this%a_coef * exp(-this%a_coef**2.0d0 * (this%b_coef + rg_grid%xb(this%j+1))**2.0d0) &
@@ -222,12 +235,15 @@ module electrostatic_integrands
 
         class(integration_point_t), intent(inout) :: this
 
-        this%Jrg4 = - sqrt(pi) / (4.0d0 * this%a_coef**3.0d0) &
+        this%Jrg4 = 1.0d0 / (4.0d0 * this%a_coef**3.0d0) &
                     * ( &
-                        erf(this%a_coef * (this%b_coef + rg_grid%xb(this%j))) &
-                            * (-2.0d0 * this%a_coef**2.0d0 * (this%b_coef + this%xl)*(this%b_coef - this%xlp)-1.0d0) &
-                        + sqrt(pi) * erf(this%a_coef * (this%b_coef + rg_grid%xb(this%j+1))) &
-                            * (-2.0d0 * this%a_coef**2.0d0 * (this%b_coef + this%xl)*(this%b_coef - this%xlp)-1.0d0) &
+                        (erf(this%a_coef * (this%b_coef + rg_grid%xb(this%j+1))) &
+                            - erf(this%a_coef * (this%b_coef + rg_grid%xb(this%j)))) &
+                            * sqrt(pi) * (-2.0d0 * this%a_coef**2.0d0 * (this%b_coef + this%xl)*(this%b_coef - this%xlp)-1.0d0) &
+                        + 2.0d0 * this%a_coef * exp(-this%a_coef**2.0d0 * (this%b_coef + rg_grid%xb(this%j))**2.0d0) &
+                            * (this%b_coef - rg_grid%xb(this%j) + this%xl - this%xlp) &
+                        + 2.0d0 * this%a_coef * exp(-this%a_coef**2.0d0 * (this%b_coef + rg_grid%xb(this%j+1))**2.0d0) &
+                            * (-this%b_coef + rg_grid%xb(this%j+1) - this%xl + this%xlp) &
                     )
 
     end subroutine

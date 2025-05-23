@@ -73,11 +73,14 @@ module electrostatic_kernel
 
         use KIM_kinds, only: dp
         use gsl_mod, only: erf => gsl_sf_erf
-        use electrostatic_integrals, only: gauss_integrate_F0, gauss_integrate_F1, gauss_config_t
+        use electrostatic_integrals, only: gauss_integrate_F0, gauss_integrate_F1, gauss_integrate_F2, gauss_integrate_F3,&
+            gauss_config_t
         use species, only: plasma
         use constants, only: pi, sol, com_unit
-        use electrostatic_integrands, only: int_F0_rho_phi_t, int_F1_rho_phi_t, integration_point_t
-        use kernel_plasma_prefacs, only: G1_rho_phi, G1_rho_B, G2_rho_B, G0_rho_phi, kappa_rho_phi, kappa_rho_B
+        use electrostatic_integrands, only: int_F0_rho_phi_t, int_F1_rho_phi_t, int_F2_rho_phi_t, int_F3_rho_phi_t, &
+            integration_point_t
+        use kernel_plasma_prefacs, only: G1_rho_phi, G1_rho_B, G2_rho_B, G3_rho_B, G0_rho_phi, G2_rho_phi, G3_rho_phi, &
+            kappa_rho_phi, kappa_rho_B
         use config, only: artificial_debye_case
         
         implicit none
@@ -91,6 +94,8 @@ module electrostatic_kernel
         type(integration_point_t) :: int_point
         type(int_F0_rho_phi_t) :: int_F0
         type(int_F1_rho_phi_t) :: int_F1
+        type(int_F2_rho_phi_t) :: int_F2
+        type(int_F3_rho_phi_t) :: int_F3
         
         kernel_phi_llp = 0.0d0
         kernel_B_llp = 0.0d0
@@ -109,13 +114,25 @@ module electrostatic_kernel
                                     + integral_val * G0_rho_phi(j, plasma%spec(sigma)) * kappa_rho_phi(j, plasma%spec(sigma))
                 end if
 
-                int_F1%int_point = int_point
-
                 if (.not. artificial_debye_case) then
+                    int_F1%int_point = int_point
+                    int_F2%int_point = int_point
+                    int_F3%int_point = int_point
+
                     call gauss_integrate_F1(int_F1, integral_val, gauss_conf)
                     kernel_phi_llp = kernel_phi_llp &
                                     + integral_val * G1_rho_phi(j, plasma%spec(sigma)) * kappa_rho_phi(j, plasma%spec(sigma))
                     kernel_B_llp = kernel_B_llp + integral_val * G1_rho_B(j, plasma%spec(sigma)) * kappa_rho_B(j, plasma%spec(sigma))
+
+                    call gauss_integrate_F2(int_F2, integral_val, gauss_conf)
+                    kernel_phi_llp = kernel_phi_llp &
+                                    + integral_val * G2_rho_phi(j, plasma%spec(sigma)) * kappa_rho_phi(j, plasma%spec(sigma))
+                    kernel_B_llp = kernel_B_llp + integral_val * G2_rho_B(j, plasma%spec(sigma)) * kappa_rho_B(j, plasma%spec(sigma))
+
+                    call gauss_integrate_F3(int_F3, integral_val, gauss_conf)
+                    kernel_phi_llp = kernel_phi_llp &
+                                    + integral_val * G3_rho_phi(j, plasma%spec(sigma)) * kappa_rho_phi(j, plasma%spec(sigma))
+                    kernel_B_llp = kernel_B_llp + integral_val * G3_rho_B(j, plasma%spec(sigma)) * kappa_rho_B(j, plasma%spec(sigma))
                 end if
                 
             end do

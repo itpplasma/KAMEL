@@ -67,7 +67,8 @@ module electrostatic_integrands
             * (&
                 erf((x - rg_grid%xb(this%int_point%j))/(sqrt(2.0d0) * this%int_point%rhoT)) &
                 - erf((x - rg_grid%xb(this%int_point%j+1))/(sqrt(2.0d0) * this%int_point%rhoT))&
-            )
+            ) &
+            * 2.0d0 * pi**2.0d0
 
     end function
 

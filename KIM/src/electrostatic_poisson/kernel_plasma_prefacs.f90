@@ -53,8 +53,7 @@ module kernel_plasma_prefacs
         type(species_t), intent(in) :: spec
         real(dp) :: val
 
-        val = -2.0d0 * pi**2.0d0  !/ sqrt(2.0d0)
-        val = val * kappa_rho_phi(j, spec)
+        val = -1.0d0 
 
     end function
 
@@ -79,11 +78,10 @@ module kernel_plasma_prefacs
         z0 = 0.5d0 * (spec%z0(j) + spec%z0(j+1))
         rhoT = 0.5d0 * (spec%rho_L(j) + spec%rho_L(j+1))
 
-        val = ks_val * rhoT /(lambda**2.0d0 * abs(kpar) * sqrt(2.0d0)) &
+        val = ks_val * rhoT /(abs(kpar) * sqrt(2.0d0)) &
             * (&
                 A1 * plasma_Z(z0) + A2 * plasma_Z(z0) * (1.0d0 + z0**2.0d0) + z0 * A2 &
             )
-        val = val * kappa_rho_phi(j, spec)
 
     end function
 
@@ -160,7 +158,6 @@ module kernel_plasma_prefacs
             (&
                 0.5d0 + (z0 * plasma_Z(z0) + 1.0d0) * (1.0d0 + z0**2.0d0) &
             )
-        val = val * kappa_rho_B(j, spec)
 
     end function
 

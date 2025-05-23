@@ -77,7 +77,7 @@ module electrostatic_kernel
         use species, only: plasma
         use constants, only: pi, sol, com_unit
         use electrostatic_integrands, only: int_F0_rho_phi_t, int_F1_rho_phi_t, integration_point_t
-        use kernel_plasma_prefacs, only: G1_rho_phi, G1_rho_B, G2_rho_B, G0_rho_phi, kappa_rho_phi
+        use kernel_plasma_prefacs, only: G1_rho_phi, G1_rho_B, G2_rho_B, G0_rho_phi, kappa_rho_phi, kappa_rho_B
         use config, only: artificial_debye_case
         
         implicit none
@@ -105,15 +105,17 @@ module electrostatic_kernel
 
                 if (abs(l - lp) <= 1) then
                     call gauss_integrate_F0(int_F0, int_point%xlm1, int_point%xlp1, integral_val, gauss_conf)
-                    kernel_phi_llp = kernel_phi_llp + integral_val * G0_rho_phi(j, plasma%spec(sigma)) 
+                    kernel_phi_llp = kernel_phi_llp &
+                                    + integral_val * G0_rho_phi(j, plasma%spec(sigma)) * kappa_rho_phi(j, plasma%spec(sigma))
                 end if
 
                 int_F1%int_point = int_point
 
                 if (.not. artificial_debye_case) then
                     call gauss_integrate_F1(int_F1, integral_val, gauss_conf)
-                    kernel_phi_llp = kernel_phi_llp - integral_val * G1_rho_phi(j, plasma%spec(sigma))
-                    kernel_B_llp = kernel_B_llp - integral_val * G1_rho_B(j, plasma%spec(sigma))
+                    kernel_phi_llp = kernel_phi_llp &
+                                    + integral_val * G1_rho_phi(j, plasma%spec(sigma)) * kappa_rho_phi(j, plasma%spec(sigma))
+                    kernel_B_llp = kernel_B_llp + integral_val * G1_rho_B(j, plasma%spec(sigma)) * kappa_rho_B(j, plasma%spec(sigma))
                 end if
                 
             end do

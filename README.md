@@ -4,16 +4,7 @@ This repository contains the kinetic plasma response framework containing the li
 Note, when using the template scripts, make sure to change the code, most importantly the paths, according to your project before using it.
 
 ## Compilation
-For compilation of the codes use in the repositories root directory either
-```
-make all
-```
-to compile all three codes (QL-Balance needs a compiled version of KiLCA in any case), or 
-```
-make $CODE_NAME
-```
-to compile each code individually. Each specific code directory comes also with its own Makefile.
-
+For compilation of the codes invoke `make` in this directory.  
 Generally, for Apple Silicon the clang/gfortran (version 16.0 and 14.2., respectively) compiler combination is tested. On debian, the gnu compiler version 12.2.0 is tested.
 
 ## Codes

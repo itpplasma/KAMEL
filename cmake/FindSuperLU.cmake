@@ -79,7 +79,7 @@ endif()
 cmake_pop_check_state()
 
 if(SuperLU_FIND_VERSION)
-  if(${SUPERLU_VERSION_VAR} VERSION_LESS ${SuperLU_FIND_VERSION})
+  if(${SUPERLU_VERSION_VAR} VERSION_LESS ${SuperLu_FIND_VERSION})
     set(SUPERLU_VERSION_OK FALSE)
   else()
     set(SUPERLU_VERSION_OK TRUE)
@@ -90,9 +90,21 @@ endif()
 
 endif()
 
-include(FindPackageHandleStandardArgs)
-find_package_handle_standard_args(SUPERLU
-                                  REQUIRED_VARS SUPERLU_INCLUDES SUPERLU_LIBRARIES SUPERLU_VERSION_OK
-                                  VERSION_VAR SUPERLU_VERSION_VAR)
+# After determining VERSION_OK and VERSION_VAR, map to camel-case names
+set(SuperLU_INCLUDES ${SUPERLU_INCLUDES})
+set(SuperLU_LIBRARIES ${SUPERLU_LIBRARIES})
+set(SuperLU_VERSION_VAR ${SUPERLU_VERSION_VAR})
+set(SuperLU_VERSION_OK ${SUPERLU_VERSION_OK})
 
-mark_as_advanced(SUPERLU_INCLUDES SUPERLU_LIBRARIES)
+include(FindPackageHandleStandardArgs)
+find_package_handle_standard_args(SuperLU
+                                  REQUIRED_VARS SuperLU_INCLUDES SuperLU_LIBRARIES SuperLU_VERSION_OK
+                                  VERSION_VAR SuperLU_VERSION_VAR)
+
+# Mark advanced variables for SuperLU
+mark_as_advanced(SuperLU_INCLUDES SuperLU_LIBRARIES)
+
+# Backwards compatibility: alias camel-case results back to uppercase variables
+set(SUPERLU_FOUND ${SuperLU_FOUND})
+set(SUPERLU_LIBRARIES ${SuperLU_LIBRARIES})
+set(SUPERLU_INCLUDES ${SuperLU_INCLUDES})

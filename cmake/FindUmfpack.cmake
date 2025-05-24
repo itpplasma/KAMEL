@@ -48,8 +48,17 @@ if(UMFPACK_LIBRARIES)
     endif()
 endif(UMFPACK_LIBRARIES)
 
-include(FindPackageHandleStandardArgs)
-find_package_handle_standard_args(UMFPACK DEFAULT_MSG
-    UMFPACK_INCLUDES UMFPACK_LIBRARIES)
+# Map UMFPACK_* variables to package-standard names
+set(Umfpack_INCLUDES ${UMFPACK_INCLUDES})
+set(Umfpack_LIBRARIES ${UMFPACK_LIBRARIES})
 
-mark_as_advanced(UMFPACK_INCLUDES UMFPACK_LIBRARIES AMD_LIBRARY COLAMD_LIBRARY CHOLMOD_LIBRARY SUITESPARSE_LIBRARY)
+include(FindPackageHandleStandardArgs)
+find_package_handle_standard_args(Umfpack DEFAULT_MSG
+    Umfpack_INCLUDES Umfpack_LIBRARIES)
+
+mark_as_advanced(Umfpack_INCLUDES Umfpack_LIBRARIES)
+
+# Backwards compatibility aliases for uppercase variables
+set(UMFPACK_FOUND ${Umfpack_FOUND})
+set(UMFPACK_LIBRARIES ${Umfpack_LIBRARIES})
+set(UMFPACK_INCLUDES ${Umfpack_INCLUDES})

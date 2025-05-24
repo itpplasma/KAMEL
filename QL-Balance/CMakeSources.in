@@ -1,4 +1,4 @@
-set(src ${PROJECT_SOURCE_DIR}/src)
+set(src ${CMAKE_CURRENT_LIST_DIR}/src)
 set(base_balance_src ${src}/base/)
 
 set(balance_lib_base_fortran_sources
@@ -56,6 +56,3 @@ set(balance_lib_cpp_sources
     ${base_balance_src}/vel_integral.cpp
     ${base_balance_src}/cvodeint.cpp
     )
-
-add_subdirectory(${src})
-add_subdirectory(${src}/test)

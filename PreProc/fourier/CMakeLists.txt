@@ -3,19 +3,6 @@ cmake_minimum_required(VERSION 3.24)
 project(fouriermodes)
 enable_language(Fortran)
 
-if(CMAKE_HOST_SYSTEM_NAME MATCHES "Darwin")
-    # macOS specific configurations or commands
-    message("Building on macOS")
-    set(CMAKE_Fortran_COMPILER gfortran)
-elseif(CMAKE_HOST_SYSTEM_NAME MATCHES "Linux")
-    # Linux specific configurations or commands
-    message("Building on Linux")
-    set(CMAKE_Fortran_COMPILER "gfortran")
-else()
-    # Other operating system specific configurations or commands
-    message("Building on another operating system might not be implemented.")
-endif()
-
 set(src ${PROJECT_SOURCE_DIR}/src)
 set(objs ${PROJECT_BINARY_DIR}/OBJS/)
 set(lib ${PROJECT_BINARY_DIR}/lib/)

@@ -2,18 +2,19 @@ include(CMakeSources.in)
 
 set(CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/cmake" ${CMAKE_MODULE_PATH})
 
-add_library(KIM_lib STATIC "${KIM_setup}" 
-                        "${KIM_general}" 
-                        "${KIM_poisson}" 
-                        "${KIM_debye}" 
-                        "${KIM_grid}" 
-                        "${KIM_util}"
-                        "${KIM_kernels}"
-                        "${KIM_background_equilibrium}"
-                        "${KIM_math}"
-                        "${KIM_dispersion}"
-                        "${KIM_WKB_dispersion}"
-                        "${external_zeal}"
+add_library(KIM_lib STATIC
+    ${KIM_setup}
+    ${KIM_general}
+    ${KIM_poisson}
+    ${KIM_debye}
+    ${KIM_grid}
+    ${KIM_util}
+    ${KIM_kernels}
+    ${KIM_background_equilibrium}
+    ${KIM_math}
+    ${KIM_dispersion}
+    ${KIM_WKB_dispersion}
+    ${external_zeal}
 )
 set_target_properties(KIM_lib PROPERTIES 
                         OUTPUT_NAME KIM_lib.a

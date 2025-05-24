@@ -52,3 +52,4 @@ set_target_properties(fouriermodes PROPERTIES LINKER_LANGUAGE Fortran
 
 add_executable(fouriermodes.x ${src}/fouriermodes.f90)
 target_link_libraries(fouriermodes.x PUBLIC fouriermodes)
+set_target_properties(fouriermodes.x PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})

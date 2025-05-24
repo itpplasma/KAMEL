@@ -297,21 +297,21 @@ target_include_directories(kilca_lib PUBLIC
 add_executable (kilca_normal_exe ${kilca_normal_main})
 set_target_properties(kilca_normal_exe PROPERTIES
     OUTPUT_NAME ${kilca_normal_exe}
-    RUNTIME_OUTPUT_DIRECTORY exe)
+    RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
 add_dependencies(kilca_normal_exe ${EXTERNAL_LIBS})
 target_link_libraries (kilca_normal_exe kilca_lib ${EXTERNAL_LIBS})
 
 add_executable (kilca_eigparam_exe ${kilca_eigparam_main})
 set_target_properties(kilca_eigparam_exe PROPERTIES
     OUTPUT_NAME ${kilca_eigparam_exe}
-    RUNTIME_OUTPUT_DIRECTORY exe)
+    RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
 add_dependencies(kilca_eigparam_exe ${EXTERNAL_LIBS})
 target_link_libraries (kilca_eigparam_exe kilca_lib ${EXTERNAL_LIBS})
 
 add_executable (post_proc post_processing/main_post_proc.cpp post_processing/save_fortran.f90)
 set_target_properties(post_proc PROPERTIES
     OUTPUT_NAME post_processor_${KiLCA_ARCHITECTURE}
-    RUNTIME_OUTPUT_DIRECTORY exe)
+    RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
 add_dependencies(post_proc ${EXTERNAL_LIBS})
 target_link_libraries (post_proc kilca_lib ${EXTERNAL_LIBS})
 

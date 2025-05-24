@@ -136,6 +136,7 @@ target_link_libraries(ql-balance_lib PUBLIC slatec
 
 add_executable(ql-balance.x ${base_balance_src}/ql-balance.f90)
 target_link_libraries(ql-balance.x PUBLIC ql-balance_lib)
+set_target_properties(ql-balance.x PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
 
 # Add KiLCA module directory for Fortran modules
 include_directories(${CMAKE_BINARY_DIR}/KiLCA/mod)

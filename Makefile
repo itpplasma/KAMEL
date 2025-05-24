@@ -11,7 +11,7 @@ ninja: build/build.ninja
 	cmake --build build --config $(CONFIG)
 
 test: build
-	ctest --test-dir build --output-on-failure
+	ctest --test-dir build --stop-on-failure --output-on-failure
 
 clean:
 	rm -rf build

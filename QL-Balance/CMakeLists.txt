@@ -120,6 +120,10 @@ target_link_libraries(ql-balance_lib PUBLIC hdf5::hdf5
 
 find_or_fetch(libneo)
 include_directories(${CMAKE_CURRENT_BINARY_DIR}/libneo/include)
+# remove tests from libneo
+add_custom_target(exclude_libneo_tests ALL
+    COMMAND ${CMAKE_COMMAND} -E remove "${CMAKE_CURRENT_BINARY_DIR}/libneo/CTestTestfile.cmake"
+)
 
 # Dependencies (e.g., NetCDF) provided by top-level cmake/Dependencies.cmake
 target_link_libraries(ql-balance_lib PUBLIC slatec 

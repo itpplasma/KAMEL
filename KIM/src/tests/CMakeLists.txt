@@ -16,7 +16,7 @@ set(KIM_lib "${CMAKE_BINARY_DIR}/lib/KIM_lib.a")
 add_dependencies(test_kernel_rho_phi KIM_lib)
 set_target_properties(test_kernel_rho_phi PROPERTIES 
                         OUTPUT_NAME test_kernel_rho_phi.x
-                        RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/tests/"
+                        RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/tests"
 )
 target_link_libraries(test_kernel_rho_phi   PUBLIC KIM_lib
                                             lapack 
@@ -34,7 +34,7 @@ set(KIM_lib "${CMAKE_BINARY_DIR}/lib/KIM_lib.a")
 add_dependencies(test_kernel_rho_B KIM_lib)
 set_target_properties(test_kernel_rho_B PROPERTIES 
                         OUTPUT_NAME test_kernel_rho_B.x
-                        RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/tests/")
+                        RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/tests")
 target_link_libraries(test_kernel_rho_B   PUBLIC KIM_lib
                                             lapack 
                                             cerf 
@@ -52,7 +52,7 @@ set(KIM_lib "${CMAKE_BINARY_DIR}/lib/KIM_lib.a")
 add_dependencies(test_kernel_localizer KIM_lib)
 set_target_properties(test_kernel_localizer PROPERTIES 
                         OUTPUT_NAME test_kernel_localizer.x
-                        RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/tests/")
+                        RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/tests")
 target_link_libraries(test_kernel_localizer   PUBLIC KIM_lib
                                             lapack 
                                             cerf 
@@ -68,7 +68,7 @@ set(KIM_lib "${CMAKE_BINARY_DIR}/lib/KIM_lib.a")
 add_dependencies(test_gauss_int KIM_lib)
 set_target_properties(test_gauss_int PROPERTIES 
                         OUTPUT_NAME test_gauss_int.x
-                        RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/tests/")
+                        RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/tests")
 target_link_libraries(test_gauss_int   PUBLIC KIM_lib
                                             lapack 
                                             cerf 

@@ -1,10 +1,5 @@
-# Common math routines library
-# This builds all math-related Fortran sources shared by subprojects
-file(GLOB_RECURSE COMMON_MATH_SOURCES
-    "${CMAKE_SOURCE_DIR}/common/math/*.f90"
-    "${CMAKE_SOURCE_DIR}/common/math/*.f"
-)
-add_library(slatec STATIC ${COMMON_MATH_SOURCES})
+set(SLATEC_INCLUDE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/slatec" CACHE PATH "Include directory for slatec library")
+file(GLOB_RECURSE SLATEC_FILES "${SLATEC_INCLUDE_DIR}/*.f")
+add_library(slatec STATIC ${SLATEC_FILES})
 set_target_properties(slatec PROPERTIES LINKER_LANGUAGE Fortran)
-# Expose module directory of these sources
-target_include_directories(slatec PUBLIC "${CMAKE_SOURCE_DIR}/common/math")
+target_include_directories(slatec PUBLIC "${SLATEC_INCLUDE_DIR}")

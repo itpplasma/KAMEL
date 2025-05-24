@@ -7,9 +7,9 @@ list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake")
 # Core dependencies
 include(FetchGSL)
 include(FetchLapack)
-include(FetchSundials)
-include(FetchSuiteSparse)
 include(FetchNetcdf)
+include(FetchSuiteSparse)
+include(FetchSundials)
 include(FetchZeal)
 
 # QL-Balance sparse module (shared dependency)

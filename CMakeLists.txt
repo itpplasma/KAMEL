@@ -1,6 +1,8 @@
 cmake_minimum_required(VERSION 3.24)
 project(KAMEL LANGUAGES C CXX Fortran)
 
+enable_testing()
+
 include(${CMAKE_SOURCE_DIR}/cmake/Dependencies.cmake)
 
 set(CMAKE_BUILD_TYPE Release)

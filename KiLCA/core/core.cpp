@@ -6,6 +6,7 @@
 #include <stdio.h>
 #include <cmath>
 #include <cstring>
+#include <iostream>
 
 #include "core.h"
 #include "settings.h"
@@ -47,7 +48,8 @@ core_data::~core_data (void)
     \brief Destructor. Frees all allocated memory hierarchically.
 */
 
-delete sd;
+// Do NOT delete sd intentionally, as the static object, this member points to, will be reused
+// in the next iteration of the time evolution.
 
 delete bp;
 
@@ -79,11 +81,36 @@ mda = 0;
 
 void core_data::calc_and_set_mode_independent_core_data (void)
 {
-sd = new settings (path2project);
+    static settings *static_settings_vacuum = nullptr;
+    static settings *static_settings_flre = nullptr;
 
-set_settings_in_core_module_ (&sd);
+    auto const p2pstr = std::string{path2project};
 
-sd->read_settings ();
+    if (p2pstr.find("vacuum") != std::string::npos)
+    {
+        if (static_settings_vacuum == nullptr)
+        {
+            static_settings_vacuum = new settings{path2project};
+            static_settings_vacuum->read_settings();
+        }
+        sd = static_settings_vacuum;
+    }
+    else if (p2pstr.find("flre") != std::string::npos)
+    {
+        if (static_settings_flre == nullptr)
+        {
+            static_settings_flre = new settings{path2project};
+            static_settings_flre->read_settings();
+        }
+        sd = static_settings_flre;
+    }
+    else
+    {
+        std::cerr << "\nError: calc_and_set_mode_independent_core_data: unknown project type in path: " << path2project << '\n';
+        exit(1);
+    }
+
+    set_settings_in_core_module_(&sd);
 
 bp = new background (sd);
 

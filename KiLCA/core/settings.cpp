@@ -3,7 +3,7 @@
 */
 
 #include <stdlib.h>
-#include <stdio.h>
+#include <iostream>
 #include <cmath>
 #include <cstring>
 
@@ -13,6 +13,8 @@
 
 void settings::read_settings (void)
 {
+    std::cout << ">>>>> Reading settings from " << path2project << '\n';
+
 as = new antenna;
 as->read_settings (path2project);
 copy_antenna_data_to_antenna_module_ (&as);

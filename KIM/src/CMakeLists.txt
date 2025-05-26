@@ -17,8 +17,8 @@ add_library(KIM_lib STATIC
     ${external_zeal}
 )
 set_target_properties(KIM_lib PROPERTIES 
-                        OUTPUT_NAME KIM_lib.a
-                        ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib/")
+                        OUTPUT_NAME KIM
+                        ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/install/lib/")
 
 # TODO: unify this: either use the system library everywhere, or use the cloned version
 # KiLCA uses the cloned libraries for now, QL-Balance the system libraries
@@ -68,7 +68,7 @@ endif()
 add_executable(KIM_exe kim_main.f90)
 set_target_properties(KIM_exe PROPERTIES 
                         OUTPUT_NAME KIM.x
-                        RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/")
+                        RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/install/bin/")
 target_link_libraries(KIM_exe
                         KIM_lib 
                         lapack 

@@ -18,7 +18,10 @@ file(GLOB SPARSE_SOURCES
     "${QLBALANCE_BASE}/sparse_mod.f90"
 )
 add_library(sparse STATIC ${SPARSE_SOURCES})
-set_target_properties(sparse PROPERTIES LINKER_LANGUAGE Fortran)
+set_target_properties(sparse PROPERTIES LINKER_LANGUAGE Fortran
+                        ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/install/lib/"
+                        Fortran_MODULE_DIRECTORY "${CMAKE_BINARY_DIR}/OBJS/sparse/")
+                        
 # Link sparse to SuiteSparse UMFPACK
 target_link_libraries(sparse PUBLIC SuiteSparse::umfpack_wrappers SuiteSparse::umfpack)
 # Make module directory available

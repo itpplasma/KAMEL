@@ -29,8 +29,8 @@ enable_language(C Fortran)
 find_package(MPI REQUIRED)
 
 set(hdf5_tools ${CMAKE_CURRENT_SOURCE_DIR}/src/hdf5_tools/)
-set(objs ${PROJECT_BINARY_DIR}/OBJS/)
-set(lib ${PROJECT_BINARY_DIR}/lib/)
+set(objs ${PROJECT_BINARY_DIR}/OBJS/ql-balance/)
+set(lib ${PROJECT_BINARY_DIR}/install/lib/)
 set(ql-balance_lib "${lib}libql-balance.a")
 
 set(CMAKE_Fortran_MODULE_DIRECTORY "${objs}")
@@ -125,6 +125,8 @@ add_custom_target(exclude_libneo_tests ALL
     COMMAND ${CMAKE_COMMAND} -E remove "${CMAKE_CURRENT_BINARY_DIR}/libneo/CTestTestfile.cmake"
 )
 
+add_dependencies(ql-balance_lib sparse)
+
 # Dependencies (e.g., NetCDF) provided by top-level cmake/Dependencies.cmake
 target_link_libraries(ql-balance_lib PUBLIC slatec 
                                             cvode 
@@ -137,10 +139,11 @@ target_link_libraries(ql-balance_lib PUBLIC slatec
                                             LIBNEO::collision_freqs
                                             LIBNEO::transport
                                             )
+target_include_directories(sparse PUBLIC "${CMAKE_BINARY_DIR}/OBJS/sparse/")
 
 add_executable(ql-balance.x ${base_balance_src}/ql-balance.f90)
 target_link_libraries(ql-balance.x PUBLIC ql-balance_lib)
-set_target_properties(ql-balance.x PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
+set_target_properties(ql-balance.x PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/install/bin)
 
 # Add KiLCA module directory for Fortran modules
 include_directories(${CMAKE_BINARY_DIR}/KiLCA/mod)

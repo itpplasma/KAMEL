@@ -131,7 +131,6 @@ include_directories("${CMAKE_CURRENT_BINARY_DIR}")
 include_directories ("${sundials_include_path}")
 include_directories ("${gsl_include_path}")
 include_directories ("${PROJECT_BINARY_DIR}")
-include_directories ("${CMAKE_CURRENT_BINARY_DIR}")
 include_directories ("${CMAKE_CURRENT_SOURCE_DIR}/antenna")
 include_directories ("${CMAKE_CURRENT_SOURCE_DIR}/background")
 include_directories ("${CMAKE_CURRENT_SOURCE_DIR}/core")
@@ -255,8 +254,8 @@ target_compile_options(kilca_lib PRIVATE -fPIC)
 
 set_target_properties(kilca_lib PROPERTIES
     OUTPUT_NAME ${kilca_lib}
-    ARCHIVE_OUTPUT_DIRECTORY lib
-    Fortran_MODULE_DIRECTORY mod)
+    ARCHIVE_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}/install/lib/
+    Fortran_MODULE_DIRECTORY ${PROJECT_BINARY_DIR}/OBJS/kilca/)
 add_dependencies(kilca_lib ${EXTERNAL_LIBS})
 target_link_libraries(kilca_lib PUBLIC ${EXTERNAL_LIBS})
 
@@ -297,21 +296,21 @@ target_include_directories(kilca_lib PUBLIC
 add_executable (kilca_normal_exe ${kilca_normal_main})
 set_target_properties(kilca_normal_exe PROPERTIES
     OUTPUT_NAME ${kilca_normal_exe}
-    RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
+    RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/install/bin/)
 add_dependencies(kilca_normal_exe ${EXTERNAL_LIBS})
 target_link_libraries (kilca_normal_exe kilca_lib ${EXTERNAL_LIBS})
 
 add_executable (kilca_eigparam_exe ${kilca_eigparam_main})
 set_target_properties(kilca_eigparam_exe PROPERTIES
     OUTPUT_NAME ${kilca_eigparam_exe}
-    RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
+    RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/install/bin/)
 add_dependencies(kilca_eigparam_exe ${EXTERNAL_LIBS})
 target_link_libraries (kilca_eigparam_exe kilca_lib ${EXTERNAL_LIBS})
 
 add_executable (post_proc post_processing/main_post_proc.cpp post_processing/save_fortran.f90)
 set_target_properties(post_proc PROPERTIES
     OUTPUT_NAME post_processor_${KiLCA_ARCHITECTURE}
-    RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
+    RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/install/bin/)
 add_dependencies(post_proc ${EXTERNAL_LIBS})
 target_link_libraries (post_proc kilca_lib ${EXTERNAL_LIBS})
 

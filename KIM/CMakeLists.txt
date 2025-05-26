@@ -17,7 +17,7 @@ string(REPLACE ";" " " CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS}")
 enable_language(Fortran)
 
 # Place Fortran modules for all KIM build files in one directory
-set(CMAKE_Fortran_MODULE_DIRECTORY "${CMAKE_BINARY_DIR}/KIM_mod")
+set(CMAKE_Fortran_MODULE_DIRECTORY "${CMAKE_BINARY_DIR}/OBJS/kim/")
 # Make sure our module directory is on the include path
 include_directories("${CMAKE_Fortran_MODULE_DIRECTORY}")
 

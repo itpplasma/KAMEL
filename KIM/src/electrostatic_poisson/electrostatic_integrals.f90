@@ -68,6 +68,7 @@ module electrostatic_integrals
         real(dp) :: x_mapped, xp_mapped, theta_mapped
         integer :: i,j,k
 
+        result = 0.0d0
 
         do i=1,gauss_conf%n ! theta
             theta_mapped = 0.5d0 * (pi * gauss_conf%x(i) + pi)
@@ -106,6 +107,7 @@ module electrostatic_integrals
         real(dp) :: x_mapped, xp_mapped, theta_mapped
         integer :: i,j,k
 
+        result = 0.0d0
 
         do i=1,gauss_conf%n ! theta
             theta_mapped = 0.5d0 * (pi * gauss_conf%x(i) + pi)
@@ -143,6 +145,7 @@ module electrostatic_integrals
         real(dp) :: x_mapped, xp_mapped, theta_mapped
         integer :: i,j,k
 
+        result = 0.0d0
 
         do i=1,gauss_conf%n ! theta
             theta_mapped = 0.5d0 * (pi * gauss_conf%x(i) + pi)
@@ -159,6 +162,65 @@ module electrostatic_integrals
                         * int_F3%f(x_mapped, xp_mapped, theta_mapped) &
                         * pi * (int_F3%int_point%xlp1 - int_F3%int_point%xlm1) & ! normalization due to integral range shift
                         * (int_F3%int_point%xlpp1 - int_F3%int_point%xlpm1) / 8.0d0
+                end do
+            end do
+        end do 
+
+    end subroutine
+
+
+    subroutine gauss_integrate_all_simultaneously(int_point, spec, result, gauss_conf)
+
+        use KIM_kinds, only: dp
+        use electrostatic_integrands, only: integration_point_t, int_F0_rho_phi_t, int_F1_rho_phi_t, &
+            int_F2_rho_phi_t, int_F3_rho_phi_t
+        use kernel_plasma_prefacs, only: G0_rho_phi, G1_rho_phi, G2_rho_phi, G3_rho_phi
+        use grid, only: xl_grid
+        use constants, only: pi
+        use species, only: plasma, species_t
+
+        implicit none
+
+        class(integration_point_t), intent(inout) :: int_point
+        type(species_t), intent(in) :: spec
+        type(int_F0_rho_phi_t) :: int_F0
+        type(int_F1_rho_phi_t) :: int_F1
+        type(int_F2_rho_phi_t) :: int_F2
+        type(int_F3_rho_phi_t) :: int_F3
+
+        type(gauss_config_t), intent(in) :: gauss_conf
+        real(dp), intent(out) :: result
+        real(dp) :: x_mapped, xp_mapped, theta_mapped
+        integer :: i,j,k
+
+        int_F0%int_point = int_point
+        int_F1%int_point = int_point
+        int_F2%int_point = int_point
+        int_F3%int_point = int_point
+        result = 0.0d0
+
+        do i=1,gauss_conf%n ! theta
+            theta_mapped = 0.5d0 * (pi * gauss_conf%x(i) + pi)
+
+            do j=1,gauss_conf%n ! xp 
+                xp_mapped = 0.5d0 * ((int_point%xlpp1 - int_point%xlpm1) * gauss_conf%x(j) + &
+                    int_point%xlpp1 + int_point%xlpm1)
+
+                do k=1,gauss_conf%n !x
+                    x_mapped = 0.5d0 * ((int_point%xlp1 - int_point%xlm1) * gauss_conf%x(k) + &
+                        int_point%xlp1 + int_point%xlm1)
+
+                    result = result + gauss_conf%w(i) * gauss_conf%w(j) * gauss_conf%w(k) &
+                        * ( &
+                        ! the int_F0 functions can still be optimized to a single function
+                        ! needs then to include the G functions as well
+                            int_F0%f(x_mapped) * G0_rho_phi(int_point%j, spec) &
+                            + int_F1%f(x_mapped, xp_mapped, theta_mapped) * G1_rho_phi(int_point%j, spec) &
+                            + int_F2%f(x_mapped, xp_mapped, theta_mapped) * G2_rho_phi(int_point%j, spec) &
+                            + int_F3%f(x_mapped, xp_mapped, theta_mapped) * G3_rho_phi(int_point%j, spec) &
+                            ) &
+                        * pi * (int_point%xlp1 - int_point%xlm1) & ! normalization due to integral range shift
+                        * (int_point%xlpp1 - int_point%xlpm1) / 8.0d0
                 end do
             end do
         end do 

@@ -1,8 +1,6 @@
 module kernel_plasma_prefacs
 
-
     contains
-
 
     function kappa_rho_phi(j, spec) result(val)
 

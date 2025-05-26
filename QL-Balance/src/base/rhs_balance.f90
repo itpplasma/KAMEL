@@ -15,7 +15,6 @@ subroutine rhs_balance(x, y, dy)
     use plasma_parameters, only: params, ddr_params, params_lin, ddr_params_nl &
                         , params_b_lin, params_b, dot_params
     use baseparam_mod, only: Z_i, e_charge, am, p_mass, c
-    use control_mod, only: irf
     use wave_code_data, only: q, Vth
     use matrix_mod, only: isw_rhs, nz, nsize, irow, icol, amat, rhsvec
     use QLBalance_hdf5_tools
@@ -35,7 +34,6 @@ subroutine rhs_balance(x, y, dy)
     else
         npoi = npoic
     end if
-
 
     ! isw_rhs is the switch for initializing the RHS vector, if isw_rhs=0, then the RHS vector is initialized
 

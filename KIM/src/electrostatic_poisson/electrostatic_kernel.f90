@@ -30,7 +30,6 @@ module electrostatic_kernel
     subroutine fill_kernel_phi(kernel_rho_phi_llp, kernel_rho_B_llp)
 
         use KIM_kinds, only: dp
-        use gsl_mod, only: erf => gsl_sf_erf
         use electrostatic_integrals, only: gauss_config_t, init_gauss_int
 
         implicit none
@@ -72,7 +71,6 @@ module electrostatic_kernel
     subroutine calc_kernel_rho(l, lp, kernel_phi_llp, kernel_B_llp, gauss_conf)
 
         use KIM_kinds, only: dp
-        use gsl_mod, only: erf => gsl_sf_erf
         use electrostatic_integrals, only: gauss_integrate_F0, gauss_integrate_F1, gauss_integrate_F2, gauss_integrate_F3,&
             gauss_config_t
         use species, only: plasma

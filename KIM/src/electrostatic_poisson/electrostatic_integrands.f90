@@ -80,7 +80,6 @@ module electrostatic_integrands
         use constants, only: pi
         use species, only: plasma
         use gsl_mod, only: erf => gsl_sf_erf
-        use grid, only: rg_grid, xl_grid
         use KIM_kinds, only: dp
         use functions, only: varphi_l
 
@@ -104,6 +103,7 @@ module electrostatic_integrands
                   - (x + xp)**2.0d0 / (4.0d0 * this%int_point%rhoT**2.0d0 * (1.0d0 - cos(theta)))) &
             * this%int_point%Jrg1
 
+
     end function
 
 
@@ -112,7 +112,6 @@ module electrostatic_integrands
         use constants, only: pi
         use species, only: plasma
         use gsl_mod, only: erf => gsl_sf_erf
-        use grid, only: rg_grid, xl_grid
         use KIM_kinds, only: dp
         use functions, only: varphi_l
 
@@ -155,7 +154,6 @@ module electrostatic_integrands
         use constants, only: pi
         use species, only: plasma
         use gsl_mod, only: erf => gsl_sf_erf
-        use grid, only: rg_grid, xl_grid
         use KIM_kinds, only: dp
         use functions, only: varphi_l
 
@@ -256,6 +254,7 @@ module electrostatic_integrands
 
         use constants, only: pi
         use grid, only: rg_grid
+        use gsl_mod, only: erf => gsl_sf_erf
 
         implicit none
 
@@ -271,6 +270,7 @@ module electrostatic_integrands
 
         use constants, only: pi
         use grid, only: rg_grid
+        use gsl_mod, only: erf => gsl_sf_erf
 
         implicit none
 
@@ -294,6 +294,7 @@ module electrostatic_integrands
 
         use constants, only: pi
         use grid, only: rg_grid
+        use gsl_mod, only: erf => gsl_sf_erf
 
         implicit none
 
@@ -316,6 +317,7 @@ module electrostatic_integrands
 
         use constants, only: pi
         use grid, only: rg_grid
+        use gsl_mod, only: erf => gsl_sf_erf
 
         implicit none
 

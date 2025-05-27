@@ -399,7 +399,7 @@ subroutine rhs_balance_source(x, y, dy)
                         , dni22, visca, gpp_av, dery_equisource &
                         , dqle11, dqle12, dqle21, dqle22 &
                         , dqli11, dqli12, dqli21, dqli22 &
-                        , T_EM_phi_e, T_EM_phi_i &
+                        , T_EM_phi_e_source, T_EM_phi_i_source &
                         , sqrt_g_times_B_theta_over_c, Ercov, polforce, polforce_ql &
                         , qlheat_e, qlheat_i &
                         , Ercov_lin, fluxes_con_nl 
@@ -571,11 +571,12 @@ subroutine rhs_balance_source(x, y, dy)
                             /params_b(4, ipoi)
 
         ! Toroidal torque densities
-        T_EM_phi_e(ipoi) = +e_charge * sqrt_g_times_B_theta_over_c(ipoi) * gamma_ql_e_nl
-        T_EM_phi_i(ipoi) = -Z_i * e_charge * sqrt_g_times_B_theta_over_c(ipoi) * gamma_ql_i_nl
+        T_EM_phi_e_source(ipoi) = +e_charge * sqrt_g_times_B_theta_over_c(ipoi) * gamma_ql_e_nl
+        T_EM_phi_i_source(ipoi) = -Z_i * e_charge * sqrt_g_times_B_theta_over_c(ipoi) * &
+                                  gamma_ql_i_nl
 
         ! Momentum source due to the polarization current
-        polforce_ql(ipoi) = (T_EM_phi_i(ipoi) - T_EM_phi_e(ipoi)) / (am * p_mass)
+        polforce_ql(ipoi) = (T_EM_phi_i_source(ipoi) - T_EM_phi_e_source(ipoi)) / (am * p_mass)
 
         polforce(ipoi) = (gamma_e - Z_i*gamma_i)*e_charge*sqrt_g_times_B_theta_over_c(ipoi) &
                         /(am*p_mass)

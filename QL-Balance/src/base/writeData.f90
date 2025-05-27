@@ -117,10 +117,14 @@ subroutine write_dql_Br_Jp_profiles_to_hdf5(tempch)
                         dqli12, lbound(dqli12), ubound(dqli12))
     CALL h5_add_double_1(h5_id, trim(tempch)//"dqli22", &
                         dqli22, lbound(dqli22), ubound(dqli22))
-    call h5_add_double_1(h5_id, trim(tempch) // "T_EM_phi_e", T_EM_phi_e, &
-                            lbound(T_EM_phi_e), ubound(T_EM_phi_e))
-    call h5_add_double_1(h5_id, trim(tempch) // "T_EM_phi_i", T_EM_phi_i, &
-                            lbound(T_EM_phi_i), ubound(T_EM_phi_i))
+    call h5_add_double_1(h5_id, trim(tempch) // "T_EM_phi_e", T_EM_phi_e, lbound(T_EM_phi_e), &
+                         ubound(T_EM_phi_e))
+    call h5_add_double_1(h5_id, trim(tempch) // "T_EM_phi_i", T_EM_phi_i, lbound(T_EM_phi_i), &
+                         ubound(T_EM_phi_i))
+    call h5_add_double_1(h5_id, trim(tempch) // "T_EM_phi_e_source", T_EM_phi_e_source, &
+                         lbound(T_EM_phi_e_source), ubound(T_EM_phi_e_source))
+    call h5_add_double_1(h5_id, trim(tempch) // "T_EM_phi_i_source", T_EM_phi_i_source, &
+                         lbound(T_EM_phi_i_source), ubound(T_EM_phi_i_source))
     CALL h5_add_double_1(h5_id, trim(tempch)//"Br-ckpEs_om_E", &
                         abs(Br - c*kp*Es/om_E), lbound(Br), ubound(Br))
     CALL h5_add_double_1(h5_id, trim(tempch)//"Br-cksEp_om_E", &

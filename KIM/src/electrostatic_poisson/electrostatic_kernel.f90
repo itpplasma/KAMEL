@@ -129,10 +129,10 @@ module electrostatic_kernel
                                     + integral_val * G2_rho_phi(j, plasma%spec(sigma)) * kappa_rho_phi(j, plasma%spec(sigma))
                     kernel_B_llp = kernel_B_llp + integral_val * G2_rho_B(j, plasma%spec(sigma)) * kappa_rho_B(j, plasma%spec(sigma))
 
-                    call gauss_integrate_F3(int_F3, integral_val, gauss_conf)
-                    kernel_phi_llp = kernel_phi_llp &
-                                    + integral_val * G3_rho_phi(j, plasma%spec(sigma)) * kappa_rho_phi(j, plasma%spec(sigma))
-                    kernel_B_llp = kernel_B_llp + integral_val * G3_rho_B(j, plasma%spec(sigma)) * kappa_rho_B(j, plasma%spec(sigma))
+                    !call gauss_integrate_F3(int_F3, integral_val, gauss_conf)
+                    !kernel_phi_llp = kernel_phi_llp &
+                    !                + integral_val * G3_rho_phi(j, plasma%spec(sigma)) * kappa_rho_phi(j, plasma%spec(sigma))
+                    !kernel_B_llp = kernel_B_llp + integral_val * G3_rho_B(j, plasma%spec(sigma)) * kappa_rho_B(j, plasma%spec(sigma))
                 end if
                 
             end do

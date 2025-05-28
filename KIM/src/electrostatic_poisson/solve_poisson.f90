@@ -202,8 +202,10 @@ module poisson_solver
             !!! type > 10 uses kernel
             elseif(type==11) then ! constant Br field with kernel
                 rhs_vec = matmul(K_rho_B, EBdat%Br)
+                call write_complex_profile(xl_grid%xb, EBdat%Br, xl_grid%npts_b, trim(output_path)//'fields/br_pert.dat')
             elseif(type==12) then 
                 rhs_vec = 1.0d0
+                call write_complex_profile(xl_grid%xb, rhs_vec, xl_grid%npts_b, trim(output_path)//'fields/br_pert.dat')
                 rhs_vec = matmul(K_rho_B, rhs_vec)
             elseif(type==13) then ! linear increase including kernel
                 rhs_vec = 0.0d0

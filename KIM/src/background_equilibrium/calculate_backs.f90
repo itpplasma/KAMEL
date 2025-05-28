@@ -124,8 +124,8 @@ subroutine calculate_backs(write_out)
                 nui(sigma, i) = 0.0d0
             end if
 
-            z0i(sigma, i) = - (om_E(i) - omega - com_unit * nui(sigma, i)) / (kp(i) * sqrt(2d0) * vTi(sigma, i) )
-            z0e(i) = - (om_E(i) - omega - com_unit * nue(i)) / (kp(i) * sqrt(2d0) * vTe(i) )
+            z0i(sigma, i) = - (om_E(i) - omega - com_unit * nui(sigma, i)) / (abs(kp(i)) * sqrt(2d0) * vTi(sigma, i) )
+            z0e(i) = - (om_E(i) - omega - com_unit * nue(i)) / (abs(kp(i)) * sqrt(2d0) * vTe(i) )
         end do
     end do
 
@@ -162,6 +162,7 @@ subroutine calculate_backs(write_out)
             open(unit = 87, file = trim(output_path)//'backs/'//'A2e.dat')
             open(unit = 88, file = trim(output_path)//'backs/'//'ks.dat')
             open(unit = 89, file = trim(output_path)//'backs/'//'kp.dat')
+            open(unit = 90, file = trim(output_path)//'backs/'//'z0e.dat')
             do i=1, iprof_length
                 write(78, *) r_prof(i), vTe(i)
                 write(79, *) r_prof(i), nue(i)
@@ -173,6 +174,7 @@ subroutine calculate_backs(write_out)
                 write(87, *) r_prof(i), A2e(i)
                 write(88, *) r_prof(i), ks(i)
                 write(89, *) r_prof(i), kp(i)
+                write(90, *) r_prof(i), real(z0e(i)), dimag(z0e(i))
             end do
             close(unit = 78)
             close(unit = 79)
@@ -186,6 +188,7 @@ subroutine calculate_backs(write_out)
             close(unit = 87)
             close(unit = 88)
             close(unit = 89)
+            close(unit = 90)
 
             if (number_of_ion_species == 1) then
                 open(unit = 78, file = trim(output_path)//'backs/'//'vTi.dat')
@@ -195,6 +198,7 @@ subroutine calculate_backs(write_out)
                 open(unit = 82, file = trim(output_path)//'backs/'//'dnidr.dat')
                 open(unit = 83, file = trim(output_path)//'backs/'//'A1i.dat')
                 open(unit = 84, file = trim(output_path)//'backs/'//'A2i.dat')
+                open(unit = 85, file = trim(output_path)//'backs/'//'z0i.dat')
                 do i=1, iprof_length
                     write(78, *) r_prof(i), vTi(1, i)
                     write(79, *) r_prof(i), nui(1, i)
@@ -203,6 +207,7 @@ subroutine calculate_backs(write_out)
                     write(82, *) r_prof(i), dnidr_prof(1, i)
                     write(83, *) r_prof(i), A1i(1, i)
                     write(84, *) r_prof(i), A2i(1, i)
+                    write(85, *) r_prof(i), real(z0i(1, i)), dimag(z0i(1, i))
                 end do
                 close(unit = 78)
                 close(unit = 79)
@@ -211,6 +216,7 @@ subroutine calculate_backs(write_out)
                 close(unit = 82)
                 close(unit = 83)
                 close(unit = 84)
+                close(unit = 85)
             else
                 do sigma = 1, number_of_ion_species
                     ! thermal velocity
@@ -260,6 +266,13 @@ subroutine calculate_backs(write_out)
                     open(unit = 78, file = trim(output_path)//'backs/'//filename)
                     do i=1, iprof_length
                         write(78, *) r_prof(i), A2i(sigma, i)
+                    end do
+                    close(unit = 78)
+
+                    write(filename, "(A4, I1, A4)") 'z0i_', sigma, '.dat'
+                    open(unit = 78, file = trim(output_path)//'backs/'//filename)
+                    do i=1, iprof_length
+                        write(78, *) r_prof(i), real(z0i(sigma, i)), dimag(z0i(sigma, i))
                     end do
                     close(unit = 78)
                 end do

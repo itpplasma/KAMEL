@@ -40,13 +40,13 @@ module electrostatic_kernel
         integer :: l, lp
         complex(dp) :: kernel_phi_llp, kernel_B_llp
 
-        gauss_conf%n = 10
+        gauss_conf%n = 5
         call init_gauss_int(gauss_conf)
 
         !$omp parallel do collapse(2) private(l,lp, kernel_phi_llp, kernel_B_llp)
         do l = 1, kernel_rho_phi_llp%npts_l
             do lp = 1, kernel_rho_phi_llp%npts_lp
-                if (abs(l - lp) > 5) cycle
+                if (abs(l - lp) > 15) cycle
 
                 call calc_kernel_rho(l, lp, kernel_phi_llp, kernel_B_llp, gauss_conf)
                 kernel_rho_phi_llp%Kllp(l, lp) = kernel_phi_llp
@@ -110,7 +110,9 @@ module electrostatic_kernel
                     call gauss_integrate_F0(int_F0, int_point%xlm1, int_point%xlp1, integral_val, gauss_conf)
                     kernel_phi_llp = kernel_phi_llp &
                                     + integral_val * G0_rho_phi(j, plasma%spec(sigma)) * kappa_rho_phi(j, plasma%spec(sigma))
+                    integral_val = 0.0d0
                 end if
+                
 
                 if (.not. artificial_debye_case) then
                     int_F1%int_point = int_point
@@ -118,19 +120,19 @@ module electrostatic_kernel
                     int_F3%int_point = int_point
 
                     call gauss_integrate_F1(int_F1, integral_val, gauss_conf)
-                    kernel_phi_llp = kernel_phi_llp &
-                                    + integral_val * G1_rho_phi(j, plasma%spec(sigma)) * kappa_rho_phi(j, plasma%spec(sigma))
+                    kernel_phi_llp = kernel_phi_llp + integral_val * G1_rho_phi(j, plasma%spec(sigma)) * kappa_rho_phi(j, plasma%spec(sigma))
                     kernel_B_llp = kernel_B_llp + integral_val * G1_rho_B(j, plasma%spec(sigma)) * kappa_rho_B(j, plasma%spec(sigma))
+                    integral_val = 0.0d0
 
                     call gauss_integrate_F2(int_F2, integral_val, gauss_conf)
-                    kernel_phi_llp = kernel_phi_llp &
-                                    + integral_val * G2_rho_phi(j, plasma%spec(sigma)) * kappa_rho_phi(j, plasma%spec(sigma))
+                    kernel_phi_llp = kernel_phi_llp + integral_val * kappa_rho_phi(j, plasma%spec(sigma)) * G2_rho_phi(j, plasma%spec(sigma))
                     kernel_B_llp = kernel_B_llp + integral_val * G2_rho_B(j, plasma%spec(sigma)) * kappa_rho_B(j, plasma%spec(sigma))
+                    integral_val = 0.0d0
 
-                    !call gauss_integrate_F3(int_F3, integral_val, gauss_conf)
-                    !kernel_phi_llp = kernel_phi_llp &
-                    !                + integral_val * G3_rho_phi(j, plasma%spec(sigma)) * kappa_rho_phi(j, plasma%spec(sigma))
-                    !kernel_B_llp = kernel_B_llp + integral_val * G3_rho_B(j, plasma%spec(sigma)) * kappa_rho_B(j, plasma%spec(sigma))
+                    call gauss_integrate_F3(int_F3, integral_val, gauss_conf)
+                    kernel_phi_llp = kernel_phi_llp + integral_val * kappa_rho_phi(j, plasma%spec(sigma)) * G3_rho_phi(j, plasma%spec(sigma))
+                    kernel_B_llp = kernel_B_llp + integral_val * G3_rho_B(j, plasma%spec(sigma)) * kappa_rho_B(j, plasma%spec(sigma))
+                    integral_val = 0.0d0
                 end if
                 
             end do

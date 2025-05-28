@@ -65,8 +65,8 @@ module kernel_plasma_prefacs
         integer, intent(in) :: j
         type(species_t), intent(in) :: spec
         complex(dp) :: val
-        real(dp) :: ks_val, kpar, A1, A2, z0, rhoT
-        complex(dp) :: plasma_Z
+        real(dp) :: ks_val, kpar, A1, A2, rhoT
+        complex(dp) :: plasma_Z, z0
 
         ks_val = 0.5d0 * (plasma%ks(j) + plasma%ks(j+1))
         kpar = 0.5d0 * (plasma%kp(j) + plasma%kp(j+1))
@@ -93,14 +93,15 @@ module kernel_plasma_prefacs
         type(species_t), intent(in) :: spec
         complex(dp) :: val
         real(dp) :: ks_val, kpar, A1, A2, rhoT
-        complex(dp) :: plasma_Z
+        complex(dp) :: plasma_Z, z0
 
         ks_val = 0.5d0 * (plasma%ks(j) + plasma%ks(j+1))
         kpar = 0.5d0 * (plasma%kp(j) + plasma%kp(j+1))
         A2 = 0.5d0 * (spec%A2(j) + spec%A2(j+1))
         rhoT = 0.5d0 * (spec%rho_L(j) + spec%rho_L(j+1))
+        z0 = 0.5d0 * (spec%z0(j) + spec%z0(j+1))
 
-        val = ks_val * rhoT /(abs(kpar) * sqrt(2.0d0)) * A2
+        val = ks_val * rhoT * A2 * plasma_Z(z0) / (abs(kpar) * sqrt(2.0d0)) 
 
     end function
 
@@ -114,8 +115,14 @@ module kernel_plasma_prefacs
         integer, intent(in) :: j
         type(species_t), intent(in) :: spec
         complex(dp) :: val
+        real(dp) :: ks_val, kpar, A1, A2, rhoT, z0
 
-        val = G2_rho_phi(j, spec)
+        ks_val = 0.5d0 * (plasma%ks(j) + plasma%ks(j+1))
+        kpar = 0.5d0 * (plasma%kp(j) + plasma%kp(j+1))
+        A2 = 0.5d0 * (spec%A2(j) + spec%A2(j+1))
+        rhoT = 0.5d0 * (spec%rho_L(j) + spec%rho_L(j+1))
+
+        val = ks_val * rhoT /(abs(kpar) * sqrt(2.0d0)) * A2
 
     end function
 
@@ -129,8 +136,8 @@ module kernel_plasma_prefacs
         integer, intent(in) :: j
         type(species_t), intent(in) :: spec
         complex(dp) :: val
-        real(dp) :: A1, A2, z0
-        complex(dp) :: plasma_Z
+        real(dp) :: A1, A2
+        complex(dp) :: plasma_Z, z0
 
         A1 = 0.5d0 * (spec%A1(j) + spec%A1(j+1))
         A2 = 0.5d0 * (spec%A2(j) + spec%A2(j+1))
@@ -153,8 +160,8 @@ module kernel_plasma_prefacs
         integer, intent(in) :: j
         type(species_t),intent(in) :: spec
         complex(dp) :: val
-        real(dp) :: A2, z0
-        complex(dp) :: plasma_Z
+        real(dp) :: A2
+        complex(dp) :: plasma_Z, z0
 
         A2 = 0.5d0 * (spec%A2(j) + spec%A2(j+1))
         z0 = 0.5d0 * (spec%z0(j) + spec%z0(j+1))

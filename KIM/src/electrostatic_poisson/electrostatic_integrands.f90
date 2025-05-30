@@ -18,7 +18,6 @@ module electrostatic_integrands
             procedure :: calc_Jrg4
     end type
 
-
     type :: int_F0_rho_phi_t
         type(integration_point_t) :: int_point
         contains
@@ -49,6 +48,11 @@ module electrostatic_integrands
             procedure :: f => integrand_F_all_rho_phi
     end type
 
+    type :: int_F_all_rho_B_t
+        type(integration_point_t) :: int_point
+        contains
+            procedure :: f => integrand_F_all_rho_B
+    end type
 
     contains
 
@@ -206,13 +210,6 @@ module electrostatic_integrands
         real(dp) :: ks_val
 
         ks_val = 0.5d0 * (plasma%ks(this%int_point%j) + plasma%ks(this%int_point%j+1))
-        this%int_point%a_coef = sqrt(1.0d0 / (1.0d0 + cos(theta))) / this%int_point%rhoT
-        this%int_point%b_coef = calc_b_coef(x, xp)
-
-        call this%int_point%calc_Jrg1()
-        call this%int_point%calc_Jrg2()
-        call this%int_point%calc_Jrg3()
-        call this%int_point%calc_Jrg4()
 
         val = varphi_l(x, this%int_point%xlm1, this%int_point%xl, this%int_point%xlp1) &
             * varphi_l(x, this%int_point%xlpm1, this%int_point%xlp, this%int_point%xlpp1) &
@@ -254,6 +251,33 @@ module electrostatic_integrands
                         * G3_rho_phi(this%int_point%j, spec) &
                     ) &
             )
+
+    end function
+
+
+    function integrand_F_all_rho_B(this, x, xp, theta, spec) result(val)
+
+        use constants, only: pi
+        use species, only: plasma, species_t
+        use gsl_mod, only: erf => gsl_sf_erf
+        use grid, only: rg_grid
+        use KIM_kinds, only: dp
+        use functions, only: varphi_l
+        use kernel_plasma_prefacs, only: G1_rho_B, G2_rho_B, G3_rho_B
+
+        implicit none
+
+        class(int_F_all_rho_B_t), intent(inout) :: this
+        type(species_t), intent(in) :: spec
+        real(dp), intent(in) :: x, xp, theta
+        complex(dp) :: val
+        real(dp) :: ks_val
+
+        ks_val = 0.5d0 * (plasma%ks(this%int_point%j) + plasma%ks(this%int_point%j+1))
+
+        val = varphi_l(x, this%int_point%xlm1, this%int_point%xl, this%int_point%xlp1) &
+            * varphi_l(x, this%int_point%xlpm1, this%int_point%xlp, this%int_point%xlpp1) &
+            * 1.0d0
 
     end function
 

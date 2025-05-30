@@ -49,7 +49,8 @@ module electrostatic_kernel
             do lp = 1, kernel_rho_phi_llp%npts_lp
                 if (abs(l - lp) > delta_l_max) cycle
 
-                call calc_kernel_rho(l, lp, kernel_phi_llp, kernel_B_llp, gauss_conf)
+                call calc_kernel_rho_all_terms_at_once(l, lp, kernel_phi_llp, kernel_B_llp, gauss_conf)
+                !call calc_kernel_rho_term_by_term(l, lp, kernel_phi_llp, kernel_B_llp, gauss_conf)
                 kernel_rho_phi_llp%Kllp(l, lp) = kernel_phi_llp
                 kernel_rho_B_llp%Kllp(l, lp) = kernel_B_llp
 
@@ -69,7 +70,7 @@ module electrostatic_kernel
 
     end subroutine
 
-    subroutine calc_kernel_rho(l, lp, kernel_phi_llp, kernel_B_llp, gauss_conf)
+    subroutine calc_kernel_rho_term_by_term(l, lp, kernel_phi_llp, kernel_B_llp, gauss_conf)
 
         use KIM_kinds, only: dp
         use electrostatic_integrals, only: gauss_integrate_F0, gauss_integrate_F1, gauss_integrate_F2, gauss_integrate_F3,&
@@ -135,6 +136,51 @@ module electrostatic_kernel
                     kernel_B_llp = kernel_B_llp + integral_val * G3_rho_B(j, plasma%spec(sigma)) * kappa_rho_B(j, plasma%spec(sigma))
                     integral_val = 0.0d0
                 end if
+                
+            end do
+        end do
+
+        kernel_phi_llp = kernel_phi_llp / (8.0d0 * pi**3.0d0)  /2.0d0 ! factor 1/2 is somehow missing. Including this factor nicely reproduces the debye case.
+        kernel_B_llp = kernel_B_llp / (8.0d0 * pi**3.0d0 * sol) * com_unit
+            
+    end subroutine
+
+    subroutine calc_kernel_rho_all_terms_at_once(l, lp, kernel_phi_llp, kernel_B_llp, gauss_conf)
+
+        use KIM_kinds, only: dp
+        use electrostatic_integrals, only: gauss_integrate_rho_all_simultaneously, gauss_config_t
+        use species, only: plasma
+        use constants, only: pi, sol, com_unit
+        use electrostatic_integrands, only: int_F0_rho_phi_t, int_F1_rho_phi_t, int_F2_rho_phi_t, int_F3_rho_phi_t, &
+            integration_point_t
+        use kernel_plasma_prefacs, only: G1_rho_phi, G1_rho_B, G2_rho_B, G3_rho_B, G0_rho_phi, G2_rho_phi, G3_rho_phi, &
+            kappa_rho_phi, kappa_rho_B
+        use config, only: artificial_debye_case
+        
+        implicit none
+
+        integer, intent(in) :: l, lp
+        complex(dp) :: kernel_phi_llp, kernel_B_llp
+        integer :: j, sigma
+        type(gauss_config_t), intent(in) :: gauss_conf
+        complex(dp) :: integral_val_phi, integral_val_B
+
+        type(integration_point_t) :: int_point
+        
+        kernel_phi_llp = 0.0d0
+        kernel_B_llp = 0.0d0
+
+        call set_xl_at_edge(l, lp, int_point)
+
+        do sigma = 0, plasma%n_species - 1
+            do j = 2, size(plasma%r_grid)-1
+                int_point%j = j
+                int_point%rhoT = 0.5d0 * (plasma%spec(sigma)%rho_L(j) + plasma%spec(sigma)%rho_L(j+1))
+
+                call gauss_integrate_rho_all_simultaneously(int_point, plasma%spec(sigma), &
+                    integral_val_phi, integral_val_B, gauss_conf)
+                kernel_phi_llp = kernel_phi_llp + integral_val_phi * kappa_rho_phi(j, plasma%spec(sigma))
+                kernel_B_llp = kernel_B_llp + integral_val_B * kappa_rho_B(j, plasma%spec(sigma))
                 
             end do
         end do

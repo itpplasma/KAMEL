@@ -56,7 +56,6 @@ module electrostatic_integrals
 
         use KIM_kinds, only: dp
         use electrostatic_integrands, only: int_F1_rho_phi_t
-        use grid, only: xl_grid
         use constants, only: pi
 
         implicit none
@@ -95,7 +94,6 @@ module electrostatic_integrals
     
         use KIM_kinds, only: dp
         use electrostatic_integrands, only: int_F2_rho_phi_t
-        use grid, only: xl_grid
         use constants, only: pi
 
         implicit none
@@ -133,7 +131,6 @@ module electrostatic_integrals
 
         use KIM_kinds, only: dp
         use electrostatic_integrands, only: int_F3_rho_phi_t
-        use grid, only: xl_grid
         use constants, only: pi
 
         implicit none
@@ -175,9 +172,8 @@ module electrostatic_integrals
         use electrostatic_integrands, only: integration_point_t, int_F0_rho_phi_t, int_F1_rho_phi_t, &
             int_F2_rho_phi_t, int_F3_rho_phi_t
         use kernel_plasma_prefacs, only: G0_rho_phi, G1_rho_phi, G2_rho_phi, G3_rho_phi
-        use grid, only: xl_grid
         use constants, only: pi
-        use species, only: plasma, species_t
+        use species, only: species_t
 
         implicit none
 
@@ -189,7 +185,7 @@ module electrostatic_integrals
         type(int_F3_rho_phi_t) :: int_F3
 
         type(gauss_config_t), intent(in) :: gauss_conf
-        real(dp), intent(out) :: result
+        complex(dp), intent(out) :: result
         real(dp) :: x_mapped, xp_mapped, theta_mapped
         integer :: i,j,k
 

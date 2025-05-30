@@ -12,6 +12,7 @@ module grid
     integer :: spline_base
     integer :: grid_spacing
     integer :: num_gengrid_points
+    integer :: delta_l_max
 
     integer :: nder=1
     integer :: npoi_der=4

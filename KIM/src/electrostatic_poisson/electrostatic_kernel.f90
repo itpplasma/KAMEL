@@ -31,6 +31,7 @@ module electrostatic_kernel
 
         use KIM_kinds, only: dp
         use electrostatic_integrals, only: gauss_config_t, init_gauss_int
+        use grid, only: delta_l_max
 
         implicit none
 
@@ -46,7 +47,7 @@ module electrostatic_kernel
         !$omp parallel do collapse(2) private(l,lp, kernel_phi_llp, kernel_B_llp)
         do l = 1, kernel_rho_phi_llp%npts_l
             do lp = 1, kernel_rho_phi_llp%npts_lp
-                if (abs(l - lp) > 15) cycle
+                if (abs(l - lp) > delta_l_max) cycle
 
                 call calc_kernel_rho(l, lp, kernel_phi_llp, kernel_B_llp, gauss_conf)
                 kernel_rho_phi_llp%Kllp(l, lp) = kernel_phi_llp

@@ -54,6 +54,13 @@ module electrostatic_integrands
             procedure :: f => integrand_F_all_rho_B
     end type
 
+    type :: int_F_all_terms_rho_t
+        type(integration_point_t) :: int_point
+        contains
+            procedure :: f => integrand_F_all_terms_rho
+    end type
+
+
     contains
 
     function integrand_F0_rho_phi(this, x) result(val)
@@ -277,7 +284,133 @@ module electrostatic_integrands
 
         val = varphi_l(x, this%int_point%xlm1, this%int_point%xl, this%int_point%xlp1) &
             * varphi_l(x, this%int_point%xlpm1, this%int_point%xlp, this%int_point%xlpp1) &
-            * 1.0d0
+            * (&
+                exp(- ks_val**2.0d0 * this%int_point%rhoT**2.0d0 &
+                    - (x - xp)**2.0d0 / (4.0d0 * this%int_point%rhoT**2.0d0 * (1.0d0 - cos(theta)))) &
+                    * ( &
+                    ! F1
+                        2.0d0 * pi / (this%int_point%rhoT**2.0d0 * sin(theta)) &
+                        * this%int_point%Jrg1 &
+                        * G1_rho_B(this%int_point%j, spec) &
+                    ! F2
+                        + (-pi) / (4.0d0 * this%int_point%rhoT**4.0d0 * sin(theta)**5.0d0) &
+                        * (&
+                            this%int_point%Jrg1 * (&
+                                4.0d0 * cos(2.0d0 * theta) * this%int_point%rhoT**2.0d0 *(ks_val**2.0d0 * this%int_point%rhoT**2.0d0 + 1.0d0) &
+                                - ks_val**2.0d0 * this%int_point%rhoT**4.0d0 * cos(4.0d0 * theta)  &
+                                - this%int_point%rhoT**2.0d0 * (3.0d0 * ks_val**2.0d0 * this%int_point%rhoT**2.0d0 + 4.0d0) &
+                            ) &
+                            + (2.0d0 * cos(2.0d0 * theta) + 6) * (this%int_point%Jrg2 + this%int_point%Jrg3) &
+                            + 16.0d0 * cos(theta) * this%int_point%Jrg4 &
+                        )&
+                        * G2_rho_B(this%int_point%j, spec) &
+                    ! F3
+                        + (-pi) * cos(theta) / ( 2.0d0 * this%int_point%rhoT**4.0d0 * sin(theta)**5.0d0) &
+                        * ( &
+                            this%int_point%rhoT**2.0d0 * (cos(3.0d0 * theta) - cos(theta)) * this%int_point%Jrg1 &
+                            + 4.0d0 * cos(theta) * (this%int_point%Jrg2 + this%int_point%Jrg3) &
+                            + 2.0d0 * (cos(2.0d0 * theta) + 3.0d0) * this%int_point%Jrg4 &
+                        ) &
+                        * G3_rho_B(this%int_point%j, spec) &
+                    ) &
+            )
+
+    end function
+
+
+    function integrand_F_all_terms_rho(this, x, xp, theta, spec, G0, G1, G2, G3) result(val)
+
+        use constants, only: pi
+        use species, only: plasma, species_t
+        use gsl_mod, only: erf => gsl_sf_erf
+        use grid, only: rg_grid
+        use KIM_kinds, only: dp
+        use functions, only: varphi_l
+
+        implicit none
+
+        interface
+            function G0(j, spec) result(val)
+                use species, only: species_t
+                use KIM_kinds, only: dp
+                integer, intent(in) :: j
+                type(species_t), intent(in) :: spec
+                real(dp) :: val
+            end function
+
+            function G1(j, spec) result(val)
+                use species, only: species_t
+                use KIM_kinds, only: dp
+                integer, intent(in) :: j
+                type(species_t), intent(in) :: spec
+                complex(dp) :: val
+            end function
+
+            function G2(j, spec) result(val)
+                use species, only: species_t
+                use KIM_kinds, only: dp
+                integer, intent(in) :: j
+                type(species_t), intent(in) :: spec
+                complex(dp) :: val
+            end function
+
+            function G3(j, spec) result(val)
+                use species, only: species_t
+                use KIM_kinds, only: dp
+                integer, intent(in) :: j
+                type(species_t), intent(in) :: spec
+                complex(dp) :: val
+            end function
+        end interface
+
+        class(int_F_all_terms_rho_t), intent(inout) :: this
+        type(species_t), intent(in) :: spec
+        real(dp), intent(in) :: x, xp, theta
+        complex(dp) :: val
+        real(dp) :: ks_val
+
+        ks_val = 0.5d0 * (plasma%ks(this%int_point%j) + plasma%ks(this%int_point%j+1))
+
+        val = varphi_l(x, this%int_point%xlm1, this%int_point%xl, this%int_point%xlp1) &
+            * varphi_l(x, this%int_point%xlpm1, this%int_point%xlp, this%int_point%xlpp1) &
+            * (&
+                ! F0
+                    (&
+                        erf((x - rg_grid%xb(this%int_point%j))/(sqrt(2.0d0) * this%int_point%rhoT)) &
+                        - erf((x - rg_grid%xb(this%int_point%j+1))/(sqrt(2.0d0) * this%int_point%rhoT))&
+                    ) &
+                    * 2.0d0 * pi**2.0d0 &
+                    * G0(this%int_point%j, spec) &
+                !
+                + exp(- ks_val**2.0d0 * this%int_point%rhoT**2.0d0 &
+                    - (x - xp)**2.0d0 / (4.0d0 * this%int_point%rhoT**2.0d0 * (1.0d0 - cos(theta)))) &
+                    * ( &
+                    ! F1
+                        2.0d0 * pi / (this%int_point%rhoT**2.0d0 * sin(theta)) &
+                        * this%int_point%Jrg1 &
+                        * G1(this%int_point%j, spec) &
+                    ! F2
+                        + (-pi) / (4.0d0 * this%int_point%rhoT**4.0d0 * sin(theta)**5.0d0) &
+                        * (&
+                            this%int_point%Jrg1 * (&
+                                4.0d0 * cos(2.0d0 * theta) * this%int_point%rhoT**2.0d0 *(ks_val**2.0d0 * this%int_point%rhoT**2.0d0 + 1.0d0) &
+                                - ks_val**2.0d0 * this%int_point%rhoT**4.0d0 * cos(4.0d0 * theta)  &
+                                - this%int_point%rhoT**2.0d0 * (3.0d0 * ks_val**2.0d0 * this%int_point%rhoT**2.0d0 + 4.0d0) &
+                            ) &
+                            + (2.0d0 * cos(2.0d0 * theta) + 6) * (this%int_point%Jrg2 + this%int_point%Jrg3) &
+                            + 16.0d0 * cos(theta) * this%int_point%Jrg4 &
+                        )&
+                        * G2(this%int_point%j, spec) &
+                    ! F3
+                        + (-pi) * cos(theta) / ( 2.0d0 * this%int_point%rhoT**4.0d0 * sin(theta)**5.0d0) &
+                        * ( &
+                            this%int_point%rhoT**2.0d0 * (cos(3.0d0 * theta) - cos(theta)) * this%int_point%Jrg1 &
+                            + 4.0d0 * cos(theta) * (this%int_point%Jrg2 + this%int_point%Jrg3) &
+                            + 2.0d0 * (cos(2.0d0 * theta) + 3.0d0) * this%int_point%Jrg4 &
+                        ) &
+                        * G3(this%int_point%j, spec) &
+                    ) &
+            )
 
     end function
 

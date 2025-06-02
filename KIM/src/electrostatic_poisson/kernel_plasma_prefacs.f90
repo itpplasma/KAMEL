@@ -126,6 +126,22 @@ module kernel_plasma_prefacs
 
     end function
 
+    function G0_rho_B(j, spec) result(val)
+
+        use species, only: plasma, species_t
+        use constants, only: pi
+        use KIM_kinds, only: dp
+
+        implicit none
+
+        integer, intent(in) :: j
+        type(species_t), intent(in) :: spec
+        real(dp) :: val
+
+        val = 0.0d0
+
+    end function
+
     function G1_rho_B(j, spec) result(val)
 
         use KIM_kinds, only: dp

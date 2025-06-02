@@ -49,8 +49,8 @@ module electrostatic_kernel
             do lp = 1, kernel_rho_phi_llp%npts_lp
                 if (abs(l - lp) > delta_l_max) cycle
 
-                call calc_kernel_rho_all_terms_at_once(l, lp, kernel_phi_llp, kernel_B_llp, gauss_conf)
-                !call calc_kernel_rho_term_by_term(l, lp, kernel_phi_llp, kernel_B_llp, gauss_conf)
+                !call calc_kernel_rho_all_terms_at_once(l, lp, kernel_phi_llp, kernel_B_llp, gauss_conf)
+                call calc_kernel_rho_term_by_term(l, lp, kernel_phi_llp, kernel_B_llp, gauss_conf)
                 kernel_rho_phi_llp%Kllp(l, lp) = kernel_phi_llp
                 kernel_rho_B_llp%Kllp(l, lp) = kernel_B_llp
 
@@ -148,14 +148,14 @@ module electrostatic_kernel
     subroutine calc_kernel_rho_all_terms_at_once(l, lp, kernel_phi_llp, kernel_B_llp, gauss_conf)
 
         use KIM_kinds, only: dp
-        use electrostatic_integrals, only: gauss_integrate_rho_all_simultaneously, gauss_config_t
+        use electrostatic_integrals, only: gauss_integrate_rho_all_simultaneously, gauss_config_t, &
+            gauss_integrate_rho_all_at_once
         use species, only: plasma
         use constants, only: pi, sol, com_unit
         use electrostatic_integrands, only: int_F0_rho_phi_t, int_F1_rho_phi_t, int_F2_rho_phi_t, int_F3_rho_phi_t, &
             integration_point_t
         use kernel_plasma_prefacs, only: G1_rho_phi, G1_rho_B, G2_rho_B, G3_rho_B, G0_rho_phi, G2_rho_phi, G3_rho_phi, &
             kappa_rho_phi, kappa_rho_B
-        use config, only: artificial_debye_case
         
         implicit none
 
@@ -177,7 +177,8 @@ module electrostatic_kernel
                 int_point%j = j
                 int_point%rhoT = 0.5d0 * (plasma%spec(sigma)%rho_L(j) + plasma%spec(sigma)%rho_L(j+1))
 
-                call gauss_integrate_rho_all_simultaneously(int_point, plasma%spec(sigma), &
+                !call gauss_integrate_rho_all_simultaneously(int_point, plasma%spec(sigma), &
+                call gauss_integrate_rho_all_at_once(int_point, plasma%spec(sigma), &
                     integral_val_phi, integral_val_B, gauss_conf)
                 kernel_phi_llp = kernel_phi_llp + integral_val_phi * kappa_rho_phi(j, plasma%spec(sigma))
                 kernel_B_llp = kernel_B_llp + integral_val_B * kappa_rho_B(j, plasma%spec(sigma))

@@ -10,7 +10,7 @@ build/build.ninja:
 ninja: build/build.ninja
 	cmake --build build --config $(CONFIG)
 
-test: build
+test: ninja
 	ctest --test-dir build --stop-on-failure --output-on-failure
 
 clean:

@@ -30,14 +30,14 @@
 
 &kim_grid
     k_space_dim = 100
-    l_space_dim = 6000
+    l_space_dim = 1000
     reduce_r = .false.
     reduced_rg_dim = 1000
     grid_spacing = 3
     num_gengrid_points = 64
     kr_grid_width_res = 5.0
     kr_grid_ampl_res = 1.0
-    delta_l_max = 10
+    delta_l_max = 5
 /
 
 &kim_species

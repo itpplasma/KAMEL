@@ -79,8 +79,8 @@ module electrostatic_integrands
         val = varphi_l(x, this%int_point%xlm1, this%int_point%xl, this%int_point%xlp1) &
             * varphi_l(x, this%int_point%xlpm1, this%int_point%xlp, this%int_point%xlpp1) &
             * (&
-                erf((x - rg_grid%xb(this%int_point%j))/(sqrt(2.0d0) * this%int_point%rhoT)) &
-                - erf((x - rg_grid%xb(this%int_point%j+1))/(sqrt(2.0d0) * this%int_point%rhoT))&
+                  erf((rg_grid%xb(this%int_point%j+1)-x)/(sqrt(2.0d0) * this%int_point%rhoT)) &
+                - erf((rg_grid%xb(this%int_point%j) - x)/(sqrt(2.0d0) * this%int_point%rhoT))&
             ) &
             * 2.0d0 * pi**2.0d0
 
@@ -154,7 +154,7 @@ module electrostatic_integrands
                     - this%int_point%rhoT**2.0d0 * (3.0d0 * ks_val**2.0d0 * this%int_point%rhoT**2.0d0 + 4.0d0) &
                 ) &
                 + (2.0d0 * cos(2.0d0 * theta) + 6) * (this%int_point%Jrg2 + this%int_point%Jrg3) &
-                + 16.0d0 * cos(theta) * this%int_point%Jrg4 &
+                - 16.0d0 * cos(theta) * this%int_point%Jrg4 &
             )
 
     end function
@@ -192,7 +192,7 @@ module electrostatic_integrands
             * ( &
                 this%int_point%rhoT**2.0d0 * (cos(3.0d0 * theta) - cos(theta)) * this%int_point%Jrg1 &
                 + 4.0d0 * cos(theta) * (this%int_point%Jrg2 + this%int_point%Jrg3) &
-                + 2.0d0 * (cos(2.0d0 * theta) + 3.0d0) * this%int_point%Jrg4 &
+                - 2.0d0 * (cos(2.0d0 * theta) + 3.0d0) * this%int_point%Jrg4 &
             )
 
 
@@ -425,8 +425,8 @@ module electrostatic_integrands
         class(integration_point_t), intent(inout) :: this
 
         this%Jrg1 = sqrt(pi) / (2.0d0 * this%a_coef) &
-            *(erf(this%a_coef * (this%b_coef + rg_grid%xb(this%j+1))) &
-            - erf(this%a_coef * (this%b_coef + rg_grid%xb(this%j))))
+            *(erf(this%a_coef * (this%b_coef - rg_grid%xb(this%j))) &
+            - erf(this%a_coef * (this%b_coef - rg_grid%xb(this%j+1))))
 
     end subroutine
 
@@ -442,13 +442,13 @@ module electrostatic_integrands
 
         this%Jrg2 = 1.0d0 / (4.0d0 * this%a_coef**3.0d0) &
                     * ( &
-                        sqrt(pi) * (2.0d0 * this%a_coef**2.0d0 * (this%b_coef + this%xl)**2.0d0 + 1.0d0) &
-                            * (erf(this%a_coef * (this%b_coef + rg_grid%xb(this%j+1))) &
-                                - erf(this%a_coef * (this%b_coef + rg_grid%xb(this%j)))) &
-                        - 2.0d0 * this%a_coef * exp(-this%a_coef**2.0d0 * (this%b_coef + rg_grid%xb(this%j))**2.0d0) &
-                            * (this%b_coef - rg_grid%xb(this%j) + 2.0d0 * this%xl) &
-                        + 2.0d0 * this%a_coef * exp(-this%a_coef**2.0d0 * (this%b_coef + rg_grid%xb(this%j+1))**2.0d0) &
-                            * (this%b_coef - rg_grid%xb(this%j+1) + 2.0d0 * this%xl) &
+                        sqrt(pi) * (2.0d0 * this%a_coef**2.0d0 * (this%b_coef - this%xl)**2.0d0 + 1.0d0) &
+                            * (erf(this%a_coef * (this%b_coef - rg_grid%xb(this%j))) &
+                                - erf(this%a_coef * (this%b_coef - rg_grid%xb(this%j+1)))) &
+                        + 2.0d0 * this%a_coef * exp(-this%a_coef**2.0d0 * (this%b_coef - rg_grid%xb(this%j))**2.0d0) &
+                            * (this%b_coef + rg_grid%xb(this%j) - 2.0d0 * this%xl) &
+                        - 2.0d0 * this%a_coef * exp(-this%a_coef**2.0d0 * (this%b_coef - rg_grid%xb(this%j+1))**2.0d0) &
+                            * (this%b_coef + rg_grid%xb(this%j+1) - 2.0d0 * this%xl) &
                     )
 
     end subroutine
@@ -466,13 +466,13 @@ module electrostatic_integrands
 
         this%Jrg3 = 1.0d0 / (4.0d0 * this%a_coef**3.0d0) &
                     * ( &
-                        sqrt(pi) * (2.0d0 * this%a_coef**2.0d0 * (this%b_coef + this%xlp)**2.0d0 + 1.0d0) & ! HERE
-                            * (erf(this%a_coef * (this%b_coef + rg_grid%xb(this%j+1))) &
-                                - erf(this%a_coef * (this%b_coef + rg_grid%xb(this%j)))) &
-                        - 2.0d0 * this%a_coef * exp(-this%a_coef**2.0d0 * (this%b_coef + rg_grid%xb(this%j))**2.0d0) &
-                            * (this%b_coef - rg_grid%xb(this%j) + 2.0d0 * this%xlp) & !HERE
-                        + 2.0d0 * this%a_coef * exp(-this%a_coef**2.0d0 * (this%b_coef + rg_grid%xb(this%j+1))**2.0d0) &
-                            * (this%b_coef - rg_grid%xb(this%j+1) + 2.0d0 * this%xlp) & ! HERE
+                        sqrt(pi) * (2.0d0 * this%a_coef**2.0d0 * (this%b_coef - this%xlp)**2.0d0 + 1.0d0) &
+                            * (erf(this%a_coef * (this%b_coef - rg_grid%xb(this%j))) &
+                                - erf(this%a_coef * (this%b_coef - rg_grid%xb(this%j+1)))) &
+                        + 2.0d0 * this%a_coef * exp(-this%a_coef**2.0d0 * (this%b_coef - rg_grid%xb(this%j))**2.0d0) &
+                            * (this%b_coef - rg_grid%xb(this%j) + 2.0d0 * this%xlp) &
+                        - 2.0d0 * this%a_coef * exp(-this%a_coef**2.0d0 * (this%b_coef - rg_grid%xb(this%j+1))**2.0d0) &
+                            * (this%b_coef + rg_grid%xb(this%j+1) - 2.0d0 * this%xlp) & 
                     )
 
     end subroutine
@@ -489,13 +489,13 @@ module electrostatic_integrands
 
         this%Jrg4 = 1.0d0 / (4.0d0 * this%a_coef**3.0d0) &
                     * ( &
-                        (erf(this%a_coef * (this%b_coef + rg_grid%xb(this%j+1))) &
-                            - erf(this%a_coef * (this%b_coef + rg_grid%xb(this%j)))) &
-                            * sqrt(pi) * (-2.0d0 * this%a_coef**2.0d0 * (this%b_coef + this%xl)*(this%b_coef + this%xlp)-1.0d0) & ! HERE
-                        + 2.0d0 * this%a_coef * exp(-this%a_coef**2.0d0 * (this%b_coef + rg_grid%xb(this%j))**2.0d0) &
-                            * (this%b_coef - rg_grid%xb(this%j) + this%xl + this%xlp) & ! HERE
-                        + 2.0d0 * this%a_coef * exp(-this%a_coef**2.0d0 * (this%b_coef + rg_grid%xb(this%j+1))**2.0d0) &
-                            * (-this%b_coef + rg_grid%xb(this%j+1) - this%xl - this%xlp) & ! HERE
+                        (erf(this%a_coef * (this%b_coef - rg_grid%xb(this%j))) &
+                            - erf(this%a_coef * (this%b_coef - rg_grid%xb(this%j+1)))) &
+                            * sqrt(pi) * (2.0d0 * this%a_coef**2.0d0 * (this%b_coef - this%xl)*(this%b_coef - this%xlp)+1.0d0) & ! HERE
+                        + 2.0d0 * this%a_coef * exp(-this%a_coef**2.0d0 * (this%b_coef - rg_grid%xb(this%j))**2.0d0) &
+                            * (this%b_coef + rg_grid%xb(this%j) - this%xl - this%xlp) &
+                        + 2.0d0 * this%a_coef * exp(-this%a_coef**2.0d0 * (this%b_coef - rg_grid%xb(this%j+1))**2.0d0) &
+                            * (-this%b_coef - rg_grid%xb(this%j+1) + this%xl + this%xlp) &
                     )
 
     end subroutine
@@ -507,7 +507,7 @@ module electrostatic_integrands
         real(dp), intent(in) :: x, xp
         real(dp) :: b_coef
 
-        b_coef = -0.5d0 * (xp + x)
+        b_coef = 0.5d0 * (xp + x)
 
     end function
 

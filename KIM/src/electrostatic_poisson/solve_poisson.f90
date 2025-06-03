@@ -18,10 +18,10 @@ module poisson_solver
 
         complex(dp), intent(in) :: K_rho_phi(:,:)
         complex(dp), intent(in) :: K_rho_B(:,:)
+        complex(dp), dimension(:), allocatable, intent(out) :: phi_sol
         complex(dp), dimension(:), allocatable :: A_nz ! non-zero elements of A matrix
         complex(dp), dimension(:,:), allocatable :: A_mat ! A matrix
         complex(dp), dimension(:), allocatable :: b_vec ! b vector and x vector
-        complex(dp), dimension(:), allocatable :: phi_sol
         integer, dimension(:), allocatable :: irow, pcol
         integer :: nz_out, nrow, ncol
         integer :: i,j

@@ -183,8 +183,22 @@ module grid
             subroutine write_new_grid
 
                 implicit none
-                integer :: i
-                
+                integer :: i, ierr
+                logical :: dir_exists
+
+                inquire(file=trim(output_path)//'grid/', exist=dir_exists)
+
+                if (.not. dir_exists) then
+                    ! Try to create the directory using a system call (POSIX mkdir)
+                    call execute_command_line("mkdir -p " // trim(output_path)//'grid', exitstat=ierr)
+
+                    if (ierr /= 0) then
+                    print *, "Error: Could not create directory. Exit status = ", ierr
+                    else
+                    print *, "Directory created successfully."
+                    end if
+                end if
+
                 open(unit = 77, file=trim(output_path)//'grid/'//trim(this%name)//'_xb.dat')
                 open(unit = 78, file=trim(output_path)//'grid/'//trim(this%name)//'_xc.dat')
                 do i = 1, this%npts_b
@@ -198,7 +212,6 @@ module grid
             end subroutine
 
     end subroutine grid_generate
-
 
     subroutine grid_generate_linear(this)
 

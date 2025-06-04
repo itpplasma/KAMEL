@@ -43,7 +43,6 @@ module poisson_solver
         end if
 
         call dense_to_sparse(A_mat, irow, pcol, A_nz, nrow, ncol, nz_out)
-        
         call create_rhs_vector(type_br_field, K_rho_B, b_vec)
         
         sparse_solver_option = 0
@@ -158,7 +157,7 @@ module poisson_solver
             use grid, only: xl_grid
             use IO_collection, only: write_profile, write_complex_profile, plot_profile
             use KIM_kinds, only: dp
-            use fields, only: EBdat
+            use fields, only: EBdat, set_Br_field
             use config, only: output_path
 
             implicit none
@@ -199,14 +198,13 @@ module poisson_solver
                 do i = 2, xl_grid%npts_b-1
                     rhs_vec(i) = e_charge * varphi_l(x0, xl_grid%xb(i-1), xl_grid%xb(i), xl_grid%xb(i+1))
                 end do
-            !!! type > 10 uses kernel
-            elseif(type==11) then ! constant Br field with kernel
+            ! type > 10 uses Br kernel to determine right hand side of equation
+            elseif(type==11) then 
+                call set_Br_field(EBdat, 1) ! Br field from input
                 rhs_vec = matmul(K_rho_B, EBdat%Br)
-                call write_complex_profile(xl_grid%xb, EBdat%Br, xl_grid%npts_b, trim(output_path)//'fields/br_pert.dat')
             elseif(type==12) then 
-                rhs_vec = 1.0d0
-                call write_complex_profile(xl_grid%xb, rhs_vec, xl_grid%npts_b, trim(output_path)//'fields/br_pert.dat')
-                rhs_vec = matmul(K_rho_B, rhs_vec)
+                call set_Br_field(EBdat, 0) ! constant Br field
+                rhs_vec = matmul(K_rho_B, EBdat%Br)
             elseif(type==13) then ! linear increase including kernel
                 rhs_vec = 0.0d0
                 do i = 1, size(b_vec)

@@ -55,7 +55,7 @@ module electrostatic_integrals
     subroutine gauss_integrate_F1(int_F1, result, gauss_conf)
 
         use KIM_kinds, only: dp
-        use electrostatic_integrands, only: int_F1_rho_phi_t
+        use electrostatic_integrands, only: int_F1_rho_phi_t, calc_b_coef
         use constants, only: pi
 
         implicit none
@@ -80,6 +80,11 @@ module electrostatic_integrals
                     x_mapped = 0.5d0 * ((int_F1%int_point%xlp1 - int_F1%int_point%xlm1) * gauss_conf%x(k) + &
                         int_F1%int_point%xlp1 + int_F1%int_point%xlm1)
 
+                    int_F1%int_point%a_coef = sqrt(1.0d0 / (1.0d0 + cos(theta_mapped))) / int_F1%int_point%rhoT
+                    int_F1%int_point%b_coef = calc_b_coef(x_mapped, xp_mapped)
+
+                    call int_F1%int_point%calc_Jrg1()
+
                     result = result + gauss_conf%w(i) * gauss_conf%w(j) * gauss_conf%w(k) &
                         * int_F1%f(x_mapped, xp_mapped, theta_mapped) &
                         * pi * (int_F1%int_point%xlp1 - int_F1%int_point%xlm1) & ! normalization due to integral range shift
@@ -93,7 +98,7 @@ module electrostatic_integrals
     subroutine gauss_integrate_F2(int_F2, result, gauss_conf)
     
         use KIM_kinds, only: dp
-        use electrostatic_integrands, only: int_F2_rho_phi_t
+        use electrostatic_integrands, only: int_F2_rho_phi_t, calc_b_coef
         use constants, only: pi
 
         implicit none
@@ -118,6 +123,14 @@ module electrostatic_integrals
                     x_mapped = 0.5d0 * ((int_F2%int_point%xlp1 - int_F2%int_point%xlm1) * gauss_conf%x(k) + &
                         int_F2%int_point%xlp1 + int_F2%int_point%xlm1)
 
+                    int_F2%int_point%a_coef = sqrt(1.0d0 / (1.0d0 + cos(theta_mapped))) / int_F2%int_point%rhoT
+                    int_F2%int_point%b_coef = calc_b_coef(x_mapped, xp_mapped)
+        
+                    call int_F2%int_point%calc_Jrg1()
+                    call int_F2%int_point%calc_Jrg2()
+                    call int_F2%int_point%calc_Jrg3()
+                    call int_F2%int_point%calc_Jrg4()
+
                     result = result + gauss_conf%w(i) * gauss_conf%w(j) * gauss_conf%w(k) &
                         * int_F2%f(x_mapped, xp_mapped, theta_mapped) &
                         * pi * (int_F2%int_point%xlp1 - int_F2%int_point%xlm1) & ! normalization due to integral range shift
@@ -130,7 +143,7 @@ module electrostatic_integrals
     subroutine gauss_integrate_F3(int_F3, result, gauss_conf)
 
         use KIM_kinds, only: dp
-        use electrostatic_integrands, only: int_F3_rho_phi_t
+        use electrostatic_integrands, only: int_F3_rho_phi_t, calc_b_coef
         use constants, only: pi
 
         implicit none
@@ -155,151 +168,18 @@ module electrostatic_integrals
                     x_mapped = 0.5d0 * ((int_F3%int_point%xlp1 - int_F3%int_point%xlm1) * gauss_conf%x(k) + &
                         int_F3%int_point%xlp1 + int_F3%int_point%xlm1)
 
+                    int_F3%int_point%a_coef = sqrt(1.0d0 / (1.0d0 + cos(theta_mapped))) / int_F3%int_point%rhoT
+                    int_F3%int_point%b_coef = calc_b_coef(x_mapped, xp_mapped)
+
+                    call int_F3%int_point%calc_Jrg1()
+                    call int_F3%int_point%calc_Jrg2()
+                    call int_F3%int_point%calc_Jrg3()
+                    call int_F3%int_point%calc_Jrg4()
+
                     result = result + gauss_conf%w(i) * gauss_conf%w(j) * gauss_conf%w(k) &
                         * int_F3%f(x_mapped, xp_mapped, theta_mapped) &
                         * pi * (int_F3%int_point%xlp1 - int_F3%int_point%xlm1) & ! normalization due to integral range shift
                         * (int_F3%int_point%xlpp1 - int_F3%int_point%xlpm1) / 8.0d0
-                end do
-            end do
-        end do 
-
-    end subroutine
-
-
-    subroutine gauss_integrate_rho_all_simultaneously(int_point, spec, result_phi, result_B, gauss_conf)
-
-        use KIM_kinds, only: dp
-        use electrostatic_integrands, only: integration_point_t, int_F_all_terms_rho_t
-        use kernel_plasma_prefacs, only: G0_rho_phi, G1_rho_phi, G2_rho_phi, G3_rho_phi, &
-            G0_rho_B, G1_rho_B, G2_rho_B, G3_rho_B
-        use constants, only: pi
-        use species, only: species_t
-        use electrostatic_integrands, only: calc_b_coef
-
-        implicit none
-
-        class(integration_point_t), intent(inout) :: int_point
-        type(species_t), intent(in) :: spec
-        type(int_F_all_terms_rho_t) :: int_F_all_terms_rho
-
-        type(gauss_config_t), intent(in) :: gauss_conf
-        complex(dp), intent(out) :: result_phi, result_B
-        real(dp) :: x_mapped, xp_mapped, theta_mapped
-        integer :: i,j,k
-
-        result_phi = 0.0d0
-        result_B = 0.0d0
-
-        do i=1,gauss_conf%n ! theta
-            theta_mapped = 0.5d0 * (pi * gauss_conf%x(i) + pi)
-
-            do j=1,gauss_conf%n ! xp 
-                xp_mapped = 0.5d0 * ((int_point%xlpp1 - int_point%xlpm1) * gauss_conf%x(j) + &
-                    int_point%xlpp1 + int_point%xlpm1)
-
-                do k=1,gauss_conf%n !x
-                    x_mapped = 0.5d0 * ((int_point%xlp1 - int_point%xlm1) * gauss_conf%x(k) + &
-                        int_point%xlp1 + int_point%xlm1)
-
-                    int_point%a_coef = sqrt(1.0d0 / (1.0d0 + cos(theta_mapped))) / int_point%rhoT
-                    int_point%b_coef = calc_b_coef(x_mapped, xp_mapped)
-
-                    call int_point%calc_Jrg1()
-                    call int_point%calc_Jrg2()
-                    call int_point%calc_Jrg3()
-                    call int_point%calc_Jrg4()
-
-                    int_F_all_terms_rho%int_point = int_point
-
-                    result_phi = result_phi + gauss_conf%w(i) * gauss_conf%w(j) * gauss_conf%w(k) &
-                        * int_F_all_terms_rho%f(x_mapped, &
-                                                xp_mapped, &
-                                                theta_mapped, &
-                                                spec, &
-                                                G0_rho_phi, &
-                                                G1_rho_phi, &
-                                                G2_rho_phi, &
-                                                G3_rho_phi) &
-                        * pi * (int_point%xlp1 - int_point%xlm1) & ! normalization due to integral range shift
-                        * (int_point%xlpp1 - int_point%xlpm1) / 8.0d0
-
-                    result_B = result_B + gauss_conf%w(i) * gauss_conf%w(j) * gauss_conf%w(k) &
-                        * int_F_all_terms_rho%f(x_mapped, &
-                                                xp_mapped, &
-                                                theta_mapped, &
-                                                spec, &
-                                                G0_rho_B, &
-                                                G1_rho_B, &
-                                                G2_rho_B, &
-                                                G3_rho_B) &
-                        * pi * (int_point%xlp1 - int_point%xlm1) & ! normalization due to integral range shift
-                        * (int_point%xlpp1 - int_point%xlpm1) / 8.0d0
-                end do
-            end do
-        end do 
-
-    end subroutine
-
-
-    subroutine gauss_integrate_rho_all_at_once(int_point, spec, result_phi, result_B, gauss_conf)
-
-        use KIM_kinds, only: dp
-        use electrostatic_integrands, only: integration_point_t, int_F_all_rho_phi_t, int_F_all_rho_B_t
-        use constants, only: pi
-        use species, only: species_t
-        use electrostatic_integrands, only: calc_b_coef
-
-        implicit none
-
-        class(integration_point_t), intent(inout) :: int_point
-        type(species_t), intent(in) :: spec
-        type(int_F_all_rho_phi_t) :: int_F_all_rho_phi
-        type(int_F_all_rho_B_t) :: int_F_all_rho_B
-
-        type(gauss_config_t), intent(in) :: gauss_conf
-        complex(dp), intent(out) :: result_phi, result_B
-        real(dp) :: x_mapped, xp_mapped, theta_mapped
-        integer :: i,j,k
-
-        result_phi = 0.0d0
-        result_B = 0.0d0
-
-        do i=1,gauss_conf%n ! theta
-            theta_mapped = 0.5d0 * (pi * gauss_conf%x(i) + pi)
-
-            do j=1,gauss_conf%n ! xp 
-                xp_mapped = 0.5d0 * ((int_point%xlpp1 - int_point%xlpm1) * gauss_conf%x(j) + &
-                    int_point%xlpp1 + int_point%xlpm1)
-
-                do k=1,gauss_conf%n !x
-                    x_mapped = 0.5d0 * ((int_point%xlp1 - int_point%xlm1) * gauss_conf%x(k) + &
-                        int_point%xlp1 + int_point%xlm1)
-
-                    int_point%a_coef = sqrt(1.0d0 / (1.0d0 + cos(theta_mapped))) / int_point%rhoT
-                    int_point%b_coef = calc_b_coef(x_mapped, xp_mapped)
-
-                    call int_point%calc_Jrg1()
-                    call int_point%calc_Jrg2()
-                    call int_point%calc_Jrg3()
-                    call int_point%calc_Jrg4()
-                    int_F_all_rho_phi%int_point = int_point
-                    int_F_all_rho_B%int_point = int_point
-
-                    result_phi = result_phi + gauss_conf%w(i) * gauss_conf%w(j) * gauss_conf%w(k) &
-                        * int_F_all_rho_phi%f(x_mapped, &
-                                                xp_mapped, &
-                                                theta_mapped, &
-                                                spec) &
-                        * pi * (int_point%xlp1 - int_point%xlm1) & ! normalization due to integral range shift
-                        * (int_point%xlpp1 - int_point%xlpm1) / 8.0d0
-
-                    result_B = result_B + gauss_conf%w(i) * gauss_conf%w(j) * gauss_conf%w(k) &
-                        * int_F_all_rho_B%f(x_mapped, &
-                                                xp_mapped, &
-                                                theta_mapped, &
-                                                spec) &
-                        * pi * (int_point%xlp1 - int_point%xlm1) & ! normalization due to integral range shift
-                        * (int_point%xlpp1 - int_point%xlpm1) / 8.0d0
                 end do
             end do
         end do 

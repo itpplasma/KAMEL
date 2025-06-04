@@ -21,6 +21,32 @@ module fields
 
     contains
 
+    subroutine set_Br_field(EBdat_in, type_Br)
+
+        use KIM_kinds, only: dp
+        use grid, only: xl_grid
+        use IO_collection, only: write_complex_profile
+        use config, only: output_path
+
+        implicit none
+
+        type(EBdat_t) , intent(inout) :: EBdat_in
+        integer, intent(in) :: type_Br
+        complex(dp) :: Br_const
+        character(len=256) :: file_path
+
+        if (type_Br == 0) then ! Br constant
+            Br_const = 1.0d0
+            call set_Br_constant(EBdat_in, Br_const)
+        else if (type_Br == 1) then ! Br from file
+            file_path = './inp/Br_in.dat'
+            call get_Br_from_txt(EBdat_in, file_path)
+        end if
+
+        call write_complex_profile(xl_grid%xb, EBdat_in%Br, xl_grid%npts_b, trim(output_path)//"/fields/br_pert.dat")
+
+    end subroutine
+
     subroutine set_Br_constant(EBdat_in, const)
 
         implicit none

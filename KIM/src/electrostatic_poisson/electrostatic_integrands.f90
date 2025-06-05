@@ -1,3 +1,4 @@
+! integrands for both Krook and FP collision models
 module electrostatic_integrands
 
     use KIM_kinds, only: dp

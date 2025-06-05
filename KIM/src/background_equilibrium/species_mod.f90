@@ -33,6 +33,7 @@ module species
         real(dp), allocatable :: lambda_D(:) ! Debye length
         real(dp), allocatable :: rho_L(:) ! Larmor radius
         real(dp), allocatable :: z0(:) ! Larmor radius
+        complex(dp), dimension(:,:), allocatable :: symbI ! susceptibility function used for Fokker-Planck collision model
     end type
 
     type(plasma_t) :: plasma
@@ -380,6 +381,36 @@ module species
         call write_profile(rg_grid%xb, spec%rho_L, rg_grid%npts_b, 'rho_L.dat')
         call plot_1D_labeled('rho_L.dat', ' r [cm] ', ' rho_L [cm] ', '')
         call remove_file('rho_L.dat')
+
+    end subroutine
+
+
+    subroutine calc_susc_funcs(symbI, j, spec)
+
+        use KIM_kinds, only: dp
+        use grid, only: rg_grid
+        use resonances_mod, only: r_res, width_res
+
+        implicit none
+
+        complex(dp), dimension(:, :), intent(inout) :: symbI
+        integer, intent(in) :: j
+        type(species_t), intent(in) :: spec
+        real(dp) :: x1, x2
+
+        symbI = 0.d0
+
+        x1 = abs(plasma%kp(j+1) + plasma%kp(j)) * 0.5d0 &
+            *(spec%vT(j+1) + spec%vT(j)) * 0.5d0 &
+            /((spec%nu(j+1) + spec%nu(j)) * 0.5d0)
+        x2 = -(plasma%om_E(j+1) + plasma%om_E(j)) * 0.5 &
+            /((spec%nu(j+1) + spec%nu(j)) * 0.5d0)
+        
+        if (rg_grid%xb(j) .lt. r_res - 2.d0*width_res .or. rg_grid%xb(j) .gt. r_res + 2.d0*width_res) then
+            symbI = 0.0d0
+        else
+            call getIfunc(x1, x2, symbI)
+        end if
 
     end subroutine
 

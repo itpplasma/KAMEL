@@ -232,4 +232,34 @@ module fields
 
     end subroutine
 
+
+    subroutine postprocess_electric_field(EBdat)
+
+        use KIM_kinds, only: dp
+        use IO_collection, only: write_complex_profile
+        use grid, only: xl_grid
+        use config, only: output_path
+        use species, only: plasma
+
+        implicit none
+
+        type(EBdat_t), intent(inout) :: EBdat
+
+        call calculate_E_perp_psi(plasma, EBdat)
+        call write_complex_profile(xl_grid%xb, EBdat%E_perp_psi, xl_grid%npts_b, trim(output_path)//"/fields/E_perp_psi.dat")
+        call calculate_E_perp(EBdat)
+        call write_complex_profile(xl_grid%xb(1:xl_grid%npts_b-1), EBdat%E_perp, xl_grid%npts_b-1, trim(output_path)//"/fields/E_perp.dat")
+
+        call calculate_E_from_phi(EBdat)
+        call calculate_E_in_rsp_from_cyl(EBdat)
+
+        call write_complex_profile(EBdat%r_grid, EBdat%Er, size(EBdat%r_grid), trim(output_path)//"/fields/Er.dat")
+        call write_complex_profile(EBdat%r_grid, EBdat%Etheta, size(EBdat%r_grid), trim(output_path)//"/fields/Etheta.dat")
+        call write_complex_profile(EBdat%r_grid, EBdat%Ez, size(EBdat%r_grid), trim(output_path)//"/fields/Ez.dat")
+
+        call write_complex_profile(EBdat%r_grid, EBdat%Es, size(EBdat%r_grid), trim(output_path)//"/fields/Es.dat")
+        call write_complex_profile(EBdat%r_grid, EBdat%Ep, size(EBdat%r_grid), trim(output_path)//"/fields/Ep.dat")
+    
+    end subroutine
+
 end module

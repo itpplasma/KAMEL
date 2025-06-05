@@ -7,6 +7,7 @@
     fstatus = 1
     number_of_ion_species = 1
     type_of_run = 'electrostatic'
+    collision_model = 'Krook'       ! Krook or FokkerPlanck
     artificial_debye_case = .false.
 /
 

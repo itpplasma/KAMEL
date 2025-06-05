@@ -34,6 +34,10 @@ module species
         real(dp), allocatable :: rho_L(:) ! Larmor radius
         real(dp), allocatable :: z0(:) ! Larmor radius
         complex(dp), dimension(:,:), allocatable :: symbI ! susceptibility function used for Fokker-Planck collision model
+        complex(dp), allocatable :: I00(:)
+        complex(dp), allocatable :: I20(:)
+        complex(dp), allocatable :: I01(:)
+        complex(dp), allocatable :: I21(:)
     end type
 
     type(plasma_t) :: plasma
@@ -168,11 +172,14 @@ module species
         use plasma_parameter, only: iprof_length, r_prof
         use setup, only: m_mode, n_mode, omega, R0
         use grid, only: rg_grid
+        use config, only: number_of_ion_species
 
         implicit none
 
         type(plasma_t), intent(inout) :: plasma
-        integer :: i, sp
+        integer :: i, sp, sp_col
+        real(dp) :: Lee(iprof_length), Lei(number_of_ion_species, iprof_length), Lii(number_of_ion_species, number_of_ion_species, iprof_length),&
+            nue(iprof_length), nui(number_of_ion_species, iprof_length)
 
         do i = 1, iprof_length
             ! "senkrecht" wavenumber
@@ -191,6 +198,10 @@ module species
             allocate(plasma%spec(sp)%lambda_D(iprof_length))
             allocate(plasma%spec(sp)%A1(iprof_length))
             allocate(plasma%spec(sp)%A2(iprof_length))
+            allocate(plasma%spec(sp)%I00(iprof_length))
+            allocate(plasma%spec(sp)%I20(iprof_length))
+            allocate(plasma%spec(sp)%I01(iprof_length))
+            allocate(plasma%spec(sp)%I21(iprof_length))
             allocate(plasma%spec(sp)%nu(iprof_length))
             allocate(plasma%spec(sp)%omega_c(iprof_length))
 
@@ -198,8 +209,6 @@ module species
                 plasma%spec(sp)%vT(i) = sqrt(plasma%spec(sp)%T(i) * ev / (plasma%spec(sp)%mass))
                 plasma%spec(sp)%omega_c(i) = plasma%spec(sp)%Zspec * e_charge * abs(B0(i)) &
                     / (plasma%spec(sp)%mass * sol)
-                !nue(i) = 5.8e-6 * n_prof(i) * Lee(i) / Te_prof(i)**(3.0/2.0)
-                plasma%spec(sp)%nu(i) = 0.0d0
                 plasma%spec(sp)%lambda_D(i) = sqrt(plasma%spec(sp)%T(i) *ev / (4.0d0*pi* plasma%spec(sp)%n(i) &
                     * (plasma%spec(sp)%Zspec * e_charge)**2.0d0))
                 plasma%spec(sp)%A1(i) = plasma%spec(sp)%dndr(i) / plasma%spec(sp)%n(i) - plasma%spec(sp)%Zspec *e_charge&
@@ -209,6 +218,53 @@ module species
                 plasma%spec(sp)%z0(i) = - (plasma%om_E(i) - omega - com_unit * plasma%spec(sp)%nu(i)) &
                     / (abs(plasma%kp(i)) * sqrt(2d0) * plasma%spec(sp)%vT(i) )
             end do
+        end do
+
+        do i=1, iprof_length
+            ! Coulomb logarithm
+            Lee(i) = 23.5d0 - log(sqrt(plasma%spec(0)%n(i)) / plasma%spec(0)%T(i)**1.25) - &
+                sqrt(1d-5 + (log(plasma%spec(0)%T(i)) -2.0)**2.0 / 16.0)
+            nue(i) = 5.8e-6 * plasma%spec(0)%n(i) * Lee(i) / plasma%spec(0)%T(i)**(3.0/2.0)
+        end do
+
+        do sp=1, number_of_ion_species
+            do i=1, iprof_length
+                ! Coulomb logarithm electrons ions (= ions electrons)
+                Lei(sp, i) = 24.0d0 - log(sqrt(plasma%spec(0)%n(i)) / plasma%spec(sp)%T(i))
+
+                nue(i) = nue(i) + 7.7d-6 * plasma%spec(sp)%T(i) * Lei(sp, i) * plasma%spec(sp)%Zspec**2 / plasma%spec(0)%T(i)**(3.0/2.0)
+
+                nui(sp, i) = 1.8d-7 * plasma%spec(sp)%Aspec**(-1.0/2.0) * plasma%spec(sp)%T(i)**(-3.0/2.0) * plasma%spec(0)%n(i) * &
+                                plasma%spec(sp)%Zspec**2 * Lei(sp,i)
+
+                do sp_col=sp, number_of_ion_species
+                    ! Coulomb logarithm ions - ions'
+                    Lii(sp, sp_col, i) = 23.0d0 - log(plasma%spec(sp)%Zspec * plasma%spec(sp_col)%Zspec &
+                                        * (plasma%spec(sp)%Aspec + plasma%spec(sp_col)%Aspec)&
+                                        / (plasma%spec(sp)%T(i) * plasma%spec(sp_col)%Aspec + plasma%spec(sp_col)%T(i) * plasma%spec(sp)%Aspec)&
+                                        * (plasma%spec(sp)%n(i) * plasma%spec(sp)%Zspec**2 / plasma%spec(sp)%T(i) &
+                                        + plasma%spec(sp_col)%n(i) * plasma%spec(sp_col)%Zspec**2) / plasma%spec(sp_col)%T(i))
+                    ! Collision frequency ions - ions'
+                    nui(sp, i) = nui(sp, i) + 1.8d-7 * plasma%spec(sp_col)%n(i) * plasma%spec(sp)%Zspec**2 &
+                                    * plasma%spec(sp_col)%Zspec**2 * Lii(sp, sp_col, i) * plasma%spec(sp)%Aspec**(-1.0/2.0)&
+                                    * plasma%spec(sp)%T(i)**(-3.0/2.0)
+                end do
+                    
+            end do
+        end do
+
+        do i = 1, iprof_length
+            plasma%spec(0)%nu(i) = nue(i)
+        end do
+
+        do sp = 1, plasma%n_species-1
+            do i = 1, iprof_length
+                plasma%spec(sp)%nu(i) = nui(sp, i)
+            end do
+        end do
+
+        do sp=1, plasma%n_species-1
+            call calculate_susc_funcs_profiles(plasma%spec(sp))
         end do
 
         call write_species_backs(plasma%spec(0), plasma%r_grid)
@@ -398,19 +454,40 @@ module species
         type(species_t), intent(in) :: spec
         real(dp) :: x1, x2
 
-        symbI = 0.d0
-
-        x1 = abs(plasma%kp(j+1) + plasma%kp(j)) * 0.5d0 &
-            *(spec%vT(j+1) + spec%vT(j)) * 0.5d0 &
-            /((spec%nu(j+1) + spec%nu(j)) * 0.5d0)
-        x2 = -(plasma%om_E(j+1) + plasma%om_E(j)) * 0.5 &
-            /((spec%nu(j+1) + spec%nu(j)) * 0.5d0)
-        
-        if (rg_grid%xb(j) .lt. r_res - 2.d0*width_res .or. rg_grid%xb(j) .gt. r_res + 2.d0*width_res) then
+        if (.false.) then !(rg_grid%xb(j) .lt. r_res - 3.d0*width_res .or. rg_grid%xb(j) .gt. r_res + 3.d0*width_res) then
             symbI = 0.0d0
         else
+            x1 = abs(plasma%kp(j+1) + plasma%kp(j)) * 0.5d0 &
+                *(spec%vT(j+1) + spec%vT(j)) * 0.5d0 &
+                /((spec%nu(j+1) + spec%nu(j)) * 0.5d0)
+            x2 = -(plasma%om_E(j+1) + plasma%om_E(j)) * 0.5 &
+                /((spec%nu(j+1) + spec%nu(j)) * 0.5d0)
             call getIfunc(x1, x2, symbI)
         end if
+
+    end subroutine
+
+    subroutine calculate_susc_funcs_profiles(spec)
+
+        use grid, only: rg_grid
+        use config, only: output_path
+        use KIM_kinds, only: dp
+
+        implicit none
+
+        type(species_t), intent(inout) :: spec
+        integer :: j, sp
+        integer, parameter :: nmmax = 3
+
+        if (.not. allocated(spec%symbI)) allocate(spec%symbI(0:nmmax, 0:nmmax))
+        spec%symbI = 0.0d0
+        do j = 1, rg_grid%npts_b
+            call calc_susc_funcs(spec%symbI, j, spec)
+            spec%I00(j) = spec%symbI(0, 0)
+            spec%I20(j) = spec%symbI(2, 0) 
+            spec%I01(j) = spec%symbI(0, 1)
+            spec%I21(j) = spec%symbI(2, 1)
+        end do
 
     end subroutine
 

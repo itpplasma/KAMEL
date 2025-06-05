@@ -31,7 +31,6 @@ subroutine prepare_resonances
 
     r_res = qres
 
-
     do j=2,iprof_length
       if(qres .gt. q(j-1) .and. qres .lt. q(j)) then
         r_res = (r_prof(j-1) * (q(j) - qres) + r_prof(j) * (qres-q(j-1))) / (q(j)-q(j-1))

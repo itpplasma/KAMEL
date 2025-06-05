@@ -41,13 +41,13 @@ module rt_electrostatic
     subroutine run_electrostatic(this)
 
         use KIM_kinds, only: dp
-        use electrostatic_kernel, only: Krook_fill_kernel_phi, kernel_spl_t
+        use electrostatic_kernel, only: Krook_fill_kernel_phi, FP_fill_kernel_phi, kernel_spl_t
         use grid, only: xl_grid
         use IO_collection, only: write_matrix, write_complex_profile
         use poisson_solver, only: solve_poisson
-        use config, only: output_path
+        use config, only: output_path, collision_model
         use fields, only: EBdat, postprocess_electric_field
-        use species, only: plasma
+        use species, only: plasma, calculate_susc_funcs_profiles
 
         implicit none
 
@@ -55,10 +55,20 @@ module rt_electrostatic
         type(kernel_spl_t) :: kernel_rho_phi_llp
         type(kernel_spl_t) :: kernel_rho_B_llp
 
+
+        !call calculate_susc_funcs_profiles
+
         call kernel_rho_phi_llp%init_kernel(xl_grid%npts_b, xl_grid%npts_b)
         call kernel_rho_B_llp%init_kernel(xl_grid%npts_b, xl_grid%npts_b)
 
-        call Krook_fill_kernel_phi(kernel_rho_phi_llp, kernel_rho_B_llp)
+        if (collision_model == "Krook") then
+            call Krook_fill_kernel_phi(kernel_rho_phi_llp, kernel_rho_B_llp)
+        else if (collision_model == "FokkerPlanck") then
+            call FP_fill_kernel_phi(kernel_rho_phi_llp, kernel_rho_B_llp)
+        else
+            stop "Error: collision model not recognized."
+        end if
+
         call write_matrix(trim(output_path)//"kernel/kernel_phi_llp_re.dat", real(kernel_rho_phi_llp%Kllp), xl_grid%npts_b, xl_grid%npts_b)
         call write_matrix(trim(output_path)//"kernel/kernel_phi_llp_im.dat", dimag(kernel_rho_phi_llp%Kllp), xl_grid%npts_b, xl_grid%npts_b)
 

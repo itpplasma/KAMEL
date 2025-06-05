@@ -120,6 +120,7 @@ subroutine calculate_backs(write_out)
             A2i(sigma, i) = dTidr_prof(sigma, i) / Ti_prof(sigma, i)
 
             if (collisions_off .eqv. .true.)then
+                print *, 'Collisions off, setting collision frequencies to zero'
                 nue(i) = 0.0d0
                 nui(sigma, i) = 0.0d0
             end if

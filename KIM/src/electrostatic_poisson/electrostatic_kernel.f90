@@ -225,8 +225,6 @@ module electrostatic_kernel
                 int_point%j = j
                 int_point%rhoT = 0.5d0 * (plasma%spec(sigma)%rho_L(j) + plasma%spec(sigma)%rho_L(j+1))
 
-                call calc_susc_funcs(plasma%spec(sigma)%symbI, j, plasma%spec(sigma))
-
                 int_F1%int_point = int_point
                 int_F2%int_point = int_point
                 int_F3%int_point = int_point
@@ -246,8 +244,9 @@ module electrostatic_kernel
             end do
         end do
 
-        kernel_phi_llp = kernel_phi_llp / (8.0d0 * pi**3.0d0) ! /2.0d0 ! factor 1/2 is somehow missing. Including this factor nicely reproduces the debye case.
-        kernel_B_llp = kernel_B_llp / (8.0d0 * pi**3.0d0 * sol) * com_unit
+        !kernel_phi_llp = kernel_phi_llp / (8.0d0 * pi**3.0d0) /2.0d0 ! factor 1/2 is somehow missing. Including this factor nicely reproduces the debye case.
+        kernel_phi_llp = kernel_phi_llp / (8.0d0 * pi**2.0d0) ! /2.0d0 
+        kernel_B_llp = kernel_B_llp / (8.0d0 * pi**2.0d0)
             
     end subroutine
     

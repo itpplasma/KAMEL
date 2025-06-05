@@ -57,13 +57,15 @@ module FP_kernel_plasma_prefacs
 
         integer, intent(in) :: j
         type(species_t), intent(in) :: spec
-        complex(dp) :: val
+        complex(dp) :: val, I00, I20
         real(dp) :: A1, A2
 
         A1 = 0.5d0 * (spec%A1(j) + spec%A1(j+1))
         A2 = 0.5d0 * (spec%A2(j) + spec%A2(j+1))
+        I00 = 0.5d0 * (spec%I00(j) + spec%I00(j+1))
+        I20 = 0.5d0 * (spec%I20(j) + spec%I20(j+1))
 
-        val = spec%symbI(0,0) * (A1 + A2) + 0.5d0 * A2 * spec%symbI(2,0)
+        val = I00 * (A1 + A2) + 0.5d0 * A2 * I20
 
     end function
 
@@ -77,12 +79,13 @@ module FP_kernel_plasma_prefacs
 
         integer, intent(in) :: j
         type(species_t), intent(in) :: spec
-        complex(dp) :: val
+        complex(dp) :: val, I00
         real(dp) :: A2
 
         A2 = 0.5d0 * (spec%A2(j) + spec%A2(j+1))
+        I00 = 0.5d0 * (spec%I00(j) + spec%I00(j+1))
 
-        val = spec%symbI(0,0) * A2
+        val = I00 * A2
 
     end function
 
@@ -96,12 +99,13 @@ module FP_kernel_plasma_prefacs
 
         integer, intent(in) :: j
         type(species_t), intent(in) :: spec
-        complex(dp) :: val
+        complex(dp) :: val, I00
         real(dp) :: A2
 
         A2 = 0.5d0 * (spec%A2(j) + spec%A2(j+1))
+        I00 = 0.5d0 * (spec%I00(j) + spec%I00(j+1))
 
-        val = spec%symbI(0,0) * A2
+        val = I00 * A2
 
     end function
 
@@ -115,13 +119,15 @@ module FP_kernel_plasma_prefacs
 
         integer, intent(in) :: j
         type(species_t), intent(in) :: spec
-        complex(dp) :: val
+        complex(dp) :: val, I01, I21
         real(dp) :: A1, A2
 
         A1 = 0.5d0 * (spec%A1(j) + spec%A1(j+1))
         A2 = 0.5d0 * (spec%A2(j) + spec%A2(j+1))
+        I01 = 0.5d0 * (spec%I01(j) + spec%I01(j+1))
+        I21 = 0.5d0 * (spec%I21(j) + spec%I21(j+1))
 
-        val = spec%symbI(0,1) * (A1 + A2) + 0.5d0 * A2 * spec%symbI(2,1)
+        val = I01 * (A1 + A2) + 0.5d0 * A2 * I21
 
     end function
 
@@ -135,12 +141,13 @@ module FP_kernel_plasma_prefacs
 
         integer, intent(in) :: j
         type(species_t), intent(in) :: spec
-        complex(dp) :: val
+        complex(dp) :: val, I01
         real(dp) :: A2
 
         A2 = 0.5d0 * (spec%A2(j) + spec%A2(j+1))
+        I01 = 0.5d0 * (spec%I01(j) + spec%I01(j+1))
 
-        val = spec%symbI(0,1) * A2
+        val = I01 * A2
 
     end function
 

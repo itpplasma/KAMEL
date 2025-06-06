@@ -168,7 +168,7 @@ public:
 /*******************************************************************/
 
 int selector (const struct dirent *ent);
-int determine_mumber_of_zones (char *path2project);
+int determine_number_of_zones (char *path2project);
 int determine_zone_type (char *file);
 char * get_zone_file_name (char * path2project, int zone_index);
 

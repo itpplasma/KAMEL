@@ -1,15 +1,19 @@
-# ignore VS Code settings
+# VS Code settings
 .vscode/
 
-# ignore generated build directories
+# generated build directories
 build/
 
-# ignore caches
+# caches
 __pycache__/
 .cache/
 
-# ignore Python bytecode
+# Python bytecode
 *.DS_Store
 .DS*
 
+# old dependency directory
 external
+
+# direnv
+.envrc

@@ -379,6 +379,7 @@ module time_evolution
         use h5mod
         use KAMEL_hdf5_tools
         use wave_code_data, only: antenna_factor
+        use resonances_mod, only: r_res
 
         implicit none
 
@@ -424,6 +425,10 @@ module time_evolution
             h5_currentgrp = "/"//trim(h5_mode_groupname) //"/Ipar"
             CALL h5_add_complex_1(h5_id, trim(h5_currentgrp), Ipar_time(1:time_ind), &
                 lbound(real(Ipar_time(1:time_ind))), ubound(real(Ipar_time(1:time_ind))))
+
+            h5_currentgrp = "/"//trim(h5_mode_groupname)//"/r_res"
+            call h5_add_double_1(h5_id, trim(h5_currentgrp), r_res, lbound(r_res), ubound(r_res), &
+                                 comment="resonant radius", unit="cm")
 
             CALL h5_close(h5_id)
             CALL h5_deinit()

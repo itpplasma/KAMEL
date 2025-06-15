@@ -1,6 +1,6 @@
 subroutine write_fields_currs_transp_coefs_to_h5
     use grid_mod, only: npoib, dqle11, dqle12, dqle22, dqli11, dqli12, dqli22, &
-                        T_EM_phi_e, T_EM_phi_i
+                        T_EM_phi_e, T_EM_phi_i, T_tot_phi_e, T_tot_phi_i
     use baseparam_mod, only: e_charge, p_mass, c, e_mass, ev
     use control_mod, only: ihdf5IO, diagnostics_output, misalign_diffusion
     use wave_code_data
@@ -125,6 +125,10 @@ subroutine write_dql_Br_Jp_profiles_to_hdf5(tempch)
                          lbound(T_EM_phi_e_source), ubound(T_EM_phi_e_source))
     call h5_add_double_1(h5_id, trim(tempch) // "T_EM_phi_i_source", T_EM_phi_i_source, &
                          lbound(T_EM_phi_i_source), ubound(T_EM_phi_i_source))
+    call h5_add_double_0(h5_id, trim(tempch) // "T_tot_phi_e", T_tot_phi_e, &
+                         comment="Total toroidal torque on electrons")
+    call h5_add_double_0(h5_id, trim(tempch) // "T_tot_phi_i", T_tot_phi_i, &
+                         comment="Total toroidal torque on ions")
     CALL h5_add_double_1(h5_id, trim(tempch)//"Br-ckpEs_om_E", &
                         abs(Br - c*kp*Es/om_E), lbound(Br), ubound(Br))
     CALL h5_add_double_1(h5_id, trim(tempch)//"Br-cksEp_om_E", &

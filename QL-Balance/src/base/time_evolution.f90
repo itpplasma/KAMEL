@@ -253,6 +253,7 @@ module time_evolution
             if (debug_mode) call msg_time_info
             if (.not. suppression_mode) call write_kin_profile_at_time_index
             call set_first_iteration_true
+            call calculate_total_toroidal_torque
             call check_linear_discr_pen_ratio
             call stop_if_antenna_fac_max_reached
 

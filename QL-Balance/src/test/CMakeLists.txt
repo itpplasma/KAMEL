@@ -16,3 +16,7 @@ add_fortran_test(test_sparse)
 # add_executable(test_D_one_over_nu.x test_D_one_over_nu.f90)
 # target_link_libraries(test_D_one_over_nu.x PUBLIC ql-balance_lib)
 # add_fortran_test(test_D_one_over_nu)
+
+add_executable(test_integration.x test_integration.f90)
+target_link_libraries(test_integration.x PUBLIC ql-balance_lib)
+add_fortran_test(test_integration)

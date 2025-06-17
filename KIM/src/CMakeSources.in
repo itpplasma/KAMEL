@@ -75,7 +75,7 @@ set(KIM_poisson electrostatic_poisson/poisson.f90
 set(KIM_WKB_dispersion run_wkb_dispersion/wkb_dispersion.f90
 )
 
-set(external_dir ${CMAKE_BINARY_DIR}/_deps/zeal-src)
+set(external_dir ${zeal_SOURCE_DIR})
 set(external_zeal
     ${external_dir}/zeal_input.f90
     ${external_dir}/integr_input.f90

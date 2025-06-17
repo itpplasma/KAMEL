@@ -17,6 +17,7 @@ ExternalProject_Add(sundials # needs to be named like this due to libneo dependi
         ${CMAKE_COMMAND} -S <SOURCE_DIR> -B <SOURCE_DIR>/build
         -DCMAKE_INSTALL_PREFIX=${SUNDIALS_INSTALL_DIR}
         -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
+        -DEXAMPLES_INSTALL=OFF
 
     BUILD_COMMAND
         ${CMAKE_COMMAND} --build <SOURCE_DIR>/build -- -j

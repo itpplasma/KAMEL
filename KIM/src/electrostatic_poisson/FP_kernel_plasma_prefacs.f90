@@ -8,23 +8,18 @@ module FP_kernel_plasma_prefacs
     function FP_kappa_rho_phi(j, spec) result(val)
 
         use species, only: plasma, species_t
-        use constants, only: pi, com_unit
+        use constants, only: pi
         use KIM_kinds, only: dp
 
         implicit none
 
         integer, intent(in) :: j
         type(species_t), intent(in) :: spec
-        complex(dp) :: val
-        real(dp) :: lambda, vT, nu, omega_c, ks
+        real(dp) :: val
+        real(dp) :: lambda
 
         lambda = 0.5d0 * (spec%lambda_D(j) + spec%lambda_D(j+1))
-        vT = 0.5d0 * (spec%vT(j) + spec%vT(j+1))
-        nu = 0.5d0 * (spec%nu(j) + spec%nu(j+1))
-        omega_c = 0.5d0 * (spec%omega_c(j) + spec%omega_c(j+1))
-        ks = 0.5d0 * (plasma%ks(j) + plasma%ks(j+1))
-
-        val = com_unit * vT**2.0d0 * ks / (lambda**2.0d0 * omega_c * nu)
+        val = 1.0d0 / (lambda**2.0d0)  !/ sqrt(2.0d0)
 
     end function
 
@@ -32,6 +27,7 @@ module FP_kernel_plasma_prefacs
 
         use species, only: plasma, species_t
         use KIM_kinds, only: dp
+        use constants, only: com_unit
 
         implicit none
 
@@ -48,10 +44,27 @@ module FP_kernel_plasma_prefacs
 
     end function
 
+    function FP_G0_rho_phi(j, spec) result(val)
+
+        use species, only: plasma, species_t
+        use constants, only: pi
+        use KIM_kinds, only: dp
+
+        implicit none
+
+        integer, intent(in) :: j
+        type(species_t), intent(in) :: spec
+        real(dp) :: val
+
+        val = -1.0d0 
+
+    end function
+
     function FP_G1_rho_phi(j, spec) result(val)
 
         use species, only: plasma, species_t
         use KIM_kinds, only: dp
+        use constants, only: com_unit
 
         implicit none
 
@@ -60,12 +73,21 @@ module FP_kernel_plasma_prefacs
         complex(dp) :: val, I00, I20
         real(dp) :: A1, A2
 
+        real(dp) :: lambda, vT, nu, omega_c, ks
+
+        lambda = 0.5d0 * (spec%lambda_D(j) + spec%lambda_D(j+1))
+        vT = 0.5d0 * (spec%vT(j) + spec%vT(j+1))
+        nu = 0.5d0 * (spec%nu(j) + spec%nu(j+1))
+        omega_c = 0.5d0 * (spec%omega_c(j) + spec%omega_c(j+1))
+        ks = 0.5d0 * (plasma%ks(j) + plasma%ks(j+1))
+
         A1 = 0.5d0 * (spec%A1(j) + spec%A1(j+1))
         A2 = 0.5d0 * (spec%A2(j) + spec%A2(j+1))
         I00 = 0.5d0 * (spec%I00(j) + spec%I00(j+1))
         I20 = 0.5d0 * (spec%I20(j) + spec%I20(j+1))
 
         val = I00 * (A1 + A2) + 0.5d0 * A2 * I20
+        val = val * com_unit * vT**2.0d0 * ks / (lambda**2.0d0 * omega_c * nu)
 
     end function
 
@@ -74,6 +96,7 @@ module FP_kernel_plasma_prefacs
 
         use species, only: plasma, species_t
         use KIM_kinds, only: dp
+        use constants, only: com_unit
 
         implicit none
 
@@ -81,11 +104,18 @@ module FP_kernel_plasma_prefacs
         type(species_t), intent(in) :: spec
         complex(dp) :: val, I00
         real(dp) :: A2
+        real(dp) :: lambda, vT, nu, omega_c, ks
+
+        lambda = 0.5d0 * (spec%lambda_D(j) + spec%lambda_D(j+1))
+        vT = 0.5d0 * (spec%vT(j) + spec%vT(j+1))
+        nu = 0.5d0 * (spec%nu(j) + spec%nu(j+1))
+        omega_c = 0.5d0 * (spec%omega_c(j) + spec%omega_c(j+1))
+        ks = 0.5d0 * (plasma%ks(j) + plasma%ks(j+1))
 
         A2 = 0.5d0 * (spec%A2(j) + spec%A2(j+1))
         I00 = 0.5d0 * (spec%I00(j) + spec%I00(j+1))
 
-        val = I00 * A2
+        val = I00 * A2 * com_unit * vT**2.0d0 * ks / (lambda**2.0d0 * omega_c * nu)
 
     end function
 
@@ -94,6 +124,7 @@ module FP_kernel_plasma_prefacs
 
         use species, only: plasma, species_t
         use KIM_kinds, only: dp
+        use constants, only: com_unit
 
         implicit none
 
@@ -102,10 +133,18 @@ module FP_kernel_plasma_prefacs
         complex(dp) :: val, I00
         real(dp) :: A2
 
+        real(dp) :: lambda, vT, nu, omega_c, ks
+
+        lambda = 0.5d0 * (spec%lambda_D(j) + spec%lambda_D(j+1))
+        vT = 0.5d0 * (spec%vT(j) + spec%vT(j+1))
+        nu = 0.5d0 * (spec%nu(j) + spec%nu(j+1))
+        omega_c = 0.5d0 * (spec%omega_c(j) + spec%omega_c(j+1))
+        ks = 0.5d0 * (plasma%ks(j) + plasma%ks(j+1))
+
         A2 = 0.5d0 * (spec%A2(j) + spec%A2(j+1))
         I00 = 0.5d0 * (spec%I00(j) + spec%I00(j+1))
 
-        val = I00 * A2
+        val = I00 * A2 * com_unit * vT**2.0d0 * ks / (lambda**2.0d0 * omega_c * nu)
 
     end function
 

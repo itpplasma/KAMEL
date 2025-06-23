@@ -27,7 +27,7 @@ module FP_kernel_plasma_prefacs
 
         use species, only: plasma, species_t
         use KIM_kinds, only: dp
-        use constants, only: com_unit, sol
+        use constants, only: sol
 
         implicit none
 
@@ -87,7 +87,7 @@ module FP_kernel_plasma_prefacs
         I20 = 0.5d0 * (spec%I20(j) + spec%I20(j+1))
 
         val = I00 * (A1 + A2) + 0.5d0 * A2 * I20
-        val = val * com_unit * vT**2.0d0 * ks / (lambda**2.0d0 * omega_c * nu)
+        val = val * com_unit * vT**2.0d0 * ks / (omega_c * nu)
 
     end function
 
@@ -115,7 +115,7 @@ module FP_kernel_plasma_prefacs
         A2 = 0.5d0 * (spec%A2(j) + spec%A2(j+1))
         I00 = 0.5d0 * (spec%I00(j) + spec%I00(j+1))
 
-        val = I00 * A2 * com_unit * vT**2.0d0 * ks / (lambda**2.0d0 * omega_c * nu)
+        val = I00 * A2 * com_unit * vT**2.0d0 * ks / (omega_c * nu)
 
     end function
 
@@ -144,7 +144,7 @@ module FP_kernel_plasma_prefacs
         A2 = 0.5d0 * (spec%A2(j) + spec%A2(j+1))
         I00 = 0.5d0 * (spec%I00(j) + spec%I00(j+1))
 
-        val = I00 * A2 * com_unit * vT**2.0d0 * ks / (lambda**2.0d0 * omega_c * nu)
+        val = I00 * A2 * com_unit * vT**2.0d0 * ks / (omega_c * nu)
 
     end function
 
@@ -200,12 +200,13 @@ module FP_kernel_plasma_prefacs
 
         integer, intent(in) :: j
         type(species_t), intent(in) :: spec
-        complex(dp) :: val
+        complex(dp) :: val, I01
         real(dp) :: A2
 
         A2 = 0.5d0 * (spec%A2(j) + spec%A2(j+1))
+        I01 = 0.5d0 * (spec%I01(j) + spec%I01(j+1))
 
-        val = spec%symbI(0,1) * A2
+        val = I01 * A2
 
     end function
 

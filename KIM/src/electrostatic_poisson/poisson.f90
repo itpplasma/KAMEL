@@ -16,7 +16,6 @@ module rt_electrostatic
 
         use species, only: init_deuterium_plasma, set_deuterium_plasma, plasma, interpolate_plasma_backs
         use IO_collection, only: create_output_directories
-        use grid, only: rg_grid
 
         implicit none
         class(electrostatic_t), intent(inout) :: this
@@ -34,29 +33,23 @@ module rt_electrostatic
         call generate_grids
         call init_deuterium_plasma(plasma)
         call set_deuterium_plasma(plasma)
-        call interpolate_plasma_backs(plasma, rg_grid%xb)
 
     end subroutine
 
     subroutine run_electrostatic(this)
 
-        use KIM_kinds, only: dp
         use electrostatic_kernel, only: Krook_fill_kernel_phi, FP_fill_kernel_phi, kernel_spl_t
         use grid, only: xl_grid
         use IO_collection, only: write_matrix, write_complex_profile
         use poisson_solver, only: solve_poisson
         use config, only: output_path, collision_model
         use fields, only: EBdat, postprocess_electric_field
-        use species, only: plasma, calculate_susc_funcs_profiles
 
         implicit none
 
         class(electrostatic_t), intent(inout) :: this
         type(kernel_spl_t) :: kernel_rho_phi_llp
         type(kernel_spl_t) :: kernel_rho_B_llp
-
-
-        !call calculate_susc_funcs_profiles
 
         call kernel_rho_phi_llp%init_kernel(xl_grid%npts_b, xl_grid%npts_b)
         call kernel_rho_B_llp%init_kernel(xl_grid%npts_b, xl_grid%npts_b)

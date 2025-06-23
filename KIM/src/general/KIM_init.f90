@@ -12,6 +12,6 @@ subroutine kim_init
     call calculate_equil(.true.)
     ! calculate quantities used for the kernels, e.g. A1, A2, dndr, omega_c,...
     call allocate_backs
-    call calculate_backs(.true.)
+    call calculate_backs(.false.)
 
 end subroutine

@@ -189,7 +189,7 @@ module electrostatic_kernel
         use KIM_kinds, only: dp
         use electrostatic_integrals, only: gauss_integrate_F0, gauss_integrate_F1, gauss_integrate_F2, gauss_integrate_F3,&
             gauss_config_t
-        use species, only: plasma, calc_susc_funcs
+        use species, only: plasma
         use constants, only: pi, sol, com_unit
         use electrostatic_integrands, only: int_F0_rho_phi_t, int_F1_rho_phi_t, int_F2_rho_phi_t, int_F3_rho_phi_t, &
             integration_point_t
@@ -218,8 +218,6 @@ module electrostatic_kernel
         call set_xl_at_edge(l, lp, int_point)
 
         do sigma = 0, plasma%n_species - 1
-
-            if (.not. allocated(plasma%spec(sigma)%symbI)) allocate(plasma%spec(sigma)%symbI(0:mnmax, 0:mnmax))
 
             do j = 2, size(plasma%r_grid)-1
                 int_point%j = j

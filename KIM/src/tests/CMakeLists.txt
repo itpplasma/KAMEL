@@ -21,7 +21,7 @@ target_link_libraries(test_kernel_rho_phi PUBLIC
 )
 target_include_directories(test_kernel_rho_phi PUBLIC "${CMAKE_BINARY_DIR}/src")
 add_test(NAME test_kernel_rho_phi COMMAND
-    "${CMAKE_BINARY_DIR}/tests/test_kernel_rho_phi.x" "${CMAKE_SOURCE_DIR}/KIM/nmls/KIM_config.nml"
+    "${CMAKE_BINARY_DIR}/tests/test_kernel_rho_phi" "${CMAKE_SOURCE_DIR}/KIM/nmls/KIM_config.nml"
 )
 
 add_executable(test_kernel_rho_B test_kernel_rho_B.f90 kim_init_for_test.f90)

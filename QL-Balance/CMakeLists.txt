@@ -147,3 +147,5 @@ set_target_properties(ql-balance.x PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${CMAKE_B
 
 # Add KiLCA module directory for Fortran modules
 include_directories(${CMAKE_BINARY_DIR}/KiLCA/mod)
+
+add_subdirectory("${src}/test")

@@ -11,7 +11,9 @@ ExternalProject_Add(sundials # needs to be named like this due to libneo dependi
     GIT_REPOSITORY https://github.com/LLNL/sundials.git
     GIT_TAG v5.7.0
     DOWNLOAD_EXTRACT_TIMESTAMP TRUE
-    BUILD_IN_SOURCE TRUE
+    BUILD_IN_SOURCE FALSE
+
+    UPDATE_COMMAND "" # ignore any potential updates
 
     CONFIGURE_COMMAND
         ${CMAKE_COMMAND} -S <SOURCE_DIR> -B <SOURCE_DIR>/build

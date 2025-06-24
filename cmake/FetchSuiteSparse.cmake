@@ -27,17 +27,22 @@ ExternalProject_Add(
         #-DBUILD_SHARED_LIBS=OFF
         -DUMFPACK_USE_CHOLMOD=OFF
         -DCMAKE_INSTALL_PREFIX=${CMAKE_BINARY_DIR}/install
-    BUILD_COMMAND ${CMAKE_COMMAND} --build <BINARY_DIR> --target UMFPACK/install
-                && ${CMAKE_COMMAND} --build <BINARY_DIR> --target AMD/install
-                && ${CMAKE_COMMAND} --build <BINARY_DIR> --target SuiteSparse_config/install
-    INSTALL_COMMAND ""
+    BUILD_IN_SOURCE FALSE
+
+    UPDATE_COMMAND "" # ignore any potential updates
+
+    BUILD_COMMAND
+        ${CMAKE_COMMAND} --build <BINARY_DIR> --target UMFPACK/install &&
+        ${CMAKE_COMMAND} --build <BINARY_DIR> --target AMD/install &&
+        ${CMAKE_COMMAND} --build <BINARY_DIR> --target SuiteSparse_config/install
+
+    INSTALL_COMMAND "" # not needed
+
     BUILD_BYPRODUCTS
         ${UMFPACK_LIBRARY_PATH}
         ${SUITESPARSE_CONFIG_LIBRARY_PATH}
         ${AMD_LIBRARY_PATH}
         ${SUITESPARSE_INCLUDE_DIR}
-        <SOURCE_DIR>UMFPACK/Demo/umf4_f77wrapper.c
-        <SOURCE_DIR>UMFPACK/Demo/umf4_f77zwrapper.c
 )
 
 set(UMFPACK_LIBRARY_PATH ${CMAKE_BINARY_DIR}/install/lib/libumfpack${CMAKE_STATIC_LIBRARY_SUFFIX})

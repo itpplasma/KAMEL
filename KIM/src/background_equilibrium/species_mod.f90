@@ -173,7 +173,7 @@ module species
 
         call write_species_backs(plasma%spec(0), plasma%r_grid)
         call write_species_backs(plasma%spec(1), plasma%r_grid)
-        call write_plasma_backs(plasma)
+        call write_plasma_backs(plasma, plasma%r_grid)
 
     end subroutine
 
@@ -291,7 +291,7 @@ module species
 
     end subroutine
 
-    subroutine write_plasma_backs(plasma)
+    subroutine write_plasma_backs(plasma, r_grid)
 
         use IO_collection, only: write_profile
         use config, only: output_path
@@ -299,6 +299,7 @@ module species
         implicit none
 
         type(plasma_t), intent(in) :: plasma
+        real(dp), intent(in) :: r_grid(:)
         logical :: ex
 
         inquire(file=trim(output_path)//'profiles', exist=ex)
@@ -306,12 +307,12 @@ module species
             call system('mkdir -p '//trim(output_path)//'backs/')
         end if
 
-        call write_profile(plasma%r_grid, plasma%ks, size(plasma%r_grid), trim(output_path)//'backs/'//'ks.dat')
-        call write_profile(plasma%r_grid, plasma%kp, size(plasma%r_grid), trim(output_path)//'backs/'//'kp.dat')
-        call write_profile(plasma%r_grid, plasma%om_E, size(plasma%r_grid), trim(output_path)//'backs/'//'om_E.dat')
-        call write_profile(plasma%r_grid, plasma%q, size(plasma%r_grid), trim(output_path)//'backs/'//'q.dat')
-        call write_profile(plasma%r_grid, plasma%dqdr, size(plasma%r_grid), trim(output_path)//'backs/'//'dqdr.dat')
-        call write_profile(plasma%r_grid, plasma%Er, size(plasma%r_grid), trim(output_path)//'backs/'//'Er.dat')
+        call write_profile(r_grid, plasma%ks, size(r_grid), trim(output_path)//'backs/'//'ks.dat')
+        call write_profile(r_grid, plasma%kp, size(r_grid), trim(output_path)//'backs/'//'kp.dat')
+        call write_profile(r_grid, plasma%om_E, size(r_grid), trim(output_path)//'backs/'//'om_E.dat')
+        call write_profile(r_grid, plasma%q, size(r_grid), trim(output_path)//'backs/'//'q.dat')
+        call write_profile(r_grid, plasma%dqdr, size(r_grid), trim(output_path)//'backs/'//'dqdr.dat')
+        call write_profile(r_grid, plasma%Er, size(r_grid), trim(output_path)//'backs/'//'Er.dat')
 
     end subroutine
 
@@ -405,6 +406,9 @@ module species
                 plasma_temp%spec(sp)%lambda_D(i) = sum(coef(0,:) * plasma_in%spec(sp)%lambda_D(ibeg:iend))
                 plasma_temp%spec(sp)%rho_L(i) = sum(coef(0,:) * plasma_in%spec(sp)%rho_L(ibeg:iend))
                 plasma_temp%spec(sp)%z0(i) = sum(coef(0,:) * plasma_in%spec(sp)%z0(ibeg:iend))
+
+                plasma_temp%spec(sp)%x1(i) = sum(coef(0,:) * plasma_in%spec(sp)%x1(ibeg:iend))
+                plasma_temp%spec(sp)%x2(i) = sum(coef(0,:) * plasma_in%spec(sp)%x2(ibeg:iend))
 
                 plasma_temp%spec(sp)%I00(i) = sum(coef(0,:) * plasma_in%spec(sp)%I00(ibeg:iend))
                 plasma_temp%spec(sp)%I01(i) = sum(coef(0,:) * plasma_in%spec(sp)%I01(ibeg:iend))
@@ -513,7 +517,6 @@ module species
         if (.not. allocated(spec%symbI)) allocate(spec%symbI(0:nmmax, 0:nmmax))
         spec%symbI = 0.0d0
         do j = 1, iprof_length
-
             if (.false.) then !(rg_grid%xb(j) .lt. r_res - 3.d0*width_res .or. rg_grid%xb(j) .gt. r_res + 3.d0*width_res) then
                 spec%symbI = 0.0d0
             else

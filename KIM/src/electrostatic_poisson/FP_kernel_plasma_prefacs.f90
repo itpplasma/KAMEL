@@ -40,7 +40,7 @@ module FP_kernel_plasma_prefacs
         nu = 0.5d0 * (spec%nu(j) + spec%nu(j+1))
         omega_c = 0.5d0 * (spec%omega_c(j) + spec%omega_c(j+1))
 
-        val = - vT**2.0d0 / (lambda**2.0d0 * omega_c * nu * sol)
+        val = - vT**3.0d0 / (lambda**2.0d0 * omega_c * nu * sol)
 
     end function
 

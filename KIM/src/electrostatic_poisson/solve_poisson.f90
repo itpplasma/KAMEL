@@ -9,7 +9,7 @@ module poisson_solver
         use sparse_mod, only: sp2fullComplex, sparse_solveComplex_b1, column_pointer2full, sparse_solve_suitesparseComplex_b1, &
                             sparse_solve_method
         use config, only: output_path
-        use constants, only: sol, e_charge, pi
+        use constants, only: pi, e_charge
         use grid, only: xl_grid
         use setup, only: type_br_field
         use KIM_kinds, only: dp

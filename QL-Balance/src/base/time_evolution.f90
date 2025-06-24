@@ -525,8 +525,8 @@ module time_evolution
         if (ihdf5IO .eq. 1) then
             if (debug_mode) print *, "Debug: Write kinetic profiles"
             do ipoi = 1, npoic
-                sqg_bthet_overcavg(ipoi) = 0.5d0*(sqg_bthet_overc(ipoi) &
-                                                + sqg_bthet_overc(ipoi + 1))
+                sqg_bthet_overcavg(ipoi) = 0.5d0*(sqrt_g_times_B_theta_over_c(ipoi) &
+                                                + sqrt_g_times_B_theta_over_c(ipoi + 1))
                 Ercovavg(ipoi) = 0.5d0*(Ercov(ipoi) + Ercov(ipoi + 1))
             end do
             ! h5_mode_groupname
@@ -583,8 +583,8 @@ module time_evolution
                     , params(3, ipoi)/ev &
                     , params(4, ipoi)/ev &
                     , 0.5d0*(Ercov(ipoi) + Ercov(ipoi + 1)) &
-                    , 0.5d0*(sqg_bthet_overc(ipoi) + &
-                            sqg_bthet_overc(ipoi + 1))
+                    , 0.5d0*(sqrt_g_times_B_theta_over_c(ipoi) + &
+                            sqrt_g_times_B_theta_over_c(ipoi + 1))
             end do
             close (1000 + time_ind)
         end if

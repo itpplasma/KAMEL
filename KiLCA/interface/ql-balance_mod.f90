@@ -6,7 +6,7 @@
     double precision :: gg_factor, gg_width, gg_r_res;
     integer,          dimension(:),   allocatable :: ipbeg,ipend
     double precision, dimension(:),   allocatable :: rb,rc,Sb,Sc
-    double precision, dimension(:),   allocatable :: sqg_bthet_overc,Ercov
+    double precision, dimension(:),   allocatable :: sqrt_g_times_B_theta_over_c,Ercov
     double precision, dimension(:),   allocatable :: y,dery,dery_equisource
     double precision, dimension(:),   allocatable :: dae11,dae12,dae22
     double precision, dimension(:),   allocatable :: dai11,dai12,dai22

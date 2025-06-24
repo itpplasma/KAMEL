@@ -101,13 +101,15 @@
     allocate(dqli11(npoib),dqli12(npoib),dqli21(npoib),dqli22(npoib))
     allocate(de11(npoib),de12(npoib),de21(npoib),de22(npoib))
     allocate(di11(npoib),di12(npoib),di21(npoib),di22(npoib))
-    allocate(polforce(npoib),qlheat_e(npoib),qlheat_i(npoib))
+    allocate(T_EM_phi_e(npoib), T_EM_phi_i(npoib))
+    allocate(T_EM_phi_e_source(npoib), T_EM_phi_i_source(npoib))
+    allocate(polforce(npoib), polforce_ql(npoib), qlheat_e(npoib), qlheat_i(npoib))
 
     dni22=0.d0
 
     allocate(cneo(npoib),gpp_av(npoib))
     allocate(qsafb(npoib),qsaf(npoic))
-    allocate(sqg_bthet_overc(npoib),Ercov(npoib),sqg_bthet_overcavg(npoib), &
+    allocate(sqrt_g_times_B_theta_over_c(npoib),Ercov(npoib),sqg_bthet_overcavg(npoib), &
         Ercovavg(npoib))
     allocate(Ercov_lin(npoib))
 
@@ -140,7 +142,7 @@ subroutine calc_geometric_parameter_profiles
     do ipoi=1,npoib
         qsafb(ipoi)=sum(qsaf(ipbeg(ipoi):ipend(ipoi))*reint_coef(:,ipoi))
         cneo(ipoi)=(rtor/rb(ipoi))**1.5d0*qsafb(ipoi)**2*cneo_0
-        sqg_bthet_overc(ipoi)=btor*rb(ipoi)/qsafb(ipoi)/c
+        sqrt_g_times_B_theta_over_c(ipoi)=btor*rb(ipoi)/qsafb(ipoi)/c
     enddo
 
 end subroutine calc_geometric_parameter_profiles

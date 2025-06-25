@@ -182,7 +182,7 @@ module species
         use constants, only: sol, e_charge, ev, pi, com_unit
         use equilibrium, only: hz, hth, B0
         use plasma_parameter, only: iprof_length, r_prof
-        use setup, only: m_mode, n_mode, omega, R0
+        use setup, only: m_mode, n_mode, omega, R0, collisions_off
         use config, only: number_of_ion_species
 
         implicit none
@@ -281,9 +281,14 @@ module species
             do i = 1,iprof_length
                 plasma%spec(sp)%x1(i) = plasma%kp(i) * plasma%spec(sp)%vT(i) / plasma%spec(sp)%nu(i)
                 plasma%spec(sp)%x2(i) = - (plasma%om_E(i) - omega) / plasma%spec(sp)%nu(i)
+                if (collisions_off .eqv. .true.)then
+                    nue(i) = 0.0d0
+                    nui(sp+1, i) = 0.0d0
+                end if
             end do
         end do
 
+            
         do sp=0, plasma%n_species-1
             call calculate_susc_funcs_profiles(plasma%spec(sp))
         end do

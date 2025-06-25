@@ -34,7 +34,7 @@ module species
         real(dp), allocatable :: rho_L(:) ! Larmor radius
         real(dp), allocatable :: x1(:) ! normalized distance to res. surface
         real(dp), allocatable :: x2(:) ! normalized inverse collisionality
-        real(dp), allocatable :: z0(:) ! = x2/(sqrt(2) x1), argument of plasma dispersion function
+        complex(dp), allocatable :: z0(:) ! = x2/(sqrt(2) x1), argument of plasma dispersion function
         complex(dp), dimension(:,:), allocatable :: symbI ! susceptibility function used for Fokker-Planck collision model
         ! susceptibility function profiles
         complex(dp), allocatable :: I00(:)
@@ -49,34 +49,33 @@ module species
 
     contains
 
-!    subroutine read_species_from_nml(plasma_in)
+    subroutine read_species_from_nml(plasma_in)
 
-        !use KIM_kinds, only: dp
-        !use config, only: number_of_ion_species, nml_config_path
-        !use constants, only: e_mass, p_mass
+        use KIM_kinds, only: dp
+        use config, only: number_of_ion_species, nml_config_path
+        use constants, only: p_mass
 
-        !implicit none
+        implicit none
 
-        !type(plasma_t), intent(inout) :: plasma_in
-        !integer, allocatable :: ai(:), zi(:)
-        !integer :: i
+        type(plasma_t), intent(inout) :: plasma_in
+        integer :: ai(16), zi(16)
+        integer :: i
 
-        !allocate(ai(number_of_ion_species), zi(number_of_ion_species))
 
-        !namelist /KIM_species/ ai, zi
+        namelist /KIM_species/ ai, zi
 
-        !open(unit=77, file=nml_config_path)
-        !read(unit=77, nml=KIM_species)
-        !close(unit=77)
+        open(unit=77, file=nml_config_path)
+        read(unit=77, nml=KIM_species)
+        close(unit=77)
 
-        !do i = 1, number_of_ion_species
-            !plasma_in%spec(i)%Aspec = ai(i)
-            !plasma_in%spec(i)%Zspec = zi(i)
-            !plasma_in%spec(i)%name = 'i'
-            !plasma_in%spec(i)%mass = p_mass * plasma_in%spec(i)%Aspec
-        !end do
+        do i = 1, number_of_ion_species
+            plasma_in%spec(i)%Aspec = ai(i)
+            plasma_in%spec(i)%Zspec = zi(i)
+            plasma_in%spec(i)%name = 'i'
+            plasma_in%spec(i)%mass = p_mass * plasma_in%spec(i)%Aspec
+        end do
 
-    !end subroutine
+    end subroutine
 
     subroutine init_deuterium_plasma(plasma)
 
@@ -340,7 +339,7 @@ module species
         call write_profile(r_grid, spec%nu, size(r_grid), trim(output_path)//'backs/'//trim(spec%name)//'/nu.dat')
         call write_profile(r_grid, spec%A1, size(r_grid), trim(output_path)//'backs/'//trim(spec%name)//'/A1.dat')
         call write_profile(r_grid, spec%A2, size(r_grid), trim(output_path)//'backs/'//trim(spec%name)//'/A2.dat')
-        call write_profile(r_grid, spec%z0, size(r_grid), trim(output_path)//'backs/'//trim(spec%name)//'/z0.dat')
+        call write_complex_profile(r_grid, spec%z0, size(r_grid), trim(output_path)//'backs/'//trim(spec%name)//'/z0.dat')
 
         call write_complex_profile(r_grid, spec%I00, size(r_grid), trim(output_path)//'backs/'//trim(spec%name)//'/I00.dat')
         call write_complex_profile(r_grid, spec%I20, size(r_grid), trim(output_path)//'backs/'//trim(spec%name)//'/I20.dat')
@@ -451,7 +450,7 @@ module species
         call reallocate(spec%omega_c, grid_size)
         call reallocate(spec%lambda_D, grid_size)
         call reallocate(spec%rho_L, grid_size)
-        call reallocate(spec%z0, grid_size)
+        call reallocate_complex(spec%z0, grid_size)
         call reallocate(spec%x1, grid_size)
         call reallocate(spec%x2, grid_size)
 
@@ -525,17 +524,13 @@ module species
 
     subroutine calculate_susc_funcs_profiles(spec)
 
-        use grid, only: rg_grid
-        use config, only: output_path
-        use KIM_kinds, only: dp
         use plasma_parameter, only: iprof_length, r_prof
-        use IO_collection, only: plot_complex_1D
         use resonances_mod, only: width_res, r_res
 
         implicit none
 
         type(species_t), intent(inout) :: spec
-        integer :: j, sp
+        integer :: j
 
         if (.not. allocated(spec%symbI)) allocate(spec%symbI(0:nmmax, 0:nmmax))
         spec%symbI = 0.0d0

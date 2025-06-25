@@ -183,7 +183,6 @@ module species
         use equilibrium, only: hz, hth, B0
         use plasma_parameter, only: iprof_length, r_prof
         use setup, only: m_mode, n_mode, omega, R0
-        use grid, only: rg_grid
         use config, only: number_of_ion_species
 
         implicit none
@@ -452,6 +451,13 @@ module species
         call reallocate(spec%lambda_D, grid_size)
         call reallocate(spec%rho_L, grid_size)
         call reallocate(spec%z0, grid_size)
+        call reallocate(spec%x1, grid_size)
+        call reallocate(spec%x2, grid_size)
+
+        call reallocate_complex(spec%I00, grid_size)
+        call reallocate_complex(spec%I01, grid_size)
+        call reallocate_complex(spec%I20, grid_size)
+        call reallocate_complex(spec%I21, grid_size)
 
     end subroutine
 
@@ -464,6 +470,7 @@ module species
 
         call reallocate(plasma_in%ks, grid_size)
         call reallocate(plasma_in%kp, grid_size)
+        call reallocate(plasma_in%om_E, grid_size)
         call reallocate(plasma_in%Er, grid_size)
         call reallocate(plasma_in%q, grid_size)
         call reallocate(plasma_in%dqdr, grid_size)
@@ -478,6 +485,20 @@ module species
         implicit none
 
         real(dp), allocatable, intent(inout) :: array(:)
+        integer, intent(in) :: n
+
+        if (allocated(array)) deallocate(array)
+        allocate(array(n))
+
+    end subroutine
+
+    subroutine reallocate_complex(array, n)
+
+        use KIM_kinds, only: dp
+
+        implicit none
+
+        complex(dp), allocatable, intent(inout) :: array(:)
         integer, intent(in) :: n
 
         if (allocated(array)) deallocate(array)
@@ -506,8 +527,9 @@ module species
         use grid, only: rg_grid
         use config, only: output_path
         use KIM_kinds, only: dp
-        use plasma_parameter, only: iprof_length
+        use plasma_parameter, only: iprof_length, r_prof
         use IO_collection, only: plot_complex_1D
+        use resonances_mod, only: width_res, r_res
 
         implicit none
 
@@ -517,7 +539,7 @@ module species
         if (.not. allocated(spec%symbI)) allocate(spec%symbI(0:nmmax, 0:nmmax))
         spec%symbI = 0.0d0
         do j = 1, iprof_length
-            if (.false.) then !(rg_grid%xb(j) .lt. r_res - 3.d0*width_res .or. rg_grid%xb(j) .gt. r_res + 3.d0*width_res) then
+            if (.false.) then !(r_prof(j) .lt. r_res - 5.d0*width_res .or. r_prof(j) .gt. r_res + 5.d0 * width_res) then
                 spec%symbI = 0.0d0
             else
                 call getIfunc(spec%x1(j), spec%x2(j), spec%symbI)

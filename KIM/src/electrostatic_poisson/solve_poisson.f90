@@ -266,7 +266,7 @@ module poisson_solver
             A_mat(i+1, i+1) = A_mat(i+1, i+1) - 1.0_dp / h
         end do
         
-        call write_matrix(trim(output_path)//'kernel/laplacian_re.dat', real(A_mat), rg_grid%npts_b, rg_grid%npts_b)
+        call write_matrix(trim(output_path)//'kernel/laplacian_re.dat', real(A_mat), xl_grid%npts_b, xl_grid%npts_b)
 
     end subroutine
 

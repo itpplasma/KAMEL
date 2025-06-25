@@ -143,7 +143,6 @@ subroutine calculate_backs(write_out)
 
         implicit none
         character(1024) :: filename
-        logical :: ex
 
         if (fstatus == 1) write(*,*) 'Status: Writing background quants'
 

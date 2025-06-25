@@ -86,6 +86,7 @@ module species
 
         plasma%n_species = 2
         allocate(plasma%spec(0:plasma%n_species-1))
+
         call init_electron_species(plasma%spec(0))
         call init_deuterium_species(plasma%spec(1))
 

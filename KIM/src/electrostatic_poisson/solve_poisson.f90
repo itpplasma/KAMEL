@@ -75,37 +75,6 @@ module poisson_solver
 
         end subroutine
 
-        subroutine write_phi_to_file
-
-            implicit none
-
-            open(unit = 77, file=trim(output_path)//'fields/phi_re.dat')
-            open(unit = 78, file=trim(output_path)//'fields/phi_im.dat')
-            do i = 1, xl_grid%npts_b
-                write(77,*) xl_grid%xb(i), real(b_vec(i))
-                write(78,*) xl_grid%xb(i), dimag(b_vec(i))
-            end do
-            close(77)
-            close(78)
-
-        end subroutine
-
-
-        subroutine write_K_times_b_to_file
-
-            implicit none
-
-            open(unit = 79, file=trim(output_path)//'fields/Kbr_re.dat')
-            open(unit = 80, file=trim(output_path)//'fields/Kbr_im.dat')
-            do i = 1,xl_grid%npts_b
-                write(79,*) xl_grid%xb(i), real(b_vec(i))
-                write(80,*) xl_grid%xb(i), dimag(b_vec(i))
-            end do
-            close(79)
-            close(80)
-
-        end subroutine
-
         subroutine write_A_matrix_sparse_check_to_file
 
             implicit none
@@ -128,23 +97,6 @@ module poisson_solver
 
         end subroutine
 
-        
-        subroutine initialize_grid_spacing(dr, r_in)
-
-            implicit none
-            real(dp), allocatable, intent(in) :: r_in(:)
-            real(dp), allocatable, intent(out) :: dr(:)
-
-            integer :: i
-
-            allocate(dr(size(r_in)))
-
-            do i = 1, size(r_in)
-                dr(i) = r_in(i+1) - r_in(i)
-            end do
-            dr(size(r_in)) = dr(size(r_in)-1)
-
-        end subroutine
 
         ! transform kernel matrix in l space to sparse matrix
         ! ignores elements that are further apart than 5 times the
@@ -243,7 +195,7 @@ module poisson_solver
 
     subroutine prepare_Laplace_matrix(A_mat)
 
-        use grid, only: xl_grid, rg_grid
+        use grid, only: xl_grid
         use KIM_kinds, only: dp
         use config, only: output_path
         use IO_collection, only: write_matrix

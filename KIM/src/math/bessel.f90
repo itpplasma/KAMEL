@@ -3,15 +3,17 @@ recursive double complex function besselj (nu, zarg, n) result (res)
 !Evaluates n-th derivative of a bessel J_nu(zarg) function, nu - integer, zarg - complex!!!
 !The subroutines from AMOS are used for.
 
+    use KIM_kinds, only: dp
+
     implicit none
 
     integer, intent(in) :: nu, n
     double complex, intent(in) :: zarg
 
     integer :: k
-    double precision :: rr, ri
+    real(dp) :: rr, ri
     integer :: nz, ierr
-    double precision, allocatable, dimension(:,:) :: bico
+    real(dp), allocatable, dimension(:,:) :: bico
 
     !external :: binomial_coefficients
     
@@ -53,10 +55,14 @@ recursive double complex function besselj (nu, zarg, n) result (res)
 
     contains
         subroutine binomial_coefficients(NN, coefss)
+
+            use KIM_kinds, only: dp
+
             implicit none
+
             integer, intent(in) :: NN
-            double precision, allocatable, intent(out) :: coefss(:,:)
-            double precision :: dummy
+            real(dp), allocatable, intent(out) :: coefss(:,:)
+            real(dp) :: dummy
             integer :: n,k
 
             allocate(coefss(NN,NN))
@@ -80,27 +86,28 @@ end function
 
 recursive complex(8) function besseli (nu, zarg, n) result (res)
 
-!evaluates n-th derivative of a modified bessel I_nu(zarg) function, nu - integer, zarg - complex!!!
+    !evaluates n-th derivative of a modified bessel I_nu(zarg) function, nu - integer, zarg - complex!!!
 
-implicit none;
+    use KIM_kinds, only: dp
 
-interface
-    recursive double complex function besselj (nu, zarg, n)
-        integer, intent(in) :: nu, n
-        complex(8), intent(in) :: zarg
-    end function
-end interface
+    implicit none
 
-integer, parameter :: dpc = 8
+    interface
+        recursive double complex function besselj (nu, zarg, n)
+            use KIM_kinds, only: dp
+            integer, intent(in) :: nu, n
+            complex(dp), intent(in) :: zarg
+        end function
+    end interface
 
-integer, intent(in) :: nu, n
-complex(dpc), intent(in) :: zarg
+    integer, intent(in) :: nu, n
+    complex(dp), intent(in) :: zarg
 
-complex(dpc) :: I = (0.0d0, 1.0d0), J_nu
+    complex(dp) :: I = (0.0d0, 1.0d0), J_nu
 
-J_nu = besselj (nu, I*zarg, n)
+    J_nu = besselj (nu, I*zarg, n)
 
-res = I**(n-nu)*J_nu
+    res = I**(n-nu)*J_nu
 
 end function
 

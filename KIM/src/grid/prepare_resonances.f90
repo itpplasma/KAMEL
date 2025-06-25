@@ -5,14 +5,13 @@ subroutine prepare_resonances
     use config, only: hdf5_output, fdebug
     use setup, only: m_mode, n_mode, type_br_field
     use plasma_parameter, only: iprof_length, r_prof, q_prof
-    !use h5mod
-    !use mpi
+    use KIM_kinds, only: dp
 
     implicit none
 
     integer :: j
-    double precision :: qres,qmin,qmax
-    double precision, dimension(:), allocatable :: q
+    real(dp) :: qres,qmin,qmax
+    real(dp), dimension(:), allocatable :: q
     integer :: lb, ub
 
     iunit_res=157

@@ -1,9 +1,7 @@
 subroutine generate_grids
 
-    use grid
-    use config, only: fdebug, output_path
-    use plasma_parameter, only: r_prof, iprof_length
-    use setup, only: kr_cut_off_fac
+    use grid, only: rg_grid, xl_grid, reduced_rg_dim, l_space_dim, grid_spacing
+    use plasma_parameter, only: r_prof
 
     implicit none
 

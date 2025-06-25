@@ -6,10 +6,11 @@ subroutine kr_space_adjustments
     use plasma_parameter, only: rho_L
     use config, only: fstatus
     use findIndex, only: findClosestIndex
+    use KIM_kinds, only: dp
 
     implicit none
 
-    double precision :: kr_cutoff
+    real(dp) :: kr_cutoff
 
     ! determine cut-off in kr and corresponding indices
     kr_cutoff = kr_cut_off_fac !* rho_L

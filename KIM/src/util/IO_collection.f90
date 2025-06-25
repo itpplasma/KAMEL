@@ -187,6 +187,7 @@ module IO_collection
     end subroutine
 
     subroutine remove_file(filename)
+    
         implicit none
 
         character(*), intent(in) :: filename

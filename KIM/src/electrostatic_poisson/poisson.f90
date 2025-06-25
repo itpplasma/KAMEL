@@ -14,10 +14,11 @@ module rt_electrostatic
 
     subroutine init_electrostatic(this)
 
-        use species, only: init_deuterium_plasma, set_deuterium_plasma, plasma, interpolate_plasma_backs
+        use species, only: init_deuterium_plasma, set_deuterium_plasma, plasma
         use IO_collection, only: create_output_directories
 
         implicit none
+
         class(electrostatic_t), intent(inout) :: this
 
         this%run_type = "electrostatic"
@@ -27,12 +28,13 @@ module rt_electrostatic
         print *, "|    |  \|   /    Y    \"
         print *, "|____|__ \___\____|__  /"
         print *, "        \/           \/ "
-        print *, "electrostatic model initialized."
 
         call create_output_directories
         call generate_grids
         call init_deuterium_plasma(plasma)
         call set_deuterium_plasma(plasma)
+
+        print *, "... electrostatic model initialized."
 
     end subroutine
 
@@ -74,7 +76,6 @@ module rt_electrostatic
         call write_complex_profile(xl_grid%xb, EBdat%Phi, xl_grid%npts_b, trim(output_path)//"/fields/phi_sol.dat")
 
         call postprocess_electric_field(EBdat)
-
     
     end subroutine
 

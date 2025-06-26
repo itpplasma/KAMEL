@@ -62,7 +62,6 @@ module fields
         use species, only: plasma_t
         use KIM_kinds, only: dp
         use equilibrium, only: B0
-        use plasma_parameter, only: iprof_length, r_prof
 
         implicit none
 
@@ -94,7 +93,7 @@ module fields
             ks_int = sum(coef(0,:) * plasma_in%ks(ibeg:iend))
             kp_int = sum(coef(0,:) * plasma_in%kp(ibeg:iend))
 
-            call binsrc(r_prof, 1, iprof_length, EBdat_in%r_grid(i), ir) 
+            call binsrc(plasma_in%r_grid, 1, plasma_in%grid_size, EBdat_in%r_grid(i), ir) 
             ibeg = max(1, ir - nlagr/2)
             iend = ibeg + nlagr - 1
             if (iend .gt. size(plasma_in%r_grid)) then

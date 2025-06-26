@@ -1,12 +1,12 @@
 subroutine generate_grids
 
     use grid, only: rg_grid, xl_grid, reduced_rg_dim, l_space_dim, grid_spacing
-    use plasma_parameter, only: r_prof
+    use species, only: plasma
 
     implicit none
 
-    call rg_grid%grid_init(reduced_rg_dim, r_prof(1), r_prof(size(r_prof)), 'rg')
-    call xl_grid%grid_init(l_space_dim, r_prof(1), r_prof(size(r_prof)), 'xl')
+    call rg_grid%grid_init(reduced_rg_dim, plasma%r_grid(1), plasma%r_grid(size(plasma%r_grid)), 'rg')
+    call xl_grid%grid_init(l_space_dim, plasma%r_grid(1), plasma%r_grid(size(plasma%r_grid)), 'xl')
 
     if (grid_spacing == 2) then
         write(*,*) "Generating linear grids"

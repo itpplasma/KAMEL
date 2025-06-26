@@ -14,8 +14,9 @@ module rt_electrostatic
 
     subroutine init_electrostatic(this)
 
-        use species, only: init_plasma, plasma
+        use species, only: init_plasma, plasma, set_plasma_quantities
         use IO_collection, only: create_output_directories
+        use equilibrium, only: calculate_equil
 
         implicit none
 
@@ -31,7 +32,9 @@ module rt_electrostatic
 
         call create_output_directories
         call generate_grids
-        call init_plasma(plasma)
+        !call init_plasma(plasma)
+        call calculate_equil(.true.)
+        call set_plasma_quantities(plasma)
 
         print *, "... electrostatic model initialized."
 

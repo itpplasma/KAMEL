@@ -4,11 +4,11 @@ set(CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/cmake" ${CMAKE_MODULE_PATH})
 
 add_library(KIM_lib STATIC "${KIM_setup}" 
                         "${KIM_grid}" 
+                        "${KIM_background_equilibrium}"
                         "${KIM_general}" 
                         "${KIM_poisson}" 
                         "${KIM_util}"
-                        "${KIM_kernels}"
-                        "${KIM_background_equilibrium}"
+                        #"${KIM_kernels}"
                         "${KIM_math}"
                         "${KIM_fokkerplanck}"
                         "${KIM_dispersion}"

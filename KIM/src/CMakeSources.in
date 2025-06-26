@@ -41,17 +41,16 @@ set(KIM_util util/findIndex.f90
             util/IO_collection.f90
 )
 
-set(KIM_kernels kernels/integrands.f90
-                #kernels/kernel_functions.f90
-                kernels/cut_off_integration.f90
-                kernels/kernel_mod.f90
-)
+#set(KIM_kernels kernels/integrands.f90
+                ##kernels/kernel_functions.f90
+                #kernels/cut_off_integration.f90
+                #kernels/kernel_mod.f90
+#)
 
-set(KIM_background_equilibrium background_equilibrium/calculate_backs.f90
+set(KIM_background_equilibrium background_equilibrium/species_mod.f90
                             background_equilibrium/calculate_equil.f90
-                            background_equilibrium/plasma_parameter.f90
                             background_equilibrium/back_quants_mod.f90
-                            background_equilibrium/species_mod.f90
+                            
 )
 
 set(KIM_dispersion dispersion/fun_input.f90

@@ -3,7 +3,6 @@ subroutine kr_space_adjustments
 
     use kr_grid, only: kr, k_space_dim
     use setup, only: kr_cut_off_fac
-    use plasma_parameter, only: rho_L
     use config, only: fstatus
     use findIndex, only: findClosestIndex
     use KIM_kinds, only: dp

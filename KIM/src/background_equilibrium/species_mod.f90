@@ -7,9 +7,11 @@ module species
     type :: plasma_t
         type(species_t), allocatable :: spec(:)
         integer :: n_species
+        integer :: grid_size
         real(dp), allocatable :: om_E(:) ! ExB rotation frequency
         real(dp), allocatable :: ks(:) ! "senkrecht" wavenumber
         real(dp), allocatable :: kp(:) ! parallel wavenumber
+        real(dp), allocatable :: B0(:)
         real(dp), allocatable :: q(:) ! safety factor profile
         real(dp), allocatable :: dqdr(:) ! safety factor gradient
         real(dp), allocatable :: Er(:) ! radial electric field
@@ -64,9 +66,18 @@ module species
             call init_deuterium_plasma(plasma_in)
         end if
 
-        call set_plasma_quantities(plasma_in)
+        !call check_quasineutrality(plasma_in)
 
-        call check_quasineutrality(plasma_in)
+    end subroutine
+
+    subroutine allocate_plasma
+
+        use config, only: number_of_ion_species
+
+        implicit none
+
+        plasma%n_species = number_of_ion_species+1
+        allocate(plasma%spec(0:plasma%n_species-1))
 
     end subroutine
 
@@ -89,6 +100,11 @@ module species
         read(unit=77, nml=KIM_species)
         close(unit=77)
 
+        print *,  "Reading species from namelist:"
+        print *, "Number of ion species: ", number_of_ion_species
+        print *, "Mass numbers: ", ai(1:number_of_ion_species)
+        print *, "Charge numbers: ", zi(1:number_of_ion_species)
+
         do i = 1, number_of_ion_species
             plasma_in%spec(i)%Aspec = ai(i)
             plasma_in%spec(i)%Zspec = zi(i)
@@ -103,9 +119,6 @@ module species
         implicit none
 
         type(plasma_t), intent(inout) :: plasma
-
-        plasma%n_species = 2
-        allocate(plasma%spec(0:plasma%n_species-1))
 
         call init_electron_species(plasma%spec(0))
         call init_deuterium_species(plasma%spec(1))
@@ -163,30 +176,13 @@ module species
 
     subroutine set_plasma_quantities(plasma)
 
-        use plasma_parameter, only: iprof_length, n_prof, Te_prof, Ti_prof, dTidr_prof, &
-            dndr_prof, dTedr_prof, dnidr_prof, dqdr_prof, r_prof, q_prof, Er_prof
         use grid, only: rg_grid
 
         implicit none
 
         type(plasma_t), intent(inout) :: plasma
 
-        allocate(plasma%q(iprof_length))
-        allocate(plasma%dqdr(iprof_length))
-        allocate(plasma%Er(iprof_length))
-        allocate(plasma%ks(iprof_length))
-        allocate(plasma%kp(iprof_length))
-        allocate(plasma%om_E(iprof_length))
-
-        plasma%q = q_prof
-        plasma%Er = Er_prof
-        plasma%dqdr = dqdr_prof
-        plasma%r_grid = r_prof
-
         call calc_plasma_parameter_derivs
-
-        call set_species_profiles(plasma%spec(0), n_prof, dndr_prof, Te_prof, dTedr_prof, iprof_length)
-        call set_species_profiles(plasma%spec(1), n_prof, dnidr_prof(1,:), Ti_prof, dTidr_prof(1,:), iprof_length)
         
         call calculate_plasma_backs(plasma)
 
@@ -201,8 +197,6 @@ module species
     subroutine calculate_plasma_backs(plasma)
 
         use constants, only: sol, e_charge, ev, pi, com_unit
-        use equilibrium, only: hz, hth, B0
-        use plasma_parameter, only: iprof_length, r_prof
         use setup, only: m_mode, n_mode, omega, R0, collisions_off
         use config, only: number_of_ion_species
 
@@ -210,39 +204,31 @@ module species
 
         type(plasma_t), intent(inout) :: plasma
         integer :: i, sp, sp_col
-        real(dp) :: Lee(iprof_length), Lei(number_of_ion_species, iprof_length), &
-            Lii(number_of_ion_species, number_of_ion_species, iprof_length),&
-            nue(iprof_length), nui(number_of_ion_species, iprof_length)
+        real(dp) :: Lee(plasma%grid_size), Lei(number_of_ion_species, plasma%grid_size), &
+            Lii(number_of_ion_species, number_of_ion_species, plasma%grid_size),&
+            nue(plasma%grid_size), nui(number_of_ion_species, plasma%grid_size)
 
-        do i = 1, iprof_length
-            ! "senkrecht" wavenumber
-            plasma%ks(i) = (m_mode * hz(i) - n_mode * hth(i) / R0) / r_prof(i)
-            ! parallel wavenumber
-            plasma%kp(i) = m_mode/(r_prof(i)) * hth(i) + n_mode / R0 * hz(i)
-            ! ExB rotation frequency
-            plasma%om_E(i) = - sol * plasma%ks(i) * plasma%Er(i) / B0(i)
-        end do
 
         do sp = 0, plasma%n_species-1
 
-            allocate(plasma%spec(sp)%rho_L(iprof_length))
-            allocate(plasma%spec(sp)%z0(iprof_length))
-            allocate(plasma%spec(sp)%x1(iprof_length))
-            allocate(plasma%spec(sp)%x2(iprof_length))
-            allocate(plasma%spec(sp)%vT(iprof_length))
-            allocate(plasma%spec(sp)%lambda_D(iprof_length))
-            allocate(plasma%spec(sp)%A1(iprof_length))
-            allocate(plasma%spec(sp)%A2(iprof_length))
-            allocate(plasma%spec(sp)%I00(iprof_length))
-            allocate(plasma%spec(sp)%I20(iprof_length))
-            allocate(plasma%spec(sp)%I01(iprof_length))
-            allocate(plasma%spec(sp)%I21(iprof_length))
-            allocate(plasma%spec(sp)%nu(iprof_length))
-            allocate(plasma%spec(sp)%omega_c(iprof_length))
+            allocate(plasma%spec(sp)%rho_L(plasma%grid_size))
+            allocate(plasma%spec(sp)%z0(plasma%grid_size))
+            allocate(plasma%spec(sp)%x1(plasma%grid_size))
+            allocate(plasma%spec(sp)%x2(plasma%grid_size))
+            allocate(plasma%spec(sp)%vT(plasma%grid_size))
+            allocate(plasma%spec(sp)%lambda_D(plasma%grid_size))
+            allocate(plasma%spec(sp)%A1(plasma%grid_size))
+            allocate(plasma%spec(sp)%A2(plasma%grid_size))
+            allocate(plasma%spec(sp)%I00(plasma%grid_size))
+            allocate(plasma%spec(sp)%I20(plasma%grid_size))
+            allocate(plasma%spec(sp)%I01(plasma%grid_size))
+            allocate(plasma%spec(sp)%I21(plasma%grid_size))
+            allocate(plasma%spec(sp)%nu(plasma%grid_size))
+            allocate(plasma%spec(sp)%omega_c(plasma%grid_size))
 
-            do i=1, iprof_length
+            do i=1, plasma%grid_size
                 plasma%spec(sp)%vT(i) = sqrt(plasma%spec(sp)%T(i) * ev / (plasma%spec(sp)%mass))
-                plasma%spec(sp)%omega_c(i) = plasma%spec(sp)%Zspec * e_charge * abs(B0(i)) &
+                plasma%spec(sp)%omega_c(i) = plasma%spec(sp)%Zspec * e_charge * abs(plasma%B0(i)) &
                     / (plasma%spec(sp)%mass * sol)
                 plasma%spec(sp)%lambda_D(i) = sqrt(plasma%spec(sp)%T(i) *ev / (4.0d0*pi* plasma%spec(sp)%n(i) &
                     * (plasma%spec(sp)%Zspec * e_charge)**2.0d0))
@@ -256,7 +242,7 @@ module species
             end do
         end do
 
-        do i=1, iprof_length
+        do i=1, plasma%grid_size
             ! Coulomb logarithm
             Lee(i) = 23.5d0 - log(sqrt(plasma%spec(0)%n(i)) / plasma%spec(0)%T(i)**1.25) - &
                 sqrt(1d-5 + (log(plasma%spec(0)%T(i)) -2.0)**2.0 / 16.0)
@@ -264,7 +250,7 @@ module species
         end do
 
         do sp=1, number_of_ion_species
-            do i=1, iprof_length
+            do i=1, plasma%grid_size
                 ! Coulomb logarithm electrons ions (= ions electrons)
                 Lei(sp, i) = 24.0d0 - log(sqrt(plasma%spec(0)%n(i)) / plasma%spec(sp)%T(i))
 
@@ -288,18 +274,18 @@ module species
             end do
         end do
 
-        do i = 1, iprof_length
+        do i = 1, plasma%grid_size
             plasma%spec(0)%nu(i) = nue(i)
         end do
 
         do sp = 1, plasma%n_species-1
-            do i = 1, iprof_length
+            do i = 1, plasma%grid_size
                 plasma%spec(sp)%nu(i) = nui(sp, i)
             end do
         end do
 
         do sp =0, plasma%n_species-1
-            do i = 1,iprof_length
+            do i = 1,plasma%grid_size
                 plasma%spec(sp)%x1(i) = plasma%kp(i) * plasma%spec(sp)%vT(i) / plasma%spec(sp)%nu(i)
                 plasma%spec(sp)%x2(i) = - (plasma%om_E(i) - omega) / plasma%spec(sp)%nu(i)
                 if (collisions_off .eqv. .true.)then
@@ -550,7 +536,6 @@ module species
 
     subroutine calculate_susc_funcs_profiles(spec)
 
-        use plasma_parameter, only: iprof_length, r_prof
         use resonances_mod, only: width_res, r_res
 
         implicit none
@@ -560,7 +545,7 @@ module species
 
         if (.not. allocated(spec%symbI)) allocate(spec%symbI(0:nmmax, 0:nmmax))
         spec%symbI = 0.0d0
-        do j = 1, iprof_length
+        do j = 1, plasma%grid_size
             if (.false.) then !(r_prof(j) .lt. r_res - 5.d0*width_res .or. r_prof(j) .gt. r_res + 5.d0 * width_res) then
                 spec%symbI = 0.0d0
             else
@@ -586,7 +571,7 @@ module species
         logical :: check_succeeded = .true.
         integer :: i, sp
 
-        
+        print *, "Checking quasineutrality..." 
         do i = 1, size(plasma_in%spec(sp)%n)
             n_zero = plasma_in%spec(0)%n(i)
             do sp=1, number_of_ion_species
@@ -606,5 +591,298 @@ module species
         end if
 
     end subroutine
+
+    subroutine calc_plasma_parameter_derivs
+
+        use grid
+        use config, only: number_of_ion_species
+
+        implicit none
+
+        integer :: i
+        integer :: sigma
+
+        if (.not. allocated(plasma%spec(0)%dndr)) then
+            do i = 0, number_of_ion_species
+                allocate(plasma%spec(i)%dndr(plasma%grid_size), &
+                        plasma%spec(i)%dTdr(plasma%grid_size))
+            end do
+            allocate(plasma%dqdr(plasma%grid_size))
+        end if
+
+        
+        do i=1, plasma%grid_size - 1
+            do sigma=0, number_of_ion_species
+                plasma%spec(sigma)%dndr(i) = (plasma%spec(sigma)%n(i+1) - plasma%spec(sigma)%n(i))&
+                    /(plasma%r_grid(i+1) - plasma%r_grid(i))
+                plasma%spec(sigma)%dTdr(i) = (plasma%spec(sigma)%T(i+1) - plasma%spec(sigma)%T(i))&
+                    /(plasma%r_grid(i+1)- plasma%r_grid(i))
+                plasma%dqdr(i) = (plasma%q(i+1) - plasma%q(i)) / (plasma%r_grid(i+1) - plasma%r_grid(i))
+            end do
+        end do
+
+    end subroutine
+
+    subroutine read_profiles(reduce)
+
+        use config, only: hdf5_input            
+        use grid, only: r_space_dim
+
+        logical, intent(in) :: reduce ! reduce r dimension
+
+        if (hdf5_input) then
+            ! read plasma profiles from hdf5 file
+            call read_from_hdf5
+        else
+            ! read plasma profiles from text files
+            call read_from_text
+        endif
+            
+        !if (reduce) call reduce_dim
+
+        r_space_dim = plasma%grid_size
+
+    end subroutine
+    
+    subroutine read_from_text
+
+        use config, only: number_of_ion_species, profile_location, fstatus
+        use KIM_kinds, only: dp
+        use setup, only: r_plas, set_profiles_constant
+
+        implicit none
+
+        integer :: i, sigma
+        integer :: ierr
+        integer :: ios
+        integer :: total_Z
+        character(256) :: fileloc, cwd
+        real(dp) :: r_temp
+
+        if (fstatus == 1) write(*,*) 'Status: Reading profiles from text files'
+
+        ! find profile length
+        plasma%grid_size = 0
+
+        open(99, file=trim(profile_location)//'n.dat')
+        ios = 0
+        do while(ios == 0)
+            read(99, *, iostat=ios) r_temp
+            if (r_temp < r_plas) then
+                plasma%grid_size = plasma%grid_size + 1
+            else 
+                ios = 1
+            end if
+        end do
+        close(99)
+
+        
+        if (.not. allocated(plasma%r_grid)) allocate(plasma%r_grid(plasma%grid_size), stat=ierr)
+        if (ierr /= 0) print *, "array: Allocation request denied"
+        
+        print *, 'test'
+        !write(*,*) r_prof
+        do sigma = 0, number_of_ion_species
+            allocate(plasma%spec(sigma)%n(plasma%grid_size),&
+                plasma%spec(sigma)%T(plasma%grid_size))
+        end do
+        
+        allocate(plasma%q(plasma%grid_size), &
+                plasma%Er(plasma%grid_size))
+        
+        
+        
+        open(11, file=trim(profile_location)//'n.dat')
+        do i=1, plasma%grid_size
+            read(11, *) plasma%r_grid(i), plasma%spec(0)%n(i)
+        end do
+        close(11)
+
+        open(11, file=trim(profile_location)//'Te.dat')
+        do i=1, plasma%grid_size
+            read(11, *) r_temp, plasma%spec(0)%T(i)
+        end do
+        close(11)
+
+        open(11, file=trim(profile_location)//'Ti.dat')
+        do i=1, plasma%grid_size
+            read(11, *) r_temp, plasma%spec(1)%T(i)
+            do sigma = 2, number_of_ion_species
+                plasma%spec(sigma)%T(i) = plasma%spec(1)%T(i)
+            end do
+        end do
+        close(11)
+
+        open(11, file=trim(profile_location)//'Er.dat')
+        do i=1, plasma%grid_size
+            read(11, *) r_temp, plasma%Er(i)
+        end do
+        close(11)
+
+        open(11, file=trim(profile_location)//'q.dat')
+        do i=1, plasma%grid_size
+            read(11, *) r_temp, plasma%q(i)
+        end do
+        close(11)
+
+        total_Z = 0
+        do sigma = 1, number_of_ion_species
+            total_Z = total_Z + plasma%spec(sigma)%Zspec
+        end do
+
+        print *, 'total_Z = ', total_Z
+        do i = 1, plasma%grid_size
+            do sigma = 1, number_of_ion_species
+                ! ion density to fulfill quasineutrality
+                plasma%spec(sigma)%n(i) = plasma%spec(0)%n(i) * plasma%spec(sigma)%Zspec / total_Z
+            end do
+        end do
+
+        if (set_profiles_constant == 1) then
+            write(*,*) 'Info: Setting profiles to constant values'
+            plasma%Er(:) = plasma%Er(1)
+            do sigma = 0, number_of_ion_species
+                plasma%spec(sigma)%n(:) = plasma%spec(sigma)%n(1)
+                plasma%spec(sigma)%T(:) = plasma%spec(sigma)%T(1)
+            end do
+        end if
+
+        if (fstatus == 1) write(*,*) 'Status: Finished reading profiles from text files'
+
+    end subroutine
+
+
+    subroutine read_from_hdf5
+
+        use config, only: fstatus
+
+        implicit none
+
+        if (fstatus == 1) write(*,*) 'Status: Reading profiles from hdf5 file'
+
+    end subroutine
+
+    ! find the length of a profile file
+    subroutine find_file_length(filename, l)
+
+        implicit none
+
+        character(256), intent(in) :: filename
+        integer, intent(out) :: l
+        integer :: ios = 0
+        l = 0
+        open(11, file=trim(filename))
+        do while(ios == 0)
+            read(11, *, iostat=ios)
+            if (ios == 0) then
+                l = l + 1
+            end if
+        end do
+        close(11)
+
+    end subroutine
+
+    !subroutine reduce_dim
+
+        !use config, only: output_path, number_of_ion_species
+        !use grid, only: reduced_rg_dim
+        !use KIM_kinds, only: dp
+
+        !implicit none
+
+        !real(dp) :: step_h
+        !real(dp), allocatable :: new_n_prof(:), new_Te_prof(:), new_Ti_prof(:,:), &
+                                        !new_ni_prof(:,:), new_Er_prof(:), new_q_prof(:), new_r_prof(:)
+        !integer :: i, sigma
+        !integer :: nlagr = 4
+        !integer :: nder = 0
+        !integer :: ibeg, iend, ir
+        !real(dp), dimension(:,:), allocatable :: coef
+
+        !if (.not. allocated(coef)) allocate(coef(0:nder, nlagr))
+
+        !if (fstatus==1) write(*,*) 'Status: Reducing input profile r dimension'
+
+        !allocate(new_n_prof(reduced_rg_dim), new_Te_prof(reduced_rg_dim), &
+                !new_Ti_prof(number_of_ion_species, reduced_rg_dim), new_ni_prof(number_of_ion_species, reduced_rg_dim), &
+                !new_Er_prof(reduced_rg_dim), new_q_prof(reduced_rg_dim), new_r_prof(reduced_rg_dim))
+
+
+        !step_h = (r_prof(plasma%grid_size) - r_prof(1)) / reduced_rg_dim ! new step size
+        !new_r_prof(1) = r_prof(1)
+
+        !do i = 2, reduced_rg_dim
+            !new_r_prof(i) = new_r_prof(i-1) + step_h
+        !end do
+
+        !do i = 1, reduced_rg_dim
+            !call binsrc(r_prof, 1, plasma%grid_size, new_r_prof(i), ir) 
+            !ibeg = max(1, ir - nlagr/2)
+            !iend = ibeg + nlagr - 1
+            !if (iend .gt. plasma%grid_size) then
+                !iend = plasma%grid_size
+                !ibeg = iend -nlagr + 1
+            !end if
+
+            !call plag_coeff(nlagr, nder, new_r_prof(i), r_prof(ibeg:iend), coef)
+
+            !new_n_prof(i) = sum(coef(0,:) * n_prof(ibeg:iend))
+            !new_Te_prof(i) = sum(coef(0,:) * Te_prof(ibeg:iend))
+            !new_Er_prof(i) = sum(coef(0,:) * Er_prof(ibeg:iend))
+            !new_q_prof(i) = sum(coef(0,:) * q_prof(ibeg:iend))
+
+            !do sigma=1, number_of_ion_species 
+                !new_Ti_prof(sigma, i) = sum(coef(0,:) * Ti_prof(sigma, ibeg:iend))
+                !new_ni_prof(sigma, i) = sum(coef(0,:) * ni_prof(sigma, ibeg:iend))
+            !end do
+        !end do
+            
+        !plasma%grid_size = reduced_rg_dim
+
+        !deallocate(r_prof, n_prof, Te_prof, Ti_prof, ni_prof, Er_prof, q_prof)
+        !allocate(r_prof(reduced_rg_dim), n_prof(reduced_rg_dim), Te_prof(reduced_rg_dim), &
+                !Ti_prof(number_of_ion_species, reduced_rg_dim), ni_prof(number_of_ion_species, reduced_rg_dim), &
+                !Er_prof(reduced_rg_dim), q_prof(reduced_rg_dim))
+
+        !r_prof = new_r_prof
+        !n_prof = new_n_prof
+        !Te_prof = new_Te_prof
+        !Ti_prof = new_Ti_prof
+        !ni_prof = new_ni_prof
+        !Er_prof = new_Er_prof
+        !q_prof = new_q_prof
+ 
+        !deallocate(new_r_prof, new_n_prof, new_Te_prof, new_Ti_prof, new_ni_prof, new_Er_prof, new_q_prof)
+
+        !call write_profiles
+
+    !end subroutine
+
+    subroutine write_profiles
+
+        use config, only: output_path, fstatus, number_of_ion_species
+        use IO_collection, only: write_profile
+
+        implicit none
+
+        integer :: sigma
+        logical :: ex
+
+        if (fstatus == 1) write(*,*) 'Status: writing profiles to output_path'
+
+        inquire(file=trim(output_path)//'profiles', exist=ex)
+        if (.not. ex) then
+            call system('mkdir -p '//trim(output_path)//'profiles')
+        end if
+
+        do sigma = 0, number_of_ion_species
+            call write_profile(plasma%r_grid, plasma%spec(sigma)%n, plasma%grid_size, trim(output_path)//'profiles/n.dat')
+            call write_profile(plasma%r_grid, plasma%spec(sigma)%T, plasma%grid_size, trim(output_path)//'profiles/T.dat')
+        end do
+        call write_profile(plasma%r_grid, plasma%Er, plasma%grid_size, trim(output_path)//'profiles/Er.dat')
+        call write_profile(plasma%r_grid, plasma%q, plasma%grid_size, trim(output_path)//'profiles/q.dat')
+
+    end subroutine
+
 
 end module

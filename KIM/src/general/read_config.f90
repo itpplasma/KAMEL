@@ -1,12 +1,9 @@
 subroutine read_config
 
-    use plasma_parameter
     use config
     use constants
     use setup
     use grid
-    use cut_off_integration
-    use equilibrium, only: calculate_equil
     use poisson_solver, only: solve_poisson
 
     implicit none
@@ -19,7 +16,7 @@ subroutine read_config
                         kernel_debye_case, type_of_run, collision_model, read_species_from_namelist 
 
     namelist /KIM_SETUP/ btor, R0, m_mode, n_mode, omega, spline_base, &
-                        cut_off_fac, kr_cut_off_fac, r_plas, type_br_field, collisions_off, eps_reg, &
+                        r_plas, type_br_field, collisions_off, eps_reg, &
                         set_profiles_constant
 
     namelist /KIM_GRID/ reduce_r, grid_spacing, l_space_dim, num_gengrid_points, &
@@ -42,7 +39,6 @@ subroutine read_config
 
     open(unit = 77, file = trim(nml_config_path))
     read(unit = 77, nml = KIM_CONFIG)
-    allocate(Zi(number_of_ion_species), Ai(number_of_ion_species))
     read(unit = 77, nml = KIM_SETUP)
     read(unit = 77, nml = KIM_GRID)
     close(unit = 77)
@@ -60,6 +56,7 @@ subroutine read_config
     write(*,*) '  fdebug           = ', fdebug
     write(*,*) '  fstatus          = ', fstatus
     write(*,*) '  number_of_ion_species         = ', number_of_ion_species
+    write(*,*) '  read_species_from_namelist = ', read_species_from_namelist
     write(*,*) '  artificial_debye_case= ', artificial_debye_case
     write(*,*) '  kernel_debye_case= ', kernel_debye_case
     write(*,*) '  collision_model  = ', collision_model
@@ -72,8 +69,6 @@ subroutine read_config
     write(*,*) '  n_mode           = ', n_mode
     write(*,*) '  omega            = ', omega
     write(*,*) '  spline_base      = ', spline_base
-    write(*,*) '  cut_off_fac      = ', cut_off_fac
-    write(*,*) '  kr_cut_off_fac   = ', kr_cut_off_fac 
     write(*,*) '  type_br_field    = ', type_br_field
     write(*,*) '  collisions_off   = ', collisions_off
     write(*,*) '  eps_reg          = ', eps_reg

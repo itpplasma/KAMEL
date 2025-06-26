@@ -4,7 +4,7 @@ subroutine prepare_resonances
     use grid, only: gg_width, gg_factor, grid_spacing
     use config, only: hdf5_output, fdebug
     use setup, only: m_mode, n_mode, type_br_field
-    use plasma_parameter, only: iprof_length, r_prof, q_prof
+    use species, only: plasma
     use KIM_kinds, only: dp
 
     implicit none
@@ -16,9 +16,9 @@ subroutine prepare_resonances
 
     iunit_res=157
 
-    allocate(q(iprof_length))
+    allocate(q(plasma%grid_size))
 
-    q = abs(q_prof)
+    q = abs(plasma%q)
     qmin = minval(q)
     qmax = maxval(q)
 
@@ -30,15 +30,15 @@ subroutine prepare_resonances
 
     r_res = qres
 
-    do j=2,iprof_length
+    do j= 2, plasma%grid_size
       if(qres .gt. q(j-1) .and. qres .lt. q(j)) then
-        r_res = (r_prof(j-1) * (q(j) - qres) + r_prof(j) * (qres-q(j-1))) / (q(j)-q(j-1))
+        r_res = (plasma%r_grid(j-1) * (q(j) - qres) + plasma%r_grid(j) * (qres-q(j-1))) / (q(j)-q(j-1))
         exit
       endif
     enddo
 
-     if (type_br_field == 2) then
-        r_res = r_prof(iprof_length)/2
+    if (type_br_field == 2) then
+        r_res = plasma%r_grid(plasma%grid_size)/2
     end if   
 
     write(*,*) 'resonant radius: ',r_res

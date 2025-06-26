@@ -145,7 +145,7 @@ module electrostatic_kernel
 
         use KIM_kinds, only: dp
         use electrostatic_integrals, only: gauss_config_t, init_gauss_int
-        use grid, only: delta_l_max
+        use grid, only: delta_l_max, gauss_int_number_nodes
 
         implicit none
 
@@ -155,7 +155,7 @@ module electrostatic_kernel
         integer :: l, lp
         complex(dp) :: kernel_phi_llp, kernel_B_llp
 
-        gauss_conf%n = 7
+        gauss_conf%n = gauss_int_number_nodes
         call init_gauss_int(gauss_conf)
 
         !$omp parallel do collapse(2) private(l,lp, kernel_phi_llp, kernel_B_llp)

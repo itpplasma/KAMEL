@@ -36,6 +36,7 @@
     kr_grid_width_res = 5.0
     kr_grid_ampl_res = 1.0
     delta_l_max = 5
+    gauss_int_number_nodes = 7
 /
 
 &kim_species

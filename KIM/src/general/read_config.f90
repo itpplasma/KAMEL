@@ -21,7 +21,7 @@ subroutine read_config
 
     namelist /KIM_GRID/ reduce_r, grid_spacing, l_space_dim, num_gengrid_points, &
                         reduced_rg_dim, kr_grid_width_res, kr_grid_ampl_res, k_space_dim, &
-                        delta_l_max
+                        delta_l_max, gauss_int_number_nodes
 
     num_args = command_argument_count()
     if (num_args > 1) then
@@ -84,6 +84,7 @@ subroutine read_config
     write(*,*) '  kr_grid_width_res = ', kr_grid_width_res
     write(*,*) '  kr_grid_ampl_res = ', kr_grid_ampl_res
     write(*,*) '  delta_l_max      = ', delta_l_max
+    write(*,*) '  gauss_int_number_nodes= ', gauss_int_number_nodes
     write(*,*) ' - - - - - - - - - - - - - - - - - - - - - - - -'
     write(*,*) ' - - - - - - - - - - - - - - - - - - - - - - - -'
 

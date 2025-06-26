@@ -14,7 +14,7 @@ module rt_electrostatic
 
     subroutine init_electrostatic(this)
 
-        use species, only: init_deuterium_plasma, set_deuterium_plasma, plasma
+        use species, only: init_plasma, plasma
         use IO_collection, only: create_output_directories
 
         implicit none
@@ -31,8 +31,7 @@ module rt_electrostatic
 
         call create_output_directories
         call generate_grids
-        call init_deuterium_plasma(plasma)
-        call set_deuterium_plasma(plasma)
+        call init_plasma(plasma)
 
         print *, "... electrostatic model initialized."
 

@@ -49,6 +49,25 @@ module species
 
     contains
 
+    subroutine init_plasma(plasma_in)
+
+        use config, only: read_species_from_namelist
+
+        implicit none
+
+        type(plasma_t), intent(inout) :: plasma_in
+
+        if (read_species_from_namelist .eqv. .true.) then
+            call read_species_from_nml(plasma_in)
+            call init_electron_species(plasma_in%spec(0))
+        else
+            call init_deuterium_plasma(plasma_in)
+        end if
+
+        call set_plasma_quantities(plasma_in)
+
+    end subroutine
+
     subroutine read_species_from_nml(plasma_in)
 
         use KIM_kinds, only: dp
@@ -140,7 +159,7 @@ module species
     end subroutine
 
 
-    subroutine set_deuterium_plasma(plasma)
+    subroutine set_plasma_quantities(plasma)
 
         use plasma_parameter, only: iprof_length, n_prof, Te_prof, Ti_prof, dTidr_prof, &
             dndr_prof, dTedr_prof, dnidr_prof, dqdr_prof, r_prof, q_prof, Er_prof

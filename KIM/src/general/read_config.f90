@@ -16,9 +16,9 @@ subroutine read_config
 
     namelist /KIM_CONFIG/ profile_location, hdf5_input, hdf5_output, &
                         fdebug, fstatus, number_of_ion_species, output_path, artificial_debye_case, &
-                        kernel_debye_case, type_of_run, collision_model
+                        kernel_debye_case, type_of_run, collision_model, read_species_from_namelist 
 
-    namelist /KIM_SETUP/ btor, R0, m_mode, n_mode, Zi, Ai, omega, spline_base, &
+    namelist /KIM_SETUP/ btor, R0, m_mode, n_mode, omega, spline_base, &
                         cut_off_fac, kr_cut_off_fac, r_plas, type_br_field, collisions_off, eps_reg, &
                         set_profiles_constant
 
@@ -70,8 +70,6 @@ subroutine read_config
     write(*,*) '  r_plas           = ', r_plas
     write(*,*) '  m_mode           = ', m_mode
     write(*,*) '  n_mode           = ', n_mode
-    write(*,*) '  Zi               = ', Zi
-    write(*,*) '  Ai               = ', Ai
     write(*,*) '  omega            = ', omega
     write(*,*) '  spline_base      = ', spline_base
     write(*,*) '  cut_off_fac      = ', cut_off_fac

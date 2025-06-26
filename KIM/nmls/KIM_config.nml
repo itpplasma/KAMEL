@@ -6,6 +6,7 @@
     fdebug = 1
     fstatus = 1
     number_of_ion_species = 1
+    read_species_from_namelist = .false. ! if false, initialize deuterium plasma
     type_of_run = 'electrostatic'
     collision_model = 'Krook'       ! Krook or FokkerPlanck
     artificial_debye_case = .false.
@@ -16,8 +17,6 @@
     r0 = 165.0
     m_mode = 7
     n_mode = 2
-    zi = 1
-    ai = 2
     r_plas = 67.0
     omega = 0.0
     spline_base = 1
@@ -42,6 +41,6 @@
 /
 
 &kim_species
-    zi = 1
-    ai = 2
+    zi = 1 !, 2
+    ai = 2 !, 4
 /

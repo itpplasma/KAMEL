@@ -9,6 +9,7 @@ module config
     logical :: hdf5_input, hdf5_output
     integer :: fdebug, fstatus
     integer :: number_of_ion_species ! number of ion species
+    logical :: read_species_from_namelist ! read species from namelist or use deuterium plasma
     logical :: artificial_debye_case
     logical :: kernel_debye_case
     character(256) :: nml_config_path = "./KIM_config.nml" ! path to the namelist file

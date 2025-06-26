@@ -155,7 +155,7 @@ module electrostatic_kernel
         integer :: l, lp
         complex(dp) :: kernel_phi_llp, kernel_B_llp
 
-        gauss_conf%n = 5
+        gauss_conf%n = 7
         call init_gauss_int(gauss_conf)
 
         !$omp parallel do collapse(2) private(l,lp, kernel_phi_llp, kernel_B_llp)

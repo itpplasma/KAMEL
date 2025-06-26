@@ -66,6 +66,8 @@ module species
 
         call set_plasma_quantities(plasma_in)
 
+        call check_quasineutrality(plasma_in)
+
     end subroutine
 
     subroutine read_species_from_nml(plasma_in)
@@ -569,6 +571,39 @@ module species
             spec%I01(j) = spec%symbI(0, 1)
             spec%I21(j) = spec%symbI(2, 1)
         end do
+
+    end subroutine
+
+    subroutine check_quasineutrality(plasma_in)
+
+        use KIM_kinds, only: dp
+        use config, only: number_of_ion_species
+
+        implicit none
+
+        type(plasma_t), intent(in) :: plasma_in
+        real(dp) :: n_zero
+        logical :: check_succeeded = .true.
+        integer :: i, sp
+
+        
+        do i = 1, size(plasma_in%spec(sp)%n)
+            n_zero = plasma_in%spec(0)%n(i)
+            do sp=1, number_of_ion_species
+                n_zero = n_zero - plasma_in%spec(sp)%Zspec * plasma_in%spec(sp)%n(i)
+            end do
+            if (.not. (abs(n_zero) <1.0)) then
+                check_succeeded = .false.
+                print *, "Warning: quasineutality check failed for r = ", plasma_in%r_grid(i), &
+                    " with n_zero = ", n_zero
+            end if
+        end do
+
+        if (check_succeeded) then
+            print *, "Quasineutrality check succeeded."
+        else
+            print *, "Quasineutrality check failed. Please check your profiles."
+        end if
 
     end subroutine
 

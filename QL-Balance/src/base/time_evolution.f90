@@ -253,7 +253,8 @@ module time_evolution
             if (debug_mode) call msg_time_info
             if (.not. suppression_mode) call write_kin_profile_at_time_index
             call set_first_iteration_true
-            call calculate_total_toroidal_torque
+            call calculate_total_toroidal_torque(time_ind)
+            call write_total_toroidal_torque_to_file(time_ind)
             call check_linear_discr_pen_ratio
             call stop_if_antenna_fac_max_reached
 
@@ -318,6 +319,8 @@ module time_evolution
 
     subroutine alloc_Br_Dqle_for_timeevol
 
+        use grid_mod, only: T_tot_phi_e, T_tot_phi_i
+
         implicit none
 
         allocate(br_abs(Nstorage))
@@ -329,6 +332,8 @@ module time_evolution
         allocate(dae22_res_time(Nstorage))
         allocate(bif_criterion(Nstorage))
         allocate(Ipar_time(Nstorage))
+        allocate(T_tot_phi_e(Nstorage))
+        allocate(T_tot_phi_i(Nstorage))
 
     end subroutine
 

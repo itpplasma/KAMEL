@@ -194,8 +194,7 @@ module electrostatic_kernel
         use electrostatic_integrands, only: int_F0_rho_phi_t, int_F1_rho_phi_t, int_F2_rho_phi_t, int_F3_rho_phi_t, &
             integration_point_t
         use FP_kernel_plasma_prefacs, only: FP_G1_rho_phi, FP_G1_rho_B, FP_G2_rho_B, FP_G3_rho_B, &
-            FP_G2_rho_phi, FP_G3_rho_phi, FP_kappa_rho_phi, FP_kappa_rho_B
-        use config, only: artificial_debye_case
+            FP_G2_rho_phi, FP_G3_rho_phi, FP_kappa_rho_phi, FP_kappa_rho_B, FP_G0_rho_phi
         
         implicit none
 
@@ -218,14 +217,18 @@ module electrostatic_kernel
         call set_xl_at_edge(l, lp, int_point)
 
         do sigma = 0, plasma%n_species - 1
-
             do j = 2, size(plasma%r_grid)-1
                 int_point%j = j
                 int_point%rhoT = 0.5d0 * (plasma%spec(sigma)%rho_L(j) + plasma%spec(sigma)%rho_L(j+1))
 
+                int_F0%int_point = int_point
                 int_F1%int_point = int_point
                 int_F2%int_point = int_point
                 int_F3%int_point = int_point
+
+                call gauss_integrate_F0(int_F0, int_point%xlm1, int_point%xlp1, integral_val, gauss_conf)
+                kernel_phi_llp = kernel_phi_llp &
+                    + integral_val * FP_G0_rho_phi(j, plasma%spec(sigma)) * FP_kappa_rho_phi(j, plasma%spec(sigma))
 
                 call gauss_integrate_F1(int_F1, integral_val, gauss_conf)
                 kernel_phi_llp = kernel_phi_llp + integral_val * FP_G1_rho_phi(j, plasma%spec(sigma)) * FP_kappa_rho_phi(j, plasma%spec(sigma))

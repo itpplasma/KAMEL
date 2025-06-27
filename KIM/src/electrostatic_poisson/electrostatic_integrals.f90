@@ -68,7 +68,7 @@ module electrostatic_integrals
         integer :: i,j,k
 
         result = 0.0d0
-
+        
         do i=1,gauss_conf%n ! theta
             theta_mapped = 0.5d0 * (pi * gauss_conf%x(i) + pi)
 

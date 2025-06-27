@@ -1,8 +1,8 @@
 subroutine prepare_resonances
 
     use resonances_mod
-    use grid, only: gg_width, gg_factor, grid_spacing
-    use config, only: hdf5_output, fdebug
+    use grid, only: grid_spacing
+    use config, only: hdf5_output
     use setup, only: m_mode, n_mode, type_br_field
     use species, only: plasma
     use KIM_kinds, only: dp
@@ -21,9 +21,6 @@ subroutine prepare_resonances
     q = abs(plasma%q)
     qmin = minval(q)
     qmax = maxval(q)
-
-    !width_res = gg_width
-    !ampl_res = gg_factor
 
     qres = abs(dfloat(m_mode)/dfloat(n_mode))
     if(qres.lt.qmin.or.qres.gt.qmax) write(*,*) "Resonance location not found in q"

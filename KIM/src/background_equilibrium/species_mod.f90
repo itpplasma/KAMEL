@@ -546,7 +546,8 @@ module species
         if (.not. allocated(spec%symbI)) allocate(spec%symbI(0:nmmax, 0:nmmax))
         spec%symbI = 0.0d0
         do j = 1, plasma%grid_size
-            if (.false.) then !(r_prof(j) .lt. r_res - 5.d0*width_res .or. r_prof(j) .gt. r_res + 5.d0 * width_res) then
+            if (.false.) then 
+            !if (plasma%r_grid(j) .lt. r_res - 7.d0*width_res .or. plasma%r_grid(j) .gt. r_res + 7.d0 * width_res) then
                 spec%symbI = 0.0d0
             else
                 call getIfunc(spec%x1(j), spec%x2(j), spec%symbI)

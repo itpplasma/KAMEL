@@ -221,14 +221,16 @@ module electrostatic_kernel
                 int_point%j = j
                 int_point%rhoT = 0.5d0 * (plasma%spec(sigma)%rho_L(j) + plasma%spec(sigma)%rho_L(j+1))
 
-                int_F0%int_point = int_point
                 int_F1%int_point = int_point
                 int_F2%int_point = int_point
                 int_F3%int_point = int_point
 
-                call gauss_integrate_F0(int_F0, int_point%xlm1, int_point%xlp1, integral_val, gauss_conf)
-                kernel_phi_llp = kernel_phi_llp &
-                    + integral_val * FP_G0_rho_phi(j, plasma%spec(sigma)) * FP_kappa_rho_phi(j, plasma%spec(sigma))
+                if (l == lp) then
+                    int_F0%int_point = int_point
+                    call gauss_integrate_F0(int_F0, int_point%xlm1, int_point%xlp1, integral_val, gauss_conf)
+                    kernel_phi_llp = kernel_phi_llp &
+                        + integral_val * FP_G0_rho_phi(j, plasma%spec(sigma)) * FP_kappa_rho_phi(j, plasma%spec(sigma))
+                end if
 
                 call gauss_integrate_F1(int_F1, integral_val, gauss_conf)
                 kernel_phi_llp = kernel_phi_llp + integral_val * FP_G1_rho_phi(j, plasma%spec(sigma)) * FP_kappa_rho_phi(j, plasma%spec(sigma))

@@ -92,7 +92,6 @@ module electrostatic_integrands
                   - (x - xp)**2.0d0 / (4.0d0 * this%int_point%rhoT**2.0d0 * (1.0d0 - cos(theta)))) &
             * this%int_point%Jrg1
 
-
     end function
 
 
@@ -124,7 +123,7 @@ module electrostatic_integrands
                     - ks_val**2.0d0 * this%int_point%rhoT**4.0d0 * cos(4.0d0 * theta)  &
                     - this%int_point%rhoT**2.0d0 * (3.0d0 * ks_val**2.0d0 * this%int_point%rhoT**2.0d0 + 4.0d0) &
                 ) &
-                + (2.0d0 * cos(2.0d0 * theta) + 6) * (this%int_point%Jrg2 + this%int_point%Jrg3) &
+                + (2.0d0 * cos(2.0d0 * theta) + 6.0d0) * (this%int_point%Jrg2 + this%int_point%Jrg3) &
                 - 16.0d0 * cos(theta) * this%int_point%Jrg4 &
             )
 
@@ -158,7 +157,6 @@ module electrostatic_integrands
                 + 4.0d0 * cos(theta) * (this%int_point%Jrg2 + this%int_point%Jrg3) &
                 - 2.0d0 * (cos(2.0d0 * theta) + 3.0d0) * this%int_point%Jrg4 &
             )
-
 
     end function
 
@@ -218,7 +216,7 @@ module electrostatic_integrands
                             * (erf(this%a_coef * (this%b_coef - rg_grid%xb(this%j))) &
                                 - erf(this%a_coef * (this%b_coef - rg_grid%xb(this%j+1)))) &
                         + 2.0d0 * this%a_coef * exp(-this%a_coef**2.0d0 * (this%b_coef - rg_grid%xb(this%j))**2.0d0) &
-                            * (this%b_coef - rg_grid%xb(this%j) + 2.0d0 * this%xlp) &
+                            * (this%b_coef + rg_grid%xb(this%j) - 2.0d0 * this%xlp) &
                         - 2.0d0 * this%a_coef * exp(-this%a_coef**2.0d0 * (this%b_coef - rg_grid%xb(this%j+1))**2.0d0) &
                             * (this%b_coef + rg_grid%xb(this%j+1) - 2.0d0 * this%xlp) & 
                     )

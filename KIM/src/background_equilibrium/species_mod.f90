@@ -197,7 +197,7 @@ module species
     subroutine calculate_plasma_backs(plasma)
 
         use constants, only: sol, e_charge, ev, pi, com_unit
-        use setup, only: omega, R0, collisions_off
+        use setup, only: omega, collisions_off
         use config, only: number_of_ion_species
 
         implicit none
@@ -657,7 +657,6 @@ module species
         integer :: ierr
         integer :: ios
         integer :: total_Z
-        character(256) :: fileloc, cwd
         real(dp) :: r_temp
 
         if (fstatus == 1) write(*,*) 'Status: Reading profiles from text files'

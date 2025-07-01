@@ -70,7 +70,7 @@ module rt_electrostatic
         call write_matrix(trim(output_path)//"kernel/kernel_phi_llp_im.dat", dimag(kernel_rho_phi_llp%Kllp), xl_grid%npts_b, xl_grid%npts_b)
 
         allocate(EBdat%Phi(xl_grid%npts_b), EBdat%Br(xl_grid%npts_b), EBdat%E_perp_psi(xl_grid%npts_b), &
-                EBdat%r_grid(xl_grid%npts_b), EBdat%E_perp(xl_grid%npts_b-1))
+                EBdat%r_grid(xl_grid%npts_b), EBdat%E_perp(xl_grid%npts_b))
 
         EBdat%r_grid = xl_grid%xb
         

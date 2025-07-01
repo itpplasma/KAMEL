@@ -289,8 +289,7 @@ module species
                 plasma%spec(sp)%x1(i) = plasma%kp(i) * plasma%spec(sp)%vT(i) / plasma%spec(sp)%nu(i)
                 plasma%spec(sp)%x2(i) = - (plasma%om_E(i) - omega) / plasma%spec(sp)%nu(i)
                 if (collisions_off .eqv. .true.)then
-                    nue(i) = 0.0d0
-                    nui(sp+1, i) = 0.0d0
+                    plasma%spec(sp)%nu(i) = 0.0d0
                 end if
             end do
         end do

@@ -104,21 +104,23 @@ module fields
 
             B0_int = sum(coef(0,:) * B0(ibeg:iend))
 
-            EBdat_in%E_perp_psi(i) = - Er_int * EBdat_in%Br(i) * ks_int / (B0_int * kp_int)
+            EBdat_in%E_perp_psi(i) = - Er_int * EBdat_in%Br(i) * ks_int / (abs(B0_int) * kp_int)
         end do
 
     end subroutine
 
     subroutine calculate_E_perp(EBdat_in)
-    ! this is not E_perp!, but E_r
+
+        use constants, only: com_unit
+        use species, only: plasma
 
         implicit none
 
         type(EBdat_t) , intent(inout) :: EBdat_in
         integer :: i
 
-        do i=1, size(EBdat_in%r_grid)-1
-            EBdat_in%E_perp(i) = -(EBdat_in%Phi(i+1) - EBdat_in%Phi(i))/(EBdat_in%r_grid(i+1) - EBdat_in%r_grid(i))
+        do i=1, size(EBdat_in%r_grid)
+            EBdat_in%E_perp(i) = - com_unit * plasma%ks(i) * EBdat_in%Phi(i)
         end do
 
     end subroutine
@@ -247,8 +249,8 @@ module fields
 
         call calculate_E_perp_psi(plasma, EBdat)
         call write_complex_profile(xl_grid%xb, EBdat%E_perp_psi, xl_grid%npts_b, trim(output_path)//"/fields/E_perp_psi.dat")
-        !call calculate_E_perp(EBdat)
-        !call write_complex_profile(xl_grid%xb(1:xl_grid%npts_b-1), EBdat%E_perp, xl_grid%npts_b-1, trim(output_path)//"/fields/E_perp.dat")
+        call calculate_E_perp(EBdat)
+        call write_complex_profile(xl_grid%xb(1:xl_grid%npts_b-1), EBdat%E_perp, xl_grid%npts_b-1, trim(output_path)//"/fields/E_perp.dat")
 
         call calculate_E_from_phi(EBdat)
         call calculate_E_in_rsp_from_cyl(EBdat)

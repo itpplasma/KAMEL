@@ -65,9 +65,13 @@ module electrostatic_integrals
         type(gauss_config_t), intent(in) :: gauss_conf
         real(dp), intent(out) :: result
         real(dp) :: x_mapped, xp_mapped, theta_mapped
+        real(dp) :: norm_factor
         integer :: i,j,k
 
         result = 0.0d0
+
+        norm_factor = pi * (int_F1%int_point%xlp1 - int_F1%int_point%xlm1) & ! normalization due to integral range shift
+                        * (int_F1%int_point%xlpp1 - int_F1%int_point%xlpm1) / 8.0d0
         
         do i=1,gauss_conf%n ! theta
             theta_mapped = 0.5d0 * (pi * gauss_conf%x(i) + pi)
@@ -87,8 +91,7 @@ module electrostatic_integrals
 
                     result = result + gauss_conf%w(i) * gauss_conf%w(j) * gauss_conf%w(k) &
                         * int_F1%f(x_mapped, xp_mapped, theta_mapped) &
-                        * pi * (int_F1%int_point%xlp1 - int_F1%int_point%xlm1) & ! normalization due to integral range shift
-                        * (int_F1%int_point%xlpp1 - int_F1%int_point%xlpm1) / 8.0d0
+                        * norm_factor
                 end do
             end do
         end do
@@ -108,9 +111,13 @@ module electrostatic_integrals
         type(gauss_config_t), intent(in) :: gauss_conf
         real(dp), intent(out) :: result
         real(dp) :: x_mapped, xp_mapped, theta_mapped
+        real(dp) :: norm_factor
         integer :: i,j,k
 
         result = 0.0d0
+
+        norm_factor = pi * (int_F2%int_point%xlp1 - int_F2%int_point%xlm1) & ! normalization due to integral range shift
+                        * (int_F2%int_point%xlpp1 - int_F2%int_point%xlpm1) / 8.0d0
 
         do i=1,gauss_conf%n ! theta
             theta_mapped = 0.5d0 * (pi * gauss_conf%x(i) + pi)
@@ -133,8 +140,7 @@ module electrostatic_integrals
 
                     result = result + gauss_conf%w(i) * gauss_conf%w(j) * gauss_conf%w(k) &
                         * int_F2%f(x_mapped, xp_mapped, theta_mapped) &
-                        * pi * (int_F2%int_point%xlp1 - int_F2%int_point%xlm1) & ! normalization due to integral range shift
-                        * (int_F2%int_point%xlpp1 - int_F2%int_point%xlpm1) / 8.0d0
+                        * norm_factor
                 end do
             end do
         end do
@@ -152,10 +158,14 @@ module electrostatic_integrals
 
         type(gauss_config_t), intent(in) :: gauss_conf
         real(dp), intent(out) :: result
+        real(dp) :: norm_factor
         real(dp) :: x_mapped, xp_mapped, theta_mapped
         integer :: i,j,k
 
         result = 0.0d0
+
+        norm_factor = pi * (int_F3%int_point%xlp1 - int_F3%int_point%xlm1) & ! normalization due to integral range shift
+                        * (int_F3%int_point%xlpp1 - int_F3%int_point%xlpm1) / 8.0d0
 
         do i=1,gauss_conf%n ! theta
             theta_mapped = 0.5d0 * (pi * gauss_conf%x(i) + pi)
@@ -178,8 +188,7 @@ module electrostatic_integrals
 
                     result = result + gauss_conf%w(i) * gauss_conf%w(j) * gauss_conf%w(k) &
                         * int_F3%f(x_mapped, xp_mapped, theta_mapped) &
-                        * pi * (int_F3%int_point%xlp1 - int_F3%int_point%xlm1) & ! normalization due to integral range shift
-                        * (int_F3%int_point%xlpp1 - int_F3%int_point%xlpm1) / 8.0d0
+                        * norm_factor
                 end do
             end do
         end do 

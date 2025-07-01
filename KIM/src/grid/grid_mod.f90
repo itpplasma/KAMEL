@@ -4,6 +4,8 @@ module grid
 
     implicit none
 
+    real(dp) :: r_min
+    real(dp) :: r_plas
     integer :: l_space_dim ! dimension of spline grid
     integer :: r_space_dim ! dimension of r grid
     integer :: k_space_dim ! dimension of kr space grid

@@ -6,7 +6,6 @@ module setup
 
     real(dp) :: btor   ! toroidal magnetic field
     real(dp) :: R0     ! major radius
-    real(dp) :: r_plas
     integer :: set_profiles_constant
     integer          :: m_mode ! poloidal mode number
     integer          :: n_mode ! toroidal mode number

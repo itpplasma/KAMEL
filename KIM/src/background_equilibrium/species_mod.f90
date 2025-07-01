@@ -648,7 +648,8 @@ module species
 
         use config, only: number_of_ion_species, profile_location, fstatus
         use KIM_kinds, only: dp
-        use setup, only: r_plas, set_profiles_constant
+        use setup, only: set_profiles_constant
+        use grid, only: r_plas
 
         implicit none
 

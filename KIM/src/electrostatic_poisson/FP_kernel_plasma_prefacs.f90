@@ -115,7 +115,7 @@ module FP_kernel_plasma_prefacs
         A2 = 0.5d0 * (spec%A2(j) + spec%A2(j+1))
         I00 = 0.5d0 * (spec%I00(j) + spec%I00(j+1))
 
-        val = I00 * A2 * com_unit * vT**2.0d0 * ks / (omega_c * nu)
+        val = - I00 * A2 * com_unit * vT**2.0d0 * ks / (omega_c * nu)
 
     end function
 
@@ -186,7 +186,7 @@ module FP_kernel_plasma_prefacs
         A2 = 0.5d0 * (spec%A2(j) + spec%A2(j+1))
         I01 = 0.5d0 * (spec%I01(j) + spec%I01(j+1))
 
-        val = I01 * A2
+        val = - I01 * A2
 
     end function
 

@@ -113,14 +113,33 @@ module fields
 
         use constants, only: com_unit
         use species, only: plasma
+        use KIM_kinds, only: dp
 
         implicit none
 
         type(EBdat_t) , intent(inout) :: EBdat_in
-        integer :: i
+        integer :: i, ir, ibeg, iend
+        integer :: nlagr = 4
+        integer :: nder = 0
+        real(dp), dimension(:,:), allocatable :: coef
+        real(dp) :: ks
+
+        if (.not. allocated(coef)) allocate(coef(0:nder, nlagr))
 
         do i=1, size(EBdat_in%r_grid)
-            EBdat_in%E_perp(i) = - com_unit * plasma%ks(i) * EBdat_in%Phi(i)
+            call binsrc(plasma%r_grid, 1, size(plasma%r_grid), EBdat_in%r_grid(i), ir) 
+            ibeg = max(1, ir - nlagr/2)
+            iend = ibeg + nlagr - 1
+            if (iend .gt. size(plasma%r_grid)) then
+                iend = size(plasma%r_grid)
+                ibeg = iend -nlagr + 1
+            end if
+
+            call plag_coeff(nlagr, nder, EBdat_in%r_grid(i), plasma%r_grid(ibeg:iend), coef)
+
+            ks = sum(coef(0,:) * plasma%ks(ibeg:iend))
+
+            EBdat_in%E_perp(i) = - com_unit * ks * EBdat_in%Phi(i)
         end do
 
     end subroutine

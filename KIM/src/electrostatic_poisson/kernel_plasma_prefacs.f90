@@ -101,7 +101,7 @@ module kernel_plasma_prefacs
         rhoT = 0.5d0 * (spec%rho_L(j) + spec%rho_L(j+1))
         z0 = 0.5d0 * (spec%z0(j) + spec%z0(j+1))
 
-        val = ks_val * rhoT * A2 * plasma_Z(z0) / (abs(kpar) * sqrt(2.0d0)) 
+        val = - ks_val * rhoT * A2 * plasma_Z(z0) / (abs(kpar) * sqrt(2.0d0)) 
 
     end function
 
@@ -182,7 +182,7 @@ module kernel_plasma_prefacs
         A2 = 0.5d0 * (spec%A2(j) + spec%A2(j+1))
         z0 = 0.5d0 * (spec%z0(j) + spec%z0(j+1))
 
-        val = A2 * (z0 * plasma_Z(z0) + 1.0d0)
+        val = - A2 * (z0 * plasma_Z(z0) + 1.0d0)
 
     end function
 

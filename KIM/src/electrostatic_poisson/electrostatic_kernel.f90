@@ -31,7 +31,7 @@ module electrostatic_kernel
 
         use KIM_kinds, only: dp
         use electrostatic_integrals, only: gauss_config_t, init_gauss_int
-        use grid, only: delta_l_max
+        use grid, only: delta_l_max, gauss_int_number_nodes
 
         implicit none
 
@@ -41,7 +41,7 @@ module electrostatic_kernel
         integer :: l, lp
         complex(dp) :: kernel_phi_llp, kernel_B_llp
 
-        gauss_conf%n = 5
+        gauss_conf%n = gauss_int_number_nodes
         call init_gauss_int(gauss_conf)
 
         !$omp parallel do collapse(2) private(l,lp, kernel_phi_llp, kernel_B_llp)
@@ -107,13 +107,12 @@ module electrostatic_kernel
                 int_point%rhoT = 0.5d0 * (plasma%spec(sigma)%rho_L(j) + plasma%spec(sigma)%rho_L(j+1))
                 int_F0%int_point = int_point
 
-                if (abs(l - lp) <= 1) then
+                if (l == lp) then
                     call gauss_integrate_F0(int_F0, int_point%xlm1, int_point%xlp1, integral_val, gauss_conf)
                     kernel_phi_llp = kernel_phi_llp &
                                     + integral_val * G0_rho_phi(j, plasma%spec(sigma)) * kappa_rho_phi(j, plasma%spec(sigma))
                 end if
                 
-
                 if (.not. artificial_debye_case) then
                     int_F1%int_point = int_point
                     int_F2%int_point = int_point
@@ -135,7 +134,7 @@ module electrostatic_kernel
             end do
         end do
 
-        kernel_phi_llp = kernel_phi_llp / (8.0d0 * pi**3.0d0)  !/2.0d0 ! factor 1/2 is somehow missing. Including this factor nicely reproduces the debye case.
+        kernel_phi_llp = kernel_phi_llp / (8.0d0 * pi**3.0d0) !/2.0d0 ! factor 1/2 is somehow missing. Including this factor nicely reproduces the debye case.
         kernel_B_llp = kernel_B_llp / (8.0d0 * pi**3.0d0 * sol) * com_unit
             
     end subroutine

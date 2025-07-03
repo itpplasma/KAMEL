@@ -138,7 +138,7 @@ module poisson_solver
                     rhs_vec(i) = (i - size(rhs_vec)/2) * 0.02d0 * cmplx(1.0d0, 0.0d0, dp) - 0.2d0
                 end do 
             elseif(type == 4) then ! point charge at resonant surface
-                rhs_vec(index_rg_res) = cmplx(-4.0d0 * pi, 0.0d0, dp) * e_charge 
+                rhs_vec(index_rg_res) = cmplx(1.0, 0.0d0, dp) * e_charge 
             elseif(type == 5) then ! read br from file (not implemented yet)
                 print *, "Reading B vector from file not implemented yet"
                 stop

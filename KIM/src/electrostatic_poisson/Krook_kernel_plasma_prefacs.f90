@@ -51,7 +51,7 @@ module kernel_plasma_prefacs
         type(species_t), intent(in) :: spec
         real(dp) :: val
 
-        val = -1.0d0 
+        val = -1.0d0 !/ sqrt(2.0d0)
 
     end function
 

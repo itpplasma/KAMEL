@@ -149,7 +149,6 @@ module fields
 
         use species, only: plasma_t
         use KIM_kinds, only: dp
-        use equilibrium, only: B0
         use constants, only: com_unit
 
         implicit none
@@ -184,17 +183,7 @@ module fields
             Er_int = sum(coef(0,:) * plasma_in%Er(ibeg:iend))
             ks_int = sum(coef(0,:) * plasma_in%ks(ibeg:iend))
             kp_int = sum(coef(0,:) * plasma_in%kp(ibeg:iend))
-
-            call binsrc(plasma_in%r_grid, 1, plasma_in%grid_size, EBdat_in%r_grid(i), ir) 
-            ibeg = max(1, ir - nlagr/2)
-            iend = ibeg + nlagr - 1
-            if (iend .gt. size(plasma_in%r_grid)) then
-                iend = size(plasma_in%r_grid)
-                ibeg = iend -nlagr + 1
-            end if
-            call plag_coeff(nlagr, nder, EBdat_in%r_grid(i), plasma_in%r_grid(ibeg:iend), coef)
-
-            B0_int = sum(coef(0,:) * B0(ibeg:iend))
+            B0_int = sum(coef(0,:) * plasma_in%B0(ibeg:iend))
 
             EBdat_in%E_perp_psi(i) = Er_int * EBdat_in%Br(i) * ks_int / (B0_int * kp_int)
             EBdat_in%E_perp(i) = - com_unit * ks_int * EBdat_in%Phi(i)

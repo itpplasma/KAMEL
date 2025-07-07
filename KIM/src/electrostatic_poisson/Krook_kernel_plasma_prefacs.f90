@@ -24,17 +24,19 @@ module kernel_plasma_prefacs
 
         use species, only: plasma, species_t
         use KIM_kinds, only: dp
+        use constants, only: sol, com_unit
 
         implicit none
 
         integer, intent(in) :: j
         type(species_t), intent(in) :: spec
-        real(dp) :: val
+        complex(dp) :: val
 
-        val = (0.5d0 * (spec%vT(j) + spec%vT(j+1)))**2.0d0 &
+        val = (0.5d0 * (spec%vT(j) + spec%vT(j+1)))**2.0d0 * com_unit &
             / (0.5d0 * (spec%lambda_D(j) + spec%lambda_D(j+1)))**2.0d0 &
             / (0.5d0 * (spec%omega_c(j) + spec%omega_c(j+1))) &
-            / abs(0.5d0 * (plasma%kp(j) + plasma%kp(j+1)))
+            / abs(0.5d0 * (plasma%kp(j) + plasma%kp(j+1))) &
+            / sol
 
     end function
 

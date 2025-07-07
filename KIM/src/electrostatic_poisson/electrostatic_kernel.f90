@@ -135,7 +135,7 @@ module electrostatic_kernel
         end do
 
         kernel_phi_llp = kernel_phi_llp / (8.0d0 * pi**3.0d0) !/sqrt(2.0d0) ! factor sqrt(1/2) is somehow missing. Including this factor nicely reproduces the debye case.
-        kernel_B_llp = kernel_B_llp / (8.0d0 * pi**3.0d0 * sol) * com_unit
+        kernel_B_llp = kernel_B_llp / (8.0d0 * pi**3.0d0)
             
     end subroutine
 

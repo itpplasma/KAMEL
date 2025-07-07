@@ -230,12 +230,16 @@ module species
                 plasma%spec(sp)%vT(i) = sqrt(plasma%spec(sp)%T(i) * ev / (plasma%spec(sp)%mass))
                 plasma%spec(sp)%omega_c(i) = plasma%spec(sp)%Zspec * e_charge * abs(plasma%B0(i)) &
                     / (plasma%spec(sp)%mass * sol)
+
+                !plasma%spec(sp)%rho_L(i) = plasma%spec(sp)%vT(i) / abs(plasma%spec(sp)%omega_c(i))
+                plasma%spec(sp)%rho_L(i) = plasma%spec(sp)%vT(i) / (plasma%spec(sp)%omega_c(i))
+
                 plasma%spec(sp)%lambda_D(i) = sqrt(plasma%spec(sp)%T(i) *ev / (4.0d0*pi* plasma%spec(sp)%n(i) &
                     * (plasma%spec(sp)%Zspec * e_charge)**2.0d0))
+
                 plasma%spec(sp)%A1(i) = plasma%spec(sp)%dndr(i) / plasma%spec(sp)%n(i) - plasma%spec(sp)%Zspec *e_charge&
                     /(plasma%spec(sp)%T(i) * ev) * plasma%Er(i) - 3/(2*plasma%spec(sp)%T(i)) * plasma%spec(sp)%dTdr(i)
                 plasma%spec(sp)%A2(i) = plasma%spec(sp)%dTdr(i) / plasma%spec(sp)%T(i)
-                plasma%spec(sp)%rho_L(i) = plasma%spec(sp)%vT(i) / abs(plasma%spec(sp)%omega_c(i))
 
                 plasma%spec(sp)%z0(i) = - (plasma%om_E(i) - omega - com_unit * plasma%spec(sp)%nu(i)) &
                     / (abs(plasma%kp(i)) * sqrt(2d0) * plasma%spec(sp)%vT(i) )

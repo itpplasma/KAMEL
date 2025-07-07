@@ -9,6 +9,7 @@ module fields
         complex(dp), allocatable :: Br(:)
         complex(dp), allocatable :: E_perp_psi(:)
         complex(dp), allocatable :: E_perp(:)
+        complex(dp), allocatable :: E_perp_MA(:)
         complex(dp), allocatable :: Er(:)
         complex(dp), allocatable :: Etheta(:)
         complex(dp), allocatable :: Ez(:)
@@ -104,7 +105,7 @@ module fields
 
             B0_int = sum(coef(0,:) * B0(ibeg:iend))
 
-            EBdat_in%E_perp_psi(i) = - Er_int * EBdat_in%Br(i) * ks_int / (abs(B0_int) * kp_int)
+            EBdat_in%E_perp_psi(i) = Er_int * EBdat_in%Br(i) * ks_int / (B0_int * kp_int)
         end do
 
     end subroutine
@@ -140,6 +141,65 @@ module fields
             ks = sum(coef(0,:) * plasma%ks(ibeg:iend))
 
             EBdat_in%E_perp(i) = - com_unit * ks * EBdat_in%Phi(i)
+        end do
+
+    end subroutine
+
+    subroutine calculate_MA_field(plasma_in, EBdat_in)
+
+        use species, only: plasma_t
+        use KIM_kinds, only: dp
+        use equilibrium, only: B0
+        use constants, only: com_unit
+
+        implicit none
+
+        type(plasma_t) , intent(in) :: plasma_in
+        type(EBdat_t) , intent(inout) :: EBdat_in
+        integer :: i
+        integer :: nlagr = 4
+        integer :: nder = 0
+        integer :: ibeg, iend, ir
+        real(dp), dimension(:,:), allocatable :: coef
+
+        real(dp) :: Er_int, ks_int, kp_int
+        real(dp) :: B0_int
+
+        if (.not. allocated(coef)) allocate(coef(0:nder, nlagr))
+        if (.not. allocated(EBdat_in%E_perp_psi)) allocate(EBdat_in%E_perp_psi(size(EBdat_in%r_grid)))
+        if (.not. allocated(EBdat_in%E_perp)) allocate(EBdat_in%E_perp(size(EBdat_in%r_grid)))
+        if (.not. allocated(EBdat_in%E_perp_MA)) allocate(EBdat_in%E_perp_MA(size(EBdat_in%r_grid)))
+
+        do i = 1, size(EBdat_in%r_grid)
+            call binsrc(plasma_in%r_grid, 1, size(plasma_in%r_grid), EBdat_in%r_grid(i), ir) 
+            ibeg = max(1, ir - nlagr/2)
+            iend = ibeg + nlagr - 1
+            if (iend .gt. size(plasma_in%r_grid)) then
+                iend = size(plasma_in%r_grid)
+                ibeg = iend -nlagr + 1
+            end if
+
+            call plag_coeff(nlagr, nder, EBdat_in%r_grid(i), plasma_in%r_grid(ibeg:iend), coef)
+
+            Er_int = sum(coef(0,:) * plasma_in%Er(ibeg:iend))
+            ks_int = sum(coef(0,:) * plasma_in%ks(ibeg:iend))
+            kp_int = sum(coef(0,:) * plasma_in%kp(ibeg:iend))
+
+            call binsrc(plasma_in%r_grid, 1, plasma_in%grid_size, EBdat_in%r_grid(i), ir) 
+            ibeg = max(1, ir - nlagr/2)
+            iend = ibeg + nlagr - 1
+            if (iend .gt. size(plasma_in%r_grid)) then
+                iend = size(plasma_in%r_grid)
+                ibeg = iend -nlagr + 1
+            end if
+            call plag_coeff(nlagr, nder, EBdat_in%r_grid(i), plasma_in%r_grid(ibeg:iend), coef)
+
+            B0_int = sum(coef(0,:) * B0(ibeg:iend))
+
+            EBdat_in%E_perp_psi(i) = Er_int * EBdat_in%Br(i) * ks_int / (B0_int * kp_int)
+            EBdat_in%E_perp(i) = - com_unit * ks_int * EBdat_in%Phi(i)
+            EBdat_in%E_perp_MA(i) = EBdat_in%E_perp(i) + EBdat_in%E_perp_psi(i)
+
         end do
 
     end subroutine
@@ -218,7 +278,6 @@ module fields
 
         if (.not. allocated(EBdat%Er)) allocate(EBdat%Er(size(EBdat%r_grid)), EBdat%Etheta(size(EBdat%r_grid)), EBdat%Ez(size(EBdat%r_grid)))
 
-
         do i = 1, size(EBdat%r_grid)
 
             EBdat%Etheta(i) = - com_unit * m_mode * EBdat%Phi(i) / EBdat%r_grid(i)
@@ -266,10 +325,10 @@ module fields
 
         type(EBdat_t), intent(inout) :: EBdat
 
-        call calculate_E_perp_psi(plasma, EBdat)
+        call calculate_MA_field(plasma, EBdat)
         call write_complex_profile(xl_grid%xb, EBdat%E_perp_psi, xl_grid%npts_b, trim(output_path)//"/fields/E_perp_psi.dat")
-        call calculate_E_perp(EBdat)
-        call write_complex_profile(xl_grid%xb(1:xl_grid%npts_b-1), EBdat%E_perp, xl_grid%npts_b-1, trim(output_path)//"/fields/E_perp.dat")
+        call write_complex_profile(xl_grid%xb, EBdat%E_perp, xl_grid%npts_b, trim(output_path)//"/fields/E_perp.dat")
+        call write_complex_profile(xl_grid%xb, EBdat%E_perp_MA, xl_grid%npts_b, trim(output_path)//"/fields/E_perp_MA.dat")
 
         call calculate_E_from_phi(EBdat)
         call calculate_E_in_rsp_from_cyl(EBdat)

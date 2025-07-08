@@ -3,6 +3,7 @@ import os
 import re
 import shutil
 import numpy as np
+import h5py
 CODE = os.environ['CODE']
 
 class KIMpy:
@@ -77,3 +78,28 @@ class KIMpy:
         except:
             print("No profiles directory found in runpath.")
         os.symlink(from_path, self.runpath + 'profiles/') 
+
+    def read_Eperp(self, m_mode=6, n_mode=2):
+        try:
+            E_perp = np.loadtxt(self.runpath + f'out/m{m_mode}_n{m_mode}/fields/E_perp.dat')
+            E_perp_psi = np.loadtxt(self.runpath + f'out/m{m_mode}_n{m_mode}/fields/E_perp_psi.dat')
+            E_perp_MA = np.loadtxt(self.runpath + f'out/m{m_mode}_n{m_mode}/fields/E_perp_MA.dat')
+            return E_perp, E_perp_psi, E_perp_MA
+        except FileNotFoundError:
+            print("Eperp.dat not found in the runpath.")
+            return None
+    
+    def transfer_solution_to_h5_reduced(self, h5file, m_mode=6, n_mode=2):
+
+        h5f = h5py.File(h5file, 'w')
+        phi_sol = np.loadtxt(self.runpath + f'out/m{m_mode}_n{n_mode}/fields/phi_sol.dat')
+        E_perp = np.loadtxt(self.runpath + f'out/m{m_mode}_n{m_mode}/fields/E_perp.dat')
+        E_perp_psi = np.loadtxt(self.runpath + f'out/m{m_mode}_n{m_mode}/fields/E_perp_psi.dat')
+        E_perp_MA = np.loadtxt(self.runpath + f'out/m{m_mode}_n{m_mode}/fields/E_perp_MA.dat')
+
+        h5f.create_dataset('r', data=phi_sol[:,0])
+        h5f.create_dataset('phi_sol', data=phi_sol[:,1:2])
+        h5f.create_dataset('E_perp', data=E_perp[:,1:2])
+        h5f.create_dataset('E_perp_psi', data=E_perp_psi[:,1:2])
+        h5f.create_dataset('E_perp_MA', data=E_perp_MA[:,1:2])
+        h5f.close()

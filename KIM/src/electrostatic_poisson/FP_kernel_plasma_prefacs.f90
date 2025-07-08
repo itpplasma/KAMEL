@@ -19,7 +19,7 @@ module FP_kernel_plasma_prefacs
         real(dp) :: lambda
 
         lambda = 0.5d0 * (spec%lambda_D(j) + spec%lambda_D(j+1))
-        val = 1.0d0 / (lambda**2.0d0)  !/ sqrt(2.0d0)
+        val = 1.0d0 / (lambda**2.0d0)
 
     end function
 
@@ -73,9 +73,8 @@ module FP_kernel_plasma_prefacs
         complex(dp) :: val, I00, I20
         real(dp) :: A1, A2
 
-        real(dp) :: lambda, vT, nu, omega_c, ks
+        real(dp) :: vT, nu, omega_c, ks
 
-        lambda = 0.5d0 * (spec%lambda_D(j) + spec%lambda_D(j+1))
         vT = 0.5d0 * (spec%vT(j) + spec%vT(j+1))
         nu = 0.5d0 * (spec%nu(j) + spec%nu(j+1))
         omega_c = 0.5d0 * (spec%omega_c(j) + spec%omega_c(j+1))
@@ -86,8 +85,7 @@ module FP_kernel_plasma_prefacs
         I00 = 0.5d0 * (spec%I00(j) + spec%I00(j+1))
         I20 = 0.5d0 * (spec%I20(j) + spec%I20(j+1))
 
-        val = I00 * (A1 + A2) + 0.5d0 * A2 * I20
-        val = val * com_unit * vT**2.0d0 * ks / (omega_c * nu)
+        val = (I00 * (A1 + A2) + 0.5d0 * A2 * I20 ) * com_unit * vT**2.0d0 * ks / (omega_c * nu)
 
     end function
 
@@ -104,9 +102,8 @@ module FP_kernel_plasma_prefacs
         type(species_t), intent(in) :: spec
         complex(dp) :: val, I00
         real(dp) :: A2
-        real(dp) :: lambda, vT, nu, omega_c, ks
+        real(dp) :: vT, nu, omega_c, ks
 
-        lambda = 0.5d0 * (spec%lambda_D(j) + spec%lambda_D(j+1))
         vT = 0.5d0 * (spec%vT(j) + spec%vT(j+1))
         nu = 0.5d0 * (spec%nu(j) + spec%nu(j+1))
         omega_c = 0.5d0 * (spec%omega_c(j) + spec%omega_c(j+1))

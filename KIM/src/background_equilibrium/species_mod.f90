@@ -231,7 +231,6 @@ module species
                 plasma%spec(sp)%omega_c(i) = plasma%spec(sp)%Zspec * e_charge * abs(plasma%B0(i)) &
                     / (plasma%spec(sp)%mass * sol)
 
-                !plasma%spec(sp)%rho_L(i) = plasma%spec(sp)%vT(i) / abs(plasma%spec(sp)%omega_c(i))
                 plasma%spec(sp)%rho_L(i) = plasma%spec(sp)%vT(i) / (plasma%spec(sp)%omega_c(i))
 
                 plasma%spec(sp)%lambda_D(i) = sqrt(plasma%spec(sp)%T(i) *ev / (4.0d0*pi* plasma%spec(sp)%n(i) &

@@ -75,7 +75,7 @@ module electrostatic_integrals
         
         do i=1,gauss_conf%n ! theta
             theta_mapped = 0.5d0 * (pi * gauss_conf%x(i) + pi)
-            int_F1%int_point%a_coef = sqrt(1.0d0 / (1.0d0 + cos(theta_mapped))) / int_F1%int_point%rhoT
+            int_F1%int_point%a_coef = sqrt(1.0d0 / (1.0d0 + cos(theta_mapped))) / abs(int_F1%int_point%rhoT)
 
             do j=1,gauss_conf%n ! xp 
                 xp_mapped = 0.5d0 * ((int_F1%int_point%xlpp1 - int_F1%int_point%xlpm1) * gauss_conf%x(j) + &
@@ -121,7 +121,7 @@ module electrostatic_integrals
 
         do i=1,gauss_conf%n ! theta
             theta_mapped = 0.5d0 * (pi * gauss_conf%x(i) + pi)
-            int_F2%int_point%a_coef = sqrt(1.0d0 / (1.0d0 + cos(theta_mapped))) / int_F2%int_point%rhoT
+            int_F2%int_point%a_coef = sqrt(1.0d0 / (1.0d0 + cos(theta_mapped))) / abs(int_F2%int_point%rhoT)
 
             do j=1,gauss_conf%n ! xp 
                 xp_mapped = 0.5d0 * ((int_F2%int_point%xlpp1 - int_F2%int_point%xlpm1) * gauss_conf%x(j) + &
@@ -169,7 +169,7 @@ module electrostatic_integrals
 
         do i=1,gauss_conf%n ! theta
             theta_mapped = 0.5d0 * (pi * gauss_conf%x(i) + pi)
-            int_F3%int_point%a_coef = sqrt(1.0d0 / (1.0d0 + cos(theta_mapped))) / int_F3%int_point%rhoT
+            int_F3%int_point%a_coef = sqrt(1.0d0 / (1.0d0 + cos(theta_mapped))) / abs(int_F3%int_point%rhoT)
 
             do j=1,gauss_conf%n ! xp 
                 xp_mapped = 0.5d0 * ((int_F3%int_point%xlpp1 - int_F3%int_point%xlpm1) * gauss_conf%x(j) + &

@@ -61,8 +61,8 @@ module electrostatic_integrands
         val = varphi_l(x, this%int_point%xlm1, this%int_point%xl, this%int_point%xlp1) &
             * varphi_l(x, this%int_point%xlpm1, this%int_point%xlp, this%int_point%xlpp1) &
             * (&
-                  erf((rg_grid%xb(this%int_point%j+1)-x)/(sqrt(2.0d0) * this%int_point%rhoT)) &
-                - erf((rg_grid%xb(this%int_point%j) - x)/(sqrt(2.0d0) * this%int_point%rhoT))&
+                  erf((rg_grid%xb(this%int_point%j+1)-x)/(sqrt(2.0d0) * abs(this%int_point%rhoT))) &
+                - erf((rg_grid%xb(this%int_point%j) - x)/(sqrt(2.0d0) * abs(this%int_point%rhoT)))&
             ) &
             * 2.0d0 * pi**2.0d0
 

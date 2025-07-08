@@ -10,6 +10,7 @@ subroutine read_config
 
     character(len=256), dimension(:), allocatable :: args
     integer :: ix, num_args
+    logical :: ex
 
     namelist /KIM_CONFIG/ profile_location, hdf5_input, hdf5_output, &
                         fdebug, fstatus, number_of_ion_species, output_path, artificial_debye_case, &
@@ -44,6 +45,10 @@ subroutine read_config
     close(unit = 77)
 
     write(output_path, '(A,A,I0,A,I0,A)') trim(output_path), '/m', m_mode, '_n', n_mode, '/'
+    inquire(file=trim(output_path), exist=ex)
+    if (.not. ex) then
+        call system('mkdir -p '//trim(output_path))
+    end if
 
     write(*,*) '+ + + + + + + + KIM + + + + + + + + + + + + + + + +'
     write(*,*) ' type of run = ', type_of_run

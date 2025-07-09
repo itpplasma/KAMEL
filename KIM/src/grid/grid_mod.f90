@@ -14,7 +14,7 @@ module grid
     integer :: spline_base
     integer :: grid_spacing
     integer :: num_gengrid_points
-    integer :: gauss_int_number_nodes
+    integer :: gauss_int_nodes_Ntheta, gauss_int_nodes_Nx, gauss_int_nodes_Nxp
     integer :: delta_l_max
 
     integer :: nder=1

@@ -31,7 +31,7 @@ module electrostatic_kernel
 
         use KIM_kinds, only: dp
         use electrostatic_integrals, only: gauss_config_t, init_gauss_int
-        use grid, only: delta_l_max, gauss_int_number_nodes
+        use grid, only: delta_l_max, gauss_int_nodes_Ntheta, gauss_int_nodes_Nx, gauss_int_nodes_Nxp
 
         implicit none
 
@@ -41,7 +41,9 @@ module electrostatic_kernel
         integer :: l, lp
         complex(dp) :: kernel_phi_llp, kernel_B_llp
 
-        gauss_conf%n = gauss_int_number_nodes
+        gauss_conf%Nx = gauss_int_nodes_Nx
+        gauss_conf%Nxp = gauss_int_nodes_Nxp
+        gauss_conf%Ntheta = gauss_int_nodes_Ntheta
         call init_gauss_int(gauss_conf)
 
         !$omp parallel do collapse(2) private(l,lp, kernel_phi_llp, kernel_B_llp)
@@ -144,7 +146,7 @@ module electrostatic_kernel
 
         use KIM_kinds, only: dp
         use electrostatic_integrals, only: gauss_config_t, init_gauss_int
-        use grid, only: delta_l_max, gauss_int_number_nodes
+        use grid, only: delta_l_max, gauss_int_nodes_Ntheta, gauss_int_nodes_Nx, gauss_int_nodes_Nxp
 
         implicit none
 
@@ -154,7 +156,10 @@ module electrostatic_kernel
         integer :: l, lp
         complex(dp) :: kernel_phi_llp, kernel_B_llp
 
-        gauss_conf%n = gauss_int_number_nodes
+        gauss_conf%Nx = gauss_int_nodes_Nx
+        gauss_conf%Nxp = gauss_int_nodes_Nxp
+        gauss_conf%Ntheta = gauss_int_nodes_Ntheta
+
         call init_gauss_int(gauss_conf)
 
         !$omp parallel do collapse(2) private(l,lp, kernel_phi_llp, kernel_B_llp)
@@ -216,6 +221,9 @@ module electrostatic_kernel
         call set_xl_at_edge(l, lp, int_point)
 
         do sigma = 0, plasma%n_species - 1
+            !if (sigma == 1) then
+                !cycle
+            !end if
             do j = 2, size(plasma%r_grid)-1
                 int_point%j = j
                 int_point%rhoT = 0.5d0 * (plasma%spec(sigma)%rho_L(j) + plasma%spec(sigma)%rho_L(j+1))
@@ -236,18 +244,17 @@ module electrostatic_kernel
                 kernel_B_llp = kernel_B_llp + integral_val * FP_G1_rho_B(j, plasma%spec(sigma)) * FP_kappa_rho_B(j, plasma%spec(sigma))
 
                 call gauss_integrate_F2(int_F2, integral_val, gauss_conf)
-                kernel_phi_llp = kernel_phi_llp + integral_val * FP_kappa_rho_phi(j, plasma%spec(sigma)) * FP_G2_rho_phi(j, plasma%spec(sigma))
+                kernel_phi_llp = kernel_phi_llp + integral_val * FP_G2_rho_phi(j, plasma%spec(sigma)) * FP_kappa_rho_phi(j, plasma%spec(sigma))
                 kernel_B_llp = kernel_B_llp + integral_val * FP_G2_rho_B(j, plasma%spec(sigma)) * FP_kappa_rho_B(j, plasma%spec(sigma))
 
                 call gauss_integrate_F3(int_F3, integral_val, gauss_conf)
-                kernel_phi_llp = kernel_phi_llp + integral_val * FP_kappa_rho_phi(j, plasma%spec(sigma)) * FP_G3_rho_phi(j, plasma%spec(sigma))
+                kernel_phi_llp = kernel_phi_llp + integral_val * FP_G3_rho_phi(j, plasma%spec(sigma)) * FP_kappa_rho_phi(j, plasma%spec(sigma))
                 kernel_B_llp = kernel_B_llp + integral_val * FP_G3_rho_B(j, plasma%spec(sigma)) * FP_kappa_rho_B(j, plasma%spec(sigma))
                 
             end do
         end do
 
-        !kernel_phi_llp = kernel_phi_llp / (8.0d0 * pi**3.0d0) /2.0d0 ! factor 1/2 is somehow missing. Including this factor nicely reproduces the debye case.
-        kernel_phi_llp = kernel_phi_llp / (8.0d0 * pi**3.0d0)  !/2.0d0 
+        kernel_phi_llp = kernel_phi_llp / (8.0d0 * pi**3.0d0)
         kernel_B_llp = kernel_B_llp / (8.0d0 * pi**3.0d0)
             
     end subroutine

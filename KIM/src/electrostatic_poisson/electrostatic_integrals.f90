@@ -7,8 +7,10 @@ module electrostatic_integrals
     implicit none
 
     type :: gauss_config_t
-        integer :: n  ! Number of nodes
-        real(dp), allocatable, dimension(:) :: x, w  ! Integration limits
+        integer :: Nx, Nxp, Ntheta ! Number of nodes in each dimension
+        real(dp), allocatable, dimension(:) :: x_x, w_x
+        real(dp), allocatable, dimension(:) :: x_theta, w_theta
+        real(dp), allocatable, dimension(:) :: x_xp, w_xp
     end type gauss_config_t
 
     contains
@@ -21,8 +23,14 @@ module electrostatic_integrals
 
         type(gauss_config_t), intent(inout) :: gauss_conf
 
-        allocate(gauss_conf%x(gauss_conf%n), gauss_conf%w(gauss_conf%n))
-        call compute_nodes_weights(gauss_conf%n, gauss_conf%x, gauss_conf%w)
+        allocate(gauss_conf%x_x(gauss_conf%Nx), gauss_conf%w_x(gauss_conf%Nx))
+        call compute_nodes_weights(gauss_conf%Nx, gauss_conf%x_x, gauss_conf%w_x)
+
+        allocate(gauss_conf%x_xp(gauss_conf%Nxp), gauss_conf%w_xp(gauss_conf%Nxp))
+        call compute_nodes_weights(gauss_conf%Nxp, gauss_conf%x_xp, gauss_conf%w_xp)
+
+        allocate(gauss_conf%x_theta(gauss_conf%Ntheta), gauss_conf%w_theta(gauss_conf%Ntheta))
+        call compute_nodes_weights(gauss_conf%Ntheta, gauss_conf%x_theta, gauss_conf%w_theta)
 
     end subroutine
 
@@ -45,8 +53,8 @@ module electrostatic_integrals
         xm = 0.5d0 * (b + a)
         xr = 0.5d0 * (b - a)
 
-        do i = 1, gauss_conf%n
-            result = result + gauss_conf%w(i) * int_F%f(xr * gauss_conf%x(i) + xm)
+        do i = 1, gauss_conf%Nx
+            result = result + gauss_conf%w_x(i) * int_F%f(xr * gauss_conf%x_x(i) + xm)
         end do
         result = result * xr
 
@@ -73,23 +81,23 @@ module electrostatic_integrals
         norm_factor = pi * (int_F1%int_point%xlp1 - int_F1%int_point%xlm1) & ! normalization due to integral range shift
                         * (int_F1%int_point%xlpp1 - int_F1%int_point%xlpm1) / 8.0d0
         
-        do i=1,gauss_conf%n ! theta
-            theta_mapped = 0.5d0 * (pi * gauss_conf%x(i) + pi)
+        do i=1,gauss_conf%Ntheta ! theta
+            theta_mapped = 0.5d0 * (pi * gauss_conf%x_theta(i) + pi)
             int_F1%int_point%a_coef = sqrt(1.0d0 / (1.0d0 + cos(theta_mapped))) / abs(int_F1%int_point%rhoT)
 
-            do j=1,gauss_conf%n ! xp 
-                xp_mapped = 0.5d0 * ((int_F1%int_point%xlpp1 - int_F1%int_point%xlpm1) * gauss_conf%x(j) + &
+            do j=1,gauss_conf%Nxp ! xp 
+                xp_mapped = 0.5d0 * ((int_F1%int_point%xlpp1 - int_F1%int_point%xlpm1) * gauss_conf%x_xp(j) + &
                     int_F1%int_point%xlpp1 + int_F1%int_point%xlpm1)
 
-                do k=1,gauss_conf%n !x
-                    x_mapped = 0.5d0 * ((int_F1%int_point%xlp1 - int_F1%int_point%xlm1) * gauss_conf%x(k) + &
+                do k=1,gauss_conf%Nx !x
+                    x_mapped = 0.5d0 * ((int_F1%int_point%xlp1 - int_F1%int_point%xlm1) * gauss_conf%x_x(k) + &
                         int_F1%int_point%xlp1 + int_F1%int_point%xlm1)
 
                     int_F1%int_point%b_coef = calc_b_coef(x_mapped, xp_mapped)
 
                     call int_F1%int_point%calc_Jrg1()
 
-                    result = result + gauss_conf%w(i) * gauss_conf%w(j) * gauss_conf%w(k) &
+                    result = result + gauss_conf%w_theta(i) * gauss_conf%w_xp(j) * gauss_conf%w_x(k) &
                         * int_F1%f(x_mapped, xp_mapped, theta_mapped) &
                         * norm_factor
                 end do
@@ -119,16 +127,16 @@ module electrostatic_integrals
         norm_factor = pi * (int_F2%int_point%xlp1 - int_F2%int_point%xlm1) & ! normalization due to integral range shift
                         * (int_F2%int_point%xlpp1 - int_F2%int_point%xlpm1) / 8.0d0
 
-        do i=1,gauss_conf%n ! theta
-            theta_mapped = 0.5d0 * (pi * gauss_conf%x(i) + pi)
+        do i=1,gauss_conf%Ntheta ! theta
+            theta_mapped = 0.5d0 * (pi * gauss_conf%x_theta(i) + pi)
             int_F2%int_point%a_coef = sqrt(1.0d0 / (1.0d0 + cos(theta_mapped))) / abs(int_F2%int_point%rhoT)
 
-            do j=1,gauss_conf%n ! xp 
-                xp_mapped = 0.5d0 * ((int_F2%int_point%xlpp1 - int_F2%int_point%xlpm1) * gauss_conf%x(j) + &
+            do j=1,gauss_conf%Nxp ! xp 
+                xp_mapped = 0.5d0 * ((int_F2%int_point%xlpp1 - int_F2%int_point%xlpm1) * gauss_conf%x_xp(j) + &
                     int_F2%int_point%xlpp1 + int_F2%int_point%xlpm1)
 
-                do k=1,gauss_conf%n !x
-                    x_mapped = 0.5d0 * ((int_F2%int_point%xlp1 - int_F2%int_point%xlm1) * gauss_conf%x(k) + &
+                do k=1,gauss_conf%Nx !x
+                    x_mapped = 0.5d0 * ((int_F2%int_point%xlp1 - int_F2%int_point%xlm1) * gauss_conf%x_x(k) + &
                         int_F2%int_point%xlp1 + int_F2%int_point%xlm1)
 
                     int_F2%int_point%b_coef = calc_b_coef(x_mapped, xp_mapped)
@@ -138,7 +146,7 @@ module electrostatic_integrals
                     call int_F2%int_point%calc_Jrg3()
                     call int_F2%int_point%calc_Jrg4()
 
-                    result = result + gauss_conf%w(i) * gauss_conf%w(j) * gauss_conf%w(k) &
+                    result = result + gauss_conf%w_theta(i) * gauss_conf%w_xp(j) * gauss_conf%w_x(k) &
                         * int_F2%f(x_mapped, xp_mapped, theta_mapped) &
                         * norm_factor
                 end do
@@ -167,16 +175,16 @@ module electrostatic_integrals
         norm_factor = pi * (int_F3%int_point%xlp1 - int_F3%int_point%xlm1) & ! normalization due to integral range shift
                         * (int_F3%int_point%xlpp1 - int_F3%int_point%xlpm1) / 8.0d0
 
-        do i=1,gauss_conf%n ! theta
-            theta_mapped = 0.5d0 * (pi * gauss_conf%x(i) + pi)
+        do i=1,gauss_conf%Ntheta ! theta
+            theta_mapped = 0.5d0 * (pi * gauss_conf%x_theta(i) + pi)
             int_F3%int_point%a_coef = sqrt(1.0d0 / (1.0d0 + cos(theta_mapped))) / abs(int_F3%int_point%rhoT)
 
-            do j=1,gauss_conf%n ! xp 
-                xp_mapped = 0.5d0 * ((int_F3%int_point%xlpp1 - int_F3%int_point%xlpm1) * gauss_conf%x(j) + &
+            do j=1,gauss_conf%Nxp ! xp 
+                xp_mapped = 0.5d0 * ((int_F3%int_point%xlpp1 - int_F3%int_point%xlpm1) * gauss_conf%x_xp(j) + &
                     int_F3%int_point%xlpp1 + int_F3%int_point%xlpm1)
 
-                do k=1,gauss_conf%n !x
-                    x_mapped = 0.5d0 * ((int_F3%int_point%xlp1 - int_F3%int_point%xlm1) * gauss_conf%x(k) + &
+                do k=1,gauss_conf%Nx !x
+                    x_mapped = 0.5d0 * ((int_F3%int_point%xlp1 - int_F3%int_point%xlm1) * gauss_conf%x_x(k) + &
                         int_F3%int_point%xlp1 + int_F3%int_point%xlm1)
 
                     int_F3%int_point%b_coef = calc_b_coef(x_mapped, xp_mapped)
@@ -186,7 +194,7 @@ module electrostatic_integrals
                     call int_F3%int_point%calc_Jrg3()
                     call int_F3%int_point%calc_Jrg4()
 
-                    result = result + gauss_conf%w(i) * gauss_conf%w(j) * gauss_conf%w(k) &
+                    result = result + gauss_conf%w_theta(i) * gauss_conf%w_xp(j) * gauss_conf%w_x(k) &
                         * int_F3%f(x_mapped, xp_mapped, theta_mapped) &
                         * norm_factor
                 end do

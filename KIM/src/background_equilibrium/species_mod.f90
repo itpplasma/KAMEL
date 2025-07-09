@@ -237,7 +237,7 @@ module species
                     * (plasma%spec(sp)%Zspec * e_charge)**2.0d0))
 
                 plasma%spec(sp)%A1(i) = plasma%spec(sp)%dndr(i) / plasma%spec(sp)%n(i) - plasma%spec(sp)%Zspec *e_charge&
-                    /(plasma%spec(sp)%T(i) * ev) * plasma%Er(i) - 3/(2*plasma%spec(sp)%T(i)) * plasma%spec(sp)%dTdr(i)
+                    /(plasma%spec(sp)%T(i) * ev) * plasma%Er(i) - 3.0d0/(2.0d0 * plasma%spec(sp)%T(i)) * plasma%spec(sp)%dTdr(i)
                 plasma%spec(sp)%A2(i) = plasma%spec(sp)%dTdr(i) / plasma%spec(sp)%T(i)
 
                 plasma%spec(sp)%z0(i) = - (plasma%om_E(i) - omega - com_unit * plasma%spec(sp)%nu(i)) &
@@ -247,17 +247,18 @@ module species
 
         do i=1, plasma%grid_size
             ! Coulomb logarithm
-            Lee(i) = 23.5d0 - log(sqrt(plasma%spec(0)%n(i)) / plasma%spec(0)%T(i)**1.25) - &
-                sqrt(1d-5 + (log(plasma%spec(0)%T(i)) -2.0)**2.0 / 16.0)
-            nue(i) = 5.8e-6 * plasma%spec(0)%n(i) * Lee(i) / plasma%spec(0)%T(i)**(3.0/2.0)
+            Lee(i) = 23.5d0 - log(sqrt(plasma%spec(0)%n(i)) / plasma%spec(0)%T(i)**1.25d0) - &
+                sqrt(1d-5 + (log(plasma%spec(0)%T(i)) -2.0d0)**2.0d0 / 16.0d0)
+            nue(i) = 5.8e-6 * plasma%spec(0)%n(i) * Lee(i) / plasma%spec(0)%T(i)**(1.5d0)
+            Lei(:, i) = 24.0d0 - log(sqrt(plasma%spec(0)%n(i)) / plasma%spec(0)%T(i))
         end do
 
         do sp=1, number_of_ion_species
             do i=1, plasma%grid_size
                 ! Coulomb logarithm electrons ions (= ions electrons)
-                Lei(sp, i) = 24.0d0 - log(sqrt(plasma%spec(0)%n(i)) / plasma%spec(sp)%T(i))
+                
 
-                nue(i) = nue(i) + 7.7d-6 * plasma%spec(sp)%n(i) * Lei(sp, i) * plasma%spec(sp)%Zspec**2 / plasma%spec(0)%T(i)**(3.0/2.0)
+                nue(i) = nue(i) + 7.7d-6 * plasma%spec(sp)%n(i) * Lei(sp, i) * plasma%spec(sp)%Zspec**2 / plasma%spec(0)%T(i)**(1.5d0)
 
                 nui(sp, i) = 1.8d-7 * plasma%spec(sp)%Aspec**(-1.0/2.0) * plasma%spec(sp)%T(i)**(-3.0/2.0) * plasma%spec(0)%n(i) * &
                                 plasma%spec(sp)%Zspec**2 * Lei(sp,i)

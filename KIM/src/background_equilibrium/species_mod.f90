@@ -539,7 +539,8 @@ module species
 
     subroutine calculate_susc_funcs_profiles(spec)
 
-        use resonances_mod, only: width_res, r_res
+        use resonances_mod, only: r_res
+        use grid, only: width_res
 
         implicit none
 

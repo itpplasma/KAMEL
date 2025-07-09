@@ -5,7 +5,7 @@ module resonances_mod
     implicit none
 
     integer :: iunit_res
-    real(dp) :: r_res, width_res, ampl_res
+    real(dp) :: r_res
     integer :: index_rg_res
     logical :: prop = .true.
 

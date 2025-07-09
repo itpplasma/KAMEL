@@ -16,6 +16,7 @@ module grid
     integer :: num_gengrid_points
     integer :: gauss_int_nodes_Ntheta, gauss_int_nodes_Nx, gauss_int_nodes_Nxp
     integer :: delta_l_max
+    real(dp):: width_res, ampl_res, hrmax_scaling
 
     integer :: nder=1
     integer :: npoi_der=4
@@ -58,8 +59,6 @@ module grid
 
     subroutine grid_init(this, npts, min_val, max_val, name)
 
-        use resonances_mod, only: width_res, ampl_res
-
         implicit none
 
         class(grid_type), intent(inout) :: this
@@ -79,18 +78,18 @@ module grid
         this%name = name
 
         ! set parameters for grid spacing. grid_spacing=1: quidistant grid, grid_spacing=2: non-equidistant grid
-        if (grid_spacing == 1) then
-            width_res = 1.0
-            ampl_res = 0.0
-        elseif (grid_spacing == 2) then
-            width_res = 3.0
-            ampl_res = 0.3
-        else 
-            width_res = 0.2
-            ampl_res = 15.0
-        end if
+        !if (grid_spacing == 1) then
+            !width_res = 1.0
+            !ampl_res = 0.0
+        !elseif (grid_spacing == 2) then
+            !width_res = 3.0
+            !ampl_res = 0.3
+        !else 
+            !width_res = 0.2
+            !ampl_res = 15.0
+        !end if
 
-        this%hrmax = (this%max_val - this%min_val) / (this%npts_b)
+        this%hrmax = hrmax_scaling * (this%max_val - this%min_val) / (this%npts_b)
 
         this%npts_b = 1
         x_current = this%min_val

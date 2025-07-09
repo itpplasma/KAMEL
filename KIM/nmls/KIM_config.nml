@@ -27,6 +27,11 @@
 /
 
 &kim_grid
+    r_plas = 67.0
+    r_min = 3.0
+    width_res = 0.2
+    ampl_res = 15.0
+    hrmax_scaling = 1.0
     k_space_dim = 100
     l_space_dim = 1000
     reduce_r = .false.

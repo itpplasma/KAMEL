@@ -1,11 +1,9 @@
 module kernels
 
-    use plasma_parameter
     use constants
     use config
     use grid
     use back_quants
-    use omp_lib
     use KIM_kinds, only: dp
 
     implicit none
@@ -33,12 +31,10 @@ module kernels
         subroutine fill_rho_kernels
 
             use config, only: fstatus
-            use loading_bar
-            use grid, only: varphi_lkr, rg_grid, kr_grid, krp_grid
+            use grid, only: rg_grid, kr_grid, krp_grid
 
             implicit none
             integer :: i_kr, i_krp, i_rg
-            integer :: count_loading = 0
 
             if (fstatus == 1) write(*,*) 'Status: Fill rho kernels'
             if (.not. allocated(K_rho_phi_of_rg)) allocate(K_rho_phi_of_rg(krp_grid%npts_b, kr_grid%npts_b, rg_grid%npts_b))
@@ -46,10 +42,7 @@ module kernels
 
             K_rho_phi_of_rg = 0.0d0
             K_rho_B_of_rg = 0.0d0
-            !!$OMP PARALLEL DO collapse(3) default(none) schedule(guided) &
-            !!$OMP PRIVATE(i_krp, i_kr, i_rg) &
-            !!$OMP SHARED(K_rho_phi_of_rg, K_rho_B_of_rg, &
-            !!$OMP kr_grid, krp_grid, rg_grid, count_loading)
+            
             do i_krp = 1, krp_grid%npts_b
                 do i_kr = 1, kr_grid%npts_b
                     do i_rg = 1, rg_grid%npts_b
@@ -68,7 +61,6 @@ module kernels
                     end do
                 end do
             end do
-            !!$OMP END PARALLEL DO
 
             if (fstatus == 1) write(*,*) 'Status: Finished filling rho kernels'
 
@@ -80,7 +72,6 @@ module kernels
 
             use setup, only: omega
             use constants, only: pi
-            use KIM_kinds, only: dp
             use gsl_mod, only: gsl_sf_bessel_In
 
             implicit none

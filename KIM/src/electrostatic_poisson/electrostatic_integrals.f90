@@ -17,8 +17,6 @@ module electrostatic_integrals
 
     subroutine init_gauss_int(gauss_conf)
 
-        use KIM_kinds, only: dp
-
         implicit none
 
         type(gauss_config_t), intent(inout) :: gauss_conf
@@ -36,7 +34,6 @@ module electrostatic_integrals
 
     subroutine gauss_integrate_F0(int_F, a, b, result, gauss_conf)
 
-        use KIM_kinds, only: dp
         use electrostatic_integrands, only: int_F0_rho_phi_t
 
         implicit none
@@ -62,7 +59,6 @@ module electrostatic_integrals
 
     subroutine gauss_integrate_F1(int_F1, result, gauss_conf)
 
-        use KIM_kinds, only: dp
         use electrostatic_integrands, only: int_F1_rho_phi_t, calc_b_coef
         use constants, only: pi
 
@@ -108,7 +104,6 @@ module electrostatic_integrals
 
     subroutine gauss_integrate_F2(int_F2, result, gauss_conf)
     
-        use KIM_kinds, only: dp
         use electrostatic_integrands, only: int_F2_rho_phi_t, calc_b_coef
         use constants, only: pi
 
@@ -156,7 +151,6 @@ module electrostatic_integrals
 
     subroutine gauss_integrate_F3(int_F3, result, gauss_conf)
 
-        use KIM_kinds, only: dp
         use electrostatic_integrands, only: int_F3_rho_phi_t, calc_b_coef
         use constants, only: pi
 
@@ -204,8 +198,6 @@ module electrostatic_integrals
     end subroutine
 
     subroutine compute_nodes_weights(n, x, w)
-
-        use KIM_kinds, only: dp
 
         implicit none
 

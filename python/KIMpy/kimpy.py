@@ -98,8 +98,8 @@ class KIMpy:
         E_perp_MA = np.loadtxt(self.runpath + f'out/m{m_mode}_n{n_mode}/fields/E_perp_MA.dat')
 
         h5f.create_dataset('r', data=phi_sol[:,0])
-        h5f.create_dataset('phi_sol', data=phi_sol[:,1:2])
-        h5f.create_dataset('E_perp', data=E_perp[:,1:2])
-        h5f.create_dataset('E_perp_psi', data=E_perp_psi[:,1:2])
-        h5f.create_dataset('E_perp_MA', data=E_perp_MA[:,1:2])
+        h5f.create_dataset('phi_sol', data=phi_sol[:,1:3])
+        h5f.create_dataset('E_perp', data=E_perp[:,1:3])
+        h5f.create_dataset('E_perp_psi', data=E_perp_psi[:,1:3])
+        h5f.create_dataset('E_perp_MA', data=E_perp_MA[:,1:3])
         h5f.close()

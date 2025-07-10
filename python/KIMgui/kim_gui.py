@@ -17,23 +17,8 @@ import subprocess
 import shutil
 
 # Add the KIMpy directory to the path
-gui_dir = os.path.dirname(os.path.abspath(__file__))
-kimpy_dir = os.path.join(gui_dir, '..', 'KIMpy')
-if kimpy_dir not in sys.path:
-    sys.path.append(kimpy_dir)
-
-try:
-    from kimpy import KIMpy
-except ImportError:
-    # Fallback: try to find KIMpy in the environment
-    code_path = os.environ.get('CODE')
-    if code_path:
-        kimpy_fallback = os.path.join(code_path, 'KAMEL', 'python', 'KIMpy')
-        if kimpy_fallback not in sys.path:
-            sys.path.append(kimpy_fallback)
-        from kimpy import KIMpy
-    else:
-        raise ImportError("Could not find KIMpy. Please ensure KAMEL/python/KIMpy is accessible or set the CODE environment variable.")
+sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'KIMpy'))
+from kimpy import KIMpy
 
 class KIMConfigGUI:
     def __init__(self, root):
@@ -41,7 +26,7 @@ class KIMConfigGUI:
         self.root.title("KIM Configuration GUI")
         
         # Initialize variables
-        self.runpath = tk.StringVar(value=os.path.abspath("./kim_runs/"))
+        self.runpath = tk.StringVar(value="./kim_runs/")
         self.config_file = None
         self.kim_runner = None
         self.running = False

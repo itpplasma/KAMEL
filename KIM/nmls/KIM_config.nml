@@ -17,7 +17,6 @@
     r0 = 165.0
     m_mode = 7
     n_mode = 2
-    r_plas = 67.0
     omega = 0.0
     spline_base = 1
     type_br_field = 12

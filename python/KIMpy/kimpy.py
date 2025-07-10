@@ -10,7 +10,7 @@ class KIMpy:
 
     kim_config_nml = CODE + '/KAMEL/KIM/nmls/KIM_config.nml'
     kim_exe_path = CODE + '/KAMEL/KIM/build/KIM.x'
-    omp_num_threads = 6
+    omp_num_threads = 8
 
     def __init__(self, runpath):
 
@@ -93,9 +93,9 @@ class KIMpy:
 
         h5f = h5py.File(h5file, 'w')
         phi_sol = np.loadtxt(self.runpath + f'out/m{m_mode}_n{n_mode}/fields/phi_sol.dat')
-        E_perp = np.loadtxt(self.runpath + f'out/m{m_mode}_n{m_mode}/fields/E_perp.dat')
-        E_perp_psi = np.loadtxt(self.runpath + f'out/m{m_mode}_n{m_mode}/fields/E_perp_psi.dat')
-        E_perp_MA = np.loadtxt(self.runpath + f'out/m{m_mode}_n{m_mode}/fields/E_perp_MA.dat')
+        E_perp = np.loadtxt(self.runpath + f'out/m{m_mode}_n{n_mode}/fields/E_perp.dat')
+        E_perp_psi = np.loadtxt(self.runpath + f'out/m{m_mode}_n{n_mode}/fields/E_perp_psi.dat')
+        E_perp_MA = np.loadtxt(self.runpath + f'out/m{m_mode}_n{n_mode}/fields/E_perp_MA.dat')
 
         h5f.create_dataset('r', data=phi_sol[:,0])
         h5f.create_dataset('phi_sol', data=phi_sol[:,1:2])

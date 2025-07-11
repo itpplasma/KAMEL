@@ -307,27 +307,79 @@ module fields
         use KIM_kinds, only: dp
         use IO_collection, only: write_complex_profile
         use grid, only: xl_grid
+        use config, only: output_path, collision_model
+        use species, only: plasma
+
+        implicit none
+
+        type(EBdat_t), intent(inout) :: EBdat
+        character(len=50) :: suffix
+
+        ! Determine suffix based on collision model
+        select case (trim(collision_model))
+        case ("Krook")
+            suffix = "krook"
+        case ("FokkerPlanck")
+            suffix = "fp"
+        case default
+            suffix = "sol"
+        end select
+
+        call calculate_MA_field(plasma, EBdat)
+        call write_complex_profile(xl_grid%xb, EBdat%E_perp_psi, xl_grid%npts_b, trim(output_path)//"/fields/E_perp_psi_"//trim(suffix)//".dat")
+        call write_complex_profile(xl_grid%xb, EBdat%E_perp, xl_grid%npts_b, trim(output_path)//"/fields/E_perp_"//trim(suffix)//".dat")
+        call write_complex_profile(xl_grid%xb, EBdat%E_perp_MA, xl_grid%npts_b, trim(output_path)//"/fields/E_perp_MA_"//trim(suffix)//".dat")
+
+        call calculate_E_from_phi(EBdat)
+        call calculate_E_in_rsp_from_cyl(EBdat)
+
+        call write_complex_profile(EBdat%r_grid, EBdat%Er, size(EBdat%r_grid), trim(output_path)//"/fields/Er_"//trim(suffix)//".dat")
+        call write_complex_profile(EBdat%r_grid, EBdat%Etheta, size(EBdat%r_grid), trim(output_path)//"/fields/Etheta_"//trim(suffix)//".dat")
+        call write_complex_profile(EBdat%r_grid, EBdat%Ez, size(EBdat%r_grid), trim(output_path)//"/fields/Ez_"//trim(suffix)//".dat")
+
+        call write_complex_profile(EBdat%r_grid, EBdat%Es, size(EBdat%r_grid), trim(output_path)//"/fields/Es_"//trim(suffix)//".dat")
+        call write_complex_profile(EBdat%r_grid, EBdat%Ep, size(EBdat%r_grid), trim(output_path)//"/fields/Ep_"//trim(suffix)//".dat")
+    
+    end subroutine
+
+    subroutine postprocess_electric_field_with_model(EBdat, model_name)
+
+        use KIM_kinds, only: dp
+        use IO_collection, only: write_complex_profile
+        use grid, only: xl_grid
         use config, only: output_path
         use species, only: plasma
 
         implicit none
 
         type(EBdat_t), intent(inout) :: EBdat
+        character(len=*), intent(in) :: model_name
+        character(len=50) :: suffix
+
+        ! Determine suffix based on model name
+        select case (trim(model_name))
+        case ("Krook")
+            suffix = "krook"
+        case ("FokkerPlanck")
+            suffix = "fp"
+        case default
+            suffix = "sol"
+        end select
 
         call calculate_MA_field(plasma, EBdat)
-        call write_complex_profile(xl_grid%xb, EBdat%E_perp_psi, xl_grid%npts_b, trim(output_path)//"/fields/E_perp_psi.dat")
-        call write_complex_profile(xl_grid%xb, EBdat%E_perp, xl_grid%npts_b, trim(output_path)//"/fields/E_perp.dat")
-        call write_complex_profile(xl_grid%xb, EBdat%E_perp_MA, xl_grid%npts_b, trim(output_path)//"/fields/E_perp_MA.dat")
+        call write_complex_profile(xl_grid%xb, EBdat%E_perp_psi, xl_grid%npts_b, trim(output_path)//"/fields/E_perp_psi_"//trim(suffix)//".dat")
+        call write_complex_profile(xl_grid%xb, EBdat%E_perp, xl_grid%npts_b, trim(output_path)//"/fields/E_perp_"//trim(suffix)//".dat")
+        call write_complex_profile(xl_grid%xb, EBdat%E_perp_MA, xl_grid%npts_b, trim(output_path)//"/fields/E_perp_MA_"//trim(suffix)//".dat")
 
         call calculate_E_from_phi(EBdat)
         call calculate_E_in_rsp_from_cyl(EBdat)
 
-        call write_complex_profile(EBdat%r_grid, EBdat%Er, size(EBdat%r_grid), trim(output_path)//"/fields/Er.dat")
-        call write_complex_profile(EBdat%r_grid, EBdat%Etheta, size(EBdat%r_grid), trim(output_path)//"/fields/Etheta.dat")
-        call write_complex_profile(EBdat%r_grid, EBdat%Ez, size(EBdat%r_grid), trim(output_path)//"/fields/Ez.dat")
+        call write_complex_profile(EBdat%r_grid, EBdat%Er, size(EBdat%r_grid), trim(output_path)//"/fields/Er_"//trim(suffix)//".dat")
+        call write_complex_profile(EBdat%r_grid, EBdat%Etheta, size(EBdat%r_grid), trim(output_path)//"/fields/Etheta_"//trim(suffix)//".dat")
+        call write_complex_profile(EBdat%r_grid, EBdat%Ez, size(EBdat%r_grid), trim(output_path)//"/fields/Ez_"//trim(suffix)//".dat")
 
-        call write_complex_profile(EBdat%r_grid, EBdat%Es, size(EBdat%r_grid), trim(output_path)//"/fields/Es.dat")
-        call write_complex_profile(EBdat%r_grid, EBdat%Ep, size(EBdat%r_grid), trim(output_path)//"/fields/Ep.dat")
+        call write_complex_profile(EBdat%r_grid, EBdat%Es, size(EBdat%r_grid), trim(output_path)//"/fields/Es_"//trim(suffix)//".dat")
+        call write_complex_profile(EBdat%r_grid, EBdat%Ep, size(EBdat%r_grid), trim(output_path)//"/fields/Ep_"//trim(suffix)//".dat")
     
     end subroutine
 

@@ -77,11 +77,11 @@ module electrostatic_kernel
         use electrostatic_integrals, only: gauss_integrate_F0, gauss_integrate_F1, gauss_integrate_F2, gauss_integrate_F3,&
             gauss_config_t
         use species, only: plasma
-        use constants, only: pi, sol, com_unit
+        use constants, only: pi
         use electrostatic_integrands, only: int_F0_rho_phi_t, int_F1_rho_phi_t, int_F2_rho_phi_t, int_F3_rho_phi_t, &
             integration_point_t
-        use kernel_plasma_prefacs, only: G1_rho_phi, G1_rho_B, G2_rho_B, G3_rho_B, G0_rho_phi, G2_rho_phi, G3_rho_phi, &
-            kappa_rho_phi, kappa_rho_B
+        use Krook_kernel_plasma_prefacs, only: Krook_G0_rho_phi, Krook_G1_rho_phi, Krook_G2_rho_phi, Krook_G3_rho_phi, &
+            Krook_G1_rho_B, Krook_G2_rho_B, Krook_G3_rho_B, Krook_kappa_rho_phi, Krook_kappa_rho_B
         use config, only: artificial_debye_case
         
         implicit none
@@ -112,7 +112,7 @@ module electrostatic_kernel
                 if (l == lp) then
                     call gauss_integrate_F0(int_F0, int_point%xlm1, int_point%xlp1, integral_val, gauss_conf)
                     kernel_phi_llp = kernel_phi_llp &
-                                    + integral_val * G0_rho_phi(j, plasma%spec(sigma)) * kappa_rho_phi(j, plasma%spec(sigma))
+                                    + integral_val * Krook_G0_rho_phi(j, plasma%spec(sigma)) * Krook_kappa_rho_phi(j, plasma%spec(sigma))
                 end if
                 
                 if (.not. artificial_debye_case) then
@@ -121,16 +121,16 @@ module electrostatic_kernel
                     int_F3%int_point = int_point
 
                     call gauss_integrate_F1(int_F1, integral_val, gauss_conf)
-                    kernel_phi_llp = kernel_phi_llp + integral_val * G1_rho_phi(j, plasma%spec(sigma)) * kappa_rho_phi(j, plasma%spec(sigma))
-                    kernel_B_llp = kernel_B_llp + integral_val * G1_rho_B(j, plasma%spec(sigma)) * kappa_rho_B(j, plasma%spec(sigma))
+                    kernel_phi_llp = kernel_phi_llp + integral_val * Krook_G1_rho_phi(j, plasma%spec(sigma)) * Krook_kappa_rho_phi(j, plasma%spec(sigma))
+                    kernel_B_llp = kernel_B_llp + integral_val * Krook_G1_rho_B(j, plasma%spec(sigma)) * Krook_kappa_rho_B(j, plasma%spec(sigma))
 
                     call gauss_integrate_F2(int_F2, integral_val, gauss_conf)
-                    kernel_phi_llp = kernel_phi_llp + integral_val * kappa_rho_phi(j, plasma%spec(sigma)) * G2_rho_phi(j, plasma%spec(sigma))
-                    kernel_B_llp = kernel_B_llp + integral_val * G2_rho_B(j, plasma%spec(sigma)) * kappa_rho_B(j, plasma%spec(sigma))
+                    kernel_phi_llp = kernel_phi_llp + integral_val * Krook_kappa_rho_phi(j, plasma%spec(sigma)) * Krook_G2_rho_phi(j, plasma%spec(sigma))
+                    kernel_B_llp = kernel_B_llp + integral_val * Krook_G2_rho_B(j, plasma%spec(sigma)) * Krook_kappa_rho_B(j, plasma%spec(sigma))
 
                     call gauss_integrate_F3(int_F3, integral_val, gauss_conf)
-                    kernel_phi_llp = kernel_phi_llp + integral_val * kappa_rho_phi(j, plasma%spec(sigma)) * G3_rho_phi(j, plasma%spec(sigma))
-                    kernel_B_llp = kernel_B_llp + integral_val * G3_rho_B(j, plasma%spec(sigma)) * kappa_rho_B(j, plasma%spec(sigma))
+                    kernel_phi_llp = kernel_phi_llp + integral_val * Krook_kappa_rho_phi(j, plasma%spec(sigma)) * Krook_G3_rho_phi(j, plasma%spec(sigma))
+                    kernel_B_llp = kernel_B_llp + integral_val * Krook_G3_rho_B(j, plasma%spec(sigma)) * Krook_kappa_rho_B(j, plasma%spec(sigma))
                 end if
                 
             end do
@@ -296,6 +296,146 @@ module electrostatic_kernel
         end if
 
     end subroutine
+
+    subroutine fill_kernels_krook_fp(kernel_krook_rho_phi, kernel_krook_rho_B, &
+                                      kernel_fp_rho_phi, kernel_fp_rho_B)
+        !> Unified subroutine to fill both Krook and Fokker-Planck kernels
+        !> Exploits shared Gaussian integration for efficiency
+        
+        use KIM_kinds, only: dp
+        use electrostatic_integrals, only: gauss_config_t, init_gauss_int, &
+            gauss_integrate_F0, gauss_integrate_F1, gauss_integrate_F2, gauss_integrate_F3
+        use grid, only: delta_l_max, gauss_int_nodes_Ntheta, gauss_int_nodes_Nx, gauss_int_nodes_Nxp
+        use species, only: plasma
+        use constants, only: pi
+        use electrostatic_integrands, only: int_F0_rho_phi_t, int_F1_rho_phi_t, &
+            int_F2_rho_phi_t, int_F3_rho_phi_t, integration_point_t
+        use Krook_kernel_plasma_prefacs, only: Krook_G0_rho_phi, Krook_G1_rho_phi, Krook_G2_rho_phi, Krook_G3_rho_phi, &
+            Krook_G1_rho_B, Krook_G2_rho_B, Krook_G3_rho_B, Krook_kappa_rho_phi, Krook_kappa_rho_B
+        use FP_kernel_plasma_prefacs, only: FP_G0_rho_phi, FP_G1_rho_phi, FP_G2_rho_phi, &
+            FP_G3_rho_phi, FP_G1_rho_B, FP_G2_rho_B, FP_G3_rho_B, &
+            FP_kappa_rho_phi, FP_kappa_rho_B
+        use config, only: artificial_debye_case
+        
+        implicit none
+        
+        type(kernel_spl_t), intent(inout) :: kernel_krook_rho_phi, kernel_krook_rho_B
+        type(kernel_spl_t), intent(inout) :: kernel_fp_rho_phi, kernel_fp_rho_B
+        
+        type(gauss_config_t) :: gauss_conf
+        integer :: l, lp, j, sigma
+        complex(dp) :: krook_phi_llp, krook_B_llp, fp_phi_llp, fp_B_llp
+        real(dp) :: integral_F0, integral_F1, integral_F2, integral_F3
+        
+        type(integration_point_t) :: int_point
+        type(int_F0_rho_phi_t) :: int_F0
+        type(int_F1_rho_phi_t) :: int_F1
+        type(int_F2_rho_phi_t) :: int_F2
+        type(int_F3_rho_phi_t) :: int_F3
+        
+        ! Initialize Gaussian integration configuration
+        gauss_conf%Nx = gauss_int_nodes_Nx
+        gauss_conf%Nxp = gauss_int_nodes_Nxp
+        gauss_conf%Ntheta = gauss_int_nodes_Ntheta
+        call init_gauss_int(gauss_conf)
+        
+        !$omp parallel do collapse(2) private(l, lp, krook_phi_llp, krook_B_llp, &
+        !$omp& fp_phi_llp, fp_B_llp, j, sigma, int_point, int_F0, int_F1, int_F2, int_F3, &
+        !$omp& integral_F0, integral_F1, integral_F2, integral_F3)
+        do l = 1, kernel_krook_rho_phi%npts_l
+            do lp = 1, kernel_krook_rho_phi%npts_lp
+                if (abs(l - lp) > delta_l_max) cycle
+                
+                ! Initialize kernel values
+                krook_phi_llp = 0.0d0
+                krook_B_llp = 0.0d0
+                fp_phi_llp = 0.0d0
+                fp_B_llp = 0.0d0
+                
+                ! Set xl grid points at edges
+                call set_xl_at_edge(l, lp, int_point)
+                
+                ! Loop over species and radial grid
+                do sigma = 0, plasma%n_species - 1
+                    do j = 2, size(plasma%r_grid)-1
+                        int_point%j = j
+                        int_point%rhoT = 0.5d0 * (plasma%spec(sigma)%rho_L(j) + plasma%spec(sigma)%rho_L(j+1))
+                        
+                        ! F0 integral (only for diagonal elements)
+                        if (l == lp) then
+                            int_F0%int_point = int_point
+                            call gauss_integrate_F0(int_F0, int_point%xlm1, int_point%xlp1, integral_F0, gauss_conf)
+                            
+                            ! Krook contribution
+                            krook_phi_llp = krook_phi_llp + integral_F0 * Krook_G0_rho_phi(j, plasma%spec(sigma)) * &
+                                           Krook_kappa_rho_phi(j, plasma%spec(sigma))
+                            
+                            ! Fokker-Planck contribution
+                            fp_phi_llp = fp_phi_llp + integral_F0 * FP_G0_rho_phi(j, plasma%spec(sigma)) * &
+                                        FP_kappa_rho_phi(j, plasma%spec(sigma))
+                        end if
+                        
+                        if (.not. artificial_debye_case) then
+                            ! Set integration points for F1, F2, F3
+                            int_F1%int_point = int_point
+                            int_F2%int_point = int_point
+                            int_F3%int_point = int_point
+                            
+                            ! Perform Gaussian integrations (shared between Krook and FP)
+                            call gauss_integrate_F1(int_F1, integral_F1, gauss_conf)
+                            call gauss_integrate_F2(int_F2, integral_F2, gauss_conf)
+                            call gauss_integrate_F3(int_F3, integral_F3, gauss_conf)
+                            
+                            ! Krook contributions
+                            krook_phi_llp = krook_phi_llp + &
+                                integral_F1 * Krook_G1_rho_phi(j, plasma%spec(sigma)) * Krook_kappa_rho_phi(j, plasma%spec(sigma)) + &
+                                integral_F2 * Krook_G2_rho_phi(j, plasma%spec(sigma)) * Krook_kappa_rho_phi(j, plasma%spec(sigma)) + &
+                                integral_F3 * Krook_G3_rho_phi(j, plasma%spec(sigma)) * Krook_kappa_rho_phi(j, plasma%spec(sigma))
+                            
+                            krook_B_llp = krook_B_llp + &
+                                integral_F1 * Krook_G1_rho_B(j, plasma%spec(sigma)) * Krook_kappa_rho_B(j, plasma%spec(sigma)) + &
+                                integral_F2 * Krook_G2_rho_B(j, plasma%spec(sigma)) * Krook_kappa_rho_B(j, plasma%spec(sigma)) + &
+                                integral_F3 * Krook_G3_rho_B(j, plasma%spec(sigma)) * Krook_kappa_rho_B(j, plasma%spec(sigma))
+                            
+                            ! Fokker-Planck contributions
+                            fp_phi_llp = fp_phi_llp + &
+                                integral_F1 * FP_G1_rho_phi(j, plasma%spec(sigma)) * FP_kappa_rho_phi(j, plasma%spec(sigma)) + &
+                                integral_F2 * FP_G2_rho_phi(j, plasma%spec(sigma)) * FP_kappa_rho_phi(j, plasma%spec(sigma)) + &
+                                integral_F3 * FP_G3_rho_phi(j, plasma%spec(sigma)) * FP_kappa_rho_phi(j, plasma%spec(sigma))
+                            
+                            fp_B_llp = fp_B_llp + &
+                                integral_F1 * FP_G1_rho_B(j, plasma%spec(sigma)) * FP_kappa_rho_B(j, plasma%spec(sigma)) + &
+                                integral_F2 * FP_G2_rho_B(j, plasma%spec(sigma)) * FP_kappa_rho_B(j, plasma%spec(sigma)) + &
+                                integral_F3 * FP_G3_rho_B(j, plasma%spec(sigma)) * FP_kappa_rho_B(j, plasma%spec(sigma))
+                        end if
+                    end do
+                end do
+                
+                ! Apply normalization factor
+                krook_phi_llp = krook_phi_llp / (8.0d0 * pi**3.0d0)
+                krook_B_llp = krook_B_llp / (8.0d0 * pi**3.0d0)
+                fp_phi_llp = fp_phi_llp / (8.0d0 * pi**3.0d0)
+                fp_B_llp = fp_B_llp / (8.0d0 * pi**3.0d0)
+                
+                ! Store results
+                kernel_krook_rho_phi%Kllp(l, lp) = krook_phi_llp
+                kernel_krook_rho_B%Kllp(l, lp) = krook_B_llp
+                kernel_fp_rho_phi%Kllp(l, lp) = fp_phi_llp
+                kernel_fp_rho_B%Kllp(l, lp) = fp_B_llp
+                
+                ! Check for NaN values
+                if (isnan(real(krook_phi_llp)) .or. isnan(real(krook_B_llp)) .or. &
+                    isnan(real(fp_phi_llp)) .or. isnan(real(fp_B_llp))) then
+                    print *, "NaN detected in kernel calculation at l =", l, ", lp =", lp
+                    print *, "Krook phi:", krook_phi_llp, "Krook B:", krook_B_llp
+                    print *, "FP phi:", fp_phi_llp, "FP B:", fp_B_llp
+                    stop
+                end if
+            end do
+        end do
+        !$omp end parallel do
+        
+    end subroutine fill_kernels_krook_fp
 
 end module
 

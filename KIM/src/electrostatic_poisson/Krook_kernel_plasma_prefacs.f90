@@ -1,11 +1,10 @@
-module kernel_plasma_prefacs
+module Krook_kernel_plasma_prefacs
 
     contains
 
-    function kappa_rho_phi(j, spec) result(val)
+    function Krook_kappa_rho_phi(j, spec) result(val)
 
-        use species, only: plasma, species_t
-        use constants, only: pi
+        use species, only: species_t
         use KIM_kinds, only: dp
 
         implicit none
@@ -20,7 +19,7 @@ module kernel_plasma_prefacs
 
     end function
 
-    function kappa_rho_B(j, spec) result(val)
+    function Krook_kappa_rho_B(j, spec) result(val)
 
         use species, only: plasma, species_t
         use KIM_kinds, only: dp
@@ -41,10 +40,9 @@ module kernel_plasma_prefacs
     end function
 
 
-    function G0_rho_phi(j, spec) result(val)
+    function Krook_G0_rho_phi(j, spec) result(val)
 
-        use species, only: plasma, species_t
-        use constants, only: pi
+        use species, only: species_t
         use KIM_kinds, only: dp
 
         implicit none
@@ -53,11 +51,12 @@ module kernel_plasma_prefacs
         type(species_t), intent(in) :: spec
         real(dp) :: val
 
+        ! Unused arguments j and spec - required for interface consistency
         val = -1.0d0 / sqrt(2.0d0)
 
     end function
 
-    function G1_rho_phi(j, spec) result(val)
+    function Krook_G1_rho_phi(j, spec) result(val)
 
         use KIM_kinds, only: dp
         use species, only: species_t, plasma
@@ -84,7 +83,7 @@ module kernel_plasma_prefacs
 
     end function
 
-    function G2_rho_phi(j, spec) result(val)
+    function Krook_G2_rho_phi(j, spec) result(val)
 
         use KIM_kinds, only: dp
         use species, only: species_t, plasma
@@ -94,7 +93,7 @@ module kernel_plasma_prefacs
         integer, intent(in) :: j
         type(species_t), intent(in) :: spec
         complex(dp) :: val
-        real(dp) :: ks_val, kpar, A1, A2, rhoT
+        real(dp) :: ks_val, kpar, A2, rhoT
         complex(dp) :: plasma_Z, z0
 
         ks_val = 0.5d0 * (plasma%ks(j) + plasma%ks(j+1))
@@ -107,7 +106,7 @@ module kernel_plasma_prefacs
 
     end function
 
-    function G3_rho_phi(j, spec) result(val)
+    function Krook_G3_rho_phi(j, spec) result(val)
 
         use KIM_kinds, only: dp
         use species, only: species_t, plasma
@@ -117,7 +116,7 @@ module kernel_plasma_prefacs
         integer, intent(in) :: j
         type(species_t), intent(in) :: spec
         complex(dp) :: val
-        real(dp) :: ks_val, kpar, A1, A2, rhoT, z0
+        real(dp) :: ks_val, kpar, A2, rhoT
 
         ks_val = 0.5d0 * (plasma%ks(j) + plasma%ks(j+1))
         kpar = 0.5d0 * (plasma%kp(j) + plasma%kp(j+1))
@@ -128,10 +127,9 @@ module kernel_plasma_prefacs
 
     end function
 
-    function G0_rho_B(j, spec) result(val)
+    function Krook_G0_rho_B(j, spec) result(val)
 
-        use species, only: plasma, species_t
-        use constants, only: pi
+        use species, only: species_t
         use KIM_kinds, only: dp
 
         implicit none
@@ -140,14 +138,15 @@ module kernel_plasma_prefacs
         type(species_t), intent(in) :: spec
         real(dp) :: val
 
+        ! Unused arguments j and spec - required for interface consistency
         val = 0.0d0
 
     end function
 
-    function G1_rho_B(j, spec) result(val)
+    function Krook_G1_rho_B(j, spec) result(val)
 
         use KIM_kinds, only: dp
-        use species, only: species_t, plasma
+        use species, only: species_t
 
         implicit none
 
@@ -168,10 +167,10 @@ module kernel_plasma_prefacs
 
     end function
 
-    function G2_rho_B(j, spec) result(val)
+    function Krook_G2_rho_B(j, spec) result(val)
 
         use KIM_kinds, only: dp
-        use species, only: species_t, plasma
+        use species, only: species_t
     
         implicit none
 
@@ -188,10 +187,10 @@ module kernel_plasma_prefacs
 
     end function
 
-    function G3_rho_B(j, spec) result(val)
+    function Krook_G3_rho_B(j, spec) result(val)
 
         use KIM_kinds, only: dp
-        use species, only: species_t, plasma
+        use species, only: species_t
 
         implicit none
 

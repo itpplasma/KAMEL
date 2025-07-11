@@ -356,15 +356,7 @@ module fields
         character(len=*), intent(in) :: model_name
         character(len=50) :: suffix
 
-        ! Determine suffix based on model name
-        select case (trim(model_name))
-        case ("Krook")
-            suffix = "krook"
-        case ("FokkerPlanck")
-            suffix = "fp"
-        case default
-            suffix = "sol"
-        end select
+        suffix = trim(model_name)
 
         call calculate_MA_field(plasma, EBdat)
         call write_complex_profile(xl_grid%xb, EBdat%E_perp_psi, xl_grid%npts_b, trim(output_path)//"/fields/E_perp_psi_"//trim(suffix)//".dat")

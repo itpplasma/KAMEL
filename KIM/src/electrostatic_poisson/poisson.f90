@@ -84,12 +84,12 @@ module rt_electrostatic
             
             ! Solve and write Krook solution
             call solve_poisson(kernel_krook_rho_phi_llp%Kllp, kernel_krook_rho_B_llp%Kllp, EBdat%Phi)
-            call write_complex_profile(xl_grid%xb, EBdat%Phi, xl_grid%npts_b, trim(output_path)//"/fields/phi_krook_sol.dat")
+            call write_complex_profile(xl_grid%xb, EBdat%Phi, xl_grid%npts_b, trim(output_path)//"/fields/phi_Krook_sol.dat")
             call postprocess_electric_field_with_model(EBdat, "Krook")
             
             ! Solve and write Fokker-Planck solution
             call solve_poisson(kernel_fp_rho_phi_llp%Kllp, kernel_fp_rho_B_llp%Kllp, EBdat%Phi)
-            call write_complex_profile(xl_grid%xb, EBdat%Phi, xl_grid%npts_b, trim(output_path)//"/fields/phi_fp_sol.dat")
+            call write_complex_profile(xl_grid%xb, EBdat%Phi, xl_grid%npts_b, trim(output_path)//"/fields/phi_FokkerPlanck_sol.dat")
             call postprocess_electric_field_with_model(EBdat, "FokkerPlanck")
             
             return

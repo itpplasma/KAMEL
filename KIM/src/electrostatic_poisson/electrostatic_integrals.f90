@@ -78,7 +78,7 @@ module electrostatic_integrals
                         * (int_F1%int_point%xlpp1 - int_F1%int_point%xlpm1) / 8.0d0
         
         do i=1,gauss_conf%Ntheta ! theta
-            theta_mapped = 0.5d0 * (pi * gauss_conf%x_theta(i) + pi)
+            theta_mapped = 0.5d0 * pi * (gauss_conf%x_theta(i) + 1.0d0)
             int_F1%int_point%a_coef = sqrt(1.0d0 / (1.0d0 + cos(theta_mapped))) / abs(int_F1%int_point%rhoT)
 
             do j=1,gauss_conf%Nxp ! xp 
@@ -123,7 +123,7 @@ module electrostatic_integrals
                         * (int_F2%int_point%xlpp1 - int_F2%int_point%xlpm1) / 8.0d0
 
         do i=1,gauss_conf%Ntheta ! theta
-            theta_mapped = 0.5d0 * (pi * gauss_conf%x_theta(i) + pi)
+            theta_mapped = 0.5d0 * pi *(gauss_conf%x_theta(i) + 1.0d0)
             int_F2%int_point%a_coef = sqrt(1.0d0 / (1.0d0 + cos(theta_mapped))) / abs(int_F2%int_point%rhoT)
 
             do j=1,gauss_conf%Nxp ! xp 
@@ -135,6 +135,8 @@ module electrostatic_integrals
                         int_F2%int_point%xlp1 + int_F2%int_point%xlm1)
 
                     int_F2%int_point%b_coef = calc_b_coef(x_mapped, xp_mapped)
+                    int_F2%int_point%xl_mapped = x_mapped
+                    int_F2%int_point%xlp_mapped = xp_mapped
         
                     call int_F2%int_point%calc_Jrg1()
                     call int_F2%int_point%calc_Jrg2()
@@ -170,7 +172,7 @@ module electrostatic_integrals
                         * (int_F3%int_point%xlpp1 - int_F3%int_point%xlpm1) / 8.0d0
 
         do i=1,gauss_conf%Ntheta ! theta
-            theta_mapped = 0.5d0 * (pi * gauss_conf%x_theta(i) + pi)
+            theta_mapped = 0.5d0 * pi * (gauss_conf%x_theta(i) + 1.0d0)
             int_F3%int_point%a_coef = sqrt(1.0d0 / (1.0d0 + cos(theta_mapped))) / abs(int_F3%int_point%rhoT)
 
             do j=1,gauss_conf%Nxp ! xp 
@@ -182,6 +184,8 @@ module electrostatic_integrals
                         int_F3%int_point%xlp1 + int_F3%int_point%xlm1)
 
                     int_F3%int_point%b_coef = calc_b_coef(x_mapped, xp_mapped)
+                    int_F3%int_point%xl_mapped = x_mapped
+                    int_F3%int_point%xlp_mapped = xp_mapped
 
                     call int_F3%int_point%calc_Jrg1()
                     call int_F3%int_point%calc_Jrg2()

@@ -52,7 +52,7 @@ module Krook_kernel_plasma_prefacs
         real(dp) :: val
 
         ! Unused arguments j and spec - required for interface consistency
-        val = -1.0d0 / sqrt(2.0d0)
+        val = -1.0d0 !/ sqrt(2.0d0)
 
     end function
 

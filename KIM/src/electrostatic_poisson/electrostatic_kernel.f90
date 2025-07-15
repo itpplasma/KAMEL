@@ -46,6 +46,8 @@ module electrostatic_kernel
         gauss_conf%Ntheta = gauss_int_nodes_Ntheta
         call init_gauss_int(gauss_conf)
 
+        write(*,*) 'Filling Krook collision kernels...'
+
         !$omp parallel do collapse(2) private(l,lp, kernel_phi_llp, kernel_B_llp)
         do l = 1, kernel_rho_phi_llp%npts_l
             do lp = 1, kernel_rho_phi_llp%npts_lp
@@ -68,6 +70,8 @@ module electrostatic_kernel
             end do
         end do
         !$omp end parallel do
+
+        write(*,*) ! New line after progress bar
 
     end subroutine
 
@@ -162,6 +166,8 @@ module electrostatic_kernel
 
         call init_gauss_int(gauss_conf)
 
+        write(*,*) 'Filling Fokker-Planck collision kernels...'
+
         !$omp parallel do collapse(2) private(l,lp, kernel_phi_llp, kernel_B_llp)
         do l = 1, kernel_rho_phi_llp%npts_l
             do lp = 1, kernel_rho_phi_llp%npts_lp
@@ -184,6 +190,8 @@ module electrostatic_kernel
             end do
         end do
         !$omp end parallel do
+
+        write(*,*) ! New line after progress bar
 
     end subroutine
 
@@ -338,6 +346,8 @@ module electrostatic_kernel
         gauss_conf%Nxp = gauss_int_nodes_Nxp
         gauss_conf%Ntheta = gauss_int_nodes_Ntheta
         call init_gauss_int(gauss_conf)
+
+        write(*,*) 'Filling both Krook and Fokker-Planck kernels simultaneously...'
         
         !$omp parallel do collapse(2) private(l, lp, krook_phi_llp, krook_B_llp, &
         !$omp& fp_phi_llp, fp_B_llp, j, sigma, int_point, int_F0, int_F1, int_F2, int_F3, &
@@ -434,6 +444,8 @@ module electrostatic_kernel
             end do
         end do
         !$omp end parallel do
+
+        write(*,*) ! New line after progress bar
         
     end subroutine fill_kernels_krook_fp
 

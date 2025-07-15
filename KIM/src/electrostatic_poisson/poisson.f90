@@ -106,15 +106,7 @@ module rt_electrostatic
         EBdat%r_grid = xl_grid%xb
         
         call solve_poisson(kernel_rho_phi_llp%Kllp, kernel_rho_B_llp%Kllp, EBdat%Phi)
-        
-        ! Write phi solution with appropriate suffix
-        if (collision_model == "Krook") then
-            call write_complex_profile(xl_grid%xb, EBdat%Phi, xl_grid%npts_b, trim(output_path)//"/fields/phi_krook_sol.dat")
-        else if (collision_model == "FokkerPlanck") then
-            call write_complex_profile(xl_grid%xb, EBdat%Phi, xl_grid%npts_b, trim(output_path)//"/fields/phi_fp_sol.dat")
-        else
-            call write_complex_profile(xl_grid%xb, EBdat%Phi, xl_grid%npts_b, trim(output_path)//"/fields/phi_sol.dat")
-        end if
+        call write_complex_profile(xl_grid%xb, EBdat%Phi, xl_grid%npts_b, trim(output_path)//"/fields/phi_"//trim(collision_model)//"_sol.dat")
 
         call postprocess_electric_field(EBdat)
     

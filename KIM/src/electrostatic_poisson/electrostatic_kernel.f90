@@ -50,7 +50,7 @@ module electrostatic_kernel
 
         !$omp parallel do collapse(2) private(l,lp, kernel_phi_llp, kernel_B_llp)
         do l = 1, kernel_rho_phi_llp%npts_l
-            do lp = 1, kernel_rho_phi_llp%npts_lp
+            do lp = 1, l
                 if (abs(l - lp) > delta_l_max) cycle
 
                 call Krook_calc_kernel_rho_term_by_term(l, lp, kernel_phi_llp, kernel_B_llp, gauss_conf)
@@ -67,6 +67,10 @@ module electrostatic_kernel
                     print *, "semi analytical kernel_B_llp = ", kernel_B_llp
                     stop
                 end if
+            
+                kernel_rho_phi_llp%Kllp(lp, l) = kernel_rho_phi_llp%Kllp(l, lp)
+                kernel_rho_B_llp%Kllp(lp, l) = kernel_rho_B_llp%Kllp(l, lp)
+
             end do
         end do
         !$omp end parallel do
@@ -170,7 +174,7 @@ module electrostatic_kernel
 
         !$omp parallel do collapse(2) private(l,lp, kernel_phi_llp, kernel_B_llp)
         do l = 1, kernel_rho_phi_llp%npts_l
-            do lp = 1, kernel_rho_phi_llp%npts_lp
+            do lp = 1, l
                 if (abs(l - lp) > delta_l_max) cycle
 
                 call FP_calc_kernel_rho_term_by_term(l, lp, kernel_phi_llp, kernel_B_llp, gauss_conf)
@@ -187,6 +191,9 @@ module electrostatic_kernel
                     print *, "semi analytical kernel_B_llp = ", kernel_B_llp
                     stop
                 end if
+
+                kernel_rho_phi_llp%Kllp(lp, l) = kernel_rho_phi_llp%Kllp(l, lp)
+                kernel_rho_B_llp%Kllp(lp, l) = kernel_rho_B_llp%Kllp(l, lp)
             end do
         end do
         !$omp end parallel do
@@ -353,7 +360,7 @@ module electrostatic_kernel
         !$omp& fp_phi_llp, fp_B_llp, j, sigma, int_point, int_F0, int_F1, int_F2, int_F3, &
         !$omp& integral_F0, integral_F1, integral_F2, integral_F3)
         do l = 1, kernel_krook_rho_phi%npts_l
-            do lp = 1, kernel_krook_rho_phi%npts_lp
+            do lp = 1, l
                 if (abs(l - lp) > delta_l_max) cycle
                 
                 ! Initialize kernel values
@@ -441,6 +448,12 @@ module electrostatic_kernel
                     print *, "FP phi:", fp_phi_llp, "FP B:", fp_B_llp
                     stop
                 end if
+
+                ! exploit symmetry
+                kernel_krook_rho_phi%Kllp(lp, l) = kernel_krook_rho_phi%Kllp(l, lp)
+                kernel_krook_rho_B%Kllp(lp, l) = kernel_krook_rho_B%Kllp(l, lp)
+                kernel_fp_rho_phi%Kllp(lp, l) = kernel_fp_rho_phi%Kllp(l, lp)
+                kernel_fp_rho_B%Kllp(lp, l) = kernel_fp_rho_B%Kllp(l, lp)
             end do
         end do
         !$omp end parallel do

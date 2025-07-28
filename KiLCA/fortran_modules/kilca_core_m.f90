@@ -7,7 +7,8 @@ module kilca_core_m
     use iso_fortran_env, only: int32, int64, real64
     use iso_c_binding
     use kilca_types_m
-    use kilca_settings_m, only: settings_t, antenna_t, eigmode_sett_t
+    use kilca_settings_m, only: settings_t, antenna_t, eigmode_sett_t, &
+                                settings_destroy, settings_deep_copy
     implicit none
     private
     
@@ -59,6 +60,8 @@ module kilca_core_m
     public :: core_data_create
     public :: core_data_destroy
     public :: core_data_delete_modes_array
+    public :: core_data_deep_copy
+    public :: core_data_copy_assign
     
     ! Core computation procedures
     public :: calc_and_set_mode_independent_core_data
@@ -217,6 +220,142 @@ contains
         cd%dim = 0
         
     end subroutine core_data_delete_modes_array
+    
+    !> @brief Deep copy core_data structure
+    !> @param[in] src Source core_data to copy from
+    !> @param[out] dst Destination core_data (will be allocated)
+    !> @param[out] ierr Error code
+    subroutine core_data_deep_copy(src, dst, ierr)
+        type(core_data_t), pointer, intent(in) :: src
+        type(core_data_t), pointer, intent(out) :: dst
+        integer, intent(out) :: ierr
+        
+        integer :: alloc_stat, i
+        
+        ierr = KILCA_SUCCESS
+        
+        ! Check source validity
+        if (.not. associated(src)) then
+            ierr = KILCA_ERROR_INVALID_INPUT
+            dst => null()
+            return
+        end if
+        
+        ! Allocate destination
+        allocate(dst, stat=alloc_stat)
+        if (alloc_stat /= 0) then
+            ierr = KILCA_ERROR_MEMORY
+            dst => null()
+            return
+        end if
+        
+        ! Copy simple members
+        dst%path2project = src%path2project
+        dst%dim = src%dim
+        dst%owns_settings = src%owns_settings
+        dst%initialized = src%initialized
+        
+        ! Deep copy settings if present
+        if (associated(src%sd)) then
+            if (src%owns_settings) then
+                ! Deep copy settings
+                call settings_deep_copy(src%sd, dst%sd, ierr)
+                if (ierr /= KILCA_SUCCESS) then
+                    call core_data_destroy(dst, ierr)
+                    dst => null()
+                    return
+                end if
+            else
+                ! Just copy pointer (shared settings)
+                dst%sd => src%sd
+            end if
+        end if
+        
+        ! Deep copy background if present
+        if (associated(src%bp)) then
+            ! For now, allocate and mark as initialized
+            allocate(dst%bp)
+            dst%bp%initialized = src%bp%initialized
+            ! Full background copy will be implemented when background module is translated
+        end if
+        
+        ! Deep copy mode array if present
+        if (allocated(src%mda)) then
+            allocate(dst%mda(size(src%mda)), stat=alloc_stat)
+            if (alloc_stat /= 0) then
+                ierr = KILCA_ERROR_MEMORY
+                call core_data_destroy(dst, ierr)
+                dst => null()
+                return
+            end if
+            
+            ! Copy each mode
+            do i = 1, size(src%mda)
+                dst%mda(i)%initialized = src%mda(i)%initialized
+                ! Full mode copy will be implemented when mode module is translated
+            end do
+        end if
+        
+    end subroutine core_data_deep_copy
+    
+    !> @brief Copy assignment for core_data
+    !> @param[inout] dst Destination (existing) core_data
+    !> @param[in] src Source core_data to copy from
+    !> @param[out] ierr Error code
+    subroutine core_data_copy_assign(dst, src, ierr)
+        type(core_data_t), pointer, intent(inout) :: dst
+        type(core_data_t), pointer, intent(in) :: src
+        integer, intent(out) :: ierr
+        
+        type(core_data_t), pointer :: temp
+        
+        ierr = KILCA_SUCCESS
+        
+        ! Check validity
+        if (.not. associated(src) .or. .not. associated(dst)) then
+            ierr = KILCA_ERROR_INVALID_INPUT
+            return
+        end if
+        
+        ! Self-assignment check
+        if (associated(dst, src)) then
+            return
+        end if
+        
+        ! Create temporary copy
+        call core_data_deep_copy(src, temp, ierr)
+        if (ierr /= KILCA_SUCCESS) then
+            return
+        end if
+        
+        ! Clear existing destination content
+        if (associated(dst%sd) .and. dst%owns_settings) then
+            call settings_destroy(dst%sd, ierr)
+        end if
+        if (associated(dst%bp)) then
+            deallocate(dst%bp)
+        end if
+        if (allocated(dst%mda)) then
+            deallocate(dst%mda)
+        end if
+        
+        ! Move temp content to dst
+        dst%path2project = temp%path2project
+        dst%sd => temp%sd
+        dst%bp => temp%bp
+        dst%dim = temp%dim
+        if (allocated(temp%mda)) then
+            call move_alloc(temp%mda, dst%mda)
+        end if
+        dst%owns_settings = temp%owns_settings
+        dst%initialized = temp%initialized
+        
+        ! Clean up temp structure (but not its content which was moved)
+        temp%sd => null()
+        temp%bp => null()
+        deallocate(temp)
+        
+    end subroutine core_data_copy_assign
     
     ! =========================================================================
     ! Core Computation Procedures

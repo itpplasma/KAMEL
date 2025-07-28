@@ -171,6 +171,7 @@ module kilca_settings_m
     ! Settings lifecycle
     public :: settings_create
     public :: settings_destroy
+    public :: settings_deep_copy
     public :: settings_read_all
     public :: settings_print_all
     public :: settings_validate
@@ -292,6 +293,82 @@ contains
         sd => null()
         
     end subroutine settings_destroy
+    
+    !> @brief Deep copy settings structure
+    !> @param[in] src Source settings
+    !> @param[out] dst Destination settings (will be allocated)
+    !> @param[out] ierr Error code
+    subroutine settings_deep_copy(src, dst, ierr)
+        type(settings_t), pointer, intent(in) :: src
+        type(settings_t), pointer, intent(out) :: dst
+        integer, intent(out) :: ierr
+        
+        integer :: alloc_stat
+        
+        ierr = KILCA_SUCCESS
+        
+        ! Check source validity
+        if (.not. associated(src)) then
+            ierr = KILCA_ERROR_INVALID_INPUT
+            dst => null()
+            return
+        end if
+        
+        ! Allocate destination
+        allocate(dst, stat=alloc_stat)
+        if (alloc_stat /= 0) then
+            ierr = KILCA_ERROR_MEMORY
+            dst => null()
+            return
+        end if
+        
+        ! Copy path
+        dst%path2project = src%path2project
+        
+        ! Deep copy antenna settings
+        dst%antenna_settings = src%antenna_settings
+        if (allocated(src%antenna_settings%modes)) then
+            if (allocated(dst%antenna_settings%modes)) deallocate(dst%antenna_settings%modes)
+            allocate(dst%antenna_settings%modes(size(src%antenna_settings%modes)))
+            dst%antenna_settings%modes = src%antenna_settings%modes
+        end if
+        
+        ! Deep copy background settings
+        dst%background_settings = src%background_settings
+        if (allocated(src%background_settings%mass)) then
+            if (allocated(dst%background_settings%mass)) deallocate(dst%background_settings%mass)
+            allocate(dst%background_settings%mass(size(src%background_settings%mass)))
+            dst%background_settings%mass = src%background_settings%mass
+        end if
+        if (allocated(src%background_settings%charge)) then
+            if (allocated(dst%background_settings%charge)) deallocate(dst%background_settings%charge)
+            allocate(dst%background_settings%charge(size(src%background_settings%charge)))
+            dst%background_settings%charge = src%background_settings%charge
+        end if
+        
+        ! Deep copy output settings
+        dst%output_settings = src%output_settings
+        if (allocated(src%output_settings%flag_quants)) then
+            if (allocated(dst%output_settings%flag_quants)) deallocate(dst%output_settings%flag_quants)
+            allocate(dst%output_settings%flag_quants(size(src%output_settings%flag_quants)))
+            dst%output_settings%flag_quants = src%output_settings%flag_quants
+        end if
+        
+        ! Deep copy eigenmode settings
+        dst%eigmode_settings = src%eigmode_settings
+        if (allocated(src%eigmode_settings%fstart)) then
+            if (allocated(dst%eigmode_settings%fstart)) deallocate(dst%eigmode_settings%fstart)
+            allocate(dst%eigmode_settings%fstart(size(src%eigmode_settings%fstart)))
+            dst%eigmode_settings%fstart = src%eigmode_settings%fstart
+        end if
+        
+        ! Set up internal pointers
+        dst%as => dst%antenna_settings
+        dst%bs => dst%background_settings
+        dst%os => dst%output_settings
+        dst%es => dst%eigmode_settings
+        
+    end subroutine settings_deep_copy
     
     !> @brief Read all settings from files (mimics C++ read_settings)
     subroutine settings_read_all(sd, ierr)

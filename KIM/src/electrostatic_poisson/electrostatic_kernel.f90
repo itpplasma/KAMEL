@@ -48,7 +48,7 @@ module electrostatic_kernel
 
         write(*,*) 'Filling Krook collision kernels...'
 
-        !$omp parallel do collapse(2) private(l,lp, kernel_phi_llp, kernel_B_llp)
+        !$omp parallel do collapse(1) private(l,lp, kernel_phi_llp, kernel_B_llp)
         do l = 1, kernel_rho_phi_llp%npts_l
             do lp = 1, l
                 if (abs(l - lp) > delta_l_max) cycle
@@ -172,7 +172,7 @@ module electrostatic_kernel
 
         write(*,*) 'Filling Fokker-Planck collision kernels...'
 
-        !$omp parallel do collapse(2) private(l,lp, kernel_phi_llp, kernel_B_llp)
+        !$omp parallel do collapse(1) private(l,lp, kernel_phi_llp, kernel_B_llp)
         do l = 1, kernel_rho_phi_llp%npts_l
             do lp = 1, l
                 if (abs(l - lp) > delta_l_max) cycle
@@ -356,7 +356,7 @@ module electrostatic_kernel
 
         write(*,*) 'Filling both Krook and Fokker-Planck kernels simultaneously...'
         
-        !$omp parallel do collapse(2) private(l, lp, krook_phi_llp, krook_B_llp, &
+        !$omp parallel do collapse(1) private(l, lp, krook_phi_llp, krook_B_llp, &
         !$omp& fp_phi_llp, fp_B_llp, j, sigma, int_point, int_F0, int_F1, int_F2, int_F3, &
         !$omp& integral_F0, integral_F1, integral_F2, integral_F3)
         do l = 1, kernel_krook_rho_phi%npts_l

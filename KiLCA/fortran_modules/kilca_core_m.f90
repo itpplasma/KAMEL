@@ -8,7 +8,7 @@ module kilca_core_m
     use iso_c_binding
     use kilca_types_m
     use kilca_settings_m, only: settings_t, antenna_t, eigmode_sett_t, &
-                                settings_destroy, settings_deep_copy
+                                settings_destroy, settings_deep_copy, settings_validate
     implicit none
     private
     
@@ -76,6 +76,12 @@ module kilca_core_m
     public :: core_data_has_background
     public :: core_data_get_modes_count
     public :: core_data_allocate_modes
+    
+    ! Validation procedures
+    public :: core_data_validate
+    public :: core_data_validate_full
+    public :: core_data_check_consistency
+    public :: core_data_get_validation_report
     
     ! C-Fortran interface procedures
     public :: get_pointer_precision
@@ -674,6 +680,259 @@ contains
         cd%dim = n_modes
         
     end subroutine core_data_allocate_modes
+    
+    ! =========================================================================
+    ! Validation Procedures
+    ! =========================================================================
+    
+    !> @brief Validate core_data structure
+    !> @param[in] cd Core data structure to validate
+    !> @param[out] is_valid True if structure is valid
+    !> @param[out] error_msg Error message if invalid
+    !> @param[out] ierr Error code
+    subroutine core_data_validate(cd, is_valid, error_msg, ierr)
+        type(core_data_t), intent(in) :: cd
+        logical, intent(out) :: is_valid
+        character(len=*), intent(out) :: error_msg
+        integer, intent(out) :: ierr
+        
+        ierr = KILCA_SUCCESS
+        is_valid = .true.
+        error_msg = ""
+        
+        ! Check path validity
+        if (.not. allocated(cd%path2project)) then
+            is_valid = .false.
+            error_msg = "Path not allocated"
+            return
+        end if
+        
+        if (len_trim(cd%path2project) == 0) then
+            is_valid = .false.
+            error_msg = "Empty project path"
+            return
+        end if
+        
+        ! Check dimension consistency
+        if (cd%dim < 0) then
+            is_valid = .false.
+            error_msg = "Negative dimension"
+            return
+        end if
+        
+        ! Check mode array consistency
+        if (cd%dim > 0 .and. .not. allocated(cd%mda)) then
+            is_valid = .false.
+            error_msg = "Mode array not allocated for dim > 0"
+            return
+        end if
+        
+        if (allocated(cd%mda)) then
+            if (size(cd%mda) /= cd%dim) then
+                is_valid = .false.
+                write(error_msg, '(a,i0,a,i0,a)') "Mode array size (", size(cd%mda), &
+                                                 ") != dim (", cd%dim, ")"
+                return
+            end if
+        end if
+        
+        ! Validate settings if present
+        if (associated(cd%sd)) then
+            ! For now, just check that settings is associated
+            ! Full validation would be done separately when settings are populated
+            
+            ! Check antenna mode consistency only if both are set
+            if (cd%dim > 0 .and. cd%sd%antenna_settings%dma > 0) then
+                if (cd%sd%antenna_settings%dma /= cd%dim) then
+                    is_valid = .false.
+                    write(error_msg, '(a,i0,a,i0,a)') "Antenna dma (", cd%sd%antenna_settings%dma, &
+                                                     ") != core dim (", cd%dim, ")"
+                    return
+                end if
+            end if
+        end if
+        
+    end subroutine core_data_validate
+    
+    !> @brief Validate full core_data structure including all subsystems
+    !> @param[in] cd Core data structure to validate
+    !> @param[out] is_valid True if structure is fully valid
+    !> @param[out] error_msg Error message if invalid
+    !> @param[out] ierr Error code
+    subroutine core_data_validate_full(cd, is_valid, error_msg, ierr)
+        type(core_data_t), intent(in) :: cd
+        logical, intent(out) :: is_valid
+        character(len=*), intent(out) :: error_msg
+        integer, intent(out) :: ierr
+        
+        ierr = KILCA_SUCCESS
+        
+        ! First do basic validation
+        call core_data_validate(cd, is_valid, error_msg, ierr)
+        if (.not. is_valid) return
+        
+        ! Check that all required components are present
+        if (.not. associated(cd%sd)) then
+            is_valid = .false.
+            error_msg = "Settings not initialized for full validation"
+            return
+        end if
+        
+        if (.not. associated(cd%bp)) then
+            is_valid = .false.
+            error_msg = "Background not initialized for full validation"
+            return
+        end if
+        
+        if (cd%dim > 0 .and. .not. allocated(cd%mda)) then
+            is_valid = .false.
+            error_msg = "Mode array not allocated for full validation"
+            return
+        end if
+        
+        ! Check initialization flag
+        if (.not. cd%initialized) then
+            is_valid = .false.
+            error_msg = "Core data not marked as initialized"
+            return
+        end if
+        
+    end subroutine core_data_validate_full
+    
+    !> @brief Check internal consistency of core_data
+    !> @param[in] cd Core data structure to check
+    !> @param[out] is_consistent True if internally consistent
+    !> @param[out] report Consistency report
+    !> @param[out] ierr Error code
+    subroutine core_data_check_consistency(cd, is_consistent, report, ierr)
+        type(core_data_t), intent(in) :: cd
+        logical, intent(out) :: is_consistent
+        character(len=*), intent(out) :: report
+        integer, intent(out) :: ierr
+        
+        character(len=1024) :: temp_msg
+        integer :: n_issues
+        
+        ierr = KILCA_SUCCESS
+        is_consistent = .true.
+        report = "Consistency check report:" // new_line('a')
+        n_issues = 0
+        
+        ! Check ownership consistency
+        if (cd%owns_settings .and. .not. associated(cd%sd)) then
+            is_consistent = .false.
+            n_issues = n_issues + 1
+            write(temp_msg, '(i0,a)') n_issues, ". owns_settings=T but sd not associated"
+            report = trim(report) // trim(temp_msg) // new_line('a')
+        end if
+        
+        if (.not. cd%owns_settings .and. associated(cd%sd)) then
+            ! This is OK - shared settings
+            report = trim(report) // "INFO: Using shared settings" // new_line('a')
+        end if
+        
+        ! Check path consistency
+        if (associated(cd%sd)) then
+            if (allocated(cd%path2project) .and. allocated(cd%sd%path2project)) then
+                if (cd%path2project /= cd%sd%path2project) then
+                    is_consistent = .false.
+                    n_issues = n_issues + 1
+                    write(temp_msg, '(i0,a)') n_issues, ". Path mismatch between core and settings"
+                    report = trim(report) // trim(temp_msg) // new_line('a')
+                end if
+            end if
+        end if
+        
+        ! Check static settings consistency
+        if (allocated(cd%path2project)) then
+            if (index(cd%path2project, "vacuum") > 0 .or. index(cd%path2project, "flre") > 0) then
+                if (.not. associated(cd%sd)) then
+                    n_issues = n_issues + 1
+                    write(temp_msg, '(i0,a)') n_issues, ". vacuum/flre project but no settings"
+                    report = trim(report) // trim(temp_msg) // new_line('a')
+                    ! Not necessarily inconsistent, just noteworthy
+                end if
+            end if
+        end if
+        
+        if (n_issues == 0) then
+            report = trim(report) // "No consistency issues found" // new_line('a')
+        else
+            write(temp_msg, '(a,i0,a)') "Found ", n_issues, " consistency issues"
+            report = trim(report) // trim(temp_msg) // new_line('a')
+        end if
+        
+    end subroutine core_data_check_consistency
+    
+    !> @brief Get detailed validation report
+    !> @param[in] cd Core data structure
+    !> @param[out] report Validation report
+    !> @param[out] ierr Error code
+    subroutine core_data_get_validation_report(cd, report, ierr)
+        type(core_data_t), intent(in) :: cd
+        character(len=*), intent(out) :: report
+        integer, intent(out) :: ierr
+        
+        logical :: is_valid, is_consistent
+        character(len=1024) :: error_msg, consistency_report
+        character(len=256) :: temp_str
+        
+        ierr = KILCA_SUCCESS
+        report = "=== Core Data Validation Report ===" // new_line('a')
+        
+        ! Basic info
+        if (allocated(cd%path2project)) then
+            write(temp_str, '(a,a)') "Path: ", trim(cd%path2project)
+        else
+            temp_str = "Path: <not allocated>"
+        end if
+        report = trim(report) // trim(temp_str) // new_line('a')
+        
+        write(temp_str, '(a,i0)') "Dimension: ", cd%dim
+        report = trim(report) // trim(temp_str) // new_line('a')
+        
+        write(temp_str, '(a,l1)') "Initialized: ", cd%initialized
+        report = trim(report) // trim(temp_str) // new_line('a')
+        
+        write(temp_str, '(a,l1)') "Owns settings: ", cd%owns_settings
+        report = trim(report) // trim(temp_str) // new_line('a')
+        
+        ! Component status
+        report = trim(report) // new_line('a') // "Components:" // new_line('a')
+        
+        write(temp_str, '(a,l1)') "  Settings associated: ", associated(cd%sd)
+        report = trim(report) // trim(temp_str) // new_line('a')
+        
+        write(temp_str, '(a,l1)') "  Background associated: ", associated(cd%bp)
+        report = trim(report) // trim(temp_str) // new_line('a')
+        
+        write(temp_str, '(a,l1)') "  Mode array allocated: ", allocated(cd%mda)
+        report = trim(report) // trim(temp_str) // new_line('a')
+        
+        if (allocated(cd%mda)) then
+            write(temp_str, '(a,i0)') "  Mode array size: ", size(cd%mda)
+            report = trim(report) // trim(temp_str) // new_line('a')
+        end if
+        
+        ! Validation result
+        report = trim(report) // new_line('a') // "Validation:" // new_line('a')
+        
+        call core_data_validate(cd, is_valid, error_msg, ierr)
+        write(temp_str, '(a,l1)') "  Basic validation: ", is_valid
+        report = trim(report) // trim(temp_str) // new_line('a')
+        if (.not. is_valid) then
+            write(temp_str, '(a,a)') "  Error: ", trim(error_msg)
+            report = trim(report) // trim(temp_str) // new_line('a')
+        end if
+        
+        ! Consistency check
+        call core_data_check_consistency(cd, is_consistent, consistency_report, ierr)
+        write(temp_str, '(a,l1)') "  Consistency: ", is_consistent
+        report = trim(report) // trim(temp_str) // new_line('a')
+        
+        report = trim(report) // new_line('a') // "=== End of Report ===" // new_line('a')
+        
+    end subroutine core_data_get_validation_report
     
     ! =========================================================================
     ! C-Fortran Interface Procedures

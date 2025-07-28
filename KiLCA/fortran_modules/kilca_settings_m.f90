@@ -4,7 +4,7 @@
 !>          and all related settings structures (antenna, background, output, eigmode).
 
 module kilca_settings_m
-    use iso_fortran_env, only: real64, int32, int64
+    use iso_fortran_env, only: real64, int32, int64, output_unit
     use iso_c_binding
     use kilca_types_m
     implicit none
@@ -190,6 +190,7 @@ module kilca_settings_m
     public :: antenna_read_settings
     public :: antenna_read_settings_full
     public :: antenna_print_settings
+    public :: antenna_print_settings_to_unit
     public :: antenna_validate
     
     ! Background procedures
@@ -197,6 +198,7 @@ module kilca_settings_m
     public :: back_sett_read_settings
     public :: back_sett_read_settings_full
     public :: back_sett_print_settings
+    public :: back_sett_print_settings_to_unit
     public :: back_sett_validate
     
     ! Output procedures
@@ -204,6 +206,7 @@ module kilca_settings_m
     public :: output_sett_read_settings
     public :: output_sett_read_settings_full
     public :: output_sett_print_settings
+    public :: output_sett_print_settings_to_unit
     public :: output_sett_validate
     
     ! Eigenmode procedures
@@ -211,6 +214,7 @@ module kilca_settings_m
     public :: eigmode_sett_read_settings
     public :: eigmode_sett_read_settings_full
     public :: eigmode_sett_print_settings
+    public :: eigmode_sett_print_settings_to_unit
     public :: eigmode_sett_validate
     
     ! C interface procedures
@@ -410,16 +414,26 @@ contains
     end subroutine settings_read_all
     
     !> @brief Print all settings
-    subroutine settings_print_all(sd)
+    subroutine settings_print_all(sd, ierr)
         type(settings_t), intent(in) :: sd
+        integer, intent(out) :: ierr
+        
+        ierr = KILCA_SUCCESS
         
         print *, "=== KiLCA Settings ==="
         print *, "Project path: ", trim(sd%path2project)
         
-        call antenna_print_settings(sd%antenna_settings)
-        call back_sett_print_settings(sd%background_settings)
-        call output_sett_print_settings(sd%output_settings)
-        call eigmode_sett_print_settings(sd%eigmode_settings)
+        call antenna_print_settings(sd%antenna_settings, ierr)
+        if (ierr /= KILCA_SUCCESS) return
+        
+        call back_sett_print_settings(sd%background_settings, ierr)
+        if (ierr /= KILCA_SUCCESS) return
+        
+        call output_sett_print_settings(sd%output_settings, ierr)
+        if (ierr /= KILCA_SUCCESS) return
+        
+        call eigmode_sett_print_settings(sd%eigmode_settings, ierr)
+        if (ierr /= KILCA_SUCCESS) return
         
     end subroutine settings_print_all
     
@@ -589,23 +603,62 @@ contains
         
     end subroutine antenna_read_settings
     
-    !> @brief Print antenna settings
-    subroutine antenna_print_settings(ant)
+    !> @brief Print antenna settings to stdout (matches C++ implementation)
+    subroutine antenna_print_settings(ant, ierr)
         type(antenna_t), intent(in) :: ant
+        integer, intent(out) :: ierr
         
-        print *, "--- Antenna Settings ---"
-        print *, "  Radius (ra):     ", ant%ra, " cm"
-        print *, "  Width (wa):      ", ant%wa, " cm"
-        print *, "  Current (I0):    ", ant%I0, " statamp"
-        print *, "  Frequency (flab):", ant%flab, " Hz"
-        print *, "  Number of modes: ", ant%dma
-        if (allocated(ant%modes)) then
-            print *, "  Modes (m,n):    ", ant%modes
-        end if
-        print *, "  Debug flag:      ", ant%flag_debug
-        print *, "  Eigenmode flag:  ", ant%flag_eigmode
+        call antenna_print_settings_to_unit(ant, output_unit, ierr)
         
     end subroutine antenna_print_settings
+    
+    !> @brief Print antenna settings to specified unit
+    subroutine antenna_print_settings_to_unit(ant, unit, ierr)
+        type(antenna_t), intent(in) :: ant
+        integer, intent(in) :: unit
+        integer, intent(out) :: ierr
+        integer :: i
+        
+        ierr = KILCA_SUCCESS
+        
+        write(unit, '(A)', iostat=ierr) ""
+        if (ierr /= 0) return
+        write(unit, '(A)', iostat=ierr) "Check for antenna parameters below:"
+        if (ierr /= 0) return
+        
+        write(unit, '(A)', iostat=ierr) ""
+        if (ierr /= 0) return
+        write(unit, '(A,G0,A)', iostat=ierr) "antenna radius: ", ant%ra, " cm"
+        if (ierr /= 0) return
+        write(unit, '(A,G0,A)', iostat=ierr) "antenna current layer width: ", ant%wa, " cm"
+        if (ierr /= 0) return
+        write(unit, '(A,G0,A)', iostat=ierr) "antenna coils current: ", ant%I0, " statamps"
+        if (ierr /= 0) return
+        write(unit, '(A,G0,A,G0,A)', iostat=ierr) "antenna lab frequency: (", real(ant%flab), ", ", aimag(ant%flab), ") 1/s"
+        if (ierr /= 0) return
+        write(unit, '(A,I0)', iostat=ierr) "dimension of modes array: ", ant%dma
+        if (ierr /= 0) return
+        write(unit, '(A,I0)', iostat=ierr) "flag for debugging mode: ", ant%flag_debug
+        if (ierr /= 0) return
+        write(unit, '(A,I0)', iostat=ierr) "flag for eigmode search: ", ant%flag_eigmode
+        if (ierr /= 0) return
+        
+        write(unit, '(A)', advance='no', iostat=ierr) "array of mode numbers (m, n): "
+        if (ierr /= 0) return
+        
+        if (allocated(ant%modes)) then
+            do i = 1, ant%dma
+                write(unit, '(A,I0,A,I0,A)', advance='no', iostat=ierr) "(", ant%modes(2*i-1), ", ", ant%modes(2*i), ") "
+                if (ierr /= 0) return
+            end do
+        end if
+        
+        write(unit, '(A)', iostat=ierr) ""
+        if (ierr /= 0) return
+        
+        ierr = KILCA_SUCCESS
+        
+    end subroutine antenna_print_settings_to_unit
     
     ! =========================================================================
     ! Background Settings Procedures
@@ -639,26 +692,68 @@ contains
         
     end subroutine back_sett_read_settings
     
-    !> @brief Print background settings
-    subroutine back_sett_print_settings(bs)
+    !> @brief Print background settings to stdout (matches C++ implementation)
+    subroutine back_sett_print_settings(bs, ierr)
         type(back_sett_t), intent(in) :: bs
+        integer, intent(out) :: ierr
         
-        print *, "--- Background Settings ---"
-        print *, "  Machine rtor:    ", bs%rtor
-        print *, "  Plasma radius:   ", bs%rp
-        print *, "  B0:              ", bs%B0
-        print *, "  Calc flag:       ", bs%calc_back
-        if (allocated(bs%flag_back)) then
-            print *, "  Flag back:       ", trim(bs%flag_back)
-        end if
-        print *, "  Spline degree N: ", bs%N
-        print *, "  V_gal_sys:       ", bs%V_gal_sys
-        print *, "  V_scale:         ", bs%V_scale
-        print *, "  Ion mass m_i:    ", bs%m_i
-        print *, "  Collision coeffs:", bs%zele, bs%zion
-        print *, "  Huge factor:     ", bs%huge_factor
+        call back_sett_print_settings_to_unit(bs, output_unit, ierr)
         
     end subroutine back_sett_print_settings
+    
+    !> @brief Print background settings to specified unit
+    subroutine back_sett_print_settings_to_unit(bs, unit, ierr)
+        type(back_sett_t), intent(in) :: bs
+        integer, intent(in) :: unit
+        integer, intent(out) :: ierr
+        
+        ierr = KILCA_SUCCESS
+        
+        write(unit, '(A)', iostat=ierr) ""
+        if (ierr /= 0) return
+        write(unit, '(A)', iostat=ierr) "Check for background parameters below:"
+        if (ierr /= 0) return
+        
+        write(unit, '(A)', iostat=ierr) ""
+        if (ierr /= 0) return
+        write(unit, '(A,G0,A)', iostat=ierr) "torus big radius: ", bs%rtor, " cm"
+        if (ierr /= 0) return
+        write(unit, '(A,G0,A)', iostat=ierr) "plasma radius: ", bs%rp, " cm"
+        if (ierr /= 0) return
+        write(unit, '(A,G0,A)', iostat=ierr) "toroidal magnetic field at the center: ", bs%B0, " G"
+        if (ierr /= 0) return
+        
+        if (allocated(bs%path2profiles)) then
+            write(unit, '(A,A)', iostat=ierr) "path to background profiles: ", bs%path2profiles
+            if (ierr /= 0) return
+        end if
+        write(unit, '(A,I0)', iostat=ierr) "flag if recalculate background: ", bs%calc_back
+        if (ierr /= 0) return
+        if (allocated(bs%flag_back)) then
+            write(unit, '(A,A)', iostat=ierr) "flag for background: ", bs%flag_back
+            if (ierr /= 0) return
+        end if
+        write(unit, '(A,I0)', iostat=ierr) "splines degree: ", bs%N
+        if (ierr /= 0) return
+        write(unit, '(A,G0,A)', iostat=ierr) "velocity of the moving frame: ", bs%V_gal_sys, " cm/s"
+        if (ierr /= 0) return
+        write(unit, '(A,G0)', iostat=ierr) "scale factor for the Vz velocity profile: ", bs%V_scale
+        if (ierr /= 0) return
+        write(unit, '(A,G0)', iostat=ierr) "ions mass in units of proton mass: ", bs%m_i
+        if (ierr /= 0) return
+        write(unit, '(A,G0)', iostat=ierr) "collision coefficient for electrons: ", bs%zele
+        if (ierr /= 0) return
+        write(unit, '(A,G0)', iostat=ierr) "collision coefficient for ions: ", bs%zion
+        if (ierr /= 0) return
+        write(unit, '(A,I0)', iostat=ierr) "flag for debugging mode: ", bs%flag_debug
+        if (ierr /= 0) return
+        
+        write(unit, '(A)', iostat=ierr) ""
+        if (ierr /= 0) return
+        
+        ierr = KILCA_SUCCESS
+        
+    end subroutine back_sett_print_settings_to_unit
     
     ! =========================================================================
     ! Output Settings Procedures
@@ -694,22 +789,61 @@ contains
         
     end subroutine output_sett_read_settings
     
-    !> @brief Print output settings
-    subroutine output_sett_print_settings(os)
+    !> @brief Print output settings to stdout (matches C++ implementation)
+    subroutine output_sett_print_settings(os, ierr)
         type(output_sett_t), intent(in) :: os
+        integer, intent(out) :: ierr
         
-        print *, "--- Output Settings ---"
-        print *, "  Flag background: ", os%flag_background
-        print *, "  Flag EM field:   ", os%flag_emfield
-        print *, "  Flag additional: ", os%flag_additional
-        print *, "  Flag dispersion: ", os%flag_dispersion
-        print *, "  Flag debug:      ", os%flag_debug
-        print *, "  Num quants:      ", os%num_quants
-        if (allocated(os%flag_quants)) then
-            print *, "  Flag quants:     ", os%flag_quants
-        end if
+        call output_sett_print_settings_to_unit(os, output_unit, ierr)
         
     end subroutine output_sett_print_settings
+    
+    !> @brief Print output settings to specified unit
+    subroutine output_sett_print_settings_to_unit(os, unit, ierr)
+        type(output_sett_t), intent(in) :: os
+        integer, intent(in) :: unit
+        integer, intent(out) :: ierr
+        integer :: i
+        
+        ierr = KILCA_SUCCESS
+        
+        write(unit, '(A)', iostat=ierr) ""
+        if (ierr /= 0) return
+        write(unit, '(A)', iostat=ierr) "Check for output parameters below:"
+        if (ierr /= 0) return
+        
+        write(unit, '(A)', iostat=ierr) ""
+        if (ierr /= 0) return
+        write(unit, '(A,I0)', iostat=ierr) "if compute background data: ", os%flag_background
+        if (ierr /= 0) return
+        write(unit, '(A,I0)', iostat=ierr) "if compute linear data: ", os%flag_emfield
+        if (ierr /= 0) return
+        write(unit, '(A,I0)', iostat=ierr) "if compute additional quants: ", os%flag_additional
+        if (ierr /= 0) return
+        write(unit, '(A,I0)', iostat=ierr) "if compute dispersion: ", os%flag_dispersion
+        if (ierr /= 0) return
+        write(unit, '(A,I0)', iostat=ierr) "flag for debugging: ", os%flag_debug
+        if (ierr /= 0) return
+        
+        write(unit, '(A,I0)', iostat=ierr) "dimension of flags array for quantities: ", os%num_quants
+        if (ierr /= 0) return
+        
+        write(unit, '(A)', advance='no', iostat=ierr) "array of flags for additional quantities: "
+        if (ierr /= 0) return
+        
+        if (allocated(os%flag_quants)) then
+            do i = 1, os%num_quants
+                write(unit, '(I0,A)', advance='no', iostat=ierr) os%flag_quants(i), " "
+                if (ierr /= 0) return
+            end do
+        end if
+        
+        write(unit, '(A)', iostat=ierr) ""
+        if (ierr /= 0) return
+        
+        ierr = KILCA_SUCCESS
+        
+    end subroutine output_sett_print_settings_to_unit
     
     ! =========================================================================
     ! Eigenmode Settings Procedures
@@ -743,24 +877,89 @@ contains
         
     end subroutine eigmode_sett_read_settings
     
-    !> @brief Print eigenmode settings
-    subroutine eigmode_sett_print_settings(es)
+    !> @brief Print eigenmode settings to stdout (matches C++ implementation)
+    subroutine eigmode_sett_print_settings(es, ierr)
         type(eigmode_sett_t), intent(in) :: es
+        integer, intent(out) :: ierr
         
-        print *, "--- Eigenmode Settings ---"
-        print *, "  Search flag:     ", es%search_flag
-        if (allocated(es%fname)) then
-            print *, "  Output file:     ", trim(es%fname)
-        end if
-        print *, "  Real grid:       ", es%rdim, es%rfmin, es%rfmax
-        print *, "  Imag grid:       ", es%idim, es%ifmin, es%ifmax
-        print *, "  Accuracies:      ", es%eps_res, es%eps_abs, es%eps_rel
-        print *, "  Delta:           ", es%delta
-        print *, "  Nguess:          ", es%Nguess
-        print *, "  N zeros:         ", es%n_zeros
-        print *, "  Use winding:     ", es%use_winding
+        call eigmode_sett_print_settings_to_unit(es, output_unit, ierr)
         
     end subroutine eigmode_sett_print_settings
+    
+    !> @brief Print eigenmode settings to specified unit
+    subroutine eigmode_sett_print_settings_to_unit(es, unit, ierr)
+        type(eigmode_sett_t), intent(in) :: es
+        integer, intent(in) :: unit
+        integer, intent(out) :: ierr
+        integer :: k
+        
+        ierr = KILCA_SUCCESS
+        
+        write(unit, '(A)', iostat=ierr) ""
+        if (ierr /= 0) return
+        write(unit, '(A)', iostat=ierr) "Check for eigmode settings below:"
+        if (ierr /= 0) return
+        
+        write(unit, '(A)', iostat=ierr) ""
+        if (ierr /= 0) return
+        if (allocated(es%fname)) then
+            write(unit, '(A,A)', iostat=ierr) "file name: ", es%fname
+            if (ierr /= 0) return
+        end if
+        write(unit, '(A,I0)', iostat=ierr) "search flag: ", es%search_flag
+        if (ierr /= 0) return
+        write(unit, '(A,I0)', iostat=ierr) "real freq mesh dim: ", es%rdim
+        if (ierr /= 0) return
+        write(unit, '(A,ES15.8)', iostat=ierr) "real freq mesh minimum: ", es%rfmin
+        if (ierr /= 0) return
+        write(unit, '(A,ES15.8)', iostat=ierr) "real freq mesh maximum: ", es%rfmax
+        if (ierr /= 0) return
+        write(unit, '(A,I0)', iostat=ierr) "imag freq mesh dim: ", es%idim
+        if (ierr /= 0) return
+        write(unit, '(A,ES15.8)', iostat=ierr) "imag freq mesh minimum: ", es%ifmin
+        if (ierr /= 0) return
+        write(unit, '(A,ES15.8)', iostat=ierr) "imag freq mesh maximum: ", es%ifmax
+        if (ierr /= 0) return
+        write(unit, '(A,I0)', iostat=ierr) "stopping criteria: ", es%stop_flag
+        if (ierr /= 0) return
+        write(unit, '(A,ES15.8)', iostat=ierr) "residual error parameter: ", es%eps_res
+        if (ierr /= 0) return
+        write(unit, '(A,ES15.8)', iostat=ierr) "abs error parameter: ", es%eps_abs
+        if (ierr /= 0) return
+        write(unit, '(A,ES15.8)', iostat=ierr) "rel error parameter: ", es%eps_rel
+        if (ierr /= 0) return
+        write(unit, '(A,ES15.8)', iostat=ierr) "delta for derivative: ", es%delta
+        if (ierr /= 0) return
+        write(unit, '(A,I0)', iostat=ierr) "test roots flag: ", es%test_roots
+        if (ierr /= 0) return
+        write(unit, '(A,I0)', iostat=ierr) "flag_debug: ", es%flag_debug
+        if (ierr /= 0) return
+        write(unit, '(A,I0)', iostat=ierr) "n_zeros: ", es%n_zeros
+        if (ierr /= 0) return
+        write(unit, '(A,I0)', iostat=ierr) "use_winding: ", es%use_winding
+        if (ierr /= 0) return
+        write(unit, '(A,I0)', iostat=ierr) "guess array dimension: ", es%Nguess
+        if (ierr /= 0) return
+        write(unit, '(A,I0)', iostat=ierr) "kmin: ", es%kmin
+        if (ierr /= 0) return
+        write(unit, '(A,I0)', iostat=ierr) "kmax: ", es%kmax
+        if (ierr /= 0) return
+        
+        write(unit, '(A)', iostat=ierr) "guess array:"
+        if (ierr /= 0) return
+        if (allocated(es%fstart)) then
+            do k = 1, es%Nguess
+                write(unit, '(A,I0,A,ES15.8,A,ES15.8,A)', iostat=ierr) "k=", k-1, "\tf=(", real(es%fstart(k)), ", ", aimag(es%fstart(k)), ")"
+                if (ierr /= 0) return
+            end do
+        end if
+        
+        write(unit, '(A)', iostat=ierr) ""
+        if (ierr /= 0) return
+        
+        ierr = KILCA_SUCCESS
+        
+    end subroutine eigmode_sett_print_settings_to_unit
     
     ! =========================================================================
     ! C Interface Procedures

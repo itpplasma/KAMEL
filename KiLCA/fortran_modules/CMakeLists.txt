@@ -67,6 +67,9 @@ target_link_libraries(test_settings_copy_compare kilca_fortran_modules)
 add_executable(test_settings_initialization tests/test_settings_initialization.f90)
 target_link_libraries(test_settings_initialization kilca_fortran_modules)
 
+add_executable(test_settings_error_handling tests/test_settings_error_handling.f90)
+target_link_libraries(test_settings_error_handling kilca_fortran_modules)
+
 # Add the tests
 add_test(NAME test_kilca_types COMMAND test_kilca_types)
 add_test(NAME test_kilca_core COMMAND test_kilca_core)
@@ -81,6 +84,7 @@ add_test(NAME test_settings_validation COMMAND test_settings_validation)
 add_test(NAME test_settings_output COMMAND test_settings_output)
 add_test(NAME test_settings_copy_compare COMMAND test_settings_copy_compare)
 add_test(NAME test_settings_initialization COMMAND test_settings_initialization)
+add_test(NAME test_settings_error_handling COMMAND test_settings_error_handling)
 
 # Set module directory
 set_target_properties(kilca_fortran_modules PROPERTIES
@@ -137,5 +141,9 @@ target_include_directories(test_settings_copy_compare PRIVATE
 )
 
 target_include_directories(test_settings_initialization PRIVATE
+    ${CMAKE_CURRENT_BINARY_DIR}/modules
+)
+
+target_include_directories(test_settings_error_handling PRIVATE
     ${CMAKE_CURRENT_BINARY_DIR}/modules
 )

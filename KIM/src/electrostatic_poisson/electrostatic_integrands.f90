@@ -1,40 +1,54 @@
+! integrands for both Krook and FP collision models
 module electrostatic_integrands
 
     use KIM_kinds, only: dp
 
     implicit none
 
-    type :: int_B0_rho_phi_t
+    type :: integration_point_t
         real(dp) :: rhoT
         integer :: j
         real(dp) :: xlm1, xlp1, xl
         real(dp) :: xlpm1, xlpp1, xlp
+        real(dp) :: xl_mapped, xlp_mapped
+        real(dp) :: a_coef, b_coef
+        real(dp) :: Jrg1, Jrg2, Jrg3, Jrg4
         contains
-            procedure :: f => integrand_mathcal_B0_rho_phi_semi_analytic
+            procedure :: calc_Jrg1
+            procedure :: calc_Jrg2
+            procedure :: calc_Jrg3
+            procedure :: calc_Jrg4
     end type
 
-    type :: int_B1_rho_phi_t
-        real(dp) :: rhoT
-        integer :: j
-        real(dp) :: xlm1, xlp1, xl
-        real(dp) :: xlpm1, xlpp1, xlp
+    type :: int_F0_rho_phi_t
+        type(integration_point_t) :: int_point
         contains
-            procedure :: f => integrand_mathcal_B1_rho_phi_semi_analytic
+            procedure :: f => integrand_F0_rho_phi
     end type
 
-    type :: int_struct_t
-        real(dp) :: xlm1, xlp1, xl
-        real(dp) :: xlpm1, xlpp1, xlp
-        real(dp) :: rgj, rgjp1
-        real(dp) :: rhoT, ks
-        integer :: sp
+    type :: int_F1_rho_phi_t
+        type(integration_point_t) :: int_point
+        contains
+            procedure :: f => integrand_F1_rho_phi
+    end type
+
+    type :: int_F2_rho_phi_t
+        type(integration_point_t) :: int_point
+        contains
+            procedure :: f => integrand_F2_rho_phi
+    end type
+
+    type :: int_F3_rho_phi_t
+        type(integration_point_t) :: int_point
+        contains
+            procedure :: f => integrand_F3_rho_phi
     end type
 
     contains
 
-    function integrand_mathcal_B0_rho_phi_semi_analytic(this, x) result(val)
+    function integrand_F0_rho_phi(this, x) result(val)
 
-        use grid, only: xl_grid, rg_grid
+        use grid, only: rg_grid
         use functions, only: varphi_l
         use gsl_mod, only: erf => gsl_sf_erf
         use constants, only: pi
@@ -43,255 +57,205 @@ module electrostatic_integrands
 
         real(dp), intent(in) :: x
         real(dp) :: val
-        class(int_B0_rho_phi_t), intent(in) :: this
+        class(int_F0_rho_phi_t), intent(in) :: this
 
-        val = varphi_l(x, this%xlm1, this%xl, this%xlp1) &
-            * varphi_l(x, this%xlpm1, this%xlp, this%xlpp1) &
+        val = varphi_l(x, this%int_point%xlm1, this%int_point%xl, this%int_point%xlp1) &
+            * varphi_l(x, this%int_point%xlpm1, this%int_point%xlp, this%int_point%xlpp1) &
             * (&
-                erf((x - rg_grid%xb(this%j))/(sqrt(2.0d0) * this%rhoT)) &
-                - erf((x - rg_grid%xb(this%j+1))/(sqrt(2.0d0) * this%rhoT))&
-            )
+                  erf((rg_grid%xb(this%int_point%j+1)-x)/(sqrt(2.0d0) * abs(this%int_point%rhoT))) &
+                - erf((rg_grid%xb(this%int_point%j) - x)/(sqrt(2.0d0) * abs(this%int_point%rhoT)))&
+            ) &
+            * 2.0d0 * pi**2.0d0
 
     end function
 
-    function integrand_mathcal_B1_rho_phi_semi_analytic(this, x, xp, theta) result(val)
+    function integrand_F1_rho_phi(this, x, xp, theta) result(val)
 
         use constants, only: pi
         use species, only: plasma
         use gsl_mod, only: erf => gsl_sf_erf
-        use grid, only: rg_grid, xl_grid
         use KIM_kinds, only: dp
         use functions, only: varphi_l
 
         implicit none
 
-        class(int_B1_rho_phi_t), intent(in) :: this
+        class(int_F1_rho_phi_t), intent(inout) :: this
         real(dp), intent(in) :: x, xp, theta
         real(dp) :: val
         real(dp) :: ks_val
 
-        ks_val = 0.5d0 * (plasma%ks(this%j) + plasma%ks(this%j+1))
+        ks_val = 0.5d0 * (plasma%ks(this%int_point%j) + plasma%ks(this%int_point%j+1))
 
-        val = - sqrt(pi) / (sqrt(1.0d0 - cos(theta)) * this%rhoT) * exp(- ks_val**2.0d0 * this%rhoT**2.0d0) &
-            * varphi_l(xp, this%xlpm1, this%xlp, this%xlpp1) &
-            * varphi_l(x, this%xlm1, this%xl, this%xlp1) &
-            * exp(- (x+xp)**2.0d0 / (4.0d0 * this%rhoT**2.0d0 * (1.0d0 - cos(theta)))) &
-            * (&
-                erf(0.5d0 * (xp - x) + rg_grid%xb(this%j+1))/(this%rhoT * sqrt(1.0d0 + cos(theta))) &
-                -erf(0.5d0 * (xp - x) + rg_grid%xb(this%j))/(this%rhoT * sqrt(1.0d0 + cos(theta))) &
-            ) 
-
-    end function
-
-    function G1_rho_phi(j, spec) result(val)
-
-        use KIM_kinds, only: dp
-        use species, only: species_t, plasma
-
-        implicit none
-
-        integer, intent(in) :: j
-        type(species_t), intent(in) :: spec
-        complex(dp) :: val
-        real(dp) :: ks_val, lambda, kpar, A1, A2, z0, rhoT
-        complex(dp) :: plasma_Z
-
-        ks_val = 0.5d0 * (plasma%ks(j) + plasma%ks(j+1))
-        lambda = 0.5d0 * (spec%lambda_D(j) + spec%lambda_D(j+1))
-        kpar = 0.5d0 * (plasma%kp(j) + plasma%kp(j+1))
-        A1 = 0.5d0 * (spec%A1(j) + spec%A1(j+1))
-        A2 = 0.5d0 * (spec%A2(j) + spec%A2(j+1))
-        z0 = 0.5d0 * (spec%z0(j) + spec%z0(j+1))
-        rhoT = 0.5d0 * (spec%rho_L(j) + spec%rho_L(j+1))
-
-        val = ks_val * rhoT /(lambda**2.0d0 * abs(kpar) * sqrt(2.0d0)) &
-            * (&
-                A1 * plasma_Z(z0) + A2 * plasma_Z(z0) * (1.0d0 + z0**2.0d0) + z0 * A2 &
-            )
-
-    end function
-
-    function G2_rho_phi(j, spec) result(val)
-
-        use KIM_kinds, only: dp
-        use species, only: species_t, plasma
-
-        implicit none
-
-        integer, intent(in) :: j
-        type(species_t), intent(in) :: spec
-        complex(dp) :: val
-        real(dp) :: ks_val, lambda, kpar, A1, A2, z0, rhoT
-        complex(dp) :: plasma_Z
-
-        ks_val = 0.5d0 * (plasma%ks(j) + plasma%ks(j+1))
-        lambda = 0.5d0 * (spec%lambda_D(j) + spec%lambda_D(j+1))
-        kpar = 0.5d0 * (plasma%kp(j) + plasma%kp(j+1))
-        A1 = 0.5d0 * (spec%A1(j) + spec%A1(j+1))
-        A2 = 0.5d0 * (spec%A2(j) + spec%A2(j+1))
-        z0 = 0.5d0 * (spec%z0(j) + spec%z0(j+1))
-        rhoT = 0.5d0 * (spec%rho_L(j) + spec%rho_L(j+1))
-
-        val = ks_val /(lambda**2.0d0 * abs(kpar) * sqrt(2.0d0)) * A2
-
-    end function
-
-    function G3_rho_phi(j, spec) result(val)
-
-        use KIM_kinds, only: dp
-        use species, only: species_t, plasma
-
-        implicit none
-
-        integer, intent(in) :: j
-        type(species_t), intent(in) :: spec
-        complex(dp) :: val
-        real(dp) :: ks_val, lambda, kpar, A1, A2, z0, rhoT
-        complex(dp) :: plasma_Z ! plasma dispersion function
-
-        ks_val = 0.5d0 * (plasma%ks(j) + plasma%ks(j+1))
-        lambda = 0.5d0 * (spec%lambda_D(j) + spec%lambda_D(j+1))
-        kpar = 0.5d0 * (plasma%kp(j) + plasma%kp(j+1))
-        A1 = 0.5d0 * (spec%A1(j) + spec%A1(j+1))
-        A2 = 0.5d0 * (spec%A2(j) + spec%A2(j+1))
-        z0 = 0.5d0 * (spec%z0(j) + spec%z0(j+1))
-        rhoT = 0.5d0 * (spec%rho_L(j) + spec%rho_L(j+1))
-
-        val = ks_val /(lambda**2.0d0 * abs(kpar) * sqrt(2.0d0)) * A2
-
-    end function
-
-    function G1_rho_B(j, spec) result(val)
-
-        use KIM_kinds, only: dp
-        use species, only: species_t, plasma
-
-        implicit none
-
-        integer, intent(in) :: j
-        type(species_t), intent(in) :: spec
-        complex(dp) :: val
-        real(dp) :: ks_val, lambda, kpar, A1, A2, z0, rhoT
-        complex(dp) :: plasma_Z
-
-        A1 = 0.5d0 * (spec%A1(j) + spec%A1(j+1))
-        A2 = 0.5d0 * (spec%A2(j) + spec%A2(j+1))
-        z0 = 0.5d0 * (spec%z0(j) + spec%z0(j+1))
-
-        val = 0.5d0 * A1 * (z0 * plasma_Z(z0) + 1.0d0) + A2 * &
-            (&
-                0.5d0 + (z0 * plasma_Z(z0) + 1.0d0) * (1.0d0 + z0**2.0d0) &
-            )
-
-    end function
-
-    function G2_rho_B(j, spec) result(val)
-
-        use KIM_kinds, only: dp
-        use species, only: species_t, plasma
-    
-        implicit none
-
-        integer, intent(in) :: j
-        type(species_t),intent(in) :: spec
-        complex(dp) :: val
-        real(dp) :: ks_val, lambda, kpar, A1, A2, z0, rhoT
-        complex(dp) :: plasma_Z
-
-        A2 = 0.5d0 * (spec%A2(j) + spec%A2(j+1))
-        z0 = 0.5d0 * (spec%z0(j) + spec%z0(j+1))
-
-        val = A2 * (z0 * plasma_Z(z0) + 1.0d0)
+        val = varphi_l(xp, this%int_point%xlpm1, this%int_point%xlp, this%int_point%xlpp1) &
+            * varphi_l(x, this%int_point%xlm1, this%int_point%xl, this%int_point%xlp1) &
+            * 2.0d0 * pi / (this%int_point%rhoT**2.0d0 * sin(theta)) &
+            * exp(- ks_val**2.0d0 * this%int_point%rhoT**2.0d0 &
+                  - (x - xp)**2.0d0 / (4.0d0 * this%int_point%rhoT**2.0d0 * (1.0d0 - cos(theta)))) &
+            * this%int_point%Jrg1
 
     end function
 
 
-    function G0_rho_phi(j, spec) result(val)
-
-        use species, only: plasma, species_t
-        use constants, only: pi
-
-        implicit none
-
-        integer, intent(in) :: j
-        type(species_t), intent(in) :: spec
-        real(dp) :: val
-        real(dp) :: lambda
-
-        lambda = 0.5d0 * (spec%lambda_D(j) + spec%lambda_D(j+1))
-        val = 2.0d0 * pi**2.0d0 / (-lambda**2.0d0)  !/ sqrt(2.0d0)
-
-    end function
-
-
-    ! completely numerical integration
-
-    function int_B0_rho_phi(x, xp, rg, theta, rhoT, ks) result(val)
+    function integrand_F2_rho_phi(this, x, xp, theta) result(val)
 
         use constants, only: pi
+        use species, only: plasma
+        use gsl_mod, only: erf => gsl_sf_erf
         use KIM_kinds, only: dp
+        use functions, only: varphi_l
 
         implicit none
 
-        real(dp), intent(in) :: x, xp, rg, theta, rhoT, ks
+        class(int_F2_rho_phi_t), intent(inout) :: this
+        real(dp), intent(in) :: x, xp, theta
         real(dp) :: val
+        real(dp) :: ks_val
 
-        if (abs(x-xp) <= 1e-15) then
-            val = (sqrt(2.0d0 * pi))**(1.5d0) / rhoT * exp(- (x - rg)**2.0d0 / (2.0d0 * rhoT**2.0d0))
-        else
-            val = 0.0d0
-        end if
+        ks_val = 0.5d0 * (plasma%ks(this%int_point%j) + plasma%ks(this%int_point%j+1))
 
-    end function
-
-    function int_B1_rho_phi(x, xp, rg, theta, rhoT, ks) result(val)
-
-        use KIM_kinds, only: dp
-
-        implicit none
-
-        real(dp), intent(in) :: x, xp, rg, theta, rhoT, ks
-        real(dp) :: val
-
-        val = 2.0d0 / (rhoT**2.0d0 * sin(theta)) * zeta(x, xp, rg, theta, rhoT, ks)
-
-    end function
-
-    function int_B2_rho_phi(x, xp, rg, theta, rhoT, ks) result(val)
-
-        use KIM_kinds, only: dp
-
-        implicit none
-
-        real(dp), intent(in) :: x, xp, rg, theta, rhoT, ks
-        real(dp) :: val
-
-        val = -zeta(x, xp, rg, theta, rhoT, ks) /(4.0d0 * rhoT**4.0d0 * sin(theta)**5.0d0) &
-            * (&
-                2.0d0 * cos(2.0d0*theta) &
-                * (&
-                    (x - rg)**2.0d0 + (xp + rg)**2.0d0 + 2.0d0 * rhoT**2.0d0 * (ks**2.0d0 * rhoT**2.0d0 + 1.0d0) &
-                )&
-                - ks**2.0d0 * rhoT**4.0d0 * cos(4.0d0*theta) &
-                - rhoT**2.0d0 * (3.0d0 * ks**2.0d0 * rhoT**2.0d0 + 4.0d0) &
-                + 6.0d0 * ((x - rg)**2.0d0 + (xp + rg)**2.0d0) &
-                + 16.0d0 * cos(theta) * (x - rg) * (xp + rg) &
+        val = varphi_l(xp, this%int_point%xlpm1, this%int_point%xlp, this%int_point%xlpp1) &
+            * varphi_l(x, this%int_point%xlm1, this%int_point%xl, this%int_point%xlp1) &
+            * (-pi) / (4.0d0 * this%int_point%rhoT**4.0d0 * sin(theta)**5.0d0) &
+            * exp(- ks_val**2.0d0 * this%int_point%rhoT**2.0d0 &
+                  - (x - xp)**2.0d0 / (4.0d0 * this%int_point%rhoT**2.0d0 * (1.0d0 - cos(theta)))) & 
+            * ( &
+                this%int_point%Jrg1 * (&
+                    4.0d0 * cos(2.0d0 * theta) * this%int_point%rhoT**2.0d0 *(ks_val**2.0d0 * this%int_point%rhoT**2.0d0 + 1.0d0) &
+                    - ks_val**2.0d0 * this%int_point%rhoT**4.0d0 * cos(4.0d0 * theta)  &
+                    - this%int_point%rhoT**2.0d0 * (3.0d0 * ks_val**2.0d0 * this%int_point%rhoT**2.0d0 + 4.0d0) &
+                ) &
+                + (2.0d0 * cos(2.0d0 * theta) + 6.0d0) * (this%int_point%Jrg2 + this%int_point%Jrg3) &
+                - 16.0d0 * cos(theta) * this%int_point%Jrg4 &
             )
 
     end function
 
 
-    function zeta(x, xp, rg, theta, rhoT, ks) result(val)
+    function integrand_F3_rho_phi(this, x, xp, theta) result(val)
 
+        use constants, only: pi
+        use species, only: plasma
+        use gsl_mod, only: erf => gsl_sf_erf
         use KIM_kinds, only: dp
+        use functions, only: varphi_l
 
         implicit none
-        real(dp), intent(in) :: x, xp, rg, theta, rhoT, ks
-        real(dp) :: val
 
-        val = exp(-ks**2.0d0 * rhoT**2.0d0 &
-            - (rg + 0.5d0 * (xp -x))**2.0d0 * (1.0d0 - cos(theta)) / (rhoT**2.0d0 * sin(theta)**2.0d0) &
-            - (xp +x)**2.0d0 * (1.0d0 + cos(theta)) / (4.0d0 * rhoT**2.0d0 * sin(theta)**2.0d0))
+        class(int_F3_rho_phi_t), intent(inout) :: this
+        real(dp), intent(in) :: x, xp, theta
+        real(dp) :: val
+        real(dp) :: ks_val
+
+        ks_val = 0.5d0 * (plasma%ks(this%int_point%j) + plasma%ks(this%int_point%j+1))
+
+        val = varphi_l(xp, this%int_point%xlpm1, this%int_point%xlp, this%int_point%xlpp1) &
+            * varphi_l(x, this%int_point%xlm1, this%int_point%xl, this%int_point%xlp1) &
+            * (-pi) * cos(theta) / ( 2.0d0 * this%int_point%rhoT**4.0d0 * sin(theta)**5.0d0) &
+            * exp(- ks_val**2.0d0 * this%int_point%rhoT**2.0d0 &
+                  - (x - xp)**2.0d0 / (4.0d0 * this%int_point%rhoT**2.0d0 * (1.0d0 - cos(theta)))) & 
+            * ( &
+                this%int_point%rhoT**2.0d0 * (cos(3.0d0 * theta) - cos(theta)) * this%int_point%Jrg1 &
+                + 4.0d0 * cos(theta) * (this%int_point%Jrg2 + this%int_point%Jrg3) &
+                - 2.0d0 * (cos(2.0d0 * theta) + 3.0d0) * this%int_point%Jrg4 &
+            )
+
+    end function
+
+    subroutine calc_Jrg1(this)
+
+        use constants, only: pi
+        use grid, only: rg_grid
+        use gsl_mod, only: erf => gsl_sf_erf
+
+        implicit none
+
+        class(integration_point_t), intent(inout) :: this
+
+        this%Jrg1 = sqrt(pi) / (2.0d0 * this%a_coef) &
+            *(erf(this%a_coef * (this%b_coef - rg_grid%xb(this%j))) &
+            - erf(this%a_coef * (this%b_coef - rg_grid%xb(this%j+1))))
+
+    end subroutine
+
+    subroutine calc_Jrg2(this)
+
+        use constants, only: pi
+        use grid, only: rg_grid
+        use gsl_mod, only: erf => gsl_sf_erf
+
+        implicit none
+
+        class(integration_point_t), intent(inout) :: this
+
+        this%Jrg2 = 1.0d0 / (4.0d0 * this%a_coef**3.0d0) &
+                    * ( &
+                        sqrt(pi) * (2.0d0 * this%a_coef**2.0d0 * (this%b_coef - this%xl_mapped)**2.0d0 + 1.0d0) &
+                            * (erf(this%a_coef * (this%b_coef - rg_grid%xb(this%j))) &
+                                - erf(this%a_coef * (this%b_coef - rg_grid%xb(this%j+1)))) &
+                        + 2.0d0 * this%a_coef * exp(-this%a_coef**2.0d0 * (this%b_coef - rg_grid%xb(this%j))**2.0d0) &
+                            * (this%b_coef + rg_grid%xb(this%j) - 2.0d0 * this%xl_mapped) &
+                        - 2.0d0 * this%a_coef * exp(-this%a_coef**2.0d0 * (this%b_coef - rg_grid%xb(this%j+1))**2.0d0) &
+                            * (this%b_coef + rg_grid%xb(this%j+1) - 2.0d0 * this%xl_mapped) &
+                    )
+
+    end subroutine
+
+
+    subroutine calc_Jrg3(this)
+
+        use constants, only: pi
+        use grid, only: rg_grid
+        use gsl_mod, only: erf => gsl_sf_erf
+
+        implicit none
+
+        class(integration_point_t), intent(inout) :: this
+
+        this%Jrg3 = 1.0d0 / (4.0d0 * this%a_coef**3.0d0) &
+                    * ( &
+                        sqrt(pi) * (2.0d0 * this%a_coef**2.0d0 * (this%b_coef - this%xlp_mapped)**2.0d0 + 1.0d0) &
+                            * (erf(this%a_coef * (this%b_coef - rg_grid%xb(this%j))) &
+                                - erf(this%a_coef * (this%b_coef - rg_grid%xb(this%j+1)))) &
+                        + 2.0d0 * this%a_coef * exp(-this%a_coef**2.0d0 * (this%b_coef - rg_grid%xb(this%j))**2.0d0) &
+                            * (this%b_coef + rg_grid%xb(this%j) - 2.0d0 * this%xlp_mapped) &
+                        - 2.0d0 * this%a_coef * exp(-this%a_coef**2.0d0 * (this%b_coef - rg_grid%xb(this%j+1))**2.0d0) &
+                            * (this%b_coef + rg_grid%xb(this%j+1) - 2.0d0 * this%xlp_mapped) & 
+                    )
+
+    end subroutine
+
+    subroutine calc_Jrg4(this)
+
+        use constants, only: pi
+        use grid, only: rg_grid
+        use gsl_mod, only: erf => gsl_sf_erf
+
+        implicit none
+
+        class(integration_point_t), intent(inout) :: this
+
+        this%Jrg4 = 1.0d0 / (4.0d0 * this%a_coef**3.0d0) &
+                    * ( &
+                        (erf(this%a_coef * (this%b_coef - rg_grid%xb(this%j))) &
+                            - erf(this%a_coef * (this%b_coef - rg_grid%xb(this%j+1)))) &
+                            * sqrt(pi) * (2.0d0 * this%a_coef**2.0d0 * (this%b_coef - this%xl_mapped) &
+                            * (this%b_coef - this%xlp_mapped)+1.0d0) &
+                        + 2.0d0 * this%a_coef * exp(-this%a_coef**2.0d0 * (this%b_coef - rg_grid%xb(this%j))**2.0d0) &
+                            * (this%b_coef + rg_grid%xb(this%j) - this%xl_mapped - this%xlp_mapped) &
+                        + 2.0d0 * this%a_coef * exp(-this%a_coef**2.0d0 * (this%b_coef - rg_grid%xb(this%j+1))**2.0d0) &
+                            * (-this%b_coef - rg_grid%xb(this%j+1) + this%xl_mapped + this%xlp_mapped) &
+                    )
+
+    end subroutine
+
+    function calc_b_coef(x,xp) result(b_coef)
+
+        implicit none
+
+        real(dp), intent(in) :: x, xp
+        real(dp) :: b_coef
+
+        b_coef = 0.5d0 * (xp + x)
 
     end function
 

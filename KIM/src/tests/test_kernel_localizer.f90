@@ -3,7 +3,7 @@ program test_kernel_localizer
     use kernels, only: fill_rho_kernels, K_rho_phi_of_rg, kernel_rho_phi_of_kr_krp_rg
     use KIM_kinds, only: dp
     use grid, only: rg_grid
-    use plasma_parameter, only: r_prof, n_prof, ni_prof, Te_prof, Ti_prof, iprof_length, Er_prof
+    use plasma_parameter, only: r_prof, n_prof, iprof_length
     use resonances_mod, only: r_res
     use regularization_funcs, only: theta_middle, theta_right, theta_left
 
@@ -12,9 +12,7 @@ program test_kernel_localizer
     integer :: i, ikr, ikrp
     real(dp) :: ne_core
     real(dp) :: delta_r
-    integer :: r_ind = 50
-    complex(dp) :: kernel_value
-    real(dp) :: kr, krp, rg
+    real(dp) :: kr, krp
     real(dp), allocatable :: localizer_middle(:)
     real(dp), allocatable :: localizer_right(:)
     real(dp), allocatable :: localizer_left(:)

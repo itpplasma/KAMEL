@@ -1,0 +1,13 @@
+#!/bin/bash
+# KIM GUI Launcher Script
+# This script can be placed in your PATH to launch the KIM GUI from anywhere
+
+# Get the directory of this script
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+# Change to the current working directory (where the user called the script)
+cd "$PWD"
+
+# Launch the KIM GUI with proper Python path
+export PYTHONPATH="$SCRIPT_DIR:$PYTHONPATH"
+python3 "$SCRIPT_DIR/kim_gui_launcher.py" "$@"

@@ -158,11 +158,13 @@ module cut_off_integration
         use grid, only: xl_grid, kr_grid, krp_grid, rg_grid
         use kernels, only: K_rho_phi_of_rg
         use integrands, only: integrand_w_exp_facs_rho_phi
+        use KIM_kinds, only: dp
 
         implicit none
+
         integer, intent(in) :: l, lp, i_rg
         integer :: i_kr, i_krp
-        double precision :: rg, kr, krm1, krp, krpm1, xl, xlp
+        real(dp) :: rg, kr, krm1, krp, krpm1, xl, xlp
 
         xl = xl_grid%xb(l)
         xlp = xl_grid%xb(lp)

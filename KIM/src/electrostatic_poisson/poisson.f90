@@ -14,11 +14,12 @@ module rt_electrostatic
 
     subroutine init_electrostatic(this)
 
-        use species, only: init_deuterium_plasma, set_deuterium_plasma, plasma, interpolate_plasma_backs
+        use species, only: init_plasma, plasma, set_plasma_quantities
         use IO_collection, only: create_output_directories
-        use grid, only: rg_grid
+        use equilibrium, only: calculate_equil
 
         implicit none
+
         class(electrostatic_t), intent(inout) :: this
 
         this%run_type = "electrostatic"
@@ -28,69 +29,86 @@ module rt_electrostatic
         print *, "|    |  \|   /    Y    \"
         print *, "|____|__ \___\____|__  /"
         print *, "        \/           \/ "
-        print *, "electrostatic model initialized."
 
         call create_output_directories
         call generate_grids
-        call init_deuterium_plasma(plasma)
-        call set_deuterium_plasma(plasma)
-        call interpolate_plasma_backs(plasma, rg_grid%xb)
+        !call init_plasma(plasma)
+        call calculate_equil(.true.)
+        call set_plasma_quantities(plasma)
+
+        print *, "... electrostatic model initialized."
 
     end subroutine
 
     subroutine run_electrostatic(this)
 
-        use KIM_kinds, only: dp
-        use electrostatic_kernel, only: fill_kernel_phi_semi_analytic, fill_kernel_phi_numerical, kernel_spl_t
+        use electrostatic_kernel, only: Krook_fill_kernel_phi, FP_fill_kernel_phi, fill_kernels_krook_fp, kernel_spl_t
         use grid, only: xl_grid
         use IO_collection, only: write_matrix, write_complex_profile
         use poisson_solver, only: solve_poisson
-        use config, only: output_path
-        use fields, only: EBdat, calculate_E_perp_psi, set_Br_constant, calculate_E_perp, get_Br_from_txt, calculate_E_from_phi, calculate_E_in_rsp_from_cyl
-        use species, only: plasma
+        use config, only: output_path, collision_model
+        use fields, only: EBdat, postprocess_electric_field, postprocess_electric_field_with_model
 
         implicit none
+
         class(electrostatic_t), intent(inout) :: this
         type(kernel_spl_t) :: kernel_rho_phi_llp
         type(kernel_spl_t) :: kernel_rho_B_llp
-        !complex(dp) :: Br_const
-        character(len=256) :: file_path
-        complex(dp), allocatable :: phi_numerical(:)
+        type(kernel_spl_t) :: kernel_krook_rho_phi_llp
+        type(kernel_spl_t) :: kernel_krook_rho_B_llp
+        type(kernel_spl_t) :: kernel_fp_rho_phi_llp
+        type(kernel_spl_t) :: kernel_fp_rho_B_llp
 
         call kernel_rho_phi_llp%init_kernel(xl_grid%npts_b, xl_grid%npts_b)
         call kernel_rho_B_llp%init_kernel(xl_grid%npts_b, xl_grid%npts_b)
 
-        call fill_kernel_phi_semi_analytic(kernel_rho_phi_llp, kernel_rho_B_llp)
+        if (collision_model == "Krook") then
+            call Krook_fill_kernel_phi(kernel_rho_phi_llp, kernel_rho_B_llp)
+        else if (collision_model == "FokkerPlanck") then
+            call FP_fill_kernel_phi(kernel_rho_phi_llp, kernel_rho_B_llp)
+        else if (collision_model == "Krook_FokkerPlanck") then
+            ! Initialize kernels for both models
+            call kernel_krook_rho_phi_llp%init_kernel(xl_grid%npts_b, xl_grid%npts_b)
+            call kernel_krook_rho_B_llp%init_kernel(xl_grid%npts_b, xl_grid%npts_b)
+            call kernel_fp_rho_phi_llp%init_kernel(xl_grid%npts_b, xl_grid%npts_b)
+            call kernel_fp_rho_B_llp%init_kernel(xl_grid%npts_b, xl_grid%npts_b)
+            
+            ! Fill both kernels using unified subroutine
+            call fill_kernels_krook_fp(kernel_krook_rho_phi_llp, kernel_krook_rho_B_llp, &
+                                      kernel_fp_rho_phi_llp, kernel_fp_rho_B_llp)
+            
+            ! Allocate EBdat fields
+            allocate(EBdat%Phi(xl_grid%npts_b), EBdat%Br(xl_grid%npts_b), EBdat%E_perp_psi(xl_grid%npts_b), &
+                    EBdat%r_grid(xl_grid%npts_b), EBdat%E_perp(xl_grid%npts_b))
+            EBdat%r_grid = xl_grid%xb
+            
+            ! Solve and write Krook solution
+            call solve_poisson(kernel_krook_rho_phi_llp%Kllp, kernel_krook_rho_B_llp%Kllp, EBdat%Phi)
+            call write_complex_profile(xl_grid%xb, EBdat%Phi, xl_grid%npts_b, trim(output_path)//"/fields/phi_Krook_sol.dat")
+            call postprocess_electric_field_with_model(EBdat, "Krook")
+            
+            ! Solve and write Fokker-Planck solution
+            call solve_poisson(kernel_fp_rho_phi_llp%Kllp, kernel_fp_rho_B_llp%Kllp, EBdat%Phi)
+            call write_complex_profile(xl_grid%xb, EBdat%Phi, xl_grid%npts_b, trim(output_path)//"/fields/phi_FokkerPlanck_sol.dat")
+            call postprocess_electric_field_with_model(EBdat, "FokkerPlanck")
+            
+            return
+        else
+            stop "Error: collision model not recognized."
+        end if
+
         call write_matrix(trim(output_path)//"kernel/kernel_phi_llp_re.dat", real(kernel_rho_phi_llp%Kllp), xl_grid%npts_b, xl_grid%npts_b)
         call write_matrix(trim(output_path)//"kernel/kernel_phi_llp_im.dat", dimag(kernel_rho_phi_llp%Kllp), xl_grid%npts_b, xl_grid%npts_b)
 
         allocate(EBdat%Phi(xl_grid%npts_b), EBdat%Br(xl_grid%npts_b), EBdat%E_perp_psi(xl_grid%npts_b), &
-                EBdat%r_grid(xl_grid%npts_b), EBdat%E_perp(xl_grid%npts_b-1), phi_numerical(xl_grid%npts_b))
+                EBdat%r_grid(xl_grid%npts_b), EBdat%E_perp(xl_grid%npts_b))
+
         EBdat%r_grid = xl_grid%xb
-        !Br_const = 1.0d0
-        !call set_Br_constant(EBdat, Br_const)
-        file_path = './inp/Br_in.dat'
-        call get_Br_from_txt(EBdat, file_path)
-        call write_complex_profile(xl_grid%xb, EBdat%Br, xl_grid%npts_b, trim(output_path)//"/fields/Br.dat")
-
+        
         call solve_poisson(kernel_rho_phi_llp%Kllp, kernel_rho_B_llp%Kllp, EBdat%Phi)
-        call write_complex_profile(xl_grid%xb, EBdat%Phi, xl_grid%npts_b, trim(output_path)//"/fields/phi_sol.dat")
+        call write_complex_profile(xl_grid%xb, EBdat%Phi, xl_grid%npts_b, trim(output_path)//"/fields/phi_"//trim(collision_model)//"_sol.dat")
 
-        ! call calculate_E_perp_psi(plasma, EBdat)
-        !call write_complex_profile(xl_grid%xb, EBdat%E_perp_psi, xl_grid%npts_b, trim(output_path)//"/fields/E_perp_psi.dat")
-        !call calculate_E_perp(EBdat)
-        !call write_complex_profile(xl_grid%xb(1:xl_grid%npts_b-1), EBdat%E_perp, xl_grid%npts_b-1, trim(output_path)//"/fields/E_perp.dat")
-
-        !call calculate_E_from_phi(EBdat)
-        !call calculate_E_in_rsp_from_cyl(EBdat)
-
-        !call write_complex_profile(EBdat%r_grid, EBdat%Er, size(EBdat%r_grid), trim(output_path)//"/fields/Er.dat")
-        !call write_complex_profile(EBdat%r_grid, EBdat%Etheta, size(EBdat%r_grid), trim(output_path)//"/fields/Etheta.dat")
-        !call write_complex_profile(EBdat%r_grid, EBdat%Ez, size(EBdat%r_grid), trim(output_path)//"/fields/Ez.dat")
-
-        !call write_complex_profile(EBdat%r_grid, EBdat%Es, size(EBdat%r_grid), trim(output_path)//"/fields/Es.dat")
-        !call write_complex_profile(EBdat%r_grid, EBdat%Ep, size(EBdat%r_grid), trim(output_path)//"/fields/Ep.dat")
-
+        call postprocess_electric_field(EBdat)
     
     end subroutine
 

@@ -40,9 +40,9 @@ module equilibrium
         ! the ddeabm subroutine from the SLATEC library. This method uses the Adams-Bashforth
         ! method.
 
-            use plasma_parameter
-            use constants, only: ev, pi
-            use setup, only: btor, R0
+            use species, only: plasma, calc_plasma_parameter_derivs
+            use constants, only: ev, pi, sol
+            use setup, only: btor, R0, m_mode, n_mode
             use config
 
             implicit none
@@ -51,26 +51,22 @@ module equilibrium
 
             if(.not. allocated(coef)) allocate(coef(0:nder, nlagr))
 
-            allocate(u(iprof_length), B0z(iprof_length), dpress_prof(iprof_length), &
-                    B0th(iprof_length), B0(iprof_length), hz(iprof_length), hth(iprof_length))
+            allocate(u(plasma%grid_size), B0z(plasma%grid_size), dpress_prof(plasma%grid_size), &
+                    B0th(plasma%grid_size), B0(plasma%grid_size), hz(plasma%grid_size), hth(plasma%grid_size))
 
             if (fstatus == 1) write(*,*) 'Status: Calculating equilibrium, write_out=', write_out
-            if (.not. allocated(dndr_prof)) then
+            if (.not. allocated(plasma%spec(0)%dndr)) then
                 call calc_plasma_parameter_derivs
             end if
-
     
-            do i=1, iprof_length
-                dpress_prof(i) = ev *(dndr_prof(i) * Te_prof(i) + n_prof(i) * dTedr_prof(i))
-            end do
-
-            do sigma=1, number_of_ion_species
-                press_prof = ev * n_prof * (Te_prof + Ti_prof(sigma, :))
-                do i=1, iprof_length
-                    dpress_prof(i) = dpress_prof(i) + ev * (dnidr_prof(sigma,i) * &
-                        Ti_prof(sigma, i) + ni_prof(sigma,i) * dTidr_prof(sigma,i))
+            dpress_prof = 0.0d0
+            do i=1, plasma%grid_size
+                do sigma = 0, number_of_ion_species
+                    dpress_prof(i) = dpress_prof(i) + plasma%spec(sigma)%dndr(i) * plasma%spec(sigma)%T(i) &
+                        + plasma%spec(sigma)%n(i) * plasma%spec(sigma)%dTdr(i)
                 end do
             end do
+            dpress_prof = dpress_prof * ev
 
             ! configuration of the solver:
             ! info(1) = 0: initialization, i.e. tell code it is a new problem
@@ -82,14 +78,14 @@ module equilibrium
             info(4) = 1
 
             rwork = 0.0d0
-            rwork(1) = r_prof(iprof_length) ! rwork(1) has to be set to the r stopping point
+            rwork(1) = plasma%r_grid(plasma%grid_size) ! rwork(1) has to be set to the r stopping point
 
-            radius0 = r_prof(1)
-            u0 = btor**2.0d0 * (1.0d0 + radius0**2.0d0 / (R0**2.0d0 * q_prof(1)**2.0d0)) ! initial value
+            radius0 = plasma%r_grid(1)
+            u0 = btor**2.0d0 * (1.0d0 + radius0**2.0d0 / (R0**2.0d0 * plasma%q(1)**2.0d0)) ! initial value
             u(1) = u0
 
-            do i=2, iprof_length
-                r1 = r_prof(i)
+            do i=2, plasma%grid_size
+                r1 = plasma%r_grid(i)
                 call ddeabm(dudr, ineq, radius0, u0, r1, info, rtol, atol, idid, rwork, lrw, &
                             iwork, liw, rpar, ipar)
 
@@ -99,13 +95,28 @@ module equilibrium
                 info(1) = 1
             end do
 
-            do i=1, iprof_length
-                B0z(i) = sign(1d0, btor) * sqrt(u(i) /(1d0 + r_prof(i)**2d0/(R0**2d0 * q_prof(i)**2)))
-                B0th(i) = B0z(i) * r_prof(i) /(q_prof(i) * R0)
+            
+            allocate(plasma%B0(plasma%grid_size))
+            allocate(plasma%ks(plasma%grid_size))
+            allocate(plasma%kp(plasma%grid_size))
+            allocate(plasma%om_E(plasma%grid_size))
+
+            do i=1, plasma%grid_size
+                B0z(i) = sign(1d0, btor) * sqrt(u(i) /(1d0 + plasma%r_grid(i)**2d0/(R0**2d0 * plasma%q(i)**2)))
+                B0th(i) = B0z(i) * plasma%r_grid(i) /(plasma%q(i) * R0)
                 B0(i) = sqrt(B0th(i)**2d0 + B0z(i)**2d0)
+                plasma%B0(i) = B0(i)
 
                 hz(i) = B0z(i) / B0(i)
                 hth(i) = B0th(i) / B0(i)
+
+                ! "senkrecht" wavenumber
+                plasma%ks(i) = (m_mode * hz(i) - n_mode * hth(i) / R0) / plasma%r_grid(i)
+                ! parallel wavenumber
+                plasma%kp(i) = m_mode/(plasma%r_grid(i)) * hth(i) + n_mode / R0 * hz(i)
+                ! ExB rotation frequency
+                plasma%om_E(i) = - sol * plasma%ks(i) * plasma%Er(i) / B0(i)
+
             end do
 
 
@@ -114,25 +125,27 @@ module equilibrium
             contains
 
                 subroutine dudr(r, u, du)
+
                     implicit none
+
                     real(dp), intent(in) :: r
                     real(dp), intent(in) :: u
                     real(dp), intent(out) :: du
 
                     real(dp) :: q, dpress, g
-            
+
                     ! interpolate q and pressure profiles at radial variable
-                    call binsrc(r_prof, 1, iprof_length, r, ir)
+                    call binsrc(plasma%r_grid, 1, plasma%grid_size, r, ir)
                     ibeg = max(1, ir - nlagr/2)
                     iend = ibeg + nlagr - 1
-                    if (iend .gt. iprof_length) then
-                        iend = iprof_length
+                    if (iend .gt. plasma%grid_size) then
+                        iend = plasma%grid_size
                         ibeg = iend - nlagr + 1
                     end if
 
-                    call plag_coeff(nlagr, nder, r, r_prof(ibeg:iend), coef)
+                    call plag_coeff(nlagr, nder, r, plasma%r_grid(ibeg:iend), coef)
 
-                    q = sum(coef(0,:) * q_prof(ibeg:iend))
+                    q = sum(coef(0,:) * plasma%q(ibeg:iend))
                     dpress = sum(coef(0, :) * dpress_prof(ibeg:iend))
                     
                     du = -2.0d0 * r * u / (q**2.0d0 * R0**2.0d0 + r**2.0d0) - 8.0d0 * pi * dpress
@@ -163,14 +176,13 @@ module equilibrium
                         open(unit = 79, file = trim(output_path)//'backs/'//'dpress.dat')
                         open(unit = 87, file = trim(output_path)//'backs/'//'p_tot.dat')
 
-                        do i = 1, iprof_length
-                            write(78, *) r_prof(i), B0z(i)
-                            write(80, *) r_prof(i), B0th(i)
-                            write(81, *) r_prof(i), B0(i)
-                            write(82, *) r_prof(i), hz(i)
-                            write(83, *) r_prof(i), hth(i)
-                            write(79, *) r_prof(i), dpress_prof(i)
-                            write(87, *) r_prof(i), press_prof(i)
+                        do i = 1, plasma%grid_size
+                            write(78, *) plasma%r_grid(i), B0z(i)
+                            write(80, *) plasma%r_grid(i), B0th(i)
+                            write(81, *) plasma%r_grid(i), B0(i)
+                            write(82, *) plasma%r_grid(i), hz(i)
+                            write(83, *) plasma%r_grid(i), hth(i)
+                            write(79, *) plasma%r_grid(i), dpress_prof(i)
                         end do
                         close(78)
                         close(79)

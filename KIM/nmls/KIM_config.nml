@@ -1,38 +1,57 @@
 &kim_config
-    profile_location = './profiles/',
-    output_path = './out/',
-    hdf5_input = .false.,
-    hdf5_output = .false.,
-    fdebug = 1,
-    fstatus = 1,
-    number_of_ion_species = 1,
-    type_of_run = "WKB_dispersion",
-	kernel_debye_case = .false.,
-	artificial_debye_case = .false.
+    profile_location = './profiles/'
+    output_path = './out/'
+    hdf5_input = .false.
+    hdf5_output = .false.
+    fdebug = 1
+    fstatus = 1
+    number_of_ion_species = 1
+    read_species_from_namelist = .false. ! if false, initialize deuterium plasma
+    type_of_run = 'electrostatic'
+    collision_model = 'Krook'       ! Krook or FokkerPlanck
+    artificial_debye_case = .false.
 /
 
 &kim_setup
-    btor = -17977.413,
-    r0 = 165.0,
-    m_mode = 7,
-    n_mode = 2,
-    zi = 1,
-    ai = 2,
-    r_plas = 70.0,
-    omega = 0.0,
-    spline_base = 1,
-    cut_off_fac = 1.0,
-    kr_cut_off_fac = 10.0
-	collisions_off = .true.
+    btor = -17977.413
+    r0 = 165.0
+    m_mode = 7
+    n_mode = 2
+    omega = 0.0
+    spline_base = 1
+    type_br_field = 12
+    collisions_off = .true.
+    eps_reg = 0.01
+    set_profiles_constant = 0
 /
 
 &kim_grid
-    k_space_dim = 100,
-    l_space_dim = 100,
-    reduce_r = .false.,
-    reduced_rg_dim = 200,
-    grid_spacing = 2,
-    num_gengrid_points = 100,
-    kr_grid_width_res = 5.0d0,
-    kr_grid_ampl_res = 1.0d0,
+    r_plas = 67.0
+    r_min = 3.0
+    width_res = 0.2
+    ampl_res = 15.0
+    hrmax_scaling = 1.0
+    k_space_dim = 100
+    l_space_dim = 1000
+    reduce_r = .false.
+    reduced_rg_dim = 1000
+    grid_spacing = 3
+    num_gengrid_points = 64
+    kr_grid_width_res = 5.0
+    kr_grid_ampl_res = 1.0
+    delta_l_max = 5
+    gauss_int_nodes_Nx = 7
+    gauss_int_nodes_Nxp = 7
+    gauss_int_nodes_Ntheta = 7
+/
+
+&kim_species
+/
+
+&kim_species
+/
+
+&kim_species
+    zi = 1 !, 2
+    ai = 2 !, 4
 /

@@ -1,0 +1,15 @@
+#!/usr/bin/env python3
+"""
+Launch script for KIM GUI
+"""
+
+import sys
+import os
+
+# Add the current directory to the Python path
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+
+from kim_gui import main
+
+if __name__ == "__main__":
+    main()

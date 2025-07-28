@@ -12,6 +12,7 @@ program kim_main
     class(kim_t), allocatable :: kim_instance
 
     call kim_init
+    print *, "KIM initialized."
     call from_kim_factory_get_kim(type_of_run, kim_instance)
 
     t_start = omp_get_wtime()

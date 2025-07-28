@@ -5,15 +5,16 @@ subroutine generate_k_space_grid(npoi_min, write_out, kr_cut)
     use setup
     use config, only: output_path, fstatus
     use constants, only: pi
+    use KIM_kinds, only: dp
 
     implicit none
 
     integer :: i
     logical, intent(in) :: write_out
-    double precision, intent(in) :: kr_cut
-    double precision :: h, krmin, krmax, hrmax, kr_val, krnext, recnsp
+    real(dp), intent(in) :: kr_cut
+    real(dp) :: h, krmin, krmax, hrmax, kr_val, krnext, recnsp
     integer :: k_grid_mode = 3
-    double precision, allocatable, dimension(:) :: delta_kr
+    real(dp), allocatable, dimension(:) :: delta_kr
 
     integer :: npoi_kr, npoi_min, ipoib
 
@@ -111,11 +112,12 @@ end subroutine
 subroutine recnsplit_kr(kr_val, recnsp)
 
     use kr_grid, only: kr_grid_ampl_res, kr_grid_width_res, kr_res
+    use KIM_kinds, only: dp
 
     implicit none
 
-    double precision, intent(in) :: kr_val
-    double precision, intent(out) :: recnsp
+    real(dp), intent(in) :: kr_val
+    real(dp), intent(out) :: recnsp
 
     recnsp = 1.0d0 +  kr_grid_ampl_res * exp(-((kr_val - kr_res) / kr_grid_width_res)**2)
 

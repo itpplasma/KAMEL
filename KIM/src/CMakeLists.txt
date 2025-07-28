@@ -2,20 +2,21 @@ include(CMakeSources.in)
 
 set(CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/cmake" ${CMAKE_MODULE_PATH})
 
-add_library(KIM_lib STATIC
-    ${KIM_setup}
-    ${KIM_general}
-    ${KIM_poisson}
-    ${KIM_debye}
-    ${KIM_grid}
-    ${KIM_util}
-    ${KIM_kernels}
-    ${KIM_background_equilibrium}
-    ${KIM_math}
-    ${KIM_dispersion}
-    ${KIM_WKB_dispersion}
-    ${external_zeal}
+
+add_library(KIM_lib STATIC "${KIM_setup}" 
+                        "${KIM_grid}" 
+                        "${KIM_background_equilibrium}"
+                        "${KIM_general}" 
+                        "${KIM_poisson}" 
+                        "${KIM_util}"
+                        #"${KIM_kernels}"
+                        "${KIM_math}"
+                        "${KIM_fokkerplanck}"
+                        "${KIM_dispersion}"
+                        "${KIM_WKB_dispersion}"
+                        "${external_zeal}"
 )
+
 set_target_properties(KIM_lib PROPERTIES 
                         OUTPUT_NAME KIM
                         ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/install/lib/")
@@ -64,6 +65,11 @@ if("${SUPERLU_FOUND}")
     message("${SUPERLU_INCLUDES}")
 endif()
 
+set(KILCA_PATH ${CMAKE_SOURCE_DIR}/../KiLCA)
+set(KiLCA_lib_path ${KILCA_PATH}/build/lib/libKiLCA_Lib_V_2.4.2_MDNO_FPGEN_POLYNOMIAL_Release_64bit.a)
+target_link_libraries(KIM_lib PUBLIC "${KiLCA_lib_path}")
+target_include_directories(KIM_lib PUBLIC ${CMAKE_SOURCE_DIR}/../KiLCA/math/)
+target_include_directories(KIM_lib PUBLIC ${KILCA_PATH}/math/)
 
 add_executable(KIM_exe kim_main.f90)
 set_target_properties(KIM_exe PROPERTIES 

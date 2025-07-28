@@ -7,9 +7,9 @@ subroutine calculate_fourier_trans_spline_funcs(write_out)
     use grid, only: rg_grid, varphi_lkr, &
         grid_spacing, spline_base, xl_grid, kr_grid
     use config, only: output_path
-    !use plasma_parameter, only: r_prof, iprof_length
 
     implicit none
+
     integer :: i,n
     logical, intent(in) :: write_out
 
@@ -62,8 +62,11 @@ subroutine calculate_fourier_trans_spline_funcs(write_out)
     ! varphi_{l,k_r} for non-equidistant grid
     double complex function FT_hat_function_ne(xl, xlm1, xlp1, xlp2, krr) result (res)
 
-        implicit none
-        double precision, intent(in) :: xl, xlm1, xlp1, xlp2, krr
+        use KIM_kinds, only: dp
+
+        implicit none 
+
+        real(dp), intent(in) :: xl, xlm1, xlp1, xlp2, krr
 
         if (krr == 0.0d0) then ! analytical limit
             res = 0.5d0 * (xlp1 - xlm1)
@@ -78,8 +81,11 @@ subroutine calculate_fourier_trans_spline_funcs(write_out)
     ! \tilde varphi_{l,k_r} for non-equidistant grid, i.e. without the factor exp(-i kr xl)
     double complex function tilde_varphi_lkr(xl, xlm1, xlp1, krr) result (res)
 
+        use KIM_kinds, only: dp
+
         implicit none
-        double precision, intent(in) :: xl, xlm1, xlp1, krr
+
+        real(dp), intent(in) :: xl, xlm1, xlp1, krr
 
         if (krr == 0.0d0) then ! analytical limit
             res = 0.5d0 * (xlp1 - xlm1)
@@ -95,8 +101,11 @@ subroutine calculate_fourier_trans_spline_funcs(write_out)
     ! varphi_{l,k_r} for equidistant grid
     double complex function FT_hat_function_e(xl, xlp1, krr) result (res)
 
+        use KIM_kinds, only: dp
+
         implicit none
-        double precision, intent(in) :: xl, xlp1, krr
+
+        real(dp), intent(in) :: xl, xlp1, krr
 
         if (krr == 0.0d0) then ! analytical limit
             res = 0.0d0
@@ -109,8 +118,10 @@ subroutine calculate_fourier_trans_spline_funcs(write_out)
     ! tilde varphi_{l,k_r} for equidistant grid
     double complex function tilde_varphi_lkr_e(xl, xlp1, krr) result (res)
 
+        use KIM_kinds, only: dp
+
         implicit none
-        double precision, intent(in) :: xl, xlp1, krr
+        real(dp), intent(in) :: xl, xlp1, krr
 
         if (krr == 0.0d0) then ! analytical limit
             res = 0.0d0
@@ -143,23 +154,3 @@ subroutine calculate_fourier_trans_spline_funcs(write_out)
     end subroutine
 
 end subroutine
-
-
-
-    ! \tilde varphi_{l,k_r} for non-equidistant grid, i.e. without the factor exp(-i kr xl)
-    !double complex function tilde_varphi_lkr(xl, xlm1, xlp1, krr) result (res)
-
-    !    use constants, only: com_unit        
-
-    !    implicit none
-    !    double precision, intent(in) :: xl, xlm1, xlp1, krr
-!
-!        if (krr == 0.0d0) then ! analytical limit
-!            res = 0.5d0 * (xlp1 - xlm1)
-!        else 
-!            res = ((xlp1-xl) * (1.0d0 - exp(com_unit * krr * (xl-xlm1))) &
-!                  + (xl-xlm1) * (1.0d0 - exp(-com_unit * krr * (xlp1 - xl)))) &
-!                  / ((xlp1 - xl) * (xl - xlm1) * krr**2d0)
-!        end if
-!
-!    end function

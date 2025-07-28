@@ -7,36 +7,41 @@ module electrostatic_integrals
     implicit none
 
     type :: gauss_config_t
-        integer :: n  ! Number of nodes
-        real(dp), allocatable, dimension(:) :: x, w  ! Integration limits
+        integer :: Nx, Nxp, Ntheta ! Number of nodes in each dimension
+        real(dp), allocatable, dimension(:) :: x_x, w_x
+        real(dp), allocatable, dimension(:) :: x_theta, w_theta
+        real(dp), allocatable, dimension(:) :: x_xp, w_xp
     end type gauss_config_t
 
     contains
 
     subroutine init_gauss_int(gauss_conf)
 
-        use KIM_kinds, only: dp
-
         implicit none
 
         type(gauss_config_t), intent(inout) :: gauss_conf
 
-        allocate(gauss_conf%x(gauss_conf%n), gauss_conf%w(gauss_conf%n))
-        call compute_nodes_weights(gauss_conf%n, gauss_conf%x, gauss_conf%w)
+        allocate(gauss_conf%x_x(gauss_conf%Nx), gauss_conf%w_x(gauss_conf%Nx))
+        call compute_nodes_weights(gauss_conf%Nx, gauss_conf%x_x, gauss_conf%w_x)
+
+        allocate(gauss_conf%x_xp(gauss_conf%Nxp), gauss_conf%w_xp(gauss_conf%Nxp))
+        call compute_nodes_weights(gauss_conf%Nxp, gauss_conf%x_xp, gauss_conf%w_xp)
+
+        allocate(gauss_conf%x_theta(gauss_conf%Ntheta), gauss_conf%w_theta(gauss_conf%Ntheta))
+        call compute_nodes_weights(gauss_conf%Ntheta, gauss_conf%x_theta, gauss_conf%w_theta)
 
     end subroutine
 
-    subroutine gauss_integrate_B0(int_B, a, b, result, gauss_conf)
+    subroutine gauss_integrate_F0(int_F, a, b, result, gauss_conf)
 
-        use KIM_kinds, only: dp
-        use electrostatic_integrands, only: int_B0_rho_phi_t
+        use electrostatic_integrands, only: int_F0_rho_phi_t
 
         implicit none
 
         real(dp), intent(in) :: a, b
         type(gauss_config_t), intent(in) :: gauss_conf
         real(dp), intent(out) :: result
-        type(int_B0_rho_phi_t), intent(in) :: int_B
+        type(int_F0_rho_phi_t), intent(in) :: int_F
 
         integer :: i
         real(dp) :: xm, xr
@@ -45,54 +50,158 @@ module electrostatic_integrals
         xm = 0.5d0 * (b + a)
         xr = 0.5d0 * (b - a)
 
-        do i = 1, gauss_conf%n
-            result = result + gauss_conf%w(i) * int_B%f(xr * gauss_conf%x(i) + xm)
+        do i = 1, gauss_conf%Nx
+            result = result + gauss_conf%w_x(i) * int_F%f(xr * gauss_conf%x_x(i) + xm)
         end do
         result = result * xr
 
-    end subroutine gauss_integrate_B0
+    end subroutine
 
-    subroutine gauss_integrate_B1(int_B1, result, gauss_conf)
+    subroutine gauss_integrate_F1(int_F1, result, gauss_conf)
 
-        use KIM_kinds, only: dp
-        use electrostatic_integrands, only: int_B1_rho_phi_t
-        use grid, only: xl_grid
+        use electrostatic_integrands, only: int_F1_rho_phi_t, calc_b_coef
         use constants, only: pi
 
         implicit none
 
-        class(int_B1_rho_phi_t), intent(in) :: int_B1
+        class(int_F1_rho_phi_t), intent(inout) :: int_F1
 
         type(gauss_config_t), intent(in) :: gauss_conf
         real(dp), intent(out) :: result
         real(dp) :: x_mapped, xp_mapped, theta_mapped
+        real(dp) :: norm_factor
         integer :: i,j,k
 
+        result = 0.0d0
 
-        do i=1,gauss_conf%n ! theta
-            theta_mapped = 0.5d0 * (pi * gauss_conf%x(i) + pi)
+        norm_factor = pi * (int_F1%int_point%xlp1 - int_F1%int_point%xlm1) & ! normalization due to integral range shift
+                        * (int_F1%int_point%xlpp1 - int_F1%int_point%xlpm1) / 8.0d0
+        
+        do i=1,gauss_conf%Ntheta ! theta
+            theta_mapped = 0.5d0 * pi * (gauss_conf%x_theta(i) + 1.0d0)
+            int_F1%int_point%a_coef = sqrt(1.0d0 / (1.0d0 + cos(theta_mapped))) / abs(int_F1%int_point%rhoT)
 
-            do j=1,gauss_conf%n ! xp 
-                xp_mapped = 0.5d0 * ((int_B1%xlpp1 - int_B1%xlpm1) * gauss_conf%x(j) + &
-                    int_B1%xlpp1 + int_B1%xlpm1)
+            do j=1,gauss_conf%Nxp ! xp 
+                xp_mapped = 0.5d0 * ((int_F1%int_point%xlpp1 - int_F1%int_point%xlpm1) * gauss_conf%x_xp(j) + &
+                    int_F1%int_point%xlpp1 + int_F1%int_point%xlpm1)
 
-                do k=1,gauss_conf%n !x
-                    x_mapped = 0.5d0 * ((int_B1%xlp1 - int_B1%xlm1) * gauss_conf%x(k) + &
-                        int_B1%xlp1 + int_B1%xlm1)
+                do k=1,gauss_conf%Nx !x
+                    x_mapped = 0.5d0 * ((int_F1%int_point%xlp1 - int_F1%int_point%xlm1) * gauss_conf%x_x(k) + &
+                        int_F1%int_point%xlp1 + int_F1%int_point%xlm1)
 
-                    result = result + gauss_conf%w(i) * gauss_conf%w(j) * gauss_conf%w(k) &
-                        * int_B1%f(x_mapped, xp_mapped, theta_mapped) &
-                        * pi * (int_B1%xlp1 - int_B1%xlm1) & ! normalization due to integral range shift
-                        * (int_B1%xlpp1 - int_B1%xlpm1) / 8.0d0
+                    int_F1%int_point%b_coef = calc_b_coef(x_mapped, xp_mapped)
+
+                    call int_F1%int_point%calc_Jrg1()
+
+                    result = result + gauss_conf%w_theta(i) * gauss_conf%w_xp(j) * gauss_conf%w_x(k) &
+                        * int_F1%f(x_mapped, xp_mapped, theta_mapped) &
+                        * norm_factor
                 end do
             end do
         end do
 
     end subroutine
 
-    subroutine compute_nodes_weights(n, x, w)
+    subroutine gauss_integrate_F2(int_F2, result, gauss_conf)
+    
+        use electrostatic_integrands, only: int_F2_rho_phi_t, calc_b_coef
+        use constants, only: pi
 
-        use KIM_kinds, only: dp
+        implicit none
+
+        class(int_F2_rho_phi_t), intent(inout) :: int_F2
+
+        type(gauss_config_t), intent(in) :: gauss_conf
+        real(dp), intent(out) :: result
+        real(dp) :: x_mapped, xp_mapped, theta_mapped
+        real(dp) :: norm_factor
+        integer :: i,j,k
+
+        result = 0.0d0
+
+        norm_factor = pi * (int_F2%int_point%xlp1 - int_F2%int_point%xlm1) & ! normalization due to integral range shift
+                        * (int_F2%int_point%xlpp1 - int_F2%int_point%xlpm1) / 8.0d0
+
+        do i=1,gauss_conf%Ntheta ! theta
+            theta_mapped = 0.5d0 * pi *(gauss_conf%x_theta(i) + 1.0d0)
+            int_F2%int_point%a_coef = sqrt(1.0d0 / (1.0d0 + cos(theta_mapped))) / abs(int_F2%int_point%rhoT)
+
+            do j=1,gauss_conf%Nxp ! xp 
+                xp_mapped = 0.5d0 * ((int_F2%int_point%xlpp1 - int_F2%int_point%xlpm1) * gauss_conf%x_xp(j) + &
+                    int_F2%int_point%xlpp1 + int_F2%int_point%xlpm1)
+
+                do k=1,gauss_conf%Nx !x
+                    x_mapped = 0.5d0 * ((int_F2%int_point%xlp1 - int_F2%int_point%xlm1) * gauss_conf%x_x(k) + &
+                        int_F2%int_point%xlp1 + int_F2%int_point%xlm1)
+
+                    int_F2%int_point%b_coef = calc_b_coef(x_mapped, xp_mapped)
+                    int_F2%int_point%xl_mapped = x_mapped
+                    int_F2%int_point%xlp_mapped = xp_mapped
+        
+                    call int_F2%int_point%calc_Jrg1()
+                    call int_F2%int_point%calc_Jrg2()
+                    call int_F2%int_point%calc_Jrg3()
+                    call int_F2%int_point%calc_Jrg4()
+
+                    result = result + gauss_conf%w_theta(i) * gauss_conf%w_xp(j) * gauss_conf%w_x(k) &
+                        * int_F2%f(x_mapped, xp_mapped, theta_mapped) &
+                        * norm_factor
+                end do
+            end do
+        end do
+    end subroutine
+
+    subroutine gauss_integrate_F3(int_F3, result, gauss_conf)
+
+        use electrostatic_integrands, only: int_F3_rho_phi_t, calc_b_coef
+        use constants, only: pi
+
+        implicit none
+
+        class(int_F3_rho_phi_t), intent(inout) :: int_F3
+
+        type(gauss_config_t), intent(in) :: gauss_conf
+        real(dp), intent(out) :: result
+        real(dp) :: norm_factor
+        real(dp) :: x_mapped, xp_mapped, theta_mapped
+        integer :: i,j,k
+
+        result = 0.0d0
+
+        norm_factor = pi * (int_F3%int_point%xlp1 - int_F3%int_point%xlm1) & ! normalization due to integral range shift
+                        * (int_F3%int_point%xlpp1 - int_F3%int_point%xlpm1) / 8.0d0
+
+        do i=1,gauss_conf%Ntheta ! theta
+            theta_mapped = 0.5d0 * pi * (gauss_conf%x_theta(i) + 1.0d0)
+            int_F3%int_point%a_coef = sqrt(1.0d0 / (1.0d0 + cos(theta_mapped))) / abs(int_F3%int_point%rhoT)
+
+            do j=1,gauss_conf%Nxp ! xp 
+                xp_mapped = 0.5d0 * ((int_F3%int_point%xlpp1 - int_F3%int_point%xlpm1) * gauss_conf%x_xp(j) + &
+                    int_F3%int_point%xlpp1 + int_F3%int_point%xlpm1)
+
+                do k=1,gauss_conf%Nx !x
+                    x_mapped = 0.5d0 * ((int_F3%int_point%xlp1 - int_F3%int_point%xlm1) * gauss_conf%x_x(k) + &
+                        int_F3%int_point%xlp1 + int_F3%int_point%xlm1)
+
+                    int_F3%int_point%b_coef = calc_b_coef(x_mapped, xp_mapped)
+                    int_F3%int_point%xl_mapped = x_mapped
+                    int_F3%int_point%xlp_mapped = xp_mapped
+
+                    call int_F3%int_point%calc_Jrg1()
+                    call int_F3%int_point%calc_Jrg2()
+                    call int_F3%int_point%calc_Jrg3()
+                    call int_F3%int_point%calc_Jrg4()
+
+                    result = result + gauss_conf%w_theta(i) * gauss_conf%w_xp(j) * gauss_conf%w_x(k) &
+                        * int_F3%f(x_mapped, xp_mapped, theta_mapped) &
+                        * norm_factor
+                end do
+            end do
+        end do 
+
+    end subroutine
+
+    subroutine compute_nodes_weights(n, x, w)
 
         implicit none
 
@@ -135,64 +244,5 @@ module electrostatic_integrals
         end do
 
     end subroutine compute_nodes_weights
-
-
-    function compute_Mllpj(int_struct, int_B, gauss_conf) result(val)
-
-        use KIM_kinds, only: dp
-        use constants, only: pi
-        use electrostatic_integrands, only: int_struct_t
-        use functions, only: varphi_l
-        use species, only: plasma
-
-        implicit none
-        real(dp) :: val
-        type(int_struct_t), intent(in) :: int_struct
-        type(gauss_config_t), intent(in) :: gauss_conf
-        interface
-            function int_B(x, xp, rg, theta, rhoT, ks) result(val)
-                use KIM_kinds, only: dp
-                implicit none
-                real(dp), intent(in) :: x, xp, rg, theta, rhoT, ks
-                real(dp) :: val
-            end function
-        end interface
-
-        real(dp), allocatable :: x_mapped(:), xp_mapped(:), theta_mapped(:), rg_mapped(:)
-        integer :: itheta, ix, ixp, irg
-        real(dp) :: calcd_varphi_l, calcd_varphi_lp
-
-        allocate(x_mapped(gauss_conf%n), xp_mapped(gauss_conf%n), &
-            theta_mapped(gauss_conf%n), rg_mapped(gauss_conf%n))
-        
-        x_mapped = 0.5d0 * ((int_struct%xlp1 - int_struct%xlm1) * gauss_conf%x + &
-            int_struct%xlp1 + int_struct%xlm1)
-        xp_mapped = 0.5d0 * ((int_struct%xlpp1 - int_struct%xlpm1) * gauss_conf%x + &
-            int_struct%xlpp1 + int_struct%xlpm1)
-        theta_mapped = 0.5d0 * (pi * gauss_conf%x + pi)
-        rg_mapped = 0.5d0 * ((int_struct%rgjp1 - int_struct%rgj) * gauss_conf%x + &
-            int_struct%rgjp1 + int_struct%rgj)
-
-        val = 0.0d0
-
-        do ixp=1,gauss_conf%n ! xp 
-            calcd_varphi_lp = varphi_l(xp_mapped(ixp), int_struct%xlpm1, int_struct%xlp, int_struct%xlpp1)
-            do ix=1,gauss_conf%n !x
-                calcd_varphi_l = varphi_l(x_mapped(ix), int_struct%xlm1, int_struct%xl, int_struct%xlp1)
-                do itheta=1,gauss_conf%n ! theta
-                    do irg=1,gauss_conf%n ! rg
-                        val = val + gauss_conf%w(itheta) * gauss_conf%w(ixp) * gauss_conf%w(ix) * gauss_conf%w(irg)&
-                        * int_B(x_mapped(ix), xp_mapped(ixp), rg_mapped(irg), theta_mapped(itheta), int_struct%rhoT, int_struct%ks) &
-                        * calcd_varphi_l * calcd_varphi_lp &
-                        ! normalization due to integration range change:
-                        * pi * (int_struct%xlp1 - int_struct%xlm1) &
-                        * (int_struct%xlpp1 - int_struct%xlpm1) &
-                        * (int_struct%rgjp1 - int_struct%rgj) / 16.0d0
-                    end do
-                end do
-            end do
-        end do
-
-    end function
 
 end module electrostatic_integrals

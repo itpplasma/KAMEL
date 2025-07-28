@@ -1,25 +1,25 @@
 subroutine calc_equil_diffusion_coeffs
-    !
+    
     use grid_mod, only: npoib, dae11, dae12, dae22, dai11, dai12, dai22 &
                         , dni22, visca, rb, cneo
     use plasma_parameters, only: params_b
     use baseparam_mod, only: rsepar
-    ! added by Markus Markl, 12.04.2021
     use h5mod
     use control_mod, only: ihdf5IO, debug_mode
     use paramscan_mod, only: viscosity_factor
     use PolyLagrangeInterpolation
-    !
+    use QLBalance_kinds, only: dp
+    
     implicit none
-    !
+    
     integer :: ipoi
-    double precision :: weight
+    real(dp) :: weight
 
     character(1024) :: fname;
     integer :: nr, i, iunit_res
-    double precision :: r
-    double precision, dimension(:), allocatable :: r_raw
-    double precision, dimension(:), allocatable :: Da_raw
+    real(dp) :: r
+    real(dp), dimension(:), allocatable :: r_raw
+    real(dp), dimension(:), allocatable :: Da_raw
     integer :: lb, ub, ind_begin_interp, ind_end_interp
 
     !This subroutine was changed to include estimated Da from outside of this code
@@ -103,12 +103,14 @@ subroutine calc_transport_coeffs_collisionless(dim, vT, D_11, D_12, D_22)
 
     use baseparam_mod
     use wave_code_data, only: om_E, kp, ks, Ep, Br
+    use QLBalance_kinds, only: dp
+    implicit none
 
     integer, intent(in) :: dim
-    real(8), dimension(dim), intent(in) :: vT
-    real(8), dimension(dim), intent(out) :: D_11, D_12, D_22
-    real(8), dimension(dim) :: Z
-    double precision, dimension(dim) :: field_fac
+    real(dp), dimension(dim), intent(in) :: vT
+    real(dp), dimension(dim), intent(out) :: D_11, D_12, D_22
+    real(dp), dimension(dim) :: Z
+    real(dp), dimension(dim) :: field_fac
 
     Z = om_E/sqrt(2.0d0)/kp/vT
 
@@ -127,14 +129,17 @@ subroutine calc_transport_coeffs_ornuhl(dim, vT, nu, D_11, D_12, D_21, D_22)
     use wave_code_data, only: om_E, kp, Es, Br, B0
     use QLbalance_diag, only: i_mn_loop
     use grid_mod, only: r_resonant, gg_width, rb
+    use QLBalance_kinds, only: dp
+
+    implicit none
 
     integer, parameter :: mnmax = 3
     integer, intent(in) :: dim
-    real(8), dimension(dim), intent(in) :: vT, nu
-    real(8), dimension(dim), intent(out) :: D_11, D_12, D_21, D_22
-    double precision, dimension(:), allocatable :: x1, x2, comfac, d_12a
-    double precision, dimension(:), allocatable :: epm2, brm2, epbr_re, epbr_im
-    double complex, dimension(:, :, :), allocatable :: symbI
+    real(dp), dimension(dim), intent(in) :: vT, nu
+    real(dp), dimension(dim), intent(out) :: D_11, D_12, D_21, D_22
+    real(dp), dimension(:), allocatable :: x1, x2, comfac, d_12a
+    real(dp), dimension(:), allocatable :: epm2, brm2, epbr_re, epbr_im
+    complex(dp), dimension(:, :, :), allocatable :: symbI
 
     allocate (comfac(dim), d_12a(dim), epm2(dim), brm2(dim), epbr_re(dim), epbr_im(dim))
     allocate (x1(dim), x2(dim), symbI(0:mnmax, 0:mnmax, dim))

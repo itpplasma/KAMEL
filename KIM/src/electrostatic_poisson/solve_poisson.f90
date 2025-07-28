@@ -9,7 +9,7 @@ module poisson_solver
         use sparse_mod, only: sp2fullComplex, sparse_solveComplex_b1, column_pointer2full, sparse_solve_suitesparseComplex_b1, &
                             sparse_solve_method
         use config, only: output_path
-        use constants, only: sol, e_charge, pi
+        use constants, only: pi, e_charge
         use grid, only: xl_grid
         use setup, only: type_br_field
         use KIM_kinds, only: dp
@@ -18,10 +18,10 @@ module poisson_solver
 
         complex(dp), intent(in) :: K_rho_phi(:,:)
         complex(dp), intent(in) :: K_rho_B(:,:)
+        complex(dp), dimension(:), allocatable, intent(out) :: phi_sol
         complex(dp), dimension(:), allocatable :: A_nz ! non-zero elements of A matrix
         complex(dp), dimension(:,:), allocatable :: A_mat ! A matrix
         complex(dp), dimension(:), allocatable :: b_vec ! b vector and x vector
-        complex(dp), dimension(:), allocatable :: phi_sol
         integer, dimension(:), allocatable :: irow, pcol
         integer :: nz_out, nrow, ncol
         integer :: i,j
@@ -43,7 +43,6 @@ module poisson_solver
         end if
 
         call dense_to_sparse(A_mat, irow, pcol, A_nz, nrow, ncol, nz_out)
-        
         call create_rhs_vector(type_br_field, K_rho_B, b_vec)
         
         sparse_solver_option = 0
@@ -76,37 +75,6 @@ module poisson_solver
 
         end subroutine
 
-        subroutine write_phi_to_file
-
-            implicit none
-
-            open(unit = 77, file=trim(output_path)//'fields/phi_re.dat')
-            open(unit = 78, file=trim(output_path)//'fields/phi_im.dat')
-            do i = 1, xl_grid%npts_b
-                write(77,*) xl_grid%xb(i), real(b_vec(i))
-                write(78,*) xl_grid%xb(i), dimag(b_vec(i))
-            end do
-            close(77)
-            close(78)
-
-        end subroutine
-
-
-        subroutine write_K_times_b_to_file
-
-            implicit none
-
-            open(unit = 79, file=trim(output_path)//'fields/Kbr_re.dat')
-            open(unit = 80, file=trim(output_path)//'fields/Kbr_im.dat')
-            do i = 1,xl_grid%npts_b
-                write(79,*) xl_grid%xb(i), real(b_vec(i))
-                write(80,*) xl_grid%xb(i), dimag(b_vec(i))
-            end do
-            close(79)
-            close(80)
-
-        end subroutine
-
         subroutine write_A_matrix_sparse_check_to_file
 
             implicit none
@@ -129,23 +97,6 @@ module poisson_solver
 
         end subroutine
 
-        
-        subroutine initialize_grid_spacing(dr, r_in)
-
-            implicit none
-            real(dp), allocatable, intent(in) :: r_in(:)
-            real(dp), allocatable, intent(out) :: dr(:)
-
-            integer :: i
-
-            allocate(dr(size(r_in)))
-
-            do i = 1, size(r_in)
-                dr(i) = r_in(i+1) - r_in(i)
-            end do
-            dr(size(r_in)) = dr(size(r_in)-1)
-
-        end subroutine
 
         ! transform kernel matrix in l space to sparse matrix
         ! ignores elements that are further apart than 5 times the
@@ -158,7 +109,7 @@ module poisson_solver
             use grid, only: xl_grid
             use IO_collection, only: write_profile, write_complex_profile, plot_profile
             use KIM_kinds, only: dp
-            use fields, only: EBdat
+            use fields, only: EBdat, set_Br_field
             use config, only: output_path
 
             implicit none
@@ -187,7 +138,7 @@ module poisson_solver
                     rhs_vec(i) = (i - size(rhs_vec)/2) * 0.02d0 * cmplx(1.0d0, 0.0d0, dp) - 0.2d0
                 end do 
             elseif(type == 4) then ! point charge at resonant surface
-                rhs_vec(index_rg_res) = cmplx(-4.0d0 * pi, 0.0d0, dp) * e_charge 
+                rhs_vec(index_rg_res) = cmplx(1.0, 0.0d0, dp) * e_charge 
             elseif(type == 5) then ! read br from file (not implemented yet)
                 print *, "Reading B vector from file not implemented yet"
                 stop
@@ -199,12 +150,13 @@ module poisson_solver
                 do i = 2, xl_grid%npts_b-1
                     rhs_vec(i) = e_charge * varphi_l(x0, xl_grid%xb(i-1), xl_grid%xb(i), xl_grid%xb(i+1))
                 end do
-            !!! type > 10 uses kernel
-            elseif(type==11) then ! constant Br field with kernel
+            ! type > 10 uses Br kernel to determine right hand side of equation
+            elseif(type==11) then 
+                call set_Br_field(EBdat, 1) ! Br field from input
                 rhs_vec = matmul(K_rho_B, EBdat%Br)
             elseif(type==12) then 
-                rhs_vec = 1.0d0
-                rhs_vec = matmul(K_rho_B, rhs_vec)
+                call set_Br_field(EBdat, 0) ! constant Br field
+                rhs_vec = matmul(K_rho_B, EBdat%Br)
             elseif(type==13) then ! linear increase including kernel
                 rhs_vec = 0.0d0
                 do i = 1, size(b_vec)
@@ -243,7 +195,7 @@ module poisson_solver
 
     subroutine prepare_Laplace_matrix(A_mat)
 
-        use grid, only: xl_grid, rg_grid
+        use grid, only: xl_grid
         use KIM_kinds, only: dp
         use config, only: output_path
         use IO_collection, only: write_matrix
@@ -266,7 +218,7 @@ module poisson_solver
             A_mat(i+1, i+1) = A_mat(i+1, i+1) - 1.0_dp / h
         end do
         
-        call write_matrix(trim(output_path)//'kernel/laplacian_re.dat', real(A_mat), rg_grid%npts_b, rg_grid%npts_b)
+        call write_matrix(trim(output_path)//'kernel/laplacian_re.dat', real(A_mat), xl_grid%npts_b, xl_grid%npts_b)
 
     end subroutine
 

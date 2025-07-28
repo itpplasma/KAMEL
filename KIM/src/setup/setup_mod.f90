@@ -6,6 +6,7 @@ module setup
 
     real(dp) :: btor   ! toroidal magnetic field
     real(dp) :: R0     ! major radius
+    integer :: set_profiles_constant
     integer          :: m_mode ! poloidal mode number
     integer          :: n_mode ! toroidal mode number
     real(dp) :: omega  ! perturbation frequency

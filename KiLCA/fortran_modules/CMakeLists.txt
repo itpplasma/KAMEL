@@ -19,17 +19,22 @@ set(CMAKE_Fortran_FLAGS_RELEASE "-O3")
 # Create the main library
 add_library(kilca_fortran_modules STATIC
     kilca_types_m.f90
+    kilca_core_m.f90
 )
 
 # Enable testing
 enable_testing()
 
-# Add test executable
+# Add test executables
 add_executable(test_kilca_types tests/test_kilca_types.f90)
 target_link_libraries(test_kilca_types kilca_fortran_modules)
 
-# Add the test
+add_executable(test_kilca_core tests/test_kilca_core.f90)
+target_link_libraries(test_kilca_core kilca_fortran_modules)
+
+# Add the tests
 add_test(NAME test_kilca_types COMMAND test_kilca_types)
+add_test(NAME test_kilca_core COMMAND test_kilca_core)
 
 # Set module directory
 set_target_properties(kilca_fortran_modules PROPERTIES
@@ -38,5 +43,9 @@ set_target_properties(kilca_fortran_modules PROPERTIES
 
 # Include module directory for tests
 target_include_directories(test_kilca_types PRIVATE
+    ${CMAKE_CURRENT_BINARY_DIR}/modules
+)
+
+target_include_directories(test_kilca_core PRIVATE
     ${CMAKE_CURRENT_BINARY_DIR}/modules
 )

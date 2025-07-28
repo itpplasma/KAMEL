@@ -21,12 +21,12 @@ This backlog contains 485 specific, actionable tasks for the complete translatio
 - **Task 004**: ✅ Create character parameter constants for string length definitions
 - **Task 005**: ✅ Establish error code parameter definitions and status handling conventions
 
-#### Task 1.1.6-1.1.15: Core Data Structure Translation (60 hours)
-- **Task 006**: Translate `core_data` class from `core/core.h` to Fortran derived type
-- **Task 007**: Convert `core_data` constructor logic to `core_data_create` procedure
-- **Task 008**: Convert `core_data` destructor logic to `core_data_destroy` procedure
-- **Task 009**: Translate `delete_modes_array` method to standalone procedure
-- **Task 010**: Convert all `core_data` pointer members to appropriate Fortran equivalents
+#### Task 1.1.6-1.1.15: Core Data Structure Translation (60 hours) ✅ PARTIALLY COMPLETED
+- **Task 006**: ✅ Translate `core_data` class from `core/core.h` to Fortran derived type
+- **Task 007**: ✅ Convert `core_data` constructor logic to `core_data_create` procedure
+- **Task 008**: ✅ Convert `core_data` destructor logic to `core_data_destroy` procedure
+- **Task 009**: ✅ Translate `delete_modes_array` method to standalone procedure
+- **Task 010**: ✅ Convert all `core_data` pointer members to appropriate Fortran equivalents
 - **Task 011**: Implement memory management procedures for `core_data_t`
 - **Task 012**: Create accessor procedures for `core_data_t` components
 - **Task 013**: Translate initialization procedures for `core_data_t`

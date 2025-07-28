@@ -1,17 +1,17 @@
-# config, can be set via env variable ('CONFIG') before running make
 CONFIG ?= Release
 
-# List of subdirectories
-SUBDIRS := KiLCA KIM QL-Balance
+.PHONY: all ninja test clean
 
-# Default target: build all
-all: $(SUBDIRS)
+all: ninja
 
-$(SUBDIRS):
-	export CONFIG=$(CONFIG)
-	$(MAKE) -C $@
+build/build.ninja:
+	cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=$(CONFIG) -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
+
+ninja: build/build.ninja
+	cmake --build build --config $(CONFIG)
+
+test: ninja
+	ctest --test-dir build --stop-on-failure --output-on-failure
 
 clean:
-	for dir in $(SUBDIRS); do $(MAKE) -C $$dir clean; done
-
-.PHONY: all clean $(SUBDIRS)
+	rm -rf build

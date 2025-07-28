@@ -144,7 +144,7 @@ void mode_data::check_zones_parameters(void)
 
 void mode_data::allocate_and_setup_zones(void)
 {
-    Nzones = determine_mumber_of_zones(sd->path2project);
+    Nzones = determine_number_of_zones(sd->path2project);
 
     if (Nzones < 2)
     {

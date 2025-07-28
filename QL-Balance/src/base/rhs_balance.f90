@@ -9,7 +9,8 @@ subroutine rhs_balance(x, y, dy)
                         , dni22, visca, gpp_av &
                         , dqle11, dqle12, dqle21, dqle22 &
                         , dqli11, dqli12, dqli21, dqli22 &
-                        , sqg_bthet_overc, Ercov, polforce, qlheat_e, qlheat_i &
+                        , T_EM_phi_e, T_EM_phi_i &
+                        , sqrt_g_times_B_theta_over_c, Ercov, polforce, qlheat_e, qlheat_i &
                         , Ercov_lin, fluxes_con_nl
                         
     use plasma_parameters, only: params, ddr_params, params_lin, ddr_params_nl &
@@ -24,9 +25,13 @@ subroutine rhs_balance(x, y, dy)
     integer :: ipoi, ieq, i, npoi, ibeg, iend, nshift, ibegb, iendb, ibegtot, iendtot, k, iprobe
     double precision :: x, A_noE_1e, A_noE_2e, A_noE_1i, A_noE_2i, convel
     double precision :: A_noE_1e_nl, A_noE_2e_nl, A_noE_1i_nl, A_noE_2i_nl
-    double precision :: gamma_e, gamma_i, dfluxvphi, Q_e, Q_i, A_1e, A_1i
-    double precision :: gamma_e_nl, Q_e_nl, Q_i_nl, A_1e_nl, A_1i_nl
+    double precision :: dfluxvphi, Q_e, Q_i, A_1e, A_1i, Q_e_nl, Q_i_nl, A_1e_nl, A_1i_nl
+    double precision :: gamma_e, gamma_i
+    double precision :: gamma_a_e, gamma_a_i
     double precision :: gamma_ql_e, gamma_ql_i
+    double precision :: gamma_e_nl, gamma_i_nl
+    double precision :: gamma_a_e_nl, gamma_a_i_nl
+    double precision :: gamma_ql_e_nl, gamma_ql_i_nl
     double precision, dimension(neqset) :: y, dy, y_lin ! y is a profile vector, holding the data of all profiles
 
     if (iboutype .eq. 1) then
@@ -61,7 +66,7 @@ subroutine rhs_balance(x, y, dy)
     end do
 
     
-    Ercov = sqg_bthet_overc*(params_b(2, :) - Vth*q/rb) &
+    Ercov = sqrt_g_times_B_theta_over_c*(params_b(2, :) - Vth*q/rb) &
             + (params_b(4, :)*ddr_params_nl(1, :)/params_b(1, :) + ddr_params_nl(4, :)) &
             /(Z_i*e_charge)
 
@@ -158,7 +163,7 @@ subroutine rhs_balance(x, y, dy)
         end do
 
         Ercov_lin(ibegb:iendb) &
-            = sqg_bthet_overc(ibegb:iendb)*params_b_lin(2, ibegb:iendb) &
+            = sqrt_g_times_B_theta_over_c(ibegb:iendb)*params_b_lin(2, ibegb:iendb) &
                 + (params_b(4, ibegb:iendb)*ddr_params(1, ibegb:iendb) &
                 /params_b(1, ibegb:iendb) + ddr_params(4, ibegb:iendb)) &
                 /(Z_i*e_charge)
@@ -176,13 +181,28 @@ subroutine rhs_balance(x, y, dy)
             A_1e = A_noE_1e + Ercov_lin(ipoi)*e_charge/params_b(3, ipoi)
         !ERROR    A_1i=A_noE_1e-Ercov_lin(ipoi)*e_charge*Z_i/params_b(4,ipoi)
             A_1i = A_noE_1i - Ercov_lin(ipoi)*e_charge*Z_i/params_b(4, ipoi) !<-FIXED
-        ! particle flux densities:
-            gamma_e = -(dae11(ipoi)*A_noE_1e + dae12(ipoi)*A_noE_2e)*params_b(1, ipoi)
-            gamma_ql_e = -(dqle11(ipoi)*A_1e + dqle12(ipoi)*A_noE_2e)*params_b(1, ipoi)
-            gamma_e = gamma_e + gamma_ql_e
-            gamma_i = -(dai11(ipoi)*A_noE_1i + dai12(ipoi)*A_noE_2i)*params_b(1, ipoi)/Z_i
-            gamma_ql_i = -(dqli11(ipoi)*A_1i + dqli12(ipoi)*A_noE_2i)*params_b(1, ipoi)/Z_i
-            gamma_i = gamma_i + gamma_ql_i
+
+            ! particle flux densities (a == anormal, ql == quasi-linear, nl == non-linear):
+            gamma_a_e = -(dae11(ipoi) * A_noE_1e + dae12(ipoi) * A_noE_2e) * params_b(1, ipoi)
+            gamma_ql_e = -(dqle11(ipoi) * A_1e + dqle12(ipoi) * A_noE_2e) * params_b(1, ipoi)
+            gamma_e = gamma_a_e + gamma_ql_e
+
+            gamma_a_e_nl = -(dae11(ipoi) * A_noE_1e_nl + dae12(ipoi) * A_noE_2e_nl) * &
+                            params_b(1, ipoi)
+            gamma_ql_e_nl = -(dqle11(ipoi) * A_1e_nl + dqle12(ipoi) * A_noE_2e_nl) * &
+                            params_b(1, ipoi)
+            gamma_e_nl = gamma_a_e_nl + gamma_ql_e_nl
+
+            gamma_a_i = -(dai11(ipoi) * A_noE_1i + dai12(ipoi) * A_noE_2i) * params_b(1, ipoi) / Z_i
+            gamma_ql_i = -(dqli11(ipoi) * A_1i + dqli12(ipoi) * A_noE_2i) * params_b(1, ipoi) / Z_i
+            gamma_i = gamma_a_i + gamma_ql_i
+
+            gamma_a_i_nl = -(dai11(ipoi) * A_noE_1i_nl + dai12(ipoi) * A_noE_2i_nl) * &
+                            params_b(1, ipoi) / Z_i
+            gamma_ql_i_nl = -(dqli11(ipoi) * A_1i_nl + dqli12(ipoi) * A_noE_2i_nl) * &
+                            params_b(1, ipoi) / Z_i
+            gamma_i_nl = gamma_a_i_nl + gamma_ql_i_nl
+
         ! total particle flux:
             fluxes_dif(1, ipoi) = -Sb(ipoi)*ddr_params(1, ipoi)*(dae11(ipoi) &
                                     + dqle11(ipoi)*(1.d0 + params_b(4, ipoi)/params_b(3, ipoi)/Z_i))
@@ -211,8 +231,13 @@ subroutine rhs_balance(x, y, dy)
                                 !colli             - 2.5d0*dqli12(ipoi))*params_b(1,ipoi)/Z_i*ddr_params(4,ipoi)
                                 - 2.5d0*dqli21(ipoi))*params_b(1, ipoi)/Z_i*ddr_params(4, ipoi)
             fluxes_con(4, ipoi) = (Sb(ipoi)*Q_i - fluxes_dif(4, ipoi))/params_b(4, ipoi)
-        ! Momentum source due to the polarization current:
-            polforce(ipoi) = (gamma_e - Z_i*gamma_i)*e_charge*sqg_bthet_overc(ipoi) &
+
+            ! Toroidal torque densities
+            T_EM_phi_e(ipoi) = +e_charge * sqrt_g_times_B_theta_over_c(ipoi) * gamma_ql_e_nl
+            T_EM_phi_i(ipoi) = -Z_i * e_charge * sqrt_g_times_B_theta_over_c(ipoi) * gamma_ql_i_nl
+
+            ! Momentum source due to the polarization current:
+            polforce(ipoi) = (gamma_e - Z_i*gamma_i)*e_charge*sqrt_g_times_B_theta_over_c(ipoi) &
                             /(am*p_mass)
 
         ! Heat sources due to the radial QL drift in the equilibrium electric field:
@@ -372,9 +397,11 @@ subroutine rhs_balance_source(x, y, dy)
                         , dni22, visca, gpp_av, dery_equisource &
                         , dqle11, dqle12, dqle21, dqle22 &
                         , dqli11, dqli12, dqli21, dqli22 &
-                        , sqg_bthet_overc, Ercov, polforce, qlheat_e, qlheat_i &
+                        , T_EM_phi_e_source, T_EM_phi_i_source &
+                        , sqrt_g_times_B_theta_over_c, Ercov, polforce, polforce_ql &
+                        , qlheat_e, qlheat_i &
                         , Ercov_lin, fluxes_con_nl 
-                        
+
     use plasma_parameters, only: params, ddr_params, params_b, params_lin &
                         , params_b_lin, ddr_params_nl, dot_params
     use baseparam_mod, only: Z_i, e_charge, am, p_mass, c
@@ -383,11 +410,16 @@ subroutine rhs_balance_source(x, y, dy)
     implicit none
 
     integer :: ipoi, ieq, i, npoi
-    double precision :: x, A_noE_1e, A_noE_2e, A_noE_1i, A_noE_2i, convel
+    double precision :: x, convel, dfluxvphi, Q_e, Q_i, Q_e_nl, Q_i_nl
+    double precision :: A_noE_1e, A_noE_2e, A_noE_1i, A_noE_2i
     double precision :: A_noE_1e_nl, A_noE_2e_nl, A_noE_1i_nl, A_noE_2i_nl
-    double precision :: gamma_e, gamma_i, dfluxvphi, Q_e, Q_i, A_1e, A_1i
-    double precision :: gamma_e_nl, Q_e_nl, Q_i_nl, A_1e_nl, A_1i_nl
+    double precision :: A_1e, A_1i, A_1e_nl, A_1i_nl
+    double precision :: gamma_e, gamma_i
+    double precision :: gamma_a_e, gamma_a_i
     double precision :: gamma_ql_e, gamma_ql_i
+    double precision :: gamma_e_nl, gamma_i_nl
+    double precision :: gamma_a_e_nl, gamma_a_i_nl
+    double precision :: gamma_ql_e_nl, gamma_ql_i_nl
     double precision, dimension(neqset) :: y, dy, y_lin
 
     if (iboutype .eq. 1) then
@@ -428,11 +460,11 @@ subroutine rhs_balance_source(x, y, dy)
     !
     ! Compute radial electric field:
     !
-    Ercov = sqg_bthet_overc*(params_b(2, :) - Vth*q/rb) &
+    Ercov = sqrt_g_times_B_theta_over_c*(params_b(2, :) - Vth*q/rb) &
             + (params_b(4, :)*ddr_params_nl(1, :)/params_b(1, :) + ddr_params_nl(4, :)) &
             /(Z_i*e_charge)
 
-    Ercov_lin = sqg_bthet_overc*params_b_lin(2, :) &
+    Ercov_lin = sqrt_g_times_B_theta_over_c*params_b_lin(2, :) &
                 + (params_b(4, :)*ddr_params(1, :)/params_b(1, :) + ddr_params(4, :)) &
                 /(Z_i*e_charge)
 
@@ -466,17 +498,24 @@ subroutine rhs_balance_source(x, y, dy)
         A_1i_nl = A_noE_1i_nl - Ercov(ipoi)*e_charge*Z_i/params_b(4, ipoi) !<-FIXED
 
 
-        ! particle flux densities:
-        gamma_e = -(dae11(ipoi)*A_noE_1e + dae12(ipoi)*A_noE_2e)*params_b(1, ipoi)
-        gamma_ql_e = -(dqle11(ipoi)*A_1e + dqle12(ipoi)*A_noE_2e)*params_b(1, ipoi)
-        gamma_e = gamma_e + gamma_ql_e
-        gamma_i = -(dai11(ipoi)*A_noE_1i + dai12(ipoi)*A_noE_2i)*params_b(1, ipoi)/Z_i
-        gamma_ql_i = -(dqli11(ipoi)*A_1i + dqli12(ipoi)*A_noE_2i)*params_b(1, ipoi)/Z_i
-        gamma_i = gamma_i + gamma_ql_i
+        ! particle flux densities (a == anormal, ql == quasi-linear, nl == non-linear):
+        gamma_a_e = -(dae11(ipoi) * A_noE_1e + dae12(ipoi) * A_noE_2e) * params_b(1, ipoi)
+        gamma_ql_e = -(dqle11(ipoi) * A_1e + dqle12(ipoi) * A_noE_2e) * params_b(1, ipoi)
+        gamma_e = gamma_a_e + gamma_ql_e
 
-        gamma_e_nl = -(dae11(ipoi)*A_noE_1e_nl + dae12(ipoi)*A_noE_2e_nl &
-                        + dqle11(ipoi)*A_1e_nl + dqle12(ipoi)*A_noE_2e_nl &
-                        )*params_b(1, ipoi)
+        gamma_a_e_nl = -(dae11(ipoi) * A_noE_1e_nl + dae12(ipoi) * A_noE_2e_nl) * params_b(1, ipoi)
+        gamma_ql_e_nl = -(dqle11(ipoi) * A_1e_nl + dqle12(ipoi) * A_noE_2e_nl) * params_b(1, ipoi)
+        gamma_e_nl = gamma_a_e_nl + gamma_ql_e_nl
+
+        gamma_a_i = -(dai11(ipoi) * A_noE_1i + dai12(ipoi) * A_noE_2i) * params_b(1, ipoi) / Z_i
+        gamma_ql_i = -(dqli11(ipoi) * A_1i + dqli12(ipoi) * A_noE_2i) * params_b(1, ipoi) / Z_i
+        gamma_i = gamma_a_i + gamma_ql_i
+
+        gamma_a_i_nl = -(dai11(ipoi) * A_noE_1i_nl + dai12(ipoi) * A_noE_2i_nl) * &
+                        params_b(1, ipoi) / Z_i
+        gamma_ql_i_nl = -(dqli11(ipoi) * A_1i_nl + dqli12(ipoi) * A_noE_2i_nl) * &
+                        params_b(1, ipoi) / Z_i
+        gamma_i_nl = gamma_a_i_nl + gamma_ql_i_nl
 
         ! total particle flux:
         fluxes_dif(1, ipoi) = -Sb(ipoi)*ddr_params(1, ipoi)*(dae11(ipoi) &
@@ -529,8 +568,15 @@ subroutine rhs_balance_source(x, y, dy)
                             *params_b(1, ipoi)/Z_i*ddr_params_nl(4, ipoi))) &
                             /params_b(4, ipoi)
 
-        ! Momentum source due to the polarization current:
-        polforce(ipoi) = (gamma_e - Z_i*gamma_i)*e_charge*sqg_bthet_overc(ipoi) &
+        ! Toroidal torque densities
+        T_EM_phi_e_source(ipoi) = +e_charge * sqrt_g_times_B_theta_over_c(ipoi) * gamma_ql_e_nl
+        T_EM_phi_i_source(ipoi) = -Z_i * e_charge * sqrt_g_times_B_theta_over_c(ipoi) * &
+                                  gamma_ql_i_nl
+
+        ! Momentum source due to the polarization current
+        polforce_ql(ipoi) = (T_EM_phi_i_source(ipoi) - T_EM_phi_e_source(ipoi)) / (am * p_mass)
+
+        polforce(ipoi) = (gamma_e - Z_i*gamma_i)*e_charge*sqrt_g_times_B_theta_over_c(ipoi) &
                         /(am*p_mass)
 
         ! Heat sources due to the radial QL drift in the equilibrium electric field:

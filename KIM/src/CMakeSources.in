@@ -71,7 +71,7 @@ set(KIM_fokkerplanck ${CMAKE_BINARY_DIR}/../../QL-Balance/src/base/getIfunc.f90
                      ${CMAKE_BINARY_DIR}/../../QL-Balance/src/base/W2_arr.f90
 )
 
-set(external_dir ${CMAKE_BINARY_DIR}/_deps/zeal-src)
+set(external_dir ${zeal_SOURCE_DIR})
 set(external_zeal
     ${external_dir}/zeal_input.f90
     ${external_dir}/integr_input.f90

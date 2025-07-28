@@ -77,3 +77,4 @@
 #)
 #target_include_directories(test_gauss_int PUBLIC "${CMAKE_BINARY_DIR}/src")
 #add_test(NAME test_gauss_int COMMAND ${CMAKE_BINARY_DIR}/tests/test_gauss_int.x ${CMAKE_SOURCE_DIR}/nmls/KIM_config.nml)
+

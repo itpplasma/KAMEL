@@ -1,5 +1,3 @@
-cmake_minimum_required (VERSION 3.12)
-
 if(CMAKE_HOST_SYSTEM_NAME MATCHES "Darwin")
     # macOS specific configurations or commands
     message("Building on macOS")
@@ -24,16 +22,10 @@ else()
     message("Building on another operating system. Might not be implemented.")
 endif()
 
-set (CMAKE_Fortran_COMPILER gfortran)
-
-project (KiLCA C CXX Fortran)
-
 set (KiLCA_ARCHITECTURE 64bit) #possible values: 32bit, 64bit; must conform to compilers and libs versions in use
 
 set (KiLCA_VERSION_MAJOR 2)
 set (KiLCA_VERSION_MINOR 4.2)
-
-set (CMAKE_BUILD_TYPE Release) #possible values: Debug, Release
 
 set (MAGNETIC_DRIFT MDNO) #possible values: MDNO, MDYES
 
@@ -62,7 +54,8 @@ set (kilca_lib KiLCA_Lib_${kilca_sign})
 set (kilca_normal_exe KiLCA_Normal_${kilca_sign})
 set (kilca_eigparam_exe KiLCA_EigParam_${kilca_sign})
 
-set(CMAKE_Fortran_MODULE_DIRECTORY ${CMAKE_SOURCE_DIR}/mod)
+set(CMAKE_Fortran_MODULE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/mod)
+include_directories("${CMAKE_Fortran_MODULE_DIRECTORY}")
 
 #Due to gcc compiler bug the code may produce wrong results if it is compiled with optimizations -O2 flags!!!
 
@@ -118,49 +111,48 @@ set (kilca_normal_main progs/main_linear.cpp)
 set (kilca_eigparam_main progs/main_eig_param.cpp)
 
 # --- Dependencies ---
-list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake")
-include(FetchGSL)
-include(FetchLapack)
-include(FetchSundials)
+# Dependencies are provided by the top-level project via cmake/Dependencies.cmake
 
 # include paths:
 set (libs_root_path ${CMAKE_BINARY_DIR}/external-install)
 set (sundials_include_path ${libs_root_path}/sundials/include)
 set (gsl_include_path ${libs_root_path}/gsl/include)
 
-file(GLOB libslatec_files "${CMAKE_SOURCE_DIR}/math/bessel/slatec/*.f")
-add_library (slatec STATIC "${libslatec_files}")
-
 set(EXTERNAL_LIBS slatec lapack blas cvode nvecserial gsl gslcblas)
 
 # configure a header file to pass some of the CMake settings to the source code
-configure_file ("${PROJECT_SOURCE_DIR}/code_settings.h.in" "${PROJECT_BINARY_DIR}/code_settings.h")
+configure_file(
+    "${CMAKE_CURRENT_SOURCE_DIR}/code_settings.h.in"
+    "${CMAKE_CURRENT_BINARY_DIR}/code_settings.h"
+)
+# Make generated header available
+include_directories("${CMAKE_CURRENT_BINARY_DIR}")
 
 include_directories ("${sundials_include_path}")
 include_directories ("${gsl_include_path}")
 include_directories ("${PROJECT_BINARY_DIR}")
-include_directories ("${PROJECT_SOURCE_DIR}/antenna")
-include_directories ("${PROJECT_SOURCE_DIR}/background")
-include_directories ("${PROJECT_SOURCE_DIR}/core")
-include_directories ("${PROJECT_SOURCE_DIR}/eigmode")
-include_directories ("${PROJECT_SOURCE_DIR}/flre")
-include_directories ("${PROJECT_SOURCE_DIR}/flre/conductivity")
-include_directories ("${PROJECT_SOURCE_DIR}/flre/dispersion")
-include_directories ("${PROJECT_SOURCE_DIR}/flre/maxwell_eqs")
-include_directories ("${PROJECT_SOURCE_DIR}/flre/quants")
-include_directories ("${PROJECT_SOURCE_DIR}/hom_medium")
-include_directories ("${PROJECT_SOURCE_DIR}/imhd")
-include_directories ("${PROJECT_SOURCE_DIR}/interface")
-include_directories ("${PROJECT_SOURCE_DIR}/interp")
-include_directories ("${PROJECT_SOURCE_DIR}/io")
-include_directories ("${PROJECT_SOURCE_DIR}/math")
-include_directories ("${PROJECT_SOURCE_DIR}/math/adapt_grid")
-include_directories ("${PROJECT_SOURCE_DIR}/math/zersol-0.0.0/src")
-include_directories ("${PROJECT_SOURCE_DIR}/mod")
-include_directories ("${PROJECT_SOURCE_DIR}/mode")
-include_directories ("${PROJECT_SOURCE_DIR}/progs")
-include_directories ("${PROJECT_SOURCE_DIR}/solver")
-include_directories ("${PROJECT_SOURCE_DIR}/spline")
+include_directories ("${CMAKE_CURRENT_SOURCE_DIR}/antenna")
+include_directories ("${CMAKE_CURRENT_SOURCE_DIR}/background")
+include_directories ("${CMAKE_CURRENT_SOURCE_DIR}/core")
+include_directories ("${CMAKE_CURRENT_SOURCE_DIR}/eigmode")
+include_directories ("${CMAKE_CURRENT_SOURCE_DIR}/flre")
+include_directories ("${CMAKE_CURRENT_SOURCE_DIR}/flre/conductivity")
+include_directories ("${CMAKE_CURRENT_SOURCE_DIR}/flre/dispersion")
+include_directories ("${CMAKE_CURRENT_SOURCE_DIR}/flre/maxwell_eqs")
+include_directories ("${CMAKE_CURRENT_SOURCE_DIR}/flre/quants")
+include_directories ("${CMAKE_CURRENT_SOURCE_DIR}/hom_medium")
+include_directories ("${CMAKE_CURRENT_SOURCE_DIR}/imhd")
+include_directories ("${CMAKE_CURRENT_SOURCE_DIR}/interface")
+include_directories ("${CMAKE_CURRENT_SOURCE_DIR}/interp")
+include_directories ("${CMAKE_CURRENT_SOURCE_DIR}/io")
+include_directories ("${CMAKE_CURRENT_SOURCE_DIR}/math")
+include_directories ("${CMAKE_CURRENT_SOURCE_DIR}/math/adapt_grid")
+include_directories ("${CMAKE_CURRENT_SOURCE_DIR}/math/zersol-0.0.0/src")
+include_directories ("${CMAKE_CURRENT_SOURCE_DIR}/mod")
+include_directories ("${CMAKE_CURRENT_SOURCE_DIR}/mode")
+include_directories ("${CMAKE_CURRENT_SOURCE_DIR}/progs")
+include_directories ("${CMAKE_CURRENT_SOURCE_DIR}/solver")
+include_directories ("${CMAKE_CURRENT_SOURCE_DIR}/spline")
 
 #cpp source files for kilca lib:
 set(kilca_lib_cpp_sources
@@ -248,7 +240,6 @@ set(kilca_lib_fortran_sources
     math/solsubsys.f90
     math/transform.f90
     math/zgeev_tuned.f
-    math/odeint_allroutines.f
     math/W/wofz.f
     math/W/wfunc.f90
     math/W/wmfunc.f90
@@ -263,29 +254,63 @@ target_compile_options(kilca_lib PRIVATE -fPIC)
 
 set_target_properties(kilca_lib PROPERTIES
     OUTPUT_NAME ${kilca_lib}
-    ARCHIVE_OUTPUT_DIRECTORY lib
-    Fortran_MODULE_DIRECTORY mod)
+    ARCHIVE_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}/install/lib/
+    Fortran_MODULE_DIRECTORY ${PROJECT_BINARY_DIR}/OBJS/kilca/)
 add_dependencies(kilca_lib ${EXTERNAL_LIBS})
 target_link_libraries(kilca_lib PUBLIC ${EXTERNAL_LIBS})
+
+# Add include directories on `kilca_lib` target for all source and module paths
+target_include_directories(kilca_lib PUBLIC
+    # Fortran modules generated in build
+    ${CMAKE_CURRENT_BINARY_DIR}/mod
+    # Generated headers
+    ${CMAKE_CURRENT_BINARY_DIR}
+    # KiLCA source subdirectories
+    ${CMAKE_CURRENT_SOURCE_DIR}/antenna
+    ${CMAKE_CURRENT_SOURCE_DIR}/background
+    ${CMAKE_CURRENT_SOURCE_DIR}/core
+    ${CMAKE_CURRENT_SOURCE_DIR}/eigmode
+    ${CMAKE_CURRENT_SOURCE_DIR}/flre
+    ${CMAKE_CURRENT_SOURCE_DIR}/flre/conductivity
+    ${CMAKE_CURRENT_SOURCE_DIR}/flre/dispersion
+    ${CMAKE_CURRENT_SOURCE_DIR}/flre/maxwell_eqs
+    ${CMAKE_CURRENT_SOURCE_DIR}/flre/quants
+    ${CMAKE_CURRENT_SOURCE_DIR}/hom_medium
+    ${CMAKE_CURRENT_SOURCE_DIR}/imhd
+    ${CMAKE_CURRENT_SOURCE_DIR}/interface
+    ${CMAKE_CURRENT_SOURCE_DIR}/interp
+    ${CMAKE_CURRENT_SOURCE_DIR}/io
+    ${CMAKE_CURRENT_SOURCE_DIR}/math
+    ${CMAKE_CURRENT_SOURCE_DIR}/math/adapt_grid
+    ${CMAKE_CURRENT_SOURCE_DIR}/math/zersol-0.0.0/src
+    ${CMAKE_CURRENT_SOURCE_DIR}/mod
+    ${CMAKE_CURRENT_SOURCE_DIR}/mode
+    ${CMAKE_CURRENT_SOURCE_DIR}/progs
+    ${CMAKE_CURRENT_SOURCE_DIR}/solver
+    ${CMAKE_CURRENT_SOURCE_DIR}/spline
+    # External dependencies
+    ${sundials_include_path}
+    ${gsl_include_path}
+)
 
 add_executable (kilca_normal_exe ${kilca_normal_main})
 set_target_properties(kilca_normal_exe PROPERTIES
     OUTPUT_NAME ${kilca_normal_exe}
-    RUNTIME_OUTPUT_DIRECTORY exe)
+    RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/install/bin/)
 add_dependencies(kilca_normal_exe ${EXTERNAL_LIBS})
 target_link_libraries (kilca_normal_exe kilca_lib ${EXTERNAL_LIBS})
 
 add_executable (kilca_eigparam_exe ${kilca_eigparam_main})
 set_target_properties(kilca_eigparam_exe PROPERTIES
     OUTPUT_NAME ${kilca_eigparam_exe}
-    RUNTIME_OUTPUT_DIRECTORY exe)
+    RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/install/bin/)
 add_dependencies(kilca_eigparam_exe ${EXTERNAL_LIBS})
 target_link_libraries (kilca_eigparam_exe kilca_lib ${EXTERNAL_LIBS})
 
 add_executable (post_proc post_processing/main_post_proc.cpp post_processing/save_fortran.f90)
 set_target_properties(post_proc PROPERTIES
     OUTPUT_NAME post_processor_${KiLCA_ARCHITECTURE}
-    RUNTIME_OUTPUT_DIRECTORY exe)
+    RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/install/bin/)
 add_dependencies(post_proc ${EXTERNAL_LIBS})
 target_link_libraries (post_proc kilca_lib ${EXTERNAL_LIBS})
 

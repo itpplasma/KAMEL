@@ -201,7 +201,7 @@ else                                        return 0;
 
 /*******************************************************************/
 
-int determine_mumber_of_zones (char *path2project)
+int determine_number_of_zones (char *path2project)
 {
 //determines number of zones: 2 versions: scandir() and readdir()
 
@@ -224,8 +224,8 @@ if (dp = opendir (path2project))
 }
 else
 {
-    fprintf (stderr, "\ndetermine_mumber_of_zones: faled to open the project directory %s", path2project);
-    exit (1);
+    fprintf(stderr, "\ndetermine_number_of_zones: faled to open the project directory %s", path2project);
+    exit(1);
 }
 
 if (DEBUG_FLAG)

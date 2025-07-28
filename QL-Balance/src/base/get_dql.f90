@@ -5,7 +5,7 @@ subroutine get_dql
     use grid_mod, only: nbaleqs, npoib &
                         , deriv_coef &
                         , ipbeg, ipend, rb, reint_coef &
-                        , sqg_bthet_overc, Ercov &
+                        , sqrt_g_times_B_theta_over_c, Ercov &
                         , mwind &
                         , dqle11, dqle12, dqle21, dqle22 &
                         , dqli11, dqli12, dqli21, dqli22 &
@@ -108,7 +108,7 @@ subroutine get_dql
     end if
 
     ! Compute radial electric field:
-    Ercov = sqg_bthet_overc*(params_b(2, :) - Vth*q/rb) &
+    Ercov = sqrt_g_times_B_theta_over_c*(params_b(2, :) - Vth*q/rb) &
             + (params_b(4, :)*ddr_params_nl(1, :)/params_b(1, :) + ddr_params_nl(4, :)) &
             /(Z_i*e_charge)
 

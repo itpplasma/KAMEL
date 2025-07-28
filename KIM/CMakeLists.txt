@@ -1,9 +1,6 @@
-cmake_minimum_required(VERSION 3.24)
-
 set(CMAKE_DISABLE_IN_SOURCE_BUILD ON)
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${CMAKE_SOURCE_DIR}/cmake)
 
-set(CMAKE_Fortran_COMPILER "mpif90")
 set(CMAKE_Fortran_FLAGS
     "${CMAKE_Fortran_FLAGS}"
     "-O3"
@@ -17,15 +14,17 @@ set(CMAKE_Fortran_FLAGS
 )
 string(REPLACE ";" " " CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS}")
 
-project(KIM VERSION 0.1
-            DESCRIPTION "KiLCA Integral Model"
-            LANGUAGES Fortran C CXX)
 enable_language(Fortran)
+
+# Place Fortran modules for all KIM build files in one directory
+set(CMAKE_Fortran_MODULE_DIRECTORY "${CMAKE_BINARY_DIR}/OBJS/kim/")
+# Make sure our module directory is on the include path
+include_directories("${CMAKE_Fortran_MODULE_DIRECTORY}")
+
 enable_testing()
 
-include(FetchZeal)
 add_subdirectory(src)
-add_subdirectory(src/math/slatec)
+# slatec is provided by the top-level cmake/Dependencies.cmake; do not add its subdir here
 add_subdirectory(src/math/libcerf-main)
 add_subdirectory(src/math/ddeabm)
 add_subdirectory(src/tests)

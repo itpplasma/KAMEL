@@ -1,12 +1,23 @@
-**/*/__pycache__
+# VS Code settings
+.vscode/
+
+# generated build directories
+build/
+
+# caches
+__pycache__/
+.cache/
+
+# Python bytecode
 *.DS_Store
 .DS*
-.vscode
-*/build
 
-__pycache__
-./*/__pycache__
-
+# old dependency directory
 external
+
 build
 **._*
+
+
+# direnv
+.envrc

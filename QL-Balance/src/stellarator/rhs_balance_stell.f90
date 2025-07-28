@@ -11,7 +11,7 @@ subroutine rhs_balance_stell(x, y, dy)
                         , dni22, visca, gpp_av &
                         , dqle11, dqle12, dqle21, dqle22 &
                         , dqli11, dqli12, dqli21, dqli22 &
-                        , sqg_bthet_overc, Ercov, polforce, qlheat_e, qlheat_i &
+                        , sqrt_g_times_B_theta_over_c, Ercov, polforce, qlheat_e, qlheat_i &
                         , Ercov_lin, fluxes_con_nl, Donue11, Donue12, Donue21, Donue22 &
                         , Donui11, Donui12, Donui21, Donui22, cneo
                         
@@ -67,7 +67,7 @@ subroutine rhs_balance_stell(x, y, dy)
     end do
 
     
-    Ercov = sqg_bthet_overc*(params_b(2, :) - Vth*q/rb) &
+    Ercov = sqrt_g_times_B_theta_over_c*(params_b(2, :) - Vth*q/rb) &
             + (params_b(4, :)*ddr_params_nl(1, :)/params_b(1, :) + ddr_params_nl(4, :)) &
             /(Z_i*e_charge)
 
@@ -172,7 +172,7 @@ subroutine rhs_balance_stell(x, y, dy)
         end do
 
         Ercov_lin(ibegb:iendb) &
-            = sqg_bthet_overc(ibegb:iendb)*params_b_lin(2, ibegb:iendb) &
+            = sqrt_g_times_B_theta_over_c(ibegb:iendb)*params_b_lin(2, ibegb:iendb) &
                 + (params_b(4, ibegb:iendb)*ddr_params(1, ibegb:iendb) &
                 /params_b(1, ibegb:iendb) + ddr_params(4, ibegb:iendb)) &
                 /(Z_i*e_charge)
@@ -243,7 +243,7 @@ subroutine rhs_balance_stell(x, y, dy)
             fluxes_con(4, ipoi) = (Sb(ipoi)*Q_i - fluxes_dif(4, ipoi))/params_b(4, ipoi)
             
             ! Momentum source due to the polarization current:
-            polforce(ipoi) = (gamma_e - Z_i*gamma_i)*e_charge*sqg_bthet_overc(ipoi) &
+            polforce(ipoi) = (gamma_e - Z_i*gamma_i)*e_charge*sqrt_g_times_B_theta_over_c(ipoi) &
                             /(am*p_mass)
 
             ! Heat sources due to the radial QL drift in the equilibrium electric field:
@@ -406,7 +406,7 @@ subroutine rhs_balance_source_stell(x, y, dy)
                         , dni22, visca, gpp_av, dery_equisource &
                         , dqle11, dqle12, dqle21, dqle22 &
                         , dqli11, dqli12, dqli21, dqli22 &
-                        , sqg_bthet_overc, Ercov, polforce, qlheat_e, qlheat_i &
+                        , sqrt_g_times_B_theta_over_c, Ercov, polforce, qlheat_e, qlheat_i &
                         , Ercov_lin, fluxes_con_nl, cneo, Donue11, Donue12, Donue21, Donue22 &
                         , Donui11, Donui12, Donui21, Donui22
                         
@@ -466,11 +466,11 @@ subroutine rhs_balance_source_stell(x, y, dy)
     !
     ! Compute radial electric field:
     !
-    Ercov = sqg_bthet_overc*(params_b(2, :) - Vth*q/rb) &
+    Ercov = sqrt_g_times_B_theta_over_c*(params_b(2, :) - Vth*q/rb) &
             + (params_b(4, :)*ddr_params_nl(1, :)/params_b(1, :) + ddr_params_nl(4, :)) &
             /(Z_i*e_charge)
 
-    Ercov_lin = sqg_bthet_overc*params_b_lin(2, :) &
+    Ercov_lin = sqrt_g_times_B_theta_over_c*params_b_lin(2, :) &
                 + (params_b(4, :)*ddr_params(1, :)/params_b(1, :) + ddr_params(4, :)) &
                 /(Z_i*e_charge)
 
@@ -577,7 +577,7 @@ subroutine rhs_balance_source_stell(x, y, dy)
                             /params_b(4, ipoi)
 
         ! Momentum source due to the polarization current:
-        polforce(ipoi) = (gamma_e - Z_i*gamma_i)*e_charge*sqg_bthet_overc(ipoi) &
+        polforce(ipoi) = (gamma_e - Z_i*gamma_i)*e_charge*sqrt_g_times_B_theta_over_c(ipoi) &
                         /(am*p_mass)
 
         ! Heat sources due to the radial QL drift in the equilibrium electric field:

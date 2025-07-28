@@ -133,6 +133,7 @@ subroutine calc_transport_coeffs_ornuhl(dim, vT, nu, D_11, D_12, D_21, D_22)
 
     implicit none
 
+    integer :: i
     integer, parameter :: mnmax = 3
     integer, intent(in) :: dim
     real(dp), dimension(dim), intent(in) :: vT, nu

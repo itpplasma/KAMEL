@@ -67,8 +67,8 @@ set(KIM_poisson electrostatic_poisson/poisson.f90
                 electrostatic_poisson/FP_kernel_plasma_prefacs.f90
 )
 
-set(KIM_fokkerplanck ${CMAKE_BINARY_DIR}/../../QL-Balance/src/base/getIfunc.f90
-                     ${CMAKE_BINARY_DIR}/../../QL-Balance/src/base/W2_arr.f90
+set(KIM_fokkerplanck ${CMAKE_SOURCE_DIR}/QL-Balance/src/base/getIfunc.f90
+                     ${CMAKE_SOURCE_DIR}/QL-Balance/src/base/W2_arr.f90
 )
 
 set(external_dir ${zeal_SOURCE_DIR})

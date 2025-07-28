@@ -7,16 +7,11 @@ module kilca_core_m
     use iso_fortran_env, only: int32, int64, real64
     use iso_c_binding
     use kilca_types_m
+    use kilca_settings_m, only: settings_t, antenna_t, eigmode_sett_t
     implicit none
     private
     
     ! Forward declarations for dependent types (to be implemented in respective modules)
-    type :: settings_t
-        character(len=:), allocatable :: path2project
-        ! Placeholder - will be expanded when translating settings module
-        logical :: initialized = .false.
-    end type settings_t
-    
     type :: background_t
         ! Placeholder - will be expanded when translating background module
         logical :: initialized = .false.
@@ -70,6 +65,7 @@ module kilca_core_m
     public :: calc_and_set_mode_dependent_core_data_antenna
     public :: calc_and_set_mode_dependent_core_data_eigmode
     public :: calc_and_set_mode_dependent_core_data_antenna_interface
+    public :: calc_and_set_mode_dependent_core_data_antenna_interface_mn
     
     ! Accessor procedures
     public :: core_data_get_path
@@ -122,7 +118,7 @@ contains
         end if
         
         ! Check pointer precision compatibility (mimics C++ constructor check)
-        call get_pointer_precision(pp)
+        call get_pointer_precision(pp, ierr)
         if (pp /= c_intptr_t) then
             write(err_msg, '(a,i0,a,i0,a,i0)') &
                 "warning: core_data: sizeof(c_intptr_t)=", c_intptr_t, &
@@ -257,7 +253,7 @@ contains
                 allocate(static_settings_vacuum)
                 static_settings_vacuum%path2project = cd%path2project
                 ! Will call read_settings when settings module is implemented
-                static_settings_vacuum%initialized = .true.
+                ! static_settings_vacuum%initialized = .true. ! Will be set when fully implemented
                 first_call_vacuum = .false.
             end if
             cd%sd => static_settings_vacuum
@@ -267,7 +263,7 @@ contains
                 allocate(static_settings_flre)
                 static_settings_flre%path2project = cd%path2project
                 ! Will call read_settings when settings module is implemented
-                static_settings_flre%initialized = .true.
+                ! static_settings_flre%initialized = .true. ! Will be set when fully implemented
                 first_call_flre = .false.
             end if
             cd%sd => static_settings_flre
@@ -298,16 +294,43 @@ contains
     subroutine calc_and_set_mode_dependent_core_data_antenna(cd, ierr)
         type(core_data_t), intent(inout) :: cd
         integer, intent(out) :: ierr
+        integer :: ind, m, n
+        complex(dp) :: omega_lab
         
         ierr = KILCA_SUCCESS
         
-        ! This will be fully implemented when antenna and mode modules are translated
-        ! For now, provide skeleton implementation
+        ! Check prerequisites
+        if (.not. associated(cd%sd)) then
+            ierr = KILCA_ERROR_INVALID_INPUT
+            return
+        end if
         
-        ! Note: Full implementation requires:
-        ! - Access to antenna settings (cd%sd%as)
-        ! - Mode data creation and calculation
-        ! - Complex omega_lab calculation
+        ! Get dimension from antenna settings
+        cd%dim = cd%sd%antenna_settings%dma
+        
+        ! Allocate modes array
+        if (allocated(cd%mda)) deallocate(cd%mda)
+        allocate(cd%mda(cd%dim), stat=ierr)
+        if (ierr /= 0) then
+            ierr = KILCA_ERROR_MEMORY
+            return
+        end if
+        
+        ! Calculate omega_lab from antenna frequency
+        omega_lab = 2.0_dp * pi * cd%sd%antenna_settings%flab
+        
+        ! Initialize each mode
+        do ind = 1, cd%dim
+            ! Get m,n from antenna modes array
+            m = cd%sd%antenna_settings%modes(2*ind - 1)
+            n = cd%sd%antenna_settings%modes(2*ind)
+            
+            ! Mark as initialized
+            cd%mda(ind)%initialized = .true.
+            
+            ! Clear mode data module (when implemented)
+            call clear_all_data_in_mode_data_module(ierr)
+        end do
         
     end subroutine calc_and_set_mode_dependent_core_data_antenna
     
@@ -317,11 +340,36 @@ contains
     subroutine calc_and_set_mode_dependent_core_data_eigmode(cd, ierr)
         type(core_data_t), intent(inout) :: cd
         integer, intent(out) :: ierr
+        integer :: ind
         
         ierr = KILCA_SUCCESS
         
-        ! This will be fully implemented when eigenmode modules are translated
-        ! For now, provide skeleton implementation
+        ! Check prerequisites
+        if (.not. associated(cd%sd)) then
+            ierr = KILCA_ERROR_INVALID_INPUT
+            return
+        end if
+        
+        ! Get dimension from antenna settings
+        cd%dim = cd%sd%antenna_settings%dma
+        
+        ! Allocate modes array
+        if (allocated(cd%mda)) deallocate(cd%mda)
+        allocate(cd%mda(cd%dim), stat=ierr)
+        if (ierr /= 0) then
+            ierr = KILCA_ERROR_MEMORY
+            return
+        end if
+        
+        ! Initialize modes for eigenmode search
+        do ind = 1, cd%dim
+            cd%mda(ind)%initialized = .true.
+        end do
+        
+        ! Full implementation will include:
+        ! - Frequency loop (search_flag = 1)
+        ! - Zero search (search_flag = 0)
+        ! - All zeros search (search_flag = -1)
         
     end subroutine calc_and_set_mode_dependent_core_data_eigmode
     
@@ -331,12 +379,66 @@ contains
     subroutine calc_and_set_mode_dependent_core_data_antenna_interface(cd, ierr)
         type(core_data_t), intent(inout) :: cd
         integer, intent(out) :: ierr
+        integer :: ind
+        complex(dp) :: omega_lab
         
         ierr = KILCA_SUCCESS
         
-        ! This will be fully implemented when interface modules are translated
+        ! Check prerequisites
+        if (.not. associated(cd%sd)) then
+            ierr = KILCA_ERROR_INVALID_INPUT
+            return
+        end if
+        
+        ! Get dimension from antenna settings
+        cd%dim = cd%sd%antenna_settings%dma
+        
+        ! Allocate modes array
+        if (allocated(cd%mda)) deallocate(cd%mda)
+        allocate(cd%mda(cd%dim), stat=ierr)
+        if (ierr /= 0) then
+            ierr = KILCA_ERROR_MEMORY
+            return
+        end if
+        
+        ! Calculate omega_lab
+        omega_lab = 2.0_dp * pi * cd%sd%antenna_settings%flab
+        
+        ! Initialize each mode for interface
+        do ind = 1, cd%dim
+            cd%mda(ind)%initialized = .true.
+            call clear_all_data_in_mode_data_module(ierr)
+        end do
         
     end subroutine calc_and_set_mode_dependent_core_data_antenna_interface
+    
+    !> @brief Calculate mode-dependent data for specific m,n mode
+    !> @param[inout] cd Core data structure
+    !> @param[in] m Poloidal mode number
+    !> @param[in] n Toroidal mode number
+    !> @param[in] flag Control flag
+    !> @param[out] ierr Error code
+    subroutine calc_and_set_mode_dependent_core_data_antenna_interface_mn(cd, m, n, flag, ierr)
+        type(core_data_t), intent(inout) :: cd
+        integer, intent(in) :: m, n, flag
+        integer, intent(out) :: ierr
+        
+        ierr = KILCA_SUCCESS
+        
+        ! Allocate modes array for single mode
+        cd%dim = 1
+        if (allocated(cd%mda)) deallocate(cd%mda)
+        allocate(cd%mda(cd%dim), stat=ierr)
+        if (ierr /= 0) then
+            ierr = KILCA_ERROR_MEMORY
+            return
+        end if
+        
+        ! This will be fully implemented when mode module is translated
+        ! For now, just mark as initialized
+        cd%mda(1)%initialized = .true.
+        
+    end subroutine calc_and_set_mode_dependent_core_data_antenna_interface_mn
     
     ! =========================================================================
     ! Accessor Procedures
@@ -440,10 +542,13 @@ contains
     
     !> @brief Get pointer precision for compatibility check
     !> @param[out] pp Pointer precision in bytes
-    subroutine get_pointer_precision(pp)
+    !> @param[out] ierr Error code
+    subroutine get_pointer_precision(pp, ierr)
         integer, intent(out) :: pp
+        integer, intent(out) :: ierr
         
-        pp = c_intptr_t
+        ierr = KILCA_SUCCESS
+        pp = c_sizeof(c_null_ptr)  ! Size of a C pointer in bytes
         
     end subroutine get_pointer_precision
     
@@ -475,7 +580,12 @@ contains
     end subroutine set_settings_in_core_module
     
     !> @brief Clear all data in mode_data module
-    subroutine clear_all_data_in_mode_data_module()
+    !> @param[out] ierr Error code
+    subroutine clear_all_data_in_mode_data_module(ierr)
+        integer, intent(out) :: ierr
+        
+        ierr = KILCA_SUCCESS
+        
         ! This will be implemented when mode_data module is translated
         ! For now, just a placeholder
     end subroutine clear_all_data_in_mode_data_module

@@ -214,8 +214,11 @@ contains
         print *, "Testing Fortran interface compatibility..."
         
         ! Test pointer precision
-        call get_pointer_precision(ptr_size)
-        if (ptr_size /= c_intptr_t) then
+        call get_pointer_precision(ptr_size, ierr)
+        if (ierr /= KILCA_SUCCESS) then
+            print *, "FAIL: get_pointer_precision error"
+            test_status = test_status + 1
+        else if (ptr_size /= c_intptr_t) then
             print *, "FAIL: Pointer size mismatch"
             test_status = test_status + 1
         end if

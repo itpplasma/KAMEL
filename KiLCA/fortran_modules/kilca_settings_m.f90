@@ -172,6 +172,7 @@ module kilca_settings_m
     public :: settings_create
     public :: settings_destroy
     public :: settings_deep_copy
+    public :: settings_compare
     public :: settings_read_all
     public :: settings_read_all_full
     public :: settings_print_all
@@ -191,6 +192,8 @@ module kilca_settings_m
     public :: antenna_read_settings_full
     public :: antenna_print_settings
     public :: antenna_print_settings_to_unit
+    public :: antenna_deep_copy
+    public :: antenna_compare
     public :: antenna_validate
     
     ! Background procedures
@@ -199,6 +202,8 @@ module kilca_settings_m
     public :: back_sett_read_settings_full
     public :: back_sett_print_settings
     public :: back_sett_print_settings_to_unit
+    public :: back_sett_deep_copy
+    public :: back_sett_compare
     public :: back_sett_validate
     
     ! Output procedures
@@ -207,6 +212,8 @@ module kilca_settings_m
     public :: output_sett_read_settings_full
     public :: output_sett_print_settings
     public :: output_sett_print_settings_to_unit
+    public :: output_sett_deep_copy
+    public :: output_sett_compare
     public :: output_sett_validate
     
     ! Eigenmode procedures
@@ -215,6 +222,8 @@ module kilca_settings_m
     public :: eigmode_sett_read_settings_full
     public :: eigmode_sett_print_settings
     public :: eigmode_sett_print_settings_to_unit
+    public :: eigmode_sett_deep_copy
+    public :: eigmode_sett_compare
     public :: eigmode_sett_validate
     
     ! C interface procedures
@@ -384,6 +393,44 @@ contains
         dst%es => dst%eigmode_settings
         
     end subroutine settings_deep_copy
+    
+    !> @brief Compare two complete settings for equality
+    subroutine settings_compare(sd1, sd2, is_equal, ierr)
+        type(settings_t), intent(in) :: sd1, sd2
+        logical, intent(out) :: is_equal
+        integer, intent(out) :: ierr
+        
+        logical :: sub_equal
+        
+        ierr = KILCA_SUCCESS
+        is_equal = .false.
+        
+        ! Compare paths
+        if (sd1%path2project /= sd2%path2project) return
+        
+        ! Compare antenna settings
+        call antenna_compare(sd1%antenna_settings, sd2%antenna_settings, sub_equal, ierr)
+        if (ierr /= KILCA_SUCCESS) return
+        if (.not. sub_equal) return
+        
+        ! Compare background settings
+        call back_sett_compare(sd1%background_settings, sd2%background_settings, sub_equal, ierr)
+        if (ierr /= KILCA_SUCCESS) return
+        if (.not. sub_equal) return
+        
+        ! Compare output settings
+        call output_sett_compare(sd1%output_settings, sd2%output_settings, sub_equal, ierr)
+        if (ierr /= KILCA_SUCCESS) return
+        if (.not. sub_equal) return
+        
+        ! Compare eigenmode settings
+        call eigmode_sett_compare(sd1%eigmode_settings, sd2%eigmode_settings, sub_equal, ierr)
+        if (ierr /= KILCA_SUCCESS) return
+        if (.not. sub_equal) return
+        
+        is_equal = .true.
+        
+    end subroutine settings_compare
     
     !> @brief Read all settings from files (mimics C++ read_settings)
     subroutine settings_read_all(sd, ierr)
@@ -660,6 +707,63 @@ contains
         
     end subroutine antenna_print_settings_to_unit
     
+    !> @brief Deep copy antenna settings
+    subroutine antenna_deep_copy(src, dst, ierr)
+        type(antenna_t), intent(in) :: src
+        type(antenna_t), intent(out) :: dst
+        integer, intent(out) :: ierr
+        
+        ierr = KILCA_SUCCESS
+        
+        ! Copy scalar values
+        dst%ra = src%ra
+        dst%wa = src%wa
+        dst%I0 = src%I0
+        dst%flab = src%flab
+        dst%dma = src%dma
+        dst%flag_debug = src%flag_debug
+        dst%flag_eigmode = src%flag_eigmode
+        
+        ! Deep copy allocatable arrays
+        if (allocated(src%modes)) then
+            if (allocated(dst%modes)) deallocate(dst%modes)
+            allocate(dst%modes(size(src%modes)))
+            dst%modes = src%modes
+        else
+            if (allocated(dst%modes)) deallocate(dst%modes)
+        end if
+        
+    end subroutine antenna_deep_copy
+    
+    !> @brief Compare two antenna settings for equality
+    subroutine antenna_compare(ant1, ant2, is_equal, ierr)
+        type(antenna_t), intent(in) :: ant1, ant2
+        logical, intent(out) :: is_equal
+        integer, intent(out) :: ierr
+        
+        ierr = KILCA_SUCCESS
+        is_equal = .false.
+        
+        ! Compare scalar values with appropriate tolerance for reals
+        if (abs(ant1%ra - ant2%ra) > epsilon(ant1%ra)) return
+        if (abs(ant1%wa - ant2%wa) > epsilon(ant1%wa)) return
+        if (abs(ant1%I0 - ant2%I0) > epsilon(ant1%I0)) return
+        if (abs(ant1%flab - ant2%flab) > epsilon(real(ant1%flab))) return
+        if (ant1%dma /= ant2%dma) return
+        if (ant1%flag_debug /= ant2%flag_debug) return
+        if (ant1%flag_eigmode /= ant2%flag_eigmode) return
+        
+        ! Compare allocatable arrays
+        if (allocated(ant1%modes) .neqv. allocated(ant2%modes)) return
+        if (allocated(ant1%modes)) then
+            if (size(ant1%modes) /= size(ant2%modes)) return
+            if (any(ant1%modes /= ant2%modes)) return
+        end if
+        
+        is_equal = .true.
+        
+    end subroutine antenna_compare
+    
     ! =========================================================================
     ! Background Settings Procedures
     ! =========================================================================
@@ -755,6 +859,113 @@ contains
         
     end subroutine back_sett_print_settings_to_unit
     
+    !> @brief Deep copy background settings
+    subroutine back_sett_deep_copy(src, dst, ierr)
+        type(back_sett_t), intent(in) :: src
+        type(back_sett_t), intent(out) :: dst
+        integer, intent(out) :: ierr
+        
+        ierr = KILCA_SUCCESS
+        
+        ! Copy scalar values
+        dst%rtor = src%rtor
+        dst%rp = src%rp
+        dst%B0 = src%B0
+        dst%calc_back = src%calc_back
+        dst%N = src%N
+        dst%V_gal_sys = src%V_gal_sys
+        dst%V_scale = src%V_scale
+        dst%m_i = src%m_i
+        dst%zele = src%zele
+        dst%zion = src%zion
+        dst%flag_debug = src%flag_debug
+        dst%huge_factor = src%huge_factor
+        
+        ! Deep copy allocatable strings
+        if (allocated(src%path2profiles)) then
+            if (allocated(dst%path2profiles)) deallocate(dst%path2profiles)
+            dst%path2profiles = src%path2profiles
+        else
+            if (allocated(dst%path2profiles)) deallocate(dst%path2profiles)
+        end if
+        
+        if (allocated(src%flag_back)) then
+            if (allocated(dst%flag_back)) deallocate(dst%flag_back)
+            dst%flag_back = src%flag_back
+        else
+            if (allocated(dst%flag_back)) deallocate(dst%flag_back)
+        end if
+        
+        ! Deep copy allocatable arrays
+        if (allocated(src%mass)) then
+            if (allocated(dst%mass)) deallocate(dst%mass)
+            allocate(dst%mass(size(src%mass)))
+            dst%mass = src%mass
+        else
+            if (allocated(dst%mass)) deallocate(dst%mass)
+        end if
+        
+        if (allocated(src%charge)) then
+            if (allocated(dst%charge)) deallocate(dst%charge)
+            allocate(dst%charge(size(src%charge)))
+            dst%charge = src%charge
+        else
+            if (allocated(dst%charge)) deallocate(dst%charge)
+        end if
+        
+    end subroutine back_sett_deep_copy
+    
+    !> @brief Compare two background settings for equality
+    subroutine back_sett_compare(bs1, bs2, is_equal, ierr)
+        type(back_sett_t), intent(in) :: bs1, bs2
+        logical, intent(out) :: is_equal
+        integer, intent(out) :: ierr
+        
+        ierr = KILCA_SUCCESS
+        is_equal = .false.
+        
+        ! Compare scalar values with appropriate tolerance for reals
+        if (abs(bs1%rtor - bs2%rtor) > epsilon(bs1%rtor)) return
+        if (abs(bs1%rp - bs2%rp) > epsilon(bs1%rp)) return
+        if (abs(bs1%B0 - bs2%B0) > epsilon(bs1%B0)) return
+        if (bs1%calc_back /= bs2%calc_back) return
+        if (bs1%N /= bs2%N) return
+        if (abs(bs1%V_gal_sys - bs2%V_gal_sys) > epsilon(bs1%V_gal_sys)) return
+        if (abs(bs1%V_scale - bs2%V_scale) > epsilon(bs1%V_scale)) return
+        if (abs(bs1%m_i - bs2%m_i) > epsilon(bs1%m_i)) return
+        if (abs(bs1%zele - bs2%zele) > epsilon(bs1%zele)) return
+        if (abs(bs1%zion - bs2%zion) > epsilon(bs1%zion)) return
+        if (bs1%flag_debug /= bs2%flag_debug) return
+        if (abs(bs1%huge_factor - bs2%huge_factor) > epsilon(bs1%huge_factor)) return
+        
+        ! Compare allocatable strings
+        if (allocated(bs1%path2profiles) .neqv. allocated(bs2%path2profiles)) return
+        if (allocated(bs1%path2profiles)) then
+            if (bs1%path2profiles /= bs2%path2profiles) return
+        end if
+        
+        if (allocated(bs1%flag_back) .neqv. allocated(bs2%flag_back)) return
+        if (allocated(bs1%flag_back)) then
+            if (bs1%flag_back /= bs2%flag_back) return
+        end if
+        
+        ! Compare allocatable arrays
+        if (allocated(bs1%mass) .neqv. allocated(bs2%mass)) return
+        if (allocated(bs1%mass)) then
+            if (size(bs1%mass) /= size(bs2%mass)) return
+            if (any(abs(bs1%mass - bs2%mass) > epsilon(bs1%mass))) return
+        end if
+        
+        if (allocated(bs1%charge) .neqv. allocated(bs2%charge)) return
+        if (allocated(bs1%charge)) then
+            if (size(bs1%charge) /= size(bs2%charge)) return
+            if (any(abs(bs1%charge - bs2%charge) > epsilon(bs1%charge))) return
+        end if
+        
+        is_equal = .true.
+        
+    end subroutine back_sett_compare
+    
     ! =========================================================================
     ! Output Settings Procedures
     ! =========================================================================
@@ -844,6 +1055,61 @@ contains
         ierr = KILCA_SUCCESS
         
     end subroutine output_sett_print_settings_to_unit
+    
+    !> @brief Deep copy output settings
+    subroutine output_sett_deep_copy(src, dst, ierr)
+        type(output_sett_t), intent(in) :: src
+        type(output_sett_t), intent(out) :: dst
+        integer, intent(out) :: ierr
+        
+        ierr = KILCA_SUCCESS
+        
+        ! Copy scalar values
+        dst%flag_background = src%flag_background
+        dst%flag_emfield = src%flag_emfield
+        dst%flag_additional = src%flag_additional
+        dst%flag_dispersion = src%flag_dispersion
+        dst%num_quants = src%num_quants
+        dst%flag_debug = src%flag_debug
+        
+        ! Deep copy allocatable arrays
+        if (allocated(src%flag_quants)) then
+            if (allocated(dst%flag_quants)) deallocate(dst%flag_quants)
+            allocate(dst%flag_quants(size(src%flag_quants)))
+            dst%flag_quants = src%flag_quants
+        else
+            if (allocated(dst%flag_quants)) deallocate(dst%flag_quants)
+        end if
+        
+    end subroutine output_sett_deep_copy
+    
+    !> @brief Compare two output settings for equality
+    subroutine output_sett_compare(os1, os2, is_equal, ierr)
+        type(output_sett_t), intent(in) :: os1, os2
+        logical, intent(out) :: is_equal
+        integer, intent(out) :: ierr
+        
+        ierr = KILCA_SUCCESS
+        is_equal = .false.
+        
+        ! Compare scalar values
+        if (os1%flag_background /= os2%flag_background) return
+        if (os1%flag_emfield /= os2%flag_emfield) return
+        if (os1%flag_additional /= os2%flag_additional) return
+        if (os1%flag_dispersion /= os2%flag_dispersion) return
+        if (os1%num_quants /= os2%num_quants) return
+        if (os1%flag_debug /= os2%flag_debug) return
+        
+        ! Compare allocatable arrays
+        if (allocated(os1%flag_quants) .neqv. allocated(os2%flag_quants)) return
+        if (allocated(os1%flag_quants)) then
+            if (size(os1%flag_quants) /= size(os2%flag_quants)) return
+            if (any(os1%flag_quants /= os2%flag_quants)) return
+        end if
+        
+        is_equal = .true.
+        
+    end subroutine output_sett_compare
     
     ! =========================================================================
     ! Eigenmode Settings Procedures
@@ -960,6 +1226,101 @@ contains
         ierr = KILCA_SUCCESS
         
     end subroutine eigmode_sett_print_settings_to_unit
+    
+    !> @brief Deep copy eigenmode settings
+    subroutine eigmode_sett_deep_copy(src, dst, ierr)
+        type(eigmode_sett_t), intent(in) :: src
+        type(eigmode_sett_t), intent(out) :: dst
+        integer, intent(out) :: ierr
+        
+        ierr = KILCA_SUCCESS
+        
+        ! Copy scalar values
+        dst%search_flag = src%search_flag
+        dst%rdim = src%rdim
+        dst%rfmin = src%rfmin
+        dst%rfmax = src%rfmax
+        dst%idim = src%idim
+        dst%ifmin = src%ifmin
+        dst%ifmax = src%ifmax
+        dst%stop_flag = src%stop_flag
+        dst%eps_res = src%eps_res
+        dst%eps_abs = src%eps_abs
+        dst%eps_rel = src%eps_rel
+        dst%delta = src%delta
+        dst%test_roots = src%test_roots
+        dst%flag_debug = src%flag_debug
+        dst%Nguess = src%Nguess
+        dst%kmin = src%kmin
+        dst%kmax = src%kmax
+        dst%n_zeros = src%n_zeros
+        dst%use_winding = src%use_winding
+        
+        ! Deep copy allocatable strings
+        if (allocated(src%fname)) then
+            if (allocated(dst%fname)) deallocate(dst%fname)
+            dst%fname = src%fname
+        else
+            if (allocated(dst%fname)) deallocate(dst%fname)
+        end if
+        
+        ! Deep copy allocatable arrays
+        if (allocated(src%fstart)) then
+            if (allocated(dst%fstart)) deallocate(dst%fstart)
+            allocate(dst%fstart(size(src%fstart)))
+            dst%fstart = src%fstart
+        else
+            if (allocated(dst%fstart)) deallocate(dst%fstart)
+        end if
+        
+    end subroutine eigmode_sett_deep_copy
+    
+    !> @brief Compare two eigenmode settings for equality
+    subroutine eigmode_sett_compare(es1, es2, is_equal, ierr)
+        type(eigmode_sett_t), intent(in) :: es1, es2
+        logical, intent(out) :: is_equal
+        integer, intent(out) :: ierr
+        
+        ierr = KILCA_SUCCESS
+        is_equal = .false.
+        
+        ! Compare scalar values with appropriate tolerance for reals
+        if (es1%search_flag /= es2%search_flag) return
+        if (es1%rdim /= es2%rdim) return
+        if (abs(es1%rfmin - es2%rfmin) > epsilon(es1%rfmin)) return
+        if (abs(es1%rfmax - es2%rfmax) > epsilon(es1%rfmax)) return
+        if (es1%idim /= es2%idim) return
+        if (abs(es1%ifmin - es2%ifmin) > epsilon(es1%ifmin)) return
+        if (abs(es1%ifmax - es2%ifmax) > epsilon(es1%ifmax)) return
+        if (es1%stop_flag /= es2%stop_flag) return
+        if (abs(es1%eps_res - es2%eps_res) > epsilon(es1%eps_res)) return
+        if (abs(es1%eps_abs - es2%eps_abs) > epsilon(es1%eps_abs)) return
+        if (abs(es1%eps_rel - es2%eps_rel) > epsilon(es1%eps_rel)) return
+        if (abs(es1%delta - es2%delta) > epsilon(es1%delta)) return
+        if (es1%test_roots /= es2%test_roots) return
+        if (es1%flag_debug /= es2%flag_debug) return
+        if (es1%Nguess /= es2%Nguess) return
+        if (es1%kmin /= es2%kmin) return
+        if (es1%kmax /= es2%kmax) return
+        if (es1%n_zeros /= es2%n_zeros) return
+        if (es1%use_winding /= es2%use_winding) return
+        
+        ! Compare allocatable strings
+        if (allocated(es1%fname) .neqv. allocated(es2%fname)) return
+        if (allocated(es1%fname)) then
+            if (es1%fname /= es2%fname) return
+        end if
+        
+        ! Compare allocatable complex arrays
+        if (allocated(es1%fstart) .neqv. allocated(es2%fstart)) return
+        if (allocated(es1%fstart)) then
+            if (size(es1%fstart) /= size(es2%fstart)) return
+            if (any(abs(es1%fstart - es2%fstart) > epsilon(real(es1%fstart)))) return
+        end if
+        
+        is_equal = .true.
+        
+    end subroutine eigmode_sett_compare
     
     ! =========================================================================
     ! C Interface Procedures

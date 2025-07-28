@@ -176,6 +176,8 @@ module kilca_settings_m
     public :: settings_read_all_full
     public :: settings_print_all
     public :: settings_validate
+    public :: settings_validate_complete
+    public :: settings_validate_consistency
     
     ! Accessor procedures
     public :: settings_get_antenna
@@ -188,24 +190,28 @@ module kilca_settings_m
     public :: antenna_read_settings
     public :: antenna_read_settings_full
     public :: antenna_print_settings
+    public :: antenna_validate
     
     ! Background procedures
     public :: back_sett_set_calc_flag
     public :: back_sett_read_settings
     public :: back_sett_read_settings_full
     public :: back_sett_print_settings
+    public :: back_sett_validate
     
     ! Output procedures
     public :: output_sett_set_flags
     public :: output_sett_read_settings
     public :: output_sett_read_settings_full
     public :: output_sett_print_settings
+    public :: output_sett_validate
     
     ! Eigenmode procedures
     public :: eigmode_sett_set_search_flag
     public :: eigmode_sett_read_settings
     public :: eigmode_sett_read_settings_full
     public :: eigmode_sett_print_settings
+    public :: eigmode_sett_validate
     
     ! C interface procedures
     public :: set_antenna_settings_c
@@ -1465,5 +1471,608 @@ contains
         call eigmode_sett_read_settings_full(sd%eigmode_settings, sd%path2project, ierr)
         
     end subroutine settings_read_all_full
+    
+    ! =========================================================================
+    ! Individual Settings Validation Procedures
+    ! =========================================================================
+    
+    !> @brief Validate antenna settings
+    subroutine antenna_validate(ant, is_valid, error_msg, ierr)
+        type(antenna_t), intent(in) :: ant
+        logical, intent(out) :: is_valid
+        character(len=*), intent(out) :: error_msg
+        integer, intent(out) :: ierr
+        
+        ierr = KILCA_SUCCESS
+        is_valid = .true.
+        error_msg = ""
+        
+        ! Validate antenna radius
+        if (ant%ra <= 0.0_dp) then
+            is_valid = .false.
+            error_msg = "Antenna radius (ra) must be positive, got: "
+            write(error_msg(len_trim(error_msg)+1:), '(g0)') ant%ra
+            return
+        end if
+        
+        ! Validate current layer width
+        if (ant%wa <= 0.0_dp) then
+            is_valid = .false.
+            error_msg = "Antenna width (wa) must be positive, got: "
+            write(error_msg(len_trim(error_msg)+1:), '(g0)') ant%wa
+            return
+        end if
+        
+        ! Validate antenna current
+        if (ant%I0 < 0.0_dp) then
+            is_valid = .false.
+            error_msg = "Antenna current (I0) cannot be negative, got: "
+            write(error_msg(len_trim(error_msg)+1:), '(g0)') ant%I0
+            return
+        end if
+        
+        ! Validate dimension of modes array
+        if (ant%dma <= 0) then
+            is_valid = .false.
+            error_msg = "Modes array dimension (dma) must be positive, got: "
+            write(error_msg(len_trim(error_msg)+1:), '(i0)') ant%dma
+            return
+        end if
+        
+        ! Validate modes array allocation
+        if (.not. allocated(ant%modes)) then
+            is_valid = .false.
+            error_msg = "Modes array is not allocated"
+            return
+        end if
+        
+        ! Validate modes array size
+        if (size(ant%modes) /= 2 * ant%dma) then
+            is_valid = .false.
+            error_msg = "Modes array size mismatch: expected "
+            write(error_msg(len_trim(error_msg)+1:), '(i0,a,i0)') 2*ant%dma, ", got ", size(ant%modes)
+            return
+        end if
+        
+        ! Validate frequency (check for NaN/Inf)
+        if (.not. (real(ant%flab) == real(ant%flab))) then  ! NaN check
+            is_valid = .false.
+            error_msg = "Antenna frequency real part is NaN"
+            return
+        end if
+        
+        if (.not. (aimag(ant%flab) == aimag(ant%flab))) then  ! NaN check
+            is_valid = .false.
+            error_msg = "Antenna frequency imaginary part is NaN"
+            return
+        end if
+        
+        ! Validate flag values
+        if (ant%flag_debug < 0 .or. ant%flag_debug > 1) then
+            is_valid = .false.
+            error_msg = "Debug flag must be 0 or 1, got: "
+            write(error_msg(len_trim(error_msg)+1:), '(i0)') ant%flag_debug
+            return
+        end if
+        
+        if (ant%flag_eigmode < 0 .or. ant%flag_eigmode > 1) then
+            is_valid = .false.
+            error_msg = "Eigenmode flag must be 0 or 1, got: "
+            write(error_msg(len_trim(error_msg)+1:), '(i0)') ant%flag_eigmode
+            return
+        end if
+        
+    end subroutine antenna_validate
+    
+    !> @brief Validate background settings
+    subroutine back_sett_validate(bs, is_valid, error_msg, ierr)
+        type(back_sett_t), intent(in) :: bs
+        logical, intent(out) :: is_valid
+        character(len=*), intent(out) :: error_msg
+        integer, intent(out) :: ierr
+        
+        ierr = KILCA_SUCCESS
+        is_valid = .true.
+        error_msg = ""
+        
+        ! Validate torus radius
+        if (bs%rtor <= 0.0_dp) then
+            is_valid = .false.
+            error_msg = "Torus radius (rtor) must be positive, got: "
+            write(error_msg(len_trim(error_msg)+1:), '(g0)') bs%rtor
+            return
+        end if
+        
+        ! Validate plasma radius
+        if (bs%rp <= 0.0_dp) then
+            is_valid = .false.
+            error_msg = "Plasma radius (rp) must be positive, got: "
+            write(error_msg(len_trim(error_msg)+1:), '(g0)') bs%rp
+            return
+        end if
+        
+        ! Validate magnetic field
+        if (bs%B0 <= 0.0_dp) then
+            is_valid = .false.
+            error_msg = "Magnetic field (B0) must be positive, got: "
+            write(error_msg(len_trim(error_msg)+1:), '(g0)') bs%B0
+            return
+        end if
+        
+        ! Validate calc_back flag
+        if (bs%calc_back == 0) then
+            is_valid = .false.
+            error_msg = "Background calculation flag (calc_back) cannot be zero"
+            return
+        end if
+        
+        ! Validate spline degree (must be odd)
+        if (bs%N <= 0) then
+            is_valid = .false.
+            error_msg = "Spline degree (N) must be positive, got: "
+            write(error_msg(len_trim(error_msg)+1:), '(i0)') bs%N
+            return
+        end if
+        
+        if (mod(bs%N, 2) == 0) then
+            is_valid = .false.
+            error_msg = "Spline degree (N) must be odd, got: "
+            write(error_msg(len_trim(error_msg)+1:), '(i0)') bs%N
+            return
+        end if
+        
+        ! Validate ion mass
+        if (bs%m_i <= 0.0_dp) then
+            is_valid = .false.
+            error_msg = "Ion mass (m_i) must be positive, got: "
+            write(error_msg(len_trim(error_msg)+1:), '(g0)') bs%m_i
+            return
+        end if
+        
+        ! Validate collision coefficients
+        if (bs%zele < 0.0_dp) then
+            is_valid = .false.
+            error_msg = "Electron collision coefficient (zele) cannot be negative, got: "
+            write(error_msg(len_trim(error_msg)+1:), '(g0)') bs%zele
+            return
+        end if
+        
+        if (bs%zion < 0.0_dp) then
+            is_valid = .false.
+            error_msg = "Ion collision coefficient (zion) cannot be negative, got: "
+            write(error_msg(len_trim(error_msg)+1:), '(g0)') bs%zion
+            return
+        end if
+        
+        ! Validate velocity scale
+        if (bs%V_scale == 0.0_dp) then
+            is_valid = .false.
+            error_msg = "Velocity scale (V_scale) cannot be zero"
+            return
+        end if
+        
+        ! Validate flag values
+        if (bs%flag_debug < 0 .or. bs%flag_debug > 1) then
+            is_valid = .false.
+            error_msg = "Debug flag must be 0 or 1, got: "
+            write(error_msg(len_trim(error_msg)+1:), '(i0)') bs%flag_debug
+            return
+        end if
+        
+        ! Validate allocated arrays if present
+        if (allocated(bs%mass)) then
+            if (size(bs%mass) /= 2) then
+                is_valid = .false.
+                error_msg = "Mass array must have size 2, got: "
+                write(error_msg(len_trim(error_msg)+1:), '(i0)') size(bs%mass)
+                return
+            end if
+            
+            if (any(bs%mass <= 0.0_dp)) then
+                is_valid = .false.
+                error_msg = "All masses must be positive"
+                return
+            end if
+        end if
+        
+        if (allocated(bs%charge)) then
+            if (size(bs%charge) /= 2) then
+                is_valid = .false.
+                error_msg = "Charge array must have size 2, got: "
+                write(error_msg(len_trim(error_msg)+1:), '(i0)') size(bs%charge)
+                return
+            end if
+        end if
+        
+    end subroutine back_sett_validate
+    
+    !> @brief Validate output settings
+    subroutine output_sett_validate(os, is_valid, error_msg, ierr)
+        type(output_sett_t), intent(in) :: os
+        logical, intent(out) :: is_valid
+        character(len=*), intent(out) :: error_msg
+        integer, intent(out) :: ierr
+        
+        ierr = KILCA_SUCCESS
+        is_valid = .true.
+        error_msg = ""
+        
+        ! Validate flag values (should be 0, 1, or 2)
+        if (os%flag_background < 0 .or. os%flag_background > 2) then
+            is_valid = .false.
+            error_msg = "Background flag must be 0, 1, or 2, got: "
+            write(error_msg(len_trim(error_msg)+1:), '(i0)') os%flag_background
+            return
+        end if
+        
+        if (os%flag_emfield < 0 .or. os%flag_emfield > 2) then
+            is_valid = .false.
+            error_msg = "EM field flag must be 0, 1, or 2, got: "
+            write(error_msg(len_trim(error_msg)+1:), '(i0)') os%flag_emfield
+            return
+        end if
+        
+        if (os%flag_additional < 0 .or. os%flag_additional > 2) then
+            is_valid = .false.
+            error_msg = "Additional flag must be 0, 1, or 2, got: "
+            write(error_msg(len_trim(error_msg)+1:), '(i0)') os%flag_additional
+            return
+        end if
+        
+        if (os%flag_dispersion < 0 .or. os%flag_dispersion > 2) then
+            is_valid = .false.
+            error_msg = "Dispersion flag must be 0, 1, or 2, got: "
+            write(error_msg(len_trim(error_msg)+1:), '(i0)') os%flag_dispersion
+            return
+        end if
+        
+        ! Validate number of quantities
+        if (os%num_quants < 0) then
+            is_valid = .false.
+            error_msg = "Number of quantities (num_quants) cannot be negative, got: "
+            write(error_msg(len_trim(error_msg)+1:), '(i0)') os%num_quants
+            return
+        end if
+        
+        ! Validate flag_quants array if num_quants > 0
+        if (os%num_quants > 0) then
+            if (.not. allocated(os%flag_quants)) then
+                is_valid = .false.
+                error_msg = "Quantities flags array not allocated but num_quants > 0"
+                return
+            end if
+            
+            if (size(os%flag_quants) /= os%num_quants) then
+                is_valid = .false.
+                error_msg = "Quantities flags array size mismatch: expected "
+                write(error_msg(len_trim(error_msg)+1:), '(i0,a,i0)') os%num_quants, ", got ", size(os%flag_quants)
+                return
+            end if
+            
+            ! Validate individual quantity flags
+            if (any(os%flag_quants < 0) .or. any(os%flag_quants > 2)) then
+                is_valid = .false.
+                error_msg = "All quantity flags must be 0, 1, or 2"
+                return
+            end if
+        end if
+        
+        ! Validate debug flag
+        if (os%flag_debug < 0 .or. os%flag_debug > 1) then
+            is_valid = .false.
+            error_msg = "Debug flag must be 0 or 1, got: "
+            write(error_msg(len_trim(error_msg)+1:), '(i0)') os%flag_debug
+            return
+        end if
+        
+    end subroutine output_sett_validate
+    
+    !> @brief Validate eigenmode settings
+    subroutine eigmode_sett_validate(es, is_valid, error_msg, ierr)
+        type(eigmode_sett_t), intent(in) :: es
+        logical, intent(out) :: is_valid
+        character(len=*), intent(out) :: error_msg
+        integer, intent(out) :: ierr
+        
+        ierr = KILCA_SUCCESS
+        is_valid = .true.
+        error_msg = ""
+        
+        ! Validate search flag
+        if (es%search_flag < 0) then
+            is_valid = .false.
+            error_msg = "Search flag cannot be negative, got: "
+            write(error_msg(len_trim(error_msg)+1:), '(i0)') es%search_flag
+            return
+        end if
+        
+        ! Validate grid dimensions
+        if (es%rdim <= 0) then
+            is_valid = .false.
+            error_msg = "Real grid dimension (rdim) must be positive, got: "
+            write(error_msg(len_trim(error_msg)+1:), '(i0)') es%rdim
+            return
+        end if
+        
+        if (es%idim <= 0) then
+            is_valid = .false.
+            error_msg = "Imaginary grid dimension (idim) must be positive, got: "
+            write(error_msg(len_trim(error_msg)+1:), '(i0)') es%idim
+            return
+        end if
+        
+        ! Validate frequency ranges
+        if (es%rfmin >= es%rfmax) then
+            is_valid = .false.
+            error_msg = "Real frequency range invalid: rfmin >= rfmax ("
+            write(error_msg(len_trim(error_msg)+1:), '(g0,a,g0,a)') es%rfmin, " >= ", es%rfmax, ")"
+            return
+        end if
+        
+        if (es%ifmin >= es%ifmax) then
+            is_valid = .false.
+            error_msg = "Imaginary frequency range invalid: ifmin >= ifmax ("
+            write(error_msg(len_trim(error_msg)+1:), '(g0,a,g0,a)') es%ifmin, " >= ", es%ifmax, ")"
+            return
+        end if
+        
+        ! Validate tolerances
+        if (es%eps_res <= 0.0_dp) then
+            is_valid = .false.
+            error_msg = "Residual tolerance (eps_res) must be positive, got: "
+            write(error_msg(len_trim(error_msg)+1:), '(g0)') es%eps_res
+            return
+        end if
+        
+        if (es%eps_abs <= 0.0_dp) then
+            is_valid = .false.
+            error_msg = "Absolute tolerance (eps_abs) must be positive, got: "
+            write(error_msg(len_trim(error_msg)+1:), '(g0)') es%eps_abs
+            return
+        end if
+        
+        if (es%eps_rel <= 0.0_dp) then
+            is_valid = .false.
+            error_msg = "Relative tolerance (eps_rel) must be positive, got: "
+            write(error_msg(len_trim(error_msg)+1:), '(g0)') es%eps_rel
+            return
+        end if
+        
+        if (es%delta <= 0.0_dp) then
+            is_valid = .false.
+            error_msg = "Delta for derivatives must be positive, got: "
+            write(error_msg(len_trim(error_msg)+1:), '(g0)') es%delta
+            return
+        end if
+        
+        ! Validate k values
+        if (es%kmin < 1) then
+            is_valid = .false.
+            error_msg = "Minimum k value must be >= 1, got: "
+            write(error_msg(len_trim(error_msg)+1:), '(i0)') es%kmin
+            return
+        end if
+        
+        if (es%kmax < es%kmin) then
+            is_valid = .false.
+            error_msg = "Maximum k value must be >= kmin, got kmax="
+            write(error_msg(len_trim(error_msg)+1:), '(i0,a,i0)') es%kmax, ", kmin=", es%kmin
+            return
+        end if
+        
+        ! Validate Nguess and fstart array
+        if (es%Nguess < 0) then
+            is_valid = .false.
+            error_msg = "Number of guess values (Nguess) cannot be negative, got: "
+            write(error_msg(len_trim(error_msg)+1:), '(i0)') es%Nguess
+            return
+        end if
+        
+        if (es%Nguess > 0) then
+            if (.not. allocated(es%fstart)) then
+                is_valid = .false.
+                error_msg = "Start frequencies array not allocated but Nguess > 0"
+                return
+            end if
+            
+            if (size(es%fstart) /= es%Nguess) then
+                is_valid = .false.
+                error_msg = "Start frequencies array size mismatch: expected "
+                write(error_msg(len_trim(error_msg)+1:), '(i0,a,i0)') es%Nguess, ", got ", size(es%fstart)
+                return
+            end if
+        end if
+        
+        ! Validate n_zeros
+        if (es%n_zeros <= 0) then
+            is_valid = .false.
+            error_msg = "Number of zeros to find must be positive, got: "
+            write(error_msg(len_trim(error_msg)+1:), '(i0)') es%n_zeros
+            return
+        end if
+        
+        ! Validate flag values
+        if (es%test_roots < 0 .or. es%test_roots > 1) then
+            is_valid = .false.
+            error_msg = "Test roots flag must be 0 or 1, got: "
+            write(error_msg(len_trim(error_msg)+1:), '(i0)') es%test_roots
+            return
+        end if
+        
+        if (es%flag_debug < 0 .or. es%flag_debug > 1) then
+            is_valid = .false.
+            error_msg = "Debug flag must be 0 or 1, got: "
+            write(error_msg(len_trim(error_msg)+1:), '(i0)') es%flag_debug
+            return
+        end if
+        
+        if (es%use_winding < 0 .or. es%use_winding > 1) then
+            is_valid = .false.
+            error_msg = "Use winding flag must be 0 or 1, got: "
+            write(error_msg(len_trim(error_msg)+1:), '(i0)') es%use_winding
+            return
+        end if
+        
+    end subroutine eigmode_sett_validate
+    
+    !> @brief Validate complete settings structure
+    subroutine settings_validate_complete(sd, is_valid, error_msg, ierr)
+        type(settings_t), intent(in) :: sd
+        logical, intent(out) :: is_valid
+        character(len=*), intent(out) :: error_msg
+        integer, intent(out) :: ierr
+        
+        character(len=1024) :: local_error
+        
+        ierr = KILCA_SUCCESS
+        is_valid = .true.
+        error_msg = ""
+        
+        ! Validate path existence
+        if (.not. allocated(sd%path2project)) then
+            is_valid = .false.
+            error_msg = "Project path not allocated"
+            return
+        end if
+        
+        if (len_trim(sd%path2project) == 0) then
+            is_valid = .false.
+            error_msg = "Project path is empty"
+            return
+        end if
+        
+        ! Validate antenna settings
+        call antenna_validate(sd%antenna_settings, is_valid, local_error, ierr)
+        if (ierr /= KILCA_SUCCESS) return
+        if (.not. is_valid) then
+            error_msg = "Antenna validation failed: " // trim(local_error)
+            return
+        end if
+        
+        ! Validate background settings
+        call back_sett_validate(sd%background_settings, is_valid, local_error, ierr)
+        if (ierr /= KILCA_SUCCESS) return
+        if (.not. is_valid) then
+            error_msg = "Background validation failed: " // trim(local_error)
+            return
+        end if
+        
+        ! Validate output settings
+        call output_sett_validate(sd%output_settings, is_valid, local_error, ierr)
+        if (ierr /= KILCA_SUCCESS) return
+        if (.not. is_valid) then
+            error_msg = "Output validation failed: " // trim(local_error)
+            return
+        end if
+        
+        ! Validate eigenmode settings
+        call eigmode_sett_validate(sd%eigmode_settings, is_valid, local_error, ierr)
+        if (ierr /= KILCA_SUCCESS) return
+        if (.not. is_valid) then
+            error_msg = "Eigenmode validation failed: " // trim(local_error)
+            return
+        end if
+        
+        ! Check pointer consistency (pointers should be associated)
+        if (.not. associated(sd%as)) then
+            is_valid = .false.
+            error_msg = "Antenna settings pointer not associated"
+            return
+        end if
+        
+        if (.not. associated(sd%bs)) then
+            is_valid = .false.
+            error_msg = "Background settings pointer not associated"
+            return
+        end if
+        
+        if (.not. associated(sd%os)) then
+            is_valid = .false.
+            error_msg = "Output settings pointer not associated"
+            return
+        end if
+        
+        if (.not. associated(sd%es)) then
+            is_valid = .false.
+            error_msg = "Eigenmode settings pointer not associated"
+            return
+        end if
+        
+    end subroutine settings_validate_complete
+    
+    !> @brief Validate consistency between different settings
+    subroutine settings_validate_consistency(sd, is_valid, error_msg, ierr)
+        type(settings_t), intent(in) :: sd
+        logical, intent(out) :: is_valid
+        character(len=*), intent(out) :: error_msg
+        integer, intent(out) :: ierr
+        
+        ierr = KILCA_SUCCESS
+        is_valid = .true.
+        error_msg = ""
+        
+        ! Check antenna-output consistency
+        if (sd%antenna_settings%dma > 0 .and. allocated(sd%antenna_settings%modes)) then
+            if (size(sd%antenna_settings%modes) /= 2 * sd%antenna_settings%dma) then
+                is_valid = .false.
+                error_msg = "Antenna modes array size inconsistent with dma"
+                return
+            end if
+        end if
+        
+        ! Check output quantities consistency
+        if (sd%output_settings%num_quants > 0) then
+            if (.not. allocated(sd%output_settings%flag_quants)) then
+                is_valid = .false.
+                error_msg = "Output quantities flags not allocated but num_quants > 0"
+                return
+            end if
+            
+            if (size(sd%output_settings%flag_quants) /= sd%output_settings%num_quants) then
+                is_valid = .false.
+                error_msg = "Output quantities array size inconsistent with num_quants"
+                return
+            end if
+        end if
+        
+        ! Check eigenmode start frequencies consistency
+        if (sd%eigmode_settings%Nguess > 0) then
+            if (.not. allocated(sd%eigmode_settings%fstart)) then
+                is_valid = .false.
+                error_msg = "Eigenmode start frequencies not allocated but Nguess > 0"
+                return
+            end if
+            
+            if (size(sd%eigmode_settings%fstart) /= sd%eigmode_settings%Nguess) then
+                is_valid = .false.
+                error_msg = "Eigenmode start frequencies array size inconsistent with Nguess"
+                return
+            end if
+        end if
+        
+        ! Check background particle arrays consistency
+        if (allocated(sd%background_settings%mass) .and. allocated(sd%background_settings%charge)) then
+            if (size(sd%background_settings%mass) /= size(sd%background_settings%charge)) then
+                is_valid = .false.
+                error_msg = "Background mass and charge arrays have different sizes"
+                return
+            end if
+        end if
+        
+        ! Physical consistency checks
+        if (sd%background_settings%rp >= sd%background_settings%rtor) then
+            is_valid = .false.
+            error_msg = "Plasma radius must be less than torus radius"
+            return
+        end if
+        
+        ! Check antenna is inside plasma
+        if (sd%antenna_settings%ra >= sd%background_settings%rp) then
+            is_valid = .false.
+            error_msg = "Antenna radius must be less than plasma radius"
+            return
+        end if
+        
+    end subroutine settings_validate_consistency
     
 end module kilca_settings_m

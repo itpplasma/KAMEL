@@ -55,6 +55,9 @@ target_link_libraries(test_core_validation kilca_fortran_modules)
 add_executable(test_settings_file_parsing tests/test_settings_file_parsing.f90)
 target_link_libraries(test_settings_file_parsing kilca_fortran_modules)
 
+add_executable(test_settings_validation tests/test_settings_validation.f90)
+target_link_libraries(test_settings_validation kilca_fortran_modules)
+
 # Add the tests
 add_test(NAME test_kilca_types COMMAND test_kilca_types)
 add_test(NAME test_kilca_core COMMAND test_kilca_core)
@@ -65,6 +68,7 @@ add_test(NAME test_core_initialization COMMAND test_core_initialization)
 add_test(NAME test_core_deep_copy COMMAND test_core_deep_copy)
 add_test(NAME test_core_validation COMMAND test_core_validation)
 add_test(NAME test_settings_file_parsing COMMAND test_settings_file_parsing)
+add_test(NAME test_settings_validation COMMAND test_settings_validation)
 
 # Set module directory
 set_target_properties(kilca_fortran_modules PROPERTIES
@@ -105,5 +109,9 @@ target_include_directories(test_core_validation PRIVATE
 )
 
 target_include_directories(test_settings_file_parsing PRIVATE
+    ${CMAKE_CURRENT_BINARY_DIR}/modules
+)
+
+target_include_directories(test_settings_validation PRIVATE
     ${CMAKE_CURRENT_BINARY_DIR}/modules
 )

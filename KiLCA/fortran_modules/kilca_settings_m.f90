@@ -173,6 +173,7 @@ module kilca_settings_m
     public :: settings_destroy
     public :: settings_deep_copy
     public :: settings_compare
+    public :: settings_initialize_defaults
     public :: settings_read_all
     public :: settings_read_all_full
     public :: settings_print_all
@@ -194,6 +195,8 @@ module kilca_settings_m
     public :: antenna_print_settings_to_unit
     public :: antenna_deep_copy
     public :: antenna_compare
+    public :: antenna_initialize_defaults
+    public :: antenna_initialize_custom
     public :: antenna_validate
     
     ! Background procedures
@@ -204,6 +207,7 @@ module kilca_settings_m
     public :: back_sett_print_settings_to_unit
     public :: back_sett_deep_copy
     public :: back_sett_compare
+    public :: back_sett_initialize_defaults
     public :: back_sett_validate
     
     ! Output procedures
@@ -214,6 +218,7 @@ module kilca_settings_m
     public :: output_sett_print_settings_to_unit
     public :: output_sett_deep_copy
     public :: output_sett_compare
+    public :: output_sett_initialize_defaults
     public :: output_sett_validate
     
     ! Eigenmode procedures
@@ -224,6 +229,7 @@ module kilca_settings_m
     public :: eigmode_sett_print_settings_to_unit
     public :: eigmode_sett_deep_copy
     public :: eigmode_sett_compare
+    public :: eigmode_sett_initialize_defaults
     public :: eigmode_sett_validate
     
     ! C interface procedures
@@ -431,6 +437,36 @@ contains
         is_equal = .true.
         
     end subroutine settings_compare
+    
+    !> @brief Initialize all settings with defaults and create structure
+    subroutine settings_initialize_defaults(sd, path, ierr)
+        type(settings_t), pointer, intent(out) :: sd
+        character(len=*), intent(in) :: path
+        integer, intent(out) :: ierr
+        
+        ierr = KILCA_SUCCESS
+        
+        ! First create the settings structure
+        call settings_create(sd, path, ierr)
+        if (ierr /= KILCA_SUCCESS) then
+            sd => null()
+            return
+        end if
+        
+        ! Initialize all subsystems with defaults
+        call antenna_initialize_defaults(sd%antenna_settings, ierr)
+        if (ierr /= KILCA_SUCCESS) return
+        
+        call back_sett_initialize_defaults(sd%background_settings, ierr)
+        if (ierr /= KILCA_SUCCESS) return
+        
+        call output_sett_initialize_defaults(sd%output_settings, ierr)
+        if (ierr /= KILCA_SUCCESS) return
+        
+        call eigmode_sett_initialize_defaults(sd%eigmode_settings, ierr)
+        if (ierr /= KILCA_SUCCESS) return
+        
+    end subroutine settings_initialize_defaults
     
     !> @brief Read all settings from files (mimics C++ read_settings)
     subroutine settings_read_all(sd, ierr)
@@ -764,6 +800,52 @@ contains
         
     end subroutine antenna_compare
     
+    !> @brief Initialize antenna settings with default values
+    subroutine antenna_initialize_defaults(ant, ierr)
+        type(antenna_t), intent(out) :: ant
+        integer, intent(out) :: ierr
+        
+        ierr = KILCA_SUCCESS
+        
+        ! Set default values (matching type definitions)
+        ant%ra = 0.0_dp
+        ant%wa = 0.0_dp
+        ant%I0 = 0.0_dp
+        ant%flab = cmplx_zero
+        ant%dma = 0
+        ant%flag_debug = 0
+        ant%flag_eigmode = 0
+        
+        ! Ensure arrays are not allocated by default
+        if (allocated(ant%modes)) deallocate(ant%modes)
+        
+    end subroutine antenna_initialize_defaults
+    
+    !> @brief Initialize antenna settings with custom values
+    subroutine antenna_initialize_custom(ant, ra, wa, I0, flab, dma, flag_debug, flag_eigmode, ierr)
+        type(antenna_t), intent(out) :: ant
+        real(dp), intent(in), optional :: ra, wa, I0
+        complex(dp), intent(in), optional :: flab
+        integer, intent(in), optional :: dma, flag_debug, flag_eigmode
+        integer, intent(out) :: ierr
+        
+        ierr = KILCA_SUCCESS
+        
+        ! First set defaults
+        call antenna_initialize_defaults(ant, ierr)
+        if (ierr /= KILCA_SUCCESS) return
+        
+        ! Override with provided values
+        if (present(ra)) ant%ra = ra
+        if (present(wa)) ant%wa = wa
+        if (present(I0)) ant%I0 = I0
+        if (present(flab)) ant%flab = flab
+        if (present(dma)) ant%dma = dma
+        if (present(flag_debug)) ant%flag_debug = flag_debug
+        if (present(flag_eigmode)) ant%flag_eigmode = flag_eigmode
+        
+    end subroutine antenna_initialize_custom
+    
     ! =========================================================================
     ! Background Settings Procedures
     ! =========================================================================
@@ -966,6 +1048,40 @@ contains
         
     end subroutine back_sett_compare
     
+    !> @brief Initialize background settings with meaningful defaults
+    subroutine back_sett_initialize_defaults(bs, ierr)
+        type(back_sett_t), intent(out) :: bs
+        integer, intent(out) :: ierr
+        
+        ierr = KILCA_SUCCESS
+        
+        ! Set meaningful default values for a typical tokamak
+        bs%rtor = 625.0_dp           ! ASDEX Upgrade major radius (cm)
+        bs%rp = 200.0_dp             ! Typical plasma minor radius (cm) 
+        bs%B0 = 20000.0_dp           ! Typical toroidal field (G)
+        bs%calc_back = 1             ! Calculate background profiles
+        bs%N = 5                     ! Spline degree (must be odd)
+        bs%V_gal_sys = 0.0_dp        ! No moving frame by default
+        bs%V_scale = 1.0_dp          ! Unity velocity scaling
+        bs%m_i = 1.0_dp              ! Proton mass units
+        bs%zele = 1.0_dp             ! Realistic electron collision frequency
+        bs%zion = 1.0_dp             ! Realistic ion collision frequency
+        bs%flag_debug = 0            ! No debug by default
+        bs%huge_factor = 1.0e30_dp   ! Large factor for special cases
+        
+        ! Set default strings
+        if (allocated(bs%flag_back)) deallocate(bs%flag_back)
+        bs%flag_back = "normal"
+        
+        if (allocated(bs%path2profiles)) deallocate(bs%path2profiles)
+        ! Don't set path2profiles by default - should be set explicitly
+        
+        ! Clean up arrays - should be allocated as needed
+        if (allocated(bs%mass)) deallocate(bs%mass)
+        if (allocated(bs%charge)) deallocate(bs%charge)
+        
+    end subroutine back_sett_initialize_defaults
+    
     ! =========================================================================
     ! Output Settings Procedures
     ! =========================================================================
@@ -1110,6 +1226,26 @@ contains
         is_equal = .true.
         
     end subroutine output_sett_compare
+    
+    !> @brief Initialize output settings with practical defaults
+    subroutine output_sett_initialize_defaults(os, ierr)
+        type(output_sett_t), intent(out) :: os
+        integer, intent(out) :: ierr
+        
+        ierr = KILCA_SUCCESS
+        
+        ! Set practical default values for typical calculations
+        os%flag_background = 1       ! Compute background data by default
+        os%flag_emfield = 1          ! Compute EM field data by default
+        os%flag_additional = 0       ! Don't compute additional quantities by default
+        os%flag_dispersion = 0       ! Don't compute dispersion by default
+        os%num_quants = 0            ! No additional quantities by default
+        os%flag_debug = 0            ! No debug by default
+        
+        ! Clean up arrays - should be allocated as needed
+        if (allocated(os%flag_quants)) deallocate(os%flag_quants)
+        
+    end subroutine output_sett_initialize_defaults
     
     ! =========================================================================
     ! Eigenmode Settings Procedures
@@ -1321,6 +1457,43 @@ contains
         is_equal = .true.
         
     end subroutine eigmode_sett_compare
+    
+    !> @brief Initialize eigenmode settings with practical defaults
+    subroutine eigmode_sett_initialize_defaults(es, ierr)
+        type(eigmode_sett_t), intent(out) :: es
+        integer, intent(out) :: ierr
+        
+        ierr = KILCA_SUCCESS
+        
+        ! Set practical default values for eigenmode analysis
+        es%search_flag = 0           ! No search by default
+        es%rdim = 100                ! 100 points for real frequency mesh
+        es%rfmin = 0.0_dp            ! Start from zero frequency
+        es%rfmax = 1.0e9_dp          ! Up to 1 GHz
+        es%idim = 100                ! 100 points for imaginary frequency mesh
+        es%ifmin = -1.0e6_dp         ! -1 MHz imaginary
+        es%ifmax = 1.0e6_dp          ! +1 MHz imaginary
+        es%stop_flag = 0             ! Default stopping criteria
+        es%eps_res = 1.0e-6_dp       ! Residual tolerance
+        es%eps_abs = 1.0e-8_dp       ! Absolute tolerance
+        es%eps_rel = 1.0e-6_dp       ! Relative tolerance
+        es%delta = 1.0e-6_dp         ! Delta for derivative calculation
+        es%test_roots = 0            ! Don't test roots by default
+        es%flag_debug = 0            ! No debug by default
+        es%Nguess = 0                ! No initial guesses by default
+        es%kmin = 1                  ! Minimum k value
+        es%kmax = 10                 ! Maximum k value
+        es%n_zeros = 10              ! Number of zeros to search
+        es%use_winding = 0           ! Don't use winding number by default
+        
+        ! Set default filename
+        if (allocated(es%fname)) deallocate(es%fname)
+        es%fname = "eigenmode_output.dat"
+        
+        ! Clean up arrays - should be allocated as needed
+        if (allocated(es%fstart)) deallocate(es%fstart)
+        
+    end subroutine eigmode_sett_initialize_defaults
     
     ! =========================================================================
     ! C Interface Procedures

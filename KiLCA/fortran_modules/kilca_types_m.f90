@@ -85,6 +85,9 @@ module kilca_types_m
     !> @brief Not implemented feature
     integer, parameter, public :: KILCA_ERROR_NOT_IMPLEMENTED = -7
     
+    !> @brief File format or parsing error
+    integer, parameter, public :: KILCA_ERROR_FORMAT = -8
+    
     ! =========================================================================
     ! Physical Constants (from constants.h)
     ! =========================================================================

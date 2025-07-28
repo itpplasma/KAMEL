@@ -173,6 +173,7 @@ module kilca_settings_m
     public :: settings_destroy
     public :: settings_deep_copy
     public :: settings_read_all
+    public :: settings_read_all_full
     public :: settings_print_all
     public :: settings_validate
     
@@ -185,21 +186,25 @@ module kilca_settings_m
     ! Antenna procedures
     public :: antenna_set_parameters
     public :: antenna_read_settings
+    public :: antenna_read_settings_full
     public :: antenna_print_settings
     
     ! Background procedures
     public :: back_sett_set_calc_flag
     public :: back_sett_read_settings
+    public :: back_sett_read_settings_full
     public :: back_sett_print_settings
     
     ! Output procedures
     public :: output_sett_set_flags
     public :: output_sett_read_settings
+    public :: output_sett_read_settings_full
     public :: output_sett_print_settings
     
     ! Eigenmode procedures
     public :: eigmode_sett_set_search_flag
     public :: eigmode_sett_read_settings
+    public :: eigmode_sett_read_settings_full
     public :: eigmode_sett_print_settings
     
     ! C interface procedures
@@ -870,5 +875,595 @@ contains
         ! In full implementation, would copy to a module-level variable
         
     end subroutine copy_background_data_to_background_module
+    
+    ! =========================================================================
+    ! File Parsing Helper Functions
+    ! =========================================================================
+    
+    !> @brief Read a line and extract double value before '#' comment
+    subroutine read_line_get_double(unit, value, ierr)
+        integer, intent(in) :: unit
+        real(dp), intent(out) :: value
+        integer, intent(out) :: ierr
+        
+        character(len=1024) :: line, value_str
+        integer :: comment_pos, iostat
+        
+        ierr = KILCA_SUCCESS
+        
+        read(unit, '(a)', iostat=iostat) line
+        if (iostat /= 0) then
+            ierr = KILCA_ERROR_FILE
+            return
+        end if
+        
+        ! Find comment position
+        comment_pos = index(line, '#')
+        if (comment_pos > 0) then
+            value_str = line(1:comment_pos-1)
+        else
+            value_str = line
+        end if
+        
+        ! Convert to double
+        read(value_str, *, iostat=iostat) value
+        if (iostat /= 0) then
+            ierr = KILCA_ERROR_FORMAT
+        end if
+        
+    end subroutine read_line_get_double
+    
+    !> @brief Read a line and extract complex value before '#' comment
+    subroutine read_line_get_complex(unit, value, ierr)
+        integer, intent(in) :: unit
+        complex(dp), intent(out) :: value
+        integer, intent(out) :: ierr
+        
+        character(len=1024) :: line, value_str
+        integer :: comment_pos, iostat, paren1, paren2, comma
+        real(dp) :: re_part, im_part
+        
+        ierr = KILCA_SUCCESS
+        
+        read(unit, '(a)', iostat=iostat) line
+        if (iostat /= 0) then
+            ierr = KILCA_ERROR_FILE
+            return
+        end if
+        
+        ! Find comment position
+        comment_pos = index(line, '#')
+        if (comment_pos > 0) then
+            value_str = line(1:comment_pos-1)
+        else
+            value_str = line
+        end if
+        
+        ! Parse complex number in format (real, imag)
+        paren1 = index(value_str, '(')
+        paren2 = index(value_str, ')')
+        comma = index(value_str, ',')
+        
+        if (paren1 > 0 .and. paren2 > paren1 .and. comma > paren1 .and. comma < paren2) then
+            read(value_str(paren1+1:comma-1), *, iostat=iostat) re_part
+            if (iostat /= 0) then
+                ierr = KILCA_ERROR_FORMAT
+                return
+            end if
+            
+            read(value_str(comma+1:paren2-1), *, iostat=iostat) im_part
+            if (iostat /= 0) then
+                ierr = KILCA_ERROR_FORMAT
+                return
+            end if
+            
+            value = cmplx(re_part, im_part, dp)
+        else
+            ierr = KILCA_ERROR_FORMAT
+        end if
+        
+    end subroutine read_line_get_complex
+    
+    !> @brief Read a line and extract integer value before '#' comment
+    subroutine read_line_get_int(unit, value, ierr)
+        integer, intent(in) :: unit
+        integer, intent(out) :: value
+        integer, intent(out) :: ierr
+        
+        character(len=1024) :: line, value_str
+        integer :: comment_pos, iostat
+        
+        ierr = KILCA_SUCCESS
+        
+        read(unit, '(a)', iostat=iostat) line
+        if (iostat /= 0) then
+            ierr = KILCA_ERROR_FILE
+            return
+        end if
+        
+        ! Find comment position
+        comment_pos = index(line, '#')
+        if (comment_pos > 0) then
+            value_str = line(1:comment_pos-1)
+        else
+            value_str = line
+        end if
+        
+        ! Convert to integer
+        read(value_str, *, iostat=iostat) value
+        if (iostat /= 0) then
+            ierr = KILCA_ERROR_FORMAT
+        end if
+        
+    end subroutine read_line_get_int
+    
+    !> @brief Read a line and extract string value before '#' comment
+    subroutine read_line_get_string(unit, value, ierr)
+        integer, intent(in) :: unit
+        character(len=:), allocatable, intent(out) :: value
+        integer, intent(out) :: ierr
+        
+        character(len=1024) :: line, value_str
+        integer :: comment_pos, iostat
+        
+        ierr = KILCA_SUCCESS
+        
+        read(unit, '(a)', iostat=iostat) line
+        if (iostat /= 0) then
+            ierr = KILCA_ERROR_FILE
+            return
+        end if
+        
+        ! Find comment position
+        comment_pos = index(line, '#')
+        if (comment_pos > 0) then
+            value_str = line(1:comment_pos-1)
+        else
+            value_str = line
+        end if
+        
+        ! Trim whitespace and allocate
+        value_str = trim(adjustl(value_str))
+        value = value_str
+        
+    end subroutine read_line_get_string
+    
+    !> @brief Skip a line (read and discard)
+    subroutine read_line_skip(unit, ierr)
+        integer, intent(in) :: unit
+        integer, intent(out) :: ierr
+        
+        character(len=1024) :: line
+        integer :: iostat
+        
+        ierr = KILCA_SUCCESS
+        
+        read(unit, '(a)', iostat=iostat) line
+        if (iostat /= 0) then
+            ierr = KILCA_ERROR_FILE
+        end if
+        
+    end subroutine read_line_skip
+    
+    ! =========================================================================
+    ! Full File Parsing Implementations
+    ! =========================================================================
+    
+    !> @brief Read antenna settings from file with full parsing
+    subroutine antenna_read_settings_full(ant, path, ierr)
+        type(antenna_t), intent(inout) :: ant
+        character(len=*), intent(in) :: path
+        integer, intent(out) :: ierr
+        
+        character(len=MAX_PATH_LEN) :: filename, modes_filename
+        character(len=256) :: line
+        logical :: file_exists
+        integer :: unit, iostat, i, paren1, paren2, comma
+        
+        ierr = KILCA_SUCCESS
+        
+        ! Construct antenna.in filename
+        filename = trim(path) // "antenna.in"
+        
+        ! Check if file exists
+        inquire(file=filename, exist=file_exists)
+        if (.not. file_exists) then
+            ierr = KILCA_ERROR_FILE
+            return
+        end if
+        
+        ! Open and read antenna.in file
+        open(newunit=unit, file=filename, status='old', iostat=iostat)
+        if (iostat /= 0) then
+            ierr = KILCA_ERROR_FILE
+            return
+        end if
+        
+        ! Read antenna settings following C++ format
+        call read_line_skip(unit, ierr)                    ! Skip comment line
+        if (ierr /= KILCA_SUCCESS) goto 100
+        
+        call read_line_get_double(unit, ant%ra, ierr)      ! ra
+        if (ierr /= KILCA_SUCCESS) goto 100
+        
+        call read_line_get_double(unit, ant%wa, ierr)      ! wa
+        if (ierr /= KILCA_SUCCESS) goto 100
+        
+        call read_line_get_double(unit, ant%I0, ierr)      ! I0
+        if (ierr /= KILCA_SUCCESS) goto 100
+        
+        call read_line_get_complex(unit, ant%flab, ierr)   ! flab
+        if (ierr /= KILCA_SUCCESS) goto 100
+        
+        call read_line_get_int(unit, ant%dma, ierr)        ! dma
+        if (ierr /= KILCA_SUCCESS) goto 100
+        
+        call read_line_get_int(unit, ant%flag_debug, ierr) ! flag_debug
+        if (ierr /= KILCA_SUCCESS) goto 100
+        
+        call read_line_get_int(unit, ant%flag_eigmode, ierr) ! flag_eigmode
+        if (ierr /= KILCA_SUCCESS) goto 100
+        
+        close(unit)
+        
+        ! Now read modes.in file
+        modes_filename = trim(path) // "modes.in"
+        
+        inquire(file=modes_filename, exist=file_exists)
+        if (.not. file_exists) then
+            ierr = KILCA_ERROR_FILE
+            return
+        end if
+        
+        open(newunit=unit, file=modes_filename, status='old', iostat=iostat)
+        if (iostat /= 0) then
+            ierr = KILCA_ERROR_FILE
+            return
+        end if
+        
+        ! Allocate modes array
+        if (allocated(ant%modes)) deallocate(ant%modes)
+        allocate(ant%modes(2*ant%dma))
+        
+        ! Read mode pairs (m,n) in format "(m, n)"
+        do i = 1, ant%dma
+            read(unit, '(a)', iostat=iostat) line
+            if (iostat /= 0) then
+                ierr = KILCA_ERROR_FORMAT
+                goto 200
+            end if
+            
+            ! Parse line in format "(m, n)"
+            paren1 = index(line, '(')
+            paren2 = index(line, ')')
+            comma = index(line, ',')
+            
+            if (paren1 > 0 .and. paren2 > paren1 .and. comma > paren1 .and. comma < paren2) then
+                read(line(paren1+1:comma-1), *, iostat=iostat) ant%modes(2*i-1)
+                if (iostat /= 0) then
+                    ierr = KILCA_ERROR_FORMAT
+                    goto 200
+                end if
+                
+                read(line(comma+1:paren2-1), *, iostat=iostat) ant%modes(2*i)
+                if (iostat /= 0) then
+                    ierr = KILCA_ERROR_FORMAT
+                    goto 200
+                end if
+            else
+                ierr = KILCA_ERROR_FORMAT
+                goto 200
+            end if
+        end do
+        
+        close(unit)
+        return
+        
+100     close(unit)
+        return
+        
+200     close(unit)
+        if (allocated(ant%modes)) deallocate(ant%modes)
+        return
+        
+    end subroutine antenna_read_settings_full
+    
+    !> @brief Read background settings from file with full parsing
+    subroutine back_sett_read_settings_full(bs, path, ierr)
+        type(back_sett_t), intent(inout) :: bs
+        character(len=*), intent(in) :: path
+        integer, intent(out) :: ierr
+        
+        character(len=MAX_PATH_LEN) :: filename
+        logical :: file_exists
+        integer :: unit, iostat
+        
+        ierr = KILCA_SUCCESS
+        
+        ! Construct filename
+        filename = trim(path) // "background.in"
+        
+        ! Check if file exists
+        inquire(file=filename, exist=file_exists)
+        if (.not. file_exists) then
+            ierr = KILCA_ERROR_FILE
+            return
+        end if
+        
+        ! Open and read file
+        open(newunit=unit, file=filename, status='old', iostat=iostat)
+        if (iostat /= 0) then
+            ierr = KILCA_ERROR_FILE
+            return
+        end if
+        
+        ! Read background settings following C++ format
+        call read_line_skip(unit, ierr)                    ! Machine settings comment
+        if (ierr /= KILCA_SUCCESS) goto 100
+        
+        call read_line_get_double(unit, bs%rtor, ierr)     ! rtor
+        if (ierr /= KILCA_SUCCESS) goto 100
+        
+        call read_line_get_double(unit, bs%rp, ierr)       ! rp  
+        if (ierr /= KILCA_SUCCESS) goto 100
+        
+        call read_line_get_double(unit, bs%B0, ierr)       ! B0
+        if (ierr /= KILCA_SUCCESS) goto 100
+        
+        call read_line_skip(unit, ierr)                    ! Background settings comment
+        if (ierr /= KILCA_SUCCESS) goto 100
+        
+        call read_line_get_string(unit, bs%path2profiles, ierr) ! path2profiles
+        if (ierr /= KILCA_SUCCESS) goto 100
+        
+        call read_line_get_int(unit, bs%calc_back, ierr)   ! calc_back
+        if (ierr /= KILCA_SUCCESS) goto 100
+        
+        call read_line_get_string(unit, bs%flag_back, ierr) ! flag_back
+        if (ierr /= KILCA_SUCCESS) goto 100
+        
+        call read_line_get_int(unit, bs%N, ierr)           ! N
+        if (ierr /= KILCA_SUCCESS) goto 100
+        
+        call read_line_get_double(unit, bs%V_gal_sys, ierr) ! V_gal_sys
+        if (ierr /= KILCA_SUCCESS) goto 100
+        
+        call read_line_get_double(unit, bs%V_scale, ierr)  ! V_scale
+        if (ierr /= KILCA_SUCCESS) goto 100
+        
+        call read_line_get_double(unit, bs%m_i, ierr)      ! m_i
+        if (ierr /= KILCA_SUCCESS) goto 100
+        
+        call read_line_get_double(unit, bs%zele, ierr)     ! zele
+        if (ierr /= KILCA_SUCCESS) goto 100
+        
+        call read_line_get_double(unit, bs%zion, ierr)     ! zion
+        if (ierr /= KILCA_SUCCESS) goto 100
+        
+        call read_line_skip(unit, ierr)                    ! Checking settings comment
+        if (ierr /= KILCA_SUCCESS) goto 100
+        
+        call read_line_get_int(unit, bs%flag_debug, ierr)  ! flag_debug
+        if (ierr /= KILCA_SUCCESS) goto 100
+        
+        close(unit)
+        return
+        
+100     close(unit)
+        return
+        
+    end subroutine back_sett_read_settings_full
+    
+    !> @brief Read output settings from file with full parsing
+    subroutine output_sett_read_settings_full(os, path, ierr)
+        type(output_sett_t), intent(inout) :: os
+        character(len=*), intent(in) :: path
+        integer, intent(out) :: ierr
+        
+        character(len=MAX_PATH_LEN) :: filename
+        logical :: file_exists
+        integer :: unit, iostat, i
+        
+        ierr = KILCA_SUCCESS
+        
+        ! Construct filename
+        filename = trim(path) // "output.in"
+        
+        ! Check if file exists
+        inquire(file=filename, exist=file_exists)
+        if (.not. file_exists) then
+            ierr = KILCA_ERROR_FILE
+            return
+        end if
+        
+        ! Open and read file
+        open(newunit=unit, file=filename, status='old', iostat=iostat)
+        if (iostat /= 0) then
+            ierr = KILCA_ERROR_FILE
+            return
+        end if
+        
+        ! Read output settings
+        call read_line_skip(unit, ierr)                        ! Comment
+        if (ierr /= KILCA_SUCCESS) goto 100
+        
+        call read_line_get_int(unit, os%flag_background, ierr) ! flag_background
+        if (ierr /= KILCA_SUCCESS) goto 100
+        
+        call read_line_get_int(unit, os%flag_emfield, ierr)    ! flag_emfield
+        if (ierr /= KILCA_SUCCESS) goto 100
+        
+        call read_line_get_int(unit, os%flag_additional, ierr) ! flag_additional
+        if (ierr /= KILCA_SUCCESS) goto 100
+        
+        call read_line_get_int(unit, os%flag_dispersion, ierr) ! flag_dispersion
+        if (ierr /= KILCA_SUCCESS) goto 100
+        
+        call read_line_get_int(unit, os%num_quants, ierr)      ! num_quants
+        if (ierr /= KILCA_SUCCESS) goto 100
+        
+        ! Allocate and read flag_quants array
+        if (os%num_quants > 0) then
+            if (allocated(os%flag_quants)) deallocate(os%flag_quants)
+            allocate(os%flag_quants(os%num_quants))
+            
+            do i = 1, os%num_quants
+                call read_line_get_int(unit, os%flag_quants(i), ierr)
+                if (ierr /= KILCA_SUCCESS) goto 100
+            end do
+        end if
+        
+        call read_line_get_int(unit, os%flag_debug, ierr)      ! flag_debug
+        if (ierr /= KILCA_SUCCESS) goto 100
+        
+        close(unit)
+        return
+        
+100     close(unit)
+        if (allocated(os%flag_quants)) deallocate(os%flag_quants)
+        return
+        
+    end subroutine output_sett_read_settings_full
+    
+    !> @brief Read eigenmode settings from file with full parsing
+    subroutine eigmode_sett_read_settings_full(es, path, ierr)
+        type(eigmode_sett_t), intent(inout) :: es
+        character(len=*), intent(in) :: path
+        integer, intent(out) :: ierr
+        
+        character(len=MAX_PATH_LEN) :: filename
+        logical :: file_exists
+        integer :: unit, iostat, i
+        
+        ierr = KILCA_SUCCESS
+        
+        ! Construct filename
+        filename = trim(path) // "eigmode.in"
+        
+        ! Check if file exists
+        inquire(file=filename, exist=file_exists)
+        if (.not. file_exists) then
+            ierr = KILCA_ERROR_FILE
+            return
+        end if
+        
+        ! Open and read file
+        open(newunit=unit, file=filename, status='old', iostat=iostat)
+        if (iostat /= 0) then
+            ierr = KILCA_ERROR_FILE
+            return
+        end if
+        
+        ! Read eigenmode settings
+        call read_line_skip(unit, ierr)                      ! Comment
+        if (ierr /= KILCA_SUCCESS) goto 100
+        
+        call read_line_get_string(unit, es%fname, ierr)      ! fname
+        if (ierr /= KILCA_SUCCESS) goto 100
+        
+        call read_line_get_int(unit, es%search_flag, ierr)   ! search_flag
+        if (ierr /= KILCA_SUCCESS) goto 100
+        
+        call read_line_get_int(unit, es%rdim, ierr)          ! rdim
+        if (ierr /= KILCA_SUCCESS) goto 100
+        
+        call read_line_get_double(unit, es%rfmin, ierr)      ! rfmin
+        if (ierr /= KILCA_SUCCESS) goto 100
+        
+        call read_line_get_double(unit, es%rfmax, ierr)      ! rfmax
+        if (ierr /= KILCA_SUCCESS) goto 100
+        
+        call read_line_get_int(unit, es%idim, ierr)          ! idim
+        if (ierr /= KILCA_SUCCESS) goto 100
+        
+        call read_line_get_double(unit, es%ifmin, ierr)      ! ifmin
+        if (ierr /= KILCA_SUCCESS) goto 100
+        
+        call read_line_get_double(unit, es%ifmax, ierr)      ! ifmax
+        if (ierr /= KILCA_SUCCESS) goto 100
+        
+        call read_line_get_int(unit, es%stop_flag, ierr)     ! stop_flag
+        if (ierr /= KILCA_SUCCESS) goto 100
+        
+        call read_line_get_double(unit, es%eps_res, ierr)    ! eps_res
+        if (ierr /= KILCA_SUCCESS) goto 100
+        
+        call read_line_get_double(unit, es%eps_abs, ierr)    ! eps_abs
+        if (ierr /= KILCA_SUCCESS) goto 100
+        
+        call read_line_get_double(unit, es%eps_rel, ierr)    ! eps_rel
+        if (ierr /= KILCA_SUCCESS) goto 100
+        
+        call read_line_get_double(unit, es%delta, ierr)      ! delta
+        if (ierr /= KILCA_SUCCESS) goto 100
+        
+        call read_line_get_int(unit, es%test_roots, ierr)    ! test_roots
+        if (ierr /= KILCA_SUCCESS) goto 100
+        
+        call read_line_get_int(unit, es%flag_debug, ierr)    ! flag_debug
+        if (ierr /= KILCA_SUCCESS) goto 100
+        
+        call read_line_get_int(unit, es%Nguess, ierr)        ! Nguess
+        if (ierr /= KILCA_SUCCESS) goto 100
+        
+        call read_line_get_int(unit, es%kmin, ierr)          ! kmin
+        if (ierr /= KILCA_SUCCESS) goto 100
+        
+        call read_line_get_int(unit, es%kmax, ierr)          ! kmax
+        if (ierr /= KILCA_SUCCESS) goto 100
+        
+        ! Allocate and read fstart array
+        if (es%Nguess > 0) then
+            if (allocated(es%fstart)) deallocate(es%fstart)
+            allocate(es%fstart(es%Nguess))
+            
+            do i = 1, es%Nguess
+                call read_line_get_complex(unit, es%fstart(i), ierr)
+                if (ierr /= KILCA_SUCCESS) goto 100
+            end do
+        end if
+        
+        call read_line_get_int(unit, es%n_zeros, ierr)       ! n_zeros
+        if (ierr /= KILCA_SUCCESS) goto 100
+        
+        call read_line_get_int(unit, es%use_winding, ierr)   ! use_winding
+        if (ierr /= KILCA_SUCCESS) goto 100
+        
+        close(unit)
+        return
+        
+100     close(unit)
+        if (allocated(es%fstart)) deallocate(es%fstart)
+        return
+        
+    end subroutine eigmode_sett_read_settings_full
+    
+    !> @brief Read all settings from files with full parsing
+    subroutine settings_read_all_full(sd, ierr)
+        type(settings_t), intent(inout) :: sd
+        integer, intent(out) :: ierr
+        
+        ierr = KILCA_SUCCESS
+        
+        print *, ">>>>> Reading settings from ", trim(sd%path2project)
+        
+        ! Read antenna settings
+        call antenna_read_settings_full(sd%antenna_settings, sd%path2project, ierr)
+        if (ierr /= KILCA_SUCCESS) return
+        call copy_antenna_data_to_antenna_module(sd%as)
+        
+        ! Read background settings
+        call back_sett_read_settings_full(sd%background_settings, sd%path2project, ierr)
+        if (ierr /= KILCA_SUCCESS) return
+        call copy_background_data_to_background_module(sd%bs)
+        
+        ! Read output settings
+        call output_sett_read_settings_full(sd%output_settings, sd%path2project, ierr)
+        if (ierr /= KILCA_SUCCESS) return
+        
+        ! Read eigenmode settings
+        call eigmode_sett_read_settings_full(sd%eigmode_settings, sd%path2project, ierr)
+        
+    end subroutine settings_read_all_full
     
 end module kilca_settings_m

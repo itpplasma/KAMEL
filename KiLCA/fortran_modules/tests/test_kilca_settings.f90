@@ -181,10 +181,10 @@ contains
         end if
         
         ! Set output parameters
-        call output_sett_set_flags(os, save_profiles=.true., save_fields=.true., ierr=ierr)
+        call output_sett_set_flags(os, flag_background=1, flag_emfield=2, ierr=ierr)
         
-        if (.not. os%save_profiles) then
-            print *, "FAIL: Output save_profiles flag not set"
+        if (os%flag_background /= 1) then
+            print *, "FAIL: Output flag_background not set"
             test_status = test_status + 1
         end if
         
@@ -279,6 +279,11 @@ contains
         ant%dma = 1
         allocate(ant%modes(2))
         ant%modes = [1, 1]
+        
+        ! Also fix background settings for new validation
+        sd%background_settings%rtor = 625.0_dp
+        sd%background_settings%rp = 99.0_dp
+        sd%background_settings%B0 = 20000.0_dp
         
         call settings_validate(sd, is_valid, ierr)
         if (.not. is_valid) then

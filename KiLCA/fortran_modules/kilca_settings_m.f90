@@ -47,26 +47,29 @@ module kilca_settings_m
     
     !> @brief Background calculation settings
     type, public :: back_sett_t
-        !> Background calculation flag (>0: from files, <0: from interface, 0: error)
-        integer :: calc_back = 1
+        !> Machine settings
+        real(dp) :: rtor = 0.0_dp         !< Big torus radius (cm) of the machine
+        real(dp) :: rp = 0.0_dp           !< Plasma radius (cm)
+        real(dp) :: B0 = 0.0_dp           !< Toroidal magnetic field (G) at the center
         
-        !> Number of radial grid points
-        integer :: n_grid = 100
+        !> Background field and plasma settings
+        character(len=:), allocatable :: path2profiles    !< Path to input background profiles
+        integer :: calc_back = 1          !< Sign shows whether profiles from files/interface, value shows how to recalculate
+        character(len=:), allocatable :: flag_back        !< Flag for background: normal (full) or homogeneous
+        integer :: N = 5                  !< Splines degree: >= NC + 2N+1, where N - order of FLR expansion, must be odd
+        real(dp) :: V_gal_sys = 0.0_dp    !< Velocity (cm/c) of a moving frame
+        real(dp) :: V_scale = 1.0_dp      !< Scale of the Vz velocity profile: Vz = V_scale*Vz - V_gal_sys
+        real(dp) :: m_i = 1.0_dp          !< Ions mass in units of proton mass
+        real(dp) :: zele = 1.0_dp         !< Collision coefficient for electrons: = 1.0 for realistic collision frequency
+        real(dp) :: zion = 1.0_dp         !< Collision coefficient for ions: = 1.0 for realistic collision frequency
+        integer :: flag_debug = 0         !< Flag for debugging mode (additional checks are performed)
         
-        !> Inner radius
-        real(dp) :: r_min = 0.0_dp
+        !> Particle settings
+        real(dp), dimension(:), allocatable :: mass      !< (ions, electrons) masses
+        real(dp), dimension(:), allocatable :: charge    !< (ions, electrons) charges
         
-        !> Outer radius
-        real(dp) :: r_max = 100.0_dp
-        
-        !> Grid type (0=uniform, 1=adaptive)
-        integer :: grid_type = 0
-        
-        !> Profile file names
-        character(len=MAX_PATH_LEN) :: density_file = ""
-        character(len=MAX_PATH_LEN) :: temperature_file = ""
-        character(len=MAX_PATH_LEN) :: pressure_file = ""
-        character(len=MAX_PATH_LEN) :: magnetic_file = ""
+        !> Other misc parameters
+        real(dp) :: huge_factor = 1.0e30_dp    !< Big factor used in special cases
     end type back_sett_t
     
     ! =========================================================================
@@ -75,26 +78,18 @@ module kilca_settings_m
     
     !> @brief Output control settings
     type, public :: output_sett_t
-        !> Save background profiles flag
-        logical :: save_profiles = .true.
+        !> Output flags
+        integer :: flag_background = 0    !< 1 if compute background data, 2 - store
+        integer :: flag_emfield = 0       !< 1 if compute em field data, 2 - store
+        integer :: flag_additional = 0    !< 1 if compute additional quants, 2 - store
+        integer :: flag_dispersion = 0    !< 1 if compute dispersion, 2 - store
         
-        !> Save electromagnetic fields flag
-        logical :: save_fields = .true.
+        !> Quantity flags
+        integer :: num_quants = 0         !< Number of flags
+        integer, dimension(:), allocatable :: flag_quants  !< Flags for each quantity if compute it
         
-        !> Save matrix elements flag
-        logical :: save_matrix = .false.
-        
-        !> Save eigenvalues flag
-        logical :: save_eigenvalues = .true.
-        
-        !> Output format (0=text, 1=binary, 2=HDF5)
-        integer :: output_format = 0
-        
-        !> Output directory
-        character(len=MAX_PATH_LEN) :: output_dir = "output/"
-        
-        !> Verbosity level (0=quiet, 1=normal, 2=verbose, 3=debug)
-        integer :: verbosity = 1
+        !> Debug flag
+        integer :: flag_debug = 0         !< Flag for debugging mode
     end type output_sett_t
     
     ! =========================================================================
@@ -103,26 +98,42 @@ module kilca_settings_m
     
     !> @brief Eigenmode search settings
     type, public :: eigmode_sett_t
-        !> Search flag (1=frequency scan, 0=zero search, -1=all zeros)
-        integer :: search_flag = 0
+        !> Output file name
+        character(len=:), allocatable :: fname    !< Name of output file
         
-        !> Minimum frequency for scan
-        real(dp) :: freq_min = 0.0_dp
+        !> Search parameters
+        integer :: search_flag = 0        !< Flag specifies the search option
         
-        !> Maximum frequency for scan
-        real(dp) :: freq_max = 1.0e9_dp
+        !> Grid parameters: real and imag parts
+        integer :: rdim = 100             !< Real dimension
+        real(dp) :: rfmin = 0.0_dp        !< Real minimum
+        real(dp) :: rfmax = 1.0e9_dp      !< Real maximum
+        integer :: idim = 100             !< Imaginary dimension
+        real(dp) :: ifmin = -1.0e6_dp     !< Imaginary minimum
+        real(dp) :: ifmax = 1.0e6_dp      !< Imaginary maximum
         
-        !> Number of frequency points
-        integer :: n_freq = 100
+        integer :: stop_flag = 0          !< Stop flag
         
-        !> Convergence tolerance
-        real(dp) :: tolerance = 1.0e-6_dp
+        !> Accuracies
+        real(dp) :: eps_res = 1.0e-6_dp   !< Residual accuracy
+        real(dp) :: eps_abs = 1.0e-8_dp   !< Absolute accuracy
+        real(dp) :: eps_rel = 1.0e-6_dp   !< Relative accuracy
+        real(dp) :: delta = 1.0e-6_dp     !< Delta for numerical derivative
         
-        !> Maximum iterations
-        integer :: max_iter = 100
+        integer :: test_roots = 0         !< Test roots flag
+        integer :: flag_debug = 0         !< Debug flag
         
-        !> Initial guess for complex frequency
-        complex(dp) :: omega_guess = cmplx_zero
+        !> Starting values for root search
+        integer :: Nguess = 0             !< Number of guess values
+        integer :: kmin = 1               !< Minimum k value
+        integer :: kmax = 10              !< Maximum k value
+        complex(dp), dimension(:), allocatable :: fstart  !< Starting frequencies
+        
+        !> Number of zeros to be found
+        integer :: n_zeros = 10           !< Number of zeros to find
+        
+        !> Winding number flag
+        integer :: use_winding = 0        !< Flag for using winding number evaluation
     end type eigmode_sett_t
     
     ! =========================================================================
@@ -192,6 +203,9 @@ module kilca_settings_m
     
     ! C interface procedures
     public :: set_antenna_settings_c
+    public :: set_background_settings_c
+    public :: set_particles_settings_c
+    public :: set_huge_factor_c
     public :: copy_antenna_data_to_antenna_module
     public :: copy_background_data_to_background_module
     
@@ -244,9 +258,27 @@ contains
             return
         end if
         
-        ! Deallocate antenna modes array if allocated
+        ! Deallocate all allocatable arrays
         if (allocated(sd%antenna_settings%modes)) then
             deallocate(sd%antenna_settings%modes)
+        end if
+        
+        ! Deallocate background settings allocatables
+        if (allocated(sd%background_settings%mass)) then
+            deallocate(sd%background_settings%mass)
+        end if
+        if (allocated(sd%background_settings%charge)) then
+            deallocate(sd%background_settings%charge)
+        end if
+        
+        ! Deallocate output settings allocatables
+        if (allocated(sd%output_settings%flag_quants)) then
+            deallocate(sd%output_settings%flag_quants)
+        end if
+        
+        ! Deallocate eigenmode settings allocatables
+        if (allocated(sd%eigmode_settings%fstart)) then
+            deallocate(sd%eigmode_settings%fstart)
         end if
         
         ! Nullify internal pointers
@@ -339,7 +371,17 @@ contains
             return
         end if
         
-        if (sd%background_settings%r_max <= sd%background_settings%r_min) then
+        if (sd%background_settings%rtor <= 0.0_dp) then
+            is_valid = .false.
+            return
+        end if
+        
+        if (sd%background_settings%rp <= 0.0_dp) then
+            is_valid = .false.
+            return
+        end if
+        
+        if (sd%background_settings%B0 <= 0.0_dp) then
             is_valid = .false.
             return
         end if
@@ -514,10 +556,19 @@ contains
         type(back_sett_t), intent(in) :: bs
         
         print *, "--- Background Settings ---"
+        print *, "  Machine rtor:    ", bs%rtor
+        print *, "  Plasma radius:   ", bs%rp
+        print *, "  B0:              ", bs%B0
         print *, "  Calc flag:       ", bs%calc_back
-        print *, "  Grid points:     ", bs%n_grid
-        print *, "  R min/max:       ", bs%r_min, bs%r_max
-        print *, "  Grid type:       ", bs%grid_type
+        if (allocated(bs%flag_back)) then
+            print *, "  Flag back:       ", trim(bs%flag_back)
+        end if
+        print *, "  Spline degree N: ", bs%N
+        print *, "  V_gal_sys:       ", bs%V_gal_sys
+        print *, "  V_scale:         ", bs%V_scale
+        print *, "  Ion mass m_i:    ", bs%m_i
+        print *, "  Collision coeffs:", bs%zele, bs%zion
+        print *, "  Huge factor:     ", bs%huge_factor
         
     end subroutine back_sett_print_settings
     
@@ -526,15 +577,15 @@ contains
     ! =========================================================================
     
     !> @brief Set output flags
-    subroutine output_sett_set_flags(os, save_profiles, save_fields, ierr)
+    subroutine output_sett_set_flags(os, flag_background, flag_emfield, ierr)
         type(output_sett_t), intent(inout) :: os
-        logical, intent(in), optional :: save_profiles, save_fields
+        integer, intent(in), optional :: flag_background, flag_emfield
         integer, intent(out) :: ierr
         
         ierr = KILCA_SUCCESS
         
-        if (present(save_profiles)) os%save_profiles = save_profiles
-        if (present(save_fields)) os%save_fields = save_fields
+        if (present(flag_background)) os%flag_background = flag_background
+        if (present(flag_emfield)) os%flag_emfield = flag_emfield
         
     end subroutine output_sett_set_flags
     
@@ -560,12 +611,15 @@ contains
         type(output_sett_t), intent(in) :: os
         
         print *, "--- Output Settings ---"
-        print *, "  Save profiles:   ", os%save_profiles
-        print *, "  Save fields:     ", os%save_fields
-        print *, "  Save matrix:     ", os%save_matrix
-        print *, "  Output format:   ", os%output_format
-        print *, "  Output dir:      ", trim(os%output_dir)
-        print *, "  Verbosity:       ", os%verbosity
+        print *, "  Flag background: ", os%flag_background
+        print *, "  Flag EM field:   ", os%flag_emfield
+        print *, "  Flag additional: ", os%flag_additional
+        print *, "  Flag dispersion: ", os%flag_dispersion
+        print *, "  Flag debug:      ", os%flag_debug
+        print *, "  Num quants:      ", os%num_quants
+        if (allocated(os%flag_quants)) then
+            print *, "  Flag quants:     ", os%flag_quants
+        end if
         
     end subroutine output_sett_print_settings
     
@@ -607,10 +661,16 @@ contains
         
         print *, "--- Eigenmode Settings ---"
         print *, "  Search flag:     ", es%search_flag
-        print *, "  Freq min/max:    ", es%freq_min, es%freq_max
-        print *, "  Freq points:     ", es%n_freq
-        print *, "  Tolerance:       ", es%tolerance
-        print *, "  Max iterations:  ", es%max_iter
+        if (allocated(es%fname)) then
+            print *, "  Output file:     ", trim(es%fname)
+        end if
+        print *, "  Real grid:       ", es%rdim, es%rfmin, es%rfmax
+        print *, "  Imag grid:       ", es%idim, es%ifmin, es%ifmax
+        print *, "  Accuracies:      ", es%eps_res, es%eps_abs, es%eps_rel
+        print *, "  Delta:           ", es%delta
+        print *, "  Nguess:          ", es%Nguess
+        print *, "  N zeros:         ", es%n_zeros
+        print *, "  Use winding:     ", es%use_winding
         
     end subroutine eigmode_sett_print_settings
     
@@ -638,6 +698,84 @@ contains
         ant%flag_debug = flag_debug
         
     end subroutine set_antenna_settings_c
+    
+    !> @brief Set background settings from C (mimics C++ interface)
+    subroutine set_background_settings_c(bs_ptr, rtor, rp, B0, flag_back, V_gal_sys, &
+                                       V_scale, zele, zion, flag_debug) &
+            bind(C, name="set_background_settings_c_")
+        type(c_ptr), intent(inout) :: bs_ptr
+        real(c_double), intent(in) :: rtor, rp, B0, V_gal_sys, V_scale, zele, zion
+        character(c_char), dimension(*), intent(in) :: flag_back
+        integer(c_int), intent(in) :: flag_debug
+        
+        type(back_sett_t), pointer :: bs
+        integer :: i
+        character(len=:), allocatable :: flag_str
+        
+        ! Convert C pointer to Fortran pointer
+        call c_f_pointer(bs_ptr, bs)
+        
+        ! Set values
+        bs%rtor = rtor
+        bs%rp = rp
+        bs%B0 = B0
+        bs%V_gal_sys = V_gal_sys
+        bs%V_scale = V_scale
+        bs%zele = zele
+        bs%zion = zion
+        bs%flag_debug = flag_debug
+        
+        ! Convert C string to Fortran string
+        i = 1
+        do while (flag_back(i) /= c_null_char .and. i < 256)
+            i = i + 1
+        end do
+        
+        allocate(character(len=i-1) :: flag_str)
+        do i = 1, len(flag_str)
+            flag_str(i:i) = flag_back(i)
+        end do
+        bs%flag_back = flag_str
+        
+    end subroutine set_background_settings_c
+    
+    !> @brief Set particle settings from C
+    subroutine set_particles_settings_c(bs_ptr, mass, charge) &
+            bind(C, name="set_particles_settings_c_")
+        type(c_ptr), intent(inout) :: bs_ptr
+        real(c_double), dimension(2), intent(in) :: mass, charge
+        
+        type(back_sett_t), pointer :: bs
+        
+        ! Convert C pointer to Fortran pointer
+        call c_f_pointer(bs_ptr, bs)
+        
+        ! Allocate and set particle arrays
+        if (allocated(bs%mass)) deallocate(bs%mass)
+        if (allocated(bs%charge)) deallocate(bs%charge)
+        
+        allocate(bs%mass(2))
+        allocate(bs%charge(2))
+        
+        bs%mass = mass
+        bs%charge = charge
+        
+    end subroutine set_particles_settings_c
+    
+    !> @brief Set huge factor from C
+    subroutine set_huge_factor_c(bs_ptr, fac) &
+            bind(C, name="set_huge_factor_c_")
+        type(c_ptr), intent(inout) :: bs_ptr
+        real(c_double), intent(in) :: fac
+        
+        type(back_sett_t), pointer :: bs
+        
+        ! Convert C pointer to Fortran pointer
+        call c_f_pointer(bs_ptr, bs)
+        
+        bs%huge_factor = fac
+        
+    end subroutine set_huge_factor_c
     
     !> @brief Copy antenna data to module (placeholder)
     subroutine copy_antenna_data_to_antenna_module(ant)

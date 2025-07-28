@@ -34,8 +34,8 @@ This backlog contains 485 specific, actionable tasks for the complete translatio
 - **Task 015**: Create validation procedures for `core_data_t` consistency
 
 #### Task 1.1.16-1.1.25: Settings System Translation (40 hours)
-- **Task 016**: Translate `settings` class from `core/settings.h` to Fortran derived type
-- **Task 017**: Convert settings constructor/destructor to create/destroy procedures
+- **Task 016**: ✅ Translate `settings` class from `core/settings.h` to Fortran derived type
+- **Task 017**: ✅ Convert settings constructor/destructor to create/destroy procedures
 - **Task 018**: Translate all settings member variables to Fortran components
 - **Task 019**: Convert settings file parsing logic from C++ to Fortran
 - **Task 020**: Translate settings validation methods to Fortran procedures

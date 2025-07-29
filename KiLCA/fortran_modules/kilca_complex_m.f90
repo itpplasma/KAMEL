@@ -57,6 +57,8 @@ module kilca_complex_m
     public :: cmplx_cbrt
     public :: cmplx_hypot
     public :: cmplx_atan2
+    public :: cmplx_logabs
+    public :: cmplx_pow_safe
     
     ! Array operations
     public :: cmplx_allocate_1d
@@ -470,6 +472,81 @@ contains
             theta = -cmplx_I * log(w / sqrt(x**2 + y**2))
         end if
     end function cmplx_atan2
+    
+    !> Logarithm of absolute value (more stable for very large/small numbers)
+    elemental function cmplx_logabs(z) result(logabs)
+        complex(real64), intent(in) :: z
+        real(real64) :: logabs
+        
+        real(real64) :: x, y, max_val, u
+        
+        x = abs(real(z, real64))
+        y = abs(aimag(z))
+        
+        ! Use algorithm to avoid overflow/underflow
+        if (x >= y) then
+            max_val = x
+            u = y / x
+        else
+            max_val = y
+            u = x / y
+        end if
+        
+        if (max_val == 0.0_real64) then
+            logabs = -huge(1.0_real64)  ! log(0) = -infinity
+        else
+            logabs = log(max_val) + 0.5_real64 * log(1.0_real64 + u**2)
+        end if
+    end function cmplx_logabs
+    
+    !> Safe complex power function with overflow/underflow protection
+    elemental function cmplx_pow_safe(base, exponent) result(result_pow)
+        complex(real64), intent(in) :: base, exponent
+        complex(real64) :: result_pow
+        
+        real(real64) :: log_abs_base, arg_base, re_exp, im_exp
+        real(real64) :: log_abs_result, arg_result
+        real(real64) :: max_exp
+        
+        ! Handle special cases
+        if (base == cmplx_O) then
+            if (real(exponent, real64) > 0.0_real64) then
+                result_pow = cmplx_O
+            else if (real(exponent, real64) == 0.0_real64 .and. aimag(exponent) == 0.0_real64) then
+                result_pow = cmplx_E  ! 0^0 = 1 by convention
+            else
+                result_pow = cmplx(huge(1.0_real64), 0.0_real64, real64)  ! Infinity
+            end if
+            return
+        end if
+        
+        ! Calculate log(base) in a stable way
+        log_abs_base = cmplx_logabs(base)
+        arg_base = atan2(aimag(base), real(base, real64))
+        
+        ! Extract real and imaginary parts of exponent
+        re_exp = real(exponent, real64)
+        im_exp = aimag(exponent)
+        
+        ! Calculate log(result) = exponent * log(base)
+        log_abs_result = re_exp * log_abs_base - im_exp * arg_base
+        arg_result = re_exp * arg_base + im_exp * log_abs_base
+        
+        ! Check for overflow/underflow
+        max_exp = log(huge(1.0_real64)) * 0.9_real64  ! Leave some margin
+        
+        if (log_abs_result > max_exp) then
+            ! Overflow
+            result_pow = cmplx(huge(1.0_real64), 0.0_real64, real64) * &
+                         cmplx(cos(arg_result), sin(arg_result), real64)
+        else if (log_abs_result < -max_exp) then
+            ! Underflow
+            result_pow = cmplx_O
+        else
+            ! Normal case
+            result_pow = exp(log_abs_result) * cmplx(cos(arg_result), sin(arg_result), real64)
+        end if
+    end function cmplx_pow_safe
     
     !============= Array Operations =============
     

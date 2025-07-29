@@ -164,7 +164,7 @@ This updated backlog optimizes the original 485 tasks by leveraging existing For
 - **Tasks 136-156**: ✅ Mode data structures (wave_data_t, zone_t, mode_data_t)
 
 #### Task 2.2.21-2.2.35: Mode Calculation Engine (90 hours → 70 hours)
-- **Task 157-158**: [SIMPLIFIED] Use LAPACK eigensolvers directly
+- **Task 157-158**: ✅ [SIMPLIFIED] Use LAPACK eigensolvers directly
 - **Task 159-160**: [SIMPLIFIED] Use LAPACK orthogonalization routines
 - Other tasks remain as they are physics-specific
 

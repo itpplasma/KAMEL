@@ -2,10 +2,12 @@
 FC = gfortran
 FFLAGS = -Wall -std=f2008 -g -O2 -Wno-compare-reals
 LDFLAGS = -llapack -lblas
+# Add bessel.f90 object file for Bessel function support
+BESSEL_OBJ = ../math/bessel/bessel.o
 BUILDDIR = build
 OBJDIR = $(BUILDDIR)/obj
 TESTDIR = $(BUILDDIR)/tests
-SOURCES = kilca_types_m.f90 kilca_constants_m.f90 kilca_shared_m.f90 kilca_complex_m.f90 kilca_settings_m.f90 kilca_core_m.f90
+SOURCES = kilca_types_m.f90 kilca_constants_m.f90 kilca_shared_m.f90 bessel_stubs.f90 kilca_complex_m.f90 kilca_settings_m.f90 kilca_core_m.f90
 OBJECTS = $(SOURCES:%.f90=$(OBJDIR)/%.o)
 MODULES = $(SOURCES:%.f90=$(OBJDIR)/%.mod)
 
@@ -32,7 +34,10 @@ $(OBJDIR)/kilca_constants_m.o: kilca_constants_m.f90 $(OBJDIR)/kilca_types_m.o |
 $(OBJDIR)/kilca_shared_m.o: kilca_shared_m.f90 $(OBJDIR)/kilca_types_m.o $(OBJDIR)/kilca_constants_m.o | directories
 	$(FC) $(FFLAGS) -J$(OBJDIR) -I$(OBJDIR) -c $< -o $@
 
-$(OBJDIR)/kilca_complex_m.o: kilca_complex_m.f90 $(OBJDIR)/kilca_types_m.o $(OBJDIR)/kilca_shared_m.o | directories
+$(OBJDIR)/bessel_stubs.o: bessel_stubs.f90 $(OBJDIR)/kilca_types_m.o | directories
+	$(FC) $(FFLAGS) -J$(OBJDIR) -I$(OBJDIR) -c $< -o $@
+
+$(OBJDIR)/kilca_complex_m.o: kilca_complex_m.f90 $(OBJDIR)/kilca_types_m.o $(OBJDIR)/kilca_shared_m.o $(OBJDIR)/bessel_stubs.o | directories
 	$(FC) $(FFLAGS) -J$(OBJDIR) -I$(OBJDIR) -c $< -o $@
 
 $(OBJDIR)/kilca_settings_m.o: kilca_settings_m.f90 $(OBJDIR)/kilca_types_m.o $(OBJDIR)/kilca_constants_m.o $(OBJDIR)/kilca_shared_m.o | directories
@@ -40,6 +45,10 @@ $(OBJDIR)/kilca_settings_m.o: kilca_settings_m.f90 $(OBJDIR)/kilca_types_m.o $(O
 
 $(OBJDIR)/kilca_core_m.o: kilca_core_m.f90 $(OBJDIR)/kilca_types_m.o $(OBJDIR)/kilca_constants_m.o $(OBJDIR)/kilca_shared_m.o $(OBJDIR)/kilca_settings_m.o | directories
 	$(FC) $(FFLAGS) -J$(OBJDIR) -I$(OBJDIR) -c $< -o $@
+
+# Compile bessel.f90 if needed
+$(BESSEL_OBJ): ../math/bessel/bessel.f90
+	$(FC) $(FFLAGS) -c $< -o $@
 
 # Complex test compilation rules
 $(TESTDIR)/test_%: tests/complex/test_%.f90 $(OBJECTS) | directories
@@ -74,6 +83,7 @@ test: test-general test-complex
 # Clean targets
 clean:
 	rm -rf $(BUILDDIR)
+	rm -f $(BESSEL_OBJ)
 
 clean-tests:
 	rm -rf $(TESTDIR)

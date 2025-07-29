@@ -109,6 +109,20 @@ module kilca_complex_m
     public :: cmplx_array_mult_fast
     public :: cmplx_reciprocal_fast
     
+    ! Coordinate transformations
+    public :: cmplx_to_polar
+    public :: cmplx_from_polar
+    public :: cmplx_rotate
+    public :: cmplx_phase
+    public :: cmplx_magnitude
+    public :: cmplx_set_phase
+    public :: cmplx_set_magnitude
+    public :: cmplx_unit_vector
+    public :: cmplx_rotate_coords_2d
+    public :: cmplx_rotate_vector_2d
+    public :: cmplx_cyl_to_cart_field
+    public :: cmplx_cart_to_cyl_field
+    
     ! Array operations
     public :: cmplx_allocate_1d
     public :: cmplx_allocate_2d
@@ -1308,6 +1322,164 @@ contains
             result_array(i) = array1(i) * array2(i)
         end do
     end subroutine cmplx_array_mult_fast
+    
+    !============= Coordinate Transformations =============
+    
+    !> Convert complex number to polar coordinates (magnitude, phase)
+    elemental subroutine cmplx_to_polar(z, r, theta)
+        complex(real64), intent(in) :: z
+        real(real64), intent(out) :: r, theta
+        
+        r = abs(z)
+        theta = atan2(aimag(z), real(z, real64))
+    end subroutine cmplx_to_polar
+    
+    !> Create complex number from polar coordinates
+    elemental function cmplx_from_polar(r, theta) result(z)
+        real(real64), intent(in) :: r, theta
+        complex(real64) :: z
+        
+        z = cmplx(r * cos(theta), r * sin(theta), real64)
+    end function cmplx_from_polar
+    
+    !> Rotate complex number by given angle
+    elemental function cmplx_rotate(z, angle) result(rotated_z)
+        complex(real64), intent(in) :: z
+        real(real64), intent(in) :: angle
+        complex(real64) :: rotated_z
+        
+        complex(real64) :: rotation_factor
+        
+        ! Multiply by e^(i*angle) = cos(angle) + i*sin(angle)
+        rotation_factor = cmplx(cos(angle), sin(angle), real64)
+        rotated_z = z * rotation_factor
+    end function cmplx_rotate
+    
+    !> Get phase (argument) of complex number
+    elemental function cmplx_phase(z) result(phase_val)
+        complex(real64), intent(in) :: z
+        real(real64) :: phase_val
+        
+        phase_val = atan2(aimag(z), real(z, real64))
+    end function cmplx_phase
+    
+    !> Get magnitude (absolute value) of complex number
+    elemental function cmplx_magnitude(z) result(mag_val)
+        complex(real64), intent(in) :: z
+        real(real64) :: mag_val
+        
+        mag_val = abs(z)
+    end function cmplx_magnitude
+    
+    !> Set phase of complex number while preserving magnitude
+    elemental function cmplx_set_phase(z, new_phase) result(new_z)
+        complex(real64), intent(in) :: z
+        real(real64), intent(in) :: new_phase
+        complex(real64) :: new_z
+        
+        real(real64) :: magnitude
+        
+        magnitude = abs(z)
+        new_z = cmplx_from_polar(magnitude, new_phase)
+    end function cmplx_set_phase
+    
+    !> Set magnitude of complex number while preserving phase
+    elemental function cmplx_set_magnitude(z, new_magnitude) result(new_z)
+        complex(real64), intent(in) :: z
+        real(real64), intent(in) :: new_magnitude
+        complex(real64) :: new_z
+        
+        real(real64) :: phase_val
+        
+        if (abs(z) < epsilon(1.0_real64)) then
+            ! Handle zero case - set to new_magnitude along real axis
+            new_z = cmplx(new_magnitude, 0.0_real64, real64)
+        else
+            phase_val = cmplx_phase(z)
+            new_z = cmplx_from_polar(new_magnitude, phase_val)
+        end if
+    end function cmplx_set_magnitude
+    
+    !> Create unit vector (magnitude = 1) in direction of complex number
+    elemental function cmplx_unit_vector(z) result(unit_z)
+        complex(real64), intent(in) :: z
+        complex(real64) :: unit_z
+        
+        real(real64) :: magnitude
+        
+        magnitude = abs(z)
+        if (magnitude < epsilon(1.0_real64)) then
+            ! Handle zero vector - return unit vector along real axis
+            unit_z = cmplx_E
+        else
+            unit_z = z / magnitude
+        end if
+    end function cmplx_unit_vector
+    
+    !> Rotate 2D coordinates by given angle
+    elemental subroutine cmplx_rotate_coords_2d(x_in, y_in, angle, x_out, y_out)
+        real(real64), intent(in) :: x_in, y_in, angle
+        real(real64), intent(out) :: x_out, y_out
+        
+        real(real64) :: cos_angle, sin_angle
+        
+        cos_angle = cos(angle)
+        sin_angle = sin(angle)
+        
+        ! Rotation matrix: [cos(θ) -sin(θ)]
+        !                  [sin(θ)  cos(θ)]
+        x_out = x_in * cos_angle - y_in * sin_angle
+        y_out = x_in * sin_angle + y_in * cos_angle
+    end subroutine cmplx_rotate_coords_2d
+    
+    !> Rotate 2D complex vector by given angle
+    elemental subroutine cmplx_rotate_vector_2d(v1_in, v2_in, angle, v1_out, v2_out)
+        complex(real64), intent(in) :: v1_in, v2_in
+        real(real64), intent(in) :: angle
+        complex(real64), intent(out) :: v1_out, v2_out
+        
+        complex(real64) :: rotation_factor
+        
+        rotation_factor = cmplx(cos(angle), sin(angle), real64)
+        
+        ! Apply rotation matrix to complex vector components
+        v1_out = v1_in * cos(angle) - v2_in * sin(angle)
+        v2_out = v1_in * sin(angle) + v2_in * cos(angle)
+    end subroutine cmplx_rotate_vector_2d
+    
+    !> Transform cylindrical field components (E_r, E_θ) to Cartesian (E_x, E_y)
+    elemental subroutine cmplx_cyl_to_cart_field(Er, Etheta, phi, Ex, Ey)
+        complex(real64), intent(in) :: Er, Etheta
+        real(real64), intent(in) :: phi  ! Azimuthal angle
+        complex(real64), intent(out) :: Ex, Ey
+        
+        real(real64) :: cos_phi, sin_phi
+        
+        cos_phi = cos(phi)
+        sin_phi = sin(phi)
+        
+        ! E_x = E_r * cos(φ) - E_θ * sin(φ)
+        ! E_y = E_r * sin(φ) + E_θ * cos(φ)
+        Ex = Er * cos_phi - Etheta * sin_phi
+        Ey = Er * sin_phi + Etheta * cos_phi
+    end subroutine cmplx_cyl_to_cart_field
+    
+    !> Transform Cartesian field components (E_x, E_y) to cylindrical (E_r, E_θ)
+    elemental subroutine cmplx_cart_to_cyl_field(Ex, Ey, phi, Er, Etheta)
+        complex(real64), intent(in) :: Ex, Ey
+        real(real64), intent(in) :: phi  ! Azimuthal angle
+        complex(real64), intent(out) :: Er, Etheta
+        
+        real(real64) :: cos_phi, sin_phi
+        
+        cos_phi = cos(phi)
+        sin_phi = sin(phi)
+        
+        ! E_r = E_x * cos(φ) + E_y * sin(φ)
+        ! E_θ = -E_x * sin(φ) + E_y * cos(φ)
+        Er = Ex * cos_phi + Ey * sin_phi
+        Etheta = -Ex * sin_phi + Ey * cos_phi
+    end subroutine cmplx_cart_to_cyl_field
     
     !============= Array Operations =============
     

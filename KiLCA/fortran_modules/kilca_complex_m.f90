@@ -94,6 +94,21 @@ module kilca_complex_m
     public :: cmplx_absolute_error
     public :: cmplx_ulp_distance
     
+    ! Performance optimizations
+    public :: cmplx_abs2_fast
+    public :: cmplx_div_real_fast
+    public :: cmplx_mult_i_fast
+    public :: cmplx_mult_conj_fast
+    public :: cmplx_square_fast
+    public :: cmplx_cube_fast
+    public :: cmplx_exp_i_pi_half
+    public :: cmplx_exp_i_pi
+    public :: cmplx_add_inplace
+    public :: cmplx_mult_inplace
+    public :: cmplx_array_add_fast
+    public :: cmplx_array_mult_fast
+    public :: cmplx_reciprocal_fast
+    
     ! Array operations
     public :: cmplx_allocate_1d
     public :: cmplx_allocate_2d
@@ -1127,6 +1142,172 @@ contains
         ! Return the maximum ULP distance
         ulp_dist = max(re_ulp, im_ulp)
     end function cmplx_ulp_distance
+    
+    !============= Performance Optimizations =============
+    
+    !> Fast magnitude squared calculation avoiding sqrt
+    elemental function cmplx_abs2_fast(z) result(abs2_val)
+        complex(real64), intent(in) :: z
+        real(real64) :: abs2_val
+        
+        real(real64) :: re_part, im_part
+        
+        re_part = real(z, real64)
+        im_part = aimag(z)
+        
+        abs2_val = re_part * re_part + im_part * im_part
+    end function cmplx_abs2_fast
+    
+    !> Fast division by real number
+    elemental function cmplx_div_real_fast(z, r) result(div_result)
+        complex(real64), intent(in) :: z
+        real(real64), intent(in) :: r
+        complex(real64) :: div_result
+        
+        real(real64) :: inv_r
+        
+        ! Use multiplication by reciprocal for better performance
+        inv_r = 1.0_real64 / r
+        div_result = cmplx(real(z, real64) * inv_r, aimag(z) * inv_r, real64)
+    end function cmplx_div_real_fast
+    
+    !> Fast multiplication by imaginary unit i
+    elemental function cmplx_mult_i_fast(z) result(mult_result)
+        complex(real64), intent(in) :: z
+        complex(real64) :: mult_result
+        
+        ! i * (a + bi) = -b + ai
+        mult_result = cmplx(-aimag(z), real(z, real64), real64)
+    end function cmplx_mult_i_fast
+    
+    !> Fast conjugate multiplication z1 * conj(z2)
+    elemental function cmplx_mult_conj_fast(z1, z2) result(mult_result)
+        complex(real64), intent(in) :: z1, z2
+        complex(real64) :: mult_result
+        
+        real(real64) :: a1, b1, a2, b2
+        
+        a1 = real(z1, real64)
+        b1 = aimag(z1)
+        a2 = real(z2, real64)
+        b2 = aimag(z2)
+        
+        ! (a1 + b1*i) * (a2 - b2*i) = (a1*a2 + b1*b2) + (b1*a2 - a1*b2)*i
+        mult_result = cmplx(a1*a2 + b1*b2, b1*a2 - a1*b2, real64)
+    end function cmplx_mult_conj_fast
+    
+    !> Fast squaring z^2 using optimized multiplication
+    elemental function cmplx_square_fast(z) result(square_result)
+        complex(real64), intent(in) :: z
+        complex(real64) :: square_result
+        
+        real(real64) :: re_part, im_part
+        
+        re_part = real(z, real64)
+        im_part = aimag(z)
+        
+        ! (a + bi)^2 = (a^2 - b^2) + 2abi
+        square_result = cmplx(re_part*re_part - im_part*im_part, &
+                             2.0_real64 * re_part * im_part, real64)
+    end function cmplx_square_fast
+    
+    !> Fast cubing z^3 using optimized multiplication
+    elemental function cmplx_cube_fast(z) result(cube_result)
+        complex(real64), intent(in) :: z
+        complex(real64) :: cube_result
+        
+        real(real64) :: a, b, a2, b2, a3, b3
+        
+        a = real(z, real64)
+        b = aimag(z)
+        a2 = a * a
+        b2 = b * b
+        a3 = a2 * a
+        b3 = b2 * b
+        
+        ! (a + bi)^3 = (a^3 - 3ab^2) + (3a^2b - b^3)i
+        cube_result = cmplx(a3 - 3.0_real64*a*b2, 3.0_real64*a2*b - b3, real64)
+    end function cmplx_cube_fast
+    
+    !> Fast reciprocal 1/z using optimized division
+    elemental function cmplx_reciprocal_fast(z) result(recip_result)
+        complex(real64), intent(in) :: z
+        complex(real64) :: recip_result
+        
+        real(real64) :: re_part, im_part, denom
+        
+        re_part = real(z, real64)
+        im_part = aimag(z)
+        denom = cmplx_abs2_fast(z)
+        
+        if (denom < epsilon(1.0_real64)) then
+            ! Handle division by zero
+            recip_result = cmplx(huge(1.0_real64), 0.0_real64, real64)
+        else
+            ! 1/(a + bi) = (a - bi)/(a^2 + b^2)
+            recip_result = cmplx(re_part / denom, -im_part / denom, real64)
+        end if
+    end function cmplx_reciprocal_fast
+    
+    !> Pre-computed exp(i*pi/2) = i
+    function cmplx_exp_i_pi_half() result(exp_result)
+        complex(real64) :: exp_result
+        
+        exp_result = cmplx_I
+    end function cmplx_exp_i_pi_half
+    
+    !> Pre-computed exp(i*pi) = -1
+    function cmplx_exp_i_pi() result(exp_result)
+        complex(real64) :: exp_result
+        
+        exp_result = -cmplx_E
+    end function cmplx_exp_i_pi
+    
+    !> In-place addition z1 = z1 + z2
+    elemental subroutine cmplx_add_inplace(z1, z2)
+        complex(real64), intent(inout) :: z1
+        complex(real64), intent(in) :: z2
+        
+        z1 = z1 + z2
+    end subroutine cmplx_add_inplace
+    
+    !> In-place multiplication z1 = z1 * z2
+    elemental subroutine cmplx_mult_inplace(z1, z2)
+        complex(real64), intent(inout) :: z1
+        complex(real64), intent(in) :: z2
+        
+        z1 = z1 * z2
+    end subroutine cmplx_mult_inplace
+    
+    !> Fast array addition with explicit loops for better optimization
+    subroutine cmplx_array_add_fast(array1, array2, result_array)
+        complex(real64), intent(in) :: array1(:), array2(:)
+        complex(real64), intent(out) :: result_array(:)
+        
+        integer :: i, n
+        
+        n = size(array1)
+        
+        ! Explicit loop for better vectorization
+        do i = 1, n
+            result_array(i) = array1(i) + array2(i)
+        end do
+    end subroutine cmplx_array_add_fast
+    
+    !> Fast array multiplication with explicit loops
+    subroutine cmplx_array_mult_fast(array1, array2, result_array)
+        complex(real64), intent(in) :: array1(:), array2(:)
+        complex(real64), intent(out) :: result_array(:)
+        
+        integer :: i, n
+        
+        n = size(array1)
+        
+        ! Explicit loop for better vectorization
+        do i = 1, n
+            result_array(i) = array1(i) * array2(i)
+        end do
+    end subroutine cmplx_array_mult_fast
     
     !============= Array Operations =============
     

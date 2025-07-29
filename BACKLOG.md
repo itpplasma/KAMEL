@@ -62,11 +62,11 @@ This backlog contains 485 specific, actionable tasks for the complete translatio
 - **Task 035**: ✅ Create constant validation and consistency checks
 
 #### Task 1.2.11-1.2.20: Shared Utilities Translation (50 hours)
-- **Task 036**: Translate `core/shared.cpp/.h` utilities to `kilca_shared_m.f90`
-- **Task 037**: Convert memory allocation wrapper functions
-- **Task 038**: Translate string manipulation utilities
-- **Task 039**: Convert file path handling utilities
-- **Task 040**: Translate array manipulation utilities
+- **Task 036**: ✅ Translate `core/shared.cpp/.h` utilities to `kilca_shared_m.f90`
+- **Task 037**: ✅ Convert memory allocation wrapper functions
+- **Task 038**: ✅ Translate string manipulation utilities
+- **Task 039**: ✅ Convert file path handling utilities
+- **Task 040**: ✅ Translate array manipulation utilities
 - **Task 041**: Convert debugging and logging utilities
 - **Task 042**: Translate error handling and reporting utilities
 - **Task 043**: Convert timing and profiling utilities

@@ -77,6 +77,23 @@ module kilca_complex_m
     public :: cmplx_hyp0f1
     public :: cmplx_hypU
     
+    ! Validation and testing utilities
+    public :: cmplx_is_finite
+    public :: cmplx_is_nan
+    public :: cmplx_is_normal
+    public :: cmplx_is_zero
+    public :: cmplx_is_real
+    public :: cmplx_is_imaginary
+    public :: cmplx_is_unit
+    public :: cmplx_equals
+    public :: cmplx_approx_zero
+    public :: cmplx_verify_conjugate
+    public :: cmplx_verify_identity
+    public :: cmplx_verify_euler
+    public :: cmplx_relative_error
+    public :: cmplx_absolute_error
+    public :: cmplx_ulp_distance
+    
     ! Array operations
     public :: cmplx_allocate_1d
     public :: cmplx_allocate_2d
@@ -841,6 +858,275 @@ contains
         
         series_val = sum_val
     end function cmplx_hyp0f1_series
+    
+    !============= Validation and Testing Utilities =============
+    
+    !> Check if complex number is finite (not infinite or NaN)
+    elemental function cmplx_is_finite(z) result(is_finite_val)
+        complex(real64), intent(in) :: z
+        logical :: is_finite_val
+        
+        real(real64) :: re_part, im_part
+        
+        re_part = real(z, real64)
+        im_part = aimag(z)
+        
+        ! Check if both real and imaginary parts are finite
+        is_finite_val = (abs(re_part) < huge(1.0_real64)) .and. &
+                       (abs(im_part) < huge(1.0_real64)) .and. &
+                       (re_part == re_part) .and. &  ! NaN check: NaN != NaN
+                       (im_part == im_part)
+    end function cmplx_is_finite
+    
+    !> Check if complex number is NaN (Not a Number)
+    elemental function cmplx_is_nan(z) result(is_nan_val)
+        complex(real64), intent(in) :: z
+        logical :: is_nan_val
+        
+        real(real64) :: re_part, im_part
+        
+        re_part = real(z, real64)
+        im_part = aimag(z)
+        
+        ! NaN check: NaN != NaN
+        is_nan_val = (re_part /= re_part) .or. (im_part /= im_part)
+    end function cmplx_is_nan
+    
+    !> Check if complex number is normal (finite and not zero/subnormal)
+    elemental function cmplx_is_normal(z) result(is_normal_val)
+        complex(real64), intent(in) :: z
+        logical :: is_normal_val
+        
+        real(real64) :: re_part, im_part, min_normal
+        
+        re_part = real(z, real64)
+        im_part = aimag(z)
+        min_normal = tiny(1.0_real64)
+        
+        is_normal_val = cmplx_is_finite(z) .and. &
+                       ((abs(re_part) >= min_normal) .or. (abs(im_part) >= min_normal))
+    end function cmplx_is_normal
+    
+    !> Check if complex number is zero (within machine precision)
+    elemental function cmplx_is_zero(z, tolerance) result(is_zero_val)
+        complex(real64), intent(in) :: z
+        real(real64), intent(in), optional :: tolerance
+        logical :: is_zero_val
+        
+        real(real64) :: tol_use
+        
+        if (present(tolerance)) then
+            tol_use = tolerance
+        else
+            tol_use = epsilon(1.0_real64)
+        end if
+        
+        is_zero_val = abs(z) <= tol_use
+    end function cmplx_is_zero
+    
+    !> Check if complex number is real (imaginary part is zero within tolerance)
+    elemental function cmplx_is_real(z, tolerance) result(is_real_val)
+        complex(real64), intent(in) :: z
+        real(real64), intent(in), optional :: tolerance
+        logical :: is_real_val
+        
+        real(real64) :: tol_use
+        
+        if (present(tolerance)) then
+            tol_use = tolerance
+        else
+            tol_use = epsilon(1.0_real64) * 10.0_real64
+        end if
+        
+        is_real_val = abs(aimag(z)) <= tol_use
+    end function cmplx_is_real
+    
+    !> Check if complex number is pure imaginary (real part is zero within tolerance)
+    elemental function cmplx_is_imaginary(z, tolerance) result(is_imag_val)
+        complex(real64), intent(in) :: z
+        real(real64), intent(in), optional :: tolerance
+        logical :: is_imag_val
+        
+        real(real64) :: tol_use
+        
+        if (present(tolerance)) then
+            tol_use = tolerance
+        else
+            tol_use = epsilon(1.0_real64) * 10.0_real64
+        end if
+        
+        is_imag_val = abs(real(z, real64)) <= tol_use
+    end function cmplx_is_imaginary
+    
+    !> Check if complex number has unit magnitude (|z| = 1 within tolerance)
+    elemental function cmplx_is_unit(z, tolerance) result(is_unit_val)
+        complex(real64), intent(in) :: z
+        real(real64), intent(in), optional :: tolerance
+        logical :: is_unit_val
+        
+        real(real64) :: tol_use, magnitude
+        
+        if (present(tolerance)) then
+            tol_use = tolerance
+        else
+            tol_use = epsilon(1.0_real64) * 10.0_real64
+        end if
+        
+        magnitude = abs(z)
+        is_unit_val = abs(magnitude - 1.0_real64) <= tol_use
+    end function cmplx_is_unit
+    
+    !> Compare two complex numbers for equality within tolerance
+    elemental function cmplx_equals(z1, z2, tolerance) result(are_equal)
+        complex(real64), intent(in) :: z1, z2
+        real(real64), intent(in), optional :: tolerance
+        logical :: are_equal
+        
+        real(real64) :: tol_use
+        
+        if (present(tolerance)) then
+            tol_use = tolerance
+        else
+            tol_use = epsilon(1.0_real64) * 10.0_real64
+        end if
+        
+        are_equal = abs(z1 - z2) <= tol_use
+    end function cmplx_equals
+    
+    !> Check if complex number is approximately zero within tolerance
+    elemental function cmplx_approx_zero(z, tolerance) result(is_approx_zero)
+        complex(real64), intent(in) :: z
+        real(real64), intent(in), optional :: tolerance
+        logical :: is_approx_zero
+        
+        real(real64) :: tol_use
+        
+        if (present(tolerance)) then
+            tol_use = tolerance
+        else
+            tol_use = epsilon(1.0_real64) * 100.0_real64
+        end if
+        
+        is_approx_zero = abs(z) <= tol_use
+    end function cmplx_approx_zero
+    
+    !> Verify that two complex numbers are conjugates of each other
+    elemental function cmplx_verify_conjugate(z1, z2, tolerance) result(are_conjugates)
+        complex(real64), intent(in) :: z1, z2
+        real(real64), intent(in), optional :: tolerance
+        logical :: are_conjugates
+        
+        real(real64) :: tol_use
+        
+        if (present(tolerance)) then
+            tol_use = tolerance
+        else
+            tol_use = epsilon(1.0_real64) * 10.0_real64
+        end if
+        
+        are_conjugates = cmplx_equals(z1, cmplx_conj(z2), tol_use)
+    end function cmplx_verify_conjugate
+    
+    !> Verify mathematical identity between two expressions
+    elemental function cmplx_verify_identity(expected, actual, relative_tolerance) result(identity_holds)
+        complex(real64), intent(in) :: expected, actual
+        real(real64), intent(in), optional :: relative_tolerance
+        logical :: identity_holds
+        
+        real(real64) :: rel_tol_use, abs_diff, rel_error
+        
+        if (present(relative_tolerance)) then
+            rel_tol_use = relative_tolerance
+        else
+            rel_tol_use = 1.0e-12_real64
+        end if
+        
+        abs_diff = abs(expected - actual)
+        
+        if (abs(expected) < epsilon(1.0_real64)) then
+            ! If expected is very small, use absolute tolerance
+            identity_holds = abs_diff <= epsilon(1.0_real64) * 100.0_real64
+        else
+            ! Use relative tolerance
+            rel_error = abs_diff / abs(expected)
+            identity_holds = rel_error <= rel_tol_use
+        end if
+    end function cmplx_verify_identity
+    
+    !> Verify Euler's identity: exp(i*pi) + 1 = 0
+    elemental function cmplx_verify_euler(expr_result, tolerance) result(euler_holds)
+        complex(real64), intent(in) :: expr_result  ! Should be exp(i*pi) + 1
+        real(real64), intent(in), optional :: tolerance
+        logical :: euler_holds
+        
+        real(real64) :: tol_use
+        
+        if (present(tolerance)) then
+            tol_use = tolerance
+        else
+            tol_use = epsilon(1.0_real64) * 100.0_real64
+        end if
+        
+        euler_holds = abs(expr_result) <= tol_use
+    end function cmplx_verify_euler
+    
+    !> Calculate relative error between two complex numbers
+    elemental function cmplx_relative_error(reference, computed) result(rel_error)
+        complex(real64), intent(in) :: reference, computed
+        real(real64) :: rel_error
+        
+        real(real64) :: ref_magnitude
+        
+        ref_magnitude = abs(reference)
+        
+        if (ref_magnitude < epsilon(1.0_real64)) then
+            ! If reference is very small, return absolute error
+            rel_error = abs(computed - reference)
+        else
+            rel_error = abs(computed - reference) / ref_magnitude
+        end if
+    end function cmplx_relative_error
+    
+    !> Calculate absolute error between two complex numbers
+    elemental function cmplx_absolute_error(reference, computed) result(abs_error)
+        complex(real64), intent(in) :: reference, computed
+        real(real64) :: abs_error
+        
+        abs_error = abs(computed - reference)
+    end function cmplx_absolute_error
+    
+    !> Calculate ULP (Units in the Last Place) distance between two complex numbers
+    function cmplx_ulp_distance(z1, z2) result(ulp_dist)
+        complex(real64), intent(in) :: z1, z2
+        real(real64) :: ulp_dist
+        
+        real(real64) :: re_ulp, im_ulp, re_diff, im_diff
+        real(real64) :: re1, im1, re2, im2
+        
+        re1 = real(z1, real64)
+        im1 = aimag(z1)
+        re2 = real(z2, real64)
+        im2 = aimag(z2)
+        
+        ! Calculate ULP for real parts
+        re_diff = abs(re1 - re2)
+        if (max(abs(re1), abs(re2)) > 0.0_real64) then
+            re_ulp = re_diff / (spacing(max(abs(re1), abs(re2))))
+        else
+            re_ulp = 0.0_real64
+        end if
+        
+        ! Calculate ULP for imaginary parts
+        im_diff = abs(im1 - im2)
+        if (max(abs(im1), abs(im2)) > 0.0_real64) then
+            im_ulp = im_diff / (spacing(max(abs(im1), abs(im2))))
+        else
+            im_ulp = 0.0_real64
+        end if
+        
+        ! Return the maximum ULP distance
+        ulp_dist = max(re_ulp, im_ulp)
+    end function cmplx_ulp_distance
     
     !============= Array Operations =============
     

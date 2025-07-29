@@ -144,6 +144,15 @@ module kilca_complex_m
     public :: cmplx_write_formatted
     public :: cmplx_parse_string
     
+    ! Eigensystem solver interfaces
+    public :: cmplx_eigensystem_std
+    public :: cmplx_eigensystem_gen
+    public :: cmplx_matrix_det
+    public :: cmplx_matrix_condition
+    public :: cmplx_eigenvalues_sort_by_magnitude
+    public :: cmplx_eigenvalues_sort_by_real
+    public :: cmplx_power_iteration
+    
 contains
     
     !============= Creation Functions =============
@@ -1748,5 +1757,312 @@ contains
         end if
         
     end function cmplx_parse_string
+    
+    !============= Eigensystem Solvers =============
+    
+    !> Standard eigenvalue problem solver: A*v = λ*v
+    subroutine cmplx_eigensystem_std(matrix, eigenvalues, eigenvectors, info)
+        complex(real64), intent(in) :: matrix(:,:)
+        complex(real64), intent(out) :: eigenvalues(:)
+        complex(real64), intent(out) :: eigenvectors(:,:)
+        integer, intent(out) :: info
+        
+        integer :: n, lwork
+        complex(real64), allocatable :: work(:), matrix_copy(:,:)
+        real(real64), allocatable :: rwork(:)
+        
+        n = size(matrix, 1)
+        if (size(matrix, 2) /= n .or. size(eigenvalues) /= n .or. &
+            size(eigenvectors, 1) /= n .or. size(eigenvectors, 2) /= n) then
+            info = -1
+            return
+        end if
+        
+        ! Allocate work arrays
+        lwork = 2 * n
+        allocate(work(lwork), rwork(2*n), matrix_copy(n,n))
+        
+        ! Copy matrix (LAPACK destroys input)
+        matrix_copy = matrix
+        
+        ! Call LAPACK routine ZGEEV for complex eigenvalue problem
+        call zgeev('N', 'V', n, matrix_copy, n, eigenvalues, &
+                   eigenvectors, 1, eigenvectors, n, work, lwork, rwork, info)
+        
+        deallocate(work, rwork, matrix_copy)
+    end subroutine cmplx_eigensystem_std
+    
+    !> Generalized eigenvalue problem solver: A*v = λ*B*v
+    subroutine cmplx_eigensystem_gen(matrix_a, matrix_b, alpha, beta, vl, vr, info)
+        complex(real64), intent(in) :: matrix_a(:,:), matrix_b(:,:)
+        complex(real64), intent(out) :: alpha(:), beta(:)
+        complex(real64), intent(out) :: vl(:,:), vr(:,:)
+        integer, intent(out) :: info
+        
+        integer :: n, lwork
+        complex(real64), allocatable :: work(:), a_copy(:,:), b_copy(:,:)
+        real(real64), allocatable :: rwork(:)
+        
+        n = size(matrix_a, 1)
+        if (size(matrix_a, 2) /= n .or. size(matrix_b, 1) /= n .or. size(matrix_b, 2) /= n .or. &
+            size(alpha) /= n .or. size(beta) /= n .or. &
+            size(vl, 1) /= n .or. size(vl, 2) /= n .or. size(vr, 1) /= n .or. size(vr, 2) /= n) then
+            info = -1
+            return
+        end if
+        
+        ! Allocate work arrays
+        lwork = 2 * n
+        allocate(work(lwork), rwork(8*n), a_copy(n,n), b_copy(n,n))
+        
+        ! Copy matrices (LAPACK destroys input)
+        a_copy = matrix_a
+        b_copy = matrix_b
+        
+        ! Call LAPACK routine ZGGEV for generalized eigenvalue problem
+        call zggev('V', 'V', n, a_copy, n, b_copy, n, alpha, beta, &
+                   vl, n, vr, n, work, lwork, rwork, info)
+        
+        deallocate(work, rwork, a_copy, b_copy)
+    end subroutine cmplx_eigensystem_gen
+    
+    !> Calculate matrix determinant using LU decomposition
+    function cmplx_matrix_det(matrix) result(det)
+        complex(real64), intent(in) :: matrix(:,:)
+        complex(real64) :: det
+        
+        integer :: n, info, i
+        complex(real64), allocatable :: matrix_copy(:,:)
+        integer, allocatable :: ipiv(:)
+        
+        n = size(matrix, 1)
+        if (size(matrix, 2) /= n) then
+            det = cmplx(0.0_real64, 0.0_real64, real64)
+            return
+        end if
+        
+        allocate(matrix_copy(n,n), ipiv(n))
+        matrix_copy = matrix
+        
+        ! LU factorization
+        call zgetrf(n, n, matrix_copy, n, ipiv, info)
+        
+        if (info /= 0) then
+            det = cmplx(0.0_real64, 0.0_real64, real64)
+        else
+            ! Determinant is product of diagonal elements, adjusted for permutations
+            det = cmplx(1.0_real64, 0.0_real64, real64)
+            do i = 1, n
+                det = det * matrix_copy(i,i)
+                if (ipiv(i) /= i) det = -det  ! Adjust for row swaps
+            end do
+        end if
+        
+        deallocate(matrix_copy, ipiv)
+    end function cmplx_matrix_det
+    
+    !> Estimate matrix condition number using 1-norm
+    function cmplx_matrix_condition(matrix) result(condition)
+        complex(real64), intent(in) :: matrix(:,:)
+        real(real64) :: condition
+        
+        integer :: n, info, i
+        complex(real64), allocatable :: matrix_copy(:,:)
+        integer, allocatable :: ipiv(:)
+        real(real64) :: anorm, rcond
+        complex(real64), allocatable :: work(:)
+        real(real64), allocatable :: rwork(:)
+        
+        n = size(matrix, 1)
+        if (size(matrix, 2) /= n) then
+            condition = huge(1.0_real64)
+            return
+        end if
+        
+        allocate(matrix_copy(n,n), ipiv(n), work(2*n), rwork(2*n))
+        matrix_copy = matrix
+        
+        ! Calculate 1-norm of matrix
+        anorm = 0.0_real64
+        do i = 1, n
+            anorm = max(anorm, sum(abs(matrix(:,i))))
+        end do
+        
+        ! LU factorization
+        call zgetrf(n, n, matrix_copy, n, ipiv, info)
+        
+        if (info == 0) then
+            ! Estimate reciprocal condition number
+            call zgecon('1', n, matrix_copy, n, anorm, rcond, work, rwork, info)
+            if (info == 0 .and. rcond > 0.0_real64) then
+                condition = 1.0_real64 / rcond
+            else
+                condition = huge(1.0_real64)
+            end if
+        else
+            condition = huge(1.0_real64)
+        end if
+        
+        deallocate(matrix_copy, ipiv, work, rwork)
+    end function cmplx_matrix_condition
+    
+    !> Sort eigenvalues and eigenvectors by magnitude
+    subroutine cmplx_eigenvalues_sort_by_magnitude(eigenvalues, eigenvectors, descending)
+        complex(real64), intent(inout) :: eigenvalues(:)
+        complex(real64), intent(inout) :: eigenvectors(:,:)
+        logical, intent(in), optional :: descending
+        
+        integer :: n, i, j, max_idx
+        complex(real64) :: temp_val, temp_vec(size(eigenvectors, 1))
+        real(real64) :: max_mag, current_mag
+        logical :: desc
+        
+        desc = .false.
+        if (present(descending)) desc = descending
+        
+        n = size(eigenvalues)
+        
+        ! Simple selection sort
+        do i = 1, n-1
+            max_idx = i
+            max_mag = abs(eigenvalues(i))
+            
+            do j = i+1, n
+                current_mag = abs(eigenvalues(j))
+                if ((desc .and. current_mag > max_mag) .or. (.not. desc .and. current_mag < max_mag)) then
+                    max_mag = current_mag
+                    max_idx = j
+                end if
+            end do
+            
+            if (max_idx /= i) then
+                ! Swap eigenvalues
+                temp_val = eigenvalues(i)
+                eigenvalues(i) = eigenvalues(max_idx)
+                eigenvalues(max_idx) = temp_val
+                
+                ! Swap corresponding eigenvectors
+                temp_vec = eigenvectors(:,i)
+                eigenvectors(:,i) = eigenvectors(:,max_idx)
+                eigenvectors(:,max_idx) = temp_vec
+            end if
+        end do
+    end subroutine cmplx_eigenvalues_sort_by_magnitude
+    
+    !> Sort eigenvalues and eigenvectors by real part
+    subroutine cmplx_eigenvalues_sort_by_real(eigenvalues, eigenvectors, descending)
+        complex(real64), intent(inout) :: eigenvalues(:)
+        complex(real64), intent(inout) :: eigenvectors(:,:)
+        logical, intent(in), optional :: descending
+        
+        integer :: n, i, j, max_idx
+        complex(real64) :: temp_val, temp_vec(size(eigenvectors, 1))
+        real(real64) :: max_real, current_real
+        logical :: desc
+        
+        desc = .false.
+        if (present(descending)) desc = descending
+        
+        n = size(eigenvalues)
+        
+        ! Simple selection sort
+        do i = 1, n-1
+            max_idx = i
+            max_real = real(eigenvalues(i))
+            
+            do j = i+1, n
+                current_real = real(eigenvalues(j))
+                if ((desc .and. current_real > max_real) .or. (.not. desc .and. current_real < max_real)) then
+                    max_real = current_real
+                    max_idx = j
+                end if
+            end do
+            
+            if (max_idx /= i) then
+                ! Swap eigenvalues
+                temp_val = eigenvalues(i)
+                eigenvalues(i) = eigenvalues(max_idx)
+                eigenvalues(max_idx) = temp_val
+                
+                ! Swap corresponding eigenvectors
+                temp_vec = eigenvectors(:,i)
+                eigenvectors(:,i) = eigenvectors(:,max_idx)
+                eigenvectors(:,max_idx) = temp_vec
+            end if
+        end do
+    end subroutine cmplx_eigenvalues_sort_by_real
+    
+    !> Power iteration method for finding dominant eigenvalue
+    subroutine cmplx_power_iteration(matrix, eigenvalue, eigenvector, iterations, info, max_iter, tol)
+        complex(real64), intent(in) :: matrix(:,:)
+        complex(real64), intent(out) :: eigenvalue
+        complex(real64), intent(inout) :: eigenvector(:)
+        integer, intent(out) :: iterations
+        integer, intent(out) :: info
+        integer, intent(in), optional :: max_iter
+        real(real64), intent(in), optional :: tol
+        
+        integer :: n, i, max_iterations
+        real(real64) :: tolerance, norm_vec, old_eigenvalue_mag, new_eigenvalue_mag
+        complex(real64) :: old_eigenvalue
+        complex(real64), allocatable :: temp_vec(:)
+        
+        n = size(matrix, 1)
+        if (size(matrix, 2) /= n .or. size(eigenvector) /= n) then
+            info = -1
+            return
+        end if
+        
+        max_iterations = 1000
+        if (present(max_iter)) max_iterations = max_iter
+        
+        tolerance = epsilon(1.0_real64) * 100.0_real64
+        if (present(tol)) tolerance = tol
+        
+        allocate(temp_vec(n))
+        
+        ! Initialize with random vector if eigenvector is zero
+        if (abs(cmplx_array_norm2(eigenvector)) < tolerance) then
+            do i = 1, n
+                eigenvector(i) = cmplx(1.0_real64, 0.0_real64, real64)
+            end do
+        end if
+        
+        info = 0
+        old_eigenvalue = cmplx(0.0_real64, 0.0_real64, real64)
+        
+        do iterations = 1, max_iterations
+            ! Apply matrix to eigenvector
+            temp_vec = matmul(matrix, eigenvector)
+            
+            ! Normalize
+            norm_vec = abs(cmplx_array_norm2(temp_vec))
+            if (norm_vec < tolerance) then
+                info = 1  ! Zero vector, convergence failed
+                exit
+            end if
+            temp_vec = temp_vec / norm_vec
+            
+            ! Estimate eigenvalue using Rayleigh quotient
+            eigenvalue = dot_product(temp_vec, matmul(matrix, temp_vec)) / dot_product(temp_vec, temp_vec)
+            
+            ! Check convergence
+            old_eigenvalue_mag = abs(old_eigenvalue)
+            new_eigenvalue_mag = abs(eigenvalue)
+            if (iterations > 1 .and. abs(eigenvalue - old_eigenvalue) < tolerance) then
+                eigenvector = temp_vec
+                exit
+            end if
+            
+            eigenvector = temp_vec
+            old_eigenvalue = eigenvalue
+        end do
+        
+        if (iterations >= max_iterations) then
+            info = 2  ! Maximum iterations reached
+        end if
+        
+        deallocate(temp_vec)
+    end subroutine cmplx_power_iteration
     
 end module kilca_complex_m

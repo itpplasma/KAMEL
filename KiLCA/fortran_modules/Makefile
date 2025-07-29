@@ -7,7 +7,7 @@ BESSEL_OBJ = ../math/bessel/bessel.o
 BUILDDIR = build
 OBJDIR = $(BUILDDIR)/obj
 TESTDIR = $(BUILDDIR)/tests
-SOURCES = kilca_types_m.f90 kilca_constants_m.f90 kilca_shared_m.f90 bessel_stubs.f90 kilca_complex_m.f90 kilca_settings_m.f90 kilca_core_m.f90 kilca_stability_m.f90 kilca_spline_m.f90 kilca_background_m.f90 kilca_mode_m.f90 kilca_eigensolver_m.f90
+SOURCES = kilca_types_m.f90 kilca_constants_m.f90 kilca_shared_m.f90 bessel_stubs.f90 kilca_complex_m.f90 kilca_settings_m.f90 kilca_core_m.f90 kilca_stability_m.f90 kilca_spline_m.f90 kilca_background_m.f90 kilca_mode_m.f90 kilca_eigensolver_m.f90 kilca_orthogonalization_m.f90
 OBJECTS = $(SOURCES:%.f90=$(OBJDIR)/%.o)
 MODULES = $(SOURCES:%.f90=$(OBJDIR)/%.mod)
 
@@ -59,6 +59,9 @@ $(OBJDIR)/kilca_mode_m.o: kilca_mode_m.f90 $(OBJDIR)/kilca_types_m.o $(OBJDIR)/k
 	$(FC) $(FFLAGS) -J$(OBJDIR) -I$(OBJDIR) -c $< -o $@
 
 $(OBJDIR)/kilca_eigensolver_m.o: kilca_eigensolver_m.f90 $(OBJDIR)/kilca_types_m.o | directories
+	$(FC) $(FFLAGS) -J$(OBJDIR) -I$(OBJDIR) -c $< -o $@
+
+$(OBJDIR)/kilca_orthogonalization_m.o: kilca_orthogonalization_m.f90 $(OBJDIR)/kilca_types_m.o | directories
 	$(FC) $(FFLAGS) -J$(OBJDIR) -I$(OBJDIR) -c $< -o $@
 
 # Compile bessel.f90 if needed

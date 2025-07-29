@@ -1,5 +1,5 @@
 module kilca_shared_m
-    use iso_fortran_env, only: real64, int32, error_unit
+    use iso_fortran_env, only: real64, int32, error_unit, output_unit
     use kilca_constants_m
     implicit none
     private
@@ -18,6 +18,22 @@ module kilca_shared_m
     public :: safe_deallocate_real64_2d
     public :: safe_deallocate_int32_1d
     public :: safe_deallocate_cmplx_1d
+    ! Logging utilities
+    public :: log_info
+    public :: log_warning
+    public :: log_error
+    public :: log_debug
+    public :: set_debug_mode
+    ! Error handling
+    public :: check_status
+    public :: check_allocation
+    ! Timing utilities
+    public :: start_timer
+    public :: stop_timer
+    public :: get_elapsed_time
+    public :: print_timing_summary
+    ! Mathematical helpers
+    public :: calc_interp_polynom
     
     ! Complex number type (for compatibility)
     type, public :: cmplx_number
@@ -35,6 +51,21 @@ module kilca_shared_m
             integer(int32), intent(out) :: info
         end subroutine dgesv
     end interface
+    
+    ! Module variables for debugging and timing
+    logical :: debug_mode = .false.
+    
+    ! Timing data structure
+    type :: timer_data
+        character(len=64) :: name
+        real(real64) :: start_time
+        real(real64) :: total_time
+        integer :: call_count
+        logical :: is_running
+    end type timer_data
+    
+    type(timer_data), allocatable :: timers(:)
+    integer :: num_timers = 0
     
 contains
     
@@ -401,5 +432,234 @@ contains
             end if
         end if
     end subroutine safe_deallocate_cmplx_1d
+    
+    !============= Logging Utilities =============
+    
+    !> Log an info message
+    subroutine log_info(message)
+        character(len=*), intent(in) :: message
+        
+        write(output_unit, '(A,A)') "INFO: ", trim(message)
+    end subroutine log_info
+    
+    !> Log a warning message
+    subroutine log_warning(message)
+        character(len=*), intent(in) :: message
+        
+        write(output_unit, '(A,A)') "WARNING: ", trim(message)
+    end subroutine log_warning
+    
+    !> Log an error message
+    subroutine log_error(message)
+        character(len=*), intent(in) :: message
+        
+        write(error_unit, '(A,A)') "ERROR: ", trim(message)
+    end subroutine log_error
+    
+    !> Log a debug message (only if debug mode is on)
+    subroutine log_debug(message)
+        character(len=*), intent(in) :: message
+        
+        if (debug_mode) then
+            write(output_unit, '(A,A)') "DEBUG: ", trim(message)
+        end if
+    end subroutine log_debug
+    
+    !> Set debug mode on/off
+    subroutine set_debug_mode(mode)
+        logical, intent(in) :: mode
+        
+        debug_mode = mode
+    end subroutine set_debug_mode
+    
+    !============= Error Handling Utilities =============
+    
+    !> Check status code and handle errors
+    subroutine check_status(status, operation, fatal)
+        integer, intent(in) :: status
+        character(len=*), intent(in) :: operation
+        logical, intent(in), optional :: fatal
+        
+        logical :: is_fatal
+        
+        is_fatal = .true.
+        if (present(fatal)) is_fatal = fatal
+        
+        if (status /= 0) then
+            write(error_unit, '(A,A,A,I0)') "ERROR in ", trim(operation), ": status = ", status
+            if (is_fatal) then
+                write(error_unit, '(A)') "Fatal error. Exiting."
+                stop 1
+            end if
+        end if
+    end subroutine check_status
+    
+    !> Check allocation status
+    subroutine check_allocation(status, array_name)
+        integer, intent(in) :: status
+        character(len=*), intent(in) :: array_name
+        
+        if (status /= 0) then
+            write(error_unit, '(A,A,A)') "ERROR: Failed to allocate ", trim(array_name), ". Exiting."
+            stop 1
+        end if
+    end subroutine check_allocation
+    
+    !============= Timing Utilities =============
+    
+    !> Start a timer
+    subroutine start_timer(timer_name)
+        character(len=*), intent(in) :: timer_name
+        
+        integer :: i
+        logical :: found
+        type(timer_data), allocatable :: temp_timers(:)
+        
+        found = .false.
+        
+        ! Search for existing timer
+        do i = 1, num_timers
+            if (timers(i)%name == timer_name) then
+                found = .true.
+                if (.not. timers(i)%is_running) then
+                    call cpu_time(timers(i)%start_time)
+                    timers(i)%is_running = .true.
+                end if
+                exit
+            end if
+        end do
+        
+        ! Create new timer if not found
+        if (.not. found) then
+            if (.not. allocated(timers)) then
+                allocate(timers(10))
+                num_timers = 0
+            else if (num_timers >= size(timers)) then
+                ! Resize array
+                allocate(temp_timers(size(timers) * 2))
+                temp_timers(1:num_timers) = timers(1:num_timers)
+                call move_alloc(temp_timers, timers)
+            end if
+            
+            num_timers = num_timers + 1
+            timers(num_timers)%name = timer_name
+            timers(num_timers)%total_time = 0.0_real64
+            timers(num_timers)%call_count = 0
+            call cpu_time(timers(num_timers)%start_time)
+            timers(num_timers)%is_running = .true.
+        end if
+    end subroutine start_timer
+    
+    !> Stop a timer
+    subroutine stop_timer(timer_name)
+        character(len=*), intent(in) :: timer_name
+        
+        integer :: i
+        real(real64) :: end_time
+        
+        do i = 1, num_timers
+            if (timers(i)%name == timer_name) then
+                if (timers(i)%is_running) then
+                    call cpu_time(end_time)
+                    timers(i)%total_time = timers(i)%total_time + &
+                                         (end_time - timers(i)%start_time)
+                    timers(i)%call_count = timers(i)%call_count + 1
+                    timers(i)%is_running = .false.
+                end if
+                exit
+            end if
+        end do
+    end subroutine stop_timer
+    
+    !> Get elapsed time for a timer
+    function get_elapsed_time(timer_name) result(elapsed)
+        character(len=*), intent(in) :: timer_name
+        real(real64) :: elapsed
+        
+        integer :: i
+        real(real64) :: current_time
+        
+        elapsed = 0.0_real64
+        
+        do i = 1, num_timers
+            if (timers(i)%name == timer_name) then
+                if (timers(i)%is_running) then
+                    call cpu_time(current_time)
+                    elapsed = timers(i)%total_time + &
+                            (current_time - timers(i)%start_time)
+                else
+                    elapsed = timers(i)%total_time
+                end if
+                exit
+            end if
+        end do
+    end function get_elapsed_time
+    
+    !> Print timing summary
+    subroutine print_timing_summary()
+        integer :: i
+        
+        if (num_timers > 0) then
+            write(output_unit, '(A)') ""
+            write(output_unit, '(A)') "Timing Summary:"
+            write(output_unit, '(A)') "==============="
+            write(output_unit, '(A15,A15,A10,A15)') "Timer", "Total (s)", "Calls", "Avg (s)"
+            
+            do i = 1, num_timers
+                if (timers(i)%call_count > 0) then
+                    write(output_unit, '(A15,F15.6,I10,F15.6)') &
+                        timers(i)%name, &
+                        timers(i)%total_time, &
+                        timers(i)%call_count, &
+                        timers(i)%total_time / real(timers(i)%call_count, real64)
+                end if
+            end do
+            write(output_unit, '(A)') ""
+        end if
+    end subroutine print_timing_summary
+    
+    !============= Mathematical Helper Functions =============
+    
+    !> Calculate interpolating polynomial coefficients
+    function calc_interp_polynom(n, x, y, c) result(info)
+        integer(int32), intent(in) :: n
+        real(real64), intent(in) :: x(0:n), y(0:n)
+        real(real64), intent(out) :: c(0:n)
+        integer(int32) :: info
+        
+        real(real64), allocatable :: a(:,:), b(:)
+        integer(int32), allocatable :: ipiv(:)
+        integer(int32) :: i, p, d, nrhs, lda, ldb
+        
+        d = n + 1
+        nrhs = 1
+        lda = d
+        ldb = d
+        
+        ! Allocate work arrays
+        allocate(a(d,d), b(d), ipiv(d))
+        
+        ! Build Vandermonde matrix
+        do i = 0, n
+            a(1,i+1) = 1.0_real64
+            a(2,i+1) = x(i) - x(0)
+            do p = 2, n
+                a(p+1,i+1) = a(p,i+1) * a(2,i+1)
+            end do
+            b(i+1) = y(i)
+        end do
+        
+        ! Solve linear system
+        call dgesv(d, nrhs, a, lda, ipiv, b, ldb, info)
+        
+        if (info == 0) then
+            c(0:n) = b(1:d)
+        else
+            call log_error("calc_interp_polynom: DGESV failed")
+        end if
+        
+        deallocate(a, b, ipiv)
+        
+    end function calc_interp_polynom
     
 end module kilca_shared_m

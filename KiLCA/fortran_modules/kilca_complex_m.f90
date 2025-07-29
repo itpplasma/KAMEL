@@ -47,6 +47,16 @@ module kilca_complex_m
     public :: cmplx_asin
     public :: cmplx_acos
     public :: cmplx_atan
+    public :: cmplx_asinh
+    public :: cmplx_acosh
+    public :: cmplx_atanh
+    public :: cmplx_exp2
+    public :: cmplx_expm1
+    public :: cmplx_log2
+    public :: cmplx_log1p
+    public :: cmplx_cbrt
+    public :: cmplx_hypot
+    public :: cmplx_atan2
     
     ! Array operations
     public :: cmplx_allocate_1d
@@ -328,6 +338,138 @@ contains
         
         atanz = atan(z)
     end function cmplx_atan
+    
+    !> Complex inverse hyperbolic sine (asinh)
+    elemental function cmplx_asinh(z) result(asinhz)
+        complex(real64), intent(in) :: z
+        complex(real64) :: asinhz
+        
+        ! asinh(z) = log(z + sqrt(z^2 + 1))
+        asinhz = log(z + sqrt(z**2 + cmplx_E))
+    end function cmplx_asinh
+    
+    !> Complex inverse hyperbolic cosine (acosh)
+    elemental function cmplx_acosh(z) result(acoshz)
+        complex(real64), intent(in) :: z
+        complex(real64) :: acoshz
+        
+        ! acosh(z) = log(z + sqrt(z^2 - 1))
+        acoshz = log(z + sqrt(z**2 - cmplx_E))
+    end function cmplx_acosh
+    
+    !> Complex inverse hyperbolic tangent (atanh)
+    elemental function cmplx_atanh(z) result(atanhz)
+        complex(real64), intent(in) :: z
+        complex(real64) :: atanhz
+        
+        ! atanh(z) = 0.5 * log((1 + z) / (1 - z))
+        atanhz = 0.5_real64 * log((cmplx_E + z) / (cmplx_E - z))
+    end function cmplx_atanh
+    
+    !> Complex base-2 exponential
+    elemental function cmplx_exp2(z) result(exp2z)
+        complex(real64), intent(in) :: z
+        complex(real64) :: exp2z
+        
+        ! exp2(z) = 2^z = exp(z * log(2))
+        exp2z = exp(z * log(2.0_real64))
+    end function cmplx_exp2
+    
+    !> Complex exponential minus 1 (for better accuracy near z=0)
+    elemental function cmplx_expm1(z) result(expm1z)
+        complex(real64), intent(in) :: z
+        complex(real64) :: expm1z
+        
+        real(real64) :: absz
+        
+        absz = abs(z)
+        if (absz < 1.0e-2_real64) then
+            ! Use Taylor series for small |z|
+            ! expm1(z) = z + z^2/2! + z^3/3! + ...
+            expm1z = z * (1.0_real64 + z * (0.5_real64 + z * (1.0_real64/6.0_real64 + &
+                     z * (1.0_real64/24.0_real64 + z * (1.0_real64/120.0_real64)))))
+        else
+            expm1z = exp(z) - cmplx_E
+        end if
+    end function cmplx_expm1
+    
+    !> Complex base-2 logarithm
+    elemental function cmplx_log2(z) result(log2z)
+        complex(real64), intent(in) :: z
+        complex(real64) :: log2z
+        
+        ! log2(z) = log(z) / log(2)
+        log2z = log(z) / log(2.0_real64)
+    end function cmplx_log2
+    
+    !> Complex logarithm of 1 plus z (for better accuracy near z=0)
+    elemental function cmplx_log1p(z) result(log1pz)
+        complex(real64), intent(in) :: z
+        complex(real64) :: log1pz
+        
+        real(real64) :: absz
+        
+        absz = abs(z)
+        if (absz < 1.0e-2_real64) then
+            ! Use Taylor series for small |z|
+            ! log1p(z) = z - z^2/2 + z^3/3 - z^4/4 + ...
+            log1pz = z * (1.0_real64 - z * (0.5_real64 - z * (1.0_real64/3.0_real64 - &
+                     z * (0.25_real64 - z * (0.2_real64)))))
+        else
+            log1pz = log(cmplx_E + z)
+        end if
+    end function cmplx_log1p
+    
+    !> Complex cube root
+    elemental function cmplx_cbrt(z) result(cbrtz)
+        complex(real64), intent(in) :: z
+        complex(real64) :: cbrtz
+        
+        ! cbrt(z) = z^(1/3) = exp(log(z)/3)
+        if (z == cmplx_O) then
+            cbrtz = cmplx_O
+        else
+            cbrtz = exp(log(z) / 3.0_real64)
+        end if
+    end function cmplx_cbrt
+    
+    !> Complex hypotenuse (absolute value of complex number formed from two reals)
+    elemental function cmplx_hypot(x, y) result(r)
+        real(real64), intent(in) :: x, y
+        real(real64) :: r
+        
+        ! hypot(x, y) = sqrt(x^2 + y^2) with overflow protection
+        real(real64) :: ax, ay, w
+        
+        ax = abs(x)
+        ay = abs(y)
+        
+        if (ax > ay) then
+            w = ay / ax
+            r = ax * sqrt(1.0_real64 + w**2)
+        else if (ay /= 0.0_real64) then
+            w = ax / ay
+            r = ay * sqrt(1.0_real64 + w**2)
+        else
+            r = 0.0_real64
+        end if
+    end function cmplx_hypot
+    
+    !> Complex two-argument arctangent
+    elemental function cmplx_atan2(y, x) result(theta)
+        complex(real64), intent(in) :: y, x
+        complex(real64) :: theta
+        
+        ! atan2(y, x) = -i * log((x + i*y) / sqrt(x^2 + y^2))
+        complex(real64) :: w
+        
+        if (x == cmplx_O .and. y == cmplx_O) then
+            theta = cmplx_O
+        else
+            w = x + cmplx_I * y
+            theta = -cmplx_I * log(w / sqrt(x**2 + y**2))
+        end if
+    end function cmplx_atan2
     
     !============= Array Operations =============
     

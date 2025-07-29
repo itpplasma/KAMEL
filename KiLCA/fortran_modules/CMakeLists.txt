@@ -151,3 +151,7 @@ target_include_directories(test_settings_initialization PRIVATE
 target_include_directories(test_settings_error_handling PRIVATE
     ${CMAKE_CURRENT_BINARY_DIR}/modules
 )
+
+target_include_directories(test_settings_documentation PRIVATE
+    ${CMAKE_CURRENT_BINARY_DIR}/modules
+)

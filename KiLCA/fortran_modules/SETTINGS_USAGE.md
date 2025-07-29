@@ -1,434 +1,607 @@
-# KiLCA Settings Module Usage Guide
+# KiLCA Settings Module - Usage Guide
 
-## Overview
+This document provides practical examples and usage patterns for the `kilca_settings_m` module.
 
-The `kilca_settings_m` module provides comprehensive settings management for KiLCA Fortran implementation. It handles four main categories of settings:
+## Table of Contents
 
-1. **Antenna Settings** (`antenna_t`) - Antenna parameters and modes
-2. **Background Settings** (`back_sett_t`) - Plasma background and machine parameters  
-3. **Output Settings** (`output_sett_t`) - Output control flags and quantities
-4. **Eigenmode Settings** (`eigmode_sett_t`) - Eigenmode search parameters
+1. [Basic Usage](#basic-usage)
+2. [Advanced Usage Patterns](#advanced-usage-patterns)
+3. [Error Handling](#error-handling)
+4. [Validation and Debugging](#validation-and-debugging)
+5. [Performance Considerations](#performance-considerations)
+6. [Common Patterns](#common-patterns)
+7. [Troubleshooting](#troubleshooting)
 
-## Quick Start
+## Basic Usage
 
-### Basic Usage Pattern
+### Creating and Initializing Settings
+
+The most common usage pattern is to create settings with defaults and then customize as needed:
 
 ```fortran
-program example_settings_usage
+program basic_settings_example
     use kilca_types_m
     use kilca_settings_m
     implicit none
     
-    type(settings_t), pointer :: sd
+    type(settings_t), pointer :: settings
     integer :: ierr
     
-    ! Create settings with project path
-    call settings_create(sd, "/path/to/project/", ierr)
+    ! Create settings with defaults
+    call settings_initialize_defaults(settings, "/path/to/project", ierr)
     if (ierr /= KILCA_SUCCESS) then
-        print *, "Error creating settings:", ierr
+        print *, "Failed to initialize settings"
         stop 1
     end if
     
-    ! Initialize with defaults
-    call settings_initialize_defaults(sd, "/path/to/project/", ierr)
-    if (ierr /= KILCA_SUCCESS) then
-        print *, "Error initializing defaults:", ierr
-        stop 1
-    end if
+    ! Customize antenna settings
+    settings%antenna_settings%ra = 10.5_dp      ! Antenna radius (cm)
+    settings%antenna_settings%wa = 1.2_dp       ! Current layer width (cm)
+    settings%antenna_settings%I0 = 1000.0_dp    ! Antenna current (statamps)
+    settings%antenna_settings%flab = cmplx(50.0e6_dp, 2000.0_dp)  ! Frequency (Hz)
     
-    ! Modify settings as needed
-    sd%antenna_settings%ra = 50.0_dp  ! Set antenna radius
-    sd%background_settings%B0 = 25000.0_dp  ! Set magnetic field
+    ! Set up modes array
+    settings%antenna_settings%dma = 2
+    allocate(settings%antenna_settings%modes(4))  ! 2*dma
+    settings%antenna_settings%modes = [1, 1, 2, 2]  ! (m,n) pairs
     
-    ! Validate all settings
-    call settings_validate_complete(sd, ierr)
-    if (ierr /= KILCA_SUCCESS) then
-        print *, "Settings validation failed:", ierr
-        stop 1
-    end if
+    ! Customize background settings
+    settings%background_settings%rtor = 625.0_dp    ! Major radius (cm)
+    settings%background_settings%rp = 200.0_dp      ! Minor radius (cm)
+    settings%background_settings%B0 = 25000.0_dp    ! Toroidal field (G)
     
-    ! Print current settings
-    call settings_print_all(sd, ierr)
+    ! Print all settings
+    call settings_print_all(settings, ierr)
     
     ! Clean up
-    call settings_destroy(sd, ierr)
+    call settings_destroy(settings, ierr)
+end program basic_settings_example
+```
+
+### Working with Individual Components
+
+You can also work with individual settings components:
+
+```fortran
+program component_example
+    use kilca_types_m
+    use kilca_settings_m
+    implicit none
     
-end program example_settings_usage
+    type(antenna_t) :: antenna
+    type(back_sett_t) :: background
+    integer :: ierr
+    logical :: is_valid
+    character(len=1024) :: error_msg
+    
+    ! Initialize antenna with defaults
+    call antenna_initialize_defaults(antenna, ierr)
+    if (ierr /= KILCA_SUCCESS) stop 1
+    
+    ! Customize specific parameters
+    call antenna_initialize_custom(antenna, ra=15.0_dp, wa=2.0_dp, I0=1500.0_dp, ierr=ierr)
+    if (ierr /= KILCA_SUCCESS) stop 1
+    
+    ! Validate settings
+    call antenna_validate(antenna, is_valid, error_msg, ierr)
+    if (.not. is_valid) then
+        print *, "Antenna validation failed: ", trim(error_msg)
+        stop 1
+    end if
+    
+    ! Print antenna settings
+    call antenna_print_settings(antenna, ierr)
+    
+    ! Initialize background settings
+    call back_sett_initialize_defaults(background, ierr)
+    call back_sett_print_settings(background, ierr)
+    
+    ! Clean up arrays if allocated
+    if (allocated(antenna%modes)) deallocate(antenna%modes)
+    if (allocated(background%flag_back)) deallocate(background%flag_back)
+end program component_example
 ```
 
-## Detailed Usage Instructions
+## Advanced Usage Patterns
 
-### 1. Settings Creation and Destruction
+### Complete Plasma Configuration
 
-#### Creating Settings
+Here's a more advanced example setting up a complete ASDEX Upgrade-like plasma configuration:
+
 ```fortran
-type(settings_t), pointer :: sd
-integer :: ierr
-
-! Create with project path
-call settings_create(sd, "/home/user/plasma_run/", ierr)
+program advanced_plasma_setup
+    use kilca_types_m
+    use kilca_settings_m
+    implicit none
+    
+    type(settings_t), pointer :: settings
+    integer :: ierr, i
+    logical :: is_valid
+    character(len=1024) :: error_msg
+    
+    ! Initialize with project path
+    call settings_create(settings, "/home/user/KAMEL_runs/shot_12345", ierr)
+    if (ierr /= KILCA_SUCCESS) stop 1
+    
+    ! === ANTENNA CONFIGURATION ===
+    ! ICRF antenna at plasma edge
+    settings%antenna_settings%ra = 18.5_dp       ! Close to plasma boundary
+    settings%antenna_settings%wa = 0.8_dp        ! Narrow current layer
+    settings%antenna_settings%I0 = 800.0_dp      ! Moderate current
+    settings%antenna_settings%flab = cmplx(30.0e6_dp, 0.0_dp)  ! 30 MHz
+    settings%antenna_settings%flag_debug = 1     ! Enable debugging
+    
+    ! Set up toroidal mode numbers for ICRF heating
+    settings%antenna_settings%dma = 3
+    allocate(settings%antenna_settings%modes(6))
+    settings%antenna_settings%modes = [0, 15, 0, 16, 0, 17]  ! n=15,16,17
+    
+    ! === BACKGROUND PLASMA ===
+    ! ASDEX Upgrade parameters
+    settings%background_settings%rtor = 165.0_dp    ! ASDEX major radius
+    settings%background_settings%rp = 50.0_dp       ! ASDEX minor radius  
+    settings%background_settings%B0 = 25000.0_dp    ! 2.5 T toroidal field
+    settings%background_settings%calc_back = 1      ! Calculate profiles
+    settings%background_settings%N = 7              ! Higher order splines
+    
+    ! Plasma composition (D plasma)
+    allocate(settings%background_settings%mass(2))
+    allocate(settings%background_settings%charge(2))
+    settings%background_settings%mass = [1.0_dp, 2.0_dp]    ! e-, D+
+    settings%background_settings%charge = [-1.0_dp, 1.0_dp]  ! charges
+    
+    ! Set background profile path
+    settings%background_settings%path2profiles = &
+        trim(settings%path2project) // "/profiles/"
+    
+    ! === OUTPUT CONFIGURATION ===
+    settings%output_settings%flag_background = 1
+    settings%output_settings%flag_emfield = 1
+    settings%output_settings%flag_additional = 1
+    settings%output_settings%num_quants = 5
+    
+    allocate(settings%output_settings%flag_quants(5))
+    settings%output_settings%flag_quants = [1, 1, 0, 1, 1]  ! Select quantities
+    
+    ! === EIGENMODE SETTINGS ===
+    settings%eigmode_settings%search_flag = 1       ! Enable eigenmode search
+    settings%eigmode_settings%rdim = 200           ! High resolution
+    settings%eigmode_settings%idim = 200
+    settings%eigmode_settings%rfmin = 20.0e6_dp    ! Around antenna frequency
+    settings%eigmode_settings%rfmax = 40.0e6_dp
+    settings%eigmode_settings%ifmin = -1.0e3_dp    ! Small damping range
+    settings%eigmode_settings%ifmax = 1.0e3_dp
+    settings%eigmode_settings%n_zeros = 20         ! Find many modes
+    
+    ! Set output filename
+    settings%eigmode_settings%fname = &
+        trim(settings%path2project) // "/eigenmode_results.dat"
+    
+    ! Provide initial guesses near antenna frequency
+    settings%eigmode_settings%Nguess = 3
+    allocate(settings%eigmode_settings%fstart(3))
+    settings%eigmode_settings%fstart = [ &
+        cmplx(29.5e6_dp, 100.0_dp), &
+        cmplx(30.0e6_dp, 50.0_dp), &
+        cmplx(30.5e6_dp, 150.0_dp) &
+    ]
+    
+    ! === VALIDATION ===
+    call settings_validate_complete(settings, is_valid, error_msg, ierr)
+    if (ierr /= KILCA_SUCCESS) then
+        print *, "Validation failed with error code:", ierr
+        stop 1
+    end if
+    
+    if (.not. is_valid) then
+        print *, "Settings validation failed:"
+        print *, trim(error_msg)
+        stop 1
+    end if
+    
+    ! Check consistency between components  
+    call settings_validate_consistency(settings, is_valid, error_msg, ierr)
+    if (.not. is_valid) then
+        print *, "Consistency check failed:"
+        print *, trim(error_msg)
+        stop 1
+    end if
+    
+    print *, "=== PLASMA CONFIGURATION SUMMARY ==="
+    call settings_print_all(settings, ierr)
+    
+    ! Clean up
+    call settings_destroy(settings, ierr)
+    
+end program advanced_plasma_setup
 ```
 
-#### Destroying Settings  
+## Error Handling
+
+### Comprehensive Error Handling Pattern
+
 ```fortran
-! Always destroy settings to free memory
-call settings_destroy(sd, ierr)
+program error_handling_example
+    use kilca_types_m
+    use kilca_settings_m
+    implicit none
+    
+    type(settings_t), pointer :: settings
+    integer :: ierr
+    character(len=1024) :: error_msg
+    character(len=256) :: error_name
+    logical :: recovered
+    
+    ! Attempt to create settings
+    call settings_create(settings, "", ierr)  ! Empty path - should fail
+    
+    if (ierr /= KILCA_SUCCESS) then
+        ! Get error information
+        call settings_get_error_name(ierr, error_name, ierr)
+        call settings_format_error_message(ierr, "settings creation", "empty path", error_msg)
+        
+        print *, "Error occurred:"
+        print *, "  Code: ", ierr
+        print *, "  Name: ", trim(error_name)  
+        print *, "  Message: ", trim(error_msg)
+        
+        ! Log error
+        call settings_log_error(ierr, "settings creation", "empty path", "error.log", ierr)
+    end if
+    
+    ! Create with valid path
+    call settings_create(settings, "/tmp/test", ierr)
+    if (ierr /= KILCA_SUCCESS) stop 1
+    
+    ! Intentionally create invalid antenna state
+    settings%antenna_settings%ra = -10.0_dp      ! Invalid negative radius
+    settings%antenna_settings%dma = 2            ! But no modes array
+    
+    ! Try to recover
+    call settings_attempt_recovery(settings%antenna_settings, recovered, ierr)
+    if (recovered) then
+        print *, "Successfully recovered from invalid antenna state"
+        print *, "  Fixed ra =", settings%antenna_settings%ra
+        if (allocated(settings%antenna_settings%modes)) then
+            print *, "  Allocated modes array with size", size(settings%antenna_settings%modes)
+        end if
+    else
+        print *, "Could not recover from invalid state"
+    end if
+    
+    call settings_destroy(settings, ierr)
+    
+end program error_handling_example
 ```
 
-### 2. Initialization Strategies
+### Error Logging and Recovery
 
-#### Default Initialization
 ```fortran
-! Initialize all subsettings with scientific defaults
-call settings_initialize_defaults(sd, "/path/to/project/", ierr)
+subroutine robust_settings_setup(settings, project_path, success)
+    use kilca_types_m
+    use kilca_settings_m
+    implicit none
+    
+    type(settings_t), pointer, intent(out) :: settings
+    character(len=*), intent(in) :: project_path
+    logical, intent(out) :: success
+    
+    integer :: ierr, attempt
+    logical :: is_valid, recovered
+    character(len=1024) :: error_msg, detailed_error
+    character(len=256) :: log_file
+    
+    success = .false.
+    log_file = trim(project_path) // "/setup_errors.log"
+    
+    ! Clear any previous error log
+    call settings_clear_error_log(log_file, ierr)
+    
+    do attempt = 1, 3  ! Try up to 3 times
+        ! Attempt to create and initialize
+        call settings_initialize_defaults(settings, project_path, ierr)
+        
+        if (ierr /= KILCA_SUCCESS) then
+            call settings_log_error(ierr, "initialization", "attempt", log_file, ierr)
+            cycle  ! Try again
+        end if
+        
+        ! Validate the settings
+        call settings_validate_complete(settings, is_valid, error_msg, ierr)
+        if (ierr /= KILCA_SUCCESS) then
+            call settings_log_error(ierr, "validation", "complete check", log_file, ierr)
+            call settings_destroy(settings, ierr)
+            cycle
+        end if
+        
+        if (.not. is_valid) then
+            ! Try to get detailed error information
+            call settings_get_detailed_validation_errors( &
+                settings%background_settings, detailed_error, ierr)
+            
+            ! Log the validation failure
+            call settings_log_error(KILCA_ERROR_INVALID_INPUT, &
+                "validation", trim(error_msg), log_file, ierr)
+                
+            ! Try recovery
+            call settings_attempt_recovery(settings%antenna_settings, recovered, ierr)
+            if (recovered) then
+                ! Re-validate after recovery
+                call settings_validate_complete(settings, is_valid, error_msg, ierr)
+                if (is_valid) then
+                    success = .true.
+                    exit
+                end if
+            end if
+            
+            call settings_destroy(settings, ierr)
+            cycle
+        end if
+        
+        ! Success!
+        success = .true.
+        exit
+    end do
+    
+    if (.not. success) then
+        print *, "Failed to set up settings after", attempt, "attempts"
+        print *, "Check error log:", trim(log_file)
+    end if
+    
+end subroutine robust_settings_setup
 ```
 
-#### Custom Initialization
+## Validation and Debugging
+
+### Comprehensive Validation
+
 ```fortran
-! Initialize individual components with custom parameters
-call antenna_initialize_custom(sd%antenna_settings, &
-                               ra=45.0_dp, wa=2.0_dp, I0=500.0_dp, ierr=ierr)
+program validation_example
+    use kilca_types_m
+    use kilca_settings_m
+    implicit none
+    
+    type(settings_t), pointer :: settings
+    integer :: ierr
+    logical :: is_valid
+    character(len=2048) :: error_msg, detailed_error
+    
+    call settings_initialize_defaults(settings, "/tmp/test", ierr)
+    if (ierr /= KILCA_SUCCESS) stop 1
+    
+    ! Set up some potentially problematic values
+    settings%antenna_settings%ra = 25.0_dp       ! Larger than plasma
+    settings%background_settings%rp = 20.0_dp    ! Small plasma
+    settings%background_settings%rtor = 30.0_dp  ! Small torus
+    
+    ! Individual component validation
+    print *, "=== INDIVIDUAL COMPONENT VALIDATION ==="
+    
+    call antenna_validate(settings%antenna_settings, is_valid, error_msg, ierr)
+    print *, "Antenna valid:", is_valid
+    if (.not. is_valid) print *, "  Error:", trim(error_msg)
+    
+    call back_sett_validate(settings%background_settings, is_valid, error_msg, ierr)
+    print *, "Background valid:", is_valid  
+    if (.not. is_valid) print *, "  Error:", trim(error_msg)
+    
+    ! Complete validation
+    print *, ""
+    print *, "=== COMPLETE VALIDATION ==="
+    call settings_validate_complete(settings, is_valid, error_msg, ierr)
+    print *, "Complete settings valid:", is_valid
+    if (.not. is_valid) print *, "  Error:", trim(error_msg)
+    
+    ! Consistency validation
+    print *, ""
+    print *, "=== CONSISTENCY VALIDATION ==="
+    call settings_validate_consistency(settings, is_valid, error_msg, ierr)
+    print *, "Settings consistent:", is_valid
+    if (.not. is_valid) print *, "  Error:", trim(error_msg)
+    
+    ! Detailed error analysis
+    print *, ""
+    print *, "=== DETAILED ERROR ANALYSIS ==="
+    call settings_get_detailed_validation_errors( &
+        settings%background_settings, detailed_error, ierr)
+    print *, "Detailed errors:", trim(detailed_error)
+    
+    call settings_destroy(settings, ierr)
+    
+end program validation_example
 ```
 
-#### Reading from Files
+## Performance Considerations
+
+### Efficient Settings Management
+
 ```fortran
-! Read all settings from configuration files
-call settings_read_all(sd, ierr)
+program performance_example
+    use kilca_types_m  
+    use kilca_settings_m
+    implicit none
+    
+    type(settings_t), pointer :: template_settings, run_settings
+    integer :: ierr, i
+    
+    ! Create a template settings once
+    call settings_initialize_defaults(template_settings, "/project/base", ierr)
+    if (ierr /= KILCA_SUCCESS) stop 1
+    
+    ! Configure common parameters
+    template_settings%background_settings%rtor = 165.0_dp
+    template_settings%background_settings%rp = 50.0_dp
+    template_settings%background_settings%B0 = 25000.0_dp
+    
+    ! For multiple runs, copy from template
+    do i = 1, 100
+        ! Deep copy from template (faster than re-initializing)
+        call settings_deep_copy(template_settings, run_settings, ierr)
+        if (ierr /= KILCA_SUCCESS) stop 1
+        
+        ! Modify run-specific parameters
+        run_settings%antenna_settings%I0 = 500.0_dp + i * 10.0_dp
+        run_settings%antenna_settings%flab = cmplx(30.0e6_dp + i * 1.0e5_dp, 0.0_dp)
+        
+        ! Use settings for calculation...
+        ! (simulation code would go here)
+        
+        ! Clean up this run
+        call settings_destroy(run_settings, ierr)
+    end do
+    
+    ! Clean up template
+    call settings_destroy(template_settings, ierr)
+    
+end program performance_example
 ```
 
-### 3. Antenna Settings (`antenna_t`)
+## Common Patterns
 
-#### Setting Antenna Parameters
+### Pattern 1: Parameter Sweep
+
 ```fortran
-! Direct assignment
-sd%antenna_settings%ra = 50.0_dp        ! Antenna radius (cm)
-sd%antenna_settings%wa = 1.5_dp         ! Current layer width
-sd%antenna_settings%I0 = 1000.0_dp      ! Current (statamp)
-sd%antenna_settings%flab = (1.0e5_dp, 0.0_dp)  ! Frequency (Hz)
-
-! Using procedure
-call antenna_set_parameters(sd%antenna_settings, &
-    ra=50.0_dp, wa=1.5_dp, I0=1000.0_dp, ierr=ierr)
+subroutine antenna_frequency_sweep(base_settings, frequencies, n_freq)
+    use kilca_types_m
+    use kilca_settings_m
+    implicit none
+    
+    type(settings_t), pointer, intent(in) :: base_settings
+    real(dp), intent(in) :: frequencies(:)
+    integer, intent(in) :: n_freq
+    
+    type(settings_t), pointer :: sweep_settings
+    integer :: i, ierr
+    character(len=256) :: filename
+    
+    do i = 1, n_freq
+        ! Copy base settings
+        call settings_deep_copy(base_settings, sweep_settings, ierr)
+        if (ierr /= KILCA_SUCCESS) cycle
+        
+        ! Modify frequency
+        sweep_settings%antenna_settings%flab = cmplx(frequencies(i), 0.0_dp)
+        
+        ! Update output filename
+        write(filename, '("freq_sweep_",I0,".dat")') i
+        sweep_settings%eigmode_settings%fname = filename
+        
+        ! Run calculation (placeholder)
+        call run_calculation(sweep_settings)
+        
+        call settings_destroy(sweep_settings, ierr)
+    end do
+    
+end subroutine antenna_frequency_sweep
 ```
 
-#### Setting Antenna Modes
+### Pattern 2: Configuration Variants
+
 ```fortran
-! Allocate and set mode array
-sd%antenna_settings%dma = 4
-allocate(sd%antenna_settings%modes(sd%antenna_settings%dma))
-sd%antenna_settings%modes = [1, 1, 2, 1]  ! [m1, n1, m2, n2]
+subroutine create_configuration_variants(base_path)
+    use kilca_types_m
+    use kilca_settings_m
+    implicit none
+    
+    character(len=*), intent(in) :: base_path
+    
+    type(settings_t), pointer :: settings
+    integer :: ierr
+    
+    ! High-performance configuration
+    call settings_initialize_defaults(settings, trim(base_path)//"/high_perf", ierr)
+    settings%background_settings%N = 7                    ! High-order splines
+    settings%eigmode_settings%rdim = 500                  ! High resolution
+    settings%eigmode_settings%idim = 500
+    settings%output_settings%flag_additional = 1         ! All diagnostics
+    call save_configuration(settings, "high_performance.json")
+    call settings_destroy(settings, ierr)
+    
+    ! Fast configuration
+    call settings_initialize_defaults(settings, trim(base_path)//"/fast", ierr)
+    settings%background_settings%N = 3                    ! Low-order splines
+    settings%eigmode_settings%rdim = 50                   ! Low resolution
+    settings%eigmode_settings%idim = 50
+    settings%output_settings%flag_additional = 0         ! Minimal diagnostics
+    call save_configuration(settings, "fast.json")
+    call settings_destroy(settings, ierr)
+    
+end subroutine create_configuration_variants
 ```
 
-#### Antenna Validation and Output
-```fortran
-logical :: is_valid
-character(len=1024) :: error_msg
+## Troubleshooting
 
-! Validate antenna settings
-call antenna_validate(sd%antenna_settings, is_valid, error_msg, ierr)
-if (.not. is_valid) then
-    print *, "Antenna validation error:", trim(error_msg)
-end if
+### Common Issues and Solutions
 
-! Print antenna settings
-call antenna_print_settings(sd%antenna_settings, ierr)
-```
+1. **Memory Allocation Failures**
+   ```fortran
+   ! Check available memory before large allocations
+   if (settings%eigmode_settings%rdim * settings%eigmode_settings%idim > 1000000) then
+       print *, "Warning: Large frequency mesh may cause memory issues"
+   end if
+   ```
 
-### 4. Background Settings (`back_sett_t`)
+2. **Validation Failures**
+   ```fortran
+   ! Always validate after manual modifications
+   call settings_validate_consistency(settings, is_valid, error_msg, ierr)
+   if (.not. is_valid) then
+       print *, "Fix required:", trim(error_msg)
+       ! Apply fixes...
+   end if
+   ```
 
-#### Setting Machine Parameters
-```fortran
-! ASDEX Upgrade typical parameters
-sd%background_settings%rtor = 625.0_dp      ! Major radius (cm)
-sd%background_settings%rp = 200.0_dp        ! Plasma radius (cm)  
-sd%background_settings%B0 = 25000.0_dp      ! Magnetic field (G)
-```
+3. **File Path Issues**
+   ```fortran
+   ! Ensure directories exist
+   logical :: dir_exists
+   inquire(file=trim(settings%path2project), exist=dir_exists)
+   if (.not. dir_exists) then
+       call system("mkdir -p " // trim(settings%path2project))
+   end if
+   ```
 
-#### Setting Plasma Parameters
-```fortran
-sd%background_settings%m_i = 2.0_dp         ! Ion mass (proton masses)
-sd%background_settings%zele = 1.0_dp        ! Electron collision coeff
-sd%background_settings%zion = 1.0_dp        ! Ion collision coeff
-sd%background_settings%V_scale = 1.0_dp     ! Velocity scale factor
-```
+4. **Array Size Mismatches**
+   ```fortran
+   ! Always check array sizes before allocation
+   if (settings%antenna_settings%dma > 0) then
+       if (allocated(settings%antenna_settings%modes)) then
+           if (size(settings%antenna_settings%modes) /= 2 * settings%antenna_settings%dma) then
+               deallocate(settings%antenna_settings%modes)
+               allocate(settings%antenna_settings%modes(2 * settings%antenna_settings%dma))
+           end if
+       else
+           allocate(settings%antenna_settings%modes(2 * settings%antenna_settings%dma))
+       end if
+   end if
+   ```
 
-#### Setting Background Calculation Mode
-```fortran
-! Set background calculation flag
-call back_sett_set_calc_flag(sd%background_settings, 1, ierr)
+### Debugging Tips
 
-! Set background type
-if (allocated(sd%background_settings%flag_back)) &
-    deallocate(sd%background_settings%flag_back)
-sd%background_settings%flag_back = "normal"  ! or "homogeneous"
-```
+1. **Enable Debug Output**
+   ```fortran
+   settings%antenna_settings%flag_debug = 1
+   settings%background_settings%flag_debug = 1
+   settings%output_settings%flag_debug = 1
+   settings%eigmode_settings%flag_debug = 1
+   ```
 
-### 5. Output Settings (`output_sett_t`)
+2. **Use Validation Context**
+   ```fortran
+   call settings_validate_with_context(settings, "main initialization", error_msg, ierr)
+   ```
 
-#### Setting Output Flags
-```fortran
-sd%output_settings%flag_background = 1      ! Compute background
-sd%output_settings%flag_emfield = 1         ! Compute EM fields
-sd%output_settings%flag_additional = 0      ! Skip additional quantities
-sd%output_settings%flag_dispersion = 0      ! Skip dispersion
+3. **Check Error Logs**
+   ```fortran
+   logical :: log_exists
+   call settings_check_error_log_exists("debug.log", log_exists, ierr)
+   if (log_exists) then
+       print *, "Check debug.log for detailed error information"
+   end if
+   ```
 
-! Using procedure
-call output_sett_set_flags(sd%output_settings, &
-    flag_background=1, flag_emfield=1, ierr=ierr)
-```
+## See Also
 
-#### Setting Quantity Flags
-```fortran
-! Set number of quantities and allocate array
-sd%output_settings%num_quants = 3
-if (allocated(sd%output_settings%flag_quants)) &
-    deallocate(sd%output_settings%flag_quants)
-allocate(sd%output_settings%flag_quants(3))
-sd%output_settings%flag_quants = [1, 1, 0]  ! Compute first two quantities
-```
-
-### 6. Eigenmode Settings (`eigmode_sett_t`)
-
-#### Setting Search Parameters
-```fortran
-sd%eigmode_settings%search_flag = 1         ! Enable search
-sd%eigmode_settings%rdim = 200              ! Real dimension
-sd%eigmode_settings%idim = 200              ! Imaginary dimension
-sd%eigmode_settings%rfmin = 0.0_dp          ! Real frequency min
-sd%eigmode_settings%rfmax = 1.0e6_dp        ! Real frequency max
-sd%eigmode_settings%ifmin = -1.0e5_dp       ! Imaginary frequency min
-sd%eigmode_settings%ifmax = 1.0e5_dp        ! Imaginary frequency max
-```
-
-#### Setting Solver Parameters  
-```fortran
-sd%eigmode_settings%eps_res = 1.0e-8_dp     ! Residual tolerance
-sd%eigmode_settings%eps_abs = 1.0e-10_dp    ! Absolute tolerance
-sd%eigmode_settings%eps_rel = 1.0e-8_dp     ! Relative tolerance
-sd%eigmode_settings%delta = 1.0e-8_dp       ! Delta parameter
-```
-
-#### Setting Output File
-```fortran
-if (allocated(sd%eigmode_settings%fname)) &
-    deallocate(sd%eigmode_settings%fname)
-sd%eigmode_settings%fname = "eigenmode_results.dat"
-```
-
-## Advanced Usage
-
-### 7. Settings Validation
-
-#### Individual Component Validation
-```fortran
-logical :: is_valid
-character(len=1024) :: error_msg
-integer :: ierr
-
-! Validate individual components
-call antenna_validate(sd%antenna_settings, is_valid, error_msg, ierr)
-call back_sett_validate(sd%background_settings, is_valid, error_msg, ierr)
-call output_sett_validate(sd%output_settings, is_valid, error_msg, ierr)
-call eigmode_sett_validate(sd%eigmode_settings, is_valid, error_msg, ierr)
-```
-
-#### Complete Settings Validation
-```fortran
-! Validate all settings and check consistency
-call settings_validate_complete(sd, ierr)
-if (ierr /= KILCA_SUCCESS) then
-    print *, "Settings validation failed"
-end if
-
-! Validate with context information
-character(len=2048) :: context_error
-call settings_validate_with_context(sd, "main simulation", context_error, ierr)
-```
-
-#### Detailed Error Reporting
-```fortran
-character(len=4096) :: detailed_errors
-
-! Get detailed validation errors for background settings
-call settings_get_detailed_validation_errors(sd%background_settings, &
-                                             detailed_errors, ierr)
-if (ierr /= KILCA_SUCCESS .and. len_trim(detailed_errors) > 0) then
-    print *, "Detailed errors:"
-    print *, trim(detailed_errors)
-end if
-```
-
-### 8. Settings Copying and Comparison
-
-#### Deep Copy
-```fortran
-type(settings_t), pointer :: sd_copy
-integer :: ierr
-
-! Create copy structure
-call settings_create(sd_copy, sd%path2project, ierr)
-
-! Perform deep copy
-call settings_deep_copy(sd, sd_copy, ierr)
-```
-
-#### Comparison
-```fortran
-logical :: is_equal
-
-! Compare two settings structures
-call settings_compare(sd, sd_copy, is_equal, ierr)
-if (is_equal) then
-    print *, "Settings are identical"
-else
-    print *, "Settings differ"
-end if
-```
-
-### 9. Error Handling
-
-#### Error Message Formatting
-```fortran
-character(len=1024) :: error_msg
-
-! Format detailed error message
-call settings_format_error_message(KILCA_ERROR_INVALID_INPUT, &
-                                  "antenna validation", &
-                                  "ra parameter", error_msg)
-print *, trim(error_msg)
-```
-
-#### Error Recovery
-```fortran
-logical :: recovered
-
-! Attempt to recover from invalid settings
-call settings_attempt_recovery(sd%antenna_settings, recovered, ierr)
-if (recovered) then
-    print *, "Successfully recovered from invalid settings"
-else
-    print *, "Could not recover, manual intervention required"
-end if
-```
-
-#### Error Logging
-```fortran
-! Log error to file
-call settings_log_error(KILCA_ERROR_INVALID_INPUT, &
-                       "simulation startup", &
-                       "background B0 field", &
-                       "error.log", ierr)
-```
-
-### 10. File I/O
-
-#### Reading Settings from Files
-```fortran
-! Read individual components
-call antenna_read_settings(sd%antenna_settings, sd%path2project, ierr)
-call back_sett_read_settings(sd%background_settings, sd%path2project, ierr)
-
-! Read all settings
-call settings_read_all(sd, ierr)
-```
-
-#### Printing Settings
-```fortran
-! Print to stdout
-call settings_print_all(sd, ierr)
-
-! Print individual components
-call antenna_print_settings(sd%antenna_settings, ierr)
-call back_sett_print_settings(sd%background_settings, ierr)
-
-! Print to file
-open(unit=10, file="settings_output.txt")
-call antenna_print_settings_to_unit(sd%antenna_settings, 10, ierr)
-call back_sett_print_settings_to_unit(sd%background_settings, 10, ierr)
-close(10)
-```
-
-## Error Codes
-
-The module uses the following error codes from `kilca_types_m`:
-
-- `KILCA_SUCCESS` - Operation completed successfully
-- `KILCA_ERROR_INVALID_INPUT` - Invalid input parameters
-- `KILCA_ERROR_MEMORY` - Memory allocation failure
-- `KILCA_ERROR_FILE` - File operation error
-- `KILCA_ERROR_INVALID_DATA` - Invalid data encountered
-- `KILCA_ERROR_UNKNOWN` - Unknown error
-
-## Best Practices
-
-### 1. Always Check Return Codes
-```fortran
-call some_settings_procedure(sd, ierr)
-if (ierr /= KILCA_SUCCESS) then
-    ! Handle error appropriately
-    print *, "Error in settings procedure:", ierr
-    ! Consider cleanup and exit
-end if
-```
-
-### 2. Validate Before Use
-```fortran
-! Always validate settings before using them in calculations
-call settings_validate_complete(sd, ierr)
-if (ierr /= KILCA_SUCCESS) then
-    print *, "Settings are invalid, cannot proceed"
-    call settings_destroy(sd, ierr)
-    stop 1
-end if
-```
-
-### 3. Proper Memory Management
-```fortran
-! Always deallocate arrays before reassigning
-if (allocated(sd%antenna_settings%modes)) then
-    deallocate(sd%antenna_settings%modes)
-end if
-
-! Always destroy settings when done
-call settings_destroy(sd, ierr)
-```
-
-### 4. Use Initialization Procedures
-```fortran
-! Use provided initialization procedures rather than manual assignment
-call settings_initialize_defaults(sd, path, ierr)
-! Rather than manually setting each field
-```
-
-### 5. Handle String Allocations Carefully
-```fortran
-! Properly handle allocatable strings
-if (allocated(sd%background_settings%flag_back)) then
-    deallocate(sd%background_settings%flag_back)
-end if
-sd%background_settings%flag_back = "normal"
-```
-
-## Common Pitfalls
-
-1. **Forgetting to validate settings** - Always validate before use
-2. **Memory leaks** - Always call `settings_destroy` when done
-3. **Array bounds** - Check `dma` before accessing `modes` array
-4. **String allocation** - Deallocate before reassigning allocatable strings
-5. **Error handling** - Always check return codes from procedures
-
-## Examples
-
-See the test files for comprehensive usage examples:
-- `tests/test_settings_initialization.f90` - Initialization examples
-- `tests/test_settings_validation.f90` - Validation examples  
-- `tests/test_settings_copy_compare.f90` - Copy and comparison examples
-- `tests/test_settings_error_handling.f90` - Error handling examples
-
-## Support
-
-For questions or issues with the settings module, refer to:
-1. This documentation
-2. Test files for working examples
-3. Module source code comments
-4. KiLCA project documentation
+- [PROCEDURE_REFERENCE.md](PROCEDURE_REFERENCE.md) - Complete procedure documentation
+- [examples/](examples/) - Working code examples
+- KiLCA main documentation for physics background

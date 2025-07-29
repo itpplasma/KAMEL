@@ -1,0 +1,35 @@
+# Build artifacts
+build/
+*.o
+*.mod
+*.a
+*.so
+*.dylib
+
+# Test executables
+test_*
+!test_*.f90
+
+# Temporary files
+*.tmp
+*.bak
+*~
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Mac OS
+.DS_Store
+
+# Debug symbols
+*.dSYM/
+
+# Backup files
+*~
+*.backup
+
+# Log files
+*.log

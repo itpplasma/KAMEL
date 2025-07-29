@@ -233,7 +233,7 @@ contains
         
         ! Ensure value is in valid range [-128, 127]
         if (val < -128) then
-            sc%val = int(-128, int8)
+            sc%val = int(z'80', int8)  ! -128 in two's complement
         else if (val > 127) then
             sc%val = 127_int8
         else

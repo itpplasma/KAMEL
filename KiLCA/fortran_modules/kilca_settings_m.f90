@@ -1377,7 +1377,8 @@ contains
         if (ierr /= 0) return
         if (allocated(es%fstart)) then
             do k = 1, es%Nguess
-                write(unit, '(A,I0,A,ES15.8,A,ES15.8,A)', iostat=ierr) "k=", k-1, "\tf=(", real(es%fstart(k)), ", ", aimag(es%fstart(k)), ")"
+                write(unit, '(A,I0,A,ES15.8,A,ES15.8,A)', iostat=ierr) "k=", k-1, &
+                      "\tf=(", real(es%fstart(k)), ", ", aimag(es%fstart(k)), ")"
                 if (ierr /= 0) return
             end do
         end if

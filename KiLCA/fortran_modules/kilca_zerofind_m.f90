@@ -157,7 +157,7 @@ contains
         
         ierr = 0
         
-        settings%max_iter = 50
+        settings%max_iter = 100
         settings%eps_abs = 1.0e-12_dp
         settings%eps_rel = 1.0e-12_dp
         settings%eps_func = 1.0e-12_dp
@@ -682,13 +682,23 @@ contains
         do i = 1, n_candidates
             is_new_root = .true.
             
-            ! Check if already found
+            ! Check if already found among accepted roots
             do j = 1, n_roots
-                if (abs(candidate_roots(i) - roots(j)) < settings%eps_abs) then
+                if (abs(candidate_roots(i) - roots(j)) < 1.0e-6_dp) then
                     is_new_root = .false.
                     exit
                 end if
             end do
+            
+            ! Also check against previous candidates to avoid processing duplicates
+            if (is_new_root) then
+                do j = 1, i-1
+                    if (abs(candidate_roots(i) - candidate_roots(j)) < 1.0e-6_dp) then
+                        is_new_root = .false.
+                        exit
+                    end if
+                end do
+            end if
             
             ! Check if inside region
             if (is_new_root) then
@@ -739,10 +749,30 @@ contains
             dy = (rect%ymax - rect%ymin) / real(ny + 1, dp)
             
             
-            do i = 1, nx
-                x = rect%xmin + real(i, dp) * dx
-                do j = 1, ny
-                    y = rect%ymin + real(j, dp) * dy
+            ! Include points on boundaries and interior
+            do i = 0, nx + 1
+                if (i == 0) then
+                    x = rect%xmin
+                else if (i == nx + 1) then
+                    x = rect%xmax
+                else
+                    x = rect%xmin + real(i, dp) * dx
+                end if
+                
+                do j = 0, ny + 1
+                    if (j == 0) then
+                        y = rect%ymin
+                    else if (j == ny + 1) then
+                        y = rect%ymax
+                    else
+                        y = rect%ymin + real(j, dp) * dy
+                    end if
+                    
+                    ! Special case: always include y=0 if it's in range
+                    if (j == ny/2 .and. rect%ymin < 0.0_dp .and. rect%ymax > 0.0_dp) then
+                        y = 0.0_dp
+                    end if
+                    
                     z0 = cmplx(x, y, dp)
                     
                     ! Run Newton iteration

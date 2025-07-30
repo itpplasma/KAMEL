@@ -679,7 +679,7 @@ contains
     
     !> @brief Read antenna settings from file
     subroutine antenna_read_settings(ant, path, ierr)
-        type(antenna_t), intent(inout) :: ant
+        type(antenna_t), intent(inout) :: ant  ! NOTE: ant kept for interface compatibility
         character(len=*), intent(in) :: path
         integer, intent(out) :: ierr
         
@@ -889,7 +889,7 @@ contains
     
     !> @brief Read background settings from file
     subroutine back_sett_read_settings(bs, path, ierr)
-        type(back_sett_t), intent(inout) :: bs
+        type(back_sett_t), intent(inout) :: bs  ! NOTE: bs kept for interface compatibility
         character(len=*), intent(in) :: path
         integer, intent(out) :: ierr
         
@@ -1127,7 +1127,7 @@ contains
     
     !> @brief Read output settings from file
     subroutine output_sett_read_settings(os, path, ierr)
-        type(output_sett_t), intent(inout) :: os
+        type(output_sett_t), intent(inout) :: os  ! NOTE: os kept for interface compatibility
         character(len=*), intent(in) :: path
         integer, intent(out) :: ierr
         
@@ -1290,7 +1290,7 @@ contains
     
     !> @brief Read eigenmode settings from file
     subroutine eigmode_sett_read_settings(es, path, ierr)
-        type(eigmode_sett_t), intent(inout) :: es
+        type(eigmode_sett_t), intent(inout) :: es  ! NOTE: es kept for interface compatibility
         character(len=*), intent(in) :: path
         integer, intent(out) :: ierr
         
@@ -1627,7 +1627,7 @@ contains
     
     !> @brief Copy antenna data to module (placeholder)
     subroutine copy_antenna_data_to_antenna_module(ant)
-        type(antenna_t), pointer, intent(in) :: ant
+        type(antenna_t), pointer, intent(in) :: ant  ! NOTE: ant kept for interface compatibility
         
         ! In full implementation, would copy to a module-level variable
         ! that's accessible from Fortran routines that need it
@@ -1636,7 +1636,7 @@ contains
     
     !> @brief Copy background data to module (placeholder)
     subroutine copy_background_data_to_background_module(bs)
-        type(back_sett_t), pointer, intent(in) :: bs
+        type(back_sett_t), pointer, intent(in) :: bs  ! NOTE: bs kept for interface compatibility
         
         ! In full implementation, would copy to a module-level variable
         
@@ -2966,9 +2966,8 @@ contains
         character(len=*), intent(out) :: detailed_error
         integer, intent(out) :: ierr
         
-        logical :: is_valid
-        character(len=1024) :: temp_error
         integer :: error_count
+        ! Variables is_valid, temp_error removed - were unused
         
         ierr = KILCA_SUCCESS
         detailed_error = ""

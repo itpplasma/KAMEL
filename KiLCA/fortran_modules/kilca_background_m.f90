@@ -393,7 +393,7 @@ contains
     ! Save background data (placeholder)
     !---------------------------------------------------------------------------
     subroutine background_save(bg, ierr)
-        type(background_t), intent(in) :: bg
+        type(background_t), intent(in) :: bg  ! NOTE: bg kept for interface compatibility
         integer, intent(out) :: ierr
         
         ierr = 0
@@ -407,12 +407,9 @@ contains
     ! Interpolate basic background profiles at given radial position
     !---------------------------------------------------------------------------
     subroutine background_interp_basic_profiles(bg, r, q, n, Ti, Te, Vth, Vz, dPhi0)
-        type(background_t), intent(in) :: bg
-        real(real64), intent(in) :: r
+        type(background_t), intent(in) :: bg  ! NOTE: bg kept for interface compatibility
+        real(real64), intent(in) :: r  ! NOTE: r kept for interface compatibility
         real(real64), intent(out) :: q, n, Ti, Te, Vth, Vz, dPhi0
-        
-        real(real64) :: result(1)
-        integer :: ierr
         
         ! For now, return dummy values
         ! In full implementation, would use spline interpolation

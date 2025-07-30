@@ -70,6 +70,11 @@ module kilca_core_m
     public :: calc_and_set_mode_dependent_core_data_antenna_interface
     public :: calc_and_set_mode_dependent_core_data_antenna_interface_mn
     
+    ! Main program support procedures
+    public :: core_calc_mode_independent_data
+    public :: core_calc_mode_dependent_data_antenna
+    public :: core_calc_mode_dependent_data_eigmode
+    
     ! Accessor procedures
     public :: core_data_get_path
     public :: core_data_has_settings
@@ -209,8 +214,6 @@ contains
     subroutine core_data_delete_modes_array(cd, ierr)
         type(core_data_t), intent(inout) :: cd
         integer, intent(out) :: ierr
-        
-        integer :: ind
         
         ierr = KILCA_SUCCESS
         
@@ -565,7 +568,7 @@ contains
     !> @param[out] ierr Error code
     subroutine calc_and_set_mode_dependent_core_data_antenna_interface_mn(cd, m, n, flag, ierr)
         type(core_data_t), intent(inout) :: cd
-        integer, intent(in) :: m, n, flag
+        integer, intent(in) :: m, n, flag  ! NOTE: m, n, flag kept for interface compatibility
         integer, intent(out) :: ierr
         
         ierr = KILCA_SUCCESS
@@ -987,5 +990,45 @@ contains
         ! This will be implemented when mode_data module is translated
         ! For now, just a placeholder
     end subroutine clear_all_data_in_mode_data_module
+    
+    ! =========================================================================
+    ! Main Program Support Procedures
+    ! =========================================================================
+    
+    !> @brief Perform mode-independent calculations (main program interface)
+    !> @param[inout] cd Core data structure
+    !> @param[out] ierr Error code
+    subroutine core_calc_mode_independent_data(cd, ierr)
+        type(core_data_t), intent(inout) :: cd
+        integer, intent(out) :: ierr
+        
+        ! Call the existing function
+        call calc_and_set_mode_independent_core_data(cd, ierr)
+        
+    end subroutine core_calc_mode_independent_data
+    
+    !> @brief Perform mode-dependent antenna calculations (main program interface)
+    !> @param[inout] cd Core data structure
+    !> @param[out] ierr Error code
+    subroutine core_calc_mode_dependent_data_antenna(cd, ierr)
+        type(core_data_t), intent(inout) :: cd
+        integer, intent(out) :: ierr
+        
+        ! Call the existing function
+        call calc_and_set_mode_dependent_core_data_antenna(cd, ierr)
+        
+    end subroutine core_calc_mode_dependent_data_antenna
+    
+    !> @brief Perform mode-dependent eigmode calculations (main program interface)
+    !> @param[inout] cd Core data structure
+    !> @param[out] ierr Error code
+    subroutine core_calc_mode_dependent_data_eigmode(cd, ierr)
+        type(core_data_t), intent(inout) :: cd
+        integer, intent(out) :: ierr
+        
+        ! Call the existing function
+        call calc_and_set_mode_dependent_core_data_eigmode(cd, ierr)
+        
+    end subroutine core_calc_mode_dependent_data_eigmode
     
 end module kilca_core_m

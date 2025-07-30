@@ -823,6 +823,7 @@ contains
             t = 1.0_real64
         else
             ! Linear search for simplicity (binary search would be better)
+            t = 0.0_real64  ! Initialize to avoid uninitialized warning
             do grid_index = 1, profiles%dimx - 1
                 if (r >= profiles%x(grid_index) .and. r <= profiles%x(grid_index + 1)) then
                     t = (r - profiles%x(grid_index)) / &

@@ -50,7 +50,7 @@ contains
         real(real64), intent(in), target :: x(:)    ! x grid points
         integer, intent(out) :: ierr
         
-        integer :: i, j
+        ! Variables i, j removed - were unused
         
         ierr = 0
         
@@ -164,7 +164,7 @@ contains
         real(real64), intent(out) :: result(:) ! Results
         integer, intent(out) :: ierr
         
-        integer :: i, j, k, ind
+        integer :: i, j, ind  ! k removed - was unused
         real(real64) :: dx, val
         
         ierr = 0
@@ -262,9 +262,9 @@ contains
     !---------------------------------------------------------------------------
     function calc_spline_boundaries(spline, dimy, y, W) result(ierr)
         type(spline_data_t), intent(inout) :: spline
-        integer, intent(in) :: dimy
+        integer, intent(in) :: dimy  ! NOTE: dimy kept for interface compatibility
         real(real64), intent(in) :: y(:)
-        real(real64), intent(inout) :: W(:)
+        real(real64), intent(inout) :: W(:)  ! NOTE: W kept for interface compatibility
         integer :: ierr
         
         ierr = 0
@@ -292,14 +292,13 @@ contains
     !---------------------------------------------------------------------------
     function calc_spline_coefficients(spline, Imin, dimy, y, W) result(ierr)
         type(spline_data_t), intent(inout) :: spline
-        integer, intent(in) :: Imin, dimy
+        integer, intent(in) :: Imin, dimy  ! NOTE: Imin, dimy kept for interface compatibility
         real(real64), intent(in) :: y(:)
-        real(real64), intent(inout) :: W(:)
+        real(real64), intent(inout) :: W(:)  ! NOTE: W kept for interface compatibility  
         integer :: ierr
         
-        integer :: i, j, n
-        real(real64), allocatable :: A(:,:), b(:), work(:)
-        integer, allocatable :: ipiv(:)
+        integer :: i, n  ! j removed - was unused
+        ! Removed unused variables: A, b, work, ipiv
         
         ierr = 0
         n = spline%dimx

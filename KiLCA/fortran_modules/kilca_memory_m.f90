@@ -334,7 +334,7 @@ contains
     !> @brief Allocate aligned 1D real array
     subroutine tracked_allocate_aligned_real_1d(array, n, alignment, ierr)
         real(dp), allocatable, intent(inout) :: array(:)
-        integer, intent(in) :: n, alignment
+        integer, intent(in) :: n, alignment  ! NOTE: alignment kept for interface compatibility
         integer, intent(out) :: ierr
         
         ! For now, use regular allocation (Fortran doesn't have standard aligned allocation)
@@ -481,7 +481,7 @@ contains
     
     !> @brief Register a pointer as valid (core_data specific version)
     subroutine memory_register_pointer(ptr, ierr)
-        type(core_data_t), pointer, intent(in) :: ptr
+        type(core_data_t), pointer, intent(in) :: ptr  ! NOTE: ptr kept for interface compatibility
         integer, intent(out) :: ierr
         
         ierr = KILCA_SUCCESS
@@ -589,7 +589,7 @@ contains
         integer, intent(in) :: n
         integer, intent(out) :: ierr
         
-        integer :: i, start_idx, bytes_needed
+        integer :: bytes_needed
         
         ierr = KILCA_SUCCESS
         ptr => null()

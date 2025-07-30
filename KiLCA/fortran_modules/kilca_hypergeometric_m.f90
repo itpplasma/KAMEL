@@ -41,25 +41,25 @@ module kilca_hypergeometric_m
     ! GSL interface (external C functions)
     interface
         ! GSL hypergeometric functions
-        function gsl_sf_hyperg_1f1_double(a, b, z) bind(c, name='gsl_sf_hyperg_1f1')
+        function gsl_sf_hyperg_1f1_double(a, b, z) bind(c, name='gsl_sf_hyperg_1F1')
             import :: c_double
             real(c_double), value :: a, b, z
             real(c_double) :: gsl_sf_hyperg_1f1_double
         end function gsl_sf_hyperg_1f1_double
         
-        function gsl_sf_hyperg_2f1_double(a, b, c, z) bind(c, name='gsl_sf_hyperg_2f1')
+        function gsl_sf_hyperg_2f1_double(a, b, c, z) bind(c, name='gsl_sf_hyperg_2F1')
             import :: c_double
             real(c_double), value :: a, b, c, z
             real(c_double) :: gsl_sf_hyperg_2f1_double
         end function gsl_sf_hyperg_2f1_double
         
-        function gsl_sf_hyperg_0f1_double(c, z) bind(c, name='gsl_sf_hyperg_0f1')
+        function gsl_sf_hyperg_0f1_double(c, z) bind(c, name='gsl_sf_hyperg_0F1')
             import :: c_double
             real(c_double), value :: c, z
             real(c_double) :: gsl_sf_hyperg_0f1_double
         end function gsl_sf_hyperg_0f1_double
         
-        function gsl_sf_hyperg_u_double(a, b, z) bind(c, name='gsl_sf_hyperg_u')
+        function gsl_sf_hyperg_u_double(a, b, z) bind(c, name='gsl_sf_hyperg_U')
             import :: c_double
             real(c_double), value :: a, b, z
             real(c_double) :: gsl_sf_hyperg_u_double

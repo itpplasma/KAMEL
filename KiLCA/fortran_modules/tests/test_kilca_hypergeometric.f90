@@ -251,6 +251,7 @@ contains
     !---------------------------------------------------------------------------
     subroutine test_1f1_complex_arguments()
         complex(dp) :: b, z, result
+        complex(dp) :: b_conj, z_conj, result_conj
         type(hyperg_1f1_settings_t) :: settings
         integer :: ierr
         
@@ -270,9 +271,9 @@ contains
         ! Test conjugate symmetry: 1F1(b*, z*) = [1F1(b, z)]*
         b = (2.0_dp, 1.0_dp)
         z = (1.0_dp, 0.5_dp)
+        
         call hyperg_1f1_custom(b, z, result, settings, ierr)
         
-        complex(dp) :: b_conj, z_conj, result_conj
         b_conj = conjg(b)
         z_conj = conjg(z)
         call hyperg_1f1_custom(b_conj, z_conj, result_conj, settings, ierr)
@@ -318,6 +319,7 @@ contains
     !---------------------------------------------------------------------------
     subroutine test_1f1_asymptotic_behavior()
         complex(dp) :: b, z, result
+        complex(dp) :: asymptotic_approx
         type(hyperg_1f1_settings_t) :: settings
         integer :: ierr
         
@@ -330,9 +332,9 @@ contains
         ! For large |z|, 1F1(1, b, z) ~ exp(z) * z^{-b} for Re(z) > 0
         b = (2.0_dp, 0.0_dp)
         z = (10.0_dp, 0.0_dp)
+        
         call hyperg_1f1_custom(b, z, result, settings, ierr)
         
-        complex(dp) :: asymptotic_approx
         asymptotic_approx = exp(z) * z**(-b)
         
         test_passed = test_passed .and. (ierr == 0)

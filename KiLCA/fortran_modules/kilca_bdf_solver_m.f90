@@ -24,23 +24,23 @@ module kilca_bdf_solver_m
         integer :: max_order = 5                    !< Maximum allowed order
         integer :: n_steps = 0                      !< Number of steps taken
         integer :: n_fails = 0                      !< Number of failed steps
-        real(dp) :: rtol = 1.0e-6_dp               !< Relative tolerance
-        real(dp) :: atol = 1.0e-12_dp              !< Absolute tolerance
-        real(dp) :: h_current = 0.0_dp             !< Current step size
-        real(dp) :: h_next = 0.0_dp                !< Next step size
-        real(dp) :: t_current = 0.0_dp             !< Current time
-        real(dp), allocatable :: alpha(:)          !< BDF alpha coefficients
-        real(dp) :: beta = 0.0_dp                  !< BDF beta coefficient
-        real(dp), allocatable :: gamma(:)          !< Error estimation coefficients
-        real(dp), allocatable :: y_history(:,:)    !< Solution history [neq, order+1]
-        real(dp), allocatable :: h_history(:)      !< Step size history [order]
-        real(dp), allocatable :: work(:)           !< Work array
+        real(real64) :: rtol = 1.0e-6_dp               !< Relative tolerance
+        real(real64) :: atol = 1.0e-12_dp              !< Absolute tolerance
+        real(real64) :: h_current = 0.0_dp             !< Current step size
+        real(real64) :: h_next = 0.0_dp                !< Next step size
+        real(real64) :: t_current = 0.0_dp             !< Current time
+        real(real64), allocatable :: alpha(:)          !< BDF alpha coefficients
+        real(real64) :: beta = 0.0_dp                  !< BDF beta coefficient
+        real(real64), allocatable :: gamma(:)          !< Error estimation coefficients
+        real(real64), allocatable :: y_history(:,:)    !< Solution history [neq, order+1]
+        real(real64), allocatable :: h_history(:)      !< Step size history [order]
+        real(real64), allocatable :: work(:)           !< Work array
         logical :: initialized = .false.           !< Initialization flag
         integer :: neq = 0                         !< Number of equations
         
         ! Newton solver parameters
         integer :: max_newton_iter = 10            !< Max Newton iterations
-        real(dp) :: newton_tol = 1.0e-10_dp       !< Newton convergence tolerance
+        real(real64) :: newton_tol = 1.0e-10_dp       !< Newton convergence tolerance
         
         ! Statistics
         integer :: n_jac_evals = 0                !< Jacobian evaluations
@@ -49,7 +49,7 @@ module kilca_bdf_solver_m
     end type bdf_solver_t
     
     ! BDF coefficients for orders 1-5
-    real(dp), parameter :: BDF_ALPHA(6,5) = reshape([ &
+    real(real64), parameter :: BDF_ALPHA(6,5) = reshape([ &
         ! Order 1 (Backward Euler)
         1.0_dp, -1.0_dp, 0.0_dp, 0.0_dp, 0.0_dp, 0.0_dp, &
         ! Order 2
@@ -62,7 +62,7 @@ module kilca_bdf_solver_m
         137.0_dp/60.0_dp, -5.0_dp, 5.0_dp, -10.0_dp/3.0_dp, 5.0_dp/4.0_dp, -1.0_dp/5.0_dp &
         ], [6, 5])
     
-    real(dp), parameter :: BDF_BETA(5) = [ &
+    real(real64), parameter :: BDF_BETA(5) = [ &
         1.0_dp,           & ! Order 1
         2.0_dp/3.0_dp,    & ! Order 2
         6.0_dp/11.0_dp,   & ! Order 3
@@ -71,7 +71,7 @@ module kilca_bdf_solver_m
         ]
     
     ! Error coefficients for order selection
-    real(dp), parameter :: ERROR_CONST(5) = [ &
+    real(real64), parameter :: ERROR_CONST(5) = [ &
         1.0_dp/2.0_dp,    & ! Order 1
         2.0_dp/9.0_dp,    & ! Order 2
         3.0_dp/22.0_dp,   & ! Order 3
@@ -82,20 +82,20 @@ module kilca_bdf_solver_m
     ! Interface for RHS function
     abstract interface
         subroutine rhs_func_interface(neq, t, y, ydot)
-            import :: dp
+            import :: real64
             integer, intent(in) :: neq
-            real(dp), intent(in) :: t
-            real(dp), intent(in) :: y(*)
-            real(dp), intent(out) :: ydot(*)
+            real(real64), intent(in) :: t
+            real(real64), intent(in) :: y(*)
+            real(real64), intent(out) :: ydot(*)
         end subroutine rhs_func_interface
         
-        subroutine jac_func_interface(neq, t, y, jac, ldj)
-            import :: dp
+        subroutine bdf_jac_func_interface(neq, t, y, jac, ldj)
+            import :: real64
             integer, intent(in) :: neq, ldj
-            real(dp), intent(in) :: t
-            real(dp), intent(in) :: y(*)
-            real(dp), intent(out) :: jac(ldj, *)
-        end subroutine jac_func_interface
+            real(real64), intent(in) :: t
+            real(real64), intent(in) :: y(*)
+            real(real64), intent(out) :: jac(ldj, *)
+        end subroutine bdf_jac_func_interface
     end interface
     
 contains
@@ -169,9 +169,9 @@ contains
     !> Initialize BDF solver with initial conditions
     subroutine bdf_solver_init(solver, t0, y0, h0, ierr)
         type(bdf_solver_t), intent(inout) :: solver
-        real(dp), intent(in) :: t0
-        real(dp), intent(in) :: y0(:)
-        real(dp), intent(in) :: h0
+        real(real64), intent(in) :: t0
+        real(real64), intent(in) :: y0(:)
+        real(real64), intent(in) :: h0
         integer, intent(out) :: ierr
         integer :: i
         
@@ -226,8 +226,8 @@ contains
     subroutine bdf_compute_coefficients(solver, ierr)
         type(bdf_solver_t), intent(inout) :: solver
         integer, intent(out) :: ierr
-        integer :: k
-        real(dp) :: xi(0:5), c(0:5)
+        integer :: i, k
+        real(real64) :: xi(0:5), c(0:5)
         
         ierr = 0
         
@@ -257,7 +257,9 @@ contains
             end do
             
             ! Compute coefficients (simplified for constant step)
-            solver%alpha(0:solver%order) = BDF_ALPHA(1:solver%order+1, solver%order)
+            do i = 0, solver%order
+                solver%alpha(i) = BDF_ALPHA(i+1, solver%order)
+            end do
             solver%beta = BDF_BETA(solver%order)
         end if
         
@@ -275,11 +277,11 @@ contains
     subroutine bdf_solver_step(solver, f, jac, t_end, y_new, ierr)
         type(bdf_solver_t), intent(inout) :: solver
         procedure(rhs_func_interface) :: f
-        procedure(jac_func_interface) :: jac
-        real(dp), intent(in) :: t_end
-        real(dp), intent(out) :: y_new(:)
+        procedure(bdf_jac_func_interface) :: jac
+        real(real64), intent(in) :: t_end
+        real(real64), intent(out) :: y_new(:)
         integer, intent(out) :: ierr
-        real(dp) :: h, t_new
+        real(real64) :: h, t_new
         integer :: i
         
         ierr = 0
@@ -302,7 +304,7 @@ contains
         call bdf_predict(solver, y_new)
         
         ! Solve nonlinear system using Newton's method
-        call bdf_newton_solve(solver, f, jac, t_new, h, y_new, ierr)
+        call bdf_newton_solve_internal(solver, f, jac, t_new, h, y_new, ierr)
         
         if (ierr /= 0) then
             ! Step failed - restore history
@@ -331,12 +333,12 @@ contains
     subroutine bdf_solver_step_adaptive(solver, f, jac, t_end, y_new, err_est, ierr)
         type(bdf_solver_t), intent(inout) :: solver
         procedure(rhs_func_interface) :: f
-        procedure(jac_func_interface) :: jac
-        real(dp), intent(in) :: t_end
-        real(dp), intent(out) :: y_new(:)
-        real(dp), intent(out) :: err_est
+        procedure(bdf_jac_func_interface) :: jac
+        real(real64), intent(in) :: t_end
+        real(real64), intent(out) :: y_new(:)
+        real(real64), intent(out) :: err_est
         integer, intent(out) :: ierr
-        real(dp) :: h_new, safety_factor
+        real(real64) :: h_new, safety_factor
         integer :: new_order
         
         ! Take step
@@ -396,13 +398,13 @@ contains
     subroutine bdf_newton_solve(solver, f, jac, t_new, h, y, ierr)
         type(bdf_solver_t), intent(inout) :: solver
         procedure(rhs_func_interface) :: f
-        procedure(jac_func_interface) :: jac
-        real(dp), intent(in) :: t_new, h
-        real(dp), intent(inout) :: y(:)
+        procedure(bdf_jac_func_interface) :: jac
+        real(real64), intent(in) :: t_new, h
+        real(real64), intent(inout) :: y(:)
         integer, intent(out) :: ierr
-        real(dp), allocatable :: jacobian(:,:), rhs(:), dy(:)
-        real(dp), allocatable :: ydot(:), y_pred(:)
-        real(dp) :: conv_rate, conv_test, old_conv_test
+        real(real64), allocatable :: jacobian(:,:), rhs(:), dy(:)
+        real(real64), allocatable :: ydot(:), y_pred(:)
+        real(real64) :: conv_rate, conv_test, old_conv_test
         integer :: iter, i, j, info
         integer, allocatable :: ipiv(:)
         
@@ -500,7 +502,7 @@ contains
     !> Predict solution using polynomial extrapolation
     subroutine bdf_predict(solver, y_pred)
         type(bdf_solver_t), intent(in) :: solver
-        real(dp), intent(out) :: y_pred(:)
+        real(real64), intent(out) :: y_pred(:)
         integer :: i
         
         ! Simple prediction: extrapolate from history
@@ -529,9 +531,9 @@ contains
     !> Estimate local truncation error
     subroutine bdf_error_estimate(solver, y_new, err_est)
         type(bdf_solver_t), intent(in) :: solver
-        real(dp), intent(in) :: y_new(:)
-        real(dp), intent(out) :: err_est
-        real(dp), allocatable :: err_vec(:)
+        real(real64), intent(in) :: y_new(:)
+        real(real64), intent(out) :: err_est
+        real(real64), allocatable :: err_vec(:)
         integer :: i
         
         allocate(err_vec(solver%neq))
@@ -554,5 +556,19 @@ contains
         deallocate(err_vec)
         
     end subroutine bdf_error_estimate
+    
+    !> Internal wrapper to avoid interface issues
+    subroutine bdf_newton_solve_internal(solver, f, jac, t_new, h, y, ierr)
+        type(bdf_solver_t), intent(inout) :: solver
+        procedure(rhs_func_interface) :: f
+        procedure(bdf_jac_func_interface) :: jac
+        real(real64), intent(in) :: t_new, h
+        real(real64), intent(inout) :: y(:)
+        integer, intent(out) :: ierr
+        
+        ! Just call the original function
+        call bdf_newton_solve(solver, f, jac, t_new, h, y, ierr)
+        
+    end subroutine bdf_newton_solve_internal
     
 end module kilca_bdf_solver_m

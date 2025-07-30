@@ -81,7 +81,7 @@ contains
     
     !> Destroy Fourier settings (cleanup if needed)
     subroutine fourier_settings_destroy(settings, ierr)
-        type(fourier_settings_t), intent(inout) :: settings
+        type(fourier_settings_t), intent(inout) :: settings  ! NOTE: settings kept for interface compatibility
         integer, intent(out) :: ierr
         
         ierr = 0
@@ -98,10 +98,10 @@ contains
         integer, intent(in) :: n
         complex(dp), intent(in) :: input(n)
         complex(dp), intent(out) :: output(n)
-        type(fourier_settings_t), intent(in) :: settings
+        type(fourier_settings_t), intent(in) :: settings  ! NOTE: settings kept for interface compatibility
         integer, intent(out) :: ierr
         
-        integer :: i
+        ! Variable i removed - was unused
         
         ierr = 0
         
@@ -120,7 +120,7 @@ contains
         integer, intent(in) :: n
         complex(dp), intent(in) :: input(n)
         complex(dp), intent(out) :: output(n)
-        type(fourier_settings_t), intent(in) :: settings
+        type(fourier_settings_t), intent(in) :: settings  ! NOTE: settings kept for interface compatibility
         integer, intent(out) :: ierr
         
         ierr = 0
@@ -139,7 +139,7 @@ contains
         integer, intent(in) :: n
         real(dp), intent(in) :: input(n)
         complex(dp), intent(out) :: output(n/2+1)
-        type(fourier_settings_t), intent(in) :: settings
+        type(fourier_settings_t), intent(in) :: settings  ! NOTE: settings kept for interface compatibility
         integer, intent(out) :: ierr
         
         complex(dp), allocatable :: temp_input(:)
@@ -171,7 +171,7 @@ contains
         integer, intent(in) :: n
         complex(dp), intent(in) :: input(n/2+1)
         real(dp), intent(out) :: output(n)
-        type(fourier_settings_t), intent(in) :: settings
+        type(fourier_settings_t), intent(in) :: settings  ! NOTE: settings kept for interface compatibility
         integer, intent(out) :: ierr
         
         complex(dp), allocatable :: temp_input(:), temp_output(:)
@@ -213,7 +213,7 @@ contains
         complex(dp), intent(in) :: y(dimx)
         real(dp), intent(in) :: x0, delta
         complex(dp), intent(out) :: f(-M:M)
-        type(fourier_settings_t), intent(in) :: settings
+        type(fourier_settings_t), intent(in) :: settings  ! NOTE: settings kept for interface compatibility
         integer, intent(out) :: ierr
         
         integer :: k
@@ -250,7 +250,7 @@ contains
         complex(dp), intent(in) :: f(-M:M)
         real(dp), intent(in) :: x0, delta
         complex(dp), intent(out) :: y(dimx)
-        type(fourier_settings_t), intent(in) :: settings
+        type(fourier_settings_t), intent(in) :: settings  ! NOTE: settings kept for interface compatibility
         integer, intent(out) :: ierr
         
         integer :: i, k
@@ -285,7 +285,7 @@ contains
         integer, intent(in) :: n  
         complex(dp), intent(in) :: input(n)
         real(dp), intent(out) :: output(n)
-        type(fourier_settings_t), intent(in) :: settings
+        type(fourier_settings_t), intent(in) :: settings  ! NOTE: settings kept for interface compatibility
         integer, intent(out) :: ierr
         
         complex(dp), allocatable :: fft_result(:)
@@ -316,7 +316,7 @@ contains
         integer, intent(in) :: n
         complex(dp), intent(in) :: input1(n), input2(n)
         complex(dp), intent(out) :: output(n)
-        type(fourier_settings_t), intent(in) :: settings
+        type(fourier_settings_t), intent(in) :: settings  ! NOTE: settings kept for interface compatibility
         integer, intent(out) :: ierr
         
         complex(dp), allocatable :: fft1(:), fft2(:)
@@ -357,7 +357,7 @@ contains
         integer, intent(in) :: n
         complex(dp), intent(in) :: input1(n), input2(n)
         complex(dp), intent(out) :: output(n)
-        type(fourier_settings_t), intent(in) :: settings
+        type(fourier_settings_t), intent(in) :: settings  ! NOTE: settings kept for interface compatibility
         integer, intent(out) :: ierr
         
         complex(dp), allocatable :: fft1(:), fft2(:), prod(:)
@@ -392,7 +392,7 @@ contains
         integer, intent(in) :: n
         complex(dp), intent(in) :: input1(n), input2(n)
         complex(dp), intent(out) :: output(n)
-        type(fourier_settings_t), intent(in) :: settings
+        type(fourier_settings_t), intent(in) :: settings  ! NOTE: settings kept for interface compatibility
         integer, intent(out) :: ierr
         
         complex(dp), allocatable :: fft1(:), fft2(:), prod(:)
@@ -479,7 +479,7 @@ contains
         integer, intent(in) :: n, window_type
         complex(dp), intent(in) :: input(n)
         complex(dp), intent(out) :: output(n)
-        type(fourier_settings_t), intent(in) :: settings
+        type(fourier_settings_t), intent(in) :: settings  ! NOTE: settings kept for interface compatibility
         integer, intent(out) :: ierr
         
         real(dp), allocatable :: window(:)
@@ -514,7 +514,7 @@ contains
         complex(dp), intent(in) :: input(n)
         real(dp), intent(in) :: cutoff_low, cutoff_high
         complex(dp), intent(out) :: output(n)
-        type(fourier_settings_t), intent(in) :: settings
+        type(fourier_settings_t), intent(in) :: settings  ! NOTE: settings kept for interface compatibility
         integer, intent(out) :: ierr
         
         complex(dp), allocatable :: fft_data(:)
@@ -608,7 +608,7 @@ contains
         real(dp), intent(in) :: x(dimx), k0, x0, x_min, x_max
         complex(dp), intent(in) :: y(dimx)
         complex(dp), intent(out) :: result
-        type(fourier_settings_t), intent(in) :: settings
+        type(fourier_settings_t), intent(in) :: settings  ! NOTE: settings kept for interface compatibility
         integer, intent(out) :: ierr
         
         integer :: i
@@ -640,8 +640,8 @@ contains
     function bessel_i0(x) result(i0)
         real(dp), intent(in) :: x
         real(dp) :: i0
-        real(dp) :: t, sum_val
-        integer :: n
+        real(dp) :: t
+        ! Variables sum_val, n removed - were unused
         
         if (abs(x) < 3.75_dp) then
             t = (x / 3.75_dp)**2

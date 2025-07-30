@@ -7,9 +7,12 @@ program test_kilca_complex_eigensystem
     logical :: test_passed
     complex(real64), allocatable :: matrix(:,:), eigenvalues(:), eigenvectors(:,:)
     complex(real64), allocatable :: matrix_b(:,:), alpha(:), beta(:), vl(:,:), vr(:,:)
+    complex(real64), allocatable :: Av(:), lambda_v(:), Av_gen(:), lambda_Bv(:)
     complex(real64) :: det, trace, expected_det, expected_trace
-    integer :: n, info, i, j
-    real(real64) :: tol
+    complex(real64) :: dominant_eigenvalue
+    integer :: n, info, i, j, iterations
+    real(real64) :: tol, condition_number
+    logical :: magnitude_sorted, real_sorted
     
     test_passed = .true.
     tol = epsilon(1.0_real64) * 1000.0_real64
@@ -36,7 +39,6 @@ program test_kilca_complex_eigensystem
         print *, "PASS: Standard eigenvalue computation completed successfully"
         
         ! Test eigenvalue equation: A*v = λ*v for first eigenvector
-        complex(real64), allocatable :: Av(:), lambda_v(:)
         allocate(Av(n), lambda_v(n))
         Av = matmul(matrix, eigenvectors(:,1))
         lambda_v = eigenvalues(1) * eigenvectors(:,1)
@@ -80,7 +82,6 @@ program test_kilca_complex_eigensystem
         
         ! Test generalized eigenvalue equation: A*v = (α/β)*B*v for first eigenvector
         if (abs(beta(1)) > tol) then  ! Avoid division by zero
-            complex(real64), allocatable :: Av_gen(:), lambda_Bv(:)
             allocate(Av_gen(n), lambda_Bv(n))
             Av_gen = matmul(matrix, vr(:,1))
             lambda_Bv = (alpha(1)/beta(1)) * matmul(matrix_b, vr(:,1))
@@ -157,7 +158,6 @@ program test_kilca_complex_eigensystem
         matrix(i,i) = cmplx(1.0_real64, 0.0_real64, real64)
     end do
     
-    real(real64) :: condition_number
     
     condition_number = cmplx_matrix_condition(matrix)
     
@@ -191,7 +191,6 @@ program test_kilca_complex_eigensystem
     ! Sort by magnitude (descending)
     call cmplx_eigenvalues_sort_by_magnitude(eigenvalues, eigenvectors, descending=.true.)
     
-    logical :: magnitude_sorted
     magnitude_sorted = .true.
     do i = 1, n-1
         if (abs(eigenvalues(i)) < abs(eigenvalues(i+1))) then
@@ -210,7 +209,6 @@ program test_kilca_complex_eigensystem
     ! Sort by real part (ascending)
     call cmplx_eigenvalues_sort_by_real(eigenvalues, eigenvectors, descending=.false.)
     
-    logical :: real_sorted
     real_sorted = .true.
     do i = 1, n-1
         if (real(eigenvalues(i)) > real(eigenvalues(i+1))) then
@@ -240,9 +238,6 @@ program test_kilca_complex_eigensystem
     matrix(1,1) = cmplx(3.0_real64, 0.0_real64, real64)  ! Dominant eigenvalue = 3
     matrix(2,2) = cmplx(1.0_real64, 0.0_real64, real64)
     matrix(3,3) = cmplx(0.5_real64, 0.0_real64, real64)
-    
-    complex(real64) :: dominant_eigenvalue
-    integer :: iterations
     
     call cmplx_power_iteration(matrix, dominant_eigenvalue, eigenvectors(:,1), iterations, info)
     

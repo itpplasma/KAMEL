@@ -353,9 +353,31 @@ This updated backlog optimizes the original 485 tasks by leveraging existing For
   - `fortran_modules/tests/test_kilca_antenna.f90` - Comprehensive test suite
 - **Translation scope**: Covers antenna modeling, interface protocols, and external code coupling functionality
 
-### Epic 3.3: Plasma Physics Models (Tasks 351-380)
+### ✅ Epic 3.3: Plasma Physics Models (Tasks 351-380) [COMPLETED]
 
-[No changes - all physics-specific and need full translation]
+**Priority**: HIGH | **Dependencies**: Epic 3.2 | **Estimated**: 220 hours
+
+#### ✅ Task 351-380: Plasma Physics Models Translation [COMPLETED]
+- **Status**: COMPLETED
+- **Implementation**: `kilca_physics_m.f90`
+- **Features**:
+  - Background plasma profile management (background_profiles_t type) with comprehensive parameter tracking
+  - Equilibrium calculation and consistency checks (equilibrium_t type) with force balance validation
+  - FLRE zone physics with Larmor radius effects (flre_zone_t type) for kinetic plasma modeling
+  - Vacuum zone electromagnetic wave propagation (vacuum_zone_t type) with Maxwell equations
+  - IMHD zone magnetohydrodynamic physics (imhd_zone_t type) for ideal MHD approximations
+  - Dispersion relations and wave physics (dispersion_t type) for plasma wave analysis
+  - Physics zone management and coupling (zone_manager_t type) for multi-zone calculations
+  - Lab frame transformations (lab_frame_transform_t type) for coordinate system conversions
+  - F0 distribution function moments (f0_moments_t type) for kinetic theory calculations
+  - Collision frequency calculations (collision_freq_t type) for transport coefficients
+  - Magnetic field geometry calculations (magnetic_field_t type) with gradient evaluations
+  - 92 public procedures for comprehensive physics modeling capabilities
+- **Tests**: 14/14 test cases pass (100% success rate)
+- **Files**:
+  - `fortran_modules/kilca_physics_m.f90` - Comprehensive plasma physics models module
+  - `fortran_modules/tests/test_kilca_physics.f90` - Extensive test suite covering all physics aspects
+- **Translation scope**: Covers background plasma physics, equilibrium calculations, multi-zone physics modeling, wave propagation, and kinetic theory implementations
 
 ---
 

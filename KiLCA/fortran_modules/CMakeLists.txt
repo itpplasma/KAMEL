@@ -78,6 +78,7 @@ add_library(kilca_fortran_modules STATIC
     kilca_quants_m.f90
     kilca_zerofind_m.f90
     kilca_adaptive_grid_m.f90
+    kilca_main_utils_m.f90
     hyper1F1.cpp
 )
 

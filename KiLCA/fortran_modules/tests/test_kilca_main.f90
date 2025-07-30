@@ -13,6 +13,7 @@ program test_kilca_main
     use kilca_background_m
     use kilca_mode_m
     use kilca_core_m
+    use kilca_main_utils_m
     implicit none
     
     logical :: all_tests_passed

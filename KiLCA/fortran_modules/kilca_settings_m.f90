@@ -233,6 +233,8 @@ module kilca_settings_m
     public :: output_sett_compare
     public :: output_sett_initialize_defaults
     public :: output_sett_validate
+    public :: output_settings_set_flag_quants
+    public :: output_settings_get_flag_quants
     
     ! Eigenmode procedures
     public :: eigmode_sett_set_search_flag
@@ -2865,6 +2867,52 @@ contains
         end if
         
     end subroutine output_sett_validate
+    
+    !> @brief Set flag_quants array with validation
+    subroutine output_settings_set_flag_quants(os, flag_quants, ierr)
+        type(output_sett_t), intent(inout) :: os
+        integer, dimension(:), intent(in) :: flag_quants
+        integer, intent(out) :: ierr
+        
+        ierr = KILCA_SUCCESS
+        
+        ! Clean up existing array
+        if (allocated(os%flag_quants)) deallocate(os%flag_quants)
+        
+        ! Allocate and copy
+        allocate(os%flag_quants(size(flag_quants)))
+        os%flag_quants = flag_quants
+        
+        ! Update num_quants to be consistent
+        os%num_quants = size(flag_quants)
+        
+        ! Validate array values (should be 0, 1, or 2)
+        if (any(flag_quants < 0) .or. any(flag_quants > 2)) then
+            ierr = KILCA_ERROR_INVALID_INPUT
+            return
+        end if
+        
+    end subroutine output_settings_set_flag_quants
+    
+    !> @brief Get flag_quants array
+    subroutine output_settings_get_flag_quants(os, flag_quants, ierr)
+        type(output_sett_t), intent(in) :: os
+        integer, dimension(:), allocatable, intent(out) :: flag_quants
+        integer, intent(out) :: ierr
+        
+        ierr = KILCA_SUCCESS
+        
+        if (allocated(flag_quants)) deallocate(flag_quants)
+        
+        if (allocated(os%flag_quants)) then
+            allocate(flag_quants(size(os%flag_quants)))
+            flag_quants = os%flag_quants
+        else
+            ! Return empty array if not allocated
+            allocate(flag_quants(0))
+        end if
+        
+    end subroutine output_settings_get_flag_quants
     
     !> @brief Validate eigenmode settings
     subroutine eigmode_sett_validate(es, is_valid, error_msg, ierr)

@@ -103,6 +103,30 @@ module kilca_types_m
     !> @brief Invalid parameter range error
     integer, parameter, public :: KILCA_ERROR_INVALID_PARAMETER = -13
     
+    !> @brief Namelist syntax error (missing slash, etc.)
+    integer, parameter, public :: KILCA_ERROR_NAMELIST_SYNTAX = -14
+    
+    !> @brief Type mismatch error in namelist
+    integer, parameter, public :: KILCA_ERROR_TYPE_MISMATCH = -15
+    
+    !> @brief Missing required section error
+    integer, parameter, public :: KILCA_ERROR_MISSING_SECTION = -16
+    
+    !> @brief Duplicate section error
+    integer, parameter, public :: KILCA_ERROR_DUPLICATE_SECTION = -17
+    
+    !> @brief Unknown parameter error
+    integer, parameter, public :: KILCA_ERROR_UNKNOWN_PARAMETER = -18
+    
+    !> @brief Empty file error
+    integer, parameter, public :: KILCA_ERROR_EMPTY_FILE = -19
+    
+    !> @brief Complex number format error
+    integer, parameter, public :: KILCA_ERROR_COMPLEX_FORMAT = -20
+    
+    !> @brief Array size mismatch error
+    integer, parameter, public :: KILCA_ERROR_ARRAY_SIZE = -21
+    
     ! Format detection constants
     integer, parameter, public :: NAMELIST_FORMAT = 1
     integer, parameter, public :: LEGACY_FORMAT = 2

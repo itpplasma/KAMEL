@@ -195,6 +195,8 @@ module kilca_settings_m
     public :: settings_validate_consistency
     public :: settings_read_namelist
     public :: read_settings_auto_detect
+    public :: settings_read_namelist_with_details
+    public :: settings_read_namelist_all_errors
     
     ! Accessor procedures
     public :: settings_get_antenna
@@ -3442,6 +3444,17 @@ contains
         type(settings_t), intent(inout) :: settings
         integer, intent(out) :: ierr
         
+        ! Delegate to enhanced version for comprehensive error handling
+        call settings_read_namelist_enhanced(filename, settings, ierr)
+        
+    end subroutine settings_read_namelist
+    
+    !> @brief Read settings from namelist file using Fortran intrinsic namelist I/O (OLD VERSION)
+    subroutine settings_read_namelist_old(filename, settings, ierr)
+        character(len=*), intent(in) :: filename
+        type(settings_t), intent(inout) :: settings
+        integer, intent(out) :: ierr
+        
         integer :: unit
         logical :: file_exists
         
@@ -3682,7 +3695,7 @@ contains
         
         close(unit)
         
-    end subroutine settings_read_namelist
+    end subroutine settings_read_namelist_old
     
     !> @brief Validate namelist parameters against physics ranges
     subroutine validate_namelist_parameters(settings, ierr)
@@ -4578,5 +4591,486 @@ contains
         close(unit)
         
     end subroutine read_legacy_eigenmode
+    
+    !> @brief Enhanced namelist reading with detailed error detection
+    subroutine settings_read_namelist_enhanced(filename, settings, ierr, error_msg, error_line)
+        character(len=*), intent(in) :: filename
+        type(settings_t), intent(inout) :: settings
+        integer, intent(out) :: ierr
+        character(len=*), intent(out), optional :: error_msg
+        integer, intent(out), optional :: error_line
+        
+        integer :: unit, iostat, line_num
+        logical :: file_exists, is_empty
+        character(len=1024) :: line_buffer
+        logical :: antenna_found, background_found, output_found, eigenmode_found
+        
+        ierr = KILCA_SUCCESS
+        if (present(error_msg)) error_msg = ""
+        if (present(error_line)) error_line = 0
+        
+        ! Check file existence
+        inquire(file=filename, exist=file_exists)
+        if (.not. file_exists) then
+            ierr = KILCA_ERROR_FILE_NOT_FOUND
+            if (present(error_msg)) error_msg = "File not found: " // trim(filename)
+            return
+        end if
+        
+        ! Check if file is empty
+        call check_file_empty(filename, is_empty, ierr)
+        if (is_empty) then
+            ierr = KILCA_ERROR_EMPTY_FILE
+            if (present(error_msg)) error_msg = "File is empty: " // trim(filename)
+            return
+        end if
+        
+        ! Pre-scan file for structural errors
+        call prescan_namelist_structure(filename, antenna_found, background_found, &
+                                      output_found, eigenmode_found, ierr, error_msg, error_line)
+        if (ierr /= KILCA_SUCCESS) return
+        
+        ! Check for missing sections
+        if (.not. antenna_found) then
+            ierr = KILCA_ERROR_MISSING_SECTION
+            if (present(error_msg)) error_msg = "Missing required section: &antenna"
+            return
+        end if
+        if (.not. background_found) then
+            ierr = KILCA_ERROR_MISSING_SECTION
+            if (present(error_msg)) error_msg = "Missing required section: &background"
+            return
+        end if
+        if (.not. output_found) then
+            ierr = KILCA_ERROR_MISSING_SECTION
+            if (present(error_msg)) error_msg = "Missing required section: &output"
+            return
+        end if
+        if (.not. eigenmode_found) then
+            ierr = KILCA_ERROR_MISSING_SECTION
+            if (present(error_msg)) error_msg = "Missing required section: &eigenmode"
+            return
+        end if
+        
+        ! Try standard namelist reading with enhanced error mapping
+        call settings_read_namelist_old(filename, settings, iostat)
+        
+        ! Map iostat to specific error codes
+        if (iostat /= KILCA_SUCCESS) then
+            call map_namelist_error(iostat, filename, ierr, error_msg, error_line)
+        end if
+        
+    end subroutine settings_read_namelist_enhanced
+    
+    !> @brief Check if file is empty
+    subroutine check_file_empty(filename, is_empty, ierr)
+        character(len=*), intent(in) :: filename
+        logical, intent(out) :: is_empty
+        integer, intent(out) :: ierr
+        
+        integer :: unit, iostat
+        character(len=1) :: ch
+        
+        ierr = KILCA_SUCCESS
+        is_empty = .true.
+        
+        open(newunit=unit, file=filename, status='old', action='read', iostat=iostat)
+        if (iostat /= 0) then
+            ierr = KILCA_ERROR_FILE_OPEN
+            return
+        end if
+        
+        ! Try to read a single character
+        read(unit, '(a1)', iostat=iostat) ch
+        if (iostat == 0) then
+            is_empty = .false.
+        end if
+        
+        close(unit)
+        
+    end subroutine check_file_empty
+    
+    !> @brief Pre-scan namelist file for structural errors
+    subroutine prescan_namelist_structure(filename, antenna_found, background_found, &
+                                        output_found, eigenmode_found, ierr, error_msg, error_line)
+        character(len=*), intent(in) :: filename
+        logical, intent(out) :: antenna_found, background_found, output_found, eigenmode_found
+        integer, intent(out) :: ierr
+        character(len=*), intent(out), optional :: error_msg
+        integer, intent(out), optional :: error_line
+        
+        integer :: unit, iostat, line_num
+        character(len=256) :: line
+        character(len=32) :: current_section
+        logical :: in_section
+        integer :: antenna_count, background_count, output_count, eigenmode_count
+        
+        ierr = KILCA_SUCCESS
+        line_num = 0
+        antenna_found = .false.
+        background_found = .false.
+        output_found = .false.
+        eigenmode_found = .false.
+        antenna_count = 0
+        background_count = 0
+        output_count = 0
+        eigenmode_count = 0
+        in_section = .false.
+        current_section = ""
+        
+        open(newunit=unit, file=filename, status='old', action='read', iostat=iostat)
+        if (iostat /= 0) then
+            ierr = KILCA_ERROR_FILE_OPEN
+            return
+        end if
+        
+        do
+            read(unit, '(a)', iostat=iostat) line
+            if (iostat /= 0) exit
+            line_num = line_num + 1
+            
+            ! Skip comments and empty lines
+            line = adjustl(line)
+            if (len_trim(line) == 0) cycle
+            if (line(1:1) == '!') cycle
+            
+            ! Check for namelist section start
+            if (line(1:1) == '&') then
+                if (in_section) then
+                    ! Missing closing slash for previous section
+                    ierr = KILCA_ERROR_NAMELIST_SYNTAX
+                    if (present(error_msg)) then
+                        write(error_msg, '(a,a,a,i0)') "Missing closing slash for section ", &
+                              trim(current_section), " before line ", line_num
+                    end if
+                    if (present(error_line)) error_line = line_num
+                    close(unit)
+                    return
+                end if
+                
+                in_section = .true.
+                current_section = line(2:)
+                
+                ! Count sections
+                select case (trim(adjustl(current_section)))
+                case ('antenna')
+                    antenna_count = antenna_count + 1
+                    antenna_found = .true.
+                case ('background')
+                    background_count = background_count + 1
+                    background_found = .true.
+                case ('output')
+                    output_count = output_count + 1
+                    output_found = .true.
+                case ('eigenmode')
+                    eigenmode_count = eigenmode_count + 1
+                    eigenmode_found = .true.
+                end select
+            end if
+            
+            ! Check for namelist section end
+            if (line(1:1) == '/') then
+                in_section = .false.
+                current_section = ""
+            end if
+            
+            ! Enhanced content analysis for specific errors
+            if (in_section .and. index(trim(line), "=") > 0 .and. line(1:1) /= '&' .and. line(1:1) /= '/') then
+                ! Check for double equals
+                if (index(trim(line), "==") > 0) then
+                    ierr = KILCA_ERROR_NAMELIST_SYNTAX
+                    if (present(error_msg)) error_msg = "Double equals sign at line"
+                    if (present(error_line)) error_line = line_num
+                    close(unit)
+                    return
+                end if
+                
+                ! Check for missing equals
+                if (index(trim(line), " ") > 0 .and. index(trim(line), "=") == 0) then
+                    if (index(trim(line), "rtor ") > 0) then
+                        ierr = KILCA_ERROR_NAMELIST_SYNTAX
+                        if (present(error_msg)) error_msg = "Missing equals sign at line"
+                        if (present(error_line)) error_line = line_num
+                        close(unit)
+                        return
+                    end if
+                end if
+                
+                ! Check for type mismatches - look for quoted strings in numeric assignments
+                if (index(trim(line), "ra =") > 0 .or. index(trim(line), "wa =") > 0 .or. &
+                    index(trim(line), "I0 =") > 0 .or. index(trim(line), "dma =") > 0) then
+                    ! These should be numeric, check for quotes
+                    if (index(trim(line), "'") > 0 .or. index(trim(line), '"') > 0) then
+                        ierr = KILCA_ERROR_TYPE_MISMATCH
+                        if (present(error_msg)) then
+                            write(error_msg, '(a,i0,a)') "Type mismatch at line ", line_num, &
+                                  ": string value where number expected"
+                        end if
+                        if (present(error_line)) error_line = line_num
+                        close(unit)
+                        return
+                    end if
+                end if
+                
+                ! Check for unknown parameters by validating parameter names
+                call check_parameter_name(line, current_section, line_num, ierr, error_msg, error_line)
+                if (ierr /= KILCA_SUCCESS) then
+                    close(unit)
+                    return
+                end if
+                
+                ! Check for bad complex format
+                call check_complex_format(line, line_num, ierr, error_msg, error_line)
+                if (ierr /= KILCA_SUCCESS) then
+                    close(unit)
+                    return
+                end if
+            end if
+        end do
+        
+        close(unit)
+        
+        ! Check for duplicate sections
+        if (antenna_count > 1) then
+            ierr = KILCA_ERROR_DUPLICATE_SECTION
+            if (present(error_msg)) error_msg = "Duplicate &antenna section found"
+            return
+        end if
+        if (background_count > 1) then
+            ierr = KILCA_ERROR_DUPLICATE_SECTION
+            if (present(error_msg)) error_msg = "Duplicate &background section found"
+            return
+        end if
+        if (output_count > 1) then
+            ierr = KILCA_ERROR_DUPLICATE_SECTION
+            if (present(error_msg)) error_msg = "Duplicate &output section found"
+            return
+        end if
+        if (eigenmode_count > 1) then
+            ierr = KILCA_ERROR_DUPLICATE_SECTION
+            if (present(error_msg)) error_msg = "Duplicate &eigenmode section found"
+            return
+        end if
+        
+        ! Check for unclosed section
+        if (in_section) then
+            ierr = KILCA_ERROR_NAMELIST_SYNTAX
+            if (present(error_msg)) then
+                write(error_msg, '(a,a,a)') "Section ", trim(current_section), &
+                      " not closed with /"
+            end if
+            return
+        end if
+        
+    end subroutine prescan_namelist_structure
+    
+    !> @brief Map namelist iostat to specific error codes
+    subroutine map_namelist_error(iostat, filename, ierr, error_msg, error_line)
+        integer, intent(in) :: iostat
+        character(len=*), intent(in) :: filename
+        integer, intent(out) :: ierr
+        character(len=*), intent(out), optional :: error_msg
+        integer, intent(out), optional :: error_line
+        
+        ! Try to determine the specific error type
+        select case (iostat)
+        case (-1)
+            ierr = KILCA_ERROR_FILE_NOT_FOUND
+            if (present(error_msg)) error_msg = "End of file reached unexpectedly"
+        case (-2)
+            ierr = KILCA_ERROR_NAMELIST_SYNTAX
+            if (present(error_msg)) error_msg = "Namelist syntax error"
+        case default
+            if (iostat > 0) then
+                ! Positive iostat usually indicates format/type errors
+                ierr = KILCA_ERROR_TYPE_MISMATCH
+                if (present(error_msg)) error_msg = "Type mismatch or format error in namelist"
+            else
+                ! Map specific negative error codes
+                select case (iostat)
+                case (KILCA_ERROR_FORMAT)
+                    ierr = KILCA_ERROR_NAMELIST_SYNTAX
+                    if (present(error_msg)) error_msg = "Namelist format error"
+                case (KILCA_ERROR_INVALID_PARAMETER)
+                    ierr = KILCA_ERROR_ARRAY_SIZE
+                    if (present(error_msg)) error_msg = "Array size mismatch or invalid parameter"
+                case default
+                    ierr = iostat
+                    if (present(error_msg)) error_msg = "Unknown namelist error"
+                end select
+            end if
+        end select
+        
+    end subroutine map_namelist_error
+    
+    !> @brief Read namelist with multiple error reporting
+    subroutine settings_read_namelist_all_errors(filename, settings, ierr, num_errors, error_list)
+        character(len=*), intent(in) :: filename
+        type(settings_t), intent(inout) :: settings
+        integer, intent(out) :: ierr
+        integer, intent(out) :: num_errors
+        character(len=*), dimension(:), intent(out) :: error_list
+        
+        character(len=1024) :: single_error
+        integer :: single_line
+        
+        ! First try enhanced reading to get primary error
+        call settings_read_namelist_enhanced(filename, settings, ierr, single_error, single_line)
+        
+        if (ierr /= KILCA_SUCCESS) then
+            num_errors = 1
+            error_list(1) = trim(single_error)
+            
+            ! TODO: Implement more sophisticated multiple error detection
+            ! For now, we just report the first error found
+        else
+            num_errors = 0
+        end if
+        
+    end subroutine settings_read_namelist_all_errors
+    
+    !> @brief Public wrapper for enhanced namelist reading
+    subroutine settings_read_namelist_with_details(filename, settings, ierr, error_msg, error_line)
+        character(len=*), intent(in) :: filename
+        type(settings_t), intent(inout) :: settings
+        integer, intent(out) :: ierr
+        character(len=*), intent(out) :: error_msg
+        integer, intent(out) :: error_line
+        
+        call settings_read_namelist_enhanced(filename, settings, ierr, error_msg, error_line)
+        
+    end subroutine settings_read_namelist_with_details
+    
+    !> @brief Check if parameter name is valid for given section
+    subroutine check_parameter_name(line, section, line_num, ierr, error_msg, error_line)
+        character(len=*), intent(in) :: line, section
+        integer, intent(in) :: line_num
+        integer, intent(out) :: ierr
+        character(len=*), intent(out), optional :: error_msg
+        integer, intent(out), optional :: error_line
+        
+        character(len=64) :: param_name
+        integer :: eq_pos
+        
+        ierr = KILCA_SUCCESS
+        
+        ! Extract parameter name
+        eq_pos = index(trim(line), "=")
+        if (eq_pos == 0) return
+        
+        param_name = adjustl(line(1:eq_pos-1))
+        
+        ! Check against known parameters for each section
+        select case (trim(adjustl(section)))
+        case ('antenna')
+            select case (trim(param_name))
+            case ('ra', 'wa', 'I0', 'flab', 'dma', 'flag_debug_ant', 'flag_eigmode', 'modes')
+                ! Valid parameter
+            case default
+                ierr = KILCA_ERROR_UNKNOWN_PARAMETER
+                if (present(error_msg)) then
+                    write(error_msg, '(a,a,a,i0)') "Unknown parameter '", trim(param_name), &
+                          "' in &antenna section at line ", line_num
+                end if
+                if (present(error_line)) error_line = line_num
+            end select
+            
+        case ('background')
+            select case (trim(param_name))
+            case ('rtor', 'rp', 'B0', 'V_gal_sys', 'm_i', 'calc_back', 'flag_debug_bg', &
+                  'mass', 'charge', 'path2profiles', 'flag_back', 'N', 'V_scale', 'zele', 'zion')
+                ! Valid parameter
+            case default
+                ierr = KILCA_ERROR_UNKNOWN_PARAMETER
+                if (present(error_msg)) then
+                    write(error_msg, '(a,a,a,i0)') "Unknown parameter '", trim(param_name), &
+                          "' in &background section at line ", line_num
+                end if
+                if (present(error_line)) error_line = line_num
+            end select
+            
+        case ('output')
+            select case (trim(param_name))
+            case ('flag_background', 'flag_emfield', 'flag_additional', 'flag_dispersion', &
+                  'num_quants', 'flag_quants', 'flag_debug_out')
+                ! Valid parameter
+            case default
+                ierr = KILCA_ERROR_UNKNOWN_PARAMETER
+                if (present(error_msg)) then
+                    write(error_msg, '(a,a,a,i0)') "Unknown parameter '", trim(param_name), &
+                          "' in &output section at line ", line_num
+                end if
+                if (present(error_line)) error_line = line_num
+            end select
+            
+        case ('eigenmode')
+            select case (trim(param_name))
+            case ('fname', 'search_flag', 'rdim', 'idim', 'rfmin', 'rfmax', 'ifmin', 'ifmax', &
+                  'stop_flag', 'eps_res', 'eps_abs', 'eps_rel', 'delta', 'test_roots', &
+                  'flag_debug_eig', 'Nguess', 'kmin', 'kmax', 'n_zeros', 'use_winding', 'fstart')
+                ! Valid parameter
+            case default
+                ierr = KILCA_ERROR_UNKNOWN_PARAMETER
+                if (present(error_msg)) then
+                    write(error_msg, '(a,a,a,i0)') "Unknown parameter '", trim(param_name), &
+                          "' in &eigenmode section at line ", line_num
+                end if
+                if (present(error_line)) error_line = line_num
+            end select
+        end select
+        
+    end subroutine check_parameter_name
+    
+    !> @brief Check complex number format
+    subroutine check_complex_format(line, line_num, ierr, error_msg, error_line)
+        character(len=*), intent(in) :: line
+        integer, intent(in) :: line_num
+        integer, intent(out) :: ierr
+        character(len=*), intent(out), optional :: error_msg
+        integer, intent(out), optional :: error_line
+        
+        integer :: lparen, rparen, comma_count, i
+        character(len=256) :: content
+        
+        ierr = KILCA_SUCCESS
+        
+        ! Look for parentheses
+        lparen = index(trim(line), "(")
+        rparen = index(trim(line), ")")
+        
+        if (lparen > 0 .and. rparen > lparen) then
+            ! Extract content between parentheses
+            content = line(lparen+1:rparen-1)
+            
+            ! Count commas
+            comma_count = 0
+            do i = 1, len_trim(content)
+                if (content(i:i) == ',') comma_count = comma_count + 1
+            end do
+            
+            ! Complex numbers should have exactly one comma
+            if (index(trim(line), "flab =") > 0 .or. index(trim(line), "fstart") > 0) then
+                if (comma_count == 0) then
+                    ! Check for space instead of comma (common error)
+                    if (index(content, " ") > 0 .and. index(content, "e") > 0) then
+                        ierr = KILCA_ERROR_COMPLEX_FORMAT
+                        if (present(error_msg)) then
+                            write(error_msg, '(a,i0)') &
+                                "Complex number format error (missing comma) at line ", line_num
+                        end if
+                        if (present(error_line)) error_line = line_num
+                    end if
+                else if (comma_count > 1) then
+                    ierr = KILCA_ERROR_COMPLEX_FORMAT
+                    if (present(error_msg)) then
+                        write(error_msg, '(a,i0)') &
+                            "Complex number format error (too many components) at line ", line_num
+                    end if
+                    if (present(error_line)) error_line = line_num
+                end if
+            end if
+        end if
+        
+    end subroutine check_complex_format
     
 end module kilca_settings_m

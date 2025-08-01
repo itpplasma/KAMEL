@@ -44,7 +44,7 @@ module rt_electrostatic
 
         use electrostatic_kernel, only: Krook_fill_kernel_phi, FP_fill_kernel_phi, fill_kernels_krook_fp, kernel_spl_t
         use grid, only: xl_grid
-        use IO_collection, only: write_matrix, write_complex_profile
+        use IO_collection, only: write_matrix, write_complex_profile, write_complex_profile_with_abs
         use poisson_solver, only: solve_poisson
         use config, only: output_path, collision_model
         use fields, only: EBdat, postprocess_electric_field, postprocess_electric_field_with_model
@@ -84,12 +84,12 @@ module rt_electrostatic
             
             ! Solve and write Krook solution
             call solve_poisson(kernel_krook_rho_phi_llp%Kllp, kernel_krook_rho_B_llp%Kllp, EBdat%Phi)
-            call write_complex_profile(xl_grid%xb, EBdat%Phi, xl_grid%npts_b, trim(output_path)//"/fields/phi_Krook_sol.dat")
+            call write_complex_profile_with_abs(xl_grid%xb, EBdat%Phi, xl_grid%npts_b, trim(output_path)//"/fields/phi_Krook_sol.dat")
             call postprocess_electric_field_with_model(EBdat, "Krook")
             
             ! Solve and write Fokker-Planck solution
             call solve_poisson(kernel_fp_rho_phi_llp%Kllp, kernel_fp_rho_B_llp%Kllp, EBdat%Phi)
-            call write_complex_profile(xl_grid%xb, EBdat%Phi, xl_grid%npts_b, trim(output_path)//"/fields/phi_FokkerPlanck_sol.dat")
+            call write_complex_profile_with_abs(xl_grid%xb, EBdat%Phi, xl_grid%npts_b, trim(output_path)//"/fields/phi_FokkerPlanck_sol.dat")
             call postprocess_electric_field_with_model(EBdat, "FokkerPlanck")
             
             return
@@ -106,7 +106,7 @@ module rt_electrostatic
         EBdat%r_grid = xl_grid%xb
         
         call solve_poisson(kernel_rho_phi_llp%Kllp, kernel_rho_B_llp%Kllp, EBdat%Phi)
-        call write_complex_profile(xl_grid%xb, EBdat%Phi, xl_grid%npts_b, trim(output_path)//"/fields/phi_"//trim(collision_model)//"_sol.dat")
+        call write_complex_profile_with_abs(xl_grid%xb, EBdat%Phi, xl_grid%npts_b, trim(output_path)//"/fields/phi_"//trim(collision_model)//"_sol.dat")
 
         call postprocess_electric_field(EBdat)
     

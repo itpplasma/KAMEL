@@ -15,6 +15,7 @@ module species
         real(dp), allocatable :: q(:) ! safety factor profile
         real(dp), allocatable :: dqdr(:) ! safety factor gradient
         real(dp), allocatable :: Er(:) ! radial electric field
+        real(dp), allocatable :: Vz(:) ! radial electric field
         real(dp), allocatable :: r_grid(:)
     end type
 
@@ -280,23 +281,25 @@ module species
 
         do i = 1, plasma%grid_size
             plasma%spec(0)%nu(i) = nue(i)
+            plasma%spec(0)%x1(i) = plasma%kp(i) * plasma%spec(0)%vT(i) / plasma%spec(0)%nu(i)
+            plasma%spec(0)%x2(i) = - (plasma%om_E(i) - omega ) / plasma%spec(0)%nu(i)
         end do
 
         do sp = 1, plasma%n_species-1
             do i = 1, plasma%grid_size
                 plasma%spec(sp)%nu(i) = nui(sp, i)
+                plasma%spec(sp)%x1(i) = plasma%kp(i) * plasma%spec(sp)%vT(i) / plasma%spec(sp)%nu(i)
+                plasma%spec(sp)%x2(i) = - (plasma%om_E(i) - omega + plasma%kp(i) * plasma%Vz(i)) / plasma%spec(sp)%nu(i)
             end do
         end do
 
-        do sp =0, plasma%n_species-1
-            do i = 1,plasma%grid_size
-                plasma%spec(sp)%x1(i) = plasma%kp(i) * plasma%spec(sp)%vT(i) / plasma%spec(sp)%nu(i)
-                plasma%spec(sp)%x2(i) = - (plasma%om_E(i) - omega) / plasma%spec(sp)%nu(i)
-                if (collisions_off .eqv. .true.)then
+        if (collisions_off .eqv. .true.)then
+            do sp =0, plasma%n_species-1
+                do i = 1,plasma%grid_size
                     plasma%spec(sp)%nu(i) = 0.0d0
-                end if
+                end do
             end do
-        end do
+        end if
 
             
         do sp=0, plasma%n_species-1
@@ -650,6 +653,7 @@ module species
     end subroutine
     
     subroutine read_from_text
+        ! TODO: make it multispecies compatible!
 
         use config, only: number_of_ion_species, profile_location, fstatus
         use KIM_kinds, only: dp
@@ -662,6 +666,7 @@ module species
         integer :: ierr
         integer :: ios
         integer :: total_Z
+        logical :: iex
         real(dp) :: r_temp
 
         if (fstatus == 1) write(*,*) 'Status: Reading profiles from text files'
@@ -693,8 +698,8 @@ module species
         end do
         
         allocate(plasma%q(plasma%grid_size), &
-                plasma%Er(plasma%grid_size))
-        
+                plasma%Er(plasma%grid_size), &
+                plasma%Vz(plasma%grid_size))
         
         
         open(11, file=trim(profile_location)//'n.dat')
@@ -729,6 +734,17 @@ module species
             read(11, *) r_temp, plasma%q(i)
         end do
         close(11)
+
+        inquire(file = trim(profile_location)//'Vz.dat', exist=iex)
+        if (iex) then
+            open(11, file=trim(profile_location)//'Vz.dat')
+            do i=1, plasma%grid_size
+                read(11, *) r_temp, plasma%Vz(i)
+            end do
+            close(11)
+        else
+            plasma%Vz = 0.0d0
+        end if
 
         total_Z = 0
         do sigma = 1, number_of_ion_species

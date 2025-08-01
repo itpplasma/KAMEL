@@ -103,6 +103,36 @@ module IO_collection
 
     end subroutine write_complex_profile
 
+    subroutine write_complex_profile_with_abs(x, y, n, filename)
+
+        use KIM_kinds, only: dp
+
+        implicit none
+
+        integer, intent(in) :: n
+        real(dp), intent(in) :: x(n)
+        complex(dp), intent(in) :: y(n)
+        character(len=*), intent(in) :: filename
+
+        ! Local variables
+        integer :: i
+        integer :: unit
+
+        ! Choose a unit number (any unused unit number)
+        unit = 10
+
+        ! Open the file for writing
+        open(unit=unit, file=filename, status='replace', action='write')
+
+        ! Write data as two columns
+        do i = 1, n
+            write(unit, *) x(i), real(y(i)), dimag(y(i)), abs(y(i))
+        end do
+
+        close(unit)
+
+    end subroutine write_complex_profile_with_abs
+
     subroutine plot_2D(datafile)
 
         implicit none

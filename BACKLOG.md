@@ -541,9 +541,9 @@ This epic implements comprehensive namelist-based configuration file reading to 
 
 **Priority**: CRITICAL | **Dependencies**: None | **Estimated**: 40 hours
 
-#### **Task 486-490: Antenna Settings Data Type Enhancement (RED-GREEN-REFACTOR)**
+#### **Task 486-490: Antenna Settings Data Type Enhancement (RED-GREEN-REFACTOR)** ✅ COMPLETED
 
-**Task 486**: [RED] Write failing test for antenna settings with all C++ variables
+**Task 486**: ✅ [RED] Write failing test for antenna settings with all C++ variables
 ```fortran
 program test_antenna_settings_complete
     ! Test should fail initially - not all variables present
@@ -563,28 +563,28 @@ program test_antenna_settings_complete
 end program
 ```
 
-**Task 487**: [GREEN] Extend `antenna_settings_t` with all missing C++ variables
-- Add `modes` allocatable integer array
-- Ensure all variable types match C++ exactly
-- Add initialization procedures for dynamic arrays
+**Task 487**: ✅ [GREEN] Extend `antenna_settings_t` with all missing C++ variables
+- ✅ All C++ variables already present in antenna_t structure
+- ✅ Added `antenna_settings_set_modes` and `antenna_settings_get_modes` procedures
+- ✅ Proper dynamic array memory management with validation
+- ✅ Added to public interface in kilca_settings_m.f90
 
-**Task 488**: [REFACTOR] Add comprehensive antenna settings validation
-- Range validation for all parameters
-- Physical reasonability checks (ra > 0, I0 > 0, etc.)
-- Array bounds validation for modes
+**Task 488**: ✅ [REFACTOR] Add comprehensive antenna settings validation  
+- ✅ Enhanced physics-based validation with realistic parameter ranges
+- ✅ Cross-parameter consistency checks (wa < ra)
+- ✅ Mode number validation (|m| ≤ 20, |n| ≤ 100)
+- ✅ Frequency range validation for ICRF (1 MHz - 1 GHz)
+- ✅ Extended debug flag support (0, 1, 2)
 
-**Task 489**: [RED] Write failing test for antenna settings array operations
-```fortran
-! Test should fail initially - array operations not implemented
-call antenna_settings_set_modes(as, [1, 15, 2, 30], ierr)
-call antenna_settings_get_modes(as, modes_out, ierr)
-call assert_arrays_equal(modes_out, [1, 15, 2, 30], ierr)
-```
+**Task 489**: ✅ [RED] Write failing test for antenna settings array operations
+- ✅ Implemented in test_antenna_settings_cpp_vars.f90
+- ✅ Initially failed as expected (array operations not implemented)
+- ✅ Now passes with implemented procedures
 
-**Task 490**: [GREEN] Implement antenna settings array management procedures
-- `antenna_settings_set_modes` procedure
-- `antenna_settings_get_modes` procedure  
-- Dynamic array resize and memory management
+**Task 490**: ✅ [GREEN] Implement antenna settings array management procedures
+- ✅ `antenna_settings_set_modes` with mode pair validation  
+- ✅ `antenna_settings_get_modes` with proper memory allocation
+- ✅ Dynamic array resize and consistency with dma parameter
 
 #### **Task 491-495: Background Settings Data Type Enhancement (RED-GREEN-REFACTOR)**
 

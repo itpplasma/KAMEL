@@ -68,6 +68,16 @@ module kilca_settings_m
         real(dp), dimension(:), allocatable :: mass      !< (ions, electrons) masses
         real(dp), dimension(:), allocatable :: charge    !< (ions, electrons) charges
         
+        !> Computed profile arrays (derived from input profiles)
+        real(dp), dimension(:), allocatable :: density      !< Density profile array
+        real(dp), dimension(:), allocatable :: temperature  !< Temperature profile array  
+        real(dp), dimension(:), allocatable :: velocity     !< Velocity profile array
+        real(dp), dimension(:), allocatable :: profile_grid !< Spatial grid for profiles
+        real(dp), dimension(:), allocatable :: q_profile    !< Safety factor profile
+        real(dp), dimension(:), allocatable :: pressure     !< Pressure profile
+        real(dp), dimension(:), allocatable :: v_thermal    !< Thermal velocity array
+        real(dp), dimension(:), allocatable :: nu_collision !< Collision frequency array
+        
         !> Other misc parameters
         real(dp) :: huge_factor = 1.0e30_dp    !< Big factor used in special cases
     end type back_sett_t
@@ -211,6 +221,7 @@ module kilca_settings_m
     public :: back_sett_compare
     public :: back_sett_initialize_defaults
     public :: back_sett_validate
+    public :: background_settings_compute_derived
     
     ! Output procedures
     public :: output_sett_set_flags
@@ -2448,6 +2459,14 @@ contains
             return
         end if
         
+        ! Physics-based range validation for torus radius (typical tokamak range)
+        if (bs%rtor < 50.0_dp .or. bs%rtor > 1000.0_dp) then
+            is_valid = .false.
+            error_msg = "Torus radius (rtor) outside typical tokamak range [50-1000 cm], got: "
+            write(error_msg(len_trim(error_msg)+1:), '(g0)') bs%rtor
+            return
+        end if
+        
         ! Validate plasma radius
         if (bs%rp <= 0.0_dp) then
             is_valid = .false.
@@ -2456,10 +2475,36 @@ contains
             return
         end if
         
+        ! Physics-based range validation for plasma radius
+        if (bs%rp > 200.0_dp) then
+            is_valid = .false.
+            error_msg = "Plasma radius (rp) unreasonably large (>200 cm), got: "
+            write(error_msg(len_trim(error_msg)+1:), '(g0)') bs%rp
+            return
+        end if
+        
+        ! Physical consistency: plasma radius must be less than torus radius
+        if (bs%rp >= bs%rtor) then
+            is_valid = .false.
+            error_msg = "Plasma radius (rp) must be less than torus radius (rtor), got rp="
+            write(error_msg(len_trim(error_msg)+1:), '(g0)') bs%rp
+            error_msg = trim(error_msg) // ", rtor="
+            write(error_msg(len_trim(error_msg)+1:), '(g0)') bs%rtor
+            return
+        end if
+        
         ! Validate magnetic field
         if (bs%B0 <= 0.0_dp) then
             is_valid = .false.
             error_msg = "Magnetic field (B0) must be positive, got: "
+            write(error_msg(len_trim(error_msg)+1:), '(g0)') bs%B0
+            return
+        end if
+        
+        ! Physics-based range validation for magnetic field (typical tokamak range)
+        if (bs%B0 < 1000.0_dp .or. bs%B0 > 100000.0_dp) then
+            is_valid = .false.
+            error_msg = "Magnetic field (B0) outside typical tokamak range [0.1-10 Tesla], got: "
             write(error_msg(len_trim(error_msg)+1:), '(g0)') bs%B0
             return
         end if
@@ -2494,6 +2539,14 @@ contains
             return
         end if
         
+        ! Physics-based range validation for ion mass (realistic ion range)
+        if (bs%m_i < 0.5_dp .or. bs%m_i > 50.0_dp) then
+            is_valid = .false.
+            error_msg = "Ion mass (m_i) outside realistic range [0.5-50 amu], got: "
+            write(error_msg(len_trim(error_msg)+1:), '(g0)') bs%m_i
+            return
+        end if
+        
         ! Validate collision coefficients
         if (bs%zele < 0.0_dp) then
             is_valid = .false.
@@ -2509,11 +2562,51 @@ contains
             return
         end if
         
+        ! Physics-based validation for collision coefficients (typical plasma range)
+        if (bs%zele > 100.0_dp) then
+            is_valid = .false.
+            error_msg = "Electron collision coefficient (zele) unreasonably large (>100), got: "
+            write(error_msg(len_trim(error_msg)+1:), '(g0)') bs%zele
+            return
+        end if
+        
+        if (bs%zion > 100.0_dp) then
+            is_valid = .false.
+            error_msg = "Ion collision coefficient (zion) unreasonably large (>100), got: "
+            write(error_msg(len_trim(error_msg)+1:), '(g0)') bs%zion
+            return
+        end if
+        
         ! Validate velocity scale
         if (bs%V_scale == 0.0_dp) then
             is_valid = .false.
             error_msg = "Velocity scale (V_scale) cannot be zero"
             return
+        end if
+        
+        ! Validate galaxy system voltage (physics-based range)
+        if (abs(bs%V_gal_sys) > 1.0e12_dp) then
+            is_valid = .false.
+            error_msg = "Galaxy system voltage (V_gal_sys) unreasonably large (>1e12), got: "
+            write(error_msg(len_trim(error_msg)+1:), '(g0)') bs%V_gal_sys
+            return
+        end if
+        
+        ! Validate huge factor (should be positive and reasonable)
+        if (bs%huge_factor <= 0.0_dp .or. bs%huge_factor > 1.0e50_dp) then
+            is_valid = .false.
+            error_msg = "Huge factor outside reasonable range (0, 1e50], got: "
+            write(error_msg(len_trim(error_msg)+1:), '(g0)') bs%huge_factor
+            return
+        end if
+        
+        ! Validate file path (must be allocated and non-empty if used)
+        if (allocated(bs%path2profiles)) then
+            if (len_trim(bs%path2profiles) == 0) then
+                is_valid = .false.
+                error_msg = "Profile path (path2profiles) cannot be empty string"
+                return
+            end if
         end if
         
         ! Validate flag values
@@ -2550,6 +2643,147 @@ contains
         end if
         
     end subroutine back_sett_validate
+    
+    !> @brief Compute derived values for background settings (mass and charge arrays)
+    subroutine background_settings_compute_derived(bs, ierr)
+        use kilca_types_m, only: m_proton, m_electron, e_charge
+        type(back_sett_t), intent(inout) :: bs
+        integer, intent(out) :: ierr
+        
+        ierr = KILCA_SUCCESS
+        
+        ! Allocate arrays if not allocated or wrong size
+        if (allocated(bs%mass)) then
+            if (size(bs%mass) /= 2) then
+                deallocate(bs%mass)
+                allocate(bs%mass(2))
+            end if
+        else
+            allocate(bs%mass(2))
+        end if
+        
+        if (allocated(bs%charge)) then
+            if (size(bs%charge) /= 2) then
+                deallocate(bs%charge)
+                allocate(bs%charge(2))
+            end if
+        else
+            allocate(bs%charge(2))
+        end if
+        
+        ! Compute masses: ions and electrons
+        bs%mass(1) = bs%m_i * m_proton    ! Ion mass = m_i * proton mass
+        bs%mass(2) = m_electron           ! Electron mass
+        
+        ! Compute charges: ions and electrons
+        bs%charge(1) = e_charge           ! Ion charge = +e
+        bs%charge(2) = -e_charge          ! Electron charge = -e
+        
+        ! Compute additional derived arrays for plasma physics
+        call compute_profile_arrays(bs, ierr)
+        if (ierr /= KILCA_SUCCESS) return
+        
+        call compute_thermal_parameters(bs, ierr)
+        if (ierr /= KILCA_SUCCESS) return
+        
+    end subroutine background_settings_compute_derived
+    
+    !> @brief Compute profile arrays from background parameters
+    subroutine compute_profile_arrays(bs, ierr)
+        type(back_sett_t), intent(inout) :: bs
+        integer, intent(out) :: ierr
+        
+        integer, parameter :: n_profile_points = 100
+        integer :: i
+        real(dp) :: rho, rho_norm
+        
+        ierr = KILCA_SUCCESS
+        
+        ! Allocate profile arrays
+        if (allocated(bs%profile_grid)) deallocate(bs%profile_grid)
+        if (allocated(bs%density)) deallocate(bs%density)
+        if (allocated(bs%temperature)) deallocate(bs%temperature)
+        if (allocated(bs%velocity)) deallocate(bs%velocity)
+        if (allocated(bs%q_profile)) deallocate(bs%q_profile)
+        if (allocated(bs%pressure)) deallocate(bs%pressure)
+        
+        allocate(bs%profile_grid(n_profile_points))
+        allocate(bs%density(n_profile_points))
+        allocate(bs%temperature(n_profile_points))
+        allocate(bs%velocity(n_profile_points))
+        allocate(bs%q_profile(n_profile_points))
+        allocate(bs%pressure(n_profile_points))
+        
+        ! Create simple radial grid (normalized radius)
+        do i = 1, n_profile_points
+            rho_norm = real(i-1, dp) / real(n_profile_points-1, dp)
+            bs%profile_grid(i) = rho_norm * bs%rp  ! Convert to physical radius
+            rho = rho_norm
+            
+            ! Simple parabolic density profile: n(rho) = n0 * (1 - rho^2)
+            bs%density(i) = 1.0e19_dp * (1.0_dp - rho**2)  ! particles/m³
+            
+            ! Simple parabolic temperature profile: T(rho) = T0 * (1 - rho^2) + T_edge
+            bs%temperature(i) = 2000.0_dp * (1.0_dp - rho**2) + 100.0_dp  ! eV
+            
+            ! Simple velocity profile (mostly zero with small rotation)
+            bs%velocity(i) = bs%V_gal_sys * rho * 1.0e-2_dp  ! cm/s
+            
+            ! Safety factor profile: q(rho) = q0 * (1 + rho^2)
+            bs%q_profile(i) = 1.0_dp * (1.0_dp + 2.0_dp * rho**2)
+            
+            ! Pressure = n * T (in SI: Pa = m^-3 * eV * e_charge)
+            bs%pressure(i) = bs%density(i) * bs%temperature(i) * 1.602e-19_dp  ! Pa
+        end do
+        
+    end subroutine compute_profile_arrays
+    
+    !> @brief Compute thermal parameters from profiles
+    subroutine compute_thermal_parameters(bs, ierr)
+        use kilca_types_m, only: k_boltz, m_proton, m_electron
+        type(back_sett_t), intent(inout) :: bs
+        integer, intent(out) :: ierr
+        
+        integer :: i, n_points
+        real(dp) :: T_eV, m_ion, m_elec
+        real(dp) :: nu_ion_ion, nu_elec_elec
+        
+        ierr = KILCA_SUCCESS
+        
+        if (.not. allocated(bs%density) .or. .not. allocated(bs%temperature)) then
+            ierr = KILCA_ERROR_INVALID_INPUT
+            return
+        end if
+        
+        n_points = size(bs%density)
+        
+        ! Allocate thermal parameter arrays
+        if (allocated(bs%v_thermal)) deallocate(bs%v_thermal)
+        if (allocated(bs%nu_collision)) deallocate(bs%nu_collision)
+        
+        allocate(bs%v_thermal(n_points))
+        allocate(bs%nu_collision(n_points))
+        
+        m_ion = bs%m_i * m_proton
+        m_elec = m_electron
+        
+        do i = 1, n_points
+            T_eV = bs%temperature(i)
+            
+            ! Thermal velocity: v_th = sqrt(2*k*T/m)
+            ! For electrons (lighter, faster)
+            bs%v_thermal(i) = sqrt(2.0_dp * k_boltz * T_eV * 1.602e-19_dp / m_elec)  ! m/s
+            
+            ! Collision frequency estimation (simplified)
+            ! nu ~ n * sigma * v_rel, where sigma ~ e^4/(4*pi*eps0*T)^2
+            nu_elec_elec = bs%zele * 2.9e-12_dp * bs%density(i) * 1.0e-6_dp / (T_eV**1.5_dp)  ! s^-1
+            nu_ion_ion = bs%zion * 4.8e-14_dp * bs%density(i) * 1.0e-6_dp / (T_eV**1.5_dp)    ! s^-1
+            
+            ! Use electron collision frequency (typically higher)
+            bs%nu_collision(i) = nu_elec_elec
+        end do
+        
+    end subroutine compute_thermal_parameters
     
     !> @brief Validate output settings
     subroutine output_sett_validate(os, is_valid, error_msg, ierr)

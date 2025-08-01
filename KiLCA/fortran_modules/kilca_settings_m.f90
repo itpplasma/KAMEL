@@ -190,6 +190,7 @@ module kilca_settings_m
     public :: settings_validate
     public :: settings_validate_complete
     public :: settings_validate_consistency
+    public :: settings_read_namelist
     
     ! Accessor procedures
     public :: settings_get_antenna
@@ -3430,6 +3431,231 @@ contains
         error_msg = "Memory allocation failed during settings creation"
         sd => null()
     end subroutine settings_test_allocation_failure
+    
+    !> @brief Read settings from namelist file using Fortran intrinsic namelist I/O
+    subroutine settings_read_namelist(filename, settings, ierr)
+        character(len=*), intent(in) :: filename
+        type(settings_t), intent(inout) :: settings
+        integer, intent(out) :: ierr
+        
+        integer :: unit
+        logical :: file_exists
+        
+        ! Local variables matching namelist exactly - antenna
+        real(dp) :: ra, wa, I0
+        complex(dp) :: flab
+        integer :: dma, flag_debug_ant
+        
+        ! Local variables matching namelist exactly - background
+        real(dp) :: rtor, rp, B0, V_gal_sys, m_i
+        integer :: calc_back, flag_debug_bg
+        real(dp), dimension(10) :: mass, charge  ! Fixed size for namelist reading
+        
+        ! Local variables matching namelist exactly - output
+        integer :: flag_background, flag_emfield, flag_additional, flag_dispersion
+        integer :: num_quants
+        integer, dimension(20) :: flag_quants     ! Fixed size for namelist reading
+        
+        ! Local variables matching namelist exactly - eigenmode
+        integer :: search_flag, rdim, idim
+        real(dp) :: rfmin, rfmax, ifmin, ifmax
+        
+        ! Direct namelist declarations - simple and clean
+        namelist /antenna/ ra, wa, I0, flab, dma, flag_debug_ant
+        namelist /background/ rtor, rp, B0, V_gal_sys, m_i, calc_back, flag_debug_bg, mass, charge
+        namelist /output/ flag_background, flag_emfield, flag_additional, flag_dispersion, num_quants, flag_quants
+        namelist /eigenmode/ search_flag, rdim, idim, rfmin, rfmax, ifmin, ifmax
+        
+        ierr = KILCA_SUCCESS
+        
+        ! Check file existence first
+        inquire(file=filename, exist=file_exists)
+        if (.not. file_exists) then
+            ierr = KILCA_ERROR_FILE_NOT_FOUND
+            return
+        end if
+        
+        ! Read namelists with detailed error checking
+        open(newunit=unit, file=filename, status='old', action='read', iostat=ierr)
+        if (ierr /= 0) then
+            ierr = KILCA_ERROR_FILE_OPEN
+            return
+        end if
+        
+        ! Read antenna namelist
+        read(unit, nml=antenna, iostat=ierr)
+        if (ierr /= 0) then
+            close(unit)
+            ierr = KILCA_ERROR_NAMELIST_READ + 1  ! Antenna section error
+            return
+        end if
+        
+        ! Read background namelist  
+        read(unit, nml=background, iostat=ierr)
+        if (ierr /= 0) then
+            close(unit)
+            ierr = KILCA_ERROR_NAMELIST_READ + 2  ! Background section error
+            return
+        end if
+        
+        ! Read output namelist
+        read(unit, nml=output, iostat=ierr)
+        if (ierr /= 0) then
+            close(unit)
+            ierr = KILCA_ERROR_NAMELIST_READ + 3  ! Output section error
+            return
+        end if
+        
+        ! Read eigenmode namelist
+        read(unit, nml=eigenmode, iostat=ierr)
+        if (ierr /= 0) then
+            close(unit)
+            ierr = KILCA_ERROR_NAMELIST_READ + 4  ! Eigenmode section error
+            return
+        end if
+        
+        ! Direct assignment to settings structure
+        ! Antenna settings
+        settings%antenna_settings%ra = ra
+        settings%antenna_settings%wa = wa
+        settings%antenna_settings%I0 = I0
+        settings%antenna_settings%flab = flab
+        settings%antenna_settings%dma = dma
+        settings%antenna_settings%flag_debug = flag_debug_ant
+        
+        ! Background settings
+        settings%background_settings%rtor = rtor
+        settings%background_settings%rp = rp
+        settings%background_settings%B0 = B0
+        settings%background_settings%V_gal_sys = V_gal_sys
+        settings%background_settings%m_i = m_i
+        settings%background_settings%calc_back = calc_back
+        settings%background_settings%flag_debug = flag_debug_bg
+        
+        ! Background arrays - allocate and copy from namelist arrays
+        if (allocated(settings%background_settings%mass)) then
+            deallocate(settings%background_settings%mass)
+        end if
+        allocate(settings%background_settings%mass(3))
+        settings%background_settings%mass(1:3) = mass(1:3)
+        
+        if (allocated(settings%background_settings%charge)) then
+            deallocate(settings%background_settings%charge)
+        end if
+        allocate(settings%background_settings%charge(3))
+        settings%background_settings%charge(1:3) = charge(1:3)
+        
+        ! Output settings
+        settings%output_settings%flag_background = flag_background
+        settings%output_settings%flag_emfield = flag_emfield
+        settings%output_settings%flag_additional = flag_additional
+        settings%output_settings%flag_dispersion = flag_dispersion
+        settings%output_settings%num_quants = num_quants
+        
+        ! Output arrays - allocate and copy from namelist arrays
+        if (allocated(settings%output_settings%flag_quants)) then
+            deallocate(settings%output_settings%flag_quants)
+        end if
+        allocate(settings%output_settings%flag_quants(num_quants))
+        settings%output_settings%flag_quants(1:num_quants) = flag_quants(1:num_quants)
+        
+        ! Eigenmode settings
+        settings%eigmode_settings%search_flag = search_flag
+        settings%eigmode_settings%rdim = rdim
+        settings%eigmode_settings%idim = idim
+        settings%eigmode_settings%rfmin = rfmin
+        settings%eigmode_settings%rfmax = rfmax
+        settings%eigmode_settings%ifmin = ifmin
+        settings%eigmode_settings%ifmax = ifmax
+        
+        ! Parameter range validation
+        call validate_namelist_parameters(settings, ierr)
+        if (ierr /= KILCA_SUCCESS) then
+            close(unit)
+            return
+        end if
+        
+        close(unit)
+        
+    end subroutine settings_read_namelist
+    
+    !> @brief Validate namelist parameters against physics ranges
+    subroutine validate_namelist_parameters(settings, ierr)
+        type(settings_t), intent(in) :: settings
+        integer, intent(out) :: ierr
+        
+        ierr = KILCA_SUCCESS
+        
+        ! Antenna validation
+        if (settings%antenna_settings%ra <= 0.0_dp .or. settings%antenna_settings%ra > 500.0_dp) then
+            ierr = KILCA_ERROR_INVALID_PARAMETER
+            return
+        end if
+        
+        if (settings%antenna_settings%I0 <= 0.0_dp .or. settings%antenna_settings%I0 > 1.0e15_dp) then
+            ierr = KILCA_ERROR_INVALID_PARAMETER
+            return
+        end if
+        
+        if (settings%antenna_settings%dma < 0 .or. settings%antenna_settings%dma > 50) then
+            ierr = KILCA_ERROR_INVALID_PARAMETER
+            return
+        end if
+        
+        ! Background validation  
+        if (settings%background_settings%rtor <= 0.0_dp .or. settings%background_settings%rtor > 1000.0_dp) then
+            ierr = KILCA_ERROR_INVALID_PARAMETER
+            return
+        end if
+        
+        if (settings%background_settings%rp <= 0.0_dp .or. settings%background_settings%rp > 500.0_dp) then
+            ierr = KILCA_ERROR_INVALID_PARAMETER
+            return
+        end if
+        
+        if (settings%background_settings%rp >= settings%background_settings%rtor) then
+            ierr = KILCA_ERROR_INVALID_PARAMETER  ! Plasma radius must be less than torus radius
+            return
+        end if
+        
+        if (settings%background_settings%B0 <= 0.0_dp .or. settings%background_settings%B0 > 100000.0_dp) then
+            ierr = KILCA_ERROR_INVALID_PARAMETER
+            return
+        end if
+        
+        if (settings%background_settings%m_i <= 0.0_dp .or. settings%background_settings%m_i > 50.0_dp) then
+            ierr = KILCA_ERROR_INVALID_PARAMETER
+            return
+        end if
+        
+        ! Output validation
+        if (settings%output_settings%num_quants < 0 .or. settings%output_settings%num_quants > 50) then
+            ierr = KILCA_ERROR_INVALID_PARAMETER
+            return
+        end if
+        
+        ! Eigenmode validation
+        if (settings%eigmode_settings%rdim <= 0 .or. settings%eigmode_settings%rdim > 10000) then
+            ierr = KILCA_ERROR_INVALID_PARAMETER
+            return
+        end if
+        
+        if (settings%eigmode_settings%idim <= 0 .or. settings%eigmode_settings%idim > 10000) then
+            ierr = KILCA_ERROR_INVALID_PARAMETER
+            return
+        end if
+        
+        if (settings%eigmode_settings%rfmin >= settings%eigmode_settings%rfmax) then
+            ierr = KILCA_ERROR_INVALID_PARAMETER
+            return
+        end if
+        
+        if (settings%eigmode_settings%ifmin >= settings%eigmode_settings%ifmax) then
+            ierr = KILCA_ERROR_INVALID_PARAMETER
+            return
+        end if
+        
+    end subroutine validate_namelist_parameters
     
     !> @brief Log error to file
     subroutine settings_log_error(error_code, context, parameter, log_file, ierr)

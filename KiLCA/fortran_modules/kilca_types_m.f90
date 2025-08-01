@@ -88,6 +88,21 @@ module kilca_types_m
     !> @brief File format or parsing error
     integer, parameter, public :: KILCA_ERROR_FORMAT = -8
     
+    !> @brief File not found error
+    integer, parameter, public :: KILCA_ERROR_FILE_NOT_FOUND = -9
+    
+    !> @brief File permission error  
+    integer, parameter, public :: KILCA_ERROR_FILE_PERMISSION = -10
+    
+    !> @brief File open error
+    integer, parameter, public :: KILCA_ERROR_FILE_OPEN = -11
+    
+    !> @brief Namelist read error
+    integer, parameter, public :: KILCA_ERROR_NAMELIST_READ = -12
+    
+    !> @brief Invalid parameter range error
+    integer, parameter, public :: KILCA_ERROR_INVALID_PARAMETER = -13
+    
     ! =========================================================================
     ! Physical Constants (from constants.h)
     ! =========================================================================

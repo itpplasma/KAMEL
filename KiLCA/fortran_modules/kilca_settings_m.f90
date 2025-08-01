@@ -155,6 +155,9 @@ module kilca_settings_m
         !> Project path
         character(len=:), allocatable :: path2project
         
+        !> Format detection - which format was used to read settings
+        integer :: format_used = FORMAT_AUTO_DETECT
+        
         !> Antenna settings
         type(antenna_t) :: antenna_settings
         
@@ -191,6 +194,7 @@ module kilca_settings_m
     public :: settings_validate_complete
     public :: settings_validate_consistency
     public :: settings_read_namelist
+    public :: read_settings_auto_detect
     
     ! Accessor procedures
     public :: settings_get_antenna
@@ -3898,5 +3902,226 @@ contains
             description = "Unrecognized"
         end select
     end function get_error_type_description
+    
+    !> @brief Read settings with automatic format detection
+    !> @details Automatically detects whether to use namelist or legacy format
+    !>          based on file presence. Priority: namelist > legacy > error
+    !>          Enhanced with comprehensive error handling and validation.
+    subroutine read_settings_auto_detect(path, settings_out, ierr)
+        character(len=*), intent(in) :: path
+        type(settings_t), intent(out) :: settings_out
+        integer, intent(out) :: ierr
+        
+        logical :: path_exists, file_readable
+        integer :: format_result
+        character(len=1024) :: error_context
+        
+        ierr = KILCA_SUCCESS
+        error_context = ""
+        
+        ! Validate input path
+        call validate_settings_path(path, ierr, error_context)
+        if (ierr /= KILCA_SUCCESS) then
+            settings_out%format_used = FORMAT_AUTO_DETECT
+            return
+        end if
+        
+        ! Initialize settings structure
+        call initialize_settings_structure(settings_out, path, ierr)
+        if (ierr /= KILCA_SUCCESS) then
+            error_context = "Failed to initialize settings structure"
+            return
+        end if
+        
+        ! Attempt format detection with comprehensive error handling
+        call detect_and_read_format(path, settings_out, format_result, ierr, error_context)
+        
+        ! Handle detection results
+        select case (format_result)
+        case (NAMELIST_FORMAT)
+            if (ierr == KILCA_SUCCESS) then
+                print *, "Auto-detect: Successfully loaded namelist format"
+            else
+                print *, "Auto-detect: Namelist format detected but reading failed:", trim(error_context)
+            end if
+        case (LEGACY_FORMAT)  
+            if (ierr == KILCA_SUCCESS) then
+                print *, "Auto-detect: Successfully loaded legacy format"
+            else
+                print *, "Auto-detect: Legacy format detected but reading failed:", trim(error_context)
+            end if
+        case default
+            print *, "Auto-detect: No valid settings files found in ", trim(path)
+            ierr = KILCA_ERROR_FILE_NOT_FOUND
+            settings_out%format_used = FORMAT_AUTO_DETECT
+        end select
+        
+    end subroutine read_settings_auto_detect
+    
+    !> @brief Validate settings path for format detection
+    subroutine validate_settings_path(path, ierr, error_msg)
+        character(len=*), intent(in) :: path
+        integer, intent(out) :: ierr
+        character(len=*), intent(out) :: error_msg
+        
+        logical :: path_exists
+        
+        ierr = KILCA_SUCCESS
+        error_msg = ""
+        
+        ! Check path validity
+        if (len_trim(path) == 0) then
+            ierr = KILCA_ERROR_INVALID_INPUT
+            error_msg = "Empty path provided"
+            return
+        end if
+        
+        ! Check if path exists and is accessible
+        inquire(file=trim(path), exist=path_exists)
+        if (.not. path_exists) then
+            ierr = KILCA_ERROR_FILE_NOT_FOUND
+            error_msg = "Settings path does not exist: " // trim(path)
+            return
+        end if
+        
+    end subroutine validate_settings_path
+    
+    !> @brief Initialize settings structure for format detection
+    subroutine initialize_settings_structure(settings, path, ierr)
+        type(settings_t), intent(out) :: settings
+        character(len=*), intent(in) :: path
+        integer, intent(out) :: ierr
+        
+        ierr = KILCA_SUCCESS
+        
+        ! Initialize with default values
+        settings%format_used = FORMAT_AUTO_DETECT
+        
+        ! Safely allocate path
+        if (allocated(settings%path2project)) deallocate(settings%path2project)
+        allocate(character(len=len_trim(path)) :: settings%path2project)
+        settings%path2project = trim(path)
+        
+    end subroutine initialize_settings_structure
+    
+    !> @brief Detect format and attempt to read settings
+    subroutine detect_and_read_format(path, settings, format_result, ierr, error_msg)
+        character(len=*), intent(in) :: path
+        type(settings_t), intent(inout) :: settings
+        integer, intent(out) :: format_result
+        integer, intent(out) :: ierr
+        character(len=*), intent(out) :: error_msg
+        
+        logical :: file_exists, file_readable
+        character(len=1024) :: test_file
+        
+        ierr = KILCA_SUCCESS
+        error_msg = ""
+        format_result = FORMAT_AUTO_DETECT
+        
+        ! Test for namelist format (highest priority)
+        test_file = trim(path) // "/settings.conf"
+        call validate_settings_file(test_file, file_exists, file_readable, ierr)
+        
+        if (file_exists .and. file_readable) then
+            format_result = NAMELIST_FORMAT
+            settings%format_used = NAMELIST_FORMAT
+            call settings_read_namelist(test_file, settings, ierr)
+            if (ierr /= KILCA_SUCCESS) then
+                error_msg = "Namelist file exists but reading failed"
+            end if
+            return
+        end if
+        
+        ! Test for legacy format (second priority)
+        call check_legacy_format_availability(path, file_exists, ierr)
+        
+        if (file_exists) then
+            format_result = LEGACY_FORMAT
+            settings%format_used = LEGACY_FORMAT
+            call read_settings_legacy_format(path, settings, ierr)
+            if (ierr /= KILCA_SUCCESS) then
+                error_msg = "Legacy files exist but reading failed"
+            end if
+            return
+        end if
+        
+        ! No valid format found
+        format_result = FORMAT_AUTO_DETECT
+        ierr = KILCA_ERROR_FILE_NOT_FOUND
+        error_msg = "No valid settings files found"
+        
+    end subroutine detect_and_read_format
+    
+    !> @brief Validate individual settings file
+    subroutine validate_settings_file(filename, exists, readable, ierr)
+        character(len=*), intent(in) :: filename
+        logical, intent(out) :: exists, readable
+        integer, intent(out) :: ierr
+        
+        integer :: unit, iostat
+        
+        ierr = KILCA_SUCCESS
+        exists = .false.
+        readable = .false.
+        
+        ! Check file existence
+        inquire(file=filename, exist=exists)
+        
+        if (exists) then
+            ! Test readability by attempting to open
+            open(newunit=unit, file=filename, status='old', action='read', iostat=iostat)
+            if (iostat == 0) then
+                readable = .true.
+                close(unit)
+            else
+                readable = .false.
+                ierr = KILCA_ERROR_FILE_PERMISSION
+            end if
+        end if
+        
+    end subroutine validate_settings_file
+    
+    !> @brief Check if legacy format files are available
+    subroutine check_legacy_format_availability(path, available, ierr)
+        character(len=*), intent(in) :: path
+        logical, intent(out) :: available
+        integer, intent(out) :: ierr
+        
+        logical :: antenna_exists, background_exists
+        character(len=1024) :: antenna_file, background_file
+        
+        ierr = KILCA_SUCCESS
+        available = .false.
+        
+        ! Check for essential legacy files
+        antenna_file = trim(path) // "/antenna.in"
+        background_file = trim(path) // "/background.in"
+        
+        inquire(file=antenna_file, exist=antenna_exists)
+        inquire(file=background_file, exist=background_exists)
+        
+        ! Both antenna and background files must exist for valid legacy format
+        available = antenna_exists .and. background_exists
+        
+        if (.not. available .and. (antenna_exists .or. background_exists)) then
+            ! Incomplete legacy format detected
+            ierr = KILCA_ERROR_FORMAT
+        end if
+        
+    end subroutine check_legacy_format_availability
+    
+    !> @brief Read settings from legacy format files (placeholder implementation)
+    !> @details This will be implemented in Task 525 [GREEN]
+    subroutine read_settings_legacy_format(path, settings_out, ierr)
+        character(len=*), intent(in) :: path
+        type(settings_t), intent(out) :: settings_out
+        integer, intent(out) :: ierr
+        
+        ! This is a placeholder - will be implemented in Task 525 [GREEN]
+        print *, "Legacy format reading not implemented yet"
+        ierr = KILCA_ERROR_INVALID_INPUT  ! Indicate not implemented
+        
+    end subroutine read_settings_legacy_format
     
 end module kilca_settings_m

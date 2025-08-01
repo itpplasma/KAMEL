@@ -103,6 +103,11 @@ module kilca_types_m
     !> @brief Invalid parameter range error
     integer, parameter, public :: KILCA_ERROR_INVALID_PARAMETER = -13
     
+    ! Format detection constants
+    integer, parameter, public :: NAMELIST_FORMAT = 1
+    integer, parameter, public :: LEGACY_FORMAT = 2
+    integer, parameter, public :: FORMAT_AUTO_DETECT = 0
+    
     ! =========================================================================
     ! Physical Constants (from constants.h)
     ! =========================================================================

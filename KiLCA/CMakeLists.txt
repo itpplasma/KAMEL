@@ -113,6 +113,9 @@ set (kilca_eigparam_main progs/main_eig_param.cpp)
 # --- Dependencies ---
 # Dependencies are provided by the top-level project via cmake/Dependencies.cmake
 
+# Add fortran_modules subdirectory
+#add_subdirectory(fortran_modules)
+
 # include paths:
 set (libs_root_path ${CMAKE_BINARY_DIR}/external-install)
 set (sundials_include_path ${libs_root_path}/sundials/include)
@@ -256,13 +259,15 @@ set_target_properties(kilca_lib PROPERTIES
     OUTPUT_NAME ${kilca_lib}
     ARCHIVE_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}/install/lib/
     Fortran_MODULE_DIRECTORY ${PROJECT_BINARY_DIR}/OBJS/kilca/)
-add_dependencies(kilca_lib ${EXTERNAL_LIBS})
-target_link_libraries(kilca_lib PUBLIC ${EXTERNAL_LIBS})
+#add_dependencies(kilca_lib ${EXTERNAL_LIBS} kilca_fortran_modules)
+#target_link_libraries(kilca_lib PUBLIC ${EXTERNAL_LIBS} kilca_fortran_modules)
 
 # Add include directories on `kilca_lib` target for all source and module paths
 target_include_directories(kilca_lib PUBLIC
     # Fortran modules generated in build
     ${CMAKE_CURRENT_BINARY_DIR}/mod
+    # Fortran modules from fortran_modules subdirectory
+    #${CMAKE_CURRENT_BINARY_DIR}/fortran_modules/modules
     # Generated headers
     ${CMAKE_CURRENT_BINARY_DIR}
     # KiLCA source subdirectories

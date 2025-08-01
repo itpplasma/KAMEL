@@ -198,6 +198,8 @@ module kilca_settings_m
     public :: antenna_initialize_defaults
     public :: antenna_initialize_custom
     public :: antenna_validate
+    public :: antenna_settings_set_modes
+    public :: antenna_settings_get_modes
     
     ! Background procedures
     public :: back_sett_set_calc_flag
@@ -871,6 +873,52 @@ contains
         if (present(flag_eigmode)) ant%flag_eigmode = flag_eigmode
         
     end subroutine antenna_initialize_custom
+    
+    !> @brief Set modes array for antenna settings
+    subroutine antenna_settings_set_modes(ant, modes, ierr)
+        type(antenna_t), intent(inout) :: ant
+        integer, dimension(:), intent(in) :: modes
+        integer, intent(out) :: ierr
+        
+        ierr = KILCA_SUCCESS
+        
+        ! Deallocate existing array if allocated
+        if (allocated(ant%modes)) deallocate(ant%modes)
+        
+        ! Allocate and copy new modes array
+        allocate(ant%modes(size(modes)))
+        ant%modes = modes
+        
+        ! Update dma to reflect the number of mode pairs
+        ! Each mode pair consists of (m, n), so dma = size(modes) / 2
+        if (mod(size(modes), 2) /= 0) then
+            ierr = KILCA_ERROR_INVALID_INPUT  ! Must be even number of elements for (m,n) pairs
+            return
+        end if
+        
+        ant%dma = size(modes) / 2
+        
+    end subroutine antenna_settings_set_modes
+    
+    !> @brief Get modes array from antenna settings  
+    subroutine antenna_settings_get_modes(ant, modes_out, ierr)
+        type(antenna_t), intent(in) :: ant
+        integer, dimension(:), allocatable, intent(out) :: modes_out
+        integer, intent(out) :: ierr
+        
+        ierr = KILCA_SUCCESS
+        
+        ! Check if modes array is allocated
+        if (.not. allocated(ant%modes)) then
+            ierr = KILCA_ERROR_INVALID_INPUT  ! Modes array not allocated
+            return
+        end if
+        
+        ! Allocate output array and copy
+        allocate(modes_out(size(ant%modes)))
+        modes_out = ant%modes
+        
+    end subroutine antenna_settings_get_modes
     
     ! =========================================================================
     ! Background Settings Procedures
@@ -2242,6 +2290,7 @@ contains
         logical, intent(out) :: is_valid
         character(len=*), intent(out) :: error_msg
         integer, intent(out) :: ierr
+        integer :: i
         
         ierr = KILCA_SUCCESS
         is_valid = .true.
@@ -2308,9 +2357,9 @@ contains
         end if
         
         ! Validate flag values
-        if (ant%flag_debug < 0 .or. ant%flag_debug > 1) then
+        if (ant%flag_debug < 0 .or. ant%flag_debug > 2) then
             is_valid = .false.
-            error_msg = "Debug flag must be 0 or 1, got: "
+            error_msg = "Debug flag must be 0, 1, or 2, got: "
             write(error_msg(len_trim(error_msg)+1:), '(i0)') ant%flag_debug
             return
         end if
@@ -2320,6 +2369,62 @@ contains
             error_msg = "Eigenmode flag must be 0 or 1, got: "
             write(error_msg(len_trim(error_msg)+1:), '(i0)') ant%flag_eigmode
             return
+        end if
+        
+        ! Enhanced physics-based validation
+        ! Validate reasonable antenna radius range (1 cm to 1000 cm)
+        if (ant%ra < 1.0_dp .or. ant%ra > 1000.0_dp) then
+            is_valid = .false.
+            error_msg = "Antenna radius (ra) should be between 1 and 1000 cm for typical tokamaks, got: "
+            write(error_msg(len_trim(error_msg)+1:), '(g0)') ant%ra
+            return
+        end if
+        
+        ! Validate reasonable current layer width (must be smaller than radius)
+        if (ant%wa >= ant%ra) then
+            is_valid = .false.
+            error_msg = "Antenna width (wa) must be smaller than radius (ra): wa="
+            write(error_msg(len_trim(error_msg)+1:), '(g0,a,g0)') ant%wa, " >= ra=", ant%ra
+            return
+        end if
+        
+        ! Validate reasonable current amplitude (0 to 1e15 statamps)
+        if (ant%I0 > 1.0e15_dp) then
+            is_valid = .false.
+            error_msg = "Antenna current (I0) seems unreasonably large for typical applications, got: "
+            write(error_msg(len_trim(error_msg)+1:), '(g0)') ant%I0
+            return
+        end if
+        
+        ! Validate reasonable frequency range (1 MHz to 1000 MHz for typical ICRF)
+        if (real(ant%flab) > 0.0_dp) then  ! Only check if frequency is positive
+            if (real(ant%flab) < 1.0e6_dp .or. real(ant%flab) > 1.0e9_dp) then
+                is_valid = .false.
+                error_msg = "Antenna frequency should typically be between 1 MHz and 1 GHz for ICRF, got: "
+                write(error_msg(len_trim(error_msg)+1:), '(g0,a)') real(ant%flab), " Hz"
+                return
+            end if
+        end if
+        
+        ! Validate modes array values (m and n should be reasonable integers)
+        if (allocated(ant%modes)) then
+            do i = 1, ant%dma
+                ! m values (poloidal mode numbers) typically -20 to +20
+                if (abs(ant%modes(2*i-1)) > 20) then
+                    is_valid = .false.
+                    error_msg = "Poloidal mode number (m) seems unreasonably large, got: "
+                    write(error_msg(len_trim(error_msg)+1:), '(i0)') ant%modes(2*i-1)
+                    return
+                end if
+                
+                ! n values (toroidal mode numbers) typically -100 to +100
+                if (abs(ant%modes(2*i)) > 100) then
+                    is_valid = .false.
+                    error_msg = "Toroidal mode number (n) seems unreasonably large, got: "
+                    write(error_msg(len_trim(error_msg)+1:), '(i0)') ant%modes(2*i)
+                    return
+                end if
+            end do
         end if
         
     end subroutine antenna_validate

@@ -28,8 +28,9 @@ subroutine prepare_resonances
     r_res = qres
 
     do j= 2, plasma%grid_size
-      if(qres .gt. q(j-1) .and. qres .lt. q(j)) then
-        r_res = (plasma%r_grid(j-1) * (q(j) - qres) + plasma%r_grid(j) * (qres-q(j-1))) / (q(j)-q(j-1))
+      if(qres .gt. q(j-1) .and. qres .le. q(j)) then
+        r_res = (plasma%r_grid(j-1) * (q(j) - qres) + plasma%r_grid(j) &
+              * (qres-q(j-1))) / (q(j)-q(j-1))
         exit
       endif
     enddo

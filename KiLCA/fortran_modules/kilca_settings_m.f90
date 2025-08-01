@@ -268,6 +268,8 @@ module kilca_settings_m
     public :: settings_validate_with_context
     public :: settings_attempt_recovery
     public :: settings_get_detailed_validation_errors
+    public :: settings_validate_parameters
+    public :: settings_validate_physics_constraints
     public :: antenna_read_settings_with_error_context
     public :: settings_test_allocation_failure
     public :: settings_log_error
@@ -5072,5 +5074,181 @@ contains
         end if
         
     end subroutine check_complex_format
+    
+    !> @brief Validate parameter ranges and formats
+    subroutine settings_validate_parameters(settings, ierr)
+        type(settings_t), intent(in) :: settings
+        integer, intent(out) :: ierr
+        
+        ierr = KILCA_SUCCESS
+        
+        ! Validate antenna parameters
+        call validate_antenna_parameters(settings%antenna_settings, ierr)
+        if (ierr /= KILCA_SUCCESS) return
+        
+        ! Validate background parameters
+        call validate_background_parameters(settings%background_settings, ierr)
+        if (ierr /= KILCA_SUCCESS) return
+        
+        ! Validate output parameters
+        call validate_output_parameters(settings%output_settings, ierr)
+        if (ierr /= KILCA_SUCCESS) return
+        
+        ! Validate eigenmode parameters
+        call validate_eigenmode_parameters(settings%eigmode_settings, ierr)
+        if (ierr /= KILCA_SUCCESS) return
+        
+    end subroutine settings_validate_parameters
+    
+    !> @brief Validate physics constraints and consistency
+    subroutine settings_validate_physics_constraints(settings, ierr)
+        type(settings_t), intent(in) :: settings
+        integer, intent(out) :: ierr
+        
+        ierr = KILCA_SUCCESS
+        
+        ! Check for negative physical quantities
+        if (settings%antenna_settings%ra < 0.0_dp) then
+            ierr = KILCA_ERROR_INVALID_PARAMETER
+            return
+        end if
+        
+        if (settings%background_settings%rp < 0.0_dp) then
+            ierr = KILCA_ERROR_INVALID_PARAMETER
+            return
+        end if
+        
+        if (settings%background_settings%B0 < 0.0_dp) then
+            ierr = KILCA_ERROR_INVALID_PARAMETER
+            return
+        end if
+        
+        ! Check geometry consistency (rtor > rp)
+        if (settings%background_settings%rtor <= settings%background_settings%rp) then
+            ierr = KILCA_ERROR_INVALID_PARAMETER
+            return
+        end if
+        
+        ! Check frequency constraints
+        if (real(settings%antenna_settings%flab) < 0.0_dp) then
+            ierr = KILCA_ERROR_INVALID_PARAMETER
+            return
+        end if
+        
+        ! Check antenna position relative to plasma
+        if (settings%antenna_settings%ra < settings%background_settings%rp) then
+            ierr = KILCA_ERROR_INVALID_PARAMETER
+            return
+        end if
+        
+        ! Validate mass values
+        if (allocated(settings%background_settings%mass)) then
+            if (any(settings%background_settings%mass < 0.0_dp)) then
+                ierr = KILCA_ERROR_INVALID_PARAMETER
+                return
+            end if
+        end if
+        
+        ! Validate eigenmode frequency ranges - check for default values first
+        if (settings%eigmode_settings%rfmin /= 0.0_dp .and. &
+            settings%eigmode_settings%rfmax /= 0.0_dp .and. &
+            settings%eigmode_settings%rfmin > settings%eigmode_settings%rfmax) then
+            ierr = KILCA_ERROR_INVALID_PARAMETER
+            return
+        end if
+        
+    end subroutine settings_validate_physics_constraints
+    
+    !> @brief Validate antenna parameter ranges
+    subroutine validate_antenna_parameters(antenna, ierr)
+        type(antenna_t), intent(in) :: antenna
+        integer, intent(out) :: ierr
+        integer :: i
+        
+        ierr = KILCA_SUCCESS
+        
+        ! Check array size consistency
+        if (antenna%dma <= 0) then
+            ierr = KILCA_ERROR_BOUNDS
+            return
+        end if
+        
+        if (allocated(antenna%modes)) then
+            if (size(antenna%modes) /= 2 * antenna%dma) then
+                ierr = KILCA_ERROR_BOUNDS
+                return
+            end if
+            
+            ! Check for invalid mode combinations (m=0, n=0)
+            do i = 1, antenna%dma
+                if (antenna%modes(2*i-1) == 0 .and. antenna%modes(2*i) == 0) then
+                    ierr = KILCA_ERROR_INVALID_PARAMETER
+                    return
+                end if
+            end do
+        end if
+        
+    end subroutine validate_antenna_parameters
+    
+    !> @brief Validate background parameter ranges
+    subroutine validate_background_parameters(background, ierr)
+        type(back_sett_t), intent(in) :: background
+        integer, intent(out) :: ierr
+        
+        ierr = KILCA_SUCCESS
+        
+        ! Validate charge values (should be reasonable)
+        if (allocated(background%charge)) then
+            if (any(abs(background%charge) > 10.0_dp)) then
+                ierr = KILCA_ERROR_INVALID_PARAMETER
+                return
+            end if
+        end if
+        
+    end subroutine validate_background_parameters
+    
+    !> @brief Validate output parameter ranges
+    subroutine validate_output_parameters(output, ierr)
+        type(output_sett_t), intent(in) :: output
+        integer, intent(out) :: ierr
+        
+        ierr = KILCA_SUCCESS
+        
+        ! Check array size consistency
+        if (output%num_quants < 0) then
+            ierr = KILCA_ERROR_BOUNDS
+            return
+        end if
+        
+        if (allocated(output%flag_quants)) then
+            if (size(output%flag_quants) /= output%num_quants) then
+                ierr = KILCA_ERROR_BOUNDS
+                return
+            end if
+        end if
+        
+    end subroutine validate_output_parameters
+    
+    !> @brief Validate eigenmode parameter ranges
+    subroutine validate_eigenmode_parameters(eigmode, ierr)
+        type(eigmode_sett_t), intent(in) :: eigmode
+        integer, intent(out) :: ierr
+        
+        ierr = KILCA_SUCCESS
+        
+        ! Check precision parameters - only if they're set (non-zero)
+        if (eigmode%eps_res /= 0.0_dp .and. &
+            (eigmode%eps_res < 1.0e-16_dp .or. eigmode%eps_res > 1.0e-3_dp)) then
+            ierr = KILCA_ERROR_INVALID_PARAMETER
+            return
+        end if
+        
+        if (eigmode%eps_abs /= 0.0_dp .and. &
+            (eigmode%eps_abs < 1.0e-16_dp .or. eigmode%eps_abs > 1.0_dp)) then
+            ierr = KILCA_ERROR_INVALID_PARAMETER
+            return
+        end if
+        
+    end subroutine validate_eigenmode_parameters
     
 end module kilca_settings_m

@@ -270,6 +270,10 @@ module kilca_settings_m
     public :: settings_get_detailed_validation_errors
     public :: settings_validate_parameters
     public :: settings_validate_physics_constraints
+    public :: settings_read_namelist_with_recovery
+    public :: settings_get_warning_count
+    public :: settings_get_warnings
+    public :: settings_validate_with_warnings
     public :: antenna_read_settings_with_error_context
     public :: settings_test_allocation_failure
     public :: settings_log_error
@@ -5250,5 +5254,249 @@ contains
         end if
         
     end subroutine validate_eigenmode_parameters
+    
+    !> @brief Read namelist with error recovery and warning collection
+    subroutine settings_read_namelist_with_recovery(filename, settings, ierr, warning_count, warnings)
+        character(len=*), intent(in) :: filename
+        type(settings_t), intent(inout) :: settings
+        integer, intent(out) :: ierr
+        integer, intent(out), optional :: warning_count
+        character(len=*), dimension(:), intent(out), optional :: warnings
+        
+        integer :: local_warning_count
+        character(len=256), dimension(20) :: local_warnings
+        character(len=1024) :: error_msg
+        integer :: error_line
+        logical :: file_exists
+        
+        local_warning_count = 0
+        ierr = KILCA_SUCCESS
+        
+        ! Check file existence
+        inquire(file=filename, exist=file_exists)
+        if (.not. file_exists) then
+            ierr = KILCA_ERROR_FILE_NOT_FOUND
+            return
+        end if
+        
+        ! Initialize with defaults first
+        call apply_default_settings(settings)
+        
+        ! Try enhanced reading with error details
+        call settings_read_namelist_enhanced(filename, settings, ierr, error_msg, error_line)
+        
+        ! Handle recoverable errors
+        if (ierr /= KILCA_SUCCESS) then
+            select case (ierr)
+            case (KILCA_ERROR_MISSING_SECTION)
+                ! Missing sections are recoverable - use defaults
+                local_warning_count = local_warning_count + 1
+                if (local_warning_count <= 20) then
+                    write(local_warnings(local_warning_count), '(a)') &
+                        "Missing section(s) - using defaults: " // trim(error_msg)
+                end if
+                ierr = KILCA_SUCCESS  ! Recover
+                
+            case (KILCA_ERROR_UNKNOWN_PARAMETER)
+                ! Unknown parameters generate warnings but don't fail
+                local_warning_count = local_warning_count + 1
+                if (local_warning_count <= 20) then
+                    write(local_warnings(local_warning_count), '(a,i0)') &
+                        "Unknown parameter at line ", error_line
+                end if
+                ! Try reading with relaxed parsing
+                call settings_read_namelist_relaxed(filename, settings, ierr)
+                
+            case default
+                ! Non-recoverable error
+                return
+            end select
+        end if
+        
+        ! Return warnings if requested
+        if (present(warning_count)) warning_count = local_warning_count
+        if (present(warnings) .and. local_warning_count > 0) then
+            warnings(1:min(local_warning_count, size(warnings))) = &
+                local_warnings(1:min(local_warning_count, size(warnings)))
+        end if
+        
+    end subroutine settings_read_namelist_with_recovery
+    
+    !> @brief Apply sensible default settings
+    subroutine apply_default_settings(settings)
+        type(settings_t), intent(inout) :: settings
+        
+        ! Antenna defaults
+        if (settings%antenna_settings%wa == 0.0_dp) settings%antenna_settings%wa = 5.0_dp
+        if (settings%antenna_settings%I0 == 0.0_dp) settings%antenna_settings%I0 = 1.0e12_dp
+        if (settings%antenna_settings%flab == cmplx_zero) settings%antenna_settings%flab = cmplx(1.0e6_dp, 0.0_dp, dp)
+        if (settings%antenna_settings%dma == 0) settings%antenna_settings%dma = 1
+        
+        ! Background defaults
+        if (settings%background_settings%rp == 0.0_dp) settings%background_settings%rp = 65.0_dp
+        if (settings%background_settings%B0 == 0.0_dp) settings%background_settings%B0 = 25000.0_dp
+        
+        ! Output defaults
+        settings%output_settings%flag_background = 1
+        settings%output_settings%flag_emfield = 0
+        settings%output_settings%flag_additional = 0
+        settings%output_settings%flag_dispersion = 0
+        
+        ! Eigenmode defaults
+        settings%eigmode_settings%search_flag = 0
+        if (settings%eigmode_settings%eps_res == 0.0_dp) settings%eigmode_settings%eps_res = 1.0e-8_dp
+        if (settings%eigmode_settings%eps_abs == 0.0_dp) settings%eigmode_settings%eps_abs = 1.0e-10_dp
+        if (settings%eigmode_settings%eps_rel == 0.0_dp) settings%eigmode_settings%eps_rel = 1.0e-8_dp
+        
+    end subroutine apply_default_settings
+    
+    !> @brief Read namelist with relaxed parsing (skip unknown parameters)
+    subroutine settings_read_namelist_relaxed(filename, settings, ierr)
+        character(len=*), intent(in) :: filename
+        type(settings_t), intent(inout) :: settings
+        integer, intent(out) :: ierr
+        
+        ! For now, just use the standard reader
+        ! In a full implementation, this would parse line by line
+        ! and skip unknown parameters
+        call settings_read_namelist_old(filename, settings, ierr)
+        
+        ! Convert some errors to success for recovery
+        if (ierr == KILCA_ERROR_FORMAT .or. ierr == KILCA_ERROR_UNKNOWN_PARAMETER) then
+            ierr = KILCA_SUCCESS
+        end if
+        
+    end subroutine settings_read_namelist_relaxed
+    
+    !> @brief Get warning count from last operation
+    function settings_get_warning_count() result(count)
+        integer :: count
+        ! In a full implementation, this would track warnings
+        count = 0
+    end function settings_get_warning_count
+    
+    !> @brief Get warnings from last operation
+    subroutine settings_get_warnings(warnings, count)
+        character(len=*), dimension(:), intent(out) :: warnings
+        integer, intent(out) :: count
+        ! In a full implementation, this would return stored warnings
+        count = 0
+    end subroutine settings_get_warnings
+    
+    !> @brief Validate settings with warning generation
+    subroutine settings_validate_with_warnings(settings, ierr, warning_count, warnings)
+        type(settings_t), intent(in) :: settings
+        integer, intent(out) :: ierr
+        integer, intent(out), optional :: warning_count
+        character(len=*), dimension(:), intent(out), optional :: warnings
+        
+        integer :: local_warning_count
+        character(len=256), dimension(20) :: local_warnings
+        real(dp) :: aspect_ratio
+        
+        local_warning_count = 0
+        ierr = KILCA_SUCCESS
+        
+        ! Check for questionable but valid values
+        
+        ! Antenna warnings
+        if (settings%antenna_settings%ra < 1.0_dp .and. settings%antenna_settings%ra > 0.0_dp) then
+            local_warning_count = local_warning_count + 1
+            if (local_warning_count <= 20) then
+                write(local_warnings(local_warning_count), '(a,f8.3)') &
+                    "Antenna radius unusually small: ra = ", settings%antenna_settings%ra
+            end if
+        end if
+        
+        if (settings%antenna_settings%wa > 100.0_dp) then
+            local_warning_count = local_warning_count + 1
+            if (local_warning_count <= 20) then
+                write(local_warnings(local_warning_count), '(a,f8.1)') &
+                    "Antenna width unusually large: wa = ", settings%antenna_settings%wa
+            end if
+        end if
+        
+        if (settings%antenna_settings%I0 > 1.0e18_dp) then
+            local_warning_count = local_warning_count + 1
+            if (local_warning_count <= 20) then
+                write(local_warnings(local_warning_count), '(a,es10.3)') &
+                    "Antenna intensity extremely high: I0 = ", settings%antenna_settings%I0
+            end if
+        end if
+        
+        if (real(settings%antenna_settings%flab) < 1.0e4_dp .and. &
+            real(settings%antenna_settings%flab) > 0.0_dp) then
+            local_warning_count = local_warning_count + 1
+            if (local_warning_count <= 20) then
+                write(local_warnings(local_warning_count), '(a,es10.3)') &
+                    "Antenna frequency unusually low: f = ", real(settings%antenna_settings%flab)
+            end if
+        end if
+        
+        ! Background warnings
+        if (settings%background_settings%rtor > 0.0_dp .and. &
+            settings%background_settings%rp > 0.0_dp) then
+            aspect_ratio = settings%background_settings%rtor / settings%background_settings%rp
+            if (aspect_ratio < 1.1_dp) then
+                local_warning_count = local_warning_count + 1
+                if (local_warning_count <= 20) then
+                    write(local_warnings(local_warning_count), '(a,f5.2)') &
+                        "Aspect ratio very low (near spherical): A = ", aspect_ratio
+                end if
+            end if
+        end if
+        
+        if (settings%background_settings%B0 < 1000.0_dp .and. &
+            settings%background_settings%B0 > 0.0_dp) then
+            local_warning_count = local_warning_count + 1
+            if (local_warning_count <= 20) then
+                write(local_warnings(local_warning_count), '(a,f8.1)') &
+                    "Magnetic field unusually low: B0 = ", settings%background_settings%B0
+            end if
+        end if
+        
+        ! Eigenmode warnings
+        if (settings%eigmode_settings%eps_res < 1.0e-14_dp .and. &
+            settings%eigmode_settings%eps_res > 0.0_dp) then
+            local_warning_count = local_warning_count + 1
+            if (local_warning_count <= 20) then
+                write(local_warnings(local_warning_count), '(a,es10.3)') &
+                    "Tolerance may be too tight for double precision: eps_res = ", &
+                    settings%eigmode_settings%eps_res
+            end if
+        end if
+        
+        if (settings%antenna_settings%dma > 20) then
+            local_warning_count = local_warning_count + 1
+            if (local_warning_count <= 20) then
+                write(local_warnings(local_warning_count), '(a,i0)') &
+                    "Unusually many mode pairs: dma = ", settings%antenna_settings%dma
+            end if
+        end if
+        
+        ! Very small tokamak warning
+        if (settings%background_settings%rtor < 50.0_dp .and. &
+            settings%background_settings%rtor > 0.0_dp) then
+            local_warning_count = local_warning_count + 1
+            if (local_warning_count <= 20) then
+                write(local_warnings(local_warning_count), '(a,f8.1)') &
+                    "Very small tokamak major radius: R = ", settings%background_settings%rtor
+            end if
+        end if
+        
+        ! Return warnings if requested
+        if (present(warning_count)) warning_count = local_warning_count
+        if (present(warnings) .and. local_warning_count > 0) then
+            warnings(1:min(local_warning_count, size(warnings))) = &
+                local_warnings(1:min(local_warning_count, size(warnings)))
+        end if
+        
+        ! Run standard validation
+        call settings_validate_parameters(settings, ierr)
+        if (ierr == KILCA_SUCCESS) then
+            call settings_validate_physics_constraints(settings, ierr)
+        end if
+        
+    end subroutine settings_validate_with_warnings
     
 end module kilca_settings_m

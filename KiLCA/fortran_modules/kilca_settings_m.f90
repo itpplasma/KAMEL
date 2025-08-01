@@ -4111,17 +4111,472 @@ contains
         
     end subroutine check_legacy_format_availability
     
-    !> @brief Read settings from legacy format files (placeholder implementation)
-    !> @details This will be implemented in Task 525 [GREEN]
+    !> @brief Read settings from legacy format files
+    !> @details Reads settings from individual .in files in legacy format
     subroutine read_settings_legacy_format(path, settings_out, ierr)
         character(len=*), intent(in) :: path
         type(settings_t), intent(out) :: settings_out
         integer, intent(out) :: ierr
         
-        ! This is a placeholder - will be implemented in Task 525 [GREEN]
-        print *, "Legacy format reading not implemented yet"
-        ierr = KILCA_ERROR_INVALID_INPUT  ! Indicate not implemented
+        character(len=1024) :: error_context
+        
+        ierr = KILCA_SUCCESS
+        error_context = ""
+        
+        ! Initialize settings with defaults
+        call antenna_initialize_defaults(settings_out%antenna_settings, ierr)
+        call back_sett_initialize_defaults(settings_out%background_settings, ierr)
+        call output_sett_initialize_defaults(settings_out%output_settings, ierr)
+        call eigmode_sett_initialize_defaults(settings_out%eigmode_settings, ierr)
+        
+        ! Read antenna settings
+        call read_legacy_antenna(path, settings_out%antenna_settings, ierr, error_context)
+        if (ierr /= KILCA_SUCCESS) then
+            print *, "Legacy format: Failed to read antenna.in -", trim(error_context)
+            return
+        end if
+        
+        ! Read background settings
+        call read_legacy_background(path, settings_out%background_settings, ierr, error_context)
+        if (ierr /= KILCA_SUCCESS) then
+            print *, "Legacy format: Failed to read background.in -", trim(error_context)
+            return
+        end if
+        
+        ! Read output settings
+        call read_legacy_output(path, settings_out%output_settings, ierr, error_context)
+        if (ierr /= KILCA_SUCCESS) then
+            print *, "Legacy format: Failed to read output.in -", trim(error_context)
+            return
+        end if
+        
+        ! Read eigenmode settings
+        call read_legacy_eigenmode(path, settings_out%eigmode_settings, ierr, error_context)
+        if (ierr /= KILCA_SUCCESS) then
+            print *, "Legacy format: Failed to read eigenmode.in -", trim(error_context)
+            return
+        end if
+        
+        print *, "Legacy format: Successfully loaded all settings"
         
     end subroutine read_settings_legacy_format
+    
+    !> @brief Read antenna settings from legacy format
+    subroutine read_legacy_antenna(path, antenna, ierr, error_msg)
+        character(len=*), intent(in) :: path
+        type(antenna_t), intent(inout) :: antenna
+        integer, intent(out) :: ierr
+        character(len=*), intent(out) :: error_msg
+        
+        character(len=1024) :: filename
+        integer :: unit, iostat, i
+        real(dp) :: flab_real, flab_imag
+        integer, dimension(20) :: modes_temp
+        
+        ierr = KILCA_SUCCESS
+        error_msg = ""
+        
+        filename = trim(path) // "/antenna.in"
+        
+        ! Open file
+        open(newunit=unit, file=filename, status='old', action='read', iostat=iostat)
+        if (iostat /= 0) then
+            ierr = KILCA_ERROR_FILE_NOT_FOUND
+            error_msg = "Cannot open antenna.in"
+            return
+        end if
+        
+        ! Read ra, wa, I0
+        read(unit, *, iostat=iostat) antenna%ra, antenna%wa, antenna%I0
+        if (iostat /= 0) then
+            close(unit)
+            ierr = KILCA_ERROR_FORMAT
+            error_msg = "Error reading ra, wa, I0"
+            return
+        end if
+        
+        ! Read flab (complex as two reals)
+        read(unit, *, iostat=iostat) flab_real, flab_imag
+        if (iostat /= 0) then
+            close(unit)
+            ierr = KILCA_ERROR_FORMAT
+            error_msg = "Error reading flab"
+            return
+        end if
+        antenna%flab = cmplx(flab_real, flab_imag, dp)
+        
+        ! Read dma
+        read(unit, *, iostat=iostat) antenna%dma
+        if (iostat /= 0) then
+            close(unit)
+            ierr = KILCA_ERROR_FORMAT
+            error_msg = "Error reading dma"
+            return
+        end if
+        
+        ! Read flag_debug and flag_eigmode
+        read(unit, *, iostat=iostat) antenna%flag_debug, antenna%flag_eigmode
+        if (iostat /= 0) then
+            close(unit)
+            ierr = KILCA_ERROR_FORMAT
+            error_msg = "Error reading flags"
+            return
+        end if
+        
+        ! Read modes array
+        if (antenna%dma > 0) then
+            read(unit, *, iostat=iostat) (modes_temp(i), i=1, antenna%dma*2)
+            if (iostat /= 0) then
+                close(unit)
+                ierr = KILCA_ERROR_FORMAT
+                error_msg = "Error reading modes"
+                return
+            end if
+            
+            ! Allocate and copy modes
+            if (allocated(antenna%modes)) deallocate(antenna%modes)
+            allocate(antenna%modes(antenna%dma * 2))
+            antenna%modes(1:antenna%dma*2) = modes_temp(1:antenna%dma*2)
+        end if
+        
+        close(unit)
+        
+    end subroutine read_legacy_antenna
+    
+    !> @brief Read background settings from legacy format
+    subroutine read_legacy_background(path, background, ierr, error_msg)
+        character(len=*), intent(in) :: path
+        type(back_sett_t), intent(inout) :: background
+        integer, intent(out) :: ierr
+        character(len=*), intent(out) :: error_msg
+        
+        character(len=1024) :: filename
+        character(len=256) :: path_temp, flag_temp
+        integer :: unit, iostat
+        real(dp), dimension(10) :: mass_temp, charge_temp
+        
+        ierr = KILCA_SUCCESS
+        error_msg = ""
+        
+        filename = trim(path) // "/background.in"
+        
+        ! Open file
+        open(newunit=unit, file=filename, status='old', action='read', iostat=iostat)
+        if (iostat /= 0) then
+            ierr = KILCA_ERROR_FILE_NOT_FOUND
+            error_msg = "Cannot open background.in"
+            return
+        end if
+        
+        ! Read rtor, rp, B0
+        read(unit, *, iostat=iostat) background%rtor, background%rp, background%B0
+        if (iostat /= 0) then
+            close(unit)
+            ierr = KILCA_ERROR_FORMAT
+            error_msg = "Error reading rtor, rp, B0"
+            return
+        end if
+        
+        ! Read path2profiles
+        read(unit, '(a)', iostat=iostat) path_temp
+        if (iostat /= 0) then
+            close(unit)
+            ierr = KILCA_ERROR_FORMAT
+            error_msg = "Error reading path2profiles"
+            return
+        end if
+        background%path2profiles = trim(adjustl(path_temp))
+        
+        ! Read calc_back
+        read(unit, *, iostat=iostat) background%calc_back
+        if (iostat /= 0) then
+            close(unit)
+            ierr = KILCA_ERROR_FORMAT
+            error_msg = "Error reading calc_back"
+            return
+        end if
+        
+        ! Read flag_back
+        read(unit, '(a)', iostat=iostat) flag_temp
+        if (iostat /= 0) then
+            close(unit)
+            ierr = KILCA_ERROR_FORMAT
+            error_msg = "Error reading flag_back"
+            return
+        end if
+        background%flag_back = trim(adjustl(flag_temp))
+        
+        ! Read N
+        read(unit, *, iostat=iostat) background%N
+        if (iostat /= 0) then
+            close(unit)
+            ierr = KILCA_ERROR_FORMAT
+            error_msg = "Error reading N"
+            return
+        end if
+        
+        ! Read V_gal_sys, V_scale, m_i, zele, zion
+        read(unit, *, iostat=iostat) background%V_gal_sys, background%V_scale, &
+                                     background%m_i, background%zele, background%zion
+        if (iostat /= 0) then
+            close(unit)
+            ierr = KILCA_ERROR_FORMAT
+            error_msg = "Error reading V_gal_sys, V_scale, m_i, zele, zion"
+            return
+        end if
+        
+        ! Read flag_debug
+        read(unit, *, iostat=iostat) background%flag_debug
+        if (iostat /= 0) then
+            close(unit)
+            ierr = KILCA_ERROR_FORMAT
+            error_msg = "Error reading flag_debug"
+            return
+        end if
+        
+        ! Read mass array
+        read(unit, *, iostat=iostat) mass_temp(1:3)
+        if (iostat /= 0) then
+            close(unit)
+            ierr = KILCA_ERROR_FORMAT
+            error_msg = "Error reading mass array"
+            return
+        end if
+        
+        ! Read charge array
+        read(unit, *, iostat=iostat) charge_temp(1:3)
+        if (iostat /= 0) then
+            close(unit)
+            ierr = KILCA_ERROR_FORMAT
+            error_msg = "Error reading charge array"
+            return
+        end if
+        
+        ! Allocate and copy arrays
+        if (allocated(background%mass)) deallocate(background%mass)
+        allocate(background%mass(3))
+        background%mass = mass_temp(1:3)
+        
+        if (allocated(background%charge)) deallocate(background%charge)
+        allocate(background%charge(3))
+        background%charge = charge_temp(1:3)
+        
+        close(unit)
+        
+    end subroutine read_legacy_background
+    
+    !> @brief Read output settings from legacy format
+    subroutine read_legacy_output(path, output, ierr, error_msg)
+        character(len=*), intent(in) :: path
+        type(output_sett_t), intent(inout) :: output
+        integer, intent(out) :: ierr
+        character(len=*), intent(out) :: error_msg
+        
+        character(len=1024) :: filename
+        integer :: unit, iostat, i
+        integer, dimension(20) :: flag_quants_temp
+        
+        ierr = KILCA_SUCCESS
+        error_msg = ""
+        
+        filename = trim(path) // "/output.in"
+        
+        ! Open file
+        open(newunit=unit, file=filename, status='old', action='read', iostat=iostat)
+        if (iostat /= 0) then
+            ierr = KILCA_ERROR_FILE_NOT_FOUND
+            error_msg = "Cannot open output.in"
+            return
+        end if
+        
+        ! Read flags
+        read(unit, *, iostat=iostat) output%flag_background, output%flag_emfield, &
+                                     output%flag_additional, output%flag_dispersion
+        if (iostat /= 0) then
+            close(unit)
+            ierr = KILCA_ERROR_FORMAT
+            error_msg = "Error reading output flags"
+            return
+        end if
+        
+        ! Read flag_debug
+        read(unit, *, iostat=iostat) output%flag_debug
+        if (iostat /= 0) then
+            close(unit)
+            ierr = KILCA_ERROR_FORMAT
+            error_msg = "Error reading flag_debug"
+            return
+        end if
+        
+        ! Read num_quants
+        read(unit, *, iostat=iostat) output%num_quants
+        if (iostat /= 0) then
+            close(unit)
+            ierr = KILCA_ERROR_FORMAT
+            error_msg = "Error reading num_quants"
+            return
+        end if
+        
+        ! Read flag_quants array
+        if (output%num_quants > 0) then
+            read(unit, *, iostat=iostat) (flag_quants_temp(i), i=1, output%num_quants)
+            if (iostat /= 0) then
+                close(unit)
+                ierr = KILCA_ERROR_FORMAT
+                error_msg = "Error reading flag_quants"
+                return
+            end if
+            
+            ! Allocate and copy flag_quants
+            if (allocated(output%flag_quants)) deallocate(output%flag_quants)
+            allocate(output%flag_quants(output%num_quants))
+            output%flag_quants = flag_quants_temp(1:output%num_quants)
+        end if
+        
+        close(unit)
+        
+    end subroutine read_legacy_output
+    
+    !> @brief Read eigenmode settings from legacy format
+    subroutine read_legacy_eigenmode(path, eigmode, ierr, error_msg)
+        character(len=*), intent(in) :: path
+        type(eigmode_sett_t), intent(inout) :: eigmode
+        integer, intent(out) :: ierr
+        character(len=*), intent(out) :: error_msg
+        
+        character(len=1024) :: filename
+        character(len=256) :: fname_temp
+        integer :: unit, iostat, i
+        real(dp) :: fstart_real, fstart_imag
+        complex(dp), dimension(20) :: fstart_temp
+        
+        ierr = KILCA_SUCCESS
+        error_msg = ""
+        
+        filename = trim(path) // "/eigenmode.in"
+        
+        ! Open file
+        open(newunit=unit, file=filename, status='old', action='read', iostat=iostat)
+        if (iostat /= 0) then
+            ierr = KILCA_ERROR_FILE_NOT_FOUND
+            error_msg = "Cannot open eigenmode.in"
+            return
+        end if
+        
+        ! Read fname
+        read(unit, '(a)', iostat=iostat) fname_temp
+        if (iostat /= 0) then
+            close(unit)
+            ierr = KILCA_ERROR_FORMAT
+            error_msg = "Error reading fname"
+            return
+        end if
+        eigmode%fname = trim(adjustl(fname_temp))
+        
+        ! Read search_flag
+        read(unit, *, iostat=iostat) eigmode%search_flag
+        if (iostat /= 0) then
+            close(unit)
+            ierr = KILCA_ERROR_FORMAT
+            error_msg = "Error reading search_flag"
+            return
+        end if
+        
+        ! Read rdim, idim
+        read(unit, *, iostat=iostat) eigmode%rdim, eigmode%idim
+        if (iostat /= 0) then
+            close(unit)
+            ierr = KILCA_ERROR_FORMAT
+            error_msg = "Error reading rdim, idim"
+            return
+        end if
+        
+        ! Read rfmin, rfmax
+        read(unit, *, iostat=iostat) eigmode%rfmin, eigmode%rfmax
+        if (iostat /= 0) then
+            close(unit)
+            ierr = KILCA_ERROR_FORMAT
+            error_msg = "Error reading rfmin, rfmax"
+            return
+        end if
+        
+        ! Read ifmin, ifmax
+        read(unit, *, iostat=iostat) eigmode%ifmin, eigmode%ifmax
+        if (iostat /= 0) then
+            close(unit)
+            ierr = KILCA_ERROR_FORMAT
+            error_msg = "Error reading ifmin, ifmax"
+            return
+        end if
+        
+        ! Read stop_flag
+        read(unit, *, iostat=iostat) eigmode%stop_flag
+        if (iostat /= 0) then
+            close(unit)
+            ierr = KILCA_ERROR_FORMAT
+            error_msg = "Error reading stop_flag"
+            return
+        end if
+        
+        ! Read eps_res, eps_abs, eps_rel, delta
+        read(unit, *, iostat=iostat) eigmode%eps_res, eigmode%eps_abs, &
+                                     eigmode%eps_rel, eigmode%delta
+        if (iostat /= 0) then
+            close(unit)
+            ierr = KILCA_ERROR_FORMAT
+            error_msg = "Error reading tolerances"
+            return
+        end if
+        
+        ! Read test_roots, flag_debug
+        read(unit, *, iostat=iostat) eigmode%test_roots, eigmode%flag_debug
+        if (iostat /= 0) then
+            close(unit)
+            ierr = KILCA_ERROR_FORMAT
+            error_msg = "Error reading test_roots, flag_debug"
+            return
+        end if
+        
+        ! Read Nguess, kmin, kmax, n_zeros
+        read(unit, *, iostat=iostat) eigmode%Nguess, eigmode%kmin, &
+                                     eigmode%kmax, eigmode%n_zeros
+        if (iostat /= 0) then
+            close(unit)
+            ierr = KILCA_ERROR_FORMAT
+            error_msg = "Error reading Nguess, kmin, kmax, n_zeros"
+            return
+        end if
+        
+        ! Read use_winding
+        read(unit, *, iostat=iostat) eigmode%use_winding
+        if (iostat /= 0) then
+            close(unit)
+            ierr = KILCA_ERROR_FORMAT
+            error_msg = "Error reading use_winding"
+            return
+        end if
+        
+        ! Read fstart array (complex numbers as pairs of reals)
+        if (eigmode%Nguess > 0) then
+            do i = 1, eigmode%Nguess
+                read(unit, *, iostat=iostat) fstart_real, fstart_imag
+                if (iostat /= 0) then
+                    close(unit)
+                    ierr = KILCA_ERROR_FORMAT
+                    error_msg = "Error reading fstart array"
+                    return
+                end if
+                fstart_temp(i) = cmplx(fstart_real, fstart_imag, dp)
+            end do
+            
+            ! Allocate and copy fstart
+            if (allocated(eigmode%fstart)) deallocate(eigmode%fstart)
+            allocate(eigmode%fstart(eigmode%Nguess))
+            eigmode%fstart = fstart_temp(1:eigmode%Nguess)
+        end if
+        
+        close(unit)
+        
+    end subroutine read_legacy_eigenmode
     
 end module kilca_settings_m

@@ -3445,25 +3445,25 @@ contains
         real(dp) :: ra, wa, I0
         complex(dp) :: flab
         integer :: dma, flag_debug_ant, flag_eigmode
-        integer, dimension(20) :: modes           ! Fixed size for namelist reading
+        integer, dimension(50) :: modes           ! Increased size for advanced tests
         
         ! Local variables matching namelist exactly - background
         real(dp) :: rtor, rp, B0, V_gal_sys, m_i, V_scale, zele, zion
         integer :: calc_back, flag_debug_bg, N
-        character(len=256) :: path2profiles, flag_back
-        real(dp), dimension(10) :: mass, charge  ! Fixed size for namelist reading
+        character(len=512) :: path2profiles, flag_back
+        real(dp), dimension(20) :: mass, charge  ! Increased size for advanced tests
         
         ! Local variables matching namelist exactly - output
         integer :: flag_background, flag_emfield, flag_additional, flag_dispersion
         integer :: num_quants, flag_debug_out
-        integer, dimension(20) :: flag_quants     ! Fixed size for namelist reading
+        integer, dimension(30) :: flag_quants     ! Increased size for advanced tests
         
         ! Local variables matching namelist exactly - eigenmode
-        character(len=256) :: fname
+        character(len=512) :: fname
         integer :: search_flag, rdim, idim, stop_flag, test_roots, flag_debug_eig
         integer :: Nguess, kmin, kmax, n_zeros, use_winding
         real(dp) :: rfmin, rfmax, ifmin, ifmax, eps_res, eps_abs, eps_rel, delta
-        complex(dp), dimension(10) :: fstart      ! Fixed size for namelist reading
+        complex(dp), dimension(20) :: fstart      ! Increased size for advanced complex tests
         
         ! Direct namelist declarations - simple and clean
         namelist /antenna/ ra, wa, I0, flab, dma, flag_debug_ant, flag_eigmode, modes
@@ -3495,7 +3495,13 @@ contains
         read(unit, nml=antenna, iostat=ierr)
         if (ierr /= 0) then
             close(unit)
-            ierr = KILCA_ERROR_NAMELIST_READ + 1  ! Antenna section error
+            if (ierr > 0) then
+                ierr = KILCA_ERROR_FORMAT  ! Antenna section format error
+            else if (ierr < 0) then
+                ierr = KILCA_ERROR_FILE_NOT_FOUND  ! Antenna section missing
+            else
+                ierr = KILCA_ERROR_NAMELIST_READ + 1  ! Antenna section read error
+            end if
             return
         end if
         
@@ -3503,7 +3509,13 @@ contains
         read(unit, nml=background, iostat=ierr)
         if (ierr /= 0) then
             close(unit)
-            ierr = KILCA_ERROR_NAMELIST_READ + 2  ! Background section error
+            if (ierr > 0) then
+                ierr = KILCA_ERROR_FORMAT  ! Background section format error
+            else if (ierr < 0) then
+                ierr = KILCA_ERROR_FILE_NOT_FOUND  ! Background section missing
+            else
+                ierr = KILCA_ERROR_NAMELIST_READ + 2  ! Background section read error
+            end if
             return
         end if
         
@@ -3511,7 +3523,13 @@ contains
         read(unit, nml=output, iostat=ierr)
         if (ierr /= 0) then
             close(unit)
-            ierr = KILCA_ERROR_NAMELIST_READ + 3  ! Output section error
+            if (ierr > 0) then
+                ierr = KILCA_ERROR_FORMAT  ! Output section format error
+            else if (ierr < 0) then
+                ierr = KILCA_ERROR_FILE_NOT_FOUND  ! Output section missing
+            else
+                ierr = KILCA_ERROR_NAMELIST_READ + 3  ! Output section read error
+            end if
             return
         end if
         
@@ -3519,7 +3537,13 @@ contains
         read(unit, nml=eigenmode, iostat=ierr)
         if (ierr /= 0) then
             close(unit)
-            ierr = KILCA_ERROR_NAMELIST_READ + 4  ! Eigenmode section error
+            if (ierr > 0) then
+                ierr = KILCA_ERROR_FORMAT  ! Eigenmode section format error
+            else if (ierr < 0) then
+                ierr = KILCA_ERROR_FILE_NOT_FOUND  ! Eigenmode section missing
+            else
+                ierr = KILCA_ERROR_NAMELIST_READ + 4  ! Eigenmode section read error
+            end if
             return
         end if
         
@@ -3533,11 +3557,15 @@ contains
         settings%antenna_settings%flag_debug = flag_debug_ant
         settings%antenna_settings%flag_eigmode = flag_eigmode
         
-        ! Antenna modes array - allocate and copy
+        ! Antenna modes array - efficient allocation and copy
         if (allocated(settings%antenna_settings%modes)) then
-            deallocate(settings%antenna_settings%modes)
+            if (size(settings%antenna_settings%modes) /= dma * 2) then
+                deallocate(settings%antenna_settings%modes)
+                allocate(settings%antenna_settings%modes(dma * 2))  ! dma pairs of (m,n)
+            end if
+        else
+            allocate(settings%antenna_settings%modes(dma * 2))  ! dma pairs of (m,n)
         end if
-        allocate(settings%antenna_settings%modes(dma * 2))  ! dma pairs of (m,n)
         settings%antenna_settings%modes(1:dma*2) = modes(1:dma*2)
         
         ! Background settings
@@ -3585,11 +3613,15 @@ contains
         settings%output_settings%num_quants = num_quants
         settings%output_settings%flag_debug = flag_debug_out
         
-        ! Output arrays - allocate and copy from namelist arrays
+        ! Output arrays - efficient allocation and copy from namelist arrays
         if (allocated(settings%output_settings%flag_quants)) then
-            deallocate(settings%output_settings%flag_quants)
+            if (size(settings%output_settings%flag_quants) /= num_quants) then
+                deallocate(settings%output_settings%flag_quants)
+                allocate(settings%output_settings%flag_quants(num_quants))
+            end if
+        else
+            allocate(settings%output_settings%flag_quants(num_quants))
         end if
-        allocate(settings%output_settings%flag_quants(num_quants))
         settings%output_settings%flag_quants(1:num_quants) = flag_quants(1:num_quants)
         
         ! Eigenmode settings
@@ -3619,17 +3651,28 @@ contains
         end if
         settings%eigmode_settings%fname = trim(adjustl(fname))
         
-        ! Eigenmode complex array - allocate and copy
+        ! Eigenmode complex array - efficient allocation and copy
         if (allocated(settings%eigmode_settings%fstart)) then
-            deallocate(settings%eigmode_settings%fstart)
+            if (size(settings%eigmode_settings%fstart) /= Nguess) then
+                deallocate(settings%eigmode_settings%fstart)
+                allocate(settings%eigmode_settings%fstart(Nguess))
+            end if
+        else
+            allocate(settings%eigmode_settings%fstart(Nguess))
         end if
-        allocate(settings%eigmode_settings%fstart(Nguess))
         settings%eigmode_settings%fstart(1:Nguess) = fstart(1:Nguess)
         
-        ! Parameter range validation
+        ! Comprehensive parameter range validation
         call validate_namelist_parameters(settings, ierr)
         if (ierr /= KILCA_SUCCESS) then
             close(unit)
+            ! Add specific error context
+            select case (ierr)
+            case (KILCA_ERROR_INVALID_PARAMETER)
+                ierr = KILCA_ERROR_INVALID_PARAMETER  ! Parameter out of physics range
+            case default
+                ierr = KILCA_ERROR_INVALID_PARAMETER  ! Generic parameter validation error
+            end select
             return
         end if
         
@@ -3641,6 +3684,7 @@ contains
     subroutine validate_namelist_parameters(settings, ierr)
         type(settings_t), intent(in) :: settings
         integer, intent(out) :: ierr
+        integer :: i  ! Loop counter for array validation
         
         ierr = KILCA_SUCCESS
         
@@ -3684,6 +3728,45 @@ contains
         if (settings%background_settings%m_i <= 0.0_dp .or. settings%background_settings%m_i > 50.0_dp) then
             ierr = KILCA_ERROR_INVALID_PARAMETER
             return
+        end if
+        
+        ! Enhanced validation - Array consistency checks
+        if (allocated(settings%antenna_settings%modes)) then
+            if (size(settings%antenna_settings%modes) /= settings%antenna_settings%dma * 2) then
+                ierr = KILCA_ERROR_INVALID_PARAMETER  ! Array size inconsistent with dma
+                return
+            end if
+        end if
+        
+        if (allocated(settings%output_settings%flag_quants)) then
+            if (size(settings%output_settings%flag_quants) /= settings%output_settings%num_quants) then
+                ierr = KILCA_ERROR_INVALID_PARAMETER  ! Array size inconsistent with num_quants
+                return
+            end if
+        end if
+        
+        if (allocated(settings%eigmode_settings%fstart)) then
+            if (size(settings%eigmode_settings%fstart) /= settings%eigmode_settings%Nguess) then
+                ierr = KILCA_ERROR_INVALID_PARAMETER  ! Array size inconsistent with Nguess
+                return
+            end if
+            
+            ! Validate complex numbers are finite and not NaN
+            do i = 1, size(settings%eigmode_settings%fstart)
+                if (.not. (abs(real(settings%eigmode_settings%fstart(i))) < huge(1.0_dp) .and. &
+                          abs(aimag(settings%eigmode_settings%fstart(i))) < huge(1.0_dp))) then
+                    ierr = KILCA_ERROR_INVALID_PARAMETER  ! Complex number out of range
+                    return
+                end if
+            end do
+        end if
+        
+        ! String parameter validation
+        if (allocated(settings%background_settings%path2profiles)) then
+            if (len_trim(settings%background_settings%path2profiles) == 0) then
+                ierr = KILCA_ERROR_INVALID_PARAMETER  ! Empty path string
+                return
+            end if
         end if
         
         ! Output validation

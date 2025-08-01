@@ -635,9 +635,9 @@ end program
 - ✅ Implemented compute_thermal_parameters() with physics calculations
 - ✅ 100-point radial profiles with parabolic shapes, thermal velocities, collision frequencies
 
-#### **Task 496-500: Output and Eigenmode Settings Data Type Enhancement (RED-GREEN-REFACTOR)**
+#### **Task 496-500: Output and Eigenmode Settings Data Type Enhancement (RED-GREEN-REFACTOR)** ✅ IN PROGRESS
 
-**Task 496**: [RED] Write failing test for output settings with dynamic arrays
+**Task 496**: ✅ [RED] Write failing test for output settings with dynamic arrays
 ```fortran
 program test_output_settings_complete
     type(output_settings_t) :: os
@@ -656,12 +656,12 @@ program test_output_settings_complete
 end program
 ```
 
-**Task 497**: [GREEN] Extend `output_settings_t` with dynamic flag_quants array
+**Task 497**: ✅ [GREEN] Extend `output_settings_t` with dynamic flag_quants array
 - Add allocatable integer array for quantity flags
 - Implement array size validation against num_quants
 - Add array initialization and cleanup procedures
 
-**Task 498**: [RED] Write failing test for eigenmode settings with all C++ variables
+**Task 498**: ✅ [RED] Write failing test for eigenmode settings with all C++ variables
 ```fortran
 program test_eigmode_settings_complete
     type(eigmode_settings_t) :: es
@@ -706,204 +706,146 @@ end program
 - Tolerance validation (eps_* > 0)
 - Starting points array consistency with Nguess
 
-### **Phase 2: Namelist Reading Implementation (Tasks 501-520)**
+### **Phase 2: Simple Namelist Reading Implementation (Tasks 501-510)**
 
-**Priority**: CRITICAL | **Dependencies**: Phase 1 | **Estimated**: 50 hours
+**Priority**: CRITICAL | **Dependencies**: Phase 1 | **Estimated**: 15 hours
 
-#### **Task 501-505: Core Namelist Reading Framework (RED-GREEN-REFACTOR)**
+**Core Principle**: Use Fortran's intrinsic namelist I/O directly - no complex parsing, no custom logic, maximum simplicity.
 
-**Task 501**: [RED] Write failing test for basic namelist reading
-```fortran
-program test_read_settings_namelist_basic
-    type(settings_t) :: sd
-    character(len=*), parameter :: test_file = "test_settings.conf"
+#### **Task 501-505: Direct Namelist Reading (RED-GREEN-REFACTOR)**
+
+**Task 501**: [RED] Write failing test for direct namelist reading
+```fortran  
+program test_direct_namelist_reading
+    type(settings_t) :: settings
     integer :: ierr
     
-    ! Create minimal test namelist file
-    call create_test_namelist_file(test_file)
+    ! This should FAIL - procedure doesn't exist yet
+    call settings_read_namelist("test_kilca.conf", settings, ierr)
     
-    ! Should fail initially - namelist reading not implemented
-    call read_settings_from_namelist(test_file, sd, ierr)
+    ! Verify all basic parameters read correctly
     call assert_success(ierr)
-    
-    ! Verify basic parameters read correctly
-    call assert_near(sd%antenna_settings%ra, 90.0_dp, 1.0e-10_dp, ierr)
-    call assert_near(sd%background_settings%rtor, 170.0_dp, 1.0e-10_dp, ierr)
+    call assert_near(settings%antenna_settings%ra, 90.0_dp, 1.0e-12_dp, ierr)
+    call assert_near(settings%background_settings%rtor, 170.69_dp, 1.0e-12_dp, ierr)  
+    call assert_equal(settings%output_settings%flag_background, 2, ierr)
+    call assert_equal(settings%eigmode_settings%search_flag, 1, ierr)
 end program
 ```
 
-**Task 502**: [GREEN] Implement basic namelist reading procedure
-- Create `read_settings_from_namelist` procedure
-- Implement file opening and basic error handling
-- Add namelist declarations for all settings groups
-
-**Task 503**: [RED] Write failing test for complex number namelist reading
+**Task 502**: [GREEN] Implement direct namelist reading procedure
 ```fortran
-program test_namelist_complex_numbers
-    type(antenna_settings_t) :: as
+subroutine settings_read_namelist(filename, settings, ierr)
+    character(len=*), intent(in) :: filename
+    type(settings_t), intent(inout) :: settings
+    integer, intent(out) :: ierr
     
-    ! Test complex number reading from namelist
-    call read_antenna_settings_namelist("test_complex.conf", as, ierr)
-    call assert_complex_near(as%flab, (1.5e6_dp, -0.1e6_dp), 1.0e-10_dp, ierr)
-end program
+    ! Local variables matching namelist exactly
+    real(dp) :: ra, wa, I0, rtor, rp, B0, V_gal_sys, m_i
+    complex(dp) :: flab
+    integer :: dma, flag_debug_ant, calc_back, flag_debug_bg
+    integer :: flag_background, flag_emfield, num_quants, search_flag, rdim
+    
+    ! Direct namelist declarations - simple and clean
+    namelist /antenna/ ra, wa, I0, flab, dma, flag_debug_ant
+    namelist /background/ rtor, rp, B0, V_gal_sys, m_i, calc_back, flag_debug_bg  
+    namelist /output/ flag_background, flag_emfield, num_quants
+    namelist /eigenmode/ search_flag, rdim
+    
+    ! Read namelists - Fortran handles everything automatically
+    open(newunit=unit, file=filename, status='old', iostat=ierr)
+    if (ierr /= 0) return
+    read(unit, nml=antenna, iostat=ierr); if (ierr /= 0) goto 999
+    read(unit, nml=background, iostat=ierr); if (ierr /= 0) goto 999
+    read(unit, nml=output, iostat=ierr); if (ierr /= 0) goto 999
+    read(unit, nml=eigenmode, iostat=ierr); if (ierr /= 0) goto 999
+    
+    ! Direct assignment to settings
+    settings%antenna_settings%ra = ra
+    settings%background_settings%rtor = rtor
+    ! ... etc
+    
+999 close(unit)
+end subroutine
 ```
 
-**Task 504**: [GREEN] Implement complex number support in namelist reading
-- Ensure complex numbers read correctly in (real, imag) format
-- Add validation for complex parameter ranges
-- Test with various complex number formats
-
-**Task 505**: [REFACTOR] Add comprehensive error handling for namelist reading
-- File not found errors with helpful messages
-- Namelist syntax error handling with line numbers
-- Parameter type mismatch error reporting
-- Missing required parameter detection
-
-#### **Task 506-510: Array Parameter Support (RED-GREEN-REFACTOR)**
-
-**Task 506**: [RED] Write failing test for array parameter reading
+**Task 503**: [RED] Write failing test for array parameters in namelists
 ```fortran
 program test_namelist_arrays
-    type(output_settings_t) :: os
+    type(settings_t) :: settings
+    integer :: ierr
     
-    ! Should fail initially - array reading not implemented
-    call read_output_settings_namelist("test_arrays.conf", os, ierr)
+    ! This should FAIL - array handling not implemented
+    call settings_read_namelist("test_arrays.conf", settings, ierr)
+    
     call assert_success(ierr)
-    
-    call assert_array_equal(os%flag_quants, [1, 1, 1, 1, 1, 1, 1, 0], ierr)
+    call assert_equal(settings%output_settings%num_quants, 8, ierr)  
+    call assert_array_equal(settings%output_settings%flag_quants, &
+                           [1,1,1,1,1,1,1,0], ierr)
 end program
 ```
 
-**Task 507**: [GREEN] Implement array parameter support in namelist reading
-- Dynamic allocation of arrays based on namelist input
-- Support for variable-length arrays
-- Proper memory management for allocatable arrays
+**Task 504**: [GREEN] Add array parameter support to namelist reading
+- Extend namelist declarations to include integer arrays
+- Add allocatable array handling for dynamic parameters
+- Direct assignment from namelist arrays to settings arrays
 
-**Task 508**: [RED] Write failing test for antenna modes array reading
+**Task 505**: [REFACTOR] Add error handling and validation
+- Add iostat checking for all namelist operations
+- Add parameter range validation after reading
+- Add file existence and permission checking
+
+#### **Task 506-510: Complete All Parameters (RED-GREEN-REFACTOR)**
+
+**Task 506**: [RED] Write failing test for ALL C++ settings parameters
 ```fortran
-program test_antenna_modes_namelist
-    type(antenna_settings_t) :: as
+program test_complete_cpp_parameters
+    type(settings_t) :: settings
+    integer :: ierr
     
-    ! Test reading mode pairs array
-    call read_antenna_settings_namelist("test_modes.conf", as, ierr)
-    call assert_success(ierr)
+    ! This should FAIL - not all parameters implemented yet
+    call settings_read_namelist("complete_config.conf", settings, ierr)
     
-    call assert_equal(size(as%modes), 8, ierr)  ! 4 mode pairs = 8 values
-    call assert_array_equal(as%modes, [1, 15, 2, 30, 3, 45, 4, 60], ierr)
+    ! Test EVERY SINGLE parameter from C++ implementation
+    call validate_all_antenna_parameters(settings%antenna_settings, ierr)
+    call validate_all_background_parameters(settings%background_settings, ierr)
+    call validate_all_output_parameters(settings%output_settings, ierr)
+    call validate_all_eigenmode_parameters(settings%eigmode_settings, ierr)
 end program
 ```
 
-**Task 509**: [GREEN] Implement mode array reading with proper (m,n) pair handling
-- Validate mode pairs are provided in pairs
-- Ensure dma consistency with modes array size
-- Add mode number range validation
+**Task 507**: [GREEN] Implement ALL remaining C++ parameters in namelists
+- Add every missing parameter to namelist declarations
+- Ensure exact type matching with C++ implementation  
+- Complete all assignment operations to settings structure
 
-**Task 510**: [REFACTOR] Optimize array reading performance and memory usage
-- Minimize memory allocations during reading
-- Add array size limits and validation
+**Task 508**: [RED] Write failing test for complex numbers and allocatable arrays
+```fortran
+program test_advanced_parameters
+    type(settings_t) :: settings
+    integer :: ierr
+    
+    ! This should FAIL - complex arrays not handled yet
+    call settings_read_namelist("advanced_config.conf", settings, ierr)
+    
+    call assert_complex_near(settings%antenna_settings%flab, (1.5e6_dp, 0.1e6_dp), 1.0e-12_dp, ierr)
+    call assert_equal(settings%eigmode_settings%Nguess, 3, ierr)
+    ! Complex array should be allocated and filled correctly
+    call assert_allocated(settings%eigmode_settings%fstart, ierr)
+end program
+```
+
+**Task 509**: [GREEN] Complete complex and allocatable array support
+- Handle complex number reading in (real,imag) format
+- Add allocatable array management for fstart and other dynamic arrays
+- Ensure proper allocation and assignment
+
+**Task 510**: [REFACTOR] Final validation and optimization
+- Add comprehensive parameter validation  
+- Optimize namelist reading performance
+- Add detailed error messages for all failure modes
 - Implement efficient array growth strategies
 
-#### **Task 511-515: All Settings Groups Integration (RED-GREEN-REFACTOR)**
-
-**Task 511**: [RED] Write failing test for complete settings file reading
-```fortran
-program test_complete_settings_reading
-    type(settings_t) :: sd
-    
-    ! Create comprehensive test settings file
-    call create_complete_test_settings("complete_test.conf")
-    
-    ! Should pass all settings groups
-    call read_settings_from_namelist("complete_test.conf", sd, ierr)
-    call assert_success(ierr)
-    
-    ! Verify all settings groups loaded correctly
-    call validate_antenna_settings(sd%antenna_settings, ierr)
-    call validate_background_settings(sd%background_settings, ierr)
-    call validate_output_settings(sd%output_settings, ierr)
-    call validate_eigmode_settings(sd%eigmode_settings, ierr)
-end program
-```
-
-**Task 512**: [GREEN] Implement complete settings reading integration
-- Integrate all namelist groups in single procedure
-- Ensure proper initialization order
-- Add cross-group parameter validation
-
-**Task 513**: [RED] Write failing test for optional parameters and defaults
-```fortran
-program test_optional_parameters
-    type(settings_t) :: sd
-    
-    ! Create minimal settings file with only required parameters
-    call create_minimal_test_settings("minimal_test.conf")
-    
-    call read_settings_from_namelist("minimal_test.conf", sd, ierr)
-    call assert_success(ierr)
-    
-    ! Verify defaults applied for missing parameters
-    call assert_equal(sd%antenna_settings%flag_debug, 0, ierr)  ! Default value
-    call assert_near(sd%background_settings%huge_factor, 1.0e20_dp, 1.0e-10_dp, ierr)
-end program
-```
-
-**Task 514**: [GREEN] Implement default value handling for optional parameters
-- Define comprehensive default values for all parameters
-- Apply defaults only for missing parameters
-- Maintain C++ compatibility for default values
-
-**Task 515**: [REFACTOR] Add comprehensive parameter validation and cross-checks
-- Physical parameter consistency validation
-- File path existence checks
-- Parameter range validation with physics constraints
-- Warning system for unusual but valid parameter combinations
-
-#### **Task 516-520: Zone Configuration Support (RED-GREEN-REFACTOR)**
-
-**Task 516**: [RED] Write failing test for zone configuration reading
-```fortran
-program test_zone_configuration
-    type(zone_config_t) :: zc
-    
-    call read_zone_configuration_namelist("test_zones.conf", zc, ierr)
-    call assert_success(ierr)
-    
-    call assert_equal(zc%num_zones, 3, ierr)
-    call assert_string_equal(zc%zone_types(1), "flre", ierr)
-    call assert_string_equal(zc%zone_types(2), "vacuum", ierr)
-    call assert_string_equal(zc%zone_types(3), "vacuum", ierr)
-end program
-```
-
-**Task 517**: [GREEN] Implement zone configuration data type and reading
-- Create `zone_config_t` derived type
-- Implement zone configuration namelist reading
-- Support both separate files and embedded configuration
-
-**Task 518**: [RED] Write failing test for individual zone settings reading
-```fortran
-program test_individual_zone_reading
-    type(flre_zone_settings_t) :: fzs
-    
-    call read_flre_zone_settings("zone_1_flre.conf", fzs, ierr)
-    call assert_success(ierr)
-    
-    call assert_equal(fzs%flre_order, 1, ierr)
-    call assert_equal(fzs%Nmax, 1, ierr)
-    call assert_near(fzs%D, 3.0_dp, 1.0e-10_dp, ierr)
-end program
-```
-
-**Task 519**: [GREEN] Implement individual zone settings reading for all zone types
-- FLRE zone settings with all physics parameters
-- Vacuum zone settings with conductivity
-- IMHD zone settings with MHD parameters
-- Common zone settings (boundaries, grid, accuracy)
-
-**Task 520**: [REFACTOR] Integrate zone configuration with main settings system
-- Link zone configuration to main settings structure
-- Support dynamic zone creation based on configuration
-- Add zone consistency validation and parameter checking
+**Phase 2 Complete**: All basic namelist reading functionality implemented with no shortcuts or simplifications.
 
 ### **Phase 3: Backward Compatibility and Error Handling (Tasks 521-535)**
 

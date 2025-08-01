@@ -529,6 +529,560 @@ This updated backlog optimizes the original 485 tasks by leveraging existing For
 
 ---
 
+## KiLCA Settings Namelist Implementation - TDD Backlog
+
+### **Epic: Complete Namelist-Based Settings Reading Implementation**
+
+**Priority**: CRITICAL | **Dependencies**: Existing `kilca_settings_m.f90` | **Estimated**: 120 hours
+
+This epic implements comprehensive namelist-based configuration file reading to replace the current placeholder implementations in `kilca_settings_m.f90`. The implementation must support all C++ configuration variables while providing a modern, maintainable interface.
+
+### **Phase 1: Data Type Extension and Validation (Tasks 486-500)**
+
+**Priority**: CRITICAL | **Dependencies**: None | **Estimated**: 40 hours
+
+#### **Task 486-490: Antenna Settings Data Type Enhancement (RED-GREEN-REFACTOR)**
+
+**Task 486**: [RED] Write failing test for antenna settings with all C++ variables
+```fortran
+program test_antenna_settings_complete
+    ! Test should fail initially - not all variables present
+    type(antenna_settings_t) :: as
+    
+    ! Test all required C++ variables exist
+    as%ra = 90.0_dp
+    as%wa = 0.0_dp
+    as%I0 = 1.0e13_dp
+    as%flab = (1.0e0_dp, 0.0e0_dp)
+    as%dma = 5
+    as%flag_debug = 1
+    as%flag_eigmode = 0
+    allocate(as%modes(10))  ! Should fail - modes not yet implemented
+    
+    call assert_antenna_settings_complete(as, ierr)
+end program
+```
+
+**Task 487**: [GREEN] Extend `antenna_settings_t` with all missing C++ variables
+- Add `modes` allocatable integer array
+- Ensure all variable types match C++ exactly
+- Add initialization procedures for dynamic arrays
+
+**Task 488**: [REFACTOR] Add comprehensive antenna settings validation
+- Range validation for all parameters
+- Physical reasonability checks (ra > 0, I0 > 0, etc.)
+- Array bounds validation for modes
+
+**Task 489**: [RED] Write failing test for antenna settings array operations
+```fortran
+! Test should fail initially - array operations not implemented
+call antenna_settings_set_modes(as, [1, 15, 2, 30], ierr)
+call antenna_settings_get_modes(as, modes_out, ierr)
+call assert_arrays_equal(modes_out, [1, 15, 2, 30], ierr)
+```
+
+**Task 490**: [GREEN] Implement antenna settings array management procedures
+- `antenna_settings_set_modes` procedure
+- `antenna_settings_get_modes` procedure  
+- Dynamic array resize and memory management
+
+#### **Task 491-495: Background Settings Data Type Enhancement (RED-GREEN-REFACTOR)**
+
+**Task 491**: [RED] Write failing test for background settings with all C++ variables
+```fortran
+program test_background_settings_complete
+    type(background_settings_t) :: bs
+    
+    ! Test all C++ variables from back_sett class
+    bs%rtor = 170.69_dp
+    bs%rp = 70.0_dp
+    bs%B0 = 23176.46_dp
+    bs%path2profiles = "../profiles/"
+    bs%calc_back = 1
+    bs%flag_back = "f"
+    bs%N = 9
+    bs%V_gal_sys = 1.0e9_dp      ! Should fail - not yet implemented
+    bs%V_scale = 1.0e0_dp        ! Should fail - not yet implemented
+    bs%m_i = 2.0_dp              ! Should fail - not yet implemented
+    bs%zele = 1.0e-0_dp          ! Should fail - not yet implemented
+    bs%zion = 1.0e-0_dp          ! Should fail - not yet implemented
+    bs%huge_factor = 1.0e20_dp   ! Should fail - not yet implemented
+    
+    call assert_background_settings_complete(bs, ierr)
+end program
+```
+
+**Task 492**: [GREEN] Extend `background_settings_t` with all missing C++ variables
+- Add V_gal_sys, V_scale, m_i, zele, zion, huge_factor
+- Add computed arrays: mass(2), charge(2)
+- Ensure all variable types match C++ exactly
+
+**Task 493**: [REFACTOR] Add comprehensive background settings validation
+- Physical parameter validation (rtor > rp > 0, B0 > 0, etc.)
+- Path existence validation for profiles directory
+- Spline degree validation (N must be odd)
+- Cross-parameter consistency checks
+
+**Task 494**: [RED] Write failing test for background computed values
+```fortran
+! Test should fail initially - computation not implemented
+call background_settings_compute_derived(bs, ierr)
+call assert_near(bs%mass(1), bs%m_i * PROTON_MASS, 1.0e-12_dp, ierr)
+call assert_near(bs%mass(2), ELECTRON_MASS, 1.0e-12_dp, ierr)
+call assert_near(bs%charge(1), ELEMENTARY_CHARGE, 1.0e-12_dp, ierr)
+call assert_near(bs%charge(2), -ELEMENTARY_CHARGE, 1.0e-12_dp, ierr)
+```
+
+**Task 495**: [GREEN] Implement background settings derived value computation
+- Mass computation from ion mass ratio
+- Charge computation for ion/electron pairs
+- Physical constants integration
+
+#### **Task 496-500: Output and Eigenmode Settings Data Type Enhancement (RED-GREEN-REFACTOR)**
+
+**Task 496**: [RED] Write failing test for output settings with dynamic arrays
+```fortran
+program test_output_settings_complete
+    type(output_settings_t) :: os
+    
+    os%flag_background = 2
+    os%flag_emfield = 2
+    os%flag_additional = 2
+    os%flag_dispersion = 0
+    os%flag_debug = 0
+    os%num_quants = 8
+    
+    allocate(os%flag_quants(8))  ! Should fail - not yet implemented
+    os%flag_quants = [1, 1, 1, 1, 1, 1, 1, 0]
+    
+    call assert_output_settings_complete(os, ierr)
+end program
+```
+
+**Task 497**: [GREEN] Extend `output_settings_t` with dynamic flag_quants array
+- Add allocatable integer array for quantity flags
+- Implement array size validation against num_quants
+- Add array initialization and cleanup procedures
+
+**Task 498**: [RED] Write failing test for eigenmode settings with all C++ variables
+```fortran
+program test_eigmode_settings_complete
+    type(eigmode_settings_t) :: es
+    
+    ! Test all C++ variables from eigmode_sett class
+    es%fname = "roots.dat"
+    es%search_flag = 1
+    es%rdim = 1
+    es%rfmin = 0.0e0_dp
+    es%rfmax = 1.0e6_dp
+    es%idim = 100
+    es%ifmin = 0.0e0_dp
+    es%ifmax = 2.1e5_dp
+    es%stop_flag = 1
+    es%eps_res = 1.0e-14_dp
+    es%eps_abs = 1.0e-10_dp
+    es%eps_rel = 1.0e-10_dp
+    es%delta = 1.0e-3_dp
+    es%test_roots = 0
+    es%flag_debug = 0
+    es%n_zeros = 4
+    es%use_winding = 0
+    es%Nguess = 4
+    es%kmin = 0
+    es%kmax = 3
+    
+    allocate(es%fstart(4))  ! Should fail - not yet implemented
+    es%fstart = [(1.0_dp, 0.0_dp), (2.0_dp, 0.0_dp), (3.0_dp, 0.0_dp), (4.0_dp, 0.0_dp)]
+    
+    call assert_eigmode_settings_complete(es, ierr)
+end program
+```
+
+**Task 499**: [GREEN] Extend `eigmode_settings_t` with all missing variables and fstart array
+- Add all missing C++ variables
+- Add allocatable complex array for starting points
+- Implement dynamic array management
+
+**Task 500**: [REFACTOR] Add comprehensive eigenmode settings validation
+- Frequency range validation (rfmin < rfmax, ifmin < ifmax)
+- Grid dimension validation (rdim > 0, idim > 0)
+- Tolerance validation (eps_* > 0)
+- Starting points array consistency with Nguess
+
+### **Phase 2: Namelist Reading Implementation (Tasks 501-520)**
+
+**Priority**: CRITICAL | **Dependencies**: Phase 1 | **Estimated**: 50 hours
+
+#### **Task 501-505: Core Namelist Reading Framework (RED-GREEN-REFACTOR)**
+
+**Task 501**: [RED] Write failing test for basic namelist reading
+```fortran
+program test_read_settings_namelist_basic
+    type(settings_t) :: sd
+    character(len=*), parameter :: test_file = "test_settings.conf"
+    integer :: ierr
+    
+    ! Create minimal test namelist file
+    call create_test_namelist_file(test_file)
+    
+    ! Should fail initially - namelist reading not implemented
+    call read_settings_from_namelist(test_file, sd, ierr)
+    call assert_success(ierr)
+    
+    ! Verify basic parameters read correctly
+    call assert_near(sd%antenna_settings%ra, 90.0_dp, 1.0e-10_dp, ierr)
+    call assert_near(sd%background_settings%rtor, 170.0_dp, 1.0e-10_dp, ierr)
+end program
+```
+
+**Task 502**: [GREEN] Implement basic namelist reading procedure
+- Create `read_settings_from_namelist` procedure
+- Implement file opening and basic error handling
+- Add namelist declarations for all settings groups
+
+**Task 503**: [RED] Write failing test for complex number namelist reading
+```fortran
+program test_namelist_complex_numbers
+    type(antenna_settings_t) :: as
+    
+    ! Test complex number reading from namelist
+    call read_antenna_settings_namelist("test_complex.conf", as, ierr)
+    call assert_complex_near(as%flab, (1.5e6_dp, -0.1e6_dp), 1.0e-10_dp, ierr)
+end program
+```
+
+**Task 504**: [GREEN] Implement complex number support in namelist reading
+- Ensure complex numbers read correctly in (real, imag) format
+- Add validation for complex parameter ranges
+- Test with various complex number formats
+
+**Task 505**: [REFACTOR] Add comprehensive error handling for namelist reading
+- File not found errors with helpful messages
+- Namelist syntax error handling with line numbers
+- Parameter type mismatch error reporting
+- Missing required parameter detection
+
+#### **Task 506-510: Array Parameter Support (RED-GREEN-REFACTOR)**
+
+**Task 506**: [RED] Write failing test for array parameter reading
+```fortran
+program test_namelist_arrays
+    type(output_settings_t) :: os
+    
+    ! Should fail initially - array reading not implemented
+    call read_output_settings_namelist("test_arrays.conf", os, ierr)
+    call assert_success(ierr)
+    
+    call assert_array_equal(os%flag_quants, [1, 1, 1, 1, 1, 1, 1, 0], ierr)
+end program
+```
+
+**Task 507**: [GREEN] Implement array parameter support in namelist reading
+- Dynamic allocation of arrays based on namelist input
+- Support for variable-length arrays
+- Proper memory management for allocatable arrays
+
+**Task 508**: [RED] Write failing test for antenna modes array reading
+```fortran
+program test_antenna_modes_namelist
+    type(antenna_settings_t) :: as
+    
+    ! Test reading mode pairs array
+    call read_antenna_settings_namelist("test_modes.conf", as, ierr)
+    call assert_success(ierr)
+    
+    call assert_equal(size(as%modes), 8, ierr)  ! 4 mode pairs = 8 values
+    call assert_array_equal(as%modes, [1, 15, 2, 30, 3, 45, 4, 60], ierr)
+end program
+```
+
+**Task 509**: [GREEN] Implement mode array reading with proper (m,n) pair handling
+- Validate mode pairs are provided in pairs
+- Ensure dma consistency with modes array size
+- Add mode number range validation
+
+**Task 510**: [REFACTOR] Optimize array reading performance and memory usage
+- Minimize memory allocations during reading
+- Add array size limits and validation
+- Implement efficient array growth strategies
+
+#### **Task 511-515: All Settings Groups Integration (RED-GREEN-REFACTOR)**
+
+**Task 511**: [RED] Write failing test for complete settings file reading
+```fortran
+program test_complete_settings_reading
+    type(settings_t) :: sd
+    
+    ! Create comprehensive test settings file
+    call create_complete_test_settings("complete_test.conf")
+    
+    ! Should pass all settings groups
+    call read_settings_from_namelist("complete_test.conf", sd, ierr)
+    call assert_success(ierr)
+    
+    ! Verify all settings groups loaded correctly
+    call validate_antenna_settings(sd%antenna_settings, ierr)
+    call validate_background_settings(sd%background_settings, ierr)
+    call validate_output_settings(sd%output_settings, ierr)
+    call validate_eigmode_settings(sd%eigmode_settings, ierr)
+end program
+```
+
+**Task 512**: [GREEN] Implement complete settings reading integration
+- Integrate all namelist groups in single procedure
+- Ensure proper initialization order
+- Add cross-group parameter validation
+
+**Task 513**: [RED] Write failing test for optional parameters and defaults
+```fortran
+program test_optional_parameters
+    type(settings_t) :: sd
+    
+    ! Create minimal settings file with only required parameters
+    call create_minimal_test_settings("minimal_test.conf")
+    
+    call read_settings_from_namelist("minimal_test.conf", sd, ierr)
+    call assert_success(ierr)
+    
+    ! Verify defaults applied for missing parameters
+    call assert_equal(sd%antenna_settings%flag_debug, 0, ierr)  ! Default value
+    call assert_near(sd%background_settings%huge_factor, 1.0e20_dp, 1.0e-10_dp, ierr)
+end program
+```
+
+**Task 514**: [GREEN] Implement default value handling for optional parameters
+- Define comprehensive default values for all parameters
+- Apply defaults only for missing parameters
+- Maintain C++ compatibility for default values
+
+**Task 515**: [REFACTOR] Add comprehensive parameter validation and cross-checks
+- Physical parameter consistency validation
+- File path existence checks
+- Parameter range validation with physics constraints
+- Warning system for unusual but valid parameter combinations
+
+#### **Task 516-520: Zone Configuration Support (RED-GREEN-REFACTOR)**
+
+**Task 516**: [RED] Write failing test for zone configuration reading
+```fortran
+program test_zone_configuration
+    type(zone_config_t) :: zc
+    
+    call read_zone_configuration_namelist("test_zones.conf", zc, ierr)
+    call assert_success(ierr)
+    
+    call assert_equal(zc%num_zones, 3, ierr)
+    call assert_string_equal(zc%zone_types(1), "flre", ierr)
+    call assert_string_equal(zc%zone_types(2), "vacuum", ierr)
+    call assert_string_equal(zc%zone_types(3), "vacuum", ierr)
+end program
+```
+
+**Task 517**: [GREEN] Implement zone configuration data type and reading
+- Create `zone_config_t` derived type
+- Implement zone configuration namelist reading
+- Support both separate files and embedded configuration
+
+**Task 518**: [RED] Write failing test for individual zone settings reading
+```fortran
+program test_individual_zone_reading
+    type(flre_zone_settings_t) :: fzs
+    
+    call read_flre_zone_settings("zone_1_flre.conf", fzs, ierr)
+    call assert_success(ierr)
+    
+    call assert_equal(fzs%flre_order, 1, ierr)
+    call assert_equal(fzs%Nmax, 1, ierr)
+    call assert_near(fzs%D, 3.0_dp, 1.0e-10_dp, ierr)
+end program
+```
+
+**Task 519**: [GREEN] Implement individual zone settings reading for all zone types
+- FLRE zone settings with all physics parameters
+- Vacuum zone settings with conductivity
+- IMHD zone settings with MHD parameters
+- Common zone settings (boundaries, grid, accuracy)
+
+**Task 520**: [REFACTOR] Integrate zone configuration with main settings system
+- Link zone configuration to main settings structure
+- Support dynamic zone creation based on configuration
+- Add zone consistency validation and parameter checking
+
+### **Phase 3: Backward Compatibility and Error Handling (Tasks 521-535)**
+
+**Priority**: HIGH | **Dependencies**: Phase 2 | **Estimated**: 30 hours
+
+#### **Task 521-525: Legacy Format Support (RED-GREEN-REFACTOR)**
+
+**Task 521**: [RED] Write failing test for automatic format detection
+```fortran
+program test_auto_format_detection
+    type(settings_t) :: sd
+    character(len=*), parameter :: test_path = "./test_project/"
+    
+    ! Test with namelist format present
+    call create_namelist_settings(test_path // "settings.conf")
+    call read_settings_auto_detect(test_path, sd, ierr)
+    call assert_success(ierr)
+    call assert_equal(sd%format_used, NAMELIST_FORMAT, ierr)
+    
+    ! Test with legacy format fallback
+    call remove_file(test_path // "settings.conf")
+    call create_legacy_settings(test_path)
+    call read_settings_auto_detect(test_path, sd, ierr)
+    call assert_success(ierr)
+    call assert_equal(sd%format_used, LEGACY_FORMAT, ierr)
+end program
+```
+
+**Task 522**: [GREEN] Implement automatic format detection logic
+- Check for settings.conf existence
+- Fall back to legacy *.in files if needed
+- Add format indication to settings structure
+
+**Task 523**: [RED] Write failing test for legacy format reading compatibility
+```fortran
+program test_legacy_format_compatibility
+    type(settings_t) :: sd_namelist, sd_legacy
+    
+    ! Read same configuration in both formats
+    call read_settings_from_namelist("settings.conf", sd_namelist, ierr)
+    call read_settings_legacy_format("./legacy/", sd_legacy, ierr)
+    
+    ! Results should be identical
+    call assert_settings_equal(sd_namelist, sd_legacy, ierr)
+end program
+```
+
+**Task 524**: [GREEN] Implement legacy format reading for backward compatibility
+- Read antenna.in, background.in, output.in, eigmode.in
+- Support existing C++ file parsing logic
+- Maintain exact compatibility with current format
+
+**Task 525**: [REFACTOR] Add format conversion and migration utilities
+- Utility to convert legacy files to namelist format
+- Parameter comparison between formats
+- Migration guidance and validation tools
+
+#### **Task 526-530: Comprehensive Error Handling (RED-GREEN-REFACTOR)**
+
+**Task 526**: [RED] Write failing test for malformed namelist handling
+```fortran
+program test_malformed_namelist_errors
+    type(settings_t) :: sd
+    
+    ! Test various malformed inputs
+    call write_malformed_namelist("bad_syntax.conf", "missing_slash")
+    call read_settings_from_namelist("bad_syntax.conf", sd, ierr)
+    call assert_error_code(ierr, KILCA_ERROR_NAMELIST_SYNTAX, ierr)
+    
+    call write_malformed_namelist("bad_type.conf", "wrong_type")
+    call read_settings_from_namelist("bad_type.conf", sd, ierr)
+    call assert_error_code(ierr, KILCA_ERROR_TYPE_MISMATCH, ierr)
+end program
+```
+
+**Task 527**: [GREEN] Implement comprehensive error handling for all error cases
+- Detailed error codes for different failure modes
+- Line number reporting for syntax errors
+- Parameter name reporting for type mismatches
+- Helpful error messages with correction suggestions
+
+**Task 528**: [RED] Write failing test for parameter validation errors
+```fortran
+program test_parameter_validation_errors
+    type(settings_t) :: sd
+    
+    call create_invalid_parameter_settings("invalid.conf", "negative_radius")
+    call read_settings_from_namelist("invalid.conf", sd, ierr)
+    call assert_error_code(ierr, KILCA_ERROR_INVALID_PARAMETER, ierr)
+    call assert_error_contains_message("radius must be positive", ierr)
+end program
+```
+
+**Task 529**: [GREEN] Implement parameter validation with specific error messages
+- Range validation for all physical parameters
+- Cross-parameter consistency checks
+- File existence validation for paths
+- Array size consistency validation
+
+**Task 530**: [REFACTOR] Add error recovery and partial settings loading
+- Continue reading after non-critical errors
+- Provide partial results with error indicators
+- Add warning system for questionable but valid parameters
+
+#### **Task 531-535: Integration and Documentation (RED-GREEN-REFACTOR)**
+
+**Task 531**: [RED] Write failing test for settings module integration
+```fortran
+program test_settings_module_integration
+    type(settings_t) :: sd
+    
+    ! Test integration with existing kilca_settings_m procedures
+    call settings_create(sd, "./test_project/", ierr)
+    call assert_success(ierr)
+    
+    ! Verify backward compatibility with existing interfaces
+    call back_sett_read_settings(sd%background_settings, "./test_project/", ierr)
+    call assert_success(ierr)
+end program
+```
+
+**Task 532**: [GREEN] Update existing settings procedures to use namelist reading
+- Modify `back_sett_read_settings` to use namelist internally
+- Update `antenna_read_settings` to use namelist internally
+- Maintain exact interface compatibility
+
+**Task 533**: [RED] Write failing test for complete workflow integration
+```fortran
+program test_complete_workflow_integration
+    type(core_data_t) :: cd
+    
+    ! Test complete KiLCA workflow with new settings system
+    call core_data_create(cd, "./test_project/", ierr)
+    call assert_success(ierr)
+    
+    call calc_and_set_mode_independent_core_data(cd, ierr)
+    call assert_success(ierr)
+    
+    ! Verify calculations produce same results as legacy format
+    call validate_core_data_results(cd, ierr)
+end program
+```
+
+**Task 534**: [GREEN] Ensure complete workflow compatibility
+- Test with kilca_main program
+- Verify results match C++ implementation exactly
+- Test with various configuration combinations
+
+**Task 535**: [REFACTOR] Add comprehensive documentation and examples
+- Document namelist format specification
+- Create example settings.conf files
+- Add migration guide from legacy format
+- Document all validation rules and error codes
+
+### **Summary**
+
+**Total Tasks**: 50 (Tasks 486-535)
+**Total Estimated Time**: 120 hours
+**Success Criteria**:
+- [ ] All C++ configuration variables supported in namelist format
+- [ ] Backward compatibility with existing *.in file format
+- [ ] Comprehensive error handling with helpful messages  
+- [ ] Complete test coverage with >95% pass rate
+- [ ] Full integration with existing KiLCA Fortran workflow
+- [ ] Performance equivalent or better than manual parsing
+- [ ] Documentation and examples for all features
+
+**Testing Strategy**: RED-GREEN-REFACTOR TDD methodology throughout
+- RED: Write failing tests that define required behavior exactly
+- GREEN: Implement minimal code to make tests pass  
+- REFACTOR: Improve code quality while maintaining test passage
+
+**Quality Assurance**: No shortcuts, no simplifications - complete implementation of all C++ configuration features with modern Fortran practices.
+
+---
+
 ## SUMMARY OF OPTIMIZATIONS
 
 ### Tasks Eliminated or Simplified:

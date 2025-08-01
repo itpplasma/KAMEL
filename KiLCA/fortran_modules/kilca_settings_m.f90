@@ -3444,27 +3444,36 @@ contains
         ! Local variables matching namelist exactly - antenna
         real(dp) :: ra, wa, I0
         complex(dp) :: flab
-        integer :: dma, flag_debug_ant
+        integer :: dma, flag_debug_ant, flag_eigmode
+        integer, dimension(20) :: modes           ! Fixed size for namelist reading
         
         ! Local variables matching namelist exactly - background
-        real(dp) :: rtor, rp, B0, V_gal_sys, m_i
-        integer :: calc_back, flag_debug_bg
+        real(dp) :: rtor, rp, B0, V_gal_sys, m_i, V_scale, zele, zion
+        integer :: calc_back, flag_debug_bg, N
+        character(len=256) :: path2profiles, flag_back
         real(dp), dimension(10) :: mass, charge  ! Fixed size for namelist reading
         
         ! Local variables matching namelist exactly - output
         integer :: flag_background, flag_emfield, flag_additional, flag_dispersion
-        integer :: num_quants
+        integer :: num_quants, flag_debug_out
         integer, dimension(20) :: flag_quants     ! Fixed size for namelist reading
         
         ! Local variables matching namelist exactly - eigenmode
-        integer :: search_flag, rdim, idim
-        real(dp) :: rfmin, rfmax, ifmin, ifmax
+        character(len=256) :: fname
+        integer :: search_flag, rdim, idim, stop_flag, test_roots, flag_debug_eig
+        integer :: Nguess, kmin, kmax, n_zeros, use_winding
+        real(dp) :: rfmin, rfmax, ifmin, ifmax, eps_res, eps_abs, eps_rel, delta
+        complex(dp), dimension(10) :: fstart      ! Fixed size for namelist reading
         
         ! Direct namelist declarations - simple and clean
-        namelist /antenna/ ra, wa, I0, flab, dma, flag_debug_ant
-        namelist /background/ rtor, rp, B0, V_gal_sys, m_i, calc_back, flag_debug_bg, mass, charge
-        namelist /output/ flag_background, flag_emfield, flag_additional, flag_dispersion, num_quants, flag_quants
-        namelist /eigenmode/ search_flag, rdim, idim, rfmin, rfmax, ifmin, ifmax
+        namelist /antenna/ ra, wa, I0, flab, dma, flag_debug_ant, flag_eigmode, modes
+        namelist /background/ rtor, rp, B0, V_gal_sys, m_i, calc_back, flag_debug_bg, mass, charge, &
+                              path2profiles, flag_back, N, V_scale, zele, zion
+        namelist /output/ flag_background, flag_emfield, flag_additional, flag_dispersion, num_quants, &
+                          flag_quants, flag_debug_out
+        namelist /eigenmode/ fname, search_flag, rdim, idim, rfmin, rfmax, ifmin, ifmax, stop_flag, &
+                             eps_res, eps_abs, eps_rel, delta, test_roots, flag_debug_eig, &
+                             Nguess, kmin, kmax, n_zeros, use_winding, fstart
         
         ierr = KILCA_SUCCESS
         
@@ -3522,6 +3531,14 @@ contains
         settings%antenna_settings%flab = flab
         settings%antenna_settings%dma = dma
         settings%antenna_settings%flag_debug = flag_debug_ant
+        settings%antenna_settings%flag_eigmode = flag_eigmode
+        
+        ! Antenna modes array - allocate and copy
+        if (allocated(settings%antenna_settings%modes)) then
+            deallocate(settings%antenna_settings%modes)
+        end if
+        allocate(settings%antenna_settings%modes(dma * 2))  ! dma pairs of (m,n)
+        settings%antenna_settings%modes(1:dma*2) = modes(1:dma*2)
         
         ! Background settings
         settings%background_settings%rtor = rtor
@@ -3531,6 +3548,21 @@ contains
         settings%background_settings%m_i = m_i
         settings%background_settings%calc_back = calc_back
         settings%background_settings%flag_debug = flag_debug_bg
+        settings%background_settings%N = N
+        settings%background_settings%V_scale = V_scale
+        settings%background_settings%zele = zele
+        settings%background_settings%zion = zion
+        
+        ! Background string parameters - allocate and copy
+        if (allocated(settings%background_settings%path2profiles)) then
+            deallocate(settings%background_settings%path2profiles)
+        end if
+        settings%background_settings%path2profiles = trim(adjustl(path2profiles))
+        
+        if (allocated(settings%background_settings%flag_back)) then
+            deallocate(settings%background_settings%flag_back)
+        end if
+        settings%background_settings%flag_back = trim(adjustl(flag_back))
         
         ! Background arrays - allocate and copy from namelist arrays
         if (allocated(settings%background_settings%mass)) then
@@ -3551,6 +3583,7 @@ contains
         settings%output_settings%flag_additional = flag_additional
         settings%output_settings%flag_dispersion = flag_dispersion
         settings%output_settings%num_quants = num_quants
+        settings%output_settings%flag_debug = flag_debug_out
         
         ! Output arrays - allocate and copy from namelist arrays
         if (allocated(settings%output_settings%flag_quants)) then
@@ -3567,6 +3600,31 @@ contains
         settings%eigmode_settings%rfmax = rfmax
         settings%eigmode_settings%ifmin = ifmin
         settings%eigmode_settings%ifmax = ifmax
+        settings%eigmode_settings%stop_flag = stop_flag
+        settings%eigmode_settings%eps_res = eps_res
+        settings%eigmode_settings%eps_abs = eps_abs
+        settings%eigmode_settings%eps_rel = eps_rel
+        settings%eigmode_settings%delta = delta
+        settings%eigmode_settings%test_roots = test_roots
+        settings%eigmode_settings%flag_debug = flag_debug_eig
+        settings%eigmode_settings%Nguess = Nguess
+        settings%eigmode_settings%kmin = kmin
+        settings%eigmode_settings%kmax = kmax
+        settings%eigmode_settings%n_zeros = n_zeros
+        settings%eigmode_settings%use_winding = use_winding
+        
+        ! Eigenmode string parameter - allocate and copy
+        if (allocated(settings%eigmode_settings%fname)) then
+            deallocate(settings%eigmode_settings%fname)
+        end if
+        settings%eigmode_settings%fname = trim(adjustl(fname))
+        
+        ! Eigenmode complex array - allocate and copy
+        if (allocated(settings%eigmode_settings%fstart)) then
+            deallocate(settings%eigmode_settings%fstart)
+        end if
+        allocate(settings%eigmode_settings%fstart(Nguess))
+        settings%eigmode_settings%fstart(1:Nguess) = fstart(1:Nguess)
         
         ! Parameter range validation
         call validate_namelist_parameters(settings, ierr)

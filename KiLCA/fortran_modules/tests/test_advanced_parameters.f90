@@ -262,7 +262,9 @@ contains
         write(unit, '(a)') "  n_zeros = 10"
         write(unit, '(a)') "  use_winding = 0"
         ! Large complex array with edge cases: zero, pure imaginary, negative values
-        write(unit, '(a)') "  fstart = (0.0, 0.0), (0.0, 1.0e9), (-5.5e6, -2.2e5), (1.0e6, 0.0), (2.0e6, 1.0e5), (3.0e6, 2.0e5), (4.0e6, 3.0e5), (5.0e6, 4.0e5), (6.0e6, 5.0e5), (7.0e6, -1.0e5), (8.0e6, -2.0e5), (9.0e6, -3.0e5), (1.0e7, -4.0e5), (1.1e7, -5.0e5), (1.2e7, 0.0)"
+        write(unit, '(a)') "  fstart = (0.0, 0.0), (0.0, 1.0e9), (-5.5e6, -2.2e5), (1.0e6, 0.0), (2.0e6, 1.0e5), " // &
+                           "(3.0e6, 2.0e5), (4.0e6, 3.0e5), (5.0e6, 4.0e5), (6.0e6, 5.0e5), (7.0e6, -1.0e5), " // &  
+                           "(8.0e6, -2.0e5), (9.0e6, -3.0e5), (1.0e7, -4.0e5), (1.1e7, -5.0e5), (1.2e7, 0.0)"
         write(unit, '(a)') "/"
         
         close(unit)

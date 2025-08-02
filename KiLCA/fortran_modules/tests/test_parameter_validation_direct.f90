@@ -46,7 +46,8 @@ contains
         if (validation_error == KILCA_SUCCESS) then
             print *, "PASS: Physics constraint validation function exists and runs"
         else
-            print *, "INFO: Physics constraint validation detected issues (expected for uninitialized settings), error:", validation_error
+            print *, "INFO: Physics constraint validation detected issues " // &
+                     "(expected for uninitialized settings), error:", validation_error
         end if
         
         ! Test 2: Test with manually set valid values

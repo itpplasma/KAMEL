@@ -1,5 +1,5 @@
 program test_settings_module_integration
-    use kilca_types_m, only: dp, KILCA_SUCCESS
+    use kilca_types_m, only: dp, KILCA_SUCCESS, NAMELIST_FORMAT
     use kilca_settings_m, only: settings_t, settings_create, &
                                 back_sett_read_settings, &
                                 antenna_read_settings, &
@@ -8,7 +8,7 @@ program test_settings_module_integration
                                 settings_integrate_namelist_backend
     implicit none
     
-    type(settings_t) :: sd
+    type(settings_t), pointer :: sd => null()
     character(len=*), parameter :: test_path = "./test_project/"
     integer :: ierr
     integer :: test_status = 0
@@ -113,7 +113,7 @@ contains
     
     !> Test that namelist and legacy formats produce identical results
     subroutine test_format_equivalence()
-        type(settings_t) :: sd_namelist, sd_legacy
+        type(settings_t), pointer :: sd_namelist => null(), sd_legacy => null()
         
         ! Read with namelist format
         call settings_integrate_namelist_backend(.true.)
@@ -145,7 +145,7 @@ contains
         real :: start_time, end_time
         real :: namelist_time, legacy_time
         integer :: i
-        type(settings_t) :: sd_temp
+        type(settings_t), pointer :: sd_temp => null()
         
         ! Measure namelist performance
         call settings_integrate_namelist_backend(.true.)

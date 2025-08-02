@@ -10,6 +10,9 @@ module kilca_settings_m
     implicit none
     private
     
+    ! Module-level flag for namelist backend integration
+    logical :: use_namelist_backend_global = .false.
+    
     ! =========================================================================
     ! Antenna Settings Type (from antenna.h)
     ! =========================================================================
@@ -51,6 +54,7 @@ module kilca_settings_m
         real(dp) :: rtor = 0.0_dp         !< Big torus radius (cm) of the machine
         real(dp) :: rp = 0.0_dp           !< Plasma radius (cm)
         real(dp) :: B0 = 0.0_dp           !< Toroidal magnetic field (G) at the center
+        integer :: format_used = 0        !< Format used to read settings (NAMELIST_FORMAT or LEGACY_FORMAT)
         
         !> Background field and plasma settings
         character(len=:), allocatable :: path2profiles    !< Path to input background profiles
@@ -274,6 +278,9 @@ module kilca_settings_m
     public :: settings_get_warning_count
     public :: settings_get_warnings
     public :: settings_validate_with_warnings
+    public :: output_read_settings
+    public :: eigmode_read_settings
+    public :: settings_integrate_namelist_backend
     public :: antenna_read_settings_with_error_context
     public :: settings_test_allocation_failure
     public :: settings_log_error
@@ -531,22 +538,22 @@ contains
         
         print *, ">>>>> Reading settings from ", trim(sd%path2project)
         
-        ! Read antenna settings
+        ! Read antenna settings (using integration-aware function)
         call antenna_read_settings(sd%antenna_settings, sd%path2project, ierr)
         if (ierr /= KILCA_SUCCESS) return
         call copy_antenna_data_to_antenna_module(sd%as)
         
-        ! Read background settings
+        ! Read background settings (using integration-aware function)
         call back_sett_read_settings(sd%background_settings, sd%path2project, ierr)
         if (ierr /= KILCA_SUCCESS) return
         call copy_background_data_to_background_module(sd%bs)
         
-        ! Read output settings
-        call output_sett_read_settings(sd%output_settings, sd%path2project, ierr)
+        ! Read output settings (using integration-aware function)
+        call output_read_settings(sd%output_settings, sd%path2project, ierr)
         if (ierr /= KILCA_SUCCESS) return
         
-        ! Read eigenmode settings
-        call eigmode_sett_read_settings(sd%eigmode_settings, sd%path2project, ierr)
+        ! Read eigenmode settings (using integration-aware function)
+        call eigmode_read_settings(sd%eigmode_settings, sd%path2project, ierr)
         
     end subroutine settings_read_all
     
@@ -714,10 +721,22 @@ contains
         character(len=MAX_PATH_LEN) :: filename
         logical :: file_exists
         integer :: unit, iostat
+        type(settings_t) :: full_settings
+        character(len=256) :: error_msg
         
         ierr = KILCA_SUCCESS
         
-        ! Construct filename
+        ! Check if global namelist backend is enabled
+        if (use_namelist_backend_global) then
+            filename = trim(path) // "settings.conf"
+            call settings_read_namelist(filename, full_settings, ierr)
+            if (ierr == KILCA_SUCCESS) then
+                ant = full_settings%antenna_settings
+                return
+            end if
+        end if
+        
+        ! Fall back to legacy format
         filename = trim(path) // "antenna.in"
         
         ! Check if file exists
@@ -727,16 +746,9 @@ contains
             return
         end if
         
-        ! Open and read file (simplified - real implementation would parse properly)
-        open(newunit=unit, file=filename, status='old', iostat=iostat)
-        if (iostat /= 0) then
-            ierr = KILCA_ERROR_FILE
-            return
-        end if
-        
-        ! Read parameters (placeholder - actual parsing would go here)
-        ! For now, just close the file
-        close(unit)
+        ! Read using legacy format
+        error_msg = ""
+        call read_legacy_antenna(path, ant, ierr, error_msg)
         
     end subroutine antenna_read_settings
     
@@ -968,13 +980,29 @@ contains
         integer, intent(out) :: ierr
         
         character(len=MAX_PATH_LEN) :: filename
+        type(settings_t) :: full_settings
+        character(len=256) :: error_msg
         
         ierr = KILCA_SUCCESS
         
-        ! Construct filename
-        filename = trim(path) // "background.in"
+        ! Check if global namelist backend is enabled
+        if (use_namelist_backend_global) then
+            filename = trim(path) // "settings.conf"
+            call settings_read_namelist(filename, full_settings, ierr)
+            if (ierr == KILCA_SUCCESS) then
+                bs = full_settings%background_settings
+                bs%format_used = NAMELIST_FORMAT
+                return
+            end if
+        end if
         
-        ! Placeholder for actual file reading
+        ! Fall back to legacy format
+        filename = trim(path) // "background.in"
+        error_msg = ""
+        call read_legacy_background(path, bs, ierr, error_msg)
+        if (ierr == KILCA_SUCCESS) then
+            bs%format_used = LEGACY_FORMAT
+        end if
         
     end subroutine back_sett_read_settings
     
@@ -1201,18 +1229,18 @@ contains
     
     !> @brief Read output settings from file
     subroutine output_sett_read_settings(os, path, ierr)
-        type(output_sett_t), intent(inout) :: os  ! NOTE: os kept for interface compatibility
+        type(output_sett_t), intent(inout) :: os
         character(len=*), intent(in) :: path
         integer, intent(out) :: ierr
         
-        character(len=MAX_PATH_LEN) :: filename
+        character(len=256) :: error_msg
         
-        ierr = KILCA_SUCCESS
+        ! Use the actual legacy reader implementation
+        call read_legacy_output(path, os, ierr, error_msg)
         
-        ! Construct filename
-        filename = trim(path) // "output.in"
-        
-        ! Placeholder for actual file reading
+        if (ierr /= KILCA_SUCCESS) then
+            print *, "Error reading output settings: ", trim(error_msg)
+        end if
         
     end subroutine output_sett_read_settings
     
@@ -1364,18 +1392,18 @@ contains
     
     !> @brief Read eigenmode settings from file
     subroutine eigmode_sett_read_settings(es, path, ierr)
-        type(eigmode_sett_t), intent(inout) :: es  ! NOTE: es kept for interface compatibility
+        type(eigmode_sett_t), intent(inout) :: es
         character(len=*), intent(in) :: path
         integer, intent(out) :: ierr
         
-        character(len=MAX_PATH_LEN) :: filename
+        character(len=256) :: error_msg
         
-        ierr = KILCA_SUCCESS
+        ! Use the actual legacy reader implementation
+        call read_legacy_eigenmode(path, es, ierr, error_msg)
         
-        ! Construct filename
-        filename = trim(path) // "eigmode.in"
-        
-        ! Placeholder for actual file reading
+        if (ierr /= KILCA_SUCCESS) then
+            print *, "Error reading eigenmode settings: ", trim(error_msg)
+        end if
         
     end subroutine eigmode_sett_read_settings
     
@@ -4045,7 +4073,7 @@ contains
         if (file_exists .and. file_readable) then
             format_result = NAMELIST_FORMAT
             settings%format_used = NAMELIST_FORMAT
-            call settings_read_namelist(test_file, settings, ierr)
+            call settings_read_namelist_old(test_file, settings, ierr)
             if (ierr /= KILCA_SUCCESS) then
                 error_msg = "Namelist file exists but reading failed"
             end if
@@ -5499,4 +5527,65 @@ contains
         
     end subroutine settings_validate_with_warnings
     
+    !> @brief Read output settings (for integration compatibility)
+    subroutine output_read_settings(output, path, ierr)
+        type(output_sett_t), intent(inout) :: output
+        character(len=*), intent(in) :: path
+        integer, intent(out) :: ierr
+        
+        character(len=1024) :: filename
+        type(settings_t) :: full_settings
+        character(len=256) :: error_msg
+        
+        ! Check if global namelist backend is enabled
+        if (use_namelist_backend_global) then
+            filename = trim(path) // "settings.conf"
+            call settings_read_namelist(filename, full_settings, ierr)
+            if (ierr == KILCA_SUCCESS) then
+                output = full_settings%output_settings
+                return
+            end if
+        end if
+        
+        ! Fall back to legacy format
+        filename = trim(path) // "output.in"
+        error_msg = ""
+        call read_legacy_output(path, output, ierr, error_msg)
+        
+    end subroutine output_read_settings
+    
+    !> @brief Read eigenmode settings (for integration compatibility)
+    subroutine eigmode_read_settings(eigmode, path, ierr)
+        type(eigmode_sett_t), intent(inout) :: eigmode
+        character(len=*), intent(in) :: path
+        integer, intent(out) :: ierr
+        
+        character(len=1024) :: filename
+        type(settings_t) :: full_settings
+        character(len=256) :: error_msg
+        
+        ! Check if global namelist backend is enabled
+        if (use_namelist_backend_global) then
+            filename = trim(path) // "settings.conf"
+            call settings_read_namelist(filename, full_settings, ierr)
+            if (ierr == KILCA_SUCCESS) then
+                eigmode = full_settings%eigmode_settings
+                return
+            end if
+        end if
+        
+        ! Fall back to legacy format
+        filename = trim(path) // "eigenmode.in"
+        error_msg = ""
+        call read_legacy_eigenmode(path, eigmode, ierr, error_msg)
+        
+    end subroutine eigmode_read_settings
+    
+    !> @brief Enable/disable global namelist backend
+    subroutine settings_integrate_namelist_backend(enable)
+        logical, intent(in) :: enable
+        use_namelist_backend_global = enable
+    end subroutine settings_integrate_namelist_backend
+    
+
 end module kilca_settings_m

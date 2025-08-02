@@ -311,7 +311,7 @@ contains
         type(background_t), intent(inout) :: bg
         integer, intent(out) :: ierr
         
-        integer :: i, offset
+        integer :: i, j, k, offset
         
         ierr = 0
         
@@ -335,8 +335,23 @@ contains
             call spline_calc_coefficients(bg%spline, bg%y(offset:offset+bg%dimx-1), ierr)
             if (ierr /= 0) return
             
-            ! Store coefficients (simplified - would need proper storage)
-            bg%C((i-1)*bg%dimx*4+1:i*bg%dimx*4) = 0.0_real64  ! Placeholder
+            ! Store coefficients from spline structure
+            ! For cubic splines (N=3), we have 4 coefficients per interval
+            ! The spline%C matrix contains these coefficients
+            if (associated(bg%spline%C)) then
+                ! Copy coefficients from spline structure
+                ! spline%C is (dimx, 4) for cubic splines
+                do j = 1, bg%dimx
+                    do k = 1, 4
+                        bg%C((i-1)*bg%dimx*4 + (j-1)*4 + k) = bg%spline%C(j, k)
+                    end do
+                end do
+            else
+                ! Fallback if spline coefficients not available
+                bg%C((i-1)*bg%dimx*4+1:i*bg%dimx*4) = 0.0_real64
+                ierr = -1
+                print *, "Warning: Spline coefficients not calculated properly for profile", i
+            end if
         end do
         
     end subroutine background_spline_profiles

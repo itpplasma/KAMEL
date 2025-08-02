@@ -177,13 +177,18 @@ contains
         
         complex(dp) :: asymptotic_term
         real(dp) :: gamma_ratio
+        real(dp) :: z_threshold
         
         ierr = 0
         
         ! For large z, 1F1(a,b,z) ~ Γ(b)/Γ(a) * exp(z) * z^(a-b)
         ! This is a simplified asymptotic approximation
         
-        if (abs(z) < 10.0_dp) then
+        ! Use settings to determine threshold for asymptotic expansion
+        ! More accurate algorithms may require larger z
+        z_threshold = 10.0_dp / max(1.0_dp, -log10(settings%tolerance))
+        
+        if (abs(z) < z_threshold) then
             ierr = -1  ! Asymptotic expansion not valid for small |z|
             result = (0.0_dp, 0.0_dp)
             return

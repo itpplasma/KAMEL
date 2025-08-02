@@ -1,5 +1,6 @@
 module kilca_solver_m
     use iso_fortran_env, only: real64, int32, error_unit
+    use, intrinsic :: ieee_arithmetic, only: ieee_is_nan
     use kilca_types_m
     use kilca_orthogonalization_m  ! For QR decomposition
     use kilca_bdf_solver_m         ! For BDF solver
@@ -393,7 +394,7 @@ contains
     end subroutine solver_integrate_basis_vectors_bdf
     
     !---------------------------------------------------------------------------
-    ! RK4 implementation (keeping existing code for compatibility)
+    ! RK4 implementation - Classical 4th order Runge-Kutta method
     !---------------------------------------------------------------------------
     subroutine solver_integrate_ode_rk4(settings, neq, y0, r_start, r_end, &
                                        rhs_func, y_final, ierr)
@@ -405,11 +406,71 @@ contains
         real(real64), intent(out) :: y_final(neq)
         integer, intent(out) :: ierr
         
-        ! ... existing RK4 implementation ...
-        ! (This would be the existing RK4 code)
+        ! Local variables
+        real(real64), allocatable :: y(:), k1(:), k2(:), k3(:), k4(:), y_temp(:)
+        real(real64) :: r, h, h_half, h_sixth
+        integer :: n_steps, i, step
         
         ierr = 0
-        y_final = y0  ! Placeholder
+        
+        ! Allocate work arrays
+        allocate(y(neq), k1(neq), k2(neq), k3(neq), k4(neq), y_temp(neq))
+        
+        ! Calculate step size based on relative tolerance
+        n_steps = max(100, int(abs(r_end - r_start) / (settings%eps_rel * 0.1_real64)))
+        n_steps = min(n_steps, MAX_STEPS)
+        h = (r_end - r_start) / real(n_steps, real64)
+        h_half = 0.5_real64 * h
+        h_sixth = h / 6.0_real64
+        
+        ! Initialize
+        y = y0
+        r = r_start
+        
+        ! Main RK4 integration loop
+        do step = 1, n_steps
+            ! k1 = f(r, y)
+            call rhs_func(neq, r, y, k1)
+            
+            ! k2 = f(r + h/2, y + h/2 * k1)
+            y_temp = y + h_half * k1
+            call rhs_func(neq, r + h_half, y_temp, k2)
+            
+            ! k3 = f(r + h/2, y + h/2 * k2)
+            y_temp = y + h_half * k2
+            call rhs_func(neq, r + h_half, y_temp, k3)
+            
+            ! k4 = f(r + h, y + h * k3)
+            y_temp = y + h * k3
+            call rhs_func(neq, r + h, y_temp, k4)
+            
+            ! Update solution: y = y + h/6 * (k1 + 2*k2 + 2*k3 + k4)
+            y = y + h_sixth * (k1 + 2.0_real64*k2 + 2.0_real64*k3 + k4)
+            
+            ! Update position
+            r = r + h
+            
+            ! Check for NaN or overflow
+            do i = 1, neq
+                if (ieee_is_nan(y(i)) .or. abs(y(i)) > huge(1.0_real64) * 0.1_real64) then
+                    ierr = -3  ! Numerical instability
+                    y_final = y0  ! Return initial condition on failure
+                    deallocate(y, k1, k2, k3, k4, y_temp)
+                    return
+                end if
+            end do
+        end do
+        
+        ! Copy final result
+        y_final = y
+        
+        ! Clean up
+        deallocate(y, k1, k2, k3, k4, y_temp)
+        
+        ! Report if debug enabled
+        if (settings%debug > 0) then
+            write(*, '(a,i0,a,es12.5)') "RK4: Completed ", n_steps, " steps with h = ", h
+        end if
         
     end subroutine solver_integrate_ode_rk4
     

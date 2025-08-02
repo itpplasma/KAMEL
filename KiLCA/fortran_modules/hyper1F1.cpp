@@ -327,13 +327,13 @@ double err;
 gsl_sum_levin_u_accel (t_re, N, w, f_re, &err);
 if (err > 1.e-16)
 {
-    fprintf (stdout, "\nerr = %.16le sum_re = %.16le using %d terms", err, *f_re, w->terms_used);
+    fprintf (stdout, "\nerr = %.16le sum_re = %.16le using %zu terms", err, *f_re, w->terms_used);
 }
 
 gsl_sum_levin_u_accel (t_im, N, w, f_im, &err);
 if (err > 1.e-16)
 {
-    fprintf (stdout, "\nerr = %.16le sum_im = %.16le using %d terms", err, *f_im, w->terms_used);
+    fprintf (stdout, "\nerr = %.16le sum_im = %.16le using %zu terms", err, *f_im, w->terms_used);
 }
 
 gsl_sum_levin_u_free (w);

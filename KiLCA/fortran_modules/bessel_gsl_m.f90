@@ -8,6 +8,13 @@ module bessel_gsl_m
 
     private
     public :: besselj, besseli
+    public :: bessel_j_n, bessel_i_n
+    public :: bessel_j_nu, bessel_i_nu
+    public :: bessel_y_n, bessel_k_n
+    public :: bessel_j_n_complex, bessel_i_n_complex
+    public :: bessel_j_n_derivative, bessel_i_n_derivative
+    public :: bessel_y_n_derivative
+    public :: bessel_j_nu_derivative, bessel_i_nu_derivative
 
     ! GSL C interface declarations
     interface
@@ -27,9 +34,35 @@ module bessel_gsl_m
             real(c_double) :: gsl_sf_bessel_In
         end function gsl_sf_bessel_In
         
-        ! GSL complex Bessel functions (if available)
-        ! Note: GSL doesn't have complex Bessel functions, so we'll implement them
-        ! using recurrence relations and analytic continuation
+        ! GSL Bessel functions of fractional order J_nu(x)
+        function gsl_sf_bessel_Jnu(nu, x) bind(C, name="gsl_sf_bessel_Jnu")
+            import :: c_double
+            real(c_double), value :: nu, x
+            real(c_double) :: gsl_sf_bessel_Jnu
+        end function gsl_sf_bessel_Jnu
+        
+        ! GSL modified Bessel functions of fractional order I_nu(x)
+        function gsl_sf_bessel_Inu(nu, x) bind(C, name="gsl_sf_bessel_Inu")
+            import :: c_double
+            real(c_double), value :: nu, x
+            real(c_double) :: gsl_sf_bessel_Inu
+        end function gsl_sf_bessel_Inu
+        
+        ! GSL Bessel functions of second kind Y_n(x)
+        function gsl_sf_bessel_Yn(n, x) bind(C, name="gsl_sf_bessel_Yn")
+            import :: c_int, c_double
+            integer(c_int), value :: n
+            real(c_double), value :: x
+            real(c_double) :: gsl_sf_bessel_Yn
+        end function gsl_sf_bessel_Yn
+        
+        ! GSL modified Bessel functions of second kind K_n(x)
+        function gsl_sf_bessel_Kn(n, x) bind(C, name="gsl_sf_bessel_Kn")
+            import :: c_int, c_double
+            integer(c_int), value :: n
+            real(c_double), value :: x
+            real(c_double) :: gsl_sf_bessel_Kn
+        end function gsl_sf_bessel_Kn
     end interface
 
 contains
@@ -379,5 +412,169 @@ contains
         end if
         
     end subroutine bessel_i_derivative
+    
+    !---------------------------------------------------------------------------
+    ! New functions for general order Bessel functions
+    !---------------------------------------------------------------------------
+    
+    !> Bessel function J_n(x) for integer order and real argument
+    function bessel_j_n(n, x) result(res)
+        integer, intent(in) :: n
+        real(real64), intent(in) :: x
+        real(real64) :: res
+        
+        if (n >= 0) then
+            res = gsl_sf_bessel_Jn(int(n, c_int), real(x, c_double))
+        else
+            ! J_{-n}(x) = (-1)^n * J_n(x)
+            res = (-1.0_real64)**(-n) * gsl_sf_bessel_Jn(int(-n, c_int), real(x, c_double))
+        end if
+        
+    end function bessel_j_n
+    
+    !> Modified Bessel function I_n(x) for integer order and real argument
+    function bessel_i_n(n, x) result(res)
+        integer, intent(in) :: n
+        real(real64), intent(in) :: x
+        real(real64) :: res
+        
+        ! I_{-n}(x) = I_n(x) for all n
+        res = gsl_sf_bessel_In(int(abs(n), c_int), real(abs(x), c_double))
+        if (x < 0.0_real64 .and. mod(n, 2) /= 0) then
+            res = -res  ! I_n(-x) = (-1)^n * I_n(x)
+        end if
+        
+    end function bessel_i_n
+    
+    !> Bessel function J_nu(x) for fractional order and real argument
+    function bessel_j_nu(nu, x) result(res)
+        real(real64), intent(in) :: nu, x
+        real(real64) :: res
+        
+        res = gsl_sf_bessel_Jnu(real(nu, c_double), real(x, c_double))
+        
+    end function bessel_j_nu
+    
+    !> Modified Bessel function I_nu(x) for fractional order and real argument
+    function bessel_i_nu(nu, x) result(res)
+        real(real64), intent(in) :: nu, x
+        real(real64) :: res
+        
+        res = gsl_sf_bessel_Inu(real(nu, c_double), real(abs(x), c_double))
+        
+    end function bessel_i_nu
+    
+    !> Bessel function of second kind Y_n(x) for integer order
+    function bessel_y_n(n, x) result(res)
+        integer, intent(in) :: n
+        real(real64), intent(in) :: x
+        real(real64) :: res
+        
+        if (n >= 0) then
+            res = gsl_sf_bessel_Yn(int(n, c_int), real(x, c_double))
+        else
+            ! Y_{-n}(x) = (-1)^n * Y_n(x)
+            res = (-1.0_real64)**(-n) * gsl_sf_bessel_Yn(int(-n, c_int), real(x, c_double))
+        end if
+        
+    end function bessel_y_n
+    
+    !> Modified Bessel function of second kind K_n(x) for integer order
+    function bessel_k_n(n, x) result(res)
+        integer, intent(in) :: n
+        real(real64), intent(in) :: x
+        real(real64) :: res
+        
+        ! K_{-n}(x) = K_n(x)
+        res = gsl_sf_bessel_Kn(int(abs(n), c_int), real(x, c_double))
+        
+    end function bessel_k_n
+    
+    !> Bessel function J_n(z) for complex argument
+    function bessel_j_n_complex(n, z) result(res)
+        integer, intent(in) :: n
+        complex(real64), intent(in) :: z
+        complex(real64) :: res
+        
+        ! Use existing besselj function which handles complex arguments
+        res = besselj(n, z, 0)
+        
+    end function bessel_j_n_complex
+    
+    !> Modified Bessel function I_n(z) for complex argument
+    function bessel_i_n_complex(n, z) result(res)
+        integer, intent(in) :: n
+        complex(real64), intent(in) :: z
+        complex(real64) :: res
+        
+        ! Use existing besseli function which handles complex arguments
+        res = besseli(n, z, 0)
+        
+    end function bessel_i_n_complex
+    
+    !> Derivative of Bessel function J_n(x)
+    function bessel_j_n_derivative(n, x) result(res)
+        integer, intent(in) :: n
+        real(real64), intent(in) :: x
+        real(real64) :: res
+        
+        ! Use recurrence relation: J'_n(x) = (J_{n-1}(x) - J_{n+1}(x))/2
+        if (n == 0) then
+            res = -bessel_j_n(1, x)
+        else
+            res = (bessel_j_n(n-1, x) - bessel_j_n(n+1, x)) / 2.0_real64
+        end if
+        
+    end function bessel_j_n_derivative
+    
+    !> Derivative of modified Bessel function I_n(x)
+    function bessel_i_n_derivative(n, x) result(res)
+        integer, intent(in) :: n
+        real(real64), intent(in) :: x
+        real(real64) :: res
+        
+        ! Use recurrence relation: I'_n(x) = (I_{n-1}(x) + I_{n+1}(x))/2
+        if (n == 0) then
+            res = bessel_i_n(1, x)
+        else
+            res = (bessel_i_n(n-1, x) + bessel_i_n(n+1, x)) / 2.0_real64
+        end if
+        
+    end function bessel_i_n_derivative
+    
+    !> Derivative of Bessel function Y_n(x)
+    function bessel_y_n_derivative(n, x) result(res)
+        integer, intent(in) :: n
+        real(real64), intent(in) :: x
+        real(real64) :: res
+        
+        ! Use recurrence relation: Y'_n(x) = (Y_{n-1}(x) - Y_{n+1}(x))/2
+        if (n == 0) then
+            res = -bessel_y_n(1, x)
+        else
+            res = (bessel_y_n(n-1, x) - bessel_y_n(n+1, x)) / 2.0_real64
+        end if
+        
+    end function bessel_y_n_derivative
+    
+    !> Derivative of Bessel function J_nu(x) for fractional order
+    function bessel_j_nu_derivative(nu, x) result(res)
+        real(real64), intent(in) :: nu, x
+        real(real64) :: res
+        
+        ! Use recurrence relation: J'_nu(x) = (J_{nu-1}(x) - J_{nu+1}(x))/2
+        res = (bessel_j_nu(nu-1.0_real64, x) - bessel_j_nu(nu+1.0_real64, x)) / 2.0_real64
+        
+    end function bessel_j_nu_derivative
+    
+    !> Derivative of modified Bessel function I_nu(x) for fractional order
+    function bessel_i_nu_derivative(nu, x) result(res)
+        real(real64), intent(in) :: nu, x
+        real(real64) :: res
+        
+        ! Use recurrence relation: I'_nu(x) = (I_{nu-1}(x) + I_{nu+1}(x))/2
+        res = (bessel_i_nu(nu-1.0_real64, x) + bessel_i_nu(nu+1.0_real64, x)) / 2.0_real64
+        
+    end function bessel_i_nu_derivative
 
 end module bessel_gsl_m

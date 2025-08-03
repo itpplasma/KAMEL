@@ -297,32 +297,80 @@ contains
         real(real64), intent(inout) :: W(:)  ! NOTE: W kept for interface compatibility  
         integer :: ierr
         
-        integer :: i, n  ! j removed - was unused
-        ! Removed unused variables: A, b, work, ipiv
+        integer :: i, n
+        real(real64), allocatable :: a(:), b(:), c(:), d(:), h(:), alpha(:), l(:), mu(:), z(:)
         
         ierr = 0
         n = spline%dimx
         
-        ! For cubic splines (N=3), set up tridiagonal system
+        ! For cubic splines (N=3), implement proper cubic spline algorithm
         if (spline%N == 3) then
-            ! Simplified cubic spline implementation
-            ! In full implementation, would solve tridiagonal system
+            ! Allocate working arrays for cubic spline calculation
+            allocate(a(n), b(n), c(n), d(n), h(n-1), alpha(n-1), l(n), mu(n), z(n))
             
-            ! For now, use simple finite differences
-            do i = 1, n
-                spline%C(i, 1) = y(i)
-                if (i > 1 .and. i < n) then
-                    spline%C(i, 2) = (y(i+1) - y(i-1)) / (spline%x(i+1) - spline%x(i-1))
+            ! Copy data values
+            a = y
+            
+            ! Calculate h values (step sizes)
+            do i = 1, n-1
+                h(i) = spline%x(i+1) - spline%x(i)
+                if (abs(h(i)) < 1.0e-15_real64) then
+                    ierr = -1  ! x values not properly ordered
+                    deallocate(a, b, c, d, h, alpha, l, mu, z)
+                    return
                 end if
             end do
             
-            ! Set other coefficients to zero for now
-            spline%C(:, 3:4) = 0.0_real64
+            ! Calculate alpha values for tridiagonal system
+            do i = 2, n-1
+                alpha(i) = (3.0_real64 / h(i)) * (a(i+1) - a(i)) - &
+                          (3.0_real64 / h(i-1)) * (a(i) - a(i-1))
+            end do
+            
+            ! Solve tridiagonal system using Thomas algorithm
+            ! Forward elimination
+            l(1) = 1.0_real64
+            mu(1) = 0.0_real64
+            z(1) = 0.0_real64
+            
+            do i = 2, n-1
+                l(i) = 2.0_real64 * (spline%x(i+1) - spline%x(i-1)) - h(i-1) * mu(i-1)
+                mu(i) = h(i) / l(i)
+                z(i) = (alpha(i) - h(i-1) * z(i-1)) / l(i)
+            end do
+            
+            l(n) = 1.0_real64
+            z(n) = 0.0_real64
+            c(n) = 0.0_real64
+            
+            ! Back substitution
+            do i = n-1, 1, -1
+                c(i) = z(i) - mu(i) * c(i+1)
+                b(i) = (a(i+1) - a(i)) / h(i) - h(i) * (c(i+1) + 2.0_real64 * c(i)) / 3.0_real64
+                d(i) = (c(i+1) - c(i)) / (3.0_real64 * h(i))
+            end do
+            
+            ! Store coefficients in spline structure
+            ! spline%C format: (node, coefficient)
+            ! Coefficients for S_i(x) = a_i + b_i*(x-x_i) + c_i*(x-x_i)^2 + d_i*(x-x_i)^3
+            do i = 1, n-1  ! Only n-1 cubic pieces
+                spline%C(i, 1) = a(i)    ! Constant term
+                spline%C(i, 2) = b(i)    ! Linear term
+                spline%C(i, 3) = c(i)    ! Quadratic term
+                spline%C(i, 4) = d(i)    ! Cubic term
+            end do
+            
+            ! Last node uses previous cubic piece coefficients
+            if (n > 1) then
+                spline%C(n, :) = spline%C(n-1, :)
+            end if
+            
+            deallocate(a, b, c, d, h, alpha, l, mu, z)
             
         else
             ! General case for arbitrary degree
-            ! Would need to implement general spline coefficient calculation
-            ierr = -99  ! Not implemented
+            ! For now, only cubic splines (N=3) are fully implemented
+            ierr = -99  ! Not implemented for other degrees
         end if
         
     end function calc_spline_coefficients

@@ -22,6 +22,7 @@ module kilca_conductivity_m
     
     use iso_fortran_env, only: real64, int32, error_unit
     use kilca_types_m
+    use kilca_spline_m
     implicit none
     
     private
@@ -563,21 +564,86 @@ contains
         type(cond_profiles_t), intent(inout) :: profiles
         integer, intent(out) :: ierr
         
+        integer :: spec, type, p, q, matrix_i, matrix_j, part
+        integer :: profile_idx, coeff_idx_base, i, spline_ierr
+        real(real64), allocatable :: y_values(:)
+        type(spline_data_t) :: temp_spline
+        
         ierr = 0
         
-        ! Placeholder for spline calculation
-        ! In full implementation would:
-        ! 1. Call spline allocation function
-        ! 2. Calculate spline coefficients for each K matrix element
-        ! 3. Store coefficients in profiles%CK array
+        ! Allocate working array for profile values
+        allocate(y_values(profiles%dimx))
         
-        ! For now, just copy K values to spline coefficients (linear interpolation)
-        if (size(profiles%CK) >= size(profiles%K)) then
-            profiles%CK(1:size(profiles%K)) = profiles%K
-            profiles%sidK = 1  ! Mark as calculated
-        else
-            ierr = -1
-        end if
+        ! Initialize spline coefficients array to zero
+        profiles%CK = 0.0_real64
+        
+        ! Calculate spline coefficients for each K matrix element profile
+        do spec = 0, N_SPECIES-1
+            do type = 0, profiles%dimt-1
+                do p = 0, profiles%flreo
+                    do q = 0, profiles%flreo
+                        do matrix_i = 0, N_MATRIX_DIM-1
+                            do matrix_j = 0, N_MATRIX_DIM-1
+                                do part = 0, N_COMPLEX_PARTS-1
+                                    
+                                    ! Extract profile values for this K matrix element
+                                    do i = 1, profiles%dimx
+                                        profile_idx = iKa_index(spec, type, p, q, matrix_i, matrix_j, part, i-1, &
+                                                              profiles%flreo, profiles%dimt, profiles%dimx)
+                                        y_values(i) = profiles%K(profile_idx)
+                                    end do
+                                    
+                                    ! Create temporary spline for this profile
+                                    call spline_create(temp_spline, 3, SPLINE_NATURAL, profiles%dimx, profiles%x, spline_ierr)
+                                    if (spline_ierr /= 0) then
+                                        ierr = spline_ierr
+                                        deallocate(y_values)
+                                        return
+                                    end if
+                                    
+                                    ! Calculate spline coefficients
+                                    call spline_calc_coefficients(temp_spline, y_values, spline_ierr)
+                                    if (spline_ierr /= 0) then
+                                        call spline_destroy(temp_spline)
+                                        ierr = spline_ierr
+                                        deallocate(y_values)
+                                        return
+                                    end if
+                                    
+                                    ! Store coefficients in profiles%CK array
+                                    ! Each profile gets 4 coefficients per grid interval
+                                    do i = 1, profiles%dimx
+                                        coeff_idx_base = ((spec * profiles%dimt + type) * (profiles%flreo + 1)**2 + &
+                                                         p * (profiles%flreo + 1) + q) * N_MATRIX_DIM**2 + &
+                                                         matrix_i * N_MATRIX_DIM + matrix_j
+                                        coeff_idx_base = (coeff_idx_base * N_COMPLEX_PARTS + part) * profiles%dimx + (i-1)
+                                        coeff_idx_base = coeff_idx_base * 4 + 1
+                                        
+                                        if (coeff_idx_base + 3 <= size(profiles%CK) .and. &
+                                            i <= size(temp_spline%C, 1) .and. &
+                                            4 <= size(temp_spline%C, 2)) then
+                                            profiles%CK(coeff_idx_base) = temp_spline%C(i, 1)      ! a
+                                            profiles%CK(coeff_idx_base + 1) = temp_spline%C(i, 2)  ! b
+                                            profiles%CK(coeff_idx_base + 2) = temp_spline%C(i, 3)  ! c
+                                            profiles%CK(coeff_idx_base + 3) = temp_spline%C(i, 4)  ! d
+                                        end if
+                                    end do
+                                    
+                                    ! Clean up temporary spline
+                                    call spline_destroy(temp_spline)
+                                    
+                                end do
+                            end do
+                        end do
+                    end do
+                end do
+            end do
+        end do
+        
+        ! Mark splines as calculated
+        profiles%sidK = 1
+        
+        deallocate(y_values)
         
     end subroutine calc_splines_for_K
     
@@ -737,8 +803,10 @@ contains
         real(real64), intent(out) :: k_values(:)
         integer, intent(out) :: ierr
         
-        integer :: i
-        real(real64) :: t
+        integer :: i, spec, type, p, q, matrix_i, matrix_j, part, ind
+        integer :: profile_idx, coeff_idx_base, coeff_idx
+        real(real64) :: spline_value, x_local
+        integer :: flreo_plus_1
         
         ierr = 0
         
@@ -753,27 +821,72 @@ contains
             return
         end if
         
-        ! Find interpolation parameter
+        ! Handle boundary cases
         if (r <= profiles%x(1)) then
-            k_values = profiles%K
+            ! Use values at first grid point
+            k_values(1:profiles%dim_K_array) = profiles%K(1:profiles%dim_K_array)
             return
         end if
         
         if (r >= profiles%x(profiles%dimx)) then
-            k_values = profiles%K
+            ! Use values at last grid point
+            k_values(1:profiles%dim_K_array) = profiles%K(1:profiles%dim_K_array)
             return
         end if
         
-        ! Linear interpolation (placeholder for full spline evaluation)
+        ! Find the interval containing r using binary search
+        ind = 1
         do i = 1, profiles%dimx-1
-            if (r >= profiles%x(i) .and. r <= profiles%x(i+1)) then
-                t = (r - profiles%x(i)) / (profiles%x(i+1) - profiles%x(i))
-                k_values = (1.0_real64 - t) * profiles%K + t * profiles%K
-                return
+            if (r >= profiles%x(i) .and. r < profiles%x(i+1)) then
+                ind = i
+                exit
             end if
         end do
         
-        ierr = -3  ! Interpolation failed
+        ! Evaluate splines for each K matrix element
+        flreo_plus_1 = profiles%flreo + 1
+        
+        do spec = 0, N_SPECIES-1
+            do type = 0, profiles%dimt-1
+                do p = 0, profiles%flreo
+                    do q = 0, profiles%flreo
+                        do matrix_i = 0, N_MATRIX_DIM-1
+                            do matrix_j = 0, N_MATRIX_DIM-1
+                                do part = 0, N_COMPLEX_PARTS-1
+                                    
+                                    ! Calculate index into K array
+                                    profile_idx = iKa_index(spec, type, p, q, matrix_i, matrix_j, part, 0, &
+                                                          profiles%flreo, profiles%dimt, profiles%dimx)
+                                    
+                                    ! Calculate base index for spline coefficients
+                                    ! Each profile has its coefficients stored contiguously
+                                    coeff_idx_base = (profile_idx - 1) / profiles%dimx * 4 + 1
+                                    
+                                    ! Calculate local coordinate within the interval
+                                    x_local = r - profiles%x(ind)
+                                    
+                                    ! Evaluate cubic spline: a + b*x + c*x^2 + d*x^3
+                                    coeff_idx = coeff_idx_base + (ind - 1) * 4
+                                    
+                                    if (coeff_idx + 3 <= size(profiles%CK)) then
+                                        spline_value = profiles%CK(coeff_idx) + &           ! a
+                                                      profiles%CK(coeff_idx + 1) * x_local + &    ! b*x
+                                                      profiles%CK(coeff_idx + 2) * x_local**2 + & ! c*x^2
+                                                      profiles%CK(coeff_idx + 3) * x_local**3     ! d*x^3
+                                    else
+                                        ! Fallback to direct value if coefficients not available
+                                        spline_value = profiles%K(profile_idx)
+                                    end if
+                                    
+                                    k_values(profile_idx) = spline_value
+                                    
+                                end do
+                            end do
+                        end do
+                    end do
+                end do
+            end do
+        end do
         
     end subroutine eval_K_matrices
     

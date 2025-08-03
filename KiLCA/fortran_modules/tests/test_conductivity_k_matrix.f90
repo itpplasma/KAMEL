@@ -7,7 +7,7 @@ program test_conductivity_k_matrix
     real(real64), parameter :: tolerance = 1.0e-8_real64
     
     print *, "===========================================" 
-    print *, "Testing Conductivity K-Matrix Calculations [RED PHASE - SHOULD FAIL]"
+    print *, "Testing Conductivity K-Matrix Calculations [GREEN PHASE]"
     print *, "==========================================="
     
     call test_k_matrix_structure()
@@ -17,11 +17,11 @@ program test_conductivity_k_matrix
     
     if (test_status == 0) then
         print *, ""
-        print *, "Conductivity K-matrix tests PASSED (unexpected in RED phase)"
+        print *, "Conductivity K-matrix tests PASSED - GREEN phase successful"
         stop 0
     else
         print *, ""
-        print *, "Conductivity K-matrix tests FAILED:", test_status, "test(s) failed (expected in RED phase)"
+        print *, "Conductivity K-matrix tests FAILED:", test_status, "test(s) failed"
         stop 1
     end if
 
@@ -252,7 +252,7 @@ contains
         type(cond_profiles_t) :: profiles
         type(cond_params_t) :: params
         integer :: ierr
-        integer :: flreo = 1, dimt = 1, dimx = 3
+        integer :: flreo = 1, dimt = 1, dimx = 5
         real(real64), allocatable :: k_values(:), c_values(:)
         real(real64) :: c_sum
         

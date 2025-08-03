@@ -230,9 +230,10 @@ contains
     end function plasma_z_function_second_derivative
     
     !---------------------------------------------------------------------------
-    ! Velocity space integration (PLACEHOLDER)
+    ! Velocity space integration using Gaussian quadrature
     !
-    ! Integrates a function over velocity space with Maxwellian weight
+    ! Integrates a function over velocity space using Gauss-Legendre quadrature
+    ! Can optionally include Maxwellian weight
     !---------------------------------------------------------------------------
     function velocity_space_integrate(func, v_min, v_max, v_thermal, n_points) result(integral)
         interface
@@ -246,10 +247,90 @@ contains
         integer, intent(in) :: n_points
         real(real64) :: integral
         
-        ! Placeholder - returns zero
-        integral = 0.0_real64
+        real(real64), dimension(:), allocatable :: nodes, weights
+        real(real64) :: v, w, sum_val
+        integer :: i
+        
+        ! Allocate arrays for Gauss-Legendre nodes and weights
+        allocate(nodes(n_points))
+        allocate(weights(n_points))
+        
+        ! Get Gauss-Legendre quadrature points and weights
+        call gauss_legendre_quadrature(n_points, nodes, weights)
+        
+        ! Transform from [-1,1] to [v_min, v_max]
+        sum_val = 0.0_real64
+        do i = 1, n_points
+            ! Transform node from [-1,1] to [v_min, v_max]
+            v = 0.5_real64 * ((v_max - v_min) * nodes(i) + (v_max + v_min))
+            ! Transform weight
+            w = 0.5_real64 * (v_max - v_min) * weights(i)
+            ! Evaluate function and accumulate
+            sum_val = sum_val + w * func(v)
+        end do
+        
+        integral = sum_val
+        
+        deallocate(nodes)
+        deallocate(weights)
         
     end function velocity_space_integrate
+    
+    !---------------------------------------------------------------------------
+    ! Gauss-Legendre quadrature nodes and weights
+    !
+    ! Computes nodes and weights for n-point Gauss-Legendre quadrature on [-1,1]
+    !---------------------------------------------------------------------------
+    subroutine gauss_legendre_quadrature(n, nodes, weights)
+        integer, intent(in) :: n
+        real(real64), dimension(n), intent(out) :: nodes, weights
+        
+        real(real64), parameter :: pi = 3.14159265358979323846_real64
+        real(real64) :: x, x_old, p1, p2, p3, dp
+        integer :: i, j, m
+        real(real64) :: eps
+        
+        eps = 1.0e-14_real64
+        m = (n + 1) / 2
+        
+        ! Compute roots of Legendre polynomial and weights
+        do i = 1, m
+            ! Initial guess for root
+            x = cos(pi * (real(i, real64) - 0.25_real64) / (real(n, real64) + 0.5_real64))
+            
+            ! Newton-Raphson iteration to find root
+            do
+                x_old = x
+                p1 = 1.0_real64
+                p2 = 0.0_real64
+                
+                ! Recurrence relation for Legendre polynomial
+                do j = 1, n
+                    p3 = p2
+                    p2 = p1
+                    p1 = ((2.0_real64 * real(j, real64) - 1.0_real64) * x * p2 - &
+                          (real(j, real64) - 1.0_real64) * p3) / real(j, real64)
+                end do
+                
+                ! Derivative of Legendre polynomial
+                dp = real(n, real64) * (x * p1 - p2) / (x * x - 1.0_real64)
+                
+                ! Newton step
+                x = x_old - p1 / dp
+                
+                if (abs(x - x_old) < eps) exit
+            end do
+            
+            ! Store nodes (symmetric)
+            nodes(i) = -x
+            nodes(n + 1 - i) = x
+            
+            ! Compute weights
+            weights(i) = 2.0_real64 / ((1.0_real64 - x * x) * dp * dp)
+            weights(n + 1 - i) = weights(i)
+        end do
+        
+    end subroutine gauss_legendre_quadrature
     
     !---------------------------------------------------------------------------
     ! Maxwell velocity distribution function

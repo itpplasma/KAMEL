@@ -150,7 +150,7 @@ contains
         
         real(dp), allocatable :: gradients(:), curvatures(:), errors(:)
         logical, allocatable :: refine_flags(:)
-        integer :: i, n_new_points, current_size
+        integer :: current_size
         
         ierr = 0
         n_refined = n_initial

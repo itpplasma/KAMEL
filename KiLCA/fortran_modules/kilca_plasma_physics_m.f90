@@ -235,7 +235,7 @@ contains
     ! Integrates a function over velocity space using Gauss-Legendre quadrature
     ! Can optionally include Maxwellian weight
     !---------------------------------------------------------------------------
-    function velocity_space_integrate(func, v_min, v_max, v_thermal, n_points) result(integral)
+    function velocity_space_integrate(func, v_min, v_max, n_points) result(integral)
         interface
             function func(v) result(val)
                 use iso_fortran_env, only: real64
@@ -243,7 +243,7 @@ contains
                 real(real64) :: val
             end function func
         end interface
-        real(real64), intent(in) :: v_min, v_max, v_thermal
+        real(real64), intent(in) :: v_min, v_max
         integer, intent(in) :: n_points
         real(real64) :: integral
         

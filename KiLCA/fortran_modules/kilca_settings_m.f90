@@ -3959,7 +3959,6 @@ contains
         type(settings_t), intent(out) :: settings_out
         integer, intent(out) :: ierr
         
-        logical :: path_exists, file_readable
         integer :: format_result
         character(len=1024) :: error_context
         
@@ -4634,9 +4633,8 @@ contains
         character(len=*), intent(out), optional :: error_msg
         integer, intent(out), optional :: error_line
         
-        integer :: unit, iostat, line_num
+        integer :: iostat
         logical :: file_exists, is_empty
-        character(len=1024) :: line_buffer
         logical :: antenna_found, background_found, output_found, eigenmode_found
         
         ierr = KILCA_SUCCESS
@@ -4934,6 +4932,16 @@ contains
                 end select
             end if
         end select
+        
+        ! error_line not implemented yet
+        if (present(error_line)) then
+            error_line = 0  ! Default to 0 for now
+        end if
+        
+        ! Suppress unused filename warning (kept for error reporting)
+        if (.false. .and. len(filename) > 0) then
+            continue
+        end if
         
     end subroutine map_namelist_error
     
@@ -5409,6 +5417,9 @@ contains
         integer, intent(out) :: count
         ! In a full implementation, this would return stored warnings
         count = 0
+        if (size(warnings) > 0) then
+            warnings(1) = ""  ! Initialize to suppress warning
+        end if
     end subroutine settings_get_warnings
     
     !> @brief Validate settings with warning generation

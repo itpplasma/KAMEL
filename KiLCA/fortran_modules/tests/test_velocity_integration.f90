@@ -44,7 +44,7 @@ contains
         v_thermal = 1.0_real64
         n_points = 32
         
-        integral = velocity_space_integrate(constant_func, v_min, v_max, v_thermal, n_points)
+        integral = velocity_space_integrate(constant_func, v_min, v_max, n_points)
         expected = 10.0_real64  ! (v_max - v_min) * 1.0
         
         if (abs(integral - expected) > tolerance) then
@@ -55,7 +55,7 @@ contains
         end if
         
         ! Test 2: Integrate linear function
-        integral = velocity_space_integrate(linear_func, v_min, v_max, v_thermal, n_points)
+        integral = velocity_space_integrate(linear_func, v_min, v_max, n_points)
         expected = 0.0_real64  ! Symmetric integral of linear function
         
         if (abs(integral - expected) > tolerance) then
@@ -66,7 +66,7 @@ contains
         end if
         
         ! Test 3: Integrate quadratic function
-        integral = velocity_space_integrate(quadratic_func, v_min, v_max, v_thermal, n_points)
+        integral = velocity_space_integrate(quadratic_func, v_min, v_max, n_points)
         expected = 83.33333333_real64  ! ∫(v²)dv from -5 to 5 = 2*5³/3 ≈ 83.33
         
         if (abs(integral - expected)/abs(expected) > 0.01_real64) then
@@ -341,7 +341,7 @@ contains
         integer, intent(in) :: n_points
         real(real64) :: integral
         
-        integral = velocity_space_integrate(oscillatory_test_func, v_min, v_max, v_thermal, n_points)
+        integral = velocity_space_integrate(oscillatory_test_func, v_min, v_max, n_points)
     end function integrate_oscillatory_helper
     
     function oscillatory_test_func(v) result(f)

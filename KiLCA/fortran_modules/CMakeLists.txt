@@ -50,7 +50,7 @@ add_library(kilca_fortran_modules STATIC
     kilca_types_m.f90
     kilca_constants_m.f90
     kilca_shared_m.f90
-    bessel_stubs.f90
+    bessel_gsl_m.f90
     kilca_complex_m.f90
     kilca_settings_m.f90
     kilca_core_m.f90
@@ -72,6 +72,7 @@ add_library(kilca_fortran_modules STATIC
     kilca_antenna_m.f90
     kilca_bdf_solver_m.f90
     kilca_solver_m.f90
+    kilca_plasma_physics_m.f90
     kilca_conductivity_m.f90
     kilca_maxwell_m.f90
     kilca_physics_m.f90

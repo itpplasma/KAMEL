@@ -3,7 +3,7 @@ module kilca_complex_m
     use kilca_shared_m, only: safe_allocate_cmplx_1d, safe_deallocate_cmplx_1d, &
                               check_allocation
     use kilca_constants_m, only: pi
-    use bessel_stubs_m, only: besselj, besseli
+    use bessel_gsl_m, only: besselj, besseli
     implicit none
     private
     

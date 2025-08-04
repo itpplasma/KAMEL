@@ -925,6 +925,11 @@ contains
         
         ierr = 0
         
+        ! r parameter will be used for radius-dependent evaluation
+        if (.false. .and. r > 0.0_real64) then
+            continue  ! Suppress unused warning
+        end if
+        
         ! Similar to eval_K_matrices but for C matrices
         if (size(c_values) < profiles%dim_C_array) then
             ierr = -1

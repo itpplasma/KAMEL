@@ -14,7 +14,7 @@ elseif(CMAKE_HOST_SYSTEM_NAME MATCHES "Linux" AND
     message("Building on Linux")
     set (CMAKE_C_COMPILER   gcc)
     set (CMAKE_CXX_COMPILER g++)
-    set (CMAKE_EXE_LINKER_FLAGS -static)
+    set (CMAKE_EXE_LINKER_FLAGS "")
     set (CMAKE_CXX_OPT_FLAGS "-O3 -march=x86-64-v2 -mtune=generic")
     set (CMAKE_F_OPT_FLAGS "-O3 -march=x86-64-v2 -mtune=generic")
 else()

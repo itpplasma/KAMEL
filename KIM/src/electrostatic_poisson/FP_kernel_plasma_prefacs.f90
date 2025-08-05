@@ -116,7 +116,6 @@ module FP_kernel_plasma_prefacs
 
     end function
 
-
     function FP_G3_rho_phi(j, spec) result(val)
 
         use species, only: plasma, species_t

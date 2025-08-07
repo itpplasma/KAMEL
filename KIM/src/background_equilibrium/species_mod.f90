@@ -45,8 +45,10 @@ module species
         ! susceptibility function profiles
         complex(dp), allocatable :: I00(:)
         complex(dp), allocatable :: I20(:)
+        complex(dp), allocatable :: I02(:)
         complex(dp), allocatable :: I01(:)
         complex(dp), allocatable :: I21(:)
+        complex(dp), allocatable :: I22(:)
 
     end type
 
@@ -563,8 +565,10 @@ module species
             end if
             spec%I00(j) = spec%symbI(0, 0)
             spec%I20(j) = spec%symbI(2, 0)
+            spec%I02(j) = spec%symbI(0, 2)
             spec%I01(j) = spec%symbI(0, 1)
             spec%I21(j) = spec%symbI(2, 1)
+            spec%I22(j) = spec%symbI(2, 2)
         end do
 
     end subroutine

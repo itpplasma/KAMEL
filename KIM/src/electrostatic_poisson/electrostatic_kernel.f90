@@ -27,7 +27,7 @@ module electrostatic_kernel
 
     end subroutine init_kernel
 
-    subroutine Krook_fill_kernel_phi(kernel_rho_phi_llp, kernel_rho_B_llp)
+    subroutine Krook_fill_kernel_phi(K_rho_phi_llp, K_rho_B_llp)
 
         use KIM_kinds, only: dp
         use electrostatic_integrals, only: gauss_config_t, init_gauss_int
@@ -35,8 +35,8 @@ module electrostatic_kernel
 
         implicit none
 
-        type(kernel_spl_t), intent(inout) :: kernel_rho_phi_llp
-        type(kernel_spl_t), intent(inout) :: kernel_rho_B_llp
+        type(kernel_spl_t), intent(inout) :: K_rho_phi_llp
+        type(kernel_spl_t), intent(inout) :: K_rho_B_llp
         type(gauss_config_t) :: gauss_conf
         integer :: l, lp
         complex(dp) :: kernel_phi_llp, kernel_B_llp
@@ -49,13 +49,13 @@ module electrostatic_kernel
         write(*,*) 'Filling Krook collision kernels...'
 
         !$omp parallel do collapse(1) private(l,lp, kernel_phi_llp, kernel_B_llp)
-        do l = 1, kernel_rho_phi_llp%npts_l
+        do l = 1, K_rho_phi_llp%npts_l
             do lp = 1, l
                 if (abs(l - lp) > delta_l_max) cycle
 
                 call Krook_calc_kernel_rho_term_by_term(l, lp, kernel_phi_llp, kernel_B_llp, gauss_conf)
-                kernel_rho_phi_llp%Kllp(l, lp) = kernel_phi_llp
-                kernel_rho_B_llp%Kllp(l, lp) = kernel_B_llp
+                K_rho_phi_llp%Kllp(l, lp) = kernel_phi_llp
+                K_rho_B_llp%Kllp(l, lp) = kernel_B_llp
 
                 if (isnan(real(kernel_phi_llp))) then
                     print *, "semi analytical kernel_llp is NaN for l = ", l, " lp = ", lp
@@ -68,8 +68,8 @@ module electrostatic_kernel
                     stop
                 end if
             
-                kernel_rho_phi_llp%Kllp(lp, l) = kernel_rho_phi_llp%Kllp(l, lp)
-                kernel_rho_B_llp%Kllp(lp, l) = kernel_rho_B_llp%Kllp(l, lp)
+                K_rho_phi_llp%Kllp(lp, l) = K_rho_phi_llp%Kllp(l, lp)
+                K_rho_B_llp%Kllp(lp, l) = K_rho_B_llp%Kllp(l, lp)
 
             end do
         end do
@@ -150,7 +150,7 @@ module electrostatic_kernel
     end subroutine
 
 
-    subroutine FP_fill_kernel_phi(kernel_rho_phi_llp, kernel_rho_B_llp)
+    subroutine FP_fill_kernel_phi(K_rho_phi_llp, K_rho_B_llp)
 
         use KIM_kinds, only: dp
         use electrostatic_integrals, only: gauss_config_t, init_gauss_int
@@ -158,8 +158,8 @@ module electrostatic_kernel
 
         implicit none
 
-        type(kernel_spl_t), intent(inout) :: kernel_rho_phi_llp
-        type(kernel_spl_t), intent(inout) :: kernel_rho_B_llp
+        type(kernel_spl_t), intent(inout) :: K_rho_phi_llp
+        type(kernel_spl_t), intent(inout) :: K_rho_B_llp
         type(gauss_config_t) :: gauss_conf
         integer :: l, lp
         complex(dp) :: kernel_phi_llp, kernel_B_llp
@@ -173,13 +173,13 @@ module electrostatic_kernel
         write(*,*) 'Filling Fokker-Planck collision kernels...'
 
         !$omp parallel do collapse(1) private(l,lp, kernel_phi_llp, kernel_B_llp)
-        do l = 1, kernel_rho_phi_llp%npts_l
+        do l = 1, K_rho_phi_llp%npts_l
             do lp = 1, l
                 if (abs(l - lp) > delta_l_max) cycle
 
                 call FP_calc_kernel_rho_term_by_term(l, lp, kernel_phi_llp, kernel_B_llp, gauss_conf)
-                kernel_rho_phi_llp%Kllp(l, lp) = kernel_phi_llp
-                kernel_rho_B_llp%Kllp(l, lp) = kernel_B_llp
+                K_rho_phi_llp%Kllp(l, lp) = kernel_phi_llp
+                K_rho_B_llp%Kllp(l, lp) = kernel_B_llp
 
                 if (isnan(real(kernel_phi_llp))) then
                     print *, "semi analytical kernel_llp is NaN for l = ", l, " lp = ", lp
@@ -192,8 +192,8 @@ module electrostatic_kernel
                     stop
                 end if
 
-                kernel_rho_phi_llp%Kllp(lp, l) = kernel_rho_phi_llp%Kllp(l, lp)
-                kernel_rho_B_llp%Kllp(lp, l) = kernel_rho_B_llp%Kllp(l, lp)
+                K_rho_phi_llp%Kllp(lp, l) = K_rho_phi_llp%Kllp(l, lp)
+                K_rho_B_llp%Kllp(lp, l) = K_rho_B_llp%Kllp(l, lp)
             end do
         end do
         !$omp end parallel do

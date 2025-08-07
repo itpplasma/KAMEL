@@ -169,6 +169,10 @@ module poisson_solver
             end if
 
             rhs_vec = - 4d0 * pi * rhs_vec
+            
+            ! Enforce Dirichlet BC at right boundary: Phi_n = 0
+            ! The RHS at the last point should be 0 for consistency
+            rhs_vec(xl_grid%npts_b) = 0.0_dp
 
             call write_complex_profile(xl_grid%xb, rhs_vec, xl_grid%npts_b, trim(output_path)//'fields/rhs_vec.dat')
 
@@ -205,18 +209,36 @@ module poisson_solver
         complex(dp), intent(inout) :: A_mat(:,:)
         real(dp) :: h
         integer :: i
+        integer :: n
 
+        n = xl_grid%npts_b
+        
         ! create Laplacian:
         A_mat = cmplx(0.0d0, 0.0d0, dp)
         A_mat = 0.0_dp
 
-        do i = 1, xl_grid%npts_b - 1
+        ! Interior points (standard finite difference)
+        do i = 2, n - 2
             h = xl_grid%xb(i+1) - xl_grid%xb(i)
             A_mat(i,   i  ) = A_mat(i,   i  ) - 1.0_dp / h
             A_mat(i,   i+1) = A_mat(i,   i+1) + 1.0_dp / h
             A_mat(i+1, i  ) = A_mat(i+1, i  ) + 1.0_dp / h
             A_mat(i+1, i+1) = A_mat(i+1, i+1) - 1.0_dp / h
         end do
+        
+        ! Left boundary: Neumann BC (dPhi/dx = 0)
+        ! Using one-sided finite difference: (Phi_2 - Phi_1)/h = 0 => Phi_2 = Phi_1
+        ! This modifies the first row of the Laplacian
+        h = xl_grid%xb(2) - xl_grid%xb(1)
+        A_mat(1, 1) = -1.0_dp / h
+        A_mat(1, 2) = 1.0_dp / h
+        A_mat(2, 1) = 1.0_dp / h
+        A_mat(2, 2) = A_mat(2, 2) - 1.0_dp / h
+        
+        ! Right boundary: Dirichlet BC (Phi = 0)
+        ! This is enforced by setting the last row to enforce Phi_n = 0
+        A_mat(n, :) = 0.0_dp
+        A_mat(n, n) = 1.0_dp
         
         call write_matrix(trim(output_path)//'kernel/laplacian_re.dat', real(A_mat), xl_grid%npts_b, xl_grid%npts_b)
 

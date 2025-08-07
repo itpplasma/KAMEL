@@ -375,4 +375,54 @@ module fields
     
     end subroutine
 
+    subroutine calculate_charge_density(rho, EBdat)
+
+        use KIM_kinds, only: dp
+        use grid, only: xl_grid
+        use species, only: plasma
+        use constants, only: pi, com_unit
+
+        implicit none
+
+        type(EBdat_t), intent(in) :: EBdat
+        complex(dp), allocatable, intent(out) :: rho(:)
+        complex(dp) :: phi, Br
+        integer :: sp
+
+        integer :: i
+        integer :: nlagr = 4
+        integer :: nder = 0
+        integer :: ibeg, iend, ir
+        real(dp), dimension(:,:), allocatable :: coef
+
+
+        if (.not. allocated(rho)) allocate(rho(size(plasma%r_grid)))
+        if (.not. allocated(coef)) allocate(coef(0:nder, nlagr))
+
+        rho = 0.0d0
+
+        do i = 1, size(plasma%r_grid)
+
+            call binsrc(EBdat%r_grid, 1, size(EBdat%r_grid), plasma%r_grid(i), ir) 
+            ibeg = max(1, ir - nlagr/2)
+            iend = ibeg + nlagr - 1
+            if (iend .gt. size(EBdat%r_grid)) then
+                iend = size(EBdat%r_grid)
+                ibeg = iend -nlagr + 1
+            end if
+
+            call plag_coeff(nlagr, nder, plasma%r_grid(i), EBdat%r_grid(ibeg:iend), coef)
+            phi = sum(coef(0, :) * EBdat%Phi(ibeg:iend))
+            Br = sum(coef(0, :) * EBdat%Br(ibeg:iend))
+
+            do sp=0, plasma%n_species-1
+                rho(i) = plasma%spec(sp)%lambda_D(i)**-2.0d0
+            end do
+
+            rho(i) = rho(i) * (- 1.0d0) / (4.0d0 * pi) * (phi + com_unit * Br * plasma%Er(i) /(plasma%kp(i) * plasma%B0(i)))
+        end do
+
+    end subroutine
+
 end module
+

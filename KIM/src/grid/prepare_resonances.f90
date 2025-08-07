@@ -23,15 +23,19 @@ subroutine prepare_resonances
     qmax = maxval(q)
 
     qres = abs(dfloat(m_mode)/dfloat(n_mode))
-    if(qres.lt.qmin.or.qres.gt.qmax) write(*,*) "Resonance location not found in q"
+    if(qres.lt.qmin.or.qres.gt.qmax) then
+        write(*,*) "Resonance location not found in q"
+        r_res = 0.0d0
+        return
+    end if
 
     r_res = qres
 
     do j= 2, plasma%grid_size
-      if(qres .gt. q(j-1) .and. qres .le. q(j)) then
-        r_res = (plasma%r_grid(j-1) * (q(j) - qres) + plasma%r_grid(j) * (qres-q(j-1))) / (q(j)-q(j-1))
-        exit
-      endif
+        if(qres .gt. q(j-1) .and. qres .le. q(j)) then
+            r_res = (plasma%r_grid(j-1) * (q(j) - qres) + plasma%r_grid(j) * (qres-q(j-1))) / (q(j)-q(j-1))
+            exit
+        endif
     enddo
 
     if (type_br_field == 2) then

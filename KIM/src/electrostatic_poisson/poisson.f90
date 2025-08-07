@@ -44,10 +44,12 @@ module rt_electrostatic
 
         use electrostatic_kernel, only: Krook_fill_kernel_phi, FP_fill_kernel_phi, fill_kernels_krook_fp, kernel_spl_t
         use grid, only: xl_grid
-        use IO_collection, only: write_matrix, write_complex_profile
+        use IO_collection, only: write_matrix, write_complex_profile, write_complex_profile_abs
         use poisson_solver, only: solve_poisson
         use config, only: output_path, collision_model
-        use fields, only: EBdat, postprocess_electric_field, postprocess_electric_field_with_model
+        use fields, only: EBdat, postprocess_electric_field, postprocess_electric_field_with_model,&
+                            calculate_charge_density
+        use KIM_kinds, only: dp
 
         implicit none
 
@@ -58,6 +60,8 @@ module rt_electrostatic
         type(kernel_spl_t) :: kernel_krook_rho_B_llp
         type(kernel_spl_t) :: kernel_fp_rho_phi_llp
         type(kernel_spl_t) :: kernel_fp_rho_B_llp
+
+        complex(dp), allocatable :: rho(:)
 
         call kernel_rho_phi_llp%init_kernel(xl_grid%npts_b, xl_grid%npts_b)
         call kernel_rho_B_llp%init_kernel(xl_grid%npts_b, xl_grid%npts_b)
@@ -101,14 +105,18 @@ module rt_electrostatic
         call write_matrix(trim(output_path)//"kernel/kernel_phi_llp_im.dat", dimag(kernel_rho_phi_llp%Kllp), xl_grid%npts_b, xl_grid%npts_b)
 
         allocate(EBdat%Phi(xl_grid%npts_b), EBdat%Br(xl_grid%npts_b), EBdat%E_perp_psi(xl_grid%npts_b), &
-                EBdat%r_grid(xl_grid%npts_b), EBdat%E_perp(xl_grid%npts_b))
+                EBdat%r_grid(xl_grid%npts_b), EBdat%E_perp(xl_grid%npts_b),&
+                rho(xl_grid%npts_b))
 
         EBdat%r_grid = xl_grid%xb
         
         call solve_poisson(kernel_rho_phi_llp%Kllp, kernel_rho_B_llp%Kllp, EBdat%Phi)
-        call write_complex_profile(xl_grid%xb, EBdat%Phi, xl_grid%npts_b, trim(output_path)//"/fields/phi_"//trim(collision_model)//"_sol.dat")
+        call write_complex_profile_abs(xl_grid%xb, EBdat%Phi, xl_grid%npts_b, trim(output_path)//"/fields/phi_"//trim(collision_model)//"_sol.dat")
 
         call postprocess_electric_field(EBdat)
+
+        call calculate_charge_density(rho, EBdat)
+        call write_complex_profile_abs(xl_grid%xb, rho, xl_grid%npts_b, trim(output_path)//"/fields/rho_"//trim(collision_model)//".dat")
     
     end subroutine
 

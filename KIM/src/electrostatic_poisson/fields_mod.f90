@@ -424,5 +424,20 @@ module fields
 
     end subroutine
 
+    subroutine calculate_current_density(jpar, EBdat_in, kernel_j_phi_llp, kernel_j_B_llp)
+
+        use KIM_kinds, only: dp
+        use electrostatic_kernel, only: kernel_spl_t
+        implicit none
+
+        complex(dp), allocatable, intent(out) :: jpar(:)
+        type(EBdat_t), intent(in) :: EBdat_in
+        type(kernel_spl_t), intent(in) :: kernel_j_phi_llp
+        type(kernel_spl_t), intent(in) :: kernel_j_B_llp
+
+        jpar = matmul(kernel_j_phi_llp%Kllp, EBdat_in%Phi) + matmul(kernel_j_B_llp%Kllp, EBdat_in%Br)
+
+    end subroutine
+
 end module
 

@@ -207,7 +207,7 @@ module poisson_solver
         implicit none
 
         complex(dp), intent(inout) :: A_mat(:,:)
-        real(dp) :: h
+        real(dp) :: h, hL, hR
         integer :: i
         integer :: n
 
@@ -215,30 +215,38 @@ module poisson_solver
         
         ! create Laplacian:
         A_mat = cmplx(0.0d0, 0.0d0, dp)
-        A_mat = 0.0_dp
+        A_mat = 0.0d0
 
-        ! Interior points (standard finite difference)
-        do i = 2, n - 2
-            h = xl_grid%xb(i+1) - xl_grid%xb(i)
-            A_mat(i,   i  ) = A_mat(i,   i  ) - 1.0_dp / h
-            A_mat(i,   i+1) = A_mat(i,   i+1) + 1.0_dp / h
-            A_mat(i+1, i  ) = A_mat(i+1, i  ) + 1.0_dp / h
-            A_mat(i+1, i+1) = A_mat(i+1, i+1) - 1.0_dp / h
+        do i = 2, n-1
+            hL = xl_grid%xb(i)   - xl_grid%xb(i-1)  ! left element size
+            hR = xl_grid%xb(i+1) - xl_grid%xb(i)    ! right element size
+
+            A_mat(i,i-1) = A_mat(i,i-1) - 1.0d0/hL
+            A_mat(i,i)   = A_mat(i,i)   + 1.0d0/hL + 1.0d0/hR
+            A_mat(i,i+1) = A_mat(i,i+1) - 1.0d0/hR
         end do
-        
-        ! Left boundary: Neumann BC (dPhi/dx = 0)
-        ! Using one-sided finite difference: (Phi_2 - Phi_1)/h = 0 => Phi_2 = Phi_1
-        ! This modifies the first row of the Laplacian
-        h = xl_grid%xb(2) - xl_grid%xb(1)
-        A_mat(1, 1) = -1.0_dp / h
-        A_mat(1, 2) = 1.0_dp / h
-        A_mat(2, 1) = 1.0_dp / h
-        A_mat(2, 2) = A_mat(2, 2) - 1.0_dp / h
-        
-        ! Right boundary: Dirichlet BC (Phi = 0)
-        ! This is enforced by setting the last row to enforce Phi_n = 0
-        A_mat(n, :) = 0.0_dp
-        A_mat(n, n) = 1.0_dp
+        ! Interior points (standard finite difference)
+        ! do i = 2, n - 2
+        !     h = xl_grid%xb(i+1) - xl_grid%xb(i)
+        !     A_mat(i,   i  ) = A_mat(i,   i  ) - 1.0_dp / h
+        !     A_mat(i,   i+1) = A_mat(i,   i+1) + 1.0_dp / h
+        !     A_mat(i+1, i  ) = A_mat(i+1, i  ) + 1.0_dp / h
+        !     A_mat(i+1, i+1) = A_mat(i+1, i+1) - 1.0_dp / h
+        ! end do
+
+        ! ---- Left boundary: Neumann BC (dPhi/dx = 0) ----
+        ! This modifies only the first row/col to enforce derivative = 0
+        hR = xl_grid%xb(2) - xl_grid%xb(1)
+        A_mat(1,:) = cmplx(0.0d0, 0.0d0, dp)
+        A_mat(1,1) = -1.0d0 / hR
+        A_mat(1,2) =  1.0d0 / hR
+        ! Keep symmetry in column 1
+        A_mat(2,1) =  1.0d0 / hR
+
+        ! ---- Right boundary: Dirichlet BC (Phi = 0) ----
+        ! Overwrite last row to enforce Phi_n = 0
+        A_mat(n,:) = cmplx(0.0d0, 0.0d0, dp)
+        A_mat(n,n) = cmplx(1.0d0, 0.0d0, dp)
         
         call write_matrix(trim(output_path)//'kernel/laplacian_re.dat', real(A_mat), xl_grid%npts_b, xl_grid%npts_b)
 

@@ -307,9 +307,8 @@ module species
             end do
         end do
 
-            
         do sp=0, plasma_in%n_species-1
-            call calculate_susc_funcs_profiles(plasma%spec(sp))
+            call calculate_susc_funcs_profiles(plasma_in%spec(sp))
         end do
 
     end subroutine
@@ -437,6 +436,8 @@ module species
                 plasma_temp%spec(sp)%I01(i) = sum(coef(0,:) * plasma_in%spec(sp)%I01(ibeg:iend))
                 plasma_temp%spec(sp)%I20(i) = sum(coef(0,:) * plasma_in%spec(sp)%I20(ibeg:iend))
                 plasma_temp%spec(sp)%I21(i) = sum(coef(0,:) * plasma_in%spec(sp)%I21(ibeg:iend))
+                plasma_temp%spec(sp)%I22(i) = sum(coef(0,:) * plasma_in%spec(sp)%I22(ibeg:iend))
+                plasma_temp%spec(sp)%I02(i) = sum(coef(0,:) * plasma_in%spec(sp)%I02(ibeg:iend))
 
                 plasma_temp%ks(i) = sum(coef(0,:) * plasma_in%ks(ibeg:iend))
                 plasma_temp%kp(i) = sum(coef(0,:) * plasma_in%kp(ibeg:iend))

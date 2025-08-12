@@ -326,8 +326,8 @@ module FP_kernel_plasma_prefacs
 
         A1 = 0.5d0 * (spec%A1(j) + spec%A1(j+1))
         A2 = 0.5d0 * (spec%A2(j) + spec%A2(j+1))
-        I02 = 0.5d0 * (spec%I01(j) + spec%I01(j+1))
-        I22 = 0.5d0 * (spec%I21(j) + spec%I21(j+1))
+        I02 = 0.5d0 * (spec%I02(j) + spec%I02(j+1))
+        I22 = 0.5d0 * (spec%I22(j) + spec%I22(j+1))
 
         val = I02 * (A1 + A2) + 0.5d0 * A2 * I22
 

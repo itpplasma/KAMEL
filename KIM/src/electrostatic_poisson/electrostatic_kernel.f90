@@ -236,7 +236,6 @@ module electrostatic_kernel
         integer :: j, sigma
         type(gauss_config_t), intent(in) :: gauss_conf
         real(dp) :: integral_val
-        integer, parameter :: mnmax = 3
 
         type(integration_point_t) :: int_point
         type(int_F0_rho_phi_t) :: int_F0
@@ -293,7 +292,7 @@ module electrostatic_kernel
 
                 k_j_phi   = k_j_phi   + integral_val * FP_G3_j_phi(j, plasma%spec(sigma))   * FP_kappa_j_phi(j, plasma%spec(sigma))
                 k_j_B     = k_j_B     + integral_val * FP_G3_j_B(j, plasma%spec(sigma))     * FP_kappa_j_B(j, plasma%spec(sigma))
-                
+
             end do
         end do
 

@@ -31,7 +31,7 @@ module electrostatic_kernel
 
         use KIM_kinds, only: dp
         use electrostatic_integrals, only: gauss_config_t, init_gauss_int
-        use grid, only: delta_l_max, gauss_int_nodes_Ntheta, gauss_int_nodes_Nx, gauss_int_nodes_Nxp
+        use grid, only: gauss_int_nodes_Ntheta, gauss_int_nodes_Nx, gauss_int_nodes_Nxp
 
         implicit none
 
@@ -51,7 +51,6 @@ module electrostatic_kernel
         !$omp parallel do collapse(1) private(l,lp, k_rho_phi, k_rho_B)
         do l = 1, K_rho_phi_llp%npts_l
             do lp = 1, l
-                if (abs(l - lp) > delta_l_max) cycle
 
                 call Krook_calc_kernel_rho_term_by_term(l, lp, k_rho_phi, k_rho_B, gauss_conf)
                 K_rho_phi_llp%Kllp(l, lp) = k_rho_phi
@@ -91,6 +90,7 @@ module electrostatic_kernel
         use Krook_kernel_plasma_prefacs, only: Krook_G0_rho_phi, Krook_G1_rho_phi, Krook_G2_rho_phi, Krook_G3_rho_phi, &
             Krook_G1_rho_B, Krook_G2_rho_B, Krook_G3_rho_B, Krook_kappa_rho_phi, Krook_kappa_rho_B
         use config, only: artificial_debye_case
+        use grid, only: Larmor_skip_factor
         
         implicit none
 
@@ -122,6 +122,8 @@ module electrostatic_kernel
                     k_rho_phi = k_rho_phi &
                                     + integral_val * Krook_G0_rho_phi(j, plasma%spec(sigma)) * Krook_kappa_rho_phi(j, plasma%spec(sigma))
                 end if
+
+                if (abs(int_point%xl - int_point%xlp) > Larmor_skip_factor * int_point%rhoT) continue
                 
                 if (.not. artificial_debye_case) then
                     int_F1%int_point = int_point
@@ -154,7 +156,7 @@ module electrostatic_kernel
 
         use KIM_kinds, only: dp
         use electrostatic_integrals, only: gauss_config_t, init_gauss_int
-        use grid, only: delta_l_max, gauss_int_nodes_Ntheta, gauss_int_nodes_Nx, gauss_int_nodes_Nxp
+        use grid, only: Larmor_skip_factor, gauss_int_nodes_Ntheta, gauss_int_nodes_Nx, gauss_int_nodes_Nxp
 
         implicit none
 
@@ -176,7 +178,6 @@ module electrostatic_kernel
         !$omp parallel do collapse(1) private(l,lp)
         do l = 1, K_rho_phi_llp%npts_l
             do lp = 1, l
-                if (abs(l - lp) > delta_l_max) cycle
 
                 call FP_calc_kernels(l, lp, K_rho_phi_llp%Kllp(l, lp),&
                                             K_rho_B_llp%Kllp(l, lp), &
@@ -228,6 +229,7 @@ module electrostatic_kernel
             FP_G2_rho_phi, FP_G3_rho_phi, FP_kappa_rho_phi, FP_kappa_rho_B, FP_G0_rho_phi, &
             FP_kappa_j_phi, FP_kappa_j_B, FP_G1_j_phi, FP_G2_j_phi, FP_G3_j_phi, &
             FP_G1_j_B, FP_G2_j_B, FP_G3_j_B
+        use grid, only: Larmor_skip_factor
         
         implicit none
 
@@ -264,6 +266,9 @@ module electrostatic_kernel
                     k_rho_phi = k_rho_phi &
                         + integral_val * FP_G0_rho_phi(j, plasma%spec(sigma)) * FP_kappa_rho_phi(j, plasma%spec(sigma))
                 end if
+
+                ! skip the kernel calculation for distances that are not connected
+                if (abs(int_point%xl - int_point%xlp) > Larmor_skip_factor * int_point%rhoT) continue
 
                 int_F1%int_point = int_point
                 int_F2%int_point = int_point
@@ -351,7 +356,7 @@ module electrostatic_kernel
         use KIM_kinds, only: dp
         use electrostatic_integrals, only: gauss_config_t, init_gauss_int, &
             gauss_integrate_F0, gauss_integrate_F1, gauss_integrate_F2, gauss_integrate_F3
-        use grid, only: delta_l_max, gauss_int_nodes_Ntheta, gauss_int_nodes_Nx, gauss_int_nodes_Nxp
+        use grid, only: Larmor_skip_factor, gauss_int_nodes_Ntheta, gauss_int_nodes_Nx, gauss_int_nodes_Nxp
         use species, only: plasma
         use constants, only: pi
         use electrostatic_integrands, only: int_F0_rho_phi_t, int_F1_rho_phi_t, &
@@ -392,7 +397,6 @@ module electrostatic_kernel
         !$omp& integral_F0, integral_F1, integral_F2, integral_F3)
         do l = 1, kernel_krook_rho_phi%npts_l
             do lp = 1, l
-                if (abs(l - lp) > delta_l_max) cycle
                 
                 ! Initialize kernel values
                 krook_phi_llp = 0.0d0
@@ -422,6 +426,8 @@ module electrostatic_kernel
                             fp_phi_llp = fp_phi_llp + integral_F0 * FP_G0_rho_phi(j, plasma%spec(sigma)) * &
                                         FP_kappa_rho_phi(j, plasma%spec(sigma))
                         end if
+
+                        if (abs(int_point%xl - int_point%xlp) > Larmor_skip_factor * int_point%rhoT) continue
                         
                         if (.not. artificial_debye_case) then
                             ! Set integration points for F1, F2, F3

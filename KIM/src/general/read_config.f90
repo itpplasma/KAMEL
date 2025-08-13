@@ -22,7 +22,7 @@ subroutine read_config
 
     namelist /KIM_GRID/ reduce_r, grid_spacing, l_space_dim, num_gengrid_points, &
                         reduced_rg_dim, kr_grid_width_res, kr_grid_ampl_res, k_space_dim, &
-                        delta_l_max, gauss_int_nodes_Ntheta, gauss_int_nodes_Nx, gauss_int_nodes_Nxp, &
+                        Larmor_skip_factor, gauss_int_nodes_Ntheta, gauss_int_nodes_Nx, gauss_int_nodes_Nxp, &
                         r_plas, r_min, width_res, ampl_res, hrmax_scaling
 
     num_args = command_argument_count()
@@ -93,7 +93,7 @@ subroutine read_config
     write(*,*) '  grid_spacing          = ', grid_spacing
     write(*,*) '  kr_grid_width_res     = ', kr_grid_width_res
     write(*,*) '  kr_grid_ampl_res      = ', kr_grid_ampl_res
-    write(*,*) '  delta_l_max           = ', delta_l_max
+    write(*,*) '  Larmor_skip_factor    = ', Larmor_skip_factor
     write(*,*) '  gauss_int_nodes_Ntheta= ', gauss_int_nodes_Ntheta
     write(*,*) '  gauss_int_nodes_Nx    = ', gauss_int_nodes_Nx
     write(*,*) '  gauss_int_nodes_Nxp   = ', gauss_int_nodes_Nxp

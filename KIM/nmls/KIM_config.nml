@@ -15,7 +15,7 @@
 &kim_setup
     btor = -17977.413
     r0 = 165.0
-    m_mode = 7
+    m_mode = -6
     n_mode = 2
     omega = 0.0
     spline_base = 1
@@ -39,17 +39,12 @@
     num_gengrid_points = 64
     kr_grid_width_res = 5.0
     kr_grid_ampl_res = 1.0
-    delta_l_max = 5
-    gauss_int_nodes_Nx = 7
+    Larmor_skip_factor = 5
+    gauss_int_nodes_Nx = 6 ! should be different from Nxp to avoid numerical problems
     gauss_int_nodes_Nxp = 7
     gauss_int_nodes_Ntheta = 7
 /
 
-&kim_species
-/
-
-&kim_species
-/
 
 &kim_species
     zi = 1 !, 2

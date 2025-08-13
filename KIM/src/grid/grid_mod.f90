@@ -15,7 +15,7 @@ module grid
     integer :: grid_spacing
     integer :: num_gengrid_points
     integer :: gauss_int_nodes_Ntheta, gauss_int_nodes_Nx, gauss_int_nodes_Nxp
-    integer :: delta_l_max
+    real(dp):: Larmor_skip_factor
     real(dp):: width_res, ampl_res, hrmax_scaling
 
     integer :: nder=1

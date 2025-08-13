@@ -743,7 +743,6 @@ module species
             total_Z = total_Z + plasma%spec(sigma)%Zspec
         end do
 
-        print *, 'total_Z = ', total_Z
         do i = 1, plasma%grid_size
             do sigma = 1, number_of_ion_species
                 ! ion density to fulfill quasineutrality

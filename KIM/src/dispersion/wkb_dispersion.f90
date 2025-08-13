@@ -19,12 +19,6 @@ module rt_WKB_dispersion
         class(WKB_dispersion_t), intent(inout) :: this
 
         this%run_type = "WKB_dispersion"
-        print *, " ____  __.___   _____     __      __ ____  __.__________ "
-        print *, "|    |/ _|   | /     \   /  \    /  \    |/ _|\______   \\"
-        print *, "|      < |   |/  \ /  \  \   \/\/   /      <   |    |  _/"
-        print *, "|    |  \|   /    Y    \  \        /|    |  \  |    |   \\"
-        print *, "|____|__ \___\____|__  /   \__/\  / |____|__ \ |______  /"
-        print *, "        \/           \/         \/          \/        \/ "
 
         call generate_grids
 

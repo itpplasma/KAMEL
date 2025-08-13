@@ -23,16 +23,9 @@ module rt_electrostatic
         class(electrostatic_t), intent(inout) :: this
 
         this%run_type = "electrostatic"
-        print *, " ____  __.___   _____  "
-        print *, "|    |/ _|   | /     \  "
-        print *, "|      < |   |/  \ /  \ "
-        print *, "|    |  \|   /    Y    \"
-        print *, "|____|__ \___\____|__  /"
-        print *, "        \/           \/ "
 
         call create_output_directories
         call generate_grids
-        !call init_plasma(plasma)
         call calculate_equil(.true.)
         call set_plasma_quantities(plasma)
 

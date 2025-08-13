@@ -2,7 +2,8 @@ set(KIM_setup setup/config_mod.f90
             setup/setup_mod.f90
 )
 
-set(KIM_general general/read_config.f90
+set(KIM_general general/config_display.f90
+                general/read_config.f90
                 general/KIM_base.f90
                 general/KIM_mod.f90
                 general/KIM_init.f90

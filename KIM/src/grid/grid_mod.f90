@@ -136,13 +136,6 @@ module grid
             this%xc(ipoib-1) = 0.5 * (this%xb(ipoib-1) + this%xb(ipoib))
         enddo
 
-        if (fdebug == 1) then
-            write(*,*) " - - - grid ", this%name, ": - - - "
-            write(*,*) "    h = ", this%xb(2) - this%xb(1)
-            write(*,*) '    Number points r (l) grid: ', this%npts_b
-            write(*,*) " - - - - - - - - - - "
-        end if
-
         ! get index for resonant radius
         call binsrc(abs(this%xb), 1, this%npts_b, abs(r_res), index_rg_res)
 
@@ -177,8 +170,6 @@ module grid
         deallocate(coef, ipbeg, ipend)
 
         call write_new_grid
-
-        if (fdebug == 1) write(*,*) "Debug: exiting gengrid"
 
         contains
 
@@ -239,6 +230,12 @@ module grid
         end do
         
         allocate(coef(0:nder,npoi_der))
+
+        write(*,*) " - - - grid ", this%name, ": - - - "
+        write(*,*) "    h = ", this%xb(2) - this%xb(1)
+        write(*,*) "    max = ", this%max_val
+        write(*,*) '    Number points r (l) grid: ', this%npts_b
+        write(*,*) "    generating linear grid..."
 
         ! get index for resonant radius
         call binsrc(abs(this%xb), 1, this%npts_b, abs(r_res), index_rg_res)
@@ -326,6 +323,11 @@ module grid
         allocate(coef(0:nder,npoi_der))
 
         this%npts_b = this%npts
+
+        write(*,*) " - - - grid ", this%name, ": - - - "
+        write(*,*) "    h = ", this%xb(2) - this%xb(1)
+        write(*,*) '    Number points r (l) grid: ', this%npts_b
+        write(*,*) " - - - - - - - - - - "
 
         ! get index for resonant radius
         call binsrc(abs(this%xb), 1, this%npts_b, abs(r_res), index_rg_res)

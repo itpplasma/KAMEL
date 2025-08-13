@@ -3,6 +3,12 @@ module electrostatic_kernel
     use KIM_kinds, only: dp
 
     implicit none
+    
+    ! Diagnostic variables to track maximum distances
+    real(dp) :: max_distance_xl_xlp = 0.0d0
+    integer :: max_index_distance = 0
+    integer :: max_dist_l = 0, max_dist_lp = 0
+    integer :: max_idx_l = 0, max_idx_lp = 0
 
     type :: kernel_spl_t
         integer :: npts_l, npts_lp
@@ -75,6 +81,14 @@ module electrostatic_kernel
         !$omp end parallel do
 
         write(*,*) ! New line after progress bar
+        
+        ! Print diagnostic information
+        write(*,*) '======== Kernel Distance Diagnostics (Krook) ========'
+        write(*,'(A,F12.6)') ' Maximum |xl - xlp| distance: ', max_distance_xl_xlp
+        write(*,'(A,I6,A,I6)') ' Occurred at l = ', max_dist_l, ', lp = ', max_dist_lp
+        write(*,'(A,I6)') ' Maximum index distance |l - lp|: ', max_index_distance
+        write(*,'(A,I6,A,I6)') ' Occurred at l = ', max_idx_l, ', lp = ', max_idx_lp
+        write(*,*) '===================================================='
 
     end subroutine
 
@@ -99,6 +113,8 @@ module electrostatic_kernel
         integer :: j, sigma
         type(gauss_config_t), intent(in) :: gauss_conf
         real(dp) :: integral_val
+        real(dp) :: current_distance
+        integer :: current_idx_distance
 
         type(integration_point_t) :: int_point
         type(int_F0_rho_phi_t) :: int_F0
@@ -123,7 +139,27 @@ module electrostatic_kernel
                                     + integral_val * Krook_G0_rho_phi(j, plasma%spec(sigma)) * Krook_kappa_rho_phi(j, plasma%spec(sigma))
                 end if
 
-                if (abs(int_point%xl - int_point%xlp) > Larmor_skip_factor * int_point%rhoT) continue
+                ! Track maximum distances for diagnostics
+                current_distance = abs(int_point%xl - int_point%xlp)
+
+                if (current_distance > Larmor_skip_factor * int_point%rhoT) cycle
+
+                current_idx_distance = abs(l - lp)
+                
+                !$omp critical
+                if (current_distance > max_distance_xl_xlp) then
+                    max_distance_xl_xlp = current_distance
+                    max_dist_l = l
+                    max_dist_lp = lp
+                end if
+                if (current_idx_distance > max_index_distance) then
+                    max_index_distance = current_idx_distance
+                    max_idx_l = l
+                    max_idx_lp = lp
+                end if
+                !$omp end critical
+
+
                 
                 if (.not. artificial_debye_case) then
                     int_F1%int_point = int_point
@@ -212,6 +248,14 @@ module electrostatic_kernel
         !$omp end parallel do
 
         write(*,*) ! New line after progress bar
+        
+        ! Print diagnostic information
+        write(*,*) '======== Kernel Distance Diagnostics (Fokker-Planck) ========'
+        write(*,'(A,F12.6)') ' Maximum |xl - xlp| distance: ', max_distance_xl_xlp
+        write(*,'(A,I6,A,I6)') ' Occurred at l = ', max_dist_l, ', lp = ', max_dist_lp
+        write(*,'(A,I6)') ' Maximum index distance |l - lp|: ', max_index_distance
+        write(*,'(A,I6,A,I6)') ' Occurred at l = ', max_idx_l, ', lp = ', max_idx_lp
+        write(*,*) '============================================================='
 
     end subroutine
 
@@ -238,6 +282,8 @@ module electrostatic_kernel
         integer :: j, sigma
         type(gauss_config_t), intent(in) :: gauss_conf
         real(dp) :: integral_val
+        real(dp) :: current_distance
+        integer :: current_idx_distance
 
         type(integration_point_t) :: int_point
         type(int_F0_rho_phi_t) :: int_F0
@@ -267,8 +313,26 @@ module electrostatic_kernel
                         + integral_val * FP_G0_rho_phi(j, plasma%spec(sigma)) * FP_kappa_rho_phi(j, plasma%spec(sigma))
                 end if
 
+                ! Track maximum distances for diagnostics
+                current_distance = abs(int_point%xl - int_point%xlp)
+
                 ! skip the kernel calculation for distances that are not connected
-                if (abs(int_point%xl - int_point%xlp) > Larmor_skip_factor * int_point%rhoT) continue
+                if (current_distance > Larmor_skip_factor * int_point%rhoT) cycle
+
+                current_idx_distance = abs(l - lp)
+                
+                !$omp critical
+                if (current_distance > max_distance_xl_xlp) then
+                    max_distance_xl_xlp = current_distance
+                    max_dist_l = l
+                    max_dist_lp = lp
+                end if
+                if (current_idx_distance > max_index_distance) then
+                    max_index_distance = current_idx_distance
+                    max_idx_l = l
+                    max_idx_lp = lp
+                end if
+                !$omp end critical
 
                 int_F1%int_point = int_point
                 int_F2%int_point = int_point
@@ -377,6 +441,8 @@ module electrostatic_kernel
         integer :: l, lp, j, sigma
         complex(dp) :: krook_phi_llp, krook_B_llp, fp_phi_llp, fp_B_llp
         real(dp) :: integral_F0, integral_F1, integral_F2, integral_F3
+        real(dp) :: current_distance
+        integer :: current_idx_distance
         
         type(integration_point_t) :: int_point
         type(int_F0_rho_phi_t) :: int_F0
@@ -394,7 +460,7 @@ module electrostatic_kernel
         
         !$omp parallel do collapse(1) private(l, lp, krook_phi_llp, krook_B_llp, &
         !$omp& fp_phi_llp, fp_B_llp, j, sigma, int_point, int_F0, int_F1, int_F2, int_F3, &
-        !$omp& integral_F0, integral_F1, integral_F2, integral_F3)
+        !$omp& integral_F0, integral_F1, integral_F2, integral_F3, current_distance, current_idx_distance)
         do l = 1, kernel_krook_rho_phi%npts_l
             do lp = 1, l
                 
@@ -427,7 +493,27 @@ module electrostatic_kernel
                                         FP_kappa_rho_phi(j, plasma%spec(sigma))
                         end if
 
-                        if (abs(int_point%xl - int_point%xlp) > Larmor_skip_factor * int_point%rhoT) continue
+                        ! Track maximum distances for diagnostics
+                        current_distance = abs(int_point%xl - int_point%xlp)
+
+                        if (current_distance > Larmor_skip_factor * int_point%rhoT) cycle
+
+                        current_idx_distance = abs(l - lp)
+                        
+                        !$omp critical
+                        if (current_distance > max_distance_xl_xlp) then
+                            max_distance_xl_xlp = current_distance
+                            max_dist_l = l
+                            max_dist_lp = lp
+                        end if
+                        if (current_idx_distance > max_index_distance) then
+                            max_index_distance = current_idx_distance
+                            max_idx_l = l
+                            max_idx_lp = lp
+                        end if
+                        !$omp end critical
+
+
                         
                         if (.not. artificial_debye_case) then
                             ! Set integration points for F1, F2, F3
@@ -496,6 +582,14 @@ module electrostatic_kernel
         !$omp end parallel do
 
         write(*,*) ! New line after progress bar
+        
+        ! Print diagnostic information
+        write(*,*) '======== Kernel Distance Diagnostics (Combined Krook+FP) ========'
+        write(*,'(A,F12.6)') ' Maximum |xl - xlp| distance: ', max_distance_xl_xlp
+        write(*,'(A,I6,A,I6)') ' Occurred at l = ', max_dist_l, ', lp = ', max_dist_lp
+        write(*,'(A,I6)') ' Maximum index distance |l - lp|: ', max_index_distance
+        write(*,'(A,I6,A,I6)') ' Occurred at l = ', max_idx_l, ', lp = ', max_idx_lp
+        write(*,*) '=================================================================='
         
     end subroutine fill_kernels_krook_fp
 

@@ -2,6 +2,7 @@ subroutine generate_grids
 
     use grid, only: rg_grid, xl_grid, reduced_rg_dim, l_space_dim, grid_spacing, r_min, r_plas
     use species, only: plasma
+    use config, only: fdebug
 
     implicit none
 
@@ -21,6 +22,12 @@ subroutine generate_grids
     else
         call rg_grid%grid_generate()
         call xl_grid%grid_generate()
+    end if
+
+    if (fdebug == 1) then
+        write(*,*) " Generated Grid number of points:"
+        write(*,*) ' Nrg = ', rg_grid%npts_b, ", Nl = ", xl_grid%npts_b
+        write(*,*) ''
     end if
 
 end subroutine

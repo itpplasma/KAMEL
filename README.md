@@ -1,40 +1,89 @@
 # KAMEL - Kinetic plAsma response ModEL
-This repository contains the kinetic plasma response framework containing the linear plasma response codes KiLCA and KIM, as well as the quasilinear transport code QL-Balance. KiLCA and KIM are cylindrical linear plasma response solvers based on a finite Larmor radius and an integral formalism, respectively. QL-Balance is a quasilinear 1D radial transport code. In combination, they are used to model the plasma response to external magnetic perturbation in toroidally confined fusion plasmas. 
 
-Note, when using the template scripts, make sure to change the code, most importantly the paths, according to your project before using it.
+KAMEL is a scientific computing framework for modeling plasma response to external magnetic perturbations in fusion plasmas.
+
+## Overview
+
+The framework consists of three main codes:
+
+1. **KiLCA** - Kinetic Linear Cylindrical Approximation, plasma response solver using finite Larmor radius formalism
+2. **KIM** - KiLCA Integral Model using integral formalism for non-local plasma response
+3. **QL-Balance** - Quasilinear 1D radial transport code including anomalous and electromagnetic diffusion for time-evolution studies
+
+## Requirements
+
+### System Dependencies
+- **MPI** (MPICH or OpenMPI)
+- **HDF5** with parallel support
+- **Python 3.8+** with pip
+- **CMake 3.16+** and **Ninja** build system
+- **Fortran compiler** (gfortran 10+ or ifort)
+- **C/C++ compiler** (gcc/g++ 10+ or clang/clang++)
+
+### External Libraries
+The following are automatically fetched during compilation:
+- **LAPACK/BLAS** - Linear algebra operations
+- **SuiteSparse** - Sparse matrix operations
+- **GSL** - GNU Scientific Library
+- **SUNDIALS** - Numerical differential equation solvers
+- **FFTW3** - Fast Fourier transforms
+
+### Python Dependencies
+- numpy, scipy, h5py, f90nml, matplotlib
 
 ## Compilation
-For compilation of the codes invoke `make` in this directory.  
-Generally, for Apple Silicon the clang/gfortran (version 16.0 and 14.2., respectively) compiler combination is tested. On debian, the gnu compiler version 12.2.0 is tested.
 
-## Codes
+```bash
+# Build all three codes (Release mode by default)
+make all
 
-### KiLCA
-Contains the source code of KiLCA.
+# Build in Debug mode
+CONFIG=Debug make all
 
-So far, the compilation and execution of the (Normal, Release, NOMD, FPGEN) version of the code was tested on Linux and MacOS. 
+# Build individual components
+make KiLCA
+make KIM
+make QL-Balance
 
-### KIM
-Contains the source code of KIM (KiLCA Integral Model).
+# Clean build
+make clean
+```
 
-### QL-Balance
-Quasilinear transport code based on KiLCA. Requires the prior compilation of KiLCA.
+**Note:** External dependencies (LAPACK, SuiteSparse, GSL, SUNDIALS) are automatically downloaded and built during the first compilation if not found on the system.
 
-### PreProc
-PreProc contains the fouriermodes code used to calculate r_eff, q, and the toroidal and poloidal fluxes. Also, it contains the neo-2 templates used to run NEO-2 on the ITP machines with condor. This requires the NEO-2 code (see github.com/itpplasma/neo-2).
+### Tested Configurations
+- **Apple Silicon**: clang 16.0 + gfortran 14.2
+- **Debian/Ubuntu**: GNU compiler 12.2.0
 
-## python
-Contains python classes and functions to use the code. Comes with its own Makefile.
+## Quick Start
 
-## template_scripts
-Contains matlab scripts that can be used as templates for certain balance code runs.
+```bash
+# 1. Clone repository
+git clone https://github.com/itpplasma/KAMEL.git
+cd KAMEL
 
-## utility_scripts
-Contains matlab and python scripts that make life easier.
+# 2. Build all codes
+make all
 
-## matlab
-Contains the matlab interface classes for the ql-balance, KiLCA and GPEC code, as well as things like NEO-2 and the kisslinger code. Also, blueprints for e.g. balance_conf.nml can be found there.
+# 3. Install Python interface
+cd python && make init && make install
 
-## Documentation
-- Short introduction to the balance code framework.
-- List of variables contained in the balance configuration namelist balance_conf.nml.
+# 4. Run tests
+make test
+```
+
+## Project Structure
+
+- `/KiLCA/` - Finite Larmor radius plasma response solver
+- `/KIM/` - Integral formalism plasma response solver
+- `/QL-Balance/` - Quasilinear transport code (requires KiLCA)
+- `/PreProc/` - Preprocessing utilities (fouriermodes, neo-2 templates)
+- `/python/` - Python interface (KAMELpy) for all codes
+- `/matlab/` - MATLAB interfaces and workflow management
+- `/template_scripts/` - Standard workflow templates
+- `/external/` - External dependencies (auto-fetched)
+- `/Documentation/` - Mathematical background and user guides
+
+## License
+
+See LICENSE file for details.

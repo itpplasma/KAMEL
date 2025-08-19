@@ -1,6 +1,6 @@
 CONFIG ?= Release
 
-.PHONY: all ninja test clean
+.PHONY: all ninja test clean KIM KiLCA QL-Balance
 
 all: ninja
 
@@ -9,6 +9,15 @@ build/build.ninja:
 
 ninja: build/build.ninja
 	cmake --build build --config $(CONFIG)
+
+KIM: build/build.ninja
+	cmake --build build --config $(CONFIG) --target KIM.x
+
+KiLCA: build/build.ninja
+	cmake --build build --config $(CONFIG) --target KiLCA
+
+QL-Balance: build/build.ninja
+	cmake --build build --config $(CONFIG) --target QL-Balance
 
 test: ninja
 	ctest --test-dir build --stop-on-failure --output-on-failure

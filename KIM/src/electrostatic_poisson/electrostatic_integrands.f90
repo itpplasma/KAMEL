@@ -1,5 +1,5 @@
 ! integrands for both Krook and FP collision models
-module electrostatic_integrands
+module electrostatic_integrands_gauss_mod
 
     use KIM_kinds, only: dp
 
@@ -20,33 +20,33 @@ module electrostatic_integrands
             procedure :: calc_Jrg4
     end type
 
-    type :: int_F0_rho_phi_t
+    type :: gauss_int_F0_rho_phi_t
         type(integration_point_t) :: int_point
         contains
-            procedure :: f => integrand_F0_rho_phi
+            procedure :: f => gauss_integrand_F0_rho_phi
     end type
 
-    type :: int_F1_rho_phi_t
+    type :: gauss_int_F1_rho_phi_t
         type(integration_point_t) :: int_point
         contains
-            procedure :: f => integrand_F1_rho_phi
+            procedure :: f => gauss_integrand_F1_rho_phi
     end type
 
-    type :: int_F2_rho_phi_t
+    type :: gauss_int_F2_rho_phi_t
         type(integration_point_t) :: int_point
         contains
-            procedure :: f => integrand_F2_rho_phi
+            procedure :: f => gauss_integrand_F2_rho_phi
     end type
 
-    type :: int_F3_rho_phi_t
+    type :: gauss_int_F3_rho_phi_t
         type(integration_point_t) :: int_point
         contains
-            procedure :: f => integrand_F3_rho_phi
+            procedure :: f => gauss_integrand_F3_rho_phi
     end type
 
     contains
 
-    function integrand_F0_rho_phi(this, x) result(val)
+    function gauss_integrand_F0_rho_phi(this, x) result(val)
 
         use grid, only: rg_grid
         use functions, only: varphi_l
@@ -57,7 +57,7 @@ module electrostatic_integrands
 
         real(dp), intent(in) :: x
         real(dp) :: val
-        class(int_F0_rho_phi_t), intent(in) :: this
+        class(gauss_int_F0_rho_phi_t), intent(in) :: this
 
         val = varphi_l(x, this%int_point%xlm1, this%int_point%xl, this%int_point%xlp1) &
             * varphi_l(x, this%int_point%xlpm1, this%int_point%xlp, this%int_point%xlpp1) &
@@ -69,7 +69,7 @@ module electrostatic_integrands
 
     end function
 
-    function integrand_F1_rho_phi(this, x, xp, theta) result(val)
+    function gauss_integrand_F1_rho_phi(this, x, xp, theta) result(val)
 
         use constants, only: pi
         use species, only: plasma
@@ -79,7 +79,7 @@ module electrostatic_integrands
 
         implicit none
 
-        class(int_F1_rho_phi_t), intent(inout) :: this
+        class(gauss_int_F1_rho_phi_t), intent(inout) :: this
         real(dp), intent(in) :: x, xp, theta
         real(dp) :: val
         real(dp) :: ks_val
@@ -96,7 +96,7 @@ module electrostatic_integrands
     end function
 
 
-    function integrand_F2_rho_phi(this, x, xp, theta) result(val)
+    function gauss_integrand_F2_rho_phi(this, x, xp, theta) result(val)
 
         use constants, only: pi
         use species, only: plasma
@@ -106,7 +106,7 @@ module electrostatic_integrands
 
         implicit none
 
-        class(int_F2_rho_phi_t), intent(inout) :: this
+        class(gauss_int_F2_rho_phi_t), intent(inout) :: this
         real(dp), intent(in) :: x, xp, theta
         real(dp) :: val
         real(dp) :: ks_val
@@ -131,7 +131,7 @@ module electrostatic_integrands
     end function
 
 
-    function integrand_F3_rho_phi(this, x, xp, theta) result(val)
+    function gauss_integrand_F3_rho_phi(this, x, xp, theta) result(val)
 
         use constants, only: pi
         use species, only: plasma
@@ -141,7 +141,7 @@ module electrostatic_integrands
 
         implicit none
 
-        class(int_F3_rho_phi_t), intent(inout) :: this
+        class(gauss_int_F3_rho_phi_t), intent(inout) :: this
         real(dp), intent(in) :: x, xp, theta
         real(dp) :: val
         real(dp) :: ks_val
@@ -259,4 +259,4 @@ module electrostatic_integrands
 
     end function
 
-end module
+end module electrostatic_integrands_gauss_mod

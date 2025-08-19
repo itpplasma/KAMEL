@@ -13,10 +13,10 @@ module grid
     integer :: reduced_rg_dim
     integer :: spline_base
     integer :: grid_spacing
-    integer :: num_gengrid_points
     integer :: gauss_int_nodes_Ntheta, gauss_int_nodes_Nx, gauss_int_nodes_Nxp
     real(dp):: Larmor_skip_factor
     real(dp):: width_res, ampl_res, hrmax_scaling
+    character(len=64) :: theta_integration ! RKF45 or GaussLegendre
 
     integer :: nder=1
     integer :: npoi_der=4

@@ -1,6 +1,6 @@
 module RKF45_mod
 
-    use iso_fortran_env, only: dp => real64
+    use KIM_kinds, only: dp
 
     implicit none
 
@@ -23,7 +23,7 @@ module RKF45_mod
 
     subroutine RKF45_1D(f, y0, x0, xmax, h0, tol, sol)
 
-        use iso_fortran_env, only: dp => real64
+        use KIM_kinds, only: dp
         implicit none
 
         ! Arguments
@@ -33,11 +33,12 @@ module RKF45_mod
         ! Locals
         real(dp) :: yk, xk, hk
         real(dp) :: ytrial, xtrial, hnew
+        real(dp) :: dummy
         integer  :: step_count
 
         interface
             function f(x)
-                use iso_fortran_env, only: dp => real64
+                use KIM_kinds, only: dp
                 implicit none
                 real(dp), intent(in) :: x
                 real(dp) :: f
@@ -55,6 +56,8 @@ module RKF45_mod
 
             if (step_count > MAX_INT_COUNT) then
                 print *, "Integration error: too many steps (", MAX_INT_COUNT, ")"
+                print *, "Current xk: ", xk, " Current yk: ", yk, " Current hk: ", hk
+                print *, "xmax: ", xmax, " tol: ", tol, " h0: ", h0
                 stop
             end if
 
@@ -72,8 +75,6 @@ module RKF45_mod
 
         end do
 
-        print *, "Step count: ", step_count
-
         sol = yk
 
     end subroutine RKF45_1D
@@ -82,7 +83,7 @@ module RKF45_mod
     subroutine RKF45_step_1D(f, yk, xk, h, tol, xkp1, ykp1, hnew)
         ! Classical Runge-Kutta-Fehlberg 4(5) method (adaptive stepper)
 
-        use iso_fortran_env, only: dp => real64
+        use KIM_kinds, only: dp
         implicit none
 
         real(dp), intent(in)  :: yk, xk, h, tol
@@ -93,7 +94,7 @@ module RKF45_mod
 
         interface
             function f(x)
-                use iso_fortran_env, only: dp => real64
+                use KIM_kinds, only: dp
                 implicit none
                 real(dp), intent(in) :: x
                 real(dp) :: f
@@ -138,7 +139,7 @@ module RKF45_mod
 
     subroutine RK4_step_1D(f, yk, xk, h, ykp1, xkp1)
 
-        use iso_fortran_env, only: dp => real64
+        use KIM_kinds, only: dp
         implicit none
 
         real(dp), intent(in) :: xk, h, yk
@@ -147,7 +148,7 @@ module RKF45_mod
 
         interface
             function f(x)
-                use iso_fortran_env, only: dp => real64
+                use KIM_kinds, only: dp
                 implicit none
                 real(dp), intent(in) :: x
                 real(dp) :: f

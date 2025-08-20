@@ -16,7 +16,7 @@ module electrostatic_integrals_rkf45_mod
     real(dp) :: f0 = 0.0d0
     real(dp) :: theta_0 = 0.01d0 ! add small epsilon to avoid singularity
     real(dp) :: theta_max = pi - 0.01d0
-    real(dp) :: h0 = 0.1d0, tol = 1.0d-5
+    real(dp) :: h0 = 0.1d0, tol = 1.0d-8
 
     contains
 

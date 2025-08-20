@@ -33,7 +33,6 @@ module RKF45_mod
         ! Locals
         real(dp) :: yk, xk, hk
         real(dp) :: ytrial, xtrial, hnew
-        real(dp) :: dummy
         integer  :: step_count
 
         interface
@@ -148,7 +147,6 @@ module RKF45_mod
         ! Locals
         real(dp) :: yk, xk, hk
         real(dp) :: ytrial, xtrial, hnew
-        real(dp) :: dummy
         integer  :: step_count
 
         interface

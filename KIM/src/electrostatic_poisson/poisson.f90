@@ -60,10 +60,19 @@ module rt_electrostatic
         complex(dp), allocatable :: rho(:)
         complex(dp), allocatable :: jpar(:)
 
+        character(8)  :: date
+        character(10) :: time
+        character(5)  :: zone
+        integer,dimension(8) :: values
+
+        call date_and_time(date,time,zone,values)
+
         call kernel_rho_phi_llp%init_kernel(xl_grid%npts_b, xl_grid%npts_b)
         call kernel_rho_B_llp%init_kernel(xl_grid%npts_b, xl_grid%npts_b)
         call kernel_j_phi_llp%init_kernel(xl_grid%npts_b, xl_grid%npts_b)
         call kernel_j_B_llp%init_kernel(xl_grid%npts_b, xl_grid%npts_b)
+
+        write(*,*) "Start filling kernel at ", date, " ", time, " ..."
 
         if (collision_model == "Krook") then
             call run_Krook
@@ -88,7 +97,7 @@ module rt_electrostatic
             EBdat%r_grid = xl_grid%xb
             
             call solve_poisson(kernel_rho_phi_llp%Kllp, kernel_rho_B_llp%Kllp, EBdat%Phi)
-            call write_complex_profile_abs(xl_grid%xb, EBdat%Phi, xl_grid%npts_b, trim(output_path)//"/fields/phi_"//trim(collision_model)//"_sol.dat")
+            call write_complex_profile_abs(xl_grid%xb, EBdat%Phi, xl_grid%npts_b, trim(output_path)//"/fields/phi_"//trim(collision_model)//".dat")
 
             call postprocess_electric_field(EBdat)
 
@@ -106,6 +115,8 @@ module rt_electrostatic
                 call FP_fill_kernels_adaptive(kernel_rho_phi_llp, kernel_rho_B_llp, kernel_j_phi_llp, kernel_j_B_llp)
             else if (trim(theta_integration) == "GaussLegendre") then
                 call FP_fill_kernels(kernel_rho_phi_llp, kernel_rho_B_llp, kernel_j_phi_llp, kernel_j_B_llp)
+            else
+                stop "Error: theta integration method not recognized."
             end if
 
             allocate(EBdat%Phi(xl_grid%npts_b), EBdat%Br(xl_grid%npts_b), EBdat%E_perp_psi(xl_grid%npts_b), &
@@ -115,7 +126,7 @@ module rt_electrostatic
             EBdat%r_grid = xl_grid%xb
             
             call solve_poisson(kernel_rho_phi_llp%Kllp, kernel_rho_B_llp%Kllp, EBdat%Phi)
-            call write_complex_profile_abs(xl_grid%xb, EBdat%Phi, xl_grid%npts_b, trim(output_path)//"/fields/phi_"//trim(collision_model)//"_sol.dat")
+            call write_complex_profile_abs(xl_grid%xb, EBdat%Phi, xl_grid%npts_b, trim(output_path)//"/fields/phi_"//trim(collision_model)//".dat")
 
             call postprocess_electric_field(EBdat)
 
@@ -136,7 +147,7 @@ module rt_electrostatic
             EBdat%r_grid = xl_grid%xb
             
             call solve_poisson(kernel_rho_phi_llp%Kllp, kernel_rho_B_llp%Kllp, EBdat%Phi)
-            call write_complex_profile_abs(xl_grid%xb, EBdat%Phi, xl_grid%npts_b, trim(output_path)//"/fields/phi_"//trim(collision_model)//"_sol.dat")
+            call write_complex_profile_abs(xl_grid%xb, EBdat%Phi, xl_grid%npts_b, trim(output_path)//"/fields/phi_"//trim(collision_model)//".dat")
 
             call postprocess_electric_field(EBdat)
 

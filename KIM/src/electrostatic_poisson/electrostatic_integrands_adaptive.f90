@@ -2,31 +2,41 @@
 module electrostatic_integrands_rkf45_mod
 
     use KIM_kinds, only: dp
-    use electrostatic_integrands_gauss_mod, only: integration_point_t
 
     implicit none
 
-    type :: rkf45_int_F1_rho_phi_t
-        type(integration_point_t) :: int_point
-        contains
-            procedure :: f => rkf45_integrand_F1_rho_phi
-    end type
-
-    type :: rkf45_int_F2_rho_phi_t
-        type(integration_point_t) :: int_point
-        contains
-            procedure :: f => rkf45_integrand_F2_rho_phi
-    end type
-
-    type :: rkf45_int_F3_rho_phi_t
-        type(integration_point_t) :: int_point
-        contains
-            procedure :: f => rkf45_integrand_F3_rho_phi
-    end type
+    type :: rkf45_integrand_context_t
+        integer :: j
+        real(dp) :: rhoT
+        real(dp) :: x, xp, xlpm1, xlp, xlpp1, xlm1, xlp1, xl
+        real(dp) :: ks
+    end type rkf45_integrand_context_t
 
     contains
 
-    function rkf45_integrand_F1_rho_phi(this, x, xp, theta) result(val)
+    function rkf45_integrand_F0(context) result(val)
+
+        use grid, only: rg_grid
+        use functions, only: varphi_l
+        use gsl_mod, only: erf => gsl_sf_erf
+        use constants, only: pi
+
+        implicit none
+
+        type(rkf45_integrand_context_t), intent(in) :: context
+        real(dp) :: val
+
+        val = varphi_l(context%x, context%xlm1, context%xl, context%xlp1) &
+            * varphi_l(context%x, context%xlpm1, context%xlp, context%xlpp1) &
+            * (&
+                  erf((rg_grid%xb(context%j+1)-context%x)/(sqrt(2.0d0) * abs(context%rhoT))) &
+                - erf((rg_grid%xb(context%j) - context%x)/(sqrt(2.0d0) * abs(context%rhoT)))&
+            ) &
+            * 2.0d0 * pi**2.0d0
+
+    end function
+
+    function rkf45_integrand_F1(theta, context) result(val)
 
         use constants, only: pi
         use species, only: plasma
@@ -36,28 +46,33 @@ module electrostatic_integrands_rkf45_mod
 
         implicit none
 
-        class(rkf45_int_F1_rho_phi_t), intent(inout) :: this
-        real(dp), intent(in) :: x, xp, theta
+        !type(rkf45_integrand_context_t), intent(in) :: context
+        class(*), intent(in) :: context
+        real(dp), intent(in) :: theta
         real(dp) :: val
-        real(dp) :: ks_val
+        real(dp) :: a, b
 
-        ks_val = 0.5d0 * (plasma%ks(this%int_point%j) + plasma%ks(this%int_point%j+1))
-        this%int_point%a_coef = sqrt(1.0d0 / (1.0d0 + cos(theta))) / abs(this%int_point%rhoT)
-        this%int_point%b_coef = calc_b_coef(x, xp)
+        select type(context)
+        type is(rkf45_integrand_context_t)
+    
+            a = sqrt(1.0d0 / (1.0d0 + cos(theta))) / abs(context%rhoT)
+            b = calc_b_coef(context%x, context%xp)
 
-        call this%int_point%calc_Jrg1()
+            val = varphi_l(context%xp, context%xlpm1, context%xlp, context%xlpp1) &
+                * varphi_l(context%x, context%xlm1, context%xl, context%xlp1) &
+                * 2.0d0 * pi / (context%rhoT**2.0d0 * sin(theta)) &
+                * exp(- (context%x - context%xp)**2.0d0 / (4.0d0 * context%rhoT**2.0d0 * (1.0d0 - cos(theta)))) &
+                * Jrg1(a, b, context%j)
 
-        val = varphi_l(xp, this%int_point%xlpm1, this%int_point%xlp, this%int_point%xlpp1) &
-            * varphi_l(x, this%int_point%xlm1, this%int_point%xl, this%int_point%xlp1) &
-            * 2.0d0 * pi / (this%int_point%rhoT**2.0d0 * sin(theta)) &
-            * exp(- ks_val**2.0d0 * this%int_point%rhoT**2.0d0 &
-                  - (x - xp)**2.0d0 / (4.0d0 * this%int_point%rhoT**2.0d0 * (1.0d0 - cos(theta)))) &
-            * this%int_point%Jrg1
+        class default
+            error stop "Unsupported context type"
+        end select
+
 
     end function
 
 
-    function rkf45_integrand_F2_rho_phi(this, x, xp, theta) result(val)
+    function rkf45_integrand_F2(theta, context) result(val)
 
         use constants, only: pi
         use species, only: plasma
@@ -67,39 +82,41 @@ module electrostatic_integrands_rkf45_mod
 
         implicit none
 
-        class(rkf45_int_F2_rho_phi_t), intent(inout) :: this
-        real(dp), intent(in) :: x, xp, theta
+        !type(rkf45_integrand_context_t), intent(in) :: context
+        class(*), intent(in) :: context
+        real(dp), intent(in) :: theta
         real(dp) :: val
-        real(dp) :: ks_val
+        real(dp) :: a, b
 
-        ks_val = 0.5d0 * (plasma%ks(this%int_point%j) + plasma%ks(this%int_point%j+1))
-        this%int_point%a_coef = sqrt(1.0d0 / (1.0d0 + cos(theta))) / abs(this%int_point%rhoT)
-        this%int_point%b_coef = calc_b_coef(x, xp)
+        select type(context)
+        type is(rkf45_integrand_context_t)
 
-        call this%int_point%calc_Jrg1()
-        call this%int_point%calc_Jrg2()
-        call this%int_point%calc_Jrg3()
-        call this%int_point%calc_Jrg4()
+            a = sqrt(1.0d0 / (1.0d0 + cos(theta))) / abs(context%rhoT)
+            b = calc_b_coef(context%x, context%xp)
 
-        val = varphi_l(xp, this%int_point%xlpm1, this%int_point%xlp, this%int_point%xlpp1) &
-            * varphi_l(x, this%int_point%xlm1, this%int_point%xl, this%int_point%xlp1) &
-            * (-pi) / (4.0d0 * this%int_point%rhoT**4.0d0 * sin(theta)**5.0d0) &
-            * exp(- ks_val**2.0d0 * this%int_point%rhoT**2.0d0 &
-                  - (x - xp)**2.0d0 / (4.0d0 * this%int_point%rhoT**2.0d0 * (1.0d0 - cos(theta)))) & 
-            * ( &
-                this%int_point%Jrg1 * (&
-                    4.0d0 * cos(2.0d0 * theta) * this%int_point%rhoT**2.0d0 *(ks_val**2.0d0 * this%int_point%rhoT**2.0d0 + 1.0d0) &
-                    - ks_val**2.0d0 * this%int_point%rhoT**4.0d0 * cos(4.0d0 * theta)  &
-                    - this%int_point%rhoT**2.0d0 * (3.0d0 * ks_val**2.0d0 * this%int_point%rhoT**2.0d0 + 4.0d0) &
-                ) &
-                + (2.0d0 * cos(2.0d0 * theta) + 6.0d0) * (this%int_point%Jrg2 + this%int_point%Jrg3) &
-                - 16.0d0 * cos(theta) * this%int_point%Jrg4 &
-            )
+            val = varphi_l(context%xp, context%xlpm1, context%xlp, context%xlpp1) &
+                * varphi_l(context%x, context%xlm1, context%xl, context%xlp1) &
+                * 1.0d0 / sin(theta)**5.0d0 &
+                * exp(- (context%x - context%xp)**2.0d0 / (4.0d0 * context%rhoT**2.0d0 * (1.0d0 - cos(theta)))) & 
+                * ( &
+                    Jrg1(a, b, context%j) * (&
+                        4.0d0 * cos(2.0d0 * theta) * context%rhoT**2.0d0 *(context%ks**2.0d0 * context%rhoT**2.0d0 + 1.0d0) &
+                        - context%ks**2.0d0 * context%rhoT**4.0d0 * cos(4.0d0 * theta)  &
+                        - context%rhoT**2.0d0 * (3.0d0 * context%ks**2.0d0 * context%rhoT**2.0d0 + 4.0d0) &
+                    ) &
+                    + (2.0d0 * cos(2.0d0 * theta) + 6.0d0) &
+                    * (Jrg2(a, b, context%j, context%x) + Jrg3(a, b, context%j, context%xp)) &
+                    - 16.0d0 * cos(theta) * Jrg4(a, b, context%j, context%x, context%xp) &
+                )
+
+        class default
+            error stop "Unsupported context type"
+        end select
 
     end function
 
 
-    function rkf45_integrand_F3_rho_phi(this, x, xp, theta) result(val)
+    function rkf45_integrand_F3(theta, context) result(val)
 
         use constants, only: pi
         use species, only: plasma
@@ -109,30 +126,31 @@ module electrostatic_integrands_rkf45_mod
 
         implicit none
 
-        class(rkf45_int_F3_rho_phi_t), intent(inout) :: this
-        real(dp), intent(in) :: x, xp, theta
+        !type(rkf45_integrand_context_t), intent(in) :: context
+        class(*), intent(in) :: context
+        real(dp), intent(in) :: theta
         real(dp) :: val
-        real(dp) :: ks_val
+        real(dp) :: a, b
 
-        ks_val = 0.5d0 * (plasma%ks(this%int_point%j) + plasma%ks(this%int_point%j+1))
-        this%int_point%a_coef = sqrt(1.0d0 / (1.0d0 + cos(theta))) / abs(this%int_point%rhoT)
-        this%int_point%b_coef = calc_b_coef(x, xp)
+        select type(context)
+        type is(rkf45_integrand_context_t)
 
-        call this%int_point%calc_Jrg1()
-        call this%int_point%calc_Jrg2()
-        call this%int_point%calc_Jrg3()
-        call this%int_point%calc_Jrg4()
+            a = sqrt(1.0d0 / (1.0d0 + cos(theta))) / abs(context%rhoT)
+            b = calc_b_coef(context%x, context%xp)
 
-        val = varphi_l(xp, this%int_point%xlpm1, this%int_point%xlp, this%int_point%xlpp1) &
-            * varphi_l(x, this%int_point%xlm1, this%int_point%xl, this%int_point%xlp1) &
-            * (-pi) * cos(theta) / ( 2.0d0 * this%int_point%rhoT**4.0d0 * sin(theta)**5.0d0) &
-            * exp(- ks_val**2.0d0 * this%int_point%rhoT**2.0d0 &
-                  - (x - xp)**2.0d0 / (4.0d0 * this%int_point%rhoT**2.0d0 * (1.0d0 - cos(theta)))) & 
-            * ( &
-                this%int_point%rhoT**2.0d0 * (cos(3.0d0 * theta) - cos(theta)) * this%int_point%Jrg1 &
-                + 4.0d0 * cos(theta) * (this%int_point%Jrg2 + this%int_point%Jrg3) &
-                - 2.0d0 * (cos(2.0d0 * theta) + 3.0d0) * this%int_point%Jrg4 &
-            )
+            val = varphi_l(context%xp, context%xlpm1, context%xlp, context%xlpp1) &
+                * varphi_l(context%x, context%xlm1, context%xl, context%xlp1) &
+                * cos(theta) / sin(theta)**5.0d0 &
+                * exp(- (context%x - context%xp)**2.0d0 / (4.0d0 * context%rhoT**2.0d0 * (1.0d0 - cos(theta)))) & 
+                * ( &
+                    context%rhoT**2.0d0 * (cos(3.0d0 * theta) - cos(theta)) * Jrg1(a, b, context%j) &
+                    + 4.0d0 * cos(theta) * (Jrg2(a, b, context%j, context%x) + Jrg3(a, b, context%j, context%xp)) &
+                    - 2.0d0 * (cos(2.0d0 * theta) + 3.0d0) * Jrg4(a, b, context%j, context%x, context%xp) &
+                )
+
+        class default
+            error stop "Unsupported context type"
+        end select
 
     end function
 
@@ -147,5 +165,101 @@ module electrostatic_integrands_rkf45_mod
         b_coef = 0.5d0 * (xp + x)
 
     end function
+
+    function Jrg1(a, b, j)
+
+        use constants, only: pi
+        use grid, only: rg_grid
+        use gsl_mod, only: erf => gsl_sf_erf
+
+        implicit none
+
+        real(dp), intent(in) :: a, b
+        integer, intent(in) :: j
+        real(dp) :: Jrg1
+
+        Jrg1 = sqrt(pi) / (2.0d0 * a) &
+            *(erf(a * (b - rg_grid%xb(j))) &
+            - erf(a * (b - rg_grid%xb(j+1))))
+
+    end function
+
+    function Jrg2(a, b, j, xl)
+
+        use constants, only: pi
+        use grid, only: rg_grid
+        use gsl_mod, only: erf => gsl_sf_erf
+
+        implicit none
+
+        real(dp), intent(in) :: a, b, xl
+        integer, intent(in) :: j
+        real(dp) :: Jrg2
+
+        Jrg2 = 1.0d0 / (4.0d0 * a**3.0d0) &
+                    * ( &
+                        sqrt(pi) * (2.0d0 * a**2.0d0 * (b - xl)**2.0d0 + 1.0d0) &
+                            * (erf(a * (b - rg_grid%xb(j))) &
+                                - erf(a * (b - rg_grid%xb(j+1)))) &
+                        + 2.0d0 * a * exp(-a**2.0d0 * (b - rg_grid%xb(j))**2.0d0) &
+                            * (b + rg_grid%xb(j) - 2.0d0 * xl) &
+                        - 2.0d0 * a * exp(-a**2.0d0 * (b - rg_grid%xb(j+1))**2.0d0) &
+                            * (b + rg_grid%xb(j+1) - 2.0d0 * xl) &
+                    )
+
+    end function
+
+
+    function Jrg3(a, b, j, xlp)
+
+        use constants, only: pi
+        use grid, only: rg_grid
+        use gsl_mod, only: erf => gsl_sf_erf
+
+        implicit none
+
+        real(dp), intent(in) :: a, b, xlp
+        integer, intent(in) :: j
+        real(dp) :: Jrg3
+
+        jrg3 = 1.0d0 / (4.0d0 * a**3.0d0) &
+                    * ( &
+                        sqrt(pi) * (2.0d0 * a**2.0d0 * (b - xlp)**2.0d0 + 1.0d0) &
+                            * (erf(a * (b - rg_grid%xb(j))) &
+                                - erf(a * (b - rg_grid%xb(j+1)))) &
+                        + 2.0d0 * a * exp(-a**2.0d0 * (b - rg_grid%xb(j))**2.0d0) &
+                            * (b + rg_grid%xb(j) - 2.0d0 * xlp) &
+                        - 2.0d0 * a * exp(-a**2.0d0 * (b - rg_grid%xb(j+1))**2.0d0) &
+                            * (b + rg_grid%xb(j+1) - 2.0d0 * xlp) & 
+                    )
+
+    end function
+
+    function Jrg4(a, b, j, xl, xlp)
+
+        use constants, only: pi
+        use grid, only: rg_grid
+        use gsl_mod, only: erf => gsl_sf_erf
+
+        implicit none
+
+        real(dp), intent(in) :: a, b, xl, xlp
+        integer, intent(in) :: j
+        real(dp) :: Jrg4
+
+        Jrg4 = 1.0d0 / (4.0d0 * a**3.0d0) &
+                    * ( &
+                        (erf(a * (b - rg_grid%xb(j))) &
+                            - erf(a * (b - rg_grid%xb(j+1)))) &
+                            * sqrt(pi) * (2.0d0 * a**2.0d0 * (b - xl) &
+                            * (b - xlp)+1.0d0) &
+                        + 2.0d0 * a * exp(-a**2.0d0 * (b - rg_grid%xb(j))**2.0d0) &
+                            * (b + rg_grid%xb(j) - xl - xlp) &
+                        + 2.0d0 * a * exp(-a**2.0d0 * (b - rg_grid%xb(j+1))**2.0d0) &
+                            * (-b - rg_grid%xb(j+1) + xl + xlp) &
+                    )
+
+    end function
+
 
 end module electrostatic_integrands_rkf45_mod

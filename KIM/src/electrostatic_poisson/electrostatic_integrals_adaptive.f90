@@ -16,7 +16,7 @@ module electrostatic_integrals_rkf45_mod
     real(dp) :: f0 = 0.0d0
     real(dp) :: theta_0 = 0.01d0 ! add small epsilon to avoid singularity
     real(dp) :: theta_max = pi - 0.01d0
-    real(dp) :: h0 = 0.1d0, tol = 1.0d-3
+    real(dp) :: h0 = 0.1d0, tol = 1.0d-5
 
     contains
 
@@ -34,96 +34,81 @@ module electrostatic_integrals_rkf45_mod
 
     end subroutine
 
-    subroutine gauss_integrate_F0(int_F, a, b, result, rkf45_conf)
+    subroutine rkf45_integrate_F0(result, rkf45_conf, context)
 
-        use electrostatic_integrands_gauss_mod, only: gauss_int_F0_rho_phi_t
+        use electrostatic_integrands_rkf45_mod, only: rkf45_integrand_context_t, rkf45_integrand_F0
 
         implicit none
 
-        real(dp), intent(in) :: a, b
+        type(rkf45_integrand_context_t), intent(inout) :: context
         type(rkf45_config_t), intent(in) :: rkf45_conf
         real(dp), intent(out) :: result
-        type(gauss_int_F0_rho_phi_t), intent(in) :: int_F
 
         integer :: i
         real(dp) :: xm, xr
 
         result = 0.0d0
-        xm = 0.5d0 * (b + a)
-        xr = 0.5d0 * (b - a)
-
+        xm = 0.5d0 * (context%xlp1 + context%xlm1)
+        xr = 0.5d0 * (context%xlp1 - context%xlm1)
+        !$omp parallel do collapse(1) private(i) firstprivate(context) reduction(+:result)
         do i = 1, rkf45_conf%Nx
-            result = result + rkf45_conf%w_x(i) * int_F%f(xr * rkf45_conf%x_x(i) + xm)
+            context%x = xr * rkf45_conf%x_x(i) + xm
+            result = result + rkf45_conf%w_x(i) * rkf45_integrand_F0(context)
         end do
+        !$omp end parallel do
         result = result * xr
 
     end subroutine
 
-    subroutine rkf45_integrate_F1(rkf45_int_F1, result, rkf45_conf)
+    subroutine rkf45_integrate_F1(result, rkf45_conf, context)
 
-        use electrostatic_integrands_rkf45_mod, only: rkf45_int_F1_rho_phi_t
+        use electrostatic_integrands_rkf45_mod, only: rkf45_integrand_context_t, rkf45_integrand_F1
         use constants, only: pi
         use config, only: output_path
-        use RKF45_mod, only: RKF45_1D
+        use RKF45_mod, only: RKF45_1D_with_context
 
         implicit none
 
-        class(rkf45_int_F1_rho_phi_t), intent(inout) :: rkf45_int_F1
+        type(rkf45_integrand_context_t), intent(inout) :: context
 
         type(rkf45_config_t), intent(in) :: rkf45_conf
         real(dp), intent(out) :: result
         real(dp) :: norm_factor
         real(dp) :: rk45_res
-        real(dp) :: dummy
         integer :: j,k
-        integer :: iunit
-        logical :: first_call = .true.
-        save :: first_call
 
         result = 0.0d0
+        norm_factor = (context%xlp1 - context%xlm1)* (context%xlpp1 - context%xlpm1) / 4.0d0 ! gauss integration normalizaton
 
-        norm_factor = (rkf45_int_F1%int_point%xlp1 - rkf45_int_F1%int_point%xlm1) & ! normalization due to integral range shift
-                        * (rkf45_int_F1%int_point%xlpp1 - rkf45_int_F1%int_point%xlpm1) / 4.0d0
-
+        !$omp parallel do collapse(2) private(j, k, rk45_res) firstprivate(context) reduction(+:result)
         do j=1,rkf45_conf%Nxp ! xp 
-            rkf45_int_F1%int_point%xlp_mapped = 0.5d0 * ((rkf45_int_F1%int_point%xlpp1 - rkf45_int_F1%int_point%xlpm1) * rkf45_conf%x_xp(j) + &
-                rkf45_int_F1%int_point%xlpp1 + rkf45_int_F1%int_point%xlpm1)
+            context%xp = 0.5d0 * ((context%xlpp1 - context%xlpm1) * rkf45_conf%x_xp(j) + context%xlpp1 + context%xlpm1)
 
             do k=1,rkf45_conf%Nx !x
-                rkf45_int_F1%int_point%xl_mapped = 0.5d0 * ((rkf45_int_F1%int_point%xlp1 - rkf45_int_F1%int_point%xlm1) * rkf45_conf%x_x(k) + &
-                    rkf45_int_F1%int_point%xlp1 + rkf45_int_F1%int_point%xlm1)
+                context%x = 0.5d0 * ((context%xlp1 - context%xlm1) * rkf45_conf%x_x(k) + context%xlp1 + context%xlm1)
 
                 rk45_res = 0.0d0
 
-                call RKF45_1D(F1_wrapper, f0, theta_0, theta_max, h0, tol, rk45_res)
+                call RKF45_1D_with_context(rkf45_integrand_F1, f0, theta_0, theta_max, h0, tol, rk45_res, context)
 
-                result = result + rkf45_conf%w_xp(j) * rkf45_conf%w_x(k) * norm_factor * rk45_res
+                result = result + rkf45_conf%w_xp(j) * rkf45_conf%w_x(k) * rk45_res
             end do
         end do
+        !$omp end parallel do
 
-        contains
-
-        function F1_wrapper(theta) result(val)
-
-            implicit none
-            real(dp), intent(in) :: theta
-            real(dp) :: val
-
-            val = rkf45_int_F1%f(rkf45_int_F1%int_point%xl_mapped, rkf45_int_F1%int_point%xlp_mapped, theta)
-
-        end function
+        result = result * exp(- context%ks**2.0d0 * context%rhoT**2.0d0) * norm_factor
 
     end subroutine
 
-    subroutine rkf45_integrate_F2(rkf45_int_F2, result, rkf45_conf)
+    subroutine rkf45_integrate_F2( result, rkf45_conf, context)
     
-        use electrostatic_integrands_rkf45_mod, only: rkf45_int_F2_rho_phi_t
         use constants, only: pi
-        use RKF45_mod, only: RKF45_1D
+        use RKF45_mod, only: RKF45_1D_with_context
+        use electrostatic_integrands_rkf45_mod, only: rkf45_integrand_context_t, rkf45_integrand_F2
 
         implicit none
 
-        class(rkf45_int_F2_rho_phi_t), intent(inout) :: rkf45_int_F2
+        type(rkf45_integrand_context_t), intent(inout) :: context
 
         type(rkf45_config_t), intent(in) :: rkf45_conf
         real(dp), intent(out) :: result
@@ -132,50 +117,38 @@ module electrostatic_integrals_rkf45_mod
         integer :: j,k
 
         result = 0.0d0
+        norm_factor = (context%xlp1 - context%xlm1)* (context%xlpp1 - context%xlpm1) / 4.0d0 ! gauss integration normalizaton
 
-        norm_factor = (rkf45_int_F2%int_point%xlp1 - rkf45_int_F2%int_point%xlm1) & ! normalization due to integral range shift
-                        * (rkf45_int_F2%int_point%xlpp1 - rkf45_int_F2%int_point%xlpm1) / 4.0d0
-
+        !$omp parallel do collapse(2) private(j, k, rk45_res) firstprivate(context) reduction(+:result)
         do j=1,rkf45_conf%Nxp ! xp 
-            rkf45_int_F2%int_point%xlp_mapped = 0.5d0 * ((rkf45_int_F2%int_point%xlpp1 - rkf45_int_F2%int_point%xlpm1) * rkf45_conf%x_xp(j) + &
-                rkf45_int_F2%int_point%xlpp1 + rkf45_int_F2%int_point%xlpm1)
+            context%xp = 0.5d0 * ((context%xlpp1 - context%xlpm1) * rkf45_conf%x_xp(j) + context%xlpp1 + context%xlpm1)
 
             do k=1,rkf45_conf%Nx !x
-                rkf45_int_F2%int_point%xl_mapped = 0.5d0 * ((rkf45_int_F2%int_point%xlp1 - rkf45_int_F2%int_point%xlm1) * rkf45_conf%x_x(k) + &
-                    rkf45_int_F2%int_point%xlp1 + rkf45_int_F2%int_point%xlm1)
+                context%x = 0.5d0 * ((context%xlp1 - context%xlm1) * rkf45_conf%x_x(k) + context%xlp1 + context%xlm1)
 
                 rk45_res = 0.0d0
 
-                call RKF45_1D(F2_wrapper, f0, theta_0, theta_max, h0, tol, rk45_res)
+                call RKF45_1D_with_context(rkf45_integrand_F2, f0, theta_0, theta_max, h0, tol, rk45_res, context)
 
-                result = result + rkf45_conf%w_xp(j) * rkf45_conf%w_x(k) * norm_factor * rk45_res
+                result = result + rkf45_conf%w_xp(j) * rkf45_conf%w_x(k) * rk45_res
             end do
         end do
+        !$omp end parallel do
 
-        contains 
-
-        function F2_wrapper(theta) result(val)
-
-            implicit none
-            real(dp), intent(in) :: theta
-            real(dp) :: val
-
-            val = rkf45_int_F2%f(rkf45_int_F2%int_point%xl_mapped, rkf45_int_F2%int_point%xlp_mapped, theta)
-
-        end function
+        result = result * exp(- context%ks**2.0d0 * context%rhoT**2.0d0) * norm_factor &
+                * (-pi) / (4.0d0 * context%rhoT**4.0d0)
 
     end subroutine
 
-    subroutine rkf45_integrate_F3(rkf45_int_F3, result, rkf45_conf)
+    subroutine rkf45_integrate_F3(result, rkf45_conf, context)
     
-        use electrostatic_integrands_rkf45_mod, only: rkf45_int_F3_rho_phi_t
         use constants, only: pi
-        use RKF45_mod, only: RKF45_1D
+        use RKF45_mod, only: RKF45_1D_with_context
+        use electrostatic_integrands_rkf45_mod, only: rkf45_integrand_context_t, rkf45_integrand_F3
 
         implicit none
 
-        class(rkf45_int_F3_rho_phi_t), intent(inout) :: rkf45_int_F3
-
+        type(rkf45_integrand_context_t), intent(inout) :: context
         type(rkf45_config_t), intent(in) :: rkf45_conf
         real(dp), intent(out) :: result
         real(dp) :: norm_factor
@@ -183,37 +156,26 @@ module electrostatic_integrals_rkf45_mod
         integer :: j,k
 
         result = 0.0d0
+        norm_factor = (context%xlp1 - context%xlm1)* (context%xlpp1 - context%xlpm1) / 4.0d0 ! gauss integration normalizaton
 
-        norm_factor = (rkf45_int_F3%int_point%xlp1 - rkf45_int_F3%int_point%xlm1) & ! normalization due to integral range shift
-                        * (rkf45_int_F3%int_point%xlpp1 - rkf45_int_F3%int_point%xlpm1) / 4.0d0
-
+        !$omp parallel do collapse(2) private(j, k, rk45_res) firstprivate(context) reduction(+:result)
         do j=1,rkf45_conf%Nxp ! xp 
-            rkf45_int_F3%int_point%xlp_mapped = 0.5d0 * ((rkf45_int_F3%int_point%xlpp1 - rkf45_int_F3%int_point%xlpm1) * rkf45_conf%x_xp(j) + &
-                rkf45_int_F3%int_point%xlpp1 + rkf45_int_F3%int_point%xlpm1)
+            context%xp = 0.5d0 * ((context%xlpp1 - context%xlpm1) * rkf45_conf%x_xp(j) + context%xlpp1 + context%xlpm1)
 
             do k=1,rkf45_conf%Nx !x
-                rkf45_int_F3%int_point%xl_mapped = 0.5d0 * ((rkf45_int_F3%int_point%xlp1 - rkf45_int_F3%int_point%xlm1) * rkf45_conf%x_x(k) + &
-                    rkf45_int_F3%int_point%xlp1 + rkf45_int_F3%int_point%xlm1)
+                context%x = 0.5d0 * ((context%xlp1 - context%xlm1) * rkf45_conf%x_x(k) + context%xlp1 + context%xlm1)
 
                 rk45_res = 0.0d0
 
-                call RKF45_1D(F3_wrapper, f0, theta_0, theta_max, h0, tol, rk45_res)
+                call RKF45_1D_with_context(rkf45_integrand_F3, f0, theta_0, theta_max, h0, tol, rk45_res, context)
 
-                result = result + rkf45_conf%w_xp(j) * rkf45_conf%w_x(k) * norm_factor * rk45_res
+                result = result + rkf45_conf%w_xp(j) * rkf45_conf%w_x(k) * rk45_res
             end do
         end do
+        !$omp end parallel do
 
-        contains 
-
-        function F3_wrapper(theta) result(val)
-
-            implicit none
-            real(dp), intent(in) :: theta
-            real(dp) :: val
-
-            val = rkf45_int_F3%f(rkf45_int_F3%int_point%xl_mapped, rkf45_int_F3%int_point%xlp_mapped, theta)
-
-        end function
+        result = result * exp(- context%ks**2.0d0 * context%rhoT**2.0d0) * norm_factor &
+                * (-pi) / (2.0d0 * context%rhoT**4.0d0)
 
     end subroutine
 

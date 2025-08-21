@@ -16,7 +16,8 @@ module electrostatic_integrals_rkf45_mod
     real(dp) :: f0 = 0.0d0
     real(dp) :: theta_0 = 0.01d0 ! add small epsilon to avoid singularity
     real(dp) :: theta_max = pi - 0.01d0
-    real(dp) :: h0 = 0.1d0, tol = 1.0d-8
+    real(dp) :: h0 = 0.1d0
+    real(dp) :: rk45_tol = 1.0d-8
 
     contains
 
@@ -89,7 +90,7 @@ module electrostatic_integrals_rkf45_mod
 
                 rk45_res = 0.0d0
 
-                call RKF45_1D_with_context(rkf45_integrand_F1, f0, theta_0, theta_max, h0, tol, rk45_res, context)
+                call RKF45_1D_with_context(rkf45_integrand_F1, f0, theta_0, theta_max, h0, rk45_tol, rk45_res, context)
 
                 result = result + rkf45_conf%w_xp(j) * rkf45_conf%w_x(k) * rk45_res
             end do
@@ -128,7 +129,7 @@ module electrostatic_integrals_rkf45_mod
 
                 rk45_res = 0.0d0
 
-                call RKF45_1D_with_context(rkf45_integrand_F2, f0, theta_0, theta_max, h0, tol, rk45_res, context)
+                call RKF45_1D_with_context(rkf45_integrand_F2, f0, theta_0, theta_max, h0, rk45_tol, rk45_res, context)
 
                 result = result + rkf45_conf%w_xp(j) * rkf45_conf%w_x(k) * rk45_res
             end do
@@ -167,7 +168,7 @@ module electrostatic_integrals_rkf45_mod
 
                 rk45_res = 0.0d0
 
-                call RKF45_1D_with_context(rkf45_integrand_F3, f0, theta_0, theta_max, h0, tol, rk45_res, context)
+                call RKF45_1D_with_context(rkf45_integrand_F3, f0, theta_0, theta_max, h0, rk45_tol, rk45_res, context)
 
                 result = result + rkf45_conf%w_xp(j) * rkf45_conf%w_x(k) * rk45_res
             end do

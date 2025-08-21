@@ -17,7 +17,6 @@ module electrostatic_integrals_rkf45_mod
     real(dp) :: theta_0 = 0.01d0 ! add small epsilon to avoid singularity
     real(dp) :: theta_max = pi - 0.01d0
     real(dp) :: h0 = 0.1d0
-    real(dp) :: rk45_tol = 1.0d-8
 
     contains
 
@@ -67,6 +66,7 @@ module electrostatic_integrals_rkf45_mod
         use constants, only: pi
         use config, only: output_path
         use RKF45_mod, only: RKF45_1D_with_context
+        use grid, only: rkf45_tol
 
         implicit none
 
@@ -90,7 +90,7 @@ module electrostatic_integrals_rkf45_mod
 
                 rk45_res = 0.0d0
 
-                call RKF45_1D_with_context(rkf45_integrand_F1, f0, theta_0, theta_max, h0, rk45_tol, rk45_res, context)
+                call RKF45_1D_with_context(rkf45_integrand_F1, f0, theta_0, theta_max, h0, rkf45_tol, rk45_res, context)
 
                 result = result + rkf45_conf%w_xp(j) * rkf45_conf%w_x(k) * rk45_res
             end do
@@ -106,6 +106,7 @@ module electrostatic_integrals_rkf45_mod
         use constants, only: pi
         use RKF45_mod, only: RKF45_1D_with_context
         use electrostatic_integrands_rkf45_mod, only: rkf45_integrand_context_t, rkf45_integrand_F2
+        use grid, only: rkf45_tol
 
         implicit none
 
@@ -129,7 +130,7 @@ module electrostatic_integrals_rkf45_mod
 
                 rk45_res = 0.0d0
 
-                call RKF45_1D_with_context(rkf45_integrand_F2, f0, theta_0, theta_max, h0, rk45_tol, rk45_res, context)
+                call RKF45_1D_with_context(rkf45_integrand_F2, f0, theta_0, theta_max, h0, rkf45_tol, rk45_res, context)
 
                 result = result + rkf45_conf%w_xp(j) * rkf45_conf%w_x(k) * rk45_res
             end do
@@ -146,6 +147,7 @@ module electrostatic_integrals_rkf45_mod
         use constants, only: pi
         use RKF45_mod, only: RKF45_1D_with_context
         use electrostatic_integrands_rkf45_mod, only: rkf45_integrand_context_t, rkf45_integrand_F3
+        use grid, only: rkf45_tol
 
         implicit none
 
@@ -168,7 +170,7 @@ module electrostatic_integrals_rkf45_mod
 
                 rk45_res = 0.0d0
 
-                call RKF45_1D_with_context(rkf45_integrand_F3, f0, theta_0, theta_max, h0, rk45_tol, rk45_res, context)
+                call RKF45_1D_with_context(rkf45_integrand_F3, f0, theta_0, theta_max, h0, rkf45_tol, rk45_res, context)
 
                 result = result + rkf45_conf%w_xp(j) * rkf45_conf%w_x(k) * rk45_res
             end do

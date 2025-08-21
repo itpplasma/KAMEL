@@ -17,6 +17,7 @@ module grid
     real(dp):: Larmor_skip_factor
     real(dp):: width_res, ampl_res, hrmax_scaling
     character(len=64) :: theta_integration ! RKF45 or GaussLegendre
+    real(dp) :: rkf45_tol = 1.0d-8 ! Tolerance for RKF45 adaptive integration
 
     integer :: nder=1
     integer :: npoi_der=4

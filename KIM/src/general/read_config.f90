@@ -24,7 +24,7 @@ subroutine read_config
     namelist /KIM_GRID/ reduce_r, grid_spacing, l_space_dim, theta_integration, &
                         reduced_rg_dim, kr_grid_width_res, kr_grid_ampl_res, k_space_dim, &
                         Larmor_skip_factor, gauss_int_nodes_Ntheta, gauss_int_nodes_Nx, gauss_int_nodes_Nxp, &
-                        r_plas, r_min, width_res, ampl_res, hrmax_scaling
+                        r_plas, r_min, width_res, ampl_res, hrmax_scaling, rkf45_tol
 
     num_args = command_argument_count()
     if (num_args > 1) then

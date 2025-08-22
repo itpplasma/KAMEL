@@ -11,7 +11,7 @@ implicit none;
 
 integer, intent(in) :: spec, tip;
 real(dp), intent(in) :: r;
-character(1), intent(in) :: backflag;
+character(*), intent(in) :: backflag;
 complex(dpc), dimension(1:3, 1:3, 0:2*flre_order, 0:1), intent(out) :: ct;
 
 integer :: Dmin = 0, Dmax = 1;
@@ -46,7 +46,7 @@ implicit none;
 
 integer, intent(in) :: spec, tip, Dmin, Dmax;
 real(dp), intent(in) :: r;
-character(1), intent(in) :: backflag;
+character(*), intent(in) :: backflag;
 complex(dpc), dimension(1:3, 1:3, 0:flre_order, 0:flre_order, Dmin:Dmax), intent(out) :: K; !j,i,q,p,order
 
 integer(pp) :: cp_point;

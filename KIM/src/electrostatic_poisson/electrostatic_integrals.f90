@@ -92,8 +92,8 @@ module electrostatic_integrals_gauss_mod
             write(iunit, '(A,I4)') '# Number of xp nodes: ', gauss_conf%Nxp
             write(iunit, '(A)') '# j index, xl boundaries: xlm1, xl, xlp1, xlpm1, xlp, xlpp1, rhoT'
             write(iunit, '(I4, 7F12.6)') int_F1%int_point%j, int_F1%int_point%xlm1, int_F1%int_point%xl, &
-                                      int_F1%int_point%xlp1, int_F1%int_point%xlpm1, int_F1%int_point%xlp, &
-                                      int_F1%int_point%xlpp1, int_F1%int_point%rhoT
+                                        int_F1%int_point%xlp1, int_F1%int_point%xlpm1, int_F1%int_point%xlp, &
+                                        int_F1%int_point%xlpp1, int_F1%int_point%rhoT
             write(iunit, '(A)') '#'
             write(iunit, '(A)') '# Theta nodes (Gauss-Legendre on [-1,1] and mapped values):'
             write(iunit, '(A)') '# i, GL_node, theta_mapped, weight'

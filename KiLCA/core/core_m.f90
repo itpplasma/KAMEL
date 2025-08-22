@@ -14,14 +14,14 @@ end module
 
 subroutine set_core_data_in_core_module (cd)
 
-use constants, only: pp;
-use core, only: cd_ptr;
+    use constants, only: pp
+    use core, only: cd_ptr
 
-implicit none;
+    implicit none
 
-integer(pp), intent(in) :: cd
+    integer(pp), intent(in) :: cd
 
-cd_ptr = cd;
+    cd_ptr = cd
 
 end subroutine
 

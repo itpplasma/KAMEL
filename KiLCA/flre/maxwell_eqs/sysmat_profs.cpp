@@ -31,97 +31,99 @@ sysmat_profiles *sp = new sysmat_profiles;
 
 void sysmat_profiles::calc_and_spline_sysmatrix_profiles (const flre_zone *zone)
 {
-//in constructor one should set all parameters depending on external world, and nowhere
-//else use a calls to external objects - this is especially apropriate if the class is small.
+    //in constructor one should set all parameters depending on external world, and nowhere
+    //else use a calls to external objects - this is especially apropriate if the class is small.
 
-//begin of settings section:
+    //begin of settings section:
 
-flag_back = new char[8];
-strcpy (flag_back, zone->cp->flag_back); //background flag is the same
+    flag_back = new char[8];
+    strcpy (flag_back, zone->cp->flag_back); //background flag is the same
 
-path2linear = new char[1024];
-strcpy (path2linear, zone->cp->path2linear);
+    path2linear = new char[1024];
+    strcpy (path2linear, zone->cp->path2linear);
 
-Nwaves = zone->Nwaves;
+    Nwaves = zone->Nwaves;
 
-N = zone->cp->NC;
+    N = zone->cp->NC;
 
-int max_dim = zone->max_dim_c;
+    int max_dim = zone->max_dim_c;
 
-double eps = zone->eps_out;
+    double eps = zone->eps_out;
 
-int flag_debug = zone->flag_debug;
+    int flag_debug = zone->flag_debug;
 
-double r1 = zone->r1;
-double r2 = zone->r2;
-double rm = zone->wd->r_res;
+    double r1 = zone->r1;
+    double r2 = zone->r2;
+    double rm = zone->wd->r_res;
 
-//end of settings section
+    //end of settings section
 
-dimM = 2*(Nwaves)*(Nwaves); //number of reals in the sys matrix
+    dimM = 2*(Nwaves)*(Nwaves); //number of reals in the sys matrix
 
-R = new double[(N+1)*(dimM)]; //for evaluation
+    R = new double[(N+1)*(dimM)]; //for evaluation
 
-ind = 0; //x grid index
+    ind = 0; //x grid index
 
-int dimxa = 3;
-double *xa = new double[dimxa];
-double *ya = new double[dimxa];
+    int dimxa = 3;
+    double *xa = new double[dimxa];
+    double *ya = new double[dimxa];
 
-//arrays for temp adaptive grid:
-xt = new double[max_dim];
-yt = new double[(dimM)*max_dim];
+    //arrays for temp adaptive grid:
+    xt = new double[max_dim];
+    yt = new double[(dimM)*max_dim];
 
-//boundaries:
-xa[0] = r1;
-xa[2] = r2;
+    //boundaries:
+    xa[0] = r1;
+    xa[2] = r2;
 
-if (rm != 0.0e0 && (rm > r1 && rm < r2)) xa[1] = 1.01*rm; else xa[1] = 0.5*(xa[0]+xa[2]);
 
-for (int i=0; i<dimxa; i++) sample_sysmat_func (xa+i, ya+i, (void *)this);
 
-calc_adaptive_1D_grid_4vector_ (sample_sysmat_func, (void *)this, &max_dim, &eps, &dimxa, xa, ya);
+    if (rm != 0.0e0 && (rm > r1 && rm < r2)) xa[1] = 1.01*rm; else xa[1] = 0.5*(xa[0]+xa[2]);
 
-//check:
-if (ind != dimxa)
-{
-    fprintf (stdout, "\nerror: eval_and_spline_sysmatrix_profiles: ind=%d\tdimxa=%d\n", ind, dimxa);
-}
+    for (int i=0; i<dimxa; i++) sample_sysmat_func (xa+i, ya+i, (void *)this);
 
-delete [] xa;
-delete [] ya;
+    calc_adaptive_1D_grid_4vector_ (sample_sysmat_func, (void *)this, &max_dim, &eps, &dimxa, xa, ya);
 
-dimx = dimxa;
-x = new double[dimx];
-M = new double[(dimx)*(dimM)];
-C = new double[(N+1)*(dimx)*(dimM)];
+    //check:
+    if (ind != dimxa)
+    {
+        fprintf (stdout, "\nerror: eval_and_spline_sysmatrix_profiles: ind=%d\tdimxa=%d\n", ind, dimxa);
+    }
 
-/*sorting grid points*/
-size_t *perm = new size_t[dimx];
+    delete [] xa;
+    delete [] ya;
 
-gsl_heapsort_index (perm, xt, dimx, sizeof(double), compare_doubles);
+    dimx = dimxa;
+    x = new double[dimx];
+    M = new double[(dimx)*(dimM)];
+    C = new double[(N+1)*(dimx)*(dimM)];
 
-//rearanging arrays:
-for (int i=0; i<dimx; i++)
-{
-    x[i] = xt[perm[i]];
-    for (int j=0; j<dimM; j++) M[i+j*(dimx)] = yt[j+perm[i]*(dimM)];
-}
+    /*sorting grid points*/
+    size_t *perm = new size_t[dimx];
 
-delete [] perm;
-delete [] xt;
-delete [] yt;
+    gsl_heapsort_index (perm, xt, dimx, sizeof(double), compare_doubles);
 
-spline_alloc_ (N, 1, dimx, x, C, &sidM);
+    //rearanging arrays:
+    for (int i=0; i<dimx; i++)
+    {
+        x[i] = xt[perm[i]];
+        for (int j=0; j<dimM; j++) M[i+j*(dimx)] = yt[j+perm[i]*(dimM)];
+    }
 
-if (DEBUG_FLAG) fprintf (stdout, "\neval_and_spline_sysmatrix_profiles: dimx = %d\tdimy = %d\tmax_err = %le\n", dimx, dimM, eps);
+    delete [] perm;
+    delete [] xt;
+    delete [] yt;
 
-int ierr;
-spline_calc_ (sidM, M, 0, dimM-1, NULL, &ierr);
+    spline_alloc_ (N, 1, dimx, x, C, &sidM);
 
-if (DEBUG_FLAG) fprintf (stdout, "\nM profiles are splined...\n");
+    if (DEBUG_FLAG) fprintf (stdout, "\neval_and_spline_sysmatrix_profiles: dimx = %d\tdimy = %d\tmax_err = %le\n", dimx, dimM, eps);
 
-if (flag_debug > 1) save_M_matrix (10);
+    int ierr;
+    spline_calc_ (sidM, M, 0, dimM-1, NULL, &ierr);
+
+    if (DEBUG_FLAG) fprintf (stdout, "\nM profiles are splined...\n");
+
+    if (flag_debug > 1) save_M_matrix (10);
 }
 
 /*******************************************************************/

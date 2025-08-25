@@ -27,6 +27,7 @@ module electrostatic_kernel_adaptive_mod
         use KIM_kinds, only: dp
         use electrostatic_integrals_rkf45_mod, only: rkf45_config_t, init_rkf45_int
         use grid, only: Larmor_skip_factor, gauss_int_nodes_Ntheta, gauss_int_nodes_Nx, gauss_int_nodes_Nxp
+        use loading_bar, only: updateLoadingBarWithETA
 
         implicit none
 
@@ -36,6 +37,8 @@ module electrostatic_kernel_adaptive_mod
         type(kernel_spl_t), intent(inout) :: K_j_B_llp
         type(rkf45_config_t) :: rkf45_conf
         integer :: l, lp
+        integer :: total_iterations, current_iteration
+        real(dp) :: start_time
 
         rkf45_conf%Nx = gauss_int_nodes_Nx
         rkf45_conf%Nxp = gauss_int_nodes_Nxp
@@ -43,6 +46,13 @@ module electrostatic_kernel_adaptive_mod
         call init_rkf45_int(rkf45_conf)
 
         write(*,*) 'Filling Fokker-Planck collision kernels...'
+
+        ! Calculate total number of iterations for the loading bar
+        total_iterations = K_rho_phi_llp%npts_l * (K_rho_phi_llp%npts_l + 1) / 2
+        current_iteration = 0
+
+        ! Record start time for ETA calculation
+        call cpu_time(start_time)
 
         !!$omp parallel do collapse(1) private(l,lp)
         do l = 1, K_rho_phi_llp%npts_l
@@ -76,9 +86,19 @@ module electrostatic_kernel_adaptive_mod
                 K_rho_B_llp%Kllp(lp, l) = K_rho_B_llp%Kllp(l, lp)
                 K_j_phi_llp%Kllp(lp, l) = K_j_phi_llp%Kllp(l, lp)
                 K_j_B_llp%Kllp(lp, l) = K_j_B_llp%Kllp(l, lp)
+
+                ! Update the loading bar with ETA (thread-safe when OpenMP is enabled)
+                ! Note: If OpenMP is enabled, uncomment the !$omp critical block
+                !!$omp critical
+                current_iteration = current_iteration + 1
+                call updateLoadingBarWithETA(current_iteration, total_iterations, start_time)
+                !!$omp end critical
             end do
         end do
         !!$omp end parallel do
+        
+        ! Add newline after loading bar completes
+        write(*,*)
         
         ! Print diagnostic information
         write(*,*) '======== Kernel Distance Diagnostics (Fokker-Planck) ========'

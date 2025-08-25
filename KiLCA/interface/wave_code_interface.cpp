@@ -20,54 +20,46 @@
 
 void calc_wave_code_data_ (core_data ** cdptr, char const * run_path, int * pathlength)
 {
-//!The function computes wave fields and other quantities which migth be obtained by subsequent calls of other get_* () interface functions
+    //!The function computes wave fields and other quantities which migth be obtained by subsequent calls of other get_* () interface functions
+    //gets path to the project
+    char * path = new char[1024];
+    strcpy (path, run_path);
+    path[*pathlength] = '\0'; //end of string symbol
 
-//gets path to the project
-char * path = new char[1024];
+    if (path[strlen(path)-1] != '/') strcat(path, "/");
 
-strcpy (path, run_path);
+    //!Allocates core data structure containing pointers to all important code data
+    core_data * cd = new core_data (path);
+    set_core_data_in_core_module_ (&cd);
+    *cdptr = cd;
 
-path[*pathlength] = '\0'; //end of string symbol
+    cd->calc_and_set_mode_independent_core_data ();
+    cd->calc_and_set_mode_dependent_core_data_antenna_interface ();
 
-if (path[strlen(path)-1] != '/') strcat(path, "/");
-
-//!Allocates core data structure containing pointers to all important code data
-core_data * cd = new core_data (path);
-set_core_data_in_core_module_ (&cd);
-*cdptr = cd;
-
-cd->calc_and_set_mode_independent_core_data ();
-
-cd->calc_and_set_mode_dependent_core_data_antenna_interface ();
-
-delete [] path;
+    delete [] path;
 }
 
 /*******************************************************************/
 
 void calc_wave_code_data_for_mode_ (core_data ** cdptr, char const * run_path, int * pathlength, int * m, int * n)
 {
-//!The function computes wave fields and other quantities which migth be obtained by subsequent calls of other get_* () interface functions
+    //!The function computes wave fields and other quantities which migth be obtained by subsequent calls of other get_* () interface functions
+    //gets path to the project
+    char * path = new char[1024];
+    strcpy (path, run_path);
+    path[*pathlength] = '\0'; //end of string symbol
+    if (path[strlen(path)-1] != '/') strcat(path, "/");
 
-//gets path to the project
-char * path = new char[1024];
+    //!Allocates core data structure containing pointers to all important code data
+    core_data * cd = new core_data (path);
+    set_core_data_in_core_module_ (&cd);
+    *cdptr = cd;
 
-strcpy (path, run_path);
+    cd->calc_and_set_mode_independent_core_data ();
 
-path[*pathlength] = '\0'; //end of string symbol
+    cd->calc_and_set_mode_dependent_core_data_antenna_interface (*m, *n);
 
-if (path[strlen(path)-1] != '/') strcat(path, "/");
-
-//!Allocates core data structure containing pointers to all important code data
-core_data * cd = new core_data (path);
-set_core_data_in_core_module_ (&cd);
-*cdptr = cd;
-
-cd->calc_and_set_mode_independent_core_data ();
-
-cd->calc_and_set_mode_dependent_core_data_antenna_interface (*m, *n);
-
-delete [] path;
+    delete [] path;
 }
 
 /*******************************************************************/

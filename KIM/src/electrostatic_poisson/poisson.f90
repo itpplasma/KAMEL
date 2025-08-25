@@ -36,6 +36,7 @@ module rt_electrostatic
     subroutine run_electrostatic(this)
 
         use electrostatic_kernel, only: Krook_fill_kernel_phi, FP_fill_kernels, fill_kernels_krook_fp, kernel_spl_t
+        use electrostatic_kernel_adaptive_mod, only: FP_fill_kernels_adaptive
         use grid, only: xl_grid
         use IO_collection, only: write_matrix, write_complex_profile, write_complex_profile_abs
         use poisson_solver, only: solve_poisson
@@ -59,12 +60,34 @@ module rt_electrostatic
         complex(dp), allocatable :: rho(:)
         complex(dp), allocatable :: jpar(:)
 
+        character(8)  :: date
+        character(10) :: time
+        character(5)  :: zone
+        integer,dimension(8) :: values
+
+        call date_and_time(date,time,zone,values)
+
         call kernel_rho_phi_llp%init_kernel(xl_grid%npts_b, xl_grid%npts_b)
         call kernel_rho_B_llp%init_kernel(xl_grid%npts_b, xl_grid%npts_b)
         call kernel_j_phi_llp%init_kernel(xl_grid%npts_b, xl_grid%npts_b)
         call kernel_j_B_llp%init_kernel(xl_grid%npts_b, xl_grid%npts_b)
 
+        write(*,*) "Start filling kernel at ", date, " ", time, " ..."
+
         if (collision_model == "Krook") then
+            call run_Krook
+        else if (collision_model == "FokkerPlanck") then
+            call run_FP
+        else if (collision_model == "Krook_FokkerPlanck") then
+            call run_Krook_FP
+            return
+        else
+            stop "Error: collision model not recognized."
+        end if
+
+    contains
+
+        subroutine run_Krook
             call Krook_fill_kernel_phi(kernel_rho_phi_llp, kernel_rho_B_llp)
 
             allocate(EBdat%Phi(xl_grid%npts_b), EBdat%Br(xl_grid%npts_b), EBdat%E_perp_psi(xl_grid%npts_b), &
@@ -74,15 +97,27 @@ module rt_electrostatic
             EBdat%r_grid = xl_grid%xb
             
             call solve_poisson(kernel_rho_phi_llp%Kllp, kernel_rho_B_llp%Kllp, EBdat%Phi)
-            call write_complex_profile_abs(xl_grid%xb, EBdat%Phi, xl_grid%npts_b, trim(output_path)//"/fields/phi_"//trim(collision_model)//"_sol.dat")
+            call write_complex_profile_abs(xl_grid%xb, EBdat%Phi, xl_grid%npts_b, trim(output_path)//"/fields/phi_"//trim(collision_model)//".dat")
 
             call postprocess_electric_field(EBdat)
 
             call calculate_charge_density(rho, EBdat)
             call write_complex_profile_abs(xl_grid%xb, rho, xl_grid%npts_b, trim(output_path)//"/fields/rho_"//trim(collision_model)//".dat")
+        end subroutine
 
-        else if (collision_model == "FokkerPlanck") then
-            call FP_fill_kernels(kernel_rho_phi_llp, kernel_rho_B_llp, kernel_j_phi_llp, kernel_j_B_llp)
+        subroutine run_FP
+
+            use grid, only: theta_integration
+
+            implicit none
+
+            if (trim(theta_integration) == "RKF45") then
+                call FP_fill_kernels_adaptive(kernel_rho_phi_llp, kernel_rho_B_llp, kernel_j_phi_llp, kernel_j_B_llp)
+            else if (trim(theta_integration) == "GaussLegendre") then
+                call FP_fill_kernels(kernel_rho_phi_llp, kernel_rho_B_llp, kernel_j_phi_llp, kernel_j_B_llp)
+            else
+                stop "Error: theta integration method not recognized."
+            end if
 
             allocate(EBdat%Phi(xl_grid%npts_b), EBdat%Br(xl_grid%npts_b), EBdat%E_perp_psi(xl_grid%npts_b), &
                     EBdat%r_grid(xl_grid%npts_b), EBdat%E_perp(xl_grid%npts_b),&
@@ -91,7 +126,7 @@ module rt_electrostatic
             EBdat%r_grid = xl_grid%xb
             
             call solve_poisson(kernel_rho_phi_llp%Kllp, kernel_rho_B_llp%Kllp, EBdat%Phi)
-            call write_complex_profile_abs(xl_grid%xb, EBdat%Phi, xl_grid%npts_b, trim(output_path)//"/fields/phi_"//trim(collision_model)//"_sol.dat")
+            call write_complex_profile_abs(xl_grid%xb, EBdat%Phi, xl_grid%npts_b, trim(output_path)//"/fields/phi_"//trim(collision_model)//".dat")
 
             call postprocess_electric_field(EBdat)
 
@@ -100,38 +135,26 @@ module rt_electrostatic
             call write_complex_profile_abs(xl_grid%xb, rho, xl_grid%npts_b, trim(output_path)//"/fields/rho_"//trim(collision_model)//".dat")
             call write_complex_profile_abs(xl_grid%xb, jpar, xl_grid%npts_b, trim(output_path)//"/fields/jpar_"//trim(collision_model)//".dat")
 
-        else if (collision_model == "Krook_FokkerPlanck") then
-            ! Initialize kernels for both models
-            call kernel_krook_rho_phi_llp%init_kernel(xl_grid%npts_b, xl_grid%npts_b)
-            call kernel_krook_rho_B_llp%init_kernel(xl_grid%npts_b, xl_grid%npts_b)
-            call kernel_fp_rho_phi_llp%init_kernel(xl_grid%npts_b, xl_grid%npts_b)
-            call kernel_fp_rho_B_llp%init_kernel(xl_grid%npts_b, xl_grid%npts_b)
-            
-            ! Fill both kernels using unified subroutine
-            call fill_kernels_krook_fp(kernel_krook_rho_phi_llp, kernel_krook_rho_B_llp, &
-                                      kernel_fp_rho_phi_llp, kernel_fp_rho_B_llp)
-            
-            ! Allocate EBdat fields
+        end subroutine
+        
+        subroutine run_Krook_FP
+            call Krook_fill_kernel_phi(kernel_rho_phi_llp, kernel_rho_B_llp)
+
             allocate(EBdat%Phi(xl_grid%npts_b), EBdat%Br(xl_grid%npts_b), EBdat%E_perp_psi(xl_grid%npts_b), &
-                    EBdat%r_grid(xl_grid%npts_b), EBdat%E_perp(xl_grid%npts_b))
+                    EBdat%r_grid(xl_grid%npts_b), EBdat%E_perp(xl_grid%npts_b),&
+                    rho(xl_grid%npts_b))
+
             EBdat%r_grid = xl_grid%xb
             
-            ! Solve and write Krook solution
-            call solve_poisson(kernel_krook_rho_phi_llp%Kllp, kernel_krook_rho_B_llp%Kllp, EBdat%Phi)
-            call write_complex_profile(xl_grid%xb, EBdat%Phi, xl_grid%npts_b, trim(output_path)//"/fields/phi_Krook_sol.dat")
-            call postprocess_electric_field_with_model(EBdat, "Krook")
-            
-            ! Solve and write Fokker-Planck solution
-            call solve_poisson(kernel_fp_rho_phi_llp%Kllp, kernel_fp_rho_B_llp%Kllp, EBdat%Phi)
-            call write_complex_profile(xl_grid%xb, EBdat%Phi, xl_grid%npts_b, trim(output_path)//"/fields/phi_FokkerPlanck_sol.dat")
-            call postprocess_electric_field_with_model(EBdat, "FokkerPlanck")
-            
-            return
-        else
-            stop "Error: collision model not recognized."
-        end if
+            call solve_poisson(kernel_rho_phi_llp%Kllp, kernel_rho_B_llp%Kllp, EBdat%Phi)
+            call write_complex_profile_abs(xl_grid%xb, EBdat%Phi, xl_grid%npts_b, trim(output_path)//"/fields/phi_"//trim(collision_model)//".dat")
 
-            
+            call postprocess_electric_field(EBdat)
+
+            call calculate_charge_density(rho, EBdat)
+            call write_complex_profile_abs(xl_grid%xb, rho, xl_grid%npts_b, trim(output_path)//"/fields/rho_"//trim(collision_model)//".dat")
+        end subroutine
+
     end subroutine
 
 end module

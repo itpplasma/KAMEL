@@ -36,7 +36,7 @@ module electrostatic_kernel
     subroutine Krook_fill_kernel_phi(K_rho_phi_llp, K_rho_B_llp)
 
         use KIM_kinds, only: dp
-        use electrostatic_integrals, only: gauss_config_t, init_gauss_int
+        use electrostatic_integrals_gauss_mod, only: gauss_config_t, init_gauss_int
         use grid, only: gauss_int_nodes_Ntheta, gauss_int_nodes_Nx, gauss_int_nodes_Nxp
 
         implicit none
@@ -95,11 +95,11 @@ module electrostatic_kernel
     subroutine Krook_calc_kernel_rho_term_by_term(l, lp, k_rho_phi, k_rho_B, gauss_conf)
 
         use KIM_kinds, only: dp
-        use electrostatic_integrals, only: gauss_integrate_F0, gauss_integrate_F1, gauss_integrate_F2, gauss_integrate_F3,&
+        use electrostatic_integrals_gauss_mod, only: gauss_integrate_F0, gauss_integrate_F1, gauss_integrate_F2, gauss_integrate_F3,&
             gauss_config_t
         use species, only: plasma
         use constants, only: pi
-        use electrostatic_integrands, only: int_F0_rho_phi_t, int_F1_rho_phi_t, int_F2_rho_phi_t, int_F3_rho_phi_t, &
+        use electrostatic_integrands_gauss_mod, only: gauss_int_F0_rho_phi_t, gauss_int_F1_rho_phi_t, gauss_int_F2_rho_phi_t, gauss_int_F3_rho_phi_t, &
             integration_point_t
         use Krook_kernel_plasma_prefacs, only: Krook_G0_rho_phi, Krook_G1_rho_phi, Krook_G2_rho_phi, Krook_G3_rho_phi, &
             Krook_G1_rho_B, Krook_G2_rho_B, Krook_G3_rho_B, Krook_kappa_rho_phi, Krook_kappa_rho_B
@@ -117,10 +117,10 @@ module electrostatic_kernel
         integer :: current_idx_distance
 
         type(integration_point_t) :: int_point
-        type(int_F0_rho_phi_t) :: int_F0
-        type(int_F1_rho_phi_t) :: int_F1
-        type(int_F2_rho_phi_t) :: int_F2
-        type(int_F3_rho_phi_t) :: int_F3
+        type(gauss_int_F0_rho_phi_t) :: int_F0
+        type(gauss_int_F1_rho_phi_t) :: int_F1
+        type(gauss_int_F2_rho_phi_t) :: int_F2
+        type(gauss_int_F3_rho_phi_t) :: int_F3
         
         k_rho_phi = 0.0d0
         k_rho_B = 0.0d0
@@ -158,8 +158,6 @@ module electrostatic_kernel
                     max_idx_lp = lp
                 end if
                 !$omp end critical
-
-
                 
                 if (.not. artificial_debye_case) then
                     int_F1%int_point = int_point
@@ -191,7 +189,7 @@ module electrostatic_kernel
     subroutine FP_fill_kernels(K_rho_phi_llp, K_rho_B_llp, K_j_phi_llp, K_j_B_llp)
 
         use KIM_kinds, only: dp
-        use electrostatic_integrals, only: gauss_config_t, init_gauss_int
+        use electrostatic_integrals_gauss_mod, only: gauss_config_t, init_gauss_int
         use grid, only: Larmor_skip_factor, gauss_int_nodes_Ntheta, gauss_int_nodes_Nx, gauss_int_nodes_Nxp
 
         implicit none
@@ -263,11 +261,11 @@ module electrostatic_kernel
     subroutine FP_calc_kernels(l, lp, k_rho_phi, k_rho_B, k_j_phi, k_j_B, gauss_conf)
 
         use KIM_kinds, only: dp
-        use electrostatic_integrals, only: gauss_integrate_F0, gauss_integrate_F1, gauss_integrate_F2, gauss_integrate_F3,&
+        use electrostatic_integrals_gauss_mod, only: gauss_integrate_F0, gauss_integrate_F1, gauss_integrate_F2, gauss_integrate_F3,&
             gauss_config_t
         use species, only: plasma
         use constants, only: pi
-        use electrostatic_integrands, only: int_F0_rho_phi_t, int_F1_rho_phi_t, int_F2_rho_phi_t, int_F3_rho_phi_t, &
+        use electrostatic_integrands_gauss_mod, only: gauss_int_F0_rho_phi_t, gauss_int_F1_rho_phi_t, gauss_int_F2_rho_phi_t, gauss_int_F3_rho_phi_t, &
             integration_point_t
         use FP_kernel_plasma_prefacs, only: FP_G1_rho_phi, FP_G1_rho_B, FP_G2_rho_B, FP_G3_rho_B, &
             FP_G2_rho_phi, FP_G3_rho_phi, FP_kappa_rho_phi, FP_kappa_rho_B, FP_G0_rho_phi, &
@@ -286,10 +284,10 @@ module electrostatic_kernel
         integer :: current_idx_distance
 
         type(integration_point_t) :: int_point
-        type(int_F0_rho_phi_t) :: int_F0
-        type(int_F1_rho_phi_t) :: int_F1
-        type(int_F2_rho_phi_t) :: int_F2
-        type(int_F3_rho_phi_t) :: int_F3
+        type(gauss_int_F0_rho_phi_t) :: int_F0
+        type(gauss_int_F1_rho_phi_t) :: int_F1
+        type(gauss_int_F2_rho_phi_t) :: int_F2
+        type(gauss_int_F3_rho_phi_t) :: int_F3
         
         k_rho_phi = 0.0d0
         k_rho_B = 0.0d0
@@ -378,7 +376,7 @@ module electrostatic_kernel
         
         use grid, only: xl_grid
         use KIM_kinds, only: dp
-        use electrostatic_integrands, only: integration_point_t
+        use electrostatic_integrands_gauss_mod, only: integration_point_t
 
         implicit none
 
@@ -418,13 +416,13 @@ module electrostatic_kernel
         !> Exploits shared Gaussian integration for efficiency
         
         use KIM_kinds, only: dp
-        use electrostatic_integrals, only: gauss_config_t, init_gauss_int, &
+        use electrostatic_integrals_gauss_mod, only: gauss_config_t, init_gauss_int, &
             gauss_integrate_F0, gauss_integrate_F1, gauss_integrate_F2, gauss_integrate_F3
         use grid, only: Larmor_skip_factor, gauss_int_nodes_Ntheta, gauss_int_nodes_Nx, gauss_int_nodes_Nxp
         use species, only: plasma
         use constants, only: pi
-        use electrostatic_integrands, only: int_F0_rho_phi_t, int_F1_rho_phi_t, &
-            int_F2_rho_phi_t, int_F3_rho_phi_t, integration_point_t
+        use electrostatic_integrands_gauss_mod, only: gauss_int_F0_rho_phi_t, gauss_int_F1_rho_phi_t, &
+            gauss_int_F2_rho_phi_t, gauss_int_F3_rho_phi_t, integration_point_t
         use Krook_kernel_plasma_prefacs, only: Krook_G0_rho_phi, Krook_G1_rho_phi, Krook_G2_rho_phi, Krook_G3_rho_phi, &
             Krook_G1_rho_B, Krook_G2_rho_B, Krook_G3_rho_B, Krook_kappa_rho_phi, Krook_kappa_rho_B
         use FP_kernel_plasma_prefacs, only: FP_G0_rho_phi, FP_G1_rho_phi, FP_G2_rho_phi, &
@@ -445,10 +443,10 @@ module electrostatic_kernel
         integer :: current_idx_distance
         
         type(integration_point_t) :: int_point
-        type(int_F0_rho_phi_t) :: int_F0
-        type(int_F1_rho_phi_t) :: int_F1
-        type(int_F2_rho_phi_t) :: int_F2
-        type(int_F3_rho_phi_t) :: int_F3
+        type(gauss_int_F0_rho_phi_t) :: int_F0
+        type(gauss_int_F1_rho_phi_t) :: int_F1
+        type(gauss_int_F2_rho_phi_t) :: int_F2
+        type(gauss_int_F3_rho_phi_t) :: int_F3
         
         ! Initialize Gaussian integration configuration
         gauss_conf%Nx = gauss_int_nodes_Nx

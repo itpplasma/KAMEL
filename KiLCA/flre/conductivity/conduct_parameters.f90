@@ -119,7 +119,7 @@ implicit none;
 
 real(dp), intent(in) :: r
 !character(1), intent(in) :: flag_back
-character, intent(in) :: flag_back
+character(*), intent(in) :: flag_back
 
 call eval_and_set_background_parameters_spec_independent (r, flag_back);
 call eval_and_set_wave_parameters (r, flag_back);
@@ -137,7 +137,7 @@ implicit none;
 real(dp), intent(in) :: r
 integer, intent(in) :: spec
 !character(1), intent(in) :: flag_back
-character, intent(in) :: flag_back
+character(*), intent(in) :: flag_back
 
 call eval_and_set_background_parameters_spec_dependent (r, spec, flag_back);
 call eval_and_set_f0_parameters_nu_and_derivs (r, spec, flag_back);
@@ -157,7 +157,7 @@ implicit none;
 real(dp), intent(in) :: r
 integer, intent(in) :: spec
 !character(1), intent(in) :: flag_back
-character, intent(in) :: flag_back
+character(*), intent(in) :: flag_back
 
 call eval_and_set_conduct_parameters_spec_independent(r, flag_back);
 call eval_and_set_conduct_parameters_spec_dependent(r, spec, flag_back);
@@ -179,8 +179,7 @@ implicit none;
 external :: eval_background_spec_independent
 
 real(dp), intent(in) :: r
-!character(1), intent(in) :: flag_back
-character, intent(in) :: flag_back
+character(*), intent(in) :: flag_back
 
 r_ = r
 
@@ -260,7 +259,7 @@ implicit none;
 real(dp), intent(in) :: r
 integer, intent(in) :: spec
 !character(1), intent(in) :: flag_back
-character, intent(in) :: flag_back
+character(*), intent(in) :: flag_back
 
 m_ = mass(spec)
 q_ = charge(spec)
@@ -287,7 +286,7 @@ implicit none;
 
 real(dp), intent(in) :: r
 !character(1), intent(in) :: flag_back
-character, intent(in) :: flag_back
+character(*), intent(in) :: flag_back
 
 real(dp) :: kth, dkth, ddkth, kz, dkz, ddkz
 
@@ -370,7 +369,7 @@ external :: eval_f0_parameters_nu_and_derivs
 real(dp), intent(in) :: r
 integer, intent(in) :: spec
 !character(1), intent(in) :: flag_back
-character, intent(in) :: flag_back
+character(*), intent(in) :: flag_back
 
 call eval_f0_parameters_nu_and_derivs (r, spec, bp_ptr, n_);
 

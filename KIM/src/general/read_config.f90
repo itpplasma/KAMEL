@@ -21,10 +21,10 @@ subroutine read_config
                         type_br_field, collisions_off, eps_reg, &
                         set_profiles_constant
 
-    namelist /KIM_GRID/ reduce_r, grid_spacing, l_space_dim, num_gengrid_points, &
+    namelist /KIM_GRID/ reduce_r, grid_spacing, l_space_dim, theta_integration, &
                         reduced_rg_dim, kr_grid_width_res, kr_grid_ampl_res, k_space_dim, &
                         Larmor_skip_factor, gauss_int_nodes_Ntheta, gauss_int_nodes_Nx, gauss_int_nodes_Nxp, &
-                        r_plas, r_min, width_res, ampl_res, hrmax_scaling
+                        r_plas, r_min, width_res, ampl_res, hrmax_scaling, rkf45_tol
 
     num_args = command_argument_count()
     if (num_args > 1) then
@@ -45,6 +45,12 @@ subroutine read_config
     read(unit = 77, nml = KIM_SETUP)
     read(unit = 77, nml = KIM_GRID)
     close(unit = 77)
+
+    if (collisions_off .and. collision_model == "FokkerPlanck") then
+        write(*,*) 'Error: collision_model is set to "FokkerPlanck" but collisions_off is true.'
+        write(*,*) 'Please set collisions_off to false or change collision_model.'
+        stop
+    end if
 
     write(output_path, '(A,A,I0,A,I0,A)') trim(output_path), '/m', m_mode, '_n', n_mode, '/'
     inquire(file=trim(output_path), exist=ex)

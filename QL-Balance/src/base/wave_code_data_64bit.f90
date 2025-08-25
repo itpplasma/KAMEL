@@ -5,6 +5,7 @@
 subroutine get_wave_code_data(imin, imax)
 
     use wave_code_data
+    use control_mod, only: debug_mode
 
     implicit none
 
@@ -12,8 +13,11 @@ subroutine get_wave_code_data(imin, imax)
     integer :: k
 
     do k = imin, imax
+        if (debug_mode) write(*,*) "Debug: in get_wave_code_data for mode ", k
         call clear_wave_code_data(flre_cd_ptr(k))
+        if (debug_mode) write(*,*) "Debug: calc_wave_code_data_for_mode"
         call calc_wave_code_data_for_mode(flre_cd_ptr(k), trim(flre_path), len(trim(flre_path)), m_vals(k), n_vals(k))
+        if (debug_mode) write(*,*) "Debug: after calc_wave_code_data_for_mode"
     end do
 
     flre_call_ind = flre_call_ind + 1
@@ -58,12 +62,14 @@ subroutine initialize_wave_code_interface(nrad, r_grid)
 
     call interp_background_profiles() ! interpolate the initial profiles to the balance grid
 
-! vacuum fields for the whole spectrum:
+    if (debug_mode) write(*,*) "Debug: after interp_background_profiles" 
+    ! vacuum fields for the whole spectrum:
     do k = 1, dim_mn
         call clear_wave_code_data(vac_cd_ptr(k)); 
         call calc_wave_code_data_for_mode(vac_cd_ptr(k), trim(vac_path), len(trim(vac_path)), m_vals(k), n_vals(k)); 
     end do
 
+    if (debug_mode) write(*,*) "Debug: before get_background_magnetic_fields_from_wave_code"
     call get_background_magnetic_fields_from_wave_code(vac_cd_ptr(1), dim_r, r, B0t, B0z, B0); 
     call get_collision_frequences_from_wave_code(vac_cd_ptr(1), dim_r, r, nui, nue); 
     vac_call_ind = vac_call_ind + 1; 

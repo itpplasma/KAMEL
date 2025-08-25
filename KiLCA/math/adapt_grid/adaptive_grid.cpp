@@ -207,65 +207,65 @@ void calc_adaptive_1D_grid_4vector_ (void (*f)(double *, double *, void *p), voi
                                      const int *max_dimx, double *eps,
                                      int *dimx, const double *x, const double *y)
 {
-/*
-finds adaptive 1D grid for the function func on the interval (x1, x2)
-maximal allowed grid dimension max_dim, error for stopping criterion eps.
-on input: initial grid (x, y) has dimension dimx.
-on output: grid dimension is set to dimx.
-during function evaluation a vector is computed and stored somewhere p points
-grid sorting should be made outside
-*/
+    /*
+    finds adaptive 1D grid for the function func on the interval (x1, x2)
+    maximal allowed grid dimension max_dim, error for stopping criterion eps.
+    on input: initial grid (x, y) has dimension dimx.
+    on output: grid dimension is set to dimx.
+    during function evaluation a vector is computed and stored somewhere p points
+    grid sorting should be made outside
+    */
 
-int max_dimI = (*max_dimx-1)/4; //maximal allowed number of intervals, each has 4 grid points (+1)
+    int max_dimI = (*max_dimx-1)/4; //maximal allowed number of intervals, each has 4 grid points (+1)
 
-struct interval5 *Iarr = new struct interval5[max_dimI]; //array of intervals
+    struct interval5 *Iarr = new struct interval5[max_dimI]; //array of intervals
 
-double *err = new double[max_dimI]; //array of errors
+    double *err = new double[max_dimI]; //array of errors
 
-int i; 
-for (i=0; i<*dimx-1; i++) 
-{
-    set_interval (Iarr+i, x[i], x[i+1], y[i], y[i+1], f, p); //initial intervals
-    eval_error (Iarr+i, err+i);
-}
-
-int dimI = *dimx-1; //number of elements in the array of intervals
-
-double max_err = 0.0;
-int max_ind;
-
-while (dimI < max_dimI)
-{
-    //search for an interval with maximal error:
-    max_err = err[0];
-    max_ind = 0;
-
-    for (i=1; i<dimI; i++)
+    int i; 
+    for (i=0; i<*dimx-1; i++) 
     {
-        if (err[i] > max_err)
-        {
-            max_err = err[i];
-            max_ind = i;
-        }
+        set_interval (Iarr+i, x[i], x[i+1], y[i], y[i+1], f, p); //initial intervals
+        eval_error (Iarr+i, err+i);
     }
 
-    if (max_err < *eps) break; 
+    int dimI = *dimx-1; //number of elements in the array of intervals
 
-    //split max_ind interval: add a new one to the end and modify the max_ind interval
-    add_new_interval_to_the_array (Iarr, max_ind, dimI, f, p);
-    eval_error (Iarr+dimI, err+dimI);
-    dimI++;
+    double max_err = 0.0;
+    int max_ind;
 
-    update_max_err_interval (Iarr, max_ind, f, p);
-    eval_error (Iarr+max_ind, err+max_ind);
-}
+    while (dimI < max_dimI)
+    {
+        //search for an interval with maximal error:
+        max_err = err[0];
+        max_ind = 0;
 
-*eps = max_err; //the error reached dirung grid refinement
+        for (i=1; i<dimI; i++)
+        {
+            if (err[i] > max_err)
+            {
+                max_err = err[i];
+                max_ind = i;
+            }
+        }
 
-*dimx = 4*dimI+1; //number of evaluated grid points
+        if (max_err < *eps) break; 
 
-delete [] Iarr;
-delete [] err;
+        //split max_ind interval: add a new one to the end and modify the max_ind interval
+        add_new_interval_to_the_array (Iarr, max_ind, dimI, f, p);
+        eval_error (Iarr+dimI, err+dimI);
+        dimI++;
+
+        update_max_err_interval (Iarr, max_ind, f, p);
+        eval_error (Iarr+max_ind, err+max_ind);
+    }
+
+    *eps = max_err; //the error reached dirung grid refinement
+
+    *dimx = 4*dimI+1; //number of evaluated grid points
+
+    delete [] Iarr;
+    delete [] err;
 }
 
 /******************************************************************************/

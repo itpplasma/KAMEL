@@ -44,6 +44,49 @@ module FP_kernel_plasma_prefacs
 
     end function
 
+    function FP_kappa_j_phi(j, spec) result(val)
+
+        use species, only: plasma, species_t
+        use KIM_kinds, only: dp
+        use constants, only: sol, com_unit
+
+        implicit none
+
+        integer, intent(in) :: j
+        type(species_t), intent(in) :: spec
+        real(dp) :: val, lambda, vT, nu, omega_c, ks
+
+        lambda = 0.5d0 * (spec%lambda_D(j) + spec%lambda_D(j+1))
+        vT = 0.5d0 * (spec%vT(j) + spec%vT(j+1))
+        nu = 0.5d0 * (spec%nu(j) + spec%nu(j+1))
+        omega_c = 0.5d0 * (spec%omega_c(j) + spec%omega_c(j+1))
+        ks = 0.5d0 * (plasma%ks(j) + plasma%ks(j+1))
+
+        val = com_unit * vT**3.0d0 * ks/ (lambda**2.0d0 * omega_c * nu)
+
+    end function
+
+    function FP_kappa_j_B(j, spec) result(val)
+
+        use species, only: plasma, species_t
+        use KIM_kinds, only: dp
+        use constants, only: sol
+
+        implicit none
+
+        integer, intent(in) :: j
+        type(species_t), intent(in) :: spec
+        real(dp) :: val, lambda, vT, nu, omega_c
+
+        lambda = 0.5d0 * (spec%lambda_D(j) + spec%lambda_D(j+1))
+        vT = 0.5d0 * (spec%vT(j) + spec%vT(j+1))
+        nu = 0.5d0 * (spec%nu(j) + spec%nu(j+1))
+        omega_c = 0.5d0 * (spec%omega_c(j) + spec%omega_c(j+1))
+
+        val = - vT**4.0d0 / (lambda**2.0d0 * omega_c * nu * sol)
+
+    end function
+
     function FP_G0_rho_phi(j, spec) result(val)
 
         use species, only: plasma, species_t
@@ -203,6 +246,130 @@ module FP_kernel_plasma_prefacs
         I01 = 0.5d0 * (spec%I01(j) + spec%I01(j+1))
 
         val = I01 * A2
+
+    end function
+
+
+    function FP_G1_j_phi(j, spec) result(val)
+
+        use species, only: plasma, species_t
+        use KIM_kinds, only: dp
+
+        implicit none
+
+        integer, intent(in) :: j
+        type(species_t), intent(in) :: spec
+        complex(dp) :: val, I01, I21
+        real(dp) :: A1, A2
+
+        A1 = 0.5d0 * (spec%A1(j) + spec%A1(j+1))
+        A2 = 0.5d0 * (spec%A2(j) + spec%A2(j+1))
+        I01 = 0.5d0 * (spec%I01(j) + spec%I01(j+1))
+        I21 = 0.5d0 * (spec%I21(j) + spec%I21(j+1))
+
+        val = I01 * (A1 + A2) + 0.5d0 * A2 * I21
+
+    end function
+
+
+    function FP_G2_j_phi(j, spec) result(val)
+
+        use species, only: plasma, species_t
+        use KIM_kinds, only: dp
+
+        implicit none
+
+        integer, intent(in) :: j
+        type(species_t), intent(in) :: spec
+        complex(dp) :: val, I01
+        real(dp) :: A2
+
+        A2 = 0.5d0 * (spec%A2(j) + spec%A2(j+1))
+        I01 = 0.5d0 * (spec%I01(j) + spec%I01(j+1))
+
+        val = - I01 * A2
+
+    end function
+
+
+    function FP_G3_j_phi(j, spec) result(val)
+
+        use species, only: plasma, species_t
+        use KIM_kinds, only: dp
+
+        implicit none
+
+        integer, intent(in) :: j
+        type(species_t), intent(in) :: spec
+        complex(dp) :: val, I01
+        real(dp) :: A2
+
+        A2 = 0.5d0 * (spec%A2(j) + spec%A2(j+1))
+        I01 = 0.5d0 * (spec%I01(j) + spec%I01(j+1))
+
+        val = I01 * A2
+
+    end function
+
+
+    function FP_G1_j_B(j, spec) result(val)
+
+        use species, only: plasma, species_t
+        use KIM_kinds, only: dp
+
+        implicit none
+
+        integer, intent(in) :: j
+        type(species_t), intent(in) :: spec
+        complex(dp) :: val, I02, I22
+        real(dp) :: A1, A2
+
+        A1 = 0.5d0 * (spec%A1(j) + spec%A1(j+1))
+        A2 = 0.5d0 * (spec%A2(j) + spec%A2(j+1))
+        I02 = 0.5d0 * (spec%I02(j) + spec%I02(j+1))
+        I22 = 0.5d0 * (spec%I22(j) + spec%I22(j+1))
+
+        val = I02 * (A1 + A2) + 0.5d0 * A2 * I22
+
+    end function
+
+
+    function FP_G2_j_B(j, spec) result(val)
+
+        use species, only: plasma, species_t
+        use KIM_kinds, only: dp
+
+        implicit none
+
+        integer, intent(in) :: j
+        type(species_t), intent(in) :: spec
+        complex(dp) :: val, I02
+        real(dp) :: A2
+
+        A2 = 0.5d0 * (spec%A2(j) + spec%A2(j+1))
+        I02 = 0.5d0 * (spec%I02(j) + spec%I02(j+1))
+
+        val = - I02 * A2
+
+    end function
+
+
+    function FP_G3_j_B(j, spec) result(val)
+
+        use species, only: plasma, species_t
+        use KIM_kinds, only: dp
+
+        implicit none
+
+        integer, intent(in) :: j
+        type(species_t), intent(in) :: spec
+        complex(dp) :: val, I02
+        real(dp) :: A2
+
+        A2 = 0.5d0 * (spec%A2(j) + spec%A2(j+1))
+        I02 = 0.5d0 * (spec%I02(j) + spec%I02(j+1))
+
+        val = I02 * A2
 
     end function
 

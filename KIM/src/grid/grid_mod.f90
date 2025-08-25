@@ -15,7 +15,7 @@ module grid
     integer :: grid_spacing
     integer :: num_gengrid_points
     integer :: gauss_int_nodes_Ntheta, gauss_int_nodes_Nx, gauss_int_nodes_Nxp
-    integer :: delta_l_max
+    real(dp):: Larmor_skip_factor
     real(dp):: width_res, ampl_res, hrmax_scaling
 
     integer :: nder=1
@@ -136,13 +136,6 @@ module grid
             this%xc(ipoib-1) = 0.5 * (this%xb(ipoib-1) + this%xb(ipoib))
         enddo
 
-        if (fdebug == 1) then
-            write(*,*) " - - - grid ", this%name, ": - - - "
-            write(*,*) "    h = ", this%xb(2) - this%xb(1)
-            write(*,*) '    Number points r (l) grid: ', this%npts_b
-            write(*,*) " - - - - - - - - - - "
-        end if
-
         ! get index for resonant radius
         call binsrc(abs(this%xb), 1, this%npts_b, abs(r_res), index_rg_res)
 
@@ -177,8 +170,6 @@ module grid
         deallocate(coef, ipbeg, ipend)
 
         call write_new_grid
-
-        if (fdebug == 1) write(*,*) "Debug: exiting gengrid"
 
         contains
 

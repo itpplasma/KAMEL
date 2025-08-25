@@ -11,7 +11,7 @@ module species
         real(dp), allocatable :: om_E(:) ! ExB rotation frequency
         real(dp), allocatable :: ks(:) ! "senkrecht" wavenumber
         real(dp), allocatable :: kp(:) ! parallel wavenumber
-        real(dp), allocatable :: B0(:)
+        real(dp), allocatable :: B0(:) ! equilibrium magnetic field magnitude
         real(dp), allocatable :: q(:) ! safety factor profile
         real(dp), allocatable :: dqdr(:) ! safety factor gradient
         real(dp), allocatable :: Er(:) ! radial electric field
@@ -19,10 +19,12 @@ module species
     end type
 
     type :: species_t
+
         character(len=2) :: name
         integer :: Aspec ! mass number
         integer :: Zspec ! charge number
         real(dp) :: mass ! mass in g
+
         real(dp), allocatable :: n(:) ! density
         real(dp), allocatable :: dndr(:) ! density gradient
         real(dp), allocatable :: T(:) ! temperature
@@ -34,20 +36,25 @@ module species
         real(dp), allocatable :: omega_c(:) ! cyclotron frequency
         real(dp), allocatable :: lambda_D(:) ! Debye length
         real(dp), allocatable :: rho_L(:) ! Larmor radius
+
         real(dp), allocatable :: x1(:) ! normalized distance to res. surface
         real(dp), allocatable :: x2(:) ! normalized inverse collisionality
         complex(dp), allocatable :: z0(:) ! = x2/(sqrt(2) x1), argument of plasma dispersion function
         complex(dp), dimension(:,:), allocatable :: symbI ! susceptibility function used for Fokker-Planck collision model
+        !
         ! susceptibility function profiles
         complex(dp), allocatable :: I00(:)
         complex(dp), allocatable :: I20(:)
+        complex(dp), allocatable :: I02(:)
         complex(dp), allocatable :: I01(:)
         complex(dp), allocatable :: I21(:)
+        complex(dp), allocatable :: I22(:)
+
     end type
 
     type(plasma_t) :: plasma
 
-    integer, parameter :: nmmax = 3
+    integer, parameter :: nmmax = 3 ! max order of susceptibility functions to be calculated
 
     contains
 
@@ -194,7 +201,7 @@ module species
 
     end subroutine
 
-    subroutine calculate_plasma_backs(plasma)
+    subroutine calculate_plasma_backs(plasma_in)
 
         use constants, only: sol, e_charge, ev, pi, com_unit
         use setup, only: omega, collisions_off
@@ -202,7 +209,7 @@ module species
 
         implicit none
 
-        type(plasma_t), intent(inout) :: plasma
+        type(plasma_t), intent(inout) :: plasma_in
         integer :: i, sp, sp_col
         real(dp) :: Lee(plasma%grid_size), Lei(number_of_ion_species, plasma%grid_size), &
             Lii(number_of_ion_species, number_of_ion_species, plasma%grid_size),&
@@ -211,96 +218,97 @@ module species
 
         do sp = 0, plasma%n_species-1
 
-            allocate(plasma%spec(sp)%rho_L(plasma%grid_size))
-            allocate(plasma%spec(sp)%z0(plasma%grid_size))
-            allocate(plasma%spec(sp)%x1(plasma%grid_size))
-            allocate(plasma%spec(sp)%x2(plasma%grid_size))
-            allocate(plasma%spec(sp)%vT(plasma%grid_size))
-            allocate(plasma%spec(sp)%lambda_D(plasma%grid_size))
-            allocate(plasma%spec(sp)%A1(plasma%grid_size))
-            allocate(plasma%spec(sp)%A2(plasma%grid_size))
-            allocate(plasma%spec(sp)%I00(plasma%grid_size))
-            allocate(plasma%spec(sp)%I20(plasma%grid_size))
-            allocate(plasma%spec(sp)%I01(plasma%grid_size))
-            allocate(plasma%spec(sp)%I21(plasma%grid_size))
-            allocate(plasma%spec(sp)%nu(plasma%grid_size))
-            allocate(plasma%spec(sp)%omega_c(plasma%grid_size))
+            allocate(plasma_in%spec(sp)%rho_L(plasma_in%grid_size))
+            allocate(plasma_in%spec(sp)%z0(plasma_in%grid_size))
+            allocate(plasma_in%spec(sp)%x1(plasma_in%grid_size))
+            allocate(plasma_in%spec(sp)%x2(plasma_in%grid_size))
+            allocate(plasma_in%spec(sp)%vT(plasma_in%grid_size))
+            allocate(plasma_in%spec(sp)%lambda_D(plasma_in%grid_size))
+            allocate(plasma_in%spec(sp)%A1(plasma_in%grid_size))
+            allocate(plasma_in%spec(sp)%A2(plasma_in%grid_size))
+            allocate(plasma_in%spec(sp)%I00(plasma_in%grid_size))
+            allocate(plasma_in%spec(sp)%I20(plasma_in%grid_size))
+            allocate(plasma_in%spec(sp)%I01(plasma_in%grid_size))
+            allocate(plasma_in%spec(sp)%I02(plasma_in%grid_size))
+            allocate(plasma_in%spec(sp)%I21(plasma_in%grid_size))
+            allocate(plasma_in%spec(sp)%I22(plasma_in%grid_size))
+            allocate(plasma_in%spec(sp)%nu(plasma_in%grid_size))
+            allocate(plasma_in%spec(sp)%omega_c(plasma_in%grid_size))
 
-            do i=1, plasma%grid_size
-                plasma%spec(sp)%vT(i) = sqrt(plasma%spec(sp)%T(i) * ev / (plasma%spec(sp)%mass))
-                plasma%spec(sp)%omega_c(i) = plasma%spec(sp)%Zspec * e_charge * abs(plasma%B0(i)) &
+            do i=1, plasma_in%grid_size
+                plasma_in%spec(sp)%vT(i) = sqrt(plasma_in%spec(sp)%T(i) * ev / (plasma_in%spec(sp)%mass))
+                plasma_in%spec(sp)%omega_c(i) = plasma_in%spec(sp)%Zspec * e_charge * abs(plasma_in%B0(i)) &
                     / (plasma%spec(sp)%mass * sol)
 
-                plasma%spec(sp)%rho_L(i) = abs(plasma%spec(sp)%vT(i) / (plasma%spec(sp)%omega_c(i)))
+                plasma_in%spec(sp)%rho_L(i) = abs(plasma_in%spec(sp)%vT(i) / (plasma_in%spec(sp)%omega_c(i)))
 
-                plasma%spec(sp)%lambda_D(i) = sqrt(plasma%spec(sp)%T(i) *ev / (4.0d0*pi* plasma%spec(sp)%n(i) &
-                    * (plasma%spec(sp)%Zspec * e_charge)**2.0d0))
+                plasma_in%spec(sp)%lambda_D(i) = sqrt(plasma_in%spec(sp)%T(i) *ev / (4.0d0*pi* plasma_in%spec(sp)%n(i) &
+                    * (plasma_in%spec(sp)%Zspec * e_charge)**2.0d0))
 
-                plasma%spec(sp)%A1(i) = plasma%spec(sp)%dndr(i) / plasma%spec(sp)%n(i) - plasma%spec(sp)%Zspec *e_charge&
-                    /(plasma%spec(sp)%T(i) * ev) * plasma%Er(i) - 3.0d0/(2.0d0 * plasma%spec(sp)%T(i)) * plasma%spec(sp)%dTdr(i)
-                plasma%spec(sp)%A2(i) = plasma%spec(sp)%dTdr(i) / plasma%spec(sp)%T(i)
+                plasma_in%spec(sp)%A1(i) = plasma_in%spec(sp)%dndr(i) / plasma_in%spec(sp)%n(i) - plasma_in%spec(sp)%Zspec *e_charge&
+                    /(plasma_in%spec(sp)%T(i) * ev) * plasma_in%Er(i) - 3.0d0/(2.0d0 * plasma_in%spec(sp)%T(i)) * plasma_in%spec(sp)%dTdr(i)
+                plasma_in%spec(sp)%A2(i) = plasma_in%spec(sp)%dTdr(i) / plasma_in%spec(sp)%T(i)
 
-                plasma%spec(sp)%z0(i) = - (plasma%om_E(i) - omega - com_unit * plasma%spec(sp)%nu(i)) &
-                    / (abs(plasma%kp(i)) * sqrt(2d0) * plasma%spec(sp)%vT(i) )
+                plasma_in%spec(sp)%z0(i) = - (plasma_in%om_E(i) - omega - com_unit * plasma_in%spec(sp)%nu(i)) &
+                    / (abs(plasma_in%kp(i)) * sqrt(2d0) * plasma_in%spec(sp)%vT(i) )
             end do
         end do
 
-        do i=1, plasma%grid_size
+        do i=1, plasma_in%grid_size
             ! Coulomb logarithm
-            Lee(i) = 23.5d0 - log(sqrt(plasma%spec(0)%n(i)) / plasma%spec(0)%T(i)**1.25d0) - &
-                sqrt(1d-5 + (log(plasma%spec(0)%T(i)) -2.0d0)**2.0d0 / 16.0d0)
-            nue(i) = 5.8e-6 * plasma%spec(0)%n(i) * Lee(i) / plasma%spec(0)%T(i)**(1.5d0)
-            Lei(:, i) = 24.0d0 - log(sqrt(plasma%spec(0)%n(i)) / plasma%spec(0)%T(i))
+            Lee(i) = 23.5d0 - log(sqrt(plasma_in%spec(0)%n(i)) / plasma_in%spec(0)%T(i)**1.25d0) - &
+                sqrt(1d-5 + (log(plasma_in%spec(0)%T(i)) -2.0d0)**2.0d0 / 16.0d0)
+            nue(i) = 5.8e-6 * plasma_in%spec(0)%n(i) * Lee(i) / plasma_in%spec(0)%T(i)**(1.5d0)
+            Lei(:, i) = 24.0d0 - log(sqrt(plasma_in%spec(0)%n(i)) / plasma_in%spec(0)%T(i))
         end do
 
         do sp=1, number_of_ion_species
-            do i=1, plasma%grid_size
+            do i=1, plasma_in%grid_size
                 ! Coulomb logarithm electrons ions (= ions electrons)
                 
 
-                nue(i) = nue(i) + 7.7d-6 * plasma%spec(sp)%n(i) * Lei(sp, i) * plasma%spec(sp)%Zspec**2 / plasma%spec(0)%T(i)**(1.5d0)
+                nue(i) = nue(i) + 7.7d-6 * plasma_in%spec(sp)%n(i) * Lei(sp, i) * plasma_in%spec(sp)%Zspec**2 / plasma_in%spec(0)%T(i)**(1.5d0)
 
-                nui(sp, i) = 1.8d-7 * plasma%spec(sp)%Aspec**(-1.0/2.0) * plasma%spec(sp)%T(i)**(-3.0/2.0) * plasma%spec(0)%n(i) * &
-                                plasma%spec(sp)%Zspec**2 * Lei(sp,i)
+                nui(sp, i) = 1.8d-7 * plasma_in%spec(sp)%Aspec**(-1.0/2.0) * plasma_in%spec(sp)%T(i)**(-3.0/2.0) * plasma_in%spec(0)%n(i) * &
+                                plasma_in%spec(sp)%Zspec**2 * Lei(sp,i)
 
                 do sp_col=sp, number_of_ion_species
                     ! Coulomb logarithm ions - ions'
-                    Lii(sp, sp_col, i) = 23.0d0 - log(plasma%spec(sp)%Zspec * plasma%spec(sp_col)%Zspec &
-                                        * (plasma%spec(sp)%Aspec + plasma%spec(sp_col)%Aspec)&
-                                        / (plasma%spec(sp)%T(i) * plasma%spec(sp_col)%Aspec + plasma%spec(sp_col)%T(i) * plasma%spec(sp)%Aspec)&
-                                        * (plasma%spec(sp)%n(i) * plasma%spec(sp)%Zspec**2 / plasma%spec(sp)%T(i) &
-                                        + plasma%spec(sp_col)%n(i) * plasma%spec(sp_col)%Zspec**2) / plasma%spec(sp_col)%T(i))
+                    Lii(sp, sp_col, i) = 23.0d0 - log(plasma_in%spec(sp)%Zspec * plasma_in%spec(sp_col)%Zspec &
+                                        * (plasma_in%spec(sp)%Aspec + plasma_in%spec(sp_col)%Aspec)&
+                                        / (plasma_in%spec(sp)%T(i) * plasma_in%spec(sp_col)%Aspec + plasma_in%spec(sp_col)%T(i) * plasma_in%spec(sp)%Aspec)&
+                                        * (plasma_in%spec(sp)%n(i) * plasma_in%spec(sp)%Zspec**2 / plasma_in%spec(sp)%T(i) &
+                                        + plasma_in%spec(sp_col)%n(i) * plasma_in%spec(sp_col)%Zspec**2) / plasma_in%spec(sp_col)%T(i))
                     ! Collision frequency ions - ions'
-                    nui(sp, i) = nui(sp, i) + 1.8d-7 * plasma%spec(sp_col)%n(i) * plasma%spec(sp)%Zspec**2 &
-                                    * plasma%spec(sp_col)%Zspec**2 * Lii(sp, sp_col, i) * plasma%spec(sp)%Aspec**(-1.0/2.0)&
-                                    * plasma%spec(sp)%T(i)**(-3.0/2.0)
+                    nui(sp, i) = nui(sp, i) + 1.8d-7 * plasma_in%spec(sp_col)%n(i) * plasma_in%spec(sp)%Zspec**2 &
+                                    * plasma_in%spec(sp_col)%Zspec**2 * Lii(sp, sp_col, i) * plasma_in%spec(sp)%Aspec**(-1.0/2.0)&
+                                    * plasma_in%spec(sp)%T(i)**(-3.0/2.0)
                 end do
             end do
         end do
 
-        do i = 1, plasma%grid_size
-            plasma%spec(0)%nu(i) = nue(i)
+        do i = 1, plasma_in%grid_size
+            plasma_in%spec(0)%nu(i) = nue(i)
         end do
 
-        do sp = 1, plasma%n_species-1
-            do i = 1, plasma%grid_size
-                plasma%spec(sp)%nu(i) = nui(sp, i)
+        do sp = 1, plasma_in%n_species-1
+            do i = 1, plasma_in%grid_size
+                plasma_in%spec(sp)%nu(i) = nui(sp, i)
             end do
         end do
 
-        do sp =0, plasma%n_species-1
-            do i = 1,plasma%grid_size
-                plasma%spec(sp)%x1(i) = plasma%kp(i) * plasma%spec(sp)%vT(i) / plasma%spec(sp)%nu(i)
-                plasma%spec(sp)%x2(i) = - (plasma%om_E(i) - omega) / plasma%spec(sp)%nu(i)
+        do sp =0, plasma_in%n_species-1
+            do i = 1,plasma_in%grid_size
+                plasma_in%spec(sp)%x1(i) = plasma_in%kp(i) * plasma_in%spec(sp)%vT(i) / plasma_in%spec(sp)%nu(i)
+                plasma_in%spec(sp)%x2(i) = - (plasma_in%om_E(i) - omega) / plasma_in%spec(sp)%nu(i)
                 if (collisions_off .eqv. .true.)then
-                    plasma%spec(sp)%nu(i) = 0.0d0
+                    plasma_in%spec(sp)%nu(i) = 0.0d0
                 end if
             end do
         end do
 
-            
-        do sp=0, plasma%n_species-1
-            call calculate_susc_funcs_profiles(plasma%spec(sp))
+        do sp=0, plasma_in%n_species-1
+            call calculate_susc_funcs_profiles(plasma_in%spec(sp))
         end do
 
     end subroutine
@@ -428,6 +436,8 @@ module species
                 plasma_temp%spec(sp)%I01(i) = sum(coef(0,:) * plasma_in%spec(sp)%I01(ibeg:iend))
                 plasma_temp%spec(sp)%I20(i) = sum(coef(0,:) * plasma_in%spec(sp)%I20(ibeg:iend))
                 plasma_temp%spec(sp)%I21(i) = sum(coef(0,:) * plasma_in%spec(sp)%I21(ibeg:iend))
+                plasma_temp%spec(sp)%I22(i) = sum(coef(0,:) * plasma_in%spec(sp)%I22(ibeg:iend))
+                plasma_temp%spec(sp)%I02(i) = sum(coef(0,:) * plasma_in%spec(sp)%I02(ibeg:iend))
 
                 plasma_temp%ks(i) = sum(coef(0,:) * plasma_in%ks(ibeg:iend))
                 plasma_temp%kp(i) = sum(coef(0,:) * plasma_in%kp(ibeg:iend))
@@ -558,8 +568,10 @@ module species
             end if
             spec%I00(j) = spec%symbI(0, 0)
             spec%I20(j) = spec%symbI(2, 0)
+            spec%I02(j) = spec%symbI(0, 2)
             spec%I01(j) = spec%symbI(0, 1)
             spec%I21(j) = spec%symbI(2, 1)
+            spec%I22(j) = spec%symbI(2, 2)
         end do
 
     end subroutine
@@ -685,8 +697,6 @@ module species
         if (.not. allocated(plasma%r_grid)) allocate(plasma%r_grid(plasma%grid_size), stat=ierr)
         if (ierr /= 0) print *, "array: Allocation request denied"
         
-        print *, 'test'
-        !write(*,*) r_prof
         do sigma = 0, number_of_ion_species
             allocate(plasma%spec(sigma)%n(plasma%grid_size),&
                 plasma%spec(sigma)%T(plasma%grid_size))
@@ -694,9 +704,7 @@ module species
         
         allocate(plasma%q(plasma%grid_size), &
                 plasma%Er(plasma%grid_size))
-        
-        
-        
+
         open(11, file=trim(profile_location)//'n.dat')
         do i=1, plasma%grid_size
             read(11, *) plasma%r_grid(i), plasma%spec(0)%n(i)
@@ -735,7 +743,6 @@ module species
             total_Z = total_Z + plasma%spec(sigma)%Zspec
         end do
 
-        print *, 'total_Z = ', total_Z
         do i = 1, plasma%grid_size
             do sigma = 1, number_of_ion_species
                 ! ion density to fulfill quasineutrality
@@ -786,82 +793,6 @@ module species
         close(11)
 
     end subroutine
-
-    !subroutine reduce_dim
-
-        !use config, only: output_path, number_of_ion_species
-        !use grid, only: reduced_rg_dim
-        !use KIM_kinds, only: dp
-
-        !implicit none
-
-        !real(dp) :: step_h
-        !real(dp), allocatable :: new_n_prof(:), new_Te_prof(:), new_Ti_prof(:,:), &
-                                        !new_ni_prof(:,:), new_Er_prof(:), new_q_prof(:), new_r_prof(:)
-        !integer :: i, sigma
-        !integer :: nlagr = 4
-        !integer :: nder = 0
-        !integer :: ibeg, iend, ir
-        !real(dp), dimension(:,:), allocatable :: coef
-
-        !if (.not. allocated(coef)) allocate(coef(0:nder, nlagr))
-
-        !if (fstatus==1) write(*,*) 'Status: Reducing input profile r dimension'
-
-        !allocate(new_n_prof(reduced_rg_dim), new_Te_prof(reduced_rg_dim), &
-                !new_Ti_prof(number_of_ion_species, reduced_rg_dim), new_ni_prof(number_of_ion_species, reduced_rg_dim), &
-                !new_Er_prof(reduced_rg_dim), new_q_prof(reduced_rg_dim), new_r_prof(reduced_rg_dim))
-
-
-        !step_h = (r_prof(plasma%grid_size) - r_prof(1)) / reduced_rg_dim ! new step size
-        !new_r_prof(1) = r_prof(1)
-
-        !do i = 2, reduced_rg_dim
-            !new_r_prof(i) = new_r_prof(i-1) + step_h
-        !end do
-
-        !do i = 1, reduced_rg_dim
-            !call binsrc(r_prof, 1, plasma%grid_size, new_r_prof(i), ir) 
-            !ibeg = max(1, ir - nlagr/2)
-            !iend = ibeg + nlagr - 1
-            !if (iend .gt. plasma%grid_size) then
-                !iend = plasma%grid_size
-                !ibeg = iend -nlagr + 1
-            !end if
-
-            !call plag_coeff(nlagr, nder, new_r_prof(i), r_prof(ibeg:iend), coef)
-
-            !new_n_prof(i) = sum(coef(0,:) * n_prof(ibeg:iend))
-            !new_Te_prof(i) = sum(coef(0,:) * Te_prof(ibeg:iend))
-            !new_Er_prof(i) = sum(coef(0,:) * Er_prof(ibeg:iend))
-            !new_q_prof(i) = sum(coef(0,:) * q_prof(ibeg:iend))
-
-            !do sigma=1, number_of_ion_species 
-                !new_Ti_prof(sigma, i) = sum(coef(0,:) * Ti_prof(sigma, ibeg:iend))
-                !new_ni_prof(sigma, i) = sum(coef(0,:) * ni_prof(sigma, ibeg:iend))
-            !end do
-        !end do
-            
-        !plasma%grid_size = reduced_rg_dim
-
-        !deallocate(r_prof, n_prof, Te_prof, Ti_prof, ni_prof, Er_prof, q_prof)
-        !allocate(r_prof(reduced_rg_dim), n_prof(reduced_rg_dim), Te_prof(reduced_rg_dim), &
-                !Ti_prof(number_of_ion_species, reduced_rg_dim), ni_prof(number_of_ion_species, reduced_rg_dim), &
-                !Er_prof(reduced_rg_dim), q_prof(reduced_rg_dim))
-
-        !r_prof = new_r_prof
-        !n_prof = new_n_prof
-        !Te_prof = new_Te_prof
-        !Ti_prof = new_Ti_prof
-        !ni_prof = new_ni_prof
-        !Er_prof = new_Er_prof
-        !q_prof = new_q_prof
- 
-        !deallocate(new_r_prof, new_n_prof, new_Te_prof, new_Ti_prof, new_ni_prof, new_Er_prof, new_q_prof)
-
-        !call write_profiles
-
-    !end subroutine
 
     subroutine write_profiles
 

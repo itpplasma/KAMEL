@@ -3,6 +3,12 @@ module electrostatic_kernel
     use KIM_kinds, only: dp
 
     implicit none
+    
+    ! Diagnostic variables to track maximum distances
+    real(dp) :: max_distance_xl_xlp = 0.0d0
+    integer :: max_index_distance = 0
+    integer :: max_dist_l = 0, max_dist_lp = 0
+    integer :: max_idx_l = 0, max_idx_lp = 0
 
     type :: kernel_spl_t
         integer :: npts_l, npts_lp
@@ -27,19 +33,19 @@ module electrostatic_kernel
 
     end subroutine init_kernel
 
-    subroutine Krook_fill_kernel_phi(kernel_rho_phi_llp, kernel_rho_B_llp)
+    subroutine Krook_fill_kernel_phi(K_rho_phi_llp, K_rho_B_llp)
 
         use KIM_kinds, only: dp
         use electrostatic_integrals, only: gauss_config_t, init_gauss_int
-        use grid, only: delta_l_max, gauss_int_nodes_Ntheta, gauss_int_nodes_Nx, gauss_int_nodes_Nxp
+        use grid, only: gauss_int_nodes_Ntheta, gauss_int_nodes_Nx, gauss_int_nodes_Nxp
 
         implicit none
 
-        type(kernel_spl_t), intent(inout) :: kernel_rho_phi_llp
-        type(kernel_spl_t), intent(inout) :: kernel_rho_B_llp
+        type(kernel_spl_t), intent(inout) :: K_rho_phi_llp
+        type(kernel_spl_t), intent(inout) :: K_rho_B_llp
         type(gauss_config_t) :: gauss_conf
         integer :: l, lp
-        complex(dp) :: kernel_phi_llp, kernel_B_llp
+        complex(dp) :: k_rho_phi, k_rho_B
 
         gauss_conf%Nx = gauss_int_nodes_Nx
         gauss_conf%Nxp = gauss_int_nodes_Nxp
@@ -48,38 +54,45 @@ module electrostatic_kernel
 
         write(*,*) 'Filling Krook collision kernels...'
 
-        !$omp parallel do collapse(1) private(l,lp, kernel_phi_llp, kernel_B_llp)
-        do l = 1, kernel_rho_phi_llp%npts_l
+        !$omp parallel do collapse(1) private(l,lp, k_rho_phi, k_rho_B)
+        do l = 1, K_rho_phi_llp%npts_l
             do lp = 1, l
-                if (abs(l - lp) > delta_l_max) cycle
 
-                call Krook_calc_kernel_rho_term_by_term(l, lp, kernel_phi_llp, kernel_B_llp, gauss_conf)
-                kernel_rho_phi_llp%Kllp(l, lp) = kernel_phi_llp
-                kernel_rho_B_llp%Kllp(l, lp) = kernel_B_llp
+                call Krook_calc_kernel_rho_term_by_term(l, lp, k_rho_phi, k_rho_B, gauss_conf)
+                K_rho_phi_llp%Kllp(l, lp) = k_rho_phi
+                K_rho_B_llp%Kllp(l, lp) = k_rho_B
 
-                if (isnan(real(kernel_phi_llp))) then
+                if (isnan(real(k_rho_phi))) then
                     print *, "semi analytical kernel_llp is NaN for l = ", l, " lp = ", lp
-                    print *, "semi analytical kernel_llp = ", kernel_phi_llp
+                    print *, "semi analytical kernel_llp = ", k_rho_phi
                     stop
                 end if
-                if (isnan(real(kernel_B_llp))) then
-                    print *, "semi analytical kernel_B_llp is NaN for l = ", l, " lp = ", lp
-                    print *, "semi analytical kernel_B_llp = ", kernel_B_llp
+                if (isnan(real(k_rho_B))) then
+                    print *, "semi analytical k_rho_B is NaN for l = ", l, " lp = ", lp
+                    print *, "semi analytical k_rho_B = ", k_rho_B
                     stop
                 end if
             
-                kernel_rho_phi_llp%Kllp(lp, l) = kernel_rho_phi_llp%Kllp(l, lp)
-                kernel_rho_B_llp%Kllp(lp, l) = kernel_rho_B_llp%Kllp(l, lp)
+                K_rho_phi_llp%Kllp(lp, l) = K_rho_phi_llp%Kllp(l, lp)
+                K_rho_B_llp%Kllp(lp, l) = K_rho_B_llp%Kllp(l, lp)
 
             end do
         end do
         !$omp end parallel do
 
         write(*,*) ! New line after progress bar
+        
+        ! Print diagnostic information
+        write(*,*) '======== Kernel Distance Diagnostics (Krook) ========'
+        write(*,'(A,F12.6)') ' Maximum |xl - xlp| distance: ', max_distance_xl_xlp
+        write(*,'(A,I6,A,I6)') ' Occurred at l = ', max_dist_l, ', lp = ', max_dist_lp
+        write(*,'(A,I6)') ' Maximum index distance |l - lp|: ', max_index_distance
+        write(*,'(A,I6,A,I6)') ' Occurred at l = ', max_idx_l, ', lp = ', max_idx_lp
+        write(*,*) '===================================================='
 
     end subroutine
 
-    subroutine Krook_calc_kernel_rho_term_by_term(l, lp, kernel_phi_llp, kernel_B_llp, gauss_conf)
+    subroutine Krook_calc_kernel_rho_term_by_term(l, lp, k_rho_phi, k_rho_B, gauss_conf)
 
         use KIM_kinds, only: dp
         use electrostatic_integrals, only: gauss_integrate_F0, gauss_integrate_F1, gauss_integrate_F2, gauss_integrate_F3,&
@@ -91,14 +104,17 @@ module electrostatic_kernel
         use Krook_kernel_plasma_prefacs, only: Krook_G0_rho_phi, Krook_G1_rho_phi, Krook_G2_rho_phi, Krook_G3_rho_phi, &
             Krook_G1_rho_B, Krook_G2_rho_B, Krook_G3_rho_B, Krook_kappa_rho_phi, Krook_kappa_rho_B
         use config, only: artificial_debye_case
+        use grid, only: Larmor_skip_factor
         
         implicit none
 
         integer, intent(in) :: l, lp
-        complex(dp) :: kernel_phi_llp, kernel_B_llp
+        complex(dp) :: k_rho_phi, k_rho_B
         integer :: j, sigma
         type(gauss_config_t), intent(in) :: gauss_conf
         real(dp) :: integral_val
+        real(dp) :: current_distance
+        integer :: current_idx_distance
 
         type(integration_point_t) :: int_point
         type(int_F0_rho_phi_t) :: int_F0
@@ -106,8 +122,8 @@ module electrostatic_kernel
         type(int_F2_rho_phi_t) :: int_F2
         type(int_F3_rho_phi_t) :: int_F3
         
-        kernel_phi_llp = 0.0d0
-        kernel_B_llp = 0.0d0
+        k_rho_phi = 0.0d0
+        k_rho_B = 0.0d0
 
         call set_xl_at_edge(l, lp, int_point)
 
@@ -119,9 +135,31 @@ module electrostatic_kernel
 
                 if (l == lp) then
                     call gauss_integrate_F0(int_F0, int_point%xlm1, int_point%xlp1, integral_val, gauss_conf)
-                    kernel_phi_llp = kernel_phi_llp &
+                    k_rho_phi = k_rho_phi &
                                     + integral_val * Krook_G0_rho_phi(j, plasma%spec(sigma)) * Krook_kappa_rho_phi(j, plasma%spec(sigma))
                 end if
+
+                ! Track maximum distances for diagnostics
+                current_distance = abs(int_point%xl - int_point%xlp)
+
+                if (current_distance > Larmor_skip_factor * int_point%rhoT) cycle
+
+                current_idx_distance = abs(l - lp)
+                
+                !$omp critical
+                if (current_distance > max_distance_xl_xlp) then
+                    max_distance_xl_xlp = current_distance
+                    max_dist_l = l
+                    max_dist_lp = lp
+                end if
+                if (current_idx_distance > max_index_distance) then
+                    max_index_distance = current_idx_distance
+                    max_idx_l = l
+                    max_idx_lp = lp
+                end if
+                !$omp end critical
+
+
                 
                 if (.not. artificial_debye_case) then
                     int_F1%int_point = int_point
@@ -129,40 +167,41 @@ module electrostatic_kernel
                     int_F3%int_point = int_point
 
                     call gauss_integrate_F1(int_F1, integral_val, gauss_conf)
-                    kernel_phi_llp = kernel_phi_llp + integral_val * Krook_G1_rho_phi(j, plasma%spec(sigma)) * Krook_kappa_rho_phi(j, plasma%spec(sigma))
-                    kernel_B_llp = kernel_B_llp + integral_val * Krook_G1_rho_B(j, plasma%spec(sigma)) * Krook_kappa_rho_B(j, plasma%spec(sigma))
+                    k_rho_phi = k_rho_phi + integral_val * Krook_G1_rho_phi(j, plasma%spec(sigma)) * Krook_kappa_rho_phi(j, plasma%spec(sigma))
+                    k_rho_B = k_rho_B + integral_val * Krook_G1_rho_B(j, plasma%spec(sigma)) * Krook_kappa_rho_B(j, plasma%spec(sigma))
 
                     call gauss_integrate_F2(int_F2, integral_val, gauss_conf)
-                    kernel_phi_llp = kernel_phi_llp + integral_val * Krook_kappa_rho_phi(j, plasma%spec(sigma)) * Krook_G2_rho_phi(j, plasma%spec(sigma))
-                    kernel_B_llp = kernel_B_llp + integral_val * Krook_G2_rho_B(j, plasma%spec(sigma)) * Krook_kappa_rho_B(j, plasma%spec(sigma))
+                    k_rho_phi = k_rho_phi + integral_val * Krook_kappa_rho_phi(j, plasma%spec(sigma)) * Krook_G2_rho_phi(j, plasma%spec(sigma))
+                    k_rho_B = k_rho_B + integral_val * Krook_G2_rho_B(j, plasma%spec(sigma)) * Krook_kappa_rho_B(j, plasma%spec(sigma))
 
                     call gauss_integrate_F3(int_F3, integral_val, gauss_conf)
-                    kernel_phi_llp = kernel_phi_llp + integral_val * Krook_kappa_rho_phi(j, plasma%spec(sigma)) * Krook_G3_rho_phi(j, plasma%spec(sigma))
-                    kernel_B_llp = kernel_B_llp + integral_val * Krook_G3_rho_B(j, plasma%spec(sigma)) * Krook_kappa_rho_B(j, plasma%spec(sigma))
+                    k_rho_phi = k_rho_phi + integral_val * Krook_kappa_rho_phi(j, plasma%spec(sigma)) * Krook_G3_rho_phi(j, plasma%spec(sigma))
+                    k_rho_B = k_rho_B + integral_val * Krook_G3_rho_B(j, plasma%spec(sigma)) * Krook_kappa_rho_B(j, plasma%spec(sigma))
                 end if
                 
             end do
         end do
 
-        kernel_phi_llp = kernel_phi_llp / (8.0d0 * pi**3.0d0) !/sqrt(2.0d0) ! factor sqrt(1/2) is somehow missing. Including this factor nicely reproduces the debye case.
-        kernel_B_llp = kernel_B_llp / (8.0d0 * pi**3.0d0)
+        k_rho_phi = k_rho_phi / (8.0d0 * pi**3.0d0) !/sqrt(2.0d0) ! factor sqrt(1/2) is somehow missing. Including this factor nicely reproduces the debye case.
+        k_rho_B = k_rho_B / (8.0d0 * pi**3.0d0)
             
     end subroutine
 
 
-    subroutine FP_fill_kernel_phi(kernel_rho_phi_llp, kernel_rho_B_llp)
+    subroutine FP_fill_kernels(K_rho_phi_llp, K_rho_B_llp, K_j_phi_llp, K_j_B_llp)
 
         use KIM_kinds, only: dp
         use electrostatic_integrals, only: gauss_config_t, init_gauss_int
-        use grid, only: delta_l_max, gauss_int_nodes_Ntheta, gauss_int_nodes_Nx, gauss_int_nodes_Nxp
+        use grid, only: Larmor_skip_factor, gauss_int_nodes_Ntheta, gauss_int_nodes_Nx, gauss_int_nodes_Nxp
 
         implicit none
 
-        type(kernel_spl_t), intent(inout) :: kernel_rho_phi_llp
-        type(kernel_spl_t), intent(inout) :: kernel_rho_B_llp
+        type(kernel_spl_t), intent(inout) :: K_rho_phi_llp
+        type(kernel_spl_t), intent(inout) :: K_rho_B_llp
+        type(kernel_spl_t), intent(inout) :: K_j_phi_llp
+        type(kernel_spl_t), intent(inout) :: K_j_B_llp
         type(gauss_config_t) :: gauss_conf
         integer :: l, lp
-        complex(dp) :: kernel_phi_llp, kernel_B_llp
 
         gauss_conf%Nx = gauss_int_nodes_Nx
         gauss_conf%Nxp = gauss_int_nodes_Nxp
@@ -172,38 +211,56 @@ module electrostatic_kernel
 
         write(*,*) 'Filling Fokker-Planck collision kernels...'
 
-        !$omp parallel do collapse(1) private(l,lp, kernel_phi_llp, kernel_B_llp)
-        do l = 1, kernel_rho_phi_llp%npts_l
+        !$omp parallel do collapse(1) private(l,lp)
+        do l = 1, K_rho_phi_llp%npts_l
             do lp = 1, l
-                if (abs(l - lp) > delta_l_max) cycle
 
-                call FP_calc_kernel_rho_term_by_term(l, lp, kernel_phi_llp, kernel_B_llp, gauss_conf)
-                kernel_rho_phi_llp%Kllp(l, lp) = kernel_phi_llp
-                kernel_rho_B_llp%Kllp(l, lp) = kernel_B_llp
+                call FP_calc_kernels(l, lp, K_rho_phi_llp%Kllp(l, lp),&
+                                            K_rho_B_llp%Kllp(l, lp), &
+                                            K_j_phi_llp%Kllp(l, lp), &
+                                            K_j_B_llp%Kllp(l, lp), &
+                                            gauss_conf)
 
-                if (isnan(real(kernel_phi_llp))) then
-                    print *, "semi analytical kernel_llp is NaN for l = ", l, " lp = ", lp
-                    print *, "semi analytical kernel_llp = ", kernel_phi_llp
+                if (isnan(real(K_rho_phi_llp%Kllp(l,lp)))) then
+                    print *, "K_rho_phi_llp is NaN for l = ", l, " lp = ", lp
                     stop
                 end if
-                if (isnan(real(kernel_B_llp))) then
-                    print *, "semi analytical kernel_B_llp is NaN for l = ", l, " lp = ", lp
-                    print *, "semi analytical kernel_B_llp = ", kernel_B_llp
+                if (isnan(real(K_rho_B_llp%Kllp(l,lp)))) then
+                    print *, "K_rho_B_llp is NaN for l = ", l, " lp = ", lp
                     stop
                 end if
 
-                kernel_rho_phi_llp%Kllp(lp, l) = kernel_rho_phi_llp%Kllp(l, lp)
-                kernel_rho_B_llp%Kllp(lp, l) = kernel_rho_B_llp%Kllp(l, lp)
+                if (isnan(real(K_j_phi_llp%Kllp(l,lp)))) then
+                    print *, "K_j_phi_llp is NaN for l = ", l, " lp = ", lp
+                    stop
+                end if
+                if (isnan(real(K_j_B_llp%Kllp(l,lp)))) then
+                    print *, "K_j_B_llp is NaN for l = ", l, " lp = ", lp
+                    stop
+                end if
+
+                K_rho_phi_llp%Kllp(lp, l) = K_rho_phi_llp%Kllp(l, lp)
+                K_rho_B_llp%Kllp(lp, l) = K_rho_B_llp%Kllp(l, lp)
+                K_j_phi_llp%Kllp(lp, l) = K_j_phi_llp%Kllp(l, lp)
+                K_j_B_llp%Kllp(lp, l) = K_j_B_llp%Kllp(l, lp)
             end do
         end do
         !$omp end parallel do
 
         write(*,*) ! New line after progress bar
+        
+        ! Print diagnostic information
+        write(*,*) '======== Kernel Distance Diagnostics (Fokker-Planck) ========'
+        write(*,'(A,F12.6)') ' Maximum |xl - xlp| distance: ', max_distance_xl_xlp
+        write(*,'(A,I6,A,I6)') ' Occurred at l = ', max_dist_l, ', lp = ', max_dist_lp
+        write(*,'(A,I6)') ' Maximum index distance |l - lp|: ', max_index_distance
+        write(*,'(A,I6,A,I6)') ' Occurred at l = ', max_idx_l, ', lp = ', max_idx_lp
+        write(*,*) '============================================================='
 
     end subroutine
 
     
-    subroutine FP_calc_kernel_rho_term_by_term(l, lp, kernel_phi_llp, kernel_B_llp, gauss_conf)
+    subroutine FP_calc_kernels(l, lp, k_rho_phi, k_rho_B, k_j_phi, k_j_B, gauss_conf)
 
         use KIM_kinds, only: dp
         use electrostatic_integrals, only: gauss_integrate_F0, gauss_integrate_F1, gauss_integrate_F2, gauss_integrate_F3,&
@@ -213,16 +270,20 @@ module electrostatic_kernel
         use electrostatic_integrands, only: int_F0_rho_phi_t, int_F1_rho_phi_t, int_F2_rho_phi_t, int_F3_rho_phi_t, &
             integration_point_t
         use FP_kernel_plasma_prefacs, only: FP_G1_rho_phi, FP_G1_rho_B, FP_G2_rho_B, FP_G3_rho_B, &
-            FP_G2_rho_phi, FP_G3_rho_phi, FP_kappa_rho_phi, FP_kappa_rho_B, FP_G0_rho_phi
+            FP_G2_rho_phi, FP_G3_rho_phi, FP_kappa_rho_phi, FP_kappa_rho_B, FP_G0_rho_phi, &
+            FP_kappa_j_phi, FP_kappa_j_B, FP_G1_j_phi, FP_G2_j_phi, FP_G3_j_phi, &
+            FP_G1_j_B, FP_G2_j_B, FP_G3_j_B
+        use grid, only: Larmor_skip_factor
         
         implicit none
 
         integer, intent(in) :: l, lp
-        complex(dp) :: kernel_phi_llp, kernel_B_llp
+        complex(dp) :: k_rho_phi, k_rho_B, k_j_phi, k_j_B
         integer :: j, sigma
         type(gauss_config_t), intent(in) :: gauss_conf
         real(dp) :: integral_val
-        integer, parameter :: mnmax = 3
+        real(dp) :: current_distance
+        integer :: current_idx_distance
 
         type(integration_point_t) :: int_point
         type(int_F0_rho_phi_t) :: int_F0
@@ -230,8 +291,10 @@ module electrostatic_kernel
         type(int_F2_rho_phi_t) :: int_F2
         type(int_F3_rho_phi_t) :: int_F3
         
-        kernel_phi_llp = 0.0d0
-        kernel_B_llp = 0.0d0
+        k_rho_phi = 0.0d0
+        k_rho_B = 0.0d0
+        k_j_phi = 0.0d0
+        k_j_B = 0.0d0
 
         call set_xl_at_edge(l, lp, int_point)
 
@@ -246,31 +309,68 @@ module electrostatic_kernel
                 if (l == lp) then
                     int_F0%int_point = int_point
                     call gauss_integrate_F0(int_F0, int_point%xlm1, int_point%xlp1, integral_val, gauss_conf)
-                    kernel_phi_llp = kernel_phi_llp &
+                    k_rho_phi = k_rho_phi &
                         + integral_val * FP_G0_rho_phi(j, plasma%spec(sigma)) * FP_kappa_rho_phi(j, plasma%spec(sigma))
                 end if
+
+                ! Track maximum distances for diagnostics
+                current_distance = abs(int_point%xl - int_point%xlp)
+
+                ! skip the kernel calculation for distances that are not connected
+                if (current_distance > Larmor_skip_factor * int_point%rhoT) cycle
+
+                current_idx_distance = abs(l - lp)
+                
+                !$omp critical
+                if (current_distance > max_distance_xl_xlp) then
+                    max_distance_xl_xlp = current_distance
+                    max_dist_l = l
+                    max_dist_lp = lp
+                end if
+                if (current_idx_distance > max_index_distance) then
+                    max_index_distance = current_idx_distance
+                    max_idx_l = l
+                    max_idx_lp = lp
+                end if
+                !$omp end critical
 
                 int_F1%int_point = int_point
                 int_F2%int_point = int_point
                 int_F3%int_point = int_point
 
                 call gauss_integrate_F1(int_F1, integral_val, gauss_conf)
-                kernel_phi_llp = kernel_phi_llp + integral_val * FP_G1_rho_phi(j, plasma%spec(sigma)) * FP_kappa_rho_phi(j, plasma%spec(sigma))
-                kernel_B_llp = kernel_B_llp + integral_val * FP_G1_rho_B(j, plasma%spec(sigma)) * FP_kappa_rho_B(j, plasma%spec(sigma))
+
+                k_rho_phi = k_rho_phi + integral_val * FP_G1_rho_phi(j, plasma%spec(sigma)) * FP_kappa_rho_phi(j, plasma%spec(sigma))
+                k_rho_B   = k_rho_B   + integral_val * FP_G1_rho_B(j, plasma%spec(sigma))   * FP_kappa_rho_B(j, plasma%spec(sigma))
+
+                k_j_phi   = k_j_phi   + integral_val * FP_G1_j_phi(j, plasma%spec(sigma))   * FP_kappa_j_phi(j, plasma%spec(sigma))
+                k_j_B     = k_j_B     + integral_val * FP_G1_j_B(j, plasma%spec(sigma))     * FP_kappa_j_B(j, plasma%spec(sigma))
 
                 call gauss_integrate_F2(int_F2, integral_val, gauss_conf)
-                kernel_phi_llp = kernel_phi_llp + integral_val * FP_G2_rho_phi(j, plasma%spec(sigma)) * FP_kappa_rho_phi(j, plasma%spec(sigma))
-                kernel_B_llp = kernel_B_llp + integral_val * FP_G2_rho_B(j, plasma%spec(sigma)) * FP_kappa_rho_B(j, plasma%spec(sigma))
+
+                k_rho_phi = k_rho_phi + integral_val * FP_G2_rho_phi(j, plasma%spec(sigma)) * FP_kappa_rho_phi(j, plasma%spec(sigma))
+                k_rho_B   = k_rho_B   + integral_val * FP_G2_rho_B(j, plasma%spec(sigma))   * FP_kappa_rho_B(j, plasma%spec(sigma))
+
+                k_j_phi   = k_j_phi   + integral_val * FP_G2_j_phi(j, plasma%spec(sigma))   * FP_kappa_j_phi(j, plasma%spec(sigma))
+                k_j_B     = k_j_B     + integral_val * FP_G2_j_B(j, plasma%spec(sigma))     * FP_kappa_j_B(j, plasma%spec(sigma))
 
                 call gauss_integrate_F3(int_F3, integral_val, gauss_conf)
-                kernel_phi_llp = kernel_phi_llp + integral_val * FP_G3_rho_phi(j, plasma%spec(sigma)) * FP_kappa_rho_phi(j, plasma%spec(sigma))
-                kernel_B_llp = kernel_B_llp + integral_val * FP_G3_rho_B(j, plasma%spec(sigma)) * FP_kappa_rho_B(j, plasma%spec(sigma))
-                
+
+                k_rho_phi = k_rho_phi + integral_val * FP_G3_rho_phi(j, plasma%spec(sigma)) * FP_kappa_rho_phi(j, plasma%spec(sigma))
+                k_rho_B   = k_rho_B   + integral_val * FP_G3_rho_B(j, plasma%spec(sigma))   * FP_kappa_rho_B(j, plasma%spec(sigma))
+
+                k_j_phi   = k_j_phi   + integral_val * FP_G3_j_phi(j, plasma%spec(sigma))   * FP_kappa_j_phi(j, plasma%spec(sigma))
+                k_j_B     = k_j_B     + integral_val * FP_G3_j_B(j, plasma%spec(sigma))     * FP_kappa_j_B(j, plasma%spec(sigma))
+
             end do
         end do
 
-        kernel_phi_llp = kernel_phi_llp / (8.0d0 * pi**3.0d0)
-        kernel_B_llp = kernel_B_llp / (8.0d0 * pi**3.0d0)
+        k_rho_phi = k_rho_phi / (8.0d0 * pi**3.0d0)
+        k_rho_B = k_rho_B / (8.0d0 * pi**3.0d0)
+
+        k_j_phi = k_j_phi / (8.0d0 * pi**3.0d0)
+        k_j_B = k_j_B / (8.0d0 * pi**3.0d0)
+
             
     end subroutine
     
@@ -320,7 +420,7 @@ module electrostatic_kernel
         use KIM_kinds, only: dp
         use electrostatic_integrals, only: gauss_config_t, init_gauss_int, &
             gauss_integrate_F0, gauss_integrate_F1, gauss_integrate_F2, gauss_integrate_F3
-        use grid, only: delta_l_max, gauss_int_nodes_Ntheta, gauss_int_nodes_Nx, gauss_int_nodes_Nxp
+        use grid, only: Larmor_skip_factor, gauss_int_nodes_Ntheta, gauss_int_nodes_Nx, gauss_int_nodes_Nxp
         use species, only: plasma
         use constants, only: pi
         use electrostatic_integrands, only: int_F0_rho_phi_t, int_F1_rho_phi_t, &
@@ -341,6 +441,8 @@ module electrostatic_kernel
         integer :: l, lp, j, sigma
         complex(dp) :: krook_phi_llp, krook_B_llp, fp_phi_llp, fp_B_llp
         real(dp) :: integral_F0, integral_F1, integral_F2, integral_F3
+        real(dp) :: current_distance
+        integer :: current_idx_distance
         
         type(integration_point_t) :: int_point
         type(int_F0_rho_phi_t) :: int_F0
@@ -358,10 +460,9 @@ module electrostatic_kernel
         
         !$omp parallel do collapse(1) private(l, lp, krook_phi_llp, krook_B_llp, &
         !$omp& fp_phi_llp, fp_B_llp, j, sigma, int_point, int_F0, int_F1, int_F2, int_F3, &
-        !$omp& integral_F0, integral_F1, integral_F2, integral_F3)
+        !$omp& integral_F0, integral_F1, integral_F2, integral_F3, current_distance, current_idx_distance)
         do l = 1, kernel_krook_rho_phi%npts_l
             do lp = 1, l
-                if (abs(l - lp) > delta_l_max) cycle
                 
                 ! Initialize kernel values
                 krook_phi_llp = 0.0d0
@@ -391,6 +492,28 @@ module electrostatic_kernel
                             fp_phi_llp = fp_phi_llp + integral_F0 * FP_G0_rho_phi(j, plasma%spec(sigma)) * &
                                         FP_kappa_rho_phi(j, plasma%spec(sigma))
                         end if
+
+                        ! Track maximum distances for diagnostics
+                        current_distance = abs(int_point%xl - int_point%xlp)
+
+                        if (current_distance > Larmor_skip_factor * int_point%rhoT) cycle
+
+                        current_idx_distance = abs(l - lp)
+                        
+                        !$omp critical
+                        if (current_distance > max_distance_xl_xlp) then
+                            max_distance_xl_xlp = current_distance
+                            max_dist_l = l
+                            max_dist_lp = lp
+                        end if
+                        if (current_idx_distance > max_index_distance) then
+                            max_index_distance = current_idx_distance
+                            max_idx_l = l
+                            max_idx_lp = lp
+                        end if
+                        !$omp end critical
+
+
                         
                         if (.not. artificial_debye_case) then
                             ! Set integration points for F1, F2, F3
@@ -459,6 +582,14 @@ module electrostatic_kernel
         !$omp end parallel do
 
         write(*,*) ! New line after progress bar
+        
+        ! Print diagnostic information
+        write(*,*) '======== Kernel Distance Diagnostics (Combined Krook+FP) ========'
+        write(*,'(A,F12.6)') ' Maximum |xl - xlp| distance: ', max_distance_xl_xlp
+        write(*,'(A,I6,A,I6)') ' Occurred at l = ', max_dist_l, ', lp = ', max_dist_lp
+        write(*,'(A,I6)') ' Maximum index distance |l - lp|: ', max_index_distance
+        write(*,'(A,I6,A,I6)') ' Occurred at l = ', max_idx_l, ', lp = ', max_idx_lp
+        write(*,*) '=================================================================='
         
     end subroutine fill_kernels_krook_fp
 

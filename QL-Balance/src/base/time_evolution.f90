@@ -102,10 +102,6 @@ module time_evolution
             mwind = 10
             write_diag = .false.
             write_diag_b = .false.
-            ! if h5overwrite = true, existing data will be deleted
-            ! before new one is written
-            ! This is contained in hdf5_tools module
-            h5overwrite = .true.
     
             if (gyro_current_study .ne. 0) then
                 write_gyro_current = .true.

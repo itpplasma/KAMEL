@@ -24,7 +24,7 @@ implicit none;
 
 real(dp), intent(in) :: r
 integer, intent(in) :: spec
-character(1), intent(in) :: flag_back
+character(*), intent(in) :: flag_back
 
 real(dp) :: Vs, Vp, dVp, n0;
 

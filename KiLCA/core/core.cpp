@@ -201,24 +201,24 @@ for (int ind=0; ind<dim; ind++)
 
 void core_data::calc_and_set_mode_dependent_core_data_antenna_interface (void)
 {
-//allocates modes array in core struct:
-dim = sd->as->dma;
-mda = new mode_data * [dim];
+    //allocates modes array in core struct:
+    dim = sd->as->dma;
+    mda = new mode_data * [dim];
 
-complex<double> olab = (2.0*pi)*(sd->as->flab);
+    complex<double> olab = (2.0*pi)*(sd->as->flab);
 
-//loop over modes array:
-for (int ind=0; ind<dim; ind++)
-{
-    int m = sd->as->modes[2*ind+0];
-    int n = sd->as->modes[2*ind+1];
+    //loop over modes array:
+    for (int ind=0; ind<dim; ind++)
+    {
+        int m = sd->as->modes[2*ind+0];
+        int n = sd->as->modes[2*ind+1];
 
-    mda[ind] = new mode_data (m, n, olab, (const settings *)sd, (const background *)bp);
+        mda[ind] = new mode_data (m, n, olab, (const settings *)sd, (const background *)bp);
 
-    mda[ind]->calc_all_mode_data ();
+        mda[ind]->calc_all_mode_data ();
 
-    clear_all_data_in_mode_data_module_ (); //clean up fortran module data
-}
+        clear_all_data_in_mode_data_module_ (); //clean up fortran module data
+    }
 }
 
 /*******************************************************************/

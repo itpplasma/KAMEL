@@ -1,4 +1,4 @@
-module electrostatic_integrals
+module electrostatic_integrals_gauss_mod
     ! module for integrals of the electrostatic problem
     ! uses gauss legendre quadrature for integration
 
@@ -34,14 +34,14 @@ module electrostatic_integrals
 
     subroutine gauss_integrate_F0(int_F, a, b, result, gauss_conf)
 
-        use electrostatic_integrands, only: int_F0_rho_phi_t
+        use electrostatic_integrands_gauss_mod, only: gauss_int_F0_rho_phi_t
 
         implicit none
 
         real(dp), intent(in) :: a, b
         type(gauss_config_t), intent(in) :: gauss_conf
         real(dp), intent(out) :: result
-        type(int_F0_rho_phi_t), intent(in) :: int_F
+        type(gauss_int_F0_rho_phi_t), intent(in) :: int_F
 
         integer :: i
         real(dp) :: xm, xr
@@ -59,13 +59,13 @@ module electrostatic_integrals
 
     subroutine gauss_integrate_F1(int_F1, result, gauss_conf)
 
-        use electrostatic_integrands, only: int_F1_rho_phi_t, calc_b_coef
+        use electrostatic_integrands_gauss_mod, only: gauss_int_F1_rho_phi_t, calc_b_coef
         use constants, only: pi
         use config, only: output_path
 
         implicit none
 
-        class(int_F1_rho_phi_t), intent(inout) :: int_F1
+        class(gauss_int_F1_rho_phi_t), intent(inout) :: int_F1
 
         type(gauss_config_t), intent(in) :: gauss_conf
         real(dp), intent(out) :: result
@@ -92,8 +92,8 @@ module electrostatic_integrals
             write(iunit, '(A,I4)') '# Number of xp nodes: ', gauss_conf%Nxp
             write(iunit, '(A)') '# j index, xl boundaries: xlm1, xl, xlp1, xlpm1, xlp, xlpp1, rhoT'
             write(iunit, '(I4, 7F12.6)') int_F1%int_point%j, int_F1%int_point%xlm1, int_F1%int_point%xl, &
-                                      int_F1%int_point%xlp1, int_F1%int_point%xlpm1, int_F1%int_point%xlp, &
-                                      int_F1%int_point%xlpp1, int_F1%int_point%rhoT
+                                        int_F1%int_point%xlp1, int_F1%int_point%xlpm1, int_F1%int_point%xlp, &
+                                        int_F1%int_point%xlpp1, int_F1%int_point%rhoT
             write(iunit, '(A)') '#'
             write(iunit, '(A)') '# Theta nodes (Gauss-Legendre on [-1,1] and mapped values):'
             write(iunit, '(A)') '# i, GL_node, theta_mapped, weight'
@@ -158,12 +158,12 @@ module electrostatic_integrals
 
     subroutine gauss_integrate_F2(int_F2, result, gauss_conf)
     
-        use electrostatic_integrands, only: int_F2_rho_phi_t, calc_b_coef
+        use electrostatic_integrands_gauss_mod, only: gauss_int_F2_rho_phi_t, calc_b_coef
         use constants, only: pi
 
         implicit none
 
-        class(int_F2_rho_phi_t), intent(inout) :: int_F2
+        class(gauss_int_F2_rho_phi_t), intent(inout) :: int_F2
 
         type(gauss_config_t), intent(in) :: gauss_conf
         real(dp), intent(out) :: result
@@ -207,12 +207,12 @@ module electrostatic_integrals
 
     subroutine gauss_integrate_F3(int_F3, result, gauss_conf)
 
-        use electrostatic_integrands, only: int_F3_rho_phi_t, calc_b_coef
+        use electrostatic_integrands_gauss_mod, only: gauss_int_F3_rho_phi_t, calc_b_coef
         use constants, only: pi
 
         implicit none
 
-        class(int_F3_rho_phi_t), intent(inout) :: int_F3
+        class(gauss_int_F3_rho_phi_t), intent(inout) :: int_F3
 
         type(gauss_config_t), intent(in) :: gauss_conf
         real(dp), intent(out) :: result
@@ -299,4 +299,4 @@ module electrostatic_integrals
 
     end subroutine compute_nodes_weights
 
-end module electrostatic_integrals
+end module electrostatic_integrals_gauss_mod

@@ -12,7 +12,7 @@ implicit none;
 integer, parameter :: dp = 8, dpc = 8
 
 real(dp), intent(in) :: r
-character(1), intent(in) :: flagback
+character(*), intent(in) :: flagback
 integer, intent(in) :: flagprint
 complex(dpc), dimension(Nwaves), intent(out) :: kval
 complex(dpc), dimension(Nwaves,Nwaves), intent(out) :: polvec !(components, waves)
@@ -77,7 +77,7 @@ integer, parameter :: dp = 8, dpc = 8
 
 integer, intent(in) :: dimr
 real(dp), dimension(dimr), intent(in) :: rvec
-character(1), intent(in) :: flagback
+character(*), intent(in) :: flagback
 
 real(dp), dimension(dimr,Nwaves+1) :: aknr, akrr
 real(dp), dimension(dimr) :: kp_v, ks_v

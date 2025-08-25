@@ -17,7 +17,7 @@ use maxwell_equations
 implicit none
 
 real(dp), intent(in) :: r
-character(1), intent(in) :: flagback
+character(*), intent(in) :: flagback
 complex(dpc), dimension(Nwaves), intent(in) :: v_state
 complex(dpc), dimension(num_vars), intent(out) :: v_sys
 complex(dpc), dimension(num_eqs), intent(in) :: rhs
@@ -70,7 +70,7 @@ use flre_sett, only: Nwaves
 implicit none
 
 real(dp), intent(in) :: r
-character(1), intent(in) :: flagback
+character(*), intent(in) :: flagback
 complex(dpc), dimension(Nwaves, Nwaves), intent(out) :: Dmat
 
 complex(dpc), dimension(Nwaves) :: x
@@ -103,7 +103,7 @@ use maxwell_equations, only: A, elist, ulist
 implicit none;
 
 real(dp), intent(in) :: r
-character(1), intent(in) :: flagback
+character(*), intent(in) :: flagback
 complex(dpc), dimension(Nwaves, Nwaves), intent(out) :: Dmat
 
 complex(dpc), dimension(Nwaves) :: x
@@ -191,7 +191,7 @@ use maxwell_equations, only: iErsp_state, num_vars, num_eqs, iErsp_sys, dim_Ersp
 implicit none
 
 real(dp), intent(in) :: r
-character(1), intent(in) :: flagback
+character(*), intent(in) :: flagback
 complex(dpc), dimension(Nwaves), intent(in) :: v_state
 complex(dpc), dimension(Nwaves), intent(out) :: dv_state
 
@@ -233,7 +233,7 @@ use conduct_parameters
 implicit none
 
 real(dp), intent(in) :: r
-character(1), intent(in) :: flagback
+character(*), intent(in) :: flagback
 
 integer :: i, j, k
 complex(dpc) :: fac

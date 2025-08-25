@@ -190,7 +190,7 @@ use maxwell_equations
 implicit none
 
 real(dp), intent(in) :: r
-character(1), intent(in) :: flagback
+character(*), intent(in) :: flagback
 
 integer :: i, k
 
@@ -312,7 +312,7 @@ use maxwell_equations, only: iErsp_state, num_vars, num_eqs, iErsp_sys, dim_Ersp
 implicit none;
 
 real(dp), intent(in) :: r
-character(1), intent(in) :: flagback
+character(*), intent(in) :: flagback
 complex(dpc), dimension(Nwaves), intent(out) :: f
 
 complex(dpc), dimension(num_eqs) :: rhs

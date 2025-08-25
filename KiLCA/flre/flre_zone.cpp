@@ -143,68 +143,68 @@ fprintf(stdout, "\n");
 
 void flre_zone::calc_basis_fields (int flag)
 {
-flre_zone *pointer = this;
+    flre_zone *pointer = this;
 
-if (flag) rsp = 0; else rsp = 1;
+    if (flag) rsp = 0; else rsp = 1;
 
-setup_flre_data_module_ (&pointer);
+    setup_flre_data_module_ (&pointer);
 
-//calculates various data related to maxwell equations:
-calc_and_set_maxwell_system_parameters_module_ ();
+    //calculates various data related to maxwell equations:
+    calc_and_set_maxwell_system_parameters_module_ ();
 
-me = new maxwell_eqs_data (Nwaves);
+    me = new maxwell_eqs_data (Nwaves);
 
-copy_module_data_to_maxwell_eqs_data_struct (me);
+    copy_module_data_to_maxwell_eqs_data_struct (me);
 
-if (flag_debug) me->print ();
+    if (flag_debug) me->print ();
 
-allocate_and_set_conductivity_arrays_ ();
+    allocate_and_set_conductivity_arrays_ ();
 
-cp = new cond_profiles;
+    cp = new cond_profiles;
 
-set_cond_profiles_in_mode_data_module_ (&cp);
+    set_cond_profiles_in_mode_data_module_ (&cp);
 
-cp->calc_and_spline_main_conductivity_profiles (this, flag);
+    cp->calc_and_spline_main_conductivity_profiles (this, flag);
 
-if (flag)
-{
+    if (flag)
+    {
+        deallocate_conductivity_arrays_ ();
+
+        clean_maxwell_system_parameters_module_ ();
+
+        clean_flre_data_module_ ();
+
+        return;
+    }
+
+    //allocates and calculates system matrix:
+    sp = new sysmat_profiles;
+
+    set_sysmat_profiles_in_mode_data_module_ (&sp);
+
+    sp->calc_and_spline_sysmatrix_profiles (this);
+
+
+    //calc dispersion if needed:
+    if (sd->os->flag_dispersion > 1)
+    {
+        calc_dispersion ();
+        save_dispersion ();
+    }
+    calculate_field_profiles_orth ();
+
+    //cleaning:
     deallocate_conductivity_arrays_ ();
 
     clean_maxwell_system_parameters_module_ ();
 
     clean_flre_data_module_ ();
 
-    return;
-}
-
-//allocates and calculates system matrix:
-sp = new sysmat_profiles;
-
-set_sysmat_profiles_in_mode_data_module_ (&sp);
-
-sp->calc_and_spline_sysmatrix_profiles (this);
-
-//calc dispersion if needed:
-if (sd->os->flag_dispersion > 1)
-{
-    calc_dispersion ();
-    save_dispersion ();
-}
-
-calculate_field_profiles_orth ();
-
-//cleaning:
-deallocate_conductivity_arrays_ ();
-
-clean_maxwell_system_parameters_module_ ();
-
-clean_flre_data_module_ ();
-
-//transform basis to the lab frame:
-//this is done later after spacing out, together with the evaluation of the full system
-//vector, and the transformation to the lab frame.
-//for stitching equations, fields (state vector) in the moving frame are used.
-//check for consistency flre.f90!
+    //transform basis to the lab frame:
+    //this is done later after spacing out, together with the evaluation of the full system
+    //vector, and the transformation to the lab frame.
+    //for stitching equations, fields (state vector) in the moving frame are used.
+    //check for consistency flre.f90!
 }
 
 /*****************************************************************************/
@@ -276,197 +276,197 @@ collmod[1] =  zone->collmod[1];
 
 void flre_zone::calculate_field_profiles_orth (void)
 {
-double *y = new double[2*Nwaves*Nwaves]; //state vectors at a point
+    double *y = new double[2*Nwaves*Nwaves]; //state vectors at a point
 
-int ind1 = 0, ind2 = 0;
+    int ind1 = 0, ind2 = 0;
 
-double ri, rf; //initial and final r values for integration
+    double ri, rf; //initial and final r values for integration
 
-if (bc1 == BOUNDARY_CENTER)
-{
-    ri = r1;
-    rf = r2;
-
-    //calc_start_values_anywhere_low_derivs_ (&ri, y);
-    calc_start_values_center_with_correct_asymptotic_ (&ri, y);
-
-    Nfs = Nwaves/2;
-    ind1 = 0;     //min index of a fundamental solution which is regular at the boundary
-    ind2 = Nfs-1; //max index of a fundamental solution which is regular at the boundary
-}
-else if (bc1 == BOUNDARY_IDEALWALL)
-{
-    ri = r1;
-    rf = r2;
-
-    calc_start_values_anywhere_low_derivs_ (&ri, y);
-    //calc_start_values_ideal_wall_without_fake_modes_ (&ri, y);
-
-    Nfs = Nwaves/2;
-    ind1 = 0;     //min index of a fundamental solution which is regular at the boundary
-    ind2 = Nfs-1; //max index of a fundamental solution which is regular at the boundary
-}
-else if (bc2 == BOUNDARY_INFINITY)
-{
-    ri = r2;
-    rf = r1;
-
-    //calc_start_values_anywhere_low_derivs_ (&ri, y);
-    //calc_start_values_infinity_without_fake_modes_ (&ri, y);
-
-    Nfs = Nwaves/2;
-    ind1 = Nfs;      //min index of a fundamental solution which is regular at the boundary
-    ind2 = Nwaves-1; //max index of a fundamental solution which is regular at the boundary
-
-    fprintf (stdout, "\nflre_zone::calculate_field_profiles_orth: not implemented!");
-    exit (1);
-}
-else if (bc2 == BOUNDARY_IDEALWALL)
-{
-    ri = r2;
-    rf = r1;
-
-    calc_start_values_anywhere_low_derivs_ (&ri, y);
-    //calc_start_values_ideal_wall_without_fake_modes_ (&ri, y);
-
-    Nfs = Nwaves/2;
-    ind1 = 0;     //min index of a fundamental solution which is regular at the boundary
-    ind2 = Nfs-1; //max index of a fundamental solution which is regular at the boundary
-}
-else
-{
-    //general case:
-    ri = r1;
-    rf = r2;
-
-    //calc_start_values_general_without_fake_modes_ (&ri, y);
-
-    Nfs = Nwaves;
-    ind1 = 0;        //min index of a fundamental solution which is regular at the boundary
-    ind2 = Nwaves-1; //max index of a fundamental solution which is regular at the boundary
-
-    fprintf (stdout, "\nflre_zone::calculate_field_profiles_orth: unknown BCs!");
-    exit (1);
-}
-
-//number of equations without an approximation for short modes:
-int Neq = 2*Nwaves*Nfs;
-
-//radial grid generation for a zone with resonance:
-double *grid;
-
-double sgn = signum(rf-ri);
-
-if (r1 <= wd->r_res && r2 >= wd->r_res)
-{
-    double r_res = wd->r_res;
-
-    double r = ri;
-
-    int node = 0;
-
-    while ((r-rf)*sgn < 0)
+    if (bc1 == BOUNDARY_CENTER)
     {
-        r += ((dr_out-dr_res)*(1.0 - exp(-(r-r_res)*(r-r_res)/del/del)) + dr_res)*sgn;
-        node++;
+        ri = r1;
+        rf = r2;
+
+        //calc_start_values_anywhere_low_derivs_ (&ri, y);
+        calc_start_values_center_with_correct_asymptotic_ (&ri, y);
+
+        Nfs = Nwaves/2;
+        ind1 = 0;     //min index of a fundamental solution which is regular at the boundary
+        ind2 = Nfs-1; //max index of a fundamental solution which is regular at the boundary
+    }
+    else if (bc1 == BOUNDARY_IDEALWALL)
+    {
+        ri = r1;
+        rf = r2;
+
+        calc_start_values_anywhere_low_derivs_ (&ri, y);
+        //calc_start_values_ideal_wall_without_fake_modes_ (&ri, y);
+
+        Nfs = Nwaves/2;
+        ind1 = 0;     //min index of a fundamental solution which is regular at the boundary
+        ind2 = Nfs-1; //max index of a fundamental solution which is regular at the boundary
+    }
+    else if (bc2 == BOUNDARY_INFINITY)
+    {
+        ri = r2;
+        rf = r1;
+
+        //calc_start_values_anywhere_low_derivs_ (&ri, y);
+        //calc_start_values_infinity_without_fake_modes_ (&ri, y);
+
+        Nfs = Nwaves/2;
+        ind1 = Nfs;      //min index of a fundamental solution which is regular at the boundary
+        ind2 = Nwaves-1; //max index of a fundamental solution which is regular at the boundary
+
+        fprintf (stdout, "\nflre_zone::calculate_field_profiles_orth: not implemented!");
+        exit (1);
+    }
+    else if (bc2 == BOUNDARY_IDEALWALL)
+    {
+        ri = r2;
+        rf = r1;
+
+        calc_start_values_anywhere_low_derivs_ (&ri, y);
+        //calc_start_values_ideal_wall_without_fake_modes_ (&ri, y);
+
+        Nfs = Nwaves/2;
+        ind1 = 0;     //min index of a fundamental solution which is regular at the boundary
+        ind2 = Nfs-1; //max index of a fundamental solution which is regular at the boundary
+    }
+    else
+    {
+        //general case:
+        ri = r1;
+        rf = r2;
+
+        //calc_start_values_general_without_fake_modes_ (&ri, y);
+
+        Nfs = Nwaves;
+        ind1 = 0;        //min index of a fundamental solution which is regular at the boundary
+        ind2 = Nwaves-1; //max index of a fundamental solution which is regular at the boundary
+
+        fprintf (stdout, "\nflre_zone::calculate_field_profiles_orth: unknown BCs!");
+        exit (1);
     }
 
-    dim = node+1; //last point should be replaced by rf
+    //number of equations without an approximation for short modes:
+    int Neq = 2*Nwaves*Nfs;
 
-    grid = new double[dim];
+    //radial grid generation for a zone with resonance:
+    double *grid;
 
-    r = ri;
+    double sgn = signum(rf-ri);
 
-    node = 0;
-    while ((r-rf)*sgn < 0)
+    if (r1 <= wd->r_res && r2 >= wd->r_res)
     {
-        grid[node++] = r;
+        double r_res = wd->r_res;
 
-        r += ((dr_out-dr_res)*(1.0 - exp(-(r-r_res)*(r-r_res)/del/del)) + dr_res)*sgn;
+        double r = ri;
+
+        int node = 0;
+
+        while ((r-rf)*sgn < 0)
+        {
+            r += ((dr_out-dr_res)*(1.0 - exp(-(r-r_res)*(r-r_res)/del/del)) + dr_res)*sgn;
+            node++;
+        }
+
+        dim = node+1; //last point should be replaced by rf
+
+        grid = new double[dim];
+
+        r = ri;
+
+        node = 0;
+        while ((r-rf)*sgn < 0)
+        {
+            grid[node++] = r;
+
+            r += ((dr_out-dr_res)*(1.0 - exp(-(r-r_res)*(r-r_res)/del/del)) + dr_res)*sgn;
+        }
+
+        grid[node] = rf;
+    }
+    else
+    {
+        dim = (int) abs(rf-ri)/dr_out;
+
+        grid = new double[dim];
+
+        double dr = (rf - ri)/(dim-1);
+
+        for (int node=0; node<dim; node++) grid[node] = ri + dr*node;
+
+        grid[dim-1] = rf; //last point (to have exactly rf):
     }
 
-    grid[node] = rf;
-}
-else
-{
-    dim = (int) abs(rf-ri)/dr_out;
+    double *state = new double[dim*Neq];
 
-    grid = new double[dim];
-
-    double dr = (rf - ri)/(dim-1);
-
-    for (int node=0; node<dim; node++) grid[node] = ri + dr*node;
-
-    grid[dim-1] = rf; //last point (to have exactly rf):
-}
-
-double *state = new double[dim*Neq];
-
-for (int j=0; j<Nfs; j++) //over starting vectors
-{
-    galilean_transform_of_flre_state_vector (this, sd->bs->V_gal_sys, wd->olab, ri,
-                                             &y[2*Nwaves*j], &state[2*Nwaves*j]);
-}
-
-//settings for solver:
-double *Dmat = new double[2*Nwaves*(Nwaves + 2*Nfs)];
-
-rhs_func_params params = {Nwaves, Nwaves, Nfs, Dmat, sp};
-
-solver_settings ss = {Nort, eps_rel, eps_abs, norm_fac, flag_debug};
-
-integrate_basis_vecs (&rhs_func, Nfs, Nwaves, dim, grid, state, &ss, (void *)&params);
-
-delete [] Dmat;
-
-//base zone class data allocation:
-r = new double[dim];
-
-int len = dim*Nwaves*Ncomps*2;
-
-basis = new double[len];
-
-for (int i=0; i<len; i++) basis[i] = 0.0e0;
-
-int j1 = 0, j2 = 0, dj = 0;
-
-if (grid[0] == r1 && grid[dim-1] == r2)
-{
-    j1 = 0;
-    j2 = dim-1;
-    dj = 1;
-}
-else if (grid[0] == r2 && grid[dim-1] == r1) //sort array in inverse order
-{
-    j1 = dim-1;
-    j2 = 0;
-    dj = -1;
-}
-else
-{
-    fprintf (stdout, "\nflre_zone::calculate_field_profiles_orth: error!");
-    exit (1);
-}
-
-int k = 0;
-for (int j=j1; (j-j2)*dj<=0; j+=dj)
-{
-    r[k] = grid[j];
-
-    for (int ind=ind1; ind<=ind2; ind++)
+    for (int j=0; j<Nfs; j++) //over starting vectors
     {
-        //warning: basis array is filled (partly) by state vectors, not system vectors!
-        state_to_system_copy (this, state + is(j,ind-ind1,0,0), basis + ib(k,ind,0,0));
+        galilean_transform_of_flre_state_vector (this, sd->bs->V_gal_sys, wd->olab, ri,
+                                                &y[2*Nwaves*j], &state[2*Nwaves*j]);
     }
-    k++;
-}
 
-delete [] grid;
-delete [] state;
-delete [] y;
+    //settings for solver:
+    double *Dmat = new double[2*Nwaves*(Nwaves + 2*Nfs)];
 
-//normalization of the basis functions:
-normalize_flre_basis_ (&Ncomps, &Nwaves, &dim, basis, me->iErsp_sys, &ind1, &ind2, &j2);
+    rhs_func_params params = {Nwaves, Nwaves, Nfs, Dmat, sp};
+
+    solver_settings ss = {Nort, eps_rel, eps_abs, norm_fac, flag_debug};
+
+    integrate_basis_vecs (&rhs_func, Nfs, Nwaves, dim, grid, state, &ss, (void *)&params);
+
+    delete [] Dmat;
+
+    //base zone class data allocation:
+    r = new double[dim];
+
+    int len = dim*Nwaves*Ncomps*2;
+
+    basis = new double[len];
+
+    for (int i=0; i<len; i++) basis[i] = 0.0e0;
+
+    int j1 = 0, j2 = 0, dj = 0;
+
+    if (grid[0] == r1 && grid[dim-1] == r2)
+    {
+        j1 = 0;
+        j2 = dim-1;
+        dj = 1;
+    }
+    else if (grid[0] == r2 && grid[dim-1] == r1) //sort array in inverse order
+    {
+        j1 = dim-1;
+        j2 = 0;
+        dj = -1;
+    }
+    else
+    {
+        fprintf (stdout, "\nflre_zone::calculate_field_profiles_orth: error!");
+        exit (1);
+    }
+
+    int k = 0;
+    for (int j=j1; (j-j2)*dj<=0; j+=dj)
+    {
+        r[k] = grid[j];
+
+        for (int ind=ind1; ind<=ind2; ind++)
+        {
+            //warning: basis array is filled (partly) by state vectors, not system vectors!
+            state_to_system_copy (this, state + is(j,ind-ind1,0,0), basis + ib(k,ind,0,0));
+        }
+        k++;
+    }
+
+    delete [] grid;
+    delete [] state;
+    delete [] y;
+
+    //normalization of the basis functions:
+    normalize_flre_basis_ (&Ncomps, &Nwaves, &dim, basis, me->iErsp_sys, &ind1, &ind2, &j2);
 }
 
 /*******************************************************************/

@@ -156,9 +156,18 @@ contains
         call print_config_line('Grid Spacing', get_grid_type(grid_spacing), width)
         write(value_str, '(F6.2)') Larmor_skip_factor
         call print_config_line('Larmor Skip Factor', trim(adjustl(value_str)), width)
-        write(value_str, '(A,I0,A,I0,A,I0,A)') '(', gauss_int_nodes_Nx, ', ', &
-                                                gauss_int_nodes_Nxp, ', ', gauss_int_nodes_Ntheta, ')'
-        call print_config_line('Gauss Nodes (x,x′,θ)', trim(value_str), width)
+        call print_config_line('Theta integration method: ', trim(theta_integration), width)
+        if (trim(theta_integration) == "RKF45") then
+            write(value_str, '(ES10.3)') rkf45_tol
+            call print_config_line('RKF45 Tolerance', trim(adjustl(value_str)), width)
+            write(value_str, '(A,I0,A,I0,A)') '(', gauss_int_nodes_Nx, ', ', &
+                                                    gauss_int_nodes_Nxp, ')'
+            call print_config_line('Gauss Nodes (x,x′)', trim(value_str), width)
+        else if (trim(theta_integration) == "GaussLegendre") then
+            write(value_str, '(A,I0,A,I0,A,I0,A)') '(', gauss_int_nodes_Nx, ', ', &
+                                                    gauss_int_nodes_Nxp, ', ', gauss_int_nodes_Ntheta, ')'
+            call print_config_line('Gauss Nodes (x,x′,θ)', trim(value_str), width)
+        end if
         
         ! Display Ion Species if configured
         if (allocated(plasma%spec)) then

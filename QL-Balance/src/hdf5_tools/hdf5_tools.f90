@@ -30,7 +30,7 @@ module QLBalance_hdf5_tools
   !**********************************************************
   ! Overwrite existing datasets with h5_add?
   !**********************************************************
-  logical :: h5overwrite = .false.
+  logical :: h5overwrite = .true.
 
   !**********************************************************
   ! Wrapper functions to add content

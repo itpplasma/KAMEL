@@ -23,7 +23,7 @@ eval_diff_sys_matrix_ (fp->sp, &r, fp->Dmat); //by spline
 
 #else
 
-calc_diff_sys_matrix_ (&r, fp->sp->flag_back, fp->Dmat); //exact
+calc_diff_sys_matrix_ (&r, fp->sp->flag_back, fp->Dmat, 1); //exact
 
 #endif
 
@@ -51,7 +51,7 @@ eval_diff_sys_matrix_ (fp->sp, &t, fp->Dmat); //by spline
 
 #else
 
-calc_diff_sys_matrix_ (&t, fp->sp->flag_back, fp->Dmat); //exact
+calc_diff_sys_matrix_ (&t, fp->sp->flag_back, fp->Dmat, 1); //exact
 
 #endif
 

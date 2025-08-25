@@ -116,7 +116,7 @@ back_sett *bs = (back_sett *)(*bsett);
 *rp   = bs->rp;
 *B0   = bs->B0;
 
-strcpy (flag_back, bs->flag_back);
+*flag_back = bs->flag_back[0];
 
 *V_gal_sys = bs->V_gal_sys;
 *V_scale = bs->V_scale;

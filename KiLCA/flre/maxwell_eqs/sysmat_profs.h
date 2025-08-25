@@ -73,7 +73,7 @@ void sample_sysmat_func (double *r, double *f, void *p);
 extern "C"
 {
 void alloc_sysmatrix_profiles_ (sysmat_profiles **spptr);
-void calc_diff_sys_matrix_ (double *r, char *flag_back, double *R);
+void calc_diff_sys_matrix_ (double *r, char *flag_back, double *R, int flag_back_len);
 }
 
 #endif

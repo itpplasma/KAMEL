@@ -148,7 +148,7 @@ for (int i=0; i<dimx-1; i++)
         grid[ind] = r;
 
         //eval_diff_sys_matrix_ (sp, &r, vals+(dimM)*ind); //spline
-        calc_diff_sys_matrix_ (&r, flag_back, vals+(dimM)*ind); //exact
+        calc_diff_sys_matrix_ (&r, flag_back, vals+(dimM)*ind, 1); //exact
     }
 }
 
@@ -168,7 +168,7 @@ sysmat_profiles *sp = (sysmat_profiles *)(p);
 
 sp->xt[sp->ind] = *r;
 
-calc_diff_sys_matrix_ (r, sp->flag_back, sp->yt+(sp->dimM)*(sp->ind));
+calc_diff_sys_matrix_ (r, sp->flag_back, sp->yt+(sp->dimM)*(sp->ind), 1);
 
 //target function:
 *f = 0.0e0;

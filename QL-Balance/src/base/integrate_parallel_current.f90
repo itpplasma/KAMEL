@@ -31,7 +31,7 @@ subroutine integrate_parallel_current(dim_r, r, Jpe, Jpi, Ipar)
             end if
         end do
 
-        do ipoi=1, dim_r
+        do ipoi=1, dim_r-1
             Ipar = Ipar + (Jpi(ipoi)-Jpe(ipoi) + Jpi(ipoi+1) - Jpe(ipoi+1)) * r(ipoi) * (r(ipoi+1) - r(ipoi)) / 2.0d0
         end do
     end do

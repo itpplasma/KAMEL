@@ -24,26 +24,26 @@ module loading_bar
             write(*, '(A)', advance='no') "]"
         end subroutine updateLoadingBar
 
-        subroutine updateLoadingBarWithETA(current_step, total_steps, start_time)
+        subroutine updateLoadingBarWithETA(current_step, total_steps, start_count, count_rate)
 
             use KIM_kinds, only: dp
 
             implicit none 
 
             integer, intent(in) :: current_step, total_steps
-            real(dp), intent(in) :: start_time
+            integer(kind=8), intent(in) :: start_count, count_rate
             real(dp) :: percentage, elapsed_time, estimated_total_time, eta
-            real(dp) :: current_time
+            integer(kind=8) :: current_count
             integer :: eta_hours, eta_minutes, eta_seconds
 
-            ! Get current time
-            call cpu_time(current_time)
+            ! Get current wall clock time
+            call system_clock(current_count)
 
             ! Calculate the percentage completion
             percentage = real(current_step) / real(total_steps) * 100.0
 
-            ! Calculate ETA
-            elapsed_time = current_time - start_time
+            ! Calculate ETA using wall time
+            elapsed_time = real(current_count - start_count) / real(count_rate)
             if (current_step > 0) then
                 estimated_total_time = elapsed_time * real(total_steps) / real(current_step)
                 eta = estimated_total_time - elapsed_time

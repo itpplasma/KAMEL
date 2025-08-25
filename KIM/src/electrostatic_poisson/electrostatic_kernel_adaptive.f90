@@ -38,7 +38,7 @@ module electrostatic_kernel_adaptive_mod
         type(rkf45_config_t) :: rkf45_conf
         integer :: l, lp
         integer :: total_iterations, current_iteration
-        real(dp) :: start_time
+        integer(kind=8) :: start_count, count_rate, count_max
 
         rkf45_conf%Nx = gauss_int_nodes_Nx
         rkf45_conf%Nxp = gauss_int_nodes_Nxp
@@ -51,8 +51,8 @@ module electrostatic_kernel_adaptive_mod
         total_iterations = K_rho_phi_llp%npts_l * (K_rho_phi_llp%npts_l + 1) / 2
         current_iteration = 0
 
-        ! Record start time for ETA calculation
-        call cpu_time(start_time)
+        ! Record start wall time for ETA calculation
+        call system_clock(start_count, count_rate, count_max)
 
         !!$omp parallel do collapse(1) private(l,lp)
         do l = 1, K_rho_phi_llp%npts_l
@@ -91,7 +91,7 @@ module electrostatic_kernel_adaptive_mod
                 ! Note: If OpenMP is enabled, uncomment the !$omp critical block
                 !!$omp critical
                 current_iteration = current_iteration + 1
-                call updateLoadingBarWithETA(current_iteration, total_iterations, start_time)
+                call updateLoadingBarWithETA(current_iteration, total_iterations, start_count, count_rate)
                 !!$omp end critical
             end do
         end do

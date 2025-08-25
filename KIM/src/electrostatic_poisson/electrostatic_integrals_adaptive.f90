@@ -163,9 +163,8 @@ module electrostatic_integrals_rkf45_mod
 
         !$omp parallel do collapse(2) private(j, k, rk45_res) firstprivate(context) reduction(+:result)
         do j=1,rkf45_conf%Nxp ! xp 
-            context%xp = 0.5d0 * ((context%xlpp1 - context%xlpm1) * rkf45_conf%x_xp(j) + context%xlpp1 + context%xlpm1)
-
             do k=1,rkf45_conf%Nx !x
+                context%xp = 0.5d0 * ((context%xlpp1 - context%xlpm1) * rkf45_conf%x_xp(j) + context%xlpp1 + context%xlpm1)
                 context%x = 0.5d0 * ((context%xlp1 - context%xlm1) * rkf45_conf%x_x(k) + context%xlp1 + context%xlm1)
 
                 rk45_res = 0.0d0

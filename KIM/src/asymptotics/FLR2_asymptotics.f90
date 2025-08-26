@@ -13,6 +13,7 @@ module flr2_asymptotics_m
         use constants_m, only: pi, com_unit, sol, e_charge, ev
         use grid_m, only: xl_grid
         use equilibrium_m, only: B0
+        use IO_collection_m, only: write_complex_profile_abs
 
         implicit none
 
@@ -20,10 +21,12 @@ module flr2_asymptotics_m
         type(EBdat_t), intent(inout) :: EBdat
 
         integer :: sp, j
-        complex(dp), allocatable :: H(:)
+        complex(dp), allocatable :: H(:), F2(:)
         real(dp), allocatable :: rhoL(:, :), B0_intp(:), n(:, :), Er(:)
         real(dp), allocatable :: om_E(:), kp(:), dpdr(:, :), lambda(:, :)
         real(dp), allocatable :: inv_lambda_tot_squared(:)
+        complex(dp), allocatable :: offdiag(:)
+        real(dp), allocatable :: A1(:), A2(:), I11(:), I13(:), nu(:), vT(:)
 
         integer :: nlagr = 4
         integer :: nder = 0
@@ -33,11 +36,19 @@ module flr2_asymptotics_m
         if (.not. allocated(coef)) allocate(coef(0:nder, nlagr))
 
         allocate(H(size(EBdat%Br)))
+        allocate(F2(size(EBdat%Br)))
+        allocate(offdiag(size(EBdat%Br)))
 
         allocate(rhoL(0:plasma_in%n_species-1, size(EBdat%Br)))
         allocate(dpdr(0:plasma_in%n_species-1, size(EBdat%Br)))
         allocate(lambda(0:plasma_in%n_species-1, size(EBdat%Br)))
         allocate(n(0:plasma_in%n_species-1, size(EBdat%Br)))
+        allocate(A1(size(EBdat%Br)))
+        allocate(A2(size(EBdat%Br)))
+        allocate(I11(size(EBdat%Br)))
+        allocate(I13(size(EBdat%Br)))
+        allocate(nu(size(EBdat%Br)))
+        allocate(vT(size(EBdat%Br)))
 
         allocate(B0_intp(size(EBdat%Br)))
         allocate(Er(size(EBdat%Br)))
@@ -69,6 +80,17 @@ module flr2_asymptotics_m
                     + plasma_in%spec(sp)%n(ibeg:iend) * plasma_in%spec(sp)%dTdr(ibeg:iend)))                
                 n(sp, j) = sum(coef(0,:) * plasma_in%spec(sp)%n(ibeg:iend))
                 inv_lambda_tot_squared(j) = inv_lambda_tot_squared(j) + 1.0d0 / lambda(sp, j)**2.0d0
+
+                A1(j) = sum(coef(0,:) * plasma_in%spec(sp)%A1(ibeg:iend))
+                A2(j) = sum(coef(0,:) * plasma_in%spec(sp)%A2(ibeg:iend))
+                I11(j) = sum(coef(0,:) * plasma_in%spec(sp)%I11(ibeg:iend))
+                I13(j) = sum(coef(0,:) * plasma_in%spec(sp)%I13(ibeg:iend))
+                nu(j) = sum(coef(0,:) * plasma_in%spec(sp)%nu(ibeg:iend))
+                vT(j) = sum(coef(0,:) * plasma_in%spec(sp)%vT(ibeg:iend))
+
+                F2(j) = F2(j) + plasma_in%spec(sp)%Zspec* e_charge * n(sp, j) * vT(j)**2.0d0 &
+                    * rhoL(sp, j)**2.0d0 / (2.0d0 * nu(j)) &
+                    * ((A1(j) + 2.0d0 * A2(j)) * I11(j) + 0.5d0 * A2(j) * I13(j))
             end do
 
             B0_intp(j) = sum(coef(0,:) * B0(ibeg:iend))
@@ -102,7 +124,12 @@ module flr2_asymptotics_m
                         / (kp(xl_grid%ipbeg(j):xl_grid%ipend(j)) * B0_intp(xl_grid%ipbeg(j):xl_grid%ipend(j)))&
                         * xl_grid%deriv2_coef(:,j)) &
                 )
+
+            offdiag(j) = H(j) - com_unit * kp(j)**2.0d0/(om_E(j)*Er(j)) * F2(j)
+
         end do
+
+        call write_complex_profile_abs(xl_grid%xb, offdiag, xl_grid%npts_b, trim("output/fields/offdiag.dat"))
 
     end subroutine
 

@@ -44,6 +44,8 @@ module species_m
         !
         ! susceptibility function profiles
         complex(dp), allocatable :: I00(:)
+        complex(dp), allocatable :: I11(:)
+        complex(dp), allocatable :: I13(:)
         complex(dp), allocatable :: I20(:)
         complex(dp), allocatable :: I02(:)
         complex(dp), allocatable :: I01(:)
@@ -572,6 +574,8 @@ module species_m
             spec%I01(j) = spec%symbI(0, 1)
             spec%I21(j) = spec%symbI(2, 1)
             spec%I22(j) = spec%symbI(2, 2)
+            spec%I11(j) = spec%symbI(1, 1)
+            spec%I13(j) = spec%symbI(1, 3)
         end do
 
     end subroutine

@@ -6,9 +6,9 @@ module electrostatic_kernel_m
     
     ! Diagnostic variables to track maximum and minimum distances
     real(dp) :: max_distance_xl_xlp = 0.0d0
-    real(dp) :: min_distance_xl_xlp = huge(0.0d0)
+    real(dp) :: min_distance_xl_xlp = 0.0d0
     integer :: max_index_distance = 0
-    integer :: min_index_distance = huge(0)
+    integer :: min_index_distance = 0
     integer :: max_dist_l = 0, max_dist_lp = 0
     integer :: min_dist_l = 0, min_dist_lp = 0
     integer :: max_idx_l = 0, max_idx_lp = 0

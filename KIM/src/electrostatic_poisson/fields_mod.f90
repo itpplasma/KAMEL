@@ -17,6 +17,7 @@ module fields_m
         complex(dp), allocatable :: Ep(:) ! parallel to the equilibrium magnetic field
         complex(dp), allocatable :: Phi(:)
         complex(dp), allocatable :: Phi_MA(:)
+        complex(dp), allocatable :: Phi_MA_ideal(:)
         complex(dp), allocatable :: Phi_MA_asymptotic(:)
     end type
 
@@ -441,6 +442,32 @@ module fields_m
         type(kernel_spl_t), intent(in) :: kernel_j_B_llp
 
         jpar = matmul(kernel_j_phi_llp%Kllp, EBdat_in%Phi) + matmul(kernel_j_B_llp%Kllp, EBdat_in%Br)
+
+    end subroutine
+
+    subroutine calc_ideal_MA_phi(EBdat, kernel_phi, kernel_B)
+        ! calcualte the misalignment Phi for E_perp_MA = 0, i.e. the ideal cancellation case
+        ! where the flux surface corrugated phi cancels the potential surface corrugated phi
+        ! this is used to check the second order derivative from the Laplace operator
+
+        use KIM_kinds_m, only: dp
+        use grid_m, only: xl_grid
+        use constants_m, only: pi
+        use electrostatic_kernel_m, only: kernel_spl_t
+
+        implicit none
+
+        type(EBdat_t), intent(inout) :: EBdat
+        type(kernel_spl_t), intent(in) :: kernel_phi
+        type(kernel_spl_t), intent(in) :: kernel_B
+
+        integer :: l
+
+        allocate(EBdat%Phi_MA_ideal(size(EBdat%Br)))
+
+        do l = 1, size(EBdat%r_grid)
+            EBdat%Phi_MA_ideal(l) = kernel_B%Kllp(l,l) * EBdat%Br(l) / kernel_phi%Kllp(l,l)
+        end do
 
     end subroutine
 

@@ -234,12 +234,6 @@ module grid_m
         
         allocate(coef(0:nder,npoi_der))
 
-        write(*,*) " - - - grid ", this%name, ": - - - "
-        write(*,*) "    h = ", this%xb(2) - this%xb(1)
-        write(*,*) "    max = ", this%max_val
-        write(*,*) '    Number points r (l) grid: ', this%npts_b
-        write(*,*) "    generating linear grid..."
-
         ! get index for resonant radius
         call binsrc(abs(this%xb), 1, this%npts_b, abs(r_res), index_rg_res)
 

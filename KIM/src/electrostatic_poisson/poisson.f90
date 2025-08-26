@@ -44,7 +44,7 @@ module rt_electrostatic_m
         use poisson_solver_m, only: solve_poisson
         use config_m, only: output_path, collision_model
         use fields_m, only: EBdat, postprocess_electric_field, postprocess_electric_field_with_model,&
-                            calculate_charge_density, calculate_current_density
+                            calculate_charge_density, calculate_current_density, calc_ideal_MA_phi
         use KIM_kinds_m, only: dp
 
         implicit none
@@ -141,6 +141,9 @@ module rt_electrostatic_m
 
             call calc_flr2_asymptotic_Phi_MA(plasma, EBdat)
             call write_complex_profile_abs(xl_grid%xb, EBdat%Phi_MA_asymptotic, xl_grid%npts_b, trim(output_path)//"/fields/phi_MA_asymptotic_"//trim(collision_model)//".dat")
+
+            call calc_ideal_MA_phi(EBdat, kernel_rho_phi_llp, kernel_rho_B_llp)
+            call write_complex_profile_abs(xl_grid%xb, EBdat%Phi_MA_ideal, xl_grid%npts_b, trim(output_path)//"/fields/phi_MA_ideal_"//trim(collision_model)//".dat")
 
         end subroutine
         

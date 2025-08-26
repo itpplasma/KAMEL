@@ -109,7 +109,7 @@ module poisson_solver
             use grid, only: xl_grid
             use IO_collection, only: write_profile, write_complex_profile, plot_profile
             use KIM_kinds, only: dp
-            use fields, only: EBdat, set_Br_field
+            use fields_m, only: EBdat, set_Br_field
             use config, only: output_path
 
             implicit none

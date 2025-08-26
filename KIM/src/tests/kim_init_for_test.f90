@@ -3,7 +3,7 @@ subroutine kim_init_for_test
     use KIM_kinds, only: dp
     use plasma_parameter, only: r_prof, iprof_length, n_prof, Te_prof, Ti_prof, &
         Er_prof, q_prof, ni_prof
-    use equilibrium, only: B0z, B0th, B0, hz, hth
+    use equilibrium_m, only: B0z, B0th, B0, hz, hth
     use setup, only: btor, R0
 
     implicit none

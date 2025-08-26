@@ -1,3 +1,5 @@
+! run type for electrostatic model
+! solves poisson's equation for electrostatic potential for given Br
 module rt_electrostatic
 
     use kim_base, only: kim_t
@@ -16,7 +18,7 @@ module rt_electrostatic
 
         use species, only: init_plasma, plasma, set_plasma_quantities
         use IO_collection, only: create_output_directories
-        use equilibrium, only: calculate_equil
+        use equilibrium_m, only: calculate_equil
 
         implicit none
 
@@ -41,7 +43,7 @@ module rt_electrostatic
         use IO_collection, only: write_matrix, write_complex_profile, write_complex_profile_abs
         use poisson_solver, only: solve_poisson
         use config, only: output_path, collision_model
-        use fields, only: EBdat, postprocess_electric_field, postprocess_electric_field_with_model,&
+        use fields_m, only: EBdat, postprocess_electric_field, postprocess_electric_field_with_model,&
                             calculate_charge_density, calculate_current_density
         use KIM_kinds, only: dp
 
@@ -108,6 +110,8 @@ module rt_electrostatic
         subroutine run_FP
 
             use grid, only: theta_integration
+            use species, only: plasma
+            use flr2_asymptotics_m, only: calc_flr2_asymptotic_Phi_MA
 
             implicit none
 
@@ -134,6 +138,9 @@ module rt_electrostatic
             call calculate_current_density(jpar, EBdat, kernel_j_phi_llp, kernel_j_B_llp)
             call write_complex_profile_abs(xl_grid%xb, rho, xl_grid%npts_b, trim(output_path)//"/fields/rho_"//trim(collision_model)//".dat")
             call write_complex_profile_abs(xl_grid%xb, jpar, xl_grid%npts_b, trim(output_path)//"/fields/jpar_"//trim(collision_model)//".dat")
+
+            call calc_flr2_asymptotic_Phi_MA(plasma, EBdat)
+            call write_complex_profile_abs(xl_grid%xb, EBdat%Phi_MA_asymptotic, xl_grid%npts_b, trim(output_path)//"/fields/phi_MA_asymptotic_"//trim(collision_model)//".dat")
 
         end subroutine
         

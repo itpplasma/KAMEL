@@ -1,4 +1,4 @@
-module fields
+module fields_m
 
     use KIM_kinds, only: dp
 
@@ -16,6 +16,8 @@ module fields
         complex(dp), allocatable :: Es(:) ! E "senkrecht", i.e. perpendicular to radial and parallel direction
         complex(dp), allocatable :: Ep(:) ! parallel to the equilibrium magnetic field
         complex(dp), allocatable :: Phi(:)
+        complex(dp), allocatable :: Phi_MA(:)
+        complex(dp), allocatable :: Phi_MA_asymptotic(:)
     end type
 
     type(EBdat_t) :: EBdat
@@ -62,7 +64,7 @@ module fields
 
         use species, only: plasma_t
         use KIM_kinds, only: dp
-        use equilibrium, only: B0
+        use equilibrium_m, only: B0
 
         implicit none
 
@@ -168,6 +170,7 @@ module fields
         if (.not. allocated(EBdat_in%E_perp_psi)) allocate(EBdat_in%E_perp_psi(size(EBdat_in%r_grid)))
         if (.not. allocated(EBdat_in%E_perp)) allocate(EBdat_in%E_perp(size(EBdat_in%r_grid)))
         if (.not. allocated(EBdat_in%E_perp_MA)) allocate(EBdat_in%E_perp_MA(size(EBdat_in%r_grid)))
+        if (.not. allocated(EBdat_in%Phi_MA)) allocate(EBdat_in%Phi_MA(size(EBdat_in%r_grid)))
 
         do i = 1, size(EBdat_in%r_grid)
             call binsrc(plasma_in%r_grid, 1, size(plasma_in%r_grid), EBdat_in%r_grid(i), ir) 
@@ -188,6 +191,7 @@ module fields
             EBdat_in%E_perp_psi(i) = Er_int * EBdat_in%Br(i) * ks_int / (B0_int * kp_int)
             EBdat_in%E_perp(i) = - com_unit * ks_int * EBdat_in%Phi(i)
             EBdat_in%E_perp_MA(i) = EBdat_in%E_perp(i) + EBdat_in%E_perp_psi(i)
+            EBdat_in%Phi_MA(i) = - EBdat_in%E_perp_MA(i) / (com_unit * ks_int)
 
         end do
 
@@ -283,7 +287,7 @@ module fields
     subroutine calculate_E_in_rsp_from_cyl(EBdat)
 
         use KIM_kinds, only: dp
-        use equilibrium, only: hz, hth
+        use equilibrium_m, only: hz, hth
 
         implicit none
 
@@ -329,6 +333,7 @@ module fields
         call write_complex_profile_abs(xl_grid%xb, EBdat%E_perp_psi, xl_grid%npts_b, trim(output_path)//"/fields/E_perp_psi_"//trim(suffix)//".dat")
         call write_complex_profile_abs(xl_grid%xb, EBdat%E_perp, xl_grid%npts_b, trim(output_path)//"/fields/E_perp_"//trim(suffix)//".dat")
         call write_complex_profile_abs(xl_grid%xb, EBdat%E_perp_MA, xl_grid%npts_b, trim(output_path)//"/fields/E_perp_MA_"//trim(suffix)//".dat")
+        call write_complex_profile_abs(xl_grid%xb, EBdat%Phi_MA, xl_grid%npts_b, trim(output_path)//"/fields/phi_MA_"//trim(suffix)//".dat")
 
         call calculate_E_from_phi(EBdat)
         call calculate_E_in_rsp_from_cyl(EBdat)

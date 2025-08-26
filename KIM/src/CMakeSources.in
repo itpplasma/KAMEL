@@ -76,6 +76,8 @@ set(KIM_fokkerplanck ${CMAKE_SOURCE_DIR}/QL-Balance/src/base/getIfunc.f90
                      ${CMAKE_SOURCE_DIR}/QL-Balance/src/base/W2_arr.f90
 )
 
+set(KIM_asymptotics asymptotics/FLR2_asymptotics.f90)
+
 set(external_dir ${zeal_SOURCE_DIR})
 set(external_zeal
     ${external_dir}/zeal_input.f90

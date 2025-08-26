@@ -1,4 +1,4 @@
-module equilibrium
+module equilibrium_m
 
     use KIM_kinds, only: dp
 
@@ -199,4 +199,4 @@ module equilibrium
 
         end subroutine
 
-end module equilibrium
+end module equilibrium_m

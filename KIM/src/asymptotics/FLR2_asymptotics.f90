@@ -7,11 +7,11 @@ module flr2_asymptotics_m
 
     subroutine calc_flr2_asymptotic_Phi_MA(plasma_in, EBdat)
 
-        use KIM_kinds, only: dp
-        use species, only: plasma_t
+        use KIM_kinds_m, only: dp
+        use species_m, only: plasma_t
         use fields_m, only: EBdat_t
-        use constants, only: pi, com_unit, sol, e_charge, ev
-        use grid, only: xl_grid
+        use constants_m, only: pi, com_unit, sol, e_charge, ev
+        use grid_m, only: xl_grid
         use equilibrium_m, only: B0
 
         implicit none

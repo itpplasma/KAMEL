@@ -1,6 +1,6 @@
-module IO_collection
+module IO_collection_m
 
-    use KIM_kinds, only: dp
+    use KIM_kinds_m, only: dp
 
     implicit none
 
@@ -45,7 +45,7 @@ module IO_collection
 
     subroutine write_profile(x, y, n, filename)
 
-        use KIM_kinds, only: dp
+        use KIM_kinds_m, only: dp
 
         implicit none
 
@@ -75,7 +75,7 @@ module IO_collection
 
     subroutine write_complex_profile(x, y, n, filename)
 
-        use KIM_kinds, only: dp
+        use KIM_kinds_m, only: dp
 
         implicit none
 
@@ -105,7 +105,7 @@ module IO_collection
 
     subroutine write_complex_profile_abs(x, y, n, filename)
 
-        use KIM_kinds, only: dp
+        use KIM_kinds_m, only: dp
 
         implicit none
 
@@ -163,7 +163,7 @@ module IO_collection
 
     subroutine plot_profile(x,y)
 
-        use KIM_kinds, only: dp
+        use KIM_kinds_m, only: dp
 
         implicit none
 
@@ -234,7 +234,7 @@ module IO_collection
 
     subroutine create_output_directories
 
-        use config, only: output_path
+        use config_m, only: output_path
 
         implicit none
 

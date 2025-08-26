@@ -2,10 +2,10 @@
 subroutine kr_space_adjustments
 
     use kr_grid, only: kr, k_space_dim
-    use setup, only: kr_cut_off_fac
-    use config, only: fstatus
-    use findIndex, only: findClosestIndex
-    use KIM_kinds, only: dp
+    use setup_m, only: kr_cut_off_fac
+    use config_m, only: fstatus
+    use findIndex_m, only: findClosestIndex
+    use KIM_kinds_m, only: dp
 
     implicit none
 

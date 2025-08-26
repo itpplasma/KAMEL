@@ -1,10 +1,10 @@
-module functions
+module functions_m
 
     contains
 
     function varphi_l(x, x_lm1, x_l, x_lp1) result(phi)
 
-        use KIM_kinds, only: dp
+        use KIM_kinds_m, only: dp
 
         implicit none
 
@@ -30,7 +30,7 @@ module functions
 
     function dvarphi_l_dx(x, x_lm1, x_l, x_lp1) result(dphi)
 
-        use KIM_kinds, only: dp
+        use KIM_kinds_m, only: dp
 
         implicit none
 

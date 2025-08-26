@@ -1,9 +1,9 @@
-module findIndex
+module findIndex_m
     contains
 
     subroutine findClosestIndex(array, target, closest_index)
 
-        use KIM_kinds, only: dp
+        use KIM_kinds_m, only: dp
 
         implicit none
 

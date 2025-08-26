@@ -26,7 +26,7 @@
 ! 
 !#############################################################################################
 program callcerf
-use use_libcerf
+use use_libcerf_m
 implicit none
 real(DP) :: x,sigma, wid, y
 complex(DPC) :: z, u

@@ -1,4 +1,4 @@
-module loading_bar
+module loading_bar_m
 
     implicit none
 
@@ -6,7 +6,7 @@ module loading_bar
 
         subroutine updateLoadingBar(current_step, total_steps)
 
-            use KIM_kinds, only: dp
+            use KIM_kinds_m, only: dp
 
             implicit none 
 
@@ -26,7 +26,7 @@ module loading_bar
 
         subroutine updateLoadingBarWithETA(current_step, total_steps, start_count, count_rate)
 
-            use KIM_kinds, only: dp
+            use KIM_kinds_m, only: dp
 
             implicit none 
 
@@ -76,7 +76,7 @@ module loading_bar
 
         subroutine drawLoadingBar(percentage)
 
-            use KIM_kinds, only: dp
+            use KIM_kinds_m, only: dp
 
             implicit none
 
@@ -97,4 +97,4 @@ module loading_bar
             end do
         end subroutine drawLoadingBar
 
-end module loading_bar
+end module loading_bar_m

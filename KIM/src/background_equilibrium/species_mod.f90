@@ -1,6 +1,6 @@
-module species
+module species_m
 
-    use KIM_kinds, only: dp
+    use KIM_kinds_m, only: dp
 
     implicit none
 
@@ -60,7 +60,7 @@ module species
 
     subroutine init_plasma(plasma_in)
 
-        use config, only: read_species_from_namelist
+        use config_m, only: read_species_from_namelist
 
         implicit none
 
@@ -79,7 +79,7 @@ module species
 
     subroutine allocate_plasma
 
-        use config, only: number_of_ion_species
+        use config_m, only: number_of_ion_species
 
         implicit none
 
@@ -90,9 +90,9 @@ module species
 
     subroutine read_species_from_nml(plasma_in)
 
-        use KIM_kinds, only: dp
-        use config, only: number_of_ion_species, nml_config_path
-        use constants, only: p_mass
+        use KIM_kinds_m, only: dp
+        use config_m, only: number_of_ion_species, nml_config_path
+        use constants_m, only: p_mass
 
         implicit none
 
@@ -134,7 +134,7 @@ module species
 
     subroutine init_deuterium_species(deut)
     
-        use constants, only: p_mass
+        use constants_m, only: p_mass
 
         implicit none
 
@@ -149,7 +149,7 @@ module species
 
     subroutine init_electron_species(elec)
 
-        use constants, only: e_mass
+        use constants_m, only: e_mass
         implicit none
 
         type(species_t), intent(inout) :: elec
@@ -183,7 +183,7 @@ module species
 
     subroutine set_plasma_quantities(plasma)
 
-        use grid, only: rg_grid
+        use grid_m, only: rg_grid
 
         implicit none
 
@@ -203,9 +203,9 @@ module species
 
     subroutine calculate_plasma_backs(plasma_in)
 
-        use constants, only: sol, e_charge, ev, pi, com_unit
-        use setup, only: omega, collisions_off
-        use config, only: number_of_ion_species
+        use constants_m, only: sol, e_charge, ev, pi, com_unit
+        use setup_m, only: omega, collisions_off
+        use config_m, only: number_of_ion_species
 
         implicit none
 
@@ -315,8 +315,8 @@ module species
 
     subroutine write_plasma_backs(plasma, r_grid)
 
-        use IO_collection, only: write_profile
-        use config, only: output_path
+        use IO_collection_m, only: write_profile
+        use config_m, only: output_path
 
         implicit none
 
@@ -340,9 +340,9 @@ module species
 
     subroutine write_species_backs(spec, r_grid)
 
-        use KIM_kinds, only: dp
-        use IO_collection, only: plot_1D_labeled, write_profile, remove_file, write_complex_profile
-        use config, only: output_path
+        use KIM_kinds_m, only: dp
+        use IO_collection_m, only: plot_1D_labeled, write_profile, remove_file, write_complex_profile
+        use config_m, only: output_path
 
         implicit none
 
@@ -380,8 +380,8 @@ module species
 
     subroutine interpolate_plasma_backs(plasma_in, grid)
 
-        use KIM_kinds, only: dp
-        use IO_collection, only: plot_profile
+        use KIM_kinds_m, only: dp
+        use IO_collection_m, only: plot_profile
 
         implicit none
 
@@ -505,7 +505,7 @@ module species
 
     subroutine reallocate(array, n)
 
-        use KIM_kinds, only: dp
+        use KIM_kinds_m, only: dp
 
         implicit none
 
@@ -519,7 +519,7 @@ module species
 
     subroutine reallocate_complex(array, n)
 
-        use KIM_kinds, only: dp
+        use KIM_kinds_m, only: dp
 
         implicit none
 
@@ -533,8 +533,8 @@ module species
 
     subroutine plot_species(spec)
 
-        use IO_collection, only: plot_1D_labeled, write_profile, remove_file
-        use grid, only: rg_grid
+        use IO_collection_m, only: plot_1D_labeled, write_profile, remove_file
+        use grid_m, only: rg_grid
 
         implicit none
 
@@ -550,7 +550,7 @@ module species
     subroutine calculate_susc_funcs_profiles(spec)
 
         use resonances_mod, only: r_res
-        use grid, only: width_res
+        use grid_m, only: width_res
 
         implicit none
 
@@ -578,8 +578,8 @@ module species
 
     subroutine check_quasineutrality(plasma_in)
 
-        use KIM_kinds, only: dp
-        use config, only: number_of_ion_species
+        use KIM_kinds_m, only: dp
+        use config_m, only: number_of_ion_species
 
         implicit none
 
@@ -611,8 +611,8 @@ module species
 
     subroutine calc_plasma_parameter_derivs
 
-        use grid
-        use config, only: number_of_ion_species
+        use grid_m
+        use config_m, only: number_of_ion_species
 
         implicit none
 
@@ -642,8 +642,8 @@ module species
 
     subroutine read_profiles(reduce)
 
-        use config, only: hdf5_input            
-        use grid, only: r_space_dim
+        use config_m, only: hdf5_input            
+        use grid_m, only: r_space_dim
 
         logical, intent(in) :: reduce ! reduce r dimension
 
@@ -663,10 +663,10 @@ module species
     
     subroutine read_from_text
 
-        use config, only: number_of_ion_species, profile_location, fstatus
-        use KIM_kinds, only: dp
-        use setup, only: set_profiles_constant
-        use grid, only: r_plas
+        use config_m, only: number_of_ion_species, profile_location, fstatus
+        use KIM_kinds_m, only: dp
+        use setup_m, only: set_profiles_constant
+        use grid_m, only: r_plas
 
         implicit none
 
@@ -766,7 +766,7 @@ module species
 
     subroutine read_from_hdf5
 
-        use config, only: fstatus
+        use config_m, only: fstatus
 
         implicit none
 
@@ -796,8 +796,8 @@ module species
 
     subroutine write_profiles
 
-        use config, only: output_path, fstatus, number_of_ion_species
-        use IO_collection, only: write_profile
+        use config_m, only: output_path, fstatus, number_of_ion_species
+        use IO_collection_m, only: write_profile
 
         implicit none
 

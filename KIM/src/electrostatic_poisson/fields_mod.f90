@@ -1,6 +1,6 @@
 module fields_m
 
-    use KIM_kinds, only: dp
+    use KIM_kinds_m, only: dp
 
     implicit none
 
@@ -26,10 +26,10 @@ module fields_m
 
     subroutine set_Br_field(EBdat_in, type_Br)
 
-        use KIM_kinds, only: dp
-        use grid, only: xl_grid
-        use IO_collection, only: write_complex_profile
-        use config, only: output_path
+        use KIM_kinds_m, only: dp
+        use grid_m, only: xl_grid
+        use IO_collection_m, only: write_complex_profile
+        use config_m, only: output_path
 
         implicit none
 
@@ -62,8 +62,8 @@ module fields_m
 
     subroutine calculate_E_perp_psi(plasma_in, EBdat_in)
 
-        use species, only: plasma_t
-        use KIM_kinds, only: dp
+        use species_m, only: plasma_t
+        use KIM_kinds_m, only: dp
         use equilibrium_m, only: B0
 
         implicit none
@@ -114,9 +114,9 @@ module fields_m
 
     subroutine calculate_E_perp(EBdat_in)
 
-        use constants, only: com_unit
-        use species, only: plasma
-        use KIM_kinds, only: dp
+        use constants_m, only: com_unit
+        use species_m, only: plasma
+        use KIM_kinds_m, only: dp
 
         implicit none
 
@@ -149,9 +149,9 @@ module fields_m
 
     subroutine calculate_MA_field(plasma_in, EBdat_in)
 
-        use species, only: plasma_t
-        use KIM_kinds, only: dp
-        use constants, only: com_unit
+        use species_m, only: plasma_t
+        use KIM_kinds_m, only: dp
+        use constants_m, only: com_unit
 
         implicit none
 
@@ -199,8 +199,8 @@ module fields_m
 
     subroutine get_Br_from_txt(EBdat_in, file_path)
 
-        use KIM_kinds, only: dp
-        use constants, only: com_unit
+        use KIM_kinds_m, only: dp
+        use constants_m, only: com_unit
 
         implicit none
 
@@ -258,11 +258,11 @@ module fields_m
 
     subroutine calculate_E_from_phi(EBdat)
 
-        use KIM_kinds, only: dp
-        use constants, only: com_unit
-        use setup, only: m_mode, n_mode, R0
-        use grid, only: xl_grid
-        use functions, only: dvarphi_l_dx
+        use KIM_kinds_m, only: dp
+        use constants_m, only: com_unit
+        use setup_m, only: m_mode, n_mode, R0
+        use grid_m, only: xl_grid
+        use functions_m, only: dvarphi_l_dx
 
         implicit none
 
@@ -286,7 +286,7 @@ module fields_m
 
     subroutine calculate_E_in_rsp_from_cyl(EBdat)
 
-        use KIM_kinds, only: dp
+        use KIM_kinds_m, only: dp
         use equilibrium_m, only: hz, hth
 
         implicit none
@@ -308,11 +308,11 @@ module fields_m
 
     subroutine postprocess_electric_field(EBdat)
 
-        use KIM_kinds, only: dp
-        use IO_collection, only: write_complex_profile_abs
-        use grid, only: xl_grid
-        use config, only: output_path, collision_model
-        use species, only: plasma
+        use KIM_kinds_m, only: dp
+        use IO_collection_m, only: write_complex_profile_abs
+        use grid_m, only: xl_grid
+        use config_m, only: output_path, collision_model
+        use species_m, only: plasma
 
         implicit none
 
@@ -349,11 +349,11 @@ module fields_m
 
     subroutine postprocess_electric_field_with_model(EBdat, model_name)
 
-        use KIM_kinds, only: dp
-        use IO_collection, only: write_complex_profile_abs
-        use grid, only: xl_grid
-        use config, only: output_path
-        use species, only: plasma
+        use KIM_kinds_m, only: dp
+        use IO_collection_m, only: write_complex_profile_abs
+        use grid_m, only: xl_grid
+        use config_m, only: output_path
+        use species_m, only: plasma
 
         implicit none
 
@@ -382,10 +382,10 @@ module fields_m
 
     subroutine calculate_charge_density(rho, EBdat)
 
-        use KIM_kinds, only: dp
-        use grid, only: xl_grid
-        use species, only: plasma
-        use constants, only: pi, com_unit
+        use KIM_kinds_m, only: dp
+        use grid_m, only: xl_grid
+        use species_m, only: plasma
+        use constants_m, only: pi, com_unit
 
         implicit none
 
@@ -431,8 +431,8 @@ module fields_m
 
     subroutine calculate_current_density(jpar, EBdat_in, kernel_j_phi_llp, kernel_j_B_llp)
 
-        use KIM_kinds, only: dp
-        use electrostatic_kernel, only: kernel_spl_t
+        use KIM_kinds_m, only: dp
+        use electrostatic_kernel_m, only: kernel_spl_t
         implicit none
 
         complex(dp), allocatable, intent(out) :: jpar(:)

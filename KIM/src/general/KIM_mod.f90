@@ -1,4 +1,4 @@
-module kim_mod
+module kim_mod_m
 
     implicit none
 
@@ -6,9 +6,9 @@ module kim_mod
 
     subroutine from_kim_factory_get_kim(type_of_run, kim_instance)
 
-        use kim_base, only: kim_t
-        use rt_WKB_dispersion, only: WKB_dispersion_t
-        use rt_electrostatic, only: electrostatic_t
+        use kim_base_m, only: kim_t
+        use rt_WKB_dispersion_m, only: WKB_dispersion_t
+        use rt_electrostatic_m, only: electrostatic_t
 
         implicit none
 

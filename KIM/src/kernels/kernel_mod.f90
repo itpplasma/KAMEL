@@ -1,10 +1,10 @@
-module kernels
+module kernels_m
 
-    use constants
-    use config
-    use grid
-    use back_quants
-    use KIM_kinds, only: dp
+    use constants_m
+    use config_m
+    use grid_m
+    use back_quants_m
+    use KIM_kinds_m, only: dp
 
     implicit none
 
@@ -30,8 +30,8 @@ module kernels
 
         subroutine fill_rho_kernels
 
-            use config, only: fstatus
-            use grid, only: rg_grid, kr_grid, krp_grid
+            use config_m, only: fstatus
+            use grid_m, only: rg_grid, kr_grid, krp_grid
 
             implicit none
             integer :: i_kr, i_krp, i_rg
@@ -70,8 +70,8 @@ module kernels
         ! This is without the exp(i k_r(r_g - x_l)) factor
         complex(dp) function kernel_rho_phi_of_kr_krp_rg(val_kr, val_krp, val_rg)
 
-            use setup, only: omega
-            use constants, only: pi
+            use setup_m, only: omega
+            use constants_m, only: pi
             use gsl_mod, only: gsl_sf_bessel_In
 
             implicit none
@@ -190,9 +190,9 @@ module kernels
         ! TODO: implement the following functions
         complex(dp) function kernel_rho_B_of_kr_krp_rg(val_kr, val_krp, val_rg)
 
-            use setup, only: omega
-            use constants, only: sol, com_unit, pi
-            use KIM_kinds, only: dp
+            use setup_m, only: omega
+            use constants_m, only: sol, com_unit, pi
+            use KIM_kinds_m, only: dp
             use gsl_mod, only: gsl_sf_bessel_In
 
             implicit none

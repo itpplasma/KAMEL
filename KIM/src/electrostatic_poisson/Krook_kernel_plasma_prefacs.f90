@@ -1,11 +1,11 @@
-module Krook_kernel_plasma_prefacs
+module Krook_kernel_plasma_prefacs_m
 
     contains
 
     function Krook_kappa_rho_phi(j, spec) result(val)
 
-        use species, only: species_t
-        use KIM_kinds, only: dp
+        use species_m, only: species_t
+        use KIM_kinds_m, only: dp
 
         implicit none
 
@@ -21,9 +21,9 @@ module Krook_kernel_plasma_prefacs
 
     function Krook_kappa_rho_B(j, spec) result(val)
 
-        use species, only: plasma, species_t
-        use KIM_kinds, only: dp
-        use constants, only: sol, com_unit
+        use species_m, only: plasma, species_t
+        use KIM_kinds_m, only: dp
+        use constants_m, only: sol, com_unit
 
         implicit none
 
@@ -42,8 +42,8 @@ module Krook_kernel_plasma_prefacs
 
     function Krook_G0_rho_phi(j, spec) result(val)
 
-        use species, only: species_t
-        use KIM_kinds, only: dp
+        use species_m, only: species_t
+        use KIM_kinds_m, only: dp
 
         implicit none
 
@@ -58,8 +58,8 @@ module Krook_kernel_plasma_prefacs
 
     function Krook_G1_rho_phi(j, spec) result(val)
 
-        use KIM_kinds, only: dp
-        use species, only: species_t, plasma
+        use KIM_kinds_m, only: dp
+        use species_m, only: species_t, plasma
 
         implicit none
 
@@ -85,8 +85,8 @@ module Krook_kernel_plasma_prefacs
 
     function Krook_G2_rho_phi(j, spec) result(val)
 
-        use KIM_kinds, only: dp
-        use species, only: species_t, plasma
+        use KIM_kinds_m, only: dp
+        use species_m, only: species_t, plasma
 
         implicit none
 
@@ -108,8 +108,8 @@ module Krook_kernel_plasma_prefacs
 
     function Krook_G3_rho_phi(j, spec) result(val)
 
-        use KIM_kinds, only: dp
-        use species, only: species_t, plasma
+        use KIM_kinds_m, only: dp
+        use species_m, only: species_t, plasma
 
         implicit none
 
@@ -129,8 +129,8 @@ module Krook_kernel_plasma_prefacs
 
     function Krook_G0_rho_B(j, spec) result(val)
 
-        use species, only: species_t
-        use KIM_kinds, only: dp
+        use species_m, only: species_t
+        use KIM_kinds_m, only: dp
 
         implicit none
 
@@ -145,8 +145,8 @@ module Krook_kernel_plasma_prefacs
 
     function Krook_G1_rho_B(j, spec) result(val)
 
-        use KIM_kinds, only: dp
-        use species, only: species_t
+        use KIM_kinds_m, only: dp
+        use species_m, only: species_t
 
         implicit none
 
@@ -169,8 +169,8 @@ module Krook_kernel_plasma_prefacs
 
     function Krook_G2_rho_B(j, spec) result(val)
 
-        use KIM_kinds, only: dp
-        use species, only: species_t
+        use KIM_kinds_m, only: dp
+        use species_m, only: species_t
     
         implicit none
 
@@ -189,8 +189,8 @@ module Krook_kernel_plasma_prefacs
 
     function Krook_G3_rho_B(j, spec) result(val)
 
-        use KIM_kinds, only: dp
-        use species, only: species_t
+        use KIM_kinds_m, only: dp
+        use species_m, only: species_t
 
         implicit none
 

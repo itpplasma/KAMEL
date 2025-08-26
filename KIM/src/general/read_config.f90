@@ -1,11 +1,11 @@
 subroutine read_config
 
-    use config
-    use constants
-    use setup
-    use grid
-    use poisson_solver, only: solve_poisson
-    use config_display, only: display_kim_configuration
+    use config_m
+    use constants_m
+    use setup_m
+    use grid_m
+    use poisson_solver_m, only: solve_poisson
+    use config_display_m, only: display_kim_configuration
 
     implicit none
 

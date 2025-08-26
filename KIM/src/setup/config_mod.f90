@@ -1,4 +1,4 @@
-module config
+module config_m
 
     implicit none
 

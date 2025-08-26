@@ -1,7 +1,7 @@
 module electrostatic_kernel_adaptive_mod
 
-    use KIM_kinds, only: dp
-    use electrostatic_kernel, only: kernel_spl_t, max_distance_xl_xlp, max_index_distance, &
+    use KIM_kinds_m, only: dp
+    use electrostatic_kernel_m, only: kernel_spl_t, max_distance_xl_xlp, max_index_distance, &
         max_dist_l, max_dist_lp, max_idx_l, max_idx_lp
 
     implicit none
@@ -24,10 +24,10 @@ module electrostatic_kernel_adaptive_mod
 
     subroutine FP_fill_kernels_adaptive(K_rho_phi_llp, K_rho_B_llp, K_j_phi_llp, K_j_B_llp)
 
-        use KIM_kinds, only: dp
+        use KIM_kinds_m, only: dp
         use electrostatic_integrals_rkf45_mod, only: rkf45_config_t, init_rkf45_int
-        use grid, only: Larmor_skip_factor, gauss_int_nodes_Ntheta, gauss_int_nodes_Nx, gauss_int_nodes_Nxp
-        use loading_bar, only: updateLoadingBarWithETA
+        use grid_m, only: Larmor_skip_factor, gauss_int_nodes_Ntheta, gauss_int_nodes_Nx, gauss_int_nodes_Nxp
+        use loading_bar_m, only: updateLoadingBarWithETA
 
         implicit none
 
@@ -113,17 +113,17 @@ module electrostatic_kernel_adaptive_mod
     
     subroutine FP_calc_kernels_adaptive(l, lp, k_rho_phi, k_rho_B, k_j_phi, k_j_B, rkf45_conf)
 
-        use KIM_kinds, only: dp
+        use KIM_kinds_m, only: dp
         use electrostatic_integrals_rkf45_mod, only: rkf45_integrate_F0, rkf45_integrate_F1, &
             rkf45_integrate_F2, rkf45_integrate_F3, rkf45_config_t
         use electrostatic_integrands_rkf45_mod, only: rkf45_integrand_context_t
-        use species, only: plasma
-        use constants, only: pi
-        use FP_kernel_plasma_prefacs, only: FP_G1_rho_phi, FP_G1_rho_B, FP_G2_rho_B, FP_G3_rho_B, &
+        use species_m, only: plasma
+        use constants_m, only: pi
+        use FP_kernel_plasma_prefacs_m, only: FP_G1_rho_phi, FP_G1_rho_B, FP_G2_rho_B, FP_G3_rho_B, &
             FP_G2_rho_phi, FP_G3_rho_phi, FP_kappa_rho_phi, FP_kappa_rho_B, FP_G0_rho_phi, &
             FP_kappa_j_phi, FP_kappa_j_B, FP_G1_j_phi, FP_G2_j_phi, FP_G3_j_phi, &
             FP_G1_j_B, FP_G2_j_B, FP_G3_j_B
-        use grid, only: Larmor_skip_factor
+        use grid_m, only: Larmor_skip_factor
         
         implicit none
 
@@ -218,8 +218,8 @@ module electrostatic_kernel_adaptive_mod
     
     subroutine set_xl_at_edge(l, lp, context)
         
-        use grid, only: xl_grid
-        use KIM_kinds, only: dp
+        use grid_m, only: xl_grid
+        use KIM_kinds_m, only: dp
         use electrostatic_integrands_rkf45_mod, only: rkf45_integrand_context_t
 
         implicit none

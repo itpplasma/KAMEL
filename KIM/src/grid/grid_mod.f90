@@ -1,6 +1,6 @@
-module grid
+module grid_m
 
-    use KIM_kinds, only: dp
+    use KIM_kinds_m, only: dp
 
     implicit none
 
@@ -109,7 +109,7 @@ module grid
     subroutine grid_generate(this)
 
         use resonances_mod, only: r_res, index_rg_res
-        use config, only: fdebug, output_path
+        use config_m, only: fdebug, output_path
 
         implicit none
 
@@ -212,7 +212,7 @@ module grid
     subroutine grid_generate_linear(this)
 
         use resonances_mod, only: r_res, index_rg_res
-        use config, only: fdebug, output_path
+        use config_m, only: fdebug, output_path
 
         implicit none
 

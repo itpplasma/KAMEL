@@ -1,8 +1,10 @@
 module electrostatic_kernel_adaptive_mod
 
     use KIM_kinds_m, only: dp
-    use electrostatic_kernel_m, only: kernel_spl_t, max_distance_xl_xlp, max_index_distance, &
-        max_dist_l, max_dist_lp, max_idx_l, max_idx_lp
+    use electrostatic_kernel_m, only: kernel_spl_t, max_distance_xl_xlp, min_distance_xl_xlp, &
+        max_index_distance, min_index_distance, &
+        max_dist_l, max_dist_lp, min_dist_l, min_dist_lp, &
+        max_idx_l, max_idx_lp, min_idx_l, min_idx_lp
 
     implicit none
 
@@ -104,8 +106,12 @@ module electrostatic_kernel_adaptive_mod
         write(*,*) '======== Kernel Distance Diagnostics (Fokker-Planck) ========'
         write(*,'(A,F12.6)') ' Maximum |xl - xlp| distance: ', max_distance_xl_xlp
         write(*,'(A,I6,A,I6)') ' Occurred at l = ', max_dist_l, ', lp = ', max_dist_lp
+        write(*,'(A,F12.6)') ' Minimum |xl - xlp| distance: ', min_distance_xl_xlp
+        write(*,'(A,I6,A,I6)') ' Occurred at l = ', min_dist_l, ', lp = ', min_dist_lp
         write(*,'(A,I6)') ' Maximum index distance |l - lp|: ', max_index_distance
         write(*,'(A,I6,A,I6)') ' Occurred at l = ', max_idx_l, ', lp = ', max_idx_lp
+        write(*,'(A,I6)') ' Minimum index distance |l - lp|: ', min_index_distance
+        write(*,'(A,I6,A,I6)') ' Occurred at l = ', min_idx_l, ', lp = ', min_idx_lp
         write(*,*) '============================================================='
 
     end subroutine
@@ -173,10 +179,20 @@ module electrostatic_kernel_adaptive_mod
                     max_dist_l = l
                     max_dist_lp = lp
                 end if
+                if (current_distance < min_distance_xl_xlp .and. current_distance > 0.0d0) then
+                    min_distance_xl_xlp = current_distance
+                    min_dist_l = l
+                    min_dist_lp = lp
+                end if
                 if (current_idx_distance > max_index_distance) then
                     max_index_distance = current_idx_distance
                     max_idx_l = l
                     max_idx_lp = lp
+                end if
+                if (current_idx_distance < min_index_distance .and. current_idx_distance > 0) then
+                    min_index_distance = current_idx_distance
+                    min_idx_l = l
+                    min_idx_lp = lp
                 end if
                 !$omp end critical
 

@@ -56,7 +56,6 @@ module electrostatic_kernel_adaptive_mod
         ! Record start wall time for ETA calculation
         call system_clock(start_count, count_rate, count_max)
 
-        !!$omp parallel do collapse(1) private(l,lp)
         do l = 1, K_rho_phi_llp%npts_l
             do lp = 1, l
 
@@ -89,20 +88,13 @@ module electrostatic_kernel_adaptive_mod
                 K_j_phi_llp%Kllp(lp, l) = K_j_phi_llp%Kllp(l, lp)
                 K_j_B_llp%Kllp(lp, l) = K_j_B_llp%Kllp(l, lp)
 
-                ! Update the loading bar with ETA (thread-safe when OpenMP is enabled)
-                ! Note: If OpenMP is enabled, uncomment the !$omp critical block
-                !!$omp critical
                 current_iteration = current_iteration + 1
                 call updateLoadingBarWithETA(current_iteration, total_iterations, start_count, count_rate)
-                !!$omp end critical
             end do
         end do
-        !!$omp end parallel do
         
-        ! Add newline after loading bar completes
         write(*,*)
         
-        ! Print diagnostic information
         write(*,*) '======== Kernel Distance Diagnostics (Fokker-Planck) ========'
         write(*,'(A,F12.6)') ' Maximum |xl - xlp| distance: ', max_distance_xl_xlp
         write(*,'(A,I6,A,I6)') ' Occurred at l = ', max_dist_l, ', lp = ', max_dist_lp
@@ -151,9 +143,7 @@ module electrostatic_kernel_adaptive_mod
         call set_xl_at_edge(l, lp, context)
 
         do sigma = 0, plasma%n_species - 1
-            !if (sigma == 0) then
-                !cycle
-            !end if
+            ! if (sigma == 1) cycle
             do j = 2, size(plasma%r_grid)-1
                 context%j = j
                 context%rhoT = 0.5d0 * (plasma%spec(sigma)%rho_L(j) + plasma%spec(sigma)%rho_L(j+1))

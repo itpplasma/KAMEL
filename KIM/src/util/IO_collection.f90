@@ -35,8 +35,8 @@ module IO_collection_m
         integer :: i, j
         open(unit=10, file=filename, status='replace')
 
-        do j = 1, ny
-            write(10, *) (A(i,j), i = 1, nx)
+        do i = 1, nx
+            write(10, *) (A(i,j), j = 1, ny)
         end do
 
         close(10)

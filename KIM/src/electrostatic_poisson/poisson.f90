@@ -111,7 +111,7 @@ module rt_electrostatic_m
 
             use grid_m, only: theta_integration
             use species_m, only: plasma
-            use flr2_asymptotics_m, only: calc_flr2_asymptotic_Phi_MA
+            use flr2_asymptotics_m, only: calc_flr2_asymptotic_Phi_MA, calc_hatK_Phi_in_Fourier
 
             implicit none
 
@@ -122,6 +122,11 @@ module rt_electrostatic_m
             else
                 stop "Error: theta integration method not recognized."
             end if
+
+            call write_matrix(trim(output_path)//"kernel/K_rho_phi_re.dat", real(kernel_rho_phi_llp%Kllp), xl_grid%npts_b, xl_grid%npts_b)
+            call write_matrix(trim(output_path)//"kernel/K_rho_phi_im.dat", dimag(kernel_rho_phi_llp%Kllp), xl_grid%npts_b, xl_grid%npts_b)
+            call write_matrix(trim(output_path)//"kernel/K_rho_B_re.dat", real(kernel_rho_B_llp%Kllp), xl_grid%npts_b, xl_grid%npts_b)
+            call write_matrix(trim(output_path)//"kernel/K_rho_B_im.dat", dimag(kernel_rho_B_llp%Kllp), xl_grid%npts_b, xl_grid%npts_b)
 
             allocate(EBdat%Phi(xl_grid%npts_b), EBdat%Br(xl_grid%npts_b), EBdat%E_perp_psi(xl_grid%npts_b), &
                     EBdat%r_grid(xl_grid%npts_b), EBdat%E_perp(xl_grid%npts_b),&
@@ -144,6 +149,8 @@ module rt_electrostatic_m
 
             call calc_ideal_MA_phi(EBdat, kernel_rho_phi_llp, kernel_rho_B_llp)
             call write_complex_profile_abs(xl_grid%xb, EBdat%Phi_MA_ideal, xl_grid%npts_b, trim(output_path)//"/fields/phi_MA_ideal_"//trim(collision_model)//".dat")
+
+            call calc_hatK_Phi_in_Fourier(plasma)
 
         end subroutine
         

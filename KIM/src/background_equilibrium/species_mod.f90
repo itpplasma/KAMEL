@@ -234,6 +234,8 @@ module species_m
             allocate(plasma_in%spec(sp)%I02(plasma_in%grid_size))
             allocate(plasma_in%spec(sp)%I21(plasma_in%grid_size))
             allocate(plasma_in%spec(sp)%I22(plasma_in%grid_size))
+            allocate(plasma_in%spec(sp)%I11(plasma_in%grid_size))
+            allocate(plasma_in%spec(sp)%I13(plasma_in%grid_size))
             allocate(plasma_in%spec(sp)%nu(plasma_in%grid_size))
             allocate(plasma_in%spec(sp)%omega_c(plasma_in%grid_size))
 
@@ -439,6 +441,8 @@ module species_m
                 plasma_temp%spec(sp)%I20(i) = sum(coef(0,:) * plasma_in%spec(sp)%I20(ibeg:iend))
                 plasma_temp%spec(sp)%I21(i) = sum(coef(0,:) * plasma_in%spec(sp)%I21(ibeg:iend))
                 plasma_temp%spec(sp)%I22(i) = sum(coef(0,:) * plasma_in%spec(sp)%I22(ibeg:iend))
+                plasma_temp%spec(sp)%I11(i) = sum(coef(0,:) * plasma_in%spec(sp)%I11(ibeg:iend))
+                plasma_temp%spec(sp)%I13(i) = sum(coef(0,:) * plasma_in%spec(sp)%I13(ibeg:iend))
                 plasma_temp%spec(sp)%I02(i) = sum(coef(0,:) * plasma_in%spec(sp)%I02(ibeg:iend))
 
                 plasma_temp%ks(i) = sum(coef(0,:) * plasma_in%ks(ibeg:iend))

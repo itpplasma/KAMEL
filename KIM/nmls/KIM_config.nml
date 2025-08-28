@@ -1,15 +1,19 @@
 &kim_config
+    number_of_ion_species = 1
+    read_species_from_namelist = .false. ! if false, initialize deuterium plasma
+    type_of_run = 'electrostatic'
+    collision_model = 'Krook'       ! Krook or FokkerPlanck
+    artificial_debye_case = .false.
+/
+
+&kim_io
     profile_location = './profiles/'
     output_path = './out/'
     hdf5_input = .false.
     hdf5_output = .false.
     fdebug = 1
     fstatus = 1
-    number_of_ion_species = 1
-    read_species_from_namelist = .false. ! if false, initialize deuterium plasma
-    type_of_run = 'electrostatic'
-    collision_model = 'Krook'       ! Krook or FokkerPlanck
-    artificial_debye_case = .false.
+    calculate_asymptotics = .true. ! enable/disable asymptotic calculations
 /
 
 &kim_setup

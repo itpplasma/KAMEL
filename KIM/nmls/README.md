@@ -2,17 +2,20 @@
 KIM is configured via the namelist file KIM_config.nml containing multiple namelists. The following gives an overview of the purpose of each variable. 
 
 ## KIM_CONFIG
+- number_of_ion_species ... integer, number of ion species
+- read_species_from_namelist ... boolean, if false, initialize deuterium plasma
+- type_of_run ... string, specifies the type of run, options are: 'electrostatic'
+- collision_model ... string, collision model to use, options are: 'Krook', 'FokkerPlanck'
+- artificial_debye_case ... boolean, if true, only considers the term in the rho phi kernel that describes Debye shielding
+
+## KIM_IO
 - profile_location ... string, path to the profiles
 - output_path ... string, path to the output directory
 - hdf5_input ... boolean, if true reads from a hdf5 file
 - hdf5_output ... boolean, if true writes to a hdf5 output file
 - fdebug ... integer, flag for debugging (0=off, 1=basic, 2=detailed)
 - fstatus ... integer, flag for giving status updates during the execution of the code
-- number_of_ion_species ... integer, number of ion species
-- read_species_from_namelist ... boolean, if false, initialize deuterium plasma
-- type_of_run ... string, specifies the type of run, options are: 'electrostatic'
-- collision_model ... string, collision model to use, options are: 'Krook', 'FokkerPlanck'
-- artificial_debye_case ... boolean, if true, only considers the term in the rho phi kernel that describes Debye shielding
+- calculate_asymptotics ... boolean, if true calculates asymptotic quantities (FLR2 asymptotic potential and Fourier space kernel)
 
 ## KIM_SETUP
 - btor ... double, toroidal magnetic field at the magnetic axis in Gauss

@@ -42,7 +42,7 @@ module rt_electrostatic_m
         use grid_m, only: xl_grid
         use IO_collection_m, only: write_matrix, write_complex_profile, write_complex_profile_abs
         use poisson_solver_m, only: solve_poisson
-        use config_m, only: output_path, collision_model
+        use config_m, only: output_path, collision_model, calculate_asymptotics
         use fields_m, only: EBdat, postprocess_electric_field, postprocess_electric_field_with_model,&
                             calculate_charge_density, calculate_current_density, calc_ideal_MA_phi
         use KIM_kinds_m, only: dp
@@ -144,13 +144,15 @@ module rt_electrostatic_m
             call write_complex_profile_abs(xl_grid%xb, rho, xl_grid%npts_b, trim(output_path)//"/fields/rho_"//trim(collision_model)//".dat")
             call write_complex_profile_abs(xl_grid%xb, jpar, xl_grid%npts_b, trim(output_path)//"/fields/jpar_"//trim(collision_model)//".dat")
 
-            call calc_flr2_asymptotic_Phi_MA(plasma, EBdat)
-            call write_complex_profile_abs(xl_grid%xb, EBdat%Phi_MA_asymptotic, xl_grid%npts_b, trim(output_path)//"/fields/phi_MA_asymptotic_"//trim(collision_model)//".dat")
+            if (calculate_asymptotics) then
+                call calc_flr2_asymptotic_Phi_MA(plasma, EBdat)
+                call write_complex_profile_abs(xl_grid%xb, EBdat%Phi_MA_asymptotic, xl_grid%npts_b, trim(output_path)//"/fields/phi_MA_asymptotic_"//trim(collision_model)//".dat")
 
-            call calc_ideal_MA_phi(EBdat, kernel_rho_phi_llp, kernel_rho_B_llp)
-            call write_complex_profile_abs(xl_grid%xb, EBdat%Phi_MA_ideal, xl_grid%npts_b, trim(output_path)//"/fields/phi_MA_ideal_"//trim(collision_model)//".dat")
+                call calc_ideal_MA_phi(EBdat, kernel_rho_phi_llp, kernel_rho_B_llp)
+                call write_complex_profile_abs(xl_grid%xb, EBdat%Phi_MA_ideal, xl_grid%npts_b, trim(output_path)//"/fields/phi_MA_ideal_"//trim(collision_model)//".dat")
 
-            call calc_hatK_Phi_in_Fourier(plasma)
+                call calc_hatK_Phi_in_Fourier(plasma)
+            end if
 
         end subroutine
         

@@ -14,7 +14,8 @@ subroutine read_config
     logical :: ex
 
     namelist /KIM_CONFIG/ number_of_ion_species, artificial_debye_case, &
-                        kernel_debye_case, type_of_run, collision_model, read_species_from_namelist
+                        kernel_debye_case, type_of_run, collision_model, read_species_from_namelist, &
+                        turn_off_ions
 
     namelist /KIM_IO/ profile_location, hdf5_input, hdf5_output, &
                       fdebug, fstatus, output_path, calculate_asymptotics 

@@ -122,6 +122,7 @@ module electrostatic_kernel_adaptive_mod
             FP_kappa_j_phi, FP_kappa_j_B, FP_G1_j_phi, FP_G2_j_phi, FP_G3_j_phi, &
             FP_G1_j_B, FP_G2_j_B, FP_G3_j_B
         use grid_m, only: Larmor_skip_factor
+        use config_m, only: turn_off_ions
         
         implicit none
 
@@ -143,7 +144,7 @@ module electrostatic_kernel_adaptive_mod
         call set_xl_at_edge(l, lp, context)
 
         do sigma = 0, plasma%n_species - 1
-            ! if (sigma == 1) cycle
+            if (turn_off_ions .and. sigma >= 1) cycle
             do j = 2, size(plasma%r_grid)-1
                 context%j = j
                 context%rhoT = 0.5d0 * (plasma%spec(sigma)%rho_L(j) + plasma%spec(sigma)%rho_L(j+1))

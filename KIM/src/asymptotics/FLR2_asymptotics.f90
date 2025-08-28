@@ -152,6 +152,7 @@ module flr2_asymptotics_m
         use IO_collection_m, only: write_complex_profile_abs
         use config_m, only: output_path
         use gsl_mod, only: gsl_sf_bessel_In
+        use config_m, only: turn_off_ions
 
         implicit none
 
@@ -175,7 +176,7 @@ module flr2_asymptotics_m
             kernel = 0.0d0
             do j = 1, size(rg_grid%xb)
                 do sp = 0, plasma_in%n_species-1
-                    ! if (sp == 1) cycle
+                    if (turn_off_ions .and. sp >= 1) cycle
                     ! do nothing, just a placeholder for future implementation
 
                     b = kr**2.0d0 * plasma_in%spec(sp)%rho_L(j)**2.0d0

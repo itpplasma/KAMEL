@@ -111,7 +111,7 @@ module electrostatic_kernel_m
             integration_point_t
         use Krook_kernel_plasma_prefacs_m, only: Krook_G0_rho_phi, Krook_G1_rho_phi, Krook_G2_rho_phi, Krook_G3_rho_phi, &
             Krook_G1_rho_B, Krook_G2_rho_B, Krook_G3_rho_B, Krook_kappa_rho_phi, Krook_kappa_rho_B
-        use config_m, only: artificial_debye_case
+        use config_m, only: artificial_debye_case, turn_off_ions
         use grid_m, only: Larmor_skip_factor
         
         implicit none
@@ -136,6 +136,7 @@ module electrostatic_kernel_m
         call set_xl_at_edge(l, lp, int_point)
 
         do sigma = 0, plasma%n_species - 1
+            if (turn_off_ions .and. sigma >= 1) cycle
             do j = 2, size(plasma%r_grid)-1
                 int_point%j = j
                 int_point%rhoT = 0.5d0 * (plasma%spec(sigma)%rho_L(j) + plasma%spec(sigma)%rho_L(j+1))
@@ -294,6 +295,7 @@ module electrostatic_kernel_m
             FP_kappa_j_phi, FP_kappa_j_B, FP_G1_j_phi, FP_G2_j_phi, FP_G3_j_phi, &
             FP_G1_j_B, FP_G2_j_B, FP_G3_j_B
         use grid_m, only: Larmor_skip_factor
+        use config_m, only: turn_off_ions
         
         implicit none
 
@@ -319,9 +321,7 @@ module electrostatic_kernel_m
         call set_xl_at_edge(l, lp, int_point)
 
         do sigma = 0, plasma%n_species - 1
-            !if (sigma == 1) then
-                !cycle
-            !end if
+            if (turn_off_ions .and. sigma >= 1) cycle
             do j = 2, size(plasma%r_grid)-1
                 int_point%j = j
                 int_point%rhoT = 0.5d0 * (plasma%spec(sigma)%rho_L(j) + plasma%spec(sigma)%rho_L(j+1))
@@ -460,7 +460,7 @@ module electrostatic_kernel_m
         use FP_kernel_plasma_prefacs_m, only: FP_G0_rho_phi, FP_G1_rho_phi, FP_G2_rho_phi, &
             FP_G3_rho_phi, FP_G1_rho_B, FP_G2_rho_B, FP_G3_rho_B, &
             FP_kappa_rho_phi, FP_kappa_rho_B
-        use config_m, only: artificial_debye_case
+        use config_m, only: artificial_debye_case, turn_off_ions
         
         implicit none
         
@@ -505,6 +505,7 @@ module electrostatic_kernel_m
                 
                 ! Loop over species and radial grid
                 do sigma = 0, plasma%n_species - 1
+                    if (turn_off_ions .and. sigma >= 1) cycle
                     do j = 2, size(plasma%r_grid)-1
                         int_point%j = j
                         int_point%rhoT = 0.5d0 * (plasma%spec(sigma)%rho_L(j) + plasma%spec(sigma)%rho_L(j+1))

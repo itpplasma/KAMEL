@@ -9,6 +9,7 @@ module config_m
     character(100) :: collision_model ! type of collision model
     logical :: artificial_debye_case
     logical :: kernel_debye_case
+    logical :: turn_off_ions ! if true, only the first species (electrons) is considered in calculations
 
     ! KIM_IO namelist variables
     character(256) :: profile_location ! path to profile directory

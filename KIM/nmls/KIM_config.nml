@@ -4,6 +4,7 @@
     type_of_run = 'electrostatic'
     collision_model = 'Krook'       ! Krook or FokkerPlanck
     artificial_debye_case = .false.
+    turn_off_ions = .false.
 /
 
 &kim_io

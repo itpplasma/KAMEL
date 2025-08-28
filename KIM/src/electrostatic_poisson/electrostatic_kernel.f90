@@ -83,10 +83,7 @@ module electrostatic_kernel_m
             end do
         end do
         !$omp end parallel do
-
-        write(*,*) ! New line after progress bar
         
-        ! Print diagnostic information
         write(*,*) '======== Kernel Distance Diagnostics (Krook) ========'
         write(*,'(A,F12.6)') ' Maximum |xl - xlp| distance: ', max_distance_xl_xlp
         write(*,'(A,I6,A,I6)') ' Occurred at l = ', max_dist_l, ', lp = ', max_dist_lp
@@ -263,8 +260,6 @@ module electrostatic_kernel_m
             end do
         end do
         !$omp end parallel do
-
-        write(*,*) ! New line after progress bar
         
         ! Print diagnostic information
         write(*,*) '======== Kernel Distance Diagnostics (Fokker-Planck) ========'
@@ -543,8 +538,6 @@ module electrostatic_kernel_m
                             max_idx_lp = lp
                         end if
                         !$omp end critical
-
-
                         
                         if (.not. artificial_debye_case) then
                             ! Set integration points for F1, F2, F3

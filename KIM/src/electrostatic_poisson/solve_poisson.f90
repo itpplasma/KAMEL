@@ -1,18 +1,18 @@
-module poisson_solver
+module poisson_solver_m
 
     contains
     
     ! Solve A x = b
     subroutine solve_poisson(K_rho_phi, K_rho_B, phi_sol)
 
-        use config, only: fstatus, fdebug
+        use config_m, only: fstatus, fdebug
         use sparse_mod, only: sp2fullComplex, sparse_solveComplex_b1, column_pointer2full, sparse_solve_suitesparseComplex_b1, &
                             sparse_solve_method
-        use config, only: output_path
-        use constants, only: pi, e_charge
-        use grid, only: xl_grid
-        use setup, only: type_br_field
-        use KIM_kinds, only: dp
+        use config_m, only: output_path
+        use constants_m, only: pi, e_charge
+        use grid_m, only: xl_grid
+        use setup_m, only: type_br_field
+        use KIM_kinds_m, only: dp
 
         implicit none
 
@@ -105,12 +105,12 @@ module poisson_solver
         subroutine create_rhs_vector(type, K_rho_B, rhs_vec)
 
             use resonances_mod, only: index_rg_res, r_res
-            use functions, only: varphi_l
-            use grid, only: xl_grid
-            use IO_collection, only: write_profile, write_complex_profile, plot_profile
-            use KIM_kinds, only: dp
-            use fields, only: EBdat, set_Br_field
-            use config, only: output_path
+            use functions_m, only: varphi_l
+            use grid_m, only: xl_grid
+            use IO_collection_m, only: write_profile, write_complex_profile, plot_profile
+            use KIM_kinds_m, only: dp
+            use fields_m, only: EBdat, set_Br_field
+            use config_m, only: output_path
 
             implicit none
 
@@ -182,7 +182,7 @@ module poisson_solver
 
     subroutine check_kernels_for_nans(kernel)
 
-            use KIM_kinds, only: dp
+            use KIM_kinds_m, only: dp
 
             implicit none
 
@@ -199,10 +199,10 @@ module poisson_solver
 
     subroutine prepare_Laplace_matrix(A_mat)
 
-        use grid, only: xl_grid
-        use KIM_kinds, only: dp
-        use config, only: output_path
-        use IO_collection, only: write_matrix
+        use grid_m, only: xl_grid
+        use KIM_kinds_m, only: dp
+        use config_m, only: output_path
+        use IO_collection_m, only: write_matrix
 
         implicit none
 
@@ -256,7 +256,7 @@ module poisson_solver
     subroutine dense_to_sparse(A, irow, pcol, A_nz, nrow, ncol, nz_out)
 
         use sparse_mod, only: column_full2pointer
-        use KIM_kinds, only: dp
+        use KIM_kinds_m, only: dp
         
         implicit none
 

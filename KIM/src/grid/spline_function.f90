@@ -3,10 +3,10 @@
 ! transform was determined analytically
 subroutine calculate_fourier_trans_spline_funcs(write_out)
 
-    use constants, only: com_unit
-    use grid, only: rg_grid, varphi_lkr, &
+    use constants_m, only: com_unit
+    use grid_m, only: rg_grid, varphi_lkr, &
         grid_spacing, spline_base, xl_grid, kr_grid
-    use config, only: output_path
+    use config_m, only: output_path
 
     implicit none
 
@@ -62,7 +62,7 @@ subroutine calculate_fourier_trans_spline_funcs(write_out)
     ! varphi_{l,k_r} for non-equidistant grid
     double complex function FT_hat_function_ne(xl, xlm1, xlp1, xlp2, krr) result (res)
 
-        use KIM_kinds, only: dp
+        use KIM_kinds_m, only: dp
 
         implicit none 
 
@@ -81,7 +81,7 @@ subroutine calculate_fourier_trans_spline_funcs(write_out)
     ! \tilde varphi_{l,k_r} for non-equidistant grid, i.e. without the factor exp(-i kr xl)
     double complex function tilde_varphi_lkr(xl, xlm1, xlp1, krr) result (res)
 
-        use KIM_kinds, only: dp
+        use KIM_kinds_m, only: dp
 
         implicit none
 
@@ -101,7 +101,7 @@ subroutine calculate_fourier_trans_spline_funcs(write_out)
     ! varphi_{l,k_r} for equidistant grid
     double complex function FT_hat_function_e(xl, xlp1, krr) result (res)
 
-        use KIM_kinds, only: dp
+        use KIM_kinds_m, only: dp
 
         implicit none
 
@@ -118,7 +118,7 @@ subroutine calculate_fourier_trans_spline_funcs(write_out)
     ! tilde varphi_{l,k_r} for equidistant grid
     double complex function tilde_varphi_lkr_e(xl, xlp1, krr) result (res)
 
-        use KIM_kinds, only: dp
+        use KIM_kinds_m, only: dp
 
         implicit none
         real(dp), intent(in) :: xl, xlp1, krr

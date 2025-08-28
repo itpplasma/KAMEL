@@ -1,7 +1,7 @@
 ! integrands for both Krook and FP collision models
 module electrostatic_integrands_rkf45_mod
 
-    use KIM_kinds, only: dp
+    use KIM_kinds_m, only: dp
 
     implicit none
 
@@ -16,10 +16,10 @@ module electrostatic_integrands_rkf45_mod
 
     function rkf45_integrand_F0(context) result(val)
 
-        use grid, only: rg_grid
-        use functions, only: varphi_l
+        use grid_m, only: rg_grid
+        use functions_m, only: varphi_l
         use gsl_mod, only: erf => gsl_sf_erf
-        use constants, only: pi
+        use constants_m, only: pi
 
         implicit none
 
@@ -38,11 +38,11 @@ module electrostatic_integrands_rkf45_mod
 
     function rkf45_integrand_F1(theta, context) result(val)
 
-        use constants, only: pi
-        use species, only: plasma
+        use constants_m, only: pi
+        use species_m, only: plasma
         use gsl_mod, only: erf => gsl_sf_erf
-        use KIM_kinds, only: dp
-        use functions, only: varphi_l
+        use KIM_kinds_m, only: dp
+        use functions_m, only: varphi_l
 
         implicit none
 
@@ -74,11 +74,11 @@ module electrostatic_integrands_rkf45_mod
 
     function rkf45_integrand_F2(theta, context) result(val)
 
-        use constants, only: pi
-        use species, only: plasma
+        use constants_m, only: pi
+        use species_m, only: plasma
         use gsl_mod, only: erf => gsl_sf_erf
-        use KIM_kinds, only: dp
-        use functions, only: varphi_l
+        use KIM_kinds_m, only: dp
+        use functions_m, only: varphi_l
 
         implicit none
 
@@ -118,11 +118,11 @@ module electrostatic_integrands_rkf45_mod
 
     function rkf45_integrand_F3(theta, context) result(val)
 
-        use constants, only: pi
-        use species, only: plasma
+        use constants_m, only: pi
+        use species_m, only: plasma
         use gsl_mod, only: erf => gsl_sf_erf
-        use KIM_kinds, only: dp
-        use functions, only: varphi_l
+        use KIM_kinds_m, only: dp
+        use functions_m, only: varphi_l
 
         implicit none
 
@@ -168,8 +168,8 @@ module electrostatic_integrands_rkf45_mod
 
     function Jrg1(a, b, j)
 
-        use constants, only: pi
-        use grid, only: rg_grid
+        use constants_m, only: pi
+        use grid_m, only: rg_grid
         use gsl_mod, only: erf => gsl_sf_erf
 
         implicit none
@@ -186,8 +186,8 @@ module electrostatic_integrands_rkf45_mod
 
     function Jrg2(a, b, j, xl)
 
-        use constants, only: pi
-        use grid, only: rg_grid
+        use constants_m, only: pi
+        use grid_m, only: rg_grid
         use gsl_mod, only: erf => gsl_sf_erf
 
         implicit none
@@ -212,8 +212,8 @@ module electrostatic_integrands_rkf45_mod
 
     function Jrg3(a, b, j, xlp)
 
-        use constants, only: pi
-        use grid, only: rg_grid
+        use constants_m, only: pi
+        use grid_m, only: rg_grid
         use gsl_mod, only: erf => gsl_sf_erf
 
         implicit none
@@ -237,8 +237,8 @@ module electrostatic_integrands_rkf45_mod
 
     function Jrg4(a, b, j, xl, xlp)
 
-        use constants, only: pi
-        use grid, only: rg_grid
+        use constants_m, only: pi
+        use grid_m, only: rg_grid
         use gsl_mod, only: erf => gsl_sf_erf
 
         implicit none

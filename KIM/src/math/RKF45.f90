@@ -1,6 +1,6 @@
 module RKF45_mod
 
-    use KIM_kinds, only: dp
+    use KIM_kinds_m, only: dp
 
     implicit none
 
@@ -23,7 +23,7 @@ module RKF45_mod
 
     subroutine RKF45_1D(f, y0, x0, xmax, h0, tol, sol)
 
-        use KIM_kinds, only: dp
+        use KIM_kinds_m, only: dp
         implicit none
 
         ! Arguments
@@ -37,7 +37,7 @@ module RKF45_mod
 
         interface
             function f(x)
-                use KIM_kinds, only: dp
+                use KIM_kinds_m, only: dp
                 implicit none
                 real(dp), intent(in) :: x
                 real(dp) :: f
@@ -82,7 +82,7 @@ module RKF45_mod
     subroutine RKF45_step_1D(f, yk, xk, h, tol, xkp1, ykp1, hnew)
         ! Classical Runge-Kutta-Fehlberg 4(5) method (adaptive stepper)
 
-        use KIM_kinds, only: dp
+        use KIM_kinds_m, only: dp
         implicit none
 
         real(dp), intent(in)  :: yk, xk, h, tol
@@ -93,7 +93,7 @@ module RKF45_mod
 
         interface
             function f(x)
-                use KIM_kinds, only: dp
+                use KIM_kinds_m, only: dp
                 implicit none
                 real(dp), intent(in) :: x
                 real(dp) :: f
@@ -136,7 +136,7 @@ module RKF45_mod
 
     subroutine RKF45_1D_with_context(f, y0, x0, xmax, h0, tol, sol, context)
 
-        use KIM_kinds, only: dp
+        use KIM_kinds_m, only: dp
         implicit none
 
         ! Arguments
@@ -151,7 +151,7 @@ module RKF45_mod
 
         interface
             function f(x, context)
-                use KIM_kinds, only: dp
+                use KIM_kinds_m, only: dp
                 implicit none
                 real(dp), intent(in) :: x
                 class(*), intent(in) :: context
@@ -197,7 +197,7 @@ module RKF45_mod
     subroutine RKF45_step_1D_with_context(f, yk, xk, h, tol, xkp1, ykp1, hnew, context)
         ! Classical Runge-Kutta-Fehlberg 4(5) method (adaptive stepper)
 
-        use KIM_kinds, only: dp
+        use KIM_kinds_m, only: dp
         implicit none
 
         real(dp), intent(in)  :: yk, xk, h, tol
@@ -209,7 +209,7 @@ module RKF45_mod
 
         interface
             function f(x, context)
-                use KIM_kinds, only: dp
+                use KIM_kinds_m, only: dp
                 implicit none
                 real(dp), intent(in) :: x
                 class(*), intent(in) :: context

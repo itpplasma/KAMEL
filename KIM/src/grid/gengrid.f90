@@ -1,8 +1,8 @@
 subroutine generate_grids
 
-    use grid, only: rg_grid, xl_grid, reduced_rg_dim, l_space_dim, grid_spacing, r_min, r_plas
-    use species, only: plasma
-    use config, only: fdebug
+    use grid_m, only: rg_grid, xl_grid, reduced_rg_dim, l_space_dim, grid_spacing, r_min, r_plas
+    use species_m, only: plasma
+    use config_m, only: fdebug
 
     implicit none
 

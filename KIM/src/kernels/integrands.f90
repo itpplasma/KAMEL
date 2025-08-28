@@ -1,12 +1,12 @@
-module integrands
+module integrands_m
     ! Module containing the integration integrands. In particular, the kernel
     ! functions as well as the spline basis functions used for the basis
     ! transformation.
 
-    use kernels, only: K_rho_phi_of_rg, kernel_rho_phi_of_kr_krp_rg, &
+    use kernels_m, only: K_rho_phi_of_rg, kernel_rho_phi_of_kr_krp_rg, &
                        K_rho_B_of_rg, kernel_rho_B_of_kr_krp_rg
-    use constants, only: com_unit
-    use grid, only: varphi_lkr, xl_grid, rg_grid, kr_grid, krp_grid
+    use constants_m, only: com_unit
+    use grid_m, only: varphi_lkr, xl_grid, rg_grid, kr_grid, krp_grid
 
     implicit none
 

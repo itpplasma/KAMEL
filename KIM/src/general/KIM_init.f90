@@ -1,7 +1,7 @@
 subroutine kim_init
 
-    use grid, only: reduce_r
-    use species, only: read_profiles, allocate_plasma, init_plasma, plasma
+    use grid_m, only: reduce_r
+    use species_m, only: read_profiles, allocate_plasma, init_plasma, plasma
 
     implicit none
 

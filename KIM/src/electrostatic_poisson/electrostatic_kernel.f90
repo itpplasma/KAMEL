@@ -1,14 +1,18 @@
-module electrostatic_kernel
+module electrostatic_kernel_m
 
-    use KIM_kinds, only: dp
+    use KIM_kinds_m, only: dp
 
     implicit none
     
-    ! Diagnostic variables to track maximum distances
+    ! Diagnostic variables to track maximum and minimum distances
     real(dp) :: max_distance_xl_xlp = 0.0d0
+    real(dp) :: min_distance_xl_xlp = 0.0d0
     integer :: max_index_distance = 0
+    integer :: min_index_distance = 0
     integer :: max_dist_l = 0, max_dist_lp = 0
+    integer :: min_dist_l = 0, min_dist_lp = 0
     integer :: max_idx_l = 0, max_idx_lp = 0
+    integer :: min_idx_l = 0, min_idx_lp = 0
 
     type :: kernel_spl_t
         integer :: npts_l, npts_lp
@@ -35,9 +39,9 @@ module electrostatic_kernel
 
     subroutine Krook_fill_kernel_phi(K_rho_phi_llp, K_rho_B_llp)
 
-        use KIM_kinds, only: dp
+        use KIM_kinds_m, only: dp
         use electrostatic_integrals_gauss_mod, only: gauss_config_t, init_gauss_int
-        use grid, only: gauss_int_nodes_Ntheta, gauss_int_nodes_Nx, gauss_int_nodes_Nxp
+        use grid_m, only: gauss_int_nodes_Ntheta, gauss_int_nodes_Nx, gauss_int_nodes_Nxp
 
         implicit none
 
@@ -86,25 +90,29 @@ module electrostatic_kernel
         write(*,*) '======== Kernel Distance Diagnostics (Krook) ========'
         write(*,'(A,F12.6)') ' Maximum |xl - xlp| distance: ', max_distance_xl_xlp
         write(*,'(A,I6,A,I6)') ' Occurred at l = ', max_dist_l, ', lp = ', max_dist_lp
+        write(*,'(A,F12.6)') ' Minimum |xl - xlp| distance: ', min_distance_xl_xlp
+        write(*,'(A,I6,A,I6)') ' Occurred at l = ', min_dist_l, ', lp = ', min_dist_lp
         write(*,'(A,I6)') ' Maximum index distance |l - lp|: ', max_index_distance
         write(*,'(A,I6,A,I6)') ' Occurred at l = ', max_idx_l, ', lp = ', max_idx_lp
+        write(*,'(A,I6)') ' Minimum index distance |l - lp|: ', min_index_distance
+        write(*,'(A,I6,A,I6)') ' Occurred at l = ', min_idx_l, ', lp = ', min_idx_lp
         write(*,*) '===================================================='
 
     end subroutine
 
     subroutine Krook_calc_kernel_rho_term_by_term(l, lp, k_rho_phi, k_rho_B, gauss_conf)
 
-        use KIM_kinds, only: dp
+        use KIM_kinds_m, only: dp
         use electrostatic_integrals_gauss_mod, only: gauss_integrate_F0, gauss_integrate_F1, gauss_integrate_F2, gauss_integrate_F3,&
             gauss_config_t
-        use species, only: plasma
-        use constants, only: pi
+        use species_m, only: plasma
+        use constants_m, only: pi
         use electrostatic_integrands_gauss_mod, only: gauss_int_F0_rho_phi_t, gauss_int_F1_rho_phi_t, gauss_int_F2_rho_phi_t, gauss_int_F3_rho_phi_t, &
             integration_point_t
-        use Krook_kernel_plasma_prefacs, only: Krook_G0_rho_phi, Krook_G1_rho_phi, Krook_G2_rho_phi, Krook_G3_rho_phi, &
+        use Krook_kernel_plasma_prefacs_m, only: Krook_G0_rho_phi, Krook_G1_rho_phi, Krook_G2_rho_phi, Krook_G3_rho_phi, &
             Krook_G1_rho_B, Krook_G2_rho_B, Krook_G3_rho_B, Krook_kappa_rho_phi, Krook_kappa_rho_B
-        use config, only: artificial_debye_case
-        use grid, only: Larmor_skip_factor
+        use config_m, only: artificial_debye_case
+        use grid_m, only: Larmor_skip_factor
         
         implicit none
 
@@ -152,10 +160,20 @@ module electrostatic_kernel
                     max_dist_l = l
                     max_dist_lp = lp
                 end if
+                if (current_distance < min_distance_xl_xlp .and. current_distance > 0.0d0) then
+                    min_distance_xl_xlp = current_distance
+                    min_dist_l = l
+                    min_dist_lp = lp
+                end if
                 if (current_idx_distance > max_index_distance) then
                     max_index_distance = current_idx_distance
                     max_idx_l = l
                     max_idx_lp = lp
+                end if
+                if (current_idx_distance < min_index_distance .and. current_idx_distance > 0) then
+                    min_index_distance = current_idx_distance
+                    min_idx_l = l
+                    min_idx_lp = lp
                 end if
                 !$omp end critical
                 
@@ -188,9 +206,9 @@ module electrostatic_kernel
 
     subroutine FP_fill_kernels(K_rho_phi_llp, K_rho_B_llp, K_j_phi_llp, K_j_B_llp)
 
-        use KIM_kinds, only: dp
+        use KIM_kinds_m, only: dp
         use electrostatic_integrals_gauss_mod, only: gauss_config_t, init_gauss_int
-        use grid, only: Larmor_skip_factor, gauss_int_nodes_Ntheta, gauss_int_nodes_Nx, gauss_int_nodes_Nxp
+        use grid_m, only: Larmor_skip_factor, gauss_int_nodes_Ntheta, gauss_int_nodes_Nx, gauss_int_nodes_Nxp
 
         implicit none
 
@@ -251,8 +269,12 @@ module electrostatic_kernel
         write(*,*) '======== Kernel Distance Diagnostics (Fokker-Planck) ========'
         write(*,'(A,F12.6)') ' Maximum |xl - xlp| distance: ', max_distance_xl_xlp
         write(*,'(A,I6,A,I6)') ' Occurred at l = ', max_dist_l, ', lp = ', max_dist_lp
+        write(*,'(A,F12.6)') ' Minimum |xl - xlp| distance: ', min_distance_xl_xlp
+        write(*,'(A,I6,A,I6)') ' Occurred at l = ', min_dist_l, ', lp = ', min_dist_lp
         write(*,'(A,I6)') ' Maximum index distance |l - lp|: ', max_index_distance
         write(*,'(A,I6,A,I6)') ' Occurred at l = ', max_idx_l, ', lp = ', max_idx_lp
+        write(*,'(A,I6)') ' Minimum index distance |l - lp|: ', min_index_distance
+        write(*,'(A,I6,A,I6)') ' Occurred at l = ', min_idx_l, ', lp = ', min_idx_lp
         write(*,*) '============================================================='
 
     end subroutine
@@ -260,18 +282,18 @@ module electrostatic_kernel
     
     subroutine FP_calc_kernels(l, lp, k_rho_phi, k_rho_B, k_j_phi, k_j_B, gauss_conf)
 
-        use KIM_kinds, only: dp
+        use KIM_kinds_m, only: dp
         use electrostatic_integrals_gauss_mod, only: gauss_integrate_F0, gauss_integrate_F1, gauss_integrate_F2, gauss_integrate_F3,&
             gauss_config_t
-        use species, only: plasma
-        use constants, only: pi
+        use species_m, only: plasma
+        use constants_m, only: pi
         use electrostatic_integrands_gauss_mod, only: gauss_int_F0_rho_phi_t, gauss_int_F1_rho_phi_t, gauss_int_F2_rho_phi_t, gauss_int_F3_rho_phi_t, &
             integration_point_t
-        use FP_kernel_plasma_prefacs, only: FP_G1_rho_phi, FP_G1_rho_B, FP_G2_rho_B, FP_G3_rho_B, &
+        use FP_kernel_plasma_prefacs_m, only: FP_G1_rho_phi, FP_G1_rho_B, FP_G2_rho_B, FP_G3_rho_B, &
             FP_G2_rho_phi, FP_G3_rho_phi, FP_kappa_rho_phi, FP_kappa_rho_B, FP_G0_rho_phi, &
             FP_kappa_j_phi, FP_kappa_j_B, FP_G1_j_phi, FP_G2_j_phi, FP_G3_j_phi, &
             FP_G1_j_B, FP_G2_j_B, FP_G3_j_B
-        use grid, only: Larmor_skip_factor
+        use grid_m, only: Larmor_skip_factor
         
         implicit none
 
@@ -325,10 +347,20 @@ module electrostatic_kernel
                     max_dist_l = l
                     max_dist_lp = lp
                 end if
+                if (current_distance < min_distance_xl_xlp .and. current_distance > 0.0d0) then
+                    min_distance_xl_xlp = current_distance
+                    min_dist_l = l
+                    min_dist_lp = lp
+                end if
                 if (current_idx_distance > max_index_distance) then
                     max_index_distance = current_idx_distance
                     max_idx_l = l
                     max_idx_lp = lp
+                end if
+                if (current_idx_distance < min_index_distance .and. current_idx_distance > 0) then
+                    min_index_distance = current_idx_distance
+                    min_idx_l = l
+                    min_idx_lp = lp
                 end if
                 !$omp end critical
 
@@ -374,8 +406,8 @@ module electrostatic_kernel
     
     subroutine set_xl_at_edge(l, lp, int_point)
         
-        use grid, only: xl_grid
-        use KIM_kinds, only: dp
+        use grid_m, only: xl_grid
+        use KIM_kinds_m, only: dp
         use electrostatic_integrands_gauss_mod, only: integration_point_t
 
         implicit none
@@ -415,20 +447,20 @@ module electrostatic_kernel
         !> Unified subroutine to fill both Krook and Fokker-Planck kernels
         !> Exploits shared Gaussian integration for efficiency
         
-        use KIM_kinds, only: dp
+        use KIM_kinds_m, only: dp
         use electrostatic_integrals_gauss_mod, only: gauss_config_t, init_gauss_int, &
             gauss_integrate_F0, gauss_integrate_F1, gauss_integrate_F2, gauss_integrate_F3
-        use grid, only: Larmor_skip_factor, gauss_int_nodes_Ntheta, gauss_int_nodes_Nx, gauss_int_nodes_Nxp
-        use species, only: plasma
-        use constants, only: pi
+        use grid_m, only: Larmor_skip_factor, gauss_int_nodes_Ntheta, gauss_int_nodes_Nx, gauss_int_nodes_Nxp
+        use species_m, only: plasma
+        use constants_m, only: pi
         use electrostatic_integrands_gauss_mod, only: gauss_int_F0_rho_phi_t, gauss_int_F1_rho_phi_t, &
             gauss_int_F2_rho_phi_t, gauss_int_F3_rho_phi_t, integration_point_t
-        use Krook_kernel_plasma_prefacs, only: Krook_G0_rho_phi, Krook_G1_rho_phi, Krook_G2_rho_phi, Krook_G3_rho_phi, &
+        use Krook_kernel_plasma_prefacs_m, only: Krook_G0_rho_phi, Krook_G1_rho_phi, Krook_G2_rho_phi, Krook_G3_rho_phi, &
             Krook_G1_rho_B, Krook_G2_rho_B, Krook_G3_rho_B, Krook_kappa_rho_phi, Krook_kappa_rho_B
-        use FP_kernel_plasma_prefacs, only: FP_G0_rho_phi, FP_G1_rho_phi, FP_G2_rho_phi, &
+        use FP_kernel_plasma_prefacs_m, only: FP_G0_rho_phi, FP_G1_rho_phi, FP_G2_rho_phi, &
             FP_G3_rho_phi, FP_G1_rho_B, FP_G2_rho_B, FP_G3_rho_B, &
             FP_kappa_rho_phi, FP_kappa_rho_B
-        use config, only: artificial_debye_case
+        use config_m, only: artificial_debye_case
         
         implicit none
         
@@ -585,8 +617,12 @@ module electrostatic_kernel
         write(*,*) '======== Kernel Distance Diagnostics (Combined Krook+FP) ========'
         write(*,'(A,F12.6)') ' Maximum |xl - xlp| distance: ', max_distance_xl_xlp
         write(*,'(A,I6,A,I6)') ' Occurred at l = ', max_dist_l, ', lp = ', max_dist_lp
+        write(*,'(A,F12.6)') ' Minimum |xl - xlp| distance: ', min_distance_xl_xlp
+        write(*,'(A,I6,A,I6)') ' Occurred at l = ', min_dist_l, ', lp = ', min_dist_lp
         write(*,'(A,I6)') ' Maximum index distance |l - lp|: ', max_index_distance
         write(*,'(A,I6,A,I6)') ' Occurred at l = ', max_idx_l, ', lp = ', max_idx_lp
+        write(*,'(A,I6)') ' Minimum index distance |l - lp|: ', min_index_distance
+        write(*,'(A,I6,A,I6)') ' Occurred at l = ', min_idx_l, ', lp = ', min_idx_lp
         write(*,*) '=================================================================='
         
     end subroutine fill_kernels_krook_fp

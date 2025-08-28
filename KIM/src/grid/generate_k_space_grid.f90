@@ -1,11 +1,11 @@
 subroutine generate_k_space_grid(npoi_min, write_out, kr_cut)
     
-    use grid
+    use grid_m
     use kr_grid, only: k_space_dim, kr, krp
-    use setup
-    use config, only: output_path, fstatus
-    use constants, only: pi
-    use KIM_kinds, only: dp
+    use setup_m
+    use config_m, only: output_path, fstatus
+    use constants_m, only: pi
+    use KIM_kinds_m, only: dp
 
     implicit none
 
@@ -112,7 +112,7 @@ end subroutine
 subroutine recnsplit_kr(kr_val, recnsp)
 
     use kr_grid, only: kr_grid_ampl_res, kr_grid_width_res, kr_res
-    use KIM_kinds, only: dp
+    use KIM_kinds_m, only: dp
 
     implicit none
 

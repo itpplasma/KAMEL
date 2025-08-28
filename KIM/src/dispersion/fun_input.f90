@@ -26,7 +26,7 @@ MODULE Function_Input_Module
 
      subroutine FDF(Z, F, DF)
 
-          use config, only: type_of_run
+          use config_m, only: type_of_run
 
           implicit none
           double complex, intent(in) :: Z

@@ -2,19 +2,19 @@
 !@brief: Determines the basis transformed kernels by the cut-off integration, 
 ! i.e. cut-off the integrations over kr and kr' prime and do partial 
 ! integration. All integrals are done with the trapezoidal method.
-module cut_off_integration
+module cut_off_integration_m
 
-    use grid, only: varphi_lkr, rg_grid, xl_grid
+    use grid_m, only: varphi_lkr, rg_grid, xl_grid
     use resonances_mod, only: r_res
     use omp_lib
     use plasma_parameter, only: rho_L
-    use setup, only: cut_off_fac, kr_cut_off_fac, eps_reg
-    use config, only: fstatus
-    use kernels, only: fill_rho_kernels, K_rho_phi_llp, K_rho_B_llp, K_rho_phi_of_rg
-    use loading_bar
-    use constants, only: pi, com_unit
-    use use_libcerf, only: cerf_F
-    use KIM_kinds, only: dp
+    use setup_m, only: cut_off_fac, kr_cut_off_fac, eps_reg
+    use config_m, only: fstatus
+    use kernels_m, only: fill_rho_kernels, K_rho_phi_llp, K_rho_B_llp, K_rho_phi_of_rg
+    use loading_bar_m
+    use constants_m, only: pi, com_unit
+    use use_libcerf_m, only: cerf_F
+    use KIM_kinds_m, only: dp
 
     implicit none
 
@@ -119,7 +119,7 @@ module cut_off_integration
 
         subroutine write_kernel_in_spline_space
 
-            use config, only: output_path
+            use config_m, only: output_path
 
             implicit none
 
@@ -155,10 +155,10 @@ module cut_off_integration
     ! integrate 2D integral over k_r and k_r' with the trapezoidal rule
     double complex function func_trapz_int_2D_rho_phi(l, lp, i_rg)
 
-        use grid, only: xl_grid, kr_grid, krp_grid, rg_grid
-        use kernels, only: K_rho_phi_of_rg
-        use integrands, only: integrand_w_exp_facs_rho_phi
-        use KIM_kinds, only: dp
+        use grid_m, only: xl_grid, kr_grid, krp_grid, rg_grid
+        use kernels_m, only: K_rho_phi_of_rg
+        use integrands_m, only: integrand_w_exp_facs_rho_phi
+        use KIM_kinds_m, only: dp
 
         implicit none
 
@@ -251,9 +251,9 @@ module cut_off_integration
 
     double complex function func_trapz_int_2D_rho_B(l, lp, i_rg)
 
-        use grid, only: xl_grid, kr_grid, krp_grid
-        use kernels, only: K_rho_B_of_rg
-        use integrands, only: integrand_w_exp_facs_rho_B
+        use grid_m, only: xl_grid, kr_grid, krp_grid
+        use kernels_m, only: K_rho_B_of_rg
+        use integrands_m, only: integrand_w_exp_facs_rho_B
 
         implicit none
         integer, intent(in) :: l, lp, i_rg

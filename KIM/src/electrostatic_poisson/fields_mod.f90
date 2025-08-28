@@ -1,6 +1,6 @@
-module fields
+module fields_m
 
-    use KIM_kinds, only: dp
+    use KIM_kinds_m, only: dp
 
     implicit none
 
@@ -16,6 +16,9 @@ module fields
         complex(dp), allocatable :: Es(:) ! E "senkrecht", i.e. perpendicular to radial and parallel direction
         complex(dp), allocatable :: Ep(:) ! parallel to the equilibrium magnetic field
         complex(dp), allocatable :: Phi(:)
+        complex(dp), allocatable :: Phi_MA(:)
+        complex(dp), allocatable :: Phi_MA_ideal(:)
+        complex(dp), allocatable :: Phi_MA_asymptotic(:)
     end type
 
     type(EBdat_t) :: EBdat
@@ -24,10 +27,10 @@ module fields
 
     subroutine set_Br_field(EBdat_in, type_Br)
 
-        use KIM_kinds, only: dp
-        use grid, only: xl_grid
-        use IO_collection, only: write_complex_profile
-        use config, only: output_path
+        use KIM_kinds_m, only: dp
+        use grid_m, only: xl_grid
+        use IO_collection_m, only: write_complex_profile
+        use config_m, only: output_path
 
         implicit none
 
@@ -60,9 +63,9 @@ module fields
 
     subroutine calculate_E_perp_psi(plasma_in, EBdat_in)
 
-        use species, only: plasma_t
-        use KIM_kinds, only: dp
-        use equilibrium, only: B0
+        use species_m, only: plasma_t
+        use KIM_kinds_m, only: dp
+        use equilibrium_m, only: B0
 
         implicit none
 
@@ -112,9 +115,9 @@ module fields
 
     subroutine calculate_E_perp(EBdat_in)
 
-        use constants, only: com_unit
-        use species, only: plasma
-        use KIM_kinds, only: dp
+        use constants_m, only: com_unit
+        use species_m, only: plasma
+        use KIM_kinds_m, only: dp
 
         implicit none
 
@@ -147,9 +150,9 @@ module fields
 
     subroutine calculate_MA_field(plasma_in, EBdat_in)
 
-        use species, only: plasma_t
-        use KIM_kinds, only: dp
-        use constants, only: com_unit
+        use species_m, only: plasma_t
+        use KIM_kinds_m, only: dp
+        use constants_m, only: com_unit
 
         implicit none
 
@@ -168,6 +171,7 @@ module fields
         if (.not. allocated(EBdat_in%E_perp_psi)) allocate(EBdat_in%E_perp_psi(size(EBdat_in%r_grid)))
         if (.not. allocated(EBdat_in%E_perp)) allocate(EBdat_in%E_perp(size(EBdat_in%r_grid)))
         if (.not. allocated(EBdat_in%E_perp_MA)) allocate(EBdat_in%E_perp_MA(size(EBdat_in%r_grid)))
+        if (.not. allocated(EBdat_in%Phi_MA)) allocate(EBdat_in%Phi_MA(size(EBdat_in%r_grid)))
 
         do i = 1, size(EBdat_in%r_grid)
             call binsrc(plasma_in%r_grid, 1, size(plasma_in%r_grid), EBdat_in%r_grid(i), ir) 
@@ -188,6 +192,7 @@ module fields
             EBdat_in%E_perp_psi(i) = Er_int * EBdat_in%Br(i) * ks_int / (B0_int * kp_int)
             EBdat_in%E_perp(i) = - com_unit * ks_int * EBdat_in%Phi(i)
             EBdat_in%E_perp_MA(i) = EBdat_in%E_perp(i) + EBdat_in%E_perp_psi(i)
+            EBdat_in%Phi_MA(i) = - EBdat_in%E_perp_MA(i) / (com_unit * ks_int)
 
         end do
 
@@ -195,8 +200,8 @@ module fields
 
     subroutine get_Br_from_txt(EBdat_in, file_path)
 
-        use KIM_kinds, only: dp
-        use constants, only: com_unit
+        use KIM_kinds_m, only: dp
+        use constants_m, only: com_unit
 
         implicit none
 
@@ -254,11 +259,11 @@ module fields
 
     subroutine calculate_E_from_phi(EBdat)
 
-        use KIM_kinds, only: dp
-        use constants, only: com_unit
-        use setup, only: m_mode, n_mode, R0
-        use grid, only: xl_grid
-        use functions, only: dvarphi_l_dx
+        use KIM_kinds_m, only: dp
+        use constants_m, only: com_unit
+        use setup_m, only: m_mode, n_mode, R0
+        use grid_m, only: xl_grid
+        use functions_m, only: dvarphi_l_dx
 
         implicit none
 
@@ -282,8 +287,8 @@ module fields
 
     subroutine calculate_E_in_rsp_from_cyl(EBdat)
 
-        use KIM_kinds, only: dp
-        use equilibrium, only: hz, hth
+        use KIM_kinds_m, only: dp
+        use equilibrium_m, only: hz, hth
 
         implicit none
 
@@ -304,11 +309,11 @@ module fields
 
     subroutine postprocess_electric_field(EBdat)
 
-        use KIM_kinds, only: dp
-        use IO_collection, only: write_complex_profile_abs
-        use grid, only: xl_grid
-        use config, only: output_path, collision_model
-        use species, only: plasma
+        use KIM_kinds_m, only: dp
+        use IO_collection_m, only: write_complex_profile_abs
+        use grid_m, only: xl_grid
+        use config_m, only: output_path, collision_model
+        use species_m, only: plasma
 
         implicit none
 
@@ -329,6 +334,7 @@ module fields
         call write_complex_profile_abs(xl_grid%xb, EBdat%E_perp_psi, xl_grid%npts_b, trim(output_path)//"/fields/E_perp_psi_"//trim(suffix)//".dat")
         call write_complex_profile_abs(xl_grid%xb, EBdat%E_perp, xl_grid%npts_b, trim(output_path)//"/fields/E_perp_"//trim(suffix)//".dat")
         call write_complex_profile_abs(xl_grid%xb, EBdat%E_perp_MA, xl_grid%npts_b, trim(output_path)//"/fields/E_perp_MA_"//trim(suffix)//".dat")
+        call write_complex_profile_abs(xl_grid%xb, EBdat%Phi_MA, xl_grid%npts_b, trim(output_path)//"/fields/phi_MA_"//trim(suffix)//".dat")
 
         call calculate_E_from_phi(EBdat)
         call calculate_E_in_rsp_from_cyl(EBdat)
@@ -344,11 +350,11 @@ module fields
 
     subroutine postprocess_electric_field_with_model(EBdat, model_name)
 
-        use KIM_kinds, only: dp
-        use IO_collection, only: write_complex_profile_abs
-        use grid, only: xl_grid
-        use config, only: output_path
-        use species, only: plasma
+        use KIM_kinds_m, only: dp
+        use IO_collection_m, only: write_complex_profile_abs
+        use grid_m, only: xl_grid
+        use config_m, only: output_path
+        use species_m, only: plasma
 
         implicit none
 
@@ -377,10 +383,10 @@ module fields
 
     subroutine calculate_charge_density(rho, EBdat)
 
-        use KIM_kinds, only: dp
-        use grid, only: xl_grid
-        use species, only: plasma
-        use constants, only: pi, com_unit
+        use KIM_kinds_m, only: dp
+        use grid_m, only: xl_grid
+        use species_m, only: plasma
+        use constants_m, only: pi, com_unit
 
         implicit none
 
@@ -426,8 +432,8 @@ module fields
 
     subroutine calculate_current_density(jpar, EBdat_in, kernel_j_phi_llp, kernel_j_B_llp)
 
-        use KIM_kinds, only: dp
-        use electrostatic_kernel, only: kernel_spl_t
+        use KIM_kinds_m, only: dp
+        use electrostatic_kernel_m, only: kernel_spl_t
         implicit none
 
         complex(dp), allocatable, intent(out) :: jpar(:)
@@ -436,6 +442,32 @@ module fields
         type(kernel_spl_t), intent(in) :: kernel_j_B_llp
 
         jpar = matmul(kernel_j_phi_llp%Kllp, EBdat_in%Phi) + matmul(kernel_j_B_llp%Kllp, EBdat_in%Br)
+
+    end subroutine
+
+    subroutine calc_ideal_MA_phi(EBdat, kernel_phi, kernel_B)
+        ! calcualte the misalignment Phi for E_perp_MA = 0, i.e. the ideal cancellation case
+        ! where the flux surface corrugated phi cancels the potential surface corrugated phi
+        ! this is used to check the second order derivative from the Laplace operator
+
+        use KIM_kinds_m, only: dp
+        use grid_m, only: xl_grid
+        use constants_m, only: pi
+        use electrostatic_kernel_m, only: kernel_spl_t
+
+        implicit none
+
+        type(EBdat_t), intent(inout) :: EBdat
+        type(kernel_spl_t), intent(in) :: kernel_phi
+        type(kernel_spl_t), intent(in) :: kernel_B
+
+        integer :: l
+
+        allocate(EBdat%Phi_MA_ideal(size(EBdat%Br)))
+
+        do l = 1, size(EBdat%r_grid)
+            EBdat%Phi_MA_ideal(l) = kernel_B%Kllp(l,l) * EBdat%Br(l) / kernel_phi%Kllp(l,l)
+        end do
 
     end subroutine
 

@@ -1,11 +1,11 @@
 subroutine read_config
 
-    use config
-    use constants
-    use setup
-    use grid
-    use poisson_solver, only: solve_poisson
-    use config_display, only: display_kim_configuration
+    use config_m
+    use constants_m
+    use setup_m
+    use grid_m
+    use poisson_solver_m, only: solve_poisson
+    use config_display_m, only: display_kim_configuration
 
     implicit none
 
@@ -13,9 +13,11 @@ subroutine read_config
     integer :: ix, num_args
     logical :: ex
 
-    namelist /KIM_CONFIG/ profile_location, hdf5_input, hdf5_output, &
-                        fdebug, fstatus, number_of_ion_species, output_path, artificial_debye_case, &
-                        kernel_debye_case, type_of_run, collision_model, read_species_from_namelist 
+    namelist /KIM_CONFIG/ number_of_ion_species, artificial_debye_case, &
+                        kernel_debye_case, type_of_run, collision_model, read_species_from_namelist
+
+    namelist /KIM_IO/ profile_location, hdf5_input, hdf5_output, &
+                      fdebug, fstatus, output_path, calculate_asymptotics 
 
     namelist /KIM_SETUP/ btor, R0, m_mode, n_mode, omega, spline_base, &
                         type_br_field, collisions_off, eps_reg, &
@@ -42,6 +44,7 @@ subroutine read_config
 
     open(unit = 77, file = trim(nml_config_path))
     read(unit = 77, nml = KIM_CONFIG)
+    read(unit = 77, nml = KIM_IO)
     read(unit = 77, nml = KIM_SETUP)
     read(unit = 77, nml = KIM_GRID)
     close(unit = 77)

@@ -1,6 +1,6 @@
-module regularization_funcs
+module regularization_funcs_m
 
-    use KIM_kinds, only: dp
+    use KIM_kinds_m, only: dp
     use resonances_mod, only: r_res
 
     implicit none
@@ -23,7 +23,7 @@ module regularization_funcs
 
     real(dp) function theta_right(r)
 
-        use constants, only: pi
+        use constants_m, only: pi
 
         implicit none
 
@@ -39,7 +39,7 @@ module regularization_funcs
 
     real(dp) function theta_left(r)
 
-        use constants, only: pi
+        use constants_m, only: pi
 
         implicit none
 

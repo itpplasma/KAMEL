@@ -1,6 +1,8 @@
-module rt_electrostatic
+! run type for electrostatic model
+! solves poisson's equation for electrostatic potential for given Br
+module rt_electrostatic_m
 
-    use kim_base, only: kim_t
+    use kim_base_m, only: kim_t
 
     implicit none
 
@@ -14,9 +16,9 @@ module rt_electrostatic
 
     subroutine init_electrostatic(this)
 
-        use species, only: init_plasma, plasma, set_plasma_quantities
-        use IO_collection, only: create_output_directories
-        use equilibrium, only: calculate_equil
+        use species_m, only: init_plasma, plasma, set_plasma_quantities
+        use IO_collection_m, only: create_output_directories
+        use equilibrium_m, only: calculate_equil
 
         implicit none
 
@@ -35,15 +37,15 @@ module rt_electrostatic
 
     subroutine run_electrostatic(this)
 
-        use electrostatic_kernel, only: Krook_fill_kernel_phi, FP_fill_kernels, fill_kernels_krook_fp, kernel_spl_t
+        use electrostatic_kernel_m, only: Krook_fill_kernel_phi, FP_fill_kernels, fill_kernels_krook_fp, kernel_spl_t
         use electrostatic_kernel_adaptive_mod, only: FP_fill_kernels_adaptive
-        use grid, only: xl_grid
-        use IO_collection, only: write_matrix, write_complex_profile, write_complex_profile_abs
-        use poisson_solver, only: solve_poisson
-        use config, only: output_path, collision_model
-        use fields, only: EBdat, postprocess_electric_field, postprocess_electric_field_with_model,&
-                            calculate_charge_density, calculate_current_density
-        use KIM_kinds, only: dp
+        use grid_m, only: xl_grid
+        use IO_collection_m, only: write_matrix, write_complex_profile, write_complex_profile_abs
+        use poisson_solver_m, only: solve_poisson
+        use config_m, only: output_path, collision_model, calculate_asymptotics
+        use fields_m, only: EBdat, postprocess_electric_field, postprocess_electric_field_with_model,&
+                            calculate_charge_density, calculate_current_density, calc_ideal_MA_phi
+        use KIM_kinds_m, only: dp
 
         implicit none
 
@@ -107,7 +109,9 @@ module rt_electrostatic
 
         subroutine run_FP
 
-            use grid, only: theta_integration
+            use grid_m, only: theta_integration
+            use species_m, only: plasma
+            use flr2_asymptotics_m, only: calc_flr2_asymptotic_Phi_MA, calc_hatK_Phi_in_Fourier
 
             implicit none
 
@@ -118,6 +122,11 @@ module rt_electrostatic
             else
                 stop "Error: theta integration method not recognized."
             end if
+
+            call write_matrix(trim(output_path)//"kernel/K_rho_phi_re.dat", real(kernel_rho_phi_llp%Kllp), xl_grid%npts_b, xl_grid%npts_b)
+            call write_matrix(trim(output_path)//"kernel/K_rho_phi_im.dat", dimag(kernel_rho_phi_llp%Kllp), xl_grid%npts_b, xl_grid%npts_b)
+            call write_matrix(trim(output_path)//"kernel/K_rho_B_re.dat", real(kernel_rho_B_llp%Kllp), xl_grid%npts_b, xl_grid%npts_b)
+            call write_matrix(trim(output_path)//"kernel/K_rho_B_im.dat", dimag(kernel_rho_B_llp%Kllp), xl_grid%npts_b, xl_grid%npts_b)
 
             allocate(EBdat%Phi(xl_grid%npts_b), EBdat%Br(xl_grid%npts_b), EBdat%E_perp_psi(xl_grid%npts_b), &
                     EBdat%r_grid(xl_grid%npts_b), EBdat%E_perp(xl_grid%npts_b),&
@@ -134,6 +143,16 @@ module rt_electrostatic
             call calculate_current_density(jpar, EBdat, kernel_j_phi_llp, kernel_j_B_llp)
             call write_complex_profile_abs(xl_grid%xb, rho, xl_grid%npts_b, trim(output_path)//"/fields/rho_"//trim(collision_model)//".dat")
             call write_complex_profile_abs(xl_grid%xb, jpar, xl_grid%npts_b, trim(output_path)//"/fields/jpar_"//trim(collision_model)//".dat")
+
+            if (calculate_asymptotics) then
+                call calc_flr2_asymptotic_Phi_MA(plasma, EBdat)
+                call write_complex_profile_abs(xl_grid%xb, EBdat%Phi_MA_asymptotic, xl_grid%npts_b, trim(output_path)//"/fields/phi_MA_asymptotic_"//trim(collision_model)//".dat")
+
+                call calc_ideal_MA_phi(EBdat, kernel_rho_phi_llp, kernel_rho_B_llp)
+                call write_complex_profile_abs(xl_grid%xb, EBdat%Phi_MA_ideal, xl_grid%npts_b, trim(output_path)//"/fields/phi_MA_ideal_"//trim(collision_model)//".dat")
+
+                call calc_hatK_Phi_in_Fourier(plasma)
+            end if
 
         end subroutine
         

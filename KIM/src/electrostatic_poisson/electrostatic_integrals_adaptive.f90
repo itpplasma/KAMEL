@@ -2,8 +2,8 @@ module electrostatic_integrals_rkf45_mod
     ! module for integrals of the electrostatic problem
     ! uses gauss legendre quadrature for integration
 
-    use KIM_kinds, only: dp
-    use constants, only: pi
+    use KIM_kinds_m, only: dp
+    use constants_m, only: pi
 
     implicit none
 
@@ -63,10 +63,10 @@ module electrostatic_integrals_rkf45_mod
     subroutine rkf45_integrate_F1(result, rkf45_conf, context)
 
         use electrostatic_integrands_rkf45_mod, only: rkf45_integrand_context_t, rkf45_integrand_F1
-        use constants, only: pi
-        use config, only: output_path
+        use constants_m, only: pi
+        use config_m, only: output_path
         use RKF45_mod, only: RKF45_1D_with_context
-        use grid, only: rkf45_tol
+        use grid_m, only: rkf45_tol
 
         implicit none
 
@@ -102,10 +102,10 @@ module electrostatic_integrals_rkf45_mod
 
     subroutine rkf45_integrate_F2(result, rkf45_conf, context)
     
-        use constants, only: pi
+        use constants_m, only: pi
         use RKF45_mod, only: RKF45_1D_with_context
         use electrostatic_integrands_rkf45_mod, only: rkf45_integrand_context_t, rkf45_integrand_F2
-        use grid, only: rkf45_tol
+        use grid_m, only: rkf45_tol
 
         implicit none
 
@@ -142,10 +142,10 @@ module electrostatic_integrals_rkf45_mod
 
     subroutine rkf45_integrate_F3(result, rkf45_conf, context)
     
-        use constants, only: pi
+        use constants_m, only: pi
         use RKF45_mod, only: RKF45_1D_with_context
         use electrostatic_integrands_rkf45_mod, only: rkf45_integrand_context_t, rkf45_integrand_F3
-        use grid, only: rkf45_tol
+        use grid_m, only: rkf45_tol
 
         implicit none
 

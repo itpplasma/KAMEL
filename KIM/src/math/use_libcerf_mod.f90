@@ -25,7 +25,7 @@
 !    antonio.cervellino@psi.ch
 ! 
 !#############################################################################################
-module use_libcerf
+module use_libcerf_m
 ! f95 interfaces for the libcerf.* c library of error functions
 ! http://apps.jcns.fz-juelich.de/libcerf
 ! 
@@ -280,4 +280,4 @@ cdawson_F = CMPLX(cdawson( z=CMPLX(z,kind=C_DOUBLE_COMPLEX) ), kind=DPC)
 
 end function cdawson_F
 !********************************************************
-end module use_libcerf
+end module use_libcerf_m

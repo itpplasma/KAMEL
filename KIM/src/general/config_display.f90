@@ -1,7 +1,7 @@
-module config_display
+module config_display_m
     ! Module for displaying configuration with formatted tables, colors, and status indicators
     
-    use KIM_kinds, only: dp
+    use KIM_kinds_m, only: dp
     
     implicit none
     
@@ -98,10 +98,10 @@ contains
     end subroutine display_kim_banner
     
     subroutine display_kim_configuration()
-        use config
-        use setup
-        use grid
-        use species, only: plasma
+        use config_m
+        use setup_m
+        use grid_m
+        use species_m, only: plasma
         
         implicit none
         integer :: width = 70
@@ -259,7 +259,7 @@ contains
     end subroutine print_bool_line
     
     subroutine print_species_table(width)
-        use species, only: plasma
+        use species_m, only: plasma
         implicit none
         integer, intent(in) :: width
         integer :: i
@@ -377,4 +377,4 @@ contains
         
     end function get_species_name
     
-end module config_display
+end module config_display_m

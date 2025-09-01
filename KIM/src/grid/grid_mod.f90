@@ -19,6 +19,7 @@ module grid_m
     character(len=64) :: theta_integration ! RKF45 or GaussLegendre
     real(dp) :: rkf45_tol = 1.0d-8  ! Absolute tolerance for RKF45 adaptive integration
     real(dp) :: rkf45_rtol = 1.0d-6  ! Relative tolerance for RKF45 adaptive integration
+    real(dp) :: kernel_taper_skip_threshold = 1.0d-6  ! Skip element calc when taper weight below this
 
     integer :: nder=2
     integer :: npoi_der=4

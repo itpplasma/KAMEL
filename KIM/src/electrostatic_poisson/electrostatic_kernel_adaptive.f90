@@ -121,7 +121,7 @@ module electrostatic_kernel_adaptive_mod
             FP_G2_rho_phi, FP_G3_rho_phi, FP_kappa_rho_phi, FP_kappa_rho_B, FP_G0_rho_phi, &
             FP_kappa_j_phi, FP_kappa_j_B, FP_G1_j_phi, FP_G2_j_phi, FP_G3_j_phi, &
             FP_G1_j_B, FP_G2_j_B, FP_G3_j_B
-        use grid_m, only: Larmor_skip_factor
+        use grid_m, only: Larmor_skip_factor, kernel_taper_skip_threshold
         use config_m, only: turn_off_ions
         
         implicit none
@@ -165,11 +165,8 @@ module electrostatic_kernel_adaptive_mod
 
                 ! Smoothly taper contributions for large separations to avoid discontinuities
                 ! Weight per cell because rhoT varies with j
-                ! w(d) = exp( - (d / (alpha * rhoT + eps))^p )
-                ! Use alpha = Larmor_skip_factor, p = 2
-                
-                
-                
+                ! w(d) = exp( - (d / (alpha * rhoT + eps))^p ) with p=2
+                ! If the weight is below a small threshold, skip this (l,lp,j) contribution entirely.
 
                 current_idx_distance = abs(l - lp)
                 
@@ -196,14 +193,15 @@ module electrostatic_kernel_adaptive_mod
                 end if
                 !$omp end critical
 
-                call rkf45_integrate_F1(integral_val, rkf45_conf, context)
-
                 block
                     real(dp) :: eps_r, alpha, pexp, weight
                     eps_r = 1.0d-12
                     alpha = Larmor_skip_factor
                     pexp = 2.0d0
                     weight = exp( - ( current_distance / (alpha * max(context%rhoT, eps_r)) )**pexp )
+                    if (weight < kernel_taper_skip_threshold) cycle
+
+                    call rkf45_integrate_F1(integral_val, rkf45_conf, context)
 
                     k_rho_phi = k_rho_phi + weight * integral_val * FP_G1_rho_phi(j, plasma%spec(sigma)) * FP_kappa_rho_phi(j, plasma%spec(sigma)) 
                     k_rho_B   = k_rho_B   + weight * integral_val * FP_G1_rho_B(j, plasma%spec(sigma))   * FP_kappa_rho_B(j, plasma%spec(sigma))
@@ -212,14 +210,15 @@ module electrostatic_kernel_adaptive_mod
                     k_j_B     = k_j_B     + weight * integral_val * FP_G1_j_B(j, plasma%spec(sigma))     * FP_kappa_j_B(j, plasma%spec(sigma))
                 end block
 
-                call rkf45_integrate_F2(integral_val, rkf45_conf, context)
-
                 block
                     real(dp) :: eps_r, alpha, pexp, weight
                     eps_r = 1.0d-12
                     alpha = Larmor_skip_factor
                     pexp = 2.0d0
                     weight = exp( - ( current_distance / (alpha * max(context%rhoT, eps_r)) )**pexp )
+                    if (weight < kernel_taper_skip_threshold) cycle
+
+                    call rkf45_integrate_F2(integral_val, rkf45_conf, context)
 
                     k_rho_phi = k_rho_phi + weight * integral_val * FP_G2_rho_phi(j, plasma%spec(sigma)) * FP_kappa_rho_phi(j, plasma%spec(sigma)) 
                     k_rho_B   = k_rho_B   + weight * integral_val * FP_G2_rho_B(j, plasma%spec(sigma))   * FP_kappa_rho_B(j, plasma%spec(sigma))
@@ -228,14 +227,15 @@ module electrostatic_kernel_adaptive_mod
                     k_j_B     = k_j_B     + weight * integral_val * FP_G2_j_B(j, plasma%spec(sigma))     * FP_kappa_j_B(j, plasma%spec(sigma))
                 end block
 
-                call rkf45_integrate_F3(integral_val, rkf45_conf, context)
-
                 block
                     real(dp) :: eps_r, alpha, pexp, weight
                     eps_r = 1.0d-12
                     alpha = Larmor_skip_factor
                     pexp = 2.0d0
                     weight = exp( - ( current_distance / (alpha * max(context%rhoT, eps_r)) )**pexp )
+                    if (weight < kernel_taper_skip_threshold) cycle
+
+                    call rkf45_integrate_F3(integral_val, rkf45_conf, context)
 
                     k_rho_phi = k_rho_phi + weight * integral_val * FP_G3_rho_phi(j, plasma%spec(sigma)) * FP_kappa_rho_phi(j, plasma%spec(sigma)) 
                     k_rho_B   = k_rho_B   + weight * integral_val * FP_G3_rho_B(j, plasma%spec(sigma))   * FP_kappa_rho_B(j, plasma%spec(sigma))

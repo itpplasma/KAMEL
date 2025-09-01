@@ -198,6 +198,7 @@ module RKF45_mod
         ! Classical Runge-Kutta-Fehlberg 4(5) method (adaptive stepper)
 
         use KIM_kinds_m, only: dp
+        use grid_m, only: rkf45_rtol
         implicit none
 
         real(dp), intent(in)  :: yk, xk, h, tol
@@ -210,8 +211,6 @@ module RKF45_mod
         real(dp), parameter :: safety = 0.9d0
         real(dp), parameter :: min_scale = 0.1d0, max_scale = 5.0d0
         
-        ! Relative tolerance from grid settings
-        use grid_m, only: rkf45_rtol
 
         interface
             function f(x, context)

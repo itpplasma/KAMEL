@@ -158,12 +158,11 @@ module electrostatic_kernel_adaptive_mod
                 context%ks = 0.5d0 * (plasma%ks(context%j) + plasma%ks(context%j+1))
 
                 if (l == lp) then
-                    complex(dp) :: add
-                    call rkf45_integrate_F0(integral_val, rkf45_conf, context)
-                    add = integral_val * FP_G0_rho_phi(j, plasma%spec(sigma)) * FP_kappa_rho_phi(j, plasma%spec(sigma))
-                    ! Kahan summation for k_rho_phi
                     block
-                        complex(dp) :: y, t
+                        complex(dp) :: add, y, t
+                        call rkf45_integrate_F0(integral_val, rkf45_conf, context)
+                        add = integral_val * FP_G0_rho_phi(j, plasma%spec(sigma)) * FP_kappa_rho_phi(j, plasma%spec(sigma))
+                        ! Kahan summation for k_rho_phi
                         y = add - c_rho_phi
                         t = k_rho_phi + y
                         c_rho_phi = (t - k_rho_phi) - y

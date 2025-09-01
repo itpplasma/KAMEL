@@ -17,7 +17,8 @@ module grid_m
     real(dp):: Larmor_skip_factor
     real(dp):: width_res, ampl_res, hrmax_scaling
     character(len=64) :: theta_integration ! RKF45 or GaussLegendre
-    real(dp) :: rkf45_tol = 1.0d-8 ! Tolerance for RKF45 adaptive integration
+    real(dp) :: rkf45_tol = 1.0d-8  ! Absolute tolerance for RKF45 adaptive integration
+    real(dp) :: rkf45_rtol = 1.0d-6  ! Relative tolerance for RKF45 adaptive integration
 
     integer :: nder=2
     integer :: npoi_der=4
@@ -197,7 +198,7 @@ module grid_m
 
                 open(unit = 77, file=trim(output_path)//'grid/'//trim(this%name)//'_xb.dat')
                 open(unit = 78, file=trim(output_path)//'grid/'//trim(this%name)//'_xc.dat')
-                do i = 1, this%npts_b
+                do i = 1, size(this%xb)
                     write(77,*) i, this%xb(i)
                     if (i > this%npts_c) cycle
                     write(78,*) i, this%xc(i)
@@ -284,8 +285,9 @@ module grid_m
                 
                 open(unit = 77, file=trim(output_path)//'grid/'//trim(this%name)//'_xb.dat')
                 open(unit = 78, file=trim(output_path)//'grid/'//trim(this%name)//'_xc.dat')
-                do i = 1, this%npts_c
+                do i = 1, this%npts_b
                     write(77,*) i, this%xb(i)
+                    if (i > this%npts_c) cycle
                     write(78,*) i, this%xc(i)
                 end do
                 close(77)

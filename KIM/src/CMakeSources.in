@@ -22,6 +22,7 @@ set(KIM_math math/suitesparse/umf4_f77zwrapper.c
             math/sparse_mod.f90
             math/plasma_disp_func.f90
             math/functions.f90
+            math/numerics_utils.f90
             math/RKF45.f90
 )
 

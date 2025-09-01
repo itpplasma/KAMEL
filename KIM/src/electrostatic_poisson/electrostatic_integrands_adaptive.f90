@@ -26,6 +26,7 @@ module electrostatic_integrands_rkf45_mod
         type(rkf45_integrand_context_t), intent(in) :: context
         real(dp) :: val
 
+        ! delta(x-x') results in same argument in both varphi_l functions
         val = varphi_l(context%x, context%xlm1, context%xl, context%xlp1) &
             * varphi_l(context%x, context%xlpm1, context%xlp, context%xlpp1) &
             * (&
@@ -76,7 +77,6 @@ module electrostatic_integrands_rkf45_mod
 
         use constants_m, only: pi
         use species_m, only: plasma
-        use gsl_mod, only: erf => gsl_sf_erf
         use KIM_kinds_m, only: dp
         use functions_m, only: varphi_l
 
@@ -120,7 +120,6 @@ module electrostatic_integrands_rkf45_mod
 
         use constants_m, only: pi
         use species_m, only: plasma
-        use gsl_mod, only: erf => gsl_sf_erf
         use KIM_kinds_m, only: dp
         use functions_m, only: varphi_l
 
@@ -170,17 +169,16 @@ module electrostatic_integrands_rkf45_mod
 
         use constants_m, only: pi
         use grid_m, only: rg_grid
-        use gsl_mod, only: erf => gsl_sf_erf
+        use numerics_utils_m, only: erf_diff
 
         implicit none
 
         real(dp), intent(in) :: a, b
         integer, intent(in) :: j
         real(dp) :: Jrg1
-
         Jrg1 = sqrt(pi) / (2.0d0 * a) &
-            *(erf(a * (b - rg_grid%xb(j))) &
-            - erf(a * (b - rg_grid%xb(j+1))))
+            * erf_diff(a * (b - rg_grid%xb(j)), &
+                       a * (b - rg_grid%xb(j+1)))
 
     end function
 
@@ -188,7 +186,7 @@ module electrostatic_integrands_rkf45_mod
 
         use constants_m, only: pi
         use grid_m, only: rg_grid
-        use gsl_mod, only: erf => gsl_sf_erf
+        use numerics_utils_m, only: erf_diff
 
         implicit none
 
@@ -199,8 +197,8 @@ module electrostatic_integrands_rkf45_mod
         Jrg2 = 1.0d0 / (4.0d0 * a**3.0d0) &
                     * ( &
                         sqrt(pi) * (2.0d0 * a**2.0d0 * (b - xl)**2.0d0 + 1.0d0) &
-                            * (erf(a * (b - rg_grid%xb(j))) &
-                                - erf(a * (b - rg_grid%xb(j+1)))) &
+                            * erf_diff(a * (b - rg_grid%xb(j)), &
+                                       a * (b - rg_grid%xb(j+1))) &
                         + 2.0d0 * a * exp(-a**2.0d0 * (b - rg_grid%xb(j))**2.0d0) &
                             * (b + rg_grid%xb(j) - 2.0d0 * xl) &
                         - 2.0d0 * a * exp(-a**2.0d0 * (b - rg_grid%xb(j+1))**2.0d0) &
@@ -214,7 +212,7 @@ module electrostatic_integrands_rkf45_mod
 
         use constants_m, only: pi
         use grid_m, only: rg_grid
-        use gsl_mod, only: erf => gsl_sf_erf
+        use numerics_utils_m, only: erf_diff
 
         implicit none
 
@@ -225,8 +223,8 @@ module electrostatic_integrands_rkf45_mod
         jrg3 = 1.0d0 / (4.0d0 * a**3.0d0) &
                     * ( &
                         sqrt(pi) * (2.0d0 * a**2.0d0 * (b - xlp)**2.0d0 + 1.0d0) &
-                            * (erf(a * (b - rg_grid%xb(j))) &
-                                - erf(a * (b - rg_grid%xb(j+1)))) &
+                            * erf_diff(a * (b - rg_grid%xb(j)), &
+                                       a * (b - rg_grid%xb(j+1))) &
                         + 2.0d0 * a * exp(-a**2.0d0 * (b - rg_grid%xb(j))**2.0d0) &
                             * (b + rg_grid%xb(j) - 2.0d0 * xlp) &
                         - 2.0d0 * a * exp(-a**2.0d0 * (b - rg_grid%xb(j+1))**2.0d0) &
@@ -239,7 +237,7 @@ module electrostatic_integrands_rkf45_mod
 
         use constants_m, only: pi
         use grid_m, only: rg_grid
-        use gsl_mod, only: erf => gsl_sf_erf
+        use numerics_utils_m, only: erf_diff
 
         implicit none
 
@@ -249,8 +247,8 @@ module electrostatic_integrands_rkf45_mod
 
         Jrg4 = 1.0d0 / (4.0d0 * a**3.0d0) &
                     * ( &
-                        (erf(a * (b - rg_grid%xb(j))) &
-                            - erf(a * (b - rg_grid%xb(j+1)))) &
+                        erf_diff(a * (b - rg_grid%xb(j)), &
+                                 a * (b - rg_grid%xb(j+1))) &
                             * sqrt(pi) * (2.0d0 * a**2.0d0 * (b - xl) &
                             * (b - xlp)+1.0d0) &
                         + 2.0d0 * a * exp(-a**2.0d0 * (b - rg_grid%xb(j))**2.0d0) &

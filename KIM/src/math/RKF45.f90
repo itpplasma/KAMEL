@@ -205,7 +205,13 @@ module RKF45_mod
         class(*), intent(in) :: context
 
         real(dp) :: k1, k2, k3, k4, k5, k6
-        real(dp) :: y4, y5, err, s
+        real(dp) :: y4, y5, err, s, tol_eff
+        real(dp) :: ymax
+        real(dp), parameter :: safety = 0.9d0
+        real(dp), parameter :: min_scale = 0.1d0, max_scale = 5.0d0
+        
+        ! Relative tolerance from grid settings
+        use grid_m, only: rkf45_rtol
 
         interface
             function f(x, context)
@@ -233,21 +239,23 @@ module RKF45_mod
 
         err = abs(y5 - y4)
 
+        ymax = max(abs(y5), abs(y4))
+        tol_eff = tol + rkf45_rtol * ymax
+
         if (err > 0.0d0) then
-            s = (tol / (2.0d0*err))**0.2d0
+            s = safety * (tol_eff / (2.0d0*err))**0.2d0
         else
             s = 2.0d0
         end if
 
-        hnew = max(0.1d0, min(5.0d0, s)) * h
+        hnew = max(min_scale, min(max_scale, s)) * h
 
-        if (err <= tol) then
+        if (err <= tol_eff) then
             ykp1 = y5   ! use the higher-order solution
             xkp1 = xk + h
         else
             ykp1 = yk
             xkp1 = xk
-            !hnew = 0.5d0 * h
         end if
 
     end subroutine RKF45_step_1D_with_context

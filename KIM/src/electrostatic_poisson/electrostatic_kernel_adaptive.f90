@@ -136,10 +136,10 @@ module electrostatic_kernel_adaptive_mod
 
         type(rkf45_integrand_context_t) :: context
         
-        k_rho_phi = 0.0d0
-        k_rho_B = 0.0d0
-        k_j_phi = 0.0d0
-        k_j_B = 0.0d0
+        k_rho_phi = (0.0d0, 0.0d0)
+        k_rho_B = (0.0d0, 0.0d0)
+        k_j_phi = (0.0d0, 0.0d0)
+        k_j_B = (0.0d0, 0.0d0)
 
         call set_xl_at_edge(l, lp, context)
 
@@ -147,7 +147,9 @@ module electrostatic_kernel_adaptive_mod
             if (turn_off_ions .and. sigma >= 1) cycle
             do j = 2, size(plasma%r_grid)-1
                 context%j = j
-                context%rhoT = 0.5d0 * (plasma%spec(sigma)%rho_L(j) + plasma%spec(sigma)%rho_L(j+1))
+                ! Use geometric mean to reduce bias when rho_L varies strongly across cell
+                context%rhoT = sqrt(max(plasma%spec(sigma)%rho_L(j),0.0d0) * &
+                                     max(plasma%spec(sigma)%rho_L(j+1),0.0d0))
                 context%ks = 0.5d0 * (plasma%ks(context%j) + plasma%ks(context%j+1))
 
                 if (l == lp) then
@@ -156,11 +158,18 @@ module electrostatic_kernel_adaptive_mod
                         + integral_val * FP_G0_rho_phi(j, plasma%spec(sigma)) * FP_kappa_rho_phi(j, plasma%spec(sigma))
                 end if
 
+                !cycle
+
                 ! Track maximum distances for diagnostics
                 current_distance = abs(context%xl - context%xlp)
 
-                ! skip the kernel calculation for distances that are not connected
-                if (current_distance > Larmor_skip_factor * context%rhoT) cycle
+                ! Smoothly taper contributions for large separations to avoid discontinuities
+                ! Weight per cell because rhoT varies with j
+                ! w(d) = exp( - (d / (alpha * rhoT + eps))^p )
+                ! Use alpha = Larmor_skip_factor, p = 2
+                
+                
+                
 
                 current_idx_distance = abs(l - lp)
                 
@@ -189,32 +198,56 @@ module electrostatic_kernel_adaptive_mod
 
                 call rkf45_integrate_F1(integral_val, rkf45_conf, context)
 
-                k_rho_phi = k_rho_phi + integral_val * FP_G1_rho_phi(j, plasma%spec(sigma)) * FP_kappa_rho_phi(j, plasma%spec(sigma))
-                k_rho_B   = k_rho_B   + integral_val * FP_G1_rho_B(j, plasma%spec(sigma))   * FP_kappa_rho_B(j, plasma%spec(sigma))
+                block
+                    real(dp) :: eps_r, alpha, pexp, weight
+                    eps_r = 1.0d-12
+                    alpha = Larmor_skip_factor
+                    pexp = 2.0d0
+                    weight = exp( - ( current_distance / (alpha * max(context%rhoT, eps_r)) )**pexp )
 
-                k_j_phi   = k_j_phi   + integral_val * FP_G1_j_phi(j, plasma%spec(sigma))   * FP_kappa_j_phi(j, plasma%spec(sigma))
-                k_j_B     = k_j_B     + integral_val * FP_G1_j_B(j, plasma%spec(sigma))     * FP_kappa_j_B(j, plasma%spec(sigma))
+                    k_rho_phi = k_rho_phi + weight * integral_val * FP_G1_rho_phi(j, plasma%spec(sigma)) * FP_kappa_rho_phi(j, plasma%spec(sigma)) 
+                    k_rho_B   = k_rho_B   + weight * integral_val * FP_G1_rho_B(j, plasma%spec(sigma))   * FP_kappa_rho_B(j, plasma%spec(sigma))
+
+                    k_j_phi   = k_j_phi   + weight * integral_val * FP_G1_j_phi(j, plasma%spec(sigma))   * FP_kappa_j_phi(j, plasma%spec(sigma))
+                    k_j_B     = k_j_B     + weight * integral_val * FP_G1_j_B(j, plasma%spec(sigma))     * FP_kappa_j_B(j, plasma%spec(sigma))
+                end block
 
                 call rkf45_integrate_F2(integral_val, rkf45_conf, context)
 
-                k_rho_phi = k_rho_phi + integral_val * FP_G2_rho_phi(j, plasma%spec(sigma)) * FP_kappa_rho_phi(j, plasma%spec(sigma))
-                k_rho_B   = k_rho_B   + integral_val * FP_G2_rho_B(j, plasma%spec(sigma))   * FP_kappa_rho_B(j, plasma%spec(sigma))
+                block
+                    real(dp) :: eps_r, alpha, pexp, weight
+                    eps_r = 1.0d-12
+                    alpha = Larmor_skip_factor
+                    pexp = 2.0d0
+                    weight = exp( - ( current_distance / (alpha * max(context%rhoT, eps_r)) )**pexp )
 
-                k_j_phi   = k_j_phi   + integral_val * FP_G2_j_phi(j, plasma%spec(sigma))   * FP_kappa_j_phi(j, plasma%spec(sigma))
-                k_j_B     = k_j_B     + integral_val * FP_G2_j_B(j, plasma%spec(sigma))     * FP_kappa_j_B(j, plasma%spec(sigma))
+                    k_rho_phi = k_rho_phi + weight * integral_val * FP_G2_rho_phi(j, plasma%spec(sigma)) * FP_kappa_rho_phi(j, plasma%spec(sigma)) 
+                    k_rho_B   = k_rho_B   + weight * integral_val * FP_G2_rho_B(j, plasma%spec(sigma))   * FP_kappa_rho_B(j, plasma%spec(sigma))
+
+                    k_j_phi   = k_j_phi   + weight * integral_val * FP_G2_j_phi(j, plasma%spec(sigma))   * FP_kappa_j_phi(j, plasma%spec(sigma))
+                    k_j_B     = k_j_B     + weight * integral_val * FP_G2_j_B(j, plasma%spec(sigma))     * FP_kappa_j_B(j, plasma%spec(sigma))
+                end block
 
                 call rkf45_integrate_F3(integral_val, rkf45_conf, context)
 
-                k_rho_phi = k_rho_phi + integral_val * FP_G3_rho_phi(j, plasma%spec(sigma)) * FP_kappa_rho_phi(j, plasma%spec(sigma))
-                k_rho_B   = k_rho_B   + integral_val * FP_G3_rho_B(j, plasma%spec(sigma))   * FP_kappa_rho_B(j, plasma%spec(sigma))
+                block
+                    real(dp) :: eps_r, alpha, pexp, weight
+                    eps_r = 1.0d-12
+                    alpha = Larmor_skip_factor
+                    pexp = 2.0d0
+                    weight = exp( - ( current_distance / (alpha * max(context%rhoT, eps_r)) )**pexp )
 
-                k_j_phi   = k_j_phi   + integral_val * FP_G3_j_phi(j, plasma%spec(sigma))   * FP_kappa_j_phi(j, plasma%spec(sigma))
-                k_j_B     = k_j_B     + integral_val * FP_G3_j_B(j, plasma%spec(sigma))     * FP_kappa_j_B(j, plasma%spec(sigma))
+                    k_rho_phi = k_rho_phi + weight * integral_val * FP_G3_rho_phi(j, plasma%spec(sigma)) * FP_kappa_rho_phi(j, plasma%spec(sigma)) 
+                    k_rho_B   = k_rho_B   + weight * integral_val * FP_G3_rho_B(j, plasma%spec(sigma))   * FP_kappa_rho_B(j, plasma%spec(sigma))
+
+                    k_j_phi   = k_j_phi   + weight * integral_val * FP_G3_j_phi(j, plasma%spec(sigma))   * FP_kappa_j_phi(j, plasma%spec(sigma))
+                    k_j_B     = k_j_B     + weight * integral_val * FP_G3_j_B(j, plasma%spec(sigma))     * FP_kappa_j_B(j, plasma%spec(sigma))
+                end block
 
             end do
         end do
 
-        k_rho_phi = k_rho_phi / (8.0d0 * pi**3.0d0)
+        k_rho_phi = k_rho_phi / (8.0d0 * pi**3.0d0) !* 3.0d0 / 4.0d0 ! maybe pi instead of 3?
         k_rho_B = k_rho_B / (8.0d0 * pi**3.0d0)
 
         k_j_phi = k_j_phi / (8.0d0 * pi**3.0d0)
@@ -237,24 +270,28 @@ module electrostatic_kernel_adaptive_mod
         context%xl = xl_grid%xb(l)
         context%xlp = xl_grid%xb(lp)
 
-        ! handle kernel edges
+        ! Handle lower boundary with symmetric extrapolation
         if (l == 1) then
-            context%xlm1 = xl_grid%xb(l)
+            context%xlm1 = 2.0d0*xl_grid%xb(1) - xl_grid%xb(2)
         else
             context%xlm1 = xl_grid%xb(l-1)
         end if
+        
         if (lp == 1) then
-            context%xlpm1 = xl_grid%xb(lp)
+            context%xlpm1 = 2.0d0*xl_grid%xb(1) - xl_grid%xb(2)  ! Fixed: symmetric extrapolation
         else
             context%xlpm1 = xl_grid%xb(lp-1)
         end if
+        
+        ! Handle upper boundary with symmetric extrapolation
         if (l == xl_grid%npts_b) then
-            context%xlp1 = xl_grid%xb(l)
+            context%xlp1 = 2.0d0*xl_grid%xb(l) - xl_grid%xb(l-1)  ! Fixed: extrapolation
         else
             context%xlp1 = xl_grid%xb(l+1)
         end if
+        
         if (lp == xl_grid%npts_b) then
-            context%xlpp1 = xl_grid%xb(lp)
+            context%xlpp1 = 2.0d0*xl_grid%xb(lp) - xl_grid%xb(lp-1)  ! Fixed: extrapolation
         else
             context%xlpp1 = xl_grid%xb(lp+1)
         end if

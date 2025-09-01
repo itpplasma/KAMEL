@@ -14,9 +14,9 @@ module electrostatic_integrals_rkf45_mod
     end type rkf45_config_t
 
     real(dp) :: f0 = 0.0d0
-    real(dp) :: theta_0 = 0.01d0 ! add small epsilon to avoid singularity
-    real(dp) :: theta_max = pi - 0.01d0
-    real(dp) :: h0 = 0.1d0
+    real(dp) :: h0 = 0.01d0
+    real(dp), parameter :: theta_cutoff_min = 1.0d-4  ! Minimum cutoff
+    real(dp), parameter :: theta_M = 25.0d0            ! Exponential damping target
 
     contains
 
@@ -66,7 +66,7 @@ module electrostatic_integrals_rkf45_mod
         use constants_m, only: pi
         use config_m, only: output_path
         use RKF45_mod, only: RKF45_1D_with_context
-        use grid_m, only: rkf45_tol
+        use grid_m, only: rkf45_tol, rkf45_rtol
 
         implicit none
 
@@ -76,10 +76,19 @@ module electrostatic_integrals_rkf45_mod
         real(dp), intent(out) :: result
         real(dp) :: norm_factor
         real(dp) :: rk45_res
+        real(dp) :: theta_0_local, theta_max_local, theta_eps, delta, denom, h_local
         integer :: j,k
 
         result = 0.0d0
+        !norm_factor = (context%xlpp1 - context%xlpm1) / 4.0d0 ! gauss integration normalizaton
         norm_factor = (context%xlp1 - context%xlm1)* (context%xlpp1 - context%xlpm1) / 4.0d0 ! gauss integration normalizaton
+        
+        ! Endpoint exclusion based on local separation and rhoT to avoid singular sin terms
+        delta = abs(context%x - context%xp)
+        denom = max(abs(context%rhoT), 1.0d-300)
+        theta_eps = max(theta_cutoff_min, min(0.2d0, delta / (sqrt(2.0d0*theta_M) * denom)))
+        theta_0_local = theta_eps
+        theta_max_local = pi - theta_eps
 
         !$omp parallel do collapse(2) private(j, k, rk45_res) firstprivate(context) reduction(+:result)
         do j=1,rkf45_conf%Nxp ! xp 
@@ -88,8 +97,8 @@ module electrostatic_integrals_rkf45_mod
                 context%x = 0.5d0 * ((context%xlp1 - context%xlm1) * rkf45_conf%x_x(k) + context%xlp1 + context%xlm1)
 
                 rk45_res = 0.0d0
-
-                call RKF45_1D_with_context(rkf45_integrand_F1, f0, theta_0, theta_max, h0, rkf45_tol, rk45_res, context)
+                h_local = 0.1d0 * (theta_max_local - theta_0_local)
+                call RKF45_1D_with_context(rkf45_integrand_F1, f0, theta_0_local, theta_max_local, h_local, rkf45_tol, rk45_res, context)
 
                 result = result + rkf45_conf%w_xp(j) * rkf45_conf%w_x(k) * rk45_res
             end do
@@ -105,7 +114,7 @@ module electrostatic_integrals_rkf45_mod
         use constants_m, only: pi
         use RKF45_mod, only: RKF45_1D_with_context
         use electrostatic_integrands_rkf45_mod, only: rkf45_integrand_context_t, rkf45_integrand_F2
-        use grid_m, only: rkf45_tol
+        use grid_m, only: rkf45_tol, rkf45_rtol
 
         implicit none
 
@@ -115,10 +124,19 @@ module electrostatic_integrals_rkf45_mod
         real(dp), intent(out) :: result
         real(dp) :: norm_factor
         real(dp) :: rk45_res
+        real(dp) :: theta_0_local, theta_max_local, theta_eps, delta, denom, h_local
         integer :: j,k
 
         result = 0.0d0
         norm_factor = (context%xlp1 - context%xlm1)* (context%xlpp1 - context%xlpm1) / 4.0d0 ! gauss integration normalizaton
+        !norm_factor = (context%xlpp1 - context%xlpm1) / 4.0d0 ! gauss integration normalizaton
+        
+        ! Endpoint exclusion based on local separation and rhoT to avoid singular sin terms
+        delta = abs(context%x - context%xp)
+        denom = max(abs(context%rhoT), 1.0d-300)
+        theta_eps = max(theta_cutoff_min, min(0.2d0, delta / (sqrt(2.0d0*theta_M) * denom)))
+        theta_0_local = theta_eps
+        theta_max_local = pi - theta_eps
 
         !$omp parallel do collapse(2) private(j, k, rk45_res) firstprivate(context) reduction(+:result)
         do j=1,rkf45_conf%Nxp ! xp 
@@ -127,8 +145,8 @@ module electrostatic_integrals_rkf45_mod
                 context%x = 0.5d0 * ((context%xlp1 - context%xlm1) * rkf45_conf%x_x(k) + context%xlp1 + context%xlm1)
 
                 rk45_res = 0.0d0
-
-                call RKF45_1D_with_context(rkf45_integrand_F2, f0, theta_0, theta_max, h0, rkf45_tol, rk45_res, context)
+                h_local = 0.1d0 * (theta_max_local - theta_0_local)
+                call RKF45_1D_with_context(rkf45_integrand_F2, f0, theta_0_local, theta_max_local, h_local, rkf45_tol, rk45_res, context)
 
                 result = result + rkf45_conf%w_xp(j) * rkf45_conf%w_x(k) * rk45_res
             end do
@@ -145,7 +163,7 @@ module electrostatic_integrals_rkf45_mod
         use constants_m, only: pi
         use RKF45_mod, only: RKF45_1D_with_context
         use electrostatic_integrands_rkf45_mod, only: rkf45_integrand_context_t, rkf45_integrand_F3
-        use grid_m, only: rkf45_tol
+        use grid_m, only: rkf45_tol, rkf45_rtol
 
         implicit none
 
@@ -154,10 +172,19 @@ module electrostatic_integrals_rkf45_mod
         real(dp), intent(out) :: result
         real(dp) :: norm_factor
         real(dp) :: rk45_res
+        real(dp) :: theta_0_local, theta_max_local, theta_eps, delta, denom, h_local
         integer :: j,k
 
         result = 0.0d0
         norm_factor = (context%xlp1 - context%xlm1)* (context%xlpp1 - context%xlpm1) / 4.0d0 ! gauss integration normalizaton
+        !norm_factor = (context%xlpp1 - context%xlpm1) / 4.0d0 ! gauss integration normalizaton
+        
+        ! Endpoint exclusion based on local separation and rhoT to avoid singular sin terms
+        delta = abs(context%x - context%xp)
+        denom = max(abs(context%rhoT), 1.0d-300)
+        theta_eps = max(theta_cutoff_min, min(0.2d0, delta / (sqrt(2.0d0*theta_M) * denom)))
+        theta_0_local = theta_eps
+        theta_max_local = pi - theta_eps
 
         !$omp parallel do collapse(2) private(j, k, rk45_res) firstprivate(context) reduction(+:result)
         do j=1,rkf45_conf%Nxp ! xp 
@@ -166,8 +193,8 @@ module electrostatic_integrals_rkf45_mod
                 context%x = 0.5d0 * ((context%xlp1 - context%xlm1) * rkf45_conf%x_x(k) + context%xlp1 + context%xlm1)
 
                 rk45_res = 0.0d0
-
-                call RKF45_1D_with_context(rkf45_integrand_F3, f0, theta_0, theta_max, h0, rkf45_tol, rk45_res, context)
+                h_local = 0.1d0 * (theta_max_local - theta_0_local)
+                call RKF45_1D_with_context(rkf45_integrand_F3, f0, theta_0_local, theta_max_local, h_local, rkf45_tol, rk45_res, context)
 
                 result = result + rkf45_conf%w_xp(j) * rkf45_conf%w_x(k) * rk45_res
             end do

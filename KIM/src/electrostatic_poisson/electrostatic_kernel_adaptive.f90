@@ -128,6 +128,7 @@ module electrostatic_kernel_adaptive_mod
 
         integer, intent(in) :: l, lp
         complex(dp) :: k_rho_phi, k_rho_B, k_j_phi, k_j_B
+        complex(dp) :: c_rho_phi, c_rho_B, c_j_phi, c_j_B  ! Kahan compensation terms
         integer :: j, sigma
         type(rkf45_config_t), intent(in) :: rkf45_conf
         real(dp) :: integral_val
@@ -140,6 +141,10 @@ module electrostatic_kernel_adaptive_mod
         k_rho_B = (0.0d0, 0.0d0)
         k_j_phi = (0.0d0, 0.0d0)
         k_j_B = (0.0d0, 0.0d0)
+        c_rho_phi = (0.0d0, 0.0d0)
+        c_rho_B   = (0.0d0, 0.0d0)
+        c_j_phi   = (0.0d0, 0.0d0)
+        c_j_B     = (0.0d0, 0.0d0)
 
         call set_xl_at_edge(l, lp, context)
 
@@ -153,9 +158,17 @@ module electrostatic_kernel_adaptive_mod
                 context%ks = 0.5d0 * (plasma%ks(context%j) + plasma%ks(context%j+1))
 
                 if (l == lp) then
+                    complex(dp) :: add
                     call rkf45_integrate_F0(integral_val, rkf45_conf, context)
-                    k_rho_phi = k_rho_phi &
-                        + integral_val * FP_G0_rho_phi(j, plasma%spec(sigma)) * FP_kappa_rho_phi(j, plasma%spec(sigma))
+                    add = integral_val * FP_G0_rho_phi(j, plasma%spec(sigma)) * FP_kappa_rho_phi(j, plasma%spec(sigma))
+                    ! Kahan summation for k_rho_phi
+                    block
+                        complex(dp) :: y, t
+                        y = add - c_rho_phi
+                        t = k_rho_phi + y
+                        c_rho_phi = (t - k_rho_phi) - y
+                        k_rho_phi = t
+                    end block
                 end if
 
                 !cycle
@@ -203,11 +216,41 @@ module electrostatic_kernel_adaptive_mod
 
                     call rkf45_integrate_F1(integral_val, rkf45_conf, context)
 
-                    k_rho_phi = k_rho_phi + weight * integral_val * FP_G1_rho_phi(j, plasma%spec(sigma)) * FP_kappa_rho_phi(j, plasma%spec(sigma)) 
-                    k_rho_B   = k_rho_B   + weight * integral_val * FP_G1_rho_B(j, plasma%spec(sigma))   * FP_kappa_rho_B(j, plasma%spec(sigma))
+                    block
+                        complex(dp) :: add, y, t
+                        add = weight * integral_val * FP_G1_rho_phi(j, plasma%spec(sigma)) * FP_kappa_rho_phi(j, plasma%spec(sigma))
+                        y = add - c_rho_phi
+                        t = k_rho_phi + y
+                        c_rho_phi = (t - k_rho_phi) - y
+                        k_rho_phi = t
+                    end block
 
-                    k_j_phi   = k_j_phi   + weight * integral_val * FP_G1_j_phi(j, plasma%spec(sigma))   * FP_kappa_j_phi(j, plasma%spec(sigma))
-                    k_j_B     = k_j_B     + weight * integral_val * FP_G1_j_B(j, plasma%spec(sigma))     * FP_kappa_j_B(j, plasma%spec(sigma))
+                    block
+                        complex(dp) :: add, y, t
+                        add = weight * integral_val * FP_G1_rho_B(j, plasma%spec(sigma)) * FP_kappa_rho_B(j, plasma%spec(sigma))
+                        y = add - c_rho_B
+                        t = k_rho_B + y
+                        c_rho_B = (t - k_rho_B) - y
+                        k_rho_B = t
+                    end block
+
+                    block
+                        complex(dp) :: add, y, t
+                        add = weight * integral_val * FP_G1_j_phi(j, plasma%spec(sigma)) * FP_kappa_j_phi(j, plasma%spec(sigma))
+                        y = add - c_j_phi
+                        t = k_j_phi + y
+                        c_j_phi = (t - k_j_phi) - y
+                        k_j_phi = t
+                    end block
+
+                    block
+                        complex(dp) :: add, y, t
+                        add = weight * integral_val * FP_G1_j_B(j, plasma%spec(sigma)) * FP_kappa_j_B(j, plasma%spec(sigma))
+                        y = add - c_j_B
+                        t = k_j_B + y
+                        c_j_B = (t - k_j_B) - y
+                        k_j_B = t
+                    end block
                 end block
 
                 block
@@ -220,11 +263,41 @@ module electrostatic_kernel_adaptive_mod
 
                     call rkf45_integrate_F2(integral_val, rkf45_conf, context)
 
-                    k_rho_phi = k_rho_phi + weight * integral_val * FP_G2_rho_phi(j, plasma%spec(sigma)) * FP_kappa_rho_phi(j, plasma%spec(sigma)) 
-                    k_rho_B   = k_rho_B   + weight * integral_val * FP_G2_rho_B(j, plasma%spec(sigma))   * FP_kappa_rho_B(j, plasma%spec(sigma))
+                    block
+                        complex(dp) :: add, y, t
+                        add = weight * integral_val * FP_G2_rho_phi(j, plasma%spec(sigma)) * FP_kappa_rho_phi(j, plasma%spec(sigma))
+                        y = add - c_rho_phi
+                        t = k_rho_phi + y
+                        c_rho_phi = (t - k_rho_phi) - y
+                        k_rho_phi = t
+                    end block
 
-                    k_j_phi   = k_j_phi   + weight * integral_val * FP_G2_j_phi(j, plasma%spec(sigma))   * FP_kappa_j_phi(j, plasma%spec(sigma))
-                    k_j_B     = k_j_B     + weight * integral_val * FP_G2_j_B(j, plasma%spec(sigma))     * FP_kappa_j_B(j, plasma%spec(sigma))
+                    block
+                        complex(dp) :: add, y, t
+                        add = weight * integral_val * FP_G2_rho_B(j, plasma%spec(sigma)) * FP_kappa_rho_B(j, plasma%spec(sigma))
+                        y = add - c_rho_B
+                        t = k_rho_B + y
+                        c_rho_B = (t - k_rho_B) - y
+                        k_rho_B = t
+                    end block
+
+                    block
+                        complex(dp) :: add, y, t
+                        add = weight * integral_val * FP_G2_j_phi(j, plasma%spec(sigma)) * FP_kappa_j_phi(j, plasma%spec(sigma))
+                        y = add - c_j_phi
+                        t = k_j_phi + y
+                        c_j_phi = (t - k_j_phi) - y
+                        k_j_phi = t
+                    end block
+
+                    block
+                        complex(dp) :: add, y, t
+                        add = weight * integral_val * FP_G2_j_B(j, plasma%spec(sigma)) * FP_kappa_j_B(j, plasma%spec(sigma))
+                        y = add - c_j_B
+                        t = k_j_B + y
+                        c_j_B = (t - k_j_B) - y
+                        k_j_B = t
+                    end block
                 end block
 
                 block
@@ -237,11 +310,41 @@ module electrostatic_kernel_adaptive_mod
 
                     call rkf45_integrate_F3(integral_val, rkf45_conf, context)
 
-                    k_rho_phi = k_rho_phi + weight * integral_val * FP_G3_rho_phi(j, plasma%spec(sigma)) * FP_kappa_rho_phi(j, plasma%spec(sigma)) 
-                    k_rho_B   = k_rho_B   + weight * integral_val * FP_G3_rho_B(j, plasma%spec(sigma))   * FP_kappa_rho_B(j, plasma%spec(sigma))
+                    block
+                        complex(dp) :: add, y, t
+                        add = weight * integral_val * FP_G3_rho_phi(j, plasma%spec(sigma)) * FP_kappa_rho_phi(j, plasma%spec(sigma))
+                        y = add - c_rho_phi
+                        t = k_rho_phi + y
+                        c_rho_phi = (t - k_rho_phi) - y
+                        k_rho_phi = t
+                    end block
 
-                    k_j_phi   = k_j_phi   + weight * integral_val * FP_G3_j_phi(j, plasma%spec(sigma))   * FP_kappa_j_phi(j, plasma%spec(sigma))
-                    k_j_B     = k_j_B     + weight * integral_val * FP_G3_j_B(j, plasma%spec(sigma))     * FP_kappa_j_B(j, plasma%spec(sigma))
+                    block
+                        complex(dp) :: add, y, t
+                        add = weight * integral_val * FP_G3_rho_B(j, plasma%spec(sigma)) * FP_kappa_rho_B(j, plasma%spec(sigma))
+                        y = add - c_rho_B
+                        t = k_rho_B + y
+                        c_rho_B = (t - k_rho_B) - y
+                        k_rho_B = t
+                    end block
+
+                    block
+                        complex(dp) :: add, y, t
+                        add = weight * integral_val * FP_G3_j_phi(j, plasma%spec(sigma)) * FP_kappa_j_phi(j, plasma%spec(sigma))
+                        y = add - c_j_phi
+                        t = k_j_phi + y
+                        c_j_phi = (t - k_j_phi) - y
+                        k_j_phi = t
+                    end block
+
+                    block
+                        complex(dp) :: add, y, t
+                        add = weight * integral_val * FP_G3_j_B(j, plasma%spec(sigma)) * FP_kappa_j_B(j, plasma%spec(sigma))
+                        y = add - c_j_B
+                        t = k_j_B + y
+                        c_j_B = (t - k_j_B) - y
+                        k_j_B = t
+                    end block
                 end block
 
             end do

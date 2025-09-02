@@ -121,7 +121,7 @@ module electrostatic_kernel_adaptive_mod
             FP_G2_rho_phi, FP_G3_rho_phi, FP_kappa_rho_phi, FP_kappa_rho_B, FP_G0_rho_phi, &
             FP_kappa_j_phi, FP_kappa_j_B, FP_G1_j_phi, FP_G2_j_phi, FP_G3_j_phi, &
             FP_G1_j_B, FP_G2_j_B, FP_G3_j_B
-        use grid_m, only: Larmor_skip_factor, kernel_taper_skip_threshold
+        use grid_m, only: Larmor_skip_factor, kernel_taper_skip_threshold, rg_grid
         use config_m, only: turn_off_ions
         
         implicit none
@@ -150,18 +150,17 @@ module electrostatic_kernel_adaptive_mod
 
         do sigma = 0, plasma%n_species - 1
             if (turn_off_ions .and. sigma >= 1) cycle
-            do j = 1, size(plasma%r_grid)-1
+            do j = 1, rg_grid%npts_b-1
                 context%j = j
-                ! Use geometric mean to reduce bias when rho_L varies strongly across cell
-                context%rhoT = sqrt(max(plasma%spec(sigma)%rho_L(j),0.0d0) * &
-                                     max(plasma%spec(sigma)%rho_L(j+1),0.0d0))
-                context%ks = 0.5d0 * (plasma%ks(context%j) + plasma%ks(context%j+1))
+                ! Use cell-centered profiles on rg_grid%xc
+                context%rhoT = max(plasma%spec(sigma)%rho_L_cc(j), 0.0d0)
+                context%ks   = plasma%ks_cc(j)
 
-                if (l == lp) then
+                if (abs(l-lp)<=1) then
                     block
                         complex(dp) :: add, y, t
                         call rkf45_integrate_F0(integral_val, rkf45_conf, context)
-                        add = integral_val * FP_G0_rho_phi(j, plasma%spec(sigma)) * FP_kappa_rho_phi(j, plasma%spec(sigma))
+                        add = integral_val * (-1.0d0) * (1.0d0 / (plasma%spec(sigma)%lambda_D_cc(j)**2.0d0))
                         ! Kahan summation for k_rho_phi
                         y = add - c_rho_phi
                         t = k_rho_phi + y
@@ -170,7 +169,7 @@ module electrostatic_kernel_adaptive_mod
                     end block
                 end if
 
-                !cycle
+                cycle
 
                 ! Track maximum distances for diagnostics
                 current_distance = abs(context%xl - context%xlp)

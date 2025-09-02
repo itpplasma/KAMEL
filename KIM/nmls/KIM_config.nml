@@ -43,8 +43,10 @@
     grid_spacing = 3
     kr_grid_width_res = 5.0
     kr_grid_ampl_res = 1.0
-    theta_integration = "RKF45" ! RK45 (adaptive) or GaussLegendre (fixed)
-    rkf45_tol = 1.0d-8 ! Tolerance for RKF45 adaptive integration
+    theta_integration = "RKF45" ! RKF45 (adaptive) or GaussLegendre (fixed)
+    rkf45_atol = 1.0d-9      ! Absolute tolerance for RKF45 adaptive integration
+    rkf45_rtol = 1.0d-6      ! Relative tolerance for RKF45 adaptive integration
+    kernel_taper_skip_threshold = 1.0d-6  ! Skip element when taper weight below this
     Larmor_skip_factor = 5
     gauss_int_nodes_Nx = 6 ! should be different from Nxp to avoid numerical problems
     gauss_int_nodes_Nxp = 7

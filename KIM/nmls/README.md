@@ -43,10 +43,14 @@ KIM is configured via the namelist file KIM_config.nml containing multiple namel
 - num_gengrid_points ... integer, minimal number of grid points in the l grid
 - kr_grid_width_res ... double, width parameter for k-space grid near resonance
 - kr_grid_ampl_res ... double, amplitude parameter for k-space grid near resonance
-- Larmor_skip_factor ... double, scale factor. For elements with |xl-xl'| > Larmor_skip_factor * rhoT, skip calculation
+- theta_integration ... string, angular integration method: "RKF45" (adaptive) or "GaussLegendre" (fixed)
+- rkf45_atol ... double, absolute tolerance for RKF45 adaptive θ-integration
+- rkf45_rtol ... double, relative tolerance for RKF45 adaptive θ-integration
+- kernel_taper_skip_threshold ... double, threshold for skipping a kernel contribution when the distance-based taper weight falls below this value
+- Larmor_skip_factor ... double, scaling of the distance-based taper exp(-(d/(alpha*rhoT))^2); larger values reduce skipping by broadening support
 - gauss_int_nodes_Nx ... integer, number of Gauss integration nodes in x direction (should differ from Nxp)
 - gauss_int_nodes_Nxp ... integer, number of Gauss integration nodes in x' direction
-- gauss_int_nodes_Ntheta ... integer, number of Gauss integration nodes in theta direction
+- gauss_int_nodes_Ntheta ... integer, number of Gauss integration nodes in theta direction (used only when theta_integration = "GaussLegendre")
 
 ## KIM_SPECIES
 - zi ... integer array, ion charge numbers (e.g., zi = 1, 2 for H+ and He++)

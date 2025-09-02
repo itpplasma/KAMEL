@@ -17,7 +17,7 @@ module grid_m
     real(dp):: Larmor_skip_factor
     real(dp):: width_res, ampl_res, hrmax_scaling
     character(len=64) :: theta_integration ! RKF45 or GaussLegendre
-    real(dp) :: rkf45_tol = 1.0d-8  ! Absolute tolerance for RKF45 adaptive integration
+    real(dp) :: rkf45_atol = 1.0d-9  ! Absolute tolerance for RKF45 adaptive integration
     real(dp) :: rkf45_rtol = 1.0d-6  ! Relative tolerance for RKF45 adaptive integration
     real(dp) :: kernel_taper_skip_threshold = 1.0d-6  ! Skip element calc when taper weight below this
 
@@ -58,6 +58,57 @@ module grid_m
     type(grid_type) :: rg_grid, xl_grid, kr_grid, krp_grid
 
     contains
+
+    subroutine ensure_node_at_r_res(this)
+        use resonances_mod, only: r_res
+        use KIM_kinds_m, only: dp
+        implicit none
+        class(grid_type), intent(inout) :: this
+
+        integer :: i, insert_pos
+        real(dp), allocatable :: new_xb(:), new_xc(:)
+        real(dp), parameter :: tol = 1.0d-12
+
+        if (.not. allocated(this%xb)) return
+        if (.not. allocated(this%xc)) return
+
+        if (r_res <= this%min_val + tol) return
+        if (r_res >= this%max_val - tol) return
+
+        do i = 1, this%npts_b
+            if (abs(this%xb(i) - r_res) <= tol) return
+        end do
+
+        insert_pos = -1
+        do i = 1, this%npts_b - 1
+            if (this%xb(i) < r_res .and. r_res < this%xb(i+1)) then
+                insert_pos = i
+                exit
+            end if
+        end do
+        if (insert_pos < 0) return
+
+        allocate(new_xb(this%npts_b + 1))
+        new_xb(1:insert_pos) = this%xb(1:insert_pos)
+        new_xb(insert_pos+1) = r_res
+        new_xb(insert_pos+2:this%npts_b+1) = this%xb(insert_pos+1:this%npts_b)
+
+        allocate(new_xc(this%npts_b))
+        do i = 1, size(new_xc)
+            new_xc(i) = 0.5d0 * (new_xb(i) + new_xb(i+1))
+        end do
+
+        deallocate(this%xb)
+        deallocate(this%xc)
+        this%npts_b = this%npts_b + 1
+        this%npts_c = this%npts_b - 1
+        allocate(this%xb(this%npts_b), this%xc(this%npts_c))
+        this%xb = new_xb
+        this%xc = new_xc
+
+        deallocate(new_xb)
+        deallocate(new_xc)
+    end subroutine ensure_node_at_r_res
 
     subroutine grid_init(this, npts, min_val, max_val, name)
 
@@ -137,6 +188,8 @@ module grid_m
             this%xb(ipoib) = x_current
             this%xc(ipoib-1) = 0.5 * (this%xb(ipoib-1) + this%xb(ipoib))
         enddo
+
+        call ensure_node_at_r_res(this)
 
         ! get index for resonant radius
         call binsrc(abs(this%xb), 1, this%npts_b, abs(r_res), index_rg_res)
@@ -235,6 +288,8 @@ module grid_m
         end do
         
         allocate(coef(0:nder,npoi_der))
+
+        call ensure_node_at_r_res(this)
 
         ! get index for resonant radius
         call binsrc(abs(this%xb), 1, this%npts_b, abs(r_res), index_rg_res)

@@ -52,17 +52,23 @@ module electrostatic_integrands_rkf45_mod
         real(dp), intent(in) :: theta
         real(dp) :: val
         real(dp) :: a, b
+        real(dp) :: sin_t, cos_t, denom_1mcos, denom_1pcos
 
         select type(context)
         type is(rkf45_integrand_context_t)
     
-            a = sqrt(1.0d0 / (1.0d0 + cos(theta))) / abs(context%rhoT)
+            ! Numerically stable half-angle forms
+            sin_t = sin(theta)
+            cos_t = cos(theta)
+            denom_1pcos = 2.0d0 * max(cos(0.5d0*theta)**2.0d0, 1.0d-300)
+            a = sqrt(1.0d0 / denom_1pcos) / max(abs(context%rhoT), 1.0d-300)
             b = calc_b_coef(context%x, context%xp)
 
             val = varphi_l(context%xp, context%xlpm1, context%xlp, context%xlpp1) &
                 * varphi_l(context%x, context%xlm1, context%xl, context%xlp1) &
-                * 2.0d0 * pi / (context%rhoT**2.0d0 * sin(theta)) &
-                * exp(- (context%x - context%xp)**2.0d0 / (4.0d0 * context%rhoT**2.0d0 * (1.0d0 - cos(theta)))) &
+                * 2.0d0 * pi / (context%rhoT**2.0d0 * max(sin_t, 1.0d-300)) &
+                * exp(- (context%x - context%xp)**2.0d0 / (4.0d0 * max(context%rhoT**2.0d0, 1.0d-300) * &
+                           max(2.0d0 * sin(0.5d0*theta)**2.0d0, 1.0d-300))) &
                 * Jrg1(a, b, context%j)
 
         class default
@@ -87,17 +93,21 @@ module electrostatic_integrands_rkf45_mod
         real(dp), intent(in) :: theta
         real(dp) :: val
         real(dp) :: a, b
+        real(dp) :: sin_t, cos_t
 
         select type(context)
         type is(rkf45_integrand_context_t)
 
-            a = sqrt(1.0d0 / (1.0d0 + cos(theta))) / abs(context%rhoT)
+            sin_t = sin(theta)
+            cos_t = cos(theta)
+            a = 1.0d0 / (max(abs(context%rhoT), 1.0d-300) * sqrt(max(2.0d0 * cos(0.5d0*theta)**2.0d0, 1.0d-300)))
             b = calc_b_coef(context%x, context%xp)
 
             val = varphi_l(context%xp, context%xlpm1, context%xlp, context%xlpp1) &
                 * varphi_l(context%x, context%xlm1, context%xl, context%xlp1) &
-                * 1.0d0 / sin(theta)**5.0d0 &
-                * exp(- (context%x - context%xp)**2.0d0 / (4.0d0 * context%rhoT**2.0d0 * (1.0d0 - cos(theta)))) & 
+                * 1.0d0 / max(sin_t, 1.0d-300)**5.0d0 &
+                * exp(- (context%x - context%xp)**2.0d0 / (4.0d0 * max(context%rhoT**2.0d0, 1.0d-300) * &
+                           max(2.0d0 * sin(0.5d0*theta)**2.0d0, 1.0d-300))) & 
                 * ( &
                     Jrg1(a, b, context%j) * (&
                         4.0d0 * cos(2.0d0 * theta) * context%rhoT**2.0d0 *(context%ks**2.0d0 * context%rhoT**2.0d0 + 1.0d0) &
@@ -130,20 +140,24 @@ module electrostatic_integrands_rkf45_mod
         real(dp), intent(in) :: theta
         real(dp) :: val
         real(dp) :: a, b
+        real(dp) :: sin_t, cos_t
 
         select type(context)
         type is(rkf45_integrand_context_t)
 
-            a = sqrt(1.0d0 / (1.0d0 + cos(theta))) / abs(context%rhoT)
+            sin_t = sin(theta)
+            cos_t = cos(theta)
+            a = 1.0d0 / (max(abs(context%rhoT), 1.0d-300) * sqrt(max(2.0d0 * cos(0.5d0*theta)**2.0d0, 1.0d-300)))
             b = calc_b_coef(context%x, context%xp)
 
             val = varphi_l(context%xp, context%xlpm1, context%xlp, context%xlpp1) &
                 * varphi_l(context%x, context%xlm1, context%xl, context%xlp1) &
-                * cos(theta) / sin(theta)**5.0d0 &
-                * exp(- (context%x - context%xp)**2.0d0 / (4.0d0 * context%rhoT**2.0d0 * (1.0d0 - cos(theta)))) & 
+                * cos_t / max(sin_t, 1.0d-300)**5.0d0 &
+                * exp(- (context%x - context%xp)**2.0d0 / (4.0d0 * max(context%rhoT**2.0d0, 1.0d-300) * &
+                           max(2.0d0 * sin(0.5d0*theta)**2.0d0, 1.0d-300))) & 
                 * ( &
-                    context%rhoT**2.0d0 * (cos(3.0d0 * theta) - cos(theta)) * Jrg1(a, b, context%j) &
-                    + 4.0d0 * cos(theta) * (Jrg2(a, b, context%j, context%x) + Jrg3(a, b, context%j, context%xp)) &
+                    context%rhoT**2.0d0 * (cos(3.0d0 * theta) - cos_t) * Jrg1(a, b, context%j) &
+                    + 4.0d0 * cos_t * (Jrg2(a, b, context%j, context%x) + Jrg3(a, b, context%j, context%xp)) &
                     - 2.0d0 * (cos(2.0d0 * theta) + 3.0d0) * Jrg4(a, b, context%j, context%x, context%xp) &
                 )
 

@@ -15,7 +15,9 @@ module electrostatic_integrals_rkf45_mod
 
     real(dp) :: f0 = 0.0d0
     real(dp) :: h0 = 0.01d0
-    real(dp), parameter :: theta_cutoff_min = 1.0d-4  ! Minimum cutoff
+    ! Minimum theta cutoff to avoid endpoint singularity blowup in mapped integrands
+    ! Slightly larger floor improves stability near x≈xp without biasing results materially
+    real(dp), parameter :: theta_cutoff_min = 1.0d-3
     real(dp), parameter :: theta_M = 25.0d0            ! Exponential damping target
 
     contains
@@ -66,7 +68,7 @@ module electrostatic_integrals_rkf45_mod
         use constants_m, only: pi
         use config_m, only: output_path
         use RKF45_mod, only: RKF45_1D_with_context
-        use grid_m, only: rkf45_tol, rkf45_rtol
+        use grid_m, only: rkf45_atol, rkf45_rtol
 
         implicit none
 
@@ -77,6 +79,7 @@ module electrostatic_integrals_rkf45_mod
         real(dp) :: norm_factor
         real(dp) :: rk45_res
         real(dp) :: theta_0_local, theta_max_local, theta_eps, delta, denom, h_local
+        real(dp) :: u0, umax
         integer :: j,k
 
         result = 0.0d0
@@ -90,15 +93,17 @@ module electrostatic_integrals_rkf45_mod
         theta_0_local = theta_eps
         theta_max_local = pi - theta_eps
 
-        !$omp parallel do collapse(2) private(j, k, rk45_res) firstprivate(context) reduction(+:result)
+        !$omp parallel do collapse(2) private(j, k, rk45_res, u0, umax, h_local) firstprivate(context) reduction(+:result)
         do j=1,rkf45_conf%Nxp ! xp 
             do k=1,rkf45_conf%Nx !x
                 context%xp = 0.5d0 * ((context%xlpp1 - context%xlpm1) * rkf45_conf%x_xp(j) + context%xlpp1 + context%xlpm1)
                 context%x = 0.5d0 * ((context%xlp1 - context%xlm1) * rkf45_conf%x_x(k) + context%xlp1 + context%xlm1)
 
                 rk45_res = 0.0d0
-                h_local = 0.1d0 * (theta_max_local - theta_0_local)
-                call RKF45_1D_with_context(rkf45_integrand_F1, f0, theta_0_local, theta_max_local, h_local, rkf45_tol, rk45_res, context)
+                u0   = sin(0.5d0 * theta_0_local)
+                umax = sin(0.5d0 * theta_max_local)
+                h_local = 0.1d0 * (umax - u0)
+                call RKF45_1D_with_context(rkf45_integrand_F1_u, f0, u0, umax, h_local, rkf45_atol, rk45_res, context)
 
                 result = result + rkf45_conf%w_xp(j) * rkf45_conf%w_x(k) * rk45_res
             end do
@@ -114,7 +119,7 @@ module electrostatic_integrals_rkf45_mod
         use constants_m, only: pi
         use RKF45_mod, only: RKF45_1D_with_context
         use electrostatic_integrands_rkf45_mod, only: rkf45_integrand_context_t, rkf45_integrand_F2
-        use grid_m, only: rkf45_tol, rkf45_rtol
+        use grid_m, only: rkf45_atol, rkf45_rtol
 
         implicit none
 
@@ -125,6 +130,7 @@ module electrostatic_integrals_rkf45_mod
         real(dp) :: norm_factor
         real(dp) :: rk45_res
         real(dp) :: theta_0_local, theta_max_local, theta_eps, delta, denom, h_local
+        real(dp) :: u0, umax
         integer :: j,k
 
         result = 0.0d0
@@ -138,15 +144,17 @@ module electrostatic_integrals_rkf45_mod
         theta_0_local = theta_eps
         theta_max_local = pi - theta_eps
 
-        !$omp parallel do collapse(2) private(j, k, rk45_res) firstprivate(context) reduction(+:result)
+        !$omp parallel do collapse(2) private(j, k, rk45_res, u0, umax, h_local) firstprivate(context) reduction(+:result)
         do j=1,rkf45_conf%Nxp ! xp 
             do k=1,rkf45_conf%Nx !x
                 context%xp = 0.5d0 * ((context%xlpp1 - context%xlpm1) * rkf45_conf%x_xp(j) + context%xlpp1 + context%xlpm1)
                 context%x = 0.5d0 * ((context%xlp1 - context%xlm1) * rkf45_conf%x_x(k) + context%xlp1 + context%xlm1)
 
                 rk45_res = 0.0d0
-                h_local = 0.1d0 * (theta_max_local - theta_0_local)
-                call RKF45_1D_with_context(rkf45_integrand_F2, f0, theta_0_local, theta_max_local, h_local, rkf45_tol, rk45_res, context)
+                u0   = sin(0.5d0 * theta_0_local)
+                umax = sin(0.5d0 * theta_max_local)
+                h_local = 0.1d0 * (umax - u0)
+                call RKF45_1D_with_context(rkf45_integrand_F2_u, f0, u0, umax, h_local, rkf45_atol, rk45_res, context)
 
                 result = result + rkf45_conf%w_xp(j) * rkf45_conf%w_x(k) * rk45_res
             end do
@@ -163,7 +171,7 @@ module electrostatic_integrals_rkf45_mod
         use constants_m, only: pi
         use RKF45_mod, only: RKF45_1D_with_context
         use electrostatic_integrands_rkf45_mod, only: rkf45_integrand_context_t, rkf45_integrand_F3
-        use grid_m, only: rkf45_tol, rkf45_rtol
+        use grid_m, only: rkf45_atol, rkf45_rtol
 
         implicit none
 
@@ -173,6 +181,7 @@ module electrostatic_integrals_rkf45_mod
         real(dp) :: norm_factor
         real(dp) :: rk45_res
         real(dp) :: theta_0_local, theta_max_local, theta_eps, delta, denom, h_local
+        real(dp) :: u0, umax
         integer :: j,k
 
         result = 0.0d0
@@ -186,15 +195,17 @@ module electrostatic_integrals_rkf45_mod
         theta_0_local = theta_eps
         theta_max_local = pi - theta_eps
 
-        !$omp parallel do collapse(2) private(j, k, rk45_res) firstprivate(context) reduction(+:result)
+        !$omp parallel do collapse(2) private(j, k, rk45_res, u0, umax, h_local) firstprivate(context) reduction(+:result)
         do j=1,rkf45_conf%Nxp ! xp 
             do k=1,rkf45_conf%Nx !x
                 context%xp = 0.5d0 * ((context%xlpp1 - context%xlpm1) * rkf45_conf%x_xp(j) + context%xlpp1 + context%xlpm1)
                 context%x = 0.5d0 * ((context%xlp1 - context%xlm1) * rkf45_conf%x_x(k) + context%xlp1 + context%xlm1)
 
                 rk45_res = 0.0d0
-                h_local = 0.1d0 * (theta_max_local - theta_0_local)
-                call RKF45_1D_with_context(rkf45_integrand_F3, f0, theta_0_local, theta_max_local, h_local, rkf45_tol, rk45_res, context)
+                u0   = sin(0.5d0 * theta_0_local)
+                umax = sin(0.5d0 * theta_max_local)
+                h_local = 0.1d0 * (umax - u0)
+                call RKF45_1D_with_context(rkf45_integrand_F3_u, f0, u0, umax, h_local, rkf45_atol, rk45_res, context)
 
                 result = result + rkf45_conf%w_xp(j) * rkf45_conf%w_x(k) * rk45_res
             end do
@@ -205,6 +216,51 @@ module electrostatic_integrals_rkf45_mod
                 * (-pi) / (2.0d0 * context%rhoT**4.0d0)
 
     end subroutine
+
+    ! Mapped integrands: u = sin(theta/2), theta = 2*asin(u)
+    ! Include Jacobian dtheta/du = 2/sqrt(1-u^2)
+
+    function rkf45_integrand_F1_u(u, context) result(val)
+        use electrostatic_integrands_rkf45_mod, only: rkf45_integrand_F1
+        implicit none
+        real(dp), intent(in) :: u
+        class(*), intent(in) :: context
+        real(dp) :: val
+        real(dp) :: theta, jac
+        real(dp) :: uu
+        uu = min(max(u, 0.0d0), 1.0d0)
+        theta = 2.0d0 * asin(uu)
+        jac = 2.0d0 / max(sqrt(1.0d0 - uu*uu), 1.0d-300)
+        val = rkf45_integrand_F1(theta, context) * jac
+    end function
+
+    function rkf45_integrand_F2_u(u, context) result(val)
+        use electrostatic_integrands_rkf45_mod, only: rkf45_integrand_F2
+        implicit none
+        real(dp), intent(in) :: u
+        class(*), intent(in) :: context
+        real(dp) :: val
+        real(dp) :: theta, jac
+        real(dp) :: uu
+        uu = min(max(u, 0.0d0), 1.0d0)
+        theta = 2.0d0 * asin(uu)
+        jac = 2.0d0 / max(sqrt(1.0d0 - uu*uu), 1.0d-300)
+        val = rkf45_integrand_F2(theta, context) * jac
+    end function
+
+    function rkf45_integrand_F3_u(u, context) result(val)
+        use electrostatic_integrands_rkf45_mod, only: rkf45_integrand_F3
+        implicit none
+        real(dp), intent(in) :: u
+        class(*), intent(in) :: context
+        real(dp) :: val
+        real(dp) :: theta, jac
+        real(dp) :: uu
+        uu = min(max(u, 0.0d0), 1.0d0)
+        theta = 2.0d0 * asin(uu)
+        jac = 2.0d0 / max(sqrt(1.0d0 - uu*uu), 1.0d-300)
+        val = rkf45_integrand_F3(theta, context) * jac
+    end function
 
     subroutine compute_nodes_weights(n, x, w)
 

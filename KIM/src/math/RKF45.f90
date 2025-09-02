@@ -229,8 +229,9 @@ module RKF45_mod
         k5 = h * f(xk + h, context)
         k6 = h * f(xk + 0.5d0*h, context)
 
+        ! Use consistent Fehlberg 4th-order coefficients (match non-context path)
         y4 = yk + 0.115740740740741d0*k1 + 0.548927875243665d0*k3 &
-                + 0.535331384015595d0*k4 - 0.2d0*k5
+                + 0.535722994391612d0*k4 - 0.2d0*k5
 
         y5 = yk + 0.118518518518519d0*k1 + 0.518986354775828d0*k3 &
                 + 0.506131490342017d0*k4 - 0.18d0*k5 &

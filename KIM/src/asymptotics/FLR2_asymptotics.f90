@@ -152,7 +152,7 @@ module flr2_asymptotics_m
         use IO_collection_m, only: write_complex_profile_abs
         use config_m, only: output_path
         use gsl_mod, only: gsl_sf_bessel_In
-        use config_m, only: turn_off_ions
+        use config_m, only: turn_off_ions, artificial_debye_case
 
         implicit none
 
@@ -183,16 +183,19 @@ module flr2_asymptotics_m
                     ks = plasma_in%ks(j)
                     b = (kr**2.0d0 + ks**2.0d0) * plasma_in%spec(sp)%rho_L(j)**2.0d0
 
-                    kernel(j) = 1.0d0 / plasma_in%spec(sp)%lambda_D(j)**2.0d0 * &
-                        (-1.0d0 + com_unit * plasma_in%spec(sp)%vT(j)**2.0d0 * plasma_in%ks(j) / (plasma_in%spec(sp)%omega_c(j) &
-                        * plasma_in%spec(sp)%nu(j)) * exp(-b) * &
-                        (&
-                            plasma_in%spec(sp)%I00(j) * (&
-                                gsl_sf_bessel_In(0, b) * (plasma_in%spec(sp)%A1(j) + plasma_in%spec(sp)%A2(j) * (1-b)) &
-                                + 0.5d0 * plasma_in%spec(sp)%A2(j) * b * gsl_sf_bessel_In(-1, b) &
-                            )&
-                            + 0.5d0 * plasma_in%spec(sp)%I20(j) * plasma_in%spec(sp)%A2(j) * gsl_sf_bessel_In(0, b) &
-                        ))
+                    kernel(j) = -1.0d0 / plasma_in%spec(sp)%lambda_D(j)**2.0d0
+
+                    if (.not. artificial_debye_case) then
+                        kernel(j) = kernel(j) * (1.0d0 - com_unit * plasma_in%spec(sp)%vT(j)**2.0d0 * plasma_in%ks(j) / (plasma_in%spec(sp)%omega_c(j) &
+                            * plasma_in%spec(sp)%nu(j)) * exp(-b) * &
+                            (&
+                                plasma_in%spec(sp)%I00(j) * (&
+                                    gsl_sf_bessel_In(0, b) * (plasma_in%spec(sp)%A1(j) + plasma_in%spec(sp)%A2(j) * (1-b)) &
+                                    + 0.5d0 * plasma_in%spec(sp)%A2(j) * b * gsl_sf_bessel_In(-1, b) &
+                                )&
+                                + 0.5d0 * plasma_in%spec(sp)%I20(j) * plasma_in%spec(sp)%A2(j) * gsl_sf_bessel_In(0, b) &
+                            ))
+                    end if
                 end do
                 ! kernel = kernel * exp(com_unit * kr * rg_grid%xb(j))
             end do

@@ -120,7 +120,7 @@ module electrostatic_kernel_adaptive_mod
         use FP_kernel_plasma_prefacs_m, only: FP_G0_rho_phi
         use grid_m, only: Larmor_skip_factor, kernel_taper_skip_threshold, rg_grid
         use constants_m, only: pi, com_unit, sol
-        use config_m, only: turn_off_ions
+        use config_m, only: turn_off_ions, artificial_debye_case
         
         implicit none
 
@@ -167,7 +167,7 @@ module electrostatic_kernel_adaptive_mod
                     end block
                 end if
 
-                cycle
+                if (artificial_debye_case) cycle
 
                 ! Track maximum distances for diagnostics
                 current_distance = abs(context%xl - context%xlp)

@@ -9,8 +9,7 @@ module grid_m
     integer :: l_space_dim ! dimension of spline grid
     integer :: r_space_dim ! dimension of r grid
     integer :: k_space_dim ! dimension of kr space grid
-    logical :: reduce_r
-    integer :: reduced_rg_dim
+    integer :: rg_space_dim
     integer :: spline_base
     ! Grid spacing modes (strings): "equidistant", "non-equidistant", "adaptive"
     character(len=32) :: grid_spacing_rg = "adaptive"

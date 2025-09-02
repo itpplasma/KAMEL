@@ -1,12 +1,12 @@
 subroutine generate_grids
 
-    use grid_m, only: rg_grid, xl_grid, reduced_rg_dim, l_space_dim, grid_spacing_rg, grid_spacing_xl, r_min, r_plas
+    use grid_m, only: rg_grid, xl_grid, rg_space_dim, l_space_dim, grid_spacing_rg, grid_spacing_xl, r_min, r_plas
     use species_m, only: plasma
     use config_m, only: fdebug
 
     implicit none
 
-    call rg_grid%grid_init(reduced_rg_dim, 3.0d0, plasma%r_grid(size(plasma%r_grid)), 'rg')
+    call rg_grid%grid_init(rg_space_dim, 3.0d0, plasma%r_grid(size(plasma%r_grid)), 'rg')
     call xl_grid%grid_init(l_space_dim, 3.0d0, plasma%r_grid(size(plasma%r_grid)), 'xl')
 
     ! Generate rg_grid according to requested spacing

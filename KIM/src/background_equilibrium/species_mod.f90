@@ -727,12 +727,10 @@ module species_m
 
     end subroutine
 
-    subroutine read_profiles(reduce)
+    subroutine read_profiles()
 
         use config_m, only: hdf5_input            
         use grid_m, only: r_space_dim
-
-        logical, intent(in) :: reduce ! reduce r dimension
 
         if (hdf5_input) then
             ! read plasma profiles from hdf5 file
@@ -742,8 +740,6 @@ module species_m
             call read_from_text
         endif
             
-        !if (reduce) call reduce_dim
-
         r_space_dim = plasma%grid_size
 
     end subroutine

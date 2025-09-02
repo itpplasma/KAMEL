@@ -150,7 +150,7 @@ contains
         
         ! Display Grid Configuration
         call print_section_header('GRID CONFIGURATION', width)
-        write(value_str, '(I0)') reduced_rg_dim
+        write(value_str, '(I0)') rg_space_dim
         call print_config_line('rg-space Dimension', trim(value_str), width)
         write(value_str, '(I0)') l_space_dim
         call print_config_line('l-space Dimension', trim(value_str), width)

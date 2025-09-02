@@ -37,8 +37,7 @@ KIM is configured via the namelist file KIM_config.nml containing multiple namel
 - hrmax_scaling ... double, scaling factor for maximum grid spacing
 - k_space_dim ... integer, dimension of the k space
 - l_space_dim ... integer, dimension of the spline space
-- reduce_r ... boolean, if true reduces r dim of the input profiles
-- reduced_rg_dim ... integer, dimension of reduced r dim
+- rg_space_dim ... integer, number of r_g grid points (cell boundaries)
  - grid_spacing_rg ... string, r_g grid spacing: "equidistant", "non-equidistant", or "adaptive"
  - grid_spacing_xl ... string, x_l grid spacing: "equidistant", "non-equidistant", or "adaptive"
 - num_gengrid_points ... integer, minimal number of grid points in the l grid

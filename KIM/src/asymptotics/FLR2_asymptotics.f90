@@ -160,6 +160,7 @@ module flr2_asymptotics_m
         integer :: j, sp, i
         complex(dp), allocatable :: kernel(:)
         real(dp) :: b
+        real(dp) :: ks
         real(dp) :: kr
         real(dp) :: kr_arr(4)
         character(256) :: filename
@@ -168,7 +169,6 @@ module flr2_asymptotics_m
         allocate(kernel(rg_grid%npts_b))
 
         kr_arr = [1.0d0, 5.0d0, 10.0d0, 50.0d0]
-        kr = 1000.0d0
 
         do i = 1, size(kr_arr)
             kr = kr_arr(i)
@@ -179,7 +179,9 @@ module flr2_asymptotics_m
                     if (turn_off_ions .and. sp >= 1) cycle
                     ! do nothing, just a placeholder for future implementation
 
-                    b = kr**2.0d0 * plasma_in%spec(sp)%rho_L(j)**2.0d0
+                    ! Include full perpendicular wavenumber in FLR parameter: b = (k_r^2 + k_s^2) * rho_T^2
+                    ks = plasma_in%ks(j)
+                    b = (kr**2.0d0 + ks**2.0d0) * plasma_in%spec(sp)%rho_L(j)**2.0d0
 
                     kernel(j) = 1.0d0 / plasma_in%spec(sp)%lambda_D(j)**2.0d0 * &
                         (-1.0d0 + com_unit * plasma_in%spec(sp)%vT(j)**2.0d0 * plasma_in%ks(j) / (plasma_in%spec(sp)%omega_c(j) &
@@ -192,7 +194,7 @@ module flr2_asymptotics_m
                             + 0.5d0 * plasma_in%spec(sp)%I20(j) * plasma_in%spec(sp)%A2(j) * gsl_sf_bessel_In(0, b) &
                         ))
                 end do
-                kernel = kernel * exp(com_unit * kr * rg_grid%xb(j))
+                ! kernel = kernel * exp(com_unit * kr * rg_grid%xb(j))
             end do
 
             kernel = 1.0d0 / (4.0d0 * pi) * kernel

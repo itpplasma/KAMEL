@@ -23,6 +23,15 @@ module electrostatic_kernel_m
 
     contains
 
+    ! Thread-safe wrapper to update loading bar from within OpenMP
+    subroutine update_bar(cur, tot, sc, cr)
+        use loading_bar_m, only: updateLoadingBarWithETA
+        implicit none
+        integer, intent(in) :: cur, tot
+        integer(kind=8), intent(in) :: sc, cr
+        call updateLoadingBarWithETA(cur, tot, sc, cr)
+    end subroutine update_bar
+
     subroutine init_kernel(this, npts_l, npts_lp)
 
         implicit none
@@ -206,7 +215,10 @@ module electrostatic_kernel_m
 
         use KIM_kinds_m, only: dp
         use electrostatic_integrals_gauss_mod, only: gauss_config_t, init_gauss_int
-        use grid_m, only: Larmor_skip_factor, gauss_int_nodes_Ntheta, gauss_int_nodes_Nx, gauss_int_nodes_Nxp
+        use grid_m, only: Larmor_skip_factor, gauss_int_nodes_Ntheta, gauss_int_nodes_Nx, gauss_int_nodes_Nxp, &
+                          kernel_taper_skip_threshold, rg_grid, xl_grid
+        use species_m, only: plasma
+        use config_m, only: output_path
 
         implicit none
 
@@ -216,6 +228,10 @@ module electrostatic_kernel_m
         type(kernel_spl_t), intent(inout) :: K_j_B_llp
         type(gauss_config_t) :: gauss_conf
         integer :: l, lp
+        real(dp) :: dmax_global, alpha, tau
+        integer :: sigma
+        integer :: total_iterations, current_iteration
+        integer(kind=8) :: start_count, count_rate, count_max
 
         gauss_conf%Nx = gauss_int_nodes_Nx
         gauss_conf%Nxp = gauss_int_nodes_Nxp
@@ -223,11 +239,48 @@ module electrostatic_kernel_m
 
         call init_gauss_int(gauss_conf)
 
-        write(*,*) 'Filling Fokker-Planck collision kernels...'
+        write(*,*) 'Filling Fokker-Planck collision kernels (Gauss)...'
 
-        !$omp parallel do collapse(1) private(l,lp)
+        ! Calculate total number of iterations for the loading bar
+        total_iterations = K_rho_phi_llp%npts_l * (K_rho_phi_llp%npts_l + 1) / 2
+        current_iteration = 0
+
+        ! Record start wall time for ETA calculation
+        call system_clock(start_count, count_rate, count_max)
+
+        ! Compute a global band-limit distance dmax using Larmor taper and skip threshold
+        alpha = Larmor_skip_factor
+        tau   = max(kernel_taper_skip_threshold, 1.0d-12)
+        block
+            real(dp) :: rhoT_max
+            rhoT_max = 0.0d0
+            do sigma = 0, plasma%n_species - 1
+                if (allocated(plasma%spec(sigma)%rho_L_cc)) then
+                    rhoT_max = max(rhoT_max, maxval(plasma%spec(sigma)%rho_L_cc))
+                end if
+            end do
+            dmax_global = alpha * rhoT_max * sqrt(max(log(1.0d0/tau), 0.0d0))
+        end block
+
+        !$omp parallel do schedule(dynamic) default(shared) private(l,lp)
         do l = 1, K_rho_phi_llp%npts_l
-            do lp = 1, l
+            block
+                real(dp) :: xl_val
+                integer :: lp_lo, lp_hi
+                xl_val = xl_grid%xb(l)
+                lp_lo = l
+                do
+                    if (lp_lo <= 1) exit
+                    if (abs(xl_grid%xb(lp_lo-1) - xl_val) > dmax_global) exit
+                    lp_lo = lp_lo - 1
+                end do
+                lp_hi = l
+                do
+                    if (lp_hi >= K_rho_phi_llp%npts_l) exit
+                    if (abs(xl_grid%xb(lp_hi+1) - xl_val) > dmax_global) exit
+                    lp_hi = lp_hi + 1
+                end do
+                do lp = max(1,lp_lo), min(l,lp_hi)
 
                 call FP_calc_kernels(l, lp, K_rho_phi_llp%Kllp(l, lp),&
                                             K_rho_B_llp%Kllp(l, lp), &
@@ -257,10 +310,18 @@ module electrostatic_kernel_m
                 K_rho_B_llp%Kllp(lp, l) = K_rho_B_llp%Kllp(l, lp)
                 K_j_phi_llp%Kllp(lp, l) = K_j_phi_llp%Kllp(l, lp)
                 K_j_B_llp%Kllp(lp, l) = K_j_B_llp%Kllp(l, lp)
-            end do
+
+                !$omp critical(loading_bar)
+                current_iteration = current_iteration + 1
+                if (mod(current_iteration, 32) == 0 .or. current_iteration == total_iterations) then
+                    call update_bar(current_iteration, total_iterations, start_count, count_rate)
+                end if
+                !$omp end critical(loading_bar)
+                end do
+            end block
         end do
         !$omp end parallel do
-        
+
         ! Print diagnostic information
         write(*,*) '======== Kernel Distance Diagnostics (Fokker-Planck) ========'
         write(*,'(A,F12.6)') ' Maximum |xl - xlp| distance: ', max_distance_xl_xlp
@@ -285,11 +346,9 @@ module electrostatic_kernel_m
         use constants_m, only: pi
         use electrostatic_integrands_gauss_mod, only: gauss_int_F0_rho_phi_t, gauss_int_F1_rho_phi_t, gauss_int_F2_rho_phi_t, gauss_int_F3_rho_phi_t, &
             integration_point_t
-        use FP_kernel_plasma_prefacs_m, only: FP_G1_rho_phi, FP_G1_rho_B, FP_G2_rho_B, FP_G3_rho_B, &
-            FP_G2_rho_phi, FP_G3_rho_phi, FP_kappa_rho_phi, FP_kappa_rho_B, FP_G0_rho_phi, &
-            FP_kappa_j_phi, FP_kappa_j_B, FP_G1_j_phi, FP_G2_j_phi, FP_G3_j_phi, &
-            FP_G1_j_B, FP_G2_j_B, FP_G3_j_B
-        use grid_m, only: Larmor_skip_factor
+        use FP_kernel_plasma_prefacs_m, only: FP_G0_rho_phi
+        use grid_m, only: Larmor_skip_factor, kernel_taper_skip_threshold, rg_grid
+        use constants_m, only: com_unit, sol
         use config_m, only: turn_off_ions
         
         implicit none
@@ -321,18 +380,23 @@ module electrostatic_kernel_m
                 int_point%j = j
                 int_point%rhoT = 0.5d0 * (plasma%spec(sigma)%rho_L(j) + plasma%spec(sigma)%rho_L(j+1))
 
-                if (l == lp) then
+                if (abs(l - lp) <= 1) then
                     int_F0%int_point = int_point
                     call gauss_integrate_F0(int_F0, int_point%xlm1, int_point%xlp1, integral_val, gauss_conf)
-                    k_rho_phi = k_rho_phi &
-                        + integral_val * FP_G0_rho_phi(j, plasma%spec(sigma)) * FP_kappa_rho_phi(j, plasma%spec(sigma))
+                    k_rho_phi = k_rho_phi + integral_val * ( - 1.0d0 / (plasma%spec(sigma)%lambda_D_cc(j)**2.0d0) )
                 end if
 
                 ! Track maximum distances for diagnostics
                 current_distance = abs(int_point%xl - int_point%xlp)
 
-                ! skip the kernel calculation for distances that are not connected
-                if (current_distance > Larmor_skip_factor * int_point%rhoT) cycle
+                ! Smoothly taper contributions for large separations; optionally skip tiny weights
+                block
+                    real(dp) :: alpha_loc, eps_r, weight
+                    alpha_loc = Larmor_skip_factor
+                    eps_r = 1.0d-12
+                    weight = exp( - ( current_distance / (alpha_loc * max(int_point%rhoT, eps_r)) )**2.0d0 )
+                    if (weight < kernel_taper_skip_threshold) cycle
+                end block
 
                 current_idx_distance = abs(l - lp)
                 
@@ -365,27 +429,70 @@ module electrostatic_kernel_m
 
                 call gauss_integrate_F1(int_F1, integral_val, gauss_conf)
 
-                k_rho_phi = k_rho_phi + integral_val * FP_G1_rho_phi(j, plasma%spec(sigma)) * FP_kappa_rho_phi(j, plasma%spec(sigma))
-                k_rho_B   = k_rho_B   + integral_val * FP_G1_rho_B(j, plasma%spec(sigma))   * FP_kappa_rho_B(j, plasma%spec(sigma))
+                k_rho_phi = k_rho_phi + integral_val * &
+                    ( (plasma%spec(sigma)%I00_cc(j) * (plasma%spec(sigma)%A1_cc(j) + plasma%spec(sigma)%A2_cc(j)) &
+                       + 0.5d0 * plasma%spec(sigma)%A2_cc(j) * plasma%spec(sigma)%I20_cc(j)) &
+                      * ( com_unit * plasma%spec(sigma)%vT_cc(j)**2.0d0 * plasma%ks_cc(j) / &
+                          (plasma%spec(sigma)%omega_c_cc(j) * plasma%spec(sigma)%nu_cc(j)) ) ) &
+                    * (1.0d0/(plasma%spec(sigma)%lambda_D_cc(j)**2.0d0))
+                k_rho_B   = k_rho_B   + integral_val * &
+                    ( (plasma%spec(sigma)%I01_cc(j) * (plasma%spec(sigma)%A1_cc(j) + plasma%spec(sigma)%A2_cc(j)) &
+                       + 0.5d0 * plasma%spec(sigma)%A2_cc(j) * plasma%spec(sigma)%I21_cc(j)) ) &
+                    * ( - plasma%spec(sigma)%vT_cc(j)**3.0d0 / &
+                        (plasma%spec(sigma)%lambda_D_cc(j)**2.0d0 * plasma%spec(sigma)%omega_c_cc(j) * plasma%spec(sigma)%nu_cc(j) * sol) )
 
-                k_j_phi   = k_j_phi   + integral_val * FP_G1_j_phi(j, plasma%spec(sigma))   * FP_kappa_j_phi(j, plasma%spec(sigma))
-                k_j_B     = k_j_B     + integral_val * FP_G1_j_B(j, plasma%spec(sigma))     * FP_kappa_j_B(j, plasma%spec(sigma))
+                k_j_phi   = k_j_phi   + integral_val * &
+                    ( (plasma%spec(sigma)%I01_cc(j) * (plasma%spec(sigma)%A1_cc(j) + plasma%spec(sigma)%A2_cc(j)) &
+                       + 0.5d0 * plasma%spec(sigma)%A2_cc(j) * plasma%spec(sigma)%I21_cc(j)) ) &
+                    * ( com_unit * plasma%spec(sigma)%vT_cc(j)**3.0d0 * plasma%ks_cc(j) / &
+                        (plasma%spec(sigma)%lambda_D_cc(j)**2.0d0 * plasma%spec(sigma)%omega_c_cc(j) * plasma%spec(sigma)%nu_cc(j)) )
+                k_j_B     = k_j_B     + integral_val * &
+                    ( (plasma%spec(sigma)%I02_cc(j) * (plasma%spec(sigma)%A1_cc(j) + plasma%spec(sigma)%A2_cc(j)) &
+                       + 0.5d0 * plasma%spec(sigma)%A2_cc(j) * plasma%spec(sigma)%I22_cc(j)) ) &
+                    * ( - plasma%spec(sigma)%vT_cc(j)**4.0d0 / &
+                        (plasma%spec(sigma)%lambda_D_cc(j)**2.0d0 * plasma%spec(sigma)%omega_c_cc(j) * plasma%spec(sigma)%nu_cc(j) * sol) )
 
                 call gauss_integrate_F2(int_F2, integral_val, gauss_conf)
 
-                k_rho_phi = k_rho_phi + integral_val * FP_G2_rho_phi(j, plasma%spec(sigma)) * FP_kappa_rho_phi(j, plasma%spec(sigma))
-                k_rho_B   = k_rho_B   + integral_val * FP_G2_rho_B(j, plasma%spec(sigma))   * FP_kappa_rho_B(j, plasma%spec(sigma))
+                k_rho_phi = k_rho_phi + integral_val * &
+                    ( - plasma%spec(sigma)%I00_cc(j) * plasma%spec(sigma)%A2_cc(j) &
+                      * ( com_unit * plasma%spec(sigma)%vT_cc(j)**2.0d0 * plasma%ks_cc(j) / &
+                          (plasma%spec(sigma)%omega_c_cc(j) * plasma%spec(sigma)%nu_cc(j)) ) ) &
+                    * (1.0d0/(plasma%spec(sigma)%lambda_D_cc(j)**2.0d0))
+                k_rho_B   = k_rho_B   + integral_val * &
+                    ( - plasma%spec(sigma)%I01_cc(j) * plasma%spec(sigma)%A2_cc(j) ) &
+                    * ( - plasma%spec(sigma)%vT_cc(j)**3.0d0 / &
+                        (plasma%spec(sigma)%lambda_D_cc(j)**2.0d0 * plasma%spec(sigma)%omega_c_cc(j) * plasma%spec(sigma)%nu_cc(j) * sol) )
 
-                k_j_phi   = k_j_phi   + integral_val * FP_G2_j_phi(j, plasma%spec(sigma))   * FP_kappa_j_phi(j, plasma%spec(sigma))
-                k_j_B     = k_j_B     + integral_val * FP_G2_j_B(j, plasma%spec(sigma))     * FP_kappa_j_B(j, plasma%spec(sigma))
+                k_j_phi   = k_j_phi   + integral_val * &
+                    ( - plasma%spec(sigma)%I01_cc(j) * plasma%spec(sigma)%A2_cc(j) ) &
+                    * ( com_unit * plasma%spec(sigma)%vT_cc(j)**3.0d0 * plasma%ks_cc(j) / &
+                        (plasma%spec(sigma)%lambda_D_cc(j)**2.0d0 * plasma%spec(sigma)%omega_c_cc(j) * plasma%spec(sigma)%nu_cc(j)) )
+                k_j_B     = k_j_B     + integral_val * &
+                    ( - plasma%spec(sigma)%I02_cc(j) * plasma%spec(sigma)%A2_cc(j) ) &
+                    * ( - plasma%spec(sigma)%vT_cc(j)**4.0d0 / &
+                        (plasma%spec(sigma)%lambda_D_cc(j)**2.0d0 * plasma%spec(sigma)%omega_c_cc(j) * plasma%spec(sigma)%nu_cc(j) * sol) )
 
                 call gauss_integrate_F3(int_F3, integral_val, gauss_conf)
 
-                k_rho_phi = k_rho_phi + integral_val * FP_G3_rho_phi(j, plasma%spec(sigma)) * FP_kappa_rho_phi(j, plasma%spec(sigma))
-                k_rho_B   = k_rho_B   + integral_val * FP_G3_rho_B(j, plasma%spec(sigma))   * FP_kappa_rho_B(j, plasma%spec(sigma))
+                k_rho_phi = k_rho_phi + integral_val * &
+                    ( plasma%spec(sigma)%I00_cc(j) * plasma%spec(sigma)%A2_cc(j) &
+                      * ( com_unit * plasma%spec(sigma)%vT_cc(j)**2.0d0 * plasma%ks_cc(j) / &
+                          (plasma%spec(sigma)%omega_c_cc(j) * plasma%spec(sigma)%nu_cc(j)) ) ) &
+                    * (1.0d0/(plasma%spec(sigma)%lambda_D_cc(j)**2.0d0))
+                k_rho_B   = k_rho_B   + integral_val * &
+                    ( plasma%spec(sigma)%I01_cc(j) * plasma%spec(sigma)%A2_cc(j) ) &
+                    * ( - plasma%spec(sigma)%vT_cc(j)**3.0d0 / &
+                        (plasma%spec(sigma)%lambda_D_cc(j)**2.0d0 * plasma%spec(sigma)%omega_c_cc(j) * plasma%spec(sigma)%nu_cc(j) * sol) )
 
-                k_j_phi   = k_j_phi   + integral_val * FP_G3_j_phi(j, plasma%spec(sigma))   * FP_kappa_j_phi(j, plasma%spec(sigma))
-                k_j_B     = k_j_B     + integral_val * FP_G3_j_B(j, plasma%spec(sigma))     * FP_kappa_j_B(j, plasma%spec(sigma))
+                k_j_phi   = k_j_phi   + integral_val * &
+                    ( plasma%spec(sigma)%I01_cc(j) * plasma%spec(sigma)%A2_cc(j) ) &
+                    * ( com_unit * plasma%spec(sigma)%vT_cc(j)**3.0d0 * plasma%ks_cc(j) / &
+                        (plasma%spec(sigma)%lambda_D_cc(j)**2.0d0 * plasma%spec(sigma)%omega_c_cc(j) * plasma%spec(sigma)%nu_cc(j)) )
+                k_j_B     = k_j_B     + integral_val * &
+                    ( plasma%spec(sigma)%I02_cc(j) * plasma%spec(sigma)%A2_cc(j) ) &
+                    * ( - plasma%spec(sigma)%vT_cc(j)**4.0d0 / &
+                        (plasma%spec(sigma)%lambda_D_cc(j)**2.0d0 * plasma%spec(sigma)%omega_c_cc(j) * plasma%spec(sigma)%nu_cc(j) * sol) )
 
             end do
         end do
@@ -626,4 +733,3 @@ module electrostatic_kernel_m
     end subroutine fill_kernels_krook_fp
 
 end module
-

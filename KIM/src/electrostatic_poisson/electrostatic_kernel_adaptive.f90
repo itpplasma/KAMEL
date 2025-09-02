@@ -17,6 +17,15 @@ module electrostatic_kernel_adaptive_mod
 
     contains
 
+    ! Thread-safe wrapper to update loading bar from within OpenMP regions
+    subroutine update_bar(cur, tot, sc, cr)
+        use loading_bar_m, only: updateLoadingBarWithETA
+        implicit none
+        integer, intent(in) :: cur, tot
+        integer(kind=8), intent(in) :: sc, cr
+        call updateLoadingBarWithETA(cur, tot, sc, cr)
+    end subroutine update_bar
+
     subroutine init_kernel(this, npts_l, npts_lp)
 
         implicit none
@@ -136,8 +145,12 @@ module electrostatic_kernel_adaptive_mod
                 K_j_phi_llp%Kllp(lp, l) = K_j_phi_llp%Kllp(l, lp)
                 K_j_B_llp%Kllp(lp, l) = K_j_B_llp%Kllp(l, lp)
 
+                !$omp critical(loading_bar)
                 current_iteration = current_iteration + 1
-                call updateLoadingBarWithETA(current_iteration, total_iterations, start_count, count_rate)
+                if (mod(current_iteration, 32) == 0 .or. current_iteration == total_iterations) then
+                    call update_bar(current_iteration, total_iterations, start_count, count_rate)
+                end if
+                !$omp end critical(loading_bar)
                 end do
             end block
         end do

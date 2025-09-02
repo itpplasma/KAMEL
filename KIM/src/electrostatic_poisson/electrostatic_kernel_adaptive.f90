@@ -117,11 +117,9 @@ module electrostatic_kernel_adaptive_mod
         use electrostatic_integrands_rkf45_mod, only: rkf45_integrand_context_t
         use species_m, only: plasma
         use constants_m, only: pi
-        use FP_kernel_plasma_prefacs_m, only: FP_G1_rho_phi, FP_G1_rho_B, FP_G2_rho_B, FP_G3_rho_B, &
-            FP_G2_rho_phi, FP_G3_rho_phi, FP_kappa_rho_phi, FP_kappa_rho_B, FP_G0_rho_phi, &
-            FP_kappa_j_phi, FP_kappa_j_B, FP_G1_j_phi, FP_G2_j_phi, FP_G3_j_phi, &
-            FP_G1_j_B, FP_G2_j_B, FP_G3_j_B
+        use FP_kernel_plasma_prefacs_m, only: FP_G0_rho_phi
         use grid_m, only: Larmor_skip_factor, kernel_taper_skip_threshold, rg_grid
+        use constants_m, only: pi, com_unit, sol
         use config_m, only: turn_off_ions
         
         implicit none
@@ -216,7 +214,12 @@ module electrostatic_kernel_adaptive_mod
 
                     block
                         complex(dp) :: add, y, t
-                        add = weight * integral_val * FP_G1_rho_phi(j, plasma%spec(sigma)) * FP_kappa_rho_phi(j, plasma%spec(sigma))
+                        add = weight * integral_val * &
+                              ( (plasma%spec(sigma)%I00_cc(j) * (plasma%spec(sigma)%A1_cc(j) + plasma%spec(sigma)%A2_cc(j)) &
+                                + 0.5d0 * plasma%spec(sigma)%A2_cc(j) * plasma%spec(sigma)%I20_cc(j)) &
+                                * (com_unit * plasma%spec(sigma)%vT_cc(j)**2.0d0 * context%ks / &
+                                   (plasma%spec(sigma)%omega_c_cc(j) * plasma%spec(sigma)%nu_cc(j))) ) &
+                              * (1.0d0/(plasma%spec(sigma)%lambda_D_cc(j)**2.0d0))
                         y = add - c_rho_phi
                         t = k_rho_phi + y
                         c_rho_phi = (t - k_rho_phi) - y
@@ -225,7 +228,11 @@ module electrostatic_kernel_adaptive_mod
 
                     block
                         complex(dp) :: add, y, t
-                        add = weight * integral_val * FP_G1_rho_B(j, plasma%spec(sigma)) * FP_kappa_rho_B(j, plasma%spec(sigma))
+                        add = weight * integral_val * &
+                              ( (plasma%spec(sigma)%I01_cc(j) * (plasma%spec(sigma)%A1_cc(j) + plasma%spec(sigma)%A2_cc(j)) &
+                                 + 0.5d0 * plasma%spec(sigma)%A2_cc(j) * plasma%spec(sigma)%I21_cc(j)) ) &
+                              * ( - plasma%spec(sigma)%vT_cc(j)**3.0d0 / &
+                                  (plasma%spec(sigma)%lambda_D_cc(j)**2.0d0 * plasma%spec(sigma)%omega_c_cc(j) * plasma%spec(sigma)%nu_cc(j) * sol) )
                         y = add - c_rho_B
                         t = k_rho_B + y
                         c_rho_B = (t - k_rho_B) - y
@@ -234,7 +241,11 @@ module electrostatic_kernel_adaptive_mod
 
                     block
                         complex(dp) :: add, y, t
-                        add = weight * integral_val * FP_G1_j_phi(j, plasma%spec(sigma)) * FP_kappa_j_phi(j, plasma%spec(sigma))
+                        add = weight * integral_val * &
+                              ( (plasma%spec(sigma)%I01_cc(j) * (plasma%spec(sigma)%A1_cc(j) + plasma%spec(sigma)%A2_cc(j)) &
+                                 + 0.5d0 * plasma%spec(sigma)%A2_cc(j) * plasma%spec(sigma)%I21_cc(j)) ) &
+                              * ( com_unit * plasma%spec(sigma)%vT_cc(j)**3.0d0 * context%ks / &
+                                  (plasma%spec(sigma)%lambda_D_cc(j)**2.0d0 * plasma%spec(sigma)%omega_c_cc(j) * plasma%spec(sigma)%nu_cc(j)) )
                         y = add - c_j_phi
                         t = k_j_phi + y
                         c_j_phi = (t - k_j_phi) - y
@@ -243,7 +254,11 @@ module electrostatic_kernel_adaptive_mod
 
                     block
                         complex(dp) :: add, y, t
-                        add = weight * integral_val * FP_G1_j_B(j, plasma%spec(sigma)) * FP_kappa_j_B(j, plasma%spec(sigma))
+                        add = weight * integral_val * &
+                              ( (plasma%spec(sigma)%I02_cc(j) * (plasma%spec(sigma)%A1_cc(j) + plasma%spec(sigma)%A2_cc(j)) &
+                                 + 0.5d0 * plasma%spec(sigma)%A2_cc(j) * plasma%spec(sigma)%I22_cc(j)) ) &
+                              * ( - plasma%spec(sigma)%vT_cc(j)**4.0d0 / &
+                                  (plasma%spec(sigma)%lambda_D_cc(j)**2.0d0 * plasma%spec(sigma)%omega_c_cc(j) * plasma%spec(sigma)%nu_cc(j) * sol) )
                         y = add - c_j_B
                         t = k_j_B + y
                         c_j_B = (t - k_j_B) - y
@@ -263,7 +278,11 @@ module electrostatic_kernel_adaptive_mod
 
                     block
                         complex(dp) :: add, y, t
-                        add = weight * integral_val * FP_G2_rho_phi(j, plasma%spec(sigma)) * FP_kappa_rho_phi(j, plasma%spec(sigma))
+                        add = weight * integral_val * &
+                              ( - plasma%spec(sigma)%I00_cc(j) * plasma%spec(sigma)%A2_cc(j) * &
+                                (com_unit * plasma%spec(sigma)%vT_cc(j)**2.0d0 * context%ks / &
+                                 (plasma%spec(sigma)%omega_c_cc(j) * plasma%spec(sigma)%nu_cc(j))) ) &
+                              * (1.0d0/(plasma%spec(sigma)%lambda_D_cc(j)**2.0d0))
                         y = add - c_rho_phi
                         t = k_rho_phi + y
                         c_rho_phi = (t - k_rho_phi) - y
@@ -272,7 +291,10 @@ module electrostatic_kernel_adaptive_mod
 
                     block
                         complex(dp) :: add, y, t
-                        add = weight * integral_val * FP_G2_rho_B(j, plasma%spec(sigma)) * FP_kappa_rho_B(j, plasma%spec(sigma))
+                        add = weight * integral_val * &
+                              ( - plasma%spec(sigma)%I01_cc(j) * plasma%spec(sigma)%A2_cc(j) ) &
+                              * ( - plasma%spec(sigma)%vT_cc(j)**3.0d0 / &
+                                  (plasma%spec(sigma)%lambda_D_cc(j)**2.0d0 * plasma%spec(sigma)%omega_c_cc(j) * plasma%spec(sigma)%nu_cc(j) * sol) )
                         y = add - c_rho_B
                         t = k_rho_B + y
                         c_rho_B = (t - k_rho_B) - y
@@ -281,7 +303,10 @@ module electrostatic_kernel_adaptive_mod
 
                     block
                         complex(dp) :: add, y, t
-                        add = weight * integral_val * FP_G2_j_phi(j, plasma%spec(sigma)) * FP_kappa_j_phi(j, plasma%spec(sigma))
+                        add = weight * integral_val * &
+                              ( - plasma%spec(sigma)%I01_cc(j) * plasma%spec(sigma)%A2_cc(j) ) &
+                              * ( com_unit * plasma%spec(sigma)%vT_cc(j)**3.0d0 * context%ks / &
+                                  (plasma%spec(sigma)%lambda_D_cc(j)**2.0d0 * plasma%spec(sigma)%omega_c_cc(j) * plasma%spec(sigma)%nu_cc(j)) )
                         y = add - c_j_phi
                         t = k_j_phi + y
                         c_j_phi = (t - k_j_phi) - y
@@ -290,7 +315,10 @@ module electrostatic_kernel_adaptive_mod
 
                     block
                         complex(dp) :: add, y, t
-                        add = weight * integral_val * FP_G2_j_B(j, plasma%spec(sigma)) * FP_kappa_j_B(j, plasma%spec(sigma))
+                        add = weight * integral_val * &
+                              ( - plasma%spec(sigma)%I02_cc(j) * plasma%spec(sigma)%A2_cc(j) ) &
+                              * ( - plasma%spec(sigma)%vT_cc(j)**4.0d0 / &
+                                  (plasma%spec(sigma)%lambda_D_cc(j)**2.0d0 * plasma%spec(sigma)%omega_c_cc(j) * plasma%spec(sigma)%nu_cc(j) * sol) )
                         y = add - c_j_B
                         t = k_j_B + y
                         c_j_B = (t - k_j_B) - y
@@ -310,7 +338,11 @@ module electrostatic_kernel_adaptive_mod
 
                     block
                         complex(dp) :: add, y, t
-                        add = weight * integral_val * FP_G3_rho_phi(j, plasma%spec(sigma)) * FP_kappa_rho_phi(j, plasma%spec(sigma))
+                        add = weight * integral_val * &
+                              ( plasma%spec(sigma)%I00_cc(j) * plasma%spec(sigma)%A2_cc(j) * &
+                                (com_unit * plasma%spec(sigma)%vT_cc(j)**2.0d0 * context%ks / &
+                                 (plasma%spec(sigma)%omega_c_cc(j) * plasma%spec(sigma)%nu_cc(j))) ) &
+                              * (1.0d0/(plasma%spec(sigma)%lambda_D_cc(j)**2.0d0))
                         y = add - c_rho_phi
                         t = k_rho_phi + y
                         c_rho_phi = (t - k_rho_phi) - y
@@ -319,7 +351,10 @@ module electrostatic_kernel_adaptive_mod
 
                     block
                         complex(dp) :: add, y, t
-                        add = weight * integral_val * FP_G3_rho_B(j, plasma%spec(sigma)) * FP_kappa_rho_B(j, plasma%spec(sigma))
+                        add = weight * integral_val * &
+                              ( plasma%spec(sigma)%I01_cc(j) * plasma%spec(sigma)%A2_cc(j) ) &
+                              * ( - plasma%spec(sigma)%vT_cc(j)**3.0d0 / &
+                                  (plasma%spec(sigma)%lambda_D_cc(j)**2.0d0 * plasma%spec(sigma)%omega_c_cc(j) * plasma%spec(sigma)%nu_cc(j) * sol) )
                         y = add - c_rho_B
                         t = k_rho_B + y
                         c_rho_B = (t - k_rho_B) - y
@@ -328,7 +363,10 @@ module electrostatic_kernel_adaptive_mod
 
                     block
                         complex(dp) :: add, y, t
-                        add = weight * integral_val * FP_G3_j_phi(j, plasma%spec(sigma)) * FP_kappa_j_phi(j, plasma%spec(sigma))
+                        add = weight * integral_val * &
+                              ( plasma%spec(sigma)%I01_cc(j) * plasma%spec(sigma)%A2_cc(j) ) &
+                              * ( com_unit * plasma%spec(sigma)%vT_cc(j)**3.0d0 * context%ks / &
+                                  (plasma%spec(sigma)%lambda_D_cc(j)**2.0d0 * plasma%spec(sigma)%omega_c_cc(j) * plasma%spec(sigma)%nu_cc(j)) )
                         y = add - c_j_phi
                         t = k_j_phi + y
                         c_j_phi = (t - k_j_phi) - y
@@ -337,7 +375,10 @@ module electrostatic_kernel_adaptive_mod
 
                     block
                         complex(dp) :: add, y, t
-                        add = weight * integral_val * FP_G3_j_B(j, plasma%spec(sigma)) * FP_kappa_j_B(j, plasma%spec(sigma))
+                        add = weight * integral_val * &
+                              ( plasma%spec(sigma)%I02_cc(j) * plasma%spec(sigma)%A2_cc(j) ) &
+                              * ( - plasma%spec(sigma)%vT_cc(j)**4.0d0 / &
+                                  (plasma%spec(sigma)%lambda_D_cc(j)**2.0d0 * plasma%spec(sigma)%omega_c_cc(j) * plasma%spec(sigma)%nu_cc(j) * sol) )
                         y = add - c_j_B
                         t = k_j_B + y
                         c_j_B = (t - k_j_B) - y

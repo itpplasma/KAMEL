@@ -162,13 +162,13 @@ module flr2_asymptotics_m
         real(dp) :: b
         real(dp) :: ks
         real(dp) :: kr
-        real(dp) :: kr_arr(4)
+        real(dp) :: kr_arr(6)
         character(256) :: filename
 
         complex(dp) :: besselI ! complex bessel function from bessel.f90
         allocate(kernel(rg_grid%npts_b))
 
-        kr_arr = [1.0d0, 5.0d0, 10.0d0, 50.0d0]
+        kr_arr = [1.0d0, 5.0d0, 10.0d0, 30.0d0, 50.0d0, 100.0d0]
 
         do i = 1, size(kr_arr)
             kr = kr_arr(i)

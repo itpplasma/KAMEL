@@ -150,7 +150,7 @@ module electrostatic_kernel_adaptive_mod
 
         do sigma = 0, plasma%n_species - 1
             if (turn_off_ions .and. sigma >= 1) cycle
-            do j = 2, size(plasma%r_grid)-1
+            do j = 1, size(plasma%r_grid)-1
                 context%j = j
                 ! Use geometric mean to reduce bias when rho_L varies strongly across cell
                 context%rhoT = sqrt(max(plasma%spec(sigma)%rho_L(j),0.0d0) * &

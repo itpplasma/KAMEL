@@ -413,24 +413,28 @@ module electrostatic_kernel_m
         int_point%xl = xl_grid%xb(l)
         int_point%xlp = xl_grid%xb(lp)
 
-        ! handle kernel edges
+        ! Handle lower boundary with symmetric extrapolation
         if (l == 1) then
-            int_point%xlm1 = xl_grid%xb(l)
+            int_point%xlm1 = 2.0d0*xl_grid%xb(1) - xl_grid%xb(2)  ! Extrapolate
         else
             int_point%xlm1 = xl_grid%xb(l-1)
         end if
+        
         if (lp == 1) then
-            int_point%xlpm1 = xl_grid%xb(lp)
+            int_point%xlpm1 = 2.0d0*xl_grid%xb(1) - xl_grid%xb(2)  ! Fixed: symmetric extrapolation
         else
             int_point%xlpm1 = xl_grid%xb(lp-1)
         end if
+        
+        ! Handle upper boundary with symmetric extrapolation
         if (l == xl_grid%npts_b) then
-            int_point%xlp1 = xl_grid%xb(l)
+            int_point%xlp1 = 2.0d0*xl_grid%xb(l) - xl_grid%xb(l-1)  ! Fixed: extrapolation
         else
             int_point%xlp1 = xl_grid%xb(l+1)
         end if
+        
         if (lp == xl_grid%npts_b) then
-            int_point%xlpp1 = xl_grid%xb(lp)
+            int_point%xlpp1 = 2.0d0*xl_grid%xb(lp) - xl_grid%xb(lp-1)  ! Fixed: extrapolation
         else
             int_point%xlpp1 = xl_grid%xb(lp+1)
         end if

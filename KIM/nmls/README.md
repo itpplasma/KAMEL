@@ -39,7 +39,8 @@ KIM is configured via the namelist file KIM_config.nml containing multiple namel
 - l_space_dim ... integer, dimension of the spline space
 - reduce_r ... boolean, if true reduces r dim of the input profiles
 - reduced_rg_dim ... integer, dimension of reduced r dim
-- grid_spacing ... integer, choose type of grid spacing (1=equidistant, 2=non-equidistant, 3=adaptive)
+ - grid_spacing_rg ... string, r_g grid spacing: "equidistant", "non-equidistant", or "adaptive"
+ - grid_spacing_xl ... string, x_l grid spacing: "equidistant", "non-equidistant", or "adaptive"
 - num_gengrid_points ... integer, minimal number of grid points in the l grid
 - kr_grid_width_res ... double, width parameter for k-space grid near resonance
 - kr_grid_ampl_res ... double, amplitude parameter for k-space grid near resonance

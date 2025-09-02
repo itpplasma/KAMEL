@@ -12,7 +12,9 @@ module grid_m
     logical :: reduce_r
     integer :: reduced_rg_dim
     integer :: spline_base
-    integer :: grid_spacing
+    ! Grid spacing modes (strings): "equidistant", "non-equidistant", "adaptive"
+    character(len=32) :: grid_spacing_rg = "adaptive"
+    character(len=32) :: grid_spacing_xl = "adaptive"
     integer :: gauss_int_nodes_Ntheta, gauss_int_nodes_Nx, gauss_int_nodes_Nxp
     real(dp):: Larmor_skip_factor
     real(dp):: width_res, ampl_res, hrmax_scaling
@@ -189,7 +191,7 @@ module grid_m
             this%xc(ipoib-1) = 0.5 * (this%xb(ipoib-1) + this%xb(ipoib))
         enddo
 
-        call ensure_node_at_r_res(this)
+        ! call ensure_node_at_r_res(this)
 
         ! get index for resonant radius
         call binsrc(abs(this%xb), 1, this%npts_b, abs(r_res), index_rg_res)
@@ -289,7 +291,7 @@ module grid_m
         
         allocate(coef(0:nder,npoi_der))
 
-        call ensure_node_at_r_res(this)
+        ! call ensure_node_at_r_res(this) ! could be used for adding r_res point in grid, but introduces some small oscillations
 
         ! get index for resonant radius
         call binsrc(abs(this%xb), 1, this%npts_b, abs(r_res), index_rg_res)

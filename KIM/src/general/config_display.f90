@@ -154,7 +154,8 @@ contains
         call print_config_line('rg-space Dimension', trim(value_str), width)
         write(value_str, '(I0)') l_space_dim
         call print_config_line('l-space Dimension', trim(value_str), width)
-        call print_config_line('Grid Spacing', get_grid_type(grid_spacing), width)
+        call print_config_line('rg Grid Spacing', trim(adjustl(grid_spacing_rg)), width)
+        call print_config_line('xl Grid Spacing', trim(adjustl(grid_spacing_xl)), width)
         write(value_str, '(F6.2)') Larmor_skip_factor
         call print_config_line('Larmor Skip Factor', trim(adjustl(value_str)), width)
         call print_config_line('Theta integration method: ', trim(theta_integration), width)

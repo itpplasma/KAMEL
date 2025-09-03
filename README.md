@@ -51,6 +51,23 @@ make clean
 
 **Note:** External dependencies (LAPACK, SuiteSparse, GSL, SUNDIALS) are automatically downloaded and built during the first compilation if not found on the system.
 
+### System-wide Installation
+
+To install KIM so it can be run from anywhere as `kim`:
+
+```bash
+# Step 1: Build and prepare KIM
+make install-kim
+
+# Step 2: Follow the instructions displayed, which will show:
+sudo ln -sf /path/to/KAMEL/build/install/bin/KIM.x /usr/local/bin/kim
+```
+
+Alternatively, you can add an alias to your shell configuration file (`.bashrc`, `.zshrc`, etc.):
+```bash
+alias kim='/path/to/KAMEL/build/install/bin/KIM.x'
+```
+
 ### Tested Configurations
 - **Apple Silicon**: clang 16.0 + gfortran 14.2
 - **Debian/Ubuntu**: GNU compiler 12.2.0

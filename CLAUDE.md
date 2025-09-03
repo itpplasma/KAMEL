@@ -33,10 +33,6 @@ make clean
 ```bash
 # Run all tests via CTest from root
 make test  # invokes ctest --test-dir build
-
-# Component-specific tests
-cd KIM && make test
-cd QL-Balance && make test
 ```
 
 ### Python Package

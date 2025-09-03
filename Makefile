@@ -17,7 +17,7 @@ KiLCA: build/build.ninja
 	cmake --build build --config $(CONFIG) --target KiLCA
 
 QL-Balance: build/build.ninja
-	cmake --build build --config $(CONFIG) --target QL-Balance
+	cmake --build build --config $(CONFIG) --target ql-balance.x
 
 test: ninja
 	ctest --test-dir build --stop-on-failure --output-on-failure

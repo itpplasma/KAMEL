@@ -65,7 +65,6 @@ set(balance_lib_base_fortran_sources
     ${base_balance_src}/gengrid.f90
     ${base_balance_src}/plag_coeff.f90
     ${base_balance_src}/amn_of_r.f90
-    ${src}/hdf5_tools/hdf5_tools.f90
     ${base_balance_src}/paramscan.f90
     ${base_balance_src}/parallelTools.f90
     ${base_balance_src}/SingleStep.f90
@@ -101,9 +100,9 @@ set_target_properties(ql-balance_lib PROPERTIES LINKER_LANGUAGE Fortran
     ARCHIVE_OUTPUT_DIRECTORY "${lib}"
     Fortran_MODULE_DIRECTORY "${objs}")
 
-add_dependencies(ql-balance_lib kilca_lib)
-target_link_libraries(ql-balance_lib PUBLIC kilca_lib MPI::MPI_Fortran)
-target_include_directories(ql-balance_lib PUBLIC ${CMAKE_BINARY_DIR}/KiLCA/mod)
+add_dependencies(ql-balance_lib kilca_lib kamel_hdf5_tools)
+target_link_libraries(ql-balance_lib PUBLIC kilca_lib MPI::MPI_Fortran kamel_hdf5_tools)
+target_include_directories(ql-balance_lib PUBLIC ${CMAKE_BINARY_DIR}/KiLCA/mod ${CMAKE_BINARY_DIR}/modules)
 
 # Include central slatec math sources via cache variable defined by common/math
 target_include_directories(ql-balance_lib PUBLIC ${SLATEC_INCLUDE_DIR})

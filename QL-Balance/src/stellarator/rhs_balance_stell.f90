@@ -20,7 +20,7 @@ subroutine rhs_balance_stell(x, y, dy)
     use baseparam_mod, only: Z_i, e_charge, am, p_mass, c
     use wave_code_data, only: q, Vth
     use matrix_mod, only: isw_rhs, nz, nsize, irow, icol, amat, rhsvec
-    use QLBalance_hdf5_tools
+    use KAMEL_hdf5_tools
     use QLBalance_kinds, only: dp
     use time_evolution_stellarator, only: set_Q_neo_to_zero, turn_off_heat_sources
 

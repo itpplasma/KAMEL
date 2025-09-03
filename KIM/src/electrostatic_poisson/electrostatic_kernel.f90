@@ -338,15 +338,6 @@ module electrostatic_kernel_m
 
         if (.not. pref_ready) call compute_cc_prefactors
 
-        write(*,*) 'Filling Fokker-Planck collision kernels (Gauss)...'
-
-        ! Calculate total number of iterations for the loading bar
-        total_iterations = K_rho_phi_llp%npts_l * (K_rho_phi_llp%npts_l + 1) / 2
-        current_iteration = 0
-
-        ! Record start wall time for ETA calculation
-        call system_clock(start_count, count_rate, count_max)
-
         ! Compute a global band-limit distance dmax using Larmor taper and skip threshold
         alpha = Larmor_skip_factor
         tau   = max(kernel_taper_skip_threshold, 1.0d-12)
@@ -360,6 +351,35 @@ module electrostatic_kernel_m
             end do
             dmax_global = alpha * rhoT_max * sqrt(max(log(1.0d0/tau), 0.0d0))
         end block
+
+        ! Calculate actual number of iterations accounting for band-limiting
+        total_iterations = 0
+        do l = 1, K_rho_phi_llp%npts_l
+            block
+                real(dp) :: xl_val
+                integer :: lp_lo, lp_hi
+                xl_val = xl_grid%xb(l)
+                lp_lo = l
+                do
+                    if (lp_lo <= 1) exit
+                    if (abs(xl_grid%xb(lp_lo-1) - xl_val) > dmax_global) exit
+                    lp_lo = lp_lo - 1
+                end do
+                lp_hi = l
+                do
+                    if (lp_hi >= K_rho_phi_llp%npts_l) exit
+                    if (abs(xl_grid%xb(lp_hi+1) - xl_val) > dmax_global) exit
+                    lp_hi = lp_hi + 1
+                end do
+                total_iterations = total_iterations + (min(l,lp_hi) - max(1,lp_lo) + 1)
+            end block
+        end do
+        current_iteration = 0
+        write(*,*) 'Total band-limited iterations: ', total_iterations
+
+
+        write(*,*) 'Filling Fokker-Planck collision kernels (Gauss)...'
+        call system_clock(start_count, count_rate, count_max)
 
         !$omp parallel do schedule(dynamic) default(shared) private(l,lp)
         do l = 1, K_rho_phi_llp%npts_l

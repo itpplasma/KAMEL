@@ -83,8 +83,8 @@ subroutine calc_equil_diffusion_coeffs
         !dae12(ipoi) = dae12(ipoi)*(1.d0 - weight) + weight*1d6
         !write(77, *) r, dae12(ipoi)
     end do
-    call localizer(-1.d0, rsepar, rsepar + 0.5d0, rb(ipoi), weight)
-    dae12(ipoi) = dae12(ipoi)*(1.d0 - weight) + weight*1d6
+    !call localizer(-1.d0, rsepar, rsepar + 0.5d0, rb(ipoi), weight)
+    !dae12(ipoi) = dae12(ipoi)*(1.d0 - weight) + weight*1d6
 
     !get other da
     dae11 = dae12/1.499999d0 !previously used instead of 1.5d0, no idea why

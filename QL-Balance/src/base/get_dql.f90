@@ -84,8 +84,6 @@ subroutine get_dql
         return
     end if
 
-    if (debug_mode) write(*,*) "in det dql 1"
-
     do ipoi = 1, npoib
         do ieq = 1, nbaleqs
             ! radial derivatives of equilibrium parameters at cell boundaries:
@@ -108,8 +106,6 @@ subroutine get_dql
         end do
         deallocate (dummy)
     end if
-
-    if (debug_mode) write(*,*) "in det dql 2"
 
     ! Compute radial electric field:
     Ercov = sqrt_g_times_B_theta_over_c*(params_b(2, :) - Vth*q/rb) &
@@ -134,15 +130,10 @@ subroutine get_dql
     imin = modpernode*irank + 1
     imax = min(dim_mn, modpernode*(irank + 1))
 
-    if (debug_mode) write(*,*) "in det dql 3"
     if (irf .eq. 1) call update_background_files(path2profs)
-    if (debug_mode) write(*,*) "in det dql 3.1"
     if (irf .eq. 1) call get_wave_code_data(imin, imax)
-    if (debug_mode) write(*,*) "in det dql 3.2"
     if (irf .eq. 1) call get_background_magnetic_fields_from_wave_code(flre_cd_ptr(imin), dim_r, r, B0t, B0z, B0)
-    if (debug_mode) write(*,*) "in det dql 3.3"
     if (irf .eq. 1) call get_collision_frequences_from_wave_code(flre_cd_ptr(imin), dim_r, r, nui, nue)
-    if (debug_mode) write(*,*) "in det dql 4"
 
     !  nu_e=15.4d-6*params_b(1,:)/sqrt(params_b(3,:)/ev)**3            &
     !      *(23.d0-0.5d0*log(params_b(1,:)/(params_b(3,:)/ev)**3))
@@ -237,7 +228,7 @@ subroutine get_dql
         end do
 
         if (trim(type_of_run) .eq. "TimeEvolution") then !TODO: this is a very bad solution... Make it better
-            if (irank .eq. 0) then
+            if (irank .eq. 0 .and. time_ind>0) then
                 call interp_rb_at_r0(Br, r_resonant(i_mn), br_vac_res(time_ind))
             end if
         end if
@@ -248,7 +239,7 @@ subroutine get_dql
 
         ! todo: interpolate formfactor at resonant surface and write out. This is Brtot/Brvac at the resonant surface
         if (trim(type_of_run) .eq. "TimeEvolution") then !TODO: this is a very bad solution... Make it better
-            if (irank .eq. 0) then
+            if (irank .eq. 0 .and. time_ind > 0) then
                 call interp_rb_at_r0(formfactor, r_resonant(i_mn), br_formfactor(time_ind))
             end if
         end if

@@ -61,11 +61,12 @@ subroutine calc_parallel_current_directly
                 CALL h5_close_group(group_id_1)
             end if
             
-
-            CALL h5_add_double_1(h5_id, trim(tempch)//"rb", &
-                    rb, lbound(rb), ubound(rb))
-            CALL h5_add_double_1(h5_id, trim(tempch)//"x2", &
-                    x2, lbound(x2), ubound(x2)) 
+            
+            ! TODO: fix this, makes problem when writing
+            !CALL h5_add_double_1(h5_id, trim(tempch)//"rb", &
+                    !rb, lbound(rb), ubound(rb))
+            !CALL h5_add_double_1(h5_id, trim(tempch)//"x2", &
+                    !x2, lbound(x2), ubound(x2)) 
 
             if (write_gyro_current) then
                 if (debug_mode) write(*,*) "Debug: writing par_current_e.dat"

@@ -340,6 +340,13 @@ module electrostatic_kernel_m
 
         write(*,*) 'Filling Fokker-Planck collision kernels (Gauss)...'
 
+        ! Calculate total number of iterations for the loading bar
+        total_iterations = K_rho_phi_llp%npts_l * (K_rho_phi_llp%npts_l + 1) / 2
+        current_iteration = 0
+
+        ! Record start wall time for ETA calculation
+        call system_clock(start_count, count_rate, count_max)
+
         ! Compute a global band-limit distance dmax using Larmor taper and skip threshold
         alpha = Larmor_skip_factor
         tau   = max(kernel_taper_skip_threshold, 1.0d-12)
@@ -353,34 +360,6 @@ module electrostatic_kernel_m
             end do
             dmax_global = alpha * rhoT_max * sqrt(max(log(1.0d0/tau), 0.0d0))
         end block
-
-        ! Calculate actual number of iterations accounting for band-limiting
-        total_iterations = 0
-        do l = 1, K_rho_phi_llp%npts_l
-            block
-                real(dp) :: xl_val
-                integer :: lp_lo, lp_hi
-                xl_val = xl_grid%xb(l)
-                lp_lo = l
-                do
-                    if (lp_lo <= 1) exit
-                    if (abs(xl_grid%xb(lp_lo-1) - xl_val) > dmax_global) exit
-                    lp_lo = lp_lo - 1
-                end do
-                lp_hi = l
-                do
-                    if (lp_hi >= K_rho_phi_llp%npts_l) exit
-                    if (abs(xl_grid%xb(lp_hi+1) - xl_val) > dmax_global) exit
-                    lp_hi = lp_hi + 1
-                end do
-                total_iterations = total_iterations + (min(l,lp_hi) - max(1,lp_lo) + 1)
-            end block
-        end do
-        current_iteration = 0
-        write(*,*) 'Total band-limited iterations: ', total_iterations
-
-        ! Record start wall time for ETA calculation
-        call system_clock(start_count, count_rate, count_max)
 
         !$omp parallel do schedule(dynamic) default(shared) private(l,lp)
         do l = 1, K_rho_phi_llp%npts_l
@@ -431,7 +410,6 @@ module electrostatic_kernel_m
                 K_j_phi_llp%Kllp(lp, l) = K_j_phi_llp%Kllp(l, lp)
                 K_j_B_llp%Kllp(lp, l) = K_j_B_llp%Kllp(l, lp)
 
-                !$omp atomic
                 current_iteration = current_iteration + 1
                 !$omp critical(loading_bar)
                 if (mod(current_iteration, 32) == 0 .or. current_iteration == total_iterations) then
@@ -573,8 +551,7 @@ module electrostatic_kernel_m
                     real(dp) :: eps_r, alpha, pexp, weight
                     eps_r = 1.0d-12
                     alpha = Larmor_skip_factor
-                    pexp = 2.0d0
-                    weight = exp( - ( current_distance / (alpha * max(int_point%rhoT, eps_r)) )**pexp )
+                    weight = exp( - ( current_distance / (alpha * max(int_point%rhoT, eps_r)) )**2.0d0 )
                     if (weight < kernel_taper_skip_threshold) cycle
 
                     call gauss_integrate_F1(int_F1, integral_val, gauss_conf)
@@ -621,8 +598,7 @@ module electrostatic_kernel_m
                     real(dp) :: eps_r, alpha, pexp, weight
                     eps_r = 1.0d-12
                     alpha = Larmor_skip_factor
-                    pexp = 2.0d0
-                    weight = exp( - ( current_distance / (alpha * max(int_point%rhoT, eps_r)) )**pexp )
+                    weight = exp( - ( current_distance / (alpha * max(int_point%rhoT, eps_r)) )**2.0d0 )
                     if (weight < kernel_taper_skip_threshold) cycle
 
                     call gauss_integrate_F2(int_F2, integral_val, gauss_conf)
@@ -669,8 +645,7 @@ module electrostatic_kernel_m
                     real(dp) :: eps_r, alpha, pexp, weight
                     eps_r = 1.0d-12
                     alpha = Larmor_skip_factor
-                    pexp = 2.0d0
-                    weight = exp( - ( current_distance / (alpha * max(int_point%rhoT, eps_r)) )**pexp )
+                    weight = exp( - ( current_distance / (alpha * max(int_point%rhoT, eps_r)) )**2.0d0 )
                     if (weight < kernel_taper_skip_threshold) cycle
 
                     call gauss_integrate_F3(int_F3, integral_val, gauss_conf)

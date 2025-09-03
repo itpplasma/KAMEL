@@ -6,8 +6,8 @@ subroutine generate_grids
 
     implicit none
 
-    call rg_grid%grid_init(rg_space_dim, 3.0d0, plasma%r_grid(size(plasma%r_grid)), 'rg')
-    call xl_grid%grid_init(l_space_dim, 3.0d0, plasma%r_grid(size(plasma%r_grid)), 'xl')
+    call rg_grid%grid_init(rg_space_dim, r_min, plasma%r_grid(size(plasma%r_grid)), 'rg')
+    call xl_grid%grid_init(l_space_dim, r_min, plasma%r_grid(size(plasma%r_grid)), 'xl')
 
     ! Generate rg_grid according to requested spacing
     select case (trim(adjustl(grid_spacing_rg)))

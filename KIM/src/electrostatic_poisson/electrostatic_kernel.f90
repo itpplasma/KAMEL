@@ -336,7 +336,7 @@ module electrostatic_kernel_m
 
         call init_gauss_int(gauss_conf)
 
-        call compute_cc_prefactors
+        if (.not. pref_ready) call compute_cc_prefactors
 
         write(*,*) 'Filling Fokker-Planck collision kernels (Gauss)...'
 
@@ -410,6 +410,7 @@ module electrostatic_kernel_m
                 K_j_phi_llp%Kllp(lp, l) = K_j_phi_llp%Kllp(l, lp)
                 K_j_B_llp%Kllp(lp, l) = K_j_B_llp%Kllp(l, lp)
 
+                !$omp atomic
                 current_iteration = current_iteration + 1
                 !$omp critical(loading_bar)
                 if (mod(current_iteration, 32) == 0 .or. current_iteration == total_iterations) then

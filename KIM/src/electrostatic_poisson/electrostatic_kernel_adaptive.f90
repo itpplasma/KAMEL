@@ -41,7 +41,7 @@ module electrostatic_kernel_adaptive_mod
                           kernel_taper_skip_threshold, rg_grid, xl_grid
         use species_m, only: plasma
         use loading_bar_m, only: updateLoadingBarWithETA
-        use electrostatic_kernel_m, only: compute_cc_prefactors
+        use electrostatic_kernel_m, only: compute_cc_prefactors, pref_ready
         use config_m, only: artificial_debye_case
 
         implicit none
@@ -63,7 +63,7 @@ module electrostatic_kernel_adaptive_mod
 
         call init_rkf45_int(rkf45_conf)
 
-        call compute_cc_prefactors
+        if (.not. pref_ready) call compute_cc_prefactors
 
         ! (j_B prefactors are computed inside compute_cc_prefactors)
 

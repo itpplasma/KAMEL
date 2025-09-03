@@ -34,6 +34,8 @@ subroutine write_total_toroidal_torque_to_file(time_index)
     call h5_init()
     call h5_open_rw(path2out, h5_id)
 
+    h5overwrite = .true.
+
     h5_currentgrp = "/"//trim(h5_mode_groupname)//"/T_tot_phi_e"
     call h5_add_double_1(h5_id, trim(h5_currentgrp), T_tot_phi_e(1:time_index), &
                          lbound(T_tot_phi_e(1:time_index)), ubound(T_tot_phi_e(1:time_index)), &
@@ -42,6 +44,8 @@ subroutine write_total_toroidal_torque_to_file(time_index)
     call h5_add_double_1(h5_id, trim(h5_currentgrp), T_tot_phi_i(1:time_index), &
                          lbound(T_tot_phi_i(1:time_index)), ubound(T_tot_phi_i(1:time_index)), &
                          comment="Total toroidal torque on ions")
+
+    h5overwrite = .false.
 
     call h5_close(h5_id)
     call h5_deinit()

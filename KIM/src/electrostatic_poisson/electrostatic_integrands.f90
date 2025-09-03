@@ -7,6 +7,7 @@ module electrostatic_integrands_gauss_mod
 
     type :: integration_point_t
         real(dp) :: rhoT
+        real(dp) :: ks
         integer :: j
         real(dp) :: xlm1, xlp1, xl
         real(dp) :: xlpm1, xlpp1, xlp
@@ -50,8 +51,8 @@ module electrostatic_integrands_gauss_mod
 
         use grid_m, only: rg_grid
         use functions_m, only: varphi_l
-        use gsl_mod, only: erf => gsl_sf_erf
         use constants_m, only: pi
+        use numerics_utils_m, only: erf_diff
 
         implicit none
 
@@ -62,10 +63,11 @@ module electrostatic_integrands_gauss_mod
         val = varphi_l(x, this%int_point%xlm1, this%int_point%xl, this%int_point%xlp1) &
             * varphi_l(x, this%int_point%xlpm1, this%int_point%xlp, this%int_point%xlpp1) &
             * (&
-                  erf((rg_grid%xb(this%int_point%j+1)-x)/(sqrt(2.0d0) * abs(this%int_point%rhoT))) &
-                - erf((rg_grid%xb(this%int_point%j) - x)/(sqrt(2.0d0) * abs(this%int_point%rhoT)))&
+                  erf_diff((rg_grid%xb(this%int_point%j+1)-x)/(sqrt(2.0d0) * abs(this%int_point%rhoT)), &
+                (rg_grid%xb(this%int_point%j) - x)/(sqrt(2.0d0) * abs(this%int_point%rhoT)))&
             ) &
-            * 2.0d0 * pi**2.0d0
+            !* 2.0d0 * pi**2.0d0
+            * pi**2.0d0
 
     end function
 

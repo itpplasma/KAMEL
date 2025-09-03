@@ -5,6 +5,7 @@
     collision_model = 'Krook'       ! Krook or FokkerPlanck
     artificial_debye_case = .false.
     turn_off_ions = .false.
+    turn_off_electrons = .false.
 /
 
 &kim_io

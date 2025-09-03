@@ -14,6 +14,13 @@ module electrostatic_kernel_m
     integer :: max_idx_l = 0, max_idx_lp = 0
     integer :: min_idx_l = 0, min_idx_lp = 0
 
+    ! Precomputed per-(species, rg-cell) prefactors on cell centers
+    complex(dp), allocatable, save :: pref_rho_phi_g1(:,:), pref_rho_phi_g2(:,:), pref_rho_phi_g3(:,:)
+    complex(dp), allocatable, save :: pref_rho_B_g1(:,:),  pref_rho_B_g2(:,:),  pref_rho_B_g3(:,:)
+    complex(dp), allocatable, save :: pref_j_phi_g1(:,:),  pref_j_phi_g2(:,:),  pref_j_phi_g3(:,:)
+    complex(dp), allocatable, save :: pref_j_B_g1(:,:),    pref_j_B_g2(:,:),    pref_j_B_g3(:,:)
+    logical,           save :: pref_ready = .false.
+
     type :: kernel_spl_t
         integer :: npts_l, npts_lp
         complex(dp), allocatable :: Kllp(:,:)
@@ -46,6 +53,96 @@ module electrostatic_kernel_m
 
     end subroutine init_kernel
 
+    subroutine compute_cc_prefactors
+        use species_m, only: plasma
+        use grid_m,   only: rg_grid
+        use constants_m, only: com_unit, sol
+        implicit none
+        integer :: ns, j, sigma
+
+        ns = plasma%n_species
+        if (.not. allocated(pref_rho_phi_g1)) then
+            allocate(pref_rho_phi_g1(ns, rg_grid%npts_c))
+            allocate(pref_rho_phi_g2(ns, rg_grid%npts_c))
+            allocate(pref_rho_phi_g3(ns, rg_grid%npts_c))
+            allocate(pref_rho_B_g1(ns,  rg_grid%npts_c))
+            allocate(pref_rho_B_g2(ns,  rg_grid%npts_c))
+            allocate(pref_rho_B_g3(ns,  rg_grid%npts_c))
+            allocate(pref_j_phi_g1(ns,  rg_grid%npts_c))
+            allocate(pref_j_phi_g2(ns,  rg_grid%npts_c))
+            allocate(pref_j_phi_g3(ns,  rg_grid%npts_c))
+            allocate(pref_j_B_g1(ns,    rg_grid%npts_c))
+            allocate(pref_j_B_g2(ns,    rg_grid%npts_c))
+            allocate(pref_j_B_g3(ns,    rg_grid%npts_c))
+        end if
+
+        do sigma = 0, ns - 1
+            do j = 1, rg_grid%npts_c
+                pref_rho_phi_g1(sigma+1,j) = &
+                    ( (plasma%spec(sigma)%I00_cc(j) * (plasma%spec(sigma)%A1_cc(j) + plasma%spec(sigma)%A2_cc(j)) &
+                      + 0.5d0 * plasma%spec(sigma)%A2_cc(j) * plasma%spec(sigma)%I20_cc(j)) &
+                      * ( com_unit * plasma%spec(sigma)%vT_cc(j)**2.0d0 / &
+                          (plasma%spec(sigma)%omega_c_cc(j) * plasma%spec(sigma)%nu_cc(j)) ) ) &
+                    * (1.0d0/(plasma%spec(sigma)%lambda_D_cc(j)**2.0d0))
+                pref_rho_phi_g2(sigma+1,j) = &
+                    ( - plasma%spec(sigma)%I00_cc(j) * plasma%spec(sigma)%A2_cc(j) * &
+                      ( com_unit * plasma%spec(sigma)%vT_cc(j)**2.0d0 / &
+                        (plasma%spec(sigma)%omega_c_cc(j) * plasma%spec(sigma)%nu_cc(j)) ) ) &
+                    * (1.0d0/(plasma%spec(sigma)%lambda_D_cc(j)**2.0d0))
+                pref_rho_phi_g3(sigma+1,j) = &
+                    ( plasma%spec(sigma)%I00_cc(j) * plasma%spec(sigma)%A2_cc(j) * &
+                      ( com_unit * plasma%spec(sigma)%vT_cc(j)**2.0d0 / &
+                        (plasma%spec(sigma)%omega_c_cc(j) * plasma%spec(sigma)%nu_cc(j)) ) ) &
+                    * (1.0d0/(plasma%spec(sigma)%lambda_D_cc(j)**2.0d0))
+
+                pref_rho_B_g1(sigma+1,j) = &
+                    ( (plasma%spec(sigma)%I01_cc(j) * (plasma%spec(sigma)%A1_cc(j) + plasma%spec(sigma)%A2_cc(j)) &
+                       + 0.5d0 * plasma%spec(sigma)%A2_cc(j) * plasma%spec(sigma)%I21_cc(j)) ) &
+                    * ( - plasma%spec(sigma)%vT_cc(j)**3.0d0 / &
+                        (plasma%spec(sigma)%lambda_D_cc(j)**2.0d0 * plasma%spec(sigma)%omega_c_cc(j) * plasma%spec(sigma)%nu_cc(j) * sol) )
+                pref_rho_B_g2(sigma+1,j) = &
+                    ( - plasma%spec(sigma)%I01_cc(j) * plasma%spec(sigma)%A2_cc(j) ) &
+                    * ( - plasma%spec(sigma)%vT_cc(j)**3.0d0 / &
+                        (plasma%spec(sigma)%lambda_D_cc(j)**2.0d0 * plasma%spec(sigma)%omega_c_cc(j) * plasma%spec(sigma)%nu_cc(j) * sol) )
+                pref_rho_B_g3(sigma+1,j) = &
+                    ( plasma%spec(sigma)%I01_cc(j) * plasma%spec(sigma)%A2_cc(j) ) &
+                    * ( - plasma%spec(sigma)%vT_cc(j)**3.0d0 / &
+                        (plasma%spec(sigma)%lambda_D_cc(j)**2.0d0 * plasma%spec(sigma)%omega_c_cc(j) * plasma%spec(sigma)%nu_cc(j) * sol) )
+
+                pref_j_phi_g1(sigma+1,j) = &
+                    ( (plasma%spec(sigma)%I01_cc(j) * (plasma%spec(sigma)%A1_cc(j) + plasma%spec(sigma)%A2_cc(j)) &
+                       + 0.5d0 * plasma%spec(sigma)%A2_cc(j) * plasma%spec(sigma)%I21_cc(j)) ) &
+                    * ( com_unit * plasma%spec(sigma)%vT_cc(j)**3.0d0 / &
+                        (plasma%spec(sigma)%lambda_D_cc(j)**2.0d0 * plasma%spec(sigma)%omega_c_cc(j) * plasma%spec(sigma)%nu_cc(j)) )
+                pref_j_phi_g2(sigma+1,j) = &
+                    ( - plasma%spec(sigma)%I01_cc(j) * plasma%spec(sigma)%A2_cc(j) ) &
+                    * ( com_unit * plasma%spec(sigma)%vT_cc(j)**3.0d0 / &
+                        (plasma%spec(sigma)%lambda_D_cc(j)**2.0d0 * plasma%spec(sigma)%omega_c_cc(j) * plasma%spec(sigma)%nu_cc(j)) )
+                pref_j_phi_g3(sigma+1,j) = &
+                    ( plasma%spec(sigma)%I01_cc(j) * plasma%spec(sigma)%A2_cc(j) ) &
+                    * ( com_unit * plasma%spec(sigma)%vT_cc(j)**3.0d0 / &
+                        (plasma%spec(sigma)%lambda_D_cc(j)**2.0d0 * plasma%spec(sigma)%omega_c_cc(j) * plasma%spec(sigma)%nu_cc(j)) )
+
+                pref_j_B_g1(sigma+1,j) = &
+                    ( (plasma%spec(sigma)%I02_cc(j) * (plasma%spec(sigma)%A1_cc(j) + plasma%spec(sigma)%A2_cc(j)) &
+                       + 0.5d0 * plasma%spec(sigma)%A2_cc(j) * plasma%spec(sigma)%I22_cc(j)) ) &
+                    * ( - plasma%spec(sigma)%vT_cc(j)**4.0d0 / &
+                        (plasma%spec(sigma)%lambda_D_cc(j)**2.0d0 * plasma%spec(sigma)%omega_c_cc(j) * plasma%spec(sigma)%nu_cc(j) * sol) )
+                pref_j_B_g2(sigma+1,j) = &
+                    ( - plasma%spec(sigma)%I02_cc(j) * plasma%spec(sigma)%A2_cc(j) ) &
+                    * ( - plasma%spec(sigma)%vT_cc(j)**4.0d0 / &
+                        (plasma%spec(sigma)%lambda_D_cc(j)**2.0d0 * plasma%spec(sigma)%omega_c_cc(j) * plasma%spec(sigma)%nu_cc(j) * sol) )
+                pref_j_B_g3(sigma+1,j) = &
+                    ( plasma%spec(sigma)%I02_cc(j) * plasma%spec(sigma)%A2_cc(j) ) &
+                    * ( - plasma%spec(sigma)%vT_cc(j)**4.0d0 / &
+                        (plasma%spec(sigma)%lambda_D_cc(j)**2.0d0 * plasma%spec(sigma)%omega_c_cc(j) * plasma%spec(sigma)%nu_cc(j) * sol) )
+            end do
+        end do
+
+        pref_ready = .true.
+    end subroutine compute_cc_prefactors
+
+    ! TODO: Update Krook routines to the same procedure as FP routines
     subroutine Krook_fill_kernel_phi(K_rho_phi_llp, K_rho_B_llp)
 
         use KIM_kinds_m, only: dp
@@ -218,7 +315,7 @@ module electrostatic_kernel_m
         use grid_m, only: Larmor_skip_factor, gauss_int_nodes_Ntheta, gauss_int_nodes_Nx, gauss_int_nodes_Nxp, &
                           kernel_taper_skip_threshold, rg_grid, xl_grid
         use species_m, only: plasma
-        use config_m, only: output_path
+        use config_m, only: output_path, artificial_debye_case
 
         implicit none
 
@@ -238,6 +335,8 @@ module electrostatic_kernel_m
         gauss_conf%Ntheta = gauss_int_nodes_Ntheta
 
         call init_gauss_int(gauss_conf)
+
+        call compute_cc_prefactors
 
         write(*,*) 'Filling Fokker-Planck collision kernels (Gauss)...'
 
@@ -311,8 +410,8 @@ module electrostatic_kernel_m
                 K_j_phi_llp%Kllp(lp, l) = K_j_phi_llp%Kllp(l, lp)
                 K_j_B_llp%Kllp(lp, l) = K_j_B_llp%Kllp(l, lp)
 
-                !$omp critical(loading_bar)
                 current_iteration = current_iteration + 1
+                !$omp critical(loading_bar)
                 if (mod(current_iteration, 32) == 0 .or. current_iteration == total_iterations) then
                     call update_bar(current_iteration, total_iterations, start_count, count_rate)
                 end if
@@ -322,7 +421,11 @@ module electrostatic_kernel_m
         end do
         !$omp end parallel do
 
-        ! Print diagnostic information
+        write(*,*)
+        write(*,*) 'Finished filling kernels.'
+
+        if (artificial_debye_case) return
+
         write(*,*) '======== Kernel Distance Diagnostics (Fokker-Planck) ========'
         write(*,'(A,F12.6)') ' Maximum |xl - xlp| distance: ', max_distance_xl_xlp
         write(*,'(A,I6,A,I6)') ' Occurred at l = ', max_dist_l, ', lp = ', max_dist_lp
@@ -349,12 +452,13 @@ module electrostatic_kernel_m
         use FP_kernel_plasma_prefacs_m, only: FP_G0_rho_phi
         use grid_m, only: Larmor_skip_factor, kernel_taper_skip_threshold, rg_grid
         use constants_m, only: com_unit, sol
-        use config_m, only: turn_off_ions
+        use config_m, only: turn_off_ions, turn_off_electrons, artificial_debye_case
         
         implicit none
 
         integer, intent(in) :: l, lp
         complex(dp) :: k_rho_phi, k_rho_B, k_j_phi, k_j_B
+        complex(dp) :: c_rho_phi, c_rho_B, c_j_phi, c_j_B  ! Kahan compensation terms
         integer :: j, sigma
         type(gauss_config_t), intent(in) :: gauss_conf
         real(dp) :: integral_val
@@ -366,25 +470,41 @@ module electrostatic_kernel_m
         type(gauss_int_F1_rho_phi_t) :: int_F1
         type(gauss_int_F2_rho_phi_t) :: int_F2
         type(gauss_int_F3_rho_phi_t) :: int_F3
-        
-        k_rho_phi = 0.0d0
-        k_rho_B = 0.0d0
-        k_j_phi = 0.0d0
-        k_j_B = 0.0d0
+
+        k_rho_phi = (0.0d0, 0.0d0)
+        k_rho_B = (0.0d0, 0.0d0)
+        k_j_phi = (0.0d0, 0.0d0)
+        k_j_B = (0.0d0, 0.0d0)
+        c_rho_phi = (0.0d0, 0.0d0)
+        c_rho_B   = (0.0d0, 0.0d0)
+        c_j_phi   = (0.0d0, 0.0d0)
+        c_j_B     = (0.0d0, 0.0d0)
 
         call set_xl_at_edge(l, lp, int_point)
 
         do sigma = 0, plasma%n_species - 1
             if (turn_off_ions .and. sigma >= 1) cycle
-            do j = 2, size(plasma%r_grid)-1
+            if (turn_off_electrons .and. sigma == 0) cycle
+            do j = 1, rg_grid%npts_b-1
                 int_point%j = j
-                int_point%rhoT = 0.5d0 * (plasma%spec(sigma)%rho_L(j) + plasma%spec(sigma)%rho_L(j+1))
+                int_point%rhoT = max(plasma%spec(sigma)%rho_L_cc(j), 0.0d0)
+                int_point%ks = plasma%ks_cc(j)
 
-                if (abs(l - lp) <= 1) then
-                    int_F0%int_point = int_point
-                    call gauss_integrate_F0(int_F0, int_point%xlm1, int_point%xlp1, integral_val, gauss_conf)
-                    k_rho_phi = k_rho_phi + integral_val * ( - 1.0d0 / (plasma%spec(sigma)%lambda_D_cc(j)**2.0d0) )
+                if (abs(l-lp)<=1) then
+                    block
+                        complex(dp) :: add, y, t
+                        int_F0%int_point = int_point
+                        call gauss_integrate_F0(int_F0, int_point%xlm1, int_point%xlp1, integral_val, gauss_conf)
+                        add = integral_val * (-1.0d0) * (1.0d0 / (plasma%spec(sigma)%lambda_D_cc(j)**2.0d0))
+                        ! Kahan summation for k_rho_phi
+                        y = add - c_rho_phi
+                        t = k_rho_phi + y
+                        c_rho_phi = (t - k_rho_phi) - y
+                        k_rho_phi = t
+                    end block
                 end if
+
+                if (artificial_debye_case) cycle
 
                 ! Track maximum distances for diagnostics
                 current_distance = abs(int_point%xl - int_point%xlp)
@@ -427,72 +547,148 @@ module electrostatic_kernel_m
                 int_F2%int_point = int_point
                 int_F3%int_point = int_point
 
-                call gauss_integrate_F1(int_F1, integral_val, gauss_conf)
+                block
+                    real(dp) :: eps_r, alpha, pexp, weight
+                    eps_r = 1.0d-12
+                    alpha = Larmor_skip_factor
+                    pexp = 2.0d0
+                    weight = exp( - ( current_distance / (alpha * max(int_point%rhoT, eps_r)) )**pexp )
+                    if (weight < kernel_taper_skip_threshold) cycle
 
-                k_rho_phi = k_rho_phi + integral_val * &
-                    ( (plasma%spec(sigma)%I00_cc(j) * (plasma%spec(sigma)%A1_cc(j) + plasma%spec(sigma)%A2_cc(j)) &
-                       + 0.5d0 * plasma%spec(sigma)%A2_cc(j) * plasma%spec(sigma)%I20_cc(j)) &
-                      * ( com_unit * plasma%spec(sigma)%vT_cc(j)**2.0d0 * plasma%ks_cc(j) / &
-                          (plasma%spec(sigma)%omega_c_cc(j) * plasma%spec(sigma)%nu_cc(j)) ) ) &
-                    * (1.0d0/(plasma%spec(sigma)%lambda_D_cc(j)**2.0d0))
-                k_rho_B   = k_rho_B   + integral_val * &
-                    ( (plasma%spec(sigma)%I01_cc(j) * (plasma%spec(sigma)%A1_cc(j) + plasma%spec(sigma)%A2_cc(j)) &
-                       + 0.5d0 * plasma%spec(sigma)%A2_cc(j) * plasma%spec(sigma)%I21_cc(j)) ) &
-                    * ( - plasma%spec(sigma)%vT_cc(j)**3.0d0 / &
-                        (plasma%spec(sigma)%lambda_D_cc(j)**2.0d0 * plasma%spec(sigma)%omega_c_cc(j) * plasma%spec(sigma)%nu_cc(j) * sol) )
+                    call gauss_integrate_F1(int_F1, integral_val, gauss_conf)
 
-                k_j_phi   = k_j_phi   + integral_val * &
-                    ( (plasma%spec(sigma)%I01_cc(j) * (plasma%spec(sigma)%A1_cc(j) + plasma%spec(sigma)%A2_cc(j)) &
-                       + 0.5d0 * plasma%spec(sigma)%A2_cc(j) * plasma%spec(sigma)%I21_cc(j)) ) &
-                    * ( com_unit * plasma%spec(sigma)%vT_cc(j)**3.0d0 * plasma%ks_cc(j) / &
-                        (plasma%spec(sigma)%lambda_D_cc(j)**2.0d0 * plasma%spec(sigma)%omega_c_cc(j) * plasma%spec(sigma)%nu_cc(j)) )
-                k_j_B     = k_j_B     + integral_val * &
-                    ( (plasma%spec(sigma)%I02_cc(j) * (plasma%spec(sigma)%A1_cc(j) + plasma%spec(sigma)%A2_cc(j)) &
-                       + 0.5d0 * plasma%spec(sigma)%A2_cc(j) * plasma%spec(sigma)%I22_cc(j)) ) &
-                    * ( - plasma%spec(sigma)%vT_cc(j)**4.0d0 / &
-                        (plasma%spec(sigma)%lambda_D_cc(j)**2.0d0 * plasma%spec(sigma)%omega_c_cc(j) * plasma%spec(sigma)%nu_cc(j) * sol) )
+                    block
+                        complex(dp) :: add, y, t
+                        add = weight * integral_val * pref_rho_phi_g1(sigma+1,j) * int_point%ks
+                        y = add - c_rho_phi
+                        t = k_rho_phi + y
+                        c_rho_phi = (t - k_rho_phi) - y
+                        k_rho_phi = t
+                    end block
 
-                call gauss_integrate_F2(int_F2, integral_val, gauss_conf)
+                    block
+                        complex(dp) :: add, y, t
+                        add = weight * integral_val * pref_rho_B_g1(sigma+1,j)
+                        y = add - c_rho_B
+                        t = k_rho_B + y
+                        c_rho_B = (t - k_rho_B) - y
+                        k_rho_B = t
+                    end block
 
-                k_rho_phi = k_rho_phi + integral_val * &
-                    ( - plasma%spec(sigma)%I00_cc(j) * plasma%spec(sigma)%A2_cc(j) &
-                      * ( com_unit * plasma%spec(sigma)%vT_cc(j)**2.0d0 * plasma%ks_cc(j) / &
-                          (plasma%spec(sigma)%omega_c_cc(j) * plasma%spec(sigma)%nu_cc(j)) ) ) &
-                    * (1.0d0/(plasma%spec(sigma)%lambda_D_cc(j)**2.0d0))
-                k_rho_B   = k_rho_B   + integral_val * &
-                    ( - plasma%spec(sigma)%I01_cc(j) * plasma%spec(sigma)%A2_cc(j) ) &
-                    * ( - plasma%spec(sigma)%vT_cc(j)**3.0d0 / &
-                        (plasma%spec(sigma)%lambda_D_cc(j)**2.0d0 * plasma%spec(sigma)%omega_c_cc(j) * plasma%spec(sigma)%nu_cc(j) * sol) )
+                    block
+                        complex(dp) :: add, y, t
+                        add = weight * integral_val * pref_j_phi_g1(sigma+1,j) * int_point%ks
+                        y = add - c_j_phi
+                        t = k_j_phi + y
+                        c_j_phi = (t - k_j_phi) - y
+                        k_j_phi = t
+                    end block
 
-                k_j_phi   = k_j_phi   + integral_val * &
-                    ( - plasma%spec(sigma)%I01_cc(j) * plasma%spec(sigma)%A2_cc(j) ) &
-                    * ( com_unit * plasma%spec(sigma)%vT_cc(j)**3.0d0 * plasma%ks_cc(j) / &
-                        (plasma%spec(sigma)%lambda_D_cc(j)**2.0d0 * plasma%spec(sigma)%omega_c_cc(j) * plasma%spec(sigma)%nu_cc(j)) )
-                k_j_B     = k_j_B     + integral_val * &
-                    ( - plasma%spec(sigma)%I02_cc(j) * plasma%spec(sigma)%A2_cc(j) ) &
-                    * ( - plasma%spec(sigma)%vT_cc(j)**4.0d0 / &
-                        (plasma%spec(sigma)%lambda_D_cc(j)**2.0d0 * plasma%spec(sigma)%omega_c_cc(j) * plasma%spec(sigma)%nu_cc(j) * sol) )
+                    block
+                        complex(dp) :: add, y, t
+                        add = weight * integral_val * pref_j_B_g1(sigma+1,j)
+                        y = add - c_j_B
+                        t = k_j_B + y
+                        c_j_B = (t - k_j_B) - y
+                        k_j_B = t
+                    end block
+                end block
+
+
+                block
+                    real(dp) :: eps_r, alpha, pexp, weight
+                    eps_r = 1.0d-12
+                    alpha = Larmor_skip_factor
+                    pexp = 2.0d0
+                    weight = exp( - ( current_distance / (alpha * max(int_point%rhoT, eps_r)) )**pexp )
+                    if (weight < kernel_taper_skip_threshold) cycle
+
+                    call gauss_integrate_F2(int_F2, integral_val, gauss_conf)
+
+                    block
+                        complex(dp) :: add, y, t
+                        add = weight * integral_val * pref_rho_phi_g2(sigma+1,j) * int_point%ks
+                        y = add - c_rho_phi
+                        t = k_rho_phi + y
+                        c_rho_phi = (t - k_rho_phi) - y
+                        k_rho_phi = t
+                    end block
+
+                    block
+                        complex(dp) :: add, y, t
+                        add = weight * integral_val * pref_rho_B_g2(sigma+1,j)
+                        y = add - c_rho_B
+                        t = k_rho_B + y
+                        c_rho_B = (t - k_rho_B) - y
+                        k_rho_B = t
+                    end block
+
+                    block
+                        complex(dp) :: add, y, t
+                        add = weight * integral_val * pref_j_phi_g2(sigma+1,j) * int_point%ks
+                        y = add - c_j_phi
+                        t = k_j_phi + y
+                        c_j_phi = (t - k_j_phi) - y
+                        k_j_phi = t
+                    end block
+
+                    block
+                        complex(dp) :: add, y, t
+                        add = weight * integral_val * pref_j_B_g2(sigma+1,j)
+                        y = add - c_j_B
+                        t = k_j_B + y
+                        c_j_B = (t - k_j_B) - y
+                        k_j_B = t
+                    end block
+                end block
 
                 call gauss_integrate_F3(int_F3, integral_val, gauss_conf)
+                block
+                    real(dp) :: eps_r, alpha, pexp, weight
+                    eps_r = 1.0d-12
+                    alpha = Larmor_skip_factor
+                    pexp = 2.0d0
+                    weight = exp( - ( current_distance / (alpha * max(int_point%rhoT, eps_r)) )**pexp )
+                    if (weight < kernel_taper_skip_threshold) cycle
 
-                k_rho_phi = k_rho_phi + integral_val * &
-                    ( plasma%spec(sigma)%I00_cc(j) * plasma%spec(sigma)%A2_cc(j) &
-                      * ( com_unit * plasma%spec(sigma)%vT_cc(j)**2.0d0 * plasma%ks_cc(j) / &
-                          (plasma%spec(sigma)%omega_c_cc(j) * plasma%spec(sigma)%nu_cc(j)) ) ) &
-                    * (1.0d0/(plasma%spec(sigma)%lambda_D_cc(j)**2.0d0))
-                k_rho_B   = k_rho_B   + integral_val * &
-                    ( plasma%spec(sigma)%I01_cc(j) * plasma%spec(sigma)%A2_cc(j) ) &
-                    * ( - plasma%spec(sigma)%vT_cc(j)**3.0d0 / &
-                        (plasma%spec(sigma)%lambda_D_cc(j)**2.0d0 * plasma%spec(sigma)%omega_c_cc(j) * plasma%spec(sigma)%nu_cc(j) * sol) )
+                    call gauss_integrate_F3(int_F3, integral_val, gauss_conf)
 
-                k_j_phi   = k_j_phi   + integral_val * &
-                    ( plasma%spec(sigma)%I01_cc(j) * plasma%spec(sigma)%A2_cc(j) ) &
-                    * ( com_unit * plasma%spec(sigma)%vT_cc(j)**3.0d0 * plasma%ks_cc(j) / &
-                        (plasma%spec(sigma)%lambda_D_cc(j)**2.0d0 * plasma%spec(sigma)%omega_c_cc(j) * plasma%spec(sigma)%nu_cc(j)) )
-                k_j_B     = k_j_B     + integral_val * &
-                    ( plasma%spec(sigma)%I02_cc(j) * plasma%spec(sigma)%A2_cc(j) ) &
-                    * ( - plasma%spec(sigma)%vT_cc(j)**4.0d0 / &
-                        (plasma%spec(sigma)%lambda_D_cc(j)**2.0d0 * plasma%spec(sigma)%omega_c_cc(j) * plasma%spec(sigma)%nu_cc(j) * sol) )
+                    block
+                        complex(dp) :: add, y, t
+                        add = weight * integral_val * pref_rho_phi_g3(sigma+1,j) * int_point%ks
+                        y = add - c_rho_phi
+                        t = k_rho_phi + y
+                        c_rho_phi = (t - k_rho_phi) - y
+                        k_rho_phi = t
+                    end block
+
+                    block
+                        complex(dp) :: add, y, t
+                        add = weight * integral_val * pref_rho_B_g3(sigma+1,j)
+                        y = add - c_rho_B
+                        t = k_rho_B + y
+                        c_rho_B = (t - k_rho_B) - y
+                        k_rho_B = t
+                    end block
+
+                    block
+                        complex(dp) :: add, y, t
+                        add = weight * integral_val * pref_j_phi_g3(sigma+1,j) * int_point%ks
+                        y = add - c_j_phi
+                        t = k_j_phi + y
+                        c_j_phi = (t - k_j_phi) - y
+                        k_j_phi = t
+                    end block
+
+                    block
+                        complex(dp) :: add, y, t
+                        add = weight * integral_val * pref_j_B_g3(sigma+1,j)
+                        y = add - c_j_B
+                        t = k_j_B + y
+                        c_j_B = (t - k_j_B) - y
+                        k_j_B = t
+                    end block
+                end block
 
             end do
         end do
@@ -548,6 +744,7 @@ module electrostatic_kernel_m
 
     end subroutine
 
+    ! TODO: Update combined Krook FP routine to use the same procedure as FP case
     subroutine fill_kernels_krook_fp(kernel_krook_rho_phi, kernel_krook_rho_B, &
                                       kernel_fp_rho_phi, kernel_fp_rho_B)
         !> Unified subroutine to fill both Krook and Fokker-Planck kernels

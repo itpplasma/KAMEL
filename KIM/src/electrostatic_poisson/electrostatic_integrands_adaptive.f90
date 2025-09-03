@@ -18,7 +18,6 @@ module electrostatic_integrands_rkf45_mod
 
         use grid_m, only: rg_grid
         use functions_m, only: varphi_l
-        use gsl_mod, only: erf => gsl_sf_erf
         use numerics_utils_m, only: erf_diff
         use constants_m, only: pi
 

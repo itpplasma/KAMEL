@@ -152,7 +152,7 @@ module flr2_asymptotics_m
         use IO_collection_m, only: write_complex_profile_abs
         use config_m, only: output_path
         use gsl_mod, only: gsl_sf_bessel_In
-        use config_m, only: turn_off_ions, artificial_debye_case
+        use config_m, only: turn_off_ions, artificial_debye_case, turn_off_electrons
 
         implicit none
 
@@ -162,13 +162,13 @@ module flr2_asymptotics_m
         real(dp) :: b
         real(dp) :: ks
         real(dp) :: kr
-        real(dp) :: kr_arr(6)
+        real(dp) :: kr_arr(5)
         character(256) :: filename
 
         complex(dp) :: besselI ! complex bessel function from bessel.f90
         allocate(kernel(rg_grid%npts_b))
 
-        kr_arr = [1.0d0, 5.0d0, 10.0d0, 30.0d0, 50.0d0, 100.0d0]
+        kr_arr = [1.0d0, 5.0d0, 10.0d0, 30.0d0, 50.0d0]
 
         do i = 1, size(kr_arr)
             kr = kr_arr(i)
@@ -177,7 +177,7 @@ module flr2_asymptotics_m
             do j = 1, size(rg_grid%xb)
                 do sp = 0, plasma_in%n_species-1
                     if (turn_off_ions .and. sp >= 1) cycle
-                    ! do nothing, just a placeholder for future implementation
+                    if (turn_off_electrons .and. sp == 0) cycle
 
                     ! Include full perpendicular wavenumber in FLR parameter: b = (k_r^2 + k_s^2) * rho_T^2
                     ks = plasma_in%ks(j)

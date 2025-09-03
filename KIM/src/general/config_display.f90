@@ -126,6 +126,7 @@ contains
         call print_bool_line('Collisions', .not. collisions_off, width)
         call print_bool_line('Artificial Debye Case', artificial_debye_case, width)
         call print_bool_line('Turn Off Ions', turn_off_ions, width)
+        call print_bool_line('Turn Off Electrons', turn_off_electrons, width)
         write(value_str, '(I0)') number_of_ion_species
         call print_config_line('Ion Species', trim(value_str), width)
         

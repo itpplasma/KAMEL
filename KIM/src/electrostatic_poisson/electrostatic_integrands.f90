@@ -167,15 +167,16 @@ module electrostatic_integrands_gauss_mod
 
         use constants_m, only: pi
         use grid_m, only: rg_grid
-        use gsl_mod, only: erf => gsl_sf_erf
+        use numerics_utils_m, only: erf_diff
 
         implicit none
 
         class(integration_point_t), intent(inout) :: this
 
         this%Jrg1 = sqrt(pi) / (2.0d0 * this%a_coef) &
-            *(erf(this%a_coef * (this%b_coef - rg_grid%xb(this%j))) &
-            - erf(this%a_coef * (this%b_coef - rg_grid%xb(this%j+1))))
+            *(&
+            erf_diff(this%a_coef * (this%b_coef - rg_grid%xb(this%j)),  &
+            this%a_coef * (this%b_coef - rg_grid%xb(this%j+1))))
 
     end subroutine
 
@@ -183,7 +184,7 @@ module electrostatic_integrands_gauss_mod
 
         use constants_m, only: pi
         use grid_m, only: rg_grid
-        use gsl_mod, only: erf => gsl_sf_erf
+        use numerics_utils_m, only: erf_diff
 
         implicit none
 
@@ -192,8 +193,8 @@ module electrostatic_integrands_gauss_mod
         this%Jrg2 = 1.0d0 / (4.0d0 * this%a_coef**3.0d0) &
                     * ( &
                         sqrt(pi) * (2.0d0 * this%a_coef**2.0d0 * (this%b_coef - this%xl_mapped)**2.0d0 + 1.0d0) &
-                            * (erf(this%a_coef * (this%b_coef - rg_grid%xb(this%j))) &
-                                - erf(this%a_coef * (this%b_coef - rg_grid%xb(this%j+1)))) &
+                            * (erf_diff(this%a_coef * (this%b_coef - rg_grid%xb(this%j)), &
+                                this%a_coef * (this%b_coef - rg_grid%xb(this%j+1)))) &
                         + 2.0d0 * this%a_coef * exp(-this%a_coef**2.0d0 * (this%b_coef - rg_grid%xb(this%j))**2.0d0) &
                             * (this%b_coef + rg_grid%xb(this%j) - 2.0d0 * this%xl_mapped) &
                         - 2.0d0 * this%a_coef * exp(-this%a_coef**2.0d0 * (this%b_coef - rg_grid%xb(this%j+1))**2.0d0) &
@@ -207,7 +208,7 @@ module electrostatic_integrands_gauss_mod
 
         use constants_m, only: pi
         use grid_m, only: rg_grid
-        use gsl_mod, only: erf => gsl_sf_erf
+        use numerics_utils_m, only: erf_diff
 
         implicit none
 
@@ -216,8 +217,8 @@ module electrostatic_integrands_gauss_mod
         this%Jrg3 = 1.0d0 / (4.0d0 * this%a_coef**3.0d0) &
                     * ( &
                         sqrt(pi) * (2.0d0 * this%a_coef**2.0d0 * (this%b_coef - this%xlp_mapped)**2.0d0 + 1.0d0) &
-                            * (erf(this%a_coef * (this%b_coef - rg_grid%xb(this%j))) &
-                                - erf(this%a_coef * (this%b_coef - rg_grid%xb(this%j+1)))) &
+                            * (erf_diff(this%a_coef * (this%b_coef - rg_grid%xb(this%j)), &
+                                this%a_coef * (this%b_coef - rg_grid%xb(this%j+1)))) &
                         + 2.0d0 * this%a_coef * exp(-this%a_coef**2.0d0 * (this%b_coef - rg_grid%xb(this%j))**2.0d0) &
                             * (this%b_coef + rg_grid%xb(this%j) - 2.0d0 * this%xlp_mapped) &
                         - 2.0d0 * this%a_coef * exp(-this%a_coef**2.0d0 * (this%b_coef - rg_grid%xb(this%j+1))**2.0d0) &
@@ -230,7 +231,7 @@ module electrostatic_integrands_gauss_mod
 
         use constants_m, only: pi
         use grid_m, only: rg_grid
-        use gsl_mod, only: erf => gsl_sf_erf
+        use numerics_utils_m, only: erf_diff
 
         implicit none
 
@@ -238,8 +239,8 @@ module electrostatic_integrands_gauss_mod
 
         this%Jrg4 = 1.0d0 / (4.0d0 * this%a_coef**3.0d0) &
                     * ( &
-                        (erf(this%a_coef * (this%b_coef - rg_grid%xb(this%j))) &
-                            - erf(this%a_coef * (this%b_coef - rg_grid%xb(this%j+1)))) &
+                        (erf_diff(this%a_coef * (this%b_coef - rg_grid%xb(this%j)), &
+                            this%a_coef * (this%b_coef - rg_grid%xb(this%j+1)))) &
                             * sqrt(pi) * (2.0d0 * this%a_coef**2.0d0 * (this%b_coef - this%xl_mapped) &
                             * (this%b_coef - this%xlp_mapped)+1.0d0) &
                         + 2.0d0 * this%a_coef * exp(-this%a_coef**2.0d0 * (this%b_coef - rg_grid%xb(this%j))**2.0d0) &

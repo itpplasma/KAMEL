@@ -159,6 +159,7 @@ module flr2_asymptotics_m
         type(plasma_t), intent(in) :: plasma_in
         integer :: j, sp, i
         complex(dp), allocatable :: kernel(:)
+        complex(dp) :: kernel_temp
         real(dp) :: b
         real(dp) :: ks
         real(dp) :: kr
@@ -183,10 +184,10 @@ module flr2_asymptotics_m
                     ks = plasma_in%ks(j)
                     b = (kr**2.0d0 + ks**2.0d0) * plasma_in%spec(sp)%rho_L(j)**2.0d0
 
-                    kernel(j) = -1.0d0 / plasma_in%spec(sp)%lambda_D(j)**2.0d0
+                    kernel_temp = -1.0d0 / plasma_in%spec(sp)%lambda_D(j)**2.0d0
 
                     if (.not. artificial_debye_case) then
-                        kernel(j) = kernel(j) * (1.0d0 - com_unit * plasma_in%spec(sp)%vT(j)**2.0d0 * plasma_in%ks(j) / (plasma_in%spec(sp)%omega_c(j) &
+                        kernel_temp = kernel_temp * (1.0d0 - com_unit * plasma_in%spec(sp)%vT(j)**2.0d0 * plasma_in%ks(j) / (plasma_in%spec(sp)%omega_c(j) &
                             * plasma_in%spec(sp)%nu(j)) * exp(-b) * &
                             (&
                                 plasma_in%spec(sp)%I00(j) * (&
@@ -196,6 +197,8 @@ module flr2_asymptotics_m
                                 + 0.5d0 * plasma_in%spec(sp)%I20(j) * plasma_in%spec(sp)%A2(j) * gsl_sf_bessel_In(0, b) &
                             ))
                     end if
+
+                    kernel(j) = kernel(j) + kernel_temp
                 end do
                 ! kernel = kernel * exp(com_unit * kr * rg_grid%xb(j))
             end do

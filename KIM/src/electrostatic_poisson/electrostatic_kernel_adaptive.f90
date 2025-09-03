@@ -83,9 +83,30 @@ module electrostatic_kernel_adaptive_mod
 
         write(*,*) 'Filling Fokker-Planck collision kernels...'
 
-        ! Calculate total number of iterations for the loading bar
-        total_iterations = K_rho_phi_llp%npts_l * (K_rho_phi_llp%npts_l + 1) / 2
+        ! Calculate actual number of iterations accounting for band-limiting
+        total_iterations = 0
+        do l = 1, K_rho_phi_llp%npts_l
+            block
+                real(dp) :: xl_val
+                integer :: lp_lo, lp_hi
+                xl_val = xl_grid%xb(l)
+                lp_lo = l
+                do
+                    if (lp_lo <= 1) exit
+                    if (abs(xl_grid%xb(lp_lo-1) - xl_val) > dmax_global) exit
+                    lp_lo = lp_lo - 1
+                end do
+                lp_hi = l
+                do
+                    if (lp_hi >= K_rho_phi_llp%npts_l) exit
+                    if (abs(xl_grid%xb(lp_hi+1) - xl_val) > dmax_global) exit
+                    lp_hi = lp_hi + 1
+                end do
+                total_iterations = total_iterations + (min(l,lp_hi) - max(1,lp_lo) + 1)
+            end block
+        end do
         current_iteration = 0
+        write(*,*) 'Total band-limited iterations: ', total_iterations
 
         ! Record start wall time for ETA calculation
         call system_clock(start_count, count_rate, count_max)
@@ -140,6 +161,7 @@ module electrostatic_kernel_adaptive_mod
                 K_j_phi_llp%Kllp(lp, l) = K_j_phi_llp%Kllp(l, lp)
                 K_j_B_llp%Kllp(lp, l) = K_j_B_llp%Kllp(l, lp)
 
+                !$omp atomic
                 current_iteration = current_iteration + 1
                 !$omp critical(loading_bar)
                 if (mod(current_iteration, 32) == 0 .or. current_iteration == total_iterations) then

@@ -142,6 +142,18 @@ module electrostatic_kernel_adaptive_mod
         end do
         current_iteration = 0
         write(*,*) 'Total band-limited iterations: ', total_iterations
+        if (.not. artificial_debye_case) then
+            write(*,*) '======== Kernel Distance Diagnostics (Fokker-Planck) ========'
+            write(*,'(A,F12.6)') ' Maximum |xl - xlp| distance: ', max_distance_xl_xlp
+            write(*,'(A,I6,A,I6)') ' Occurred at l = ', max_dist_l, ', lp = ', max_dist_lp
+            write(*,'(A,F12.6)') ' Minimum |xl - xlp| distance: ', min_distance_xl_xlp
+            write(*,'(A,I6,A,I6)') ' Occurred at l = ', min_dist_l, ', lp = ', min_dist_lp
+            write(*,'(A,I6)') ' Maximum index distance |l - lp|: ', max_index_distance
+            write(*,'(A,I6,A,I6)') ' Occurred at l = ', max_idx_l, ', lp = ', max_idx_lp
+            write(*,'(A,I6)') ' Minimum index distance |l - lp|: ', min_index_distance
+            write(*,'(A,I6,A,I6)') ' Occurred at l = ', min_idx_l, ', lp = ', min_idx_lp
+            write(*,*) '============================================================='
+        end if
 
         ! Record start wall time for ETA calculation
         call system_clock(start_count, count_rate, count_max)
@@ -210,19 +222,6 @@ module electrostatic_kernel_adaptive_mod
         
         write(*,*)
         write(*,*) 'Finished filling kernels.'
-        
-        if (artificial_debye_case) return
-
-        write(*,*) '======== Kernel Distance Diagnostics (Fokker-Planck) ========'
-        write(*,'(A,F12.6)') ' Maximum |xl - xlp| distance: ', max_distance_xl_xlp
-        write(*,'(A,I6,A,I6)') ' Occurred at l = ', max_dist_l, ', lp = ', max_dist_lp
-        write(*,'(A,F12.6)') ' Minimum |xl - xlp| distance: ', min_distance_xl_xlp
-        write(*,'(A,I6,A,I6)') ' Occurred at l = ', min_dist_l, ', lp = ', min_dist_lp
-        write(*,'(A,I6)') ' Maximum index distance |l - lp|: ', max_index_distance
-        write(*,'(A,I6,A,I6)') ' Occurred at l = ', max_idx_l, ', lp = ', max_idx_lp
-        write(*,'(A,I6)') ' Minimum index distance |l - lp|: ', min_index_distance
-        write(*,'(A,I6,A,I6)') ' Occurred at l = ', min_idx_l, ', lp = ', min_idx_lp
-        write(*,*) '============================================================='
 
     end subroutine
 

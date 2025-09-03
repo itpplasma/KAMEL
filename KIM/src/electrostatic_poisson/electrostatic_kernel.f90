@@ -560,7 +560,7 @@ module electrostatic_kernel_m
 
                 if (artificial_debye_case) cycle
 
-                ! Calculate distance for taper weighting
+                ! Calculate distance and weight for taper weighting
                 current_distance = abs(int_point%xl - int_point%xlp)
 
                 ! Smoothly taper contributions for large separations; optionally skip tiny weights
@@ -570,19 +570,12 @@ module electrostatic_kernel_m
                     eps_r = 1.0d-12
                     weight = exp( - ( current_distance / (alpha_loc * max(int_point%rhoT, eps_r)) )**2.0d0 )
                     if (weight < kernel_taper_skip_threshold) cycle
-                end block
 
-                int_F1%int_point = int_point
-                int_F2%int_point = int_point
-                int_F3%int_point = int_point
+                    int_F1%int_point = int_point
+                    int_F2%int_point = int_point
+                    int_F3%int_point = int_point
 
-                block
-                    real(dp) :: eps_r, alpha, pexp, weight
-                    eps_r = 1.0d-12
-                    alpha = Larmor_skip_factor
-                    weight = exp( - ( current_distance / (alpha * max(int_point%rhoT, eps_r)) )**2.0d0 )
-                    if (weight < kernel_taper_skip_threshold) cycle
-
+                    ! F1 integration
                     call gauss_integrate_F1(int_F1, integral_val, gauss_conf)
 
                     block
@@ -620,16 +613,8 @@ module electrostatic_kernel_m
                         c_j_B = (t - k_j_B) - y
                         k_j_B = t
                     end block
-                end block
 
-
-                block
-                    real(dp) :: eps_r, alpha, pexp, weight
-                    eps_r = 1.0d-12
-                    alpha = Larmor_skip_factor
-                    weight = exp( - ( current_distance / (alpha * max(int_point%rhoT, eps_r)) )**2.0d0 )
-                    if (weight < kernel_taper_skip_threshold) cycle
-
+                    ! F2 integration
                     call gauss_integrate_F2(int_F2, integral_val, gauss_conf)
 
                     block
@@ -667,16 +652,8 @@ module electrostatic_kernel_m
                         c_j_B = (t - k_j_B) - y
                         k_j_B = t
                     end block
-                end block
 
-                call gauss_integrate_F3(int_F3, integral_val, gauss_conf)
-                block
-                    real(dp) :: eps_r, alpha, pexp, weight
-                    eps_r = 1.0d-12
-                    alpha = Larmor_skip_factor
-                    weight = exp( - ( current_distance / (alpha * max(int_point%rhoT, eps_r)) )**2.0d0 )
-                    if (weight < kernel_taper_skip_threshold) cycle
-
+                    ! F3 integration
                     call gauss_integrate_F3(int_F3, integral_val, gauss_conf)
 
                     block

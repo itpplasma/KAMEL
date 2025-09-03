@@ -289,7 +289,7 @@ module electrostatic_kernel_adaptive_mod
 
                 if (artificial_debye_case) cycle
 
-                ! Calculate distance for taper weighting
+                ! Calculate distance and weight for taper weighting
                 current_distance = abs(context%xl - context%xlp)
 
                 ! Smoothly taper contributions for large separations to avoid discontinuities
@@ -305,6 +305,7 @@ module electrostatic_kernel_adaptive_mod
                     weight = exp( - ( current_distance / (alpha * max(context%rhoT, eps_r)) )**pexp )
                     if (weight < kernel_taper_skip_threshold) cycle
 
+                    ! F1 integration
                     call rkf45_integrate_F1(integral_val, rkf45_conf, context)
 
                     block
@@ -342,16 +343,8 @@ module electrostatic_kernel_adaptive_mod
                         c_j_B = (t - k_j_B) - y
                         k_j_B = t
                     end block
-                end block
 
-                block
-                    real(dp) :: eps_r, alpha, pexp, weight
-                    eps_r = 1.0d-12
-                    alpha = Larmor_skip_factor
-                    pexp = 2.0d0
-                    weight = exp( - ( current_distance / (alpha * max(context%rhoT, eps_r)) )**pexp )
-                    if (weight < kernel_taper_skip_threshold) cycle
-
+                    ! F2 integration
                     call rkf45_integrate_F2(integral_val, rkf45_conf, context)
 
                     block
@@ -389,16 +382,8 @@ module electrostatic_kernel_adaptive_mod
                         c_j_B = (t - k_j_B) - y
                         k_j_B = t
                     end block
-                end block
 
-                block
-                    real(dp) :: eps_r, alpha, pexp, weight
-                    eps_r = 1.0d-12
-                    alpha = Larmor_skip_factor
-                    pexp = 2.0d0
-                    weight = exp( - ( current_distance / (alpha * max(context%rhoT, eps_r)) )**pexp )
-                    if (weight < kernel_taper_skip_threshold) cycle
-
+                    ! F3 integration
                     call rkf45_integrate_F3(integral_val, rkf45_conf, context)
 
                     block

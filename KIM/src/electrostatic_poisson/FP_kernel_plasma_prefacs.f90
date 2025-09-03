@@ -54,7 +54,8 @@ module FP_kernel_plasma_prefacs_m
 
         integer, intent(in) :: j
         type(species_t), intent(in) :: spec
-        real(dp) :: val, lambda, vT, nu, omega_c, ks
+        complex(dp) :: val
+        real(dp) :: lambda, vT, nu, omega_c, ks
 
         lambda = 0.5d0 * (spec%lambda_D(j) + spec%lambda_D(j+1))
         vT = 0.5d0 * (spec%vT(j) + spec%vT(j+1))

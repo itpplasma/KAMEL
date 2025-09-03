@@ -14,6 +14,13 @@ module electrostatic_kernel_m
     integer :: max_idx_l = 0, max_idx_lp = 0
     integer :: min_idx_l = 0, min_idx_lp = 0
 
+    ! Precomputed per-(species, rg-cell) prefactors on cell centers
+    complex(dp), allocatable, save :: pref_rho_phi_g1(:,:), pref_rho_phi_g2(:,:), pref_rho_phi_g3(:,:)
+    complex(dp), allocatable, save :: pref_rho_B_g1(:,:),  pref_rho_B_g2(:,:),  pref_rho_B_g3(:,:)
+    complex(dp), allocatable, save :: pref_j_phi_g1(:,:),  pref_j_phi_g2(:,:),  pref_j_phi_g3(:,:)
+    complex(dp), allocatable, save :: pref_j_B_g1(:,:),    pref_j_B_g2(:,:),    pref_j_B_g3(:,:)
+    logical,           save :: pref_ready = .false.
+
     type :: kernel_spl_t
         integer :: npts_l, npts_lp
         complex(dp), allocatable :: Kllp(:,:)
@@ -22,6 +29,15 @@ module electrostatic_kernel_m
     end type kernel_spl_t
 
     contains
+
+    ! Thread-safe wrapper to update loading bar from within OpenMP
+    subroutine update_bar(cur, tot, sc, cr)
+        use loading_bar_m, only: updateLoadingBarWithETA
+        implicit none
+        integer, intent(in) :: cur, tot
+        integer(kind=8), intent(in) :: sc, cr
+        call updateLoadingBarWithETA(cur, tot, sc, cr)
+    end subroutine update_bar
 
     subroutine init_kernel(this, npts_l, npts_lp)
 
@@ -37,6 +53,96 @@ module electrostatic_kernel_m
 
     end subroutine init_kernel
 
+    subroutine compute_cc_prefactors
+        use species_m, only: plasma
+        use grid_m,   only: rg_grid
+        use constants_m, only: com_unit, sol
+        implicit none
+        integer :: ns, j, sigma
+
+        ns = plasma%n_species
+        if (.not. allocated(pref_rho_phi_g1)) then
+            allocate(pref_rho_phi_g1(ns, rg_grid%npts_c))
+            allocate(pref_rho_phi_g2(ns, rg_grid%npts_c))
+            allocate(pref_rho_phi_g3(ns, rg_grid%npts_c))
+            allocate(pref_rho_B_g1(ns,  rg_grid%npts_c))
+            allocate(pref_rho_B_g2(ns,  rg_grid%npts_c))
+            allocate(pref_rho_B_g3(ns,  rg_grid%npts_c))
+            allocate(pref_j_phi_g1(ns,  rg_grid%npts_c))
+            allocate(pref_j_phi_g2(ns,  rg_grid%npts_c))
+            allocate(pref_j_phi_g3(ns,  rg_grid%npts_c))
+            allocate(pref_j_B_g1(ns,    rg_grid%npts_c))
+            allocate(pref_j_B_g2(ns,    rg_grid%npts_c))
+            allocate(pref_j_B_g3(ns,    rg_grid%npts_c))
+        end if
+
+        do sigma = 0, ns - 1
+            do j = 1, rg_grid%npts_c
+                pref_rho_phi_g1(sigma+1,j) = &
+                    ( (plasma%spec(sigma)%I00_cc(j) * (plasma%spec(sigma)%A1_cc(j) + plasma%spec(sigma)%A2_cc(j)) &
+                      + 0.5d0 * plasma%spec(sigma)%A2_cc(j) * plasma%spec(sigma)%I20_cc(j)) &
+                      * ( com_unit * plasma%spec(sigma)%vT_cc(j)**2.0d0 / &
+                          (plasma%spec(sigma)%omega_c_cc(j) * plasma%spec(sigma)%nu_cc(j)) ) ) &
+                    * (1.0d0/(plasma%spec(sigma)%lambda_D_cc(j)**2.0d0))
+                pref_rho_phi_g2(sigma+1,j) = &
+                    ( - plasma%spec(sigma)%I00_cc(j) * plasma%spec(sigma)%A2_cc(j) * &
+                      ( com_unit * plasma%spec(sigma)%vT_cc(j)**2.0d0 / &
+                        (plasma%spec(sigma)%omega_c_cc(j) * plasma%spec(sigma)%nu_cc(j)) ) ) &
+                    * (1.0d0/(plasma%spec(sigma)%lambda_D_cc(j)**2.0d0))
+                pref_rho_phi_g3(sigma+1,j) = &
+                    ( plasma%spec(sigma)%I00_cc(j) * plasma%spec(sigma)%A2_cc(j) * &
+                      ( com_unit * plasma%spec(sigma)%vT_cc(j)**2.0d0 / &
+                        (plasma%spec(sigma)%omega_c_cc(j) * plasma%spec(sigma)%nu_cc(j)) ) ) &
+                    * (1.0d0/(plasma%spec(sigma)%lambda_D_cc(j)**2.0d0))
+
+                pref_rho_B_g1(sigma+1,j) = &
+                    ( (plasma%spec(sigma)%I01_cc(j) * (plasma%spec(sigma)%A1_cc(j) + plasma%spec(sigma)%A2_cc(j)) &
+                       + 0.5d0 * plasma%spec(sigma)%A2_cc(j) * plasma%spec(sigma)%I21_cc(j)) ) &
+                    * ( - plasma%spec(sigma)%vT_cc(j)**3.0d0 / &
+                        (plasma%spec(sigma)%lambda_D_cc(j)**2.0d0 * plasma%spec(sigma)%omega_c_cc(j) * plasma%spec(sigma)%nu_cc(j) * sol) )
+                pref_rho_B_g2(sigma+1,j) = &
+                    ( - plasma%spec(sigma)%I01_cc(j) * plasma%spec(sigma)%A2_cc(j) ) &
+                    * ( - plasma%spec(sigma)%vT_cc(j)**3.0d0 / &
+                        (plasma%spec(sigma)%lambda_D_cc(j)**2.0d0 * plasma%spec(sigma)%omega_c_cc(j) * plasma%spec(sigma)%nu_cc(j) * sol) )
+                pref_rho_B_g3(sigma+1,j) = &
+                    ( plasma%spec(sigma)%I01_cc(j) * plasma%spec(sigma)%A2_cc(j) ) &
+                    * ( - plasma%spec(sigma)%vT_cc(j)**3.0d0 / &
+                        (plasma%spec(sigma)%lambda_D_cc(j)**2.0d0 * plasma%spec(sigma)%omega_c_cc(j) * plasma%spec(sigma)%nu_cc(j) * sol) )
+
+                pref_j_phi_g1(sigma+1,j) = &
+                    ( (plasma%spec(sigma)%I01_cc(j) * (plasma%spec(sigma)%A1_cc(j) + plasma%spec(sigma)%A2_cc(j)) &
+                       + 0.5d0 * plasma%spec(sigma)%A2_cc(j) * plasma%spec(sigma)%I21_cc(j)) ) &
+                    * ( com_unit * plasma%spec(sigma)%vT_cc(j)**3.0d0 / &
+                        (plasma%spec(sigma)%lambda_D_cc(j)**2.0d0 * plasma%spec(sigma)%omega_c_cc(j) * plasma%spec(sigma)%nu_cc(j)) )
+                pref_j_phi_g2(sigma+1,j) = &
+                    ( - plasma%spec(sigma)%I01_cc(j) * plasma%spec(sigma)%A2_cc(j) ) &
+                    * ( com_unit * plasma%spec(sigma)%vT_cc(j)**3.0d0 / &
+                        (plasma%spec(sigma)%lambda_D_cc(j)**2.0d0 * plasma%spec(sigma)%omega_c_cc(j) * plasma%spec(sigma)%nu_cc(j)) )
+                pref_j_phi_g3(sigma+1,j) = &
+                    ( plasma%spec(sigma)%I01_cc(j) * plasma%spec(sigma)%A2_cc(j) ) &
+                    * ( com_unit * plasma%spec(sigma)%vT_cc(j)**3.0d0 / &
+                        (plasma%spec(sigma)%lambda_D_cc(j)**2.0d0 * plasma%spec(sigma)%omega_c_cc(j) * plasma%spec(sigma)%nu_cc(j)) )
+
+                pref_j_B_g1(sigma+1,j) = &
+                    ( (plasma%spec(sigma)%I02_cc(j) * (plasma%spec(sigma)%A1_cc(j) + plasma%spec(sigma)%A2_cc(j)) &
+                       + 0.5d0 * plasma%spec(sigma)%A2_cc(j) * plasma%spec(sigma)%I22_cc(j)) ) &
+                    * ( - plasma%spec(sigma)%vT_cc(j)**4.0d0 / &
+                        (plasma%spec(sigma)%lambda_D_cc(j)**2.0d0 * plasma%spec(sigma)%omega_c_cc(j) * plasma%spec(sigma)%nu_cc(j) * sol) )
+                pref_j_B_g2(sigma+1,j) = &
+                    ( - plasma%spec(sigma)%I02_cc(j) * plasma%spec(sigma)%A2_cc(j) ) &
+                    * ( - plasma%spec(sigma)%vT_cc(j)**4.0d0 / &
+                        (plasma%spec(sigma)%lambda_D_cc(j)**2.0d0 * plasma%spec(sigma)%omega_c_cc(j) * plasma%spec(sigma)%nu_cc(j) * sol) )
+                pref_j_B_g3(sigma+1,j) = &
+                    ( plasma%spec(sigma)%I02_cc(j) * plasma%spec(sigma)%A2_cc(j) ) &
+                    * ( - plasma%spec(sigma)%vT_cc(j)**4.0d0 / &
+                        (plasma%spec(sigma)%lambda_D_cc(j)**2.0d0 * plasma%spec(sigma)%omega_c_cc(j) * plasma%spec(sigma)%nu_cc(j) * sol) )
+            end do
+        end do
+
+        pref_ready = .true.
+    end subroutine compute_cc_prefactors
+
+    ! TODO: Update Krook routines to the same procedure as FP routines
     subroutine Krook_fill_kernel_phi(K_rho_phi_llp, K_rho_B_llp)
 
         use KIM_kinds_m, only: dp
@@ -206,7 +312,10 @@ module electrostatic_kernel_m
 
         use KIM_kinds_m, only: dp
         use electrostatic_integrals_gauss_mod, only: gauss_config_t, init_gauss_int
-        use grid_m, only: Larmor_skip_factor, gauss_int_nodes_Ntheta, gauss_int_nodes_Nx, gauss_int_nodes_Nxp
+        use grid_m, only: Larmor_skip_factor, gauss_int_nodes_Ntheta, gauss_int_nodes_Nx, gauss_int_nodes_Nxp, &
+                          kernel_taper_skip_threshold, rg_grid, xl_grid
+        use species_m, only: plasma
+        use config_m, only: output_path, artificial_debye_case
 
         implicit none
 
@@ -216,6 +325,10 @@ module electrostatic_kernel_m
         type(kernel_spl_t), intent(inout) :: K_j_B_llp
         type(gauss_config_t) :: gauss_conf
         integer :: l, lp
+        real(dp) :: dmax_global, alpha, tau
+        integer :: sigma
+        integer :: total_iterations, current_iteration
+        integer(kind=8) :: start_count, count_rate, count_max
 
         gauss_conf%Nx = gauss_int_nodes_Nx
         gauss_conf%Nxp = gauss_int_nodes_Nxp
@@ -223,11 +336,50 @@ module electrostatic_kernel_m
 
         call init_gauss_int(gauss_conf)
 
-        write(*,*) 'Filling Fokker-Planck collision kernels...'
+        if (.not. pref_ready) call compute_cc_prefactors
 
-        !$omp parallel do collapse(1) private(l,lp)
+        write(*,*) 'Filling Fokker-Planck collision kernels (Gauss)...'
+
+        ! Calculate total number of iterations for the loading bar
+        total_iterations = K_rho_phi_llp%npts_l * (K_rho_phi_llp%npts_l + 1) / 2
+        current_iteration = 0
+
+        ! Record start wall time for ETA calculation
+        call system_clock(start_count, count_rate, count_max)
+
+        ! Compute a global band-limit distance dmax using Larmor taper and skip threshold
+        alpha = Larmor_skip_factor
+        tau   = max(kernel_taper_skip_threshold, 1.0d-12)
+        block
+            real(dp) :: rhoT_max
+            rhoT_max = 0.0d0
+            do sigma = 0, plasma%n_species - 1
+                if (allocated(plasma%spec(sigma)%rho_L_cc)) then
+                    rhoT_max = max(rhoT_max, maxval(plasma%spec(sigma)%rho_L_cc))
+                end if
+            end do
+            dmax_global = alpha * rhoT_max * sqrt(max(log(1.0d0/tau), 0.0d0))
+        end block
+
+        !$omp parallel do schedule(dynamic) default(shared) private(l,lp)
         do l = 1, K_rho_phi_llp%npts_l
-            do lp = 1, l
+            block
+                real(dp) :: xl_val
+                integer :: lp_lo, lp_hi
+                xl_val = xl_grid%xb(l)
+                lp_lo = l
+                do
+                    if (lp_lo <= 1) exit
+                    if (abs(xl_grid%xb(lp_lo-1) - xl_val) > dmax_global) exit
+                    lp_lo = lp_lo - 1
+                end do
+                lp_hi = l
+                do
+                    if (lp_hi >= K_rho_phi_llp%npts_l) exit
+                    if (abs(xl_grid%xb(lp_hi+1) - xl_val) > dmax_global) exit
+                    lp_hi = lp_hi + 1
+                end do
+                do lp = max(1,lp_lo), min(l,lp_hi)
 
                 call FP_calc_kernels(l, lp, K_rho_phi_llp%Kllp(l, lp),&
                                             K_rho_B_llp%Kllp(l, lp), &
@@ -257,11 +409,24 @@ module electrostatic_kernel_m
                 K_rho_B_llp%Kllp(lp, l) = K_rho_B_llp%Kllp(l, lp)
                 K_j_phi_llp%Kllp(lp, l) = K_j_phi_llp%Kllp(l, lp)
                 K_j_B_llp%Kllp(lp, l) = K_j_B_llp%Kllp(l, lp)
-            end do
+
+                !$omp atomic
+                current_iteration = current_iteration + 1
+                !$omp critical(loading_bar)
+                if (mod(current_iteration, 32) == 0 .or. current_iteration == total_iterations) then
+                    call update_bar(current_iteration, total_iterations, start_count, count_rate)
+                end if
+                !$omp end critical(loading_bar)
+                end do
+            end block
         end do
         !$omp end parallel do
-        
-        ! Print diagnostic information
+
+        write(*,*)
+        write(*,*) 'Finished filling kernels.'
+
+        if (artificial_debye_case) return
+
         write(*,*) '======== Kernel Distance Diagnostics (Fokker-Planck) ========'
         write(*,'(A,F12.6)') ' Maximum |xl - xlp| distance: ', max_distance_xl_xlp
         write(*,'(A,I6,A,I6)') ' Occurred at l = ', max_dist_l, ', lp = ', max_dist_lp
@@ -285,17 +450,16 @@ module electrostatic_kernel_m
         use constants_m, only: pi
         use electrostatic_integrands_gauss_mod, only: gauss_int_F0_rho_phi_t, gauss_int_F1_rho_phi_t, gauss_int_F2_rho_phi_t, gauss_int_F3_rho_phi_t, &
             integration_point_t
-        use FP_kernel_plasma_prefacs_m, only: FP_G1_rho_phi, FP_G1_rho_B, FP_G2_rho_B, FP_G3_rho_B, &
-            FP_G2_rho_phi, FP_G3_rho_phi, FP_kappa_rho_phi, FP_kappa_rho_B, FP_G0_rho_phi, &
-            FP_kappa_j_phi, FP_kappa_j_B, FP_G1_j_phi, FP_G2_j_phi, FP_G3_j_phi, &
-            FP_G1_j_B, FP_G2_j_B, FP_G3_j_B
-        use grid_m, only: Larmor_skip_factor
-        use config_m, only: turn_off_ions
+        use FP_kernel_plasma_prefacs_m, only: FP_G0_rho_phi
+        use grid_m, only: Larmor_skip_factor, kernel_taper_skip_threshold, rg_grid
+        use constants_m, only: com_unit, sol
+        use config_m, only: turn_off_ions, turn_off_electrons, artificial_debye_case
         
         implicit none
 
         integer, intent(in) :: l, lp
         complex(dp) :: k_rho_phi, k_rho_B, k_j_phi, k_j_B
+        complex(dp) :: c_rho_phi, c_rho_B, c_j_phi, c_j_B  ! Kahan compensation terms
         integer :: j, sigma
         type(gauss_config_t), intent(in) :: gauss_conf
         real(dp) :: integral_val
@@ -307,32 +471,53 @@ module electrostatic_kernel_m
         type(gauss_int_F1_rho_phi_t) :: int_F1
         type(gauss_int_F2_rho_phi_t) :: int_F2
         type(gauss_int_F3_rho_phi_t) :: int_F3
-        
-        k_rho_phi = 0.0d0
-        k_rho_B = 0.0d0
-        k_j_phi = 0.0d0
-        k_j_B = 0.0d0
+
+        k_rho_phi = (0.0d0, 0.0d0)
+        k_rho_B = (0.0d0, 0.0d0)
+        k_j_phi = (0.0d0, 0.0d0)
+        k_j_B = (0.0d0, 0.0d0)
+        c_rho_phi = (0.0d0, 0.0d0)
+        c_rho_B   = (0.0d0, 0.0d0)
+        c_j_phi   = (0.0d0, 0.0d0)
+        c_j_B     = (0.0d0, 0.0d0)
 
         call set_xl_at_edge(l, lp, int_point)
 
         do sigma = 0, plasma%n_species - 1
             if (turn_off_ions .and. sigma >= 1) cycle
-            do j = 2, size(plasma%r_grid)-1
+            if (turn_off_electrons .and. sigma == 0) cycle
+            do j = 1, rg_grid%npts_b-1
                 int_point%j = j
-                int_point%rhoT = 0.5d0 * (plasma%spec(sigma)%rho_L(j) + plasma%spec(sigma)%rho_L(j+1))
+                int_point%rhoT = max(plasma%spec(sigma)%rho_L_cc(j), 0.0d0)
+                int_point%ks = plasma%ks_cc(j)
 
-                if (l == lp) then
-                    int_F0%int_point = int_point
-                    call gauss_integrate_F0(int_F0, int_point%xlm1, int_point%xlp1, integral_val, gauss_conf)
-                    k_rho_phi = k_rho_phi &
-                        + integral_val * FP_G0_rho_phi(j, plasma%spec(sigma)) * FP_kappa_rho_phi(j, plasma%spec(sigma))
+                if (abs(l-lp)<=1) then
+                    block
+                        complex(dp) :: add, y, t
+                        int_F0%int_point = int_point
+                        call gauss_integrate_F0(int_F0, int_point%xlm1, int_point%xlp1, integral_val, gauss_conf)
+                        add = integral_val * (-1.0d0) * (1.0d0 / (plasma%spec(sigma)%lambda_D_cc(j)**2.0d0))
+                        ! Kahan summation for k_rho_phi
+                        y = add - c_rho_phi
+                        t = k_rho_phi + y
+                        c_rho_phi = (t - k_rho_phi) - y
+                        k_rho_phi = t
+                    end block
                 end if
+
+                if (artificial_debye_case) cycle
 
                 ! Track maximum distances for diagnostics
                 current_distance = abs(int_point%xl - int_point%xlp)
 
-                ! skip the kernel calculation for distances that are not connected
-                if (current_distance > Larmor_skip_factor * int_point%rhoT) cycle
+                ! Smoothly taper contributions for large separations; optionally skip tiny weights
+                block
+                    real(dp) :: alpha_loc, eps_r, weight
+                    alpha_loc = Larmor_skip_factor
+                    eps_r = 1.0d-12
+                    weight = exp( - ( current_distance / (alpha_loc * max(int_point%rhoT, eps_r)) )**2.0d0 )
+                    if (weight < kernel_taper_skip_threshold) cycle
+                end block
 
                 current_idx_distance = abs(l - lp)
                 
@@ -363,29 +548,145 @@ module electrostatic_kernel_m
                 int_F2%int_point = int_point
                 int_F3%int_point = int_point
 
-                call gauss_integrate_F1(int_F1, integral_val, gauss_conf)
+                block
+                    real(dp) :: eps_r, alpha, pexp, weight
+                    eps_r = 1.0d-12
+                    alpha = Larmor_skip_factor
+                    weight = exp( - ( current_distance / (alpha * max(int_point%rhoT, eps_r)) )**2.0d0 )
+                    if (weight < kernel_taper_skip_threshold) cycle
 
-                k_rho_phi = k_rho_phi + integral_val * FP_G1_rho_phi(j, plasma%spec(sigma)) * FP_kappa_rho_phi(j, plasma%spec(sigma))
-                k_rho_B   = k_rho_B   + integral_val * FP_G1_rho_B(j, plasma%spec(sigma))   * FP_kappa_rho_B(j, plasma%spec(sigma))
+                    call gauss_integrate_F1(int_F1, integral_val, gauss_conf)
 
-                k_j_phi   = k_j_phi   + integral_val * FP_G1_j_phi(j, plasma%spec(sigma))   * FP_kappa_j_phi(j, plasma%spec(sigma))
-                k_j_B     = k_j_B     + integral_val * FP_G1_j_B(j, plasma%spec(sigma))     * FP_kappa_j_B(j, plasma%spec(sigma))
+                    block
+                        complex(dp) :: add, y, t
+                        add = weight * integral_val * pref_rho_phi_g1(sigma+1,j) * int_point%ks
+                        y = add - c_rho_phi
+                        t = k_rho_phi + y
+                        c_rho_phi = (t - k_rho_phi) - y
+                        k_rho_phi = t
+                    end block
 
-                call gauss_integrate_F2(int_F2, integral_val, gauss_conf)
+                    block
+                        complex(dp) :: add, y, t
+                        add = weight * integral_val * pref_rho_B_g1(sigma+1,j)
+                        y = add - c_rho_B
+                        t = k_rho_B + y
+                        c_rho_B = (t - k_rho_B) - y
+                        k_rho_B = t
+                    end block
 
-                k_rho_phi = k_rho_phi + integral_val * FP_G2_rho_phi(j, plasma%spec(sigma)) * FP_kappa_rho_phi(j, plasma%spec(sigma))
-                k_rho_B   = k_rho_B   + integral_val * FP_G2_rho_B(j, plasma%spec(sigma))   * FP_kappa_rho_B(j, plasma%spec(sigma))
+                    block
+                        complex(dp) :: add, y, t
+                        add = weight * integral_val * pref_j_phi_g1(sigma+1,j) * int_point%ks
+                        y = add - c_j_phi
+                        t = k_j_phi + y
+                        c_j_phi = (t - k_j_phi) - y
+                        k_j_phi = t
+                    end block
 
-                k_j_phi   = k_j_phi   + integral_val * FP_G2_j_phi(j, plasma%spec(sigma))   * FP_kappa_j_phi(j, plasma%spec(sigma))
-                k_j_B     = k_j_B     + integral_val * FP_G2_j_B(j, plasma%spec(sigma))     * FP_kappa_j_B(j, plasma%spec(sigma))
+                    block
+                        complex(dp) :: add, y, t
+                        add = weight * integral_val * pref_j_B_g1(sigma+1,j)
+                        y = add - c_j_B
+                        t = k_j_B + y
+                        c_j_B = (t - k_j_B) - y
+                        k_j_B = t
+                    end block
+                end block
+
+
+                block
+                    real(dp) :: eps_r, alpha, pexp, weight
+                    eps_r = 1.0d-12
+                    alpha = Larmor_skip_factor
+                    weight = exp( - ( current_distance / (alpha * max(int_point%rhoT, eps_r)) )**2.0d0 )
+                    if (weight < kernel_taper_skip_threshold) cycle
+
+                    call gauss_integrate_F2(int_F2, integral_val, gauss_conf)
+
+                    block
+                        complex(dp) :: add, y, t
+                        add = weight * integral_val * pref_rho_phi_g2(sigma+1,j) * int_point%ks
+                        y = add - c_rho_phi
+                        t = k_rho_phi + y
+                        c_rho_phi = (t - k_rho_phi) - y
+                        k_rho_phi = t
+                    end block
+
+                    block
+                        complex(dp) :: add, y, t
+                        add = weight * integral_val * pref_rho_B_g2(sigma+1,j)
+                        y = add - c_rho_B
+                        t = k_rho_B + y
+                        c_rho_B = (t - k_rho_B) - y
+                        k_rho_B = t
+                    end block
+
+                    block
+                        complex(dp) :: add, y, t
+                        add = weight * integral_val * pref_j_phi_g2(sigma+1,j) * int_point%ks
+                        y = add - c_j_phi
+                        t = k_j_phi + y
+                        c_j_phi = (t - k_j_phi) - y
+                        k_j_phi = t
+                    end block
+
+                    block
+                        complex(dp) :: add, y, t
+                        add = weight * integral_val * pref_j_B_g2(sigma+1,j)
+                        y = add - c_j_B
+                        t = k_j_B + y
+                        c_j_B = (t - k_j_B) - y
+                        k_j_B = t
+                    end block
+                end block
 
                 call gauss_integrate_F3(int_F3, integral_val, gauss_conf)
+                block
+                    real(dp) :: eps_r, alpha, pexp, weight
+                    eps_r = 1.0d-12
+                    alpha = Larmor_skip_factor
+                    weight = exp( - ( current_distance / (alpha * max(int_point%rhoT, eps_r)) )**2.0d0 )
+                    if (weight < kernel_taper_skip_threshold) cycle
 
-                k_rho_phi = k_rho_phi + integral_val * FP_G3_rho_phi(j, plasma%spec(sigma)) * FP_kappa_rho_phi(j, plasma%spec(sigma))
-                k_rho_B   = k_rho_B   + integral_val * FP_G3_rho_B(j, plasma%spec(sigma))   * FP_kappa_rho_B(j, plasma%spec(sigma))
+                    call gauss_integrate_F3(int_F3, integral_val, gauss_conf)
 
-                k_j_phi   = k_j_phi   + integral_val * FP_G3_j_phi(j, plasma%spec(sigma))   * FP_kappa_j_phi(j, plasma%spec(sigma))
-                k_j_B     = k_j_B     + integral_val * FP_G3_j_B(j, plasma%spec(sigma))     * FP_kappa_j_B(j, plasma%spec(sigma))
+                    block
+                        complex(dp) :: add, y, t
+                        add = weight * integral_val * pref_rho_phi_g3(sigma+1,j) * int_point%ks
+                        y = add - c_rho_phi
+                        t = k_rho_phi + y
+                        c_rho_phi = (t - k_rho_phi) - y
+                        k_rho_phi = t
+                    end block
+
+                    block
+                        complex(dp) :: add, y, t
+                        add = weight * integral_val * pref_rho_B_g3(sigma+1,j)
+                        y = add - c_rho_B
+                        t = k_rho_B + y
+                        c_rho_B = (t - k_rho_B) - y
+                        k_rho_B = t
+                    end block
+
+                    block
+                        complex(dp) :: add, y, t
+                        add = weight * integral_val * pref_j_phi_g3(sigma+1,j) * int_point%ks
+                        y = add - c_j_phi
+                        t = k_j_phi + y
+                        c_j_phi = (t - k_j_phi) - y
+                        k_j_phi = t
+                    end block
+
+                    block
+                        complex(dp) :: add, y, t
+                        add = weight * integral_val * pref_j_B_g3(sigma+1,j)
+                        y = add - c_j_B
+                        t = k_j_B + y
+                        c_j_B = (t - k_j_B) - y
+                        k_j_B = t
+                    end block
+                end block
 
             end do
         end do
@@ -413,30 +714,35 @@ module electrostatic_kernel_m
         int_point%xl = xl_grid%xb(l)
         int_point%xlp = xl_grid%xb(lp)
 
-        ! handle kernel edges
+        ! Handle lower boundary with symmetric extrapolation
         if (l == 1) then
-            int_point%xlm1 = xl_grid%xb(l)
+            int_point%xlm1 = 2.0d0*xl_grid%xb(1) - xl_grid%xb(2)  ! Extrapolate
         else
             int_point%xlm1 = xl_grid%xb(l-1)
         end if
+        
         if (lp == 1) then
-            int_point%xlpm1 = xl_grid%xb(lp)
+            int_point%xlpm1 = 2.0d0*xl_grid%xb(1) - xl_grid%xb(2)  ! Fixed: symmetric extrapolation
         else
             int_point%xlpm1 = xl_grid%xb(lp-1)
         end if
+        
+        ! Handle upper boundary with symmetric extrapolation
         if (l == xl_grid%npts_b) then
-            int_point%xlp1 = xl_grid%xb(l)
+            int_point%xlp1 = 2.0d0*xl_grid%xb(l) - xl_grid%xb(l-1)  ! Fixed: extrapolation
         else
             int_point%xlp1 = xl_grid%xb(l+1)
         end if
+        
         if (lp == xl_grid%npts_b) then
-            int_point%xlpp1 = xl_grid%xb(lp)
+            int_point%xlpp1 = 2.0d0*xl_grid%xb(lp) - xl_grid%xb(lp-1)  ! Fixed: extrapolation
         else
             int_point%xlpp1 = xl_grid%xb(lp+1)
         end if
 
     end subroutine
 
+    ! TODO: Update combined Krook FP routine to use the same procedure as FP case
     subroutine fill_kernels_krook_fp(kernel_krook_rho_phi, kernel_krook_rho_B, &
                                       kernel_fp_rho_phi, kernel_fp_rho_B)
         !> Unified subroutine to fill both Krook and Fokker-Planck kernels
@@ -622,4 +928,3 @@ module electrostatic_kernel_m
     end subroutine fill_kernels_krook_fp
 
 end module
-

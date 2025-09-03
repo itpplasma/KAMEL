@@ -37,16 +37,20 @@ KIM is configured via the namelist file KIM_config.nml containing multiple namel
 - hrmax_scaling ... double, scaling factor for maximum grid spacing
 - k_space_dim ... integer, dimension of the k space
 - l_space_dim ... integer, dimension of the spline space
-- reduce_r ... boolean, if true reduces r dim of the input profiles
-- reduced_rg_dim ... integer, dimension of reduced r dim
-- grid_spacing ... integer, choose type of grid spacing (1=equidistant, 2=non-equidistant, 3=adaptive)
+- rg_space_dim ... integer, number of r_g grid points (cell boundaries)
+ - grid_spacing_rg ... string, r_g grid spacing: "equidistant", "non-equidistant", or "adaptive"
+ - grid_spacing_xl ... string, x_l grid spacing: "equidistant", "non-equidistant", or "adaptive"
 - num_gengrid_points ... integer, minimal number of grid points in the l grid
 - kr_grid_width_res ... double, width parameter for k-space grid near resonance
 - kr_grid_ampl_res ... double, amplitude parameter for k-space grid near resonance
-- Larmor_skip_factor ... double, scale factor. For elements with |xl-xl'| > Larmor_skip_factor * rhoT, skip calculation
+- theta_integration ... string, angular integration method: "RKF45" (adaptive) or "GaussLegendre" (fixed)
+- rkf45_atol ... double, absolute tolerance for RKF45 adaptive θ-integration
+- rkf45_rtol ... double, relative tolerance for RKF45 adaptive θ-integration
+- kernel_taper_skip_threshold ... double, threshold for skipping a kernel contribution when the distance-based taper weight falls below this value
+- Larmor_skip_factor ... double, scaling of the distance-based taper exp(-(d/(alpha*rhoT))^2); larger values reduce skipping by broadening support
 - gauss_int_nodes_Nx ... integer, number of Gauss integration nodes in x direction (should differ from Nxp)
 - gauss_int_nodes_Nxp ... integer, number of Gauss integration nodes in x' direction
-- gauss_int_nodes_Ntheta ... integer, number of Gauss integration nodes in theta direction
+- gauss_int_nodes_Ntheta ... integer, number of Gauss integration nodes in theta direction (used only when theta_integration = "GaussLegendre")
 
 ## KIM_SPECIES
 - zi ... integer array, ion charge numbers (e.g., zi = 1, 2 for H+ and He++)

@@ -10,6 +10,7 @@ module config_m
     logical :: artificial_debye_case
     logical :: kernel_debye_case
     logical :: turn_off_ions ! if true, only the first species (electrons) is considered in calculations
+    logical :: turn_off_electrons
 
     ! KIM_IO namelist variables
     character(256) :: profile_location ! path to profile directory

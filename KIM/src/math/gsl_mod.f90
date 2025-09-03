@@ -20,4 +20,13 @@ module gsl_mod
         end function gsl_sf_erf
     end interface
 
+    interface
+        function gsl_sf_erfc(x) bind(C, name="gsl_sf_erfc")
+            use, intrinsic :: iso_c_binding
+            implicit none
+            real(c_double), value :: x
+            real(c_double) :: gsl_sf_erfc
+        end function gsl_sf_erfc
+    end interface
+
 end module 

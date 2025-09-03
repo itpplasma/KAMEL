@@ -1,7 +1,6 @@
 subroutine prepare_resonances
 
     use resonances_mod
-    use grid_m, only: grid_spacing
     use config_m, only: hdf5_output
     use setup_m, only: m_mode, n_mode, type_br_field
     use species_m, only: plasma

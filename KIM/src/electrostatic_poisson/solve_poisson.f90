@@ -20,7 +20,8 @@ module poisson_solver_m
         complex(dp), intent(in) :: K_rho_B(:,:)
         complex(dp), dimension(:), allocatable, intent(out) :: phi_sol
         complex(dp), dimension(:), allocatable :: A_nz ! non-zero elements of A matrix
-        complex(dp), dimension(:,:), allocatable :: A_mat ! A matrix
+        complex(dp), dimension(:,:), allocatable :: A_mat ! A matrix (stiffness matrix in the beginning, then full right hand side matrix)
+        real(dp), dimension(:,:), allocatable :: M_mat ! mass matrix
         complex(dp), dimension(:), allocatable :: b_vec ! b vector and x vector
         integer, dimension(:), allocatable :: irow, pcol
         integer :: nz_out, nrow, ncol
@@ -30,8 +31,9 @@ module poisson_solver_m
 
         if (fstatus == 1) write(*,*) 'Status: solve poisson equation'
 
-        allocate(A_mat(xl_grid%npts_b, xl_grid%npts_b))
+        allocate(A_mat(xl_grid%npts_b, xl_grid%npts_b), M_mat(xl_grid%npts_b, xl_grid%npts_b))
         call prepare_Laplace_matrix(A_mat)
+        call calc_mass_matrix(M_mat)
 
         call check_kernels_for_nans(K_rho_phi)
         call check_kernels_for_nans(K_rho_B)
@@ -247,9 +249,46 @@ module poisson_solver_m
         ! Overwrite last row to enforce Phi_n = 0
         A_mat(n,:) = cmplx(0.0d0, 0.0d0, dp)
         A_mat(n,n) = cmplx(1.0d0, 0.0d0, dp)
+
+        A_mat = - A_mat ! this definition includes the negative sign from the Poisson equation
         
         call write_matrix(trim(output_path)//'kernel/laplacian_re.dat', real(A_mat), xl_grid%npts_b, xl_grid%npts_b)
 
+    end subroutine
+
+    subroutine calc_mass_matrix(M_mat)
+
+        use KIM_kinds_m, only: dp
+        use grid_m, only: xl_grid
+        use config_m, only: output_path
+        use IO_collection_m, only: write_matrix
+
+        implicit none
+
+        real(dp), intent(inout) :: M_mat(:,:)
+        real(dp) :: h
+
+        integer :: i, n
+
+        M_mat = 0.0d0
+        n = xl_grid%npts_b
+
+        do i = 1, xl_grid%npts_b-1
+            h = xl_grid%xb(i+1) - xl_grid%xb(i)
+
+            M_mat(i,  i  ) = M_mat(i,  i  ) + 2.0d0*h/6.0d0
+            M_mat(i,  i+1) = M_mat(i,  i+1) + 1.0d0*h/6.0d0
+            M_mat(i+1,i  ) = M_mat(i+1,i  ) + 1.0d0*h/6.0d0
+            M_mat(i+1,i+1) = M_mat(i+1,i+1) + 2.0d0*h/6.0d0
+        end do
+
+        ! Enforce Dirichlet BC at right boundary: Phi_n = 0
+        ! This ensures consistency with A_mat boundary conditions
+        M_mat(n,:) = 0.0d0
+        M_mat(:,n) = 0.0d0
+        M_mat(n,n) = 1.0d0
+
+        call write_matrix(trim(output_path)//'kernel/mass_matrix.dat', M_mat, xl_grid%npts_b, xl_grid%npts_b)
     end subroutine
 
 

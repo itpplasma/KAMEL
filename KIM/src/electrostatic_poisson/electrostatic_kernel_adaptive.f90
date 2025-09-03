@@ -10,6 +10,15 @@ module electrostatic_kernel_adaptive_mod
 
     contains
 
+    ! Thread-safe wrapper to update loading bar from within OpenMP regions
+    subroutine update_bar(cur, tot, sc, cr)
+        use loading_bar_m, only: updateLoadingBarWithETA
+        implicit none
+        integer, intent(in) :: cur, tot
+        integer(kind=8), intent(in) :: sc, cr
+        call updateLoadingBarWithETA(cur, tot, sc, cr)
+    end subroutine update_bar
+
     subroutine init_kernel(this, npts_l, npts_lp)
 
         implicit none
@@ -28,8 +37,12 @@ module electrostatic_kernel_adaptive_mod
 
         use KIM_kinds_m, only: dp
         use electrostatic_integrals_rkf45_mod, only: rkf45_config_t, init_rkf45_int
-        use grid_m, only: Larmor_skip_factor, gauss_int_nodes_Ntheta, gauss_int_nodes_Nx, gauss_int_nodes_Nxp
+        use grid_m, only: Larmor_skip_factor, gauss_int_nodes_Ntheta, gauss_int_nodes_Nx, gauss_int_nodes_Nxp, &
+                          kernel_taper_skip_threshold, rg_grid, xl_grid
+        use species_m, only: plasma
         use loading_bar_m, only: updateLoadingBarWithETA
+        use electrostatic_kernel_m, only: compute_cc_prefactors, pref_ready
+        use config_m, only: artificial_debye_case
 
         implicit none
 
@@ -41,23 +54,83 @@ module electrostatic_kernel_adaptive_mod
         integer :: l, lp
         integer :: total_iterations, current_iteration
         integer(kind=8) :: start_count, count_rate, count_max
+        real(dp) :: dmax_global
+        real(dp) :: alpha, tau
+        integer :: sigma, j
 
         rkf45_conf%Nx = gauss_int_nodes_Nx
         rkf45_conf%Nxp = gauss_int_nodes_Nxp
 
         call init_rkf45_int(rkf45_conf)
 
+        if (.not. pref_ready) call compute_cc_prefactors
+
+        ! (j_B prefactors are computed inside compute_cc_prefactors)
+
+        ! Compute a global band-limit distance dmax using Larmor taper and skip threshold
+        alpha = Larmor_skip_factor
+        tau   = max(kernel_taper_skip_threshold, 1.0d-12)
+        block
+            real(dp) :: rhoT_max
+            rhoT_max = 0.0d0
+            do sigma = 0, plasma%n_species - 1
+                if (allocated(plasma%spec(sigma)%rho_L_cc)) then
+                    rhoT_max = max(rhoT_max, maxval(plasma%spec(sigma)%rho_L_cc))
+                end if
+            end do
+            dmax_global = alpha * rhoT_max * sqrt(max(log(1.0d0/tau), 0.0d0))
+        end block
+
         write(*,*) 'Filling Fokker-Planck collision kernels...'
 
-        ! Calculate total number of iterations for the loading bar
-        total_iterations = K_rho_phi_llp%npts_l * (K_rho_phi_llp%npts_l + 1) / 2
+        ! Calculate actual number of iterations accounting for band-limiting
+        total_iterations = 0
+        do l = 1, K_rho_phi_llp%npts_l
+            block
+                real(dp) :: xl_val
+                integer :: lp_lo, lp_hi
+                xl_val = xl_grid%xb(l)
+                lp_lo = l
+                do
+                    if (lp_lo <= 1) exit
+                    if (abs(xl_grid%xb(lp_lo-1) - xl_val) > dmax_global) exit
+                    lp_lo = lp_lo - 1
+                end do
+                lp_hi = l
+                do
+                    if (lp_hi >= K_rho_phi_llp%npts_l) exit
+                    if (abs(xl_grid%xb(lp_hi+1) - xl_val) > dmax_global) exit
+                    lp_hi = lp_hi + 1
+                end do
+                total_iterations = total_iterations + (min(l,lp_hi) - max(1,lp_lo) + 1)
+            end block
+        end do
         current_iteration = 0
+        write(*,*) 'Total band-limited iterations: ', total_iterations
 
         ! Record start wall time for ETA calculation
         call system_clock(start_count, count_rate, count_max)
 
+        !$omp parallel do schedule(dynamic) default(shared) private(l,lp) firstprivate(rkf45_conf)
         do l = 1, K_rho_phi_llp%npts_l
-            do lp = 1, l
+            ! Determine band-limited lp range for this l
+            block
+                real(dp) :: xl_val
+                integer :: lp_lo, lp_hi
+                xl_val = xl_grid%xb(l)
+                lp_lo = l
+                do
+                    if (lp_lo <= 1) exit
+                    if (abs(xl_grid%xb(lp_lo-1) - xl_val) > dmax_global) exit
+                    lp_lo = lp_lo - 1
+                end do
+                lp_hi = l
+                do
+                    if (lp_hi >= K_rho_phi_llp%npts_l) exit
+                    if (abs(xl_grid%xb(lp_hi+1) - xl_val) > dmax_global) exit
+                    lp_hi = lp_hi + 1
+                end do
+                do lp = max(1,lp_lo), min(l,lp_hi)
 
                 call FP_calc_kernels_adaptive(l, lp, K_rho_phi_llp%Kllp(l, lp),&
                                             K_rho_B_llp%Kllp(l, lp), &
@@ -88,13 +161,23 @@ module electrostatic_kernel_adaptive_mod
                 K_j_phi_llp%Kllp(lp, l) = K_j_phi_llp%Kllp(l, lp)
                 K_j_B_llp%Kllp(lp, l) = K_j_B_llp%Kllp(l, lp)
 
+                !$omp atomic
                 current_iteration = current_iteration + 1
-                call updateLoadingBarWithETA(current_iteration, total_iterations, start_count, count_rate)
-            end do
+                !$omp critical(loading_bar)
+                if (mod(current_iteration, 32) == 0 .or. current_iteration == total_iterations) then
+                    call update_bar(current_iteration, total_iterations, start_count, count_rate)
+                end if
+                !$omp end critical(loading_bar)
+                end do
+            end block
         end do
+        !$omp end parallel do
         
         write(*,*)
+        write(*,*) 'Finished filling kernels.'
         
+        if (artificial_debye_case) return
+
         write(*,*) '======== Kernel Distance Diagnostics (Fokker-Planck) ========'
         write(*,'(A,F12.6)') ' Maximum |xl - xlp| distance: ', max_distance_xl_xlp
         write(*,'(A,I6,A,I6)') ' Occurred at l = ', max_dist_l, ', lp = ', max_dist_lp
@@ -108,7 +191,7 @@ module electrostatic_kernel_adaptive_mod
 
     end subroutine
 
-    
+        
     subroutine FP_calc_kernels_adaptive(l, lp, k_rho_phi, k_rho_B, k_j_phi, k_j_B, rkf45_conf)
 
         use KIM_kinds_m, only: dp
@@ -117,17 +200,19 @@ module electrostatic_kernel_adaptive_mod
         use electrostatic_integrands_rkf45_mod, only: rkf45_integrand_context_t
         use species_m, only: plasma
         use constants_m, only: pi
-        use FP_kernel_plasma_prefacs_m, only: FP_G1_rho_phi, FP_G1_rho_B, FP_G2_rho_B, FP_G3_rho_B, &
-            FP_G2_rho_phi, FP_G3_rho_phi, FP_kappa_rho_phi, FP_kappa_rho_B, FP_G0_rho_phi, &
-            FP_kappa_j_phi, FP_kappa_j_B, FP_G1_j_phi, FP_G2_j_phi, FP_G3_j_phi, &
-            FP_G1_j_B, FP_G2_j_B, FP_G3_j_B
-        use grid_m, only: Larmor_skip_factor
-        use config_m, only: turn_off_ions
+        use FP_kernel_plasma_prefacs_m, only: FP_G0_rho_phi
+        use grid_m, only: Larmor_skip_factor, kernel_taper_skip_threshold, rg_grid
+        use constants_m, only: pi, com_unit, sol
+        use config_m, only: turn_off_ions, artificial_debye_case, turn_off_electrons
+        use electrostatic_kernel_m, only: pref_rho_phi_g1, pref_rho_B_g1, pref_j_phi_g1, pref_j_B_g1, &
+            pref_rho_phi_g2, pref_rho_B_g2, pref_j_phi_g2, pref_j_B_g2, &
+            pref_rho_phi_g3, pref_rho_B_g3, pref_j_phi_g3, pref_j_B_g3
         
         implicit none
 
         integer, intent(in) :: l, lp
         complex(dp) :: k_rho_phi, k_rho_B, k_j_phi, k_j_B
+        complex(dp) :: c_rho_phi, c_rho_B, c_j_phi, c_j_B  ! Kahan compensation terms
         integer :: j, sigma
         type(rkf45_config_t), intent(in) :: rkf45_conf
         real(dp) :: integral_val
@@ -136,31 +221,48 @@ module electrostatic_kernel_adaptive_mod
 
         type(rkf45_integrand_context_t) :: context
         
-        k_rho_phi = 0.0d0
-        k_rho_B = 0.0d0
-        k_j_phi = 0.0d0
-        k_j_B = 0.0d0
+        k_rho_phi = (0.0d0, 0.0d0)
+        k_rho_B = (0.0d0, 0.0d0)
+        k_j_phi = (0.0d0, 0.0d0)
+        k_j_B = (0.0d0, 0.0d0)
+        c_rho_phi = (0.0d0, 0.0d0)
+        c_rho_B   = (0.0d0, 0.0d0)
+        c_j_phi   = (0.0d0, 0.0d0)
+        c_j_B     = (0.0d0, 0.0d0)
 
         call set_xl_at_edge(l, lp, context)
 
         do sigma = 0, plasma%n_species - 1
             if (turn_off_ions .and. sigma >= 1) cycle
-            do j = 2, size(plasma%r_grid)-1
+            if (turn_off_electrons .and. sigma == 0) cycle
+            do j = 1, rg_grid%npts_b-1
                 context%j = j
-                context%rhoT = 0.5d0 * (plasma%spec(sigma)%rho_L(j) + plasma%spec(sigma)%rho_L(j+1))
-                context%ks = 0.5d0 * (plasma%ks(context%j) + plasma%ks(context%j+1))
+                ! Use cell-centered profiles on rg_grid%xc
+                context%rhoT = max(plasma%spec(sigma)%rho_L_cc(j), 0.0d0)
+                context%ks   = plasma%ks_cc(j)
 
-                if (l == lp) then
-                    call rkf45_integrate_F0(integral_val, rkf45_conf, context)
-                    k_rho_phi = k_rho_phi &
-                        + integral_val * FP_G0_rho_phi(j, plasma%spec(sigma)) * FP_kappa_rho_phi(j, plasma%spec(sigma))
+                if (abs(l-lp)<=1) then
+                    block
+                        complex(dp) :: add, y, t
+                        call rkf45_integrate_F0(integral_val, rkf45_conf, context)
+                        add = integral_val * (-1.0d0) * (1.0d0 / (plasma%spec(sigma)%lambda_D_cc(j)**2.0d0))
+                        ! Kahan summation for k_rho_phi
+                        y = add - c_rho_phi
+                        t = k_rho_phi + y
+                        c_rho_phi = (t - k_rho_phi) - y
+                        k_rho_phi = t
+                    end block
                 end if
+
+                if (artificial_debye_case) cycle
 
                 ! Track maximum distances for diagnostics
                 current_distance = abs(context%xl - context%xlp)
 
-                ! skip the kernel calculation for distances that are not connected
-                if (current_distance > Larmor_skip_factor * context%rhoT) cycle
+                ! Smoothly taper contributions for large separations to avoid discontinuities
+                ! Weight per cell because rhoT varies with j
+                ! w(d) = exp( - (d / (alpha * rhoT + eps))^p ) with p=2
+                ! If the weight is below a small threshold, skip this (l,lp,j) contribution entirely.
 
                 current_idx_distance = abs(l - lp)
                 
@@ -187,34 +289,151 @@ module electrostatic_kernel_adaptive_mod
                 end if
                 !$omp end critical
 
-                call rkf45_integrate_F1(integral_val, rkf45_conf, context)
+                block
+                    real(dp) :: eps_r, alpha, pexp, weight
+                    eps_r = 1.0d-12
+                    alpha = Larmor_skip_factor
+                    pexp = 2.0d0
+                    weight = exp( - ( current_distance / (alpha * max(context%rhoT, eps_r)) )**pexp )
+                    if (weight < kernel_taper_skip_threshold) cycle
 
-                k_rho_phi = k_rho_phi + integral_val * FP_G1_rho_phi(j, plasma%spec(sigma)) * FP_kappa_rho_phi(j, plasma%spec(sigma))
-                k_rho_B   = k_rho_B   + integral_val * FP_G1_rho_B(j, plasma%spec(sigma))   * FP_kappa_rho_B(j, plasma%spec(sigma))
+                    call rkf45_integrate_F1(integral_val, rkf45_conf, context)
 
-                k_j_phi   = k_j_phi   + integral_val * FP_G1_j_phi(j, plasma%spec(sigma))   * FP_kappa_j_phi(j, plasma%spec(sigma))
-                k_j_B     = k_j_B     + integral_val * FP_G1_j_B(j, plasma%spec(sigma))     * FP_kappa_j_B(j, plasma%spec(sigma))
+                    block
+                        complex(dp) :: add, y, t
+                        add = weight * integral_val * pref_rho_phi_g1(sigma+1,j) * context%ks
+                        y = add - c_rho_phi
+                        t = k_rho_phi + y
+                        c_rho_phi = (t - k_rho_phi) - y
+                        k_rho_phi = t
+                    end block
 
-                call rkf45_integrate_F2(integral_val, rkf45_conf, context)
+                    block
+                        complex(dp) :: add, y, t
+                        add = weight * integral_val * pref_rho_B_g1(sigma+1,j)
+                        y = add - c_rho_B
+                        t = k_rho_B + y
+                        c_rho_B = (t - k_rho_B) - y
+                        k_rho_B = t
+                    end block
 
-                k_rho_phi = k_rho_phi + integral_val * FP_G2_rho_phi(j, plasma%spec(sigma)) * FP_kappa_rho_phi(j, plasma%spec(sigma))
-                k_rho_B   = k_rho_B   + integral_val * FP_G2_rho_B(j, plasma%spec(sigma))   * FP_kappa_rho_B(j, plasma%spec(sigma))
+                    block
+                        complex(dp) :: add, y, t
+                        add = weight * integral_val * pref_j_phi_g1(sigma+1,j) * context%ks
+                        y = add - c_j_phi
+                        t = k_j_phi + y
+                        c_j_phi = (t - k_j_phi) - y
+                        k_j_phi = t
+                    end block
 
-                k_j_phi   = k_j_phi   + integral_val * FP_G2_j_phi(j, plasma%spec(sigma))   * FP_kappa_j_phi(j, plasma%spec(sigma))
-                k_j_B     = k_j_B     + integral_val * FP_G2_j_B(j, plasma%spec(sigma))     * FP_kappa_j_B(j, plasma%spec(sigma))
+                    block
+                        complex(dp) :: add, y, t
+                        add = weight * integral_val * pref_j_B_g1(sigma+1,j)
+                        y = add - c_j_B
+                        t = k_j_B + y
+                        c_j_B = (t - k_j_B) - y
+                        k_j_B = t
+                    end block
+                end block
 
-                call rkf45_integrate_F3(integral_val, rkf45_conf, context)
+                block
+                    real(dp) :: eps_r, alpha, pexp, weight
+                    eps_r = 1.0d-12
+                    alpha = Larmor_skip_factor
+                    pexp = 2.0d0
+                    weight = exp( - ( current_distance / (alpha * max(context%rhoT, eps_r)) )**pexp )
+                    if (weight < kernel_taper_skip_threshold) cycle
 
-                k_rho_phi = k_rho_phi + integral_val * FP_G3_rho_phi(j, plasma%spec(sigma)) * FP_kappa_rho_phi(j, plasma%spec(sigma))
-                k_rho_B   = k_rho_B   + integral_val * FP_G3_rho_B(j, plasma%spec(sigma))   * FP_kappa_rho_B(j, plasma%spec(sigma))
+                    call rkf45_integrate_F2(integral_val, rkf45_conf, context)
 
-                k_j_phi   = k_j_phi   + integral_val * FP_G3_j_phi(j, plasma%spec(sigma))   * FP_kappa_j_phi(j, plasma%spec(sigma))
-                k_j_B     = k_j_B     + integral_val * FP_G3_j_B(j, plasma%spec(sigma))     * FP_kappa_j_B(j, plasma%spec(sigma))
+                    block
+                        complex(dp) :: add, y, t
+                        add = weight * integral_val * pref_rho_phi_g2(sigma+1,j) * context%ks
+                        y = add - c_rho_phi
+                        t = k_rho_phi + y
+                        c_rho_phi = (t - k_rho_phi) - y
+                        k_rho_phi = t
+                    end block
+
+                    block
+                        complex(dp) :: add, y, t
+                        add = weight * integral_val * pref_rho_B_g2(sigma+1,j)
+                        y = add - c_rho_B
+                        t = k_rho_B + y
+                        c_rho_B = (t - k_rho_B) - y
+                        k_rho_B = t
+                    end block
+
+                    block
+                        complex(dp) :: add, y, t
+                        add = weight * integral_val * pref_j_phi_g2(sigma+1,j) * context%ks
+                        y = add - c_j_phi
+                        t = k_j_phi + y
+                        c_j_phi = (t - k_j_phi) - y
+                        k_j_phi = t
+                    end block
+
+                    block
+                        complex(dp) :: add, y, t
+                        add = weight * integral_val * pref_j_B_g2(sigma+1,j)
+                        y = add - c_j_B
+                        t = k_j_B + y
+                        c_j_B = (t - k_j_B) - y
+                        k_j_B = t
+                    end block
+                end block
+
+                block
+                    real(dp) :: eps_r, alpha, pexp, weight
+                    eps_r = 1.0d-12
+                    alpha = Larmor_skip_factor
+                    pexp = 2.0d0
+                    weight = exp( - ( current_distance / (alpha * max(context%rhoT, eps_r)) )**pexp )
+                    if (weight < kernel_taper_skip_threshold) cycle
+
+                    call rkf45_integrate_F3(integral_val, rkf45_conf, context)
+
+                    block
+                        complex(dp) :: add, y, t
+                        add = weight * integral_val * pref_rho_phi_g3(sigma+1,j) * context%ks
+                        y = add - c_rho_phi
+                        t = k_rho_phi + y
+                        c_rho_phi = (t - k_rho_phi) - y
+                        k_rho_phi = t
+                    end block
+
+                    block
+                        complex(dp) :: add, y, t
+                        add = weight * integral_val * pref_rho_B_g3(sigma+1,j)
+                        y = add - c_rho_B
+                        t = k_rho_B + y
+                        c_rho_B = (t - k_rho_B) - y
+                        k_rho_B = t
+                    end block
+
+                    block
+                        complex(dp) :: add, y, t
+                        add = weight * integral_val * pref_j_phi_g3(sigma+1,j) * context%ks
+                        y = add - c_j_phi
+                        t = k_j_phi + y
+                        c_j_phi = (t - k_j_phi) - y
+                        k_j_phi = t
+                    end block
+
+                    block
+                        complex(dp) :: add, y, t
+                        add = weight * integral_val * pref_j_B_g3(sigma+1,j)
+                        y = add - c_j_B
+                        t = k_j_B + y
+                        c_j_B = (t - k_j_B) - y
+                        k_j_B = t
+                    end block
+                end block
 
             end do
         end do
 
-        k_rho_phi = k_rho_phi / (8.0d0 * pi**3.0d0)
+        k_rho_phi = k_rho_phi / (8.0d0 * pi**3.0d0) 
         k_rho_B = k_rho_B / (8.0d0 * pi**3.0d0)
 
         k_j_phi = k_j_phi / (8.0d0 * pi**3.0d0)
@@ -237,24 +456,28 @@ module electrostatic_kernel_adaptive_mod
         context%xl = xl_grid%xb(l)
         context%xlp = xl_grid%xb(lp)
 
-        ! handle kernel edges
+        ! Handle lower boundary with symmetric extrapolation
         if (l == 1) then
-            context%xlm1 = xl_grid%xb(l)
+            context%xlm1 = 2.0d0*xl_grid%xb(1) - xl_grid%xb(2)
         else
             context%xlm1 = xl_grid%xb(l-1)
         end if
+        
         if (lp == 1) then
-            context%xlpm1 = xl_grid%xb(lp)
+            context%xlpm1 = 2.0d0*xl_grid%xb(1) - xl_grid%xb(2)  ! Fixed: symmetric extrapolation
         else
             context%xlpm1 = xl_grid%xb(lp-1)
         end if
+        
+        ! Handle upper boundary with symmetric extrapolation
         if (l == xl_grid%npts_b) then
-            context%xlp1 = xl_grid%xb(l)
+            context%xlp1 = 2.0d0*xl_grid%xb(l) - xl_grid%xb(l-1)  ! Fixed: extrapolation
         else
             context%xlp1 = xl_grid%xb(l+1)
         end if
+        
         if (lp == xl_grid%npts_b) then
-            context%xlpp1 = xl_grid%xb(lp)
+            context%xlpp1 = 2.0d0*xl_grid%xb(lp) - xl_grid%xb(lp-1)  ! Fixed: extrapolation
         else
             context%xlpp1 = xl_grid%xb(lp+1)
         end if

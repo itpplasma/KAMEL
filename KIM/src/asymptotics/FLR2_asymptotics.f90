@@ -152,23 +152,24 @@ module flr2_asymptotics_m
         use IO_collection_m, only: write_complex_profile_abs
         use config_m, only: output_path
         use gsl_mod, only: gsl_sf_bessel_In
-        use config_m, only: turn_off_ions
+        use config_m, only: turn_off_ions, artificial_debye_case, turn_off_electrons
 
         implicit none
 
         type(plasma_t), intent(in) :: plasma_in
         integer :: j, sp, i
         complex(dp), allocatable :: kernel(:)
+        complex(dp) :: kernel_temp
         real(dp) :: b
+        real(dp) :: ks
         real(dp) :: kr
-        real(dp) :: kr_arr(4)
+        real(dp) :: kr_arr(5)
         character(256) :: filename
 
         complex(dp) :: besselI ! complex bessel function from bessel.f90
         allocate(kernel(rg_grid%npts_b))
 
-        kr_arr = [1.0d0, 5.0d0, 10.0d0, 50.0d0]
-        kr = 1000.0d0
+        kr_arr = [1.0d0, 5.0d0, 10.0d0, 30.0d0, 50.0d0]
 
         do i = 1, size(kr_arr)
             kr = kr_arr(i)
@@ -177,22 +178,29 @@ module flr2_asymptotics_m
             do j = 1, size(rg_grid%xb)
                 do sp = 0, plasma_in%n_species-1
                     if (turn_off_ions .and. sp >= 1) cycle
-                    ! do nothing, just a placeholder for future implementation
+                    if (turn_off_electrons .and. sp == 0) cycle
 
-                    b = kr**2.0d0 * plasma_in%spec(sp)%rho_L(j)**2.0d0
+                    ! Include full perpendicular wavenumber in FLR parameter: b = (k_r^2 + k_s^2) * rho_T^2
+                    ks = plasma_in%ks(j)
+                    b = (kr**2.0d0 + ks**2.0d0) * plasma_in%spec(sp)%rho_L(j)**2.0d0
 
-                    kernel(j) = 1.0d0 / plasma_in%spec(sp)%lambda_D(j)**2.0d0 * &
-                        (-1.0d0 + com_unit * plasma_in%spec(sp)%vT(j)**2.0d0 * plasma_in%ks(j) / (plasma_in%spec(sp)%omega_c(j) &
-                        * plasma_in%spec(sp)%nu(j)) * exp(-b) * &
-                        (&
-                            plasma_in%spec(sp)%I00(j) * (&
-                                gsl_sf_bessel_In(0, b) * (plasma_in%spec(sp)%A1(j) + plasma_in%spec(sp)%A2(j) * (1-b)) &
-                                + 0.5d0 * plasma_in%spec(sp)%A2(j) * b * gsl_sf_bessel_In(-1, b) &
-                            )&
-                            + 0.5d0 * plasma_in%spec(sp)%I20(j) * plasma_in%spec(sp)%A2(j) * gsl_sf_bessel_In(0, b) &
-                        ))
+                    kernel_temp = -1.0d0 / plasma_in%spec(sp)%lambda_D(j)**2.0d0
+
+                    if (.not. artificial_debye_case) then
+                        kernel_temp = kernel_temp * (1.0d0 - com_unit * plasma_in%spec(sp)%vT(j)**2.0d0 * plasma_in%ks(j) / (plasma_in%spec(sp)%omega_c(j) &
+                            * plasma_in%spec(sp)%nu(j)) * exp(-b) * &
+                            (&
+                                plasma_in%spec(sp)%I00(j) * (&
+                                    gsl_sf_bessel_In(0, b) * (plasma_in%spec(sp)%A1(j) + plasma_in%spec(sp)%A2(j) * (1-b)) &
+                                    + 0.5d0 * plasma_in%spec(sp)%A2(j) * b * gsl_sf_bessel_In(-1, b) &
+                                )&
+                                + 0.5d0 * plasma_in%spec(sp)%I20(j) * plasma_in%spec(sp)%A2(j) * gsl_sf_bessel_In(0, b) &
+                            ))
+                    end if
+
+                    kernel(j) = kernel(j) + kernel_temp
                 end do
-                kernel = kernel * exp(com_unit * kr * rg_grid%xb(j))
+                ! kernel = kernel * exp(com_unit * kr * rg_grid%xb(j))
             end do
 
             kernel = 1.0d0 / (4.0d0 * pi) * kernel

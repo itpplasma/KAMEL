@@ -84,11 +84,17 @@ module electrostatic_kernel_adaptive_mod
         write(*,*) 'Filling Fokker-Planck collision kernels...'
 
         ! Calculate actual number of iterations accounting for band-limiting
+        ! Also track maximum and minimum distances for diagnostics
         total_iterations = 0
+        max_distance_xl_xlp = 0.0d0
+        min_distance_xl_xlp = huge(1.0d0)
+        max_index_distance = 0
+        min_index_distance = huge(1)
+        
         do l = 1, K_rho_phi_llp%npts_l
             block
-                real(dp) :: xl_val
-                integer :: lp_lo, lp_hi
+                real(dp) :: xl_val, xlp_val, current_distance
+                integer :: lp_lo, lp_hi, current_idx_distance
                 xl_val = xl_grid%xb(l)
                 lp_lo = l
                 do
@@ -102,6 +108,35 @@ module electrostatic_kernel_adaptive_mod
                     if (abs(xl_grid%xb(lp_hi+1) - xl_val) > dmax_global) exit
                     lp_hi = lp_hi + 1
                 end do
+                
+                ! Track diagnostics for each (l,lp) pair that will be processed
+                do lp = max(1,lp_lo), min(l,lp_hi)
+                    xlp_val = xl_grid%xb(lp)
+                    current_distance = abs(xl_val - xlp_val)
+                    current_idx_distance = abs(l - lp)
+                    
+                    if (current_distance > max_distance_xl_xlp) then
+                        max_distance_xl_xlp = current_distance
+                        max_dist_l = l
+                        max_dist_lp = lp
+                    end if
+                    if (current_distance < min_distance_xl_xlp .and. current_distance > 0.0d0) then
+                        min_distance_xl_xlp = current_distance
+                        min_dist_l = l
+                        min_dist_lp = lp
+                    end if
+                    if (current_idx_distance > max_index_distance) then
+                        max_index_distance = current_idx_distance
+                        max_idx_l = l
+                        max_idx_lp = lp
+                    end if
+                    if (current_idx_distance < min_index_distance .and. current_idx_distance > 0) then
+                        min_index_distance = current_idx_distance
+                        min_idx_l = l
+                        min_idx_lp = lp
+                    end if
+                end do
+                
                 total_iterations = total_iterations + (min(l,lp_hi) - max(1,lp_lo) + 1)
             end block
         end do
@@ -217,7 +252,6 @@ module electrostatic_kernel_adaptive_mod
         type(rkf45_config_t), intent(in) :: rkf45_conf
         real(dp) :: integral_val
         real(dp) :: current_distance
-        integer :: current_idx_distance
 
         type(rkf45_integrand_context_t) :: context
         
@@ -256,38 +290,13 @@ module electrostatic_kernel_adaptive_mod
 
                 if (artificial_debye_case) cycle
 
-                ! Track maximum distances for diagnostics
+                ! Calculate distance for taper weighting
                 current_distance = abs(context%xl - context%xlp)
 
                 ! Smoothly taper contributions for large separations to avoid discontinuities
                 ! Weight per cell because rhoT varies with j
                 ! w(d) = exp( - (d / (alpha * rhoT + eps))^p ) with p=2
                 ! If the weight is below a small threshold, skip this (l,lp,j) contribution entirely.
-
-                current_idx_distance = abs(l - lp)
-                
-                !$omp critical
-                if (current_distance > max_distance_xl_xlp) then
-                    max_distance_xl_xlp = current_distance
-                    max_dist_l = l
-                    max_dist_lp = lp
-                end if
-                if (current_distance < min_distance_xl_xlp .and. current_distance > 0.0d0) then
-                    min_distance_xl_xlp = current_distance
-                    min_dist_l = l
-                    min_dist_lp = lp
-                end if
-                if (current_idx_distance > max_index_distance) then
-                    max_index_distance = current_idx_distance
-                    max_idx_l = l
-                    max_idx_lp = lp
-                end if
-                if (current_idx_distance < min_index_distance .and. current_idx_distance > 0) then
-                    min_index_distance = current_idx_distance
-                    min_idx_l = l
-                    min_idx_lp = lp
-                end if
-                !$omp end critical
 
                 block
                     real(dp) :: eps_r, alpha, pexp, weight

@@ -28,7 +28,6 @@ endif()
 enable_language(C Fortran)
 find_package(MPI REQUIRED)
 
-set(hdf5_tools ${CMAKE_CURRENT_SOURCE_DIR}/src/hdf5_tools/)
 set(objs ${PROJECT_BINARY_DIR}/OBJS/ql-balance/)
 set(lib ${PROJECT_BINARY_DIR}/install/lib/)
 set(ql-balance_lib "${lib}libql-balance.a")

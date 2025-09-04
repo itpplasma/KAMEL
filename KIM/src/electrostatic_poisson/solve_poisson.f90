@@ -10,7 +10,7 @@ module poisson_solver_m
                             sparse_solve_method
         use config_m, only: output_path
         use constants_m, only: pi, e_charge
-        use grid_m, only: xl_grid
+        use grid_m, only: xl_grid, calc_mass_matrix
         use setup_m, only: type_br_field
         use KIM_kinds_m, only: dp
 
@@ -254,41 +254,6 @@ module poisson_solver_m
         
         call write_matrix(trim(output_path)//'kernel/laplacian_re.dat', real(A_mat), xl_grid%npts_b, xl_grid%npts_b)
 
-    end subroutine
-
-    subroutine calc_mass_matrix(M_mat)
-
-        use KIM_kinds_m, only: dp
-        use grid_m, only: xl_grid
-        use config_m, only: output_path
-        use IO_collection_m, only: write_matrix
-
-        implicit none
-
-        real(dp), intent(inout) :: M_mat(:,:)
-        real(dp) :: h
-
-        integer :: i, n
-
-        M_mat = 0.0d0
-        n = xl_grid%npts_b
-
-        do i = 1, xl_grid%npts_b-1
-            h = xl_grid%xb(i+1) - xl_grid%xb(i)
-
-            M_mat(i,  i  ) = M_mat(i,  i  ) + 2.0d0*h/6.0d0
-            M_mat(i,  i+1) = M_mat(i,  i+1) + 1.0d0*h/6.0d0
-            M_mat(i+1,i  ) = M_mat(i+1,i  ) + 1.0d0*h/6.0d0
-            M_mat(i+1,i+1) = M_mat(i+1,i+1) + 2.0d0*h/6.0d0
-        end do
-
-        ! Enforce Dirichlet BC at right boundary: Phi_n = 0
-        ! This ensures consistency with A_mat boundary conditions
-        M_mat(n,:) = 0.0d0
-        M_mat(:,n) = 0.0d0
-        M_mat(n,n) = 1.0d0
-
-        call write_matrix(trim(output_path)//'kernel/mass_matrix.dat', M_mat, xl_grid%npts_b, xl_grid%npts_b)
     end subroutine
 
 

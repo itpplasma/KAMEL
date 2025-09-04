@@ -100,21 +100,13 @@ set_target_properties(ql-balance_lib PROPERTIES LINKER_LANGUAGE Fortran
     Fortran_MODULE_DIRECTORY "${objs}")
 
 add_dependencies(ql-balance_lib kilca_lib kamel_hdf5_tools)
-target_link_libraries(ql-balance_lib PUBLIC kilca_lib MPI::MPI_Fortran kamel_hdf5_tools)
 target_include_directories(ql-balance_lib PUBLIC ${CMAKE_BINARY_DIR}/KiLCA/mod ${CMAKE_BINARY_DIR}/modules)
 
 # Include central slatec math sources via cache variable defined by common/math
 target_include_directories(ql-balance_lib PUBLIC ${SLATEC_INCLUDE_DIR})
 
-# Link common dependencies defined in top-level Dependencies.cmake
-target_link_libraries(ql-balance_lib PUBLIC slatec cvode nvecserial gsl gslcblas lapack blas)
-
 find_package(HDF5 COMPONENTS C Fortran HL REQUIRED)
 message(" ====== HDF5 was found! ======")
-target_link_libraries(ql-balance_lib PUBLIC hdf5::hdf5
-                                            hdf5::hdf5_hl
-                                            hdf5::hdf5_fortran
-                                            hdf5::hdf5_hl_fortran)
 
 find_or_fetch(libneo)
 include_directories(${CMAKE_CURRENT_BINARY_DIR}/libneo/include)
@@ -125,18 +117,31 @@ add_custom_target(exclude_libneo_tests ALL
 
 add_dependencies(ql-balance_lib sparse)
 
-# Dependencies (e.g., NetCDF) provided by top-level cmake/Dependencies.cmake
-target_link_libraries(ql-balance_lib PUBLIC slatec 
-                                            cvode 
-                                            nvecserial 
-                                            sparse
-                                            netcdf
-                                            netcdff
-                                            LIBNEO::neo
-                                            LIBNEO::species
-                                            LIBNEO::collision_freqs
-                                            LIBNEO::transport
-                                            )
+# Link common dependencies defined in top-level Dependencies.cmake
+target_link_libraries(ql-balance_lib PUBLIC
+    LIBNEO::collision_freqs
+    LIBNEO::neo
+    LIBNEO::species
+    LIBNEO::transport
+    MPI::MPI_Fortran
+    SUNDIALS::cvode
+    SUNDIALS::nvecserial
+    blas
+    gsl
+    gslcblas
+    hdf5::hdf5
+    hdf5::hdf5_fortran
+    hdf5::hdf5_hl
+    hdf5::hdf5_hl_fortran
+    kamel_hdf5_tools
+    kilca_lib
+    lapack
+    netcdf
+    netcdff
+    slatec
+    sparse
+)
+
 target_include_directories(sparse PUBLIC "${CMAKE_BINARY_DIR}/OBJS/sparse/")
 
 add_executable(ql-balance.x ${base_balance_src}/ql-balance.f90)

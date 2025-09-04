@@ -115,10 +115,9 @@ set (kilca_eigparam_main progs/main_eig_param.cpp)
 
 # include paths:
 set (libs_root_path ${CMAKE_BINARY_DIR}/external-install)
-set (sundials_include_path ${libs_root_path}/sundials/include)
 set (gsl_include_path ${libs_root_path}/gsl/include)
 
-set(EXTERNAL_LIBS slatec lapack blas cvode nvecserial gsl gslcblas)
+set(EXTERNAL_LIBS slatec lapack blas SUNDIALS::cvode SUNDIALS::nvecserial gsl gslcblas)
 
 # configure a header file to pass some of the CMake settings to the source code
 configure_file(
@@ -128,7 +127,6 @@ configure_file(
 # Make generated header available
 include_directories("${CMAKE_CURRENT_BINARY_DIR}")
 
-include_directories ("${sundials_include_path}")
 include_directories ("${gsl_include_path}")
 include_directories ("${PROJECT_BINARY_DIR}")
 include_directories ("${CMAKE_CURRENT_SOURCE_DIR}/antenna")

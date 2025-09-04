@@ -1,6 +1,6 @@
-module setup
+module setup_m
 
-    use KIM_kinds, only: dp
+    use KIM_kinds_m, only: dp
 
     implicit none
 

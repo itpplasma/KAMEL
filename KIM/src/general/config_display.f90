@@ -1,7 +1,7 @@
-module config_display
+module config_display_m
     ! Module for displaying configuration with formatted tables, colors, and status indicators
     
-    use KIM_kinds, only: dp
+    use KIM_kinds_m, only: dp
     
     implicit none
     
@@ -98,10 +98,10 @@ contains
     end subroutine display_kim_banner
     
     subroutine display_kim_configuration()
-        use config
-        use setup
-        use grid
-        use species, only: plasma
+        use config_m
+        use setup_m
+        use grid_m
+        use species_m, only: plasma
         
         implicit none
         integer :: width = 70
@@ -125,6 +125,8 @@ contains
         call print_config_line('Collision Model', trim(collision_model), width)
         call print_bool_line('Collisions', .not. collisions_off, width)
         call print_bool_line('Artificial Debye Case', artificial_debye_case, width)
+        call print_bool_line('Turn Off Ions', turn_off_ions, width)
+        call print_bool_line('Turn Off Electrons', turn_off_electrons, width)
         write(value_str, '(I0)') number_of_ion_species
         call print_config_line('Ion Species', trim(value_str), width)
         
@@ -149,17 +151,22 @@ contains
         
         ! Display Grid Configuration
         call print_section_header('GRID CONFIGURATION', width)
-        write(value_str, '(I0)') reduced_rg_dim
+        write(value_str, '(I0)') rg_space_dim
         call print_config_line('rg-space Dimension', trim(value_str), width)
         write(value_str, '(I0)') l_space_dim
         call print_config_line('l-space Dimension', trim(value_str), width)
-        call print_config_line('Grid Spacing', get_grid_type(grid_spacing), width)
+        call print_config_line('rg Grid Spacing', trim(adjustl(grid_spacing_rg)), width)
+        call print_config_line('xl Grid Spacing', trim(adjustl(grid_spacing_xl)), width)
         write(value_str, '(F6.2)') Larmor_skip_factor
         call print_config_line('Larmor Skip Factor', trim(adjustl(value_str)), width)
         call print_config_line('Theta integration method: ', trim(theta_integration), width)
         if (trim(theta_integration) == "RKF45") then
-            write(value_str, '(ES10.3)') rkf45_tol
-            call print_config_line('RKF45 Tolerance', trim(adjustl(value_str)), width)
+            write(value_str, '(ES10.3)') rkf45_atol
+            call print_config_line('RKF45 abs tol', trim(adjustl(value_str)), width)
+            write(value_str, '(ES10.3)') rkf45_rtol
+            call print_config_line('RKF45 rel tol', trim(adjustl(value_str)), width)
+            write(value_str, '(ES10.3)') kernel_taper_skip_threshold
+            call print_config_line('Kernel taper skip thr', trim(adjustl(value_str)), width)
             write(value_str, '(A,I0,A,I0,A)') '(', gauss_int_nodes_Nx, ', ', &
                                                     gauss_int_nodes_Nxp, ')'
             call print_config_line('Gauss Nodes (x,x′)', trim(value_str), width)
@@ -259,7 +266,7 @@ contains
     end subroutine print_bool_line
     
     subroutine print_species_table(width)
-        use species, only: plasma
+        use species_m, only: plasma
         implicit none
         integer, intent(in) :: width
         integer :: i
@@ -377,4 +384,4 @@ contains
         
     end function get_species_name
     
-end module config_display
+end module config_display_m

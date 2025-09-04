@@ -1,11 +1,11 @@
 program kim_main
 
-    use kim_base, only: kim_t
-    use kim_mod, only: from_kim_factory_get_kim
-    use config, only: type_of_run
+    use kim_base_m, only: kim_t
+    use kim_mod_m, only: from_kim_factory_get_kim
+    use config_m, only: type_of_run
     use omp_lib, only: omp_get_wtime
-    use KIM_kinds, only: dp
-    use config_display, only: display_kim_banner
+    use KIM_kinds_m, only: dp
+    use config_display_m, only: display_kim_banner
 
     implicit none
 

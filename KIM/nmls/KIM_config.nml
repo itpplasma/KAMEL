@@ -1,15 +1,21 @@
 &kim_config
+    number_of_ion_species = 1
+    read_species_from_namelist = .false. ! if false, initialize deuterium plasma
+    type_of_run = 'electrostatic'
+    collision_model = 'Krook'       ! Krook or FokkerPlanck
+    artificial_debye_case = .false.
+    turn_off_ions = .false.
+    turn_off_electrons = .false.
+/
+
+&kim_io
     profile_location = './profiles/'
     output_path = './out/'
     hdf5_input = .false.
     hdf5_output = .false.
     fdebug = 1
     fstatus = 1
-    number_of_ion_species = 1
-    read_species_from_namelist = .false. ! if false, initialize deuterium plasma
-    type_of_run = 'electrostatic'
-    collision_model = 'Krook'       ! Krook or FokkerPlanck
-    artificial_debye_case = .false.
+    calculate_asymptotics = .true. ! enable/disable asymptotic calculations
 /
 
 &kim_setup
@@ -33,13 +39,15 @@
     hrmax_scaling = 1.0
     k_space_dim = 100
     l_space_dim = 1000
-    reduce_r = .false.
-    reduced_rg_dim = 1000
-    grid_spacing = 3
+    rg_space_dim = 1000
+    grid_spacing_rg = "adaptive"      ! "equidistant", "non-equidistant", or "adaptive"
+    grid_spacing_xl = "adaptive"      ! "equidistant", "non-equidistant", or "adaptive"
     kr_grid_width_res = 5.0
     kr_grid_ampl_res = 1.0
-    theta_integration = "RKF45" ! RK45 (adaptive) or GaussLegendre (fixed)
-    rkf45_tol = 1.0d-8 ! Tolerance for RKF45 adaptive integration
+    theta_integration = "RKF45" ! RKF45 (adaptive) or GaussLegendre (fixed)
+    rkf45_atol = 1.0d-9      ! Absolute tolerance for RKF45 adaptive integration
+    rkf45_rtol = 1.0d-6      ! Relative tolerance for RKF45 adaptive integration
+    kernel_taper_skip_threshold = 1.0d-6  ! Skip element when taper weight below this
     Larmor_skip_factor = 5
     gauss_int_nodes_Nx = 6 ! should be different from Nxp to avoid numerical problems
     gauss_int_nodes_Nxp = 7

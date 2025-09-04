@@ -1,8 +1,8 @@
-module electromagnetic_kernel
+module electromagnetic_kernel_m
     !> Module for electromagnetic kernel calculations
     !> Extends the electrostatic formulation to include full electromagnetic effects
     
-    use KIM_kinds, only: dp
+    use KIM_kinds_m, only: dp
     
     implicit none
     
@@ -22,4 +22,4 @@ module electromagnetic_kernel
         
     end subroutine electromagnetic_kernel_init
     
-end module electromagnetic_kernel
+end module electromagnetic_kernel_m

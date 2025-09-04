@@ -1,4 +1,4 @@
-module kim_base
+module kim_base_m
 
     implicit none
 

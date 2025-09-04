@@ -1,28 +1,33 @@
 subroutine generate_grids
 
-    use grid, only: rg_grid, xl_grid, reduced_rg_dim, l_space_dim, grid_spacing, r_min, r_plas
-    use species, only: plasma
-    use config, only: fdebug
+    use grid_m, only: rg_grid, xl_grid, rg_space_dim, l_space_dim, grid_spacing_rg, grid_spacing_xl, r_min, r_plas
+    use species_m, only: plasma
+    use config_m, only: fdebug
 
     implicit none
 
-    !call rg_grid%grid_init(reduced_rg_dim, plasma%r_grid(1), plasma%r_grid(size(plasma%r_grid)), 'rg')
-    !call xl_grid%grid_init(l_space_dim, plasma%r_grid(1), plasma%r_grid(size(plasma%r_grid)), 'xl')
-    call rg_grid%grid_init(reduced_rg_dim, 3.0d0, plasma%r_grid(size(plasma%r_grid)), 'rg')
-    call xl_grid%grid_init(l_space_dim, 3.0d0, plasma%r_grid(size(plasma%r_grid)), 'xl')
+    call rg_grid%grid_init(rg_space_dim, r_min, plasma%r_grid(size(plasma%r_grid)), 'rg')
+    call xl_grid%grid_init(l_space_dim, r_min, plasma%r_grid(size(plasma%r_grid)), 'xl')
 
-
-    if (grid_spacing == 2) then
-        write(*,*) "Generating linear grids"
+    ! Generate rg_grid according to requested spacing
+    select case (trim(adjustl(grid_spacing_rg)))
+    case ("equidistant")
         call rg_grid%grid_generate_linear()
+    case ("non-equidistant", "adaptive")
+        call rg_grid%grid_generate()
+    case default
+        call rg_grid%grid_generate()
+    end select
+
+    ! Generate xl_grid according to requested spacing
+    select case (trim(adjustl(grid_spacing_xl)))
+    case ("equidistant")
         call xl_grid%grid_generate_linear()
-    else if (grid_spacing == 3) then
-        call rg_grid%grid_generate()
+    case ("non-equidistant", "adaptive")
         call xl_grid%grid_generate()
-    else
-        call rg_grid%grid_generate()
+    case default
         call xl_grid%grid_generate()
-    end if
+    end select
 
     if (fdebug == 1) then
         write(*,*) " Generated Grid number of points:"

@@ -1,6 +1,6 @@
-module rt_WKB_dispersion
+module rt_WKB_dispersion_m
 
-    use kim_base, only: kim_t
+    use kim_base_m, only: kim_t
 
     implicit none
 

@@ -18,7 +18,7 @@ module singleStep
     subroutine initSingleStep(this)
 
         use grid_mod, only: mwind, set_boundary_condition, npoib, rb
-        use QLBalance_hdf5_tools, only: h5overwrite
+        use KAMEL_hdf5_tools, only: h5overwrite
         use h5mod, only: mode_m, mode_n
         use control_mod, only: gyro_current_study, write_gyro_current, debug_mode, &
                         ihdf5IO

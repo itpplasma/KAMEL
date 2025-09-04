@@ -1,5 +1,5 @@
 ! module for plasma factors in the Fokker-Planck case
-module FP_kernel_plasma_prefacs
+module FP_kernel_plasma_prefacs_m
 
     implicit none
 
@@ -7,9 +7,9 @@ module FP_kernel_plasma_prefacs
 
     function FP_kappa_rho_phi(j, spec) result(val)
 
-        use species, only: plasma, species_t
-        use constants, only: pi
-        use KIM_kinds, only: dp
+        use species_m, only: plasma, species_t
+        use constants_m, only: pi
+        use KIM_kinds_m, only: dp
 
         implicit none
 
@@ -25,9 +25,9 @@ module FP_kernel_plasma_prefacs
 
     function FP_kappa_rho_B(j, spec) result(val)
 
-        use species, only: plasma, species_t
-        use KIM_kinds, only: dp
-        use constants, only: sol
+        use species_m, only: plasma, species_t
+        use KIM_kinds_m, only: dp
+        use constants_m, only: sol
 
         implicit none
 
@@ -46,15 +46,16 @@ module FP_kernel_plasma_prefacs
 
     function FP_kappa_j_phi(j, spec) result(val)
 
-        use species, only: plasma, species_t
-        use KIM_kinds, only: dp
-        use constants, only: sol, com_unit
+        use species_m, only: plasma, species_t
+        use KIM_kinds_m, only: dp
+        use constants_m, only: sol, com_unit
 
         implicit none
 
         integer, intent(in) :: j
         type(species_t), intent(in) :: spec
-        real(dp) :: val, lambda, vT, nu, omega_c, ks
+        complex(dp) :: val
+        real(dp) :: lambda, vT, nu, omega_c, ks
 
         lambda = 0.5d0 * (spec%lambda_D(j) + spec%lambda_D(j+1))
         vT = 0.5d0 * (spec%vT(j) + spec%vT(j+1))
@@ -68,9 +69,9 @@ module FP_kernel_plasma_prefacs
 
     function FP_kappa_j_B(j, spec) result(val)
 
-        use species, only: plasma, species_t
-        use KIM_kinds, only: dp
-        use constants, only: sol
+        use species_m, only: plasma, species_t
+        use KIM_kinds_m, only: dp
+        use constants_m, only: sol
 
         implicit none
 
@@ -89,9 +90,9 @@ module FP_kernel_plasma_prefacs
 
     function FP_G0_rho_phi(j, spec) result(val)
 
-        use species, only: plasma, species_t
-        use constants, only: pi
-        use KIM_kinds, only: dp
+        use species_m, only: plasma, species_t
+        use constants_m, only: pi
+        use KIM_kinds_m, only: dp
 
         implicit none
 
@@ -105,9 +106,9 @@ module FP_kernel_plasma_prefacs
 
     function FP_G1_rho_phi(j, spec) result(val)
 
-        use species, only: plasma, species_t
-        use KIM_kinds, only: dp
-        use constants, only: com_unit
+        use species_m, only: plasma, species_t
+        use KIM_kinds_m, only: dp
+        use constants_m, only: com_unit
 
         implicit none
 
@@ -135,9 +136,9 @@ module FP_kernel_plasma_prefacs
 
     function FP_G2_rho_phi(j, spec) result(val)
 
-        use species, only: plasma, species_t
-        use KIM_kinds, only: dp
-        use constants, only: com_unit
+        use species_m, only: plasma, species_t
+        use KIM_kinds_m, only: dp
+        use constants_m, only: com_unit
 
         implicit none
 
@@ -161,9 +162,9 @@ module FP_kernel_plasma_prefacs
 
     function FP_G3_rho_phi(j, spec) result(val)
 
-        use species, only: plasma, species_t
-        use KIM_kinds, only: dp
-        use constants, only: com_unit
+        use species_m, only: plasma, species_t
+        use KIM_kinds_m, only: dp
+        use constants_m, only: com_unit
 
         implicit none
 
@@ -190,8 +191,8 @@ module FP_kernel_plasma_prefacs
 
     function FP_G1_rho_B(j, spec) result(val)
 
-        use species, only: plasma, species_t
-        use KIM_kinds, only: dp
+        use species_m, only: plasma, species_t
+        use KIM_kinds_m, only: dp
 
         implicit none
 
@@ -212,8 +213,8 @@ module FP_kernel_plasma_prefacs
 
     function FP_G2_rho_B(j, spec) result(val)
 
-        use species, only: plasma, species_t
-        use KIM_kinds, only: dp
+        use species_m, only: plasma, species_t
+        use KIM_kinds_m, only: dp
 
         implicit none
 
@@ -232,8 +233,8 @@ module FP_kernel_plasma_prefacs
 
     function FP_G3_rho_B(j, spec) result(val)
 
-        use species, only: plasma, species_t
-        use KIM_kinds, only: dp
+        use species_m, only: plasma, species_t
+        use KIM_kinds_m, only: dp
 
         implicit none
 
@@ -252,8 +253,8 @@ module FP_kernel_plasma_prefacs
 
     function FP_G1_j_phi(j, spec) result(val)
 
-        use species, only: plasma, species_t
-        use KIM_kinds, only: dp
+        use species_m, only: plasma, species_t
+        use KIM_kinds_m, only: dp
 
         implicit none
 
@@ -274,8 +275,8 @@ module FP_kernel_plasma_prefacs
 
     function FP_G2_j_phi(j, spec) result(val)
 
-        use species, only: plasma, species_t
-        use KIM_kinds, only: dp
+        use species_m, only: plasma, species_t
+        use KIM_kinds_m, only: dp
 
         implicit none
 
@@ -294,8 +295,8 @@ module FP_kernel_plasma_prefacs
 
     function FP_G3_j_phi(j, spec) result(val)
 
-        use species, only: plasma, species_t
-        use KIM_kinds, only: dp
+        use species_m, only: plasma, species_t
+        use KIM_kinds_m, only: dp
 
         implicit none
 
@@ -314,8 +315,8 @@ module FP_kernel_plasma_prefacs
 
     function FP_G1_j_B(j, spec) result(val)
 
-        use species, only: plasma, species_t
-        use KIM_kinds, only: dp
+        use species_m, only: plasma, species_t
+        use KIM_kinds_m, only: dp
 
         implicit none
 
@@ -336,8 +337,8 @@ module FP_kernel_plasma_prefacs
 
     function FP_G2_j_B(j, spec) result(val)
 
-        use species, only: plasma, species_t
-        use KIM_kinds, only: dp
+        use species_m, only: plasma, species_t
+        use KIM_kinds_m, only: dp
 
         implicit none
 
@@ -356,8 +357,8 @@ module FP_kernel_plasma_prefacs
 
     function FP_G3_j_B(j, spec) result(val)
 
-        use species, only: plasma, species_t
-        use KIM_kinds, only: dp
+        use species_m, only: plasma, species_t
+        use KIM_kinds_m, only: dp
 
         implicit none
 

@@ -1,6 +1,6 @@
-module equilibrium
+module equilibrium_m
 
-    use KIM_kinds, only: dp
+    use KIM_kinds_m, only: dp
 
     implicit none
     
@@ -40,10 +40,10 @@ module equilibrium
         ! the ddeabm subroutine from the SLATEC library. This method uses the Adams-Bashforth
         ! method.
 
-            use species, only: plasma, calc_plasma_parameter_derivs
-            use constants, only: ev, pi, sol
-            use setup, only: btor, R0, m_mode, n_mode
-            use config
+            use species_m, only: plasma, calc_plasma_parameter_derivs
+            use constants_m, only: ev, pi, sol
+            use setup_m, only: btor, R0, m_mode, n_mode
+            use config_m
 
             implicit none
 
@@ -199,4 +199,4 @@ module equilibrium
 
         end subroutine
 
-end module equilibrium
+end module equilibrium_m

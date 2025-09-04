@@ -1,6 +1,6 @@
 module RKF45_mod
 
-    use KIM_kinds, only: dp
+    use KIM_kinds_m, only: dp
 
     implicit none
 
@@ -23,7 +23,7 @@ module RKF45_mod
 
     subroutine RKF45_1D(f, y0, x0, xmax, h0, tol, sol)
 
-        use KIM_kinds, only: dp
+        use KIM_kinds_m, only: dp
         implicit none
 
         ! Arguments
@@ -37,7 +37,7 @@ module RKF45_mod
 
         interface
             function f(x)
-                use KIM_kinds, only: dp
+                use KIM_kinds_m, only: dp
                 implicit none
                 real(dp), intent(in) :: x
                 real(dp) :: f
@@ -82,7 +82,7 @@ module RKF45_mod
     subroutine RKF45_step_1D(f, yk, xk, h, tol, xkp1, ykp1, hnew)
         ! Classical Runge-Kutta-Fehlberg 4(5) method (adaptive stepper)
 
-        use KIM_kinds, only: dp
+        use KIM_kinds_m, only: dp
         implicit none
 
         real(dp), intent(in)  :: yk, xk, h, tol
@@ -93,7 +93,7 @@ module RKF45_mod
 
         interface
             function f(x)
-                use KIM_kinds, only: dp
+                use KIM_kinds_m, only: dp
                 implicit none
                 real(dp), intent(in) :: x
                 real(dp) :: f
@@ -136,7 +136,7 @@ module RKF45_mod
 
     subroutine RKF45_1D_with_context(f, y0, x0, xmax, h0, tol, sol, context)
 
-        use KIM_kinds, only: dp
+        use KIM_kinds_m, only: dp
         implicit none
 
         ! Arguments
@@ -151,7 +151,7 @@ module RKF45_mod
 
         interface
             function f(x, context)
-                use KIM_kinds, only: dp
+                use KIM_kinds_m, only: dp
                 implicit none
                 real(dp), intent(in) :: x
                 class(*), intent(in) :: context
@@ -197,7 +197,8 @@ module RKF45_mod
     subroutine RKF45_step_1D_with_context(f, yk, xk, h, tol, xkp1, ykp1, hnew, context)
         ! Classical Runge-Kutta-Fehlberg 4(5) method (adaptive stepper)
 
-        use KIM_kinds, only: dp
+        use KIM_kinds_m, only: dp
+        use grid_m, only: rkf45_rtol
         implicit none
 
         real(dp), intent(in)  :: yk, xk, h, tol
@@ -205,11 +206,15 @@ module RKF45_mod
         class(*), intent(in) :: context
 
         real(dp) :: k1, k2, k3, k4, k5, k6
-        real(dp) :: y4, y5, err, s
+        real(dp) :: y4, y5, err, s, tol_eff
+        real(dp) :: ymax
+        real(dp), parameter :: safety = 0.9d0
+        real(dp), parameter :: min_scale = 0.1d0, max_scale = 5.0d0
+        
 
         interface
             function f(x, context)
-                use KIM_kinds, only: dp
+                use KIM_kinds_m, only: dp
                 implicit none
                 real(dp), intent(in) :: x
                 class(*), intent(in) :: context
@@ -224,8 +229,9 @@ module RKF45_mod
         k5 = h * f(xk + h, context)
         k6 = h * f(xk + 0.5d0*h, context)
 
+        ! Use consistent Fehlberg 4th-order coefficients (match non-context path)
         y4 = yk + 0.115740740740741d0*k1 + 0.548927875243665d0*k3 &
-                + 0.535331384015595d0*k4 - 0.2d0*k5
+                + 0.535722994391612d0*k4 - 0.2d0*k5
 
         y5 = yk + 0.118518518518519d0*k1 + 0.518986354775828d0*k3 &
                 + 0.506131490342017d0*k4 - 0.18d0*k5 &
@@ -233,21 +239,23 @@ module RKF45_mod
 
         err = abs(y5 - y4)
 
+        ymax = max(abs(y5), abs(y4))
+        tol_eff = tol + rkf45_rtol * ymax
+
         if (err > 0.0d0) then
-            s = (tol / (2.0d0*err))**0.2d0
+            s = safety * (tol_eff / (2.0d0*err))**0.2d0
         else
             s = 2.0d0
         end if
 
-        hnew = max(0.1d0, min(5.0d0, s)) * h
+        hnew = max(min_scale, min(max_scale, s)) * h
 
-        if (err <= tol) then
+        if (err <= tol_eff) then
             ykp1 = y5   ! use the higher-order solution
             xkp1 = xk + h
         else
             ykp1 = yk
             xkp1 = xk
-            !hnew = 0.5d0 * h
         end if
 
     end subroutine RKF45_step_1D_with_context

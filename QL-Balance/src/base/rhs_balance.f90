@@ -18,7 +18,7 @@ subroutine rhs_balance(x, y, dy)
     use baseparam_mod, only: Z_i, e_charge, am, p_mass, c
     use wave_code_data, only: q, Vth
     use matrix_mod, only: isw_rhs, nz, nsize, irow, icol, amat, rhsvec
-    use QLBalance_hdf5_tools
+    use KAMEL_hdf5_tools
 
     implicit none
 

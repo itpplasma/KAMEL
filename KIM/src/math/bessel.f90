@@ -3,7 +3,7 @@ recursive double complex function besselj (nu, zarg, n) result (res)
 !Evaluates n-th derivative of a bessel J_nu(zarg) function, nu - integer, zarg - complex!!!
 !The subroutines from AMOS are used for.
 
-    use KIM_kinds, only: dp
+    use KIM_kinds_m, only: dp
 
     implicit none
 
@@ -56,7 +56,7 @@ recursive double complex function besselj (nu, zarg, n) result (res)
     contains
         subroutine binomial_coefficients(NN, coefss)
 
-            use KIM_kinds, only: dp
+            use KIM_kinds_m, only: dp
 
             implicit none
 
@@ -88,13 +88,13 @@ recursive complex(8) function besseli (nu, zarg, n) result (res)
 
     !evaluates n-th derivative of a modified bessel I_nu(zarg) function, nu - integer, zarg - complex!!!
 
-    use KIM_kinds, only: dp
+    use KIM_kinds_m, only: dp
 
     implicit none
 
     interface
         recursive double complex function besselj (nu, zarg, n)
-            use KIM_kinds, only: dp
+            use KIM_kinds_m, only: dp
             integer, intent(in) :: nu, n
             complex(dp), intent(in) :: zarg
         end function

@@ -1,9 +1,9 @@
 program test_kernel_rho_B
 
-    use kernels, only: kernel_rho_B_of_kr_krp_rg
-    use KIM_kinds, only: dp
+    use kernels_m, only: kernel_rho_B_of_kr_krp_rg
+    use KIM_kinds_m, only: dp
     use plasma_parameter, only: r_prof, n_prof, ni_prof, Te_prof, Ti_prof, iprof_length, Er_prof
-    use constants, only: pi, ev, e_charge
+    use constants_m, only: pi, ev, e_charge
 
     implicit none
 

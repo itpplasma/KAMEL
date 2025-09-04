@@ -129,12 +129,12 @@ subroutine write_dql_Br_Jp_profiles_to_hdf5(tempch)
                         abs(Br - c*kp*Es/om_E), lbound(Br), ubound(Br))
     CALL h5_add_double_1(h5_id, trim(tempch)//"Br-cksEp_om_E", &
                         abs(Br - c*ks*Ep/om_E), lbound(Br), ubound(Br))
-    CALL h5_add_double_1(h5_id, trim(tempch)//"Jpe_abs", &
-                        abs(Jpe), lbound(Jpe), ubound(Jpe))
-    CALL h5_add_double_1(h5_id, trim(tempch)//"Jpi_abs", &
-                        abs(Jpi), lbound(Jpi), ubound(Jpi))
-    CALL h5_add_double_1(h5_id, trim(tempch)//"JpeJpi_abs", &
-                        abs(Jpe + Jpi), lbound(Jpe), ubound(Jpe))
+    !CALL h5_add_double_1(h5_id, trim(tempch)//"Jpe_abs", &
+                        !abs(Jpe), lbound(Jpe), ubound(Jpe))
+    !CALL h5_add_double_1(h5_id, trim(tempch)//"Jpi_abs", &
+                        !abs(Jpi), lbound(Jpi), ubound(Jpi))
+    !CALL h5_add_double_1(h5_id, trim(tempch)//"JpeJpi_abs", &
+                        !abs(Jpe + Jpi), lbound(Jpe), ubound(Jpe))
 
 end subroutine
 

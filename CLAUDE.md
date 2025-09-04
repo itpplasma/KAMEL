@@ -25,17 +25,14 @@ make KiLCA
 make KIM
 make QL-Balance
 
-# Clean build
+# Clean build (removes build/)
 make clean
 ```
 
 ### Running Tests
 ```bash
-# KIM tests
-cd KIM && make test
-
-# QL-Balance tests
-cd QL-Balance && make test
+# Run all tests via CTest from root
+make test  # invokes ctest --test-dir build
 ```
 
 ### Python Package
@@ -47,22 +44,28 @@ cd python && make init && make install
 ## Architecture Overview
 
 ### Core Components
-- **Fortran/C++ cores** - High-performance computation engines in `/KiLCA/`, `/KIM/`, `/QL-Balance/`
-- **Python interfaces** - Modern object-oriented wrappers in `/python/`
+- **Fortran/C++ cores** - High-performance computation engines in `/KiLCA/`, `/KIM/`, `/QL-Balance/` (executables use `.x` suffix)
+- **Python interfaces** - Modern object-oriented wrappers in `/python/` (KAMELpy)
 - **MATLAB interfaces** - Research workflow management in `/matlab/`
 - **Template scripts** - Standardized workflows in `/template_scripts/`
+- **Common utilities** - Shared math/utils in `/common/`
 
 ### Key Directories
 - `/external/` - External dependencies (SuiteSparse, GSL, LAPACK, etc.)
 - `/PreProc/` - Preprocessing utilities (fouriermodes, neo-2 templates)
 - `/Documentation/` - LaTeX documentation and mathematical background
 - `/utility_scripts/` - Helper scripts in MATLAB and Python
+- `/build/` - Build artifacts and compiled binaries (gitignored)
 
-### Data Flow
-All data exchange uses **HDF5 format** for standardization. The workflow typically follows:
-1. **Prerun**: Use template scripts to prepare HDF5 input files
-2. **Main run**: Execute appropriate template (linear, timeevol, parameterscan)
+### Data Flow & Workflow
+All data exchange uses **HDF5 format** for standardization. The typical workflow:
+1. **Prerun**: Generate HDF5 input files using template scripts
+2. **Main run**: Execute solver (KiLCA/KIM/QL-Balance) with appropriate template:
+   - `linearrun/` - Quasilinear diffusion coefficients
+   - `timeevol/` - Dynamic transport evolution
+   - `parameterscan/` - Parameter space exploration
 3. **Post-processing**: Python/MATLAB analysis and visualization
+4. **Metadata**: HDF5 outputs include git version and timestamps for reproducibility
 
 ## Python Interface (KAMELpy)
 
@@ -105,9 +108,11 @@ bal.run();
 - **QL-Balance**: `balance_conf.nml` (in run directory)
 
 ### Build Configuration
-- **Default build type**: Release
-- **Build generator**: Ninja (via CMake)
-- **Compilers tested**: Apple Silicon (clang 16.0 + gfortran 14.2), Debian (GNU 12.2.0)
+- **Default build type**: Release (configure with `CONFIG=Debug` for debug builds)
+- **Build generator**: Ninja (via CMake, ensure Ninja is available on PATH)
+- **Build files**: `build/build.ninja`
+- **Compilers**: MPI Fortran (`mpif90`), C/C++ with clang-format support
+- **Platforms tested**: Apple Silicon (clang 16.0 + gfortran 14.2), Debian (GNU 12.2.0)
 
 ## Template-Based Development
 
@@ -137,10 +142,39 @@ bal.run();
 - **Core**: numpy, scipy, h5py, f90nml
 - **Visualization**: matplotlib
 
-## Development Notes
+## Development Guidelines
 
-- **Build artifacts** go into `build/` directories
-- **No explicit linting/formatting** targets in build system
-- **QL-Balance requires compiled KiLCA** for proper functioning
-- **HDF5 metadata** includes git versions and timestamps for reproducibility
-- **Modular physics** allows easy extension with new collision models or zone types
+### Coding Style
+- **Indentation**: 4 spaces (no tabs)
+- **Line width**: 100 columns maximum
+- **Fortran formatting**: Use `fprettify` (see `.fprettify` config)
+  - Module names use `_m` suffix
+  - Test files named `test_*.f90`
+  - Executables use `.x` suffix
+- **C/C++ formatting**: Use `clang-format` (LLVM base style, see `.clang-format`)
+
+### Testing
+- **Framework**: CTest enabled at top level
+- **Execution**: Tests run from `build/` via `ctest`
+- **New tests**: Add via CMake in relevant subproject
+  - Name sources `test_*.f90`
+  - Register with `add_test` in `CMakeLists.txt`
+  - Keep self-contained, avoid interactive I/O
+  - Print diagnostics for debugging
+
+### Version Control
+- **Commit style**: Conventional Commits (`feat:`, `fix:`, `refactor:`, `chore:`)
+  - Optional scope: `feat(KIM): add new solver`
+  - Single-topic, buildable commits
+- **Pull Requests**:
+  - Include purpose, key changes, usage notes
+  - Link related issues
+  - Provide test output (`ctest` summary)
+  - Require green CI before merge
+  - Avoid force-push after review (except for rebase)
+
+### Build Tips
+- **Reconfigure**: When in doubt, `make clean` then rebuild
+- **Dependencies**: QL-Balance requires KiLCA built first
+- **HDF5 outputs**: Include git version and timestamps for reproducibility
+- **Modular physics**: Extensible for new collision models or zone types

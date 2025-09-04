@@ -1,11 +1,11 @@
 program test_kernel_localizer
 
-    use kernels, only: fill_rho_kernels, K_rho_phi_of_rg, kernel_rho_phi_of_kr_krp_rg
-    use KIM_kinds, only: dp
-    use grid, only: rg_grid
+    use kernels_m, only: fill_rho_kernels, K_rho_phi_of_rg, kernel_rho_phi_of_kr_krp_rg
+    use KIM_kinds_m, only: dp
+    use grid_m, only: rg_grid
     use plasma_parameter, only: r_prof, n_prof, iprof_length
     use resonances_mod, only: r_res
-    use regularization_funcs, only: theta_middle, theta_right, theta_left
+    use regularization_funcs_m, only: theta_middle, theta_right, theta_left
 
     implicit none
 

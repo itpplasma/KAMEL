@@ -395,6 +395,8 @@ module time_evolution
             CALL h5_init()
             CALL h5_open_rw(path2out, h5_id)
 
+            h5overwrite = .true.
+
             h5_currentgrp = "/"//trim(h5_mode_groupname) //"/br_abs_time"
             CALL h5_add_double_1(h5_id, trim(h5_currentgrp), br_abs_time(1:time_ind), &
                 lbound(br_abs_time(1:time_ind)), ubound(br_abs_time(1:time_ind)))
@@ -434,6 +436,8 @@ module time_evolution
             h5_currentgrp = "/"//trim(h5_mode_groupname)//"/r_res"
             call h5_add_double_1(h5_id, trim(h5_currentgrp), r_res, lbound(r_res), ubound(r_res), &
                                  comment="resonant radius", unit="cm")
+
+            h5overwrite = .false.
 
             CALL h5_close(h5_id)
             CALL h5_deinit()

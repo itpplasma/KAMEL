@@ -34,7 +34,7 @@ void rhs_func(double r, double* y, double* ydot, void* params) {
 
 /*-----------------------------------------------------------------*/
 
-int Jacobian(long int N, realtype t, N_Vector y, N_Vector fy, DlsMat J, void* user_data,
+int Jacobian(long int N, realtype t, N_Vector y, N_Vector fy, SUNDlsMat J, void* user_data,
     N_Vector tmp1, N_Vector tmp2, N_Vector tmp3) {
     rhs_func_params* fp = (rhs_func_params*)user_data;
 
@@ -61,8 +61,8 @@ int Jacobian(long int N, realtype t, N_Vector y, N_Vector fy, DlsMat J, void* us
     {
         for (j = 0; j < Nw; j++) // over columns of a complex matrix
         {
-            col0 = DENSE_COL(J, 2 * Nw * k + 2 * j + 0);
-            col1 = DENSE_COL(J, 2 * Nw * k + 2 * j + 1);
+            col0 = SUNDLS_DENSE_COL(J, 2 * Nw * k + 2 * j + 0);
+            col1 = SUNDLS_DENSE_COL(J, 2 * Nw * k + 2 * j + 1);
 
             for (i = 0; i < Nw; i++) // //over rows of a complex matrix
             {

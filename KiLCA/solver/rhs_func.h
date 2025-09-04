@@ -25,7 +25,7 @@ void rhs_func_coeff(double, double*, double*, void*);
 
 /*-----------------------------------------------------------------*/
 
-int Jacobian(long int N, realtype t, N_Vector y, N_Vector fy, DlsMat Jac, void* user_data,
+int Jacobian(long int N, realtype t, N_Vector y, N_Vector fy, SUNDlsMat Jac, void* user_data,
     N_Vector tmp1, N_Vector tmp2, N_Vector tmp3);
 
 /*-----------------------------------------------------------------*/

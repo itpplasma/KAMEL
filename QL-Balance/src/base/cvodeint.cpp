@@ -20,7 +20,7 @@ void rhs_balance_(double*, const double*, const double*);
 int cvodeint_(int* Neqp, double*, double* x2, double* y, double*) {
     int const neq = *Neqp;
 
-    N_Vector yv = N_VMake_Serial(neq, y);
+    N_Vector yv = N_VMake_Serial(neq, y, SUNCTX_PLACEHOLDER);
     if (!yv) {
         fprintf(stderr, "\nerror: cvodeint: y vector allocation failed!..");
         return 1;
@@ -32,8 +32,8 @@ int cvodeint_(int* Neqp, double*, double* x2, double* y, double*) {
 
     // INTEGRATION METHOD -----------------------------------------------------
     // old method
-    // void *cvode_mem = CVodeCreate(CV_BDF, CV_NEWTON);
-    void* cvode_mem = CVodeCreate(CV_ADAMS);
+    // void *cvode_mem = CVodeCreate(CV_BDF, CV_NEWTON, SUNCTX_PLACEHOLDER, SUNCTX_PLACEHOLDER);
+    void* cvode_mem = CVodeCreate(CV_ADAMS, SUNCTX_PLACEHOLDER, SUNCTX_PLACEHOLDER);
     if (check_flag(cvode_mem, "CVodeCreate", 0))
         return 1;
 
@@ -41,12 +41,12 @@ int cvodeint_(int* Neqp, double*, double* x2, double* y, double*) {
     SUNLinearSolver LS;
 
     // Create dense SUNMatrix for use in linear solver
-    A = SUNDenseMatrix(neq, neq);
+    A = SUNDenseMatrix(neq, neq, SUNCTX_PLACEHOLDER);
     if (check_flag((void*)A, "SUNDenseMatri", 0))
         return 1;
 
     // Create dense linear solver for use by CVODE
-    LS = SUNLinSol_Dense(yv, A);
+    LS = SUNLinSol_Dense(yv, A, SUNCTX_PLACEHOLDER);
     if (check_flag((void*)LS, "SUNLinSol_Dense", 0))
         return 1;
 

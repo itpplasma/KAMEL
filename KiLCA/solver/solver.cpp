@@ -53,7 +53,7 @@ exit - contains basis vectors at rvec points packed one after another.
     // void *cvode_mem = CVodeCreate (CV_BDF, CV_NEWTON);
     //  Call CvodeCreate to create CVode memory block and specify the
     //  ADAMS differentiation formula (for nonstiff problems)
-    void* cvode_mem = CVodeCreate(CV_ADAMS);
+    void* cvode_mem = CVodeCreate(CV_ADAMS, SUNCTX_PLACEHOLDER, SUNCTX_PLACEHOLDER);
     if (check_flag((void*)cvode_mem, "CVodeCreate", 0))
         return 1;
 
@@ -71,14 +71,14 @@ exit - contains basis vectors at rvec points packed one after another.
     for (i = 0; i < Neq; i++)
         ydata[i] = Smat[i];
 
-    N_Vector y = N_VMake_Serial(Neq, ydata);
+    N_Vector y = N_VMake_Serial(Neq, ydata, SUNCTX_PLACEHOLDER);
 
     if (!y) {
         fprintf(stderr, "\nerror: int_basis_vecs: y vector allocation failed!..");
         return 1;
     }
 
-    N_Vector yval = N_VMake_Serial(Neq, ydata);
+    N_Vector yval = N_VMake_Serial(Neq, ydata, SUNCTX_PLACEHOLDER);
     if (!yval) {
         fprintf(stderr, "\nerror: int_basis_vecs: yval vector allocation failed!..");
         return 1;
@@ -107,12 +107,12 @@ exit - contains basis vectors at rvec points packed one after another.
     }
 
     // Create dense SUNMatrix for use in linear solver
-    A = SUNDenseMatrix(Neq, Neq);
+    A = SUNDenseMatrix(Neq, Neq, SUNCTX_PLACEHOLDER);
     if (check_flag((void*)A, "SUNDenseMatrix", 0))
         return 1;
 
     // Create dense linear solver for use by CVode
-    LS = SUNLinSol_Dense(y, A);
+    LS = SUNLinSol_Dense(y, A, SUNCTX_PLACEHOLDER);
     if (check_flag((void*)LS, "SUNLinSol_Dense", 0))
         return 1;
 

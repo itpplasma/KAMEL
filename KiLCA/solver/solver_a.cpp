@@ -46,7 +46,7 @@ int integrate_basis_vecs(SysRHSFcn f, int Nfs, int Nw, int dim, double* rvec, do
     double* mem = new double[Nort * (1 + Neq + 2 * Nfs)];
 
     // void *cvode_mem = CVodeCreate (CV_BDF, CV_NEWTON);
-    void* cvode_mem = CVodeCreate(CV_ADAMS, CV_FUNCTIONAL);
+    void* cvode_mem = CVodeCreate(CV_ADAMS, CV_FUNCTIONAL, SUNCTX_PLACEHOLDER, SUNCTX_PLACEHOLDER);
 
     if (!cvode_mem) {
         fprintf(stderr, "\nerror: int_basis_vecs: cvodecreate failed!..");
@@ -67,13 +67,13 @@ int integrate_basis_vecs(SysRHSFcn f, int Nfs, int Nw, int dim, double* rvec, do
     for (i = 0; i < Neq; i++)
         ydata[i] = Smat[i];
 
-    N_Vector y = N_VMake_Serial(Neq, ydata);
+    N_Vector y = N_VMake_Serial(Neq, ydata, SUNCTX_PLACEHOLDER);
     if (!y) {
         fprintf(stderr, "\nerror: int_basis_vecs: y vector allocation failed!..");
         return 1;
     }
 
-    N_Vector yval = N_VMake_Serial(Neq, ydata);
+    N_Vector yval = N_VMake_Serial(Neq, ydata, SUNCTX_PLACEHOLDER);
     if (!yval) {
         fprintf(stderr, "\nerror: int_basis_vecs: yval vector allocation failed!..");
         return 1;

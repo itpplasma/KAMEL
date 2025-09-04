@@ -23,7 +23,7 @@ struct solver_settings
 
 typedef void (*SysRHSFcn)(double, double *, double *, void *);
 
-int func (realtype t, N_Vector y, N_Vector ydot, void *params);
+int func (sunrealtype t, N_Vector y, N_Vector ydot, void *params);
 
 int integrate_basis_vecs_ (SysRHSFcn f, int Nfs, int Nw, int dim, double *rvec, double *Smat, int *Nort, double *mem, void *params);
 

@@ -8,7 +8,7 @@
 #include <cvode/cvode.h>               /* main integrator header file */
 #include <nvector/nvector_serial.h>    /* serial N_Vector types, fct. and macros */
 #include <sundials/sundials_math.h>    /* contains the macros ABS, SQR, and EXP */
-#include <sundials/sundials_types.h>   /* definition of realtype */
+#include <sundials/sundials_types.h>   /* definition of sunrealtype */
 #include <sunlinsol/sunlinsol_dense.h> // new dense solver, sundials_dense is deprecated
 #include <sunmatrix/sunmatrix_dense.h>
 
@@ -19,7 +19,7 @@ static int check_flag(void* flagvalue, const char* funcname, int opt);
 /*-----------------------------------------------------------------*/
 
 /* Functions Called by the Solver */
-int func(realtype r, N_Vector y, N_Vector ydot, void* Dmat) {
+int func(sunrealtype r, N_Vector y, N_Vector ydot, void* Dmat) {
     rhs_mat((double)r, N_VGetArrayPointer(y), N_VGetArrayPointer(ydot), Dmat);
     return 0;
 }
@@ -84,11 +84,11 @@ exit - contains basis vectors at rvec points packed one after another.
         return 1;
     }
 
-    realtype reltol = ss->eps_rel, abstol = ss->eps_abs;
+    sunrealtype reltol = ss->eps_rel, abstol = ss->eps_abs;
 
     int flag;
 
-    flag = CVodeInit(cvode_mem, func, (realtype)rvec[0], y);
+    flag = CVodeInit(cvode_mem, func, (sunrealtype)rvec[0], y);
     if (flag != CV_SUCCESS) {
         fprintf(stderr, "\nerror: int_basis_vecs: CVodeInit failed!..");
         return 1;
@@ -130,8 +130,8 @@ exit - contains basis vectors at rvec points packed one after another.
     //     return 1;
     // }
 
-    realtype rf;
-    rf = (realtype)rvec[dim - 1];
+    sunrealtype rf;
+    rf = (sunrealtype)rvec[dim - 1];
 
     flag = CVodeSetStopTime(cvode_mem, rf);
     if (flag != CV_SUCCESS) {
@@ -304,7 +304,7 @@ if (flag != CV_SUCCESS)
 
         /*restart solver with new start values*/
 
-        flag = CVodeReInit(cvode_mem, (realtype)(*rdata), y);
+        flag = CVodeReInit(cvode_mem, (sunrealtype)(*rdata), y);
         if (flag != CV_SUCCESS) {
             fprintf(stderr, "\nerror: int_basis_vecs: cvodereinit failed!: flag=%d\n", flag);
             break;

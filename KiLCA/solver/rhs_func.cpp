@@ -34,7 +34,7 @@ void rhs_func(double r, double* y, double* ydot, void* params) {
 
 /*-----------------------------------------------------------------*/
 
-int Jacobian(long int N, realtype t, N_Vector y, N_Vector fy, SUNDlsMat J, void* user_data,
+int Jacobian(long int N, sunrealtype t, N_Vector y, N_Vector fy, SUNDlsMat J, void* user_data,
     N_Vector tmp1, N_Vector tmp2, N_Vector tmp3) {
     rhs_func_params* fp = (rhs_func_params*)user_data;
 

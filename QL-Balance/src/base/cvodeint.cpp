@@ -6,7 +6,7 @@
 #include <sunlinsol/sunlinsol_dense.h>
 #include <sunmatrix/sunmatrix_dense.h>
 
-static int f(realtype t, N_Vector y, N_Vector ydot, void* user_data);
+static int f(sunrealtype t, N_Vector y, N_Vector ydot, void* user_data);
 static int check_flag(void* flagvalue, const char* funcname, int opt);
 static void PrintFinalStats(void* cvode_mem);
 
@@ -26,8 +26,8 @@ int cvodeint_(int* Neqp, double*, double* x2, double* y, double*) {
         return 1;
     }
 
-    realtype const tfinal = *x2;
-    realtype t;
+    sunrealtype const tfinal = *x2;
+    sunrealtype t;
     int flag;
 
     // INTEGRATION METHOD -----------------------------------------------------
@@ -69,7 +69,7 @@ int cvodeint_(int* Neqp, double*, double* x2, double* y, double*) {
 
 /******************************************************************************/
 
-static int f(realtype t, N_Vector y, N_Vector ydot, void* user_data) {
+static int f(sunrealtype t, N_Vector y, N_Vector ydot, void* user_data) {
     rhs_balance_(&t, N_VGetArrayPointer(y), N_VGetArrayPointer(ydot));
     return 0;
 }

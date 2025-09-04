@@ -1,5 +1,5 @@
 ! integrands for both Krook and FP collision models
-module integrands_gauss_mod
+module integrands_gauss_m
 
     use KIM_kinds_m, only: dp
 
@@ -262,4 +262,4 @@ module integrands_gauss_mod
 
     end function
 
-end module integrands_gauss_mod
+end module integrands_gauss_m

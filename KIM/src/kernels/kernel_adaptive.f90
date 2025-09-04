@@ -1,4 +1,4 @@
-module kernel_adaptive_mod
+module kernel_adaptive_m
 
     use KIM_kinds_m, only: dp
     use kernel_m, only: kernel_spl_t, max_distance_xl_xlp, min_distance_xl_xlp, &
@@ -36,7 +36,7 @@ module kernel_adaptive_mod
     subroutine FP_fill_kernels_adaptive(K_rho_phi_llp, K_rho_B_llp, K_j_phi_llp, K_j_B_llp)
 
         use KIM_kinds_m, only: dp
-        use integrals_rkf45_mod, only: rkf45_config_t, init_rkf45_int
+        use integrals_rkf45_m, only: rkf45_config_t, init_rkf45_int
         use grid_m, only: Larmor_skip_factor, gauss_int_nodes_Ntheta, gauss_int_nodes_Nx, gauss_int_nodes_Nxp, &
                           kernel_taper_skip_threshold, rg_grid, xl_grid
         use species_m, only: plasma
@@ -229,9 +229,9 @@ module kernel_adaptive_mod
     subroutine FP_calc_kernels_adaptive(l, lp, k_rho_phi, k_rho_B, k_j_phi, k_j_B, rkf45_conf)
 
         use KIM_kinds_m, only: dp
-        use integrals_rkf45_mod, only: rkf45_integrate_F0, rkf45_integrate_F1, &
+        use integrals_rkf45_m, only: rkf45_integrate_F0, rkf45_integrate_F1, &
             rkf45_integrate_F2, rkf45_integrate_F3, rkf45_config_t
-        use integrands_rkf45_mod, only: rkf45_integrand_context_t
+        use integrands_rkf45_m, only: rkf45_integrand_context_t
         use species_m, only: plasma
         use constants_m, only: pi
         use FP_kernel_plasma_prefacs_m, only: FP_G0_rho_phi
@@ -439,7 +439,7 @@ module kernel_adaptive_mod
         
         use grid_m, only: xl_grid
         use KIM_kinds_m, only: dp
-        use integrands_rkf45_mod, only: rkf45_integrand_context_t
+        use integrands_rkf45_m, only: rkf45_integrand_context_t
 
         implicit none
 

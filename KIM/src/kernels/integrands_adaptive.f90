@@ -1,5 +1,5 @@
 ! integrands for both Krook and FP collision models
-module integrands_rkf45_mod
+module integrands_rkf45_m
 
     use KIM_kinds_m, only: dp
 
@@ -275,4 +275,4 @@ module integrands_rkf45_mod
     end function
 
 
-end module integrands_rkf45_mod
+end module integrands_rkf45_m

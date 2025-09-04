@@ -3,49 +3,43 @@
 */
 
 #include "solver.h"
-
-#include <cvode/cvode.h> /* main integrator header file */
-//#include <cvode/cvode_dense.h>
-#include <nvector/nvector_serial.h>  /* serial N_Vector types, fct. and macros */
-#include <sunmatrix/sunmatrix_dense.h>
-//#include <sundials/sundials_dense.h> /* use generic DENSE solver in preconditioning */
-#include <sunlinsol/sunlinsol_dense.h> // new dense solver, sundials_dense is deprecated
-#include <sundials/sundials_types.h> /* definition of realtype */
-#include <sundials/sundials_math.h>  /* contains the macros ABS, SQR, and EXP */
-//#include <sundials/sundials_math.h>       /* contains the macros ABS, SQR, and EXP */
-
 #include "rhs_func.h"
+
+#include <cvode/cvode.h>               /* main integrator header file */
+#include <nvector/nvector_serial.h>    /* serial N_Vector types, fct. and macros */
+#include <sundials/sundials_math.h>    /* contains the macros ABS, SQR, and EXP */
+#include <sundials/sundials_types.h>   /* definition of realtype */
+#include <sunlinsol/sunlinsol_dense.h> // new dense solver, sundials_dense is deprecated
+#include <sunmatrix/sunmatrix_dense.h>
 
 SysRHSFcn rhs_mat;
 
-
 /*-----------------------------------------------------------------*/
-static int check_flag(void *flagvalue, const char *funcname, int opt);
+static int check_flag(void* flagvalue, const char* funcname, int opt);
 /*-----------------------------------------------------------------*/
 
 /* Functions Called by the Solver */
-int func(realtype r, N_Vector y, N_Vector ydot, void *Dmat)
-{
+int func(realtype r, N_Vector y, N_Vector ydot, void* Dmat) {
     rhs_mat((double)r, N_VGetArrayPointer(y), N_VGetArrayPointer(ydot), Dmat);
     return 0;
 }
 
 /*-----------------------------------------------------------------*/
 
-int integrate_basis_vecs(SysRHSFcn f, int Nfs, int Nw, int dim, double *rvec, double *Smat, solver_settings *ss, void *params)
-{
+int integrate_basis_vecs(SysRHSFcn f, int Nfs, int Nw, int dim, double* rvec, double* Smat,
+    solver_settings* ss, void* params) {
     /*
 f: a rhs function;
 Nfs: a number of fundamental solutions to be integrated simulaniously;
 Nw: dimension of the problem (number of waves)
 dim: dimension of r-grid;
 rvec: a grid points where solution has to be found
-Smat: a solution; on entrance Smat[0..Neq-1] must be filled by starting values (re,im,re,im,...), on exit - contains basis vectors at rvec points packed one after another.
+Smat: a solution; on entrance Smat[0..Neq-1] must be filled by starting values (re,im,re,im,...), on
+exit - contains basis vectors at rvec points packed one after another.
 */
 
     SUNMatrix A;
     SUNLinearSolver LS;
-
 
     rhs_mat = f;
 
@@ -53,14 +47,15 @@ Smat: a solution; on entrance Smat[0..Neq-1] must be filled by starting values (
 
     int Nort = ss->Nort;
 
-    //a memory block used for internal calulations, of length Nort*(1+Neq+2*Nfs):
-    double *mem = new double[Nort * (1 + Neq + 2 * Nfs)];
+    // a memory block used for internal calulations, of length Nort*(1+Neq+2*Nfs):
+    double* mem = new double[Nort * (1 + Neq + 2 * Nfs)];
 
-    //void *cvode_mem = CVodeCreate (CV_BDF, CV_NEWTON);
-    // Call CvodeCreate to create CVode memory block and specify the 
-    // ADAMS differentiation formula (for nonstiff problems)
-    void *cvode_mem = CVodeCreate(CV_ADAMS);
-    if (check_flag((void *) cvode_mem, "CVodeCreate", 0)) return 1;
+    // void *cvode_mem = CVodeCreate (CV_BDF, CV_NEWTON);
+    //  Call CvodeCreate to create CVode memory block and specify the
+    //  ADAMS differentiation formula (for nonstiff problems)
+    void* cvode_mem = CVodeCreate(CV_ADAMS);
+    if (check_flag((void*)cvode_mem, "CVodeCreate", 0))
+        return 1;
 
     int i, step = 0;
 
@@ -78,15 +73,13 @@ Smat: a solution; on entrance Smat[0..Neq-1] must be filled by starting values (
 
     N_Vector y = N_VMake_Serial(Neq, ydata);
 
-    if (!y)
-    {
+    if (!y) {
         fprintf(stderr, "\nerror: int_basis_vecs: y vector allocation failed!..");
         return 1;
     }
 
     N_Vector yval = N_VMake_Serial(Neq, ydata);
-    if (!yval)
-    {
+    if (!yval) {
         fprintf(stderr, "\nerror: int_basis_vecs: yval vector allocation failed!..");
         return 1;
     }
@@ -96,67 +89,65 @@ Smat: a solution; on entrance Smat[0..Neq-1] must be filled by starting values (
     int flag;
 
     flag = CVodeInit(cvode_mem, func, (realtype)rvec[0], y);
-    if (flag != CV_SUCCESS)
-    {
+    if (flag != CV_SUCCESS) {
         fprintf(stderr, "\nerror: int_basis_vecs: CVodeInit failed!..");
         return 1;
     }
 
     flag = CVodeSetMaxOrd(cvode_mem, 12);
-    if (flag != CV_SUCCESS)
-    {
+    if (flag != CV_SUCCESS) {
         fprintf(stderr, "\nerror: int_basis_vecs: CVodeSetMaxOrd failed!..");
         return 1;
     }
 
     flag = CVodeSStolerances(cvode_mem, reltol, abstol);
-    if (flag != CV_SUCCESS)
-    {
+    if (flag != CV_SUCCESS) {
         fprintf(stderr, "\nerror: int_basis_vecs: CVodeSStolerances failed!..");
         return 1;
     }
 
     // Create dense SUNMatrix for use in linear solver
     A = SUNDenseMatrix(Neq, Neq);
-    if (check_flag((void *) A, "SUNDenseMatrix", 0)) return 1;
+    if (check_flag((void*)A, "SUNDenseMatrix", 0))
+        return 1;
 
     // Create dense linear solver for use by CVode
-    LS = SUNLinSol_Dense(y,A);
-    if (check_flag((void *) LS, "SUNLinSol_Dense", 0)) return 1;
+    LS = SUNLinSol_Dense(y, A);
+    if (check_flag((void*)LS, "SUNLinSol_Dense", 0))
+        return 1;
 
     // Attach the linear solver and matrix to CVode
     flag = CVodeSetLinearSolver(cvode_mem, LS, A);
-    if (check_flag((void *) &flag, "CVodeSetLinearSolver", 1)) return 1;
+    if (check_flag((void*)&flag, "CVodeSetLinearSolver", 1))
+        return 1;
 
-    //Call CVDense to specify the CVDENSE dense linear solver:
-    // flag = CVodeSetLinearSolver(cvode_mem, LS, NULL);
-    //flag = CVDense(cvode_mem, Neq);
-    //if (flag != CV_SUCCESS)
+    // Call CVDense to specify the CVDENSE dense linear solver:
+    //  flag = CVodeSetLinearSolver(cvode_mem, LS, NULL);
+    // flag = CVDense(cvode_mem, Neq);
+    // if (flag != CV_SUCCESS)
     //{
-    //    fprintf(stderr, "\nerror: int_basis_vecs: cvdense failed!..");
-    //    return 1;
-    //}
+    //     fprintf(stderr, "\nerror: int_basis_vecs: cvdense failed!..");
+    //     return 1;
+    // }
 
     realtype rf;
     rf = (realtype)rvec[dim - 1];
 
     flag = CVodeSetStopTime(cvode_mem, rf);
-    if (flag != CV_SUCCESS)
-    {
+    if (flag != CV_SUCCESS) {
         fprintf(stderr, "\nerror: int_basis_vecs: cvodestoptime failed!..");
         return 1;
     }
 
-    //flag = CVodeSetFdata (cvode_mem, params);
+    // flag = CVodeSetFdata (cvode_mem, params);
     flag = CVodeSetUserData(cvode_mem, params);
-    if (flag != CV_SUCCESS)
-    {
+    if (flag != CV_SUCCESS) {
         fprintf(stderr, "\nerror: int_basis_vecs: CVodeSetUserData failed!..\n");
         return (1);
     }
 
-//Jacobian settings:
-#if false //USE_JACOBIAN_IN_ODE_SOLVER == 1
+// Jacobian settings:
+#if false // USE_JACOBIAN_IN_ODE_SOLVER == 1
 
 flag = CVDlsSetDenseJacFn(cvode_mem, Jacobian);
 if (flag != CV_SUCCESS)
@@ -167,43 +158,42 @@ if (flag != CV_SUCCESS)
 
 #endif
 
-    //We everywhere represent fortran complex arrays as double ones of double size
+    // We everywhere represent fortran complex arrays as double ones of double size
 
     int ort_flag, INFO, LWORK = -1;
 
-    double *WORK = (double *)xmalloc(2 * Nfs * sizeof(double));
+    double* WORK = (double*)xmalloc(2 * Nfs * sizeof(double));
 
     /* call to determine an optimal LWORK: ydata should'nt change! */
     zgeqrf_(&Nw, &Nfs, ydata, &Nw, taudata, WORK, &LWORK, &INFO);
 
-    if (INFO)
-    {
+    if (INFO) {
         fprintf(stderr, "\nerror: int_basis_vecs: zgeqrf_ failed!: %d", INFO);
         return 1;
     }
 
     LWORK = (int)WORK[0];
 
-    //fprintf(stdout, "\nint_basis_vecs_: optimal LWORK=%d\n", LWORK);
+    // fprintf(stdout, "\nint_basis_vecs_: optimal LWORK=%d\n", LWORK);
 
-    WORK = (double *)xrealloc(WORK, 2 * LWORK * sizeof(double));
+    WORK = (double*)xrealloc(WORK, 2 * LWORK * sizeof(double));
 
     double max, min, mod;
 
     int ind, rpind, flag2, tot_steps;
 
-    double *adr;
+    double* adr;
 
     rpind = 0;     /*index of a reached point in rvec */
     tot_steps = 0; /* total number of CVode steps */
 
     int dirint = signum(rvec[dim - 1] - rvec[0]);
 
-    while (1)
-    {
-        if (step == Nort - 1)
-        {
-            fprintf(stderr, "\nerror: int_basis_vecs: maximum number of ortonormalization steps is reached: %d", step);
+    while (1) {
+        if (step == Nort - 1) {
+            fprintf(stderr,
+                "\nerror: int_basis_vecs: maximum number of ortonormalization steps is reached: %d",
+                step);
             fflush(stderr);
             break;
         }
@@ -213,39 +203,36 @@ if (flag != CV_SUCCESS)
         tot_steps++;
 
         /*check for problems:*/
-        if (!(flag == CV_SUCCESS || flag == CV_TSTOP_RETURN))
-        {
+        if (!(flag == CV_SUCCESS || flag == CV_TSTOP_RETURN)) {
             fprintf(stderr, "\nerror: int_basis_vecs: cvode failed!: t=%g\tflag=%d", *rdata, flag);
             fflush(stderr);
             break;
         }
 
         /* checks for grid points: */
-        for (i = rpind + 1; i < dim; i++)
-        {
+        for (i = rpind + 1; i < dim; i++) {
             if (dirint * (rvec[i] - (*rdata)) <= 0.0) /*determine y values:*/
             {
                 NV_DATA_S(yval) = Smat + i * Neq;
                 flag2 = CVodeGetDky(cvode_mem, rvec[i], 0, yval);
 
-                if (flag2 != CV_SUCCESS)
-                {
-                    fprintf(stderr, "\nerror: int_basis_vecs_: cvodegetdky failed!: t=%g\tflag=%d", *rdata, flag2);
+                if (flag2 != CV_SUCCESS) {
+                    fprintf(stderr, "\nerror: int_basis_vecs_: cvodegetdky failed!: t=%g\tflag=%d",
+                        *rdata, flag2);
                     fflush(stderr);
                     return 1;
                 }
                 rpind = i;
-            }
-            else
+            } else
                 break;
         }
 
         /* check for finish: */
-        if (flag == CV_TSTOP_RETURN)
-        {
-            if (rpind != dim - 1)
-            {
-                fprintf(stderr, "\nerror: int_basis_vecs: a wrong index is detected: rpind=%d\tdim=%d", rpind, dim);
+        if (flag == CV_TSTOP_RETURN) {
+            if (rpind != dim - 1) {
+                fprintf(stderr,
+                    "\nerror: int_basis_vecs: a wrong index is detected: rpind=%d\tdim=%d", rpind,
+                    dim);
             }
             break;
         }
@@ -259,8 +246,7 @@ if (flag != CV_SUCCESS)
 
         zgeqrf_(&Nw, &Nfs, adr, &Nw, taudata, WORK, &LWORK, &INFO);
 
-        if (INFO)
-        {
+        if (INFO) {
             fprintf(stderr, "\nerror: int_basis_vecs: zgeqrf_ failed!: %d", INFO);
             fflush(stderr);
             break;
@@ -270,8 +256,7 @@ if (flag != CV_SUCCESS)
         max = sqrt(adr[0] * adr[0] + adr[1] * adr[1]);
         min = max;
 
-        for (i = 1; i < Nfs; i++)
-        {
+        for (i = 1; i < Nfs; i++) {
             ind = 2 * i * (Nw + 1); /*re(i,j): 2*Nwaves*j+2*i */
             mod = sqrt(adr[ind] * adr[ind] + adr[ind + 1] * adr[ind + 1]);
             if (mod > max)
@@ -280,7 +265,7 @@ if (flag != CV_SUCCESS)
                 min = mod;
         }
 
-        //if (min < (ss->norm_fac)*max) ort_flag = 0; else ort_flag = 1;
+        // if (min < (ss->norm_fac)*max) ort_flag = 0; else ort_flag = 1;
         if (max > (ss->norm_fac) * min)
             ort_flag = 0;
         else
@@ -289,9 +274,9 @@ if (flag != CV_SUCCESS)
         if (ort_flag == 1)
             continue; /*ydata and rdata are inchanged, just next step:*/
 
-        if (ss->debug > 1)
-        {
-            fprintf(stdout, "\nint_basis_vecs: QRstep = %5d  r = %9.6f\tmin = %8.3e\tmax = %8.3e", step, *rdata, min, max);
+        if (ss->debug > 1) {
+            fprintf(stdout, "\nint_basis_vecs: QRstep = %5d  r = %9.6f\tmin = %8.3e\tmax = %8.3e",
+                step, *rdata, min, max);
         }
 
         /*if orthoganalization is neccessary: store the solution:*/
@@ -307,8 +292,7 @@ if (flag != CV_SUCCESS)
         /*ydata should be a new orthoganal set of vecs:*/
         ydata += Neq;
         zungqr_(&Nw, &Nfs, &Nfs, ydata, &Nw, taudata, WORK, &LWORK, &INFO);
-        if (INFO)
-        {
+        if (INFO) {
             fprintf(stderr, "\nerror: int_basis_vecs: zungqr_ failed!: %d", INFO);
             break;
         }
@@ -321,36 +305,36 @@ if (flag != CV_SUCCESS)
         /*restart solver with new start values*/
 
         flag = CVodeReInit(cvode_mem, (realtype)(*rdata), y);
-        if (flag != CV_SUCCESS)
-        {
+        if (flag != CV_SUCCESS) {
             fprintf(stderr, "\nerror: int_basis_vecs: cvodereinit failed!: flag=%d\n", flag);
             break;
         }
     }
 
-    if (ss->debug > 0)
-    {
-        fprintf(stdout, "\ninformation: int_basis_vecs: Nsteps = %d\tNorts = %d r = %f", tot_steps, step, *rdata);
+    if (ss->debug > 0) {
+        fprintf(stdout, "\ninformation: int_basis_vecs: Nsteps = %d\tNorts = %d r = %f", tot_steps,
+            step, *rdata);
     }
 
     /*renormalization of basis vectors: we pass the data for last orth. step*/
-    if ((rdata - 1 != mem + step - 1) ||
-        (ydata - Neq != mem + (Nort) + Neq * (step - 1)) ||
-        (taudata - 2 * Nfs != mem + (Nort) + Neq * (Nort) + 2 * Nfs * (step - 1)))
-    {
+    if ((rdata - 1 != mem + step - 1) || (ydata - Neq != mem + (Nort) + Neq * (step - 1)) ||
+        (taudata - 2 * Nfs != mem + (Nort) + Neq * (Nort) + 2 * Nfs * (step - 1))) {
         fprintf(stderr, "\nerror: int_basis_vecs: wrong pointers to renormalization info:");
         fprintf(stderr, "\nrdata1=%p rdata2=%p", rdata - 1, mem + step - 1);
         fprintf(stderr, "\nydata1=%p ydata2=%p", ydata - Neq, mem + (Nort) + Neq * (step - 1));
-        fprintf(stderr, "\ntdata1=%p tdata2=%p", taudata - 2 * Nfs, mem + (Nort) + Neq * (Nort) + 2 * Nfs * (step - 1));
+        fprintf(stderr, "\ntdata1=%p tdata2=%p", taudata - 2 * Nfs,
+            mem + (Nort) + Neq * (Nort) + 2 * Nfs * (step - 1));
         return 1;
     }
 
-    //fprintf(stdout, "\ncheck: integrate_basis_vecs_: rdata=%d ydata=%d udata=%d", (int)mem, (int)(mem+(Nort)), (int)Smat);
+    // fprintf(stdout, "\ncheck: integrate_basis_vecs_: rdata=%d ydata=%d udata=%d", (int)mem,
+    // (int)(mem+(Nort)), (int)Smat);
 
     Nort = step;
 
     /* pass the pointers to the solution at the last point: */
-    renorm_basis_vecs_(Nfs, Nw, dim, rvec, Smat + (dim - 1) * Neq, Nort, rdata - 1, ydata - Neq, taudata - 2 * Nfs);
+    renorm_basis_vecs_(Nfs, Nw, dim, rvec, Smat + (dim - 1) * Neq, Nort, rdata - 1, ydata - Neq,
+        taudata - 2 * Nfs);
 
     N_VDestroy_Serial(y);
     N_VDestroy_Serial(yval);
@@ -365,16 +349,16 @@ if (flag != CV_SUCCESS)
 
 /*-----------------------------------------------------------------*/
 
-int renorm_basis_vecs_(int Nfs, int Nw, int dim, double *rvec, double *udata, int Nort, double *rdata, double *ydata, double *taudata)
-{
+int renorm_basis_vecs_(int Nfs, int Nw, int dim, double* rvec, double* udata, int Nort,
+    double* rdata, double* ydata, double* taudata) {
     /*
 all complex arrays are stored as double 1D ones of double length:
 */
 
     int Neq = 2 * Nfs * Nw;
 
-    double *tmp = (double *)xmalloc(Neq * sizeof(double));
-    double *buf = (double *)xmalloc(Neq * sizeof(double));
+    double* tmp = (double*)xmalloc(Neq * sizeof(double));
+    double* buf = (double*)xmalloc(Neq * sizeof(double));
 
     int i, k, ind;
 
@@ -385,10 +369,8 @@ all complex arrays are stored as double 1D ones of double length:
     int info;
 
     /* buf is the nearly unit matrix after last orth.: */
-    for (k = 0; k < Nw; k++)
-    {
-        for (i = 0; i < Nfs; i++)
-        {
+    for (k = 0; k < Nw; k++) {
+        for (i = 0; i < Nfs; i++) {
             ind = 2 * Nw * i + 2 * k; /*index of a real part of (k,i) element*/
             buf[ind] = 0.0;
             buf[ind + 1] = 0.0;
@@ -405,8 +387,7 @@ all complex arrays are stored as double 1D ones of double length:
 
     for (k = dim - 1; k > -1; k--) /* index of r grid point */
     {
-        for (step = ropind - 1; step > -1; step--)
-        {
+        for (step = ropind - 1; step > -1; step--) {
             if (dirint * (rvec[k] - (*rdata)) > 0.0)
                 break;
 
@@ -414,21 +395,23 @@ all complex arrays are stored as double 1D ones of double length:
 
             /*a new transformation needed: buf=tmp*buf*/
             /*
-		fprintf(stdout, "\nrenorm_basis_vecs_: new matrix: ropind=%4d r[%4d]=%6.3f *rort=%6.3f ydata=%d\n", ropind, k, rvec[k], *rdata, (int)ydata);
-		*/
+                fprintf(stdout, "\nrenorm_basis_vecs_: new matrix: ropind=%4d r[%4d]=%6.3f
+               *rort=%6.3f ydata=%d\n", ropind, k, rvec[k], *rdata, (int)ydata);
+                */
             /* finds inverse of R(k) and owerwrites itself in ydata */
             ztrtri_(&uplo, &diag, &Nfs, ydata, &Nw, &info);
-            if (info)
-            {
-                fprintf(stderr, "\nerror: renorm_basis_vecs_: ztrtri_ failed!: info=%d k=%d r=%f rdata=%p ydata=%p", info, k, rvec[k], rdata, ydata);
+            if (info) {
+                fprintf(stderr,
+                    "\nerror: renorm_basis_vecs_: ztrtri_ failed!: info=%d k=%d r=%f rdata=%p "
+                    "ydata=%p",
+                    info, k, rvec[k], rdata, ydata);
                 /*return 1;*/
             }
 
             /*buf is a inv(R(k+1))*inv(R(k+2))...*inv(R(Nort-1))*/
             /* multiplies inv(R(k)) on buf to get a new buf */
             ztrmm_(&side, &uplo, &trans, &diag, &Nfs, &Nfs, alpha, ydata, &Nw, buf, &Nw);
-            if (info)
-            {
+            if (info) {
                 fprintf(stderr, "\nerror: renorm_basis_vecs_: ztrmm_ failed!: %d", info);
                 /*return 1;*/
             }
@@ -444,12 +427,14 @@ all complex arrays are stored as double 1D ones of double length:
         for (i = 0; i < Neq; i++)
             udata[i] = tmp[i];
         /*
-	fprintf(stdout, "\rrenorm_basis_vecs_: ropind=%4d r[%4d]=%6.3f *rort=%6.3f ydata=%d", ropind, k, rvec[k], *rdata, (int)ydata);
-	*/
+        fprintf(stdout, "\rrenorm_basis_vecs_: ropind=%4d r[%4d]=%6.3f *rort=%6.3f ydata=%d",
+        ropind, k, rvec[k], *rdata, (int)ydata);
+        */
         udata -= Neq; /* next point */
     }
 
-    //fprintf(stdout, "\ncheck: renorm_basis_vecs_: rdata=%d ydata=%d udata=%d", (int)(rdata+1), (int)(ydata+Neq), (int)(udata+Neq));
+    // fprintf(stdout, "\ncheck: renorm_basis_vecs_: rdata=%d ydata=%d udata=%d", (int)(rdata+1),
+    // (int)(ydata+Neq), (int)(udata+Neq));
 
     free(buf);
     free(tmp);
@@ -459,8 +444,7 @@ all complex arrays are stored as double 1D ones of double length:
 
 /*-----------------------------------------------------------------*/
 
-int superpose_basis_vecs_(int Nfs, int Nw, int dim, double *Smat, double *Cvec, double *Svec)
-{
+int superpose_basis_vecs_(int Nfs, int Nw, int dim, double* Smat, double* Cvec, double* Svec) {
     /*
 all complex arrays are stored as a double 1D ones of double length:
 dim Smat = 2*Nw*Nfs*nsteps
@@ -480,8 +464,7 @@ dim Svec = 2*Nw*nsteps
     int k, incx = 1, incy = 1;
 
     /* main loop over r-points: */
-    for (k = 0; k < dim; k++)
-    {
+    for (k = 0; k < dim; k++) {
         /* multiply U on C to superpose */
         zgemv_(&trans, &Nw, &Nfs, alpha, udata, &Nw, Cvec, &incx, beta, sdata, &incy);
         udata += Neq;
@@ -492,31 +475,30 @@ dim Svec = 2*Nw*nsteps
 }
 
 /*-----------------------------------------------------------------*/
-static int check_flag(void *flagvalue, const char *funcname, int opt) {
+static int check_flag(void* flagvalue, const char* funcname, int opt) {
 
-	int *errflag;
+    int* errflag;
 
-	//Check if sundials function returned NULL pointer - no memory allocated
-	if (opt == 0 && flagvalue == NULL) {
-		fprintf(stderr, "\nSUNDIALS_ERROR: %s() failed - returned NULL pointer\n\n", funcname);
-		return(1);
-	}
+    // Check if sundials function returned NULL pointer - no memory allocated
+    if (opt == 0 && flagvalue == NULL) {
+        fprintf(stderr, "\nSUNDIALS_ERROR: %s() failed - returned NULL pointer\n\n", funcname);
+        return 1;
+    }
 
-	// Check if flag < 0
-	else if (opt == 1) {
-		errflag = (int *) flagvalue;
-		if (*errflag < 0 ) {
-			fprintf(stderr, "\nSUNDIALS_ERROR: %s() failed with flag = %d\n\n", funcname, *errflag);
-			return(1);
-		}
-	}
+    // Check if flag < 0
+    else if (opt == 1) {
+        errflag = (int*)flagvalue;
+        if (*errflag < 0) {
+            fprintf(stderr, "\nSUNDIALS_ERROR: %s() failed with flag = %d\n\n", funcname, *errflag);
+            return 1;
+        }
+    }
 
-	// Check if fnc returned NULL pointer - no memory allocated
-	else if (opt == 2 && flagvalue == NULL) {
-		fprintf(stderr, "\nMEMORY_ERROR: %s() failed - returned NULL pointer\n\n", funcname);
-		return(1);
-	}
+    // Check if fnc returned NULL pointer - no memory allocated
+    else if (opt == 2 && flagvalue == NULL) {
+        fprintf(stderr, "\nMEMORY_ERROR: %s() failed - returned NULL pointer\n\n", funcname);
+        return 1;
+    }
 
-	return(0);
+    return 0;
 }
-

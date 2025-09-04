@@ -72,8 +72,9 @@ module integrals_gauss_mod
         real(dp) :: x_mapped, xp_mapped, theta_mapped
         real(dp) :: norm_factor
         integer :: i,j,k
-        integer :: iunit
+        integer :: iunit, iunit2
         logical :: first_call = .true.
+        logical :: do_write
         save :: first_call
 
         result = 0.0d0
@@ -81,11 +82,17 @@ module integrals_gauss_mod
         norm_factor = pi * (int_F1%int_point%xlp1 - int_F1%int_point%xlm1) & ! normalization due to integral range shift
                         * (int_F1%int_point%xlpp1 - int_F1%int_point%xlpm1) / 8.0d0
         
-        ! Write integration nodes to file (only on first call)
+        ! Write integration nodes to file (only on first call). Guard for parallel calls.
+        do_write = .false.
+        !$omp critical(F1_integration_first_call)
         if (first_call) then
             first_call = .false.
-            iunit = 1234
-            open(unit=iunit, file=trim(output_path)//'grid/F1_integration_nodes.txt', status='replace')
+            do_write = .true.
+        end if
+        !$omp end critical(F1_integration_first_call)
+
+        if (do_write) then
+            open(newunit=iunit, file=trim(output_path)//'grid/F1_integration_nodes.txt', status='replace', action='write')
             write(iunit, '(A)') '# F1 Integration Nodes - First call information'
             write(iunit, '(A,I4)') '# Number of theta nodes: ', gauss_conf%Ntheta
             write(iunit, '(A,I4)') '# Number of x nodes: ', gauss_conf%Nx
@@ -124,11 +131,11 @@ module integrals_gauss_mod
             write(iunit, '(A,F12.6)') '# Norm factor: ', norm_factor
             close(iunit)
             
-            ! Also write a detailed sampling file for all integration points
-            open(unit=iunit+1, file=trim(output_path)//'grid/F1_integration_sampling.txt', status='replace')
-            write(iunit+1, '(A)') '# F1 Integration sampling points for first call'
-            write(iunit+1, '(A)') '# i_theta, j_xp, k_x, theta, xp, x, integrand_value'
-            close(iunit+1)
+            ! Also create a sampling file header
+            open(newunit=iunit2, file=trim(output_path)//'grid/F1_integration_sampling.txt', status='replace', action='write')
+            write(iunit2, '(A)') '# F1 Integration sampling points for first call'
+            write(iunit2, '(A)') '# i_theta, j_xp, k_x, theta, xp, x, integrand_value'
+            close(iunit2)
         end if
         
         do i=1,gauss_conf%Ntheta ! theta

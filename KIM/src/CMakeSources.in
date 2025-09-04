@@ -66,8 +66,8 @@ set(KIM_poisson electrostatic_poisson/poisson.f90
                 kernels/integrands.f90
                 electrostatic_poisson/fields_mod.f90
                 kernels/integrals.f90
-                electrostatic_poisson/Krook_kernel_plasma_prefacs.f90
-                electrostatic_poisson/FP_kernel_plasma_prefacs.f90
+                kernels/Krook_kernel_plasma_prefacs.f90
+                kernels/FP_kernel_plasma_prefacs.f90
                 kernels/integrals_adaptive.f90
                 kernels/integrands_adaptive.f90
                 kernels/kernel_adaptive.f90

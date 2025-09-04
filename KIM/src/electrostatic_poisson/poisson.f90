@@ -38,7 +38,7 @@ module rt_electrostatic_m
     subroutine run_electrostatic(this)
 
         use kernel_m, only: Krook_fill_kernel_phi, FP_fill_kernels, fill_kernels_krook_fp, kernel_spl_t
-        use kernel_adaptive_mod, only: FP_fill_kernels_adaptive
+        use kernel_adaptive_m, only: FP_fill_kernels_adaptive
         use grid_m, only: xl_grid
         use IO_collection_m, only: write_matrix, write_complex_profile, write_complex_profile_abs
         use poisson_solver_m, only: solve_poisson

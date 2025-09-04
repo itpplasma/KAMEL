@@ -62,15 +62,15 @@ set(KIM_dispersion dispersion/fun_input.f90
 
 set(KIM_poisson electrostatic_poisson/poisson.f90
                 electrostatic_poisson/solve_poisson.f90
-                electrostatic_poisson/electrostatic_kernel.f90
-                electrostatic_poisson/electrostatic_integrands.f90
+                kernels/kernel.f90
+                kernels/integrands.f90
                 electrostatic_poisson/fields_mod.f90
-                electrostatic_poisson/electrostatic_integrals.f90
+                kernels/integrals.f90
                 electrostatic_poisson/Krook_kernel_plasma_prefacs.f90
                 electrostatic_poisson/FP_kernel_plasma_prefacs.f90
-                electrostatic_poisson/electrostatic_integrals_adaptive.f90
-                electrostatic_poisson/electrostatic_integrands_adaptive.f90
-                electrostatic_poisson/electrostatic_kernel_adaptive.f90
+                kernels/integrals_adaptive.f90
+                kernels/integrands_adaptive.f90
+                kernels/kernel_adaptive.f90
 )
 
 set(KIM_fokkerplanck ${CMAKE_SOURCE_DIR}/QL-Balance/src/base/getIfunc.f90

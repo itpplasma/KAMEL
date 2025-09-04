@@ -1,7 +1,7 @@
-module electrostatic_kernel_adaptive_mod
+module kernel_adaptive_mod
 
     use KIM_kinds_m, only: dp
-    use electrostatic_kernel_m, only: kernel_spl_t, max_distance_xl_xlp, min_distance_xl_xlp, &
+    use kernel_m, only: kernel_spl_t, max_distance_xl_xlp, min_distance_xl_xlp, &
         max_index_distance, min_index_distance, &
         max_dist_l, max_dist_lp, min_dist_l, min_dist_lp, &
         max_idx_l, max_idx_lp, min_idx_l, min_idx_lp
@@ -36,12 +36,12 @@ module electrostatic_kernel_adaptive_mod
     subroutine FP_fill_kernels_adaptive(K_rho_phi_llp, K_rho_B_llp, K_j_phi_llp, K_j_B_llp)
 
         use KIM_kinds_m, only: dp
-        use electrostatic_integrals_rkf45_mod, only: rkf45_config_t, init_rkf45_int
+        use integrals_rkf45_mod, only: rkf45_config_t, init_rkf45_int
         use grid_m, only: Larmor_skip_factor, gauss_int_nodes_Ntheta, gauss_int_nodes_Nx, gauss_int_nodes_Nxp, &
                           kernel_taper_skip_threshold, rg_grid, xl_grid
         use species_m, only: plasma
         use loading_bar_m, only: updateLoadingBarWithETA
-        use electrostatic_kernel_m, only: compute_cc_prefactors, pref_ready
+        use kernel_m, only: compute_cc_prefactors, pref_ready
         use config_m, only: artificial_debye_case
 
         implicit none
@@ -229,16 +229,16 @@ module electrostatic_kernel_adaptive_mod
     subroutine FP_calc_kernels_adaptive(l, lp, k_rho_phi, k_rho_B, k_j_phi, k_j_B, rkf45_conf)
 
         use KIM_kinds_m, only: dp
-        use electrostatic_integrals_rkf45_mod, only: rkf45_integrate_F0, rkf45_integrate_F1, &
+        use integrals_rkf45_mod, only: rkf45_integrate_F0, rkf45_integrate_F1, &
             rkf45_integrate_F2, rkf45_integrate_F3, rkf45_config_t
-        use electrostatic_integrands_rkf45_mod, only: rkf45_integrand_context_t
+        use integrands_rkf45_mod, only: rkf45_integrand_context_t
         use species_m, only: plasma
         use constants_m, only: pi
         use FP_kernel_plasma_prefacs_m, only: FP_G0_rho_phi
         use grid_m, only: Larmor_skip_factor, kernel_taper_skip_threshold, rg_grid
         use constants_m, only: pi, com_unit, sol
         use config_m, only: turn_off_ions, artificial_debye_case, turn_off_electrons
-        use electrostatic_kernel_m, only: pref_rho_phi_g1, pref_rho_B_g1, pref_j_phi_g1, pref_j_B_g1, &
+        use kernel_m, only: pref_rho_phi_g1, pref_rho_B_g1, pref_j_phi_g1, pref_j_B_g1, &
             pref_rho_phi_g2, pref_rho_B_g2, pref_j_phi_g2, pref_j_B_g2, &
             pref_rho_phi_g3, pref_rho_B_g3, pref_j_phi_g3, pref_j_B_g3
         
@@ -439,7 +439,7 @@ module electrostatic_kernel_adaptive_mod
         
         use grid_m, only: xl_grid
         use KIM_kinds_m, only: dp
-        use electrostatic_integrands_rkf45_mod, only: rkf45_integrand_context_t
+        use integrands_rkf45_mod, only: rkf45_integrand_context_t
 
         implicit none
 

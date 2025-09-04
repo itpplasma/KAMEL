@@ -433,7 +433,7 @@ module fields_m
     subroutine calculate_current_density(jpar, EBdat_in, kernel_j_phi_llp, kernel_j_B_llp)
 
         use KIM_kinds_m, only: dp
-        use electrostatic_kernel_m, only: kernel_spl_t
+        use kernel_m, only: kernel_spl_t
         implicit none
 
         complex(dp), allocatable, intent(out) :: jpar(:)
@@ -453,7 +453,7 @@ module fields_m
         use KIM_kinds_m, only: dp
         use grid_m, only: xl_grid
         use constants_m, only: pi
-        use electrostatic_kernel_m, only: kernel_spl_t
+        use kernel_m, only: kernel_spl_t
 
         implicit none
 
@@ -472,4 +472,3 @@ module fields_m
     end subroutine
 
 end module
-

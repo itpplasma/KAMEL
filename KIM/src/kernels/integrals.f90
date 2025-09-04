@@ -1,4 +1,4 @@
-module electrostatic_integrals_gauss_mod
+module integrals_gauss_mod
     ! module for integrals of the electrostatic problem
     ! uses gauss legendre quadrature for integration
 
@@ -34,7 +34,7 @@ module electrostatic_integrals_gauss_mod
 
     subroutine gauss_integrate_F0(int_F, a, b, result, gauss_conf)
 
-        use electrostatic_integrands_gauss_mod, only: gauss_int_F0_rho_phi_t
+        use integrands_gauss_mod, only: gauss_int_F0_rho_phi_t
 
         implicit none
 
@@ -59,7 +59,7 @@ module electrostatic_integrals_gauss_mod
 
     subroutine gauss_integrate_F1(int_F1, result, gauss_conf)
 
-        use electrostatic_integrands_gauss_mod, only: gauss_int_F1_rho_phi_t, calc_b_coef
+        use integrands_gauss_mod, only: gauss_int_F1_rho_phi_t, calc_b_coef
         use constants_m, only: pi
         use config_m, only: output_path
 
@@ -158,7 +158,7 @@ module electrostatic_integrals_gauss_mod
 
     subroutine gauss_integrate_F2(int_F2, result, gauss_conf)
     
-        use electrostatic_integrands_gauss_mod, only: gauss_int_F2_rho_phi_t, calc_b_coef
+        use integrands_gauss_mod, only: gauss_int_F2_rho_phi_t, calc_b_coef
         use constants_m, only: pi
 
         implicit none
@@ -207,7 +207,7 @@ module electrostatic_integrals_gauss_mod
 
     subroutine gauss_integrate_F3(int_F3, result, gauss_conf)
 
-        use electrostatic_integrands_gauss_mod, only: gauss_int_F3_rho_phi_t, calc_b_coef
+        use integrands_gauss_mod, only: gauss_int_F3_rho_phi_t, calc_b_coef
         use constants_m, only: pi
 
         implicit none
@@ -299,4 +299,4 @@ module electrostatic_integrals_gauss_mod
 
     end subroutine compute_nodes_weights
 
-end module electrostatic_integrals_gauss_mod
+end module integrals_gauss_mod

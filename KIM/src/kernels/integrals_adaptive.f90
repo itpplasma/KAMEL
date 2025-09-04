@@ -1,4 +1,4 @@
-module electrostatic_integrals_rkf45_mod
+module integrals_rkf45_mod
     ! module for integrals of the electrostatic problem
     ! uses gauss legendre quadrature for integration
 
@@ -38,7 +38,7 @@ module electrostatic_integrals_rkf45_mod
 
     subroutine rkf45_integrate_F0(result, rkf45_conf, context)
 
-        use electrostatic_integrands_rkf45_mod, only: rkf45_integrand_context_t, rkf45_integrand_F0
+        use integrands_rkf45_mod, only: rkf45_integrand_context_t, rkf45_integrand_F0
 
         implicit none
 
@@ -64,7 +64,7 @@ module electrostatic_integrals_rkf45_mod
 
     subroutine rkf45_integrate_F1(result, rkf45_conf, context)
 
-        use electrostatic_integrands_rkf45_mod, only: rkf45_integrand_context_t, rkf45_integrand_F1
+        use integrands_rkf45_mod, only: rkf45_integrand_context_t, rkf45_integrand_F1
         use constants_m, only: pi
         use config_m, only: output_path
         use RKF45_mod, only: RKF45_1D_with_context
@@ -118,7 +118,7 @@ module electrostatic_integrals_rkf45_mod
     
         use constants_m, only: pi
         use RKF45_mod, only: RKF45_1D_with_context
-        use electrostatic_integrands_rkf45_mod, only: rkf45_integrand_context_t, rkf45_integrand_F2
+        use integrands_rkf45_mod, only: rkf45_integrand_context_t, rkf45_integrand_F2
         use grid_m, only: rkf45_atol, rkf45_rtol
 
         implicit none
@@ -170,7 +170,7 @@ module electrostatic_integrals_rkf45_mod
     
         use constants_m, only: pi
         use RKF45_mod, only: RKF45_1D_with_context
-        use electrostatic_integrands_rkf45_mod, only: rkf45_integrand_context_t, rkf45_integrand_F3
+        use integrands_rkf45_mod, only: rkf45_integrand_context_t, rkf45_integrand_F3
         use grid_m, only: rkf45_atol, rkf45_rtol
 
         implicit none
@@ -221,7 +221,7 @@ module electrostatic_integrals_rkf45_mod
     ! Include Jacobian dtheta/du = 2/sqrt(1-u^2)
 
     function rkf45_integrand_F1_u(u, context) result(val)
-        use electrostatic_integrands_rkf45_mod, only: rkf45_integrand_F1
+        use integrands_rkf45_mod, only: rkf45_integrand_F1
         implicit none
         real(dp), intent(in) :: u
         class(*), intent(in) :: context
@@ -235,7 +235,7 @@ module electrostatic_integrals_rkf45_mod
     end function
 
     function rkf45_integrand_F2_u(u, context) result(val)
-        use electrostatic_integrands_rkf45_mod, only: rkf45_integrand_F2
+        use integrands_rkf45_mod, only: rkf45_integrand_F2
         implicit none
         real(dp), intent(in) :: u
         class(*), intent(in) :: context
@@ -249,7 +249,7 @@ module electrostatic_integrals_rkf45_mod
     end function
 
     function rkf45_integrand_F3_u(u, context) result(val)
-        use electrostatic_integrands_rkf45_mod, only: rkf45_integrand_F3
+        use integrands_rkf45_mod, only: rkf45_integrand_F3
         implicit none
         real(dp), intent(in) :: u
         class(*), intent(in) :: context
@@ -306,4 +306,4 @@ module electrostatic_integrals_rkf45_mod
 
     end subroutine compute_nodes_weights
 
-end module electrostatic_integrals_rkf45_mod
+end module integrals_rkf45_mod

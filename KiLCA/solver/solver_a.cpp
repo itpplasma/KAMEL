@@ -6,11 +6,12 @@
 #include "solver.h"
 
 #include <cvode/cvode.h> /* main integrator header file */
-#include <cvode/cvode_dense.h>
 #include <nvector/nvector_serial.h>  /* serial N_Vector types, fct. and macros */
-#include <sundials/sundials_dense.h> /* use generic DENSE solver in preconditioning */
+#include <sundials/sundials_context.h> /* SUNContext object */
 #include <sundials/sundials_math.h>  /* contains the macros ABS, SQR, and EXP */
 #include <sundials/sundials_types.h> /* definition of sunrealtype */
+#include <sunlinsol/sunlinsol_dense.h>
+#include <sunmatrix/sunmatrix_dense.h>
 
 SysRHSFcn rhs_mat;
 
@@ -36,6 +37,14 @@ int integrate_basis_vecs(SysRHSFcn f, int Nfs, int Nw, int dim, double* rvec, do
     (re,im,re,im,...), on exit - contains basis vectors at rvec points packed one after another.
     */
 
+    // Create SUNContext object for SUNDIALS 7.x
+    SUNContext sunctx;
+    int retval = SUNContext_Create(SUN_COMM_NULL, &sunctx);
+    if (retval != 0) {
+        fprintf(stderr, "Error creating SUNContext\n");
+        return 1;
+    }
+
     rhs_mat = f;
 
     int Neq = 2 * Nfs * Nw;
@@ -46,7 +55,7 @@ int integrate_basis_vecs(SysRHSFcn f, int Nfs, int Nw, int dim, double* rvec, do
     double* mem = new double[Nort * (1 + Neq + 2 * Nfs)];
 
     // void *cvode_mem = CVodeCreate (CV_BDF, CV_NEWTON);
-    void* cvode_mem = CVodeCreate(CV_ADAMS, CV_FUNCTIONAL, SUNCTX_PLACEHOLDER, SUNCTX_PLACEHOLDER);
+    void* cvode_mem = CVodeCreate(CV_ADAMS, sunctx);
 
     if (!cvode_mem) {
         fprintf(stderr, "\nerror: int_basis_vecs: cvodecreate failed!..");
@@ -67,13 +76,13 @@ int integrate_basis_vecs(SysRHSFcn f, int Nfs, int Nw, int dim, double* rvec, do
     for (i = 0; i < Neq; i++)
         ydata[i] = Smat[i];
 
-    N_Vector y = N_VMake_Serial(Neq, ydata, SUNCTX_PLACEHOLDER);
+    N_Vector y = N_VMake_Serial(Neq, ydata, sunctx);
     if (!y) {
         fprintf(stderr, "\nerror: int_basis_vecs: y vector allocation failed!..");
         return 1;
     }
 
-    N_Vector yval = N_VMake_Serial(Neq, ydata, SUNCTX_PLACEHOLDER);
+    N_Vector yval = N_VMake_Serial(Neq, ydata, sunctx);
     if (!yval) {
         fprintf(stderr, "\nerror: int_basis_vecs: yval vector allocation failed!..");
         return 1;
@@ -101,10 +110,24 @@ int integrate_basis_vecs(SysRHSFcn f, int Nfs, int Nw, int dim, double* rvec, do
         return 1;
     }
 
-    // Call CVDense to specify the CVDENSE dense linear solver:
-    flag = CVDense(cvode_mem, Neq);
+    // Create dense SUNMatrix for use in linear solver
+    SUNMatrix A = SUNDenseMatrix(Neq, Neq, sunctx);
+    if (!A) {
+        fprintf(stderr, "\nerror: int_basis_vecs: SUNDenseMatrix failed!..");
+        return 1;
+    }
+
+    // Create dense linear solver for use by CVode
+    SUNLinearSolver LS = SUNLinSol_Dense(y, A, sunctx);
+    if (!LS) {
+        fprintf(stderr, "\nerror: int_basis_vecs: SUNLinSol_Dense failed!..");
+        return 1;
+    }
+
+    // Attach the linear solver and matrix to CVode
+    flag = CVodeSetLinearSolver(cvode_mem, LS, A);
     if (flag != CV_SUCCESS) {
-        fprintf(stderr, "\nerror: int_basis_vecs: cvdense failed!..");
+        fprintf(stderr, "\nerror: int_basis_vecs: CVodeSetLinearSolver failed!..");
         return 1;
     }
 
@@ -127,9 +150,9 @@ int integrate_basis_vecs(SysRHSFcn f, int Nfs, int Nw, int dim, double* rvec, do
 // Jacobian settings:
 #if USE_JACOBIAN_IN_ODE_SOLVER == 1
 
-    flag = CVDlsSetDenseJacFn(cvode_mem, Jacobian);
+    flag = CVodeSetJacFn(cvode_mem, Jacobian);
     if (flag != CV_SUCCESS) {
-        fprintf(stderr, "\nerror: int_basis_vecs: CVDenseSetJacFn failed!..\n");
+        fprintf(stderr, "\nerror: int_basis_vecs: CVodeSetJacFn failed!..\n");
         return (1);
     }
 
@@ -315,7 +338,10 @@ int integrate_basis_vecs(SysRHSFcn f, int Nfs, int Nw, int dim, double* rvec, do
 
     N_VDestroy_Serial(y);
     N_VDestroy_Serial(yval);
+    SUNLinSolFree(LS);
+    SUNMatDestroy(A);
     CVodeFree(&cvode_mem);
+    SUNContext_Free(&sunctx);
 
     free(WORK);
 

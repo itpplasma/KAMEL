@@ -7,6 +7,8 @@
 
 #include <cvode/cvode.h>               /* main integrator header file */
 #include <nvector/nvector_serial.h>    /* serial N_Vector types, fct. and macros */
+#include <sundials/sundials_context.h>  /* SUNContext object */
+#include <sundials/sundials_linearsolver.h>
 #include <sundials/sundials_math.h>    /* contains the macros ABS, SQR, and EXP */
 #include <sundials/sundials_types.h>   /* definition of sunrealtype */
 #include <sunlinsol/sunlinsol_dense.h> // new dense solver, sundials_dense is deprecated
@@ -38,6 +40,14 @@ Smat: a solution; on entrance Smat[0..Neq-1] must be filled by starting values (
 exit - contains basis vectors at rvec points packed one after another.
 */
 
+    // Create SUNContext object for SUNDIALS 7.x
+    SUNContext sunctx;
+    int flag = SUNContext_Create(SUN_COMM_NULL, &sunctx);
+    if (flag != 0) {
+        fprintf(stderr, "Error creating SUNContext\n");
+        return 1;
+    }
+
     SUNMatrix A;
     SUNLinearSolver LS;
 
@@ -53,7 +63,7 @@ exit - contains basis vectors at rvec points packed one after another.
     // void *cvode_mem = CVodeCreate (CV_BDF, CV_NEWTON);
     //  Call CvodeCreate to create CVode memory block and specify the
     //  ADAMS differentiation formula (for nonstiff problems)
-    void* cvode_mem = CVodeCreate(CV_ADAMS, SUNCTX_PLACEHOLDER, SUNCTX_PLACEHOLDER);
+    void* cvode_mem = CVodeCreate(CV_ADAMS, sunctx);
     if (check_flag((void*)cvode_mem, "CVodeCreate", 0))
         return 1;
 
@@ -71,22 +81,20 @@ exit - contains basis vectors at rvec points packed one after another.
     for (i = 0; i < Neq; i++)
         ydata[i] = Smat[i];
 
-    N_Vector y = N_VMake_Serial(Neq, ydata, SUNCTX_PLACEHOLDER);
+    N_Vector y = N_VMake_Serial(Neq, ydata, sunctx);
 
     if (!y) {
         fprintf(stderr, "\nerror: int_basis_vecs: y vector allocation failed!..");
         return 1;
     }
 
-    N_Vector yval = N_VMake_Serial(Neq, ydata, SUNCTX_PLACEHOLDER);
+    N_Vector yval = N_VMake_Serial(Neq, ydata, sunctx);
     if (!yval) {
         fprintf(stderr, "\nerror: int_basis_vecs: yval vector allocation failed!..");
         return 1;
     }
 
     sunrealtype reltol = ss->eps_rel, abstol = ss->eps_abs;
-
-    int flag;
 
     flag = CVodeInit(cvode_mem, func, (sunrealtype)rvec[0], y);
     if (flag != CV_SUCCESS) {
@@ -107,12 +115,12 @@ exit - contains basis vectors at rvec points packed one after another.
     }
 
     // Create dense SUNMatrix for use in linear solver
-    A = SUNDenseMatrix(Neq, Neq, SUNCTX_PLACEHOLDER);
+    A = SUNDenseMatrix(Neq, Neq, sunctx);
     if (check_flag((void*)A, "SUNDenseMatrix", 0))
         return 1;
 
     // Create dense linear solver for use by CVode
-    LS = SUNLinSol_Dense(y, A, SUNCTX_PLACEHOLDER);
+    LS = SUNLinSol_Dense(y, A, sunctx);
     if (check_flag((void*)LS, "SUNLinSol_Dense", 0))
         return 1;
 
@@ -338,7 +346,10 @@ if (flag != CV_SUCCESS)
 
     N_VDestroy_Serial(y);
     N_VDestroy_Serial(yval);
+    SUNLinSolFree(LS);
+    SUNMatDestroy(A);
     CVodeFree(&cvode_mem);
+    SUNContext_Free(&sunctx);
 
     free(WORK);
 

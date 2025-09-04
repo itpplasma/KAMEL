@@ -2,6 +2,7 @@
 
 #include <cvode/cvode.h>
 #include <nvector/nvector_serial.h>
+#include <sundials/sundials_context.h>
 #include <sundials/sundials_types.h>
 #include <sunlinsol/sunlinsol_dense.h>
 #include <sunmatrix/sunmatrix_dense.h>
@@ -17,23 +18,33 @@ void rhs_balance_(double*, const double*, const double*);
 
 /******************************************************************************/
 
-int cvodeint_(int* Neqp, double*, double* x2, double* y, double*) {
+int cvodeint_(int* Neqp, double* x1, double* x2, double* y, double* eps) {
     int const neq = *Neqp;
 
-    N_Vector yv = N_VMake_Serial(neq, y, SUNCTX_PLACEHOLDER);
-    if (!yv) {
-        fprintf(stderr, "\nerror: cvodeint: y vector allocation failed!..");
+    // Create SUNContext object for SUNDIALS 7.x
+    SUNContext sunctx;
+    int retval = SUNContext_Create(SUN_COMM_NULL, &sunctx);
+    if (retval != 0) {
+        fprintf(stderr, "Error creating SUNContext\n");
         return 1;
     }
 
+    N_Vector yv = N_VMake_Serial(neq, y, sunctx);
+    if (!yv) {
+        fprintf(stderr, "\nerror: cvodeint: y vector allocation failed!..");
+        SUNContext_Free(&sunctx);
+        return 1;
+    }
+
+    sunrealtype const t0 = *x1;
     sunrealtype const tfinal = *x2;
     sunrealtype t;
     int flag;
 
     // INTEGRATION METHOD -----------------------------------------------------
     // old method
-    // void *cvode_mem = CVodeCreate(CV_BDF, CV_NEWTON, SUNCTX_PLACEHOLDER, SUNCTX_PLACEHOLDER);
-    void* cvode_mem = CVodeCreate(CV_ADAMS, SUNCTX_PLACEHOLDER, SUNCTX_PLACEHOLDER);
+    // void *cvode_mem = CVodeCreate(CV_BDF, CV_NEWTON);
+    void* cvode_mem = CVodeCreate(CV_ADAMS, sunctx);
     if (check_flag(cvode_mem, "CVodeCreate", 0))
         return 1;
 
@@ -41,18 +52,57 @@ int cvodeint_(int* Neqp, double*, double* x2, double* y, double*) {
     SUNLinearSolver LS;
 
     // Create dense SUNMatrix for use in linear solver
-    A = SUNDenseMatrix(neq, neq, SUNCTX_PLACEHOLDER);
-    if (check_flag((void*)A, "SUNDenseMatri", 0))
+    A = SUNDenseMatrix(neq, neq, sunctx);
+    if (check_flag((void*)A, "SUNDenseMatrix", 0)) {
+        CVodeFree(&cvode_mem);
+        N_VDestroy_Serial(yv);
+        SUNContext_Free(&sunctx);
         return 1;
+    }
 
     // Create dense linear solver for use by CVODE
-    LS = SUNLinSol_Dense(yv, A, SUNCTX_PLACEHOLDER);
-    if (check_flag((void*)LS, "SUNLinSol_Dense", 0))
+    LS = SUNLinSol_Dense(yv, A, sunctx);
+    if (check_flag((void*)LS, "SUNLinSol_Dense", 0)) {
+        SUNMatDestroy(A);
+        CVodeFree(&cvode_mem);
+        N_VDestroy_Serial(yv);
+        SUNContext_Free(&sunctx);
         return 1;
+    }
+
+    // Initialize CVode with the RHS function
+    flag = CVodeInit(cvode_mem, f, t0, yv);
+    if (check_flag((void*)&flag, "CVodeInit", 1)) {
+        SUNLinSolFree(LS);
+        SUNMatDestroy(A);
+        CVodeFree(&cvode_mem);
+        N_VDestroy_Serial(yv);
+        SUNContext_Free(&sunctx);
+        return 1;
+    }
+
+    // Set tolerances
+    sunrealtype reltol = *eps;
+    sunrealtype abstol = *eps;
+    flag = CVodeSStolerances(cvode_mem, reltol, abstol);
+    if (check_flag((void*)&flag, "CVodeSStolerances", 1)) {
+        SUNLinSolFree(LS);
+        SUNMatDestroy(A);
+        CVodeFree(&cvode_mem);
+        N_VDestroy_Serial(yv);
+        SUNContext_Free(&sunctx);
+        return 1;
+    }
 
     flag = CVodeSetLinearSolver(cvode_mem, LS, A);
-    if (check_flag((void*)&flag, "CVodeSetLinearSolver", 1))
+    if (check_flag((void*)&flag, "CVodeSetLinearSolver", 1)) {
+        SUNLinSolFree(LS);
+        SUNMatDestroy(A);
+        CVodeFree(&cvode_mem);
+        N_VDestroy_Serial(yv);
+        SUNContext_Free(&sunctx);
         return 1;
+    }
 
     flag = CVode(cvode_mem, tfinal, yv, &t, CV_NORMAL);
 
@@ -62,7 +112,12 @@ int cvodeint_(int* Neqp, double*, double* x2, double* y, double*) {
 
     PrintFinalStats(cvode_mem);
 
+    // Clean up
+    SUNLinSolFree(LS);
+    SUNMatDestroy(A);
     CVodeFree(&cvode_mem);
+    N_VDestroy_Serial(yv);
+    SUNContext_Free(&sunctx);
 
     return 0;
 }

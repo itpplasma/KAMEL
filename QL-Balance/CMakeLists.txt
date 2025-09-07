@@ -21,7 +21,7 @@ else()
     message("Building on another operating system might not be implemented.")
 endif()
 enable_language(C Fortran)
-find_package(MPI REQUIRED)
+find_package(MPI REQUIRED COMPONENTS C Fortran)
 
 
 set(objs ${PROJECT_BINARY_DIR}/OBJS/ql-balance/)
@@ -102,7 +102,7 @@ target_include_directories(ql-balance_lib PUBLIC ${CMAKE_BINARY_DIR}/KiLCA/mod $
 # Include central slatec math sources via cache variable defined by common/math
 target_include_directories(ql-balance_lib PUBLIC ${SLATEC_INCLUDE_DIR})
 
-find_package(HDF5 COMPONENTS C Fortran HL REQUIRED)
+find_package(HDF5 REQUIRED COMPONENTS C HL Fortran Fortran_HL)
 message(" ====== HDF5 was found! ======")
 
 # Disable libneo tests before fetching

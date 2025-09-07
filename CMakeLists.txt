@@ -1,9 +1,46 @@
 cmake_minimum_required(VERSION 3.24)
 
-set(CMAKE_Fortran_COMPILER "mpif90")
+# Set compilers BEFORE project()
+if(CMAKE_HOST_SYSTEM_NAME MATCHES "Darwin")
+    set(CMAKE_C_COMPILER clang)
+    set(CMAKE_CXX_COMPILER clang++)
+elseif(CMAKE_HOST_SYSTEM_NAME MATCHES "Linux")
+    set(CMAKE_C_COMPILER gcc)
+    set(CMAKE_CXX_COMPILER g++)
+endif()
+
+if(APPLE AND NOT DEFINED HDF5_DIR)
+    # locate brew
+    find_program(BREW_EXECUTABLE brew HINTS /opt/homebrew/bin /usr/local/bin)
+    if(BREW_EXECUTABLE)
+        execute_process(
+            COMMAND "${BREW_EXECUTABLE}" --prefix hdf5
+            OUTPUT_VARIABLE _hdf5_prefix
+            OUTPUT_STRIP_TRAILING_WHITESPACE
+            RESULT_VARIABLE _hdf5_res
+        )
+
+        if(_hdf5_res EQUAL 0 AND EXISTS "${_hdf5_prefix}/lib/cmake/hdf5")
+            set(HDF5_DIR "${_hdf5_prefix}/lib/cmake/hdf5" CACHE PATH "Path to HDF5Config.cmake")
+            message(STATUS "HDF5_DIR set to ${HDF5_DIR}")
+        endif()
+    endif()
+endif()
 
 project(KAMEL LANGUAGES C CXX Fortran)
-set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -fopenmp -O2 -mtune=generic -g -fbacktrace -fcheck=all -Wall -Wextra -Wconversion")
+
+# Set C++ standard globally
+set(CMAKE_CXX_STANDARD 11)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+
+find_package(MPI REQUIRED C Fortran)
+
+# Set architecture flags based on platform
+if(APPLE)
+    set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -fopenmp -O2 -g -fbacktrace -fcheck=all -Wall -Wextra -Wconversion -Wno-external-argument-mismatch")
+else()
+    set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -fopenmp -O2 -mtune=generic -g -fbacktrace -fcheck=all -Wall -Wextra -Wconversion -Wno-external-argument-mismatch")
+endif()
 
 enable_testing()
 

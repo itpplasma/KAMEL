@@ -2,17 +2,15 @@ if(CMAKE_HOST_SYSTEM_NAME MATCHES "Darwin")
     # macOS specific configurations or commands
     message("Building on macOS")
     # flag does not work for macos for some reason
-    set (CMAKE_CXX_OPT_FLAGS "-O3")
-    set (CMAKE_F_OPT_FLAGS "-O3")
+    set(CMAKE_CXX_OPT_FLAGS "-O3 -Wno-register")
+    set(CMAKE_F_OPT_FLAGS "-O3")
 elseif(CMAKE_HOST_SYSTEM_NAME MATCHES "Linux" AND
-        CMAKE_SYSTEM_PROCESSOR MATCHES "(x86|i386|i686|amd64|x86_64)")
+    CMAKE_SYSTEM_PROCESSOR MATCHES "(x86|i386|i686|amd64|x86_64)")
     # Linux specific configurations or commands
     message("Building on Linux")
-    set (CMAKE_C_COMPILER   gcc)
-    set (CMAKE_CXX_COMPILER g++)
-    set (CMAKE_EXE_LINKER_FLAGS "")
-    set (CMAKE_CXX_OPT_FLAGS "-O3 -march=x86-64-v2 -mtune=generic")
-    set (CMAKE_F_OPT_FLAGS "-O3 -march=x86-64-v2 -mtune=generic")
+    set(CMAKE_EXE_LINKER_FLAGS "")
+    set(CMAKE_CXX_OPT_FLAGS "-O3 -march=x86-64-v2 -mtune=generic")
+    set(CMAKE_F_OPT_FLAGS "-O3 -march=x86-64-v2 -mtune=generic")
 else()
     # Other operating system specific configurations or commands
     message("Building on another operating system. Might not be implemented.")

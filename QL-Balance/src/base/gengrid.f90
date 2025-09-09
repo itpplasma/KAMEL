@@ -296,8 +296,8 @@ subroutine prepare_resonances
         do i = 1, numres
             ! maximum width for resonant radius is 999.999 cm with this format
             ! adjust if necessary
-            write (*,"(a, i0, a, i0, a, f7.3, a)") 'For mode (m,n) = (', m, ',', n, &
-                                                   ') the resonant radius is at ', r_res(i), ' cm.'
+            write (*, "(a, i0, a, i0, a, f7.3, a)") &
+                  "For mode (m,n) = (", m, ",", n, ") the resonant radius is at ", r_res(i), " cm."
         end do
     endif
 

@@ -176,9 +176,9 @@ static void PrintFinalStats(void* cvode_mem) {
     check_flag(&flag, "CVodeGetNumNonlinSolvConvFails", 1);
 
     flag = CVodeGetNumJacEvals(cvode_mem, &nje);
-    check_flag(&flag, "CVDlsGetNumJacEvals", 1);
+    check_flag(&flag, "CVodeGetNumJacEvals", 1);
     flag = CVodeGetNumRhsEvals(cvode_mem, &nfeLS);
-    check_flag(&flag, "CVDlsGetNumRhsEvals", 1);
+    check_flag(&flag, "CVodeGetNumRhsEvals", 1);
 
     flag = CVodeGetNumGEvals(cvode_mem, &nge);
     check_flag(&flag, "CVodeGetNumGEvals", 1);

@@ -92,6 +92,8 @@ module time_evolution
         use wave_code_data, only: m_vals, n_vals
         use plasma_parameters, only: write_initial_parameters, alloc_hold_parameters, &
                                 params, params_begbeg, init_background_profiles
+        use resonances_mod, only: write_resonant_radii_to_hdf5
+
         implicit none
 
         class(TimeEvolution_t), intent(inout) :: this
@@ -128,6 +130,8 @@ module time_evolution
                 CALL create_group_structure_timeevol
             end if
             if (debug_mode) write(*,*) 'Debug: mode_m = ', mode_m, 'mode_n = ', mode_n
+
+            call write_resonant_radii_to_hdf5
 
             call allocate_prev_variables
             call init_background_profiles
@@ -432,10 +436,6 @@ module time_evolution
             h5_currentgrp = "/"//trim(h5_mode_groupname) //"/Ipar"
             CALL h5_add_complex_1(h5_id, trim(h5_currentgrp), Ipar_time(1:time_ind), &
                 lbound(real(Ipar_time(1:time_ind))), ubound(real(Ipar_time(1:time_ind))))
-
-            h5_currentgrp = "/"//trim(h5_mode_groupname)//"/r_res"
-            call h5_add_double_1(h5_id, trim(h5_currentgrp), r_res, lbound(r_res), ubound(r_res), &
-                                 comment="resonant radius", unit="cm")
 
             h5overwrite = .false.
 

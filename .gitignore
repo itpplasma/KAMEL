@@ -1,23 +1,19 @@
-# VS Code settings
-.vscode/
+# generated build directory
+/build/
 
-# generated build directories
-build/
+# VS Code settings
+/.vscode/
 
 # caches
-__pycache__/
 .cache/
-
-# Python bytecode
-*.DS_Store
-.DS*
+.mypy_cache/
+__pycache__/
 
 # old dependency directory
 external
 
-build
+# other
 **._*
 
-
 # direnv
-.envrc
+/.envrc

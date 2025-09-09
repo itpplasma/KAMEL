@@ -1,0 +1,5 @@
+{
+    "excl_paths": [ "./build" ],
+    "max_line_length": 100,
+    "enable_code_actions": true // experimental
+}

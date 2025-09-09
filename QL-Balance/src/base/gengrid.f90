@@ -252,7 +252,7 @@ subroutine prepare_resonances
     k=1
     jj=1
     read(iunit_res,*) a
-    m=-abs(nint(real(a)))
+    m=nint(real(a))
     n=abs(nint(imag(a)))
     m_a(k)=m
     n_a(k)=n

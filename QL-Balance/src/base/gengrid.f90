@@ -293,9 +293,11 @@ subroutine prepare_resonances
 
     if (irank .eq. 0 ) then
         if (debug_mode) print *,'Debug: gengrid: number of resonance points = ',numres
-        do i=1,numres
-          write(*,"(A18,I4,A1,I4,A29,F6.3,A3)") 'For mode (m,n) = (',m,',',n,&
-          '), the resonant radius is at ', r_res(i), ' cm'
+        do i = 1, numres
+            ! maximum width for resonant radius is 999.999 cm with this format
+            ! adjust if necessary
+            write (*,"(a, i0, a, i0, a, f7.3, a)") 'For mode (m,n) = (', m, ',', n, &
+                                                   ') the resonant radius is at ', r_res(i), ' cm.'
         end do
     endif
 

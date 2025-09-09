@@ -92,6 +92,8 @@ module time_evolution
         use wave_code_data, only: m_vals, n_vals
         use plasma_parameters, only: write_initial_parameters, alloc_hold_parameters, &
                                 params, params_begbeg, init_background_profiles
+        use resonances_mod, only: write_resonant_radii_to_hdf5
+
         implicit none
 
         class(TimeEvolution_t), intent(inout) :: this
@@ -128,6 +130,8 @@ module time_evolution
                 CALL create_group_structure_timeevol
             end if
             if (debug_mode) write(*,*) 'Debug: mode_m = ', mode_m, 'mode_n = ', mode_n
+
+            call write_resonant_radii_to_hdf5
 
             call allocate_prev_variables
             call init_background_profiles
@@ -253,6 +257,8 @@ module time_evolution
             if (debug_mode) call msg_time_info
             if (.not. suppression_mode) call write_kin_profile_at_time_index
             call set_first_iteration_true
+            call calculate_total_toroidal_torque(time_ind)
+            call write_total_toroidal_torque_to_file(time_ind)
             call check_linear_discr_pen_ratio
             call stop_if_antenna_fac_max_reached
 
@@ -317,6 +323,8 @@ module time_evolution
 
     subroutine alloc_Br_Dqle_for_timeevol
 
+        use grid_mod, only: T_tot_phi_e, T_tot_phi_i
+
         implicit none
 
         allocate(br_abs(Nstorage))
@@ -328,6 +336,8 @@ module time_evolution
         allocate(dae22_res_time(Nstorage))
         allocate(bif_criterion(Nstorage))
         allocate(Ipar_time(Nstorage))
+        allocate(T_tot_phi_e(Nstorage))
+        allocate(T_tot_phi_i(Nstorage))
 
     end subroutine
 
@@ -378,6 +388,7 @@ module time_evolution
         use h5mod
         use KAMEL_hdf5_tools
         use wave_code_data, only: antenna_factor
+        use resonances_mod, only: r_res
 
         implicit none
 
@@ -387,6 +398,8 @@ module time_evolution
         !if (.false.) then
             CALL h5_init()
             CALL h5_open_rw(path2out, h5_id)
+
+            h5overwrite = .true.
 
             h5_currentgrp = "/"//trim(h5_mode_groupname) //"/br_abs_time"
             CALL h5_add_double_1(h5_id, trim(h5_currentgrp), br_abs_time(1:time_ind), &
@@ -423,6 +436,8 @@ module time_evolution
             h5_currentgrp = "/"//trim(h5_mode_groupname) //"/Ipar"
             CALL h5_add_complex_1(h5_id, trim(h5_currentgrp), Ipar_time(1:time_ind), &
                 lbound(real(Ipar_time(1:time_ind))), ubound(real(Ipar_time(1:time_ind))))
+
+            h5overwrite = .false.
 
             CALL h5_close(h5_id)
             CALL h5_deinit()

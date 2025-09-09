@@ -28,4 +28,17 @@ module resonances_mod
 
     end subroutine
 
+    subroutine write_resonant_radii_to_hdf5
+        use KAMEL_hdf5_tools, only: h5_init, h5_deinit, h5_open_rw, h5_close, h5_add_double_1
+        use h5mod, only: h5_id, path2out, h5_mode_groupname
+
+        call h5_init()
+        call h5_open_rw(path2out, h5_id)
+        call h5_add_double_1(h5_id, trim("/"//trim(h5_mode_groupname)//"/r_res"), r_res, &
+                            lbound(r_res), ubound(r_res), comment="resonant radii", unit="cm")
+        call h5_close(h5_id)
+        call h5_deinit()
+
+    end subroutine write_resonant_radii_to_hdf5
+
 end module resonances_mod

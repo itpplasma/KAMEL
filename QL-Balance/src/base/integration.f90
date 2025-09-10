@@ -20,24 +20,43 @@ contains
         real(dp), intent(out) :: integral
         real(dp), dimension(:), intent(in) :: x, f
 
-        integer :: i, n
+        integer :: i, npts, nmax
         real(dp) :: xi, xi1, xi2
         real(dp) :: d0, d1, d2
         real(dp) :: w0, w1, w2
+        real(dp) :: eps, hlast
 
-        n = size(x)
+        npts = size(x)
+        integral = 0.0_dp
 
-        if (mod(n - 1, 2) /= 0) then
-            write (*, "(a, a, i0, a)") "Warning: The supplied arrays for Simpson integration ", &
-                "should have an odd number of elements but have ", n, &
-                ". Skipping the last element."
-            n = n - 1
+        if (size(f) /= npts) then
+            print *, "simpson_nonequi: size(x) /= size(f)"
+            error stop
+        end if
+        if (npts < 3) then
+            print *, "simpson_nonequi: need at least 3 points"
+            error stop
         end if
 
-        integral = 0.0d0
+        ! check monotonic increasing grid
+        do i = 1, npts - 1
+            if (x(i + 1) <= x(i)) then
+                print *, "simpson_nonequi: x must be strictly increasing"
+                error stop
+            end if
+        end do
 
-        ! Loop over each pair of intervals: nodes (i,i+1,i+2)
-        do i = 1, n - 2, 2
+        ! tolerance for near-coincident nodes
+        eps = 1.0e-12_dp * (x(npts) - x(1))
+
+        ! number of points to use with composite Simpson (make it odd)
+        if (mod(npts - 1, 2) == 0) then
+            nmax = npts
+        else
+            nmax = npts - 1    ! leave last interval for trapezoid below
+        end if
+
+        do i = 1, nmax - 2, 2
             xi = x(i)
             xi1 = x(i + 1)
             xi2 = x(i + 2)
@@ -47,21 +66,30 @@ contains
             d1 = (xi1 - xi) * (xi1 - xi2)
             d2 = (xi2 - xi) * (xi2 - xi1)
 
-            ! Compute weights by integrating each Lagrange basis:
-            ! w_k = ∫_{xi}^{xi2} L_k(x) dx, where
-            !       L0(x) = (x-xi1)(x-xi2)/d0, L1(x) = (x-xi)(x-xi2)/d1, L2(x) = (x-xi)(x-xi1)/d2
-            ! ∫ (x^2 + px + q) dx = x^3/3 + px^2/2 + qx + c
-            w0 = (xi2**3 / 3.d0 - (xi1 + xi2) * xi2**2 / 2.d0 + xi1 * xi2 * xi2 &
-                  - (xi**3 / 3.d0 - (xi1 + xi2) * xi**2 / 2.d0 + xi1 * xi2 * xi)) / d0
+            if (abs(d0) < eps .or. abs(d1) < eps .or. abs(d2) < eps) then
+                ! fallback: use trapezoid over the combined interval [xi,xi2]
+                integral = integral + 0.5_dp * (f(i) + f(i + 2)) * (xi2 - xi)
+            else
+                ! Compute weights by integrating Lagrange basis on [xi,xi2]
+                ! L0(x) = (x-xi1)(x-xi2) / d0
+                ! Integral from xi to xi2: expand and integrate term by term
+                w0 = ((xi2**3 - xi**3)/3.0_dp - (xi1 + xi2)*(xi2**2 - xi**2)/2.0_dp + xi1*xi2*(xi2 - xi)) / d0
 
-            w1 = (xi2**3 / 3.d0 - (xi + xi2) * xi2**2 / 2.d0 + xi * xi2 * xi2 &
-                  - (xi**3 / 3.d0 - (xi + xi2) * xi**2 / 2.d0 + xi * xi2 * xi)) / d1
+                ! L1(x) = (x-xi)(x-xi2) / d1
+                w1 = ((xi2**3 - xi**3)/3.0_dp - (xi + xi2)*(xi2**2 - xi**2)/2.0_dp + xi*xi2*(xi2 - xi)) / d1
 
-            w2 = (xi2**3 / 3.d0 - (xi + xi1) * xi2**2 / 2.d0 + xi * xi1 * xi2 &
-                  - (xi**3 / 3.d0 - (xi + xi1) * xi**2 / 2.d0 + xi * xi1 * xi)) / d2
+                ! L2(x) = (x-xi)(x-xi1) / d2
+                w2 = ((xi2**3 - xi**3)/3.0_dp - (xi + xi1)*(xi2**2 - xi**2)/2.0_dp + xi*xi1*(xi2 - xi)) / d2
 
-            integral = integral + w0 * f(i) + w1 * f(i + 1) + w2 * f(i + 2)
+                integral = integral + w0 * f(i) + w1 * f(i + 1) + w2 * f(i + 2)
+            end if
         end do
+
+        ! if there was an extra last interval (npts even), integrate it with trapezoid
+        if (nmax /= npts) then
+            hlast = x(npts) - x(npts - 1)
+            integral = integral + 0.5_dp * (f(npts - 1) + f(npts)) * hlast
+        end if
 
     end subroutine simpson_nonequi
 

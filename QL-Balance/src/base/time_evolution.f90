@@ -953,9 +953,9 @@ module time_evolution
         if (debug_mode) write (*, *) "Debug: Creating group structure for TimeEvol"
 
         if (numres .eq. 1) then
-            write (h5_mode_groupname, "(A,I1,A,I1)") "f_", m_vals(1), "_", n_vals(1)
+            write (h5_mode_groupname, "(A,I0,A,I0)") "f_", m_vals(1), "_", n_vals(1)
         else
-            write (h5_mode_groupname, "(A,I1,A,I1)") "multi_mode"
+            write (h5_mode_groupname, "(A)") "multi_mode"
         end if
 
         CALL h5_init()

@@ -31,7 +31,7 @@ module rt_electrostatic_m
         call calculate_equil(.true.)
         call set_plasma_quantities(plasma)
 
-        print *, "... electrostatic model initialized."
+        print *, "..."//trim(this%run_type)//" model initialized."
 
     end subroutine
 
@@ -54,10 +54,6 @@ module rt_electrostatic_m
         type(kernel_spl_t) :: kernel_rho_B_llp
         type(kernel_spl_t) :: kernel_j_phi_llp
         type(kernel_spl_t) :: kernel_j_B_llp
-        type(kernel_spl_t) :: kernel_krook_rho_phi_llp
-        type(kernel_spl_t) :: kernel_krook_rho_B_llp
-        type(kernel_spl_t) :: kernel_fp_rho_phi_llp
-        type(kernel_spl_t) :: kernel_fp_rho_B_llp
 
         complex(dp), allocatable :: rho(:)
         complex(dp), allocatable :: jpar(:)
@@ -84,7 +80,7 @@ module rt_electrostatic_m
             call run_Krook_FP
             return
         else
-            stop "Error: collision model not recognized."
+            stop "Error: collision model not recognized. Options are: Krook, FokkerPlanck, Krook_FokkerPlanck."
         end if
 
     contains
@@ -147,7 +143,7 @@ module rt_electrostatic_m
             call write_complex_profile_abs(xl_grid%xb, rho, xl_grid%npts_b, trim(output_path)//"/fields/rho_"//trim(collision_model)//".dat")
             call write_complex_profile_abs(xl_grid%xb, jpar, xl_grid%npts_b, trim(output_path)//"/fields/jpar_"//trim(collision_model)//".dat")
 
-            if (calculate_asymptotics) then
+            if (calculate_asymptotics .eqv. .true.) then
                 call calc_flr2_asymptotic_Phi_MA(plasma, EBdat)
                 call write_complex_profile_abs(xl_grid%xb, EBdat%Phi_MA_asymptotic, xl_grid%npts_b, trim(output_path)//"/fields/phi_MA_asymptotic_"//trim(collision_model)//".dat")
 

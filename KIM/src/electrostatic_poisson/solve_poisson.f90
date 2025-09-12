@@ -193,8 +193,6 @@ module poisson_solver_m
             ! check if there are nan's in the kernels
             if (any(isnan(real(kernel)))) then
                 print *, "kernel contains NaN values."
-            else
-                print *, "kernel does not contain NaN values."
             end if
 
         end subroutine

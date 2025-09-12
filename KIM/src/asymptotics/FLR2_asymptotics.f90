@@ -175,7 +175,7 @@ module flr2_asymptotics_m
 
         do i = 1, size(kr_arr)
             kr = kr_arr(i)
-            print *, "Calculating hatK_Phi for kr = ", kr
+            
             kernel_phi = 0.0d0
             kernel_B = 0.0d0
             

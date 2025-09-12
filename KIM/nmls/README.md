@@ -6,7 +6,7 @@ KIM is configured via the namelist file KIM_config.nml containing multiple namel
 - read_species_from_namelist ... boolean, if false, initialize deuterium plasma
 - type_of_run ... string, specifies the type of run, options are: 'electrostatic'
 - collision_model ... string, collision model to use, options are: 'Krook', 'FokkerPlanck'
-- artificial_debye_case ... boolean, if true, only considers the term in the rho phi kernel that describes Debye shielding
+- artificial_debye_case ... integer, if 0: full calculation of kernel, if 1: Debye case, if 2: exclude Debye case
 
 ## KIM_IO
 - profile_location ... string, path to the profiles
@@ -43,7 +43,28 @@ KIM is configured via the namelist file KIM_config.nml containing multiple namel
 - num_gengrid_points ... integer, minimal number of grid points in the l grid
 - kr_grid_width_res ... double, width parameter for k-space grid near resonance
 - kr_grid_ampl_res ... double, amplitude parameter for k-space grid near resonance
-- theta_integration ... string, angular integration method: "RKF45" (adaptive) or "GaussLegendre" (fixed)
+- theta_integration ... string, angular integration selector:
+  - "GaussLegendre": fixed-order Gauss–Legendre quadrature
+  - "RKF45" or "QUADPACK": adaptive path (the actual adaptive integrator is selected by `theta_integration_method`)
+- theta_integration_method ... string, adaptive integrator selection when `theta_integration` is "RKF45" or "QUADPACK"; options:
+  - "RKF45": embedded Runge–Kutta–Fehlberg (adaptive)
+  - "QUADPACK": Netlib QUADPACK (adaptive, global)
+- quadpack_algorithm ... string, QUADPACK algorithm for finite-interval θ integrals: "QAG" or "QAGS"
+  - 'QAG': General-purpose adaptive integration (recommended for most cases)
+  - 'QAGS': Adaptive integration with singularities at endpoints
+- quadpack_key ... integer, Gauss–Kronrod rule key for QAG/QAGS (1–6 for 15–61 points; 6 = 61‑point)
+    - 1: QK15 (7-15 points) - Fast but less accurate
+    - 2: QK21 (10-21 points)
+    - 3: QK31 (15-31 points)
+    - 4: QK41 (20-41 points)
+    - 5: QK51 (25-51 points)
+    - 6: QK61 (30-61 points) - Slow but most accurate (recommended)
+- quadpack_limit ... integer, maximum number of subintervals for QAG/QAGS
+    - Increase if integration fails to converge
+    - Higher values allow better handling of difficult integrands
+- quadpack_epsabs ... double, absolute tolerance for QAG/QAGS
+- quadpack_epsrel ... double, relative tolerance for QAG/QAGS
+- quadpack_use_u_substitution ... boolean, use u = sin(θ/2) mapping to improve stability near endpoints
 - rkf45_atol ... double, absolute tolerance for RKF45 adaptive θ-integration
 - rkf45_rtol ... double, relative tolerance for RKF45 adaptive θ-integration
 - kernel_taper_skip_threshold ... double, threshold for skipping a kernel contribution when the distance-based taper weight falls below this value
@@ -51,6 +72,11 @@ KIM is configured via the namelist file KIM_config.nml containing multiple namel
 - gauss_int_nodes_Nx ... integer, number of Gauss integration nodes in x direction (should differ from Nxp)
 - gauss_int_nodes_Nxp ... integer, number of Gauss integration nodes in x' direction
 - gauss_int_nodes_Ntheta ... integer, number of Gauss integration nodes in theta direction (used only when theta_integration = "GaussLegendre")
+
+Notes:
+- QUADPACK integration fetches Netlib sources at CMake configure time; network access is required unless cached.
+- QUADPACK supports only finite-interval θ integrals here; "QAGI" (infinite intervals) is not used by the kernels.
+- A fallback `xerror` (SLATEC error handler) can be enabled via CMake option `KIM_XERROR_FALLBACK` (ON by default) when SLATEC does not provide it.
 
 ## KIM_SPECIES
 - zi ... integer array, ion charge numbers (e.g., zi = 1, 2 for H+ and He++)

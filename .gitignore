@@ -17,3 +17,5 @@ external
 
 # direnv
 /.envrc
+
+**.DS_Store

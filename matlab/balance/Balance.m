@@ -507,7 +507,7 @@ classdef Balance < handle & hdf5_output
                 Ires = Iraw(:, 1) + 1i .* Iraw(:, 2);
                 %pick only m which are calculated in this class
                 ind = ismember(abs(qraw), abs(obj.m./obj.n));
-                Ires = abs(Ires(ind)') / 10; %convert to cgs (c=1)
+                Ires = abs(Ires(ind)) / 10; %convert to cgs (c=1)
                 %fill Ires with nan if GPEC computed less modes than here
                 ind = ~ismember(abs(obj.m./obj.n),abs(qraw));
                 Ires(ind) = nan;

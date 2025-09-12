@@ -93,7 +93,8 @@ module integrands_gauss_m
             * 2.0d0 * pi / (this%int_point%rhoT**2.0d0 * sin(theta)) &
             * exp(- ks_val**2.0d0 * this%int_point%rhoT**2.0d0 &
                   - (x - xp)**2.0d0 / (4.0d0 * this%int_point%rhoT**2.0d0 * (1.0d0 - cos(theta)))) &
-            * this%int_point%Jrg1
+            * this%int_point%Jrg1 &
+            / (2.0d0 * pi) ! is missing, found by benchmarking
 
     end function
 
@@ -128,7 +129,8 @@ module integrands_gauss_m
                 ) &
                 + (2.0d0 * cos(2.0d0 * theta) + 6.0d0) * (this%int_point%Jrg2 + this%int_point%Jrg3) &
                 - 16.0d0 * cos(theta) * this%int_point%Jrg4 &
-            )
+            ) &
+            / (2.0d0 * pi) ! is missing, found by benchmarking
 
     end function
 
@@ -159,7 +161,8 @@ module integrands_gauss_m
                 this%int_point%rhoT**2.0d0 * (cos(3.0d0 * theta) - cos(theta)) * this%int_point%Jrg1 &
                 + 4.0d0 * cos(theta) * (this%int_point%Jrg2 + this%int_point%Jrg3) &
                 - 2.0d0 * (cos(2.0d0 * theta) + 3.0d0) * this%int_point%Jrg4 &
-            )
+            ) &
+            / (2.0d0 * pi) ! is missing, found by benchmarking
 
     end function
 
@@ -175,8 +178,9 @@ module integrands_gauss_m
 
         this%Jrg1 = sqrt(pi) / (2.0d0 * this%a_coef) &
             *(&
-            erf_diff(this%a_coef * (this%b_coef - rg_grid%xb(this%j)),  &
-            this%a_coef * (this%b_coef - rg_grid%xb(this%j+1))))
+                erf_diff(this%a_coef * (this%b_coef - rg_grid%xb(this%j)),  &
+                    this%a_coef * (this%b_coef - rg_grid%xb(this%j+1))) &
+            )
 
     end subroutine
 

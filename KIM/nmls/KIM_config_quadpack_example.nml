@@ -1,0 +1,105 @@
+! Example KIM configuration file with QUADPACK integration
+! This file demonstrates how to configure QUADPACK as the adaptive integration method
+
+&KIM_CONFIG
+    type_of_run = 'electrostatic'
+    collision_model = 'FokkerPlanck'
+    number_of_ion_species = 1
+    read_species_from_namelist = .false.
+    turn_off_ions = .false.
+    turn_off_electrons = .false.
+    artificial_debye_case = 0
+    kernel_debye_case = .false.
+/
+
+&KIM_IO
+    profile_location = './profiles/'
+    output_path = './output/'
+    hdf5_input = .true.
+    hdf5_output = .true.
+    fdebug = 3
+    fstatus = 1
+    calculate_asymptotics = .false.
+/
+
+&KIM_SETUP
+    btor = 1.0
+    R0 = 1.65
+    m_mode = 1
+    n_mode = 1
+    omega = 0.0
+    spline_base = 3
+    type_br_field = 'analytical'
+    collisions_off = .false.
+    eps_reg = 1.0e-4
+    set_profiles_constant = .false.
+/
+
+&KIM_GRID
+    ! Grid configuration
+    grid_spacing_rg = 'adaptive'
+    grid_spacing_xl = 'adaptive'
+    l_space_dim = 100
+    rg_space_dim = 100
+    k_space_dim = 100
+    kr_grid_width_res = 2.0
+    kr_grid_ampl_res = 0.1
+    r_plas = 0.99
+    r_min = 0.01
+    width_res = 0.05
+    ampl_res = 1.0
+    hrmax_scaling = 1.0
+    
+    ! Integration method selection
+    ! Options: 'RKF45', 'GaussLegendre', or 'QUADPACK'
+    theta_integration = 'RKF45'
+    
+    ! New parameter to select integration method for adaptive kernels
+    ! This overrides theta_integration for the adaptive kernel calculations
+    theta_integration_method = 'QUADPACK'
+    
+    ! RKF45 parameters (used when theta_integration_method = 'RKF45')
+    rkf45_atol = 1.0e-10
+    rkf45_rtol = 1.0e-10
+    
+    ! QUADPACK parameters (used when theta_integration_method = 'QUADPACK')
+    quadpack_algorithm = 'QAG'        ! Options: 'QAG', 'QAGS'
+    quadpack_key = 6                   ! Gauss-Kronrod rule: 1-6 for QK15-QK61
+    quadpack_limit = 500               ! Maximum number of subdivisions
+    quadpack_epsabs = 1.0e-10         ! Absolute tolerance
+    quadpack_epsrel = 1.0e-10         ! Relative tolerance
+    quadpack_use_u_substitution = .true.  ! Use u=sin(theta/2) transformation
+    
+    ! Gauss integration nodes
+    gauss_int_nodes_Ntheta = 20
+    gauss_int_nodes_Nx = 20
+    gauss_int_nodes_Nxp = 20
+    
+    ! Kernel configuration
+    Larmor_skip_factor = 3.0
+    kernel_taper_skip_threshold = 1.0e-6
+/
+
+! Notes on QUADPACK configuration:
+!
+! quadpack_algorithm:
+!   - 'QAG': General-purpose adaptive integration (recommended for most cases)
+!   - 'QAGS': Adaptive integration with singularities at endpoints
+!
+! quadpack_key (Gauss-Kronrod rule selection):
+!   - 1: QK15 (7-15 points) - Fast but less accurate
+!   - 2: QK21 (10-21 points)
+!   - 3: QK31 (15-31 points)
+!   - 4: QK41 (20-41 points)
+!   - 5: QK51 (25-51 points)
+!   - 6: QK61 (30-61 points) - Slow but most accurate (recommended)
+!
+! quadpack_limit:
+!   - Maximum number of subintervals in adaptive subdivision
+!   - Increase if integration fails to converge
+!   - Higher values allow better handling of difficult integrands
+!
+! quadpack_use_u_substitution:
+!   - Recommended for integrands with sin(theta) in denominator
+!   - Transforms theta integral to u=sin(theta/2) for better numerical stability
+!

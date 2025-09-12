@@ -17,10 +17,19 @@ module grid_m
     integer :: gauss_int_nodes_Ntheta, gauss_int_nodes_Nx, gauss_int_nodes_Nxp
     real(dp):: Larmor_skip_factor
     real(dp):: width_res, ampl_res, hrmax_scaling
-    character(len=64) :: theta_integration ! RKF45 or GaussLegendre
+    character(len=64) :: theta_integration ! RKF45, GaussLegendre, or QUADPACK
+    character(len=64) :: theta_integration_method = "RKF45" ! Default to RKF45 for backward compatibility
     real(dp) :: rkf45_atol = 1.0d-9  ! Absolute tolerance for RKF45 adaptive integration
     real(dp) :: rkf45_rtol = 1.0d-6  ! Relative tolerance for RKF45 adaptive integration
     real(dp) :: kernel_taper_skip_threshold = 1.0d-6  ! Skip element calc when taper weight below this
+    
+    ! QUADPACK integration parameters
+    character(len=32) :: quadpack_algorithm = "QAG"  ! QAG or QAGS
+    integer :: quadpack_key = 6  ! Gauss-Kronrod rule: 1-6 for 15-61 points
+    integer :: quadpack_limit = 500  ! Maximum number of subdivisions
+    real(dp) :: quadpack_epsabs = 1.0d-10  ! Absolute tolerance for QUADPACK
+    real(dp) :: quadpack_epsrel = 1.0d-10  ! Relative tolerance for QUADPACK
+    logical :: quadpack_use_u_substitution = .true.  ! Use u=sin(theta/2) transformation
 
     integer :: nder=2
     integer :: npoi_der=4

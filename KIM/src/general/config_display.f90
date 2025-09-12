@@ -124,7 +124,8 @@ contains
         call print_config_line('Run Type', trim(type_of_run), width)
         call print_config_line('Collision Model', trim(collision_model), width)
         call print_bool_line('Collisions', .not. collisions_off, width)
-        call print_bool_line('Artificial Debye Case', artificial_debye_case, width)
+        write(value_str, '(I0)') artificial_debye_case
+        call print_config_line('Artificial Debye Case', trim(adjustl(value_str)), width)
         call print_bool_line('Turn Off Ions', turn_off_ions, width)
         call print_bool_line('Turn Off Electrons', turn_off_electrons, width)
         write(value_str, '(I0)') number_of_ion_species
@@ -174,6 +175,33 @@ contains
             write(value_str, '(A,I0,A,I0,A,I0,A)') '(', gauss_int_nodes_Nx, ', ', &
                                                     gauss_int_nodes_Nxp, ', ', gauss_int_nodes_Ntheta, ')'
             call print_config_line('Gauss Nodes (x,x′,θ)', trim(value_str), width)
+        else if (trim(theta_integration) == "QUADPACK") then
+            call print_config_line('QUADPACK algorithm', trim(adjustl(quadpack_algorithm)), width)
+            write(value_str, '(I0,A)') quadpack_key, ' (QK' // trim(adjustl(value_str)) // ')'
+            select case(quadpack_key)
+                case(1); value_str = '1 (QK15: 7-15 points)'
+                case(2); value_str = '2 (QK21: 10-21 points)'
+                case(3); value_str = '3 (QK31: 15-31 points)'
+                case(4); value_str = '4 (QK41: 20-41 points)'
+                case(5); value_str = '5 (QK51: 25-51 points)'
+                case(6); value_str = '6 (QK61: 30-61 points)'
+                case default; value_str = 'Invalid key'
+            end select
+            call print_config_line('QUADPACK G-K rule', trim(value_str), width)
+            write(value_str, '(I0)') quadpack_limit
+            call print_config_line('QUADPACK subdivisions', trim(adjustl(value_str)), width)
+            write(value_str, '(ES10.3)') quadpack_epsabs
+            call print_config_line('QUADPACK abs tol', trim(adjustl(value_str)), width)
+            write(value_str, '(ES10.3)') quadpack_epsrel
+            call print_config_line('QUADPACK rel tol', trim(adjustl(value_str)), width)
+            if (quadpack_use_u_substitution) then
+                call print_config_line('QUADPACK u-subst', 'Enabled', width)
+            else
+                call print_config_line('QUADPACK u-subst', 'Disabled', width)
+            end if
+            write(value_str, '(A,I0,A,I0,A)') '(', gauss_int_nodes_Nx, ', ', &
+                                                    gauss_int_nodes_Nxp, ')'
+            call print_config_line('Gauss Nodes (x,x′)', trim(value_str), width)
         end if
         
         ! Display Ion Species if configured

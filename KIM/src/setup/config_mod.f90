@@ -7,7 +7,7 @@ module config_m
     logical :: read_species_from_namelist ! read species from namelist or use deuterium plasma
     character(100) :: type_of_run         
     character(100) :: collision_model ! type of collision model
-    logical :: artificial_debye_case
+    integer :: artificial_debye_case
     logical :: kernel_debye_case
     logical :: turn_off_ions ! if true, only the first species (electrons) is considered in calculations
     logical :: turn_off_electrons

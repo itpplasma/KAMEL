@@ -703,9 +703,10 @@ module species_m
 
         implicit none
 
-        integer :: i
-        integer :: sigma
+        integer :: i, sigma
+        real(dp) :: h1, h2, c1, c2, c3
 
+        ! Allocate derivative arrays if not already allocated
         if (.not. allocated(plasma%spec(0)%dndr)) then
             do i = 0, number_of_ion_species
                 allocate(plasma%spec(i)%dndr(plasma%grid_size), &
@@ -714,16 +715,81 @@ module species_m
             allocate(plasma%dqdr(plasma%grid_size))
         end if
 
+        ! Handle the edge case of too few grid points
+        if (plasma%grid_size < 3) then
+            ! For very small grids, use simple first-order differences
+            if (plasma%grid_size == 1) then
+                do sigma = 0, number_of_ion_species
+                    plasma%spec(sigma)%dndr(1) = 0.0d0
+                    plasma%spec(sigma)%dTdr(1) = 0.0d0
+                end do
+                plasma%dqdr(1) = 0.0d0
+            else if (plasma%grid_size == 2) then
+                h1 = plasma%r_grid(2) - plasma%r_grid(1)
+                do sigma = 0, number_of_ion_species
+                    plasma%spec(sigma)%dndr(1) = (plasma%spec(sigma)%n(2) - plasma%spec(sigma)%n(1)) / h1
+                    plasma%spec(sigma)%dTdr(1) = (plasma%spec(sigma)%T(2) - plasma%spec(sigma)%T(1)) / h1
+                    plasma%spec(sigma)%dndr(2) = plasma%spec(sigma)%dndr(1)
+                    plasma%spec(sigma)%dTdr(2) = plasma%spec(sigma)%dTdr(1)
+                end do
+                plasma%dqdr(1) = (plasma%q(2) - plasma%q(1)) / h1
+                plasma%dqdr(2) = plasma%dqdr(1)
+            end if
+            return
+        end if
+
+        ! LEFT BOUNDARY: Second-order forward differences
+        ! f'(x0) = (-3*f(x0) + 4*f(x1) - f(x2)) / (2*h) for uniform grid
+        ! For non-uniform grid, we need to account for varying spacing
+        i = 1
+        h1 = plasma%r_grid(2) - plasma%r_grid(1)
+        h2 = plasma%r_grid(3) - plasma%r_grid(2)
         
-        do i=1, plasma%grid_size - 1
-            do sigma=0, number_of_ion_species
-                plasma%spec(sigma)%dndr(i) = (plasma%spec(sigma)%n(i+1) - plasma%spec(sigma)%n(i))&
-                    /(plasma%r_grid(i+1) - plasma%r_grid(i))
-                plasma%spec(sigma)%dTdr(i) = (plasma%spec(sigma)%T(i+1) - plasma%spec(sigma)%T(i))&
-                    /(plasma%r_grid(i+1)- plasma%r_grid(i))
-                plasma%dqdr(i) = (plasma%q(i+1) - plasma%q(i)) / (plasma%r_grid(i+1) - plasma%r_grid(i))
-            end do
+        ! Coefficients for non-uniform grid
+        c1 = -(2.0d0*h1 + h2) / (h1*(h1 + h2))
+        c2 = (h1 + h2) / (h1*h2)
+        c3 = -h1 / (h2*(h1 + h2))
+        
+        do sigma = 0, number_of_ion_species
+            plasma%spec(sigma)%dndr(i) = c1*plasma%spec(sigma)%n(1) + c2*plasma%spec(sigma)%n(2) + c3*plasma%spec(sigma)%n(3)
+            plasma%spec(sigma)%dTdr(i) = c1*plasma%spec(sigma)%T(1) + c2*plasma%spec(sigma)%T(2) + c3*plasma%spec(sigma)%T(3)
         end do
+        plasma%dqdr(i) = c1*plasma%q(1) + c2*plasma%q(2) + c3*plasma%q(3)
+
+        ! INTERIOR POINTS: Central differences
+        ! f'(xi) = (f(xi+1) - f(xi-1)) / (2*h) for uniform grid
+        do i = 2, plasma%grid_size - 1
+            h1 = plasma%r_grid(i) - plasma%r_grid(i-1)
+            h2 = plasma%r_grid(i+1) - plasma%r_grid(i)
+            
+            ! Coefficients for non-uniform grid central differences
+            c1 = -h2 / (h1*(h1 + h2))
+            c2 = (h2 - h1) / (h1*h2)
+            c3 = h1 / (h2*(h1 + h2))
+            
+            do sigma = 0, number_of_ion_species
+                plasma%spec(sigma)%dndr(i) = c1*plasma%spec(sigma)%n(i-1) + c2*plasma%spec(sigma)%n(i) + c3*plasma%spec(sigma)%n(i+1)
+                plasma%spec(sigma)%dTdr(i) = c1*plasma%spec(sigma)%T(i-1) + c2*plasma%spec(sigma)%T(i) + c3*plasma%spec(sigma)%T(i+1)
+            end do
+            plasma%dqdr(i) = c1*plasma%q(i-1) + c2*plasma%q(i) + c3*plasma%q(i+1)
+        end do
+
+        ! RIGHT BOUNDARY: Second-order backward differences
+        ! f'(xn) = (f(xn-2) - 4*f(xn-1) + 3*f(xn)) / (2*h) for uniform grid
+        i = plasma%grid_size
+        h1 = plasma%r_grid(i-1) - plasma%r_grid(i-2)
+        h2 = plasma%r_grid(i) - plasma%r_grid(i-1)
+        
+        ! Coefficients for non-uniform grid
+        c1 = h2 / (h1*(h1 + h2))
+        c2 = -(h1 + h2) / (h1*h2)
+        c3 = (2.0d0*h2 + h1) / (h2*(h1 + h2))
+        
+        do sigma = 0, number_of_ion_species
+            plasma%spec(sigma)%dndr(i) = c1*plasma%spec(sigma)%n(i-2) + c2*plasma%spec(sigma)%n(i-1) + c3*plasma%spec(sigma)%n(i)
+            plasma%spec(sigma)%dTdr(i) = c1*plasma%spec(sigma)%T(i-2) + c2*plasma%spec(sigma)%T(i-1) + c3*plasma%spec(sigma)%T(i)
+        end do
+        plasma%dqdr(i) = c1*plasma%q(i-2) + c2*plasma%q(i-1) + c3*plasma%q(i)
 
     end subroutine
 
@@ -838,6 +904,13 @@ module species_m
             plasma%Er(:) = plasma%Er(1)
             do sigma = 0, number_of_ion_species
                 plasma%spec(sigma)%n(:) = plasma%spec(sigma)%n(1)
+                plasma%spec(sigma)%T(:) = plasma%spec(sigma)%T(1)
+            end do
+        end if
+
+        if (set_profiles_constant == 2) then
+            write(*,*) 'Info: Setting profiles to constant values'
+            do sigma = 0, number_of_ion_species
                 plasma%spec(sigma)%T(:) = plasma%spec(sigma)%T(1)
             end do
         end if

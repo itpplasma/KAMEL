@@ -115,13 +115,16 @@ module rt_electrostatic_m
 
             implicit none
 
-            if (trim(theta_integration) == "RKF45") then
-                call FP_fill_kernels_adaptive(kernel_rho_phi_llp, kernel_rho_B_llp, kernel_j_phi_llp, kernel_j_B_llp)
-            else if (trim(theta_integration) == "GaussLegendre") then
+            select case (trim(theta_integration))
+            case ("GaussLegendre")
+                ! Fixed-order Gauss-Legendre path
                 call FP_fill_kernels(kernel_rho_phi_llp, kernel_rho_B_llp, kernel_j_phi_llp, kernel_j_B_llp)
-            else
+            case ("RKF45", "QUADPACK")
+                ! Adaptive path; actual integrator selected via theta_integration_method
+                call FP_fill_kernels_adaptive(kernel_rho_phi_llp, kernel_rho_B_llp, kernel_j_phi_llp, kernel_j_B_llp)
+            case default
                 stop "Error: theta integration method not recognized."
-            end if
+            end select
 
             call write_matrix(trim(output_path)//"kernel/K_rho_phi_re.dat", real(kernel_rho_phi_llp%Kllp), xl_grid%npts_b, xl_grid%npts_b)
             call write_matrix(trim(output_path)//"kernel/K_rho_phi_im.dat", dimag(kernel_rho_phi_llp%Kllp), xl_grid%npts_b, xl_grid%npts_b)

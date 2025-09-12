@@ -4,6 +4,7 @@ module integrals_rkf45_m
 
     use KIM_kinds_m, only: dp
     use constants_m, only: pi
+    use integrands_rkf45_m, only: rkf45_integrand_context_t
 
     implicit none
 
@@ -17,7 +18,7 @@ module integrals_rkf45_m
     real(dp) :: h0 = 0.01d0
     ! Minimum theta cutoff to avoid endpoint singularity blowup in mapped integrands
     ! Slightly larger floor improves stability near x≈xp without biasing results materially
-    real(dp), parameter :: theta_cutoff_min = 1.0d-3
+    real(dp), parameter :: theta_cutoff_min = 5.0d-2
     real(dp), parameter :: theta_M = 25.0d0            ! Exponential damping target
 
     contains
@@ -61,6 +62,51 @@ module integrals_rkf45_m
         result = result * xr
 
     end subroutine
+
+    subroutine integrate_F1(result, rkf45_conf, context)
+        ! Dispatcher function that selects integration method
+        use grid_m, only: theta_integration_method
+        implicit none
+        type(rkf45_integrand_context_t), intent(inout) :: context
+        type(rkf45_config_t), intent(in) :: rkf45_conf
+        real(dp), intent(out) :: result
+        
+        if (trim(theta_integration_method) == "QUADPACK") then
+            call quadpack_integrate_F1_wrapper(result, rkf45_conf, context)
+        else
+            call rkf45_integrate_F1(result, rkf45_conf, context)
+        end if
+    end subroutine integrate_F1
+    
+    subroutine integrate_F2(result, rkf45_conf, context)
+        ! Dispatcher function that selects integration method
+        use grid_m, only: theta_integration_method
+        implicit none
+        type(rkf45_integrand_context_t), intent(inout) :: context
+        type(rkf45_config_t), intent(in) :: rkf45_conf
+        real(dp), intent(out) :: result
+        
+        if (trim(theta_integration_method) == "QUADPACK") then
+            call quadpack_integrate_F2_wrapper(result, rkf45_conf, context)
+        else
+            call rkf45_integrate_F2(result, rkf45_conf, context)
+        end if
+    end subroutine integrate_F2
+    
+    subroutine integrate_F3(result, rkf45_conf, context)
+        ! Dispatcher function that selects integration method
+        use grid_m, only: theta_integration_method
+        implicit none
+        type(rkf45_integrand_context_t), intent(inout) :: context
+        type(rkf45_config_t), intent(in) :: rkf45_conf
+        real(dp), intent(out) :: result
+        
+        if (trim(theta_integration_method) == "QUADPACK") then
+            call quadpack_integrate_F3_wrapper(result, rkf45_conf, context)
+        else
+            call rkf45_integrate_F3(result, rkf45_conf, context)
+        end if
+    end subroutine integrate_F3
 
     subroutine rkf45_integrate_F1(result, rkf45_conf, context)
 
@@ -216,6 +262,150 @@ module integrals_rkf45_m
                 * (-pi) / (2.0d0 * context%rhoT**4.0d0)
 
     end subroutine
+
+    ! QUADPACK wrapper functions
+    subroutine quadpack_integrate_F1_wrapper(result, rkf45_conf, context)
+        use integrands_rkf45_m, only: rkf45_integrand_context_t
+        use constants_m, only: pi
+        use quadpack_integration_m, only: quadpack_integrate_F1, init_quadpack_module
+        use grid_m, only: quadpack_epsabs, quadpack_epsrel, quadpack_use_u_substitution
+        
+        implicit none
+        type(rkf45_integrand_context_t), intent(inout) :: context
+        type(rkf45_config_t), intent(in) :: rkf45_conf
+        real(dp), intent(out) :: result
+        real(dp) :: norm_factor
+        real(dp) :: theta_0_local, theta_max_local, theta_eps, delta, denom
+        real(dp) :: quadpack_res
+        integer :: j, k
+        
+        ! Initialize QUADPACK module if needed
+        call init_quadpack_module()
+        
+        result = 0.0d0
+        norm_factor = (context%xlp1 - context%xlm1) * (context%xlpp1 - context%xlpm1) / 4.0d0
+        
+        ! Endpoint exclusion based on local separation and rhoT
+        delta = abs(context%x - context%xp)
+        denom = max(abs(context%rhoT), 1.0d-300)
+        theta_eps = max(theta_cutoff_min, min(0.2d0, delta / (sqrt(2.0d0*theta_M) * denom)))
+        theta_0_local = theta_eps
+        theta_max_local = pi - theta_eps
+        
+        !$omp parallel do collapse(2) private(j, k, quadpack_res) firstprivate(context) reduction(+:result)
+        do j = 1, rkf45_conf%Nxp
+            do k = 1, rkf45_conf%Nx
+                context%xp = 0.5d0 * ((context%xlpp1 - context%xlpm1) * rkf45_conf%x_xp(j) + context%xlpp1 + context%xlpm1)
+                context%x = 0.5d0 * ((context%xlp1 - context%xlm1) * rkf45_conf%x_x(k) + context%xlp1 + context%xlm1)
+                
+                quadpack_res = 0.0d0
+                call quadpack_integrate_F1(quadpack_res, quadpack_epsabs, quadpack_epsrel, context, &
+                                          theta_0_local, theta_max_local, quadpack_use_u_substitution)
+                
+                result = result + rkf45_conf%w_xp(j) * rkf45_conf%w_x(k) * quadpack_res
+            end do
+        end do
+        !$omp end parallel do
+        
+        result = result * exp(-context%ks**2.0d0 * context%rhoT**2.0d0) * norm_factor
+        
+    end subroutine quadpack_integrate_F1_wrapper
+    
+    subroutine quadpack_integrate_F2_wrapper(result, rkf45_conf, context)
+        use integrands_rkf45_m, only: rkf45_integrand_context_t
+        use constants_m, only: pi
+        use quadpack_integration_m, only: quadpack_integrate_F2, init_quadpack_module
+        use grid_m, only: quadpack_epsabs, quadpack_epsrel, quadpack_use_u_substitution
+        
+        implicit none
+        type(rkf45_integrand_context_t), intent(inout) :: context
+        type(rkf45_config_t), intent(in) :: rkf45_conf
+        real(dp), intent(out) :: result
+        real(dp) :: norm_factor
+        real(dp) :: theta_0_local, theta_max_local, theta_eps, delta, denom
+        real(dp) :: quadpack_res
+        integer :: j, k
+        
+        ! Initialize QUADPACK module if needed
+        call init_quadpack_module()
+        
+        result = 0.0d0
+        norm_factor = (context%xlp1 - context%xlm1) * (context%xlpp1 - context%xlpm1) / 4.0d0
+        
+        ! Endpoint exclusion
+        delta = abs(context%x - context%xp)
+        denom = max(abs(context%rhoT), 1.0d-300)
+        theta_eps = max(theta_cutoff_min, min(0.2d0, delta / (sqrt(2.0d0*theta_M) * denom)))
+        theta_0_local = theta_eps
+        theta_max_local = pi - theta_eps
+        
+        !$omp parallel do collapse(2) private(j, k, quadpack_res) firstprivate(context) reduction(+:result)
+        do j = 1, rkf45_conf%Nxp
+            do k = 1, rkf45_conf%Nx
+                context%xp = 0.5d0 * ((context%xlpp1 - context%xlpm1) * rkf45_conf%x_xp(j) + context%xlpp1 + context%xlpm1)
+                context%x = 0.5d0 * ((context%xlp1 - context%xlm1) * rkf45_conf%x_x(k) + context%xlp1 + context%xlm1)
+                
+                quadpack_res = 0.0d0
+                call quadpack_integrate_F2(quadpack_res, quadpack_epsabs, quadpack_epsrel, context, &
+                                          theta_0_local, theta_max_local, quadpack_use_u_substitution)
+                
+                result = result + rkf45_conf%w_xp(j) * rkf45_conf%w_x(k) * quadpack_res
+            end do
+        end do
+        !$omp end parallel do
+        
+        result = result * exp(-context%ks**2.0d0 * context%rhoT**2.0d0) * norm_factor &
+                * (-pi) / (4.0d0 * context%rhoT**4.0d0)
+        
+    end subroutine quadpack_integrate_F2_wrapper
+    
+    subroutine quadpack_integrate_F3_wrapper(result, rkf45_conf, context)
+        use integrands_rkf45_m, only: rkf45_integrand_context_t
+        use constants_m, only: pi
+        use quadpack_integration_m, only: quadpack_integrate_F3, init_quadpack_module
+        use grid_m, only: quadpack_epsabs, quadpack_epsrel, quadpack_use_u_substitution
+        
+        implicit none
+        type(rkf45_integrand_context_t), intent(inout) :: context
+        type(rkf45_config_t), intent(in) :: rkf45_conf
+        real(dp), intent(out) :: result
+        real(dp) :: norm_factor
+        real(dp) :: theta_0_local, theta_max_local, theta_eps, delta, denom
+        real(dp) :: quadpack_res
+        integer :: j, k
+        
+        ! Initialize QUADPACK module if needed
+        call init_quadpack_module()
+        
+        result = 0.0d0
+        norm_factor = (context%xlp1 - context%xlm1) * (context%xlpp1 - context%xlpm1) / 4.0d0
+        
+        ! Endpoint exclusion
+        delta = abs(context%x - context%xp)
+        denom = max(abs(context%rhoT), 1.0d-300)
+        theta_eps = max(theta_cutoff_min, min(0.2d0, delta / (sqrt(2.0d0*theta_M) * denom)))
+        theta_0_local = theta_eps
+        theta_max_local = pi - theta_eps
+        
+        !$omp parallel do collapse(2) private(j, k, quadpack_res) firstprivate(context) reduction(+:result)
+        do j = 1, rkf45_conf%Nxp
+            do k = 1, rkf45_conf%Nx
+                context%xp = 0.5d0 * ((context%xlpp1 - context%xlpm1) * rkf45_conf%x_xp(j) + context%xlpp1 + context%xlpm1)
+                context%x = 0.5d0 * ((context%xlp1 - context%xlm1) * rkf45_conf%x_x(k) + context%xlp1 + context%xlm1)
+                
+                quadpack_res = 0.0d0
+                call quadpack_integrate_F3(quadpack_res, quadpack_epsabs, quadpack_epsrel, context, &
+                                          theta_0_local, theta_max_local, quadpack_use_u_substitution)
+                
+                result = result + rkf45_conf%w_xp(j) * rkf45_conf%w_x(k) * quadpack_res
+            end do
+        end do
+        !$omp end parallel do
+        
+        result = result * exp(-context%ks**2.0d0 * context%rhoT**2.0d0) * norm_factor &
+                * (-pi) / (2.0d0 * context%rhoT**4.0d0)
+        
+    end subroutine quadpack_integrate_F3_wrapper
 
     ! Mapped integrands: u = sin(theta/2), theta = 2*asin(u)
     ! Include Jacobian dtheta/du = 2/sqrt(1-u^2)

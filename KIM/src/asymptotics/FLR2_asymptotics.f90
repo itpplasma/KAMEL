@@ -158,8 +158,9 @@ module flr2_asymptotics_m
 
         type(plasma_t), intent(in) :: plasma_in
         integer :: j, sp, i
-        complex(dp), allocatable :: kernel(:)
-        complex(dp) :: kernel_temp
+        complex(dp), allocatable :: kernel_phi(:)
+        complex(dp), allocatable :: kernel_B(:)
+        complex(dp) :: kernel_phi_temp
         real(dp) :: b
         real(dp) :: ks
         real(dp) :: kr
@@ -167,17 +168,19 @@ module flr2_asymptotics_m
         character(256) :: filename
 
         complex(dp) :: besselI ! complex bessel function from bessel.f90
-        allocate(kernel(rg_grid%npts_b))
+        allocate(kernel_phi(rg_grid%npts_b))
+        allocate(kernel_B(rg_grid%npts_b))
 
         kr_arr = [1.0d0, 5.0d0, 10.0d0]
 
         do i = 1, size(kr_arr)
             kr = kr_arr(i)
             print *, "Calculating hatK_Phi for kr = ", kr
-            kernel = 0.0d0
+            kernel_phi = 0.0d0
+            kernel_B = 0.0d0
             
             do j = 1, size(rg_grid%xb)
-                kernel_temp = 0.0d0
+                kernel_phi_temp = 0.0d0
                 do sp = 0, plasma_in%n_species-1
                     if (turn_off_ions .and. sp >= 1) cycle
                     if (turn_off_electrons .and. sp == 0) cycle
@@ -188,11 +191,11 @@ module flr2_asymptotics_m
                     b = kr**2.0d0 * plasma_in%spec(sp)%rho_L(j)**2.0d0
 
                     if (artificial_debye_case <= 1) then
-                        kernel_temp = - 1.0d0 / plasma_in%spec(sp)%lambda_D(j)**2.0d0
+                        kernel_phi_temp = - 1.0d0 / plasma_in%spec(sp)%lambda_D(j)**2.0d0
                     end if
 
                     if (artificial_debye_case == 0 .or. artificial_debye_case == 2) then
-                        kernel_temp = kernel_temp + 1.0d0 / plasma_in%spec(sp)%lambda_D(j)**2.0d0 * com_unit * plasma_in%spec(sp)%vT(j)**2.0d0 * plasma_in%ks(j) &
+                        kernel_phi_temp = kernel_phi_temp + 1.0d0 / plasma_in%spec(sp)%lambda_D(j)**2.0d0 * com_unit * plasma_in%spec(sp)%vT(j)**2.0d0 * plasma_in%ks(j) &
                             / (plasma_in%spec(sp)%omega_c(j) * plasma_in%spec(sp)%nu(j)) * exp(-b) * &
                             (&
                                 plasma_in%spec(sp)%I00(j) * (&
@@ -201,18 +204,30 @@ module flr2_asymptotics_m
                                 )&
                                 + 0.5d0 * plasma_in%spec(sp)%I20(j) * plasma_in%spec(sp)%A2(j) * gsl_sf_bessel_In(0, b) &
                             )
+                        kernel_B(j) = kernel_B(j) - 1.0d0 / plasma_in%spec(sp)%lambda_D(j)**2.0d0 * plasma_in%spec(sp)%vT(j)**3.0d0 &
+                            / (plasma_in%spec(sp)%omega_c(j) * plasma_in%spec(sp)%nu(j) * sol) * exp(-b) * &
+                            (&
+                                plasma_in%spec(sp)%I01(j) * (&
+                                    gsl_sf_bessel_In(0, b) * (plasma_in%spec(sp)%A1(j) + plasma_in%spec(sp)%A2(j) * (1-b)) &
+                                    + 0.5d0 * plasma_in%spec(sp)%A2(j) * b * gsl_sf_bessel_In(-1, b) &
+                                )&
+                                + 0.5d0 * plasma_in%spec(sp)%I21(j) * plasma_in%spec(sp)%A2(j) * gsl_sf_bessel_In(0, b) &
+                            )
                     end if
 
-                    kernel(j) = kernel(j) + kernel_temp
+                    kernel_phi(j) = kernel_phi(j) + kernel_phi_temp
                 end do
-                ! kernel = kernel * exp(com_unit * kr * rg_grid%xb(j))
             end do
 
-            kernel = 1.0d0 / (4.0d0 * pi) * kernel
-            write(filename, '(A,I5,A)') trim(output_path)//"/fields/hatK_Phi_kr", int(kr), ".dat"
-            call write_complex_profile_abs(rg_grid%xb, kernel, rg_grid%npts_b, filename)
-        end do
+            kernel_phi = kernel_phi / (4.0d0 * pi)
+            kernel_B = kernel_B / (4.0d0 * pi)
 
+            write(filename, '(A,I0,A)') trim(output_path)//"/fields/hatK_Phi_kr", int(kr), ".dat"
+            call write_complex_profile_abs(rg_grid%xb, kernel_phi, rg_grid%npts_b, filename)
+            write(filename, '(A,I0,A)') trim(output_path)//"/fields/hatK_B_kr", int(kr), ".dat"
+            call write_complex_profile_abs(rg_grid%xb, kernel_B, rg_grid%npts_b, filename)
+
+        end do
 
     end subroutine
 

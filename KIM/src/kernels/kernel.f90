@@ -85,15 +85,15 @@ module kernel_m
                           (plasma%spec(sigma)%omega_c_cc(j) * plasma%spec(sigma)%nu_cc(j)) ) ) &
                     * (1.0d0/(plasma%spec(sigma)%lambda_D_cc(j)**2.0d0))
                 pref_rho_phi_g2(sigma+1,j) = &
-                    ( - plasma%spec(sigma)%I00_cc(j) * plasma%spec(sigma)%A2_cc(j) * &
-                      ( com_unit * plasma%spec(sigma)%vT_cc(j)**2.0d0 / &
-                        (plasma%spec(sigma)%omega_c_cc(j) * plasma%spec(sigma)%nu_cc(j)) ) ) &
-                    * (1.0d0/(plasma%spec(sigma)%lambda_D_cc(j)**2.0d0))
-                pref_rho_phi_g3(sigma+1,j) = &
                     ( plasma%spec(sigma)%I00_cc(j) * plasma%spec(sigma)%A2_cc(j) * &
                       ( com_unit * plasma%spec(sigma)%vT_cc(j)**2.0d0 / &
                         (plasma%spec(sigma)%omega_c_cc(j) * plasma%spec(sigma)%nu_cc(j)) ) ) &
-                    * (1.0d0/(plasma%spec(sigma)%lambda_D_cc(j)**2.0d0))
+                    * (1.0d0/(plasma%spec(sigma)%lambda_D_cc(j)**2.0d0))  ! NOTE: sign flipped; a minus sign may be required depending on convention
+                pref_rho_phi_g3(sigma+1,j) = &
+                    ( - plasma%spec(sigma)%I00_cc(j) * plasma%spec(sigma)%A2_cc(j) * &
+                      ( com_unit * plasma%spec(sigma)%vT_cc(j)**2.0d0 / &
+                        (plasma%spec(sigma)%omega_c_cc(j) * plasma%spec(sigma)%nu_cc(j)) ) ) &
+                    * (1.0d0/(plasma%spec(sigma)%lambda_D_cc(j)**2.0d0))  ! NOTE: sign flipped; a minus sign may be required depending on convention
 
                 pref_rho_B_g1(sigma+1,j) = &
                     ( (plasma%spec(sigma)%I01_cc(j) * (plasma%spec(sigma)%A1_cc(j) + plasma%spec(sigma)%A2_cc(j)) &
@@ -281,7 +281,7 @@ module kernel_m
                 end if
                 !$omp end critical
                 
-                if (.not. artificial_debye_case) then
+                if (artificial_debye_case /=1) then
                     int_F1%int_point = int_point
                     int_F2%int_point = int_point
                     int_F3%int_point = int_point
@@ -411,7 +411,7 @@ module kernel_m
         end do
         current_iteration = 0
         write(*,*) 'Total band-limited iterations: ', total_iterations
-        if (.not. artificial_debye_case) then
+        if (artificial_debye_case /= 1) then
             write(*,*) '======== Kernel Distance Diagnostics (Fokker-Planck) ========'
             write(*,'(A,F12.6)') ' Maximum |xl - xlp| distance: ', max_distance_xl_xlp
             write(*,'(A,I6,A,I6)') ' Occurred at l = ', max_dist_l, ', lp = ', max_dist_lp
@@ -544,7 +544,7 @@ module kernel_m
                 int_point%rhoT = max(plasma%spec(sigma)%rho_L_cc(j), 0.0d0)
                 int_point%ks = plasma%ks_cc(j)
 
-                if (abs(l-lp)<=1) then
+                if (abs(l-lp)<=1 .and. artificial_debye_case /= 2) then
                     block
                         complex(dp) :: add, y, t
                         int_F0%int_point = int_point
@@ -558,7 +558,7 @@ module kernel_m
                     end block
                 end if
 
-                if (artificial_debye_case) cycle
+                if (artificial_debye_case == 1) cycle
 
                 ! Calculate distance and weight for taper weighting
                 current_distance = abs(int_point%xl - int_point%xlp)
@@ -570,6 +570,7 @@ module kernel_m
                     eps_r = 1.0d-12
                     weight = exp( - ( current_distance / (alpha_loc * max(int_point%rhoT, eps_r)) )**2.0d0 )
                     if (weight < kernel_taper_skip_threshold) cycle
+                    weight = 1.0d0
 
                     int_F1%int_point = int_point
                     int_F2%int_point = int_point
@@ -850,7 +851,7 @@ module kernel_m
                         end if
                         !$omp end critical
                         
-                        if (.not. artificial_debye_case) then
+                        if (artificial_debye_case /= 0) then
                             ! Set integration points for F1, F2, F3
                             int_F1%int_point = int_point
                             int_F2%int_point = int_point

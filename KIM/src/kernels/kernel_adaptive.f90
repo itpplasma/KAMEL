@@ -142,7 +142,7 @@ module kernel_adaptive_m
         end do
         current_iteration = 0
         write(*,*) 'Total band-limited iterations: ', total_iterations
-        if (.not. artificial_debye_case) then
+        if (artificial_debye_case /= 0 ) then
             write(*,*) '======== Kernel Distance Diagnostics (Fokker-Planck) ========'
             write(*,'(A,F12.6)') ' Maximum |xl - xlp| distance: ', max_distance_xl_xlp
             write(*,'(A,I6,A,I6)') ' Occurred at l = ', max_dist_l, ', lp = ', max_dist_lp
@@ -229,8 +229,8 @@ module kernel_adaptive_m
     subroutine FP_calc_kernels_adaptive(l, lp, k_rho_phi, k_rho_B, k_j_phi, k_j_B, rkf45_conf)
 
         use KIM_kinds_m, only: dp
-        use integrals_rkf45_m, only: rkf45_integrate_F0, rkf45_integrate_F1, &
-            rkf45_integrate_F2, rkf45_integrate_F3, rkf45_config_t
+        use integrals_rkf45_m, only: rkf45_integrate_F0, integrate_F1, &
+            integrate_F2, integrate_F3, rkf45_config_t
         use integrands_rkf45_m, only: rkf45_integrand_context_t
         use species_m, only: plasma
         use constants_m, only: pi
@@ -274,7 +274,7 @@ module kernel_adaptive_m
                 context%rhoT = max(plasma%spec(sigma)%rho_L_cc(j), 0.0d0)
                 context%ks   = plasma%ks_cc(j)
 
-                if (abs(l-lp)<=1) then
+                if (abs(l-lp)<=1 .and. artificial_debye_case /=2) then
                     block
                         complex(dp) :: add, y, t
                         call rkf45_integrate_F0(integral_val, rkf45_conf, context)
@@ -287,7 +287,7 @@ module kernel_adaptive_m
                     end block
                 end if
 
-                if (artificial_debye_case) cycle
+                if (artificial_debye_case == 1) cycle
 
                 ! Calculate distance and weight for taper weighting
                 current_distance = abs(context%xl - context%xlp)
@@ -302,11 +302,11 @@ module kernel_adaptive_m
                     eps_r = 1.0d-12
                     alpha = Larmor_skip_factor
                     pexp = 2.0d0
-                    weight = exp( - ( current_distance / (alpha * max(context%rhoT, eps_r)) )**pexp )
+                    weight = 1.0d0 !exp( - ( current_distance / (alpha * max(context%rhoT, eps_r)) )**pexp )
                     if (weight < kernel_taper_skip_threshold) cycle
 
                     ! F1 integration
-                    call rkf45_integrate_F1(integral_val, rkf45_conf, context)
+                    call integrate_F1(integral_val, rkf45_conf, context)
 
                     block
                         complex(dp) :: add, y, t
@@ -345,7 +345,7 @@ module kernel_adaptive_m
                     end block
 
                     ! F2 integration
-                    call rkf45_integrate_F2(integral_val, rkf45_conf, context)
+                    call integrate_F2(integral_val, rkf45_conf, context)
 
                     block
                         complex(dp) :: add, y, t
@@ -384,7 +384,7 @@ module kernel_adaptive_m
                     end block
 
                     ! F3 integration
-                    call rkf45_integrate_F3(integral_val, rkf45_conf, context)
+                    call integrate_F3(integral_val, rkf45_conf, context)
 
                     block
                         complex(dp) :: add, y, t

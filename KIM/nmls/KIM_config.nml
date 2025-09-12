@@ -3,7 +3,7 @@
     read_species_from_namelist = .false. ! if false, initialize deuterium plasma
     type_of_run = 'electrostatic'
     collision_model = 'Krook'       ! Krook or FokkerPlanck
-    artificial_debye_case = .false.
+    artificial_debye_case = 0
     turn_off_ions = .false.
     turn_off_electrons = .false.
 /
@@ -38,20 +38,31 @@
     ampl_res = 15.0
     hrmax_scaling = 1.0
     k_space_dim = 100
-    l_space_dim = 1000
-    rg_space_dim = 1000
+    l_space_dim = 512
+    rg_space_dim = 512
     grid_spacing_rg = "adaptive"      ! "equidistant", "non-equidistant", or "adaptive"
     grid_spacing_xl = "adaptive"      ! "equidistant", "non-equidistant", or "adaptive"
     kr_grid_width_res = 5.0
     kr_grid_ampl_res = 1.0
-    theta_integration = "RKF45" ! RKF45 (adaptive) or GaussLegendre (fixed)
+    theta_integration = "RKF45" ! One switch: 'RKF45' or 'QUADPACK' (adaptive), or 'GaussLegendre' (fixed)
+    
+    ! RKF45 parameters
     rkf45_atol = 1.0d-9      ! Absolute tolerance for RKF45 adaptive integration
     rkf45_rtol = 1.0d-6      ! Relative tolerance for RKF45 adaptive integration
+    
+    ! QUADPACK parameters (used when theta_integration_method = 'QUADPACK')
+    quadpack_algorithm = 'QAG'     ! 'QAG' or 'QAGS'
+    quadpack_key = 6                ! Gauss-Kronrod rule: 1-6 (QK15-QK61)
+    quadpack_limit = 500            ! Max subdivisions
+    quadpack_epsabs = 1.0d-10      ! Absolute tolerance
+    quadpack_epsrel = 1.0d-10      ! Relative tolerance
+    quadpack_use_u_substitution = .true. ! Use u=sin(theta/2) transformation
+    
     kernel_taper_skip_threshold = 1.0d-6  ! Skip element when taper weight below this
     Larmor_skip_factor = 5
-    gauss_int_nodes_Nx = 6 ! should be different from Nxp to avoid numerical problems
-    gauss_int_nodes_Nxp = 7
-    gauss_int_nodes_Ntheta = 7
+    gauss_int_nodes_Nx = 31 ! should be different from Nxp to avoid numerical problems
+    gauss_int_nodes_Nxp = 30
+    gauss_int_nodes_Ntheta = 17
 /
 
 

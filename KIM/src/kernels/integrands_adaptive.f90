@@ -30,8 +30,8 @@ module integrands_rkf45_m
         val = varphi_l(context%x, context%xlm1, context%xl, context%xlp1) &
             * varphi_l(context%x, context%xlpm1, context%xlp, context%xlpp1) &
             * (&
-                  erf_diff((rg_grid%xb(context%j+1)-context%x)/(sqrt(2.0d0) * abs(context%rhoT)), &
-                (rg_grid%xb(context%j) - context%x)/(sqrt(2.0d0) * abs(context%rhoT)))&
+                  erf_diff((rg_grid%xb(context%j+1) - context%x) / (sqrt(2.0d0) * abs(context%rhoT)), &
+                            (rg_grid%xb(context%j ) - context%x) / (sqrt(2.0d0) * abs(context%rhoT)))&
             ) &
             * pi**2.0d0 ! remove factor 2 to retrieve Debye case (sum over j of error functions results in factor 2)
             !* 2.0d0 * pi**2.0d0

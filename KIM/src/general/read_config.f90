@@ -25,10 +25,13 @@ subroutine read_config
                         set_profiles_constant
 
     namelist /KIM_GRID/ grid_spacing_rg, grid_spacing_xl, l_space_dim, theta_integration, &
+                        theta_integration_method, &
                         rg_space_dim, kr_grid_width_res, kr_grid_ampl_res, k_space_dim, &
                         Larmor_skip_factor, gauss_int_nodes_Ntheta, gauss_int_nodes_Nx, gauss_int_nodes_Nxp, &
                         r_plas, r_min, width_res, ampl_res, hrmax_scaling, &
-                        rkf45_atol, rkf45_rtol, kernel_taper_skip_threshold
+                        rkf45_atol, rkf45_rtol, kernel_taper_skip_threshold, &
+                        quadpack_algorithm, quadpack_key, quadpack_limit, &
+                        quadpack_epsabs, quadpack_epsrel, quadpack_use_u_substitution
 
     num_args = command_argument_count()
     if (num_args > 1) then
@@ -50,6 +53,27 @@ subroutine read_config
     read(unit = 77, nml = KIM_SETUP)
     read(unit = 77, nml = KIM_GRID)
     close(unit = 77)
+
+    ! Map single-switch theta_integration to adaptive backend; allow users to omit theta_integration_method
+    select case (trim(theta_integration))
+    case ('RKF45')
+        theta_integration_method = 'RKF45'
+    case ('QUADPACK')
+        theta_integration_method = 'QUADPACK'
+    case ('GaussLegendre')
+        ! fixed path; method unused
+    case default
+        write(*,*) 'Error: Unknown theta_integration: ', trim(theta_integration)
+        stop
+    end select
+
+    ! Validate QUADPACK algorithm selection (finite-interval theta integrals)
+    if (trim(theta_integration_method) == 'QUADPACK') then
+        if (.not. (trim(quadpack_algorithm) == 'QAG' .or. trim(quadpack_algorithm) == 'QAGS')) then
+            write(*,*) 'Error: QUADPACK algorithm must be QAG or QAGS for finite theta integrals. Got: ', trim(quadpack_algorithm)
+            stop
+        end if
+    end if
 
     if (collisions_off .and. collision_model == "FokkerPlanck") then
         write(*,*) 'Error: collision_model is set to "FokkerPlanck" but collisions_off is true.'

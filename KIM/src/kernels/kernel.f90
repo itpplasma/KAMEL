@@ -49,7 +49,7 @@ module kernel_m
         this%npts_l = npts_l
         this%npts_lp = npts_lp
         allocate(this%Kllp(npts_l, npts_lp))
-        this%Kllp = 0.0d0
+        this%Kllp = (0.0d0, 0.0d0)
 
     end subroutine init_kernel
 
@@ -851,39 +851,40 @@ module kernel_m
                         end if
                         !$omp end critical
                         
-                        if (artificial_debye_case /= 0) then
-                            ! Set integration points for F1, F2, F3
-                            int_F1%int_point = int_point
-                            int_F2%int_point = int_point
-                            int_F3%int_point = int_point
-                            
-                            ! Perform Gaussian integrations (shared between Krook and FP)
-                            call gauss_integrate_F1(int_F1, integral_F1, gauss_conf)
-                            call gauss_integrate_F2(int_F2, integral_F2, gauss_conf)
-                            call gauss_integrate_F3(int_F3, integral_F3, gauss_conf)
-                            
-                            ! Krook contributions
-                            krook_phi_llp = krook_phi_llp  &
-                                + integral_F1 * Krook_G1_rho_phi(j, plasma%spec(sigma)) * Krook_kappa_rho_phi(j, plasma%spec(sigma))&
-                                + integral_F2 * Krook_G2_rho_phi(j, plasma%spec(sigma)) * Krook_kappa_rho_phi(j, plasma%spec(sigma)) &
-                                + integral_F3 * Krook_G3_rho_phi(j, plasma%spec(sigma)) * Krook_kappa_rho_phi(j, plasma%spec(sigma))
-                            
-                            krook_B_llp = krook_B_llp &
-                                + integral_F1 * Krook_G1_rho_B(j, plasma%spec(sigma)) * Krook_kappa_rho_B(j, plasma%spec(sigma)) &
-                                + integral_F2 * Krook_G2_rho_B(j, plasma%spec(sigma)) * Krook_kappa_rho_B(j, plasma%spec(sigma)) &
-                                + integral_F3 * Krook_G3_rho_B(j, plasma%spec(sigma)) * Krook_kappa_rho_B(j, plasma%spec(sigma))
-                            
-                            ! Fokker-Planck contributions
-                            fp_phi_llp = fp_phi_llp &
-                                + integral_F1 * FP_G1_rho_phi(j, plasma%spec(sigma)) * FP_kappa_rho_phi(j, plasma%spec(sigma)) &
-                                + integral_F2 * FP_G2_rho_phi(j, plasma%spec(sigma)) * FP_kappa_rho_phi(j, plasma%spec(sigma)) &
-                                + integral_F3 * FP_G3_rho_phi(j, plasma%spec(sigma)) * FP_kappa_rho_phi(j, plasma%spec(sigma))
-                            
-                            fp_B_llp = fp_B_llp &
-                                + integral_F1 * FP_G1_rho_B(j, plasma%spec(sigma)) * FP_kappa_rho_B(j, plasma%spec(sigma)) &
-                                + integral_F2 * FP_G2_rho_B(j, plasma%spec(sigma)) * FP_kappa_rho_B(j, plasma%spec(sigma)) &
-                                + integral_F3 * FP_G3_rho_B(j, plasma%spec(sigma)) * FP_kappa_rho_B(j, plasma%spec(sigma))
-                        end if
+                        if (artificial_debye_case == 1) cycle
+
+                        ! Set integration points for F1, F2, F3
+                        int_F1%int_point = int_point
+                        int_F2%int_point = int_point
+                        int_F3%int_point = int_point
+                        
+                        ! Perform Gaussian integrations (shared between Krook and FP)
+                        call gauss_integrate_F1(int_F1, integral_F1, gauss_conf)
+                        call gauss_integrate_F2(int_F2, integral_F2, gauss_conf)
+                        call gauss_integrate_F3(int_F3, integral_F3, gauss_conf)
+                        
+                        ! Krook contributions
+                        krook_phi_llp = krook_phi_llp  &
+                            + integral_F1 * Krook_G1_rho_phi(j, plasma%spec(sigma)) * Krook_kappa_rho_phi(j, plasma%spec(sigma))&
+                            + integral_F2 * Krook_G2_rho_phi(j, plasma%spec(sigma)) * Krook_kappa_rho_phi(j, plasma%spec(sigma)) &
+                            + integral_F3 * Krook_G3_rho_phi(j, plasma%spec(sigma)) * Krook_kappa_rho_phi(j, plasma%spec(sigma))
+                        
+                        krook_B_llp = krook_B_llp &
+                            + integral_F1 * Krook_G1_rho_B(j, plasma%spec(sigma)) * Krook_kappa_rho_B(j, plasma%spec(sigma)) &
+                            + integral_F2 * Krook_G2_rho_B(j, plasma%spec(sigma)) * Krook_kappa_rho_B(j, plasma%spec(sigma)) &
+                            + integral_F3 * Krook_G3_rho_B(j, plasma%spec(sigma)) * Krook_kappa_rho_B(j, plasma%spec(sigma))
+                        
+                        ! Fokker-Planck contributions
+                        fp_phi_llp = fp_phi_llp &
+                            + integral_F1 * FP_G1_rho_phi(j, plasma%spec(sigma)) * FP_kappa_rho_phi(j, plasma%spec(sigma)) &
+                            + integral_F2 * FP_G2_rho_phi(j, plasma%spec(sigma)) * FP_kappa_rho_phi(j, plasma%spec(sigma)) &
+                            + integral_F3 * FP_G3_rho_phi(j, plasma%spec(sigma)) * FP_kappa_rho_phi(j, plasma%spec(sigma))
+                        
+                        fp_B_llp = fp_B_llp &
+                            + integral_F1 * FP_G1_rho_B(j, plasma%spec(sigma)) * FP_kappa_rho_B(j, plasma%spec(sigma)) &
+                            + integral_F2 * FP_G2_rho_B(j, plasma%spec(sigma)) * FP_kappa_rho_B(j, plasma%spec(sigma)) &
+                            + integral_F3 * FP_G3_rho_B(j, plasma%spec(sigma)) * FP_kappa_rho_B(j, plasma%spec(sigma))
+
                     end do
                 end do
                 

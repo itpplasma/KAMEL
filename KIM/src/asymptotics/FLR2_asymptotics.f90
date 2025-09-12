@@ -188,7 +188,7 @@ module flr2_asymptotics_m
                     b = kr**2.0d0 * plasma_in%spec(sp)%rho_L(j)**2.0d0
 
                     if (artificial_debye_case <= 1) then
-                        kernel_temp = -1.0d0 / plasma_in%spec(sp)%lambda_D(j)**2.0d0
+                        kernel_temp = - 1.0d0 / plasma_in%spec(sp)%lambda_D(j)**2.0d0
                     end if
 
                     if (artificial_debye_case == 0 .or. artificial_debye_case == 2) then

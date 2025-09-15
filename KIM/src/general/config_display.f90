@@ -286,9 +286,9 @@ contains
         if (value) then
             write(*,'(A,A,A,A,A,A,A,A)') '    ', CYAN, trim(adjustl(label)), &
                 repeat('.', dot_count), ' ', GREEN, '['//CHECK//'] Enabled', RESET
-        else
-            write(*,'(A,A,A,A,A,A,A,A)') '    ', CYAN, trim(adjustl(label)), &
-                repeat('.', dot_count), ' ', RED, '['//CROSS//'] Disabled', RESET
+        !else
+        !   write(*,'(A,A,A,A,A,A,A,A)') '    ', CYAN, trim(adjustl(label)), &
+        !       repeat('.', dot_count), ' ', RED, '['//CROSS//'] Disabled', RESET
         end if
         
     end subroutine print_bool_line

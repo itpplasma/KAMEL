@@ -173,9 +173,8 @@ module FP_kernel_plasma_prefacs_m
         complex(dp) :: val, I00
         real(dp) :: A2
 
-        real(dp) :: lambda, vT, nu, omega_c, ks
+        real(dp) :: vT, nu, omega_c, ks
 
-        lambda = 0.5d0 * (spec%lambda_D(j) + spec%lambda_D(j+1))
         vT = 0.5d0 * (spec%vT(j) + spec%vT(j+1))
         nu = 0.5d0 * (spec%nu(j) + spec%nu(j+1))
         omega_c = 0.5d0 * (spec%omega_c(j) + spec%omega_c(j+1))

@@ -5,6 +5,8 @@ set(CMAKE_Fortran_FLAGS
     "${CMAKE_Fortran_FLAGS}"
     "-O3"
     "-Wall"
+    "-Wconversion"
+    "-Wconversion-extra"
     "-fbacktrace"
     "-fcheck=all"
     "-ffree-line-length-none"

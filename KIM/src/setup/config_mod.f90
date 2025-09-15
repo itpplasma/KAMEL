@@ -11,6 +11,7 @@ module config_m
     logical :: kernel_debye_case
     logical :: turn_off_ions ! if true, only the first species (electrons) is considered in calculations
     logical :: turn_off_electrons
+    character(100) :: plasma_type ! type of plasma ('H' for hydrogen, 'D' for deuterium)
 
     ! KIM_IO namelist variables
     character(256) :: profile_location ! path to profile directory

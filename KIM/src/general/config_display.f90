@@ -122,6 +122,7 @@ contains
         ! Display Physics Configuration
         call print_section_header('PHYSICS CONFIGURATION', width)
         call print_config_line('Run Type', trim(type_of_run), width)
+        call print_config_line('Plasma Type', trim(plasma_type), width)
         call print_config_line('Collision Model', trim(collision_model), width)
         call print_bool_line('Collisions', .not. collisions_off, width)
         write(value_str, '(I0)') artificial_debye_case

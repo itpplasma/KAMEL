@@ -6,6 +6,7 @@
     artificial_debye_case = 0
     turn_off_ions = .false.
     turn_off_electrons = .false.
+    plasma_type = 'D' ! either deuterium (D) or hydrogen (H)
 /
 
 &kim_io

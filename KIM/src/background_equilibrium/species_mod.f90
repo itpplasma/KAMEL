@@ -82,7 +82,7 @@ module species_m
 
     subroutine init_plasma(plasma_in)
 
-        use config_m, only: read_species_from_namelist
+        use config_m, only: read_species_from_namelist, plasma_type
 
         implicit none
 
@@ -92,7 +92,15 @@ module species_m
             call read_species_from_nml(plasma_in)
             call init_electron_species(plasma_in%spec(0))
         else
-            call init_deuterium_plasma(plasma_in)
+            if (plasma_type == 'H') then
+                call init_hydrogen_plasma(plasma_in)
+            else if (plasma_type == 'D') then
+                call init_deuterium_plasma(plasma_in)
+            else
+                print *, "Error: Unknown plasma type. Please choose 'H' or 'D'."
+                stop
+            end if
+            !call init_deuterium_plasma(plasma_in)
         end if
 
         !call check_quasineutrality(plasma_in)
@@ -164,6 +172,32 @@ module species_m
 
         deut%name = 'i'
         deut%Aspec = 2
+        deut%Zspec = 1
+        deut%mass = p_mass * deut%Aspec
+
+    end subroutine
+
+    subroutine init_hydrogen_plasma(plasma)
+
+        implicit none
+
+        type(plasma_t), intent(inout) :: plasma
+
+        call init_electron_species(plasma%spec(0))
+        call init_hydrogen_species(plasma%spec(1))
+
+    end subroutine
+
+    subroutine init_hydrogen_species(deut)
+    
+        use constants_m, only: p_mass
+
+        implicit none
+
+        type(species_t), intent(inout) :: deut
+
+        deut%name = 'i'
+        deut%Aspec = 1
         deut%Zspec = 1
         deut%mass = p_mass * deut%Aspec
 

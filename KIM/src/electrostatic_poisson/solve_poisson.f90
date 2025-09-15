@@ -225,14 +225,6 @@ module poisson_solver_m
             A_mat(i,i)   = A_mat(i,i)   + 1.0d0/hL + 1.0d0/hR
             A_mat(i,i+1) = A_mat(i,i+1) - 1.0d0/hR
         end do
-        ! Interior points (standard finite difference)
-        ! do i = 2, n - 2
-        !     h = xl_grid%xb(i+1) - xl_grid%xb(i)
-        !     A_mat(i,   i  ) = A_mat(i,   i  ) - 1.0_dp / h
-        !     A_mat(i,   i+1) = A_mat(i,   i+1) + 1.0_dp / h
-        !     A_mat(i+1, i  ) = A_mat(i+1, i  ) + 1.0_dp / h
-        !     A_mat(i+1, i+1) = A_mat(i+1, i+1) - 1.0_dp / h
-        ! end do
 
         ! ---- Left boundary: Neumann BC (dPhi/dx = 0) ----
         ! This modifies only the first row/col to enforce derivative = 0

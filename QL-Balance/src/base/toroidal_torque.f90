@@ -1,6 +1,6 @@
 subroutine calculate_total_toroidal_torque(time_index)
     use iso_fortran_env, only: dp => real64
-    use baseparam_mod, only: pi
+    use baseparam_mod, only: pi, rtor ! rtor is the major radius
     use grid_mod, only: T_EM_phi_e, T_EM_phi_i, T_tot_phi_e, T_tot_phi_i
     use integration, only: simpson_nonequi
     use wave_code_data, only: r
@@ -18,8 +18,8 @@ subroutine calculate_total_toroidal_torque(time_index)
     call simpson_nonequi(T_tot_phi_e(time_index), r(1:n), r(1:n) * T_EM_phi_e(1:n))
     call simpson_nonequi(T_tot_phi_i(time_index), r(1:n), r(1:n) * T_EM_phi_i(1:n))
 
-    T_tot_phi_e(time_index) = T_tot_phi_e(time_index) * 2.0_dp * pi
-    T_tot_phi_i(time_index) = T_tot_phi_i(time_index) * 2.0_dp * pi
+    T_tot_phi_e(time_index) = T_tot_phi_e(time_index) * 2.0_dp * pi**2 * rtor
+    T_tot_phi_i(time_index) = T_tot_phi_i(time_index) * 2.0_dp * pi**2 * rtor
 
 end subroutine calculate_total_toroidal_torque
 

@@ -69,7 +69,7 @@ contains
         n = 9  ! odd number of points (8 intervals)
         allocate(x(n), f(n))
         do i = 1, n
-            x(i) = (real(i-1,dp)/(n-1))**1.3_dp  ! non‑uniform monotone
+            x(i) = (real(i-1,dp)/(n-1))**1.3_dp  ! non-uniform monotone
             f(i) = 2.0_dp - 3.0_dp*x(i) + 5.0_dp*x(i)**2
         end do
         call simpson_nonequi(approx, x, f)

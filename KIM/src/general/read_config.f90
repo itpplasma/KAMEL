@@ -15,14 +15,15 @@ subroutine read_config
 
     namelist /KIM_CONFIG/ number_of_ion_species, artificial_debye_case, &
                         kernel_debye_case, type_of_run, collision_model, read_species_from_namelist, &
-                        turn_off_ions, turn_off_electrons, plasma_type
+                        turn_off_ions, turn_off_electrons, plasma_type, rescale_density, &
+                        number_density_rescale
 
     namelist /KIM_IO/ profile_location, hdf5_input, hdf5_output, &
                       fdebug, fstatus, output_path, calculate_asymptotics 
 
     namelist /KIM_SETUP/ btor, R0, m_mode, n_mode, omega, spline_base, &
                         type_br_field, collisions_off, eps_reg, &
-                        set_profiles_constant
+                        set_profiles_constant, bc_type
 
     namelist /KIM_GRID/ grid_spacing_rg, grid_spacing_xl, l_space_dim, theta_integration, &
                         theta_integration_method, &

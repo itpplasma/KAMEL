@@ -1,5 +1,7 @@
 module config_m
 
+    use KIM_kinds_m, only: dp
+    
     implicit none
 
     ! KIM_CONFIG namelist variables
@@ -21,5 +23,8 @@ module config_m
     logical :: calculate_asymptotics ! enable/disable asymptotic calculations
 
     character(256) :: nml_config_path = "./KIM_config.nml" ! path to the namelist file
+
+    logical :: rescale_density
+    real(dp) :: number_density_rescale
 
 end module

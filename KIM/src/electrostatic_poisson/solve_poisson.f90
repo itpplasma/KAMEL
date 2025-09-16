@@ -113,6 +113,7 @@ module poisson_solver_m
             use KIM_kinds_m, only: dp
             use fields_m, only: EBdat, set_Br_field
             use config_m, only: output_path
+            use setup_m, only: bc_type
 
             implicit none
 
@@ -174,7 +175,9 @@ module poisson_solver_m
             
             ! Enforce Dirichlet BC at right boundary: Phi_n = 0
             ! The RHS at the last point should be 0 for consistency
-            rhs_vec(xl_grid%npts_b) = 0.0_dp
+            if (bc_type == 1) then
+                rhs_vec(xl_grid%npts_b) = 0.0_dp
+            end if
 
             call write_complex_profile(xl_grid%xb, rhs_vec, xl_grid%npts_b, trim(output_path)//'fields/rhs_vec.dat')
 
@@ -203,6 +206,7 @@ module poisson_solver_m
         use KIM_kinds_m, only: dp
         use config_m, only: output_path
         use IO_collection_m, only: write_matrix
+        use setup_m, only: bc_type
 
         implicit none
 
@@ -226,19 +230,21 @@ module poisson_solver_m
             A_mat(i,i+1) = A_mat(i,i+1) - 1.0d0/hR
         end do
 
-        ! ---- Left boundary: Neumann BC (dPhi/dx = 0) ----
-        ! This modifies only the first row/col to enforce derivative = 0
-        hR = xl_grid%xb(2) - xl_grid%xb(1)
-        A_mat(1,:) = cmplx(0.0d0, 0.0d0, dp)
-        A_mat(1,1) = -1.0d0 / hR
-        A_mat(1,2) =  1.0d0 / hR
-        ! Keep symmetry in column 1
-        A_mat(2,1) =  1.0d0 / hR
+        if (bc_type == 1)then
+            ! ---- Left boundary: Neumann BC (dPhi/dx = 0) ----
+            ! This modifies only the first row/col to enforce derivative = 0
+            hR = xl_grid%xb(2) - xl_grid%xb(1)
+            A_mat(1,:) = cmplx(0.0d0, 0.0d0, dp)
+            A_mat(1,1) = -1.0d0 / hR
+            A_mat(1,2) =  1.0d0 / hR
+            ! Keep symmetry in column 1
+            A_mat(2,1) =  1.0d0 / hR
 
-        ! ---- Right boundary: Dirichlet BC (Phi = 0) ----
-        ! Overwrite last row to enforce Phi_n = 0
-        A_mat(n,:) = cmplx(0.0d0, 0.0d0, dp)
-        A_mat(n,n) = cmplx(1.0d0, 0.0d0, dp)
+            ! ---- Right boundary: Dirichlet BC (Phi = 0) ----
+            ! Overwrite last row to enforce Phi_n = 0
+            A_mat(n,:) = cmplx(0.0d0, 0.0d0, dp)
+            A_mat(n,n) = cmplx(1.0d0, 0.0d0, dp)
+        end if
 
         A_mat = - A_mat ! this definition includes the negative sign from the Poisson equation
         

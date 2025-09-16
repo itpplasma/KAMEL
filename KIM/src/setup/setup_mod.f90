@@ -15,5 +15,6 @@ module setup_m
     integer          :: type_br_field ! type of the radial magnetic field, 1 for constant, 2 for point charge case (no multiplication with kernel), 3 for linear increase
     logical          :: collisions_off
     real(dp) :: eps_reg
+    integer :: bc_type ! boundary condition. 0: None; 1: Neuman left, Dirichlet right
 
 end module

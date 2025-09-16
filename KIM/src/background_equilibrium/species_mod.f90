@@ -259,6 +259,7 @@ module species_m
     end subroutine
 
     subroutine compute_rg_cell_centers(plasma_in)
+        ! Compute cell-centered values of all plasma background profiles on rg_grid%xc
 
         use grid_m, only: rg_grid
 
@@ -317,10 +318,13 @@ module species_m
     end subroutine compute_rg_cell_centers
 
     subroutine calculate_plasma_backs(plasma_in)
+        ! Calculate all parameters of the plasma needed for the kernel calculation
+        ! such as thermal velocity, collision frequency, Larmor radius, Debye length, thermodynamic forces,
+        ! susceptibility functions (generalized plasma dispersion functions of the Fokker Planck operator), etc.
 
         use constants_m, only: sol, e_charge, ev, pi, com_unit
         use setup_m, only: omega, collisions_off
-        use config_m, only: number_of_ion_species
+        use config_m, only: number_of_ion_species, rescale_density, number_density_rescale
 
         implicit none
 
@@ -427,6 +431,24 @@ module species_m
         do sp=0, plasma_in%n_species-1
             call calculate_susc_funcs_profiles(plasma_in%spec(sp))
         end do
+
+        if (rescale_density .eqv. .true.) then
+            print *, " "
+            print *, " ! ! ! "
+            print *, " Rescaling density! ! !"
+            print *, " if not wanted, remove hard coded from species_mod "
+            print *, " ! ! ! "
+            do sp = 0, plasma_in%n_species-1
+                do i = 1, plasma_in%grid_size
+                    plasma_in%spec(sp)%n(i) = plasma_in%spec(sp)%n(i) * number_density_rescale
+                    plasma_in%spec(sp)%dndr(i) = plasma_in%spec(sp)%dndr(i) * number_density_rescale
+                    plasma_in%spec(sp)%lambda_D(i) = sqrt(plasma_in%spec(sp)%T(i) *ev / (4.0d0*pi* plasma_in%spec(sp)%n(i) &
+                        * (plasma_in%spec(sp)%Zspec * e_charge)**2.0d0))
+                    plasma_in%spec(sp)%A1(i) = plasma_in%spec(sp)%dndr(i) / plasma_in%spec(sp)%n(i) - plasma_in%spec(sp)%Zspec *e_charge&
+                        /(plasma_in%spec(sp)%T(i) * ev) * plasma_in%Er(i) - 3.0d0/(2.0d0 * plasma_in%spec(sp)%T(i)) * plasma_in%spec(sp)%dTdr(i)
+                end do
+            end do
+        end if
 
     end subroutine
 

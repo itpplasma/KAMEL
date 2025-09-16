@@ -1,73 +1,82 @@
+! all physical quantities in cgs units
+
 &kim_config
     number_of_ion_species = 1
-    read_species_from_namelist = .false. ! if false, initialize deuterium plasma
+    read_species_from_namelist = .false.    ! if false, initialize deuterium plasma
     type_of_run = 'electrostatic'
-    collision_model = 'Krook'       ! Krook or FokkerPlanck
+    collision_model = 'FokkerPlanck'        ! Krook (unstable) or FokkerPlanck
     artificial_debye_case = 0
     turn_off_ions = .false.
     turn_off_electrons = .false.
-    plasma_type = 'D' ! either deuterium (D) or hydrogen (H)
+    plasma_type = 'D'                       ! either deuterium (D) or hydrogen (H)
+    rescale_density = .false.               ! rescale density after calcualation of collision frequencies
+    number_density_rescale = 1d-6           ! rescale factor for rescaling the density
 /
 
 &kim_io
-    profile_location = './profiles/'
+    profile_location = './profiles/'        ! path to profile .dat files
     output_path = './out/'
     hdf5_input = .false.
     hdf5_output = .false.
     fdebug = 1
     fstatus = 1
-    calculate_asymptotics = .true. ! enable/disable asymptotic calculations
+    calculate_asymptotics = .true.          ! enable/disable asymptotic (WKB) calculations
 /
 
 &kim_setup
-    btor = -17977.413
-    r0 = 165.0
-    m_mode = -6
-    n_mode = 2
-    omega = 0.0
-    spline_base = 1
-    type_br_field = 12
-    collisions_off = .true.
-    eps_reg = 0.01
+    btor = -17977.413                       ! magnetic field at the magnetic axis
+    r0 = 165.0                              ! major radius of magnetic axis
+    m_mode = -6                             ! poloidal mode number, sensitive to sign of q (if q>0 use m<0)
+    n_mode = 2                              ! toroidal mode number
+    omega = 0.0                             ! perturbation frequency
+    spline_base = 1                         ! 1: hat function basis
+    type_br_field = 12                      ! various modes, 12: constant Br field
+    collisions_off = .true.                 ! don't use with FokkerPlanck model
+    eps_reg = 0.01                          ! not used rn
     set_profiles_constant = 0
+    bc_type = 1                             ! boundary condition. 0: None; 1: Neuman left, Dirichlet right
 /
 
 &kim_grid
-    r_plas = 67.0
-    r_min = 3.0
-    width_res = 0.2
+    r_min = 3.0                             ! minimum calculation radius
+    r_plas = 67.0                           ! maximum calculation radius, must be covered by profiles
+    
+    ! scaling parameters for grid generation
+    width_res = 0.5
     ampl_res = 15.0
     hrmax_scaling = 1.0
-    k_space_dim = 100
-    l_space_dim = 512
-    rg_space_dim = 512
-    grid_spacing_rg = "adaptive"      ! "equidistant", "non-equidistant", or "adaptive"
-    grid_spacing_xl = "adaptive"      ! "equidistant", "non-equidistant", or "adaptive"
-    kr_grid_width_res = 5.0
-    kr_grid_ampl_res = 1.0
-    theta_integration = "RKF45" ! One switch: 'RKF45' or 'QUADPACK' (adaptive), or 'GaussLegendre' (fixed)
+
+    k_space_dim = 100                       ! not used rn
+    l_space_dim = 512                       ! actual number of grid points might deviate
+    rg_space_dim = 512                      ! actual number of grid points might deviate
+
+    grid_spacing_rg = "adaptive"            ! "equidistant", "non-equidistant", or "adaptive"
+    grid_spacing_xl = "adaptive"            ! "equidistant", "non-equidistant", or "adaptive"
+    theta_integration = "GaussLegendre"     ! One switch: 'RKF45' or 'QUADPACK' (adaptive), or 'GaussLegendre' (fixed)
+
+    kr_grid_width_res = 5.0                 ! not used rn
+    kr_grid_ampl_res = 1.0                  ! not used rn
     
     ! RKF45 parameters
-    rkf45_atol = 1.0d-9      ! Absolute tolerance for RKF45 adaptive integration
-    rkf45_rtol = 1.0d-6      ! Relative tolerance for RKF45 adaptive integration
+    rkf45_atol = 1.0d-9                     ! Absolute tolerance for RKF45 adaptive integration
+    rkf45_rtol = 1.0d-6                     ! Relative tolerance for RKF45 adaptive integration
     
     ! QUADPACK parameters (used when theta_integration_method = 'QUADPACK')
-    quadpack_algorithm = 'QAG'     ! 'QAG' or 'QAGS'
-    quadpack_key = 6                ! Gauss-Kronrod rule: 1-6 (QK15-QK61)
-    quadpack_limit = 500            ! Max subdivisions
-    quadpack_epsabs = 1.0d-10      ! Absolute tolerance
-    quadpack_epsrel = 1.0d-10      ! Relative tolerance
-    quadpack_use_u_substitution = .true. ! Use u=sin(theta/2) transformation
+    quadpack_algorithm = 'QAG'              ! 'QAG' or 'QAGS'
+    quadpack_key = 6                        ! Gauss-Kronrod rule: 1-6 (QK15-QK61)
+    quadpack_limit = 500                    ! Max subdivisions
+    quadpack_epsabs = 1.0d-10               ! Absolute tolerance
+    quadpack_epsrel = 1.0d-10               ! Relative tolerance
+    quadpack_use_u_substitution = .true.    ! Use u=sin(theta/2) transformation
     
-    kernel_taper_skip_threshold = 1.0d-6  ! Skip element when taper weight below this
-    Larmor_skip_factor = 5
-    gauss_int_nodes_Nx = 31 ! should be different from Nxp to avoid numerical problems
-    gauss_int_nodes_Nxp = 30
-    gauss_int_nodes_Ntheta = 17
+    kernel_taper_skip_threshold = 1.0d-6    ! Skip element when taper weight below this
+    Larmor_skip_factor = 5                  ! Scaling factor to reduce number of kernel entries to be calculated
+    gauss_int_nodes_Nx = 31                 ! Gauss integration node points, should be different from Nxp to avoid numerical problems
+    gauss_int_nodes_Nxp = 30                ! 
+    gauss_int_nodes_Ntheta = 17             ! For GaussLegendre integration of theta
 /
 
-
-&kim_species
+&kim_species ! not used rn
     zi = 1 !, 2
     ai = 2 !, 4
 /

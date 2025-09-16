@@ -113,6 +113,52 @@ module fields_m
 
     end subroutine
 
+    subroutine calculate_Phi_psi(plasma_in, Phi_psi, Br)
+
+        use species_m, only: plasma_t
+        use KIM_kinds_m, only: dp
+        use equilibrium_m, only: B0
+        use grid_m, only: xl_grid
+        use constants_m, only: com_unit
+
+        implicit none
+
+        type(plasma_t) , intent(in) :: plasma_in
+        complex(dp), intent(in) :: Br(:)
+        complex(dp), allocatable, intent(out) :: Phi_psi(:)
+        integer :: i
+        integer :: nlagr = 4
+        integer :: nder = 0
+        integer :: ibeg, iend, ir
+        real(dp), dimension(:,:), allocatable :: coef
+
+        real(dp) :: Er_int, ks_int, kp_int
+        real(dp) :: B0_int
+
+        if (.not. allocated(coef)) allocate(coef(0:nder, nlagr))
+        allocate(Phi_psi(size(plasma_in%r_grid)))
+
+        do i = 1, xl_grid%npts_b
+            call binsrc(plasma_in%r_grid, 1, size(plasma_in%r_grid), xl_grid%xb(i), ir) 
+            ibeg = max(1, ir - nlagr/2)
+            iend = ibeg + nlagr - 1
+            if (iend .gt. xl_grid%npts_b) then
+                iend = size(plasma_in%r_grid)
+                ibeg = iend -nlagr + 1
+            end if
+
+            call plag_coeff(nlagr, nder, xl_grid%xb(i), plasma_in%r_grid(ibeg:iend), coef)
+
+            Er_int = sum(coef(0,:) * plasma_in%Er(ibeg:iend))
+            ks_int = sum(coef(0,:) * plasma_in%ks(ibeg:iend))
+            kp_int = sum(coef(0,:) * plasma_in%kp(ibeg:iend))
+            B0_int = sum(coef(0,:) * B0(ibeg:iend))
+
+            Phi_psi(i) = com_unit * Er_int * Br(i) / (B0_int * kp_int)
+        end do
+
+    end subroutine
+
     subroutine calculate_E_perp(EBdat_in)
 
         use constants_m, only: com_unit

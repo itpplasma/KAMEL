@@ -34,7 +34,7 @@
     collisions_off = .true.                 ! don't use with FokkerPlanck model
     eps_reg = 0.01                          ! not used rn
     set_profiles_constant = 0
-    bc_type = 1                             ! boundary condition. 0: None; 1: Neuman left, Dirichlet right
+    bc_type = 1                             ! boundary condition. 0: None; 1: zero Neuman left, zero Dirichlet right; 2: Dirichlet left and right
 /
 
 &kim_grid

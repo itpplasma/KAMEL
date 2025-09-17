@@ -519,7 +519,7 @@ subroutine read_background_profiles_h5
     !CALL h5_check()
 
     ! open file and get id for that file
-    CALL h5_open_rw(path2inp, h5_id)
+    call h5_open(path2inp, h5_id)
 
     ! open group where the profiles are located
     CALL h5_open_group(h5_id, groupname, group_id_1)
@@ -657,7 +657,7 @@ subroutine read_background_profiles_h5_timeevol(tstep)
     !
 
     ! get q profile (does not change over time)
-    CALL h5_open_rw(path2inp, h5_id)
+    call h5_open(path2inp, h5_id)
     CALL h5_get_bounds_1(h5_id, '/preprocprof/q', lb, ub)
     allocate (rq(ub))
     allocate (iq(ub))

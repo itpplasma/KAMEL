@@ -31,7 +31,7 @@ subroutine calc_equil_diffusion_coeffs
         ! read Da data from hdf5 input file
         fname = "/da_estimation/" ! fname is used for the group name in the hdf5 version
         CALL h5_init()
-        CALL h5_open_rw(path2inp, h5_id)
+        call h5_open(path2inp, h5_id)
         CALL h5_get_bounds_1(h5_id, trim(fname)//'Da', lb, ub)
         allocate (r_raw(ub), Da_raw(ub))
         CALL h5_get_double_1(h5_id, trim(fname)//'Da', Da_raw)

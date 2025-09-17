@@ -24,7 +24,7 @@ contains
         real(dp) :: xi, xi1, xi2
         real(dp) :: d0, d1, d2
         real(dp) :: w0, w1, w2
-        real(dp) :: eps, hlast
+        real(dp) :: hlast
 
         npts = size(x)
         integral = 0.0_dp
@@ -46,14 +46,11 @@ contains
             end if
         end do
 
-        ! tolerance for near-coincident nodes
-        eps = 1.0e-12_dp * (x(npts) - x(1))
-
         ! number of points to use with composite Simpson (make it odd)
         if (mod(npts - 1, 2) == 0) then
             nmax = npts
         else
-            nmax = npts - 1    ! leave last interval for trapezoid below
+            nmax = npts - 1 ! leave last interval for trapezoid below
         end if
 
         do i = 1, nmax - 2, 2
@@ -66,23 +63,21 @@ contains
             d1 = (xi1 - xi) * (xi1 - xi2)
             d2 = (xi2 - xi) * (xi2 - xi1)
 
-            if (abs(d0) < eps .or. abs(d1) < eps .or. abs(d2) < eps) then
-                ! fallback: use trapezoid over the combined interval [xi,xi2]
-                integral = integral + 0.5_dp * (f(i) + f(i + 2)) * (xi2 - xi)
-            else
-                ! Compute weights by integrating Lagrange basis on [xi,xi2]
-                ! L0(x) = (x-xi1)(x-xi2) / d0
-                ! Integral from xi to xi2: expand and integrate term by term
-                w0 = ((xi2**3 - xi**3)/3.0_dp - (xi1 + xi2)*(xi2**2 - xi**2)/2.0_dp + xi1*xi2*(xi2 - xi)) / d0
+            ! Compute weights by integrating Lagrange basis on [xi,xi2]
+            ! L0(x) = (x-xi1)(x-xi2) / d0
+            ! Integral from xi to xi2: expand and integrate term by term
+            w0 = ((xi2**3 - xi**3) / 3.0_dp - (xi1 + xi2) * (xi2**2 - xi**2) / 2.0_dp + &
+                  xi1 * xi2 * (xi2 - xi)) / d0
 
-                ! L1(x) = (x-xi)(x-xi2) / d1
-                w1 = ((xi2**3 - xi**3)/3.0_dp - (xi + xi2)*(xi2**2 - xi**2)/2.0_dp + xi*xi2*(xi2 - xi)) / d1
+            ! L1(x) = (x-xi)(x-xi2) / d1
+            w1 = ((xi2**3 - xi**3) / 3.0_dp - (xi + xi2) * (xi2**2 - xi**2) / 2.0_dp + &
+                  xi * xi2 * (xi2 - xi)) / d1
 
-                ! L2(x) = (x-xi)(x-xi1) / d2
-                w2 = ((xi2**3 - xi**3)/3.0_dp - (xi + xi1)*(xi2**2 - xi**2)/2.0_dp + xi*xi1*(xi2 - xi)) / d2
+            ! L2(x) = (x-xi)(x-xi1) / d2
+            w2 = ((xi2**3 - xi**3) / 3.0_dp - (xi + xi1) * (xi2**2 - xi**2) / 2.0_dp + &
+                  xi * xi1 * (xi2 - xi)) / d2
 
-                integral = integral + w0 * f(i) + w1 * f(i + 1) + w2 * f(i + 2)
-            end if
+            integral = integral + w0 * f(i) + w1 * f(i + 1) + w2 * f(i + 2)
         end do
 
         ! if there was an extra last interval (npts even), integrate it with trapezoid

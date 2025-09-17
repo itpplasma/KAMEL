@@ -1,41 +1,11 @@
-! program test_integration
-
-!     use iso_fortran_env, only: dp => real64
-!     use integration, only: simpson_nonequi
-
-!     implicit none
-
-!     real(dp) :: approx
-!     real(dp), dimension(:), allocatable :: x, f
-!     integer :: n, i
-!     real(dp), parameter :: pi = 3.14159265358979323846_dp
-
-!     ! Example: integrate sin(x) from 0 to π on a non-equidistant grid
-!     n = 55
-!     allocate (x(n), f(n))
-
-!     do i = 1, n
-!         x(i) = 0.5_dp * pi * (1.0_dp - cos((i - 1.0_dp) * pi / (n - 1.0_dp)))
-!         f(i) = sin(x(i))
-!     end do
-
-!     call simpson_nonequi(approx, x, f)
-
-!     if (abs(approx - 2.0_dp) > 1.0e-6_dp) then
-!         print *, "Approximate integral: ", approx
-!         print *, "Expected integral: 2.0"
-!         error stop "Integration test failed: Approximate integral does not match expected value."
-!     end if
-
-! end program test_integration
-program test_integration_advanced
+program test_integration
     use iso_fortran_env, only: dp => real64
-    use integration,      only: simpson_nonequi
+    use integration, only: simpson_nonequi
     implicit none
 
     integer :: number_of_fails
     real(dp), parameter :: tol_exact = 1.0e-12_dp
-    real(dp), parameter :: tol_gen   = 5.0e-7_dp
+    real(dp), parameter :: tol_gen = 5.0e-7_dp
     real(dp), parameter :: pi = 3.141592653589793238462643383279502884_dp
 
     number_of_fails = 0
@@ -58,26 +28,26 @@ contains
 
     subroutine test_quadratic(fails, tol)
         integer, intent(inout) :: fails
-        real(dp), intent(in)   :: tol
+        real(dp), intent(in) :: tol
         real(dp), allocatable :: x(:), f(:)
         integer :: n, i
         real(dp) :: approx, exact
 
         ! Integrate p(x)=2 - 3x + 5x^2 over [0,1]; exact = ∫ (2 -3x +5x^2) dx = 2 - 3/2 + 5/3
-        exact = 2.0_dp - 1.5_dp + 5.0_dp/3.0_dp
+        exact = 2.0_dp - 1.5_dp + 5.0_dp / 3.0_dp
 
-        n = 9  ! odd number of points (8 intervals)
-        allocate(x(n), f(n))
+        n = 9 ! odd number of points (8 intervals)
+        allocate (x(n), f(n))
         do i = 1, n
-            x(i) = (real(i-1,dp)/(n-1))**1.3_dp  ! non-uniform monotone
-            f(i) = 2.0_dp - 3.0_dp*x(i) + 5.0_dp*x(i)**2
+            x(i) = (real(i - 1, dp) / (n - 1))**1.3_dp ! non-uniform monotone
+            f(i) = 2.0_dp - 3.0_dp * x(i) + 5.0_dp * x(i)**2
         end do
         call simpson_nonequi(approx, x, f)
         if (abs(approx - exact) > tol) then
-            print *, "test_quadratic failed: err=", abs(approx-exact)
+            print *, "test_quadratic failed: err=", abs(approx - exact)
             fails = fails + 1
         end if
-        deallocate(x,f)
+        deallocate (x, f)
     end subroutine
 
     subroutine test_cubic_convergence(fails)
@@ -87,18 +57,18 @@ contains
         real(dp) :: a, b, approx1, approx2, exact, err1, err2, ratio
 
         a = 0.0_dp; b = 1.0_dp
-        exact = 0.25_dp   ! ∫_0^1 x^3 dx
+        exact = 0.25_dp ! ∫_0^1 x^3 dx
 
-        n1 = 15          ! odd
-        n2 = 29          ! finer (step ~ half)
-        allocate(x1(n1), f1(n1), x2(n2), f2(n2))
+        n1 = 15 ! odd
+        n2 = 29 ! finer (step ~ half)
+        allocate (x1(n1), f1(n1), x2(n2), f2(n2))
 
         do i = 1, n1
-            x1(i) = a + (b-a) * ( (real(i-1,dp)/(n1-1))**1.4_dp )
+            x1(i) = a + (b - a) * ((real(i - 1, dp) / (n1 - 1))**1.4_dp)
             f1(i) = x1(i)**3
         end do
         do i = 1, n2
-            x2(i) = a + (b-a) * ( (real(i-1,dp)/(n2-1))**1.4_dp )
+            x2(i) = a + (b - a) * ((real(i - 1, dp) / (n2 - 1))**1.4_dp)
             f2(i) = x2(i)**3
         end do
 
@@ -113,98 +83,99 @@ contains
             ratio = err1 / err2
         end if
         if (ratio < 8.0_dp) then
-            print *, "test_cubic_convergence failed: ratio = ", ratio, " err1=",err1," err2=",err2
+            print *, "test_cubic_convergence failed: ratio = ", ratio, " err1=", err1, &
+                " err2=", err2
             fails = fails + 1
         end if
 
-        deallocate(x1,f1,x2,f2)
+        deallocate (x1, f1, x2, f2)
     end subroutine
 
     subroutine test_sin_clustered(fails, tol)
         integer, intent(inout) :: fails
-        real(dp), intent(in)   :: tol
+        real(dp), intent(in) :: tol
         integer :: n, i
         real(dp), allocatable :: x(:), f(:)
         real(dp) :: approx, exact
-        exact = 2.0_dp   ! ∫_0^π sin(x) dx
+        exact = 2.0_dp ! ∫_0^π sin(x) dx
 
         n = 41
-        allocate(x(n), f(n))
+        allocate (x(n), f(n))
         do i = 1, n
             ! Chebyshev-like clustering near endpoints
-            x(i) = 0.5_dp*pi*(1.0_dp - cos( (real(i-1,dp)/(n-1))*pi ))
+            x(i) = 0.5_dp * pi * (1.0_dp - cos((real(i - 1, dp) / (n - 1)) * pi))
             f(i) = sin(x(i))
         end do
         call simpson_nonequi(approx, x, f)
         if (abs(approx - exact) > tol) then
-            print *, "test_sin_clustered failed: err=", abs(approx-exact)
+            print *, "test_sin_clustered failed: err=", abs(approx - exact)
             fails = fails + 1
         end if
-        deallocate(x,f)
+        deallocate (x, f)
     end subroutine
 
     subroutine test_even_points_leftover(fails, tol)
         integer, intent(inout) :: fails
-        real(dp), intent(in)   :: tol
+        real(dp), intent(in) :: tol
         integer :: n, i
         real(dp), allocatable :: x(:), f(:)
         real(dp) :: approx, exact
-        exact = 2.0_dp  ! same sin integral
+        exact = 2.0_dp ! same sin integral
 
-        n = 40   ! EVEN number of points -> leftover last interval triggers trapezoid
-        allocate(x(n), f(n))
+        n = 40 ! EVEN number of points -> leftover last interval triggers trapezoid
+        allocate (x(n), f(n))
         do i = 1, n
-            x(i) = pi * (real(i-1,dp)/(n-1))**1.2_dp
+            x(i) = pi * (real(i - 1, dp) / (n - 1))**1.2_dp
             f(i) = sin(x(i))
         end do
         call simpson_nonequi(approx, x, f)
         if (abs(approx - exact) > tol) then
-            print *, "test_even_points_leftover failed: err=", abs(approx-exact)
+            print *, "test_even_points_leftover failed: err=", abs(approx - exact)
             fails = fails + 1
         end if
-        deallocate(x,f)
+        deallocate (x, f)
     end subroutine
 
     subroutine test_exp(fails, tol)
         integer, intent(inout) :: fails
-        real(dp), intent(in)   :: tol
+        real(dp), intent(in) :: tol
         integer :: n, i
         real(dp), allocatable :: x(:), f(:)
         real(dp) :: approx, exact
-        exact = exp(1.0_dp) - 1.0_dp   ! ∫_0^1 e^x dx
+        exact = exp(1.0_dp) - 1.0_dp ! ∫_0^1 e^x dx
         n = 37
-        allocate(x(n), f(n))
+        allocate (x(n), f(n))
         do i = 1, n
-            x(i) = (real(i-1,dp)/(n-1))**1.5_dp
+            x(i) = (real(i - 1, dp) / (n - 1))**1.5_dp
             f(i) = exp(x(i))
         end do
         call simpson_nonequi(approx, x, f)
         if (abs(approx - exact) > tol) then
-            print *, "test_exp failed: err=", abs(approx-exact)
+            print *, "test_exp failed: err=", abs(approx - exact)
             fails = fails + 1
         end if
-        deallocate(x,f)
+        deallocate (x, f)
     end subroutine
 
     subroutine test_inv_quadratic(fails, tol)
         integer, intent(inout) :: fails
-        real(dp), intent(in)   :: tol
+        real(dp), intent(in) :: tol
         integer :: n, i
         real(dp), allocatable :: x(:), f(:)
         real(dp) :: approx, exact
-        exact = atan(1.0_dp)  ! π/4, ∫_0^1 1/(1+x^2) dx
+        exact = atan(1.0_dp) ! π/4, ∫_0^1 1/(1+x^2) dx
         n = 45
-        allocate(x(n), f(n))
+        allocate (x(n), f(n))
         do i = 1, n
-            x(i) = (real(i-1,dp)/(n-1))**1.1_dp
+            x(i) = (real(i - 1, dp) / (n - 1))**1.1_dp
             f(i) = 1.0_dp / (1.0_dp + x(i)**2)
         end do
         call simpson_nonequi(approx, x, f)
         if (abs(approx - exact) > tol) then
-            print *, "test_inv_quadratic failed: err=", abs(approx-exact)
+            print *, "test_inv_quadratic failed: err=", abs(approx - exact)
             fails = fails + 1
         end if
-        deallocate(x,f)
+        deallocate (x, f)
     end subroutine
 
-end program test_integration_advanced
+end program test_integration

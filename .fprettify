@@ -12,3 +12,5 @@ whitespace-type = true
 whitespace-intrinsics = true
 enable-decl = true
 case = [1, 1, 1, 1]
+strip-comments = true
+comment-spacing = 2

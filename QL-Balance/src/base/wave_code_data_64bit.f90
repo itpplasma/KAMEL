@@ -593,7 +593,8 @@ subroutine read_background_profiles_h5_timeevol(tstep)
 
     write(*,*) 'Read time evolved background profiles from hdf5 file'
 
-    write(groupname, "(A,I1,A,I1,A,I4,A)") "f_", m_vals(1), "_", n_vals(1), "/fort.1000/", 1000+tstep, "/"
+    write (groupname, '(A,I1,A,I1,A,I0,"/")') 'f_', m_vals(1), '_', n_vals(1), '/fort.1000/', &
+                                              1000 + tstep
 
     CALL h5_init()
 

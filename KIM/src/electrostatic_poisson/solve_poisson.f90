@@ -225,7 +225,6 @@ module poisson_solver_m
         
         ! create Laplacian:
         A_mat = cmplx(0.0d0, 0.0d0, dp)
-        A_mat = 0.0d0
 
         do i = 2, n-1
             hL = xl_grid%xb(i)   - xl_grid%xb(i-1)  ! left element size
@@ -263,7 +262,7 @@ module poisson_solver_m
         use grid_m, only: xl_grid
         use KIM_kinds_m, only: dp
         use setup_m, only: bc_type
-        use fields_m, only: calculate_Phi_psi, EBdat
+        use fields_m, only: calculate_phi_aligned, EBdat
         use species_m, only: plasma
 
         implicit none
@@ -305,15 +304,14 @@ module poisson_solver_m
             end block
         else if(bc_type == 3) then ! zero misalignment field at boundaries
             block
-                complex(dp), allocatable :: Phi_psi(:)
                 integer :: n
 
-                n= xl_grid%npts_b
+                n = xl_grid%npts_b
 
-                call calculate_Phi_psi(plasma, Phi_psi, EBdat%Br)
+                call calculate_phi_aligned(plasma, EBdat)
 
-                phi_boundary_left = - Phi_psi(1)
-                phi_boundary_right = - Phi_psi(n)
+                phi_boundary_left = - EBdat%phi_aligned(1)
+                phi_boundary_right = - EBdat%phi_aligned(n)
 
                 print *, "Imposing BCs: Phi_left = ", phi_boundary_left, ", Phi_right = ", phi_boundary_right
 
@@ -329,7 +327,6 @@ module poisson_solver_m
                 b_vec(n) = phi_boundary_right
             end block
         end if
-
 
     end subroutine
 

@@ -2,7 +2,7 @@ subroutine calculate_total_toroidal_torque(time_index)
     use iso_fortran_env, only: dp => real64
     use baseparam_mod, only: pi, rtor ! rtor is the major radius
     use grid_mod, only: T_EM_phi_e, T_EM_phi_i, T_tot_phi_e, T_tot_phi_i
-    use integration, only: simpson_nonequi
+    use simpson_integration, only: simpson_nonequi
     use wave_code_data, only: r
 
     implicit none

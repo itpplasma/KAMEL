@@ -8,15 +8,9 @@ subroutine calculate_total_toroidal_torque(time_index)
     implicit none
 
     integer, intent(in) :: time_index
-    integer :: n
 
-    n = size(r)
-    if (mod(n - 1, 2) /= 0) then
-        n = n - 1 ! Ensure n is even for Simpson's rule
-    end if
-
-    call simpson_nonequi(T_tot_phi_e(time_index), r(1:n), r(1:n) * T_EM_phi_e(1:n))
-    call simpson_nonequi(T_tot_phi_i(time_index), r(1:n), r(1:n) * T_EM_phi_i(1:n))
+    call simpson_nonequi(T_tot_phi_e(time_index), r, r * T_EM_phi_e)
+    call simpson_nonequi(T_tot_phi_i(time_index), r, r * T_EM_phi_i)
 
     T_tot_phi_e(time_index) = T_tot_phi_e(time_index) * 2.0_dp * pi**2 * rtor
     T_tot_phi_i(time_index) = T_tot_phi_i(time_index) * 2.0_dp * pi**2 * rtor

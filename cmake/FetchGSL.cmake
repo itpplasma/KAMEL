@@ -8,7 +8,7 @@ endif()
 
 ExternalProject_Add(EXTERNAL_gsl
     PREFIX ${CMAKE_BINARY_DIR}/download
-    URL https://ftp.gnu.org/gnu/gsl/gsl-2.4.tar.gz
+    URL https://mirror.easyname.at/gnu/gsl/gsl-2.4.tar.gz
     DOWNLOAD_NAME gsl-2.4.tar.gz
     DOWNLOAD_EXTRACT_TIMESTAMP TRUE
     BUILD_IN_SOURCE TRUE

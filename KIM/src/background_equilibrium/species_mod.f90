@@ -436,7 +436,6 @@ module species_m
             print *, " "
             print *, " ! ! ! "
             print *, " Rescaling density! ! !"
-            print *, " if not wanted, remove hard coded from species_mod "
             print *, " ! ! ! "
             do sp = 0, plasma_in%n_species-1
                 do i = 1, plasma_in%grid_size

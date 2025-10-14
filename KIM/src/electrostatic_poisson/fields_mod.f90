@@ -16,6 +16,7 @@ module fields_m
         complex(dp), allocatable :: Es(:) ! E "senkrecht", i.e. perpendicular to radial and parallel direction
         complex(dp), allocatable :: Ep(:) ! parallel to the equilibrium magnetic field
         complex(dp), allocatable :: Phi(:)
+        complex(dp), allocatable :: Phi_aligned(:)
         complex(dp), allocatable :: Phi_MA(:)
         complex(dp), allocatable :: Phi_MA_ideal(:)
         complex(dp), allocatable :: Phi_MA_asymptotic(:)
@@ -109,6 +110,50 @@ module fields_m
             B0_int = sum(coef(0,:) * B0(ibeg:iend))
 
             EBdat_in%E_perp_psi(i) = Er_int * EBdat_in%Br(i) * ks_int / (B0_int * kp_int)
+        end do
+
+    end subroutine
+
+    subroutine calculate_phi_aligned(plasma_in, EBdat_in)
+
+        use species_m, only: plasma_t
+        use KIM_kinds_m, only: dp
+        use equilibrium_m, only: B0
+        use grid_m, only: xl_grid
+        use constants_m, only: com_unit
+
+        implicit none
+
+        type(plasma_t) , intent(in) :: plasma_in
+        type(EBdat_t) , intent(inout) :: EBdat_in
+        integer :: i
+        integer :: nlagr = 4
+        integer :: nder = 0
+        integer :: ibeg, iend, ir
+        real(dp), dimension(:,:), allocatable :: coef
+
+        real(dp) :: Er_int, kp_int
+        real(dp) :: B0_int
+
+        if (.not. allocated(coef)) allocate(coef(0:nder, nlagr))
+        if (.not. allocated(EBdat_in%phi_aligned)) allocate(EBdat_in%phi_aligned(xl_grid%npts_b))
+
+        do i = 1, xl_grid%npts_b
+            call binsrc(plasma_in%r_grid, 1, size(plasma_in%r_grid), xl_grid%xb(i), ir) 
+            ibeg = max(1, ir - nlagr/2)
+            iend = ibeg + nlagr - 1
+            if (iend .gt. xl_grid%npts_b) then
+                iend = size(plasma_in%r_grid)
+                ibeg = iend -nlagr + 1
+            end if
+
+            call plag_coeff(nlagr, nder, xl_grid%xb(i), plasma_in%r_grid(ibeg:iend), coef)
+
+            Er_int = sum(coef(0,:) * plasma_in%Er(ibeg:iend))
+            kp_int = sum(coef(0,:) * plasma_in%kp(ibeg:iend))
+            B0_int = sum(coef(0,:) * plasma_in%B0(ibeg:iend))
+
+            EBdat_in%phi_aligned(i) = com_unit * Er_int * EBdat_in%Br(i) / (B0_int * kp_int)
         end do
 
     end subroutine
@@ -345,6 +390,10 @@ module fields_m
 
         call write_complex_profile_abs(EBdat%r_grid, EBdat%Es, size(EBdat%r_grid), trim(output_path)//"/fields/Es_"//trim(suffix)//".dat")
         call write_complex_profile_abs(EBdat%r_grid, EBdat%Ep, size(EBdat%r_grid), trim(output_path)//"/fields/Ep_"//trim(suffix)//".dat")
+
+        if (allocated(EBdat%Phi_aligned)) then
+            call write_complex_profile_abs(xl_grid%xb, EBdat%Phi_aligned, xl_grid%npts_b, trim(output_path)//"/fields/phi_aligned_"//trim(suffix)//".dat")
+        end if
     
     end subroutine
 

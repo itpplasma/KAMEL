@@ -6,14 +6,9 @@ set(CMAKE_Fortran_STANDARD_REQUIRED ON)
 if(CMAKE_HOST_SYSTEM_NAME MATCHES "Darwin")
     # macOS specific configurations or commands
     message("Building on macOS")
-    #set(CMAKE_C_COMPILER "gcc-13")
-    #set(CMAKE_CXX_COMPILER "g++-13")
-    #set(CMAKE_THREAD_LIBS_INIT "-lpthread")
-    #set(CMAKE_HAVE_THREADS_LIBRARY 1)
-    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Xclang -fopenmp -O3 -DDOUBLE_APPEND_FORTRAN")
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Xclang -fopenmp")
-    set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -cpp -fPIC -g -Og -Wall \
-            -Wno-unused-function -fbacktrace")
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fopenmp -O3 -DDOUBLE_APPEND_FORTRAN")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fopenmp")
+    set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -cpp -fPIC -g -Og -Wall -Wno-unused-function -fbacktrace")
     set(CMAKE_EXE_LINKER_FLAGS "-L/opt/homebrew/lib")
 elseif(CMAKE_HOST_SYSTEM_NAME MATCHES "Linux")
     # Linux configurations: use superproject’s Fortran compiler
@@ -27,6 +22,7 @@ else()
 endif()
 enable_language(C Fortran)
 find_package(MPI REQUIRED)
+
 
 set(objs ${PROJECT_BINARY_DIR}/OBJS/ql-balance/)
 set(lib ${PROJECT_BINARY_DIR}/install/lib/)

@@ -313,7 +313,7 @@ module poisson_solver_m
                 phi_boundary_left = - EBdat%phi_aligned(1)
                 phi_boundary_right = - EBdat%phi_aligned(n)
 
-                print *, "Imposing BCs: Phi_left = ", phi_boundary_left, ", Phi_right = ", phi_boundary_right
+                print *, "Imposing BC of zero misalignment field: Phi_left = ", phi_boundary_left, ", Phi_right = ", phi_boundary_right
 
                 b_vec = b_vec - A_mat(:,1) * phi_boundary_left - A_mat(:,n) * phi_boundary_right
 

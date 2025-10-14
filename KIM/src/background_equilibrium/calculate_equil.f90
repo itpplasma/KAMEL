@@ -9,8 +9,8 @@ module equilibrium_m
     
     integer :: ineq = 1 ! numbers of equations to be solved
     integer :: idid     ! indicator reporting what the code did
-    real(dp) :: rtol = 1.0d-8 ! relative error tolerance
-    real(dp) :: atol = 1.0d-8 ! absolute error tolerance
+    real(dp) :: rtol = 1.0d-12 ! relative error tolerance
+    real(dp) :: atol = 1.0d-12 ! absolute error tolerance
     integer, dimension(4) :: info      ! info vector to control solver
     integer, parameter :: lrw = 151
     integer, parameter :: liw = 51

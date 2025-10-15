@@ -109,6 +109,7 @@ set(balance_lib_base_fortran_sources
     ${base_balance_src}/transport_smoothing_m.f90
     ${base_balance_src}/smooth_array_gauss.f90
     ${base_balance_src}/time_evolution.f90
+    ${base_balance_src}/time_evolution_ntv.f90
     ${base_balance_src}/toroidal_torque.f90
     ${base_balance_src}/transp_coeffs_mod.f90
     ${base_balance_src}/vel_integral_m.f90

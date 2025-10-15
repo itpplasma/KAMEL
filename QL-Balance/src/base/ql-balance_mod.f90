@@ -1,4 +1,3 @@
-
 module balance_mod
 
     implicit none
@@ -10,6 +9,7 @@ module balance_mod
         use balance_base, only: balance_t
         use singleStep, only: SingleStep_t
         use time_evolution, only: TimeEvolution_t
+        use time_evolution_ntv, only: TimeEvolutionNTV_t
         use time_evolution_stellarator, only: time_evolution_stellarator_t
         use paramscan_mod, only: ParameterScan_t
 
@@ -23,6 +23,8 @@ module balance_mod
                 allocate(balance_instance, source=SingleStep_t())
             case("TimeEvolution")
                 allocate(balance_instance, source=TimeEvolution_t())
+            case("TimeEvolutionNTV")
+                allocate(balance_instance, source=TimeEvolutionNTV_t())
             case("ParameterScan")
                 allocate(balance_instance, source=ParameterScan_t())
             case("TimeEvolutionStellarator")
@@ -36,6 +38,5 @@ module balance_mod
         end select
 
     end subroutine
-
 
 end module

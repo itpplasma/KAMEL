@@ -55,8 +55,10 @@ module kernel_m
 
     subroutine compute_cc_prefactors
         use species_m, only: plasma
-        use grid_m,   only: rg_grid
-        use constants_m, only: com_unit, sol
+        use grid_m, only: rg_grid
+        use FP_kernel_plasma_prefacs_m, only: FP_G1_rho_phi, FP_G2_rho_phi, FP_G3_rho_phi, &
+            FP_G1_rho_B, FP_G2_rho_B, FP_G3_rho_B, FP_G1_j_phi, FP_G2_j_phi, FP_G3_j_phi, &
+            FP_G1_j_B, FP_G2_j_B, FP_G3_j_B
         implicit none
         integer :: ns, j, sigma
 
@@ -78,64 +80,21 @@ module kernel_m
 
         do sigma = 0, ns - 1
             do j = 1, rg_grid%npts_c
-                pref_rho_phi_g1(sigma+1,j) = &
-                    ( (plasma%spec(sigma)%I00_cc(j) * (plasma%spec(sigma)%A1_cc(j) + plasma%spec(sigma)%A2_cc(j)) &
-                      + 0.5d0 * plasma%spec(sigma)%A2_cc(j) * plasma%spec(sigma)%I20_cc(j)) &
-                      * ( com_unit * plasma%spec(sigma)%vT_cc(j)**2.0d0 / &
-                          (plasma%spec(sigma)%omega_c_cc(j) * plasma%spec(sigma)%nu_cc(j)) ) ) &
-                    * (1.0d0/(plasma%spec(sigma)%lambda_D_cc(j)**2.0d0))
-                pref_rho_phi_g2(sigma+1,j) = &
-                    ( - plasma%spec(sigma)%I00_cc(j) * plasma%spec(sigma)%A2_cc(j) * &
-                      ( com_unit * plasma%spec(sigma)%vT_cc(j)**2.0d0 / &
-                        (plasma%spec(sigma)%omega_c_cc(j) * plasma%spec(sigma)%nu_cc(j)) ) ) &
-                    * (1.0d0/(plasma%spec(sigma)%lambda_D_cc(j)**2.0d0))  
-                pref_rho_phi_g3(sigma+1,j) = &
-                    ( plasma%spec(sigma)%I00_cc(j) * plasma%spec(sigma)%A2_cc(j) * &
-                      ( com_unit * plasma%spec(sigma)%vT_cc(j)**2.0d0 / &
-                        (plasma%spec(sigma)%omega_c_cc(j) * plasma%spec(sigma)%nu_cc(j)) ) ) &
-                    * (1.0d0/(plasma%spec(sigma)%lambda_D_cc(j)**2.0d0)) 
+                pref_rho_phi_g1(sigma+1,j) = FP_G1_rho_phi(j, plasma%spec(sigma))
+                pref_rho_phi_g2(sigma+1,j) = FP_G2_rho_phi(j, plasma%spec(sigma))
+                pref_rho_phi_g3(sigma+1,j) = FP_G3_rho_phi(j, plasma%spec(sigma))
 
-                pref_rho_B_g1(sigma+1,j) = &
-                    ( (plasma%spec(sigma)%I01_cc(j) * (plasma%spec(sigma)%A1_cc(j) + plasma%spec(sigma)%A2_cc(j)) &
-                       + 0.5d0 * plasma%spec(sigma)%A2_cc(j) * plasma%spec(sigma)%I21_cc(j)) ) &
-                    * ( - plasma%spec(sigma)%vT_cc(j)**3.0d0 / &
-                        (plasma%spec(sigma)%lambda_D_cc(j)**2.0d0 * plasma%spec(sigma)%omega_c_cc(j) * plasma%spec(sigma)%nu_cc(j) * sol) )
-                pref_rho_B_g2(sigma+1,j) = &
-                    ( - plasma%spec(sigma)%I01_cc(j) * plasma%spec(sigma)%A2_cc(j) ) &
-                    * ( - plasma%spec(sigma)%vT_cc(j)**3.0d0 / &
-                        (plasma%spec(sigma)%lambda_D_cc(j)**2.0d0 * plasma%spec(sigma)%omega_c_cc(j) * plasma%spec(sigma)%nu_cc(j) * sol) )
-                pref_rho_B_g3(sigma+1,j) = &
-                    ( plasma%spec(sigma)%I01_cc(j) * plasma%spec(sigma)%A2_cc(j) ) &
-                    * ( - plasma%spec(sigma)%vT_cc(j)**3.0d0 / &
-                        (plasma%spec(sigma)%lambda_D_cc(j)**2.0d0 * plasma%spec(sigma)%omega_c_cc(j) * plasma%spec(sigma)%nu_cc(j) * sol) )
+                pref_rho_B_g1(sigma+1,j) = FP_G1_rho_B(j, plasma%spec(sigma))
+                pref_rho_B_g2(sigma+1,j) = FP_G2_rho_B(j, plasma%spec(sigma))
+                pref_rho_B_g3(sigma+1,j) = FP_G3_rho_B(j, plasma%spec(sigma))
 
-                pref_j_phi_g1(sigma+1,j) = &
-                    ( (plasma%spec(sigma)%I01_cc(j) * (plasma%spec(sigma)%A1_cc(j) + plasma%spec(sigma)%A2_cc(j)) &
-                       + 0.5d0 * plasma%spec(sigma)%A2_cc(j) * plasma%spec(sigma)%I21_cc(j)) ) &
-                    * ( com_unit * plasma%spec(sigma)%vT_cc(j)**3.0d0 / &
-                        (plasma%spec(sigma)%lambda_D_cc(j)**2.0d0 * plasma%spec(sigma)%omega_c_cc(j) * plasma%spec(sigma)%nu_cc(j)) )
-                pref_j_phi_g2(sigma+1,j) = &
-                    ( - plasma%spec(sigma)%I01_cc(j) * plasma%spec(sigma)%A2_cc(j) ) &
-                    * ( com_unit * plasma%spec(sigma)%vT_cc(j)**3.0d0 / &
-                        (plasma%spec(sigma)%lambda_D_cc(j)**2.0d0 * plasma%spec(sigma)%omega_c_cc(j) * plasma%spec(sigma)%nu_cc(j)) )
-                pref_j_phi_g3(sigma+1,j) = &
-                    ( plasma%spec(sigma)%I01_cc(j) * plasma%spec(sigma)%A2_cc(j) ) &
-                    * ( com_unit * plasma%spec(sigma)%vT_cc(j)**3.0d0 / &
-                        (plasma%spec(sigma)%lambda_D_cc(j)**2.0d0 * plasma%spec(sigma)%omega_c_cc(j) * plasma%spec(sigma)%nu_cc(j)) )
+                pref_j_phi_g1(sigma+1,j) = FP_G1_j_phi(j, plasma%spec(sigma))
+                pref_j_phi_g2(sigma+1,j) = FP_G2_j_phi(j, plasma%spec(sigma))
+                pref_j_phi_g3(sigma+1,j) = FP_G3_j_phi(j, plasma%spec(sigma))
 
-                pref_j_B_g1(sigma+1,j) = &
-                    ( (plasma%spec(sigma)%I02_cc(j) * (plasma%spec(sigma)%A1_cc(j) + plasma%spec(sigma)%A2_cc(j)) &
-                       + 0.5d0 * plasma%spec(sigma)%A2_cc(j) * plasma%spec(sigma)%I22_cc(j)) ) &
-                    * ( - plasma%spec(sigma)%vT_cc(j)**4.0d0 / &
-                        (plasma%spec(sigma)%lambda_D_cc(j)**2.0d0 * plasma%spec(sigma)%omega_c_cc(j) * plasma%spec(sigma)%nu_cc(j) * sol) )
-                pref_j_B_g2(sigma+1,j) = &
-                    ( - plasma%spec(sigma)%I02_cc(j) * plasma%spec(sigma)%A2_cc(j) ) &
-                    * ( - plasma%spec(sigma)%vT_cc(j)**4.0d0 / &
-                        (plasma%spec(sigma)%lambda_D_cc(j)**2.0d0 * plasma%spec(sigma)%omega_c_cc(j) * plasma%spec(sigma)%nu_cc(j) * sol) )
-                pref_j_B_g3(sigma+1,j) = &
-                    ( plasma%spec(sigma)%I02_cc(j) * plasma%spec(sigma)%A2_cc(j) ) &
-                    * ( - plasma%spec(sigma)%vT_cc(j)**4.0d0 / &
-                        (plasma%spec(sigma)%lambda_D_cc(j)**2.0d0 * plasma%spec(sigma)%omega_c_cc(j) * plasma%spec(sigma)%nu_cc(j) * sol) )
+                pref_j_B_g1(sigma+1,j) = FP_G1_j_B(j, plasma%spec(sigma))
+                pref_j_B_g2(sigma+1,j) = FP_G2_j_B(j, plasma%spec(sigma))
+                pref_j_B_g3(sigma+1,j) = FP_G3_j_B(j, plasma%spec(sigma))
             end do
         end do
 
@@ -449,7 +408,7 @@ module kernel_m
 
                 do lp = max(1,lp_lo), min(l,lp_hi)
 
-                    call FP_calc_kernels(l, lp, K_rho_phi_llp%Kllp(l, lp),&
+                    call FP_calc_kernel_element(l, lp, K_rho_phi_llp%Kllp(l, lp),&
                                                 K_rho_B_llp%Kllp(l, lp), &
                                                 K_j_phi_llp%Kllp(l, lp), &
                                                 K_j_B_llp%Kllp(l, lp), &
@@ -496,7 +455,7 @@ module kernel_m
     end subroutine
 
     
-    subroutine FP_calc_kernels(l, lp, k_rho_phi, k_rho_B, k_j_phi, k_j_B, gauss_conf)
+    subroutine FP_calc_kernel_element(l, lp, k_rho_phi, k_rho_B, k_j_phi, k_j_B, gauss_conf)
 
         use KIM_kinds_m, only: dp
         use integrals_gauss_m, only: gauss_integrate_F0, gauss_integrate_F1, gauss_integrate_F2, gauss_integrate_F3,&
@@ -542,9 +501,6 @@ module kernel_m
             if (turn_off_ions .and. sigma >= 1) cycle
             if (turn_off_electrons .and. sigma == 0) cycle
             do j = 1, rg_grid%npts_b-1
-                ! skip term if species Larmor radius is too small to couple these grid points
-                ! if (abs(xl_grid%xb(l) - xl_grid%xb(lp))> 8.0d0 * plasma%spec(sigma)%rho_L(j)) cycle
-                ! if (abs(rg_grid%xb(j) - (xl_grid%xb(l) + xl_grid%xb(lp)) / 2.0d0)> 8.0d0 * plasma%spec(sigma)%rho_L(j)) cycle
 
                 int_point%j = j
                 int_point%rhoT = max(plasma%spec(sigma)%rho_L_cc(j), 0.0d0)
@@ -566,16 +522,19 @@ module kernel_m
 
                 if (artificial_debye_case == 1) cycle
 
+                ! skip term if species Larmor radius is too small to couple these grid points
+                ! if (abs(xl_grid%xb(l) - xl_grid%xb(lp))> 4.0d0 * plasma%spec(sigma)%rho_L(j)) cycle
+                ! if (abs(rg_grid%xb(j) - (xl_grid%xb(l) + xl_grid%xb(lp)) / 2.0d0)> 4.0d0 * plasma%spec(sigma)%rho_L(j)) cycle
+
                 ! Calculate distance and weight for taper weighting
                 current_distance = abs(int_point%xl - int_point%xlp)
 
                 ! Smoothly taper contributions for large separations; optionally skip tiny weights
                 block
-                    real(dp) :: alpha_loc, eps_r, weight
-                    alpha_loc = Larmor_skip_factor
-                    eps_r = 1.0d-12
-                    weight = exp( - ( current_distance / (alpha_loc * max(int_point%rhoT, eps_r)) )**2.0d0 )
-                    if (weight < kernel_taper_skip_threshold) cycle
+                    real(dp) :: eps_r, weight
+                    ! eps_r = 1.0d-12
+                    ! weight = exp( - ( current_distance / (Larmor_skip_factor * max(int_point%rhoT, eps_r)) )**2.0d0 )
+                    ! if (weight < kernel_taper_skip_threshold) cycle
                     weight = 1.0d0
 
                     int_F1%int_point = int_point

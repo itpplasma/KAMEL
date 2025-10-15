@@ -156,7 +156,7 @@ module FP_kernel_plasma_prefacs_m
         A2 = 0.5d0 * (spec%A2(j) + spec%A2(j+1))
         I00 = 0.5d0 * (spec%I00(j) + spec%I00(j+1))
 
-        val =   I00 * A2 * com_unit * vT**2.0d0 * ks / (omega_c * nu)  ! NOTE: sign flipped; a minus sign may be required depending on convention
+        val =  - I00 * A2 * com_unit * vT**2.0d0 * ks / (omega_c * nu)  ! NOTE: sign flipped; a minus sign may be required depending on convention
 
     end function
 
@@ -183,7 +183,7 @@ module FP_kernel_plasma_prefacs_m
         A2 = 0.5d0 * (spec%A2(j) + spec%A2(j+1))
         I00 = 0.5d0 * (spec%I00(j) + spec%I00(j+1))
 
-        val = - I00 * A2 * com_unit * vT**2.0d0 * ks / (omega_c * nu)  ! NOTE: sign flipped; a minus sign may be required depending on convention
+        val = I00 * A2 * com_unit * vT**2.0d0 * ks / (omega_c * nu)  ! NOTE: sign flipped; a minus sign may be required depending on convention
 
     end function
 

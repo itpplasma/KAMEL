@@ -85,15 +85,15 @@ module kernel_m
                           (plasma%spec(sigma)%omega_c_cc(j) * plasma%spec(sigma)%nu_cc(j)) ) ) &
                     * (1.0d0/(plasma%spec(sigma)%lambda_D_cc(j)**2.0d0))
                 pref_rho_phi_g2(sigma+1,j) = &
-                    ( plasma%spec(sigma)%I00_cc(j) * plasma%spec(sigma)%A2_cc(j) * &
-                      ( com_unit * plasma%spec(sigma)%vT_cc(j)**2.0d0 / &
-                        (plasma%spec(sigma)%omega_c_cc(j) * plasma%spec(sigma)%nu_cc(j)) ) ) &
-                    * (1.0d0/(plasma%spec(sigma)%lambda_D_cc(j)**2.0d0))  ! NOTE: sign flipped; a minus sign may be required depending on convention
-                pref_rho_phi_g3(sigma+1,j) = &
                     ( - plasma%spec(sigma)%I00_cc(j) * plasma%spec(sigma)%A2_cc(j) * &
                       ( com_unit * plasma%spec(sigma)%vT_cc(j)**2.0d0 / &
                         (plasma%spec(sigma)%omega_c_cc(j) * plasma%spec(sigma)%nu_cc(j)) ) ) &
-                    * (1.0d0/(plasma%spec(sigma)%lambda_D_cc(j)**2.0d0))  ! NOTE: sign flipped; a minus sign may be required depending on convention
+                    * (1.0d0/(plasma%spec(sigma)%lambda_D_cc(j)**2.0d0))  
+                pref_rho_phi_g3(sigma+1,j) = &
+                    ( plasma%spec(sigma)%I00_cc(j) * plasma%spec(sigma)%A2_cc(j) * &
+                      ( com_unit * plasma%spec(sigma)%vT_cc(j)**2.0d0 / &
+                        (plasma%spec(sigma)%omega_c_cc(j) * plasma%spec(sigma)%nu_cc(j)) ) ) &
+                    * (1.0d0/(plasma%spec(sigma)%lambda_D_cc(j)**2.0d0)) 
 
                 pref_rho_B_g1(sigma+1,j) = &
                     ( (plasma%spec(sigma)%I01_cc(j) * (plasma%spec(sigma)%A1_cc(j) + plasma%spec(sigma)%A2_cc(j)) &
@@ -446,44 +446,45 @@ module kernel_m
                     if (abs(xl_grid%xb(lp_hi+1) - xl_val) > dmax_global) exit
                     lp_hi = lp_hi + 1
                 end do
+
                 do lp = max(1,lp_lo), min(l,lp_hi)
 
-                call FP_calc_kernels(l, lp, K_rho_phi_llp%Kllp(l, lp),&
-                                            K_rho_B_llp%Kllp(l, lp), &
-                                            K_j_phi_llp%Kllp(l, lp), &
-                                            K_j_B_llp%Kllp(l, lp), &
-                                            gauss_conf)
+                    call FP_calc_kernels(l, lp, K_rho_phi_llp%Kllp(l, lp),&
+                                                K_rho_B_llp%Kllp(l, lp), &
+                                                K_j_phi_llp%Kllp(l, lp), &
+                                                K_j_B_llp%Kllp(l, lp), &
+                                                gauss_conf)
 
-                if (isnan(real(K_rho_phi_llp%Kllp(l,lp)))) then
-                    print *, "K_rho_phi_llp is NaN for l = ", l, " lp = ", lp
-                    stop
-                end if
-                if (isnan(real(K_rho_B_llp%Kllp(l,lp)))) then
-                    print *, "K_rho_B_llp is NaN for l = ", l, " lp = ", lp
-                    stop
-                end if
+                    if (isnan(real(K_rho_phi_llp%Kllp(l,lp)))) then
+                        print *, "K_rho_phi_llp is NaN for l = ", l, " lp = ", lp
+                        stop
+                    end if
+                    if (isnan(real(K_rho_B_llp%Kllp(l,lp)))) then
+                        print *, "K_rho_B_llp is NaN for l = ", l, " lp = ", lp
+                        stop
+                    end if
 
-                if (isnan(real(K_j_phi_llp%Kllp(l,lp)))) then
-                    print *, "K_j_phi_llp is NaN for l = ", l, " lp = ", lp
-                    stop
-                end if
-                if (isnan(real(K_j_B_llp%Kllp(l,lp)))) then
-                    print *, "K_j_B_llp is NaN for l = ", l, " lp = ", lp
-                    stop
-                end if
+                    if (isnan(real(K_j_phi_llp%Kllp(l,lp)))) then
+                        print *, "K_j_phi_llp is NaN for l = ", l, " lp = ", lp
+                        stop
+                    end if
+                    if (isnan(real(K_j_B_llp%Kllp(l,lp)))) then
+                        print *, "K_j_B_llp is NaN for l = ", l, " lp = ", lp
+                        stop
+                    end if
 
-                K_rho_phi_llp%Kllp(lp, l) = K_rho_phi_llp%Kllp(l, lp)
-                K_rho_B_llp%Kllp(lp, l) = K_rho_B_llp%Kllp(l, lp)
-                K_j_phi_llp%Kllp(lp, l) = K_j_phi_llp%Kllp(l, lp)
-                K_j_B_llp%Kllp(lp, l) = K_j_B_llp%Kllp(l, lp)
+                    K_rho_phi_llp%Kllp(lp, l) = K_rho_phi_llp%Kllp(l, lp)
+                    K_rho_B_llp%Kllp(lp, l) = K_rho_B_llp%Kllp(l, lp)
+                    K_j_phi_llp%Kllp(lp, l) = K_j_phi_llp%Kllp(l, lp)
+                    K_j_B_llp%Kllp(lp, l) = K_j_B_llp%Kllp(l, lp)
 
-                !$omp atomic
-                current_iteration = current_iteration + 1
-                !$omp critical(loading_bar)
-                if (mod(current_iteration, 32) == 0 .or. current_iteration == total_iterations) then
-                    call update_bar(current_iteration, total_iterations, start_count, count_rate)
-                end if
-                !$omp end critical(loading_bar)
+                    !$omp atomic
+                    current_iteration = current_iteration + 1
+                    !$omp critical(loading_bar)
+                    if (mod(current_iteration, 32) == 0 .or. current_iteration == total_iterations) then
+                        call update_bar(current_iteration, total_iterations, start_count, count_rate)
+                    end if
+                    !$omp end critical(loading_bar)
                 end do
             end block
         end do
@@ -508,6 +509,7 @@ module kernel_m
         use grid_m, only: Larmor_skip_factor, kernel_taper_skip_threshold, rg_grid
         use constants_m, only: com_unit, sol
         use config_m, only: turn_off_ions, turn_off_electrons, artificial_debye_case
+        use grid_m, only: xl_grid
         
         implicit none
 
@@ -540,6 +542,10 @@ module kernel_m
             if (turn_off_ions .and. sigma >= 1) cycle
             if (turn_off_electrons .and. sigma == 0) cycle
             do j = 1, rg_grid%npts_b-1
+                ! skip term if species Larmor radius is too small to couple these grid points
+                ! if (abs(xl_grid%xb(l) - xl_grid%xb(lp))> 8.0d0 * plasma%spec(sigma)%rho_L(j)) cycle
+                ! if (abs(rg_grid%xb(j) - (xl_grid%xb(l) + xl_grid%xb(lp)) / 2.0d0)> 8.0d0 * plasma%spec(sigma)%rho_L(j)) cycle
+
                 int_point%j = j
                 int_point%rhoT = max(plasma%spec(sigma)%rho_L_cc(j), 0.0d0)
                 int_point%ks = plasma%ks_cc(j)
@@ -824,7 +830,7 @@ module kernel_m
                             
                             ! Krook contribution
                             krook_phi_llp = krook_phi_llp + integral_F0 * Krook_G0_rho_phi(j, plasma%spec(sigma)) * &
-                                           Krook_kappa_rho_phi(j, plasma%spec(sigma))
+                                            Krook_kappa_rho_phi(j, plasma%spec(sigma))
                             
                             ! Fokker-Planck contribution
                             fp_phi_llp = fp_phi_llp + integral_F0 * FP_G0_rho_phi(j, plasma%spec(sigma)) * &

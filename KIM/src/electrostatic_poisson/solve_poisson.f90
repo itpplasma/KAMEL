@@ -230,9 +230,9 @@ module poisson_solver_m
             hL = xl_grid%xb(i)   - xl_grid%xb(i-1)  ! left element size
             hR = xl_grid%xb(i+1) - xl_grid%xb(i)    ! right element size
 
-            A_mat(i,i-1) = A_mat(i,i-1) - 1.0d0/hL
-            A_mat(i,i)   = A_mat(i,i)   + 1.0d0/hL + 1.0d0/hR
-            A_mat(i,i+1) = A_mat(i,i+1) - 1.0d0/hR
+            A_mat(i,i-1) = A_mat(i,i-1) + 1.0d0/hL
+            A_mat(i,i)   = A_mat(i,i)   - 1.0d0/hL - 1.0d0/hR
+            A_mat(i,i+1) = A_mat(i,i+1) + 1.0d0/hR
         end do
 
         if (bc_type == 1)then
@@ -251,8 +251,6 @@ module poisson_solver_m
             A_mat(n,n) = cmplx(1.0d0, 0.0d0, dp)
         end if
 
-        A_mat = - A_mat ! this definition includes the negative sign from the Poisson equation
-        
         call write_matrix(trim(output_path)//'kernel/laplacian_re.dat', real(A_mat), xl_grid%npts_b, xl_grid%npts_b)
 
     end subroutine
@@ -296,6 +294,7 @@ module poisson_solver_m
                 A_mat(:,1) = 0.0d0
                 A_mat(1,:) = 0.0d0
                 A_mat(n,:) = 0.0d0
+                A_mat(:,n) = 0.0d0
                 A_mat(1,1) = 1.0d0
                 A_mat(n,n) = 1.0d0
 
@@ -320,6 +319,7 @@ module poisson_solver_m
                 A_mat(:,1) = 0.0d0
                 A_mat(1,:) = 0.0d0
                 A_mat(n,:) = 0.0d0
+                A_mat(:,n) = 0.0d0
                 A_mat(1,1) = 1.0d0
                 A_mat(n,n) = 1.0d0
 
@@ -371,11 +371,12 @@ module poisson_solver_m
         n = 0
         do nc = 1, ncol
             do nr = 1, nrow
-                if (.not.(A(nr, nc) == 0.0d0)) then
+                if (.not.(A(nr, nc) == (0.0d0, 0.0d0))) then
                     n = n + 1
                     irow(n) = nr
                     icol(n) = nc
-                    A_nz(n) = A_nz(n) + A(nr, nc)
+                    ! A_nz(n) = A_nz(n) + A(nr, nc)
+                    A_nz(n) = A(nr, nc)
                 end if
             end do
         end do

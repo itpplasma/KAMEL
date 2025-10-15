@@ -142,7 +142,7 @@ module fields_m
             call binsrc(plasma_in%r_grid, 1, size(plasma_in%r_grid), xl_grid%xb(i), ir) 
             ibeg = max(1, ir - nlagr/2)
             iend = ibeg + nlagr - 1
-            if (iend .gt. xl_grid%npts_b) then
+            if (iend .gt. size(plasma_in%r_grid)) then
                 iend = size(plasma_in%r_grid)
                 ibeg = iend -nlagr + 1
             end if
@@ -521,3 +521,4 @@ module fields_m
     end subroutine
 
 end module
+

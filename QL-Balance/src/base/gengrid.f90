@@ -193,7 +193,7 @@ subroutine prepare_resonances
 
     if (ihdf5IO .eq. 1) then
         CALL h5_init()
-        CALL h5_open_rw(path2inp, h5_id)
+        call h5_open(path2inp, h5_id)
         CALL h5_open_group(h5_id, '/preprocprof', group_id_1)
         CALL h5_get_bounds_1(group_id_1, 'q', lb, ub)
         allocate(r(ub),q(ub))

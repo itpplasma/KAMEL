@@ -708,17 +708,23 @@ module time_evolution
     
         use grid_mod, only: npoi, nbaleqs, mwind, dummy
         use plasma_parameters, only: params_num, params_denom
+        use QLBalance_kinds, only: dp
 
         implicit none
         
         integer :: ieq
+        real(dp), allocatable :: row_buffer(:)
 
+        allocate(row_buffer(npoi))
         do ieq = 1, nbaleqs
-            call smooth_array_gauss(npoi, mwind, params_num(ieq, :), dummy)
+            row_buffer = params_num(ieq, :)
+            call smooth_array_gauss(npoi, mwind, row_buffer, dummy)
             params_num(ieq, :) = dummy
-            call smooth_array_gauss(npoi, mwind, params_denom(ieq, :), dummy)
+            row_buffer = params_denom(ieq, :)
+            call smooth_array_gauss(npoi, mwind, row_buffer, dummy)
             params_denom(ieq, :) = dummy
         end do
+        deallocate(row_buffer)
 
     end subroutine
 

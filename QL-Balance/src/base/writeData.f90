@@ -20,7 +20,7 @@ subroutine write_fields_currs_transp_coefs_to_h5
         if (debug_mode) print *, "Debug: ", trim(h5_mode_groupname)
         tempch = "/"//trim(h5_mode_groupname)//"/LinearProfiles"
 
-        write (tempch, "(A,A,I4,A)") trim(tempch), "/", time_ind, "/"
+        write (tempch, '(A,"/",I0,"/")') trim(tempch), time_ind
 
         call create_group_if_not_existent(tempch)
 
@@ -253,7 +253,7 @@ subroutine write_D_one_over_nu_to_h5
 
     character(256) :: tempch
     tempch = "/"//trim(h5_mode_groupname)//"/LinearProfiles"
-    write (tempch, "(A,A,I4,A)") trim(tempch), "/", time_ind, "/"
+    write (tempch, '(A,"/",I0,"/")') trim(tempch), time_ind
 
     CALL h5_init()
     CALL h5_open_rw(path2out, h5_id)

@@ -28,6 +28,7 @@ subroutine get_dql
     integer :: modpernode, imin, imax
     integer :: ipoi, ieq, i_mn, mwind_save
     real(dp), dimension(:), allocatable :: dummy
+    real(dp), dimension(:), allocatable :: row_buffer
 
     real(dp), dimension(npoib) :: spec_weight
     real(dp) :: weight
@@ -97,13 +98,16 @@ subroutine get_dql
 
     ! Smooth input for KILCA
     if (.true.) then
-        allocate (dummy(npoib))
+        allocate (dummy(npoib), row_buffer(npoib))
         do ieq = 1, nbaleqs
-            call smooth_array_gauss(npoib, mwind, ddr_params_nl(ieq, :), dummy)
+            row_buffer = ddr_params_nl(ieq, :)
+            call smooth_array_gauss(npoib, mwind, row_buffer, dummy)
             ddr_params_nl(ieq, :) = dummy
-            call smooth_array_gauss(npoib, mwind, params_b(ieq, :), dummy)
+            row_buffer = params_b(ieq, :)
+            call smooth_array_gauss(npoib, mwind, row_buffer, dummy)
             params_b(ieq, :) = dummy
         end do
+        deallocate (row_buffer)
         deallocate (dummy)
     end if
 

@@ -493,7 +493,6 @@ module fields_m
         ! where the flux surface corrugated phi cancels the potential surface corrugated phi
         ! this is used to check the second order derivative from the Laplace operator
 
-        use grid_m, only: xl_grid
         use kernel_m, only: kernel_spl_t
 
         implicit none

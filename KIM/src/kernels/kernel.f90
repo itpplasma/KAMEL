@@ -523,8 +523,11 @@ module kernel_m
                 if (artificial_debye_case == 1) cycle
 
                 ! skip term if species Larmor radius is too small to couple these grid points
-                ! if (abs(xl_grid%xb(l) - xl_grid%xb(lp))> 4.0d0 * plasma%spec(sigma)%rho_L(j)) cycle
+                if (abs(l-lp) > 10 .and. abs(xl_grid%xb(l) - xl_grid%xb(lp))> 4.0d0 * plasma%spec(sigma)%rho_L(j)) cycle
                 ! if (abs(rg_grid%xb(j) - (xl_grid%xb(l) + xl_grid%xb(lp)) / 2.0d0)> 4.0d0 * plasma%spec(sigma)%rho_L(j)) cycle
+                ! Check if rg point j is within range of either xl point
+                if (abs(rg_grid%xb(j) - xl_grid%xb(l)) > 4.0d0 * plasma%spec(sigma)%rho_L(j) .and. &
+                    abs(rg_grid%xb(j) - xl_grid%xb(lp)) > 4.0d0 * plasma%spec(sigma)%rho_L(j)) cycle
 
                 ! Calculate distance and weight for taper weighting
                 current_distance = abs(int_point%xl - int_point%xlp)

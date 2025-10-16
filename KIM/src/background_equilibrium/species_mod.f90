@@ -435,8 +435,9 @@ module species_m
         if (rescale_density .eqv. .true.) then
             print *, " "
             print *, " ! ! ! "
-            print *, " Rescaling density! ! !"
+            print *, " ! ! ! Rescaling density (after collision frequency calculation) ! ! !"
             print *, " ! ! ! "
+            print *, " "
             do sp = 0, plasma_in%n_species-1
                 do i = 1, plasma_in%grid_size
                     plasma_in%spec(sp)%n(i) = plasma_in%spec(sp)%n(i) * number_density_rescale

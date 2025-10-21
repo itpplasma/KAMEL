@@ -166,107 +166,115 @@ module time_evolution
     end subroutine
 
     subroutine runTimeEvolution(this)
+        class(TimeEvolution_t), intent(inout) :: this
 
-        use parallelTools, only: irank
+        do time_ind = 1, Nstorage
+            call doStep(this)
+        end do
+    end subroutine runTimeEvolution
+
+    subroutine doStep(this)
         use baseparam_mod, only: factolmax, factolred
-        use recstep_mod, only: tol
+        use control_mod, only: debug_mode
+        use parallelTools, only: irank
         use plasma_parameters, only: params, params_beg, params_begbeg, limit_temps_from_below
+        use recstep_mod, only: timstep_arr
+        use recstep_mod, only: tol
         use restart_mod, only: redostep
         use transp_coeffs_mod, only: rescale_transp_coeffs_by_ant_fac
-        use recstep_mod, only: timstep_arr
 
         implicit none
 
         class(TimeEvolution_t), intent(inout) :: this
-        integer :: iredo = 0
 
-        do time_ind = 1, Nstorage
-            call copy_kin_profs_to_yprev
-            redostep = .false.
+        integer :: iredo
 
-            call get_dql
-            call rescale_transp_coeffs_by_ant_fac
-            call interp_Br_Dql_at_resonance_timeevol
-            call determine_Dql_diagnostic
+        call copy_kin_profs_to_yprev
+        redostep = .false.
 
-            call write_br_dqle22_time_data
-            call message_Br_Dqle_values
+        call get_dql
+        call rescale_transp_coeffs_by_ant_fac
+        call interp_Br_Dql_at_resonance_timeevol
+        call determine_Dql_diagnostic
 
-            if (diagnostics_output)then
-                call writefort9999
-            end if
+        call write_br_dqle22_time_data
+        call message_Br_Dqle_values
 
-            if (.true.) then
-                call hold_prev_transp_coeffs
-                params_begbeg = params
-            else 
-                call redoTimeStep
-            end if
+        if (diagnostics_output)then
+            call writefort9999
+        end if
 
-            do ! redo step loop
-                iredo = iredo + 1
-                params_beg = params
+        if (.true.) then
+            call hold_prev_transp_coeffs
+            params_begbeg = params
+        else
+            call redoTimeStep
+        end if
 
-                print *, ""
-                if (debug_mode) write(*,*) "Debug: Timstep before evolvestep is ", timstep, " eps = " , eps
-                call evolvestep(timstep, eps)
+        iredo = 0
+        do ! redo step loop
+            iredo = iredo + 1
+            params_beg = params
 
-                call limit_temps_from_below
+            print *, ""
+            if (debug_mode) write(*, "(a, i0, a, f12.6)") &
+                            "Debug: Timstep before evolvestep is ", timstep, " eps = " , eps
 
-                call calc_params_num_and_denom
-                call smooth_params_num_and_denom
-                call determine_timscal
-
-                if (maxval(timscal) .lt. tol * factolmax) then
-                    exit
-                end if
-                
-
-                timstep_arr = timstep_arr * factolred
-                params = params_beg
-
-                if (irank .eq. 0) then
-                    if (debug_mode) then
-                        print *, "Redoing step: Maxval(timscal) is not lesser than tol * factolmax"
-                        print *, "Maxval(timscal) = ", maxval(timscal)
-                        print *, "tol = ", tol
-                        print *, "factolmax = ", factolmax
-                        print *, "tol * factolmax = ", tol * factolmax
-                        print *, "timstep_arr(1) = ", timstep_arr(1)
-                        print *, "timstep_arr(100) = ", timstep_arr(100)
-                        print *, ""
-                    end if
-                end if 
-                if (iredo > 100) then
-                    stop "Redoing step: Maxval(timscal) is not lesser than tol * factolmax after 100 redos"
-                end if
-            end do
-
-            call rescale_time_step_array
-            call set_time_step
-            call stop_if_time_step_too_small
-            call reset_timstep_arr_w_timstep
-            call write_time_info
-            call relax_plasma_parameters
-
-            timstep_arr = 0.0d0
             call evolvestep(timstep, eps)
-            timstep_arr = timstep
-            time = time + timstep
 
-            if (debug_mode) call msg_time_info
-            if (.not. suppression_mode) call write_kin_profile_at_time_index
-            call set_first_iteration_true
-            call calculate_total_toroidal_torque(time_ind)
-            call write_total_toroidal_torque_to_file(time_ind)
-            call check_linear_discr_pen_ratio
-            call stop_if_antenna_fac_max_reached
+            call limit_temps_from_below
 
-            call ramp_coil
+            call calc_params_num_and_denom
+            call smooth_params_num_and_denom
+            call determine_timscal
+
+            if (maxval(timscal) .lt. tol * factolmax) then
+                exit
+            end if
+
+            timstep_arr = timstep_arr * factolred
+            params = params_beg
+
+            if (irank .eq. 0) then
+                if (debug_mode) then
+                    print *, "Redoing step: Maxval(timscal) is not lesser than tol * factolmax"
+                    print *, "Maxval(timscal) = ", maxval(timscal)
+                    print *, "tol = ", tol
+                    print *, "factolmax = ", factolmax
+                    print *, "tol * factolmax = ", tol * factolmax
+                    print *, "timstep_arr(1) = ", timstep_arr(1)
+                    print *, "timstep_arr(100) = ", timstep_arr(100)
+                    print *, ""
+                end if
+            end if
+            if (iredo > 100) then
+                stop "Redoing step: Maxval(timscal) is not lesser than tol * factolmax " // &
+                        "after 100 redos"
+            end if
         end do
 
-    end subroutine
+        call rescale_time_step_array
+        call set_time_step
+        call stop_if_time_step_too_small
+        call reset_timstep_arr_w_timstep
+        call write_time_info
+        call relax_plasma_parameters
 
+        timstep_arr = 0.0d0
+        call evolvestep(timstep, eps)
+        timstep_arr = timstep
+        time = time + timstep
+
+        if (debug_mode) call msg_time_info
+        if (.not. suppression_mode) call write_kin_profile_at_time_index
+        call set_first_iteration_true
+        call calculate_total_toroidal_torque(time_ind)
+        call write_total_toroidal_torque_to_file(time_ind)
+        call check_linear_discr_pen_ratio
+        call stop_if_antenna_fac_max_reached
+
+        call ramp_coil
+    end subroutine doStep
 
     subroutine allocate_prev_variables
 

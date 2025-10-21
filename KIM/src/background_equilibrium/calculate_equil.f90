@@ -111,11 +111,13 @@ module equilibrium_m
                 hth(i) = B0th(i) / B0(i)
 
                 ! "senkrecht" wavenumber
-                plasma%ks(i) = (m_mode * hz(i) - n_mode * hth(i) / R0) / plasma%r_grid(i)
+                plasma%ks(i) = (m_mode * hz(i) / plasma%r_grid(i) - n_mode * hth(i) / R0)
                 ! parallel wavenumber
-                plasma%kp(i) = m_mode/(plasma%r_grid(i)) * hth(i) + n_mode / R0 * hz(i)
+                plasma%kp(i) = (m_mode/(plasma%r_grid(i)) * hth(i) + n_mode / R0 * hz(i))
+                ! plasma%kp(i) = (m_mode + n_mode * plasma%q(i)) / (plasma%q(i) * R0)
                 ! ExB rotation frequency
                 plasma%om_E(i) = - sol * plasma%ks(i) * plasma%Er(i) / B0(i)
+                ! plasma%om_E(i) = n_mode * sol * plasma%Er(i) / B0(i)
 
             end do
 

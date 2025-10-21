@@ -9,7 +9,7 @@ CODE = os.environ['CODE']
 class KIMpy:
 
     kim_config_nml = CODE + '/KAMEL/KIM/nmls/KIM_config.nml'
-    kim_exe_path = CODE + '/KAMEL/KIM/build/KIM.x'
+    kim_exe_path = CODE + '/KAMEL/build/install/bin/KIM.x'
     omp_num_threads = 8
 
     def __init__(self, runpath):

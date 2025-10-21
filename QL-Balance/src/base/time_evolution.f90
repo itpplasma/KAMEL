@@ -208,7 +208,10 @@ module time_evolution
                 params_beg = params
 
                 print *, ""
-                if (debug_mode) write(*,*) "Debug: Timstep before evolvestep is ", timstep, " eps = " , eps
+                if (debug_mode) write(*, "(a, i0, a, f12.6)") &
+                                "Debug: Timstep before evolvestep is ", timstep, " eps = " , eps
+
+                                              ".dat"
                 call evolvestep(timstep, eps)
 
                 call limit_temps_from_below
@@ -220,7 +223,6 @@ module time_evolution
                 if (maxval(timscal) .lt. tol * factolmax) then
                     exit
                 end if
-                
 
                 timstep_arr = timstep_arr * factolred
                 params = params_beg
@@ -238,7 +240,8 @@ module time_evolution
                     end if
                 end if 
                 if (iredo > 100) then
-                    stop "Redoing step: Maxval(timscal) is not lesser than tol * factolmax after 100 redos"
+                    stop "Redoing step: Maxval(timscal) is not lesser than tol * factolmax " // &
+                         "after 100 redos"
                 end if
             end do
 

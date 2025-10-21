@@ -168,14 +168,12 @@ module time_evolution
     subroutine runTimeEvolution(this)
         class(TimeEvolution_t), intent(inout) :: this
 
-        integer :: iredo = 0 ! TODO: Shouldn't this be per time step and not per evolution?
-
         do time_ind = 1, Nstorage
-            call doStep(this, iredo)
+            call doStep(this)
         end do
     end subroutine runTimeEvolution
 
-    subroutine doStep(this, iredo)
+    subroutine doStep(this)
         use baseparam_mod, only: factolmax, factolred
         use control_mod, only: debug_mode
         use parallelTools, only: irank
@@ -188,7 +186,8 @@ module time_evolution
         implicit none
 
         class(TimeEvolution_t), intent(inout) :: this
-        integer, intent(inout) :: iredo
+
+        integer :: iredo
 
         call copy_kin_profs_to_yprev
         redostep = .false.
@@ -212,6 +211,7 @@ module time_evolution
             call redoTimeStep
         end if
 
+        iredo = 0
         do ! redo step loop
             iredo = iredo + 1
             params_beg = params

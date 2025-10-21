@@ -1,6 +1,7 @@
 {
     "excl_paths": [ "./build" ],
-    "excl_suffixes": [".f90-pp.f90"],
+    "excl_suffixes": [ ".f90-pp.f90" ],
+    "hover_signature": true,
     "max_line_length": 100,
     "enable_code_actions": true // experimental
 }

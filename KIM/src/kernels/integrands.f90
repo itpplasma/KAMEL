@@ -66,7 +66,7 @@ module integrands_gauss_m
                   erf_diff((rg_grid%xb(this%int_point%j+1)-x)/(sqrt(2.0d0) * abs(this%int_point%rhoT)), &
                 (rg_grid%xb(this%int_point%j) - x)/(sqrt(2.0d0) * abs(this%int_point%rhoT)))&
             ) &
-            !* 2.0d0 * pi**2.0d0
+            ! * 2.0d0 * pi**2.0d0
             * pi**2.0d0
 
     end function

@@ -102,16 +102,19 @@ module equilibrium_m
             allocate(plasma%om_E(plasma%grid_size))
 
             do i=1, plasma%grid_size
+                ! covariant components of the magnetic field vector
                 B0z(i) = sign(1d0, btor) * sqrt(u(i) /(1d0 + plasma%r_grid(i)**2d0/(R0**2d0 * plasma%q(i)**2)))
                 B0th(i) = B0z(i) * plasma%r_grid(i) /(plasma%q(i) * R0)
+
                 B0(i) = sqrt(B0th(i)**2d0 + B0z(i)**2d0)
                 plasma%B0(i) = B0(i)
 
+                ! covariant components of the magnetic field unit vector
                 hz(i) = B0z(i) / B0(i)
                 hth(i) = B0th(i) / B0(i)
 
                 ! "senkrecht" wavenumber
-                plasma%ks(i) = (m_mode * hz(i) / plasma%r_grid(i) - n_mode * hth(i) / R0)
+                plasma%ks(i) = (m_mode * hz(i) - n_mode * hth(i) / R0) / plasma%r_grid(i)
                 ! parallel wavenumber
                 plasma%kp(i) = (m_mode/(plasma%r_grid(i)) * hth(i) + n_mode / R0 * hz(i))
                 ! plasma%kp(i) = (m_mode + n_mode * plasma%q(i)) / (plasma%q(i) * R0)

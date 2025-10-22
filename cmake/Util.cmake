@@ -3,7 +3,7 @@ include(FetchContent)
 # Default to disconnected updates so re-configure does not try to reach the network.
 if(NOT DEFINED FETCHCONTENT_UPDATES_DISCONNECTED)
     set(FETCHCONTENT_UPDATES_DISCONNECTED ON CACHE BOOL
-        "Disable FetchContent update steps during configure (enable to force dependency updates)" )
+        "Disable FetchContent update steps during configure (enable to force dependency updates)")
 endif()
 
 function(find_or_fetch DEPENDENCY)

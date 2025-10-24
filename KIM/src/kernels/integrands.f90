@@ -45,6 +45,19 @@ module integrands_gauss_m
             procedure :: f => gauss_integrand_F3_rho_phi
     end type
 
+
+    type :: gauss_int_F1_rho_phi_electrons_t
+        type(integration_point_t) :: int_point
+        contains
+            procedure :: f => gauss_integrand_F1_rho_phi_electrons
+    end type
+
+    type :: gauss_int_F2_rho_phi_electrons_t
+        type(integration_point_t) :: int_point
+        contains
+            procedure :: f => gauss_integrand_F2_rho_phi_electrons
+    end type
+
     contains
 
     function gauss_integrand_F0_rho_phi(this, x) result(val)
@@ -67,7 +80,7 @@ module integrands_gauss_m
                 (rg_grid%xb(this%int_point%j) - x)/(sqrt(2.0d0) * abs(this%int_point%rhoT)))&
             ) &
             ! * 2.0d0 * pi**2.0d0
-            * pi**2.0d0
+            * pi**2.0d0 ! from benchmarking, error function difference gives 2
 
     end function
 
@@ -254,6 +267,74 @@ module integrands_gauss_m
                     )
 
     end subroutine
+
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+! integration for electrons where the Larmor radius is very small and BesselI0=1 and BesselI-1=0 (doesn't require theta integration)
+
+    function gauss_integrand_F1_rho_phi_electrons(this, x, xp) result(val)
+
+        use constants_m, only: pi
+        use species_m, only: plasma
+        use gsl_mod, only: erf => gsl_sf_erf
+        use KIM_kinds_m, only: dp
+        use functions_m, only: varphi_l
+
+        implicit none
+
+        class(gauss_int_F1_rho_phi_electrons_t), intent(inout) :: this
+        real(dp), intent(in) :: x, xp
+        real(dp) :: val
+        real(dp) :: ks_val
+        ks_val = 0.5d0 * (plasma%ks(this%int_point%j) + plasma%ks(this%int_point%j+1))
+
+        val = varphi_l(xp, this%int_point%xlpm1, this%int_point%xlp, this%int_point%xlpp1) &
+            * varphi_l(x, this%int_point%xlm1, this%int_point%xl, this%int_point%xlp1) &
+            * 2.0d0 * pi / (this%int_point%rhoT**2.0d0) &
+            * exp(- ks_val**2.0d0 * this%int_point%rhoT**2.0d0 &
+                - (x - xp)**2.0d0 / (4.0d0 * this%int_point%rhoT**2.0d0)) &
+            * this%int_point%Jrg1 &
+            / (2.0d0 * pi) ! is missing, found by benchmarking
+
+    end function gauss_integrand_F1_rho_phi_electrons
+
+
+    function gauss_integrand_F2_rho_phi_electrons(this, x, xp) result(val)
+
+        use constants_m, only: pi
+        use species_m, only: plasma
+        use gsl_mod, only: erf => gsl_sf_erf
+        use KIM_kinds_m, only: dp
+        use functions_m, only: varphi_l
+
+        implicit none
+
+        class(gauss_int_F2_rho_phi_electrons_t), intent(inout) :: this
+        real(dp), intent(in) :: x, xp
+        real(dp) :: val
+        real(dp) :: ks_val
+
+        ks_val = 0.5d0 * (plasma%ks(this%int_point%j) + plasma%ks(this%int_point%j+1))
+
+        val = varphi_l(xp, this%int_point%xlpm1, this%int_point%xlp, this%int_point%xlpp1) &
+            * varphi_l(x, this%int_point%xlm1, this%int_point%xl, this%int_point%xlp1) &
+            * (- pi) / (this%int_point%rhoT**4.0d0) &
+            * exp(- ks_val**2.0d0 * this%int_point%rhoT**2.0d0 &
+                - (x - xp)**2.0d0 / (4.0d0 * this%int_point%rhoT**2.0d0)) & 
+            * ( &
+                ! these are all higher order in the Larmor radius:
+                !this%int_point%Jrg1 * (&
+                !    -4.0d0 * this%int_point%rhoT**2.0d0 *(ks_val**2.0d0 * this%int_point%rhoT**2.0d0 + 1.0d0) &
+                !    - ks_val**2.0d0 * this%int_point%rhoT**4.0d0 * cos(4.0d0 * theta)  &
+                !    - this%int_point%rhoT**2.0d0 * (3.0d0 * ks_val**2.0d0 * this%int_point%rhoT**2.0d0 + 4.0d0) &
+                !) &
+                - 2.0d0 * this%int_point%rhoT**2.0d0 * this%int_point%Jrg1 + &
+                (this%int_point%Jrg2 + this%int_point%Jrg3) &
+            ) &
+            / (2.0d0 * pi) ! is missing, found by benchmarking
+
+    end function gauss_integrand_F2_rho_phi_electrons
+
 
     function calc_b_coef(x,xp) result(b_coef)
 

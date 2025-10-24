@@ -1,20 +1,30 @@
 import numpy as np
+from numpy.typing import NDArray
+from typing import Dict, Optional
 import os
 
 class KIMData:
 
-    data = {'r': None,
-            'Phi_m': None,
-            'B0': None}
-    r_is_set = False
-
     def __init__(self, data_path: str, m=-6, n=2, collision_model='FokkerPlanck') -> None:
+        self.r_is_set = False
         self.data_path = data_path
         self.mode_string = f'm{m}_n{n}'
         self.collision_model = collision_model
 
         if self.collision_model == 'FokkerPlanck':
             self.collision_model_acronym = 'fp'
+
+        # main data dictionary
+        self.data : Dict[str, Optional[NDArray[np.float64]]] = \
+            {
+                'r': None,
+                'Phi_m': None,
+                'B0': None
+            }
+
+    def __del__(self):
+        self.r_is_set = False
+        self.data = {}
 
     def get_Phi_m(self) -> None:
         '''
@@ -54,15 +64,15 @@ class KIMData:
         else:
             print('Envoke get_B0 first to normalize profile by B0')
         
-    def set_r(self, r: np.ndarray) -> None:
+    def set_r(self, r: NDArray[np.float64]) -> None:
         if self.data['r'] is None:
-            self.data['r'] = r
+            self.data['r'] = np.asarray(r)
             self.r_is_set = True
 
-    def set_profile(self, r: np.ndarray, quant: np.ndarray, quant_string: str) -> None:
+    def set_profile(self, r: NDArray[np.float64], quant: NDArray[np.float64], quant_string: str) -> None:
         if not self.r_is_set:
             self.set_r(r)
-        if (r == self.data['r']).all():
+        if (np.asarray(r) == self.data['r']).all():
             self.data[quant_string] = quant
         else:
             self.data[quant_string] = np.interp(self.data['r'], r, quant)

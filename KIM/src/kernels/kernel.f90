@@ -408,11 +408,17 @@ module kernel_m
 
                 do lp = max(1,lp_lo), min(l,lp_hi)
 
-                    call FP_calc_kernel_element(l, lp, K_rho_phi_llp%Kllp(l, lp),&
+                    !call FP_calc_kernel_element(l, lp, K_rho_phi_llp%Kllp(l, lp),&
+                                                !K_rho_B_llp%Kllp(l, lp), &
+                                                !K_j_phi_llp%Kllp(l, lp), &
+                                                !K_j_B_llp%Kllp(l, lp), &
+                                                !gauss_conf)
+                    call FP_calc_kernel_zero_FLR_limit_electrons(l, lp, K_rho_phi_llp%Kllp(l, lp),&
                                                 K_rho_B_llp%Kllp(l, lp), &
                                                 K_j_phi_llp%Kllp(l, lp), &
                                                 K_j_B_llp%Kllp(l, lp), &
                                                 gauss_conf)
+
 
                     if (isnan(real(K_rho_phi_llp%Kllp(l,lp)))) then
                         print *, "K_rho_phi_llp is NaN for l = ", l, " lp = ", lp
@@ -459,6 +465,345 @@ module kernel_m
 
         use KIM_kinds_m, only: dp
         use integrals_gauss_m, only: gauss_integrate_F0, gauss_integrate_F1, gauss_integrate_F2, gauss_integrate_F3,&
+            gauss_config_t, gauss_integrate_F1_electrons, gauss_integrate_F2_electrons
+        use species_m, only: plasma
+        use constants_m, only: pi
+        use integrands_gauss_m, only: gauss_int_F0_rho_phi_t, gauss_int_F1_rho_phi_t, gauss_int_F2_rho_phi_t, gauss_int_F3_rho_phi_t, &
+            integration_point_t, gauss_int_F1_rho_phi_electrons_t, gauss_int_F2_rho_phi_electrons_t
+        use FP_kernel_plasma_prefacs_m, only: FP_G0_rho_phi
+        use grid_m, only: Larmor_skip_factor, kernel_taper_skip_threshold, rg_grid, xl_grid
+        use constants_m, only: com_unit, sol
+        use config_m, only: turn_off_ions, turn_off_electrons, artificial_debye_case
+        use functions_m, only: varphi_l
+
+        implicit none
+
+        integer, intent(in) :: l, lp
+        complex(dp) :: k_rho_phi, k_rho_B, k_j_phi, k_j_B
+        integer :: j, sigma
+        type(gauss_config_t), intent(in) :: gauss_conf
+        real(dp) :: integral_val
+        real(dp) :: current_distance
+
+        type(integration_point_t) :: int_point
+        type(gauss_int_F0_rho_phi_t) :: int_F0
+        type(gauss_int_F1_rho_phi_t) :: int_F1
+        type(gauss_int_F2_rho_phi_t) :: int_F2
+        type(gauss_int_F3_rho_phi_t) :: int_F3
+
+        type(gauss_int_F1_rho_phi_electrons_t) :: int_F1_e
+        type(gauss_int_F2_rho_phi_electrons_t) :: int_F2_e
+
+        k_rho_phi = (0.0d0, 0.0d0)
+        k_rho_B = (0.0d0, 0.0d0)
+        k_j_phi = (0.0d0, 0.0d0)
+        k_j_B = (0.0d0, 0.0d0)
+
+        call set_xl_at_edge(l, lp, int_point)
+
+        if (.not. turn_off_electrons) then
+            do j = 1, rg_grid%npts_b-1
+
+                int_point%j = j
+                int_point%rhoT = max(plasma%spec(0)%rho_L_cc(j), 0.0d0)
+                int_point%ks = plasma%ks_cc(j)
+
+                ! if (abs(l-lp)<=1 .and. artificial_debye_case /= 2) then
+                if (abs(l-lp)<1 .and. artificial_debye_case /= 2) then
+                    int_F0%int_point = int_point
+                    call gauss_integrate_F0(int_F0, int_point%xlm1, int_point%xlp1, integral_val, gauss_conf)
+                    k_rho_phi = k_rho_phi + integral_val * (-1.0d0) * (1.0d0 / (plasma%spec(0)%lambda_D_cc(j)**2.0d0))
+                end if
+
+                if (artificial_debye_case == 1) cycle
+
+                ! skip term if species Larmor radius is too small to couple these grid points
+                if (abs(l-lp) > 10 .and. abs(xl_grid%xb(l) - xl_grid%xb(lp))> 8.0d0 * plasma%spec(0)%rho_L(j)) cycle
+                ! this is more restrictive:
+                ! if (abs(0.5d0 * (rg_grid%xb(j+1) + rg_grid%xb(j)) - 0.5d0 * (xl_grid%xb(l) + xl_grid%xb(lp))) > 64.0d0 * plasma%spec(0)%rho_L(j)) cycle
+                if (abs(0.5d0 * (rg_grid%xb(j+1) + rg_grid%xb(j)) - 0.5d0 * (xl_grid%xb(l) + xl_grid%xb(lp))) > 1024.0d0 * plasma%spec(0)%rho_L(j)) cycle
+
+                int_F1_e%int_point = int_point
+                int_F2_e%int_point = int_point
+
+                ! F1 integration
+                integral_val = 0.0d0
+                call gauss_integrate_F1_electrons(int_F1_e, integral_val, gauss_conf)
+                integral_val = integral_val * pi ! pi because of missing Bessel function representation
+                k_rho_phi = k_rho_phi + integral_val * pref_rho_phi_g1(1,j) * int_point%ks 
+                k_rho_B = k_rho_B + integral_val * pref_rho_B_g1(1,j)
+                k_j_phi = k_j_phi + integral_val * pref_j_phi_g1(1,j) * int_point%ks
+                k_j_B = k_j_B + integral_val * pref_j_B_g1(1,j)
+
+                ! other terms are negligible for electrons (small rhoT in general)
+                cycle
+
+                ! F2 integration
+                call gauss_integrate_F2_electrons(int_F2_e, integral_val, gauss_conf)
+                k_rho_phi = k_rho_phi + integral_val * pref_rho_phi_g2(1,j) * int_point%ks
+                k_rho_B = k_rho_B + integral_val * pref_rho_B_g2(1,j)
+                k_j_phi = k_j_phi + integral_val * pref_j_phi_g2(1,j) * int_point%ks
+                k_j_B = k_j_B + integral_val * pref_j_B_g2(1,j)
+
+            end do
+        end if
+
+
+        if (.not. turn_off_ions) then
+            do sigma = 1, plasma%n_species - 1
+                do j = 1, rg_grid%npts_b-1
+
+                    int_point%j = j
+                    int_point%rhoT = max(plasma%spec(sigma)%rho_L_cc(j), 0.0d0)
+                    int_point%ks = plasma%ks_cc(j)
+
+                    if (abs(l-lp)<=1 .and. artificial_debye_case /= 2) then
+                        int_F0%int_point = int_point
+                        call gauss_integrate_F0(int_F0, int_point%xlm1, int_point%xlp1, integral_val, gauss_conf)
+                        k_rho_phi = k_rho_phi + integral_val * (-1.0d0) * (1.0d0 / (plasma%spec(sigma)%lambda_D_cc(j)**2.0d0))
+                    end if
+
+                    if (artificial_debye_case == 1) cycle
+
+                    ! skip term if species Larmor radius is too small to couple these grid points
+                    if (abs(l-lp) > 10 .and. abs(xl_grid%xb(l) - xl_grid%xb(lp))> 4.0d0 * plasma%spec(sigma)%rho_L(j)) cycle
+                    if (abs(0.5d0 * (rg_grid%xb(j+1) + rg_grid%xb(j)) - 0.5d0 * (xl_grid%xb(l) + xl_grid%xb(lp))) > 16.0d0 * plasma%spec(sigma)%rho_L(j)) cycle
+
+                    int_F1%int_point = int_point
+                    int_F2%int_point = int_point
+                    int_F3%int_point = int_point
+
+                    ! F1 integration
+                    call gauss_integrate_F1(int_F1, integral_val, gauss_conf)
+                    k_rho_phi = k_rho_phi + integral_val * pref_rho_phi_g1(sigma+1,j) * int_point%ks
+                    k_rho_B = k_rho_B + integral_val * pref_rho_B_g1(sigma+1,j)
+                    k_j_phi = k_j_phi + integral_val * pref_j_phi_g1(sigma+1,j) * int_point%ks
+                    k_j_B = k_j_B + integral_val * pref_j_B_g1(sigma+1,j)
+
+                    ! F2 integration
+                    call gauss_integrate_F2(int_F2, integral_val, gauss_conf)
+                    k_rho_phi = k_rho_phi + integral_val * pref_rho_phi_g2(sigma+1,j) * int_point%ks
+                    k_rho_B = k_rho_B + integral_val * pref_rho_B_g2(sigma+1,j)
+                    k_j_phi = k_j_phi + integral_val * pref_j_phi_g2(sigma+1,j) * int_point%ks
+                    k_j_B = k_j_B + integral_val * pref_j_B_g2(sigma+1,j)
+
+                    ! F3 integration
+                    call gauss_integrate_F3(int_F3, integral_val, gauss_conf)
+                    k_rho_phi = k_rho_phi + integral_val * pref_rho_phi_g3(sigma+1,j) * int_point%ks
+                    k_rho_B = k_rho_B + integral_val * pref_rho_B_g3(sigma+1,j)
+                    k_j_phi = k_j_phi + integral_val * pref_j_phi_g3(sigma+1,j) * int_point%ks
+                    k_j_B = k_j_B + integral_val * pref_j_B_g3(sigma+1,j)
+
+                end do
+            end do
+        end if
+
+        k_rho_phi = k_rho_phi / (8.0d0 * pi**3.0d0)
+        k_rho_B = k_rho_B / (8.0d0 * pi**3.0d0)
+
+        k_j_phi = k_j_phi / (8.0d0 * pi**3.0d0)
+        k_j_B = k_j_B / (8.0d0 * pi**3.0d0)
+
+            
+    end subroutine
+
+    subroutine FP_calc_kernel_zero_FLR_limit_electrons(l, lp, k_rho_phi, k_rho_B, k_j_phi, k_j_B, gauss_conf)
+
+        use KIM_kinds_m, only: dp
+        use integrals_gauss_m, only: gauss_integrate_F0, gauss_integrate_F1, gauss_integrate_F2, gauss_integrate_F3,&
+            gauss_config_t, gauss_integrate_F1_electrons, gauss_integrate_F2_electrons
+        use species_m, only: plasma
+        use constants_m, only: pi
+        use integrands_gauss_m, only: gauss_int_F0_rho_phi_t, gauss_int_F1_rho_phi_t, gauss_int_F2_rho_phi_t, gauss_int_F3_rho_phi_t, &
+            integration_point_t, gauss_int_F1_rho_phi_electrons_t, gauss_int_F2_rho_phi_electrons_t
+        use FP_kernel_plasma_prefacs_m, only: FP_G0_rho_phi
+        use grid_m, only: Larmor_skip_factor, kernel_taper_skip_threshold, rg_grid, xl_grid
+        use constants_m, only: com_unit, sol
+        use config_m, only: turn_off_ions, turn_off_electrons, artificial_debye_case
+        use functions_m, only: varphi_l
+
+        implicit none
+
+        integer, intent(in) :: l, lp
+        complex(dp) :: k_rho_phi_Debye, k_rho_phi, k_rho_B, k_j_phi, k_j_B
+        integer :: j, sigma
+        type(gauss_config_t), intent(in) :: gauss_conf
+        real(dp) :: integral_val
+        real(dp) :: current_distance
+        real(dp) :: delta_rg
+
+        type(integration_point_t) :: int_point
+        type(gauss_int_F0_rho_phi_t) :: int_F0
+        type(gauss_int_F1_rho_phi_t) :: int_F1
+        type(gauss_int_F2_rho_phi_t) :: int_F2
+        type(gauss_int_F3_rho_phi_t) :: int_F3
+
+        type(gauss_int_F1_rho_phi_electrons_t) :: int_F1_e
+        type(gauss_int_F2_rho_phi_electrons_t) :: int_F2_e
+
+        k_rho_phi_Debye = (0.0d0, 0.0d0)
+        k_rho_phi = (0.0d0, 0.0d0)
+        k_rho_B = (0.0d0, 0.0d0)
+        k_j_phi = (0.0d0, 0.0d0)
+        k_j_B = (0.0d0, 0.0d0)
+
+        call set_xl_at_edge(l, lp, int_point)
+
+        delta_rg = rg_grid%xb(2) - rg_grid%xb(1)
+
+        j = 1
+        int_point%j = j
+        int_point%rhoT = max(plasma%spec(0)%rho_L_cc(j), 0.0d0)
+        int_point%ks = plasma%ks_cc(j)
+
+        k_rho_phi_Debye = k_rho_phi_Debye + (-1.0d0) / (plasma%spec(0)%lambda_D_cc(j)**2.0d0) &
+            * varphi_l(rg_grid%xb(j), int_point%xlm1, int_point%xl, int_point%xlp1) &
+            * varphi_l(rg_grid%xb(j), int_point%xlpm1, int_point%xlp, int_point%xlpp1) 
+
+        k_rho_phi = k_rho_phi + pref_rho_phi_g1(1, j) * int_point%ks * 4.0d0 * pi**2.0d0 &
+            * varphi_l(rg_grid%xb(j), int_point%xlm1, int_point%xl, int_point%xlp1) &
+            * varphi_l(rg_grid%xb(j), int_point%xlpm1, int_point%xlp, int_point%xlpp1) 
+
+        k_rho_B = k_rho_B + pref_rho_B_g1(1,j) * 4.0d0 * pi**2.0d0 &
+            * varphi_l(rg_grid%xb(j), int_point%xlm1, int_point%xl, int_point%xlp1)&
+            * varphi_l(rg_grid%xb(j), int_point%xlpm1, int_point%xlp, int_point%xlpp1)
+
+        int_point%j = rg_grid%npts_b
+        int_point%rhoT = max(plasma%spec(0)%rho_L_cc(j), 0.0d0)
+        int_point%ks = plasma%ks_cc(j)
+
+        k_rho_phi_Debye = k_rho_phi_Debye + (-1.0d0) / (plasma%spec(0)%lambda_D_cc(j)**2.0d0) &
+            * varphi_l(rg_grid%xb(j), int_point%xlm1, int_point%xl, int_point%xlp1) &
+            * varphi_l(rg_grid%xb(j), int_point%xlpm1, int_point%xlp, int_point%xlpp1) 
+
+        k_rho_phi = k_rho_phi + pref_rho_phi_g1(1, j) * int_point%ks * 4.0d0 * pi**2.0d0 &
+            * varphi_l(rg_grid%xb(j), int_point%xlm1, int_point%xl, int_point%xlp1) &
+            * varphi_l(rg_grid%xb(j), int_point%xlpm1, int_point%xlp, int_point%xlpp1) 
+
+        k_rho_B = k_rho_B + pref_rho_B_g1(1,j) * 4.0d0 * pi**2.0d0 &
+            * varphi_l(rg_grid%xb(j), int_point%xlm1, int_point%xl, int_point%xlp1)&
+            * varphi_l(rg_grid%xb(j), int_point%xlpm1, int_point%xlp, int_point%xlpp1)
+
+        do j = 1, rg_grid%npts_b-1
+
+            int_point%j = j
+            int_point%rhoT = plasma%spec(0)%rho_L_cc(j)
+            int_point%ks = plasma%ks_cc(j)
+
+            if (j==1) cycle
+
+            k_rho_phi_Debye = k_rho_phi_Debye + (-1.0d0) * (1.0d0 / (plasma%spec(0)%lambda_D_cc(j)**2.0d0)) &
+                        * varphi_l(rg_grid%xb(j), int_point%xlm1, int_point%xl, int_point%xlp1) &
+                        * varphi_l(rg_grid%xb(j), int_point%xlpm1, int_point%xlp, int_point%xlpp1) !&
+
+
+            k_rho_phi = k_rho_phi + pref_rho_phi_g1(1,j) * int_point%ks &
+                * varphi_l(rg_grid%xb(j), int_point%xlm1, int_point%xl, int_point%xlp1) &
+                * varphi_l(rg_grid%xb(j), int_point%xlpm1, int_point%xlp, int_point%xlpp1) !&
+                !/ (2.0d0)
+            k_rho_B = k_rho_B + pref_rho_B_g1(1,j) &
+                * varphi_l(rg_grid%xb(j), int_point%xlm1, int_point%xl, int_point%xlp1)&
+                * varphi_l(rg_grid%xb(j), int_point%xlpm1, int_point%xlp, int_point%xlpp1) !&
+                !/ (2.0d0)
+
+        end do
+
+        k_rho_phi = (k_rho_phi_Debye + k_rho_phi) * delta_rg / (4.0d0 * pi)! / (8.0d0 * pi**2.0d0)
+        k_rho_B = k_rho_B * delta_rg / (4.0d0 * pi)!(8.0d0 * pi**2.0d0)
+
+        k_j_phi = k_j_phi / (8.0d0 * pi**3.0d0)
+        k_j_B = k_j_B / (8.0d0 * pi**3.0d0)
+
+            
+    end subroutine
+
+
+    subroutine FP_calc_kernel_element_electrons(l, lp, k_rho_phi, k_rho_B, k_j_phi, k_j_B, gauss_conf)
+
+        use KIM_kinds_m, only: dp
+        use integrals_gauss_m, only: gauss_integrate_F0, gauss_config_t, gauss_integrate_F1_electrons, gauss_integrate_F2_electrons
+        use species_m, only: plasma
+        use constants_m, only: pi
+        use integrands_gauss_m, only: gauss_int_F0_rho_phi_t, gauss_int_F1_rho_phi_t, gauss_int_F2_rho_phi_t, gauss_int_F3_rho_phi_t, &
+            integration_point_t, gauss_int_F1_rho_phi_electrons_t, gauss_int_F2_rho_phi_electrons_t
+        use FP_kernel_plasma_prefacs_m, only: FP_G0_rho_phi
+        use grid_m, only: Larmor_skip_factor, kernel_taper_skip_threshold, rg_grid
+        use constants_m, only: com_unit, sol
+        use config_m, only: turn_off_ions, turn_off_electrons, artificial_debye_case
+        use grid_m, only: xl_grid
+
+        implicit none
+
+        integer, intent(in) :: l, lp
+        complex(dp) :: k_rho_phi, k_rho_B, k_j_phi, k_j_B
+        integer :: j, sigma
+        type(gauss_config_t), intent(in) :: gauss_conf
+        real(dp) :: integral_val
+        real(dp) :: current_distance
+
+        type(integration_point_t) :: int_point
+        type(gauss_int_F0_rho_phi_t) :: int_F0
+
+        type(gauss_int_F1_rho_phi_electrons_t) :: int_F1_e
+        type(gauss_int_F2_rho_phi_electrons_t) :: int_F2_e
+
+        k_rho_phi = (0.0d0, 0.0d0)
+        k_rho_B = (0.0d0, 0.0d0)
+        k_j_phi = (0.0d0, 0.0d0)
+        k_j_B = (0.0d0, 0.0d0)
+
+        call set_xl_at_edge(l, lp, int_point)
+
+        do j = 1, rg_grid%npts_b-1
+
+            int_point%j = j
+            int_point%rhoT = max(plasma%spec(0)%rho_L_cc(j), 0.0d0)
+            int_point%ks = plasma%ks_cc(j)
+
+            if (abs(l-lp)<=1 .and. artificial_debye_case /= 2) then
+                int_F0%int_point = int_point
+                call gauss_integrate_F0(int_F0, int_point%xlm1, int_point%xlp1, integral_val, gauss_conf)
+                k_rho_phi = k_rho_phi + integral_val * (-1.0d0) * (1.0d0 / (plasma%spec(0)%lambda_D_cc(j)**2.0d0))
+            end if
+
+            if (artificial_debye_case == 1) cycle
+
+            ! skip term if species Larmor radius is too small to couple these grid points
+            if (abs(l-lp) > 10 .and. abs(xl_grid%xb(l) - xl_grid%xb(lp))> 4.0d0 * plasma%spec(0)%rho_L(j)) cycle
+            if (abs(0.5d0 * (rg_grid%xb(j+1) + rg_grid%xb(j)) - 0.5d0 * (xl_grid%xb(l) + xl_grid%xb(lp))) > 16.0d0 * plasma%spec(0)%rho_L(j)) cycle
+
+            int_F1_e%int_point = int_point
+            int_F2_e%int_point = int_point
+
+            ! F1 integration
+            call gauss_integrate_F1_electrons(int_F1_e, integral_val, gauss_conf)
+            k_rho_phi = k_rho_phi + integral_val * pref_rho_phi_g1(1,j) * int_point%ks
+            k_rho_B = k_rho_B + integral_val * pref_rho_B_g1(1,j)
+            k_j_phi = k_j_phi + integral_val * pref_j_phi_g1(1,j) * int_point%ks
+            k_j_B = k_j_B + integral_val * pref_j_B_g1(1,j)
+
+            ! F2 integration
+            call gauss_integrate_F2_electrons(int_F2_e, integral_val, gauss_conf)
+            k_rho_phi = k_rho_phi + integral_val * pref_rho_phi_g2(1,j) * int_point%ks
+            k_rho_B = k_rho_B + integral_val * pref_rho_B_g2(1,j)
+            k_j_phi = k_j_phi + integral_val * pref_j_phi_g2(1,j) * int_point%ks
+            k_j_B = k_j_B + integral_val * pref_j_B_g2(1,j)
+
+        end do
+
+        k_rho_phi = k_rho_phi / (8.0d0 * pi**3.0d0)
+        k_rho_B = k_rho_B / (8.0d0 * pi**3.0d0)
+
+        k_j_phi = k_j_phi / (8.0d0 * pi**3.0d0)
+        k_j_B = k_j_B / (8.0d0 * pi**3.0d0)
+
+            
+    end subroutine
+
+    subroutine FP_calc_kernel_element_ions(l, lp, k_rho_phi, k_rho_B, k_j_phi, k_j_B, gauss_conf)
+
+        use KIM_kinds_m, only: dp
+        use integrals_gauss_m, only: gauss_integrate_F0, gauss_integrate_F1, gauss_integrate_F2, gauss_integrate_F3,&
             gauss_config_t
         use species_m, only: plasma
         use constants_m, only: pi
@@ -469,12 +814,11 @@ module kernel_m
         use constants_m, only: com_unit, sol
         use config_m, only: turn_off_ions, turn_off_electrons, artificial_debye_case
         use grid_m, only: xl_grid
-        
+
         implicit none
 
         integer, intent(in) :: l, lp
         complex(dp) :: k_rho_phi, k_rho_B, k_j_phi, k_j_B
-        complex(dp) :: c_rho_phi, c_rho_B, c_j_phi, c_j_B  ! Kahan compensation terms
         integer :: j, sigma
         type(gauss_config_t), intent(in) :: gauss_conf
         real(dp) :: integral_val
@@ -490,16 +834,10 @@ module kernel_m
         k_rho_B = (0.0d0, 0.0d0)
         k_j_phi = (0.0d0, 0.0d0)
         k_j_B = (0.0d0, 0.0d0)
-        c_rho_phi = (0.0d0, 0.0d0)
-        c_rho_B   = (0.0d0, 0.0d0)
-        c_j_phi   = (0.0d0, 0.0d0)
-        c_j_B     = (0.0d0, 0.0d0)
 
         call set_xl_at_edge(l, lp, int_point)
 
-        do sigma = 0, plasma%n_species - 1
-            if (turn_off_ions .and. sigma >= 1) cycle
-            if (turn_off_electrons .and. sigma == 0) cycle
+        do sigma = 1, plasma%n_species - 1
             do j = 1, rg_grid%npts_b-1
 
                 int_point%j = j
@@ -507,161 +845,41 @@ module kernel_m
                 int_point%ks = plasma%ks_cc(j)
 
                 if (abs(l-lp)<=1 .and. artificial_debye_case /= 2) then
-                    block
-                        complex(dp) :: add, y, t
-                        int_F0%int_point = int_point
-                        call gauss_integrate_F0(int_F0, int_point%xlm1, int_point%xlp1, integral_val, gauss_conf)
-                        add = integral_val * (-1.0d0) * (1.0d0 / (plasma%spec(sigma)%lambda_D_cc(j)**2.0d0))
-                        ! Kahan summation for k_rho_phi
-                        y = add - c_rho_phi
-                        t = k_rho_phi + y
-                        c_rho_phi = (t - k_rho_phi) - y
-                        k_rho_phi = t
-                    end block
+                    int_F0%int_point = int_point
+                    call gauss_integrate_F0(int_F0, int_point%xlm1, int_point%xlp1, integral_val, gauss_conf)
+                    k_rho_phi = k_rho_phi + integral_val * (-1.0d0) * (1.0d0 / (plasma%spec(sigma)%lambda_D_cc(j)**2.0d0))
                 end if
 
                 if (artificial_debye_case == 1) cycle
 
                 ! skip term if species Larmor radius is too small to couple these grid points
                 if (abs(l-lp) > 10 .and. abs(xl_grid%xb(l) - xl_grid%xb(lp))> 4.0d0 * plasma%spec(sigma)%rho_L(j)) cycle
-                ! if (abs(rg_grid%xb(j) - (xl_grid%xb(l) + xl_grid%xb(lp)) / 2.0d0)> 4.0d0 * plasma%spec(sigma)%rho_L(j)) cycle
-                ! Check if rg point j is within range of either xl point
-                ! if (abs(rg_grid%xb(j) - xl_grid%xb(l)) > 32.0d0 * plasma%spec(sigma)%rho_L(j) .and. &
-                    ! abs(rg_grid%xb(j) - xl_grid%xb(lp)) > 32.0d0 * plasma%spec(sigma)%rho_L(j)) cycle
                 if (abs(0.5d0 * (rg_grid%xb(j+1) + rg_grid%xb(j)) - 0.5d0 * (xl_grid%xb(l) + xl_grid%xb(lp))) > 16.0d0 * plasma%spec(sigma)%rho_L(j)) cycle
 
-                ! Calculate distance and weight for taper weighting
-                current_distance = abs(int_point%xl - int_point%xlp)
+                int_F1%int_point = int_point
+                int_F2%int_point = int_point
+                int_F3%int_point = int_point
 
-                ! Smoothly taper contributions for large separations; optionally skip tiny weights
-                block
-                    real(dp) :: eps_r, weight
-                    ! eps_r = 1.0d-12
-                    ! weight = exp( - ( current_distance / (Larmor_skip_factor * max(int_point%rhoT, eps_r)) )**2.0d0 )
-                    ! if (weight < kernel_taper_skip_threshold) cycle
-                    weight = 1.0d0
+                ! F1 integration
+                call gauss_integrate_F1(int_F1, integral_val, gauss_conf)
+                k_rho_phi = k_rho_phi + integral_val * pref_rho_phi_g1(sigma+1,j) * int_point%ks
+                k_rho_B = k_rho_B + integral_val * pref_rho_B_g1(sigma+1,j)
+                k_j_phi = k_j_phi + integral_val * pref_j_phi_g1(sigma+1,j) * int_point%ks
+                k_j_B = k_j_B + integral_val * pref_j_B_g1(sigma+1,j)
 
-                    int_F1%int_point = int_point
-                    int_F2%int_point = int_point
-                    int_F3%int_point = int_point
+                ! F2 integration
+                call gauss_integrate_F2(int_F2, integral_val, gauss_conf)
+                k_rho_phi = k_rho_phi + integral_val * pref_rho_phi_g2(sigma+1,j) * int_point%ks
+                k_rho_B = k_rho_B + integral_val * pref_rho_B_g2(sigma+1,j)
+                k_j_phi = k_j_phi + integral_val * pref_j_phi_g2(sigma+1,j) * int_point%ks
+                k_j_B = k_j_B + integral_val * pref_j_B_g2(sigma+1,j)
 
-                    ! F1 integration
-                    call gauss_integrate_F1(int_F1, integral_val, gauss_conf)
-
-                    block
-                        complex(dp) :: add, y, t
-                        add = weight * integral_val * pref_rho_phi_g1(sigma+1,j) * int_point%ks
-                        y = add - c_rho_phi
-                        t = k_rho_phi + y
-                        c_rho_phi = (t - k_rho_phi) - y
-                        k_rho_phi = t
-                    end block
-
-                    block
-                        complex(dp) :: add, y, t
-                        add = weight * integral_val * pref_rho_B_g1(sigma+1,j)
-                        y = add - c_rho_B
-                        t = k_rho_B + y
-                        c_rho_B = (t - k_rho_B) - y
-                        k_rho_B = t
-                    end block
-
-                    block
-                        complex(dp) :: add, y, t
-                        add = weight * integral_val * pref_j_phi_g1(sigma+1,j) * int_point%ks
-                        y = add - c_j_phi
-                        t = k_j_phi + y
-                        c_j_phi = (t - k_j_phi) - y
-                        k_j_phi = t
-                    end block
-
-                    block
-                        complex(dp) :: add, y, t
-                        add = weight * integral_val * pref_j_B_g1(sigma+1,j)
-                        y = add - c_j_B
-                        t = k_j_B + y
-                        c_j_B = (t - k_j_B) - y
-                        k_j_B = t
-                    end block
-
-                    ! F2 integration
-                    call gauss_integrate_F2(int_F2, integral_val, gauss_conf)
-
-                    block
-                        complex(dp) :: add, y, t
-                        add = weight * integral_val * pref_rho_phi_g2(sigma+1,j) * int_point%ks
-                        y = add - c_rho_phi
-                        t = k_rho_phi + y
-                        c_rho_phi = (t - k_rho_phi) - y
-                        k_rho_phi = t
-                    end block
-
-                    block
-                        complex(dp) :: add, y, t
-                        add = weight * integral_val * pref_rho_B_g2(sigma+1,j)
-                        y = add - c_rho_B
-                        t = k_rho_B + y
-                        c_rho_B = (t - k_rho_B) - y
-                        k_rho_B = t
-                    end block
-
-                    block
-                        complex(dp) :: add, y, t
-                        add = weight * integral_val * pref_j_phi_g2(sigma+1,j) * int_point%ks
-                        y = add - c_j_phi
-                        t = k_j_phi + y
-                        c_j_phi = (t - k_j_phi) - y
-                        k_j_phi = t
-                    end block
-
-                    block
-                        complex(dp) :: add, y, t
-                        add = weight * integral_val * pref_j_B_g2(sigma+1,j)
-                        y = add - c_j_B
-                        t = k_j_B + y
-                        c_j_B = (t - k_j_B) - y
-                        k_j_B = t
-                    end block
-
-                    ! F3 integration
-                    call gauss_integrate_F3(int_F3, integral_val, gauss_conf)
-
-                    block
-                        complex(dp) :: add, y, t
-                        add = weight * integral_val * pref_rho_phi_g3(sigma+1,j) * int_point%ks
-                        y = add - c_rho_phi
-                        t = k_rho_phi + y
-                        c_rho_phi = (t - k_rho_phi) - y
-                        k_rho_phi = t
-                    end block
-
-                    block
-                        complex(dp) :: add, y, t
-                        add = weight * integral_val * pref_rho_B_g3(sigma+1,j)
-                        y = add - c_rho_B
-                        t = k_rho_B + y
-                        c_rho_B = (t - k_rho_B) - y
-                        k_rho_B = t
-                    end block
-
-                    block
-                        complex(dp) :: add, y, t
-                        add = weight * integral_val * pref_j_phi_g3(sigma+1,j) * int_point%ks
-                        y = add - c_j_phi
-                        t = k_j_phi + y
-                        c_j_phi = (t - k_j_phi) - y
-                        k_j_phi = t
-                    end block
-
-                    block
-                        complex(dp) :: add, y, t
-                        add = weight * integral_val * pref_j_B_g3(sigma+1,j)
-                        y = add - c_j_B
-                        t = k_j_B + y
-                        c_j_B = (t - k_j_B) - y
-                        k_j_B = t
-                    end block
-                end block
+                ! F3 integration
+                call gauss_integrate_F3(int_F3, integral_val, gauss_conf)
+                k_rho_phi = k_rho_phi + integral_val * pref_rho_phi_g3(sigma+1,j) * int_point%ks
+                k_rho_B = k_rho_B + integral_val * pref_rho_B_g3(sigma+1,j)
+                k_j_phi = k_j_phi + integral_val * pref_j_phi_g3(sigma+1,j) * int_point%ks
+                k_j_B = k_j_B + integral_val * pref_j_B_g3(sigma+1,j)
 
             end do
         end do
@@ -674,6 +892,7 @@ module kernel_m
 
             
     end subroutine
+
     
     subroutine set_xl_at_edge(l, lp, int_point)
         

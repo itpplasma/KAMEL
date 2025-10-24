@@ -20,7 +20,7 @@ module functions_m
 
         if (x >= x_lm1 .and. x < x_l) then
             phi = (x - x_lm1) / h_lm1
-        else if (x >= x_l .and. x <= x_lp1) then  ! Changed < to <= to include boundary
+        else if (x >= x_l .and. x <= x_lp1) then
             phi = (x_lp1 - x) / h_l
         else
             phi = 0.0d0

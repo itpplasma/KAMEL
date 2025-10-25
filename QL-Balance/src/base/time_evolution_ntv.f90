@@ -40,6 +40,8 @@ contains
 
         ! NEO-RT
         allocate (this%plasma_data(npoic, 6))
+        allocate (this%profile_data(npoic, 2))
+
         call set_log_level(4)  ! for development purposes
 
         call read_and_set_control("neo-rt/driftorbit") ! NEO-RT config
@@ -47,8 +49,11 @@ contains
         ! call do_magfie_pert_init("neo-rt/in_file_pert") ! Boozer perturbed field file
         call init_profiles(R0) ! minor stuff
         call read_and_init_profile_input("neo-rt/profile.in", s, R0, efac, bfac)
-        call prepare_profile_data_for_neort(this % profile_data)
         call prepare_plasma_data_for_neort(this%plasma_data, this%am1, this%am2, this%Z1, this%Z2)
+        call prepare_profile_data_for_neort(this%profile_data)
+
+        call init_plasma_input(s, npoic, this%am1, this%am2, this%Z1, this%Z2, this%plasma_data)
+        call init_profile_input(s, R0, efac, bfac, this%profile_data)
 
         call init
         call check_magfie(magfie_data)

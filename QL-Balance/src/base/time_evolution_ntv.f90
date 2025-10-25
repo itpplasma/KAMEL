@@ -7,6 +7,7 @@ module time_evolution_ntv
     type, public, extends(TimeEvolution_t) :: TimeEvolutionNTV_t
         ! for NEO-RT
         real(dp), allocatable :: plasma_data(:, :)
+        real(dp), allocatable :: profile_data(:, :)
         real(dp) :: am1, am2, Z1, Z2
     contains
         procedure :: init_balance => initTimeEvolutionNTV
@@ -26,7 +27,7 @@ contains
         use neort, only: read_and_set_control, read_and_init_plasma_input, &
                          read_and_init_profile_input, init, check_magfie
         use driftorbit, only: efac
-        use neort_interface, only: prepare_plasma_data_for_neort
+        use neort_interface, only: prepare_plasma_data_for_neort, prepare_profile_data_for_neort
 
         class(TimeEvolutionNTV_t), intent(inout) :: this
 
@@ -44,6 +45,7 @@ contains
         call read_and_init_profile_input("neo-rt/profile.in", s, R0, efac, bfac)
         call prepare_plasma_data_for_neort(this % plasma_data, this % am1, this % am2, this % Z1, &
                                            this % Z2)
+        call prepare_profile_data_for_neort(this % profile_data)
 
         call init
         call check_magfie("neo-rt/qlb")

@@ -90,6 +90,7 @@ set(balance_lib_base_fortran_sources
     ${base_balance_src}/kim_wave_code_adapter.f90
     ${base_balance_src}/magnetic_island_width.f90
     ${base_balance_src}/matrix_mod.f90
+    ${base_balance_src}/neort_interface.f90
     ${base_balance_src}/paramscan.f90
     ${base_balance_src}/periodic_transport_benchmark_m.f90
     ${base_balance_src}/periodic_embedding_m.f90

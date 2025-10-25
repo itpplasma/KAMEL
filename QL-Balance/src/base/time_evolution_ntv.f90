@@ -1,6 +1,7 @@
 module time_evolution_ntv
     use iso_fortran_env, only: dp => real64
     use time_evolution, only: TimeEvolution_t
+    use neort_datatypes
 
     implicit none
 
@@ -9,6 +10,8 @@ module time_evolution_ntv
         real(dp), allocatable :: plasma_data(:, :)
         real(dp), allocatable :: profile_data(:, :)
         real(dp) :: am1, am2, Z1, Z2
+        ! from NEO-RT
+        type(transport_data_t), allocatable :: transport_data(:)
     contains
         procedure :: init_balance => initTimeEvolutionNTV
         procedure :: run_balance => runTimeEvolutionNTV
@@ -22,17 +25,18 @@ contains
     subroutine initTimeEvolutionNTV(this)
         use do_magfie_mod, only: R0, s, bfac, do_magfie_init
         use do_magfie_pert_mod, only: do_magfie_pert_init
-        use neort_profiles, only: init_profiles
         use logger, only: set_log_level
         use neort, only: read_and_set_control, read_and_init_plasma_input, &
                          read_and_init_profile_input, init, check_magfie
         use driftorbit, only: efac
         use neort_interface, only: prepare_plasma_data_for_neort, prepare_profile_data_for_neort
+        use neort_profiles, only: init_profiles, init_plasma_input, init_profile_input
 
         class(TimeEvolutionNTV_t), intent(inout) :: this
 
         call this % TimeEvolution_t % init_balance
         this % runType = "TimeEvolutionNTV"
+        class(magfie_data_t) :: magfie_data
 
         ! NEO-RT
         allocate(this % plasma_data(npoic, 6))
@@ -48,7 +52,7 @@ contains
         call prepare_profile_data_for_neort(this % profile_data)
 
         call init
-        call check_magfie("neo-rt/qlb")
+        call check_magfie(magfie_data)
     end subroutine initTimeEvolutionNTV
 
     subroutine runTimeEvolutionNTV(this)

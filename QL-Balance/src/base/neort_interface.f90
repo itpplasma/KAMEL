@@ -10,7 +10,9 @@ module neort_interface
     private
 
     public :: prepare_plasma_data_for_neort
+    public :: prepare_profile_data_for_neort
 
+    real(dp), parameter :: CM_TO_M = 1d-2
     real(dp), parameter :: CM3_TO_M3 = 1d-6
     real(dp), parameter :: ERG_TO_EV = 1d0 / EV_TO_ERG
 
@@ -78,6 +80,57 @@ contains
         end do
 
     end subroutine prepare_plasma_data_for_neort
+
+    !> @brief Prepare rotation profile data for NEO-RT from KAMEL arrays
+    !> @param[out] profile_data 2D array (nflux, 3) for NEO-RT profile input
+    subroutine prepare_profile_data_for_neort(profile_data)
+        use grid_mod, only: npoic, rc
+        use plasma_parameters, only: params
+        use baseparam_mod, only: R0 => rtor, am, p_mass
+
+        real(dp), intent(out) :: profile_data(:, :)
+
+        integer :: ipoi
+        real(dp), allocatable :: s(:)
+        real(dp) :: omega_tor, v_tor, T_i, m_i, vth, M_t
+
+        ! Check dimensions
+        if (size(profile_data, 1) /= npoic) then
+            error stop "prepare_neort_profile_data: profile_data dimension mismatch"
+        end if
+        if (size(profile_data, 2) /= 2) then
+            error stop "prepare_neort_profile_data: profile_data must have two columns (s, M_t)"
+        end if
+
+        allocate(s(npoic))
+        call calculate_s(s, rc)
+
+        ! Fill profile data array
+        do ipoi = 1, npoic
+            ! Column 1: Normalized toroidal flux s (0 to 1)
+            profile_data(ipoi, 1) = s(ipoi)
+
+            ! Column 2: Toroidal Mach number M_t in [m/s]
+            ! KAMEL params(2, :) is toroidal angular frequency [rad/s]
+            ! KAMEL params(4, :) is ion temperatur [erg]
+            omega_tor = params(2, ipoi)
+            v_tor = omega_tor * R0  ! toroidal velocity [cm/s]
+            T_i = params(4, ipoi)
+            m_i = am * p_mass  ! ion mass [g]
+            vth = sqrt(2d0 * T_i / m_i)  ! thermal velocity [cm/s]
+            M_t = v_tor / vth * CM_TO_M
+            profile_data(ipoi, 2) = M_t
+
+            ! Calculate Mach number
+            ! TODO: is this necessary?
+            ! if (vth > 0.0d0) then
+            !     profile_data(ipoi, 2) = v_toroidal / vth
+            ! else
+            !     profile_data(ipoi, 2) = 0.0d0
+            ! end if
+        end do
+
+    end subroutine prepare_profile_data_for_neort
 
     subroutine calculate_s(s, r)
         real(dp), intent(out) :: s(:)

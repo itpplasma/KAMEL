@@ -20,17 +20,11 @@ contains
 
     !> @brief Prepare plasma profile data for NEO-RT from KAMEL arrays
     !> @param[out] plasma_data 2D array (nflux, 6) for NEO-RT plasma input
-    !> @param[out] am1 Mass of species 1 [atomic mass units]
-    !> @param[out] am2 Mass of species 2 [atomic mass units]
-    !> @param[out] Z1 Charge of species 1
-    !> @param[out] Z2 Charge of species 2
-    subroutine prepare_plasma_data_for_neort(plasma_data, am1, am2, Z1, Z2)
-        use baseparam_mod, only: am, Z_i
+    subroutine prepare_plasma_data_for_neort(plasma_data)
         use grid_mod, only: npoic, rc, Sc
         use plasma_parameters, only: params
 
         real(dp), intent(out) :: plasma_data(:, :)
-        real(dp), intent(out) :: am1, am2, Z1, Z2
 
         integer :: ipoi
         real(dp), allocatable :: s(:)
@@ -42,12 +36,6 @@ contains
         if (size(plasma_data, 2) /= 6) then
             error stop "prepare_neort_plasma_data: plasma_data must have six columns"
         end if
-
-        ! Set species parameters from KAMEL
-        am1 = am  ! Main ion mass [u]
-        am2 = am  ! Secondary species (same as main for now)
-        Z1 = Z_i  ! Main ion charge
-        Z2 = Z_i  ! Secondary species charge
 
         allocate(s(npoic))
         call calculate_s(s, rc)

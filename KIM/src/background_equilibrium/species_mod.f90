@@ -363,15 +363,12 @@ module species_m
 
                 plasma_in%spec(sp)%rho_L(i) = abs(plasma_in%spec(sp)%vT(i) / (plasma_in%spec(sp)%omega_c(i)))
 
-                plasma_in%spec(sp)%lambda_D(i) = sqrt(plasma_in%spec(sp)%T(i) *ev / (4.0d0*pi* plasma_in%spec(sp)%n(i) &
+                plasma_in%spec(sp)%lambda_D(i) = sqrt((plasma_in%spec(sp)%T(i) * ev) / (4.0d0*pi* plasma_in%spec(sp)%n(i) &
                     * (plasma_in%spec(sp)%Zspec * e_charge)**2.0d0))
 
                 plasma_in%spec(sp)%A1(i) = plasma_in%spec(sp)%dndr(i) / plasma_in%spec(sp)%n(i) - plasma_in%spec(sp)%Zspec *e_charge&
                     /(plasma_in%spec(sp)%T(i) * ev) * plasma_in%Er(i) - 3.0d0/(2.0d0 * plasma_in%spec(sp)%T(i)) * plasma_in%spec(sp)%dTdr(i)
                 plasma_in%spec(sp)%A2(i) = plasma_in%spec(sp)%dTdr(i) / plasma_in%spec(sp)%T(i)
-
-                plasma_in%spec(sp)%z0(i) = - (plasma_in%om_E(i) - omega - com_unit * plasma_in%spec(sp)%nu(i)) &
-                    / (abs(plasma_in%kp(i)) * sqrt(2d0) * plasma_in%spec(sp)%vT(i) )
             end do
         end do
 
@@ -420,6 +417,8 @@ module species_m
 
         do sp =0, plasma_in%n_species-1
             do i = 1,plasma_in%grid_size
+                plasma_in%spec(sp)%z0(i) = - (plasma_in%om_E(i) - omega - com_unit * plasma_in%spec(sp)%nu(i)) &
+                    / (abs(plasma_in%kp(i)) * sqrt(2d0) * plasma_in%spec(sp)%vT(i) )
                 plasma_in%spec(sp)%x1(i) = plasma_in%kp(i) * plasma_in%spec(sp)%vT(i) / plasma_in%spec(sp)%nu(i)
                 plasma_in%spec(sp)%x2(i) = - (plasma_in%om_E(i) - omega) / plasma_in%spec(sp)%nu(i)
                 if (collisions_off .eqv. .true.)then
@@ -440,12 +439,10 @@ module species_m
             print *, " "
             do sp = 0, plasma_in%n_species-1
                 do i = 1, plasma_in%grid_size
+                    ! density rescaling only affects lambda_D (in A_1 the rescaling cancels out)
                     plasma_in%spec(sp)%n(i) = plasma_in%spec(sp)%n(i) * number_density_rescale
-                    plasma_in%spec(sp)%dndr(i) = plasma_in%spec(sp)%dndr(i) * number_density_rescale
-                    plasma_in%spec(sp)%lambda_D(i) = sqrt(plasma_in%spec(sp)%T(i) *ev / (4.0d0*pi* plasma_in%spec(sp)%n(i) &
+                    plasma_in%spec(sp)%lambda_D(i) = sqrt(plasma_in%spec(sp)%T(i) * ev / (4.0d0 * pi * plasma_in%spec(sp)%n(i) &
                         * (plasma_in%spec(sp)%Zspec * e_charge)**2.0d0))
-                    plasma_in%spec(sp)%A1(i) = plasma_in%spec(sp)%dndr(i) / plasma_in%spec(sp)%n(i) - plasma_in%spec(sp)%Zspec *e_charge&
-                        /(plasma_in%spec(sp)%T(i) * ev) * plasma_in%Er(i) - 3.0d0/(2.0d0 * plasma_in%spec(sp)%T(i)) * plasma_in%spec(sp)%dTdr(i)
                 end do
             end do
         end if

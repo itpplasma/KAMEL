@@ -79,8 +79,8 @@ module integrands_gauss_m
                   erf_diff((rg_grid%xb(this%int_point%j+1)-x)/(sqrt(2.0d0) * abs(this%int_point%rhoT)), &
                 (rg_grid%xb(this%int_point%j) - x)/(sqrt(2.0d0) * abs(this%int_point%rhoT)))&
             ) &
-            ! * 2.0d0 * pi**2.0d0
             * pi**2.0d0 ! from benchmarking, error function difference gives 2
+            
 
     end function
 
@@ -107,7 +107,7 @@ module integrands_gauss_m
             * exp(- ks_val**2.0d0 * this%int_point%rhoT**2.0d0 &
                   - (x - xp)**2.0d0 / (4.0d0 * this%int_point%rhoT**2.0d0 * (1.0d0 - cos(theta)))) &
             * this%int_point%Jrg1 &
-            / (2.0d0 * pi) ! is missing, found by benchmarking
+            / (2.0d0 * pi) ! &! is missing, found by benchmarking
 
     end function
 

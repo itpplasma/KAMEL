@@ -408,16 +408,16 @@ module kernel_m
 
                 do lp = max(1,lp_lo), min(l,lp_hi)
 
-                    !call FP_calc_kernel_element(l, lp, K_rho_phi_llp%Kllp(l, lp),&
-                                                !K_rho_B_llp%Kllp(l, lp), &
-                                                !K_j_phi_llp%Kllp(l, lp), &
-                                                !K_j_B_llp%Kllp(l, lp), &
-                                                !gauss_conf)
-                    call FP_calc_kernel_zero_FLR_limit_electrons(l, lp, K_rho_phi_llp%Kllp(l, lp),&
+                    call FP_calc_kernel_element(l, lp, K_rho_phi_llp%Kllp(l, lp),&
                                                 K_rho_B_llp%Kllp(l, lp), &
                                                 K_j_phi_llp%Kllp(l, lp), &
                                                 K_j_B_llp%Kllp(l, lp), &
                                                 gauss_conf)
+                    ! call FP_calc_kernel_zero_FLR_limit_electrons(l, lp, K_rho_phi_llp%Kllp(l, lp),&
+                                                ! K_rho_B_llp%Kllp(l, lp), &
+                                                ! K_j_phi_llp%Kllp(l, lp), &
+                                                ! K_j_B_llp%Kllp(l, lp), &
+                                                ! gauss_conf)
 
 
                     if (isnan(real(K_rho_phi_llp%Kllp(l,lp)))) then
@@ -508,7 +508,6 @@ module kernel_m
                 int_point%rhoT = max(plasma%spec(0)%rho_L_cc(j), 0.0d0)
                 int_point%ks = plasma%ks_cc(j)
 
-                ! if (abs(l-lp)<=1 .and. artificial_debye_case /= 2) then
                 if (abs(l-lp)<1 .and. artificial_debye_case /= 2) then
                     int_F0%int_point = int_point
                     call gauss_integrate_F0(int_F0, int_point%xlm1, int_point%xlp1, integral_val, gauss_conf)
@@ -518,9 +517,8 @@ module kernel_m
                 if (artificial_debye_case == 1) cycle
 
                 ! skip term if species Larmor radius is too small to couple these grid points
-                if (abs(l-lp) > 10 .and. abs(xl_grid%xb(l) - xl_grid%xb(lp))> 8.0d0 * plasma%spec(0)%rho_L(j)) cycle
+                if (abs(l-lp) > 10 .and. abs(xl_grid%xb(l) - xl_grid%xb(lp)) > 8.0d0 * plasma%spec(0)%rho_L(j)) cycle
                 ! this is more restrictive:
-                ! if (abs(0.5d0 * (rg_grid%xb(j+1) + rg_grid%xb(j)) - 0.5d0 * (xl_grid%xb(l) + xl_grid%xb(lp))) > 64.0d0 * plasma%spec(0)%rho_L(j)) cycle
                 if (abs(0.5d0 * (rg_grid%xb(j+1) + rg_grid%xb(j)) - 0.5d0 * (xl_grid%xb(l) + xl_grid%xb(lp))) > 1024.0d0 * plasma%spec(0)%rho_L(j)) cycle
 
                 int_F1_e%int_point = int_point
@@ -536,18 +534,9 @@ module kernel_m
                 k_j_B = k_j_B + integral_val * pref_j_B_g1(1,j)
 
                 ! other terms are negligible for electrons (small rhoT in general)
-                cycle
-
-                ! F2 integration
-                call gauss_integrate_F2_electrons(int_F2_e, integral_val, gauss_conf)
-                k_rho_phi = k_rho_phi + integral_val * pref_rho_phi_g2(1,j) * int_point%ks
-                k_rho_B = k_rho_B + integral_val * pref_rho_B_g2(1,j)
-                k_j_phi = k_j_phi + integral_val * pref_j_phi_g2(1,j) * int_point%ks
-                k_j_B = k_j_B + integral_val * pref_j_B_g2(1,j)
 
             end do
         end if
-
 
         if (.not. turn_off_ions) then
             do sigma = 1, plasma%n_species - 1
@@ -566,8 +555,8 @@ module kernel_m
                     if (artificial_debye_case == 1) cycle
 
                     ! skip term if species Larmor radius is too small to couple these grid points
-                    if (abs(l-lp) > 10 .and. abs(xl_grid%xb(l) - xl_grid%xb(lp))> 4.0d0 * plasma%spec(sigma)%rho_L(j)) cycle
-                    if (abs(0.5d0 * (rg_grid%xb(j+1) + rg_grid%xb(j)) - 0.5d0 * (xl_grid%xb(l) + xl_grid%xb(lp))) > 16.0d0 * plasma%spec(sigma)%rho_L(j)) cycle
+                    if (abs(l-lp) > 4 .and. abs(xl_grid%xb(l) - xl_grid%xb(lp))> 4.0d0 * plasma%spec(sigma)%rho_L(j)) cycle
+                    if (abs(0.5d0 * (rg_grid%xb(j+1) + rg_grid%xb(j)) - 0.5d0 * (xl_grid%xb(l) + xl_grid%xb(lp))) > 4.0d0 * plasma%spec(sigma)%rho_L(j)) cycle
 
                     int_F1%int_point = int_point
                     int_F2%int_point = int_point
@@ -579,6 +568,8 @@ module kernel_m
                     k_rho_B = k_rho_B + integral_val * pref_rho_B_g1(sigma+1,j)
                     k_j_phi = k_j_phi + integral_val * pref_j_phi_g1(sigma+1,j) * int_point%ks
                     k_j_B = k_j_B + integral_val * pref_j_B_g1(sigma+1,j)
+
+                    ! cycle ! for testing (makes it cheaper)
 
                     ! F2 integration
                     call gauss_integrate_F2(int_F2, integral_val, gauss_conf)
@@ -608,6 +599,8 @@ module kernel_m
     end subroutine
 
     subroutine FP_calc_kernel_zero_FLR_limit_electrons(l, lp, k_rho_phi, k_rho_B, k_j_phi, k_j_B, gauss_conf)
+        ! for benchmarking FLR2 and KIM against each other in the zero Larmor radius limit for electrons
+        ! Debye term is omitted since quasineutrality is exploited in FLR2
 
         use KIM_kinds_m, only: dp
         use integrals_gauss_m, only: gauss_integrate_F0, gauss_integrate_F1, gauss_integrate_F2, gauss_integrate_F3,&
@@ -625,7 +618,7 @@ module kernel_m
         implicit none
 
         integer, intent(in) :: l, lp
-        complex(dp) :: k_rho_phi_Debye, k_rho_phi, k_rho_B, k_j_phi, k_j_B
+        complex(dp) :: k_rho_phi, k_rho_B, k_j_phi, k_j_B
         integer :: j, sigma
         type(gauss_config_t), intent(in) :: gauss_conf
         real(dp) :: integral_val
@@ -641,7 +634,15 @@ module kernel_m
         type(gauss_int_F1_rho_phi_electrons_t) :: int_F1_e
         type(gauss_int_F2_rho_phi_electrons_t) :: int_F2_e
 
-        k_rho_phi_Debye = (0.0d0, 0.0d0)
+
+        if (abs(l-lp)>2) then
+            k_rho_phi = (0.0d0, 0.0d0)
+            k_rho_B = (0.0d0, 0.0d0)
+            k_j_phi = (0.0d0, 0.0d0)
+            k_j_B = (0.0d0, 0.0d0)
+            return
+        end if
+
         k_rho_phi = (0.0d0, 0.0d0)
         k_rho_B = (0.0d0, 0.0d0)
         k_j_phi = (0.0d0, 0.0d0)
@@ -651,20 +652,17 @@ module kernel_m
 
         delta_rg = rg_grid%xb(2) - rg_grid%xb(1)
 
+        ! simple trapezoidal rule over rg grid for Debye term and prefactor terms
         j = 1
         int_point%j = j
         int_point%rhoT = max(plasma%spec(0)%rho_L_cc(j), 0.0d0)
         int_point%ks = plasma%ks_cc(j)
 
-        k_rho_phi_Debye = k_rho_phi_Debye + (-1.0d0) / (plasma%spec(0)%lambda_D_cc(j)**2.0d0) &
+        k_rho_phi = k_rho_phi + pref_rho_phi_g1(1, j) * int_point%ks &
             * varphi_l(rg_grid%xb(j), int_point%xlm1, int_point%xl, int_point%xlp1) &
             * varphi_l(rg_grid%xb(j), int_point%xlpm1, int_point%xlp, int_point%xlpp1) 
 
-        k_rho_phi = k_rho_phi + pref_rho_phi_g1(1, j) * int_point%ks * 4.0d0 * pi**2.0d0 &
-            * varphi_l(rg_grid%xb(j), int_point%xlm1, int_point%xl, int_point%xlp1) &
-            * varphi_l(rg_grid%xb(j), int_point%xlpm1, int_point%xlp, int_point%xlpp1) 
-
-        k_rho_B = k_rho_B + pref_rho_B_g1(1,j) * 4.0d0 * pi**2.0d0 &
+        k_rho_B = k_rho_B + pref_rho_B_g1(1,j) &
             * varphi_l(rg_grid%xb(j), int_point%xlm1, int_point%xl, int_point%xlp1)&
             * varphi_l(rg_grid%xb(j), int_point%xlpm1, int_point%xlp, int_point%xlpp1)
 
@@ -672,15 +670,11 @@ module kernel_m
         int_point%rhoT = max(plasma%spec(0)%rho_L_cc(j), 0.0d0)
         int_point%ks = plasma%ks_cc(j)
 
-        k_rho_phi_Debye = k_rho_phi_Debye + (-1.0d0) / (plasma%spec(0)%lambda_D_cc(j)**2.0d0) &
+        k_rho_phi = k_rho_phi + pref_rho_phi_g1(1, j) * int_point%ks &
             * varphi_l(rg_grid%xb(j), int_point%xlm1, int_point%xl, int_point%xlp1) &
             * varphi_l(rg_grid%xb(j), int_point%xlpm1, int_point%xlp, int_point%xlpp1) 
 
-        k_rho_phi = k_rho_phi + pref_rho_phi_g1(1, j) * int_point%ks * 4.0d0 * pi**2.0d0 &
-            * varphi_l(rg_grid%xb(j), int_point%xlm1, int_point%xl, int_point%xlp1) &
-            * varphi_l(rg_grid%xb(j), int_point%xlpm1, int_point%xlp, int_point%xlpp1) 
-
-        k_rho_B = k_rho_B + pref_rho_B_g1(1,j) * 4.0d0 * pi**2.0d0 &
+        k_rho_B = k_rho_B + pref_rho_B_g1(1,j) &
             * varphi_l(rg_grid%xb(j), int_point%xlm1, int_point%xl, int_point%xlp1)&
             * varphi_l(rg_grid%xb(j), int_point%xlpm1, int_point%xlp, int_point%xlpp1)
 
@@ -692,28 +686,17 @@ module kernel_m
 
             if (j==1) cycle
 
-            k_rho_phi_Debye = k_rho_phi_Debye + (-1.0d0) * (1.0d0 / (plasma%spec(0)%lambda_D_cc(j)**2.0d0)) &
+            k_rho_phi = k_rho_phi + pref_rho_phi_g1(1,j) * int_point%ks &
                         * varphi_l(rg_grid%xb(j), int_point%xlm1, int_point%xl, int_point%xlp1) &
                         * varphi_l(rg_grid%xb(j), int_point%xlpm1, int_point%xlp, int_point%xlpp1) !&
-
-
-            k_rho_phi = k_rho_phi + pref_rho_phi_g1(1,j) * int_point%ks &
-                * varphi_l(rg_grid%xb(j), int_point%xlm1, int_point%xl, int_point%xlp1) &
-                * varphi_l(rg_grid%xb(j), int_point%xlpm1, int_point%xlp, int_point%xlpp1) !&
-                !/ (2.0d0)
             k_rho_B = k_rho_B + pref_rho_B_g1(1,j) &
-                * varphi_l(rg_grid%xb(j), int_point%xlm1, int_point%xl, int_point%xlp1)&
-                * varphi_l(rg_grid%xb(j), int_point%xlpm1, int_point%xlp, int_point%xlpp1) !&
-                !/ (2.0d0)
+                        * varphi_l(rg_grid%xb(j), int_point%xlm1, int_point%xl, int_point%xlp1)&
+                        * varphi_l(rg_grid%xb(j), int_point%xlpm1, int_point%xlp, int_point%xlpp1) !&
 
         end do
 
-        k_rho_phi = (k_rho_phi_Debye + k_rho_phi) * delta_rg / (4.0d0 * pi)! / (8.0d0 * pi**2.0d0)
-        k_rho_B = k_rho_B * delta_rg / (4.0d0 * pi)!(8.0d0 * pi**2.0d0)
-
-        k_j_phi = k_j_phi / (8.0d0 * pi**3.0d0)
-        k_j_B = k_j_B / (8.0d0 * pi**3.0d0)
-
+        k_rho_phi = (k_rho_phi) * delta_rg / (4.0d0 * pi)
+        k_rho_B = k_rho_B * delta_rg / (4.0d0 * pi)
             
     end subroutine
 
@@ -890,8 +873,308 @@ module kernel_m
         k_j_phi = k_j_phi / (8.0d0 * pi**3.0d0)
         k_j_B = k_j_B / (8.0d0 * pi**3.0d0)
 
-            
     end subroutine
+
+
+    subroutine FP_calc_kernel_electrons_FLR2_benchmark(l, lp, k_rho_phi, k_rho_B, k_j_phi, k_j_B, gauss_conf)
+        ! for benchmarking FLR2 and KIM against each other, FLR2 exploits quasineutrality which has to be taken into account for
+        ! electrons and ions separately, most notably, by omitting the Debye shielding term and using different susceptibility functions
+
+        use KIM_kinds_m, only: dp
+        use integrals_gauss_m, only: gauss_integrate_F0, gauss_integrate_F1, gauss_integrate_F2, gauss_integrate_F3,&
+            gauss_config_t, gauss_integrate_F1_electrons, gauss_integrate_F2_electrons
+        use species_m, only: plasma
+        use constants_m, only: pi
+        use integrands_gauss_m, only: gauss_int_F0_rho_phi_t, gauss_int_F1_rho_phi_t, gauss_int_F2_rho_phi_t, gauss_int_F3_rho_phi_t, &
+            integration_point_t, gauss_int_F1_rho_phi_electrons_t, gauss_int_F2_rho_phi_electrons_t
+        use FP_kernel_plasma_prefacs_m, only: FP_G0_rho_phi
+        use grid_m, only: Larmor_skip_factor, kernel_taper_skip_threshold, rg_grid, xl_grid
+        use constants_m, only: com_unit, sol
+        use config_m, only: turn_off_ions, turn_off_electrons, artificial_debye_case
+        use functions_m, only: varphi_l
+
+        implicit none
+
+        integer, intent(in) :: l, lp
+        complex(dp) :: k_rho_phi, k_rho_B, k_j_phi, k_j_B
+        integer :: j, sigma
+        type(gauss_config_t), intent(in) :: gauss_conf
+        real(dp) :: integral_val
+        real(dp) :: current_distance
+
+        type(integration_point_t) :: int_point
+        type(gauss_int_F0_rho_phi_t) :: int_F0
+        type(gauss_int_F1_rho_phi_t) :: int_F1
+        type(gauss_int_F2_rho_phi_t) :: int_F2
+        type(gauss_int_F3_rho_phi_t) :: int_F3
+
+        type(gauss_int_F1_rho_phi_electrons_t) :: int_F1_e
+        type(gauss_int_F2_rho_phi_electrons_t) :: int_F2_e
+
+        k_rho_phi = (0.0d0, 0.0d0)
+        k_rho_B = (0.0d0, 0.0d0)
+        k_j_phi = (0.0d0, 0.0d0)
+        k_j_B = (0.0d0, 0.0d0)
+
+        call set_xl_at_edge(l, lp, int_point)
+
+        do j = 1, rg_grid%npts_b-1
+
+            int_point%j = j
+            int_point%rhoT = max(plasma%spec(0)%rho_L_cc(j), 0.0d0)
+            int_point%ks = plasma%ks_cc(j)
+
+            ! no Debye term for FLR2 benchmark
+
+            ! skip term if species Larmor radius is too small to couple these grid points
+            if (abs(l-lp) > 10 .and. abs(xl_grid%xb(l) - xl_grid%xb(lp)) > 8.0d0 * plasma%spec(0)%rho_L(j)) cycle
+            ! this is more restrictive:
+            if (abs(0.5d0 * (rg_grid%xb(j+1) + rg_grid%xb(j)) - 0.5d0 * (xl_grid%xb(l) + xl_grid%xb(lp))) > 1024.0d0 * plasma%spec(0)%rho_L(j)) cycle
+
+            int_F1_e%int_point = int_point
+
+            ! F1 integration
+            integral_val = 0.0d0
+            call gauss_integrate_F1_electrons(int_F1_e, integral_val, gauss_conf)
+            integral_val = integral_val * pi ! pi because of missing Bessel function representation
+            k_rho_phi = k_rho_phi + integral_val * pref_rho_phi_g1(1,j) * int_point%ks 
+            k_rho_B = k_rho_B + integral_val * pref_rho_B_g1(1,j)
+            k_j_phi = k_j_phi + integral_val * pref_j_phi_g1(1,j) * int_point%ks
+            k_j_B = k_j_B + integral_val * pref_j_B_g1(1,j)
+
+            ! other terms are negligible for electrons (small rhoT in general)
+
+        end do
+
+        k_rho_phi = k_rho_phi / (8.0d0 * pi**3.0d0)
+        k_rho_B = k_rho_B / (8.0d0 * pi**3.0d0)
+
+        k_j_phi = k_j_phi / (8.0d0 * pi**3.0d0)
+        k_j_B = k_j_B / (8.0d0 * pi**3.0d0)
+
+            
+    end subroutine FP_calc_kernel_electrons_FLR2_benchmark
+
+    subroutine FP_calc_kernel_ions_FLR2_benchmark(l, lp, k_rho_phi, k_rho_B, k_j_phi, k_j_B, gauss_conf)
+        ! for benchmarking FLR2 and KIM against each other, FLR2 exploits quasineutrality which has to be taken into account for
+        ! electrons and ions separately, most notably, by omitting the Debye shielding term and using different susceptibility functions
+
+        use KIM_kinds_m, only: dp
+        use integrals_gauss_m, only: gauss_integrate_F0, gauss_integrate_F1, gauss_integrate_F2, gauss_integrate_F3,&
+            gauss_config_t
+        use species_m, only: plasma
+        use constants_m, only: pi
+        use integrands_gauss_m, only: gauss_int_F0_rho_phi_t, gauss_int_F1_rho_phi_t, gauss_int_F2_rho_phi_t, gauss_int_F3_rho_phi_t, &
+            integration_point_t
+        use FP_kernel_plasma_prefacs_m, only: FP_G0_rho_phi
+        use grid_m, only: Larmor_skip_factor, kernel_taper_skip_threshold, rg_grid
+        use constants_m, only: com_unit, sol
+        use config_m, only: turn_off_ions, turn_off_electrons, artificial_debye_case
+        use grid_m, only: xl_grid
+
+        implicit none
+
+        integer, intent(in) :: l, lp
+        complex(dp) :: k_rho_phi, k_rho_B, k_j_phi, k_j_B
+        integer :: j, sigma
+        type(gauss_config_t), intent(in) :: gauss_conf
+        real(dp) :: integral_val
+        real(dp) :: current_distance
+
+        type(integration_point_t) :: int_point
+        type(gauss_int_F0_rho_phi_t) :: int_F0
+        type(gauss_int_F1_rho_phi_t) :: int_F1
+        type(gauss_int_F2_rho_phi_t) :: int_F2
+        type(gauss_int_F3_rho_phi_t) :: int_F3
+
+        k_rho_phi = (0.0d0, 0.0d0)
+        k_rho_B = (0.0d0, 0.0d0)
+        k_j_phi = (0.0d0, 0.0d0)
+        k_j_B = (0.0d0, 0.0d0)
+
+        call set_xl_at_edge(l, lp, int_point)
+
+        do sigma = 1, plasma%n_species - 1
+            do j = 1, rg_grid%npts_b-1
+
+                int_point%j = j
+                int_point%rhoT = max(plasma%spec(sigma)%rho_L_cc(j), 0.0d0)
+                int_point%ks = plasma%ks_cc(j)
+
+                ! skip term if species Larmor radius is too small to couple these grid points
+                if (abs(l-lp) > 10 .and. abs(xl_grid%xb(l) - xl_grid%xb(lp))> 4.0d0 * plasma%spec(sigma)%rho_L(j)) cycle
+                if (abs(0.5d0 * (rg_grid%xb(j+1) + rg_grid%xb(j)) - 0.5d0 * (xl_grid%xb(l) + xl_grid%xb(lp))) > 16.0d0 * plasma%spec(sigma)%rho_L(j)) cycle
+
+                int_F1%int_point = int_point
+                int_F2%int_point = int_point
+                int_F3%int_point = int_point
+
+                ! F1 integration
+                call gauss_integrate_F1(int_F1, integral_val, gauss_conf)
+                k_rho_phi = k_rho_phi + integral_val * pref_rho_phi_g1(sigma+1,j) * int_point%ks
+                k_rho_B = k_rho_B + integral_val * pref_rho_B_g1(sigma+1,j)
+                k_j_phi = k_j_phi + integral_val * pref_j_phi_g1(sigma+1,j) * int_point%ks
+                k_j_B = k_j_B + integral_val * pref_j_B_g1(sigma+1,j)
+
+                ! F2 integration
+                call gauss_integrate_F2(int_F2, integral_val, gauss_conf)
+                k_rho_phi = k_rho_phi + integral_val * pref_rho_phi_g2(sigma+1,j) * int_point%ks
+                k_rho_B = k_rho_B + integral_val * pref_rho_B_g2(sigma+1,j)
+                k_j_phi = k_j_phi + integral_val * pref_j_phi_g2(sigma+1,j) * int_point%ks
+                k_j_B = k_j_B + integral_val * pref_j_B_g2(sigma+1,j)
+
+                ! F3 integration
+                call gauss_integrate_F3(int_F3, integral_val, gauss_conf)
+                k_rho_phi = k_rho_phi + integral_val * pref_rho_phi_g3(sigma+1,j) * int_point%ks
+                k_rho_B = k_rho_B + integral_val * pref_rho_B_g3(sigma+1,j)
+                k_j_phi = k_j_phi + integral_val * pref_j_phi_g3(sigma+1,j) * int_point%ks
+                k_j_B = k_j_B + integral_val * pref_j_B_g3(sigma+1,j)
+
+            end do
+        end do
+
+        k_rho_phi = k_rho_phi / (8.0d0 * pi**3.0d0)
+        k_rho_B = k_rho_B / (8.0d0 * pi**3.0d0)
+
+        k_j_phi = k_j_phi / (8.0d0 * pi**3.0d0)
+        k_j_B = k_j_B / (8.0d0 * pi**3.0d0)
+
+    end subroutine FP_calc_kernel_ions_FLR2_benchmark
+
+    subroutine FP_fill_kernels_flr2_benchmark(K_rho_phi_llp, K_rho_B_llp, K_j_phi_llp, K_j_B_llp, include_electrons, include_ions)
+
+        use integrals_gauss_m, only: gauss_config_t, init_gauss_int
+        use grid_m, only: Larmor_skip_factor, gauss_int_nodes_Ntheta, gauss_int_nodes_Nx, gauss_int_nodes_Nxp, &
+                          kernel_taper_skip_threshold, xl_grid
+        use species_m, only: plasma
+
+        implicit none
+
+        type(kernel_spl_t), intent(inout) :: K_rho_phi_llp
+        type(kernel_spl_t), intent(inout) :: K_rho_B_llp
+        type(kernel_spl_t), intent(inout) :: K_j_phi_llp
+        type(kernel_spl_t), intent(inout) :: K_j_B_llp
+        logical, intent(in) :: include_electrons
+        logical, intent(in) :: include_ions
+
+        type(gauss_config_t) :: gauss_conf
+        real(dp) :: dmax_global, alpha, tau
+
+        interface
+            subroutine flr2_kernel_cb(l, lp, k_rho_phi, k_rho_B, k_j_phi, k_j_B, gauss_conf)
+                use KIM_kinds_m, only: dp
+                use integrals_gauss_m, only: gauss_config_t
+                implicit none
+                integer, intent(in) :: l, lp
+                complex(dp) :: k_rho_phi, k_rho_B, k_j_phi, k_j_B
+                type(gauss_config_t), intent(in) :: gauss_conf
+            end subroutine flr2_kernel_cb
+        end interface
+
+        gauss_conf%Nx = gauss_int_nodes_Nx
+        gauss_conf%Nxp = gauss_int_nodes_Nxp
+        gauss_conf%Ntheta = gauss_int_nodes_Ntheta
+
+        call init_gauss_int(gauss_conf)
+
+        if (.not. pref_ready) call compute_cc_prefactors
+
+        K_rho_phi_llp%Kllp = (0.0d0, 0.0d0)
+        K_rho_B_llp%Kllp   = (0.0d0, 0.0d0)
+        K_j_phi_llp%Kllp   = (0.0d0, 0.0d0)
+        K_j_B_llp%Kllp     = (0.0d0, 0.0d0)
+
+        call rescale_susceptibility_functions()
+
+        alpha = Larmor_skip_factor
+        tau   = max(kernel_taper_skip_threshold, 1.0d-12)
+        block
+            real(dp) :: rhoT_max
+            integer :: sigma
+            rhoT_max = 0.0d0
+            do sigma = 0, plasma%n_species - 1
+                if (allocated(plasma%spec(sigma)%rho_L_cc)) then
+                    rhoT_max = max(rhoT_max, maxval(plasma%spec(sigma)%rho_L_cc))
+                end if
+            end do
+            dmax_global = alpha * rhoT_max * sqrt(max(log(1.0d0 / tau), 0.0d0))
+        end block
+
+        if (include_electrons .and. .not. include_ions) then
+            call fill_case(FP_calc_kernel_electrons_FLR2_benchmark)
+        else if (include_ions .and. .not. include_electrons) then
+            call fill_case(FP_calc_kernel_ions_FLR2_benchmark)
+        else if (include_electrons .and. include_ions) then
+            write(*,*) 'FLR2 benchmark: electron+ion combined kernels not implemented yet.'
+        else
+            write(*,*) 'FLR2 benchmark: both species disabled; kernels remain zero.'
+        end if
+
+    contains
+
+        subroutine fill_case(calc_kernel)
+
+            procedure(flr2_kernel_cb) :: calc_kernel
+            integer :: l, lp, lp_lo, lp_hi
+            real(dp) :: xl_val
+            complex(dp) :: k_rho_phi, k_rho_B, k_j_phi, k_j_B
+
+            !$omp parallel do default(shared) private(l, lp, lp_lo, lp_hi, xl_val, k_rho_phi, k_rho_B, k_j_phi, k_j_B) schedule(dynamic)
+            do l = 1, K_rho_phi_llp%npts_l
+                xl_val = xl_grid%xb(l)
+
+                lp_lo = l
+                do
+                    if (lp_lo <= 1) exit
+                    if (abs(xl_grid%xb(lp_lo - 1) - xl_val) > dmax_global) exit
+                    lp_lo = lp_lo - 1
+                end do
+
+                lp_hi = l
+                do
+                    if (lp_hi >= K_rho_phi_llp%npts_l) exit
+                    if (abs(xl_grid%xb(lp_hi + 1) - xl_val) > dmax_global) exit
+                    lp_hi = lp_hi + 1
+                end do
+
+                do lp = max(1, lp_lo), min(l, lp_hi)
+                    call calc_kernel(l, lp, k_rho_phi, k_rho_B, k_j_phi, k_j_B, gauss_conf)
+
+                    K_rho_phi_llp%Kllp(l, lp) = k_rho_phi
+                    K_rho_B_llp%Kllp(l, lp)   = k_rho_B
+                    K_j_phi_llp%Kllp(l, lp)   = k_j_phi
+                    K_j_B_llp%Kllp(l, lp)     = k_j_B
+
+                    if (lp /= l) then
+                        K_rho_phi_llp%Kllp(lp, l) = k_rho_phi
+                        K_rho_B_llp%Kllp(lp, l)   = k_rho_B
+                        K_j_phi_llp%Kllp(lp, l)   = k_j_phi
+                        K_j_B_llp%Kllp(lp, l)     = k_j_B
+                    end if
+                end do
+            end do
+            !$omp end parallel do
+
+        end subroutine fill_case
+
+        subroutine rescale_susceptibility_functions()
+            ! Rescale susceptibility functions for FLR2 benchmark
+            ! has to be done in order to take quasineutrality into account as is done in FLR2
+            
+            use species_m, only: plasma
+
+            implicit none
+
+            integer :: sp
+
+            do sp=0, plasma%n_species - 1
+                plasma%spec(sp)%I00 = plasma%spec(sp)%I01 * plasma%spec(sp)%x1 / plasma%spec(sp)%x2
+                plasma%spec(sp)%I20 = plasma%spec(sp)%I21 * plasma%spec(sp)%x1 / plasma%spec(sp)%x2
+            end do
+
+        end subroutine
+
+    end subroutine FP_fill_kernels_flr2_benchmark
 
     
     subroutine set_xl_at_edge(l, lp, int_point)

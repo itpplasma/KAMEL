@@ -23,10 +23,9 @@ module poisson_solver_m
         complex(dp), dimension(:,:), allocatable :: A_mat ! A matrix (stiffness matrix in the beginning, then full right hand side matrix)
         real(dp), dimension(:,:), allocatable :: M_mat ! mass matrix
         complex(dp), dimension(:), allocatable :: b_vec ! b vector and x vector
-        complex(dp), dimension(:,:), allocatable :: inv_K_rho_phi ! inverse of K_rho_phi
         integer, dimension(:), allocatable :: irow, pcol
         integer :: nz_out, nrow, ncol
-        integer :: i,j
+        integer :: i, j
         integer :: sparse_solver_option
 
         if (fstatus == 1) write(*,*) 'Status: solve poisson equation'
@@ -288,7 +287,7 @@ module poisson_solver_m
 
                 print *, "Imposing BC of zero misalignment field: Phi_left = ", phi_boundary_left, ", Phi_right = ", phi_boundary_right
 
-                b_vec = b_vec - A_mat(:,1) * phi_boundary_left - A_mat(:,n) * phi_boundary_right
+                b_vec(2:n-1) = b_vec(2:n-1) - A_mat(2:n-1,1) * phi_boundary_left - A_mat(2:n-1,n) * phi_boundary_right
 
                 A_mat(:,1) = 0.0d0
                 A_mat(1,:) = 0.0d0

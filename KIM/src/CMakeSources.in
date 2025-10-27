@@ -62,6 +62,7 @@ set(KIM_dispersion dispersion/fun_input.f90
 )
 
 set(KIM_poisson electrostatic_poisson/poisson.f90
+                electrostatic_poisson/flr2_benchmark.f90
                 electrostatic_poisson/solve_poisson.f90
                 kernels/kernel.f90
                 kernels/integrands.f90

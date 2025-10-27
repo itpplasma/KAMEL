@@ -59,9 +59,6 @@ contains
         call read_and_set_control("neo-rt/driftorbit") ! NEO-RT config
         call do_magfie_init("neo-rt/in_file") ! Boozer field file
         ! call do_magfie_pert_init("neo-rt/in_file_pert") ! Boozer perturbed field file
-        call read_and_init_profile_input("neo-rt/profile.in", s, R0, efac, bfac)
-        call prepare_plasma_data_for_neort(this%plasma_data, this%am1, this%am2, this%Z1, this%Z2)
-        call prepare_profile_data_for_neort(this%profile_data)
         call init_profiles(R0)
 
         call prepare_plasma_data_for_neort(plasma_data)

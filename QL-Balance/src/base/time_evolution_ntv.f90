@@ -75,17 +75,24 @@ contains
     end subroutine initTimeEvolutionNTV
 
     subroutine runTimeEvolutionNTV(this)
-        use baseparam_mod, only: R0 => rtor
-        use grid_mod, only: npoic
+        use baseparam_mod, only: R0 => rtor, btor
+        use grid_mod, only: npoic, rc
         use neort, only: compute_transport
         use neort_interface, only: prepare_plasma_data_for_neort, prepare_profile_data_for_neort
         use neort_profiles, only: init_profiles, init_plasma_input, init_profile_input, &
                                   init_thermodynamic_forces
+        use plasma_parameters, only: qsafb
         use time_evolution, only: time_ind, Nstorage, doStep
 
         class(TimeEvolutionNTV_t), intent(inout) :: this
 
+        real(dp) :: q, r, psi_pr
+
         allocate (transport_data(Nstorage))
+
+        q = sum(qsafb) / size(qsafb)
+        r = sum(rc) / size(rc)
+        psi_pr = r * btor / q
 
         do time_ind = 1, Nstorage
             call doStep(this%TimeEvolution_t)
@@ -96,7 +103,7 @@ contains
             call init_profiles(R0)
             call init_plasma_input(s, npoic, am1, am2, Z1, Z2, plasma_data)
             call init_profile_input(s, R0, efac, bfac, profile_data)
-            ! call init_thermodynamic_forces(psi_pr, q)  ! TODO: get psi_pr and q from KAMEL
+            call init_thermodynamic_forces(psi_pr, q)
 
             call compute_transport(transport_data(time_ind))
 

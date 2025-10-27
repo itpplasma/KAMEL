@@ -1,17 +1,11 @@
 module time_evolution_ntv
     use iso_fortran_env, only: dp => real64
     use time_evolution, only: TimeEvolution_t
-    use neort_datatypes
+    use neort_datatypes, only: magfie_data_t, transport_data_t
 
     implicit none
 
     type, public, extends(TimeEvolution_t) :: TimeEvolutionNTV_t
-        ! for NEO-RT
-        real(dp), allocatable :: plasma_data(:, :)
-        real(dp), allocatable :: profile_data(:, :)
-        real(dp) :: am1, am2, Z1, Z2
-        ! from NEO-RT
-        type(transport_data_t), allocatable :: transport_data(:)
     contains
         procedure :: init_balance => initTimeEvolutionNTV
         procedure :: run_balance => runTimeEvolutionNTV
@@ -20,40 +14,61 @@ module time_evolution_ntv
     private :: initTimeEvolutionNTV
     private :: runTimeEvolutionNTV
 
+    ! for NEO-RT
+    real(dp), allocatable :: plasma_data(:, :)
+    real(dp), allocatable :: profile_data(:, :)
+    real(dp) :: am1, am2, Z1, Z2, s, efac, bfac
+
+    ! from NEO-RT
+    type(magfie_data_t) :: magfie_data
+    type(transport_data_t), allocatable :: transport_data(:)
+
 contains
 
     subroutine initTimeEvolutionNTV(this)
-        use do_magfie_mod, only: R0, s, bfac, do_magfie_init
+        use do_magfie_mod, only: do_magfie_init
         use do_magfie_pert_mod, only: do_magfie_pert_init
+        use grid_mod, only: npoic
         use logger, only: set_log_level
-        use neort, only: read_and_set_control, read_and_init_plasma_input, &
-                         read_and_init_profile_input, init, check_magfie
-        use driftorbit, only: efac
+        use neort, only: read_and_set_control, init, check_magfie
         use neort_interface, only: prepare_plasma_data_for_neort, prepare_profile_data_for_neort
         use neort_profiles, only: init_profiles, init_plasma_input, init_profile_input
+        use baseparam_mod, only: R0 => rtor, am, Z_i
 
         class(TimeEvolutionNTV_t), intent(inout) :: this
 
-        class(magfie_data_t) :: magfie_data
         call this%TimeEvolution_t%init_balance
         this%runType = "TimeEvolutionNTV"
 
         ! NEO-RT
-        allocate (this%plasma_data(npoic, 6))
-        allocate (this%profile_data(npoic, 2))
+        allocate (plasma_data(npoic, 6))
+        allocate (profile_data(npoic, 2))
+
+        ! set parameters
+        s = 0.5d0
+        efac = 1d0
+        bfac = 1d0
+        ! pass same mass and charge for species 1 and 2
+        am1 = am
+        am2 = am
+        Z1 = Z_i
+        Z2 = Z_i
 
         call set_log_level(4)  ! for development purposes
 
         call read_and_set_control("neo-rt/driftorbit") ! NEO-RT config
         call do_magfie_init("neo-rt/in_file") ! Boozer field file
         ! call do_magfie_pert_init("neo-rt/in_file_pert") ! Boozer perturbed field file
-        call init_profiles(R0) ! minor stuff
         call read_and_init_profile_input("neo-rt/profile.in", s, R0, efac, bfac)
         call prepare_plasma_data_for_neort(this%plasma_data, this%am1, this%am2, this%Z1, this%Z2)
         call prepare_profile_data_for_neort(this%profile_data)
+        call init_profiles(R0)
 
-        call init_plasma_input(s, npoic, this%am1, this%am2, this%Z1, this%Z2, this%plasma_data)
-        call init_profile_input(s, R0, efac, bfac, this%profile_data)
+        call prepare_plasma_data_for_neort(plasma_data)
+        call prepare_profile_data_for_neort(profile_data)
+
+        call init_plasma_input(s, npoic, am1, am2, Z1, Z2, plasma_data)
+        call init_profile_input(s, R0, efac, bfac, profile_data)
 
         call init
         call check_magfie(magfie_data)

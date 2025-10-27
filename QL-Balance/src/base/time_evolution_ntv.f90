@@ -75,25 +75,36 @@ contains
     end subroutine initTimeEvolutionNTV
 
     subroutine runTimeEvolutionNTV(this)
+        use baseparam_mod, only: R0 => rtor
+        use grid_mod, only: npoic
+        use neort, only: compute_transport
+        use neort_interface, only: prepare_plasma_data_for_neort, prepare_profile_data_for_neort
+        use neort_profiles, only: init_profiles, init_plasma_input, init_profile_input, &
+                                  init_thermodynamic_forces
         use time_evolution, only: time_ind, Nstorage, doStep
-        use neort_profiles, only: init_thermodynamic_forces
 
         class(TimeEvolutionNTV_t), intent(inout) :: this
 
+        allocate (transport_data(Nstorage))
+
         do time_ind = 1, Nstorage
-            call doStep(this % TimeEvolution_t)
-            ! TODO: prepare data for NEO-RT
-            ! TODO: call NEO-RT
+            call doStep(this%TimeEvolution_t)
 
-            ! update NEO-RT inputs
-            ! call init_thermodynamic_forces(psi_pr, q) ! from subroutine init
-            ! call init_plasma_input(s, nplasma, am1, am2, Z1, Z2, plasma)
-            ! call init_profile_input(s, R0, efac, bfac, data)
+            call prepare_plasma_data_for_neort(plasma_data)
+            call prepare_profile_data_for_neort(profile_data)
 
-            ! call NEO-RT to compute transport
-            ! call compute_transport("neo-rt/qlb")
+            call init_profiles(R0)
+            call init_plasma_input(s, npoic, am1, am2, Z1, Z2, plasma_data)
+            call init_profile_input(s, R0, efac, bfac, profile_data)
+            ! call init_thermodynamic_forces(psi_pr, q)  ! TODO: get psi_pr and q from KAMEL
+
+            call compute_transport(transport_data(time_ind))
+
+            ! TODO: Apply NEO-RT transport coefficients back to KAMEL
+            ! This would involve updating the transport coefficient arrays in grid_mod
+            ! For example:
+            ! call apply_ntv_transport(D11_ntv, D12_ntv, torque_ntv)
         end do
-
     end subroutine runTimeEvolutionNTV
 
 end module

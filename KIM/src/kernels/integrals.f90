@@ -151,6 +151,8 @@ module integrals_gauss_m
                         int_F1%int_point%xlp1 + int_F1%int_point%xlm1)
 
                     int_F1%int_point%b_coef = calc_b_coef(x_mapped, xp_mapped)
+                    int_F1%int_point%xl_mapped = x_mapped
+                    int_F1%int_point%xlp_mapped = xp_mapped
 
                     call int_F1%int_point%calc_Jrg1()
 
@@ -261,6 +263,111 @@ module integrals_gauss_m
         end do 
 
     end subroutine
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+! integration for electrons where the Larmor radius is very small and BesselI0=1 and BesselI-1=0 (doesn't require theta integration)
+
+    subroutine gauss_integrate_F1_electrons(int_F1_e, result, gauss_conf)
+
+        use integrands_gauss_m, only: gauss_int_F1_rho_phi_electrons_t, calc_b_coef
+        use constants_m, only: pi
+        use config_m, only: output_path
+
+        implicit none
+
+        class(gauss_int_F1_rho_phi_electrons_t), intent(inout) :: int_F1_e
+
+        type(gauss_config_t), intent(in) :: gauss_conf
+        real(dp), intent(out) :: result
+        real(dp) :: x_mapped, xp_mapped
+        real(dp) :: norm_factor
+        integer :: i,j,k
+        integer :: iunit, iunit2
+        logical :: first_call = .true.
+        logical :: do_write
+        save :: first_call
+
+        result = 0.0d0
+
+        norm_factor = (int_F1_e%int_point%xlp1 - int_F1_e%int_point%xlm1) & ! normalization due to integral range shift
+                        * (int_F1_e%int_point%xlpp1 - int_F1_e%int_point%xlpm1) / 4.0d0
+        
+        int_F1_e%int_point%a_coef = 1.0d0 / abs(int_F1_e%int_point%rhoT)
+
+        do j=1,gauss_conf%Nxp ! xp 
+            xp_mapped = 0.5d0 * ((int_F1_e%int_point%xlpp1 - int_F1_e%int_point%xlpm1) * gauss_conf%x_xp(j) + &
+                int_F1_e%int_point%xlpp1 + int_F1_e%int_point%xlpm1)
+
+            do k=1,gauss_conf%Nx !x
+                x_mapped = 0.5d0 * ((int_F1_e%int_point%xlp1 - int_F1_e%int_point%xlm1) * gauss_conf%x_x(k) + &
+                    int_F1_e%int_point%xlp1 + int_F1_e%int_point%xlm1)
+
+                int_F1_e%int_point%b_coef = calc_b_coef(x_mapped, xp_mapped)
+                int_F1_e%int_point%xl_mapped = x_mapped
+                int_F1_e%int_point%xlp_mapped = xp_mapped
+
+                call int_F1_e%int_point%calc_Jrg1()
+
+                result = result + gauss_conf%w_xp(j) * gauss_conf%w_x(k) &
+                    * int_F1_e%f(x_mapped, xp_mapped) &
+                    * norm_factor
+            end do
+        end do
+
+    end subroutine gauss_integrate_F1_electrons
+
+    subroutine gauss_integrate_F2_electrons(int_F2_e, result, gauss_conf)
+    
+        use integrands_gauss_m, only: gauss_int_F2_rho_phi_electrons_t, calc_b_coef
+        use constants_m, only: pi
+
+        implicit none
+
+        class(gauss_int_F2_rho_phi_electrons_t), intent(inout) :: int_F2_e
+
+        type(gauss_config_t), intent(in) :: gauss_conf
+        real(dp), intent(out) :: result
+        real(dp) :: x_mapped, xp_mapped
+        real(dp) :: norm_factor
+        integer :: i,j,k
+
+        result = 0.0d0
+
+        norm_factor = pi * (int_F2_e%int_point%xlp1 - int_F2_e%int_point%xlm1) & ! normalization due to integral range shift
+                        * (int_F2_e%int_point%xlpp1 - int_F2_e%int_point%xlpm1) / 4.0d0
+                        ! factor pi is still kept, because BesselI0=1 replaces the theta integral by pi
+
+        int_F2_e%int_point%a_coef = 1.0d0 / abs(int_F2_e%int_point%rhoT)
+
+        do j=1,gauss_conf%Nxp ! xp 
+            xp_mapped = 0.5d0 * ((int_F2_e%int_point%xlpp1 - int_F2_e%int_point%xlpm1) * gauss_conf%x_xp(j) + &
+                int_F2_e%int_point%xlpp1 + int_F2_e%int_point%xlpm1)
+
+            do k=1,gauss_conf%Nx !x
+                x_mapped = 0.5d0 * ((int_F2_e%int_point%xlp1 - int_F2_e%int_point%xlm1) * gauss_conf%x_x(k) + &
+                    int_F2_e%int_point%xlp1 + int_F2_e%int_point%xlm1)
+
+                int_F2_e%int_point%b_coef = calc_b_coef(x_mapped, xp_mapped)
+                int_F2_e%int_point%xl_mapped = x_mapped
+                int_F2_e%int_point%xlp_mapped = xp_mapped
+    
+                call int_F2_e%int_point%calc_Jrg1()
+                call int_F2_e%int_point%calc_Jrg2()
+                call int_F2_e%int_point%calc_Jrg3()
+                ! call int_F2_e%int_point%calc_Jrg4()
+
+                result = result + gauss_conf%w_xp(j) * gauss_conf%w_x(k) &
+                    * int_F2_e%f(x_mapped, xp_mapped) &
+                    * norm_factor
+            end do
+        end do
+
+    end subroutine gauss_integrate_F2_electrons
+
+    ! there is no need for F3 integral for electrons since I_{-1}=0
+    
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
 
     subroutine compute_nodes_weights(n, x, w)
 

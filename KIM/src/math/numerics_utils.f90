@@ -16,9 +16,9 @@ module numerics_utils_m
         real(dp) :: dz, zm
 
         dz = z1 - z2
-        zm = 0.5d0 * (z1 + z2)
 
         if (abs(dz) < 1.0e-6_dp) then
+            zm = 0.5d0 * (z1 + z2)
             d = 2.0d0 / sqrt(pi) * exp(-zm*zm) * dz
         else
             d = erf(z1) - erf(z2)

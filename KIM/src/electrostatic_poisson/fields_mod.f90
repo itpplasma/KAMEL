@@ -41,7 +41,7 @@ module fields_m
         character(len=256) :: file_path
 
         if (type_Br == 0) then ! Br constant
-            Br_const = 1.0d0
+            Br_const = (1.0d0, 0.0d0)
             call set_Br_constant(EBdat_in, Br_const)
         else if (type_Br == 1) then ! Br from file
             file_path = './inp/Br_in.dat'
@@ -118,7 +118,6 @@ module fields_m
 
         use species_m, only: plasma_t
         use KIM_kinds_m, only: dp
-        use equilibrium_m, only: B0
         use grid_m, only: xl_grid
         use constants_m, only: com_unit
 
@@ -142,7 +141,7 @@ module fields_m
             call binsrc(plasma_in%r_grid, 1, size(plasma_in%r_grid), xl_grid%xb(i), ir) 
             ibeg = max(1, ir - nlagr/2)
             iend = ibeg + nlagr - 1
-            if (iend .gt. xl_grid%npts_b) then
+            if (iend .gt. size(plasma_in%r_grid)) then
                 iend = size(plasma_in%r_grid)
                 ibeg = iend -nlagr + 1
             end if
@@ -304,7 +303,6 @@ module fields_m
 
     subroutine calculate_E_from_phi(EBdat)
 
-        use KIM_kinds_m, only: dp
         use constants_m, only: com_unit
         use setup_m, only: m_mode, n_mode, R0
         use grid_m, only: xl_grid
@@ -332,7 +330,6 @@ module fields_m
 
     subroutine calculate_E_in_rsp_from_cyl(EBdat)
 
-        use KIM_kinds_m, only: dp
         use equilibrium_m, only: hz, hth
 
         implicit none
@@ -354,7 +351,6 @@ module fields_m
 
     subroutine postprocess_electric_field(EBdat)
 
-        use KIM_kinds_m, only: dp
         use IO_collection_m, only: write_complex_profile_abs
         use grid_m, only: xl_grid
         use config_m, only: output_path, collision_model
@@ -399,7 +395,6 @@ module fields_m
 
     subroutine postprocess_electric_field_with_model(EBdat, model_name)
 
-        use KIM_kinds_m, only: dp
         use IO_collection_m, only: write_complex_profile_abs
         use grid_m, only: xl_grid
         use config_m, only: output_path
@@ -433,7 +428,6 @@ module fields_m
     subroutine calculate_charge_density(rho, EBdat)
 
         use KIM_kinds_m, only: dp
-        use grid_m, only: xl_grid
         use species_m, only: plasma
         use constants_m, only: pi, com_unit
 
@@ -499,9 +493,6 @@ module fields_m
         ! where the flux surface corrugated phi cancels the potential surface corrugated phi
         ! this is used to check the second order derivative from the Laplace operator
 
-        use KIM_kinds_m, only: dp
-        use grid_m, only: xl_grid
-        use constants_m, only: pi
         use kernel_m, only: kernel_spl_t
 
         implicit none
@@ -521,3 +512,4 @@ module fields_m
     end subroutine
 
 end module
+

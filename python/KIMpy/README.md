@@ -1,4 +1,12 @@
-# KIM WKB
+# Python code for KIM
+
+## kimpy
+Handles preparation and runs of KIM.
+
+## kim_data
+Handles the output data of KIM.
+
+## KIM WKB
 Within the main file wkb.py, this python code calculates the dispersion relation within the KiLCA Integral Model (KIM).
 It uses the cxroots module to find the roots to the dispersion equation. For benchmarking,
 also the dispersion relation in finite Larmor radius expanded form of Horton (Horton 1999, Rev. of Mod. Phys.)

@@ -66,6 +66,8 @@ module species_m
         real(dp), allocatable :: omega_c_cc(:)
         real(dp), allocatable :: lambda_D_cc(:)
         real(dp), allocatable :: rho_L_cc(:)
+        real(dp), allocatable :: x1_cc(:)
+        real(dp), allocatable :: x2_cc(:)
         complex(dp), allocatable :: I00_cc(:)
         complex(dp), allocatable :: I01_cc(:)
         complex(dp), allocatable :: I20_cc(:)
@@ -283,6 +285,8 @@ module species_m
                 allocate(plasma_in%spec(sp)%omega_c_cc(rg_grid%npts_c))
                 allocate(plasma_in%spec(sp)%lambda_D_cc(rg_grid%npts_c))
                 allocate(plasma_in%spec(sp)%rho_L_cc(rg_grid%npts_c))
+                allocate(plasma_in%spec(sp)%x1_cc(rg_grid%npts_c))
+                allocate(plasma_in%spec(sp)%x2_cc(rg_grid%npts_c))
                 allocate(plasma_in%spec(sp)%I00_cc(rg_grid%npts_c))
                 allocate(plasma_in%spec(sp)%I01_cc(rg_grid%npts_c))
                 allocate(plasma_in%spec(sp)%I20_cc(rg_grid%npts_c))
@@ -306,6 +310,10 @@ module species_m
                 plasma_in%spec(sp)%omega_c_cc(j)  = 0.5d0 * (plasma_in%spec(sp)%omega_c(j)  + plasma_in%spec(sp)%omega_c(j+1))
                 plasma_in%spec(sp)%lambda_D_cc(j) = 0.5d0 * (plasma_in%spec(sp)%lambda_D(j) + plasma_in%spec(sp)%lambda_D(j+1))
                 plasma_in%spec(sp)%rho_L_cc(j)    = 0.5d0 * (plasma_in%spec(sp)%rho_L(j)    + plasma_in%spec(sp)%rho_L(j+1))
+
+                plasma_in%spec(sp)%x1_cc(j)       = 0.5d0 * (plasma_in%spec(sp)%x1(j)    + plasma_in%spec(sp)%x1(j+1))
+                plasma_in%spec(sp)%x2_cc(j)       = 0.5d0 * (plasma_in%spec(sp)%x2(j)    + plasma_in%spec(sp)%x2(j+1))
+
                 plasma_in%spec(sp)%I00_cc(j)      = 0.5d0 * (plasma_in%spec(sp)%I00(j)      + plasma_in%spec(sp)%I00(j+1))
                 plasma_in%spec(sp)%I01_cc(j)      = 0.5d0 * (plasma_in%spec(sp)%I01(j)      + plasma_in%spec(sp)%I01(j+1))
                 plasma_in%spec(sp)%I20_cc(j)      = 0.5d0 * (plasma_in%spec(sp)%I20(j)      + plasma_in%spec(sp)%I20(j+1))
@@ -363,15 +371,12 @@ module species_m
 
                 plasma_in%spec(sp)%rho_L(i) = abs(plasma_in%spec(sp)%vT(i) / (plasma_in%spec(sp)%omega_c(i)))
 
-                plasma_in%spec(sp)%lambda_D(i) = sqrt(plasma_in%spec(sp)%T(i) *ev / (4.0d0*pi* plasma_in%spec(sp)%n(i) &
+                plasma_in%spec(sp)%lambda_D(i) = sqrt((plasma_in%spec(sp)%T(i) * ev) / (4.0d0*pi* plasma_in%spec(sp)%n(i) &
                     * (plasma_in%spec(sp)%Zspec * e_charge)**2.0d0))
 
                 plasma_in%spec(sp)%A1(i) = plasma_in%spec(sp)%dndr(i) / plasma_in%spec(sp)%n(i) - plasma_in%spec(sp)%Zspec *e_charge&
                     /(plasma_in%spec(sp)%T(i) * ev) * plasma_in%Er(i) - 3.0d0/(2.0d0 * plasma_in%spec(sp)%T(i)) * plasma_in%spec(sp)%dTdr(i)
                 plasma_in%spec(sp)%A2(i) = plasma_in%spec(sp)%dTdr(i) / plasma_in%spec(sp)%T(i)
-
-                plasma_in%spec(sp)%z0(i) = - (plasma_in%om_E(i) - omega - com_unit * plasma_in%spec(sp)%nu(i)) &
-                    / (abs(plasma_in%kp(i)) * sqrt(2d0) * plasma_in%spec(sp)%vT(i) )
             end do
         end do
 
@@ -420,6 +425,8 @@ module species_m
 
         do sp =0, plasma_in%n_species-1
             do i = 1,plasma_in%grid_size
+                plasma_in%spec(sp)%z0(i) = - (plasma_in%om_E(i) - omega - com_unit * plasma_in%spec(sp)%nu(i)) &
+                    / (abs(plasma_in%kp(i)) * sqrt(2d0) * plasma_in%spec(sp)%vT(i) )
                 plasma_in%spec(sp)%x1(i) = plasma_in%kp(i) * plasma_in%spec(sp)%vT(i) / plasma_in%spec(sp)%nu(i)
                 plasma_in%spec(sp)%x2(i) = - (plasma_in%om_E(i) - omega) / plasma_in%spec(sp)%nu(i)
                 if (collisions_off .eqv. .true.)then
@@ -435,16 +442,15 @@ module species_m
         if (rescale_density .eqv. .true.) then
             print *, " "
             print *, " ! ! ! "
-            print *, " Rescaling density! ! !"
+            print *, " ! ! ! Rescaling density (after collision frequency calculation) ! ! !"
             print *, " ! ! ! "
+            print *, " "
             do sp = 0, plasma_in%n_species-1
                 do i = 1, plasma_in%grid_size
+                    ! density rescaling only affects lambda_D (in A_1 the rescaling cancels out)
                     plasma_in%spec(sp)%n(i) = plasma_in%spec(sp)%n(i) * number_density_rescale
-                    plasma_in%spec(sp)%dndr(i) = plasma_in%spec(sp)%dndr(i) * number_density_rescale
-                    plasma_in%spec(sp)%lambda_D(i) = sqrt(plasma_in%spec(sp)%T(i) *ev / (4.0d0*pi* plasma_in%spec(sp)%n(i) &
+                    plasma_in%spec(sp)%lambda_D(i) = sqrt(plasma_in%spec(sp)%T(i) * ev / (4.0d0 * pi * plasma_in%spec(sp)%n(i) &
                         * (plasma_in%spec(sp)%Zspec * e_charge)**2.0d0))
-                    plasma_in%spec(sp)%A1(i) = plasma_in%spec(sp)%dndr(i) / plasma_in%spec(sp)%n(i) - plasma_in%spec(sp)%Zspec *e_charge&
-                        /(plasma_in%spec(sp)%T(i) * ev) * plasma_in%Er(i) - 3.0d0/(2.0d0 * plasma_in%spec(sp)%T(i)) * plasma_in%spec(sp)%dTdr(i)
                 end do
             end do
         end if

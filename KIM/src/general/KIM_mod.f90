@@ -9,6 +9,7 @@ module kim_mod_m
         use kim_base_m, only: kim_t
         use rt_WKB_dispersion_m, only: WKB_dispersion_t
         use rt_electrostatic_m, only: electrostatic_t
+        use rt_flr2_benchmark_m, only: flr2_benchmark_t
 
         implicit none
 
@@ -18,6 +19,8 @@ module kim_mod_m
         select case(trim(type_of_run))
             case("electrostatic")
                 allocate(kim_instance, source=electrostatic_t())
+            case("flr2_benchmark")
+                allocate(kim_instance, source=flr2_benchmark_t())
             case("WKB_dispersion")
                 allocate(kim_instance, source=WKB_dispersion_t())
             case default

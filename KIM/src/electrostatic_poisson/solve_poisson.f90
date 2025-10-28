@@ -2,14 +2,14 @@ module poisson_solver_m
 
     contains
     
-    ! Solve A x = b
+    ! Solve \Delta \Phi + 4\pi K_rho_phi \Phi = - 4 \pi K_rho_B B_r
+    ! using sparse matrix solver
     subroutine solve_poisson(K_rho_phi, K_rho_B, phi_sol)
 
         use config_m, only: fstatus, fdebug
-        use sparse_mod, only: sp2fullComplex, sparse_solveComplex_b1, column_pointer2full, sparse_solve_suitesparseComplex_b1, &
-                            sparse_solve_method
+        use sparse_mod, only: sp2fullComplex, sparse_solveComplex_b1, sparse_solve_method
         use config_m, only: output_path
-        use constants_m, only: pi, e_charge
+        use constants_m, only: pi
         use grid_m, only: xl_grid, calc_mass_matrix
         use setup_m, only: type_br_field, bc_type
         use KIM_kinds_m, only: dp
@@ -23,24 +23,16 @@ module poisson_solver_m
         complex(dp), dimension(:,:), allocatable :: A_mat ! A matrix (stiffness matrix in the beginning, then full right hand side matrix)
         real(dp), dimension(:,:), allocatable :: M_mat ! mass matrix
         complex(dp), dimension(:), allocatable :: b_vec ! b vector and x vector
-        complex(dp), dimension(:,:), allocatable :: inv_K_rho_phi ! inverse of K_rho_phi
         integer, dimension(:), allocatable :: irow, pcol
         integer :: nz_out, nrow, ncol
-        integer :: i,j
+        integer :: i, j
         integer :: sparse_solver_option
-
 
         if (fstatus == 1) write(*,*) 'Status: solve poisson equation'
 
         allocate(A_mat(xl_grid%npts_b, xl_grid%npts_b), M_mat(xl_grid%npts_b, xl_grid%npts_b))
         call prepare_Laplace_matrix(A_mat)
         call calc_mass_matrix(M_mat)
-
-        call check_kernels_for_nans(K_rho_phi)
-        call check_kernels_for_nans(K_rho_B)
-
-        ! Compute inverse of K_rho_phi if requested/needed
-        call invert_complex_matrix(K_rho_phi, inv_K_rho_phi)
 
         A_mat = (A_mat + 4.0d0 * pi * K_rho_phi) 
 
@@ -105,106 +97,87 @@ module poisson_solver_m
 
         end subroutine
 
-
-        ! transform kernel matrix in l space to sparse matrix
-        ! ignores elements that are further apart than 5 times the
-        ! (ion) Larmor radius
-
-        subroutine create_rhs_vector(type, K_rho_B, rhs_vec)
-
-            use resonances_mod, only: index_rg_res, r_res
-            use functions_m, only: varphi_l
-            use grid_m, only: xl_grid
-            use IO_collection_m, only: write_profile, write_complex_profile, plot_profile
-            use KIM_kinds_m, only: dp
-            use fields_m, only: EBdat, set_Br_field
-            use config_m, only: output_path
-            use setup_m, only: bc_type
-
-            implicit none
-
-            integer, intent(in) :: type
-            complex(dp), allocatable, intent(out) :: rhs_vec(:)
-            complex(dp), intent(in) :: K_rho_B(:,:)
-
-            integer :: i, idx
-            real(dp) :: x0
-
-            x0 = 58.5d0
-
-            allocate(rhs_vec(xl_grid%npts_b))
-            rhs_vec = cmplx(0.0d0, 0.0d0, dp)
-
-            if (type ==1) then ! constant br
-                rhs_vec = cmplx(1.0d0, 0.0d0, dp) * e_charge
-            elseif(type == 2) then ! point charge like Br field
-
-                idx = minloc(abs(xl_grid%xb - r_res), dim=1)
-                rhs_vec(idx) = cmplx(1.0d0, 0.0d0, dp) * e_charge ! * exp(- (rg_grid%xb(idx) - 35.0d0)**2 / 0.1d0**2)
-
-            elseif(type ==3) then ! linear increase from the center of the plasma
-                do i = int(5.0d0/6.0d0 *size(b_vec)), size(b_vec)
-                    rhs_vec(i) = (i - size(rhs_vec)/2) * 0.02d0 * cmplx(1.0d0, 0.0d0, dp) - 0.2d0
-                end do 
-            elseif(type == 4) then ! point charge at resonant surface
-                rhs_vec(index_rg_res) = cmplx(1.0, 0.0d0, dp) * e_charge 
-            elseif(type == 5) then ! read br from file (not implemented yet)
-                print *, "Reading B vector from file not implemented yet"
-                stop
-            elseif(type == 6) then ! gaussian distribution
-                rhs_vec = cmplx(1.0d0, 0.0d0, dp) * e_charge * exp(- (xl_grid%xb - x0)**2 / 0.1d0**2) &
-                        * sqrt(pi / 0.1d0**2)
-            elseif(type==7) then
-                rhs_vec = cmplx(0.0d0, 0.0d0, dp)
-                do i = 2, xl_grid%npts_b-1
-                    rhs_vec(i) = e_charge * varphi_l(x0, xl_grid%xb(i-1), xl_grid%xb(i), xl_grid%xb(i+1))
-                end do
-            ! type > 10 uses Br kernel to determine right hand side of equation
-            elseif(type==11) then 
-                call set_Br_field(EBdat, 1) ! Br field from input
-                rhs_vec = matmul(K_rho_B, EBdat%Br)
-            elseif(type==12) then 
-                call set_Br_field(EBdat, 0) ! constant Br field
-                rhs_vec = matmul(K_rho_B, EBdat%Br)
-            elseif(type==13) then ! linear increase including kernel
-                rhs_vec = 0.0d0
-                do i = 1, size(b_vec)
-                    if (xl_grid%xb(i) > 50.0d0) then
-                        rhs_vec(i) = (xl_grid%xb(i) - 50.0d0) * 0.1d0
-                    end if
-                end do 
-                call write_complex_profile(xl_grid%xb, rhs_vec, xl_grid%npts_b, trim(output_path)//'fields/br_pert.dat')
-                rhs_vec = matmul(K_rho_B, rhs_vec)
-            end if
-
-            rhs_vec = - 4d0 * pi * rhs_vec
-            
-            ! Enforce Dirichlet BC at right boundary: Phi_n = 0
-            ! The RHS at the last point should be 0 for consistency
-            if (bc_type == 1) then
-                rhs_vec(xl_grid%npts_b) = 0.0_dp
-            end if
-
-            call write_complex_profile(xl_grid%xb, rhs_vec, xl_grid%npts_b, trim(output_path)//'fields/rhs_vec.dat')
-
-        end subroutine
-
     end subroutine
 
-    subroutine check_kernels_for_nans(kernel)
+    subroutine create_rhs_vector(type, K_rho_B, rhs_vec)
 
-            use KIM_kinds_m, only: dp
+        use resonances_mod, only: index_rg_res, r_res
+        use functions_m, only: varphi_l
+        use grid_m, only: xl_grid
+        use IO_collection_m, only: write_profile, write_complex_profile, plot_profile
+        use KIM_kinds_m, only: dp
+        use fields_m, only: EBdat, set_Br_field
+        use config_m, only: output_path
+        use setup_m, only: bc_type
+        use constants_m, only: pi, e_charge
 
-            implicit none
+        implicit none
 
-            complex(dp), intent(in) :: kernel(:,:)
+        integer, intent(in) :: type
+        complex(dp), allocatable, intent(out) :: rhs_vec(:)
+        complex(dp), intent(in) :: K_rho_B(:,:)
 
-            ! check if there are nan's in the kernels
-            if (any(isnan(real(kernel)))) then
-                print *, "kernel contains NaN values."
-            end if
+        integer :: i, idx
+        real(dp) :: x0
 
-        end subroutine
+        x0 = 58.5d0
+
+        allocate(rhs_vec(xl_grid%npts_b))
+        rhs_vec = cmplx(0.0d0, 0.0d0, dp)
+
+        if (type ==1) then ! constant br
+            rhs_vec = cmplx(1.0d0, 0.0d0, dp) * e_charge
+        elseif(type == 2) then ! point charge like Br field
+
+            idx = minloc(abs(xl_grid%xb - r_res), dim=1)
+            rhs_vec(idx) = cmplx(1.0d0, 0.0d0, dp) * e_charge ! * exp(- (rg_grid%xb(idx) - 35.0d0)**2 / 0.1d0**2)
+
+        elseif(type ==3) then ! linear increase from the center of the plasma
+            do i = int(5.0d0/6.0d0 *xl_grid%npts_b), xl_grid%npts_b
+                rhs_vec(i) = (i - size(rhs_vec)/2) * 0.02d0 * cmplx(1.0d0, 0.0d0, dp) - 0.2d0
+            end do 
+        elseif(type == 4) then ! point charge at resonant surface
+            rhs_vec(index_rg_res) = cmplx(1.0, 0.0d0, dp) * e_charge 
+        elseif(type == 5) then ! read br from file (not implemented yet)
+            print *, "Reading B vector from file not implemented yet"
+            stop
+        elseif(type == 6) then ! gaussian distribution
+            rhs_vec = cmplx(1.0d0, 0.0d0, dp) * e_charge * exp(- (xl_grid%xb - x0)**2 / 0.1d0**2) &
+                    * sqrt(pi / 0.1d0**2)
+        elseif(type==7) then
+            rhs_vec = cmplx(0.0d0, 0.0d0, dp)
+            do i = 2, xl_grid%npts_b-1
+                rhs_vec(i) = e_charge * varphi_l(x0, xl_grid%xb(i-1), xl_grid%xb(i), xl_grid%xb(i+1))
+            end do
+        ! type > 10 uses Br kernel to determine right hand side of equation
+        elseif(type==11) then 
+            call set_Br_field(EBdat, 1) ! Br field from input
+            rhs_vec = matmul(K_rho_B, EBdat%Br)
+        elseif(type==12) then 
+            call set_Br_field(EBdat, 0) ! constant Br field
+            rhs_vec = matmul(K_rho_B, EBdat%Br)
+        elseif(type==13) then ! linear increase including kernel
+            rhs_vec = 0.0d0
+            do i = 1, xl_grid%npts_b
+                if (xl_grid%xb(i) > 50.0d0) then
+                    rhs_vec(i) = (xl_grid%xb(i) - 50.0d0) * 0.1d0
+                end if
+            end do 
+            call write_complex_profile(xl_grid%xb, rhs_vec, xl_grid%npts_b, trim(output_path)//'fields/br_pert.dat')
+            rhs_vec = matmul(K_rho_B, rhs_vec)
+        end if
+
+        rhs_vec = - 4d0 * pi * rhs_vec
+            
+        ! Enforce Dirichlet BC at right boundary: Phi_n = 0
+        ! The RHS at the last point should be 0 for consistency
+        if (bc_type == 1) then
+            rhs_vec(xl_grid%npts_b) = 0.0_dp
+        end if
+
+        call write_complex_profile(xl_grid%xb, rhs_vec, xl_grid%npts_b, trim(output_path)//'fields/rhs_vec.dat')
+
+    end subroutine
 
     subroutine prepare_Laplace_matrix(A_mat)
 
@@ -230,9 +203,9 @@ module poisson_solver_m
             hL = xl_grid%xb(i)   - xl_grid%xb(i-1)  ! left element size
             hR = xl_grid%xb(i+1) - xl_grid%xb(i)    ! right element size
 
-            A_mat(i,i-1) = A_mat(i,i-1) - 1.0d0/hL
-            A_mat(i,i)   = A_mat(i,i)   + 1.0d0/hL + 1.0d0/hR
-            A_mat(i,i+1) = A_mat(i,i+1) - 1.0d0/hR
+            A_mat(i,i-1) = A_mat(i,i-1) + 1.0d0/hL
+            A_mat(i,i)   = A_mat(i,i)   - 1.0d0/hL - 1.0d0/hR
+            A_mat(i,i+1) = A_mat(i,i+1) + 1.0d0/hR
         end do
 
         if (bc_type == 1)then
@@ -251,8 +224,6 @@ module poisson_solver_m
             A_mat(n,n) = cmplx(1.0d0, 0.0d0, dp)
         end if
 
-        A_mat = - A_mat ! this definition includes the negative sign from the Poisson equation
-        
         call write_matrix(trim(output_path)//'kernel/laplacian_re.dat', real(A_mat), xl_grid%npts_b, xl_grid%npts_b)
 
     end subroutine
@@ -296,6 +267,7 @@ module poisson_solver_m
                 A_mat(:,1) = 0.0d0
                 A_mat(1,:) = 0.0d0
                 A_mat(n,:) = 0.0d0
+                A_mat(:,n) = 0.0d0
                 A_mat(1,1) = 1.0d0
                 A_mat(n,n) = 1.0d0
 
@@ -315,11 +287,12 @@ module poisson_solver_m
 
                 print *, "Imposing BC of zero misalignment field: Phi_left = ", phi_boundary_left, ", Phi_right = ", phi_boundary_right
 
-                b_vec = b_vec - A_mat(:,1) * phi_boundary_left - A_mat(:,n) * phi_boundary_right
+                b_vec(2:n-1) = b_vec(2:n-1) - A_mat(2:n-1,1) * phi_boundary_left - A_mat(2:n-1,n) * phi_boundary_right
 
                 A_mat(:,1) = 0.0d0
                 A_mat(1,:) = 0.0d0
                 A_mat(n,:) = 0.0d0
+                A_mat(:,n) = 0.0d0
                 A_mat(1,1) = 1.0d0
                 A_mat(n,n) = 1.0d0
 
@@ -329,7 +302,6 @@ module poisson_solver_m
         end if
 
     end subroutine
-
 
     subroutine dense_to_sparse(A, irow, pcol, A_nz, nrow, ncol, nz_out)
 
@@ -371,11 +343,12 @@ module poisson_solver_m
         n = 0
         do nc = 1, ncol
             do nr = 1, nrow
-                if (.not.(A(nr, nc) == 0.0d0)) then
+                if (.not.(A(nr, nc) == (0.0d0, 0.0d0))) then
                     n = n + 1
                     irow(n) = nr
                     icol(n) = nc
-                    A_nz(n) = A_nz(n) + A(nr, nc)
+                    ! A_nz(n) = A_nz(n) + A(nr, nc)
+                    A_nz(n) = A(nr, nc)
                 end if
             end do
         end do

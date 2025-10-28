@@ -8,3 +8,4 @@ from .KIMDispersion_Horton import *
 from .KIMDispersion_Krook import *
 from .KIMDispersion_FokkerPlanck import *
 from .DispersionEquationFactory import *
+from .kim_data import *

@@ -66,6 +66,8 @@ module species_m
         real(dp), allocatable :: omega_c_cc(:)
         real(dp), allocatable :: lambda_D_cc(:)
         real(dp), allocatable :: rho_L_cc(:)
+        real(dp), allocatable :: x1_cc(:)
+        real(dp), allocatable :: x2_cc(:)
         complex(dp), allocatable :: I00_cc(:)
         complex(dp), allocatable :: I01_cc(:)
         complex(dp), allocatable :: I20_cc(:)
@@ -283,6 +285,8 @@ module species_m
                 allocate(plasma_in%spec(sp)%omega_c_cc(rg_grid%npts_c))
                 allocate(plasma_in%spec(sp)%lambda_D_cc(rg_grid%npts_c))
                 allocate(plasma_in%spec(sp)%rho_L_cc(rg_grid%npts_c))
+                allocate(plasma_in%spec(sp)%x1_cc(rg_grid%npts_c))
+                allocate(plasma_in%spec(sp)%x2_cc(rg_grid%npts_c))
                 allocate(plasma_in%spec(sp)%I00_cc(rg_grid%npts_c))
                 allocate(plasma_in%spec(sp)%I01_cc(rg_grid%npts_c))
                 allocate(plasma_in%spec(sp)%I20_cc(rg_grid%npts_c))
@@ -306,6 +310,10 @@ module species_m
                 plasma_in%spec(sp)%omega_c_cc(j)  = 0.5d0 * (plasma_in%spec(sp)%omega_c(j)  + plasma_in%spec(sp)%omega_c(j+1))
                 plasma_in%spec(sp)%lambda_D_cc(j) = 0.5d0 * (plasma_in%spec(sp)%lambda_D(j) + plasma_in%spec(sp)%lambda_D(j+1))
                 plasma_in%spec(sp)%rho_L_cc(j)    = 0.5d0 * (plasma_in%spec(sp)%rho_L(j)    + plasma_in%spec(sp)%rho_L(j+1))
+
+                plasma_in%spec(sp)%x1_cc(j)       = 0.5d0 * (plasma_in%spec(sp)%x1(j)    + plasma_in%spec(sp)%x1(j+1))
+                plasma_in%spec(sp)%x2_cc(j)       = 0.5d0 * (plasma_in%spec(sp)%x2(j)    + plasma_in%spec(sp)%x2(j+1))
+
                 plasma_in%spec(sp)%I00_cc(j)      = 0.5d0 * (plasma_in%spec(sp)%I00(j)      + plasma_in%spec(sp)%I00(j+1))
                 plasma_in%spec(sp)%I01_cc(j)      = 0.5d0 * (plasma_in%spec(sp)%I01(j)      + plasma_in%spec(sp)%I01(j+1))
                 plasma_in%spec(sp)%I20_cc(j)      = 0.5d0 * (plasma_in%spec(sp)%I20(j)      + plasma_in%spec(sp)%I20(j+1))

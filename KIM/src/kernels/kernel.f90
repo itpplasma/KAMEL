@@ -522,7 +522,6 @@ module kernel_m
                 if (abs(0.5d0 * (rg_grid%xb(j+1) + rg_grid%xb(j)) - 0.5d0 * (xl_grid%xb(l) + xl_grid%xb(lp))) > 1024.0d0 * plasma%spec(0)%rho_L(j)) cycle
 
                 int_F1_e%int_point = int_point
-                int_F2_e%int_point = int_point
 
                 ! F1 integration
                 integral_val = 0.0d0
@@ -1002,7 +1001,7 @@ module kernel_m
                 int_point%ks = plasma%ks_cc(j)
 
                 ! skip term if species Larmor radius is too small to couple these grid points
-                if (abs(l-lp) > 10 .and. abs(xl_grid%xb(l) - xl_grid%xb(lp))> 4.0d0 * plasma%spec(sigma)%rho_L(j)) cycle
+                if (abs(l-lp) > 5 .and. abs(xl_grid%xb(l) - xl_grid%xb(lp))> 4.0d0 * plasma%spec(sigma)%rho_L(j)) cycle
                 if (abs(0.5d0 * (rg_grid%xb(j+1) + rg_grid%xb(j)) - 0.5d0 * (xl_grid%xb(l) + xl_grid%xb(lp))) > 16.0d0 * plasma%spec(sigma)%rho_L(j)) cycle
 
                 int_F1%int_point = int_point
@@ -1059,6 +1058,9 @@ module kernel_m
 
         type(gauss_config_t) :: gauss_conf
         real(dp) :: dmax_global, alpha, tau
+        integer :: total_iterations, current_iteration
+        integer(kind=8) :: start_count, count_rate, count_max
+        integer :: l, lp, lp_lo, lp_hi
 
         interface
             subroutine flr2_kernel_cb(l, lp, k_rho_phi, k_rho_B, k_j_phi, k_j_B, gauss_conf)
@@ -1076,15 +1078,13 @@ module kernel_m
         gauss_conf%Ntheta = gauss_int_nodes_Ntheta
 
         call init_gauss_int(gauss_conf)
-
+        call rescale_susceptibility_functions()
         if (.not. pref_ready) call compute_cc_prefactors
 
         K_rho_phi_llp%Kllp = (0.0d0, 0.0d0)
         K_rho_B_llp%Kllp   = (0.0d0, 0.0d0)
         K_j_phi_llp%Kllp   = (0.0d0, 0.0d0)
         K_j_B_llp%Kllp     = (0.0d0, 0.0d0)
-
-        call rescale_susceptibility_functions()
 
         alpha = Larmor_skip_factor
         tau   = max(kernel_taper_skip_threshold, 1.0d-12)
@@ -1099,6 +1099,38 @@ module kernel_m
             end do
             dmax_global = alpha * rhoT_max * sqrt(max(log(1.0d0 / tau), 0.0d0))
         end block
+
+        total_iterations = 0
+        block
+            real(dp) :: xl_val
+            integer :: lp_lo, lp_hi
+            do l = 1, K_rho_phi_llp%npts_l
+
+                xl_val = xl_grid%xb(l)
+
+                lp_lo = l
+                do
+                    if (lp_lo <= 1) exit
+                    if (abs(xl_grid%xb(lp_lo - 1) - xl_val) > dmax_global) exit
+                    lp_lo = lp_lo - 1
+                end do
+
+                lp_hi = l
+                do
+                    if (lp_hi >= K_rho_phi_llp%npts_l) exit
+                    if (abs(xl_grid%xb(lp_hi + 1) - xl_val) > dmax_global) exit
+                    lp_hi = lp_hi + 1
+                end do
+
+                if (min(l, lp_hi) >= max(1, lp_lo)) then
+                    total_iterations = total_iterations + (min(l, lp_hi) - max(1, lp_lo) + 1)
+                end if
+            end do
+        end block
+
+        write(*,*) 'FLR2 benchmark total band-limited iterations: ', total_iterations
+        current_iteration = 0
+        call system_clock(start_count, count_rate, count_max)
 
         if (include_electrons .and. .not. include_ions) then
             call fill_case(FP_calc_kernel_electrons_FLR2_benchmark)
@@ -1151,6 +1183,16 @@ module kernel_m
                         K_j_phi_llp%Kllp(lp, l)   = k_j_phi
                         K_j_B_llp%Kllp(lp, l)     = k_j_B
                     end if
+
+                    if (total_iterations > 0) then
+                        !$omp atomic
+                        current_iteration = current_iteration + 1
+                        !$omp critical(loading_bar)
+                        if (mod(current_iteration, 32) == 0 .or. current_iteration == total_iterations) then
+                            call update_bar(current_iteration, total_iterations, start_count, count_rate)
+                        end if
+                        !$omp end critical(loading_bar)
+                    end if
                 end do
             end do
             !$omp end parallel do
@@ -1169,7 +1211,9 @@ module kernel_m
 
             do sp=0, plasma%n_species - 1
                 plasma%spec(sp)%I00 = plasma%spec(sp)%I01 * plasma%spec(sp)%x1 / plasma%spec(sp)%x2
+                plasma%spec(sp)%I00_cc = plasma%spec(sp)%I01_cc * plasma%spec(sp)%x1_cc / plasma%spec(sp)%x2_cc
                 plasma%spec(sp)%I20 = plasma%spec(sp)%I21 * plasma%spec(sp)%x1 / plasma%spec(sp)%x2
+                plasma%spec(sp)%I20_cc = plasma%spec(sp)%I21_cc * plasma%spec(sp)%x1_cc / plasma%spec(sp)%x2_cc
             end do
 
         end subroutine

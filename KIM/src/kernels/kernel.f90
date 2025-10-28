@@ -835,8 +835,8 @@ module kernel_m
                 if (artificial_debye_case == 1) cycle
 
                 ! skip term if species Larmor radius is too small to couple these grid points
-                if (abs(l-lp) > 10 .and. abs(xl_grid%xb(l) - xl_grid%xb(lp))> 4.0d0 * plasma%spec(sigma)%rho_L(j)) cycle
-                if (abs(0.5d0 * (rg_grid%xb(j+1) + rg_grid%xb(j)) - 0.5d0 * (xl_grid%xb(l) + xl_grid%xb(lp))) > 16.0d0 * plasma%spec(sigma)%rho_L(j)) cycle
+                if (abs(l-lp) > 5 .and. abs(xl_grid%xb(l) - xl_grid%xb(lp))> 4.0d0 * plasma%spec(sigma)%rho_L(j)) cycle
+                if (abs(0.5d0 * (rg_grid%xb(j+1) + rg_grid%xb(j)) - 0.5d0 * (xl_grid%xb(l) + xl_grid%xb(lp))) > 4.0d0 * plasma%spec(sigma)%rho_L(j)) cycle
 
                 int_F1%int_point = int_point
                 int_F2%int_point = int_point
@@ -881,11 +881,11 @@ module kernel_m
 
         use KIM_kinds_m, only: dp
         use integrals_gauss_m, only: gauss_integrate_F0, gauss_integrate_F1, gauss_integrate_F2, gauss_integrate_F3,&
-            gauss_config_t, gauss_integrate_F1_electrons, gauss_integrate_F2_electrons
+            gauss_config_t, gauss_integrate_F1_electrons
         use species_m, only: plasma
         use constants_m, only: pi
         use integrands_gauss_m, only: gauss_int_F0_rho_phi_t, gauss_int_F1_rho_phi_t, gauss_int_F2_rho_phi_t, gauss_int_F3_rho_phi_t, &
-            integration_point_t, gauss_int_F1_rho_phi_electrons_t, gauss_int_F2_rho_phi_electrons_t
+            integration_point_t, gauss_int_F1_rho_phi_electrons_t
         use FP_kernel_plasma_prefacs_m, only: FP_G0_rho_phi
         use grid_m, only: Larmor_skip_factor, kernel_taper_skip_threshold, rg_grid, xl_grid
         use constants_m, only: com_unit, sol
@@ -908,7 +908,6 @@ module kernel_m
         type(gauss_int_F3_rho_phi_t) :: int_F3
 
         type(gauss_int_F1_rho_phi_electrons_t) :: int_F1_e
-        type(gauss_int_F2_rho_phi_electrons_t) :: int_F2_e
 
         k_rho_phi = (0.0d0, 0.0d0)
         k_rho_B = (0.0d0, 0.0d0)
@@ -927,8 +926,8 @@ module kernel_m
 
             ! skip term if species Larmor radius is too small to couple these grid points
             if (abs(l-lp) > 10 .and. abs(xl_grid%xb(l) - xl_grid%xb(lp)) > 8.0d0 * plasma%spec(0)%rho_L(j)) cycle
-            ! this is more restrictive:
-            if (abs(0.5d0 * (rg_grid%xb(j+1) + rg_grid%xb(j)) - 0.5d0 * (xl_grid%xb(l) + xl_grid%xb(lp))) > 1024.0d0 * plasma%spec(0)%rho_L(j)) cycle
+            ! this is more restrictive: (checks overlap of centers of rg grid cells and xl grid cells)
+            if (abs(0.5d0 * (rg_grid%xb(j+1) + rg_grid%xb(j)) - 0.5d0 * (xl_grid%xb(l) + xl_grid%xb(lp))) > 128.0d0 * plasma%spec(0)%rho_L(j)) cycle
 
             int_F1_e%int_point = int_point
 
@@ -1001,8 +1000,8 @@ module kernel_m
                 int_point%ks = plasma%ks_cc(j)
 
                 ! skip term if species Larmor radius is too small to couple these grid points
-                if (abs(l-lp) > 5 .and. abs(xl_grid%xb(l) - xl_grid%xb(lp))> 4.0d0 * plasma%spec(sigma)%rho_L(j)) cycle
-                if (abs(0.5d0 * (rg_grid%xb(j+1) + rg_grid%xb(j)) - 0.5d0 * (xl_grid%xb(l) + xl_grid%xb(lp))) > 16.0d0 * plasma%spec(sigma)%rho_L(j)) cycle
+                if (abs(l-lp) > 5 .and. abs(xl_grid%xb(l) - xl_grid%xb(lp))> 2.0d0 * plasma%spec(sigma)%rho_L(j)) cycle
+                if (abs(0.5d0 * (rg_grid%xb(j+1) + rg_grid%xb(j)) - 0.5d0 * (xl_grid%xb(l) + xl_grid%xb(lp))) > 2.0d0 * plasma%spec(sigma)%rho_L(j)) cycle
 
                 int_F1%int_point = int_point
                 int_F2%int_point = int_point
@@ -1039,6 +1038,110 @@ module kernel_m
         k_j_B = k_j_B / (8.0d0 * pi**3.0d0)
 
     end subroutine FP_calc_kernel_ions_FLR2_benchmark
+
+
+    subroutine FP_calc_kernel_FLR2_benchmark(l, lp, k_rho_phi, k_rho_B, k_j_phi, k_j_B, gauss_conf)
+        ! for benchmarking FLR2 and KIM against each other, FLR2 exploits quasineutrality which has to be taken into account for
+        ! electrons and ions separately, most notably, by omitting the Debye shielding term and using different susceptibility functions
+
+        use KIM_kinds_m, only: dp
+        use integrals_gauss_m, only: gauss_integrate_F0, gauss_integrate_F1, gauss_integrate_F2, gauss_integrate_F3,&
+            gauss_config_t, gauss_integrate_F1_electrons
+        use species_m, only: plasma
+        use constants_m, only: pi
+        use integrands_gauss_m, only: gauss_int_F0_rho_phi_t, gauss_int_F1_rho_phi_t, gauss_int_F2_rho_phi_t, gauss_int_F3_rho_phi_t, &
+            integration_point_t, gauss_int_F1_rho_phi_electrons_t
+        use FP_kernel_plasma_prefacs_m, only: FP_G0_rho_phi
+        use grid_m, only: Larmor_skip_factor, kernel_taper_skip_threshold, rg_grid
+        use constants_m, only: com_unit, sol
+        use config_m, only: turn_off_ions, turn_off_electrons, artificial_debye_case
+        use grid_m, only: xl_grid
+
+        implicit none
+
+        integer, intent(in) :: l, lp
+        complex(dp) :: k_rho_phi, k_rho_B, k_j_phi, k_j_B
+        integer :: j, sigma
+        type(gauss_config_t), intent(in) :: gauss_conf
+        real(dp) :: integral_val
+        real(dp) :: current_distance
+
+        type(integration_point_t) :: int_point
+        type(gauss_int_F0_rho_phi_t) :: int_F0
+        type(gauss_int_F1_rho_phi_t) :: int_F1
+        type(gauss_int_F2_rho_phi_t) :: int_F2
+        type(gauss_int_F3_rho_phi_t) :: int_F3
+        type(gauss_int_F1_rho_phi_electrons_t) :: int_F1_e
+
+        k_rho_phi = (0.0d0, 0.0d0)
+        k_rho_B = (0.0d0, 0.0d0)
+        k_j_phi = (0.0d0, 0.0d0)
+        k_j_B = (0.0d0, 0.0d0)
+
+        call set_xl_at_edge(l, lp, int_point)
+
+        do sigma = 0, plasma%n_species - 1
+            do j = 1, rg_grid%npts_b-1
+
+                int_point%j = j
+                int_point%rhoT = max(plasma%spec(sigma)%rho_L_cc(j), 0.0d0)
+                int_point%ks = plasma%ks_cc(j)
+
+                ! skip term if species Larmor radius is too small to couple these grid points
+                if (abs(l-lp) > 5 .and. abs(xl_grid%xb(l) - xl_grid%xb(lp))> 4.0d0 * plasma%spec(sigma)%rho_L(j)) cycle
+                if (abs(0.5d0 * (rg_grid%xb(j+1) + rg_grid%xb(j)) - 0.5d0 * (xl_grid%xb(l) + xl_grid%xb(lp))) > 16.0d0 * plasma%spec(sigma)%rho_L(j)) cycle
+
+                if (sigma == 0) then
+                    int_F1_e%int_point = int_point
+
+                    ! F1 integration
+                    integral_val = 0.0d0
+                    call gauss_integrate_F1_electrons(int_F1_e, integral_val, gauss_conf)
+                    integral_val = integral_val * pi ! pi because of missing Bessel function representation
+                    k_rho_phi = k_rho_phi + integral_val * pref_rho_phi_g1(1,j) * int_point%ks 
+                    k_rho_B = k_rho_B + integral_val * pref_rho_B_g1(1,j)
+                    k_j_phi = k_j_phi + integral_val * pref_j_phi_g1(1,j) * int_point%ks
+                    k_j_B = k_j_B + integral_val * pref_j_B_g1(1,j)
+                    cycle
+                end if
+
+                int_F1%int_point = int_point
+                int_F2%int_point = int_point
+                int_F3%int_point = int_point
+
+                ! F1 integration
+                call gauss_integrate_F1(int_F1, integral_val, gauss_conf)
+                k_rho_phi = k_rho_phi + integral_val * pref_rho_phi_g1(sigma+1,j) * int_point%ks
+                k_rho_B = k_rho_B + integral_val * pref_rho_B_g1(sigma+1,j)
+                k_j_phi = k_j_phi + integral_val * pref_j_phi_g1(sigma+1,j) * int_point%ks
+                k_j_B = k_j_B + integral_val * pref_j_B_g1(sigma+1,j)
+
+                ! F2 integration
+                call gauss_integrate_F2(int_F2, integral_val, gauss_conf)
+                k_rho_phi = k_rho_phi + integral_val * pref_rho_phi_g2(sigma+1,j) * int_point%ks
+                k_rho_B = k_rho_B + integral_val * pref_rho_B_g2(sigma+1,j)
+                k_j_phi = k_j_phi + integral_val * pref_j_phi_g2(sigma+1,j) * int_point%ks
+                k_j_B = k_j_B + integral_val * pref_j_B_g2(sigma+1,j)
+
+                ! F3 integration
+                call gauss_integrate_F3(int_F3, integral_val, gauss_conf)
+                k_rho_phi = k_rho_phi + integral_val * pref_rho_phi_g3(sigma+1,j) * int_point%ks
+                k_rho_B = k_rho_B + integral_val * pref_rho_B_g3(sigma+1,j)
+                k_j_phi = k_j_phi + integral_val * pref_j_phi_g3(sigma+1,j) * int_point%ks
+                k_j_B = k_j_B + integral_val * pref_j_B_g3(sigma+1,j)
+
+            end do
+        end do
+
+        k_rho_phi = k_rho_phi / (8.0d0 * pi**3.0d0)
+        k_rho_B = k_rho_B / (8.0d0 * pi**3.0d0)
+
+        k_j_phi = k_j_phi / (8.0d0 * pi**3.0d0)
+        k_j_B = k_j_B / (8.0d0 * pi**3.0d0)
+
+    end subroutine FP_calc_kernel_FLR2_benchmark
+
+
 
     subroutine FP_fill_kernels_flr2_benchmark(K_rho_phi_llp, K_rho_B_llp, K_j_phi_llp, K_j_B_llp, include_electrons, include_ions)
 
@@ -1137,10 +1240,13 @@ module kernel_m
         else if (include_ions .and. .not. include_electrons) then
             call fill_case(FP_calc_kernel_ions_FLR2_benchmark)
         else if (include_electrons .and. include_ions) then
-            write(*,*) 'FLR2 benchmark: electron+ion combined kernels not implemented yet.'
+            call fill_case(FP_calc_kernel_FLR2_benchmark)
         else
             write(*,*) 'FLR2 benchmark: both species disabled; kernels remain zero.'
         end if
+
+        write(*,*)
+        write(*,*) 'Finished filling kernels.'
 
     contains
 

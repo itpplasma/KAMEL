@@ -81,11 +81,6 @@ module rt_flr2_benchmark_m
             stop "FLR2 benchmark: both electrons and ions cannot be disabled simultaneously."
         end if
 
-        if (.not. turn_off_electrons .and. .not. turn_off_ions) then
-            write(*,*) "FLR2 benchmark: combined electron and ion kernels not implemented yet."
-            return
-        end if
-
         call FP_fill_kernels_flr2_benchmark(kernel_rho_phi_llp, kernel_rho_B_llp, kernel_j_phi_llp, kernel_j_B_llp, &
                                             .not. turn_off_electrons, .not. turn_off_ions)
 

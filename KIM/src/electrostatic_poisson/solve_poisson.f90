@@ -1,5 +1,10 @@
 module poisson_solver_m
 
+    implicit none
+
+    integer, parameter :: sparse_solver_option = 0
+    integer, parameter :: sparse_solve_method = 1 
+
     contains
     
     ! Solve \Delta \Phi + 4\pi K_rho_phi \Phi = - 4 \pi K_rho_B B_r
@@ -11,7 +16,7 @@ module poisson_solver_m
         use config_m, only: output_path
         use constants_m, only: pi
         use grid_m, only: xl_grid, calc_mass_matrix
-        use setup_m, only: type_br_field, bc_type
+        use setup_m, only: type_br_field
         use KIM_kinds_m, only: dp
 
         implicit none
@@ -42,11 +47,7 @@ module poisson_solver_m
 
         call create_rhs_vector(type_br_field, K_rho_B, b_vec)
         call impose_bc_on_matrix_and_rhs(A_mat, b_vec, K_rho_phi, K_rho_B)
-
         call dense_to_sparse(A_mat, irow, pcol, A_nz, nrow, ncol, nz_out)
-
-        sparse_solver_option = 0
-        sparse_solve_method = 1 
         call sparse_solveComplex_b1(nrow, ncol, nz_out, irow, pcol, A_nz, b_vec, sparse_solver_option)
 
         phi_sol = b_vec
@@ -108,7 +109,6 @@ module poisson_solver_m
         use KIM_kinds_m, only: dp
         use fields_m, only: EBdat, set_Br_field
         use config_m, only: output_path
-        use setup_m, only: bc_type
         use constants_m, only: pi, e_charge
 
         implicit none
@@ -117,38 +117,11 @@ module poisson_solver_m
         complex(dp), allocatable, intent(out) :: rhs_vec(:)
         complex(dp), intent(in) :: K_rho_B(:,:)
 
-        integer :: i, idx
-        real(dp) :: x0
-
-        x0 = 58.5d0
-
         allocate(rhs_vec(xl_grid%npts_b))
         rhs_vec = cmplx(0.0d0, 0.0d0, dp)
 
         if (type ==1) then ! constant br
             rhs_vec = cmplx(1.0d0, 0.0d0, dp) * e_charge
-        elseif(type == 2) then ! point charge like Br field
-
-            idx = minloc(abs(xl_grid%xb - r_res), dim=1)
-            rhs_vec(idx) = cmplx(1.0d0, 0.0d0, dp) * e_charge ! * exp(- (rg_grid%xb(idx) - 35.0d0)**2 / 0.1d0**2)
-
-        elseif(type ==3) then ! linear increase from the center of the plasma
-            do i = int(5.0d0/6.0d0 *xl_grid%npts_b), xl_grid%npts_b
-                rhs_vec(i) = (i - size(rhs_vec)/2) * 0.02d0 * cmplx(1.0d0, 0.0d0, dp) - 0.2d0
-            end do 
-        elseif(type == 4) then ! point charge at resonant surface
-            rhs_vec(index_rg_res) = cmplx(1.0, 0.0d0, dp) * e_charge 
-        elseif(type == 5) then ! read br from file (not implemented yet)
-            print *, "Reading B vector from file not implemented yet"
-            stop
-        elseif(type == 6) then ! gaussian distribution
-            rhs_vec = cmplx(1.0d0, 0.0d0, dp) * e_charge * exp(- (xl_grid%xb - x0)**2 / 0.1d0**2) &
-                    * sqrt(pi / 0.1d0**2)
-        elseif(type==7) then
-            rhs_vec = cmplx(0.0d0, 0.0d0, dp)
-            do i = 2, xl_grid%npts_b-1
-                rhs_vec(i) = e_charge * varphi_l(x0, xl_grid%xb(i-1), xl_grid%xb(i), xl_grid%xb(i+1))
-            end do
         ! type > 10 uses Br kernel to determine right hand side of equation
         elseif(type==11) then 
             call set_Br_field(EBdat, 1) ! Br field from input
@@ -156,24 +129,9 @@ module poisson_solver_m
         elseif(type==12) then 
             call set_Br_field(EBdat, 0) ! constant Br field
             rhs_vec = matmul(K_rho_B, EBdat%Br)
-        elseif(type==13) then ! linear increase including kernel
-            rhs_vec = 0.0d0
-            do i = 1, xl_grid%npts_b
-                if (xl_grid%xb(i) > 50.0d0) then
-                    rhs_vec(i) = (xl_grid%xb(i) - 50.0d0) * 0.1d0
-                end if
-            end do 
-            call write_complex_profile(xl_grid%xb, rhs_vec, xl_grid%npts_b, trim(output_path)//'fields/br_pert.dat')
-            rhs_vec = matmul(K_rho_B, rhs_vec)
         end if
 
         rhs_vec = - 4d0 * pi * rhs_vec
-            
-        ! Enforce Dirichlet BC at right boundary: Phi_n = 0
-        ! The RHS at the last point should be 0 for consistency
-        if (bc_type == 1) then
-            rhs_vec(xl_grid%npts_b) = 0.0_dp
-        end if
 
         call write_complex_profile(xl_grid%xb, rhs_vec, xl_grid%npts_b, trim(output_path)//'fields/rhs_vec.dat')
 
@@ -185,7 +143,6 @@ module poisson_solver_m
         use KIM_kinds_m, only: dp
         use config_m, only: output_path
         use IO_collection_m, only: write_matrix
-        use setup_m, only: bc_type
 
         implicit none
 
@@ -196,10 +153,10 @@ module poisson_solver_m
 
         n = xl_grid%npts_b
         
-        ! create Laplacian:
         A_mat = cmplx(0.0d0, 0.0d0, dp)
 
         do i = 2, n-1
+            ! distinguish left and right element sizes for non-uniform grid
             hL = xl_grid%xb(i)   - xl_grid%xb(i-1)  ! left element size
             hR = xl_grid%xb(i+1) - xl_grid%xb(i)    ! right element size
 
@@ -208,28 +165,13 @@ module poisson_solver_m
             A_mat(i,i+1) = A_mat(i,i+1) + 1.0d0/hR
         end do
 
-        if (bc_type == 1)then
-            ! ---- Left boundary: Neumann BC (dPhi/dx = 0) ----
-            ! This modifies only the first row/col to enforce derivative = 0
-            hR = xl_grid%xb(2) - xl_grid%xb(1)
-            A_mat(1,:) = cmplx(0.0d0, 0.0d0, dp)
-            A_mat(1,1) = -1.0d0 / hR
-            A_mat(1,2) =  1.0d0 / hR
-            ! Keep symmetry in column 1
-            A_mat(2,1) =  1.0d0 / hR
-
-            ! ---- Right boundary: Dirichlet BC (Phi = 0) ----
-            ! Overwrite last row to enforce Phi_n = 0
-            A_mat(n,:) = cmplx(0.0d0, 0.0d0, dp)
-            A_mat(n,n) = cmplx(1.0d0, 0.0d0, dp)
-        end if
-
         call write_matrix(trim(output_path)//'kernel/laplacian_re.dat', real(A_mat), xl_grid%npts_b, xl_grid%npts_b)
 
     end subroutine
 
     subroutine impose_bc_on_matrix_and_rhs(A_mat, b_vec, K_rho_phi, K_rho_B)
 
+        use config_m, only: fdebug
         use grid_m, only: xl_grid
         use KIM_kinds_m, only: dp
         use setup_m, only: bc_type
@@ -242,63 +184,28 @@ module poisson_solver_m
         complex(dp), intent(in) :: K_rho_phi(:,:), K_rho_B(:,:)
         complex(dp) :: phi_boundary_left, phi_boundary_right
 
-        if (bc_type == 2) then
-            block
-                complex(dp), allocatable :: inv_K_rho_phi(:,:)
+        if(bc_type == 3) then ! zero misalignment field at boundaries
 
-                integer :: n
-                complex(dp), allocatable :: phi_temp(:)
+            call calculate_phi_aligned(plasma, EBdat)
 
-                n = xl_grid%npts_b
+            phi_boundary_left = - EBdat%phi_aligned(1)
+            phi_boundary_right = - EBdat%phi_aligned(xl_grid%npts_b)
 
-                allocate(phi_temp(n))
+            if (fdebug == 1) print *, "Imposing BC of zero misalignment field: Phi_left = ", &
+                phi_boundary_left, ", Phi_right = ", phi_boundary_right
 
-                ! Enforce Dirichlet BC at right boundary: Phi_n = (K_rho_phi^-1 * b_vec)_n
+            b_vec(2:xl_grid%npts_b-1) = b_vec(2:xl_grid%npts_b-1) &
+                - A_mat(2:xl_grid%npts_b-1,1) * phi_boundary_left - A_mat(2:xl_grid%npts_b-1,xl_grid%npts_b) * phi_boundary_right
 
-                call invert_complex_matrix(K_rho_phi, inv_K_rho_phi)
+            A_mat(:, 1) = 0.0d0
+            A_mat(1, :) = 0.0d0
+            A_mat(xl_grid%npts_b, :) = 0.0d0
+            A_mat(:, xl_grid%npts_b) = 0.0d0
+            A_mat(1, 1) = 1.0d0
+            A_mat(xl_grid%npts_b, xl_grid%npts_b) = 1.0d0
 
-                phi_temp = matmul(inv_K_rho_phi, b_vec)
-                phi_boundary_left = - phi_temp(1)
-                phi_boundary_right = - phi_temp(n)
-                deallocate(phi_temp)
-
-                b_vec = b_vec - A_mat(:,1) * phi_boundary_left - A_mat(:,n) * phi_boundary_right
-
-                A_mat(:,1) = 0.0d0
-                A_mat(1,:) = 0.0d0
-                A_mat(n,:) = 0.0d0
-                A_mat(:,n) = 0.0d0
-                A_mat(1,1) = 1.0d0
-                A_mat(n,n) = 1.0d0
-
-                b_vec(1) = phi_boundary_left
-                b_vec(n) = phi_boundary_right
-            end block
-        else if(bc_type == 3) then ! zero misalignment field at boundaries
-            block
-                integer :: n
-
-                n = xl_grid%npts_b
-
-                call calculate_phi_aligned(plasma, EBdat)
-
-                phi_boundary_left = - EBdat%phi_aligned(1)
-                phi_boundary_right = - EBdat%phi_aligned(n)
-
-                print *, "Imposing BC of zero misalignment field: Phi_left = ", phi_boundary_left, ", Phi_right = ", phi_boundary_right
-
-                b_vec(2:n-1) = b_vec(2:n-1) - A_mat(2:n-1,1) * phi_boundary_left - A_mat(2:n-1,n) * phi_boundary_right
-
-                A_mat(:,1) = 0.0d0
-                A_mat(1,:) = 0.0d0
-                A_mat(n,:) = 0.0d0
-                A_mat(:,n) = 0.0d0
-                A_mat(1,1) = 1.0d0
-                A_mat(n,n) = 1.0d0
-
-                b_vec(1) = phi_boundary_left
-                b_vec(n) = phi_boundary_right
-            end block
+            b_vec(1) = phi_boundary_left
+            b_vec(xl_grid%npts_b) = phi_boundary_right
         end if
 
     end subroutine
@@ -359,72 +266,5 @@ module poisson_solver_m
         if (allocated(icol)) deallocate(icol)
 
     end subroutine
-
-    ! Invert a square complex(dp) matrix using LAPACK (zgetrf + zgetri)
-    subroutine invert_complex_matrix(A_in, A_inv)
-
-        use KIM_kinds_m, only: dp
-
-        implicit none
-
-        complex(dp), intent(in)  :: A_in(:,:)
-        complex(dp), allocatable, intent(out) :: A_inv(:,:)
-
-        complex(dp), allocatable :: A(:,:), work(:)
-        integer, allocatable     :: ipiv(:)
-        integer :: n, lda, info, lwork
-        complex(dp) :: work_query(1)
-
-        interface
-            subroutine zgetrf(m, n, a, lda, ipiv, info)
-                use KIM_kinds_m, only: dp
-                integer, intent(in) :: m, n, lda
-                integer, intent(out) :: ipiv(*)
-                integer, intent(out) :: info
-                complex(dp) :: a(lda,*)
-            end subroutine zgetrf
-            subroutine zgetri(n, a, lda, ipiv, work, lwork, info)
-                use KIM_kinds_m, only: dp
-                integer, intent(in) :: n, lda, lwork
-                integer, intent(in) :: ipiv(*)
-                integer, intent(out) :: info
-                complex(dp) :: a(lda,*), work(*)
-            end subroutine zgetri
-        end interface
-
-        if (size(A_in,1) /= size(A_in,2)) then
-            stop "invert_complex_matrix: input must be square"
-        end if
-
-        n = size(A_in,1)
-        lda = max(1, n)
-
-        allocate(A(n,n))
-        A = A_in
-
-        allocate(ipiv(n))
-
-        call zgetrf(n, n, A, lda, ipiv, info)
-        if (info /= 0) then
-            stop "invert_complex_matrix: LU factorization failed"
-        end if
-
-        ! Workspace query
-        lwork = -1
-        call zgetri(n, A, lda, ipiv, work_query, lwork, info)
-        lwork = max(1, int(real(work_query(1))))
-        allocate(work(lwork))
-
-        call zgetri(n, A, lda, ipiv, work, lwork, info)
-        if (info /= 0) then
-            stop "invert_complex_matrix: inversion failed"
-        end if
-
-        allocate(A_inv(n,n))
-        A_inv = A
-
-        deallocate(A, ipiv, work)
-
-    end subroutine invert_complex_matrix
 
 end module

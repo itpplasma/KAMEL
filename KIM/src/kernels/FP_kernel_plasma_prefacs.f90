@@ -103,7 +103,7 @@ module FP_kernel_plasma_prefacs_m
 
     function FP_G1_rho_phi(j, spec) result(val)
 
-        use species_m, only: species_t
+        use species_m, only: species_t, plasma
         use KIM_kinds_m, only: dp
         use constants_m, only: com_unit
 
@@ -122,7 +122,7 @@ module FP_kernel_plasma_prefacs_m
         I20 = spec%I20_cc(j)
 
         prefactor = FP_kappa_rho_phi(j, spec) * com_unit * spec%vT_cc(j)**2.0d0 / &
-            (spec%omega_c_cc(j) * spec%nu_cc(j))
+            (spec%omega_c_cc(j) * spec%nu_cc(j)) * plasma%ks_cc(j)
 
         val = (I00 * (A1 + A2) + 0.5d0 * A2 * I20) * prefactor
 
@@ -131,7 +131,7 @@ module FP_kernel_plasma_prefacs_m
 
     function FP_G2_rho_phi(j, spec) result(val)
 
-        use species_m, only: species_t
+        use species_m, only: species_t, plasma
         use KIM_kinds_m, only: dp
         use constants_m, only: com_unit
 
@@ -148,7 +148,7 @@ module FP_kernel_plasma_prefacs_m
         I00 = spec%I00_cc(j)
 
         prefactor = com_unit * spec%vT_cc(j)**2.0d0 / &
-            (spec%omega_c_cc(j) * spec%nu_cc(j))
+            (spec%omega_c_cc(j) * spec%nu_cc(j)) * plasma%ks_cc(j)
 
         val = - I00 * A2 * prefactor * FP_kappa_rho_phi(j, spec)
 
@@ -156,7 +156,7 @@ module FP_kernel_plasma_prefacs_m
 
     function FP_G3_rho_phi(j, spec) result(val)
 
-        use species_m, only: species_t
+        use species_m, only: species_t, plasma
         use KIM_kinds_m, only: dp
         use constants_m, only: com_unit
 
@@ -173,7 +173,7 @@ module FP_kernel_plasma_prefacs_m
         I00 = spec%I00_cc(j)
 
         prefactor = com_unit * spec%vT_cc(j)**2.0d0 / &
-            (spec%omega_c_cc(j) * spec%nu_cc(j))
+            (spec%omega_c_cc(j) * spec%nu_cc(j)) * plasma%ks_cc(j)
 
         val = I00 * A2 * prefactor * FP_kappa_rho_phi(j, spec)
 
@@ -247,7 +247,7 @@ module FP_kernel_plasma_prefacs_m
 
     function FP_G1_j_phi(j, spec) result(val)
 
-        use species_m, only: species_t
+        use species_m, only: species_t, plasma
         use KIM_kinds_m, only: dp
 
         implicit none
@@ -263,14 +263,14 @@ module FP_kernel_plasma_prefacs_m
         I01 = spec%I01_cc(j)
         I21 = spec%I21_cc(j)
 
-        val = (I01 * (A1 + A2) + 0.5d0 * A2 * I21) * FP_kappa_j_phi(j, spec)
+        val = (I01 * (A1 + A2) + 0.5d0 * A2 * I21) * FP_kappa_j_phi(j, spec) * plasma%ks_cc(j)
 
     end function
 
 
     function FP_G2_j_phi(j, spec) result(val)
 
-        use species_m, only: species_t
+        use species_m, only: species_t, plasma
         use KIM_kinds_m, only: dp
 
         implicit none
@@ -284,14 +284,14 @@ module FP_kernel_plasma_prefacs_m
         A2 = spec%A2_cc(j)
         I01 = spec%I01_cc(j)
 
-        val = - I01 * A2 * FP_kappa_j_phi(j, spec)
+        val = - I01 * A2 * FP_kappa_j_phi(j, spec) * plasma%ks_cc(j)
 
     end function
 
 
     function FP_G3_j_phi(j, spec) result(val)
 
-        use species_m, only: species_t
+        use species_m, only: species_t, plasma
         use KIM_kinds_m, only: dp
 
         implicit none
@@ -305,7 +305,7 @@ module FP_kernel_plasma_prefacs_m
         A2 = spec%A2_cc(j)
         I01 = spec%I01_cc(j)
 
-        val = I01 * A2 * FP_kappa_j_phi(j, spec)
+        val = I01 * A2 * FP_kappa_j_phi(j, spec) * plasma%ks_cc(j)
 
     end function
 

@@ -29,4 +29,13 @@ module gsl_mod
         end function gsl_sf_erfc
     end interface
 
+    interface
+        function gsl_sf_dawson(x) bind(C, name="gsl_sf_dawson")
+            use, intrinsic :: iso_c_binding
+            implicit none
+            real(c_double), value :: x
+            real(c_double) :: gsl_sf_dawson
+        end function gsl_sf_dawson
+    end interface
+
 end module 

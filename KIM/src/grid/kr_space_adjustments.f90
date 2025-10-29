@@ -4,7 +4,7 @@ subroutine kr_space_adjustments
     use kr_grid, only: kr, k_space_dim
     use setup_m, only: kr_cut_off_fac
     use config_m, only: fstatus
-    use findIndex_m, only: findClosestIndex
+    use find_index_m, only: findClosestIndex
     use KIM_kinds_m, only: dp
 
     implicit none

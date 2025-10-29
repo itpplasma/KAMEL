@@ -94,14 +94,13 @@ module equilibrium_m
                 u(i) = u0
                 info(1) = 1
             end do
-
             
             allocate(plasma%B0(plasma%grid_size))
             allocate(plasma%ks(plasma%grid_size))
             allocate(plasma%kp(plasma%grid_size))
             allocate(plasma%om_E(plasma%grid_size))
 
-            do i=1, plasma%grid_size
+            do i = 1, plasma%grid_size
                 ! covariant components of the magnetic field vector
                 B0z(i) = sign(1d0, btor) * sqrt(u(i) /(1d0 + plasma%r_grid(i)**2d0/(R0**2d0 * plasma%q(i)**2)))
                 B0th(i) = B0z(i) * plasma%r_grid(i) /(plasma%q(i) * R0)
@@ -117,13 +116,10 @@ module equilibrium_m
                 plasma%ks(i) = (m_mode * hz(i) - n_mode * hth(i) / R0) / plasma%r_grid(i)
                 ! parallel wavenumber
                 plasma%kp(i) = (m_mode/(plasma%r_grid(i)) * hth(i) + n_mode / R0 * hz(i))
-                ! plasma%kp(i) = (m_mode + n_mode * plasma%q(i)) / (plasma%q(i) * R0)
                 ! ExB rotation frequency
                 plasma%om_E(i) = - sol * plasma%ks(i) * plasma%Er(i) / B0(i)
-                ! plasma%om_E(i) = n_mode * sol * plasma%Er(i) / B0(i)
 
             end do
-
 
             if (write_out) call write_equil
 
@@ -198,7 +194,6 @@ module equilibrium_m
                         close(87)
 
                     end if
-
 
                 end subroutine
 

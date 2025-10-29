@@ -15,9 +15,7 @@ set(KIM_math math/suitesparse/umf4_f77zwrapper.c
             math/suitesparse/umf4_f77wrapper.c
             math/superlu/c_fortran_dgssv.c
             math/superlu/c_fortran_zgssv.c
-            math/bessel.f90
             math/gsl_mod.f90
-            math/bessk.f90
             math/use_libcerf_mod.f90
             math/sparse_mod.f90
             math/plasma_disp_func.f90
@@ -29,18 +27,14 @@ set(KIM_math math/suitesparse/umf4_f77zwrapper.c
 
 set(KIM_grid grid/grid_mod.f90
              grid/gengrid.f90
-             grid/spline_function.f90
              grid/resonances_mod.f90
              grid/prepare_resonances.f90
              grid/recnsplit.f90
-             grid/regularization_funcs.f90
 )
 
 set(KIM_util util/findIndex.f90
             util/loading_bar.f90
             util/plag_coeff.f90
-            util/dense_to_sparse.f90
-            util/write_config_to_hdf5.f90
             util/constants_mod.f90
             util/IO_collection.f90
 )
@@ -53,8 +47,6 @@ set(KIM_util util/findIndex.f90
 
 set(KIM_background_equilibrium background_equilibrium/species_mod.f90
                             background_equilibrium/calculate_equil.f90
-                            background_equilibrium/back_quants_mod.f90
-                            
 )
 
 set(KIM_dispersion dispersion/fun_input.f90

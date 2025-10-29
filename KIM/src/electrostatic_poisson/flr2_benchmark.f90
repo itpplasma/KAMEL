@@ -42,8 +42,8 @@ module rt_flr2_benchmark_m
         use IO_collection_m, only: write_matrix, write_complex_profile, write_complex_profile_abs
         use poisson_solver_m, only: solve_poisson
         use config_m, only: output_path, collision_model, calculate_asymptotics, turn_off_electrons, turn_off_ions
-        use fields_m, only: EBdat, postprocess_electric_field, postprocess_electric_field_with_model,&
-                            calculate_charge_density, calculate_current_density, calc_ideal_MA_phi
+        use fields_m, only: EBdat, postprocess_electric_field, calculate_charge_density, calculate_current_density, &
+                            calc_ideal_MA_phi
         use KIM_kinds_m, only: dp
         use species_m, only: plasma
         use flr2_asymptotics_m, only: calc_flr2_asymptotic_Phi_MA, calc_hatK_Phi_in_Fourier

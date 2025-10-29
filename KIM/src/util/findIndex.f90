@@ -1,4 +1,4 @@
-module findIndex_m
+module find_index_m
     contains
 
     subroutine findClosestIndex(array, target, closest_index)

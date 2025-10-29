@@ -65,8 +65,6 @@ module kernel_adaptive_m
 
         if (.not. pref_ready) call compute_cc_prefactors
 
-        ! (j_B prefactors are computed inside compute_cc_prefactors)
-
         ! Compute a global band-limit distance dmax using Larmor taper and skip threshold
         alpha = Larmor_skip_factor
         tau   = max(kernel_taper_skip_threshold, 1.0d-12)
@@ -246,7 +244,6 @@ module kernel_adaptive_m
 
         integer, intent(in) :: l, lp
         complex(dp) :: k_rho_phi, k_rho_B, k_j_phi, k_j_B
-        complex(dp) :: c_rho_phi, c_rho_B, c_j_phi, c_j_B  ! Kahan compensation terms
         integer :: j, sigma
         type(rkf45_config_t), intent(in) :: rkf45_conf
         real(dp) :: integral_val
@@ -258,10 +255,6 @@ module kernel_adaptive_m
         k_rho_B = (0.0d0, 0.0d0)
         k_j_phi = (0.0d0, 0.0d0)
         k_j_B = (0.0d0, 0.0d0)
-        c_rho_phi = (0.0d0, 0.0d0)
-        c_rho_B   = (0.0d0, 0.0d0)
-        c_j_phi   = (0.0d0, 0.0d0)
-        c_j_B     = (0.0d0, 0.0d0)
 
         call set_xl_at_edge(l, lp, context)
 
@@ -272,19 +265,10 @@ module kernel_adaptive_m
                 context%j = j
                 ! Use cell-centered profiles on rg_grid%xc
                 context%rhoT = max(plasma%spec(sigma)%rho_L_cc(j), 0.0d0)
-                context%ks   = plasma%ks_cc(j)
 
                 if (abs(l-lp)<=1 .and. artificial_debye_case /=2) then
-                    block
-                        complex(dp) :: add, y, t
-                        call rkf45_integrate_F0(integral_val, rkf45_conf, context)
-                        add = integral_val * (-1.0d0) * (1.0d0 / (plasma%spec(sigma)%lambda_D_cc(j)**2.0d0))
-                        ! Kahan summation for k_rho_phi
-                        y = add - c_rho_phi
-                        t = k_rho_phi + y
-                        c_rho_phi = (t - k_rho_phi) - y
-                        k_rho_phi = t
-                    end block
+                    call rkf45_integrate_F0(integral_val, rkf45_conf, context)
+                    k_rho_phi = k_rho_phi + integral_val * (-1.0d0) * (1.0d0 / (plasma%spec(sigma)%lambda_D_cc(j)**2.0d0))
                 end if
 
                 if (artificial_debye_case == 1) cycle
@@ -308,119 +292,26 @@ module kernel_adaptive_m
                     ! F1 integration
                     call integrate_F1(integral_val, rkf45_conf, context)
 
-                    block
-                        complex(dp) :: add, y, t
-                        add = weight * integral_val * pref_rho_phi_g1(sigma+1,j) * context%ks
-                        y = add - c_rho_phi
-                        t = k_rho_phi + y
-                        c_rho_phi = (t - k_rho_phi) - y
-                        k_rho_phi = t
-                    end block
-
-                    block
-                        complex(dp) :: add, y, t
-                        add = weight * integral_val * pref_rho_B_g1(sigma+1,j)
-                        y = add - c_rho_B
-                        t = k_rho_B + y
-                        c_rho_B = (t - k_rho_B) - y
-                        k_rho_B = t
-                    end block
-
-                    block
-                        complex(dp) :: add, y, t
-                        add = weight * integral_val * pref_j_phi_g1(sigma+1,j) * context%ks
-                        y = add - c_j_phi
-                        t = k_j_phi + y
-                        c_j_phi = (t - k_j_phi) - y
-                        k_j_phi = t
-                    end block
-
-                    block
-                        complex(dp) :: add, y, t
-                        add = weight * integral_val * pref_j_B_g1(sigma+1,j)
-                        y = add - c_j_B
-                        t = k_j_B + y
-                        c_j_B = (t - k_j_B) - y
-                        k_j_B = t
-                    end block
+                    k_rho_phi = k_rho_phi + weight * integral_val * pref_rho_phi_g1(sigma+1,j)
+                    k_rho_B   = k_rho_B   + weight * integral_val * pref_rho_B_g1(sigma+1,j)
+                    k_j_phi   = k_j_phi   + weight * integral_val * pref_j_phi_g1(sigma+1,j)
+                    k_j_B     = k_j_B     + weight * integral_val * pref_j_B_g1(sigma+1,j)
 
                     ! F2 integration
                     call integrate_F2(integral_val, rkf45_conf, context)
 
-                    block
-                        complex(dp) :: add, y, t
-                        add = weight * integral_val * pref_rho_phi_g2(sigma+1,j) * context%ks
-                        y = add - c_rho_phi
-                        t = k_rho_phi + y
-                        c_rho_phi = (t - k_rho_phi) - y
-                        k_rho_phi = t
-                    end block
-
-                    block
-                        complex(dp) :: add, y, t
-                        add = weight * integral_val * pref_rho_B_g2(sigma+1,j)
-                        y = add - c_rho_B
-                        t = k_rho_B + y
-                        c_rho_B = (t - k_rho_B) - y
-                        k_rho_B = t
-                    end block
-
-                    block
-                        complex(dp) :: add, y, t
-                        add = weight * integral_val * pref_j_phi_g2(sigma+1,j) * context%ks
-                        y = add - c_j_phi
-                        t = k_j_phi + y
-                        c_j_phi = (t - k_j_phi) - y
-                        k_j_phi = t
-                    end block
-
-                    block
-                        complex(dp) :: add, y, t
-                        add = weight * integral_val * pref_j_B_g2(sigma+1,j)
-                        y = add - c_j_B
-                        t = k_j_B + y
-                        c_j_B = (t - k_j_B) - y
-                        k_j_B = t
-                    end block
+                    k_rho_phi = k_rho_phi + weight * integral_val * pref_rho_phi_g2(sigma+1,j)
+                    k_rho_B   = k_rho_B   + weight * integral_val * pref_rho_B_g2(sigma+1,j)
+                    k_j_phi   = k_j_phi   + weight * integral_val * pref_j_phi_g2(sigma+1,j)
+                    k_j_B     = k_j_B     + weight * integral_val * pref_j_B_g2(sigma+1,j)
 
                     ! F3 integration
                     call integrate_F3(integral_val, rkf45_conf, context)
 
-                    block
-                        complex(dp) :: add, y, t
-                        add = weight * integral_val * pref_rho_phi_g3(sigma+1,j) * context%ks
-                        y = add - c_rho_phi
-                        t = k_rho_phi + y
-                        c_rho_phi = (t - k_rho_phi) - y
-                        k_rho_phi = t
-                    end block
-
-                    block
-                        complex(dp) :: add, y, t
-                        add = weight * integral_val * pref_rho_B_g3(sigma+1,j)
-                        y = add - c_rho_B
-                        t = k_rho_B + y
-                        c_rho_B = (t - k_rho_B) - y
-                        k_rho_B = t
-                    end block
-
-                    block
-                        complex(dp) :: add, y, t
-                        add = weight * integral_val * pref_j_phi_g3(sigma+1,j) * context%ks
-                        y = add - c_j_phi
-                        t = k_j_phi + y
-                        c_j_phi = (t - k_j_phi) - y
-                        k_j_phi = t
-                    end block
-
-                    block
-                        complex(dp) :: add, y, t
-                        add = weight * integral_val * pref_j_B_g3(sigma+1,j)
-                        y = add - c_j_B
-                        t = k_j_B + y
-                        c_j_B = (t - k_j_B) - y
-                        k_j_B = t
-                    end block
+                    k_rho_phi = k_rho_phi + weight * integral_val * pref_rho_phi_g3(sigma+1,j)
+                    k_rho_B   = k_rho_B   + weight * integral_val * pref_rho_B_g3(sigma+1,j)
+                    k_j_phi   = k_j_phi   + weight * integral_val * pref_j_phi_g3(sigma+1,j)
+                    k_j_B     = k_j_B     + weight * integral_val * pref_j_B_g3(sigma+1,j)
                 end block
 
             end do

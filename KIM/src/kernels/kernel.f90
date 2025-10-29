@@ -1000,8 +1000,16 @@ module kernel_m
                 int_point%ks = plasma%ks_cc(j)
 
                 ! skip term if species Larmor radius is too small to couple these grid points
-                if (abs(l-lp) > 5 .and. abs(xl_grid%xb(l) - xl_grid%xb(lp))> 2.0d0 * plasma%spec(sigma)%rho_L(j)) cycle
-                if (abs(0.5d0 * (rg_grid%xb(j+1) + rg_grid%xb(j)) - 0.5d0 * (xl_grid%xb(l) + xl_grid%xb(lp))) > 2.0d0 * plasma%spec(sigma)%rho_L(j)) cycle
+                if (abs(l-lp) > 5 .and. abs(xl_grid%xb(l) - xl_grid%xb(lp))> 4.0d0 * plasma%spec(sigma)%rho_L(j)) cycle
+                ! if (abs(0.5d0 * (rg_grid%xb(j+1) + rg_grid%xb(j)) - 0.5d0 * (xl_grid%xb(l) + xl_grid%xb(lp))) > 2.0d0 * plasma%spec(sigma)%rho_L(j)) cycle
+                ! doesn't work well. Rewrite such that boundaries of xl integrations are included (for coarse grid, lots of error otherwise)
+                ! maybe:
+                if (abs(0.5d0 * (rg_grid%xb(j+1) + rg_grid%xb(j)) - xl_grid%xb(l-1)) > 4.0d0 * plasma%spec(sigma)%rho_L(j)&
+                    .or. abs(0.5d0 * (rg_grid%xb(j+1) + rg_grid%xb(j)) - xl_grid%xb(l+1)) > 4.0d0 * plasma%spec(sigma)%rho_L(j)&
+                    .and. &
+                    abs(0.5d0 * (rg_grid%xb(j+1) + rg_grid%xb(j)) - xl_grid%xb(lp-1)) > 4.0d0 * plasma%spec(sigma)%rho_L(j)&
+                    .or. abs(0.5d0 * (rg_grid%xb(j+1) + rg_grid%xb(j)) - xl_grid%xb(lp+1)) > 4.0d0 * plasma%spec(sigma)%rho_L(j)&
+                    ) cycle
 
                 int_F1%int_point = int_point
                 int_F2%int_point = int_point
@@ -1258,12 +1266,12 @@ module kernel_m
             complex(dp) :: k_rho_phi, k_rho_B, k_j_phi, k_j_B
 
             !$omp parallel do default(shared) private(l, lp, lp_lo, lp_hi, xl_val, k_rho_phi, k_rho_B, k_j_phi, k_j_B) schedule(dynamic)
-            do l = 1, K_rho_phi_llp%npts_l
+            do l = 2, K_rho_phi_llp%npts_l-1
                 xl_val = xl_grid%xb(l)
 
                 lp_lo = l
                 do
-                    if (lp_lo <= 1) exit
+                    if (lp_lo <= 2) exit
                     if (abs(xl_grid%xb(lp_lo - 1) - xl_val) > dmax_global) exit
                     lp_lo = lp_lo - 1
                 end do

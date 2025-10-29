@@ -12,10 +12,6 @@ module neort_interface
     public :: prepare_plasma_data_for_neort
     public :: prepare_profile_data_for_neort
 
-    real(dp), parameter :: CM_TO_M = 1d-2
-    real(dp), parameter :: CM3_TO_M3 = 1d-6
-    real(dp), parameter :: ERG_TO_EV = 1d0 / EV_TO_ERG
-
 contains
 
     !> @brief Prepare plasma profile data for NEO-RT from KAMEL arrays
@@ -46,25 +42,20 @@ contains
             ! Column 1: Normalized toroidal flux s (0 to 1)
             plasma_data(ipoi, 1) = s(ipoi)
 
-            ! Column 2: Density of species 1 [1/m³]
-            ! KAMEL params(1, :) is in [1/cm³], convert to [1/m³]
-            plasma_data(ipoi, 2) = params(1, ipoi) / CM3_TO_M3
+            ! Column 2: Density of species 1
+            plasma_data(ipoi, 2) = params(1, ipoi)
 
-            ! Column 3: Density of species 2 [1/m³]
-            ! Set to zero for single-species case
+            ! Column 3: Density of species 2
             plasma_data(ipoi, 3) = 0d0
 
-            ! Column 4: Temperature of species 1 [eV]
-            ! KAMEL params(4, :) is ion temperature in [erg], convert to [eV]
-            plasma_data(ipoi, 4) = params(4, ipoi) * ERG_TO_EV
+            ! Column 4: Temperature of species 1
+            plasma_data(ipoi, 4) = params(4, ipoi)
 
-            ! Column 5: Temperature of species 2 [eV]
-            ! Set to 1 for single-species case
+            ! Column 5: Temperature of species 2
             plasma_data(ipoi, 5) = 1d0
 
-            ! Column 6: Electron temperature [eV]
-            ! KAMEL params(3, :) is electron temperature in [erg], convert to [eV]
-            plasma_data(ipoi, 6) = params(3, ipoi) * ERG_TO_EV
+            ! Column 6: Electron temperature
+            plasma_data(ipoi, 6) = params(3, ipoi)
         end do
 
     end subroutine prepare_plasma_data_for_neort
@@ -99,15 +90,14 @@ contains
             profile_data(ipoi, 1) = s(ipoi)
 
             ! Calculate thermal velocity and ion mass
-            ! KAMEL params(4, :) is ion temperature [erg]
             T_i = params(4, ipoi)
-            m_i = am * p_mass  ! ion mass [g]
-            vth = sqrt(T_i / m_i)  ! thermal velocity [cm/s]
+            m_i = am * p_mass  ! ion mass
+            vth = sqrt(T_i / m_i)  ! thermal velocity
 
             ! Calculate ExB Mach number: M_t = E_r * B_theta / (B^2 * v_th)
-            E_r = Ercov(ipoi)  ! [statV/cm]
-            B_theta = btor / qsafb(ipoi)  ! [G]
-            B_mag = sqrt(btor**2 + B_theta**2)  ! [G]
+            E_r = Ercov(ipoi)
+            B_theta = btor / qsafb(ipoi)
+            B_mag = sqrt(btor**2 + B_theta**2)
             M_t = E_r * B_theta / (B_mag**2 * vth)
 
             ! Column 2: ExB Mach number M_t

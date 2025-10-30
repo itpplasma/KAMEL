@@ -41,9 +41,6 @@
     grid_spacing_xl = 'adaptive'
     l_space_dim = 100
     rg_space_dim = 100
-    k_space_dim = 100
-    kr_grid_width_res = 2.0
-    kr_grid_ampl_res = 0.1
     r_plas = 0.99
     r_min = 0.01
     width_res = 0.05

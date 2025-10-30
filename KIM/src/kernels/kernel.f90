@@ -274,7 +274,7 @@ module kernel_m
         use grid_m, only: Larmor_skip_factor, gauss_int_nodes_Ntheta, gauss_int_nodes_Nx, gauss_int_nodes_Nxp, &
                         kernel_taper_skip_threshold, rg_grid, xl_grid
         use species_m, only: plasma
-        use config_m, only: output_path, artificial_debye_case
+        use config_m, only: output_path, artificial_debye_case, fstatus
 
         implicit none
 
@@ -369,7 +369,7 @@ module kernel_m
             end block
         end do
         current_iteration = 0
-        write(*,*) 'Total band-limited iterations: ', total_iterations
+        if (fstatus == 1) write(*,*) 'Total band-limited iterations: ', total_iterations
         if (artificial_debye_case /= 1) then
             write(*,*) '======== Kernel Distance Diagnostics (Fokker-Planck) ========'
             write(*,'(A,F12.6)') ' Maximum |xl - xlp| distance: ', max_distance_xl_xlp
@@ -961,6 +961,7 @@ module kernel_m
         use constants_m, only: com_unit, sol
         use config_m, only: turn_off_ions, turn_off_electrons, artificial_debye_case
         use grid_m, only: xl_grid
+        use resonances_mod, only: r_res
 
         implicit none
 
@@ -991,7 +992,7 @@ module kernel_m
                 int_point%rhoT = max(plasma%spec(sigma)%rho_L_cc(j), 0.0d0)
 
                 ! skip term if species Larmor radius is too small to couple these grid points
-                ! if (abs(l-lp) > 10 .and. abs(xl_grid%xb(l) - xl_grid%xb(lp))> 4.0d0 * plasma%spec(sigma)%rho_L(j)) cycle
+                if (abs(l-lp) > 10 .and. abs(xl_grid%xb(l) - xl_grid%xb(lp))> 10.0d0 * plasma%spec(sigma)%rho_L(j)) cycle
                 ! if (abs(0.5d0 * (rg_grid%xb(j+1) + rg_grid%xb(j)) - 0.5d0 * (xl_grid%xb(l) + xl_grid%xb(lp))) > 2.0d0 * plasma%spec(sigma)%rho_L(j)) cycle
                 ! doesn't work well. Rewrite such that boundaries of xl integrations are included (for coarse grid, lots of error otherwise)
                 ! maybe:
@@ -1012,6 +1013,12 @@ module kernel_m
                 k_rho_B = k_rho_B + integral_val * pref_rho_B_g1(sigma+1,j)
                 k_j_phi = k_j_phi + integral_val * pref_j_phi_g1(sigma+1,j)
                 k_j_B = k_j_B + integral_val * pref_j_B_g1(sigma+1,j)
+
+                ! ignore FLR terms if resonance is too far from grid points
+                if (abs(xl_grid%xb(l) - r_res) > 10.0d0 * int_point%rhoT .or. &
+                    abs(xl_grid%xb(lp) - r_res) > 10.0d0 * int_point%rhoT) then
+                    cycle
+                end if
 
                 ! F2 integration
                 call gauss_integrate_F2(int_F2, integral_val, gauss_conf)
@@ -1147,6 +1154,7 @@ module kernel_m
         use grid_m, only: Larmor_skip_factor, gauss_int_nodes_Ntheta, gauss_int_nodes_Nx, gauss_int_nodes_Nxp, &
                           kernel_taper_skip_threshold, xl_grid
         use species_m, only: plasma
+        use config_m, only: fstatus
 
         implicit none
 
@@ -1229,7 +1237,7 @@ module kernel_m
             end do
         end block
 
-        write(*,*) 'FLR2 benchmark total band-limited iterations: ', total_iterations
+        if (fstatus == 1) write(*,*) 'FLR2 benchmark total band-limited iterations: ', total_iterations
         current_iteration = 0
         call system_clock(start_count, count_rate, count_max)
 

@@ -46,7 +46,6 @@
     ampl_res = 15.0
     hrmax_scaling = 1.0
 
-    k_space_dim = 100                       ! not used rn
     l_space_dim = 512                       ! actual number of grid points might deviate
     rg_space_dim = 512                      ! actual number of grid points might deviate
 
@@ -54,9 +53,6 @@
     grid_spacing_xl = "equidistant"            ! "equidistant", "non-equidistant", or "adaptive"
     theta_integration = "GaussLegendre"     ! One switch: 'RKF45' or 'QUADPACK' (adaptive), or 'GaussLegendre' (fixed)
 
-    kr_grid_width_res = 5.0                 ! not used rn
-    kr_grid_ampl_res = 1.0                  ! not used rn
-    
     ! RKF45 parameters
     rkf45_atol = 1.0d-9                     ! Absolute tolerance for RKF45 adaptive integration
     rkf45_rtol = 1.0d-6                     ! Relative tolerance for RKF45 adaptive integration

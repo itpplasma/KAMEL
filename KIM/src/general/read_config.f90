@@ -27,7 +27,7 @@ subroutine read_config
 
     namelist /KIM_GRID/ grid_spacing_rg, grid_spacing_xl, l_space_dim, theta_integration, &
                         theta_integration_method, &
-                        rg_space_dim, kr_grid_width_res, kr_grid_ampl_res, k_space_dim, &
+                        rg_space_dim, &
                         Larmor_skip_factor, gauss_int_nodes_Ntheta, gauss_int_nodes_Nx, gauss_int_nodes_Nxp, &
                         r_plas, r_min, width_res, ampl_res, hrmax_scaling, &
                         rkf45_atol, rkf45_rtol, kernel_taper_skip_threshold, &

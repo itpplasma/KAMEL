@@ -8,7 +8,6 @@ module grid_m
     real(dp) :: r_plas
     integer :: l_space_dim ! dimension of spline grid
     integer :: r_space_dim ! dimension of r grid
-    integer :: k_space_dim ! dimension of kr space grid
     integer :: rg_space_dim
     integer :: spline_base
     ! Grid spacing modes (strings): "equidistant", "non-equidistant", "adaptive"
@@ -42,11 +41,6 @@ module grid_m
     real(dp) :: gg_width = 0.0
     real(dp) :: gg_r_res = 0.0!95.34
 
-    ! k-space specific
-    real(dp) :: kr_grid_ampl_res
-    real(dp) :: kr_grid_width_res
-    real(dp) :: kr_res = 0.0d0
-    
     type grid_type
         integer :: npts_b, npts_c, npts
         integer, dimension(:), allocatable :: ipbeg, ipend

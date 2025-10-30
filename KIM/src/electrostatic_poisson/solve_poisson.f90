@@ -2,9 +2,6 @@ module poisson_solver_m
 
     implicit none
 
-    integer, parameter :: sparse_solver_option = 0
-    integer, parameter :: sparse_solve_method = 1 
-
     contains
     
     ! Solve \Delta \Phi + 4\pi K_rho_phi \Phi = - 4 \pi K_rho_B B_r
@@ -44,6 +41,9 @@ module poisson_solver_m
         if (fdebug == 3) then
             call write_A_matrix_sparse_check_to_file
         end if
+
+        sparse_solve_method = 1 
+        sparse_solver_option = 0
 
         call create_rhs_vector(type_br_field, K_rho_B, b_vec)
         call impose_bc_on_matrix_and_rhs(A_mat, b_vec, K_rho_phi, K_rho_B)

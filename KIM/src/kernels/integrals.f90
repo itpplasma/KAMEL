@@ -354,11 +354,9 @@ module integrals_gauss_m
                 call int_F2_e%int_point%calc_Jrg1()
                 call int_F2_e%int_point%calc_Jrg2()
                 call int_F2_e%int_point%calc_Jrg3()
-                ! call int_F2_e%int_point%calc_Jrg4()
 
                 result = result + gauss_conf%w_xp(j) * gauss_conf%w_x(k) &
-                    * int_F2_e%f(x_mapped, xp_mapped) !&
-                    ! * norm_factor
+                    * int_F2_e%f(x_mapped, xp_mapped)
             end do
         end do
 

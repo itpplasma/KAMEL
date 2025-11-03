@@ -55,8 +55,9 @@ module grid_m
         character(len=:), allocatable :: name
         contains
             procedure :: grid_init
+            procedure :: grid_init_equidistant
             procedure :: grid_generate
-            procedure :: grid_generate_linear
+            procedure :: grid_generate_equidistant
     end type grid_type
 
     type(grid_type) :: rg_grid, xl_grid, kr_grid, krp_grid
@@ -113,6 +114,31 @@ module grid_m
         deallocate(new_xb)
         deallocate(new_xc)
     end subroutine ensure_node_at_r_res
+
+    subroutine grid_init_equidistant(this, npts, min_val, max_val, name)
+
+        implicit none
+
+        class(grid_type), intent(inout) :: this
+
+        integer, intent(inout) :: npts
+        real(dp), intent(in) :: min_val, max_val
+        character(len=*), intent(in) :: name
+
+        real(dp) :: x_current, x_next
+        real(dp) :: recnsp
+
+        this%npts = npts
+        this%npts_b = npts
+        this%npts_c = this%npts_b - 1
+        this%min_val = min_val
+        this%max_val = max_val
+        allocate(character(len=len(name)) :: this%name)
+        this%name = name
+
+    end subroutine
+
+
 
     subroutine grid_init(this, npts, min_val, max_val, name)
 
@@ -268,7 +294,7 @@ module grid_m
 
     end subroutine grid_generate
 
-    subroutine grid_generate_linear(this)
+    subroutine grid_generate_equidistant(this)
 
         use resonances_mod, only: r_res, index_rg_res
         use config_m, only: fdebug, output_path
@@ -283,7 +309,8 @@ module grid_m
 
         allocate(this%xb(this%npts_b), this%xc(this%npts_c))
 
-        h = (this%max_val - this%min_val) / (this%npts_b-1)
+        h = (this%max_val - this%min_val) / this%npts_b
+        print *, "Equidistant grid spacing h = ", h
 
         this%xb(1) = this%min_val
         do ipoib=2, this%npts_b
@@ -355,7 +382,7 @@ module grid_m
 
             end subroutine
 
-    end subroutine grid_generate_linear
+    end subroutine grid_generate_equidistant
 
     subroutine calc_mass_matrix(M_mat)
 

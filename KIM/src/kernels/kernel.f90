@@ -874,11 +874,11 @@ module kernel_m
 
         use KIM_kinds_m, only: dp
         use integrals_gauss_m, only: gauss_integrate_F0, gauss_integrate_F1, gauss_integrate_F2, gauss_integrate_F3,&
-            gauss_config_t, gauss_integrate_F1_electrons
+            gauss_config_t, gauss_integrate_F1_electrons, gauss_integrate_F2_electrons
         use species_m, only: plasma
         use constants_m, only: pi
         use integrands_gauss_m, only: gauss_int_F0_rho_phi_t, gauss_int_F1_rho_phi_t, gauss_int_F2_rho_phi_t, gauss_int_F3_rho_phi_t, &
-            integration_point_t, gauss_int_F1_rho_phi_electrons_t
+            integration_point_t, gauss_int_F1_rho_phi_electrons_t, gauss_int_F2_rho_phi_electrons_t
         use FP_kernel_plasma_prefacs_m, only: FP_G0_rho_phi
         use grid_m, only: Larmor_skip_factor, kernel_taper_skip_threshold, rg_grid, xl_grid
         use constants_m, only: com_unit, sol
@@ -901,6 +901,7 @@ module kernel_m
         type(gauss_int_F3_rho_phi_t) :: int_F3
 
         type(gauss_int_F1_rho_phi_electrons_t) :: int_F1_e
+        type(gauss_int_F2_rho_phi_electrons_t) :: int_F2_e
 
         k_rho_phi = (0.0d0, 0.0d0)
         k_rho_B = (0.0d0, 0.0d0)
@@ -922,15 +923,22 @@ module kernel_m
             if (abs(0.5d0 * (rg_grid%xb(j+1) + rg_grid%xb(j)) - 0.5d0 * (xl_grid%xb(l) + xl_grid%xb(lp))) > 128.0d0 * int_point%rhoT) cycle
 
             int_F1_e%int_point = int_point
+            int_F2_e%int_point = int_point
 
             ! F1 integration
-            integral_val = 0.0d0
             call gauss_integrate_F1_electrons(int_F1_e, integral_val, gauss_conf)
             integral_val = integral_val * pi ! pi because of missing Bessel function representation
             k_rho_phi = k_rho_phi + integral_val * pref_rho_phi_g1(1,j)
             k_rho_B = k_rho_B + integral_val * pref_rho_B_g1(1,j)
             k_j_phi = k_j_phi + integral_val * pref_j_phi_g1(1,j)
             k_j_B = k_j_B + integral_val * pref_j_B_g1(1,j)
+
+            ! F2 integration
+            call gauss_integrate_F2_electrons(int_F2_e, integral_val, gauss_conf)
+            k_rho_phi = k_rho_phi + integral_val * pref_rho_phi_g2(1,j)
+            k_rho_B = k_rho_B + integral_val * pref_rho_B_g2(1,j)
+            k_j_phi = k_j_phi + integral_val * pref_j_phi_g2(1,j)
+            k_j_B = k_j_B + integral_val * pref_j_B_g2(1,j)
 
             ! other terms are negligible for electrons (for small rhoT in general)
 
@@ -1316,18 +1324,27 @@ module kernel_m
             ! has to be done in order to take quasineutrality into account as is done in FLR2
             
             use species_m, only: plasma
+            use IO_collection_m, only: write_complex_profile
+            use grid_m, only: rg_grid
+            use config_m, only: output_path
 
             implicit none
 
             integer :: sp
 
             do sp=0, plasma%n_species - 1
-                plasma%spec(sp)%I00 = plasma%spec(sp)%I01 * plasma%spec(sp)%x1 / plasma%spec(sp)%x2
+                ! Note: I00, I20, x1, x2 are now only available as _cc (cell center) versions
+                ! They are computed after interpolation in calculate_thermodynamic_forces_and_susc
                 plasma%spec(sp)%I00_cc = plasma%spec(sp)%I01_cc * plasma%spec(sp)%x1_cc / plasma%spec(sp)%x2_cc
-                plasma%spec(sp)%I20 = plasma%spec(sp)%I21 * plasma%spec(sp)%x1 / plasma%spec(sp)%x2
                 plasma%spec(sp)%I20_cc = plasma%spec(sp)%I21_cc * plasma%spec(sp)%x1_cc / plasma%spec(sp)%x2_cc
+
+                call write_complex_profile(rg_grid%xc, plasma%spec(sp)%I00_cc, rg_grid%npts_c, &
+                    trim(output_path)//'backs/'//trim(plasma%spec(sp)%name)//'/I00_cc_after_resc.dat')
+                call write_complex_profile(rg_grid%xc, plasma%spec(sp)%I20_cc, rg_grid%npts_c, &
+                    trim(output_path)//'backs/'//trim(plasma%spec(sp)%name)//'/I20_cc_after_resc.dat')
             end do
 
+            
         end subroutine
 
     end subroutine FP_fill_kernels_flr2_benchmark

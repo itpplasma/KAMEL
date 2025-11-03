@@ -18,6 +18,8 @@ module species_m
         real(dp), allocatable :: r_grid(:)
         ! Cell-centered quantities on rg_grid%xc (size rg_grid%npts_c)
         real(dp), allocatable :: ks_cc(:) ! wavenumber at cell centers
+        real(dp), allocatable :: Er_cc(:) ! radial electric field at cell centers
+        real(dp), allocatable :: om_E_cc(:) ! ExB rotation frequency at cell centers
     end type
 
     type :: species_t
@@ -247,21 +249,29 @@ module species_m
 
         type(plasma_t), intent(inout) :: plasma
 
+        integer :: sp
+
         call calc_plasma_parameter_derivs
-        
+
         call calculate_plasma_backs(plasma)
 
         call interpolate_plasma_backs(plasma, rg_grid%xb)
         call compute_rg_cell_centers(plasma)
 
-        call write_species_backs(plasma%spec(0), plasma%r_grid)
-        call write_species_backs(plasma%spec(1), plasma%r_grid)
+        call calculate_thermodynamic_forces_and_susc(plasma)
+
+        do sp = 0, plasma%n_species-1
+            call write_species_backs(plasma%spec(sp), plasma%r_grid)
+            call write_species_cc_quantities(plasma%spec(sp), rg_grid%xc)
+        end do
+
         call write_plasma_backs(plasma, plasma%r_grid)
 
     end subroutine
 
     subroutine compute_rg_cell_centers(plasma_in)
         ! Compute cell-centered values of all plasma background profiles on rg_grid%xc
+        ! Simple averaging of boundary values for smooth quantities
 
         use grid_m, only: rg_grid
 
@@ -271,6 +281,8 @@ module species_m
         integer :: sp, j
 
         if (.not. allocated(plasma_in%ks_cc)) allocate(plasma_in%ks_cc(rg_grid%npts_c))
+        if (.not. allocated(plasma_in%Er_cc)) allocate(plasma_in%Er_cc(rg_grid%npts_c))
+        if (.not. allocated(plasma_in%om_E_cc)) allocate(plasma_in%om_E_cc(rg_grid%npts_c))
 
         do sp = 0, plasma_in%n_species-1
             if (.not. allocated(plasma_in%spec(sp)%n_cc)) then
@@ -278,13 +290,72 @@ module species_m
                 allocate(plasma_in%spec(sp)%dndr_cc(rg_grid%npts_c))
                 allocate(plasma_in%spec(sp)%T_cc(rg_grid%npts_c))
                 allocate(plasma_in%spec(sp)%dTdr_cc(rg_grid%npts_c))
-                allocate(plasma_in%spec(sp)%A1_cc(rg_grid%npts_c))
-                allocate(plasma_in%spec(sp)%A2_cc(rg_grid%npts_c))
                 allocate(plasma_in%spec(sp)%nu_cc(rg_grid%npts_c))
                 allocate(plasma_in%spec(sp)%vT_cc(rg_grid%npts_c))
                 allocate(plasma_in%spec(sp)%omega_c_cc(rg_grid%npts_c))
                 allocate(plasma_in%spec(sp)%lambda_D_cc(rg_grid%npts_c))
                 allocate(plasma_in%spec(sp)%rho_L_cc(rg_grid%npts_c))
+            end if
+        end do
+
+        do j = 1, rg_grid%npts_c
+            plasma_in%ks_cc(j) = 0.5d0 * (plasma_in%ks(j) + plasma_in%ks(j+1))
+            plasma_in%Er_cc(j) = 0.5d0 * (plasma_in%Er(j) + plasma_in%Er(j+1))
+            plasma_in%om_E_cc(j) = 0.5d0 * (plasma_in%om_E(j) + plasma_in%om_E(j+1))
+            do sp = 0, plasma_in%n_species-1
+                plasma_in%spec(sp)%n_cc(j)        = 0.5d0 * (plasma_in%spec(sp)%n(j)        + plasma_in%spec(sp)%n(j+1))
+                plasma_in%spec(sp)%dndr_cc(j)     = 0.5d0 * (plasma_in%spec(sp)%dndr(j)     + plasma_in%spec(sp)%dndr(j+1))
+                plasma_in%spec(sp)%T_cc(j)        = 0.5d0 * (plasma_in%spec(sp)%T(j)        + plasma_in%spec(sp)%T(j+1))
+                plasma_in%spec(sp)%dTdr_cc(j)     = 0.5d0 * (plasma_in%spec(sp)%dTdr(j)     + plasma_in%spec(sp)%dTdr(j+1))
+                plasma_in%spec(sp)%nu_cc(j)       = 0.5d0 * (plasma_in%spec(sp)%nu(j)       + plasma_in%spec(sp)%nu(j+1))
+                plasma_in%spec(sp)%vT_cc(j)       = 0.5d0 * (plasma_in%spec(sp)%vT(j)       + plasma_in%spec(sp)%vT(j+1))
+                plasma_in%spec(sp)%omega_c_cc(j)  = 0.5d0 * (plasma_in%spec(sp)%omega_c(j)  + plasma_in%spec(sp)%omega_c(j+1))
+                plasma_in%spec(sp)%lambda_D_cc(j) = 0.5d0 * (plasma_in%spec(sp)%lambda_D(j) + plasma_in%spec(sp)%lambda_D(j+1))
+                plasma_in%spec(sp)%rho_L_cc(j)    = 0.5d0 * (plasma_in%spec(sp)%rho_L(j)    + plasma_in%spec(sp)%rho_L(j+1))
+            end do
+        end do
+
+    end subroutine compute_rg_cell_centers
+
+    subroutine calculate_thermodynamic_forces_and_susc(plasma_in)
+        ! Calculate x1, x2, A1, A2, and susceptibility functions on rg_grid
+        ! This is called AFTER interpolation to rg_grid to avoid grid-dependent aliasing
+        ! Calculates BOTH boundary values (for FLR2 asymptotics) AND cell-center values (for kernels)
+
+        use constants_m, only: e_charge, ev
+        use setup_m, only: omega
+        use grid_m, only: rg_grid
+        use KIM_kinds_m, only: dp
+
+        implicit none
+
+        type(plasma_t), intent(inout) :: plasma_in
+        integer :: sp, j
+
+        ! Allocate arrays
+        do sp = 0, plasma_in%n_species-1
+            if (.not. allocated(plasma_in%spec(sp)%symbI)) allocate(plasma_in%spec(sp)%symbI(0:nmmax, 0:nmmax))
+
+            ! Boundary arrays (for FLR2 asymptotics and Krook model)
+            if (.not. allocated(plasma_in%spec(sp)%A1)) then
+                allocate(plasma_in%spec(sp)%A1(rg_grid%npts_b))
+                allocate(plasma_in%spec(sp)%A2(rg_grid%npts_b))
+                allocate(plasma_in%spec(sp)%x1(rg_grid%npts_b))
+                allocate(plasma_in%spec(sp)%x2(rg_grid%npts_b))
+                allocate(plasma_in%spec(sp)%I00(rg_grid%npts_b))
+                allocate(plasma_in%spec(sp)%I01(rg_grid%npts_b))
+                allocate(plasma_in%spec(sp)%I20(rg_grid%npts_b))
+                allocate(plasma_in%spec(sp)%I21(rg_grid%npts_b))
+                allocate(plasma_in%spec(sp)%I22(rg_grid%npts_b))
+                allocate(plasma_in%spec(sp)%I02(rg_grid%npts_b))
+                allocate(plasma_in%spec(sp)%I11(rg_grid%npts_b))
+                allocate(plasma_in%spec(sp)%I13(rg_grid%npts_b))
+            end if
+
+            ! Cell-center arrays (for FP kernels - computed on cell centers to avoid aliasing)
+            if (.not. allocated(plasma_in%spec(sp)%A1_cc)) then
+                allocate(plasma_in%spec(sp)%A1_cc(rg_grid%npts_c))
+                allocate(plasma_in%spec(sp)%A2_cc(rg_grid%npts_c))
                 allocate(plasma_in%spec(sp)%x1_cc(rg_grid%npts_c))
                 allocate(plasma_in%spec(sp)%x2_cc(rg_grid%npts_c))
                 allocate(plasma_in%spec(sp)%I00_cc(rg_grid%npts_c))
@@ -296,39 +367,61 @@ module species_m
             end if
         end do
 
-        do j = 1, rg_grid%npts_c
-            plasma_in%ks_cc(j) = 0.5d0 * (plasma_in%ks(j) + plasma_in%ks(j+1))
-            do sp = 0, plasma_in%n_species-1
-                plasma_in%spec(sp)%n_cc(j)        = 0.5d0 * (plasma_in%spec(sp)%n(j)        + plasma_in%spec(sp)%n(j+1))
-                plasma_in%spec(sp)%dndr_cc(j)     = 0.5d0 * (plasma_in%spec(sp)%dndr(j)     + plasma_in%spec(sp)%dndr(j+1))
-                plasma_in%spec(sp)%T_cc(j)        = 0.5d0 * (plasma_in%spec(sp)%T(j)        + plasma_in%spec(sp)%T(j+1))
-                plasma_in%spec(sp)%dTdr_cc(j)     = 0.5d0 * (plasma_in%spec(sp)%dTdr(j)     + plasma_in%spec(sp)%dTdr(j+1))
-                plasma_in%spec(sp)%A1_cc(j)       = 0.5d0 * (plasma_in%spec(sp)%A1(j)       + plasma_in%spec(sp)%A1(j+1))
-                plasma_in%spec(sp)%A2_cc(j)       = 0.5d0 * (plasma_in%spec(sp)%A2(j)       + plasma_in%spec(sp)%A2(j+1))
-                plasma_in%spec(sp)%nu_cc(j)       = 0.5d0 * (plasma_in%spec(sp)%nu(j)       + plasma_in%spec(sp)%nu(j+1))
-                plasma_in%spec(sp)%vT_cc(j)       = 0.5d0 * (plasma_in%spec(sp)%vT(j)       + plasma_in%spec(sp)%vT(j+1))
-                plasma_in%spec(sp)%omega_c_cc(j)  = 0.5d0 * (plasma_in%spec(sp)%omega_c(j)  + plasma_in%spec(sp)%omega_c(j+1))
-                plasma_in%spec(sp)%lambda_D_cc(j) = 0.5d0 * (plasma_in%spec(sp)%lambda_D(j) + plasma_in%spec(sp)%lambda_D(j+1))
-                plasma_in%spec(sp)%rho_L_cc(j)    = 0.5d0 * (plasma_in%spec(sp)%rho_L(j)    + plasma_in%spec(sp)%rho_L(j+1))
+        ! Calculate on boundary points (npts_b)
+        do sp = 0, plasma_in%n_species-1
+            plasma_in%spec(sp)%symbI = 0.0d0
 
-                plasma_in%spec(sp)%x1_cc(j)       = 0.5d0 * (plasma_in%spec(sp)%x1(j)    + plasma_in%spec(sp)%x1(j+1))
-                plasma_in%spec(sp)%x2_cc(j)       = 0.5d0 * (plasma_in%spec(sp)%x2(j)    + plasma_in%spec(sp)%x2(j+1))
+            do j = 1, rg_grid%npts_b
+                plasma_in%spec(sp)%A1(j) = plasma_in%spec(sp)%dndr(j) / plasma_in%spec(sp)%n(j) &
+                    - plasma_in%spec(sp)%Zspec * e_charge / (plasma_in%spec(sp)%T(j) * ev) * plasma_in%Er(j) &
+                    - 3.0d0 / (2.0d0 * plasma_in%spec(sp)%T(j)) * plasma_in%spec(sp)%dTdr(j)
+                plasma_in%spec(sp)%A2(j) = plasma_in%spec(sp)%dTdr(j) / plasma_in%spec(sp)%T(j)
 
-                plasma_in%spec(sp)%I00_cc(j)      = 0.5d0 * (plasma_in%spec(sp)%I00(j)      + plasma_in%spec(sp)%I00(j+1))
-                plasma_in%spec(sp)%I01_cc(j)      = 0.5d0 * (plasma_in%spec(sp)%I01(j)      + plasma_in%spec(sp)%I01(j+1))
-                plasma_in%spec(sp)%I20_cc(j)      = 0.5d0 * (plasma_in%spec(sp)%I20(j)      + plasma_in%spec(sp)%I20(j+1))
-                plasma_in%spec(sp)%I21_cc(j)      = 0.5d0 * (plasma_in%spec(sp)%I21(j)      + plasma_in%spec(sp)%I21(j+1))
-                plasma_in%spec(sp)%I22_cc(j)      = 0.5d0 * (plasma_in%spec(sp)%I22(j)      + plasma_in%spec(sp)%I22(j+1))
-                plasma_in%spec(sp)%I02_cc(j)      = 0.5d0 * (plasma_in%spec(sp)%I02(j)      + plasma_in%spec(sp)%I02(j+1))
+                plasma_in%spec(sp)%x1(j) = plasma_in%kp(j) * plasma_in%spec(sp)%vT(j) / plasma_in%spec(sp)%nu(j)
+                plasma_in%spec(sp)%x2(j) = - (plasma_in%om_E(j) - omega) / plasma_in%spec(sp)%nu(j)
+
+                call getIfunc(plasma_in%spec(sp)%x1(j), plasma_in%spec(sp)%x2(j), plasma_in%spec(sp)%symbI)
+                plasma_in%spec(sp)%I00(j) = plasma_in%spec(sp)%symbI(0, 0)
+                plasma_in%spec(sp)%I20(j) = plasma_in%spec(sp)%symbI(2, 0)
+                plasma_in%spec(sp)%I02(j) = plasma_in%spec(sp)%symbI(0, 2)
+                plasma_in%spec(sp)%I01(j) = plasma_in%spec(sp)%symbI(0, 1)
+                plasma_in%spec(sp)%I21(j) = plasma_in%spec(sp)%symbI(2, 1)
+                plasma_in%spec(sp)%I22(j) = plasma_in%spec(sp)%symbI(2, 2)
+                plasma_in%spec(sp)%I11(j) = plasma_in%spec(sp)%symbI(1, 1)
+                plasma_in%spec(sp)%I13(j) = plasma_in%spec(sp)%symbI(1, 3)
             end do
         end do
 
-    end subroutine compute_rg_cell_centers
+        ! Calculate on cell centers (npts_c) - THIS is what fixes the grid-dependence issue
+        do sp = 0, plasma_in%n_species-1
+            plasma_in%spec(sp)%symbI = 0.0d0
+
+            do j = 1, rg_grid%npts_c
+                plasma_in%spec(sp)%A1_cc(j) = plasma_in%spec(sp)%dndr_cc(j) / plasma_in%spec(sp)%n_cc(j) &
+                    - plasma_in%spec(sp)%Zspec * e_charge / (plasma_in%spec(sp)%T_cc(j) * ev) * plasma_in%Er_cc(j) &
+                    - 3.0d0 / (2.0d0 * plasma_in%spec(sp)%T_cc(j)) * plasma_in%spec(sp)%dTdr_cc(j)
+                plasma_in%spec(sp)%A2_cc(j) = plasma_in%spec(sp)%dTdr_cc(j) / plasma_in%spec(sp)%T_cc(j)
+
+                plasma_in%spec(sp)%x1_cc(j) = 0.5d0 * (plasma_in%kp(j) + plasma_in%kp(j+1)) &
+                    * plasma_in%spec(sp)%vT_cc(j) / plasma_in%spec(sp)%nu_cc(j)
+                plasma_in%spec(sp)%x2_cc(j) = - (plasma_in%om_E_cc(j) - omega) / plasma_in%spec(sp)%nu_cc(j)
+
+                call getIfunc(plasma_in%spec(sp)%x1_cc(j), plasma_in%spec(sp)%x2_cc(j), plasma_in%spec(sp)%symbI)
+                plasma_in%spec(sp)%I00_cc(j) = plasma_in%spec(sp)%symbI(0, 0)
+                plasma_in%spec(sp)%I20_cc(j) = plasma_in%spec(sp)%symbI(2, 0)
+                plasma_in%spec(sp)%I02_cc(j) = plasma_in%spec(sp)%symbI(0, 2)
+                plasma_in%spec(sp)%I01_cc(j) = plasma_in%spec(sp)%symbI(0, 1)
+                plasma_in%spec(sp)%I21_cc(j) = plasma_in%spec(sp)%symbI(2, 1)
+                plasma_in%spec(sp)%I22_cc(j) = plasma_in%spec(sp)%symbI(2, 2)
+            end do
+        end do
+
+    end subroutine calculate_thermodynamic_forces_and_susc
 
     subroutine calculate_plasma_backs(plasma_in)
-        ! Calculate all parameters of the plasma needed for the kernel calculation
-        ! such as thermal velocity, collision frequency, Larmor radius, Debye length, thermodynamic forces,
-        ! susceptibility functions (generalized plasma dispersion functions of the Fokker Planck operator), etc.
+        ! Calculate basic parameters of the plasma: thermal velocity, collision frequency,
+        ! Larmor radius, Debye length, z0. Does NOT calculate x1, x2, A1, A2, or susceptibility
+        ! functions - those are calculated AFTER interpolation to avoid grid-dependent aliasing.
 
         use constants_m, only: sol, e_charge, ev, pi, com_unit
         use setup_m, only: omega, collisions_off
@@ -347,20 +440,8 @@ module species_m
 
             allocate(plasma_in%spec(sp)%rho_L(plasma_in%grid_size))
             allocate(plasma_in%spec(sp)%z0(plasma_in%grid_size))
-            allocate(plasma_in%spec(sp)%x1(plasma_in%grid_size))
-            allocate(plasma_in%spec(sp)%x2(plasma_in%grid_size))
             allocate(plasma_in%spec(sp)%vT(plasma_in%grid_size))
             allocate(plasma_in%spec(sp)%lambda_D(plasma_in%grid_size))
-            allocate(plasma_in%spec(sp)%A1(plasma_in%grid_size))
-            allocate(plasma_in%spec(sp)%A2(plasma_in%grid_size))
-            allocate(plasma_in%spec(sp)%I00(plasma_in%grid_size))
-            allocate(plasma_in%spec(sp)%I20(plasma_in%grid_size))
-            allocate(plasma_in%spec(sp)%I01(plasma_in%grid_size))
-            allocate(plasma_in%spec(sp)%I02(plasma_in%grid_size))
-            allocate(plasma_in%spec(sp)%I21(plasma_in%grid_size))
-            allocate(plasma_in%spec(sp)%I22(plasma_in%grid_size))
-            allocate(plasma_in%spec(sp)%I11(plasma_in%grid_size))
-            allocate(plasma_in%spec(sp)%I13(plasma_in%grid_size))
             allocate(plasma_in%spec(sp)%nu(plasma_in%grid_size))
             allocate(plasma_in%spec(sp)%omega_c(plasma_in%grid_size))
 
@@ -373,10 +454,6 @@ module species_m
 
                 plasma_in%spec(sp)%lambda_D(i) = sqrt((plasma_in%spec(sp)%T(i) * ev) / (4.0d0*pi* plasma_in%spec(sp)%n(i) &
                     * (plasma_in%spec(sp)%Zspec * e_charge)**2.0d0))
-
-                plasma_in%spec(sp)%A1(i) = plasma_in%spec(sp)%dndr(i) / plasma_in%spec(sp)%n(i) - plasma_in%spec(sp)%Zspec *e_charge&
-                    /(plasma_in%spec(sp)%T(i) * ev) * plasma_in%Er(i) - 3.0d0/(2.0d0 * plasma_in%spec(sp)%T(i)) * plasma_in%spec(sp)%dTdr(i)
-                plasma_in%spec(sp)%A2(i) = plasma_in%spec(sp)%dTdr(i) / plasma_in%spec(sp)%T(i)
             end do
         end do
 
@@ -427,16 +504,10 @@ module species_m
             do i = 1,plasma_in%grid_size
                 plasma_in%spec(sp)%z0(i) = - (plasma_in%om_E(i) - omega - com_unit * plasma_in%spec(sp)%nu(i)) &
                     / (abs(plasma_in%kp(i)) * sqrt(2d0) * plasma_in%spec(sp)%vT(i) )
-                plasma_in%spec(sp)%x1(i) = plasma_in%kp(i) * plasma_in%spec(sp)%vT(i) / plasma_in%spec(sp)%nu(i)
-                plasma_in%spec(sp)%x2(i) = - (plasma_in%om_E(i) - omega) / plasma_in%spec(sp)%nu(i)
                 if (collisions_off .eqv. .true.)then
                     plasma_in%spec(sp)%nu(i) = 0.0d0
                 end if
             end do
-        end do
-
-        do sp=0, plasma_in%n_species-1
-            call calculate_susc_funcs_profiles(plasma_in%spec(sp))
         end do
 
         if (rescale_density .eqv. .true.) then
@@ -449,6 +520,7 @@ module species_m
                 do i = 1, plasma_in%grid_size
                     ! density rescaling only affects lambda_D (in A_1 the rescaling cancels out)
                     plasma_in%spec(sp)%n(i) = plasma_in%spec(sp)%n(i) * number_density_rescale
+                    plasma_in%spec(sp)%dndr(i) = plasma_in%spec(sp)%dndr(i) * number_density_rescale
                     plasma_in%spec(sp)%lambda_D(i) = sqrt(plasma_in%spec(sp)%T(i) * ev / (4.0d0 * pi * plasma_in%spec(sp)%n(i) &
                         * (plasma_in%spec(sp)%Zspec * e_charge)**2.0d0))
                 end do
@@ -504,21 +576,57 @@ module species_m
         call write_profile(r_grid, spec%vT, size(r_grid), trim(output_path)//'backs/'//trim(spec%name)//'/vT.dat')
         call write_profile(r_grid, spec%omega_c, size(r_grid), trim(output_path)//'backs/'//trim(spec%name)//'/omega_c.dat')
         call write_profile(r_grid, spec%nu, size(r_grid), trim(output_path)//'backs/'//trim(spec%name)//'/nu.dat')
-        call write_profile(r_grid, spec%A1, size(r_grid), trim(output_path)//'backs/'//trim(spec%name)//'/A1.dat')
-        call write_profile(r_grid, spec%A2, size(r_grid), trim(output_path)//'backs/'//trim(spec%name)//'/A2.dat')
         call write_complex_profile(r_grid, spec%z0, size(r_grid), trim(output_path)//'backs/'//trim(spec%name)//'/z0.dat')
-
-        call write_complex_profile(r_grid, spec%I00, size(r_grid), trim(output_path)//'backs/'//trim(spec%name)//'/I00.dat')
-        call write_complex_profile(r_grid, spec%I20, size(r_grid), trim(output_path)//'backs/'//trim(spec%name)//'/I20.dat')
-        call write_complex_profile(r_grid, spec%I01, size(r_grid), trim(output_path)//'backs/'//trim(spec%name)//'/I01.dat')
-        call write_complex_profile(r_grid, spec%I21, size(r_grid), trim(output_path)//'backs/'//trim(spec%name)//'/I21.dat')
-        call write_profile(r_grid, spec%x1, size(r_grid), trim(output_path)//'backs/'//trim(spec%name)//'/x1.dat')
-        call write_profile(r_grid, spec%x2, size(r_grid), trim(output_path)//'backs/'//trim(spec%name)//'/x2.dat')
 
         call write_profile(r_grid, spec%dTdr, size(r_grid), trim(output_path)//'backs/'//trim(spec%name)//'/dTdr.dat')
         call write_profile(r_grid, spec%dndr, size(r_grid), trim(output_path)//'backs/'//trim(spec%name)//'/dndr.dat')
         call write_profile(r_grid, spec%T, size(r_grid), trim(output_path)//'backs/'//trim(spec%name)//'/T.dat')
         call write_profile(r_grid, spec%n, size(r_grid), trim(output_path)//'backs/'//trim(spec%name)//'/n.dat')
+
+    end subroutine
+
+    subroutine write_species_cc_quantities(spec, r_grid_cc)
+        ! Write cell-center quantities (A1, A2, x1, x2, I00, I20, etc.)
+        ! These are computed after interpolation to avoid grid-dependent aliasing
+
+        use KIM_kinds_m, only: dp
+        use IO_collection_m, only: write_profile, write_complex_profile
+        use config_m, only: output_path
+
+        implicit none
+
+        type(species_t), intent(in) :: spec
+        real(dp), intent(in) :: r_grid_cc(:)
+        logical :: ex
+
+        inquire(file=trim(output_path)//'profiles', exist=ex)
+        if (.not. ex) then
+            call system('mkdir -p '//trim(output_path)//'backs/'//trim(spec%name))
+        end if
+
+        if (allocated(spec%A1_cc)) then
+            call write_profile(r_grid_cc, spec%A1_cc, size(r_grid_cc), &
+                trim(output_path)//'backs/'//trim(spec%name)//'/A1_cc.dat')
+            call write_profile(r_grid_cc, spec%A2_cc, size(r_grid_cc), &
+                trim(output_path)//'backs/'//trim(spec%name)//'/A2_cc.dat')
+            call write_profile(r_grid_cc, spec%x1_cc, size(r_grid_cc), &
+                trim(output_path)//'backs/'//trim(spec%name)//'/x1_cc.dat')
+            call write_profile(r_grid_cc, spec%x2_cc, size(r_grid_cc), &
+                trim(output_path)//'backs/'//trim(spec%name)//'/x2_cc.dat')
+
+            call write_complex_profile(r_grid_cc, spec%I00_cc, size(r_grid_cc), &
+                trim(output_path)//'backs/'//trim(spec%name)//'/I00_cc.dat')
+            call write_complex_profile(r_grid_cc, spec%I20_cc, size(r_grid_cc), &
+                trim(output_path)//'backs/'//trim(spec%name)//'/I20_cc.dat')
+            call write_complex_profile(r_grid_cc, spec%I01_cc, size(r_grid_cc), &
+                trim(output_path)//'backs/'//trim(spec%name)//'/I01_cc.dat')
+            call write_complex_profile(r_grid_cc, spec%I21_cc, size(r_grid_cc), &
+                trim(output_path)//'backs/'//trim(spec%name)//'/I21_cc.dat')
+            call write_complex_profile(r_grid_cc, spec%I22_cc, size(r_grid_cc), &
+                trim(output_path)//'backs/'//trim(spec%name)//'/I22_cc.dat')
+            call write_complex_profile(r_grid_cc, spec%I02_cc, size(r_grid_cc), &
+                trim(output_path)//'backs/'//trim(spec%name)//'/I02_cc.dat')
+        end if
 
     end subroutine
 
@@ -564,26 +672,12 @@ module species_m
                 plasma_temp%spec(sp)%dndr(i)     = sum(coef(0,:) * plasma_in%spec(sp)%dndr(ibeg:iend))
                 plasma_temp%spec(sp)%T(i)        = sum(coef(0,:) * plasma_in%spec(sp)%T(ibeg:iend))
                 plasma_temp%spec(sp)%dTdr(i)     = sum(coef(0,:) * plasma_in%spec(sp)%dTdr(ibeg:iend))
-                plasma_temp%spec(sp)%A1(i)       = sum(coef(0,:) * plasma_in%spec(sp)%A1(ibeg:iend))
-                plasma_temp%spec(sp)%A2(i)       = sum(coef(0,:) * plasma_in%spec(sp)%A2(ibeg:iend))
                 plasma_temp%spec(sp)%nu(i)       = sum(coef(0,:) * plasma_in%spec(sp)%nu(ibeg:iend))
                 plasma_temp%spec(sp)%vT(i)       = sum(coef(0,:) * plasma_in%spec(sp)%vT(ibeg:iend))
                 plasma_temp%spec(sp)%omega_c(i)  = sum(coef(0,:) * plasma_in%spec(sp)%omega_c(ibeg:iend))
                 plasma_temp%spec(sp)%lambda_D(i) = sum(coef(0,:) * plasma_in%spec(sp)%lambda_D(ibeg:iend))
                 plasma_temp%spec(sp)%rho_L(i)    = sum(coef(0,:) * plasma_in%spec(sp)%rho_L(ibeg:iend))
                 plasma_temp%spec(sp)%z0(i)       = sum(coef(0,:) * plasma_in%spec(sp)%z0(ibeg:iend))
-
-                plasma_temp%spec(sp)%x1(i) = sum(coef(0,:) * plasma_in%spec(sp)%x1(ibeg:iend))
-                plasma_temp%spec(sp)%x2(i) = sum(coef(0,:) * plasma_in%spec(sp)%x2(ibeg:iend))
-
-                plasma_temp%spec(sp)%I00(i) = sum(coef(0,:) * plasma_in%spec(sp)%I00(ibeg:iend))
-                plasma_temp%spec(sp)%I01(i) = sum(coef(0,:) * plasma_in%spec(sp)%I01(ibeg:iend))
-                plasma_temp%spec(sp)%I20(i) = sum(coef(0,:) * plasma_in%spec(sp)%I20(ibeg:iend))
-                plasma_temp%spec(sp)%I21(i) = sum(coef(0,:) * plasma_in%spec(sp)%I21(ibeg:iend))
-                plasma_temp%spec(sp)%I22(i) = sum(coef(0,:) * plasma_in%spec(sp)%I22(ibeg:iend))
-                plasma_temp%spec(sp)%I11(i) = sum(coef(0,:) * plasma_in%spec(sp)%I11(ibeg:iend))
-                plasma_temp%spec(sp)%I13(i) = sum(coef(0,:) * plasma_in%spec(sp)%I13(ibeg:iend))
-                plasma_temp%spec(sp)%I02(i) = sum(coef(0,:) * plasma_in%spec(sp)%I02(ibeg:iend))
             end do
 
             plasma_temp%B0(i)   = sum(coef(0,:) * plasma_in%B0(ibeg:iend))
@@ -614,26 +708,12 @@ module species_m
         call reallocate(spec%dndr, grid_size)
         call reallocate(spec%T, grid_size)
         call reallocate(spec%dTdr, grid_size)
-        call reallocate(spec%A1, grid_size)
-        call reallocate(spec%A2, grid_size)
         call reallocate(spec%nu, grid_size)
         call reallocate(spec%vT, grid_size)
         call reallocate(spec%omega_c, grid_size)
         call reallocate(spec%lambda_D, grid_size)
         call reallocate(spec%rho_L, grid_size)
         call reallocate_complex(spec%z0, grid_size)
-        call reallocate(spec%x1, grid_size)
-        call reallocate(spec%x2, grid_size)
-
-        call reallocate_complex(spec%I00, grid_size)
-        call reallocate_complex(spec%I01, grid_size)
-        call reallocate_complex(spec%I20, grid_size)
-        call reallocate_complex(spec%I21, grid_size)
-
-        call reallocate_complex(spec%I11, grid_size)
-        call reallocate_complex(spec%I13, grid_size)
-        call reallocate_complex(spec%I02, grid_size)
-        call reallocate_complex(spec%I22, grid_size)
 
     end subroutine
 

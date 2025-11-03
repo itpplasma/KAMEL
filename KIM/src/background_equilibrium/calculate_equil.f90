@@ -6,6 +6,7 @@ module equilibrium_m
     
     real(dp), allocatable :: B0z(:), B0th(:), B0(:), J0z(:), J0th(:)
     real(dp), allocatable :: hz(:), hth(:)
+    real(dp), allocatable :: equil_grid(:)
     
     integer :: ineq = 1 ! numbers of equations to be solved
     integer :: idid     ! indicator reporting what the code did
@@ -52,7 +53,8 @@ module equilibrium_m
             if(.not. allocated(coef)) allocate(coef(0:nder, nlagr))
 
             allocate(u(plasma%grid_size), B0z(plasma%grid_size), dpress_prof(plasma%grid_size), &
-                    B0th(plasma%grid_size), B0(plasma%grid_size), hz(plasma%grid_size), hth(plasma%grid_size))
+                    B0th(plasma%grid_size), B0(plasma%grid_size), hz(plasma%grid_size), hth(plasma%grid_size),&
+                    equil_grid(plasma%grid_size))
 
             if (fstatus == 1) write(*,*) 'Status: Calculating equilibrium, write_out=', write_out
             if (.not. allocated(plasma%spec(0)%dndr)) then
@@ -152,51 +154,106 @@ module equilibrium_m
                     du = -2.0d0 * r * u / (q**2.0d0 * R0**2.0d0 + r**2.0d0) - 8.0d0 * pi * dpress
 
                 end subroutine
-    
-                subroutine write_equil
-
-                    implicit none
-                    character(1024) :: filename
-                    logical :: ex
-
-                    if(fstatus == 1) write(*,*) 'Status: Writing equilibrium'
-
-                    if (hdf5_output) then
-
-                    else
-
-                        inquire(file=trim(output_path)//'backs', exist=ex)
-                        if (.not. ex) then
-                            call system('mkdir -p '//trim(output_path)//'backs')
-                        end if
-                        open(unit = 78, file = trim(output_path)//'backs/'//'B0z.dat')
-                        open(unit = 80, file = trim(output_path)//'backs/'//'B0th.dat')
-                        open(unit = 81, file = trim(output_path)//'backs/'//'B0.dat')
-                        open(unit = 82, file = trim(output_path)//'backs/'//'hz.dat')
-                        open(unit = 83, file = trim(output_path)//'backs/'//'hth.dat')
-                        open(unit = 79, file = trim(output_path)//'backs/'//'dpress.dat')
-                        open(unit = 87, file = trim(output_path)//'backs/'//'p_tot.dat')
-
-                        do i = 1, plasma%grid_size
-                            write(78, *) plasma%r_grid(i), B0z(i)
-                            write(80, *) plasma%r_grid(i), B0th(i)
-                            write(81, *) plasma%r_grid(i), B0(i)
-                            write(82, *) plasma%r_grid(i), hz(i)
-                            write(83, *) plasma%r_grid(i), hth(i)
-                            write(79, *) plasma%r_grid(i), dpress_prof(i)
-                        end do
-                        close(78)
-                        close(79)
-                        close(80)
-                        close(82)
-                        close(81)
-                        close(83)
-                        close(87)
-
-                    end if
-
-                end subroutine
 
         end subroutine
+        
+        subroutine write_equil
+
+            use config_m, only: output_path, hdf5_output, fstatus
+
+            implicit none
+
+            character(1024) :: filename
+            logical :: ex
+
+            if(fstatus == 1) write(*,*) 'Status: Writing equilibrium'
+
+            if (hdf5_output) then
+
+            else
+
+                inquire(file=trim(output_path)//'backs', exist=ex)
+                if (.not. ex) then
+                    call system('mkdir -p '//trim(output_path)//'backs')
+                end if
+                open(unit = 78, file = trim(output_path)//'backs/'//'B0z.dat')
+                open(unit = 80, file = trim(output_path)//'backs/'//'B0th.dat')
+                open(unit = 81, file = trim(output_path)//'backs/'//'B0.dat')
+                open(unit = 82, file = trim(output_path)//'backs/'//'hz.dat')
+                open(unit = 83, file = trim(output_path)//'backs/'//'hth.dat')
+                open(unit = 79, file = trim(output_path)//'backs/'//'dpress.dat')
+                open(unit = 87, file = trim(output_path)//'backs/'//'p_tot.dat')
+
+                do i = 1, size(equil_grid)
+                    write(78, *) equil_grid(i), B0z(i)
+                    write(80, *) equil_grid(i), B0th(i)
+                    write(81, *) equil_grid(i), B0(i)
+                    write(82, *) equil_grid(i), hz(i)
+                    write(83, *) equil_grid(i), hth(i)
+                end do
+                close(78)
+                close(79)
+                close(80)
+                close(82)
+                close(81)
+                close(83)
+                close(87)
+
+            end if
+
+        end subroutine
+
+
+        subroutine interpolate_equil(grid)
+
+        use KIM_kinds_m, only: dp
+
+        implicit none
+
+        real(dp), intent(in) :: grid(:)
+        integer :: i
+        integer :: nlagr = 4
+        integer :: nder = 0
+        integer :: ibeg, iend, ir
+        real(dp), dimension(:,:), allocatable :: coef
+        real(dp), allocatable :: B0z_new(:), B0th_new(:), B0_new(:)
+        real(dp), allocatable :: hz_new(:), hth_new(:)
+
+        if (.not. allocated(coef)) allocate(coef(0:nder, nlagr))
+
+        allocate(B0z_new(size(grid)))
+        allocate(B0th_new(size(grid)))
+        allocate(B0_new(size(grid)))
+        allocate(hz_new(size(grid)))
+        allocate(hth_new(size(grid)))
+
+        do i = 1, size(grid)
+            call binsrc(equil_grid, 1, size(equil_grid), grid(i), ir)
+            ibeg = max(1, ir - nlagr/2)
+            iend = ibeg + nlagr - 1
+            if (iend .gt. size(equil_grid)) then
+                iend = size(equil_grid)
+                ibeg = iend - nlagr + 1
+            end if
+
+            call plag_coeff(nlagr, nder, grid(i), equil_grid(ibeg:iend), coef)
+
+            B0z_new(i)   = sum(coef(0,:) * B0z(ibeg:iend))
+            B0th_new(i)  = sum(coef(0,:) * B0th(ibeg:iend))
+            B0_new(i)    = sum(coef(0,:) * B0(ibeg:iend))
+            hz_new(i)    = sum(coef(0,:) * hz(ibeg:iend))
+            hth_new(i)   = sum(coef(0,:) * hth(ibeg:iend))
+
+        end do
+
+        call move_alloc(B0z_new, B0z)
+        call move_alloc(B0th_new, B0th)
+        call move_alloc(B0_new, B0)
+        call move_alloc(hz_new, hz)
+        call move_alloc(hth_new, hth)
+
+        equil_grid = grid
+
+    end subroutine
 
 end module equilibrium_m

@@ -309,10 +309,11 @@ module integrals_gauss_m
                 call int_F1_e%int_point%calc_Jrg1()
 
                 result = result + gauss_conf%w_xp(j) * gauss_conf%w_x(k) &
-                    * int_F1_e%f(x_mapped, xp_mapped) &
-                    * norm_factor
+                    * int_F1_e%f(x_mapped, xp_mapped)
             end do
         end do
+
+        result = result * norm_factor
 
     end subroutine gauss_integrate_F1_electrons
 
@@ -333,9 +334,8 @@ module integrals_gauss_m
 
         result = 0.0d0
 
-        norm_factor = pi * (int_F2_e%int_point%xlp1 - int_F2_e%int_point%xlm1) & ! normalization due to integral range shift
+        norm_factor = (int_F2_e%int_point%xlp1 - int_F2_e%int_point%xlm1) & ! normalization due to integral range shift
                         * (int_F2_e%int_point%xlpp1 - int_F2_e%int_point%xlpm1) / 4.0d0
-                        ! factor pi is still kept, because BesselI0=1 replaces the theta integral by pi
 
         int_F2_e%int_point%a_coef = 1.0d0 / abs(int_F2_e%int_point%rhoT)
 
@@ -357,10 +357,12 @@ module integrals_gauss_m
                 ! call int_F2_e%int_point%calc_Jrg4()
 
                 result = result + gauss_conf%w_xp(j) * gauss_conf%w_x(k) &
-                    * int_F2_e%f(x_mapped, xp_mapped) &
-                    * norm_factor
+                    * int_F2_e%f(x_mapped, xp_mapped) !&
+                    ! * norm_factor
             end do
         end do
+
+        result = result * norm_factor
 
     end subroutine gauss_integrate_F2_electrons
 

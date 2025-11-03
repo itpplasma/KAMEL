@@ -544,34 +544,34 @@ module species_m
 
         do sp = 0, plasma_temp%n_species-1
             call allocate_species_fields(plasma_temp%spec(sp), size(grid))
-            call allocate_plasma_fields(plasma_temp, size(grid))
-            plasma_temp%r_grid = grid
         end do
+        call allocate_plasma_fields(plasma_temp, size(grid))
+        plasma_temp%r_grid = grid
 
-        do sp = 0, plasma_temp%n_species-1
-            do i = 1, size(grid)
-                call binsrc(plasma_in%r_grid, 1, size(plasma_in%r_grid), grid(i), ir) 
-                ibeg = max(1, ir - nlagr/2)
-                iend = ibeg + nlagr - 1
-                if (iend .gt. size(plasma_in%r_grid)) then
-                    iend = size(plasma_in%r_grid)
-                    ibeg = iend -nlagr + 1
-                end if
+        do i = 1, size(grid)
+            call binsrc(plasma_in%r_grid, 1, size(plasma_in%r_grid), grid(i), ir)
+            ibeg = max(1, ir - nlagr/2)
+            iend = ibeg + nlagr - 1
+            if (iend .gt. size(plasma_in%r_grid)) then
+                iend = size(plasma_in%r_grid)
+                ibeg = iend - nlagr + 1
+            end if
 
-                call plag_coeff(nlagr, nder, grid(i), plasma_in%r_grid(ibeg:iend), coef)
+            call plag_coeff(nlagr, nder, grid(i), plasma_in%r_grid(ibeg:iend), coef)
 
-                plasma_temp%spec(sp)%n(i) = sum(coef(0,:) * plasma_in%spec(sp)%n(ibeg:iend))
-                plasma_temp%spec(sp)%dndr(i) = sum(coef(0,:) * plasma_in%spec(sp)%dndr(ibeg:iend))
-                plasma_temp%spec(sp)%T(i) = sum(coef(0,:) * plasma_in%spec(sp)%T(ibeg:iend))
-                plasma_temp%spec(sp)%dTdr(i) = sum(coef(0,:) * plasma_in%spec(sp)%dTdr(ibeg:iend))
-                plasma_temp%spec(sp)%A1(i) = sum(coef(0,:) * plasma_in%spec(sp)%A1(ibeg:iend))
-                plasma_temp%spec(sp)%A2(i) = sum(coef(0,:) * plasma_in%spec(sp)%A2(ibeg:iend))
-                plasma_temp%spec(sp)%nu(i) = sum(coef(0,:) * plasma_in%spec(sp)%nu(ibeg:iend))
-                plasma_temp%spec(sp)%vT(i) = sum(coef(0,:) * plasma_in%spec(sp)%vT(ibeg:iend))
-                plasma_temp%spec(sp)%omega_c(i) = sum(coef(0,:) * plasma_in%spec(sp)%omega_c(ibeg:iend))
+            do sp = 0, plasma_temp%n_species-1
+                plasma_temp%spec(sp)%n(i)        = sum(coef(0,:) * plasma_in%spec(sp)%n(ibeg:iend))
+                plasma_temp%spec(sp)%dndr(i)     = sum(coef(0,:) * plasma_in%spec(sp)%dndr(ibeg:iend))
+                plasma_temp%spec(sp)%T(i)        = sum(coef(0,:) * plasma_in%spec(sp)%T(ibeg:iend))
+                plasma_temp%spec(sp)%dTdr(i)     = sum(coef(0,:) * plasma_in%spec(sp)%dTdr(ibeg:iend))
+                plasma_temp%spec(sp)%A1(i)       = sum(coef(0,:) * plasma_in%spec(sp)%A1(ibeg:iend))
+                plasma_temp%spec(sp)%A2(i)       = sum(coef(0,:) * plasma_in%spec(sp)%A2(ibeg:iend))
+                plasma_temp%spec(sp)%nu(i)       = sum(coef(0,:) * plasma_in%spec(sp)%nu(ibeg:iend))
+                plasma_temp%spec(sp)%vT(i)       = sum(coef(0,:) * plasma_in%spec(sp)%vT(ibeg:iend))
+                plasma_temp%spec(sp)%omega_c(i)  = sum(coef(0,:) * plasma_in%spec(sp)%omega_c(ibeg:iend))
                 plasma_temp%spec(sp)%lambda_D(i) = sum(coef(0,:) * plasma_in%spec(sp)%lambda_D(ibeg:iend))
-                plasma_temp%spec(sp)%rho_L(i) = sum(coef(0,:) * plasma_in%spec(sp)%rho_L(ibeg:iend))
-                plasma_temp%spec(sp)%z0(i) = sum(coef(0,:) * plasma_in%spec(sp)%z0(ibeg:iend))
+                plasma_temp%spec(sp)%rho_L(i)    = sum(coef(0,:) * plasma_in%spec(sp)%rho_L(ibeg:iend))
+                plasma_temp%spec(sp)%z0(i)       = sum(coef(0,:) * plasma_in%spec(sp)%z0(ibeg:iend))
 
                 plasma_temp%spec(sp)%x1(i) = sum(coef(0,:) * plasma_in%spec(sp)%x1(ibeg:iend))
                 plasma_temp%spec(sp)%x2(i) = sum(coef(0,:) * plasma_in%spec(sp)%x2(ibeg:iend))
@@ -584,18 +584,18 @@ module species_m
                 plasma_temp%spec(sp)%I11(i) = sum(coef(0,:) * plasma_in%spec(sp)%I11(ibeg:iend))
                 plasma_temp%spec(sp)%I13(i) = sum(coef(0,:) * plasma_in%spec(sp)%I13(ibeg:iend))
                 plasma_temp%spec(sp)%I02(i) = sum(coef(0,:) * plasma_in%spec(sp)%I02(ibeg:iend))
-
-                plasma_temp%ks(i) = sum(coef(0,:) * plasma_in%ks(ibeg:iend))
-                plasma_temp%kp(i) = sum(coef(0,:) * plasma_in%kp(ibeg:iend))
-                plasma_temp%om_E(i) = sum(coef(0,:) * plasma_in%om_E(ibeg:iend))
-                plasma_temp%q(i) = sum(coef(0,:) * plasma_in%q(ibeg:iend))
-                plasma_temp%dqdr(i) = sum(coef(0,:) * plasma_in%dqdr(ibeg:iend))
-                plasma_temp%Er(i) = sum(coef(0,:) * plasma_in%Er(ibeg:iend))
-
             end do
-            
+
+            plasma_temp%B0(i)   = sum(coef(0,:) * plasma_in%B0(ibeg:iend))
+            plasma_temp%ks(i)   = sum(coef(0,:) * plasma_in%ks(ibeg:iend))
+            plasma_temp%kp(i)   = sum(coef(0,:) * plasma_in%kp(ibeg:iend))
+            plasma_temp%om_E(i) = sum(coef(0,:) * plasma_in%om_E(ibeg:iend))
+            plasma_temp%q(i)    = sum(coef(0,:) * plasma_in%q(ibeg:iend))
+            plasma_temp%dqdr(i) = sum(coef(0,:) * plasma_in%dqdr(ibeg:iend))
+            plasma_temp%Er(i)   = sum(coef(0,:) * plasma_in%Er(ibeg:iend))
+
         end do
-        
+
         plasma_in = plasma_temp
 
         deallocate(plasma_temp)
@@ -630,6 +630,11 @@ module species_m
         call reallocate_complex(spec%I20, grid_size)
         call reallocate_complex(spec%I21, grid_size)
 
+        call reallocate_complex(spec%I11, grid_size)
+        call reallocate_complex(spec%I13, grid_size)
+        call reallocate_complex(spec%I02, grid_size)
+        call reallocate_complex(spec%I22, grid_size)
+
     end subroutine
 
     subroutine allocate_plasma_fields(plasma_in, grid_size)
@@ -640,6 +645,7 @@ module species_m
         type(plasma_t), intent(inout) :: plasma_in
 
         call reallocate(plasma_in%ks, grid_size)
+        call reallocate(plasma_in%B0, grid_size)
         call reallocate(plasma_in%kp, grid_size)
         call reallocate(plasma_in%om_E, grid_size)
         call reallocate(plasma_in%Er, grid_size)

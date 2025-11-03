@@ -187,15 +187,16 @@ module flr2_asymptotics_m
 
                     ! Include full perpendicular wavenumber in FLR parameter: b = (k_r^2 + k_s^2) * rho_T^2
                     ks = plasma_in%ks(j)
-                    ! b = (kr**2.0d0 + ks**2.0d0) * plasma_in%spec(sp)%rho_L(j)**2.0d0
-                    b = kr**2.0d0 * plasma_in%spec(sp)%rho_L(j)**2.0d0
+                    b = (kr**2.0d0 + ks**2.0d0) * plasma_in%spec(sp)%rho_L(j)**2.0d0
+                    ! b = kr**2.0d0 * plasma_in%spec(sp)%rho_L(j)**2.0d0
 
-                    if (artificial_debye_case <= 1) then
-                        kernel_phi_temp = - 1.0d0 / plasma_in%spec(sp)%lambda_D(j)**2.0d0
-                    end if
+                    ! if (artificial_debye_case <= 1) then
+                        ! kernel_phi_temp = - 1.0d0 / plasma_in%spec(sp)%lambda_D(j)**2.0d0
+                    ! end if
 
                     if (artificial_debye_case == 0 .or. artificial_debye_case == 2) then
-                        kernel_phi_temp = kernel_phi_temp + 1.0d0 / plasma_in%spec(sp)%lambda_D(j)**2.0d0 * com_unit * plasma_in%spec(sp)%vT(j)**2.0d0 * plasma_in%ks(j) &
+                        kernel_phi_temp = kernel_phi_temp + 1.0d0 / plasma_in%spec(sp)%lambda_D(j)**2.0d0 &
+                            * com_unit * plasma_in%spec(sp)%vT(j)**2.0d0 * plasma_in%ks(j) &
                             / (plasma_in%spec(sp)%omega_c(j) * plasma_in%spec(sp)%nu(j)) * exp(-b) * &
                             (&
                                 plasma_in%spec(sp)%I00(j) * (&

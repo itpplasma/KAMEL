@@ -18,7 +18,8 @@ module rt_electrostatic_m
 
         use species_m, only: init_plasma, plasma, set_plasma_quantities
         use IO_collection_m, only: create_output_directories
-        use equilibrium_m, only: calculate_equil
+        use equilibrium_m, only: calculate_equil, interpolate_equil, write_equil
+        use grid_m, only: rg_grid
 
         implicit none
 
@@ -30,6 +31,8 @@ module rt_electrostatic_m
         call generate_grids
         call calculate_equil(.true.)
         call set_plasma_quantities(plasma)
+        call interpolate_equil(rg_grid%xb)
+        call write_equil
 
         print *, "..."//trim(this%run_type)//" model initialized."
 

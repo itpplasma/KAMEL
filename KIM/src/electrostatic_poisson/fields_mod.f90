@@ -330,19 +330,36 @@ module fields_m
 
     subroutine calculate_E_in_rsp_from_cyl(EBdat)
 
-        use equilibrium_m, only: hz, hth
+        use equilibrium_m, only: hz, hth, equil_grid
 
         implicit none
 
         type(EBdat_t), intent(inout) :: EBdat
+        integer :: nlagr = 4
+        integer :: nder = 0
+        integer :: ibeg, iend, ir
+        real(dp), dimension(:,:), allocatable :: coef
+        real(dp) :: hz_int, hth_int
         integer :: i
 
         if (.not. allocated(EBdat%Es)) allocate(EBdat%Es(size(EBdat%r_grid)), EBdat%Ep(size(EBdat%r_grid)))
+        if (.not. allocated(coef)) allocate(coef(0:nder, nlagr))
 
         do i = 1, size(EBdat%r_grid)
+            call binsrc(equil_grid, 1, size(equil_grid), EBdat%r_grid(i), ir) 
+            ibeg = max(1, ir - nlagr/2)
+            iend = ibeg + nlagr - 1
+            if (iend .gt. size(equil_grid)) then
+                iend = size(equil_grid)
+                ibeg = iend -nlagr + 1
+            end if
 
-            EBdat%Es(i) = hz(i) * EBdat%Etheta(i) - hth(i) * EBdat%Ez(i)
-            EBdat%Ep(i) = hth(i) * EBdat%Etheta(i) + hz(i) * EBdat%Ez(i)
+            call plag_coeff(nlagr, nder, EBdat%r_grid(i), equil_grid(ibeg:iend), coef)
+            hz_int = sum(coef(0, :) * hz(ibeg:iend))
+            hth_int = sum(coef(0, :) * hth(ibeg:iend))
+
+            EBdat%Es(i) = hz_int * EBdat%Etheta(i) - hth_int * EBdat%Ez(i)
+            EBdat%Ep(i) = hth_int * EBdat%Etheta(i) + hz_int * EBdat%Ez(i)
 
         end do
 

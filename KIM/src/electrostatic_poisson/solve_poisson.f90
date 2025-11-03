@@ -15,6 +15,7 @@ module poisson_solver_m
         use grid_m, only: xl_grid, calc_mass_matrix
         use setup_m, only: type_br_field
         use KIM_kinds_m, only: dp
+        use IO_collection_m, only: write_matrix, write_complex_profile
 
         implicit none
 
@@ -42,39 +43,22 @@ module poisson_solver_m
             call write_A_matrix_sparse_check_to_file
         end if
 
-        sparse_solve_method = 1 
+        sparse_solve_method = 1
         sparse_solver_option = 0
 
         call create_rhs_vector(type_br_field, K_rho_B, b_vec)
         call impose_bc_on_matrix_and_rhs(A_mat, b_vec, K_rho_phi, K_rho_B)
+
+        call write_matrix(trim(output_path)//'kernel/A_mat_re.dat', real(A_mat), xl_grid%npts_b, xl_grid%npts_b)
+        call write_matrix(trim(output_path)//'kernel/A_mat_im.dat', dimag(A_mat), xl_grid%npts_b, xl_grid%npts_b)
+        call write_complex_profile(xl_grid%xb, b_vec, xl_grid%npts_b, trim(output_path)//'kernel/b_vec.dat')
+
         call dense_to_sparse(A_mat, irow, pcol, A_nz, nrow, ncol, nz_out)
         call sparse_solveComplex_b1(nrow, ncol, nz_out, irow, pcol, A_nz, b_vec, sparse_solver_option)
 
         phi_sol = b_vec
 
-        if (fdebug == 3) then
-            call write_A_matrix_to_file
-        end if
-
         contains
-
-        subroutine write_A_matrix_to_file
-
-            implicit none
-
-            write(*,*) 'Debug : write A matrix '
-            open(unit = 80, file=trim(output_path)//'fields/A_mat_re.dat')
-            open(unit = 81, file=trim(output_path)//'fields/A_mat_im.dat')
-            do i = 1, xl_grid%npts_b
-                do j = 1, xl_grid%npts_b
-                    write(80,*) real(A_mat(i,j))
-                    write(81,*) dimag(A_mat(i,j))
-                end do
-            end do
-            close(80)
-            close(81)
-
-        end subroutine
 
         subroutine write_A_matrix_sparse_check_to_file
 
@@ -232,7 +216,7 @@ module poisson_solver_m
 
         do nc = 1, ncol
             do nr = 1, nrow
-                if (.not.(A(nr,nc) == 0.0d0)) then
+                if (abs(A(nr,nc)) > 1.0e-14_dp) then
                     nz = nz + 1
                 end if
             end do
@@ -250,7 +234,7 @@ module poisson_solver_m
         n = 0
         do nc = 1, ncol
             do nr = 1, nrow
-                if (.not.(A(nr, nc) == (0.0d0, 0.0d0))) then
+                if (abs(A(nr, nc)) > 1.0e-14_dp) then
                     n = n + 1
                     irow(n) = nr
                     icol(n) = nc

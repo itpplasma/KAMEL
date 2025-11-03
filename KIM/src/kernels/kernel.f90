@@ -909,17 +909,17 @@ module kernel_m
 
         call set_xl_at_edge(l, lp, int_point)
 
-        do j = 1, rg_grid%npts_b-1
+        do j = 1, rg_grid%npts_c
 
             int_point%j = j
-            int_point%rhoT = max(plasma%spec(0)%rho_L_cc(j), 0.0d0)
+            int_point%rhoT = plasma%spec(0)%rho_L_cc(j)
 
             ! no Debye term for FLR2 benchmark
 
             ! skip term if species Larmor radius is too small to couple these grid points
-            if (abs(l-lp) > 10 .and. abs(xl_grid%xb(l) - xl_grid%xb(lp)) > 8.0d0 * plasma%spec(0)%rho_L(j)) cycle
+            if (abs(l-lp) > 10 .and. abs(xl_grid%xb(l) - xl_grid%xb(lp)) > 8.0d0 * int_point%rhoT) cycle
             ! this is more restrictive: (checks overlap of centers of rg grid cells and xl grid cells)
-            if (abs(0.5d0 * (rg_grid%xb(j+1) + rg_grid%xb(j)) - 0.5d0 * (xl_grid%xb(l) + xl_grid%xb(lp))) > 128.0d0 * plasma%spec(0)%rho_L(j)) cycle
+            if (abs(0.5d0 * (rg_grid%xb(j+1) + rg_grid%xb(j)) - 0.5d0 * (xl_grid%xb(l) + xl_grid%xb(lp))) > 128.0d0 * int_point%rhoT) cycle
 
             int_F1_e%int_point = int_point
 
@@ -932,7 +932,7 @@ module kernel_m
             k_j_phi = k_j_phi + integral_val * pref_j_phi_g1(1,j)
             k_j_B = k_j_B + integral_val * pref_j_B_g1(1,j)
 
-            ! other terms are negligible for electrons (small rhoT in general)
+            ! other terms are negligible for electrons (for small rhoT in general)
 
         end do
 

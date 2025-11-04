@@ -20,6 +20,7 @@
     hdf5_output = .false.
     fdebug = 1
     fstatus = 1
+    fdiagnostics = 0
     calculate_asymptotics = .true.          ! enable/disable asymptotic (WKB) calculations
 /
 

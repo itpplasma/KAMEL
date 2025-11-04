@@ -19,7 +19,7 @@ module config_m
     character(256) :: profile_location ! path to profile directory
     character(256) :: output_path         ! path to output directory
     logical :: hdf5_input, hdf5_output
-    integer :: fdebug, fstatus
+    integer :: fdebug, fstatus, fdiagnostics
     logical :: calculate_asymptotics ! enable/disable asymptotic calculations
 
     character(256) :: nml_config_path = "./KIM_config.nml" ! path to the namelist file

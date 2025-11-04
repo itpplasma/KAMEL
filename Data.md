@@ -1,658 +1,626 @@
 # KAMEL Data Flow and Input/Output Documentation
 
-This document describes the complete data pipeline for the KAMEL (Kinetic plAsma response ModEL) framework, including all input and output files for the three main codes: KiLCA, KIM, and QL-Balance.
+This document describes the actual data pipeline for KAMEL (Kinetic plAsma response ModEL) framework, based on examination of source code and example configurations.
 
 ## Overview
 
-KAMEL uses **HDF5 format** as the standard for data exchange between all components. This ensures:
-- Standardized data structure across workflow stages
-- Metadata tracking (git version, timestamps) for reproducibility
-- Efficient storage and access for large datasets
+KAMEL consists of three main plasma response codes:
+1. **KiLCA** - Cylindrical finite Larmor radius (FLR) solver
+2. **KIM** - Integral model solver
+3. **QL-Balance** - Quasilinear transport evolution code
 
-## Data Flow Architecture
+## 1. KiLCA (Kinetic Linear Cylindrical Approximation)
+
+### 1.1 Input Files
+
+KiLCA uses plain text input files with comment-based configuration (values before `#` are read).
+
+#### Main Configuration Files
+
+Located in the run directory:
+
+| File | Description |
+|------|-------------|
+| `background.in` | Machine parameters and background plasma settings |
+| `antenna.in` | RMP coil antenna configuration |
+| `modes.in` | List of (m,n) Fourier modes to compute |
+| `output.in` | Output control flags |
+| `zone_*_<type>.in` | Zone definitions (flre, vacuum, homogeneous medium) |
+| `eigmode.in` | Eigenmode solver settings (if used) |
+
+#### background.in Structure
 
 ```
-┌─────────────────────────────────────────────────────────────────────────┐
-│                         PREPROCESSING STAGE                              │
-└─────────────────────────────────────────────────────────────────────────┘
-                                    │
-                    ┌───────────────┼───────────────┐
-                    ▼               ▼               ▼
-            ┌──────────────┐ ┌──────────┐ ┌──────────────────┐
-            │ Experimental │ │ Magnetic │ │  RMP Coil Data   │
-            │   Profiles   │ │   Equil  │ │  (field.dat)     │
-            │  (n,Te,Ti,v) │ │ (GEQDSK) │ │                  │
-            | fun. of flux | |          | |   (optional)     |
-            └──────┬───────┘ └────┬─────┘ └────────┬─────────┘
-                   │              │                 │
-                   └──────────────┼─────────────────┘
-                                  ▼
-                    ┌─────────────────────────────┐
-                    │  fouriermodes.x             │
-                    │  (Fourier Preprocessor)     │
-                    │  - Flux coordinates         │
-                    │  - Safety factor q(r)       │
-                    │  - Fourier modes of Br      │
-                    |    (if fields.dat given)    |
-                    └──────────────┬──────────────┘
-                                   │
-                    ┌──────────────┼──────────────┐
-                    │              │              │
-                    ▼              ▼              ▼
-              amn.dat      equil_r_q_psi.dat   theta_*.dat
-                    │              │              │
-                    └──────────────┼──────────────┘
-                                   │
-                                   ▼
-                    ┌─────────────────────────────┐
-                    │  Profile Processor          │
-                    │  (Python/MATLAB)            │
-                    │  - Extend profiles          │
-                    │  - Map to effective radius  │
-                    │  - Calculate derivatives    │
-                    └──────────────┬──────────────┘
-                                   │
-                                   ▼
-                         INPUT_[shot]_[time].hdf5
-                                   │
-┌──────────────────────────────────┼──────────────────────────────────────┐
-│                        MAIN COMPUTATION STAGE                            │
-└──────────────────────────────────────────────────────────────────────────┘
-                                   │
-                    ┌──────────────┼──────────────┐
-                    ▼              ▼              ▼
-        ┌─────────────────┐  ┌──────────┐  ┌─────────────────┐
-        │  KiLCA          │  │   KIM    │  │  QL-Balance     │
-        │  (FLR solver)   │  │ (Integ.) │  │  (Transport)    │
-        └────────┬────────┘  └────┬─────┘  └────────┬────────┘
-                 │                │                  │
-                 ▼                ▼                  ▼
-            EB.dat           kim_out.hdf5    balance_out.hdf5
-         (EM fields)         (EM fields)     (Time evolution)
-                 │                │                  │
-┌────────────────┼────────────────┼──────────────────┼───────────────────┐
-│                         POST-PROCESSING STAGE                           │
-└─────────────────────────────────────────────────────────────────────────┘
-                 │                │                  │
-                 └────────────────┼──────────────────┘
-                                  ▼
-                    ┌─────────────────────────────┐
-                    │  Python/MATLAB Analysis     │
-                    │  - KiLCA_postprocessor      │
-                    │  - kim_data                 │
-                    │  - balancepost              │
-                    └──────────────┬──────────────┘
-                                   │
-                                   ▼
-                    Plots, Reports, Physical Quantities
+170.69              # Major radius R0 (cm)
+70.0                # Plasma minor radius (cm)
+23176.46            # Toroidal B-field at axis (Gauss)
+../profiles/        # Path to profile files
+1                   # Recalculate background flag (1=yes, 0=no)
+f                   # Background type: f=full, w=WKB, h=homogeneous
+9                   # Spline degree (must be odd)
+1.0e9               # V_gal_sys: moving frame velocity (cm/c)
+1.0e0               # V_scale: velocity profile scaling
+2.0                 # Ion mass (proton mass units)
+1.0e-0              # Electron collision coefficient
+1.0e-0              # Ion collision coefficient
+0                   # Debug flag
 ```
 
-## 1. Preprocessing Stage
+#### antenna.in Structure
 
-### 1.1 Fourier Modes Preprocessor (fouriermodes.x)
+```
+90.0             # Antenna radius (cm)
+0.0              # Current density layer width (0=delta function)
+1.0e13           # Coil current (statamp)
+(1.0e0, 0.0e0)   # Complex frequency (1/c) in lab frame
+5                # Number of antenna modes from modes.in
+1                # Debug flag
+0                # Eigenmode problem flag (0=no, 1=yes)
+```
 
-**Location**: `/PreProc/fourier/`
+#### modes.in Structure
 
-**Purpose**: Converts axisymmetric equilibrium and coil data into Fourier modes and flux coordinates for KiLCA/QL-Balance.
+List of (m,n) mode pairs, one per line:
+```
+(-4,2)
+(-5,2)
+(-6,2)
+...
+```
 
-#### Input Files
+#### output.in Structure
+
+```
+2                   # Background data: 0=skip, 1=calc, 2=calc+save
+2                   # Linear data: 0=skip, 1=calc, 2=calc+save
+2                   # Various quantities: 0=skip, 1=calc, 2=calc+save
+0                   # Dispersion: 0=skip, 1=calc, 2=calc+save
+0                   # Debug flag
+1                   # Current density perturbation
+1                   # Absorbed power
+1                   # Dissipated power
+1                   # Kinetic flux (r-component)
+1                   # Poynting flux (r-component)
+1                   # Total flux (r-component)
+1                   # Number density perturbation
+0                   # Lorentz torque
+```
+
+#### Profile Files
+
+Located in the directory specified in `background.in` (typically `./profiles/` or `../profiles/`).
+
+**Format**: Two-column ASCII files (`.dat` and `.dim` pairs)
+- `.dim` file: Single integer specifying number of data points
+- `.dat` file: Two columns (radius, value)
+
+**Required profiles when recalculate flag = 1** (7 files):
+| Filename | Description | Units |
+|----------|-------------|-------|
+| `q.dat`/`q.dim` | Safety factor profile | dimensionless |
+| `n.dat`/`n.dim` | Electron density | cm^-3 |
+| `Te.dat`/`Te.dim` | Electron temperature | eV |
+| `Ti.dat`/`Ti.dim` | Ion temperature | eV |
+| `Vth.dat`/`Vth.dim` | Poloidal velocity | cm/c |
+| `Vz.dat`/`Vz.dim` | Parallel velocity | cm/c |
+| `dPhi0.dat`/`dPhi0.dim` | Electric potential | Gauss units |
+
+**Required profiles when recalculate flag = 0** (11 files):
+Above 7 files plus:
+| Filename | Description |
+|----------|-------------|
+| `nui.dat`/`nui.dim` | Ion collision frequency |
+| `nue.dat`/`nue.dim` | Electron collision frequency |
+| `B0t.dat`/`B0t.dim` | Toroidal magnetic field component |
+| `B0z.dat`/`B0z.dim` | Parallel magnetic field component |
+
+### 1.2 Output Files
+
+KiLCA creates output in a directory structure under the run path:
+
+#### Main Output Files
 
 | File | Type | Description |
 |------|------|-------------|
-| `field_divB0.inp` | Text | Configuration for perturbation calculation (mode selector, amplitude, etc.) |
-| `fouriermodes.inp` | Text | Grid resolution parameters (mpol, nstep, nsqpsi, nlabel, ntheta) |
-| `g[shot].[time]` | Binary | GEQDSK equilibrium file (magnetic flux surfaces) |
-| `field.dat` | Text/Binary | RMP coil geometry and current distribution, only used when vacuum perturbation is to be calculated. Can be omitted otherwise |
+| `linear-data/m_<m>_n_<n>_flab_[<re>,<im>]/EB.dat` | Binary | Electromagnetic fields for each (m,n) mode |
+| `linear-data/m_<m>_n_<n>_flab_[<re>,<im>]/zone_0_current_dens_p_0_t_lab.dat` | Text | Current density perturbations |
+| `formfactors.dat` | Binary (unformatted Fortran) | Transport form factors for QL-Balance |
+| `equil_r_q_psi.dat` | Text | Equilibrium profiles on computational grid |
 
-#### Output Files
+#### EB.dat File Structure
 
-| File | Type | Description |
-|------|------|-------------|
-| `amn.dat` | Binary (unformatted) | Complex Fourier coefficients A_psi, A_theta for (m,n) modes (if vacuum perturbation is calculated) |
-| `equil_r_q_psi.dat` | Text | 1D radial profiles: minor radius r, safety factor q, flux psi, volume. Mapping of effective radius to flux labels. |
-| `theta_of_theta_qt_flabel.dat` | Binary | Boozer angle mapping (geometric ↔ Boozer coordinates) |
-| `thetabooz.dat` | Text | ASCII version of Boozer angle mapping |
-| `phinorm_arr.dat` | Text | Normalized toroidal flux vs. poloidal flux |
-| `axis.dat` | Text | Magnetic axis position (R_axis, Z_axis) |
-| `separ.dat` | Text | Last closed flux surface (LCFS) coordinates |
-| `btor_rbig.dat` | Text | Toroidal field strength and major radius |
-| `box_size.dat` | Text | R-Z computational domain bounds |
+**Format**: Binary/unformatted file written by C++ I/O routines
 
-### 1.2 Profile Processor
+Contains for each (m,n) mode on (r, theta) grid:
+- E_r, E_theta, E_z (complex, Gauss units)
+- B_r, B_theta, B_z (complex, Gauss units)
 
-**Location**: `/python/profile_processor/`, `/utility_scripts/`
+Read using `load_data_file()` from [inout.cpp](KiLCA/io/inout.cpp).
 
-**Purpose**: Prepare experimental plasma profiles for KiLCA/QL-Balance input.
+#### formfactors.dat File Structure
 
-#### Input Files
+**Format**: Fortran unformatted binary
 
-| File | Format | Description |
-|------|--------|-------------|
-| `[shot].[time]_ne*.dat` | Text | Electron density profile ne(r) [cm^-3] |
-| `[shot].[time]_Te*.dat` | Text | Electron temperature profile Te(r) [eV] |
-| `[shot].[time]_Ti*.dat` | Text | Ion temperature profile Ti(r) [eV] |
-| `[shot].[time]_vt*.dat` | Text | Toroidal rotation profile vt(r) [cm/s] |
+Written by `save_form_facs_fortran()` in [save_fortran.f90](KiLCA/post_processing/save_fortran.f90:3):
 
-#### Output Files
-
-| File | Format | Description |
-|------|--------|-------------|
-| `INPUT_[shot]_[time].hdf5` | HDF5 | Complete input dataset with profiles, equilibrium, modes |
-
-**HDF5 Structure** (INPUT file, **not yet implemented this way**): (TODO)
-```
-/profiles/
-    ne(r)           - Electron density [cm^-3]
-    Te(r)           - Electron temperature [eV]
-    Ti(r)           - Ion temperature [eV]
-    vt(r)           - Toroidal velocity [cm/s]
-    dne_dr(r)       - Density gradient
-    dTe_dr(r)       - Electron temperature gradient
-    dTi_dr(r)       - Ion temperature gradient
-    dvt_dr(r)       - Velocity gradient
-/equilibrium/
-    r_grid          - Minor radius grid [cm]
-    q(r)            - Safety factor profile
-    psi(r)          - Poloidal flux [Wb]
-    Btor            - Toroidal field [Gauss]
-    R0              - Major radius [cm]
-/modes/
-    m_modes         - Poloidal mode numbers (array)
-    n_modes         - Toroidal mode numbers (array)
-/metadata/
-    shot            - Shot number
-    time            - Time slice [ms]
-    git_version     - Git hash for reproducibility
-    timestamp       - Creation timestamp
+```fortran
+write(10) modes_dim, dimg, m_min, m_max, n_min, n_max
+write(10) sqr_psi_grid(1), sqr_psi_grid(dimg)
+write(10) modes_index(m_min:m_max, n_min:n_max)
+write(10) transpose(ffpsi(1:dimg, 1:modes_dim))  ! Form factors
 ```
 
-## 2. Main Computation Stage
+Used by QL-Balance to compute quasilinear transport coefficients.
 
-### 2.1 KiLCA (Finite Larmor Radius Solver)
+#### Additional Output Files
 
-**Executable**: `build/KiLCA/KiLCA.x`
+When enabled in `output.in`:
+- Various diagnostic quantities in subdirectories
+- `label_grid.dat`, `radial_grid.dat` - Grid information
+- Power absorption/dissipation profiles
+- Flux diagnostics
 
-**Purpose**: Solves plasma response using finite Larmor radius (FLR) formalism in cylindrical geometry.
+### 1.3 Data Flow for KiLCA
 
-#### Configuration Files
+```
+Input Profiles        Configuration Files
+(*.dat, *.dim)        (*.in)
+     │                     │
+     └──────────┬──────────┘
+                │
+                ▼
+         ┌──────────────┐
+         │   KiLCA.x    │
+         │  Executable  │
+         └──────┬───────┘
+                │
+        ┌───────┴────────┐
+        │                │
+        ▼                ▼
+  EB.dat files    formfactors.dat
+  (per mode)      (for QL-Balance)
+        │                │
+        └───────┬────────┘
+                │
+                ▼
+    Used by QL-Balance or
+    post-processing tools
+```
 
-| File | Type | Description |
-|------|------|-------------|
-| `antenna.nml` | Namelist | Antenna configuration (radius, modes, boundary conditions) |
-| `background.nml` | Namelist | Background plasma parameters (Btor, R0, ion mass, profiles) |
-| `eigmode.nml` | Namelist | Eigenmode search settings (frequency range, convergence) |
-| `output.nml` | Namelist | Output control flags |
+---
 
-**Blueprint Location**: `/python/KiLCA_interface/blueprints/`
+## 2. KIM (KiLCA Integral Model)
 
-#### Input Files
+### 2.1 Input Files
 
-| File | Format | Description |
-|------|--------|-------------|
-| `profiles/ne.dat` | Text | Electron density profile |
-| `profiles/Te.dat` | Text | Electron temperature profile |
-| `profiles/Ti.dat` | Text | Ion temperature profile |
-| `profiles/Vz.dat` | Text | Parallel velocity profile |
-| `profiles/Er.dat` | Text | Radial electric field profile |
-| `equil_r_q_psi.dat` | Text | Equilibrium data from fouriermodes |
+KIM uses a single Fortran namelist file for configuration.
 
-#### Output Files
+#### Configuration File: KIM_config.nml
 
-| File | Format | Description |
-|------|------|-------------|
-| `EB.dat` | Binary | Electromagnetic fields: E_r, E_theta, E_z, B_r, B_theta, B_z (r,theta grid) |
-
-**EB.dat Structure**:
-- Header: nr (radial points), ntheta (poloidal points), nmodes
-- For each (m,n) mode:
-  - Complex E_r(r,theta), E_theta(r,theta), E_z(r,theta)
-  - Complex B_r(r,theta), B_theta(r,theta), B_z(r,theta)
-
-### 2.2 KIM (KiLCA Integral Model)
-
-**Executable**: `build/KIM/KIM.x`
-
-**Purpose**: Solves plasma response using integral formalism with non-local kinetic effects.
-
-#### Configuration File
-
-| File | Type | Description |
-|------|------|-------------|
-| `KIM_config.nml` | Namelist | Complete KIM configuration (all namelists below) |
-
-**Location**: `/KIM/nmls/KIM_config.nml`
+**Location**: Specified as command-line argument or defaults to `./KIM_config.nml`
 
 **Namelist Groups**:
 
-1. `kim_config`: Run type and collision model
-   - `number_of_ion_species`: Number of ion species (default: 1)
-   - `type_of_run`: 'electrostatic' or 'electromagnetic'
-   - `collision_model`: 'Krook' or 'FokkerPlanck'
-   - `artificial_debye_case`: 0 (full), 1 (Debye), 2 (exclude Debye)
+##### KIM_CONFIG Namelist
 
-2. `kim_io`: I/O paths and flags
-   - `profile_location`: Path to profile .dat files
-   - `output_path`: Output directory
-   - `hdf5_input`: Use HDF5 input (default: false)
-   - `hdf5_output`: Use HDF5 output (default: false)
-   - `fdebug`: Debug level (0-2)
-   - `calculate_asymptotics`: Enable WKB calculations
-
-3. `kim_setup`: Physical parameters
-   - `btor`: Toroidal field at axis [Gauss]
-   - `r0`: Major radius [cm]
-   - `m_mode`: Poloidal mode number
-   - `n_mode`: Toroidal mode number
-   - `omega`: Perturbation frequency [rad/s]
-   - `type_br_field`: Br field type selector
-
-4. `kim_grid`: Grid resolution and integration
-   - `r_plas`: Plasma minor radius [cm]
-   - `r_min`: Minimum computational radius [cm]
-   - `l_space_dim`: Number of spline grid points (~512)
-   - `rg_space_dim`: Number of cell boundaries (~512)
-   - `grid_spacing_rg`: "equidistant", "non-equidistant", or "adaptive"
-   - `theta_integration`: "GaussLegendre", "RKF45", or "QUADPACK"
-   - `gauss_int_nodes_Nx`: x-integration nodes (default: 31)
-   - `gauss_int_nodes_Ntheta`: theta nodes (default: 17)
-
-5. `kim_species`: Species properties
-   - `zi`: Charge numbers (array)
-   - `ai`: Mass numbers (array)
-
-#### Input Files
-
-| File | Format | Description |
-|------|------|-------------|
-| `profiles/ne.dat` | Text | Electron density [cm^-3] |
-| `profiles/Te.dat` | Text | Electron temperature [eV] |
-| `profiles/Ti.dat` | Text | Ion temperature [eV] |
-| `profiles/q.dat` | Text | Safety factor profile |
-| `profiles/dn_dr.dat` | Text | Density gradient |
-| `profiles/dTe_dr.dat` | Text | Temperature gradients |
-
-#### Output Files
-
-| File | Format | Description |
-|------|------|-------------|
-| `kim_out.txt` | Text | Main output: dispersion relation roots, growth rates, frequencies |
-| `kim_out.hdf5` | HDF5 | (if hdf5_output=true) Complete output dataset |
-| `kim_kernel.dat` | Binary | Non-local kernel matrix elements |
-| `kim_phi.dat` | Text | Electrostatic potential phi(r) |
-| `kim_asymptotic.dat` | Text | WKB/FLR2 asymptotic quantities |
-| `kim_log.txt` | Text | Execution log |
-
-**kim_out.hdf5 Structure** (when enabled):
-```
-/dispersion/
-    omega_real      - Real part of frequency [rad/s]
-    omega_imag      - Imaginary part (growth rate) [rad/s]
-    k_r             - Radial wave vector [cm^-1]
-/fields/
-    phi(r)          - Electrostatic potential
-    E_r(r)          - Radial electric field
-/kernel/
-    K_matrix        - Non-local kernel matrix
-/asymptotics/
-    phi_FLR2(r)     - FLR2 asymptotic potential
-    k_fourier       - Fourier space kernel
+```fortran
+&kim_config
+    number_of_ion_species = 1
+    read_species_from_namelist = .false.
+    type_of_run = 'electrostatic'
+    collision_model = 'FokkerPlanck'    ! or 'Krook'
+    artificial_debye_case = 0           ! 0=full, 1=Debye, 2=exclude Debye
+    turn_off_ions = .false.
+    turn_off_electrons = .false.
+    plasma_type = 'D'                   ! 'D' or 'H'
+    rescale_density = .false.
+    number_density_rescale = 1d-6
+/
 ```
 
-### 2.3 QL-Balance (Quasilinear Transport)
+##### KIM_IO Namelist
 
-**Executable**: `build/QL-Balance/ql-balance.x`
+```fortran
+&kim_io
+    profile_location = './profiles/'
+    output_path = './out/'
+    hdf5_input = .false.
+    hdf5_output = .false.
+    fdebug = 1                          ! 0=off, 1=basic, 2=detailed
+    fstatus = 1
+    calculate_asymptotics = .true.
+/
+```
 
-**Purpose**: Time evolution of plasma profiles including quasilinear and anomalous transport.
+##### KIM_SETUP Namelist
 
-#### Configuration File
+```fortran
+&kim_setup
+    btor = -17977.413                   ! Toroidal field at axis (Gauss)
+    r0 = 165.0                          ! Major radius (cm)
+    m_mode = -6                         ! Poloidal mode number
+    n_mode = 2                          ! Toroidal mode number
+    omega = 0.0                         ! Perturbation frequency (rad/s)
+    spline_base = 1                     ! 1=hat functions
+    type_br_field = 12                  ! Field type selector
+    collisions_off = .false.
+    eps_reg = 0.01
+    set_profiles_constant = 0
+    bc_type = 3                         ! Boundary condition type
+/
+```
 
-| File | Type | Description |
-|------|------|-------------|
-| `balance_conf.nml` | Namelist | Complete QL-Balance configuration |
+##### KIM_GRID Namelist
 
-**Location**: `run_directory/balance_conf.nml`
+```fortran
+&kim_grid
+    r_min = 3.0                         ! Minimum radius (cm)
+    r_plas = 67.0                       ! Plasma radius (cm)
+    width_res = 0.5                     ! Resonance layer width factor
+    ampl_res = 15.0                     ! Resonance layer amplitude factor
+    hrmax_scaling = 1.0
+    l_space_dim = 512                   ! Spline grid points
+    rg_space_dim = 512                  ! Cell boundary points
+    grid_spacing_rg = "equidistant"     ! "equidistant", "non-equidistant", "adaptive"
+    grid_spacing_xl = "equidistant"
+    theta_integration = "GaussLegendre" ! "GaussLegendre", "RKF45", "QUADPACK"
+    rkf45_atol = 1.0d-9                 ! RKF45 absolute tolerance
+    rkf45_rtol = 1.0d-6                 ! RKF45 relative tolerance
+    quadpack_algorithm = 'QAG'          ! 'QAG' or 'QAGS'
+    quadpack_key = 6                    ! Gauss-Kronrod rule (1-6)
+    quadpack_limit = 500                ! Max subdivisions
+    quadpack_epsabs = 1.0d-10
+    quadpack_epsrel = 1.0d-10
+    quadpack_use_u_substitution = .true.
+    kernel_taper_skip_threshold = 1.0d-6
+    Larmor_skip_factor = 5
+    gauss_int_nodes_Nx = 31
+    gauss_int_nodes_Nxp = 30
+    gauss_int_nodes_Ntheta = 17
+/
+```
 
-**Key Parameters**:
-- `flre_path`: Path to KiLCA flre run directory
-- `vac_path`: Path to KiLCA vacuum run directory
-- `path2inp`: Path to input HDF5 file
-- `path2out`: Path to output HDF5 file
-- `type_of_run`: 'SingleStep', 'TimeEvolution', or 'ParameterScan'
-- `btor`: Toroidal field [Gauss]
-- `rtor`: Major radius [cm]
-- `rmin`, `rmax`: Radial computational domain [cm]
-- `antenna_factor`: RMP coil current amplitude factor
-- `tmax_factor`: Maximum simulation time factor
-- `dperp`: Anomalous diffusion coefficient [cm^2/s]
-- `Z_i`: Ion charge
-- `am`: Ion mass number
-- `stop_time_step`: Time step for stopping criterion
-- `save_prof_time_step`: Save profiles every Nth step
-- `br_stopping`: Use Br stopping criterion (true/false)
-- `suppression_mode`: Track RMP suppression (true/false)
+##### KIM_SPECIES Namelist
 
-#### Input Files
+```fortran
+&kim_species
+    zi = 1     ! Charge numbers (array)
+    ai = 2     ! Mass numbers (array)
+/
+```
 
-| File | Format | Description |
-|------|------|-------------|
-| `INPUT_*.hdf5` | HDF5 | Complete input from preprocessing |
-| `flre/EB.dat` | Binary | EM fields from KiLCA flre run |
-| `vacuum/EB.dat` | Binary | EM fields from KiLCA vacuum run |
-| `equil_r_q_psi.dat` | Text | Equilibrium data |
+#### Profile Files for KIM
 
-#### Output Files
+Located in directory specified by `profile_location` (default `./profiles/`).
 
-| File | Format | Description |
-|------|------|-------------|
-| `balance_out.hdf5` | HDF5 | Complete time evolution dataset |
-| `profiles_*.dat` | Text | Profile snapshots at saved time steps |
-| `diagnostics.dat` | Text | Time series of global quantities |
-| `balance_log.txt` | Text | Execution log |
+**Format**: Two-column ASCII `.dat` files (no `.dim` files needed)
 
-**balance_out.hdf5 Structure**:
+**Profile Files**:
+| Filename | Description | Units |
+|----------|-------------|-------|
+| `n.dat` | Density profile | cm^-3 |
+| `Te.dat` | Electron temperature | eV |
+| `Ti.dat` | Ion temperature | eV |
+| `Er.dat` | Radial electric field | statvolt/cm |
+| `q.dat` | Safety factor | dimensionless |
+
+**File format**: Two columns per line: `radius  value`
+
+Files are read in [species_mod.f90](KIM/src/background_equilibrium/species_mod.f90) using standard Fortran `open()` and `read()`.
+
+### 2.2 Output Files
+
+KIM writes output to `output_path/m<m>_n<n>/` directory structure.
+
+#### Main Output Files
+
+**Text Output Files** (when `hdf5_output=false`):
+
+Created in [IO_collection.f90](KIM/src/util/IO_collection.f90):
+
+| Directory | File | Description |
+|-----------|------|-------------|
+| `fields/` | `phi_*.dat` | Electrostatic potential profiles |
+| `fields/` | `E_r_*.dat` | Radial electric field |
+| `kernel/` | `A_sparse_check_*.dat` | Sparse kernel matrix elements |
+| `backs/` | `B0z.dat` | Parallel magnetic field |
+| `backs/` | `B0th.dat` | Poloidal magnetic field |
+| `backs/` | `B0.dat` | Total magnetic field |
+| `backs/` | `hz.dat`, `hth.dat` | Magnetic field unit vectors |
+| `backs/` | `dpress.dat` | Pressure gradient |
+| `backs/` | `p_tot.dat` | Total pressure |
+| `grid/` | `rg_xb.dat`, `rg_xc.dat` | Grid boundary and center points |
+| `grid/` | `xl_xb.dat`, `xl_xc.dat` | Spline grid points |
+
+**Output format**: ASCII text, typically three columns: `x_coord  real_part  imag_part` for complex quantities.
+
+**HDF5 Output** (when `hdf5_output=true`):
+- Not yet fully implemented in current version
+- Future: Complete run data in single HDF5 file
+
+### 2.3 Data Flow for KIM
+
+```
+Profile Files          KIM_config.nml
+(*.dat)               (namelists)
+    │                      │
+    └──────────┬───────────┘
+               │
+               ▼
+         ┌─────────┐
+         │  KIM.x  │
+         └────┬────┘
+              │
+     ┌────────┼────────┐
+     ▼        ▼        ▼
+  fields/  kernel/  backs/
+  (*.dat)  (*.dat)  (*.dat)
+     │        │        │
+     └────────┼────────┘
+              │
+              ▼
+    Post-processing
+   (Python: kim_data.py)
+```
+
+---
+
+## 3. QL-Balance (Quasilinear Transport)
+
+### 3.1 Input Files
+
+QL-Balance requires both its own configuration and outputs from KiLCA runs.
+
+#### Configuration File: balance_conf.nml
+
+**Location**: Run directory
+
+**BALANCENML Namelist**:
+
+```fortran
+&BALANCENML
+    ! Paths to KiLCA runs
+    flre_path = '/path/to/kilca/flre/'
+    vac_path = '/path/to/kilca/vacuum/'
+
+    ! Machine parameters
+    btor = -18009.167                   ! Toroidal field (Gauss)
+    rtor = 165                          ! Major radius (cm)
+    rmin = 3                            ! Minimum radius (cm)
+    rmax = 69.9                         ! Maximum radius (cm)
+    rsepar = 64.37086                   ! Separatrix radius (cm)
+
+    ! Grid parameters
+    npoimin = 3000                      ! Minimum grid points
+    gg_factor = 50                      ! Grid generation factor
+    gg_width = 2
+    gg_r_res = 95.34                    ! Resonant surface radius
+
+    ! Time evolution
+    Nstorage = 1000                     ! Storage array size
+    tmax_factor = 50                    ! Max time factor
+    stop_time_step = 1e-06              ! Stopping time step
+    save_prof_time_step = 10            ! Save every Nth step
+
+    ! Physics parameters
+    antenna_factor = 5.4264272          ! RMP amplitude factor
+    dperp = 10000                       ! Anomalous diffusion (cm^2/s)
+    Z_i = 1                             ! Ion charge
+    am = 2                              ! Ion mass number
+
+    ! Boundary conditions
+    iboutype = 1
+    rb_cut_in = 20                      ! Inner boundary (begin cutoff)
+    re_cut_in = 25                      ! Inner boundary (end cutoff)
+    rb_cut_out = 67.5                   ! Outer boundary (begin cutoff)
+    re_cut_out = 68                     ! Outer boundary (end cutoff)
+
+    ! I/O paths
+    path2inp = '/path/to/input.hdf5'   ! Input HDF5 file
+    path2out = '/path/to/output.hdf5'  ! Output HDF5 file
+
+    ! Run type and options
+    type_of_run = 'SingleStep'          ! 'SingleStep', 'TimeEvolution', 'ParameterScan'
+    ihdf5IO = 1
+    iwrite = 0                          ! Verbose output flag
+    eps = 1e-06                         ! Numerical tolerance
+    write_formfactors = .false.
+    paramscan = .false.
+    diagnostics_output = .false.
+    br_stopping = .true.                ! Br stopping criterion
+    suppression_mode = .true.
+    debug_mode = .false.
+    readfromtimestep = 0
+
+    ! Ramp-up mode
+    ramp_up_mode = 0                    ! 0=no ramp, 1=ramp up
+    t_max_ramp_up = 1e-2
+    antenna_max_stopping = 2.0
+
+    ! Additional physics
+    temperature_limit = 20.0            ! Lower T limit (eV)
+    gyro_current_study = 0
+    viscosity_factor = 1
+    misalign_diffusion = .false.
+
+    ! Equilibrium data path
+    equil_path = '/path/to/equil_r_q_psi.dat'
+/
+```
+
+#### Required Input Files from KiLCA
+
+From `flre_path` directory:
+- `EB.dat` - Electromagnetic fields from plasma response calculation
+- `formfactors.dat` - Quasilinear form factors
+
+From `vac_path` directory:
+- `EB.dat` - Electromagnetic fields from vacuum calculation
+
+From `equil_path`:
+- `equil_r_q_psi.dat` - Equilibrium data (r, q, psi profiles)
+
+#### Input HDF5 File Structure
+
+File specified by `path2inp` contains:
+- Initial plasma profiles (ne, Te, Ti, vt)
+- Equilibrium data
+- Mode information
+- Grid specifications
+
+(Created by preprocessing scripts in MATLAB/Python)
+
+### 3.2 Output Files
+
+QL-Balance writes results to HDF5 file specified by `path2out`.
+
+#### Output HDF5 File Structure
+
+**Main output file**: `<shot>_<time>_<name>.hdf5`
+
+**HDF5 Groups and Datasets** (typical structure):
+
 ```
 /time_evolution/
-    t_array                 - Time points [s]
-    ne(r,t)                 - Electron density evolution
+    t_array                 - Time points array
+    ne(r,t)                 - Density evolution
     Te(r,t)                 - Electron temperature evolution
     Ti(r,t)                 - Ion temperature evolution
-    vt(r,t)                 - Rotation evolution
-/transport_coefficients/
-    D_ql(r,t)               - Quasilinear diffusion [cm^2/s]
-    D_anom(r,t)             - Anomalous diffusion [cm^2/s]
-    chi_i(r,t)              - Ion thermal diffusivity [cm^2/s]
-    chi_e(r,t)              - Electron thermal diffusivity [cm^2/s]
+    vt(r,t)                 - Toroidal velocity evolution
+
+/transport/
+    D_ql(r,t)               - Quasilinear diffusion coefficient
+    D_anom(r,t)             - Anomalous diffusion
+
 /diagnostics/
-    energy_confinement(t)   - Energy confinement time [s]
-    particle_flux(r,t)      - Particle flux [cm^-2 s^-1]
-    heat_flux(r,t)          - Heat flux [erg cm^-2 s^-1]
-    antenna_amplitude(t)    - RMP amplitude vs time
-/resonances/
-    r_res(m,n)              - Resonant surface locations [cm]
-    island_width(m,n,t)     - Magnetic island widths [cm]
+    - Various diagnostic quantities per time step
+
+/metadata/
+    - Run parameters
+    - Git version
+    - Timestamp
 ```
 
-## 3. Workflow Templates
+(Note: Exact HDF5 structure depends on `type_of_run` and flags set)
 
-**Location**: `/template_scripts/`
+#### Profile Snapshots
 
-### 3.1 Prerun (Data Preparation)
+When `save_prof_time_step > 0`:
+- Profile snapshots saved periodically
+- Format depends on output flags
 
-**Script**: `script_prerun.m` (MATLAB) or Python equivalent
+### 3.3 Data Flow for QL-Balance
 
-**Purpose**: Creates complete HDF5 input file for QL-Balance.
-
-**Workflow**:
-1. Read experimental profiles (ne, Te, Ti, vt)
-2. Read equilibrium (GEQDSK)
-3. Read coil data
-4. Run fouriermodes.x to generate Fourier modes
-5. Run profile processor to extend/map profiles
-6. Run KiLCA vacuum calculation
-7. Run KiLCA flre calculation
-8. Package everything into `INPUT_[shot]_[time].hdf5`
-
-**Output**: Single HDF5 file ready for QL-Balance
-
-### 3.2 Linear Run
-
-**Script**: `linearrun/linear_balance_single.m`
-
-**Purpose**: Calculate quasilinear diffusion coefficients for full RMP amplitude.
-
-**Type of Run**: `type_of_run = 'SingleStep'`
-
-**Output**: Diffusion coefficients D_ql(r) for given RMP amplitude
-
-### 3.3 Time Evolution Run
-
-**Script**: `timeevol/timeevol_balance_run.m`
-
-**Purpose**: Simulate profile evolution with time-dependent transport.
-
-**Type of Run**: `type_of_run = 'TimeEvolution'`
-
-**Output**: Full time history of profiles and transport coefficients
-
-### 3.4 Parameter Scan
-
-**Script**: `parameterscan/balancerun_parscan.m`
-
-**Purpose**: Systematic scan over parameter space (e.g., RMP amplitude, rotation).
-
-**Type of Run**: `type_of_run = 'ParameterScan'`
-
-**Output**: Multiple runs with varying parameters
-
-## 4. Python/MATLAB Interfaces
-
-### 4.1 KiLCA Interface (Python)
-
-**Location**: `/python/KiLCA_interface/`
-
-**Main Class**: `KiLCA_interface`
-
-**Workflow Example**:
-```python
-from KiLCA_interface import KiLCA_interface
-
-# Initialize
-kilca = KiLCA_interface(shot=39711, time=2000,
-                        path='/path/to/run/',
-                        rtype='flre', machine='AUG')
-
-# Configure
-kilca.set_modes(m=[5,6,7], n=[2,2,2])
-kilca.set_ASDEX(nmodes=3)
-kilca.set_profiles(ne_file, Te_file, Ti_file, vt_file)
-
-# Run
-kilca.write()  # Create input files
-kilca.run()    # Execute KiLCA
-
-# Post-process
-from KiLCA_interface.KiLCA_postprocessor import KiLCA_postprocessor
-post = KiLCA_postprocessor(kilca.path_of_run)
-post.read_EB_dat()
-post.plot_fields()
+```
+KiLCA outputs           Input HDF5          balance_conf.nml
+(EB.dat, formfactors)   (profiles+equil)    (namelist)
+        │                      │                  │
+        └──────────────────────┼──────────────────┘
+                               │
+                               ▼
+                        ┌──────────────┐
+                        │ ql-balance.x │
+                        └──────┬───────┘
+                               │
+                               ▼
+                        Output HDF5 file
+                     (time evolution data)
+                               │
+                               ▼
+                        Post-processing
+                   (balancepost.py, MATLAB)
 ```
 
-### 4.2 QL-Balance Interface (Python)
+---
 
-**Location**: `/python/balance_interface/`
+## 4. Complete Workflow Pipeline
 
-**Main Class**: `QL_Balance_interface`
+### 4.1 Typical KAMEL Workflow
 
-**Workflow Example**:
-```python
-from balance_interface import QL_Balance_interface
+```
+1. PREPROCESSING
+   ├─ Experimental data (GEQDSK, profiles)
+   ├─ fouriermodes.x (Fourier preprocessor)
+   │  └─ Outputs: amn.dat, equil_r_q_psi.dat
+   └─ Profile processor (Python/MATLAB)
+      └─ Outputs: Extended profiles, INPUT.hdf5
 
-# Initialize
-balance = QL_Balance_interface(run_path='/path/to/run/',
-                                shot=39711, time=2000,
-                                name='timeevol_run',
-                                input_file='INPUT_39711_2000.hdf5')
+2. KiLCA CALCULATIONS
+   ├─ Vacuum run
+   │  ├─ Inputs: background.in, antenna.in, modes.in, profiles/
+   │  └─ Outputs: vac/EB.dat
+   └─ Plasma (flre) run
+      ├─ Inputs: background.in (with plasma), antenna.in, modes.in, profiles/
+      └─ Outputs: flre/EB.dat, formfactors.dat
 
-# Configure
-balance.set_type_of_run('TimeEvolution')
-balance.set_modes(m=[5,6,7], n=[2,2,2])
-balance.prepare_balance(Btor=-18000, a_minor=67.0)
+3. QL-BALANCE TRANSPORT
+   ├─ Inputs: KiLCA outputs + balance_conf.nml + INPUT.hdf5
+   └─ Outputs: balance_out.hdf5 (time evolution)
 
-# Run
-balance.run_balance()
-
-# Post-process
-from postproc_class import balancepost
-post = balancepost.BalancePost(balance.output_h5_file)
-post.plot_profiles_evolution()
-post.calculate_transport_coefficients()
+4. POST-PROCESSING
+   └─ Python/MATLAB analysis of HDF5 outputs
 ```
 
-### 4.3 KIM Interface (Python)
+### 4.2 Alternative: KIM Standalone
 
-**Location**: `/python/KIMpy/`
+```
+1. PROFILE PREPARATION
+   └─ Create profile .dat files (n, Te, Ti, Er, q)
 
-**Main Class**: `KIMpy`
+2. KIM CALCULATION
+   ├─ Input: KIM_config.nml + profiles/*.dat
+   └─ Outputs: fields/*.dat, kernel/*.dat, backs/*.dat
 
-**Workflow Example**:
-```python
-from KIMpy import kimpy
-
-# Initialize
-kim = kimpy(config_file='KIM_config.nml')
-
-# Set profiles
-kim.set_profiles(ne_file, Te_file, Ti_file, q_file)
-
-# Run
-kim.run()
-
-# Analyze dispersion relation
-from KIMpy import kim_data
-data = kim_data.KIM_data('kim_out.hdf5')
-data.plot_dispersion_relation()
-data.get_growth_rate()
+3. POST-PROCESSING
+   └─ Python analysis (kim_data.py)
 ```
 
-### 4.4 MATLAB Balance Class
+---
 
-**Location**: `/matlab/balance/Balance.m`
+## 5. File Format Summary
 
-**Usage**: See `script_prerun.m` example (lines 73-81)
+| Format | Usage | Tools |
+|--------|-------|-------|
+| `.in` files | KiLCA configuration | Text editor |
+| `.nml` files | Fortran namelists (KIM, QL-Balance) | Text editor |
+| `.dat` + `.dim` | KiLCA profiles | Custom I/O in inout.cpp |
+| `.dat` (2-column) | KIM profiles | Standard Fortran I/O |
+| `.hdf5` | QL-Balance I/O, data exchange | h5py, HDF5 tools |
+| `EB.dat` | Binary EM fields | Custom binary format |
+| `formfactors.dat` | Unformatted Fortran | Fortran unformatted I/O |
 
-## 5. Data Format Specifications
+---
 
-### 5.1 Profile File Format (.dat)
+## 6. Python/MATLAB Interface Notes
 
-**Type**: ASCII text, two-column
+### Python Interfaces
 
-**Format**:
-```
-# Header line (optional, starts with #)
-r1  value1
-r2  value2
-...
-rN  valueN
-```
+Located in `/python/`:
+- **KiLCA_interface**: Manages KiLCA input generation and runs
+- **KIMpy**: KIM dispersion relation calculations
+- **balance_interface**: QL-Balance workflow management
+- **postproc_class**: Post-processing for all codes
 
-**Units**:
-- Radial coordinate: cm
+### MATLAB Interfaces
+
+Located in `/matlab/`:
+- **Balance class**: Comprehensive workflow manager
+- **Template scripts**: `/template_scripts/` for standard workflows
+
+---
+
+## 7. Units Convention
+
+All codes use **CGS/Gaussian units**:
+- Length: cm
+- Magnetic field: Gauss
 - Density: cm^-3
 - Temperature: eV
-- Velocity: cm/s
+- Velocity: cm/s or cm/c (velocity/speed of light)
 - Electric field: statvolt/cm
-
-### 5.2 HDF5 File Standards
-
-**Conventions**:
-- Dataset names use lowercase with underscores
-- Attributes include units, description, creation_date
-- Metadata group includes git_version for reproducibility
-- All physical quantities in CGS units (Gaussian)
-
-**Required Attributes**:
-```python
-dataset.attrs['units'] = 'cm^-3'
-dataset.attrs['description'] = 'Electron density profile'
-dataset.attrs['creation_date'] = '2025-11-04T12:00:00'
-```
-
-### 5.3 Binary File Format (EB.dat, amn.dat)
-
-**Type**: Fortran unformatted stream I/O
-
-**Reading in Python**:
-```python
-import numpy as np
-
-with open('EB.dat', 'rb') as f:
-    nr = np.fromfile(f, dtype=np.int32, count=1)[0]
-    ntheta = np.fromfile(f, dtype=np.int32, count=1)[0]
-    nmodes = np.fromfile(f, dtype=np.int32, count=1)[0]
-
-    for imode in range(nmodes):
-        E_r = np.fromfile(f, dtype=np.complex128, count=nr*ntheta)
-        E_r = E_r.reshape((nr, ntheta))
-        # Continue reading other field components...
-```
-
-## 6. Summary of Key Files by Stage
-
-### Preprocessing
-- **Input**: GEQDSK, field.dat, experimental profiles (ne, Te, Ti, vt)
-- **Output**: INPUT_[shot]_[time].hdf5, amn.dat, equil_r_q_psi.dat
-
-### KiLCA
-- **Input**: profiles/*.dat, amn.dat, equil_r_q_psi.dat, *.nml configs
-- **Output**: EB.dat, formfactors.dat, resonance.dat
-
-### KIM
-- **Input**: profiles/*.dat, KIM_config.nml
-- **Output**: kim_out.txt, kim_out.hdf5, kim_kernel.dat
-
-### QL-Balance
-- **Input**: INPUT_*.hdf5, flre/EB.dat, vacuum/EB.dat, balance_conf.nml
-- **Output**: balance_out.hdf5, profiles_*.dat, diagnostics.dat
-
-### Post-processing
-- **Input**: All outputs from main codes
-- **Output**: Plots, analysis results, physical quantities
-
-## 7. Reproducibility and Metadata
-
-All HDF5 outputs include:
-- Git commit hash of code version
-- Timestamp of run
-- Input file checksums
-- Command-line arguments used
-- Compiler version and flags
-
-This ensures complete reproducibility of all computational results.
-
-## 8. Quick Reference: File Extensions
-
-| Extension | Type | Used By |
-|-----------|------|---------|
-| `.hdf5`, `.h5` | HDF5 binary | All codes (standard interchange format) |
-| `.dat` (text) | ASCII data | Profiles, equilibrium, diagnostics |
-| `.dat` (binary) | Fortran unformatted | EB.dat, amn.dat (legacy format) |
-| `.nml` | Fortran namelist | Configuration files (KIM, QL-Balance, KiLCA) |
-| `.inp` | Text input | fouriermodes configuration |
-| `.x` | Executable | All Fortran programs |
-| `.m` | MATLAB script | Template workflows |
-| `.py` | Python script | Interfaces and post-processing |
-| `.txt`, `.log` | Text log | Execution logs and status |
-
-## 9. Typical Workflow Command Sequence
-
-```bash
-# 1. Build all codes
-make all
-
-# 2. Run preprocessing (in run directory)
-cd /path/to/run/
-matlab -batch "run('/path/to/template_scripts/script_prerun.m')"
-
-# 3. Run QL-Balance for time evolution
-cd timeevol/
-ln -s ../../INPUT_39711_2000.hdf5 .
-mpirun -np 4 ../../build/QL-Balance/ql-balance.x
-
-# 4. Post-process results
-python
->>> from postproc_class import balancepost
->>> post = balancepost.BalancePost('out/balance_out.hdf5')
->>> post.plot_profiles_evolution()
-```
-
-## 10. Additional Resources
-
-- **Mathematical background**: `/Documentation/` (LaTeX documents)
-- **Python tutorials**: `/python/KiLCA_interface/tutorial/`
-- **Example notebooks**: `/utility_scripts/python_utility/`
-- **MATLAB examples**: `/template_scripts/`
+- Current: statamp
 
 ---
 
 **Last Updated**: 2025-11-04
-**KAMEL Version**: See git commit hash in repository
+**Based on**: Actual source code examination of KAMEL repository

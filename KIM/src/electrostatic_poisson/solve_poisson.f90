@@ -179,7 +179,8 @@ module poisson_solver_m
                 phi_boundary_left, ", Phi_right = ", phi_boundary_right
 
             b_vec(2:xl_grid%npts_b-1) = b_vec(2:xl_grid%npts_b-1) &
-                - A_mat(2:xl_grid%npts_b-1,1) * phi_boundary_left - A_mat(2:xl_grid%npts_b-1,xl_grid%npts_b) * phi_boundary_right
+                - A_mat(2:xl_grid%npts_b-1,1) * phi_boundary_left &
+                - A_mat(2:xl_grid%npts_b-1,xl_grid%npts_b) * phi_boundary_right
 
             A_mat(:, 1) = 0.0d0
             A_mat(1, :) = 0.0d0

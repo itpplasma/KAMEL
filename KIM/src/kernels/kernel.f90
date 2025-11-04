@@ -55,11 +55,14 @@ module kernel_m
     end subroutine init_kernel
 
     subroutine compute_cc_prefactors
+
         use species_m, only: plasma
         use grid_m, only: rg_grid
         use FP_kernel_plasma_prefacs_m, only: FP_G1_rho_phi, FP_G2_rho_phi, FP_G3_rho_phi, &
             FP_G1_rho_B, FP_G2_rho_B, FP_G3_rho_B, FP_G1_j_phi, FP_G2_j_phi, FP_G3_j_phi, &
             FP_G1_j_B, FP_G2_j_B, FP_G3_j_B, FP_G0_rho_phi
+        use config_m, only: fdiagnostics
+
         implicit none
         integer :: ns, j, sigma
 
@@ -102,7 +105,67 @@ module kernel_m
         end do
 
         pref_ready = .true.
+
+        if (fdiagnostics == 3) then
+            call write_cc_prefactors
+        end if
+
     end subroutine compute_cc_prefactors
+
+    subroutine write_cc_prefactors
+
+        use IO_collection_m, only: write_complex_profile
+        use config_m, only: output_path
+        use species_m, only: plasma
+        use grid_m, only: rg_grid
+        use KIM_kinds_m, only: dp
+
+        implicit none
+
+        logical :: ex
+        integer :: sp
+        character(len=100) :: dirname
+        complex(dp), allocatable :: temp_array(:)
+        real(dp), allocatable :: r_temp(:)
+
+        inquire(file=trim(output_path)//'diagnostics', exist=ex)
+        if (.not. ex) then
+            call system('mkdir -p '//trim(output_path)//'diagnostics')
+        end if
+
+        if (.not. allocated(temp_array)) then
+            allocate(temp_array(rg_grid%npts_c))
+            allocate(r_temp(rg_grid%npts_c))
+        end if
+
+        r_temp = rg_grid%xc
+
+        do sp = 0, plasma%n_species-1
+            write(dirname, '(A,A)') 'diagnostics/', plasma%spec(sp)%name
+            inquire(file=trim(output_path)//trim(dirname), exist=ex)
+            if (.not. ex) then
+                call system('mkdir -p '//trim(output_path)//trim(dirname))
+            end if
+
+            temp_array = pref_rho_phi_g0(sp+1,:)
+            call write_complex_profile(r_temp, temp_array, rg_grid%npts_c, trim(dirname)//'/pref_rho_phi_g0.dat')
+            temp_array = pref_rho_phi_g1(sp+1,:)
+            call write_complex_profile(r_temp, temp_array, rg_grid%npts_c, trim(dirname)//'/pref_rho_phi_g1.dat')
+            temp_array = pref_rho_phi_g2(sp+1,:)
+            call write_complex_profile(r_temp, temp_array, rg_grid%npts_c, trim(dirname)//'/pref_rho_phi_g2.dat')
+            temp_array = pref_rho_phi_g3(sp+1,:)
+            call write_complex_profile(r_temp, temp_array, rg_grid%npts_c, trim(dirname)//'/pref_rho_phi_g3.dat')
+
+            temp_array = pref_rho_B_g1(sp+1,:)
+            call write_complex_profile(r_temp, temp_array, rg_grid%npts_c, trim(dirname)//'/pref_rho_B_g1.dat')
+            temp_array = pref_rho_B_g2(sp+1,:)
+            call write_complex_profile(r_temp, temp_array, rg_grid%npts_c, trim(dirname)//'/pref_rho_B_g2.dat')
+            temp_array = pref_rho_B_g3(sp+1,:)
+            call write_complex_profile(r_temp, temp_array, rg_grid%npts_c, trim(dirname)//'/pref_rho_B_g3.dat')
+
+        end do
+
+    end subroutine
 
     ! TODO: Update Krook routines to the same procedure as FP routines
     subroutine Krook_fill_kernel_phi(K_rho_phi_llp, K_rho_B_llp)
@@ -505,47 +568,8 @@ module kernel_m
         call set_xl_at_edge(l, lp, int_point)
 
         if (.not. turn_off_electrons) then
-
+            ! zero FLR limit is sufficient for electrons
             call FP_calc_kernel_zero_FLR_limit_electrons(l, lp, k_rho_phi, k_rho_B, k_j_phi, k_j_B, gauss_conf)
-            ! do j = 1, rg_grid%npts_b-1
-
-                ! int_point%j = j
-                ! int_point%rhoT = max(plasma%spec(0)%rho_L_cc(j), 0.0d0)
-
-                ! if (abs(l-lp)<=1 .and. artificial_debye_case /= 2) then
-                    ! int_F0%int_point = int_point
-                    ! call gauss_integrate_F0(int_F0, int_point%xlm1, int_point%xlp1, integral_val, gauss_conf)
-                    ! k_rho_phi = k_rho_phi + integral_val * (-1.0d0) * (1.0d0 / (plasma%spec(0)%lambda_D_cc(j)**2.0d0))
-                ! end if
-
-                ! if (artificial_debye_case == 1) cycle
-
-                ! ! skip term if species Larmor radius is too small to couple these grid points
-                ! if (abs(l-lp) > 10 .and. abs(xl_grid%xb(l) - xl_grid%xb(lp)) > 8.0d0 * plasma%spec(0)%rho_L(j)) cycle
-                ! ! this is more restrictive:
-                ! if (abs(0.5d0 * (rg_grid%xb(j+1) + rg_grid%xb(j)) - 0.5d0 * (xl_grid%xb(l) + xl_grid%xb(lp))) > 1024.0d0 * plasma%spec(0)%rho_L(j)) cycle
-
-                ! int_F1_e%int_point = int_point
-                ! int_F2_e%int_point = int_point
-
-                ! ! F1 integration
-                ! integral_val = 0.0d0
-                ! call gauss_integrate_F1_electrons(int_F1_e, integral_val, gauss_conf)
-                ! k_rho_phi = k_rho_phi + integral_val * pref_rho_phi_g1(1,j)
-                ! k_rho_B = k_rho_B + integral_val * pref_rho_B_g1(1,j)
-                ! k_j_phi = k_j_phi + integral_val * pref_j_phi_g1(1,j)
-                ! k_j_B = k_j_B + integral_val * pref_j_B_g1(1,j)
-
-                ! ! F2 integration
-                ! ! call gauss_integrate_F2_electrons(int_F2_e, integral_val, gauss_conf)
-                ! ! k_rho_phi = k_rho_phi + integral_val * pref_rho_phi_g2(1,j)
-                ! ! k_rho_B = k_rho_B + integral_val * pref_rho_B_g2(1,j)
-                ! ! k_j_phi = k_j_phi + integral_val * pref_j_phi_g2(1,j)
-                ! ! k_j_B = k_j_B + integral_val * pref_j_B_g2(1,j)
-
-                ! ! other terms are negligible for electrons (small rhoT in general)
-
-            ! end do
         end if
 
         if (.not. turn_off_ions) then
@@ -684,12 +708,10 @@ module kernel_m
             * varphi_l(rg_grid%xc(j), int_point%xlm1, int_point%xl, int_point%xlp1)&
             * varphi_l(rg_grid%xc(j), int_point%xlpm1, int_point%xlp, int_point%xlpp1)
 
-        do j = 1, rg_grid%npts_c
+        do j = 2, rg_grid%npts_c-1
 
             int_point%j = j
             int_point%rhoT = plasma%spec(0)%rho_L_cc(j)
-
-            if (j==1) cycle
 
             k_rho_phi = k_rho_phi + pref_rho_phi_g1(1,j) &
                         * varphi_l(rg_grid%xc(j), int_point%xlm1, int_point%xl, int_point%xlp1) &
@@ -700,8 +722,8 @@ module kernel_m
 
         end do
 
-        k_rho_phi = (k_rho_phi) * delta_rg / (4.0d0 * pi)
-        k_rho_B = k_rho_B * delta_rg / (4.0d0 * pi)
+        k_rho_phi = - (k_rho_phi) * delta_rg / (4.0d0 * pi)
+        k_rho_B = - k_rho_B * delta_rg / (4.0d0 * pi)
             
     end subroutine
 
@@ -1285,7 +1307,7 @@ module kernel_m
             complex(dp) :: k_rho_phi, k_rho_B, k_j_phi, k_j_B
 
             !$omp parallel do default(shared) private(l, lp, lp_lo, lp_hi, xl_val, k_rho_phi, k_rho_B, k_j_phi, k_j_B) schedule(dynamic)
-            do l = 2, K_rho_phi_llp%npts_l-1
+            do l = 1, K_rho_phi_llp%npts_l
                 xl_val = xl_grid%xb(l)
 
                 lp_lo = l

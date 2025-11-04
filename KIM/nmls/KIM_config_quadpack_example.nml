@@ -19,6 +19,7 @@
     hdf5_output = .true.
     fdebug = 3
     fstatus = 1
+    fdiagnostics = 0
     calculate_asymptotics = .false.
 /
 

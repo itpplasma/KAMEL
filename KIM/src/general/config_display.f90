@@ -118,6 +118,7 @@ contains
         call print_bool_line('HDF5 Output', hdf5_output, width)
         call print_config_line('Debug Level', get_debug_string(fdebug), width)
         call print_config_line('Status Level', get_status_string(fstatus), width)
+        call print_config_line('Diagnostics Level', get_status_string(fdiagnostics), width)
         
         ! Display Physics Configuration
         call print_section_header('PHYSICS CONFIGURATION', width)

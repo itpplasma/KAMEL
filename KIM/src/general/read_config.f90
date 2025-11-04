@@ -19,7 +19,7 @@ subroutine read_config
                         number_density_rescale
 
     namelist /KIM_IO/ profile_location, hdf5_input, hdf5_output, &
-                        fdebug, fstatus, output_path, calculate_asymptotics 
+                        fdebug, fstatus, output_path, calculate_asymptotics, fdiagnostics
 
     namelist /KIM_SETUP/ btor, R0, m_mode, n_mode, omega, spline_base, &
                         type_br_field, collisions_off, set_profiles_constant, bc_type

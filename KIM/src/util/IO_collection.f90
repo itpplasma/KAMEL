@@ -8,6 +8,9 @@ module IO_collection_m
 
     subroutine write_array_to_file(filename, A, nx, ny)
 
+        use KIM_kinds_m, only: dp
+        use config_m, only: output_path
+
         implicit none
 
         character(*), intent(in) :: filename
@@ -15,7 +18,7 @@ module IO_collection_m
         integer, intent(in) :: nx, ny
 
         integer :: i, j
-        open(unit=10, file=filename, status='replace')
+        open(unit=10, file=trim(output_path)//filename, status='replace')
         do j = 1, ny
             do i = 1, nx
                 write(10, '(F12.6,1x,F12.6,1x,F12.6)') real(i), real(j), A(i,j)
@@ -27,13 +30,18 @@ module IO_collection_m
 
 
     subroutine write_matrix(filename, A, nx, ny)
+        
+        use KIM_kinds_m, only: dp
+        use config_m, only: output_path
+
         implicit none
+
         character(*), intent(in) :: filename
         real(dp), intent(in) :: A(nx, ny)
         integer, intent(in) :: nx, ny
 
         integer :: i, j
-        open(unit=10, file=filename, status='replace')
+        open(unit=10, file=trim(output_path)//filename, status='replace')
 
         do i = 1, nx
             write(10, *) (A(i,j), j = 1, ny)
@@ -46,6 +54,7 @@ module IO_collection_m
     subroutine write_profile(x, y, n, filename)
 
         use KIM_kinds_m, only: dp
+        use config_m, only: output_path
 
         implicit none
 
@@ -61,7 +70,7 @@ module IO_collection_m
         unit = 10
 
         ! Open the file for writing
-        open(unit=unit, file=filename, status='replace', action='write')
+        open(unit=unit, file=trim(output_path)//filename, status='replace', action='write')
 
         ! Write data as two columns
         do i = 1, n
@@ -76,6 +85,7 @@ module IO_collection_m
     subroutine write_complex_profile(x, y, n, filename)
 
         use KIM_kinds_m, only: dp
+        use config_m, only: output_path
 
         implicit none
 
@@ -92,7 +102,7 @@ module IO_collection_m
         unit = 10
 
         ! Open the file for writing
-        open(unit=unit, file=filename, status='replace', action='write')
+        open(unit=unit, file=trim(output_path)//filename, status='replace', action='write')
 
         ! Write data as two columns
         do i = 1, n
@@ -106,6 +116,7 @@ module IO_collection_m
     subroutine write_complex_profile_abs(x, y, n, filename)
 
         use KIM_kinds_m, only: dp
+        use config_m, only: output_path
 
         implicit none
 
@@ -122,7 +133,7 @@ module IO_collection_m
         unit = 10
 
         ! Open the file for writing
-        open(unit=unit, file=filename, status='replace', action='write')
+        open(unit=unit, file=trim(output_path)//filename, status='replace', action='write')
 
         ! Write data as two columns
         do i = 1, n

@@ -31,7 +31,6 @@
     spline_base = 3
     type_br_field = 'analytical'
     collisions_off = .false.
-    eps_reg = 1.0e-4
     set_profiles_constant = .false.
 /
 

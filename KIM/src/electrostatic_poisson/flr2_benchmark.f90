@@ -87,10 +87,10 @@ module rt_flr2_benchmark_m
         call FP_fill_kernels_flr2_benchmark(kernel_rho_phi_llp, kernel_rho_B_llp, kernel_j_phi_llp, kernel_j_B_llp, &
                                             .not. turn_off_electrons, .not. turn_off_ions)
 
-        call write_matrix(trim(output_path)//"kernel/K_rho_phi_re.dat", real(kernel_rho_phi_llp%Kllp), xl_grid%npts_b, xl_grid%npts_b)
-        call write_matrix(trim(output_path)//"kernel/K_rho_phi_im.dat", dimag(kernel_rho_phi_llp%Kllp), xl_grid%npts_b, xl_grid%npts_b)
-        call write_matrix(trim(output_path)//"kernel/K_rho_B_re.dat", real(kernel_rho_B_llp%Kllp), xl_grid%npts_b, xl_grid%npts_b)
-        call write_matrix(trim(output_path)//"kernel/K_rho_B_im.dat", dimag(kernel_rho_B_llp%Kllp), xl_grid%npts_b, xl_grid%npts_b)
+        call write_matrix("kernel/K_rho_phi_re.dat", real(kernel_rho_phi_llp%Kllp), xl_grid%npts_b, xl_grid%npts_b)
+        call write_matrix("kernel/K_rho_phi_im.dat", dimag(kernel_rho_phi_llp%Kllp), xl_grid%npts_b, xl_grid%npts_b)
+        call write_matrix("kernel/K_rho_B_re.dat", real(kernel_rho_B_llp%Kllp), xl_grid%npts_b, xl_grid%npts_b)
+        call write_matrix("kernel/K_rho_B_im.dat", dimag(kernel_rho_B_llp%Kllp), xl_grid%npts_b, xl_grid%npts_b)
 
         allocate(EBdat%Phi(xl_grid%npts_b), EBdat%Br(xl_grid%npts_b), EBdat%E_perp_psi(xl_grid%npts_b), &
                 EBdat%r_grid(xl_grid%npts_b), EBdat%E_perp(xl_grid%npts_b),&
@@ -99,21 +99,21 @@ module rt_flr2_benchmark_m
         EBdat%r_grid = xl_grid%xb
         
         call solve_poisson(kernel_rho_phi_llp%Kllp, kernel_rho_B_llp%Kllp, EBdat%Phi)
-        call write_complex_profile_abs(xl_grid%xb, EBdat%Phi, xl_grid%npts_b, trim(output_path)//"/fields/phi_"//trim(collision_model)//".dat")
+        call write_complex_profile_abs(xl_grid%xb, EBdat%Phi, xl_grid%npts_b, "/fields/phi_"//trim(collision_model)//".dat")
 
         call postprocess_electric_field(EBdat)
 
         call calculate_charge_density(rho, EBdat)
         call calculate_current_density(jpar, EBdat, kernel_j_phi_llp, kernel_j_B_llp)
-        call write_complex_profile_abs(xl_grid%xb, rho, xl_grid%npts_b, trim(output_path)//"/fields/rho_"//trim(collision_model)//".dat")
-        call write_complex_profile_abs(xl_grid%xb, jpar, xl_grid%npts_b, trim(output_path)//"/fields/jpar_"//trim(collision_model)//".dat")
+        call write_complex_profile_abs(xl_grid%xb, rho, xl_grid%npts_b, "/fields/rho_"//trim(collision_model)//".dat")
+        call write_complex_profile_abs(xl_grid%xb, jpar, xl_grid%npts_b, "/fields/jpar_"//trim(collision_model)//".dat")
 
         if (calculate_asymptotics .eqv. .true.) then
             call calc_flr2_asymptotic_Phi_MA(plasma, EBdat)
-            call write_complex_profile_abs(xl_grid%xb, EBdat%Phi_MA_asymptotic, xl_grid%npts_b, trim(output_path)//"/fields/phi_MA_asymptotic_"//trim(collision_model)//".dat")
+            call write_complex_profile_abs(xl_grid%xb, EBdat%Phi_MA_asymptotic, xl_grid%npts_b, "/fields/phi_MA_asymptotic_"//trim(collision_model)//".dat")
 
             call calc_ideal_MA_phi(EBdat, kernel_rho_phi_llp, kernel_rho_B_llp)
-            call write_complex_profile_abs(xl_grid%xb, EBdat%Phi_MA_ideal, xl_grid%npts_b, trim(output_path)//"/fields/phi_MA_ideal_"//trim(collision_model)//".dat")
+            call write_complex_profile_abs(xl_grid%xb, EBdat%Phi_MA_ideal, xl_grid%npts_b, "/fields/phi_MA_ideal_"//trim(collision_model)//".dat")
 
             call calc_hatK_Phi_in_Fourier(plasma)
         end if

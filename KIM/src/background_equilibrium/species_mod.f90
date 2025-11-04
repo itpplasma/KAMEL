@@ -545,12 +545,12 @@ module species_m
             call system('mkdir -p '//trim(output_path)//'backs/')
         end if
 
-        call write_profile(r_grid, plasma%ks, size(r_grid), trim(output_path)//'backs/'//'ks.dat')
-        call write_profile(r_grid, plasma%kp, size(r_grid), trim(output_path)//'backs/'//'kp.dat')
-        call write_profile(r_grid, plasma%om_E, size(r_grid), trim(output_path)//'backs/'//'om_E.dat')
-        call write_profile(r_grid, plasma%q, size(r_grid), trim(output_path)//'backs/'//'q.dat')
-        call write_profile(r_grid, plasma%dqdr, size(r_grid), trim(output_path)//'backs/'//'dqdr.dat')
-        call write_profile(r_grid, plasma%Er, size(r_grid), trim(output_path)//'backs/'//'Er.dat')
+        call write_profile(r_grid, plasma%ks, size(r_grid), 'backs/'//'ks.dat')
+        call write_profile(r_grid, plasma%kp, size(r_grid), 'backs/'//'kp.dat')
+        call write_profile(r_grid, plasma%om_E, size(r_grid), 'backs/'//'om_E.dat')
+        call write_profile(r_grid, plasma%q, size(r_grid), 'backs/'//'q.dat')
+        call write_profile(r_grid, plasma%dqdr, size(r_grid), 'backs/'//'dqdr.dat')
+        call write_profile(r_grid, plasma%Er, size(r_grid), 'backs/'//'Er.dat')
 
     end subroutine
 
@@ -571,17 +571,17 @@ module species_m
             call system('mkdir -p '//trim(output_path)//'backs/'//trim(spec%name))
         end if
 
-        call write_profile(r_grid, spec%lambda_D, size(r_grid), trim(output_path)//'backs/'//trim(spec%name)//'/lambda_D.dat')
-        call write_profile(r_grid, spec%rho_L, size(r_grid), trim(output_path)//'backs/'//trim(spec%name)//'/rho_L.dat')
-        call write_profile(r_grid, spec%vT, size(r_grid), trim(output_path)//'backs/'//trim(spec%name)//'/vT.dat')
-        call write_profile(r_grid, spec%omega_c, size(r_grid), trim(output_path)//'backs/'//trim(spec%name)//'/omega_c.dat')
-        call write_profile(r_grid, spec%nu, size(r_grid), trim(output_path)//'backs/'//trim(spec%name)//'/nu.dat')
-        call write_complex_profile(r_grid, spec%z0, size(r_grid), trim(output_path)//'backs/'//trim(spec%name)//'/z0.dat')
+        call write_profile(r_grid, spec%lambda_D, size(r_grid), 'backs/'//trim(spec%name)//'/lambda_D.dat')
+        call write_profile(r_grid, spec%rho_L, size(r_grid), 'backs/'//trim(spec%name)//'/rho_L.dat')
+        call write_profile(r_grid, spec%vT, size(r_grid), 'backs/'//trim(spec%name)//'/vT.dat')
+        call write_profile(r_grid, spec%omega_c, size(r_grid), 'backs/'//trim(spec%name)//'/omega_c.dat')
+        call write_profile(r_grid, spec%nu, size(r_grid), 'backs/'//trim(spec%name)//'/nu.dat')
+        call write_complex_profile(r_grid, spec%z0, size(r_grid), 'backs/'//trim(spec%name)//'/z0.dat')
 
-        call write_profile(r_grid, spec%dTdr, size(r_grid), trim(output_path)//'backs/'//trim(spec%name)//'/dTdr.dat')
-        call write_profile(r_grid, spec%dndr, size(r_grid), trim(output_path)//'backs/'//trim(spec%name)//'/dndr.dat')
-        call write_profile(r_grid, spec%T, size(r_grid), trim(output_path)//'backs/'//trim(spec%name)//'/T.dat')
-        call write_profile(r_grid, spec%n, size(r_grid), trim(output_path)//'backs/'//trim(spec%name)//'/n.dat')
+        call write_profile(r_grid, spec%dTdr, size(r_grid), 'backs/'//trim(spec%name)//'/dTdr.dat')
+        call write_profile(r_grid, spec%dndr, size(r_grid), 'backs/'//trim(spec%name)//'/dndr.dat')
+        call write_profile(r_grid, spec%T, size(r_grid), 'backs/'//trim(spec%name)//'/T.dat')
+        call write_profile(r_grid, spec%n, size(r_grid), 'backs/'//trim(spec%name)//'/n.dat')
 
     end subroutine
 
@@ -606,26 +606,26 @@ module species_m
 
         if (allocated(spec%A1_cc)) then
             call write_profile(r_grid_cc, spec%A1_cc, size(r_grid_cc), &
-                trim(output_path)//'backs/'//trim(spec%name)//'/A1_cc.dat')
+                'backs/'//trim(spec%name)//'/A1_cc.dat')
             call write_profile(r_grid_cc, spec%A2_cc, size(r_grid_cc), &
-                trim(output_path)//'backs/'//trim(spec%name)//'/A2_cc.dat')
+                'backs/'//trim(spec%name)//'/A2_cc.dat')
             call write_profile(r_grid_cc, spec%x1_cc, size(r_grid_cc), &
-                trim(output_path)//'backs/'//trim(spec%name)//'/x1_cc.dat')
+                'backs/'//trim(spec%name)//'/x1_cc.dat')
             call write_profile(r_grid_cc, spec%x2_cc, size(r_grid_cc), &
-                trim(output_path)//'backs/'//trim(spec%name)//'/x2_cc.dat')
+                'backs/'//trim(spec%name)//'/x2_cc.dat')
 
             call write_complex_profile(r_grid_cc, spec%I00_cc, size(r_grid_cc), &
-                trim(output_path)//'backs/'//trim(spec%name)//'/I00_cc.dat')
+                'backs/'//trim(spec%name)//'/I00_cc.dat')
             call write_complex_profile(r_grid_cc, spec%I20_cc, size(r_grid_cc), &
-                trim(output_path)//'backs/'//trim(spec%name)//'/I20_cc.dat')
+                'backs/'//trim(spec%name)//'/I20_cc.dat')
             call write_complex_profile(r_grid_cc, spec%I01_cc, size(r_grid_cc), &
-                trim(output_path)//'backs/'//trim(spec%name)//'/I01_cc.dat')
+                'backs/'//trim(spec%name)//'/I01_cc.dat')
             call write_complex_profile(r_grid_cc, spec%I21_cc, size(r_grid_cc), &
-                trim(output_path)//'backs/'//trim(spec%name)//'/I21_cc.dat')
+                'backs/'//trim(spec%name)//'/I21_cc.dat')
             call write_complex_profile(r_grid_cc, spec%I22_cc, size(r_grid_cc), &
-                trim(output_path)//'backs/'//trim(spec%name)//'/I22_cc.dat')
+                'backs/'//trim(spec%name)//'/I22_cc.dat')
             call write_complex_profile(r_grid_cc, spec%I02_cc, size(r_grid_cc), &
-                trim(output_path)//'backs/'//trim(spec%name)//'/I02_cc.dat')
+                'backs/'//trim(spec%name)//'/I02_cc.dat')
         end if
 
     end subroutine
@@ -1096,32 +1096,5 @@ module species_m
         close(11)
 
     end subroutine
-
-    subroutine write_profiles
-
-        use config_m, only: output_path, fstatus, number_of_ion_species
-        use IO_collection_m, only: write_profile
-
-        implicit none
-
-        integer :: sigma
-        logical :: ex
-
-        if (fstatus == 1) write(*,*) 'Status: writing profiles to output_path'
-
-        inquire(file=trim(output_path)//'profiles', exist=ex)
-        if (.not. ex) then
-            call system('mkdir -p '//trim(output_path)//'profiles')
-        end if
-
-        do sigma = 0, number_of_ion_species
-            call write_profile(plasma%r_grid, plasma%spec(sigma)%n, plasma%grid_size, trim(output_path)//'profiles/n.dat')
-            call write_profile(plasma%r_grid, plasma%spec(sigma)%T, plasma%grid_size, trim(output_path)//'profiles/T.dat')
-        end do
-        call write_profile(plasma%r_grid, plasma%Er, plasma%grid_size, trim(output_path)//'profiles/Er.dat')
-        call write_profile(plasma%r_grid, plasma%q, plasma%grid_size, trim(output_path)//'profiles/q.dat')
-
-    end subroutine
-
 
 end module

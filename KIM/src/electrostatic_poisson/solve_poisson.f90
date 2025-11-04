@@ -49,9 +49,9 @@ module poisson_solver_m
         call create_rhs_vector(type_br_field, K_rho_B, b_vec)
         call impose_bc_on_matrix_and_rhs(A_mat, b_vec, K_rho_phi, K_rho_B)
 
-        call write_matrix(trim(output_path)//'kernel/A_mat_re.dat', real(A_mat), xl_grid%npts_b, xl_grid%npts_b)
-        call write_matrix(trim(output_path)//'kernel/A_mat_im.dat', dimag(A_mat), xl_grid%npts_b, xl_grid%npts_b)
-        call write_complex_profile(xl_grid%xb, b_vec, xl_grid%npts_b, trim(output_path)//'kernel/b_vec.dat')
+        call write_matrix('kernel/A_mat_re.dat', real(A_mat), xl_grid%npts_b, xl_grid%npts_b)
+        call write_matrix('kernel/A_mat_im.dat', dimag(A_mat), xl_grid%npts_b, xl_grid%npts_b)
+        call write_complex_profile(xl_grid%xb, b_vec, xl_grid%npts_b, 'kernel/b_vec.dat')
 
         call dense_to_sparse(A_mat, irow, pcol, A_nz, nrow, ncol, nz_out)
         call sparse_solveComplex_b1(nrow, ncol, nz_out, irow, pcol, A_nz, b_vec, sparse_solver_option)
@@ -89,7 +89,7 @@ module poisson_solver_m
         use resonances_mod, only: index_rg_res, r_res
         use functions_m, only: varphi_l
         use grid_m, only: xl_grid
-        use IO_collection_m, only: write_profile, write_complex_profile, plot_profile
+        use IO_collection_m, only: write_complex_profile, plot_profile
         use KIM_kinds_m, only: dp
         use fields_m, only: EBdat, set_Br_field
         use config_m, only: output_path
@@ -117,7 +117,7 @@ module poisson_solver_m
 
         rhs_vec = - 4d0 * pi * rhs_vec
 
-        call write_complex_profile(xl_grid%xb, rhs_vec, xl_grid%npts_b, trim(output_path)//'fields/rhs_vec.dat')
+        call write_complex_profile(xl_grid%xb, rhs_vec, xl_grid%npts_b, 'fields/rhs_vec.dat')
 
     end subroutine
 
@@ -149,7 +149,7 @@ module poisson_solver_m
             A_mat(i,i+1) = A_mat(i,i+1) + 1.0d0/hR
         end do
 
-        call write_matrix(trim(output_path)//'kernel/laplacian_re.dat', real(A_mat), xl_grid%npts_b, xl_grid%npts_b)
+        call write_matrix('kernel/laplacian_re.dat', real(A_mat), xl_grid%npts_b, xl_grid%npts_b)
 
     end subroutine
 

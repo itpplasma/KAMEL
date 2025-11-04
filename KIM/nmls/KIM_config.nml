@@ -32,7 +32,6 @@
     spline_base = 1                         ! 1: hat function basis
     type_br_field = 12                      ! various modes, 12: constant Br field
     collisions_off = .false.                 ! don't use with FokkerPlanck model
-    eps_reg = 0.01                          ! not used rn
     set_profiles_constant = 0
     bc_type = 3                             ! boundary condition. 0: None; 1: zero Neuman left, zero Dirichlet right; 2: Dirichlet left and right
 /

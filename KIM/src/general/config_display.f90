@@ -148,7 +148,6 @@ contains
             value_str = '0 (static)'
         end if
         call print_config_line('Perturbation ω', trim(adjustl(value_str)), width)
-        write(value_str, '(ES10.2)') eps_reg
         call print_config_line('Regularization ε', trim(adjustl(value_str)), width)
         write(value_str, '(I0)') bc_type
         call print_config_line('Boundary condition', trim(value_str), width)

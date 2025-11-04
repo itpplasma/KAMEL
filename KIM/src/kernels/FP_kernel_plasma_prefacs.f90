@@ -97,7 +97,7 @@ module FP_kernel_plasma_prefacs_m
         type(species_t), intent(in) :: spec
         real(dp) :: val
 
-        val = -1.0d0
+        val = - FP_kappa_rho_phi(j, spec)
 
     end function
 

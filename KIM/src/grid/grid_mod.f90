@@ -415,7 +415,7 @@ module grid_m
         M_mat(:,n) = 0.0d0
         M_mat(n,n) = 1.0d0
 
-        call write_matrix(trim(output_path)//'kernel/mass_matrix.dat', M_mat, xl_grid%npts_b, xl_grid%npts_b)
+        call write_matrix('kernel/mass_matrix.dat', M_mat, xl_grid%npts_b, xl_grid%npts_b)
     end subroutine
 
 

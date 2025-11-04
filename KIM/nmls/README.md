@@ -26,7 +26,6 @@ KIM is configured via the namelist file KIM_config.nml containing multiple namel
 - spline_base ... integer, specifies which spline base to use in the FEM procedure, options: 1 - hat functions
 - type_br_field ... integer, specifies which type of Br field (array) is used
 - collisions_off ... boolean, if true, sets collision frequencies to zero
-- eps_reg ... double, regularization variable for numerical stability
 - set_profiles_constant ... integer, if 1, sets profiles constant to the core value
 
 ## KIM_GRID

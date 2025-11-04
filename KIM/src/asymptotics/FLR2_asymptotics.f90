@@ -137,7 +137,7 @@ module flr2_asymptotics_m
 
         end do
 
-        call write_complex_profile_abs(xl_grid%xb, offdiag, xl_grid%npts_b, trim(output_path)//"/fields/offdiag.dat")
+        call write_complex_profile_abs(xl_grid%xb, offdiag, xl_grid%npts_b, "/fields/offdiag.dat")
 
     end subroutine
 
@@ -164,14 +164,14 @@ module flr2_asymptotics_m
         real(dp) :: b
         real(dp) :: ks
         real(dp) :: kr
-        real(dp) :: kr_arr(4)
+        real(dp) :: kr_arr(3)
         character(256) :: filename
 
         complex(dp) :: besselI ! complex bessel function from bessel.f90
         allocate(kernel_phi(rg_grid%npts_b))
         allocate(kernel_B(rg_grid%npts_b))
 
-        kr_arr = [0.1d0, 1.0d0, 5.0d0, 10.0d0]
+        kr_arr = [0.1d0, 1.0d0, 5.0d0]
 
         do i = 1, size(kr_arr)
             kr = kr_arr(i)
@@ -223,9 +223,9 @@ module flr2_asymptotics_m
             kernel_phi = kernel_phi / (4.0d0 * pi)
             kernel_B = kernel_B / (4.0d0 * pi)
 
-            write(filename, '(A,I0,A)') trim(output_path)//"/fields/hatK_Phi_kr", int(kr), ".dat"
+            write(filename, '(A,I0,A)') "/fields/hatK_Phi_kr", int(kr), ".dat"
             call write_complex_profile_abs(rg_grid%xb, kernel_phi, rg_grid%npts_b, filename)
-            write(filename, '(A,I0,A)') trim(output_path)//"/fields/hatK_B_kr", int(kr), ".dat"
+            write(filename, '(A,I0,A)') "/fields/hatK_B_kr", int(kr), ".dat"
             call write_complex_profile_abs(rg_grid%xb, kernel_B, rg_grid%npts_b, filename)
 
         end do

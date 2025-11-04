@@ -1,5 +1,11 @@
 include(FetchContent)
 
+# Default to disconnected updates so re-configure does not try to reach the network.
+if(NOT DEFINED FETCHCONTENT_UPDATES_DISCONNECTED)
+    set(FETCHCONTENT_UPDATES_DISCONNECTED ON CACHE BOOL
+        "Disable FetchContent update steps during configure (enable to force dependency updates)")
+endif()
+
 function(find_or_fetch DEPENDENCY)
     if(DEFINED ENV{CODE} AND EXISTS $ENV{CODE}/${DEPENDENCY})
         set(${DEPENDENCY}_SOURCE_DIR $ENV{CODE}/${DEPENDENCY})
@@ -15,7 +21,18 @@ function(find_or_fetch DEPENDENCY)
             GIT_REPOSITORY ${REPO_URL}
             GIT_TAG ${REMOTE_BRANCH}
         )
-        FetchContent_Populate(${DEPENDENCY})
+        FetchContent_GetProperties(${DEPENDENCY})
+        if(NOT ${DEPENDENCY}_POPULATED)
+            if(DEFINED ${DEPENDENCY}_SOURCE_DIR AND EXISTS "${${DEPENDENCY}_SOURCE_DIR}/CMakeLists.txt")
+                message(STATUS "Reusing existing ${DEPENDENCY} sources at ${${DEPENDENCY}_SOURCE_DIR}")
+            else()
+                FetchContent_Populate(${DEPENDENCY})
+            endif()
+        endif()
+    endif()
+
+    if(NOT DEFINED ${DEPENDENCY}_SOURCE_DIR OR NOT EXISTS "${${DEPENDENCY}_SOURCE_DIR}/CMakeLists.txt")
+        message(FATAL_ERROR "Unable to locate sources for ${DEPENDENCY}: expected ${${DEPENDENCY}_SOURCE_DIR}")
     endif()
 
     add_subdirectory(${${DEPENDENCY}_SOURCE_DIR}

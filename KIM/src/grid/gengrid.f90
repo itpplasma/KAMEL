@@ -4,6 +4,7 @@ subroutine generate_grids
         r_min, r_plas
     use species_m, only: plasma
     use config_m, only: fdebug
+    use IO_collection_m, only: write_profile
 
     implicit none
 
@@ -41,5 +42,15 @@ subroutine generate_grids
         write(*,*) " xl / rg grid h ratio = ", (xl_grid%xb(2) - xl_grid%xb(1)) / (rg_grid%xb(2) - rg_grid%xb(1))
         write(*,*) ''
     end if
+
+    call write_profile(xl_grid%xb, xl_grid%xb, xl_grid%npts_b, 'grid/'//trim(xl_grid%name)//'_xb', &
+        'Cell boundary points of grid', 'cm')
+    call write_profile(xl_grid%xc, xl_grid%xc, xl_grid%npts_c, 'grid/'//trim(xl_grid%name)//'_xc', &
+        'Cell center points of grid', 'cm')
+
+    call write_profile(rg_grid%xb, rg_grid%xb, rg_grid%npts_b, 'grid/'//trim(rg_grid%name)//'_xb', &
+        'Cell boundary points of grid', 'cm')
+    call write_profile(rg_grid%xc, rg_grid%xc, rg_grid%npts_c, 'grid/'//trim(rg_grid%name)//'_xc', &
+        'Cell center points of grid', 'cm')
 
 end subroutine

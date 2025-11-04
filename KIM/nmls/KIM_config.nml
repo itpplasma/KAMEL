@@ -22,6 +22,7 @@
     fstatus = 1
     fdiagnostics = 0
     calculate_asymptotics = .true.          ! enable/disable asymptotic (WKB) calculations
+    h5_out_file = ''
 /
 
 &kim_setup

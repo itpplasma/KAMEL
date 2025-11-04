@@ -137,7 +137,7 @@ module flr2_asymptotics_m
 
         end do
 
-        call write_complex_profile_abs(xl_grid%xb, offdiag, xl_grid%npts_b, "/fields/offdiag.dat")
+        call write_complex_profile_abs(xl_grid%xb, offdiag, xl_grid%npts_b, "/fields/offdiag")
 
     end subroutine
 
@@ -223,10 +223,12 @@ module flr2_asymptotics_m
             kernel_phi = kernel_phi / (4.0d0 * pi)
             kernel_B = kernel_B / (4.0d0 * pi)
 
-            write(filename, '(A,I0,A)') "/fields/hatK_Phi_kr", int(kr), ".dat"
-            call write_complex_profile_abs(rg_grid%xb, kernel_phi, rg_grid%npts_b, filename)
-            write(filename, '(A,I0,A)') "/fields/hatK_B_kr", int(kr), ".dat"
-            call write_complex_profile_abs(rg_grid%xb, kernel_B, rg_grid%npts_b, filename)
+            write(filename, '(A,I0,A)') "/fields/hatK_Phi_kr", int(kr)
+            call write_complex_profile_abs(rg_grid%xb, kernel_phi, rg_grid%npts_b, filename, &
+                'Fourier space kernel rho Phi', '1/cm^2')
+            write(filename, '(A,I0,A)') "/fields/hatK_B_kr", int(kr)
+            call write_complex_profile_abs(rg_grid%xb, kernel_B, rg_grid%npts_b, filename, &
+                'Fourier space kernel for rho Br', '1/cm^2')
 
         end do
 

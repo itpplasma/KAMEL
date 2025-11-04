@@ -48,7 +48,8 @@ module fields_m
             call get_Br_from_txt(EBdat_in, file_path)
         end if
 
-        call write_complex_profile(xl_grid%xb, EBdat_in%Br, xl_grid%npts_b, "/fields/br_pert.dat")
+        call write_complex_profile(xl_grid%xb, EBdat_in%Br, xl_grid%npts_b, "/fields/br", &
+            'Radial magnetic field perturbation', 'G')
 
     end subroutine
 
@@ -389,58 +390,37 @@ module fields_m
         end select
 
         call calculate_MA_field(plasma, EBdat)
-        call write_complex_profile_abs(xl_grid%xb, EBdat%E_perp_psi, xl_grid%npts_b, "/fields/E_perp_psi_"//trim(suffix)//".dat")
-        call write_complex_profile_abs(xl_grid%xb, EBdat%E_perp, xl_grid%npts_b, "/fields/E_perp_"//trim(suffix)//".dat")
-        call write_complex_profile_abs(xl_grid%xb, EBdat%E_perp_MA, xl_grid%npts_b, "/fields/E_perp_MA_"//trim(suffix)//".dat")
-        call write_complex_profile_abs(xl_grid%xb, EBdat%Phi_MA, xl_grid%npts_b, "/fields/phi_MA_"//trim(suffix)//".dat")
+        call write_complex_profile_abs(xl_grid%xb, EBdat%E_perp_psi, xl_grid%npts_b, "/fields/E_perp_psi", &
+            'Field from perturbed magnetic flux surfaces', 'statV/cm')
+        call write_complex_profile_abs(xl_grid%xb, EBdat%E_perp, xl_grid%npts_b, "/fields/E_perp", &
+            'Field from potential perturbation', 'statV/cm')
+        call write_complex_profile_abs(xl_grid%xb, EBdat%E_perp_MA, xl_grid%npts_b, "/fields/E_perp_MA", &
+            'Total perpendicular misalignment electric field', 'statV/cm')
+        call write_complex_profile_abs(xl_grid%xb, EBdat%Phi_MA, xl_grid%npts_b, "/fields/phi_MA", &
+            'Misalignment electrostatic potential from total perpendicular misalignment electric field', 'statV')
 
         call calculate_E_from_phi(EBdat)
         call calculate_E_in_rsp_from_cyl(EBdat)
 
-        call write_complex_profile_abs(EBdat%r_grid, EBdat%Er, size(EBdat%r_grid), "/fields/Er_"//trim(suffix)//".dat")
-        call write_complex_profile_abs(EBdat%r_grid, EBdat%Etheta, size(EBdat%r_grid), "/fields/Etheta_"//trim(suffix)//".dat")
-        call write_complex_profile_abs(EBdat%r_grid, EBdat%Ez, size(EBdat%r_grid), "/fields/Ez_"//trim(suffix)//".dat")
+        call write_complex_profile_abs(EBdat%r_grid, EBdat%Er, size(EBdat%r_grid), "/fields/Er", &
+            'Radial electric field perturbation in cylindrical coordinates', 'statV/cm')
+        call write_complex_profile_abs(EBdat%r_grid, EBdat%Etheta, size(EBdat%r_grid), "/fields/Etheta", &
+            'Poloidal electric field perturbation in cylindrical coordinates', 'statV/cm')
+        call write_complex_profile_abs(EBdat%r_grid, EBdat%Ez, size(EBdat%r_grid), "/fields/Ez", &
+            'Axial electric field perturbation in cylindrical coordinates', 'statV/cm')
 
-        call write_complex_profile_abs(EBdat%r_grid, EBdat%Es, size(EBdat%r_grid), "/fields/Es_"//trim(suffix)//".dat")
-        call write_complex_profile_abs(EBdat%r_grid, EBdat%Ep, size(EBdat%r_grid), "/fields/Ep_"//trim(suffix)//".dat")
+        call write_complex_profile_abs(EBdat%r_grid, EBdat%Es, size(EBdat%r_grid), "/fields/Es.dat", &
+            'Electric field component perpendicular to radial and parallel direction in rsp coordinates', 'statV/cm')
+        call write_complex_profile_abs(EBdat%r_grid, EBdat%Ep, size(EBdat%r_grid), "/fields/Ep", &
+            'Electric field component parallel to equilibrium magnetic field in rsp coordinates', 'statV/cm')
 
         if (allocated(EBdat%Phi_aligned)) then
-            call write_complex_profile_abs(xl_grid%xb, EBdat%Phi_aligned, xl_grid%npts_b, "/fields/phi_aligned_"//trim(suffix)//".dat")
+            call write_complex_profile_abs(xl_grid%xb, EBdat%Phi_aligned, xl_grid%npts_b, "/fields/Phi_aligned", &
+                'Electrostatic potential aligned with magnetic field perturbation', 'statV')
         end if
     
     end subroutine
 
-    subroutine postprocess_electric_field_with_model(EBdat, model_name)
-
-        use IO_collection_m, only: write_complex_profile_abs
-        use grid_m, only: xl_grid
-        use config_m, only: output_path
-        use species_m, only: plasma
-
-        implicit none
-
-        type(EBdat_t), intent(inout) :: EBdat
-        character(len=*), intent(in) :: model_name
-        character(len=50) :: suffix
-
-        suffix = trim(model_name)
-
-        call calculate_MA_field(plasma, EBdat)
-        call write_complex_profile_abs(xl_grid%xb, EBdat%E_perp_psi, xl_grid%npts_b, "/fields/E_perp_psi_"//trim(suffix)//".dat")
-        call write_complex_profile_abs(xl_grid%xb, EBdat%E_perp, xl_grid%npts_b, "/fields/E_perp_"//trim(suffix)//".dat")
-        call write_complex_profile_abs(xl_grid%xb, EBdat%E_perp_MA, xl_grid%npts_b, "/fields/E_perp_MA_"//trim(suffix)//".dat")
-
-        call calculate_E_from_phi(EBdat)
-        call calculate_E_in_rsp_from_cyl(EBdat)
-
-        call write_complex_profile_abs(EBdat%r_grid, EBdat%Er, size(EBdat%r_grid), "/fields/Er_"//trim(suffix)//".dat")
-        call write_complex_profile_abs(EBdat%r_grid, EBdat%Etheta, size(EBdat%r_grid), "/fields/Etheta_"//trim(suffix)//".dat")
-        call write_complex_profile_abs(EBdat%r_grid, EBdat%Ez, size(EBdat%r_grid), "/fields/Ez_"//trim(suffix)//".dat")
-
-        call write_complex_profile_abs(EBdat%r_grid, EBdat%Es, size(EBdat%r_grid), "/fields/Es_"//trim(suffix)//".dat")
-        call write_complex_profile_abs(EBdat%r_grid, EBdat%Ep, size(EBdat%r_grid), "/fields/Ep_"//trim(suffix)//".dat")
-    
-    end subroutine
 
     subroutine calculate_charge_density(rho, EBdat)
 

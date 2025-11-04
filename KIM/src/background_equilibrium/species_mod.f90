@@ -545,43 +545,71 @@ module species_m
             call system('mkdir -p '//trim(output_path)//'backs/')
         end if
 
-        call write_profile(r_grid, plasma%ks, size(r_grid), 'backs/'//'ks.dat')
-        call write_profile(r_grid, plasma%kp, size(r_grid), 'backs/'//'kp.dat')
-        call write_profile(r_grid, plasma%om_E, size(r_grid), 'backs/'//'om_E.dat')
-        call write_profile(r_grid, plasma%q, size(r_grid), 'backs/'//'q.dat')
-        call write_profile(r_grid, plasma%dqdr, size(r_grid), 'backs/'//'dqdr.dat')
-        call write_profile(r_grid, plasma%Er, size(r_grid), 'backs/'//'Er.dat')
+        call write_profile(r_grid, plasma%ks, size(r_grid), 'backs/'//'ks', &
+            'Perpendicular ("senkrecht") wave number', '1/cm')
+        call write_profile(r_grid, plasma%kp, size(r_grid), 'backs/'//'kp', &
+            'Parallel wave number', '1/cm')
+        call write_profile(r_grid, plasma%om_E, size(r_grid), 'backs/'//'om_E', &
+            'E x B drift frequency', 'rad/s')
+        call write_profile(r_grid, plasma%q, size(r_grid), 'backs/'//'q', &
+            'Safety factor', '1')
+        call write_profile(r_grid, plasma%dqdr, size(r_grid), 'backs/'//'dqdr', &
+            'Radial derivative of safety factor', '1/cm')
+        call write_profile(r_grid, plasma%Er, size(r_grid), 'backs/'//'E0r', &
+            'Equilibrium radial electric field', 'statV/cm')
 
     end subroutine
 
     subroutine write_species_backs(spec, r_grid)
 
         use KIM_kinds_m, only: dp
-        use IO_collection_m, only: plot_1D_labeled, write_profile, remove_file, write_complex_profile
-        use config_m, only: output_path
+        use IO_collection_m, only: plot_1D_labeled, write_profile, remove_file, write_complex_profile, h5id
+        use config_m, only: output_path, hdf5_output
+        use KAMEL_hdf5_tools, only: h5_define_group, h5_obj_exists, HID_T
 
         implicit none
 
         type(species_t), intent(in) :: spec
         real(dp), intent(in) :: r_grid(:)
         logical :: ex
+        integer(HID_T) :: h5grpid
 
-        inquire(file=trim(output_path)//'profiles', exist=ex)
-        if (.not. ex) then
-            call system('mkdir -p '//trim(output_path)//'backs/'//trim(spec%name))
+        if (hdf5_output) then
+            call h5_obj_exists(h5id, 'backs/'//trim(spec%name), ex)
+            if (.not. ex) then
+                call h5_define_group(h5id, 'fields/'//trim(spec%name), h5grpid)
+            end if
+
+            call write_profile(r_grid, r_grid, size(r_grid), 'backs/'//trim(spec%name)//'/r', &
+                'Effective radius (rg space)', 'cm')
+        else
+            inquire(file=trim(output_path)//'backs'//trim(spec%name), exist=ex)
+            if (.not. ex) then
+                call system('mkdir -p '//trim(output_path)//'backs/'//trim(spec%name))
+            end if
         end if
 
-        call write_profile(r_grid, spec%lambda_D, size(r_grid), 'backs/'//trim(spec%name)//'/lambda_D.dat')
-        call write_profile(r_grid, spec%rho_L, size(r_grid), 'backs/'//trim(spec%name)//'/rho_L.dat')
-        call write_profile(r_grid, spec%vT, size(r_grid), 'backs/'//trim(spec%name)//'/vT.dat')
-        call write_profile(r_grid, spec%omega_c, size(r_grid), 'backs/'//trim(spec%name)//'/omega_c.dat')
-        call write_profile(r_grid, spec%nu, size(r_grid), 'backs/'//trim(spec%name)//'/nu.dat')
-        call write_complex_profile(r_grid, spec%z0, size(r_grid), 'backs/'//trim(spec%name)//'/z0.dat')
+        call write_profile(r_grid, spec%lambda_D, size(r_grid), 'backs/'//trim(spec%name)//'/lambda_D', &
+            'Debye length', 'cm')
+        call write_profile(r_grid, spec%rho_L, size(r_grid), 'backs/'//trim(spec%name)//'/rho_L', &
+            'Larmor radius', 'cm')
+        call write_profile(r_grid, spec%vT, size(r_grid), 'backs/'//trim(spec%name)//'/vT', &
+            'Thermal velocity (w/o factor 2)', 'cm/s')
+        call write_profile(r_grid, spec%omega_c, size(r_grid), 'backs/'//trim(spec%name)//'/omega_c', &
+            'Cyclotron frequency', 'rad/s')
+        call write_profile(r_grid, spec%nu, size(r_grid), 'backs/'//trim(spec%name)//'/nu', &
+            '(Perpendicular) collision frequency', '1/s')
+        call write_complex_profile(r_grid, spec%z0, size(r_grid), 'backs/'//trim(spec%name)//'/z0', &
+            'Normalized complex frequency z0 (= x2/(sqrt(2)x1))', '1')
 
-        call write_profile(r_grid, spec%dTdr, size(r_grid), 'backs/'//trim(spec%name)//'/dTdr.dat')
-        call write_profile(r_grid, spec%dndr, size(r_grid), 'backs/'//trim(spec%name)//'/dndr.dat')
-        call write_profile(r_grid, spec%T, size(r_grid), 'backs/'//trim(spec%name)//'/T.dat')
-        call write_profile(r_grid, spec%n, size(r_grid), 'backs/'//trim(spec%name)//'/n.dat')
+        call write_profile(r_grid, spec%dTdr, size(r_grid), 'backs/'//trim(spec%name)//'/dTdr', &
+            'Temperature gradient dT/dr', 'eV/cm')
+        call write_profile(r_grid, spec%dndr, size(r_grid), 'backs/'//trim(spec%name)//'/dndr', &
+            'Particle density gradient dn/dr', '1/cm^4')
+        call write_profile(r_grid, spec%T, size(r_grid), 'backs/'//trim(spec%name)//'/T', &
+            'Temperature T', 'eV')
+        call write_profile(r_grid, spec%n, size(r_grid), 'backs/'//trim(spec%name)//'/n', &
+            'Particle density n', '1/cm^3')
 
     end subroutine
 
@@ -590,42 +618,64 @@ module species_m
         ! These are computed after interpolation to avoid grid-dependent aliasing
 
         use KIM_kinds_m, only: dp
-        use IO_collection_m, only: write_profile, write_complex_profile
-        use config_m, only: output_path
+        use IO_collection_m, only: write_profile, write_complex_profile, h5id
+        use config_m, only: output_path, hdf5_output
+        use KAMEL_hdf5_tools, only: h5_define_group, h5_obj_exists, HID_T
 
         implicit none
 
         type(species_t), intent(in) :: spec
         real(dp), intent(in) :: r_grid_cc(:)
         logical :: ex
+        integer(HID_T) :: h5grpid
 
-        inquire(file=trim(output_path)//'profiles', exist=ex)
-        if (.not. ex) then
-            call system('mkdir -p '//trim(output_path)//'backs/'//trim(spec%name))
+        if (hdf5_output) then
+            call h5_obj_exists(h5id, 'backs/'//trim(spec%name), ex)
+            if (.not. ex) then
+                call h5_define_group(h5id, 'fields/'//trim(spec%name), h5grpid)
+            end if
+
+            call write_profile(r_grid_cc, r_grid_cc, size(r_grid_cc), 'backs/'//trim(spec%name)//'/r_c', &
+                'Effective radius of cell centers (rg space)', 'cm')
+        else
+            inquire(file=trim(output_path)//'profiles', exist=ex)
+            if (.not. ex) then
+                call system('mkdir -p '//trim(output_path)//'backs/'//trim(spec%name))
+            end if
         end if
 
         if (allocated(spec%A1_cc)) then
             call write_profile(r_grid_cc, spec%A1_cc, size(r_grid_cc), &
-                'backs/'//trim(spec%name)//'/A1_cc.dat')
+                'backs/'//trim(spec%name)//'/A1_cc', &
+                'Thermodynamic force A1 at cell centers', '1/cm')
             call write_profile(r_grid_cc, spec%A2_cc, size(r_grid_cc), &
-                'backs/'//trim(spec%name)//'/A2_cc.dat')
+                'backs/'//trim(spec%name)//'/A2_cc', &
+                'Thermodynamic force A2 at cell centers', '1/cm')
             call write_profile(r_grid_cc, spec%x1_cc, size(r_grid_cc), &
-                'backs/'//trim(spec%name)//'/x1_cc.dat')
+                'backs/'//trim(spec%name)//'/x1_cc', &
+                'Normalized distance to resonance x1 at cell centers', '1')
             call write_profile(r_grid_cc, spec%x2_cc, size(r_grid_cc), &
-                'backs/'//trim(spec%name)//'/x2_cc.dat')
+                'backs/'//trim(spec%name)//'/x2_cc', &
+                'Normalized collision frequency x2 at cell centers', '1')
 
             call write_complex_profile(r_grid_cc, spec%I00_cc, size(r_grid_cc), &
-                'backs/'//trim(spec%name)//'/I00_cc.dat')
+                'backs/'//trim(spec%name)//'/I00_cc', &
+                'Susceptibility function I00 at cell centers', '1')
             call write_complex_profile(r_grid_cc, spec%I20_cc, size(r_grid_cc), &
-                'backs/'//trim(spec%name)//'/I20_cc.dat')
+                'backs/'//trim(spec%name)//'/I20_cc', &
+                'Susceptibility function I20 at cell centers', '1')
             call write_complex_profile(r_grid_cc, spec%I01_cc, size(r_grid_cc), &
-                'backs/'//trim(spec%name)//'/I01_cc.dat')
+                'backs/'//trim(spec%name)//'/I01_cc', &
+                'Susceptibility function I01 at cell centers', '1')
             call write_complex_profile(r_grid_cc, spec%I21_cc, size(r_grid_cc), &
-                'backs/'//trim(spec%name)//'/I21_cc.dat')
+                'backs/'//trim(spec%name)//'/I21_cc', &
+                'Susceptibility function I21 at cell centers', '1')
             call write_complex_profile(r_grid_cc, spec%I22_cc, size(r_grid_cc), &
-                'backs/'//trim(spec%name)//'/I22_cc.dat')
+                'backs/'//trim(spec%name)//'/I22_cc', &
+                'Susceptibility function I22 at cell centers', '1')
             call write_complex_profile(r_grid_cc, spec%I02_cc, size(r_grid_cc), &
-                'backs/'//trim(spec%name)//'/I02_cc.dat')
+                'backs/'//trim(spec%name)//'/I02_cc', &
+                'Susceptibility function I02 at cell centers', '1')
         end if
 
     end subroutine
@@ -772,8 +822,8 @@ module species_m
 
         type(species_t), intent(in) :: spec
 
-        call write_profile(rg_grid%xb, spec%rho_L, rg_grid%npts_b, 'rho_L.dat')
-        call plot_1D_labeled('rho_L.dat', ' r [cm] ', ' rho_L [cm] ', '')
+        call write_profile(rg_grid%xb, spec%rho_L, rg_grid%npts_b, 'rho_L')
+        call plot_1D_labeled('rho_L', ' r [cm] ', ' rho_L [cm] ', '')
         call remove_file('rho_L.dat')
 
     end subroutine

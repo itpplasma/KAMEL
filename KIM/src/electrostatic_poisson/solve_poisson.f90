@@ -36,6 +36,8 @@ module poisson_solver_m
         allocate(A_mat(xl_grid%npts_b, xl_grid%npts_b), M_mat(xl_grid%npts_b, xl_grid%npts_b))
         call prepare_Laplace_matrix(A_mat)
         call calc_mass_matrix(M_mat)
+        call write_matrix('kernel/mass_matrix.dat', M_mat, xl_grid%npts_b, xl_grid%npts_b, &
+            'Mass matrix M', 'cm')
 
         A_mat = (A_mat + 4.0d0 * pi * K_rho_phi) 
 
@@ -49,9 +51,11 @@ module poisson_solver_m
         call create_rhs_vector(type_br_field, K_rho_B, b_vec)
         call impose_bc_on_matrix_and_rhs(A_mat, b_vec, K_rho_phi, K_rho_B)
 
-        call write_matrix('kernel/A_mat_re.dat', real(A_mat), xl_grid%npts_b, xl_grid%npts_b)
-        call write_matrix('kernel/A_mat_im.dat', dimag(A_mat), xl_grid%npts_b, xl_grid%npts_b)
-        call write_complex_profile(xl_grid%xb, b_vec, xl_grid%npts_b, 'kernel/b_vec.dat')
+        call write_matrix('kernel/A_mat', real(A_mat), xl_grid%npts_b, xl_grid%npts_b, &
+            'Stiffness matrix A (left hand matrix of Ax=b)', '1/cm^2')
+        ! call write_matrix('kernel/A_mat_im.dat', dimag(A_mat), xl_grid%npts_b, xl_grid%npts_b)
+        call write_complex_profile(xl_grid%xb, b_vec, xl_grid%npts_b, 'kernel/b_vec', &
+            'Right hand side vector b of Poisson equation Ax=b', 'statC/cm^3') !TODO: check units
 
         call dense_to_sparse(A_mat, irow, pcol, A_nz, nrow, ncol, nz_out)
         call sparse_solveComplex_b1(nrow, ncol, nz_out, irow, pcol, A_nz, b_vec, sparse_solver_option)
@@ -117,8 +121,6 @@ module poisson_solver_m
 
         rhs_vec = - 4d0 * pi * rhs_vec
 
-        call write_complex_profile(xl_grid%xb, rhs_vec, xl_grid%npts_b, 'fields/rhs_vec.dat')
-
     end subroutine
 
     subroutine prepare_Laplace_matrix(A_mat)
@@ -149,7 +151,8 @@ module poisson_solver_m
             A_mat(i,i+1) = A_mat(i,i+1) + 1.0d0/hR
         end do
 
-        call write_matrix('kernel/laplacian_re.dat', real(A_mat), xl_grid%npts_b, xl_grid%npts_b)
+        call write_matrix('kernel/Laplace_in_FEM', real(A_mat), xl_grid%npts_b, xl_grid%npts_b, &
+            'Laplace operator matrix in FEM discretization', '1/cm^2')
 
     end subroutine
 

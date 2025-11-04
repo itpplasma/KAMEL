@@ -2,10 +2,11 @@ program kim_main
 
     use kim_base_m, only: kim_t
     use kim_mod_m, only: from_kim_factory_get_kim
-    use config_m, only: type_of_run
+    use config_m, only: type_of_run, hdf5_output
     use omp_lib, only: omp_get_wtime
     use KIM_kinds_m, only: dp
     use config_display_m, only: display_kim_banner
+    use IO_collection_m, only: deinitialize_hdf5_output
 
     implicit none
 
@@ -29,5 +30,7 @@ program kim_main
     t_finish =  omp_get_wtime()
 
     write(*,*) ' Time: ', (t_finish - t_start), ' s'
+
+    if (hdf5_output) call deinitialize_hdf5_output()
 
 end program

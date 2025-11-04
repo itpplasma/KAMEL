@@ -9,7 +9,6 @@ module grid_m
     integer :: l_space_dim ! dimension of spline grid
     integer :: r_space_dim ! dimension of r grid
     integer :: rg_space_dim
-    integer :: spline_base
     ! Grid spacing modes (strings): "equidistant", "non-equidistant", "adaptive"
     character(len=32) :: grid_spacing_rg = "adaptive"
     character(len=32) :: grid_spacing_xl = "adaptive"
@@ -257,41 +256,6 @@ module grid_m
 
         deallocate(coef)
 
-        call write_new_grid
-
-        contains
-
-            subroutine write_new_grid
-
-                implicit none
-                integer :: i, ierr
-                logical :: dir_exists
-
-                inquire(file=trim(output_path)//'grid/', exist=dir_exists)
-
-                if (.not. dir_exists) then
-                    ! Try to create the directory using a system call (POSIX mkdir)
-                    call execute_command_line("mkdir -p " // trim(output_path)//'grid', exitstat=ierr)
-
-                    if (ierr /= 0) then
-                    print *, "Error: Could not create directory. Exit status = ", ierr
-                    else
-                    print *, "Directory created successfully."
-                    end if
-                end if
-
-                open(unit = 77, file=trim(output_path)//'grid/'//trim(this%name)//'_xb.dat')
-                open(unit = 78, file=trim(output_path)//'grid/'//trim(this%name)//'_xc.dat')
-                do i = 1, size(this%xb)
-                    write(77,*) i, this%xb(i)
-                    if (i > this%npts_c) cycle
-                    write(78,*) i, this%xc(i)
-                end do
-                close(77)
-                close(78)
-
-            end subroutine
-
     end subroutine grid_generate
 
     subroutine grid_generate_equidistant(this)
@@ -359,36 +323,12 @@ module grid_m
 
         deallocate(coef)
 
-        call write_new_grid
-
-        if (fdebug == 1) write(*,*) "Debug: exiting gengrid"
-
-        contains
-
-            subroutine write_new_grid
-
-                implicit none
-                integer :: i
-                
-                open(unit = 77, file=trim(output_path)//'grid/'//trim(this%name)//'_xb.dat')
-                open(unit = 78, file=trim(output_path)//'grid/'//trim(this%name)//'_xc.dat')
-                do i = 1, this%npts_b
-                    write(77,*) i, this%xb(i)
-                    if (i > this%npts_c) cycle
-                    write(78,*) i, this%xc(i)
-                end do
-                close(77)
-                close(78)
-
-            end subroutine
-
     end subroutine grid_generate_equidistant
 
     subroutine calc_mass_matrix(M_mat)
 
         use KIM_kinds_m, only: dp
         use config_m, only: output_path
-        use IO_collection_m, only: write_matrix
 
         implicit none
 
@@ -415,7 +355,6 @@ module grid_m
         M_mat(:,n) = 0.0d0
         M_mat(n,n) = 1.0d0
 
-        call write_matrix('kernel/mass_matrix.dat', M_mat, xl_grid%npts_b, xl_grid%npts_b)
     end subroutine
 
 

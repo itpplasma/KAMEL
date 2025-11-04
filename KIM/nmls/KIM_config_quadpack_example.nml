@@ -21,6 +21,7 @@
     fstatus = 1
     fdiagnostics = 0
     calculate_asymptotics = .false.
+    h5_out_file = ''
 /
 
 &KIM_SETUP

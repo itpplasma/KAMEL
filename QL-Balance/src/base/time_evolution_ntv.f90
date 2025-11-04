@@ -143,6 +143,76 @@ contains
         end do
     end subroutine doStep
 
+    !> @brief Read toroidal flux and safety factor from equilibrium file
+    !> @details Reads the toroidal flux (phi) and safety factor (q) from the equil_r_q_psi.dat file
+    !>          specified in the balance configuration. The file format is:
+    !>          - 3 header lines
+    !>          - Data columns: r, q, psi_pol, phi_tor, dphi/dpsi, r_geom, V, R_beg, Z_beg, R_min, R_max
+    !> @param[out] phi_tor Toroidal flux array (column 4 from equil file)
+    !> @param[out] q_prof Safety factor array (column 2 from equil file)
+    subroutine read_equil_file(phi_tor, q_prof)
+        use control_mod, only: equil_path
+
+        real(dp), dimension(:), intent(out) :: phi_tor
+        real(dp), dimension(:), intent(out) :: q_prof
+
+        integer :: iunit, ipoi, ios, phi_size, q_size
+        real(dp) :: r_eff, q, psi_pol, phi, dphi_dpsi, r_geom, V, R_beg, Z_beg, R_min, R_max
+        integer :: nlines
+        character(len=1024) :: errmsg
+
+        phi_size = size(phi_tor)
+        q_size = size(q_prof)
+
+        ! Check that both arrays have the same size
+        if (phi_size /= q_size) then
+            write (errmsg, '(A,I0,A,I0)') &
+                "read_toroidal_flux: phi_tor size (", phi_size, ") != q_prof size (", q_size, ")"
+            error stop trim(errmsg)
+        end if
+
+        ! Open equilibrium file
+        open (newunit=iunit, file=trim(equil_path), status='old', action='read', iostat=ios)
+        if (ios /= 0) then
+            write (errmsg, '(A,A)') "read_toroidal_flux: cannot open file ", trim(equil_path)
+            error stop trim(errmsg)
+        end if
+
+        ! Skip 3 header lines
+        do ipoi = 1, 3
+            read (iunit, *, iostat=ios)
+            if (ios /= 0) then
+                close (iunit)
+                error stop "read_toroidal_flux: error reading header lines"
+            end if
+        end do
+
+        ! Read data lines and extract toroidal flux (column 4) and safety factor (column 2)
+        nlines = 0
+        do ipoi = 1, phi_size
+            read (iunit, *, iostat=ios) r_eff, q, psi_pol, phi, dphi_dpsi, r_geom, V, R_beg, &
+                                        Z_beg, R_min, R_max
+            if (ios /= 0) then
+                close (iunit)
+                write (errmsg, '(A,I0,A,I0,A)') "read_toroidal_flux: error reading line ", &
+                                                ipoi + 3, " (expected ", phi_size, " data lines)"
+                error stop trim(errmsg)
+            end if
+            phi_tor(ipoi) = phi
+            q_prof(ipoi) = q
+            nlines = nlines + 1
+        end do
+
+        close (iunit)
+
+        ! Verify we read the expected number of lines
+        if (nlines /= phi_size) then
+            write (errmsg, '(A,I0,A,I0)') &
+                "read_toroidal_flux: read ", nlines, " lines, expected ", phi_size
+            error stop trim(errmsg)
+        end if
+
+    end subroutine read_equil_file
 
     subroutine calculate_s_tor(s, phi)
         real(dp), dimension(:), intent(out) :: s

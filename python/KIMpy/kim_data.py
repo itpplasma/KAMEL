@@ -31,7 +31,7 @@ class KIMData:
            Read the electrostatic potential perturbation $\Phi_{\bm}$, 
            which is the solution to the Poisson equation in KIM.
         '''
-        path = os.path.join(self.data_path, self.mode_string, 'fields', 'phi_' + self.collision_model + '.dat')
+        path = os.path.join(self.data_path, self.mode_string, 'fields', 'Phi_m.dat')
         try:
             phi = np.loadtxt(path)
             self.set_profile(phi[:, 0], phi[:, 1] + 1j * phi[:, 2], 'Phi_m')
@@ -43,7 +43,7 @@ class KIMData:
            Read the aligned electrostatic potential $\Phi_{A}$, 
            which is used as the boundary condition in the Poisson equation in KIM.
         '''
-        path = os.path.join(self.data_path, self.mode_string, 'fields', 'phi_aligned_' + self.collision_model_acronym + '.dat')
+        path = os.path.join(self.data_path, self.mode_string, 'fields', 'Phi_aligned.dat')
         try:
             phi_A = np.loadtxt(path)
             self.set_profile(phi_A[:, 0], phi_A[:, 1] + 1j * phi_A[:, 2], 'Phi_aligned')

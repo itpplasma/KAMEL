@@ -156,11 +156,11 @@ module rt_electrostatic_m
             if (calculate_asymptotics .eqv. .true.) then
                 call calc_flr2_asymptotic_Phi_MA(plasma, EBdat)
                 call write_complex_profile_abs(xl_grid%xb, EBdat%Phi_MA_asymptotic, xl_grid%npts_b, &
-                    "/fields/phi_MA_asymptotic", 'Misalignment electrostatic potential perturbation in asymptotic limit', 'statV')
+                    "/fields/Phi_MA_asymptotic", 'Misalignment electrostatic potential perturbation in asymptotic limit', 'statV')
 
                 call calc_ideal_MA_phi(EBdat, kernel_rho_phi_llp, kernel_rho_B_llp)
                 call write_complex_profile_abs(xl_grid%xb, EBdat%Phi_MA_ideal, xl_grid%npts_b, &
-                    "/fields/phi_MA_ideal", 'Electrostatic potential perturbation in ideal limit where E_perp_MA = 0', 'statV')
+                    "/fields/Phi_MA_ideal", 'Electrostatic potential perturbation in ideal limit where E_perp_MA = 0', 'statV')
 
                 call calc_hatK_Phi_in_Fourier(plasma)
             end if

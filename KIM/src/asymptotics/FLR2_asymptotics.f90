@@ -185,10 +185,11 @@ module flr2_asymptotics_m
                     if (turn_off_ions .and. sp >= 1) cycle
                     if (turn_off_electrons .and. sp == 0) cycle
 
-                    ! Include full perpendicular wavenumber in FLR parameter: b = (k_r^2 + k_s^2) * rho_T^2
+                    ! Don't Include full perpendicular wavenumber in FLR parameter: b = (k_r^2 + k_s^2) * rho_T^2
+                    ! k_s diverges at r=0, which is problematic for gsl Bessel functions
                     ks = plasma_in%ks(j)
-                    b = (kr**2.0d0 + ks**2.0d0) * plasma_in%spec(sp)%rho_L(j)**2.0d0
-                    ! b = kr**2.0d0 * plasma_in%spec(sp)%rho_L(j)**2.0d0
+
+                    b = (kr**2.0d0) * plasma_in%spec(sp)%rho_L(j)**2.0d0
 
                     ! if (artificial_debye_case <= 1) then
                         ! kernel_phi_temp = - 1.0d0 / plasma_in%spec(sp)%lambda_D(j)**2.0d0
@@ -223,10 +224,10 @@ module flr2_asymptotics_m
             kernel_phi = kernel_phi / (4.0d0 * pi)
             kernel_B = kernel_B / (4.0d0 * pi)
 
-            write(filename, '(A,I0,A)') "/fields/hatK_Phi_kr", int(kr)
+            write(filename, '(A,I0)') "/fields/hatK_Phi_kr", int(kr)
             call write_complex_profile_abs(rg_grid%xb, kernel_phi, rg_grid%npts_b, filename, &
                 'Fourier space kernel rho Phi', '1/cm^2')
-            write(filename, '(A,I0,A)') "/fields/hatK_B_kr", int(kr)
+            write(filename, '(A,I0)') "/fields/hatK_B_kr", int(kr)
             call write_complex_profile_abs(rg_grid%xb, kernel_B, rg_grid%npts_b, filename, &
                 'Fourier space kernel for rho Br', '1/cm^2')
 

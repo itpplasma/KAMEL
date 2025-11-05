@@ -3,7 +3,7 @@
 !>          data directly to NEO-RT instead of reading from files
 module neort_interface
     use iso_fortran_env, only: dp => real64
-    use baseparam_mod, only: EV_TO_ERG => ev
+    use neort_datatypes, only: magfie_data_t, transport_data_t
 
     implicit none
 
@@ -11,6 +11,8 @@ module neort_interface
 
     public :: prepare_plasma_data_for_neort
     public :: prepare_profile_data_for_neort
+    public :: read_equil_file
+    public :: calculate_s_tor
 
 contains
 
@@ -61,7 +63,7 @@ contains
     !> @brief Prepare rotation profile data for NEO-RT from KAMEL arrays
     !> @param[out] profile_data 2D array (nflux, 3) for NEO-RT profile input
     subroutine prepare_profile_data_for_neort(profile_data, s_tor)
-        use baseparam_mod, only: R0 => rtor, am, p_mass, btor
+        use baseparam_mod, only: am, p_mass, btor
         use grid_mod, only: Ercov
         use plasma_parameters, only: params, qsafb
 
@@ -103,5 +105,87 @@ contains
         end do
 
     end subroutine prepare_profile_data_for_neort
+
+    !> @brief Read toroidal flux and safety factor from equilibrium file
+    !> @details Reads the toroidal flux (phi) and safety factor (q) from the equil_r_q_psi.dat file
+    !>          specified in the balance configuration. The file format is:
+    !>          - 3 header lines
+    !>          - Data columns: r, q, psi_pol, phi_tor, dphi/dpsi, r_geom, V, R_beg, Z_beg, R_min, R_max
+    !> @param[out] phi_tor Toroidal flux array (column 4 from equil file)
+    !> @param[out] q_prof Safety factor array (column 2 from equil file)
+    subroutine read_equil_file(phi_tor, q_prof)
+        use control_mod, only: equil_path
+
+        real(dp), dimension(:), intent(out) :: phi_tor
+        real(dp), dimension(:), intent(out) :: q_prof
+
+        integer :: iunit, ipoi, ios, phi_size, q_size
+        real(dp) :: r_eff, q, psi_pol, phi, dphi_dpsi, r_geom, V, R_beg, Z_beg, R_min, R_max
+        integer :: nlines
+        character(len=1024) :: errmsg
+
+        phi_size = size(phi_tor)
+        q_size = size(q_prof)
+
+        ! Check that both arrays have the same size
+        if (phi_size /= q_size) then
+            write (errmsg, '(A,I0,A,I0)') &
+                "read_toroidal_flux: phi_tor size (", phi_size, ") != q_prof size (", q_size, ")"
+            error stop trim(errmsg)
+        end if
+
+        ! Open equilibrium file
+        open (newunit=iunit, file=trim(equil_path), status='old', action='read', iostat=ios)
+        if (ios /= 0) then
+            write (errmsg, '(A,A)') "read_toroidal_flux: cannot open file ", trim(equil_path)
+            error stop trim(errmsg)
+        end if
+
+        ! Skip 3 header lines
+        do ipoi = 1, 3
+            read (iunit, *, iostat=ios)
+            if (ios /= 0) then
+                close (iunit)
+                error stop "read_toroidal_flux: error reading header lines"
+            end if
+        end do
+
+        ! Read data lines and extract toroidal flux (column 4) and safety factor (column 2)
+        nlines = 0
+        do ipoi = 1, phi_size
+            read (iunit, *, iostat=ios) r_eff, q, psi_pol, phi, dphi_dpsi, r_geom, V, R_beg, &
+                                        Z_beg, R_min, R_max
+            if (ios /= 0) then
+                close (iunit)
+                write (errmsg, '(A,I0,A,I0,A)') "read_toroidal_flux: error reading line ", &
+                                                ipoi + 3, " (expected ", phi_size, " data lines)"
+                error stop trim(errmsg)
+            end if
+            phi_tor(ipoi) = phi
+            q_prof(ipoi) = q
+            nlines = nlines + 1
+        end do
+
+        close (iunit)
+
+        ! Verify we read the expected number of lines
+        if (nlines /= phi_size) then
+            write (errmsg, '(A,I0,A,I0)') &
+                "read_toroidal_flux: read ", nlines, " lines, expected ", phi_size
+            error stop trim(errmsg)
+        end if
+
+    end subroutine read_equil_file
+
+    subroutine calculate_s_tor(s, phi)
+        real(dp), dimension(:), intent(out) :: s
+        real(dp), dimension(:), intent(in) :: phi
+
+        real(dp) :: phi_min, phi_max
+
+        phi_min = phi(1)
+        phi_max = phi(size(phi))
+        s = (phi - phi_min) / (phi_max - phi_min)
+    end subroutine calculate_s_tor
 
 end module neort_interface

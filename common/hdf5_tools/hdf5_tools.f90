@@ -158,7 +158,7 @@ contains
        fileformat_version = opt_fileformat_version
     end if
 
-    !write (*,*) "Creating HDF5 file: ", trim(filename)
+    write (*,*) "Creating HDF5 file: ", trim(filename)
     call h5fcreate_f(filename, H5F_ACC_TRUNC_F, h5id, h5error)
     call h5_add(h5id, 'version', fileformat_version)
     call h5_check()

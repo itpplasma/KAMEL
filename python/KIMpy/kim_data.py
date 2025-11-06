@@ -19,6 +19,8 @@ class KIMData:
             {
                 'r': None,
                 'Phi_m': None,
+                'Phi_m_e': None,
+                'Phi_m_i': None,
                 'B0': None
             }
 
@@ -35,6 +37,20 @@ class KIMData:
         try:
             phi = np.loadtxt(path)
             self.set_profile(phi[:, 0], phi[:, 1] + 1j * phi[:, 2], 'Phi_m')
+        except FileNotFoundError:
+            print('Phi_m file not found in: ' + path)
+
+        path = os.path.join(self.data_path, self.mode_string, 'fields', 'Phi_m_e.dat')
+        try:
+            phi = np.loadtxt(path)
+            self.set_profile(phi[:, 0], phi[:, 1] + 1j * phi[:, 2], 'Phi_m_e')
+        except FileNotFoundError:
+            print('Phi_m file not found in: ' + path)
+
+        path = os.path.join(self.data_path, self.mode_string, 'fields', 'Phi_m_i.dat')
+        try:
+            phi = np.loadtxt(path)
+            self.set_profile(phi[:, 0], phi[:, 1] + 1j * phi[:, 2], 'Phi_m_i')
         except FileNotFoundError:
             print('Phi_m file not found in: ' + path)
 

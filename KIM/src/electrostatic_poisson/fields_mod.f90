@@ -396,7 +396,7 @@ module fields_m
             'Field from potential perturbation', 'statV/cm')
         call write_complex_profile_abs(xl_grid%xb, EBdat%E_perp_MA, xl_grid%npts_b, "/fields/E_perp_MA", &
             'Total perpendicular misalignment electric field', 'statV/cm')
-        call write_complex_profile_abs(xl_grid%xb, EBdat%Phi_MA, xl_grid%npts_b, "/fields/phi_MA", &
+        call write_complex_profile_abs(xl_grid%xb, EBdat%Phi_MA, xl_grid%npts_b, "/fields/Phi_MA", &
             'Misalignment electrostatic potential from total perpendicular misalignment electric field', 'statV')
 
         call calculate_E_from_phi(EBdat)
@@ -409,7 +409,7 @@ module fields_m
         call write_complex_profile_abs(EBdat%r_grid, EBdat%Ez, size(EBdat%r_grid), "/fields/Ez", &
             'Axial electric field perturbation in cylindrical coordinates', 'statV/cm')
 
-        call write_complex_profile_abs(EBdat%r_grid, EBdat%Es, size(EBdat%r_grid), "/fields/Es.dat", &
+        call write_complex_profile_abs(EBdat%r_grid, EBdat%Es, size(EBdat%r_grid), "/fields/Es", &
             'Electric field component perpendicular to radial and parallel direction in rsp coordinates', 'statV/cm')
         call write_complex_profile_abs(EBdat%r_grid, EBdat%Ep, size(EBdat%r_grid), "/fields/Ep", &
             'Electric field component parallel to equilibrium magnetic field in rsp coordinates', 'statV/cm')

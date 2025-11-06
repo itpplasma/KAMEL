@@ -40,7 +40,7 @@ module rt_flr2_benchmark_m
 
     subroutine run_flr2_benchmark(this)
 
-        use kernel_m, only: FP_fill_kernels_flr2_benchmark, kernel_spl_t
+        use kernel_m, only: FP_fill_kernels_flr2_benchmark, kernel_spl_t, write_kernels
         use grid_m, only: xl_grid
         use IO_collection_m, only: write_matrix, write_complex_profile, write_complex_profile_abs
         use poisson_solver_m, only: solve_poisson
@@ -66,6 +66,7 @@ module rt_flr2_benchmark_m
         character(10) :: time
         character(5)  :: zone
         integer,dimension(8) :: values
+        integer :: sp
 
         call date_and_time(date,time,zone,values)
 
@@ -84,22 +85,38 @@ module rt_flr2_benchmark_m
             stop "FLR2 benchmark: both electrons and ions cannot be disabled simultaneously."
         end if
 
-        call FP_fill_kernels_flr2_benchmark(kernel_rho_phi_llp, kernel_rho_B_llp, kernel_j_phi_llp, kernel_j_B_llp, &
-                                            .not. turn_off_electrons, .not. turn_off_ions)
+        call FP_fill_kernels_flr2_benchmark(kernel_rho_phi_llp, &
+                                            kernel_rho_B_llp, &
+                                            kernel_j_phi_llp, &
+                                            kernel_j_B_llp)
 
-        call write_matrix("kernel/K_rho_phi", real(kernel_rho_phi_llp%Kllp), xl_grid%npts_b, xl_grid%npts_b, &
-            'Complex FLR2 benchmark kernel K_rho_phi', '1/cm^2')
-        ! call write_matrix("kernel/K_rho_phi_im", dimag(kernel_rho_phi_llp%Kllp), xl_grid%npts_b, xl_grid%npts_b)
-        call write_matrix("kernel/K_rho_B", real(kernel_rho_B_llp%Kllp), xl_grid%npts_b, xl_grid%npts_b, &
-            'Complex FLR2 benchmark kernel K_rho_B', '1/cm^2')
-        ! call write_matrix("kernel/K_rho_B_im", dimag(kernel_rho_B_llp%Kllp), xl_grid%npts_b, xl_grid%npts_b)
+        call write_kernels(kernel_rho_phi_llp, kernel_rho_B_llp, kernel_j_phi_llp, kernel_j_B_llp)
 
         allocate(EBdat%Phi(xl_grid%npts_b), EBdat%Br(xl_grid%npts_b), EBdat%E_perp_psi(xl_grid%npts_b), &
                 EBdat%r_grid(xl_grid%npts_b), EBdat%E_perp(xl_grid%npts_b),&
                 rho(xl_grid%npts_b), jpar(xl_grid%npts_b))
 
         EBdat%r_grid = xl_grid%xb
+
+        if (.not.turn_off_electrons) then
+            call solve_poisson(kernel_rho_phi_llp%Kllp_e, kernel_rho_B_llp%Kllp_e, EBdat%Phi)
+            call write_complex_profile_abs(xl_grid%xb, EBdat%Phi, xl_grid%npts_b, "/fields/Phi_m_e", &
+                'Electrostatic potential perturbation Phi, solution of Poisson problem, only electrons', 'statV')
+        end if
+
         
+        do sp = 1, plasma%n_species - 1
+            if (.not. turn_off_ions) then
+                call solve_poisson(kernel_rho_phi_llp%Kllp_i(:,:,sp), kernel_rho_B_llp%Kllp_i(:,:,sp), EBdat%Phi)
+                call write_complex_profile_abs(xl_grid%xb, EBdat%Phi, xl_grid%npts_b, "/fields/Phi_m_"//trim(plasma%spec(sp)%name), &
+                    'Electrostatic potential perturbation Phi, solution of Poisson problem for species '//trim(plasma%spec(sp)%name), 'statV')
+            else 
+                EBdat%Phi = (0.0d0, 0.0d0)
+                call write_complex_profile_abs(xl_grid%xb, EBdat%Phi, xl_grid%npts_b, "/fields/Phi_m_"//trim(plasma%spec(sp)%name), &
+                    'Electrostatic potential perturbation Phi, solution of Poisson problem for species '//trim(plasma%spec(sp)%name), 'statV')
+            end if
+        end do
+
         call solve_poisson(kernel_rho_phi_llp%Kllp, kernel_rho_B_llp%Kllp, EBdat%Phi)
         call write_complex_profile_abs(xl_grid%xb, EBdat%Phi, xl_grid%npts_b, "/fields/Phi_m", &
             'Electrostatic potential perturbation Phi, solution of Poisson problem', 'statV')

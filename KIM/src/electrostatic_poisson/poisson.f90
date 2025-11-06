@@ -113,8 +113,12 @@ module rt_electrostatic_m
             use grid_m, only: theta_integration
             use species_m, only: plasma
             use flr2_asymptotics_m, only: calc_flr2_asymptotic_Phi_MA, calc_hatK_Phi_in_Fourier
+            use kernel_m, only: write_kernels
+            use config_m, only: turn_off_electrons, turn_off_ions
 
             implicit none
+
+            integer :: sp
 
             select case (trim(theta_integration))
             case ("GaussLegendre")
@@ -127,12 +131,7 @@ module rt_electrostatic_m
                 stop "Error: theta integration method not recognized."
             end select
 
-            call write_matrix("kernel/K_rho_phi", real(kernel_rho_phi_llp%Kllp), xl_grid%npts_b, xl_grid%npts_b, &
-                'Complex FLR2 benchmark kernel K_rho_phi', '1/cm^2')
-            ! call write_matrix("kernel/K_rho_phi_im.dat", dimag(kernel_rho_phi_llp%Kllp), xl_grid%npts_b, xl_grid%npts_b)
-            call write_matrix("kernel/K_rho_B.dat", real(kernel_rho_B_llp%Kllp), xl_grid%npts_b, xl_grid%npts_b, &
-                'Complex FLR2 benchmark kernel K_rho_B', '1/cm^2')
-            ! call write_matrix("kernel/K_rho_B_im.dat", dimag(kernel_rho_B_llp%Kllp), xl_grid%npts_b, xl_grid%npts_b)
+            call write_kernels(kernel_rho_phi_llp, kernel_rho_B_llp, kernel_j_phi_llp, kernel_j_B_llp)
 
             allocate(EBdat%Phi(xl_grid%npts_b), EBdat%Br(xl_grid%npts_b), EBdat%E_perp_psi(xl_grid%npts_b), &
                     EBdat%r_grid(xl_grid%npts_b), EBdat%E_perp(xl_grid%npts_b),&
@@ -141,8 +140,22 @@ module rt_electrostatic_m
             EBdat%r_grid = xl_grid%xb
             
             call solve_poisson(kernel_rho_phi_llp%Kllp, kernel_rho_B_llp%Kllp, EBdat%Phi)
-            call write_complex_profile_abs(xl_grid%xb, EBdat%Phi, xl_grid%npts_b, "/fields/Phi", &
+            call write_complex_profile_abs(xl_grid%xb, EBdat%Phi, xl_grid%npts_b, "/fields/Phi_m", &
                 'Electrostatic potential perturbation Phi, solution of Poisson problem', 'statV')
+
+            if (.not.turn_off_electrons) then
+                call solve_poisson(kernel_rho_phi_llp%Kllp_e, kernel_rho_B_llp%Kllp_e, EBdat%Phi)
+                call write_complex_profile_abs(xl_grid%xb, EBdat%Phi, xl_grid%npts_b, "/fields/Phi_m_e", &
+                    'Electrostatic potential perturbation Phi, solution of Poisson problem, only electrons', 'statV')
+            end if
+
+            if (.not. turn_off_ions) then
+                do sp = 1, plasma%n_species - 1
+                    call solve_poisson(kernel_rho_phi_llp%Kllp_i(:,:,sp), kernel_rho_B_llp%Kllp_i(:,:,sp), EBdat%Phi)
+                    call write_complex_profile_abs(xl_grid%xb, EBdat%Phi, xl_grid%npts_b, "/fields/Phi_m_"//trim(plasma%spec(sp)%name), &
+                        'Electrostatic potential perturbation Phi, solution of Poisson problem for species '//trim(plasma%spec(sp)%name), 'statV')
+                end do
+            end if
 
             call postprocess_electric_field(EBdat)
 

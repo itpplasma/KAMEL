@@ -28,13 +28,13 @@ module IO_collection_m
         inquire(file=trim(output_path)//trim(h5_out_file), exist=ex)
         if (ex) then
             call system('rm '//trim(output_path)//trim(h5_out_file))
-            call h5_create(trim(output_path)//trim(h5_out_file), h5id)
+            
         end if
-        
+
         h5overwrite = .true.
         CALL h5_init()
         CALL h5_open_rw(trim(output_path)//trim(h5_out_file), h5id)
-
+        
     end subroutine initialize_hdf5_output
 
     subroutine deinitialize_hdf5_output()
@@ -68,30 +68,33 @@ module IO_collection_m
         logical :: ex
         integer(HID_T) :: h5grpid
 
+        print *, "here ?"
         call h5_obj_exists(h5id, 'config/', ex)
         if (.not. ex) then
             call h5_define_group(h5id, 'config/', h5grpid)
         end if
 
-        call h5_add(h5grpid, 'config/number_of_ion_species', number_of_ion_species, &
+        print *, "here 2?"
+
+        call h5_add(h5grpid, 'number_of_ion_species', number_of_ion_species, &
             'Number of ion species in the simulation', '1')
-        call h5_add(h5grpid, 'config/artificial_debye_case', artificial_debye_case, &
+        call h5_add(h5grpid, 'artificial_debye_case', artificial_debye_case, &
             'Switch for Debye case only. Deactivates everything else. Was used for benchmarking.', '1')
-        call h5_add(h5grpid, 'config/type_of_run', trim(type_of_run), &
+        call h5_add(h5grpid, 'type_of_run', trim(type_of_run), &
             'Type of run: electrostatic, FLR2_benchmark, etc.', 'str')
-        call h5_add(h5grpid, 'config/collision_model', trim(collision_model), &
+        call h5_add(h5grpid, 'collision_model', trim(collision_model), &
             'Type of collision model used in the simulation.', 'str')
-        call h5_add(h5grpid, 'config/read_species_from_namelist', read_species_from_namelist, &
+        call h5_add(h5grpid, 'read_species_from_namelist', read_species_from_namelist, &
             'Logical switch to read species from namelist or use default deuterium plasma.', 'true/false')
-        call h5_add(h5grpid, 'config/turn_off_ions', turn_off_ions, &
+        call h5_add(h5grpid, 'turn_off_ions', turn_off_ions, &
             'If true, only the first species (electrons) is considered in calculations.', 'true/false')
-        call h5_add(h5grpid, 'config/turn_off_electrons', turn_off_electrons, &
+        call h5_add(h5grpid, 'turn_off_electrons', turn_off_electrons, &
             'If true, ions only simulation.', 'true/false')
-        call h5_add(h5grpid, 'config/plasma_type', trim(plasma_type), &
+        call h5_add(h5grpid, 'plasma_type', trim(plasma_type), &
             'Type of plasma: H for hydrogen, D for deuterium.', 'str')
-        call h5_add(h5grpid, 'config/rescale_density', rescale_density, &
+        call h5_add(h5grpid, 'rescale_density', rescale_density, &
             'Logical switch to rescale density.', 'true/false')
-        call h5_add(h5grpid, 'config/number_density_rescale', number_density_rescale, &
+        call h5_add(h5grpid, 'number_density_rescale', number_density_rescale, &
             'Factor by which to rescale number density.', 'float')
 
         call h5_close(h5grpid)
@@ -114,23 +117,23 @@ module IO_collection_m
             call h5_define_group(h5id, 'io/', h5grpid)
         end if
 
-        call h5_add(h5grpid, 'io/profile_location', trim(profile_location), &
+        call h5_add(h5grpid, 'profile_location', trim(profile_location), &
             'Location of profile data.', 'str')
-        call h5_add(h5grpid, 'io/hdf5_input', hdf5_input, &
+        call h5_add(h5grpid, 'hdf5_input', hdf5_input, &
             'Logical switch for HDF5 input.', 'true/false')
-        call h5_add(h5grpid, 'io/hdf5_output', hdf5_output, &
+        call h5_add(h5grpid, 'hdf5_output', hdf5_output, &
             'Logical switch for HDF5 output.', 'true/false')
-        call h5_add(h5grpid, 'io/fdebug', fdebug, &
+        call h5_add(h5grpid, 'fdebug', fdebug, &
             'Logical switch for debug output.', 'true/false')
-        call h5_add(h5grpid, 'io/fstatus', fstatus, &
+        call h5_add(h5grpid, 'fstatus', fstatus, &
             'Logical switch for status output.', 'true/false')
-        call h5_add(h5grpid, 'io/output_path', trim(output_path), &
+        call h5_add(h5grpid, 'output_path', trim(output_path), &
             'Path for output files.', 'str')
-        call h5_add(h5grpid, 'io/calculate_asymptotics', calculate_asymptotics, &
+        call h5_add(h5grpid, 'calculate_asymptotics', calculate_asymptotics, &
             'Logical switch to calculate asymptotics.', 'true/false')
-        call h5_add(h5grpid, 'io/fdiagnostics', fdiagnostics, &
+        call h5_add(h5grpid, 'fdiagnostics', fdiagnostics, &
             'Diagnostics output level.', 'integer')
-        call h5_add(h5grpid, 'io/h5_out_file', trim(h5_out_file), &
+        call h5_add(h5grpid, 'h5_out_file', trim(h5_out_file), &
             'Name of the HDF5 output file.', 'str')
 
         call h5_close(h5grpid)
@@ -152,25 +155,25 @@ module IO_collection_m
             call h5_define_group(h5id, 'setup/', h5grpid)
         end if
 
-        call h5_add(h5grpid, 'setup/btor', btor, &
+        call h5_add(h5grpid, 'btor', btor, &
             'Toroidal magnetic field at major radius R0.', 'float')
-        call h5_add(h5grpid, 'setup/R0', R0, &
+        call h5_add(h5grpid, 'R0', R0, &
             'Major radius of the magnetic axis.', 'float')
-        call h5_add(h5grpid, 'setup/m_mode', m_mode, &
+        call h5_add(h5grpid, 'm_mode', m_mode, &
             'Poloidal mode number.', 'integer')
-        call h5_add(h5grpid, 'setup/n_mode', n_mode, &
+        call h5_add(h5grpid, 'n_mode', n_mode, &
             'Toroidal mode number.', 'integer')
-        call h5_add(h5grpid, 'setup/omega', omega, &
+        call h5_add(h5grpid, 'omega', omega, &
             'Angular frequency of the perturbation mode.', 'float')
-        call h5_add(h5grpid, 'setup/spline_base', spline_base, &
+        call h5_add(h5grpid, 'spline_base', spline_base, &
             'Base for FEM basis functions.', 'integer')
-        call h5_add(h5grpid, 'setup/type_br_field', type_br_field, &
+        call h5_add(h5grpid, 'type_br_field', type_br_field, &
             'Integer type of delta Br.', '1')
-        call h5_add(h5grpid, 'setup/collisions_off', collisions_off, &
+        call h5_add(h5grpid, 'collisions_off', collisions_off, &
             'Logical switch to turn off collisions.', 'true/false')
-        call h5_add(h5grpid, 'setup/set_profiles_constant', set_profiles_constant, &
+        call h5_add(h5grpid, 'set_profiles_constant', set_profiles_constant, &
             'Integer switch for setting (some) profiles constant.', '1')
-        call h5_add(h5grpid, 'setup/bc_type', bc_type, &
+        call h5_add(h5grpid, 'bc_type', bc_type, &
             'Integer type of boundary condition.', '1')
 
         call h5_close(h5grpid)
@@ -192,53 +195,53 @@ module IO_collection_m
             call h5_define_group(h5id, 'grid/', h5grpid)
         end if
 
-        call h5_add(h5grpid, 'grid/grid_spacing_rg', trim(grid_spacing_rg), &
+        call h5_add(h5grpid, 'grid_spacing_rg', trim(grid_spacing_rg), &
             'Grid spacing mode for rg grid.', 'str')
-        call h5_add(h5grpid, 'grid/grid_spacing_xl', trim(grid_spacing_xl), &
+        call h5_add(h5grpid, 'grid_spacing_xl', trim(grid_spacing_xl), &
             'Grid spacing mode for xl grid.', 'str')
-        call h5_add(h5grpid, 'grid/l_space_dim', l_space_dim, &
+        call h5_add(h5grpid, 'l_space_dim', l_space_dim, &
             'Dimension of spline grid.', 'integer')
-        call h5_add(h5grpid, 'grid/rg_space_dim', rg_space_dim, &
+        call h5_add(h5grpid, 'rg_space_dim', rg_space_dim, &
             'Dimension of rg grid.', 'integer')
-        call h5_add(h5grpid, 'grid/theta_integration', trim(theta_integration), &
+        call h5_add(h5grpid, 'theta_integration', trim(theta_integration), &
             'Theta integration method.', 'str')
-        call h5_add(h5grpid, 'grid/theta_integration_method', trim(theta_integration_method), &
+        call h5_add(h5grpid, 'theta_integration_method', trim(theta_integration_method), &
             'Theta integration method details.', 'str')
-        call h5_add(h5grpid, 'grid/Larmor_skip_factor', Larmor_skip_factor, &
+        call h5_add(h5grpid, 'Larmor_skip_factor', Larmor_skip_factor, &
             'Larmor skip factor.', 'float')
-        call h5_add(h5grpid, 'grid/gauss_int_nodes_Ntheta', gauss_int_nodes_Ntheta, &
+        call h5_add(h5grpid, 'gauss_int_nodes_Ntheta', gauss_int_nodes_Ntheta, &
             'Number of Gauss integration nodes in theta.', 'integer')
-        call h5_add(h5grpid, 'grid/gauss_int_nodes_Nx', gauss_int_nodes_Nx, &
+        call h5_add(h5grpid, 'gauss_int_nodes_Nx', gauss_int_nodes_Nx, &
             'Number of Gauss integration nodes in x.', 'integer')
-        call h5_add(h5grpid, 'grid/gauss_int_nodes_Nxp', gauss_int_nodes_Nxp, &
+        call h5_add(h5grpid, 'gauss_int_nodes_Nxp', gauss_int_nodes_Nxp, &
             'Number of Gauss integration nodes in x prime.', 'integer')
-        call h5_add(h5grpid, 'grid/r_plas', r_plas, &
+        call h5_add(h5grpid, 'r_plas', r_plas, &
             'Plasma radius.', 'float')
-        call h5_add(h5grpid, 'grid/r_min', r_min, &
+        call h5_add(h5grpid, 'r_min', r_min, &
             'Minimum radius.', 'float')
-        call h5_add(h5grpid, 'grid/width_res', width_res, &
+        call h5_add(h5grpid, 'width_res', width_res, &
             'Width of resolution region.', 'float')
-        call h5_add(h5grpid, 'grid/ampl_res', ampl_res, &
+        call h5_add(h5grpid, 'ampl_res', ampl_res, &
             'Amplitude of resolution region.', 'float')
-        call h5_add(h5grpid, 'grid/hrmax_scaling', hrmax_scaling, &
+        call h5_add(h5grpid, 'hrmax_scaling', hrmax_scaling, &
             'Scaling factor for maximum grid spacing.', 'float')
-        call h5_add(h5grpid, 'grid/rkf45_atol', rkf45_atol, &
+        call h5_add(h5grpid, 'rkf45_atol', rkf45_atol, &
             'Absolute tolerance for RKF45 integration.', 'float')
-        call h5_add(h5grpid, 'grid/rkf45_rtol', rkf45_rtol, &
+        call h5_add(h5grpid, 'rkf45_rtol', rkf45_rtol, &
             'Relative tolerance for RKF45 integration.', 'float')
-        call h5_add(h5grpid, 'grid/kernel_taper_skip_threshold', kernel_taper_skip_threshold, &
+        call h5_add(h5grpid, 'kernel_taper_skip_threshold', kernel_taper_skip_threshold, &
             'Threshold for kernel tapering skip.', 'float')
-        call h5_add(h5grpid, 'grid/quadpack_algorithm', quadpack_algorithm, &
+        call h5_add(h5grpid, 'quadpack_algorithm', quadpack_algorithm, &
             'Algorithm used in Quadpack integration.', 'integer')
-        call h5_add(h5grpid, 'grid/quadpack_key', quadpack_key, &
+        call h5_add(h5grpid, 'quadpack_key', quadpack_key, &
             'Key for Quadpack integration.', 'integer')
-        call h5_add(h5grpid, 'grid/quadpack_limit', quadpack_limit, &
+        call h5_add(h5grpid, 'quadpack_limit', quadpack_limit, &
             'Limit for Quadpack integration.', 'integer')
-        call h5_add(h5grpid, 'grid/quadpack_epsabs', quadpack_epsabs, &
+        call h5_add(h5grpid, 'quadpack_epsabs', quadpack_epsabs, &
             'Absolute error tolerance for Quadpack integration.', 'float')
-        call h5_add(h5grpid, 'grid/quadpack_epsrel', quadpack_epsrel, &
+        call h5_add(h5grpid, 'quadpack_epsrel', quadpack_epsrel, &
             'Relative error tolerance for Quadpack integration.', 'float')
-        call h5_add(h5grpid, 'grid/quadpack_use_u_substitution', quadpack_use_u_substitution, &
+        call h5_add(h5grpid, 'quadpack_use_u_substitution', quadpack_use_u_substitution, &
             'Logical switch for using u substitution in Quadpack integration.', 'true/false')
 
         call h5_close(h5grpid)

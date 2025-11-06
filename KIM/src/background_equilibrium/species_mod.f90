@@ -532,7 +532,7 @@ module species_m
     subroutine write_plasma_backs(plasma, r_grid)
 
         use IO_collection_m, only: write_profile
-        use config_m, only: output_path
+        use config_m, only: output_path, hdf5_output
 
         implicit none
 
@@ -540,22 +540,24 @@ module species_m
         real(dp), intent(in) :: r_grid(:)
         logical :: ex
 
-        inquire(file=trim(output_path)//'profiles', exist=ex)
-        if (.not. ex) then
-            call system('mkdir -p '//trim(output_path)//'backs/')
+        if (.not. hdf5_output) then
+            inquire(file=trim(output_path)//'profiles', exist=ex)
+            if (.not. ex) then
+                call system('mkdir -p '//trim(output_path)//'backs/')
+            end if
         end if
 
-        call write_profile(r_grid, plasma%ks, size(r_grid), 'backs/'//'ks', &
+        call write_profile(r_grid, plasma%ks, size(r_grid), 'backs/ks', &
             'Perpendicular ("senkrecht") wave number', '1/cm')
-        call write_profile(r_grid, plasma%kp, size(r_grid), 'backs/'//'kp', &
+        call write_profile(r_grid, plasma%kp, size(r_grid), 'backs/kp', &
             'Parallel wave number', '1/cm')
-        call write_profile(r_grid, plasma%om_E, size(r_grid), 'backs/'//'om_E', &
+        call write_profile(r_grid, plasma%om_E, size(r_grid), 'backs/om_E', &
             'E x B drift frequency', 'rad/s')
-        call write_profile(r_grid, plasma%q, size(r_grid), 'backs/'//'q', &
+        call write_profile(r_grid, plasma%q, size(r_grid), 'backs/q', &
             'Safety factor', '1')
-        call write_profile(r_grid, plasma%dqdr, size(r_grid), 'backs/'//'dqdr', &
+        call write_profile(r_grid, plasma%dqdr, size(r_grid), 'backs/dqdr', &
             'Radial derivative of safety factor', '1/cm')
-        call write_profile(r_grid, plasma%Er, size(r_grid), 'backs/'//'E0r', &
+        call write_profile(r_grid, plasma%Er, size(r_grid), 'backs/E0r', &
             'Equilibrium radial electric field', 'statV/cm')
 
     end subroutine
@@ -577,7 +579,7 @@ module species_m
         if (hdf5_output) then
             call h5_obj_exists(h5id, 'backs/'//trim(spec%name), ex)
             if (.not. ex) then
-                call h5_define_group(h5id, 'fields/'//trim(spec%name), h5grpid)
+                call h5_define_group(h5id, 'backs/'//trim(spec%name), h5grpid)
             end if
 
             call write_profile(r_grid, r_grid, size(r_grid), 'backs/'//trim(spec%name)//'/r', &

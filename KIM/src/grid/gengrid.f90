@@ -37,9 +37,8 @@ subroutine generate_grids
     if (fdebug == 1) then
         write(*,*) " Generated Grid number of points:"
         write(*,*) ' Nrg = ', rg_grid%npts_b, ", Nl = ", xl_grid%npts_b
-        write(*,*) " rg grid h = ", rg_grid%xb(2) - rg_grid%xb(1)
-        write(*,*) " xl grid h = ", xl_grid%xb(2) - xl_grid%xb(1)
-        write(*,*) " xl / rg grid h ratio = ", (xl_grid%xb(2) - xl_grid%xb(1)) / (rg_grid%xb(2) - rg_grid%xb(1))
+        write(*,*) " rg grid h = ", minval(rg_grid%xb(2:rg_grid%npts_b) - rg_grid%xb(1:rg_grid%npts_b-1))
+        write(*,*) " xl grid h = ", minval(xl_grid%xb(2:xl_grid%npts_b) - xl_grid%xb(1:xl_grid%npts_b-1))
         write(*,*) ''
     end if
 

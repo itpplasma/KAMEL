@@ -470,7 +470,7 @@ module fields_m
 
     end subroutine
 
-    subroutine calculate_current_density(jpar, EBdat_in, kernel_j_phi_llp, kernel_j_B_llp)
+    subroutine calculate_current_density(jpar, EBdat_in, K_j_phi, K_j_B)
 
         use KIM_kinds_m, only: dp
         use kernel_m, only: kernel_spl_t
@@ -478,10 +478,10 @@ module fields_m
 
         complex(dp), allocatable, intent(out) :: jpar(:)
         type(EBdat_t), intent(in) :: EBdat_in
-        type(kernel_spl_t), intent(in) :: kernel_j_phi_llp
-        type(kernel_spl_t), intent(in) :: kernel_j_B_llp
+        complex(dp), intent(in) :: K_j_phi(:,:)
+        complex(dp), intent(in) :: K_j_B(:,:)
 
-        jpar = matmul(kernel_j_phi_llp%Kllp, EBdat_in%Phi) + matmul(kernel_j_B_llp%Kllp, EBdat_in%Br)
+        jpar = matmul(K_j_phi, EBdat_in%Phi) + matmul(K_j_B, EBdat_in%Br)
 
     end subroutine
 

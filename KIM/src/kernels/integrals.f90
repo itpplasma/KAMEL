@@ -82,61 +82,6 @@ module integrals_gauss_m
         norm_factor = pi * (int_F1%int_point%xlp1 - int_F1%int_point%xlm1) & ! normalization due to integral range shift
                         * (int_F1%int_point%xlpp1 - int_F1%int_point%xlpm1) / 8.0d0
         
-        ! Write integration nodes to file (only on first call). Guard for parallel calls.
-        do_write = .false.
-        !$omp critical(F1_integration_first_call)
-        if (first_call) then
-            first_call = .false.
-            do_write = .true.
-        end if
-        !$omp end critical(F1_integration_first_call)
-
-        if (do_write) then
-            open(newunit=iunit, file=trim(output_path)//'grid/F1_integration_nodes.txt', status='replace', action='write')
-            write(iunit, '(A)') '# F1 Integration Nodes - First call information'
-            write(iunit, '(A,I4)') '# Number of theta nodes: ', gauss_conf%Ntheta
-            write(iunit, '(A,I4)') '# Number of x nodes: ', gauss_conf%Nx
-            write(iunit, '(A,I4)') '# Number of xp nodes: ', gauss_conf%Nxp
-            write(iunit, '(A)') '# j index, xl boundaries: xlm1, xl, xlp1, xlpm1, xlp, xlpp1, rhoT'
-            write(iunit, '(I4, 7F12.6)') int_F1%int_point%j, int_F1%int_point%xlm1, int_F1%int_point%xl, &
-                                        int_F1%int_point%xlp1, int_F1%int_point%xlpm1, int_F1%int_point%xlp, &
-                                        int_F1%int_point%xlpp1, int_F1%int_point%rhoT
-            write(iunit, '(A)') '#'
-            write(iunit, '(A)') '# Theta nodes (Gauss-Legendre on [-1,1] and mapped values):'
-            write(iunit, '(A)') '# i, GL_node, theta_mapped, weight'
-            do i = 1, gauss_conf%Ntheta
-                theta_mapped = 0.5d0 * pi * (gauss_conf%x_theta(i) + 1.0d0)
-                write(iunit, '(I4, 3F16.10)') i, gauss_conf%x_theta(i), theta_mapped, gauss_conf%w_theta(i)
-            end do
-            write(iunit, '(A)') '#'
-            write(iunit, '(A)') '# X nodes (Gauss-Legendre on [-1,1] and mapped values for first iteration):'
-            write(iunit, '(A)') '# k, GL_node, x_mapped, weight'
-            do k = 1, gauss_conf%Nx
-                x_mapped = 0.5d0 * ((int_F1%int_point%xlp1 - int_F1%int_point%xlm1) * gauss_conf%x_x(k) + &
-                    int_F1%int_point%xlp1 + int_F1%int_point%xlm1)
-                write(iunit, '(I4, 3F16.10)') k, gauss_conf%x_x(k), x_mapped, gauss_conf%w_x(k)
-            end do
-            write(iunit, '(A)') '#'
-            write(iunit, '(A)') '# Xp nodes (Gauss-Legendre on [-1,1] and mapped values for first iteration):'
-            write(iunit, '(A)') '# j, GL_node, xp_mapped, weight'
-            do j = 1, gauss_conf%Nxp
-                xp_mapped = 0.5d0 * ((int_F1%int_point%xlpp1 - int_F1%int_point%xlpm1) * gauss_conf%x_xp(j) + &
-                    int_F1%int_point%xlpp1 + int_F1%int_point%xlpm1)
-                write(iunit, '(I4, 3F16.10)') j, gauss_conf%x_xp(j), xp_mapped, gauss_conf%w_xp(j)
-            end do
-            write(iunit, '(A)') '#'
-            write(iunit, '(A)') '# Integration domain information:'
-            write(iunit, '(A,2F12.6)') '# x range: ', int_F1%int_point%xlm1, int_F1%int_point%xlp1
-            write(iunit, '(A,2F12.6)') '# xp range: ', int_F1%int_point%xlpm1, int_F1%int_point%xlpp1
-            write(iunit, '(A,F12.6)') '# Norm factor: ', norm_factor
-            close(iunit)
-            
-            ! Also create a sampling file header
-            open(newunit=iunit2, file=trim(output_path)//'grid/F1_integration_sampling.txt', status='replace', action='write')
-            write(iunit2, '(A)') '# F1 Integration sampling points for first call'
-            write(iunit2, '(A)') '# i_theta, j_xp, k_x, theta, xp, x, integrand_value'
-            close(iunit2)
-        end if
         
         do i=1,gauss_conf%Ntheta ! theta
             theta_mapped = 0.5d0 * pi * (gauss_conf%x_theta(i) + 1.0d0)

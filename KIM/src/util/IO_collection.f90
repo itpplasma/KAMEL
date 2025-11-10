@@ -60,7 +60,7 @@ module IO_collection_m
 
     subroutine write_config_namelist_to_hdf5()
 
-        use KAMEL_hdf5_tools, only: HID_T, h5_define_group, h5_obj_exists, h5_add, h5_close
+        use KAMEL_hdf5_tools, only: HID_T, h5_define_group, h5_obj_exists, h5_add, h5_close_group
         use config_m
 
         implicit none
@@ -68,13 +68,10 @@ module IO_collection_m
         logical :: ex
         integer(HID_T) :: h5grpid
 
-        print *, "here ?"
         call h5_obj_exists(h5id, 'config/', ex)
         if (.not. ex) then
             call h5_define_group(h5id, 'config/', h5grpid)
         end if
-
-        print *, "here 2?"
 
         call h5_add(h5grpid, 'number_of_ion_species', number_of_ion_species, &
             'Number of ion species in the simulation', '1')
@@ -97,14 +94,14 @@ module IO_collection_m
         call h5_add(h5grpid, 'number_density_rescale', number_density_rescale, &
             'Factor by which to rescale number density.', 'float')
 
-        call h5_close(h5grpid)
+        call h5_close_group(h5grpid)
 
     end subroutine write_config_namelist_to_hdf5
 
 
     subroutine write_io_namelist_to_hdf5()
 
-        use KAMEL_hdf5_tools, only: HID_T, h5_define_group, h5_obj_exists, h5_add, h5_close
+        use KAMEL_hdf5_tools, only: HID_T, h5_define_group, h5_obj_exists, h5_add, h5_close_group
         use config_m
 
         implicit none
@@ -136,13 +133,13 @@ module IO_collection_m
         call h5_add(h5grpid, 'h5_out_file', trim(h5_out_file), &
             'Name of the HDF5 output file.', 'str')
 
-        call h5_close(h5grpid)
+        call h5_close_group(h5grpid)
 
     end subroutine write_io_namelist_to_hdf5 
 
     subroutine write_setup_namelist_to_hdf5()
 
-        use KAMEL_hdf5_tools, only: HID_T, h5_define_group, h5_obj_exists, h5_add, h5_close
+        use KAMEL_hdf5_tools, only: HID_T, h5_define_group, h5_obj_exists, h5_add, h5_close_group
         use setup_m
 
         implicit none
@@ -176,13 +173,13 @@ module IO_collection_m
         call h5_add(h5grpid, 'bc_type', bc_type, &
             'Integer type of boundary condition.', '1')
 
-        call h5_close(h5grpid)
+        call h5_close_group(h5grpid)
 
     end subroutine write_setup_namelist_to_hdf5
 
     subroutine write_grid_namelist_to_hdf5()
 
-        use KAMEL_hdf5_tools, only: HID_T, h5_define_group, h5_obj_exists, h5_add, h5_close
+        use KAMEL_hdf5_tools, only: HID_T, h5_define_group, h5_obj_exists, h5_add, h5_close_group
         use grid_m
 
         implicit none
@@ -244,7 +241,7 @@ module IO_collection_m
         call h5_add(h5grpid, 'quadpack_use_u_substitution', quadpack_use_u_substitution, &
             'Logical switch for using u substitution in Quadpack integration.', 'true/false')
 
-        call h5_close(h5grpid)
+        call h5_close_group(h5grpid)
 
     end subroutine write_grid_namelist_to_hdf5
 
@@ -389,6 +386,7 @@ module IO_collection_m
 
         if (hdf5_output) then
             call write_complex_profile(x, y, n, filename, comment, unit)
+            return
         end if
 
         open(unit=10, file=trim(output_path)//filename//'.dat', status='replace', action='write')

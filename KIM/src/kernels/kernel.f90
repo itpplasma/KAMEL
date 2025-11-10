@@ -364,6 +364,10 @@ module kernel_m
         integer :: total_iterations, current_iteration
         integer(kind=8) :: start_count, count_rate, count_max
 
+        if (turn_off_electrons .and. turn_off_ions) then
+            error stop 'Cannot turn off both electrons and ions!'
+        end if
+
         gauss_conf%Nx = gauss_int_nodes_Nx
         gauss_conf%Nxp = gauss_int_nodes_Nxp
         gauss_conf%Ntheta = gauss_int_nodes_Ntheta
@@ -383,7 +387,8 @@ module kernel_m
                     rhoT_max = max(rhoT_max, maxval(plasma%spec(sigma)%rho_L_cc))
                 end if
             end do
-            dmax_global = alpha * rhoT_max * sqrt(max(log(1.0d0/tau), 0.0d0))
+            ! dmax_global = alpha * rhoT_max * sqrt(max(log(1.0d0/tau), 0.0d0))
+            dmax_global = tau * rhoT_max 
         end block
 
         ! Calculate actual number of iterations accounting for band-limiting
@@ -394,10 +399,12 @@ module kernel_m
         max_index_distance = 0
         min_index_distance = huge(1)
         
+        ! check how many lower triangle elements will be computed for the loading bar
+        ! (upper triangle elements are given by symmetry)
         do l = 1, K_rho_phi_llp%npts_l
             block
                 real(dp) :: xl_val, xlp_val, current_distance
-                integer :: lp_lo, lp_hi, current_idx_distance
+                integer :: lp_lo, current_idx_distance
                 xl_val = xl_grid%xb(l)
                 lp_lo = l
                 do
@@ -405,15 +412,13 @@ module kernel_m
                     if (abs(xl_grid%xb(lp_lo-1) - xl_val) > dmax_global) exit
                     lp_lo = lp_lo - 1
                 end do
-                lp_hi = l
-                do
-                    if (lp_hi >= K_rho_phi_llp%npts_l) exit
-                    if (abs(xl_grid%xb(lp_hi+1) - xl_val) > dmax_global) exit
-                    lp_hi = lp_hi + 1
-                end do
+
+                ! ensure that at least one off diagonal element is computed for each l
+                lp_lo = min(lp_lo, l - 1)
+                if (lp_lo < 1) lp_lo = 1
                 
                 ! Track diagnostics for each (l,lp) pair that will be processed
-                do lp = max(1,lp_lo), min(l,lp_hi)
+                do lp = max(1,lp_lo), l
                     xlp_val = xl_grid%xb(lp)
                     current_distance = abs(xl_val - xlp_val)
                     current_idx_distance = abs(l - lp)
@@ -440,11 +445,12 @@ module kernel_m
                     end if
                 end do
                 
-                total_iterations = total_iterations + (min(l,lp_hi) - max(1,lp_lo) + 1)
+                total_iterations = total_iterations + (l - max(1,lp_lo) + 1)
             end block
         end do
         current_iteration = 0
         if (fstatus >= 1) write(*,*) 'Total band-limited iterations: ', total_iterations
+        if (fstatus >= 1) write(*,*) 'dmax_global: ', dmax_global, ' cm'
         if (fstatus >= 2 .and. artificial_debye_case /= 1) then
             write(*,*) '======== Kernel Distance Diagnostics (Fokker-Planck) ========'
             write(*,'(A,F12.6)') ' Maximum |xl - xlp| distance: ', max_distance_xl_xlp
@@ -466,7 +472,7 @@ module kernel_m
         do l = 1, K_rho_phi_llp%npts_l
             block
                 real(dp) :: xl_val
-                integer :: lp_lo, lp_hi
+                integer :: lp_lo
                 xl_val = xl_grid%xb(l)
                 lp_lo = l
                 do
@@ -474,20 +480,12 @@ module kernel_m
                     if (abs(xl_grid%xb(lp_lo-1) - xl_val) > dmax_global) exit
                     lp_lo = lp_lo - 1
                 end do
-                lp_hi = l
-                do
-                    if (lp_hi >= K_rho_phi_llp%npts_l) exit
-                    if (abs(xl_grid%xb(lp_hi+1) - xl_val) > dmax_global) exit
-                    lp_hi = lp_hi + 1
-                end do
 
-                do lp = max(1,lp_lo), min(l,lp_hi)
+                ! ensure that at least one off diagonal element is computed for each l
+                lp_lo = min(lp_lo, l - 1)
+                if (lp_lo < 1) lp_lo = 1
 
-                    !call FP_calc_kernel_element(l, lp, K_rho_phi_llp%Kllp(l, lp),&
-                                                !K_rho_B_llp%Kllp(l, lp), &
-                                                !K_j_phi_llp%Kllp(l, lp), &
-                                                !K_j_B_llp%Kllp(l, lp), &
-                                                !gauss_conf)
+                do lp = max(1,lp_lo), l
 
                     if (.not. turn_off_electrons) then
                         call FP_calc_kernel_element_electrons(l, lp, K_rho_phi_llp%Kllp_e(l, lp),&
@@ -526,9 +524,6 @@ module kernel_m
                             K_j_B_llp%Kllp_i(lp, l, sp) = K_j_B_llp%Kllp_i(l, lp, sp)
 
                         end do
-                    end if
-                    if (turn_off_electrons .and. turn_off_ions) then
-                        error stop 'Cannot turn off both electrons and ions!'
                     end if
 
                     !$omp atomic
@@ -592,7 +587,7 @@ module kernel_m
         integer, intent(in) :: l, lp
         complex(dp), intent(inout) :: k_rho_phi, k_rho_B, k_j_phi, k_j_B
         integer :: j
-        real(dp) :: delta_rg
+        real(dp) :: delta_rg_local
 
         type(gauss_config_t), intent(in) :: gauss_conf
         type(integration_point_t) :: int_point
@@ -612,47 +607,48 @@ module kernel_m
 
         call set_xl_at_edge(l, lp, int_point)
 
-        delta_rg = rg_grid%xb(2) - rg_grid%xb(1)
-
-        ! simple trapezoidal rule over rg grid for Debye term and prefactor terms
-        j = 1
-        int_point%rhoT = plasma%spec(0)%rho_L_cc(j)
-
-        k_rho_phi = k_rho_phi + 0.5d0 * pref_rho_phi_g1(1, j) &
-            * varphi_l(rg_grid%xb(j), int_point%xlm1, int_point%xl, int_point%xlp1) &
-            * varphi_l(rg_grid%xb(j), int_point%xlpm1, int_point%xlp, int_point%xlpp1) 
-
-        k_rho_B = k_rho_B + 0.5d0 * pref_rho_B_g1(1,j) &
-            * varphi_l(rg_grid%xb(j), int_point%xlm1, int_point%xl, int_point%xlp1)&
-            * varphi_l(rg_grid%xb(j), int_point%xlpm1, int_point%xlp, int_point%xlpp1)
-
-        j = rg_grid%npts_c
-        int_point%rhoT = plasma%spec(0)%rho_L_cc(j)
-
-        k_rho_phi = k_rho_phi + 0.5d0 * pref_rho_phi_g1(1, j) &
-            * varphi_l(rg_grid%xc(j), int_point%xlm1, int_point%xl, int_point%xlp1) &
-            * varphi_l(rg_grid%xc(j), int_point%xlpm1, int_point%xlp, int_point%xlpp1) 
-
-        k_rho_B = k_rho_B + 0.5d0 * pref_rho_B_g1(1,j) &
-            * varphi_l(rg_grid%xc(j), int_point%xlm1, int_point%xl, int_point%xlp1)&
-            * varphi_l(rg_grid%xc(j), int_point%xlpm1, int_point%xlp, int_point%xlpp1)
-
-        do j = 2, rg_grid%npts_c-1
+        ! Composite trapezoidal rule for non-equidistant grids
+        ! All terms use the same grid structure: evaluate at cell centers but use boundary spacing
+        do j = 1, rg_grid%npts_c-1
 
             int_point%j = j
             int_point%rhoT = plasma%spec(0)%rho_L_cc(j)
 
-            k_rho_phi = k_rho_phi + pref_rho_phi_g1(1,j) &
-                        * varphi_l(rg_grid%xc(j), int_point%xlm1, int_point%xl, int_point%xlp1) &
-                        * varphi_l(rg_grid%xc(j), int_point%xlpm1, int_point%xlp, int_point%xlpp1) !&
-            k_rho_B = k_rho_B + pref_rho_B_g1(1,j) &
-                        * varphi_l(rg_grid%xc(j), int_point%xlm1, int_point%xl, int_point%xlp1)&
-                        * varphi_l(rg_grid%xc(j), int_point%xlpm1, int_point%xlp, int_point%xlpp1) !&
+            ! Compute local spacing between adjacent boundary points
+            ! This is the natural cell width for trapezoidal integration
+            if (j == 1) then
+                delta_rg_local = 0.5d0 * (rg_grid%xc(j+1) - rg_grid%xc(j))
+            else if (j == rg_grid%npts_c) then
+                delta_rg_local = 0.5d0 * (rg_grid%xc(j+1) - rg_grid%xc(j))
+            else
+                delta_rg_local = (rg_grid%xc(j+1) - rg_grid%xc(j))
+            end if
+
+            ! Charge density terms at cell centers
+            k_rho_phi = k_rho_phi + delta_rg_local * pref_rho_phi_g1(1, j) &
+                * varphi_l(rg_grid%xc(j), int_point%xlm1, int_point%xl, int_point%xlp1) &
+                * varphi_l(rg_grid%xc(j), int_point%xlpm1, int_point%xlp, int_point%xlpp1)
+
+            k_rho_B = k_rho_B + delta_rg_local * pref_rho_B_g1(1, j) &
+                * varphi_l(rg_grid%xc(j), int_point%xlm1, int_point%xl, int_point%xlp1) &
+                * varphi_l(rg_grid%xc(j), int_point%xlpm1, int_point%xlp, int_point%xlpp1)
+
+            ! Current density terms at boundary points
+            k_j_phi = k_j_phi + delta_rg_local * pref_j_phi_g1(1, j) &
+                * varphi_l(rg_grid%xc(j), int_point%xlm1, int_point%xl, int_point%xlp1) &
+                * varphi_l(rg_grid%xc(j), int_point%xlpm1, int_point%xlp, int_point%xlpp1)
+
+            k_j_B = k_j_B + delta_rg_local * pref_j_B_g1(1, j) &
+                * varphi_l(rg_grid%xc(j), int_point%xlm1, int_point%xl, int_point%xlp1) &
+                * varphi_l(rg_grid%xc(j), int_point%xlpm1, int_point%xlp, int_point%xlpp1)
 
         end do
 
-        k_rho_phi = - (k_rho_phi) * delta_rg / (4.0d0 * pi)
-        k_rho_B = - k_rho_B * delta_rg / (4.0d0 * pi)
+        ! Apply normalization factor
+        k_rho_phi =  k_rho_phi / (4.0d0 * pi)
+        k_rho_B =  k_rho_B / (4.0d0 * pi)
+        k_j_phi = k_j_phi / (4.0d0 * pi)
+        k_j_B = k_j_B / (4.0d0 * pi)
 
     end subroutine
 
@@ -730,8 +726,9 @@ module kernel_m
             if (artificial_debye_case == 1) cycle
 
             ! skip term if species Larmor radius is too small to couple these grid points
-            if (abs(l-lp) > 5 .and. abs(xl_grid%xb(l) - xl_grid%xb(lp))> Larmor_skip_factor * plasma%spec(sigma)%rho_L(j)) cycle
-            if (abs(0.5d0 * (rg_grid%xb(j+1) + rg_grid%xb(j)) - 0.5d0 * (xl_grid%xb(l) + xl_grid%xb(lp))) > Larmor_skip_factor * plasma%spec(sigma)%rho_L(j)) cycle
+            if (abs(l-lp) > 10 .and. abs(xl_grid%xb(l) - xl_grid%xb(lp))> Larmor_skip_factor * plasma%spec(sigma)%rho_L(j)) cycle
+            if (abs(0.5d0 * (rg_grid%xb(j+1) + rg_grid%xb(j)) - 0.5d0 * (xl_grid%xb(l) + xl_grid%xb(lp))) &
+                > Larmor_skip_factor * plasma%spec(sigma)%rho_L(j)) cycle
 
             int_F1%int_point = int_point
             int_F2%int_point = int_point
@@ -743,7 +740,6 @@ module kernel_m
             k_rho_B = k_rho_B + integral_val * pref_rho_B_g1(sigma+1,j)
             k_j_phi = k_j_phi + integral_val * pref_j_phi_g1(sigma+1,j)
             k_j_B = k_j_B + integral_val * pref_j_B_g1(sigma+1,j)
-
 
             ! ignore FLR terms if resonance is too far from grid points
              if (abs(xl_grid%xb(l) - r_res) > 10.0d0 * int_point%rhoT .or. &
@@ -800,6 +796,10 @@ module kernel_m
         integer :: total_iterations, current_iteration
         integer(kind=8) :: start_count, count_rate, count_max
 
+        if (turn_off_electrons .and. turn_off_ions) then
+            error stop 'Cannot turn off both electrons and ions!'
+        end if
+
         gauss_conf%Nx = gauss_int_nodes_Nx
         gauss_conf%Nxp = gauss_int_nodes_Nxp
         gauss_conf%Ntheta = gauss_int_nodes_Ntheta
@@ -819,6 +819,8 @@ module kernel_m
                     rhoT_max = max(rhoT_max, maxval(plasma%spec(sigma)%rho_L_cc))
                 end if
             end do
+            ! dmax_global = alpha * rhoT_max * sqrt(max(log(1.0d0/tau), 0.0d0))
+            dmax_global = tau * rhoT_max 
         end block
 
         ! Calculate actual number of iterations accounting for band-limiting
@@ -832,7 +834,7 @@ module kernel_m
         do l = 1, K_rho_phi_llp%npts_l
             block
                 real(dp) :: xl_val, xlp_val, current_distance
-                integer :: lp_lo, lp_hi, current_idx_distance
+                integer :: lp_lo, current_idx_distance
                 xl_val = xl_grid%xb(l)
                 lp_lo = l
                 do
@@ -840,15 +842,12 @@ module kernel_m
                     if (abs(xl_grid%xb(lp_lo-1) - xl_val) > dmax_global) exit
                     lp_lo = lp_lo - 1
                 end do
-                lp_hi = l
-                do
-                    if (lp_hi >= K_rho_phi_llp%npts_l) exit
-                    if (abs(xl_grid%xb(lp_hi+1) - xl_val) > dmax_global) exit
-                    lp_hi = lp_hi + 1
-                end do
+
+                lp_lo = min(lp_lo, l - 1)
+                if (lp_lo < 1) lp_lo = 1
                 
                 ! Track diagnostics for each (l,lp) pair that will be processed
-                do lp = max(1,lp_lo), min(l,lp_hi)
+                do lp = max(1,lp_lo), l
                     xlp_val = xl_grid%xb(lp)
                     current_distance = abs(xl_val - xlp_val)
                     current_idx_distance = abs(l - lp)
@@ -875,12 +874,13 @@ module kernel_m
                     end if
                 end do
                 
-                total_iterations = total_iterations + (min(l,lp_hi) - max(1,lp_lo) + 1)
+                total_iterations = total_iterations + (l - max(1,lp_lo) + 1)
             end block
         end do
         current_iteration = 0
         if (fstatus >= 1) write(*,*) 'Total band-limited iterations: ', total_iterations
-        if (fstatus >= 2 .and. artificial_debye_case /= 1) then
+        if (fstatus >= 1) write(*,*) 'dmax_global: ', dmax_global, ' cm'
+        if (fstatus >= 1 .and. artificial_debye_case /= 1) then
             write(*,*) '======== Kernel Distance Diagnostics (Fokker-Planck) ========'
             write(*,'(A,F12.6)') ' Maximum |xl - xlp| distance: ', max_distance_xl_xlp
             write(*,'(A,I6,A,I6)') ' Occurred at l = ', max_dist_l, ', lp = ', max_dist_lp
@@ -901,7 +901,7 @@ module kernel_m
         do l = 1, K_rho_phi_llp%npts_l
             block
                 real(dp) :: xl_val
-                integer :: lp_lo, lp_hi
+                integer :: lp_lo
                 xl_val = xl_grid%xb(l)
                 lp_lo = l
                 do
@@ -909,14 +909,12 @@ module kernel_m
                     if (abs(xl_grid%xb(lp_lo-1) - xl_val) > dmax_global) exit
                     lp_lo = lp_lo - 1
                 end do
-                lp_hi = l
-                do
-                    if (lp_hi >= K_rho_phi_llp%npts_l) exit
-                    if (abs(xl_grid%xb(lp_hi+1) - xl_val) > dmax_global) exit
-                    lp_hi = lp_hi + 1
-                end do
 
-                do lp = max(1,lp_lo), min(l,lp_hi)
+                ! Ensure at least one off-diagonal element (force lp_lo ≤ l-1)
+                lp_lo = min(lp_lo, l - 1)
+                if (lp_lo < 1) lp_lo = 1
+
+                do lp = max(1,lp_lo), l
 
                     if (.not. turn_off_electrons) then
                         call FP_calc_kernel_electrons_FLR2_benchmark(l, lp, K_rho_phi_llp%Kllp_e(l, lp),&
@@ -955,9 +953,6 @@ module kernel_m
                             K_j_B_llp%Kllp_i(lp, l, sp) = K_j_B_llp%Kllp_i(l, lp, sp)
 
                         end do
-                    end if
-                    if (turn_off_electrons .and. turn_off_ions) then
-                        error stop 'Cannot turn off both electrons and ions!'
                     end if
 
                     !$omp atomic
@@ -1314,13 +1309,13 @@ module kernel_m
             'Complex FLR2 benchmark kernel K_j_B electrons', '1/cm^2')
 
         do sp = 1, plasma%n_species - 1
-            call write_matrix("kernel/K_rho_phi_"//plasma%spec(sp)%name,  real(kernel_rho_phi_llp%Kllp_i(:,:,sp)), xl_grid%npts_b, xl_grid%npts_b, &
+            call write_matrix("kernel/K_rho_phi_"//trim(plasma%spec(sp)%name),  real(kernel_rho_phi_llp%Kllp_i(:,:,sp)), xl_grid%npts_b, xl_grid%npts_b, &
                 'Complex FLR2 benchmark kernel K_rho_phi electrons', '1/cm^2')
-            call write_matrix("kernel/K_rho_B_"//plasma%spec(sp)%name,     real(kernel_rho_B_llp%Kllp_i(:,:,sp)), xl_grid%npts_b, xl_grid%npts_b, &
+            call write_matrix("kernel/K_rho_B_"//trim(plasma%spec(sp)%name),     real(kernel_rho_B_llp%Kllp_i(:,:,sp)), xl_grid%npts_b, xl_grid%npts_b, &
                 'Complex FLR2 benchmark kernel K_rho_B electrons', '1/cm^2')
-            call write_matrix("kernel/K_j_phi_"//plasma%spec(sp)%name,     real(kernel_j_phi_llp%Kllp_i(:,:,sp)), xl_grid%npts_b, xl_grid%npts_b, &
+            call write_matrix("kernel/K_j_phi_"//trim(plasma%spec(sp)%name),     real(kernel_j_phi_llp%Kllp_i(:,:,sp)), xl_grid%npts_b, xl_grid%npts_b, &
                 'Complex FLR2 benchmark kernel K_j_phi electrons', '1/cm^2')
-            call write_matrix("kernel/K_j_B_"//plasma%spec(sp)%name,       real(kernel_j_B_llp%Kllp_i(:,:,sp)), xl_grid%npts_b, xl_grid%npts_b, &
+            call write_matrix("kernel/K_j_B_"//trim(plasma%spec(sp)%name),       real(kernel_j_B_llp%Kllp_i(:,:,sp)), xl_grid%npts_b, xl_grid%npts_b, &
                 'Complex FLR2 benchmark kernel K_j_B electrons', '1/cm^2')
         end do
 
@@ -1634,7 +1629,7 @@ module kernel_m
 
         use integrals_gauss_m, only: gauss_config_t, init_gauss_int
         use grid_m, only: Larmor_skip_factor, gauss_int_nodes_Ntheta, gauss_int_nodes_Nx, gauss_int_nodes_Nxp, &
-                          kernel_taper_skip_threshold, xl_grid
+                        kernel_taper_skip_threshold, xl_grid
         use species_m, only: plasma
         use config_m, only: fstatus
 

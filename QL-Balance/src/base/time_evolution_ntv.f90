@@ -103,8 +103,7 @@ contains
         ! NEO-RT
         s_size = size(s_tor)
         ! TODO: omp loop over all s, do init and compute_transport for each s here
-        ! do s_idx = 1, s_size
-        do s_idx = 1, 1
+        do s_idx = 1, s_size
             call neo_rt(s_tor(s_idx), s_size, transport_data(s_idx))
             ! TODO: Apply NEO-RT transport coefficients back to KAMEL
             ! This would involve updating the transport coefficient arrays in grid_mod

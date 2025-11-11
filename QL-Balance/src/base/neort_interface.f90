@@ -18,13 +18,22 @@ contains
 
     !> @brief Prepare plasma profile data for NEO-RT from KAMEL arrays
     !> @param[out] plasma_data 2D array (nflux, 6) for NEO-RT plasma input
+    !> @details Passes KAMEL data to NEO-RT. Data format expected by NEO-RT:
+    !>          Column 1: s_tor - normalized toroidal flux (dimensionless)
+    !>          Column 2: ni1 - density of species 1 [cm^-3]
+    !>          Column 3: ni2 - density of species 2 [cm^-3]
+    !>          Column 4: Ti1 - temperature of species 1 [eV]
+    !>          Column 5: Ti2 - temperature of species 2 [eV]
+    !>          Column 6: Te - electron temperature [eV]
     subroutine prepare_plasma_data_for_neort(plasma_data, s_tor)
+        use baseparam_mod, only: EV_TO_ERG => ev
         use plasma_parameters, only: params
 
         real(dp), dimension(:, :), intent(out) :: plasma_data
         real(dp), dimension(:), intent(in) :: s_tor
 
         integer :: i, s_size
+        real(dp), parameter :: ERG_TO_EV = 1.0_dp / EV_TO_ERG
 
         s_size = size(s_tor)
 
@@ -36,26 +45,30 @@ contains
             error stop "prepare_neort_plasma_data: plasma_data must have six columns"
         end if
 
-        ! Fill plasma data array
-        ! c.f. e.g.: QL-Balance/src/base/paramscan.f90:257 and plasma.in file in NEO-RT's example base
+        ! Fill plasma data array for NEO-RT. C.f.:
+        ! - KAMEL/QL-Balance/src/base/paramscan.f90:257 
+        ! - NEO-RT/examples/base/plasma.in
+        ! - NEO-RT/doc/running.md
         do i = 1, s_size
-            ! Column 1: Normalized toroidal flux s (0 to 1)
+            ! Column 1: Normalized toroidal flux s [1], in [0, 1]
             plasma_data(i, 1) = s_tor(i)
 
-            ! Column 2: Density of species 1
+            ! Column 2: Density of species 1 [cm^-3]
             plasma_data(i, 2) = params(1, i)
 
-            ! Column 3: Density of species 2
-            plasma_data(i, 3) = 0d0
+            ! Column 3: Density of species 2 [cm^-3]
+            ! Set to 0 for single-species calculations
+            plasma_data(i, 3) = 0.0_dp
 
-            ! Column 4: Temperature of species 1
-            plasma_data(i, 4) = params(4, i)
+            ! Column 4: Temperature of species 1 [eV]
+            plasma_data(i, 4) = params(4, i) * ERG_TO_EV
 
-            ! Column 5: Temperature of species 2
-            plasma_data(i, 5) = 1d0
+            ! Column 5: Temperature of species 2 [eV]
+            ! Dummy value for unused species 2
+            plasma_data(i, 5) = 1.0_dp
 
-            ! Column 6: Electron temperature
-            plasma_data(i, 6) = params(3, i)
+            ! Column 6: Electron temperature [eV]
+            plasma_data(i, 6) = params(3, i) * ERG_TO_EV
         end do
 
     end subroutine prepare_plasma_data_for_neort

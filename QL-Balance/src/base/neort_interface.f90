@@ -76,15 +76,16 @@ contains
     !> @brief Prepare rotation profile data for NEO-RT from KAMEL arrays
     !> @param[out] profile_data 2D array (nflux, 3) for NEO-RT profile input
     subroutine prepare_profile_data_for_neort(profile_data, s_tor)
-        use baseparam_mod, only: am, p_mass, btor
-        use grid_mod, only: Ercov
-        use plasma_parameters, only: params, qsafb
+        use baseparam_mod, only: am, p_mass, btor, rtor, c
+        use grid_mod, only: rc
+        use plasma_parameters, only: params, qsaf
+        use wave_code_data, only: dPhi0
 
         real(dp), dimension(:, :), intent(out) :: profile_data
         real(dp), dimension(:), intent(in) :: s_tor
 
         integer :: i, s_size
-        real(dp) :: T_i, m_i, vth, M_t, E_r, B_theta, B_mag
+        real(dp) :: T_i, m_i, vth, M_t, dPhi_dr, dPsi_pol_dr, Omega_tE
 
         s_size = size(s_tor)
 
@@ -97,7 +98,6 @@ contains
         end if
 
         ! Fill profile data array
-        ! TODO: check this, is is probably wrong
         do i = 1, s_size
             ! Column 1: Normalized toroidal flux s (0 to 1)
             profile_data(i, 1) = s_tor(i)
@@ -105,13 +105,17 @@ contains
             ! Calculate thermal velocity and ion mass
             T_i = params(4, i)
             m_i = am * p_mass  ! ion mass
-            vth = sqrt(T_i / m_i)  ! thermal velocity
+            vth = sqrt(2 * T_i / m_i)  ! thermal velocity
 
-            ! Calculate ExB Mach number: M_t = E_r * B_theta / (B^2 * v_th)
-            E_r = Ercov(i)
-            B_theta = btor / qsafb(i)
-            B_mag = sqrt(btor**2 + B_theta**2)
-            M_t = E_r * B_theta / (B_mag**2 * vth)
+            ! Calculate toroidal electric precession frequency: Omega_tE = -c * (dPhi/dr) / (dPsi_pol/dr)
+            ! Note: dPhi0 already contains dPhi/dr (electric potential gradient)
+            ! and dPsi_pol/dr = B^theta = Psi_tor' / q = r * B_tor / q
+            dPhi_dr = dPhi0(i)
+            dPsi_pol_dr = rc(i) * btor / qsaf(i)
+            Omega_tE = -c * dPhi_dr / dPsi_pol_dr
+
+            ! Calculate ExB Mach number: M_t = Omega_tE * R_0 / v_th
+            M_t = Omega_tE * rtor / vth
 
             ! Column 2: ExB Mach number M_t
             profile_data(i, 2) = M_t

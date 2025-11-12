@@ -16,5 +16,6 @@ module setup_m
     logical          :: collisions_off
     integer :: bc_type ! boundary condition. 0: None; 1: Neuman left, Dirichlet right
     integer :: spline_base
+    integer :: mphi_max ! maximum number of cyclotron harmonics to include in kernel calculations
 
 end module

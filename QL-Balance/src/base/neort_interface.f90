@@ -46,7 +46,7 @@ contains
         end if
 
         ! Fill plasma data array for NEO-RT. C.f.:
-        ! - KAMEL/QL-Balance/src/base/paramscan.f90:257 
+        ! - KAMEL/QL-Balance/src/base/paramscan.f90:257
         ! - NEO-RT/examples/base/plasma.in
         ! - NEO-RT/doc/running.md
         do i = 1, s_size
@@ -85,7 +85,7 @@ contains
         real(dp), dimension(:), intent(in) :: s_tor
 
         integer :: i, s_size
-        real(dp) :: T_i, m_i, vth, M_t, dPhi_dr, dPsi_pol_dr, Omega_tE
+        real(dp) :: T_i, m_i, vth, M_t, dPhi_dr, dpsi_pol_dr, Omega_tE
 
         s_size = size(s_tor)
 
@@ -107,12 +107,15 @@ contains
             m_i = am * p_mass  ! ion mass
             vth = sqrt(2 * T_i / m_i)  ! thermal velocity
 
-            ! Calculate toroidal electric precession frequency: Omega_tE = -c * (dPhi/dr) / (dPsi_pol/dr)
+            ! Calculate toroidal electric precession frequency:
+            ! Omega_tE = -c * (dPhi/dr) / (dpsi_pol/dr)
             ! Note: dPhi0 already contains dPhi/dr (electric potential gradient)
-            ! and dPsi_pol/dr = B^theta = Psi_tor' / q = r * B_tor / q
+            ! and dpsi_pol/dr = B^theta = psi_tor' / q = r * B_tor / q
+            ! Psi_tor = r²π * B_tor  =>  Psi_tor' = 2πr * B_tor
+            ! our psi_tor == Psi_tor / (2π)
             dPhi_dr = dPhi0(i)
-            dPsi_pol_dr = rc(i) * btor / qsaf(i)
-            Omega_tE = -c * dPhi_dr / dPsi_pol_dr
+            dpsi_pol_dr = rc(i) * btor / qsaf(i)
+            Omega_tE = -c * dPhi_dr / dpsi_pol_dr
 
             ! Calculate ExB Mach number: M_t = Omega_tE * R_0 / v_th
             M_t = Omega_tE * rtor / vth

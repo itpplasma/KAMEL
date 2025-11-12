@@ -141,7 +141,7 @@ contains
         ! for init_plasma_input
         real(dp) :: am1, am2, Z1, Z2
 
-        call set_s(s) ! global s
+        call set_s(s)  ! global s
 
         x(1) = s
         x(2) = 0.0

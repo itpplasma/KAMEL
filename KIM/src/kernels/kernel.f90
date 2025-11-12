@@ -625,7 +625,10 @@ module kernel_m
             end if
 
             ! Charge density terms at cell centers
-            k_rho_phi = k_rho_phi + delta_rg_local * pref_rho_phi_g1(1, j) &
+            k_rho_phi = k_rho_phi + delta_rg_local &
+                * ( &
+                    pref_rho_phi_g0(1,j) + pref_rho_phi_g1(1, j) &
+                ) &
                 * varphi_l(rg_grid%xc(j), int_point%xlm1, int_point%xl, int_point%xlp1) &
                 * varphi_l(rg_grid%xc(j), int_point%xlpm1, int_point%xlp, int_point%xlpp1)
 
@@ -807,6 +810,7 @@ module kernel_m
         call init_gauss_int(gauss_conf)
         call rescale_susceptibility_functions()
         if (.not. pref_ready) call compute_cc_prefactors
+        pref_rho_phi_G0 = 0.0d0 ! in FLR2 benchmark, 1/lambda_D^2 term is cancelled due to combination of thermodyanmic forces
 
         ! Compute a global band-limit distance dmax using Larmor taper and skip threshold
         alpha = Larmor_skip_factor

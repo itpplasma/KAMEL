@@ -9,7 +9,7 @@ module poisson_solver_m
     subroutine solve_poisson(K_rho_phi, K_rho_B, phi_sol)
 
         use config_m, only: fstatus, fdebug
-        use sparse_mod, only: sp2fullComplex, sparse_solveComplex_b1, sparse_solve_method
+        use sparse_mod, only: sp2fullComplex, sparse_solveComplex_b1, sparse_solve_method, sparse_talk
         use config_m, only: output_path
         use constants_m, only: pi
         use grid_m, only: xl_grid, calc_mass_matrix
@@ -31,7 +31,8 @@ module poisson_solver_m
         integer :: i, j
         integer :: sparse_solver_option
 
-        if (fstatus == 1) write(*,*) 'Status: solve poisson equation'
+        if (fstatus >= 1) write(*,*) 'Status: solve poisson equation'
+        if (fdebug < 2) sparse_talk = .false. ! turn off sparse solver output for low fdebug
 
         allocate(A_mat(xl_grid%npts_b, xl_grid%npts_b), M_mat(xl_grid%npts_b, xl_grid%npts_b))
         call prepare_Laplace_matrix(A_mat)

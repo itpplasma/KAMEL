@@ -118,8 +118,8 @@ contains
         use do_magfie_pert_mod, only: do_magfie_pert_amp
         use driftorbit, only: pertfile, efac, nopassing, sign_vpar, etamin, etamax
         use neort, only: set_s, compute_transport, set_to_trapped_region
-        use neort_freq, only: init_Om_spl, init_Om_pass_spl
-        use neort_magfie, only: init_fsa
+        use neort_freq, only: init_canon_freq_trapped_spline, init_canon_freq_passing_spline
+        use neort_magfie, only: init_flux_surface_average
         use neort_profiles, only: init_plasma_input, init_profile_input, init_thermodynamic_forces
         use time_evolution, only: doStepBase => doStep
 
@@ -160,9 +160,9 @@ contains
         call init_profile_input(s, R0, efac, bfac, profile_data)
 
         ! subroutine init
-        call init_fsa(s)
-        call init_Om_spl()  ! sets etamin and etamax
-        if (.not. nopassing) call init_Om_pass_spl()
+        call init_flux_surface_average(s)
+        call init_canon_freq_trapped_spline()  ! sets etamin and etamax
+        if (.not. nopassing) call init_canon_freq_passing_spline()
         sign_vpar = 1
         call set_to_trapped_region(etamin, etamax)  ! sets etamin and etamax again
         ! psi_pr is the torodial flux at plasma boundary, fixed for all s

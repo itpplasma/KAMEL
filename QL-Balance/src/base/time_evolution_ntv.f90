@@ -37,7 +37,7 @@ contains
                                    prepare_plasma_data_for_neort, prepare_profile_data_for_neort
 
         class(TimeEvolutionNTV_t), intent(inout) :: this
-        real(dp), dimension(:), allocatable :: phi_tor, q_prof
+        real(dp), dimension(:), allocatable :: psi_tor
 
         integer :: npoic_save
 
@@ -48,15 +48,14 @@ contains
         ! NEO-RT
         npoic_save = npoic
         npoic = 10000 ! for now
-        allocate (phi_tor(npoic))
-        allocate (q_prof(npoic))
+        allocate (psi_tor(npoic))
         allocate (s_tor(npoic))
         allocate (plasma_data(npoic, 6))
         allocate (profile_data(npoic, 2))
         allocate (transport_data(npoic))
 
-        call read_equil_file(phi_tor, q_prof) ! TODO: remove q_prof again, not needed
-        call calculate_s_tor(s_tor, phi_tor)
+        call read_equil_file(psi_tor=psi_tor)
+        call calculate_s_tor(s_tor, psi_tor)
         npoic = npoic_save
         ! ONLY FOR NOW, DEBUG!
         ! s_tor(1) = 0.3d0

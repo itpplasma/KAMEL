@@ -36,6 +36,7 @@
     collisions_off = .false.                 ! don't use with FokkerPlanck model
     set_profiles_constant = 0
     bc_type = 3                             ! boundary condition. 0: None; 1: zero Neuman left, zero Dirichlet right; 2: Dirichlet left and right
+    mphi_max = 0
 /
 
 &kim_grid

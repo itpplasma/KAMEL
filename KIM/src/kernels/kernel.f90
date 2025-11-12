@@ -692,12 +692,14 @@ module kernel_m
         use config_m, only: turn_off_ions, turn_off_electrons, artificial_debye_case
         use grid_m, only: xl_grid
         use resonances_mod, only: r_res
+        use setup_m, only: mphi_max
 
         implicit none
 
         integer, intent(in) :: l, lp, sigma
         complex(dp) :: k_rho_phi, k_rho_B, k_j_phi, k_j_B
-        integer :: j
+        real(dp) :: mphi_sym_factor = 1.0d0
+        integer :: j, mphi
         type(gauss_config_t), intent(in) :: gauss_conf
         real(dp) :: integral_val
         real(dp) :: current_distance
@@ -739,12 +741,18 @@ module kernel_m
             int_F2%int_point = int_point
             int_F3%int_point = int_point
 
-            ! F1 integration
-            call gauss_integrate_F1(int_F1, integral_val, gauss_conf)
-            k_rho_phi = k_rho_phi + integral_val * pref_rho_phi_g1(sigma+1,j)
-            k_rho_B = k_rho_B + integral_val * pref_rho_B_g1(sigma+1,j)
-            k_j_phi = k_j_phi + integral_val * pref_j_phi_g1(sigma+1,j)
-            k_j_B = k_j_B + integral_val * pref_j_B_g1(sigma+1,j)
+            do mphi = 0, mphi_max
+                if (mphi /= 0) mphi_sym_factor = 2.0d0 ! mphi sum is symmetric, hence factor of 2 for mphi>0
+
+                int_F1%int_point%mphi = mphi
+                ! F1 integration
+                call gauss_integrate_F1(int_F1, integral_val, gauss_conf)
+                
+                k_rho_phi = k_rho_phi + integral_val * pref_rho_phi_g1(sigma+1,j) * mphi_sym_factor
+                k_rho_B = k_rho_B + integral_val * pref_rho_B_g1(sigma+1,j) * mphi_sym_factor
+                k_j_phi = k_j_phi + integral_val * pref_j_phi_g1(sigma+1,j) * mphi_sym_factor
+                k_j_B = k_j_B + integral_val * pref_j_B_g1(sigma+1,j) * mphi_sym_factor
+            end do
 
             ! ignore FLR terms if resonance is too far from grid points
              if (abs(xl_grid%xb(l) - r_res) > 10.0d0 * int_point%rhoT .or. &
@@ -752,19 +760,29 @@ module kernel_m
                 cycle
             end if
 
-            ! F2 integration
-            call gauss_integrate_F2(int_F2, integral_val, gauss_conf)
-            k_rho_phi = k_rho_phi + integral_val * pref_rho_phi_g2(sigma+1,j)
-            k_rho_B = k_rho_B + integral_val * pref_rho_B_g2(sigma+1,j)
-            k_j_phi = k_j_phi + integral_val * pref_j_phi_g2(sigma+1,j)
-            k_j_B = k_j_B + integral_val * pref_j_B_g2(sigma+1,j)
+            mphi_sym_factor = 1.0d0
 
-            ! F3 integration
-            call gauss_integrate_F3(int_F3, integral_val, gauss_conf)
-            k_rho_phi = k_rho_phi + integral_val * pref_rho_phi_g3(sigma+1,j)
-            k_rho_B = k_rho_B + integral_val * pref_rho_B_g3(sigma+1,j)
-            k_j_phi = k_j_phi + integral_val * pref_j_phi_g3(sigma+1,j)
-            k_j_B = k_j_B + integral_val * pref_j_B_g3(sigma+1,j)
+            do mphi = 0, mphi_max
+                if (mphi /= 0) mphi_sym_factor = 2.0d0 ! mphi sum is symmetric, hence factor of 2 for mphi>0
+
+                int_F2%int_point%mphi = mphi
+                ! F2 integration
+                call gauss_integrate_F2(int_F2, integral_val, gauss_conf)
+                k_rho_phi = k_rho_phi + integral_val * pref_rho_phi_g2(sigma+1,j) * mphi_sym_factor
+                k_rho_B = k_rho_B + integral_val * pref_rho_B_g2(sigma+1,j) * mphi_sym_factor
+                k_j_phi = k_j_phi + integral_val * pref_j_phi_g2(sigma+1,j) * mphi_sym_factor
+                k_j_B = k_j_B + integral_val * pref_j_B_g2(sigma+1,j) * mphi_sym_factor
+            end do
+
+            do mphi = -mphi_max, mphi_max ! For F3, the integration is not symmetric in mphi
+                int_F3%int_point%mphi = mphi
+                ! F3 integration
+                call gauss_integrate_F3(int_F3, integral_val, gauss_conf)
+                k_rho_phi = k_rho_phi + integral_val * pref_rho_phi_g3(sigma+1,j)
+                k_rho_B = k_rho_B + integral_val * pref_rho_B_g3(sigma+1,j)
+                k_j_phi = k_j_phi + integral_val * pref_j_phi_g3(sigma+1,j)
+                k_j_B = k_j_B + integral_val * pref_j_B_g3(sigma+1,j)
+            end do
 
         end do
 

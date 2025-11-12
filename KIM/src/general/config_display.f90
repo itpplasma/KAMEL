@@ -152,6 +152,8 @@ contains
         call print_config_line('Regularization ε', trim(adjustl(value_str)), width)
         write(value_str, '(I0)') bc_type
         call print_config_line('Boundary condition', trim(value_str), width)
+        write(value_str, '(I0)') mphi_max
+        call print_config_line('Max. cyclotron harmonics', trim(value_str), width)
         
         ! Display Grid Configuration
         call print_section_header('GRID CONFIGURATION', width)

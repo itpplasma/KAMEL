@@ -8,7 +8,7 @@ module integrands_gauss_m
     type :: integration_point_t
         real(dp) :: rhoT
         real(dp) :: ks
-        integer :: j
+        integer :: j, mphi
         real(dp) :: xlm1, xlp1, xl
         real(dp) :: xlpm1, xlpp1, xlp
         real(dp) :: xl_mapped, xlp_mapped
@@ -103,7 +103,7 @@ module integrands_gauss_m
 
         val = varphi_l(xp, this%int_point%xlpm1, this%int_point%xlp, this%int_point%xlpp1) &
             * varphi_l(x, this%int_point%xlm1, this%int_point%xl, this%int_point%xlp1) &
-            * 2.0d0 * pi / (this%int_point%rhoT**2.0d0 * sin(theta)) &
+            * 2.0d0 * pi * cos(this%int_point%mphi * theta) / (this%int_point%rhoT**2.0d0 * sin(theta)) &
             * exp(- ks_val**2.0d0 * this%int_point%rhoT**2.0d0 &
                   - (x - xp)**2.0d0 / (4.0d0 * this%int_point%rhoT**2.0d0 * (1.0d0 - cos(theta)))) &
             * this%int_point%Jrg1 &
@@ -131,7 +131,7 @@ module integrands_gauss_m
 
         val = varphi_l(xp, this%int_point%xlpm1, this%int_point%xlp, this%int_point%xlpp1) &
             * varphi_l(x, this%int_point%xlm1, this%int_point%xl, this%int_point%xlp1) &
-            * (-pi) / (4.0d0 * this%int_point%rhoT**4.0d0 * sin(theta)**5.0d0) &
+            * (-pi) * cos(this%int_point%mphi * theta) / (4.0d0 * this%int_point%rhoT**4.0d0 * sin(theta)**5.0d0) &
             * exp(- ks_val**2.0d0 * this%int_point%rhoT**2.0d0 &
                   - (x - xp)**2.0d0 / (4.0d0 * this%int_point%rhoT**2.0d0 * (1.0d0 - cos(theta)))) & 
             * ( &
@@ -167,7 +167,7 @@ module integrands_gauss_m
 
         val = varphi_l(xp, this%int_point%xlpm1, this%int_point%xlp, this%int_point%xlpp1) &
             * varphi_l(x, this%int_point%xlm1, this%int_point%xl, this%int_point%xlp1) &
-            * (-pi) * cos(theta) / ( 2.0d0 * this%int_point%rhoT**4.0d0 * sin(theta)**5.0d0) &
+            * (-pi) * cos((this%int_point%mphi - 1) * theta) / ( 2.0d0 * this%int_point%rhoT**4.0d0 * sin(theta)**5.0d0) &
             * exp(- ks_val**2.0d0 * this%int_point%rhoT**2.0d0 &
                   - (x - xp)**2.0d0 / (4.0d0 * this%int_point%rhoT**2.0d0 * (1.0d0 - cos(theta)))) & 
             * ( &

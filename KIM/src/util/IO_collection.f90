@@ -172,6 +172,8 @@ module IO_collection_m
             'Integer switch for setting (some) profiles constant.', '1')
         call h5_add(h5grpid, 'bc_type', bc_type, &
             'Integer type of boundary condition.', '1')
+        call h5_add(h5grpid, 'mphi_max', mphi_max, &
+            'Max. number of cyclotron harmonics used', '1')
 
         call h5_close_group(h5grpid)
 

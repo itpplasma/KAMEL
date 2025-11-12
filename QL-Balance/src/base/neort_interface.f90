@@ -282,15 +282,15 @@ contains
         end if
     end subroutine read_equil_file
 
-    subroutine calculate_s_tor(s, phi)
-        real(dp), dimension(:), intent(out) :: s
-        real(dp), dimension(:), intent(in) :: phi
+    subroutine calculate_s_tor(s_tor, psi_tor)
+        real(dp), dimension(:), intent(out) :: s_tor
+        real(dp), dimension(:), intent(in) :: psi_tor
 
-        real(dp) :: phi_min, phi_max
+        real(dp) :: psi_tor_min, psi_tor_max
 
-        phi_min = phi(1)
-        phi_max = phi(size(phi))
-        s = (phi - phi_min) / (phi_max - phi_min)
+        psi_tor_min = psi_tor(1)
+        psi_tor_max = psi_tor(size(psi_tor))
+        s_tor = (psi_tor - psi_tor_min) / (psi_tor_max - psi_tor_min)
     end subroutine calculate_s_tor
 
 end module neort_interface

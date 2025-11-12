@@ -1,9 +1,68 @@
 cmake_minimum_required(VERSION 3.24)
 
-set(CMAKE_Fortran_COMPILER "mpif90")
+# Set compilers BEFORE project()
+if(CMAKE_HOST_SYSTEM_NAME MATCHES "Darwin")
+    set(CMAKE_C_COMPILER clang)
+    set(CMAKE_CXX_COMPILER clang++)
+elseif(CMAKE_HOST_SYSTEM_NAME MATCHES "Linux")
+    set(CMAKE_C_COMPILER gcc)
+    set(CMAKE_CXX_COMPILER g++)
+endif()
+
+if(APPLE AND NOT DEFINED HDF5_DIR)
+    # locate brew
+    find_program(BREW_EXECUTABLE brew HINTS /opt/homebrew/bin /usr/local/bin)
+    if(BREW_EXECUTABLE)
+        execute_process(
+            COMMAND "${BREW_EXECUTABLE}" --prefix hdf5
+            OUTPUT_VARIABLE _hdf5_prefix
+            OUTPUT_STRIP_TRAILING_WHITESPACE
+            RESULT_VARIABLE _hdf5_res
+        )
+
+        if(_hdf5_res EQUAL 0 AND EXISTS "${_hdf5_prefix}/lib/cmake/hdf5")
+            set(HDF5_DIR "${_hdf5_prefix}/lib/cmake/hdf5" CACHE PATH "Path to HDF5Config.cmake")
+            message(STATUS "HDF5_DIR set to ${HDF5_DIR}")
+        endif()
+    endif()
+endif()
 
 project(KAMEL LANGUAGES C CXX Fortran)
-set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -fopenmp -O2 -mtune=generic -g -fbacktrace -fcheck=all -Wall -Wextra -Wconversion")
+
+# Set C++ standard globally
+set(CMAKE_CXX_STANDARD 11)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+
+find_package(MPI REQUIRED C Fortran)
+
+# Set architecture flags based on platform
+if(APPLE)
+    # On macOS, use libomp from Homebrew for OpenMP support
+    find_package(OpenMP REQUIRED)
+
+    # Locate libomp from Homebrew
+    find_program(BREW_EXECUTABLE brew HINTS /opt/homebrew/bin /usr/local/bin)
+    if(BREW_EXECUTABLE)
+        execute_process(
+            COMMAND "${BREW_EXECUTABLE}" --prefix libomp
+            OUTPUT_VARIABLE LIBOMP_PREFIX
+            OUTPUT_STRIP_TRAILING_WHITESPACE
+        )
+        if(EXISTS "${LIBOMP_PREFIX}")
+            include_directories(SYSTEM "${LIBOMP_PREFIX}/include")
+            link_directories("${LIBOMP_PREFIX}/lib")
+            message(STATUS "Found libomp at ${LIBOMP_PREFIX}")
+        endif()
+    endif()
+
+    set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -fopenmp -O2 -g -fbacktrace -fcheck=all -Wall -Wextra -Wconversion -Wno-external-argument-mismatch")
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${OpenMP_C_FLAGS}")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${OpenMP_CXX_FLAGS}")
+    set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -L${LIBOMP_PREFIX}/lib -lomp")
+    set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -L${LIBOMP_PREFIX}/lib -lomp")
+else()
+    set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -fopenmp -O2 -mtune=generic -g -fbacktrace -fcheck=all -Wall -Wextra -Wconversion -Wno-external-argument-mismatch")
+endif()
 
 enable_testing()
 

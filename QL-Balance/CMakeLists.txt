@@ -6,12 +6,28 @@ set(CMAKE_Fortran_STANDARD_REQUIRED ON)
 if(CMAKE_HOST_SYSTEM_NAME MATCHES "Darwin")
     # macOS specific configurations or commands
     message("Building on macOS")
-    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fopenmp -O3 -DDOUBLE_APPEND_FORTRAN")
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fopenmp")
+    find_package(OpenMP REQUIRED)
+
+    # Locate libomp from Homebrew
+    find_program(BREW_EXECUTABLE brew HINTS /opt/homebrew/bin /usr/local/bin)
+    if(BREW_EXECUTABLE)
+        execute_process(
+            COMMAND "${BREW_EXECUTABLE}" --prefix libomp
+            OUTPUT_VARIABLE LIBOMP_PREFIX
+            OUTPUT_STRIP_TRAILING_WHITESPACE
+        )
+        if(EXISTS "${LIBOMP_PREFIX}")
+            include_directories(SYSTEM "${LIBOMP_PREFIX}/include")
+            link_directories("${LIBOMP_PREFIX}/lib")
+        endif()
+    endif()
+
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${OpenMP_C_FLAGS} -O3 -DDOUBLE_APPEND_FORTRAN")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${OpenMP_CXX_FLAGS}")
     set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -cpp -fPIC -g -Og -Wall -Wno-unused-function -fbacktrace")
-    set(CMAKE_EXE_LINKER_FLAGS "-L/opt/homebrew/lib")
+    set(CMAKE_EXE_LINKER_FLAGS "-L/opt/homebrew/lib -L${LIBOMP_PREFIX}/lib -lomp")
 elseif(CMAKE_HOST_SYSTEM_NAME MATCHES "Linux")
-    # Linux configurations: use superproject’s Fortran compiler
+    # Linux configurations: use superproject's Fortran compiler
     message("Building on Linux; using default Fortran compiler: ${CMAKE_Fortran_COMPILER}")
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fopenmp")
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -O3 -D DOUBLE_APPEND_FORTRAN")
@@ -21,7 +37,7 @@ else()
     message("Building on another operating system might not be implemented.")
 endif()
 enable_language(C Fortran)
-find_package(MPI REQUIRED)
+find_package(MPI REQUIRED COMPONENTS C Fortran)
 
 
 set(objs ${PROJECT_BINARY_DIR}/OBJS/ql-balance/)
@@ -102,7 +118,7 @@ target_include_directories(ql-balance_lib PUBLIC ${CMAKE_BINARY_DIR}/KiLCA/mod $
 # Include central slatec math sources via cache variable defined by common/math
 target_include_directories(ql-balance_lib PUBLIC ${SLATEC_INCLUDE_DIR})
 
-find_package(HDF5 COMPONENTS C Fortran HL REQUIRED)
+find_package(HDF5 REQUIRED COMPONENTS C HL Fortran Fortran_HL)
 message(" ====== HDF5 was found! ======")
 
 # Disable libneo tests before fetching

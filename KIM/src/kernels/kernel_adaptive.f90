@@ -244,7 +244,7 @@ module kernel_adaptive_m
 
         integer, intent(in) :: l, lp
         complex(dp) :: k_rho_phi, k_rho_B, k_j_phi, k_j_B
-        integer :: j, sigma
+        integer :: j, sigma, mphi
         type(rkf45_config_t), intent(in) :: rkf45_conf
         real(dp) :: integral_val
         real(dp) :: current_distance
@@ -257,6 +257,7 @@ module kernel_adaptive_m
         k_j_B = (0.0d0, 0.0d0)
 
         call set_xl_at_edge(l, lp, context)
+        mphi = 0  ! Only mphi=0 is currently supported in adaptive kernel calculation
 
         do sigma = 0, plasma%n_species - 1
             if (turn_off_ions .and. sigma >= 1) cycle
@@ -292,26 +293,26 @@ module kernel_adaptive_m
                     ! F1 integration
                     call integrate_F1(integral_val, rkf45_conf, context)
 
-                    k_rho_phi = k_rho_phi + weight * integral_val * pref_rho_phi_g1(sigma+1,j)
-                    k_rho_B   = k_rho_B   + weight * integral_val * pref_rho_B_g1(sigma+1,j)
-                    k_j_phi   = k_j_phi   + weight * integral_val * pref_j_phi_g1(sigma+1,j)
-                    k_j_B     = k_j_B     + weight * integral_val * pref_j_B_g1(sigma+1,j)
+                    k_rho_phi = k_rho_phi + weight * integral_val * pref_rho_phi_g1(sigma+1,j, mphi)
+                    k_rho_B   = k_rho_B   + weight * integral_val * pref_rho_B_g1(sigma+1,j, mphi)
+                    k_j_phi   = k_j_phi   + weight * integral_val * pref_j_phi_g1(sigma+1,j, mphi)
+                    k_j_B     = k_j_B     + weight * integral_val * pref_j_B_g1(sigma+1,j, mphi)
 
                     ! F2 integration
                     call integrate_F2(integral_val, rkf45_conf, context)
 
-                    k_rho_phi = k_rho_phi + weight * integral_val * pref_rho_phi_g2(sigma+1,j)
-                    k_rho_B   = k_rho_B   + weight * integral_val * pref_rho_B_g2(sigma+1,j)
-                    k_j_phi   = k_j_phi   + weight * integral_val * pref_j_phi_g2(sigma+1,j)
-                    k_j_B     = k_j_B     + weight * integral_val * pref_j_B_g2(sigma+1,j)
+                    k_rho_phi = k_rho_phi + weight * integral_val * pref_rho_phi_g2(sigma+1,j, mphi)
+                    k_rho_B   = k_rho_B   + weight * integral_val * pref_rho_B_g2(sigma+1,j, mphi)
+                    k_j_phi   = k_j_phi   + weight * integral_val * pref_j_phi_g2(sigma+1,j, mphi)
+                    k_j_B     = k_j_B     + weight * integral_val * pref_j_B_g2(sigma+1,j, mphi)
 
                     ! F3 integration
                     call integrate_F3(integral_val, rkf45_conf, context)
 
-                    k_rho_phi = k_rho_phi + weight * integral_val * pref_rho_phi_g3(sigma+1,j)
-                    k_rho_B   = k_rho_B   + weight * integral_val * pref_rho_B_g3(sigma+1,j)
-                    k_j_phi   = k_j_phi   + weight * integral_val * pref_j_phi_g3(sigma+1,j)
-                    k_j_B     = k_j_B     + weight * integral_val * pref_j_B_g3(sigma+1,j)
+                    k_rho_phi = k_rho_phi + weight * integral_val * pref_rho_phi_g3(sigma+1,j, mphi)
+                    k_rho_B   = k_rho_B   + weight * integral_val * pref_rho_B_g3(sigma+1,j, mphi)
+                    k_j_phi   = k_j_phi   + weight * integral_val * pref_j_phi_g3(sigma+1,j, mphi)
+                    k_j_B     = k_j_B     + weight * integral_val * pref_j_B_g3(sigma+1,j, mphi)
                 end block
 
             end do

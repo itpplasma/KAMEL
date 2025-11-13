@@ -15,12 +15,20 @@ module kernel_m
     integer :: min_idx_l = 0, min_idx_lp = 0
 
     ! Precomputed per-(species, rg-cell) prefactors on cell centers
-    complex(dp), allocatable, save :: pref_rho_phi_g1(:,:), pref_rho_phi_g2(:,:), pref_rho_phi_g3(:,:), &
-                                    pref_rho_phi_g0(:,:)
-    complex(dp), allocatable, save :: pref_rho_B_g1(:,:),  pref_rho_B_g2(:,:),  pref_rho_B_g3(:,:)
-    complex(dp), allocatable, save :: pref_j_phi_g1(:,:),  pref_j_phi_g2(:,:),  pref_j_phi_g3(:,:)
-    complex(dp), allocatable, save :: pref_j_B_g1(:,:),    pref_j_B_g2(:,:),    pref_j_B_g3(:,:)
-    logical,           save :: pref_ready = .false.
+    complex(dp), allocatable, save :: pref_rho_phi_g1(:, :, :), &
+                                    pref_rho_phi_g2(:, :, :), &
+                                    pref_rho_phi_g3(:, :, :), &
+                                    pref_rho_phi_g0(:, :)
+    complex(dp), allocatable, save :: pref_rho_B_g1(:, :, :), &
+                                    pref_rho_B_g2(:, :, :), &
+                                    pref_rho_B_g3(:, :, :)
+    complex(dp), allocatable, save :: pref_j_phi_g1(:,:, :), & 
+                                    pref_j_phi_g2(:, :, :), &
+                                    pref_j_phi_g3(:, :, :)
+    complex(dp), allocatable, save :: pref_j_B_g1(:, :, :), &
+                                    pref_j_B_g2(:, :, :), &
+                                    pref_j_B_g3(:, :, :)
+    logical, save :: pref_ready = .false.
 
     type :: kernel_spl_t
         integer :: npts_l, npts_lp
@@ -70,45 +78,49 @@ module kernel_m
             FP_G1_rho_B, FP_G2_rho_B, FP_G3_rho_B, FP_G1_j_phi, FP_G2_j_phi, FP_G3_j_phi, &
             FP_G1_j_B, FP_G2_j_B, FP_G3_j_B, FP_G0_rho_phi
         use config_m, only: fdiagnostics
+        use setup_m, only: mphi_max
 
         implicit none
-        integer :: ns, j, sigma
+        integer :: ns, j, sigma, mphi
 
         ns = plasma%n_species
         if (.not. allocated(pref_rho_phi_g1)) then
             allocate(pref_rho_phi_g0(ns, rg_grid%npts_c))
-            allocate(pref_rho_phi_g1(ns, rg_grid%npts_c))
-            allocate(pref_rho_phi_g2(ns, rg_grid%npts_c))
-            allocate(pref_rho_phi_g3(ns, rg_grid%npts_c))
-            allocate(pref_rho_B_g1(ns,  rg_grid%npts_c))
-            allocate(pref_rho_B_g2(ns,  rg_grid%npts_c))
-            allocate(pref_rho_B_g3(ns,  rg_grid%npts_c))
-            allocate(pref_j_phi_g1(ns,  rg_grid%npts_c))
-            allocate(pref_j_phi_g2(ns,  rg_grid%npts_c))
-            allocate(pref_j_phi_g3(ns,  rg_grid%npts_c))
-            allocate(pref_j_B_g1(ns,    rg_grid%npts_c))
-            allocate(pref_j_B_g2(ns,    rg_grid%npts_c))
-            allocate(pref_j_B_g3(ns,    rg_grid%npts_c))
+            allocate(pref_rho_phi_g1(ns, rg_grid%npts_c, -mphi_max:mphi_max))
+            allocate(pref_rho_phi_g2(ns, rg_grid%npts_c, -mphi_max:mphi_max))
+            allocate(pref_rho_phi_g3(ns, rg_grid%npts_c, -mphi_max:mphi_max))
+            allocate(pref_rho_B_g1(ns,  rg_grid%npts_c, -mphi_max:mphi_max))
+            allocate(pref_rho_B_g2(ns,  rg_grid%npts_c, -mphi_max:mphi_max))
+            allocate(pref_rho_B_g3(ns,  rg_grid%npts_c, -mphi_max:mphi_max))
+            allocate(pref_j_phi_g1(ns,  rg_grid%npts_c, -mphi_max:mphi_max))
+            allocate(pref_j_phi_g2(ns,  rg_grid%npts_c, -mphi_max:mphi_max))
+            allocate(pref_j_phi_g3(ns,  rg_grid%npts_c, -mphi_max:mphi_max))
+            allocate(pref_j_B_g1(ns,    rg_grid%npts_c, -mphi_max:mphi_max))
+            allocate(pref_j_B_g2(ns,    rg_grid%npts_c, -mphi_max:mphi_max))
+            allocate(pref_j_B_g3(ns,    rg_grid%npts_c, -mphi_max:mphi_max))
         end if
 
         do sigma = 0, ns - 1
             do j = 1, rg_grid%npts_c
-                pref_rho_phi_g0(sigma+1,j) = FP_G0_rho_phi(j, plasma%spec(sigma))
-                pref_rho_phi_g1(sigma+1,j) = FP_G1_rho_phi(j, plasma%spec(sigma))
-                pref_rho_phi_g2(sigma+1,j) = FP_G2_rho_phi(j, plasma%spec(sigma))
-                pref_rho_phi_g3(sigma+1,j) = FP_G3_rho_phi(j, plasma%spec(sigma))
+                pref_rho_phi_g0(sigma+1, j) = FP_G0_rho_phi(j, plasma%spec(sigma))
 
-                pref_rho_B_g1(sigma+1,j) = FP_G1_rho_B(j, plasma%spec(sigma))
-                pref_rho_B_g2(sigma+1,j) = FP_G2_rho_B(j, plasma%spec(sigma))
-                pref_rho_B_g3(sigma+1,j) = FP_G3_rho_B(j, plasma%spec(sigma))
+                do mphi = -mphi_max, mphi_max
+                    pref_rho_phi_g1(sigma+1, j, mphi) = FP_G1_rho_phi(j, plasma%spec(sigma), mphi)
+                    pref_rho_phi_g2(sigma+1, j, mphi) = FP_G2_rho_phi(j, plasma%spec(sigma), mphi)
+                    pref_rho_phi_g3(sigma+1, j, mphi) = FP_G3_rho_phi(j, plasma%spec(sigma), mphi)
 
-                pref_j_phi_g1(sigma+1,j) = FP_G1_j_phi(j, plasma%spec(sigma))
-                pref_j_phi_g2(sigma+1,j) = FP_G2_j_phi(j, plasma%spec(sigma))
-                pref_j_phi_g3(sigma+1,j) = FP_G3_j_phi(j, plasma%spec(sigma))
+                    pref_rho_B_g1(sigma+1, j, mphi) = FP_G1_rho_B(j, plasma%spec(sigma), mphi)
+                    pref_rho_B_g2(sigma+1, j, mphi) = FP_G2_rho_B(j, plasma%spec(sigma), mphi)
+                    pref_rho_B_g3(sigma+1, j, mphi) = FP_G3_rho_B(j, plasma%spec(sigma), mphi)
 
-                pref_j_B_g1(sigma+1,j) = FP_G1_j_B(j, plasma%spec(sigma))
-                pref_j_B_g2(sigma+1,j) = FP_G2_j_B(j, plasma%spec(sigma))
-                pref_j_B_g3(sigma+1,j) = FP_G3_j_B(j, plasma%spec(sigma))
+                    pref_j_phi_g1(sigma+1, j, mphi) = FP_G1_j_phi(j, plasma%spec(sigma), mphi)
+                    pref_j_phi_g2(sigma+1, j, mphi) = FP_G2_j_phi(j, plasma%spec(sigma), mphi)
+                    pref_j_phi_g3(sigma+1, j, mphi) = FP_G3_j_phi(j, plasma%spec(sigma), mphi)
+
+                    pref_j_B_g1(sigma+1,j, mphi) = FP_G1_j_B(j, plasma%spec(sigma), mphi)
+                    pref_j_B_g2(sigma+1,j, mphi) = FP_G2_j_B(j, plasma%spec(sigma), mphi)
+                    pref_j_B_g3(sigma+1,j, mphi) = FP_G3_j_B(j, plasma%spec(sigma), mphi)
+                end do
             end do
         end do
 
@@ -122,16 +134,17 @@ module kernel_m
 
     subroutine write_cc_prefactors
 
-        use IO_collection_m, only: write_complex_profile
+        use IO_collection_m, only: write_complex_profile, itoa
         use config_m, only: output_path
         use species_m, only: plasma
         use grid_m, only: rg_grid
         use KIM_kinds_m, only: dp
+        use setup_m, only: mphi_max
 
         implicit none
 
         logical :: ex
-        integer :: sp
+        integer :: sp, mphi
         character(len=100) :: dirname
         complex(dp), allocatable :: temp_array(:)
         real(dp), allocatable :: r_temp(:)
@@ -155,21 +168,29 @@ module kernel_m
                 call system('mkdir -p '//trim(output_path)//trim(dirname))
             end if
 
-            temp_array = pref_rho_phi_g0(sp+1,:)
-            call write_complex_profile(r_temp, temp_array, rg_grid%npts_c, trim(dirname)//'/pref_rho_phi_g0.dat')
-            temp_array = pref_rho_phi_g1(sp+1,:)
-            call write_complex_profile(r_temp, temp_array, rg_grid%npts_c, trim(dirname)//'/pref_rho_phi_g1.dat')
-            temp_array = pref_rho_phi_g2(sp+1,:)
-            call write_complex_profile(r_temp, temp_array, rg_grid%npts_c, trim(dirname)//'/pref_rho_phi_g2.dat')
-            temp_array = pref_rho_phi_g3(sp+1,:)
-            call write_complex_profile(r_temp, temp_array, rg_grid%npts_c, trim(dirname)//'/pref_rho_phi_g3.dat')
+            temp_array = pref_rho_phi_g0(sp+1, :)
+            call write_complex_profile(r_temp, temp_array, rg_grid%npts_c, trim(dirname)//'/pref_rho_phi_g0')
 
-            temp_array = pref_rho_B_g1(sp+1,:)
-            call write_complex_profile(r_temp, temp_array, rg_grid%npts_c, trim(dirname)//'/pref_rho_B_g1.dat')
-            temp_array = pref_rho_B_g2(sp+1,:)
-            call write_complex_profile(r_temp, temp_array, rg_grid%npts_c, trim(dirname)//'/pref_rho_B_g2.dat')
-            temp_array = pref_rho_B_g3(sp+1,:)
-            call write_complex_profile(r_temp, temp_array, rg_grid%npts_c, trim(dirname)//'/pref_rho_B_g3.dat')
+            do mphi = -mphi_max, mphi_max
+
+                temp_array = pref_rho_phi_g1(sp+1, :, mphi)
+                call write_complex_profile(r_temp, temp_array, rg_grid%npts_c, trim(dirname)//'/pref_rho_phi_g1_mphi_'//itoa(mphi))
+
+                temp_array = pref_rho_phi_g2(sp+1, :, mphi)
+                call write_complex_profile(r_temp, temp_array, rg_grid%npts_c, trim(dirname)//'/pref_rho_phi_g2_mphi_'//itoa(mphi))
+
+                temp_array = pref_rho_phi_g3(sp+1, :, mphi)
+                call write_complex_profile(r_temp, temp_array, rg_grid%npts_c, trim(dirname)//'/pref_rho_phi_g3_mphi_'//itoa(mphi))
+
+                temp_array = pref_rho_B_g1(sp+1, :, mphi)
+                call write_complex_profile(r_temp, temp_array, rg_grid%npts_c, trim(dirname)//'/pref_rho_B_g1_mphi_'//itoa(mphi))
+
+                temp_array = pref_rho_B_g2(sp+1, :, mphi)
+                call write_complex_profile(r_temp, temp_array, rg_grid%npts_c, trim(dirname)//'/pref_rho_B_g2_mphi_'//itoa(mphi))
+
+                temp_array = pref_rho_B_g3(sp+1, :, mphi)
+                call write_complex_profile(r_temp, temp_array, rg_grid%npts_c, trim(dirname)//'/pref_rho_B_g3_mphi_'//itoa(mphi))
+            end do
 
         end do
 
@@ -627,21 +648,21 @@ module kernel_m
             ! Charge density terms at cell centers
             k_rho_phi = k_rho_phi + delta_rg_local &
                 * ( &
-                    pref_rho_phi_g0(1,j) + pref_rho_phi_g1(1, j) &
+                    pref_rho_phi_g0(1,j) + pref_rho_phi_g1(1, j, 0) & ! zeroth mpi order is sufficient for electrons
                 ) &
                 * varphi_l(rg_grid%xc(j), int_point%xlm1, int_point%xl, int_point%xlp1) &
                 * varphi_l(rg_grid%xc(j), int_point%xlpm1, int_point%xlp, int_point%xlpp1)
 
-            k_rho_B = k_rho_B + delta_rg_local * pref_rho_B_g1(1, j) &
+            k_rho_B = k_rho_B + delta_rg_local * pref_rho_B_g1(1, j, 0) &
                 * varphi_l(rg_grid%xc(j), int_point%xlm1, int_point%xl, int_point%xlp1) &
                 * varphi_l(rg_grid%xc(j), int_point%xlpm1, int_point%xlp, int_point%xlpp1)
 
             ! Current density terms at boundary points
-            k_j_phi = k_j_phi + delta_rg_local * pref_j_phi_g1(1, j) &
+            k_j_phi = k_j_phi + delta_rg_local * pref_j_phi_g1(1, j, 0) &
                 * varphi_l(rg_grid%xc(j), int_point%xlm1, int_point%xl, int_point%xlp1) &
                 * varphi_l(rg_grid%xc(j), int_point%xlpm1, int_point%xlp, int_point%xlpp1)
 
-            k_j_B = k_j_B + delta_rg_local * pref_j_B_g1(1, j) &
+            k_j_B = k_j_B + delta_rg_local * pref_j_B_g1(1, j, 0) &
                 * varphi_l(rg_grid%xc(j), int_point%xlm1, int_point%xl, int_point%xlp1) &
                 * varphi_l(rg_grid%xc(j), int_point%xlpm1, int_point%xlp, int_point%xlpp1)
 
@@ -692,12 +713,13 @@ module kernel_m
         use config_m, only: turn_off_ions, turn_off_electrons, artificial_debye_case
         use grid_m, only: xl_grid
         use resonances_mod, only: r_res
+        use setup_m, only: mphi_max
 
         implicit none
 
         integer, intent(in) :: l, lp, sigma
         complex(dp) :: k_rho_phi, k_rho_B, k_j_phi, k_j_B
-        integer :: j
+        integer :: j, mphi
         type(gauss_config_t), intent(in) :: gauss_conf
         real(dp) :: integral_val
         real(dp) :: current_distance
@@ -725,7 +747,7 @@ module kernel_m
                 .and. pref_rho_phi_G0(sigma+1, j) /= 0.0d0) then
                 int_F0%int_point = int_point
                 call gauss_integrate_F0(int_F0, int_point%xlm1, int_point%xlp1, integral_val, gauss_conf)
-                k_rho_phi = k_rho_phi + integral_val * pref_rho_phi_g1(sigma+1,j)
+                k_rho_phi = k_rho_phi + integral_val * pref_rho_phi_g0(sigma+1, j)
             end if
 
             if (artificial_debye_case == 1) cycle
@@ -739,12 +761,16 @@ module kernel_m
             int_F2%int_point = int_point
             int_F3%int_point = int_point
 
-            ! F1 integration
-            call gauss_integrate_F1(int_F1, integral_val, gauss_conf)
-            k_rho_phi = k_rho_phi + integral_val * pref_rho_phi_g1(sigma+1,j)
-            k_rho_B = k_rho_B + integral_val * pref_rho_B_g1(sigma+1,j)
-            k_j_phi = k_j_phi + integral_val * pref_j_phi_g1(sigma+1,j)
-            k_j_B = k_j_B + integral_val * pref_j_B_g1(sigma+1,j)
+            do mphi = -mphi_max, mphi_max
+                int_F1%int_point%mphi = mphi
+                ! F1 integration
+                call gauss_integrate_F1(int_F1, integral_val, gauss_conf)
+                
+                k_rho_phi = k_rho_phi + integral_val * pref_rho_phi_g1(sigma+1, j, mphi) * (-1.0d0)**mphi
+                k_rho_B = k_rho_B + integral_val * pref_rho_B_g1(sigma+1, j, mphi) * (-1.0d0)**mphi
+                k_j_phi = k_j_phi + integral_val * pref_j_phi_g1(sigma+1, j, mphi) * (-1.0d0)**mphi
+                k_j_B = k_j_B + integral_val * pref_j_B_g1(sigma+1, j, mphi) * (-1.0d0)**mphi
+            end do
 
             ! ignore FLR terms if resonance is too far from grid points
              if (abs(xl_grid%xb(l) - r_res) > 10.0d0 * int_point%rhoT .or. &
@@ -752,19 +778,23 @@ module kernel_m
                 cycle
             end if
 
-            ! F2 integration
-            call gauss_integrate_F2(int_F2, integral_val, gauss_conf)
-            k_rho_phi = k_rho_phi + integral_val * pref_rho_phi_g2(sigma+1,j)
-            k_rho_B = k_rho_B + integral_val * pref_rho_B_g2(sigma+1,j)
-            k_j_phi = k_j_phi + integral_val * pref_j_phi_g2(sigma+1,j)
-            k_j_B = k_j_B + integral_val * pref_j_B_g2(sigma+1,j)
+            do mphi = -mphi_max, mphi_max
+                int_F2%int_point%mphi = mphi
+                ! F2 integration
+                call gauss_integrate_F2(int_F2, integral_val, gauss_conf)
+                k_rho_phi = k_rho_phi + integral_val * pref_rho_phi_g2(sigma+1, j, mphi) * (-1.0d0)**mphi
+                k_rho_B = k_rho_B + integral_val * pref_rho_B_g2(sigma+1, j, mphi) * (-1.0d0)**mphi
+                k_j_phi = k_j_phi + integral_val * pref_j_phi_g2(sigma+1, j, mphi) * (-1.0d0)**mphi
+                k_j_B = k_j_B + integral_val * pref_j_B_g2(sigma+1, j, mphi) * (-1.0d0)**mphi
 
-            ! F3 integration
-            call gauss_integrate_F3(int_F3, integral_val, gauss_conf)
-            k_rho_phi = k_rho_phi + integral_val * pref_rho_phi_g3(sigma+1,j)
-            k_rho_B = k_rho_B + integral_val * pref_rho_B_g3(sigma+1,j)
-            k_j_phi = k_j_phi + integral_val * pref_j_phi_g3(sigma+1,j)
-            k_j_B = k_j_B + integral_val * pref_j_B_g3(sigma+1,j)
+                int_F3%int_point%mphi = mphi
+                ! F3 integration
+                call gauss_integrate_F3(int_F3, integral_val, gauss_conf)
+                k_rho_phi = k_rho_phi + integral_val * pref_rho_phi_g3(sigma+1, j, mphi) * (-1.0d0)**mphi
+                k_rho_B = k_rho_B + integral_val * pref_rho_B_g3(sigma+1, j, mphi) * (-1.0d0)**mphi
+                k_j_phi = k_j_phi + integral_val * pref_j_phi_g3(sigma+1,j, mphi) * (-1.0d0)**mphi
+                k_j_B = k_j_B + integral_val * pref_j_B_g3(sigma+1, j, mphi) * (-1.0d0)**mphi
+            end do
 
         end do
 
@@ -995,24 +1025,31 @@ module kernel_m
             ! has to be done in order to take quasineutrality into account as is done in FLR2
             
             use species_m, only: plasma
-            use IO_collection_m, only: write_complex_profile
+            use IO_collection_m, only: write_complex_profile, itoa
             use grid_m, only: rg_grid
             use config_m, only: output_path
+            use setup_m, only: mphi_max
 
             implicit none
 
             integer :: sp
+            integer :: j
+            integer :: mphi
 
             do sp=0, plasma%n_species - 1
                 ! Note: I00, I20, x1, x2 are now only available as _cc (cell center) versions
                 ! They are computed after interpolation in calculate_thermodynamic_forces_and_susc
-                plasma%spec(sp)%I00_cc = plasma%spec(sp)%I01_cc * plasma%spec(sp)%x1_cc / plasma%spec(sp)%x2_cc
-                plasma%spec(sp)%I20_cc = plasma%spec(sp)%I21_cc * plasma%spec(sp)%x1_cc / plasma%spec(sp)%x2_cc
+                do j = 1, rg_grid%npts_c
+                    plasma%spec(sp)%I00_cc(j, :) = plasma%spec(sp)%I01_cc(j, :) * plasma%spec(sp)%x1_cc(j) / plasma%spec(sp)%x2_cc(j, :)
+                    plasma%spec(sp)%I20_cc(j, :) = plasma%spec(sp)%I21_cc(j, :) * plasma%spec(sp)%x1_cc(j) / plasma%spec(sp)%x2_cc(j, :)
+                end do
 
-                call write_complex_profile(rg_grid%xc, plasma%spec(sp)%I00_cc, rg_grid%npts_c, &
-                    'backs/'//trim(plasma%spec(sp)%name)//'/I00_cc_after_resc.dat')
-                call write_complex_profile(rg_grid%xc, plasma%spec(sp)%I20_cc, rg_grid%npts_c, &
-                    'backs/'//trim(plasma%spec(sp)%name)//'/I20_cc_after_resc.dat')
+                do mphi = -mphi_max, mphi_max
+                    call write_complex_profile(rg_grid%xc, plasma%spec(sp)%I01_cc(:, mphi), rg_grid%npts_c, &
+                        'backs/'//trim(plasma%spec(sp)%name)//'/I01_cc_after_resc_mphi_0'//trim(adjustl(itoa(mphi))))
+                    call write_complex_profile(rg_grid%xc, plasma%spec(sp)%I20_cc(:, mphi), rg_grid%npts_c, &
+                        'backs/'//trim(plasma%spec(sp)%name)//'/I20_cc_after_resc_mphi_0'//trim(adjustl(itoa(mphi))))
+                end do
             end do
 
             
@@ -1049,18 +1086,7 @@ module kernel_m
         ! electrons and ions separately, most notably, by omitting the Debye shielding term and using different susceptibility functions
 
         use KIM_kinds_m, only: dp
-        use integrals_gauss_m, only: gauss_integrate_F0, gauss_integrate_F1, gauss_integrate_F2, gauss_integrate_F3,&
-            gauss_config_t
-        use species_m, only: plasma
-        use constants_m, only: pi
-        use integrands_gauss_m, only: gauss_int_F0_rho_phi_t, gauss_int_F1_rho_phi_t, gauss_int_F2_rho_phi_t, gauss_int_F3_rho_phi_t, &
-            integration_point_t
-        use FP_kernel_plasma_prefacs_m, only: FP_G0_rho_phi
-        use grid_m, only: Larmor_skip_factor, kernel_taper_skip_threshold, rg_grid
-        use constants_m, only: com_unit, sol
-        use config_m, only: turn_off_ions, turn_off_electrons, artificial_debye_case
-        use grid_m, only: xl_grid
-        use resonances_mod, only: r_res
+        use integrals_gauss_m, only: gauss_config_t
 
         implicit none
 

@@ -42,19 +42,19 @@ module species_m
         real(dp), allocatable :: rho_L(:) ! Larmor radius
 
         real(dp), allocatable :: x1(:) ! normalized distance to res. surface
-        real(dp), allocatable :: x2(:) ! normalized inverse collisionality
+        real(dp), allocatable :: x2(:, :) ! normalized inverse collisionality, second index for cyclotron harmonic
         complex(dp), allocatable :: z0(:) ! = x2/(sqrt(2) x1), argument of plasma dispersion function
         complex(dp), dimension(:,:), allocatable :: symbI ! susceptibility function used for Fokker-Planck collision model
         !
         ! susceptibility function profiles
-        complex(dp), allocatable :: I00(:)
-        complex(dp), allocatable :: I11(:)
-        complex(dp), allocatable :: I13(:)
-        complex(dp), allocatable :: I20(:)
-        complex(dp), allocatable :: I02(:)
-        complex(dp), allocatable :: I01(:)
-        complex(dp), allocatable :: I21(:)
-        complex(dp), allocatable :: I22(:)
+        complex(dp), allocatable :: I00(:, :)
+        complex(dp), allocatable :: I11(:, :)
+        complex(dp), allocatable :: I13(:, :)
+        complex(dp), allocatable :: I20(:, :)
+        complex(dp), allocatable :: I02(:, :)
+        complex(dp), allocatable :: I01(:, :)
+        complex(dp), allocatable :: I21(:, :)
+        complex(dp), allocatable :: I22(:, :)
 
         ! Cell-centered quantities on rg_grid%xc (size rg_grid%npts_c)
         real(dp), allocatable :: n_cc(:)
@@ -69,13 +69,13 @@ module species_m
         real(dp), allocatable :: lambda_D_cc(:)
         real(dp), allocatable :: rho_L_cc(:)
         real(dp), allocatable :: x1_cc(:)
-        real(dp), allocatable :: x2_cc(:)
-        complex(dp), allocatable :: I00_cc(:)
-        complex(dp), allocatable :: I01_cc(:)
-        complex(dp), allocatable :: I20_cc(:)
-        complex(dp), allocatable :: I21_cc(:)
-        complex(dp), allocatable :: I22_cc(:)
-        complex(dp), allocatable :: I02_cc(:)
+        real(dp), allocatable :: x2_cc(:, :)
+        complex(dp), allocatable :: I00_cc(:, :)
+        complex(dp), allocatable :: I01_cc(:, :)
+        complex(dp), allocatable :: I20_cc(:, :)
+        complex(dp), allocatable :: I21_cc(:, :)
+        complex(dp), allocatable :: I22_cc(:, :)
+        complex(dp), allocatable :: I02_cc(:, :)
     end type
 
     type(plasma_t) :: plasma
@@ -323,14 +323,14 @@ module species_m
         ! Calculates BOTH boundary values (for FLR2 asymptotics) AND cell-center values (for kernels)
 
         use constants_m, only: e_charge, ev
-        use setup_m, only: omega
+        use setup_m, only: omega, mphi_max
         use grid_m, only: rg_grid
         use KIM_kinds_m, only: dp
 
         implicit none
 
         type(plasma_t), intent(inout) :: plasma_in
-        integer :: sp, j
+        integer :: sp, j, mphi
 
         ! Allocate arrays
         do sp = 0, plasma_in%n_species-1
@@ -341,15 +341,15 @@ module species_m
                 allocate(plasma_in%spec(sp)%A1(rg_grid%npts_b))
                 allocate(plasma_in%spec(sp)%A2(rg_grid%npts_b))
                 allocate(plasma_in%spec(sp)%x1(rg_grid%npts_b))
-                allocate(plasma_in%spec(sp)%x2(rg_grid%npts_b))
-                allocate(plasma_in%spec(sp)%I00(rg_grid%npts_b))
-                allocate(plasma_in%spec(sp)%I01(rg_grid%npts_b))
-                allocate(plasma_in%spec(sp)%I20(rg_grid%npts_b))
-                allocate(plasma_in%spec(sp)%I21(rg_grid%npts_b))
-                allocate(plasma_in%spec(sp)%I22(rg_grid%npts_b))
-                allocate(plasma_in%spec(sp)%I02(rg_grid%npts_b))
-                allocate(plasma_in%spec(sp)%I11(rg_grid%npts_b))
-                allocate(plasma_in%spec(sp)%I13(rg_grid%npts_b))
+                allocate(plasma_in%spec(sp)%x2(rg_grid%npts_b, -mphi_max:mphi_max))
+                allocate(plasma_in%spec(sp)%I00(rg_grid%npts_b, -mphi_max:mphi_max))
+                allocate(plasma_in%spec(sp)%I01(rg_grid%npts_b, -mphi_max:mphi_max))
+                allocate(plasma_in%spec(sp)%I20(rg_grid%npts_b, -mphi_max:mphi_max))
+                allocate(plasma_in%spec(sp)%I21(rg_grid%npts_b, -mphi_max:mphi_max))
+                allocate(plasma_in%spec(sp)%I22(rg_grid%npts_b, -mphi_max:mphi_max))
+                allocate(plasma_in%spec(sp)%I02(rg_grid%npts_b, -mphi_max:mphi_max))
+                allocate(plasma_in%spec(sp)%I11(rg_grid%npts_b, -mphi_max:mphi_max))
+                allocate(plasma_in%spec(sp)%I13(rg_grid%npts_b, -mphi_max:mphi_max))
             end if
 
             ! Cell-center arrays (for FP kernels - computed on cell centers to avoid aliasing)
@@ -357,13 +357,13 @@ module species_m
                 allocate(plasma_in%spec(sp)%A1_cc(rg_grid%npts_c))
                 allocate(plasma_in%spec(sp)%A2_cc(rg_grid%npts_c))
                 allocate(plasma_in%spec(sp)%x1_cc(rg_grid%npts_c))
-                allocate(plasma_in%spec(sp)%x2_cc(rg_grid%npts_c))
-                allocate(plasma_in%spec(sp)%I00_cc(rg_grid%npts_c))
-                allocate(plasma_in%spec(sp)%I01_cc(rg_grid%npts_c))
-                allocate(plasma_in%spec(sp)%I20_cc(rg_grid%npts_c))
-                allocate(plasma_in%spec(sp)%I21_cc(rg_grid%npts_c))
-                allocate(plasma_in%spec(sp)%I22_cc(rg_grid%npts_c))
-                allocate(plasma_in%spec(sp)%I02_cc(rg_grid%npts_c))
+                allocate(plasma_in%spec(sp)%x2_cc(rg_grid%npts_c, -mphi_max:mphi_max))
+                allocate(plasma_in%spec(sp)%I00_cc(rg_grid%npts_c, -mphi_max:mphi_max))
+                allocate(plasma_in%spec(sp)%I01_cc(rg_grid%npts_c, -mphi_max:mphi_max))
+                allocate(plasma_in%spec(sp)%I20_cc(rg_grid%npts_c, -mphi_max:mphi_max))
+                allocate(plasma_in%spec(sp)%I21_cc(rg_grid%npts_c, -mphi_max:mphi_max))
+                allocate(plasma_in%spec(sp)%I22_cc(rg_grid%npts_c, -mphi_max:mphi_max))
+                allocate(plasma_in%spec(sp)%I02_cc(rg_grid%npts_c, -mphi_max:mphi_max))
             end if
         end do
 
@@ -372,27 +372,32 @@ module species_m
             plasma_in%spec(sp)%symbI = 0.0d0
 
             do j = 1, rg_grid%npts_b
+
                 plasma_in%spec(sp)%A1(j) = plasma_in%spec(sp)%dndr(j) / plasma_in%spec(sp)%n(j) &
                     - plasma_in%spec(sp)%Zspec * e_charge / (plasma_in%spec(sp)%T(j) * ev) * plasma_in%Er(j) &
                     - 3.0d0 / (2.0d0 * plasma_in%spec(sp)%T(j)) * plasma_in%spec(sp)%dTdr(j)
                 plasma_in%spec(sp)%A2(j) = plasma_in%spec(sp)%dTdr(j) / plasma_in%spec(sp)%T(j)
 
-                plasma_in%spec(sp)%x1(j) = plasma_in%kp(j) * plasma_in%spec(sp)%vT(j) / plasma_in%spec(sp)%nu(j)
-                plasma_in%spec(sp)%x2(j) = - (plasma_in%om_E(j) - omega) / plasma_in%spec(sp)%nu(j)
 
-                call getIfunc(plasma_in%spec(sp)%x1(j), plasma_in%spec(sp)%x2(j), plasma_in%spec(sp)%symbI)
-                plasma_in%spec(sp)%I00(j) = plasma_in%spec(sp)%symbI(0, 0)
-                plasma_in%spec(sp)%I20(j) = plasma_in%spec(sp)%symbI(2, 0)
-                plasma_in%spec(sp)%I02(j) = plasma_in%spec(sp)%symbI(0, 2)
-                plasma_in%spec(sp)%I01(j) = plasma_in%spec(sp)%symbI(0, 1)
-                plasma_in%spec(sp)%I21(j) = plasma_in%spec(sp)%symbI(2, 1)
-                plasma_in%spec(sp)%I22(j) = plasma_in%spec(sp)%symbI(2, 2)
-                plasma_in%spec(sp)%I11(j) = plasma_in%spec(sp)%symbI(1, 1)
-                plasma_in%spec(sp)%I13(j) = plasma_in%spec(sp)%symbI(1, 3)
+                plasma_in%spec(sp)%x1(j) = plasma_in%kp(j) * plasma_in%spec(sp)%vT(j) / plasma_in%spec(sp)%nu(j)
+                do mphi = -mphi_max, mphi_max
+                    plasma_in%spec(sp)%x2(j, mphi) = - (plasma_in%om_E(j) + mphi * plasma%spec(sp)%omega_c(j)  - omega) &
+                                                    / plasma_in%spec(sp)%nu(j)
+
+                    call getIfunc(plasma_in%spec(sp)%x1(j), plasma_in%spec(sp)%x2(j, mphi), plasma_in%spec(sp)%symbI)
+                    plasma_in%spec(sp)%I00(j, mphi) = plasma_in%spec(sp)%symbI(0, 0)
+                    plasma_in%spec(sp)%I20(j, mphi) = plasma_in%spec(sp)%symbI(2, 0)
+                    plasma_in%spec(sp)%I02(j, mphi) = plasma_in%spec(sp)%symbI(0, 2)
+                    plasma_in%spec(sp)%I01(j, mphi) = plasma_in%spec(sp)%symbI(0, 1)
+                    plasma_in%spec(sp)%I21(j, mphi) = plasma_in%spec(sp)%symbI(2, 1)
+                    plasma_in%spec(sp)%I22(j, mphi) = plasma_in%spec(sp)%symbI(2, 2)
+                    plasma_in%spec(sp)%I11(j, mphi) = plasma_in%spec(sp)%symbI(1, 1)
+                    plasma_in%spec(sp)%I13(j, mphi) = plasma_in%spec(sp)%symbI(1, 3)
+                end do
             end do
         end do
 
-        ! Calculate on cell centers (npts_c) - THIS is what fixes the grid-dependence issue
+        ! Calculate on cell centers (npts_c) 
         do sp = 0, plasma_in%n_species-1
             plasma_in%spec(sp)%symbI = 0.0d0
 
@@ -404,15 +409,19 @@ module species_m
 
                 plasma_in%spec(sp)%x1_cc(j) = 0.5d0 * (plasma_in%kp(j) + plasma_in%kp(j+1)) &
                     * plasma_in%spec(sp)%vT_cc(j) / plasma_in%spec(sp)%nu_cc(j)
-                plasma_in%spec(sp)%x2_cc(j) = - (plasma_in%om_E_cc(j) - omega) / plasma_in%spec(sp)%nu_cc(j)
 
-                call getIfunc(plasma_in%spec(sp)%x1_cc(j), plasma_in%spec(sp)%x2_cc(j), plasma_in%spec(sp)%symbI)
-                plasma_in%spec(sp)%I00_cc(j) = plasma_in%spec(sp)%symbI(0, 0)
-                plasma_in%spec(sp)%I20_cc(j) = plasma_in%spec(sp)%symbI(2, 0)
-                plasma_in%spec(sp)%I02_cc(j) = plasma_in%spec(sp)%symbI(0, 2)
-                plasma_in%spec(sp)%I01_cc(j) = plasma_in%spec(sp)%symbI(0, 1)
-                plasma_in%spec(sp)%I21_cc(j) = plasma_in%spec(sp)%symbI(2, 1)
-                plasma_in%spec(sp)%I22_cc(j) = plasma_in%spec(sp)%symbI(2, 2)
+                do mphi = -mphi_max, mphi_max
+                    plasma_in%spec(sp)%x2_cc(j, mphi) = - (plasma_in%om_E_cc(j) + mphi * plasma_in%spec(sp)%omega_c(j) - omega) &
+                                                        / plasma_in%spec(sp)%nu_cc(j)
+
+                    call getIfunc(plasma_in%spec(sp)%x1_cc(j), plasma_in%spec(sp)%x2_cc(j, mphi), plasma_in%spec(sp)%symbI)
+                    plasma_in%spec(sp)%I00_cc(j, mphi) = plasma_in%spec(sp)%symbI(0, 0)
+                    plasma_in%spec(sp)%I20_cc(j, mphi) = plasma_in%spec(sp)%symbI(2, 0)
+                    plasma_in%spec(sp)%I02_cc(j, mphi) = plasma_in%spec(sp)%symbI(0, 2)
+                    plasma_in%spec(sp)%I01_cc(j, mphi) = plasma_in%spec(sp)%symbI(0, 1)
+                    plasma_in%spec(sp)%I21_cc(j, mphi) = plasma_in%spec(sp)%symbI(2, 1)
+                    plasma_in%spec(sp)%I22_cc(j, mphi) = plasma_in%spec(sp)%symbI(2, 2)
+                end do
             end do
         end do
 
@@ -620,9 +629,10 @@ module species_m
         ! These are computed after interpolation to avoid grid-dependent aliasing
 
         use KIM_kinds_m, only: dp
-        use IO_collection_m, only: write_profile, write_complex_profile, h5id
+        use IO_collection_m, only: write_profile, write_complex_profile, h5id, itoa
         use config_m, only: output_path, hdf5_output
         use KAMEL_hdf5_tools, only: h5_define_group, h5_obj_exists, HID_T
+        use setup_m, only: mphi_max
 
         implicit none
 
@@ -630,6 +640,7 @@ module species_m
         real(dp), intent(in) :: r_grid_cc(:)
         logical :: ex
         integer(HID_T) :: h5grpid
+        integer :: mphi
 
         if (hdf5_output) then
             call h5_obj_exists(h5id, 'backs/'//trim(spec%name), ex)
@@ -656,28 +667,53 @@ module species_m
             call write_profile(r_grid_cc, spec%x1_cc, size(r_grid_cc), &
                 'backs/'//trim(spec%name)//'/x1_cc', &
                 'Normalized distance to resonance x1 at cell centers', '1')
-            call write_profile(r_grid_cc, spec%x2_cc, size(r_grid_cc), &
-                'backs/'//trim(spec%name)//'/x2_cc', &
-                'Normalized collision frequency x2 at cell centers', '1')
 
-            call write_complex_profile(r_grid_cc, spec%I00_cc, size(r_grid_cc), &
-                'backs/'//trim(spec%name)//'/I00_cc', &
-                'Susceptibility function I00 at cell centers', '1')
-            call write_complex_profile(r_grid_cc, spec%I20_cc, size(r_grid_cc), &
-                'backs/'//trim(spec%name)//'/I20_cc', &
-                'Susceptibility function I20 at cell centers', '1')
-            call write_complex_profile(r_grid_cc, spec%I01_cc, size(r_grid_cc), &
-                'backs/'//trim(spec%name)//'/I01_cc', &
-                'Susceptibility function I01 at cell centers', '1')
-            call write_complex_profile(r_grid_cc, spec%I21_cc, size(r_grid_cc), &
-                'backs/'//trim(spec%name)//'/I21_cc', &
-                'Susceptibility function I21 at cell centers', '1')
-            call write_complex_profile(r_grid_cc, spec%I22_cc, size(r_grid_cc), &
-                'backs/'//trim(spec%name)//'/I22_cc', &
-                'Susceptibility function I22 at cell centers', '1')
-            call write_complex_profile(r_grid_cc, spec%I02_cc, size(r_grid_cc), &
-                'backs/'//trim(spec%name)//'/I02_cc', &
-                'Susceptibility function I02 at cell centers', '1')
+            do mphi = -mphi_max, mphi_max
+                call write_profile(r_grid_cc, spec%x2_cc(:, mphi), size(r_grid_cc), &
+                    'backs/'//trim(spec%name)//'/x2_cc_mphi_'//trim(adjustl(itoa(mphi))), &
+                    'Normalized collision frequency x2 at cell centers, mphi='//trim(adjustl(itoa(mphi))), '1')
+
+                call write_complex_profile(r_grid_cc, spec%I00_cc(:, mphi), size(r_grid_cc), &
+                    'backs/'//trim(spec%name)//'/I00_cc_mphi_'//trim(adjustl(itoa(mphi))), &
+                    'Susceptibility function I00 at cell centers, mphi='//trim(adjustl(itoa(mphi))), '1')
+                call write_complex_profile(r_grid_cc, spec%I20_cc(:, mphi), size(r_grid_cc), &
+                    'backs/'//trim(spec%name)//'/I20_cc_mphi_'//trim(adjustl(itoa(mphi))), &
+                    'Susceptibility function I20 at cell centers, mphi='//trim(adjustl(itoa(mphi))), '1')
+                call write_complex_profile(r_grid_cc, spec%I01_cc(:, mphi), size(r_grid_cc), &
+                    'backs/'//trim(spec%name)//'/I01_cc_mphi_'//trim(adjustl(itoa(mphi))), &
+                    'Susceptibility function I01 at cell centers, mphi='//trim(adjustl(itoa(mphi))), '1')
+                call write_complex_profile(r_grid_cc, spec%I21_cc(:, mphi), size(r_grid_cc), &
+                    'backs/'//trim(spec%name)//'/I21_cc_mphi_'//trim(adjustl(itoa(mphi))), &
+                    'Susceptibility function I21 at cell centers, mphi='//trim(adjustl(itoa(mphi))), '1')
+                call write_complex_profile(r_grid_cc, spec%I22_cc(:, mphi), size(r_grid_cc), &
+                    'backs/'//trim(spec%name)//'/I22_cc_mphi_'//trim(adjustl(itoa(mphi))), &
+                    'Susceptibility function I22 at cell centers, mphi='//trim(adjustl(itoa(mphi))), '1')
+                call write_complex_profile(r_grid_cc, spec%I02_cc(:, mphi), size(r_grid_cc), &
+                    'backs/'//trim(spec%name)//'/I02_cc_mphi_'//trim(adjustl(itoa(mphi))), &
+                    'Susceptibility function I02 at cell centers, mphi='//trim(adjustl(itoa(mphi))), '1')
+            end do
+            !call write_profile(r_grid_cc, spec%x2_cc, size(r_grid_cc), &
+                !'backs/'//trim(spec%name)//'/x2_cc', &
+                !'Normalized collision frequency x2 at cell centers', '1')
+
+            !call write_complex_profile(r_grid_cc, spec%I00_cc, size(r_grid_cc), &
+                !'backs/'//trim(spec%name)//'/I00_cc', &
+                !'Susceptibility function I00 at cell centers', '1')
+            !call write_complex_profile(r_grid_cc, spec%I20_cc, size(r_grid_cc), &
+                !'backs/'//trim(spec%name)//'/I20_cc', &
+                !'Susceptibility function I20 at cell centers', '1')
+            !call write_complex_profile(r_grid_cc, spec%I01_cc, size(r_grid_cc), &
+                !'backs/'//trim(spec%name)//'/I01_cc', &
+                !'Susceptibility function I01 at cell centers', '1')
+            !call write_complex_profile(r_grid_cc, spec%I21_cc, size(r_grid_cc), &
+                !'backs/'//trim(spec%name)//'/I21_cc', &
+                !'Susceptibility function I21 at cell centers', '1')
+            !call write_complex_profile(r_grid_cc, spec%I22_cc, size(r_grid_cc), &
+                !'backs/'//trim(spec%name)//'/I22_cc', &
+                !'Susceptibility function I22 at cell centers', '1')
+            !call write_complex_profile(r_grid_cc, spec%I02_cc, size(r_grid_cc), &
+                !'backs/'//trim(spec%name)//'/I02_cc', &
+                !'Susceptibility function I02 at cell centers', '1')
         end if
 
     end subroutine
@@ -831,7 +867,7 @@ module species_m
     end subroutine
 
 
-    subroutine calculate_susc_funcs_profiles(spec)
+    subroutine calculate_susc_funcs_profiles(spec, mphi)
 
         use resonances_mod, only: r_res
         use grid_m, only: width_res
@@ -839,20 +875,21 @@ module species_m
         implicit none
 
         type(species_t), intent(inout) :: spec
+        integer, intent(in) :: mphi
         integer :: j
 
         if (.not. allocated(spec%symbI)) allocate(spec%symbI(0:nmmax, 0:nmmax))
         spec%symbI = 0.0d0
         do j = 1, plasma%grid_size
-            call getIfunc(spec%x1(j), spec%x2(j), spec%symbI)
-            spec%I00(j) = spec%symbI(0, 0)
-            spec%I20(j) = spec%symbI(2, 0)
-            spec%I02(j) = spec%symbI(0, 2)
-            spec%I01(j) = spec%symbI(0, 1)
-            spec%I21(j) = spec%symbI(2, 1)
-            spec%I22(j) = spec%symbI(2, 2)
-            spec%I11(j) = spec%symbI(1, 1)
-            spec%I13(j) = spec%symbI(1, 3)
+            call getIfunc(spec%x1(j), spec%x2(j, mphi), spec%symbI)
+            spec%I00(j, mphi) = spec%symbI(0, 0)
+            spec%I20(j, mphi) = spec%symbI(2, 0)
+            spec%I02(j, mphi) = spec%symbI(0, 2)
+            spec%I01(j, mphi) = spec%symbI(0, 1)
+            spec%I21(j, mphi) = spec%symbI(2, 1)
+            spec%I22(j, mphi) = spec%symbI(2, 2)
+            spec%I11(j, mphi) = spec%symbI(1, 1)
+            spec%I13(j, mphi) = spec%symbI(1, 3)
         end do
 
     end subroutine

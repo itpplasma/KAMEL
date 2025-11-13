@@ -124,7 +124,7 @@ module FP_kernel_plasma_prefacs_m
         prefactor = FP_kappa_rho_phi(j, spec) * com_unit * spec%vT_cc(j)**2.0d0 / &
             (spec%omega_c_cc(j) * spec%nu_cc(j)) * plasma%ks_cc(j)
 
-        val = (I00 * (A1 + A2) + 0.5d0 * A2 * I20) * prefactor
+        val = (I00 * (A1 + A2 * (1.0d0 - mphi)) + 0.5d0 * A2 * I20) * prefactor
 
     end function FP_G1_rho_phi
 
@@ -198,7 +198,7 @@ module FP_kernel_plasma_prefacs_m
         I01 = spec%I01_cc(j, mphi)
         I21 = spec%I21_cc(j, mphi)
 
-        val = (I01 * (A1 + A2) + 0.5d0 * A2 * I21) * FP_kappa_rho_B(j, spec)
+        val = (I01 * (A1 + A2 * (1.0d0 - mphi)) + 0.5d0 * A2 * I21) * FP_kappa_rho_B(j, spec)
 
     end function
 

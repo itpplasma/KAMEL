@@ -719,7 +719,6 @@ module kernel_m
 
         integer, intent(in) :: l, lp, sigma
         complex(dp) :: k_rho_phi, k_rho_B, k_j_phi, k_j_B
-        real(dp) :: mphi_sym_factor = 1.0d0
         integer :: j, mphi
         type(gauss_config_t), intent(in) :: gauss_conf
         real(dp) :: integral_val

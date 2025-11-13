@@ -134,16 +134,17 @@ module kernel_m
 
     subroutine write_cc_prefactors
 
-        use IO_collection_m, only: write_complex_profile
+        use IO_collection_m, only: write_complex_profile, itoa
         use config_m, only: output_path
         use species_m, only: plasma
         use grid_m, only: rg_grid
         use KIM_kinds_m, only: dp
+        use setup_m, only: mphi_max
 
         implicit none
 
         logical :: ex
-        integer :: sp
+        integer :: sp, mphi
         character(len=100) :: dirname
         complex(dp), allocatable :: temp_array(:)
         real(dp), allocatable :: r_temp(:)
@@ -167,22 +168,29 @@ module kernel_m
                 call system('mkdir -p '//trim(output_path)//trim(dirname))
             end if
 
-            ! TODO: update writing of prefactors
-            ! temp_array = pref_rho_phi_g0(sp+1,:)
-            ! call write_complex_profile(r_temp, temp_array, rg_grid%npts_c, trim(dirname)//'/pref_rho_phi_g0.dat')
-            ! temp_array = pref_rho_phi_g1(sp+1,:)
-            ! call write_complex_profile(r_temp, temp_array, rg_grid%npts_c, trim(dirname)//'/pref_rho_phi_g1.dat')
-            ! temp_array = pref_rho_phi_g2(sp+1,:)
-            ! call write_complex_profile(r_temp, temp_array, rg_grid%npts_c, trim(dirname)//'/pref_rho_phi_g2.dat')
-            ! temp_array = pref_rho_phi_g3(sp+1,:)
-            ! call write_complex_profile(r_temp, temp_array, rg_grid%npts_c, trim(dirname)//'/pref_rho_phi_g3.dat')
+            temp_array = pref_rho_phi_g0(sp+1, :)
+            call write_complex_profile(r_temp, temp_array, rg_grid%npts_c, trim(dirname)//'/pref_rho_phi_g0')
 
-            ! temp_array = pref_rho_B_g1(sp+1,:)
-            ! call write_complex_profile(r_temp, temp_array, rg_grid%npts_c, trim(dirname)//'/pref_rho_B_g1.dat')
-            ! temp_array = pref_rho_B_g2(sp+1,:)
-            ! call write_complex_profile(r_temp, temp_array, rg_grid%npts_c, trim(dirname)//'/pref_rho_B_g2.dat')
-            ! temp_array = pref_rho_B_g3(sp+1,:)
-            ! call write_complex_profile(r_temp, temp_array, rg_grid%npts_c, trim(dirname)//'/pref_rho_B_g3.dat')
+            do mphi = -mphi_max, mphi_max
+
+                temp_array = pref_rho_phi_g1(sp+1, :, mphi)
+                call write_complex_profile(r_temp, temp_array, rg_grid%npts_c, trim(dirname)//'/pref_rho_phi_g1_mphi_'//itoa(mphi))
+
+                temp_array = pref_rho_phi_g2(sp+1, :, mphi)
+                call write_complex_profile(r_temp, temp_array, rg_grid%npts_c, trim(dirname)//'/pref_rho_phi_g2_mphi_'//itoa(mphi))
+
+                temp_array = pref_rho_phi_g3(sp+1, :, mphi)
+                call write_complex_profile(r_temp, temp_array, rg_grid%npts_c, trim(dirname)//'/pref_rho_phi_g3_mphi_'//itoa(mphi))
+
+                temp_array = pref_rho_B_g1(sp+1, :, mphi)
+                call write_complex_profile(r_temp, temp_array, rg_grid%npts_c, trim(dirname)//'/pref_rho_B_g1_mphi_'//itoa(mphi))
+
+                temp_array = pref_rho_B_g2(sp+1, :, mphi)
+                call write_complex_profile(r_temp, temp_array, rg_grid%npts_c, trim(dirname)//'/pref_rho_B_g2_mphi_'//itoa(mphi))
+
+                temp_array = pref_rho_B_g3(sp+1, :, mphi)
+                call write_complex_profile(r_temp, temp_array, rg_grid%npts_c, trim(dirname)//'/pref_rho_B_g3_mphi_'//itoa(mphi))
+            end do
 
         end do
 
@@ -1039,9 +1047,9 @@ module kernel_m
 
                 do mphi = -mphi_max, mphi_max
                     call write_complex_profile(rg_grid%xc, plasma%spec(sp)%I01_cc(:, mphi), rg_grid%npts_c, &
-                        'backs/'//trim(plasma%spec(sp)%name)//'/I01_cc_after_resc_mphi'//trim(adjustl(itoa(mphi))))
+                        'backs/'//trim(plasma%spec(sp)%name)//'/I01_cc_after_resc_mphi_0'//trim(adjustl(itoa(mphi))))
                     call write_complex_profile(rg_grid%xc, plasma%spec(sp)%I20_cc(:, mphi), rg_grid%npts_c, &
-                        'backs/'//trim(plasma%spec(sp)%name)//'/I20_cc_after_resc_mphi'//trim(adjustl(itoa(mphi))))
+                        'backs/'//trim(plasma%spec(sp)%name)//'/I20_cc_after_resc_mphi_0'//trim(adjustl(itoa(mphi))))
                 end do
             end do
 
@@ -1079,18 +1087,7 @@ module kernel_m
         ! electrons and ions separately, most notably, by omitting the Debye shielding term and using different susceptibility functions
 
         use KIM_kinds_m, only: dp
-        use integrals_gauss_m, only: gauss_integrate_F0, gauss_integrate_F1, gauss_integrate_F2, gauss_integrate_F3,&
-            gauss_config_t
-        use species_m, only: plasma
-        use constants_m, only: pi
-        use integrands_gauss_m, only: gauss_int_F0_rho_phi_t, gauss_int_F1_rho_phi_t, gauss_int_F2_rho_phi_t, gauss_int_F3_rho_phi_t, &
-            integration_point_t
-        use FP_kernel_plasma_prefacs_m, only: FP_G0_rho_phi
-        use grid_m, only: Larmor_skip_factor, kernel_taper_skip_threshold, rg_grid
-        use constants_m, only: com_unit, sol
-        use config_m, only: turn_off_ions, turn_off_electrons, artificial_debye_case
-        use grid_m, only: xl_grid
-        use resonances_mod, only: r_res
+        use integrals_gauss_m, only: gauss_config_t
 
         implicit none
 

@@ -101,7 +101,7 @@ module FP_kernel_plasma_prefacs_m
 
     end function
 
-    function FP_G1_rho_phi(j, spec) result(val)
+    function FP_G1_rho_phi(j, spec, mphi) result(val)
 
         use species_m, only: species_t, plasma
         use KIM_kinds_m, only: dp
@@ -109,7 +109,7 @@ module FP_kernel_plasma_prefacs_m
 
         implicit none
 
-        integer, intent(in) :: j
+        integer, intent(in) :: j, mphi
         type(species_t), intent(in) :: spec
         complex(dp) :: val
         complex(dp) :: I00, I20
@@ -118,8 +118,8 @@ module FP_kernel_plasma_prefacs_m
 
         A1 = spec%A1_cc(j)
         A2 = spec%A2_cc(j)
-        I00 = spec%I00_cc(j)
-        I20 = spec%I20_cc(j)
+        I00 = spec%I00_cc(j, mphi)
+        I20 = spec%I20_cc(j, mphi)
 
         prefactor = FP_kappa_rho_phi(j, spec) * com_unit * spec%vT_cc(j)**2.0d0 / &
             (spec%omega_c_cc(j) * spec%nu_cc(j)) * plasma%ks_cc(j)
@@ -129,7 +129,7 @@ module FP_kernel_plasma_prefacs_m
     end function FP_G1_rho_phi
 
 
-    function FP_G2_rho_phi(j, spec) result(val)
+    function FP_G2_rho_phi(j, spec, mphi) result(val)
 
         use species_m, only: species_t, plasma
         use KIM_kinds_m, only: dp
@@ -137,7 +137,7 @@ module FP_kernel_plasma_prefacs_m
 
         implicit none
 
-        integer, intent(in) :: j
+        integer, intent(in) :: j, mphi
         type(species_t), intent(in) :: spec
         complex(dp) :: val
         complex(dp) :: I00
@@ -145,7 +145,7 @@ module FP_kernel_plasma_prefacs_m
         complex(dp) :: prefactor
 
         A2 = spec%A2_cc(j)
-        I00 = spec%I00_cc(j)
+        I00 = spec%I00_cc(j, mphi)
 
         prefactor = com_unit * spec%vT_cc(j)**2.0d0 / &
             (spec%omega_c_cc(j) * spec%nu_cc(j)) * plasma%ks_cc(j)
@@ -154,7 +154,7 @@ module FP_kernel_plasma_prefacs_m
 
     end function FP_G2_rho_phi
 
-    function FP_G3_rho_phi(j, spec) result(val)
+    function FP_G3_rho_phi(j, spec, mphi) result(val)
 
         use species_m, only: species_t, plasma
         use KIM_kinds_m, only: dp
@@ -162,7 +162,7 @@ module FP_kernel_plasma_prefacs_m
 
         implicit none
 
-        integer, intent(in) :: j
+        integer, intent(in) :: j, mphi
         type(species_t), intent(in) :: spec
         complex(dp) :: val
         complex(dp) :: I00
@@ -170,7 +170,7 @@ module FP_kernel_plasma_prefacs_m
         complex(dp) :: prefactor
 
         A2 = spec%A2_cc(j)
-        I00 = spec%I00_cc(j)
+        I00 = spec%I00_cc(j, mphi)
 
         prefactor = com_unit * spec%vT_cc(j)**2.0d0 / &
             (spec%omega_c_cc(j) * spec%nu_cc(j)) * plasma%ks_cc(j)
@@ -180,14 +180,14 @@ module FP_kernel_plasma_prefacs_m
     end function FP_G3_rho_phi
 
 
-    function FP_G1_rho_B(j, spec) result(val)
+    function FP_G1_rho_B(j, spec, mphi) result(val)
 
         use species_m, only: species_t
         use KIM_kinds_m, only: dp
 
         implicit none
 
-        integer, intent(in) :: j
+        integer, intent(in) :: j, mphi
         type(species_t), intent(in) :: spec
         complex(dp) :: val
         complex(dp) :: I01, I21
@@ -195,64 +195,64 @@ module FP_kernel_plasma_prefacs_m
 
         A1 = spec%A1_cc(j)
         A2 = spec%A2_cc(j)
-        I01 = spec%I01_cc(j)
-        I21 = spec%I21_cc(j)
+        I01 = spec%I01_cc(j, mphi)
+        I21 = spec%I21_cc(j, mphi)
 
         val = (I01 * (A1 + A2) + 0.5d0 * A2 * I21) * FP_kappa_rho_B(j, spec)
 
     end function
 
 
-    function FP_G2_rho_B(j, spec) result(val)
+    function FP_G2_rho_B(j, spec, mphi) result(val)
 
         use species_m, only: species_t
         use KIM_kinds_m, only: dp
 
         implicit none
 
-        integer, intent(in) :: j
+        integer, intent(in) :: j, mphi
         type(species_t), intent(in) :: spec
         complex(dp) :: val
         complex(dp) :: I01
         real(dp) :: A2
 
         A2 = spec%A2_cc(j)
-        I01 = spec%I01_cc(j)
+        I01 = spec%I01_cc(j, mphi)
 
         val = - I01 * A2 * FP_kappa_rho_B(j, spec)
 
     end function
 
 
-    function FP_G3_rho_B(j, spec) result(val)
+    function FP_G3_rho_B(j, spec, mphi) result(val)
 
         use species_m, only: species_t
         use KIM_kinds_m, only: dp
 
         implicit none
 
-        integer, intent(in) :: j
+        integer, intent(in) :: j, mphi
         type(species_t), intent(in) :: spec
         complex(dp) :: val
         complex(dp) :: I01
         real(dp) :: A2
 
         A2 = spec%A2_cc(j)
-        I01 = spec%I01_cc(j)
+        I01 = spec%I01_cc(j, mphi)
 
         val = I01 * A2 * FP_kappa_rho_B(j, spec)
 
     end function
 
 
-    function FP_G1_j_phi(j, spec) result(val)
+    function FP_G1_j_phi(j, spec, mphi) result(val)
 
         use species_m, only: species_t, plasma
         use KIM_kinds_m, only: dp
 
         implicit none
 
-        integer, intent(in) :: j
+        integer, intent(in) :: j, mphi
         type(species_t), intent(in) :: spec
         complex(dp) :: val
         complex(dp) :: I01, I21
@@ -260,64 +260,64 @@ module FP_kernel_plasma_prefacs_m
 
         A1 = spec%A1_cc(j)
         A2 = spec%A2_cc(j)
-        I01 = spec%I01_cc(j)
-        I21 = spec%I21_cc(j)
+        I01 = spec%I01_cc(j, mphi)
+        I21 = spec%I21_cc(j, mphi)
 
         val = (I01 * (A1 + A2) + 0.5d0 * A2 * I21) * FP_kappa_j_phi(j, spec) * plasma%ks_cc(j)
 
     end function
 
 
-    function FP_G2_j_phi(j, spec) result(val)
+    function FP_G2_j_phi(j, spec, mphi) result(val)
 
         use species_m, only: species_t, plasma
         use KIM_kinds_m, only: dp
 
         implicit none
 
-        integer, intent(in) :: j
+        integer, intent(in) :: j, mphi
         type(species_t), intent(in) :: spec
         complex(dp) :: val
         complex(dp) :: I01
         real(dp) :: A2
 
         A2 = spec%A2_cc(j)
-        I01 = spec%I01_cc(j)
+        I01 = spec%I01_cc(j, mphi)
 
         val = - I01 * A2 * FP_kappa_j_phi(j, spec) * plasma%ks_cc(j)
 
     end function
 
 
-    function FP_G3_j_phi(j, spec) result(val)
+    function FP_G3_j_phi(j, spec, mphi) result(val)
 
         use species_m, only: species_t, plasma
         use KIM_kinds_m, only: dp
 
         implicit none
 
-        integer, intent(in) :: j
+        integer, intent(in) :: j, mphi
         type(species_t), intent(in) :: spec
         complex(dp) :: val
         complex(dp) :: I01
         real(dp) :: A2
 
         A2 = spec%A2_cc(j)
-        I01 = spec%I01_cc(j)
+        I01 = spec%I01_cc(j, mphi)
 
         val = I01 * A2 * FP_kappa_j_phi(j, spec) * plasma%ks_cc(j)
 
     end function
 
 
-    function FP_G1_j_B(j, spec) result(val)
+    function FP_G1_j_B(j, spec, mphi) result(val)
 
         use species_m, only: species_t
         use KIM_kinds_m, only: dp
 
         implicit none
 
-        integer, intent(in) :: j
+        integer, intent(in) :: j, mphi
         type(species_t), intent(in) :: spec
         complex(dp) :: val
         complex(dp) :: I02, I22
@@ -325,50 +325,50 @@ module FP_kernel_plasma_prefacs_m
 
         A1 = spec%A1_cc(j)
         A2 = spec%A2_cc(j)
-        I02 = spec%I02_cc(j)
-        I22 = spec%I22_cc(j)
+        I02 = spec%I02_cc(j, mphi)
+        I22 = spec%I22_cc(j, mphi)
 
         val = (I02 * (A1 + A2) + 0.5d0 * A2 * I22) * FP_kappa_j_B(j, spec)
 
     end function
 
 
-    function FP_G2_j_B(j, spec) result(val)
+    function FP_G2_j_B(j, spec, mphi) result(val)
 
         use species_m, only: species_t
         use KIM_kinds_m, only: dp
 
         implicit none
 
-        integer, intent(in) :: j
+        integer, intent(in) :: j, mphi
         type(species_t), intent(in) :: spec
         complex(dp) :: val
         complex(dp) :: I02
         real(dp) :: A2
 
         A2 = spec%A2_cc(j)
-        I02 = spec%I02_cc(j)
+        I02 = spec%I02_cc(j, mphi)
 
         val = - I02 * A2 * FP_kappa_j_B(j, spec)
 
     end function
 
 
-    function FP_G3_j_B(j, spec) result(val)
+    function FP_G3_j_B(j, spec, mphi) result(val)
 
         use species_m, only: species_t
         use KIM_kinds_m, only: dp
 
         implicit none
 
-        integer, intent(in) :: j
+        integer, intent(in) :: j, mphi
         type(species_t), intent(in) :: spec
         complex(dp) :: val
         complex(dp) :: I02
         real(dp) :: A2
 
         A2 = spec%A2_cc(j)
-        I02 = spec%I02_cc(j)
+        I02 = spec%I02_cc(j, mphi)
 
         val = I02 * A2 * FP_kappa_j_B(j, spec)
 

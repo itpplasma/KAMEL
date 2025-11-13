@@ -560,5 +560,19 @@ module IO_collection_m
 
     end subroutine
 
+    function itoa(i) result(res)
+
+        implicit none
+
+        character(:),allocatable :: res
+        integer,intent(in) :: i
+        character(range(i)+2) :: tmp
+
+        write(tmp,'(i0)') i
+
+        res = trim(tmp)
+
+    end function
+
 
 end module

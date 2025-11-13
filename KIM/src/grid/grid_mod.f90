@@ -351,11 +351,52 @@ module grid_m
 
         ! Enforce Dirichlet BC at right boundary: Phi_n = 0
         ! This ensures consistency with A_mat boundary conditions
-        M_mat(n,:) = 0.0d0
-        M_mat(:,n) = 0.0d0
-        M_mat(n,n) = 1.0d0
+        ! M_mat(n,:) = 0.0d0
+        ! M_mat(:,n) = 0.0d0
+        ! M_mat(n,n) = 1.0d0
 
     end subroutine
 
+
+    subroutine calc_potential_matrix(Q_mat)
+
+        use KIM_kinds_m, only: dp
+        use config_m, only: output_path
+
+        implicit none
+
+        real(dp), intent(inout) :: Q_mat(:,:)
+        real(dp) :: h
+
+        integer :: i, n
+
+        Q_mat = 0.0d0
+        n = xl_grid%npts_b
+
+        do i = 1, xl_grid%npts_b-1
+            h = xl_grid%xb(i+1) - xl_grid%xb(i)
+
+            Q_mat(i,  i  ) = 0.5d0 * (&
+                    (xl_grid%xb(i)**2.0d0 + 2.0d0 * xl_grid%xb(i-1) * (log(xl_grid%xb(i)) - log(xl_grid%xb(i-1))) &
+                    - 4.0d0 * xl_grid%xb(i) * xl_grid%xb(i-1) + 3.0d0 * xl_grid%xb(i-1)**2.0d0 &
+                    )  / (xl_grid%xb(i) - xl_grid%xb(i-1))**2.0d0 &
+                    - &
+                    (xl_grid%xb(i)**2.0d0 + 2.0d0 * xl_grid%xb(i+1) * (log(xl_grid%xb(i)) - log(xl_grid%xb(i+1))) &
+                    - 4.0d0 * xl_grid%xb(i) * xl_grid%xb(i+1) + 3.0d0 * xl_grid%xb(i+1)**2.0d0 &
+                    )  / (xl_grid%xb(i) - xl_grid%xb(i+1))**2.0d0 &
+                )
+
+            Q_mat(i,  i+1) = Q_mat(i,  i+1) + 1.0d0*h/6.0d0
+            Q_mat(i+1,i  ) = Q_mat(i+1,i  ) + 1.0d0*h/6.0d0
+            Q_mat(i+1,i+1) = Q_mat(i+1,i+1) + 2.0d0*h/6.0d0
+        end do
+
+        ! Enforce Dirichlet BC at right boundary: Phi_n = 0
+        ! This ensures consistency with A_mat boundary conditions
+        Q_mat(n,:) = 0.0d0
+        Q_mat(:,n) = 0.0d0
+        Q_mat(n,n) = 1.0d0
+
+    end subroutine
 
 end module

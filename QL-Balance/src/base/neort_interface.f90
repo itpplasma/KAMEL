@@ -11,8 +11,10 @@ module neort_interface
 
     public :: prepare_plasma_data_for_neort
     public :: prepare_profile_data_for_neort
+    public :: calculate_Omega_tE_splined
     public :: read_equil_file
     public :: calculate_s_tor
+    public :: calculate_coarse_s_tor
 
 contains
 
@@ -25,25 +27,44 @@ contains
     !>          Column 4: Ti1 - temperature of species 1 [eV]
     !>          Column 5: Ti2 - temperature of species 2 [eV]
     !>          Column 6: Te - electron temperature [eV]
-    subroutine prepare_plasma_data_for_neort(plasma_data, s_tor)
+    subroutine prepare_plasma_data_for_neort(plasma_data, r, s_tor)
         use baseparam_mod, only: EV_TO_ERG => ev
+        use grid_mod, only: rc
         use plasma_parameters, only: params
+        use spline, only: spline_coeff, spline_val
 
         real(dp), dimension(:, :), intent(out) :: plasma_data
+        real(dp), dimension(:), intent(in) :: r
         real(dp), dimension(:), intent(in) :: s_tor
 
-        integer :: i, s_size
+        real(dp), dimension(:, :), allocatable :: ni_of_r_coeffs, Ti_of_r_coeffs, Te_of_r_coeffs
+        real(dp), dimension(:, :), allocatable :: ni_splined, Ti_splined, Te_splined
+        integer :: i, p_size, c_size, s_size
+
         real(dp), parameter :: ERG_TO_EV = 1.0_dp / EV_TO_ERG
 
+        p_size = size(params, 2)
+        c_size = p_size - 1
         s_size = size(s_tor)
 
         ! Check dimensions
-        if (size(plasma_data, 1) /= s_size) then
+        if (size(plasma_data, 1) /= s_size .or. size(plasma_data, 2) /= 6) then
             error stop "prepare_neort_plasma_data: plasma_data dimension mismatch"
         end if
-        if (size(plasma_data, 2) /= 6) then
-            error stop "prepare_neort_plasma_data: plasma_data must have six columns"
-        end if
+
+        allocate (ni_of_r_coeffs(c_size, 5))
+        allocate (Ti_of_r_coeffs(c_size, 5))
+        allocate (Te_of_r_coeffs(c_size, 5))
+        allocate (ni_splined(s_size, 3))
+        allocate (Ti_splined(s_size, 3))
+        allocate (Te_splined(s_size, 3))
+
+        ni_of_r_coeffs = spline_coeff(rc, params(1, :))
+        ni_splined = spline_val(ni_of_r_coeffs, r)
+        Ti_of_r_coeffs = spline_coeff(rc, params(4, :))
+        Ti_splined = spline_val(Ti_of_r_coeffs, r)
+        Te_of_r_coeffs = spline_coeff(rc, params(3, :))
+        Te_splined = spline_val(Te_of_r_coeffs, r)
 
         ! Fill plasma data array for NEO-RT. C.f.:
         ! - KAMEL/QL-Balance/src/base/paramscan.f90:257
@@ -54,47 +75,56 @@ contains
             plasma_data(i, 1) = s_tor(i)
 
             ! Column 2: Density of species 1 [cm^-3]
-            plasma_data(i, 2) = params(1, i)
+            plasma_data(i, 2) = ni_splined(i, 1)
 
             ! Column 3: Density of species 2 [cm^-3]
             ! Set to 0 for single-species calculations
             plasma_data(i, 3) = 0.0_dp
 
             ! Column 4: Temperature of species 1 [eV]
-            plasma_data(i, 4) = params(4, i) * ERG_TO_EV
+            plasma_data(i, 4) = Ti_splined(i, 1) * ERG_TO_EV
 
             ! Column 5: Temperature of species 2 [eV]
             ! Dummy value for unused species 2
             plasma_data(i, 5) = 1.0_dp
 
             ! Column 6: Electron temperature [eV]
-            plasma_data(i, 6) = params(3, i) * ERG_TO_EV
+            plasma_data(i, 6) = Te_splined(i, 1) * ERG_TO_EV
         end do
-
     end subroutine prepare_plasma_data_for_neort
 
     !> @brief Prepare rotation profile data for NEO-RT from KAMEL arrays
     !> @param[out] profile_data 2D array (nflux, 3) for NEO-RT profile input
-    subroutine prepare_profile_data_for_neort(profile_data, s_tor)
-        use baseparam_mod, only: am, p_mass, btor, rtor, c
+    subroutine prepare_profile_data_for_neort(profile_data, r, s_tor, Omega_tE)
+        use baseparam_mod, only: am, p_mass, rtor
         use grid_mod, only: rc
-        use plasma_parameters, only: params, qsaf
-        use wave_code_data, only: dPhi0
+        use plasma_parameters, only: params
+        use spline, only: spline_coeff, spline_val
 
         real(dp), dimension(:, :), intent(out) :: profile_data
+        real(dp), dimension(:), intent(in) :: r
         real(dp), dimension(:), intent(in) :: s_tor
+        real(dp), dimension(:), intent(in) :: Omega_tE
 
-        integer :: i, s_size
-        real(dp) :: T_i, m_i, vth, M_t, dPhi_dr, dpsi_pol_dr, Omega_tE
+        real(dp) :: T_i, m_i, vth, M_t
+        real(dp), dimension(:, :), allocatable :: Ti_of_r_coeffs, Ti_splined
+        integer :: i, p_size, c_size, s_size
 
+        p_size = size(params, 2)
+        c_size = p_size - 1
         s_size = size(s_tor)
 
+        allocate (Ti_of_r_coeffs(c_size, 5))
+        allocate (Ti_splined(s_size, 3))
+
+        Ti_of_r_coeffs = spline_coeff(rc, params(4, :))
+        Ti_splined = spline_val(Ti_of_r_coeffs, r)
+
+        m_i = am * p_mass  ! ion mass
+
         ! Check dimensions
-        if (size(profile_data, 1) /= s_size) then
+        if (size(profile_data, 1) /= s_size .or. size(profile_data, 2) /= 2) then
             error stop "prepare_neort_profile_data: profile_data dimension mismatch"
-        end if
-        if (size(profile_data, 2) /= 2) then
-            error stop "prepare_neort_profile_data: profile_data must have two columns (s, M_t)"
         end if
 
         ! Fill profile data array
@@ -102,29 +132,58 @@ contains
             ! Column 1: Normalized toroidal flux s (0 to 1)
             profile_data(i, 1) = s_tor(i)
 
-            ! Calculate thermal velocity and ion mass
-            T_i = params(4, i)
-            m_i = am * p_mass  ! ion mass
+            ! Calculate thermal velocity
+            T_i = Ti_splined(i, 1)  ! ion temperature in erg
             vth = sqrt(2 * T_i / m_i)  ! thermal velocity
 
+            ! Calculate ExB Mach number: M_t = Omega_tE * R_0 / v_th
+            M_t = Omega_tE(i) * rtor / vth
+
+            ! Column 2: ExB Mach number M_t
+            profile_data(i, 2) = M_t
+        end do
+    end subroutine prepare_profile_data_for_neort
+
+    subroutine calculate_Omega_tE_splined(Omega_tE, r)
+        use baseparam_mod, only: btor, c
+        use grid_mod, only: rb, rc
+        use plasma_parameters, only: qsaf
+        use wave_code_data, only: dPhi0
+        use spline, only: spline_coeff, spline_val
+
+        real(dp), dimension(:), intent(out) :: Omega_tE
+        real(dp), dimension(:), intent(in) :: r
+
+        real(dp) :: dPhi_dr, dpsi_pol_dr
+        real(dp), dimension(:, :), allocatable :: dPhi0_coeffs, q_coeffs
+        real(dp), dimension(:, :), allocatable :: dPhi0_splined, q_splined
+        integer :: i, rb_size, rc_size, r_size
+
+        rb_size = size(rb)
+        rc_size = size(rc)
+        r_size = size(r)
+
+        allocate (dPhi0_coeffs(rb_size - 1, 5))
+        allocate (q_coeffs(rc_size - 1, 5))
+
+        ! TODO: here, rb, rc and r are intermixed, make sure to handle this correctly!
+        dPhi0_coeffs = spline_coeff(rb, dPhi0)
+        dPhi0_splined = spline_val(dPhi0_coeffs, r)
+        q_coeffs = spline_coeff(rc, qsaf)
+        q_splined = spline_val(q_coeffs, r)
+
+        do i = 1, r_size
             ! Calculate toroidal electric precession frequency:
             ! Omega_tE = -c * (dPhi/dr) / (dpsi_pol/dr)
             ! Note: dPhi0 already contains dPhi/dr (electric potential gradient)
             ! and dpsi_pol/dr = B^theta = psi_tor' / q = r * B_tor / q
             ! Psi_tor = r²π * B_tor  =>  Psi_tor' = 2πr * B_tor
             ! our psi_tor == Psi_tor / (2π)
-            dPhi_dr = dPhi0(i)
-            dpsi_pol_dr = rc(i) * btor / qsaf(i)
-            Omega_tE = -c * dPhi_dr / dpsi_pol_dr
-
-            ! Calculate ExB Mach number: M_t = Omega_tE * R_0 / v_th
-            M_t = Omega_tE * rtor / vth
-
-            ! Column 2: ExB Mach number M_t
-            profile_data(i, 2) = M_t
+            dPhi_dr = dPhi0_splined(i, 1)
+            dpsi_pol_dr = r(i) * btor / q_splined(i, 1)
+            Omega_tE(i) = -c * dPhi_dr / dpsi_pol_dr
         end do
-
-    end subroutine prepare_profile_data_for_neort
+    end subroutine calculate_Omega_tE_splined
 
     !> @brief Read equilibrium data from equilibrium file
     !> @details Reads equilibrium quantities from the equil_r_q_psi.dat file
@@ -272,5 +331,22 @@ contains
         psi_tor_max = psi_tor(size(psi_tor))
         s_tor = (psi_tor - psi_tor_min) / (psi_tor_max - psi_tor_min)
     end subroutine calculate_s_tor
+
+    subroutine calculate_coarse_s_tor(s_tor, s_min, s_max, npoints)
+        use spline, only: spline_coeff, spline_val
+
+        real(dp), dimension(:), intent(out) :: s_tor
+        real(dp), intent(in) :: s_min, s_max
+        integer, intent(in) :: npoints
+
+        real(dp) :: ds
+        integer :: i
+
+        ds = (s_max - s_min) / npoints
+
+        do i = 1, npoints
+            s_tor(i) = s_min + (i - 1) * ds
+        end do
+    end subroutine calculate_coarse_s_tor
 
 end module neort_interface

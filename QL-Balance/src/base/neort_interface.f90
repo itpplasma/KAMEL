@@ -129,7 +129,7 @@ contains
     !> @brief Read equilibrium data from equilibrium file
     !> @details Reads equilibrium quantities from the equil_r_q_psi.dat file
     !>          specified in the balance configuration. The file format is:
-    !>          - 3 header lines
+    !>          - Header lines starting with '#' (skipped automatically)
     !>          - Data columns:
     !>            r, q, psi_pol, phi_tor, dphi/dpsi, r_geom, V, R_beg, Z_beg, R_min, R_max
     !> @param[out] r_eff Effective radius array (column 1, optional)
@@ -163,7 +163,7 @@ contains
         real(dp) :: r_val, q_val, psi_pol_val, psi_tor_val, dphi_dpsi_val
         real(dp) :: r_geom_val, V_val, R_beg_val, Z_beg_val, R_min_val, R_max_val
         integer :: nlines
-        character(len=1024) :: errmsg
+        character(len=1024) :: errmsg, line
 
         ! Determine array size from first present optional argument
         if (present(r_eff)) then
@@ -234,12 +234,20 @@ contains
             error stop trim(errmsg)
         end if
 
-        ! Skip 3 header lines
-        do ipoi = 1, 3
-            read (iunit, *, iostat=ios)
+        ! Skip all header lines starting with '#' (with optional leading whitespace)
+        do
+            read (iunit, '(A)', iostat=ios) line
             if (ios /= 0) then
                 close (iunit)
-                error stop "read_equil_file: error reading header lines"
+                error stop "read_equil_file: error reading file (unexpected end during header)"
+            end if
+            ! Remove leading whitespace and check if line starts with '#'
+            line = adjustl(line)
+            ! Exit loop when we find a non-empty line that doesn't start with '#'
+            if (len_trim(line) > 0 .and. line(1:1) /= '#') then
+                ! This is the first data line, backspace to re-read it
+                backspace (iunit)
+                exit
             end if
         end do
 

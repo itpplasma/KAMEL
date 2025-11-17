@@ -132,99 +132,46 @@ contains
     !>          - Header lines starting with '#' (skipped automatically)
     !>          - Data columns:
     !>            r, q, psi_pol, phi_tor, dphi/dpsi, r_geom, V, R_beg, Z_beg, R_min, R_max
-    !> @param[out] r_eff Effective radius array (column 1, optional)
-    !> @param[out] q_prof Safety factor array (column 2, optional)
-    !> @param[out] psi_pol Poloidal flux array (column 3, optional)
-    !> @param[out] phi_tor Toroidal flux array (column 4, optional)
-    !> @param[out] dphi_dpsi dphi/dpsi array (column 5, optional)
-    !> @param[out] r_geom Geometric radius array (column 6, optional)
-    !> @param[out] V Volume array (column 7, optional)
-    !> @param[out] R_beg R beginning array (column 8, optional)
-    !> @param[out] Z_beg Z beginning array (column 9, optional)
-    !> @param[out] R_min R minimum array (column 10, optional)
-    !> @param[out] R_max R maximum array (column 11, optional)
+    !>          All arrays are automatically allocated to the correct size based on
+    !>          the number of data lines in the file.
+    !> @param[out] r_eff Effective radius array (column 1, optional, allocatable)
+    !> @param[out] q_prof Safety factor array (column 2, optional, allocatable)
+    !> @param[out] psi_pol Poloidal flux array (column 3, optional, allocatable)
+    !> @param[out] psi_tor Toroidal flux array (column 4, optional, allocatable)
+    !> @param[out] dphi_dpsi dphi/dpsi array (column 5, optional, allocatable)
+    !> @param[out] r_geom Geometric radius array (column 6, optional, allocatable)
+    !> @param[out] V Volume array (column 7, optional, allocatable)
+    !> @param[out] R_beg R beginning array (column 8, optional, allocatable)
+    !> @param[out] Z_beg Z beginning array (column 9, optional, allocatable)
+    !> @param[out] R_min R minimum array (column 10, optional, allocatable)
+    !> @param[out] R_max R maximum array (column 11, optional, allocatable)
     subroutine read_equil_file(r_eff, q_prof, psi_pol, psi_tor, dphi_dpsi, r_geom, V, R_beg, &
                                Z_beg, R_min, R_max)
         use control_mod, only: equil_path
 
-        real(dp), dimension(:), intent(out), optional :: r_eff
-        real(dp), dimension(:), intent(out), optional :: q_prof
-        real(dp), dimension(:), intent(out), optional :: psi_pol
-        real(dp), dimension(:), intent(out), optional :: psi_tor
-        real(dp), dimension(:), intent(out), optional :: dphi_dpsi
-        real(dp), dimension(:), intent(out), optional :: r_geom
-        real(dp), dimension(:), intent(out), optional :: V
-        real(dp), dimension(:), intent(out), optional :: R_beg
-        real(dp), dimension(:), intent(out), optional :: Z_beg
-        real(dp), dimension(:), intent(out), optional :: R_min
-        real(dp), dimension(:), intent(out), optional :: R_max
+        real(dp), dimension(:), allocatable, intent(out), optional :: r_eff
+        real(dp), dimension(:), allocatable, intent(out), optional :: q_prof
+        real(dp), dimension(:), allocatable, intent(out), optional :: psi_pol
+        real(dp), dimension(:), allocatable, intent(out), optional :: psi_tor
+        real(dp), dimension(:), allocatable, intent(out), optional :: dphi_dpsi
+        real(dp), dimension(:), allocatable, intent(out), optional :: r_geom
+        real(dp), dimension(:), allocatable, intent(out), optional :: V
+        real(dp), dimension(:), allocatable, intent(out), optional :: R_beg
+        real(dp), dimension(:), allocatable, intent(out), optional :: Z_beg
+        real(dp), dimension(:), allocatable, intent(out), optional :: R_min
+        real(dp), dimension(:), allocatable, intent(out), optional :: R_max
 
-        integer :: iunit, ipoi, ios, npoints
+        integer :: iunit, ipoi, ios, npoints, nheader
         real(dp) :: r_val, q_val, psi_pol_val, psi_tor_val, dphi_dpsi_val
         real(dp) :: r_geom_val, V_val, R_beg_val, Z_beg_val, R_min_val, R_max_val
-        integer :: nlines
         character(len=1024) :: errmsg, line
 
-        ! Determine array size from first present optional argument
-        if (present(r_eff)) then
-            npoints = size(r_eff)
-        else if (present(q_prof)) then
-            npoints = size(q_prof)
-        else if (present(psi_pol)) then
-            npoints = size(psi_pol)
-        else if (present(psi_tor)) then
-            npoints = size(psi_tor)
-        else if (present(dphi_dpsi)) then
-            npoints = size(dphi_dpsi)
-        else if (present(r_geom)) then
-            npoints = size(r_geom)
-        else if (present(V)) then
-            npoints = size(V)
-        else if (present(R_beg)) then
-            npoints = size(R_beg)
-        else if (present(Z_beg)) then
-            npoints = size(Z_beg)
-        else if (present(R_min)) then
-            npoints = size(R_min)
-        else if (present(R_max)) then
-            npoints = size(R_max)
-        else
+        ! Check that at least one argument is present
+        if (.not. (present(r_eff) .or. present(q_prof) .or. present(psi_pol) .or. &
+                   present(psi_tor) .or. present(dphi_dpsi) .or. present(r_geom) .or. &
+                   present(V) .or. present(R_beg) .or. present(Z_beg) .or. &
+                   present(R_min) .or. present(R_max))) then
             error stop "read_equil_file: at least one optional argument must be present"
-        end if
-
-        ! Check that all present arrays have the same size
-        if (present(r_eff) .and. size(r_eff) /= npoints) then
-            error stop "read_equil_file: r_eff size mismatch"
-        end if
-        if (present(q_prof) .and. size(q_prof) /= npoints) then
-            error stop "read_equil_file: q_prof size mismatch"
-        end if
-        if (present(psi_pol) .and. size(psi_pol) /= npoints) then
-            error stop "read_equil_file: psi_pol size mismatch"
-        end if
-        if (present(psi_tor) .and. size(psi_tor) /= npoints) then
-            error stop "read_equil_file: psi_tor size mismatch"
-        end if
-        if (present(dphi_dpsi) .and. size(dphi_dpsi) /= npoints) then
-            error stop "read_equil_file: dphi_dpsi size mismatch"
-        end if
-        if (present(r_geom) .and. size(r_geom) /= npoints) then
-            error stop "read_equil_file: r_geom size mismatch"
-        end if
-        if (present(V) .and. size(V) /= npoints) then
-            error stop "read_equil_file: V size mismatch"
-        end if
-        if (present(R_beg) .and. size(R_beg) /= npoints) then
-            error stop "read_equil_file: R_beg size mismatch"
-        end if
-        if (present(Z_beg) .and. size(Z_beg) /= npoints) then
-            error stop "read_equil_file: Z_beg size mismatch"
-        end if
-        if (present(R_min) .and. size(R_min) /= npoints) then
-            error stop "read_equil_file: R_min size mismatch"
-        end if
-        if (present(R_max) .and. size(R_max) /= npoints) then
-            error stop "read_equil_file: R_max size mismatch"
         end if
 
         ! Open equilibrium file
@@ -235,6 +182,7 @@ contains
         end if
 
         ! Skip all header lines starting with '#' (with optional leading whitespace)
+        nheader = 0
         do
             read (iunit, '(A)', iostat=ios) line
             if (ios /= 0) then
@@ -249,18 +197,51 @@ contains
                 backspace (iunit)
                 exit
             end if
+            nheader = nheader + 1
         end do
 
-        ! Read data lines and store requested quantities
-        nlines = 0
+        ! First pass: count the number of data lines
+        npoints = 0
+        do
+            read (iunit, *, iostat=ios) r_val, q_val, psi_pol_val, psi_tor_val, dphi_dpsi_val, &
+                r_geom_val, V_val, R_beg_val, Z_beg_val, R_min_val, R_max_val
+            if (ios /= 0) exit
+            npoints = npoints + 1
+        end do
+
+        if (npoints == 0) then
+            close (iunit)
+            error stop "read_equil_file: no data lines found in file"
+        end if
+
+        ! Allocate arrays based on the number of data lines
+        if (present(r_eff)) allocate (r_eff(npoints))
+        if (present(q_prof)) allocate (q_prof(npoints))
+        if (present(psi_pol)) allocate (psi_pol(npoints))
+        if (present(psi_tor)) allocate (psi_tor(npoints))
+        if (present(dphi_dpsi)) allocate (dphi_dpsi(npoints))
+        if (present(r_geom)) allocate (r_geom(npoints))
+        if (present(V)) allocate (V(npoints))
+        if (present(R_beg)) allocate (R_beg(npoints))
+        if (present(Z_beg)) allocate (Z_beg(npoints))
+        if (present(R_min)) allocate (R_min(npoints))
+        if (present(R_max)) allocate (R_max(npoints))
+
+        ! Rewind to the beginning of the file for second pass
+        rewind (iunit)
+
+        ! Skip the known number of header lines
+        do ipoi = 1, nheader
+            read (iunit, '(A)')
+        end do
+
+        ! Second pass: read and store data
         do ipoi = 1, npoints
             read (iunit, *, iostat=ios) r_val, q_val, psi_pol_val, psi_tor_val, dphi_dpsi_val, &
-                r_geom_val, V_val, R_beg_val, Z_beg_val, &
-                R_min_val, R_max_val
+                r_geom_val, V_val, R_beg_val, Z_beg_val, R_min_val, R_max_val
             if (ios /= 0) then
                 close (iunit)
-                write (errmsg, '(A,I0,A,I0,A)') "read_equil_file: error reading line ", ipoi + 3, &
-                    " (expected ", npoints, " data lines)"
+                write (errmsg, '(A,I0,A)') "read_equil_file: error reading data line ", ipoi
                 error stop trim(errmsg)
             end if
 
@@ -276,18 +257,9 @@ contains
             if (present(Z_beg)) Z_beg(ipoi) = Z_beg_val
             if (present(R_min)) R_min(ipoi) = R_min_val
             if (present(R_max)) R_max(ipoi) = R_max_val
-
-            nlines = nlines + 1
         end do
 
         close (iunit)
-
-        ! Verify we read the expected number of lines
-        if (nlines /= npoints) then
-            write (errmsg, '(A,I0,A,I0)') "read_equil_file: read ", nlines, &
-                " lines, expected ", npoints
-            error stop trim(errmsg)
-        end if
     end subroutine read_equil_file
 
     subroutine calculate_s_tor(s_tor, psi_tor)

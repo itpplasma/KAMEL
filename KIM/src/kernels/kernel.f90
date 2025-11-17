@@ -645,10 +645,9 @@ module kernel_m
                 delta_rg_local = (rg_grid%xc(j+1) - rg_grid%xc(j))
             end if
 
-            ! Charge density terms at cell centers
             k_rho_phi = k_rho_phi + delta_rg_local &
-                * ( &
-                    pref_rho_phi_g0(1,j) + pref_rho_phi_g1(1, j, 0) & ! zeroth mpi order is sufficient for electrons
+                * ( & ! debye term plus first order
+                    pref_rho_phi_g0(1, j) + pref_rho_phi_g1(1, j, 0) & ! zeroth mphi order is sufficient for electrons
                 ) &
                 * varphi_l(rg_grid%xc(j), int_point%xlm1, int_point%xl, int_point%xlp1) &
                 * varphi_l(rg_grid%xc(j), int_point%xlpm1, int_point%xlp, int_point%xlpp1)
@@ -657,7 +656,6 @@ module kernel_m
                 * varphi_l(rg_grid%xc(j), int_point%xlm1, int_point%xl, int_point%xlp1) &
                 * varphi_l(rg_grid%xc(j), int_point%xlpm1, int_point%xlp, int_point%xlpp1)
 
-            ! Current density terms at boundary points
             k_j_phi = k_j_phi + delta_rg_local * pref_j_phi_g1(1, j, 0) &
                 * varphi_l(rg_grid%xc(j), int_point%xlm1, int_point%xl, int_point%xlp1) &
                 * varphi_l(rg_grid%xc(j), int_point%xlpm1, int_point%xlp, int_point%xlpp1)
@@ -669,8 +667,8 @@ module kernel_m
         end do
 
         ! Apply normalization factor
-        k_rho_phi =  k_rho_phi / (4.0d0 * pi)
-        k_rho_B =  k_rho_B / (4.0d0 * pi)
+        k_rho_phi = k_rho_phi / (4.0d0 * pi)
+        k_rho_B = k_rho_B / (4.0d0 * pi)
         k_j_phi = k_j_phi / (4.0d0 * pi)
         k_j_B = k_j_B / (4.0d0 * pi)
 

@@ -16,7 +16,9 @@ module time_evolution_ntv
     private :: doStep
 
     ! for NEO-RT
+    real(dp), dimension(:), allocatable :: r
     real(dp), dimension(:), allocatable :: s_tor
+    real(dp), dimension(:), allocatable :: Omega_tE
     real(dp), dimension(:, :), allocatable :: plasma_data
     real(dp), dimension(:, :), allocatable :: profile_data
 
@@ -30,54 +32,48 @@ contains
         use do_magfie_mod, only: do_magfie_init
         use do_magfie_pert_mod, only: do_magfie_pert_init
         use driftorbit, only: pertfile
-        use grid_mod, only: npoic
         use logger, only: set_log_level
         use neort, only: read_and_set_control
-        use neort_interface, only: read_equil_file, calculate_s_tor, &
-                                   prepare_plasma_data_for_neort, prepare_profile_data_for_neort
+        use neort_interface, only: read_equil_file, calculate_s_tor, calculate_coarse_s_tor, &
+                                   calculate_Omega_tE_splined
+        use spline, only: spline_coeff, spline_val
 
         class(TimeEvolutionNTV_t), intent(inout) :: this
-        real(dp), dimension(:), allocatable :: psi_tor
+        real(dp), dimension(:), allocatable :: r_eff, psi_tor, s_tor_equil
+        real(dp), dimension(:, :), allocatable :: r_of_s_coeffs, r_splined
 
-        integer :: npoic_save
+        integer, parameter :: S_SIZE = 100
 
         call this%TimeEvolution_t%init_balance
         this%runType = "TimeEvolutionNTV"
 
-        ! TODO: don't init NEO-RT at all here, only in omp loop during time evolution
         ! NEO-RT
-        npoic_save = npoic
-        npoic = 10000 ! for now
-        allocate (psi_tor(npoic))
-        allocate (s_tor(npoic))
-        allocate (plasma_data(npoic, 6))
-        allocate (profile_data(npoic, 2))
-        allocate (transport_data(npoic))
+        ! note: profiles live on rc, derivatives on rb
+        allocate (r_splined(S_SIZE, 3))
+        allocate (r(S_SIZE))
+        allocate (s_tor(S_SIZE))
+        allocate (Omega_tE(S_SIZE))
+        allocate (plasma_data(S_SIZE, 6))
+        allocate (profile_data(S_SIZE, 2))
+        allocate (transport_data(S_SIZE))
 
-        call read_equil_file(psi_tor=psi_tor)
-        call calculate_s_tor(s_tor, psi_tor)
-        npoic = npoic_save
-        ! ONLY FOR NOW, DEBUG!
-        ! s_tor(1) = 0.3d0
-        ! s_tor(2) = 0.4d0
-        ! s_tor(3) = 0.5d0
-        ! s_tor(4) = 0.6d0
-        ! s_tor(5) = 0.7d0
+        call read_equil_file(r_eff=r_eff, psi_tor=psi_tor)
+        allocate (s_tor_equil(size(psi_tor)))
+        call calculate_s_tor(s_tor_equil, psi_tor)
+        deallocate (psi_tor)
+        allocate (r_of_s_coeffs(size(s_tor_equil) - 1, 5))
+        r_of_s_coeffs = spline_coeff(s_tor_equil, r_eff)
+        deallocate (s_tor_equil)
+        call calculate_coarse_s_tor(s_tor, 0.01_dp, 0.99_dp, S_SIZE)
+        r_splined = spline_val(r_of_s_coeffs, s_tor)
+        r = r_splined(:, 1)
+        call calculate_Omega_tE_splined(Omega_tE, r)
 
-        call read_and_set_control("neo-rt/driftorbit")  ! NEO-RT config, TODO: can be done without file
-        ! TODO: make sure that NEO-RT does not use globals that are not set without this call!
-        call do_magfie_init("neo-rt/in_file")  ! Boozer field file !! CAVEAT: sets other stuff as well (like R0) , must be kept with file, no other way around
-        if (pertfile) call do_magfie_pert_init("neo-rt/in_file_pert") ! Boozer perturbed field file ! Maybe TODO:
-        call set_log_level(5)  ! for development purposes
-        ! call set_log_level(-1)
-        call prepare_plasma_data_for_neort(plasma_data, s_tor)
-        call prepare_profile_data_for_neort(profile_data, s_tor)
-
-        ! ! calculates only on a fixed s!! => loop over grid
-        ! call init_plasma_input(s, npoic, am1, am2, Z1, Z2, plasma_data)
-        ! call init_profile_input(s, R0, efac, bfac, profile_data)
-
-        ! call init()
+        call read_and_set_control("neo-rt/driftorbit")  ! NEO-RT config, TODO: do this without file
+        call do_magfie_init("neo-rt/g33353_2900_EQH_MARKL.bc")
+        if (pertfile) call do_magfie_pert_init("neo-rt/in_file_pert")
+        ! call set_log_level(5)  ! for development purposes
+        call set_log_level(-1)
     end subroutine initTimeEvolutionNTV
 
     subroutine runTimeEvolutionNTV(this)
@@ -91,6 +87,7 @@ contains
     end subroutine runTimeEvolutionNTV
 
     subroutine doStep(this)
+        use neort_interface, only: prepare_plasma_data_for_neort, prepare_profile_data_for_neort
         use time_evolution, only: doStepBase => doStep
 
         class(TimeEvolutionNTV_t), intent(inout) :: this
@@ -101,6 +98,9 @@ contains
 
         ! NEO-RT
         s_size = size(s_tor)
+
+        call prepare_plasma_data_for_neort(plasma_data, r, s_tor)
+        call prepare_profile_data_for_neort(profile_data, r, s_tor, Omega_tE)
         ! TODO: omp loop over all s, do init and compute_transport for each s here
         do s_idx = 1, s_size
             call neo_rt(s_tor(s_idx), s_size, transport_data(s_idx))

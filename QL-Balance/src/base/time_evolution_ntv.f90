@@ -32,6 +32,7 @@ contains
         use do_magfie_mod, only: do_magfie_init
         use do_magfie_pert_mod, only: do_magfie_pert_init
         use driftorbit, only: pertfile
+        use grid_mod, only: rmin, rmax
         use logger, only: set_log_level
         use neort, only: read_and_set_control
         use neort_interface, only: read_equil_file, calculate_s_tor, calculate_coarse_s_tor, &
@@ -39,8 +40,11 @@ contains
         use spline, only: spline_coeff, spline_val
 
         class(TimeEvolutionNTV_t), intent(inout) :: this
+
         real(dp), dimension(:), allocatable :: r_eff, psi_tor, s_tor_equil
-        real(dp), dimension(:, :), allocatable :: r_of_s_coeffs, r_splined
+        real(dp), dimension(:, :), allocatable :: r_of_s_coeffs, s_of_r_coeffs
+        real(dp), dimension(:, :), allocatable :: s_splined, r_splined
+        real(dp) :: s_min, s_max
 
         integer, parameter :: S_SIZE = 100
 
@@ -60,11 +64,20 @@ contains
         call read_equil_file(r_eff=r_eff, psi_tor=psi_tor)
         allocate (s_tor_equil(size(psi_tor)))
         call calculate_s_tor(s_tor_equil, psi_tor)
-        deallocate (psi_tor)
+
+        ! Find s values corresponding to rmin and rmax by splining s(r)
+        allocate (s_of_r_coeffs(size(r_eff) - 1, 5))
+        allocate (s_splined(2, 3))
+        s_of_r_coeffs = spline_coeff(r_eff, s_tor_equil)
+        s_splined = spline_val(s_of_r_coeffs, [rmin, rmax])
+        s_min = s_splined(1, 1)
+        s_max = s_splined(2, 1)
+        ! print *, "KAMEL grid: rmin = ", rmin, " cm, rmax = ", rmax, " cm"
+        ! print *, "Corresponding s range: s_min = ", s_min, ", s_max = ", s_max
+
+        call calculate_coarse_s_tor(s_tor, s_min, s_max, S_SIZE)
         allocate (r_of_s_coeffs(size(s_tor_equil) - 1, 5))
         r_of_s_coeffs = spline_coeff(s_tor_equil, r_eff)
-        deallocate (s_tor_equil)
-        call calculate_coarse_s_tor(s_tor, 0.01_dp, 0.99_dp, S_SIZE)
         r_splined = spline_val(r_of_s_coeffs, s_tor)
         r = r_splined(:, 1)
         call calculate_Omega_tE_splined(Omega_tE, r)

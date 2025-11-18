@@ -1,7 +1,7 @@
 .PHONY: init install
 
 init:
-	pip install -r requirements.txt
+	pip3 install -r requirements.txt
 
 install:
-	pip install -e .
+	pip3 install -e .

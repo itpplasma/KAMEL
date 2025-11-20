@@ -116,7 +116,7 @@ contains
         call prepare_profile_data_for_neort(profile_data, r, s_tor, Omega_tE)
         ! TODO: omp loop over all s, do init and compute_transport for each s here
         do s_idx = 1, s_size
-            call neo_rt(s_tor(s_idx), s_size, transport_data(s_idx))
+            call neo_rt(transport_data(s_idx), s_tor(s_idx))
             ! TODO: Apply NEO-RT transport coefficients back to KAMEL
             ! This would involve updating the transport coefficient arrays in grid_mod
             ! For example:
@@ -124,7 +124,7 @@ contains
         end do
     end subroutine doStep
 
-    subroutine neo_rt(s, s_size, transport_data_)
+    subroutine neo_rt(transport_data_, s)
         use baseparam_mod, only: am, Z_i
         use do_magfie_mod, only: R0, bfac, psi_pr, q, do_magfie
         use do_magfie_pert_mod, only: do_magfie_pert_amp
@@ -133,22 +133,22 @@ contains
         use neort_freq, only: init_canon_freq_trapped_spline, init_canon_freq_passing_spline
         use neort_magfie, only: init_flux_surface_average
         use neort_profiles, only: init_plasma_input, init_profile_input, init_thermodynamic_forces
-        use time_evolution, only: doStepBase => doStep
 
-        real(8), intent(in) :: s
-        integer, intent(in) :: s_size
         type(transport_data_t), intent(out) :: transport_data_
+        real(8), intent(in) :: s
 
         ! for do_magfie, all dummies
         integer, parameter :: dim = 3
         real(8) :: x(dim)
+
+        ! the following are all dummies
         real(8) :: bmod
         real(8) :: sqrtg
         real(8), dimension(dim) :: bder
         real(8), dimension(dim) :: hcovar
         real(8), dimension(dim) :: hctrvr
         real(8), dimension(dim) :: hcurl
-        complex(8) :: dummy
+        complex(8) :: bamp
 
         ! for init_plasma_input
         real(dp) :: am1, am2, Z1, Z2
@@ -160,7 +160,7 @@ contains
         x(3) = 0.0
         ! sets most of the globals in module do_magfie_mod
         call do_magfie(x, bmod, sqrtg, bder, hcovar, hctrvr, hcurl)
-        if (pertfile) call do_magfie_pert_amp(x, dummy)
+        if (pertfile) call do_magfie_pert_amp(x, bamp)
         ! note: init_profiles is useless here, as it is done again in init_profile_input
 
         ! pass same mass and charge for species 1 and 2
@@ -168,7 +168,7 @@ contains
         am2 = am
         Z1 = Z_i
         Z2 = Z_i
-        call init_plasma_input(s, s_size, am1, am2, Z1, Z2, plasma_data)
+        call init_plasma_input(s, size(s_tor), am1, am2, Z1, Z2, plasma_data)
         call init_profile_input(s, R0, efac, bfac, profile_data)
 
         ! subroutine init

@@ -1,5 +1,6 @@
 module time_evolution_ntv
     use iso_fortran_env, only: dp => real64
+    use omp_lib
     use time_evolution, only: TimeEvolution_t
     use neort_datatypes, only: magfie_data_t, transport_data_t
 
@@ -14,8 +15,9 @@ module time_evolution_ntv
     private :: initTimeEvolutionNTV
     private :: runTimeEvolutionNTV
     private :: doStep
+    private :: neo_rt
 
-    ! for NEO-RT
+    ! for NEO-RT (shared data prepared once)
     real(dp), dimension(:), allocatable :: r
     real(dp), dimension(:), allocatable :: s_tor
     real(dp), dimension(:), allocatable :: Omega_tE
@@ -26,17 +28,23 @@ module time_evolution_ntv
     type(magfie_data_t) :: magfie_data
     type(transport_data_t), dimension(:), allocatable :: transport_data
 
+    ! NEO-RT cached parameters for parallel use
+    real(dp) :: am1, am2, Z1, Z2
+
 contains
 
     subroutine initTimeEvolutionNTV(this)
-        use do_magfie_mod, only: do_magfie_init
-        use do_magfie_pert_mod, only: do_magfie_pert_init
+        use baseparam_mod, only: am, Z_i
+        use do_magfie_mod, only: read_boozer_file
+        use do_magfie_pert_mod, only: read_boozer_pert_file
         use driftorbit, only: pertfile
         use grid_mod, only: rmin, rmax
         use logger, only: set_log_level
         use neort, only: read_and_set_control
         use neort_interface, only: read_equil_file, calculate_s_tor, calculate_coarse_s_tor, &
-                                   calculate_Omega_tE_splined
+                                   calculate_Omega_tE_splined, prepare_plasma_data_for_neort, &
+                                   prepare_profile_data_for_neort
+        use neort_profiles, only: prepare_plasma_splines, prepare_profile_splines
         use spline, only: spline_coeff, spline_val
 
         class(TimeEvolutionNTV_t), intent(inout) :: this
@@ -72,8 +80,6 @@ contains
         s_splined = spline_val(s_of_r_coeffs, [rmin, rmax])
         s_min = s_splined(1, 1)
         s_max = s_splined(2, 1)
-        ! print *, "KAMEL grid: rmin = ", rmin, " cm, rmax = ", rmax, " cm"
-        ! print *, "Corresponding s range: s_min = ", s_min, ", s_max = ", s_max
 
         call calculate_coarse_s_tor(s_tor, s_min, s_max, S_SIZE)
         allocate (r_of_s_coeffs(size(s_tor_equil) - 1, 5))
@@ -82,11 +88,23 @@ contains
         r = r_splined(:, 1)
         call calculate_Omega_tE_splined(Omega_tE, r)
 
-        call read_and_set_control("neo-rt/driftorbit")  ! NEO-RT config, TODO: do this without file
-        call do_magfie_init("neo-rt/g33353_2900_EQH_MARKL.bc")
-        if (pertfile) call do_magfie_pert_init("neo-rt/in_file_pert")
-        ! call set_log_level(5)  ! for development purposes
+        ! Cache species parameters for parallel use (same mass/charge for both species)
+        am1 = am
+        am2 = am
+        Z1 = Z_i
+        Z2 = Z_i
+
+        ! NEO-RT initialization
+        call read_and_set_control("neo-rt/driftorbit")
         call set_log_level(-1)
+
+        call read_boozer_file("neo-rt/g33353_2900_EQH_MARKL.bc")
+        if (pertfile) call read_boozer_pert_file("neo-rt/in_file_pert")
+
+        call prepare_plasma_data_for_neort(plasma_data, r, s_tor)
+        call prepare_profile_data_for_neort(profile_data, r, s_tor, Omega_tE)
+        call prepare_plasma_splines(S_SIZE, am1, am2, Z1, Z2, plasma_data)
+        call prepare_profile_splines(profile_data)
     end subroutine initTimeEvolutionNTV
 
     subroutine runTimeEvolutionNTV(this)
@@ -101,7 +119,8 @@ contains
 
     subroutine doStep(this)
         use neort_interface, only: prepare_plasma_data_for_neort, prepare_profile_data_for_neort
-        use time_evolution, only: doStepBase => doStep
+        use neort_profiles, only: prepare_plasma_splines, prepare_profile_splines
+        use time_evolution, only: doStepBase => doStep, time_ind
 
         class(TimeEvolutionNTV_t), intent(inout) :: this
 
@@ -114,7 +133,11 @@ contains
 
         call prepare_plasma_data_for_neort(plasma_data, r, s_tor)
         call prepare_profile_data_for_neort(profile_data, r, s_tor, Omega_tE)
-        ! TODO: omp loop over all s, do init and compute_transport for each s here
+
+        call prepare_plasma_splines(s_size, am1, am2, Z1, Z2, plasma_data)
+        call prepare_profile_splines(profile_data)
+
+        !$omp parallel do schedule(auto)
         do s_idx = 1, s_size
             call neo_rt(transport_data(s_idx), s_tor(s_idx))
             ! TODO: Apply NEO-RT transport coefficients back to KAMEL
@@ -122,57 +145,32 @@ contains
             ! For example:
             ! call apply_ntv_transport(D11_ntv, D12_ntv, torque_ntv)
         end do
+        !$omp end parallel do
     end subroutine doStep
 
-    subroutine neo_rt(transport_data_, s)
-        use baseparam_mod, only: am, Z_i
-        use do_magfie_mod, only: R0, bfac, psi_pr, q, do_magfie
-        use do_magfie_pert_mod, only: do_magfie_pert_amp
+    subroutine neo_rt(transport_data_, s_val)
+        use do_magfie_mod, only: init_magfie_at_s, R0, bfac, psi_pr, q
+        use do_magfie_pert_mod, only: init_magfie_pert_at_s, init_mph_from_shared
         use driftorbit, only: pertfile, efac, nopassing, sign_vpar, etamin, etamax
         use neort, only: set_s, compute_transport, set_to_trapped_region
         use neort_freq, only: init_canon_freq_trapped_spline, init_canon_freq_passing_spline
         use neort_magfie, only: init_flux_surface_average
-        use neort_profiles, only: init_plasma_input, init_profile_input, init_thermodynamic_forces
+        use neort_profiles, only: init_plasma_at_s, init_profile_at_s, init_thermodynamic_forces
 
         type(transport_data_t), intent(out) :: transport_data_
-        real(8), intent(in) :: s
+        real(8), intent(in) :: s_val
 
-        ! for do_magfie, all dummies
-        integer, parameter :: dim = 3
-        real(8) :: x(dim)
+        call set_s(s_val)
 
-        ! the following are all dummies
-        real(8) :: bmod
-        real(8) :: sqrtg
-        real(8), dimension(dim) :: bder
-        real(8), dimension(dim) :: hcovar
-        real(8), dimension(dim) :: hctrvr
-        real(8), dimension(dim) :: hcurl
-        complex(8) :: bamp
+        call init_magfie_at_s()
+        if (pertfile) call init_magfie_pert_at_s()
+        call init_mph_from_shared()
 
-        ! for init_plasma_input
-        real(dp) :: am1, am2, Z1, Z2
-
-        call set_s(s)  ! global s
-
-        x(1) = s
-        x(2) = 0.0
-        x(3) = 0.0
-        ! sets most of the globals in module do_magfie_mod
-        call do_magfie(x, bmod, sqrtg, bder, hcovar, hctrvr, hcurl)
-        if (pertfile) call do_magfie_pert_amp(x, bamp)
-        ! note: init_profiles is useless here, as it is done again in init_profile_input
-
-        ! pass same mass and charge for species 1 and 2
-        am1 = am
-        am2 = am
-        Z1 = Z_i
-        Z2 = Z_i
-        call init_plasma_input(s, size(s_tor), am1, am2, Z1, Z2, plasma_data)
-        call init_profile_input(s, R0, efac, bfac, profile_data)
+        call init_plasma_at_s()
+        call init_profile_at_s(R0, efac, bfac)
 
         ! subroutine init
-        call init_flux_surface_average(s)
+        call init_flux_surface_average(s_val)
         call init_canon_freq_trapped_spline()  ! sets etamin and etamax
         if (.not. nopassing) call init_canon_freq_passing_spline()
         sign_vpar = 1

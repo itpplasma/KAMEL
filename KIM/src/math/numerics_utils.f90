@@ -93,4 +93,72 @@ module numerics_utils_m
 
     end subroutine invert_complex_matrix
 
+    ! Invert a square real(dp) matrix using LAPACK (dgetrf + dgetri)
+    subroutine invert_real_matrix(A_in, A_inv)
+
+        use KIM_kinds_m, only: dp
+
+        implicit none
+
+        real(dp), intent(in)  :: A_in(:,:)
+        real(dp), allocatable, intent(out) :: A_inv(:,:)
+
+        real(dp), allocatable :: A(:,:), work(:)
+        integer, allocatable  :: ipiv(:)
+        integer :: n, lda, info, lwork
+        real(dp) :: work_query(1)
+
+        interface
+            subroutine dgetrf(m, n, a, lda, ipiv, info)
+                use KIM_kinds_m, only: dp
+                integer, intent(in) :: m, n, lda
+                integer, intent(out) :: ipiv(*)
+                integer, intent(out) :: info
+                real(dp) :: a(lda,*)
+            end subroutine dgetrf
+            subroutine dgetri(n, a, lda, ipiv, work, lwork, info)
+                use KIM_kinds_m, only: dp
+                integer, intent(in) :: n, lda, lwork
+                integer, intent(in) :: ipiv(*)
+                integer, intent(out) :: info
+                real(dp) :: a(lda,*), work(*)
+            end subroutine dgetri
+        end interface
+
+        if (size(A_in,1) /= size(A_in,2)) then
+            stop "invert_real_matrix: input must be square"
+        end if
+
+        n = size(A_in,1)
+        lda = max(1, n)
+
+        if (allocated(A)) deallocate(A)
+        allocate(A(n,n))
+        A = A_in
+
+        allocate(ipiv(n))
+
+        call dgetrf(n, n, A, lda, ipiv, info)
+        if (info /= 0) then
+            stop "invert_real_matrix: LU factorization failed"
+        end if
+
+        ! Workspace query
+        lwork = -1
+        call dgetri(n, A, lda, ipiv, work_query, lwork, info)
+        lwork = max(1, int(work_query(1)))
+        allocate(work(lwork))
+
+        call dgetri(n, A, lda, ipiv, work, lwork, info)
+        if (info /= 0) then
+            stop "invert_real_matrix: inversion failed"
+        end if
+
+        allocate(A_inv(n,n))
+        A_inv = A
+
+        deallocate(A, ipiv, work)
+
+    end subroutine invert_real_matrix
+
 end module numerics_utils_m

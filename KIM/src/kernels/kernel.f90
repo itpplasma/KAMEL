@@ -613,18 +613,14 @@ module kernel_m
         type(gauss_config_t), intent(in) :: gauss_conf
         type(integration_point_t) :: int_point
 
-        if (abs(l-lp)>2) then
-            k_rho_phi = (0.0d0, 0.0d0)
-            k_rho_B = (0.0d0, 0.0d0)
-            k_j_phi = (0.0d0, 0.0d0)
-            k_j_B = (0.0d0, 0.0d0)
-            return
-        end if
-
         k_rho_phi = (0.0d0, 0.0d0)
         k_rho_B = (0.0d0, 0.0d0)
         k_j_phi = (0.0d0, 0.0d0)
         k_j_B = (0.0d0, 0.0d0)
+
+        if (abs(l-lp)>2) then
+            return
+        end if
 
         call set_xl_at_edge(l, lp, int_point)
 
@@ -637,36 +633,66 @@ module kernel_m
 
             ! Compute local spacing between adjacent boundary points
             ! This is the natural cell width for trapezoidal integration
-            if (j == 1) then
-                delta_rg_local = 0.5d0 * (rg_grid%xc(j+1) - rg_grid%xc(j))
-            else if (j == rg_grid%npts_c) then
-                delta_rg_local = 0.5d0 * (rg_grid%xc(j+1) - rg_grid%xc(j))
-            else
-                delta_rg_local = (rg_grid%xc(j+1) - rg_grid%xc(j))
-            end if
+            ! if (j == 1) then
+            !     delta_rg_local = 0.5d0 * (rg_grid%xc(j+1) - rg_grid%xc(j))
+            ! else if (j == rg_grid%npts_c) then
+            !     delta_rg_local = 0.5d0 * (rg_grid%xc(j+1) - rg_grid%xc(j))
+            ! else
+            !     delta_rg_local = (rg_grid%xc(j+1) - rg_grid%xc(j))
+            ! end if
+
+            delta_rg_local = 0.5d0 * (rg_grid%xc(j+1) - rg_grid%xc(j))
 
             k_rho_phi = k_rho_phi + delta_rg_local &
-                * ( & ! debye term plus first order
+                * ( ( & ! debye term plus first order
                     pref_rho_phi_g0(1, j) + pref_rho_phi_g1(1, j, 0) & ! zeroth mphi order is sufficient for electrons
                 ) &
                 * varphi_l(rg_grid%xc(j), int_point%xlm1, int_point%xl, int_point%xlp1) &
-                * varphi_l(rg_grid%xc(j), int_point%xlpm1, int_point%xlp, int_point%xlpp1)
+                * varphi_l(rg_grid%xc(j), int_point%xlpm1, int_point%xlp, int_point%xlpp1) &
+                + &
+                ( & ! debye term plus first order
+                    pref_rho_phi_g0(1, j+1) + pref_rho_phi_g1(1, j+1, 0) & ! zeroth mphi order is sufficient for electrons
+                ) &
+                * varphi_l(rg_grid%xc(j+1), int_point%xlm1, int_point%xl, int_point%xlp1) &
+                * varphi_l(rg_grid%xc(j+1), int_point%xlpm1, int_point%xlp, int_point%xlpp1) &
+                )
 
-            k_rho_B = k_rho_B + delta_rg_local * pref_rho_B_g1(1, j, 0) &
-                * varphi_l(rg_grid%xc(j), int_point%xlm1, int_point%xl, int_point%xlp1) &
-                * varphi_l(rg_grid%xc(j), int_point%xlpm1, int_point%xlp, int_point%xlpp1)
+            k_rho_B = k_rho_B + delta_rg_local &
+                * ( &
+                    pref_rho_B_g1(1, j, 0) &
+                    * varphi_l(rg_grid%xc(j), int_point%xlm1, int_point%xl, int_point%xlp1) &
+                    * varphi_l(rg_grid%xc(j), int_point%xlpm1, int_point%xlp, int_point%xlpp1) &
+                    + &
+                    pref_rho_B_g1(1, j+1, 0) &
+                    * varphi_l(rg_grid%xc(j+1), int_point%xlm1, int_point%xl, int_point%xlp1) &
+                    * varphi_l(rg_grid%xc(j+1), int_point%xlpm1, int_point%xlp, int_point%xlpp1)&
+                )
 
-            k_j_phi = k_j_phi + delta_rg_local * pref_j_phi_g1(1, j, 0) &
-                * varphi_l(rg_grid%xc(j), int_point%xlm1, int_point%xl, int_point%xlp1) &
-                * varphi_l(rg_grid%xc(j), int_point%xlpm1, int_point%xlp, int_point%xlpp1)
+            k_j_phi = k_j_phi + delta_rg_local &
+                * ( &
+                    pref_j_phi_g1(1, j, 0) &
+                    * varphi_l(rg_grid%xc(j), int_point%xlm1, int_point%xl, int_point%xlp1) &
+                    * varphi_l(rg_grid%xc(j), int_point%xlpm1, int_point%xlp, int_point%xlpp1) &
+                    + &
+                    pref_j_phi_g1(1, j+1, 0) &
+                    * varphi_l(rg_grid%xc(j+1), int_point%xlm1, int_point%xl, int_point%xlp1) &
+                    * varphi_l(rg_grid%xc(j+1), int_point%xlpm1, int_point%xlp, int_point%xlpp1) &
+                )
 
-            k_j_B = k_j_B + delta_rg_local * pref_j_B_g1(1, j, 0) &
-                * varphi_l(rg_grid%xc(j), int_point%xlm1, int_point%xl, int_point%xlp1) &
-                * varphi_l(rg_grid%xc(j), int_point%xlpm1, int_point%xlp, int_point%xlpp1)
+            k_j_B = k_j_B + delta_rg_local &
+                * ( &
+                    pref_j_B_g1(1, j, 0) &
+                    * varphi_l(rg_grid%xc(j), int_point%xlm1, int_point%xl, int_point%xlp1) &
+                    * varphi_l(rg_grid%xc(j), int_point%xlpm1, int_point%xlp, int_point%xlpp1) &
+                    + &
+                    pref_j_B_g1(1, j+1, 0) &
+                    * varphi_l(rg_grid%xc(j+1), int_point%xlm1, int_point%xl, int_point%xlp1) &
+                    * varphi_l(rg_grid%xc(j+1), int_point%xlpm1, int_point%xlp, int_point%xlpp1) &
+                )
 
         end do
 
-        ! Apply normalization factor
+        ! Apply normalization factor ( !TODO: should it be 1/2 ??)
         k_rho_phi = k_rho_phi / (4.0d0 * pi)
         k_rho_B = k_rho_B / (4.0d0 * pi)
         k_j_phi = k_j_phi / (4.0d0 * pi)
@@ -771,10 +797,10 @@ module kernel_m
             end do
 
             ! ignore FLR terms if resonance is too far from grid points
-             if (abs(xl_grid%xb(l) - r_res) > 10.0d0 * int_point%rhoT .or. &
-                abs(xl_grid%xb(lp) - r_res) > 10.0d0 * int_point%rhoT) then
-                cycle
-            end if
+            ! if (abs(xl_grid%xb(l) - r_res) > 15.0d0 * int_point%rhoT .or. &
+            !     abs(xl_grid%xb(lp) - r_res) > 15.0d0 * int_point%rhoT) then
+            !     cycle
+            ! end if
 
             do mphi = -mphi_max, mphi_max
                 int_F2%int_point%mphi = mphi
@@ -1155,33 +1181,69 @@ module kernel_m
 
         integer ::sp
 
-        call write_matrix("kernel/K_rho_phi", real(kernel_rho_phi_llp%Kllp), xl_grid%npts_b, xl_grid%npts_b, &
-            'Complex FLR2 benchmark kernel K_rho_phi', '1/cm^2')
-        call write_matrix("kernel/K_rho_B", real(kernel_rho_B_llp%Kllp), xl_grid%npts_b, xl_grid%npts_b, &
-            'Complex FLR2 benchmark kernel K_rho_B', '1/cm^2')
-        call write_matrix("kernel/K_j_phi", real(kernel_j_phi_llp%Kllp), xl_grid%npts_b, xl_grid%npts_b, &
-            'Complex FLR2 benchmark kernel K_j_phi', '1/cm^2')
-        call write_matrix("kernel/K_j_B", real(kernel_j_B_llp%Kllp), xl_grid%npts_b, xl_grid%npts_b, &
-            'Complex FLR2 benchmark kernel K_j_B', '1/cm^2')
+        ! total kernels
+        call write_matrix("kernel/K_rho_phi_re", real(kernel_rho_phi_llp%Kllp), xl_grid%npts_b, xl_grid%npts_b, &
+            'Real part of FLR2 benchmark kernel K_rho_phi', '1/cm^3')
+        call write_matrix("kernel/K_rho_phi_im", dimag(kernel_rho_phi_llp%Kllp), xl_grid%npts_b, xl_grid%npts_b, &
+            'Imaginary part of FLR2 benchmark kernel K_rho_phi', '1/cm^3')
 
-        call write_matrix("kernel/K_rho_phi_e",   real(kernel_rho_phi_llp%Kllp_e), xl_grid%npts_b, xl_grid%npts_b, &
-            'Complex FLR2 benchmark kernel K_rho_phi electrons', '1/cm^2')
-        call write_matrix("kernel/K_rho_B_e",     real(kernel_rho_B_llp%Kllp_e), xl_grid%npts_b, xl_grid%npts_b, &
-            'Complex FLR2 benchmark kernel K_rho_B electrons', '1/cm^2')
-        call write_matrix("kernel/K_j_phi_e",     real(kernel_j_phi_llp%Kllp_e), xl_grid%npts_b, xl_grid%npts_b, &
-            'Complex FLR2 benchmark kernel K_j_phi electrons', '1/cm^2')
-        call write_matrix("kernel/K_j_B_e",       real(kernel_j_B_llp%Kllp_e), xl_grid%npts_b, xl_grid%npts_b, &
-            'Complex FLR2 benchmark kernel K_j_B electrons', '1/cm^2')
+        call write_matrix("kernel/K_rho_B_re", real(kernel_rho_B_llp%Kllp), xl_grid%npts_b, xl_grid%npts_b, &
+            'Real part of FLR2 benchmark kernel K_rho_B', '1/cm^3')
+        call write_matrix("kernel/K_rho_B_im", dimag(kernel_rho_B_llp%Kllp), xl_grid%npts_b, xl_grid%npts_b, &
+            'Imaginary part of FLR2 benchmark kernel K_rho_B', '1/cm^3')
 
+        call write_matrix("kernel/K_j_phi_re", real(kernel_j_phi_llp%Kllp), xl_grid%npts_b, xl_grid%npts_b, &
+            'Real part of FLR2 benchmark kernel K_j_phi', '1/cm^3')
+        call write_matrix("kernel/K_j_phi_im", dimag(kernel_j_phi_llp%Kllp), xl_grid%npts_b, xl_grid%npts_b, &
+            'Imaginary part of FLR2 benchmark kernel K_j_phi', '1/cm^3')
+
+        call write_matrix("kernel/K_j_B_re", real(kernel_j_B_llp%Kllp), xl_grid%npts_b, xl_grid%npts_b, &
+            'Real part of FLR2 benchmark kernel K_j_B', '1/cm^3')
+        call write_matrix("kernel/K_j_B_im", dimag(kernel_j_B_llp%Kllp), xl_grid%npts_b, xl_grid%npts_b, &
+            'Imaginary part of FLR2 benchmark kernel K_j_B', '1/cm^3')
+
+        ! electrons
+        call write_matrix("kernel/K_rho_phi_e_re",   real(kernel_rho_phi_llp%Kllp_e), xl_grid%npts_b, xl_grid%npts_b, &
+            'Real part of FLR2 benchmark kernel K_rho_phi electrons', '1/cm^3')
+        call write_matrix("kernel/K_rho_phi_e_im",   dimag(kernel_rho_phi_llp%Kllp_e), xl_grid%npts_b, xl_grid%npts_b, &
+            'Imaginary part of FLR2 benchmark kernel K_rho_phi electrons', '1/cm^3')
+
+        call write_matrix("kernel/K_rho_B_e_re",     real(kernel_rho_B_llp%Kllp_e), xl_grid%npts_b, xl_grid%npts_b, &
+            'Real part of FLR2 benchmark kernel K_rho_B electrons', '1/cm^3')
+        call write_matrix("kernel/K_rho_B_e_im",     dimag(kernel_rho_B_llp%Kllp_e), xl_grid%npts_b, xl_grid%npts_b, &
+            'Imaginary part of FLR2 benchmark kernel K_rho_B electrons', '1/cm^3')
+
+        call write_matrix("kernel/K_j_phi_e_re",     real(kernel_j_phi_llp%Kllp_e), xl_grid%npts_b, xl_grid%npts_b, &
+            'Real part of FLR2 benchmark kernel K_j_phi electrons', '1/cm^3')
+        call write_matrix("kernel/K_j_phi_e_im",     dimag(kernel_j_phi_llp%Kllp_e), xl_grid%npts_b, xl_grid%npts_b, &
+            'Imaginary part of FLR2 benchmark kernel K_j_phi electrons', '1/cm^3')
+
+        call write_matrix("kernel/K_j_B_e_re",       real(kernel_j_B_llp%Kllp_e), xl_grid%npts_b, xl_grid%npts_b, &
+            'Real part of FLR2 benchmark kernel K_j_B electrons', '1/cm^3')
+        call write_matrix("kernel/K_j_B_e_im",       dimag(kernel_j_B_llp%Kllp_e), xl_grid%npts_b, xl_grid%npts_b, &
+            'Imaginary part of FLR2 benchmark kernel K_j_B electrons', '1/cm^3')
+
+        ! ions
         do sp = 1, plasma%n_species - 1
-            call write_matrix("kernel/K_rho_phi_"//trim(plasma%spec(sp)%name),  real(kernel_rho_phi_llp%Kllp_i(:,:,sp)), xl_grid%npts_b, xl_grid%npts_b, &
-                'Complex FLR2 benchmark kernel K_rho_phi electrons', '1/cm^2')
-            call write_matrix("kernel/K_rho_B_"//trim(plasma%spec(sp)%name),     real(kernel_rho_B_llp%Kllp_i(:,:,sp)), xl_grid%npts_b, xl_grid%npts_b, &
-                'Complex FLR2 benchmark kernel K_rho_B electrons', '1/cm^2')
-            call write_matrix("kernel/K_j_phi_"//trim(plasma%spec(sp)%name),     real(kernel_j_phi_llp%Kllp_i(:,:,sp)), xl_grid%npts_b, xl_grid%npts_b, &
-                'Complex FLR2 benchmark kernel K_j_phi electrons', '1/cm^2')
-            call write_matrix("kernel/K_j_B_"//trim(plasma%spec(sp)%name),       real(kernel_j_B_llp%Kllp_i(:,:,sp)), xl_grid%npts_b, xl_grid%npts_b, &
-                'Complex FLR2 benchmark kernel K_j_B electrons', '1/cm^2')
+            call write_matrix("kernel/K_rho_phi_"//trim(plasma%spec(sp)%name)//"_re",  real(kernel_rho_phi_llp%Kllp_i(:,:,sp)), xl_grid%npts_b, xl_grid%npts_b, &
+                'Real part of FLR2 benchmark kernel K_rho_phi ions', '1/cm^3')
+            call write_matrix("kernel/K_rho_phi_"//trim(plasma%spec(sp)%name)//"_im",  dimag(kernel_rho_phi_llp%Kllp_i(:,:,sp)), xl_grid%npts_b, xl_grid%npts_b, &
+                'Imagniary part of FLR2 benchmark kernel K_rho_phi ions', '1/cm^3')
+
+            call write_matrix("kernel/K_rho_B_"//trim(plasma%spec(sp)%name)//"_re",     real(kernel_rho_B_llp%Kllp_i(:,:,sp)), xl_grid%npts_b, xl_grid%npts_b, &
+                'Real part of FLR2 benchmark kernel K_rho_B ions', '1/cm^3')
+            call write_matrix("kernel/K_rho_B_"//trim(plasma%spec(sp)%name)//"_im",     dimag(kernel_rho_B_llp%Kllp_i(:,:,sp)), xl_grid%npts_b, xl_grid%npts_b, &
+                'Imaginary part of FLR2 benchmark kernel K_rho_B ions', '1/cm^3')
+
+            call write_matrix("kernel/K_j_phi_"//trim(plasma%spec(sp)%name)//"_re",     real(kernel_j_phi_llp%Kllp_i(:,:,sp)), xl_grid%npts_b, xl_grid%npts_b, &
+                'Real part of FLR2 benchmark kernel K_j_phi ions', '1/cm^3')
+            call write_matrix("kernel/K_j_phi_"//trim(plasma%spec(sp)%name)//"_im",     dimag(kernel_j_phi_llp%Kllp_i(:,:,sp)), xl_grid%npts_b, xl_grid%npts_b, &
+                'Imaginary part of FLR2 benchmark kernel K_j_phi ions', '1/cm^3')
+
+            call write_matrix("kernel/K_j_B_"//trim(plasma%spec(sp)%name)//"_re",       real(kernel_j_B_llp%Kllp_i(:,:,sp)), xl_grid%npts_b, xl_grid%npts_b, &
+                'Real part of FLR2 benchmark kernel K_j_B ions', '1/cm^3')
+            call write_matrix("kernel/K_j_B_"//trim(plasma%spec(sp)%name)//"_im",       dimag(kernel_j_B_llp%Kllp_i(:,:,sp)), xl_grid%npts_b, xl_grid%npts_b, &
+                'Imaginary part of FLR2 benchmark kernel K_j_B ions', '1/cm^3')
         end do
 
 

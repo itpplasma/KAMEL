@@ -160,6 +160,8 @@ module flr2_asymptotics_m
         integer :: j, sp, i
         complex(dp), allocatable :: kernel_phi(:)
         complex(dp), allocatable :: kernel_B(:)
+        complex(dp), allocatable :: kernel_jphi(:)
+        complex(dp), allocatable :: kernel_jB(:)
         complex(dp) :: kernel_phi_temp
         real(dp) :: b
         real(dp) :: ks
@@ -170,6 +172,8 @@ module flr2_asymptotics_m
         complex(dp) :: besselI ! complex bessel function from bessel.f90
         allocate(kernel_phi(rg_grid%npts_b))
         allocate(kernel_B(rg_grid%npts_b))
+        allocate(kernel_jphi(rg_grid%npts_b))
+        allocate(kernel_jB(rg_grid%npts_b))
 
         kr_arr = [0.1d0, 1.0d0, 5.0d0]
 
@@ -178,6 +182,9 @@ module flr2_asymptotics_m
             
             kernel_phi = 0.0d0
             kernel_B = 0.0d0
+            kernel_jphi = 0.0d0
+            kernel_jB = 0.0d0
+
             
             do j = 1, size(rg_grid%xb)
                 kernel_phi_temp = 0.0d0
@@ -191,9 +198,9 @@ module flr2_asymptotics_m
 
                     b = (kr**2.0d0) * plasma_in%spec(sp)%rho_L(j)**2.0d0
 
-                    ! if (artificial_debye_case <= 1) then
-                        ! kernel_phi_temp = - 1.0d0 / plasma_in%spec(sp)%lambda_D(j)**2.0d0
-                    ! end if
+                    if (artificial_debye_case <= 1) then
+                        kernel_phi_temp = - 1.0d0 / plasma_in%spec(sp)%lambda_D(j)**2.0d0
+                    end if
 
                     if (artificial_debye_case == 0 .or. artificial_debye_case == 2) then
                         kernel_phi_temp = kernel_phi_temp + 1.0d0 / plasma_in%spec(sp)%lambda_D(j)**2.0d0 &
@@ -215,6 +222,27 @@ module flr2_asymptotics_m
                                 )&
                                 + 0.5d0 * plasma_in%spec(sp)%I21(j, 0) * plasma_in%spec(sp)%A2(j) * gsl_sf_bessel_In(0, b) &
                             )
+                        
+                        kernel_jphi(j) = kernel_jphi(j) + 1.0d0 / plasma_in%spec(sp)%lambda_D(j)**2.0d0 * com_unit * plasma_in%spec(sp)%vT(j)**3.0d0 &
+                            / (plasma_in%spec(sp)%omega_c(j) * plasma_in%spec(sp)%nu(j)) * ks * exp(-b) * &
+                            (&
+                                plasma_in%spec(sp)%I01(j, 0) * (&
+                                    gsl_sf_bessel_In(0, b) * (plasma_in%spec(sp)%A1(j) + plasma_in%spec(sp)%A2(j) * (1-b)) &
+                                    + 0.5d0 * plasma_in%spec(sp)%A2(j) * b * gsl_sf_bessel_In(-1, b) &
+                                )&
+                                + 0.5d0 * plasma_in%spec(sp)%I21(j, 0) * plasma_in%spec(sp)%A2(j) * gsl_sf_bessel_In(0, b) &
+                            )
+
+                        kernel_jB(j) = kernel_jB(j) - 1.0d0 / plasma_in%spec(sp)%lambda_D(j)**2.0d0 * plasma_in%spec(sp)%vT(j)**4.0d0 &
+                            / (plasma_in%spec(sp)%omega_c(j) * plasma_in%spec(sp)%nu(j) * sol) * exp(-b) * &
+                            (&
+                                plasma_in%spec(sp)%I11(j, 0) * (&
+                                    gsl_sf_bessel_In(0, b) * (plasma_in%spec(sp)%A1(j) + plasma_in%spec(sp)%A2(j) * (1-b)) &
+                                    + 0.5d0 * plasma_in%spec(sp)%A2(j) * b * gsl_sf_bessel_In(-1, b) &
+                                )&
+                                + 0.5d0 * plasma_in%spec(sp)%I13(j, 0) * plasma_in%spec(sp)%A2(j) * gsl_sf_bessel_In(0, b) &
+                            )
+                        
                     end if
 
                     kernel_phi(j) = kernel_phi(j) + kernel_phi_temp
@@ -223,6 +251,8 @@ module flr2_asymptotics_m
 
             kernel_phi = kernel_phi / (4.0d0 * pi)
             kernel_B = kernel_B / (4.0d0 * pi)
+            kernel_jphi = kernel_jphi / (4.0d0 * pi)
+            kernel_jB = kernel_jB / (4.0d0 * pi)
 
             write(filename, '(A,I0)') "/fields/hatK_Phi_kr", int(kr)
             call write_complex_profile_abs(rg_grid%xb, kernel_phi, rg_grid%npts_b, filename, &
@@ -230,6 +260,13 @@ module flr2_asymptotics_m
             write(filename, '(A,I0)') "/fields/hatK_B_kr", int(kr)
             call write_complex_profile_abs(rg_grid%xb, kernel_B, rg_grid%npts_b, filename, &
                 'Fourier space kernel for rho Br', '1/cm^2')
+
+            write(filename, '(A,I0)') "/fields/hatK_jPhi_kr", int(kr)
+            call write_complex_profile_abs(rg_grid%xb, kernel_jphi, rg_grid%npts_b, filename, &
+                'Fourier space kernel for j_phi', '1/cm^2')
+            write(filename, '(A,I0)') "/fields/hatK_jB_kr", int(kr)
+            call write_complex_profile_abs(rg_grid%xb, kernel_jB, rg_grid%npts_b, filename, &
+                'Fourier space kernel for j_B', '1/cm^2')
 
         end do
 

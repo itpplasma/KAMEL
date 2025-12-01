@@ -255,15 +255,15 @@ module FP_kernel_plasma_prefacs_m
         integer, intent(in) :: j, mphi
         type(species_t), intent(in) :: spec
         complex(dp) :: val
-        complex(dp) :: I01, I21
+        complex(dp) :: I10, I12
         real(dp) :: A1, A2
 
         A1 = spec%A1_cc(j)
         A2 = spec%A2_cc(j)
-        I01 = spec%I01_cc(j, mphi)
-        I21 = spec%I21_cc(j, mphi)
+        I10 = spec%I10_cc(j, mphi)
+        I12 = spec%I12_cc(j, mphi)
 
-        val = (I01 * (A1 + A2) + 0.5d0 * A2 * I21) * FP_kappa_j_phi(j, spec) * plasma%ks_cc(j)
+        val = (I10 * (A1 + A2) + 0.5d0 * A2 * I12) * FP_kappa_j_phi(j, spec) * plasma%ks_cc(j)
 
     end function
 
@@ -278,13 +278,13 @@ module FP_kernel_plasma_prefacs_m
         integer, intent(in) :: j, mphi
         type(species_t), intent(in) :: spec
         complex(dp) :: val
-        complex(dp) :: I01
+        complex(dp) :: I10
         real(dp) :: A2
 
         A2 = spec%A2_cc(j)
-        I01 = spec%I01_cc(j, mphi)
+        I10 = spec%I10_cc(j, mphi)
 
-        val = - I01 * A2 * FP_kappa_j_phi(j, spec) * plasma%ks_cc(j)
+        val = - I10 * A2 * FP_kappa_j_phi(j, spec) * plasma%ks_cc(j)
 
     end function
 
@@ -299,13 +299,13 @@ module FP_kernel_plasma_prefacs_m
         integer, intent(in) :: j, mphi
         type(species_t), intent(in) :: spec
         complex(dp) :: val
-        complex(dp) :: I01
+        complex(dp) :: I10
         real(dp) :: A2
 
         A2 = spec%A2_cc(j)
-        I01 = spec%I01_cc(j, mphi)
+        I10 = spec%I01_cc(j, mphi)
 
-        val = I01 * A2 * FP_kappa_j_phi(j, spec) * plasma%ks_cc(j)
+        val = I10 * A2 * FP_kappa_j_phi(j, spec) * plasma%ks_cc(j)
 
     end function
 
@@ -320,15 +320,15 @@ module FP_kernel_plasma_prefacs_m
         integer, intent(in) :: j, mphi
         type(species_t), intent(in) :: spec
         complex(dp) :: val
-        complex(dp) :: I02, I22
+        complex(dp) :: I11, I13
         real(dp) :: A1, A2
 
         A1 = spec%A1_cc(j)
         A2 = spec%A2_cc(j)
-        I02 = spec%I02_cc(j, mphi)
-        I22 = spec%I22_cc(j, mphi)
+        I11 = spec%I11_cc(j, mphi)
+        I13 = spec%I13_cc(j, mphi)
 
-        val = (I02 * (A1 + A2) + 0.5d0 * A2 * I22) * FP_kappa_j_B(j, spec)
+        val = (I11 * (A1 + A2) + 0.5d0 * A2 * I13) * FP_kappa_j_B(j, spec)
 
     end function
 
@@ -343,13 +343,13 @@ module FP_kernel_plasma_prefacs_m
         integer, intent(in) :: j, mphi
         type(species_t), intent(in) :: spec
         complex(dp) :: val
-        complex(dp) :: I02
+        complex(dp) :: I11
         real(dp) :: A2
 
         A2 = spec%A2_cc(j)
-        I02 = spec%I02_cc(j, mphi)
+        I11 = spec%I11_cc(j, mphi)
 
-        val = - I02 * A2 * FP_kappa_j_B(j, spec)
+        val = - I11 * A2 * FP_kappa_j_B(j, spec)
 
     end function
 
@@ -364,13 +364,13 @@ module FP_kernel_plasma_prefacs_m
         integer, intent(in) :: j, mphi
         type(species_t), intent(in) :: spec
         complex(dp) :: val
-        complex(dp) :: I02
+        complex(dp) :: I11
         real(dp) :: A2
 
         A2 = spec%A2_cc(j)
-        I02 = spec%I02_cc(j, mphi)
+        I11 = spec%I11_cc(j, mphi)
 
-        val = I02 * A2 * FP_kappa_j_B(j, spec)
+        val = I11 * A2 * FP_kappa_j_B(j, spec)
 
     end function
 

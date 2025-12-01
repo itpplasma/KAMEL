@@ -61,6 +61,8 @@ module rt_flr2_benchmark_m
 
         complex(dp), allocatable :: rho(:)
         complex(dp), allocatable :: jpar(:)
+        complex(dp), allocatable :: jpar_i(:)
+        complex(dp), allocatable :: jpar_e(:)
 
         character(8)  :: date
         character(10) :: time
@@ -92,45 +94,54 @@ module rt_flr2_benchmark_m
 
         call write_kernels(kernel_rho_phi_llp, kernel_rho_B_llp, kernel_j_phi_llp, kernel_j_B_llp)
 
-        allocate(EBdat%Phi(xl_grid%npts_b), EBdat%Br(xl_grid%npts_b), EBdat%E_perp_psi(xl_grid%npts_b), &
-                EBdat%r_grid(xl_grid%npts_b), EBdat%E_perp(xl_grid%npts_b),&
-                rho(xl_grid%npts_b), jpar(xl_grid%npts_b))
+        allocate(EBdat%Phi(xl_grid%npts_b), &
+                EBdat%Phi_i(xl_grid%npts_b), &
+                EBdat%Phi_e(xl_grid%npts_b), &
+                EBdat%Br(xl_grid%npts_b), &
+                EBdat%E_perp_psi(xl_grid%npts_b), &
+                EBdat%r_grid(xl_grid%npts_b), &
+                EBdat%E_perp(xl_grid%npts_b),&
+                rho(xl_grid%npts_b), &
+                jpar_i(xl_grid%npts_b), &
+                jpar_e(xl_grid%npts_b), &
+                jpar(xl_grid%npts_b))
 
         EBdat%r_grid = xl_grid%xb
 
-        if (.not.turn_off_electrons) then
-            call solve_poisson(kernel_rho_phi_llp%Kllp_e, kernel_rho_B_llp%Kllp_e, EBdat%Phi)
-            call write_complex_profile_abs(xl_grid%xb, EBdat%Phi, xl_grid%npts_b, "/fields/Phi_m_e", &
-                'Electrostatic potential perturbation Phi, solution of Poisson problem, only electrons', 'statV')
-
-            call calculate_current_density(jpar, EBdat, kernel_j_phi_llp%Kllp_e, kernel_j_B_llp%Kllp_e)
-            call write_complex_profile_abs(xl_grid%xb, jpar, xl_grid%npts_b, "/fields/jpar_e", &
-                'Parallel current density perturbation j_par calculated from Poisson solution', 'statA/cm^2')
-        end if
-        
-        do sp = 1, plasma%n_species - 1
-            if (.not. turn_off_ions) then
-                call solve_poisson(kernel_rho_phi_llp%Kllp_i(:,:,sp), kernel_rho_B_llp%Kllp_i(:,:,sp), EBdat%Phi)
-                call write_complex_profile_abs(xl_grid%xb, EBdat%Phi, xl_grid%npts_b, "/fields/Phi_m_"//trim(plasma%spec(sp)%name), &
-                    'Electrostatic potential perturbation Phi, solution of Poisson problem for species '//trim(plasma%spec(sp)%name), 'statV')
-            else 
-                EBdat%Phi = (0.0d0, 0.0d0)
-                call write_complex_profile_abs(xl_grid%xb, EBdat%Phi, xl_grid%npts_b, "/fields/Phi_m_"//trim(plasma%spec(sp)%name), &
-                    'Electrostatic potential perturbation Phi, solution of Poisson problem for species '//trim(plasma%spec(sp)%name), 'statV')
-            end if
-
-            call calculate_current_density(jpar, EBdat, kernel_j_phi_llp%Kllp_i(:,:,sp), kernel_j_B_llp%Kllp_i(:,:,sp))
-            call write_complex_profile_abs(xl_grid%xb, jpar, xl_grid%npts_b, "/fields/jpar_"//trim(plasma%spec(sp)%name), &
-                'Parallel current density perturbation j_par calculated from Poisson solution', 'statA/cm^2')
-        end do
-
+        ! solve total Poisson problem and calculate total jpar
         call solve_poisson(kernel_rho_phi_llp%Kllp, kernel_rho_B_llp%Kllp, EBdat%Phi)
         call write_complex_profile_abs(xl_grid%xb, EBdat%Phi, xl_grid%npts_b, "/fields/Phi_m", &
             'Electrostatic potential perturbation Phi, solution of Poisson problem', 'statV')
-
-        call calculate_current_density(jpar, EBdat, kernel_j_phi_llp%Kllp, kernel_j_B_llp%Kllp)
+        call calculate_current_density(jpar, EBdat%Phi, EBdat%Br, kernel_j_phi_llp%Kllp, kernel_j_B_llp%Kllp)
         call write_complex_profile_abs(xl_grid%xb, jpar, xl_grid%npts_b, "/fields/jpar", &
             'Parallel current density perturbation j_par calculated from Poisson solution', 'statA/cm^2')
+
+        ! solve for electrons only, but use total phi in jpar calculation
+        if (.not.turn_off_electrons) then
+            call solve_poisson(kernel_rho_phi_llp%Kllp_e, kernel_rho_B_llp%Kllp_e, EBdat%Phi_e)
+            call write_complex_profile_abs(xl_grid%xb, EBdat%Phi_e, xl_grid%npts_b, "/fields/Phi_m_e", &
+                'Electrostatic potential perturbation Phi, solution of Poisson problem, only electrons', 'statV')
+            call calculate_current_density(jpar_e, EBdat%Phi, EBdat%Br, kernel_j_phi_llp%Kllp_e, kernel_j_B_llp%Kllp_e)
+            call write_complex_profile_abs(xl_grid%xb, jpar_e, xl_grid%npts_b, "/fields/jpar_e", &
+                'Parallel current density perturbation j_par calculated from Poisson solution', 'statA/cm^2')
+        end if
+
+        ! solve for ions only, but use total phi in jpar calculation
+        do sp = 1, plasma%n_species - 1
+            if (.not. turn_off_ions) then
+                call solve_poisson(kernel_rho_phi_llp%Kllp_i(:,:,sp), kernel_rho_B_llp%Kllp_i(:,:,sp), EBdat%Phi_i)
+                call write_complex_profile_abs(xl_grid%xb, EBdat%Phi_i, xl_grid%npts_b, "/fields/Phi_m_"//trim(plasma%spec(sp)%name), &
+                    'Electrostatic potential perturbation Phi, solution of Poisson problem for species '//trim(plasma%spec(sp)%name), 'statV')
+            else 
+                EBdat%Phi_i = (0.0d0, 0.0d0)
+                call write_complex_profile_abs(xl_grid%xb, EBdat%Phi_i, xl_grid%npts_b, "/fields/Phi_m_"//trim(plasma%spec(sp)%name), &
+                    'Electrostatic potential perturbation Phi, solution of Poisson problem for species '//trim(plasma%spec(sp)%name), 'statV')
+            end if
+
+            call calculate_current_density(jpar_i, EBdat%Phi, EBdat%Br, kernel_j_phi_llp%Kllp_i(:,:,sp), kernel_j_B_llp%Kllp_i(:,:,sp))
+            call write_complex_profile_abs(xl_grid%xb, jpar_i, xl_grid%npts_b, "/fields/jpar_"//trim(plasma%spec(sp)%name), &
+                'Parallel current density perturbation j_par calculated from Poisson solution', 'statA/cm^2')
+        end do
 
         call postprocess_electric_field(EBdat)
 

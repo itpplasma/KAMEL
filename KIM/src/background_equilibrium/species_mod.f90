@@ -72,10 +72,14 @@ module species_m
         real(dp), allocatable :: x2_cc(:, :)
         complex(dp), allocatable :: I00_cc(:, :)
         complex(dp), allocatable :: I01_cc(:, :)
+        complex(dp), allocatable :: I10_cc(:, :)
         complex(dp), allocatable :: I20_cc(:, :)
+        complex(dp), allocatable :: I12_cc(:, :)
         complex(dp), allocatable :: I21_cc(:, :)
         complex(dp), allocatable :: I22_cc(:, :)
         complex(dp), allocatable :: I02_cc(:, :)
+        complex(dp), allocatable :: I13_cc(:, :)
+        complex(dp), allocatable :: I11_cc(:, :)
     end type
 
     type(plasma_t) :: plasma
@@ -360,10 +364,14 @@ module species_m
                 allocate(plasma_in%spec(sp)%x2_cc(rg_grid%npts_c, -mphi_max:mphi_max))
                 allocate(plasma_in%spec(sp)%I00_cc(rg_grid%npts_c, -mphi_max:mphi_max))
                 allocate(plasma_in%spec(sp)%I01_cc(rg_grid%npts_c, -mphi_max:mphi_max))
+                allocate(plasma_in%spec(sp)%I10_cc(rg_grid%npts_c, -mphi_max:mphi_max))
                 allocate(plasma_in%spec(sp)%I20_cc(rg_grid%npts_c, -mphi_max:mphi_max))
                 allocate(plasma_in%spec(sp)%I21_cc(rg_grid%npts_c, -mphi_max:mphi_max))
+                allocate(plasma_in%spec(sp)%I12_cc(rg_grid%npts_c, -mphi_max:mphi_max))
                 allocate(plasma_in%spec(sp)%I22_cc(rg_grid%npts_c, -mphi_max:mphi_max))
                 allocate(plasma_in%spec(sp)%I02_cc(rg_grid%npts_c, -mphi_max:mphi_max))
+                allocate(plasma_in%spec(sp)%I13_cc(rg_grid%npts_c, -mphi_max:mphi_max))
+                allocate(plasma_in%spec(sp)%I11_cc(rg_grid%npts_c, -mphi_max:mphi_max))
             end if
         end do
 
@@ -417,10 +425,14 @@ module species_m
                     call getIfunc(plasma_in%spec(sp)%x1_cc(j), plasma_in%spec(sp)%x2_cc(j, mphi), plasma_in%spec(sp)%symbI)
                     plasma_in%spec(sp)%I00_cc(j, mphi) = plasma_in%spec(sp)%symbI(0, 0)
                     plasma_in%spec(sp)%I20_cc(j, mphi) = plasma_in%spec(sp)%symbI(2, 0)
+                    plasma_in%spec(sp)%I10_cc(j, mphi) = plasma_in%spec(sp)%symbI(1, 0)
+                    plasma_in%spec(sp)%I12_cc(j, mphi) = plasma_in%spec(sp)%symbI(1, 2)
                     plasma_in%spec(sp)%I02_cc(j, mphi) = plasma_in%spec(sp)%symbI(0, 2)
                     plasma_in%spec(sp)%I01_cc(j, mphi) = plasma_in%spec(sp)%symbI(0, 1)
                     plasma_in%spec(sp)%I21_cc(j, mphi) = plasma_in%spec(sp)%symbI(2, 1)
                     plasma_in%spec(sp)%I22_cc(j, mphi) = plasma_in%spec(sp)%symbI(2, 2)
+                    plasma_in%spec(sp)%I11_cc(j, mphi) = plasma_in%spec(sp)%symbI(1, 1)
+                    plasma_in%spec(sp)%I13_cc(j, mphi) = plasma_in%spec(sp)%symbI(1, 3)
                 end do
             end do
         end do
@@ -440,9 +452,11 @@ module species_m
 
         type(plasma_t), intent(inout) :: plasma_in
         integer :: i, sp, sp_col
-        real(dp) :: Lee(plasma%grid_size), Lei(number_of_ion_species, plasma%grid_size), &
-            Lii(number_of_ion_species, number_of_ion_species, plasma%grid_size),&
-            nue(plasma%grid_size), nui(number_of_ion_species, plasma%grid_size)
+        real(dp) :: Lee(plasma%grid_size)
+        real(dp) :: Lei(number_of_ion_species, plasma%grid_size)
+        real(dp) :: Lii(number_of_ion_species, number_of_ion_species, plasma%grid_size)
+        real(dp) :: nue(plasma%grid_size)
+        real(dp) :: nui(number_of_ion_species, plasma%grid_size)
 
 
         do sp = 0, plasma%n_species-1
@@ -459,7 +473,11 @@ module species_m
                 plasma_in%spec(sp)%omega_c(i) = plasma_in%spec(sp)%Zspec * e_charge * abs(plasma_in%B0(i)) &
                     / (plasma%spec(sp)%mass * sol)
 
-                plasma_in%spec(sp)%rho_L(i) = abs(plasma_in%spec(sp)%vT(i) / (plasma_in%spec(sp)%omega_c(i)))
+                if (sp > 0)then
+                    plasma_in%spec(sp)%rho_L(i) = abs(plasma_in%spec(sp)%vT(i) / (plasma_in%spec(sp)%omega_c(i))) * 1.0d-0
+                else
+                    plasma_in%spec(sp)%rho_L(i) = abs(plasma_in%spec(sp)%vT(i) / (plasma_in%spec(sp)%omega_c(i)))
+                end if
 
                 plasma_in%spec(sp)%lambda_D(i) = sqrt((plasma_in%spec(sp)%T(i) * ev) / (4.0d0*pi* plasma_in%spec(sp)%n(i) &
                     * (plasma_in%spec(sp)%Zspec * e_charge)**2.0d0))
@@ -691,6 +709,18 @@ module species_m
                 call write_complex_profile(r_grid_cc, spec%I02_cc(:, mphi), size(r_grid_cc), &
                     'backs/'//trim(spec%name)//'/I02_cc_mphi_'//trim(adjustl(itoa(mphi))), &
                     'Susceptibility function I02 at cell centers, mphi='//trim(adjustl(itoa(mphi))), '1')
+                call write_complex_profile(r_grid_cc, spec%I13_cc(:, mphi), size(r_grid_cc), &
+                    'backs/'//trim(spec%name)//'/I13_cc_mphi_'//trim(adjustl(itoa(mphi))), &
+                    'Susceptibility function I13 at cell centers, mphi='//trim(adjustl(itoa(mphi))), '1')
+                call write_complex_profile(r_grid_cc, spec%I11_cc(:, mphi), size(r_grid_cc), &
+                    'backs/'//trim(spec%name)//'/I11_cc_mphi_'//trim(adjustl(itoa(mphi))), &
+                    'Susceptibility function I11 at cell centers, mphi='//trim(adjustl(itoa(mphi))), '1')
+                call write_complex_profile(r_grid_cc, spec%I10_cc(:, mphi), size(r_grid_cc), &
+                    'backs/'//trim(spec%name)//'/I10_cc_mphi_'//trim(adjustl(itoa(mphi))), &
+                    'Susceptibility function I10 at cell centers, mphi='//trim(adjustl(itoa(mphi))), '1')
+                call write_complex_profile(r_grid_cc, spec%I12_cc(:, mphi), size(r_grid_cc), &
+                    'backs/'//trim(spec%name)//'/I12_cc_mphi_'//trim(adjustl(itoa(mphi))), &
+                    'Susceptibility function I12 at cell centers, mphi='//trim(adjustl(itoa(mphi))), '1')
             end do
             !call write_profile(r_grid_cc, spec%x2_cc, size(r_grid_cc), &
                 !'backs/'//trim(spec%name)//'/x2_cc', &

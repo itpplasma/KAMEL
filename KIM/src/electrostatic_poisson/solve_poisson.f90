@@ -12,7 +12,7 @@ module poisson_solver_m
         use sparse_mod, only: sp2fullComplex, sparse_solveComplex_b1, sparse_solve_method, sparse_talk
         use config_m, only: output_path
         use constants_m, only: pi
-        use grid_m, only: xl_grid, calc_mass_matrix
+        use grid_m, only: xl_grid, calc_mass_matrix, M_mat
         use setup_m, only: type_br_field
         use KIM_kinds_m, only: dp
         use IO_collection_m, only: write_matrix, write_complex_profile
@@ -24,7 +24,7 @@ module poisson_solver_m
         complex(dp), dimension(:), allocatable, intent(out) :: phi_sol
         complex(dp), dimension(:), allocatable :: A_nz ! non-zero elements of A matrix
         complex(dp), dimension(:,:), allocatable :: A_mat ! A matrix (stiffness matrix in the beginning, then full right hand side matrix)
-        real(dp), dimension(:,:), allocatable :: M_mat ! mass matrix
+    
         complex(dp), dimension(:), allocatable :: b_vec ! b vector and x vector
         integer, dimension(:), allocatable :: irow, pcol
         integer :: nz_out, nrow, ncol
@@ -34,9 +34,15 @@ module poisson_solver_m
         if (fstatus >= 1) write(*,*) 'Status: solve poisson equation'
         if (fdebug < 2) sparse_talk = .false. ! turn off sparse solver output for low fdebug
 
-        allocate(A_mat(xl_grid%npts_b, xl_grid%npts_b), M_mat(xl_grid%npts_b, xl_grid%npts_b))
+        allocate(A_mat(xl_grid%npts_b, xl_grid%npts_b))
+
         call prepare_Laplace_matrix(A_mat)
-        call calc_mass_matrix(M_mat)
+
+        if (.not. allocated(M_mat)) then
+            allocate(M_mat(xl_grid%npts_b, xl_grid%npts_b))
+            call calc_mass_matrix(M_mat)
+        end if
+
         call write_matrix('kernel/mass_matrix.dat', M_mat, xl_grid%npts_b, xl_grid%npts_b, &
             'Mass matrix M', 'cm')
 

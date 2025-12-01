@@ -33,6 +33,7 @@ module grid_m
     integer :: npoi_der=4
 
     real(dp), dimension(:), allocatable :: xl  ! xl grid (real space)
+    real(dp), dimension(:,:), allocatable :: M_mat ! mass matrix
 
     complex(dp), dimension(:,:), allocatable :: varphi_lkr
 
@@ -218,7 +219,7 @@ module grid_m
             this%xc(ipoib-1) = 0.5 * (this%xb(ipoib-1) + this%xb(ipoib))
         enddo
 
-        call ensure_node_at_r_res(this)
+        ! call ensure_node_at_r_res(this)
 
         ! get index for resonant radius
         call binsrc(abs(this%xb), 1, this%npts_b, abs(r_res), index_rg_res)
@@ -284,7 +285,7 @@ module grid_m
         
         allocate(coef(0:nder,npoi_der))
 
-        call ensure_node_at_r_res(this) ! could be used for adding r_res point in grid, but introduces some small oscillations
+        ! call ensure_node_at_r_res(this) ! could be used for adding r_res point in grid, but introduces some small oscillations
 
         ! get index for resonant radius
         call binsrc(abs(this%xb), 1, this%npts_b, abs(r_res), index_rg_res)

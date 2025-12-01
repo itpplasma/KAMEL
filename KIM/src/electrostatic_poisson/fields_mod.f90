@@ -16,6 +16,8 @@ module fields_m
         complex(dp), allocatable :: Es(:) ! E "senkrecht", i.e. perpendicular to radial and parallel direction
         complex(dp), allocatable :: Ep(:) ! parallel to the equilibrium magnetic field
         complex(dp), allocatable :: Phi(:)
+        complex(dp), allocatable :: Phi_e(:)
+        complex(dp), allocatable :: Phi_i(:)
         complex(dp), allocatable :: Phi_aligned(:)
         complex(dp), allocatable :: Phi_MA(:)
         complex(dp), allocatable :: Phi_MA_ideal(:)
@@ -470,18 +472,26 @@ module fields_m
 
     end subroutine
 
-    subroutine calculate_current_density(jpar, EBdat_in, K_j_phi, K_j_B)
+    subroutine calculate_current_density(jpar, Phi, Br, K_j_phi, K_j_B)
 
         use KIM_kinds_m, only: dp
         use kernel_m, only: kernel_spl_t
+        use numerics_utils_m, only: invert_real_matrix
+        use grid_m, only: M_mat
+
         implicit none
 
         complex(dp), allocatable, intent(out) :: jpar(:)
-        type(EBdat_t), intent(in) :: EBdat_in
+        complex(dp), intent(in) :: Phi(:), Br(:)
         complex(dp), intent(in) :: K_j_phi(:,:)
         complex(dp), intent(in) :: K_j_B(:,:)
+        real(dp), allocatable :: M_inv(:,:)
 
-        jpar = matmul(K_j_phi, EBdat_in%Phi) + matmul(K_j_B, EBdat_in%Br)
+        allocate(M_inv(size(M_mat,1), size(M_mat,2)))
+
+        call invert_real_matrix(M_mat, M_inv)
+
+        jpar = matmul(M_inv, matmul(K_j_phi, Phi) + matmul(K_j_B, Br))
 
     end subroutine
 

@@ -446,7 +446,7 @@ module species_m
 
         use constants_m, only: sol, e_charge, ev, pi, com_unit
         use setup_m, only: omega, collisions_off
-        use config_m, only: number_of_ion_species, rescale_density, number_density_rescale
+        use config_m, only: number_of_ion_species, rescale_density, number_density_rescale, ion_flr_scale_factor
 
         implicit none
 
@@ -474,7 +474,7 @@ module species_m
                     / (plasma%spec(sp)%mass * sol)
 
                 if (sp > 0)then
-                    plasma_in%spec(sp)%rho_L(i) = abs(plasma_in%spec(sp)%vT(i) / (plasma_in%spec(sp)%omega_c(i))) * 1.0d-0
+                    plasma_in%spec(sp)%rho_L(i) = abs(plasma_in%spec(sp)%vT(i) / (plasma_in%spec(sp)%omega_c(i))) * ion_flr_scale_factor
                 else
                     plasma_in%spec(sp)%rho_L(i) = abs(plasma_in%spec(sp)%vT(i) / (plasma_in%spec(sp)%omega_c(i)))
                 end if

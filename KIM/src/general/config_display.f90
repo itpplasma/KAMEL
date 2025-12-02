@@ -132,6 +132,11 @@ contains
         call print_bool_line('Turn Off Electrons', turn_off_electrons, width)
         write(value_str, '(I0)') number_of_ion_species
         call print_config_line('Ion Species', trim(value_str), width)
+        if (ion_flr_scale_factor /= 1.0d0) then
+            write(value_str, '(F8.3)') ion_flr_scale_factor
+            call print_config_line('Ion FLR Scale Factor', trim(adjustl(value_str)), width)
+        end if
+
         
         ! Display KIM_SETUP section
         call print_section_header('PLASMA PARAMETERS', width)

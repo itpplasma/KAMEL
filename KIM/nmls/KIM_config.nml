@@ -11,6 +11,7 @@
     plasma_type = 'D'                       ! either deuterium (D) or hydrogen (H)
     rescale_density = .false.               ! rescale density after calcualation of collision frequencies
     number_density_rescale = 1d-6           ! rescale factor for rescaling the density
+    ion_flr_scale_factor = 1.0              ! artificially rescale the ion Larmor radius
 /
 
 &kim_io

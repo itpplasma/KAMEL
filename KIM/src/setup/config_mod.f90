@@ -26,5 +26,6 @@ module config_m
 
     logical :: rescale_density
     real(dp) :: number_density_rescale
+    real(dp) :: ion_flr_scale_factor
 
 end module

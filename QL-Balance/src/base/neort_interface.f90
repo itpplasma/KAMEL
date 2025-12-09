@@ -16,6 +16,14 @@ module neort_interface
     public :: calculate_s_tor
     public :: calculate_coarse_s_tor
 
+    ! writing routines for debugging
+    public :: write_plasma_data_to_file
+    public :: write_profile_data_to_file
+    public :: write_original_plasma_data_to_file
+    public :: write_original_profile_data_to_file
+    public :: write_neort_transport_data_to_file
+    public :: write_torque_csv
+
 contains
 
     !> @brief Prepare plasma profile data for NEO-RT from KAMEL arrays
@@ -348,5 +356,384 @@ contains
             s_tor(i) = s_min + (i - 1) * ds
         end do
     end subroutine calculate_coarse_s_tor
+
+!================== Writing routines for debugging ==================
+
+    !> @brief Write plasma_data array to a file for debugging
+    !> @param[in] plasma_data 2D array with plasma data
+    !> @param[in] filename Output filename
+    !> @param[in] r Radial coordinate array (optional)
+    subroutine write_plasma_data_to_file(plasma_data, filename, r)
+        use iso_fortran_env, only: dp => real64
+
+        real(dp), dimension(:, :), intent(in) :: plasma_data
+        character(len=*), intent(in) :: filename
+        real(dp), dimension(:), intent(in), optional :: r
+
+        integer :: iunit, i, ios
+        character(len=1024) :: errmsg
+
+        open (newunit=iunit, file=filename, status='replace', action='write', iostat=ios)
+        if (ios /= 0) then
+            write (errmsg, '(A,A)') "write_plasma_data_to_file: cannot open file ", filename
+            error stop trim(errmsg)
+        end if
+
+        ! Write header
+        if (present(r)) then
+            write (iunit, '(A)') &
+               "# Plasma data: s_tor, ni1 [cm^-3], ni2 [cm^-3], Ti1 [eV], Ti2 [eV], Te [eV], r [cm]"
+            write (iunit, '(A,I0,A,I0)') "# npoints = ", size(plasma_data, 1), &
+                ", ncols = ", size(plasma_data, 2) + 1
+        else
+            write (iunit, '(A)') &
+                "# Plasma data: s_tor, ni1 [cm^-3], ni2 [cm^-3], Ti1 [eV], Ti2 [eV], Te [eV]"
+            write (iunit, '(A,I0,A,I0)') "# npoints = ", size(plasma_data, 1), &
+                ", ncols = ", size(plasma_data, 2)
+        end if
+
+        ! Write data
+        do i = 1, size(plasma_data, 1)
+            if (present(r)) then
+                write (iunit, '(*(ES23.15E3,2X))') plasma_data(i, :), r(i)
+            else
+                write (iunit, '(*(ES23.15E3,2X))') plasma_data(i, :)
+            end if
+        end do
+
+        close (iunit)
+
+        print *, "Plasma data written to: ", trim(filename)
+    end subroutine write_plasma_data_to_file
+
+    !> @brief Write profile_data array to a file for debugging
+    !> @param[in] profile_data 2D array with profile data
+    !> @param[in] filename Output filename
+    !> @param[in] r Radial coordinate array (optional)
+    subroutine write_profile_data_to_file(profile_data, filename, r)
+        use iso_fortran_env, only: dp => real64
+
+        real(dp), dimension(:, :), intent(in) :: profile_data
+        character(len=*), intent(in) :: filename
+        real(dp), dimension(:), intent(in), optional :: r
+
+        integer :: iunit, i, ios
+        character(len=1024) :: errmsg
+
+        open (newunit=iunit, file=filename, status='replace', action='write', iostat=ios)
+        if (ios /= 0) then
+            write (errmsg, '(A,A)') "write_profile_data_to_file: cannot open file ", filename
+            error stop trim(errmsg)
+        end if
+
+        ! Write header
+        if (present(r)) then
+            write (iunit, '(A)') "# Profile data: s_tor, M_t, r [cm]"
+            write (iunit, '(A,I0,A,I0)') "# npoints = ", size(profile_data, 1), &
+                ", ncols = ", size(profile_data, 2) + 1
+        else
+            write (iunit, '(A)') "# Profile data: s_tor, M_t"
+            write (iunit, '(A,I0,A,I0)') "# npoints = ", size(profile_data, 1), &
+                ", ncols = ", size(profile_data, 2)
+        end if
+
+        ! Write data
+        do i = 1, size(profile_data, 1)
+            if (present(r)) then
+                write (iunit, '(*(ES23.15E3,2X))') profile_data(i, :), r(i)
+            else
+                write (iunit, '(*(ES23.15E3,2X))') profile_data(i, :)
+            end if
+        end do
+
+        close (iunit)
+
+        print *, "Profile data written to: ", trim(filename)
+    end subroutine write_profile_data_to_file
+
+    !> @brief Write original (unsplined) KAMEL plasma data to a file
+    !> @param[in] filename Output filename
+    !> @details Writes original KAMEL data from rc grid and params array.
+    !>          Format matches plasma_data: ni1, ni2, Ti1, Ti2, Te
+    !>          where rc is used as the radial coordinate and params provides
+    !>          the plasma quantities (ni from params(1,:), Ti from params(4,:),
+    !>          Te from params(3,:)).
+    subroutine write_original_plasma_data_to_file(filename)
+        use baseparam_mod, only: EV_TO_ERG => ev
+        use grid_mod, only: rc
+        use plasma_parameters, only: params
+
+        character(len=*), intent(in) :: filename
+
+        integer :: iunit, i, ios, npoints
+        character(len=1024) :: errmsg
+        real(dp), parameter :: ERG_TO_EV = 1.0_dp / EV_TO_ERG
+
+        npoints = size(rc)
+
+        ! Check dimension consistency
+        if (size(params, 2) /= npoints) then
+            error stop &
+                "write_original_plasma_data_to_file: params second dimension mismatch with rc"
+        end if
+
+        open (newunit=iunit, file=filename, status='replace', action='write', iostat=ios)
+        if (ios /= 0) then
+            write (errmsg, '(A,A)') &
+                "write_original_plasma_data_to_file: cannot open file ", filename
+            error stop trim(errmsg)
+        end if
+
+        ! Write header
+        write (iunit, '(A)') &
+      "# Original KAMEL plasma data: ni1 [cm^-3], ni2 [cm^-3], Ti1 [eV], Ti2 [eV], Te [eV], rc [cm]"
+        write (iunit, '(A,I0,A)') "# npoints = ", npoints, ", ncols = 6"
+
+        ! Write data: same column structure as plasma_data but from original rc/params
+        do i = 1, npoints
+            write (iunit, '(*(ES23.15E3,2X))') &
+                rc(i), &  ! Column 6: rc [cm]
+                params(1, i), &  ! Column 1: ni1 [cm^-3]
+                0.0_dp, &  ! Column 2: ni2 [cm^-3] (zero for single species)
+                params(4, i) * ERG_TO_EV, &  ! Column 3: Ti1 [eV]
+                1.0_dp, &  ! Column 4: Ti2 [eV] (dummy value)
+                params(3, i) * ERG_TO_EV  ! Column 5: Te [eV]
+        end do
+
+        close (iunit)
+
+        print *, "Original plasma data written to: ", trim(filename)
+    end subroutine write_original_plasma_data_to_file
+
+    !> @brief Write original (unsplined) KAMEL profile data to a file
+    !> @param[in] filename Output filename
+    !> @details Writes original KAMEL data from rc grid.
+    !>          Format matches profile_data: M_t
+    !>          where M_t is calculated from Omega_tE (calculated internally)
+    !>          at rc grid points using the same method as calculate_Omega_tE_splined.
+    subroutine write_original_profile_data_to_file(filename)
+        use baseparam_mod, only: am, p_mass, rtor, btor, c
+        use grid_mod, only: rb, rc
+        use plasma_parameters, only: params, qsaf
+        use wave_code_data, only: dPhi0
+        use spline, only: spline_coeff, spline_val
+
+        character(len=*), intent(in) :: filename
+
+        integer :: iunit, i, ios, npoints, rb_size
+        character(len=1024) :: errmsg
+        real(dp) :: T_i, m_i, vth, M_t, dPhi_dr, dpsi_pol_dr, Omega_tE
+
+        npoints = size(rc)
+        rb_size = size(rb)
+
+        ! Check dimension consistency
+        if (size(params, 2) /= npoints) then
+            error stop &
+                "write_original_profile_data_to_file: params second dimension mismatch with rc"
+        end if
+
+        if (size(qsaf) /= npoints) then
+            error stop "write_original_profile_data_to_file: qsaf size mismatch with rc"
+        end if
+
+        if (size(dPhi0) /= rb_size) then
+            error stop "write_original_profile_data_to_file: dPhi0 size mismatch with rb"
+        end if
+
+        m_i = am * p_mass  ! ion mass
+
+        open (newunit=iunit, file=filename, status='replace', action='write', iostat=ios)
+        if (ios /= 0) then
+            write (errmsg, '(A,A)') "write_original_profile_data_to_file: cannot open file ", &
+                filename
+            error stop trim(errmsg)
+        end if
+
+        ! Write header
+        write (iunit, '(A)') "# Original KAMEL profile data: M_t, rc [cm]"
+        write (iunit, '(A,I0,A)') "# npoints = ", npoints, ", ncols = 2"
+
+        ! Write data: same column structure as profile_data but from original rc/params
+        do i = 1, npoints
+          ! Calculate toroidal electric precession frequency (same as in calculate_Omega_tE_splined)
+            ! Omega_tE = -c * (dPhi/dr) / (dpsi_pol/dr)
+            ! Note: dPhi0 is on rb grid, so we spline it to rc
+            dPhi_dr = dPhi0(i)
+            dpsi_pol_dr = rc(i) * btor / qsaf(i)
+            Omega_tE = -c * dPhi_dr / dpsi_pol_dr
+
+            ! Calculate thermal velocity from original Ti
+            T_i = params(4, i)  ! ion temperature in erg
+            vth = sqrt(2 * T_i / m_i)  ! thermal velocity
+
+            ! Calculate ExB Mach number: M_t = Omega_tE * R_0 / v_th
+            M_t = Omega_tE * rtor / vth
+
+            write (iunit, '(*(ES23.15E3,2X))') &
+                rc(i), &  ! Column 1: rc [cm]
+                M_t  ! Column 2: M_t (ExB Mach number)
+        end do
+
+        close (iunit)
+
+        print *, "Original profile data written to: ", trim(filename)
+    end subroutine write_original_profile_data_to_file
+
+    !> @brief Write NEO-RT transport data to a file
+    !> @param[in] transport_data Transport data from NEO-RT calculation
+    !> @param[in] filename Output filename
+    !> @param[in] s_tor Normalized toroidal flux coordinate (optional)
+    !> @details Writes comprehensive transport data including summary transport
+    !>          coefficients, torque data, and per-harmonic contributions.
+    !>          Output format:
+    !>          - Summary section: Total transport coefficients and torque
+    !>          - Per-harmonic section: Individual resonance contributions
+    subroutine write_neort_transport_data_to_file(transport_data, filename, s_tor)
+        use iso_fortran_env, only: dp => real64
+
+        type(transport_data_t), intent(in) :: transport_data
+        character(len=*), intent(in) :: filename
+        real(dp), intent(in), optional :: s_tor
+
+        integer :: iunit, i, ios, nharmonics
+        character(len=1024) :: errmsg
+
+        open (newunit=iunit, file=filename, status='replace', action='write', iostat=ios)
+        if (ios /= 0) then
+            write (errmsg, '(A,A)') &
+                "write_neort_transport_data_to_file: cannot open file ", filename
+            error stop trim(errmsg)
+        end if
+
+        ! Write header
+        write (iunit, '(A)') "# NEO-RT Transport Data Output"
+        write (iunit, '(A)') "#"
+        if (present(s_tor)) then
+            write (iunit, '(A,ES23.15E3)') "# s_tor = ", s_tor
+        end if
+        write (iunit, '(A)') "#"
+
+        ! Write summary transport coefficients
+        write (iunit, '(A)') "# ========================================="
+        write (iunit, '(A)') "# SUMMARY TRANSPORT COEFFICIENTS"
+        write (iunit, '(A)') "# ========================================="
+        write (iunit, '(A)') "#"
+        write (iunit, '(A,ES23.15E3)') "# M_t (Toroidal Mach number) = ", &
+            transport_data%summary%M_t
+        write (iunit, '(A)') "#"
+        write (iunit, '(A)') "# Co-passing particles:"
+        write (iunit, '(A,2(ES23.15E3,2X))') "#   Dco(D11, D12) = ", &
+            transport_data%summary%Dco(1), transport_data%summary%Dco(2)
+        write (iunit, '(A)') "#"
+        write (iunit, '(A)') "# Counter-passing particles:"
+        write (iunit, '(A,2(ES23.15E3,2X))') "#   Dctr(D11, D12) = ", &
+            transport_data%summary%Dctr(1), transport_data%summary%Dctr(2)
+        write (iunit, '(A)') "#"
+        write (iunit, '(A)') "# Trapped particles:"
+        write (iunit, '(A,2(ES23.15E3,2X))') "#   Dt(D11, D12) = ", &
+            transport_data%summary%Dt(1), transport_data%summary%Dt(2)
+        write (iunit, '(A)') "#"
+
+        ! Write torque summary if available
+        if (transport_data%torque%has_torque) then
+            write (iunit, '(A)') "# ========================================="
+            write (iunit, '(A)') "# TORQUE SUMMARY"
+            write (iunit, '(A)') "# ========================================="
+            write (iunit, '(A)') "#"
+            write (iunit, '(A,ES23.15E3)') "# s = ", transport_data%torque%s
+            write (iunit, '(A,ES23.15E3)') "# dVds = ", transport_data%torque%dVds
+            write (iunit, '(A,ES23.15E3)') "# M_t = ", transport_data%torque%M_t
+            write (iunit, '(A)') "#"
+            write (iunit, '(A,ES23.15E3)') "# Tco (Co-passing torque) = ", &
+                transport_data%torque%Tco
+            write (iunit, '(A,ES23.15E3)') "# Tctr (Counter-passing torque) = ", &
+                transport_data%torque%Tctr
+            write (iunit, '(A,ES23.15E3)') "# Tt (Trapped torque) = ", &
+                transport_data%torque%Tt
+            write (iunit, '(A,ES23.15E3)') "# Total torque = ", &
+                transport_data%torque%Tco + transport_data%torque%Tctr + transport_data%torque%Tt
+            write (iunit, '(A)') "#"
+        end if
+
+        ! Write per-harmonic data if available
+        if (allocated(transport_data%harmonics)) then
+            nharmonics = size(transport_data%harmonics)
+            write (iunit, '(A)') "# ========================================="
+            write (iunit, '(A)') "# PER-HARMONIC TRANSPORT DATA"
+            write (iunit, '(A)') "# ========================================="
+            write (iunit, '(A)') "#"
+            write (iunit, '(A,I0)') "# Number of harmonics = ", nharmonics
+            write (iunit, '(A)') "#"
+            write (iunit, '(A)') &
+  "# Columns: mth, Dresco(1:2), Dresctr(1:2), Drest(1:2), Tresco, Tresctr, Trest, vminp/vth, &
+&vmaxp/vth, vmint/vth, vmaxt/vth"
+            write (iunit, '(A)') "#"
+
+            do i = 1, nharmonics
+                write (iunit, '(I4,2X,12(ES23.15E3,2X))') &
+                    transport_data%harmonics(i)%mth, &
+                    transport_data%harmonics(i)%Dresco(1), &
+                    transport_data%harmonics(i)%Dresco(2), &
+                    transport_data%harmonics(i)%Dresctr(1), &
+                    transport_data%harmonics(i)%Dresctr(2), &
+                    transport_data%harmonics(i)%Drest(1), &
+                    transport_data%harmonics(i)%Drest(2), &
+                    transport_data%harmonics(i)%Tresco, &
+                    transport_data%harmonics(i)%Tresctr, &
+                    transport_data%harmonics(i)%Trest, &
+                    transport_data%harmonics(i)%vminp_over_vth, &
+                    transport_data%harmonics(i)%vmaxp_over_vth, &
+                    transport_data%harmonics(i)%vmint_over_vth, &
+                    transport_data%harmonics(i)%vmaxt_over_vth
+            end do
+        end if
+
+        close (iunit)
+
+        print *, "NEO-RT transport data written to: ", trim(filename)
+    end subroutine write_neort_transport_data_to_file
+
+    !> @brief Write torque data to CSV file
+    !> @details Writes torque components (Tco, Tctr, Tt) for multiple flux surfaces
+    !>          to a CSV file with header row for easy import into analysis tools
+    !> @param[in] s_tor Array of normalized toroidal flux coordinates
+    !> @param[in] transport_data Array of transport data containing torque information
+    !> @param[in] filename Output CSV filename
+    subroutine write_torque_csv(s_tor, transport_data, filename)
+        use iso_fortran_env, only: dp => real64
+
+        real(dp), dimension(:), intent(in) :: s_tor
+        type(transport_data_t), dimension(:), intent(in) :: transport_data
+        character(len=*), intent(in) :: filename
+
+        integer :: iunit, ios, i, n
+        character(len=1024) :: errmsg
+
+        n = size(s_tor)
+        if (size(transport_data) /= n) then
+            error stop "write_torque_csv: s_tor and transport_data size mismatch"
+        end if
+
+        open (newunit=iunit, file=filename, status='replace', action='write', iostat=ios)
+        if (ios /= 0) then
+            write (errmsg, '(A,A)') "write_torque_csv: cannot open file ", filename
+            error stop trim(errmsg)
+        end if
+
+        ! Write header
+        write (iunit, '(A)') "s_tor,Tco,Tctr,Tt"
+
+        ! Write data rows
+        do i = 1, n
+            write (iunit, '(ES23.15E3,A,ES23.15E3,A,ES23.15E3,A,ES23.15E3)') &
+                s_tor(i), ",", &
+                transport_data(i)%torque%Tco, ",", &
+                transport_data(i)%torque%Tctr, ",", &
+                transport_data(i)%torque%Tt
+        end do
+
+        close (iunit)
+    end subroutine write_torque_csv
 
 end module neort_interface

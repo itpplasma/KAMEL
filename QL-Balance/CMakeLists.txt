@@ -123,29 +123,12 @@ target_include_directories(ql-balance_lib PUBLIC ${SLATEC_INCLUDE_DIR})
 find_package(HDF5 REQUIRED COMPONENTS C HL Fortran Fortran_HL)
 message(" ====== HDF5 was found! ======")
 
-# Disable libneo tests before fetching
-set(LIBNEO_ENABLE_TESTS OFF CACHE BOOL "Disable libneo tests" FORCE)
+set(BUILD_TESTING OFF)
 
 find_or_fetch(libneo)
 include_directories(${CMAKE_CURRENT_BINARY_DIR}/libneo/include)
 
 find_or_fetch(neo-rt) # must be lowercase!
-
-# Create a CMake script to patch CTest files and remove neo-rt tests
-set(patch_script "${CMAKE_CURRENT_BINARY_DIR}/patch_ctest.cmake")
-file(WRITE "${patch_script}" "
-file(WRITE \"${CMAKE_CURRENT_BINARY_DIR}/CTestTestfile.cmake\" \"# QL-Balance tests (neo-rt excluded)
-subdirs(\\\"libneo\\\")
-subdirs(\\\"src/test\\\")
-\")
-")
-
-# Run the patch script at build time to override CTest files
-add_custom_target(patch_neort_tests ALL
-    COMMAND ${CMAKE_COMMAND} -P "${patch_script}"
-    COMMENT "Disabling NEO-RT tests"
-    VERBATIM
-)
 
 add_dependencies(ql-balance_lib sparse)
 

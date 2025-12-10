@@ -121,8 +121,7 @@ target_include_directories(ql-balance_lib PUBLIC ${SLATEC_INCLUDE_DIR})
 find_package(HDF5 REQUIRED COMPONENTS C HL Fortran Fortran_HL)
 message(" ====== HDF5 was found! ======")
 
-# Disable libneo tests before fetching
-set(LIBNEO_ENABLE_TESTS OFF CACHE BOOL "Disable libneo tests" FORCE)
+set(BUILD_TESTING OFF)
 
 find_or_fetch(libneo)
 include_directories(${CMAKE_CURRENT_BINARY_DIR}/libneo/include)

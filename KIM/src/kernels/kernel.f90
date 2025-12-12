@@ -734,7 +734,7 @@ module kernel_m
         use FP_kernel_plasma_prefacs_m, only: FP_G0_rho_phi
         use grid_m, only: Larmor_skip_factor, rg_grid
         use constants_m, only: com_unit, sol
-        use config_m, only: turn_off_ions, turn_off_electrons, artificial_debye_case
+        use config_m, only: turn_off_ions, turn_off_electrons, artificial_debye_case, ion_flr_scale_factor
         use grid_m, only: xl_grid
         use resonances_mod, only: r_res
         use setup_m, only: mphi_max
@@ -764,7 +764,7 @@ module kernel_m
         do j = 1, rg_grid%npts_b-1
 
             int_point%j = j
-            int_point%rhoT = max(plasma%spec(sigma)%rho_L_cc(j), 0.0d0)
+            int_point%rhoT = max(plasma%spec(sigma)%rho_L_cc(j), 0.0d0) * ion_flr_scale_factor
 
             ! Debye term (F0) integration
             if (abs(l-lp)<=1 .and. artificial_debye_case /= 2 &
@@ -772,14 +772,18 @@ module kernel_m
                 int_F0%int_point = int_point
                 call gauss_integrate_F0(int_F0, int_point%xlm1, int_point%xlp1, integral_val, gauss_conf)
                 k_rho_phi = k_rho_phi + integral_val * pref_rho_phi_g0(sigma+1, j)
+
+                ! if (l == lp .and. 0 == 0) then
+                !     print *, 'Debug: F0 integral_val at l=lp, mphi=0: ', integral_val, ' I * pref: ', integral_val * pref_rho_phi_g0(sigma+1, j)
+                ! end if
             end if
 
             if (artificial_debye_case == 1) cycle
 
             ! skip term if species Larmor radius is too small to couple these grid points
-            if (abs(l-lp) > 10 .and. abs(xl_grid%xb(l) - xl_grid%xb(lp))> Larmor_skip_factor * plasma%spec(sigma)%rho_L(j)) cycle
-            if (abs(0.5d0 * (rg_grid%xb(j+1) + rg_grid%xb(j)) - 0.5d0 * (xl_grid%xb(l) + xl_grid%xb(lp))) &
-                > Larmor_skip_factor * plasma%spec(sigma)%rho_L(j)) cycle
+            ! if (abs(l-lp) > 10 .and. abs(xl_grid%xb(l) - xl_grid%xb(lp))> Larmor_skip_factor * plasma%spec(sigma)%rho_L(j)) cycle
+            ! if (abs(0.5d0 * (rg_grid%xb(j+1) + rg_grid%xb(j)) - 0.5d0 * (xl_grid%xb(l) + xl_grid%xb(lp))) &
+            !     > Larmor_skip_factor * plasma%spec(sigma)%rho_L(j)) cycle
 
             int_F1%int_point = int_point
             int_F2%int_point = int_point
@@ -789,7 +793,9 @@ module kernel_m
                 int_F1%int_point%mphi = mphi
                 ! F1 integration
                 call gauss_integrate_F1(int_F1, integral_val, gauss_conf)
-                
+                ! if (l == lp .and. mphi == 0) then
+                !     print *, 'Debug: F1 integral_val at l=lp, mphi=0: ', integral_val, ' I * pref: ', integral_val * pref_rho_phi_g1(sigma+1, j, mphi)
+                ! end if
                 k_rho_phi = k_rho_phi + integral_val * pref_rho_phi_g1(sigma+1, j, mphi) * (-1.0d0)**mphi
                 k_rho_B = k_rho_B + integral_val * pref_rho_B_g1(sigma+1, j, mphi) * (-1.0d0)**mphi
                 k_j_phi = k_j_phi + integral_val * pref_j_phi_g1(sigma+1, j, mphi) * (-1.0d0)**mphi

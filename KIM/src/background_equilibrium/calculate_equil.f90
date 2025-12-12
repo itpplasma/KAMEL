@@ -108,6 +108,7 @@ module equilibrium_m
                 B0th(i) = B0z(i) * plasma%r_grid(i) /(plasma%q(i) * R0)
 
                 B0(i) = sqrt(B0th(i)**2d0 + B0z(i)**2d0)
+
                 plasma%B0(i) = B0(i)
 
                 ! covariant components of the magnetic field unit vector
@@ -119,7 +120,7 @@ module equilibrium_m
                 ! parallel wavenumber
                 plasma%kp(i) = (m_mode/(plasma%r_grid(i)) * hth(i) + n_mode / R0 * hz(i))
                 ! ExB rotation frequency
-                plasma%om_E(i) = - sol * plasma%ks(i) * plasma%Er(i) / B0(i)
+                plasma%om_E(i) = - sol * plasma%ks(i) * plasma%Er(i) / plasma%B0(i)
 
             end do
 

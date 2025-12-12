@@ -224,7 +224,8 @@ module integrals_gauss_m
         real(dp), intent(out) :: result
         real(dp) :: x_mapped, xp_mapped
         real(dp) :: norm_factor
-        integer :: j,k
+        integer :: i,j,k
+        integer :: iunit, iunit2
         logical :: first_call = .true.
         save :: first_call
 
@@ -271,7 +272,7 @@ module integrals_gauss_m
         real(dp), intent(out) :: result
         real(dp) :: x_mapped, xp_mapped
         real(dp) :: norm_factor
-        integer :: j,k
+        integer :: i,j,k
 
         result = 0.0d0
 

@@ -196,18 +196,18 @@ module species_m
 
     end subroutine
 
-    subroutine init_hydrogen_species(deut)
+    subroutine init_hydrogen_species(hydro)
     
         use constants_m, only: p_mass
 
         implicit none
 
-        type(species_t), intent(inout) :: deut
+        type(species_t), intent(inout) :: hydro
 
-        deut%name = 'i'
-        deut%Aspec = 1
-        deut%Zspec = 1
-        deut%mass = p_mass * deut%Aspec
+        hydro%name = 'i'
+        hydro%Aspec = 1
+        hydro%Zspec = 1
+        hydro%mass = p_mass * hydro%Aspec
 
     end subroutine
 
@@ -330,6 +330,7 @@ module species_m
         use setup_m, only: omega, mphi_max
         use grid_m, only: rg_grid
         use KIM_kinds_m, only: dp
+        use config_m, only: ion_flr_scale_factor
 
         implicit none
 
@@ -389,7 +390,8 @@ module species_m
 
                 plasma_in%spec(sp)%x1(j) = plasma_in%kp(j) * plasma_in%spec(sp)%vT(j) / plasma_in%spec(sp)%nu(j)
                 do mphi = -mphi_max, mphi_max
-                    plasma_in%spec(sp)%x2(j, mphi) = - (plasma_in%om_E(j) + mphi * plasma%spec(sp)%omega_c(j)  - omega) &
+                    plasma_in%spec(sp)%x2(j, mphi) = - (plasma_in%om_E(j) & !* ion_flr_scale_factor & !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!1
+                                                    + mphi * plasma%spec(sp)%omega_c(j)  - omega) &
                                                     / plasma_in%spec(sp)%nu(j)
 
                     call getIfunc(plasma_in%spec(sp)%x1(j), plasma_in%spec(sp)%x2(j, mphi), plasma_in%spec(sp)%symbI)
@@ -419,7 +421,8 @@ module species_m
                     * plasma_in%spec(sp)%vT_cc(j) / plasma_in%spec(sp)%nu_cc(j)
 
                 do mphi = -mphi_max, mphi_max
-                    plasma_in%spec(sp)%x2_cc(j, mphi) = - (plasma_in%om_E_cc(j) + mphi * plasma_in%spec(sp)%omega_c(j) - omega) &
+                    plasma_in%spec(sp)%x2_cc(j, mphi) = - (plasma_in%om_E_cc(j)  & !* ion_flr_scale_factor & !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+                                                        + mphi * plasma_in%spec(sp)%omega_c(j) - omega) &
                                                         / plasma_in%spec(sp)%nu_cc(j)
 
                     call getIfunc(plasma_in%spec(sp)%x1_cc(j), plasma_in%spec(sp)%x2_cc(j, mphi), plasma_in%spec(sp)%symbI)

@@ -25,6 +25,7 @@ module FP_kernel_plasma_prefacs_m
         use species_m, only: species_t
         use KIM_kinds_m, only: dp
         use constants_m, only: sol
+        use config_m, only: ion_flr_scale_factor
 
         implicit none
 
@@ -38,7 +39,7 @@ module FP_kernel_plasma_prefacs_m
         nu = spec%nu_cc(j)
         omega_c = spec%omega_c_cc(j)
 
-        val = - vT**3.0d0 / (lambda**2.0d0 * omega_c * nu * sol)
+        val = - vT**3.0d0 / (lambda**2.0d0 * omega_c * nu * sol) * ion_flr_scale_factor
 
     end function FP_kappa_rho_B
 
@@ -106,6 +107,7 @@ module FP_kernel_plasma_prefacs_m
         use species_m, only: species_t, plasma
         use KIM_kinds_m, only: dp
         use constants_m, only: com_unit
+        use config_m, only: ion_flr_scale_factor
 
         implicit none
 
@@ -122,7 +124,7 @@ module FP_kernel_plasma_prefacs_m
         I20 = spec%I20_cc(j, mphi)
 
         prefactor = FP_kappa_rho_phi(j, spec) * com_unit * spec%vT_cc(j)**2.0d0 / &
-            (spec%omega_c_cc(j) * spec%nu_cc(j)) * plasma%ks_cc(j)
+            (spec%omega_c_cc(j) * spec%nu_cc(j)) * plasma%ks_cc(j) * ion_flr_scale_factor
 
         val = (I00 * (A1 + A2 * (1.0d0 - mphi)) + 0.5d0 * A2 * I20) * prefactor
 
@@ -134,6 +136,7 @@ module FP_kernel_plasma_prefacs_m
         use species_m, only: species_t, plasma
         use KIM_kinds_m, only: dp
         use constants_m, only: com_unit
+        use config_m, only: ion_flr_scale_factor
 
         implicit none
 
@@ -148,7 +151,7 @@ module FP_kernel_plasma_prefacs_m
         I00 = spec%I00_cc(j, mphi)
 
         prefactor = com_unit * spec%vT_cc(j)**2.0d0 / &
-            (spec%omega_c_cc(j) * spec%nu_cc(j)) * plasma%ks_cc(j)
+            (spec%omega_c_cc(j) * spec%nu_cc(j)) * plasma%ks_cc(j) * ion_flr_scale_factor
 
         val = - I00 * A2 * prefactor * FP_kappa_rho_phi(j, spec)
 
@@ -159,6 +162,7 @@ module FP_kernel_plasma_prefacs_m
         use species_m, only: species_t, plasma
         use KIM_kinds_m, only: dp
         use constants_m, only: com_unit
+        use config_m, only: ion_flr_scale_factor
 
         implicit none
 
@@ -173,7 +177,7 @@ module FP_kernel_plasma_prefacs_m
         I00 = spec%I00_cc(j, mphi)
 
         prefactor = com_unit * spec%vT_cc(j)**2.0d0 / &
-            (spec%omega_c_cc(j) * spec%nu_cc(j)) * plasma%ks_cc(j)
+            (spec%omega_c_cc(j) * spec%nu_cc(j)) * plasma%ks_cc(j) * ion_flr_scale_factor
 
         val = I00 * A2 * prefactor * FP_kappa_rho_phi(j, spec)
 

@@ -12,12 +12,11 @@ module integrands_gauss_m
         real(dp) :: xlm1, xlp1, xl
         real(dp) :: xlpm1, xlpp1, xlp
         real(dp) :: xl_mapped, xlp_mapped
-        real(dp) :: a_coef, b_coef
-        real(dp) :: Jrg1, Jrg2, Jrg3, Jrg4
+        real(dp) :: a_coef, xbar
+        real(dp) :: Jrg1, Jrg2, Jrg23, Jrg3, Jrg4
         contains
             procedure :: calc_Jrg1
-            procedure :: calc_Jrg2
-            procedure :: calc_Jrg3
+            procedure :: calc_Jrg23
             procedure :: calc_Jrg4
     end type
 
@@ -43,19 +42,6 @@ module integrands_gauss_m
         type(integration_point_t) :: int_point
         contains
             procedure :: f => gauss_integrand_F3_rho_phi
-    end type
-
-
-    type :: gauss_int_F1_rho_phi_electrons_t
-        type(integration_point_t) :: int_point
-        contains
-            procedure :: f => gauss_integrand_F1_rho_phi_electrons
-    end type
-
-    type :: gauss_int_F2_rho_phi_electrons_t
-        type(integration_point_t) :: int_point
-        contains
-            procedure :: f => gauss_integrand_F2_rho_phi_electrons
     end type
 
     contains
@@ -91,6 +77,8 @@ module integrands_gauss_m
         use gsl_mod, only: erf => gsl_sf_erf
         use KIM_kinds_m, only: dp
         use functions_m, only: varphi_l
+        use numerics_utils_m, only: erf_diff
+        use grid_m, only: rg_grid
 
         implicit none
 
@@ -103,11 +91,15 @@ module integrands_gauss_m
 
         val = varphi_l(xp, this%int_point%xlpm1, this%int_point%xlp, this%int_point%xlpp1) &
             * varphi_l(x, this%int_point%xlm1, this%int_point%xl, this%int_point%xlp1) &
-            * 2.0d0 * pi * cos(this%int_point%mphi * theta) / (this%int_point%rhoT**2.0d0 * sin(theta)) &
+            * pi ** 1.5d0 * (1.0d0 + cos(theta)) * cos(this%int_point%mphi * theta) / (this%int_point%rhoT * sin(theta)) &
             * exp(- ks_val**2.0d0 * this%int_point%rhoT**2.0d0 &
                   - (x - xp)**2.0d0 / (4.0d0 * this%int_point%rhoT**2.0d0 * (1.0d0 - cos(theta)))) &
-            * this%int_point%Jrg1 &
-            / (2.0d0 * pi) ! &! is missing, found by benchmarking
+            * erf_diff( &
+                ((x+xp)/ 2.0d0 - rg_grid%xb(this%int_point%j)) / (this%int_point%rhoT * sqrt(1.0d0 + cos(theta))), &
+                ((x+xp)/ 2.0d0 - rg_grid%xb(this%int_point%j + 1)) / (this%int_point%rhoT * sqrt(1.0d0 + cos(theta))) &
+                )& 
+            / (2.0d0 * pi) ! is missing, found by benchmarking
+
 
     end function
 
@@ -131,17 +123,16 @@ module integrands_gauss_m
 
         val = varphi_l(xp, this%int_point%xlpm1, this%int_point%xlp, this%int_point%xlpp1) &
             * varphi_l(x, this%int_point%xlm1, this%int_point%xl, this%int_point%xlp1) &
-            * (-pi) * cos(this%int_point%mphi * theta) / (4.0d0 * this%int_point%rhoT**4.0d0 * sin(theta)**5.0d0) &
             * exp(- ks_val**2.0d0 * this%int_point%rhoT**2.0d0 &
                   - (x - xp)**2.0d0 / (4.0d0 * this%int_point%rhoT**2.0d0 * (1.0d0 - cos(theta)))) & 
+            * pi * cos(this%int_point%mphi * theta) / (this%int_point%rhoT * sin(theta)**5.0d0) &
             * ( &
                 this%int_point%Jrg1 * (&
-                    4.0d0 * cos(2.0d0 * theta) * this%int_point%rhoT**2.0d0 *(ks_val**2.0d0 * this%int_point%rhoT**2.0d0 + 1.0d0) &
-                    - ks_val**2.0d0 * this%int_point%rhoT**4.0d0 * cos(4.0d0 * theta)  &
-                    - this%int_point%rhoT**2.0d0 * (3.0d0 * ks_val**2.0d0 * this%int_point%rhoT**2.0d0 + 4.0d0) &
+                    (ks_val**2.0d0 * this%int_point%rhoT**2.0d0 + 2.0d0) &
+                    * sin(theta)**2.0d0 &
                 ) &
-                + (2.0d0 * cos(2.0d0 * theta) + 6.0d0) * (this%int_point%Jrg2 + this%int_point%Jrg3) &
-                - 16.0d0 * cos(theta) * this%int_point%Jrg4 &
+                - (cos(theta)**2.0d0 + 1.0d0) * this%int_point%Jrg23 &
+                + 4.0d0 * cos(theta) * this%int_point%Jrg4 &
             ) &
             / (2.0d0 * pi) ! is missing, found by benchmarking
 
@@ -167,19 +158,20 @@ module integrands_gauss_m
 
         val = varphi_l(xp, this%int_point%xlpm1, this%int_point%xlp, this%int_point%xlpp1) &
             * varphi_l(x, this%int_point%xlm1, this%int_point%xl, this%int_point%xlp1) &
-            * (-pi) * cos((this%int_point%mphi - 1) * theta) / ( 2.0d0 * this%int_point%rhoT**4.0d0 * sin(theta)**5.0d0) &
             * exp(- ks_val**2.0d0 * this%int_point%rhoT**2.0d0 &
                   - (x - xp)**2.0d0 / (4.0d0 * this%int_point%rhoT**2.0d0 * (1.0d0 - cos(theta)))) & 
+            * (2.0d0 * pi) * cos((this%int_point%mphi - 1) * theta) / (this%int_point%rhoT * sin(theta)**5.0d0) &
             * ( &
-                this%int_point%rhoT**2.0d0 * (cos(3.0d0 * theta) - cos(theta)) * this%int_point%Jrg1 &
-                + 4.0d0 * cos(theta) * (this%int_point%Jrg2 + this%int_point%Jrg3) &
-                - 2.0d0 * (cos(2.0d0 * theta) + 3.0d0) * this%int_point%Jrg4 &
+                cos(theta) * sin(theta)**2.0d0 * this%int_point%Jrg1 &
+                - cos(theta) * this%int_point%Jrg23 &
+                + (cos(theta)**2.0d0 + 1.0d0) * this%int_point%Jrg4 &
             ) &
             / (2.0d0 * pi) ! is missing, found by benchmarking
 
+
     end function
 
-    subroutine calc_Jrg1(this)
+    subroutine calc_Jrg1(this, theta, x, xp)
 
         use constants_m, only: pi
         use grid_m, only: rg_grid
@@ -188,16 +180,19 @@ module integrands_gauss_m
         implicit none
 
         class(integration_point_t), intent(inout) :: this
+        real(dp), intent(in) :: theta
+        real(dp), intent(in) :: x, xp
 
-        this%Jrg1 = sqrt(pi) / (2.0d0 * this%a_coef) &
+        this%Jrg1 = sqrt(pi) / 2.0d0 * sqrt(1.0d0 + cos(theta)) &
             *(&
-                erf_diff(this%a_coef * (this%b_coef - rg_grid%xb(this%j)),  &
-                    this%a_coef * (this%b_coef - rg_grid%xb(this%j+1))) &
+                erf_diff(((x+xp)/2.0d0 - rg_grid%xb(this%j)) / (this%rhoT * sqrt(1.0d0 + cos(theta))), &
+                         ((x+xp)/2.0d0 - rg_grid%xb(this%j+1)) / (this%rhoT * sqrt(1.0d0 + cos(theta)))) &
             )
 
     end subroutine
 
-    subroutine calc_Jrg2(this)
+
+    subroutine calc_Jrg23(this, theta, x, xp)
 
         use constants_m, only: pi
         use grid_m, only: rg_grid
@@ -206,22 +201,30 @@ module integrands_gauss_m
         implicit none
 
         class(integration_point_t), intent(inout) :: this
+        real(dp), intent(in) :: theta
+        real(dp), intent(in) :: x, xp
 
-        this%Jrg2 = 1.0d0 / (4.0d0 * this%a_coef**3.0d0) &
-                    * ( &
-                        sqrt(pi) * (2.0d0 * this%a_coef**2.0d0 * (this%b_coef - this%xl_mapped)**2.0d0 + 1.0d0) &
-                            * (erf_diff(this%a_coef * (this%b_coef - rg_grid%xb(this%j)), &
-                                this%a_coef * (this%b_coef - rg_grid%xb(this%j+1)))) &
-                        + 2.0d0 * this%a_coef * exp(-this%a_coef**2.0d0 * (this%b_coef - rg_grid%xb(this%j))**2.0d0) &
-                            * (this%b_coef + rg_grid%xb(this%j) - 2.0d0 * this%xl_mapped) &
-                        - 2.0d0 * this%a_coef * exp(-this%a_coef**2.0d0 * (this%b_coef - rg_grid%xb(this%j+1))**2.0d0) &
-                            * (this%b_coef + rg_grid%xb(this%j+1) - 2.0d0 * this%xl_mapped) &
-                    )
+        ! this%Jrg23 = this%rhoT**3.0d0 * (1.0d0 + cos(theta))**1.5d0 * &
+        this%Jrg23 = (1.0d0 + cos(theta))**1.5d0 * &
+            ( &
+                sqrt(pi) * &
+                    ( &
+                        (x-xp)**2.0d0 / (4.0d0 * this%rhoT**2.0d0 * (1.0d0 + cos(theta))) &
+                        + 0.5d0 &
+                    ) &
+                    * erf_diff( &
+                        ((x+xp)/ 2.0d0 - rg_grid%xb(this%j)) / (this%rhoT * sqrt(1.0d0 + cos(theta))), &
+                        ((x+xp)/ 2.0d0 - rg_grid%xb(this%j + 1)) / (this%rhoT * sqrt(1.0d0 + cos(theta))) &
+                        ) &
+                + exp(- ((x+xp)/2 - rg_grid%xb(this%j))**2.0d0 / (this%rhoT**2.0d0 * (1.0d0 + cos(theta)))) &
+                    * ( rg_grid%xb(this%j) - (x+xp)/2)/ (this%rhoT * sqrt(1.0d0 + cos(theta))) &
+                - exp(- ((x+xp)/2 - rg_grid%xb(this%j+1))**2.0d0 / (this%rhoT**2.0d0 * (1.0d0 + cos(theta)))) &
+                    * ( rg_grid%xb(this%j+1) - (x+xp)/2)/ (this%rhoT * sqrt(1.0d0 + cos(theta))) &
+            )
 
     end subroutine
 
-
-    subroutine calc_Jrg3(this)
+    subroutine calc_Jrg4(this, theta, x, xp)
 
         use constants_m, only: pi
         use grid_m, only: rg_grid
@@ -230,120 +233,37 @@ module integrands_gauss_m
         implicit none
 
         class(integration_point_t), intent(inout) :: this
+        real(dp), intent(in) :: theta
+        real(dp), intent(in) :: x, xp
 
-        this%Jrg3 = 1.0d0 / (4.0d0 * this%a_coef**3.0d0) &
-                    * ( &
-                        sqrt(pi) * (2.0d0 * this%a_coef**2.0d0 * (this%b_coef - this%xlp_mapped)**2.0d0 + 1.0d0) &
-                            * (erf_diff(this%a_coef * (this%b_coef - rg_grid%xb(this%j)), &
-                                this%a_coef * (this%b_coef - rg_grid%xb(this%j+1)))) &
-                        + 2.0d0 * this%a_coef * exp(-this%a_coef**2.0d0 * (this%b_coef - rg_grid%xb(this%j))**2.0d0) &
-                            * (this%b_coef + rg_grid%xb(this%j) - 2.0d0 * this%xlp_mapped) &
-                        - 2.0d0 * this%a_coef * exp(-this%a_coef**2.0d0 * (this%b_coef - rg_grid%xb(this%j+1))**2.0d0) &
-                            * (this%b_coef + rg_grid%xb(this%j+1) - 2.0d0 * this%xlp_mapped) & 
-                    )
+        ! this%Jrg4 = 0.5d0 * this%rhoT**3.0d0 * (1.0d0 + cos(theta))**1.5d0 * &
+        this%Jrg4 = 0.5d0 * (1.0d0 + cos(theta))**1.5d0 * &
+            ( &
+                sqrt(pi) * &
+                    ( &
+                        0.5d0 - &
+                        (x-xp)**2.0d0 / (4.0d0 * this%rhoT**2.0d0 * (1.0d0 + cos(theta))) &
+                    ) &
+                    * erf_diff( &
+                        ((x+xp)/ 2.0d0 - rg_grid%xb(this%j)) / (this%rhoT * sqrt(1.0d0 + cos(theta))), &
+                        ((x+xp)/ 2.0d0 - rg_grid%xb(this%j + 1)) / (this%rhoT * sqrt(1.0d0 + cos(theta))) &
+                        ) &
+                + exp(- ((x+xp)/2 - rg_grid%xb(this%j))**2.0d0 / (this%rhoT**2.0d0 * (1.0d0 + cos(theta)))) &
+                    * ( rg_grid%xb(this%j) - (x+xp)/2)/ (this%rhoT * sqrt(1.0d0 + cos(theta))) &
+                - exp(- ((x+xp)/2 - rg_grid%xb(this%j+1))**2.0d0 / (this%rhoT**2.0d0 * (1.0d0 + cos(theta)))) &
+                    * ( rg_grid%xb(this%j+1) - (x+xp)/2)/ (this%rhoT * sqrt(1.0d0 + cos(theta))) &
+            )
 
     end subroutine
 
-    subroutine calc_Jrg4(this)
-
-        use constants_m, only: pi
-        use grid_m, only: rg_grid
-        use numerics_utils_m, only: erf_diff
-
-        implicit none
-
-        class(integration_point_t), intent(inout) :: this
-
-        this%Jrg4 = 1.0d0 / (4.0d0 * this%a_coef**3.0d0) &
-                    * ( &
-                        (erf_diff(this%a_coef * (this%b_coef - rg_grid%xb(this%j)), &
-                            this%a_coef * (this%b_coef - rg_grid%xb(this%j+1)))) &
-                            * sqrt(pi) * (2.0d0 * this%a_coef**2.0d0 * (this%b_coef - this%xl_mapped) &
-                            * (this%b_coef - this%xlp_mapped)+1.0d0) &
-                        + 2.0d0 * this%a_coef * exp(-this%a_coef**2.0d0 * (this%b_coef - rg_grid%xb(this%j))**2.0d0) &
-                            * (this%b_coef + rg_grid%xb(this%j) - this%xl_mapped - this%xlp_mapped) &
-                        + 2.0d0 * this%a_coef * exp(-this%a_coef**2.0d0 * (this%b_coef - rg_grid%xb(this%j+1))**2.0d0) &
-                            * (-this%b_coef - rg_grid%xb(this%j+1) + this%xl_mapped + this%xlp_mapped) &
-                    )
-
-    end subroutine
-
-
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-! integration for electrons where the Larmor radius is very small and BesselI0=1 and BesselI-1=0 (doesn't require theta integration)
-
-    function gauss_integrand_F1_rho_phi_electrons(this, x, xp) result(val)
-
-        use constants_m, only: pi
-        use species_m, only: plasma
-        use gsl_mod, only: erf => gsl_sf_erf
-        use KIM_kinds_m, only: dp
-        use functions_m, only: varphi_l
-
-        implicit none
-
-        class(gauss_int_F1_rho_phi_electrons_t), intent(inout) :: this
-        real(dp), intent(in) :: x, xp
-        real(dp) :: val
-        real(dp) :: ks_val
-        ks_val = 0.5d0 * (plasma%ks(this%int_point%j) + plasma%ks(this%int_point%j+1))
-
-        val = varphi_l(xp, this%int_point%xlpm1, this%int_point%xlp, this%int_point%xlpp1) &
-            * varphi_l(x, this%int_point%xlm1, this%int_point%xl, this%int_point%xlp1) &
-            * 2.0d0 * pi / (this%int_point%rhoT**2.0d0) &
-            * exp(- ks_val**2.0d0 * this%int_point%rhoT**2.0d0 &
-                - (x - xp)**2.0d0 / (4.0d0 * this%int_point%rhoT**2.0d0)) &
-            * this%int_point%Jrg1 &
-            / (2.0d0 * pi) ! is missing, found by benchmarking
-
-    end function gauss_integrand_F1_rho_phi_electrons
-
-
-    function gauss_integrand_F2_rho_phi_electrons(this, x, xp) result(val)
-
-        use constants_m, only: pi
-        use species_m, only: plasma
-        use gsl_mod, only: erf => gsl_sf_erf
-        use KIM_kinds_m, only: dp
-        use functions_m, only: varphi_l
-
-        implicit none
-
-        class(gauss_int_F2_rho_phi_electrons_t), intent(inout) :: this
-        real(dp), intent(in) :: x, xp
-        real(dp) :: val
-        real(dp) :: ks_val
-
-        ks_val = 0.5d0 * (plasma%ks(this%int_point%j) + plasma%ks(this%int_point%j+1))
-
-        val = varphi_l(xp, this%int_point%xlpm1, this%int_point%xlp, this%int_point%xlpp1) &
-            * varphi_l(x, this%int_point%xlm1, this%int_point%xl, this%int_point%xlp1) &
-            * (- pi) / (this%int_point%rhoT**4.0d0) &
-            * exp(- ks_val**2.0d0 * this%int_point%rhoT**2.0d0 &
-                - (x - xp)**2.0d0 / (4.0d0 * this%int_point%rhoT**2.0d0)) & 
-            * ( &
-                ! these are all higher order in the Larmor radius:
-                !this%int_point%Jrg1 * (&
-                !    -4.0d0 * this%int_point%rhoT**2.0d0 *(ks_val**2.0d0 * this%int_point%rhoT**2.0d0 + 1.0d0) &
-                !    - ks_val**2.0d0 * this%int_point%rhoT**4.0d0 * cos(4.0d0 * theta)  &
-                !    - this%int_point%rhoT**2.0d0 * (3.0d0 * ks_val**2.0d0 * this%int_point%rhoT**2.0d0 + 4.0d0) &
-                !) &
-                - 2.0d0 * this%int_point%rhoT**2.0d0 * this%int_point%Jrg1 + &
-                (this%int_point%Jrg2 + this%int_point%Jrg3) &
-            ) &
-            / (2.0d0 * pi) ! is missing, found by benchmarking
-
-    end function gauss_integrand_F2_rho_phi_electrons
-
-
-    function calc_b_coef(x,xp) result(b_coef)
+    function calc_xbar(x,xp) result(xbar)
 
         implicit none
 
         real(dp), intent(in) :: x, xp
-        real(dp) :: b_coef
+        real(dp) :: xbar
 
-        b_coef = 0.5d0 * (xp + x)
+        xbar = 0.5d0 * (xp + x)
 
     end function
 

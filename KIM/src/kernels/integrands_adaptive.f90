@@ -63,7 +63,7 @@ module integrands_rkf45_m
             cos_t = cos(theta)
             denom_1pcos = 2.0d0 * max(cos(0.5d0*theta)**2.0d0, 1.0d-300)
             a = sqrt(1.0d0 / denom_1pcos) / max(abs(context%rhoT), 1.0d-300)
-            b = calc_b_coef(context%x, context%xp)
+            b = calc_xbar(context%x, context%xp)
 
             val = varphi_l(context%xp, context%xlpm1, context%xlp, context%xlpp1) &
                 * varphi_l(context%x, context%xlm1, context%xl, context%xlp1) &
@@ -102,7 +102,7 @@ module integrands_rkf45_m
             sin_t = sin(theta)
             cos_t = cos(theta)
             a = 1.0d0 / (max(abs(context%rhoT), 1.0d-300) * sqrt(max(2.0d0 * cos(0.5d0*theta)**2.0d0, 1.0d-300)))
-            b = calc_b_coef(context%x, context%xp)
+            b = calc_xbar(context%x, context%xp)
 
             val = varphi_l(context%xp, context%xlpm1, context%xlp, context%xlpp1) &
                 * varphi_l(context%x, context%xlm1, context%xl, context%xlp1) &
@@ -149,7 +149,7 @@ module integrands_rkf45_m
             sin_t = sin(theta)
             cos_t = cos(theta)
             a = 1.0d0 / (max(abs(context%rhoT), 1.0d-300) * sqrt(max(2.0d0 * cos(0.5d0*theta)**2.0d0, 1.0d-300)))
-            b = calc_b_coef(context%x, context%xp)
+            b = calc_xbar(context%x, context%xp)
 
             val = varphi_l(context%xp, context%xlpm1, context%xlp, context%xlpp1) &
                 * varphi_l(context%x, context%xlm1, context%xl, context%xlp1) &
@@ -169,14 +169,14 @@ module integrands_rkf45_m
     end function
 
 
-    function calc_b_coef(x,xp) result(b_coef)
+    function calc_xbar(x,xp) result(xbar)
 
         implicit none
 
         real(dp), intent(in) :: x, xp
-        real(dp) :: b_coef
+        real(dp) :: xbar
 
-        b_coef = 0.5d0 * (xp + x)
+        xbar = 0.5d0 * (xp + x)
 
     end function
 

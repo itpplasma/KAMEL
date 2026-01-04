@@ -3,7 +3,7 @@
 !>          data directly to NEO-RT instead of reading from files
 module neort_interface
     use iso_fortran_env, only: dp => real64
-    use neort_datatypes, only: magfie_data_t, transport_data_t
+    use neort_lib, only: transport_data_t
 
     implicit none
 
@@ -364,8 +364,6 @@ contains
     !> @param[in] filename Output filename
     !> @param[in] r Radial coordinate array (optional)
     subroutine write_plasma_data_to_file(plasma_data, filename, r)
-        use iso_fortran_env, only: dp => real64
-
         real(dp), dimension(:, :), intent(in) :: plasma_data
         character(len=*), intent(in) :: filename
         real(dp), dimension(:), intent(in), optional :: r
@@ -411,8 +409,6 @@ contains
     !> @param[in] filename Output filename
     !> @param[in] r Radial coordinate array (optional)
     subroutine write_profile_data_to_file(profile_data, filename, r)
-        use iso_fortran_env, only: dp => real64
-
         real(dp), dimension(:, :), intent(in) :: profile_data
         character(len=*), intent(in) :: filename
         real(dp), dimension(:), intent(in), optional :: r
@@ -590,8 +586,6 @@ contains
     !>          - Summary section: Total transport coefficients and torque
     !>          - Per-harmonic section: Individual resonance contributions
     subroutine write_neort_transport_data_to_file(transport_data, filename, s_tor)
-        use iso_fortran_env, only: dp => real64
-
         type(transport_data_t), intent(in) :: transport_data
         character(len=*), intent(in) :: filename
         real(dp), intent(in), optional :: s_tor

@@ -3,12 +3,13 @@
 !>          data directly to NEO-RT instead of reading from files
 module neort_interface
     use iso_fortran_env, only: dp => real64
-    use neort_lib, only: transport_data_t
+    use neort_lib, only: config_t, transport_data_t
 
     implicit none
 
     private
 
+    public :: read_neort_config
     public :: prepare_plasma_data_for_neort
     public :: prepare_profile_data_for_neort
     public :: calculate_Omega_tE_splined
@@ -25,6 +26,82 @@ module neort_interface
     public :: write_torque_csv
 
 contains
+
+    subroutine read_neort_config(config_file, config, boozer_file, boozer_pert_file)
+        use wave_code_data, only: m_vals, n_vals
+
+        character(len=*), intent(in) :: config_file
+        type(config_t), intent(out) :: config
+        character(len=*), intent(out) :: boozer_file
+        character(len=*), intent(out) :: boozer_pert_file
+
+        character(len=*), parameter :: unset = "__!UNSET!__"
+
+        ! mode numbers
+        integer :: poloidal_mode
+        integer :: toroidal_mode
+
+        ! I/O error handling
+        integer :: iostat
+        character(len=512) :: iomsg
+
+        ! namelist content
+        ! This is a modified version of the full input format used by NEO-RT
+        ! as some values are deliberately unused or fixed plus explicit paths
+        ! for the Boozer input files, where the perturbation file is optional
+        real(dp) :: epsmn
+        logical :: magdrift
+        logical :: nopassing
+        logical :: noshear
+        logical :: nonlin
+        real(dp) :: bfac
+        real(dp) :: efac
+        integer :: inp_swi
+        integer :: vsteps
+        integer :: log_level
+
+        namelist /NEORT/ boozer_file, boozer_pert_file, epsmn, magdrift, nopassing, noshear, &
+            nonlin, bfac, efac, inp_swi, vsteps, log_level
+
+        ! some default values
+        boozer_pert_file = unset
+        bfac = 1.0
+        efac = 1.0
+        inp_swi = 9  ! AUG
+        vsteps = 512
+        log_level = -1  ! silent
+
+        ! read namelist
+        open (22, file=config_file)
+        read (22, nml=NEORT, iostat=iostat, iomsg=iomsg)
+
+        if (iostat /= 0) then
+            write (*, *) "type_of_run == 'TimeEvolutionNTV' specified, but "// &
+                "no NEORT config namelist was found!"
+            write (*, *) "Error message: "//trim(iomsg)
+            error stop
+        end if
+
+        ! mode numbers (from KiLCA input)
+        poloidal_mode = abs(m_vals(1))
+        toroidal_mode = n_vals(1)
+
+        ! set values from namelist in config struct
+        config%epsmn = epsmn
+        config%m0 = poloidal_mode
+        config%mph = toroidal_mode
+        config%comptorque = .true.  ! must be true
+        config%magdrift = magdrift
+        config%nopassing = nopassing
+        config%noshear = noshear
+        config%pertfile = boozer_pert_file /= unset  ! only if boozer_pert_file was set
+        config%nonlin = nonlin
+        config%bfac = bfac
+        config%efac = efac
+        config%inp_swi = inp_swi
+        config%vsteps = vsteps
+        config%log_level = log_level
+    end subroutine read_neort_config
 
     !> @brief Prepare plasma profile data for NEO-RT from KAMEL arrays
     !> @param[out] plasma_data 2D array (nflux, 6) for NEO-RT plasma input

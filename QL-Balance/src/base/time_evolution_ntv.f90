@@ -34,7 +34,8 @@ contains
         use grid_mod, only: rmin, rmax
         use logger, only: set_log_level
         use neort_interface, only: read_equil_file, calculate_s_tor, calculate_coarse_s_tor, &
-                                   calculate_Omega_tE_splined, prepare_plasma_data_for_neort, &
+                                   calculate_Omega_tE_splined, read_neort_config, &
+                                   prepare_plasma_data_for_neort, &
                                    prepare_profile_data_for_neort
         use spline, only: spline_coeff, spline_val
 
@@ -44,9 +45,13 @@ contains
         real(dp), dimension(:, :), allocatable :: r_of_s_coeffs, s_of_r_coeffs
         real(dp), dimension(:, :), allocatable :: s_splined, r_splined
         real(dp) :: s_min, s_max
-        class(config_t), allocatable :: config
+        type(config_t) :: config
+        character(len=1024) :: boozer_file
+        character(len=1024) :: boozer_pert_file
 
         integer, parameter :: S_SIZE = 100
+
+        character(len=*), parameter :: config_file = "balance_conf.nml"
 
         call this%TimeEvolution_t%init_balance
         this%runType = "TimeEvolutionNTV"
@@ -87,24 +92,9 @@ contains
         Z1 = Z_i
         Z2 = Z_i
 
-        ! prepare config struct for NEO-RT
-        allocate(config)
-        config%epsmn = 0.001
-        config%m0 = 6 ! TODO: fix
-        config%mph = 2 ! TODO: fix
-        config%magdrift = .true.
-        config%nopassing = .true.
-        config%noshear = .false.
-        config%pertfile = .false.
-        config%nonlin = .false.
-        config%comptorque = .true.
-        config%inp_swi = 9  ! AUG
-        config%vsteps = 512
-        config%log_level = -1  ! silent
-
         ! NEO-RT initialization
-        call neort_init(config, "neo-rt/g33353_2900_EQH_MARKL.bc", "neo-rt/in_file_pert")
-        ! TODO: overwrite modes from driftorbit input file with modes from ql balance input
+        call read_neort_config(config_file, config, boozer_file, boozer_pert_file)
+        call neort_init(config, trim(boozer_file), trim(boozer_pert_file))
 
         call prepare_plasma_data_for_neort(plasma_data, r, s_tor)
         call prepare_profile_data_for_neort(profile_data, r, s_tor, Omega_tE)

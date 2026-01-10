@@ -30,50 +30,50 @@ subroutine read_config
     close (22)
     write (*, *) ""
     write (*, *) "================================================================================="
-    write (*, *) "    Type of Run: ", type_of_run
+    write (*, "(A,A)") "    Type of Run: ", type_of_run
     write (*, *) ""
-    write (*, *) "    Parameters from "//config_file//":"
-    write (*, *) "    -----------------------------------------------------------------------------"
-    write (*, *) "    flre path: ", trim(flre_path)
-    write (*, *) "    vac path: ", trim(vac_path)
-    write (*, *) "    B_tor = ", btor, " G"
-    write (*, *) "    R_tor = ", rtor, " cm"
-    write (*, *) "    r_min = ", rmin, " cm"
-    write (*, *) "    r_max = ", rmax, " cm"
-    write (*, *) "    npoimin = ", npoimin
-    write (*, *) "    gg_factor = ", gg_factor
-    write (*, *) "    gg_width = ", gg_width
-    write (*, *) "    gg_r_res = ", gg_r_res
-    write (*, *) "    Nstorage = ", Nstorage
-    write (*, *) "    tmax_factor = ", tmax_factor
-    write (*, *) "    timstep_min = ", timstep_min
-    write (*, *) "    antenna_factor = ", antenna_factor
-    write (*, *) "    iboutype = ", iboutype
-    write (*, *) "    eps = ", eps
-    write (*, *) "    dperp = ", dperp
-    write (*, *) "    Z_i = ", Z_i
-    write (*, *) "    am = ", am
-    write (*, *) "    stop_time_step = ", stop_time_step
-    write (*, *) "    path2inp = ", trim(path2inp)
-    write (*, *) "    path2out = ", trim(path2out)
-    write (*, *) "    paramscan = ", paramscan
-    write (*, *) "    diagnostics_output = ", diagnostics_output
-    write (*, *) "    br_stopping = ", br_stopping
-    write (*, *) "    debug_mode = ", debug_mode
-    write (*, *) "    readfromtimestep = ", readfromtimestep
-    write (*, *) "    suppression_mode = ", suppression_mode
-    write (*, *) "    ramp_up_mode = ", ramp_up_mode
-    write (*, *) "    t_max_ramp_up = ", t_max_ramp_up, " s"
-    write (*, *) "    temperature_limit = ", temperature_limit, " eV"
-    write (*, *) "    antenna_max_stopping = ", antenna_max_stopping
-    write (*, *) "    gyro_current_study = ", gyro_current_study
-    write (*, *) "    viscosity_factor = ", viscosity_factor
-    write (*, *) "    misalign_diffusion = ", misalign_diffusion
-    write (*, *) "    equil_path = ", trim(equil_path)
-    write (*, *) "    ihdf5IO = ", ihdf5IO
-    write (*, *) "    set_constant_time_step = ", set_constant_time_step
-    write (*, *) "    constant_time_step = ", constant_time_step, " s"
-    write (*, *) "    urelax = ", urelax
+    write (*, "(A,A,A)") "    Parameters from ", config_file, ":"
+    write (*, *) "   ------------------------------------------------------------------------------"
+    write (*, "(A,A)") "    flre path: ", trim(adjustl(flre_path))
+    write (*, "(A,A)") "    vac path: ", trim(adjustl(vac_path))
+    write (*, "(A,ES15.8,A)") "    B_tor = ", btor, " G"
+    write (*, "(A,ES15.8,A)") "    R_tor = ", rtor, " cm"
+    write (*, "(A,ES15.8,A)") "    r_min = ", rmin, " cm"
+    write (*, "(A,ES15.8,A)") "    r_max = ", rmax, " cm"
+    write (*, "(A,I0)") "    npoimin = ", npoimin
+    write (*, "(A,ES15.8)") "    gg_factor = ", gg_factor
+    write (*, "(A,ES15.8)") "    gg_width = ", gg_width
+    write (*, "(A,ES15.8)") "    gg_r_res = ", gg_r_res
+    write (*, "(A,I0)") "    Nstorage = ", Nstorage
+    write (*, "(A,ES15.8)") "    tmax_factor = ", tmax_factor
+    write (*, "(A,ES15.8)") "    timstep_min = ", timstep_min
+    write (*, "(A,ES15.8)") "    antenna_factor = ", antenna_factor
+    write (*, "(A,I0)") "    iboutype = ", iboutype
+    write (*, "(A,ES15.8)") "    eps = ", eps
+    write (*, "(A,ES15.8)") "    dperp = ", dperp
+    write (*, "(A,ES15.8)") "    Z_i = ", Z_i
+    write (*, "(A,ES15.8)") "    am = ", am
+    write (*, "(A,ES12.4)") "    stop_time_step = ", stop_time_step
+    write (*, "(A,A)") "    path2inp = ", trim(adjustl(path2inp))
+    write (*, "(A,A)") "    path2out = ", trim(adjustl(path2out))
+    write (*, "(A,L0)") "    paramscan = ", paramscan
+    write (*, "(A,L0)") "    diagnostics_output = ", diagnostics_output
+    write (*, "(A,L0)") "    br_stopping = ", br_stopping
+    write (*, "(A,L0)") "    debug_mode = ", debug_mode
+    write (*, "(A,I0)") "    readfromtimestep = ", readfromtimestep
+    write (*, "(A,L0)") "    suppression_mode = ", suppression_mode
+    write (*, "(A,I0)") "    ramp_up_mode = ", ramp_up_mode
+    write (*, "(A,ES15.8,A)") "    t_max_ramp_up = ", t_max_ramp_up, " s"
+    write (*, "(A,ES15.8,A)") "    temperature_limit = ", temperature_limit, " eV"
+    write (*, "(A,ES15.8)") "    antenna_max_stopping = ", antenna_max_stopping
+    write (*, "(A,I0)") "    gyro_current_study = ", gyro_current_study
+    write (*, "(A,ES15.8)") "    viscosity_factor = ", viscosity_factor
+    write (*, "(A,L0)") "    misalign_diffusion = ", misalign_diffusion
+    write (*, "(A,A)") "    equil_path = ", trim(adjustl(equil_path))
+    write (*, "(A,I0)") "    ihdf5IO = ", ihdf5IO
+    write (*, "(A,L0)") "    set_constant_time_step = ", set_constant_time_step
+    write (*, "(A,ES15.8,A)") "    constant_time_step = ", constant_time_step, " s"
+    write (*, "(A,ES15.8)") "    urelax = ", urelax
     write (*, *) ""
     write (*, *) "================================================================================="
 end subroutine read_config

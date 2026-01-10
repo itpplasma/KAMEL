@@ -9,31 +9,28 @@ module neort_interface
 
     private
 
+    type, public :: meta_config_neort_t
+        character(len=1024) :: boozer_file
+        character(len=1024) :: boozer_pert_file
+        integer :: amount_of_s
+        type(config_t) :: config
+    end type meta_config_neort_t
+
     public :: read_neort_config
-    public :: prepare_plasma_data_for_neort
-    public :: prepare_profile_data_for_neort
-    public :: calculate_Omega_tE_splined
     public :: read_equil_file
     public :: calculate_s_tor
     public :: calculate_coarse_s_tor
-
-    ! writing routines for debugging
-    public :: write_plasma_data_to_file
-    public :: write_profile_data_to_file
-    public :: write_original_plasma_data_to_file
-    public :: write_original_profile_data_to_file
-    public :: write_neort_transport_data_to_file
-    public :: write_torque_csv
+    public :: calculate_Omega_tE_splined
+    public :: prepare_plasma_data_for_neort
+    public :: prepare_profile_data_for_neort
 
 contains
 
-    subroutine read_neort_config(config_file, config, boozer_file, boozer_pert_file)
+    subroutine read_neort_config(config_file, meta_config)
         use wave_code_data, only: m_vals, n_vals
 
         character(len=*), intent(in) :: config_file
-        type(config_t), intent(out) :: config
-        character(len=*), intent(out) :: boozer_file
-        character(len=*), intent(out) :: boozer_pert_file
+        type(meta_config_neort_t), intent(out) :: meta_config
 
         character(len=*), parameter :: unset = "__!UNSET!__"
 
@@ -47,8 +44,14 @@ contains
 
         ! namelist content
         ! This is a modified version of the full input format used by NEO-RT
-        ! as some values are deliberately unused or fixed plus explicit paths
-        ! for the Boozer input files, where the perturbation file is optional
+        ! as some values are deliberately unused or fixed plus the following:
+        ! explicit paths for the Boozer input files, where the perturbation file is optional
+        ! amount of equidistant s to compute on
+        ! new meta config values:
+        character(len=1024) :: boozer_file
+        character(len=1024) :: boozer_pert_file  ! optional
+        integer :: amount_of_s
+        ! original NEO-RT config values
         real(dp) :: epsmn
         logical :: magdrift
         logical :: nopassing
@@ -60,11 +63,12 @@ contains
         integer :: vsteps
         integer :: log_level
 
-        namelist /NEORT/ boozer_file, boozer_pert_file, epsmn, magdrift, nopassing, noshear, &
-            nonlin, bfac, efac, inp_swi, vsteps, log_level
+        namelist /NEORT/ boozer_file, boozer_pert_file, amount_of_s, epsmn, magdrift, &
+            nopassing, noshear, nonlin, bfac, efac, inp_swi, vsteps, log_level
 
         ! some default values
         boozer_pert_file = unset
+        amount_of_s = 100
         bfac = 1.0
         efac = 1.0
         inp_swi = 9  ! AUG
@@ -86,21 +90,24 @@ contains
         poloidal_mode = abs(m_vals(1))
         toroidal_mode = n_vals(1)
 
-        ! set values from namelist in config struct
-        config%epsmn = epsmn
-        config%m0 = poloidal_mode
-        config%mph = toroidal_mode
-        config%comptorque = .true.  ! must be true
-        config%magdrift = magdrift
-        config%nopassing = nopassing
-        config%noshear = noshear
-        config%pertfile = boozer_pert_file /= unset  ! only if boozer_pert_file was set
-        config%nonlin = nonlin
-        config%bfac = bfac
-        config%efac = efac
-        config%inp_swi = inp_swi
-        config%vsteps = vsteps
-        config%log_level = log_level
+        ! set values from namelist in meta config struct
+        meta_config%boozer_file = trim(adjustl(boozer_file))
+        meta_config%boozer_pert_file = trim(adjustl(boozer_pert_file))
+        meta_config%amount_of_s = amount_of_s
+        meta_config%config%epsmn = epsmn
+        meta_config%config%m0 = poloidal_mode
+        meta_config%config%mph = toroidal_mode
+        meta_config%config%comptorque = .true.  ! must be true
+        meta_config%config%magdrift = magdrift
+        meta_config%config%nopassing = nopassing
+        meta_config%config%noshear = noshear
+        meta_config%config%pertfile = boozer_pert_file /= unset  ! only if boozer_pert_file was set
+        meta_config%config%nonlin = nonlin
+        meta_config%config%bfac = bfac
+        meta_config%config%efac = efac
+        meta_config%config%inp_swi = inp_swi
+        meta_config%config%vsteps = vsteps
+        meta_config%config%log_level = log_level
     end subroutine read_neort_config
 
     !> @brief Prepare plasma profile data for NEO-RT from KAMEL arrays
@@ -435,6 +442,34 @@ contains
     end subroutine calculate_coarse_s_tor
 
 !================== Writing routines for debugging ==================
+
+    subroutine print_meta_config(meta_config)
+        type(meta_config_neort_t), intent(in) :: meta_config
+
+        print *, "NEO-RT meta config:"
+        print *, "boozer_file = ", trim(adjustl(meta_config%boozer_file))
+        print *, "boozer_pertPfile = ", trim(adjustl(meta_config%boozer_pert_file))
+        print *, "amount_of_s = ", meta_config%amount_of_s
+        print *, "s = ", meta_config%config%s
+        print *, "M_t = ", meta_config%config%M_t
+        print *, "qs = ", meta_config%config%qs
+        print *, "ms = ", meta_config%config%ms
+        print *, "vth = ", meta_config%config%vth
+        print *, "epsmn = ", meta_config%config%epsmn
+        print *, "m0 = ", meta_config%config%m0
+        print *, "mph = ", meta_config%config%mph
+        print *, "comptorque = ", meta_config%config%comptorque
+        print *, "magdrift = ", meta_config%config%magdrift
+        print *, "nopassing = ", meta_config%config%nopassing
+        print *, "noshear = ", meta_config%config%noshear
+        print *, "pertfile = ", meta_config%config%pertfile
+        print *, "nonlin = ", meta_config%config%nonlin
+        print *, "bfac = ", meta_config%config%bfac
+        print *, "efac = ", meta_config%config%efac
+        print *, "inp_swi = ", meta_config%config%inp_swi
+        print *, "vsteps = ", meta_config%config%vsteps
+        print *, "log_level = ", meta_config%config%log_level
+    end subroutine print_meta_config
 
     !> @brief Write plasma_data array to a file for debugging
     !> @param[in] plasma_data 2D array with plasma data

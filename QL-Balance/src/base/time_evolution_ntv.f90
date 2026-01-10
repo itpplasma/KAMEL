@@ -33,9 +33,9 @@ contains
         use baseparam_mod, only: am, Z_i
         use grid_mod, only: rmin, rmax
         use logger, only: set_log_level
-        use neort_interface, only: read_equil_file, calculate_s_tor, calculate_coarse_s_tor, &
-                                   calculate_Omega_tE_splined, read_neort_config, &
-                                   prepare_plasma_data_for_neort, &
+        use neort_interface, only: meta_config_neort_t, read_neort_config, read_equil_file, &
+                                   calculate_s_tor, calculate_coarse_s_tor, &
+                                   calculate_Omega_tE_splined, prepare_plasma_data_for_neort, &
                                    prepare_profile_data_for_neort
         use spline, only: spline_coeff, spline_val
 
@@ -45,18 +45,18 @@ contains
         real(dp), dimension(:, :), allocatable :: r_of_s_coeffs, s_of_r_coeffs
         real(dp), dimension(:, :), allocatable :: s_splined, r_splined
         real(dp) :: s_min, s_max
-        type(config_t) :: config
-        character(len=1024) :: boozer_file
-        character(len=1024) :: boozer_pert_file
+        type(meta_config_neort_t) :: meta_config
+        integer :: S_SIZE
 
-        integer, parameter :: S_SIZE = 100
-
-        character(len=*), parameter :: config_file = "balance_conf.nml"
+        character(len=*), parameter :: balance_config_file = "balance_conf.nml"
 
         call this%TimeEvolution_t%init_balance
         this%runType = "TimeEvolutionNTV"
 
         ! NEO-RT
+        call read_neort_config(balance_config_file, meta_config)
+        S_SIZE = meta_config%amount_of_s
+
         ! note: profiles live on rc, derivatives on rb
         allocate (r_splined(S_SIZE, 3))
         allocate (r(S_SIZE))
@@ -93,9 +93,7 @@ contains
         Z2 = Z_i
 
         ! NEO-RT initialization
-        call read_neort_config(config_file, config, boozer_file, boozer_pert_file)
-        call neort_init(config, trim(boozer_file), trim(boozer_pert_file))
-
+        call neort_init(meta_config%config, meta_config%boozer_file, meta_config%boozer_pert_file)
         call prepare_plasma_data_for_neort(plasma_data, r, s_tor)
         call prepare_profile_data_for_neort(profile_data, r, s_tor, Omega_tE)
         call neort_prepare_splines(S_SIZE, am1, am2, Z1, Z2, plasma_data, profile_data)

@@ -12,6 +12,8 @@ subroutine read_config
 
     implicit none
 
+    integer :: u, ios
+
     character(len=*), parameter :: config_file = "balance_conf.nml"
 
     !> namelist for the balance configuration input
@@ -25,9 +27,12 @@ subroutine read_config
         constant_time_step, urelax
 
     ! read the parameters from namelist file
-    open (22, file=config_file)
-    read (22, NML=BALANCENML)
-    close (22)
+    open (newunit=u, file=config_file, status="old", action="read", iostat=ios)
+    if (ios /= 0) error stop "Failed to open config file"
+    read (u, nml=BALANCENML, iostat=ios)
+    if (ios /= 0) error stop "Failed to read namelist"
+    close (u)
+
     write (*, *) ""
     write (*, *) "================================================================================="
     write (*, "(A,A)") "    Type of Run: ", type_of_run

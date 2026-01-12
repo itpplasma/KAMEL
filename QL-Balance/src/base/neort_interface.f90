@@ -131,12 +131,11 @@ contains
 
         real(dp), dimension(:, :), allocatable :: ni_of_r_coeffs, Ti_of_r_coeffs, Te_of_r_coeffs
         real(dp), dimension(:, :), allocatable :: ni_splined, Ti_splined, Te_splined
-        integer :: i, p_size, c_size, s_size
+        integer :: i, rc_size, s_size
 
         real(dp), parameter :: ERG_TO_EV = 1.0_dp / EV_TO_ERG
 
-        p_size = size(params, 2)
-        c_size = p_size - 1
+        rc_size = size(rc)
         s_size = size(s_tor)
 
         ! Check dimensions
@@ -144,9 +143,9 @@ contains
             error stop "prepare_neort_plasma_data: plasma_data dimension mismatch"
         end if
 
-        allocate (ni_of_r_coeffs(c_size, 5))
-        allocate (Ti_of_r_coeffs(c_size, 5))
-        allocate (Te_of_r_coeffs(c_size, 5))
+        allocate (ni_of_r_coeffs(rc_size - 1, 5))
+        allocate (Ti_of_r_coeffs(rc_size - 1, 5))
+        allocate (Te_of_r_coeffs(rc_size - 1, 5))
         allocate (ni_splined(s_size, 3))
         allocate (Ti_splined(s_size, 3))
         allocate (Te_splined(s_size, 3))
@@ -200,13 +199,12 @@ contains
 
         real(dp) :: T_i, m_i, vth, M_t
         real(dp), dimension(:, :), allocatable :: Ti_of_r_coeffs, Ti_splined
-        integer :: i, p_size, c_size, s_size
+        integer :: i, rc_size, s_size
 
-        p_size = size(params, 2)
-        c_size = p_size - 1
+        rc_size = size(rc)
         s_size = size(s_tor)
 
-        allocate (Ti_of_r_coeffs(c_size, 5))
+        allocate (Ti_of_r_coeffs(rc_size - 1, 5))
         allocate (Ti_splined(s_size, 3))
 
         Ti_of_r_coeffs = spline_coeff(rc, params(4, :))
@@ -425,8 +423,6 @@ contains
     end subroutine calculate_s_tor
 
     subroutine calculate_coarse_s_tor(s_tor, s_min, s_max, npoints)
-        use spline, only: spline_coeff, spline_val
-
         real(dp), dimension(:), intent(out) :: s_tor
         real(dp), intent(in) :: s_min, s_max
         integer, intent(in) :: npoints
@@ -624,7 +620,6 @@ contains
         use grid_mod, only: rb, rc
         use plasma_parameters, only: params, qsaf
         use wave_code_data, only: dPhi0
-        use spline, only: spline_coeff, spline_val
 
         character(len=*), intent(in) :: filename
 

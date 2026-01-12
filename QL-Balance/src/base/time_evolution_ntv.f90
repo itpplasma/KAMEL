@@ -46,7 +46,7 @@ contains
         real(dp), dimension(:, :), allocatable :: s_splined, r_splined
         real(dp) :: s_min, s_max
         type(meta_config_neort_t) :: meta_config
-        integer :: S_SIZE
+        integer :: s_size
 
         character(len=*), parameter :: balance_config_file = "balance_conf.nml"
 
@@ -55,16 +55,16 @@ contains
 
         ! NEO-RT
         call read_neort_config(balance_config_file, meta_config)
-        S_SIZE = meta_config%amount_of_s
+        s_size = meta_config%amount_of_s
 
         ! note: profiles live on rc, derivatives on rb
-        allocate (r_splined(S_SIZE, 3))
-        allocate (r(S_SIZE))
-        allocate (s_tor(S_SIZE))
-        allocate (Omega_tE(S_SIZE))
-        allocate (plasma_data(S_SIZE, 6))
-        allocate (profile_data(S_SIZE, 2))
-        allocate (transport_data(S_SIZE))
+        allocate (r_splined(s_size, 3))
+        allocate (r(s_size))
+        allocate (s_tor(s_size))
+        allocate (Omega_tE(s_size))
+        allocate (plasma_data(s_size, 6))
+        allocate (profile_data(s_size, 2))
+        allocate (transport_data(s_size))
 
         ! prepare grid splines for NEO-RT
         call read_equil_file(r_eff=r_eff, psi_tor=psi_tor)
@@ -79,7 +79,7 @@ contains
         s_min = s_splined(1, 1)
         s_max = s_splined(2, 1)
 
-        call calculate_coarse_s_tor(s_tor, s_min, s_max, S_SIZE)
+        call calculate_coarse_s_tor(s_tor, s_min, s_max, s_size)
         allocate (r_of_s_coeffs(size(s_tor_equil) - 1, 5))
         r_of_s_coeffs = spline_coeff(s_tor_equil, r_eff)
         r_splined = spline_val(r_of_s_coeffs, s_tor)
@@ -96,7 +96,7 @@ contains
         call neort_init(meta_config%config, meta_config%boozer_file, meta_config%boozer_pert_file)
         call prepare_plasma_data_for_neort(plasma_data, r, s_tor)
         call prepare_profile_data_for_neort(profile_data, r, s_tor, Omega_tE)
-        call neort_prepare_splines(S_SIZE, am1, am2, Z1, Z2, plasma_data, profile_data)
+        call neort_prepare_splines(s_size, am1, am2, Z1, Z2, plasma_data, profile_data)
 
         deallocate (r_eff)
         deallocate (psi_tor)

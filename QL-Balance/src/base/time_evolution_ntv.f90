@@ -35,7 +35,7 @@ contains
         use logger, only: set_log_level
         use neort_interface, only: meta_config_neort_t, read_neort_config, read_equil_file, &
                                    calculate_s_tor, calculate_coarse_s_tor, &
-                                   calculate_Omega_tE_splined, prepare_plasma_data_for_neort, &
+                                   calculate_Omega_tE, prepare_plasma_data_for_neort, &
                                    prepare_profile_data_for_neort
         use spline, only: spline_coeff, spline_val
 
@@ -84,7 +84,7 @@ contains
         r_of_s_coeffs = spline_coeff(s_tor_equil, r_eff)
         r_splined = spline_val(r_of_s_coeffs, s_tor)
         r = r_splined(:, 1)
-        call calculate_Omega_tE_splined(Omega_tE, r)
+        call calculate_Omega_tE(Omega_tE, r)
 
         ! Cache species parameters for parallel use (same mass/charge for both species)
         am1 = am

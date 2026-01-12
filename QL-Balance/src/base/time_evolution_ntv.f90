@@ -14,18 +14,19 @@ module time_evolution_ntv
         procedure :: run_balance => runTimeEvolutionNTV
     end type
 
-    ! for NEO-RT (shared data prepared once)
+    ! for NEO-RT
     real(dp), dimension(:), allocatable :: r
     real(dp), dimension(:), allocatable :: s_tor
     real(dp), dimension(:), allocatable :: Omega_tE
+    real(dp) :: am1
+    real(dp) :: am2
+    real(dp) :: Z1
+    real(dp) :: Z2
     real(dp), dimension(:, :), allocatable :: plasma_data
     real(dp), dimension(:, :), allocatable :: profile_data
 
     ! from NEO-RT
     type(transport_data_t), dimension(:), allocatable :: transport_data
-
-    ! NEO-RT cached parameters for parallel use
-    real(dp) :: am1, am2, Z1, Z2
 
 contains
 

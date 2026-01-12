@@ -20,7 +20,7 @@ module neort_interface
     public :: read_equil_file
     public :: calculate_s_tor
     public :: calculate_coarse_s_tor
-    public :: calculate_Omega_tE_splined
+    public :: calculate_Omega_tE
     public :: prepare_plasma_data_for_neort
     public :: prepare_profile_data_for_neort
 
@@ -234,7 +234,7 @@ contains
         end do
     end subroutine prepare_profile_data_for_neort
 
-    subroutine calculate_Omega_tE_splined(Omega_tE, r)
+    subroutine calculate_Omega_tE(Omega_tE, r)
         use baseparam_mod, only: btor, c
         use grid_mod, only: rb, rc
         use plasma_parameters, only: qsaf
@@ -273,7 +273,7 @@ contains
             dpsi_pol_dr = r(i) * btor / q_splined(i, 1)
             Omega_tE(i) = -c * dPhi_dr / dpsi_pol_dr
         end do
-    end subroutine calculate_Omega_tE_splined
+    end subroutine calculate_Omega_tE
 
     !> @brief Read equilibrium data from equilibrium file
     !> @details Reads equilibrium quantities from the equil_r_q_psi.dat file

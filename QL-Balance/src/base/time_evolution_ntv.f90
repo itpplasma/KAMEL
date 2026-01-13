@@ -31,8 +31,8 @@ module time_evolution_ntv
 contains
 
     subroutine initTimeEvolutionNTV(this)
-        use baseparam_mod, only: am, Z_i
-        use grid_mod, only: rmin, rmax
+        use baseparam_mod, only: am, Z_i, rsepar
+        use grid_mod, only: rmin
         use logger, only: set_log_level
         use neort_interface, only: meta_config_neort_t, read_neort_config, read_equil_file, &
                                    calculate_s_tor, calculate_coarse_s_tor, &
@@ -76,7 +76,7 @@ contains
         allocate (s_of_r_coeffs(size(r_eff) - 1, 5))
         allocate (s_splined(2, 3))
         s_of_r_coeffs = spline_coeff(r_eff, s_tor_equil)
-        s_splined = spline_val(s_of_r_coeffs, [rmin, rmax])
+        s_splined = spline_val(s_of_r_coeffs, [rmin, rsepar])
         s_min = s_splined(1, 1)
         s_max = s_splined(2, 1)
 

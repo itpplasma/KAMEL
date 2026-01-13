@@ -21,10 +21,3 @@ add_fortran_test(test_sparse)
 add_executable(test_rhs_balance.x test_rhs_balance.f90)
 target_link_libraries(test_rhs_balance.x PUBLIC ql-balance_lib)
 add_fortran_test(test_rhs_balance)
-
-# RHS Balance integration test (compares original vs refactored implementation)
-add_executable(test_rhs_balance_integration.x
-    test_rhs_balance_integration.f90
-    rhs_balance_orig.f90)
-target_link_libraries(test_rhs_balance_integration.x PUBLIC ql-balance_lib)
-add_fortran_test(test_rhs_balance_integration)

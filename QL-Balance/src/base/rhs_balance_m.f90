@@ -97,6 +97,7 @@ contains
         use matrix_mod
 
         implicit none
+
         real(dp) :: x
         real(dp), dimension(neqset) :: y, dy
 
@@ -497,6 +498,9 @@ contains
         ! Physics:
         !   Ercov = sqrt_g_B_theta_c * (v_phi - Vth*q/r) + (Ti * d(ln n)/dr + dTi/dr) / (Z_i * e)
         !
+
+        implicit none
+
         integer, intent(in) :: npoib
         real(dp), intent(in) :: rb(:)
         real(dp), intent(in) :: params_b(:, :)  ! (4, npoib)
@@ -527,6 +531,9 @@ contains
         !
         ! Delegates to pure helper functions for each computation step.
         !
+
+        implicit none
+
         integer, intent(in) :: ipoi
         real(dp), intent(in) :: ddr_params(:, :)  ! (4, npoib)
         real(dp), intent(in) :: params_b(:, :)  ! (4, npoib)
@@ -586,6 +593,9 @@ contains
         ! Compute nonlinear convective flux at a single boundary point.
         ! This is used for the upstream convection scheme.
         !
+
+        implicit none
+
         integer, intent(in) :: ipoi
         real(dp), intent(in) :: gamma_e_nl, Q_e_nl, Q_i_nl
         real(dp), intent(in) :: ddr_params_nl(:, :)
@@ -632,6 +642,9 @@ contains
         ! Note: T_EM_phi uses nonlinear ql fluxes, while polforce/qlheat use linear fluxes.
         !       This is handled by calling the pure helper twice with different flux values.
         !
+
+        implicit none
+
         integer, intent(in) :: ipoi
         real(dp), intent(in) :: gamma_e, gamma_i
         real(dp), intent(in) :: gamma_ql_e, gamma_ql_i
@@ -670,6 +683,9 @@ contains
         !   3. Internal sources
         !   4. Unit conversions (momentum -> omega, nT -> T)
         !
+
+        implicit none
+
         integer, intent(in) :: ipoi, npoi, nbaleqs
         real(dp), intent(in) :: fluxes_dif(:, :), fluxes_con(:, :), fluxes_con_nl(:, :)
         real(dp), intent(in) :: params(:, :), params_lin(:, :), params_b_lin(:, :)
@@ -734,6 +750,8 @@ contains
 
     pure subroutine compute_thermodynamic_forces(ddr_n, ddr_Te, ddr_Ti, n_b, Te_b, Ti_b, &
                                                  Ercov_val, e_charge_val, Z_i_val, forces)
+        implicit none
+
         real(dp), intent(in) :: ddr_n, ddr_Te, ddr_Ti
         real(dp), intent(in) :: n_b, Te_b, Ti_b
         real(dp), intent(in) :: Ercov_val, e_charge_val, Z_i_val
@@ -755,6 +773,9 @@ contains
         ! gamma_a  = -(D11_a*A_noE_1 + D12_a*A_noE_2) * n
         ! gamma_ql = -(D11_ql*A_1 + D12_ql*A_noE_2) * n
         !
+
+        implicit none
+
         type(thermodynamic_forces_t), intent(in) :: forces
         real(dp), intent(in) :: n_b, Z_i_val
         real(dp), intent(in) :: D11_a_e, D12_a_e, D11_ql_e, D12_ql_e
@@ -784,6 +805,9 @@ contains
         !       D21 (quasi-linear) couples to A_1 (with E-field)
         !       D22 couples to temperature gradient force A_noE_2
         !
+
+        implicit none
+
         type(thermodynamic_forces_t), intent(in) :: forces
         real(dp), intent(in) :: n_b, Te_b, Ti_b, Z_i_val
         real(dp), intent(in) :: D12_a_e, D21_ql_e, D22_e
@@ -804,6 +828,9 @@ contains
         ! Compute diffusive fluxes for all 4 balance equations.
         ! Diffusive flux depends only on gradients and transport coefficients.
         !
+
+        implicit none
+
         real(dp), intent(in) :: ddr_n, ddr_vphi, ddr_Te, ddr_Ti
         real(dp), intent(in) :: n_b, Te_b, Ti_b, Z_i_val, Sb_val
         real(dp), intent(in) :: dae11_val, dqle11_val, dae22_val, dqle22_val
@@ -834,6 +861,9 @@ contains
         ! Compute convective fluxes for all 4 balance equations.
         ! Convective flux = (total flux - diffusive flux) / parameter value
         !
+
+        implicit none
+
         real(dp), intent(in) :: gamma_e, Q_e, Q_i
         real(dp), intent(in) :: n_b, Te_b, Ti_b, Sb_val
         real(dp), intent(in) :: flux_dif(4)
@@ -856,6 +886,8 @@ contains
                                          sqrt_g_B_theta_c, e_charge_val, Z_i_val, am_val, &
                                          p_mass_val, polforce_out, qlheat_e_out, qlheat_i_out, &
                                          T_EM_phi_e_out, T_EM_phi_i_out)
+        implicit none
+
         real(dp), intent(in) :: gamma_e, gamma_i, gamma_ql_e, gamma_ql_i
         real(dp), intent(in) :: Ercov_val, sqrt_g_B_theta_c
         real(dp), intent(in) :: e_charge_val, Z_i_val, am_val, p_mass_val
@@ -871,6 +903,8 @@ contains
     end subroutine compute_source_terms
 
     pure subroutine apply_boundary_conditions(fluxes_dif, fluxes_con, fluxes_con_nl, nbaleqs)
+        implicit none
+
         integer, intent(in) :: nbaleqs
         real(dp), intent(inout) :: fluxes_dif(nbaleqs, *)
         real(dp), intent(inout) :: fluxes_con(nbaleqs, *)
@@ -888,6 +922,8 @@ contains
                                                   dae22_val, dqle22_val, dai22_val, dni22_val, &
                                                   dqli22_val, dqli21_val, visca_val, gpp_av_val, &
                                                   flux_dif, flux_con, flux_con_nl)
+        implicit none
+
         real(dp), intent(in) :: gamma_e, gamma_e_nl, gamma_i
         real(dp), intent(in) :: Q_e, Q_e_nl, Q_i, Q_i_nl
         real(dp), intent(in) :: ddr_n, ddr_n_nl, ddr_Te, ddr_Te_nl, ddr_Ti, ddr_Ti_nl, ddr_vphi
@@ -924,6 +960,8 @@ contains
 
     pure subroutine compute_time_derivatives(dot_params_in, n_val, Te_val, Ti_val, Z_i_val, &
                                              gpp_av_avg, dot_params_out)
+        implicit none
+
         real(dp), intent(in) :: dot_params_in(4)
         real(dp), intent(in) :: n_val, Te_val, Ti_val, Z_i_val, gpp_av_avg
         real(dp), intent(out) :: dot_params_out(4)

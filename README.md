@@ -1,5 +1,7 @@
 # KAMEL - Kinetic plAsma response ModEL
 
+[![CI](https://github.com/itpplasma/KAMEL/actions/workflows/ci.yml/badge.svg)](https://github.com/itpplasma/KAMEL/actions/workflows/ci.yml)
+
 KAMEL is a scientific computing framework for modeling plasma response to external magnetic perturbations in fusion plasmas.
 
 ## Overview
@@ -16,9 +18,12 @@ The framework consists of three main codes:
 - **MPI** (MPICH or OpenMPI)
 - **HDF5** with parallel support
 - **Python 3.8+** with pip
-- **CMake 3.16+** and **Ninja** build system
+- **CMake 3.24+** and **Ninja** build system
 - **Fortran compiler** (gfortran 10+ or ifort)
 - **C/C++ compiler** (gcc/g++ 10+ or clang/clang++)
+
+### System Libraries
+- **NetCDF** with Fortran bindings (for QL-Balance)
 
 ### External Libraries
 The following are automatically fetched during compilation:
@@ -26,7 +31,7 @@ The following are automatically fetched during compilation:
 - **SuiteSparse** - Sparse matrix operations
 - **GSL** - GNU Scientific Library
 - **SUNDIALS** - Numerical differential equation solvers
-- **FFTW3** - Fast Fourier transforms
+- **Zeal** - Mathematical special functions
 
 ### Python Dependencies
 - numpy, scipy, h5py, f90nml, matplotlib

@@ -88,8 +88,7 @@ contains
         ! Compute radial electric field at all boundary points
         !
         ! Physics:
-        !   Ercov = sqrt_g_B_theta_c * (v_phi - Vth*q/r)
-        !         + (Ti * d(ln n)/dr + dTi/dr) / (Z_i * e)
+        !   Ercov = sqrt_g_B_theta_c * (v_phi - Vth*q/r) + (Ti * d(ln n)/dr + dTi/dr) / (Z_i * e)
         !
         integer, intent(in) :: npoib
         real(dp), intent(in) :: rb(:)
@@ -101,16 +100,10 @@ contains
         real(dp), intent(out) :: Ercov_out(:)
 
         ! Array operations
-        ! TODO: fix this manually and not with fprettify
         Ercov_out(1:npoib) = &
-            sqrt_g_B_theta_c(1:npoib) * (params_b(2, 1:npoib) - Vth_arr(1:npoib) &
-                                         * q_arr(1:npoib) / rb(1:npoib)) + (params_b(4, 1:npoib) * &
-                                                                            ddr_params(1, 1:npoib) &
-                                                                            / params_b(1, &
-                                                                                       1:npoib) + &
-                                                                            ddr_params(4, &
-                                                                                  1:npoib)) / (Z_i &
-                                                                                         * e_charge)
+            sqrt_g_B_theta_c(1:npoib) * (params_b(2, 1:npoib) - Vth_arr(1:npoib) * &
+            q_arr(1:npoib) / rb(1:npoib)) + (params_b(4, 1:npoib) * ddr_params(1, 1:npoib) / &
+            params_b(1, 1:npoib) + ddr_params(4, 1:npoib)) / (Z_i * e_charge)
 
     end subroutine compute_radial_electric_field
 
@@ -204,29 +197,21 @@ contains
         Ti_b = params_b(4, ipoi)
 
         ! Particle flux
-        ! TODO: fix manually
-        flux_con_nl(1) = &
-            (Sb(ipoi) * gamma_e_nl - (-Sb(ipoi) * ddr_params_nl(1, ipoi) * (dae11(ipoi) + &
-                                                                            dqle11(ipoi) * (1.0_dp &
-                                                                                   + Ti_b / Te_b / &
-                                                                                       Z_i)))) / n_b
+        flux_con_nl(1) = (Sb(ipoi) * gamma_e_nl - (-Sb(ipoi) * ddr_params_nl(1, ipoi) * &
+            (dae11(ipoi) + dqle11(ipoi) * (1.0_dp + Ti_b / Te_b / Z_i)))) / n_b
 
         ! Momentum flux
         flux_con_nl(2) = 0.0_dp
 
         ! Electron heat flux
-        ! TODO: fix manually
-        flux_con_nl(3) = (Sb(ipoi) * Q_e_nl - &
-                          (-Sb(ipoi) * (dae22(ipoi) + dqle22(ipoi)) * n_b * ddr_params_nl(3, &
-                                                                                      ipoi))) / Te_b
+        flux_con_nl(3) = (Sb(ipoi) * Q_e_nl - (-Sb(ipoi) * (dae22(ipoi) + dqle22(ipoi)) * n_b * &
+            ddr_params_nl(3, ipoi))) / Te_b
 
         ! Ion heat flux
         !colli - 2.5d0*dqli12 was changed to dqli21
-        ! TODO: fix manually
-        flux_con_nl(4) = (Sb(ipoi) * Q_i_nl - &
-                          (-Sb(ipoi) * (dai22(ipoi) + dni22(ipoi) + dqli22(ipoi) - 2.5_dp * &
-                                        dqli21(ipoi)) &
-                           * n_b / Z_i * ddr_params_nl(4, ipoi))) / Ti_b
+        flux_con_nl(4) = (Sb(ipoi) * Q_i_nl - (-Sb(ipoi) * &
+            (dai22(ipoi) + dni22(ipoi) + dqli22(ipoi) - 2.5_dp * dqli21(ipoi)) * n_b / Z_i * &
+            ddr_params_nl(4, ipoi))) / Ti_b
 
     end subroutine compute_nonlinear_convective_flux
 
@@ -293,34 +278,23 @@ contains
 
         ! Flux divergence for all 4 equations:
         do ieq = 1, nbaleqs
-            ! TODO: fix manually
             dot_params_out(ieq) = -(fluxes_dif(ieq, ipoi + 1) - fluxes_dif(ieq, ipoi)) / &
-                                  (Sc(ipoi) * dr) &
-                                  - (fluxes_con(ieq, ipoi + 1) - fluxes_con(ieq, ipoi)) / &
-                                  (Sc(ipoi) * dr) &
-                                  * params(ieq, ipoi)
+                (Sc(ipoi) * dr) - (fluxes_con(ieq, ipoi + 1) - fluxes_con(ieq, ipoi)) / &
+                (Sc(ipoi) * dr) * params(ieq, ipoi)
 
             ! Upstream convection:
             convel = 0.5_dp * (fluxes_con_nl(ieq, ipoi + 1) + fluxes_con_nl(ieq, ipoi)) / Sc(ipoi)
             if (convel .gt. 0.0_dp) then
-
-                ! TODO: fix manually
-                dot_params_out(ieq) = dot_params_out(ieq) &
-                                      - convel * (params_lin(ieq, ipoi + 1) - params_lin(ieq, &
-                                                                            ipoi)) / (rc(ipoi + 1) &
-                                                                                         - rc(ipoi))
+                dot_params_out(ieq) = dot_params_out(ieq) - convel * &
+                    (params_lin(ieq, ipoi + 1) - params_lin(ieq, ipoi)) / (rc(ipoi + 1) - rc(ipoi))
             else
                 if (ipoi .gt. 1) then
-                    ! TODO: fix manually
-                    dot_params_out(ieq) = dot_params_out(ieq) &
-                                          - convel * (params_lin(ieq, ipoi - 1) - params_lin(ieq, &
-                                                                                 ipoi)) / (rc(ipoi &
-                                                                                    - 1) - rc(ipoi))
+                    dot_params_out(ieq) = dot_params_out(ieq) - convel * &
+                        (params_lin(ieq, ipoi - 1) - params_lin(ieq, ipoi)) / &
+                        (rc(ipoi - 1) - rc(ipoi))
                 else
-                    ! TODO: fix manually
-                    dot_params_out(ieq) = dot_params_out(ieq) &
-                                          - convel * (params_b_lin(ieq, 1) - params_lin(ieq, 1)) / &
-                                          (rb(1) - rc(1))
+                    dot_params_out(ieq) = dot_params_out(ieq) - convel * &
+                        (params_b_lin(ieq, 1) - params_lin(ieq, 1)) / (rb(1) - rc(1))
                 end if
             end if
         end do
@@ -510,14 +484,10 @@ contains
             end do
 
             ! Compute linear Ercov
-            ! TODO: fix manually
             Ercov_lin(ibegb:iendb) = sqrt_g_times_B_theta_over_c(ibegb:iendb) * &
-                                     params_b_lin(2, ibegb:iendb) + (params_b(4, ibegb:iendb) * &
-                                                                     ddr_params(1, ibegb:iendb) / &
-                                                                     params_b(1, &
-                                                                              ibegb:iendb) + &
-                                                                     ddr_params(4, ibegb:iendb)) / &
-                                     (Z_i * e_charge)
+                params_b_lin(2, ibegb:iendb) + (params_b(4, ibegb:iendb) * &
+                ddr_params(1, ibegb:iendb) / params_b(1, ibegb:iendb) + &
+                ddr_params(4, ibegb:iendb)) / (Z_i * e_charge)
 
             ! Compute fluxes at affected boundary points
             do ipoi = ibegb, iendb
@@ -684,10 +654,9 @@ contains
                                            e_charge, Ercov)
 
         ! Linear Ercov (with y_lin=0, this simplifies)
-        ! TODO: fix manually
-        Ercov_lin(1:npoib) = sqrt_g_times_B_theta_over_c(1:npoib) * params_b_lin(2, 1:npoib) &
-                             + (params_b(4, 1:npoib) * ddr_params(1, 1:npoib) &
-                                / params_b(1, 1:npoib) + ddr_params(4, 1:npoib)) / (Z_i * e_charge)
+        Ercov_lin(1:npoib) = sqrt_g_times_B_theta_over_c(1:npoib) * params_b_lin(2, 1:npoib) + &
+            (params_b(4, 1:npoib) * ddr_params(1, 1:npoib) / params_b(1, 1:npoib) + &
+            ddr_params(4, 1:npoib)) / (Z_i * e_charge)
 
         call calc_equil_diffusion_coeffs
 

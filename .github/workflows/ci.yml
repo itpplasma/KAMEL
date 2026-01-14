@@ -1,0 +1,50 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            cmake \
+            ninja-build \
+            gfortran \
+            libopenmpi-dev \
+            openmpi-bin \
+            libhdf5-openmpi-dev \
+            libnetcdf-dev \
+            libnetcdff-dev \
+            libomp-dev \
+            libopenblas-dev \
+            liblapack-dev
+
+      - name: Cache external dependencies
+        uses: actions/cache@v4
+        with:
+          path: build/external-install
+          key: external-deps-${{ runner.os }}-${{ hashFiles('cmake/Fetch*.cmake') }}
+          restore-keys: |
+            external-deps-${{ runner.os }}-
+
+      - name: Configure CMake
+        run: |
+          cmake -B build -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release
+
+      - name: Build
+        run: cmake --build build --parallel
+
+      - name: Run tests
+        run: ctest --test-dir build --output-on-failure

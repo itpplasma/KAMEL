@@ -2,7 +2,7 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    branches: [main, fix-ci]
   pull_request:
     branches: [main]
 
@@ -29,7 +29,14 @@ jobs:
             libomp-dev \
             libopenblas-dev \
             liblapack-dev \
-            doxygen
+            doxygen \
+            libgsl-dev \
+            libsuitesparse-dev \
+            libsuperlu-dev \
+            python3-dev \
+            python3-numpy \
+            libmpfr-dev \
+            libgmp-dev
 
       - name: Cache external dependencies
         uses: actions/cache@v4

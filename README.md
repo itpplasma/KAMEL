@@ -21,9 +21,11 @@ The framework consists of three main codes:
 - **CMake 3.24+** and **Ninja** build system
 - **Fortran compiler** (gfortran 10+ or ifort)
 - **C/C++ compiler** (gcc/g++ 10+ or clang/clang++)
+- **Doxygen** (for documentation generation)
 
 ### System Libraries
 - **NetCDF** with Fortran bindings (for QL-Balance)
+- **SuperLU** (sparse matrix solver)
 
 ### External Libraries
 The following are automatically fetched during compilation:

@@ -27,8 +27,8 @@ module rhs_balance_m
     !---------------------------------------------------------------------------
     ! Public API
     !---------------------------------------------------------------------------
-    public :: rhs_balance
     public :: initialize_rhs
+    public :: rhs_balance
     public :: rhs_balance_source
 
     !---------------------------------------------------------------------------
@@ -77,247 +77,6 @@ module rhs_balance_m
     end type transport_fluxes_t
 
 contains
-
-    !===========================================================================
-    ! Core computation routines (shared by rhs_balance and rhs_balance_source)
-    !===========================================================================
-
-    subroutine compute_radial_electric_field(npoib, rb, params_b, ddr_params, sqrt_g_B_theta_c, &
-                                             Vth_arr, q_arr, Z_i, e_charge, Ercov_out)
-        !
-        ! Compute radial electric field at all boundary points
-        !
-        ! Physics:
-        !   Ercov = sqrt_g_B_theta_c * (v_phi - Vth*q/r) + (Ti * d(ln n)/dr + dTi/dr) / (Z_i * e)
-        !
-        integer, intent(in) :: npoib
-        real(dp), intent(in) :: rb(:)
-        real(dp), intent(in) :: params_b(:, :)  ! (4, npoib)
-        real(dp), intent(in) :: ddr_params(:, :)  ! (4, npoib)
-        real(dp), intent(in) :: sqrt_g_B_theta_c(:)
-        real(dp), intent(in) :: Vth_arr(:), q_arr(:)
-        real(dp), intent(in) :: Z_i, e_charge
-        real(dp), intent(out) :: Ercov_out(:)
-
-        ! Array operations
-        Ercov_out(1:npoib) = &
-            sqrt_g_B_theta_c(1:npoib) * (params_b(2, 1:npoib) - Vth_arr(1:npoib) * &
-            q_arr(1:npoib) / rb(1:npoib)) + (params_b(4, 1:npoib) * ddr_params(1, 1:npoib) / &
-            params_b(1, 1:npoib) + ddr_params(4, 1:npoib)) / (Z_i * e_charge)
-
-    end subroutine compute_radial_electric_field
-
-    subroutine compute_fluxes_at_boundary( &
-        ! inputs:
-        ipoi, ddr_params, params_b, Ercov_val, dae11, dae12, dae22, dai11, dai12, dai22, dni22, &
-        dqle11, dqle12, dqle21, dqle22, dqli11, dqli12, dqli21, dqli22, visca, gpp_av, Sb, &
-        Z_i, e_charge, &
-        ! outputs
-        forces, gamma_e, gamma_i, gamma_ql_e, gamma_ql_i, Q_e, Q_i, flux_dif, flux_con)
-        !
-        ! Compute all fluxes at a single boundary point.
-        ! This is the core shared computation used by both rhs_balance and rhs_balance_source.
-        !
-        ! Delegates to pure helper functions for each computation step.
-        !
-        integer, intent(in) :: ipoi
-        real(dp), intent(in) :: ddr_params(:, :)  ! (4, npoib)
-        real(dp), intent(in) :: params_b(:, :)  ! (4, npoib)
-        real(dp), intent(in) :: Ercov_val
-        real(dp), intent(in) :: dae11(:), dae12(:), dae22(:)
-        real(dp), intent(in) :: dai11(:), dai12(:), dai22(:), dni22(:)
-        real(dp), intent(in) :: dqle11(:), dqle12(:), dqle21(:), dqle22(:)
-        real(dp), intent(in) :: dqli11(:), dqli12(:), dqli21(:), dqli22(:)
-        real(dp), intent(in) :: visca(:), gpp_av(:), Sb(:)
-        real(dp), intent(in) :: Z_i, e_charge
-
-        type(thermodynamic_forces_t), intent(out) :: forces
-        real(dp), intent(out) :: gamma_e, gamma_i, gamma_ql_e, gamma_ql_i
-        real(dp), intent(out) :: Q_e, Q_i
-        real(dp), intent(out) :: flux_dif(4), flux_con(4)
-
-        type(transport_fluxes_t) :: fluxes
-        real(dp) :: n_b, Te_b, Ti_b
-
-        ! Extract local values
-        n_b = params_b(1, ipoi)
-        Te_b = params_b(3, ipoi)
-        Ti_b = params_b(4, ipoi)
-
-        call compute_thermodynamic_forces(ddr_params(1, ipoi), ddr_params(3, ipoi), ddr_params(4, &
-                                           ipoi), n_b, Te_b, Ti_b, Ercov_val, e_charge, Z_i, forces)
-
-        call compute_particle_fluxes(forces, n_b, Z_i, dae11(ipoi), dae12(ipoi), dqle11(ipoi), &
-                                     dqle12(ipoi), dai11(ipoi), dai12(ipoi), dqli11(ipoi), &
-                                     dqli12(ipoi), fluxes)
-
-        ! Extract individual flux values for output and further use
-        gamma_e = fluxes%e%gamma
-        gamma_i = fluxes%i%gamma
-        gamma_ql_e = fluxes%e%gamma_ql
-        gamma_ql_i = fluxes%i%gamma_ql
-
-        call compute_heat_fluxes(forces, n_b, Te_b, Ti_b, Z_i, dae12(ipoi), dqle21(ipoi), &
-                                 dae22(ipoi) + dqle22(ipoi), dai12(ipoi), dqli21(ipoi), &
-                                 dai22(ipoi) + dni22(ipoi) + dqli22(ipoi), Q_e, Q_i)
-
-        call compute_diffusive_fluxes(ddr_params(1, ipoi), ddr_params(2, ipoi), &
-                                      ddr_params(3, ipoi), ddr_params(4, ipoi), n_b, Te_b, Ti_b, &
-                                      Z_i, Sb(ipoi), dae11(ipoi), dqle11(ipoi), dae22(ipoi), &
-                                      dqle22(ipoi), dai22(ipoi), dni22(ipoi), dqli22(ipoi), &
-                                      dqli21(ipoi), visca(ipoi), gpp_av(ipoi), flux_dif)
-
-        call compute_convective_fluxes(gamma_e, Q_e, Q_i, n_b, Te_b, Ti_b, Sb(ipoi), &
-                                       flux_dif, flux_con)
-
-    end subroutine compute_fluxes_at_boundary
-
-    subroutine compute_nonlinear_convective_flux(ipoi, gamma_e_nl, Q_e_nl, Q_i_nl, ddr_params_nl, &
-                                                 params_b, Sb, dae11, dqle11, dae22, dqle22, &
-                                                 dai22, dni22, dqli22, dqli21, Z_i, flux_con_nl)
-        !
-        ! Compute nonlinear convective flux at a single boundary point.
-        ! This is used for the upstream convection scheme.
-        !
-        integer, intent(in) :: ipoi
-        real(dp), intent(in) :: gamma_e_nl, Q_e_nl, Q_i_nl
-        real(dp), intent(in) :: ddr_params_nl(:, :)
-        real(dp), intent(in) :: params_b(:, :)
-        real(dp), intent(in) :: Sb(:)
-        real(dp), intent(in) :: dae11(:), dqle11(:)
-        real(dp), intent(in) :: dae22(:), dqle22(:)
-        real(dp), intent(in) :: dai22(:), dni22(:), dqli22(:), dqli21(:)
-        real(dp), intent(in) :: Z_i
-        real(dp), intent(out) :: flux_con_nl(4)
-
-        real(dp) :: n_b, Te_b, Ti_b
-
-        n_b = params_b(1, ipoi)
-        Te_b = params_b(3, ipoi)
-        Ti_b = params_b(4, ipoi)
-
-        ! Particle flux
-        flux_con_nl(1) = (Sb(ipoi) * gamma_e_nl - (-Sb(ipoi) * ddr_params_nl(1, ipoi) * &
-            (dae11(ipoi) + dqle11(ipoi) * (1.0_dp + Ti_b / Te_b / Z_i)))) / n_b
-
-        ! Momentum flux
-        flux_con_nl(2) = 0.0_dp
-
-        ! Electron heat flux
-        flux_con_nl(3) = (Sb(ipoi) * Q_e_nl - (-Sb(ipoi) * (dae22(ipoi) + dqle22(ipoi)) * n_b * &
-            ddr_params_nl(3, ipoi))) / Te_b
-
-        ! Ion heat flux
-        !colli - 2.5d0*dqli12 was changed to dqli21
-        flux_con_nl(4) = (Sb(ipoi) * Q_i_nl - (-Sb(ipoi) * &
-            (dai22(ipoi) + dni22(ipoi) + dqli22(ipoi) - 2.5_dp * dqli21(ipoi)) * n_b / Z_i * &
-            ddr_params_nl(4, ipoi))) / Ti_b
-
-    end subroutine compute_nonlinear_convective_flux
-
-    subroutine compute_internal_sources(ipoi, gamma_e, gamma_i, gamma_ql_e, gamma_ql_i, &
-                                        gamma_ql_e_nl, gamma_ql_i_nl, Ercov_val, sqrt_g_B_theta_c, &
-                                        Z_i, e_charge, am, p_mass, polforce_out, qlheat_e_out, &
-                                        qlheat_i_out, T_EM_phi_e_out, T_EM_phi_i_out)
-        !
-        ! Compute internal source terms at a single boundary point.
-        !
-        ! Note: T_EM_phi uses nonlinear ql fluxes, while polforce/qlheat use linear fluxes.
-        !       This is handled by calling the pure helper twice with different flux values.
-        !
-        integer, intent(in) :: ipoi
-        real(dp), intent(in) :: gamma_e, gamma_i
-        real(dp), intent(in) :: gamma_ql_e, gamma_ql_i
-        real(dp), intent(in) :: gamma_ql_e_nl, gamma_ql_i_nl
-        real(dp), intent(in) :: Ercov_val
-        real(dp), intent(in) :: sqrt_g_B_theta_c(:)
-        real(dp), intent(in) :: Z_i, e_charge, am, p_mass
-        real(dp), intent(out) :: polforce_out, qlheat_e_out, qlheat_i_out
-        real(dp), intent(out) :: T_EM_phi_e_out, T_EM_phi_i_out
-
-        real(dp) :: T_EM_phi_e_dummy, T_EM_phi_i_dummy
-        real(dp) :: polforce_dummy, qlheat_e_dummy, qlheat_i_dummy
-
-        ! Get T_EM_phi from nonlinear ql fluxes
-        call compute_source_terms(gamma_e, gamma_i, gamma_ql_e_nl, gamma_ql_i_nl, Ercov_val, &
-                                  sqrt_g_B_theta_c(ipoi), e_charge, Z_i, am, p_mass, &
-                                  polforce_dummy, qlheat_e_dummy, qlheat_i_dummy, T_EM_phi_e_out, &
-                                  T_EM_phi_i_out)
-
-        ! Get polforce and qlheat from linear fluxes
-        call compute_source_terms(gamma_e, gamma_i, gamma_ql_e, gamma_ql_i, Ercov_val, &
-                                  sqrt_g_B_theta_c(ipoi), e_charge, Z_i, am, p_mass, polforce_out, &
-                                  qlheat_e_out, qlheat_i_out, T_EM_phi_e_dummy, T_EM_phi_i_dummy)
-    end subroutine compute_internal_sources
-
-    subroutine compute_dot_params_at_point(ipoi, npoi, nbaleqs, fluxes_dif, fluxes_con, &
-                                           fluxes_con_nl, params, params_lin, params_b_lin, Sc, &
-                                           rb, rc, gpp_av, polforce, qlheat_e, qlheat_i, Z_i, &
-                                           dot_params_out)
-        !
-        ! Compute time derivatives at a single grid point.
-        !
-        ! This combines:
-        !   1. Flux divergence
-        !   2. Upstream convection
-        !   3. Internal sources
-        !   4. Unit conversions (momentum -> omega, nT -> T)
-        !
-        integer, intent(in) :: ipoi, npoi, nbaleqs
-        real(dp), intent(in) :: fluxes_dif(:, :), fluxes_con(:, :), fluxes_con_nl(:, :)
-        real(dp), intent(in) :: params(:, :), params_lin(:, :), params_b_lin(:, :)
-        real(dp), intent(in) :: Sc(:), rb(:), rc(:), gpp_av(:)
-        real(dp), intent(in) :: polforce(:), qlheat_e(:), qlheat_i(:)
-        real(dp), intent(in) :: Z_i
-        real(dp), intent(out) :: dot_params_out(4)
-
-        integer :: ieq
-        real(dp) :: convel, dr
-
-        dr = rb(ipoi + 1) - rb(ipoi)
-
-        ! Flux divergence for all 4 equations:
-        do ieq = 1, nbaleqs
-            dot_params_out(ieq) = -(fluxes_dif(ieq, ipoi + 1) - fluxes_dif(ieq, ipoi)) / &
-                (Sc(ipoi) * dr) - (fluxes_con(ieq, ipoi + 1) - fluxes_con(ieq, ipoi)) / &
-                (Sc(ipoi) * dr) * params(ieq, ipoi)
-
-            ! Upstream convection:
-            convel = 0.5_dp * (fluxes_con_nl(ieq, ipoi + 1) + fluxes_con_nl(ieq, ipoi)) / Sc(ipoi)
-            if (convel .gt. 0.0_dp) then
-                dot_params_out(ieq) = dot_params_out(ieq) - convel * &
-                    (params_lin(ieq, ipoi + 1) - params_lin(ieq, ipoi)) / (rc(ipoi + 1) - rc(ipoi))
-            else
-                if (ipoi .gt. 1) then
-                    dot_params_out(ieq) = dot_params_out(ieq) - convel * &
-                        (params_lin(ieq, ipoi - 1) - params_lin(ieq, ipoi)) / &
-                        (rc(ipoi - 1) - rc(ipoi))
-                else
-                    dot_params_out(ieq) = dot_params_out(ieq) - convel * &
-                        (params_b_lin(ieq, 1) - params_lin(ieq, 1)) / (rb(1) - rc(1))
-                end if
-            end if
-        end do
-
-        ! Add internal sources:
-        ! Momentum:
-        dot_params_out(2) = dot_params_out(2) + 0.5_dp * (polforce(ipoi) + polforce(ipoi + 1))
-        ! Heat into electrons:
-        dot_params_out(3) = dot_params_out(3) + 0.5_dp * (qlheat_e(ipoi) + qlheat_e(ipoi + 1))
-        ! Heat into ions:
-        dot_params_out(4) = dot_params_out(4) + 0.5_dp * (qlheat_i(ipoi) + qlheat_i(ipoi + 1))
-
-        ! Convert momentum time derivative to rotation frequency:
-        dot_params_out(2) = dot_params_out(2) * Z_i / params(1, ipoi) * 2.0_dp / (gpp_av(ipoi + 1) &
-                                                                                  + gpp_av(ipoi))
-
-        ! Convert d(nT)/dt to dT/dt:
-        dot_params_out(3) = (-params(3, ipoi) * dot_params_out(1) + dot_params_out(3) / 1.5_dp) / &
-                            params(1, ipoi)
-        dot_params_out(4) = (-params(4, ipoi) * dot_params_out(1) + dot_params_out(4) / 1.5_dp) / &
-                            params(1, ipoi)
-
-    end subroutine compute_dot_params_at_point
 
     !===========================================================================
     ! Main public subroutines
@@ -725,6 +484,249 @@ contains
         dy = dy + dery_equisource
 
     end subroutine rhs_balance_source
+
+    !===========================================================================
+    ! Core computation routines (shared by rhs_balance and rhs_balance_source)
+    !===========================================================================
+
+    subroutine compute_radial_electric_field(npoib, rb, params_b, ddr_params, sqrt_g_B_theta_c, &
+                                             Vth_arr, q_arr, Z_i, e_charge, Ercov_out)
+        !
+        ! Compute radial electric field at all boundary points
+        !
+        ! Physics:
+        !   Ercov = sqrt_g_B_theta_c * (v_phi - Vth*q/r) + (Ti * d(ln n)/dr + dTi/dr) / (Z_i * e)
+        !
+        integer, intent(in) :: npoib
+        real(dp), intent(in) :: rb(:)
+        real(dp), intent(in) :: params_b(:, :)  ! (4, npoib)
+        real(dp), intent(in) :: ddr_params(:, :)  ! (4, npoib)
+        real(dp), intent(in) :: sqrt_g_B_theta_c(:)
+        real(dp), intent(in) :: Vth_arr(:), q_arr(:)
+        real(dp), intent(in) :: Z_i, e_charge
+        real(dp), intent(out) :: Ercov_out(:)
+
+        ! Array operations
+        Ercov_out(1:npoib) = &
+            sqrt_g_B_theta_c(1:npoib) * (params_b(2, 1:npoib) - Vth_arr(1:npoib) * &
+            q_arr(1:npoib) / rb(1:npoib)) + (params_b(4, 1:npoib) * ddr_params(1, 1:npoib) / &
+            params_b(1, 1:npoib) + ddr_params(4, 1:npoib)) / (Z_i * e_charge)
+
+    end subroutine compute_radial_electric_field
+
+    subroutine compute_fluxes_at_boundary( &
+        ! inputs:
+        ipoi, ddr_params, params_b, Ercov_val, dae11, dae12, dae22, dai11, dai12, dai22, dni22, &
+        dqle11, dqle12, dqle21, dqle22, dqli11, dqli12, dqli21, dqli22, visca, gpp_av, Sb, &
+        Z_i, e_charge, &
+        ! outputs
+        forces, gamma_e, gamma_i, gamma_ql_e, gamma_ql_i, Q_e, Q_i, flux_dif, flux_con)
+        !
+        ! Compute all fluxes at a single boundary point.
+        ! This is the core shared computation used by both rhs_balance and rhs_balance_source.
+        !
+        ! Delegates to pure helper functions for each computation step.
+        !
+        integer, intent(in) :: ipoi
+        real(dp), intent(in) :: ddr_params(:, :)  ! (4, npoib)
+        real(dp), intent(in) :: params_b(:, :)  ! (4, npoib)
+        real(dp), intent(in) :: Ercov_val
+        real(dp), intent(in) :: dae11(:), dae12(:), dae22(:)
+        real(dp), intent(in) :: dai11(:), dai12(:), dai22(:), dni22(:)
+        real(dp), intent(in) :: dqle11(:), dqle12(:), dqle21(:), dqle22(:)
+        real(dp), intent(in) :: dqli11(:), dqli12(:), dqli21(:), dqli22(:)
+        real(dp), intent(in) :: visca(:), gpp_av(:), Sb(:)
+        real(dp), intent(in) :: Z_i, e_charge
+
+        type(thermodynamic_forces_t), intent(out) :: forces
+        real(dp), intent(out) :: gamma_e, gamma_i, gamma_ql_e, gamma_ql_i
+        real(dp), intent(out) :: Q_e, Q_i
+        real(dp), intent(out) :: flux_dif(4), flux_con(4)
+
+        type(transport_fluxes_t) :: fluxes
+        real(dp) :: n_b, Te_b, Ti_b
+
+        ! Extract local values
+        n_b = params_b(1, ipoi)
+        Te_b = params_b(3, ipoi)
+        Ti_b = params_b(4, ipoi)
+
+        call compute_thermodynamic_forces(ddr_params(1, ipoi), ddr_params(3, ipoi), ddr_params(4, &
+                                           ipoi), n_b, Te_b, Ti_b, Ercov_val, e_charge, Z_i, forces)
+
+        call compute_particle_fluxes(forces, n_b, Z_i, dae11(ipoi), dae12(ipoi), dqle11(ipoi), &
+                                     dqle12(ipoi), dai11(ipoi), dai12(ipoi), dqli11(ipoi), &
+                                     dqli12(ipoi), fluxes)
+
+        ! Extract individual flux values for output and further use
+        gamma_e = fluxes%e%gamma
+        gamma_i = fluxes%i%gamma
+        gamma_ql_e = fluxes%e%gamma_ql
+        gamma_ql_i = fluxes%i%gamma_ql
+
+        call compute_heat_fluxes(forces, n_b, Te_b, Ti_b, Z_i, dae12(ipoi), dqle21(ipoi), &
+                                 dae22(ipoi) + dqle22(ipoi), dai12(ipoi), dqli21(ipoi), &
+                                 dai22(ipoi) + dni22(ipoi) + dqli22(ipoi), Q_e, Q_i)
+
+        call compute_diffusive_fluxes(ddr_params(1, ipoi), ddr_params(2, ipoi), &
+                                      ddr_params(3, ipoi), ddr_params(4, ipoi), n_b, Te_b, Ti_b, &
+                                      Z_i, Sb(ipoi), dae11(ipoi), dqle11(ipoi), dae22(ipoi), &
+                                      dqle22(ipoi), dai22(ipoi), dni22(ipoi), dqli22(ipoi), &
+                                      dqli21(ipoi), visca(ipoi), gpp_av(ipoi), flux_dif)
+
+        call compute_convective_fluxes(gamma_e, Q_e, Q_i, n_b, Te_b, Ti_b, Sb(ipoi), &
+                                       flux_dif, flux_con)
+
+    end subroutine compute_fluxes_at_boundary
+
+    subroutine compute_nonlinear_convective_flux(ipoi, gamma_e_nl, Q_e_nl, Q_i_nl, ddr_params_nl, &
+                                                 params_b, Sb, dae11, dqle11, dae22, dqle22, &
+                                                 dai22, dni22, dqli22, dqli21, Z_i, flux_con_nl)
+        !
+        ! Compute nonlinear convective flux at a single boundary point.
+        ! This is used for the upstream convection scheme.
+        !
+        integer, intent(in) :: ipoi
+        real(dp), intent(in) :: gamma_e_nl, Q_e_nl, Q_i_nl
+        real(dp), intent(in) :: ddr_params_nl(:, :)
+        real(dp), intent(in) :: params_b(:, :)
+        real(dp), intent(in) :: Sb(:)
+        real(dp), intent(in) :: dae11(:), dqle11(:)
+        real(dp), intent(in) :: dae22(:), dqle22(:)
+        real(dp), intent(in) :: dai22(:), dni22(:), dqli22(:), dqli21(:)
+        real(dp), intent(in) :: Z_i
+        real(dp), intent(out) :: flux_con_nl(4)
+
+        real(dp) :: n_b, Te_b, Ti_b
+
+        n_b = params_b(1, ipoi)
+        Te_b = params_b(3, ipoi)
+        Ti_b = params_b(4, ipoi)
+
+        ! Particle flux
+        flux_con_nl(1) = (Sb(ipoi) * gamma_e_nl - (-Sb(ipoi) * ddr_params_nl(1, ipoi) * &
+            (dae11(ipoi) + dqle11(ipoi) * (1.0_dp + Ti_b / Te_b / Z_i)))) / n_b
+
+        ! Momentum flux
+        flux_con_nl(2) = 0.0_dp
+
+        ! Electron heat flux
+        flux_con_nl(3) = (Sb(ipoi) * Q_e_nl - (-Sb(ipoi) * (dae22(ipoi) + dqle22(ipoi)) * n_b * &
+            ddr_params_nl(3, ipoi))) / Te_b
+
+        ! Ion heat flux
+        !colli - 2.5d0*dqli12 was changed to dqli21
+        flux_con_nl(4) = (Sb(ipoi) * Q_i_nl - (-Sb(ipoi) * &
+            (dai22(ipoi) + dni22(ipoi) + dqli22(ipoi) - 2.5_dp * dqli21(ipoi)) * n_b / Z_i * &
+            ddr_params_nl(4, ipoi))) / Ti_b
+
+    end subroutine compute_nonlinear_convective_flux
+
+    subroutine compute_internal_sources(ipoi, gamma_e, gamma_i, gamma_ql_e, gamma_ql_i, &
+                                        gamma_ql_e_nl, gamma_ql_i_nl, Ercov_val, sqrt_g_B_theta_c, &
+                                        Z_i, e_charge, am, p_mass, polforce_out, qlheat_e_out, &
+                                        qlheat_i_out, T_EM_phi_e_out, T_EM_phi_i_out)
+        !
+        ! Compute internal source terms at a single boundary point.
+        !
+        ! Note: T_EM_phi uses nonlinear ql fluxes, while polforce/qlheat use linear fluxes.
+        !       This is handled by calling the pure helper twice with different flux values.
+        !
+        integer, intent(in) :: ipoi
+        real(dp), intent(in) :: gamma_e, gamma_i
+        real(dp), intent(in) :: gamma_ql_e, gamma_ql_i
+        real(dp), intent(in) :: gamma_ql_e_nl, gamma_ql_i_nl
+        real(dp), intent(in) :: Ercov_val
+        real(dp), intent(in) :: sqrt_g_B_theta_c(:)
+        real(dp), intent(in) :: Z_i, e_charge, am, p_mass
+        real(dp), intent(out) :: polforce_out, qlheat_e_out, qlheat_i_out
+        real(dp), intent(out) :: T_EM_phi_e_out, T_EM_phi_i_out
+
+        real(dp) :: T_EM_phi_e_dummy, T_EM_phi_i_dummy
+        real(dp) :: polforce_dummy, qlheat_e_dummy, qlheat_i_dummy
+
+        ! Get T_EM_phi from nonlinear ql fluxes
+        call compute_source_terms(gamma_e, gamma_i, gamma_ql_e_nl, gamma_ql_i_nl, Ercov_val, &
+                                  sqrt_g_B_theta_c(ipoi), e_charge, Z_i, am, p_mass, &
+                                  polforce_dummy, qlheat_e_dummy, qlheat_i_dummy, T_EM_phi_e_out, &
+                                  T_EM_phi_i_out)
+
+        ! Get polforce and qlheat from linear fluxes
+        call compute_source_terms(gamma_e, gamma_i, gamma_ql_e, gamma_ql_i, Ercov_val, &
+                                  sqrt_g_B_theta_c(ipoi), e_charge, Z_i, am, p_mass, polforce_out, &
+                                  qlheat_e_out, qlheat_i_out, T_EM_phi_e_dummy, T_EM_phi_i_dummy)
+    end subroutine compute_internal_sources
+
+    subroutine compute_dot_params_at_point(ipoi, npoi, nbaleqs, fluxes_dif, fluxes_con, &
+                                           fluxes_con_nl, params, params_lin, params_b_lin, Sc, &
+                                           rb, rc, gpp_av, polforce, qlheat_e, qlheat_i, Z_i, &
+                                           dot_params_out)
+        !
+        ! Compute time derivatives at a single grid point.
+        !
+        ! This combines:
+        !   1. Flux divergence
+        !   2. Upstream convection
+        !   3. Internal sources
+        !   4. Unit conversions (momentum -> omega, nT -> T)
+        !
+        integer, intent(in) :: ipoi, npoi, nbaleqs
+        real(dp), intent(in) :: fluxes_dif(:, :), fluxes_con(:, :), fluxes_con_nl(:, :)
+        real(dp), intent(in) :: params(:, :), params_lin(:, :), params_b_lin(:, :)
+        real(dp), intent(in) :: Sc(:), rb(:), rc(:), gpp_av(:)
+        real(dp), intent(in) :: polforce(:), qlheat_e(:), qlheat_i(:)
+        real(dp), intent(in) :: Z_i
+        real(dp), intent(out) :: dot_params_out(4)
+
+        integer :: ieq
+        real(dp) :: convel, dr
+
+        dr = rb(ipoi + 1) - rb(ipoi)
+
+        ! Flux divergence for all 4 equations:
+        do ieq = 1, nbaleqs
+            dot_params_out(ieq) = -(fluxes_dif(ieq, ipoi + 1) - fluxes_dif(ieq, ipoi)) / &
+                (Sc(ipoi) * dr) - (fluxes_con(ieq, ipoi + 1) - fluxes_con(ieq, ipoi)) / &
+                (Sc(ipoi) * dr) * params(ieq, ipoi)
+
+            ! Upstream convection:
+            convel = 0.5_dp * (fluxes_con_nl(ieq, ipoi + 1) + fluxes_con_nl(ieq, ipoi)) / Sc(ipoi)
+            if (convel .gt. 0.0_dp) then
+                dot_params_out(ieq) = dot_params_out(ieq) - convel * &
+                    (params_lin(ieq, ipoi + 1) - params_lin(ieq, ipoi)) / (rc(ipoi + 1) - rc(ipoi))
+            else
+                if (ipoi .gt. 1) then
+                    dot_params_out(ieq) = dot_params_out(ieq) - convel * &
+                        (params_lin(ieq, ipoi - 1) - params_lin(ieq, ipoi)) / &
+                        (rc(ipoi - 1) - rc(ipoi))
+                else
+                    dot_params_out(ieq) = dot_params_out(ieq) - convel * &
+                        (params_b_lin(ieq, 1) - params_lin(ieq, 1)) / (rb(1) - rc(1))
+                end if
+            end if
+        end do
+
+        ! Add internal sources:
+        ! Momentum:
+        dot_params_out(2) = dot_params_out(2) + 0.5_dp * (polforce(ipoi) + polforce(ipoi + 1))
+
+        ! Heat into electrons:
+        dot_params_out(3) = dot_params_out(3) + 0.5_dp * (qlheat_e(ipoi) + qlheat_e(ipoi + 1))
+
+        ! Heat into ions:
+        dot_params_out(4) = dot_params_out(4) + 0.5_dp * (qlheat_i(ipoi) + qlheat_i(ipoi + 1))
+
+        ! Convert momentum time derivative to rotation frequency:
+        dot_params_out(2) = dot_params_out(2) * Z_i / params(1, ipoi) * 2.0_dp / (gpp_av(ipoi + 1) &
+                                                                                  + gpp_av(ipoi))
+
+        ! Convert d(nT)/dt to dT/dt:
+        dot_params_out(3) = (-params(3, ipoi) * dot_params_out(1) + dot_params_out(3) / 1.5_dp) / &
+                            params(1, ipoi)
+        dot_params_out(4) = (-params(4, ipoi) * dot_params_out(1) + dot_params_out(4) / 1.5_dp) / &
+                            params(1, ipoi)
+
+    end subroutine compute_dot_params_at_point
 
     !===========================================================================
     ! Testing helper functions (pure, for unit testing)

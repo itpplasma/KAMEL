@@ -21,6 +21,7 @@ module rhs_balance_m
     use QLBalance_kinds, only: dp
 
     implicit none
+
     private
 
     !---------------------------------------------------------------------------
@@ -221,10 +222,10 @@ contains
         ! Particle flux
         flux_con_nl(1) = (Sb(ipoi)*gamma_e_nl - &
                         (-Sb(ipoi)*ddr_params_nl(1, ipoi)*(dae11(ipoi) &
-                        + dqle11(ipoi)*(1._dp + Ti_b/Te_b/Z_i)))) / n_b
+                        + dqle11(ipoi)*(1.0_dp + Ti_b/Te_b/Z_i)))) / n_b
 
         ! Momentum flux
-        flux_con_nl(2) = 0._dp
+        flux_con_nl(2) = 0.0_dp
 
         ! Electron heat flux
         flux_con_nl(3) = (Sb(ipoi)*Q_e_nl - &
@@ -320,7 +321,7 @@ contains
 
             ! Upstream convection:
             convel = 0.5_dp*(fluxes_con_nl(ieq, ipoi + 1) + fluxes_con_nl(ieq, ipoi)) / Sc(ipoi)
-            if (convel .gt. 0._dp) then
+            if (convel .gt. 0.0_dp) then
                 dot_params_out(ieq) = dot_params_out(ieq) &
                     - convel*(params_lin(ieq, ipoi + 1) - params_lin(ieq, ipoi)) / (rc(ipoi + 1) - rc(ipoi))
             else
@@ -344,7 +345,7 @@ contains
 
         ! Convert momentum time derivative to rotation frequency:
         dot_params_out(2) = dot_params_out(2) * Z_i / params(1, ipoi) &
-                          * 2._dp / (gpp_av(ipoi + 1) + gpp_av(ipoi))
+                          * 2.0_dp / (gpp_av(ipoi + 1) + gpp_av(ipoi))
 
         ! Convert d(nT)/dt to dT/dt:
         dot_params_out(3) = (-params(3, ipoi)*dot_params_out(1) + dot_params_out(3)/1.5_dp) / params(1, ipoi)
@@ -375,7 +376,7 @@ contains
         real(dp) :: x
         real(dp), dimension(neqset) :: y, dy
 
-        x = 0._dp
+        x = 0.0_dp
         isw_rhs = 0
 
         call rhs_balance(x, y, dy)
@@ -487,7 +488,7 @@ contains
         ! Jacobian probing loop
         nshift = 4
         k = 0
-        dy = 0._dp
+        dy = 0.0_dp
 
         do iprobe = 1, neqset
             ! Determine affected range
@@ -881,7 +882,7 @@ contains
         real(dp) :: dfluxvphi
 
         ! Eq 1: Particle flux (diffusive part)
-        flux_dif(1) = -Sb_val*ddr_n*(dae11_val + dqle11_val*(1._dp + Ti_b/Te_b/Z_i_val))
+        flux_dif(1) = -Sb_val*ddr_n*(dae11_val + dqle11_val*(1.0_dp + Ti_b/Te_b/Z_i_val))
 
         ! Eq 2: Momentum flux (viscous)
         dfluxvphi = -visca_val*ddr_vphi*n_b/Z_i_val*gpp_av_val
@@ -912,7 +913,7 @@ contains
         flux_con(1) = (Sb_val*gamma_e - flux_dif(1))/n_b
 
         ! Eq 2: Momentum convection (zero - only viscous diffusion)
-        flux_con(2) = 0._dp
+        flux_con(2) = 0.0_dp
 
         ! Eq 3: Electron heat convection
         flux_con(3) = (Sb_val*Q_e - flux_dif(3))/Te_b
@@ -948,9 +949,9 @@ contains
         real(dp), intent(inout) :: fluxes_con(nbaleqs, *)
         real(dp), intent(inout) :: fluxes_con_nl(nbaleqs, *)
 
-        fluxes_dif(:, 1) = 0._dp
-        fluxes_con(:, 1) = 0._dp
-        fluxes_con_nl(:, 1) = 0._dp
+        fluxes_dif(:, 1) = 0.0_dp
+        fluxes_con(:, 1) = 0.0_dp
+        fluxes_con_nl(:, 1) = 0.0_dp
     end subroutine apply_boundary_conditions
 
 
@@ -972,14 +973,14 @@ contains
         real(dp), intent(out) :: flux_dif(4), flux_con(4), flux_con_nl(4)
         real(dp) :: dfluxvphi
 
-        flux_dif(1) = -Sb_val*ddr_n*(dae11_val + dqle11_val*(1._dp + Ti_b/Te_b/Z_i_val))
+        flux_dif(1) = -Sb_val*ddr_n*(dae11_val + dqle11_val*(1.0_dp + Ti_b/Te_b/Z_i_val))
         flux_con(1) = (Sb_val*gamma_e - flux_dif(1))/n_b
-        flux_con_nl(1) = (Sb_val*gamma_e_nl - (-Sb_val*ddr_n_nl*(dae11_val + dqle11_val*(1._dp + Ti_b/Te_b/Z_i_val))))/n_b
+        flux_con_nl(1) = (Sb_val*gamma_e_nl - (-Sb_val*ddr_n_nl*(dae11_val + dqle11_val*(1.0_dp + Ti_b/Te_b/Z_i_val))))/n_b
 
         dfluxvphi = -visca_val*ddr_vphi*n_b/Z_i_val*gpp_av_val
         flux_dif(2) = Sb_val*dfluxvphi
-        flux_con(2) = 0._dp
-        flux_con_nl(2) = 0._dp
+        flux_con(2) = 0.0_dp
+        flux_con_nl(2) = 0.0_dp
 
         flux_dif(3) = -Sb_val*(dae22_val + dqle22_val)*n_b*ddr_Te
         flux_con(3) = (Sb_val*Q_e - flux_dif(3))/Te_b
@@ -999,7 +1000,7 @@ contains
         real(dp), intent(out) :: dot_params_out(4)
 
         dot_params_out(1) = dot_params_in(1)
-        dot_params_out(2) = dot_params_in(2)*Z_i_val/n_val*2._dp/gpp_av_avg
+        dot_params_out(2) = dot_params_in(2)*Z_i_val/n_val*2.0_dp/gpp_av_avg
         dot_params_out(3) = (-Te_val*dot_params_in(1) + dot_params_in(3)/1.5_dp)/n_val
         dot_params_out(4) = (-Ti_val*dot_params_in(1) + dot_params_in(4)/1.5_dp)/n_val
     end subroutine compute_time_derivatives

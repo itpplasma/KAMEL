@@ -575,4 +575,345 @@ module IO_collection_m
     end function
 
 
+    subroutine write_roots_with_multiplicities(x_grid, n_grid, zeros, fzeros, &
+            multiplicities, n_roots_per_point, filename, comment)
+        !> Write complex roots with their multiplicities at each grid point.
+        !> Supports both text file and HDF5 output.
+        !>
+        !> For text output: writes a file with columns:
+        !>   grid_index, x_position, Re(zero), Im(zero), Re(f(zero)), Im(f(zero)), multiplicity
+        !>
+        !> For HDF5 output: writes three datasets:
+        !>   - filename/zeros: complex array (max_roots, n_grid)
+        !>   - filename/fzeros: complex array (max_roots, n_grid)
+        !>   - filename/multiplicities: integer array (max_roots, n_grid)
+        !>   - filename/n_roots: integer array (n_grid) with actual count per point
+
+        use KIM_kinds_m, only: dp
+        use config_m, only: output_path, hdf5_output
+        use KAMEL_hdf5_tools, only: h5_add, h5_define_group, h5_obj_exists, h5_close_group, HID_T
+
+        implicit none
+
+        integer, intent(in) :: n_grid
+        real(dp), intent(in) :: x_grid(n_grid)
+        complex(dp), intent(in) :: zeros(:,:)        ! (max_roots, n_grid)
+        complex(dp), intent(in) :: fzeros(:,:)       ! (max_roots, n_grid)
+        integer, intent(in) :: multiplicities(:,:)   ! (max_roots, n_grid)
+        integer, intent(in) :: n_roots_per_point(n_grid)
+        character(len=*), intent(in) :: filename
+        character(len=*), intent(in), optional :: comment
+
+        integer :: i, j, max_roots
+        integer(HID_T) :: h5grpid
+        logical :: ex
+        character(len=256) :: comment_str
+
+        max_roots = size(zeros, 1)
+
+        if (present(comment)) then
+            comment_str = comment
+        else
+            comment_str = 'ZEAL root finding results'
+        end if
+
+        if (hdf5_output) then
+            ! Create group for this output
+            call h5_obj_exists(h5id, trim(filename)//'/', ex)
+            if (.not. ex) then
+                call h5_define_group(h5id, trim(filename)//'/', h5grpid)
+            end if
+
+            call h5_add(h5grpid, 'zeros', zeros, [1, 1], [max_roots, n_grid], &
+                trim(comment_str)//' - complex zeros', 'cm^{-1}')
+            call h5_add(h5grpid, 'fzeros', fzeros, [1, 1], [max_roots, n_grid], &
+                trim(comment_str)//' - function values at zeros', '1')
+            call h5_add(h5grpid, 'multiplicities', multiplicities, [1, 1], [max_roots, n_grid], &
+                trim(comment_str)//' - multiplicities', '1')
+            call h5_add(h5grpid, 'n_roots', n_roots_per_point, [1], [n_grid], &
+                'Number of distinct roots at each grid point', '1')
+            call h5_add(h5grpid, 'x_grid', x_grid, [1], [n_grid], &
+                'Radial grid positions', 'cm')
+
+            call h5_close_group(h5grpid)
+            return
+        end if
+
+        ! Text file output
+        open(unit=10, file=trim(output_path)//trim(filename)//'.dat', status='replace', action='write')
+
+        ! Write header
+        write(10, '(A)') '# ' // trim(comment_str)
+        write(10, '(A)') '# grid_idx    x_position    Re(zero)    Im(zero)    ' // &
+            'Re(f(zero))    Im(f(zero))    multiplicity'
+
+        do j = 1, n_grid
+            do i = 1, n_roots_per_point(j)
+                write(10, '(I8, 5(ES22.14), I8)') j, x_grid(j), &
+                    real(zeros(i,j), dp), aimag(zeros(i,j)), &
+                    real(fzeros(i,j), dp), aimag(fzeros(i,j)), &
+                    multiplicities(i,j)
+            end do
+        end do
+
+        close(10)
+
+    end subroutine write_roots_with_multiplicities
+
+
+    subroutine track_root_branches(zeros, n_roots_per_point, n_grid, max_roots, &
+            branch_id, n_branches)
+        !> Track roots across grid points by matching closest roots between adjacent points.
+        !> Uses greedy nearest-neighbor algorithm to follow root branches.
+        !>
+        !> Output:
+        !>   branch_id(i, j) = branch index for root i at grid point j
+        !>                     0 means no root at this position
+        !>   n_branches = total number of distinct branches found
+
+        use KIM_kinds_m, only: dp
+
+        implicit none
+
+        integer, intent(in) :: n_grid, max_roots
+        complex(dp), intent(in) :: zeros(max_roots, n_grid)
+        integer, intent(in) :: n_roots_per_point(n_grid)
+        integer, intent(out) :: branch_id(max_roots, n_grid)
+        integer, intent(out) :: n_branches
+
+        integer :: j, i, k, best_match, current_branch
+        real(dp) :: dist, best_dist
+        logical :: matched(max_roots)
+        integer :: prev_branch(max_roots)  ! branch IDs at previous grid point
+
+        ! Initialize
+        branch_id = 0
+        n_branches = 0
+
+        ! Handle empty case
+        if (n_grid == 0) return
+        if (n_roots_per_point(1) == 0) return
+
+        ! Initialize first grid point: each root gets a unique branch ID
+        do i = 1, n_roots_per_point(1)
+            n_branches = n_branches + 1
+            branch_id(i, 1) = n_branches
+        end do
+
+        ! Track through remaining grid points
+        do j = 2, n_grid
+            if (n_roots_per_point(j) == 0) cycle
+
+            ! Store branch IDs from previous point for matching
+            prev_branch = 0
+            do i = 1, n_roots_per_point(j-1)
+                prev_branch(i) = branch_id(i, j-1)
+            end do
+
+            matched = .false.
+
+            ! For each root at current grid point, find closest match at previous point
+            do i = 1, n_roots_per_point(j)
+                best_match = 0
+                best_dist = huge(1.0_dp)
+
+                ! Search for closest unmatched root at previous grid point
+                do k = 1, n_roots_per_point(j-1)
+                    if (matched(k)) cycle
+
+                    dist = abs(zeros(i, j) - zeros(k, j-1))
+                    if (dist < best_dist) then
+                        best_dist = dist
+                        best_match = k
+                    end if
+                end do
+
+                if (best_match > 0) then
+                    ! Continue existing branch
+                    branch_id(i, j) = prev_branch(best_match)
+                    matched(best_match) = .true.
+                else
+                    ! Start new branch (more roots than previous point)
+                    n_branches = n_branches + 1
+                    branch_id(i, j) = n_branches
+                end if
+            end do
+        end do
+
+    end subroutine track_root_branches
+
+
+    subroutine write_tracked_roots(x_grid, n_grid, zeros, fzeros, multiplicities, &
+            n_roots_per_point, branch_id, n_branches, filename, comment)
+        !> Write roots organized by branch (tracked across grid points).
+        !> Each branch represents a continuous root that can be followed radially.
+        !>
+        !> For text output: writes one file per branch with columns:
+        !>   x_position, Re(zero), Im(zero), Re(f(zero)), Im(f(zero)), multiplicity
+        !>
+        !> For HDF5 output: writes datasets organized by branch index
+
+        use KIM_kinds_m, only: dp
+        use config_m, only: output_path, hdf5_output
+        use KAMEL_hdf5_tools, only: h5_add, h5_define_group, h5_obj_exists, h5_close_group, HID_T
+
+        implicit none
+
+        integer, intent(in) :: n_grid, n_branches
+        real(dp), intent(in) :: x_grid(n_grid)
+        complex(dp), intent(in) :: zeros(:,:)
+        complex(dp), intent(in) :: fzeros(:,:)
+        integer, intent(in) :: multiplicities(:,:)
+        integer, intent(in) :: n_roots_per_point(n_grid)
+        integer, intent(in) :: branch_id(:,:)
+        character(len=*), intent(in) :: filename
+        character(len=*), intent(in), optional :: comment
+
+        integer :: i, j, b, max_roots, n_points_in_branch
+        integer(HID_T) :: h5grpid, h5branchid
+        logical :: ex
+        character(len=256) :: comment_str, branch_filename
+        character(len=16) :: branch_name
+
+        ! Arrays for single branch data
+        real(dp), allocatable :: branch_x(:)
+        complex(dp), allocatable :: branch_zeros(:), branch_fzeros(:)
+        integer, allocatable :: branch_mult(:)
+
+        max_roots = size(zeros, 1)
+
+        if (present(comment)) then
+            comment_str = comment
+        else
+            comment_str = 'ZEAL tracked root branches'
+        end if
+
+        ! Allocate temporary arrays for branch data
+        allocate(branch_x(n_grid))
+        allocate(branch_zeros(n_grid))
+        allocate(branch_fzeros(n_grid))
+        allocate(branch_mult(n_grid))
+
+        if (hdf5_output) then
+            ! Create main group
+            call h5_obj_exists(h5id, trim(filename)//'/', ex)
+            if (.not. ex) then
+                call h5_define_group(h5id, trim(filename)//'/', h5grpid)
+            end if
+
+            call h5_add(h5grpid, 'n_branches', n_branches, &
+                'Total number of tracked branches', '1')
+            call h5_add(h5grpid, 'x_grid', x_grid, [1], [n_grid], &
+                'Radial grid positions', 'cm')
+
+            ! Write each branch
+            do b = 1, n_branches
+                write(branch_name, '(A,I0)') 'branch_', b
+
+                ! Collect data for this branch
+                n_points_in_branch = 0
+                do j = 1, n_grid
+                    do i = 1, n_roots_per_point(j)
+                        if (branch_id(i, j) == b) then
+                            n_points_in_branch = n_points_in_branch + 1
+                            branch_x(n_points_in_branch) = x_grid(j)
+                            branch_zeros(n_points_in_branch) = zeros(i, j)
+                            branch_fzeros(n_points_in_branch) = fzeros(i, j)
+                            branch_mult(n_points_in_branch) = multiplicities(i, j)
+                            exit  ! Only one root per branch per grid point
+                        end if
+                    end do
+                end do
+
+                if (n_points_in_branch > 0) then
+                    call h5_define_group(h5grpid, trim(branch_name)//'/', h5branchid)
+                    call h5_add(h5branchid, 'x', branch_x(1:n_points_in_branch), &
+                        [1], [n_points_in_branch], 'Radial positions for this branch', 'cm')
+                    call h5_add(h5branchid, 'zeros', branch_zeros(1:n_points_in_branch), &
+                        [1], [n_points_in_branch], 'Complex zeros along branch', 'cm^{-1}')
+                    call h5_add(h5branchid, 'fzeros', branch_fzeros(1:n_points_in_branch), &
+                        [1], [n_points_in_branch], 'Function values at zeros', '1')
+                    call h5_add(h5branchid, 'multiplicities', branch_mult(1:n_points_in_branch), &
+                        [1], [n_points_in_branch], 'Multiplicities along branch', '1')
+                    call h5_add(h5branchid, 'n_points', n_points_in_branch, &
+                        'Number of grid points in this branch', '1')
+                    call h5_close_group(h5branchid)
+                end if
+            end do
+
+            call h5_close_group(h5grpid)
+
+        else
+            ! Text file output: one file per branch
+            do b = 1, n_branches
+                write(branch_filename, '(A,A,I0,A)') trim(filename), '_branch_', b, '.dat'
+
+                ! Collect data for this branch
+                n_points_in_branch = 0
+                do j = 1, n_grid
+                    do i = 1, n_roots_per_point(j)
+                        if (branch_id(i, j) == b) then
+                            n_points_in_branch = n_points_in_branch + 1
+                            branch_x(n_points_in_branch) = x_grid(j)
+                            branch_zeros(n_points_in_branch) = zeros(i, j)
+                            branch_fzeros(n_points_in_branch) = fzeros(i, j)
+                            branch_mult(n_points_in_branch) = multiplicities(i, j)
+                            exit
+                        end if
+                    end do
+                end do
+
+                if (n_points_in_branch > 0) then
+                    open(unit=10, file=trim(output_path)//trim(branch_filename), &
+                        status='replace', action='write')
+
+                    write(10, '(A,I0)') '# ' // trim(comment_str) // ' - Branch ', b
+                    write(10, '(A)') '# x_position    Re(zero)    Im(zero)    ' // &
+                        'Re(f(zero))    Im(f(zero))    multiplicity'
+
+                    do i = 1, n_points_in_branch
+                        write(10, '(5(ES22.14), I8)') branch_x(i), &
+                            real(branch_zeros(i), dp), aimag(branch_zeros(i)), &
+                            real(branch_fzeros(i), dp), aimag(branch_fzeros(i)), &
+                            branch_mult(i)
+                    end do
+
+                    close(10)
+                end if
+            end do
+
+            ! Also write a summary file
+            open(unit=10, file=trim(output_path)//trim(filename)//'_summary.dat', &
+                status='replace', action='write')
+            write(10, '(A)') '# ' // trim(comment_str)
+            write(10, '(A,I0)') '# Total branches found: ', n_branches
+            write(10, '(A)') '# branch_id    n_points    start_x    end_x'
+
+            do b = 1, n_branches
+                n_points_in_branch = 0
+                do j = 1, n_grid
+                    do i = 1, n_roots_per_point(j)
+                        if (branch_id(i, j) == b) then
+                            n_points_in_branch = n_points_in_branch + 1
+                            if (n_points_in_branch == 1) then
+                                branch_x(1) = x_grid(j)  ! start position
+                            end if
+                            branch_x(2) = x_grid(j)  ! end position (updated each time)
+                            exit
+                        end if
+                    end do
+                end do
+                if (n_points_in_branch > 0) then
+                    write(10, '(I8, I12, 2(ES16.8))') b, n_points_in_branch, &
+                        branch_x(1), branch_x(2)
+                end if
+            end do
+            close(10)
+        end if
+
+        deallocate(branch_x, branch_zeros, branch_fzeros, branch_mult)
+
+    end subroutine write_tracked_roots
+
+
 end module

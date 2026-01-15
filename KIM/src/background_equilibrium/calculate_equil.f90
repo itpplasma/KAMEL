@@ -52,9 +52,16 @@ module equilibrium_m
 
             if(.not. allocated(coef)) allocate(coef(0:nder, nlagr))
 
-            allocate(u(plasma%grid_size), B0z(plasma%grid_size), dpress_prof(plasma%grid_size), &
-                    B0th(plasma%grid_size), B0(plasma%grid_size), hz(plasma%grid_size), hth(plasma%grid_size),&
+            allocate(u(plasma%grid_size), &
+                    B0z(plasma%grid_size), &
+                    dpress_prof(plasma%grid_size), &
+                    B0th(plasma%grid_size), &
+                    B0(plasma%grid_size), &
+                    hz(plasma%grid_size), &
+                    hth(plasma%grid_size),&
                     equil_grid(plasma%grid_size))
+
+            equil_grid = plasma%r_grid ! for future modifications
 
             if (fstatus == 1) write(*,*) 'Status: Calculating equilibrium, write_out=', write_out
             if (.not. allocated(plasma%spec(0)%dndr)) then
@@ -96,7 +103,7 @@ module equilibrium_m
                 u(i) = u0
                 info(1) = 1
             end do
-            
+
             allocate(plasma%B0(plasma%grid_size))
             allocate(plasma%ks(plasma%grid_size))
             allocate(plasma%kp(plasma%grid_size))
@@ -156,54 +163,31 @@ module equilibrium_m
 
                 end subroutine
 
+                subroutine write_equil
+
+                    use config_m, only: output_path, hdf5_output, fstatus
+                    use IO_collection_m, only: write_profile
+
+                    implicit none
+
+                    if(fstatus == 1) write(*,*) 'Status: Writing equilibrium'
+
+                    call write_profile(equil_grid, B0z, size(equil_grid), 'backs/B0z', &
+                                        'z component of equilibrium magnetic field', 'G')
+                    call write_profile(equil_grid, B0th, size(equil_grid), 'backs/B0th', &
+                                        'Poloidal component of equilibrium magnetic field', 'G')
+                    call write_profile(equil_grid, B0, size(equil_grid), 'backs/B0', &
+                                        'Magnitude of equilibrium magnetic field', 'G')
+                    call write_profile(equil_grid, hz, size(equil_grid), 'backs/hz', &
+                                        'z direction of equilibrium magnetic field', '1')
+                    call write_profile(equil_grid, hth, size(equil_grid), 'backs/hth', &
+                                        'Poloidal direction of equilibrium magnetic field', '1')
+
+                end subroutine
+
+
         end subroutine
         
-        subroutine write_equil
-
-            use config_m, only: output_path, hdf5_output, fstatus
-
-            implicit none
-
-            character(1024) :: filename
-            logical :: ex
-
-            if(fstatus == 1) write(*,*) 'Status: Writing equilibrium'
-
-            if (hdf5_output) then
-
-            else
-
-                inquire(file=trim(output_path)//'backs', exist=ex)
-                if (.not. ex) then
-                    call system('mkdir -p '//trim(output_path)//'backs')
-                end if
-                open(unit = 78, file = trim(output_path)//'backs/'//'B0z.dat')
-                open(unit = 80, file = trim(output_path)//'backs/'//'B0th.dat')
-                open(unit = 81, file = trim(output_path)//'backs/'//'B0.dat')
-                open(unit = 82, file = trim(output_path)//'backs/'//'hz.dat')
-                open(unit = 83, file = trim(output_path)//'backs/'//'hth.dat')
-                open(unit = 79, file = trim(output_path)//'backs/'//'dpress.dat')
-                open(unit = 87, file = trim(output_path)//'backs/'//'p_tot.dat')
-
-                do i = 1, size(equil_grid)
-                    write(78, *) equil_grid(i), B0z(i)
-                    write(80, *) equil_grid(i), B0th(i)
-                    write(81, *) equil_grid(i), B0(i)
-                    write(82, *) equil_grid(i), hz(i)
-                    write(83, *) equil_grid(i), hth(i)
-                end do
-                close(78)
-                close(79)
-                close(80)
-                close(82)
-                close(81)
-                close(83)
-                close(87)
-
-            end if
-
-        end subroutine
-
 
         subroutine interpolate_equil(grid)
 

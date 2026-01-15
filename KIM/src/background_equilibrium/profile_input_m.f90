@@ -6,6 +6,7 @@ module profile_input_m
     use config_m, only: coord_type, input_profile_dir, equil_file, profile_location
     use setup_m, only: btor, R0
     use constants_m, only: e_charge, sol
+    use profile_preprocessor_m, only: profile_preprocessor_t
 
     implicit none
     private
@@ -93,8 +94,72 @@ contains
 
     subroutine run_preprocessing()
         !> Run profile_preprocessor for sqrt_psiN -> r_eff transformation
-        ! Placeholder - will implement
+        implicit none
+
+        type(profile_preprocessor_t) :: preprocessor
+        character(256) :: equil_path
+        logical :: equil_exists
+        character(256) :: temp_nml_file
+        integer :: iunit
+
+        ! Determine equilibrium file path
+        if (len_trim(equil_file) > 0) then
+            equil_path = equil_file
+        else
+            equil_path = trim(input_profile_dir) // '/equil_r_q_psi.dat'
+        end if
+
+        inquire(file=trim(equil_path), exist=equil_exists)
+        if (.not. equil_exists) then
+            write(*,*) 'ERROR: Equilibrium file not found: ', trim(equil_path)
+            write(*,*) 'Cannot perform sqrt_psiN -> r_eff transformation'
+            stop 1
+        end if
+
+        write(*,*) 'Running profile preprocessing (sqrt_psiN -> r_eff)'
+        write(*,*) '  Input directory: ', trim(input_profile_dir)
+        write(*,*) '  Equilibrium: ', trim(equil_path)
+        write(*,*) '  Output directory: ', trim(profile_location)
+
+        ! Create temporary namelist file for the preprocessor
+        temp_nml_file = trim(profile_location) // '/.profile_preproc_temp.nml'
+        call write_preprocessor_namelist(temp_nml_file, equil_path)
+
+        ! Initialize and run preprocessor
+        call preprocessor%init(trim(temp_nml_file))
+        call preprocessor%process()
+        call preprocessor%write_output()
+        call preprocessor%cleanup()
+
+        ! Remove temporary namelist file
+        open(newunit=iunit, file=trim(temp_nml_file), status='old')
+        close(iunit, status='delete')
+
+        write(*,*) 'Profile preprocessing complete'
+
     end subroutine run_preprocessing
+
+    subroutine write_preprocessor_namelist(filename, equil_path)
+        !> Write temporary namelist file for profile_preprocessor
+        character(*), intent(in) :: filename
+        character(*), intent(in) :: equil_path
+
+        integer :: iunit
+
+        open(newunit=iunit, file=trim(filename), status='replace', action='write')
+        write(iunit, '(A)') '&profile_preprocessor'
+        write(iunit, '(A)') '  equil_file = "' // trim(equil_path) // '"'
+        write(iunit, '(A)') '  input_dir = "' // trim(input_profile_dir) // '"'
+        write(iunit, '(A)') '  output_dir = "' // trim(profile_location) // '"'
+        write(iunit, '(A)') '  coord_type = 1'  ! COORD_SQRT_PSIN
+        write(iunit, '(A)') '  n_input_file = "n_of_psiN.dat"'
+        write(iunit, '(A)') '  Te_input_file = "Te_of_psiN.dat"'
+        write(iunit, '(A)') '  Ti_input_file = "Ti_of_psiN.dat"'
+        write(iunit, '(A)') '  Vz_input_file = "Vz_of_psiN.dat"'
+        write(iunit, '(A)') '/'
+        close(iunit)
+
+    end subroutine write_preprocessor_namelist
 
     subroutine check_and_calculate_er(er_exists)
         !> Check for Er.dat, calculate from force balance if missing

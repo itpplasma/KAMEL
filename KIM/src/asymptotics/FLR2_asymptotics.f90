@@ -209,7 +209,7 @@ module flr2_asymptotics_m
                             (&
                                 plasma_in%spec(sp)%I00(j, 0) * (&
                                     gsl_sf_bessel_In(0, b) * (plasma_in%spec(sp)%A1(j) + plasma_in%spec(sp)%A2(j) * (1-b)) &
-                                    + 0.5d0 * plasma_in%spec(sp)%A2(j) * b * gsl_sf_bessel_In(-1, b) &
+                                    + plasma_in%spec(sp)%A2(j) * b * gsl_sf_bessel_In(-1, b) &
                                 )&
                                 + 0.5d0 * plasma_in%spec(sp)%I20(j, 0) * plasma_in%spec(sp)%A2(j) * gsl_sf_bessel_In(0, b) &
                             )
@@ -218,7 +218,7 @@ module flr2_asymptotics_m
                             (&
                                 plasma_in%spec(sp)%I01(j, 0) * (&
                                     gsl_sf_bessel_In(0, b) * (plasma_in%spec(sp)%A1(j) + plasma_in%spec(sp)%A2(j) * (1-b)) &
-                                    + 0.5d0 * plasma_in%spec(sp)%A2(j) * b * gsl_sf_bessel_In(-1, b) &
+                                    + plasma_in%spec(sp)%A2(j) * b * gsl_sf_bessel_In(-1, b) &
                                 )&
                                 + 0.5d0 * plasma_in%spec(sp)%I21(j, 0) * plasma_in%spec(sp)%A2(j) * gsl_sf_bessel_In(0, b) &
                             )
@@ -228,7 +228,7 @@ module flr2_asymptotics_m
                             (&
                                 plasma_in%spec(sp)%I01(j, 0) * (&
                                     gsl_sf_bessel_In(0, b) * (plasma_in%spec(sp)%A1(j) + plasma_in%spec(sp)%A2(j) * (1-b)) &
-                                    + 0.5d0 * plasma_in%spec(sp)%A2(j) * b * gsl_sf_bessel_In(-1, b) &
+                                    + plasma_in%spec(sp)%A2(j) * b * gsl_sf_bessel_In(-1, b) &
                                 )&
                                 + 0.5d0 * plasma_in%spec(sp)%I21(j, 0) * plasma_in%spec(sp)%A2(j) * gsl_sf_bessel_In(0, b) &
                             )
@@ -238,7 +238,7 @@ module flr2_asymptotics_m
                             (&
                                 plasma_in%spec(sp)%I11(j, 0) * (&
                                     gsl_sf_bessel_In(0, b) * (plasma_in%spec(sp)%A1(j) + plasma_in%spec(sp)%A2(j) * (1-b)) &
-                                    + 0.5d0 * plasma_in%spec(sp)%A2(j) * b * gsl_sf_bessel_In(-1, b) &
+                                    + plasma_in%spec(sp)%A2(j) * b * gsl_sf_bessel_In(-1, b) &
                                 )&
                                 + 0.5d0 * plasma_in%spec(sp)%I13(j, 0) * plasma_in%spec(sp)%A2(j) * gsl_sf_bessel_In(0, b) &
                             )

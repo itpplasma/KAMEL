@@ -109,6 +109,9 @@ add_subdirectory(KiLCA)
 add_subdirectory(KIM)
 add_subdirectory(QL-Balance)
 
+# Preprocessing tools
+add_subdirectory(PreProc/fourier)
+
 # Install symbolic link for KIM if requested
 if(INSTALL_KIM_SYMLINK)
     # Create a custom target to install the symlink

@@ -1,15 +1,31 @@
 import subprocess
 import os
+from pathlib import Path
 import re
 import shutil
 import numpy as np
 import h5py
-CODE = os.environ['CODE']
+
+def get_base_path() -> Path:
+    '''
+        Check if the current KAMEL path is the one of the environment variable CODE.
+        If not, assume this is a development repo and use this path instead.
+    '''
+    env_base = Path(os.environ['CODE']).resolve()
+    code_base = Path(__file__).resolve().parents[2]
+
+    # If code is not inside the env base, assume dev checkout
+    if not code_base.is_relative_to(env_base):
+        return code_base
+
+    return env_base
+
+CODE = get_base_path()
 
 class KIMpy:
 
-    kim_config_nml = CODE + '/KAMEL/KIM/nmls/KIM_config.nml'
-    kim_exe_path = CODE + '/KAMEL/build/install/bin/KIM.x'
+    kim_config_nml = str(CODE.absolute()) + '/KAMEL/KIM/nmls/KIM_config.nml'
+    kim_exe_path = str(CODE.absolute()) + '/KAMEL/build/install/bin/KIM.x'
     omp_num_threads = 8
 
     def __init__(self, runpath):
@@ -17,9 +33,12 @@ class KIMpy:
         self.runpath = runpath
 
         self.command = './KIM.x'
-        os.system('ln -sf ' + self.kim_exe_path + ' '+ self.runpath + 'KIM.x')
+
+        if not os.path.isfile(self.runpath + 'KIM.x'):
+            os.system('ln -sf ' + self.kim_exe_path + ' '+ self.runpath + 'KIM.x')
         
-        shutil.copy2(self.kim_config_nml, self.runpath + 'KIM_config.nml')
+        if not os.path.isfile(self.runpath + 'KIM_config.nml'):
+            shutil.copy2(self.kim_config_nml, self.runpath + 'KIM_config.nml')
         self.kim_config_nml = self.runpath + 'KIM_config.nml'
         
 

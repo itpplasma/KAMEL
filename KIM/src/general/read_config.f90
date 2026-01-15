@@ -18,6 +18,11 @@ subroutine read_config
                         turn_off_ions, turn_off_electrons, plasma_type, rescale_density, &
                         number_density_rescale, ion_flr_scale_factor
 
+    namelist /WKB_DISPERSION/ WKB_dispersion_mode, WKB_dispersion_solver, &
+                        WKB_max_tracked_branches, WKB_branch_search_halfwidth, &
+                        WKB_broad_search_halfwidth, WKB_broad_search_interval, &
+                        WKB_root_tolerance, WKB_verbose
+
     namelist /KIM_IO/ profile_location, hdf5_input, hdf5_output, &
                         fdebug, fstatus, output_path, calculate_asymptotics, fdiagnostics, &
                         h5_out_file
@@ -50,6 +55,7 @@ subroutine read_config
 
     open(unit = 77, file = trim(nml_config_path))
     read(unit = 77, nml = KIM_CONFIG)
+    read(unit = 77, nml = WKB_DISPERSION)
     read(unit = 77, nml = KIM_IO)
     read(unit = 77, nml = KIM_SETUP)
     read(unit = 77, nml = KIM_GRID)

@@ -49,8 +49,9 @@ set(KIM_background_equilibrium background_equilibrium/species_mod.f90
                             background_equilibrium/calculate_equil.f90
 )
 
-set(KIM_dispersion dispersion/fun_input.f90
+set(KIM_dispersion  dispersion/fun_input.f90
                     dispersion/wkb_dispersion.f90
+                    dispersion/root_finding.f90
 )
 
 set(KIM_poisson electrostatic_poisson/poisson.f90
@@ -74,15 +75,16 @@ set(KIM_fokkerplanck ${CMAKE_SOURCE_DIR}/QL-Balance/src/base/getIfunc.f90
 set(KIM_asymptotics asymptotics/FLR2_asymptotics.f90)
 
 # Keep Zeal sources for root finding, but do not use its QUADPACK copies
-set(external_dir ${zeal_SOURCE_DIR})
+# Use local modified copy of zeal_input.f90 instead of original form Zeal
+set(external_dir ${CMAKE_BINARY_DIR}/_deps/zeal-src/)
 set(external_zeal
-    ${external_dir}/zeal_input.f90
+    ${external_dir}/prec.f90
+    dispersion/zeal_input.f90
     ${external_dir}/integr_input.f90
-    ${external_dir}/split.f90
-    ${external_dir}/quad.f90
-    ${external_dir}/refine.f90
     ${external_dir}/error.f90
+    ${external_dir}/quad.f90
+    ${external_dir}/split.f90
+    ${external_dir}/refine.f90
     ${external_dir}/zeal.f90
     ${external_dir}/zeros.f90
-    ${external_dir}/prec.f90
-)
+    )

@@ -725,28 +725,7 @@ module species_m
                     'backs/'//trim(spec%name)//'/I12_cc_mphi_'//trim(adjustl(itoa(mphi))), &
                     'Susceptibility function I12 at cell centers, mphi='//trim(adjustl(itoa(mphi))), '1')
             end do
-            !call write_profile(r_grid_cc, spec%x2_cc, size(r_grid_cc), &
-                !'backs/'//trim(spec%name)//'/x2_cc', &
-                !'Normalized collision frequency x2 at cell centers', '1')
 
-            !call write_complex_profile(r_grid_cc, spec%I00_cc, size(r_grid_cc), &
-                !'backs/'//trim(spec%name)//'/I00_cc', &
-                !'Susceptibility function I00 at cell centers', '1')
-            !call write_complex_profile(r_grid_cc, spec%I20_cc, size(r_grid_cc), &
-                !'backs/'//trim(spec%name)//'/I20_cc', &
-                !'Susceptibility function I20 at cell centers', '1')
-            !call write_complex_profile(r_grid_cc, spec%I01_cc, size(r_grid_cc), &
-                !'backs/'//trim(spec%name)//'/I01_cc', &
-                !'Susceptibility function I01 at cell centers', '1')
-            !call write_complex_profile(r_grid_cc, spec%I21_cc, size(r_grid_cc), &
-                !'backs/'//trim(spec%name)//'/I21_cc', &
-                !'Susceptibility function I21 at cell centers', '1')
-            !call write_complex_profile(r_grid_cc, spec%I22_cc, size(r_grid_cc), &
-                !'backs/'//trim(spec%name)//'/I22_cc', &
-                !'Susceptibility function I22 at cell centers', '1')
-            !call write_complex_profile(r_grid_cc, spec%I02_cc, size(r_grid_cc), &
-                !'backs/'//trim(spec%name)//'/I02_cc', &
-                !'Susceptibility function I02 at cell centers', '1')
         end if
 
     end subroutine

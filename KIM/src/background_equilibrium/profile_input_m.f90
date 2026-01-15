@@ -103,8 +103,55 @@ contains
     end subroutine check_and_calculate_er
 
     subroutine validate_btor_rbig()
-        !> Compare namelist btor/R0 with btor_rbig.dat, warn on mismatch
-        ! Placeholder - will implement
+        !> Compare namelist btor/R0 with btor_rbig.dat, warn on mismatch >1%
+        implicit none
+
+        character(256) :: filename
+        real(dp) :: file_btor, file_rbig
+        real(dp) :: btor_diff, rbig_diff
+        integer :: iunit, ios
+        logical :: file_exists
+        real(dp), parameter :: MISMATCH_THRESHOLD = 0.01_dp  ! 1%
+
+        filename = trim(profile_location) // '/btor_rbig.dat'
+        inquire(file=trim(filename), exist=file_exists)
+
+        if (.not. file_exists) then
+            write(*,*) 'Note: btor_rbig.dat not found, using namelist values only'
+            return
+        end if
+
+        ! Read btor_rbig.dat
+        open(newunit=iunit, file=trim(filename), status='old', action='read')
+        read(iunit, *, iostat=ios) file_btor, file_rbig
+        close(iunit)
+
+        if (ios /= 0) then
+            write(*,*) 'WARNING: Could not read btor_rbig.dat'
+            return
+        end if
+
+        ! Compare with namelist values
+        if (abs(btor) > 1.0e-10_dp) then
+            btor_diff = abs(file_btor - btor) / abs(btor)
+            if (btor_diff > MISMATCH_THRESHOLD) then
+                write(*,*) 'WARNING: btor mismatch > 1%'
+                write(*,*) '  Namelist btor = ', btor
+                write(*,*) '  File btor     = ', file_btor
+                write(*,*) '  Difference    = ', btor_diff * 100.0_dp, '%'
+            end if
+        end if
+
+        if (abs(R0) > 1.0e-10_dp) then
+            rbig_diff = abs(file_rbig - R0) / abs(R0)
+            if (rbig_diff > MISMATCH_THRESHOLD) then
+                write(*,*) 'WARNING: R0 mismatch > 1%'
+                write(*,*) '  Namelist R0 = ', R0
+                write(*,*) '  File rbig   = ', file_rbig
+                write(*,*) '  Difference  = ', rbig_diff * 100.0_dp, '%'
+            end if
+        end if
+
     end subroutine validate_btor_rbig
 
 end module profile_input_m

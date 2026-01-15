@@ -17,6 +17,7 @@ module equil_profiles_m
     use rk4_integrator_m, only: rk4_step
     use field_line_rhs_m, only: set_field_line_mode, get_dz_dphi, field_line_rhs
     use field_eq_mod, only: btf, rtf, psif, nrad, nzet, rad, zet
+    use field_sub, only: field_eq
 
     implicit none
     private

@@ -85,6 +85,7 @@ contains
     !> @param[in] equil_in Optional pre-computed equilibrium profiles
     !---------------------------------------------------------------------------
     subroutine profile_preprocessor_init(self, namelist_file, equil_in)
+        implicit none
         class(profile_preprocessor_t), intent(inout) :: self
         character(len=*), intent(in) :: namelist_file
         type(equil_profiles_t), intent(in), optional :: equil_in
@@ -203,6 +204,7 @@ contains
     !> Read equilibrium mapping from equil_r_q_psi.dat file
     !---------------------------------------------------------------------------
     subroutine read_equil_file(self, filename)
+        implicit none
         class(profile_preprocessor_t), intent(inout) :: self
         character(len=*), intent(in) :: filename
 
@@ -284,6 +286,7 @@ contains
     !> Load equilibrium mapping from equil_profiles_t
     !---------------------------------------------------------------------------
     subroutine load_from_equil_profiles(self, equil)
+        implicit none
         class(profile_preprocessor_t), intent(inout) :: self
         type(equil_profiles_t), intent(in) :: equil
 
@@ -308,6 +311,7 @@ contains
     !> Compute equilibrium profiles from scratch
     !---------------------------------------------------------------------------
     subroutine compute_equilibrium(self, equil)
+        implicit none
         class(profile_preprocessor_t), intent(in) :: self
         type(equil_profiles_t), intent(out) :: equil
 
@@ -335,6 +339,7 @@ contains
     !> Process input profiles: read, interpolate, and store
     !---------------------------------------------------------------------------
     subroutine profile_preprocessor_process(self)
+        implicit none
         class(profile_preprocessor_t), intent(inout) :: self
 
         if (.not. self%initialized) then
@@ -354,6 +359,7 @@ contains
     !> Process a single profile file
     !---------------------------------------------------------------------------
     subroutine process_single_profile(self, filename, profile_out, has_profile, profile_name)
+        implicit none
         class(profile_preprocessor_t), intent(inout) :: self
         character(len=*), intent(in) :: filename
         double precision, intent(out) :: profile_out(:)
@@ -503,6 +509,7 @@ contains
     !> Check if a line contains data (not a header/comment)
     !---------------------------------------------------------------------------
     function is_data_line(line) result(is_data)
+        implicit none
         character(len=*), intent(in) :: line
         logical :: is_data
         character(len=1024) :: trimmed
@@ -533,6 +540,7 @@ contains
     !> Natural cubic spline with zero second derivatives at boundaries
     !---------------------------------------------------------------------------
     subroutine cubic_spline_interpolate(x_in, y_in, n_in, x_out, y_out, n_out)
+        implicit none
         integer, intent(in) :: n_in, n_out
         double precision, intent(in) :: x_in(n_in), y_in(n_in)
         double precision, intent(in) :: x_out(n_out)
@@ -615,11 +623,10 @@ contains
     !> Write output profiles to files
     !---------------------------------------------------------------------------
     subroutine profile_preprocessor_write_output(self)
+        implicit none
         class(profile_preprocessor_t), intent(in) :: self
 
         character(len=512) :: filepath
-        integer :: iunit, i, ios
-        logical :: dir_exists
 
         if (.not. self%initialized) then
             write(*,*) '[profile_preprocessor_m:write_output] ERROR: Not initialized'
@@ -663,6 +670,7 @@ contains
     !> Write a single profile to file
     !---------------------------------------------------------------------------
     subroutine write_profile_file(filepath, r_eff, profile, n)
+        implicit none
         character(len=*), intent(in) :: filepath
         double precision, intent(in) :: r_eff(n), profile(n)
         integer, intent(in) :: n
@@ -688,6 +696,7 @@ contains
     !> Get density at arbitrary r_eff (interpolation)
     !---------------------------------------------------------------------------
     function profile_preprocessor_get_n(self, r) result(val)
+        implicit none
         class(profile_preprocessor_t), intent(in) :: self
         double precision, intent(in) :: r
         double precision :: val
@@ -710,6 +719,7 @@ contains
     !> Get electron temperature at arbitrary r_eff
     !---------------------------------------------------------------------------
     function profile_preprocessor_get_Te(self, r) result(val)
+        implicit none
         class(profile_preprocessor_t), intent(in) :: self
         double precision, intent(in) :: r
         double precision :: val
@@ -732,6 +742,7 @@ contains
     !> Get ion temperature at arbitrary r_eff
     !---------------------------------------------------------------------------
     function profile_preprocessor_get_Ti(self, r) result(val)
+        implicit none
         class(profile_preprocessor_t), intent(in) :: self
         double precision, intent(in) :: r
         double precision :: val
@@ -754,6 +765,7 @@ contains
     !> Get toroidal rotation at arbitrary r_eff
     !---------------------------------------------------------------------------
     function profile_preprocessor_get_Vz(self, r) result(val)
+        implicit none
         class(profile_preprocessor_t), intent(in) :: self
         double precision, intent(in) :: r
         double precision :: val
@@ -776,6 +788,7 @@ contains
     !> Interpolate profile at given r using cubic spline
     !---------------------------------------------------------------------------
     subroutine interpolate_at_r(r_grid, profile, n, r, val)
+        implicit none
         integer, intent(in) :: n
         double precision, intent(in) :: r_grid(n), profile(n)
         double precision, intent(in) :: r
@@ -799,6 +812,7 @@ contains
     !> Clean up allocated memory
     !---------------------------------------------------------------------------
     subroutine profile_preprocessor_cleanup(self)
+        implicit none
         class(profile_preprocessor_t), intent(inout) :: self
 
         if (allocated(self%r_eff)) deallocate(self%r_eff)

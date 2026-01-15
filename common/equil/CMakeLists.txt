@@ -83,4 +83,15 @@ if(BUILD_TESTING)
         RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/test
     )
     add_test(NAME test_rk4_integrator COMMAND test_rk4_integrator)
+
+    # Test for profile preprocessor
+    add_executable(test_profile_preprocessor
+        ${CMAKE_CURRENT_SOURCE_DIR}/test/test_profile_preprocessor.f90
+    )
+    target_link_libraries(test_profile_preprocessor PRIVATE kamel_equil)
+    target_include_directories(test_profile_preprocessor PRIVATE ${EQUIL_MODULE_DIR})
+    set_target_properties(test_profile_preprocessor PROPERTIES
+        RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/test
+    )
+    add_test(NAME test_profile_preprocessor COMMAND test_profile_preprocessor)
 endif()

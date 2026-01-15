@@ -47,6 +47,7 @@ set(KIM_util util/findIndex.f90
 
 set(KIM_background_equilibrium background_equilibrium/species_mod.f90
                             background_equilibrium/calculate_equil.f90
+                            background_equilibrium/profile_input_m.f90
 )
 
 set(KIM_dispersion  dispersion/fun_input.f90

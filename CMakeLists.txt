@@ -1,12 +1,32 @@
 cmake_minimum_required(VERSION 3.24)
 
-# Set compilers BEFORE project()
+# Set compilers BEFORE project() - only if not already set by user
 if(CMAKE_HOST_SYSTEM_NAME MATCHES "Darwin")
-    set(CMAKE_C_COMPILER clang)
-    set(CMAKE_CXX_COMPILER clang++)
+    if(NOT DEFINED CMAKE_C_COMPILER)
+        # Search for LLVM clang (needed for OpenMP support on macOS)
+        find_program(LLVM_CLANG clang
+            PATHS /opt/homebrew/opt/llvm/bin /usr/local/opt/llvm/bin
+            NO_DEFAULT_PATH)
+        if(LLVM_CLANG)
+            set(CMAKE_C_COMPILER "${LLVM_CLANG}")
+        endif()
+    endif()
+    if(NOT DEFINED CMAKE_CXX_COMPILER)
+        find_program(LLVM_CLANGXX clang++
+            PATHS /opt/homebrew/opt/llvm/bin /usr/local/opt/llvm/bin
+            NO_DEFAULT_PATH)
+        if(LLVM_CLANGXX)
+            set(CMAKE_CXX_COMPILER "${LLVM_CLANGXX}")
+        endif()
+    endif()
+    set(CMAKE_PREFIX_PATH /opt/homebrew /usr/local)
 elseif(CMAKE_HOST_SYSTEM_NAME MATCHES "Linux")
-    set(CMAKE_C_COMPILER gcc)
-    set(CMAKE_CXX_COMPILER g++)
+    if(NOT DEFINED CMAKE_C_COMPILER)
+        set(CMAKE_C_COMPILER gcc)
+    endif()
+    if(NOT DEFINED CMAKE_CXX_COMPILER)
+        set(CMAKE_CXX_COMPILER g++)
+    endif()
 endif()
 
 if(APPLE AND NOT DEFINED HDF5_DIR)
@@ -38,7 +58,8 @@ find_package(MPI REQUIRED C Fortran)
 # Set architecture flags based on platform
 if(APPLE)
     # On macOS, use libomp from Homebrew for OpenMP support
-    find_package(OpenMP REQUIRED)
+    # find_package(OpenMP REQUIRED)
+    find_package(OpenMP REQUIRED C Fortran)
 
     # Locate libomp from Homebrew
     find_program(BREW_EXECUTABLE brew HINTS /opt/homebrew/bin /usr/local/bin)

@@ -108,6 +108,13 @@ make test
 - `/external/` - External dependencies (auto-fetched)
 - `/Documentation/` - Mathematical background and user guides
 
+## References
+
+P. Kravanja, M. Van Barel, O. Ragos, M.N. Vrahatis, F.A. Zafiropoulos,
+*ZEAL: A mathematical software package for computing zeros of analytic functions*,
+Computer Physics Communications **124** (2000) 212-232.
+[doi:10.1016/S0010-4655(99)00429-4](https://doi.org/10.1016/S0010-4655(99)00429-4)
+
 ## License
 
 See LICENSE file for details.

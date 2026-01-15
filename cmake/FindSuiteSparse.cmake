@@ -145,6 +145,8 @@ LIST(APPEND SUITESPARSE_CHECK_INCLUDE_DIRS
   ${SUITESPARSE_INCLUDE_DIR_HINTS}
   /opt/local/include
   /opt/local/include/ufsparse # Mac OS X
+  /opt/homebrew/include  # Mac OS X apple silicon
+  /opt/homebrew/include/suitesparse  # Mac OS X apple silicon
   /usr/local/homebrew/include # Mac OS X
   /usr/local/include
   /usr/local/include/suitesparse
@@ -154,6 +156,7 @@ LIST(APPEND SUITESPARSE_CHECK_LIBRARY_DIRS
   ${SUITESPARSE_LIBRARY_DIR_HINTS}
   /opt/local/lib
   /opt/local/lib/ufsparse # Mac OS X
+  /opt/homebrew/lib  # Mac OS X apple silicon
   /usr/local/homebrew/lib # Mac OS X
   /usr/local/lib
   /usr/local/lib/suitesparse

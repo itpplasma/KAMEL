@@ -30,6 +30,7 @@
   double precision, dimension(:), allocatable :: qsaf_lab,volume
   double precision, dimension(:), allocatable :: rbigmax,rbigmin
   double precision, dimension(:,:), allocatable :: theta_of_theta_qt
+  double precision, dimension(:),   allocatable :: theta_of_theta_qt_temp
   double precision, dimension(:,:), allocatable :: separ,dummy
   double complex, dimension(:),     allocatable :: cy
   double complex, dimension(:,:,:), allocatable :: armn,azmn,apsimn,athetmn
@@ -377,6 +378,7 @@ print *,isurf,nsqpsi
 !
   allocate(theta_qt(0:nstep))
   allocate(theta_of_theta_qt(nlabel,0:ntheta))
+  allocate(theta_of_theta_qt_temp(0:ntheta))
   themin=0.d0
   themax=2.d0*pi
 !
@@ -412,10 +414,10 @@ print *,isurf,nsqpsi
     theta_qt=theta_qt*2.d0*pi/theta_qt(nstep)
 !
     call invert_mono_per(nstep,theta_qt,themin,themax,ntheta,         &
-                         theta_of_theta_qt(isurf,:),theqtmin,theqtmax)
+                         theta_of_theta_qt_temp,theqtmin,theqtmax)
 !
     do i=0,ntheta
-      theta_of_theta_qt(isurf,i)=theta_of_theta_qt(isurf,i)-themax*i/ntheta
+      theta_of_theta_qt(isurf,i)=theta_of_theta_qt_temp(i)-themax*i/ntheta
     enddo
 !
     ind=1

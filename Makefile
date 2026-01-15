@@ -1,7 +1,7 @@
 CONFIG ?= Release
 INSTALL_KIM_SYMLINK ?= OFF
 
-.PHONY: all ninja test clean KIM KiLCA QL-Balance install install-kim
+.PHONY: all ninja test clean KIM KiLCA QL-Balance PreProc install install-kim
 
 all: ninja
 
@@ -19,6 +19,9 @@ KiLCA: build/build.ninja
 
 QL-Balance: build/build.ninja
 	cmake --build build --config $(CONFIG) --target ql-balance.x
+
+PreProc:
+	$(MAKE) -C PreProc/fourier
 
 test: ninja
 	ctest --test-dir build --stop-on-failure --output-on-failure

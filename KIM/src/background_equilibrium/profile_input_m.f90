@@ -45,9 +45,49 @@ contains
 
     subroutine detect_coordinate_type(detected_type)
         !> Auto-detect coordinate type from input profile
+        !> Reads first column of n profile and checks max value
         character(20), intent(out) :: detected_type
 
-        detected_type = 'r_eff'  ! Placeholder - will implement
+        character(256) :: filename
+        real(dp) :: r_val, dummy
+        real(dp) :: max_r
+        integer :: ios, iunit
+        logical :: file_exists
+
+        ! Try n_of_psiN.dat first, then n.dat
+        filename = trim(input_profile_dir) // '/n_of_psiN.dat'
+        inquire(file=trim(filename), exist=file_exists)
+        if (.not. file_exists) then
+            filename = trim(input_profile_dir) // '/n.dat'
+            inquire(file=trim(filename), exist=file_exists)
+        end if
+
+        if (.not. file_exists) then
+            write(*,*) 'ERROR: No density profile found for coordinate detection'
+            write(*,*) '  Searched: ', trim(input_profile_dir), '/n_of_psiN.dat'
+            write(*,*) '       and: ', trim(input_profile_dir), '/n.dat'
+            stop 1
+        end if
+
+        ! Read first column and find max
+        max_r = 0.0_dp
+        open(newunit=iunit, file=trim(filename), status='old', action='read')
+        do
+            read(iunit, *, iostat=ios) r_val, dummy
+            if (ios /= 0) exit
+            if (r_val > max_r) max_r = r_val
+        end do
+        close(iunit)
+
+        ! Determine coordinate type
+        if (max_r > COORD_THRESHOLD) then
+            detected_type = 'r_eff'
+            write(*,*) 'Auto-detected coordinate type: r_eff (max_r = ', max_r, ' cm)'
+        else
+            detected_type = 'sqrt_psiN'
+            write(*,*) 'Auto-detected coordinate type: sqrt_psiN (max_r = ', max_r, ')'
+        end if
+
     end subroutine detect_coordinate_type
 
     subroutine run_preprocessing()

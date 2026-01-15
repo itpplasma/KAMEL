@@ -3,15 +3,26 @@
 &kim_config
     number_of_ion_species = 1
     read_species_from_namelist = .false.    ! if false, initialize deuterium plasma
-    type_of_run = 'electrostatic'
-    collision_model = 'FokkerPlanck'        ! Krook (unstable) or FokkerPlanck
+    type_of_run = 'electrostatic'           ! 'electrostatic', 'WKB_dispersion', or 'flr2_benchmark'
+    collision_model = 'FokkerPlanck'        ! 'Krook' (unstable) or 'FokkerPlanck'
     artificial_debye_case = 0
     turn_off_ions = .false.
     turn_off_electrons = .false.
-    plasma_type = 'D'                       ! either deuterium (D) or hydrogen (H)
-    rescale_density = .false.               ! rescale density after calcualation of collision frequencies
-    number_density_rescale = 1d-6           ! rescale factor for rescaling the density
-    ion_flr_scale_factor = 1.0              ! artificially rescale the ion Larmor radius
+    plasma_type = 'D'                       ! 'D' (deuterium) or 'H' (hydrogen)
+    rescale_density = .false.
+    number_density_rescale = 1d-6
+    ion_flr_scale_factor = 1.0
+/
+
+&wkb_dispersion
+    WKB_dispersion_mode = 'KIM'             ! 'KIM' (full Bessel) or 'FLRE' (finite Larmor radius)
+    WKB_dispersion_solver = 'ZEAL'          ! 'Muller' or 'ZEAL'
+    WKB_max_tracked_branches = 4            ! Max branches for ZEAL tracking
+    WKB_branch_search_halfwidth = 1.5       ! Search half-width per branch
+    WKB_broad_search_halfwidth = 5.0        ! Initial broad search half-width
+    WKB_broad_search_interval = 0           ! Broad search every N points (0=only at start)
+    WKB_root_tolerance = 1.0d-6             ! |f(z)| tolerance for valid roots
+    WKB_verbose = .false.                   ! ZEAL verbose output
 /
 
 &kim_io

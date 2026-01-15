@@ -36,6 +36,7 @@ set(EQUIL_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/mag_wrapper.f90
     ${CMAKE_CURRENT_SOURCE_DIR}/field_line_rhs.f90
     ${CMAKE_CURRENT_SOURCE_DIR}/equil_profiles.f90
+    ${CMAKE_CURRENT_SOURCE_DIR}/profile_preprocessor.f90
 )
 
 # Create the equilibrium library

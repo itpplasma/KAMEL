@@ -1226,31 +1226,31 @@ module species_m
             if (q_mean > 0.0_dp .and. m_mode > 0) then
                 write(*,*) ''
                 write(*,*) '╔══════════════════════════════════════════════════════════════════╗'
-                write(*,*) '║                 ERROR: q AND m_mode SIGN MISMATCH                ║'
+                write(*,*) '║               WARNING: q AND m_mode SIGN MISMATCH                ║'
                 write(*,*) '╠══════════════════════════════════════════════════════════════════╣'
-                write(*,*) '║  Safety factor q > 0 requires poloidal mode number m < 0         ║'
+                write(*,*) '║  Safety factor q > 0 typically requires m < 0 for resonance      ║'
                 write(*,*) '╚══════════════════════════════════════════════════════════════════╝'
                 write(*,*) ''
                 write(*,*) '  Mean safety factor q = ', q_mean
                 write(*,*) '  Poloidal mode number m = ', m_mode
                 write(*,*) ''
-                write(*,*) '  For proper helicity matching, use m = ', -abs(m_mode)
+                write(*,*) '  No resonant surfaces will be found with this configuration.'
+                write(*,*) '  For resonant behavior, use m = ', -abs(m_mode)
                 write(*,*) ''
-                stop 1
             else if (q_mean < 0.0_dp .and. m_mode < 0) then
                 write(*,*) ''
                 write(*,*) '╔══════════════════════════════════════════════════════════════════╗'
-                write(*,*) '║                 ERROR: q AND m_mode SIGN MISMATCH                ║'
+                write(*,*) '║               WARNING: q AND m_mode SIGN MISMATCH                ║'
                 write(*,*) '╠══════════════════════════════════════════════════════════════════╣'
-                write(*,*) '║  Safety factor q < 0 requires poloidal mode number m > 0         ║'
+                write(*,*) '║  Safety factor q < 0 typically requires m > 0 for resonance      ║'
                 write(*,*) '╚══════════════════════════════════════════════════════════════════╝'
                 write(*,*) ''
                 write(*,*) '  Mean safety factor q = ', q_mean
                 write(*,*) '  Poloidal mode number m = ', m_mode
                 write(*,*) ''
-                write(*,*) '  For proper helicity matching, use m = ', abs(m_mode)
+                write(*,*) '  No resonant surfaces will be found with this configuration.'
+                write(*,*) '  For resonant behavior, use m = ', abs(m_mode)
                 write(*,*) ''
-                stop 1
             end if
         end if
 

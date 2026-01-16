@@ -4,10 +4,10 @@
 72                                                  ntor! number of toroidal harmonics
 0.99                                                cutoff! inner cutoff in psi/psi_a units
 4                                                   icftype! type of coil file
-'/Users/markusmarkl/plasma/data//MASTU/from_edoardo_tomasina/47051_n2/gfiles/g47051.611_EFIT_X1_sign_change_q_btor'          gfile! equilibrium file
-''                                                         !'DATA/ASDEX/MESH3D_30835/field.dat'pfile! coilfile
-'/Users/markusmarkl/plasma/data//MASTU/convexwall.dat'                                        convexfile! convex file for stretchcoords
-'/Users/markusmarkl/plasma/data//MASTU/KAMEL/47051_n2/sep_scan_mod_eqdsk/X1/flux_data/'                                                         fluxdatapath ! directory with data in flux coord.
+'./gSHOT_TIME'          gfile! equilibrium file
+''                                                  ! pfile/coilfile only used in combination with fouriermodes.x
+'KAMEL/common/equil/convexwall/convexwall.asdex'    convexfile! convex file for stretchcoords
+'/flux_data/'                                       ! directory with data in flux coord. (output dir)
 0                                                   window size for filtering of psi array over R
 0                                                   window size for filtering of psi array over Z
 

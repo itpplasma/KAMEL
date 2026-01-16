@@ -101,8 +101,11 @@
     ! Input directory for raw profiles (when coord_type = 'sqrt_psiN')
     input_profile_dir = './'
 
-    ! Equilibrium file path (empty = compute from geqdsk)
+    ! Equilibrium file path (equil_r_q_psi.dat, empty = compute from geqdsk_file)
     equil_file = ''
+
+    ! GEQDSK g-file path (used to compute equilibrium if equil_file is missing)
+    geqdsk_file = ''
 
     ! Input profile filenames (for sqrt_psiN coordinate input)
     n_input_file = 'n_of_psiN.dat'

@@ -3,7 +3,7 @@ module profile_input_m
     !> Handles coordinate detection, transformation, and Er calculation
 
     use KIM_kinds_m, only: dp
-    use config_m, only: coord_type, input_profile_dir, equil_file, profile_location, &
+    use config_m, only: coord_type, input_profile_dir, equil_file, geqdsk_file, profile_location, &
                         n_input_file, Te_input_file, Ti_input_file, Vz_input_file, &
                         n_file, Te_file, Ti_file, Vz_file, Er_file, q_file
     use setup_m, only: btor, R0
@@ -100,7 +100,7 @@ contains
 
         type(profile_preprocessor_t) :: preprocessor
         character(256) :: equil_path
-        logical :: equil_exists
+        logical :: equil_exists, geqdsk_exists
         character(256) :: temp_nml_file
         integer :: iunit
 
@@ -113,9 +113,25 @@ contains
 
         inquire(file=trim(equil_path), exist=equil_exists)
         if (.not. equil_exists) then
-            write(*,*) 'ERROR: Equilibrium file not found: ', trim(equil_path)
-            write(*,*) 'Cannot perform sqrt_psiN -> r_eff transformation'
-            stop 1
+            ! Check if geqdsk_file is provided for equilibrium computation
+            if (len_trim(geqdsk_file) > 0) then
+                inquire(file=trim(geqdsk_file), exist=geqdsk_exists)
+                if (.not. geqdsk_exists) then
+                    write(*,*) 'ERROR: GEQDSK file not found: ', trim(geqdsk_file)
+                    stop 1
+                end if
+                write(*,*) 'Equilibrium file not found, will compute from GEQDSK'
+                write(*,*) '  GEQDSK file: ', trim(geqdsk_file)
+                ! Write field_divB0.inp for libneo to read geqdsk
+                call write_field_divB0_inp(geqdsk_file)
+                ! Pass empty equil_path so preprocessor computes equilibrium
+                equil_path = ''
+            else
+                write(*,*) 'ERROR: Equilibrium file not found: ', trim(equil_path)
+                write(*,*) '  and no geqdsk_file specified for computation'
+                write(*,*) 'Cannot perform sqrt_psiN -> r_eff transformation'
+                stop 1
+            end if
         end if
 
         write(*,*) 'Running profile preprocessing (sqrt_psiN -> r_eff)'
@@ -162,6 +178,32 @@ contains
         close(iunit)
 
     end subroutine write_preprocessor_namelist
+
+    subroutine write_field_divB0_inp(gfile_path)
+        !> Write field_divB0.inp for libneo equilibrium computation
+        !> Uses equilibrium-only mode (ipert=0, iequil=1)
+        character(*), intent(in) :: gfile_path
+
+        integer :: iunit
+
+        open(newunit=iunit, file='field_divB0.inp', status='replace', action='write')
+        write(iunit, '(A)') '0                                 ipert        ! 0=eq only'
+        write(iunit, '(A)') '1                                 iequil       ! 1=with equil.'
+        write(iunit, '(A)') '1.00                              ampl         ! amplitude'
+        write(iunit, '(A)') '72                                ntor         ! toroidal harmonics'
+        write(iunit, '(A)') '0.99                              cutoff       ! inner cutoff'
+        write(iunit, '(A)') '4                                 icftype      ! coil file type'
+        write(iunit, '(A)') "'" // trim(gfile_path) // "'     gfile        ! equilibrium file"
+        write(iunit, '(A)') "''                                pfile        ! coil file (unused)"
+        write(iunit, '(A)') "''                                convexfile   ! convex file (unused)"
+        write(iunit, '(A)') "''                                fluxdatapath ! flux data path (unused)"
+        write(iunit, '(A)') '0                                 window size for psi over R'
+        write(iunit, '(A)') '0                                 window size for psi over Z'
+        close(iunit)
+
+        write(*,*) 'Created field_divB0.inp for equilibrium computation'
+
+    end subroutine write_field_divB0_inp
 
     subroutine check_and_calculate_er(er_exists)
         !> Check for Er.dat, calculate from force balance if missing

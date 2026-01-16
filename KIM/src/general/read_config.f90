@@ -39,7 +39,7 @@ subroutine read_config
                         quadpack_algorithm, quadpack_key, quadpack_limit, &
                         quadpack_epsabs, quadpack_epsrel, quadpack_use_u_substitution
 
-    namelist /KIM_PROFILES/ coord_type, input_profile_dir, equil_file, &
+    namelist /KIM_PROFILES/ coord_type, input_profile_dir, equil_file, geqdsk_file, &
                         n_input_file, Te_input_file, Ti_input_file, Vz_input_file, &
                         n_file, Te_file, Ti_file, Vz_file, Er_file, q_file
 

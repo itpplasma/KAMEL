@@ -41,7 +41,8 @@ module config_m
     ! KIM_PROFILES namelist variables
     character(20) :: coord_type = 'auto'           ! 'auto', 'sqrt_psiN', or 'r_eff'
     character(256) :: input_profile_dir = './'     ! Directory for raw input profiles
-    character(256) :: equil_file = ''              ! Path to equilibrium file (empty = compute)
+    character(256) :: equil_file = ''              ! Path to equil_r_q_psi.dat (empty = compute from geqdsk)
+    character(256) :: geqdsk_file = ''             ! Path to GEQDSK g-file for equilibrium calculation
 
     ! Input profile filenames (for sqrt_psiN coordinate input)
     character(256) :: n_input_file = 'n_of_psiN.dat'

@@ -3,7 +3,9 @@ module profile_input_m
     !> Handles coordinate detection, transformation, and Er calculation
 
     use KIM_kinds_m, only: dp
-    use config_m, only: coord_type, input_profile_dir, equil_file, profile_location
+    use config_m, only: coord_type, input_profile_dir, equil_file, profile_location, &
+                        n_input_file, Te_input_file, Ti_input_file, Vz_input_file, &
+                        n_file, Te_file, Ti_file, Vz_file, Er_file, q_file
     use setup_m, only: btor, R0
     use constants_m, only: e_charge, sol
     use profile_preprocessor_m, only: profile_preprocessor_t
@@ -56,18 +58,18 @@ contains
         integer :: ios, iunit
         logical :: file_exists
 
-        ! Try n_of_psiN.dat first, then n.dat
-        filename = trim(input_profile_dir) // '/n_of_psiN.dat'
+        ! Try input file first, then output file
+        filename = trim(input_profile_dir) // '/' // trim(n_input_file)
         inquire(file=trim(filename), exist=file_exists)
         if (.not. file_exists) then
-            filename = trim(input_profile_dir) // '/n.dat'
+            filename = trim(input_profile_dir) // '/' // trim(n_file)
             inquire(file=trim(filename), exist=file_exists)
         end if
 
         if (.not. file_exists) then
             write(*,*) 'ERROR: No density profile found for coordinate detection'
-            write(*,*) '  Searched: ', trim(input_profile_dir), '/n_of_psiN.dat'
-            write(*,*) '       and: ', trim(input_profile_dir), '/n.dat'
+            write(*,*) '  Searched: ', trim(input_profile_dir), '/', trim(n_input_file)
+            write(*,*) '       and: ', trim(input_profile_dir), '/', trim(n_file)
             stop 1
         end if
 
@@ -152,10 +154,10 @@ contains
         write(iunit, '(A)') '  input_dir = "' // trim(input_profile_dir) // '"'
         write(iunit, '(A)') '  output_dir = "' // trim(profile_location) // '"'
         write(iunit, '(A)') '  coord_type = 1'  ! COORD_SQRT_PSIN
-        write(iunit, '(A)') '  n_input_file = "n_of_psiN.dat"'
-        write(iunit, '(A)') '  Te_input_file = "Te_of_psiN.dat"'
-        write(iunit, '(A)') '  Ti_input_file = "Ti_of_psiN.dat"'
-        write(iunit, '(A)') '  Vz_input_file = "Vz_of_psiN.dat"'
+        write(iunit, '(A)') '  n_input_file = "' // trim(n_input_file) // '"'
+        write(iunit, '(A)') '  Te_input_file = "' // trim(Te_input_file) // '"'
+        write(iunit, '(A)') '  Ti_input_file = "' // trim(Ti_input_file) // '"'
+        write(iunit, '(A)') '  Vz_input_file = "' // trim(Vz_input_file) // '"'
         write(iunit, '(A)') '/'
         close(iunit)
 
@@ -170,15 +172,15 @@ contains
         logical, intent(out) :: er_exists
         character(256) :: er_filename
 
-        er_filename = trim(profile_location) // '/Er.dat'
+        er_filename = trim(profile_location) // '/' // trim(Er_file)
         inquire(file=trim(er_filename), exist=er_exists)
 
         if (er_exists) then
-            write(*,*) 'Found Er.dat, using provided radial electric field'
+            write(*,*) 'Found ', trim(Er_file), ', using provided radial electric field'
             return
         end if
 
-        write(*,*) 'WARNING: Er.dat not found'
+        write(*,*) 'WARNING: ', trim(Er_file), ' not found'
         write(*,*) 'Calculating Er from force balance without V_pol (k=0)'
         call calculate_er_from_force_balance()
 
@@ -249,17 +251,17 @@ contains
         logical :: vz_exists
 
         ! Read required profiles
-        call read_profile_data(trim(profile_location)//'/n.dat', r, n, npts)
-        call read_profile_data(trim(profile_location)//'/Ti.dat', r, Ti, npts)
-        call read_profile_data(trim(profile_location)//'/q.dat', r, q, npts)
+        call read_profile_data(trim(profile_location)//'/'//trim(n_file), r, n, npts)
+        call read_profile_data(trim(profile_location)//'/'//trim(Ti_file), r, Ti, npts)
+        call read_profile_data(trim(profile_location)//'/'//trim(q_file), r, q, npts)
 
         ! Check for Vz profile
-        filename = trim(profile_location) // '/Vz.dat'
+        filename = trim(profile_location) // '/' // trim(Vz_file)
         inquire(file=trim(filename), exist=vz_exists)
         if (vz_exists) then
             call read_profile_data(filename, r, Vz, npts)
         else
-            write(*,*) 'Note: Vz.dat not found, assuming Vz=0'
+            write(*,*) 'Note: ', trim(Vz_file), ' not found, assuming Vz=0'
             allocate(Vz(npts))
             Vz = 0.0_dp
         end if
@@ -298,7 +300,7 @@ contains
         write(*,*) 'Er calculated from force balance, written to Er_no_Vpol.dat'
 
         ! Also create Er.dat for read_profiles to find
-        filename = trim(profile_location) // '/Er.dat'
+        filename = trim(profile_location) // '/' // trim(Er_file)
         open(newunit=iunit, file=trim(filename), status='replace', action='write')
         do i = 1, npts
             write(iunit, '(2E20.12)') r(i), Er(i)

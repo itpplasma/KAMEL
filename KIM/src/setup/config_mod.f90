@@ -43,4 +43,18 @@ module config_m
     character(256) :: input_profile_dir = './'     ! Directory for raw input profiles
     character(256) :: equil_file = ''              ! Path to equilibrium file (empty = compute)
 
+    ! Input profile filenames (for sqrt_psiN coordinate input)
+    character(256) :: n_input_file = 'n_of_psiN.dat'
+    character(256) :: Te_input_file = 'Te_of_psiN.dat'
+    character(256) :: Ti_input_file = 'Ti_of_psiN.dat'
+    character(256) :: Vz_input_file = 'Vz_of_psiN.dat'
+
+    ! Output profile filenames (in profile_location)
+    character(256) :: n_file = 'n.dat'
+    character(256) :: Te_file = 'Te.dat'
+    character(256) :: Ti_file = 'Ti.dat'
+    character(256) :: Vz_file = 'Vz.dat'
+    character(256) :: Er_file = 'Er.dat'
+    character(256) :: q_file = 'q.dat'
+
 end module

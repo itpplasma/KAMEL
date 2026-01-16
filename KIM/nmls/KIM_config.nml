@@ -98,9 +98,23 @@
     ! 'r_eff'     - profiles are already in effective radius [cm]
     coord_type = 'auto'
 
-    ! Input directory for raw profiles (n_of_psiN.dat, etc.)
+    ! Input directory for raw profiles (when coord_type = 'sqrt_psiN')
     input_profile_dir = './'
 
     ! Equilibrium file path (empty = compute from geqdsk)
     equil_file = ''
+
+    ! Input profile filenames (for sqrt_psiN coordinate input)
+    n_input_file = 'n_of_psiN.dat'
+    Te_input_file = 'Te_of_psiN.dat'
+    Ti_input_file = 'Ti_of_psiN.dat'
+    Vz_input_file = 'Vz_of_psiN.dat'
+
+    ! Output profile filenames (in profile_location directory)
+    n_file = 'n.dat'
+    Te_file = 'Te.dat'
+    Ti_file = 'Ti.dat'
+    Vz_file = 'Vz.dat'
+    Er_file = 'Er.dat'
+    q_file = 'q.dat'
 /

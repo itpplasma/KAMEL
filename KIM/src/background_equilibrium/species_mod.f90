@@ -1157,10 +1157,67 @@ module species_m
             end do
         end if
 
+        ! Validate units - density should be in CGS (1/cm^3), typically 10^12 to 10^15
+        call validate_profile_units(plasma)
+
         if (fstatus == 1) write(*,*) 'Status: Finished reading profiles from text files'
 
     end subroutine
 
+    subroutine validate_profile_units(plasma)
+        !> Check that density and temperature are in expected CGS units
+        !> Density: 1/cm^3, typically 10^12 to 10^15 for fusion plasmas
+        !> Temperature: eV, typically 10 to 20000 eV
+        implicit none
+
+        type(plasma_t), intent(in) :: plasma
+        real(dp) :: n_max, T_max
+        integer :: sigma
+
+        ! Check electron density
+        n_max = maxval(plasma%spec(0)%n)
+
+        if (n_max > 1.0d17) then
+            write(*,*) ''
+            write(*,*) '╔══════════════════════════════════════════════════════════════════╗'
+            write(*,*) '║                    ERROR: DENSITY UNITS                          ║'
+            write(*,*) '╠══════════════════════════════════════════════════════════════════╣'
+            write(*,*) '║  Density appears to be in SI units (1/m^3) instead of CGS!       ║'
+            write(*,*) '╚══════════════════════════════════════════════════════════════════╝'
+            write(*,*) ''
+            write(*,*) '  Maximum density found: ', n_max, ' 1/cm^3'
+            write(*,*) '  Expected range (CGS):  1e12 to 1e15 1/cm^3'
+            write(*,*) ''
+            write(*,*) '  Your density values suggest SI units (1/m^3).'
+            write(*,*) '  Please convert to CGS by dividing by 1e6.'
+            write(*,*) ''
+            write(*,*) '  Example: n_SI = 4.67e19 1/m^3  -->  n_CGS = 4.67e13 1/cm^3'
+            write(*,*) ''
+            stop 1
+        else if (n_max < 1.0d10) then
+            write(*,*) ''
+            write(*,*) 'WARNING: Density values appear very low'
+            write(*,*) '  Maximum density: ', n_max, ' 1/cm^3'
+            write(*,*) '  Expected range:  1e12 to 1e15 1/cm^3'
+            write(*,*) ''
+        end if
+
+        ! Check temperatures (should be in eV)
+        ! Note: spec array is 0:n_species-1 but read_profiles uses number_of_ion_species from config
+        do sigma = 0, min(plasma%n_species, size(plasma%spec)-1)
+            if (.not. allocated(plasma%spec(sigma)%T)) cycle
+            T_max = maxval(plasma%spec(sigma)%T)
+            if (T_max > 1.0d6) then
+                write(*,*) ''
+                write(*,*) 'WARNING: Temperature appears very high'
+                write(*,*) '  Species ', sigma, ' max T = ', T_max, ' eV'
+                write(*,*) '  Expected range: 10 to 20000 eV'
+                write(*,*) '  Check if temperature is in Kelvin instead of eV'
+                write(*,*) ''
+            end if
+        end do
+
+    end subroutine validate_profile_units
 
     subroutine read_from_hdf5
 

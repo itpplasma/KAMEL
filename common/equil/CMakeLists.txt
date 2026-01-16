@@ -10,10 +10,21 @@
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake")
 include(Util)
 
+# Disable libneo tests - they are not built (EXCLUDE_FROM_ALL) but would be registered with CTest
+# Must also temporarily disable BUILD_TESTING because libneo overrides LIBNEO_BUILD_TESTING with it
+set(LIBNEO_BUILD_TESTING OFF CACHE BOOL "Disable libneo tests" FORCE)
+set(LIBNEO_ENABLE_TESTS OFF CACHE BOOL "Disable libneo tests" FORCE)
+set(LIBNEO_ENABLE_GOLDEN_TESTS OFF CACHE BOOL "Disable libneo golden tests" FORCE)
+set(_KAMEL_BUILD_TESTING_SAVED ${BUILD_TESTING})
+set(BUILD_TESTING OFF)
+
 # Only fetch libneo if not already available (prevents duplicate targets)
 if(NOT TARGET LIBNEO::magfie)
     find_or_fetch(libneo)
 endif()
+
+# Restore BUILD_TESTING for KAMEL's own tests
+set(BUILD_TESTING ${_KAMEL_BUILD_TESTING_SAVED})
 
 # Add netcdf library paths (needed because libneo's link_directories doesn't propagate)
 find_program(NF_CONFIG "nf-config")
@@ -80,7 +91,7 @@ if(BUILD_TESTING)
     target_link_libraries(test_rk4_integrator PRIVATE kamel_equil)
     target_include_directories(test_rk4_integrator PRIVATE ${EQUIL_MODULE_DIR})
     set_target_properties(test_rk4_integrator PROPERTIES
-        RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/test
+        RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/tests
     )
     add_test(NAME test_rk4_integrator COMMAND test_rk4_integrator)
 
@@ -91,7 +102,7 @@ if(BUILD_TESTING)
     target_link_libraries(test_profile_preprocessor PRIVATE kamel_equil)
     target_include_directories(test_profile_preprocessor PRIVATE ${EQUIL_MODULE_DIR})
     set_target_properties(test_profile_preprocessor PROPERTIES
-        RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/test
+        RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/tests
     )
     add_test(NAME test_profile_preprocessor COMMAND test_profile_preprocessor)
 endif()

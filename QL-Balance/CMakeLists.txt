@@ -123,6 +123,10 @@ message(" ====== HDF5 was found! ======")
 
 set(BUILD_TESTING OFF)
 
+set(LIBNEO_ENABLE_TESTS OFF CACHE BOOL "Disable libneo tests" FORCE)
+set(LIBNEO_BUILD_TESTING OFF CACHE BOOL "Disable libneo tests" FORCE)
+
+
 # Only fetch libneo if not already available (prevents duplicate targets)
 if(NOT TARGET LIBNEO::neo)
     find_or_fetch(libneo)

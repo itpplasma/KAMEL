@@ -1168,10 +1168,12 @@ module species_m
         !> Check that density and temperature are in expected CGS units
         !> Density: 1/cm^3, typically 10^12 to 10^15 for fusion plasmas
         !> Temperature: eV, typically 10 to 20000 eV
+        !> Also checks q vs m_mode sign consistency
+        use setup_m, only: m_mode
         implicit none
 
         type(plasma_t), intent(in) :: plasma
-        real(dp) :: n_max, T_max
+        real(dp) :: n_max, T_max, q_mean
         integer :: sigma
 
         ! Check electron density
@@ -1216,6 +1218,41 @@ module species_m
                 write(*,*) ''
             end if
         end do
+
+        ! Check q vs m_mode sign consistency
+        ! For positive q, m should be negative (and vice versa) for proper helicity
+        if (allocated(plasma%q) .and. size(plasma%q) > 0) then
+            q_mean = sum(plasma%q) / size(plasma%q)
+            if (q_mean > 0.0_dp .and. m_mode > 0) then
+                write(*,*) ''
+                write(*,*) '╔══════════════════════════════════════════════════════════════════╗'
+                write(*,*) '║                 ERROR: q AND m_mode SIGN MISMATCH                ║'
+                write(*,*) '╠══════════════════════════════════════════════════════════════════╣'
+                write(*,*) '║  Safety factor q > 0 requires poloidal mode number m < 0         ║'
+                write(*,*) '╚══════════════════════════════════════════════════════════════════╝'
+                write(*,*) ''
+                write(*,*) '  Mean safety factor q = ', q_mean
+                write(*,*) '  Poloidal mode number m = ', m_mode
+                write(*,*) ''
+                write(*,*) '  For proper helicity matching, use m = ', -abs(m_mode)
+                write(*,*) ''
+                stop 1
+            else if (q_mean < 0.0_dp .and. m_mode < 0) then
+                write(*,*) ''
+                write(*,*) '╔══════════════════════════════════════════════════════════════════╗'
+                write(*,*) '║                 ERROR: q AND m_mode SIGN MISMATCH                ║'
+                write(*,*) '╠══════════════════════════════════════════════════════════════════╣'
+                write(*,*) '║  Safety factor q < 0 requires poloidal mode number m > 0         ║'
+                write(*,*) '╚══════════════════════════════════════════════════════════════════╝'
+                write(*,*) ''
+                write(*,*) '  Mean safety factor q = ', q_mean
+                write(*,*) '  Poloidal mode number m = ', m_mode
+                write(*,*) ''
+                write(*,*) '  For proper helicity matching, use m = ', abs(m_mode)
+                write(*,*) ''
+                stop 1
+            end if
+        end if
 
     end subroutine validate_profile_units
 

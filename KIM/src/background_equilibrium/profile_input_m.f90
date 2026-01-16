@@ -185,6 +185,20 @@ contains
         character(*), intent(in) :: gfile_path
 
         integer :: iunit
+        character(512) :: code_path, convexwall_path
+
+        ! Get KAMEL path from $CODE environment variable
+        call get_environment_variable('CODE', code_path)
+        if (len_trim(code_path) == 0) then
+            write(*,*) 'ERROR: Environment variable $CODE is not set'
+            write(*,*) '  Required to locate convexwall file for equilibrium computation'
+            stop 1
+        end if
+        convexwall_path = trim(code_path) // '/KAMEL/common/equil/convexwall/convexwall.asdex'
+
+        ! Warn user about ASDEX Upgrade specific convexwall
+        write(*,*) 'WARNING: Using ASDEX Upgrade convexwall file for equilibrium computation'
+        write(*,*) '  ', trim(convexwall_path)
 
         open(newunit=iunit, file='field_divB0.inp', status='replace', action='write')
         write(iunit, '(A)') '0                                 ipert        ! 0=eq only'
@@ -195,7 +209,7 @@ contains
         write(iunit, '(A)') '4                                 icftype      ! coil file type'
         write(iunit, '(A)') "'" // trim(gfile_path) // "'"
         write(iunit, '(A)') "''"
-        write(iunit, '(A)') "''"
+        write(iunit, '(A)') "'" // trim(convexwall_path) // "'"
         write(iunit, '(A)') "''"
         write(iunit, '(A)') '0                                 nwindow_r'
         write(iunit, '(A)') '0                                 nwindow_z'

@@ -139,6 +139,9 @@ contains
         write(*,*) '  Equilibrium: ', trim(equil_path)
         write(*,*) '  Output directory: ', trim(profile_location)
 
+        ! Create output directory if it doesn't exist
+        call execute_command_line('mkdir -p ' // trim(profile_location))
+
         ! Create temporary namelist file for the preprocessor
         temp_nml_file = trim(profile_location) // '/.profile_preproc_temp.nml'
         call write_preprocessor_namelist(temp_nml_file, equil_path)

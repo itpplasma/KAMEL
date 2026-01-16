@@ -12,4 +12,10 @@ FetchContent_Declare(zeal
 # Download & extract Zeal sources, making them available
 FetchContent_MakeAvailable(zeal)
 
+# Patch zeros.f90 to use modern ZGGEV instead of deprecated ZGEGV
+# (ZGEGV was deprecated in LAPACK 3.0 and removed from modern distributions)
+file(READ "${zeal_SOURCE_DIR}/zeros.f90" ZEROS_CONTENT)
+string(REPLACE "ZGEGV" "ZGGEV" ZEROS_CONTENT "${ZEROS_CONTENT}")
+file(WRITE "${zeal_SOURCE_DIR}/zeros.f90" "${ZEROS_CONTENT}")
+
 # Now `zeal_SOURCE_DIR` is set and sources can be compiled by subprojects

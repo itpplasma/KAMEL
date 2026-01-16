@@ -296,21 +296,31 @@ contains
         allocate(self%r_eff(self%nrad))
         allocate(self%psi_n(self%nrad))
 
+        ! Validate equilibrium data BEFORE using it
+        if (abs(equil%btor) < 1.d-10) then
+            write(*,*) '[profile_preprocessor_m:load_from_equil] ERROR: btor is zero or too small'
+            write(*,*) '  btor = ', equil%btor
+            write(*,*) '  The equilibrium computation may have failed.'
+            stop 1
+        end if
+
         ! r_eff from equil is sqrt(2*phi_tor/B_tor)
         ! psi is the poloidal flux relative to axis
         self%psi_max = equil%psisurf(equil%nsqpsi)
+
+        if (abs(self%psi_max) < 1.d-20) then
+            write(*,*) '[profile_preprocessor_m:load_from_equil] ERROR: psi_max is zero or too small'
+            write(*,*) '  psi_max = ', self%psi_max
+            write(*,*) '  psisurf(nsqpsi) = ', equil%psisurf(equil%nsqpsi)
+            write(*,*) '  The equilibrium computation may have failed.'
+            write(*,*) '  Check that the GEQDSK file is valid and the convexwall file is correct.'
+            stop 1
+        end if
 
         do i = 1, self%nrad
             self%r_eff(i) = sqrt(2.d0 * abs(equil%phitor(i) / equil%btor))
             self%psi_n(i) = equil%psisurf(i) / self%psi_max
         end do
-
-        ! Validate equilibrium data
-        if (abs(equil%btor) < 1.d-10) then
-            write(*,*) '[profile_preprocessor_m:load_from_equil] ERROR: btor is zero or too small'
-            write(*,*) '  btor = ', equil%btor
-            stop 1
-        end if
 
         ! Check for NaN in computed values
         do i = 1, self%nrad

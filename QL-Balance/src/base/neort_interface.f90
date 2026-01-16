@@ -16,7 +16,7 @@ module neort_interface
         type(config_t) :: config
     end type meta_config_neort_t
 
-    public :: read_neort_config
+    public :: read_neort_meta_config
     public :: read_equil_file
     public :: calculate_s_tor
     public :: calculate_coarse_s_tor
@@ -26,7 +26,7 @@ module neort_interface
 
 contains
 
-    subroutine read_neort_config(config_file, meta_config)
+    subroutine read_neort_meta_config(config_file, meta_config)
         use wave_code_data, only: m_vals, n_vals
 
         character(len=*), intent(in) :: config_file
@@ -108,7 +108,7 @@ contains
         meta_config%config%inp_swi = inp_swi
         meta_config%config%vsteps = vsteps
         meta_config%config%log_level = log_level
-    end subroutine read_neort_config
+    end subroutine read_neort_meta_config
 
     !> @brief Prepare plasma profile data for NEO-RT from KAMEL arrays
     !> @param[out] plasma_data 2D array (nflux, 6) for NEO-RT plasma input

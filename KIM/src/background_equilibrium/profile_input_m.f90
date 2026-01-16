@@ -7,7 +7,8 @@ module profile_input_m
                         n_input_file, Te_input_file, Ti_input_file, Vz_input_file, &
                         n_file, Te_file, Ti_file, Vz_file, Er_file, q_file
     use setup_m, only: btor, R0
-    use constants_m, only: e_charge, sol
+    use constants_m, only: e_charge, sol, ev
+    use grid_m, only: r_min, r_plas
     use profile_preprocessor_m, only: profile_preprocessor_t
 
     implicit none
@@ -37,6 +38,9 @@ contains
         ! 2. Process based on coordinate type
         if (trim(detected_coord_type) == 'sqrt_psiN') then
             call run_preprocessing()
+        else if (trim(detected_coord_type) == 'r_eff') then
+            ! Profiles already in r_eff coordinates - copy to profile_location if needed
+            call copy_profiles_if_needed()
         end if
 
         ! 3. Check for Er.dat and calculate if missing
@@ -44,6 +48,9 @@ contains
 
         ! 4. Validate btor/R0 against btor_rbig.dat
         call validate_btor_rbig()
+
+        ! 5. Validate r_min/r_plas are within profile range
+        call validate_radial_range()
 
     end subroutine prepare_profiles
 
@@ -335,16 +342,20 @@ contains
         call calculate_derivative(r, n, dn_dr, npts)
         call calculate_derivative(r, Ti, dTi_dr, npts)
 
-        ! Calculate Er from force balance (CGS units)
-        ! Ti is in eV, convert to erg: Ti_erg = Ti_eV * e_charge
+        ! Calculate Er from radial force balance (CGS units)
+        ! From momentum balance: E_r = (T_i/e_i*n_i)*dn_i/dr + ((1-k)/e_i)*dT_i/dr + r*B0*Vtor/(c*q*R0)
+        ! With k=0 (no poloidal rotation):
+        ! E_r = (T_i*ev)/(e*n)*dn/dr + (ev/e)*dT/dr + r*B0*Vz/(c*q*R0)
+        ! Ti is in eV, convert to erg using ev = 1.6022e-12 erg/eV
+        ! e_charge = 4.803e-10 statcoulomb (CGS)
         ! Er in statV/cm
         do i = 1, npts
             if (abs(n(i)) > 1.0e-20_dp) then
-                ! Term 1: (Ti/ei*ni)*dni/dr
-                Er(i) = (Ti(i) * e_charge / (e_charge * n(i))) * dn_dr(i)
-                ! Term 2: (1/ei)*dTi/dr
-                Er(i) = Er(i) + (1.0_dp / e_charge) * dTi_dr(i) * e_charge
-                ! Term 3: (r*B0*Vz)/(c*q*R0)
+                ! Term 1: (Ti*ev)/(e*n) * dn/dr (density gradient contribution)
+                Er(i) = (Ti(i) * ev / (e_charge * n(i))) * dn_dr(i)
+                ! Term 2: (ev/e) * dTi/dr (temperature gradient contribution, k=0)
+                Er(i) = Er(i) + (ev / e_charge) * dTi_dr(i)
+                ! Term 3: (r*B0*Vz)/(c*q*R0) (toroidal rotation contribution)
                 if (abs(q(i)) > 1.0e-10_dp .and. abs(R0) > 1.0e-10_dp) then
                     Er(i) = Er(i) + (r(i) * btor * Vz(i)) / (sol * q(i) * R0)
                 end if
@@ -434,5 +445,154 @@ contains
         dydx(n) = (y(n) - y(n-1)) / (x(n) - x(n-1))
 
     end subroutine calculate_derivative
+
+    subroutine copy_profiles_if_needed()
+        !> Copy Er.dat from input_profile_dir to profile_location when
+        !> profiles are already in r_eff coordinates
+        !> This ensures check_and_calculate_er() finds the provided Er file
+        implicit none
+
+        character(256) :: src_file, dst_file
+        integer :: src_unit, dst_unit, ios
+        logical :: src_exists, dst_exists, dirs_same
+        character(4096) :: line
+
+        ! Check if directories are the same (no copy needed)
+        dirs_same = (trim(input_profile_dir) == trim(profile_location))
+        if (dirs_same) then
+            write(*,*) 'Profiles already in r_eff coordinates at: ', trim(profile_location)
+            return
+        end if
+
+        ! Only Er.dat needs to be copied - other profiles are read from input_profile_dir
+        src_file = trim(input_profile_dir) // '/' // trim(Er_file)
+        dst_file = trim(profile_location) // '/' // trim(Er_file)
+
+        inquire(file=trim(src_file), exist=src_exists)
+        if (.not. src_exists) then
+            ! No Er.dat provided - will be calculated later
+            return
+        end if
+
+        ! Check if destination already exists
+        inquire(file=trim(dst_file), exist=dst_exists)
+        if (dst_exists) then
+            write(*,*) 'Er.dat already exists at ', trim(profile_location)
+            return
+        end if
+
+        ! Create output directory if it doesn't exist
+        call execute_command_line('mkdir -p ' // trim(profile_location))
+
+        ! Copy Er.dat
+        open(newunit=src_unit, file=trim(src_file), status='old', action='read', iostat=ios)
+        if (ios /= 0) then
+            write(*,*) 'WARNING: Failed to open ', trim(src_file)
+            return
+        end if
+
+        open(newunit=dst_unit, file=trim(dst_file), status='replace', action='write', iostat=ios)
+        if (ios /= 0) then
+            close(src_unit)
+            write(*,*) 'WARNING: Failed to create ', trim(dst_file)
+            return
+        end if
+
+        do
+            read(src_unit, '(A)', iostat=ios) line
+            if (ios /= 0) exit
+            write(dst_unit, '(A)') trim(line)
+        end do
+
+        close(src_unit)
+        close(dst_unit)
+        write(*,*) 'Copied Er.dat from ', trim(input_profile_dir), ' to ', trim(profile_location)
+
+    end subroutine copy_profiles_if_needed
+
+    subroutine validate_radial_range()
+        !> Validate that r_min and r_plas are within the plasma profile region
+        !> Reads n.dat (density profile) to determine the valid r_eff range
+        implicit none
+
+        real(dp), allocatable :: r(:), n(:)
+        real(dp) :: r_min_profile, r_max_profile
+        integer :: npts
+        character(256) :: filename
+        logical :: file_exists
+
+        ! Read density profile to get radial range
+        filename = trim(profile_location) // '/' // trim(n_file)
+        inquire(file=trim(filename), exist=file_exists)
+
+        if (.not. file_exists) then
+            write(*,*) 'WARNING: Cannot validate radial range - density profile not found'
+            write(*,*) '  Expected: ', trim(filename)
+            return
+        end if
+
+        call read_profile_data(filename, r, n, npts)
+
+        if (npts < 2) then
+            write(*,*) 'WARNING: Cannot validate radial range - profile has < 2 points'
+            deallocate(r, n)
+            return
+        end if
+
+        r_min_profile = r(1)
+        r_max_profile = r(npts)
+
+        write(*,*) 'Validating radial range against plasma profiles:'
+        write(*,*) '  Profile r_eff range: [', r_min_profile, ', ', r_max_profile, '] cm'
+        write(*,*) '  Requested r_min    : ', r_min, ' cm'
+        write(*,*) '  Requested r_plas   : ', r_plas, ' cm'
+
+        ! Check r_min
+        if (r_min < r_min_profile) then
+            write(*,*) 'ERROR: r_min is below the profile region'
+            write(*,*) '  r_min = ', r_min, ' cm'
+            write(*,*) '  Profile starts at r_eff = ', r_min_profile, ' cm'
+            write(*,*) '  Please increase r_min in KIM_GRID namelist'
+            stop 1
+        end if
+
+        if (r_min > r_max_profile) then
+            write(*,*) 'ERROR: r_min is beyond the profile region'
+            write(*,*) '  r_min = ', r_min, ' cm'
+            write(*,*) '  Profile ends at r_eff = ', r_max_profile, ' cm'
+            write(*,*) '  Please decrease r_min in KIM_GRID namelist'
+            stop 1
+        end if
+
+        ! Check r_plas
+        if (r_plas < r_min_profile) then
+            write(*,*) 'ERROR: r_plas is below the profile region'
+            write(*,*) '  r_plas = ', r_plas, ' cm'
+            write(*,*) '  Profile starts at r_eff = ', r_min_profile, ' cm'
+            write(*,*) '  Please increase r_plas in KIM_GRID namelist'
+            stop 1
+        end if
+
+        if (r_plas > r_max_profile) then
+            write(*,*) 'ERROR: r_plas is beyond the profile region'
+            write(*,*) '  r_plas = ', r_plas, ' cm'
+            write(*,*) '  Profile ends at r_eff = ', r_max_profile, ' cm'
+            write(*,*) '  Please decrease r_plas in KIM_GRID namelist'
+            stop 1
+        end if
+
+        ! Additional check: r_min should be less than r_plas
+        if (r_min >= r_plas) then
+            write(*,*) 'ERROR: r_min must be less than r_plas'
+            write(*,*) '  r_min = ', r_min, ' cm'
+            write(*,*) '  r_plas = ', r_plas, ' cm'
+            stop 1
+        end if
+
+        write(*,*) '  Radial range validation: PASSED'
+
+        deallocate(r, n)
+
+    end subroutine validate_radial_range
 
 end module profile_input_m

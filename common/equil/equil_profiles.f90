@@ -393,6 +393,7 @@ contains
 
         integer :: i, iunit
         character(len=512) :: filename
+        double precision :: r_eff
 
         ! Write btor_rbig.dat
         filename = trim(output_dir) // '/btor_rbig.dat'
@@ -420,6 +421,15 @@ contains
             write(iunit, *) sqrt(2.d0 * abs(self%phitor(i) / self%btor)), &
                             self%qsaf(i), self%psisurf(i), self%phitor(i), &
                             self%dphidpsi(i), self%rsmall(i), self%volume(i)
+        end do
+        close(iunit)
+
+        ! Write q.dat (r_eff, q) for KIM/KiLCA
+        filename = trim(output_dir) // '/q.dat'
+        open(newunit=iunit, file=filename, status='replace', action='write')
+        do i = 1, self%nsqpsi
+            r_eff = sqrt(2.d0 * abs(self%phitor(i) / self%btor))
+            write(iunit, '(ES23.15, 1X, ES23.15)') r_eff, self%qsaf(i)
         end do
         close(iunit)
 

@@ -51,12 +51,14 @@ module profile_preprocessor_m
         double precision, allocatable :: Te(:)       !< Electron temperature
         double precision, allocatable :: Ti(:)       !< Ion temperature
         double precision, allocatable :: Vz(:)       !< Toroidal rotation
+        double precision, allocatable :: q(:)        !< Safety factor profile
 
         !> Flags for which profiles are loaded
         logical :: has_n = .false.
         logical :: has_Te = .false.
         logical :: has_Ti = .false.
         logical :: has_Vz = .false.
+        logical :: has_q = .false.
 
         logical :: initialized = .false.
 
@@ -211,7 +213,7 @@ contains
         integer :: iunit, ios, i, nlines
         character(len=1024) :: line
         double precision :: r_eff_val, q_val, psi_val
-        double precision, allocatable :: r_eff_tmp(:), psi_tmp(:)
+        double precision, allocatable :: r_eff_tmp(:), psi_tmp(:), q_tmp(:)
 
         ! First pass: count data lines
         open(newunit=iunit, file=filename, status='old', action='read', iostat=ios)
@@ -241,7 +243,8 @@ contains
         self%nrad = nlines
         allocate(self%r_eff(nlines))
         allocate(self%psi_n(nlines))
-        allocate(r_eff_tmp(nlines), psi_tmp(nlines))
+        allocate(self%q(nlines))
+        allocate(r_eff_tmp(nlines), psi_tmp(nlines), q_tmp(nlines))
 
         ! Second pass: read data
         open(newunit=iunit, file=filename, status='old', action='read', iostat=ios)
@@ -262,6 +265,7 @@ contains
             end if
 
             r_eff_tmp(i) = r_eff_val
+            q_tmp(i) = q_val
             psi_tmp(i) = psi_val
         end do
         close(iunit)
@@ -275,10 +279,13 @@ contains
 
         do i = 1, nlines
             self%r_eff(i) = r_eff_tmp(i)
+            self%q(i) = q_tmp(i)
             self%psi_n(i) = psi_tmp(i) / self%psi_max
         end do
 
-        deallocate(r_eff_tmp, psi_tmp)
+        self%has_q = .true.
+
+        deallocate(r_eff_tmp, psi_tmp, q_tmp)
 
     end subroutine read_equil_file
 
@@ -295,6 +302,7 @@ contains
         self%nrad = equil%nsqpsi
         allocate(self%r_eff(self%nrad))
         allocate(self%psi_n(self%nrad))
+        allocate(self%q(self%nrad))
 
         ! Validate equilibrium data BEFORE using it
         if (abs(equil%btor) < 1.d-10) then
@@ -320,7 +328,10 @@ contains
         do i = 1, self%nrad
             self%r_eff(i) = sqrt(2.d0 * abs(equil%phitor(i) / equil%btor))
             self%psi_n(i) = equil%psisurf(i) / self%psi_max
+            self%q(i) = equil%qsaf(i)
         end do
+
+        self%has_q = .true.
 
         ! Check for NaN in computed values
         do i = 1, self%nrad
@@ -679,7 +690,7 @@ contains
         end if
 
         ! Check if any profiles are loaded
-        if (.not. (self%has_n .or. self%has_Te .or. self%has_Ti .or. self%has_Vz)) then
+        if (.not. (self%has_n .or. self%has_Te .or. self%has_Ti .or. self%has_Vz .or. self%has_q)) then
             write(*,*) '[profile_preprocessor_m:write_output] WARNING: No profiles to write'
             return
         end if
@@ -706,6 +717,13 @@ contains
         if (self%has_Vz) then
             filepath = trim(self%output_dir) // '/Vz.dat'
             call write_profile_file(filepath, self%r_eff, self%Vz, self%nrad)
+            write(*,*) '[profile_preprocessor_m:write_output] Wrote: ', trim(filepath)
+        end if
+
+        ! Write q.dat (safety factor profile)
+        if (self%has_q) then
+            filepath = trim(self%output_dir) // '/q.dat'
+            call write_profile_file(filepath, self%r_eff, self%q, self%nrad)
             write(*,*) '[profile_preprocessor_m:write_output] Wrote: ', trim(filepath)
         end if
 
@@ -866,11 +884,13 @@ contains
         if (allocated(self%Te)) deallocate(self%Te)
         if (allocated(self%Ti)) deallocate(self%Ti)
         if (allocated(self%Vz)) deallocate(self%Vz)
+        if (allocated(self%q)) deallocate(self%q)
 
         self%has_n = .false.
         self%has_Te = .false.
         self%has_Ti = .false.
         self%has_Vz = .false.
+        self%has_q = .false.
         self%initialized = .false.
         self%nrad = 0
 

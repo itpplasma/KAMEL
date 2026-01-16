@@ -754,6 +754,7 @@ module species_m
             call allocate_species_fields(plasma_temp%spec(sp), size(grid))
         end do
         call allocate_plasma_fields(plasma_temp, size(grid))
+        plasma_temp%grid_size = size(grid)
         plasma_temp%r_grid = grid
 
         do i = 1, size(grid)
@@ -1118,11 +1119,9 @@ module species_m
         end do
         close(11)
 
-        open(11, file=trim(profile_location)//'Er.dat')
-        do i=1, plasma%grid_size
-            read(11, *) r_temp, plasma%Er(i)
-        end do
-        close(11)
+        ! Read Er.dat with interpolation if grid doesn't match
+        call read_and_interpolate_profile(trim(profile_location)//'Er.dat', &
+                                          plasma%r_grid, plasma%Er, plasma%grid_size)
 
         open(11, file=trim(profile_location)//'q.dat')
         do i=1, plasma%grid_size
@@ -1192,5 +1191,91 @@ module species_m
         close(11)
 
     end subroutine
+
+    subroutine read_and_interpolate_profile(filename, target_grid, profile_out, n_target)
+        !> Read a profile file and interpolate to target grid if grids don't match
+        !> Uses linear interpolation when source grid differs from target grid
+        implicit none
+
+        character(*), intent(in) :: filename
+        real(dp), intent(in) :: target_grid(:)
+        real(dp), intent(out) :: profile_out(:)
+        integer, intent(in) :: n_target
+
+        real(dp), allocatable :: r_src(:), val_src(:)
+        real(dp) :: r_temp, val_temp, r_first_src, r_first_tgt
+        integer :: n_src, i, j, ios, iunit
+        real(dp) :: t
+        logical :: grids_match
+        real(dp), parameter :: GRID_TOL = 0.01_dp  ! 1% tolerance for grid matching
+
+        ! First pass: count lines in source file
+        n_src = 0
+        open(newunit=iunit, file=trim(filename), status='old', action='read')
+        do
+            read(iunit, *, iostat=ios) r_temp, val_temp
+            if (ios /= 0) exit
+            n_src = n_src + 1
+        end do
+        close(iunit)
+
+        if (n_src == 0) then
+            write(*,*) 'ERROR: Empty profile file: ', trim(filename)
+            stop 1
+        end if
+
+        ! Allocate and read source data
+        allocate(r_src(n_src), val_src(n_src))
+        open(newunit=iunit, file=trim(filename), status='old', action='read')
+        do i = 1, n_src
+            read(iunit, *) r_src(i), val_src(i)
+        end do
+        close(iunit)
+
+        ! Check if grids match (same number of points and similar first value)
+        grids_match = .false.
+        if (n_src == n_target) then
+            r_first_src = r_src(1)
+            r_first_tgt = target_grid(1)
+            if (abs(r_first_src - r_first_tgt) < GRID_TOL * abs(r_first_tgt + 1.0d-10)) then
+                grids_match = .true.
+            end if
+        end if
+
+        if (grids_match) then
+            ! Grids match - direct copy
+            profile_out(1:n_target) = val_src(1:n_target)
+        else
+            ! Grids don't match - interpolate
+            write(*,*) 'Note: Interpolating ', trim(filename), ' to match grid'
+            write(*,*) '  Source: ', n_src, ' points, r = [', r_src(1), ', ', r_src(n_src), ']'
+            write(*,*) '  Target: ', n_target, ' points, r = [', target_grid(1), ', ', target_grid(n_target), ']'
+
+            do i = 1, n_target
+                r_temp = target_grid(i)
+
+                ! Find bracketing indices in source grid
+                if (r_temp <= r_src(1)) then
+                    ! Extrapolate below (use first value)
+                    profile_out(i) = val_src(1)
+                else if (r_temp >= r_src(n_src)) then
+                    ! Extrapolate above (use last value)
+                    profile_out(i) = val_src(n_src)
+                else
+                    ! Find j such that r_src(j) <= r_temp < r_src(j+1)
+                    j = 1
+                    do while (j < n_src .and. r_src(j+1) < r_temp)
+                        j = j + 1
+                    end do
+                    ! Linear interpolation
+                    t = (r_temp - r_src(j)) / (r_src(j+1) - r_src(j))
+                    profile_out(i) = val_src(j) + t * (val_src(j+1) - val_src(j))
+                end if
+            end do
+        end if
+
+        deallocate(r_src, val_src)
+
+    end subroutine read_and_interpolate_profile
 
 end module

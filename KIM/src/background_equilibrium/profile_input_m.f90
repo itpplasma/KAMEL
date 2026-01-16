@@ -197,6 +197,10 @@ contains
             write(*,*) '  Required to locate convexwall file for equilibrium computation'
             stop 1
         end if
+        ! Remove trailing slash if present
+        if (code_path(len_trim(code_path):len_trim(code_path)) == '/') then
+            code_path = code_path(1:len_trim(code_path)-1)
+        end if
         convexwall_path = trim(code_path) // '/KAMEL/common/equil/convexwall/convexwall.asdex'
 
         ! Warn user about ASDEX Upgrade specific convexwall

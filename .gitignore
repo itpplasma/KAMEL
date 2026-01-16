@@ -19,3 +19,4 @@ external
 /.envrc
 
 **.DS_Store.worktrees/
+.worktrees/

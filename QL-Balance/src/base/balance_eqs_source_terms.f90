@@ -1,5 +1,5 @@
 subroutine det_balance_eqs_source_terms
-    
+
     ! calculates source terms in the balance equations. Is determined by assuming steady state.
 
     use grid_mod, only : y, dery, dery_equisource, nbaleqs, set_boundary_condition, npoi
@@ -8,6 +8,7 @@ subroutine det_balance_eqs_source_terms
     use h5mod
     use matrix_mod
     use QLBalance_kinds, only: dp
+    use rhs_balance_m, only: rhs_balance, initialize_rhs
 
     implicit none
 

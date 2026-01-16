@@ -6,10 +6,9 @@ subroutine evolvestep(timstep,eps)
     use matrix_mod, only: amat
     use matrix_mod, only: nz, nsize, irow, icol, amat
     use recstep_mod, only : timstep_arr
+    use rhs_balance_m, only: rhs_balance, initialize_rhs
 
     implicit none
-
-    external :: rhs_balance !, rhs_func, gslint
     integer :: ipoi,ieq,i,k,npoi,iopt,nz_sp,nz_sq,nrow,ncol
     double precision :: timstep,x1,eps
     INTEGER,          DIMENSION(:),   ALLOCATABLE :: ipcol,irow_sp,icol_sp

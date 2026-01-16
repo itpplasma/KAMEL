@@ -38,4 +38,9 @@ module config_m
     real(dp) :: number_density_rescale
     real(dp) :: ion_flr_scale_factor
 
+    ! KIM_PROFILES namelist variables
+    character(20) :: coord_type = 'auto'           ! 'auto', 'sqrt_psiN', or 'r_eff'
+    character(256) :: input_profile_dir = './'     ! Directory for raw input profiles
+    character(256) :: equil_file = ''              ! Path to equilibrium file (empty = compute)
+
 end module

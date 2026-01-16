@@ -39,6 +39,8 @@ subroutine read_config
                         quadpack_algorithm, quadpack_key, quadpack_limit, &
                         quadpack_epsabs, quadpack_epsrel, quadpack_use_u_substitution
 
+    namelist /KIM_PROFILES/ coord_type, input_profile_dir, equil_file
+
     num_args = command_argument_count()
     if (num_args > 1) then
         write(*,*) 'Too many arguments'
@@ -59,6 +61,7 @@ subroutine read_config
     read(unit = 77, nml = KIM_IO)
     read(unit = 77, nml = KIM_SETUP)
     read(unit = 77, nml = KIM_GRID)
+    read(unit = 77, nml = KIM_PROFILES)
     close(unit = 77)
 
     ! Map single-switch theta_integration to adaptive backend; allow users to omit theta_integration_method

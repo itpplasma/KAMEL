@@ -90,3 +90,17 @@
     zi = 1 !, 2
     ai = 2 !, 4
 /
+
+&KIM_PROFILES
+    ! Coordinate type for input profiles
+    ! 'auto'      - detect automatically (default)
+    ! 'sqrt_psiN' - profiles are in sqrt(psi/psi_max) coordinates
+    ! 'r_eff'     - profiles are already in effective radius [cm]
+    coord_type = 'auto'
+
+    ! Input directory for raw profiles (n_of_psiN.dat, etc.)
+    input_profile_dir = './'
+
+    ! Equilibrium file path (empty = compute from geqdsk)
+    equil_file = ''
+/

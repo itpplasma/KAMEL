@@ -193,12 +193,13 @@ contains
         write(iunit, '(A)') '72                                ntor         ! toroidal harmonics'
         write(iunit, '(A)') '0.99                              cutoff       ! inner cutoff'
         write(iunit, '(A)') '4                                 icftype      ! coil file type'
-        write(iunit, '(A)') "'" // trim(gfile_path) // "'     gfile        ! equilibrium file"
-        write(iunit, '(A)') "''                                pfile        ! coil file (unused)"
-        write(iunit, '(A)') "''                                convexfile   ! convex file (unused)"
-        write(iunit, '(A)') "''                                fluxdatapath ! flux data path (unused)"
-        write(iunit, '(A)') '0                                 window size for psi over R'
-        write(iunit, '(A)') '0                                 window size for psi over Z'
+        write(iunit, '(A)') "'" // trim(gfile_path) // "'"
+        write(iunit, '(A)') "''"
+        write(iunit, '(A)') "''"
+        write(iunit, '(A)') "''"
+        write(iunit, '(A)') '0                                 nwindow_r'
+        write(iunit, '(A)') '0                                 nwindow_z'
+        write(iunit, '(A)') '1                                 ieqfile      ! 1=EFIT format'
         close(iunit)
 
         write(*,*) 'Created field_divB0.inp for equilibrium computation'

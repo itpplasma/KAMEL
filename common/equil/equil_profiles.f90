@@ -16,6 +16,7 @@ module equil_profiles_m
 
     use rk4_integrator_m, only: rk4_step
     use field_line_rhs_m, only: set_field_line_mode, get_dz_dphi, field_line_rhs
+    use rhs1_mod, only: isw_rhs1
     use field_eq_mod, only: btf, rtf, nrad, nzet, rad, zet
     use field_sub, only: field_eq, psif
 
@@ -168,6 +169,7 @@ contains
         h = 2.d0 * pi / nstep
 
         ! Set mode for axis finding
+        isw_rhs1 = 1
         call set_field_line_mode(1)
 
         ! Initialize state
@@ -231,6 +233,7 @@ contains
         hr = (self%rmx - self%raxis) / nsurfmax
 
         ! Set mode for profile computation
+        isw_rhs1 = 2
         call set_field_line_mode(2)
 
         ! Scan surfaces to find separatrix

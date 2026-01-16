@@ -33,8 +33,7 @@ contains
     subroutine initTimeEvolutionNTV(this)
         use baseparam_mod, only: am, Z_i, rsepar
         use grid_mod, only: rmin
-        use logger, only: set_log_level
-        use neort_interface, only: meta_config_neort_t, read_neort_config, read_equil_file, &
+        use neort_interface, only: meta_config_neort_t, read_neort_meta_config, read_equil_file, &
                                    calculate_s_tor, calculate_coarse_s_tor, &
                                    calculate_Omega_tE, prepare_plasma_data_for_neort, &
                                    prepare_profile_data_for_neort
@@ -55,7 +54,7 @@ contains
         this%runType = "TimeEvolutionNTV"
 
         ! NEO-RT
-        call read_neort_config(balance_config_file, meta_config)
+        call read_neort_meta_config(balance_config_file, meta_config)
         s_size = meta_config%amount_of_s
 
         ! note: profiles live on rc, derivatives on rb
@@ -135,7 +134,7 @@ contains
         call prepare_profile_data_for_neort(profile_data, r, s_tor, Omega_tE)
         call neort_prepare_splines(s_size, am1, am2, Z1, Z2, plasma_data, profile_data)
 
-        !$omp parallel do schedule(dynamic)
+!$omp parallel do schedule(dynamic)
         do s_idx = 1, s_size
             call neort_compute_at_s(s_tor(s_idx), transport_data(s_idx))
             ! TODO: Apply NEO-RT transport coefficients back to KAMEL

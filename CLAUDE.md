@@ -101,6 +101,52 @@ bal.setKiLCA(ion_mass);
 bal.run();
 ```
 
+## KIM Profile Input System
+
+### Unit Requirements (CGS)
+All KIM input profiles must be in CGS units:
+- **Density**: 1/cm³ (typically 10^12 to 10^15). **NOT** SI units (10^19 1/m³)
+- **Temperature**: eV (typically 10 to 20000 eV)
+- **Electric field (Er)**: statV/cm (typically ±0.5 statV/cm)
+- **Magnetic field**: Gauss (typically ~20000 G for tokamaks)
+- **Radial coordinate**: cm (effective radius r_eff)
+
+### Profile Coordinate Types (`KIM_PROFILES` namelist)
+```fortran
+&KIM_PROFILES
+    coord_type = 'auto'           ! 'auto', 'sqrt_psiN', or 'r_eff'
+    input_profile_dir = './profiles/'
+    geqdsk_file = './gfile.eqdsk'  ! For equilibrium computation
+/
+```
+
+- `'auto'` - Auto-detect from max radius (>2 cm → r_eff, else sqrt_psiN)
+- `'sqrt_psiN'` - Profiles in √(ψ/ψ_max) coordinates, transformed to r_eff using equilibrium
+- `'r_eff'` - Profiles already in effective radius [cm], used directly
+
+### Required Profile Files
+Located in `profile_location` directory:
+- `n.dat` - Electron density (r_eff [cm], n [1/cm³])
+- `Te.dat` - Electron temperature (r_eff [cm], Te [eV])
+- `Ti.dat` - Ion temperature (r_eff [cm], Ti [eV])
+- `q.dat` - Safety factor (r_eff [cm], q)
+- `Er.dat` - Radial electric field (r_eff [cm], Er [statV/cm]) - optional, calculated if missing
+- `Vz.dat` - Toroidal rotation (r_eff [cm], Vz [cm/s]) - optional
+
+### Automatic Validation Checks
+KIM performs these checks on startup:
+1. **Density units** - Error if density >10^17 (likely SI instead of CGS)
+2. **q vs m_mode sign** - Warning if q>0 with m>0 (no resonance expected)
+3. **Radial range** - Error if r_min or r_plas outside profile range
+4. **Er interpolation** - Automatic interpolation if Er.dat grid differs from other profiles
+
+### Er Calculation
+If `Er.dat` is not provided, KIM calculates it from radial force balance:
+```
+Er = (Ti/e·n)·dn/dr + (1/e)·dTi/dr + (r·B0·Vz)/(c·q·R0)
+```
+Output written to `Er_no_Vpol.dat` (without poloidal rotation contribution).
+
 ## Configuration Management
 
 ### Namelist Files

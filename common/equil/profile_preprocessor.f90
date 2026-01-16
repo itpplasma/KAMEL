@@ -305,6 +305,23 @@ contains
             self%psi_n(i) = equil%psisurf(i) / self%psi_max
         end do
 
+        ! Validate equilibrium data
+        if (abs(equil%btor) < 1.d-10) then
+            write(*,*) '[profile_preprocessor_m:load_from_equil] ERROR: btor is zero or too small'
+            write(*,*) '  btor = ', equil%btor
+            stop 1
+        end if
+
+        ! Check for NaN in computed values
+        do i = 1, self%nrad
+            if (self%r_eff(i) /= self%r_eff(i) .or. self%psi_n(i) /= self%psi_n(i)) then
+                write(*,*) '[profile_preprocessor_m:load_from_equil] ERROR: NaN at index ', i
+                write(*,*) '  r_eff = ', self%r_eff(i), ', psi_n = ', self%psi_n(i)
+                write(*,*) '  phitor = ', equil%phitor(i), ', psisurf = ', equil%psisurf(i)
+                stop 1
+            end if
+        end do
+
     end subroutine load_from_equil_profiles
 
     !---------------------------------------------------------------------------
@@ -493,9 +510,27 @@ contains
             stop 1
         end if
 
+        ! Debug: print psi_n ranges
+        write(*,*) '[profile_preprocessor_m:process] Input psi_n range: ', &
+                   psi_n_in(1), ' to ', psi_n_in(n_in)
+        write(*,*) '[profile_preprocessor_m:process] Equil psi_n range: ', &
+                   self%psi_n(1), ' to ', self%psi_n(self%nrad)
+
         ! Interpolate using cubic spline
         call cubic_spline_interpolate(psi_n_in, value_in, n_in, &
                                       self%psi_n, profile_out, self%nrad)
+
+        ! Check for NaN in interpolated output
+        do i = 1, self%nrad
+            if (profile_out(i) /= profile_out(i)) then
+                write(*,*) '[profile_preprocessor_m:process] ERROR: NaN in interpolated ', &
+                           trim(profile_name), ' at index ', i
+                write(*,*) '  psi_n(i) = ', self%psi_n(i), ', r_eff(i) = ', self%r_eff(i)
+                write(*,*) '  This may indicate a coordinate system mismatch between'
+                write(*,*) '  the input profiles and the computed equilibrium.'
+                stop 1
+            end if
+        end do
 
         has_profile = .true.
         deallocate(coord_in, value_in, psi_n_in)

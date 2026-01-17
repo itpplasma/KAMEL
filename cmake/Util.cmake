@@ -35,6 +35,13 @@ function(find_or_fetch DEPENDENCY)
         message(FATAL_ERROR "Unable to locate sources for ${DEPENDENCY}: expected ${${DEPENDENCY}_SOURCE_DIR}")
     endif()
 
+    # Disable tests for fetched dependencies to avoid CTest registering
+    # tests that won't be built (since we use EXCLUDE_FROM_ALL)
+    # Support both old (LIBNEO_ENABLE_TESTS) and new (LIBNEO_BUILD_TESTING) variable names
+    set(LIBNEO_BUILD_TESTING OFF CACHE BOOL "" FORCE)
+    set(LIBNEO_ENABLE_TESTS OFF CACHE BOOL "" FORCE)
+    set(LIBNEO_ENABLE_GOLDEN_TESTS OFF CACHE BOOL "" FORCE)
+
     add_subdirectory(${${DEPENDENCY}_SOURCE_DIR}
         ${CMAKE_CURRENT_BINARY_DIR}/${DEPENDENCY}
         EXCLUDE_FROM_ALL

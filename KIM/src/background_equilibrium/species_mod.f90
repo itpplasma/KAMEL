@@ -754,6 +754,7 @@ module species_m
             call allocate_species_fields(plasma_temp%spec(sp), size(grid))
         end do
         call allocate_plasma_fields(plasma_temp, size(grid))
+        plasma_temp%grid_size = size(grid)
         plasma_temp%r_grid = grid
 
         do i = 1, size(grid)
@@ -1118,11 +1119,9 @@ module species_m
         end do
         close(11)
 
-        open(11, file=trim(profile_location)//'Er.dat')
-        do i=1, plasma%grid_size
-            read(11, *) r_temp, plasma%Er(i)
-        end do
-        close(11)
+        ! Read Er.dat with interpolation if grid doesn't match
+        call read_and_interpolate_profile(trim(profile_location)//'Er.dat', &
+                                          plasma%r_grid, plasma%Er, plasma%grid_size)
 
         open(11, file=trim(profile_location)//'q.dat')
         do i=1, plasma%grid_size
@@ -1158,10 +1157,104 @@ module species_m
             end do
         end if
 
+        ! Validate units - density should be in CGS (1/cm^3), typically 10^12 to 10^15
+        call validate_profile_units(plasma)
+
         if (fstatus == 1) write(*,*) 'Status: Finished reading profiles from text files'
 
     end subroutine
 
+    subroutine validate_profile_units(plasma)
+        !> Check that density and temperature are in expected CGS units
+        !> Density: 1/cm^3, typically 10^12 to 10^15 for fusion plasmas
+        !> Temperature: eV, typically 10 to 20000 eV
+        !> Also checks q vs m_mode sign consistency
+        use setup_m, only: m_mode
+        implicit none
+
+        type(plasma_t), intent(in) :: plasma
+        real(dp) :: n_max, T_max, q_mean
+        integer :: sigma
+
+        ! Check electron density
+        n_max = maxval(plasma%spec(0)%n)
+
+        if (n_max > 1.0d17) then
+            write(*,*) ''
+            write(*,*) '╔══════════════════════════════════════════════════════════════════╗'
+            write(*,*) '║                    ERROR: DENSITY UNITS                          ║'
+            write(*,*) '╠══════════════════════════════════════════════════════════════════╣'
+            write(*,*) '║  Density appears to be in SI units (1/m^3) instead of CGS!       ║'
+            write(*,*) '╚══════════════════════════════════════════════════════════════════╝'
+            write(*,*) ''
+            write(*,*) '  Maximum density found: ', n_max, ' 1/cm^3'
+            write(*,*) '  Expected range (CGS):  1e12 to 1e15 1/cm^3'
+            write(*,*) ''
+            write(*,*) '  Your density values suggest SI units (1/m^3).'
+            write(*,*) '  Please convert to CGS by dividing by 1e6.'
+            write(*,*) ''
+            write(*,*) '  Example: n_SI = 4.67e19 1/m^3  -->  n_CGS = 4.67e13 1/cm^3'
+            write(*,*) ''
+            stop 1
+        else if (n_max < 1.0d10) then
+            write(*,*) ''
+            write(*,*) 'WARNING: Density values appear very low'
+            write(*,*) '  Maximum density: ', n_max, ' 1/cm^3'
+            write(*,*) '  Expected range:  1e12 to 1e15 1/cm^3'
+            write(*,*) ''
+        end if
+
+        ! Check temperatures (should be in eV)
+        ! Note: spec array is 0:n_species-1 but read_profiles uses number_of_ion_species from config
+        do sigma = 0, min(plasma%n_species, size(plasma%spec)-1)
+            if (.not. allocated(plasma%spec(sigma)%T)) cycle
+            T_max = maxval(plasma%spec(sigma)%T)
+            if (T_max > 1.0d6) then
+                write(*,*) ''
+                write(*,*) 'WARNING: Temperature appears very high'
+                write(*,*) '  Species ', sigma, ' max T = ', T_max, ' eV'
+                write(*,*) '  Expected range: 10 to 20000 eV'
+                write(*,*) '  Check if temperature is in Kelvin instead of eV'
+                write(*,*) ''
+            end if
+        end do
+
+        ! Check q vs m_mode sign consistency
+        ! For positive q, m should be negative (and vice versa) for proper helicity
+        if (allocated(plasma%q) .and. size(plasma%q) > 0) then
+            q_mean = sum(plasma%q) / size(plasma%q)
+            if (q_mean > 0.0_dp .and. m_mode > 0) then
+                write(*,*) ''
+                write(*,*) '╔══════════════════════════════════════════════════════════════════╗'
+                write(*,*) '║               WARNING: q AND m_mode SIGN MISMATCH                ║'
+                write(*,*) '╠══════════════════════════════════════════════════════════════════╣'
+                write(*,*) '║  Safety factor q > 0 typically requires m < 0 for resonance      ║'
+                write(*,*) '╚══════════════════════════════════════════════════════════════════╝'
+                write(*,*) ''
+                write(*,*) '  Mean safety factor q = ', q_mean
+                write(*,*) '  Poloidal mode number m = ', m_mode
+                write(*,*) ''
+                write(*,*) '  No resonant surfaces will be found with this configuration.'
+                write(*,*) '  For resonant behavior, use m = ', -abs(m_mode)
+                write(*,*) ''
+            else if (q_mean < 0.0_dp .and. m_mode < 0) then
+                write(*,*) ''
+                write(*,*) '╔══════════════════════════════════════════════════════════════════╗'
+                write(*,*) '║               WARNING: q AND m_mode SIGN MISMATCH                ║'
+                write(*,*) '╠══════════════════════════════════════════════════════════════════╣'
+                write(*,*) '║  Safety factor q < 0 typically requires m > 0 for resonance      ║'
+                write(*,*) '╚══════════════════════════════════════════════════════════════════╝'
+                write(*,*) ''
+                write(*,*) '  Mean safety factor q = ', q_mean
+                write(*,*) '  Poloidal mode number m = ', m_mode
+                write(*,*) ''
+                write(*,*) '  No resonant surfaces will be found with this configuration.'
+                write(*,*) '  For resonant behavior, use m = ', abs(m_mode)
+                write(*,*) ''
+            end if
+        end if
+
+    end subroutine validate_profile_units
 
     subroutine read_from_hdf5
 
@@ -1192,5 +1285,91 @@ module species_m
         close(11)
 
     end subroutine
+
+    subroutine read_and_interpolate_profile(filename, target_grid, profile_out, n_target)
+        !> Read a profile file and interpolate to target grid if grids don't match
+        !> Uses linear interpolation when source grid differs from target grid
+        implicit none
+
+        character(*), intent(in) :: filename
+        real(dp), intent(in) :: target_grid(:)
+        real(dp), intent(out) :: profile_out(:)
+        integer, intent(in) :: n_target
+
+        real(dp), allocatable :: r_src(:), val_src(:)
+        real(dp) :: r_temp, val_temp, r_first_src, r_first_tgt
+        integer :: n_src, i, j, ios, iunit
+        real(dp) :: t
+        logical :: grids_match
+        real(dp), parameter :: GRID_TOL = 0.01_dp  ! 1% tolerance for grid matching
+
+        ! First pass: count lines in source file
+        n_src = 0
+        open(newunit=iunit, file=trim(filename), status='old', action='read')
+        do
+            read(iunit, *, iostat=ios) r_temp, val_temp
+            if (ios /= 0) exit
+            n_src = n_src + 1
+        end do
+        close(iunit)
+
+        if (n_src == 0) then
+            write(*,*) 'ERROR: Empty profile file: ', trim(filename)
+            stop 1
+        end if
+
+        ! Allocate and read source data
+        allocate(r_src(n_src), val_src(n_src))
+        open(newunit=iunit, file=trim(filename), status='old', action='read')
+        do i = 1, n_src
+            read(iunit, *) r_src(i), val_src(i)
+        end do
+        close(iunit)
+
+        ! Check if grids match (same number of points and similar first value)
+        grids_match = .false.
+        if (n_src == n_target) then
+            r_first_src = r_src(1)
+            r_first_tgt = target_grid(1)
+            if (abs(r_first_src - r_first_tgt) < GRID_TOL * abs(r_first_tgt + 1.0d-10)) then
+                grids_match = .true.
+            end if
+        end if
+
+        if (grids_match) then
+            ! Grids match - direct copy
+            profile_out(1:n_target) = val_src(1:n_target)
+        else
+            ! Grids don't match - interpolate
+            write(*,*) 'Note: Interpolating ', trim(filename), ' to match grid'
+            write(*,*) '  Source: ', n_src, ' points, r = [', r_src(1), ', ', r_src(n_src), ']'
+            write(*,*) '  Target: ', n_target, ' points, r = [', target_grid(1), ', ', target_grid(n_target), ']'
+
+            do i = 1, n_target
+                r_temp = target_grid(i)
+
+                ! Find bracketing indices in source grid
+                if (r_temp <= r_src(1)) then
+                    ! Extrapolate below (use first value)
+                    profile_out(i) = val_src(1)
+                else if (r_temp >= r_src(n_src)) then
+                    ! Extrapolate above (use last value)
+                    profile_out(i) = val_src(n_src)
+                else
+                    ! Find j such that r_src(j) <= r_temp < r_src(j+1)
+                    j = 1
+                    do while (j < n_src .and. r_src(j+1) < r_temp)
+                        j = j + 1
+                    end do
+                    ! Linear interpolation
+                    t = (r_temp - r_src(j)) / (r_src(j+1) - r_src(j))
+                    profile_out(i) = val_src(j) + t * (val_src(j+1) - val_src(j))
+                end if
+            end do
+        end if
+
+        deallocate(r_src, val_src)
+
+    end subroutine read_and_interpolate_profile
 
 end module

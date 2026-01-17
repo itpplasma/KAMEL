@@ -371,7 +371,7 @@ module IO_collection_m
 
     end subroutine write_complex_profile
 
-    subroutine write_complex_profile_abs(x, y, n, filename, comment, unit)
+    subroutine write_complex_profile_abs(x, y, n, filename, comment, unit, output_dir)
 
         use KIM_kinds_m, only: dp
         use config_m, only: output_path, hdf5_output
@@ -383,15 +383,24 @@ module IO_collection_m
         complex(dp), intent(in) :: y(n)
         character(len=*), intent(in) :: filename
         character(*), optional :: comment, unit
+        character(len=*), intent(in), optional :: output_dir
 
         integer :: i
+        character(len=512) :: out_dir
 
         if (hdf5_output) then
             call write_complex_profile(x, y, n, filename, comment, unit)
             return
         end if
 
-        open(unit=10, file=trim(output_path)//filename//'.dat', status='replace', action='write')
+        ! Use custom output directory if provided, otherwise use default
+        if (present(output_dir)) then
+            out_dir = output_dir
+        else
+            out_dir = output_path
+        end if
+
+        open(unit=10, file=trim(out_dir)//filename//'.dat', status='replace', action='write')
 
         ! Write data as two columns
         do i = 1, n
@@ -559,6 +568,22 @@ module IO_collection_m
         end if
 
     end subroutine
+
+    subroutine ensure_dispersion_dir_exists()
+        !> Ensure the dispersion output directory exists, creating it if necessary
+
+        use config_m, only: dispersion_output_path
+
+        implicit none
+
+        logical :: ex
+
+        inquire(file=trim(dispersion_output_path), exist=ex)
+        if (.not. ex) then
+            call system('mkdir -p '//trim(dispersion_output_path))
+        end if
+
+    end subroutine ensure_dispersion_dir_exists
 
     function itoa(i) result(res)
 
@@ -744,7 +769,7 @@ module IO_collection_m
 
 
     subroutine write_tracked_roots(x_grid, n_grid, zeros, fzeros, multiplicities, &
-            n_roots_per_point, branch_id, n_branches, filename, comment)
+            n_roots_per_point, branch_id, n_branches, filename, comment, output_dir)
         !> Write roots organized by branch (tracked across grid points).
         !> Each branch represents a continuous root that can be followed radially.
         !>
@@ -768,12 +793,14 @@ module IO_collection_m
         integer, intent(in) :: branch_id(:,:)
         character(len=*), intent(in) :: filename
         character(len=*), intent(in), optional :: comment
+        character(len=*), intent(in), optional :: output_dir
 
         integer :: i, j, b, max_roots, n_points_in_branch
         integer(HID_T) :: h5grpid, h5branchid
         logical :: ex
         character(len=256) :: comment_str, branch_filename
         character(len=16) :: branch_name
+        character(len=512) :: out_dir
 
         ! Arrays for single branch data
         real(dp), allocatable :: branch_x(:)
@@ -781,6 +808,13 @@ module IO_collection_m
         integer, allocatable :: branch_mult(:)
 
         max_roots = size(zeros, 1)
+
+        ! Use custom output directory if provided, otherwise use default
+        if (present(output_dir)) then
+            out_dir = output_dir
+        else
+            out_dir = output_path
+        end if
 
         if (present(comment)) then
             comment_str = comment
@@ -864,7 +898,7 @@ module IO_collection_m
                 end do
 
                 if (n_points_in_branch > 0) then
-                    open(unit=10, file=trim(output_path)//trim(branch_filename), &
+                    open(unit=10, file=trim(out_dir)//trim(branch_filename), &
                         status='replace', action='write')
 
                     write(10, '(A,I0)') '# ' // trim(comment_str) // ' - Branch ', b
@@ -883,7 +917,7 @@ module IO_collection_m
             end do
 
             ! Also write a summary file
-            open(unit=10, file=trim(output_path)//trim(filename)//'_summary.dat', &
+            open(unit=10, file=trim(out_dir)//trim(filename)//'_summary.dat', &
                 status='replace', action='write')
             write(10, '(A)') '# ' // trim(comment_str)
             write(10, '(A,I0)') '# Total branches found: ', n_branches

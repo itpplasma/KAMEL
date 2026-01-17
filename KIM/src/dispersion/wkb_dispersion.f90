@@ -48,8 +48,8 @@ module rt_WKB_dispersion_m
         use KIM_kinds_m, only: dp
         use muller_root_finding
         use grid_m, only: rg_grid
-        use IO_collection_m, only: write_complex_profile_abs
-        use config_m, only: WKB_dispersion_solver
+        use IO_collection_m, only: write_complex_profile_abs, ensure_dispersion_dir_exists
+        use config_m, only: WKB_dispersion_solver, dispersion_output_path
 
         implicit none
 
@@ -60,15 +60,19 @@ module rt_WKB_dispersion_m
 
         print *, "Running "//trim(this%run_type)//" model ..."
 
+        ! Ensure dispersion output directory exists
+        call ensure_dispersion_dir_exists()
+
         km = 1 ! max number of roots to find
         allocate(found_roots(km, rg_grid%npts_b))
-        
+
         select case (WKB_dispersion_solver)
             case ('Muller')
                 call run_Muller_dispersion(km, found_roots)
                 do i = 1, km
                     write(out_str, '(A,I0)') "kr", i
-                    call write_complex_profile_abs(rg_grid%xb, found_roots(:,i), rg_grid%npts_b, trim(out_str), "WKB dispersion relation", "cm^{-2}")
+                    call write_complex_profile_abs(rg_grid%xb, found_roots(:,i), rg_grid%npts_b, &
+                        trim(out_str), "WKB dispersion relation", "cm^{-2}", dispersion_output_path)
                 end do
             case ('ZEAL')
                 call run_ZEAL_dispersion()
@@ -85,7 +89,7 @@ module rt_WKB_dispersion_m
         use grid_m, only: rg_grid
         use IO_collection_m, only: write_complex_profile_abs, &
             track_root_branches, write_tracked_roots
-        use config_m, only: WKB_dispersion_mode
+        use config_m, only: WKB_dispersion_mode, dispersion_output_path
         use Function_Input_Module, only: f_ptr
 
         implicit none
@@ -180,7 +184,7 @@ module rt_WKB_dispersion_m
         call write_tracked_roots(rg_grid%xb, rg_grid%npts_b, &
             found_roots, fnv, all_multiplicities, &
             n_roots_per_point, branch_id, n_branches, &
-            'muller_branches', 'Muller tracked dispersion branches')
+            'muller_branches', 'Muller tracked dispersion branches', dispersion_output_path)
 
         print *, 'Tracked branches written to output files.'
 
@@ -381,7 +385,7 @@ module rt_WKB_dispersion_m
         use Zeal_Input_Module, only: set_zeal_search_region
         use config_m, only: WKB_max_tracked_branches, WKB_branch_search_halfwidth, &
             WKB_broad_search_halfwidth, WKB_broad_search_interval, WKB_root_tolerance, &
-            WKB_dispersion_mode
+            WKB_dispersion_mode, dispersion_output_path
 
         implicit none
 
@@ -668,7 +672,7 @@ module rt_WKB_dispersion_m
         call write_tracked_roots(rg_grid%xb, rg_grid%npts_b, &
             all_zeros, all_fzeros, all_multiplicities, &
             n_roots_per_point, all_branch_ids, WKB_max_tracked_branches, &
-            'zeal_branches', 'ZEAL per-branch tracked dispersion')
+            'zeal_branches', 'ZEAL per-branch tracked dispersion', dispersion_output_path)
 
         print *
         print *, 'Tracked branches written to output files.'

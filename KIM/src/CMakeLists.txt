@@ -135,12 +135,13 @@ target_include_directories(KIM_lib PUBLIC ${KILCA_PATH}/math/)
 find_package(HDF5 COMPONENTS C Fortran HL REQUIRED)
 message(" ====== HDF5 was found! ======")
 
-target_link_libraries(KIM_lib PUBLIC 
+target_link_libraries(KIM_lib PUBLIC
                                 hdf5::hdf5
                                 hdf5::hdf5_fortran
                                 hdf5::hdf5_hl
                                 hdf5::hdf5_hl_fortran
                                 kamel_hdf5_tools
+                                kamel_equil
 )
 
 add_executable(KIM_exe kim_main.f90)

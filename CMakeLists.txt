@@ -104,9 +104,13 @@ list(APPEND CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/cmake)
 # Unified build: add subprojects for KiLCA, KIM, and QL-Balance
 add_subdirectory(common/math)
 add_subdirectory(common/hdf5_tools)
+add_subdirectory(common/equil)
 add_subdirectory(KiLCA)
 add_subdirectory(KIM)
 add_subdirectory(QL-Balance)
+
+# Preprocessing tools
+add_subdirectory(PreProc/fourier)
 
 # Install symbolic link for KIM if requested
 if(INSTALL_KIM_SYMLINK)

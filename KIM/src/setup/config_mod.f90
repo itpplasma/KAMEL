@@ -27,6 +27,7 @@ module config_m
     ! KIM_IO namelist variables
     character(256) :: profile_location ! path to profile directory
     character(256) :: output_path         ! path to output directory
+    character(256) :: dispersion_output_path  ! path to dispersion output subdirectory
     character(256) :: h5_out_file ! file name of the hdf5 output file
     logical :: hdf5_input, hdf5_output
     integer :: fdebug, fstatus, fdiagnostics
@@ -37,5 +38,25 @@ module config_m
     logical :: rescale_density
     real(dp) :: number_density_rescale
     real(dp) :: ion_flr_scale_factor
+
+    ! KIM_PROFILES namelist variables
+    character(20) :: coord_type = 'auto'           ! 'auto', 'sqrt_psiN', or 'r_eff'
+    character(256) :: input_profile_dir = './'     ! Directory for raw input profiles
+    character(256) :: equil_file = ''              ! Path to equil_r_q_psi.dat (empty = compute from geqdsk)
+    character(256) :: geqdsk_file = ''             ! Path to GEQDSK g-file for equilibrium calculation
+
+    ! Input profile filenames (for sqrt_psiN coordinate input)
+    character(256) :: n_input_file = 'n_of_psiN.dat'
+    character(256) :: Te_input_file = 'Te_of_psiN.dat'
+    character(256) :: Ti_input_file = 'Ti_of_psiN.dat'
+    character(256) :: Vz_input_file = 'Vz_of_psiN.dat'
+
+    ! Output profile filenames (in profile_location)
+    character(256) :: n_file = 'n.dat'
+    character(256) :: Te_file = 'Te.dat'
+    character(256) :: Ti_file = 'Ti.dat'
+    character(256) :: Vz_file = 'Vz.dat'
+    character(256) :: Er_file = 'Er.dat'
+    character(256) :: q_file = 'q.dat'
 
 end module

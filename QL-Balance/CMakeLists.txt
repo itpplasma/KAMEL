@@ -123,8 +123,15 @@ message(" ====== HDF5 was found! ======")
 
 set(BUILD_TESTING OFF)
 
-find_or_fetch(libneo)
-include_directories(${CMAKE_CURRENT_BINARY_DIR}/libneo/include)
+set(LIBNEO_ENABLE_TESTS OFF CACHE BOOL "Disable libneo tests" FORCE)
+set(LIBNEO_BUILD_TESTING OFF CACHE BOOL "Disable libneo tests" FORCE)
+
+
+# Only fetch libneo if not already available (prevents duplicate targets)
+if(NOT TARGET LIBNEO::neo)
+    find_or_fetch(libneo)
+endif()
+include_directories(${CMAKE_CURRENT_BINARY_DIR}/../libneo/include)
 
 add_dependencies(ql-balance_lib sparse)
 

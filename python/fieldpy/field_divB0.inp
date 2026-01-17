@@ -10,6 +10,7 @@
 ''                                                  fluxdatapath ! directory with data in flux coord.
 0                                                   window size for filtering of psi array over R
 0                                                   window size for filtering of psi array over Z
+1                                                   ieqfile! 0=old, 1=EFIT format
 
 
 

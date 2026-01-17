@@ -1,45 +1,7 @@
 !ccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
 !
-  module rhs1_mod
-    double precision :: dz_dphi,isw_rhs1
-  end module rhs1_mod
-!
-!ccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
-!
-  subroutine rhs1(ndim,phi,y,dery)
-!
-  use rhs1_mod
-!
-  implicit none
-!
-  integer :: ndim ! = 5
-!
-  double precision :: phi,y,dery
-  double precision x,bmod,sqrtg,bder,hcovar,hctrvr,hcoder,hctder
-  dimension y(ndim),dery(ndim)
-  dimension x(3),bder(3),hcovar(3),hctrvr(3),hcoder(3,3),hctder(3,3)
-!
-  x(1)=y(1)
-  x(2)=phi
-  x(3)=y(2)
-!  
-  call mag(x,bmod,sqrtg,bder,hcovar,hctrvr,hcoder,hctder)
-!
-  dery(1)=hctrvr(1)/hctrvr(2)
-  dery(2)=hctrvr(3)/hctrvr(2)
-  dery(3)=y(1)*hctrvr(3)/hctrvr(2)
-  if(isw_rhs1.eq.1) then
-    dery(4)=y(1)
-    dery(5)=y(2)
-  elseif(isw_rhs1.eq.2) then
-    dery(4)=bmod*y(1)*y(2)*hctrvr(1)
-    dery(5)=y(1)**2*hctrvr(3)/hctrvr(2)
-  endif
-!
-  dz_dphi=dery(2)
-!
-  return
-  end subroutine rhs1
+! Fourier-specific RHS for complex field-line integration
+! Note: rhs1_mod and rhs1 for equilibrium tracing are provided by kamel_equil
 !
 !ccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
 !

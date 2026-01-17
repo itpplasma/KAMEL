@@ -39,6 +39,10 @@ subroutine read_config
                         quadpack_algorithm, quadpack_key, quadpack_limit, &
                         quadpack_epsabs, quadpack_epsrel, quadpack_use_u_substitution
 
+    namelist /KIM_PROFILES/ coord_type, input_profile_dir, equil_file, geqdsk_file, &
+                        n_input_file, Te_input_file, Ti_input_file, Vz_input_file, &
+                        n_file, Te_file, Ti_file, Vz_file, Er_file, q_file
+
     num_args = command_argument_count()
     if (num_args > 1) then
         write(*,*) 'Too many arguments'
@@ -59,6 +63,7 @@ subroutine read_config
     read(unit = 77, nml = KIM_IO)
     read(unit = 77, nml = KIM_SETUP)
     read(unit = 77, nml = KIM_GRID)
+    read(unit = 77, nml = KIM_PROFILES)
     close(unit = 77)
 
     ! Map single-switch theta_integration to adaptive backend; allow users to omit theta_integration_method
@@ -93,6 +98,9 @@ subroutine read_config
     if (.not. ex) then
         call system('mkdir -p '//trim(output_path))
     end if
+
+    ! Set dispersion output path (subdirectory of output_path)
+    dispersion_output_path = trim(output_path)//'dispersion/'
 
     ! Display formatted configuration
     call display_kim_configuration()

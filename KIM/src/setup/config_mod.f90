@@ -27,6 +27,7 @@ module config_m
     ! KIM_IO namelist variables
     character(256) :: profile_location ! path to profile directory
     character(256) :: output_path         ! path to output directory
+    character(256) :: dispersion_output_path  ! path to dispersion output subdirectory
     character(256) :: h5_out_file ! file name of the hdf5 output file
     logical :: hdf5_input, hdf5_output
     integer :: fdebug, fstatus, fdiagnostics

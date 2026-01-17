@@ -99,6 +99,9 @@ subroutine read_config
         call system('mkdir -p '//trim(output_path))
     end if
 
+    ! Set dispersion output path (subdirectory of output_path)
+    dispersion_output_path = trim(output_path)//'dispersion/'
+
     ! Display formatted configuration
     call display_kim_configuration()
 

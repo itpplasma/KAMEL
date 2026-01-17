@@ -395,7 +395,7 @@ contains
         integer :: iunit, ios
         real(dp) :: r_val, data_val
         real(dp), allocatable :: r_temp(:), data_temp(:)
-        integer, parameter :: MAX_PTS = 10000
+        integer, parameter :: MAX_PTS = 20000
 
         allocate(r_temp(MAX_PTS), data_temp(MAX_PTS))
         npts = 0

@@ -18,5 +18,5 @@ external
 # direnv
 /.envrc
 
-**.DS_Store.worktrees/
+**.DS_Store
 .worktrees/

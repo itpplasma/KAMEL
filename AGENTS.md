@@ -4,8 +4,7 @@
 - Root CMake/Make build: `CMakeLists.txt`, `Makefile`, build outputs in `build/`.
 - Codes: `KiLCA/`, `KIM/`, `QL-Balance/` (executables like `KIM.x`).
 - Shared math/utils: `common/`.
-- Interfaces and tools: `python/` (KAMELpy), `PreProc/`, `utility_scripts/`, `matlab/`.
-- Docs and templates: `Documentation/`, `template_scripts/`.
+- Interfaces and tools: `python/` (KAMELpy), `PreProc/`.
 
 ## Build, Test, and Development Commands
 - Configure+build (Release default): `make all` or `CONFIG=Debug make all`.
@@ -36,11 +35,11 @@
 ## Configuration & Data
 - Compilers/libs: MPI Fortran (`mpif90`), HDF5, LAPACK/BLAS, SuiteSparse, GSL, SUNDIALS.
 - Ninja-based builds; ensure Ninja is available on PATH.
-- I/O uses HDF5 across codes; templates in `template_scripts/` prepare inputs and post-process outputs.
+- I/O uses HDF5 across codes.
 - Namelists: KIM `KIM/nmls/KIM_config.nml`; QL-Balance `balance_conf.nml` (in run directory).
 - Dependency: QL-Balance requires KiLCA to be built first.
 - Reconfigure tip: when in doubt, `make clean` then rebuild; HDF5 outputs record git version/timestamps for reproducibility.
 
 ## Workflows & Interfaces
-- Typical flow: prerun (generate HDF5) → run solver (KiLCA/KIM/QL-Balance) → Python/MATLAB post-processing.
+- Typical flow: prepare profiles → run solver (KiLCA/KIM/QL-Balance) → Python post-processing.
 - Python (KAMELpy): install via `python/Makefile`; use OO interfaces in `python/` for analysis and orchestration.

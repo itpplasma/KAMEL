@@ -46,25 +46,17 @@ cd python && make init && make install
 ### Core Components
 - **Fortran/C++ cores** - High-performance computation engines in `/KiLCA/`, `/KIM/`, `/QL-Balance/` (executables use `.x` suffix)
 - **Python interfaces** - Modern object-oriented wrappers in `/python/` (KAMELpy)
-- **MATLAB interfaces** - Research workflow management in `/matlab/`
-- **Template scripts** - Standardized workflows in `/template_scripts/`
 - **Common utilities** - Shared math/utils in `/common/`
 
 ### Key Directories
-- `/external/` - External dependencies (SuiteSparse, GSL, LAPACK, etc.)
 - `/PreProc/` - Preprocessing utilities (fouriermodes, neo-2 templates)
-- `/Documentation/` - LaTeX documentation and mathematical background
-- `/utility_scripts/` - Helper scripts in MATLAB and Python
 - `/build/` - Build artifacts and compiled binaries (gitignored)
 
 ### Data Flow & Workflow
 All data exchange uses **HDF5 format** for standardization. The typical workflow:
-1. **Prerun**: Generate HDF5 input files using template scripts
-2. **Main run**: Execute solver (KiLCA/KIM/QL-Balance) with appropriate template:
-   - `linearrun/` - Quasilinear diffusion coefficients
-   - `timeevol/` - Dynamic transport evolution
-   - `parameterscan/` - Parameter space exploration
-3. **Post-processing**: Python/MATLAB analysis and visualization
+1. **Profile preparation**: Prepare input profiles in CGS units
+2. **Main run**: Execute solver (KiLCA/KIM/QL-Balance)
+3. **Post-processing**: Python analysis and visualization
 4. **Metadata**: HDF5 outputs include git version and timestamps for reproducibility
 
 ## Python Interface (KAMELpy)
@@ -81,24 +73,6 @@ interface = KiLCA_interface(shot, time, path, run_type, machine)
 interface.set_modes(m_modes, n_modes)
 interface.prepare_balance_input(input_file)
 interface.run_balance()
-```
-
-## MATLAB Interface
-
-### Core Framework
-- **`Balance` class** - Comprehensive workflow management with modular preprocessing
-- **Blueprint system** - Template-based configuration in `/matlab/balance/KiLCA_interface/blueprints/`
-- **Device-specific configs** - AUG, MAST-U support
-
-### Common Pattern
-```matlab
-bal = Balance(runpath, shot, time, name, hdf5file);
-bal.setModes(m, n);
-bal.setCoil(cfile, pfile);
-bal.setEqui(gfile, fluxdatapath);
-bal.setProfiles(neprof, Teprof, Tiprof, vtprof);
-bal.setKiLCA(ion_mass);
-bal.run();
 ```
 
 ## KIM Profile Input System
@@ -159,20 +133,6 @@ Output written to `Er_no_Vpol.dat` (without poloidal rotation contribution).
 - **Build files**: `build/build.ninja`
 - **Compilers**: MPI Fortran (`mpif90`), C/C++ with clang-format support
 - **Platforms tested**: Apple Silicon (clang 16.0 + gfortran 14.2), Debian (GNU 12.2.0)
-
-## Template-Based Development
-
-### Standard Templates
-- **`script_prerun.m`** - Creates input HDF5 files for all run types
-- **`linearrun/`** - Quasilinear diffusion coefficient calculations
-- **`timeevol/`** - Dynamic transport evolution
-- **`parameterscan/`** - Systematic parameter space exploration
-
-### Development Workflow
-1. Use `create_proj_dir.py` for directory structure
-2. Execute template prerun script for data preparation
-3. Use appropriate template for main calculations
-4. Post-process with Python/MATLAB visualization
 
 ## Key Dependencies
 

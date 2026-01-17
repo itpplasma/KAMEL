@@ -591,21 +591,16 @@ KiLCA outputs           Input HDF5          balance_conf.nml
 
 ---
 
-## 6. Python/MATLAB Interface Notes
+## 6. Python Interface Notes
 
 ### Python Interfaces
 
 Located in `/python/`:
 - **KiLCA_interface**: Manages KiLCA input generation and runs
 - **KIMpy**: KIM dispersion relation calculations
-- **balance_interface**: QL-Balance workflow management
+- **QL_Balance_interface**: QL-Balance workflow management
 - **postproc_class**: Post-processing for all codes
-
-### MATLAB Interfaces
-
-Located in `/matlab/`:
-- **Balance class**: Comprehensive workflow manager
-- **Template scripts**: `/template_scripts/` for standard workflows
+- **KIMgui**: Graphical interface for KIM configuration and execution
 
 ---
 
@@ -622,5 +617,5 @@ All codes use **CGS/Gaussian units**:
 
 ---
 
-**Last Updated**: 2025-11-04
+**Last Updated**: 2026-01-17
 **Based on**: Actual source code examination of KAMEL repository

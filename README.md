@@ -103,10 +103,7 @@ make test
 - `/QL-Balance/` - Quasilinear transport code (requires KiLCA)
 - `/PreProc/` - Preprocessing utilities (fouriermodes, neo-2 templates)
 - `/python/` - Python interface (KAMELpy) for all codes
-- `/matlab/` - MATLAB interfaces and workflow management
-- `/template_scripts/` - Standard workflow templates
-- `/external/` - External dependencies (auto-fetched)
-- `/Documentation/` - Mathematical background and user guides
+- `/common/` - Shared utilities and equilibrium handling
 
 ## References
 

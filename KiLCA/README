@@ -1,13 +1,31 @@
-To compile KiLCA code for the first time or on a new machine:
+# KiLCA - Kinetic Linear Cylindrical Approximation
 
-$ rm -R ./CMakeFiles ./CMakeCache.txt ./cmake_install.cmake ./Makefile
-$ cmake .
-$ make
+KiLCA is a plasma response solver using finite Larmor radius formalism for modeling the interaction of magnetic perturbations with tokamak plasmas.
 
-If you want to build Doxygen documentation:
+## Compilation
 
-$ make doc
+Build KiLCA using the top-level Makefile from the KAMEL root directory:
 
-If you want to change compiler or other build settings please look at CMakeLists.txt.
+```bash
+make KiLCA
+```
 
-Examples of runs are in ./examples.
+Or build all codes together:
+
+```bash
+make all
+```
+
+The executable `KiLCA.x` will be created in `build/KiLCA/`.
+
+## Doxygen Documentation
+
+To build the Doxygen documentation:
+
+```bash
+make doc
+```
+
+## Configuration
+
+KiLCA is configured through input files in the run directory. See the KiLCA interface in `python/KiLCA_interface/` for convenient configuration management.

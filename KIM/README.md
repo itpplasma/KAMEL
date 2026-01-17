@@ -56,7 +56,7 @@ Solves the kinetic dispersion relation D(k_r) = 0 for complex radial wavenumber 
 
 ### Output
 
-Results written to `out_*/` directory:
+Results written to `out/m*_n*/dispersion/` directory:
 - `muller_branches_*.dat` or `zeal_branches_*.dat` - Branch-tracked roots
 - HDF5 files with same data for post-processing
 

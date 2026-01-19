@@ -509,11 +509,19 @@ contains
         real(dp), intent(in) :: Z_i, e_charge
         real(dp), intent(out) :: Ercov_out(:)
 
-        ! Array operations
-        Ercov_out(1:npoib) = &
-            sqrt_g_Bth_over_c(1:npoib) * (params_b(2, 1:npoib) - Vth_arr(1:npoib) * &
-            q_arr(1:npoib) / rb(1:npoib)) + (params_b(4, 1:npoib) * ddr_params(1, 1:npoib) / &
-            params_b(1, 1:npoib) + ddr_params(4, 1:npoib)) / (Z_i * e_charge)
+        associate ( &
+            Vphi => params_b(2, 1:npoib), &
+            Ti => params_b(4, 1:npoib), &
+            dni_dr => ddr_params(1, 1:npoib), &
+            ni => params_b(1, 1:npoib), &
+            dTi_dr => ddr_params(4, 1:npoib), &
+            q => q_arr(1:npoib), &
+            rbp => rb(1:npoib) &
+        )
+            Ercov_out(1:npoib) = &
+                (Ti / ni * dni_dr + dTi_dr) / (Z_i * e_charge) + &
+                sqrt_g_Bth_over_c(1:npoib) * (Vphi - q * Vth_arr(1:npoib) / rbp)
+        end associate
 
     end subroutine compute_radial_electric_field
 

@@ -17,6 +17,7 @@ program test_rhs_balance
                              apply_boundary_conditions, &
                              species_fluxes_t, &
                              transport_fluxes_t
+    use baseparam_mod, only: e_charge
 
     implicit none
 
@@ -69,7 +70,7 @@ contains
         type(thermodynamic_forces_t) :: forces
         real(dp) :: ddr_n, ddr_Te, ddr_Ti
         real(dp) :: n_b, Te_b, Ti_b
-        real(dp) :: Ercov_val, e_charge_val, Z_i_val
+        real(dp) :: Ercov_val, Z_i_val
         real(dp) :: expected_A_noE_1e, expected_A_noE_2e
         real(dp) :: expected_A_noE_1i, expected_A_noE_2i
         real(dp) :: expected_A_1e, expected_A_1i
@@ -90,7 +91,6 @@ contains
         ddr_Te = 1.6022e-11_dp  ! dTe/dr [erg/cm]
         ddr_Ti = 1.2818e-11_dp  ! dTi/dr [erg/cm]
 
-        e_charge_val = 4.8032e-10_dp  ! elementary charge [statC]
         Z_i_val = 1.0_dp              ! hydrogen
         Ercov_val = 1.0e3_dp          ! radial E-field [statV/cm]
 
@@ -110,16 +110,16 @@ contains
         expected_A_noE_2i = ddr_Ti/Ti_b
 
         ! A_1e = A_noE_1e + e*Ercov/Te
-        expected_A_1e = expected_A_noE_1e + Ercov_val*e_charge_val/Te_b
+        expected_A_1e = expected_A_noE_1e + Ercov_val*e_charge/Te_b
 
         ! A_1i = A_noE_1i - Z_i*e*Ercov/Ti
-        expected_A_1i = expected_A_noE_1i - Ercov_val*e_charge_val*Z_i_val/Ti_b
+        expected_A_1i = expected_A_noE_1i - Ercov_val*e_charge*Z_i_val/Ti_b
 
         ! Call the function under test
         call compute_thermodynamic_forces( &
             ddr_n, ddr_Te, ddr_Ti, &
             n_b, Te_b, Ti_b, &
-            Ercov_val, e_charge_val, Z_i_val, &
+            Ercov_val, Z_i_val, &
             forces)
 
         ! Verify results
@@ -138,7 +138,7 @@ contains
         call compute_thermodynamic_forces( &
             ddr_n, ddr_Te, ddr_Ti, &
             n_b, Te_b, Ti_b, &
-            Ercov_val, e_charge_val, Z_i_val, &
+            Ercov_val, Z_i_val, &
             forces)
 
         call assert_equal(forces%A_1e, expected_A_1e, "A_1e (E=0)")

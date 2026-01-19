@@ -178,10 +178,10 @@ contains
         ! Interpolate to boundary points
         do ipoi = 1, npoib
             do ieq = 1, nbaleqs
-                ddr_params_nl(ieq, ipoi) = sum(params(ieq, ipbeg(ipoi):ipend(ipoi)) * &
-                                               deriv_coef(:, ipoi))
-                params_b(ieq, ipoi) = sum(params(ieq, ipbeg(ipoi):ipend(ipoi)) * &
-                                          reint_coef(:, ipoi))
+                associate (param => params(ieq, ipbeg(ipoi):ipend(ipoi)))
+                    ddr_params_nl(ieq, ipoi) = sum(param * deriv_coef(:, ipoi))
+                    params_b(ieq, ipoi) = sum(param * reint_coef(:, ipoi))
+                end associate
             end do
         end do
 
@@ -503,11 +503,13 @@ contains
     !===========================================================================
 
     subroutine compute_radial_electric_field(npoib, rb, params_b, ddr_params, sqrt_g_Bth_over_c, &
-                                             Vth_arr, q_arr, Z_i, Ercov_out)
+                                             V_pol_arr, q_arr, Z, E0r)
         !
-        ! Compute equilibrium radial electric field at all boundary points
-        ! E0r = -∂r Φ0 = (sqrt(g) B0θ / c) (Viφ - q Viθ) + ∂r(ni Ti) / (ei ni)
-        ! (Heyn2014 (71), Markl2023 (26))
+        ! Compute equilibrium radial electric field at all boundary points.
+        !   E0r = 1/(ei ni) ∂(ni Ti)/∂r + sqrt(g) B^θ_0 / c (V^φ - q V^θ)
+        !     [Markl2023 (26), Heyn2014 (71)]
+        !   V^θ = V_pol / r
+        !     [Markl2023 direclty above (40)]
         !
 
         implicit none
@@ -517,22 +519,23 @@ contains
         real(dp), intent(in) :: params_b(:, :)  ! (4, npoib)
         real(dp), intent(in) :: ddr_params(:, :)  ! (4, npoib)
         real(dp), intent(in) :: sqrt_g_Bth_over_c(:)
-        real(dp), intent(in) :: Vth_arr(:), q_arr(:)
-        real(dp), intent(in) :: Z_i
-        real(dp), intent(out) :: Ercov_out(:)
+        real(dp), intent(in) :: V_pol_arr(:), q_arr(:)
+        real(dp), intent(in) :: Z
+        real(dp), intent(out) :: E0r(:)
 
         associate ( &
             Vphi => params_b(2, 1:npoib), &
             Ti => params_b(4, 1:npoib), &
-            dni_dr => ddr_params(1, 1:npoib), &
-            ni => params_b(1, 1:npoib), &
+            dn_dr => ddr_params(1, 1:npoib), &
+            n => params_b(1, 1:npoib), &
             dTi_dr => ddr_params(4, 1:npoib), &
             q => q_arr(1:npoib), &
-            rbp => rb(1:npoib) &
+            V_pol => V_pol_arr(1:npoib), &
+            r => rb(1:npoib) &
         )
-            Ercov_out(1:npoib) = &
-                (Ti / ni * dni_dr + dTi_dr) / (Z_i * e_charge) + &
-                sqrt_g_Bth_over_c(1:npoib) * (Vphi - q * Vth_arr(1:npoib) / rbp)
+            E0r(1:npoib) = &
+                (Ti / n * dn_dr + dTi_dr) / (Z * e_charge) + &
+                sqrt_g_Bth_over_c(1:npoib) * (Vphi - q * V_pol / r)
         end associate
 
     end subroutine compute_radial_electric_field
@@ -549,6 +552,13 @@ contains
         ! This is the core shared computation used by both rhs_balance and rhs_balance_source.
         !
         ! Delegates to pure helper functions for each computation step.
+        !
+        ! Thermodynamic forces:
+        !   - Markl2023 (5)
+        !   - Heyn2014 (22)
+        ! Flux-force relations:
+        !   - Markl2023 (28)
+        !   - Heyn2014 (35)
         !
 
         implicit none
@@ -767,58 +777,87 @@ contains
     ! Testing helper functions (pure, for unit testing)
     !===========================================================================
 
-    pure subroutine compute_thermodynamic_forces(ddr_n, ddr_Te, ddr_Ti, n_b, Te_b, Ti_b, &
-                                                 Ercov_val, Z_i_val, forces)
+    pure subroutine compute_thermodynamic_forces(dn_dr, dTe_dr, dTi_dr, n, Te, Ti, E0r, Z, &
+                                                 forces)
         implicit none
 
-        real(dp), intent(in) :: ddr_n, ddr_Te, ddr_Ti
-        real(dp), intent(in) :: n_b, Te_b, Ti_b
-        real(dp), intent(in) :: Ercov_val, Z_i_val
+        real(dp), intent(in) :: dn_dr, dTe_dr, dTi_dr
+        real(dp), intent(in) :: n, Te, Ti
+        real(dp), intent(in) :: E0r, Z
         type(thermodynamic_forces_t), intent(out) :: forces
 
-        forces%e%A1_noE = ddr_n / n_b - 1.5_dp * ddr_Te / Te_b
-        forces%e%A2 = ddr_Te / Te_b
-        forces%i%A1_noE = ddr_n / n_b - 1.5_dp * ddr_Ti / Ti_b
-        forces%i%A2 = ddr_Ti / Ti_b
-        forces%e%A1 = forces%e%A1_noE + Ercov_val * e_charge / Te_b
-        forces%i%A1 = forces%i%A1_noE - Ercov_val * e_charge * Z_i_val / Ti_b
+        !
+        ! Compute the thermodynamic forces.
+        !   A1 = 1/n ∂n/∂r - e/T E0r - 3/(2T) ∂T/∂r
+        !   A2 = 1/T ∂T/∂r
+        !     [Markl2023 (5), Heyn2014 (22)]
+        !
+        ! A_noE_* denote the same expressions with the electric-field term dropped.
+        ! This is the form used for the anomalous E0r=0-frame model [Heyn2014 below (68)].
+        !
+
+        forces%e%A1_noE = dn_dr / n - 1.5_dp * dTe_dr / Te
+        forces%e%A2 = dTe_dr / Te
+        forces%e%A1 = forces%e%A1_noE + e_charge * E0r / Te
+
+        forces%i%A1_noE = dn_dr / n - 1.5_dp * dTi_dr / Ti
+        forces%i%A2 = dTi_dr / Ti
+        forces%i%A1 = forces%i%A1_noE - Z * e_charge * E0r / Ti
     end subroutine compute_thermodynamic_forces
 
-    pure subroutine compute_particle_fluxes(forces, n_b, Z_i_val, D11_a_e, D12_a_e, D11_ql_e, &
-                                            D12_ql_e, D11_a_i, D12_a_i, D11_ql_i, D12_ql_i, fluxes)
+    pure subroutine compute_particle_fluxes(forces, n, Zi, D11_a_e, D12_a_e, D11_ql_e, D12_ql_e, &
+                                            D11_a_i, D12_a_i, D11_ql_i, D12_ql_i, fluxes)
         !
         ! Compute particle fluxes for electrons and ions.
         !
-        ! gamma_a  = -(D11_a*A_noE_1 + D12_a*A_noE_2) * n
-        ! gamma_ql = -(D11_ql*A_1 + D12_ql*A_noE_2) * n
+        ! Flux-force relation for particle flux:
+        !   Γ = -n (D11 * A1 + D12 * A2)
+        !   (Markl2023 (29), Heyn2014 (35))
+        !
+        ! We split Γ = Γ(A) + Γ(EM) into:
+        ! gamma_a  = -n (D11_a * A_noE_1 + D12_a * A_noE_2)
+        ! gamma_ql = -n (D11_ql * A_1 + D12_ql * A_noE_2)
+        !
+        ! The anomalous part follows the simple E0r=0-frame model (*_noE_*)
+        ! which justifies the same equation as for the RMP-induced flux
+        ! (Heyn2014 (35) [referenced after (68)])
         !
 
         implicit none
 
         type(thermodynamic_forces_t), intent(in) :: forces
-        real(dp), intent(in) :: n_b, Z_i_val
+        real(dp), intent(in) :: n, Zi
         real(dp), intent(in) :: D11_a_e, D12_a_e, D11_ql_e, D12_ql_e
         real(dp), intent(in) :: D11_a_i, D12_a_i, D11_ql_i, D12_ql_i
         type(transport_fluxes_t), intent(out) :: fluxes
 
         ! Electron particle fluxes
-        fluxes%e%gamma_a = -(D11_a_e * forces%e%A1_noE + D12_a_e * forces%e%A2) * n_b
-        fluxes%e%gamma_ql = -(D11_ql_e * forces%e%A1 + D12_ql_e * forces%e%A2) * n_b
+        fluxes%e%gamma_a = -(D11_a_e * forces%e%A1_noE + D12_a_e * forces%e%A2) * n
+        fluxes%e%gamma_ql = -(D11_ql_e * forces%e%A1 + D12_ql_e * forces%e%A2) * n
         fluxes%e%gamma = fluxes%e%gamma_a + fluxes%e%gamma_ql
 
         ! Ion particle fluxes
-        fluxes%i%gamma_a = -(D11_a_i * forces%i%A1_noE + D12_a_i * forces%i%A2) * n_b / Z_i_val
-        fluxes%i%gamma_ql = -(D11_ql_i * forces%i%A1 + D12_ql_i * forces%i%A2) * n_b / Z_i_val
+        fluxes%i%gamma_a = -(D11_a_i * forces%i%A1_noE + D12_a_i * forces%i%A2) * n / Zi
+        fluxes%i%gamma_ql = -(D11_ql_i * forces%i%A1 + D12_ql_i * forces%i%A2) * n / Zi
         fluxes%i%gamma = fluxes%i%gamma_a + fluxes%i%gamma_ql
     end subroutine compute_particle_fluxes
 
-    pure subroutine compute_heat_fluxes(forces, n_b, Te_b, Ti_b, Z_i_val, D12_a_e, D21_ql_e, &
-                                        D22_e, D12_a_i, D21_ql_i, D22_i, Q_e, Q_i)
+    pure subroutine compute_heat_fluxes(forces, n, Te, Ti, Z, Dae12_val, Dqle21_val, De22_val, &
+                                        Dai12_val, Dqli21_val, Di22_val, Qe, Qi)
         !
         ! Compute heat flux densities for electrons and ions.
         !
+        ! Flux-force relation for heat flux:
+        !   Q = -n * T * (D21 * A1 + D22 * A2)
+        !   (Markl2023 (29), Heyn2014 (35))
+        !
+        ! We split anomalous vs quasilinear contributions by coefficient sets:
+        ! TODO: I don't see where this formula comes from. Why the dependence on D12? Why sometimes E=0?
         ! Q_e = -(D12_a_e*A_noE_1e + D21_ql_e*A_1e + D22_e*A_noE_2e) * n * Te
         ! Q_i = -(D12_a_i*A_noE_1i + D21_ql_i*A_1i + D22_i*A_noE_2i) * n/Z * Ti
+        !
+        ! The neoclassical ion heat flux contribution is included via dni22 in D22_i
+        ! (Heyn2014 Eq. (69); Markl2023 Eq. (25)).
         !
         ! Note: D12 (anomalous) couples to A_noE_1 (no E-field)
         !       D21 (quasi-linear) couples to A_1 (with E-field)
@@ -828,50 +867,77 @@ contains
         implicit none
 
         type(thermodynamic_forces_t), intent(in) :: forces
-        real(dp), intent(in) :: n_b, Te_b, Ti_b, Z_i_val
-        real(dp), intent(in) :: D12_a_e, D21_ql_e, D22_e
-        real(dp), intent(in) :: D12_a_i, D21_ql_i, D22_i
-        real(dp), intent(out) :: Q_e, Q_i
+        real(dp), intent(in) :: n, Te, Ti, Z
+        real(dp), intent(in) :: Dae12_val, Dqle21_val, De22_val
+        real(dp), intent(in) :: Dai12_val, Dqli21_val, Di22_val
+        real(dp), intent(out) :: Qe, Qi
 
-        Q_e = -(D12_a_e * forces%e%A1_noE + D21_ql_e * forces%e%A1 + D22_e * forces%e%A2) &
-              * n_b * Te_b
-        Q_i = -(D12_a_i * forces%i%A1_noE + D21_ql_i * forces%i%A1 + D22_i * forces%i%A2) * &
-              n_b / Z_i_val * Ti_b
+        Qe = -(Dae12_val * forces%e%A1_noE + Dqle21_val * forces%e%A1 + De22_val * forces%e%A2) * &
+             n * Te
+        Qi = -(Dai12_val * forces%i%A1_noE + Dqli21_val * forces%i%A1 + Di22_val * forces%i%A2) * &
+             n / Z * Ti
     end subroutine compute_heat_fluxes
 
-    pure subroutine compute_diffusive_fluxes(ddr_n, ddr_vphi, ddr_Te, ddr_Ti, n_b, Te_b, Ti_b, &
-                                             Z_i_val, Sb_val, dae11_val, dqle11_val, dae22_val, &
-                                             dqle22_val, dai22_val, dni22_val, dqli22_val, &
-                                             dqli21_val, visca_val, gpp_av_val, flux_dif)
+    pure subroutine compute_diffusive_fluxes(dn_dr, dVphi_dr, dTe_dr, dTi_dr, n, Te, Ti, Z, S, &
+                                             Dae11, Dqle11, Dae22, Dqle22, Dai22, Dni22, Dqli22, &
+                                             Dqli21, mu_perb, g_phi_phi, flux_diffusion)
         !
-        ! Compute diffusive fluxes for all 4 balance equations.
-        ! Diffusive flux depends only on gradients and transport coefficients.
+        ! Compute diffusive fluxes for all four balance equations.
+        ! These are only the operands of the divergence operator in each
+        ! equation [Markl2023 (22)-(25), Heyn2014 (63)-(66)].
+        !
+        ! These expressions are algebraic rearrangements of the flux-force relations.
+        ! From RMP:
+        !   Γ^EM = -n (D^ql_11 A1 + D^ql_12 A2)
+        !   Q^EM = -n T (D^ql_21 A1 + D^ql_22 A2)
+        !     [Markl2023 (29), Heyn2014 (35)]
+        ! From turbulence:
+        !   Γ^A = -D^a_11 ∂n/∂r
+        !   Q^A = -3/2 D^a_11 ∂(ni Ti)/∂r
+        !     [Markl2023 (27), Heyn2014 (68)]
+        ! Relevant formulas to compute this by hand:
+        !   A1 = 1/n ∂n/∂r - e/T E0r - 3/(2T) ∂T/∂r
+        !   A2 = 1/T ∂T/∂r
+        !   E0r = 1/(ei ni) ∂(ni Ti)/∂r + sqrt(g) B^θ_0 / c (V^φ - q V^θ)
+        ! and for completeness:
+        !   ni = ne / Z = n / Z
+        !   ei = -ee Z = -e Z
+        !
+        ! Note: We're outside of machine precision already. Rearranging the computation
+        ! significantly changes the results. We need to consider if quad precision is
+        ! viable here or if we can normalize some variables to have a "nicer" decimal range.
         !
 
         implicit none
 
-        real(dp), intent(in) :: ddr_n, ddr_vphi, ddr_Te, ddr_Ti
-        real(dp), intent(in) :: n_b, Te_b, Ti_b, Z_i_val, Sb_val
-        real(dp), intent(in) :: dae11_val, dqle11_val, dae22_val, dqle22_val
-        real(dp), intent(in) :: dai22_val, dni22_val, dqli22_val, dqli21_val
-        real(dp), intent(in) :: visca_val, gpp_av_val
-        real(dp), intent(out) :: flux_dif(4)
+        real(dp), intent(in) :: dn_dr, dVphi_dr, dTe_dr, dTi_dr
+        real(dp), intent(in) :: n, Te, Ti, Z, S
+        real(dp), intent(in) :: Dae11, Dqle11, Dae22, Dqle22
+        real(dp), intent(in) :: Dai22, Dni22, Dqli22, Dqli21
+        real(dp), intent(in) :: mu_perb, g_phi_phi
+        real(dp), intent(out) :: flux_diffusion(4)
 
         real(dp) :: dfluxvphi
 
-        ! Eq 1: Particle flux (diffusive part)
-        flux_dif(1) = -Sb_val * ddr_n * (dae11_val + dqle11_val * (1.0_dp + Ti_b / Te_b / Z_i_val))
+        ! Eq. 1: Particle flux (diffusive part)
+        ! Insert A1e, E0r and A2e into Γe
+        ! Drop all terms without ∂ne/∂r = Z ∂ni/∂r
+        flux_diffusion(1) = -S * dn_dr * (Dae11 + Dqle11 * (1.0_dp + Ti / (Z * Te)))
 
-        ! Eq 2: Momentum flux (viscous)
-        dfluxvphi = -visca_val * ddr_vphi * n_b / Z_i_val * gpp_av_val
-        flux_dif(2) = Sb_val * dfluxvphi
+        ! Eq. 2: Toroidal momentum diffusion (viscous term)
+        ! Omit the factor mi
+        dfluxvphi = -mu_perb * dVphi_dr * n / Z * g_phi_phi
+        flux_diffusion(2) = S * dfluxvphi
 
-        ! Eq 3: Electron heat flux (diffusive part)
-        flux_dif(3) = -Sb_val * (dae22_val + dqle22_val) * n_b * ddr_Te
+        ! Eq. 3: Electron heat flux (diffusive part)
+        ! TODO: don't get it. I would arrive at:
+        ! S n dTe/dr (3/2 Dqle21 - Dqle22 - 3/2 Dae22)
+        flux_diffusion(3) = -S * (Dae22 + Dqle22) * n * dTe_dr
 
-        ! Eq 4: Ion heat flux (diffusive part)
-        flux_dif(4) = -Sb_val * (dai22_val + dni22_val + dqli22_val - 2.5_dp * dqli21_val) * n_b / &
-                      Z_i_val * ddr_Ti
+        ! Eq. 4: Ion heat flux (diffusive part)
+        ! TODO: don't get it. How do Q^NEO and Dni22 relate?
+        flux_diffusion(4) = -S * (Dai22 + Dni22 + Dqli22 - 2.5_dp * Dqli21) * &
+                            n / Z * dTi_dr
     end subroutine compute_diffusive_fluxes
 
     pure subroutine compute_convective_fluxes(gamma_e, Q_e, Q_i, n_b, Te_b, Ti_b, Sb_val, &

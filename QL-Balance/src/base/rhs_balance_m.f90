@@ -490,13 +490,12 @@ contains
     ! Core computation routines (shared by rhs_balance and rhs_balance_source)
     !===========================================================================
 
-    subroutine compute_radial_electric_field(npoib, rb, params_b, ddr_params, sqrt_g_B_theta_c, &
+    subroutine compute_radial_electric_field(npoib, rb, params_b, ddr_params, sqrt_g_Bth_over_c, &
                                              Vth_arr, q_arr, Z_i, e_charge, Ercov_out)
         !
-        ! Compute radial electric field at all boundary points
-        !
-        ! Physics:
-        !   Ercov = sqrt_g_B_theta_c * (v_phi - Vth*q/r) + (Ti * d(ln n)/dr + dTi/dr) / (Z_i * e)
+        ! Compute equilibrium radial electric field at all boundary points
+        ! E0r = -∂r Φ0 = (sqrt(g) B0θ / c) (Viφ - q Viθ) + ∂r(ni Ti) / (ei ni)
+        ! (Heyn2014 (71), Markl2023 (26))
         !
 
         implicit none
@@ -505,16 +504,24 @@ contains
         real(dp), intent(in) :: rb(:)
         real(dp), intent(in) :: params_b(:, :)  ! (4, npoib)
         real(dp), intent(in) :: ddr_params(:, :)  ! (4, npoib)
-        real(dp), intent(in) :: sqrt_g_B_theta_c(:)
+        real(dp), intent(in) :: sqrt_g_Bth_over_c(:)
         real(dp), intent(in) :: Vth_arr(:), q_arr(:)
         real(dp), intent(in) :: Z_i, e_charge
         real(dp), intent(out) :: Ercov_out(:)
 
-        ! Array operations
-        Ercov_out(1:npoib) = &
-            sqrt_g_B_theta_c(1:npoib) * (params_b(2, 1:npoib) - Vth_arr(1:npoib) * &
-            q_arr(1:npoib) / rb(1:npoib)) + (params_b(4, 1:npoib) * ddr_params(1, 1:npoib) / &
-            params_b(1, 1:npoib) + ddr_params(4, 1:npoib)) / (Z_i * e_charge)
+        associate ( &
+            Vphi => params_b(2, 1:npoib), &
+            Ti => params_b(4, 1:npoib), &
+            dni_dr => ddr_params(1, 1:npoib), &
+            ni => params_b(1, 1:npoib), &
+            dTi_dr => ddr_params(4, 1:npoib), &
+            q => q_arr(1:npoib), &
+            rbp => rb(1:npoib) &
+        )
+            Ercov_out(1:npoib) = &
+                (Ti / ni * dni_dr + dTi_dr) / (Z_i * e_charge) + &
+                sqrt_g_Bth_over_c(1:npoib) * (Vphi - q * Vth_arr(1:npoib) / rbp)
+        end associate
 
     end subroutine compute_radial_electric_field
 

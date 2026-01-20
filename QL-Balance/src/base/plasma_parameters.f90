@@ -7,10 +7,10 @@ module plasma_parameters
     implicit none
 
     !> @brief Main plasma parameter array (nparams, npoic)
-    !> @details params(1, :) = electron density [cm^-3]
-    !>          params(2, :) = toroidal rotation frequency [rad/s]
-    !>          params(3, :) = electron temperature [erg]
-    !>          params(4, :) = ion temperature [erg]
+    !> @details params(1, :) = electron density n_e == ion density n_i [cm^-3]
+    !>          params(2, :) = toroidal rotation frequency V^phi [rad/s]
+    !>          params(3, :) = electron temperature T_e [erg]
+    !>          params(4, :) = ion temperature T_i [erg]
     real(dp), dimension(:, :), allocatable :: params
 
     !> @brief Time derivative of plasma parameters [same units as params, per second]

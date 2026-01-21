@@ -2,7 +2,7 @@ subroutine calc_parallel_current_directly
     ! this subroutine calculates the electron parallel current (eq. (60) in Heyn et. al 2014)
 
     use grid_mod, only: npoib, rb, Ercov
-    use plasma_parameters, only: params_b, ddr_params_nl
+    use plasma_parameters, only: params_b, ddr_params
     use baseparam_mod, only: e_charge, p_mass, c, e_mass, ev
     use control_mod, only: ihdf5IO, diagnostics_output, write_gyro_current, &
         gyro_current_study
@@ -41,8 +41,8 @@ subroutine calc_parallel_current_directly
         end do
 
 
-        A2 = ddr_params_nl(3, :)/params_b(3, :)
-        A1 = ddr_params_nl(1, :)/params_b(1, :) + e_charge*Ercov/params_b(3, :) - 1.5d0*A2
+        A2 = ddr_params(3, :)/params_b(3, :)
+        A1 = ddr_params(1, :)/params_b(1, :) + e_charge*Ercov/params_b(3, :) - 1.5d0*A2
 
         curr_e_par = e_charge*params_b(1, :)*vT/(nue*B0) &
                  *(c*Es*((A1 + A2)*symbI(1, 0, :) + 0.5d0*A2*symbI(2, 1, :)) &
@@ -218,8 +218,8 @@ subroutine calc_parallel_current_directly
             dimag(Es), lbound(dimag(Es)), ubound(dimag(Es)))
         ! - - - - - - - - - - - - - - - - - - - - - - - - -
 
-        A2 = ddr_params_nl(3, :)/params_b(3, :)
-        A1 = ddr_params_nl(1, :)/params_b(1, :) + e_charge*Ercov/params_b(3, :) - 1.5d0*A2
+        A2 = ddr_params(3, :)/params_b(3, :)
+        A1 = ddr_params(1, :)/params_b(1, :) + e_charge*Ercov/params_b(3, :) - 1.5d0*A2
 
         CALL h5_add_double_1(h5_id, trim(tempch)//"A1", &
             A1, lbound(A1), ubound(A1))
@@ -341,8 +341,8 @@ subroutine calc_parallel_current_directly
             dimag(Es), lbound(dimag(Es)), ubound(dimag(Es)))
         ! - - - - - - - - - - - - - - - - - - - - - - - - -
 
-        A2 = ddr_params_nl(3, :)/params_b(3, :)
-        A1 = ddr_params_nl(1, :)/params_b(1, :) + e_charge*Ercov/params_b(3, :) - 1.5d0*A2
+        A2 = ddr_params(3, :)/params_b(3, :)
+        A1 = ddr_params(1, :)/params_b(1, :) + e_charge*Ercov/params_b(3, :) - 1.5d0*A2
 
         CALL h5_add_double_1(h5_id, trim(tempch)//"A1", &
             A1, lbound(A1), ubound(A1))
@@ -384,7 +384,7 @@ end subroutine calc_parallel_current_directly
 subroutine calc_ion_parallel_current_directly
 
     use grid_mod, only: npoib, rb, Ercov
-    use plasma_parameters, only: params_b, ddr_params_nl
+    use plasma_parameters, only: params_b, ddr_params
     use baseparam_mod, only: Z_i, e_charge, p_mass, c, e_mass, ev
     use wave_code_data
     use control_mod, only: ihdf5IO, diagnostics_output, write_gyro_current
@@ -420,8 +420,8 @@ subroutine calc_ion_parallel_current_directly
     end do
 
     ! Here x1 and x2 are used for A_1 and A_2:
-    x2 = ddr_params_nl(4, :)/params_b(4, :)
-    x1 = ddr_params_nl(1, :)/params_b(1, :) + ei_charge*Ercov/params_b(4, :) - 1.5d0*x2
+    x2 = ddr_params(4, :)/params_b(4, :)
+    x1 = ddr_params(1, :)/params_b(1, :) + ei_charge*Ercov/params_b(4, :) - 1.5d0*x2
 
     curr_i_par = ei_charge*params_b(1, :)*vT/(nui*B0) &
                  *(c*Es*((x1 + x2)*symbI(1, 0, :) + 0.5d0*x2*symbI(2, 1, :)) &

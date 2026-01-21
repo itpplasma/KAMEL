@@ -289,15 +289,15 @@ contains
         ! Physics: Computes diffusive, convective, and nonlinear fluxes
         ! for all 4 balance equations (n, vphi, Te, Ti)
         !
-        real(dp) :: gamma_e, gamma_e_nl, gamma_i
-        real(dp) :: Q_e, Q_e_nl, Q_i, Q_i_nl
-        real(dp) :: ddr_n, ddr_n_nl, ddr_Te, ddr_Te_nl, ddr_Ti, ddr_Ti_nl, ddr_vphi
+        real(dp) :: gamma_e_lin, gamma_e, gamma_i_lin
+        real(dp) :: Q_e_lin, Q_e, Q_i_lin, Q_i
+        real(dp) :: ddr_n_lin, ddr_n, ddr_Te_lin, ddr_Te, ddr_Ti_lin, ddr_Ti, ddr_vphi_lin
         real(dp) :: n_b, Te_b, Ti_b, Z_i_val, Sb_val
         real(dp) :: dae11_val, dqle11_val, dae22_val, dqle22_val
         real(dp) :: dai22_val, dni22_val, dqli22_val, dqli21_val
         real(dp) :: visca_val, gpp_av_val
-        real(dp) :: flux_dif(4), flux_con(4), flux_con_nl(4)
-        real(dp) :: expected_flux_dif(4), expected_flux_con(4), expected_flux_con_nl(4)
+        real(dp) :: flux_dif_lin(4), flux_con_lin(4), flux_con(4)
+        real(dp) :: expected_flux_dif_lin(4), expected_flux_con_lin(4), expected_flux_con(4)
         real(dp) :: dfluxvphi
         character(len=*), parameter :: test_name = "test_total_fluxes_at_point"
 
@@ -310,21 +310,21 @@ contains
         Z_i_val = 1.0_dp
         Sb_val = 1.0e3_dp     ! Surface element
 
-        gamma_e = 1.0e15_dp
-        gamma_e_nl = 1.2e15_dp
-        gamma_i = 0.9e15_dp
-        Q_e = 5.0e3_dp
-        Q_e_nl = 5.5e3_dp
-        Q_i = 4.0e3_dp
-        Q_i_nl = 4.5e3_dp
+        gamma_e_lin = 1.0e15_dp
+        gamma_e = 1.2e15_dp
+        gamma_i_lin = 0.9e15_dp
+        Q_e_lin = 5.0e3_dp
+        Q_e = 5.5e3_dp
+        Q_i_lin = 4.0e3_dp
+        Q_i = 4.5e3_dp
 
-        ddr_n = 1.0e12_dp
-        ddr_n_nl = 1.1e12_dp
-        ddr_Te = 1.6022e-11_dp
-        ddr_Te_nl = 1.7e-11_dp
-        ddr_Ti = 1.2818e-11_dp
-        ddr_Ti_nl = 1.4e-11_dp
-        ddr_vphi = 1.0e4_dp
+        ddr_n_lin = 1.0e12_dp
+        ddr_n = 1.1e12_dp
+        ddr_Te_lin = 1.6022e-11_dp
+        ddr_Te = 1.7e-11_dp
+        ddr_Ti_lin = 1.2818e-11_dp
+        ddr_Ti = 1.4e-11_dp
+        ddr_vphi_lin = 1.0e4_dp
 
         dae11_val = 1.0e4_dp
         dqle11_val = 2.0e4_dp
@@ -339,56 +339,56 @@ contains
 
         ! Expected values (analytical calculation)
         ! Equation 1: Particle flux
-        expected_flux_dif(1) = -Sb_val*ddr_n*(dae11_val &
+        expected_flux_dif_lin(1) = -Sb_val*ddr_n_lin*(dae11_val &
                                + dqle11_val*(1._dp + Ti_b/Te_b/Z_i_val))
-        expected_flux_con(1) = (Sb_val*gamma_e - expected_flux_dif(1))/n_b
-        expected_flux_con_nl(1) = (Sb_val*gamma_e_nl - &
-                                  (-Sb_val*ddr_n_nl*(dae11_val &
+        expected_flux_con_lin(1) = (Sb_val*gamma_e_lin - expected_flux_dif_lin(1))/n_b
+        expected_flux_con(1) = (Sb_val*gamma_e - &
+                                  (-Sb_val*ddr_n*(dae11_val &
                                   + dqle11_val*(1._dp + Ti_b/Te_b/Z_i_val))))/n_b
 
         ! Equation 2: Toroidal momentum flux
-        dfluxvphi = -visca_val*ddr_vphi*n_b/Z_i_val*gpp_av_val
-        expected_flux_dif(2) = Sb_val*dfluxvphi
+        dfluxvphi = -visca_val*ddr_vphi_lin*n_b/Z_i_val*gpp_av_val
+        expected_flux_dif_lin(2) = Sb_val*dfluxvphi
+        expected_flux_con_lin(2) = 0._dp
         expected_flux_con(2) = 0._dp
-        expected_flux_con_nl(2) = 0._dp
 
         ! Equation 3: Electron heat flux
-        expected_flux_dif(3) = -Sb_val*(dae22_val + dqle22_val)*n_b*ddr_Te
-        expected_flux_con(3) = (Sb_val*Q_e - expected_flux_dif(3))/Te_b
-        expected_flux_con_nl(3) = (Sb_val*Q_e_nl - &
-                                  (-Sb_val*(dae22_val + dqle22_val)*n_b*ddr_Te_nl))/Te_b
+        expected_flux_dif_lin(3) = -Sb_val*(dae22_val + dqle22_val)*n_b*ddr_Te_lin
+        expected_flux_con_lin(3) = (Sb_val*Q_e_lin - expected_flux_dif_lin(3))/Te_b
+        expected_flux_con(3) = (Sb_val*Q_e - &
+                                  (-Sb_val*(dae22_val + dqle22_val)*n_b*ddr_Te))/Te_b
 
         ! Equation 4: Ion heat flux
-        expected_flux_dif(4) = -Sb_val*(dai22_val + dni22_val + dqli22_val &
-                               - 2.5_dp*dqli21_val)*n_b/Z_i_val*ddr_Ti
-        expected_flux_con(4) = (Sb_val*Q_i - expected_flux_dif(4))/Ti_b
-        expected_flux_con_nl(4) = (Sb_val*Q_i_nl - &
+        expected_flux_dif_lin(4) = -Sb_val*(dai22_val + dni22_val + dqli22_val &
+                               - 2.5_dp*dqli21_val)*n_b/Z_i_val*ddr_Ti_lin
+        expected_flux_con_lin(4) = (Sb_val*Q_i_lin - expected_flux_dif_lin(4))/Ti_b
+        expected_flux_con(4) = (Sb_val*Q_i - &
                                   (-Sb_val*(dai22_val + dni22_val + dqli22_val - 2.5_dp*dqli21_val) &
-                                  *n_b/Z_i_val*ddr_Ti_nl))/Ti_b
+                                  *n_b/Z_i_val*ddr_Ti))/Ti_b
 
         ! Call the function under test
         call compute_total_fluxes_at_point( &
-            gamma_e, gamma_e_nl, gamma_i, Q_e, Q_e_nl, Q_i, Q_i_nl, &
-            ddr_n, ddr_n_nl, ddr_Te, ddr_Te_nl, ddr_Ti, ddr_Ti_nl, ddr_vphi, &
+            gamma_e_lin, gamma_e, gamma_i_lin, Q_e_lin, Q_e, Q_i_lin, Q_i, &
+            ddr_n_lin, ddr_n, ddr_Te_lin, ddr_Te, ddr_Ti_lin, ddr_Ti, ddr_vphi_lin, &
             n_b, Te_b, Ti_b, Z_i_val, Sb_val, &
             dae11_val, dqle11_val, dae22_val, dqle22_val, &
             dai22_val, dni22_val, dqli22_val, dqli21_val, &
             visca_val, gpp_av_val, &
-            flux_dif, flux_con, flux_con_nl)
+            flux_dif_lin, flux_con_lin, flux_con)
 
         ! Verify results
-        call assert_equal(flux_dif(1), expected_flux_dif(1), "flux_dif(1)")
+        call assert_equal(flux_dif_lin(1), expected_flux_dif_lin(1), "flux_dif_lin(1)")
+        call assert_equal(flux_con_lin(1), expected_flux_con_lin(1), "flux_con_lin(1)")
         call assert_equal(flux_con(1), expected_flux_con(1), "flux_con(1)")
-        call assert_equal(flux_con_nl(1), expected_flux_con_nl(1), "flux_con_nl(1)")
-        call assert_equal(flux_dif(2), expected_flux_dif(2), "flux_dif(2)")
+        call assert_equal(flux_dif_lin(2), expected_flux_dif_lin(2), "flux_dif_lin(2)")
+        call assert_equal(flux_con_lin(2), expected_flux_con_lin(2), "flux_con_lin(2)")
         call assert_equal(flux_con(2), expected_flux_con(2), "flux_con(2)")
-        call assert_equal(flux_con_nl(2), expected_flux_con_nl(2), "flux_con_nl(2)")
-        call assert_equal(flux_dif(3), expected_flux_dif(3), "flux_dif(3)")
+        call assert_equal(flux_dif_lin(3), expected_flux_dif_lin(3), "flux_dif_lin(3)")
+        call assert_equal(flux_con_lin(3), expected_flux_con_lin(3), "flux_con_lin(3)")
         call assert_equal(flux_con(3), expected_flux_con(3), "flux_con(3)")
-        call assert_equal(flux_con_nl(3), expected_flux_con_nl(3), "flux_con_nl(3)")
-        call assert_equal(flux_dif(4), expected_flux_dif(4), "flux_dif(4)")
+        call assert_equal(flux_dif_lin(4), expected_flux_dif_lin(4), "flux_dif_lin(4)")
+        call assert_equal(flux_con_lin(4), expected_flux_con_lin(4), "flux_con_lin(4)")
         call assert_equal(flux_con(4), expected_flux_con(4), "flux_con(4)")
-        call assert_equal(flux_con_nl(4), expected_flux_con_nl(4), "flux_con_nl(4)")
 
         print *, "  PASSED: ", test_name
 
@@ -462,37 +462,37 @@ contains
         integer, parameter :: nbaleqs = 4
         integer, parameter :: npoints = 3
         integer :: ieq, ipoi
-        real(dp) :: fluxes_dif(nbaleqs, npoints)
+        real(dp) :: fluxes_dif_lin(nbaleqs, npoints)
+        real(dp) :: fluxes_con_lin(nbaleqs, npoints)
         real(dp) :: fluxes_con(nbaleqs, npoints)
-        real(dp) :: fluxes_con_nl(nbaleqs, npoints)
-        real(dp) :: expected_dif(nbaleqs, npoints)
+        real(dp) :: expected_dif_lin(nbaleqs, npoints)
+        real(dp) :: expected_con_lin(nbaleqs, npoints)
         real(dp) :: expected_con(nbaleqs, npoints)
-        real(dp) :: expected_con_nl(nbaleqs, npoints)
 
         print *, "Running: ", test_name
 
         do ieq = 1, nbaleqs
             do ipoi = 1, npoints
-                fluxes_dif(ieq, ipoi) = real(ieq * ipoi, dp)
-                fluxes_con(ieq, ipoi) = -real(ieq * ipoi, dp)
-                fluxes_con_nl(ieq, ipoi) = real(ieq + ipoi, dp)
+                fluxes_dif_lin(ieq, ipoi) = real(ieq * ipoi, dp)
+                fluxes_con_lin(ieq, ipoi) = -real(ieq * ipoi, dp)
+                fluxes_con(ieq, ipoi) = real(ieq + ipoi, dp)
             end do
         end do
 
-        expected_dif = fluxes_dif
+        expected_dif_lin = fluxes_dif_lin
+        expected_con_lin = fluxes_con_lin
         expected_con = fluxes_con
-        expected_con_nl = fluxes_con_nl
-        expected_dif(:, 1) = 0.0_dp
+        expected_dif_lin(:, 1) = 0.0_dp
+        expected_con_lin(:, 1) = 0.0_dp
         expected_con(:, 1) = 0.0_dp
-        expected_con_nl(:, 1) = 0.0_dp
 
-        call apply_boundary_conditions(fluxes_dif, fluxes_con, fluxes_con_nl, nbaleqs)
+        call apply_boundary_conditions(fluxes_dif_lin, fluxes_con_lin, fluxes_con, nbaleqs)
 
         do ieq = 1, nbaleqs
             do ipoi = 1, npoints
-                call assert_equal(fluxes_dif(ieq, ipoi), expected_dif(ieq, ipoi), "fluxes_dif")
+                call assert_equal(fluxes_dif_lin(ieq, ipoi), expected_dif_lin(ieq, ipoi), "fluxes_dif_lin")
+                call assert_equal(fluxes_con_lin(ieq, ipoi), expected_con_lin(ieq, ipoi), "fluxes_con_lin")
                 call assert_equal(fluxes_con(ieq, ipoi), expected_con(ieq, ipoi), "fluxes_con")
-                call assert_equal(fluxes_con_nl(ieq, ipoi), expected_con_nl(ieq, ipoi), "fluxes_con_nl")
             end do
         end do
 

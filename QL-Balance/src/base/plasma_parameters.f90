@@ -16,9 +16,11 @@ module plasma_parameters
     !> @brief Time derivative of plasma parameters [same units as params, per second]
     real(dp), dimension(:, :), allocatable :: dot_params
 
-    !> @brief Radial derivatives of plasma parameters (linear and nonlinear contributions)
-    !> @details Same units as params but per cm (e.g., [cm^-3/cm] = [cm^-4])
-    real(dp), dimension(:, :), allocatable :: ddr_params, ddr_params_nl
+    !> @brief Radial derivatives of plasma parameters
+    !> @details ddr_params: gradients from actual plasma state
+    !>          ddr_params_lin: gradients from linearized state (for Jacobian probing)
+    !>          Same units as params but per cm (e.g., [cm^-3/cm] = [cm^-4])
+    real(dp), dimension(:, :), allocatable :: ddr_params, ddr_params_lin
 
     !> @brief Storage for parameters at previous timesteps (Runge-Kutta integration)
     real(dp), dimension(:, :), allocatable :: params_beg, params_begbeg

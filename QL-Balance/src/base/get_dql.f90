@@ -88,7 +88,7 @@ subroutine get_dql
     do ipoi = 1, npoib
         do ieq = 1, nbaleqs
             ! radial derivatives of equilibrium parameters at cell boundaries:
-            ddr_params_nl(ieq, ipoi) &
+            ddr_params(ieq, ipoi) &
                 = sum(params(ieq, ipbeg(ipoi):ipend(ipoi))*deriv_coef(:, ipoi))
             ! equilibrium parameters at cell boundaries:
             params_b(ieq, ipoi) &
@@ -100,9 +100,9 @@ subroutine get_dql
     if (.true.) then
         allocate (dummy(npoib), row_buffer(npoib))
         do ieq = 1, nbaleqs
-            row_buffer = ddr_params_nl(ieq, :)
+            row_buffer = ddr_params(ieq, :)
             call smooth_array_gauss(npoib, mwind, row_buffer, dummy)
-            ddr_params_nl(ieq, :) = dummy
+            ddr_params(ieq, :) = dummy
             row_buffer = params_b(ieq, :)
             call smooth_array_gauss(npoib, mwind, row_buffer, dummy)
             params_b(ieq, :) = dummy
@@ -113,7 +113,7 @@ subroutine get_dql
 
     ! Compute radial electric field:
     Ercov = sqrt_g_times_B_theta_over_c*(params_b(2, :) - Vth*q/rb) &
-            + (params_b(4, :)*ddr_params_nl(1, :)/params_b(1, :) + ddr_params_nl(4, :)) &
+            + (params_b(4, :)*ddr_params(1, :)/params_b(1, :) + ddr_params(4, :)) &
             /(Z_i*e_charge)
 
     call MPI_Comm_rank(MPI_COMM_WORLD, irank, ierror)

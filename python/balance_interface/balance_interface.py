@@ -4,7 +4,7 @@ import h5py
 import sys
 import shutil
 
-from postproc_class import utility_class
+from utility import utility
 
 from KiLCA_interface import KiLCA_interface
 from KiLCA_interface.KiLCA_postprocessor import KiLCA_postprocessor
@@ -54,7 +54,7 @@ class QL_Balance_interface():
             self.input_h5_file = os.path.join(self.run_path, f'INPUT_{self.shot}_{self.time}_{self.name}.hdf5')
         else:
             self.input_h5_file = input_file
-        self.util = utility_class.utility()
+        self.util = utility()
 
     def set_type_of_run(self, run_type='SingleStep'):
         '''Set the type of the run, e.g. 'SingleStep', 'TimeEvolution' or 'ParameterScan'''

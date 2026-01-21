@@ -19,8 +19,7 @@ from .KiLCA_zone import KiLCA_zone
 
 from device_config import MASTU_config, AUG_config
 
-#sys.path.append(os.path.abspath(inspect.getfile(KiLCA_antenna)[0:-16] + '../../postproc_py_class/'))
-from postproc_class import utility_class
+from utility import utility
 
 
 class KiLCA_interface:
@@ -131,7 +130,7 @@ class KiLCA_interface:
     run_type = ''
     machine = ''
 
-    uc = utility_class.utility() # utility class for colors and adding grid lines to plots
+    uc = utility() # utility class for colors and adding grid lines to plots
 
     def __init__(self, shot: int, time: int, path: str, rtype: str, machine: str='AUG'):
         """Constructor of KiLCA interface.
@@ -408,30 +407,6 @@ class KiLCA_interface:
 
     def run_condor(self):
         pass
-
-
-    def create_parabolic_profiles_from_res_surf(self, path, q0, n0, Te0, Ti0, Vz0, Er0, Vth0, m_mode, n_mode, rmin, rmax, num, a, const=''):
-        """ Create parabolic profiles for fixed density and electron
-        temperature values at the rational surface. """
-        r = np.linspace(rmin, rmax, num)
-        q = -(1.05 + q0 * (r/a)**2)
-        rres = np.interp(m_mode/n_mode, np.abs(q), r)
-    
-        fac_par = 1 - (r/a)**2
-        n   = n0   * fac_par / (1-(rres/a)**2)
-        Te  = Te0  * fac_par / (1-(rres/a)**2)
-        Ti  = Ti0  * fac_par
-        Vz  = Vz0  * fac_par
-        Er  = Er0  * fac_par
-        Vth = Vth0 * fac_par
-
-        np.savetxt(path + 'q.dat', np.array((r,q)).transpose())
-        np.savetxt(path + 'Te.dat', np.array((r, Te)).transpose())
-        np.savetxt(path + 'Ti.dat', np.array((r, Ti)).transpose())
-        np.savetxt(path + 'n.dat', np.array((r, n)).transpose())
-        np.savetxt(path + 'Vz.dat', np.array((r, Vz)).transpose())
-        np.savetxt(path + 'Er.dat', np.array((r, Er)).transpose())
-        np.savetxt(path + 'Vth.dat', np.array((r, Vth)).transpose())
 
 
     def check_profile_consistency(self, path_profiles=''):

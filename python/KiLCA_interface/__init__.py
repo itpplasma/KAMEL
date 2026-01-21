@@ -2,7 +2,7 @@ from .read_in import *
 from .save_file import *
 from .InpOut import *
 from .change_opts import *
-from postproc_class import utility_class
+from utility import utility
 
 from .KiLCA_data import *
 from .KiLCA_antenna import *

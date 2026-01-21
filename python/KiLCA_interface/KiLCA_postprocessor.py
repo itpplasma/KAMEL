@@ -6,8 +6,7 @@ import os
 import re
 import sys
 import inspect
-#sys.path.append(inspect.getfile(KiLCA_interface)[0:-18] + '../../postproc_py_class/')
-from postproc_class import utility_class
+from utility import utility
 from scipy.optimize import curve_fit
 
 class KiLCA_postprocessor:
@@ -19,7 +18,7 @@ class KiLCA_postprocessor:
         read_Eb(path_to_file): reads in EB.dat output file
     """
 
-    uc = utility_class.utility() # for colors and plotting stuff
+    uc = utility() # for colors and plotting stuff
     debug = False
 
     def __init__(self, *args):

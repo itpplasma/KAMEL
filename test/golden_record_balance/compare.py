@@ -6,16 +6,19 @@ This module provides functions to compare specific quantities in HDF5 files
 with configurable absolute and relative tolerances.
 """
 
+import sys
 from dataclasses import dataclass
 from typing import Any
 
 import h5py
 import numpy as np
+from numpy.typing import NDArray
 
 
 @dataclass
 class ComparisonResult:
     """Result of a single quantity comparison."""
+
     path: str
     passed: bool
     max_abs_diff: float | None = None
@@ -28,9 +31,25 @@ class ComparisonResult:
 @dataclass
 class QuantitySpec:
     """Specification for a quantity to compare."""
+
     path: str  # HDF5 path, e.g., "/group/dataset"
-    rtol: float = 1e-8  # Relative tolerance
-    atol: float = 1e-15  # Absolute tolerance
+    rtol: float = 1e-8
+    atol: float = 1e-15
+
+
+# List of quantities to compare
+# TODO: Add the HDF5 paths you want to compare!
+QUANTITIES_TO_COMPARE: list[QuantitySpec] = [
+    # Example entries (uncomment and modify as needed):
+    #
+    # QuantitySpec("/profiles/Te"),  # Electron temperature
+    # QuantitySpec("/profiles/Ti"),  # Ion temperature
+    # QuantitySpec("/profiles/n"),   # Density
+    # QuantitySpec("/output/torque", rtol=1e-6),  # Torque with relaxed tolerance
+    # QuantitySpec("/output/D11", rtol=1e-7, atol=1e-12),  # Diffusion coefficient
+    #
+    # Add your quantities below:
+]
 
 
 def get_nested_item(h5file: h5py.File, path: str) -> Any:
@@ -43,8 +62,8 @@ def get_nested_item(h5file: h5py.File, path: str) -> Any:
 
 
 def compare_arrays(
-    golden: np.ndarray,
-    actual: np.ndarray,
+    golden: NDArray,
+    actual: NDArray,
     rtol: float,
     atol: float,
 ) -> tuple[bool, float | None, float | None]:
@@ -61,13 +80,17 @@ def compare_arrays(
     max_abs_diff = float(np.max(abs_diff))
 
     # Compute relative difference (avoiding division by zero)
-    with np.errstate(divide='ignore', invalid='ignore'):
+    with np.errstate(divide="ignore", invalid="ignore"):
         rel_diff = np.where(
             np.abs(golden) > 0,
             abs_diff / np.abs(golden),
-            np.where(abs_diff > 0, np.inf, 0.0)
+            np.where(abs_diff > 0, np.inf, 0.0),
         )
-    max_rel_diff = float(np.max(rel_diff[np.isfinite(rel_diff)])) if np.any(np.isfinite(rel_diff)) else 0.0
+    max_rel_diff = (
+        float(np.max(rel_diff[np.isfinite(rel_diff)]))
+        if np.any(np.isfinite(rel_diff))
+        else 0.0
+    )
 
     # Check if arrays are close
     passed = np.allclose(golden, actual, rtol=rtol, atol=atol)
@@ -116,7 +139,11 @@ def compare_quantity(
             max_rel_diff=max_rel,
             golden_shape=golden_arr.shape,
             actual_shape=actual_arr.shape,
-            error_message=None if passed else f"Values differ beyond tolerance (rtol={spec.rtol}, atol={spec.atol})",
+            error_message=(
+                None
+                if passed
+                else f"Values differ beyond tolerance (rtol={spec.rtol}, atol={spec.atol})"
+            ),
         )
 
     # Handle scalar attributes or other types
@@ -130,7 +157,7 @@ def compare_quantity(
 def compare_hdf5_files(
     golden_path: str,
     actual_path: str,
-    quantities: list[QuantitySpec],
+    quantities: list[QuantitySpec] = QUANTITIES_TO_COMPARE,
 ) -> list[ComparisonResult]:
     """
     Compare specific quantities between two HDF5 files.
@@ -145,8 +172,9 @@ def compare_hdf5_files(
     """
     results = []
 
-    with h5py.File(golden_path, "r") as golden_file, \
-         h5py.File(actual_path, "r") as actual_file:
+    with h5py.File(golden_path, "r") as golden_file, h5py.File(
+        actual_path, "r"
+    ) as actual_file:
         for spec in quantities:
             result = compare_quantity(golden_file, actual_file, spec)
             results.append(result)
@@ -182,20 +210,17 @@ def format_comparison_report(results: list[ComparisonResult]) -> str:
     return "\n".join(lines)
 
 
-if __name__ == "__main__":
-    # Example usage / quick test
-    import sys
-
+def main() -> None:  # Example usage
     if len(sys.argv) != 3:
         print("Usage: python compare_hdf5.py <golden.h5> <actual.h5>")
         sys.exit(1)
 
-    # Import quantities from the config
-    from quantities_to_compare import QUANTITIES_TO_COMPARE
-
     results = compare_hdf5_files(sys.argv[1], sys.argv[2], QUANTITIES_TO_COMPARE)
     print(format_comparison_report(results))
 
-    # Exit with error if any comparison failed
     if not all(r.passed for r in results):
         sys.exit(1)
+
+
+if __name__ == "__main__":
+    main()

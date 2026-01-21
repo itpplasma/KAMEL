@@ -14,6 +14,7 @@ The reference directory is cached locally to avoid unnecessary rebuilds.
 import shutil
 import subprocess
 from pathlib import Path
+from setup_runfolder import setup_runfolder as setup_runfolder_external, get_output_hdf5_path
 
 SCRIPT_DIR = Path(__file__).resolve().parent
 MAIN_REF_DIR = SCRIPT_DIR / "main_ref"
@@ -83,32 +84,20 @@ def build_main_ref() -> Path:
 
 def setup_runfolder() -> Path:
     """Set up the runfolder using the user-provided setup script."""
-    from setup_runfolder import setup_runfolder as user_setup
-
     # Clean up any existing runfolder
     if RUNFOLDER_DIR.exists():
         shutil.rmtree(RUNFOLDER_DIR)
     RUNFOLDER_DIR.mkdir(parents=True)
 
-    # Call user's setup function
-    user_setup(RUNFOLDER_DIR)
-
+    setup_runfolder_external(RUNFOLDER_DIR)
     return RUNFOLDER_DIR
 
 
 def run_ql_balance(executable: Path, runfolder: Path) -> Path:
     """Run ql-balance.x and return path to output HDF5 file."""
-    print(f"Running ql-balance.x from {executable}...")
-
-    # Symlink the executable into the runfolder
-    exe_link = runfolder / "ql-balance.x"
-    if exe_link.exists():
-        exe_link.unlink()
-    exe_link.symlink_to(executable)
-
-    # Run ql-balance.x
+    print(f"Running {executable}...")
     result = subprocess.run(
-        ["mpirun", "-np", "1", str(exe_link)],
+        [str(executable)],
         cwd=runfolder,
         capture_output=True,
         text=True,
@@ -120,8 +109,6 @@ def run_ql_balance(executable: Path, runfolder: Path) -> Path:
         print(f"stderr:\n{result.stderr}")
         raise RuntimeError("ql-balance.x execution failed")
 
-    # Find the output HDF5 file
-    from setup_runfolder import get_output_hdf5_path
     return get_output_hdf5_path(runfolder)
 
 

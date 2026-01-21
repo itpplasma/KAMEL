@@ -9,46 +9,23 @@ The golden.h5 file is automatically generated from the main branch if it does
 not exist. This ensures tests compare against a known-good reference.
 """
 
-import os
-import shutil
 import subprocess
 from pathlib import Path
 
 import pytest
-
-from compare_hdf5 import compare_hdf5_files, format_comparison_report
-from ensure_golden import ensure_golden, RUNFOLDER_DIR, setup_runfolder
-from quantities_to_compare import QUANTITIES_TO_COMPARE
+from compare import QUANTITIES_TO_COMPARE, compare_hdf5_files, format_comparison_report
+from ensure_golden import ensure_golden
+from setup_runfolder import get_output_hdf5_path
+from setup_runfolder import setup_runfolder as setup_runfolder_external
 
 SCRIPT_DIR = Path(__file__).resolve().parent
 GOLDEN_H5 = ensure_golden()
 
 
-def find_executable() -> Path:
-    """Find ql-balance.x executable."""
-    # Try common locations relative to the test directory
-    candidates = [
-        SCRIPT_DIR.parent.parent / "build" / "install" / "bin" / "ql-balance.x",
-        SCRIPT_DIR.parent.parent / "build" / "ql-balance.x",
-        Path(os.environ.get("QL_BALANCE_EXE", "")),
-    ]
-
-    for candidate in candidates:
-        if candidate.is_file() and os.access(candidate, os.X_OK):
-            return candidate
-
-    # Try finding in PATH
-    result = shutil.which("ql-balance.x")
-    if result:
-        return Path(result)
-
-    pytest.skip("ql-balance.x executable not found")
-
-
 @pytest.fixture(scope="module")
 def executable() -> Path:
     """Fixture providing path to ql-balance.x."""
-    return find_executable()
+    return SCRIPT_DIR.parent.parent / "build" / "install" / "bin" / "ql-balance.x"
 
 
 @pytest.fixture(scope="module")
@@ -61,20 +38,13 @@ def test_output(executable: Path, tmp_path_factory) -> Path:
     # Create a unique working directory
     work_dir = tmp_path_factory.mktemp("ql_balance_run")
 
-    # Import setup function to get output path
-    from setup_runfolder import setup_runfolder as user_setup, get_output_hdf5_path
-
     # Set up the runfolder
-    user_setup(work_dir)
-
-    # Symlink the executable into the work directory
-    exe_link = work_dir / "ql-balance.x"
-    exe_link.symlink_to(executable)
+    setup_runfolder_external(work_dir)
 
     # Run ql-balance.x
     print(f"\nRunning ql-balance.x in {work_dir}...")
     result = subprocess.run(
-        ["mpirun", "-np", "1", str(exe_link)],
+        [str(executable)],
         cwd=work_dir,
         capture_output=True,
         text=True,
@@ -93,11 +63,7 @@ def test_output(executable: Path, tmp_path_factory) -> Path:
 def test_golden_record(test_output: Path) -> None:
     """Test that ql-balance.x output matches golden record."""
     # Compare the output against golden record
-    results = compare_hdf5_files(
-        str(GOLDEN_H5),
-        str(test_output),
-        QUANTITIES_TO_COMPARE,
-    )
+    results = compare_hdf5_files(str(GOLDEN_H5), str(test_output))
 
     # Generate report
     report = format_comparison_report(results)

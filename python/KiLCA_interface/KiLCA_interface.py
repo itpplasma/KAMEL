@@ -110,7 +110,7 @@ class KiLCA_interface:
     ################################################################################
     """
 
-    EXEC_PATH = os.path.join(os.path.dirname(__file__) + '/../../KiLCA/build/exe/KiLCA_Normal_V_2.4.2_MDNO_FPGEN_POLYNOMIAL_Release_64bit')
+    EXEC_PATH = os.path.join(os.path.dirname(__file__) + '/../../build/install/bin/KiLCA_Normal_V_2.4.2_MDNO_FPGEN_POLYNOMIAL_Release_64bit')
     BLUE_PATH = 'blueprints/'
     PROF_PATH = 'profiles/'
 

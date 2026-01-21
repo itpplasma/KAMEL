@@ -15,7 +15,7 @@ from .balance_input_h5 import *
 class QL_Balance_interface():
 
     machine = 'AUG' # default machine is AUG
-    executable_path = os.path.join(os.path.dirname(__file__) + '/../../QL-Balance/build/ql-balance.x')
+    executable_path = os.path.join(os.path.dirname(__file__) + '/../../build/install/bin/ql-balance.x')
 
     run_types = ['SingleStep', 'TimeEvolution', 'ParameterScan']
 

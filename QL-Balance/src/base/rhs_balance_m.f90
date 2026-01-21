@@ -148,7 +148,7 @@ contains
         type(thermodynamic_forces_t) :: forces_lin, forces
         real(dp) :: gamma_e_lin, gamma_i_lin, gamma_ql_e_lin, gamma_ql_i_lin, Q_e_lin, Q_i_lin
         real(dp) :: gamma_e, gamma_i, gamma_ql_e, gamma_ql_i, Q_e, Q_i
-        real(dp) :: flux_dif_lin_loc(4), flux_con_lin_loc(4), flux_con_loc(4)
+        real(dp) :: flux_dif_lin_loc(4), flux_con_lin_loc(4), flux_dif_loc(4), flux_con_loc(4)
         real(dp) :: dot_params_loc(4)
 
         if (iboutype .eq. 1) then
@@ -193,8 +193,8 @@ contains
                                             dqle12, dqle21, dqle22, dqli11, dqli12, dqli21, &
                                             dqli22, visca, gpp_av, Sb, Z_i, forces, &
                                             gamma_e, gamma_i, gamma_ql_e, &
-                                            gamma_ql_i, Q_e, Q_i, flux_dif_lin_loc, &
-                                            flux_con_lin_loc)
+                                            gamma_ql_i, Q_e, Q_i, flux_dif_loc, &
+                                            flux_con_loc)
 
             call compute_nonlinear_convective_flux(ipoi, gamma_e, Q_e, Q_i, &
                                                    ddr_params, params_b, Sb, dae11, dqle11, &
@@ -376,7 +376,7 @@ contains
         type(thermodynamic_forces_t) :: forces_lin, forces
         real(dp) :: gamma_e_lin, gamma_i_lin, gamma_ql_e_lin, gamma_ql_i_lin, Q_e_lin, Q_i_lin
         real(dp) :: gamma_e, gamma_i, gamma_ql_e, gamma_ql_i, Q_e, Q_i
-        real(dp) :: flux_dif_lin_loc(4), flux_con_lin_loc(4), flux_con_loc(4)
+        real(dp) :: flux_dif_lin_loc(4), flux_con_lin_loc(4), flux_dif_loc(4), flux_con_loc(4)
         real(dp) :: dot_params_loc(4)
 
         if (iboutype .eq. 1) then
@@ -444,8 +444,8 @@ contains
                                             dqle12, dqle21, dqle22, dqli11, dqli12, dqli21, &
                                             dqli22, visca, gpp_av, Sb, Z_i, forces, &
                                             gamma_e, gamma_i, gamma_ql_e, &
-                                            gamma_ql_i, Q_e, Q_i, flux_dif_lin_loc, &
-                                            flux_con_lin_loc)
+                                            gamma_ql_i, Q_e, Q_i, flux_dif_loc, &
+                                            flux_con_loc)
 
             call compute_nonlinear_convective_flux(ipoi, gamma_e, Q_e, Q_i, &
                                                    ddr_params, params_b, Sb, dae11, dqle11, &

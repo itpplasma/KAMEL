@@ -63,7 +63,7 @@ class QL_Balance_interface():
         try:
             self.conf.conf['balancenml']['type_of_run'] = run_type
         except:
-            raise ValueWarning(f'Namelist config not read to write run type {run_type}.')
+            raise Warning(f'Namelist config not read to write run type {run_type}.')
         
     def set_modes(self, m_mode, n_mode):
         self.m_mode = m_mode
@@ -79,12 +79,32 @@ class QL_Balance_interface():
     def link_profiles(self, profile_path):
         if not os.path.exists(profile_path):
             raise FileNotFoundError(f'Profile path {profile_path} not found.')
-        else:
-            try:
-                os.unlink(self.run_path + 'profiles')
-            except:
-                pass
-            os.symlink(profile_path, self.run_path + 'profiles')
+        # Resolve symlinks to prevent circular references
+        resolved_profile_path = os.path.normpath(os.path.realpath(profile_path))
+        resolved_run_path = os.path.normpath(os.path.realpath(self.run_path))
+        # Check if profile_path is inside run_path (would create circular symlink)
+        if resolved_profile_path.startswith(resolved_run_path + os.sep) or resolved_profile_path == resolved_run_path:
+            raise ValueError(f'Profile path {profile_path} is inside run_path {self.run_path}. '
+                           f'This would create a circular symlink. Use an external profile directory.')
+        link_path = os.path.join(self.run_path, 'profiles')
+        # Remove existing symlink, file, or directory at link_path
+        if os.path.islink(link_path):
+            os.unlink(link_path)
+        elif os.path.isdir(link_path):
+            # Check if directory is empty or only contains a 'profiles' symlink (from previous bug)
+            contents = os.listdir(link_path)
+            if contents == ['profiles'] and os.path.islink(os.path.join(link_path, 'profiles')):
+                # Remove the buggy nested symlink and the directory
+                os.unlink(os.path.join(link_path, 'profiles'))
+                os.rmdir(link_path)
+            elif len(contents) == 0:
+                os.rmdir(link_path)
+            else:
+                raise ValueError(f'Cannot create profiles symlink: {link_path} is a non-empty directory. '
+                               f'Please remove or rename it manually.')
+        elif os.path.exists(link_path):
+            os.unlink(link_path)
+        os.symlink(resolved_profile_path, link_path)
 
     def set_factors(self, fac_n, fac_Te, fac_Ti, fac_vz):
         """Set the factors for the balance run."""

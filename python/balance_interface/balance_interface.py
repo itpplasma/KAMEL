@@ -4,7 +4,7 @@ import h5py
 import sys
 import shutil
 
-from postproc_class import utility_class
+from utility import utility
 
 from KiLCA_interface import KiLCA_interface
 from KiLCA_interface.KiLCA_postprocessor import KiLCA_postprocessor
@@ -15,7 +15,7 @@ from .balance_input_h5 import *
 class QL_Balance_interface():
 
     machine = 'AUG' # default machine is AUG
-    executable_path = os.path.join(os.path.dirname(__file__) + '/../../QL-Balance/build/ql-balance.x')
+    executable_path = os.path.join(os.path.dirname(__file__), '..', '..', 'build', 'install', 'bin', 'ql-balance.x')
 
     run_types = ['SingleStep', 'TimeEvolution', 'ParameterScan']
 
@@ -54,7 +54,7 @@ class QL_Balance_interface():
             self.input_h5_file = os.path.join(self.run_path, f'INPUT_{self.shot}_{self.time}_{self.name}.hdf5')
         else:
             self.input_h5_file = input_file
-        self.util = utility_class.utility()
+        self.util = utility()
 
     def set_type_of_run(self, run_type='SingleStep'):
         '''Set the type of the run, e.g. 'SingleStep', 'TimeEvolution' or 'ParameterScan'''
@@ -63,7 +63,7 @@ class QL_Balance_interface():
         try:
             self.conf.conf['balancenml']['type_of_run'] = run_type
         except:
-            raise ValueWarning(f'Namelist config not read to write run type {run_type}.')
+            raise ValueError(f'Namelist config not read to write run type {run_type}.')
         
     def set_modes(self, m_mode, n_mode):
         self.m_mode = m_mode
@@ -74,17 +74,43 @@ class QL_Balance_interface():
         os.makedirs(os.path.join(self.run_path, 'profiles'), exist_ok=True)
         files = [f for f in os.listdir(profile_path) if os.path.isfile(os.path.join(profile_path, f))]
         for f in files:
-            shutil.copy2(profile_path + f, os.path.join(self.run_path, 'profiles'))
+            shutil.copy2(os.path.join(profile_path, f), os.path.join(self.run_path, 'profiles'))
 
     def link_profiles(self, profile_path):
         if not os.path.exists(profile_path):
             raise FileNotFoundError(f'Profile path {profile_path} not found.')
-        else:
+        # Resolve symlinks to prevent circular references
+        resolved_profile_path = os.path.normpath(os.path.realpath(profile_path))
+        resolved_run_path = os.path.normpath(os.path.realpath(self.run_path))
+        # Check if profile_path is inside run_path (would create circular symlink)
+        if resolved_profile_path.startswith(resolved_run_path + os.sep) or resolved_profile_path == resolved_run_path:
+            raise ValueError(f'Profile path {profile_path} is inside run_path {self.run_path}. '
+                           f'This would create a circular symlink. Use an external profile directory.')
+        link_path = os.path.join(self.run_path, 'profiles')
+        # Remove existing symlink, file, or directory at link_path
+        if os.path.islink(link_path):
+            os.unlink(link_path)
+        elif os.path.isdir(link_path):
+            # Check if directory is empty or only contains a 'profiles' symlink (from previous bug)
             try:
-                os.unlink(self.run_path + 'profiles')
-            except:
+                contents = os.listdir(link_path)
+                if contents == ['profiles'] and os.path.islink(os.path.join(link_path, 'profiles')):
+                    # Remove the buggy nested symlink and the directory
+                    os.unlink(os.path.join(link_path, 'profiles'))
+                    os.rmdir(link_path)
+                elif len(contents) == 0:
+                    os.rmdir(link_path)
+                else:
+                    raise ValueError(f'Cannot create profiles symlink: {link_path} is a non-empty directory. '
+                                   f'Please remove or rename it manually.')
+            except FileNotFoundError:
+                # Directory disappeared between checks; nothing left to clean up
                 pass
-            os.symlink(profile_path, self.run_path + 'profiles')
+            except OSError as e:
+                raise ValueError(f'Cannot safely prepare profiles symlink at {link_path}: {e}') from e
+        elif os.path.exists(link_path):
+            os.unlink(link_path)
+        os.symlink(resolved_profile_path, link_path)
 
     def set_factors(self, fac_n, fac_Te, fac_Ti, fac_vz):
         """Set the factors for the balance run."""

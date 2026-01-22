@@ -3,9 +3,9 @@
 ! Balance configuration namelist
 &BALANCENML
 ! path to flre project
- flre_path = '/temp/markl_m/BalanceProposal/readprof_h5/33120_5500/flre/' ,
+ flre_path = '/flre/' ,
 ! path to vacuum project
- vac_path = '/temp/markl_m/BalanceProposal/readprof_h5/33120_5500/vacuum/' ,
+ vac_path = '/vacuum/' ,
  btor = -18009.167 ,
  rtor = 165 ,
  rmin = 3 ,
@@ -21,7 +21,6 @@
  antenna_factor = 5.4264272 ,
  iboutype = 1 ,
  ! iwrite can also be 1
- iwrite = 0 ,
  eps = 1e-06 ,
  dperp = 10000 ,
  Z_i = 1 ,
@@ -30,13 +29,12 @@
  re_cut_in = 25 ,
  rb_cut_out = 67.5 ,
  re_cut_out = 68 ,
- write_formfactors = .false. ,
 ! stop timestep for time evolution mode
  stop_time_step = 1e-06 ,
 ! path to the hdf5 file that is used to read from
- path2out = '/temp/markl_m/BalanceProposal/readprof_h5/33120_5500/readprof_h5.hdf5' ,
+ path2out = '/OUT.hdf5' ,
 ! path to the hdf5 file that is written to
- path2inp = '/temp/markl_m/inputdata_h5/33120_5500.h5'
+ path2inp = '/INP.h5'
  timstep_min = 1.d-30 ,
  paramscan = .false. ,
  save_prof_time_step = 10 , ! save the profile every "save_prov_time_step"th step
@@ -55,7 +53,7 @@
  gyro_current_study = 0 , 
  viscosity_factor = 1 ,
  misalign_diffusion = .false. ,
- equil_path = '/temp/markl_m/FLUXDATA/33353/2900/equil_r_q_psi.dat' ,
+ equil_path = '/equil_r_q_psi.dat' ,
  type_of_run = 'SingleStep'
  ihdf5IO = 1
 /

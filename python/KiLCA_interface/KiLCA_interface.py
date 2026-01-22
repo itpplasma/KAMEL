@@ -19,8 +19,7 @@ from .KiLCA_zone import KiLCA_zone
 
 from device_config import MASTU_config, AUG_config
 
-#sys.path.append(os.path.abspath(inspect.getfile(KiLCA_antenna)[0:-16] + '../../postproc_py_class/'))
-from postproc_class import utility_class
+from utility import utility
 
 
 class KiLCA_interface:
@@ -111,7 +110,7 @@ class KiLCA_interface:
     ################################################################################
     """
 
-    EXEC_PATH = os.path.join(os.path.dirname(__file__) + '/../../KiLCA/build/exe/KiLCA_Normal_V_2.4.2_MDNO_FPGEN_POLYNOMIAL_Release_64bit')
+    EXEC_PATH = os.path.join(os.path.dirname(__file__), '..', '..', 'build', 'install', 'bin', 'KiLCA_Normal_V_2.4.2_MDNO_FPGEN_POLYNOMIAL_Release_64bit')
     BLUE_PATH = 'blueprints/'
     PROF_PATH = 'profiles/'
 
@@ -131,7 +130,7 @@ class KiLCA_interface:
     run_type = ''
     machine = ''
 
-    uc = utility_class.utility() # utility class for colors and adding grid lines to plots
+    uc = utility() # utility class for colors and adding grid lines to plots
 
     def __init__(self, shot: int, time: int, path: str, rtype: str, machine: str='AUG'):
         """Constructor of KiLCA interface.
@@ -145,12 +144,13 @@ class KiLCA_interface:
 
         self.path = path
         try:
-            ls = os.listdir(self.path)
-        except:
+            path_contents = os.listdir(self.path)
+        except FileNotFoundError:
             warnings.warn('Path ' + self.path + ' does not exist. I will make dir(s).')
             os.makedirs(self.path)
+            path_contents = os.listdir(self.path)
 
-        if not self.PROF_PATH[0:-1] in ls:
+        if not self.PROF_PATH[0:-1] in path_contents:
             warnings.warn('No profile directory found in ' + self.path + '\nMake sure to change PROF_PATH of class to path where the profiles are.')
             
         self.path_of_profiles = path + self.PROF_PATH
@@ -324,8 +324,6 @@ class KiLCA_interface:
         os.system('mkdir -p ' + self.path_of_profiles)
         os.system('mkdir -p ' + self.path_of_run)
 
-        # make local copy of profiles
-        os.system('cp ' + self.PROF_PATH + '* ' + self.path_of_profiles + ' 2>/dev/null') # suppress warnings
         # delete all existing input files
         os.system('rm -f ' + self.path + 'background.in')
         os.system('rm -f ' + self.path + 'eigmode.in')
@@ -337,7 +335,39 @@ class KiLCA_interface:
         # create sym link to exe
         os.system('ln -sf ' + self.EXEC_PATH + ' ' + self.path_of_run + 'run_local')
         # create symbolic link to profiles directory
-        os.system('ln -sf ' + os.path.abspath(self.path_of_profiles) + ' ' + self.path_of_run + 'profiles')
+        # Safety check: path_of_run must be set and not be empty or just 'profiles'
+        path_of_run_stripped = self.path_of_run.rstrip('/')
+        if not self.path_of_run or path_of_run_stripped == 'profiles' or os.path.basename(path_of_run_stripped) == 'profiles':
+            raise ValueError(f"Invalid path_of_run: '{self.path_of_run}'. Must be set to a run directory like 'path/flre/' or 'path/vacuum/'.")
+        profile_link_path = os.path.join(self.path_of_run, 'profiles')
+        resolved_profile_target = os.path.normpath(os.path.realpath(self.path_of_profiles))
+        resolved_link_path = os.path.normpath(os.path.realpath(os.path.dirname(profile_link_path)))
+        resolved_link_full = os.path.join(resolved_link_path, 'profiles')
+        # Prevent self-referential or circular symlinks
+        if resolved_profile_target == resolved_link_full:
+            raise ValueError(f'Cannot create symlink: source {self.path_of_profiles} resolves to the same path as destination {profile_link_path}. '
+                           f'This would create a circular symlink.')
+        # Remove existing symlink or handle directory to avoid creating link inside directory
+        if os.path.islink(profile_link_path):
+            os.unlink(profile_link_path)
+        elif os.path.isdir(profile_link_path):
+            # Check if directory only contains a 'profiles' symlink (from previous bug)
+            try:
+                contents = os.listdir(profile_link_path)
+                if contents == ['profiles'] and os.path.islink(os.path.join(profile_link_path, 'profiles')):
+                    os.unlink(os.path.join(profile_link_path, 'profiles'))
+                    os.rmdir(profile_link_path)
+                elif len(contents) == 0:
+                    os.rmdir(profile_link_path)
+                else:
+                    raise ValueError(f'Cannot create profiles symlink at {profile_link_path}: directory exists with contents. '
+                                   f'Please remove or rename it manually.')
+            except FileNotFoundError:
+                # Directory disappeared between checks; nothing left to clean up
+                pass
+            except OSError as e:
+                raise ValueError(f'Cannot safely prepare profiles symlink at {profile_link_path}: {e}') from e
+        os.symlink(resolved_profile_target, profile_link_path)
 
         self.antenna.write(self.BLUE_PATH + self.antenna.BLUEPRINT, self.path_of_run)
 
@@ -408,30 +438,6 @@ class KiLCA_interface:
 
     def run_condor(self):
         pass
-
-
-    def create_parabolic_profiles_from_res_surf(self, path, q0, n0, Te0, Ti0, Vz0, Er0, Vth0, m_mode, n_mode, rmin, rmax, num, a, const=''):
-        """ Create parabolic profiles for fixed density and electron
-        temperature values at the rational surface. """
-        r = np.linspace(rmin, rmax, num)
-        q = -(1.05 + q0 * (r/a)**2)
-        rres = np.interp(m_mode/n_mode, np.abs(q), r)
-    
-        fac_par = 1 - (r/a)**2
-        n   = n0   * fac_par / (1-(rres/a)**2)
-        Te  = Te0  * fac_par / (1-(rres/a)**2)
-        Ti  = Ti0  * fac_par
-        Vz  = Vz0  * fac_par
-        Er  = Er0  * fac_par
-        Vth = Vth0 * fac_par
-
-        np.savetxt(path + 'q.dat', np.array((r,q)).transpose())
-        np.savetxt(path + 'Te.dat', np.array((r, Te)).transpose())
-        np.savetxt(path + 'Ti.dat', np.array((r, Ti)).transpose())
-        np.savetxt(path + 'n.dat', np.array((r, n)).transpose())
-        np.savetxt(path + 'Vz.dat', np.array((r, Vz)).transpose())
-        np.savetxt(path + 'Er.dat', np.array((r, Er)).transpose())
-        np.savetxt(path + 'Vth.dat', np.array((r, Vth)).transpose())
 
 
     def check_profile_consistency(self, path_profiles=''):

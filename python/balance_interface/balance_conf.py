@@ -4,7 +4,7 @@ import os
 
 class balance_conf:
     
-    blueprint_path = os.path.join(os.path.dirname(__file__) + '/../../QL-Balance/balance_conf.nml')
+    blueprint_path = os.path.join(os.path.dirname(__file__), '..', '..', 'QL-Balance', 'namelists', 'balance_conf.nml')
 
     def __init__(self, path=""):
         if path == "":

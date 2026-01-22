@@ -20,7 +20,7 @@ SCRIPT_DIR = Path(__file__).resolve().parent
 MAIN_REF_DIR = SCRIPT_DIR / "main_ref"
 GOLDEN_H5 = SCRIPT_DIR / "golden.h5"
 RUNFOLDER_DIR = SCRIPT_DIR / "runfolder"
-REPO_URL = "https://github.com/itpplasma/KAMEL"
+REPO_URL = "git@github.com:itpplasma/KAMEL.git"  # TODO: change this to https again once the repo is made public
 CONFIG = "Release"
 
 

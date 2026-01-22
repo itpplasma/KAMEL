@@ -125,18 +125,10 @@ def get_output_hdf5_path(runfolder: Path) -> Path:
 
     Raises:
         FileNotFoundError: If the output file doesn't exist.
-
-    Example implementation:
-        ```python
-        # Output file is typically in out/ subdirectory
-        output_file = runfolder / "out" / "balance_output.h5"
-        if not output_file.exists():
-            raise FileNotFoundError(f"Output file not found: {output_file}")
-        return output_file
-        ```
     """
-    # TODO: Implement this function!
-    raise NotImplementedError(
-        "get_output_hdf5_path() is not implemented. "
-        "Please edit test/golden_record_balance/setup_runfolder.py"
-    )
+    # Output file matches the pattern from setup_ql_balance():
+    # shot=0, time=0, name="test" -> out/0_0_test.hdf5
+    output_file = Path(runfolder) / "out" / "0_0_test.hdf5"
+    if not output_file.exists():
+        raise FileNotFoundError(f"Output file not found: {output_file}")
+    return output_file

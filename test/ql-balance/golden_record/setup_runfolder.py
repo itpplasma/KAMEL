@@ -35,7 +35,13 @@ You can either:
 """
 
 import os
+import sys
 from pathlib import Path
+
+# Add the python package directory to sys.path for standalone execution
+_python_dir = Path(__file__).resolve().parents[3] / "python"
+if str(_python_dir) not in sys.path:
+    sys.path.insert(0, str(_python_dir))
 
 from balance_interface import QL_Balance_interface
 from utility import create_parabolic_profiles_from_res_surf

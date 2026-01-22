@@ -8,17 +8,17 @@ run_path = './test_run/'
 profile_path = run_path + 'profiles/'
 
 # all values at the resonant surface:
-q0 = mpol/ntor # safety factor
-n0 = 2e13 # cm^-3
-Te0 = 1000 # eV
-Ti0 = 1000 # eV
-Vz0 = 1e6 # cm/s
-Er0 = 0.2 # statV/cm
-Vth0 = 1e5 # cm/s
-rmin = 3.0
-rmax = 80.0
-num = 300 # number of radial grid points
-a = 67.0 # plasma radius
+q0 = mpol/ntor # 1, safety factor at resonance
+n0 = 2e13 # cm^-3, particle density
+Te0 = 1000 # eV, electron temperature
+Ti0 = 1000 # eV, ion temperature
+Vz0 = 1e6 # cm/s, physical toroidal rotation velocity
+Er0 = 0.2 # statV/cm, radial electric field
+Vth0 = 1e5 # cm/s, physical poloidal rotation velocity
+rmin = 3.0 # cm, minimum effective radius of the generated grid
+rmax = 80.0 # cm, maximum effective radius
+num = 300 # 1, number of radial grid points
+a = 67.0 # cm, plasma radius (outside profiles have small constant values)
 
 Btor = -17000 # toroidal magnetic field on axis in Gauss
 

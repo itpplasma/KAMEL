@@ -20,16 +20,12 @@ def determine_phase_of_phi_WKB_struct(dat: dict):
     integral = np.zeros(len(dat["r_found_only_one"]), dtype=complex)
     intrange = np.where(dat["r_found_only_one"] > dat["r_res"])[0][0]
     print(intrange)
-    for i, r in enumerate(dat["r_found_only_one"]):
-        if r > dat["r_res"]:
-            integral[i] = -np.trapz(
-                dat["k_r1_only_one"][intrange:i], dat["r_found_only_one"][intrange:i]
-            )
-            # integral[i] = np.trapz(dat['k_r1_only_one'][intrange:i], dat['r_found_only_one'][intrange:i])
-        if r < dat["r_res"]:
-            integral[i] = -np.trapz(
-                dat["k_r1_only_one"][i:intrange], dat["r_found_only_one"][i:intrange]
-            )
+    for i, r in enumerate(dat['r_found_only_one']):
+        if r > dat['r_res']:
+            integral[i] = -np.trapezoid(dat['k_r1_only_one'][intrange:i], dat['r_found_only_one'][intrange:i])
+            #integral[i] = np.trapezoid(dat['k_r1_only_one'][intrange:i], dat['r_found_only_one'][intrange:i])
+        if r < dat['r_res']:
+            integral[i] = -np.trapezoid(dat['k_r1_only_one'][i:intrange], dat['r_found_only_one'][i:intrange])
     phase = np.exp(1j * integral)
     return phase
 
@@ -39,9 +35,9 @@ def determine_phase_of_phi_WKB(r, kr, r_res):
     intrange = np.where(r > r_res)[0]
     for i, r_val in enumerate(r):
         if r_val > r_res:
-            integral[i] = np.trapz(kr[intrange:i], r[intrange:i])
+            integral[i] = np.trapezoid(kr[intrange:i], r[intrange:i])
         if r_val < r_res:
-            integral[i] = -np.trapz(kr[i:intrange], r[i:intrange])
+            integral[i] = -np.trapezoid(kr[i:intrange], r[i:intrange])
     phase = np.exp(1j * integral)
     return phase
 

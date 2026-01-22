@@ -28,11 +28,11 @@ test: ninja golden
 	pytest test/
 
 golden: ninja
-	$(MAKE) -C test/golden_record_balance
+	$(MAKE) -C test/ql-balance/golden_record
 
 clean:
 	rm -rf build
-	$(MAKE) -C test/golden_record_balance clean
+	$(MAKE) -C test/ql-balance/golden_record clean
 
 install: ninja
 	cmake --install build

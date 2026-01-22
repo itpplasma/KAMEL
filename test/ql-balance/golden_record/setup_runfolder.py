@@ -74,6 +74,8 @@ def setup_runfolder(run_path: Path) -> None:
                 shutil.copytree(item, target_dir / item.name)
         ```
     """
+    # Convert Path to string for interfaces that expect strings
+    run_path = str(run_path)
 
     mpol = 6  # poloidal mode number
     ntor = 2  # toroidal mode number

@@ -276,18 +276,11 @@ class KiLCA_postprocessor:
         return self.d
 
     def integrate_par_current_dens(self):
-        ind_lower = np.where(self.r >= self.kil_in.r_res - self.d / 2)[0][0]
-        ind_upper = np.where(self.r <= self.kil_in.r_res + self.d / 2)[0][-1]
-        self.Ipar = (
-            2
-            * np.pi
-            * np.trapz(
-                self.Jpar[ind_lower:ind_upper] * self.r[ind_lower:ind_upper],
-                self.r[ind_lower:ind_upper],
-            )
-        )
-        # plt.title(f'Integrated parallel current density: {np.abs(self.Ipar):.2f}')
-        # plt.show()
+        ind_lower = np.where(self.r >= self.kil_in.r_res - self.d/2)[0][0]
+        ind_upper = np.where(self.r <= self.kil_in.r_res + self.d/2)[0][-1]
+        self.Ipar = 2 * np.pi * np.trapezoid(self.Jpar[ind_lower:ind_upper] * self.r[ind_lower:ind_upper], self.r[ind_lower:ind_upper])
+        #plt.title(f'Integrated parallel current density: {np.abs(self.Ipar):.2f}')
+        #plt.show()
         return self.Ipar
 
     def read_background_field(self, path):

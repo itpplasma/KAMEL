@@ -25,7 +25,7 @@ GOLDEN_H5 = ensure_golden()
 @pytest.fixture(scope="module")
 def executable() -> Path:
     """Fixture providing path to ql-balance.x."""
-    return SCRIPT_DIR.parent.parent / "build" / "install" / "bin" / "ql-balance.x"
+    return SCRIPT_DIR.parents[2] / "build" / "install" / "bin" / "ql-balance.x"
 
 
 @pytest.fixture(scope="module")

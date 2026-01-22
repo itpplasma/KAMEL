@@ -1,4 +1,4 @@
-# singleton class utility that has some utility functions 
+# singleton class Utility that has some utility functions
 # to have always same form/colors in plots etc.:
 # - create grid
 # - TUGraz colors
@@ -6,7 +6,10 @@
 # created: 07.11.2022
 import subprocess
 
-class utility:
+
+class Utility:
+    """Singleton utility class for colors and adding grid lines to plots."""
+
     # colors of TU Graz presentation template
     col_tug = '#f70146'
     col_green = '#78b743'
@@ -18,13 +21,15 @@ class utility:
     majorgridlw = 1.5
     minorgridlw = 1.0
 
+    _instance = None
+
+    def __new__(cls, *args, **kwargs):
+        if cls._instance is None:
+            cls._instance = super(Utility, cls).__new__(cls)
+        return cls._instance
+
     def __init__(self):
         pass
-
-    def __call__(self, cls):
-        if not hasattr(cls, 'instance'):
-            cls.instance = super(utility, cls).__call__(cls)
-        return cls.instance
 
     def add_grid_to_axis(self, axis):
         axis.grid(which='major', color='#DDDDDD', linewidth=self.majorgridlw)
@@ -38,3 +43,7 @@ class utility:
             return git_hash
         except subprocess.CalledProcessError:
             return None
+
+
+# Backwards compatibility alias
+utility = Utility

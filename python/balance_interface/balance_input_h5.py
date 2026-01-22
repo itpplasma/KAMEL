@@ -12,18 +12,21 @@ class Balance_Input_h5:
         self.debug = debug
 
     def get_required_data(self):
-        self.n = np.loadtxt(self.profile_path + '/n.dat')
-        self.Te = np.loadtxt(self.profile_path + '/Te.dat')
-        self.Ti = np.loadtxt(self.profile_path + '/Ti.dat')
-        self.Vz = np.loadtxt(self.profile_path + '/Vz.dat')
-        self.Vth = np.loadtxt(self.profile_path + '/Vth.dat')
-        self.Er = np.loadtxt(self.profile_path + '/Er.dat')
-        self.q = np.loadtxt(self.profile_path + '/q.dat')
+        self.n = np.loadtxt(os.path.join(self.profile_path, 'n.dat'))
+        self.Te = np.loadtxt(os.path.join(self.profile_path, 'Te.dat'))
+        self.Ti = np.loadtxt(os.path.join(self.profile_path, 'Ti.dat'))
+        self.Vz = np.loadtxt(os.path.join(self.profile_path, 'Vz.dat'))
+        self.Vth = np.loadtxt(os.path.join(self.profile_path, 'Vth.dat'))
+        self.Er = np.loadtxt(os.path.join(self.profile_path, 'Er.dat'))
+        self.q = np.loadtxt(os.path.join(self.profile_path, 'q.dat'))
 
-        if not os.path.isfile(self.profile_path + '/Da.dat'):
+        da_path = os.path.join(self.profile_path, 'Da.dat')
+        if os.path.isfile(da_path):
+            self.Da = np.loadtxt(da_path)
+        else:
             self.Da = np.zeros_like(self.n)
             self.Da[:,0] = self.n[:,0]
-            self.Da[:,1] = 1e4 # order of magnitude guess
+            self.Da[:,1] = 1e4  # order of magnitude guess
     
     def write_data_to_h5(self, file_name, facs):
         if self.debug: print('Writing data to input h5 file: ', file_name)

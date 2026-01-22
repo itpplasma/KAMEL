@@ -1,11 +1,11 @@
-import numpy as np
+import os
 from balance_interface import QL_Balance_interface
 from utility import create_parabolic_profiles_from_res_surf
 
 mpol = 6 # poloidal mode number
 ntor = 2 # toroidal mode number
 run_path = './test_run/'
-profile_path = run_path + 'profiles/'
+profile_path = os.path.join(run_path, 'profiles')
 
 # all values at the resonant surface:
 q0 = mpol/ntor # 1, safety factor at resonance
@@ -35,7 +35,7 @@ def main():
     bi.set_config_nml()
     bi.conf.conf['balancenml']['ramp_up_mode'] = 3 # instant max RMP coil current
     bi.conf.conf['balancenml']['t_max_ramp_up'] = 1.2
-    bi.write_config_nml(path=run_path + 'balance_conf.nml')
+    bi.write_config_nml(path=os.path.join(run_path, 'balance_conf.nml'))
 
 if __name__ == "__main__":
     main()

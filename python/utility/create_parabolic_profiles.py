@@ -1,19 +1,18 @@
 import numpy as np
 import os
 
-def create_parabolic_profiles_from_res_surf(path, q0, n0, Te0, Ti0, Vz0, Er0, 
-                                            Vth0, m_mode, n_mode, rmin, rmax, 
+def create_parabolic_profiles_from_res_surf(path, q0, n0, Te0, Ti0, Vz0, Er0,
+                                            Vth0, m_mode, n_mode, rmin, rmax,
                                             num, a):
     """ Create parabolic profiles for fixed density and electron
     temperature values at the rational surface. """
 
-    if not os.path.isfile(path):
+    if not os.path.isdir(path):
         os.makedirs(path, exist_ok=True)
 
     r = np.linspace(rmin, rmax, num)
     q = -(1.05 + q0 * (r/a)**2)
     rres = np.interp(m_mode/n_mode, np.abs(q), r)
-    print(rres)
 
     fac_par = 1 - (r/a)**2
     n   = n0   * fac_par / (1-(rres/a)**2)
@@ -31,11 +30,11 @@ def create_parabolic_profiles_from_res_surf(path, q0, n0, Te0, Ti0, Vz0, Er0,
     Er[np.where(Er < Er0/10)] = Er0/10
     Vth[np.where(Vth < Vth0/10)] = Vth0/10
 
-    np.savetxt(path + 'q.dat', np.array((r,q)).transpose())
-    np.savetxt(path + 'Te.dat', np.array((r, Te)).transpose())
-    np.savetxt(path + 'Ti.dat', np.array((r, Ti)).transpose())
-    np.savetxt(path + 'n.dat', np.array((r, n)).transpose())
-    np.savetxt(path + 'Vz.dat', np.array((r, Vz)).transpose())
-    np.savetxt(path + 'Er.dat', np.array((r, Er)).transpose())
-    np.savetxt(path + 'Vth.dat', np.array((r, Vth)).transpose())
+    np.savetxt(os.path.join(path, 'q.dat'), np.array((r, q)).transpose())
+    np.savetxt(os.path.join(path, 'Te.dat'), np.array((r, Te)).transpose())
+    np.savetxt(os.path.join(path, 'Ti.dat'), np.array((r, Ti)).transpose())
+    np.savetxt(os.path.join(path, 'n.dat'), np.array((r, n)).transpose())
+    np.savetxt(os.path.join(path, 'Vz.dat'), np.array((r, Vz)).transpose())
+    np.savetxt(os.path.join(path, 'Er.dat'), np.array((r, Er)).transpose())
+    np.savetxt(os.path.join(path, 'Vth.dat'), np.array((r, Vth)).transpose())
 

@@ -15,7 +15,7 @@ from .balance_input_h5 import *
 class QL_Balance_interface():
 
     machine = 'AUG' # default machine is AUG
-    executable_path = os.path.join(os.path.dirname(__file__) + '/../../build/install/bin/ql-balance.x')
+    executable_path = os.path.join(os.path.dirname(__file__), '..', '..', 'build', 'install', 'bin', 'ql-balance.x')
 
     run_types = ['SingleStep', 'TimeEvolution', 'ParameterScan']
 
@@ -63,7 +63,7 @@ class QL_Balance_interface():
         try:
             self.conf.conf['balancenml']['type_of_run'] = run_type
         except:
-            raise Warning(f'Namelist config not read to write run type {run_type}.')
+            raise ValueError(f'Namelist config not read to write run type {run_type}.')
         
     def set_modes(self, m_mode, n_mode):
         self.m_mode = m_mode
@@ -74,7 +74,7 @@ class QL_Balance_interface():
         os.makedirs(os.path.join(self.run_path, 'profiles'), exist_ok=True)
         files = [f for f in os.listdir(profile_path) if os.path.isfile(os.path.join(profile_path, f))]
         for f in files:
-            shutil.copy2(profile_path + f, os.path.join(self.run_path, 'profiles'))
+            shutil.copy2(os.path.join(profile_path, f), os.path.join(self.run_path, 'profiles'))
 
     def link_profiles(self, profile_path):
         if not os.path.exists(profile_path):
@@ -92,16 +92,22 @@ class QL_Balance_interface():
             os.unlink(link_path)
         elif os.path.isdir(link_path):
             # Check if directory is empty or only contains a 'profiles' symlink (from previous bug)
-            contents = os.listdir(link_path)
-            if contents == ['profiles'] and os.path.islink(os.path.join(link_path, 'profiles')):
-                # Remove the buggy nested symlink and the directory
-                os.unlink(os.path.join(link_path, 'profiles'))
-                os.rmdir(link_path)
-            elif len(contents) == 0:
-                os.rmdir(link_path)
-            else:
-                raise ValueError(f'Cannot create profiles symlink: {link_path} is a non-empty directory. '
-                               f'Please remove or rename it manually.')
+            try:
+                contents = os.listdir(link_path)
+                if contents == ['profiles'] and os.path.islink(os.path.join(link_path, 'profiles')):
+                    # Remove the buggy nested symlink and the directory
+                    os.unlink(os.path.join(link_path, 'profiles'))
+                    os.rmdir(link_path)
+                elif len(contents) == 0:
+                    os.rmdir(link_path)
+                else:
+                    raise ValueError(f'Cannot create profiles symlink: {link_path} is a non-empty directory. '
+                                   f'Please remove or rename it manually.')
+            except FileNotFoundError:
+                # Directory disappeared between checks; nothing left to clean up
+                pass
+            except OSError as e:
+                raise ValueError(f'Cannot safely prepare profiles symlink at {link_path}: {e}') from e
         elif os.path.exists(link_path):
             os.unlink(link_path)
         os.symlink(resolved_profile_path, link_path)

@@ -20,6 +20,7 @@ add_test(
         ${CMAKE_CURRENT_SOURCE_DIR}/test_golden_record.py
         -v
         --tb=short
+        --color=yes
     WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
 )
 

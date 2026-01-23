@@ -109,6 +109,9 @@ def setup_runfolder(run_path: Path) -> None:
     bi.set_config_nml()
     bi.conf.conf["balancenml"]["ramp_up_mode"] = 3  # instant max RMP coil current
     bi.conf.conf["balancenml"]["t_max_ramp_up"] = 1.2
+    bi.conf.conf["balancenml"]["diagnostics_output"] = True  # write diagnostic data
+    bi.conf.conf["balancenml"]["suppression_mode"] = False  # write full LinearProfiles/KinProfiles
+    bi.conf.conf["balancenml"]["save_prof_time_step"] = 1  # save profiles every time step
     bi.write_config_nml(path=os.path.join(run_path, "balance_conf.nml"))
 
 

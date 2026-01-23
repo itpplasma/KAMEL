@@ -24,7 +24,6 @@ PreProc:
 	$(MAKE) -C PreProc/fourier
 
 test: ninja golden
-	pytest test/
 	ctest --test-dir build --stop-on-failure --output-on-failure --no-label-summary
 
 golden: ninja

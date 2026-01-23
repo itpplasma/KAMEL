@@ -21,5 +21,5 @@ def pytest_configure(config):
 def pytest_collection_modifyitems(config, items):
     """Apply golden_record marker to all tests in this directory."""
     for item in items:
-        if "golden_record_balance" in str(item.fspath):
+        if "golden_record" in str(item.fspath):
             item.add_marker(pytest.mark.golden_record)

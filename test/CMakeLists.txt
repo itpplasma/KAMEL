@@ -13,8 +13,8 @@ execute_process(
     RESULT_VARIABLE F90NML_STATUS
 )
 if(NOT F90NML_STATUS EQUAL 0)
-    message(FATAL_ERROR "f90nml is required; install it for ${Python3_EXECUTABLE}.")
+    message(WARNING "Python package 'f90nml' is not available for ${Python3_EXECUTABLE}; tests depending on it (e.g., ql-balance) will be skipped.")
+else()
+    # Add subdirectories for different test categories that require f90nml
+    add_subdirectory(ql-balance)
 endif()
-
-# Add subdirectories for different test categories
-add_subdirectory(ql-balance)

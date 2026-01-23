@@ -11,6 +11,7 @@ This module handles:
 The reference directory is cached locally to avoid unnecessary rebuilds.
 """
 
+import os
 import shutil
 import subprocess
 from pathlib import Path
@@ -20,8 +21,21 @@ SCRIPT_DIR = Path(__file__).resolve().parent
 MAIN_REF_DIR = SCRIPT_DIR / "main_ref"
 GOLDEN_H5 = SCRIPT_DIR / "golden.h5"
 RUNFOLDER_DIR = SCRIPT_DIR / "runfolder"
-REPO_URL = "git@github.com:itpplasma/KAMEL.git"  # TODO: change this to https again once the repo is made public
 CONFIG = "Release"
+
+
+def get_repo_url() -> str:
+    """Get repository URL based on environment.
+
+    In CI (GitHub Actions), use HTTPS with token authentication.
+    Locally, use SSH for convenience.
+    """
+    if os.environ.get("GITHUB_ACTIONS"):
+        token = os.environ.get("GITHUB_TOKEN", "")
+        if token:
+            return f"https://x-access-token:{token}@github.com/itpplasma/KAMEL.git"
+        return "https://github.com/itpplasma/KAMEL.git"
+    return "git@github.com:itpplasma/KAMEL.git"
 
 
 def run_cmd(cmd: list[str], cwd: Path | None = None, check: bool = True) -> str:
@@ -38,6 +52,7 @@ def create_conftest() -> None:
 
 def clone_main_ref() -> None:
     """Clone the main branch to the reference directory."""
+    repo_url = get_repo_url()
     print(f"Cloning main branch to {MAIN_REF_DIR}...")
     subprocess.run(
         [
@@ -46,7 +61,7 @@ def clone_main_ref() -> None:
             "--branch",
             "main",
             "--single-branch",
-            REPO_URL,
+            repo_url,
             str(MAIN_REF_DIR),
         ],
         check=True,

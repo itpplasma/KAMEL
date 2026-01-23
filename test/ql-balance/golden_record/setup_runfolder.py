@@ -47,7 +47,7 @@ from balance_interface import QL_Balance_interface
 from utility import create_parabolic_profiles_from_res_surf
 
 
-def setup_runfolder(run_path: Path) -> None:
+def setup_runfolder(run_path: str) -> None:
     """
     Set up a runfolder in the target directory with all necessary input files.
 
@@ -55,28 +55,12 @@ def setup_runfolder(run_path: Path) -> None:
     create the runfolder before running ql-balance.x.
 
     Args:
-        target_dir: The directory where the runfolder should be created.
-                   This directory already exists when this function is called.
+        run_path: The directory where the runfolder should be created.
+                  This directory already exists when this function is called.
 
     Raises:
         RuntimeError: If setup fails for any reason.
-
-    Example implementation:
-        ```python
-        import shutil
-
-        # Copy from reference runfolder
-        reference = Path("/path/to/reference/runfolder")
-        for item in reference.iterdir():
-            if item.is_file():
-                shutil.copy2(item, target_dir / item.name)
-            elif item.is_dir() and item.name in ["profiles", "vacuum", "flre"]:
-                shutil.copytree(item, target_dir / item.name)
-        ```
     """
-    # Convert Path to string for interfaces that expect strings
-    run_path = str(run_path)
-
     mpol = 6  # poloidal mode number
     ntor = 2  # toroidal mode number
     profile_path = os.path.join(run_path, "profiles")

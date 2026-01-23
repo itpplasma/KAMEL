@@ -87,7 +87,7 @@ def setup_runfolder() -> Path:
         shutil.rmtree(RUNFOLDER_DIR)
     RUNFOLDER_DIR.mkdir(parents=True)
 
-    setup_runfolder_external(RUNFOLDER_DIR)
+    setup_runfolder_external(str(RUNFOLDER_DIR))
     return RUNFOLDER_DIR
 
 

@@ -39,7 +39,7 @@ def test_output(executable: Path, tmp_path_factory) -> Path:
     work_dir = tmp_path_factory.mktemp("ql_balance_run")
 
     # Set up the runfolder
-    setup_runfolder_external(work_dir)
+    setup_runfolder_external(str(work_dir))
 
     # Run ql-balance.x
     print(f"\nRunning ql-balance.x in {work_dir}...")

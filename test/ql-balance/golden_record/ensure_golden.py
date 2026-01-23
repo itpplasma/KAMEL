@@ -56,18 +56,16 @@ def clone_main_ref() -> None:
 
 def pull_main_ref() -> bool:
     """Pull latest changes. Returns True if there were updates."""
-    print("Fetching latest changes from main...")
     run_cmd(["git", "fetch", "origin", "main"], cwd=MAIN_REF_DIR)
 
     local_head = run_cmd(["git", "rev-parse", "HEAD"], cwd=MAIN_REF_DIR)
     remote_head = run_cmd(["git", "rev-parse", "origin/main"], cwd=MAIN_REF_DIR)
 
     if local_head != remote_head:
-        print(f"Updating from {local_head[:8]} to {remote_head[:8]}...")
+        print(f"Updating main_ref from {local_head[:8]} to {remote_head[:8]}...")
         run_cmd(["git", "reset", "--hard", "origin/main"], cwd=MAIN_REF_DIR)
         return True
 
-    print("Main branch is up to date.")
     return False
 
 
@@ -95,7 +93,6 @@ def setup_runfolder() -> Path:
 
 def run_ql_balance(executable: Path, runfolder: Path) -> Path:
     """Run ql-balance.x and return path to output HDF5 file."""
-    print(f"Running {executable}...")
     result = subprocess.run(
         [str(executable)],
         cwd=runfolder,
@@ -114,7 +111,6 @@ def run_ql_balance(executable: Path, runfolder: Path) -> Path:
 
 def copy_to_golden(output_h5: Path) -> None:
     """Copy the output HDF5 to golden.h5."""
-    print(f"Copying {output_h5} to {GOLDEN_H5}...")
     shutil.copy2(output_h5, GOLDEN_H5)
 
 
@@ -150,11 +146,11 @@ def ensure_golden() -> Path:
         runfolder = setup_runfolder()
         output_h5 = run_ql_balance(executable, runfolder)
         copy_to_golden(output_h5)
+        print(f"Golden record regenerated: {GOLDEN_H5}")
 
     if not GOLDEN_H5.exists():
         raise RuntimeError(f"Failed to create {GOLDEN_H5}")
 
-    print(f"Golden record ready: {GOLDEN_H5}")
     return GOLDEN_H5
 
 

@@ -24,8 +24,8 @@ PreProc:
 	$(MAKE) -C PreProc/fourier
 
 test: ninja golden
-	ctest --test-dir build --stop-on-failure --output-on-failure
 	pytest test/
+	ctest --test-dir build --stop-on-failure --output-on-failure --no-label-summary
 
 golden: ninja
 	$(MAKE) -C test/ql-balance/golden_record

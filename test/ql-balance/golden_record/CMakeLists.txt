@@ -44,5 +44,4 @@ add_test(
 )
 set_tests_properties(ql-balance_build_check PROPERTIES
     FIXTURES_SETUP ql-balance_executable
-    DEPENDS ql-balance.x
 )

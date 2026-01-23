@@ -35,8 +35,10 @@ jobs:
             libsuperlu-dev \
             python3-dev \
             python3-numpy \
+            python3-pip \
             libmpfr-dev \
             libgmp-dev
+          pip install f90nml
 
       - name: Cache external dependencies
         uses: actions/cache@v4

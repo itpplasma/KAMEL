@@ -37,19 +37,54 @@ class QuantitySpec:
     atol: float = 1e-15
 
 
-# List of quantities to compare
-# TODO: Add the HDF5 paths you want to compare!
-QUANTITIES_TO_COMPARE: list[QuantitySpec] = [
-    # Example entries (uncomment and modify as needed):
-    #
-    # QuantitySpec("/profiles/Te"),  # Electron temperature
-    # QuantitySpec("/profiles/Ti"),  # Ion temperature
-    # QuantitySpec("/profiles/n"),   # Density
-    # QuantitySpec("/output/torque", rtol=1e-6),  # Torque with relaxed tolerance
-    # QuantitySpec("/output/D11", rtol=1e-7, atol=1e-12),  # Diffusion coefficient
-    #
-    # Add your quantities below:
+# Quantities to compare for each LinearProfiles time step
+_LINEAR_PROFILE_QUANTITIES = [
+    "dqle11", "dqle12", "dqle22",  # D^ql_e
+    "dqli11", "dqli12", "dqli22",  # D^ql_i
+    "Br_abs", "Br_Re", "Br_Im",  # B_r
+    "T_EM_phi_e", "T_EM_phi_i",  # EM torque
+    "T_EM_phi_e_source", "T_EM_phi_i_source",  # EM torque source
 ]
+
+# Time steps available in LinearProfiles (0-8)
+_TIME_STEPS = range(9)
+
+
+def _build_quantities_list() -> list[QuantitySpec]:
+    """Build the full list of quantities to compare."""
+    quantities = [
+        # Initial plasma profiles
+        QuantitySpec("/init_params/Te"),
+        QuantitySpec("/init_params/Ti"),
+        QuantitySpec("/init_params/n"),
+        QuantitySpec("/init_params/Er"),
+        QuantitySpec("/init_params/Vz"),
+        QuantitySpec("/init_params/qsaf"),
+        QuantitySpec("/init_params/r"),
+    ]
+
+    # LinearProfiles for all time steps
+    for t in _TIME_STEPS:
+        for q in _LINEAR_PROFILE_QUANTITIES:
+            quantities.append(QuantitySpec(f"/f_6_2/LinearProfiles/{t}/{q}"))
+
+    # KinProfiles at initial and final time
+    quantities.extend([
+        QuantitySpec("/f_6_2/KinProfiles/1000/Te"),
+        QuantitySpec("/f_6_2/KinProfiles/1000/Ti"),
+        QuantitySpec("/f_6_2/KinProfiles/1000/n"),
+        QuantitySpec("/f_6_2/KinProfiles/1000/Er"),
+        QuantitySpec("/f_6_2/KinProfiles/1008/Te"),
+        QuantitySpec("/f_6_2/KinProfiles/1008/Ti"),
+        QuantitySpec("/f_6_2/KinProfiles/1008/n"),
+        QuantitySpec("/f_6_2/KinProfiles/1008/Er"),
+    ])
+
+    return quantities
+
+
+# List of quantities to compare
+QUANTITIES_TO_COMPARE: list[QuantitySpec] = _build_quantities_list()
 
 
 def get_nested_item(h5file: h5py.File, path: str) -> Any:

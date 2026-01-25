@@ -11,7 +11,7 @@ program test_rhs_balance
     use rhs_balance_m, only: thermodynamic_forces_t, &
                              compute_thermodynamic_forces, &
                              compute_particle_fluxes, &
-                             compute_heat_fluxes, &
+                             compute_total_heat_fluxes, &
                              compute_total_fluxes_at_point, &
                              compute_time_derivatives, &
                              apply_boundary_conditions, &
@@ -203,12 +203,12 @@ contains
             fluxes)
 
         ! Verify results
-        call assert_equal(fluxes%e%gamma_a, expected_gamma_a_e, "gamma_a_e")
-        call assert_equal(fluxes%e%gamma_ql, expected_gamma_ql_e, "gamma_ql_e")
-        call assert_equal(fluxes%e%gamma, expected_gamma_e, "gamma_e")
-        call assert_equal(fluxes%i%gamma_a, expected_gamma_a_i, "gamma_a_i")
-        call assert_equal(fluxes%i%gamma_ql, expected_gamma_ql_i, "gamma_ql_i")
-        call assert_equal(fluxes%i%gamma, expected_gamma_i, "gamma_i")
+        call assert_equal(fluxes%e%Gamma_a, expected_gamma_a_e, "gamma_a_e")
+        call assert_equal(fluxes%e%Gamma_ql, expected_gamma_ql_e, "gamma_ql_e")
+        call assert_equal(fluxes%e%Gamma_tot, expected_gamma_e, "gamma_e")
+        call assert_equal(fluxes%i%Gamma_a, expected_gamma_a_i, "gamma_a_i")
+        call assert_equal(fluxes%i%Gamma_ql, expected_gamma_ql_i, "gamma_ql_i")
+        call assert_equal(fluxes%i%Gamma_tot, expected_gamma_i, "gamma_i")
 
         print *, "  PASSED: ", test_name
 
@@ -217,7 +217,7 @@ contains
 
     subroutine test_heat_fluxes()
         !
-        ! Test compute_heat_fluxes with known inputs
+        ! Test compute_total_heat_fluxes with known inputs
         !
         ! Physics:
         !   Q_e = -(D12_a*A_noE_1e + D21_ql*A_1e + D22*A_noE_2e) * n * Te
@@ -268,7 +268,7 @@ contains
         expected_Q_i = -(D12_a_i*forces%i%A1_noE + D21_ql_i*forces%i%A1 + D22_i*forces%i%A2) * n_b / Z_i_val * Ti_b
 
         ! Call the function under test
-        call compute_heat_fluxes(forces, n_b, Te_b, Ti_b, Z_i_val, &
+        call compute_total_heat_fluxes(forces, n_b, Te_b, Ti_b, Z_i_val, &
             D12_a_e, D21_ql_e, D22_e, &
             D12_a_i, D21_ql_i, D22_i, &
             Q_e, Q_i)

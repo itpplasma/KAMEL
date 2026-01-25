@@ -6,7 +6,7 @@ subroutine rhs_balance_stell(x, y, dy)
     use grid_mod, only: nbaleqs, neqset, iboutype, npoic, npoib &
                         , Sc, Sb, deriv_coef &
                         , ipbeg, ipend, rb, reint_coef &
-                        , fluxes_dif, fluxes_con, rc &
+                        , fluxes_dif_lin, fluxes_con_lin, rc &
                         , dae11, dae12, dae22, dai11, dai12, dai22 &
                         , dni22, visca, gpp_av &
                         , dqle11, dqle12, dqle21, dqle22 &
@@ -15,7 +15,7 @@ subroutine rhs_balance_stell(x, y, dy)
                         , Ercov_lin, fluxes_con_nl, Donue11, Donue12, Donue21, Donue22 &
                         , Donui11, Donui12, Donui21, Donui22, cneo
                         
-    use plasma_parameters, only: params, ddr_params, params_lin, ddr_params_nl &
+    use plasma_parameters, only: params, ddr_params_lin, params_lin, ddr_params_nl &
                         , params_b_lin, params_b, dot_params
     use baseparam_mod, only: Z_i, e_charge, am, p_mass, c
     use wave_code_data, only: q, Vth
@@ -45,7 +45,7 @@ subroutine rhs_balance_stell(x, y, dy)
 
     y_lin = 0.0d0
     params_lin = 0.0d0
-    ddr_params = 0.0d0
+    ddr_params_lin = 0.0d0
     Ercov_lin = 0.0d0
 
     do ipoi = 1, npoi
@@ -164,7 +164,7 @@ subroutine rhs_balance_stell(x, y, dy)
         do ipoi = ibegb, iendb
             do ieq = 1, nbaleqs
                 ! radial derivatives of equilibrium parameters at cell boundaries:
-                ddr_params(ieq, ipoi) &
+                ddr_params_lin(ieq, ipoi) &
                     = sum(params_lin(ieq, ipbeg(ipoi):ipend(ipoi))*deriv_coef(:, ipoi))
                 params_b_lin(ieq, ipoi) &
                     = sum(params_lin(ieq, ipbeg(ipoi):ipend(ipoi))*reint_coef(:, ipoi))
@@ -173,8 +173,8 @@ subroutine rhs_balance_stell(x, y, dy)
 
         Ercov_lin(ibegb:iendb) &
             = sqrt_g_times_B_theta_over_c(ibegb:iendb)*params_b_lin(2, ibegb:iendb) &
-                + (params_b(4, ibegb:iendb)*ddr_params(1, ibegb:iendb) &
-                /params_b(1, ibegb:iendb) + ddr_params(4, ibegb:iendb)) &
+                + (params_b(4, ibegb:iendb)*ddr_params_lin(1, ibegb:iendb) &
+                /params_b(1, ibegb:iendb) + ddr_params_lin(4, ibegb:iendb)) &
                 /(Z_i*e_charge)
 
 
@@ -190,12 +190,12 @@ subroutine rhs_balance_stell(x, y, dy)
             Di22 = dqli22(ipoi) + Donui22(ipoi)
 
             ! Thermodynamic forces for zero radial electric field:
-            A_noE_1e = ddr_params(1, ipoi)/params_b(1, ipoi) &
-                        - 1.5d0*ddr_params(3, ipoi)/params_b(3, ipoi)
-            A_noE_2e = ddr_params(3, ipoi)/params_b(3, ipoi)
-            A_noE_1i = ddr_params(1, ipoi)/params_b(1, ipoi) &
-                        - 1.5d0*ddr_params(4, ipoi)/params_b(4, ipoi)
-            A_noE_2i = ddr_params(4, ipoi)/params_b(4, ipoi)
+            A_noE_1e = ddr_params_lin(1, ipoi)/params_b(1, ipoi) &
+                        - 1.5d0*ddr_params_lin(3, ipoi)/params_b(3, ipoi)
+            A_noE_2e = ddr_params_lin(3, ipoi)/params_b(3, ipoi)
+            A_noE_1i = ddr_params_lin(1, ipoi)/params_b(1, ipoi) &
+                        - 1.5d0*ddr_params_lin(4, ipoi)/params_b(4, ipoi)
+            A_noE_2i = ddr_params_lin(4, ipoi)/params_b(4, ipoi)
 
             ! Thermodynamic forces for finite radial electric field:
             A_1e = A_noE_1e + Ercov_lin(ipoi)*e_charge/params_b(3, ipoi)
@@ -212,16 +212,16 @@ subroutine rhs_balance_stell(x, y, dy)
             gamma_i = gamma_i + gamma_ql_i + gamma_onu_i
 
             ! total particle flux:
-            fluxes_dif(1, ipoi) = -Sb(ipoi)*ddr_params(1, ipoi)*(dae11(ipoi) &
+            fluxes_dif_lin(1, ipoi) = -Sb(ipoi)*ddr_params_lin(1, ipoi)*(dae11(ipoi) &
                                     + De11*(1.d0 + params_b(4, ipoi)/params_b(3, ipoi)/Z_i))
-            fluxes_con(1, ipoi) = (Sb(ipoi)*gamma_e - fluxes_dif(1, ipoi))/params_b(1, ipoi)
-            
+            fluxes_con_lin(1, ipoi) = (Sb(ipoi)*gamma_e - fluxes_dif_lin(1, ipoi))/params_b(1, ipoi)
+
             ! toroidal moment flux density divided by mass:
-            dfluxvphi = -visca(ipoi)*ddr_params(2, ipoi)*params_b(1, ipoi)/Z_i*gpp_av(ipoi)
-            
+            dfluxvphi = -visca(ipoi)*ddr_params_lin(2, ipoi)*params_b(1, ipoi)/Z_i*gpp_av(ipoi)
+
             ! total toroidal moment flux:
-            fluxes_dif(2, ipoi) = Sb(ipoi)*dfluxvphi
-            fluxes_con(2, ipoi) = 0.d0
+            fluxes_dif_lin(2, ipoi) = Sb(ipoi)*dfluxvphi
+            fluxes_con_lin(2, ipoi) = 0.d0
             
             ! electron heat flux density:
             Q_e = -(dae12(ipoi)*A_noE_1e + De21*A_1e &
@@ -234,13 +234,13 @@ subroutine rhs_balance_stell(x, y, dy)
                   *params_b(1, ipoi)/Z_i*params_b(4, ipoi)
             
             ! total heat fluxes:
-            fluxes_dif(3, ipoi) = -Sb(ipoi)*(dae22(ipoi) + De22) &
-                                  *params_b(1, ipoi)*ddr_params(3, ipoi)
-            fluxes_con(3, ipoi) = (Sb(ipoi)*Q_e - fluxes_dif(3, ipoi))/params_b(3, ipoi)
+            fluxes_dif_lin(3, ipoi) = -Sb(ipoi)*(dae22(ipoi) + De22) &
+                                  *params_b(1, ipoi)*ddr_params_lin(3, ipoi)
+            fluxes_con_lin(3, ipoi) = (Sb(ipoi)*Q_e - fluxes_dif_lin(3, ipoi))/params_b(3, ipoi)
 
-            fluxes_dif(4, ipoi) = -Sb(ipoi)*(dai22(ipoi) + dni22(ipoi) + Di22 &
-                                - 2.5d0*Di21)*params_b(1, ipoi)/Z_i*ddr_params(4, ipoi)
-            fluxes_con(4, ipoi) = (Sb(ipoi)*Q_i - fluxes_dif(4, ipoi))/params_b(4, ipoi)
+            fluxes_dif_lin(4, ipoi) = -Sb(ipoi)*(dai22(ipoi) + dni22(ipoi) + Di22 &
+                                - 2.5d0*Di21)*params_b(1, ipoi)/Z_i*ddr_params_lin(4, ipoi)
+            fluxes_con_lin(4, ipoi) = (Sb(ipoi)*Q_i - fluxes_dif_lin(4, ipoi))/params_b(4, ipoi)
             
             ! Momentum source due to the polarization current:
             polforce(ipoi) = (gamma_e - Z_i*gamma_i)*e_charge*sqrt_g_times_B_theta_over_c(ipoi) &
@@ -257,17 +257,17 @@ subroutine rhs_balance_stell(x, y, dy)
         end if
 
         ! Condition of zero flux at the inner boundary:
-        fluxes_dif(:, 1) = 0.d0
-        fluxes_con(:, 1) = 0.d0
+        fluxes_dif_lin(:, 1) = 0.d0
+        fluxes_con_lin(:, 1) = 0.d0
         fluxes_con_nl(:, 1) = 0.d0
 
         ! Partial time derivatives of equilibrium parameters:
         do ipoi = ibeg, iend
         ! Flux divergence:
             do ieq = 1, nbaleqs
-                dot_params(ieq, ipoi) = -(fluxes_dif(ieq, ipoi + 1) - fluxes_dif(ieq, ipoi)) &
+                dot_params(ieq, ipoi) = -(fluxes_dif_lin(ieq, ipoi + 1) - fluxes_dif_lin(ieq, ipoi)) &
                                         /(Sc(ipoi)*(rb(ipoi + 1) - rb(ipoi))) &
-                                        - (fluxes_con(ieq, ipoi + 1) - fluxes_con(ieq, ipoi)) &
+                                        - (fluxes_con_lin(ieq, ipoi + 1) - fluxes_con_lin(ieq, ipoi)) &
                                         /(Sc(ipoi)*(rb(ipoi + 1) - rb(ipoi)))*params(ieq, ipoi)
                 convel = 0.5d0*(fluxes_con_nl(ieq, ipoi + 1) + fluxes_con_nl(ieq, ipoi))/Sc(ipoi)
         ! upstream convection:
@@ -344,12 +344,12 @@ subroutine rhs_balance_stell(x, y, dy)
         end do
         do ipoi = ibegb, iendb
             do ieq = 1, nbaleqs
-                ddr_params(ieq, ipoi) = 0.d0
+                ddr_params_lin(ieq, ipoi) = 0.d0
             end do
         end do
         Ercov_lin(ibegb:iendb) = 0.d0
-        fluxes_dif(:, ibegb:iendb) = 0.d0
-        fluxes_con(:, ibegb:iendb) = 0.d0
+        fluxes_dif_lin(:, ibegb:iendb) = 0.d0
+        fluxes_con_lin(:, ibegb:iendb) = 0.d0
         polforce(ibegb:iendb) = 0.d0
         qlheat_e(ibegb:iendb) = 0.d0
         qlheat_i(ibegb:iendb) = 0.d0
@@ -401,7 +401,7 @@ subroutine rhs_balance_source_stell(x, y, dy)
     use grid_mod, only: nbaleqs, neqset, iboutype, npoic, npoib &
                         , Sc, Sb, deriv_coef &
                         , ipbeg, ipend, rb, reint_coef &
-                        , fluxes_dif, fluxes_con, rc &
+                        , fluxes_dif_lin, fluxes_con_lin, rc &
                         , dae11, dae12, dae22, dai11, dai12, dai22 &
                         , dni22, visca, gpp_av, dery_equisource &
                         , dqle11, dqle12, dqle21, dqle22 &
@@ -410,7 +410,7 @@ subroutine rhs_balance_source_stell(x, y, dy)
                         , Ercov_lin, fluxes_con_nl, cneo, Donue11, Donue12, Donue21, Donue22 &
                         , Donui11, Donui12, Donui21, Donui22
                         
-    use plasma_parameters, only: params, ddr_params, params_b, params_lin &
+    use plasma_parameters, only: params, ddr_params_lin, params_b, params_lin &
                         , params_b_lin, ddr_params_nl, dot_params
     use baseparam_mod, only: Z_i, e_charge, am, p_mass, c
     use wave_code_data, only: q, Vth
@@ -453,7 +453,7 @@ subroutine rhs_balance_source_stell(x, y, dy)
             ! radial derivatives of equilibrium parameters at cell boundaries:
             ddr_params_nl(ieq, ipoi) &
                 = sum(params(ieq, ipbeg(ipoi):ipend(ipoi))*deriv_coef(:, ipoi))
-            ddr_params(ieq, ipoi) &
+            ddr_params_lin(ieq, ipoi) &
                 = sum(params_lin(ieq, ipbeg(ipoi):ipend(ipoi))*deriv_coef(:, ipoi))
             ! equilibrium parameters at cell boundaries:
             params_b(ieq, ipoi) &
@@ -471,7 +471,7 @@ subroutine rhs_balance_source_stell(x, y, dy)
             /(Z_i*e_charge)
 
     Ercov_lin = sqrt_g_times_B_theta_over_c*params_b_lin(2, :) &
-                + (params_b(4, :)*ddr_params(1, :)/params_b(1, :) + ddr_params(4, :)) &
+                + (params_b(4, :)*ddr_params_lin(1, :)/params_b(1, :) + ddr_params_lin(4, :)) &
                 /(Z_i*e_charge)
 
     ! Compute diffusion coefficient matrices:
@@ -493,12 +493,12 @@ subroutine rhs_balance_source_stell(x, y, dy)
         Di22 = dqli22(ipoi) + Donui22(ipoi)
 
         ! Thermodynamic forces for zero radial electric field:
-        A_noE_1e = ddr_params(1, ipoi)/params_b(1, ipoi) &
-                    - 1.5d0*ddr_params(3, ipoi)/params_b(3, ipoi)
-        A_noE_2e = ddr_params(3, ipoi)/params_b(3, ipoi)
-        A_noE_1i = ddr_params(1, ipoi)/params_b(1, ipoi) &
-                    - 1.5d0*ddr_params(4, ipoi)/params_b(4, ipoi)
-        A_noE_2i = ddr_params(4, ipoi)/params_b(4, ipoi)
+        A_noE_1e = ddr_params_lin(1, ipoi)/params_b(1, ipoi) &
+                    - 1.5d0*ddr_params_lin(3, ipoi)/params_b(3, ipoi)
+        A_noE_2e = ddr_params_lin(3, ipoi)/params_b(3, ipoi)
+        A_noE_1i = ddr_params_lin(1, ipoi)/params_b(1, ipoi) &
+                    - 1.5d0*ddr_params_lin(4, ipoi)/params_b(4, ipoi)
+        A_noE_2i = ddr_params_lin(4, ipoi)/params_b(4, ipoi)
 
         A_noE_1e_nl = ddr_params_nl(1, ipoi)/params_b(1, ipoi) &
                     - 1.5d0*ddr_params_nl(3, ipoi)/params_b(3, ipoi)
@@ -528,18 +528,18 @@ subroutine rhs_balance_source_stell(x, y, dy)
                         )*params_b(1, ipoi)
 
         ! total particle flux:
-        fluxes_dif(1, ipoi) = -Sb(ipoi)*ddr_params(1, ipoi)*(dae11(ipoi) &
+        fluxes_dif_lin(1, ipoi) = -Sb(ipoi)*ddr_params_lin(1, ipoi)*(dae11(ipoi) &
                             + De11*(1.d0 + params_b(4, ipoi)/params_b(3, ipoi)/Z_i))
-        fluxes_con(1, ipoi) = (Sb(ipoi)*gamma_e - fluxes_dif(1, ipoi))/params_b(1, ipoi)
+        fluxes_con_lin(1, ipoi) = (Sb(ipoi)*gamma_e - fluxes_dif_lin(1, ipoi))/params_b(1, ipoi)
         fluxes_con_nl(1, ipoi) = (Sb(ipoi)*gamma_e_nl - &
                                 (-Sb(ipoi)*ddr_params_nl(1, ipoi)*(dae11(ipoi) &
                             + De11*(1.d0 + params_b(4, ipoi)/params_b(3, ipoi)/Z_i))))/params_b(1, ipoi)
 
         ! toroidal moment flux density divided by mass:
-        dfluxvphi = -visca(ipoi)*ddr_params(2, ipoi)*params_b(1, ipoi)/Z_i*gpp_av(ipoi)
+        dfluxvphi = -visca(ipoi)*ddr_params_lin(2, ipoi)*params_b(1, ipoi)/Z_i*gpp_av(ipoi)
         ! total toroidal moment flux:
-        fluxes_dif(2, ipoi) = Sb(ipoi)*dfluxvphi
-        fluxes_con(2, ipoi) = 0.d0
+        fluxes_dif_lin(2, ipoi) = Sb(ipoi)*dfluxvphi
+        fluxes_con_lin(2, ipoi) = 0.d0
         fluxes_con_nl(2, ipoi) = 0.d0
 
         ! electron heat flux density:
@@ -561,16 +561,16 @@ subroutine rhs_balance_source_stell(x, y, dy)
                  *params_b(1, ipoi)/Z_i*params_b(4, ipoi)
 
         ! total heat fluxes:
-        fluxes_dif(3, ipoi) = -Sb(ipoi)*(dae22(ipoi) + De22) &
-                              *params_b(1, ipoi)*ddr_params(3, ipoi)
-        fluxes_con(3, ipoi) = (Sb(ipoi)*Q_e - fluxes_dif(3, ipoi))/params_b(3, ipoi)
+        fluxes_dif_lin(3, ipoi) = -Sb(ipoi)*(dae22(ipoi) + De22) &
+                              *params_b(1, ipoi)*ddr_params_lin(3, ipoi)
+        fluxes_con_lin(3, ipoi) = (Sb(ipoi)*Q_e - fluxes_dif_lin(3, ipoi))/params_b(3, ipoi)
         fluxes_con_nl(3, ipoi) = (Sb(ipoi)*Q_e_nl - &
                             (-Sb(ipoi)*(dae22(ipoi) + De22)*params_b(1, ipoi)*ddr_params_nl(3, ipoi))) &
                             /params_b(3, ipoi)
 
-        fluxes_dif(4, ipoi) = -Sb(ipoi)*(dai22(ipoi) + dni22(ipoi) + Di22 &
-                            - 2.5d0*Di21)*params_b(1, ipoi)/Z_i*ddr_params(4, ipoi)
-        fluxes_con(4, ipoi) = (Sb(ipoi)*Q_i - fluxes_dif(4, ipoi))/params_b(4, ipoi)
+        fluxes_dif_lin(4, ipoi) = -Sb(ipoi)*(dai22(ipoi) + dni22(ipoi) + Di22 &
+                            - 2.5d0*Di21)*params_b(1, ipoi)/Z_i*ddr_params_lin(4, ipoi)
+        fluxes_con_lin(4, ipoi) = (Sb(ipoi)*Q_i - fluxes_dif_lin(4, ipoi))/params_b(4, ipoi)
         fluxes_con_nl(4, ipoi) = (Sb(ipoi)*Q_i_nl - &
                             (-Sb(ipoi)*(dai22(ipoi) + dni22(ipoi) + Di22 - 2.5d0*Di21) &
                             *params_b(1, ipoi)/Z_i*ddr_params_nl(4, ipoi))) &
@@ -585,8 +585,8 @@ subroutine rhs_balance_source_stell(x, y, dy)
         qlheat_i(ipoi) = Z_i*Ercov(ipoi)*gamma_ql_i*e_charge
     end do
     ! Condition of zero flux at the inner boundary:
-    fluxes_dif(:, 1) = 0.d0
-    fluxes_con(:, 1) = 0.d0
+    fluxes_dif_lin(:, 1) = 0.d0
+    fluxes_con_lin(:, 1) = 0.d0
     fluxes_con_nl(:, 1) = 0.d0
 
     if (turn_off_heat_sources) then
@@ -598,9 +598,9 @@ subroutine rhs_balance_source_stell(x, y, dy)
     do ipoi = 1, npoi
         ! Flux divergence:
         do ieq = 1, nbaleqs
-            dot_params(ieq, ipoi) = -(fluxes_dif(ieq, ipoi + 1) - fluxes_dif(ieq, ipoi)) &
+            dot_params(ieq, ipoi) = -(fluxes_dif_lin(ieq, ipoi + 1) - fluxes_dif_lin(ieq, ipoi)) &
                                     /(Sc(ipoi)*(rb(ipoi + 1) - rb(ipoi))) &
-                                    - (fluxes_con(ieq, ipoi + 1) - fluxes_con(ieq, ipoi)) &
+                                    - (fluxes_con_lin(ieq, ipoi + 1) - fluxes_con_lin(ieq, ipoi)) &
                                     /(Sc(ipoi)*(rb(ipoi + 1) - rb(ipoi)))*params(ieq, ipoi)
             convel = 0.5d0*(fluxes_con_nl(ieq, ipoi + 1) + fluxes_con_nl(ieq, ipoi))/Sc(ipoi)
             ! upstream convection:

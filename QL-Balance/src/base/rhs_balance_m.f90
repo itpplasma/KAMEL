@@ -19,6 +19,7 @@ module rhs_balance_m
     !   y' - Δt·A(y)·y' = y + Δt·q(y)
     !
     use QLBalance_kinds, only: dp
+    use baseparam_mod, only: e_charge
 
     implicit none
 
@@ -131,7 +132,7 @@ contains
                             qlheat_e, qlheat_i, Ercov_lin, fluxes_con_nl
         use plasma_parameters, only: params, ddr_params, params_lin, ddr_params_nl, params_b_lin, &
                                      params_b, dot_params
-        use baseparam_mod, only: Z_i, e_charge, am, p_mass, c
+        use baseparam_mod, only: Z_i, am, p_mass, c
         use wave_code_data, only: q, Vth
         use matrix_mod, only: isw_rhs, nz, nsize, irow, icol, amat, rhsvec
 
@@ -180,7 +181,7 @@ contains
 
         call compute_radial_electric_field(npoib, rb, params_b, ddr_params_nl, &
                                            sqrt_g_times_B_theta_over_c, Vth, q, Z_i, &
-                                           e_charge, Ercov)
+                                           Ercov)
 
         call calc_equil_diffusion_coeffs
 
@@ -189,7 +190,7 @@ contains
             call compute_fluxes_at_boundary(ipoi, ddr_params_nl, params_b, Ercov(ipoi), dae11, &
                                             dae12, dae22, dai11, dai12, dai22, dni22, dqle11, &
                                             dqle12, dqle21, dqle22, dqli11, dqli12, dqli21, &
-                                            dqli22, visca, gpp_av, Sb, Z_i, e_charge, &
+                                            dqli22, visca, gpp_av, Sb, Z_i, &
                                             forces_nl, gamma_e_nl, gamma_i_nl, gamma_ql_e_nl, &
                                             gamma_ql_i_nl, Q_e_nl, Q_i_nl, flux_dif_loc, &
                                             flux_con_loc)
@@ -254,7 +255,7 @@ contains
                 call compute_fluxes_at_boundary(ipoi, ddr_params, params_b, Ercov_lin(ipoi), &
                                                 dae11, dae12, dae22, dai11, dai12, dai22, dni22, &
                                                 dqle11, dqle12, dqle21, dqle22, dqli11, dqli12, &
-                                                dqli21, dqli22, visca, gpp_av, Sb, Z_i, e_charge, &
+                                                dqli21, dqli22, visca, gpp_av, Sb, Z_i, &
                                                 forces, gamma_e, gamma_i, gamma_ql_e, gamma_ql_i, &
                                                 Q_e, Q_i, flux_dif_loc, flux_con_loc)
 
@@ -273,7 +274,7 @@ contains
                 ! Compute source terms (using nonlinear ql fluxes for T_EM_phi)
                 call compute_internal_sources(ipoi, gamma_e, gamma_i, gamma_ql_e, gamma_ql_i, &
                                               gamma_ql_e_nl, gamma_ql_i_nl, Ercov(ipoi), &
-                                              sqrt_g_times_B_theta_over_c, Z_i, e_charge, am, &
+                                              sqrt_g_times_B_theta_over_c, Z_i, am, &
                                               p_mass, polforce(ipoi), qlheat_e(ipoi), &
                                               qlheat_i(ipoi), T_EM_phi_e(ipoi), T_EM_phi_i(ipoi))
             end do
@@ -358,7 +359,7 @@ contains
                             fluxes_con_nl
         use plasma_parameters, only: params, ddr_params, params_b, params_lin, params_b_lin, &
                                      ddr_params_nl, dot_params
-        use baseparam_mod, only: Z_i, e_charge, am, p_mass, c
+        use baseparam_mod, only: Z_i, am, p_mass, c
         use wave_code_data, only: q, Vth
 
         implicit none
@@ -411,7 +412,7 @@ contains
         ! Compute radial electric fields
         call compute_radial_electric_field(npoib, rb, params_b, ddr_params_nl, &
                                            sqrt_g_times_B_theta_over_c, Vth, q, Z_i, &
-                                           e_charge, Ercov)
+                                           Ercov)
 
         ! Linear Ercov (with y_lin=0, this simplifies)
         Ercov_lin(1:npoib) = sqrt_g_times_B_theta_over_c(1:npoib) * params_b_lin(2, 1:npoib) + &
@@ -426,7 +427,7 @@ contains
             call compute_fluxes_at_boundary(ipoi, ddr_params, params_b, Ercov_lin(ipoi), dae11, &
                                             dae12, dae22, dai11, dai12, dai22, dni22, dqle11, &
                                             dqle12, dqle21, dqle22, dqli11, dqli12, dqli21, &
-                                            dqli22, visca, gpp_av, Sb, Z_i, e_charge, forces, &
+                                            dqli22, visca, gpp_av, Sb, Z_i, forces, &
                                             gamma_e, gamma_i, gamma_ql_e, gamma_ql_i, Q_e, &
                                             Q_i, flux_dif_loc, flux_con_loc)
 
@@ -437,7 +438,7 @@ contains
             call compute_fluxes_at_boundary(ipoi, ddr_params_nl, params_b, Ercov(ipoi), dae11, &
                                             dae12, dae22, dai11, dai12, dai22, dni22, dqle11, &
                                             dqle12, dqle21, dqle22, dqli11, dqli12, dqli21, &
-                                            dqli22, visca, gpp_av, Sb, Z_i, e_charge, forces_nl, &
+                                            dqli22, visca, gpp_av, Sb, Z_i, forces_nl, &
                                             gamma_e_nl, gamma_i_nl, gamma_ql_e_nl, gamma_ql_i_nl, &
                                             Q_e_nl, Q_i_nl, flux_dif_loc, flux_con_loc)
 
@@ -451,7 +452,7 @@ contains
             ! Source terms
             call compute_internal_sources(ipoi, gamma_e, gamma_i, gamma_ql_e, gamma_ql_i, &
                                           gamma_ql_e_nl, gamma_ql_i_nl, Ercov(ipoi), &
-                                          sqrt_g_times_B_theta_over_c, Z_i, e_charge, am, p_mass, &
+                                          sqrt_g_times_B_theta_over_c, Z_i, am, p_mass, &
                                           polforce(ipoi), qlheat_e(ipoi), qlheat_i(ipoi), &
                                           T_EM_phi_e_source(ipoi), T_EM_phi_i_source(ipoi))
 
@@ -491,7 +492,7 @@ contains
     !===========================================================================
 
     subroutine compute_radial_electric_field(npoib, rb, params_b, ddr_params, sqrt_g_Bth_over_c, &
-                                             Vth_arr, q_arr, Z_i, e_charge, Ercov_out)
+                                             Vth_arr, q_arr, Z_i, Ercov_out)
         !
         ! Compute equilibrium radial electric field at all boundary points
         ! E0r = -∂r Φ0 = (sqrt(g) B0θ / c) (Viφ - q Viθ) + ∂r(ni Ti) / (ei ni)
@@ -506,7 +507,7 @@ contains
         real(dp), intent(in) :: ddr_params(:, :)  ! (4, npoib)
         real(dp), intent(in) :: sqrt_g_Bth_over_c(:)
         real(dp), intent(in) :: Vth_arr(:), q_arr(:)
-        real(dp), intent(in) :: Z_i, e_charge
+        real(dp), intent(in) :: Z_i
         real(dp), intent(out) :: Ercov_out(:)
 
         associate ( &
@@ -529,7 +530,7 @@ contains
         ! inputs:
         ipoi, ddr_params, params_b, Ercov_val, dae11, dae12, dae22, dai11, dai12, dai22, dni22, &
         dqle11, dqle12, dqle21, dqle22, dqli11, dqli12, dqli21, dqli22, visca, gpp_av, Sb, &
-        Z_i, e_charge, &
+        Z_i, &
         ! outputs
         forces, gamma_e, gamma_i, gamma_ql_e, gamma_ql_i, Q_e, Q_i, flux_dif, flux_con)
         !
@@ -550,7 +551,7 @@ contains
         real(dp), intent(in) :: dqle11(:), dqle12(:), dqle21(:), dqle22(:)
         real(dp), intent(in) :: dqli11(:), dqli12(:), dqli21(:), dqli22(:)
         real(dp), intent(in) :: visca(:), gpp_av(:), Sb(:)
-        real(dp), intent(in) :: Z_i, e_charge
+        real(dp), intent(in) :: Z_i
 
         type(thermodynamic_forces_t), intent(out) :: forces
         real(dp), intent(out) :: gamma_e, gamma_i, gamma_ql_e, gamma_ql_i
@@ -566,7 +567,7 @@ contains
         Ti_b = params_b(4, ipoi)
 
         call compute_thermodynamic_forces(ddr_params(1, ipoi), ddr_params(3, ipoi), ddr_params(4, &
-                                           ipoi), n_b, Te_b, Ti_b, Ercov_val, e_charge, Z_i, forces)
+                                           ipoi), n_b, Te_b, Ti_b, Ercov_val, Z_i, forces)
 
         call compute_particle_fluxes(forces, n_b, Z_i, dae11(ipoi), dae12(ipoi), dqle11(ipoi), &
                                      dqle12(ipoi), dai11(ipoi), dai12(ipoi), dqli11(ipoi), &
@@ -641,7 +642,7 @@ contains
 
     subroutine compute_internal_sources(ipoi, gamma_e, gamma_i, gamma_ql_e, gamma_ql_i, &
                                         gamma_ql_e_nl, gamma_ql_i_nl, Ercov_val, sqrt_g_B_theta_c, &
-                                        Z_i, e_charge, am, p_mass, polforce_out, qlheat_e_out, &
+                                        Z_i, am, p_mass, polforce_out, qlheat_e_out, &
                                         qlheat_i_out, T_EM_phi_e_out, T_EM_phi_i_out)
         !
         ! Compute internal source terms at a single boundary point.
@@ -658,7 +659,7 @@ contains
         real(dp), intent(in) :: gamma_ql_e_nl, gamma_ql_i_nl
         real(dp), intent(in) :: Ercov_val
         real(dp), intent(in) :: sqrt_g_B_theta_c(:)
-        real(dp), intent(in) :: Z_i, e_charge, am, p_mass
+        real(dp), intent(in) :: Z_i, am, p_mass
         real(dp), intent(out) :: polforce_out, qlheat_e_out, qlheat_i_out
         real(dp), intent(out) :: T_EM_phi_e_out, T_EM_phi_i_out
 
@@ -667,13 +668,13 @@ contains
 
         ! Get T_EM_phi from nonlinear ql fluxes
         call compute_source_terms(gamma_e, gamma_i, gamma_ql_e_nl, gamma_ql_i_nl, Ercov_val, &
-                                  sqrt_g_B_theta_c(ipoi), e_charge, Z_i, am, p_mass, &
+                                  sqrt_g_B_theta_c(ipoi), Z_i, am, p_mass, &
                                   polforce_dummy, qlheat_e_dummy, qlheat_i_dummy, T_EM_phi_e_out, &
                                   T_EM_phi_i_out)
 
         ! Get polforce and qlheat from linear fluxes
         call compute_source_terms(gamma_e, gamma_i, gamma_ql_e, gamma_ql_i, Ercov_val, &
-                                  sqrt_g_B_theta_c(ipoi), e_charge, Z_i, am, p_mass, polforce_out, &
+                                  sqrt_g_B_theta_c(ipoi), Z_i, am, p_mass, polforce_out, &
                                   qlheat_e_out, qlheat_i_out, T_EM_phi_e_dummy, T_EM_phi_i_dummy)
     end subroutine compute_internal_sources
 
@@ -756,20 +757,20 @@ contains
     !===========================================================================
 
     pure subroutine compute_thermodynamic_forces(ddr_n, ddr_Te, ddr_Ti, n_b, Te_b, Ti_b, &
-                                                 Ercov_val, e_charge_val, Z_i_val, forces)
+                                                 Ercov_val, Z_i_val, forces)
         implicit none
 
         real(dp), intent(in) :: ddr_n, ddr_Te, ddr_Ti
         real(dp), intent(in) :: n_b, Te_b, Ti_b
-        real(dp), intent(in) :: Ercov_val, e_charge_val, Z_i_val
+        real(dp), intent(in) :: Ercov_val, Z_i_val
         type(thermodynamic_forces_t), intent(out) :: forces
 
         forces%A_noE_1e = ddr_n / n_b - 1.5_dp * ddr_Te / Te_b
         forces%A_noE_2e = ddr_Te / Te_b
         forces%A_noE_1i = ddr_n / n_b - 1.5_dp * ddr_Ti / Ti_b
         forces%A_noE_2i = ddr_Ti / Ti_b
-        forces%A_1e = forces%A_noE_1e + Ercov_val * e_charge_val / Te_b
-        forces%A_1i = forces%A_noE_1i - Ercov_val * e_charge_val * Z_i_val / Ti_b
+        forces%A_1e = forces%A_noE_1e + Ercov_val * e_charge / Te_b
+        forces%A_1i = forces%A_noE_1i - Ercov_val * e_charge * Z_i_val / Ti_b
     end subroutine compute_thermodynamic_forces
 
     pure subroutine compute_particle_fluxes(forces, n_b, Z_i_val, D11_a_e, D12_a_e, D11_ql_e, &
@@ -890,23 +891,23 @@ contains
     end subroutine compute_convective_fluxes
 
     pure subroutine compute_source_terms(gamma_e, gamma_i, gamma_ql_e, gamma_ql_i, Ercov_val, &
-                                         sqrt_g_B_theta_c, e_charge_val, Z_i_val, am_val, &
+                                         sqrt_g_B_theta_c, Z_i_val, am_val, &
                                          p_mass_val, polforce_out, qlheat_e_out, qlheat_i_out, &
                                          T_EM_phi_e_out, T_EM_phi_i_out)
         implicit none
 
         real(dp), intent(in) :: gamma_e, gamma_i, gamma_ql_e, gamma_ql_i
         real(dp), intent(in) :: Ercov_val, sqrt_g_B_theta_c
-        real(dp), intent(in) :: e_charge_val, Z_i_val, am_val, p_mass_val
+        real(dp), intent(in) :: Z_i_val, am_val, p_mass_val
         real(dp), intent(out) :: polforce_out, qlheat_e_out, qlheat_i_out
         real(dp), intent(out) :: T_EM_phi_e_out, T_EM_phi_i_out
 
-        T_EM_phi_e_out = +e_charge_val * sqrt_g_B_theta_c * gamma_ql_e
-        T_EM_phi_i_out = -Z_i_val * e_charge_val * sqrt_g_B_theta_c * gamma_ql_i
-        polforce_out = (gamma_e - Z_i_val * gamma_i) * e_charge_val * sqrt_g_B_theta_c / &
+        T_EM_phi_e_out = +e_charge * sqrt_g_B_theta_c * gamma_ql_e
+        T_EM_phi_i_out = -Z_i_val * e_charge * sqrt_g_B_theta_c * gamma_ql_i
+        polforce_out = (gamma_e - Z_i_val * gamma_i) * e_charge * sqrt_g_B_theta_c / &
                        (am_val * p_mass_val)
-        qlheat_e_out = -Ercov_val * gamma_ql_e * e_charge_val
-        qlheat_i_out = Z_i_val * Ercov_val * gamma_ql_i * e_charge_val
+        qlheat_e_out = -Ercov_val * gamma_ql_e * e_charge
+        qlheat_i_out = Z_i_val * Ercov_val * gamma_ql_i * e_charge
     end subroutine compute_source_terms
 
     pure subroutine apply_boundary_conditions(fluxes_dif, fluxes_con, fluxes_con_nl, nbaleqs)

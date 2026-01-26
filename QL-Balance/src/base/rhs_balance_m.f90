@@ -42,9 +42,6 @@ module rhs_balance_m
     public :: compute_total_heat_fluxes
     public :: compute_diffusive_parts
     public :: compute_convective_parts
-    public :: apply_boundary_conditions
-    public :: compute_total_fluxes_at_point
-    public :: compute_time_derivatives
 
     public :: thermodynamic_forces_t
     public :: species_fluxes_t
@@ -205,11 +202,6 @@ contains
                                             forces_nl, Gamma_e_nl, Gamma_i_nl, Gamma_ql_e_nl, &
                                             Gamma_ql_i_nl, Qe_nl, Qi_nl, flux_dif_nl_loc, &
                                             flux_con_nl_loc)
-
-            call compute_nonlinear_convective_flux(ipoi, Gamma_e_nl, Qe_nl, Qi_nl, &
-                                                   ddr_params_nl, params_b, Sb, dae11, dqle11, &
-                                                   dae22, dqle22, dai22, dni22, dqli22, &
-                                                   dqli21, Z_i, flux_con_nl_loc)
 
             fluxes_con_nl(:, ipoi) = flux_con_nl_loc
         end do
@@ -461,11 +453,6 @@ contains
                                             Gamma_e_nl, Gamma_i_nl, Gamma_ql_e_nl, Gamma_ql_i_nl, &
                                             Q_e_nl, Q_i_nl, flux_dif_nl_loc, flux_con_nl_loc)
 
-            call compute_nonlinear_convective_flux(ipoi, Gamma_e_nl, Q_e_nl, Q_i_nl, &
-                                                   ddr_params_nl, params_b, Sb, dae11, dqle11, &
-                                                   dae22, dqle22, dai22, dni22, dqli22, dqli21, &
-                                                   Z_i, flux_con_nl_loc)
-
             fluxes_con_nl(:, ipoi) = flux_con_nl_loc
 
             ! Source terms
@@ -617,58 +604,6 @@ contains
                                       flux_convection)
 
     end subroutine compute_fluxes_at_boundary
-
-    subroutine compute_nonlinear_convective_flux(ipoi, Gamma_e_nl, Qe_nl, Qi_nl, ddr_params_nl, &
-                                                 params_b, S, Dae11, Dqle11, Dae22, Dqle22, Dai22, &
-                                                 Dni22, Dqli22, Dqli21, Z, flux_convection_nl)
-        !
-        ! Compute nonlinear convective flux at a single boundary point.
-        ! This is used for the upstream convection scheme.
-        !
-
-        implicit none
-
-        integer, intent(in) :: ipoi
-        real(dp), intent(in) :: Gamma_e_nl, Qe_nl, Qi_nl
-        real(dp), intent(in) :: ddr_params_nl(:, :)
-        real(dp), intent(in) :: params_b(:, :)
-        real(dp), intent(in) :: S(:)
-        real(dp), intent(in) :: Dae11(:), Dqle11(:)
-        real(dp), intent(in) :: Dae22(:), Dqle22(:)
-        real(dp), intent(in) :: Dai22(:), Dni22(:), Dqli22(:), Dqli21(:)
-        real(dp), intent(in) :: Z
-        real(dp), dimension(4), intent(out) :: flux_convection_nl
-
-        real(dp) :: n, Te, Ti, dn_dr, dTe_dr, dTi_dr
-
-        ! extract local values
-        n = params_b(1, ipoi)
-        Te = params_b(3, ipoi)
-        Ti = params_b(4, ipoi)
-        dn_dr = ddr_params_nl(1, ipoi)
-        dTe_dr = ddr_params_nl(3, ipoi)
-        dTi_dr = ddr_params_nl(4, ipoi)
-
-        ! Particle flux
-        ! TODO: the subtrahend is just the diffusive part calculated in compute_diffusive_parts
-        ! maybe we can reuse it here without computing it anew
-        flux_convection_nl(1) = (S(ipoi) * Gamma_e_nl - (-S(ipoi) * dn_dr * &
-            (Dae11(ipoi) + Dqle11(ipoi) * (1.0_dp + Ti / (Z * Te))))) / n
-
-        ! Momentum flux
-        flux_convection_nl(2) = 0.0_dp
-
-        ! Electron heat flux
-        ! TODO: same thing here as for particle flux
-        flux_convection_nl(3) = (S(ipoi) * Qe_nl - (-S(ipoi) * (Dae22(ipoi) + Dqle22(ipoi)) * n * &
-            dTe_dr)) / Te
-
-        ! Ion heat flux
-        !colli - 2.5d0*dqli12 was changed to dqli21
-        ! TODO: and again, same thing
-        flux_convection_nl(4) = (S(ipoi) * Qi_nl - (-S(ipoi) * (Dai22(ipoi) + Dni22(ipoi) + &
-            Dqli22(ipoi) - 2.5_dp * Dqli21(ipoi)) * n / Z * dTi_dr)) / Ti
-    end subroutine compute_nonlinear_convective_flux
 
     pure subroutine compute_rmp_induced_sources(Gamma_e_lin, Gamma_i_lin, Gamma_ql_e_lin, &
                                                 Gamma_ql_i_lin, Gamma_ql_e_nl, Gamma_ql_i_nl, E0r, &
@@ -997,75 +932,5 @@ contains
         ! Eq 4: Ion heat convection
         flux_convection(4) = (S * Qi - flux_diffusion(4)) / Ti
     end subroutine compute_convective_parts
-
-    pure subroutine apply_boundary_conditions(fluxes_dif, fluxes_con, fluxes_con_nl, nbaleqs)
-        implicit none
-
-        integer, intent(in) :: nbaleqs
-        real(dp), dimension(nbaleqs, *), intent(inout) :: fluxes_dif
-        real(dp), dimension(nbaleqs, *), intent(inout) :: fluxes_con
-        real(dp), dimension(nbaleqs, *), intent(inout) :: fluxes_con_nl
-
-        fluxes_dif(:, 1) = 0.0_dp
-        fluxes_con(:, 1) = 0.0_dp
-        fluxes_con_nl(:, 1) = 0.0_dp
-    end subroutine apply_boundary_conditions
-
-    pure subroutine compute_total_fluxes_at_point(Gamma_e, Gamma_e_nl, Gamma_i, Q_e, Q_e_nl, Q_i, &
-                                                  Q_i_nl, ddr_n, ddr_n_nl, ddr_Te, ddr_Te_nl, &
-                                                  ddr_Ti, ddr_Ti_nl, ddr_vphi, n_b, Te_b, Ti_b, &
-                                                  Z_i_val, Sb_val, dae11_val, dqle11_val, &
-                                                  dae22_val, dqle22_val, dai22_val, dni22_val, &
-                                                  dqli22_val, dqli21_val, visca_val, gpp_av_val, &
-                                                  flux_dif, flux_con, flux_con_nl)
-        implicit none
-
-        real(dp), intent(in) :: Gamma_e, Gamma_e_nl, Gamma_i
-        real(dp), intent(in) :: Q_e, Q_e_nl, Q_i, Q_i_nl
-        real(dp), intent(in) :: ddr_n, ddr_n_nl, ddr_Te, ddr_Te_nl, ddr_Ti, ddr_Ti_nl, ddr_vphi
-        real(dp), intent(in) :: n_b, Te_b, Ti_b, Z_i_val, Sb_val
-        real(dp), intent(in) :: dae11_val, dqle11_val, dae22_val, dqle22_val
-        real(dp), intent(in) :: dai22_val, dni22_val, dqli22_val, dqli21_val
-        real(dp), intent(in) :: visca_val, gpp_av_val
-        real(dp), dimension(4), intent(out) :: flux_dif, flux_con, flux_con_nl
-        real(dp) :: dfluxvphi
-
-        flux_dif(1) = -Sb_val * ddr_n * (dae11_val + dqle11_val * (1.0_dp + Ti_b / Te_b / Z_i_val))
-        flux_con(1) = (Sb_val * Gamma_e - flux_dif(1)) / n_b
-        flux_con_nl(1) = (Sb_val * Gamma_e_nl - (-Sb_val * ddr_n_nl * &
-                                                 (dae11_val + dqle11_val * &
-                                                  (1.0_dp + Ti_b / Te_b / Z_i_val)))) / n_b
-
-        dfluxvphi = -visca_val * ddr_vphi * n_b / Z_i_val * gpp_av_val
-        flux_dif(2) = Sb_val * dfluxvphi
-        flux_con(2) = 0.0_dp
-        flux_con_nl(2) = 0.0_dp
-
-        flux_dif(3) = -Sb_val * (dae22_val + dqle22_val) * n_b * ddr_Te
-        flux_con(3) = (Sb_val * Q_e - flux_dif(3)) / Te_b
-        flux_con_nl(3) = (Sb_val * Q_e_nl - (-Sb_val * (dae22_val + dqle22_val) * n_b * &
-                                             ddr_Te_nl)) / Te_b
-
-        flux_dif(4) = -Sb_val * (dai22_val + dni22_val + dqli22_val - 2.5_dp * dqli21_val) * n_b / &
-                      Z_i_val * ddr_Ti
-        flux_con(4) = (Sb_val * Q_i - flux_dif(4)) / Ti_b
-        flux_con_nl(4) = (Sb_val * Q_i_nl - (-Sb_val * &
-                                             (dai22_val + dni22_val + dqli22_val - 2.5_dp * &
-                                              dqli21_val) * n_b / Z_i_val * ddr_Ti_nl)) / Ti_b
-    end subroutine compute_total_fluxes_at_point
-
-    pure subroutine compute_time_derivatives(dot_params_in, n_val, Te_val, Ti_val, Z_i_val, &
-                                             gpp_av_avg, dot_params_out)
-        implicit none
-
-        real(dp), dimension(4), intent(in) :: dot_params_in
-        real(dp), intent(in) :: n_val, Te_val, Ti_val, Z_i_val, gpp_av_avg
-        real(dp), dimension(4), intent(out) :: dot_params_out
-
-        dot_params_out(1) = dot_params_in(1)
-        dot_params_out(2) = dot_params_in(2) * Z_i_val / n_val * 2.0_dp / gpp_av_avg
-        dot_params_out(3) = (-Te_val * dot_params_in(1) + dot_params_in(3) / 1.5_dp) / n_val
-        dot_params_out(4) = (-Ti_val * dot_params_in(1) + dot_params_in(4) / 1.5_dp) / n_val
-    end subroutine compute_time_derivatives
 
 end module rhs_balance_m

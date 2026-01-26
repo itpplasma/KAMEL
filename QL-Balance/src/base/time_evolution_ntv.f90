@@ -118,7 +118,8 @@ contains
     end subroutine runTimeEvolutionNTV
 
     subroutine doStep(this)
-        use neort_interface, only: prepare_plasma_data_for_neort, prepare_profile_data_for_neort
+        use neort_interface, only: prepare_plasma_data_for_neort, prepare_profile_data_for_neort, &
+                                   apply_ntv_transport
         use time_evolution, only: doStepBase => doStep, time_ind
 
         class(TimeEvolutionNTV_t), intent(inout) :: this
@@ -142,6 +143,9 @@ contains
             ! For example:
             ! call apply_ntv_transport(D11_ntv, D12_ntv, torque_ntv)
         end do
+
+        ! Add torque to global ntv array to be used in next time step
+        call apply_ntv_transport(r, transport_data)
     end subroutine doStep
 
 end module

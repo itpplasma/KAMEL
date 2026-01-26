@@ -566,7 +566,6 @@ contains
 
         type(transport_fluxes_t) :: fluxes
         real(dp) :: n, Te, Ti, dn_dr, dVphi_dr, dTe_dr, dTi_dr
-        real(dp) :: De22, Di22
 
         ! Extract local values
         n = params_b(1, ipoi)
@@ -589,10 +588,9 @@ contains
         Gamma_ql_e = fluxes%e%Gamma_ql
         Gamma_ql_i = fluxes%i%Gamma_ql
 
-        De22 = Dae22(ipoi) + Dqle22(ipoi)
-        Di22 = Dai22(ipoi) + Dni22(ipoi) + Dqli22(ipoi)
-        call compute_total_heat_fluxes(forces, n, Te, Ti, Z, Dae12(ipoi), Dqle21(ipoi), De22, &
-                                       Dai12(ipoi), Dqli21(ipoi), Di22, Qe, Qi)
+        call compute_total_heat_fluxes(forces, n, Te, Ti, Z, Dae12(ipoi), Dqle21(ipoi), &
+                                       Dae22(ipoi), Dqle22(ipoi), Dai12(ipoi), Dqli21(ipoi), &
+                                       Dai22(ipoi), Dni22(ipoi), Dqli22(ipoi), Qe, Qi)
 
         ! extract contributions from total heat fluxes
         call compute_diffusive_parts(dn_dr, dVphi_dr, dTe_dr, dTi_dr, n, Te, Ti, Z, S(ipoi), &
@@ -799,8 +797,8 @@ contains
         fluxes%i%Gamma_tot = fluxes%i%Gamma_a + fluxes%i%Gamma_ql
     end subroutine compute_particle_fluxes
 
-    pure subroutine compute_total_heat_fluxes(forces, n, Te, Ti, Z, Dae21, Dqle21, De22, Dai21, &
-                                              Dqli21, Di22, Qe, Qi)
+    pure subroutine compute_total_heat_fluxes(forces, n, Te, Ti, Z, Dae21, Dqle21, Dae22, Dqle22, &
+                                              Dai21, Dqli21, Dai22, Dni22, Dqli22, Qe, Qi)
         !
         ! Compute heat flux densities for electrons and ions.
         !
@@ -817,7 +815,7 @@ contains
         !   Q_e = Q^EM_e + Q^A_e
         !   Q_i = Q^EM_i + Q^A_i + Q^NEO_i
         !     [Markl2023 (24)-(25), Heyn2014 (65)-(66)]
-        ! The neoclassical ion heat flux contribution is included via Dni22 in Di22.
+        ! The neoclassical ion heat flux contribution is included via Dni22.
         !
         ! Note: Rearranging the computation breaks the golden record test.
         ! Needs investigation.
@@ -827,10 +825,14 @@ contains
 
         type(thermodynamic_forces_t), intent(in) :: forces
         real(dp), intent(in) :: n, Te, Ti, Z
-        real(dp), intent(in) :: Dae21, Dqle21, De22
-        real(dp), intent(in) :: Dai21, Dqli21, Di22
+        real(dp), intent(in) :: Dae21, Dqle21, Dae22, Dqle22
+        real(dp), intent(in) :: Dai21, Dqli21, Dai22, Dni22, Dqli22
         real(dp), intent(out) :: Qe, Qi
 
+        real(dp) :: De22, Di22
+
+        De22 = Dae22 + Dqle22
+        Di22 = Dai22 + Dni22 + Dqli22
         Qe = -(Dae21 * forces%e%A1_noE + Dqle21 * forces%e%A1 + De22 * forces%e%A2) * n * Te
         Qi = -(Dai21 * forces%i%A1_noE + Dqli21 * forces%i%A1 + Di22 * forces%i%A2) * n / Z * Ti
     end subroutine compute_total_heat_fluxes

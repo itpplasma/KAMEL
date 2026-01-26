@@ -263,8 +263,8 @@ contains
 
         ! Call the function under test
         call compute_total_heat_fluxes(forces, n_b, Te_b, Ti_b, Z_i_val, &
-            D12_a_e, D21_ql_e, D22_e, &
-            D12_a_i, D21_ql_i, D22_i, &
+            D12_a_e, D21_ql_e, D22_a_e, D22_ql_e, &
+            D12_a_i, D21_ql_i, D22_a_i, D22_nc, D22_ql_i, &
             Q_e, Q_i)
 
         ! Verify results

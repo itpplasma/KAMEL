@@ -256,8 +256,7 @@ contains
             end do
 
             ! Compute linearized Ercov
-            ! TODO: what is this? It's different from the formula in the subroutine
-            ! here: Ercov_lin = sqrt(g) B^θ/c * V^φ + (Ti/n * dn/dr + dTi/dr)/(Ze)
+            ! Note: this is missing the Vpol contribution as we do not need to probe for constant parameters
             Ercov_lin(ibegb:iendb) = sqrt_g_times_B_theta_over_c(ibegb:iendb) * &
                 params_b_lin(2, ibegb:iendb) + (params_b(4, ibegb:iendb) * &
                 ddr_params_lin(1, ibegb:iendb) / params_b(1, ibegb:iendb) + &
@@ -288,7 +287,7 @@ contains
                 ! Compute source terms
                 ! Only internal sources (due to the RMP fields are handled).
                 ! External forces (heating, fueling, NBI, ...) are set to 0.
-                call compute_internal_sources(Gamma_e_lin, Gamma_i_lin, Gamma_ql_e_lin, &
+                call compute_rmp_induced_sources(Gamma_e_lin, Gamma_i_lin, Gamma_ql_e_lin, &
                                               Gamma_ql_i_lin, Gamma_ql_e_nl, Gamma_ql_i_nl, &
                                               Ercov(ipoi), sqrt_g_times_B_theta_over_c(ipoi), Z_i, &
                                               am, p_mass, polforce(ipoi), qlheat_e(ipoi), &
@@ -385,7 +384,6 @@ contains
         real(dp), dimension(neqset), intent(out) :: dy
 
         integer :: ipoi, ieq, i, npoi
-        real(dp), dimension(neqset) :: y_lin
 
         ! Local variables for flux computation
         ! _lin suffix: evaluated at linearized state (y_lin=0 for source computation)
@@ -405,7 +403,6 @@ contains
 
         ! For source computation: y_lin = 0 (no linear perturbation)
         ! but params_lin = params (actual values)
-        y_lin = 0.0_dp
         params_lin = params
 
         ! Copy y to params
@@ -413,7 +410,7 @@ contains
             do ieq = 1, nbaleqs
                 i = nbaleqs * (ipoi - 1) + ieq
                 params(ieq, ipoi) = y(i)
-                params_lin(ieq, ipoi) = y_lin(i)
+                params_lin(ieq, ipoi) = 0.0_dp
             end do
         end do
 
@@ -472,7 +469,7 @@ contains
             fluxes_con_nl(:, ipoi) = flux_con_nl_loc
 
             ! Source terms
-            call compute_internal_sources(Gamma_e_lin, Gamma_i_lin, Gamma_ql_e_lin, &
+            call compute_rmp_induced_sources(Gamma_e_lin, Gamma_i_lin, Gamma_ql_e_lin, &
                                           Gamma_ql_i_lin, Gamma_ql_e_nl, Gamma_ql_i_nl, &
                                           Ercov(ipoi), sqrt_g_times_B_theta_over_c(ipoi), Z_i, am, &
                                           p_mass, polforce(ipoi), qlheat_e(ipoi), &
@@ -521,7 +518,7 @@ contains
         !   E0r = 1/(ei ni) ∂(ni Ti)/∂r + sqrt(g) B^θ_0 / c (V^φ - q V^θ)
         !     [Markl2023 (26), Heyn2014 (71)]
         !   V^θ = V_pol / r
-        !     [Markl2023 direclty above (40)]
+        !     [Markl2023 directly above (40)]
         !
 
         implicit none
@@ -673,10 +670,10 @@ contains
             Dqli22(ipoi) - 2.5_dp * Dqli21(ipoi)) * n / Z * dTi_dr)) / Ti
     end subroutine compute_nonlinear_convective_flux
 
-    pure subroutine compute_internal_sources(Gamma_e_lin, Gamma_i_lin, Gamma_ql_e_lin, &
-                                             Gamma_ql_i_lin, Gamma_ql_e_nl, Gamma_ql_i_nl, E0r, &
-                                             sqrt_g_Bth_over_c, Z, am, p_mass, polforce, &
-                                             qlheat_e, qlheat_i, torque_e_nl, torque_i_nl)
+    pure subroutine compute_rmp_induced_sources(Gamma_e_lin, Gamma_i_lin, Gamma_ql_e_lin, &
+                                                Gamma_ql_i_lin, Gamma_ql_e_nl, Gamma_ql_i_nl, E0r, &
+                                                sqrt_g_Bth_over_c, Z, am, p_mass, polforce, &
+                                                qlheat_e, qlheat_i, torque_e_nl, torque_i_nl)
         !
         ! Compute internal source terms of the four balance equations.
         ! The RHS for the four equations (with external sources set to zero) are as follows:
@@ -686,7 +683,7 @@ contains
         !         [Markl2023 (23), Heyn2014 (64), (67)]
         !   3.) = -E0r ee Γ^EM_e = +E0r e Γ^EM_e
         !         [Markl2023 (24), Heyn2014 (65)]
-        !   4.) = -E0r ei Γ^EM_i = E0r Z e Γ^EM_i
+        !   4.) = -E0r ei Γ^EM_i = -E0r Z e Γ^EM_i
         !         [Markl2023 (24), Heyn2014 (65)]
         !
 
@@ -711,16 +708,18 @@ contains
         torque_i_nl = -sqrt_g_Bth_over_c * Z * e_charge * Gamma_ql_i_nl
 
         ! Eq. 3: Electron temperature
-        qlheat_e = -e_charge * E0r * Gamma_ql_e_lin  !+????
+        ! TODO: check sign
+        qlheat_e = -e_charge * E0r * Gamma_ql_e_lin
 
         ! Eq. 4: Ion temperature
-        qlheat_i = Z * e_charge * E0r * Gamma_ql_i_lin
+        ! TODO: check sign
+        qlheat_i = +Z * e_charge * E0r * Gamma_ql_i_lin
 
         ! TODO: Why do we need this?
         ! Net radial current drive (Γe - Z Γi) entering the momentum evolution as a source term.
         ! This is just a difference of torque, but with other Γ
         polforce = (Gamma_e_lin - Z * Gamma_i_lin) * e_charge * sqrt_g_Bth_over_c / (am * p_mass)
-    end subroutine compute_internal_sources
+    end subroutine compute_rmp_induced_sources
 
     subroutine compute_dot_params_at_point(ipoi, npoi, nbaleqs, fluxes_dif, fluxes_con, &
                                            fluxes_con_nl, params, params_lin, params_b_lin, Sc, &
@@ -730,10 +729,16 @@ contains
         ! Compute time derivatives at a single grid point.
         !
         ! This combines:
-        !   1. Flux divergence
-        !   2. Upstream convection
-        !   3. Internal sources
-        !   4. Unit conversions (momentum -> omega, nT -> T)
+        !  - Flux divergence
+        !  - Upstream convection
+        !  - Sources
+        !  - Quantity conversions (momentum -> omega, nT -> T)
+        !
+        ! The splitting into diffusive and convective flux is to improve numerical stability.
+        ! The upstream convection has two branches s.t. the resulting directional derivative
+        ! always points in the same direction.
+        !   if convection_velocity > 0: (p(i+1) - p(i)) / (r(i+1) - r(i))
+        !   else:                       (p(i-1) - p(i)) / (r(i-1) - r(i))
         !
 
         implicit none
@@ -747,7 +752,7 @@ contains
         real(dp), dimension(4), intent(out) :: dot_params_out
 
         integer :: ieq
-        real(dp) :: convel, dr
+        real(dp) :: convec_velocity, dr
 
         dr = rb(ipoi + 1) - rb(ipoi)
 
@@ -758,17 +763,19 @@ contains
                 (Sc(ipoi) * dr) * params(ieq, ipoi)
 
             ! Upstream convection:
-            convel = 0.5_dp * (fluxes_con_nl(ieq, ipoi + 1) + fluxes_con_nl(ieq, ipoi)) / Sc(ipoi)
-            if (convel .gt. 0.0_dp) then
-                dot_params_out(ieq) = dot_params_out(ieq) - convel * &
-                    (params_lin(ieq, ipoi + 1) - params_lin(ieq, ipoi)) / (rc(ipoi + 1) - rc(ipoi))
+            convec_velocity = 0.5_dp * (fluxes_con_nl(ieq, ipoi + 1) + fluxes_con_nl(ieq, ipoi)) / &
+                              Sc(ipoi)
+            if (convec_velocity .gt. 0.0_dp) then
+                dot_params_out(ieq) = dot_params_out(ieq) - convec_velocity * &
+                    (params_lin(ieq, ipoi + 1) - params_lin(ieq, ipoi)) / &
+                    (rc(ipoi + 1) - rc(ipoi))
             else
                 if (ipoi .gt. 1) then
-                    dot_params_out(ieq) = dot_params_out(ieq) - convel * &
+                    dot_params_out(ieq) = dot_params_out(ieq) - convec_velocity * &
                         (params_lin(ieq, ipoi - 1) - params_lin(ieq, ipoi)) / &
                         (rc(ipoi - 1) - rc(ipoi))
-                else
-                    dot_params_out(ieq) = dot_params_out(ieq) - convel * &
+                else  ! no center point before first grid point
+                    dot_params_out(ieq) = dot_params_out(ieq) - convec_velocity * &
                         (params_b_lin(ieq, 1) - params_lin(ieq, 1)) / (rb(1) - rc(1))
                 end if
             end if
@@ -815,7 +822,7 @@ contains
         !   A2 = 1/T ∂T/∂r
         !     [Markl2023 (5), Heyn2014 (22)]
         !
-        ! A_noE_* denote the same expressions with the electric-field term dropped.
+        ! A*_noE denotes the same expressions with the electric field term dropped.
         ! This is the form used for the anomalous E0r=0-frame model [Heyn2014 below (68)].
         !
 
@@ -832,16 +839,10 @@ contains
                                             Dai11, Dai12, Dqli11, Dqli12, fluxes)
         !
         ! Compute particle fluxes for electrons and ions.
-        !   Γ^EM = -n (D^ql_11 A1 + D^ql_12 A2)
+        !   Γ = -n (D11 A1 + D12 A2)
         !     [Markl2023 (29), Heyn2014 (35)]
-        !
-        ! We split Γ = Γ(A) + Γ(EM) into:
-        ! Gamma_a  = -n (D11_a * A_noE_1 + D12_a * A_noE_2)
-        ! Gamma_ql = -n (D11_ql * A_1 + D12_ql * A_noE_2)
-        ! TODO: I don't get this.
-        !
-        ! The anomalous part follows the simple E0r=0-frame model which justifies the same
-        ! equation as for the RMP-induced flux [Heyn2014 (35), referenced in text below (68)].
+        ! Same equations for RMP (EM) and turbulence (A) due to the E0r=0 frame.
+        ! EM equation uses D^ql coefficients, A uses D^a.
         !
 
         implicit none
@@ -863,41 +864,40 @@ contains
         fluxes%i%Gamma_tot = fluxes%i%Gamma_a + fluxes%i%Gamma_ql
     end subroutine compute_particle_fluxes
 
-    pure subroutine compute_total_heat_fluxes(forces, n, Te, Ti, Z, Dae12, Dqle21, De22, Dai12, &
+    pure subroutine compute_total_heat_fluxes(forces, n, Te, Ti, Z, Dae21, Dqle21, De22, Dai21, &
                                               Dqli21, Di22, Qe, Qi)
         !
         ! Compute heat flux densities for electrons and ions.
         !
         ! Flux-force relation for heat flux:
-        !   Q^EM = -n T (D^ql_21 A1 + D^ql_22 A2)
+        !   Q = -n T (D21 A1 + D22 A2)
         !     [Markl2023 (29), Heyn2014 (35)]
+        ! Same equations for RMP (EM) and turbulence (A) due to the E0r=0 frame.
+        ! EM equation uses D^ql coefficients, A uses D^a.
+        ! Relations between D^a's:
+        !   D^a_12 = D^a_21 = 3/2 D^a_11
+        !   D^a_22 = 15/4 D^a_11
+        !     [Heyn2014 below (68)]
+        ! The total heat flux is then
+        !   Q_e = Q^EM_e + Q^A_e
+        !   Q_i = Q^EM_i + Q^A_i + Q^NEO_i
+        !     [Markl2023 (24)-(25), Heyn2014 (65)-(66)]
+        ! The neoclassical ion heat flux contribution is included via Dni22 in Di22.
         !
-        ! We split anomalous vs quasilinear contributions by coefficient sets:
-        ! TODO: I don't see where this formula comes from. Why the dependence on D12? Why sometimes E0r=0?
-        ! Q_e = -(D12_a_e*A_noE_1e + D21_ql_e*A_1e + D22_e*A_noE_2e) * n * Te
-        ! Q_i = -(D12_a_i*A_noE_1i + D21_ql_i*A_1i + D22_i*A_noE_2i) * n/Z * Ti
-        !
-        ! The neoclassical ion heat flux contribution is included via dni22 in D22_i
-        ! (Heyn2014 Eq. (69); Markl2023 Eq. (25)).
-        !
-        ! Note: D12 (anomalous) couples to A_noE_1 (no E-field)
-        !       D21 (quasi-linear) couples to A_1 (with E-field)
-        !       D22 couples to temperature gradient force A_noE_2
+        ! Note: Rearranging the computation breaks the golden record test.
+        ! Needs investigation.
         !
 
         implicit none
 
         type(thermodynamic_forces_t), intent(in) :: forces
         real(dp), intent(in) :: n, Te, Ti, Z
-        real(dp), intent(in) :: Dae12, Dqle21, De22
-        real(dp), intent(in) :: Dai12, Dqli21, Di22
+        real(dp), intent(in) :: Dae21, Dqle21, De22
+        real(dp), intent(in) :: Dai21, Dqli21, Di22
         real(dp), intent(out) :: Qe, Qi
 
-        ! Note: Here too. We're outside of machine precision already. Rearranging the computation
-        ! significantly changes the results. We need to consider if quad precision is
-        ! viable here or if we can normalize some variables to have a "nicer" decimal range.
-        Qe = -(Dae12 * forces%e%A1_noE + Dqle21 * forces%e%A1 + De22 * forces%e%A2) * n * Te
-        Qi = -(Dai12 * forces%i%A1_noE + Dqli21 * forces%i%A1 + Di22 * forces%i%A2) * n / Z * Ti
+        Qe = -(Dae21 * forces%e%A1_noE + Dqle21 * forces%e%A1 + De22 * forces%e%A2) * n * Te
+        Qi = -(Dai21 * forces%i%A1_noE + Dqli21 * forces%i%A1 + Di22 * forces%i%A2) * n / Z * Ti
     end subroutine compute_total_heat_fluxes
 
     pure subroutine compute_diffusive_parts(dn_dr, dVphi_dr, dTe_dr, dTi_dr, n, Te, Ti, Z, S, &
@@ -917,7 +917,12 @@ contains
         !   Γ^A = -D^a_11 ∂n/∂r
         !   Q^A = -3/2 D^a_11 ∂(ni Ti)/∂r
         !     [Markl2023 (27), Heyn2014 (68)]
-        ! Relevant formulas to compute this by hand:
+        ! In the E0r=0-frame used for turbulence [Markl2023 (29), Heyn2014 (35)] reduce
+        ! to [Markl2023 (27), Heyn2014 (68)] as well:
+        !   Γ^A = -n (D^a_11 A1 + D^a_12 A2)
+        !   Q^A = -n T (D^a_21 A1 + D^a_22 A2)
+        !     [Markl2023 (29), Heyn2014 (35)]
+        ! Relevant formulas to compute the rearrangements by hand:
         !   A1 = 1/n ∂n/∂r - e/T E0r - 3/(2T) ∂T/∂r
         !   A2 = 1/T ∂T/∂r
         !     [Markl2023 (5), Heyn2014 (22)]
@@ -925,11 +930,10 @@ contains
         !     [Markl2023 (26), Heyn2014 (71)]
         ! and for completeness:
         !   ni = ne / Z = n / Z
-        !   ei = -ee Z = -e Z
+        !   ei = -ee Z = e Z
         !
-        ! Note: We're outside of machine precision already. Rearranging the computation
-        ! significantly changes the results. We need to consider if quad precision is
-        ! viable here or if we can normalize some variables to have a "nicer" decimal range.
+        ! Note: Rearranging the computation breaks the golden record test.
+        ! Needs investigation.
         !
 
         implicit none
@@ -949,31 +953,28 @@ contains
         flux_diffusion(1) = -S * dn_dr * (Dae11 + Dqle11 * (1.0_dp + Ti / (Z * Te)))
 
         ! Eq. 2: Toroidal momentum diffusion (viscous term)
-        ! Divide by the factor mi to get velocity instead of momentum.
+        ! Divide the equation by the factor mi to get velocity instead of momentum.
         ! This code evolves velocity directly.
         dfluxvphi = -mu_perb * dVphi_dr * n / Z * g_phi_phi
         flux_diffusion(2) = S * dfluxvphi
 
         ! Eq. 3: Electron heat flux (diffusive part)
-        ! TODO: don't get it. I would arrive at:
-        ! S n dTe/dr (3/2 Dqle21 - Dqle22 - 3/2 Dae22)
+        ! TODO: try: -S * n * dTe_dr * (-1.5_dp * Dqle21 + Dqle22 + 0.4_dp * Dae22)
         flux_diffusion(3) = -S * (Dae22 + Dqle22) * n * dTe_dr
 
         ! Eq. 4: Ion heat flux (diffusive part)
-        ! TODO: don't get it. How do Q^NEO and Dni22 relate?
-        flux_diffusion(4) = -S * (Dai22 + Dni22 + Dqli22 - 2.5_dp * Dqli21) * &
-                            n / Z * dTi_dr
+        ! Dni22 is due to Markl2023 (28)
+        ! TODO: try: -S * n / Z * dTi_dr * (-2.5_dp * Dqli21 + Dqli22 + 0.4_dp * Dai22 + Dni22)
+        flux_diffusion(4) = -S * (Dai22 + Dni22 + Dqli22 - 2.5_dp * Dqli21) * n / Z * dTi_dr
     end subroutine compute_diffusive_parts
 
     pure subroutine compute_convective_parts(Gamma_e, Qe, Qi, n, Te, Ti, S, flux_diffusion, &
                                              flux_convection)
         !
-        ! Compute convective fluxes for all 4 balance equations.
-        ! Convective flux = (total flux - diffusive flux) / parameter value
+        ! Compute convective fluxes for all four balance equations.
+        !   convective flux = (total flux - diffusive flux) / parameter value
         !
-        ! This is a numerical decomposition used to build an affine RHS:
-        !   flux ≈ flux_dif + flux_con * (state variable)
-        ! so that dy/dt can be written as A·y + q for implicit stepping.
+        ! This decomposition is for numerical stability.
         !
 
         implicit none
@@ -986,7 +987,8 @@ contains
         ! Eq 1: Particle convection
         flux_convection(1) = (S * Gamma_e - flux_diffusion(1)) / n
 
-        ! Eq 2: Momentum convection (zero - only viscous diffusion)
+        ! Eq 2: Momentum convection
+        ! Zero -- only viscous diffusion
         flux_convection(2) = 0.0_dp
 
         ! Eq 3: Electron heat convection

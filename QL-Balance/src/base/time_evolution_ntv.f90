@@ -57,7 +57,6 @@ contains
         call read_neort_meta_config(balance_config_file, meta_config)
         s_size = meta_config%amount_of_s
 
-        ! note: profiles live on rc, derivatives on rb
         allocate (r_splined(s_size, 3))
         allocate (r(s_size))
         allocate (s_tor(s_size))
@@ -71,7 +70,7 @@ contains
         allocate (s_tor_equil(size(psi_tor)))
         call calculate_s_tor(s_tor_equil, psi_tor)
 
-        ! Find s values corresponding to rmin and rmax by splining s(r)
+        ! Find s values corresponding to rmin and rsepar by splining s(r)
         allocate (s_of_r_coeffs(size(r_eff) - 1, 5))
         allocate (s_splined(2, 3))
         s_of_r_coeffs = spline_coeff(r_eff, s_tor_equil)

@@ -127,13 +127,13 @@ contains
         ! When isw_rhs=1: Fills the sparse matrix and calls rhs_balance_source for q
         !
         use grid_mod, only: nbaleqs, neqset, iboutype, npoic, npoib, Sc, Sb, deriv_coef, ipbeg, &
-                            ipend, rb, reint_coef, fluxes_dif_lin, fluxes_con_lin, rc, dae11, dae12, &
-                            dae22, dai11, dai12, dai22, dni22, visca, gpp_av, dqle11, dqle12, &
-                            dqle21, dqle22, dqli11, dqli12, dqli21, dqli22, T_EM_phi_e, &
+                            ipend, rb, reint_coef, fluxes_dif_lin, fluxes_con_lin, rc, dae11, &
+                            dae12, dae22, dai11, dai12, dai22, dni22, visca, gpp_av, dqle11, &
+                            dqle12, dqle21, dqle22, dqli11, dqli12, dqli21, dqli22, T_EM_phi_e, &
                             T_EM_phi_i, sqrt_g_times_B_theta_over_c, Ercov, polforce, &
                             qlheat_e, qlheat_i, Ercov_lin, fluxes_con_nl
-        use plasma_parameters, only: params, ddr_params_lin, params_lin, ddr_params_nl, params_b_lin, &
-                                     params_b, dot_params
+        use plasma_parameters, only: params, ddr_params_lin, params_lin, ddr_params_nl, &
+                                     params_b_lin, params_b, dot_params
         use baseparam_mod, only: Z_i, am
         use wave_code_data, only: q, Vth
         use matrix_mod, only: isw_rhs, nz, nsize, irow, icol, amat, rhsvec
@@ -260,9 +260,9 @@ contains
                                                 dae11, dae12, dae22, dai11, dai12, dai22, dni22, &
                                                 dqle11, dqle12, dqle21, dqle22, dqli11, dqli12, &
                                                 dqli21, dqli22, visca, gpp_av, Sb, Z_i, &
-                                                forces_lin, Gamma_e_lin, Gamma_i_lin, Gamma_ql_e_lin, &
-                                                Gamma_ql_i_lin, Qe_lin, Qi_lin, flux_dif_lin_loc, &
-                                                flux_con_lin_loc)
+                                                forces_lin, Gamma_e_lin, Gamma_i_lin, &
+                                                Gamma_ql_e_lin, Gamma_ql_i_lin, Qe_lin, Qi_lin, &
+                                                flux_dif_lin_loc, flux_con_lin_loc)
 
                 fluxes_dif_lin(:, ipoi) = flux_dif_lin_loc
                 fluxes_con_lin(:, ipoi) = flux_con_lin_loc
@@ -280,10 +280,10 @@ contains
                 ! Only internal sources (due to the RMP fields are handled).
                 ! External forces (heating, fueling, NBI, ...) are set to 0.
                 call compute_rmp_induced_sources(Gamma_e_lin, Gamma_i_lin, Gamma_ql_e_lin, &
-                                              Gamma_ql_i_lin, Gamma_ql_e_nl, Gamma_ql_i_nl, &
-                                              Ercov(ipoi), sqrt_g_times_B_theta_over_c(ipoi), Z_i, &
-                                              am, polforce(ipoi), qlheat_e(ipoi), &
-                                              qlheat_i(ipoi), T_EM_phi_e(ipoi), T_EM_phi_i(ipoi))
+                                                 Gamma_ql_i_lin, Gamma_ql_e_nl, Gamma_ql_i_nl, &
+                                                 Ercov(ipoi), sqrt_g_times_B_theta_over_c(ipoi), &
+                                                 Z_i, am, polforce(ipoi), qlheat_e(ipoi), &
+                                                 qlheat_i(ipoi), T_EM_phi_e(ipoi), T_EM_phi_i(ipoi))
             end do
 
             ! Apply boundary conditions
@@ -293,8 +293,9 @@ contains
 
             ! Compute time derivatives
             do ipoi = ibeg, iend
-                call compute_dot_params_at_point(ipoi, npoi, nbaleqs, fluxes_dif_lin, fluxes_con_lin, &
-                                                 fluxes_con_nl, params, params_lin, params_b_lin, &
+                call compute_dot_params_at_point(ipoi, npoi, nbaleqs, fluxes_dif_lin, &
+                                                 fluxes_con_lin, fluxes_con_nl, params, &
+                                                 params_lin, params_b_lin, &
                                                  Sc, rb, rc, gpp_av, polforce, qlheat_e, &
                                                  qlheat_i, Z_i, dot_params_loc)
                 dot_params(:, ipoi) = dot_params_loc
@@ -358,12 +359,12 @@ contains
         ! are computed with the actual solution, giving the source vector.
         !
         use grid_mod, only: nbaleqs, neqset, iboutype, npoic, npoib, Sc, Sb, deriv_coef, ipbeg, &
-                            ipend, rb, reint_coef, fluxes_dif_lin, fluxes_con_lin, rc, dae11, dae12, &
-                            dae22, dai11, dai12, dai22, dni22, visca, gpp_av, dery_equisource, &
-                            dqle11, dqle12, dqle21, dqle22, dqli11, dqli12, dqli21, dqli22, &
-                            T_EM_phi_e_source, T_EM_phi_i_source, sqrt_g_times_B_theta_over_c, &
-                            Ercov, polforce, polforce_ql, qlheat_e, qlheat_i, Ercov_lin, &
-                            fluxes_con_nl
+                            ipend, rb, reint_coef, fluxes_dif_lin, fluxes_con_lin, rc, dae11, &
+                            dae12, dae22, dai11, dai12, dai22, dni22, visca, gpp_av, &
+                            dery_equisource, dqle11, dqle12, dqle21, dqle22, dqli11, dqli12, &
+                            dqli21, dqli22, T_EM_phi_e_source, T_EM_phi_i_source, &
+                            sqrt_g_times_B_theta_over_c, Ercov, polforce, polforce_ql, qlheat_e, &
+                            qlheat_i, Ercov_lin, fluxes_con_nl
         use plasma_parameters, only: params, ddr_params_lin, params_b, params_lin, params_b_lin, &
                                      ddr_params_nl, dot_params
         use baseparam_mod, only: Z_i, am
@@ -435,12 +436,13 @@ contains
         ! Compute fluxes at all boundary points
         do ipoi = 1, npoib
             ! Linearized fluxes (with ddr_params_lin from y_lin=0)
-            call compute_fluxes_at_boundary(ipoi, ddr_params_lin, params_b, Ercov_lin(ipoi), dae11, &
-                                            dae12, dae22, dai11, dai12, dai22, dni22, dqle11, &
-                                            dqle12, dqle21, dqle22, dqli11, dqli12, dqli21, &
-                                            dqli22, visca, gpp_av, Sb, Z_i, forces_lin, &
-                                            Gamma_e_lin, Gamma_i_lin, Gamma_ql_e_lin, Gamma_ql_i_lin, &
-                                            Q_e_lin, Q_i_lin, flux_dif_lin_loc, flux_con_lin_loc)
+            call compute_fluxes_at_boundary(ipoi, ddr_params_lin, params_b, Ercov_lin(ipoi), &
+                                            dae11, dae12, dae22, dai11, dai12, dai22, dni22, &
+                                            dqle11, dqle12, dqle21, dqle22, dqli11, dqli12, &
+                                            dqli21, dqli22, visca, gpp_av, Sb, Z_i, forces_lin, &
+                                            Gamma_e_lin, Gamma_i_lin, Gamma_ql_e_lin, &
+                                            Gamma_ql_i_lin, Q_e_lin, Q_i_lin, flux_dif_lin_loc, &
+                                            flux_con_lin_loc)
 
             fluxes_dif_lin(:, ipoi) = flux_dif_lin_loc
             fluxes_con_lin(:, ipoi) = flux_con_lin_loc
@@ -457,11 +459,11 @@ contains
 
             ! Source terms
             call compute_rmp_induced_sources(Gamma_e_lin, Gamma_i_lin, Gamma_ql_e_lin, &
-                                          Gamma_ql_i_lin, Gamma_ql_e_nl, Gamma_ql_i_nl, &
-                                          Ercov(ipoi), sqrt_g_times_B_theta_over_c(ipoi), Z_i, am, &
-                                          polforce(ipoi), qlheat_e(ipoi), &
-                                          qlheat_i(ipoi), T_EM_phi_e_source(ipoi), &
-                                          T_EM_phi_i_source(ipoi))
+                                             Gamma_ql_i_lin, Gamma_ql_e_nl, Gamma_ql_i_nl, &
+                                             Ercov(ipoi), sqrt_g_times_B_theta_over_c(ipoi), Z_i, &
+                                             am, polforce(ipoi), qlheat_e(ipoi), &
+                                             qlheat_i(ipoi), T_EM_phi_e_source(ipoi), &
+                                             T_EM_phi_i_source(ipoi))
 
             ! Additional source terms specific to rhs_balance_source
             polforce_ql(ipoi) = (T_EM_phi_i_source(ipoi) - T_EM_phi_e_source(ipoi)) / (am * p_mass)
@@ -605,8 +607,8 @@ contains
 
     pure subroutine compute_rmp_induced_sources(Gamma_e_lin, Gamma_i_lin, Gamma_ql_e_lin, &
                                                 Gamma_ql_i_lin, Gamma_ql_e_nl, Gamma_ql_i_nl, E0r, &
-                                                sqrt_g_Bth_over_c, Z, am, polforce, &
-                                                qlheat_e, qlheat_i, torque_e_nl, torque_i_nl)
+                                                sqrt_g_Bth_over_c, Z, am, polforce, qlheat_e, &
+                                                qlheat_i, torque_e_nl, torque_i_nl)
         !
         ! Compute internal source terms of the four balance equations.
         ! The RHS for the four equations (with external sources set to zero) are as follows:
@@ -740,8 +742,7 @@ contains
     ! Testing helper functions (pure, for unit testing)
     !===========================================================================
 
-    pure subroutine compute_thermodynamic_forces(dn_dr, dTe_dr, dTi_dr, n, Te, Ti, E0r, Z, &
-                                                 forces)
+    pure subroutine compute_thermodynamic_forces(dn_dr, dTe_dr, dTi_dr, n, Te, Ti, E0r, Z, forces)
         implicit none
 
         real(dp), intent(in) :: dn_dr, dTe_dr, dTi_dr
@@ -768,8 +769,8 @@ contains
         forces%i%A2 = dTi_dr / Ti
     end subroutine compute_thermodynamic_forces
 
-    pure subroutine compute_particle_fluxes(forces, n, Z, Dae11, Dae12, Dqle11, Dqle12, &
-                                            Dai11, Dai12, Dqli11, Dqli12, fluxes)
+    pure subroutine compute_particle_fluxes(forces, n, Z, Dae11, Dae12, Dqle11, Dqle12, Dai11, &
+                                            Dai12, Dqli11, Dqli12, fluxes)
         !
         ! Compute particle fluxes for electrons and ions.
         !   Γ = -n (D11 A1 + D12 A2)

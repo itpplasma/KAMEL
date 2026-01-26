@@ -16,13 +16,14 @@ module neort_interface
         type(config_t) :: config
     end type meta_config_neort_t
 
-    public :: read_neort_meta_config
-    public :: read_equil_file
-    public :: calculate_s_tor
-    public :: calculate_coarse_s_tor
+    public :: apply_ntv_transport
     public :: calculate_Omega_tE
+    public :: calculate_coarse_s_tor
+    public :: calculate_s_tor
     public :: prepare_plasma_data_for_neort
     public :: prepare_profile_data_for_neort
+    public :: read_equil_file
+    public :: read_neort_meta_config
 
 contains
 
@@ -436,6 +437,45 @@ contains
             s_tor(i) = s_min + (i - 1) * ds
         end do
     end subroutine calculate_coarse_s_tor
+
+    subroutine apply_ntv_transport(r, transport_data)
+        use grid_mod, only: rb, torque_ntv
+        use spline, only: spline_coeff, spline_val
+
+        real(dp), dimension(:), intent(in) :: r
+        type(transport_data_t), dimension(:), intent(in) :: transport_data
+
+        real(dp), dimension(:), allocatable :: total_torque  ! in cgs over s
+        real(dp), dimension(:), allocatable :: dVds
+        real(dp), dimension(:, :), allocatable :: torque_of_r_coeffs
+        real(dp), dimension(:, :), allocatable :: torque_splined
+        integer :: i, ntorque, nrb
+
+        ! extract array sizes
+        ntorque = size(transport_data)
+        nrb = size(rb)
+
+        allocate (total_torque(ntorque))
+        allocate (dVds(ntorque))
+
+        do i = 1, ntorque
+            total_torque(i) = transport_data(i)%torque%Tco + &
+                              transport_data(i)%torque%Tctr + &
+                              transport_data(i)%torque%Tt
+            dVds(i) = transport_data(i)%torque%dVds
+        end do
+
+        allocate (torque_of_r_coeffs(ntorque - 1, 5))
+        allocate (torque_splined(nrb, 3))
+
+        ! translate to cgs via dividing by dVds
+        torque_of_r_coeffs = spline_coeff(r, total_torque / dVds)
+        ! TODO: check if rb > rsepar somewhere
+        ! => then we would need to set that region to zero
+        torque_splined = spline_val(torque_of_r_coeffs, rb)
+
+        torque_ntv = torque_splined(:, 1)
+    end subroutine apply_ntv_transport
 
 !================== Writing routines for debugging ==================
 

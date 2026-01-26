@@ -21,7 +21,7 @@ module rhs_balance_m
     !   y' - Δt·A(y)·y' = y + Δt·q(y)
     !
     use QLBalance_kinds, only: dp
-    use baseparam_mod, only: e_charge
+    use baseparam_mod, only: e_charge, p_mass
 
     implicit none
 
@@ -134,7 +134,7 @@ contains
                             qlheat_e, qlheat_i, Ercov_lin, fluxes_con_nl
         use plasma_parameters, only: params, ddr_params_lin, params_lin, ddr_params_nl, params_b_lin, &
                                      params_b, dot_params
-        use baseparam_mod, only: Z_i, am, p_mass, c
+        use baseparam_mod, only: Z_i, am
         use wave_code_data, only: q, Vth
         use matrix_mod, only: isw_rhs, nz, nsize, irow, icol, amat, rhsvec
 
@@ -282,7 +282,7 @@ contains
                 call compute_rmp_induced_sources(Gamma_e_lin, Gamma_i_lin, Gamma_ql_e_lin, &
                                               Gamma_ql_i_lin, Gamma_ql_e_nl, Gamma_ql_i_nl, &
                                               Ercov(ipoi), sqrt_g_times_B_theta_over_c(ipoi), Z_i, &
-                                              am, p_mass, polforce(ipoi), qlheat_e(ipoi), &
+                                              am, polforce(ipoi), qlheat_e(ipoi), &
                                               qlheat_i(ipoi), T_EM_phi_e(ipoi), T_EM_phi_i(ipoi))
             end do
 
@@ -366,7 +366,7 @@ contains
                             fluxes_con_nl
         use plasma_parameters, only: params, ddr_params_lin, params_b, params_lin, params_b_lin, &
                                      ddr_params_nl, dot_params
-        use baseparam_mod, only: Z_i, am, p_mass, c
+        use baseparam_mod, only: Z_i, am
         use wave_code_data, only: q, Vth
 
         implicit none
@@ -459,7 +459,7 @@ contains
             call compute_rmp_induced_sources(Gamma_e_lin, Gamma_i_lin, Gamma_ql_e_lin, &
                                           Gamma_ql_i_lin, Gamma_ql_e_nl, Gamma_ql_i_nl, &
                                           Ercov(ipoi), sqrt_g_times_B_theta_over_c(ipoi), Z_i, am, &
-                                          p_mass, polforce(ipoi), qlheat_e(ipoi), &
+                                          polforce(ipoi), qlheat_e(ipoi), &
                                           qlheat_i(ipoi), T_EM_phi_e_source(ipoi), &
                                           T_EM_phi_i_source(ipoi))
 
@@ -605,7 +605,7 @@ contains
 
     pure subroutine compute_rmp_induced_sources(Gamma_e_lin, Gamma_i_lin, Gamma_ql_e_lin, &
                                                 Gamma_ql_i_lin, Gamma_ql_e_nl, Gamma_ql_i_nl, E0r, &
-                                                sqrt_g_Bth_over_c, Z, am, p_mass, polforce, &
+                                                sqrt_g_Bth_over_c, Z, am, polforce, &
                                                 qlheat_e, qlheat_i, torque_e_nl, torque_i_nl)
         !
         ! Compute internal source terms of the four balance equations.
@@ -627,7 +627,7 @@ contains
         real(dp), intent(in) :: Gamma_ql_e_nl, Gamma_ql_i_nl
         real(dp), intent(in) :: E0r
         real(dp), intent(in) :: sqrt_g_Bth_over_c
-        real(dp), intent(in) :: Z, am, p_mass
+        real(dp), intent(in) :: Z, am
         real(dp), intent(out) :: polforce, qlheat_e, qlheat_i
         real(dp), intent(out) :: torque_e_nl, torque_i_nl
 

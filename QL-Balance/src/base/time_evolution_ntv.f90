@@ -119,7 +119,7 @@ contains
     subroutine doStep(this)
         use neort_interface, only: prepare_plasma_data_for_neort, prepare_profile_data_for_neort, &
                                    apply_ntv_transport
-        use time_evolution, only: doStepBase => doStep, time_ind
+        use time_evolution, only: doStepBase => doStep
 
         class(TimeEvolutionNTV_t), intent(inout) :: this
 

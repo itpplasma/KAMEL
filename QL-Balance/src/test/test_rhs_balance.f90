@@ -123,12 +123,12 @@ contains
             forces)
 
         ! Verify results
-        call assert_equal(forces%A_noE_1e, expected_A_noE_1e, "A_noE_1e")
-        call assert_equal(forces%A_noE_2e, expected_A_noE_2e, "A_noE_2e")
-        call assert_equal(forces%A_noE_1i, expected_A_noE_1i, "A_noE_1i")
-        call assert_equal(forces%A_noE_2i, expected_A_noE_2i, "A_noE_2i")
-        call assert_equal(forces%A_1e, expected_A_1e, "A_1e")
-        call assert_equal(forces%A_1i, expected_A_1i, "A_1i")
+        call assert_equal(forces%e%A1_noE, expected_A_noE_1e, "A_noE_1e")
+        call assert_equal(forces%e%A2, expected_A_noE_2e, "A_noE_2e")
+        call assert_equal(forces%i%A1_noE, expected_A_noE_1i, "A_noE_1i")
+        call assert_equal(forces%i%A2, expected_A_noE_2i, "A_noE_2i")
+        call assert_equal(forces%e%A1, expected_A_1e, "A_1e")
+        call assert_equal(forces%i%A1, expected_A_1i, "A_1i")
 
         ! Test case 2: Zero electric field
         Ercov_val = 0.0_dp
@@ -141,8 +141,8 @@ contains
             Ercov_val, Z_i_val, &
             forces)
 
-        call assert_equal(forces%A_1e, expected_A_1e, "A_1e (E=0)")
-        call assert_equal(forces%A_1i, expected_A_1i, "A_1i (E=0)")
+        call assert_equal(forces%e%A1, expected_A_1e, "A_1e (E=0)")
+        call assert_equal(forces%i%A1, expected_A_1i, "A_1i (E=0)")
 
         print *, "  PASSED: ", test_name
 
@@ -174,12 +174,12 @@ contains
         Z_i_val = 1.0_dp
 
         ! Thermodynamic forces (arbitrary test values)
-        forces%A_noE_1e = -0.05_dp
-        forces%A_noE_2e = 0.1_dp
-        forces%A_noE_1i = -0.04_dp
-        forces%A_noE_2i = 0.1_dp
-        forces%A_1e = -0.03_dp
-        forces%A_1i = -0.06_dp
+        forces%e%A1_noE = -0.05_dp
+        forces%e%A2 = 0.1_dp
+        forces%i%A1_noE = -0.04_dp
+        forces%i%A2 = 0.1_dp
+        forces%e%A1 = -0.03_dp
+        forces%i%A1 = -0.06_dp
 
         ! Diffusion coefficients (individual values)
         D11_a_e = 1.0e4_dp;  D12_a_e = 0.5e4_dp
@@ -188,12 +188,12 @@ contains
         D11_ql_i = 1.5e4_dp; D12_ql_i = 0.8e4_dp
 
         ! Expected values (analytical calculation)
-        expected_gamma_a_e = -(D11_a_e*forces%A_noE_1e + D12_a_e*forces%A_noE_2e) * n_b
-        expected_gamma_ql_e = -(D11_ql_e*forces%A_1e + D12_ql_e*forces%A_noE_2e) * n_b
+        expected_gamma_a_e = -(D11_a_e*forces%e%A1_noE + D12_a_e*forces%e%A2) * n_b
+        expected_gamma_ql_e = -(D11_ql_e*forces%e%A1 + D12_ql_e*forces%e%A2) * n_b
         expected_gamma_e = expected_gamma_a_e + expected_gamma_ql_e
 
-        expected_gamma_a_i = -(D11_a_i*forces%A_noE_1i + D12_a_i*forces%A_noE_2i) * n_b / Z_i_val
-        expected_gamma_ql_i = -(D11_ql_i*forces%A_1i + D12_ql_i*forces%A_noE_2i) * n_b / Z_i_val
+        expected_gamma_a_i = -(D11_a_i*forces%i%A1_noE + D12_a_i*forces%i%A2) * n_b / Z_i_val
+        expected_gamma_ql_i = -(D11_ql_i*forces%i%A1 + D12_ql_i*forces%i%A2) * n_b / Z_i_val
         expected_gamma_i = expected_gamma_a_i + expected_gamma_ql_i
 
         ! Call the function under test
@@ -245,12 +245,12 @@ contains
         Z_i_val = 1.0_dp
 
         ! Thermodynamic forces
-        forces%A_noE_1e = -0.05_dp
-        forces%A_noE_2e = 0.1_dp
-        forces%A_noE_1i = -0.04_dp
-        forces%A_noE_2i = 0.1_dp
-        forces%A_1e = -0.03_dp
-        forces%A_1i = -0.06_dp
+        forces%e%A1_noE = -0.05_dp
+        forces%e%A2 = 0.1_dp
+        forces%i%A1_noE = -0.04_dp
+        forces%i%A2 = 0.1_dp
+        forces%e%A1 = -0.03_dp
+        forces%i%A1 = -0.06_dp
 
         ! Diffusion coefficients (individual values)
         D12_a_e = 0.5e4_dp;  D22_a_e = 1.5e4_dp
@@ -264,8 +264,8 @@ contains
         D22_i = D22_a_i + D22_nc + D22_ql_i
 
         ! Expected values: Q = -(D12_a*A_noE_1 + D21_ql*A_1 + D22*A_noE_2) * n * T
-        expected_Q_e = -(D12_a_e*forces%A_noE_1e + D21_ql_e*forces%A_1e + D22_e*forces%A_noE_2e) * n_b * Te_b
-        expected_Q_i = -(D12_a_i*forces%A_noE_1i + D21_ql_i*forces%A_1i + D22_i*forces%A_noE_2i) * n_b / Z_i_val * Ti_b
+        expected_Q_e = -(D12_a_e*forces%e%A1_noE + D21_ql_e*forces%e%A1 + D22_e*forces%e%A2) * n_b * Te_b
+        expected_Q_i = -(D12_a_i*forces%i%A1_noE + D21_ql_i*forces%i%A1 + D22_i*forces%i%A2) * n_b / Z_i_val * Ti_b
 
         ! Call the function under test
         call compute_heat_fluxes(forces, n_b, Te_b, Ti_b, Z_i_val, &

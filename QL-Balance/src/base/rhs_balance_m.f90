@@ -53,14 +53,17 @@ module rhs_balance_m
     ! Derived types
     !---------------------------------------------------------------------------
 
+    !> Thermodynamic forces for a single species
+    type :: species_forces_t
+        real(dp) :: A1 = 0.0_dp
+        real(dp) :: A1_noE = 0.0_dp  ! E0r set to zero
+        real(dp) :: A2 = 0.0_dp
+    end type species_forces_t
+
     !> Thermodynamic forces at a single radial point
     type :: thermodynamic_forces_t
-        real(dp) :: A_noE_1e = 0.0_dp  !< Electron force without E-field
-        real(dp) :: A_noE_2e = 0.0_dp  !< Electron temperature gradient force
-        real(dp) :: A_noE_1i = 0.0_dp  !< Ion force without E-field
-        real(dp) :: A_noE_2i = 0.0_dp  !< Ion temperature gradient force
-        real(dp) :: A_1e = 0.0_dp  !< Electron force with E-field
-        real(dp) :: A_1i = 0.0_dp  !< Ion force with E-field
+        type(species_forces_t) :: e  !< Electron forces
+        type(species_forces_t) :: i  !< Ion forces
     end type thermodynamic_forces_t
 
     !> Particle and heat fluxes for a single species
@@ -270,10 +273,10 @@ contains
                 ! - stale forces_nl (from pre-loop's last ipoi=npoib)
                 ! - current diffusion coefficients and density (ipoi)
                 ! This matches the original code's behavior
-                gamma_ql_e_nl = -(dqle11(ipoi) * forces_nl%A_1e + dqle12(ipoi) * &
-                                  forces_nl%A_noE_2e) * params_b(1, ipoi)
-                gamma_ql_i_nl = -(dqli11(ipoi) * forces_nl%A_1i + dqli12(ipoi) * &
-                                  forces_nl%A_noE_2i) * params_b(1, ipoi) / Z_i
+                gamma_ql_e_nl = -(dqle11(ipoi) * forces_nl%e%A1 + dqle12(ipoi) * &
+                                  forces_nl%e%A2) * params_b(1, ipoi)
+                gamma_ql_i_nl = -(dqli11(ipoi) * forces_nl%i%A1 + dqli12(ipoi) * &
+                                  forces_nl%i%A2) * params_b(1, ipoi) / Z_i
 
                 ! Compute source terms (using nonlinear ql fluxes for T_EM_phi)
                 call compute_internal_sources(ipoi, gamma_e_lin, gamma_i_lin, gamma_ql_e_lin, &
@@ -773,12 +776,12 @@ contains
         real(dp), intent(in) :: Ercov_val, Z_i_val
         type(thermodynamic_forces_t), intent(out) :: forces
 
-        forces%A_noE_1e = ddr_n / n_b - 1.5_dp * ddr_Te / Te_b
-        forces%A_noE_2e = ddr_Te / Te_b
-        forces%A_noE_1i = ddr_n / n_b - 1.5_dp * ddr_Ti / Ti_b
-        forces%A_noE_2i = ddr_Ti / Ti_b
-        forces%A_1e = forces%A_noE_1e + Ercov_val * e_charge / Te_b
-        forces%A_1i = forces%A_noE_1i - Ercov_val * e_charge * Z_i_val / Ti_b
+        forces%e%A1_noE = ddr_n / n_b - 1.5_dp * ddr_Te / Te_b
+        forces%e%A2 = ddr_Te / Te_b
+        forces%i%A1_noE = ddr_n / n_b - 1.5_dp * ddr_Ti / Ti_b
+        forces%i%A2 = ddr_Ti / Ti_b
+        forces%e%A1 = forces%e%A1_noE + Ercov_val * e_charge / Te_b
+        forces%i%A1 = forces%i%A1_noE - Ercov_val * e_charge * Z_i_val / Ti_b
     end subroutine compute_thermodynamic_forces
 
     pure subroutine compute_particle_fluxes(forces, n_b, Z_i_val, D11_a_e, D12_a_e, D11_ql_e, &
@@ -799,13 +802,13 @@ contains
         type(transport_fluxes_t), intent(out) :: fluxes
 
         ! Electron particle fluxes
-        fluxes%e%gamma_a = -(D11_a_e * forces%A_noE_1e + D12_a_e * forces%A_noE_2e) * n_b
-        fluxes%e%gamma_ql = -(D11_ql_e * forces%A_1e + D12_ql_e * forces%A_noE_2e) * n_b
+        fluxes%e%gamma_a = -(D11_a_e * forces%e%A1_noE + D12_a_e * forces%e%A2) * n_b
+        fluxes%e%gamma_ql = -(D11_ql_e * forces%e%A1 + D12_ql_e * forces%e%A2) * n_b
         fluxes%e%gamma = fluxes%e%gamma_a + fluxes%e%gamma_ql
 
         ! Ion particle fluxes
-        fluxes%i%gamma_a = -(D11_a_i * forces%A_noE_1i + D12_a_i * forces%A_noE_2i) * n_b / Z_i_val
-        fluxes%i%gamma_ql = -(D11_ql_i * forces%A_1i + D12_ql_i * forces%A_noE_2i) * n_b / Z_i_val
+        fluxes%i%gamma_a = -(D11_a_i * forces%i%A1_noE + D12_a_i * forces%i%A2) * n_b / Z_i_val
+        fluxes%i%gamma_ql = -(D11_ql_i * forces%i%A1 + D12_ql_i * forces%i%A2) * n_b / Z_i_val
         fluxes%i%gamma = fluxes%i%gamma_a + fluxes%i%gamma_ql
     end subroutine compute_particle_fluxes
 
@@ -830,9 +833,9 @@ contains
         real(dp), intent(in) :: D12_a_i, D21_ql_i, D22_i
         real(dp), intent(out) :: Q_e, Q_i
 
-        Q_e = -(D12_a_e * forces%A_noE_1e + D21_ql_e * forces%A_1e + D22_e * forces%A_noE_2e) &
+        Q_e = -(D12_a_e * forces%e%A1_noE + D21_ql_e * forces%e%A1 + D22_e * forces%e%A2) &
               * n_b * Te_b
-        Q_i = -(D12_a_i * forces%A_noE_1i + D21_ql_i * forces%A_1i + D22_i * forces%A_noE_2i) * &
+        Q_i = -(D12_a_i * forces%i%A1_noE + D21_ql_i * forces%i%A1 + D22_i * forces%i%A2) * &
               n_b / Z_i_val * Ti_b
     end subroutine compute_heat_fluxes
 

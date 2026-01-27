@@ -125,12 +125,12 @@ contains
         ! When isw_rhs=1: Fills the sparse matrix and calls rhs_balance_source for q
         !
         use grid_mod, only: nbaleqs, neqset, iboutype, npoic, npoib, Sc, Sb, deriv_coef, ipbeg, &
-                            ipend, rb, reint_coef, fluxes_dif, fluxes_con, rc, dae11, dae12, &
+                            ipend, rb, reint_coef, fluxes_dif_lin, fluxes_con_lin, rc, dae11, dae12, &
                             dae22, dai11, dai12, dai22, dni22, visca, gpp_av, dqle11, dqle12, &
                             dqle21, dqle22, dqli11, dqli12, dqli21, dqli22, T_EM_phi_e, &
                             T_EM_phi_i, sqrt_g_times_B_theta_over_c, Ercov, polforce, &
                             qlheat_e, qlheat_i, Ercov_lin, fluxes_con_nl
-        use plasma_parameters, only: params, ddr_params, params_lin, ddr_params_nl, params_b_lin, &
+        use plasma_parameters, only: params, ddr_params_lin, params_lin, ddr_params_nl, params_b_lin, &
                                      params_b, dot_params
         use baseparam_mod, only: Z_i, am, p_mass, c
         use wave_code_data, only: q, Vth
@@ -143,10 +143,13 @@ contains
         real(dp), dimension(neqset) :: y, dy, y_lin
 
         ! Local variables for flux computation
-        type(thermodynamic_forces_t) :: forces, forces_nl
-        real(dp) :: gamma_e, gamma_i, gamma_ql_e, gamma_ql_i, Q_e, Q_i
+        ! _lin suffix: evaluated at linearized state (for Jacobian construction)
+        ! _nl suffix: evaluated at actual plasma state
+        type(thermodynamic_forces_t) :: forces_lin, forces_nl
+        real(dp) :: gamma_e_lin, gamma_i_lin, gamma_ql_e_lin, gamma_ql_i_lin, Q_e_lin, Q_i_lin
         real(dp) :: gamma_e_nl, gamma_i_nl, gamma_ql_e_nl, gamma_ql_i_nl, Q_e_nl, Q_i_nl
-        real(dp) :: flux_dif_loc(4), flux_con_loc(4), flux_con_nl_loc(4)
+        real(dp) :: flux_dif_lin_loc(4), flux_con_lin_loc(4)
+        real(dp) :: flux_dif_nl_loc(4), flux_con_nl_loc(4)
         real(dp) :: dot_params_loc(4)
 
         if (iboutype .eq. 1) then
@@ -158,7 +161,7 @@ contains
         ! Initialize arrays
         y_lin = 0.0_dp
         params_lin = 0.0_dp
-        ddr_params = 0.0_dp
+        ddr_params_lin = 0.0_dp
         Ercov_lin = 0.0_dp
 
         ! Copy y to params
@@ -192,8 +195,8 @@ contains
                                             dqle12, dqle21, dqle22, dqli11, dqli12, dqli21, &
                                             dqli22, visca, gpp_av, Sb, Z_i, &
                                             forces_nl, gamma_e_nl, gamma_i_nl, gamma_ql_e_nl, &
-                                            gamma_ql_i_nl, Q_e_nl, Q_i_nl, flux_dif_loc, &
-                                            flux_con_loc)
+                                            gamma_ql_i_nl, Q_e_nl, Q_i_nl, flux_dif_nl_loc, &
+                                            flux_con_nl_loc)
 
             call compute_nonlinear_convective_flux(ipoi, gamma_e_nl, Q_e_nl, Q_i_nl, &
                                                    ddr_params_nl, params_b, Sb, dae11, dqle11, &
@@ -237,30 +240,31 @@ contains
             ! Interpolate linear perturbation to boundaries
             do ipoi = ibegb, iendb
                 do ieq = 1, nbaleqs
-                    ddr_params(ieq, ipoi) = sum(params_lin(ieq, ipbeg(ipoi):ipend(ipoi)) * &
-                                                deriv_coef(:, ipoi))
+                    ddr_params_lin(ieq, ipoi) = sum(params_lin(ieq, ipbeg(ipoi):ipend(ipoi)) * &
+                                                    deriv_coef(:, ipoi))
                     params_b_lin(ieq, ipoi) = sum(params_lin(ieq, ipbeg(ipoi):ipend(ipoi)) * &
                                                   reint_coef(:, ipoi))
                 end do
             end do
 
-            ! Compute linear Ercov
+            ! Compute linearized Ercov
             Ercov_lin(ibegb:iendb) = sqrt_g_times_B_theta_over_c(ibegb:iendb) * &
                 params_b_lin(2, ibegb:iendb) + (params_b(4, ibegb:iendb) * &
-                ddr_params(1, ibegb:iendb) / params_b(1, ibegb:iendb) + &
-                ddr_params(4, ibegb:iendb)) / (Z_i * e_charge)
+                ddr_params_lin(1, ibegb:iendb) / params_b(1, ibegb:iendb) + &
+                ddr_params_lin(4, ibegb:iendb)) / (Z_i * e_charge)
 
-            ! Compute fluxes at affected boundary points
+            ! Compute linearized fluxes at affected boundary points
             do ipoi = ibegb, iendb
-                call compute_fluxes_at_boundary(ipoi, ddr_params, params_b, Ercov_lin(ipoi), &
+                call compute_fluxes_at_boundary(ipoi, ddr_params_lin, params_b, Ercov_lin(ipoi), &
                                                 dae11, dae12, dae22, dai11, dai12, dai22, dni22, &
                                                 dqle11, dqle12, dqle21, dqle22, dqli11, dqli12, &
                                                 dqli21, dqli22, visca, gpp_av, Sb, Z_i, &
-                                                forces, gamma_e, gamma_i, gamma_ql_e, gamma_ql_i, &
-                                                Q_e, Q_i, flux_dif_loc, flux_con_loc)
+                                                forces_lin, gamma_e_lin, gamma_i_lin, gamma_ql_e_lin, &
+                                                gamma_ql_i_lin, Q_e_lin, Q_i_lin, flux_dif_lin_loc, &
+                                                flux_con_lin_loc)
 
-                fluxes_dif(:, ipoi) = flux_dif_loc
-                fluxes_con(:, ipoi) = flux_con_loc
+                fluxes_dif_lin(:, ipoi) = flux_dif_lin_loc
+                fluxes_con_lin(:, ipoi) = flux_con_lin_loc
 
                 ! Recompute nonlinear ql fluxes for T_EM_phi using:
                 ! - stale forces_nl (from pre-loop's last ipoi=npoib)
@@ -272,21 +276,21 @@ contains
                                   forces_nl%A_noE_2i) * params_b(1, ipoi) / Z_i
 
                 ! Compute source terms (using nonlinear ql fluxes for T_EM_phi)
-                call compute_internal_sources(ipoi, gamma_e, gamma_i, gamma_ql_e, gamma_ql_i, &
-                                              gamma_ql_e_nl, gamma_ql_i_nl, Ercov(ipoi), &
-                                              sqrt_g_times_B_theta_over_c, Z_i, am, &
+                call compute_internal_sources(ipoi, gamma_e_lin, gamma_i_lin, gamma_ql_e_lin, &
+                                              gamma_ql_i_lin, gamma_ql_e_nl, gamma_ql_i_nl, &
+                                              Ercov(ipoi), sqrt_g_times_B_theta_over_c, Z_i, am, &
                                               p_mass, polforce(ipoi), qlheat_e(ipoi), &
                                               qlheat_i(ipoi), T_EM_phi_e(ipoi), T_EM_phi_i(ipoi))
             end do
 
             ! Apply boundary conditions
-            fluxes_dif(:, 1) = 0.0_dp
-            fluxes_con(:, 1) = 0.0_dp
+            fluxes_dif_lin(:, 1) = 0.0_dp
+            fluxes_con_lin(:, 1) = 0.0_dp
             fluxes_con_nl(:, 1) = 0.0_dp
 
             ! Compute time derivatives
             do ipoi = ibeg, iend
-                call compute_dot_params_at_point(ipoi, npoi, nbaleqs, fluxes_dif, fluxes_con, &
+                call compute_dot_params_at_point(ipoi, npoi, nbaleqs, fluxes_dif_lin, fluxes_con_lin, &
                                                  fluxes_con_nl, params, params_lin, params_b_lin, &
                                                  Sc, rb, rc, gpp_av, polforce, qlheat_e, &
                                                  qlheat_i, Z_i, dot_params_loc)
@@ -321,10 +325,10 @@ contains
                     params_lin(ieq, ipoi) = 0.0_dp
                 end do
             end do
-            ddr_params(:, ibegb:iendb) = 0.0_dp
+            ddr_params_lin(:, ibegb:iendb) = 0.0_dp
             Ercov_lin(ibegb:iendb) = 0.0_dp
-            fluxes_dif(:, ibegb:iendb) = 0.0_dp
-            fluxes_con(:, ibegb:iendb) = 0.0_dp
+            fluxes_dif_lin(:, ibegb:iendb) = 0.0_dp
+            fluxes_con_lin(:, ibegb:iendb) = 0.0_dp
             polforce(ibegb:iendb) = 0.0_dp
             qlheat_e(ibegb:iendb) = 0.0_dp
             qlheat_i(ibegb:iendb) = 0.0_dp
@@ -351,13 +355,13 @@ contains
         ! are computed with the actual solution, giving the source vector.
         !
         use grid_mod, only: nbaleqs, neqset, iboutype, npoic, npoib, Sc, Sb, deriv_coef, ipbeg, &
-                            ipend, rb, reint_coef, fluxes_dif, fluxes_con, rc, dae11, dae12, &
+                            ipend, rb, reint_coef, fluxes_dif_lin, fluxes_con_lin, rc, dae11, dae12, &
                             dae22, dai11, dai12, dai22, dni22, visca, gpp_av, dery_equisource, &
                             dqle11, dqle12, dqle21, dqle22, dqli11, dqli12, dqli21, dqli22, &
                             T_EM_phi_e_source, T_EM_phi_i_source, sqrt_g_times_B_theta_over_c, &
                             Ercov, polforce, polforce_ql, qlheat_e, qlheat_i, Ercov_lin, &
                             fluxes_con_nl
-        use plasma_parameters, only: params, ddr_params, params_b, params_lin, params_b_lin, &
+        use plasma_parameters, only: params, ddr_params_lin, params_b, params_lin, params_b_lin, &
                                      ddr_params_nl, dot_params
         use baseparam_mod, only: Z_i, am, p_mass, c
         use wave_code_data, only: q, Vth
@@ -369,10 +373,13 @@ contains
         real(dp), dimension(neqset) :: y, dy, y_lin
 
         ! Local variables for flux computation
-        type(thermodynamic_forces_t) :: forces, forces_nl
-        real(dp) :: gamma_e, gamma_i, gamma_ql_e, gamma_ql_i, Q_e, Q_i
+        ! _lin suffix: evaluated at linearized state (y_lin=0 for source computation)
+        ! _nl suffix: evaluated at actual plasma state
+        type(thermodynamic_forces_t) :: forces_lin, forces_nl
+        real(dp) :: gamma_e_lin, gamma_i_lin, gamma_ql_e_lin, gamma_ql_i_lin, Q_e_lin, Q_i_lin
         real(dp) :: gamma_e_nl, gamma_i_nl, gamma_ql_e_nl, gamma_ql_i_nl, Q_e_nl, Q_i_nl
-        real(dp) :: flux_dif_loc(4), flux_con_loc(4), flux_con_nl_loc(4)
+        real(dp) :: flux_dif_lin_loc(4), flux_con_lin_loc(4)
+        real(dp) :: flux_dif_nl_loc(4), flux_con_nl_loc(4)
         real(dp) :: dot_params_loc(4)
 
         if (iboutype .eq. 1) then
@@ -400,7 +407,7 @@ contains
             do ieq = 1, nbaleqs
                 ddr_params_nl(ieq, ipoi) = sum(params(ieq, ipbeg(ipoi):ipend(ipoi)) * &
                                                deriv_coef(:, ipoi))
-                ddr_params(ieq, ipoi) = sum(params_lin(ieq, ipbeg(ipoi):ipend(ipoi)) * &
+                ddr_params_lin(ieq, ipoi) = sum(params_lin(ieq, ipbeg(ipoi):ipend(ipoi)) * &
                                             deriv_coef(:, ipoi))
                 params_b(ieq, ipoi) = sum(params(ieq, ipbeg(ipoi):ipend(ipoi)) * &
                                           reint_coef(:, ipoi))
@@ -416,23 +423,23 @@ contains
 
         ! Linear Ercov (with y_lin=0, this simplifies)
         Ercov_lin(1:npoib) = sqrt_g_times_B_theta_over_c(1:npoib) * params_b_lin(2, 1:npoib) + &
-            (params_b(4, 1:npoib) * ddr_params(1, 1:npoib) / params_b(1, 1:npoib) + &
-            ddr_params(4, 1:npoib)) / (Z_i * e_charge)
+            (params_b(4, 1:npoib) * ddr_params_lin(1, 1:npoib) / params_b(1, 1:npoib) + &
+            ddr_params_lin(4, 1:npoib)) / (Z_i * e_charge)
 
         call calc_equil_diffusion_coeffs
 
         ! Compute fluxes at all boundary points
         do ipoi = 1, npoib
-            ! Linear fluxes (with ddr_params from y_lin=0)
-            call compute_fluxes_at_boundary(ipoi, ddr_params, params_b, Ercov_lin(ipoi), dae11, &
+            ! Linearized fluxes (with ddr_params_lin from y_lin=0)
+            call compute_fluxes_at_boundary(ipoi, ddr_params_lin, params_b, Ercov_lin(ipoi), dae11, &
                                             dae12, dae22, dai11, dai12, dai22, dni22, dqle11, &
                                             dqle12, dqle21, dqle22, dqli11, dqli12, dqli21, &
-                                            dqli22, visca, gpp_av, Sb, Z_i, forces, &
-                                            gamma_e, gamma_i, gamma_ql_e, gamma_ql_i, Q_e, &
-                                            Q_i, flux_dif_loc, flux_con_loc)
+                                            dqli22, visca, gpp_av, Sb, Z_i, forces_lin, &
+                                            gamma_e_lin, gamma_i_lin, gamma_ql_e_lin, gamma_ql_i_lin, &
+                                            Q_e_lin, Q_i_lin, flux_dif_lin_loc, flux_con_lin_loc)
 
-            fluxes_dif(:, ipoi) = flux_dif_loc
-            fluxes_con(:, ipoi) = flux_con_loc
+            fluxes_dif_lin(:, ipoi) = flux_dif_lin_loc
+            fluxes_con_lin(:, ipoi) = flux_con_lin_loc
 
             ! Nonlinear fluxes (with ddr_params_nl from actual y)
             call compute_fluxes_at_boundary(ipoi, ddr_params_nl, params_b, Ercov(ipoi), dae11, &
@@ -440,7 +447,7 @@ contains
                                             dqle12, dqle21, dqle22, dqli11, dqli12, dqli21, &
                                             dqli22, visca, gpp_av, Sb, Z_i, forces_nl, &
                                             gamma_e_nl, gamma_i_nl, gamma_ql_e_nl, gamma_ql_i_nl, &
-                                            Q_e_nl, Q_i_nl, flux_dif_loc, flux_con_loc)
+                                            Q_e_nl, Q_i_nl, flux_dif_nl_loc, flux_con_nl_loc)
 
             call compute_nonlinear_convective_flux(ipoi, gamma_e_nl, Q_e_nl, Q_i_nl, &
                                                    ddr_params_nl, params_b, Sb, dae11, dqle11, &
@@ -450,24 +457,25 @@ contains
             fluxes_con_nl(:, ipoi) = flux_con_nl_loc
 
             ! Source terms
-            call compute_internal_sources(ipoi, gamma_e, gamma_i, gamma_ql_e, gamma_ql_i, &
-                                          gamma_ql_e_nl, gamma_ql_i_nl, Ercov(ipoi), &
-                                          sqrt_g_times_B_theta_over_c, Z_i, am, p_mass, &
-                                          polforce(ipoi), qlheat_e(ipoi), qlheat_i(ipoi), &
-                                          T_EM_phi_e_source(ipoi), T_EM_phi_i_source(ipoi))
+            call compute_internal_sources(ipoi, gamma_e_lin, gamma_i_lin, gamma_ql_e_lin, &
+                                          gamma_ql_i_lin, gamma_ql_e_nl, gamma_ql_i_nl, &
+                                          Ercov(ipoi), sqrt_g_times_B_theta_over_c, Z_i, am, &
+                                          p_mass, polforce(ipoi), qlheat_e(ipoi), &
+                                          qlheat_i(ipoi), T_EM_phi_e_source(ipoi), &
+                                          T_EM_phi_i_source(ipoi))
 
             ! Additional source terms specific to rhs_balance_source
             polforce_ql(ipoi) = (T_EM_phi_i_source(ipoi) - T_EM_phi_e_source(ipoi)) / (am * p_mass)
         end do
 
         ! Apply boundary conditions
-        fluxes_dif(:, 1) = 0.0_dp
-        fluxes_con(:, 1) = 0.0_dp
+        fluxes_dif_lin(:, 1) = 0.0_dp
+        fluxes_con_lin(:, 1) = 0.0_dp
         fluxes_con_nl(:, 1) = 0.0_dp
 
         ! Compute time derivatives
         do ipoi = 1, npoi
-            call compute_dot_params_at_point(ipoi, npoi, nbaleqs, fluxes_dif, fluxes_con, &
+            call compute_dot_params_at_point(ipoi, npoi, nbaleqs, fluxes_dif_lin, fluxes_con_lin, &
                                              fluxes_con_nl, params, params_lin, params_b_lin, Sc, &
                                              rb, rc, gpp_av, polforce, qlheat_e, qlheat_i, Z_i, &
                                              dot_params_loc)

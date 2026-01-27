@@ -431,7 +431,7 @@ contains
         real(dp) :: ds
         integer :: i
 
-        ds = (s_max - s_min) / npoints
+        ds = (s_max - s_min) / (npoints - 1)
 
         do i = 1, npoints
             s_tor(i) = s_min + (i - 1) * ds

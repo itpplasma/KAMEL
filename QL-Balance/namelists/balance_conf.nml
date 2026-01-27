@@ -63,3 +63,20 @@
  kim_n_list = 2, 2
  ihdf5IO = 1
 /
+
+! NEO-RT configuration namelist (for TimeEvolutionNTV runs)
+&NEORT
+ boozer_file = ''
+ boozer_pert_file = ''
+ amount_of_s = 100
+ epsmn = 0.001
+ magdrift = .true.
+ nopassing = .false.
+ noshear = .false.
+ nonlin = .false.
+ bfac = 1.0
+ efac = 1.0
+ inp_swi = 9
+ vsteps = 512
+ log_level = -1
+/

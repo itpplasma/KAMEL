@@ -15,7 +15,7 @@ subroutine evolvestep(timstep,eps)
     DOUBLE PRECISION, DIMENSION(:),   ALLOCATABLE :: amat_sp,bvec_sp
 
     x1=0.d0
-    sparse_solve_method = 3
+    sparse_solve_method = 2
 
     if(iboutype.eq.1) then
         npoi=npoic-1

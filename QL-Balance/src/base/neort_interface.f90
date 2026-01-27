@@ -273,7 +273,6 @@ contains
         allocate (dPhi0_coeffs(rb_size - 1, 5))
         allocate (q_coeffs(rc_size - 1, 5))
 
-        ! TODO: here, rb, rc and r are intermixed, make sure to handle this correctly!
         dPhi0_coeffs = spline_coeff(rb, dPhi0)
         dPhi0_splined = spline_val(dPhi0_coeffs, r)
         q_coeffs = spline_coeff(rc, qsaf)

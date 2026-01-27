@@ -134,14 +134,11 @@ contains
         call prepare_profile_data_for_neort(profile_data, r, s_tor, Omega_tE)
         call neort_prepare_splines(s_size, am1, am2, Z1, Z2, plasma_data, profile_data)
 
-!$omp parallel do schedule(dynamic)
+        !$omp parallel do schedule(guided, 1)
         do s_idx = 1, s_size
             call neort_compute_at_s(s_tor(s_idx), transport_data(s_idx))
-            ! TODO: Apply NEO-RT transport coefficients back to KAMEL
-            ! This would involve updating the transport coefficient arrays in grid_mod
-            ! For example:
-            ! call apply_ntv_transport(D11_ntv, D12_ntv, torque_ntv)
         end do
+        !$omp end parallel do
 
         ! Add torque to global ntv array to be used in next time step
         call apply_ntv_transport(r, transport_data)

@@ -440,6 +440,7 @@ contains
 
     subroutine apply_ntv_transport(r, transport_data)
         use grid_mod, only: rb, torque_ntv
+        use PolyLagrangeInterpolation, only: binsrc
         use spline, only: spline_coeff, spline_val
 
         real(dp), dimension(:), intent(in) :: r
@@ -449,7 +450,7 @@ contains
         real(dp), dimension(:), allocatable :: dVds
         real(dp), dimension(:, :), allocatable :: torque_of_r_coeffs
         real(dp), dimension(:, :), allocatable :: torque_splined
-        integer :: i, ntorque, nrb
+        integer :: ntorque, nrb, i, i_separatrix
 
         ! extract array sizes
         ntorque = size(transport_data)
@@ -470,11 +471,19 @@ contains
 
         ! translate to cgs via dividing by dVds
         torque_of_r_coeffs = spline_coeff(r, total_torque / dVds)
-        ! TODO: check if rb > rsepar somewhere
-        ! => then we would need to set that region to zero
-        torque_splined = spline_val(torque_of_r_coeffs, rb)
 
-        torque_ntv = torque_splined(:, 1)
+        ! find index/index+1 of last element from r in rb
+        call binsrc(rb, 1, nrb, r(ntorque), i_separatrix)
+
+        ! make sure to not hit the separatrix
+        i_separatrix = i_separatrix - 1
+
+        ! do not extrapolate
+        torque_splined = spline_val(torque_of_r_coeffs, rb(1:i_separatrix))
+
+        ! torque for r > separatrix should be zero
+        torque_ntv(1:i_separatrix) = torque_splined(:, 1)
+        torque_ntv(i_separatrix+1:nrb) = 0.0_dp
     end subroutine apply_ntv_transport
 
 !================== Writing routines for debugging ==================

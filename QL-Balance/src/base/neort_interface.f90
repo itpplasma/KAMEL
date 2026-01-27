@@ -223,14 +223,15 @@ contains
             ! Column 1: Normalized toroidal flux s (0 to 1)
             profile_data(i, 1) = s_tor(i)
 
-            ! Calculate thermal velocity
+            ! Calculate thermal velocity [Albert2016, above (51)]
             T_i = Ti_splined(i, 1)  ! ion temperature in erg
             vth = sqrt(2 * T_i / m_i)  ! thermal velocity
 
-            ! Calculate ExB Mach number: M_t = Omega_tE * R_0 / v_th
+            ! Calculate toroidal Mach number (ExB Mach number) [Albert2016 below (57)]
+            ! rtor is the major radius (R)
             M_t = Omega_tE(i) * rtor / vth
 
-            ! Column 2: ExB Mach number M_t
+            ! Column 2: toroidal Mach number M_t
             profile_data(i, 2) = M_t
         end do
     end subroutine prepare_profile_data_for_neort
@@ -241,6 +242,21 @@ contains
         use plasma_parameters, only: qsaf
         use wave_code_data, only: dPhi0
         use spline, only: spline_coeff, spline_val
+
+        ! Calculate toroidal electric precession frequency Ω_tE
+        ! the prime (') denotes the spatial derivative ∂/∂r
+        !   ⟨Ω_tE⟩_b = -c / ψ'_pol · ⟨∂Φ/∂r⟩_b
+        !     [Albert thesis (3.103)]
+        !   q = ψ'_tor / ψ'_pol
+        !     [Albert thesis (A.14)]
+        !   ψ_tor = r²·B_tor / 2
+        !     [Markl2023 (37)]
+        ! Note: dPhi0 is already the electric potential gradient ∂Φ/∂r
+        ! TODO: understand the following:
+        ! and dpsi_pol/dr = B^theta = psi_tor' / q = r * B_tor / q
+        ! Psi_tor = r²π * B_tor  =>  Psi_tor' = 2πr * B_tor
+        ! our psi_tor == Psi_tor / (2π)
+
 
         real(dp), dimension(:), intent(out) :: Omega_tE
         real(dp), dimension(:), intent(in) :: r
@@ -264,12 +280,6 @@ contains
         q_splined = spline_val(q_coeffs, r)
 
         do i = 1, r_size
-            ! Calculate toroidal electric precession frequency:
-            ! Omega_tE = -c * (dPhi/dr) / (dpsi_pol/dr)
-            ! Note: dPhi0 already contains dPhi/dr (electric potential gradient)
-            ! and dpsi_pol/dr = B^theta = psi_tor' / q = r * B_tor / q
-            ! Psi_tor = r²π * B_tor  =>  Psi_tor' = 2πr * B_tor
-            ! our psi_tor == Psi_tor / (2π)
             dPhi_dr = dPhi0_splined(i, 1)
             dpsi_pol_dr = r(i) * btor / q_splined(i, 1)
             Omega_tE(i) = -c * dPhi_dr / dpsi_pol_dr

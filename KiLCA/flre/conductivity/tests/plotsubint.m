@@ -81,7 +81,7 @@ siarg = zeros(kmax,kmax);
 
 for k1=1:kmax
     for k2=1:kmax
-    
+
         siarg(k1,k2) = subintarg(tau_z(k1)+tau_z(k2)*i, l, x, y, x1, x2, x3, x4);
 
     end
@@ -164,7 +164,7 @@ n = 0
 j1 = 0
 j2 = 0
 
-phi =   0.39269908169872414 
+phi =   0.39269908169872414
 
 
 % contour:

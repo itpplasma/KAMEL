@@ -433,7 +433,7 @@
   imx=nstep
   if(iflag.eq.-1) then
     imn=1
-  elseif(iflag.eq.1) then 
+  elseif(iflag.eq.1) then
     imx=nstep-1
   endif
   istart_margin=max(imn,istart-nshift)
@@ -490,7 +490,7 @@
       subint(j,nstiff+1:nsize,i)=matmul(matmul(coef(0,:),   &
              transpose(Bmat(j,nstiff+1:nsize,ibeg:iend))),  &
              Fbig(nstiff+1:nsize,nstiff+1:nsize,i))         &
-            /sum(Bmat(j,j,ibeg:iend)*coef(0,:)) 
+            /sum(Bmat(j,j,ibeg:iend)*coef(0,:))
     enddo
 !
     psi_arr(:,i)=matmul(eikonals(:,ibeg:iend),coef(0,:))

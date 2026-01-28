@@ -57,7 +57,7 @@ module integrands_rkf45_m
 
         select type(context)
         type is(rkf45_integrand_context_t)
-    
+
             ! Numerically stable half-angle forms
             sin_t = sin(theta)
             cos_t = cos(theta)
@@ -108,7 +108,7 @@ module integrands_rkf45_m
                 * varphi_l(context%x, context%xlm1, context%xl, context%xlp1) &
                 * 1.0d0 / max(sin_t, 1.0d-300)**5.0d0 &
                 * exp(- (context%x - context%xp)**2.0d0 / (4.0d0 * max(context%rhoT**2.0d0, 1.0d-300) * &
-                           max(2.0d0 * sin(0.5d0*theta)**2.0d0, 1.0d-300))) & 
+                           max(2.0d0 * sin(0.5d0*theta)**2.0d0, 1.0d-300))) &
                 * ( &
                     Jrg1(a, b, context%j) * (&
                         4.0d0 * cos(2.0d0 * theta) * context%rhoT**2.0d0 *(context%ks**2.0d0 * context%rhoT**2.0d0 + 1.0d0) &
@@ -155,7 +155,7 @@ module integrands_rkf45_m
                 * varphi_l(context%x, context%xlm1, context%xl, context%xlp1) &
                 * cos_t / max(sin_t, 1.0d-300)**5.0d0 &
                 * exp(- (context%x - context%xp)**2.0d0 / (4.0d0 * max(context%rhoT**2.0d0, 1.0d-300) * &
-                           max(2.0d0 * sin(0.5d0*theta)**2.0d0, 1.0d-300))) & 
+                           max(2.0d0 * sin(0.5d0*theta)**2.0d0, 1.0d-300))) &
                 * ( &
                     context%rhoT**2.0d0 * (cos(3.0d0 * theta) - cos_t) * Jrg1(a, b, context%j) &
                     + 4.0d0 * cos_t * (Jrg2(a, b, context%j, context%x) + Jrg3(a, b, context%j, context%xp)) &
@@ -243,7 +243,7 @@ module integrands_rkf45_m
                         + 2.0d0 * a * exp(-a**2.0d0 * (b - rg_grid%xb(j))**2.0d0) &
                             * (b + rg_grid%xb(j) - 2.0d0 * xlp) &
                         - 2.0d0 * a * exp(-a**2.0d0 * (b - rg_grid%xb(j+1))**2.0d0) &
-                            * (b + rg_grid%xb(j+1) - 2.0d0 * xlp) & 
+                            * (b + rg_grid%xb(j+1) - 2.0d0 * xlp) &
                     )
 
     end function

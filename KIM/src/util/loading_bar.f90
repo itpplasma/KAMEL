@@ -8,7 +8,7 @@ module loading_bar_m
 
             use KIM_kinds_m, only: dp
 
-            implicit none 
+            implicit none
 
             integer, intent(in) :: current_step, total_steps
             real(dp) :: percentage
@@ -28,7 +28,7 @@ module loading_bar_m
 
             use KIM_kinds_m, only: dp
 
-            implicit none 
+            implicit none
 
             integer, intent(in) :: current_step, total_steps
             integer(kind=8), intent(in) :: start_count, count_rate
@@ -47,7 +47,7 @@ module loading_bar_m
             if (current_step > 0) then
                 estimated_total_time = elapsed_time * real(total_steps) / real(current_step)
                 eta = estimated_total_time - elapsed_time
-                
+
                 ! Convert ETA to hours, minutes, seconds
                 eta_hours = int(eta / 3600.0)
                 eta_minutes = int(mod(eta, 3600.0) / 60.0)
@@ -60,7 +60,7 @@ module loading_bar_m
 
             ! Clear the previous loading bar
             write(*, '(A)', advance='no') ACHAR(13)!char(27)//"[2K"
-            
+
             ! Display the loading bar with ETA
             if (current_step > 0) then
                 write(*, '(A, F6.2, A)', advance='no') "Progress: ", percentage, "% ["

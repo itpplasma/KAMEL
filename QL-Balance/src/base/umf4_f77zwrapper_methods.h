@@ -72,7 +72,7 @@ void umf4zsolr_FORTRAN (Int *sys, Int Ap [ ], Int Ai [ ],
     double Control [UMFPACK_CONTROL], double Info [UMFPACK_INFO])
 {
     (void) UMFPACK_solve (*sys, Ap, Ai, Ax, Az, x, xz, b, bz,
-	*Numeric, Control, Info) ;
+    *Numeric, Control, Info) ;
 }
 
 /* -------------------------------------------------------------------------- */
@@ -87,7 +87,7 @@ void umf4zsol_FORTRAN (Int *sys, double x [ ], double xz [ ], double b [ ],
 {
     Control [UMFPACK_IRSTEP] = 0 ;
     (void) UMFPACK_solve (*sys, (Int *) NULL, (Int *) NULL, (double *) NULL,
-	(double *) NULL, x, xz, b, bz, *Numeric, Control, Info) ;
+    (double *) NULL, x, xz, b, bz, *Numeric, Control, Info) ;
 }
 
 /* -------------------------------------------------------------------------- */
@@ -205,4 +205,3 @@ void umf4zlsym_FORTRAN (void **Symbolic, Int *filenum, Int *status)
 #undef umf4zssym_FORTRAN
 #undef umf4zlnum_FORTRAN
 #undef umf4zlsym_FORTRAN
-

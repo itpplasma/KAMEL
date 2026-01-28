@@ -1,5 +1,6 @@
 from .KiLCA_interface import KiLCA_interface
 
+
 class KiLCA_scans(KiLCA_interface):
     """This class handles the parameter scans frequently done with KiLCA."""
 

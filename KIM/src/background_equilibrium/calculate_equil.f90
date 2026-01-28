@@ -3,11 +3,11 @@ module equilibrium_m
     use KIM_kinds_m, only: dp
 
     implicit none
-    
+
     real(dp), allocatable :: B0z(:), B0th(:), B0(:), J0z(:), J0th(:)
     real(dp), allocatable :: hz(:), hth(:)
     real(dp), allocatable :: equil_grid(:)
-    
+
     integer :: ineq = 1 ! numbers of equations to be solved
     integer :: idid     ! indicator reporting what the code did
     real(dp) :: rtol = 1.0d-12 ! relative error tolerance
@@ -67,7 +67,7 @@ module equilibrium_m
             if (.not. allocated(plasma%spec(0)%dndr)) then
                 call calc_plasma_parameter_derivs
             end if
-    
+
             dpress_prof = 0.0d0
             do i=1, plasma%grid_size
                 do sigma = 0, number_of_ion_species
@@ -81,7 +81,7 @@ module equilibrium_m
             ! info(1) = 0: initialization, i.e. tell code it is a new problem
             ! info(2) = 0: input scalars for rtol and atol (instead of vectors)
             ! info(3) = 0: solution is only given at TOUT (or r1 in this implementation)
-            info = 0 
+            info = 0
             ! info(4) = 1: the integration can NOT be carried out without any restrictions
             ! on the independent variable T
             info(4) = 1
@@ -158,7 +158,7 @@ module equilibrium_m
 
                     q = sum(coef(0,:) * plasma%q(ibeg:iend))
                     dpress = sum(coef(0, :) * dpress_prof(ibeg:iend))
-                    
+
                     du = -2.0d0 * r * u / (q**2.0d0 * R0**2.0d0 + r**2.0d0) - 8.0d0 * pi * dpress
 
                 end subroutine
@@ -187,7 +187,7 @@ module equilibrium_m
 
 
         end subroutine
-        
+
 
         subroutine interpolate_equil(grid)
 

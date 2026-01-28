@@ -20,10 +20,10 @@ MODULE sparse_mod
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !Initialization of the parameters of Super_LU c-Routines
-  PRIVATE factors 
+  PRIVATE factors
   INTEGER(kind=long) :: factors
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-! !ToDo: Please uncomment, when PARDISO is desired 
+! !ToDo: Please uncomment, when PARDISO is desired
 ! !Initialization of the PARDISO-Solver-Routine!
 !   INTEGER(kind=long), PRIVATE :: pt(64) !Solver's internal data adress pointer
 !   INTEGER, PUBLIC :: maxfct=1 !max. number of factors with identical nonzero sparsity structure to keep in menmory
@@ -32,11 +32,11 @@ MODULE sparse_mod
 !   INTEGER, PRIVATE :: phase ! controls the execution of the solver (like iopt and iopt_in) (e.g. 12=Analysis/numerical factorization, 33=solve,iterative refinement, -1=release all internal memory )
 !   INTEGER, PUBLIC :: pardiso_solver=0 !user sparse direct solver (solver=1 multi-recursive iterative solver)
 !   INTEGER, PUBLIC :: iparm(64) !optional settings of the solver, default values set by subroutine pardisoinit (exception: iparm(3)=OMP_NUM_THREADS (NO DEFAULT VALUe) )
-! 		    !iparm(12)=1 ==> solution of the transposed system has to be performed ( (A^T)*X=B ) - PARDISO uses the "compressed-sparse-row" (CSR) format to store matrices
-! 	            !and SuperLU uses "compressed-sparse-column" (CSC) format to store matrices (relationship between CSR and CSC: CSR(A)=CSC(transposed(A)) with matrix A)
+!           !iparm(12)=1 ==> solution of the transposed system has to be performed ( (A^T)*X=B ) - PARDISO uses the "compressed-sparse-row" (CSR) format to store matrices
+!               !and SuperLU uses "compressed-sparse-column" (CSC) format to store matrices (relationship between CSR and CSC: CSR(A)=CSC(transposed(A)) with matrix A)
 !                     !instead of converting the storage format, the transposed system is solved
 !   INTEGER, PUBLIC :: omp_num_threads=4
-!   INTEGER, PRIVATE :: idummy 
+!   INTEGER, PRIVATE :: idummy
 !   REAL(kind=dp), PRIVATE :: ddummy
 !   REAL(kind=dp), PUBLIC :: dparm(64)!optional settings for the multi-recursive solver
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -57,14 +57,14 @@ MODULE sparse_mod
   INTERFACE load_compressed_example
      MODULE PROCEDURE load_compressed_ex
   END INTERFACE
-  
+
   PUBLIC load_standard_example
   PRIVATE load_standard_ex
   INTERFACE load_standard_example
      MODULE PROCEDURE load_standard_ex
   END INTERFACE
 
-	PUBLIC load_octave_matrices
+    PUBLIC load_octave_matrices
   PRIVATE load_octave_mat
   INTERFACE load_octave_matrices
      MODULE PROCEDURE load_octave_mat, load_octave_matComplex
@@ -75,7 +75,7 @@ MODULE sparse_mod
   INTERFACE column_pointer2full
      MODULE PROCEDURE col_pointer2full
   END INTERFACE
-  
+
   PUBLIC column_full2pointer
   PRIVATE col_full2pointer
   INTERFACE column_full2pointer
@@ -106,8 +106,8 @@ MODULE sparse_mod
      MODULE PROCEDURE sparse_solve_superlu_b1,sparse_solve_superlu_b2_loop, &
      sparse_solve_superluComplex_b1, sparse_solve_superluComplex_b2_loop
   END INTERFACE
-	
-! 	!ToDo: Please uncomment, when PARDISO is desired 
+
+!   !ToDo: Please uncomment, when PARDISO is desired
 !   PUBLIC sparse_solve_pardiso
 !   INTERFACE sparse_solve_pardiso
 !     MODULE PROCEDURE sparse_solve_pardiso_b1, sparse_solve_pardiso_b2_loop, &
@@ -119,7 +119,7 @@ MODULE sparse_mod
      MODULE PROCEDURE sparse_solve_suitesparse_b1, sparse_solve_suitesparse_b2_loop, &
      sparse_solve_suitesparseComplex_b1, sparse_solve_suitesparseComplex_b2_loop
   END INTERFACE
- 
+
   PUBLIC sparse_matmul
   INTERFACE sparse_matmul
      MODULE PROCEDURE sp_matmul_A_b1,sp_matmul_b1,sp_matmul_A_b2,sp_matmul_b2, &
@@ -138,8 +138,8 @@ MODULE sparse_mod
 
   ! helper
   PRIVATE find_unit
-  
-  
+
+
 CONTAINS
 
   !-------------------------------------------------------------------------------
@@ -152,16 +152,16 @@ CONTAINS
        IF (.NOT. opened) EXIT
        unit = unit + 1
     END DO
-    
+
   END SUBROUTINE find_unit
   !-------------------------------------------------------------------------------
-  
+
   !-------------------------------------------------------------------------------
   ! Examples
   SUBROUTINE sparse_example(example,subexample)
     INTEGER, INTENT(in) :: example
     INTEGER, INTENT(in), OPTIONAL :: subexample
-    
+
     CHARACTER(len=100) :: name
     INTEGER :: nrow,ncol,nz, nrhs
     INTEGER, DIMENSION(:), ALLOCATABLE :: irow,pcol,icol
@@ -171,21 +171,21 @@ CONTAINS
     COMPLEX(kind=dp), DIMENSION(:,:), ALLOCATABLE :: z_A,z_bb,z_xx
 
     INTEGER :: ir,ic,icmax,subex_example6,i,unit
-		
-		subex_example6=1
-		IF(PRESENT(subexample)) subex_example6=subexample
+
+        subex_example6=1
+        IF(PRESENT(subexample)) subex_example6=subexample
 
     IF (example .EQ. 1) THEN
        ! load the test-matrix for the mini_example
        CALL load_mini_example(A)
-       
+
        ! construct the rhs
        IF (ALLOCATED(b)) DEALLOCATE(b)
        ALLOCATE(b(SIZE(A,2)))
        b = 1.0_dp
        ! x is only needed because b should not be overwritten
        IF (ALLOCATED(x)) DEALLOCATE(x)
-       ALLOCATE(x(SIZE(b,1))) 
+       ALLOCATE(x(SIZE(b,1)))
        x = b
        ! solve
        CALL sparse_solve(A,x)
@@ -199,36 +199,36 @@ CONTAINS
        ! convert to sparse
        CALL full2sparse(A,irow,pcol,val,nrow,ncol,nz)
        IF (sparse_talk) PRINT *, 'nrow=',nrow,' ncol=',ncol,' nz=',nz
-       !Check the conversion to sparse 
+       !Check the conversion to sparse
        !CALL sparse2full(irow,pcol,val,nrow,ncol,A)
-       
+
 !        !save the matrix in a sparse format for further analysis (e.g. calculate the condition number rcond)
 !        CALL find_unit(unit)
 !        OPEN(unit=unit,file='/proj/plasma/Solver_Test/TestMatrices/mini_example.dat',status='replace',action='write')
 !        DO i=1,ncol+1
-!        	IF(i .EQ. ncol+1) THEN
-!        		WRITE (unit=unit,fmt='(I5)',ADVANCE='YES') pcol(i)
-!        	ELSE
-!        	WRITE (unit=unit,fmt='(I5)',ADVANCE='NO') pcol(i)
-!        	END IF
+!           IF(i .EQ. ncol+1) THEN
+!               WRITE (unit=unit,fmt='(I5)',ADVANCE='YES') pcol(i)
+!           ELSE
+!           WRITE (unit=unit,fmt='(I5)',ADVANCE='NO') pcol(i)
+!           END IF
 !        END DO
 !        DO i=1,nz
-!        	IF(i .EQ. nz) THEN
-!        		WRITE (unit=unit,fmt='(I8)',ADVANCE='YES') irow(i)
-!        	ELSE
-!        	WRITE (unit=unit,fmt='(I8)',ADVANCE='NO') irow(i)
-!        	END IF
+!           IF(i .EQ. nz) THEN
+!               WRITE (unit=unit,fmt='(I8)',ADVANCE='YES') irow(i)
+!           ELSE
+!           WRITE (unit=unit,fmt='(I8)',ADVANCE='NO') irow(i)
+!           END IF
 !        END DO
 !        DO i=1,nz
-!        	IF(i .EQ. nz) THEN
-!        		WRITE (unit=unit,fmt='(F16.8)',ADVANCE='YES') val(i)
-!        	ELSE
-!        	WRITE (unit=unit,fmt='(F16.8)',ADVANCE='NO') val(i)
-!        	END IF
+!           IF(i .EQ. nz) THEN
+!               WRITE (unit=unit,fmt='(F16.8)',ADVANCE='YES') val(i)
+!           ELSE
+!           WRITE (unit=unit,fmt='(F16.8)',ADVANCE='NO') val(i)
+!           END IF
 !        END DO
 !        CLOSE(unit=unit)
-       
-       
+
+
        !construct an array of rhs
        IF (ALLOCATED(bb)) DEALLOCATE(bb)
        icmax = ncol
@@ -255,33 +255,33 @@ CONTAINS
        name = '/proj/plasma/Libs/SuperLU/SuperLU_3.0/DATA/g10'
        CALL load_standard_example(name,nrow,ncol,nz,irow,pcol,val)
        IF (sparse_talk) PRINT *, 'nrow=',nrow,' ncol=',ncol,' nz=',nz
-       
+
 !        !save the matrix in a sparse format for further analysis (e.g. calculate the condition number rcond)
 !        CALL find_unit(unit)
 !        OPEN(unit=unit,file='/proj/plasma/Solver_Test/TestMatrices/g10.dat',status='replace',action='write')
 !        DO i=1,ncol+1
-!        	IF(i .EQ. ncol+1) THEN
-!        		WRITE (unit=unit,fmt='(I8)',ADVANCE='YES') pcol(i)
-!        	ELSE
-!        	WRITE (unit=unit,fmt='(I8)',ADVANCE='NO') pcol(i)
-!        	END IF
+!           IF(i .EQ. ncol+1) THEN
+!               WRITE (unit=unit,fmt='(I8)',ADVANCE='YES') pcol(i)
+!           ELSE
+!           WRITE (unit=unit,fmt='(I8)',ADVANCE='NO') pcol(i)
+!           END IF
 !        END DO
 !        DO i=1,nz
-!        	IF(i .EQ. nz) THEN
-!        		WRITE (unit=unit,fmt='(I8)',ADVANCE='YES') irow(i)
-!        	ELSE
-!        	WRITE (unit=unit,fmt='(I8)',ADVANCE='NO') irow(i)
-!        	END IF
+!           IF(i .EQ. nz) THEN
+!               WRITE (unit=unit,fmt='(I8)',ADVANCE='YES') irow(i)
+!           ELSE
+!           WRITE (unit=unit,fmt='(I8)',ADVANCE='NO') irow(i)
+!           END IF
 !        END DO
 !        DO i=1,nz
-!        	IF(i .EQ. nz) THEN
-!        		WRITE (unit=unit,fmt='(F16.8)',ADVANCE='YES') val(i)
-!        	ELSE
-!        	WRITE (unit=unit,fmt='(F16.8)',ADVANCE='NO') val(i)
-!        	END IF
+!           IF(i .EQ. nz) THEN
+!               WRITE (unit=unit,fmt='(F16.8)',ADVANCE='YES') val(i)
+!           ELSE
+!           WRITE (unit=unit,fmt='(F16.8)',ADVANCE='NO') val(i)
+!           END IF
 !        END DO
 !        CLOSE(unit=unit)
-       
+
        ! construct the rhs
        IF (ALLOCATED(b)) DEALLOCATE(b)
        ALLOCATE(b(nrow))
@@ -301,34 +301,34 @@ CONTAINS
        name = '/proj/plasma/Libs/SuperLU/SuperLU_3.0/DATA/sparse_compressed_e100_s100_D0d001.dat'
        CALL load_compressed_example(name,nrow,ncol,nz,irow,pcol,val)
        IF (sparse_talk) PRINT *, 'nrow=',nrow,' ncol=',ncol,' nz=',nz
-       
+
 !        !save the matrix in a sparse format for further analysis (e.g. calculate the condition number rcond)
 !        CALL find_unit(unit)
 !        OPEN(unit=unit,file='/proj/plasma/Solver_Test/TestMatrices/sparse_compressed_e100_s100_D0d001.dat' &
 !        ,status='replace',action='write')
 !        DO i=1,ncol+1
-!        	IF(i .EQ. ncol+1) THEN
-!        		WRITE (unit=unit,fmt='(I8)',ADVANCE='YES') pcol(i)
-!        	ELSE
-!        	WRITE (unit=unit,fmt='(I8)',ADVANCE='NO') pcol(i)
-!        	END IF
+!           IF(i .EQ. ncol+1) THEN
+!               WRITE (unit=unit,fmt='(I8)',ADVANCE='YES') pcol(i)
+!           ELSE
+!           WRITE (unit=unit,fmt='(I8)',ADVANCE='NO') pcol(i)
+!           END IF
 !        END DO
 !        DO i=1,nz
-!        	IF(i .EQ. nz) THEN
-!        		WRITE (unit=unit,fmt='(I8)',ADVANCE='YES') irow(i)
-!        	ELSE
-!        	WRITE (unit=unit,fmt='(I8)',ADVANCE='NO') irow(i)
-!        	END IF
+!           IF(i .EQ. nz) THEN
+!               WRITE (unit=unit,fmt='(I8)',ADVANCE='YES') irow(i)
+!           ELSE
+!           WRITE (unit=unit,fmt='(I8)',ADVANCE='NO') irow(i)
+!           END IF
 !        END DO
 !        DO i=1,nz
-!        	IF(i .EQ. nz) THEN
-!        		WRITE (unit=unit,fmt='(F16.8)',ADVANCE='YES') val(i)
-!        	ELSE
-!        	WRITE (unit=unit,fmt='(F16.8)',ADVANCE='NO') val(i)
-!        	END IF
+!           IF(i .EQ. nz) THEN
+!               WRITE (unit=unit,fmt='(F16.8)',ADVANCE='YES') val(i)
+!           ELSE
+!           WRITE (unit=unit,fmt='(F16.8)',ADVANCE='NO') val(i)
+!           END IF
 !        END DO
 !        CLOSE(unit=unit)
-       
+
        ! construct a rhs
        IF (ALLOCATED(b)) DEALLOCATE(b)
        ALLOCATE(b(nrow))
@@ -363,39 +363,39 @@ CONTAINS
        !PRINT *,xx
        ! test
        CALL sparse_solver_test(nrow,ncol,irow,pcol,val,xx,bb)
-       
-		ELSEIF (example .EQ. 6) THEN
-       ! load the different test-matrices generated by octave 
+
+        ELSEIF (example .EQ. 6) THEN
+       ! load the different test-matrices generated by octave
        ! for the different test-cases
        SELECT CASE (subex_example6)
-       	CASE (1)
-       		name = '/proj/plasma/Solver_Test/TestMatrices/test_matrix1.dat'
-       	CASE (2)
-       		name = '/proj/plasma/Solver_Test/TestMatrices/test_matrix2.dat'
-       	CASE (3)
-       		name = '/proj/plasma/Solver_Test/TestMatrices/test_matrix3.dat'
-       	CASE (4)
-       		name = '/proj/plasma/Solver_Test/TestMatrices/test_matrix4.dat'
-       	CASE (5)
-       		name = '/proj/plasma/Solver_Test/TestMatrices/test_matrix5.dat'
-       	CASE (6)
-       		name = '/proj/plasma/Solver_Test/TestMatrices/test_matrix6.dat'
-       	CASE (7)
-       		name = '/proj/plasma/Solver_Test/TestMatrices/test_matrix7.dat'
-       	CASE (8)
-       		name = '/proj/plasma/Solver_Test/TestMatrices/test_matrix8.dat'
-       	CASE (9)
-       		name = '/proj/plasma/Solver_Test/TestMatrices/test_matrix9.dat'
-       	CASE (10)
-       		name = '/proj/plasma/Solver_Test/TestMatrices/test_matrix10.dat'
-       	CASE (11)
-       		name = '/proj/plasma/Solver_Test/TestMatrices/test_matrix11.dat'
-       	CASE (12)
-       		name = '/proj/plasma/Solver_Test/TestMatrices/test_matrix12.dat'
-       	CASE (13)
-       		name = '/proj/plasma/Solver_Test/TestMatrices/test_matrix13.dat'
-       	CASE DEFAULT
-       		PRINT *, 'unknown file name -> select a subexample between 1 and 13'
+        CASE (1)
+            name = '/proj/plasma/Solver_Test/TestMatrices/test_matrix1.dat'
+        CASE (2)
+            name = '/proj/plasma/Solver_Test/TestMatrices/test_matrix2.dat'
+        CASE (3)
+            name = '/proj/plasma/Solver_Test/TestMatrices/test_matrix3.dat'
+        CASE (4)
+            name = '/proj/plasma/Solver_Test/TestMatrices/test_matrix4.dat'
+        CASE (5)
+            name = '/proj/plasma/Solver_Test/TestMatrices/test_matrix5.dat'
+        CASE (6)
+            name = '/proj/plasma/Solver_Test/TestMatrices/test_matrix6.dat'
+        CASE (7)
+            name = '/proj/plasma/Solver_Test/TestMatrices/test_matrix7.dat'
+        CASE (8)
+            name = '/proj/plasma/Solver_Test/TestMatrices/test_matrix8.dat'
+        CASE (9)
+            name = '/proj/plasma/Solver_Test/TestMatrices/test_matrix9.dat'
+        CASE (10)
+            name = '/proj/plasma/Solver_Test/TestMatrices/test_matrix10.dat'
+        CASE (11)
+            name = '/proj/plasma/Solver_Test/TestMatrices/test_matrix11.dat'
+        CASE (12)
+            name = '/proj/plasma/Solver_Test/TestMatrices/test_matrix12.dat'
+        CASE (13)
+            name = '/proj/plasma/Solver_Test/TestMatrices/test_matrix13.dat'
+        CASE DEFAULT
+            PRINT *, 'unknown file name -> select a subexample between 1 and 13'
        END SELECT
        CALL load_octave_matrices(name,nrow,ncol,nz,irow,pcol,val)
        IF (sparse_talk) PRINT *, 'nrow=',nrow,' ncol=',ncol,' nz=',nz
@@ -413,68 +413,68 @@ CONTAINS
        !PRINT *,x
        ! test
        CALL sparse_solver_test(nrow,ncol,irow,pcol,val,x,b)
-       
-       
-		ELSEIF (example .EQ. 7) THEN
-			
-			nrow=8
-			ncol=8
-			nz=20
-			
-			IF (ALLOCATED(pcol)) DEALLOCATE(pcol)
+
+
+        ELSEIF (example .EQ. 7) THEN
+
+            nrow=8
+            ncol=8
+            nz=20
+
+            IF (ALLOCATED(pcol)) DEALLOCATE(pcol)
       ALLOCATE(pcol(nrow+1))
       IF (ALLOCATED(irow)) DEALLOCATE(irow)
       ALLOCATE(irow(nz))
       IF (ALLOCATED(z_val)) DEALLOCATE(z_val)
       ALLOCATE(z_val(nz))
-		
-		 pcol= (/1,5,8,10,12,13,16,18,21/)
 
-		 irow =(/ 1,3,6,7,2,3,5,3,8,4,7,2,3,6,8,2,7,3,7,8 /)
-		 z_val=(/ (7.d0, 1.d0), (1.d0,1.d0), (2.d0,1.d0), (7.d0,1.d0), (-4.d0,0.d0),&
-		  				(8.d0,1.d0), (2.d0,1.d0),(1.d0,1.d0),(5.d0,1.d0),(7.d0,0.d0),  (9.d0,1.d0),& 
-							(-4d0,1.d0),(7.d0,1.d0),  (3.d0,1.d0), (8.d0,0.d0),(1.d0,1.d0),&
-							(11.d0,1.d0),(-3.d0,1.d0), (2.d0,1.d0), (5.d0,0.d0)/)
-			
-			IF (ALLOCATED(z_b)) DEALLOCATE(z_b)
+         pcol= (/1,5,8,10,12,13,16,18,21/)
+
+         irow =(/ 1,3,6,7,2,3,5,3,8,4,7,2,3,6,8,2,7,3,7,8 /)
+         z_val=(/ (7.d0, 1.d0), (1.d0,1.d0), (2.d0,1.d0), (7.d0,1.d0), (-4.d0,0.d0),&
+                        (8.d0,1.d0), (2.d0,1.d0),(1.d0,1.d0),(5.d0,1.d0),(7.d0,0.d0),  (9.d0,1.d0),&
+                            (-4d0,1.d0),(7.d0,1.d0),  (3.d0,1.d0), (8.d0,0.d0),(1.d0,1.d0),&
+                            (11.d0,1.d0),(-3.d0,1.d0), (2.d0,1.d0), (5.d0,0.d0)/)
+
+            IF (ALLOCATED(z_b)) DEALLOCATE(z_b)
       ALLOCATE(z_b(nrow))
-			DO ir = 1, nrow
-				z_b(ir) = CMPLX(1.d0,1.d0)
-			END DO
-			
-			IF (ALLOCATED(z_x)) DEALLOCATE(z_x)
+            DO ir = 1, nrow
+                z_b(ir) = CMPLX(1.d0,1.d0)
+            END DO
+
+            IF (ALLOCATED(z_x)) DEALLOCATE(z_x)
       ALLOCATE(z_x(nrow))
-			z_x=z_b
-			
-			CALL sparse_solve(nrow,ncol,nz,irow,pcol,z_val,z_x)
+            z_x=z_b
+
+            CALL sparse_solve(nrow,ncol,nz,irow,pcol,z_val,z_x)
       PRINT *,z_x
       CALL sparse_solver_test(nrow,ncol,irow,pcol,z_val,z_x,z_b)
-				
-		ELSEIF (example .EQ. 8) THEN
-       ! load the different complex test-matrices generated by octave 
+
+        ELSEIF (example .EQ. 8) THEN
+       ! load the different complex test-matrices generated by octave
        ! for the different test-cases
        SELECT CASE (subex_example6)
-       	CASE (1)
-       		name = '/proj/plasma/Solver_Test/TestMatrices/test_ComplexMatrix1.dat'
-       	CASE (2)
-       		name = '/proj/plasma/Solver_Test/TestMatrices/test_ComplexMatrix2.dat'
-       	CASE (3)
-       		name= '/proj/plasma/Solver_Test/TestMatrices/test_ComplexMatrix3.dat'
-       	CASE (4)
-       		name = '/proj/plasma/Solver_Test/TestMatrices/test_ComplexMatrix4.dat'
-       	CASE (5)
-       		name = '/proj/plasma/Solver_Test/TestMatrices/test_ComplexMatrix5.dat'
-       	CASE (6)
-       		name = '/proj/plasma/Solver_Test/TestMatrices/test_ComplexMatrix6.dat'
-       	CASE (7)
-       		name = '/proj/plasma/Solver_Test/TestMatrices/test_ComplexMatrix7.dat'
-       	CASE DEFAULT
-       		PRINT *, 'unknown file name -> select a subexample between 1 and 7'
+        CASE (1)
+            name = '/proj/plasma/Solver_Test/TestMatrices/test_ComplexMatrix1.dat'
+        CASE (2)
+            name = '/proj/plasma/Solver_Test/TestMatrices/test_ComplexMatrix2.dat'
+        CASE (3)
+            name= '/proj/plasma/Solver_Test/TestMatrices/test_ComplexMatrix3.dat'
+        CASE (4)
+            name = '/proj/plasma/Solver_Test/TestMatrices/test_ComplexMatrix4.dat'
+        CASE (5)
+            name = '/proj/plasma/Solver_Test/TestMatrices/test_ComplexMatrix5.dat'
+        CASE (6)
+            name = '/proj/plasma/Solver_Test/TestMatrices/test_ComplexMatrix6.dat'
+        CASE (7)
+            name = '/proj/plasma/Solver_Test/TestMatrices/test_ComplexMatrix7.dat'
+        CASE DEFAULT
+            PRINT *, 'unknown file name -> select a subexample between 1 and 7'
        END SELECT
        CALL load_octave_matrices(name,nrow,ncol,nz,irow,pcol,z_val)
        IF (sparse_talk) PRINT *, 'nrow=',nrow,' ncol=',ncol,' nz=',nz
-			 
-			 
+
+
        ! construct a rhs
        IF (ALLOCATED(z_b)) DEALLOCATE(z_b)
        ALLOCATE(z_b(nrow))
@@ -487,39 +487,39 @@ CONTAINS
        CALL sparse_solve(nrow,ncol,nz,irow,pcol,z_val,z_x)
        ! test
        CALL sparse_solver_test(nrow,ncol,irow,pcol,z_val,z_x,z_b)
-       
+
     ELSEIF (example .EQ. 9) THEN
-			!load test_matrix13.dat and solve the system for different numbers
-			!of right-hand sides
-			
-			name = '/proj/plasma/Solver_Test/TestMatrices/test_matrix13.dat'
-			CALL load_octave_matrices(name,nrow,ncol,nz,irow,pcol,val)
-			IF (sparse_talk) PRINT *, 'nrow=',nrow,' ncol=',ncol,' nz=',nz
-			
-			SELECT CASE (subex_example6)
-       	CASE (1)
-       		nrhs=10
-       	CASE (2)
-       		nrhs=25
-       	CASE (3)
-       		nrhs=50
-       	CASE (4)
-       		nrhs=75
-       	CASE (5)
-       		nrhs=100
-       	CASE (6)
-       		nrhs=250
-       	CASE (7)
-       		nrhs=500
-       	CASE (8)
-       		nrhs=750
-       	CASE (9)
-       		nrhs=1000
-       	CASE DEFAULT
-       		PRINT *, 'unknown number of rhs -> select a subexample between 1 and 9'
+            !load test_matrix13.dat and solve the system for different numbers
+            !of right-hand sides
+
+            name = '/proj/plasma/Solver_Test/TestMatrices/test_matrix13.dat'
+            CALL load_octave_matrices(name,nrow,ncol,nz,irow,pcol,val)
+            IF (sparse_talk) PRINT *, 'nrow=',nrow,' ncol=',ncol,' nz=',nz
+
+            SELECT CASE (subex_example6)
+        CASE (1)
+            nrhs=10
+        CASE (2)
+            nrhs=25
+        CASE (3)
+            nrhs=50
+        CASE (4)
+            nrhs=75
+        CASE (5)
+            nrhs=100
+        CASE (6)
+            nrhs=250
+        CASE (7)
+            nrhs=500
+        CASE (8)
+            nrhs=750
+        CASE (9)
+            nrhs=1000
+        CASE DEFAULT
+            PRINT *, 'unknown number of rhs -> select a subexample between 1 and 9'
        END SELECT
-			
-    	! construct a rhs
+
+        ! construct a rhs
       IF (ALLOCATED(bb)) DEALLOCATE(bb)
       ALLOCATE(bb(nrow,nrhs))
       DO ir = 1, nrhs
@@ -533,7 +533,7 @@ CONTAINS
       !PRINT *,xx
       ! test
       CALL sparse_solver_test(nrow,ncol,irow,pcol,val,xx,bb)
-       
+
     END IF
 
     IF (ALLOCATED(irow)) DEALLOCATE(irow)
@@ -551,14 +551,14 @@ CONTAINS
     IF (ALLOCATED(z_x)) DEALLOCATE(z_x)
     IF (ALLOCATED(z_bb)) DEALLOCATE(z_bb)
     IF (ALLOCATED(z_xx)) DEALLOCATE(z_xx)
-    
+
 
     RETURN
   END SUBROUTINE sparse_example
   !-------------------------------------------------------------------------------
 
   !-------------------------------------------------------------------------------
-  ! loads a mini example 
+  ! loads a mini example
   SUBROUTINE load_mini_ex(A)
     REAL(kind=dp), DIMENSION(:,:), ALLOCATABLE, INTENT(out) :: A
 
@@ -566,7 +566,7 @@ CONTAINS
     A(:,1) = (/1.0_dp,2.0_dp,3.0_dp,4.0_dp,5.0_dp/)
     A(:,2) = A(:,1)*5 + 2
     A(:,3) = A(:,2)*7 + 2
-    A(:,4) = A(:,3)*2 + 2  
+    A(:,4) = A(:,3)*2 + 2
     A(:,5) = A(:,4)*9 + 2
 
     !A(1,5) = 0.0_dp
@@ -579,31 +579,31 @@ CONTAINS
   !-------------------------------------------------------------------------------
 
   !-------------------------------------------------------------------------------
-  ! loads own compressed example 
+  ! loads own compressed example
   SUBROUTINE load_compressed_ex(name,nrow,ncol,nz,irow,pcol,val)
     CHARACTER(LEN=*), INTENT(in) :: name
     INTEGER, INTENT(out) :: nrow,ncol,nz
     INTEGER, DIMENSION(:), ALLOCATABLE, INTENT(out) :: irow,pcol
     REAL(kind=dp), DIMENSION(:), ALLOCATABLE, INTENT(out) :: val
-    
+
     INTEGER :: unit,i
-    
+
     unit = 10;
     CALL find_unit(unit)
     OPEN(unit=unit,file=TRIM(ADJUSTL(name)),action='read')
-    
+
     READ(unit,*) nrow,ncol,nz
     ALLOCATE(irow(nz),pcol(ncol+1),val(nz))
     READ(unit,*) (irow(i), i = 1, nz)
     READ(unit,*) (pcol(i), i = 1, ncol+1)
     READ(unit,*) (val(i),  i = 1, nz)
-    
+
     CLOSE(unit=unit)
-    
+
     RETURN
   END SUBROUTINE load_compressed_ex
   !-------------------------------------------------------------------------------
-  
+
   !-------------------------------------------------------------------------------
   ! loads standard example from SuperLU distribution
   SUBROUTINE load_standard_ex(name,nrow,ncol,nz,irow,pcol,val)
@@ -611,15 +611,15 @@ CONTAINS
     INTEGER, INTENT(out) :: nrow,ncol,nz
     INTEGER, DIMENSION(:), ALLOCATABLE, INTENT(out) :: irow,pcol
     REAL(kind=dp), DIMENSION(:), ALLOCATABLE, INTENT(out) :: val
-    
+
     INTEGER :: unit,i
-    
-    CHARACTER(len=72) :: fmt1 
-    CHARACTER(len=72) :: title 
-    CHARACTER(len=8)  :: key 
+
+    CHARACTER(len=72) :: fmt1
+    CHARACTER(len=72) :: title
+    CHARACTER(len=8)  :: key
     CHARACTER(len=3)  :: mxtype
     CHARACTER(len=16) :: ptrfmt,indfmt
-    CHARACTER(len=20) :: valfmt,rhsfmt 
+    CHARACTER(len=20) :: valfmt,rhsfmt
 
     INTEGER :: totcrd,ptrcrd,indcrd,valcrd,rhscrd,neltvl
 
@@ -633,7 +633,7 @@ CONTAINS
          title, key, totcrd, ptrcrd, indcrd, valcrd, rhscrd, &
          mxtype, nrow, ncol, nz, neltvl, &
          ptrfmt, indfmt, valfmt, rhsfmt
-    ALLOCATE(irow(nz),pcol(ncol+1),val(nz))    
+    ALLOCATE(irow(nz),pcol(ncol+1),val(nz))
     READ (unit=unit,fmt=ptrfmt) ( pcol(i), i = 1, ncol+1 )
     READ (unit=unit,fmt=indfmt) ( irow(i), i = 1, nz )
     READ (unit=unit,fmt=valfmt) ( val(i),  i = 1, nz )
@@ -645,121 +645,121 @@ CONTAINS
   !-------------------------------------------------------------------------------
 
   !-------------------------------------------------------------------------------
-	SUBROUTINE load_octave_mat(name,nrow,ncol,nz,irow,pcol,val)
-		CHARACTER(LEN=*), INTENT(in) :: name
-		INTEGER, INTENT(out) :: nrow,ncol,nz
-		INTEGER, DIMENSION(:), ALLOCATABLE, INTENT(out) :: irow,pcol
-		REAL(kind=dp), DIMENSION(:), ALLOCATABLE, INTENT(out) :: val
-		
-		INTEGER :: unit,i,k
-		INTEGER, DIMENSION(:), ALLOCATABLE :: octave_pcol
-		
-		!open the input-file ("name")
-		unit = 10;
-		CALL find_unit(unit)
-		OPEN(unit=unit,file=TRIM(ADJUSTL(name)),action='read')
-		
-		!read nrow, ncol, nz and allocate the arrays for 
-		!irow, pcol val 
-		READ(unit,*) nrow,ncol,nz
-		ALLOCATE(irow(nz),pcol(ncol+1),octave_pcol(nz),val(nz))
-		!read the sparse matrix (Octave-format)
-		!storage-format for sparse matrices in ocatave
-		!uses the coordinates (irow, octave_pcol) of entries (val) 
-		!in matrix  
-		DO i=1,nz
-			READ(unit,*) irow(i),octave_pcol(i),val(i)
-		END DO
-		CLOSE(unit=unit)
-		
-		!now calculate the index of the first entry (linear index)
-		!of each row (pcol)
-		!first step: calculate the number of entries in each row
-		pcol(1)=octave_pcol(1)
-		k=1
-		DO i=1,ncol
-			IF (k .GT. nz) EXIT
-			IF (octave_pcol(k) .EQ. i) THEN
-				DO WHILE (octave_pcol(k) .EQ. i)
-					pcol(i+1)=pcol(i+1)+1
-					k=k+1
-					IF (k .GT. nz) EXIT
-				END DO
-				k=k-1
-			ELSE
-				CYCLE
-			END IF
-			k=k+1
-		END DO
-		!second step: sum over the number of entries in each row
-		!to get desired the linear index
-		DO i=1,ncol
-			pcol(i+1)=pcol(i)+pcol(i+1)
-		END DO
-		
-		RETURN
-	
-	END SUBROUTINE load_octave_mat
-	!-------------------------------------------------------------------------------
- 
+    SUBROUTINE load_octave_mat(name,nrow,ncol,nz,irow,pcol,val)
+        CHARACTER(LEN=*), INTENT(in) :: name
+        INTEGER, INTENT(out) :: nrow,ncol,nz
+        INTEGER, DIMENSION(:), ALLOCATABLE, INTENT(out) :: irow,pcol
+        REAL(kind=dp), DIMENSION(:), ALLOCATABLE, INTENT(out) :: val
+
+        INTEGER :: unit,i,k
+        INTEGER, DIMENSION(:), ALLOCATABLE :: octave_pcol
+
+        !open the input-file ("name")
+        unit = 10;
+        CALL find_unit(unit)
+        OPEN(unit=unit,file=TRIM(ADJUSTL(name)),action='read')
+
+        !read nrow, ncol, nz and allocate the arrays for
+        !irow, pcol val
+        READ(unit,*) nrow,ncol,nz
+        ALLOCATE(irow(nz),pcol(ncol+1),octave_pcol(nz),val(nz))
+        !read the sparse matrix (Octave-format)
+        !storage-format for sparse matrices in ocatave
+        !uses the coordinates (irow, octave_pcol) of entries (val)
+        !in matrix
+        DO i=1,nz
+            READ(unit,*) irow(i),octave_pcol(i),val(i)
+        END DO
+        CLOSE(unit=unit)
+
+        !now calculate the index of the first entry (linear index)
+        !of each row (pcol)
+        !first step: calculate the number of entries in each row
+        pcol(1)=octave_pcol(1)
+        k=1
+        DO i=1,ncol
+            IF (k .GT. nz) EXIT
+            IF (octave_pcol(k) .EQ. i) THEN
+                DO WHILE (octave_pcol(k) .EQ. i)
+                    pcol(i+1)=pcol(i+1)+1
+                    k=k+1
+                    IF (k .GT. nz) EXIT
+                END DO
+                k=k-1
+            ELSE
+                CYCLE
+            END IF
+            k=k+1
+        END DO
+        !second step: sum over the number of entries in each row
+        !to get desired the linear index
+        DO i=1,ncol
+            pcol(i+1)=pcol(i)+pcol(i+1)
+        END DO
+
+        RETURN
+
+    END SUBROUTINE load_octave_mat
+    !-------------------------------------------------------------------------------
+
   !-------------------------------------------------------------------------------
-	SUBROUTINE load_octave_matComplex(name,nrow,ncol,nz,irow,pcol,val)
-		CHARACTER(LEN=*), INTENT(in) :: name
-		INTEGER, INTENT(out) :: nrow,ncol,nz
-		INTEGER, DIMENSION(:), ALLOCATABLE, INTENT(out) :: irow,pcol
-		COMPLEX(kind=dp), DIMENSION(:), ALLOCATABLE, INTENT(out) :: val
-		
-		INTEGER :: unit,i,k
-		INTEGER, DIMENSION(:), ALLOCATABLE :: octave_pcol
-		
-		!open the input-file ("name")
-		unit = 10;
-		CALL find_unit(unit)
-		OPEN(unit=unit,file=TRIM(ADJUSTL(name)),action='read')
-		
-		!read nrow, ncol, nz and allocate the arrays for 
-		!irow, pcol val 
-		READ(unit,*) nrow,ncol,nz
-		ALLOCATE(irow(nz),pcol(ncol+1),octave_pcol(nz),val(nz))
-		!read the sparse matrix (Octave-format)
-		!storage-format for sparse matrices in ocatave
-		!uses the coordinates (irow, octave_pcol) of entries (val) 
-		!in matrix  
-		DO i=1,nz
-			READ(unit,*) irow(i),octave_pcol(i),val(i)
-		END DO
-		CLOSE(unit=unit)
-		
-		!now calculate the index of the first entry (linear index)
-		!of each row (pcol)
-		!first step: calculate the number of entries in each row
-		pcol(1)=octave_pcol(1)
-		k=1
-		DO i=1,ncol
-			IF (k .GT. nz) EXIT
-			IF (octave_pcol(k) .EQ. i) THEN
-				DO WHILE (octave_pcol(k) .EQ. i)
-					pcol(i+1)=pcol(i+1)+1
-					k=k+1
-					IF (k .GT. nz) EXIT
-				END DO
-				k=k-1
-			ELSE
-				CYCLE
-			END IF
-			k=k+1
-		END DO
-		!second step: sum over the number of entries in each row
-		!to get desired the linear index
-		DO i=1,ncol
-			pcol(i+1)=pcol(i)+pcol(i+1)
-		END DO
-		
-		RETURN
-	
-	END SUBROUTINE load_octave_matComplex
-	!-------------------------------------------------------------------------------
- 
+    SUBROUTINE load_octave_matComplex(name,nrow,ncol,nz,irow,pcol,val)
+        CHARACTER(LEN=*), INTENT(in) :: name
+        INTEGER, INTENT(out) :: nrow,ncol,nz
+        INTEGER, DIMENSION(:), ALLOCATABLE, INTENT(out) :: irow,pcol
+        COMPLEX(kind=dp), DIMENSION(:), ALLOCATABLE, INTENT(out) :: val
+
+        INTEGER :: unit,i,k
+        INTEGER, DIMENSION(:), ALLOCATABLE :: octave_pcol
+
+        !open the input-file ("name")
+        unit = 10;
+        CALL find_unit(unit)
+        OPEN(unit=unit,file=TRIM(ADJUSTL(name)),action='read')
+
+        !read nrow, ncol, nz and allocate the arrays for
+        !irow, pcol val
+        READ(unit,*) nrow,ncol,nz
+        ALLOCATE(irow(nz),pcol(ncol+1),octave_pcol(nz),val(nz))
+        !read the sparse matrix (Octave-format)
+        !storage-format for sparse matrices in ocatave
+        !uses the coordinates (irow, octave_pcol) of entries (val)
+        !in matrix
+        DO i=1,nz
+            READ(unit,*) irow(i),octave_pcol(i),val(i)
+        END DO
+        CLOSE(unit=unit)
+
+        !now calculate the index of the first entry (linear index)
+        !of each row (pcol)
+        !first step: calculate the number of entries in each row
+        pcol(1)=octave_pcol(1)
+        k=1
+        DO i=1,ncol
+            IF (k .GT. nz) EXIT
+            IF (octave_pcol(k) .EQ. i) THEN
+                DO WHILE (octave_pcol(k) .EQ. i)
+                    pcol(i+1)=pcol(i+1)+1
+                    k=k+1
+                    IF (k .GT. nz) EXIT
+                END DO
+                k=k-1
+            ELSE
+                CYCLE
+            END IF
+            k=k+1
+        END DO
+        !second step: sum over the number of entries in each row
+        !to get desired the linear index
+        DO i=1,ncol
+            pcol(i+1)=pcol(i)+pcol(i+1)
+        END DO
+
+        RETURN
+
+    END SUBROUTINE load_octave_matComplex
+    !-------------------------------------------------------------------------------
+
 !!$  !-------------------------------------------------------------------------------
 !!$  ! solves the standard example from the SuperLU-Distribution
 !!$  SUBROUTINE solve_standard_ex(nrow,ncol,nz,irow,pcol,val,b)
@@ -774,7 +774,7 @@ CONTAINS
 !!$    n = nrow
 !!$    nrhs = 1
 !!$    ldb = n
-!!$    
+!!$
 !!$    IF (ALLOCATED(b)) DEALLOCATE(b)
 !!$    ALLOCATE(b(ldb))
 !!$    DO i = 1, ldb
@@ -783,7 +783,7 @@ CONTAINS
 !!$
 !!$    ! First, factorize the matrix. The factors are stored in *factors* handle.
 !!$    iopt = 1
-!!$    CALL c_fortran_dgssv( iopt, n, nz, nrhs, val, irow, pcol, & 
+!!$    CALL c_fortran_dgssv( iopt, n, nz, nrhs, val, irow, pcol, &
 !!$         b, ldb, factors, info )
 !!$
 !!$    IF (sparse_talk) THEN
@@ -796,7 +796,7 @@ CONTAINS
 !!$
 !!$    ! Second, solve the system using the existing factors.
 !!$    iopt = 2
-!!$    CALL c_fortran_dgssv( iopt, n, nz, nrhs, val, irow, pcol, & 
+!!$    CALL c_fortran_dgssv( iopt, n, nz, nrhs, val, irow, pcol, &
 !!$         b, ldb, factors, info )
 !!$
 !!$    IF (sparse_talk) THEN
@@ -809,7 +809,7 @@ CONTAINS
 !!$    END IF
 !!$    ! Last, free the storage allocated inside SuperLU
 !!$    iopt = 3
-!!$    CALL c_fortran_dgssv( iopt, n, nz, nrhs, val, irow, pcol, & 
+!!$    CALL c_fortran_dgssv( iopt, n, nz, nrhs, val, irow, pcol, &
 !!$         b, ldb, factors, info )
 !!$
 !!$    RETURN
@@ -826,7 +826,7 @@ CONTAINS
     REAL(kind=dp), DIMENSION(:), INTENT(in) :: val
     REAL(kind=dp), DIMENSION(:), INTENT(inout) :: b
     INTEGER, INTENT(in), OPTIONAL :: iopt_in
-  
+
     INTEGER :: iopt = 0
     INTEGER, DIMENSION(:), ALLOCATABLE :: pcoln
     LOGICAL :: pcol_modified = .FALSE.
@@ -839,8 +839,8 @@ CONTAINS
        CALL column_full2pointer(pcol,pcoln)
        pcol_modified = .TRUE.
     END IF
-		
-! 		!ToDo: Please uncomment, when PARDISO is desired 
+
+!       !ToDo: Please uncomment, when PARDISO is desired
 !     call pardisoinit(pt, mtype, pardiso_solver, iparm, dparm, error_pardiso)
 !     IF (error_pardiso .NE. 0) THEN
 !        IF (error_pardiso.EQ.-10 ) WRITE(*,*) 'No license file found'
@@ -860,14 +860,14 @@ CONTAINS
              CALL sparse_solve_superlu(nrow,ncol,nz,irow,pcol,val,b,3)
           END IF
        ELSE IF ( (sparse_solve_method .EQ. 2) .OR. (sparse_solve_method .EQ. 3) ) THEN ! SuiteSparse (with (=2) or without (=3)) iterative refinement
-	  			IF (pcol_modified) THEN
+                IF (pcol_modified) THEN
              CALL sparse_solve_suitesparse(nrow,ncol,nz,irow,pcoln,val,b,3)
           ELSE
              CALL sparse_solve_suitesparse(nrow,ncol,nz,irow,pcol,val,b,3)
           END IF
-!        !ToDo: Please uncomment, when PARDISO is desired 
+!        !ToDo: Please uncomment, when PARDISO is desired
 !        ELSE IF (sparse_solve_method .EQ. 4) THEN ! PARDISO
-! 	 			  IF (pcol_modified) THEN
+!                 IF (pcol_modified) THEN
 !              CALL sparse_solve_pardiso(nrow,ncol,nz,irow,pcoln,val,b,3,omp_num_threads)
 !           ELSE
 !              CALL sparse_solve_pardiso(nrow,ncol,nz,irow,pcol,val,b,3,omp_num_threads)
@@ -882,20 +882,20 @@ CONTAINS
              CALL sparse_solve_superlu(nrow,ncol,nz,irow,pcol,val,b,1)
           END IF
        ELSE IF ( (sparse_solve_method .EQ. 2) .OR. (sparse_solve_method .EQ. 3) ) THEN ! SuiteSparse (with (=2) or without (=3)) iterative refinement
-	  			IF (pcol_modified) THEN
+                IF (pcol_modified) THEN
              CALL sparse_solve_suitesparse(nrow,ncol,nz,irow,pcoln,val,b,1)
           ELSE
              CALL sparse_solve_suitesparse(nrow,ncol,nz,irow,pcol,val,b,1)
           END IF
-!        !ToDo: Please uncomment, when PARDISO is desired 
+!        !ToDo: Please uncomment, when PARDISO is desired
 !        ELSE IF (sparse_solve_method .EQ. 4) THEN ! PARDISO
-! 				  IF (pcol_modified) THEN
+!                 IF (pcol_modified) THEN
 !              CALL sparse_solve_pardiso(nrow,ncol,nz,irow,pcoln,val,b,1,omp_num_threads)
 !           ELSE
 !              CALL sparse_solve_pardiso(nrow,ncol,nz,irow,pcol,val,b,1,omp_num_threads)
 !           END IF
-				END IF
-				factorization_exists = .TRUE.
+                END IF
+                factorization_exists = .TRUE.
     END IF
     IF (iopt .EQ. 1) factorization_exists = .TRUE.
     IF (iopt .EQ. 3) factorization_exists = .FALSE.
@@ -912,7 +912,7 @@ CONTAINS
        ELSE
           CALL sparse_solve_suitesparse(nrow,ncol,nz,irow,pcol,val,b,iopt)
        END IF
-!     !ToDo: Please uncomment, when PARDISO is desired 
+!     !ToDo: Please uncomment, when PARDISO is desired
 !     ELSE IF (sparse_solve_method .EQ. 4) THEN ! PARDISO
 !        IF (pcol_modified) THEN
 !           CALL sparse_solve_pardiso(nrow,ncol,nz,irow,pcoln,val,b,iopt,omp_num_threads)
@@ -939,7 +939,7 @@ CONTAINS
     COMPLEX(kind=dp), DIMENSION(:), INTENT(in) :: val
     COMPLEX(kind=dp), DIMENSION(:), INTENT(inout) :: b
     INTEGER, INTENT(in), OPTIONAL :: iopt_in
-  
+
     INTEGER :: iopt = 0
     INTEGER, DIMENSION(:), ALLOCATABLE :: pcoln
     LOGICAL :: pcol_modified = .FALSE.
@@ -952,9 +952,9 @@ CONTAINS
        CALL column_full2pointer(pcol,pcoln)
        pcol_modified = .TRUE.
     END IF
-		
-! 		!ToDo: Please uncomment, when PARDISO is desired 
-! 		mtype=13  ! complex unsymmetric
+
+!       !ToDo: Please uncomment, when PARDISO is desired
+!       mtype=13  ! complex unsymmetric
 !     call pardisoinit(pt, mtype, pardiso_solver, iparm, dparm, error_pardiso)
 !     IF (error_pardiso .NE. 0) THEN
 !        IF (error_pardiso.EQ.-10 ) WRITE(*,*) 'No license file found'
@@ -974,14 +974,14 @@ CONTAINS
              CALL sparse_solve_superlu(nrow,ncol,nz,irow,pcol,val,b,3)
           END IF
        ELSE IF ( (sparse_solve_method .EQ. 2) .OR. (sparse_solve_method .EQ. 3) ) THEN ! SuiteSparse (with (=2) or without (=3)) iterative refinement
-	 			  IF (pcol_modified) THEN
+                  IF (pcol_modified) THEN
              CALL sparse_solve_suitesparse(nrow,ncol,nz,irow,pcoln,val,b,3)
           ELSE
              CALL sparse_solve_suitesparse(nrow,ncol,nz,irow,pcol,val,b,3)
           END IF
-!        !ToDo: Please uncomment, when PARDISO is desired 
+!        !ToDo: Please uncomment, when PARDISO is desired
 !        ELSE IF (sparse_solve_method .EQ. 4) THEN ! PARDISO
-! 	 			  IF (pcol_modified) THEN
+!                 IF (pcol_modified) THEN
 !              CALL sparse_solve_pardiso(nrow,ncol,nz,irow,pcoln,val,b,3,omp_num_threads)
 !           ELSE
 !              CALL sparse_solve_pardiso(nrow,ncol,nz,irow,pcol,val,b,3,omp_num_threads)
@@ -996,14 +996,14 @@ CONTAINS
              CALL sparse_solve_superlu(nrow,ncol,nz,irow,pcol,val,b,1)
           END IF
        ELSE IF ( (sparse_solve_method .EQ. 2) .OR. (sparse_solve_method .EQ. 3) ) THEN ! SuiteSparse (with (=2) or without (=3)) iterative refinement
-				  IF (pcol_modified) THEN
+                  IF (pcol_modified) THEN
              CALL sparse_solve_suitesparse(nrow,ncol,nz,irow,pcoln,val,b,1)
           ELSE
              CALL sparse_solve_suitesparse(nrow,ncol,nz,irow,pcol,val,b,1)
           END IF
-!        !ToDo: Please uncomment, when PARDISO is desired 
+!        !ToDo: Please uncomment, when PARDISO is desired
 !        ELSE IF (sparse_solve_method .EQ. 4) THEN ! PARDISO
-! 	 			  IF (pcol_modified) THEN
+!                 IF (pcol_modified) THEN
 !              CALL sparse_solve_pardiso(nrow,ncol,nz,irow,pcoln,val,b,1,omp_num_threads)
 !           ELSE
 !              CALL sparse_solve_pardiso(nrow,ncol,nz,irow,pcol,val,b,1,omp_num_threads)
@@ -1026,7 +1026,7 @@ CONTAINS
        ELSE
           CALL sparse_solve_suitesparse(nrow,ncol,nz,irow,pcol,val,b,iopt)
        END IF
-!     !ToDo: Please uncomment, when PARDISO is desired 
+!     !ToDo: Please uncomment, when PARDISO is desired
 !     ELSE IF (sparse_solve_method .EQ. 4) THEN ! PARDISO
 !        IF (pcol_modified) THEN
 !           CALL sparse_solve_pardiso(nrow,ncol,nz,irow,pcoln,val,b,iopt,omp_num_threads)
@@ -1053,8 +1053,8 @@ CONTAINS
     REAL(kind=dp), DIMENSION(:), INTENT(in) :: val
     REAL(kind=dp), DIMENSION(:,:), INTENT(inout) :: b
     INTEGER, INTENT(in), OPTIONAL :: iopt_in
-  
-    INTEGER :: iopt = 0  
+
+    INTEGER :: iopt = 0
     INTEGER, DIMENSION(:), ALLOCATABLE :: pcoln
     LOGICAL :: pcol_modified = .FALSE.
 
@@ -1066,8 +1066,8 @@ CONTAINS
        CALL column_full2pointer(pcol,pcoln)
        pcol_modified = .TRUE.
     END IF
-		
-! 		!ToDo: Please uncomment, when PARDISO is desired 
+
+!       !ToDo: Please uncomment, when PARDISO is desired
 !     call pardisoinit(pt, mtype, pardiso_solver, iparm, dparm, error_pardiso)
 !     IF (error_pardiso .NE. 0) THEN
 !        IF (error_pardiso.EQ.-10 ) WRITE(*,*) 'No license file found'
@@ -1087,14 +1087,14 @@ CONTAINS
              CALL sparse_solve_superlu(nrow,ncol,nz,irow,pcol,val,b,3)
           END IF
        ELSE IF ( (sparse_solve_method .EQ. 2) .OR. (sparse_solve_method .EQ. 3) ) THEN ! SuiteSparse (with (=2) or without (=3)) iterative refinement
-				  IF (pcol_modified) THEN
+                  IF (pcol_modified) THEN
              CALL sparse_solve_suitesparse(nrow,ncol,nz,irow,pcoln,val,b,3)
           ELSE
              CALL sparse_solve_suitesparse(nrow,ncol,nz,irow,pcol,val,b,3)
           END IF
-!        !ToDo: Please uncomment, when PARDISO is desired 
+!        !ToDo: Please uncomment, when PARDISO is desired
 !        ELSE IF (sparse_solve_method .EQ. 4) THEN ! PARDISO
-! 				  IF (pcol_modified) THEN
+!                 IF (pcol_modified) THEN
 !              CALL sparse_solve_pardiso(nrow,ncol,nz,irow,pcoln,val,b,3,omp_num_threads)
 !           ELSE
 !              CALL sparse_solve_pardiso(nrow,ncol,nz,irow,pcol,val,b,3,omp_num_threads)
@@ -1109,14 +1109,14 @@ CONTAINS
              CALL sparse_solve_superlu(nrow,ncol,nz,irow,pcol,val,b,1)
           END IF
        ELSE IF ( (sparse_solve_method .EQ. 2) .OR. (sparse_solve_method .EQ. 3) ) THEN ! SuiteSparse (with (=2) or without (=3)) iterative refinement
-				  IF (pcol_modified) THEN
+                  IF (pcol_modified) THEN
              CALL sparse_solve_suitesparse(nrow,ncol,nz,irow,pcoln,val,b,1)
           ELSE
              CALL sparse_solve_suitesparse(nrow,ncol,nz,irow,pcol,val,b,1)
           END IF
-!        !ToDo: Please uncomment, when PARDISO is desired 
+!        !ToDo: Please uncomment, when PARDISO is desired
 !        ELSE IF (sparse_solve_method .EQ. 4) THEN ! PARDISO
-! 				  IF (pcol_modified) THEN
+!                 IF (pcol_modified) THEN
 !              CALL sparse_solve_pardiso(nrow,ncol,nz,irow,pcoln,val,b,1,omp_num_threads)
 !           ELSE
 !              CALL sparse_solve_pardiso(nrow,ncol,nz,irow,pcol,val,b,1,omp_num_threads)
@@ -1139,7 +1139,7 @@ CONTAINS
        ELSE
           CALL sparse_solve_suitesparse(nrow,ncol,nz,irow,pcol,val,b,iopt)
        END IF
-!     !ToDo: Please uncomment, when PARDISO is desired 
+!     !ToDo: Please uncomment, when PARDISO is desired
 !     ELSE IF (sparse_solve_method .EQ. 4) THEN ! PARDISO
 !        IF (pcol_modified) THEN
 !           CALL sparse_solve_pardiso(nrow,ncol,nz,irow,pcoln,val,b,iopt,omp_num_threads)
@@ -1166,8 +1166,8 @@ CONTAINS
     COMPLEX(kind=dp), DIMENSION(:), INTENT(in) :: val
     COMPLEX(kind=dp), DIMENSION(:,:), INTENT(inout) :: b
     INTEGER, INTENT(in), OPTIONAL :: iopt_in
-  
-    INTEGER :: iopt = 0  
+
+    INTEGER :: iopt = 0
     INTEGER, DIMENSION(:), ALLOCATABLE :: pcoln
     LOGICAL :: pcol_modified = .FALSE.
 
@@ -1179,9 +1179,9 @@ CONTAINS
        CALL column_full2pointer(pcol,pcoln)
        pcol_modified = .TRUE.
     END IF
-		
-! 		!ToDo: Please uncomment, when PARDISO is desired 
-! 		mtype=13  ! complex unsymmetric
+
+!       !ToDo: Please uncomment, when PARDISO is desired
+!       mtype=13  ! complex unsymmetric
 !     call pardisoinit(pt, mtype, pardiso_solver, iparm, dparm, error_pardiso)
 !     IF (error_pardiso .NE. 0) THEN
 !        IF (error_pardiso.EQ.-10 ) WRITE(*,*) 'No license file found'
@@ -1201,14 +1201,14 @@ CONTAINS
              CALL sparse_solve_superlu(nrow,ncol,nz,irow,pcol,val,b,3)
           END IF
        ELSE IF ( (sparse_solve_method .EQ. 2) .OR. (sparse_solve_method .EQ. 3) ) THEN ! SuiteSparse (with (=2) or without (=3)) iterative refinement
-				  IF (pcol_modified) THEN
+                  IF (pcol_modified) THEN
              CALL sparse_solve_suitesparse(nrow,ncol,nz,irow,pcoln,val,b,3)
           ELSE
              CALL sparse_solve_suitesparse(nrow,ncol,nz,irow,pcol,val,b,3)
           END IF
-!        !ToDo: Please uncomment, when PARDISO is desired 
+!        !ToDo: Please uncomment, when PARDISO is desired
 !        ELSE IF (sparse_solve_method .EQ. 4) THEN ! PARDISO
-! 				  IF (pcol_modified) THEN
+!                 IF (pcol_modified) THEN
 !              CALL sparse_solve_pardiso(nrow,ncol,nz,irow,pcoln,val,b,3,omp_num_threads)
 !           ELSE
 !              CALL sparse_solve_pardiso(nrow,ncol,nz,irow,pcol,val,b,3,omp_num_threads)
@@ -1223,14 +1223,14 @@ CONTAINS
              CALL sparse_solve_superlu(nrow,ncol,nz,irow,pcol,val,b,1)
           END IF
        ELSE IF ( (sparse_solve_method .EQ. 2) .OR. (sparse_solve_method .EQ. 3) ) THEN ! SuiteSparse (with (=2) or without (=3)) iterative refinement
-				  IF (pcol_modified) THEN
+                  IF (pcol_modified) THEN
              CALL sparse_solve_suitesparse(nrow,ncol,nz,irow,pcoln,val,b,1)
           ELSE
              CALL sparse_solve_suitesparse(nrow,ncol,nz,irow,pcol,val,b,1)
           END IF
-!        !ToDo: Please uncomment, when PARDISO is desired 
+!        !ToDo: Please uncomment, when PARDISO is desired
 !        ELSE IF (sparse_solve_method .EQ. 4) THEN ! PARDISO
-! 				  IF (pcol_modified) THEN
+!                 IF (pcol_modified) THEN
 !              CALL sparse_solve_pardiso(nrow,ncol,nz,irow,pcoln,val,b,1,omp_num_threads)
 !           ELSE
 !              CALL sparse_solve_pardiso(nrow,ncol,nz,irow,pcol,val,b,1,omp_num_threads)
@@ -1253,7 +1253,7 @@ CONTAINS
        ELSE
           CALL sparse_solve_suitesparse(nrow,ncol,nz,irow,pcol,val,b,iopt)
        END IF
-!     !ToDo: Please uncomment, when PARDISO is desired 
+!     !ToDo: Please uncomment, when PARDISO is desired
 !     ELSE IF (sparse_solve_method .EQ. 4) THEN ! PARDISO
 !        IF (pcol_modified) THEN
 !           CALL sparse_solve_pardiso(nrow,ncol,nz,irow,pcoln,val,b,iopt,omp_num_threads)
@@ -1278,7 +1278,7 @@ CONTAINS
     REAL(kind=dp), DIMENSION(:,:), INTENT(in) :: A
     REAL(kind=dp), DIMENSION(:), INTENT(inout) :: b
     INTEGER, INTENT(in), OPTIONAL :: iopt_in
-  
+
     INTEGER :: iopt = 0
     INTEGER :: nrow,ncol,nz
     INTEGER, DIMENSION(:), ALLOCATABLE :: irow,pcol
@@ -1286,10 +1286,10 @@ CONTAINS
 
     !optional input
     IF (PRESENT(iopt_in)) iopt = iopt_in
-  
+
     CALL full2sparse(A,irow,pcol,val,nrow,ncol,nz)
-		
-! 		!ToDo: Please uncomment, when PARDISO is desired 
+
+!       !ToDo: Please uncomment, when PARDISO is desired
 !     call pardisoinit(pt, mtype, pardiso_solver, iparm, dparm, error_pardiso)
 !     IF (error_pardiso .NE. 0) THEN
 !        IF (error_pardiso.EQ.-10 ) WRITE(*,*) 'No license file found'
@@ -1306,7 +1306,7 @@ CONTAINS
           CALL sparse_solve_superlu(nrow,ncol,nz,irow,pcol,val,b,3)
        ELSE IF ( (sparse_solve_method .EQ. 2) .OR. (sparse_solve_method .EQ. 3) ) THEN ! SuiteSparse (with (=2) or without (=3)) iterative refinement
           CALL sparse_solve_suitesparse(nrow,ncol,nz,irow,pcol,val,b,3)
-!        !ToDo: Please uncomment, when PARDISO is desired 
+!        !ToDo: Please uncomment, when PARDISO is desired
 !        ELSE IF (sparse_solve_method .EQ. 4) THEN ! PARDISO
 !           CALL sparse_solve_pardiso(nrow,ncol,nz,irow,pcol,val,b,3,omp_num_threads)
        END IF
@@ -1316,7 +1316,7 @@ CONTAINS
           CALL sparse_solve_superlu(nrow,ncol,nz,irow,pcol,val,b,1)
        ELSE IF ( (sparse_solve_method .EQ. 2) .OR. (sparse_solve_method .EQ. 3) ) THEN ! SuiteSparse (with (=2) or without (=3)) iterative refinement
           CALL sparse_solve_suitesparse(nrow,ncol,nz,irow,pcol,val,b,1)
-!        !ToDo: Please uncomment, when PARDISO is desired 
+!        !ToDo: Please uncomment, when PARDISO is desired
 !        ELSE IF (sparse_solve_method .EQ. 4) THEN ! PARDISO
 !           CALL sparse_solve_pardiso(nrow,ncol,nz,irow,pcol,val,b,1,omp_num_threads)
        END IF
@@ -1329,7 +1329,7 @@ CONTAINS
        CALL sparse_solve_superlu(nrow,ncol,nz,irow,pcol,val,b,iopt)
     ELSE IF ( (sparse_solve_method .EQ. 2) .OR. (sparse_solve_method .EQ. 3) ) THEN ! SuiteSparse (with (=2) or without (=3)) iterative refinement
        CALL sparse_solve_suitesparse(nrow,ncol,nz,irow,pcol,val,b,iopt)
-!     !ToDo: Please uncomment, when PARDISO is desired 
+!     !ToDo: Please uncomment, when PARDISO is desired
 !     ELSE IF (sparse_solve_method .EQ. 4) THEN ! PARDISO
 !        CALL sparse_solve_pardiso(nrow,ncol,nz,irow,pcol,val,b,iopt,omp_num_threads)
     ELSE
@@ -1352,7 +1352,7 @@ CONTAINS
     COMPLEX(kind=dp), DIMENSION(:,:), INTENT(in) :: A
     COMPLEX(kind=dp), DIMENSION(:), INTENT(inout) :: b
     INTEGER, INTENT(in), OPTIONAL :: iopt_in
-  
+
     INTEGER :: iopt = 0
     INTEGER :: nrow,ncol,nz
     INTEGER, DIMENSION(:), ALLOCATABLE :: irow,pcol
@@ -1360,11 +1360,11 @@ CONTAINS
 
     !optional input
     IF (PRESENT(iopt_in)) iopt = iopt_in
-  
+
     CALL full2sparse(A,irow,pcol,val,nrow,ncol,nz)
-    
-!     !ToDo: Please uncomment, when PARDISO is desired 
-! 		mtype=13  ! complex unsymmetric
+
+!     !ToDo: Please uncomment, when PARDISO is desired
+!       mtype=13  ! complex unsymmetric
 !     call pardisoinit(pt, mtype, pardiso_solver, iparm, dparm, error_pardiso)
 !     IF (error_pardiso .NE. 0) THEN
 !        IF (error_pardiso.EQ.-10 ) WRITE(*,*) 'No license file found'
@@ -1381,7 +1381,7 @@ CONTAINS
           CALL sparse_solve_superlu(nrow,ncol,nz,irow,pcol,val,b,3)
        ELSE IF ( (sparse_solve_method .EQ. 2) .OR. (sparse_solve_method .EQ. 3) ) THEN ! SuiteSparse (with (=2) or without (=3)) iterative refinement
           CALL sparse_solve_suitesparse(nrow,ncol,nz,irow,pcol,val,b,3)
-!        !ToDo: Please uncomment, when PARDISO is desired 
+!        !ToDo: Please uncomment, when PARDISO is desired
 !        ELSE IF (sparse_solve_method .EQ. 4) THEN ! PARDISO
 !           CALL sparse_solve_pardiso(nrow,ncol,nz,irow,pcol,val,b,3,omp_num_threads)
        END IF
@@ -1391,7 +1391,7 @@ CONTAINS
           CALL sparse_solve_superlu(nrow,ncol,nz,irow,pcol,val,b,1)
        ELSE IF ( (sparse_solve_method .EQ. 2) .OR. (sparse_solve_method .EQ. 3) ) THEN ! SuiteSparse (with (=2) or without (=3)) iterative refinement
           CALL sparse_solve_suitesparse(nrow,ncol,nz,irow,pcol,val,b,1)
-!        !ToDo: Please uncomment, when PARDISO is desired 
+!        !ToDo: Please uncomment, when PARDISO is desired
 !        ELSE IF (sparse_solve_method .EQ. 4) THEN ! PARDISO
 !           CALL sparse_solve_pardiso(nrow,ncol,nz,irow,pcol,val,b,1,omp_num_threads)
        END IF
@@ -1404,7 +1404,7 @@ CONTAINS
        CALL sparse_solve_superlu(nrow,ncol,nz,irow,pcol,val,b,iopt)
     ELSE IF ( (sparse_solve_method .EQ. 2) .OR. (sparse_solve_method .EQ. 3) ) THEN ! SuiteSparse (with (=2) or without (=3)) iterative refinement
        CALL sparse_solve_suitesparse(nrow,ncol,nz,irow,pcol,val,b,iopt)
-!     !ToDo: Please uncomment, when PARDISO is desired 
+!     !ToDo: Please uncomment, when PARDISO is desired
 !     ELSE IF (sparse_solve_method .EQ. 4) THEN ! PARDISO
 !        CALL sparse_solve_pardiso(nrow,ncol,nz,irow,pcol,val,b,iopt,omp_num_threads)
     ELSE
@@ -1427,18 +1427,18 @@ CONTAINS
     REAL(kind=dp), DIMENSION(:,:), INTENT(in) :: A
     REAL(kind=dp), DIMENSION(:,:), INTENT(inout) :: b
     INTEGER, INTENT(in), OPTIONAL :: iopt_in
-  
+
     INTEGER :: iopt = 0
     INTEGER :: nrow,ncol,nz
     INTEGER, DIMENSION(:), ALLOCATABLE :: irow,pcol
     REAL(kind=dp), DIMENSION(:), ALLOCATABLE :: val
-  
+
     !optional input
     IF (PRESENT(iopt_in)) iopt = iopt_in
 
     CALL full2sparse(A,irow,pcol,val,nrow,ncol,nz)
-		
-! 		!ToDo: Please uncomment, when PARDISO is desired 
+
+!       !ToDo: Please uncomment, when PARDISO is desired
 !     call pardisoinit(pt, mtype, pardiso_solver, iparm, dparm, error_pardiso)
 !     IF (error_pardiso .NE. 0) THEN
 !        IF (error_pardiso.EQ.-10 ) WRITE(*,*) 'No license file found'
@@ -1455,7 +1455,7 @@ CONTAINS
           CALL sparse_solve_superlu(nrow,ncol,nz,irow,pcol,val,b,3)
        ELSE IF ( (sparse_solve_method .EQ. 2) .OR. (sparse_solve_method .EQ. 3) ) THEN ! SuiteSparse (with (=2) or without (=3)) iterative refinement
           CALL sparse_solve_suitesparse(nrow,ncol,nz,irow,pcol,val,b,3)
-!        !ToDo: Please uncomment, when PARDISO is desired 
+!        !ToDo: Please uncomment, when PARDISO is desired
 !        ELSE IF (sparse_solve_method .EQ. 4) THEN ! PARDISO
 !           CALL sparse_solve_pardiso(nrow,ncol,nz,irow,pcol,val,b,3,omp_num_threads)
        END IF
@@ -1465,7 +1465,7 @@ CONTAINS
           CALL sparse_solve_superlu(nrow,ncol,nz,irow,pcol,val,b,1)
        ELSE IF ( (sparse_solve_method .EQ. 2) .OR. (sparse_solve_method .EQ. 3) ) THEN ! SuiteSparse (with (=2) or without (=3)) iterative refinement
           CALL sparse_solve_suitesparse(nrow,ncol,nz,irow,pcol,val,b,1)
-!        !ToDo: Please uncomment, when PARDISO is desired 
+!        !ToDo: Please uncomment, when PARDISO is desired
 !        ELSE IF (sparse_solve_method .EQ. 4) THEN ! PARDISO
 !           CALL sparse_solve_pardiso(nrow,ncol,nz,irow,pcol,val,b,1,omp_num_threads)
        END IF
@@ -1478,7 +1478,7 @@ CONTAINS
        CALL sparse_solve_superlu(nrow,ncol,nz,irow,pcol,val,b,iopt)
     ELSE IF ( (sparse_solve_method .EQ. 2) .OR. (sparse_solve_method .EQ. 3) ) THEN ! SuiteSparse (with (=2) or without (=3)) iterative refinement
        CALL sparse_solve_suitesparse(nrow,ncol,nz,irow,pcol,val,b,iopt)
-!     !ToDo: Please uncomment, when PARDISO is desired 
+!     !ToDo: Please uncomment, when PARDISO is desired
 !     ELSE IF (sparse_solve_method .EQ. 4) THEN ! PARDISO
 !        CALL sparse_solve_pardiso(nrow,ncol,nz,irow,pcol,val,b,iopt,omp_num_threads)
     ELSE
@@ -1501,19 +1501,19 @@ CONTAINS
     COMPLEX(kind=dp), DIMENSION(:,:), INTENT(in) :: A
     COMPLEX(kind=dp), DIMENSION(:,:), INTENT(inout) :: b
     INTEGER, INTENT(in), OPTIONAL :: iopt_in
-  
+
     INTEGER :: iopt = 0
     INTEGER :: nrow,ncol,nz
     INTEGER, DIMENSION(:), ALLOCATABLE :: irow,pcol
     COMPLEX(kind=dp), DIMENSION(:), ALLOCATABLE :: val
-  
+
     !optional input
     IF (PRESENT(iopt_in)) iopt = iopt_in
 
     CALL full2sparse(A,irow,pcol,val,nrow,ncol,nz)
-    
-!     !ToDo: Please uncomment, when PARDISO is desired 
-! 		mtype=13  ! complex unsymmetric
+
+!     !ToDo: Please uncomment, when PARDISO is desired
+!       mtype=13  ! complex unsymmetric
 !     call pardisoinit(pt, mtype, pardiso_solver, iparm, dparm, error_pardiso)
 !     IF (error_pardiso .NE. 0) THEN
 !        IF (error_pardiso.EQ.-10 ) WRITE(*,*) 'No license file found'
@@ -1530,7 +1530,7 @@ CONTAINS
           CALL sparse_solve_superlu(nrow,ncol,nz,irow,pcol,val,b,3)
        ELSE IF ( (sparse_solve_method .EQ. 2) .OR. (sparse_solve_method .EQ. 3) ) THEN ! SuiteSparse (with (=2) or without (=3)) iterative refinement
           CALL sparse_solve_suitesparse(nrow,ncol,nz,irow,pcol,val,b,3)
-!        !ToDo: Please uncomment, when PARDISO is desired 
+!        !ToDo: Please uncomment, when PARDISO is desired
 !        ELSE IF (sparse_solve_method .EQ. 4) THEN ! PARDISO
 !           CALL sparse_solve_pardiso(nrow,ncol,nz,irow,pcol,val,b,3,omp_num_threads)
        END IF
@@ -1540,7 +1540,7 @@ CONTAINS
           CALL sparse_solve_superlu(nrow,ncol,nz,irow,pcol,val,b,1)
        ELSE IF ( (sparse_solve_method .EQ. 2) .OR. (sparse_solve_method .EQ. 3) ) THEN ! SuiteSparse (with (=2) or without (=3)) iterative refinement
           CALL sparse_solve_suitesparse(nrow,ncol,nz,irow,pcol,val,b,1)
-!        !ToDo: Please uncomment, when PARDISO is desired 
+!        !ToDo: Please uncomment, when PARDISO is desired
 !        ELSE IF (sparse_solve_method .EQ. 4) THEN ! PARDISO
 !           CALL sparse_solve_pardiso(nrow,ncol,nz,irow,pcol,val,b,1,omp_num_threads)
        END IF
@@ -1553,7 +1553,7 @@ CONTAINS
        CALL sparse_solve_superlu(nrow,ncol,nz,irow,pcol,val,b,iopt)
     ELSE IF ( (sparse_solve_method .EQ. 2) .OR. (sparse_solve_method .EQ. 3) ) THEN ! SuiteSparse (with (=2) or without (=3)) iterative refinement
        CALL sparse_solve_suitesparse(nrow,ncol,nz,irow,pcol,val,b,iopt)
-!     !ToDo: Please uncomment, when PARDISO is desired 
+!     !ToDo: Please uncomment, when PARDISO is desired
 !     ELSE IF (sparse_solve_method .EQ. 4) THEN ! PARDISO
 !        CALL sparse_solve_pardiso(nrow,ncol,nz,irow,pcol,val,b,iopt,omp_num_threads)
     ELSE
@@ -1597,16 +1597,16 @@ CONTAINS
     ELSE
        talk = 0
     END IF
-    
+
     info = 0
 
     ! First, factorize the matrix. The factors are stored in *factors* handle.
     IF (iopt_in .EQ. 0 .OR. iopt_in .EQ. 1) THEN
        iopt = 1
-       CALL c_fortran_dgssv( iopt, n, nz, nrhs, val, irow, pcol, & 
+       CALL c_fortran_dgssv( iopt, n, nz, nrhs, val, irow, pcol, &
             b, ldb, factors, info )
 
-       
+
        IF (sparse_talk) THEN
           IF (info .EQ. 0) THEN
              PRINT *, 'Factorization succeeded'
@@ -1619,9 +1619,9 @@ CONTAINS
     ! Second, solve the system using the existing factors.
     IF (iopt_in .EQ. 0 .OR. iopt_in .EQ. 2) THEN
        iopt = 2
-       CALL c_fortran_dgssv( iopt, n, nz, nrhs, val, irow, pcol, & 
+       CALL c_fortran_dgssv( iopt, n, nz, nrhs, val, irow, pcol, &
             b, ldb, factors, info )
-       
+
        IF (sparse_talk) THEN
           IF (info .EQ. 0) THEN
              PRINT *, 'Solve succeeded'
@@ -1635,7 +1635,7 @@ CONTAINS
     ! Last, free the storage allocated inside SuperLU
     IF (iopt_in .EQ. 0 .OR. iopt_in .EQ. 3) THEN
        iopt = 3
-       CALL c_fortran_dgssv( iopt, n, nz, nrhs, val, irow, pcol, & 
+       CALL c_fortran_dgssv( iopt, n, nz, nrhs, val, irow, pcol, &
             b, ldb, factors, info )
        IF (sparse_talk) THEN
           IF (info .EQ. 0) THEN
@@ -1649,7 +1649,7 @@ CONTAINS
     RETURN
   END SUBROUTINE sparse_solve_superlu_b1
   !-------------------------------------------------------------------------------
-  
+
   !-------------------------------------------------------------------------------
   ! solves A*x = b for complex sparse A and 1-D vector b
   ! A is specified through nrow,ncol,nz,irow,pcol,val
@@ -1679,16 +1679,16 @@ CONTAINS
     ELSE
        talk = 0
     END IF
-    
+
     info = 0
 
     ! First, factorize the matrix. The factors are stored in *factors* handle.
     IF (iopt_in .EQ. 0 .OR. iopt_in .EQ. 1) THEN
        iopt = 1
-       CALL c_fortran_zgssv( iopt, n, nz, nrhs, val, irow, pcol, & 
+       CALL c_fortran_zgssv( iopt, n, nz, nrhs, val, irow, pcol, &
             b, ldb, factors, info )
 
-       
+
        IF (sparse_talk) THEN
           IF (info .EQ. 0) THEN
              PRINT *, 'Factorization succeeded'
@@ -1701,9 +1701,9 @@ CONTAINS
     ! Second, solve the system using the existing factors.
     IF (iopt_in .EQ. 0 .OR. iopt_in .EQ. 2) THEN
        iopt = 2
-       CALL c_fortran_zgssv( iopt, n, nz, nrhs, val, irow, pcol, & 
+       CALL c_fortran_zgssv( iopt, n, nz, nrhs, val, irow, pcol, &
             b, ldb, factors, info )
-       
+
        IF (sparse_talk) THEN
           IF (info .EQ. 0) THEN
              PRINT *, 'Solve succeeded'
@@ -1717,7 +1717,7 @@ CONTAINS
     ! Last, free the storage allocated inside SuperLU
     IF (iopt_in .EQ. 0 .OR. iopt_in .EQ. 3) THEN
        iopt = 3
-       CALL c_fortran_zgssv( iopt, n, nz, nrhs, val, irow, pcol, & 
+       CALL c_fortran_zgssv( iopt, n, nz, nrhs, val, irow, pcol, &
             b, ldb, factors, info )
        IF (sparse_talk) THEN
           IF (info .EQ. 0) THEN
@@ -1733,7 +1733,7 @@ CONTAINS
   !-------------------------------------------------------------------------------
 
 !   !-------------------------------------------------------------------------------
-!   !ToDo: Please uncomment, when PARDISO is desired 
+!   !ToDo: Please uncomment, when PARDISO is desired
 !   ! Uses the PARDISO-Solver-Routine to solve
 !   ! A*x = b for sparse A and 1-D vector b
 !   ! A is specified through nrow,ncol,nz,irow,pcol,val
@@ -1746,28 +1746,28 @@ CONTAINS
 !     REAL(kind=dp), DIMENSION(:), INTENT(inout) :: b
 !     INTEGER, INTENT(in) :: iopt_in
 !     INTEGER, OPTIONAL, INTENT(in) :: num_threads
-! 
+!
 !     REAL(kind=dp), ALLOCATABLE, DIMENSION(:) :: a, x
 !     INTEGER, ALLOCATABLE, DIMENSION(:) :: icol, prow
 !     INTEGER :: nrhs, n
-! 
+!
 !     ALLOCATE( a(SIZE(val)) )
 !     ALLOCATE( x(SIZE(b)) )
 !     ALLOCATE( icol(SIZE(irow)) )
 !     ALLOCATE( prow(SIZE(pcol)) )
-! 
+!
 !     IF (SIZE(pcol,1) .NE. ncol+1) THEN
 !        PRINT *, 'Wrong pcol'
 !        STOP
 !     END IF
-! 
+!
 !     iparm(3)=1
 !     IF (PRESENT(num_threads)) iparm(3) = num_threads
 !     iparm(12)=1
-! 
+!
 !     n = nrow !number of equations
 !     nrhs = 1 !number of right-hand sides
-! 
+!
 !     ! First, factorize the matrix. The factors are stored in *factors* handle.
 !     IF (iopt_in .EQ. 0 .OR. iopt_in .EQ. 1) THEN
 !        phase=12 !Analysis and numerical factorization is performed in the 1st step
@@ -1777,15 +1777,15 @@ CONTAINS
 !        !In order to keep the default storage format, the value of the column pointer pcol is used as a row pointer prow and the value of the row index irow is used as a column index.
 !        !This is equivalent to the transposition of the matrix A. By default the problem A^T*x=b woul be solved. When iparm(12) = 1, PARDISO solves the problem for the transposed matrix A
 !        !Now the system (A^T)^T * x = A*x = b is solved.
-! 
+!
 !        a=val !vakues of the sparse matrix
 !        prow=pcol !row-pointer==column-pointer
 !        icol=irow !column-index==row-index
 !        !Now matrix A is transposed
-!        
+!
 !        CALL pardiso (pt, maxfct, mnum, mtype, phase, n, a, prow, icol, &
 !             idummy, nrhs, iparm, msglvl, ddummy, ddummy, error_pardiso, dparm)
-!        
+!
 !        IF (sparse_talk) THEN
 !           IF (error_pardiso .EQ. 0) THEN
 !              PRINT *, 'Factorization succeeded'
@@ -1794,14 +1794,14 @@ CONTAINS
 !           ENDIF
 !        END IF
 !     END IF
-! 
+!
 !     ! Second, solve the system using the existing factors.
 !     IF (iopt_in .EQ. 0 .OR. iopt_in .EQ. 2) THEN
 !        phase=33 !Solve and iterative refinement
 !        CALL pardiso (pt, maxfct, mnum, mtype, phase, n, a, prow, icol, &
 !             idummy, nrhs, iparm, msglvl, b, x, error_pardiso, dparm)
-!        b=x !solution x returned in b 
-! 
+!        b=x !solution x returned in b
+!
 !        IF (sparse_talk) THEN
 !           IF (error_pardiso .EQ. 0) THEN
 !              PRINT *, 'Solve succeeded'
@@ -1811,7 +1811,7 @@ CONTAINS
 !           ENDIF
 !        END IF
 !     END IF
-! 
+!
 !     ! Last, free the storage allocated inside SuperLU
 !     IF (iopt_in .EQ. 0 .OR. iopt_in .EQ. 3) THEN
 !        phase=-1 ! Release all internal memory
@@ -1825,18 +1825,18 @@ CONTAINS
 !           ENDIF
 !        END IF
 !     END IF
-! 
+!
 !     IF (ALLOCATED(icol)) DEALLOCATE(icol)
 !     IF (ALLOCATED(prow)) DEALLOCATE(prow)
 !     IF (ALLOCATED(a))  DEALLOCATE(a)
 !     IF (ALLOCATED(x))  DEALLOCATE(x)
-! 
+!
 !     RETURN
 !   END SUBROUTINE sparse_solve_pardiso_b1
 !   !-------------------------------------------------------------------------------
-! 
+!
 !   !-------------------------------------------------------------------------------
-!   !ToDo: Please uncomment, when PARDISO is desired 
+!   !ToDo: Please uncomment, when PARDISO is desired
 !   ! Uses the PARDISO-Solver-Routine to solve
 !   ! A*x = b for sparse A and 1-D vector b
 !   ! A is specified through nrow,ncol,nz,irow,pcol,val
@@ -1849,28 +1849,28 @@ CONTAINS
 !     COMPLEX(kind=dp), DIMENSION(:), INTENT(inout) :: b
 !     INTEGER, INTENT(in) :: iopt_in
 !     INTEGER, OPTIONAL, INTENT(in) :: num_threads
-! 
+!
 !     COMPLEX(kind=dp), ALLOCATABLE, DIMENSION(:) :: a, x
 !     INTEGER, ALLOCATABLE, DIMENSION(:) :: icol, prow
 !     INTEGER :: nrhs, n
-! 
+!
 !     ALLOCATE( a(SIZE(val)) )
 !     ALLOCATE( x(SIZE(b)) )
 !     ALLOCATE( icol(SIZE(irow)) )
 !     ALLOCATE( prow(SIZE(pcol)) )
-! 
+!
 !     IF (SIZE(pcol,1) .NE. ncol+1) THEN
 !        PRINT *, 'Wrong pcol'
 !        STOP
 !     END IF
-! 
+!
 !     iparm(3)=1
 !     IF (PRESENT(num_threads)) iparm(3) = num_threads
 !     iparm(12)=1
-! 
+!
 !     n = nrow !number of equations
 !     nrhs = 1 !number of right-hand sides
-! 
+!
 !     ! First, factorize the matrix. The factors are stored in *factors* handle.
 !     IF (iopt_in .EQ. 0 .OR. iopt_in .EQ. 1) THEN
 !        phase=12 !Analysis and numerical factorization is performed in the 1st step
@@ -1880,15 +1880,15 @@ CONTAINS
 !        !In order to keep the default storage format, the value of the column pointer pcol is used as a row pointer prow and the value of the row index irow is used as a column index.
 !        !This is equivalent to the transposition of the matrix A. By default the problem A^T*x=b woul be solved. When iparm(12) = 1, PARDISO solves the problem for the transposed matrix A
 !        !Now the system (A^T)^T * x = A*x = b is solved.
-! 
+!
 !        a=val !vakues of the sparse matrix
 !        prow=pcol !row-pointer==column-pointer
 !        icol=irow !column-index==row-index
 !        !Now matrix A is transposed
-!        
+!
 !        CALL pardiso (pt, maxfct, mnum, mtype, phase, n, a, prow, icol, &
 !             idummy, nrhs, iparm, msglvl, ddummy, ddummy, error_pardiso, dparm)
-!        
+!
 !        IF (sparse_talk) THEN
 !           IF (error_pardiso .EQ. 0) THEN
 !              PRINT *, 'Factorization succeeded'
@@ -1897,14 +1897,14 @@ CONTAINS
 !           ENDIF
 !        END IF
 !     END IF
-! 
+!
 !     ! Second, solve the system using the existing factors.
 !     IF (iopt_in .EQ. 0 .OR. iopt_in .EQ. 2) THEN
 !        phase=33 !Solve and iterative refinement
 !        CALL pardiso (pt, maxfct, mnum, mtype, phase, n, a, prow, icol, &
 !             idummy, nrhs, iparm, msglvl, b, x, error_pardiso, dparm)
-!        b=x !solution x returned in b 
-! 
+!        b=x !solution x returned in b
+!
 !        IF (sparse_talk) THEN
 !           IF (error_pardiso .EQ. 0) THEN
 !              PRINT *, 'Solve succeeded'
@@ -1914,7 +1914,7 @@ CONTAINS
 !           ENDIF
 !        END IF
 !     END IF
-! 
+!
 !     ! Last, free the storage allocated inside SuperLU
 !     IF (iopt_in .EQ. 0 .OR. iopt_in .EQ. 3) THEN
 !        phase=-1 ! Release all internal memory
@@ -1928,12 +1928,12 @@ CONTAINS
 !           ENDIF
 !        END IF
 !     END IF
-! 
+!
 !     IF (ALLOCATED(icol)) DEALLOCATE(icol)
 !     IF (ALLOCATED(prow)) DEALLOCATE(prow)
 !     IF (ALLOCATED(a))  DEALLOCATE(a)
 !     IF (ALLOCATED(x))  DEALLOCATE(x)
-! 
+!
 !     RETURN
 !   END SUBROUTINE sparse_solve_pardisoComplex_b1
 !   !-------------------------------------------------------------------------------
@@ -2018,9 +2018,9 @@ CONTAINS
     ! Second, solve the system using the existing factors.
     IF (iopt_in .EQ. 0 .OR. iopt_in .EQ. 2) THEN
        IF ( sparse_solve_method .EQ. 2 ) THEN ! SuiteSparse (with (=2)
-      	call umf4solr (sys, Ap, Ai, val, x, b, numeric, control, info_suitesparse) !iterative refinement
+        call umf4solr (sys, Ap, Ai, val, x, b, numeric, control, info_suitesparse) !iterative refinement
        ELSE !or without (=3)) iterative refinement
-      	call umf4sol (sys, x, b, numeric, control, info_suitesparse) !without iterative refinement
+        call umf4sol (sys, x, b, numeric, control, info_suitesparse) !without iterative refinement
        END IF
        b=x !store solution under b
 
@@ -2059,8 +2059,8 @@ CONTAINS
     COMPLEX(kind=dp), DIMENSION(:), INTENT(in) :: val
     COMPLEX(kind=dp), DIMENSION(:), INTENT(inout) :: b
     INTEGER, INTENT(in) :: iopt_in
-		
-		INTEGER :: k
+
+        INTEGER :: k
     INTEGER(kind=long) :: n
     INTEGER(kind=long), ALLOCATABLE, DIMENSION(:) :: Ai, Ap  !row-index Ai, column-pointer Ap
     REAL(kind=dp), ALLOCATABLE, DIMENSION(:) :: xx,xz !vector to store the solution (real and imag. part)
@@ -2073,14 +2073,14 @@ CONTAINS
     ALLOCATE( bz(nrow) )
     ALLOCATE( valx(nz) )
     ALLOCATE( valz(nz) )
-    
-   
-		bx=DBLE(b)
-		bz=DIMAG(b)
-    
-		valx=DBLE(val)
-		valz=DIMAG(val)
-       
+
+
+        bx=DBLE(b)
+        bz=DIMAG(b)
+
+        valx=DBLE(val)
+        valz=DIMAG(val)
+
     ALLOCATE( Ai(SIZE(irow)) )
     ALLOCATE( Ap(SIZE(pcol)) )
 
@@ -2092,20 +2092,20 @@ CONTAINS
 !   set default parameters
     CALL umf4zdef (control)
 
-    n = nrow 
+    n = nrow
     Ai=irow-1 !convert from 1 to 0-based indexing
     Ap=pcol-1 !convert from 1 to 0-based indexing
 
     ! First, factorize the matrix. The factors are stored in *numeric* handle.
     IF (iopt_in .EQ. 0 .OR. iopt_in .EQ. 1) THEN
        !pre-order and symbolic analysis
-      CALL umf4zsym (n, n, Ap, Ai, valx, valz, symbolic, control, info_suitesparse) 
+      CALL umf4zsym (n, n, Ap, Ai, valx, valz, symbolic, control, info_suitesparse)
 
       IF (sparse_talk) THEN
          IF (info_suitesparse(1) .EQ. 0) THEN
        WRITE(*,80)  info_suitesparse (1), info_suitesparse (16), (info_suitesparse (21) * info_suitesparse (4)) / 2**20, &
           (info_suitesparse (22) * info_suitesparse (4)) / 2**20, info_suitesparse (23), info_suitesparse (24), &
-          info_suitesparse (25) 
+          info_suitesparse (25)
 80     FORMAT ('symbolic analysis:',/,&
           '   status:  ', f5.0,/, &
           '   time:    ', e10.4, ' (sec)',/, &
@@ -2139,7 +2139,7 @@ CONTAINS
           '   memory needed: ', f10.2, ' (MB)', /, &
           '   flop count:    ', e10.2, / &
           '   nnz (L):       ', f10.0, / &
-          '   nnz (U):       ', f10.0) 
+          '   nnz (U):       ', f10.0)
           ELSE
              PRINT *, 'INFO from factorization = ', info_suitesparse(1)
           ENDIF
@@ -2149,9 +2149,9 @@ CONTAINS
     ! Second, solve the system using the existing factors.
     IF (iopt_in .EQ. 0 .OR. iopt_in .EQ. 2) THEN
        IF ( sparse_solve_method .EQ. 2 ) THEN ! SuiteSparse (with (=2)
-      	CALL umf4zsolr (sys, Ap, Ai, valx, valz, xx, xz, bx, bz, numeric, control, info_suitesparse) !iterative refinement
+        CALL umf4zsolr (sys, Ap, Ai, valx, valz, xx, xz, bx, bz, numeric, control, info_suitesparse) !iterative refinement
        ELSE !or without (=3)) iterative refinement
-      	CALL umf4zsol (sys, xx, xz, bx, bz, numeric, control, info_suitesparse) !without iterative refinement
+        CALL umf4zsol (sys, xx, xz, bx, bz, numeric, control, info_suitesparse) !without iterative refinement
        END IF
 
        b=DCMPLX(xx,xz) !store solution under b
@@ -2180,7 +2180,7 @@ CONTAINS
     IF (ALLOCATED(bz))  DEALLOCATE(bz)
     IF (ALLOCATED(valx))  DEALLOCATE(valx)
     IF (ALLOCATED(valz))  DEALLOCATE(valz)
-    
+
 
     RETURN
   END SUBROUTINE sparse_solve_suitesparseComplex_b1
@@ -2217,11 +2217,11 @@ CONTAINS
     END IF
 
     info = 0
-    
+
     ! First, factorize the matrix. The factors are stored in *factors* handle.
     IF (iopt_in .EQ. 0 .OR. iopt_in .EQ. 1) THEN
        iopt = 1
-       CALL c_fortran_dgssv( iopt, n, nz, nrhs, val, irow, pcol, & 
+       CALL c_fortran_dgssv( iopt, n, nz, nrhs, val, irow, pcol, &
             b, ldb, factors, info )
 
        IF (sparse_talk) THEN
@@ -2236,9 +2236,9 @@ CONTAINS
     ! Second, solve the system using the existing factors.
     IF (iopt_in .EQ. 0 .OR. iopt_in .EQ. 2) THEN
        iopt = 2
-       CALL c_fortran_dgssv( iopt, n, nz, nrhs, val, irow, pcol, & 
+       CALL c_fortran_dgssv( iopt, n, nz, nrhs, val, irow, pcol, &
             b, ldb, factors, info )
-       
+
        IF (sparse_talk) THEN
           IF (info .EQ. 0) THEN
              PRINT *, 'Solve succeeded'
@@ -2252,7 +2252,7 @@ CONTAINS
     ! Last, free the storage allocated inside SuperLU
     IF (iopt_in .EQ. 0 .OR. iopt_in .EQ. 3) THEN
        iopt = 3
-       CALL c_fortran_dgssv( iopt, n, nz, nrhs, val, irow, pcol, & 
+       CALL c_fortran_dgssv( iopt, n, nz, nrhs, val, irow, pcol, &
             b, ldb, factors, info )
        IF (sparse_talk) THEN
           IF (info .EQ. 0) THEN
@@ -2268,7 +2268,7 @@ CONTAINS
   !-------------------------------------------------------------------------------
 
 !  !-------------------------------------------------------------------------------
-!  	!ToDo: Please uncomment, when PARDISO is desired 
+!   !ToDo: Please uncomment, when PARDISO is desired
 !   ! Uses the PARDISO-Solver-Routine to solve
 !   ! A*x = b for sparse A and 2-D vector b
 !   ! A is specified through nrow,ncol,nz,irow,pcol,val
@@ -2281,29 +2281,29 @@ CONTAINS
 !     REAL(kind=dp), DIMENSION(:,:), INTENT(inout) :: b
 !     INTEGER, INTENT(in) :: iopt_in
 !     INTEGER, OPTIONAL, INTENT(in) :: num_threads
-! 
+!
 !     REAL(kind=dp), ALLOCATABLE, DIMENSION(:) :: a
 !     REAL(kind=dp), ALLOCATABLE, DIMENSION(:,:) :: x
 !     INTEGER, ALLOCATABLE, DIMENSION(:) :: icol, prow
 !     INTEGER :: nrhs, n
-! 
+!
 !     ALLOCATE( a(SIZE(val)) )
 !     ALLOCATE( x(SIZE(b,1),SIZE(b,2)) )
 !     ALLOCATE( icol(SIZE(irow)) )
 !     ALLOCATE( prow(SIZE(pcol)) )
-! 
+!
 !     IF (SIZE(pcol,1) .NE. ncol+1) THEN
 !        PRINT *, 'Wrong pcol'
 !        STOP
 !     END IF
-! 
+!
 !     iparm(3)=1
 !     IF (PRESENT(num_threads)) iparm(3) = num_threads
 !     iparm(12)=1
-! 
+!
 !     n = nrow !number of equations
 !     nrhs = SIZE(b,2) !number of right-hand sides
-! 
+!
 !     ! First, factorize the matrix. The factors are stored in *factors* handle.
 !     IF (iopt_in .EQ. 0 .OR. iopt_in .EQ. 1) THEN
 !        phase=12 !Analysis and numerical factorization is performed in the 1st step
@@ -2313,15 +2313,15 @@ CONTAINS
 !        !In order to keep the default storage format, the value of the column pointer pcol is used as a row pointer prow and the value of the row index irow is used as a column index.
 !        !This is equivalent to the transposition of the matrix A. By default the problem A^T*x=b woul be solved. When iparm(12) = 1, PARDISO solves the problem for the transposed matrix A
 !        !Now the system (A^T)^T * x = A*x = b is solved.
-! 
+!
 !        a=val !vakues of the sparse matrix
 !        prow=pcol !row-pointer==column-pointer
 !        icol=irow !column-index==row-index
 !        !Now matrix A is transposed
-!        
+!
 !        CALL pardiso (pt, maxfct, mnum, mtype, phase, n, a, prow, icol, &
 !             idummy, nrhs, iparm, msglvl, ddummy, ddummy, error_pardiso, dparm)
-!        
+!
 !        IF (sparse_talk) THEN
 !           IF (error_pardiso .EQ. 0) THEN
 !              PRINT *, 'Factorization succeeded'
@@ -2330,14 +2330,14 @@ CONTAINS
 !           ENDIF
 !        END IF
 !     END IF
-! 
+!
 !     ! Second, solve the system using the existing factors.
 !     IF (iopt_in .EQ. 0 .OR. iopt_in .EQ. 2) THEN
 !        phase=33 !Solve and iterative refinement
 !        CALL pardiso (pt, maxfct, mnum, mtype, phase, n, a, prow, icol, &
 !             idummy, nrhs, iparm, msglvl, b, x, error_pardiso, dparm)
-!        b=x !solution x returned in b 
-!        
+!        b=x !solution x returned in b
+!
 !        IF (sparse_talk) THEN
 !           IF (error_pardiso .EQ. 0) THEN
 !              PRINT *, 'Solve succeeded'
@@ -2347,7 +2347,7 @@ CONTAINS
 !           ENDIF
 !        END IF
 !     END IF
-! 
+!
 !     ! Last, free the storage allocated inside SuperLU
 !     IF (iopt_in .EQ. 0 .OR. iopt_in .EQ. 3) THEN
 !        phase=-1 ! Release all internal memory
@@ -2361,12 +2361,12 @@ CONTAINS
 !           ENDIF
 !        END IF
 !     END IF
-! 
+!
 !     IF (ALLOCATED(icol)) DEALLOCATE(icol)
 !     IF (ALLOCATED(prow)) DEALLOCATE(prow)
 !     IF (ALLOCATED(a))  DEALLOCATE(a)
 !     IF (ALLOCATED(x))  DEALLOCATE(x)
-! 
+!
 !     RETURN
 !   END SUBROUTINE sparse_solve_pardiso_b2
 !   !-------------------------------------------------------------------------------
@@ -2398,7 +2398,7 @@ CONTAINS
     n = nrow
     nrhs = 1
     ldb = n
-    
+
     IF (ALLOCATED(bloc)) DEALLOCATE(bloc)
     ALLOCATE(bloc(nrow))
     bloc = 0.0_dp
@@ -2415,7 +2415,7 @@ CONTAINS
     ! First, factorize the matrix. The factors are stored in *factors* handle.
     IF (iopt_in .EQ. 0 .OR. iopt_in .EQ. 1) THEN
        iopt = 1
-       CALL c_fortran_dgssv( iopt, n, nz, nrhs, val, irow, pcol, & 
+       CALL c_fortran_dgssv( iopt, n, nz, nrhs, val, irow, pcol, &
             bloc, ldb, factors, info )
 
        IF (sparse_talk) THEN
@@ -2432,9 +2432,9 @@ CONTAINS
        iopt = 2
        DO i = 1,SIZE(b,2)
           bloc = b(:,i)
-          CALL c_fortran_dgssv( iopt, n, nz, nrhs, val, irow, pcol, & 
+          CALL c_fortran_dgssv( iopt, n, nz, nrhs, val, irow, pcol, &
                bloc, ldb, factors, info )
-          
+
           IF (sparse_talk) THEN
              IF (info .EQ. 0) THEN
                 !PRINT *, 'Solve succeeded',i
@@ -2444,10 +2444,10 @@ CONTAINS
                 PRINT *, 'INFO from triangular solve = ', info
              ENDIF
           END IF
-       
+
           b(:,i) = bloc
        END DO
-    
+
        IF (sparse_talk) THEN
           IF (info_store .EQ. 0) THEN
              PRINT *, 'Solve succeeded'
@@ -2460,7 +2460,7 @@ CONTAINS
     ! Last, free the storage allocated inside SuperLU
     IF (iopt_in .EQ. 0 .OR. iopt_in .EQ. 3) THEN
        iopt = 3
-       CALL c_fortran_dgssv( iopt, n, nz, nrhs, val, irow, pcol, & 
+       CALL c_fortran_dgssv( iopt, n, nz, nrhs, val, irow, pcol, &
             bloc, ldb, factors, info )
        IF (sparse_talk) THEN
           IF (info .EQ. 0) THEN
@@ -2503,7 +2503,7 @@ CONTAINS
     n = nrow
     nrhs = 1
     ldb = n
-    
+
     IF (ALLOCATED(bloc)) DEALLOCATE(bloc)
     ALLOCATE(bloc(nrow))
     bloc = 0.0_dp
@@ -2520,7 +2520,7 @@ CONTAINS
     ! First, factorize the matrix. The factors are stored in *factors* handle.
     IF (iopt_in .EQ. 0 .OR. iopt_in .EQ. 1) THEN
        iopt = 1
-       CALL c_fortran_zgssv( iopt, n, nz, nrhs, val, irow, pcol, & 
+       CALL c_fortran_zgssv( iopt, n, nz, nrhs, val, irow, pcol, &
             bloc, ldb, factors, info )
 
        IF (sparse_talk) THEN
@@ -2537,9 +2537,9 @@ CONTAINS
        iopt = 2
        DO i = 1,SIZE(b,2)
           bloc = b(:,i)
-          CALL c_fortran_zgssv( iopt, n, nz, nrhs, val, irow, pcol, & 
+          CALL c_fortran_zgssv( iopt, n, nz, nrhs, val, irow, pcol, &
                bloc, ldb, factors, info )
-          
+
           IF (sparse_talk) THEN
              IF (info .EQ. 0) THEN
                 !PRINT *, 'Solve succeeded',i
@@ -2549,10 +2549,10 @@ CONTAINS
                 PRINT *, 'INFO from triangular solve = ', info
              ENDIF
           END IF
-       
+
           b(:,i) = bloc
        END DO
-    
+
        IF (sparse_talk) THEN
           IF (info_store .EQ. 0) THEN
              PRINT *, 'Solve succeeded'
@@ -2565,7 +2565,7 @@ CONTAINS
     ! Last, free the storage allocated inside SuperLU
     IF (iopt_in .EQ. 0 .OR. iopt_in .EQ. 3) THEN
        iopt = 3
-       CALL c_fortran_zgssv( iopt, n, nz, nrhs, val, irow, pcol, & 
+       CALL c_fortran_zgssv( iopt, n, nz, nrhs, val, irow, pcol, &
             bloc, ldb, factors, info )
        IF (sparse_talk) THEN
           IF (info .EQ. 0) THEN
@@ -2582,7 +2582,7 @@ CONTAINS
   !-------------------------------------------------------------------------------
 
 !  !-------------------------------------------------------------------------------
-!  	!ToDo: Please uncomment, when PARDISO is desired 
+!   !ToDo: Please uncomment, when PARDISO is desired
 !   ! Uses the PARDISO-Solver-Routine to solve
 !   ! A*x = b (using a loop) for sparse A and 2-D vector b
 !   ! A is specified through nrow,ncol,nz,irow,pcol,val
@@ -2595,30 +2595,30 @@ CONTAINS
 !     REAL(kind=dp), DIMENSION(:,:), INTENT(inout) :: b
 !     INTEGER, INTENT(in) :: iopt_in
 !     INTEGER, OPTIONAL, INTENT(in) :: num_threads
-! 
+!
 !     REAL(kind=dp), ALLOCATABLE, DIMENSION(:) :: a, x, bloc
 !     INTEGER, ALLOCATABLE, DIMENSION(:) :: icol, prow
 !     INTEGER :: nrhs, n, i
-! 
+!
 !     ALLOCATE( a(SIZE(val)) )
 !     ALLOCATE( x(nrow) )
 !     ALLOCATE( icol(SIZE(irow)) )
 !     ALLOCATE( prow(SIZE(pcol)) )
 !     ALLOCATE(bloc(nrow))
-! 
+!
 !     IF (SIZE(pcol,1) .NE. ncol+1) THEN
 !        PRINT *, 'Wrong pcol'
 !        STOP
 !     END IF
-! 
+!
 !     iparm(3)=1
 !     IF (PRESENT(num_threads)) iparm(3) = num_threads
 !     iparm(12)=1
-! 
+!
 !     bloc = 0.0_dp
 !     n = nrow !number of equations
 !     nrhs = 1 !number of right-hand sides
-! 
+!
 !     ! First, factorize the matrix. The factors are stored in *factors* handle.
 !     IF (iopt_in .EQ. 0 .OR. iopt_in .EQ. 1) THEN
 !        phase=12 !Analysis and numerical factorization is performed in the 1st step
@@ -2628,15 +2628,15 @@ CONTAINS
 !        !In order to keep the default storage format, the value of the column pointer pcol is used as a row pointer prow and the value of the row index irow is used as a column index.
 !        !This is equivalent to the transposition of the matrix A. By default the problem A^T*x=b woul be solved. When iparm(12) = 1, PARDISO solves the problem for the transposed matrix A
 !        !Now the system (A^T)^T * x = A*x = b is solved.
-! 
+!
 !        a=val !vakues of the sparse matrix
 !        prow=pcol !row-pointer==column-pointer
 !        icol=irow !column-index==row-index
 !        !Now matrix A is transposed
-!        
+!
 !        CALL pardiso (pt, maxfct, mnum, mtype, phase, n, a, prow, icol, &
 !             idummy, nrhs, iparm, msglvl, ddummy, ddummy, error_pardiso, dparm)
-!        
+!
 !        IF (sparse_talk) THEN
 !           IF (error_pardiso .EQ. 0) THEN
 !              PRINT *, 'Factorization succeeded'
@@ -2645,27 +2645,27 @@ CONTAINS
 !           ENDIF
 !        END IF
 !     END IF
-! 
+!
 !     ! Second, solve the system using the existing factors.
 !     IF (iopt_in .EQ. 0 .OR. iopt_in .EQ. 2) THEN
 !        phase=33 !Solve and iterative refinement
 !        DO i = 1, SIZE(b,2)
 !           bloc = b(:,i)
-! 	  CALL pardiso (pt, maxfct, mnum, mtype, phase, n, a, prow, icol, &
-!           	       idummy, nrhs, iparm, msglvl, bloc, x, error_pardiso, dparm)
-!        	  b(:,i) = x
-! 
-!        	  IF (sparse_talk) THEN
-!           	IF (error_pardiso .EQ. 0) THEN
-!        	       	!PRINT *, 'Solve succeeded'
-!              	! WRITE(*,*) (b(i), i=1, n)
-!           	ELSE
-!              	PRINT *, 'INFO from solve = ', error_pardiso
-!           	ENDIF
-!        	  END IF
+!     CALL pardiso (pt, maxfct, mnum, mtype, phase, n, a, prow, icol, &
+!                      idummy, nrhs, iparm, msglvl, bloc, x, error_pardiso, dparm)
+!             b(:,i) = x
+!
+!             IF (sparse_talk) THEN
+!               IF (error_pardiso .EQ. 0) THEN
+!                   !PRINT *, 'Solve succeeded'
+!               ! WRITE(*,*) (b(i), i=1, n)
+!               ELSE
+!               PRINT *, 'INFO from solve = ', error_pardiso
+!               ENDIF
+!             END IF
 !        END DO
 !     END IF
-! 
+!
 !     ! Last, free the storage allocated inside SuperLU
 !     IF (iopt_in .EQ. 0 .OR. iopt_in .EQ. 3) THEN
 !        phase=-1 ! Release all internal memory
@@ -2679,19 +2679,19 @@ CONTAINS
 !           ENDIF
 !        END IF
 !     END IF
-! 
+!
 !     IF (ALLOCATED(bloc)) DEALLOCATE(bloc)
 !     IF (ALLOCATED(icol)) DEALLOCATE(icol)
 !     IF (ALLOCATED(prow)) DEALLOCATE(prow)
 !     IF (ALLOCATED(a))  DEALLOCATE(a)
 !     IF (ALLOCATED(x))  DEALLOCATE(x)
-! 
+!
 !     RETURN
 !   END SUBROUTINE sparse_solve_pardiso_b2_loop
 !   !-------------------------------------------------------------------------------
-! 
+!
 !  !-------------------------------------------------------------------------------
-!  	!ToDo: Please uncomment, when PARDISO is desired 
+!   !ToDo: Please uncomment, when PARDISO is desired
 !   ! Uses the PARDISO-Solver-Routine to solve
 !   ! A*x = b (using a loop) for sparse A and 2-D vector b
 !   ! A is specified through nrow,ncol,nz,irow,pcol,val
@@ -2704,30 +2704,30 @@ CONTAINS
 !     COMPLEX(kind=dp), DIMENSION(:,:), INTENT(inout) :: b
 !     INTEGER, INTENT(in) :: iopt_in
 !     INTEGER, OPTIONAL, INTENT(in) :: num_threads
-! 
+!
 !     COMPLEX(kind=dp), ALLOCATABLE, DIMENSION(:) :: a, x, bloc
 !     INTEGER, ALLOCATABLE, DIMENSION(:) :: icol, prow
 !     INTEGER :: nrhs, n, i
-! 
+!
 !     ALLOCATE( a(SIZE(val)) )
 !     ALLOCATE( x(nrow) )
 !     ALLOCATE( icol(SIZE(irow)) )
 !     ALLOCATE( prow(SIZE(pcol)) )
 !     ALLOCATE(bloc(nrow))
-! 
+!
 !     IF (SIZE(pcol,1) .NE. ncol+1) THEN
 !        PRINT *, 'Wrong pcol'
 !        STOP
 !     END IF
-! 
+!
 !     iparm(3)=1
 !     IF (PRESENT(num_threads)) iparm(3) = num_threads
 !     iparm(12)=1
-! 
+!
 !     bloc = 0.0_dp
 !     n = nrow !number of equations
 !     nrhs = 1 !number of right-hand sides
-! 
+!
 !     ! First, factorize the matrix. The factors are stored in *factors* handle.
 !     IF (iopt_in .EQ. 0 .OR. iopt_in .EQ. 1) THEN
 !        phase=12 !Analysis and numerical factorization is performed in the 1st step
@@ -2737,15 +2737,15 @@ CONTAINS
 !        !In order to keep the default storage format, the value of the column pointer pcol is used as a row pointer prow and the value of the row index irow is used as a column index.
 !        !This is equivalent to the transposition of the matrix A. By default the problem A^T*x=b woul be solved. When iparm(12) = 1, PARDISO solves the problem for the transposed matrix A
 !        !Now the system (A^T)^T * x = A*x = b is solved.
-! 
+!
 !        a=val !vakues of the sparse matrix
 !        prow=pcol !row-pointer==column-pointer
 !        icol=irow !column-index==row-index
 !        !Now matrix A is transposed
-!        
+!
 !        CALL pardiso (pt, maxfct, mnum, mtype, phase, n, a, prow, icol, &
 !             idummy, nrhs, iparm, msglvl, ddummy, ddummy, error_pardiso, dparm)
-!        
+!
 !        IF (sparse_talk) THEN
 !           IF (error_pardiso .EQ. 0) THEN
 !              PRINT *, 'Factorization succeeded'
@@ -2754,27 +2754,27 @@ CONTAINS
 !           ENDIF
 !        END IF
 !     END IF
-! 
+!
 !     ! Second, solve the system using the existing factors.
 !     IF (iopt_in .EQ. 0 .OR. iopt_in .EQ. 2) THEN
 !        phase=33 !Solve and iterative refinement
 !        DO i = 1, SIZE(b,2)
 !           bloc = b(:,i)
-! 	  CALL pardiso (pt, maxfct, mnum, mtype, phase, n, a, prow, icol, &
-!           	       idummy, nrhs, iparm, msglvl, bloc, x, error_pardiso, dparm)
-!        	  b(:,i) = x
-! 
-!        	  IF (sparse_talk) THEN
-!           	IF (error_pardiso .EQ. 0) THEN
-!        	       	!PRINT *, 'Solve succeeded'
-!              	! WRITE(*,*) (b(i), i=1, n)
-!           	ELSE
-!              	PRINT *, 'INFO from solve = ', error_pardiso
-!           	ENDIF
-!        	  END IF
+!     CALL pardiso (pt, maxfct, mnum, mtype, phase, n, a, prow, icol, &
+!                      idummy, nrhs, iparm, msglvl, bloc, x, error_pardiso, dparm)
+!             b(:,i) = x
+!
+!             IF (sparse_talk) THEN
+!               IF (error_pardiso .EQ. 0) THEN
+!                   !PRINT *, 'Solve succeeded'
+!               ! WRITE(*,*) (b(i), i=1, n)
+!               ELSE
+!               PRINT *, 'INFO from solve = ', error_pardiso
+!               ENDIF
+!             END IF
 !        END DO
 !     END IF
-! 
+!
 !     ! Last, free the storage allocated inside SuperLU       CALL umf4zsolr (sys, Ap, Ai, valx, valz, xx, xz, bx, bz, numeric, control, info_suitesparse) !iterative refinement
 !     IF (iopt_in .EQ. 0 .OR. iopt_in .EQ. 3) THEN
 !        phase=-1 ! Release all internal memory
@@ -2788,13 +2788,13 @@ CONTAINS
 !           ENDIF
 !        END IF
 !     END IF
-! 
+!
 !     IF (ALLOCATED(bloc)) DEALLOCATE(bloc)
 !     IF (ALLOCATED(icol)) DEALLOCATE(icol)
 !     IF (ALLOCATED(prow)) DEALLOCATE(prow)
 !     IF (ALLOCATED(a))  DEALLOCATE(a)
 !     IF (ALLOCATED(x))  DEALLOCATE(x)
-! 
+!
 !     RETURN
 !   END SUBROUTINE sparse_solve_pardisoComplex_b2_loop
 !   !-------------------------------------------------------------------------------
@@ -2890,10 +2890,10 @@ CONTAINS
        DO i = 1,SIZE(b,2)
           bloc = b(:,i)
           IF ( sparse_solve_method .EQ. 2 ) THEN ! SuiteSparse (with (=2)
-      			call umf4solr (sys, Ap, Ai, val, x, bloc, numeric, control, info_suitesparse) !iterative refinement
-       		ELSE !or without (=3)) iterative refinement
-      			call umf4sol (sys, x, bloc, numeric, control, info_suitesparse) !without iterative refinement
-       		END IF
+                call umf4solr (sys, Ap, Ai, val, x, bloc, numeric, control, info_suitesparse) !iterative refinement
+            ELSE !or without (=3)) iterative refinement
+                call umf4sol (sys, x, bloc, numeric, control, info_suitesparse) !without iterative refinement
+            END IF
 
           IF (sparse_talk) THEN
              IF (info_suitesparse(1) .EQ. 0) THEN
@@ -2947,7 +2947,7 @@ CONTAINS
     ALLOCATE( bz(nrow, SIZE(b,2)) )
     ALLOCATE( valx(nz) )
     ALLOCATE( valz(nz) )
-    
+
     bx=DBLE(b)
     bz=DIMAG(b)
     valx=DBLE(val)
@@ -2956,14 +2956,14 @@ CONTAINS
     ALLOCATE( Ai(SIZE(irow)) )
     ALLOCATE( Ap(SIZE(pcol)) )
     ALLOCATE(blocx(nrow))
-		ALLOCATE(blocz(nrow))
-		
-		n = nrow
+        ALLOCATE(blocz(nrow))
+
+        n = nrow
     blocx = 0.0_dp
     blocz = 0.0_dp
     Ai=irow-1 !convert from 1 to 0-based indexing
     Ap=pcol-1 !convert from 1 to 0-based indexing
-		
+
     IF (SIZE(pcol,1) .NE. ncol+1) THEN
        PRINT *, 'Wrong pcol'
        STOP
@@ -2976,13 +2976,13 @@ CONTAINS
     ! First, factorize the matrix. The factors are stored in *numeric* handle.
     IF (iopt_in .EQ. 0 .OR. iopt_in .EQ. 1) THEN
        !pre-order and symbolic analysis
-      CALL umf4zsym (n, n, Ap, Ai, valx, valz, symbolic, control, info_suitesparse) 
+      CALL umf4zsym (n, n, Ap, Ai, valx, valz, symbolic, control, info_suitesparse)
 
       IF (sparse_talk) THEN
          IF (info_suitesparse(1) .EQ. 0) THEN
        WRITE(*,80)  info_suitesparse (1), info_suitesparse (16), (info_suitesparse (21) * info_suitesparse (4)) / 2**20, &
           (info_suitesparse (22) * info_suitesparse (4)) / 2**20, info_suitesparse (23), info_suitesparse (24), &
-          info_suitesparse (25) 
+          info_suitesparse (25)
 80     FORMAT ('symbolic analysis:',/,&
           '   status:  ', f5.0,/, &
           '   time:    ', e10.4, ' (sec)',/, &
@@ -3016,7 +3016,7 @@ CONTAINS
           '   memory needed: ', f10.2, ' (MB)', /, &
           '   flop count:    ', e10.2, / &
           '   nnz (L):       ', f10.0, / &
-          '   nnz (U):       ', f10.0) 
+          '   nnz (U):       ', f10.0)
           ELSE
              PRINT *, 'INFO from factorization = ', info_suitesparse(1)
           ENDIF
@@ -3028,10 +3028,10 @@ CONTAINS
           blocx = bx(:,i)
           blocz = bz(:,i)
           IF ( sparse_solve_method .EQ. 2 ) THEN ! SuiteSparse (with (=2)
-      			CALL umf4zsolr (sys, Ap, Ai, valx, valz, xx, xz, blocx, blocz, numeric, control, info_suitesparse) !iterative refinement
-       		ELSE !or without (=3)) iterative refinement
-      			CALL umf4zsol (sys, xx, xz, blocx, blocz, numeric, control, info_suitesparse) !without iterative refinement
-       		END IF
+                CALL umf4zsolr (sys, Ap, Ai, valx, valz, xx, xz, blocx, blocz, numeric, control, info_suitesparse) !iterative refinement
+            ELSE !or without (=3)) iterative refinement
+                CALL umf4zsol (sys, xx, xz, blocx, blocz, numeric, control, info_suitesparse) !without iterative refinement
+            END IF
 
           IF (sparse_talk) THEN
              IF (info_suitesparse(1) .EQ. 0) THEN
@@ -3044,7 +3044,7 @@ CONTAINS
           b(:,i)=DCMPLX(xx,xz)
        END DO
     END IF
-		
+
     ! Last, free the storage allocated inside SuiteSparse
     IF (iopt_in .EQ. 0 .OR. iopt_in .EQ. 3) THEN
        CALL umf4zfnum (numeric)
@@ -3072,7 +3072,7 @@ CONTAINS
 
     INTEGER, DIMENSION(:), INTENT(in) :: pcol
     INTEGER, DIMENSION(:), ALLOCATABLE, INTENT(inout) :: icol
-    
+
     INTEGER :: nz
     INTEGER :: nc_old,c,nc,ncol
 
@@ -3096,7 +3096,7 @@ CONTAINS
 
     INTEGER, DIMENSION(:), INTENT(in) :: icol
     INTEGER, DIMENSION(:), ALLOCATABLE, INTENT(inout) :: pcol
-    
+
     INTEGER :: ncol,nz
     INTEGER :: c_c,c_old,k,c,kc
 
@@ -3105,7 +3105,7 @@ CONTAINS
 
     IF (ALLOCATED(pcol)) DEALLOCATE(pcol)
     ALLOCATE(pcol(ncol+1))
-    
+
     c_c = 1
     pcol(c_c) = 1
     c_old = 0
@@ -3156,7 +3156,7 @@ CONTAINS
        ALLOCATE(icol(SIZE(pcol)))
        icol = pcol
     END IF
-      
+
     IF (ALLOCATED(A)) DEALLOCATE(A)
     ALLOCATE(A(nrow,ncol))
     A = 0.0_dp
@@ -3195,7 +3195,7 @@ CONTAINS
        ALLOCATE(icol(SIZE(pcol)))
        icol = pcol
     END IF
-      
+
     IF (ALLOCATED(A)) DEALLOCATE(A)
     ALLOCATE(A(nrow,ncol))
     A = 0.0_dp
@@ -3209,7 +3209,7 @@ CONTAINS
     RETURN
   END SUBROUTINE sp2fullComplex
   !-------------------------------------------------------------------------------
-  
+
   !-------------------------------------------------------------------------------
   ! full to sparse conversion
   SUBROUTINE full2sp(A,irow,pcol,val,nrow,ncol,nz_out)
@@ -3324,7 +3324,7 @@ CONTAINS
     INTEGER :: nz,n,ic,ir
     INTEGER, DIMENSION(:), ALLOCATABLE :: icol
 
-    
+
 
     nz = SIZE(val,1)
     IF (SIZE(pcol,1) .NE. nz) THEN
@@ -3347,7 +3347,7 @@ CONTAINS
     !ALLOCATE(r(SIZE(x,1)))
     ALLOCATE(r(nrow))
     r = 0.0_dp
-    
+
     DO n = 1,nz
        ic = icol(n)
        ir = irow(n)
@@ -3372,7 +3372,7 @@ CONTAINS
     INTEGER :: nz,n,ic,ir
     INTEGER, DIMENSION(:), ALLOCATABLE :: icol
 
-    
+
 
     nz = SIZE(val,1)
     IF (SIZE(pcol,1) .NE. nz) THEN
@@ -3395,7 +3395,7 @@ CONTAINS
     !ALLOCATE(r(SIZE(x,1)))
     ALLOCATE(r(nrow))
     r = 0.0_dp
-    
+
     DO n = 1,nz
        ic = icol(n)
        ir = irow(n)
@@ -3441,7 +3441,7 @@ CONTAINS
     !ALLOCATE(r(SIZE(x,1),SIZE(x,2)))
     ALLOCATE(r(nrow,SIZE(x,2)))
     r = 0.0_dp
-    
+
     DO n = 1,nz
        ic = icol(n)
        ir = irow(n)
@@ -3487,7 +3487,7 @@ CONTAINS
     !ALLOCATE(r(SIZE(x,1),SIZE(x,2)))
     ALLOCATE(r(nrow,SIZE(x,2)))
     r = 0.0_dp
-    
+
     DO n = 1,nz
        ic = icol(n)
        ir = irow(n)
@@ -3509,7 +3509,7 @@ CONTAINS
     INTEGER :: nrow,ncol
     INTEGER, DIMENSION(:), ALLOCATABLE :: irow,pcol
     REAL(kind=dp), DIMENSION(:), ALLOCATABLE :: val
-    
+
     CALL full2sparse(A,irow,pcol,val,nrow,ncol)
     CALL sparse_matmul(nrow,ncol,irow,pcol,val,x,r)
 
@@ -3531,7 +3531,7 @@ CONTAINS
     INTEGER :: nrow,ncol
     INTEGER, DIMENSION(:), ALLOCATABLE :: irow,pcol
     COMPLEX(kind=dp), DIMENSION(:), ALLOCATABLE :: val
-    
+
     CALL full2sparse(A,irow,pcol,val,nrow,ncol)
     CALL sparse_matmul(nrow,ncol,irow,pcol,val,x,r)
 
@@ -3553,7 +3553,7 @@ CONTAINS
     INTEGER :: nrow,ncol
     INTEGER, DIMENSION(:), ALLOCATABLE :: irow,pcol
     REAL(kind=dp), DIMENSION(:), ALLOCATABLE :: val
-    
+
     CALL full2sparse(A,irow,pcol,val,nrow,ncol)
     CALL sparse_matmul(nrow,ncol,irow,pcol,val,x,r)
 
@@ -3563,7 +3563,7 @@ CONTAINS
     RETURN
   END SUBROUTINE sp_matmul_A_b2
   !-------------------------------------------------------------------------------
-  
+
   !-------------------------------------------------------------------------------
   ! computes A*x for sparse A and 2-D array x
   ! results are returned in r
@@ -3575,7 +3575,7 @@ CONTAINS
     INTEGER :: nrow,ncol
     INTEGER, DIMENSION(:), ALLOCATABLE :: irow,pcol
     COMPLEX(kind=dp), DIMENSION(:), ALLOCATABLE :: val
-    
+
     CALL full2sparse(A,irow,pcol,val,nrow,ncol)
     CALL sparse_matmul(nrow,ncol,irow,pcol,val,x,r)
 
@@ -3641,7 +3641,7 @@ CONTAINS
     RETURN
   END SUBROUTINE sp_testComplex_b1
    !-------------------------------------------------------------------------------
-   
+
    !-------------------------------------------------------------------------------
   ! tests A*x-b and returns errors
   SUBROUTINE sp_test_b2(nrow,ncol,irow,pcol,val,x,b,max_abs_err_out,max_rel_err_out)
@@ -3655,7 +3655,7 @@ CONTAINS
     REAL(kind=dp) :: max_abs_err,max_rel_err
     REAL(kind=dp) :: abs_err,rel_err
     INTEGER :: ic
-    
+
     max_abs_err = 0.0_dp
     max_rel_err = 0.0_dp
 
@@ -3688,7 +3688,7 @@ CONTAINS
     REAL(kind=dp) :: max_abs_err,max_rel_err
     REAL(kind=dp) :: abs_err,rel_err
     INTEGER :: ic
-    
+
     max_abs_err = 0.0_dp
     max_rel_err = 0.0_dp
 
@@ -3720,7 +3720,7 @@ CONTAINS
     INTEGER :: nrow,ncol
     INTEGER, DIMENSION(:), ALLOCATABLE :: irow,pcol
     REAL(kind=dp), DIMENSION(:), ALLOCATABLE :: val
-    
+
     CALL full2sparse(A,irow,pcol,val,nrow,ncol)
     CALL sparse_solver_test(nrow,ncol,irow,pcol,val,x,b,max_abs_err,max_rel_err)
 
@@ -3745,7 +3745,7 @@ CONTAINS
     INTEGER :: nrow,ncol
     INTEGER, DIMENSION(:), ALLOCATABLE :: irow,pcol
     COMPLEX(kind=dp), DIMENSION(:), ALLOCATABLE :: val
-    
+
     CALL full2sparse(A,irow,pcol,val,nrow,ncol)
     CALL sparse_solver_test(nrow,ncol,irow,pcol,val,x,b,max_abs_err,max_rel_err)
 
@@ -3770,7 +3770,7 @@ CONTAINS
     INTEGER :: nrow,ncol
     INTEGER, DIMENSION(:), ALLOCATABLE :: irow,pcol
     REAL(kind=dp), DIMENSION(:), ALLOCATABLE :: val
-    
+
     CALL full2sparse(A,irow,pcol,val,nrow,ncol)
     CALL sparse_solver_test(nrow,ncol,irow,pcol,val,x,b,max_abs_err,max_rel_err)
 
@@ -3795,7 +3795,7 @@ CONTAINS
     INTEGER :: nrow,ncol
     INTEGER, DIMENSION(:), ALLOCATABLE :: irow,pcol
     COMPLEX(kind=dp), DIMENSION(:), ALLOCATABLE :: val
-    
+
     CALL full2sparse(A,irow,pcol,val,nrow,ncol)
     CALL sparse_solver_test(nrow,ncol,irow,pcol,val,x,b,max_abs_err,max_rel_err)
 

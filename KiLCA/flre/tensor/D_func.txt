@@ -2,12 +2,12 @@
 (*zero order orbits*)
 (*rl = Sqrt[2J/m/omc]*)
 
-rho = {(-rl)*Cos[phi2], rl*Sin[phi2]*(hz/r0), (-rl)*Sin[phi2]*(ht/r0)}; 
-xg = {r0, th2, z2}; 
-xc = xg + rho; 
+rho = {(-rl)*Cos[phi2], rl*Sin[phi2]*(hz/r0), (-rl)*Sin[phi2]*(ht/r0)};
+xg = {r0, th2, z2};
+xc = xg + rho;
 
-theta = {phi2, th2, z2}; 
-dxcdth = D[xc, {theta}]; 
+theta = {phi2, th2, z2};
+dxcdth = D[xc, {theta}];
 
 MatrixForm[dxcdth]
 
@@ -22,29 +22,29 @@ a[n_] := (rho[[1]]^n/n!)*Fe*dxcdth
 Ass2 = {Element[{rl, ks, ht, hz, r0, m0, omc}, Reals], rl >= 0, m0 > 0, Element[{l}, Integers]};
 $Assumptions = Join[Ass1, Ass2];
 
-aF[n_, l_] := Integrate[Exp[(-I)*l*phi2]*a[n], {phi2, -Pi, Pi}]/2/Pi; 
+aF[n_, l_] := Integrate[Exp[(-I)*l*phi2]*a[n], {phi2, -Pi, Pi}]/2/Pi;
 
-mod[p1_, p2_] := Sqrt[p1^2 + p2^2]; 
+mod[p1_, p2_] := Sqrt[p1^2 + p2^2];
 
-arg[p1_, p2_] := ArcTan[p2/p1]; 
+arg[p1_, p2_] := ArcTan[p2/p1];
 
 JE[l_, p1_, p2_] := BesselJ[l, mod[p1, p2]*rl]*Exp[I*l*arg[p1, p2]];
 
 Der1[l_, m_, p1_, p2_] := D[JE[l, p1, p2], {p2, m}];
 Der2[l_, m_, p1_, p2_] := D[Der1[l, m, p1, p2], {p1, 1}];
 
-Dmat[l_, m_, ks_] := 
+Dmat[l_, m_, ks_] :=
     ReplaceAll[
-      List[{-I*Der2[l, m, p1, p2], 0, 0}, {-I*(hz/r0)*Der1[l, m + 1, p1, p2], 
-          Der1[l, m, p1, p2], 0}, {I*(ht/r0)*Der1[l, m + 1, p1, p2], 0, 
+      List[{-I*Der2[l, m, p1, p2], 0, 0}, {-I*(hz/r0)*Der1[l, m + 1, p1, p2],
+          Der1[l, m, p1, p2], 0}, {I*(ht/r0)*Der1[l, m + 1, p1, p2], 0,
           Der1[l, m, p1, p2]}], {p1 -> ks, p2 -> 0}];
 
 aFa[n_, l_] := Refine[(I^n/n!)*Dmat[l, n, ks], ks >= 0];
-(*aFa[n_, l_] := I^n/n! Dmat[l, n, ks];*) 
+(*aFa[n_, l_] := I^n/n! Dmat[l, n, ks];*)
 
 (*check for a matrix harm expressions*)
 (*
-For[n = 0, n <= 5, n++, 
+For[n = 0, n <= 5, n++,
     For[l = -1, l <= 10, l++, an = aFa[n, l];
       dev = FullSimplify[aF[n, l] - an];
       Print[{n, l, an, dev}];]];
@@ -59,19 +59,19 @@ JqSS[b_, l_] := Simplify[((m0*omc)^(b + 1)/2^b)*Jk[b, l] /. a -> (1/2)*(omc^2/Vt
 
 JqFS[b_, l_] := FullSimplify[((m0*omc)^(b + 1)/2^b)*Jk[b, l] /. a -> (1/2)*(omc^2/Vt^2)];
 
-DDk[m_, n_, m1_, n1_, b_, l_] := 
-   D[D[D[D[Exp[I*l*(arg[p1, p2] - arg[q1, q2])]*JqSS[b, l], {p2, n1}], {p1, m1}], {q2, n}], 
-    {q1, m}]; 
+DDk[m_, n_, m1_, n1_, b_, l_] :=
+   D[D[D[D[Exp[I*l*(arg[p1, p2] - arg[q1, q2])]*JqSS[b, l], {p2, n1}], {p1, m1}], {q2, n}],
+    {q1, m}];
 
 DD[m_, n_, m1_, n1_, b_, l_] := Simplify[ReplaceAll[DDk[m, n, m1, n1, b, l],
                                 {q1 -> ks, q2 -> 0, p1 -> ks, p2 -> 0}]];
 
-BesselRule1 = 
-  BesselI[(in_Integer /; in > 1) + l, z_] -> 
+BesselRule1 =
+  BesselI[(in_Integer /; in > 1) + l, z_] ->
     BesselI[l + in - 2, z] - 2 (l + in - 1)/z BesselI[l + in - 1, z];
 
-BesselRule2 = 
-  BesselI[(in_Integer /; in < 0) + l, z_] -> 
+BesselRule2 =
+  BesselI[(in_Integer /; in < 0) + l, z_] ->
     BesselI[l + in + 2, z] + 2 (l + in + 1)/z BesselI[l + in + 1, z];
 
 (*check :*)
@@ -127,7 +127,7 @@ Write[Dstrm, "!complex(dpc), dimension(0:" <> ToString[Mmax] <> ", 0:" <> ToStri
             res = Simplify[ReplaceRepeated[res, {BesselRule1, BesselRule2}]];
             (*Print[res];*)
 
-            res = ReplaceRepeated[res, {ks^2*Vt^2/omc^2 -> x^2, BesselI[l, x^2] -> B1, 
+            res = ReplaceRepeated[res, {ks^2*Vt^2/omc^2 -> x^2, BesselI[l, x^2] -> B1,
                                         BesselI[l + 1, x^2] -> B2, Exp[-x^2] -> Ex}];
 
             res = ReplaceAll[res, {ks -> x*omc/Vt}];
@@ -141,7 +141,7 @@ Write[Dstrm, "!complex(dpc), dimension(0:" <> ToString[Mmax] <> ", 0:" <> ToStri
             res = facJ*Horner[Simplify[res/facJ], {x, B1, B2, l}];
             Print[res];
 
-            res = ReplaceAll[res, {x -> x[1], Vt -> Vt[1], omc -> omc[1], m0^2 -> m02, 
+            res = ReplaceAll[res, {x -> x[1], Vt -> Vt[1], omc -> omc[1], m0^2 -> m02,
                                    l^2 -> l2}];
 
             res = ReplaceAll[res, {Vt[1]^p_?Positive -> Vt[p], Vt[1]^p_?Negative -> 1/Vt[-p]}];
@@ -152,10 +152,10 @@ Write[Dstrm, "!complex(dpc), dimension(0:" <> ToString[Mmax] <> ", 0:" <> ToStri
 
             Print[res];
 
-            SetOptions[Dstrm, FormatType -> OutputForm] ; 
+            SetOptions[Dstrm, FormatType -> OutputForm] ;
             Write[Dstrm, ""];
 
-            Write[Dstrm, "D(", m, ",", n, ",", m1, ",", n1, ",", d, 
+            Write[Dstrm, "D(", m, ",", n, ",", m1, ",", n1, ",", d,
               ",l) = "];
 
             SetOptions[Dstrm, FormatType -> InputForm] ;
@@ -245,7 +245,7 @@ For[d = 0, d <= Bmax, d++,
 
             (*Print[res];*)
 
-            res = ReplaceRepeated[res, {ks^2*Vt^2/omc^2 -> x^2, BesselI[l, x^2] -> B1, 
+            res = ReplaceRepeated[res, {ks^2*Vt^2/omc^2 -> x^2, BesselI[l, x^2] -> B1,
                                         BesselI[l + 1, x^2] -> B2, Exp[-x^2] -> Ex}];
 
             res = ReplaceAll[res, {ks -> x*omc/Vt}];
@@ -259,7 +259,7 @@ For[d = 0, d <= Bmax, d++,
             res = facJ*Horner[Simplify[res/facJ], {x, B1, B2, l}];
             (*Print[res];*)
 
-            res = ReplaceAll[res, {x -> x[1], Vt -> Vt[1], omc -> omc[1], m0^2 -> m02, 
+            res = ReplaceAll[res, {x -> x[1], Vt -> Vt[1], omc -> omc[1], m0^2 -> m02,
                                    l^2 -> l2}];
 
             res = ReplaceAll[res, {Vt[1]^p_?Positive -> Vt[p], Vt[1]^p_?Negative -> 1/Vt[-p]}];
@@ -284,8 +284,8 @@ Write[Dstrm, ""];
 Write[Dstrm, "implicit complex(vpc) (s-t)"];
 *)
 
-Write[Dstrm, "!complex(dpc), dimension(0:" <> ToString[Mmax] <> ", 0:" <> 
-      ToString[Nmax] <> ", 0:" <> ToString[M1max] <> ", 0:" <> 
+Write[Dstrm, "!complex(dpc), dimension(0:" <> ToString[Mmax] <> ", 0:" <>
+      ToString[Nmax] <> ", 0:" <> ToString[M1max] <> ", 0:" <>
       ToString[N1max] <> ", 0:" <> ToString[Bmax] <> ", -Nmax:Nmax) :: D"];
 (*Write[Dstrm, ""];*)
 
@@ -298,7 +298,7 @@ Write[Dstrm, "!complex(dpc), dimension(0:" <> ToString[Mmax] <> ", 0:" <>
             SetOptions[Dstrm, FormatType -> OutputForm];
             Write[Dstrm, ""];
 
-            Write[Dstrm, "D(", m, ",", n, ",", m1, ",", n1, ",", d, 
+            Write[Dstrm, "D(", m, ",", n, ",", m1, ",", n1, ",", d,
               ",l) = "];
 
             SetOptions[Dstrm, FormatType -> InputForm] ;
@@ -416,7 +416,7 @@ For[d = 0, d <= Bmax, d++,
             res = Horner[FullSimplify[res/facJ, Assumptions -> {{m, n, m1, n1, d} \[Element] Integers}], {x, B1, B2, l, l2}];
             (*Print[res];*)
 
-            res = ReplaceAll[res, {x -> x[1], Vt -> Vt[1], omc -> omc[1], m0^2 -> m02, 
+            res = ReplaceAll[res, {x -> x[1], Vt -> Vt[1], omc -> omc[1], m0^2 -> m02,
                                    l^2 -> l2}];
 
             res = ReplaceAll[res, {Vt[1]^p_?Positive -> Vt[p], Vt[1]^p_?Negative -> 1/Vt[-p]}];
@@ -441,8 +441,8 @@ Write[Dstrm, ""];
 Write[Dstrm, "implicit complex(vpc) (s-t)"];
 *)
 
-Write[Dstrm, "!complex(dpc), dimension(0:" <> ToString[Mmax] <> ", 0:" <> 
-      ToString[Nmax] <> ", 0:" <> ToString[M1max] <> ", 0:" <> 
+Write[Dstrm, "!complex(dpc), dimension(0:" <> ToString[Mmax] <> ", 0:" <>
+      ToString[Nmax] <> ", 0:" <> ToString[M1max] <> ", 0:" <>
       ToString[N1max] <> ", 0:" <> ToString[Bmax] <> ", -Nmax:Nmax) :: D"];
 (*Write[Dstrm, ""];*)
 
@@ -455,7 +455,7 @@ Write[Dstrm, "!complex(dpc), dimension(0:" <> ToString[Mmax] <> ", 0:" <>
             SetOptions[Dstrm, FormatType -> OutputForm];
             Write[Dstrm, ""];
 
-            Write[Dstrm, "D(", m, ",", n, ",", m1, ",", n1, ",", d, 
+            Write[Dstrm, "D(", m, ",", n, ",", m1, ",", n1, ",", d,
               ",l) = "];
 
             SetOptions[Dstrm, FormatType -> InputForm] ;
@@ -482,17 +482,17 @@ Jtt[m_, n_, m1_, n1_, b_, l_] := Simplify[ReplaceAll[
                  Jt1k[m1, n1, l]*Conjugate[Jt1k[m, n, l]]*J^b*Exp[-omc/m0/Vt^2*J],
                  {q1 -> ks, q2 -> 0, p1 -> ks, p2 -> 0, rl -> Sqrt[2J/m0/omc]}]];
 
-Jtot[m_, n_, m1_, n1_, b_, l_] := 
+Jtot[m_, n_, m1_, n1_, b_, l_] :=
     Refine[Simplify[
         ReplaceAll[
           m0*omc*rl*Jt1k[m1, n1, l]*Jt2k[m, n, l]*J^b*
-            Exp[-omc/m0/Vt^2*J], {q1 -> ks, q2 -> 0, p1 -> ks, p2 -> 0, 
+            Exp[-omc/m0/Vt^2*J], {q1 -> ks, q2 -> 0, p1 -> ks, p2 -> 0,
             J -> 1/2*m0*omc*rl^2, Vt -> omc/Sqrt[2*alpha]}]], ks >= 0];
 
 (*Check of integrals over Jperp : numerical integration might be even faster then use of long expressions*)
 
 (*
-Tt = NIntegrate[ReplaceAll[Jtt[2, 2, 2, 1, 2, l], {ks -> 0.5, omc -> 10^9, m0 -> 10^(-10), 
+Tt = NIntegrate[ReplaceAll[Jtt[2, 2, 2, 1, 2, l], {ks -> 0.5, omc -> 10^9, m0 -> 10^(-10),
     Vt -> 10^8, l -> 2}], {J, 0, Infinity}, WorkingPrecision -> 250, PrecisionGoal -> 20];
 
 At = N[ReplaceAll[DD[2, 2, 2, 1, 2, l], {ks -> 0.5, omc -> 10^9, m0 -> 10^(-10), Vt -> 10^8,
@@ -505,12 +505,12 @@ Clear[At, Tt];
 Ass3 = {Element[{alpha}, Reals], Element[{l}, Integers], alpha > 0, ks > 0, l > 0};
 $Assumptions = Join[Ass1, Ass2, Ass3];
 
-BesselJRule1 = 
-    BesselJ[(in_Integer /; in > 1) + l, z_] -> -BesselJ[l + in - 2, z] + 
+BesselJRule1 =
+    BesselJ[(in_Integer /; in > 1) + l, z_] -> -BesselJ[l + in - 2, z] +
         2 (l + in - 1)/z BesselJ[l + in - 1, z];
 
-BesselJRule2 = 
-    BesselJ[(in_Integer /; in < 0) + l, z_] -> -BesselJ[l + in + 2, z] + 
+BesselJRule2 =
+    BesselJ[(in_Integer /; in < 0) + l, z_] -> -BesselJ[l + in + 2, z] +
         2 (l + in + 1)/z BesselJ[l + in + 1, z];
 
 (*optimized evaluation of D functions: derivs before integral*)
@@ -528,8 +528,8 @@ Bmax = 1;
 Dstrm = OpenWrite["./D5_mem.t90"];
 SetOptions[Dstrm, FormatType -> OutputForm];
 
-Write[Dstrm, "!complex(dpc), dimension(0:" <> ToString[Mmax] <> ", 0:" <> 
-      ToString[Nmax] <> ", 0:" <> ToString[M1max] <> ", 0:" <> 
+Write[Dstrm, "!complex(dpc), dimension(0:" <> ToString[Mmax] <> ", 0:" <>
+      ToString[Nmax] <> ", 0:" <> ToString[M1max] <> ", 0:" <>
       ToString[N1max] <> ", 0:" <> ToString[Bmax] <> ", -Nmax:Nmax) :: D"];
 
 For[m = 0, m <= Mmax, m++,
@@ -565,7 +565,7 @@ For[m = 0, m <= Mmax, m++,
             res = Horner[FullSimplify[res/facJ, Assumptions -> {{m, n, m1, n1, d, l} \[Element] Integers}], {x, B1, B2, l, l2}];
             (*Print[res];*)
 
-            res = ReplaceAll[res, {x -> x[1], Vt -> Vt[1], omc -> omc[1], m0^2 -> m02, 
+            res = ReplaceAll[res, {x -> x[1], Vt -> Vt[1], omc -> omc[1], m0^2 -> m02,
                                    l^2 -> l2}];
 
             res = ReplaceAll[res, {Vt[1]^p_?Positive -> Vt[p], Vt[1]^p_?Negative -> 1/Vt[-p]}];
@@ -579,7 +579,7 @@ For[m = 0, m <= Mmax, m++,
             SetOptions[Dstrm, FormatType -> OutputForm];
             Write[Dstrm, ""];
 
-            Write[Dstrm, "D(", m, ",", n, ",", m1, ",", n1, ",", d, 
+            Write[Dstrm, "D(", m, ",", n, ",", m1, ",", n1, ",", d,
               ",l) = "];
 
             SetOptions[Dstrm, FormatType -> InputForm];

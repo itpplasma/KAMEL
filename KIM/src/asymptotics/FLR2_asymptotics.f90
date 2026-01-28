@@ -65,10 +65,10 @@ module flr2_asymptotics_m
 
         H = 0.0d0
         inv_lambda_tot_squared = 0.0d0
-        
+
         do j = 1, size(EBdat%r_grid) ! r_grid of EBdat is identical to xl_grid%xc
-            
-            call binsrc(plasma_in%r_grid, 1, size(plasma_in%r_grid), EBdat%r_grid(j), ir) 
+
+            call binsrc(plasma_in%r_grid, 1, size(plasma_in%r_grid), EBdat%r_grid(j), ir)
             ibeg = max(1, ir - nlagr/2)
             iend = ibeg + nlagr - 1
             if (iend .gt. size(plasma_in%r_grid)) then
@@ -84,7 +84,7 @@ module flr2_asymptotics_m
                 lambda(sp, j) = sum(coef(0,:) * plasma_in%spec(sp)%lambda_D(ibeg:iend))
                 rhoL(sp, j) = sum(coef(0,:) * plasma_in%spec(sp)%rho_L(ibeg:iend))
                 dpdr(sp, j) = sum(coef(0,:) * ev * (plasma_in%spec(sp)%dndr(ibeg:iend) * plasma_in%spec(sp)%T(ibeg:iend) &
-                    + plasma_in%spec(sp)%n(ibeg:iend) * plasma_in%spec(sp)%dTdr(ibeg:iend)))                
+                    + plasma_in%spec(sp)%n(ibeg:iend) * plasma_in%spec(sp)%dTdr(ibeg:iend)))
                 n(sp, j) = sum(coef(0,:) * plasma_in%spec(sp)%n(ibeg:iend))
                 inv_lambda_tot_squared(j) = inv_lambda_tot_squared(j) + 1.0d0 / lambda(sp, j)**2.0d0
 
@@ -132,7 +132,7 @@ module flr2_asymptotics_m
                         / (kp(xl_grid%ipbeg(j):xl_grid%ipend(j)) * B0_intp(xl_grid%ipbeg(j):xl_grid%ipend(j)))&
                         * xl_grid%deriv2_coef(:,j)) &
                 )
-            
+
             offdiag(j) = H(j) - com_unit * kp(j)**2.0d0/(om_E(j)*Er(j)) * F2(j)
 
         end do
@@ -179,13 +179,13 @@ module flr2_asymptotics_m
 
         do i = 1, size(kr_arr)
             kr = kr_arr(i)
-            
+
             kernel_phi = 0.0d0
             kernel_B = 0.0d0
             kernel_jphi = 0.0d0
             kernel_jB = 0.0d0
 
-            
+
             do j = 1, size(rg_grid%xb)
                 kernel_phi_temp = 0.0d0
                 do sp = 0, plasma_in%n_species-1
@@ -222,7 +222,7 @@ module flr2_asymptotics_m
                                 )&
                                 + 0.5d0 * plasma_in%spec(sp)%I21(j, 0) * plasma_in%spec(sp)%A2(j) * gsl_sf_bessel_In(0, b) &
                             )
-                        
+
                         kernel_jphi(j) = kernel_jphi(j) + 1.0d0 / plasma_in%spec(sp)%lambda_D(j)**2.0d0 * com_unit * plasma_in%spec(sp)%vT(j)**3.0d0 &
                             / (plasma_in%spec(sp)%omega_c(j) * plasma_in%spec(sp)%nu(j)) * ks * exp(-b) * &
                             (&
@@ -242,7 +242,7 @@ module flr2_asymptotics_m
                                 )&
                                 + 0.5d0 * plasma_in%spec(sp)%I13(j, 0) * plasma_in%spec(sp)%A2(j) * gsl_sf_bessel_In(0, b) &
                             )
-                        
+
                     end if
 
                     kernel_phi(j) = kernel_phi(j) + kernel_phi_temp

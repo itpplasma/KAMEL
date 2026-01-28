@@ -3,11 +3,11 @@ include(CMakeSources.in)
 set(CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/cmake" ${CMAKE_MODULE_PATH})
 
 
-add_library(KIM_lib STATIC "${KIM_setup}" 
-                        "${KIM_grid}" 
+add_library(KIM_lib STATIC "${KIM_setup}"
+                        "${KIM_grid}"
                         "${KIM_background_equilibrium}"
-                        "${KIM_general}" 
-                        "${KIM_poisson}" 
+                        "${KIM_general}"
+                        "${KIM_poisson}"
                         "${KIM_util}"
                         #"${KIM_kernels}"
                         "${KIM_math}"
@@ -18,7 +18,7 @@ add_library(KIM_lib STATIC "${KIM_setup}"
                         "${external_zeal}"
 )
 
-set_target_properties(KIM_lib PROPERTIES 
+set_target_properties(KIM_lib PROPERTIES
                         OUTPUT_NAME KIM
                         ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/install/lib/")
 
@@ -145,14 +145,13 @@ target_link_libraries(KIM_lib PUBLIC
 )
 
 add_executable(KIM_exe kim_main.f90)
-set_target_properties(KIM_exe PROPERTIES 
+set_target_properties(KIM_exe PROPERTIES
                         OUTPUT_NAME KIM.x
                         RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/install/bin/")
 target_link_libraries(KIM_exe
-                        KIM_lib 
-                        lapack 
-                        cerf 
-                        slatec 
+                        KIM_lib
+                        lapack
+                        cerf
+                        slatec
                         ddeabm
 )
-

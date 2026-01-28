@@ -3,7 +3,7 @@ module kernel_m
     use KIM_kinds_m, only: dp
 
     implicit none
-    
+
     ! Diagnostic variables to track maximum and minimum distances
     real(dp) :: max_distance_xl_xlp = 0.0d0
     real(dp) :: min_distance_xl_xlp = 0.0d0
@@ -22,7 +22,7 @@ module kernel_m
     complex(dp), allocatable, save :: pref_rho_B_g1(:, :, :), &
                                     pref_rho_B_g2(:, :, :), &
                                     pref_rho_B_g3(:, :, :)
-    complex(dp), allocatable, save :: pref_j_phi_g1(:,:, :), & 
+    complex(dp), allocatable, save :: pref_j_phi_g1(:,:, :), &
                                     pref_j_phi_g2(:, :, :), &
                                     pref_j_phi_g3(:, :, :)
     complex(dp), allocatable, save :: pref_j_B_g1(:, :, :), &
@@ -236,14 +236,14 @@ module kernel_m
                     print *, "semi analytical k_rho_B = ", k_rho_B
                     stop
                 end if
-            
+
                 K_rho_phi_llp%Kllp(lp, l) = K_rho_phi_llp%Kllp(l, lp)
                 K_rho_B_llp%Kllp(lp, l) = K_rho_B_llp%Kllp(l, lp)
 
             end do
         end do
         !$omp end parallel do
-        
+
         write(*,*) '======== Kernel Distance Diagnostics (Krook) ========'
         write(*,'(A,F12.6)') ' Maximum |xl - xlp| distance: ', max_distance_xl_xlp
         write(*,'(A,I6,A,I6)') ' Occurred at l = ', max_dist_l, ', lp = ', max_dist_lp
@@ -270,7 +270,7 @@ module kernel_m
             Krook_G1_rho_B, Krook_G2_rho_B, Krook_G3_rho_B, Krook_kappa_rho_phi, Krook_kappa_rho_B
         use config_m, only: artificial_debye_case, turn_off_ions
         use grid_m, only: Larmor_skip_factor
-        
+
         implicit none
 
         integer, intent(in) :: l, lp
@@ -286,7 +286,7 @@ module kernel_m
         type(gauss_int_F1_rho_phi_t) :: int_F1
         type(gauss_int_F2_rho_phi_t) :: int_F2
         type(gauss_int_F3_rho_phi_t) :: int_F3
-        
+
         k_rho_phi = 0.0d0
         k_rho_B = 0.0d0
 
@@ -311,7 +311,7 @@ module kernel_m
                 if (current_distance > Larmor_skip_factor * int_point%rhoT) cycle
 
                 current_idx_distance = abs(l - lp)
-                
+
                 !$omp critical
                 if (current_distance > max_distance_xl_xlp) then
                     max_distance_xl_xlp = current_distance
@@ -334,7 +334,7 @@ module kernel_m
                     min_idx_lp = lp
                 end if
                 !$omp end critical
-                
+
                 if (artificial_debye_case /=1) then
                     int_F1%int_point = int_point
                     int_F2%int_point = int_point
@@ -352,13 +352,13 @@ module kernel_m
                     k_rho_phi = k_rho_phi + integral_val * Krook_kappa_rho_phi(j, plasma%spec(sigma)) * Krook_G3_rho_phi(j, plasma%spec(sigma))
                     k_rho_B = k_rho_B + integral_val * Krook_G3_rho_B(j, plasma%spec(sigma)) * Krook_kappa_rho_B(j, plasma%spec(sigma))
                 end if
-                
+
             end do
         end do
 
-        k_rho_phi = k_rho_phi / (8.0d0 * pi**3.0d0) 
+        k_rho_phi = k_rho_phi / (8.0d0 * pi**3.0d0)
         k_rho_B = k_rho_B / (8.0d0 * pi**3.0d0)
-            
+
     end subroutine
 
 
@@ -409,7 +409,7 @@ module kernel_m
                 end if
             end do
             ! dmax_global = alpha * rhoT_max * sqrt(max(log(1.0d0/tau), 0.0d0))
-            dmax_global = tau * rhoT_max 
+            dmax_global = tau * rhoT_max
         end block
 
         ! Calculate actual number of iterations accounting for band-limiting
@@ -419,7 +419,7 @@ module kernel_m
         min_distance_xl_xlp = huge(1.0d0)
         max_index_distance = 0
         min_index_distance = huge(1)
-        
+
         ! check how many lower triangle elements will be computed for the loading bar
         ! (upper triangle elements are given by symmetry)
         do l = 1, K_rho_phi_llp%npts_l
@@ -437,13 +437,13 @@ module kernel_m
                 ! ensure that at least one off diagonal element is computed for each l
                 lp_lo = min(lp_lo, l - 1)
                 if (lp_lo < 1) lp_lo = 1
-                
+
                 ! Track diagnostics for each (l,lp) pair that will be processed
                 do lp = max(1,lp_lo), l
                     xlp_val = xl_grid%xb(lp)
                     current_distance = abs(xl_val - xlp_val)
                     current_idx_distance = abs(l - lp)
-                    
+
                     if (current_distance > max_distance_xl_xlp) then
                         max_distance_xl_xlp = current_distance
                         max_dist_l = l
@@ -465,7 +465,7 @@ module kernel_m
                         min_idx_lp = lp
                     end if
                 end do
-                
+
                 total_iterations = total_iterations + (l - max(1,lp_lo) + 1)
             end block
         end do
@@ -719,7 +719,7 @@ module kernel_m
 
         ! use zero FLR limit for electrons
         call FP_calc_kernel_zero_FLR_limit_electrons(l, lp, k_rho_phi, k_rho_B, k_j_phi, k_j_B, gauss_conf)
-            
+
     end subroutine
 
     subroutine FP_calc_kernel_element_ions(l, lp, k_rho_phi, k_rho_B, k_j_phi, k_j_B, gauss_conf, sigma)
@@ -886,7 +886,7 @@ module kernel_m
                 end if
             end do
             ! dmax_global = alpha * rhoT_max * sqrt(max(log(1.0d0/tau), 0.0d0))
-            dmax_global = tau * rhoT_max 
+            dmax_global = tau * rhoT_max
         end block
 
         ! Calculate actual number of iterations accounting for band-limiting
@@ -896,7 +896,7 @@ module kernel_m
         min_distance_xl_xlp = huge(1.0d0)
         max_index_distance = 0
         min_index_distance = huge(1)
-        
+
         do l = 1, K_rho_phi_llp%npts_l
             block
                 real(dp) :: xl_val, xlp_val, current_distance
@@ -911,13 +911,13 @@ module kernel_m
 
                 lp_lo = min(lp_lo, l - 1)
                 if (lp_lo < 1) lp_lo = 1
-                
+
                 ! Track diagnostics for each (l,lp) pair that will be processed
                 do lp = max(1,lp_lo), l
                     xlp_val = xl_grid%xb(lp)
                     current_distance = abs(xl_val - xlp_val)
                     current_idx_distance = abs(l - lp)
-                    
+
                     if (current_distance > max_distance_xl_xlp) then
                         max_distance_xl_xlp = current_distance
                         max_dist_l = l
@@ -939,7 +939,7 @@ module kernel_m
                         min_idx_lp = lp
                     end if
                 end do
-                
+
                 total_iterations = total_iterations + (l - max(1,lp_lo) + 1)
             end block
         end do
@@ -1049,11 +1049,11 @@ module kernel_m
         write(*,*) 'Finished filling kernels.'
 
         contains
-        
+
         subroutine rescale_susceptibility_functions()
             ! Rescale susceptibility functions for FLR2 benchmark
             ! has to be done in order to take quasineutrality into account as is done in FLR2
-            
+
             use species_m, only: plasma
             use IO_collection_m, only: write_complex_profile, itoa
             use grid_m, only: rg_grid
@@ -1082,7 +1082,7 @@ module kernel_m
                 end do
             end do
 
-            
+
         end subroutine
 
     end subroutine FP_fill_kernels_flr2_benchmark
@@ -1108,7 +1108,7 @@ module kernel_m
 
         call FP_calc_kernel_zero_FLR_limit_electrons(l, lp, k_rho_phi, k_rho_B, k_j_phi, k_j_B, gauss_conf)
 
-            
+
     end subroutine FP_calc_kernel_electrons_FLR2_benchmark
 
     subroutine FP_calc_kernel_ions_FLR2_benchmark(l, lp, k_rho_phi, k_rho_B, k_j_phi, k_j_B, gauss_conf, sigma)
@@ -1125,12 +1125,12 @@ module kernel_m
         type(gauss_config_t), intent(in) :: gauss_conf
 
         call FP_calc_kernel_element_ions(l, lp, k_rho_phi, k_rho_B, k_j_phi, k_j_B, gauss_conf, sigma)
-        
+
     end subroutine FP_calc_kernel_ions_FLR2_benchmark
 
-    
+
     subroutine set_xl_at_edge(l, lp, int_point)
-        
+
         use grid_m, only: xl_grid
         use KIM_kinds_m, only: dp
         use integrands_gauss_m, only: integration_point_t
@@ -1149,20 +1149,20 @@ module kernel_m
         else
             int_point%xlm1 = xl_grid%xb(l-1)
         end if
-        
+
         if (lp == 1) then
             int_point%xlpm1 = 2.0d0*xl_grid%xb(1) - xl_grid%xb(2)  ! Fixed: symmetric extrapolation
         else
             int_point%xlpm1 = xl_grid%xb(lp-1)
         end if
-        
+
         ! Handle upper boundary with symmetric extrapolation
         if (l == xl_grid%npts_b) then
             int_point%xlp1 = 2.0d0*xl_grid%xb(l) - xl_grid%xb(l-1)  ! Fixed: extrapolation
         else
             int_point%xlp1 = xl_grid%xb(l+1)
         end if
-        
+
         if (lp == xl_grid%npts_b) then
             int_point%xlpp1 = 2.0d0*xl_grid%xb(lp) - xl_grid%xb(lp-1)  ! Fixed: extrapolation
         else
@@ -1171,7 +1171,7 @@ module kernel_m
 
     end subroutine
 
-    
+
     subroutine write_kernels(kernel_rho_phi_llp, kernel_rho_B_llp, kernel_j_phi_llp, kernel_j_B_llp)
 
         use IO_collection_m, only: write_matrix
@@ -1259,17 +1259,17 @@ module kernel_m
                                         kernel_fp_rho_phi, kernel_fp_rho_B)
         !> Unified subroutine to fill both Krook and Fokker-Planck kernels
         !> Exploits shared Gaussian integration for efficiency
-        
+
         implicit none
-        
+
         type(kernel_spl_t), intent(inout) :: kernel_krook_rho_phi, kernel_krook_rho_B
         type(kernel_spl_t), intent(inout) :: kernel_fp_rho_phi, kernel_fp_rho_B
-        
+
         error stop 'fill_kernels_krook_fp currently not implemented'
 
 
     end subroutine fill_kernels_krook_fp
-    
+
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 ! currently unused subroutines:
@@ -1383,7 +1383,7 @@ module kernel_m
         ! k_j_phi = k_j_phi / (8.0d0 * pi**3.0d0)
         ! k_j_B = k_j_B / (8.0d0 * pi**3.0d0)
 
-            
+
     ! end subroutine
 
 
@@ -1392,7 +1392,7 @@ module kernel_m
                                       ! kernel_fp_rho_phi, kernel_fp_rho_B)
         ! !> Unified subroutine to fill both Krook and Fokker-Planck kernels
         ! !> Exploits shared Gaussian integration for efficiency
-        
+
         ! use KIM_kinds_m, only: dp
         ! use integrals_gauss_m, only: gauss_config_t, init_gauss_int, &
             ! gauss_integrate_F0, gauss_integrate_F1, gauss_integrate_F2, gauss_integrate_F3
@@ -1407,25 +1407,25 @@ module kernel_m
             ! FP_G3_rho_phi, FP_G1_rho_B, FP_G2_rho_B, FP_G3_rho_B, &
             ! FP_kappa_rho_phi, FP_kappa_rho_B
         ! use config_m, only: artificial_debye_case, turn_off_ions
-        
+
         ! implicit none
-        
+
         ! type(kernel_spl_t), intent(inout) :: kernel_krook_rho_phi, kernel_krook_rho_B
         ! type(kernel_spl_t), intent(inout) :: kernel_fp_rho_phi, kernel_fp_rho_B
-        
+
         ! type(gauss_config_t) :: gauss_conf
         ! integer :: l, lp, j, sigma
         ! complex(dp) :: krook_phi_llp, krook_B_llp, fp_phi_llp, fp_B_llp
         ! real(dp) :: integral_F0, integral_F1, integral_F2, integral_F3
         ! real(dp) :: current_distance
         ! integer :: current_idx_distance
-        
+
         ! type(integration_point_t) :: int_point
         ! type(gauss_int_F0_rho_phi_t) :: int_F0
         ! type(gauss_int_F1_rho_phi_t) :: int_F1
         ! type(gauss_int_F2_rho_phi_t) :: int_F2
         ! type(gauss_int_F3_rho_phi_t) :: int_F3
-        
+
         ! ! Initialize Gaussian integration configuration
         ! gauss_conf%Nx = gauss_int_nodes_Nx
         ! gauss_conf%Nxp = gauss_int_nodes_Nxp
@@ -1433,38 +1433,38 @@ module kernel_m
         ! call init_gauss_int(gauss_conf)
 
         ! write(*,*) 'Filling both Krook and Fokker-Planck kernels simultaneously...'
-        
+
         ! !$omp parallel do collapse(1) private(l, lp, krook_phi_llp, krook_B_llp, &
         ! !$omp& fp_phi_llp, fp_B_llp, j, sigma, int_point, int_F0, int_F1, int_F2, int_F3, &
         ! !$omp& integral_F0, integral_F1, integral_F2, integral_F3, current_distance, current_idx_distance)
         ! do l = 1, kernel_krook_rho_phi%npts_l
             ! do lp = 1, l
-                
+
                 ! ! Initialize kernel values
                 ! krook_phi_llp = 0.0d0
                 ! krook_B_llp = 0.0d0
                 ! fp_phi_llp = 0.0d0
                 ! fp_B_llp = 0.0d0
-                
+
                 ! ! Set xl grid points at edges
                 ! call set_xl_at_edge(l, lp, int_point)
-                
+
                 ! ! Loop over species and radial grid
                 ! do sigma = 0, plasma%n_species - 1
                     ! if (turn_off_ions .and. sigma >= 1) cycle
                     ! do j = 2, size(plasma%r_grid)-1
                         ! int_point%j = j
                         ! int_point%rhoT = 0.5d0 * (plasma%spec(sigma)%rho_L(j) + plasma%spec(sigma)%rho_L(j+1))
-                        
+
                         ! ! F0 integral (only for diagonal elements)
                         ! if (l == lp) then
                             ! int_F0%int_point = int_point
                             ! call gauss_integrate_F0(int_F0, int_point%xlm1, int_point%xlp1, integral_F0, gauss_conf)
-                            
+
                             ! ! Krook contribution
                             ! krook_phi_llp = krook_phi_llp + integral_F0 * Krook_G0_rho_phi(j, plasma%spec(sigma)) * &
                                             ! Krook_kappa_rho_phi(j, plasma%spec(sigma))
-                            
+
                             ! ! Fokker-Planck contribution
                             ! fp_phi_llp = fp_phi_llp + integral_F0 * FP_G0_rho_phi(j, plasma%spec(sigma)) * &
                                         ! FP_kappa_rho_phi(j, plasma%spec(sigma))
@@ -1476,7 +1476,7 @@ module kernel_m
                         ! if (current_distance > Larmor_skip_factor * int_point%rhoT) cycle
 
                         ! current_idx_distance = abs(l - lp)
-                        
+
                         ! !$omp critical
                         ! if (current_distance > max_distance_xl_xlp) then
                             ! max_distance_xl_xlp = current_distance
@@ -1489,36 +1489,36 @@ module kernel_m
                             ! max_idx_lp = lp
                         ! end if
                         ! !$omp end critical
-                        
+
                         ! if (artificial_debye_case == 1) cycle
 
                         ! ! Set integration points for F1, F2, F3
                         ! int_F1%int_point = int_point
                         ! int_F2%int_point = int_point
                         ! int_F3%int_point = int_point
-                        
+
                         ! ! Perform Gaussian integrations (shared between Krook and FP)
                         ! call gauss_integrate_F1(int_F1, integral_F1, gauss_conf)
                         ! call gauss_integrate_F2(int_F2, integral_F2, gauss_conf)
                         ! call gauss_integrate_F3(int_F3, integral_F3, gauss_conf)
-                        
+
                         ! ! Krook contributions
                         ! krook_phi_llp = krook_phi_llp  &
                             ! + integral_F1 * Krook_G1_rho_phi(j, plasma%spec(sigma)) * Krook_kappa_rho_phi(j, plasma%spec(sigma))&
                             ! + integral_F2 * Krook_G2_rho_phi(j, plasma%spec(sigma)) * Krook_kappa_rho_phi(j, plasma%spec(sigma)) &
                             ! + integral_F3 * Krook_G3_rho_phi(j, plasma%spec(sigma)) * Krook_kappa_rho_phi(j, plasma%spec(sigma))
-                        
+
                         ! krook_B_llp = krook_B_llp &
                             ! + integral_F1 * Krook_G1_rho_B(j, plasma%spec(sigma)) * Krook_kappa_rho_B(j, plasma%spec(sigma)) &
                             ! + integral_F2 * Krook_G2_rho_B(j, plasma%spec(sigma)) * Krook_kappa_rho_B(j, plasma%spec(sigma)) &
                             ! + integral_F3 * Krook_G3_rho_B(j, plasma%spec(sigma)) * Krook_kappa_rho_B(j, plasma%spec(sigma))
-                        
+
                         ! ! Fokker-Planck contributions
                         ! fp_phi_llp = fp_phi_llp &
                             ! + integral_F1 * FP_G1_rho_phi(j, plasma%spec(sigma)) * FP_kappa_rho_phi(j, plasma%spec(sigma)) &
                             ! + integral_F2 * FP_G2_rho_phi(j, plasma%spec(sigma)) * FP_kappa_rho_phi(j, plasma%spec(sigma)) &
                             ! + integral_F3 * FP_G3_rho_phi(j, plasma%spec(sigma)) * FP_kappa_rho_phi(j, plasma%spec(sigma))
-                        
+
                         ! fp_B_llp = fp_B_llp &
                             ! + integral_F1 * FP_G1_rho_B(j, plasma%spec(sigma)) * FP_kappa_rho_B(j, plasma%spec(sigma)) &
                             ! + integral_F2 * FP_G2_rho_B(j, plasma%spec(sigma)) * FP_kappa_rho_B(j, plasma%spec(sigma)) &
@@ -1526,19 +1526,19 @@ module kernel_m
 
                     ! end do
                 ! end do
-                
+
                 ! ! Apply normalization factor
                 ! krook_phi_llp = krook_phi_llp / (8.0d0 * pi**3.0d0)
                 ! krook_B_llp = krook_B_llp / (8.0d0 * pi**3.0d0)
                 ! fp_phi_llp = fp_phi_llp / (8.0d0 * pi**3.0d0)
                 ! fp_B_llp = fp_B_llp / (8.0d0 * pi**3.0d0)
-                
+
                 ! ! Store results
                 ! kernel_krook_rho_phi%Kllp(l, lp) = krook_phi_llp
                 ! kernel_krook_rho_B%Kllp(l, lp) = krook_B_llp
                 ! kernel_fp_rho_phi%Kllp(l, lp) = fp_phi_llp
                 ! kernel_fp_rho_B%Kllp(l, lp) = fp_B_llp
-                
+
                 ! ! Check for NaN values
                 ! if (isnan(real(krook_phi_llp)) .or. isnan(real(krook_B_llp)) .or. &
                     ! isnan(real(fp_phi_llp)) .or. isnan(real(fp_B_llp))) then
@@ -1558,7 +1558,7 @@ module kernel_m
         ! !$omp end parallel do
 
         ! write(*,*) ! New line after progress bar
-        
+
         ! ! Print diagnostic information
         ! write(*,*) '======== Kernel Distance Diagnostics (Combined Krook+FP) ========'
         ! write(*,'(A,F12.6)') ' Maximum |xl - xlp| distance: ', max_distance_xl_xlp
@@ -1570,7 +1570,7 @@ module kernel_m
         ! write(*,'(A,I6)') ' Minimum index distance |l - lp|: ', min_index_distance
         ! write(*,'(A,I6,A,I6)') ' Occurred at l = ', min_idx_l, ', lp = ', min_idx_lp
         ! write(*,*) '=================================================================='
-        
+
     ! end subroutine fill_kernels_krook_fp
 
 
@@ -1741,7 +1741,7 @@ module kernel_m
         ! subroutine rescale_susceptibility_functions()
             ! ! Rescale susceptibility functions for FLR2 benchmark
             ! ! has to be done in order to take quasineutrality into account as is done in FLR2
-            
+
             ! use species_m, only: plasma
             ! use IO_collection_m, only: write_complex_profile
             ! use grid_m, only: rg_grid
@@ -1763,7 +1763,7 @@ module kernel_m
                     ! 'backs/'//trim(plasma%spec(sp)%name)//'/I20_cc_after_resc.dat')
             ! end do
 
-            
+
         ! end subroutine
 
     ! end subroutine FP_fill_kernels_flr2_benchmark_old
@@ -1922,7 +1922,7 @@ module kernel_m
             ! if (abs(l-lp) > 10 .and. abs(xl_grid%xb(l) - xl_grid%xb(lp))> Larmor_skip_factor * plasma%spec(sigma)%rho_L(j)) cycle
             ! if (abs(0.5d0 * (rg_grid%xb(j+1) + rg_grid%xb(j)) - 0.5d0 * (xl_grid%xb(l) + xl_grid%xb(lp))) &
                 ! > Larmor_skip_factor * plasma%spec(sigma)%rho_L(j)) cycle
-            
+
             ! int_F1%int_point = int_point
             ! int_F2%int_point = int_point
             ! int_F3%int_point = int_point

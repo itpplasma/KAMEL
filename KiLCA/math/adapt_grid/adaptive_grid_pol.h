@@ -23,7 +23,7 @@ int adaptive_grid_polynom (void (*func)(double *, double *, void *p), void *p,
                            double a, double b, int dimy, int deg, int *xdim, double *eps,
                            double *x1, double *y1);
 
-int adaptive_grid_polynom (void (*func)(double *, double *, void *p), void *p, 
+int adaptive_grid_polynom (void (*func)(double *, double *, void *p), void *p,
                            double a, double b, int dimy, int deg, int *xdim, double *eps,
                            int dim_err, int *ind_err, double *x1, double *y1);
 

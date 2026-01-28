@@ -1,4 +1,4 @@
-set(KIM_setup setup/config_mod.f90 
+set(KIM_setup setup/config_mod.f90
             setup/setup_mod.f90
 )
 

@@ -72,51 +72,51 @@ libs = -L$(LINKER_PATH) \
 all: exe
 
 exe: $(all_obj_files) $(addsuffix .o, ${src_main_cpp})
-	$(fcomp) -o $(exe) $(fopts) -static $^ $(libs);
-	strip $(exe);
-	mv *.o $(obj_dir)/;
-	@echo ;
-	@echo TASK $@ COMPLETED...;
-	@echo ;
+    $(fcomp) -o $(exe) $(fopts) -static $^ $(libs);
+    strip $(exe);
+    mv *.o $(obj_dir)/;
+    @echo ;
+    @echo TASK $@ COMPLETED...;
+    @echo ;
 
 wclib: $(all_obj_files)
-	ar -crs libwc_ortho.a $(all_obj_files);
-	@echo ;
-	@echo TASK $@ COMPLETED...;
-	@echo ;
+    ar -crs libwc_ortho.a $(all_obj_files);
+    @echo ;
+    @echo TASK $@ COMPLETED...;
+    @echo ;
 
 wccall: call_wc_test.f90
-	$(fcomp) -o call_wc_test_ortho $(fopts) -static $^ -L. -lwc_ortho $(libs) -lstdc++;
-	strip call_wc_test_ortho;
-	mv *.o $(obj_dir)/;
-	@echo ;
-	@echo TASK $@ COMPLETED...;
-	@echo ;
+    $(fcomp) -o call_wc_test_ortho $(fopts) -static $^ -L. -lwc_ortho $(libs) -lstdc++;
+    strip call_wc_test_ortho;
+    mv *.o $(obj_dir)/;
+    @echo ;
+    @echo TASK $@ COMPLETED...;
+    @echo ;
 
 #implicit pattern rule for compiling source files:
 
 %.o : %.$(f90_ext)
-	$(fcomp) -c $(fopts) -I$(mod_dir) -J$(mod_dir) $<
+    $(fcomp) -c $(fopts) -I$(mod_dir) -J$(mod_dir) $<
 
 %.o : %.$(f77_ext)
-	$(fcomp) -c $(fopts77) $<
+    $(fcomp) -c $(fopts77) $<
 
 %.o : %.$(cpp_ext)
-	$(ccomp) -c $(copts) $(inc_dirs) $<
+    $(ccomp) -c $(copts) $(inc_dirs) $<
 
 klib: $(obj_k_lib_files)
-	ar -crs kpqij.a k1.o kt.o;
-	@echo ;
-	@echo TASK $@ COMPLETED...;
-	@echo ;
+    ar -crs kpqij.a k1.o kt.o;
+    @echo ;
+    @echo TASK $@ COMPLETED...;
+    @echo ;
 clean:
-	rm -f $(obj_dir)/*.o;
-	rm -f $(mod_dir)/*.mod;
-	rm -f $(mod_dir)/*~;
-	rm -f ./*~;
-	rm -f ./*.o;
-	rm -f ./*.mod;
+    rm -f $(obj_dir)/*.o;
+    rm -f $(mod_dir)/*.mod;
+    rm -f $(mod_dir)/*~;
+    rm -f ./*~;
+    rm -f ./*.o;
+    rm -f ./*.mod;
 
-	@echo ;
-	@echo TASK $@ COMPLETED...;
-	@echo ;
+    @echo ;
+    @echo TASK $@ COMPLETED...;
+    @echo ;

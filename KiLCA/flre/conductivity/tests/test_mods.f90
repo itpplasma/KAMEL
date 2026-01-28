@@ -117,19 +117,19 @@ allocate (D(0:1, 0:flre_order+1, -Nmax:Nmax, 0:Nbmax)); !m;n;lc;b;
 D = NaN;
 
 ! allocate (Jlb(0:Nmax,0:Nbmax));
-! 
+!
 ! ! only l>=0 is considered here since: Jlb(-l,b) = (-)^l Jlb(l,b)
 ! do lc = 0,Nmax
-! 
+!
 !     do b = 0,Nbmax
-! 
+!
 !         !print *, lc, b, factor(b), factor(lc+b);
 !         !print *, (-1.0d0)**b
 !         !print *,2.0d0**(lc+2*b)
 !         Jlb(lc,b) = (-1.0d0)**b / factor(b) / factor(lc+b) / 2.0d0**(lc+2*b);
 !         !print *, Jlb(lc,b);
 !     end do
-! 
+!
 ! end do
 
 allocate (x(0:Nmax+2*Nbmax));

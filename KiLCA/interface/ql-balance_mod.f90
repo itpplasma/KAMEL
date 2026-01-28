@@ -26,7 +26,7 @@
     double precision, dimension(:,:), allocatable :: params_lin,params_b_lin
     double precision, dimension(:),   allocatable :: alpha
     double precision, dimension(:),   allocatable :: source_term
-    double precision, dimension(:),   allocatable :: Ercov_lin 
+    double precision, dimension(:),   allocatable :: Ercov_lin
   end module grid_mod
 !
   module baseparam_mod

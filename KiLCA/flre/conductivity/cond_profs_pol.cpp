@@ -174,8 +174,8 @@ delete *cp_ptr;
 /*******************************************************************/
 
 void calc_and_spline_conductivity_for_point_ (settings **sd_ptr, background **bp_ptr,
-					      wave_data **wd_ptr, char *flag_back,
-					      double *r, cond_profiles **cp_ptr)
+                          wave_data **wd_ptr, char *flag_back,
+                          double *r, cond_profiles **cp_ptr)
 {
 //it is assumed that flre_sett and all other fortran modules are set properly!
 

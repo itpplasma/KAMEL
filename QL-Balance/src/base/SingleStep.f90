@@ -14,7 +14,7 @@ module singleStep
     end type
 
     contains
-    
+
     subroutine initSingleStep(this)
 
         use grid_mod, only: mwind, set_boundary_condition, npoib, rb
@@ -32,14 +32,14 @@ module singleStep
 
         class(SingleStep_t), intent(inout) :: this
         this%runType = "SingleStep"
-        
+
 
         if (irank .eq. 0) then
             print *, "Initialize Single Step run"
             mwind = 10
             write_diag = .false.
             write_diag_b = .false.
-    
+
             if (gyro_current_study .ne. 0) then
                 write_gyro_current = .true.
             else
@@ -96,7 +96,7 @@ module singleStep
         use PolyLagrangeInterpolation, only: coef, plag_coeff, binsrc, get_ind_Lagr_interp, nder, nlagr
         use wave_code_data, only: Br, antenna_factor
         use grid_mod, only: npoib, rb, r_resonant, dqle22
-        
+
         implicit none
 
         integer :: indResRadius, ind_begin_interp, ind_end_interp
@@ -106,7 +106,7 @@ module singleStep
         call binsrc(rb, 1, npoib, r_resonant(1), indResRadius)
         call get_ind_Lagr_interp(indResRadius, ind_begin_interp, ind_end_interp)
         call plag_coeff(nlagr, nder, r_resonant(1), rb(ind_begin_interp:ind_end_interp), coef)
-        
+
         dqle22_res_single = sum(coef(0, :) * dqle22(ind_begin_interp:ind_end_interp))
         br_abs_res_single = sum(coef(0, :) * abs(Br(ind_begin_interp:ind_end_interp)))*sqrt(antenna_factor)
 
@@ -147,7 +147,7 @@ module singleStep
         implicit none
 
         !print *, "In write dqle22"
-        
+
         CALL h5_init()
         CALL h5_open_rw(path2out, h5_id)
         !CALL h5_obj_exists(h5_id, trim(h5_mode_groupname), &
@@ -166,7 +166,7 @@ module singleStep
         CALL h5_add_double_1(h5_id, trim(h5_mode_groupname)//'/r_eff', &
                                 rb, lbound(rb), ubound(rb))
         CALL h5_add_double_0(h5_id, trim(h5_mode_groupname)//'/r_res', r_resonant(1))
- 
+
         CALL h5_close(h5_id)
         CALL h5_deinit()
 
@@ -212,7 +212,7 @@ module singleStep
                 CALL h5_close_group(group_id_2)
             end if
         else
-            if (debug_mode) then 
+            if (debug_mode) then
                 write (*,*) "Debug: h5_mode_groupname: ", trim(h5_mode_groupname)
             end if
             CALL h5_define_group(h5_id, trim(h5_mode_groupname), group_id_2)

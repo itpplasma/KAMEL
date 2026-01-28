@@ -88,7 +88,7 @@ module kernel_adaptive_m
         min_distance_xl_xlp = huge(1.0d0)
         max_index_distance = 0
         min_index_distance = huge(1)
-        
+
         do l = 1, K_rho_phi_llp%npts_l
             block
                 real(dp) :: xl_val, xlp_val, current_distance
@@ -106,13 +106,13 @@ module kernel_adaptive_m
                     if (abs(xl_grid%xb(lp_hi+1) - xl_val) > dmax_global) exit
                     lp_hi = lp_hi + 1
                 end do
-                
+
                 ! Track diagnostics for each (l,lp) pair that will be processed
                 do lp = max(1,lp_lo), min(l,lp_hi)
                     xlp_val = xl_grid%xb(lp)
                     current_distance = abs(xl_val - xlp_val)
                     current_idx_distance = abs(l - lp)
-                    
+
                     if (current_distance > max_distance_xl_xlp) then
                         max_distance_xl_xlp = current_distance
                         max_dist_l = l
@@ -134,7 +134,7 @@ module kernel_adaptive_m
                         min_idx_lp = lp
                     end if
                 end do
-                
+
                 total_iterations = total_iterations + (min(l,lp_hi) - max(1,lp_lo) + 1)
             end block
         end do
@@ -217,13 +217,13 @@ module kernel_adaptive_m
             end block
         end do
         !$omp end parallel do
-        
+
         write(*,*)
         write(*,*) 'Finished filling kernels.'
 
     end subroutine
 
-        
+
     subroutine FP_calc_kernels_adaptive(l, lp, k_rho_phi, k_rho_B, k_j_phi, k_j_B, rkf45_conf)
 
         use KIM_kinds_m, only: dp
@@ -239,7 +239,7 @@ module kernel_adaptive_m
         use kernel_m, only: pref_rho_phi_g1, pref_rho_B_g1, pref_j_phi_g1, pref_j_B_g1, &
             pref_rho_phi_g2, pref_rho_B_g2, pref_j_phi_g2, pref_j_B_g2, &
             pref_rho_phi_g3, pref_rho_B_g3, pref_j_phi_g3, pref_j_B_g3
-        
+
         implicit none
 
         integer, intent(in) :: l, lp
@@ -250,7 +250,7 @@ module kernel_adaptive_m
         real(dp) :: current_distance
 
         type(rkf45_integrand_context_t) :: context
-        
+
         k_rho_phi = (0.0d0, 0.0d0)
         k_rho_B = (0.0d0, 0.0d0)
         k_j_phi = (0.0d0, 0.0d0)
@@ -318,17 +318,17 @@ module kernel_adaptive_m
             end do
         end do
 
-        k_rho_phi = k_rho_phi / (8.0d0 * pi**3.0d0) 
+        k_rho_phi = k_rho_phi / (8.0d0 * pi**3.0d0)
         k_rho_B = k_rho_B / (8.0d0 * pi**3.0d0)
 
         k_j_phi = k_j_phi / (8.0d0 * pi**3.0d0)
         k_j_B = k_j_B / (8.0d0 * pi**3.0d0)
 
-            
+
     end subroutine
-    
+
     subroutine set_xl_at_edge(l, lp, context)
-        
+
         use grid_m, only: xl_grid
         use KIM_kinds_m, only: dp
         use integrands_rkf45_m, only: rkf45_integrand_context_t
@@ -347,20 +347,20 @@ module kernel_adaptive_m
         else
             context%xlm1 = xl_grid%xb(l-1)
         end if
-        
+
         if (lp == 1) then
             context%xlpm1 = 2.0d0*xl_grid%xb(1) - xl_grid%xb(2)  ! Fixed: symmetric extrapolation
         else
             context%xlpm1 = xl_grid%xb(lp-1)
         end if
-        
+
         ! Handle upper boundary with symmetric extrapolation
         if (l == xl_grid%npts_b) then
             context%xlp1 = 2.0d0*xl_grid%xb(l) - xl_grid%xb(l-1)  ! Fixed: extrapolation
         else
             context%xlp1 = xl_grid%xb(l+1)
         end if
-        
+
         if (lp == xl_grid%npts_b) then
             context%xlpp1 = 2.0d0*xl_grid%xb(lp) - xl_grid%xb(lp-1)  ! Fixed: extrapolation
         else

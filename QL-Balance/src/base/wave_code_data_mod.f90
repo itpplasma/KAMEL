@@ -2,18 +2,18 @@
 
 module wave_code_data
 
-    implicit none; 
+    implicit none;
     integer, parameter :: pp = 8; !pp = 4 for 32 bit and pp = 8 for 64 bit
 
     integer(pp), allocatable, dimension(:) :: flre_cd_ptr; !pointer to kilca's core data object for each mode
     integer(pp), allocatable, dimension(:) :: vac_cd_ptr; !pointer to kilca's core data object for each mode
 
-    character(1024) :: flre_path; 
-    character(1024) :: vac_path; 
-    integer :: flre_call_ind = 0; 
-    integer :: vac_call_ind = 0; 
-    integer :: dim_mn; 
-    integer, allocatable, dimension(:) :: m_vals, n_vals; 
+    character(1024) :: flre_path;
+    character(1024) :: vac_path;
+    integer :: flre_call_ind = 0;
+    integer :: vac_call_ind = 0;
+    integer :: dim_mn;
+    integer, allocatable, dimension(:) :: m_vals, n_vals;
 !radial grid:
     integer :: dim_r; !radial grid dimension
     real(8), allocatable, dimension(:) :: r; !radial grid array
@@ -51,15 +51,15 @@ module wave_code_data
     real(8), allocatable, dimension(:) :: nui; !ions collision frequency
     real(8), allocatable, dimension(:) :: nue; !electrons collision frequency
 
-    real(8), allocatable, dimension(:) :: B0t; 
-    real(8), allocatable, dimension(:) :: B0z; 
-    real(8), allocatable, dimension(:) :: B0; 
+    real(8), allocatable, dimension(:) :: B0t;
+    real(8), allocatable, dimension(:) :: B0z;
+    real(8), allocatable, dimension(:) :: B0;
 !misc data for a mode:
-    real(8), allocatable, dimension(:) :: kp; 
-    real(8), allocatable, dimension(:) :: ks; 
-    real(8), allocatable, dimension(:) :: om_E; 
+    real(8), allocatable, dimension(:) :: kp;
+    real(8), allocatable, dimension(:) :: ks;
+    real(8), allocatable, dimension(:) :: om_E;
 !for a spectrum:
-    real(8), allocatable, dimension(:) :: diss_pow_dens; 
+    real(8), allocatable, dimension(:) :: diss_pow_dens;
 ! initial background profiles to be loaded from files:
     real(8), allocatable, dimension(:) :: rq, iq; !safety factor
     real(8), allocatable, dimension(:) :: rn, in; !1/cm^3

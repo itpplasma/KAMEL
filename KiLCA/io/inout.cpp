@@ -25,22 +25,22 @@ int i, j, k;
 
 for (i=0; i<Ncols; i++)
 {
-	sprintf (full_name, "%s_%d.dat", path_name, i);
-	/*printf ("\nsave_cmplx_matrix: file=%s", full_name);*/
+    sprintf (full_name, "%s_%d.dat", path_name, i);
+    /*printf ("\nsave_cmplx_matrix: file=%s", full_name);*/
 
-	if (!(outfile = fopen (full_name, "w")))
-	{
-		fprintf (stderr, "\nFailed to open file %s\a\a\a\n", full_name);
-		continue;
-	}
+    if (!(outfile = fopen (full_name, "w")))
+    {
+        fprintf (stderr, "\nFailed to open file %s\a\a\a\n", full_name);
+        continue;
+    }
 
-	for (k=0; k<Npoints; k++)
-	{
-		fprintf (outfile, "%.16le", xgrid[k]);
-		for (j=0; j<Nrows; j++) fprintf (outfile, "\t%.16le\t%.16le", arr[2*Nrows*Ncols*k+2*Nrows*i+2*j], arr[2*Nrows*Ncols*k+2*Nrows*i+2*j+1]);
-		fprintf (outfile, "\n");
-	}
-	fclose (outfile);
+    for (k=0; k<Npoints; k++)
+    {
+        fprintf (outfile, "%.16le", xgrid[k]);
+        for (j=0; j<Nrows; j++) fprintf (outfile, "\t%.16le\t%.16le", arr[2*Nrows*Ncols*k+2*Nrows*i+2*j], arr[2*Nrows*Ncols*k+2*Nrows*i+2*j+1]);
+        fprintf (outfile, "\n");
+    }
+    fclose (outfile);
 }
 
 delete [] full_name;
@@ -62,8 +62,8 @@ int i, j, k;
 
 if (!(outfile = fopen (full_name, "w")))
 {
-	fprintf (stderr, "\nFailed to open file %s\a\a\a\n", full_name);
-	return 1;
+    fprintf (stderr, "\nFailed to open file %s\a\a\a\n", full_name);
+    return 1;
 }
 
 for (k=0; k<Npoints; k++)
@@ -100,8 +100,8 @@ int i, j, k;
 
 if (!(outfile = fopen (full_name, "w")))
 {
-	fprintf (stderr, "\nFailed to open file %s\a\a\a\n", full_name);
-	return 1;
+    fprintf (stderr, "\nFailed to open file %s\a\a\a\n", full_name);
+    return 1;
 }
 
 for (k=0; k<Npoints; k++)
@@ -131,8 +131,8 @@ FILE *outfile;
 
 if (!(outfile = fopen (full_name, "w")))
 {
-	fprintf (stderr, "\nFailed to open file %s\a\a\a\n", full_name);
-	return 1;
+    fprintf (stderr, "\nFailed to open file %s\a\a\a\n", full_name);
+    return 1;
 }
 
 int k;
@@ -306,8 +306,8 @@ strcat (file_name, ".dim");
 
 if ((in=fopen(file_name, "r")) == NULL)
 {
-	fprintf (stderr, "\nfailed to open file %s\a\a\a\n", file_name);
-	exit(0);
+    fprintf (stderr, "\nfailed to open file %s\a\a\a\n", file_name);
+    exit(0);
 }
 
 char *char_buf = new char[nchar];
@@ -328,8 +328,8 @@ strcat (file_name, ".dat");
 
 if ((in=fopen(file_name, "r")) == NULL)
 {
-	fprintf (stderr, "\nfailed to open file %s\a\a\a\n", file_name);
-	exit(0);
+    fprintf (stderr, "\nfailed to open file %s\a\a\a\n", file_name);
+    exit(0);
 }
 
 char *tail_ptr1, *tail_ptr2;
@@ -375,8 +375,8 @@ strcat (file_name, ".dim");
 
 if ((in=fopen(file_name, "r")) == NULL)
 {
-	fprintf (stderr, "\nfailed to open file %s\a\a\a\n", file_name);
-	exit (0);
+    fprintf (stderr, "\nfailed to open file %s\a\a\a\n", file_name);
+    exit (0);
 }
 
 char *char_buf = new char[nchar];
@@ -389,8 +389,8 @@ int dimt = (int) strtol (char_buf, NULL, 0); /*converts to an integer*/
 
 if (dim != dimt)
 {
-	fprintf (stderr, "\ndimension=%d of the profile %s is different from the value=%d in set.in!", dimt,  file_name, dim);
-	exit (0);
+    fprintf (stderr, "\ndimension=%d of the profile %s is different from the value=%d in set.in!", dimt,  file_name, dim);
+    exit (0);
 }
 
 strcpy (file_name, name);
@@ -400,8 +400,8 @@ strcat (file_name, ".dat");
 
 if ((in=fopen(file_name, "r")) == NULL)
 {
-	fprintf (stderr, "\nfailed to open file %s\a\a\a\n", file_name);
-	exit(0);
+    fprintf (stderr, "\nfailed to open file %s\a\a\a\n", file_name);
+    exit(0);
 }
 
 char *tail_ptr1, *tail_ptr2;

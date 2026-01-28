@@ -24,8 +24,8 @@ void * xmalloc (size_t size)
 register void *value = (void *) malloc (size);
 if (!value)
 {
-	fprintf(stderr,"\nxmalloc: memory allocation failed: exit!");
-	exit(1);
+    fprintf(stderr,"\nxmalloc: memory allocation failed: exit!");
+    exit(1);
 }
 return value;
 }
@@ -37,8 +37,8 @@ void * xrealloc (void *ptr, size_t size)
 register void *value = (void *) realloc (ptr, size);
 if (!value)
 {
-	fprintf(stderr,"\nxrealloc: memory reallocation failed: exit!");
-	exit(1);
+    fprintf(stderr,"\nxrealloc: memory reallocation failed: exit!");
+    exit(1);
 }
 return value;
 }
@@ -283,7 +283,7 @@ else
     W[3] = (c1*(pow(c1,2)*pow(c2*(-1 + t) - pow(t,2),3) - 3*c1*pow(E,c2/t)*
            (-1 + t)*(-(pow(c2,3)*pow(-1 + t,3)) + 2*pow(t,6) +
            pow(c2,2)*pow(-1 + t,2)*t*(-2 + 5*t) - 2*c2*pow(t,3)*(1 - 4*t + 3*pow(t,2)))
-           - pow(E,(2*c2)/t)*pow(-1 + t,2)*(-(pow(c2,3)*pow(-1 + t,3)) + 6*pow(t,6) + 
+           - pow(E,(2*c2)/t)*pow(-1 + t,2)*(-(pow(c2,3)*pow(-1 + t,3)) + 6*pow(t,6) +
            3*pow(c2,2)*pow(-1 + t,2)*t*(-2 + 3*t) - 6*c2*pow(t,2)*(-1 + 4*t - 6*pow(t,2)
            +3*pow(t,3)))))/(pow(E,(3*c2)/t)*pow(-1 + t,6)*pow(t,6));
     W[3] *= W[0]*pow(fac/(x2-x1),3);
@@ -296,7 +296,7 @@ else
            - 24*c2*pow(t,4)*(-1 + 5*t - 10*pow(t,2) + 6*pow(t,3))) + pow(E,(3*c2)/t)*
            pow(-1 + t,3)*(pow(c2,4)*pow(-1 + t,4) + 24*pow(t,8) - 4*pow(c2,3)*
            pow(-1 + t,3)*t*(-3 + 4*t) + 12*pow(c2,2)*pow(-1 + t,2)*
-           pow(t,2)*(3 - 8*t + 6*pow(t,2)) - 24*c2*pow(t,3)*(1 - 5*t + 10*pow(t,2) - 
+           pow(t,2)*(3 - 8*t + 6*pow(t,2)) - 24*c2*pow(t,3)*(1 - 5*t + 10*pow(t,2) -
            10*pow(t,3) + 4*pow(t,4)))))/(pow(E,(4*c2)/t)*pow(-1 + t,8)*pow(t,8));
     W[4] *= W[0]*pow(fac/(x2-x1),4);
 }

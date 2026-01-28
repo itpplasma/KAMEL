@@ -553,10 +553,10 @@ contains
     double precision, dimension(:)      :: value
     integer                             :: offset
 
-    integer(SIZE_T), dimension(2) :: dims 
+    integer(SIZE_T), dimension(2) :: dims
     integer(SIZE_T), dimension(2) :: size
     integer(HID_T)                :: memspace
-    integer                       :: rank = 2 
+    integer                       :: rank = 2
     integer(HID_T)                :: dspaceid
 
     integer(HSIZE_T), dimension(2) :: offsetd

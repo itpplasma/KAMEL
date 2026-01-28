@@ -94,7 +94,7 @@ do m = 0,mpara
     do n = 0,mpara
         do j1 = 0,mpara
             do j2 = 0,mpara
-            
+
                 MC(m, n, j1, j2) = 0.0d0;
 
                 do k1 = 0,mpara
@@ -103,7 +103,7 @@ do m = 0,mpara
                             do l2 = 0,k2
 
                                 if(2 * j1 == l1 + l2 .and. 2 * j2 == k1 + k2 - l1 - l2) then
-                                
+
                                 MC(m, n, j1, j2) = MC(m, n, j1, j2) + binocoef(m,k1) * binocoef(n,k2) * &
                                                    binocoef(k1, l1) * binocoef(k2, l2) * (-1.0d0)**(k1-l1);
 
@@ -504,15 +504,15 @@ do mm = 0,npara
 !             write(100,*) t, real(arg), imag(arg);
 !         end do
 !         close(100);
-! 
+!
 !         open(200);
 !         do i=1,100
 !             do j=1,100
-! 
+!
 !                 z = -0.0d0 + (i-1)*20.0d0/99 + (-10.0d0 + (j-1)*20.0d0/99)*im;
 !                 call subintcmplx(z, arg);
 !                 write(200,*) real(z), imag(z), real(arg), imag(arg);
-! 
+!
 !             end do
 !         end do
 !         close(200);

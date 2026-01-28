@@ -1,16 +1,16 @@
 !#############################################################################################
 ! Copyright (C) 2013 Antonio Cervellino
-! 
+!
 ! Permission is hereby granted, free of charge, to any person obtaining a copy of
 ! this software and associated documentation files (the "Software"), to deal in
 ! the Software without restriction, including without limitation the rights to
 ! use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of
 ! the Software, and to permit persons to whom the Software is furnished to do so,
 ! subject to the following conditions:
-! 
+!
 ! The above copyright notice and this permission notice shall be included in all
 ! copies or substantial portions of the Software.
-! 
+!
 ! THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 ! IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS
 ! FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
@@ -23,25 +23,25 @@
 !
 !  E-mail:
 !    antonio.cervellino@psi.ch
-! 
+!
 !#############################################################################################
 module use_libcerf_m
 ! f95 interfaces for the libcerf.* c library of error functions
 ! http://apps.jcns.fz-juelich.de/libcerf
-! 
-use ISO_C_BINDING 
+!
+use ISO_C_BINDING
 
 private
 public :: Voigt_F, Erfcx_F, Erfi_F, Im_w_of_x_F, Dawson_F, &
           cerf_F, cerfc_F, cerfcx_F, cerfi_F, w_of_z_F, cdawson_F
 public :: DP,DPC
-! - - - - - - - - - - - - 
+! - - - - - - - - - - - -
 
 ! Fortran DOUBLE and DOUBLE COMPLEX types
 INTEGER, PARAMETER :: DP  = KIND(1.0D0)
 INTEGER, PARAMETER :: DPC = KIND((1.0D0,1.0D0))
 
-! - - - - - - - - - - - - 
+! - - - - - - - - - - - -
 INTERFACE
 FUNCTION voigt ( x, sigma, gamma ) bind(c)
 USE ISO_C_BINDING
@@ -53,7 +53,7 @@ real(C_DOUBLE),intent(IN),VALUE :: x, sigma, gamma
 real(C_DOUBLE) :: voigt
 END FUNCTION
 END INTERFACE
-! - - - - - - - - - - - - 
+! - - - - - - - - - - - -
 INTERFACE
 FUNCTION cerf ( z ) bind(c)
 !  cerf(z) = erf(z)
@@ -63,7 +63,7 @@ complex(C_DOUBLE_COMPLEX),intent(IN),VALUE :: z
 complex(C_DOUBLE_COMPLEX) :: cerf
 END FUNCTION
 END INTERFACE
-! - - - - - - - - - - - - 
+! - - - - - - - - - - - -
 INTERFACE
 FUNCTION cerfc ( z ) bind(c)
 !  cerfc(z) = erfc(z)
@@ -73,7 +73,7 @@ complex(C_DOUBLE_COMPLEX),intent(IN),VALUE :: z
 complex(C_DOUBLE_COMPLEX) :: cerfc
 END FUNCTION
 END INTERFACE
-! - - - - - - - - - - - - 
+! - - - - - - - - - - - -
 INTERFACE
 FUNCTION cerfcx ( z ) bind(c)
 USE ISO_C_BINDING
@@ -83,7 +83,7 @@ complex(C_DOUBLE_COMPLEX),intent(IN),VALUE :: z
 complex(C_DOUBLE_COMPLEX) :: cerfcx
 END FUNCTION
 END INTERFACE
-! - - - - - - - - - - - - 
+! - - - - - - - - - - - -
 INTERFACE
 FUNCTION erfcx ( x ) bind(c)
 USE ISO_C_BINDING
@@ -93,7 +93,7 @@ real(C_DOUBLE),intent(IN),VALUE :: x
 real(C_DOUBLE) :: erfcx
 END FUNCTION
 END INTERFACE
-! - - - - - - - - - - - - 
+! - - - - - - - - - - - -
 INTERFACE
 FUNCTION cerfi ( z ) bind(c)
 USE ISO_C_BINDING
@@ -103,7 +103,7 @@ complex(C_DOUBLE_COMPLEX),intent(IN),VALUE :: z
 complex(C_DOUBLE_COMPLEX) :: cerfi
 END FUNCTION
 END INTERFACE
-! - - - - - - - - - - - - 
+! - - - - - - - - - - - -
 INTERFACE
 FUNCTION erfi ( x ) bind(c)
 USE ISO_C_BINDING
@@ -113,18 +113,18 @@ real(C_DOUBLE),intent(IN),VALUE :: x
 real(C_DOUBLE) :: erfi
 END FUNCTION
 END INTERFACE
-! - - - - - - - - - - - - 
+! - - - - - - - - - - - -
 INTERFACE
 FUNCTION w_of_z ( z ) bind(c)
 USE ISO_C_BINDING
 IMPLICIT NONE
-!  w_of_z(z) = [ Faddeeva function w(z) ] 
+!  w_of_z(z) = [ Faddeeva function w(z) ]
 !            = exp(-z**2) * erfc(-I*z)
 complex(C_DOUBLE_COMPLEX),intent(IN),VALUE :: z
 complex(C_DOUBLE_COMPLEX) :: w_of_z
 END FUNCTION
 END INTERFACE
-! - - - - - - - - - - - - 
+! - - - - - - - - - - - -
 INTERFACE
 FUNCTION im_w_of_x ( x ) bind(c)
 USE ISO_C_BINDING
@@ -134,25 +134,25 @@ real(C_DOUBLE),intent(IN),VALUE :: x
 real(C_DOUBLE) :: im_w_of_x
 END FUNCTION
 END INTERFACE
-! - - - - - - - - - - - - 
+! - - - - - - - - - - - -
 INTERFACE
 FUNCTION cdawson ( z ) bind(c)
 USE ISO_C_BINDING
 IMPLICIT NONE
-!  cdawson(z) = [ Dawson's integral D(z) ] 
-!             = exp(-z**2) \int_0^z exp(t**2) dt 
+!  cdawson(z) = [ Dawson's integral D(z) ]
+!             = exp(-z**2) \int_0^z exp(t**2) dt
 !             = sqrt(pi)/2 * exp(-z**2) * erfi(z)
 complex(C_DOUBLE_COMPLEX),intent(IN),VALUE :: z
 complex(C_DOUBLE_COMPLEX) :: cdawson
 END FUNCTION
 END INTERFACE
-! - - - - - - - - - - - - 
+! - - - - - - - - - - - -
 INTERFACE
 FUNCTION dawson ( x ) bind(c)
 USE ISO_C_BINDING
 IMPLICIT NONE
-!  dawson(x) = [ Dawson's integral D(x) ] 
-!            = exp(-x**2) \int_0^x exp(t**2) dt 
+!  dawson(x) = [ Dawson's integral D(x) ]
+!            = exp(-x**2) \int_0^x exp(t**2) dt
 !            = sqrt(pi)/2 * exp(-x**2) * erfi(x)
 real(C_DOUBLE),intent(IN),VALUE :: x
 real(C_DOUBLE) :: dawson
@@ -204,8 +204,8 @@ Im_w_of_x_F = real(im_w_of_x( x=real(x,C_DOUBLE) ), DP)
 end function Im_w_of_x_F
 !********************************************************
 function Dawson_F(x) !bind(c)
-!  dawson(x) = [ Dawson's integral D(x) ] 
-!            = exp(-x**2) \int_0^x exp(t**2) dt 
+!  dawson(x) = [ Dawson's integral D(x) ]
+!            = exp(-x**2) \int_0^x exp(t**2) dt
 !            = sqrt(pi)/2 * exp(-x**2) * erfi(x)
 implicit none
 real(DP),intent(IN) :: x
@@ -259,7 +259,7 @@ end function cerfi_F
 !********************************************************
 function w_of_z_F ( z ) !bind(c)
 implicit none
-!  w_of_z(z) = [ Faddeeva function w(z) ] 
+!  w_of_z(z) = [ Faddeeva function w(z) ]
 !            = exp(-z**2) * erfc(-I*z)
 complex(DPC),intent(IN) :: z
 complex(DPC) :: w_of_z_F
@@ -270,8 +270,8 @@ end function w_of_z_F
 !********************************************************
 function cdawson_F ( z ) !bind(c)
 implicit none
-!  cdawson(z) = [ Dawson's integral D(z) ] 
-!             = exp(-z**2) \int_0^z exp(t**2) dt 
+!  cdawson(z) = [ Dawson's integral D(z) ]
+!             = exp(-z**2) \int_0^z exp(t**2) dt
 !             = sqrt(pi)/2 * exp(-z**2) * erfi(z)
 complex(DPC),intent(IN) :: z
 complex(DPC) :: cdawson_F

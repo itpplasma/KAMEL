@@ -39,11 +39,9 @@ subroutine prepare_resonances
 
     if (type_br_field == 2) then
         r_res = plasma%r_grid(plasma%grid_size)/2
-    end if   
+    end if
 
     write(*,*) 'resonant radius: ',r_res
     deallocate(q)
 
 end subroutine prepare_resonances
-
-

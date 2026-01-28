@@ -20,7 +20,7 @@ module grid_m
     real(dp) :: rkf45_atol = 1.0d-9  ! Absolute tolerance for RKF45 adaptive integration
     real(dp) :: rkf45_rtol = 1.0d-6  ! Relative tolerance for RKF45 adaptive integration
     real(dp) :: kernel_taper_skip_threshold = 1.0d-6  ! Skip element calc when taper weight below this
-    
+
     ! QUADPACK integration parameters
     character(len=32) :: quadpack_algorithm = "QAG"  ! QAG or QAGS
     integer :: quadpack_key = 6  ! Gauss-Kronrod rule: 1-6 for 15-61 points
@@ -167,7 +167,7 @@ module grid_m
         !elseif (grid_spacing == 2) then
             !width_res = 3.0
             !ampl_res = 0.3
-        !else 
+        !else
             !width_res = 0.2
             !ampl_res = 15.0
         !end if
@@ -202,7 +202,7 @@ module grid_m
         integer :: ipoib, ipb, ipe
         real(dp), dimension(:,:), allocatable :: coef
         real(dp) :: recnsp
-        
+
         allocate(this%xb(this%npts_b), this%xc(this%npts_c))
         allocate(coef(0:nder,npoi_der))
 
@@ -282,7 +282,7 @@ module grid_m
             this%xb(ipoib) = this%min_val + (ipoib - 1) * h
             this%xc(ipoib-1) = 0.5 * (this%xb(ipoib-1) + this%xb(ipoib))
         end do
-        
+
         allocate(coef(0:nder,npoi_der))
 
         ! call ensure_node_at_r_res(this) ! could be used for adding r_res point in grid, but introduces some small oscillations
@@ -313,7 +313,7 @@ module grid_m
             endif
             this%ipbeg(ipoib) = ipb
             this%ipend(ipoib) = ipe
-            
+
             call plag_coeff(npoi_der, nder, this%xb(ipoib), this%xc(ipb:ipe), coef)
 
             this%reint_coef(:, ipoib) = coef(0,:)

@@ -24,8 +24,8 @@ done
 for i in $(cat jobs_list.txt | grep -v '^#' | grep -v "^$"); do
   echo "Queueing $i..."
   if [ $DRY -eq 0 ] ; then
-  	cd $i
-  	condor_submit condor.submit
-  	cd ..
+    cd $i
+    condor_submit condor.submit
+    cd ..
   fi
 done;

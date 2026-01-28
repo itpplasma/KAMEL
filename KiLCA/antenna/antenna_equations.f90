@@ -237,7 +237,7 @@ in(:,2) = b(3)*inner(:,1) + b(4)*inner(:,2)
 
 ! print *, 'in1:'
 ! print *, in(:,1)
-! 
+!
 ! print *, 'in2:'
 ! print *, in(:,2)
 
@@ -270,7 +270,7 @@ out(:,2) = b(3)*outer(:,1) + b(4)*outer(:,2)
 
 ! print *, 'out1:'
 ! print *, out(:,1)
-! 
+!
 ! print *, 'out2:'
 ! print *, out(:,2)
 

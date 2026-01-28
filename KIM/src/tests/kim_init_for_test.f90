@@ -24,7 +24,7 @@ subroutine kim_init_for_test
     do i=2, iprof_length
         r_prof(i) = r_prof(i-1) + h
     end do
-        
+
     allocate(n_prof(iprof_length), Te_prof(iprof_length), Ti_prof(1, iprof_length), &
         Er_prof(iprof_length), q_prof(iprof_length), ni_prof(1, iprof_length))
     allocate(B0z(iprof_length), B0th(iprof_length), B0(iprof_length), hz(iprof_length), hth(iprof_length))

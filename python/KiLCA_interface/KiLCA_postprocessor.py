@@ -1,13 +1,16 @@
-import numpy as np
-import matplotlib.pyplot as plt
-from .KiLCA_interface import KiLCA_interface
-from .KiLCA_data import KiLCA_data
+import inspect
 import os
 import re
 import sys
-import inspect
-from utility import utility
+
+import matplotlib.pyplot as plt
+import numpy as np
 from scipy.optimize import curve_fit
+from utility import utility
+
+from .KiLCA_data import KiLCA_data
+from .KiLCA_interface import KiLCA_interface
+
 
 class KiLCA_postprocessor:
     """
@@ -18,7 +21,7 @@ class KiLCA_postprocessor:
         read_Eb(path_to_file): reads in EB.dat output file
     """
 
-    uc = utility() # for colors and plotting stuff
+    uc = utility()  # for colors and plotting stuff
     debug = False
 
     def __init__(self, *args):
@@ -26,7 +29,7 @@ class KiLCA_postprocessor:
         Constructor of the postprocessor class.
         """
         self.m = []
-        self.n =[]
+        self.n = []
         self.EBdat = {}
 
         if isinstance(args[0], KiLCA_interface):
@@ -37,111 +40,113 @@ class KiLCA_postprocessor:
             self.run_type = self.kil_in.run_type
             self.machine = self.kil_in.machine
             if self.debug:
-                print('KiLCA interface was parsed')
-                print('    shot      : ' + str(self.shot))
-                print('    time slice: ' + str(self.time_slice))
-                print('    run path  : ' + self.path_of_run)
-                print('    run type  : ' + self.run_type)
-                print('    machine   : ' + self.machine)
+                print("KiLCA interface was parsed")
+                print("    shot      : " + str(self.shot))
+                print("    time slice: " + str(self.time_slice))
+                print("    run path  : " + self.path_of_run)
+                print("    run type  : " + self.run_type)
+                print("    machine   : " + self.machine)
         elif isinstance(args[0], int):
             self.shot = args[0]
             self.time_slice = args[1]
-            self.path_of_run = args[2] + '/' + args[3] + '/'
+            self.path_of_run = args[2] + "/" + args[3] + "/"
             self.run_type = args[3]
             if not len(args) > 4:
-                self.machine = 'AUG'
+                self.machine = "AUG"
             else:
                 self.machine = args[4]
             if self.debug:
-                print('Path was parsed')
-                print('    shot      : ' + str(self.shot))
-                print('    time slice: ' + str(self.time_slice))
-                print('    run path  : ' + self.path_of_run)
-                print('    run type  : ' + self.run_type)
-                print('    machine   : ' + self.machine)
+                print("Path was parsed")
+                print("    shot      : " + str(self.shot))
+                print("    time slice: " + str(self.time_slice))
+                print("    run path  : " + self.path_of_run)
+                print("    run type  : " + self.run_type)
+                print("    machine   : " + self.machine)
         else:
-            raise ValueError(str(args[0]) + ' is not a valid input.')
+            raise ValueError(str(args[0]) + " is not a valid input.")
 
-        fs = os.listdir(self.path_of_run + '/linear-data/')
+        fs = os.listdir(self.path_of_run + "/linear-data/")
         self.fs = fs
         if self.debug:
-            print('available modes:')
+            print("available modes:")
         for el in fs:
-            if re.search('m_*', el):
-                nums = re.findall('\d+', el)
-                if el[2] == '-':
-                    self.m = np.append(self.m ,-int(nums[0]))
+            if re.search("m_*", el):
+                nums = re.findall("\d+", el)
+                if el[2] == "-":
+                    self.m = np.append(self.m, -int(nums[0]))
                     if self.debug:
-                        print(f'    m = -{nums[0]}    n = {nums[1]}')
+                        print(f"    m = -{nums[0]}    n = {nums[1]}")
                 else:
-                    self.m = np.append(self.m ,int(nums[0]))
+                    self.m = np.append(self.m, int(nums[0]))
                     if self.debug:
-                        print(f'    m = {nums[0]}    n = {nums[1]}')
+                        print(f"    m = {nums[0]}    n = {nums[1]}")
                 self.n = np.append(self.n, int(nums[1]))
-                
-                #self.read_EB(self.path_of_run + 'linear-data/'+ el + '/')
 
-    def read_EB(self, path_to_file='', m=0, n=0):
+                # self.read_EB(self.path_of_run + 'linear-data/'+ el + '/')
+
+    def read_EB(self, path_to_file="", m=0, n=0):
         """
         Description:
             Read in EB.dat file which is the linear data output of KiLCA. Returns the data as numpy array if no mode number is given and as a dict otherwise. It also safes it in the EBdat variable of the class.
         """
         self.EBdat = {}
         found_file = False
-        if m==0 and n==0 and not path_to_file=='':
-            self.EBdat = np.loadtxt(path_to_file + 'EB.dat')
-        elif path_to_file=='':
+        if m == 0 and n == 0 and not path_to_file == "":
+            self.EBdat = np.loadtxt(path_to_file + "EB.dat")
+        elif path_to_file == "":
             for f in self.fs[:]:
-                nums = re.findall('\d+', f)
-                if f[2] == '-':
-                    st = '-' + nums[0]
+                nums = re.findall("\d+", f)
+                if f[2] == "-":
+                    st = "-" + nums[0]
                 else:
                     st = nums[0]
                 if str(m) == st:
-                    self.EBdat[f'({m}, {n})'] = np.loadtxt(self.path_of_run + 'linear-data/'+ f + '/EB.dat')
+                    self.EBdat[f"({m}, {n})"] = np.loadtxt(
+                        self.path_of_run + "linear-data/" + f + "/EB.dat"
+                    )
                     found_file = True
             if not found_file:
-                raise ValueError('mode number not available')
+                raise ValueError("mode number not available")
 
         return self.EBdat
-    
+
     def EB_to_fields(self, EBdat, m=0, n=0):
         """
         Description:
             Takes EB dat numpy array as input an puts it into Br, Bth, Bz,... variables.
         """
 
-        if type(EBdat)==np.ndarray:
-            self.r          = EBdat[:,0]
+        if type(EBdat) == np.ndarray:
+            self.r = EBdat[:, 0]
             self.r, ind = np.unique(self.r, return_index=True)  # returns unique sorted r values
-            self.Er_real    = EBdat[ind,1]
-            self.Er_imag    = EBdat[ind,2]
-            self.Eth_real   = EBdat[ind,3]
-            self.Eth_imag   = EBdat[ind,4]
-            self.Ez_real    = EBdat[ind,5]
-            self.Ez_imag    = EBdat[ind,6]
-            self.Br_real    = EBdat[ind,7]
-            self.Br_imag    = EBdat[ind,8]
-            self.Bth_real   = EBdat[ind,9]
-            self.Bth_imag   = EBdat[ind,10]
-            self.Bz_real    = EBdat[ind,11]
-            self.Bz_imag    = EBdat[ind,12]
-        elif type(EBdat)==dict:
-            self.r          = EBdat[f'({m}, {n})'][:,0]
-            self.Er_real    = EBdat[f'({m}, {n})'][:,1]
-            self.Er_imag    = EBdat[f'({m}, {n})'][:,2]
-            self.Eth_real   = EBdat[f'({m}, {n})'][:,3]
-            self.Eth_imag   = EBdat[f'({m}, {n})'][:,4]
-            self.Ez_real    = EBdat[f'({m}, {n})'][:,5]
-            self.Ez_imag    = EBdat[f'({m}, {n})'][:,6]
-            self.Br_real    = EBdat[f'({m}, {n})'][:,7]
-            self.Br_imag    = EBdat[f'({m}, {n})'][:,8]
-            self.Bth_real   = EBdat[f'({m}, {n})'][:,9]
-            self.Bth_imag   = EBdat[f'({m}, {n})'][:,10]
-            self.Bz_real    = EBdat[f'({m}, {n})'][:,11]
-            self.Bz_imag    = EBdat[f'({m}, {n})'][:,12]
+            self.Er_real = EBdat[ind, 1]
+            self.Er_imag = EBdat[ind, 2]
+            self.Eth_real = EBdat[ind, 3]
+            self.Eth_imag = EBdat[ind, 4]
+            self.Ez_real = EBdat[ind, 5]
+            self.Ez_imag = EBdat[ind, 6]
+            self.Br_real = EBdat[ind, 7]
+            self.Br_imag = EBdat[ind, 8]
+            self.Bth_real = EBdat[ind, 9]
+            self.Bth_imag = EBdat[ind, 10]
+            self.Bz_real = EBdat[ind, 11]
+            self.Bz_imag = EBdat[ind, 12]
+        elif type(EBdat) == dict:
+            self.r = EBdat[f"({m}, {n})"][:, 0]
+            self.Er_real = EBdat[f"({m}, {n})"][:, 1]
+            self.Er_imag = EBdat[f"({m}, {n})"][:, 2]
+            self.Eth_real = EBdat[f"({m}, {n})"][:, 3]
+            self.Eth_imag = EBdat[f"({m}, {n})"][:, 4]
+            self.Ez_real = EBdat[f"({m}, {n})"][:, 5]
+            self.Ez_imag = EBdat[f"({m}, {n})"][:, 6]
+            self.Br_real = EBdat[f"({m}, {n})"][:, 7]
+            self.Br_imag = EBdat[f"({m}, {n})"][:, 8]
+            self.Bth_real = EBdat[f"({m}, {n})"][:, 9]
+            self.Bth_imag = EBdat[f"({m}, {n})"][:, 10]
+            self.Bz_real = EBdat[f"({m}, {n})"][:, 11]
+            self.Bz_imag = EBdat[f"({m}, {n})"][:, 12]
         else:
-            raise ValueError('Wrong type of EBdat in EB_to_fields().')
+            raise ValueError("Wrong type of EBdat in EB_to_fields().")
 
     def plot_E_field(self, m=0, n=0):
         """
@@ -152,28 +157,28 @@ class KiLCA_postprocessor:
         found_file = False
         for f in self.fs[:]:
             if str(m) == f[2]:
-                self.read_EB(self.path_of_run + 'linear-data/'+ f + '/')
+                self.read_EB(self.path_of_run + "linear-data/" + f + "/")
                 found_file = True
         if not found_file:
-            raise ValueError('mode number not available')
-        self.EB_to_fields(self.EBdat, m,n)
+            raise ValueError("mode number not available")
+        self.EB_to_fields(self.EBdat, m, n)
 
-        fig, ax = plt.subplots(3, figsize=(4,6), sharex=True)
+        fig, ax = plt.subplots(3, figsize=(4, 6), sharex=True)
 
-        ax[0].plot(self.r, self.Er_real, c=self.uc.col_blue, label='real')
-        ax[0].plot(self.r, self.Er_imag, c=self.uc.col_yellow, label='imag')
-        ax[0].set_ylabel(r'E$_r$ [statV cm$^{-1}$]')
+        ax[0].plot(self.r, self.Er_real, c=self.uc.col_blue, label="real")
+        ax[0].plot(self.r, self.Er_imag, c=self.uc.col_yellow, label="imag")
+        ax[0].set_ylabel(r"E$_r$ [statV cm$^{-1}$]")
         ax[0].legend()
 
-        ax[1].plot(self.r, self.Eth_real, c=self.uc.col_blue, label='real')
-        ax[1].plot(self.r, self.Eth_imag, c=self.uc.col_yellow, label='imag')
-        ax[1].set_ylabel(r'E$_\theta$ [statV cm$^{-1}$]')
+        ax[1].plot(self.r, self.Eth_real, c=self.uc.col_blue, label="real")
+        ax[1].plot(self.r, self.Eth_imag, c=self.uc.col_yellow, label="imag")
+        ax[1].set_ylabel(r"E$_\theta$ [statV cm$^{-1}$]")
         ax[1].legend()
 
-        ax[2].plot(self.r, self.Ez_real, c=self.uc.col_blue, label='real')
-        ax[2].plot(self.r, self.Ez_imag, c=self.uc.col_yellow, label='imag')
-        ax[2].set_xlabel('r [cm]')
-        ax[2].set_ylabel(r'E$_z$ [statV cm$^{-1}$]')
+        ax[2].plot(self.r, self.Ez_real, c=self.uc.col_blue, label="real")
+        ax[2].plot(self.r, self.Ez_imag, c=self.uc.col_yellow, label="imag")
+        ax[2].set_xlabel("r [cm]")
+        ax[2].set_ylabel(r"E$_z$ [statV cm$^{-1}$]")
         ax[2].legend()
 
         list(map(lambda x: self.uc.add_grid_to_axis(x), ax))
@@ -191,29 +196,29 @@ class KiLCA_postprocessor:
         found_file = False
         for f in self.fs[:]:
             if str(m) == f[2]:
-                self.read_EB(self.path_of_run + 'linear-data/'+ f + '/')
+                self.read_EB(self.path_of_run + "linear-data/" + f + "/")
                 found_file = True
         if not found_file:
-            raise ValueError('mode number not available')
-            
-        self.EB_to_fields(self.EBdat, m,n)
+            raise ValueError("mode number not available")
 
-        fig, ax = plt.subplots(3, figsize=(4,6), sharex=True)
+        self.EB_to_fields(self.EBdat, m, n)
 
-        ax[0].plot(self.r, self.Br_real, c=self.uc.col_blue, label='real')
-        ax[0].plot(self.r, self.Br_imag, c=self.uc.col_yellow, label='imag')
-        ax[0].set_ylabel(r'B$_r$ [G]')
+        fig, ax = plt.subplots(3, figsize=(4, 6), sharex=True)
+
+        ax[0].plot(self.r, self.Br_real, c=self.uc.col_blue, label="real")
+        ax[0].plot(self.r, self.Br_imag, c=self.uc.col_yellow, label="imag")
+        ax[0].set_ylabel(r"B$_r$ [G]")
         ax[0].legend()
 
-        ax[1].plot(self.r, self.Bth_real, c=self.uc.col_blue, label='real')
-        ax[1].plot(self.r, self.Bth_imag, c=self.uc.col_yellow, label='imag')
-        ax[1].set_ylabel(r'B$_\theta$ [G]')
+        ax[1].plot(self.r, self.Bth_real, c=self.uc.col_blue, label="real")
+        ax[1].plot(self.r, self.Bth_imag, c=self.uc.col_yellow, label="imag")
+        ax[1].set_ylabel(r"B$_\theta$ [G]")
         ax[1].legend()
 
-        ax[2].plot(self.r, self.Bz_real, c=self.uc.col_blue, label='real')
-        ax[2].plot(self.r, self.Bz_imag, c=self.uc.col_yellow, label='imag')
-        ax[2].set_xlabel('r [cm]')
-        ax[2].set_ylabel(r'B$_z$ [G]')
+        ax[2].plot(self.r, self.Bz_real, c=self.uc.col_blue, label="real")
+        ax[2].plot(self.r, self.Bz_imag, c=self.uc.col_yellow, label="imag")
+        ax[2].set_xlabel("r [cm]")
+        ax[2].set_ylabel(r"B$_z$ [G]")
         ax[2].legend()
 
         list(map(lambda x: self.uc.add_grid_to_axis(x), ax))
@@ -222,8 +227,10 @@ class KiLCA_postprocessor:
         plt.subplots_adjust(hspace=0.05)
         plt.show()
         return fig
-    
-    def calculate_parallel_current_density(self, m_mode, n_mode, path_to_linear, path_to_background):
+
+    def calculate_parallel_current_density(
+        self, m_mode, n_mode, path_to_linear, path_to_background
+    ):
         self.read_EB(path_to_file=path_to_linear, m=0, n=0)
         self.EB_to_fields(self.EBdat, m=0, n=0)
         self.read_background_field(path_to_background)
@@ -235,41 +242,56 @@ class KiLCA_postprocessor:
         self.Bth = self.Bth_real + 1j * self.Bth_imag
         self.Bz = self.Bz_real + 1j * self.Bz_imag
 
-        self.dBr = np.gradient(self.Br, self.r, edge_order=2) # gives runtime warning divide by zero
+        self.dBr = np.gradient(
+            self.Br, self.r, edge_order=2
+        )  # gives runtime warning divide by zero
         self.dBth = np.gradient(self.Bth, self.r)
         self.dBz = np.gradient(self.Bz, self.r)
 
-
-        #self.Jr = 1j / (4*np.pi) * (self.kth * self.Bz - self.kz * self.Bth)
-        self.Jth = 1 /(4*np.pi) * (1j * self.kz * self.Br - self.dBz)
+        # self.Jr = 1j / (4*np.pi) * (self.kth * self.Bz - self.kz * self.Bth)
+        self.Jth = 1 / (4 * np.pi) * (1j * self.kz * self.Br - self.dBz)
         self.Jz = 1 / (4 * np.pi) * (self.Bth / self.r + self.dBth - 1j * self.kth * self.Br)
 
-        self.Jpar = (self.Jth * np.interp(self.r, self.bg_r_eff, self.B0th) + self.Jz * np.interp(self.r, self.bg_r_eff, self.B0z)) / np.interp(self.r, self.bg_r_eff, self.B0)
+        self.Jpar = (
+            self.Jth * np.interp(self.r, self.bg_r_eff, self.B0th)
+            + self.Jz * np.interp(self.r, self.bg_r_eff, self.B0z)
+        ) / np.interp(self.r, self.bg_r_eff, self.B0)
         return self.r, self.Jpar
-        #plt.figure()
-        #plt.plot(self.r, self.Jpar)
+        # plt.figure()
+        # plt.plot(self.r, self.Jpar)
 
     def calculate_layer_width(self, m_mode, n_mode):
-        if self.debug: print(f'Calculating layer width for m = {m_mode}, n = {n_mode}')
+        if self.debug:
+            print(f"Calculating layer width for m = {m_mode}, n = {n_mode}")
         self.kil_in.get_r_res(m_mode, n_mode)
-        r_ind = np.where(self.r < self.kil_in.a_minor-0.1)
-        model = lambda r, b, c: c * (1/np.sqrt(2*np.pi*b**2)) * np.exp(-(r-self.kil_in.r_res)**2/(2*b**2))
+        r_ind = np.where(self.r < self.kil_in.a_minor - 0.1)
+        model = (
+            lambda r, b, c: c
+            * (1 / np.sqrt(2 * np.pi * b**2))
+            * np.exp(-((r - self.kil_in.r_res) ** 2) / (2 * b**2))
+        )
         popt_real, popcov_real = curve_fit(model, self.r[r_ind], np.real(self.Jpar[r_ind]))
         popt_imag, popcov_imag = curve_fit(model, self.r[r_ind], np.imag(self.Jpar[r_ind]))
-        self.d = np.real(5 * np.sqrt((popt_real[0] + 1j * popt_imag[0])**2))
+        self.d = np.real(5 * np.sqrt((popt_real[0] + 1j * popt_imag[0]) ** 2))
         return self.d
-        
-        
+
     def integrate_par_current_dens(self):
-        ind_lower = np.where(self.r >= self.kil_in.r_res - self.d/2)[0][0]
-        ind_upper = np.where(self.r <= self.kil_in.r_res + self.d/2)[0][-1]
-        self.Ipar = 2 * np.pi * np.trapz(self.Jpar[ind_lower:ind_upper] * self.r[ind_lower:ind_upper], self.r[ind_lower:ind_upper])
-        #plt.title(f'Integrated parallel current density: {np.abs(self.Ipar):.2f}')
-        #plt.show()
+        ind_lower = np.where(self.r >= self.kil_in.r_res - self.d / 2)[0][0]
+        ind_upper = np.where(self.r <= self.kil_in.r_res + self.d / 2)[0][-1]
+        self.Ipar = (
+            2
+            * np.pi
+            * np.trapz(
+                self.Jpar[ind_lower:ind_upper] * self.r[ind_lower:ind_upper],
+                self.r[ind_lower:ind_upper],
+            )
+        )
+        # plt.title(f'Integrated parallel current density: {np.abs(self.Ipar):.2f}')
+        # plt.show()
         return self.Ipar
-        
+
     def read_background_field(self, path):
-        self.bg_r_eff = np.loadtxt(path + 'b0.dat')[:,0]
-        self.B0 = np.loadtxt(path + 'b0.dat')[:,1]
-        self.B0th = np.loadtxt(path + 'b0th.dat')[:,1]
-        self.B0z = np.loadtxt(path + 'b0z.dat')[:,1]
+        self.bg_r_eff = np.loadtxt(path + "b0.dat")[:, 0]
+        self.B0 = np.loadtxt(path + "b0.dat")[:, 1]
+        self.B0th = np.loadtxt(path + "b0th.dat")[:, 1]
+        self.B0z = np.loadtxt(path + "b0z.dat")[:, 1]

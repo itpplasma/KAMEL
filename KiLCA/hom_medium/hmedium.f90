@@ -473,12 +473,12 @@ S(8) = (dBz +gamma*gamma*Im*S(2))/gamma/gamma/Km;
 
 ! //check:
 ! double *C = new double[2*Nc]; //complex coefficients (solution)
-! 
+!
 ! double omega[2] = {real(wd->omov), imag(wd->omov)};   //moving frame
-! 
+!
 ! int m = wd->m;
 ! double kz = (wd->n)/(sd->bs->rtor);
-! 
+!
 ! calc_coeffs_vacuum_antenna_vacuum_ (&m, &kz, omega, &(sd->as->ra), C);
 
 end subroutine

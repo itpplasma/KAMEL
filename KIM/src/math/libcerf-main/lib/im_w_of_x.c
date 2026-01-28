@@ -614,7 +614,7 @@ double im_w_of_x(double x)
                ispi / (x-0.5/(x-1/(x-1.5/(x-2/x))))  */
         return ispi*((x*x) * (x*x-4.5) + 2) / (x * ((x*x) * (x*x-5) + 3.75));
     }
-    
+
     if (ax < 0.03092783506) { // (1/0.97)-1 + eps
         // use Taylor expansion for small x (|x| <= 0.0309...)
         //  (2/sqrt(pi)) * (x - 2/3 x^3  + 4/15 x^5  - 8/105 x^7 + 16/945 x^9)

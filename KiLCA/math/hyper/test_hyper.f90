@@ -33,12 +33,12 @@ read *, dom
 
 t1 = kp**2 * Vt**2 / nu**2;
 
-!t2 = -im*(omega - omega0)/nu + t1; 
-t2 = -im*(dom)/nu + t1; 
+!t2 = -im*(omega - omega0)/nu + t1;
+t2 = -im*(dom)/nu + t1;
 
 print *, 't1=', t1, 't2=', t2;
 
-! 
+!
 ! print *, 'input z='
 ! read *, z
 

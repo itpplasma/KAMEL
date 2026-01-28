@@ -142,8 +142,8 @@ extern "C"
 void alloc_conductivity_profiles_ (cond_profiles **cpptr);
 
 void calc_and_spline_conductivity_for_point_ (settings **sd_ptr, background **bp_ptr,
-					      wave_data **wd_ptr, char *flag_back, double *r,
-					      cond_profiles **cp_ptr);
+                          wave_data **wd_ptr, char *flag_back, double *r,
+                          cond_profiles **cp_ptr);
 
 void delete_conductivity_profiles_f_ (cond_profiles **cp_ptr);
 }

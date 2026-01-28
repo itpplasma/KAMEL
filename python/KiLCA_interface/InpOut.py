@@ -1,6 +1,7 @@
-from .read_in import *
 from .change_opts import *
+from .read_in import *
 from .save_file import *
+
 
 class InpOut:
 
@@ -12,9 +13,8 @@ class InpOut:
 
         raw = read_in(from_path)
         raw = change_opts(raw, self.ind, self.return_data(), self.sep)
-        save_file(raw, to_path + '/' + self.BLUEPRINT)
+        save_file(raw, to_path + "/" + self.BLUEPRINT)
 
-    
     def return_data(self):
         """
         Description:

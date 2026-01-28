@@ -54,7 +54,7 @@
 &kim_grid
     r_min = 3.0                             ! minimum calculation radius
     r_plas = 67.0                           ! maximum calculation radius, must be covered by profiles
-    
+
     ! scaling parameters for grid generation
     width_res = 0.5
     ampl_res = 15.0
@@ -70,7 +70,7 @@
     ! RKF45 parameters
     rkf45_atol = 1.0d-9                     ! Absolute tolerance for RKF45 adaptive integration
     rkf45_rtol = 1.0d-6                     ! Relative tolerance for RKF45 adaptive integration
-    
+
     ! QUADPACK parameters (used when theta_integration_method = 'QUADPACK')
     quadpack_algorithm = 'QAG'              ! 'QAG' or 'QAGS'
     quadpack_key = 6                        ! Gauss-Kronrod rule: 1-6 (QK15-QK61)
@@ -78,11 +78,11 @@
     quadpack_epsabs = 1.0d-10               ! Absolute tolerance
     quadpack_epsrel = 1.0d-10               ! Relative tolerance
     quadpack_use_u_substitution = .true.    ! Use u=sin(theta/2) transformation
-    
+
     kernel_taper_skip_threshold = 1.0d-6    ! Skip element when taper weight below this
     Larmor_skip_factor = 5                  ! Scaling factor to reduce number of kernel entries to be calculated
     gauss_int_nodes_Nx = 31                 ! Gauss integration node points, should be different from Nxp to avoid numerical problems
-    gauss_int_nodes_Nxp = 30                ! 
+    gauss_int_nodes_Nxp = 30                !
     gauss_int_nodes_Ntheta = 17             ! For GaussLegendre integration of theta
 /
 

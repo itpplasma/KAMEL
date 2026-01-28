@@ -219,9 +219,9 @@ A(3,iBp) = -1.d0
 A(4,iBs) = -Np
 A(4,iBp) = Ns
 do k=1,3 !r,s,p
-	do i=0,der_order(1,k)
-        	A(4,iErsp_sys(k)+i) = epst(0,i,1,k)
-	end do
+    do i=0,der_order(1,k)
+            A(4,iErsp_sys(k)+i) = epst(0,i,1,k)
+    end do
 end do
 
 !5: dBp
@@ -231,9 +231,9 @@ A(5,iBs) = N1
 A(5,iBp) = -N2
 
 do k=1,3 !r,s,p
-	do i=0,der_order(2,k)
-        	A(5,iErsp_sys(k)+i) = epst(0,i,2,k)
-	end do
+    do i=0,der_order(2,k)
+            A(5,iErsp_sys(k)+i) = epst(0,i,2,k)
+    end do
 end do
 
 !6: dBs
@@ -243,9 +243,9 @@ A(6,iBp) = N3
 A(6,iBs) = N4
 
 do k=1,3 !r,s,p
-	do i=0,der_order(3,k)
-        	A(6,iErsp_sys(k)+i) = epst(0,i,3,k)
-	end do
+    do i=0,der_order(3,k)
+            A(6,iErsp_sys(k)+i) = epst(0,i,3,k)
+    end do
 end do
 
 !DIFF, ddEp
@@ -276,10 +276,10 @@ A(9,idBp) = Ns
 A(9,iBp)  = dNs
 
 do k=1,3 !r,s,p
-	do i=0,der_order(1,k)
-        	A(9,iErsp_sys(k)+i+1) = epst(0,i,1,k)
-		A(9,iErsp_sys(k)+i) = A(9,iErsp_sys(k)+i) + epst(1,i,1,k)
-	end do
+    do i=0,der_order(1,k)
+            A(9,iErsp_sys(k)+i+1) = epst(0,i,1,k)
+        A(9,iErsp_sys(k)+i) = A(9,iErsp_sys(k)+i) + epst(1,i,1,k)
+    end do
 end do
 
 !print *, 'r:', r

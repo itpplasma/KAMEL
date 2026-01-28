@@ -1,5 +1,5 @@
 subroutine det_balance_eqs_source_terms_stell
-    
+
     ! calculates source terms in the balance equations. Is determined by assuming steady state.
 
     use grid_mod, only : y, dery, dery_equisource, nbaleqs, iboutype, npoic

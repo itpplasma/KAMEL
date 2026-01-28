@@ -19,4 +19,3 @@ double precision function d1mach(i)
         d1mach = epsilon(one)
     end select
 end function d1mach
-

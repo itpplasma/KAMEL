@@ -1,5 +1,5 @@
 subroutine calc_equil_diffusion_coeffs
-    
+
     use grid_mod, only: npoib, dae11, dae12, dae22, dai11, dai12, dai22 &
                         , dni22, visca, rb, cneo
     use plasma_parameters, only: params_b
@@ -9,9 +9,9 @@ subroutine calc_equil_diffusion_coeffs
     use paramscan_mod, only: viscosity_factor
     use PolyLagrangeInterpolation
     use QLBalance_kinds, only: dp
-    
+
     implicit none
-    
+
     integer :: ipoi
     real(dp) :: weight
 
@@ -95,7 +95,7 @@ subroutine calc_equil_diffusion_coeffs
     dai12 = dae12
     dai22 = dae22
     visca = dae11 * viscosity_factor
-    
+
     dni22 = cneo * params_b(1, :)/sqrt(abs(params_b(4, :)))
 
 end subroutine calc_equil_diffusion_coeffs
@@ -163,7 +163,7 @@ subroutine calc_transport_coeffs_ornuhl(dim, vT, nu, D_11, D_12, D_21, D_22)
 
     x1 = kp*vT/nu
     x2 = -om_E/nu
-    
+
     do i = 1, dim
         if (rb(i) .lt. r_resonant(i_mn_loop) - 2.d0*gg_width) cycle
         if (rb(i) .gt. r_resonant(i_mn_loop) + 2.d0*gg_width) cycle

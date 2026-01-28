@@ -210,4 +210,3 @@ module muller_root_finding
     end subroutine test
 
 end module muller_root_finding
-

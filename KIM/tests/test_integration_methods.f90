@@ -1,7 +1,7 @@
 program test_integration_methods
     ! Test program to compare RKF45 and QUADPACK integration methods
     ! Verifies consistency between methods for various test integrands
-    
+
     use KIM_kinds_m, only: dp
     use integrals_rkf45_m, only: rkf45_config_t, init_rkf45_int, &
                                  integrate_F1, integrate_F2, integrate_F3
@@ -11,13 +11,13 @@ program test_integration_methods
                       gauss_int_nodes_Nx, gauss_int_nodes_Nxp, rg_grid
     use quadpack_integration_m, only: init_quadpack_module
     use omp_lib
-    
+
     implicit none
-    
+
     ! Test parameters
     integer, parameter :: n_tests = 5
     real(dp), parameter :: test_tolerance = 1.0d-8
-    
+
     ! Integration variables
     type(rkf45_config_t) :: rkf45_conf
     type(rkf45_integrand_context_t) :: context
@@ -26,19 +26,19 @@ program test_integration_methods
     integer :: test_case, i
     logical :: all_tests_passed
     real(dp) :: start_time, end_time, time_rkf45, time_quadpack
-    
+
     ! Test case parameters
     real(dp), dimension(n_tests) :: rhoT_values
     real(dp), dimension(n_tests) :: ks_values
     real(dp), dimension(n_tests) :: x_values
     real(dp), dimension(n_tests) :: xp_values
-    
+
     ! Initialize test output
     write(*,*) "==============================================="
     write(*,*) "Integration Method Comparison Test"
     write(*,*) "==============================================="
     write(*,*)
-    
+
     ! Set integration parameters
     gauss_int_nodes_Nx = 20
     gauss_int_nodes_Nxp = 20
@@ -47,7 +47,7 @@ program test_integration_methods
     quadpack_epsabs = 1.0d-10
     quadpack_epsrel = 1.0d-10
     quadpack_use_u_substitution = .true.
-    
+
     ! Initialize minimal rg_grid used by integrands (two-cell domain [0,1])
     rg_grid%npts_b = 2
     rg_grid%npts_c = 1
@@ -60,19 +60,19 @@ program test_integration_methods
     rkf45_conf%Nxp = gauss_int_nodes_Nxp
     call init_rkf45_int(rkf45_conf)
     call init_quadpack_module()
-    
+
     ! Set up test cases
     rhoT_values = [0.1d0, 0.5d0, 1.0d0, 2.0d0, 5.0d0]
     ks_values = [0.1d0, 0.5d0, 1.0d0, 2.0d0, 3.0d0]
     x_values = [0.1d0, 0.3d0, 0.5d0, 0.7d0, 0.9d0]
     xp_values = [0.2d0, 0.4d0, 0.6d0, 0.8d0, 0.95d0]
-    
+
     all_tests_passed = .true.
-    
+
     ! Test F1 integrand (QAG)
     write(*,*) "Testing F1 integrand..."
     write(*,*) "----------------------------------------"
-    
+
     do test_case = 1, n_tests
         ! Set up context for test case
         context%j = 1
@@ -86,14 +86,14 @@ program test_integration_methods
         context%xlpm1 = 0.0d0
         context%xlp = 0.5d0
         context%xlpp1 = 1.0d0
-        
+
         ! Test with RKF45
         theta_integration_method = "RKF45"
         start_time = omp_get_wtime()
         call integrate_F1(result_rkf45, rkf45_conf, context)
         end_time = omp_get_wtime()
         time_rkf45 = end_time - start_time
-        
+
         ! Test with QUADPACK (QAG)
         theta_integration_method = "QUADPACK"
         quadpack_algorithm = "QAG"
@@ -101,7 +101,7 @@ program test_integration_methods
         call integrate_F1(result_quadpack, rkf45_conf, context)
         end_time = omp_get_wtime()
         time_quadpack = end_time - start_time
-        
+
         ! Calculate errors
         abs_error = abs(result_quadpack - result_rkf45)
         if (abs(result_rkf45) > 1.0d-15) then
@@ -109,7 +109,7 @@ program test_integration_methods
         else
             rel_error = abs_error
         end if
-        
+
         ! Print results
         write(*,'(A,I2,A)') "Test case ", test_case, ":"
         write(*,'(A,ES12.5,A,ES12.5,A,ES12.5,A,ES12.5)') &
@@ -123,7 +123,7 @@ program test_integration_methods
         write(*,'(A,ES12.5)') "  Relative error:  ", rel_error
         write(*,'(A,F8.5,A,F8.5,A)') "  Time: RKF45=", time_rkf45*1000, &
                                      "ms, QUADPACK=", time_quadpack*1000, "ms"
-        
+
         if (rel_error > test_tolerance) then
             write(*,*) "  WARNING: Error exceeds tolerance!"
             all_tests_passed = .false.
@@ -132,11 +132,11 @@ program test_integration_methods
         end if
         write(*,*)
     end do
-    
+
     ! Test F2 integrand (QAG)
     write(*,*) "Testing F2 integrand..."
     write(*,*) "----------------------------------------"
-    
+
     do test_case = 1, n_tests
         ! Set up context
         context%j = 1
@@ -150,14 +150,14 @@ program test_integration_methods
         context%xlpm1 = 0.0d0
         context%xlp = 0.5d0
         context%xlpp1 = 1.0d0
-        
+
         ! Test with RKF45
         theta_integration_method = "RKF45"
         start_time = omp_get_wtime()
         call integrate_F2(result_rkf45, rkf45_conf, context)
         end_time = omp_get_wtime()
         time_rkf45 = end_time - start_time
-        
+
         ! Test with QUADPACK (QAG)
         theta_integration_method = "QUADPACK"
         quadpack_algorithm = "QAG"
@@ -165,7 +165,7 @@ program test_integration_methods
         call integrate_F2(result_quadpack, rkf45_conf, context)
         end_time = omp_get_wtime()
         time_quadpack = end_time - start_time
-        
+
         ! Calculate errors
         abs_error = abs(result_quadpack - result_rkf45)
         if (abs(result_rkf45) > 1.0d-15) then
@@ -173,7 +173,7 @@ program test_integration_methods
         else
             rel_error = abs_error
         end if
-        
+
         ! Print results
         write(*,'(A,I2,A)') "Test case ", test_case, ":"
         write(*,'(A,ES12.5,A,ES12.5,A,ES12.5,A,ES12.5)') &
@@ -187,7 +187,7 @@ program test_integration_methods
         write(*,'(A,ES12.5)') "  Relative error:  ", rel_error
         write(*,'(A,F8.5,A,F8.5,A)') "  Time: RKF45=", time_rkf45*1000, &
                                      "ms, QUADPACK=", time_quadpack*1000, "ms"
-        
+
         if (rel_error > test_tolerance) then
             write(*,*) "  WARNING: Error exceeds tolerance!"
             all_tests_passed = .false.
@@ -196,11 +196,11 @@ program test_integration_methods
         end if
         write(*,*)
     end do
-    
+
     ! Test F3 integrand (QAG)
     write(*,*) "Testing F3 integrand..."
     write(*,*) "----------------------------------------"
-    
+
     do test_case = 1, n_tests
         ! Set up context
         context%j = 1
@@ -214,14 +214,14 @@ program test_integration_methods
         context%xlpm1 = 0.0d0
         context%xlp = 0.5d0
         context%xlpp1 = 1.0d0
-        
+
         ! Test with RKF45
         theta_integration_method = "RKF45"
         start_time = omp_get_wtime()
         call integrate_F3(result_rkf45, rkf45_conf, context)
         end_time = omp_get_wtime()
         time_rkf45 = end_time - start_time
-        
+
         ! Test with QUADPACK (QAG)
         theta_integration_method = "QUADPACK"
         quadpack_algorithm = "QAG"
@@ -229,7 +229,7 @@ program test_integration_methods
         call integrate_F3(result_quadpack, rkf45_conf, context)
         end_time = omp_get_wtime()
         time_quadpack = end_time - start_time
-        
+
         ! Calculate errors
         abs_error = abs(result_quadpack - result_rkf45)
         if (abs(result_rkf45) > 1.0d-15) then
@@ -237,7 +237,7 @@ program test_integration_methods
         else
             rel_error = abs_error
         end if
-        
+
         ! Print results
         write(*,'(A,I2,A)') "Test case ", test_case, ":"
         write(*,'(A,ES12.5,A,ES12.5,A,ES12.5,A,ES12.5)') &
@@ -251,7 +251,7 @@ program test_integration_methods
         write(*,'(A,ES12.5)') "  Relative error:  ", rel_error
         write(*,'(A,F8.5,A,F8.5,A)') "  Time: RKF45=", time_rkf45*1000, &
                                      "ms, QUADPACK=", time_quadpack*1000, "ms"
-        
+
         if (rel_error > test_tolerance) then
             write(*,*) "  WARNING: Error exceeds tolerance!"
             all_tests_passed = .false.
@@ -260,7 +260,7 @@ program test_integration_methods
         end if
         write(*,*)
     end do
-    
+
     ! Repeat tests with QUADPACK QAGS algorithm
     write(*,*)
     write(*,*) "Testing QUADPACK QAGS algorithm..."
@@ -308,9 +308,9 @@ program test_integration_methods
         write(*,*) "SOME TESTS FAILED"
     end if
     write(*,*) "==============================================="
-    
+
     if (.not. all_tests_passed) then
         stop 1
     end if
-    
+
 end program test_integration_methods

@@ -261,7 +261,7 @@ module rt_WKB_dispersion_m
 
             ! more precise, includes first order derivative:
             ! f = kr**2.0d0 - com_unit / rg_grid%xb(j) * kr + plasma%kp(j)**2.0d0 - f
-            
+
             ! neglect linear term, accurate enough
             f = kr**2.0d0 + plasma%kp(j)**2.0d0 - f
 
@@ -371,10 +371,10 @@ module rt_WKB_dispersion_m
         !-----------------------------------------------------------------------
         ! Per-branch tracking ZEAL dispersion solver.
         ! Tracks up to WKB_max_tracked_branches branches, each with its own search window.
-        ! 
+        !
         ! The search window of the grid point j>1 is based on the roots found at grid point j-1.
         ! It is centered around the roots with a specified half width.
-        ! Additional branches within this window might be found. Set 'do_broad_search = true' in 
+        ! Additional branches within this window might be found. Set 'do_broad_search = true' in
         ! KIM_config.nml to perform a broad search at certain grid points to find new branches.
         !-----------------------------------------------------------------------
         use Zeal_Module
@@ -684,5 +684,4 @@ module rt_WKB_dispersion_m
 
     end subroutine
 
-end module 
-
+end module

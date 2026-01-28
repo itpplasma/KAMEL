@@ -1,5 +1,5 @@
 # Configuration of KIM
-KIM is configured via the namelist file KIM_config.nml containing multiple namelists. The following gives an overview of the purpose of each variable. 
+KIM is configured via the namelist file KIM_config.nml containing multiple namelists. The following gives an overview of the purpose of each variable.
 
 ## KIM_CONFIG
 - number_of_ion_species ... integer, number of ion species

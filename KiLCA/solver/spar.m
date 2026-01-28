@@ -10,5 +10,3 @@ load Erf.dat
 ind = find (nf(:,1)==ts(:,1))
 
 qf(ind,2)-ts(:,2)
-
-

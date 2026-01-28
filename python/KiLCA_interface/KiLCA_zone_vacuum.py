@@ -1,5 +1,6 @@
 from .InpOut import InpOut
 
+
 class KiLCA_zone_vacuum(InpOut):
     """
     Description:
@@ -17,26 +18,27 @@ class KiLCA_zone_vacuum(InpOut):
         plain()
     """
 
-    ind = sorted(list(range(1,6+1)) + [9,23] + list(range(12,14+1))+ list(range(17, 20+1)))
-    BLUEPRINT = 'zone_vacuum.in'
-    SEP = '#'
-
+    ind = sorted(
+        list(range(1, 6 + 1)) + [9, 23] + list(range(12, 14 + 1)) + list(range(17, 20 + 1))
+    )
+    BLUEPRINT = "zone_vacuum.in"
+    SEP = "#"
 
     def __init__(self):
         """
         Description:
             Constructor of the vacuum zone class. Empty.
         """
-        
+
         self.data = {
-            'sigma': [0, 0], # conductivity
-            'rigid_maxdim': 1000, # max dimension of the radial grid for the solution: default=1e5
-            'relacc': 1e-8, # relative accuracy of the solution: default=1e-8
-            'absacc': 1e-8, # absolute accuracy of the solution: default=1e-8
+            "sigma": [0, 0],  # conductivity
+            "rigid_maxdim": 1000,  # max dimension of the radial grid for the solution: default=1e5
+            "relacc": 1e-8,  # relative accuracy of the solution: default=1e-8
+            "absacc": 1e-8,  # absolute accuracy of the solution: default=1e-8
             # ME solution space out settings
-            'polydeg': 3, # degree of the polynomial used to space out the solution (by checking the accuracy)
-            'sparse_relacc': 1e-8, # relative accuracy of the sparse solution: default=1e-8
-            'sparse_absacc': 1e-8, # absolute accuracy of the sparse solution: default=1e-8
-            'maxgridstep': 0.1, # max grid step in the solution: default=0.1
-            'flag_deb': 0 # flag for debugging mode
-            }
+            "polydeg": 3,  # degree of the polynomial used to space out the solution (by checking the accuracy)
+            "sparse_relacc": 1e-8,  # relative accuracy of the sparse solution: default=1e-8
+            "sparse_absacc": 1e-8,  # absolute accuracy of the sparse solution: default=1e-8
+            "maxgridstep": 0.1,  # max grid step in the solution: default=0.1
+            "flag_deb": 0,  # flag for debugging mode
+        }

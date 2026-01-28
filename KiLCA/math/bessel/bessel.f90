@@ -31,13 +31,13 @@ if(n == 0) then
     end if
 
 
-	if (nu < 0) then
-		res = cmplx(rr,ri)*(-1.0d0)**nu
-	else
-		res = cmplx(rr,ri)
-	end if
+    if (nu < 0) then
+        res = cmplx(rr,ri)*(-1.0d0)**nu
+    else
+        res = cmplx(rr,ri)
+    end if
 
-	return
+    return
 end if
 
 if (.not. allocated(bico)) allocate (bico(0:n,0:n));
@@ -47,7 +47,7 @@ call binomial_coefficients (n, bico);
 
 res = cmplx(0.0d0,0.0d0)
 do k=0,n
-	res = res + (-1.0)**k*bico(n,k)*besselj(2*k-n+nu,zarg,0)
+    res = res + (-1.0)**k*bico(n,k)*besselj(2*k-n+nu,zarg,0)
 end do
 
 res = res/(2.0**n)

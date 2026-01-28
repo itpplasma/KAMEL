@@ -104,8 +104,8 @@ struct interval5 *Iarr = new struct interval5[max_dimI]; //array of intervals
 
 double *err = new double[max_dimI]; //array of errors
 
-int i; 
-for (i=0; i<*dimx-1; i++) 
+int i;
+for (i=0; i<*dimx-1; i++)
 {
     set_interval (Iarr+i, x[i], x[i+1], y[i], y[i+1], f, p); //initial intervals
     eval_error (Iarr+i, err+i);
@@ -131,7 +131,7 @@ while (dimI < max_dimI)
         }
     }
 
-    if (max_err < *eps) break; 
+    if (max_err < *eps) break;
 
     //split max_ind interval: add a new one to the end and modify the max_ind interval
     add_new_interval_to_the_array (Iarr, max_ind, dimI, f, p);
@@ -173,7 +173,7 @@ y[4*dimI] = Iarr[perm[dimI-1]].ye;
 
 *dimx = 4*dimI+1;
 
-//check if there are condensations of points related to numerical noise and remove them from the grid: 
+//check if there are condensations of points related to numerical noise and remove them from the grid:
 
 //minimal allowed space between grid points dx: *% from average:
 double dx = fmax((1.0e-6)*(x[*dimx-1]-x[0])/(*dimx), 10*DBL_EPSILON);
@@ -186,12 +186,12 @@ FILE *fout;
 
 if (!(fout=fopen ("xgrid_clean", "w")))
 {
-	printf ("\nFailed to open file\a\a\a\n");
+    printf ("\nFailed to open file\a\a\a\n");
 }
 
 for (i=0; i<*dimx; i++)
 {
-	fprintf (fout, "%.16le\t%.16le\n", x[i], y[i]);
+    fprintf (fout, "%.16le\t%.16le\n", x[i], y[i]);
 }
 fclose (fout);
 */
@@ -203,7 +203,7 @@ delete [] perm;
 
 /******************************************************************************/
 
-void calc_adaptive_1D_grid_4vector_ (void (*f)(double *, double *, void *p), void *p, 
+void calc_adaptive_1D_grid_4vector_ (void (*f)(double *, double *, void *p), void *p,
                                      const int *max_dimx, double *eps,
                                      int *dimx, const double *x, const double *y)
 {
@@ -222,8 +222,8 @@ void calc_adaptive_1D_grid_4vector_ (void (*f)(double *, double *, void *p), voi
 
     double *err = new double[max_dimI]; //array of errors
 
-    int i; 
-    for (i=0; i<*dimx-1; i++) 
+    int i;
+    for (i=0; i<*dimx-1; i++)
     {
         set_interval (Iarr+i, x[i], x[i+1], y[i], y[i+1], f, p); //initial intervals
         eval_error (Iarr+i, err+i);
@@ -249,7 +249,7 @@ void calc_adaptive_1D_grid_4vector_ (void (*f)(double *, double *, void *p), voi
             }
         }
 
-        if (max_err < *eps) break; 
+        if (max_err < *eps) break;
 
         //split max_ind interval: add a new one to the end and modify the max_ind interval
         add_new_interval_to_the_array (Iarr, max_ind, dimI, f, p);

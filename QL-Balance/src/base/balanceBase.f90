@@ -10,14 +10,14 @@ module balance_base
             procedure(init), deferred :: init_balance
             procedure(run), deferred :: run_balance
     end type balance_t
-    
+
     abstract interface
         subroutine init(this)
             import :: balance_t
             class(balance_t), intent(inout) :: this
         end subroutine
     end interface
-    
+
     abstract interface
         subroutine run(this)
             import :: balance_t

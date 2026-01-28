@@ -5,10 +5,10 @@ program test_zeal
 
     implicit none
 
-    integer :: J 
+    integer :: J
     logical :: OUTPUT
 
-    integer :: TOTALNUMBER, DISTINCTNUMBER, REFINEDNUMBER 
+    integer :: TOTALNUMBER, DISTINCTNUMBER, REFINEDNUMBER
     integer, dimension(:), POINTER            :: MULTIPLICITIES
     logical, dimension(:), POINTER            :: REFINEMENT_OK
     COMPLEX(KIND=DP), DIMENSION(:), POINTER   :: ZEROS, FZEROS
@@ -30,7 +30,7 @@ program test_zeal
                 REAL(FZEROS(J),DP), AIMAG(FZEROS(J)), &
                 MULTIPLICITIES(J)
         IF ( .NOT. REFINEMENT_OK(J) ) PRINT 2
-        END DO 
+        END DO
     END IF
 
     1 FORMAT (/3X, 'z    = (', G22.15, ',', G22.15, ' )', &

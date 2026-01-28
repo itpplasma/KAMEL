@@ -80,17 +80,17 @@ extern "C"
 void eval_basis_in_hom_media_ (int *, double *, double *, double *, double *, double *);
 
 void center_equations_hommed_ (int *Nw, int *len, hmedium_zone **code, double *EB,
-			       int *neq, int *nvar, double *M, double *J);
+                   int *neq, int *nvar, double *M, double *J);
 
 void infinity_equations_hommed_ (int *Nw, int *len, hmedium_zone **code, double *EB,
-				 int *neq, int *nvar, double *M, double *J);
+                 int *neq, int *nvar, double *M, double *J);
 
 void ideal_wall_equations_hommed_ (int *Nw, int *len, hmedium_zone **code, double *EB,
-				   int *neq, int *nvar, double *M, double *J);
+                   int *neq, int *nvar, double *M, double *J);
 
 void stitching_equations_hommed_hommed_ (int *Nw1, int *len1, hmedium_zone **code1, double *EB1,
-					 int *Nw2, int *len2, hmedium_zone **code2, double *EB2,
-					 int *flg_ant, int *neq, int *nvar, double *M, double *J);
+                     int *Nw2, int *len2, hmedium_zone **code2, double *EB2,
+                     int *flg_ant, int *neq, int *nvar, double *M, double *J);
 
 void calc_coeffs_vacuum_antenna_vacuum_ (int *, double *, double *, double *, double *);
 }

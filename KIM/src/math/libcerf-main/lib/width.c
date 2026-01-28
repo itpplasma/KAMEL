@@ -56,15 +56,15 @@ static double hwhm0(double sigma, double gamma)
 double voigt_hwhm(double sigma, double gamma)
 {
     double HM;
-    double a, b, c;		/* 3 points used by regula falsi */
+    double a, b, c;     /* 3 points used by regula falsi */
     double del_a, del_b, del_c;
     int k;
     int side = 0;
 
     if (sigma==0 && gamma==0)
-	return 0;
+    return 0;
     if (isnan(sigma) || isnan(gamma))
-	return NAN;
+    return NAN;
 
     /* Reduce order of magnitude to prevent overflow */
     double prefac = 1.;
@@ -100,24 +100,24 @@ double voigt_hwhm(double sigma, double gamma)
     for (k=0; k<30; k++) {
         if (fabs(del_a-del_b) < 2 * DBL_EPSILON * HM)
             return prefac*(a+b)/2;
-	c = (b*del_a - a*del_b) / (del_a - del_b);
-	if (fabs(b-a) < 2 * DBL_EPSILON * fabs(b+a))
-	    return prefac*c;
-	del_c = voigt(c, s, g) - HM;
+    c = (b*del_a - a*del_b) / (del_a - del_b);
+    if (fabs(b-a) < 2 * DBL_EPSILON * fabs(b+a))
+        return prefac*c;
+    del_c = voigt(c, s, g) - HM;
 
-	if (del_b * del_c > 0) {
-	    b = c; del_b = del_c;
-	    if (side < 0)
-		del_a /= 2;
-	    side = -1;
-	} else if (del_a * del_c > 0) {
-	    a = c; del_a = del_c;
-	    if (side > 0)
-		del_b /= 2;
-	    side = 1;
-	} else {
-	    return prefac*c;
-	}
+    if (del_b * del_c > 0) {
+        b = c; del_b = del_c;
+        if (side < 0)
+        del_a /= 2;
+        side = -1;
+    } else if (del_a * del_c > 0) {
+        a = c; del_a = del_c;
+        if (side > 0)
+        del_b /= 2;
+        side = 1;
+    } else {
+        return prefac*c;
+    }
     }
     assert(0); /* One should never arrive here */
 }

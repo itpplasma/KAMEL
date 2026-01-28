@@ -82,4 +82,3 @@ subroutine read_config
     write (*, *) ""
     write (*, *) "================================================================================="
 end subroutine read_config
-

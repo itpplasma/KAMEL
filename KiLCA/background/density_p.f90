@@ -15,7 +15,7 @@ real(dp), dimension(1) :: val
       t13 = hz_**2
       t16 = omc_**2
       val(1) = 1/omc_*t7*(r_*omc_+Vp_*dpsi_*r_+Vp_*hz_*ht_)+q_/m_ &
-	*(dPhi0_*t7/t16/omc_*(-domc_*r_+omc_*t13)+1/t16*ddPhi0_)
+    *(dPhi0_*t7/t16/omc_*(-domc_*r_+omc_*t13)+1/t16*ddPhi0_)
     res = n/val(1)
 
 end subroutine dens_par

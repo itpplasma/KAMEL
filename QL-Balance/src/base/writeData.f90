@@ -7,7 +7,7 @@ subroutine write_fields_currs_transp_coefs_to_h5
     use QLbalance_diag, only: iunit_diag
     use time_evolution, only: time_ind
     use h5mod
-    
+
     implicit none
 
     integer :: ipoi
@@ -32,7 +32,7 @@ subroutine write_fields_currs_transp_coefs_to_h5
                             real(Br), lbound(Br), ubound(Br))
         CALL h5_add_double_1(h5_id, trim(tempch)//"Br_Im", &
                             dimag(Br), lbound(Br), ubound(Br))
- 
+
         CALL h5_add_double_1(h5_id, trim(tempch)//"Jpe_abs", &
                             abs(Jpe), lbound(Jpe), ubound(Jpe))
         CALL h5_add_double_1(h5_id, trim(tempch)//"Jpi_abs", &
@@ -42,7 +42,7 @@ subroutine write_fields_currs_transp_coefs_to_h5
 
         if (misalign_diffusion .eqv. .true.) then
             call write_misalignment_data_to_hdf5(tempch)
-        end if 
+        end if
         if (diagnostics_output) then
             call write_dql_Br_Jp_profiles_to_hdf5(tempch)
         end if
@@ -71,14 +71,14 @@ subroutine write_misalignment_data_to_hdf5(tempch)
     use control_mod, only: debug_mode
     use grid_mod
     use wave_code_data
-    
+
     implicit none
 
     character(*), intent(in) :: tempch
 
     if (debug_mode) write(*,*) "Writing misalignment diffusion to hdf5"
     CALL h5_add_double_1(h5_id, trim(tempch)//"D11_MA", d11_misalign, lbound(d11_misalign), ubound(d11_misalign))
-    CALL h5_add_double_1(h5_id, trim(tempch)//"Es_pert_flux_real", real(Es_pert_flux), & 
+    CALL h5_add_double_1(h5_id, trim(tempch)//"Es_pert_flux_real", real(Es_pert_flux), &
         lbound(real(Es_pert_flux)), ubound(dreal(Es_pert_flux)))
     CALL h5_add_double_1(h5_id, trim(tempch)//"Es_pert_flux_imag", dimag(Es_pert_flux), &
         lbound(dimag(Es_pert_flux)), ubound(dimag(Es_pert_flux)))
@@ -139,9 +139,9 @@ subroutine write_dql_Br_Jp_profiles_to_hdf5(tempch)
 end subroutine
 
 subroutine writefort9999
-        
+
     use grid_mod, only: dqle11, dqli11, rb, rc, npoib
-    use QLbalance_diag, only: timscal_dql, timscal_dqli, ind_dqle, ind_dqli 
+    use QLbalance_diag, only: timscal_dql, timscal_dqli, ind_dqle, ind_dqli
     use time_evolution, only: dqle11_prev, dqli11_prev, determine_Dql_diagnostic
     use ParallelTools, only: irank
     use h5mod
@@ -149,7 +149,7 @@ subroutine writefort9999
     implicit none
 
     integer :: ipoi
-        
+
     if (irank .eq. 0) then
 
         call determine_Dql_diagnostic
@@ -191,9 +191,9 @@ subroutine writefort9999
 end subroutine
 
 subroutine writefort9999_stellarator
-        
+
     use grid_mod, only: dqle11, dqli11, rb, rc, npoib
-    use QLbalance_diag, only: timscal_dql, timscal_dqli, ind_dqle, ind_dqli 
+    use QLbalance_diag, only: timscal_dql, timscal_dqli, ind_dqle, ind_dqli
     use time_evolution_stellarator, only: dqle11_prev, dqli11_prev, determine_Dql_diagnostic
     use ParallelTools, only: irank
     use h5mod
@@ -201,7 +201,7 @@ subroutine writefort9999_stellarator
     implicit none
 
     integer :: ipoi
-        
+
     if (irank .eq. 0) then
 
         call determine_Dql_diagnostic

@@ -79,13 +79,13 @@ module integrals_gauss_m
 
         norm_factor = pi * (int_F1%int_point%xlp1 - int_F1%int_point%xlm1) & ! normalization due to integral range shift
                         * (int_F1%int_point%xlpp1 - int_F1%int_point%xlpm1) / 8.0d0
-        
-        
+
+
         do i=1,gauss_conf%Ntheta ! theta
             theta_mapped = 0.5d0 * pi * (gauss_conf%x_theta(i) + 1.0d0)
             int_F1%int_point%a_coef = sqrt(1.0d0 / (1.0d0 + cos(theta_mapped))) / abs(int_F1%int_point%rhoT)
 
-            do j=1,gauss_conf%Nxp ! xp 
+            do j=1,gauss_conf%Nxp ! xp
                 xp_mapped = 0.5d0 * ((int_F1%int_point%xlpp1 - int_F1%int_point%xlpm1) * gauss_conf%x_xp(j) + &
                     int_F1%int_point%xlpp1 + int_F1%int_point%xlpm1)
 
@@ -107,7 +107,7 @@ module integrals_gauss_m
     end subroutine
 
     subroutine gauss_integrate_F2(int_F2, result, gauss_conf)
-    
+
         use integrands_gauss_m, only: gauss_int_F2_rho_phi_t, calc_xbar
         use constants_m, only: pi
 
@@ -130,7 +130,7 @@ module integrals_gauss_m
             theta_mapped = 0.5d0 * pi *(gauss_conf%x_theta(i) + 1.0d0)
             int_F2%int_point%a_coef = sqrt(1.0d0 / (1.0d0 + cos(theta_mapped))) / abs(int_F2%int_point%rhoT)
 
-            do j=1,gauss_conf%Nxp ! xp 
+            do j=1,gauss_conf%Nxp ! xp
                 xp_mapped = 0.5d0 * ((int_F2%int_point%xlpp1 - int_F2%int_point%xlpm1) * gauss_conf%x_xp(j) + &
                     int_F2%int_point%xlpp1 + int_F2%int_point%xlpm1)
 
@@ -141,7 +141,7 @@ module integrals_gauss_m
                     int_F2%int_point%xbar = calc_xbar(x_mapped, xp_mapped)
                     int_F2%int_point%xl_mapped = x_mapped
                     int_F2%int_point%xlp_mapped = xp_mapped
-        
+
                     call int_F2%int_point%calc_Jrg1(theta_mapped, x_mapped, xp_mapped)
                     call int_F2%int_point%calc_Jrg23(theta_mapped, x_mapped, xp_mapped)
                     call int_F2%int_point%calc_Jrg4(theta_mapped, x_mapped, xp_mapped)
@@ -178,7 +178,7 @@ module integrals_gauss_m
             theta_mapped = 0.5d0 * pi * (gauss_conf%x_theta(i) + 1.0d0)
             int_F3%int_point%a_coef = sqrt(1.0d0 / (1.0d0 + cos(theta_mapped))) / abs(int_F3%int_point%rhoT)
 
-            do j=1,gauss_conf%Nxp ! xp 
+            do j=1,gauss_conf%Nxp ! xp
                 xp_mapped = 0.5d0 * ((int_F3%int_point%xlpp1 - int_F3%int_point%xlpm1) * gauss_conf%x_xp(j) + &
                     int_F3%int_point%xlpp1 + int_F3%int_point%xlpm1)
 
@@ -199,7 +199,7 @@ module integrals_gauss_m
                         * norm_factor
                 end do
             end do
-        end do 
+        end do
 
     end subroutine
 

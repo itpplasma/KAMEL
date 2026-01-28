@@ -8,7 +8,7 @@ module PolyLagrangeInterpolation
     integer :: nder = 0
     double precision, dimension(:, :), allocatable :: coef !> coefficients for interpolation
     !integer :: ind_begin_interp, ind_end_interp, indResRadius
-  
+
     contains
 
     SUBROUTINE plag_coeff(npoi,nder,x,xp,coef)
@@ -68,7 +68,7 @@ module PolyLagrangeInterpolation
         !
         RETURN
     END SUBROUTINE plag_coeff
-    
+
     subroutine binsrc(p,nmin,nmax,xi,i)
       ! Finds the index  i  of the array of increasing numbers   p  with dimension  n
       ! which satisfies   p(i-1) <  xi  <  p(i) . Uses binary search algorithm.

@@ -7,9 +7,9 @@ C         C*** filename
 C
 C The filenames in this file are:
 C
-C Readme               cbsubs.f             cqcbes.f            
-C machcon.f            zbsubs.f             zqcbes.f            
-C                                                               
+C Readme               cbsubs.f             cqcbes.f
+C machcon.f            zbsubs.f             zqcbes.f
+C
 C
 C*** Readme
              INSTALLATION HINTS FOR ALGORITHM 644
@@ -1490,7 +1490,7 @@ C-----------------------------------------------------------------------
       DO 80 I=1,N
 C----------------------------------------------------------------------
 C       CY(I) = CSGN*CY(I)-CSPN*CWRK(I): PRODUCTS ARE COMPUTED IN
-C       SCALED MODE IF CY(I) OR CWRK(I) ARE CLOSE TO UNDERFLOW TO 
+C       SCALED MODE IF CY(I) OR CWRK(I) ARE CLOSE TO UNDERFLOW TO
 C       PREVENT UNDERFLOW IN AN INTERMEDIATE COMPUTATION.
 C----------------------------------------------------------------------
         ZV = CWRK(I)
@@ -11216,7 +11216,7 @@ C-----------------------------------------------------------------------
       DO 80 I=1,N
 C----------------------------------------------------------------------
 C       CY(I) = CSGN*CY(I)-CSPN*CWRK(I): PRODUCTS ARE COMPUTED IN
-C       SCALED MODE IF CY(I) OR CWRK(I) ARE CLOSE TO UNDERFLOW TO 
+C       SCALED MODE IF CY(I) OR CWRK(I) ARE CLOSE TO UNDERFLOW TO
 C       PREVENT UNDERFLOW IN AN INTERMEDIATE COMPUTATION.
 C----------------------------------------------------------------------
         ZVR = CWRKR(I)

@@ -93,9 +93,6 @@ contains
 
         ! NEO-RT initialization
         call neort_init(meta_config%config, meta_config%boozer_file, meta_config%boozer_pert_file)
-        call prepare_plasma_data_for_neort(plasma_data, r, s_tor)
-        call prepare_profile_data_for_neort(profile_data, r, s_tor, Omega_tE)
-        call neort_prepare_splines(s_size, am1, am2, Z1, Z2, plasma_data, profile_data)
 
         deallocate (r_eff)
         deallocate (psi_tor)
@@ -125,9 +122,7 @@ contains
 
         integer :: s_size, s_idx
 
-        call doStepBase(this%TimeEvolution_t)
-
-        ! NEO-RT
+        ! NEO-RT first
         s_size = size(s_tor)
 
         call prepare_plasma_data_for_neort(plasma_data, r, s_tor)
@@ -142,6 +137,9 @@ contains
 
         ! Add torque to global ntv array to be used in next time step
         call apply_ntv_transport(r, transport_data)
+
+        ! then regular time step
+        call doStepBase(this%TimeEvolution_t)
     end subroutine doStep
 
 end module

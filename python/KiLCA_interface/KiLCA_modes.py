@@ -1,8 +1,10 @@
-from .save_file import save_file
 import numpy as np
 
+from .save_file import save_file
+
+
 class KiLCA_modes:
-    """"
+    """ "
     Description:
         Class containing the information of the antenna modes in KiLCA.
     Variables:
@@ -15,7 +17,7 @@ class KiLCA_modes:
     """
 
     ind = []
-    BLUEPRINT = 'modes.in'
+    BLUEPRINT = "modes.in"
 
     m = 3
     n = 2
@@ -39,12 +41,10 @@ class KiLCA_modes:
         s = []
         if type(self.m) == list or type(self.m) == np.ndarray:
             for k in range(0, len(self.m)):
-                s.append('('+ str(int(self.m[k])) + ', ' + str(int(self.n[k])) + ')')
+                s.append("(" + str(int(self.m[k])) + ", " + str(int(self.n[k])) + ")")
         else:
-            s = ['('+ str(int(self.m)) + ', ' + str(int(self.n)) + ')']
+            s = ["(" + str(int(self.m)) + ", " + str(int(self.n)) + ")"]
         return s
-
-
 
     def write(self, path_to):
         """

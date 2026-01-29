@@ -60,13 +60,13 @@ subroutine calc_parallel_current_directly
                 CALL h5_define_group(h5_id, trim(tempch), group_id_1)
                 CALL h5_close_group(group_id_1)
             end if
-            
-            
+
+
             ! TODO: fix this, makes problem when writing
             !CALL h5_add_double_1(h5_id, trim(tempch)//"rb", &
                     !rb, lbound(rb), ubound(rb))
             !CALL h5_add_double_1(h5_id, trim(tempch)//"x2", &
-                    !x2, lbound(x2), ubound(x2)) 
+                    !x2, lbound(x2), ubound(x2))
 
             if (write_gyro_current) then
                 if (debug_mode) write(*,*) "Debug: writing par_current_e.dat"
@@ -75,46 +75,46 @@ subroutine calc_parallel_current_directly
                 !CALL h5_add_double_1(h5_id, trim(tempch)//"par_current_e_real", &
                 !   real(curr_e_par), lbound(real(curr_e_par)), ubound(real(curr_e_par)))
                 !ALL h5_add_double_1(h5_id, trim(tempch)//"par_current_e_imag", &
-                !   dimag(curr_e_par), lbound(dimag(curr_e_par)), ubound(dimag(curr_e_par))) 
+                !   dimag(curr_e_par), lbound(dimag(curr_e_par)), ubound(dimag(curr_e_par)))
                 !ALL h5_add_double_1(h5_id, trim(tempch)//"Jpe_real", &
                 !   real(Jpe), lbound(real(Jpe)), ubound(real(Jpe)))
                 !ALL h5_add_double_1(h5_id, trim(tempch)//"Jpe_imag", &
-                !   dimag(Jpe), lbound(dimag(Jpe)), ubound(dimag(Jpe))) 
+                !   dimag(Jpe), lbound(dimag(Jpe)), ubound(dimag(Jpe)))
                 !ALL h5_add_double_1(h5_id, trim(tempch)//"Jse_real", &
                 !   real(Jse), lbound(real(Jse)), ubound(real(Jse)))
                 !ALL h5_add_double_1(h5_id, trim(tempch)//"Jse_imag", &
-                !   dimag(Jse), lbound(dimag(Jse)), ubound(dimag(Jse))) 
+                !   dimag(Jse), lbound(dimag(Jse)), ubound(dimag(Jse)))
                 !ALL h5_add_double_1(h5_id, trim(tempch)//"Jre_real", &
                 !   real(Jpe), lbound(real(Jpe)), ubound(real(Jpe)))
                 !ALL h5_add_double_1(h5_id, trim(tempch)//"Jre_imag", &
-                !   dimag(Jre), lbound(dimag(Jre)), ubound(dimag(Jre))) 
+                !   dimag(Jre), lbound(dimag(Jre)), ubound(dimag(Jre)))
                 CALL h5_add_double_1(h5_id, trim(tempch)//"kp", &
                     kp, lbound(kp), ubound(kp))
                 CALL h5_add_double_1(h5_id, trim(tempch)//"ks", &
-                    ks, lbound(ks), ubound(ks)) 
+                    ks, lbound(ks), ubound(ks))
                 CALL h5_add_double_1(h5_id, trim(tempch)//"x1", &
                     x1, lbound(x1), ubound(x1))
                 CALL h5_add_double_1(h5_id, trim(tempch)//"nue", &
-                    nue, lbound(nue), ubound(nue)) 
+                    nue, lbound(nue), ubound(nue))
                 CALL h5_add_double_1(h5_id, trim(tempch)//"om_E", &
-                    om_E, lbound(om_E), ubound(om_E)) 
+                    om_E, lbound(om_E), ubound(om_E))
                 CALL h5_add_double_1(h5_id, trim(tempch)//"vT", &
-                    vT, lbound(vT), ubound(vT)) 
+                    vT, lbound(vT), ubound(vT))
 
                 CALL h5_add_double_1(h5_id, trim(tempch)//"I00_re", &
-                    real(symbI(0,0,:)), lbound(symbI(0,0,:)), ubound(symbI(0,0,:))) 
+                    real(symbI(0,0,:)), lbound(symbI(0,0,:)), ubound(symbI(0,0,:)))
                 CALL h5_add_double_1(h5_id, trim(tempch)//"I00_im", &
-                    dimag(symbI(0,0,:)), lbound(symbI(0,0,:)), ubound(symbI(0,0,:))) 
+                    dimag(symbI(0,0,:)), lbound(symbI(0,0,:)), ubound(symbI(0,0,:)))
 
                 CALL h5_add_double_1(h5_id, trim(tempch)//"I20_re", &
-                    real(symbI(2,0,:)), lbound(symbI(2,0,:)), ubound(symbI(2,0,:))) 
+                    real(symbI(2,0,:)), lbound(symbI(2,0,:)), ubound(symbI(2,0,:)))
                 CALL h5_add_double_1(h5_id, trim(tempch)//"I20_im", &
-                    dimag(symbI(2,0,:)), lbound(symbI(2,0,:)), ubound(symbI(2,0,:))) 
+                    dimag(symbI(2,0,:)), lbound(symbI(2,0,:)), ubound(symbI(2,0,:)))
 
                 CALL h5_add_double_1(h5_id, trim(tempch)//"I22_re", &
-                    real(symbI(2,2,:)), lbound(symbI(2,2,:)), ubound(symbI(2,2,:))) 
+                    real(symbI(2,2,:)), lbound(symbI(2,2,:)), ubound(symbI(2,2,:)))
                 CALL h5_add_double_1(h5_id, trim(tempch)//"I22_im", &
-                    dimag(symbI(2,2,:)), lbound(symbI(2,2,:)), ubound(symbI(2,2,:))) 
+                    dimag(symbI(2,2,:)), lbound(symbI(2,2,:)), ubound(symbI(2,2,:)))
 
             end if ! write_gyro_current
             CALL h5_close(h5_id)
@@ -251,7 +251,7 @@ subroutine calc_parallel_current_directly
 
                 CALL h5_define_group(h5_id, trim(tempch), group_id_1)
                 CALL h5_close_group(group_id_1)
-                ! write I functions 
+                ! write I functions
                 ! real part
                 !CALL h5_add_double_1(h5_id, trim(tempch)//"I10_real", &
                 !    real(symbI(1,0,:)), lbound(real(symbI(1,0,:))), &
@@ -290,12 +290,12 @@ subroutine calc_parallel_current_directly
                 CALL h5_add_double_1(h5_id, trim(tempch)//"je_real", &
                     real(curr_e_par), lbound(real(curr_e_par)), ubound(real(curr_e_par)))
                 CALL h5_add_double_1(h5_id, trim(tempch)//"je_imag", &
-                    dimag(curr_e_par), lbound(dimag(curr_e_par)), ubound(dimag(curr_e_par))) 
+                    dimag(curr_e_par), lbound(dimag(curr_e_par)), ubound(dimag(curr_e_par)))
 
                 CALL h5_add_double_1(h5_id, trim(tempch)//"Je_real", &
                     real(Jpe), lbound(real(Jpe)), ubound(real(Jpe)))
                 CALL h5_add_double_1(h5_id, trim(tempch)//"Je_imag", &
-                    dimag(Jpe), lbound(dimag(Jpe)), ubound(dimag(Jpe))) 
+                    dimag(Jpe), lbound(dimag(Jpe)), ubound(dimag(Jpe)))
             end do ! study_j_nue
         end do ! study_i_omE
 
@@ -362,12 +362,12 @@ subroutine calc_parallel_current_directly
         CALL h5_add_double_1(h5_id, trim(tempch)//"je_real", & ! drift kinetic current (gyrocurrent)
             real(curr_e_par), lbound(real(curr_e_par)), ubound(real(curr_e_par)))
         CALL h5_add_double_1(h5_id, trim(tempch)//"je_imag", &
-            dimag(curr_e_par), lbound(dimag(curr_e_par)), ubound(dimag(curr_e_par))) 
+            dimag(curr_e_par), lbound(dimag(curr_e_par)), ubound(dimag(curr_e_par)))
 
         CALL h5_add_double_1(h5_id, trim(tempch)//"Je_real", & ! kinetic current from KiLCA
             real(Jpe), lbound(real(Jpe)), ubound(real(Jpe)))
         CALL h5_add_double_1(h5_id, trim(tempch)//"Je_imag", &
-            dimag(Jpe), lbound(dimag(Jpe)), ubound(dimag(Jpe))) 
+            dimag(Jpe), lbound(dimag(Jpe)), ubound(dimag(Jpe)))
 
         CALL h5_close(h5_id)
         CALL h5_deinit()
@@ -446,29 +446,29 @@ subroutine calc_ion_parallel_current_directly
                 !ALL h5_add_double_1(h5_id, trim(tempch)//"par_current_i_real", &
                 !   real(curr_i_par), lbound(real(curr_i_par)), ubound(real(curr_i_par)))
                 !ALL h5_add_double_1(h5_id, trim(tempch)//"par_current_i_imag", &
-                !   dimag(curr_i_par), lbound(dimag(curr_i_par)), ubound(dimag(curr_i_par))) 
+                !   dimag(curr_i_par), lbound(dimag(curr_i_par)), ubound(dimag(curr_i_par)))
                 !ALL h5_add_double_1(h5_id, trim(tempch)//"Jpi_real", &
                 !   real(Jpi), lbound(real(Jpi)), ubound(real(Jpi)))
                 !ALL h5_add_double_1(h5_id, trim(tempch)//"Jpi_imag", &
-                !   dimag(Jpi), lbound(dimag(Jpi)), ubound(dimag(Jpi))) 
+                !   dimag(Jpi), lbound(dimag(Jpi)), ubound(dimag(Jpi)))
                 !ALL h5_add_double_1(h5_id, trim(tempch)//"Jsi_real", &
                 !   real(Jsi), lbound(real(Jsi)), ubound(real(Jsi)))
                 !ALL h5_add_double_1(h5_id, trim(tempch)//"Jsi_imag", &
-                !   dimag(Jsi), lbound(dimag(Jsi)), ubound(dimag(Jsi))) 
+                !   dimag(Jsi), lbound(dimag(Jsi)), ubound(dimag(Jsi)))
                 !ALL h5_add_double_1(h5_id, trim(tempch)//"Jri_real", &
                 !   real(Jpi), lbound(real(Jpi)), ubound(real(Jpi)))
                 !ALL h5_add_double_1(h5_id, trim(tempch)//"Jri_imag", &
-                !   dimag(Jri), lbound(dimag(Jri)), ubound(dimag(Jri))) 
+                !   dimag(Jri), lbound(dimag(Jri)), ubound(dimag(Jri)))
                 CALL h5_add_double_1(h5_id, trim(tempch)//"kp", &
                     kp, lbound(kp), ubound(kp))
                 CALL h5_add_double_1(h5_id, trim(tempch)//"ks", &
-                    ks, lbound(ks), ubound(ks)) 
+                    ks, lbound(ks), ubound(ks))
                 CALL h5_add_double_1(h5_id, trim(tempch)//"x1", &
                     x1, lbound(x1), ubound(x1))
                 CALL h5_add_double_1(h5_id, trim(tempch)//"x2", &
-                    x2, lbound(x2), ubound(x2)) 
+                    x2, lbound(x2), ubound(x2))
                 CALL h5_add_double_1(h5_id, trim(tempch)//"nui", &
-                    nui, lbound(nui), ubound(nui)) 
+                    nui, lbound(nui), ubound(nui))
 
                 CALL h5_close(h5_id)
                 CALL h5_deinit()

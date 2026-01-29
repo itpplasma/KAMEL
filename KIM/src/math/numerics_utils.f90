@@ -23,7 +23,7 @@ module numerics_utils_m
         else
             d = erf(z1) - erf(z2)
         end if
-        
+
     end function erf_diff
 
     ! Invert a square complex(dp) matrix using LAPACK (zgetrf + zgetri)

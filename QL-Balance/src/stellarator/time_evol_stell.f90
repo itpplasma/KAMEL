@@ -47,7 +47,7 @@ module time_evolution_stellarator
 
         class(time_evolution_stellarator_t), intent(inout) :: this
         this%runType = "TimeEvolution"
-        
+
         if (irank .eq. 0) then
 
             call read_stell_config
@@ -62,7 +62,7 @@ module time_evolution_stellarator
             ! before new one is written
             ! This is contained in hdf5_tools module
             h5overwrite = .true.
-    
+
             if (gyro_current_study .ne. 0) then
                 write_gyro_current = .true.
             else
@@ -161,7 +161,7 @@ module time_evolution_stellarator
             if (.true.) then
                 call hold_prev_transp_coeffs
                 params_begbeg = params
-            else 
+            else
                 call redoTimeStep
             end if
 

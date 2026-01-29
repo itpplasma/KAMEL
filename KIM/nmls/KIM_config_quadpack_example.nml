@@ -47,19 +47,19 @@
     width_res = 0.05
     ampl_res = 1.0
     hrmax_scaling = 1.0
-    
+
     ! Integration method selection
     ! Options: 'RKF45', 'GaussLegendre', or 'QUADPACK'
     theta_integration = 'RKF45'
-    
+
     ! New parameter to select integration method for adaptive kernels
     ! This overrides theta_integration for the adaptive kernel calculations
     theta_integration_method = 'QUADPACK'
-    
+
     ! RKF45 parameters (used when theta_integration_method = 'RKF45')
     rkf45_atol = 1.0e-10
     rkf45_rtol = 1.0e-10
-    
+
     ! QUADPACK parameters (used when theta_integration_method = 'QUADPACK')
     quadpack_algorithm = 'QAG'        ! Options: 'QAG', 'QAGS'
     quadpack_key = 6                   ! Gauss-Kronrod rule: 1-6 for QK15-QK61
@@ -67,12 +67,12 @@
     quadpack_epsabs = 1.0e-10         ! Absolute tolerance
     quadpack_epsrel = 1.0e-10         ! Relative tolerance
     quadpack_use_u_substitution = .true.  ! Use u=sin(theta/2) transformation
-    
+
     ! Gauss integration nodes
     gauss_int_nodes_Ntheta = 20
     gauss_int_nodes_Nx = 20
     gauss_int_nodes_Nxp = 20
-    
+
     ! Kernel configuration
     Larmor_skip_factor = 3.0
     kernel_taper_skip_threshold = 1.0e-6

@@ -32,7 +32,7 @@ real(vp), dimension(1) :: val
       t9 = vT_**2
       t12 = 1/omc_
       val(1) = n_*(-t9/t7*t5*(hz_*domc_+ht_*dpsi_*omc_)+2*vT_*t5*dvT_*hz_ &
-	*t12+Vp_*t5*ht_)+t5*dn_*hz_*t12*t9+t5*t12*hz_/m_*n_*q_*dPhi0_
+    *t12+Vp_*t5*ht_)+t5*dn_*hz_*t12*t9+t5*t12*hz_/m_*n_*q_*dPhi0_
 
 res = val(1)
 
@@ -53,7 +53,7 @@ real(vp), dimension(1) :: val
       t12 = vT_**2
       t15 = 1/omc_
       val(1) = n_*(t12/r_/t8*(ht_*domc_*r_-omc_*hz_*dpsi_*r_-omc_*ht_)-2 &
-	*dvT_*vT_*ht_*t15+hz_*Vp_)-ht_*dn_*t15*t12-t15/m_*n_*q_*dPhi0_*ht_
+    *dvT_*vT_*ht_*t15+hz_*Vp_)-ht_*dn_*t15*t12-t15/m_*n_*q_*dPhi0_*ht_
 
 res = val(1)
 
@@ -75,7 +75,7 @@ real(vp), dimension(1) :: val
       t9 = vT_**2
       t12 = 1/omc_
       val(1) = n_*(-t9/t7/r_*(-omc_+t1*omc_+domc_*r_)+2*vT_*t12*dvT_)+t12 &
-	*t9*dn_+1/m_*t12*dPhi0_*n_*q_
+    *t9*dn_+1/m_*t12*dPhi0_*n_*q_
 
 res = val(1)
 

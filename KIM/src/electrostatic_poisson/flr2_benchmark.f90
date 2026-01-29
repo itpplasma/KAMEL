@@ -131,7 +131,7 @@ module rt_flr2_benchmark_m
                 call solve_poisson(kernel_rho_phi_llp%Kllp_i(:,:,sp), kernel_rho_B_llp%Kllp_i(:,:,sp), EBdat%Phi_i)
                 call write_complex_profile_abs(xl_grid%xb, EBdat%Phi_i, xl_grid%npts_b, "/fields/Phi_m_"//trim(plasma%spec(sp)%name), &
                     'Electrostatic potential perturbation Phi, solution of Poisson problem for species '//trim(plasma%spec(sp)%name), 'statV')
-            else 
+            else
                 EBdat%Phi_i = (0.0d0, 0.0d0)
                 call write_complex_profile_abs(xl_grid%xb, EBdat%Phi_i, xl_grid%npts_b, "/fields/Phi_m_"//trim(plasma%spec(sp)%name), &
                     'Electrostatic potential perturbation Phi, solution of Poisson problem for species '//trim(plasma%spec(sp)%name), 'statV')
@@ -145,7 +145,7 @@ module rt_flr2_benchmark_m
         call postprocess_electric_field(EBdat)
 
         call calculate_charge_density(rho, EBdat)
-        
+
         call write_complex_profile_abs(xl_grid%xb, rho, xl_grid%npts_b, "/fields/rho", &
             'Charge density perturbation rho calculated from Poisson solution', 'statC/cm^3')
 
@@ -160,7 +160,7 @@ module rt_flr2_benchmark_m
                 'Electrostatic potential perturbation in ideal limit where E_perp_MA = 0', 'statV')
             call calc_hatK_Phi_in_Fourier(plasma)
         end if
-        
+
     end subroutine
 
 end module

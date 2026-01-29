@@ -59,7 +59,7 @@ module time_evolution
     real(dp), DIMENSION(:), ALLOCATABLE :: bif_criterion
     complex(dp), dimension(:), allocatable :: Ipar_time
 
-    logical :: firstiterationdone = .false. !Some steps in saving the data to hdf5 file 
+    logical :: firstiterationdone = .false. !Some steps in saving the data to hdf5 file
     !need to be done only the first time iteration
 
     integer(HID_T) :: time_dataset_id !> variable to save the time dataset id
@@ -98,13 +98,13 @@ module time_evolution
 
         class(TimeEvolution_t), intent(inout) :: this
         this%runType = "TimeEvolution"
-        
+
         if (irank .eq. 0) then
             iexit = 0 ! 0 - dont skip, 1 - skip, 2 - stop
             mwind = 10
             write_diag = .false.
             write_diag_b = .false.
-    
+
             if (gyro_current_study .ne. 0) then
                 write_gyro_current = .true.
             else
@@ -321,7 +321,7 @@ module time_evolution
         implicit none
 
         antenna_factor_max = antenna_factor
-        if (ramp_up_mode .eq. 4) then 
+        if (ramp_up_mode .eq. 4) then
             antenna_factor = 0d0
         else
             antenna_factor = 1.d-4
@@ -363,7 +363,7 @@ module time_evolution
         dqli12_prev = dqli12
         dqli21_prev = dqli21
         dqli22_prev = dqli22
-    
+
     end subroutine
 
     subroutine allocate_timscal_and_params
@@ -382,7 +382,7 @@ module time_evolution
 
 
     !> @brief subroutine write_br_dqle22_time_data. Writes radial magnetic field perturbation evaluated at the resonant
-    !> surface, the antenna factor, the time and Dqle22 evaluated at the resonant surface for a given 
+    !> surface, the antenna factor, the time and Dqle22 evaluated at the resonant surface for a given
     !> time step to the hdf5 file
     !> @param[in] i Integer of time step to which the data will be saved. Goes from 1:i.
     !> @param[in] br_abs_time Time value of the time evolution.
@@ -412,7 +412,7 @@ module time_evolution
             h5_currentgrp = "/"//trim(h5_mode_groupname) //"/br_abs_time"
             CALL h5_add_double_1(h5_id, trim(h5_currentgrp), br_abs_time(1:time_ind), &
                 lbound(br_abs_time(1:time_ind)), ubound(br_abs_time(1:time_ind)))
-                
+
             h5_currentgrp = "/"//trim(h5_mode_groupname) //"/br_vac_res"
             CALL h5_add_double_1(h5_id, trim(h5_currentgrp), abs(br_vac_res(1:time_ind)), &
                 lbound(br_vac_res(1:time_ind)), ubound(br_vac_res(1:time_ind)))
@@ -461,7 +461,7 @@ module time_evolution
     subroutine check_linear_discr_pen_ratio
 
         implicit none
-        
+
         if (time_ind .gt. 50 .and. .not. discr_reached) then
             ! calculate beta only once
             if (br_beta .eq. 0) then
@@ -485,11 +485,11 @@ module time_evolution
                 if (br_stopping) then
 
                     call write_reason_for_stop_to_h5("discrepancy to " //&
-                        "linearly predicted value of Br_abs_res > delta")                    
+                        "linearly predicted value of Br_abs_res > delta")
                     CALL write_br_dqle22_time_data!, br_abs_time, br_abs_antenna_factor, br_abs, dqle22_res_time)
                     CALL MPI_finalize(ierror);
                     stop "Finished time evolution: br_stopping"
-                    
+
                 else
                     call write_br_discrepancy_reached_info
                     discr_reached = .true.
@@ -517,7 +517,7 @@ module time_evolution
     end subroutine
 
 
-    !> @brief subroutine write_kin_prof_data_to_disk(time_ind). Writes the profile data to hdf5 files. 
+    !> @brief subroutine write_kin_prof_data_to_disk(time_ind). Writes the profile data to hdf5 files.
     !> Formerly, this data was written to fort.1xxx ascii files.
     !> This routine was added because of the change that only every
     !>  "save_prof_time_step"th timestep is written. If the program is to be stopped
@@ -633,7 +633,7 @@ module time_evolution
         implicit none
 
         integer :: indResRadius, ind_begin_interp, ind_end_interp
-        
+
         call binsrc(rb, 1, npoib, r_resonant(1), indResRadius)
         call get_ind_Lagr_interp(indResRadius, ind_begin_interp, ind_end_interp)
         call plag_coeff(nlagr, nder, r_resonant(1), rb(ind_begin_interp:ind_end_interp), coef)
@@ -713,13 +713,13 @@ module time_evolution
     end subroutine
 
     subroutine smooth_params_num_and_denom
-    
+
         use grid_mod, only: npoi, nbaleqs, mwind, dummy
         use plasma_parameters, only: params_num, params_denom
         use QLBalance_kinds, only: dp
 
         implicit none
-        
+
         integer :: ieq
         real(dp), allocatable :: row_buffer(:)
 
@@ -775,7 +775,7 @@ module time_evolution
         integer :: ipoi, ieq, k
 
         timscal = timscal + timscal_dql
-                        
+
         do ipoi = 1, npoi
             do ieq = 1, nbaleqs
                 k = nbaleqs*(ipoi - 1) + ieq
@@ -787,7 +787,7 @@ module time_evolution
                 !end if
             end do
         end do
-        
+
         timstep_arr = timstep_arr*timescale/(timstep_arr + timescale)
         if (scratch) then
             scratch = .false.
@@ -800,7 +800,7 @@ module time_evolution
     subroutine set_time_step
 
         use recstep_mod, only: timstep_arr, tol
-        
+
         implicit none
 
         timstep = minval(timstep_arr)
@@ -825,11 +825,11 @@ module time_evolution
     end subroutine
 
     subroutine reset_timstep_arr_w_timstep
-        
+
         use recstep_mod, only: tim_stack, timstep_arr
 
         implicit none
-        
+
         timstep_arr = 0.0d0
         timstep_arr = timstep
         tim_stack = timstep_arr
@@ -839,7 +839,7 @@ module time_evolution
     subroutine write_time_info
 
         implicit none
-        
+
         if (irank .eq. 0) then
             if (ihdf5IO .eq. 1) then
                 call write_time_info_to_h5

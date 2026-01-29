@@ -236,7 +236,7 @@
 ! as a measure of sampling quality.
 !
 ! Input parameters:
-!           Formal: iregime - regime switch, iregime=0 - allocate and and 
+!           Formal: iregime - regime switch, iregime=0 - allocate and and
 !                             compute eigenvalues and eigenvector arrays,
 !                             then proceed with the refinement;
 !                             iregime=1 - do the refiement only.
@@ -487,7 +487,7 @@
 !
   SUBROUTINE align_lambdas(nsize,nstiff,alam_old,alam_new,ipoi,ierr)
 !
-! Finds indices j=ipoi(i) of the array alam_new so that their values are 
+! Finds indices j=ipoi(i) of the array alam_new so that their values are
 ! closest by module to elements i of array alam_old. i.e abs(alam_new(j))
 ! is closest to abs(alam(i)). If more than one element of alam_new are
 ! closer to some element of alam_old then to the rest elements, ierr=1.

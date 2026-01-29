@@ -115,8 +115,8 @@ double *b0 = y+(i_B)*dimx;
 for (i=0; i<dimx; i++)
 {
     bz[i] = signum(B0)*sqrt(u[i]/(1.0+(x[i])*(x[i])/rtor/rtor/q[i]/q[i]));   /*bz*/
-    bth[i] = bz[i]*(x[i])/q[i]/rtor;				                         /*bth*/
-    b0[i] = sqrt (bth[i]*bth[i]+bz[i]*bz[i]);			                     /*b0*/
+    bth[i] = bz[i]*(x[i])/q[i]/rtor;                                         /*bth*/
+    b0[i] = sqrt (bth[i]*bth[i]+bz[i]*bz[i]);                                /*b0*/
 }
 
 /*calculation hth hz:*/
@@ -386,9 +386,9 @@ FILE **mom_files = new FILE *[num_moms];
 char *full_name = new char[1024];
 
 char moms_name[num_moms][10] = {{"ni_m"},  {"ne_m"},  {"Vth_m"}, {"Vz_m"},
-				{"Vsi_m"}, {"Vse_m"}, {"Vpi_m"}, {"Vpe_m"},
-				{"Vs0i_m"},{"Vs0e_m"},{"Ti_m"},  {"Te_m"},
-				{"j0s_m"}, {"j0p_m"}, {"j0th_m"},{"j0z_m"}};
+                {"Vsi_m"}, {"Vse_m"}, {"Vpi_m"}, {"Vpe_m"},
+                {"Vs0i_m"},{"Vs0e_m"},{"Ti_m"},  {"Te_m"},
+                {"j0s_m"}, {"j0p_m"}, {"j0th_m"},{"j0z_m"}};
 
 int i, k;
 
@@ -397,12 +397,12 @@ int i, k;
 /*opening all files*/
 for (k=0; k<num_moms; k++)
 {
-	sprintf (full_name, "%s%s%s", path2background, moms_name[k], ".dat");
-	if (!(mom_files[k] = fopen (full_name, "w")))
-	{
-		fprintf (stderr, "\nFailed to open file %s\a\n", full_name);
-		continue;
-	}
+    sprintf (full_name, "%s%s%s", path2background, moms_name[k], ".dat");
+    if (!(mom_files[k] = fopen (full_name, "w")))
+    {
+        fprintf (stderr, "\nFailed to open file %s\a\n", full_name);
+        continue;
+    }
 }
 
 /*allocation: i,e,tot*/

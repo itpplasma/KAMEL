@@ -20,16 +20,16 @@ KIM comes in 3 different collision models:
     results in the susceptibility functions (I00 and I20) imported from susc_funcs.
     The needed Bessel functions are calculated in the Bessel_calculation file.
 The modes are implemented with abstract base classes (ABC).
-        
-Data is handled with dictionaries. Different dicts are: 
+
+Data is handled with dictionaries. Different dicts are:
 - options: contains options for the run including possible collision models
-- species_dat: contains all the species specific profiles like density, 
+- species_dat: contains all the species specific profiles like density,
     temperature, as well as derived ones like the thermodynamic forces.
-- general_dat: contains data that is not specific to a species, e.g. 
+- general_dat: contains data that is not specific to a species, e.g.
     radial electric field, radial grid,...
 - equil_dat: contains data for the magnetic equilibrium of the cylinder that
     is calculated in calc_equilibrium
-                
-The output data is written to the hdf5 file format using the h5py module. 
+
+The output data is written to the hdf5 file format using the h5py module.
 
 CXroots needs: wrapt, numpydoc

@@ -7,7 +7,7 @@ subroutine get_D_one_over_nu
 
     use grid_mod, only: Donue11, Donue12, Donue21, Donue22, &
         Donui11, Donui12, Donui21, Donui22, npoic, rb
-    
+
     use plasma_parameters, only: params
     use baseparam_mod, only: c, Btor, Rtor, ev, e_charge
 
@@ -27,7 +27,7 @@ subroutine get_D_one_over_nu
     call init_gauss_laguerre_integration(5.0d0/2.0d0, w52, x52)
     call init_gauss_laguerre_integration(7.0d0/2.0d0, w72, x72)
     call init_gauss_laguerre_integration(9.0d0/2.0d0, w92, x92)
-    
+
     !$omp parallel do private(ipoi, species_array, i, diff_coeff)
     do ipoi=1, npoic
 
@@ -83,7 +83,7 @@ subroutine rescale_D_one_over_nu_to_new_n_and_T
         Donui11, Donui12, Donui21, Donui22, npoic, rb, &
         init_Donue11, init_Donue12, init_Donue21, init_Donue22, &
         init_Donui11, init_Donui12, init_Donui21, init_Donui22
-    
+
     use plasma_parameters, only: params, init_params
     use baseparam_mod, only: c, Rtor, ev, e_charge
 

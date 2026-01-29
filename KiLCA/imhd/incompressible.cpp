@@ -354,7 +354,7 @@ state_to_EB_incompressible (grid[iter], syst+ib(iter, ind, 6, 0), syst+ib(iter, 
 while (t != tfinal)
 {
     status = gsl_odeiv_evolve_apply (evolve, control, step, &sys, &t, tfinal, &h, y);
-    
+
     if (status != GSL_SUCCESS)
     {
       fprintf (stderr, "\ncalculate_basis_incompressible_gsl: ODE solver failed at r = %le", t);

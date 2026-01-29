@@ -6,15 +6,15 @@
 !
 ! input:
 !
-!    r  ... radial position 
+!    r  ... radial position
 !    th ... theta component
 !    z  ... z component
 !
-! output: 
-!    
+! output:
+!
 !    per ... perpendicular component (s)
 !    par ... parallel component (p)
-!    
+!
 !==============================================================================
 
 subroutine cyl2rsp (r, th, z, per, par)
@@ -48,12 +48,12 @@ end subroutine
 !
 ! input:
 !
-!    r   ... radial position 
+!    r   ... radial position
 !    per ... perpendicular component
 !    par ... parallel component
 !
-! output: 
-!    
+! output:
+!
 !    th ... theta component
 !    z  ... z component
 !==============================================================================

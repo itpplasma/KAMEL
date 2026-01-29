@@ -42,7 +42,7 @@ module grid_mod
 
     real(dp), dimension(:,:), allocatable :: fluxes_dif_lin,fluxes_con_lin,fluxes_con_nl
     real(dp), dimension(:),   allocatable :: source_term
-    real(dp), dimension(:),   allocatable :: Ercov_lin 
+    real(dp), dimension(:),   allocatable :: Ercov_lin
     real(dp), dimension(:),   allocatable :: r_resonant
 
     real(dp), dimension(:), allocatable :: dummy

@@ -14,7 +14,7 @@ module hdf5_tools_f2003
   use ISO_C_BINDING
 
   implicit none
-  
+
   !**********************************************************
   ! Wrapper functions to read content
   !**********************************************************
@@ -74,9 +74,9 @@ contains
     test => value
     f_ptr = c_loc(test(1,1))
     call h5dwrite_f(dset_id, h5_kind_type_i, f_ptr, h5error)
-  
+
     call h5ltset_attribute_int_f(h5id, dataset, 'lbounds', lbounds, size, h5error)
-    call h5ltset_attribute_int_f(h5id, dataset, 'ubounds', ubounds, size, h5error)   
+    call h5ltset_attribute_int_f(h5id, dataset, 'ubounds', ubounds, size, h5error)
 
     if (present(comment)) then
        call h5ltset_attribute_string_f(h5id, dataset, 'comment', comment, h5error)
@@ -87,7 +87,7 @@ contains
 
     call h5dclose_f(dset_id, h5error)
     call h5sclose_f(dspace_id, h5error)
-    
+
     deallocate(dims)
 
     call h5_check()
@@ -120,7 +120,7 @@ contains
     test => value
     f_ptr = c_loc(test(1))
     call h5dwrite_f(dset_id, h5_kind_type_i, f_ptr, h5error)
-  
+
     call h5ltset_attribute_int_f(h5id, dataset, 'lbounds', lbounds, size, h5error)
     call h5ltset_attribute_int_f(h5id, dataset, 'ubounds', ubounds, size, h5error)
 
@@ -150,11 +150,11 @@ contains
     integer(HSIZE_T), dimension(2)           :: dims
     integer(HID_T)                           :: dspace_id, dset_id
     integer(kind=8), dimension(:,:), pointer :: test
-    integer(HID_T)                           :: h5_kind_type_i 
+    integer(HID_T)                           :: h5_kind_type_i
     type(C_PTR)                              :: f_ptr
 
     h5_kind_type_i = h5kind_to_type(8,H5_INTEGER_KIND)
-    
+
     call h5_get_bounds(h5id, dataset, lb1, lb2, ub1, ub2)
     dims = (/ub1-lb1+1, ub2-lb2+1/)
 
@@ -184,7 +184,7 @@ contains
     type(C_PTR)                              :: f_ptr
 
     h5_kind_type_i = h5kind_to_type(8,H5_INTEGER_KIND)
-    
+
     call h5_get_bounds(h5id, dataset, lb1, ub1)
     dims = (/ub1-lb1+1/)
 

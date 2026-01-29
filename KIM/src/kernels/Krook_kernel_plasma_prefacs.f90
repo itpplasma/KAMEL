@@ -102,7 +102,7 @@ module Krook_kernel_plasma_prefacs_m
         rhoT = 0.5d0 * (spec%rho_L(j) + spec%rho_L(j+1))
         z0 = 0.5d0 * (spec%z0(j) + spec%z0(j+1))
 
-        val = - ks_val * rhoT * A2 * plasma_Z(z0) / (abs(kpar) * sqrt(2.0d0)) 
+        val = - ks_val * rhoT * A2 * plasma_Z(z0) / (abs(kpar) * sqrt(2.0d0))
 
     end function
 
@@ -171,7 +171,7 @@ module Krook_kernel_plasma_prefacs_m
 
         use KIM_kinds_m, only: dp
         use species_m, only: species_t
-    
+
         implicit none
 
         integer, intent(in) :: j

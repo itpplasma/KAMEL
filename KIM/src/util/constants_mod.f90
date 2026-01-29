@@ -1,7 +1,7 @@
 module constants_m
 
     use KIM_kinds_m, only: dp
-    
+
     implicit none
 
     real(dp), parameter :: pi       = 3.14159265358979d0

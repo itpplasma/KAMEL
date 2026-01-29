@@ -84,7 +84,7 @@ void umf4sol_FORTRAN (Int *sys, double x [ ], double b [ ], void **Numeric,
 {
     Control [UMFPACK_IRSTEP] = 0 ;
     (void) UMFPACK_solve (*sys, (Int *) NULL, (Int *) NULL, (double *) NULL,
-	x, b, *Numeric, Control, Info) ;
+    x, b, *Numeric, Control, Info) ;
 }
 
 /* -------------------------------------------------------------------------- */
@@ -200,4 +200,3 @@ void umf4lsym_FORTRAN (void **Symbolic, Int *filenum, Int *status)
 #undef umf4ssym_FORTRAN
 #undef umf4lnum_FORTRAN
 #undef umf4lsym_FORTRAN
-

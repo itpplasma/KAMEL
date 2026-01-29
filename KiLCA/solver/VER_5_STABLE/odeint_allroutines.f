@@ -133,7 +133,7 @@
       EXTERNAL derivs
 CU    USES derivs
       INTEGER i
-      double precision 
+      double precision
      *A2,A3,A4,A5,A6,B21,B31,B32,B41,B42,B43,B51,B52,B53,
      *B54,B61,B62,B63,B64,B65,C1,C3,C4,C6,DC1,DC3,DC4,DC5,DC6
       PARAMETER (A2=.2d0,A3=.3d0,A4=.6d0,A5=1.d0,A6=.875d0,
@@ -208,7 +208,7 @@ CU    USES derivs,rkck
         h=sign(max(abs(htemp),0.1*abs(h)),h)
         xnew=x+h
 !        if(xnew.eq.x) pause 'stepsize underflow in rkqs'
-        if(xnew.eq.x) then 
+        if(xnew.eq.x) then
           print *,'stepsize underflow in rkqs, x,y = ',x,y
           stop
         endif

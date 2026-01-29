@@ -117,7 +117,7 @@
     if (debug_mode) write(*,*) "Debug: going out in gengrid"
     return
 end subroutine gengrid
-  
+
 
 subroutine calc_geometric_parameter_profiles
 
@@ -308,7 +308,7 @@ subroutine prepare_resonances
           end if
         enddo
     enddo
-  
+
 
     deallocate(m_a,n_a,r,q)
 

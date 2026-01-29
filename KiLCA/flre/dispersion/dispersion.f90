@@ -90,35 +90,35 @@ integer :: i
 real(dp) :: r
 
 do i=1,dimr
-	r = rvec(i)
+    r = rvec(i)
 
-	call calc_dispersion (r, flagback, 0, kval, polvec)
+    call calc_dispersion (r, flagback, 0, kval, polvec)
 
-	if (flagback /= 'f') then
-		knr(i,1) = r + im*r
-		knr(i,2:Nwaves+1) = kval
+    if (flagback /= 'f') then
+        knr(i,1) = r + im*r
+        knr(i,2:Nwaves+1) = kval
 
-		aknr(i,1) = r
-		aknr(i,2:Nwaves+1) = abs(kval)
+        aknr(i,1) = r
+        aknr(i,2:Nwaves+1) = abs(kval)
 
-		krr(i,1) = r + im*r
-		krr(i,2:Nwaves+1) = sqrt(kval**2 - m**2/r**2)
+        krr(i,1) = r + im*r
+        krr(i,2:Nwaves+1) = sqrt(kval**2 - m**2/r**2)
 
-		akrr(i,1) = r
-		akrr(i,2:Nwaves+1) = abs(sqrt(kval**2 - m**2/r**2))
+        akrr(i,1) = r
+        akrr(i,2:Nwaves+1) = abs(sqrt(kval**2 - m**2/r**2))
 
-	else
-		krr(i,1) = r + im*r
-		krr(i,2:Nwaves+1) = kval
+    else
+        krr(i,1) = r + im*r
+        krr(i,2:Nwaves+1) = kval
 
-		akrr(i,1) = r
-		akrr(i,2:Nwaves+1) = abs(kval)
+        akrr(i,1) = r
+        akrr(i,2:Nwaves+1) = abs(kval)
 
-		knr(i,1) = r + im*r
-		knr(i,2:Nwaves+1) = sqrt(kval**2 + m**2/r**2)
+        knr(i,1) = r + im*r
+        knr(i,2:Nwaves+1) = sqrt(kval**2 + m**2/r**2)
 
-		aknr(i,1) = r
-		aknr(i,2:Nwaves+1) = abs(sqrt(kval**2 + m**2/r**2))
+        aknr(i,1) = r
+        aknr(i,2:Nwaves+1) = abs(sqrt(kval**2 + m**2/r**2))
        end if
 
        kp_v(i) = kp_

@@ -11,19 +11,19 @@ eig_mat_eval (r, eigmat);
 int k,j;
 
 for (k=0; k<Nfs; k++)
-	{
-		for (j=0; j<2*Nw; j++)
-		{
-			fprintf(stdout, "\ncoeffs: k=%d j=%d: zstart=%25.15e", k, j, zstart[2*Nw*k+j]);
-		}
+    {
+        for (j=0; j<2*Nw; j++)
+        {
+            fprintf(stdout, "\ncoeffs: k=%d j=%d: zstart=%25.15e", k, j, zstart[2*Nw*k+j]);
+        }
 }
 
 for (k=0; k<Nw; k++)
 {
-	for (j=0; j<Nw; j++)
-	{
-		fprintf(stdout, "\neigmat: k=%d j=%d: val=(%25.15e, %25.15e)", k, j, eigmat[2*Nw*k+2*j], eigmat[2*Nw*k+2*j+1]);
-	}
+    for (j=0; j<Nw; j++)
+    {
+        fprintf(stdout, "\neigmat: k=%d j=%d: val=(%25.15e, %25.15e)", k, j, eigmat[2*Nw*k+2*j], eigmat[2*Nw*k+2*j+1]);
+    }
 }
 
 int *ipiv = (int*) xmalloc (Nw*sizeof(int));
@@ -32,16 +32,16 @@ int info;
 zgesv_ (&Nw, &Nfs, eigmat, &Nw, ipiv, zstart, &Nw, &info);
 if (info)
 {
-	fprintf(stderr, "\nerror: coeff_start_vals: zgesv_ failed!: info=%d", info);
+    fprintf(stderr, "\nerror: coeff_start_vals: zgesv_ failed!: info=%d", info);
 }
 
-	for (k=0; k<Nfs; k++)
-	{
-		for (j=0; j<2*Nw; j++)
-		{
-			fprintf(stdout, "\ncoeffs: k=%d j=%d: zstart=%25.15e", k, j, zstart[2*Nw*k+j]);
-		}
-	}
+    for (k=0; k<Nfs; k++)
+    {
+        for (j=0; j<2*Nw; j++)
+        {
+            fprintf(stdout, "\ncoeffs: k=%d j=%d: zstart=%25.15e", k, j, zstart[2*Nw*k+j]);
+        }
+    }
 
 free(eigmat);
 free(ipiv);

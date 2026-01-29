@@ -48,7 +48,7 @@ subroutine read_config
         write(*,*) 'Too many arguments'
         stop
     else if (num_args == 1) then
-        allocate(args(num_args))  ! I've omitted checking the return status of the allocation 
+        allocate(args(num_args))  ! I've omitted checking the return status of the allocation
         do ix = 1, num_args
             call get_command_argument(ix,args(ix))
             print *, 'Argument ', ix, ': ', args(ix)

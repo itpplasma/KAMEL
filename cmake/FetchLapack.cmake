@@ -6,20 +6,20 @@ if(LAPACK_FOUND AND BLAS_FOUND)
     message(STATUS "Using system LAPACK/BLAS libraries")
     message(STATUS "LAPACK libraries: ${LAPACK_LIBRARIES}")
     message(STATUS "BLAS libraries: ${BLAS_LIBRARIES}")
-    
+
     # Create interface libraries that link to system libraries
     add_library(lapack INTERFACE)
     target_link_libraries(lapack INTERFACE ${LAPACK_LIBRARIES})
-    
+
     add_library(blas INTERFACE)
     target_link_libraries(blas INTERFACE ${BLAS_LIBRARIES})
-    
+
     # Create a dummy tmg library for compatibility
     add_library(tmg INTERFACE)
-    
+
 else()
     message(STATUS "System LAPACK/BLAS not found, building from source")
-    
+
     include(ExternalProject)
 
     if(NOT DEFINED LAPACK_INSTALL_DIR)
@@ -72,5 +72,5 @@ else()
         IMPORTED_LOCATION "${source_dir}/tmglib_LINUX.a"
     )
     add_dependencies(tmg EXTERNAL_lapack)
-    
+
 endif()

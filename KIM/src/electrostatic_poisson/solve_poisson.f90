@@ -3,7 +3,7 @@ module poisson_solver_m
     implicit none
 
     contains
-    
+
     ! Solve \Delta \Phi + 4\pi K_rho_phi \Phi = - 4 \pi K_rho_B B_r
     ! using sparse matrix solver
     subroutine solve_poisson(K_rho_phi, K_rho_B, phi_sol)
@@ -24,7 +24,7 @@ module poisson_solver_m
         complex(dp), dimension(:), allocatable, intent(out) :: phi_sol
         complex(dp), dimension(:), allocatable :: A_nz ! non-zero elements of A matrix
         complex(dp), dimension(:,:), allocatable :: A_mat ! A matrix (stiffness matrix in the beginning, then full right hand side matrix)
-    
+
         complex(dp), dimension(:), allocatable :: b_vec ! b vector and x vector
         integer, dimension(:), allocatable :: irow, pcol
         integer :: nz_out, nrow, ncol
@@ -46,7 +46,7 @@ module poisson_solver_m
         call write_matrix('kernel/mass_matrix.dat', M_mat, xl_grid%npts_b, xl_grid%npts_b, &
             'Mass matrix M', 'cm')
 
-        A_mat = (A_mat + 4.0d0 * pi * K_rho_phi) 
+        A_mat = (A_mat + 4.0d0 * pi * K_rho_phi)
 
         if (fdebug == 3) then
             call write_A_matrix_sparse_check_to_file
@@ -118,10 +118,10 @@ module poisson_solver_m
         if (type ==1) then ! constant br
             rhs_vec = cmplx(1.0d0, 0.0d0, dp) * e_charge
         ! type > 10 uses Br kernel to determine right hand side of equation
-        elseif(type==11) then 
+        elseif(type==11) then
             call set_Br_field(EBdat, 1) ! Br field from input
             rhs_vec = matmul(K_rho_B, EBdat%Br)
-        elseif(type==12) then 
+        elseif(type==12) then
             call set_Br_field(EBdat, 0) ! constant Br field
             rhs_vec = matmul(K_rho_B, EBdat%Br)
         end if
@@ -145,7 +145,7 @@ module poisson_solver_m
         integer :: n
 
         n = xl_grid%npts_b
-        
+
         A_mat = cmplx(0.0d0, 0.0d0, dp)
 
         do i = 2, n-1
@@ -209,7 +209,7 @@ module poisson_solver_m
 
         use sparse_mod, only: column_full2pointer
         use KIM_kinds_m, only: dp
-        
+
         implicit none
 
         complex(dp), dimension(:,:), intent(in) :: A
@@ -220,7 +220,7 @@ module poisson_solver_m
 
         integer, dimension(:), allocatable :: icol
         integer :: nz, nc, nr, n
-        
+
         nrow = size(A,1)
         ncol = size(A,2)
         nz = 0

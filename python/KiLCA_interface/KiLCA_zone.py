@@ -1,9 +1,10 @@
-from .InpOut import InpOut
-from .KiLCA_zone_vacuum import KiLCA_zone_vacuum
-from .KiLCA_zone_flre import KiLCA_zone_flre
-from .read_in import read_in
 from .change_opts import change_opts
+from .InpOut import InpOut
+from .KiLCA_zone_flre import KiLCA_zone_flre
+from .KiLCA_zone_vacuum import KiLCA_zone_vacuum
+from .read_in import read_in
 from .save_file import save_file
+
 
 class KiLCA_zone(InpOut):
     """
@@ -31,12 +32,12 @@ class KiLCA_zone(InpOut):
             Invoked in return data. Returns the description of the zone (r1, typeBC1,...)
     """
 
-    BLUEPRINT = ''
+    BLUEPRINT = ""
     ind = []
-    sep = '#'
+    sep = "#"
 
-    boundary_cond = ['center', 'infinity', 'interface', 'antenna', 'idealwall']
-    model_type = ['vacuum', 'medium', 'imhd', 'rmhd', 'flre']
+    boundary_cond = ["center", "infinity", "interface", "antenna", "idealwall"]
+    model_type = ["vacuum", "medium", "imhd", "rmhd", "flre"]
     o = None
 
     def __init__(self, num: int, r1: float, b1: str, m: str, r2: float, b2: str):
@@ -52,54 +53,52 @@ class KiLCA_zone(InpOut):
         """
 
         self.data = {
-            'number': 0, # number of zones
-            'r1': [], # r1 - minimum radius of the zone (plasma radius)
-            'typeBC1': [], # type of BC at r1 (center, infinity, interface, antenna, idealwall)
-            'model': [],   # type of the plasma model (vacuum, medium, imhd, rmhd, flre)
-            'modelvers': 0, # code version for the model: MHD model (0- incompressible and flowless, 1 - compressible with flows)
-            'typeBC2': [], # type of BC at r2 (center, infinity, interface, antenna, idealwall)
-            'r2': [],      # r2 - maximum radius of the zone (first wall boundary)
+            "number": 0,  # number of zones
+            "r1": [],  # r1 - minimum radius of the zone (plasma radius)
+            "typeBC1": [],  # type of BC at r1 (center, infinity, interface, antenna, idealwall)
+            "model": [],  # type of the plasma model (vacuum, medium, imhd, rmhd, flre)
+            "modelvers": 0,  # code version for the model: MHD model (0- incompressible and flowless, 1 - compressible with flows)
+            "typeBC2": [],  # type of BC at r2 (center, infinity, interface, antenna, idealwall)
+            "r2": [],  # r2 - maximum radius of the zone (first wall boundary)
             #'vacuum': [], # contains vacuum information about the zone
             #'imhd': [],  # contains imhd information about the zone
             #'flre': [],  # contains flre information about the zone
-
-            'typeBC1_num': 0, # numeric type of BC at r1 (center=0, infinity=1, interface=2, antenna=3, idealwall=4)
-            'model_num': 0,   # numeric type of the plasma model (vacuum=0, medium=1, imhd=2, rmhd=3, flre=4)
-            'typeBC2_num': 0 # numeric type of BC at r2 (center=0, infinity=1, interface=2, antenna=3, idealwall=4)
+            "typeBC1_num": 0,  # numeric type of BC at r1 (center=0, infinity=1, interface=2, antenna=3, idealwall=4)
+            "model_num": 0,  # numeric type of the plasma model (vacuum=0, medium=1, imhd=2, rmhd=3, flre=4)
+            "typeBC2_num": 0,  # numeric type of BC at r2 (center=0, infinity=1, interface=2, antenna=3, idealwall=4)
         }
-        self.data['r1'] = r1
-        self.data['typeBC1'] = b1
-        self.data['model'] = m
-        self.data['r2'] = r2
-        self.data['typeBC2'] = b2
+        self.data["r1"] = r1
+        self.data["typeBC1"] = b1
+        self.data["model"] = m
+        self.data["r2"] = r2
+        self.data["typeBC2"] = b2
 
-        if m =='imhd' or m=='rmhd':
-            raise ValueError('imhd or rmhd support not yet available')
-        elif m =='vacuum':
-            self.data['vacuum'] = KiLCA_zone_vacuum()
-            self.o = self.data['vacuum']
-            if self.data['typeBC2'] == 'idealwall':
-                self.o.data['sigma'] = [1.3e16,0]
-        elif m=='flre':
-            self.data['flre'] = KiLCA_zone_flre()
-            self.o = self.data['flre']
-        
-        self.data['number'] = num
+        if m == "imhd" or m == "rmhd":
+            raise ValueError("imhd or rmhd support not yet available")
+        elif m == "vacuum":
+            self.data["vacuum"] = KiLCA_zone_vacuum()
+            self.o = self.data["vacuum"]
+            if self.data["typeBC2"] == "idealwall":
+                self.o.data["sigma"] = [1.3e16, 0]
+        elif m == "flre":
+            self.data["flre"] = KiLCA_zone_flre()
+            self.o = self.data["flre"]
+
+        self.data["number"] = num
         self.ind = self.o.ind
         self.BLUEPRINT = self.o.BLUEPRINT
 
         self.READY = True
 
-
     def get_typeBC1_num(self):
-        return self.boundary_cond.index(self.data['typeBC1'])
+        return self.boundary_cond.index(self.data["typeBC1"])
 
     def get_typeBC2_num(self):
-        return self.boundary_cond.index(self.data['typeBC2'])
+        return self.boundary_cond.index(self.data["typeBC2"])
 
     def get_model_num(self):
-        return self.model_type.index(self.data['model'])
-        
+        return self.model_type.index(self.data["model"])
+
     def write(self, path_from, path_to):
         """
         Description:
@@ -111,16 +110,28 @@ class KiLCA_zone(InpOut):
         """
 
         if self.READY == False:
-            raise ValueError('Class is not ready to run')
+            raise ValueError("Class is not ready to run")
 
         # read blueprint
 
         raw = read_in(path_from + self.BLUEPRINT)
         raw = change_opts(raw, self.ind, self.return_data(), self.sep)
-        save_file(raw, path_to + '/' + (self.BLUEPRINT).replace('zone', 'zone_'+str(int(self.data['number'])+1)))
+        save_file(
+            raw,
+            path_to
+            + "/"
+            + (self.BLUEPRINT).replace("zone", "zone_" + str(int(self.data["number"]) + 1)),
+        )
 
     def return_data(self):
         return self.data_description_of_zone() + self.o.return_data()
 
     def data_description_of_zone(self):
-        return [self.data['r1'], self.data['typeBC1'], self.data['model'], self.data['modelvers'], self.data['typeBC2'], self.data['r2']]
+        return [
+            self.data["r1"],
+            self.data["typeBC1"],
+            self.data["model"],
+            self.data["modelvers"],
+            self.data["typeBC2"],
+            self.data["r2"],
+        ]

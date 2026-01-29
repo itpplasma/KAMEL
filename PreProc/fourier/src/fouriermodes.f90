@@ -43,7 +43,7 @@
   read (1,*) nsqpsi   !grid size over radial variable for 1D quantities
   read (1,*) nlabel   !grid size over radial variable for 2D and 3D quantities
   read (1,*) ntheta   !grid size over poloidal angle
-  read (1,*) nsurfmax !number of starting points between the 
+  read (1,*) nsurfmax !number of starting points between the
                       !magnetic axis and right box boundary
                       !when searching for the separatrix
   close(1)
@@ -51,7 +51,7 @@
   numbig=1000000
   nmap=10         !number of maps for finding magnetic axis
   niter=10        !number of iterations for Newton method
-  eps_four=0.1d0  !integration step in x for sin(x) 
+  eps_four=0.1d0  !integration step in x for sin(x)
 !
 ! Initialization of the field:
 !
@@ -67,7 +67,7 @@
 ! End of initialization
 !
 ! Computation box:
-  rmn=rad(1) 
+  rmn=rad(1)
   rmx=rad(nrad)
   zmn=zet(1)
   zmx=zet(nzet)
@@ -221,7 +221,7 @@
   close(111)
   deallocate(dummy,separ)
 !
-! Write the normalized toroidal flux on the equidistant grid 
+! Write the normalized toroidal flux on the equidistant grid
 ! of the poloidal flux:
 !
   phinorm_arr(1:nsurf)=phinorm_arr(1:nsurf)/phitor_max
@@ -254,7 +254,7 @@
                  + phinorm_arr(k4)                              &
                  *(psif-psisurf(k1))/(psisurf(k4)-psisurf(k1))  &
                  *(psif-psisurf(k2))/(psisurf(k4)-psisurf(k2))  &
-                 *(psif-psisurf(k3))/(psisurf(k4)-psisurf(k3)) 
+                 *(psif-psisurf(k3))/(psisurf(k4)-psisurf(k3))
   enddo
   close(375)
 !
@@ -359,7 +359,7 @@ print *,isurf,nsqpsi
   sqpsimin=sqpsimax/nsqpsi
 !
 ! sqpsi_lab - sqrt(psi) on the equidistant grid of flabel
-! 
+!
 ! Re-calculate startpoints for the equidistant grid of flabel
 !
   hsqpsi=sqpsimax/nsqpsi

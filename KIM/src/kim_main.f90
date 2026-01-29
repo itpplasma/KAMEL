@@ -16,7 +16,7 @@ program kim_main
 
     ! Display the beautiful KIM banner at startup
     call display_kim_banner()
-    
+
     call kim_init
     print *, "KIM initialized."
     call from_kim_factory_get_kim(type_of_run, kim_instance)
@@ -25,14 +25,14 @@ program kim_main
 
     call kim_instance%init()
     call kim_instance%run()
-    
+
     !call solve_debye_in_kr_space
 
     t_finish =  omp_get_wtime()
 
     write(*,*) ' Time: ', (t_finish - t_start), ' s'
 
-    if (hdf5_output) then 
+    if (hdf5_output) then
         call h5_add(h5id, 'runtime', t_finish - t_start, 'KIM runtime', 's')
         call h5_add(h5id, 'omp_num_threads', omp_get_max_threads(), 'Number of OpenMP threads', '1')
         call deinitialize_hdf5_output()

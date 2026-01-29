@@ -361,7 +361,7 @@ state_to_EB_compressible_flow (grid[iter], syst+ib(iter, ind, 6, 0), syst+ib(ite
 while (t != tfinal)
 {
     status = gsl_odeiv_evolve_apply (evolve, control, step, &sys, &t, tfinal, &h, y);
-    
+
     if (status != GSL_SUCCESS)
     {
       fprintf (stderr, "\ncalculate_basis_flow_gsl: ODE solver failed at r = %le", t);
@@ -500,13 +500,13 @@ complex<double> M = zeta_r*I*(F/4.0/pi*dB0z + kz*dpress_0 - kt/4.0/pi*dB0z*B0t -
 
                               kz/4.0/pi*B0t*(B0t/r - dB0t)) +
 
-	            drzeta*I*(kz*B0t*B0t/4.0/pi/r - kt/4.0/pi*B0t*B0z/r + kz*adiabat*press_0/r);
+                drzeta*I*(kz*B0t*B0t/4.0/pi/r - kt/4.0/pi*B0t*B0z/r + kz*adiabat*press_0/r);
 
 complex<double> G = zeta_r*I*(F/4.0/pi*(B0t/r + dB0t) + 2.0*omega_Dop*mdens*Vt/r + dpress_0*kt +
 
                               kt/4.0/pi*B0z*dB0z + kz/4.0/pi*B0z*(B0t/r - dB0t)) +
 
-  		    drzeta*I*(kt/4.0/pi*B0z*B0z/r - kz/4.0/pi/r*B0z*B0t + kt*adiabat*press_0/r);
+            drzeta*I*(kt/4.0/pi*B0z*B0z/r - kz/4.0/pi/r*B0z*B0t + kt*adiabat*press_0/r);
 
 complex<double> N = -mdens*omega_Dop*omega_Dop + kz*kz*adiabat*press_0 + B0t*B0t/4.0/pi*k0k0;
 

@@ -1,7 +1,7 @@
 !
   subroutine binsrc(p,nmin,nmax,xi,i)
 !
-! Finds the index  i  of the array of increasing numbers   p  with dimension  n 
+! Finds the index  i  of the array of increasing numbers   p  with dimension  n
 ! which satisfies   p(i-1) <  xi  <  p(i) . Uses binary search algorithm.
 !
   implicit none
@@ -20,7 +20,7 @@
       imax=i
     else
       imin=i
-    endif 
+    endif
     if(imax.eq.imin+1) exit
   enddo
 !

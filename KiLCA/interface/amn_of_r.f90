@@ -13,7 +13,7 @@ contains
 !
   subroutine binsrc_amn(p,nmin,nmax,xi,i)
 !
-! Finds the index  i  of the array of increasing numbers   p  with dimension  n 
+! Finds the index  i  of the array of increasing numbers   p  with dimension  n
 ! which satisfies   p(i-1) <  xi  <  p(i) . Uses binary search algorithm.
 !
   implicit none
@@ -107,7 +107,7 @@ end module amn_of_r_mod
   subroutine amn_of_r(m,n,r,amn_psi,amn_theta,ierr)
 !
 ! Computes Fourier amplitudes of vector potential components $A^\psi$ and
-! $A_\vartheta$ as functions of effective radius. All quantitites are in 
+! $A_\vartheta$ as functions of effective radius. All quantitites are in
 ! Gaussian units
 !
 ! Input  arguments:
@@ -147,7 +147,7 @@ end module amn_of_r_mod
     read(iunit,*)
     read(iunit,*)
     read(iunit,*)
-    read(iunit,*) 
+    read(iunit,*)
     read(iunit,*)
     read(iunit,*)
     read(iunit,*) fluxdatapath ! directory with data in flux coord.

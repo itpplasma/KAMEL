@@ -66,7 +66,7 @@ module integrands_gauss_m
                 (rg_grid%xb(this%int_point%j) - x)/(sqrt(2.0d0) * abs(this%int_point%rhoT)))&
             ) &
             * pi**2.0d0 ! from benchmarking, error function difference gives 2
-            
+
 
     end function
 
@@ -97,7 +97,7 @@ module integrands_gauss_m
             * erf_diff( &
                 ((x+xp)/ 2.0d0 - rg_grid%xb(this%int_point%j)) / (this%int_point%rhoT * sqrt(1.0d0 + cos(theta))), &
                 ((x+xp)/ 2.0d0 - rg_grid%xb(this%int_point%j + 1)) / (this%int_point%rhoT * sqrt(1.0d0 + cos(theta))) &
-                )& 
+                )&
             / (2.0d0 * pi) ! is missing, found by benchmarking
 
 
@@ -124,7 +124,7 @@ module integrands_gauss_m
         val = varphi_l(xp, this%int_point%xlpm1, this%int_point%xlp, this%int_point%xlpp1) &
             * varphi_l(x, this%int_point%xlm1, this%int_point%xl, this%int_point%xlp1) &
             * exp(- ks_val**2.0d0 * this%int_point%rhoT**2.0d0 &
-                  - (x - xp)**2.0d0 / (4.0d0 * this%int_point%rhoT**2.0d0 * (1.0d0 - cos(theta)))) & 
+                  - (x - xp)**2.0d0 / (4.0d0 * this%int_point%rhoT**2.0d0 * (1.0d0 - cos(theta)))) &
             * pi * cos(this%int_point%mphi * theta) / (this%int_point%rhoT * sin(theta)**5.0d0) &
             * ( &
                 this%int_point%Jrg1 * (&
@@ -159,7 +159,7 @@ module integrands_gauss_m
         val = varphi_l(xp, this%int_point%xlpm1, this%int_point%xlp, this%int_point%xlpp1) &
             * varphi_l(x, this%int_point%xlm1, this%int_point%xl, this%int_point%xlp1) &
             * exp(- ks_val**2.0d0 * this%int_point%rhoT**2.0d0 &
-                  - (x - xp)**2.0d0 / (4.0d0 * this%int_point%rhoT**2.0d0 * (1.0d0 - cos(theta)))) & 
+                  - (x - xp)**2.0d0 / (4.0d0 * this%int_point%rhoT**2.0d0 * (1.0d0 - cos(theta)))) &
             * (2.0d0 * pi) * cos((this%int_point%mphi - 1) * theta) / (this%int_point%rhoT * sin(theta)**5.0d0) &
             * ( &
                 cos(theta) * sin(theta)**2.0d0 * this%int_point%Jrg1 &

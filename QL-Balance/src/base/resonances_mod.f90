@@ -7,7 +7,7 @@ module resonances_mod
     double precision, dimension(:), allocatable :: r_res,width_res,ampl_res
     logical :: prop=.true.
 
-    contains 
+    contains
 
     subroutine add_mode_group_to_h5_mode_groupname
 

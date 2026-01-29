@@ -175,21 +175,21 @@ void calc_and_set_maxwell_system_parameters_module_ (void);
 void clean_maxwell_system_parameters_module_ (void);
 
 void center_equations_flre_ (int *Nw, int *len, flre_zone **code, double *EB,
-			     int *neq, int *nvar, double *M, double *J);
+                 int *neq, int *nvar, double *M, double *J);
 
 void infinity_equations_flre_ (int *Nw, int *len, flre_zone **code, double *EB,
-			       int *neq, int *nvar, double *M, double *J);
+                   int *neq, int *nvar, double *M, double *J);
 
 void ideal_wall_equations_flre_ (int *Nw, int *len, flre_zone **code, double *EB,
-				 int *neq, int *nvar, double *M, double *J);
+                 int *neq, int *nvar, double *M, double *J);
 
 void stitching_equations_flre_hommed_ (int *Nw1, int *len1, flre_zone **code1, double *EB1,
-				       int *Nw2, int *len2, hmedium_zone **code2, double *EB2,
-				       int *flg_ant, int *neq, int *nvar, double *M, double *J);
+                       int *Nw2, int *len2, hmedium_zone **code2, double *EB2,
+                       int *flg_ant, int *neq, int *nvar, double *M, double *J);
 
 void stitching_equations_flre_flre_ (int *Nw1, int *len1, flre_zone **code1, double *EB1,
-				     int *Nw2, int *len2, flre_zone **code2, double *EB2,
-				     int *flg_ant, int *neq, int *nvar, double *M, double *J);
+                     int *Nw2, int *len2, flre_zone **code2, double *EB2,
+                     int *flg_ant, int *neq, int *nvar, double *M, double *J);
 
 void calc_start_values_anywhere_low_derivs_ (double *, double *);
 
@@ -216,7 +216,7 @@ void get_flre_order_ (int *flre_order);
 void get_gal_corr_ (int *gal_corr);
 
 void normalize_flre_basis_ (int * Ncomp, int * Nwaves, int * dim, double * basis,
-			    int * iErsp_sys, int * ind1, int * ind2, int * node);
+                int * iErsp_sys, int * ind1, int * ind2, int * node);
 }
 
 /*****************************************************************************/

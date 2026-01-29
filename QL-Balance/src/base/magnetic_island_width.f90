@@ -37,7 +37,7 @@ subroutine magnetic_island_width(coef, nder, nlagr, ibeg, iend, mode, mi_width)
     end do
 1   continue
     close(iunit_equil)
-        
+
     ! calculate derivative of iota
     do ipoi = 1, npoib
         diotadr = sum(1.0d0/q(ipbeg(ipoi) : ipend(ipoi)) * deriv_coef(:,ipoi))

@@ -14,7 +14,7 @@ subroutine rhs_balance_stell(x, y, dy)
                         , sqrt_g_times_B_theta_over_c, Ercov, polforce, qlheat_e, qlheat_i &
                         , Ercov_lin, fluxes_con_nl, Donue11, Donue12, Donue21, Donue22 &
                         , Donui11, Donui12, Donui21, Donui22, cneo
-                        
+
     use plasma_parameters, only: params, ddr_params_lin, params_lin, ddr_params_nl &
                         , params_b_lin, params_b, dot_params
     use baseparam_mod, only: Z_i, e_charge, am, p_mass, c
@@ -66,7 +66,7 @@ subroutine rhs_balance_stell(x, y, dy)
         end do
     end do
 
-    
+
     Ercov = sqrt_g_times_B_theta_over_c*(params_b(2, :) - Vth*q/rb) &
             + (params_b(4, :)*ddr_params_nl(1, :)/params_b(1, :) + ddr_params_nl(4, :)) &
             /(Z_i*e_charge)
@@ -92,7 +92,7 @@ subroutine rhs_balance_stell(x, y, dy)
         A_noE_1i_nl = ddr_params_nl(1, ipoi)/params_b(1, ipoi) &
                     - 1.5d0*ddr_params_nl(4, ipoi)/params_b(4, ipoi)
         A_noE_2i_nl = ddr_params_nl(4, ipoi)/params_b(4, ipoi)
-        
+
         ! Thermodynamic forces for finite radial electric field:
         A_1e_nl = A_noE_1e_nl + Ercov(ipoi)*e_charge/params_b(3, ipoi)
         A_1i_nl = A_noE_1i_nl - Ercov(ipoi)*e_charge*Z_i/params_b(4, ipoi)
@@ -107,7 +107,7 @@ subroutine rhs_balance_stell(x, y, dy)
                                     (-Sb(ipoi)*ddr_params_nl(1, ipoi)*(dae11(ipoi) &
                                 + De11*(1.d0 + params_b(4, ipoi)/params_b(3, ipoi)/Z_i))))&
                                 /params_b(1, ipoi)
-                                                
+
         ! toroidal moment flux density divided by mass:
         ! total toroidal moment flux:
         fluxes_con_nl(2, ipoi) = 0.d0
@@ -200,7 +200,7 @@ subroutine rhs_balance_stell(x, y, dy)
             ! Thermodynamic forces for finite radial electric field:
             A_1e = A_noE_1e + Ercov_lin(ipoi)*e_charge/params_b(3, ipoi)
             A_1i = A_noE_1i - Ercov_lin(ipoi)*e_charge*Z_i/params_b(4, ipoi)
-        
+
             ! particle flux densities:
             gamma_e = -(dae11(ipoi)*A_noE_1e + dae12(ipoi)*A_noE_2e)*params_b(1, ipoi)
             gamma_ql_e = -(dqle11(ipoi)*A_1e + dqle12(ipoi)*A_noE_2e)*params_b(1, ipoi)
@@ -222,7 +222,7 @@ subroutine rhs_balance_stell(x, y, dy)
             ! total toroidal moment flux:
             fluxes_dif_lin(2, ipoi) = Sb(ipoi)*dfluxvphi
             fluxes_con_lin(2, ipoi) = 0.d0
-            
+
             ! electron heat flux density:
             Q_e = -(dae12(ipoi)*A_noE_1e + De21*A_1e &
                     + (dae22(ipoi) + De22)*A_noE_2e) &
@@ -232,7 +232,7 @@ subroutine rhs_balance_stell(x, y, dy)
             Q_i = -(dai12(ipoi)*A_noE_1i + Di21*A_1i &
                     + (dai22(ipoi) + dni22(ipoi) + Di22)*A_noE_2i) &
                   *params_b(1, ipoi)/Z_i*params_b(4, ipoi)
-            
+
             ! total heat fluxes:
             fluxes_dif_lin(3, ipoi) = -Sb(ipoi)*(dae22(ipoi) + De22) &
                                   *params_b(1, ipoi)*ddr_params_lin(3, ipoi)
@@ -241,7 +241,7 @@ subroutine rhs_balance_stell(x, y, dy)
             fluxes_dif_lin(4, ipoi) = -Sb(ipoi)*(dai22(ipoi) + dni22(ipoi) + Di22 &
                                 - 2.5d0*Di21)*params_b(1, ipoi)/Z_i*ddr_params_lin(4, ipoi)
             fluxes_con_lin(4, ipoi) = (Sb(ipoi)*Q_i - fluxes_dif_lin(4, ipoi))/params_b(4, ipoi)
-            
+
             ! Momentum source due to the polarization current:
             polforce(ipoi) = (gamma_e - Z_i*gamma_i)*e_charge*sqrt_g_times_B_theta_over_c(ipoi) &
                             /(am*p_mass)
@@ -409,7 +409,7 @@ subroutine rhs_balance_source_stell(x, y, dy)
                         , sqrt_g_times_B_theta_over_c, Ercov, polforce, qlheat_e, qlheat_i &
                         , Ercov_lin, fluxes_con_nl, cneo, Donue11, Donue12, Donue21, Donue22 &
                         , Donui11, Donui12, Donui21, Donui22
-                        
+
     use plasma_parameters, only: params, ddr_params_lin, params_b, params_lin &
                         , params_b_lin, ddr_params_nl, dot_params
     use baseparam_mod, only: Z_i, e_charge, am, p_mass, c
@@ -433,7 +433,7 @@ subroutine rhs_balance_source_stell(x, y, dy)
     else
         npoi = npoic
     end if
-    
+
     y_lin = 0.0d0
     params_lin = params
 
@@ -658,4 +658,3 @@ subroutine rhs_balance_source_stell(x, y, dy)
     dy = dy + dery_equisource
 
 end subroutine rhs_balance_source_stell
-

@@ -97,7 +97,7 @@ module rt_electrostatic_m
                     rho(xl_grid%npts_b))
 
             EBdat%r_grid = xl_grid%xb
-            
+
             call solve_poisson(kernel_rho_phi_llp%Kllp, kernel_rho_B_llp%Kllp, EBdat%Phi)
             call write_complex_profile_abs(xl_grid%xb, EBdat%Phi, xl_grid%npts_b, "/fields/Phi", &
                 'Electrostatic potential perturbation Phi, solution of Poisson problem', 'statV')
@@ -172,7 +172,7 @@ module rt_electrostatic_m
                     call solve_poisson(kernel_rho_phi_llp%Kllp_i(:,:,sp), kernel_rho_B_llp%Kllp_i(:,:,sp), EBdat%Phi_i)
                     call write_complex_profile_abs(xl_grid%xb, EBdat%Phi_i, xl_grid%npts_b, "/fields/Phi_m_"//trim(plasma%spec(sp)%name), &
                         'Electrostatic potential perturbation Phi, solution of Poisson problem for species '//trim(plasma%spec(sp)%name), 'statV')
-                else 
+                else
                     EBdat%Phi_i = (0.0d0, 0.0d0)
                     call write_complex_profile_abs(xl_grid%xb, EBdat%Phi_i, xl_grid%npts_b, "/fields/Phi_m_"//trim(plasma%spec(sp)%name), &
                         'Electrostatic potential perturbation Phi, solution of Poisson problem for species '//trim(plasma%spec(sp)%name), 'statV')
@@ -203,7 +203,7 @@ module rt_electrostatic_m
             end if
 
         end subroutine
-        
+
         subroutine run_Krook_FP
             call Krook_fill_kernel_phi(kernel_rho_phi_llp, kernel_rho_B_llp)
 
@@ -212,7 +212,7 @@ module rt_electrostatic_m
                     rho(xl_grid%npts_b))
 
             EBdat%r_grid = xl_grid%xb
-            
+
             call solve_poisson(kernel_rho_phi_llp%Kllp, kernel_rho_B_llp%Kllp, EBdat%Phi)
             call write_complex_profile_abs(xl_grid%xb, EBdat%Phi, xl_grid%npts_b, "/fields/Phi_"//trim(collision_model), &
                 'Electrostatic potential perturbation Phi, solution of Poisson problem', 'statV')

@@ -1,9 +1,9 @@
 /*! \file
 Copyright (c) 2003, The Regents of the University of California, through
-Lawrence Berkeley National Laboratory (subject to receipt of any required 
-approvals from U.S. Dept. of Energy) 
+Lawrence Berkeley National Laboratory (subject to receipt of any required
+approvals from U.S. Dept. of Energy)
 
-All rights reserved. 
+All rights reserved.
 
 The source code is distributed under BSD license, see the file License.txt
 at the top-level directory.
@@ -32,15 +32,15 @@ typedef struct {
 } factors_t;
 
 void
-c_fortran_zgssv_(int *iopt, int *n, int *nnz, int *nrhs, 
+c_fortran_zgssv_(int *iopt, int *n, int *nnz, int *nrhs,
                  doublecomplex *values, int *rowind, int *colptr,
                  doublecomplex *b, int *ldb,
-		 fptr *f_factors, /* a handle containing the address
-				     pointing to the factored matrices */
-		 int *info)
+         fptr *f_factors, /* a handle containing the address
+                     pointing to the factored matrices */
+         int *info)
 
 {
-/* 
+/*
  * This routine can be called from Fortran.
  *
  * iopt (input) int
@@ -49,13 +49,13 @@ c_fortran_zgssv_(int *iopt, int *n, int *nnz, int *nrhs,
  *      = 2, performs triangular solve
  *      = 3, free all the storage in the end
  *
- * f_factors (input/output) fptr* 
+ * f_factors (input/output) fptr*
  *      If iopt == 1, it is an output and contains the pointer pointing to
  *                    the structure of the factored matrices.
  *      Otherwise, it it an input.
  *
  */
- 
+
     SuperMatrix A, AC, B;
     SuperMatrix *L, *U;
     int *perm_r; /* row permutations from partial pivoting */
@@ -71,7 +71,7 @@ c_fortran_zgssv_(int *iopt, int *n, int *nnz, int *nrhs,
     factors_t *LUfactors;
     GlobalLU_t Glu;   /* Not needed on return. */
     int    *rowind0;  /* counter 1-based indexing from Frotran arrays. */
-    int    *colptr0;  
+    int    *colptr0;
 
     trans = NOTRANS;
 
@@ -80,109 +80,107 @@ c_fortran_zgssv_(int *iopt, int *n, int *nnz, int *nrhs,
         /* Set the default input options. */
         set_default_options(&options);
 
-	/* Initialize the statistics variables. */
-	StatInit(&stat);
+    /* Initialize the statistics variables. */
+    StatInit(&stat);
 
 
-	/* Adjust to 0-based indexing */
-	if ( !(rowind0 = intMalloc(*nnz)) ) ABORT("Malloc fails for rowind0[].");
-	if ( !(colptr0 = intMalloc(*n+1)) ) ABORT("Malloc fails for colptr0[].");
-	for (i = 0; i < *nnz; ++i) rowind0[i] = rowind[i] - 1;
-	for (i = 0; i <= *n; ++i) colptr0[i] = colptr[i] - 1;
+    /* Adjust to 0-based indexing */
+    if ( !(rowind0 = intMalloc(*nnz)) ) ABORT("Malloc fails for rowind0[].");
+    if ( !(colptr0 = intMalloc(*n+1)) ) ABORT("Malloc fails for colptr0[].");
+    for (i = 0; i < *nnz; ++i) rowind0[i] = rowind[i] - 1;
+    for (i = 0; i <= *n; ++i) colptr0[i] = colptr[i] - 1;
 
-	zCreate_CompCol_Matrix(&A, *n, *n, *nnz, values, rowind0, colptr0,
-			       SLU_NC, SLU_Z, SLU_GE);
-	L = (SuperMatrix *) SUPERLU_MALLOC( sizeof(SuperMatrix) );
-	U = (SuperMatrix *) SUPERLU_MALLOC( sizeof(SuperMatrix) );
-	if ( !(perm_r = intMalloc(*n)) ) ABORT("Malloc fails for perm_r[].");
-	if ( !(perm_c = intMalloc(*n)) ) ABORT("Malloc fails for perm_c[].");
-	if ( !(etree = intMalloc(*n)) ) ABORT("Malloc fails for etree[].");
+    zCreate_CompCol_Matrix(&A, *n, *n, *nnz, values, rowind0, colptr0,
+                   SLU_NC, SLU_Z, SLU_GE);
+    L = (SuperMatrix *) SUPERLU_MALLOC( sizeof(SuperMatrix) );
+    U = (SuperMatrix *) SUPERLU_MALLOC( sizeof(SuperMatrix) );
+    if ( !(perm_r = intMalloc(*n)) ) ABORT("Malloc fails for perm_r[].");
+    if ( !(perm_c = intMalloc(*n)) ) ABORT("Malloc fails for perm_c[].");
+    if ( !(etree = intMalloc(*n)) ) ABORT("Malloc fails for etree[].");
 
-	/*
-	 * Get column permutation vector perm_c[], according to permc_spec:
-	 *   permc_spec = 0: natural ordering 
-	 *   permc_spec = 1: minimum degree on structure of A'*A
-	 *   permc_spec = 2: minimum degree on structure of A'+A
-	 *   permc_spec = 3: approximate minimum degree for unsymmetric matrices
-	 */    	
-	permc_spec = options.ColPerm;
-	get_perm_c(permc_spec, &A, perm_c);
-	
-	sp_preorder(&options, &A, perm_c, etree, &AC);
+    /*
+     * Get column permutation vector perm_c[], according to permc_spec:
+     *   permc_spec = 0: natural ordering
+     *   permc_spec = 1: minimum degree on structure of A'*A
+     *   permc_spec = 2: minimum degree on structure of A'+A
+     *   permc_spec = 3: approximate minimum degree for unsymmetric matrices
+     */
+    permc_spec = options.ColPerm;
+    get_perm_c(permc_spec, &A, perm_c);
 
-	panel_size = sp_ienv(1);
-	relax = sp_ienv(2);
+    sp_preorder(&options, &A, perm_c, etree, &AC);
 
-	zgstrf(&options, &AC, relax, panel_size, etree,
+    panel_size = sp_ienv(1);
+    relax = sp_ienv(2);
+
+    zgstrf(&options, &AC, relax, panel_size, etree,
                 NULL, 0, perm_c, perm_r, L, U, &Glu, &stat, info);
 
-	if ( *info == 0 ) {
-	    Lstore = (SCformat *) L->Store;
-	    Ustore = (NCformat *) U->Store;
-	    printf("No of nonzeros in factor L = %d\n", Lstore->nnz);
-	    printf("No of nonzeros in factor U = %d\n", Ustore->nnz);
-	    printf("No of nonzeros in L+U = %d\n", Lstore->nnz + Ustore->nnz);
-	    zQuerySpace(L, U, &mem_usage);
-	    printf("L\\U MB %.3f\ttotal MB needed %.3f\n",
-		   mem_usage.for_lu/1e6, mem_usage.total_needed/1e6);
-	} else {
-	    printf("zgstrf() error returns INFO= %d\n", *info);
-	    if ( *info <= *n ) { /* factorization completes */
-		zQuerySpace(L, U, &mem_usage);
-		printf("L\\U MB %.3f\ttotal MB needed %.3f\n",
-		       mem_usage.for_lu/1e6, mem_usage.total_needed/1e6);
-	    }
-	}
-	
-	/* Save the LU factors in the factors handle */
-	LUfactors = (factors_t*) SUPERLU_MALLOC(sizeof(factors_t));
-	LUfactors->L = L;
-	LUfactors->U = U;
-	LUfactors->perm_c = perm_c;
-	LUfactors->perm_r = perm_r;
-	*f_factors = (fptr) LUfactors;
+    if ( *info == 0 ) {
+        Lstore = (SCformat *) L->Store;
+        Ustore = (NCformat *) U->Store;
+        printf("No of nonzeros in factor L = %d\n", Lstore->nnz);
+        printf("No of nonzeros in factor U = %d\n", Ustore->nnz);
+        printf("No of nonzeros in L+U = %d\n", Lstore->nnz + Ustore->nnz);
+        zQuerySpace(L, U, &mem_usage);
+        printf("L\\U MB %.3f\ttotal MB needed %.3f\n",
+           mem_usage.for_lu/1e6, mem_usage.total_needed/1e6);
+    } else {
+        printf("zgstrf() error returns INFO= %d\n", *info);
+        if ( *info <= *n ) { /* factorization completes */
+        zQuerySpace(L, U, &mem_usage);
+        printf("L\\U MB %.3f\ttotal MB needed %.3f\n",
+               mem_usage.for_lu/1e6, mem_usage.total_needed/1e6);
+        }
+    }
 
-	/* Free un-wanted storage */
-	SUPERLU_FREE(etree);
-	Destroy_SuperMatrix_Store(&A);
-	Destroy_CompCol_Permuted(&AC);
-	SUPERLU_FREE(rowind0);
-	SUPERLU_FREE(colptr0);
-	StatFree(&stat);
+    /* Save the LU factors in the factors handle */
+    LUfactors = (factors_t*) SUPERLU_MALLOC(sizeof(factors_t));
+    LUfactors->L = L;
+    LUfactors->U = U;
+    LUfactors->perm_c = perm_c;
+    LUfactors->perm_r = perm_r;
+    *f_factors = (fptr) LUfactors;
+
+    /* Free un-wanted storage */
+    SUPERLU_FREE(etree);
+    Destroy_SuperMatrix_Store(&A);
+    Destroy_CompCol_Permuted(&AC);
+    SUPERLU_FREE(rowind0);
+    SUPERLU_FREE(colptr0);
+    StatFree(&stat);
 
     } else if ( *iopt == 2 ) { /* Triangular solve */
-	/* Initialize the statistics variables. */
-	StatInit(&stat);
+    /* Initialize the statistics variables. */
+    StatInit(&stat);
 
-	/* Extract the LU factors in the factors handle */
-	LUfactors = (factors_t*) *f_factors;
-	L = LUfactors->L;
-	U = LUfactors->U;
-	perm_c = LUfactors->perm_c;
-	perm_r = LUfactors->perm_r;
+    /* Extract the LU factors in the factors handle */
+    LUfactors = (factors_t*) *f_factors;
+    L = LUfactors->L;
+    U = LUfactors->U;
+    perm_c = LUfactors->perm_c;
+    perm_r = LUfactors->perm_r;
 
-	zCreate_Dense_Matrix(&B, *n, *nrhs, b, *ldb, SLU_DN, SLU_Z, SLU_GE);
+    zCreate_Dense_Matrix(&B, *n, *nrhs, b, *ldb, SLU_DN, SLU_Z, SLU_GE);
 
         /* Solve the system A*X=B, overwriting B with X. */
         zgstrs (trans, L, U, perm_c, perm_r, &B, &stat, info);
 
-	Destroy_SuperMatrix_Store(&B);
-	StatFree(&stat);
+    Destroy_SuperMatrix_Store(&B);
+    StatFree(&stat);
 
     } else if ( *iopt == 3 ) { /* Free storage */
-	/* Free the LU factors in the factors handle */
-	LUfactors = (factors_t*) *f_factors;
-	SUPERLU_FREE (LUfactors->perm_r);
-	SUPERLU_FREE (LUfactors->perm_c);
-	Destroy_SuperNode_Matrix(LUfactors->L);
-	Destroy_CompCol_Matrix(LUfactors->U);
+    /* Free the LU factors in the factors handle */
+    LUfactors = (factors_t*) *f_factors;
+    SUPERLU_FREE (LUfactors->perm_r);
+    SUPERLU_FREE (LUfactors->perm_c);
+    Destroy_SuperNode_Matrix(LUfactors->L);
+    Destroy_CompCol_Matrix(LUfactors->U);
         SUPERLU_FREE (LUfactors->L);
         SUPERLU_FREE (LUfactors->U);
-	SUPERLU_FREE (LUfactors);
+    SUPERLU_FREE (LUfactors);
     } else {
-	fprintf(stderr,"Invalid iopt=%d passed to c_fortran_zgssv()\n",*iopt);
-	exit(-1);
+    fprintf(stderr,"Invalid iopt=%d passed to c_fortran_zgssv()\n",*iopt);
+    exit(-1);
     }
 }
-
-

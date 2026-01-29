@@ -122,7 +122,7 @@ if(INSTALL_KIM_SYMLINK)
             ${CMAKE_BINARY_DIR}/kim_symlink_temp
         DEPENDS KIM.x
     )
-    
+
     install(CODE "
         set(KIM_EXECUTABLE \"${CMAKE_INSTALL_PREFIX}/bin/KIM.x\")
         if(NOT EXISTS \${KIM_EXECUTABLE})

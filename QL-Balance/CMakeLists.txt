@@ -103,7 +103,7 @@ set(balance_lib_cpp_sources
     ${base_balance_src}/cvodeint.cpp
 )
 
-add_library(ql-balance_lib STATIC ${balance_lib_base_fortran_sources} 
+add_library(ql-balance_lib STATIC ${balance_lib_base_fortran_sources}
                                     ${balance_lib_stellarator_fortran_sources}
                                     ${balance_lib_cpp_sources})
 

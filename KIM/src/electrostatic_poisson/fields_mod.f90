@@ -87,7 +87,7 @@ module fields_m
         if (.not. allocated(coef)) allocate(coef(0:nder, nlagr))
 
         do i = 1, size(EBdat_in%r_grid)
-            call binsrc(plasma_in%r_grid, 1, size(plasma_in%r_grid), EBdat_in%r_grid(i), ir) 
+            call binsrc(plasma_in%r_grid, 1, size(plasma_in%r_grid), EBdat_in%r_grid(i), ir)
             ibeg = max(1, ir - nlagr/2)
             iend = ibeg + nlagr - 1
             if (iend .gt. size(plasma_in%r_grid)) then
@@ -101,7 +101,7 @@ module fields_m
             ks_int = sum(coef(0,:) * plasma_in%ks(ibeg:iend))
             kp_int = sum(coef(0,:) * plasma_in%kp(ibeg:iend))
 
-            call binsrc(plasma_in%r_grid, 1, plasma_in%grid_size, EBdat_in%r_grid(i), ir) 
+            call binsrc(plasma_in%r_grid, 1, plasma_in%grid_size, EBdat_in%r_grid(i), ir)
             ibeg = max(1, ir - nlagr/2)
             iend = ibeg + nlagr - 1
             if (iend .gt. size(plasma_in%r_grid)) then
@@ -141,7 +141,7 @@ module fields_m
         if (.not. allocated(EBdat_in%phi_aligned)) allocate(EBdat_in%phi_aligned(xl_grid%npts_b))
 
         do i = 1, xl_grid%npts_b
-            call binsrc(plasma_in%r_grid, 1, size(plasma_in%r_grid), xl_grid%xb(i), ir) 
+            call binsrc(plasma_in%r_grid, 1, size(plasma_in%r_grid), xl_grid%xb(i), ir)
             ibeg = max(1, ir - nlagr/2)
             iend = ibeg + nlagr - 1
             if (iend .gt. size(plasma_in%r_grid)) then
@@ -178,7 +178,7 @@ module fields_m
         if (.not. allocated(coef)) allocate(coef(0:nder, nlagr))
 
         do i=1, size(EBdat_in%r_grid)
-            call binsrc(plasma%r_grid, 1, size(plasma%r_grid), EBdat_in%r_grid(i), ir) 
+            call binsrc(plasma%r_grid, 1, size(plasma%r_grid), EBdat_in%r_grid(i), ir)
             ibeg = max(1, ir - nlagr/2)
             iend = ibeg + nlagr - 1
             if (iend .gt. size(plasma%r_grid)) then
@@ -221,7 +221,7 @@ module fields_m
         if (.not. allocated(EBdat_in%Phi_MA)) allocate(EBdat_in%Phi_MA(size(EBdat_in%r_grid)))
 
         do i = 1, size(EBdat_in%r_grid)
-            call binsrc(plasma_in%r_grid, 1, size(plasma_in%r_grid), EBdat_in%r_grid(i), ir) 
+            call binsrc(plasma_in%r_grid, 1, size(plasma_in%r_grid), EBdat_in%r_grid(i), ir)
             ibeg = max(1, ir - nlagr/2)
             iend = ibeg + nlagr - 1
             if (iend .gt. size(plasma_in%r_grid)) then
@@ -289,7 +289,7 @@ module fields_m
         close(10)
 
         do i = 1, size(EBdat_in%r_grid)
-            call binsrc(r_in, 1, size(r_in), EBdat_in%r_grid(i), ir) 
+            call binsrc(r_in, 1, size(r_in), EBdat_in%r_grid(i), ir)
             ibeg = max(1, ir - nlagr/2)
             iend = ibeg + nlagr - 1
             if (iend .gt. size(r_in)) then
@@ -349,7 +349,7 @@ module fields_m
         if (.not. allocated(coef)) allocate(coef(0:nder, nlagr))
 
         do i = 1, size(EBdat%r_grid)
-            call binsrc(equil_grid, 1, size(equil_grid), EBdat%r_grid(i), ir) 
+            call binsrc(equil_grid, 1, size(equil_grid), EBdat%r_grid(i), ir)
             ibeg = max(1, ir - nlagr/2)
             iend = ibeg + nlagr - 1
             if (iend .gt. size(equil_grid)) then
@@ -420,7 +420,7 @@ module fields_m
             call write_complex_profile_abs(xl_grid%xb, EBdat%Phi_aligned, xl_grid%npts_b, "/fields/Phi_aligned", &
                 'Electrostatic potential aligned with magnetic field perturbation', 'statV')
         end if
-    
+
     end subroutine
 
 
@@ -451,7 +451,7 @@ module fields_m
 
         do i = 1, size(plasma%r_grid)
 
-            call binsrc(EBdat%r_grid, 1, size(EBdat%r_grid), plasma%r_grid(i), ir) 
+            call binsrc(EBdat%r_grid, 1, size(EBdat%r_grid), plasma%r_grid(i), ir)
             ibeg = max(1, ir - nlagr/2)
             iend = ibeg + nlagr - 1
             if (iend .gt. size(EBdat%r_grid)) then
@@ -519,4 +519,3 @@ module fields_m
     end subroutine
 
 end module
-

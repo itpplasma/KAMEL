@@ -69,12 +69,12 @@ C   930201  Added DEC Alpha and SGI constants.  (RWC and WRB)
 C***END PROLOGUE  R1MACH
 C
 C
-	external slamch
+      external slamch
       REAL RMACH(5),slamch
-	integer iflag
+      integer iflag
 
       SAVE RMACH,iflag
-	data iflag/0/
+      data iflag/0/
 C
 C
 C     MACHINE CONSTANTS FOR THE AMIGA
@@ -407,15 +407,15 @@ C***FIRST EXECUTABLE STATEMENT  R1MACH
       IF (I .LT. 1 .OR. I .GT. 5) CALL XERMSG ('SLATEC', 'R1MACH',
      +   'I OUT OF BOUNDS', 1, 2)
 C
-	if (iflag.eq.0) then
-	   iflag=1
-	   rmach(1)=slamch('u')
-	   rmach(2)=slamch('o')
-	   rmach(3)=slamch('e')
-	   rmach(4)=slamch('p')
-	   rmach(5)=slamch('b')
-	   rmach(5)=log10(rmach(5))
-	endif
+      if (iflag.eq.0) then
+         iflag=1
+         rmach(1)=slamch('u')
+         rmach(2)=slamch('o')
+         rmach(3)=slamch('e')
+         rmach(4)=slamch('p')
+         rmach(5)=slamch('b')
+         rmach(5)=log10(rmach(5))
+      endif
       R1MACH = RMACH(I)
       RETURN
 C

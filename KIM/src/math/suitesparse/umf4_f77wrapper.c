@@ -38,8 +38,8 @@
  * flexible format for the input matrix.  The following defintions apply
  * for each of the routines in this file:
  *
- *	integer m, n, Ap (n+1), Ai (nz), symbolic, numeric, filenum, status
- *	double precision Ax (nz), control (20), info (90), x (n), b (n)
+ *  integer m, n, Ap (n+1), Ai (nz), symbolic, numeric, filenum, status
+ *  double precision Ax (nz), control (20), info (90), x (n), b (n)
  *
  * UMFPACK's status is returned in either a status argument, or in info (1).
  * It is zero if everything is OK, 1 if the matrix is singular (this is a
@@ -61,15 +61,15 @@
  * Your FORTRAN code should use integer*8.  See umf4hb64.f for an example.
  *
  * Tested with the following compilers:
- *	* Solaris with cc and f77 from Sun WorkShop 6 update 1
- *	    (32-bit and 64-bit modes)
- *	* SGI Irix with MIPSpro cc and f77 compilers version 7.4
- *	    (32-bit and 64-bit modes)
- *	* Linux with GNU gcc and Intel's icc, and GNU g77 and Intel's
- *	    ifc FORTRAN compiler.  See the comments above about g77 and
- *	    underscores.  Only supports 32-bit mode.
- *	* IBM AIX xlc and xlf compilers.
- *	    (32-bit and 64-bit modes)
+ *  * Solaris with cc and f77 from Sun WorkShop 6 update 1
+ *      (32-bit and 64-bit modes)
+ *  * SGI Irix with MIPSpro cc and f77 compilers version 7.4
+ *      (32-bit and 64-bit modes)
+ *  * Linux with GNU gcc and Intel's icc, and GNU g77 and Intel's
+ *      ifc FORTRAN compiler.  See the comments above about g77 and
+ *      underscores.  Only supports 32-bit mode.
+ *  * IBM AIX xlc and xlf compilers.
+ *      (32-bit and 64-bit modes)
  *
  * This interface files when using the ABSOFT Fortran compiler on both
  * Linux and Windows.  There is no known fix.
@@ -91,36 +91,36 @@
 #if defined (DLONG)
 
 #define Int SuiteSparse_long
-#define UMFPACK_defaults	 umfpack_dl_defaults
-#define UMFPACK_free_numeric	 umfpack_dl_free_numeric
-#define UMFPACK_free_symbolic	 umfpack_dl_free_symbolic
-#define UMFPACK_numeric		 umfpack_dl_numeric
-#define UMFPACK_report_control	 umfpack_dl_report_control
-#define UMFPACK_report_info	 umfpack_dl_report_info
-#define UMFPACK_save_numeric	 umfpack_dl_save_numeric
-#define UMFPACK_save_symbolic	 umfpack_dl_save_symbolic
-#define UMFPACK_load_numeric	 umfpack_dl_load_numeric
-#define UMFPACK_load_symbolic	 umfpack_dl_load_symbolic
-#define UMFPACK_scale		 umfpack_dl_scale
-#define UMFPACK_solve		 umfpack_dl_solve
-#define UMFPACK_symbolic	 umfpack_dl_symbolic
+#define UMFPACK_defaults     umfpack_dl_defaults
+#define UMFPACK_free_numeric     umfpack_dl_free_numeric
+#define UMFPACK_free_symbolic    umfpack_dl_free_symbolic
+#define UMFPACK_numeric      umfpack_dl_numeric
+#define UMFPACK_report_control   umfpack_dl_report_control
+#define UMFPACK_report_info  umfpack_dl_report_info
+#define UMFPACK_save_numeric     umfpack_dl_save_numeric
+#define UMFPACK_save_symbolic    umfpack_dl_save_symbolic
+#define UMFPACK_load_numeric     umfpack_dl_load_numeric
+#define UMFPACK_load_symbolic    umfpack_dl_load_symbolic
+#define UMFPACK_scale        umfpack_dl_scale
+#define UMFPACK_solve        umfpack_dl_solve
+#define UMFPACK_symbolic     umfpack_dl_symbolic
 
 #else
 
 #define Int int
-#define UMFPACK_defaults	 umfpack_di_defaults
-#define UMFPACK_free_numeric	 umfpack_di_free_numeric
-#define UMFPACK_free_symbolic	 umfpack_di_free_symbolic
-#define UMFPACK_numeric		 umfpack_di_numeric
-#define UMFPACK_report_control	 umfpack_di_report_control
-#define UMFPACK_report_info	 umfpack_di_report_info
-#define UMFPACK_save_numeric	 umfpack_di_save_numeric
-#define UMFPACK_save_symbolic	 umfpack_di_save_symbolic
-#define UMFPACK_load_numeric	 umfpack_di_load_numeric
-#define UMFPACK_load_symbolic	 umfpack_di_load_symbolic
-#define UMFPACK_scale		 umfpack_di_scale
-#define UMFPACK_solve		 umfpack_di_solve
-#define UMFPACK_symbolic	 umfpack_di_symbolic
+#define UMFPACK_defaults     umfpack_di_defaults
+#define UMFPACK_free_numeric     umfpack_di_free_numeric
+#define UMFPACK_free_symbolic    umfpack_di_free_symbolic
+#define UMFPACK_numeric      umfpack_di_numeric
+#define UMFPACK_report_control   umfpack_di_report_control
+#define UMFPACK_report_info  umfpack_di_report_info
+#define UMFPACK_save_numeric     umfpack_di_save_numeric
+#define UMFPACK_save_symbolic    umfpack_di_save_symbolic
+#define UMFPACK_load_numeric     umfpack_di_load_numeric
+#define UMFPACK_load_symbolic    umfpack_di_load_symbolic
+#define UMFPACK_scale        umfpack_di_scale
+#define UMFPACK_solve        umfpack_di_solve
+#define UMFPACK_symbolic     umfpack_di_symbolic
 
 #endif
 
@@ -140,7 +140,7 @@ static void make_filename (Int filenum, char *prefix, char *filename)
     pdst = filename ;
     for (psrc = filename ; *psrc ; psrc++)
     {
-	if (!isspace (*psrc)) *pdst++ = *psrc ;
+    if (!isspace (*psrc)) *pdst++ = *psrc ;
     }
     *pdst = '\0' ;
 }
@@ -225,7 +225,7 @@ void umf4sol_ (Int *sys, double x [ ], double b [ ], void **Numeric,
 {
     Control [UMFPACK_IRSTEP] = 0 ;
     (void) UMFPACK_solve (*sys, (Int *) NULL, (Int *) NULL, (double *) NULL,
-	x, b, *Numeric, Control, Info) ;
+    x, b, *Numeric, Control, Info) ;
 }
 
 /* -------------------------------------------------------------------------- */
@@ -406,7 +406,7 @@ void umf4sol (Int *sys, double x [ ], double b [ ], void **Numeric,
 {
     Control [UMFPACK_IRSTEP] = 0 ;
     (void) UMFPACK_solve (*sys, (Int *) NULL, (Int *) NULL, (double *) NULL,
-	x, b, *Numeric, Control, Info) ;
+    x, b, *Numeric, Control, Info) ;
 }
 
 /* -------------------------------------------------------------------------- */

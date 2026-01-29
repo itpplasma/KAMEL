@@ -16,7 +16,7 @@ module paramscan_mod
     real(dp), DIMENSION(:,:,:,:), ALLOCATABLE :: Er_res
     real(dp), DIMENSION(:, :, :, :), ALLOCATABLE :: br_abs_res_parscan
     real(dp), DIMENSION(:, :, :, :), ALLOCATABLE :: dqle22_res
-    
+
     type, extends(balance_t) :: ParameterScan_t
         contains
             procedure :: init_balance => initParameterScan
@@ -50,7 +50,7 @@ module paramscan_mod
             mwind = 10
             write_diag = .false.
             write_diag_b = .false.
-    
+
             if (gyro_current_study .ne. 0) then
                 write_gyro_current = .true.
             else
@@ -84,7 +84,7 @@ module paramscan_mod
         use transp_coeffs_mod, only: rescale_transp_coeffs_by_ant_fac
         use parallelTools, only: irank
         use plasma_parameters, only: alloc_hold_parameters
-            
+
         implicit none
 
         class(ParameterScan_t), intent(inout) :: this
@@ -301,7 +301,7 @@ module paramscan_mod
         call binsrc(rb, 1, npoib, r_resonant(1), indResRadius)
         call get_ind_Lagr_interp(indResRadius, ind_begin_interp, ind_end_interp)
         call plag_coeff(nlagr, nder, r_resonant(1), rb(ind_begin_interp:ind_end_interp), coef)
-        
+
         dqle22_res(ifac_n, ifac_Te, ifac_Ti, ifac_vz) = sum(coef(0, :) * dqle22(ind_begin_interp:ind_end_interp))
         br_abs_res_parscan(ifac_n, ifac_Te, ifac_Ti, ifac_vz) = sum(coef(0, :) &
             * abs(Br(ind_begin_interp:ind_end_interp)))*sqrt(antenna_factor)
@@ -320,7 +320,7 @@ module paramscan_mod
             if (debug_mode) write (*, *) "Er_res = ", Er_res(ifac_n, ifac_Te, ifac_Ti, ifac_vz)
         end if
 
-    end subroutine 
+    end subroutine
 
     !> @brief subroutine create_group_structure_paramscan. Creates the group structure in the hdf5 file.
     !> @author  Markus Markl
@@ -355,7 +355,7 @@ module paramscan_mod
                             write (parscan_str, "(A,F0.3,A,F0.3,A,F0.3,A,F0.3)") &
                                 "n", fac_n(ifac_n), "Te", fac_Te(ifac_Te), &
                                 "Ti", fac_Ti(ifac_Ti), "vz", fac_vz(ifac_vz)
-                            
+
                             if (numres .eq. 1) then
                                 if (m_vals(1) < 10) then
                                     write (h5_mode_groupname, "(A,I1,A,I1,A,A)") &
@@ -485,7 +485,7 @@ module paramscan_mod
                             ubound(reshape(dqle22_res, (/size(dqle22_res)/))))
         CALL h5_add_double_1(h5_id, trim(h5_mode_groupname)//'/dqle22', &
                                 dqle22, lbound(dqle22), ubound(dqle22))
- 
+
         CALL h5_close(h5_id)
         CALL h5_deinit()
 

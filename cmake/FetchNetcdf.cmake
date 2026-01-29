@@ -4,7 +4,7 @@ if (NF_CONFIG)
 execute_process(COMMAND nf-config --includedir
                 OUTPUT_VARIABLE NETCDFINCLUDE_DIR)
 execute_process(COMMAND nc-config --libdir
-				OUTPUT_VARIABLE NETCDFLIB_DIR)
+                OUTPUT_VARIABLE NETCDFLIB_DIR)
 execute_process(COMMAND nf-config --flibs
                 OUTPUT_VARIABLE NETCDF_FLIBS)
 else()

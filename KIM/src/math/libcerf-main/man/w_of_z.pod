@@ -40,7 +40,7 @@ e.g. in the vicinity of z=1+i.
 
 To compute Im[w(x)], Chebyshev polynomials and continous fractions are used.
 
-Milton Abramowitz and Irene M. Stegun, "Handbook of Mathematical Functions", National Bureau of Standards (1964): Formula (7.1.3) introduces the nameless function w(z). 
+Milton Abramowitz and Irene M. Stegun, "Handbook of Mathematical Functions", National Bureau of Standards (1964): Formula (7.1.3) introduces the nameless function w(z).
 
 Walter Gautschi, "Efficient computation of the complex error function," SIAM J. Numer. Anal. 7, 187 (1970).
 

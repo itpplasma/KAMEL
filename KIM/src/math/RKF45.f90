@@ -210,7 +210,7 @@ module RKF45_mod
         real(dp) :: ymax
         real(dp), parameter :: safety = 0.9d0
         real(dp), parameter :: min_scale = 0.1d0, max_scale = 5.0d0
-        
+
 
         interface
             function f(x, context)

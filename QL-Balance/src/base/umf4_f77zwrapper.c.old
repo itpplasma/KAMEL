@@ -38,36 +38,36 @@
 #if defined (ZLONG)
 
 #define Int UF_long
-#define UMFPACK_defaults	 umfpack_zl_defaults
-#define UMFPACK_free_numeric	 umfpack_zl_free_numeric
-#define UMFPACK_free_symbolic	 umfpack_zl_free_symbolic
-#define UMFPACK_numeric		 umfpack_zl_numeric
-#define UMFPACK_report_control	 umfpack_zl_report_control
-#define UMFPACK_report_info	 umfpack_zl_report_info
-#define UMFPACK_save_numeric	 umfpack_zl_save_numeric
-#define UMFPACK_save_symbolic	 umfpack_zl_save_symbolic
-#define UMFPACK_load_numeric	 umfpack_zl_load_numeric
-#define UMFPACK_load_symbolic	 umfpack_zl_load_symbolic
-#define UMFPACK_scale		 umfpack_zl_scale
-#define UMFPACK_solve		 umfpack_zl_solve
-#define UMFPACK_symbolic	 umfpack_zl_symbolic
+#define UMFPACK_defaults     umfpack_zl_defaults
+#define UMFPACK_free_numeric     umfpack_zl_free_numeric
+#define UMFPACK_free_symbolic    umfpack_zl_free_symbolic
+#define UMFPACK_numeric      umfpack_zl_numeric
+#define UMFPACK_report_control   umfpack_zl_report_control
+#define UMFPACK_report_info  umfpack_zl_report_info
+#define UMFPACK_save_numeric     umfpack_zl_save_numeric
+#define UMFPACK_save_symbolic    umfpack_zl_save_symbolic
+#define UMFPACK_load_numeric     umfpack_zl_load_numeric
+#define UMFPACK_load_symbolic    umfpack_zl_load_symbolic
+#define UMFPACK_scale        umfpack_zl_scale
+#define UMFPACK_solve        umfpack_zl_solve
+#define UMFPACK_symbolic     umfpack_zl_symbolic
 
 #else
 
 #define Int int
-#define UMFPACK_defaults	 umfpack_zi_defaults
-#define UMFPACK_free_numeric	 umfpack_zi_free_numeric
-#define UMFPACK_free_symbolic	 umfpack_zi_free_symbolic
-#define UMFPACK_numeric		 umfpack_zi_numeric
-#define UMFPACK_report_control	 umfpack_zi_report_control
-#define UMFPACK_report_info	 umfpack_zi_report_info
-#define UMFPACK_save_numeric	 umfpack_zi_save_numeric
-#define UMFPACK_save_symbolic	 umfpack_zi_save_symbolic
-#define UMFPACK_load_numeric	 umfpack_zi_load_numeric
-#define UMFPACK_load_symbolic	 umfpack_zi_load_symbolic
-#define UMFPACK_scale		 umfpack_zi_scale
-#define UMFPACK_solve		 umfpack_zi_solve
-#define UMFPACK_symbolic	 umfpack_zi_symbolic
+#define UMFPACK_defaults     umfpack_zi_defaults
+#define UMFPACK_free_numeric     umfpack_zi_free_numeric
+#define UMFPACK_free_symbolic    umfpack_zi_free_symbolic
+#define UMFPACK_numeric      umfpack_zi_numeric
+#define UMFPACK_report_control   umfpack_zi_report_control
+#define UMFPACK_report_info  umfpack_zi_report_info
+#define UMFPACK_save_numeric     umfpack_zi_save_numeric
+#define UMFPACK_save_symbolic    umfpack_zi_save_symbolic
+#define UMFPACK_load_numeric     umfpack_zi_load_numeric
+#define UMFPACK_load_symbolic    umfpack_zi_load_symbolic
+#define UMFPACK_scale        umfpack_zi_scale
+#define UMFPACK_solve        umfpack_zi_solve
+#define UMFPACK_symbolic     umfpack_zi_symbolic
 
 #endif
 
@@ -87,7 +87,7 @@ static void make_filename (Int filenum, char *prefix, char *filename)
     pdst = filename ;
     for (psrc = filename ; *psrc ; psrc++)
     {
-	if (!isspace (*psrc)) *pdst++ = *psrc ;
+    if (!isspace (*psrc)) *pdst++ = *psrc ;
     }
     *pdst = '\0' ;
 }
@@ -159,7 +159,7 @@ void umf4zsolr_ (Int *sys, Int Ap [ ], Int Ai [ ], double Ax [ ], double Az [ ],
     double Control [UMFPACK_CONTROL], double Info [UMFPACK_INFO])
 {
     (void) UMFPACK_solve (*sys, Ap, Ai, Ax, Az, x, xz, b, bz,
-	*Numeric, Control, Info) ;
+    *Numeric, Control, Info) ;
 }
 
 /* -------------------------------------------------------------------------- */
@@ -174,7 +174,7 @@ void umf4zsol_ (Int *sys, double x [ ], double xz [ ], double b [ ],
 {
     Control [UMFPACK_IRSTEP] = 0 ;
     (void) UMFPACK_solve (*sys, (Int *) NULL, (Int *) NULL, (double *) NULL,
-	(double *) NULL, x, xz, b, bz, *Numeric, Control, Info) ;
+    (double *) NULL, x, xz, b, bz, *Numeric, Control, Info) ;
 }
 
 /* -------------------------------------------------------------------------- */
@@ -343,7 +343,7 @@ void umf4zsolr (Int *sys, Int Ap [ ], Int Ai [ ], double Ax [ ], double Az [ ],
     double Control [UMFPACK_CONTROL], double Info [UMFPACK_INFO])
 {
     (void) UMFPACK_solve (*sys, Ap, Ai, Ax, Az, x, xz, b, bz,
-	*Numeric, Control, Info) ;
+    *Numeric, Control, Info) ;
 }
 
 /* -------------------------------------------------------------------------- */
@@ -358,7 +358,7 @@ void umf4zsol (Int *sys, double x [ ], double xz [ ], double b [ ],
 {
     Control [UMFPACK_IRSTEP] = 0 ;
     (void) UMFPACK_solve (*sys, (Int *) NULL, (Int *) NULL, (double *) NULL,
-	(double *) NULL, x, xz, b, bz, *Numeric, Control, Info) ;
+    (double *) NULL, x, xz, b, bz, *Numeric, Control, Info) ;
 }
 
 /* -------------------------------------------------------------------------- */
@@ -459,4 +459,3 @@ void umf4zlsym (void **Symbolic, Int *filenum, Int *status)
     make_filename (*filenum, "s", filename) ;
     *status = UMFPACK_load_symbolic (Symbolic, filename) ;
 }
-

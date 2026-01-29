@@ -17,10 +17,10 @@
 
 
 More detailed comments on switches.
-Axisymmetric equilibrium is called in all cases. If some routines are not 
+Axisymmetric equilibrium is called in all cases. If some routines are not
 called, their data is not required.
 
-Perturbation switch "ipert": 
+Perturbation switch "ipert":
 0 - axisymmetric equilibrium is called alone (can be run withot coild data
     and resonance plasma response data)
 1 - cylindrical routine is called in addition to equilibrium (plasma response
@@ -30,7 +30,7 @@ Perturbation switch "ipert":
 3 - the same as 2 with computation of derivatives (7 times slower)
 
 Equilibrium switch "iequil":
-0 - equilibrium field is not added to the output (needed for computing the 
+0 - equilibrium field is not added to the output (needed for computing the
     perturbation field alone). The equilibrium routine is called - its
     data is needed for plasma response field. For future: this call can be
     disabled for stellarator modelling.

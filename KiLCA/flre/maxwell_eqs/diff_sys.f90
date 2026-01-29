@@ -36,9 +36,9 @@ v_sys = cmplx(0.d0,0.d0,dpc)
 
 !filling system and state vector (partly):
 do k = 1,3
-	do i=0,dim_Ersp_state(k)-1
-		v_sys(iErsp_sys(k)+i) = v_state(iErsp_state(k)+i)
-	end do
+    do i=0,dim_Ersp_state(k)-1
+        v_sys(iErsp_sys(k)+i) = v_state(iErsp_state(k)+i)
+    end do
 end do
 
 !only last derivatives of E are left unknown: solve the system:
@@ -201,9 +201,9 @@ complex(dpc), dimension(num_eqs) :: rhs
 integer :: k, i
 
 do k = 1,3
-	do i=0,dim_Ersp_state(k)-2
-		dv_state(iErsp_state(k)+i) = v_state(iErsp_state(k)+i+1)
-	end do
+    do i=0,dim_Ersp_state(k)-2
+        dv_state(iErsp_state(k)+i) = v_state(iErsp_state(k)+i+1)
+    end do
 end do
 
 rhs = cmplx(0.0d0, 0.0d0, dpc)
@@ -213,10 +213,10 @@ call state2sys (r, flagback, v_state, v_sys, rhs)
 
 !set last derivatives:
 do k = 1,3
-	i = dim_Ersp_state(k)-1
-	if (dim_Ersp_state(k) > 0) then
-		dv_state(iErsp_state(k)+i) = v_sys(iErsp_sys(k)+i+1)
-	end if
+    i = dim_Ersp_state(k)-1
+    if (dim_Ersp_state(k) > 0) then
+        dv_state(iErsp_state(k)+i) = v_sys(iErsp_sys(k)+i+1)
+    end if
 end do
 
 end subroutine

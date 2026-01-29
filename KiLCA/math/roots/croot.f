@@ -166,7 +166,7 @@ C       DEFAULT VALUES OF METHOD PARAMETERS
         TOLINT=1.E-3  !1.E-3
         TINT  =1.E-2  !1.E-2
 
-	ADJO  =1.05
+    ADJO  =1.05
         ADJI  =0.95
         ADJT  =0.05
         TCROOT=3

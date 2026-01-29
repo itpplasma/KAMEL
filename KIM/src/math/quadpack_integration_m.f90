@@ -4,7 +4,7 @@ module quadpack_integration_m
 
     use KIM_kinds_m, only: dp
     use integrands_rkf45_m, only: rkf45_integrand_context_t
-    
+
     implicit none
     private
 
@@ -74,7 +74,7 @@ module quadpack_integration_m
     subroutine cleanup_quadpack_module()
         ! Cleanup module resources
         implicit none
-        
+
         module_initialized = .false.
 
         ! Deallocate any thread-local workspaces
@@ -84,7 +84,7 @@ module quadpack_integration_m
         work_limit_tl = 0
         work_lenw_tl  = 0
         !$omp end parallel
-        
+
     end subroutine cleanup_quadpack_module
 
     subroutine set_thread_context(context)
@@ -108,13 +108,13 @@ module quadpack_integration_m
         real(dp), intent(in) :: theta
         real(dp) :: val
         type(rkf45_integrand_context_t) :: context
-        
+
         ! Retrieve context for this thread
         context = get_thread_context()
-        
+
         ! Call the actual integrand with context
         val = rkf45_integrand_F1(theta, context)
-        
+
     end function quadpack_wrapper_F1
 
     function quadpack_wrapper_F2(theta) result(val)
@@ -123,10 +123,10 @@ module quadpack_integration_m
         real(dp), intent(in) :: theta
         real(dp) :: val
         type(rkf45_integrand_context_t) :: context
-        
+
         context = get_thread_context()
         val = rkf45_integrand_F2(theta, context)
-        
+
     end function quadpack_wrapper_F2
 
     function quadpack_wrapper_F3(theta) result(val)
@@ -135,10 +135,10 @@ module quadpack_integration_m
         real(dp), intent(in) :: theta
         real(dp) :: val
         type(rkf45_integrand_context_t) :: context
-        
+
         context = get_thread_context()
         val = rkf45_integrand_F3(theta, context)
-        
+
     end function quadpack_wrapper_F3
 
     ! U-substitution wrapper functions (u = sin(theta/2))
@@ -149,16 +149,16 @@ module quadpack_integration_m
         real(dp) :: val
         real(dp) :: theta, jac, uu
         type(rkf45_integrand_context_t) :: context
-        
+
         context = get_thread_context()
-        
+
         ! Transform from u to theta with Jacobian
         uu = min(max(u, -1.0d0), 1.0d0)  ! Ensure u in [-1, 1]
         theta = 2.0d0 * asin(uu)
         jac = 2.0d0 / max(sqrt(1.0d0 - uu*uu), 1.0d-300)
-        
+
         val = rkf45_integrand_F1(theta, context) * jac
-        
+
     end function quadpack_wrapper_F1_u
 
     function quadpack_wrapper_F2_u(u) result(val)
@@ -168,15 +168,15 @@ module quadpack_integration_m
         real(dp) :: val
         real(dp) :: theta, jac, uu
         type(rkf45_integrand_context_t) :: context
-        
+
         context = get_thread_context()
-        
+
         uu = min(max(u, -1.0d0), 1.0d0)
         theta = 2.0d0 * asin(uu)
         jac = 2.0d0 / max(sqrt(1.0d0 - uu*uu), 1.0d-300)
-        
+
         val = rkf45_integrand_F2(theta, context) * jac
-        
+
     end function quadpack_wrapper_F2_u
 
     function quadpack_wrapper_F3_u(u) result(val)
@@ -186,15 +186,15 @@ module quadpack_integration_m
         real(dp) :: val
         real(dp) :: theta, jac, uu
         type(rkf45_integrand_context_t) :: context
-        
+
         context = get_thread_context()
-        
+
         uu = min(max(u, -1.0d0), 1.0d0)
         theta = 2.0d0 * asin(uu)
         jac = 2.0d0 / max(sqrt(1.0d0 - uu*uu), 1.0d-300)
-        
+
         val = rkf45_integrand_F3(theta, context) * jac
-        
+
     end function quadpack_wrapper_F3_u
 
     subroutine quadpack_integrate_F1(result, epsabs, epsrel, context, &
@@ -203,36 +203,36 @@ module quadpack_integration_m
         use grid_m, only: quadpack_key, quadpack_limit, quadpack_algorithm
         use config_m, only: fdebug
         implicit none
-        
+
         real(dp), intent(out) :: result
         real(dp), intent(in) :: epsabs, epsrel
         type(rkf45_integrand_context_t), intent(in) :: context
         real(dp), intent(in) :: theta_min, theta_max
         logical, intent(in) :: use_u_substitution
-        
+
         ! QUADPACK variables
         real(dp) :: abserr
         integer :: neval, ier, last
         integer :: limit, lenw
         real(dp) :: a, b
         integer :: key
-        
+
         ! External QUADPACK entry points
         external :: dqag, dqags, dqagi
-        
+
         ! Get thread ID and set context
         call set_thread_context(context)
-        
+
         ! Set integration parameters
         key = quadpack_key
         if (key < 1 .or. key > 6) key = QK61  ! Default to highest order
-        
+
         limit = quadpack_limit
         if (limit < 1) limit = 500
-        
+
         lenw = 4 * limit
         call ensure_workspace(limit)
-        
+
         select case (trim(quadpack_algorithm))
         case('QAG')
             if (use_u_substitution) then
@@ -264,7 +264,7 @@ module quadpack_integration_m
             print *, 'Supported: QAG, QAGS'
             error stop 'Invalid QUADPACK algorithm'
         end select
-        
+
         ! Check for errors (throttle prints to higher debug levels)
         if (ier /= 0) then
             if (ier == 6) then
@@ -287,9 +287,9 @@ module quadpack_integration_m
                 end if
             end if
         end if
-        
+
         ! Workspaces are reused per-thread; do not deallocate here
-        
+
     end subroutine quadpack_integrate_F1
 
     subroutine quadpack_integrate_F2(result, epsabs, epsrel, context, &
@@ -298,36 +298,36 @@ module quadpack_integration_m
         use grid_m, only: quadpack_key, quadpack_limit, quadpack_algorithm
         use config_m, only: fdebug
         implicit none
-        
+
         real(dp), intent(out) :: result
         real(dp), intent(in) :: epsabs, epsrel
         type(rkf45_integrand_context_t), intent(in) :: context
         real(dp), intent(in) :: theta_min, theta_max
         logical, intent(in) :: use_u_substitution
-        
+
         ! QUADPACK variables
         real(dp) :: abserr
         integer :: neval, ier, last
         integer :: limit, lenw
         real(dp) :: a, b
         integer :: key
-        
+
         ! External QUADPACK entry points
         external :: dqag, dqags, dqagi
-        
+
         ! Get thread ID and set context
         call set_thread_context(context)
-        
+
         ! Set integration parameters
         key = quadpack_key
         if (key < 1 .or. key > 6) key = QK61
-        
+
         limit = quadpack_limit
         if (limit < 1) limit = 500
-        
+
         lenw = 4 * limit
         call ensure_workspace(limit)
-        
+
         select case (trim(quadpack_algorithm))
         case('QAG')
             if (use_u_substitution) then
@@ -358,7 +358,7 @@ module quadpack_integration_m
             print *, 'Supported: QAG, QAGS'
             error stop 'Invalid QUADPACK algorithm'
         end select
-        
+
         ! Check for errors (same as F1)
         if (ier /= 0) then
             if (ier == 6) then
@@ -381,9 +381,9 @@ module quadpack_integration_m
                 end if
             end if
         end if
-        
+
         ! Workspaces are reused per-thread; do not deallocate here
-        
+
     end subroutine quadpack_integrate_F2
 
     subroutine quadpack_integrate_F3(result, epsabs, epsrel, context, &
@@ -392,36 +392,36 @@ module quadpack_integration_m
         use grid_m, only: quadpack_key, quadpack_limit, quadpack_algorithm
         use config_m, only: fdebug
         implicit none
-        
+
         real(dp), intent(out) :: result
         real(dp), intent(in) :: epsabs, epsrel
         type(rkf45_integrand_context_t), intent(in) :: context
         real(dp), intent(in) :: theta_min, theta_max
         logical, intent(in) :: use_u_substitution
-        
+
         ! QUADPACK variables
         real(dp) :: abserr
         integer :: neval, ier, last
         integer :: limit, lenw
         real(dp) :: a, b
         integer :: key
-        
+
         ! External QUADPACK entry points
         external :: dqag, dqags, dqagi
-        
+
         ! Get thread ID and set context
         call set_thread_context(context)
-        
+
         ! Set integration parameters
         key = quadpack_key
         if (key < 1 .or. key > 6) key = QK61
-        
+
         limit = quadpack_limit
         if (limit < 1) limit = 500
-        
+
         lenw = 4 * limit
         call ensure_workspace(limit)
-        
+
         select case (trim(quadpack_algorithm))
         case('QAG')
             if (use_u_substitution) then
@@ -452,7 +452,7 @@ module quadpack_integration_m
             print *, 'Supported: QAG, QAGS'
             error stop 'Invalid QUADPACK algorithm'
         end select
-        
+
         ! Check for errors (same as F1)
         if (ier /= 0) then
             if (ier == 6) then
@@ -475,9 +475,9 @@ module quadpack_integration_m
                 end if
             end if
         end if
-        
+
         ! Workspaces are reused per-thread; do not deallocate here
-        
+
     end subroutine quadpack_integrate_F3
 
 end module quadpack_integration_m

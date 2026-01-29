@@ -57,4 +57,3 @@
     !
     RETURN
   END SUBROUTINE plag_coeff
-

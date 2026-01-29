@@ -185,7 +185,7 @@
     IF(iab.EQ.1) ALLOCATE(xarr_rhs(1),wmat(1,1,1))
   ENDIF
 !
-! Additional refinement of the grid after splitting into subintervals, 
+! Additional refinement of the grid after splitting into subintervals,
 ! formation of adaptive grid for the source problem in the case iab=1 :
 !
   DO i=1,nreg
@@ -307,7 +307,7 @@
     DEALLOCATE(xarr_rhs,wmat)
   ENDIF
 !
-! Transformation of the ODE set to the normal mode basis, integration 
+! Transformation of the ODE set to the normal mode basis, integration
 ! of eikonals, calcualtion of grid sizes for the residual ODE set:
 !
   ALLOCATE(phi_inv_tot(nsize,nsize,npoi_tot))
@@ -801,7 +801,7 @@
 !
     if(ind_ant(1).eq.ireg) then
 !
-! Translation of jump conditions at the antenna into jump conditions for 
+! Translation of jump conditions at the antenna into jump conditions for
 ! F-functions:
 !
       CALL binsrc(xarr,1,npoi,x_a,ind)
@@ -1035,7 +1035,7 @@
     roam_rhs=Frhs_out(:,:,iren_tot)                                          &
             +matmul(F_out(:,:,iren_tot),add_rhs(:,:,iren_tot))
     beta(:,:,iren_tot)=matmul(transpose(conjg(dummy_out(:,1:n_outer))),roam_rhs)
-    roam_rhs=roam_rhs-matmul(dummy_out(:,1:n_outer),beta(:,:,iren_tot)) 
+    roam_rhs=roam_rhs-matmul(dummy_out(:,1:n_outer),beta(:,:,iren_tot))
 !
     dummy_in=F_in(:,:,iren_tot+1)
 !

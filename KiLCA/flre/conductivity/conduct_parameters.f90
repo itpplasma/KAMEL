@@ -192,37 +192,37 @@ dpsi_ = dht_/hz_;
 ddpsi_ = (ddht_-dhz_*dpsi_)/hz_;
 
 if (flag_back == 'w') then
-	!keep rotational transform and set only derivs to zero
-	dhz_ = 0.0d0;
-	ddhz_ = 0.0d0;
-	dht_ = 0.0d0;
-	ddht_ = 0.0d0;
-	dpsi_ = 0.0d0;
-	ddpsi_ = 0.0d0;
-	dB = 0.0d0;
-	ddB = 0.0d0;
-	ddPhi0_ = 0.0d0;
-	dddPhi0_ = 0.0d0;
-	r_ = r_*huge_factor
+    !keep rotational transform and set only derivs to zero
+    dhz_ = 0.0d0;
+    ddhz_ = 0.0d0;
+    dht_ = 0.0d0;
+    ddht_ = 0.0d0;
+    dpsi_ = 0.0d0;
+    ddpsi_ = 0.0d0;
+    dB = 0.0d0;
+    ddB = 0.0d0;
+    ddPhi0_ = 0.0d0;
+    dddPhi0_ = 0.0d0;
+    r_ = r_*huge_factor
 else if (flag_back == 'h') then
-	!set derivs and hth to zero, hz=1
-	ht_ = 0.0d0;
-	hz_ = 1.0d0;
-	dht_ = 0.0d0;
-	dhz_ = 0.0d0;
-	ddht_ = 0.0d0;
-	ddhz_ = 0.0d0;
-	dpsi_ = 0.0d0;
-	ddpsi_ = 0.0d0;
-	B = B0; !use B at the center!
-	dB = 0.0d0;
-	ddB = 0.0d0;
-	dPhi0_ = 0.0d0;
-	ddPhi0_ = 0.0d0;
-	dddPhi0_ = 0.0d0;
-	r_ = r_*huge_factor
+    !set derivs and hth to zero, hz=1
+    ht_ = 0.0d0;
+    hz_ = 1.0d0;
+    dht_ = 0.0d0;
+    dhz_ = 0.0d0;
+    ddht_ = 0.0d0;
+    ddhz_ = 0.0d0;
+    dpsi_ = 0.0d0;
+    ddpsi_ = 0.0d0;
+    B = B0; !use B at the center!
+    dB = 0.0d0;
+    ddB = 0.0d0;
+    dPhi0_ = 0.0d0;
+    ddPhi0_ = 0.0d0;
+    dddPhi0_ = 0.0d0;
+    r_ = r_*huge_factor
 else if (flag_back == 's') then
-	print *, 'warning: this flag_back is not implemented!..'
+    print *, 'warning: this flag_back is not implemented!..'
 end if
 
 end subroutine
@@ -313,24 +313,24 @@ ddks_ = ddhz_*kth + dhz_*dkth - ddht_*kz - dht_*dkz + &
          dhz_*dkth + hz_*ddkth - dht_*dkz - ht_*ddkz
 
 if (flag_back == 'w') then
-	!keep rotational transform and set only derivs to zero
-	!ks_ = 0.0d0;
-	dks_ = 0.0d0;
-	ddks_ = 0.0d0;
-	dkp_ = 0.0d0;
-	ddkp_ = 0.0d0;
+    !keep rotational transform and set only derivs to zero
+    !ks_ = 0.0d0;
+    dks_ = 0.0d0;
+    ddks_ = 0.0d0;
+    dkp_ = 0.0d0;
+    ddkp_ = 0.0d0;
 else if (flag_back == 'h') then
     !ks_ = 1.0d-6;
     !ks_ = 1.0d-2;
     !ks_ = h_z*kth - h_t*kz;
-	dks_ = 0.0d0;
-	ddks_ = 0.0d0;
-	kp_ = 1.0d-3; !kz; !1.0d-4;
-	!kp_ = h_t*kth + h_z*kz;
-	dkp_ = 0.0d0;
-	ddkp_ = 0.0d0;
+    dks_ = 0.0d0;
+    ddks_ = 0.0d0;
+    kp_ = 1.0d-3; !kz; !1.0d-4;
+    !kp_ = h_t*kth + h_z*kz;
+    dkp_ = 0.0d0;
+    ddkp_ = 0.0d0;
 else if (flag_back == 's') then
-	print *, 'warning: the flag_back is not implemented!..'
+    print *, 'warning: the flag_back is not implemented!..'
 end if
 
 end subroutine
@@ -374,26 +374,26 @@ character(*), intent(in) :: flag_back
 call eval_f0_parameters_nu_and_derivs (r, spec, bp_ptr, n_);
 
 if (flag_back == 'w') then !keep rotational transform and set only derivs to zero
-	dn_ = 0.0d0;
-	ddn_ = 0.0d0;
-	dVp_ = 0.0d0;
-	ddVp_ = 0.0d0;
-	dvT_ = 0.0d0;
-	ddvT_ = 0.0d0;
-	dnu_ = 0.0d0;
-	ddnu_ = 0.0d0;
+    dn_ = 0.0d0;
+    ddn_ = 0.0d0;
+    dVp_ = 0.0d0;
+    ddVp_ = 0.0d0;
+    dvT_ = 0.0d0;
+    ddvT_ = 0.0d0;
+    dnu_ = 0.0d0;
+    ddnu_ = 0.0d0;
 else if (flag_back == 'h') then
-	dn_ = 0.0d0; !comment if you need n gradient
-	ddn_ = 0.0d0;
-	Vp_ = 0.0d0;
-	dVp_ = 0.0d0;
-	ddVp_ = 0.0d0;
-	dvT_ = 0.0d0;
-	ddvT_ = 0.0d0;
-	dnu_ = 0.0d0;
-	ddnu_ = 0.0d0;
+    dn_ = 0.0d0; !comment if you need n gradient
+    ddn_ = 0.0d0;
+    Vp_ = 0.0d0;
+    dVp_ = 0.0d0;
+    ddVp_ = 0.0d0;
+    dvT_ = 0.0d0;
+    ddvT_ = 0.0d0;
+    dnu_ = 0.0d0;
+    ddnu_ = 0.0d0;
 else if (flag_back == 's') then
-	print *, 'warning: the flag_back is not implemented!..'
+    print *, 'warning: the flag_back is not implemented!..'
 end if
 
 end subroutine
@@ -439,8 +439,8 @@ t14 = dPhi0_*ks_
 t17 = omc_**2
 t22 = domc_**2
 ddoms_ = -ddkp_*Vp_-kp_*ddVp_-2.d0*dkp_*dVp_+ &
-	1.0d0/m_*q_*((-dddPhi0_*ks_-dPhi0_*ddks_-2.0d0*ddPhi0_*dks_)/omc_ + &
-	1.0d0/t17*(2.0d0*dPhi0_*dks_*domc_+2.0d0*ks_*ddPhi0_*domc_+ddomc_*t14)-2.0d0*t22/t17/omc_*t14)
+    1.0d0/m_*q_*((-dddPhi0_*ks_-dPhi0_*ddks_-2.0d0*ddPhi0_*dks_)/omc_ + &
+    1.0d0/t17*(2.0d0*dPhi0_*dks_*domc_+2.0d0*ks_*ddPhi0_*domc_+ddomc_*t14)-2.0d0*t22/t17/omc_*t14)
 ddoms_c_ = ddoms_ + IM*ddnu_
 
 !z-array:
@@ -450,15 +450,15 @@ dt_den = dkp_*vT_ + kp_*dvT_
 ddt_den = ddkp_*vT_ + 2.0d0*dkp_*dvT_ + kp_*ddvT_
 
 do k = -Nmax,Nmax
-	t_num = oms_c_ - k*omc_
-	zv(k) = t_num/t_den/t1
+    t_num = oms_c_ - k*omc_
+    zv(k) = t_num/t_den/t1
 
-	dt_num = doms_c_ - k*domc_
-	dzv(1,k) = (dt_num*t_den - t_num*dt_den)/t_den/t_den/t1
+    dt_num = doms_c_ - k*domc_
+    dzv(1,k) = (dt_num*t_den - t_num*dt_den)/t_den/t_den/t1
 
-	ddt_num = ddoms_c_ - k*ddomc_
-	dzv(2,k) = (-2.0d0*dt_den*(dt_num*t_den - t_num*dt_den) + &
-		   t_den*(ddt_num*t_den-t_num*ddt_den))/t_den/t_den/t_den/t1
+    ddt_num = ddoms_c_ - k*ddomc_
+    dzv(2,k) = (-2.0d0*dt_den*(dt_num*t_den - t_num*dt_den) + &
+           t_den*(ddt_num*t_den-t_num*ddt_den))/t_den/t_den/t_den/t1
 end do
 
 end subroutine
@@ -481,7 +481,7 @@ complex(dpc) :: isqpi, z2, t1
 !I do not see high derivatives in the tensor components:
 !if appears it must be segmentaion fault, because arrays are 1:2
 !if(flre_order > 2) then
-!	print *, 'W_array: warning: W deriv > 2 is not implemented!..'
+!   print *, 'W_array: warning: W deriv > 2 is not implemented!..'
 !end if
 
 isqpi = im/sqrt(pi);
@@ -501,7 +501,7 @@ do k = -Nmax,Nmax
     !Also asymptotics can be used: not really needed in the code!
     z2 = zv(k)**2;
     dWmv(1,k) = zv(k)*(z2*zv(k)*(5.0d0*Wv(k)+zv(k)*dWv(1,k)) - &
-		isqpi*(4.0d0*z2+1.0d0));
+        isqpi*(4.0d0*z2+1.0d0));
 
     dWmv(2,k) = z2*zv(k)*(20.0d0*Wv(k)+zv(k)* &
     (10.0d0*dWv(1,k)+zv(k)*dWv(2,k))) - isqpi*(12.0d0*z2+1.0d0);
@@ -567,9 +567,9 @@ print *, 'oms_c_:', oms_c_, doms_c_, ddoms_c_
 
 !plasma function and z:
 do k=-Nmax,Nmax
-	print *,'zv(',k,'):', zv(k),dzv(1,k),dzv(2,k)
-	print *,'Wv(',k,'):', Wv(k),dWv(1,k),dWv(2,k)
-	print *,'Wmv(',k,'):', Wmv(k),dWmv(1,k),dWmv(2,k)
+    print *,'zv(',k,'):', zv(k),dzv(1,k),dzv(2,k)
+    print *,'Wv(',k,'):', Wv(k),dWv(1,k),dWv(2,k)
+    print *,'Wmv(',k,'):', Wmv(k),dWmv(1,k),dWmv(2,k)
 end do
 
 !parameters of dstr. function:

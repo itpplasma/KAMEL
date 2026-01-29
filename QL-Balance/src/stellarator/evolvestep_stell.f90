@@ -48,8 +48,8 @@ subroutine evolvestep_stell(timstep,eps)
     ! adding identity matrix to diagonal
     do i=1,nsize
         k=k+1
-        irow_sp(k)=i 
-        icol_sp(k)=i 
+        irow_sp(k)=i
+        icol_sp(k)=i
         amat_sp(k)=1.d0
     enddo
 

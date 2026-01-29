@@ -57,7 +57,7 @@ subroutine get_dql
     allocate (dqli12_loc(npoib))
     allocate (dqli21_loc(npoib))
     allocate (dqli22_loc(npoib))
-    allocate (formfactor(npoib))  
+    allocate (formfactor(npoib))
     if (.not. allocated(d11_misalign)) allocate (d11_misalign(npoib))
     if (.not. allocated(Es_pert_flux)) allocate (Es_pert_flux(npoib))
     if (.not. allocated(Es_pert_flux_temp)) allocate (Es_pert_flux_temp(npoib))
@@ -176,7 +176,7 @@ subroutine get_dql
             de21 = de12
             call calc_transport_coeffs_collisionless(npoib, vT_i, di11, di12, di22)
             di21 = di12
-        else 
+        else
             if (.true.) then
                 call calc_transport_coeffs_ornuhl(npoib, vT_e, nu_e, de11, de12, de21, de22)
                 call calc_transport_coeffs_ornuhl(npoib, vT_i, nu_i, di11, di12, di21, di22)
@@ -203,9 +203,9 @@ subroutine get_dql
             ! the perturbed flux surfaces
             !Es_pert_flux_temp = (-dPhi0) * Br * (m_vals(i_mn) * rtor**2d0 - n_vals(i_mn) * r**2d0 / qsaf) &
             !/ (B0 * r * rtor * (n_vals(i_mn) + (m_vals(i_mn)) / qsaf))
-            Es_pert_flux_temp = (-dPhi0) * Br * ks / (B0 * kp) 
+            Es_pert_flux_temp = (-dPhi0) * Br * ks / (B0 * kp)
 
-            ! cut magnetic island from diffusion 
+            ! cut magnetic island from diffusion
             !do ipoi = 1, npoi
             !    if (r(ipoi) .gt. r_resonant(i_mn) - MI_width/2d0 .and. &
             !    r(ipoi) .lt. r_resonant(i_mn) + MI_width/2d0) then
@@ -263,7 +263,7 @@ subroutine get_dql
         call integrate_parallel_current(dim_r, r, Jpe, Jpi, Ipar)
     end do
 
-    
+
     ! calculate diffusion due to misalignment of equipotentials and flux surfaces
     if (misalign_diffusion .eqv. .true.) then
         ! rsepar/rtor is the inverse aspect ratio
@@ -298,7 +298,7 @@ subroutine get_dql
     deallocate (dqli21_loc);
     deallocate (dqli22_loc);
     deallocate (formfactor)
-    
+
     call calc_parallel_current_directly
     call calc_ion_parallel_current_directly
 
@@ -395,7 +395,7 @@ subroutine interp_rb_at_r0(func, r0, func_res)
     complex(dp), intent(out) :: func_res
     real(dp), intent(in) :: r0
     integer :: ibrabsres, ind_begin_interp, ind_end_interp
-    real(dp), dimension(:, :), allocatable :: coef 
+    real(dp), dimension(:, :), allocatable :: coef
 
     if (.not. allocated(coef)) allocate(coef(0:nder,nlagr))
 
@@ -428,7 +428,7 @@ subroutine get_Brvac(brvac_interp)
 
     brvac_interp = sum(coef(0,:) * abs(Br(ind_begin_interp:ind_end_interp)))
 
-end subroutine 
+end subroutine
 
 subroutine write_Brvac(brvac_interp)
 

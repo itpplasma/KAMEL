@@ -53,9 +53,9 @@
 !
   subroutine eigen_cmat(n,a_in,alam,vecs,info)
 !
-! Find eigenvalues alam and eigenvectors vecs of the double complex matrix a_in 
-! of the size n. Eigenvalues are numbered in the descending order by their 
-! modules. If modules are equal, descending order is by comlex argument. 
+! Find eigenvalues alam and eigenvectors vecs of the double complex matrix a_in
+! of the size n. Eigenvalues are numbered in the descending order by their
+! modules. If modules are equal, descending order is by comlex argument.
 ! Corresponding eigenvectors are numbered by the second index. The are
 ! normalized by module to one. Phase factor is fixed so that the square of
 ! eigenvector is positive (fixed up to the factor -1). If square of eigenvector

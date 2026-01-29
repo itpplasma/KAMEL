@@ -9,7 +9,7 @@ subroutine ramp_coil
     implicit none
 
     if (debug_mode) write(*,*) "Debug: - - ramp up antenna_factor - -"
-        
+
     select case(ramp_up_mode)
         case(0)
             call ramp_up_linear
@@ -67,7 +67,7 @@ subroutine ramp_up_faster_1
 end subroutine
 
 subroutine ramp_up_faster_2
-    
+
     use wave_code_data, only: antenna_factor
     use time_evolution, only: time, t_max_ramp_up, antenna_factor_max
     use control_mod, only: debug_mode
@@ -86,7 +86,7 @@ subroutine ramp_up_faster_2
 end subroutine
 
 subroutine ramp_up_instant
-        
+
     use wave_code_data, only: antenna_factor
     use time_evolution, only: time, antenna_factor_max
     use control_mod, only: debug_mode
@@ -98,7 +98,7 @@ subroutine ramp_up_instant
     call stop_if_t_max_reached
 
     if (time .eq. 0) then
-        antenna_factor = 1.d-4 
+        antenna_factor = 1.d-4
     else
         antenna_factor = antenna_factor_max
     end if
@@ -167,7 +167,7 @@ subroutine ramp_up_hysteresis
 
             CALL MPI_finalize(ierror)
             stop
-        end if 
+        end if
     end if ! ramp_up_down eq 1
 
 end subroutine
@@ -253,7 +253,7 @@ subroutine stop_if_antenna_fac_max_reached
         end if
 
         if (debug_mode) write(*,*) "Debug: Write br_time_data"
-        if (ihdf5IO .eq. 1) then 
+        if (ihdf5IO .eq. 1) then
             CALL write_br_dqle22_time_data!, br_abs_time, br_abs_antenna_factor, br_abs, dqle22_res_time)
         end if
 
@@ -369,7 +369,7 @@ subroutine stop_if_t_max_reached
             CALL write_br_dqle22_time_data!, br_abs_time, br_abs_antenna_factor, br_abs, dqle22_res_time)
         end if
         if (debug_mode) write(*,*) "Debug: Write br_time _data"
-                
+
         CALL MPI_finalize(ierror)
         stop
     end if
@@ -391,7 +391,7 @@ subroutine stop_evolution
     end if
     ! Write the cause of the stopping into the hdf5 file
     CALL write_br_dqle22_time_data!, br_abs_time, br_abs_antenna_factor, br_abs, dqle22_res_time)
-                
+
     CALL MPI_finalize(ierror)
     stop
 
@@ -409,7 +409,7 @@ subroutine check_linear_discr_pen_ratio
     implicit none
 
     integer :: ierror
-        
+
     if (time_ind .gt. 50 .and. .not. discr_reached) then
         ! calculate beta only once
         if (br_beta .eq. 0) then
@@ -433,11 +433,11 @@ subroutine check_linear_discr_pen_ratio
             if (br_stopping) then
                 ! Write the cause of the stopping into the hdf5 file
                 call write_reason_for_stop_to_h5("discrepancy to " //&
-                    "linearly predicted value of Br_abs_res > delta")                    
+                    "linearly predicted value of Br_abs_res > delta")
                 CALL write_br_dqle22_time_data!, br_abs_time, br_abs_antenna_factor, br_abs, dqle22_res_time)
                 CALL MPI_finalize(ierror);
                 stop "Finished time evolution: br_stopping"
-                    
+
             else
                 call write_br_discrepancy_reached_info
                 discr_reached = .true.
@@ -464,4 +464,3 @@ subroutine write_br_discrepancy_reached_info
     CALL h5_deinit()
 
 end subroutine
-

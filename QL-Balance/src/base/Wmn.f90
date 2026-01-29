@@ -106,7 +106,7 @@ end subroutine
 !--- subroutines ---------------------------------------------------------------
 
 subroutine dwdtau(x, y, f)
-   
+
    use params, only: bx1, bx20, gam, bx4, nsize, lmax, jmax, jpmax, mnmax, theta
    implicit none
    double complex, parameter :: imun=(0.d0,1.d0)
@@ -149,9 +149,9 @@ subroutine dwdtau(x, y, f)
          end do
          exponj=exponj*aj
        end do
-     end do 
+     end do
      expon=exponax4*ajmn
-   end do  
+   end do
 
 end subroutine dwdtau
 
@@ -183,7 +183,7 @@ subroutine help_igamma(x, y, f)
 end subroutine help_igamma
 
 subroutine evaluate_integral(wintegral)
-   
+
   use params
   use help_igamma_mod, only : zbeg,zend
   implicit none
@@ -191,14 +191,14 @@ subroutine evaluate_integral(wintegral)
   logical :: switch
   integer :: k, mn, l, j, jp, jjpmax, Nterms, ierr
   double precision, dimension(:), allocatable :: y
-  double precision :: x_ini, x_end, est_err 
+  double precision :: x_ini, x_end, est_err
   double complex :: argexp,expon,z,sqxbfac,sqix4fac,oneovopg,znumer,zdenom
   double complex :: G,s,sqonepix4t,Gscale
   double complex, dimension(0:mnmax,lmax,0:jmax,0:jpmax) :: wintegral
   double complex, dimension(:), allocatable :: delG
 !
   external :: dwdtau,help_igamma
-!    
+!
   k=0
   do mn=0,mnmax
     jjpmax=mn/2
@@ -213,13 +213,13 @@ subroutine evaluate_integral(wintegral)
 !
   nsize=k
   allocate(y(nsize))
-!  
+!
 !
   x_ini=1.d-14
   x_end = 20.0d0/abs(bx1) + 400.0d0/abs(bx1)**2
   switch=x_end.gt.taumax
   if(switch) x_end=taumax
-  y = 0.0d0 
+  y = 0.0d0
 !
   call odeint_allroutines(y, nsize, x_ini, x_end, eps, dwdtau)
 !
@@ -236,7 +236,7 @@ subroutine evaluate_integral(wintegral)
       end do
     end do
   end do
-   
+
   deallocate(y)
 !
   if(switch) then
@@ -312,11 +312,11 @@ subroutine evaluate_integral(wintegral)
 !
     endif
   endif
-!   
+!
 end subroutine evaluate_integral
 
 subroutine GreenMom(mpar,lperp,x1,x2,x3,x4,Imnl)
- 
+
   use params
 
   implicit none
@@ -336,7 +336,7 @@ subroutine GreenMom(mpar,lperp,x1,x2,x3,x4,Imnl)
   mnmax=2*mpar
   lmax=lperp
   jmax=mpar
-  jpmax=mpar 
+  jpmax=mpar
 
   allocate(doubfac(0:mpar))
   allocate(bincoef(0:mpar,0:mpar))
@@ -347,7 +347,7 @@ subroutine GreenMom(mpar,lperp,x1,x2,x3,x4,Imnl)
   doubfac(0)=1.d0
   do m=1,mpar
     doubfac(m)=doubfac(m-1)*dfloat(2*m-1)
-  enddo 
+  enddo
 !
   bincoef=0.d0
   do m=0,mpar
@@ -372,7 +372,7 @@ subroutine GreenMom(mpar,lperp,x1,x2,x3,x4,Imnl)
                     symbm(m,n,j,jp)=symbm(m,n,j,jp)+(-1.d0)**(k-l) &
                                    *bincoef(m,k)*bincoef(n,kp)     &
                                    *bincoef(k,l)*bincoef(kp,lp)
-                  endif 
+                  endif
                 enddo
               enddo
             enddo
@@ -381,15 +381,15 @@ subroutine GreenMom(mpar,lperp,x1,x2,x3,x4,Imnl)
       enddo
     enddo
   enddo
-! 
+!
   omix3=1.d0-(0.d0,4.d0)*x3
   sqomix3=sqrt(omix3)
   gam=(0.d0,2.d0)*x3/(omix3+sqomix3)
   onemin4ix3=1.d0/sqrt(sqomix3)
   bx1=x1/sqomix3*onemin4ix3
   bx1ovi=(0.d0,-1.d0)*bx1
-  bx20=(x2+2.d0*x3/(sqomix3+1.d0))/sqomix3 
-  bx4=x4/sqomix3 
+  bx20=(x2+2.d0*x3/(sqomix3+1.d0))/sqomix3
+  bx4=x4/sqomix3
   oldarg=(0.d0,1.d0)*bx20-bx1**2
   theta=dcmplx(1.d0,sign(addimpart                                            &
        +max(0.d0,real(oldarg)/max(abs(dimag(oldarg)),abs(oldarg)*epscontour)) &
@@ -402,14 +402,14 @@ subroutine GreenMom(mpar,lperp,x1,x2,x3,x4,Imnl)
         do jp=0,mpar
           calsymbm(m,n,j,jp)=symbm(m,n,j,jp)*doubfac(j)*doubfac(jp) &
                             *0.5d0**(j+jp)*bx1ovi**(m+n-2*(j+jp))   &
-                            *onemin4ix3pow 
+                            *onemin4ix3pow
         enddo
       enddo
     enddo
   enddo
 !
   call  evaluate_integral(wintegral)
-!  
+!
   Imnl=(0.d0,0.d0)
   do m=0,mpar
     do n=0,mpar
@@ -422,8 +422,8 @@ subroutine GreenMom(mpar,lperp,x1,x2,x3,x4,Imnl)
       enddo
     enddo
   enddo
-  
- 
+
+
 end subroutine GreenMom
 
 subroutine getIfunc_drift(consenergy,mpar,mperp,x1,x2,x3,x4,Imnkl)
@@ -447,7 +447,7 @@ subroutine getIfunc_drift(consenergy,mpar,mperp,x1,x2,x3,x4,Imnkl)
     enddo
   endif
 !
-  call GreenMom(mpar,lperp,x1,x2,x3,x4,Imnl) 
+  call GreenMom(mpar,lperp,x1,x2,x3,x4,Imnl)
 !
   do k=0,mperp
     do l=0,mperp

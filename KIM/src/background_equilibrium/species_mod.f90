@@ -171,7 +171,7 @@ module species_m
     end subroutine
 
     subroutine init_deuterium_species(deut)
-    
+
         use constants_m, only: p_mass
 
         implicit none
@@ -197,7 +197,7 @@ module species_m
     end subroutine
 
     subroutine init_hydrogen_species(hydro)
-    
+
         use constants_m, only: p_mass
 
         implicit none
@@ -407,7 +407,7 @@ module species_m
             end do
         end do
 
-        ! Calculate on cell centers (npts_c) 
+        ! Calculate on cell centers (npts_c)
         do sp = 0, plasma_in%n_species-1
             plasma_in%spec(sp)%symbI = 0.0d0
 
@@ -498,7 +498,7 @@ module species_m
         do sp=1, number_of_ion_species
             do i=1, plasma_in%grid_size
                 ! Coulomb logarithm electrons ions (= ions electrons)
-                
+
 
                 nue(i) = nue(i) + 7.7d-6 * plasma_in%spec(sp)%n(i) * Lei(sp, i) * plasma_in%spec(sp)%Zspec**2 / plasma_in%spec(0)%T(i)**(1.5d0)
 
@@ -919,7 +919,7 @@ module species_m
         logical :: check_succeeded = .true.
         integer :: i, sp
 
-        print *, "Checking quasineutrality..." 
+        print *, "Checking quasineutrality..."
         do i = 1, size(plasma_in%spec(0)%n)
             n_zero = plasma_in%spec(0)%n(i)
             do sp=1, number_of_ion_species
@@ -988,12 +988,12 @@ module species_m
         i = 1
         h1 = plasma%r_grid(2) - plasma%r_grid(1)
         h2 = plasma%r_grid(3) - plasma%r_grid(2)
-        
+
         ! Coefficients for non-uniform grid
         c1 = -(2.0d0*h1 + h2) / (h1*(h1 + h2))
         c2 = (h1 + h2) / (h1*h2)
         c3 = -h1 / (h2*(h1 + h2))
-        
+
         do sigma = 0, number_of_ion_species
             plasma%spec(sigma)%dndr(i) = c1*plasma%spec(sigma)%n(1) + c2*plasma%spec(sigma)%n(2) + c3*plasma%spec(sigma)%n(3)
             plasma%spec(sigma)%dTdr(i) = c1*plasma%spec(sigma)%T(1) + c2*plasma%spec(sigma)%T(2) + c3*plasma%spec(sigma)%T(3)
@@ -1005,12 +1005,12 @@ module species_m
         do i = 2, plasma%grid_size - 1
             h1 = plasma%r_grid(i) - plasma%r_grid(i-1)
             h2 = plasma%r_grid(i+1) - plasma%r_grid(i)
-            
+
             ! Coefficients for non-uniform grid central differences
             c1 = -h2 / (h1*(h1 + h2))
             c2 = (h2 - h1) / (h1*h2)
             c3 = h1 / (h2*(h1 + h2))
-            
+
             do sigma = 0, number_of_ion_species
                 plasma%spec(sigma)%dndr(i) = c1*plasma%spec(sigma)%n(i-1) + c2*plasma%spec(sigma)%n(i) + c3*plasma%spec(sigma)%n(i+1)
                 plasma%spec(sigma)%dTdr(i) = c1*plasma%spec(sigma)%T(i-1) + c2*plasma%spec(sigma)%T(i) + c3*plasma%spec(sigma)%T(i+1)
@@ -1023,12 +1023,12 @@ module species_m
         i = plasma%grid_size
         h1 = plasma%r_grid(i-1) - plasma%r_grid(i-2)
         h2 = plasma%r_grid(i) - plasma%r_grid(i-1)
-        
+
         ! Coefficients for non-uniform grid
         c1 = h2 / (h1*(h1 + h2))
         c2 = -(h1 + h2) / (h1*h2)
         c3 = (2.0d0*h2 + h1) / (h2*(h1 + h2))
-        
+
         do sigma = 0, number_of_ion_species
             plasma%spec(sigma)%dndr(i) = c1*plasma%spec(sigma)%n(i-2) + c2*plasma%spec(sigma)%n(i-1) + c3*plasma%spec(sigma)%n(i)
             plasma%spec(sigma)%dTdr(i) = c1*plasma%spec(sigma)%T(i-2) + c2*plasma%spec(sigma)%T(i-1) + c3*plasma%spec(sigma)%T(i)
@@ -1039,7 +1039,7 @@ module species_m
 
     subroutine read_profiles()
 
-        use config_m, only: hdf5_input            
+        use config_m, only: hdf5_input
         use grid_m, only: r_space_dim
 
         if (hdf5_input) then
@@ -1049,11 +1049,11 @@ module species_m
             ! read plasma profiles from text files
             call read_from_text
         endif
-            
+
         r_space_dim = plasma%grid_size
 
     end subroutine
-    
+
     subroutine read_from_text
 
         use config_m, only: number_of_ion_species, profile_location, fstatus
@@ -1080,7 +1080,7 @@ module species_m
             read(99, *, iostat=ios) r_temp
             if (r_temp < r_plas) then
                 plasma%grid_size = plasma%grid_size + 1
-            else 
+            else
                 ios = 1
             end if
         end do
@@ -1089,12 +1089,12 @@ module species_m
         ierr = 0
         if (.not. allocated(plasma%r_grid)) allocate(plasma%r_grid(plasma%grid_size), stat=ierr)
         if (ierr /= 0) print *, "array: Allocation request denied"
-        
+
         do sigma = 0, number_of_ion_species
             allocate(plasma%spec(sigma)%n(plasma%grid_size),&
                 plasma%spec(sigma)%T(plasma%grid_size))
         end do
-        
+
         allocate(plasma%q(plasma%grid_size), &
                 plasma%Er(plasma%grid_size))
 

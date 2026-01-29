@@ -26,7 +26,7 @@ program ql_balance
     call from_balance_factory_get_balance(type_of_run, balance_instance)
 
     call initMPI
-    
+
     call balance_instance%init_balance()
     call balance_instance%run_balance()
 

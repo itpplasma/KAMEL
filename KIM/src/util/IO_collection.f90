@@ -28,13 +28,13 @@ module IO_collection_m
         inquire(file=trim(output_path)//trim(h5_out_file), exist=ex)
         if (ex) then
             call system('rm '//trim(output_path)//trim(h5_out_file))
-            
+
         end if
 
         h5overwrite = .true.
         CALL h5_init()
         CALL h5_open_rw(trim(output_path)//trim(h5_out_file), h5id)
-        
+
     end subroutine initialize_hdf5_output
 
     subroutine deinitialize_hdf5_output()
@@ -135,7 +135,7 @@ module IO_collection_m
 
         call h5_close_group(h5grpid)
 
-    end subroutine write_io_namelist_to_hdf5 
+    end subroutine write_io_namelist_to_hdf5
 
     subroutine write_setup_namelist_to_hdf5()
 
@@ -249,7 +249,7 @@ module IO_collection_m
 
 
     subroutine write_matrix(filename, A, nx, ny, comment, unit)
-        
+
         use KIM_kinds_m, only: dp
         use config_m, only: output_path, hdf5_output
         use KAMEL_hdf5_tools
@@ -452,7 +452,7 @@ module IO_collection_m
             call write_profile(x, y, size(x), 'profile.dat')
             call plot_1D('profile.dat')
             call remove_file('profile.dat')
-        else 
+        else
             print *, 'Plotting not supported for HDF5 output mode.'
         end if
 
@@ -501,7 +501,7 @@ module IO_collection_m
     end subroutine
 
     subroutine remove_file(filename)
-    
+
         implicit none
 
         character(*), intent(in) :: filename

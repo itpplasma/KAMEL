@@ -101,7 +101,7 @@ do m = 0,mpara
     do n = 0,mpara
         do j1 = 0,mpara
             do j2 = 0,mpara
-            
+
                 MC(m, n, j1, j2) = 0.0d0;
 
                 do k1 = 0,mpara
@@ -110,7 +110,7 @@ do m = 0,mpara
                             do l2 = 0,k2
 
                                 if(2 * j1 == l1 + l2 .and. 2 * j2 == k1 + k2 - l1 - l2) then
-                                
+
                                 MC(m, n, j1, j2) = MC(m, n, j1, j2) + binocoef(m,k1) * binocoef(n,k2) * &
                                                    binocoef(k1, l1) * binocoef(k2, l2) * (-1.0d0)**(k1-l1);
 

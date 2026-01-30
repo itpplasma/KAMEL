@@ -33,7 +33,7 @@ module paramscan_mod
         use h5mod, only: mode_m, mode_n
         use control_mod, only: gyro_current_study, write_gyro_current, debug_mode, &
                         ihdf5IO
-                use wave_code_data, only: m_vals, n_vals
+        use wave_code_data, only: m_vals, n_vals
         use plasma_parameters, only: write_initial_parameters, alloc_hold_parameters, &
                                 init_background_profiles
 
@@ -57,8 +57,8 @@ module paramscan_mod
 
         call gengrid
         call set_boundary_condition
-        CALL initialize_wave_code_interface(npoib, rb);
-        CALL initialize_parameter_scan_vars
+        call initialize_wave_code_interface(npoib, rb)
+        call initialize_parameter_scan_vars
 
         mode_m = m_vals(1)
         mode_n = n_vals(1)
@@ -66,10 +66,10 @@ module paramscan_mod
         !call allocate_prev_variables
 
         if (ihdf5IO .eq. 1) then
-            CALL create_group_structure_paramscan
+            call create_group_structure_paramscan
         end if
         call init_background_profiles
-        CALL write_initial_parameters
+        call write_initial_parameters
 
         !call alloc_hold_parameters
 

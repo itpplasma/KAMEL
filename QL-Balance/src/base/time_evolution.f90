@@ -87,7 +87,7 @@ module time_evolution
         use h5mod, only: mode_m, mode_n
         use control_mod, only: gyro_current_study, write_gyro_current, debug_mode, &
                         ihdf5IO
-                use wave_code_data, only: m_vals, n_vals
+        use wave_code_data, only: m_vals, n_vals
         use plasma_parameters, only: write_initial_parameters, alloc_hold_parameters, &
                                 params, params_begbeg, init_background_profiles
         use resonances_mod, only: write_resonant_radii_to_hdf5
@@ -119,12 +119,12 @@ module time_evolution
         call gengrid
         call set_boundary_condition
 
-        CALL initialize_wave_code_interface(npoib, rb);
+        call initialize_wave_code_interface(npoib, rb)
 
         mode_m = m_vals(1)
         mode_n = n_vals(1)
         if (ihdf5IO .eq. 1) then
-            CALL create_group_structure_timeevol
+            call create_group_structure_timeevol
         end if
         if (debug_mode) write(*,*) 'Debug: mode_m = ', mode_m, 'mode_n = ', mode_n
 
@@ -132,7 +132,7 @@ module time_evolution
 
         call allocate_prev_variables
         call init_background_profiles
-        CALL write_initial_parameters
+        call write_initial_parameters
         !call alloc_hold_parameters
 
         call calc_geometric_parameter_profiles
@@ -170,7 +170,7 @@ module time_evolution
     subroutine doStep(this)
         use baseparam_mod, only: factolmax, factolred
         use control_mod, only: debug_mode
-                use plasma_parameters, only: params, params_beg, params_begbeg, limit_temps_from_below
+        use plasma_parameters, only: params, params_beg, params_begbeg, limit_temps_from_below
         use recstep_mod, only: timstep_arr
         use recstep_mod, only: tol
         use restart_mod, only: redostep
@@ -607,7 +607,7 @@ module time_evolution
 
         if (debug_mode) write(*,*) "Debug: Write kinetic profiles at time index: ", time_ind
         if (modulo(time_ind, save_prof_time_step) .eq. 0) then
-            CALL write_kin_prof_data_to_disk
+            call write_kin_prof_data_to_disk
         end if
 
     end subroutine
@@ -677,7 +677,7 @@ module time_evolution
         if (timstep .lt. stop_time_step .and. time .gt. 1.0d-3) then
             write(*,*) 'stop: timestep smaller than stop limit'
             if (suppression_mode .eqv. .false.) then
-                CALL write_kin_prof_data_to_disk
+                call write_kin_prof_data_to_disk
             end if
 
             call write_reason_for_stop_to_h5(reason)

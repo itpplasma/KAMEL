@@ -180,7 +180,7 @@ subroutine get_dql
 
             call get_ind_Lagr_interp(ibrabsres, ind_begin_interp, ind_end_interp)
             call plag_coeff(nlagr, nder, r_resonant(i_mn), rb(ind_begin_interp:ind_end_interp), coef)
-            CALL magnetic_island_width(coef, nder, nlagr, ind_begin_interp, ind_end_interp, m_vals(i_mn), MI_width)
+            call magnetic_island_width(coef, nder, nlagr, ind_begin_interp, ind_end_interp, m_vals(i_mn), MI_width)
 
             ! the perturbed flux surfaces
             !Es_pert_flux_temp = (-dPhi0) * Br * (m_vals(i_mn) * rtor**2d0 - n_vals(i_mn) * r**2d0 / qsaf) &
@@ -338,7 +338,7 @@ subroutine get_dql
 
     if (modulo(time_ind, save_prof_time_step) .eq. 0) then
         if (suppression_mode .eqv. .false.) then
-            CALL write_fields_currs_transp_coefs_to_h5
+            call write_fields_currs_transp_coefs_to_h5
             call write_D_one_over_nu_to_h5
         end if
     end if

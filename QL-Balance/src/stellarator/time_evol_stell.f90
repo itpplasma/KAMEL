@@ -1,7 +1,7 @@
 module time_evolution_stellarator
 
     use control_mod
-        use h5mod
+    use h5mod
     use balance_base, only: balance_t
     use time_evolution
     use QLBalance_kinds, only: dp
@@ -38,7 +38,7 @@ module time_evolution_stellarator
         use h5mod, only: mode_m, mode_n
         use control_mod, only: gyro_current_study, write_gyro_current, debug_mode, &
                         ihdf5IO
-                use wave_code_data, only: m_vals, n_vals
+        use wave_code_data, only: m_vals, n_vals
         use plasma_parameters, only: write_initial_parameters, alloc_hold_parameters, &
                                 params, params_begbeg, init_background_profiles
         implicit none
@@ -75,18 +75,18 @@ module time_evolution_stellarator
         call gengrid
         call set_boundary_condition
 
-        CALL initialize_wave_code_interface(npoib, rb);
+        call initialize_wave_code_interface(npoib, rb)
 
         mode_m = m_vals(1)
         mode_n = n_vals(1)
         if (ihdf5IO .eq. 1) then
-            CALL create_group_structure_timeevol
+            call create_group_structure_timeevol
         end if
         if (debug_mode) write(*,*) 'Debug: mode_m = ', mode_m, 'mode_n = ', mode_n
 
         call allocate_prev_variables
         call init_background_profiles
-        CALL write_initial_parameters
+        call write_initial_parameters
 
         call alloc_Br_Dqle_for_timeevol
         call calc_geometric_parameter_profiles
@@ -113,7 +113,7 @@ module time_evolution_stellarator
 
     subroutine runTimeEvolution(this)
 
-                use baseparam_mod, only: factolmax, factolred
+        use baseparam_mod, only: factolmax, factolred
         use recstep_mod, only: tol
         use plasma_parameters, only: params, params_beg, params_begbeg, limit_temps_from_below
         use restart_mod, only: redostep

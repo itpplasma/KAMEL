@@ -45,7 +45,7 @@ module singleStep
 
         call gengrid
         call set_boundary_condition
-        CALL initialize_wave_code_interface(npoib, rb);
+        call initialize_wave_code_interface(npoib, rb)
 
         mode_m = m_vals(1)
         mode_n = n_vals(1)
@@ -55,7 +55,7 @@ module singleStep
             call create_group_structure_singlestep
         end if
         call init_background_profiles
-        CALL write_initial_parameters
+        call write_initial_parameters
         call calc_geometric_parameter_profiles
         !call alloc_hold_parameters
 

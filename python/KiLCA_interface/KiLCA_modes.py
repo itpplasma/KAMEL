@@ -1,3 +1,5 @@
+import os
+
 import numpy as np
 
 from .save_file import save_file
@@ -52,4 +54,4 @@ class KiLCA_modes:
             Writes modes into KiLCA input file. Doesn't need a blueprint file.
         """
         self.s = self.get_mode_str()
-        save_file(self.s, path_to + self.BLUEPRINT)
+        save_file(self.s, os.path.join(path_to, self.BLUEPRINT))

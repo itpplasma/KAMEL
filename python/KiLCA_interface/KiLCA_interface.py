@@ -163,7 +163,7 @@ class KiLCA_interface:
                 + "\nMake sure to change PROF_PATH of class to path where the profiles are."
             )
 
-        self.path_of_profiles = path + self.PROF_PATH
+        self.path_of_profiles = os.path.join(path, self.PROF_PATH)
 
         self.path_of_interface_file = os.getcwd()
 
@@ -176,7 +176,7 @@ class KiLCA_interface:
         self.time = time  # time of the time slice
 
         if rtype == "vacuum" or rtype == "flre" or rtype == "imhd":
-            self.path_of_run = self.path + rtype + "/"
+            self.path_of_run = os.path.join(self.path, rtype) + "/"
             self.run_type = rtype
         else:
             raise ValueError("Runtype not supported")

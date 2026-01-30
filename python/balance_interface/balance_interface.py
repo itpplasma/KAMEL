@@ -216,11 +216,12 @@ class QL_Balance_interface:
     def get_KiLCA_current(self):
         if not hasattr(self, "kil_flre"):
             raise ValueError("KiLCA not prepared.")
+        linear_data_path = os.path.join(
+            self.run_path, "flre", "linear-data", f"m_{self.m_mode}_n_{self.n_mode}_flab_[1,0]", ""
+        )
+        background_data_path = os.path.join(self.run_path, "flre", "background-data", "")
         self.r_kilca, self.jpar_kilca = self.kil_flre_post.calculate_parallel_current_density(
-            self.m_mode,
-            self.n_mode,
-            self.run_path + f"flre/linear-data/m_{self.m_mode}_n_{self.n_mode}_flab_[1,0]/",
-            self.run_path + f"flre/background-data/",
+            self.m_mode, self.n_mode, linear_data_path, background_data_path
         )
         self.layer_width = self.kil_flre_post.calculate_layer_width(self.m_mode, self.n_mode)
         return self.kil_flre_post.integrate_par_current_dens()

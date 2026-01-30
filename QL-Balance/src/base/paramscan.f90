@@ -159,13 +159,10 @@ module paramscan_mod
 
     subroutine finalize_parscan_run
 
-        use parallelTools
-
         implicit none
 
         call write_Br_Dql_at_res_to_hdf5
         call deallocate_wave_code_data
-        call MPI_finalize(ierror)
         stop '-> Finished parameter scan run |'
 
     end subroutine

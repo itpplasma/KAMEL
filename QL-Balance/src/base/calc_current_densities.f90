@@ -8,12 +8,11 @@ subroutine calc_parallel_current_directly
         gyro_current_study
     use h5mod
     use wave_code_data
-    use mpi
     use QLBalance_kinds, only: dp
 
     implicit none
 
-    integer :: ierror, irank;
+    integer :: irank = 0
     integer :: ipoi, i, iunit, mnmax
     real(dp), dimension(:), allocatable :: x1, x2, vT, A1, A2
     complex(dp), dimension(:), allocatable :: curr_e_par
@@ -48,7 +47,6 @@ subroutine calc_parallel_current_directly
                  *(c*Es*((A1 + A2)*symbI(1, 0, :) + 0.5d0*A2*symbI(2, 1, :)) &
                     + vT*Br*((A1 + A2)*symbI(1, 1, :) + 0.5d0*A2*symbI(3, 1, :)))
 
-        call MPI_Comm_rank(MPI_COMM_WORLD, irank, ierror);
         if (irank .eq. 0) then
             CALL h5_init()
             CALL h5_open_rw(path2out, h5_id)
@@ -389,12 +387,11 @@ subroutine calc_ion_parallel_current_directly
     use wave_code_data
     use control_mod, only: ihdf5IO, diagnostics_output, write_gyro_current
     use h5mod
-    use mpi
     use QLBalance_kinds, only: dp
 
     implicit none
 
-    integer :: ierror, irank;
+    integer :: irank = 0
     integer :: ipoi, i, iunit, mnmax
     real(dp) :: ei_charge
     real(dp), dimension(:), allocatable :: x1, x2, vT
@@ -427,7 +424,6 @@ subroutine calc_ion_parallel_current_directly
                  *(c*Es*((x1 + x2)*symbI(1, 0, :) + 0.5d0*x2*symbI(2, 1, :)) &
                     + vT*Br*((x1 + x2)*symbI(1, 1, :) + 0.5d0*x2*symbI(3, 1, :)))
 
-    call MPI_Comm_rank(MPI_COMM_WORLD, irank, ierror);
     if (irank .eq. 0) then
         if (write_gyro_current) then
             if (debug_mode) write(*,*) "Debug: writing par_current_i.dat"

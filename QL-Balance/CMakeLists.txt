@@ -37,9 +37,6 @@ else()
     message("Building on another operating system might not be implemented.")
 endif()
 enable_language(C Fortran)
-find_package(MPI REQUIRED COMPONENTS C Fortran)
-
-
 set(objs ${PROJECT_BINARY_DIR}/OBJS/ql-balance/)
 set(lib ${PROJECT_BINARY_DIR}/install/lib/)
 set(ql-balance_lib "${lib}libql-balance.a")
@@ -141,7 +138,6 @@ target_link_libraries(ql-balance_lib PUBLIC
     LIBNEO::neo
     LIBNEO::species
     LIBNEO::transport
-    MPI::MPI_Fortran
     SUNDIALS::cvode
     SUNDIALS::nvecserial
     blas

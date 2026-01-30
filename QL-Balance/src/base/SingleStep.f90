@@ -125,8 +125,6 @@ module singleStep
     subroutine finalize_singlestep_run
 
         use h5mod
-        use mpi
-        use parallelTools, only: ierror
         use control_mod, only: ihdf5IO
 
         implicit none
@@ -134,7 +132,6 @@ module singleStep
         if (ihdf5IO .eq. 1) then
             call write_Dqle22_SingleStep
         end if
-        call MPI_finalize(ierror);
         stop '-> Finished linear run |'
 
     end subroutine

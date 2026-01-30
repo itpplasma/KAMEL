@@ -1,7 +1,7 @@
 module time_evolution_stellarator
 
     use control_mod
-    use parallelTools
+    use parallelTools, only: irank
     use h5mod
     use balance_base, only: balance_t
     use time_evolution
@@ -39,7 +39,7 @@ module time_evolution_stellarator
         use h5mod, only: mode_m, mode_n
         use control_mod, only: gyro_current_study, write_gyro_current, debug_mode, &
                         ihdf5IO
-        use parallelTools, only: initMPI, irank
+        use parallelTools, only: irank
         use wave_code_data, only: m_vals, n_vals
         use plasma_parameters, only: write_initial_parameters, alloc_hold_parameters, &
                                 params, params_begbeg, init_background_profiles

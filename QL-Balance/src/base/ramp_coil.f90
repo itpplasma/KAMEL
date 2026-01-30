@@ -165,7 +165,6 @@ subroutine ramp_up_hysteresis
                 CALL write_br_dqle22_time_data!, br_abs_time, br_abs_antenna_factor, br_abs, dqle22_res_time)
             end if
 
-            CALL MPI_finalize(ierror)
             stop
         end if
     end if ! ramp_up_down eq 1
@@ -217,7 +216,6 @@ subroutine ramp_up_fast_hysteresis
                 CALL write_br_dqle22_time_data!, br_abs_time, br_abs_antenna_factor, br_abs, dqle22_res_time)
             end if
 
-            CALL MPI_finalize(ierror)
             stop
         end if ! antenna_facotr less eq 0
     end if ! ramp_up_down eq 1
@@ -257,7 +255,6 @@ subroutine stop_if_antenna_fac_max_reached
             CALL write_br_dqle22_time_data!, br_abs_time, br_abs_antenna_factor, br_abs, dqle22_res_time)
         end if
 
-        call MPI_finalize(ierror);
         stop
     end if
 
@@ -370,7 +367,6 @@ subroutine stop_if_t_max_reached
         end if
         if (debug_mode) write(*,*) "Debug: Write br_time _data"
 
-        CALL MPI_finalize(ierror)
         stop
     end if
 
@@ -392,7 +388,6 @@ subroutine stop_evolution
     ! Write the cause of the stopping into the hdf5 file
     CALL write_br_dqle22_time_data!, br_abs_time, br_abs_antenna_factor, br_abs, dqle22_res_time)
 
-    CALL MPI_finalize(ierror)
     stop
 
 end subroutine
@@ -403,12 +398,9 @@ subroutine check_linear_discr_pen_ratio
     use time_evolution, only: br_beta, time_ind, br_abs_time, save_prof_time_step, &
         br_stopping, discr_reached, br_abs, br_predicted, write_br_dqle22_time_data, write_kin_prof_data_to_disk
     use control_mod, only: suppression_mode
-    use mpi
     use h5mod, only: write_reason_for_stop_to_h5
 
     implicit none
-
-    integer :: ierror
 
     if (time_ind .gt. 50 .and. .not. discr_reached) then
         ! calculate beta only once
@@ -435,7 +427,6 @@ subroutine check_linear_discr_pen_ratio
                 call write_reason_for_stop_to_h5("discrepancy to " //&
                     "linearly predicted value of Br_abs_res > delta")
                 CALL write_br_dqle22_time_data!, br_abs_time, br_abs_antenna_factor, br_abs, dqle22_res_time)
-                CALL MPI_finalize(ierror);
                 stop "Finished time evolution: br_stopping"
 
             else

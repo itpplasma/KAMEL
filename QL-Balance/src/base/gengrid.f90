@@ -176,7 +176,6 @@ subroutine prepare_resonances
     use grid_mod, only: gg_width, gg_factor,r_resonant
     use control_mod, only: ihdf5IO, debug_mode
     use h5mod
-    use mpi
     use parallelTools, only: irank
 
     implicit none

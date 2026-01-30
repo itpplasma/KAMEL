@@ -1,7 +1,7 @@
 module time_evolution
 
     use control_mod
-    use parallelTools
+    use parallelTools, only: irank
     use h5mod
     use balance_base, only: balance_t
     use QLBalance_kinds, only: dp
@@ -88,7 +88,7 @@ module time_evolution
         use h5mod, only: mode_m, mode_n
         use control_mod, only: gyro_current_study, write_gyro_current, debug_mode, &
                         ihdf5IO
-        use parallelTools, only: initMPI, irank
+        use parallelTools, only: irank
         use wave_code_data, only: m_vals, n_vals
         use plasma_parameters, only: write_initial_parameters, alloc_hold_parameters, &
                                 params, params_begbeg, init_background_profiles
@@ -487,7 +487,6 @@ module time_evolution
                     call write_reason_for_stop_to_h5("discrepancy to " //&
                         "linearly predicted value of Br_abs_res > delta")
                     CALL write_br_dqle22_time_data!, br_abs_time, br_abs_antenna_factor, br_abs, dqle22_res_time)
-                    CALL MPI_finalize(ierror);
                     stop "Finished time evolution: br_stopping"
 
                 else
@@ -680,8 +679,6 @@ module time_evolution
     subroutine stop_if_time_step_too_small
 
         use h5mod
-        use parallelTools, only: ierror
-        use mpi
 
         implicit none
 
@@ -694,7 +691,6 @@ module time_evolution
             end if
 
             call write_reason_for_stop_to_h5(reason)
-            call MPI_finalize(ierror);
             stop
         end if
 

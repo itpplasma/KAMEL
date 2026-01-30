@@ -1,5 +1,7 @@
 import os
-DATA = os.environ.get('DATA', '')
+
+DATA = os.environ.get("DATA", "")
+
 
 class MASTU_config:
 

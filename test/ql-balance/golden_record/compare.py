@@ -39,11 +39,19 @@ class QuantitySpec:
 
 # Quantities to compare for each LinearProfiles time step
 _LINEAR_PROFILE_QUANTITIES = [
-    "dqle11", "dqle12", "dqle22",  # D^ql_e
-    "dqli11", "dqli12", "dqli22",  # D^ql_i
-    "Br_abs", "Br_Re", "Br_Im",  # B_r
-    "T_EM_phi_e", "T_EM_phi_i",  # EM torque
-    "T_EM_phi_e_source", "T_EM_phi_i_source",  # EM torque source
+    "dqle11",
+    "dqle12",
+    "dqle22",  # D^ql_e
+    "dqli11",
+    "dqli12",
+    "dqli22",  # D^ql_i
+    "Br_abs",
+    "Br_Re",
+    "Br_Im",  # B_r
+    "T_EM_phi_e",
+    "T_EM_phi_i",  # EM torque
+    "T_EM_phi_e_source",
+    "T_EM_phi_i_source",  # EM torque source
 ]
 
 # Time steps available in LinearProfiles (0-8)
@@ -69,16 +77,18 @@ def _build_quantities_list() -> list[QuantitySpec]:
             quantities.append(QuantitySpec(f"/f_6_2/LinearProfiles/{t}/{q}"))
 
     # KinProfiles at initial and final time
-    quantities.extend([
-        QuantitySpec("/f_6_2/KinProfiles/1000/Te"),
-        QuantitySpec("/f_6_2/KinProfiles/1000/Ti"),
-        QuantitySpec("/f_6_2/KinProfiles/1000/n"),
-        QuantitySpec("/f_6_2/KinProfiles/1000/Er"),
-        QuantitySpec("/f_6_2/KinProfiles/1008/Te"),
-        QuantitySpec("/f_6_2/KinProfiles/1008/Ti"),
-        QuantitySpec("/f_6_2/KinProfiles/1008/n"),
-        QuantitySpec("/f_6_2/KinProfiles/1008/Er"),
-    ])
+    quantities.extend(
+        [
+            QuantitySpec("/f_6_2/KinProfiles/1000/Te"),
+            QuantitySpec("/f_6_2/KinProfiles/1000/Ti"),
+            QuantitySpec("/f_6_2/KinProfiles/1000/n"),
+            QuantitySpec("/f_6_2/KinProfiles/1000/Er"),
+            QuantitySpec("/f_6_2/KinProfiles/1008/Te"),
+            QuantitySpec("/f_6_2/KinProfiles/1008/Ti"),
+            QuantitySpec("/f_6_2/KinProfiles/1008/n"),
+            QuantitySpec("/f_6_2/KinProfiles/1008/Er"),
+        ]
+    )
 
     return quantities
 
@@ -122,9 +132,7 @@ def compare_arrays(
             np.where(abs_diff > 0, np.inf, 0.0),
         )
     max_rel_diff = (
-        float(np.max(rel_diff[np.isfinite(rel_diff)]))
-        if np.any(np.isfinite(rel_diff))
-        else 0.0
+        float(np.max(rel_diff[np.isfinite(rel_diff)])) if np.any(np.isfinite(rel_diff)) else 0.0
     )
 
     # Check if arrays are close
@@ -163,9 +171,7 @@ def compare_quantity(
                 error_message=f"Shape mismatch: golden {golden_arr.shape} vs actual {actual_arr.shape}",
             )
 
-        passed, max_abs, max_rel = compare_arrays(
-            golden_arr, actual_arr, spec.rtol, spec.atol
-        )
+        passed, max_abs, max_rel = compare_arrays(golden_arr, actual_arr, spec.rtol, spec.atol)
 
         return ComparisonResult(
             path=spec.path,
@@ -207,9 +213,7 @@ def compare_hdf5_files(
     """
     results = []
 
-    with h5py.File(golden_path, "r") as golden_file, h5py.File(
-        actual_path, "r"
-    ) as actual_file:
+    with h5py.File(golden_path, "r") as golden_file, h5py.File(actual_path, "r") as actual_file:
         for spec in quantities:
             result = compare_quantity(golden_file, actual_file, spec)
             results.append(result)

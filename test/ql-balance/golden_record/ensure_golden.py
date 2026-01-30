@@ -15,7 +15,9 @@ import os
 import shutil
 import subprocess
 from pathlib import Path
-from setup_runfolder import setup_runfolder as setup_runfolder_external, get_output_hdf5_path
+
+from setup_runfolder import get_output_hdf5_path
+from setup_runfolder import setup_runfolder as setup_runfolder_external
 
 SCRIPT_DIR = Path(__file__).resolve().parent
 MAIN_REF_DIR = SCRIPT_DIR / "main_ref"

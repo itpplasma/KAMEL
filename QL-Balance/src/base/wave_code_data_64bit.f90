@@ -74,6 +74,10 @@ subroutine initialize_wave_code_interface(nrad, r_grid)
     call get_collision_frequences_from_wave_code(vac_cd_ptr(1), dim_r, r, nui, nue);
     vac_call_ind = vac_call_ind + 1;
 
+    ! Enable interface mode for time evolution: KiLCA gets profiles directly from QL-Balance
+    ! This is set AFTER vacuum field initialization to preserve original file-based behavior there
+    call set_flag_for_profiles_in_background_input_file(trim(flre_path), -1)
+
     if (debug_mode) write(*,*) "Debug: Going out of initialize_wave_code_interface"
 end subroutine
 
@@ -196,9 +200,9 @@ subroutine update_background_files(path)
 
     character(1024), intent(in) :: path;
     integer :: k;
-    ! always keep flag =1, since KiLCA reads profiles from ./profile directory
-    integer :: flag = 1; ! set it 1 if you want to store the background profiles to disk
 
+    ! Update in-memory profiles from balance parameters
+    ! KiLCA retrieves these via get_background_profiles_from_balance() in interface mode
     do k = 1, dim_r !at cell boundaries
         n(k) = params_b(1, k);
         Te(k) = params_b(3, k)/ev;
@@ -206,35 +210,6 @@ subroutine update_background_files(path)
         Vz(k) = params_b(2, k)*rtor;
         dPhi0(k) = -Ercov(k);
     end do
-
-    if (flag > 0) then
-        if (debug_mode) write(*,*) "Writing profiles to disk."
-
-        open (10, file=trim(path)//'q.dat');
-        open (20, file=trim(path)//'n.dat');
-        open (30, file=trim(path)//'Te.dat');
-        open (40, file=trim(path)//'Ti.dat');
-        open (50, file=trim(path)//'Vth.dat');
-        open (60, file=trim(path)//'Vz.dat');
-        open (70, file=trim(path)//'Er.dat');
-        do k = 1, dim_r !at cell boundaries
-            write (10, *) r(k), q(k);
-            write (20, *) r(k), n(k);
-            write (30, *) r(k), Te(k);
-            write (40, *) r(k), Ti(k);
-            write (50, *) r(k), Vth(k);
-            write (60, *) r(k), Vz(k);
-            write (70, *) r(k), -dPhi0(k);
-        end do
-
-        close (10);
-        close (20);
-        close (30);
-        close (40);
-        close (50);
-        close (60);
-        close (70);
-    end if
 
 end subroutine
 
@@ -313,7 +288,7 @@ end subroutine
 
 subroutine set_flag_for_profiles_in_background_input_file(path, flag)
 
-    character(128), intent(in) :: path;
+    character(len=*), intent(in) :: path;
     integer, intent(in) :: flag;
     character(len=1024) :: buffer;
     character(len=1024), dimension(64) :: lines;

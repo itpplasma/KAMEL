@@ -107,7 +107,8 @@ for (int n=0; n<=deg; n++)
 
 inline void eval_neville_polynom (int dim, const double *xg, const double *yg, int deg, double x, int Dmin, int Dmax, int *ind, double *R)
 {
-if (x < xg[0] || x > xg[dim-1])
+constexpr double tol = 1e-9;
+if (x < xg[0] - tol || x > xg[dim-1] + tol)
 {
     fprintf (stdout, "\nwarning: eval_neville_polynom: x is outside the array: x=%le", x);
 }
@@ -123,7 +124,8 @@ eval_neville_polynom (xg + *ind, yg + *ind, deg, x, Dmin, Dmax, R);
 
 inline void eval_neville_polynom (const double *xa, const double *ya, int deg, double x, int Dmin, int Dmax, double *R)
 {
-if (x < xa[0] || x > xa[deg])
+constexpr double tol = 1e-9;
+if (x < xa[0] - tol || x > xa[deg] + tol)
 {
     fprintf (stdout, "\nwarning: eval_neville_polynom: x is outside the array [%.20le, %.20le]: x=%.20le", xa[0], xa[deg], x);
 }

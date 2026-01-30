@@ -21,7 +21,7 @@ class KiLCA_background(InpOut):
         "rpl": 63.0,  # plasma radius (cm)
         "Btor": 2e4,  # toroidalmagnetic field (G) at the center
         "prof_path": "./profiles/",  # path to input background profiles
-        "flag_recalc": 1,  # 1 - if background must be recalculated (7 input profiles are needed), 0 - otherwise (11 input profiles are needed), -1 -from interface
+        "flag_recalc": 1,  # 1: recalculate from files (default for standalone), -1: from interface (set by QL-Balance), 0: use precomputed
         "flag_back": "f",  # flag for background ('f'-full, 'w'-wkb, 'h'-hom)
         "splinedeg": 9,  # splines degree: >= NC + 2N +1, where N - order of FLR expansion, NC - spl degree for C matrices, must be odd!!
         "vgalsys": -1e9,  # V_gal_sys is a velocity (cm/s) of a moving frame

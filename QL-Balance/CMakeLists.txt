@@ -37,9 +37,6 @@ else()
     message("Building on another operating system might not be implemented.")
 endif()
 enable_language(C Fortran)
-find_package(MPI REQUIRED COMPONENTS C Fortran)
-
-
 set(objs ${PROJECT_BINARY_DIR}/OBJS/ql-balance/)
 set(lib ${PROJECT_BINARY_DIR}/install/lib/)
 set(ql-balance_lib "${lib}libql-balance.a")
@@ -67,7 +64,6 @@ set(balance_lib_base_fortran_sources
     ${base_balance_src}/integrate_parallel_current.f90
     ${base_balance_src}/magnetic_island_width.f90
     ${base_balance_src}/matrix_mod.f90
-    ${base_balance_src}/parallelTools.f90
     ${base_balance_src}/paramscan.f90
     ${base_balance_src}/plag_coeff.f90
     ${base_balance_src}/plasma_parameters.f90
@@ -141,7 +137,6 @@ target_link_libraries(ql-balance_lib PUBLIC
     LIBNEO::neo
     LIBNEO::species
     LIBNEO::transport
-    MPI::MPI_Fortran
     SUNDIALS::cvode
     SUNDIALS::nvecserial
     blas

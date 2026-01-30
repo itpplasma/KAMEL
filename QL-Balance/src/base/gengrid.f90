@@ -176,8 +176,6 @@ subroutine prepare_resonances
     use grid_mod, only: gg_width, gg_factor,r_resonant
     use control_mod, only: ihdf5IO, debug_mode
     use h5mod
-    use mpi
-    use parallelTools, only: irank
 
     implicit none
 
@@ -291,15 +289,13 @@ subroutine prepare_resonances
         enddo
     enddo
 
-    if (irank .eq. 0 ) then
-        if (debug_mode) print *,'Debug: gengrid: number of resonance points = ',numres
-        do i = 1, numres
-            ! maximum width for resonant radius is 999.999 cm with this format
-            ! adjust if necessary
-            write (*, "(a, i0, a, i0, a, f7.3, a)") &
-                  "For mode (m,n) = (", m, ",", n, ") the resonant radius is at ", r_res(i), " cm."
-        end do
-    endif
+    if (debug_mode) print *,'Debug: gengrid: number of resonance points = ',numres
+    do i = 1, numres
+        ! maximum width for resonant radius is 999.999 cm with this format
+        ! adjust if necessary
+        write (*, "(a, i0, a, i0, a, f7.3, a)") &
+              "For mode (m,n) = (", m, ",", n, ") the resonant radius is at ", r_res(i), " cm."
+    end do
 
     do i=1,numres_orig
         do j=1,numres

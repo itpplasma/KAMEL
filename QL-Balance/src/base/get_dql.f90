@@ -18,14 +18,12 @@ subroutine get_dql
     use time_evolution, only: save_prof_time_step, time_ind, br_formfactor, br_vac_res
     use h5mod
     use wave_code_data
-    use parallelTools
     use QLBalance_diag, only: i_mn_loop
     use QLBalance_kinds, only: dp
     use PolyLagrangeInterpolation
 
     implicit none
 
-    integer :: modpernode, imin, imax
     integer :: ipoi, ieq, i_mn, mwind_save
     real(dp), dimension(:), allocatable :: dummy
     real(dp), dimension(:), allocatable :: row_buffer
@@ -116,28 +114,12 @@ subroutine get_dql
             + (params_b(4, :)*ddr_params_nl(1, :)/params_b(1, :) + ddr_params_nl(4, :)) &
             /(Z_i*e_charge)
 
-    call MPI_Comm_rank(MPI_COMM_WORLD, irank, ierror)
-
     ! Compute diffusion coefficient matrices:
 
-    call MPI_Comm_size(MPI_COMM_WORLD, np_num, ierror);
-    call MPI_Comm_rank(MPI_COMM_WORLD, irank, ierror);
-    !sum over modes:
-    if (np_num .gt. dim_mn) then
-        print *, ' '
-        print *, 'Number of processes', np_num, 'is larger than number of modes', dim_mn
-        call MPI_finalize(ierror)
-        stop
-    end if
-
-    modpernode = ceiling(float(dim_mn)/float(np_num))
-    imin = modpernode*irank + 1
-    imax = min(dim_mn, modpernode*(irank + 1))
-
     if (irf .eq. 1) call update_background_files(path2profs)
-    if (irf .eq. 1) call get_wave_code_data(imin, imax)
-    if (irf .eq. 1) call get_background_magnetic_fields_from_wave_code(flre_cd_ptr(imin), dim_r, r, B0t, B0z, B0)
-    if (irf .eq. 1) call get_collision_frequences_from_wave_code(flre_cd_ptr(imin), dim_r, r, nui, nue)
+    if (irf .eq. 1) call get_wave_code_data(1, dim_mn)
+    if (irf .eq. 1) call get_background_magnetic_fields_from_wave_code(flre_cd_ptr(1), dim_r, r, B0t, B0z, B0)
+    if (irf .eq. 1) call get_collision_frequences_from_wave_code(flre_cd_ptr(1), dim_r, r, nui, nue)
 
     !  nu_e=15.4d-6*params_b(1,:)/sqrt(params_b(3,:)/ev)**3            &
     !      *(23.d0-0.5d0*log(params_b(1,:)/(params_b(3,:)/ev)**3))
@@ -159,7 +141,7 @@ subroutine get_dql
     Es_pert_flux = 0.0d0
 
     !sum over modes:
-    do i_mn = imin, imax
+    do i_mn = 1, dim_mn
         call get_wave_vectors_from_wave_code(flre_cd_ptr(i_mn), dim_r, r, &
                                                 m_vals(i_mn), n_vals(i_mn), ks, kp)
         call get_wave_fields_from_wave_code(flre_cd_ptr(i_mn), dim_r, r, &
@@ -198,7 +180,7 @@ subroutine get_dql
 
             call get_ind_Lagr_interp(ibrabsres, ind_begin_interp, ind_end_interp)
             call plag_coeff(nlagr, nder, r_resonant(i_mn), rb(ind_begin_interp:ind_end_interp), coef)
-            CALL magnetic_island_width(coef, nder, nlagr, ind_begin_interp, ind_end_interp, m_vals(i_mn), MI_width)
+            call magnetic_island_width(coef, nder, nlagr, ind_begin_interp, ind_end_interp, m_vals(i_mn), MI_width)
 
             ! the perturbed flux surfaces
             !Es_pert_flux_temp = (-dPhi0) * Br * (m_vals(i_mn) * rtor**2d0 - n_vals(i_mn) * r**2d0 / qsaf) &
@@ -232,7 +214,7 @@ subroutine get_dql
         end do
 
         if (trim(type_of_run) .eq. "TimeEvolution") then !TODO: this is a very bad solution... Make it better
-            if (irank .eq. 0 .and. time_ind>0) then
+            if (time_ind>0) then
                 call interp_rb_at_r0(Br, r_resonant(i_mn), br_vac_res(time_ind))
             end if
         end if
@@ -243,7 +225,7 @@ subroutine get_dql
 
         ! todo: interpolate formfactor at resonant surface and write out. This is Brtot/Brvac at the resonant surface
         if (trim(type_of_run) .eq. "TimeEvolution") then !TODO: this is a very bad solution... Make it better
-            if (irank .eq. 0 .and. time_ind > 0) then
+            if (time_ind > 0) then
                 call interp_rb_at_r0(formfactor, r_resonant(i_mn), br_formfactor(time_ind))
             end if
         end if
@@ -280,15 +262,14 @@ subroutine get_dql
          !dqle22_loc = dqle22_loc + 12 * d11_misalign
     end if ! misalign_diffusion .eqv. .true.
 
-    call MPI_Allreduce(dqle11_loc, dqle11, npoib, MPI_DOUBLE_PRECISION, MPI_SUM, MPI_COMM_WORLD, ierror);
-    call MPI_Allreduce(dqle12_loc, dqle12, npoib, MPI_DOUBLE_PRECISION, MPI_SUM, MPI_COMM_WORLD, ierror);
-    call MPI_Allreduce(dqle21_loc, dqle21, npoib, MPI_DOUBLE_PRECISION, MPI_SUM, MPI_COMM_WORLD, ierror);
-    call MPI_Allreduce(dqle22_loc, dqle22, npoib, MPI_DOUBLE_PRECISION, MPI_SUM, MPI_COMM_WORLD, ierror);
-    call MPI_Allreduce(dqli11_loc, dqli11, npoib, MPI_DOUBLE_PRECISION, MPI_SUM, MPI_COMM_WORLD, ierror);
-    call MPI_Allreduce(dqli12_loc, dqli12, npoib, MPI_DOUBLE_PRECISION, MPI_SUM, MPI_COMM_WORLD, ierror);
-    call MPI_Allreduce(dqli21_loc, dqli21, npoib, MPI_DOUBLE_PRECISION, MPI_SUM, MPI_COMM_WORLD, ierror);
-    call MPI_Allreduce(dqli22_loc, dqli22, npoib, MPI_DOUBLE_PRECISION, MPI_SUM, MPI_COMM_WORLD, ierror);
-    call MPI_Barrier(MPI_COMM_WORLD, ierror);
+    dqle11 = dqle11_loc
+    dqle12 = dqle12_loc
+    dqle21 = dqle21_loc
+    dqle22 = dqle22_loc
+    dqli11 = dqli11_loc
+    dqli12 = dqli12_loc
+    dqli21 = dqli21_loc
+    dqli22 = dqli22_loc
     deallocate (dqle11_loc);
     deallocate (dqle12_loc);
     deallocate (dqle21_loc);
@@ -355,12 +336,10 @@ subroutine get_dql
 
     if (debug_mode) print *, "Debug: write_fields_currs_transp_coefs_to_h5"
 
-    if (irank .eq. 0) then
-        if (modulo(time_ind, save_prof_time_step) .eq. 0) then
-            if (suppression_mode .eqv. .false.) then
-                CALL write_fields_currs_transp_coefs_to_h5
-                call write_D_one_over_nu_to_h5
-            end if
+    if (modulo(time_ind, save_prof_time_step) .eq. 0) then
+        if (suppression_mode .eqv. .false.) then
+            call write_fields_currs_transp_coefs_to_h5
+            call write_D_one_over_nu_to_h5
         end if
     end if
 

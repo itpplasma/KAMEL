@@ -53,8 +53,6 @@ project(KAMEL LANGUAGES C CXX Fortran)
 set(CMAKE_CXX_STANDARD 11)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-find_package(MPI REQUIRED C Fortran)
-
 # Set architecture flags based on platform
 if(APPLE)
     # On macOS, use libomp from Homebrew for OpenMP support

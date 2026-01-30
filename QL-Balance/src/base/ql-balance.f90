@@ -7,7 +7,6 @@
 program ql_balance
 
     use balance_base
-    use parallelTools
     use plasma_parameters
     use balance_mod
 
@@ -25,11 +24,7 @@ program ql_balance
     call read_config
     call from_balance_factory_get_balance(type_of_run, balance_instance)
 
-    call initMPI
-
     call balance_instance%init_balance()
     call balance_instance%run_balance()
-
-    call MPI_finalize(ierror)
 
 end program ql_balance

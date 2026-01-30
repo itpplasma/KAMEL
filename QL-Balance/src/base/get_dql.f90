@@ -18,7 +18,6 @@ subroutine get_dql
     use time_evolution, only: save_prof_time_step, time_ind, br_formfactor, br_vac_res
     use h5mod
     use wave_code_data
-    use parallelTools, only: irank
     use QLBalance_diag, only: i_mn_loop
     use QLBalance_kinds, only: dp
     use PolyLagrangeInterpolation
@@ -215,7 +214,7 @@ subroutine get_dql
         end do
 
         if (trim(type_of_run) .eq. "TimeEvolution") then !TODO: this is a very bad solution... Make it better
-            if (irank .eq. 0 .and. time_ind>0) then
+            if (time_ind>0) then
                 call interp_rb_at_r0(Br, r_resonant(i_mn), br_vac_res(time_ind))
             end if
         end if
@@ -226,7 +225,7 @@ subroutine get_dql
 
         ! todo: interpolate formfactor at resonant surface and write out. This is Brtot/Brvac at the resonant surface
         if (trim(type_of_run) .eq. "TimeEvolution") then !TODO: this is a very bad solution... Make it better
-            if (irank .eq. 0 .and. time_ind > 0) then
+            if (time_ind > 0) then
                 call interp_rb_at_r0(formfactor, r_resonant(i_mn), br_formfactor(time_ind))
             end if
         end if
@@ -337,12 +336,10 @@ subroutine get_dql
 
     if (debug_mode) print *, "Debug: write_fields_currs_transp_coefs_to_h5"
 
-    if (irank .eq. 0) then
-        if (modulo(time_ind, save_prof_time_step) .eq. 0) then
-            if (suppression_mode .eqv. .false.) then
-                CALL write_fields_currs_transp_coefs_to_h5
-                call write_D_one_over_nu_to_h5
-            end if
+    if (modulo(time_ind, save_prof_time_step) .eq. 0) then
+        if (suppression_mode .eqv. .false.) then
+            CALL write_fields_currs_transp_coefs_to_h5
+            call write_D_one_over_nu_to_h5
         end if
     end if
 

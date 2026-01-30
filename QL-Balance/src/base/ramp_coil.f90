@@ -128,8 +128,6 @@ subroutine ramp_up_hysteresis
 
     implicit none
 
-    integer :: ierror
-
     if (debug_mode) write(*,*) "Debug: ramp-up mode hysteresis"
     if (debug_mode) write(*,*) "Debug: ramp_up_down = ", ramp_up_down
     if (ramp_up_down .eq. 0) then ! ramp-up
@@ -181,8 +179,6 @@ subroutine ramp_up_fast_hysteresis
 
     implicit none
 
-    integer :: ierror
-
     if (debug_mode) write(*,*) "Debug: ramp-up mode fast hysteresis"
     if (debug_mode) write(*,*) "Debug: ramp_up_down = ", ramp_up_down
     if (ramp_up_down .eq. 0) then ! ramp-up
@@ -231,8 +227,6 @@ subroutine stop_if_antenna_fac_max_reached
     use h5mod
 
     implicit none
-
-    integer :: ierror
 
     if (antenna_factor .gt. (antenna_factor_max * antenna_max_stopping)) then
         write(*,*) 'stop: reached antenna_factor_max * ', antenna_max_stopping
@@ -347,8 +341,6 @@ subroutine stop_if_t_max_reached
 
     implicit none
 
-    integer :: ierror
-
     if (time .ge. t_max_ramp_up) then ! if max time value is reached, stop the code
         write(*,*) 'stop: reached time max: ', t_max_ramp_up
         if (suppression_mode .eqv. .false.) then
@@ -374,13 +366,10 @@ end subroutine
 
 subroutine stop_evolution
 
-    use time_evolution, only: time, t_max_ramp_up, write_kin_prof_data_to_disk, write_br_dqle22_time_data
-    use control_mod, only: suppression_mode, ihdf5IO
-    use h5mod
+    use time_evolution, only: write_kin_prof_data_to_disk, write_br_dqle22_time_data
+    use control_mod, only: suppression_mode
 
     implicit none
-
-    integer :: ierror
 
     if (suppression_mode .eqv. .false.) then
         call write_kin_prof_data_to_disk

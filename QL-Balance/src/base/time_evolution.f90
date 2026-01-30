@@ -1,7 +1,6 @@
 module time_evolution
 
     use control_mod
-    use parallelTools, only: irank
     use h5mod
     use balance_base, only: balance_t
     use QLBalance_kinds, only: dp
@@ -88,8 +87,7 @@ module time_evolution
         use h5mod, only: mode_m, mode_n
         use control_mod, only: gyro_current_study, write_gyro_current, debug_mode, &
                         ihdf5IO
-        use parallelTools, only: irank
-        use wave_code_data, only: m_vals, n_vals
+                use wave_code_data, only: m_vals, n_vals
         use plasma_parameters, only: write_initial_parameters, alloc_hold_parameters, &
                                 params, params_begbeg, init_background_profiles
         use resonances_mod, only: write_resonant_radii_to_hdf5
@@ -99,54 +97,50 @@ module time_evolution
         class(TimeEvolution_t), intent(inout) :: this
         this%runType = "TimeEvolution"
 
-        if (irank .eq. 0) then
-            iexit = 0 ! 0 - dont skip, 1 - skip, 2 - stop
-            mwind = 10
-            write_diag = .false.
-            write_diag_b = .false.
+        iexit = 0 ! 0 - dont skip, 1 - skip, 2 - stop
+        mwind = 10
+        write_diag = .false.
+        write_diag_b = .false.
 
-            if (gyro_current_study .ne. 0) then
-                write_gyro_current = .true.
-            else
-                write_gyro_current = .false.
-            end if
-
-            !call read_config
-
-            timescale = (rmax - rmin)**2 / dperp
-            tmax = timescale * tmax_factor
-            timstep = tmax / Nstorage
-            time = 0.0d0
-            tol = tol_max
-
-            call gengrid
-            call set_boundary_condition
-
-            CALL initialize_wave_code_interface(npoib, rb);
-
-            mode_m = m_vals(1)
-            mode_n = n_vals(1)
-            if (ihdf5IO .eq. 1) then
-                CALL create_group_structure_timeevol
-            end if
-            if (debug_mode) write(*,*) 'Debug: mode_m = ', mode_m, 'mode_n = ', mode_n
-
-            call write_resonant_radii_to_hdf5
-
-            call allocate_prev_variables
-            call init_background_profiles
-            CALL write_initial_parameters
-            !call alloc_hold_parameters
+        if (gyro_current_study .ne. 0) then
+            write_gyro_current = .true.
+        else
+            write_gyro_current = .false.
         end if
+
+        !call read_config
+
+        timescale = (rmax - rmin)**2 / dperp
+        tmax = timescale * tmax_factor
+        timstep = tmax / Nstorage
+        time = 0.0d0
+        tol = tol_max
+
+        call gengrid
+        call set_boundary_condition
+
+        CALL initialize_wave_code_interface(npoib, rb);
+
+        mode_m = m_vals(1)
+        mode_n = n_vals(1)
+        if (ihdf5IO .eq. 1) then
+            CALL create_group_structure_timeevol
+        end if
+        if (debug_mode) write(*,*) 'Debug: mode_m = ', mode_m, 'mode_n = ', mode_n
+
+        call write_resonant_radii_to_hdf5
+
+        call allocate_prev_variables
+        call init_background_profiles
+        CALL write_initial_parameters
+        !call alloc_hold_parameters
 
         call calc_geometric_parameter_profiles
         call initialize_get_dql
         call initialize_antenna_factor
         call det_balance_eqs_source_terms
 
-        if (irank .eq. 0) then
-            if (.not. suppression_mode) call write_kin_prof_data_to_disk
-        end if
+        if (.not. suppression_mode) call write_kin_prof_data_to_disk
 
         call allocate_timscal_and_params
         timstep = timstep*tol
@@ -176,8 +170,7 @@ module time_evolution
     subroutine doStep(this)
         use baseparam_mod, only: factolmax, factolred
         use control_mod, only: debug_mode
-        use parallelTools, only: irank
-        use plasma_parameters, only: params, params_beg, params_begbeg, limit_temps_from_below
+                use plasma_parameters, only: params, params_beg, params_begbeg, limit_temps_from_below
         use recstep_mod, only: timstep_arr
         use recstep_mod, only: tol
         use restart_mod, only: redostep
@@ -235,17 +228,15 @@ module time_evolution
             timstep_arr = timstep_arr * factolred
             params = params_beg
 
-            if (irank .eq. 0) then
-                if (debug_mode) then
-                    print *, "Redoing step: Maxval(timscal) is not lesser than tol * factolmax"
-                    print *, "Maxval(timscal) = ", maxval(timscal)
-                    print *, "tol = ", tol
-                    print *, "factolmax = ", factolmax
-                    print *, "tol * factolmax = ", tol * factolmax
-                    print *, "timstep_arr(1) = ", timstep_arr(1)
-                    print *, "timstep_arr(100) = ", timstep_arr(100)
-                    print *, ""
-                end if
+            if (debug_mode) then
+                print *, "Redoing step: Maxval(timscal) is not lesser than tol * factolmax"
+                print *, "Maxval(timscal) = ", maxval(timscal)
+                print *, "tol = ", tol
+                print *, "factolmax = ", factolmax
+                print *, "tol * factolmax = ", tol * factolmax
+                print *, "timstep_arr(1) = ", timstep_arr(1)
+                print *, "timstep_arr(100) = ", timstep_arr(100)
+                print *, ""
             end if
             if (iredo > 100) then
                 stop "Redoing step: Maxval(timscal) is not lesser than tol * factolmax " // &
@@ -613,11 +604,10 @@ module time_evolution
     subroutine write_kin_profile_at_time_index
 
         implicit none
-        if (irank .eq. 0) then
-            if (debug_mode) write(*,*) "Debug: Write kinetic profiles at time index: ", time_ind
-            if (modulo(time_ind, save_prof_time_step) .eq. 0) then
-                CALL write_kin_prof_data_to_disk
-            end if
+
+        if (debug_mode) write(*,*) "Debug: Write kinetic profiles at time index: ", time_ind
+        if (modulo(time_ind, save_prof_time_step) .eq. 0) then
+            CALL write_kin_prof_data_to_disk
         end if
 
     end subroutine
@@ -752,10 +742,8 @@ module time_evolution
         end do
 
         if (debug_mode) then
-            if (irank .eq. 0) then
-                write(*,*) "maxval(timscal) = ", maxval(timscal)
-                write(*,*) "tol*factolmax = ", tol*factolmax
-            end if
+            write(*,*) "maxval(timscal) = ", maxval(timscal)
+            write(*,*) "tol*factolmax = ", tol*factolmax
         end if
 
     end subroutine
@@ -813,10 +801,8 @@ module time_evolution
             write(*,*) "constant time step = ", timstep
         end if
 
-        if (irank .eq. 0) then
-            if (debug_mode) write(*,*) 'Debug: timstep', real(timstep), '   timescale', real(timescale), &
-                'tolerance', real(tol)
-        end if
+        if (debug_mode) write(*,*) 'Debug: timstep', real(timstep), '   timescale', real(timescale), &
+            'tolerance', real(tol)
 
     end subroutine
 
@@ -836,14 +822,11 @@ module time_evolution
 
         implicit none
 
-        if (irank .eq. 0) then
-            if (ihdf5IO .eq. 1) then
-                call write_time_info_to_h5
-            else
-                call write_time_info_to_txt
-            end if
+        if (ihdf5IO .eq. 1) then
+            call write_time_info_to_h5
+        else
+            call write_time_info_to_txt
         end if
-
 
     end subroutine
 
@@ -919,11 +902,10 @@ module time_evolution
     subroutine msg_time_info
 
         implicit none
-        if (irank .eq. 0) then
-            write(*,*) ' '
-            write(*,*) 'Debug: i = ', int2(time_ind), 'time = ', real(time)
-            write(*,*) ' '
-        end if
+
+        write(*,*) ' '
+        write(*,*) 'Debug: i = ', int2(time_ind), 'time = ', real(time)
+        write(*,*) ' '
 
     end subroutine
 
@@ -994,7 +976,6 @@ module time_evolution
 
     subroutine redoTimeStep
 
-        use parallelTools, only: irank
         use recstep_mod, only: timstep_arr
         use grid_mod, only: npoic, rc, Ercov
         use plasma_parameters, only: params, params_begbeg
@@ -1005,34 +986,28 @@ module time_evolution
 
         integer :: ipoi
 
-        if (irank .eq. 0) then
-            print *, 'redo step with old DQL'
-        end if
+        print *, 'redo step with old DQL'
 
         call hold_prev_transp_coeffs
         iunit_redo = 137
 
-        if (irank .eq. 0) then
-            open (iunit_redo, file='params_redostep.after')
-            do ipoi = 1, npoic
-                write (iunit_redo, *) rc(ipoi), params(1:2, ipoi) &
-                    , params(3, ipoi)/ev &
-                    , params(4, ipoi)/ev &
-                    , 0.5d0*(Ercov(ipoi) + Ercov(ipoi + 1))
-            end do
-            close (iunit_redo)
-        end if
+        open (iunit_redo, file='params_redostep.after')
+        do ipoi = 1, npoic
+            write (iunit_redo, *) rc(ipoi), params(1:2, ipoi) &
+                , params(3, ipoi)/ev &
+                , params(4, ipoi)/ev &
+                , 0.5d0*(Ercov(ipoi) + Ercov(ipoi + 1))
+        end do
+        close (iunit_redo)
         params = params_begbeg
-        if (irank .eq. 0) then
-            open (iunit_redo, file='params_redostep.before')
-            do ipoi = 1, npoic
-                write (iunit_redo, *) rc(ipoi), params(1:2, ipoi) &
-                    , params(3, ipoi)/ev &
-                    , params(4, ipoi)/ev &
-                    , 0.5d0*(Ercov(ipoi) + Ercov(ipoi + 1))
-            end do
-            close (iunit_redo)
-        end if
+        open (iunit_redo, file='params_redostep.before')
+        do ipoi = 1, npoic
+            write (iunit_redo, *) rc(ipoi), params(1:2, ipoi) &
+                , params(3, ipoi)/ev &
+                , params(4, ipoi)/ev &
+                , 0.5d0*(Ercov(ipoi) + Ercov(ipoi + 1))
+        end do
+        close (iunit_redo)
 
         timstep = timstep/factolmax
         timstep_arr = timstep

@@ -33,8 +33,7 @@ module paramscan_mod
         use h5mod, only: mode_m, mode_n
         use control_mod, only: gyro_current_study, write_gyro_current, debug_mode, &
                         ihdf5IO
-        use parallelTools, only: irank
-        use wave_code_data, only: m_vals, n_vals
+                use wave_code_data, only: m_vals, n_vals
         use plasma_parameters, only: write_initial_parameters, alloc_hold_parameters, &
                                 init_background_profiles
 
@@ -45,55 +44,49 @@ module paramscan_mod
 
         paramscan = .true.
 
-        if (irank .eq. 0) then
-            !iexit = 0 ! 0 - dont skip, 1 - skip, 2 - stop
-            mwind = 10
-            write_diag = .false.
-            write_diag_b = .false.
+        !iexit = 0 ! 0 - dont skip, 1 - skip, 2 - stop
+        mwind = 10
+        write_diag = .false.
+        write_diag_b = .false.
 
-            if (gyro_current_study .ne. 0) then
-                write_gyro_current = .true.
-            else
-                write_gyro_current = .false.
-            end if
-
-            call gengrid
-            call set_boundary_condition
-            CALL initialize_wave_code_interface(npoib, rb);
-            CALL initialize_parameter_scan_vars
-
-            mode_m = m_vals(1)
-            mode_n = n_vals(1)
-            if (debug_mode) write(*,*) 'Debug: mode_m = ', mode_m, 'mode_n = ', mode_n
-            !call allocate_prev_variables
-
-            if (ihdf5IO .eq. 1) then
-                CALL create_group_structure_paramscan
-            end if
-            call init_background_profiles
-            CALL write_initial_parameters
-
-            !call alloc_hold_parameters
-
+        if (gyro_current_study .ne. 0) then
+            write_gyro_current = .true.
+        else
+            write_gyro_current = .false.
         end if
+
+        call gengrid
+        call set_boundary_condition
+        CALL initialize_wave_code_interface(npoib, rb);
+        CALL initialize_parameter_scan_vars
+
+        mode_m = m_vals(1)
+        mode_n = n_vals(1)
+        if (debug_mode) write(*,*) 'Debug: mode_m = ', mode_m, 'mode_n = ', mode_n
+        !call allocate_prev_variables
+
+        if (ihdf5IO .eq. 1) then
+            CALL create_group_structure_paramscan
+        end if
+        call init_background_profiles
+        CALL write_initial_parameters
+
+        !call alloc_hold_parameters
 
     end subroutine
 
     subroutine runParameterScan(this)
 
         use transp_coeffs_mod, only: rescale_transp_coeffs_by_ant_fac
-        use parallelTools, only: irank
         use plasma_parameters, only: alloc_hold_parameters
 
         implicit none
 
         class(ParameterScan_t), intent(inout) :: this
 
-        if (irank .eq. 0) then
-            print *, ""
-            print *, "  Running ParameterScan   "
-            print *, ""
-        end if
+        print *, ""
+        print *, "  Running ParameterScan   "
+        print *, ""
 
         call alloc_hold_parameters
 

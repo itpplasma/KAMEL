@@ -1,8 +1,7 @@
 module time_evolution_stellarator
 
     use control_mod
-    use parallelTools, only: irank
-    use h5mod
+        use h5mod
     use balance_base, only: balance_t
     use time_evolution
     use QLBalance_kinds, only: dp
@@ -39,8 +38,7 @@ module time_evolution_stellarator
         use h5mod, only: mode_m, mode_n
         use control_mod, only: gyro_current_study, write_gyro_current, debug_mode, &
                         ihdf5IO
-        use parallelTools, only: irank
-        use wave_code_data, only: m_vals, n_vals
+                use wave_code_data, only: m_vals, n_vals
         use plasma_parameters, only: write_initial_parameters, alloc_hold_parameters, &
                                 params, params_begbeg, init_background_profiles
         implicit none
@@ -48,50 +46,47 @@ module time_evolution_stellarator
         class(time_evolution_stellarator_t), intent(inout) :: this
         this%runType = "TimeEvolution"
 
-        if (irank .eq. 0) then
+        call read_stell_config
+        call print_stell_config
 
-            call read_stell_config
-            call print_stell_config
+        iexit = 0 ! 0 - dont skip, 1 - skip, 2 - stop
+        mwind = 10
+        write_diag = .false.
+        write_diag_b = .false.
 
-            iexit = 0 ! 0 - dont skip, 1 - skip, 2 - stop
-            mwind = 10
-            write_diag = .false.
-            write_diag_b = .false.
+        ! if h5overwrite = true, existing data will be deleted
+        ! before new one is written
+        ! This is contained in hdf5_tools module
+        h5overwrite = .true.
 
-            ! if h5overwrite = true, existing data will be deleted
-            ! before new one is written
-            ! This is contained in hdf5_tools module
-            h5overwrite = .true.
-
-            if (gyro_current_study .ne. 0) then
-                write_gyro_current = .true.
-            else
-                write_gyro_current = .false.
-            end if
-
-            !call read_config
-            timescale = (rmax - rmin)**2 / dperp
-            tmax = timescale * tmax_factor
-            timstep = tmax / Nstorage
-            time = 0.0d0
-            tol = tol_max
-
-            call gengrid
-            call set_boundary_condition
-
-            CALL initialize_wave_code_interface(npoib, rb);
-
-            mode_m = m_vals(1)
-            mode_n = n_vals(1)
-            if (ihdf5IO .eq. 1) then
-                CALL create_group_structure_timeevol
-            end if
-            if (debug_mode) write(*,*) 'Debug: mode_m = ', mode_m, 'mode_n = ', mode_n
-
-            call allocate_prev_variables
-            call init_background_profiles
-            CALL write_initial_parameters
+        if (gyro_current_study .ne. 0) then
+            write_gyro_current = .true.
+        else
+            write_gyro_current = .false.
         end if
+
+        !call read_config
+        timescale = (rmax - rmin)**2 / dperp
+        tmax = timescale * tmax_factor
+        timstep = tmax / Nstorage
+        time = 0.0d0
+        tol = tol_max
+
+        call gengrid
+        call set_boundary_condition
+
+        CALL initialize_wave_code_interface(npoib, rb);
+
+        mode_m = m_vals(1)
+        mode_n = n_vals(1)
+        if (ihdf5IO .eq. 1) then
+            CALL create_group_structure_timeevol
+        end if
+        if (debug_mode) write(*,*) 'Debug: mode_m = ', mode_m, 'mode_n = ', mode_n
+
+        call allocate_prev_variables
+        call init_background_profiles
+        CALL write_initial_parameters
 
         call alloc_Br_Dqle_for_timeevol
         call calc_geometric_parameter_profiles
@@ -100,9 +95,7 @@ module time_evolution_stellarator
         call initialize_antenna_factor
         call det_balance_eqs_source_terms_stell
 
-        if (irank .eq. 0) then
-            if (.not. suppression_mode) call write_kin_prof_data_to_disk
-        end if
+        if (.not. suppression_mode) call write_kin_prof_data_to_disk
 
         call allocate_timscal_and_params
         timstep = timstep*tol
@@ -120,8 +113,7 @@ module time_evolution_stellarator
 
     subroutine runTimeEvolution(this)
 
-        use parallelTools, only: irank
-        use baseparam_mod, only: factolmax, factolred
+                use baseparam_mod, only: factolmax, factolred
         use recstep_mod, only: tol
         use plasma_parameters, only: params, params_beg, params_begbeg, limit_temps_from_below
         use restart_mod, only: redostep
@@ -186,17 +178,15 @@ module time_evolution_stellarator
                 timstep_arr = timstep_arr * factolred
                 params = params_beg
 
-                if (irank .eq. 0) then
-                    if (debug_mode) then
-                        print *, "Redoing step: Maxval(timscal) is not lesser than tol * factolmax"
-                        print *, "Maxval(timscal) = ", maxval(timscal)
-                        print *, "tol = ", tol
-                        print *, "factolmax = ", factolmax
-                        print *, "tol * factolmax = ", tol * factolmax
-                        print *, "timstep_arr(1) = ", timstep_arr(1)
-                        print *, "timstep_arr(100) = ", timstep_arr(100)
-                        print *, ""
-                    end if
+                if (debug_mode) then
+                    print *, "Redoing step: Maxval(timscal) is not lesser than tol * factolmax"
+                    print *, "Maxval(timscal) = ", maxval(timscal)
+                    print *, "tol = ", tol
+                    print *, "factolmax = ", factolmax
+                    print *, "tol * factolmax = ", tol * factolmax
+                    print *, "timstep_arr(1) = ", timstep_arr(1)
+                    print *, "timstep_arr(100) = ", timstep_arr(100)
+                    print *, ""
                 end if
                 if (iredo > 300) then
                     stop "Redoing step: Maxval(timscal) is not lesser than tol * factolmax after 100 redos"

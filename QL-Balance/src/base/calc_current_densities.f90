@@ -12,7 +12,6 @@ subroutine calc_parallel_current_directly
 
     implicit none
 
-    integer :: irank = 0
     integer :: ipoi, i, iunit, mnmax
     real(dp), dimension(:), allocatable :: x1, x2, vT, A1, A2
     complex(dp), dimension(:), allocatable :: curr_e_par
@@ -47,8 +46,7 @@ subroutine calc_parallel_current_directly
                  *(c*Es*((A1 + A2)*symbI(1, 0, :) + 0.5d0*A2*symbI(2, 1, :)) &
                     + vT*Br*((A1 + A2)*symbI(1, 1, :) + 0.5d0*A2*symbI(3, 1, :)))
 
-        if (irank .eq. 0) then
-            CALL h5_init()
+        CALL h5_init()
             CALL h5_open_rw(path2out, h5_id)
             tempch = "/"//trim(h5_mode_groupname)//"/par_current_e/"
             if (debug_mode) write(*,*) "Debug: In group: "//trim(tempch)
@@ -180,7 +178,6 @@ subroutine calc_parallel_current_directly
                     close (iunit)
                 end if
             end if
-        end if ! irank .eq. 0
 
     elseif (gyro_current_study .eq. 1) then ! used to scan over nue and omega_E, deprecated
         write(*,*) " - - - - - - - - - "
@@ -391,7 +388,6 @@ subroutine calc_ion_parallel_current_directly
 
     implicit none
 
-    integer :: irank = 0
     integer :: ipoi, i, iunit, mnmax
     real(dp) :: ei_charge
     real(dp), dimension(:), allocatable :: x1, x2, vT
@@ -424,8 +420,7 @@ subroutine calc_ion_parallel_current_directly
                  *(c*Es*((x1 + x2)*symbI(1, 0, :) + 0.5d0*x2*symbI(2, 1, :)) &
                     + vT*Br*((x1 + x2)*symbI(1, 1, :) + 0.5d0*x2*symbI(3, 1, :)))
 
-    if (irank .eq. 0) then
-        if (write_gyro_current) then
+    if (write_gyro_current) then
             if (debug_mode) write(*,*) "Debug: writing par_current_i.dat"
             ! Write out gyro current which is different to KiLCA current Jpe.
             ! The gyro current is calculated from (60) in Heyn et. al 2014
@@ -503,7 +498,6 @@ subroutine calc_ion_parallel_current_directly
                 close (iunit)
             end if
         end if
-    end if
 
     deallocate (x1, x2, symbI, curr_i_par, vT)
 

@@ -859,9 +859,10 @@ contains
     !> @param[in] s_tor Array of normalized toroidal flux coordinates
     !> @param[in] transport_data Array of transport data containing torque information
     !> @param[in] filename Output CSV filename
-    subroutine write_torque_csv(s_tor, transport_data, filename)
+    subroutine write_torque_csv(r, s_tor, transport_data, filename)
         use iso_fortran_env, only: dp => real64
 
+        real(dp), dimension(:), intent(in) :: r
         real(dp), dimension(:), intent(in) :: s_tor
         type(transport_data_t), dimension(:), intent(in) :: transport_data
         character(len=*), intent(in) :: filename
@@ -881,19 +882,54 @@ contains
         end if
 
         ! Write header
-        write (iunit, '(A)') "s_tor,Tco,Tctr,Tt"
+        write (iunit, '(A)') "r,s_tor,dVds,Tco,Tctr,Tt"
 
         ! Write data rows
         do i = 1, n
-            write (iunit, '(ES23.15E3,A,ES23.15E3,A,ES23.15E3,A,ES23.15E3)') &
-                s_tor(i), ",", &
-                transport_data(i)%torque%Tco, ",", &
-                transport_data(i)%torque%Tctr, ",", &
+            write (iunit, '(ES23.15E3,",",ES23.15E3,",",ES23.15E3,",",ES23.15E3,",",ES23.15E3,",",ES23.15E3)') &
+                r(i), &
+                s_tor(i), &
+                transport_data(i)%torque%dVds, &
+                transport_data(i)%torque%Tco, &
+                transport_data(i)%torque%Tctr, &
                 transport_data(i)%torque%Tt
         end do
 
         close (iunit)
     end subroutine write_torque_csv
+
+    subroutine write_torque_csv_splined(r, torque, filename)
+        use iso_fortran_env, only: dp => real64
+
+        real(dp), dimension(:), intent(in) :: r
+        real(dp), dimension(:), intent(in) :: torque
+        character(len=*), intent(in) :: filename
+
+        integer :: iunit, ios, i, n
+        character(len=1024) :: errmsg
+
+        n = size(r)
+        if (size(torque) /= n) then
+            error stop "write_torque_csv_splined: r and torque size mismatch"
+        end if
+
+        open (newunit=iunit, file=filename, status='replace', action='write', iostat=ios)
+        if (ios /= 0) then
+            write (errmsg, '(A,A)') "write_torque_csv_splined: cannot open file ", filename
+            error stop trim(errmsg)
+        end if
+
+        ! Write header
+        write (iunit, '(A)') "r,torque_ntv"
+
+        ! Write data rows
+        do i = 1, n
+            write (iunit, '(ES23.15E3,",",ES23.15E3)') r(i), torque(i)
+        end do
+
+        close (iunit)
+    end subroutine write_torque_csv_splined
+
 
     subroutine write_plasma_input(path, nplasma, am1, am2, Z1, Z2, plasma)
         character(len=*), intent(in) :: path

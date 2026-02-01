@@ -8,12 +8,21 @@ module loading_bar_m
 
 contains
 
-    subroutine updateLoadingBar(current_step, total_steps)
+    subroutine updateLoadingBar(current_step, total_steps, label)
 
         implicit none
 
         integer, intent(in) :: current_step, total_steps
+        character(len=*), intent(in), optional :: label
         real(dp) :: percentage
+        character(len=32) :: display_label
+
+        ! Set label (default: "Progress")
+        if (present(label)) then
+            display_label = label
+        else
+            display_label = "Progress"
+        end if
 
         ! Calculate the percentage completion
         percentage = real(current_step, dp) / real(total_steps, dp) * 100.0_dp
@@ -21,20 +30,29 @@ contains
         ! Clear the previous loading bar
         write (*, '(A)', advance='no') ACHAR(13)
         ! Display the loading bar
-        write (*, '(A, F6.2, A)', advance='no') "Progress: ", percentage, "% ["
+        write (*, '(A, A, F6.2, A)', advance='no') trim(display_label), ": ", percentage, "% ["
         call drawLoadingBar(percentage)
         write (*, '(A)', advance='no') "]"
     end subroutine updateLoadingBar
 
-    subroutine updateLoadingBarWithETA(current_step, total_steps, start_count, count_rate)
+    subroutine updateLoadingBarWithETA(current_step, total_steps, start_count, count_rate, label)
 
         implicit none
 
         integer, intent(in) :: current_step, total_steps
         integer(kind=8), intent(in) :: start_count, count_rate
+        character(len=*), intent(in), optional :: label
         real(dp) :: percentage, elapsed_time, estimated_total_time, eta
         integer(kind=8) :: current_count
         integer :: eta_hours, eta_minutes, eta_seconds
+        character(len=32) :: display_label
+
+        ! Set label (default: "Progress")
+        if (present(label)) then
+            display_label = label
+        else
+            display_label = "Progress"
+        end if
 
         ! Get current wall clock time
         call system_clock(current_count)
@@ -63,12 +81,12 @@ contains
 
         ! Display the loading bar with ETA
         if (current_step > 0) then
-            write (*, '(A, F6.2, A)', advance='no') "Progress: ", percentage, "% ["
+            write (*, '(A, A, F6.2, A)', advance='no') trim(display_label), ": ", percentage, "% ["
             call drawLoadingBar(percentage)
             write (*, '(A, I0.2, A, I0.2, A, I0.2, A)', advance='no') "] ETA: ", &
                 eta_hours, ":", eta_minutes, ":", eta_seconds, " "
         else
-            write (*, '(A, F6.2, A)', advance='no') "Progress: ", percentage, "% ["
+            write (*, '(A, A, F6.2, A)', advance='no') trim(display_label), ": ", percentage, "% ["
             call drawLoadingBar(percentage)
             write (*, '(A)', advance='no') "] ETA: --:--:-- "
         end if

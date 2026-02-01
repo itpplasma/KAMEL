@@ -141,7 +141,7 @@ contains
             call neort_compute_at_s(s_tor(s_idx), transport_data(s_idx))
             !$omp critical
             completed_steps = completed_steps + 1
-            call updateLoadingBarWithETA(completed_steps, s_size, start_count, count_rate)
+            call updateLoadingBarWithETA(completed_steps, s_size, start_count, count_rate, "NEO-RT")
             !$omp end critical
         end do
         !$omp end parallel do

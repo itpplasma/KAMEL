@@ -1,9 +1,7 @@
 module time_evolution_ntv
     use iso_fortran_env, only: dp => real64
-    use omp_lib
     use time_evolution, only: TimeEvolution_t
     use neort_lib
-    use loading_bar_m, only: updateLoadingBarWithETA
 
     implicit none
 
@@ -115,17 +113,23 @@ contains
     end subroutine runTimeEvolutionNTV
 
     subroutine doStep(this)
-        use neort_interface, only: prepare_plasma_data_for_neort, prepare_profile_data_for_neort, &
-                                   apply_ntv_transport
         use time_evolution, only: doStepBase => doStep
 
         class(TimeEvolutionNTV_t), intent(inout) :: this
+
+        call neo_rt
+        call doStepBase(this%TimeEvolution_t)
+    end subroutine doStep
+
+    subroutine neo_rt
+        use loading_bar_m, only: updateLoadingBarWithETA
+        use neort_interface, only: prepare_plasma_data_for_neort, prepare_profile_data_for_neort, &
+                                   apply_ntv_transport
 
         integer :: s_size, s_idx
         integer(kind=8) :: start_count, count_rate
         integer :: completed_steps
 
-        ! NEO-RT first
         s_size = size(s_tor)
 
         call prepare_plasma_data_for_neort(plasma_data, r, s_tor)
@@ -147,11 +151,9 @@ contains
         !$omp end parallel do
         write (*, "(a)") ""  ! newline after progress bar
 
-        ! Add torque to global ntv array to be used in next time step
+        ! Add torque to global torque_ntv array to be used in rhs_balance
         call apply_ntv_transport(r, transport_data)
 
-        ! then regular time step
-        call doStepBase(this%TimeEvolution_t)
-    end subroutine doStep
+    end subroutine neo_rt
 
 end module

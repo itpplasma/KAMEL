@@ -111,7 +111,7 @@ set_target_properties(ql-balance_lib PROPERTIES LINKER_LANGUAGE Fortran
     ARCHIVE_OUTPUT_DIRECTORY "${lib}"
     Fortran_MODULE_DIRECTORY "${objs}")
 
-add_dependencies(ql-balance_lib kilca_lib kamel_hdf5_tools KIM_lib)
+add_dependencies(ql-balance_lib kilca_lib kamel_hdf5_tools KIM_lib kamel_util)
 target_include_directories(ql-balance_lib PUBLIC ${CMAKE_BINARY_DIR}/KiLCA/mod ${CMAKE_BINARY_DIR}/modules)
 # NOTE: KIM Fortran modules (OBJS/kim/) are NOT added here because KIM and
 # QL-Balance both define a module named resonances_mod with different contents.
@@ -163,6 +163,7 @@ target_link_libraries(ql-balance_lib PUBLIC
     kamel_hdf5_tools
     kamel_logger
     KIM_lib
+    kamel_util
     kilca_lib
     lapack
     neo_rt

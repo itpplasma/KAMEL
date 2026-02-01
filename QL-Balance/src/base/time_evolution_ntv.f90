@@ -3,6 +3,7 @@ module time_evolution_ntv
     use omp_lib
     use time_evolution, only: TimeEvolution_t
     use neort_lib
+    use loading_bar_m, only: updateLoadingBarWithETA
 
     implicit none
 
@@ -121,6 +122,8 @@ contains
         class(TimeEvolutionNTV_t), intent(inout) :: this
 
         integer :: s_size, s_idx
+        integer(kind=8) :: start_count, count_rate
+        integer :: completed_steps
 
         ! NEO-RT first
         s_size = size(s_tor)
@@ -129,11 +132,20 @@ contains
         call prepare_profile_data_for_neort(profile_data, r, s_tor, Omega_tE)
         call neort_prepare_splines(s_size, am1, am2, Z1, Z2, plasma_data, profile_data)
 
+        ! Initialize progress tracking
+        call system_clock(start_count, count_rate)
+        completed_steps = 0
+
         !$omp parallel do schedule(guided, 1)
         do s_idx = 1, s_size
             call neort_compute_at_s(s_tor(s_idx), transport_data(s_idx))
+            !$omp critical
+            completed_steps = completed_steps + 1
+            call updateLoadingBarWithETA(completed_steps, s_size, start_count, count_rate)
+            !$omp end critical
         end do
         !$omp end parallel do
+        write (*, "(a)") ""  ! newline after progress bar
 
         ! Add torque to global ntv array to be used in next time step
         call apply_ntv_transport(r, transport_data)

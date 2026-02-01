@@ -154,6 +154,7 @@ target_link_libraries(KIM_lib PUBLIC
                                 kamel_equil
                                 cerf
                                 ddeabm
+                                kamel_util
 )
 
 add_executable(KIM_exe kim_main.f90)

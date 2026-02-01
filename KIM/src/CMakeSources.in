@@ -32,7 +32,6 @@ set(KIM_grid grid/grid_mod.f90
 )
 
 set(KIM_util util/findIndex.f90
-            util/loading_bar.f90
             util/plag_coeff.f90
             util/constants_mod.f90
             util/IO_collection.f90

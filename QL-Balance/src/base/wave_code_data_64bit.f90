@@ -74,8 +74,9 @@ subroutine initialize_wave_code_interface(nrad, r_grid)
     call get_collision_frequences_from_wave_code(vac_cd_ptr(1), dim_r, r, nui, nue);
     vac_call_ind = vac_call_ind + 1;
 
-    ! Enable interface mode for time evolution: KiLCA gets profiles directly from QL-Balance
-    ! This is set AFTER vacuum field initialization to preserve original file-based behavior there
+    ! Enable interface mode: KiLCA gets profiles directly from QL-Balance for all run types
+    ! that use initialize_wave_code_interface. This is set AFTER vacuum field initialization
+    ! to preserve original file-based behavior there.
     call set_flag_for_profiles_in_background_input_file(trim(flre_path), -1)
 
     if (debug_mode) write(*,*) "Debug: Going out of initialize_wave_code_interface"

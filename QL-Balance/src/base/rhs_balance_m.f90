@@ -226,8 +226,14 @@ contains
             ibegtot = max(1, ibegtot)
             iendtot = min(neqset, iendtot)
 
-            ! Set probe
-            y_lin(iprobe) = 1.0_dp
+            ! Set probe with physically-motivated perturbation
+            ! Instead of y_lin = 1 (unphysical), use relative perturbation of actual values
+            ! This prevents extreme Jacobian entries from resonance responses
+            if (abs(y(iprobe)) > 1.0e-30_dp) then
+                y_lin(iprobe) = 1.0e-6_dp * y(iprobe)
+            else
+                y_lin(iprobe) = 1.0e-6_dp  ! Fallback for zero values
+            end if
 
             ! Copy y_lin to params_lin
             do ipoi = ibeg, iend
@@ -310,13 +316,15 @@ contains
             end do
 
             ! Store non-zero elements
+            ! Divide by perturbation size to get correct Jacobian entry:
+            ! J[i,j] = dy[i] / delta_y[j]
             do i = ibegtot, iendtot
                 if (dy(i) /= 0.0_dp) then
                     k = k + 1
                     if (isw_rhs .eq. 1) then
                         irow(k) = i
                         icol(k) = iprobe
-                        amat(k) = dy(i)
+                        amat(k) = dy(i) / y_lin(iprobe)
                     end if
                 end if
             end do

@@ -285,7 +285,7 @@ contains
                 ! Compute source terms
                 ! Only internal sources (due to the RMP fields are handled).
                 ! External forces (heating, fueling, NBI, ...) are set to 0.
-                call compute_rmp_induced_sources(Gamma_e_lin, Gamma_i_lin, Gamma_ql_e_lin, &
+                call compute_rmp_induced_sources(Gamma_ql_e_lin, Gamma_ql_i_lin, Gamma_ql_e_lin, &
                                                  Gamma_ql_i_lin, Gamma_ql_e_nl, Gamma_ql_i_nl, &
                                                  Ercov(ipoi), sqrt_g_times_B_theta_over_c(ipoi), &
                                                  Z_i, am, polforce(ipoi), qlheat_e(ipoi), &
@@ -466,8 +466,8 @@ contains
             fluxes_con_nl(:, ipoi) = flux_con_nl_loc
 
             ! Source terms
-            call compute_rmp_induced_sources(Gamma_e_lin, Gamma_i_lin, Gamma_ql_e_lin, &
-                                             Gamma_ql_i_lin, Gamma_ql_e_nl, Gamma_ql_i_nl, &
+            call compute_rmp_induced_sources(Gamma_ql_e_nl, Gamma_ql_i_nl, Gamma_ql_e_nl, &
+                                             Gamma_ql_i_nl, Gamma_ql_e_nl, Gamma_ql_i_nl, &
                                              Ercov(ipoi), sqrt_g_times_B_theta_over_c(ipoi), Z_i, &
                                              am, polforce(ipoi), qlheat_e(ipoi), &
                                              qlheat_i(ipoi), T_EM_phi_e_source(ipoi), &

@@ -313,8 +313,8 @@ int ierr;
 
 ierr = spline_input_profiles ();
 
-//to skip calculation of dPhi0 in find_f0_parameters and use dPhi0 = -Er transformed to a moving frame
-flag_dPhi0_calc = 0;
+// recalculate dPhi0 in find_f0_parameters to match file-based mode behavior
+flag_dPhi0_calc = 1;
 
 if (abs(sd->bs->calc_back) == 1)
 {

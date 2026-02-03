@@ -186,9 +186,9 @@ class KiLCA_interface:
 
         self.BLUE_PATH = inspect.getfile(KiLCA_interface)[0:-18] + self.BLUE_PATH
 
-    def set_machine(self, delta_r_antenna: float = 3.0):
+    def set_machine(self, delta_r_antenna: float = 3.0, a_minor: float = None):
         if self.machine == "AUG":
-            self.set_ASDEX()
+            self.set_ASDEX(a_minor=a_minor, delta_r_antenna=delta_r_antenna)
         elif self.machine == "MASTU":
             self.set_MASTU(delta_r_antenna=delta_r_antenna)
         elif self.machine == None:
@@ -261,32 +261,50 @@ class KiLCA_interface:
             for k in range(0, len(m))
         ]
 
-    def set_ASDEX(self, nmodes: int = 1, ra: float = 70, I0: float = 5.1e12):
+    def set_ASDEX(
+        self,
+        nmodes: int = 1,
+        ra: float = None,
+        I0: float = 5.1e12,
+        a_minor: float = None,
+        delta_r_antenna: float = 3.0,
+    ):
         """
         Description:
             Initializes the class for a standard run on ASDEX parameters.
         Input:
             nmodes ... number of modes to calculate, default=0
-            ra ... radius of the antenna
+            ra ... radius of the antenna (if None, computed from a_minor + delta_r_antenna)
             I0 ... RMP coil current value in statA, AUG: 1.7kA = 5.1e12 statA
+            a_minor ... plasma minor radius in cm (default 67.0)
+            delta_r_antenna ... distance from plasma edge to antenna (default 3.0)
         """
         self.machine = "AUG"
         # print(f'Machine setting: AUG, type: {self.run_type}')
 
-        if ra < 67:
-            raise ValueError("Radius of antenna inside plasma")
+        # Set plasma radius (default 67.0 for AUG)
+        if a_minor is None:
+            self.a_minor = 67.0
+        else:
+            self.a_minor = a_minor
+
+        self.R0 = 165.0
+
+        # Compute antenna radius if not specified
+        if ra is None:
+            ra = self.a_minor + delta_r_antenna
+
+        if ra < self.a_minor:
+            raise ValueError(f"Radius of antenna ({ra}) inside plasma ({self.a_minor})")
         if ra > 80:
             raise ValueError("Radius of antenna outside wall")
-
-        self.a_minor = 67.0
-        self.R0 = 165.0
 
         self.set_antenna(ra, nmodes, I0=I0)
         self.set_background(Rtor=self.R0, rpl=self.a_minor)
         self.background.data["Btor"] = -17563.3704
 
-        # set zones
-        r = [3.0, 67.0, 70.0, 80.0]
+        # set zones - use actual plasma radius
+        r = [3.0, self.a_minor, ra, 80.0]
         b = ["center", "interface", "antenna", "idealwall"]
         m = [self.run_type, "vacuum", "vacuum"]
         self.set_zones(r, b, m)

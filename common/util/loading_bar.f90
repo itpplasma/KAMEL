@@ -47,6 +47,8 @@ contains
         integer :: eta_hours, eta_minutes, eta_seconds
         character(len=32) :: display_label
 
+        character, parameter :: CR = achar(13)
+
         ! Set label (default: "Progress")
         if (present(label)) then
             display_label = label
@@ -77,7 +79,7 @@ contains
         end if
 
         ! Clear the previous loading bar
-        write (*, '(A)', advance='no') ACHAR(13)
+        write (*, '(A)', advance='no') CR
 
         ! Display the loading bar with ETA
         if (current_step > 0) then

@@ -57,6 +57,8 @@ contains
         character(len=32) :: display_label
         character(len=64) :: eta_suffix
 
+        character, parameter :: CR = achar(13)
+
         ! Set label (default: "Progress")
         if (present(label)) then
             display_label = label

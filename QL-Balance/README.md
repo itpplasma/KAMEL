@@ -12,5 +12,10 @@ The file balance_conf.nml is the blueprint namelist file required by the code.
 
 Note that the prior build system was make with the make file Balance.mk_mpi. This created the executable balance.x.mpif90.openmpi_x86_64.
 
+# Documentation
+
+For technical documentation on the implementation:
+- [Jacobian Probing Explanation](docs/jacobian_probing_explanation.md) - Detailed explanation of the sparse Jacobian computation using finite-difference probing
+
 # Run balance code
 Running the balance code requires the balance_conf.nml file in the run directory, as well as the usual KiLCA input files.

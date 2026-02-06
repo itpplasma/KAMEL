@@ -257,8 +257,8 @@ contains
         ! _lin suffix: evaluated at linearized state (for Jacobian construction)
         ! _nl suffix: evaluated at actual plasma state (frozen during probing)
         type(thermodynamic_forces_t) :: forces_lin
-        type(frozen_state_t) :: frozen  !< Frozen quantities at actual plasma state
-        real(dp) :: Gamma_e_lin, Gamma_i_lin, Gamma_ql_e_lin, Gamma_ql_i_lin, Qe_lin, Qi_lin
+        type(frozen_state_t) :: frozen
+        real(dp) :: Gamma_tot_e_lin, Gamma_tot_i_lin, Gamma_ql_e_lin, Gamma_ql_i_lin, Qe_lin, Qi_lin
         real(dp) :: Gamma_ql_e_nl, Gamma_ql_i_nl
         real(dp), dimension(4) :: flux_dif_lin_loc, flux_con_lin_loc
         real(dp), dimension(4) :: dot_params_loc
@@ -355,7 +355,7 @@ contains
                                                 dae11, dae12, dae22, dai11, dai12, dai22, dni22, &
                                                 dqle11, dqle12, dqle21, dqle22, dqli11, dqli12, &
                                                 dqli21, dqli22, visca, gpp_av, Sb, Z_i, &
-                                                forces_lin, Gamma_e_lin, Gamma_i_lin, &
+                                                forces_lin, Gamma_tot_e_lin, Gamma_tot_i_lin, &
                                                 Gamma_ql_e_lin, Gamma_ql_i_lin, Qe_lin, Qi_lin, &
                                                 flux_dif_lin_loc, flux_con_lin_loc)
 
@@ -472,7 +472,7 @@ contains
 
         ! Local variables for flux computation at actual plasma state
         type(thermodynamic_forces_t) :: forces
-        real(dp) :: Gamma_e, Gamma_i, Gamma_ql_e, Gamma_ql_i, Q_e, Q_i
+        real(dp) :: Gamma_tot_e, Gamma_tot_i, Gamma_ql_e, Gamma_ql_i, Q_e, Q_i
         real(dp), dimension(4) :: flux_dif_loc, flux_con_loc
         real(dp), dimension(4) :: dot_params_loc
 
@@ -515,7 +515,7 @@ contains
                                             dae12, dae22, dai11, dai12, dai22, dni22, dqle11, &
                                             dqle12, dqle21, dqle22, dqli11, dqli12, dqli21, &
                                             dqli22, visca, gpp_av, Sb, Z_i, forces, &
-                                            Gamma_e, Gamma_i, Gamma_ql_e, Gamma_ql_i, &
+                                            Gamma_tot_e, Gamma_tot_i, Gamma_ql_e, Gamma_ql_i, &
                                             Q_e, Q_i, flux_dif_loc, flux_con_loc)
 
             ! Compute RMP-induced sources using ACTUAL QL fluxes (for source vector)
@@ -584,7 +584,7 @@ contains
         integer :: ipoi, ieq, i
 
         ! Local variables for flux computation at actual state
-        real(dp) :: Gamma_e_nl, Gamma_i_nl, Gamma_ql_e_nl, Gamma_ql_i_nl, Qe_nl, Qi_nl
+        real(dp) :: Gamma_tot_e_nl, Gamma_tot_i_nl, Gamma_ql_e_nl, Gamma_ql_i_nl, Qe_nl, Qi_nl
         real(dp), dimension(4) :: flux_dif_nl_loc, flux_con_nl_loc
 
         ! Allocate frozen state storage
@@ -624,7 +624,7 @@ contains
                                             dae12, dae22, dai11, dai12, dai22, dni22, dqle11, &
                                             dqle12, dqle21, dqle22, dqli11, dqli12, dqli21, &
                                             dqli22, visca, gpp_av, Sb, Z_i, &
-                                            frozen%forces(ipoi), Gamma_e_nl, Gamma_i_nl, &
+                                            frozen%forces(ipoi), Gamma_tot_e_nl, Gamma_tot_i_nl, &
                                             Gamma_ql_e_nl, Gamma_ql_i_nl, Qe_nl, Qi_nl, &
                                             flux_dif_nl_loc, flux_con_nl_loc)
 
@@ -680,7 +680,8 @@ contains
         ipoi, ddr_params, params_b, E0r, Dae11, Dae12, Dae22, Dai11, Dai12, Dai22, Dni22, &
         Dqle11, Dqle12, Dqle21, Dqle22, Dqli11, Dqli12, Dqli21, Dqli22, visca, g_phi_phi, S, Z, &
         ! outputs
-        forces, Gamma_e, Gamma_i, Gamma_ql_e, Gamma_ql_i, Qe, Qi, flux_diffusion, flux_convection)
+        forces, Gamma_tot_e, Gamma_tot_i, Gamma_ql_e, Gamma_ql_i, Qe, Qi, flux_diffusion, &
+        flux_convection)
         !
         ! Compute all fluxes at a single boundary point.
         !
@@ -721,7 +722,7 @@ contains
         real(dp), intent(in) :: Z
 
         type(thermodynamic_forces_t), intent(out) :: forces
-        real(dp), intent(out) :: Gamma_e, Gamma_i, Gamma_ql_e, Gamma_ql_i
+        real(dp), intent(out) :: Gamma_tot_e, Gamma_tot_i, Gamma_ql_e, Gamma_ql_i
         real(dp), intent(out) :: Qe, Qi
         real(dp), dimension(4), intent(out) :: flux_diffusion, flux_convection
 
@@ -744,8 +745,8 @@ contains
                                      Dqli12(ipoi), fluxes)
 
         ! Extract individual flux values for output and further use
-        Gamma_e = fluxes%e%Gamma_tot
-        Gamma_i = fluxes%i%Gamma_tot
+        Gamma_tot_e = fluxes%e%Gamma_tot
+        Gamma_tot_i = fluxes%i%Gamma_tot
         Gamma_ql_e = fluxes%e%Gamma_ql
         Gamma_ql_i = fluxes%i%Gamma_ql
 
@@ -759,7 +760,7 @@ contains
                                      Dai22(ipoi), Dni22(ipoi), Dqli22(ipoi), Dqli21(ipoi), &
                                      visca(ipoi), g_phi_phi(ipoi), flux_diffusion)
 
-        call compute_convective_parts(Gamma_e, Qe, Qi, n, Te, Ti, S(ipoi), flux_diffusion, &
+        call compute_convective_parts(Gamma_tot_e, Qe, Qi, n, Te, Ti, S(ipoi), flux_diffusion, &
                                       flux_convection)
 
     end subroutine compute_fluxes_at_boundary
@@ -1116,7 +1117,7 @@ contains
         flux_diffusion(4) = -S * (Dai22 + Dni22 + Dqli22 - 2.5_dp * Dqli21) * n / Z * dTi_dr
     end subroutine compute_diffusive_parts
 
-    pure subroutine compute_convective_parts(Gamma_e, Qe, Qi, n, Te, Ti, S, flux_diffusion, &
+    pure subroutine compute_convective_parts(Gamma_tot_e, Qe, Qi, n, Te, Ti, S, flux_diffusion, &
                                              flux_convection)
         !
         ! Compute convective fluxes for all four balance equations.
@@ -1127,13 +1128,13 @@ contains
 
         implicit none
 
-        real(dp), intent(in) :: Gamma_e, Qe, Qi
+        real(dp), intent(in) :: Gamma_tot_e, Qe, Qi
         real(dp), intent(in) :: n, Te, Ti, S
         real(dp), dimension(4), intent(in) :: flux_diffusion
         real(dp), dimension(4), intent(out) :: flux_convection
 
         ! Eq 1: Particle convection
-        flux_convection(1) = (S * Gamma_e - flux_diffusion(1)) / n
+        flux_convection(1) = (S * Gamma_tot_e - flux_diffusion(1)) / n
 
         ! Eq 2: Momentum convection
         ! Zero -- only viscous diffusion

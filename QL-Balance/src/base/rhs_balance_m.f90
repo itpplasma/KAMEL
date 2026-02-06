@@ -362,21 +362,8 @@ contains
                 fluxes_dif_lin(:, ipoi) = flux_dif_lin_loc
                 fluxes_con_lin(:, ipoi) = flux_con_lin_loc
 
-                ! Compute QL fluxes at FROZEN state for torque calculation
-                ! These use frozen forces (A1, A2 at actual state) stored per boundary point.
-                ! BUG FIX: Previously used stale forces from ipoi=npoib for all points.
-                !
-                ! Γ^ql = -n · (D^ql_11·A1 + D^ql_12·A2)  with all quantities frozen
-                Gamma_ql_e_nl = -(dqle11(ipoi) * frozen%forces(ipoi)%e%A1 + dqle12(ipoi) * &
-                                  frozen%forces(ipoi)%e%A2) * params_b(1, ipoi)
-                Gamma_ql_i_nl = -(dqli11(ipoi) * frozen%forces(ipoi)%i%A1 + dqli12(ipoi) * &
-                                  frozen%forces(ipoi)%i%A2) * params_b(1, ipoi) / Z_i
-
-                ! Compute source terms
-                ! Only internal sources (due to the RMP fields are handled).
-                ! External forces (heating, fueling, NBI, ...) are set to 0.
-                call compute_rmp_induced_sources(Gamma_ql_e_lin, Gamma_ql_i_lin, Gamma_ql_e_lin, &
-                                                 Gamma_ql_i_lin, Gamma_ql_e_nl, Gamma_ql_i_nl, &
+                ! Compute source terms using LINEARIZED QL fluxes (for Jacobian)
+                call compute_rmp_induced_sources(Gamma_ql_e_lin, Gamma_ql_i_lin, &
                                                  Ercov(ipoi), sqrt_g_times_B_theta_over_c(ipoi), &
                                                  Z_i, am, polforce(ipoi), qlheat_e(ipoi), &
                                                  qlheat_i(ipoi), T_EM_phi_e(ipoi), T_EM_phi_i(ipoi))
@@ -531,10 +518,8 @@ contains
                                             Gamma_e, Gamma_i, Gamma_ql_e, Gamma_ql_i, &
                                             Q_e, Q_i, flux_dif_loc, flux_con_loc)
 
-            ! Compute RMP-induced sources using actual QL fluxes
-            ! All Gamma arguments use actual values (no linearized fluxes for source computation)
-            call compute_rmp_induced_sources(Gamma_ql_e, Gamma_ql_i, Gamma_ql_e, &
-                                             Gamma_ql_i, Gamma_ql_e, Gamma_ql_i, &
+            ! Compute RMP-induced sources using ACTUAL QL fluxes (for source vector)
+            call compute_rmp_induced_sources(Gamma_ql_e, Gamma_ql_i, &
                                              Ercov(ipoi), sqrt_g_times_B_theta_over_c(ipoi), Z_i, &
                                              am, polforce(ipoi), qlheat_e(ipoi), &
                                              qlheat_i(ipoi), T_EM_phi_e_source(ipoi), &
@@ -779,12 +764,11 @@ contains
 
     end subroutine compute_fluxes_at_boundary
 
-    pure subroutine compute_rmp_induced_sources(Gamma_e_lin, Gamma_i_lin, Gamma_ql_e_lin, &
-                                                Gamma_ql_i_lin, Gamma_ql_e_nl, Gamma_ql_i_nl, E0r, &
-                                                sqrt_g_Bth_over_c, Z, am, polforce, qlheat_e, &
-                                                qlheat_i, torque_e_nl, torque_i_nl)
+    pure subroutine compute_rmp_induced_sources(Gamma_ql_e, Gamma_ql_i, E0r, sqrt_g_Bth_over_c, Z, &
+                                                am, polforce, qlheat_e, qlheat_i, torque_e, &
+                                                torque_i)
         !
-        ! Compute internal source terms of the four balance equations.
+        ! Compute RMP-induced source terms of the four balance equations.
         ! The RHS for the four equations (with external sources set to zero) are as follows:
         !   1.) = 0
         !         [Markl2023 (22), Heyn2014 (63)]
@@ -798,14 +782,12 @@ contains
 
         implicit none
 
-        real(dp), intent(in) :: Gamma_e_lin, Gamma_i_lin
-        real(dp), intent(in) :: Gamma_ql_e_lin, Gamma_ql_i_lin
-        real(dp), intent(in) :: Gamma_ql_e_nl, Gamma_ql_i_nl
+        real(dp), intent(in) :: Gamma_ql_e, Gamma_ql_i
         real(dp), intent(in) :: E0r
         real(dp), intent(in) :: sqrt_g_Bth_over_c
         real(dp), intent(in) :: Z, am
         real(dp), intent(out) :: polforce, qlheat_e, qlheat_i
-        real(dp), intent(out) :: torque_e_nl, torque_i_nl
+        real(dp), intent(out) :: torque_e, torque_i
 
         ! Eq. 1: Particle density
         ! no internal sources
@@ -813,19 +795,16 @@ contains
         ! Eq. 2: Toroidal rotation frequency
         ! Divide by the factor mi to get velocity instead of momentum.
         ! This code evolves velocity directly.
-        torque_e_nl = +sqrt_g_Bth_over_c * e_charge * Gamma_ql_e_nl
-        torque_i_nl = -sqrt_g_Bth_over_c * Z * e_charge * Gamma_ql_i_nl
+        torque_e = +sqrt_g_Bth_over_c * e_charge * Gamma_ql_e
+        torque_i = -sqrt_g_Bth_over_c * Z * e_charge * Gamma_ql_i
+        ! Net radial current drive entering the momentum evolution as a source term.
+        polforce = (torque_e + torque_i) / (am * p_mass)
 
         ! Eq. 3: Electron temperature
-        qlheat_e = +e_charge * E0r * Gamma_ql_e_lin
+        qlheat_e = +e_charge * E0r * Gamma_ql_e
 
         ! Eq. 4: Ion temperature
-        qlheat_i = -Z * e_charge * E0r * Gamma_ql_i_lin
-
-        ! TODO: Why do we need this?
-        ! Net radial current drive (Γe - Z Γi) entering the momentum evolution as a source term.
-        ! This is just a difference of torque, but with other Γ
-        polforce = (Gamma_e_lin - Z * Gamma_i_lin) * e_charge * sqrt_g_Bth_over_c / (am * p_mass)
+        qlheat_i = -Z * e_charge * E0r * Gamma_ql_i
     end subroutine compute_rmp_induced_sources
 
     subroutine compute_dot_params_at_point(ipoi, npoi, nbaleqs, fluxes_dif, fluxes_con, &

@@ -447,9 +447,8 @@ contains
         use grid_mod, only: nbaleqs, neqset, iboutype, npoic, npoib, Sb, deriv_coef, ipbeg, &
                             ipend, rb, reint_coef, dae11, dae12, dae22, dai11, dai12, dai22, &
                             dni22, visca, gpp_av, dery_equisource, dqle11, dqle12, dqle21, &
-                            dqle22, dqli11, dqli12, dqli21, dqli22, T_EM_phi_e_source, &
-                            T_EM_phi_i_source, sqrt_g_times_B_theta_over_c, Ercov, polforce, &
-                            polforce_ql, qlheat_e, qlheat_i
+                            dqle22, dqli11, dqli12, dqli21, dqli22, T_EM_phi_e, T_EM_phi_i, &
+                            sqrt_g_times_B_theta_over_c, Ercov, polforce, qlheat_e, qlheat_i
         use plasma_parameters, only: params, params_b, ddr_params_nl, dot_params
         use baseparam_mod, only: Z_i, am
         use wave_code_data, only: q, Vth
@@ -511,7 +510,7 @@ contains
             call compute_rmp_induced_sources(Gamma_ql_e, Gamma_ql_i, Ercov(ipoi), &
                                              sqrt_g_times_B_theta_over_c(ipoi), Z_i, am, &
                                              polforce(ipoi), qlheat_e(ipoi), qlheat_i(ipoi), &
-                                             T_EM_phi_e_source(ipoi), T_EM_phi_i_source(ipoi))
+                                             T_EM_phi_e(ipoi), T_EM_phi_i(ipoi))
         end do
 
         ! Compute source terms only (flux divergence is in matrix A)

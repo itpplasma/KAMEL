@@ -651,12 +651,10 @@ contains
         torque_i_nl = -sqrt_g_Bth_over_c * Z * e_charge * Gamma_ql_i_nl
 
         ! Eq. 3: Electron temperature
-        ! TODO: check sign
-        qlheat_e = -e_charge * E0r * Gamma_ql_e_lin
+        qlheat_e = +e_charge * E0r * Gamma_ql_e_lin
 
         ! Eq. 4: Ion temperature
-        ! TODO: check sign
-        qlheat_i = +Z * e_charge * E0r * Gamma_ql_i_lin
+        qlheat_i = -Z * e_charge * E0r * Gamma_ql_i_lin
 
         ! TODO: Why do we need this?
         ! Net radial current drive (Γe - Z Γi) entering the momentum evolution as a source term.

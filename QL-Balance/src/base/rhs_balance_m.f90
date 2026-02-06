@@ -574,8 +574,8 @@ contains
     ! Core computation routines (shared by rhs_balance and rhs_balance_source)
     !===========================================================================
 
-    subroutine compute_radial_electric_field(npoib, rb, params_b, ddr_params, sqrt_g_Bth_over_c, &
-                                             V_pol_arr, q_arr, Z, E0r)
+    pure subroutine compute_radial_electric_field(npoib, rb, params_b, ddr_params, &
+                                                  sqrt_g_Bth_over_c, V_pol_arr, q_arr, Z, E0r)
         !
         ! Compute equilibrium radial electric field at all boundary points.
         !   E0r = 1/(ei ni) ∂(ni Ti)/∂r + sqrt(g) B^θ_0 / c (V^φ - q V^θ)
@@ -612,13 +612,12 @@ contains
 
     end subroutine compute_radial_electric_field
 
-    subroutine compute_fluxes_at_boundary( &
-        ! inputs:
-        ipoi, ddr_params, params_b, E0r, Dae11, Dae12, Dae22, Dai11, Dai12, Dai22, Dni22, Dqle11, &
-        Dqle12, Dqle21, Dqle22, Dqli11, Dqli12, Dqli21, Dqli22, visca, g_phi_phi, S, Z, &
-        ! outputs
-        forces, Gamma_tot_e, Gamma_tot_i, Gamma_ql_e, Gamma_ql_i, Qe, Qi, flux_diffusion, &
-        flux_convection)
+    pure subroutine compute_fluxes_at_boundary(ipoi, ddr_params, params_b, E0r, Dae11, Dae12, &
+                                               Dae22, Dai11, Dai12, Dai22, Dni22, Dqle11, Dqle12, &
+                                               Dqle21, Dqle22, Dqli11, Dqli12, Dqli21, Dqli22, &
+                                               visca, g_phi_phi, S, Z, forces, Gamma_tot_e, &
+                                               Gamma_tot_i, Gamma_ql_e, Gamma_ql_i, Qe, Qi, &
+                                               flux_diffusion, flux_convection)
         !
         ! Compute all fluxes at a single boundary point.
         !
@@ -745,10 +744,10 @@ contains
         qlheat_i = -Z * e_charge * E0r * Gamma_ql_i
     end subroutine compute_rmp_induced_sources
 
-    subroutine compute_dot_params_at_point(ipoi, npoi, nbaleqs, fluxes_dif, fluxes_con, &
-                                           fluxes_con_nl, params, params_lin, params_b_lin, Sc, &
-                                           rb, rc, gpp_av, polforce, qlheat_e, qlheat_i, Z_i, &
-                                           dot_params_out)
+    pure subroutine compute_dot_params_at_point(ipoi, npoi, nbaleqs, fluxes_dif, fluxes_con, &
+                                                fluxes_con_nl, params, params_lin, params_b_lin, &
+                                                Sc, rb, rc, gpp_av, polforce, qlheat_e, qlheat_i, &
+                                                Z_i, dot_params_out)
         !
         ! Compute time derivatives at a single grid point.
         !

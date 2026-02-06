@@ -11,14 +11,13 @@ module rhs_balance_m
     !   y - vector of plasma parameters at grid points (size 4N)
     !   A - sparse Jacobian matrix (contains flux divergence terms)
     !   q - source vector (contains RMP-induced and equilibrium sources)
-    !
-    ! This module provides:
-    !   - initialize_rhs: Count non-zeros and allocate sparse matrix
-    !   - rhs_balance: Compute sparse Jacobian matrix A
-    !   - rhs_balance_source: Compute source vector q
-    !
+    ! using implicit time stepping.
     ! The implicit time stepping scheme uses:
     !   y' - Δt·A(y)·y' = y + Δt·q(y)
+    !
+    ! Public API:
+    !   - rhs_balance:        Compute sparse Jacobian matrix A
+    !   - rhs_balance_source: Compute source vector q
     !
     ! ============================================================================
     ! Frozen-Coefficient Linearization for Jacobian Construction
@@ -39,77 +38,36 @@ module rhs_balance_m
     !   - Linearized electric field δE0r from Ercov_lin
     !   - Linearized fluxes δΓ, δQ computed from above
     !
-    ! ============================================================================
-    ! Linearized Flux Formulas
-    ! ============================================================================
+    ! The Jacobian is built by probing: A[i,j] = δ(dy_i/dt) / δy_j
     !
-    ! The particle flux at the actual state is [Markl2023 (29), Heyn2014 (35)]:
+    ! We use frozen-coefficient linearization where n, T, D are frozen at the
+    ! actual state and only gradients respond to the probe perturbation:
     !
-    !   Γ = -n · (D11·A1 + D12·A2)
+    !   ┌─────────────────────────────────────────────────────────────────┐
+    !   │  δA1 = (1/n)·δ(∂n/∂r) ± (e/T)·δE0r - (3/2T)·δ(∂T/∂r)            │
+    !   │  δA2 = (1/T)·δ(∂T/∂r)                                           │
+    !   │                                                                 │
+    !   │  δΓ  = -n · D · (δA1, δA2)                                      │
+    !   │  δQ  = -n · T · D · (δA1, δA2)                                  │
+    !   │                                                                 │
+    !   │  where n, T, D are FROZEN (from params_b, not params_b_lin)     │
+    !   └─────────────────────────────────────────────────────────────────┘
     !
-    ! where the thermodynamic forces are [Markl2023 (5), Heyn2014 (22)]:
+    ! This works because n largely cancels: Γ ∝ -n·D·(1/n)·∂n/∂r = -D·∂n/∂r
     !
-    !   A1 = (1/n)·∂n/∂r ± (e/T)·E0r - (3/2T)·∂T/∂r
-    !   A2 = (1/T)·∂T/∂r
+    ! Why this is simpler than finite differences:
     !
-    ! For frozen-coefficient linearization, we perturb only the gradients:
+    !   Standard finite difference:  J[i,j] = (f(y + δe_j) - f(y)) / δ
+    !   → requires computing f twice and subtracting
     !
-    !   δA1 = (1/n)·δ(∂n/∂r) ± (e/T)·δE0r - (3/2T)·δ(∂T/∂r)
-    !   δA2 = (1/T)·δ(∂T/∂r)
+    !   Our approach: Since everything is linear in gradients with frozen
+    !   coefficients, we directly apply the linearized operator to δy:
     !
-    ! Note: n and T in denominators are FROZEN at actual state (from params_b).
-    ! This is intentional - they are part of the "coefficient" not the "gradient".
+    !       δy → δ(∂y/∂r) → δA → δΓ, δQ → δ(dy/dt)
     !
-    ! The linearized flux is then:
+    !   Then:  J[i,j] = δ(dy/dt)[i] / δy[j]
     !
-    !   δΓ = -n · (D11·δA1 + D12·δA2)
-    !
-    ! where n, D11, D12 are all frozen at actual state.
-    !
-    ! Similarly for heat flux Q = -n·T·(D21·A1 + D22·A2):
-    !
-    !   δQ = -n·T · (D21·δA1 + D22·δA2)
-    !
-    ! The linearized radial electric field is [from Markl2023 (26), Heyn2014 (71)]:
-    !
-    !   E0r = (Ti/n)·∂n/∂r/ei + (1/ei)·∂Ti/∂r + √g·Bθ/c·(Vphi - q·Vpol/r)
-    !
-    !   δE0r = (Ti/n)·δ(∂n/∂r)/ei + (1/ei)·δ(∂Ti/∂r) + √g·Bθ/c·δVphi
-    !
-    ! where Ti/n and other prefactors are frozen at actual state.
-    !
-    ! ============================================================================
-    ! Why params_b (not params_b_lin) in compute_fluxes_at_boundary
-    ! ============================================================================
-    !
-    ! The flux Γ = -n·D·A has n appearing in two places:
-    !   1. As a prefactor: -n·D·(...)
-    !   2. In the force: A1 = (1/n)·∂n/∂r - ...
-    !
-    ! These largely cancel: Γ ∝ -n·D·(1/n)·∂n/∂r = -D·∂n/∂r
-    !
-    ! In frozen-coefficient linearization:
-    !   - We freeze n in both places (from params_b)
-    !   - Only ∂n/∂r responds (from ddr_params_lin)
-    !   - Result: δΓ ∝ -D·δ(∂n/∂r)
-    !
-    ! Using params_b_lin would give n ≈ 10⁻⁶·n_actual (the tiny probe),
-    ! causing numerical instability in (1/n) terms and incorrect physics.
-    !
-    ! ============================================================================
-    ! Two Computation Modes
-    ! ============================================================================
-    !
-    ! 1. JACOBIAN PROBING (rhs_balance):
-    !    - Prepares frozen state at actual plasma values
-    !    - Probes each column by setting δy(iprobe) to a small perturbation
-    !    - Computes linearized fluxes δΓ, δQ using frozen coefficients
-    !    - Stores Jacobian entries: A[i,j] = δ(dy_i/dt) / δy_j
-    !
-    ! 2. SOURCE EVALUATION (rhs_balance_source):
-    !    - Computes only source terms (flux divergence is in matrix A)
-    !    - Sources: polforce (momentum), qlheat_e/i (temperature), equilibrium
-    !    - Uses actual plasma state only, no linearized arrays needed
+    ! References: [Markl2023 (5), (29)], [Heyn2014 (22), (35)]
     !
     use QLBalance_kinds, only: dp
     use baseparam_mod, only: e_charge, p_mass

@@ -192,10 +192,10 @@ contains
                             ipend, rb, reint_coef, fluxes_dif_lin, fluxes_con_lin, rc, dae11, &
                             dae12, dae22, dai11, dai12, dai22, dni22, visca, gpp_av, dqle11, &
                             dqle12, dqle21, dqle22, dqli11, dqli12, dqli21, dqli22, T_EM_phi_e, &
-                            T_EM_phi_i, sqrt_g_times_B_theta_over_c, Ercov, polforce, &
-                            qlheat_e, qlheat_i, Ercov_lin, fluxes_con_nl
-        use plasma_parameters, only: params, ddr_params_lin, params_lin, &
-                                     params_b_lin, params_b, dot_params
+                            T_EM_phi_i, sqrt_g_times_B_theta_over_c, Ercov, polforce, qlheat_e, &
+                            qlheat_i, Ercov_lin, fluxes_con_nl
+        use plasma_parameters, only: params, ddr_params_lin, params_lin, params_b_lin, &
+                                     params_b, dot_params
         use baseparam_mod, only: Z_i, am
         use matrix_mod, only: isw_rhs, nz, nsize, irow, icol, amat, rhsvec
 
@@ -505,10 +505,10 @@ contains
         ! These frozen quantities are then used in the Jacobian probing loop
         ! while only the gradients (from probe perturbation) respond.
         !
-        use grid_mod, only: deriv_coef, ipbeg, ipend, rb, reint_coef, Sb, &
-                            dae11, dae12, dae22, dai11, dai12, dai22, dni22, visca, gpp_av, &
-                            dqle11, dqle12, dqle21, dqle22, dqli11, dqli12, dqli21, dqli22, &
-                            sqrt_g_times_B_theta_over_c, Ercov, fluxes_con_nl
+        use grid_mod, only: deriv_coef, ipbeg, ipend, rb, reint_coef, Sb, dae11, dae12, dae22, &
+                            dai11, dai12, dai22, dni22, visca, gpp_av, dqle11, dqle12, dqle21, &
+                            dqle22, dqli11, dqli12, dqli21, dqli22, sqrt_g_times_B_theta_over_c, &
+                            Ercov, fluxes_con_nl
         use plasma_parameters, only: params, ddr_params_nl, params_b
         use baseparam_mod, only: Z_i
         use wave_code_data, only: q, Vth
@@ -548,8 +548,7 @@ contains
 
         ! Compute E0r at actual state
         call compute_radial_electric_field(npoib, rb, params_b, ddr_params_nl, &
-                                           sqrt_g_times_B_theta_over_c, Vth, q, Z_i, &
-                                           Ercov)
+                                           sqrt_g_times_B_theta_over_c, Vth, q, Z_i, Ercov)
 
         ! Compute diffusion coefficients at actual state
         call calc_equil_diffusion_coeffs
@@ -561,10 +560,10 @@ contains
             call compute_fluxes_at_boundary(ipoi, ddr_params_nl, params_b, Ercov(ipoi), dae11, &
                                             dae12, dae22, dai11, dai12, dai22, dni22, dqle11, &
                                             dqle12, dqle21, dqle22, dqli11, dqli12, dqli21, &
-                                            dqli22, visca, gpp_av, Sb, Z_i, &
-                                            frozen%forces(ipoi), Gamma_tot_e_nl, Gamma_tot_i_nl, &
-                                            Gamma_ql_e_nl, Gamma_ql_i_nl, Qe_nl, Qi_nl, &
-                                            flux_dif_nl_loc, flux_con_nl_loc)
+                                            dqli22, visca, gpp_av, Sb, Z_i, frozen%forces(ipoi), &
+                                            Gamma_tot_e_nl, Gamma_tot_i_nl, Gamma_ql_e_nl, &
+                                            Gamma_ql_i_nl, Qe_nl, Qi_nl, flux_dif_nl_loc, &
+                                            flux_con_nl_loc)
 
             fluxes_con_nl(:, ipoi) = flux_con_nl_loc
         end do
@@ -615,8 +614,8 @@ contains
 
     subroutine compute_fluxes_at_boundary( &
         ! inputs:
-        ipoi, ddr_params, params_b, E0r, Dae11, Dae12, Dae22, Dai11, Dai12, Dai22, Dni22, &
-        Dqle11, Dqle12, Dqle21, Dqle22, Dqli11, Dqli12, Dqli21, Dqli22, visca, g_phi_phi, S, Z, &
+        ipoi, ddr_params, params_b, E0r, Dae11, Dae12, Dae22, Dai11, Dai12, Dai22, Dni22, Dqle11, &
+        Dqle12, Dqle21, Dqle22, Dqli11, Dqli12, Dqli21, Dqli22, visca, g_phi_phi, S, Z, &
         ! outputs
         forces, Gamma_tot_e, Gamma_tot_i, Gamma_ql_e, Gamma_ql_i, Qe, Qi, flux_diffusion, &
         flux_convection)
@@ -828,9 +827,8 @@ contains
 
     end subroutine compute_dot_params_at_point
 
-    pure subroutine compute_source_terms_at_point(ipoi, params, gpp_av, &
-                                                  polforce, qlheat_e, qlheat_i, Z_i, &
-                                                  dot_params_out)
+    pure subroutine compute_source_terms_at_point(ipoi, params, gpp_av, polforce, qlheat_e, &
+                                                  qlheat_i, Z_i, dot_params_out)
         !
         ! Compute source contributions only (no flux divergence).
         !

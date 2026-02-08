@@ -492,6 +492,7 @@ contains
 
             ! For actual state computation: no frozen contribution (zeros)
             ! Result: qlheat = E0r * Gamma_ql (full product, not linearized)
+            ! => set linearized quantities to 0
             call compute_rmp_induced_sources(Gamma_ql_e, Gamma_ql_i, 0.0_dp, 0.0_dp, Ercov(ipoi), &
                                              0.0_dp, sqrt_g_times_B_theta_over_c(ipoi), Z_i, am, &
                                              polforce(ipoi), qlheat_e(ipoi), qlheat_i(ipoi), &

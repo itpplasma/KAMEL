@@ -381,7 +381,7 @@ contains
             ! Divide by perturbation size to get correct Jacobian entry:
             ! J[i,j] = dy[i] / delta_y[j]
             do i = ibegtot, iendtot
-                if (dy(i) /= 0.0_dp) then
+                if (abs(dy(i)) > tiny(1.0_dp)) then
                     k = k + 1
                     if (isw_rhs .eq. 1) then
                         irow(k) = i

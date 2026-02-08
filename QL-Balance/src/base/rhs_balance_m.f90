@@ -345,13 +345,12 @@ contains
 
                 ! Compute source terms using linearized QL fluxes and frozen values
                 ! Complete linearization: δ(E0r·Γ_ql) = E0r_frozen·δΓ_ql + δE0r·Γ_ql_frozen
-                call compute_rmp_induced_sources( &
-                    Gamma_ql_e_lin, Gamma_ql_i_lin, &
-                    Gamma_ql_e_frozen(ipoi), Gamma_ql_i_frozen(ipoi), &
-                    Ercov(ipoi), Ercov_lin(ipoi), &
-                    sqrt_g_times_B_theta_over_c(ipoi), Z_i, am, &
-                    polforce(ipoi), qlheat_e(ipoi), qlheat_i(ipoi), &
-                    T_EM_phi_e(ipoi), T_EM_phi_i(ipoi))
+                call compute_rmp_induced_sources(Gamma_ql_e_lin, Gamma_ql_i_lin, &
+                                                 Gamma_ql_e_frozen(ipoi), Gamma_ql_i_frozen(ipoi), &
+                                                 Ercov(ipoi), Ercov_lin(ipoi), &
+                                                 sqrt_g_times_B_theta_over_c(ipoi), Z_i, am, &
+                                                 polforce(ipoi), qlheat_e(ipoi), qlheat_i(ipoi), &
+                                                 T_EM_phi_e(ipoi), T_EM_phi_i(ipoi))
             end do
 
             ! Apply boundary conditions
@@ -493,13 +492,10 @@ contains
 
             ! For actual state computation: no frozen contribution (zeros)
             ! Result: qlheat = E0r * Gamma_ql (full product, not linearized)
-            call compute_rmp_induced_sources( &
-                Gamma_ql_e, Gamma_ql_i, &
-                0.0_dp, 0.0_dp, &
-                Ercov(ipoi), 0.0_dp, &
-                sqrt_g_times_B_theta_over_c(ipoi), Z_i, am, &
-                polforce(ipoi), qlheat_e(ipoi), qlheat_i(ipoi), &
-                T_EM_phi_e(ipoi), T_EM_phi_i(ipoi))
+            call compute_rmp_induced_sources(Gamma_ql_e, Gamma_ql_i, 0.0_dp, 0.0_dp, Ercov(ipoi), &
+                                             0.0_dp, sqrt_g_times_B_theta_over_c(ipoi), Z_i, am, &
+                                             polforce(ipoi), qlheat_e(ipoi), qlheat_i(ipoi), &
+                                             T_EM_phi_e(ipoi), T_EM_phi_i(ipoi))
         end do
 
         ! Compute source terms only (flux divergence is in matrix A)
@@ -600,7 +596,7 @@ contains
 
         integer, intent(in) :: ipoi
         real(dp), intent(in) :: ddr_params(:, :)  !< Gradients (actual or linearized)
-        real(dp), intent(in) :: params_b(:, :)    !< Values n,Vphi,Te,Ti (ALWAYS actual state)
+        real(dp), intent(in) :: params_b(:, :)  !< Values n,Vphi,Te,Ti (ALWAYS actual state)
         real(dp), intent(in) :: E0r
         real(dp), intent(in) :: Dae11(:), Dae12(:), Dae22(:)
         real(dp), intent(in) :: Dai11(:), Dai12(:), Dai22(:), Dni22(:)
@@ -653,12 +649,10 @@ contains
 
     end subroutine compute_fluxes_at_boundary
 
-    pure subroutine compute_rmp_induced_sources(Gamma_ql_e, Gamma_ql_i, &
-                                                Gamma_ql_e_froz, Gamma_ql_i_froz, &
-                                                E0r, E0r_lin, &
-                                                sqrt_g_Bth_over_c, Z, am, &
-                                                polforce, qlheat_e, qlheat_i, &
-                                                torque_e, torque_i)
+    pure subroutine compute_rmp_induced_sources(Gamma_ql_e, Gamma_ql_i, Gamma_ql_e_froz, &
+                                                Gamma_ql_i_froz, E0r, E0r_lin, &
+                                                sqrt_g_Bth_over_c, Z, am, polforce, qlheat_e, &
+                                                qlheat_i, torque_e, torque_i)
         !
         ! Compute RMP-induced source terms of the four balance equations.
         !
@@ -757,13 +751,13 @@ contains
                               Sc(ipoi)
             if (convec_velocity .gt. 0.0_dp) then
                 dot_params_out(ieq) = dot_params_out(ieq) - convec_velocity * &
-                    (params_lin(ieq, ipoi + 1) - params_lin(ieq, ipoi)) / &
-                    (rc(ipoi + 1) - rc(ipoi))
+                                      (params_lin(ieq, ipoi + 1) - params_lin(ieq, ipoi)) / &
+                                      (rc(ipoi + 1) - rc(ipoi))
             else
                 if (ipoi .gt. 1) then
                     dot_params_out(ieq) = dot_params_out(ieq) - convec_velocity * &
-                        (params_lin(ieq, ipoi - 1) - params_lin(ieq, ipoi)) / &
-                        (rc(ipoi - 1) - rc(ipoi))
+                                          (params_lin(ieq, ipoi - 1) - params_lin(ieq, ipoi)) / &
+                                          (rc(ipoi - 1) - rc(ipoi))
                 else  ! no center point before first grid point
                     dot_params_out(ieq) = dot_params_out(ieq) - convec_velocity * &
                         (params_b_lin(ieq, 1) - params_lin(ieq, 1)) / (rb(1) - rc(1))

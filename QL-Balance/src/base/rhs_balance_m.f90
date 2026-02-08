@@ -431,12 +431,10 @@ contains
         ! NOTE: This subroutine is only called from rhs_balance, which has already
         ! set up params, params_b, ddr_params_nl, Ercov, and diffusion coefficients.
         !
-        use grid_mod, only: nbaleqs, neqset, iboutype, npoic, npoib, Sb, dae11, dae12, dae22, &
-                            dai11, dai12, dai22, dni22, visca, gpp_av, dery_equisource, dqle11, &
-                            dqle12, dqle21, dqle22, dqli11, dqli12, dqli21, dqli22, T_EM_phi_e, &
-                            T_EM_phi_i, sqrt_g_times_B_theta_over_c, Ercov, polforce, qlheat_e, &
-                            qlheat_i
-        use plasma_parameters, only: params, params_b, ddr_params_nl, dot_params
+        use grid_mod, only: nbaleqs, neqset, iboutype, npoic, npoib, gpp_av, dery_equisource, &
+                            T_EM_phi_e, T_EM_phi_i, sqrt_g_times_B_theta_over_c, Ercov, &
+                            polforce, qlheat_e, qlheat_i, Gamma_ql_e_frozen, Gamma_ql_i_frozen
+        use plasma_parameters, only: params, dot_params
         use baseparam_mod, only: Z_i, am
 
         implicit none
@@ -446,11 +444,6 @@ contains
         real(dp), dimension(neqset), intent(out) :: dy
 
         integer :: ipoi, ieq, i, npoi
-
-        ! Local variables for flux computation at actual plasma state
-        type(thermodynamic_forces_t) :: forces
-        real(dp) :: Gamma_tot_e, Gamma_tot_i, Gamma_ql_e, Gamma_ql_i, Q_e, Q_i
-        real(dp), dimension(4) :: flux_dif_loc, flux_con_loc
         real(dp), dimension(4) :: dot_params_loc
 
         if (iboutype .eq. 1) then
@@ -459,20 +452,14 @@ contains
             npoi = npoic
         end if
 
-        ! Compute fluxes and sources at all boundary points
+        ! Compute RMP-induced sources using frozen QL fluxes (already computed in rhs_balance)
         do ipoi = 1, npoib
-            call compute_fluxes_at_boundary(ipoi, ddr_params_nl, params_b, Ercov(ipoi), dae11, &
-                                            dae12, dae22, dai11, dai12, dai22, dni22, dqle11, &
-                                            dqle12, dqle21, dqle22, dqli11, dqli12, dqli21, &
-                                            dqli22, visca, gpp_av, Sb, Z_i, forces, Gamma_tot_e, &
-                                            Gamma_tot_i, Gamma_ql_e, Gamma_ql_i, Q_e, Q_i, &
-                                            flux_dif_loc, flux_con_loc)
-
             ! For actual state computation: no frozen contribution (zeros)
             ! Result: qlheat = E0r * Gamma_ql (full product, not linearized)
             ! => set linearized quantities to 0
-            call compute_rmp_induced_sources(Gamma_ql_e, Gamma_ql_i, 0.0_dp, 0.0_dp, Ercov(ipoi), &
-                                             0.0_dp, sqrt_g_times_B_theta_over_c(ipoi), Z_i, am, &
+            call compute_rmp_induced_sources(Gamma_ql_e_frozen(ipoi), Gamma_ql_i_frozen(ipoi), &
+                                             0.0_dp, 0.0_dp, Ercov(ipoi), 0.0_dp, &
+                                             sqrt_g_times_B_theta_over_c(ipoi), Z_i, am, &
                                              polforce(ipoi), qlheat_e(ipoi), qlheat_i(ipoi), &
                                              T_EM_phi_e(ipoi), T_EM_phi_i(ipoi))
         end do

@@ -9,8 +9,8 @@ module rhs_balance_m
     !   dy/dt = A·y + q
     ! where:
     !   y - vector of plasma parameters at grid points (size 4N)
-    !   A - sparse Jacobian matrix (contains flux divergence terms)
-    !   q - source vector (contains RMP-induced and equilibrium sources)
+    !   A - sparse Jacobian matrix
+    !   q - source vector
     ! using implicit time stepping.
     ! The implicit time stepping scheme uses:
     !   y' - Δt·A(y)·y' = y + Δt·q(y)

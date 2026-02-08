@@ -84,6 +84,7 @@
     allocate(params_b(nbaleqs,npoib),ddr_params_lin(nbaleqs,npoib),ddr_params_nl(nbaleqs,npoib))
     allocate(params_lin(nbaleqs,npoic),params_b_lin(nbaleqs,npoib))
     allocate(fluxes_dif_lin(nbaleqs,npoib),fluxes_con_lin(nbaleqs,npoib),fluxes_con_nl(nbaleqs,npoib))
+    allocate(Gamma_ql_e_frozen(npoib), Gamma_ql_i_frozen(npoib))
 
     if(iboutype.eq.1) then
       neqset=nbaleqs*(npoic-1)

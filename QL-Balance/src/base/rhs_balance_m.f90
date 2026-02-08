@@ -398,10 +398,6 @@ contains
         !   - qlheat_e/i: heat sources from RMP-induced particle transport
         !   - dery_equisource: equilibrium background source
         !
-        ! REFACTORED: This version eliminates the confusing _lin arrays that were
-        ! all zero anyway (since y_lin=0 for source computation). Instead, we
-        ! compute only the actual state quantities needed for sources.
-        !
         use grid_mod, only: nbaleqs, neqset, iboutype, npoic, npoib, Sb, deriv_coef, ipbeg, &
                             ipend, rb, reint_coef, dae11, dae12, dae22, dai11, dai12, dai22, &
                             dni22, visca, gpp_av, dery_equisource, dqle11, dqle12, dqle21, &
@@ -453,8 +449,7 @@ contains
         call compute_radial_electric_field(npoib, rb, params_b, ddr_params_nl, &
                                            sqrt_g_times_B_theta_over_c, Vth, q, Z_i, Ercov)
 
-        ! Compute diffusion coefficients at actual state
-        call calc_equil_diffusion_coeffs
+        ! Diffusion coefficients are already calculated in rhs_balance
 
         ! Compute fluxes and sources at all boundary points
         do ipoi = 1, npoib

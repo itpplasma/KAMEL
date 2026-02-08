@@ -428,14 +428,16 @@ contains
         !   - qlheat_e/i: heat sources from RMP-induced particle transport
         !   - dery_equisource: equilibrium background source
         !
-        use grid_mod, only: nbaleqs, neqset, iboutype, npoic, npoib, Sb, deriv_coef, ipbeg, &
-                            ipend, rb, reint_coef, dae11, dae12, dae22, dai11, dai12, dai22, &
-                            dni22, visca, gpp_av, dery_equisource, dqle11, dqle12, dqle21, &
-                            dqle22, dqli11, dqli12, dqli21, dqli22, T_EM_phi_e, T_EM_phi_i, &
-                            sqrt_g_times_B_theta_over_c, Ercov, polforce, qlheat_e, qlheat_i
+        ! NOTE: This subroutine is only called from rhs_balance, which has already
+        ! set up params, params_b, ddr_params_nl, Ercov, and diffusion coefficients.
+        !
+        use grid_mod, only: nbaleqs, neqset, iboutype, npoic, npoib, Sb, dae11, dae12, dae22, &
+                            dai11, dai12, dai22, dni22, visca, gpp_av, dery_equisource, dqle11, &
+                            dqle12, dqle21, dqle22, dqli11, dqli12, dqli21, dqli22, T_EM_phi_e, &
+                            T_EM_phi_i, sqrt_g_times_B_theta_over_c, Ercov, polforce, qlheat_e, &
+                            qlheat_i
         use plasma_parameters, only: params, params_b, ddr_params_nl, dot_params
         use baseparam_mod, only: Z_i, am
-        use wave_code_data, only: q, Vth
 
         implicit none
 
@@ -456,30 +458,6 @@ contains
         else
             npoi = npoic
         end if
-
-        ! Copy y to params (actual plasma state)
-        do ipoi = 1, npoi
-            do ieq = 1, nbaleqs
-                i = nbaleqs * (ipoi - 1) + ieq
-                params(ieq, ipoi) = y(i)
-            end do
-        end do
-
-        ! Interpolate to boundary points
-        do ipoi = 1, npoib
-            do ieq = 1, nbaleqs
-                ddr_params_nl(ieq, ipoi) = sum(params(ieq, ipbeg(ipoi):ipend(ipoi)) * &
-                                               deriv_coef(:, ipoi))
-                params_b(ieq, ipoi) = sum(params(ieq, ipbeg(ipoi):ipend(ipoi)) * &
-                                          reint_coef(:, ipoi))
-            end do
-        end do
-
-        ! Compute radial electric field at actual state
-        call compute_radial_electric_field(npoib, rb, params_b, ddr_params_nl, &
-                                           sqrt_g_times_B_theta_over_c, Vth, q, Z_i, Ercov)
-
-        ! Diffusion coefficients are already calculated in rhs_balance
 
         ! Compute fluxes and sources at all boundary points
         do ipoi = 1, npoib

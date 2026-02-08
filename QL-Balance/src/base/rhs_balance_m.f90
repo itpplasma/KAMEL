@@ -261,6 +261,9 @@ contains
             Gamma_ql_i_frozen(ipoi) = Gamma_ql_i_nl
         end do
 
+        ! Apply boundary condition: zero flux at inner boundary
+        fluxes_con_nl(:, 1) = 0.0_dp
+
         ! Jacobian probing loop
         nshift = 4
         k = 0
@@ -353,10 +356,9 @@ contains
                                                  T_EM_phi_e(ipoi), T_EM_phi_i(ipoi))
             end do
 
-            ! Apply boundary conditions
+            ! Apply boundary conditions for linearized fluxes
             fluxes_dif_lin(:, 1) = 0.0_dp
             fluxes_con_lin(:, 1) = 0.0_dp
-            fluxes_con_nl(:, 1) = 0.0_dp
 
             ! Compute time derivatives
             do ipoi = ibeg, iend
@@ -537,11 +539,11 @@ contains
         !
         ! This subroutine is used in two contexts:
         !
-        ! 1. ACTUAL STATE (prepare_frozen_state, rhs_balance_source):
+        ! 1. ACTUAL STATE (rhs_balance frozen state preparation):
         !    - ddr_params = actual gradients (ddr_params_nl)
         !    - params_b   = actual values
         !    - E0r        = actual electric field (Ercov)
-        !    Result: fluxes at actual plasma state
+        !    Result: fluxes at actual plasma state, stored in Gamma_ql_*_frozen
         !
         ! 2. LINEARIZED STATE (rhs_balance Jacobian probing):
         !    - ddr_params = linearized gradients δ(∂/∂r) from probe (ddr_params_lin)

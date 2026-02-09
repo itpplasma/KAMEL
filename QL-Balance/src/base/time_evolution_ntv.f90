@@ -23,6 +23,7 @@ module time_evolution_ntv
     real(dp) :: Z2
     real(dp), dimension(:, :), allocatable :: plasma_data
     real(dp), dimension(:, :), allocatable :: profile_data
+    real(dp) :: antenna_factor_exponent
 
     ! from NEO-RT
     type(transport_data_t), dimension(:), allocatable :: transport_data
@@ -54,6 +55,7 @@ contains
 
         ! NEO-RT
         call read_neort_meta_config(balance_config_file, meta_config)
+        antenna_factor_exponent = meta_config%antenna_factor_exponent
         s_size = meta_config%amount_of_s
 
         allocate (r_splined(s_size, 3))
@@ -152,7 +154,7 @@ contains
         write (*, "(a)") ""  ! newline after progress bar
 
         ! Add torque to global torque_ntv array to be used in rhs_balance
-        call apply_ntv_transport(r, transport_data)
+        call apply_ntv_transport(r, transport_data, antenna_factor_exponent)
 
     end subroutine neo_rt
 

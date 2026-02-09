@@ -13,6 +13,7 @@ module neort_interface
         character(len=1024) :: boozer_file
         character(len=1024) :: boozer_pert_file
         integer :: amount_of_s
+        real(dp) :: antenna_factor_exponent
         type(config_t) :: config
     end type meta_config_neort_t
 
@@ -44,12 +45,15 @@ contains
         ! namelist content
         ! This is a modified version of the full input format used by NEO-RT
         ! as some values are deliberately unused or fixed plus the following:
-        ! explicit paths for the Boozer input files, where the perturbation file is optional
-        ! amount of equidistant s to compute on
+        ! - explicit paths for the Boozer input files, where the perturbation file is optional
+        ! - amount of equidistant s to compute on
+        ! - an exponent for the antenna_factor that gets multiplied onto the resulting torque
+        !   NTV torque scales with the current in the RMP coils as well
         ! new meta config values:
         character(len=1024) :: boozer_file
         character(len=1024) :: boozer_pert_file  ! optional
         integer :: amount_of_s
+        real(dp) :: antenna_factor_exponent
         ! original NEO-RT config values
         real(dp) :: epsmn
         logical :: magdrift
@@ -62,12 +66,13 @@ contains
         integer :: vsteps
         integer :: log_level
 
-        namelist /NEORT/ boozer_file, boozer_pert_file, amount_of_s, epsmn, magdrift, &
-            nopassing, noshear, nonlin, bfac, efac, inp_swi, vsteps, log_level
+        namelist /NEORT/ boozer_file, boozer_pert_file, amount_of_s, antenna_factor_exponent, &
+            epsmn, magdrift, nopassing, noshear, nonlin, bfac, efac, inp_swi, vsteps, log_level
 
         ! some default values
         boozer_pert_file = ""
         amount_of_s = 100
+        antenna_factor_exponent = 1.0
         bfac = 1.0
         efac = 1.0
         inp_swi = 9  ! AUG
@@ -93,6 +98,7 @@ contains
         meta_config%boozer_file = trim(adjustl(boozer_file))
         meta_config%boozer_pert_file = trim(adjustl(boozer_pert_file))
         meta_config%amount_of_s = amount_of_s
+        meta_config%antenna_factor_exponent = antenna_factor_exponent
         meta_config%config%epsmn = epsmn
         meta_config%config%m0 = poloidal_mode
         meta_config%config%mph = toroidal_mode
@@ -447,19 +453,23 @@ contains
         end do
     end subroutine calculate_coarse_s_tor
 
-    subroutine apply_ntv_transport(r, transport_data)
-        use grid_mod, only: rb, torque_ntv
+    subroutine apply_ntv_transport(r, transport_data, antenna_factor_exponent)
         use PolyLagrangeInterpolation, only: binsrc
+        use grid_mod, only: rb, torque_ntv
         use spline, only: spline_coeff, spline_val
+        use wave_code_data, only: antenna_factor
+        use time_evolution, only: antenna_factor_max
 
         real(dp), dimension(:), intent(in) :: r
         type(transport_data_t), dimension(:), intent(in) :: transport_data
+        real(dp), intent(in) :: antenna_factor_exponent
 
         real(dp), dimension(:), allocatable :: total_torque  ! torque per unit s [dyn·cm]
         real(dp), dimension(:), allocatable :: dVds          ! volume per unit s [cm³]
         real(dp), dimension(:, :), allocatable :: torque_of_r_coeffs
         real(dp), dimension(:, :), allocatable :: torque_splined
         integer :: ntorque, nrb, i, i_separatrix
+        real(dp) :: antenna_factor_scaling
 
         ! extract array sizes
         ntorque = size(transport_data)
@@ -493,6 +503,11 @@ contains
         ! torque for r > separatrix should be zero
         torque_ntv(1:i_separatrix) = torque_splined(:, 1)
         torque_ntv(i_separatrix+1:nrb) = 0.0_dp
+
+        ! rescale ntv by antenna factor proportion and
+        ! exponent (for different collisionality regimes)
+        antenna_factor_scaling = (antenna_factor / antenna_factor_max)**antenna_factor_exponent
+        torque_ntv = torque_ntv * antenna_factor_scaling
     end subroutine apply_ntv_transport
 
 !================== Writing routines for debugging ==================

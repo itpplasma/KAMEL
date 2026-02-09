@@ -33,8 +33,6 @@ contains
         character(len=*), intent(in) :: config_file
         type(meta_config_neort_t), intent(out) :: meta_config
 
-        character(len=*), parameter :: unset = "__!UNSET!__"
-
         ! mode numbers
         integer :: poloidal_mode
         integer :: toroidal_mode
@@ -68,7 +66,7 @@ contains
             nopassing, noshear, nonlin, bfac, efac, inp_swi, vsteps, log_level
 
         ! some default values
-        boozer_pert_file = unset
+        boozer_pert_file = ""
         amount_of_s = 100
         bfac = 1.0
         efac = 1.0
@@ -102,7 +100,7 @@ contains
         meta_config%config%magdrift = magdrift
         meta_config%config%nopassing = nopassing
         meta_config%config%noshear = noshear
-        meta_config%config%pertfile = boozer_pert_file /= unset  ! only if boozer_pert_file was set
+        meta_config%config%pertfile = boozer_pert_file /= ""  ! only if boozer_pert_file was set
         meta_config%config%nonlin = nonlin
         meta_config%config%bfac = bfac
         meta_config%config%efac = efac

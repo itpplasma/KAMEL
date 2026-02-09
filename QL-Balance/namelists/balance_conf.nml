@@ -69,6 +69,7 @@
  boozer_file = ''
  boozer_pert_file = ''
  amount_of_s = 100
+ antenna_factor_exponent = 1.0
  epsmn = 0.001
  magdrift = .true.
  nopassing = .false.

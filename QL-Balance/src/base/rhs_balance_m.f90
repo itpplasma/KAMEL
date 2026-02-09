@@ -662,6 +662,10 @@ contains
         torque_e = +sqrt_g_Bth_over_c * e_charge * Gamma_ql_e
         torque_i = -sqrt_g_Bth_over_c * Z * e_charge * Gamma_ql_i
         ! Net radial current drive entering the momentum evolution as a source term.
+        ! torque_{e,i} has units [dyn/cm²] = [g·cm⁻¹·s⁻²] (force per area, same as pressure).
+        ! polforce = torque / mass has units [cm⁻¹·s⁻²].
+        ! In compute_dot_params_at_point, polforce is multiplied by Z/(n·g_φφ) to give
+        ! angular acceleration [s⁻²] for the toroidal rotation frequency evolution.
         polforce = (torque_e + torque_i) / (am * p_mass)
 
         ! Eq. 3: Electron temperature

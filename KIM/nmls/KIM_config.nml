@@ -17,6 +17,7 @@
 &wkb_dispersion
     WKB_dispersion_mode = 'KIM'             ! 'KIM' (full Bessel) or 'FLRE' (finite Larmor radius)
     WKB_dispersion_solver = 'ZEAL'          ! 'Muller' or 'ZEAL'
+    WKB_solve_for_kr_squared = .false.      ! If true, solve D(kr^2)=0; if false, solve D(kr)=0
     WKB_max_tracked_branches = 4            ! Max branches for ZEAL tracking
     WKB_branch_search_halfwidth = 1.5       ! Search half-width per branch
     WKB_broad_search_halfwidth = 5.0        ! Initial broad search half-width

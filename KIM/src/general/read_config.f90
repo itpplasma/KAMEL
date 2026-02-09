@@ -19,6 +19,7 @@ subroutine read_config
                         number_density_rescale, ion_flr_scale_factor
 
     namelist /WKB_DISPERSION/ WKB_dispersion_mode, WKB_dispersion_solver, &
+                        WKB_solve_for_kr_squared, &
                         WKB_max_tracked_branches, WKB_branch_search_halfwidth, &
                         WKB_broad_search_halfwidth, WKB_broad_search_interval, &
                         WKB_root_tolerance, WKB_verbose

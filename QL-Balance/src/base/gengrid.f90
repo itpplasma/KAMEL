@@ -84,6 +84,7 @@
     allocate(params_b(nbaleqs,npoib),ddr_params_lin(nbaleqs,npoib),ddr_params_nl(nbaleqs,npoib))
     allocate(params_lin(nbaleqs,npoic),params_b_lin(nbaleqs,npoib))
     allocate(fluxes_dif_lin(nbaleqs,npoib),fluxes_con_lin(nbaleqs,npoib),fluxes_con_nl(nbaleqs,npoib))
+    allocate(Gamma_ql_e_frozen(npoib), Gamma_ql_i_frozen(npoib))
 
     if(iboutype.eq.1) then
       neqset=nbaleqs*(npoic-1)
@@ -102,8 +103,7 @@
     allocate(de11(npoib),de12(npoib),de21(npoib),de22(npoib))
     allocate(di11(npoib),di12(npoib),di21(npoib),di22(npoib))
     allocate(T_EM_phi_e(npoib), T_EM_phi_i(npoib))
-    allocate(T_EM_phi_e_source(npoib), T_EM_phi_i_source(npoib))
-    allocate(polforce(npoib), polforce_ql(npoib), qlheat_e(npoib), qlheat_i(npoib))
+    allocate(polforce(npoib), qlheat_e(npoib), qlheat_i(npoib))
 
     dni22=0.d0
 

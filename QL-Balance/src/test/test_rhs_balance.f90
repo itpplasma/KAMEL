@@ -12,6 +12,7 @@ program test_rhs_balance
                              compute_thermodynamic_forces, &
                              compute_particle_fluxes, &
                              compute_total_heat_fluxes, &
+                             compute_source_terms_at_point, &
                              species_fluxes_t, &
                              transport_fluxes_t
     use baseparam_mod, only: e_charge
@@ -31,6 +32,7 @@ program test_rhs_balance
     call test_thermodynamic_forces()
     call test_particle_fluxes()
     call test_heat_fluxes()
+    call test_source_terms_at_point()
 
     print *, ""
     print *, "========================================"
@@ -274,6 +276,87 @@ contains
         print *, "  PASSED: ", test_name
 
     end subroutine test_heat_fluxes
+
+
+    subroutine test_source_terms_at_point()
+        !
+        ! Test compute_source_terms_at_point with known inputs
+        !
+        ! This function computes source terms only (no flux divergence):
+        !   - polforce: momentum source
+        !   - qlheat_e/i: heat sources
+        !
+        ! Then applies conversions:
+        !   - Momentum → rotation frequency (divide by n, gpp)
+        !   - d(nT)/dt → dT/dt
+        !
+        real(dp) :: params(4, 3)  ! 4 parameters, 3 grid points
+        real(dp) :: gpp_av(4)     ! 4 boundary points
+        real(dp) :: polforce(4), qlheat_e(4), qlheat_i(4)
+        real(dp) :: Z_i_val
+        real(dp) :: dot_params_out(4)
+        real(dp) :: expected_2, expected_3, expected_4
+        real(dp) :: n_at_ipoi, gpp_sum
+        integer :: ipoi
+        character(len=*), parameter :: test_name = "test_source_terms_at_point"
+
+        print *, "Running: ", test_name
+
+        ! Set up test data
+        ! Grid point 2 (ipoi=2) with boundaries at ipoi and ipoi+1
+        ipoi = 2
+        Z_i_val = 1.0_dp
+
+        ! Plasma parameters at grid point 2
+        params(1, 2) = 1.0e13_dp    ! density [cm^-3]
+        params(2, 2) = 1.0e5_dp     ! rotation frequency [rad/s]
+        params(3, 2) = 1.6022e-10_dp ! Te [erg] (100 eV)
+        params(4, 2) = 1.2818e-10_dp ! Ti [erg] (80 eV)
+
+        ! gpp at boundaries (average will be used)
+        gpp_av(2) = 1.0e4_dp  ! ipoi
+        gpp_av(3) = 1.2e4_dp  ! ipoi + 1
+
+        ! Source terms at boundaries
+        polforce(2) = 1.0e10_dp   ! ipoi
+        polforce(3) = 1.2e10_dp   ! ipoi + 1
+        qlheat_e(2) = 5.0e8_dp    ! ipoi
+        qlheat_e(3) = 6.0e8_dp    ! ipoi + 1
+        qlheat_i(2) = 4.0e8_dp    ! ipoi
+        qlheat_i(3) = 4.5e8_dp    ! ipoi + 1
+
+        ! Expected values
+        n_at_ipoi = params(1, 2)
+        gpp_sum = gpp_av(2) + gpp_av(3)
+
+        ! Eq 1: No density source
+        ! expected_1 = 0.0
+
+        ! Eq 2: Momentum source → rotation frequency
+        ! dot_params(2) = 0.5 * (polforce(ipoi) + polforce(ipoi+1)) * Z_i / n * 2 / (gpp_sum)
+        expected_2 = 0.5_dp * (polforce(2) + polforce(3)) * Z_i_val / n_at_ipoi * 2.0_dp / gpp_sum
+
+        ! Eq 3: Electron heat source → dTe/dt
+        ! dot_params(3) = 0.5 * (qlheat_e(ipoi) + qlheat_e(ipoi+1)) / (1.5 * n)
+        expected_3 = 0.5_dp * (qlheat_e(2) + qlheat_e(3)) / (1.5_dp * n_at_ipoi)
+
+        ! Eq 4: Ion heat source → dTi/dt
+        expected_4 = 0.5_dp * (qlheat_i(2) + qlheat_i(3)) / (1.5_dp * n_at_ipoi)
+
+        ! Call the function under test
+        call compute_source_terms_at_point(ipoi, params, gpp_av, &
+                                           polforce, qlheat_e, qlheat_i, Z_i_val, &
+                                           dot_params_out)
+
+        ! Verify results
+        call assert_equal(dot_params_out(1), 0.0_dp, "dot_n (should be 0)")
+        call assert_equal(dot_params_out(2), expected_2, "dot_Vphi")
+        call assert_equal(dot_params_out(3), expected_3, "dot_Te")
+        call assert_equal(dot_params_out(4), expected_4, "dot_Ti")
+
+        print *, "  PASSED: ", test_name
+
+    end subroutine test_source_terms_at_point
 
 
     subroutine assert_equal(actual, expected, name)

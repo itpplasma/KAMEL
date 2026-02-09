@@ -318,8 +318,8 @@ contains
             Gamma_e = n * D * (-e_charge) * E0r / Te
             Gamma_i = n * D * (Z * e_charge) * E0r / Ti
             call compute_rmp_induced_sources(Gamma_e, Gamma_i, 0.0_dp, 0.0_dp, E0r, 0.0_dp, &
-                                             sqrt_g_Bth_over_c, Z, am, polforce, qlheat_e, &
-                                             qlheat_i, torque_e, torque_i)
+                                             sqrt_g_Bth_over_c, Z, am, 0.0_dp, polforce, &
+                                             qlheat_e, qlheat_i, torque_e, torque_i)
             call assert_equal(qlheat_e, n * D * e_charge**2 * E0r**2 / Te, &
                               "electron Joule heating")
             call assert_equal(qlheat_i, n * D * (Z * e_charge)**2 * E0r**2 / Ti, &

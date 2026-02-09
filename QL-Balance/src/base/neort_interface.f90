@@ -502,7 +502,7 @@ contains
 
         print *, "NEO-RT meta config:"
         print *, "boozer_file = ", trim(adjustl(meta_config%boozer_file))
-        print *, "boozer_pertPfile = ", trim(adjustl(meta_config%boozer_pert_file))
+        print *, "boozer_pert_file = ", trim(adjustl(meta_config%boozer_pert_file))
         print *, "amount_of_s = ", meta_config%amount_of_s
         print *, "s = ", meta_config%config%s
         print *, "M_t = ", meta_config%config%M_t

@@ -186,7 +186,9 @@ contains
     end subroutine prepare_plasma_data_for_neort
 
     !> @brief Prepare rotation profile data for NEO-RT from KAMEL arrays
-    !> @param[out] profile_data 2D array (nflux, 3) for NEO-RT profile input
+    !> @param[out] profile_data 2D array (nflux, 2) for NEO-RT profile input:
+    !>             Column 1: normalized toroidal flux s [dimensionless]
+    !>             Column 2: toroidal Mach number M_t [dimensionless]
     subroutine prepare_profile_data_for_neort(profile_data, r, s_tor, Omega_tE)
         use baseparam_mod, only: am, p_mass, rtor
         use grid_mod, only: rc
@@ -455,8 +457,8 @@ contains
         real(dp), dimension(:), intent(in) :: r
         type(transport_data_t), dimension(:), intent(in) :: transport_data
 
-        real(dp), dimension(:), allocatable :: total_torque  ! in cgs over s
-        real(dp), dimension(:), allocatable :: dVds
+        real(dp), dimension(:), allocatable :: total_torque  ! torque per unit s [dyn·cm]
+        real(dp), dimension(:), allocatable :: dVds          ! volume per unit s [cm³]
         real(dp), dimension(:, :), allocatable :: torque_of_r_coeffs
         real(dp), dimension(:, :), allocatable :: torque_splined
         integer :: ntorque, nrb, i, i_separatrix

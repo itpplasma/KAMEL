@@ -17,6 +17,7 @@ module config_m
     ! WKB_DISPERSION namelist variables
     character(20) :: WKB_dispersion_mode = 'KIM'      ! 'KIM' (full Bessel) or 'FLRE' (finite Larmor radius)
     character(20) :: WKB_dispersion_solver = 'Muller' ! 'Muller' or 'ZEAL'
+    logical :: WKB_solve_for_kr_squared = .false.     ! If true, solve for kr^2; if false, solve for kr
     integer :: WKB_max_tracked_branches = 4           ! Max branches for ZEAL per-branch tracking
     real(dp) :: WKB_branch_search_halfwidth = 1.5_dp  ! Search window half-width for tracking
     real(dp) :: WKB_broad_search_halfwidth = 5.0_dp   ! Broad search window half-width

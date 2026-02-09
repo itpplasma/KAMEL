@@ -49,7 +49,7 @@ module rt_WKB_dispersion_m
         use muller_root_finding
         use grid_m, only: rg_grid
         use IO_collection_m, only: write_complex_profile_abs, ensure_dispersion_dir_exists
-        use config_m, only: WKB_dispersion_solver, dispersion_output_path
+        use config_m, only: WKB_dispersion_solver, dispersion_output_path, WKB_solve_for_kr_squared
 
         implicit none
 
@@ -59,6 +59,11 @@ module rt_WKB_dispersion_m
         integer :: km, i
 
         print *, "Running "//trim(this%run_type)//" model ..."
+        if (WKB_solve_for_kr_squared) then
+            print *, "  Solver mode: solving for kr^2 (D(kr^2)=0)"
+        else
+            print *, "  Solver mode: solving for kr (D(kr)=0)"
+        end if
 
         ! Ensure dispersion output directory exists
         call ensure_dispersion_dir_exists()
@@ -89,7 +94,7 @@ module rt_WKB_dispersion_m
         use grid_m, only: rg_grid
         use IO_collection_m, only: write_complex_profile_abs, &
             track_root_branches, write_tracked_roots
-        use config_m, only: WKB_dispersion_mode, dispersion_output_path
+        use config_m, only: WKB_dispersion_mode, dispersion_output_path, WKB_solve_for_kr_squared
         use Function_Input_Module, only: f_ptr
 
         implicit none
@@ -170,6 +175,12 @@ module rt_WKB_dispersion_m
         ! Track root branches across grid points
         print *
         print *, '=== Muller Solver Summary ==='
+        print *, 'Dispersion mode: ', trim(WKB_dispersion_mode)
+        if (WKB_solve_for_kr_squared) then
+            print *, 'Solver variable: kr^2 (solving D(kr^2)=0)'
+        else
+            print *, 'Solver variable: kr (solving D(kr)=0)'
+        end if
         print *, 'Total grid points: ', rg_grid%npts_b
         print *, 'Total roots stored: ', sum(n_roots_per_point)
         print *
@@ -194,11 +205,14 @@ module rt_WKB_dispersion_m
         contains
 
         subroutine dispersion_KIM(kr, f)
+            ! When WKB_solve_for_kr_squared=.false., kr is the unknown (solve D(kr)=0)
+            ! When WKB_solve_for_kr_squared=.true., kr represents kr^2 (solve D(kr^2)=0)
 
             use species_m, only: plasma
             use constants_m, only: com_unit
             use KIM_kinds_m, only: dp
             use grid_m, only: rg_grid
+            use config_m, only: WKB_solve_for_kr_squared
 
             implicit none
 
@@ -209,14 +223,22 @@ module rt_WKB_dispersion_m
             complex(dp) :: bess0, bessm1
             real(dp) :: bess0_re(2), bess0_im(2)
             complex(dp) :: kr_rho_squared
+            complex(dp) :: kr_squared  ! Either kr^2 or kr depending on mode
 
             bess0_re = 0.0d0
             bess0_im = 0.0d0
             f = (0.0d0, 0.0d0)
 
+            ! Determine kr^2 based on solver mode
+            if (WKB_solve_for_kr_squared) then
+                kr_squared = kr  ! Input is already kr^2
+            else
+                kr_squared = kr**2.0d0  ! Input is kr, compute kr^2
+            end if
+
             do sp = 0, plasma%n_species-1
 
-                kr_rho_squared = kr**2.0d0 * plasma%spec(sp)%rho_L(j)**2.0d0
+                kr_rho_squared = kr_squared * plasma%spec(sp)%rho_L(j)**2.0d0
 
                 ! calculate modified Bessel functions I0 and I1 with complex argument
                 call zbesi(real(kr_rho_squared, kind=dp), &
@@ -259,21 +281,21 @@ module rt_WKB_dispersion_m
 
             end do
 
-            ! more precise, includes first order derivative:
-            ! f = kr**2.0d0 - com_unit / rg_grid%xb(j) * kr + plasma%kp(j)**2.0d0 - f
-
             ! neglect linear term, accurate enough
-            f = kr**2.0d0 + plasma%kp(j)**2.0d0 - f
+            f = kr_squared + plasma%kp(j)**2.0d0 - f
 
         end subroutine dispersion_KIM
 
         subroutine dispersion_FLRE(kr, f)
             ! dispersion equation for second order finite Larmor radius expansion
+            ! When WKB_solve_for_kr_squared=.false., kr is the unknown (solve D(kr)=0)
+            ! When WKB_solve_for_kr_squared=.true., kr represents kr^2 (solve D(kr^2)=0)
 
             use species_m, only: plasma
             use constants_m, only: com_unit
             use KIM_kinds_m, only: dp
             use grid_m, only: rg_grid
+            use config_m, only: WKB_solve_for_kr_squared
 
             implicit none
 
@@ -281,12 +303,20 @@ module rt_WKB_dispersion_m
             complex(dp), intent(out) :: f
             integer :: sp
             complex(dp) :: kr_rho_squared
+            complex(dp) :: kr_squared  ! Either kr^2 or kr depending on mode
 
             f = (0.0d0, 0.0d0)
 
+            ! Determine kr^2 based on solver mode
+            if (WKB_solve_for_kr_squared) then
+                kr_squared = kr  ! Input is already kr^2
+            else
+                kr_squared = kr**2.0d0  ! Input is kr, compute kr^2
+            end if
+
             do sp = 0, plasma%n_species-1
 
-                kr_rho_squared = kr**2.0d0 * plasma%spec(sp)%rho_L(j)**2.0d0
+                kr_rho_squared = kr_squared * plasma%spec(sp)%rho_L(j)**2.0d0
 
                 f = f + 1.0d0 / plasma%spec(sp)%lambda_D(j)**2.0d0 * ( -1.0d0 &
                     + com_unit * plasma%spec(sp)%vT(j)**2.0d0 * plasma%ks(j) &
@@ -301,11 +331,8 @@ module rt_WKB_dispersion_m
                 )
             end do
 
-            ! more accureate, includes first order derivative:
-            ! f = kr**2.0d0 - com_unit / rg_grid%xb(j) * kr + plasma%kp(j)**2.0d0 - f
-
             ! use the version that neglects the first order derivative term (is accurate enough)
-            f = kr**2.0d0 + plasma%kp(j)**2.0d0 - f
+            f = kr_squared + plasma%kp(j)**2.0d0 - f
 
         end subroutine dispersion_FLRE
 
@@ -315,10 +342,13 @@ module rt_WKB_dispersion_m
 
     subroutine test_dispersion_KIM(kr, f)
         ! Standalone version of dispersion_KIM for testing/comparison
+        ! When WKB_solve_for_kr_squared=.false., kr is the unknown (solve D(kr)=0)
+        ! When WKB_solve_for_kr_squared=.true., kr represents kr^2 (solve D(kr^2)=0)
         use species_m, only: plasma
         use constants_m, only: com_unit
         use KIM_kinds_m, only: dp
         use Function_Input_Module, only: rg_index
+        use config_m, only: WKB_solve_for_kr_squared
 
         implicit none
 
@@ -329,6 +359,7 @@ module rt_WKB_dispersion_m
         complex(dp) :: bess0, bessm1
         real(dp) :: bess0_re(2), bess0_im(2)
         complex(dp) :: kr_rho_squared
+        complex(dp) :: kr_squared  ! Either kr^2 or kr depending on mode
 
         j = rg_index
 
@@ -336,9 +367,16 @@ module rt_WKB_dispersion_m
         bess0_im = 0.0d0
         f = (0.0d0, 0.0d0)
 
+        ! Determine kr^2 based on solver mode
+        if (WKB_solve_for_kr_squared) then
+            kr_squared = kr  ! Input is already kr^2
+        else
+            kr_squared = kr**2.0d0  ! Input is kr, compute kr^2
+        end if
+
         do sp = 0, plasma%n_species-1
 
-            kr_rho_squared = kr**2.0d0 * plasma%spec(sp)%rho_L(j)**2.0d0
+            kr_rho_squared = kr_squared * plasma%spec(sp)%rho_L(j)**2.0d0
 
             call zbesi(real(kr_rho_squared, kind=dp), &
                        dimag(kr_rho_squared), &
@@ -362,7 +400,7 @@ module rt_WKB_dispersion_m
 
         end do
 
-        f = kr**2.0d0 + plasma%kp(j)**2.0d0 - f
+        f = kr_squared + plasma%kp(j)**2.0d0 - f
 
     end subroutine test_dispersion_KIM
 
@@ -385,7 +423,7 @@ module rt_WKB_dispersion_m
         use Zeal_Input_Module, only: set_zeal_search_region
         use config_m, only: WKB_max_tracked_branches, WKB_branch_search_halfwidth, &
             WKB_broad_search_halfwidth, WKB_broad_search_interval, WKB_root_tolerance, &
-            WKB_dispersion_mode, dispersion_output_path
+            WKB_dispersion_mode, dispersion_output_path, WKB_solve_for_kr_squared
 
         implicit none
 
@@ -470,6 +508,11 @@ module rt_WKB_dispersion_m
         print *
         print *, '=== Per-Branch ZEAL Tracking ==='
         print *, 'Dispersion mode: ', trim(WKB_dispersion_mode)
+        if (WKB_solve_for_kr_squared) then
+            print *, 'Solver variable: kr^2 (solving D(kr^2)=0)'
+        else
+            print *, 'Solver variable: kr (solving D(kr)=0)'
+        end if
         print *, 'Max tracked branches: ', WKB_max_tracked_branches
         print *, 'Branch search half-width: ', WKB_branch_search_halfwidth
         print *, 'Broad search half-width: ', WKB_broad_search_halfwidth

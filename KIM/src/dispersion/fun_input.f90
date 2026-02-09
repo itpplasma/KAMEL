@@ -107,10 +107,13 @@ MODULE Function_Input_Module
 
         subroutine dispersion_KIM(kr, D_of_kr)
             ! KIM dispersion: full modified Bessel function formulation
+            ! When WKB_solve_for_kr_squared=.false., kr is the unknown (solve D(kr)=0)
+            ! When WKB_solve_for_kr_squared=.true., kr represents kr^2 (solve D(kr^2)=0)
 
             use species_m, only: plasma
             use constants_m, only: com_unit
             use kim_kinds_m, only: dp
+            use config_m, only: WKB_solve_for_kr_squared
 
             implicit none
             complex(dp), intent(in) :: kr
@@ -120,6 +123,7 @@ MODULE Function_Input_Module
             complex(dp) :: bess0, bessm1
             real(dp) :: bess0_re(2), bess0_im(2)
             complex(dp) :: kr_rho_squared
+            complex(dp) :: kr_squared  ! Either kr^2 or kr depending on mode
             integer :: j
 
             if (rg_index .lt. 1 .or. rg_index .gt. plasma%grid_size) then
@@ -134,9 +138,16 @@ MODULE Function_Input_Module
             bess0_im = 0.0d0
             D_of_kr = (0.0d0, 0.0d0)
 
+            ! Determine kr^2 based on solver mode
+            if (WKB_solve_for_kr_squared) then
+                kr_squared = kr  ! Input is already kr^2
+            else
+                kr_squared = kr**2.0d0  ! Input is kr, compute kr^2
+            end if
+
             do sp = 0, plasma%n_species-1
 
-                kr_rho_squared = kr**2.0d0 * plasma%spec(sp)%rho_L(j)**2.0d0
+                kr_rho_squared = kr_squared * plasma%spec(sp)%rho_L(j)**2.0d0
 
                 ! calculate modified Bessel functions I0 and I1 with complex argument
                 call zbesi(real(kr_rho_squared, kind=dp), &
@@ -179,7 +190,7 @@ MODULE Function_Input_Module
 
             end do
 
-            D_of_kr = kr**2.0d0 + plasma%kp(j)**2.0d0 - D_of_kr
+            D_of_kr = kr_squared + plasma%kp(j)**2.0d0 - D_of_kr
 
         end subroutine
 
@@ -187,16 +198,20 @@ MODULE Function_Input_Module
         subroutine dispersion_FLRE(kr, D_of_kr)
             ! FLRE dispersion: second-order finite Larmor radius expansion
             ! Replaces Bessel functions with Taylor expansion: I0(x)*exp(-x) ≈ 1 - x + ...
+            ! When WKB_solve_for_kr_squared=.false., kr is the unknown (solve D(kr)=0)
+            ! When WKB_solve_for_kr_squared=.true., kr represents kr^2 (solve D(kr^2)=0)
 
             use species_m, only: plasma
             use constants_m, only: com_unit
             use kim_kinds_m, only: dp
+            use config_m, only: WKB_solve_for_kr_squared
 
             implicit none
             complex(dp), intent(in) :: kr
             complex(dp), intent(out) :: D_of_kr
             integer :: sp
             complex(dp) :: kr_rho_squared
+            complex(dp) :: kr_squared  ! Either kr^2 or kr depending on mode
             integer :: j
 
             if (rg_index .lt. 1 .or. rg_index .gt. plasma%grid_size) then
@@ -209,9 +224,16 @@ MODULE Function_Input_Module
 
             D_of_kr = (0.0d0, 0.0d0)
 
+            ! Determine kr^2 based on solver mode
+            if (WKB_solve_for_kr_squared) then
+                kr_squared = kr  ! Input is already kr^2
+            else
+                kr_squared = kr**2.0d0  ! Input is kr, compute kr^2
+            end if
+
             do sp = 0, plasma%n_species-1
 
-                kr_rho_squared = kr**2.0d0 * plasma%spec(sp)%rho_L(j)**2.0d0
+                kr_rho_squared = kr_squared * plasma%spec(sp)%rho_L(j)**2.0d0
 
                 ! FLRE: replace exp(-x)*I0(x) ≈ 1 - x, exp(-x)*I1(x) ≈ x/2
                 ! This simplifies the Bessel terms to polynomial expressions
@@ -227,7 +249,7 @@ MODULE Function_Input_Module
                 )
             end do
 
-            D_of_kr = kr**2.0d0 + plasma%kp(j)**2.0d0 - D_of_kr
+            D_of_kr = kr_squared + plasma%kp(j)**2.0d0 - D_of_kr
 
         end subroutine
 

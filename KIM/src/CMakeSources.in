@@ -75,6 +75,11 @@ set(KIM_fokkerplanck ${CMAKE_SOURCE_DIR}/QL-Balance/src/base/getIfunc.f90
 
 set(KIM_asymptotics asymptotics/FLR2_asymptotics.f90)
 
+set(KIM_electromagnetic electromagnetic/electromagnetic_kernel.f90
+                        electromagnetic/ampere_matrices.f90
+                        electromagnetic/electromagnetic_solver.f90
+)
+
 # Keep Zeal sources for root finding, but do not use its QUADPACK copies
 # Use local modified copy of zeal_input.f90 instead of original form Zeal
 set(external_dir ${CMAKE_BINARY_DIR}/_deps/zeal-src/)

@@ -15,6 +15,7 @@ add_library(KIM_lib STATIC "${KIM_setup}"
                         "${KIM_dispersion}"
                         "${KIM_WKB_dispersion}"
                         "${KIM_asymptotics}"
+                        "${KIM_electromagnetic}"
                         "${external_zeal}"
 )
 

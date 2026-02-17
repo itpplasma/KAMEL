@@ -17,5 +17,7 @@ module setup_m
     integer :: bc_type ! boundary condition. 0: None; 1: Neuman left, Dirichlet right
     integer :: spline_base
     integer :: mphi_max ! maximum number of cyclotron harmonics to include in kernel calculations
+    real(dp) :: Br_boundary_re = 1.0d0  ! real part of Br at right boundary
+    real(dp) :: Br_boundary_im = 0.0d0  ! imaginary part of Br at right boundary
 
 end module

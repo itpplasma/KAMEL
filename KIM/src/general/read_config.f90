@@ -29,7 +29,8 @@ subroutine read_config
                         h5_out_file
 
     namelist /KIM_SETUP/ btor, R0, m_mode, n_mode, omega, spline_base, &
-                        type_br_field, collisions_off, set_profiles_constant, bc_type, mphi_max
+                        type_br_field, collisions_off, set_profiles_constant, bc_type, mphi_max, &
+                        Br_boundary_re, Br_boundary_im
 
     namelist /KIM_GRID/ grid_spacing_rg, grid_spacing_xl, l_space_dim, theta_integration, &
                         theta_integration_method, &

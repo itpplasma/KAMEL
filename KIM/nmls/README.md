@@ -4,7 +4,7 @@ KIM is configured via the namelist file KIM_config.nml containing multiple namel
 ## KIM_CONFIG
 - number_of_ion_species ... integer, number of ion species
 - read_species_from_namelist ... boolean, if false, initialize deuterium plasma
-- type_of_run ... string, specifies the type of run, options are: 'electrostatic'
+- type_of_run ... string, specifies the type of run, options are: 'electrostatic', 'electromagnetic', 'WKB_dispersion', 'flr2_benchmark'
 - collision_model ... string, collision model to use, options are: 'Krook', 'FokkerPlanck'
 - artificial_debye_case ... integer, if 0: full calculation of kernel, if 1: Debye case, if 2: exclude Debye case
 
@@ -27,6 +27,10 @@ KIM is configured via the namelist file KIM_config.nml containing multiple namel
 - type_br_field ... integer, specifies which type of Br field (array) is used
 - collisions_off ... boolean, if true, sets collision frequencies to zero
 - set_profiles_constant ... integer, if 1, sets profiles constant to the core value
+- bc_type ... integer, boundary condition type. 0: None; 1: zero Neuman left, zero Dirichlet right; 2: Dirichlet left and right; 3: zero-misalignment
+- mphi_max ... integer, maximum number of cyclotron harmonics to include in kernel calculations
+- Br_boundary_re ... double, real part of Br at right boundary (default 1.0), used by 'electromagnetic' run type
+- Br_boundary_im ... double, imaginary part of Br at right boundary (default 0.0), used by 'electromagnetic' run type
 
 ## KIM_GRID
 - r_plas ... double, minor radius of the plasma in cm

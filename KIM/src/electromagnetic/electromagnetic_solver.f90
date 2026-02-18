@@ -152,14 +152,13 @@ module rt_electromagnetic_m
         ! Top-right: C_PhiB = 4*pi * K_rho_B
         A_block(1:N, N+1:2*N) = 4.0d0 * pi * kernel_rho_B_llp%Kllp
 
-        ! Bottom-left: C_BPhi = i*4*pi/c * M * K_j_phi
-        A_block(N+1:2*N, 1:N) = com_unit * 4.0d0 * pi / sol &
-            * matmul(cmplx(M_mat, 0.0d0, dp), kernel_j_phi_llp%Kllp)
+        ! Bottom-left: C_BPhi = i*4*pi/c * K_j_phi
+        ! Note: no mass matrix needed — kernels already include Galerkin projection
+        A_block(N+1:2*N, 1:N) = com_unit * 4.0d0 * pi / sol * kernel_j_phi_llp%Kllp
 
-        ! Bottom-right: A_B = kz * M^h_theta - m * Q^h_z + i*4*pi/c * M * K_j_B
+        ! Bottom-right: A_B = kz * M^h_theta - m * Q^h_z + i*4*pi/c * K_j_B
         A_block(N+1:2*N, N+1:2*N) = cmplx(kz * M_hth - dble(m_mode) * Q_hz, 0.0d0, dp) &
-            + com_unit * 4.0d0 * pi / sol &
-            * matmul(cmplx(M_mat, 0.0d0, dp), kernel_j_B_llp%Kllp)
+            + com_unit * 4.0d0 * pi / sol * kernel_j_B_llp%Kllp
 
         ! --- Boundary conditions ---
 

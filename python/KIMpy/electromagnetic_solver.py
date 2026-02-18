@@ -371,10 +371,12 @@ class KIMElectromagneticSolver:
                 ("fields/Br_selfconsistent", "br"),
                 ("fields/jpar", "jpar"),
             ]:
-                if key + "_re" in h5f:
-                    result[name] = h5f[key + "_re"][:] + 1j * h5f[key + "_im"][:]
-                elif key in h5f:
-                    result[name] = h5f[key][:]
-                else:
+                if key not in h5f:
                     result[name] = None
+                    continue
+                data = h5f[key][:]
+                if data.dtype.names and "real" in data.dtype.names:
+                    result[name] = data["real"] + 1j * data["imag"]
+                else:
+                    result[name] = data
         return result

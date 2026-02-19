@@ -93,6 +93,7 @@ class KIMElectromagneticSolver:
         # Solution storage
         self.phi = None
         self.br = None
+        self.apar = None
         self.phi_es = None
 
     def _compute_r_res(self):
@@ -192,8 +193,11 @@ class KIMElectromagneticSolver:
         self.Q_hz = Q_hz
 
     # ------------------------------------------------------------------
-    def solve(self, Br_boundary=1.0 + 0j):
-        """Solve the coupled Poisson-Ampere block system.
+    def solve_apar(self, Br_boundary=1.0 + 0j):
+        """Solve coupled Poisson-Ampere using A_∥ formulation.
+
+        Solves for (Φ, A_∥) where -∇²_⊥ A_∥ = (4π/c) j_∥,
+        then recovers Br = α(r) · A_∥.
 
         Parameters
         ----------
@@ -201,53 +205,66 @@ class KIMElectromagneticSolver:
             Br value at the right boundary (default 1.0).
         """
         N = self.N
-        M = self.mass_matrix.astype(complex)
+        r = self.xl
 
-        # Top-left: Poisson block
-        A_phi = self.laplace + 4.0 * pi * self.k_rho_phi
+        # α(r) = i·(m/r · h_z - kz · h_θ) converts A_∥ → Br
+        alpha = 1j * (self.m_mode / r * self._hz_xl - self.kz * self._hth_xl)
+        D_alpha = np.diag(alpha)
 
-        # Assemble 2N x 2N block system
+        # Build ∇²_⊥ FEM matrix (negative semi-definite, like self.laplace).
+        # self.laplace has zeroed boundary couplings (L[1,0]=0, L[N-2,N-1]=0)
+        # so we build a fresh matrix with full tridiagonal coupling.
+        laplace_perp = np.zeros((N, N))
+        for i in range(1, N - 1):
+            hi_m = r[i] - r[i - 1]
+            hi_p = r[i + 1] - r[i]
+            laplace_perp[i, i - 1] = 1.0 / hi_m
+            laplace_perp[i, i] = -(1.0 / hi_m + 1.0 / hi_p)
+            laplace_perp[i, i + 1] = 1.0 / hi_p
+
+        # Assemble 2N×2N block system for (Φ, A_∥)
         A = np.zeros((2 * N, 2 * N), dtype=complex)
         b = np.zeros(2 * N, dtype=complex)
 
-        # Top-left: Delta + 4*pi*K_rho_phi
-        A[:N, :N] = A_phi
-        # Top-right: 4*pi*K_rho_B
-        A[:N, N:] = 4.0 * pi * self.k_rho_b
-        # Bottom-left: i*4*pi/c * M * K_j_phi
-        A[N:, :N] = 1j * 4.0 * pi / sol * (M @ self.k_j_phi)
-        # Bottom-right: kz*M_hth - m*Q_hz + i*4*pi/c * M * K_j_B
-        A[N:, N:] = (
-            self.kz * self.M_hth.astype(complex)
-            - float(self.m_mode) * self.Q_hz.astype(complex)
-            + 1j * 4.0 * pi / sol * (M @ self.k_j_b)
-        )
+        # Top-left: Δ + 4π K^{ρΦ}  (same as Br formulation)
+        A[:N, :N] = self.laplace + 4.0 * pi * self.k_rho_phi
+
+        # Top-right: 4π K^{ρB} · D_α  (since Br = D_α · A_∥)
+        A[:N, N:] = 4.0 * pi * self.k_rho_b @ D_alpha
+
+        # Bottom-left: (4π/c) K^{jΦ}
+        A[N:, :N] = (4.0 * pi / sol) * self.k_j_phi
+
+        # Bottom-right: ∇²_⊥ + (4π/c) K^{jB} · D_α
+        A[N:, N:] = laplace_perp + (4.0 * pi / sol) * self.k_j_b @ D_alpha
 
         # --- Boundary conditions ---
-        # Phi(left) = 0
+        # Φ(left) = 0
         A[0, :] = 0.0
         A[0, 0] = 1.0
         b[0] = 0.0
-        # Phi(right) = phi_right (zero-misalignment BC)
+
+        # Φ(right) = zero-misalignment BC
         A[N - 1, :] = 0.0
         A[N - 1, N - 1] = 1.0
-        phi_right = -1j * self._e0r_xl[-1] * Br_boundary / (
-            self._b0_xl[-1] * self._kp_xl[-1]
-        )
-        b[N - 1] = phi_right
-        # Br(left) = 0
+        b[N - 1] = -1j * self._e0r_xl[-1] * Br_boundary / (
+            self._b0_xl[-1] * self._kp_xl[-1])
+
+        # A_∥(left) = 0
         A[N, :] = 0.0
         A[N, N] = 1.0
         b[N] = 0.0
-        # Br(right) = Br_boundary
+
+        # A_∥(right) = Br_boundary / α(right)
         A[2 * N - 1, :] = 0.0
         A[2 * N - 1, 2 * N - 1] = 1.0
-        b[2 * N - 1] = Br_boundary
+        b[2 * N - 1] = Br_boundary / alpha[-1]
 
-        # Solve
+        # Solve and recover Br
         x = np.linalg.solve(A, b)
         self.phi = x[:N]
-        self.br = x[N:]
+        self.apar = x[N:]
+        self.br = D_alpha @ self.apar
 
     # ------------------------------------------------------------------
     def solve_poisson(self, br_prescribed):

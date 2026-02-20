@@ -26,7 +26,6 @@ set_target_properties(KIM_lib PROPERTIES
 # TODO: unify this: either use the system library everywhere, or use the cloned version
 # KiLCA uses the cloned libraries for now, QL-Balance the system libraries
 find_package(GSL REQUIRED)
-target_link_libraries(KIM_lib PUBLIC GSL::gsl GSL::gslcblas)
 target_include_directories(KIM_lib PUBLIC "${GSL_INCLUDE_DIRS}")
 
 find_package(LAPACK REQUIRED)
@@ -130,6 +129,7 @@ endif()
 set(KILCA_PATH ${CMAKE_SOURCE_DIR}/KiLCA)
 set(KiLCA_lib_path ${CMAKE_SOURCE_DIR}/build/install/lib/libKiLCA_Lib_V_2.4.2_MDNO_FPGEN_POLYNOMIAL_Release_64bit.a)
 target_link_libraries(KIM_lib PUBLIC "${KiLCA_lib_path}")
+target_link_libraries(KIM_lib PUBLIC GSL::gsl GSL::gslcblas)
 target_include_directories(KIM_lib PUBLIC ${CMAKE_SOURCE_DIR}/KiLCA/math/)
 target_include_directories(KIM_lib PUBLIC ${KILCA_PATH}/math/)
 

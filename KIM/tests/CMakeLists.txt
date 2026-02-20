@@ -1,5 +1,3 @@
-find_package(GSL REQUIRED)
-
 # Optional: build QUADPACK/RKF45 integration comparison test
 add_executable(test_integration_methods ${CMAKE_SOURCE_DIR}/KIM/tests/test_integration_methods.f90)
 set_target_properties(test_integration_methods PROPERTIES
@@ -47,6 +45,6 @@ add_executable(test_ampere_matrices ${CMAKE_SOURCE_DIR}/KIM/tests/test_ampere_ma
 set_target_properties(test_ampere_matrices PROPERTIES
                         OUTPUT_NAME test_ampere_matrices.x
                         RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/tests/")
-target_link_libraries(test_ampere_matrices KIM_lib lapack cerf slatec ddeabm GSL::gsl GSL::gslcblas)
+target_link_libraries(test_ampere_matrices KIM_lib lapack cerf slatec ddeabm)
 add_test(NAME test_ampere_matrices
          COMMAND ${CMAKE_BINARY_DIR}/tests/test_ampere_matrices.x)

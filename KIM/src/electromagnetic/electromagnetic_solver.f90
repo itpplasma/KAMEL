@@ -41,7 +41,7 @@ module rt_electromagnetic_m
 
         use kernel_m, only: FP_fill_kernels, kernel_spl_t, write_kernels
         use kernel_adaptive_m, only: FP_fill_kernels_adaptive
-        use grid_m, only: xl_grid, theta_integration
+        use grid_m, only: xl_grid, calc_mass_matrix, M_mat, theta_integration
         use IO_collection_m, only: write_complex_profile_abs
         use poisson_solver_m, only: prepare_Laplace_matrix, dense_to_sparse
         use config_m, only: output_path, collision_model, fstatus, fdebug
@@ -118,6 +118,12 @@ module rt_electromagnetic_m
 
         call write_kernels(kernel_rho_phi_llp, kernel_rho_B_llp, &
             kernel_j_phi_llp, kernel_j_B_llp)
+
+        ! Compute mass matrix (needed by calculate_current_density)
+        if (.not. allocated(M_mat)) then
+            allocate(M_mat(N, N))
+            call calc_mass_matrix(M_mat)
+        end if
 
         ! Compute alpha(r) = i * (m/r * h_z - kz * h_theta) for A_par -> Br conversion
         call interpolate_equil_to_xl(hz_xl, hth_xl)

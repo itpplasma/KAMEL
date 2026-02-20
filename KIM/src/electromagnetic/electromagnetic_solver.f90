@@ -1,5 +1,5 @@
 ! Run type for electromagnetic model
-! Solves coupled Poisson-Ampere block system for Phi and Br self-consistently
+! Solves coupled Poisson-Ampere block system for Phi and A_parallel self-consistently
 module rt_electromagnetic_m
 
     use kim_base_m, only: kim_t
@@ -41,15 +41,13 @@ module rt_electromagnetic_m
 
         use kernel_m, only: FP_fill_kernels, kernel_spl_t, write_kernels
         use kernel_adaptive_m, only: FP_fill_kernels_adaptive
-        use grid_m, only: xl_grid, calc_mass_matrix, M_mat, theta_integration
+        use grid_m, only: xl_grid, theta_integration
         use IO_collection_m, only: write_complex_profile_abs
         use poisson_solver_m, only: prepare_Laplace_matrix, dense_to_sparse
         use config_m, only: output_path, collision_model, fstatus, fdebug
         use fields_m, only: EBdat, postprocess_electric_field, &
                             calculate_charge_density, calculate_current_density
-        use ampere_matrices_m, only: calc_potential_matrix, &
-            calc_weighted_mass_matrix, calc_weighted_potential_matrix, &
-            interpolate_equil_to_xl
+        use ampere_matrices_m, only: interpolate_equil_to_xl
         use setup_m, only: m_mode, n_mode, R0, Br_boundary_re, Br_boundary_im, bc_type
         use constants_m, only: pi, sol, com_unit
         use KIM_kinds_m, only: dp
@@ -72,16 +70,15 @@ module rt_electromagnetic_m
         integer :: nz_out, nrow_sp, ncol_sp
 
         complex(dp), allocatable :: A_Phi(:,:)
-        real(dp), allocatable :: Q_mat(:,:)
-        real(dp), allocatable :: M_hth(:,:)
-        real(dp), allocatable :: Q_hz(:,:)
+        real(dp), allocatable :: laplace_perp(:,:)
         real(dp), allocatable :: hz_xl(:), hth_xl(:)
+        complex(dp), allocatable :: alpha(:)
 
         complex(dp), allocatable :: jpar(:), rho(:)
         complex(dp) :: Br_boundary
 
-        integer :: N
-        real(dp) :: kz
+        integer :: N, i, j
+        real(dp) :: kz, hL, hR
         character(8) :: date
         character(10) :: time
         character(5) :: zone
@@ -122,19 +119,23 @@ module rt_electromagnetic_m
         call write_kernels(kernel_rho_phi_llp, kernel_rho_B_llp, &
             kernel_j_phi_llp, kernel_j_B_llp)
 
-        ! Compute mass matrix
-        if (.not. allocated(M_mat)) then
-            allocate(M_mat(N, N))
-            call calc_mass_matrix(M_mat)
-        end if
-
-        ! Compute Ampere matrices
+        ! Compute alpha(r) = i * (m/r * h_z - kz * h_theta) for A_par -> Br conversion
         call interpolate_equil_to_xl(hz_xl, hth_xl)
+        allocate(alpha(N))
+        do i = 1, N
+            alpha(i) = com_unit * (dble(m_mode) / xl_grid%xb(i) * hz_xl(i) - kz * hth_xl(i))
+        end do
 
-        allocate(Q_mat(N, N), M_hth(N, N), Q_hz(N, N))
-        call calc_potential_matrix(Q_mat)
-        call calc_weighted_mass_matrix(M_hth, M_mat, hth_xl)
-        call calc_weighted_potential_matrix(Q_hz, Q_mat, hz_xl)
+        ! Build laplace_perp FEM stiffness matrix (1D Laplacian for A_parallel equation)
+        allocate(laplace_perp(N, N))
+        laplace_perp = 0.0d0
+        do i = 2, N-1
+            hL = xl_grid%xb(i) - xl_grid%xb(i-1)
+            hR = xl_grid%xb(i+1) - xl_grid%xb(i)
+            laplace_perp(i,i-1) = 1.0d0 / hL
+            laplace_perp(i,i)   = -(1.0d0 / hL + 1.0d0 / hR)
+            laplace_perp(i,i+1) = 1.0d0 / hR
+        end do
 
         ! Assemble Poisson LHS block: A_Phi = Delta + 4*pi * K_rho_phi
         allocate(A_Phi(N, N))
@@ -149,16 +150,20 @@ module rt_electromagnetic_m
         ! Top-left: A_Phi
         A_block(1:N, 1:N) = A_Phi
 
-        ! Top-right: C_PhiB = 4*pi * K_rho_B
-        A_block(1:N, N+1:2*N) = 4.0d0 * pi * kernel_rho_B_llp%Kllp
+        ! Top-right: 4*pi * K_rho_B * D_alpha  (since Br = alpha * A_par)
+        do j = 1, N
+            A_block(1:N, N+j) = 4.0d0 * pi * kernel_rho_B_llp%Kllp(1:N, j) * alpha(j)
+        end do
 
-        ! Bottom-left: C_BPhi = i*4*pi/c * K_j_phi
-        ! Note: no mass matrix needed — kernels already include Galerkin projection
-        A_block(N+1:2*N, 1:N) = com_unit * 4.0d0 * pi / sol * kernel_j_phi_llp%Kllp
+        ! Bottom-left: (4*pi/c) * K_j_phi
+        A_block(N+1:2*N, 1:N) = 4.0d0 * pi / sol * kernel_j_phi_llp%Kllp
 
-        ! Bottom-right: A_B = kz * M^h_theta - m * Q^h_z + i*4*pi/c * K_j_B
-        A_block(N+1:2*N, N+1:2*N) = cmplx(kz * M_hth - dble(m_mode) * Q_hz, 0.0d0, dp) &
-            + com_unit * 4.0d0 * pi / sol * kernel_j_B_llp%Kllp
+        ! Bottom-right: laplace_perp + (4*pi/c) * K_j_B * D_alpha
+        A_block(N+1:2*N, N+1:2*N) = cmplx(laplace_perp, 0.0d0, dp)
+        do j = 1, N
+            A_block(N+1:2*N, N+j) = A_block(N+1:2*N, N+j) &
+                + 4.0d0 * pi / sol * kernel_j_B_llp%Kllp(1:N, j) * alpha(j)
+        end do
 
         ! --- Boundary conditions ---
 
@@ -171,21 +176,21 @@ module rt_electromagnetic_m
         A_block(N, N) = cmplx(1.0d0, 0.0d0, dp)
         b_block(N) = cmplx(0.0d0, 0.0d0, dp)
 
-        ! Br BCs: Br(left) = 0, Br(right) = Br_boundary
+        ! A_par BCs: A_par(left) = 0, A_par(right) = Br_boundary / alpha(N)
         A_block(N+1, :) = cmplx(0.0d0, 0.0d0, dp)
         A_block(N+1, N+1) = cmplx(1.0d0, 0.0d0, dp)
         b_block(N+1) = cmplx(0.0d0, 0.0d0, dp)
 
         A_block(2*N, :) = cmplx(0.0d0, 0.0d0, dp)
         A_block(2*N, 2*N) = cmplx(1.0d0, 0.0d0, dp)
-        b_block(2*N) = Br_boundary
+        b_block(2*N) = Br_boundary / alpha(N)
 
         ! Zero-misalignment BC override for Phi
         if (bc_type == 3) then
             call apply_zero_misalignment_bc(A_block, b_block, N, Br_boundary)
         end if
 
-        if (fstatus >= 1) write(*,*) 'Status: solving coupled Poisson-Ampere block system (2N =', 2*N, ')'
+        if (fstatus >= 1) write(*,*) 'Status: solving coupled Poisson-Ampere block system for (Phi, A_par) (2N =', 2*N, ')'
 
         ! Solve
         if (fdebug < 2) sparse_talk = .false.
@@ -194,15 +199,18 @@ module rt_electromagnetic_m
         call dense_to_sparse(A_block, irow, pcol, A_nz, nrow_sp, ncol_sp, nz_out)
         call sparse_solveComplex_b1(nrow_sp, ncol_sp, nz_out, irow, pcol, A_nz, b_block, 0)
 
-        ! Extract solution
-        allocate(EBdat%Phi(N), EBdat%Br(N), EBdat%r_grid(N))
+        ! Extract solution: solve gives (Phi, A_par), recover Br = alpha * A_par
+        allocate(EBdat%Phi(N), EBdat%Apar(N), EBdat%Br(N), EBdat%r_grid(N))
         EBdat%r_grid = xl_grid%xb
-        EBdat%Phi = b_block(1:N)
-        EBdat%Br  = b_block(N+1:2*N)
+        EBdat%Phi  = b_block(1:N)
+        EBdat%Apar = b_block(N+1:2*N)
+        EBdat%Br   = alpha * EBdat%Apar
 
         ! Write fields
         call write_complex_profile_abs(xl_grid%xb, EBdat%Phi, N, "/fields/Phi", &
             'Electrostatic potential perturbation Phi (self-consistent)', 'statV')
+        call write_complex_profile_abs(xl_grid%xb, EBdat%Apar, N, "/fields/Apar", &
+            'Parallel vector potential A_parallel (self-consistent)', 'G*cm')
         call write_complex_profile_abs(xl_grid%xb, EBdat%Br, N, "/fields/Br_selfconsistent", &
             'Self-consistent radial magnetic field perturbation Br', 'G')
 
@@ -221,7 +229,7 @@ module rt_electromagnetic_m
             'Charge density from self-consistent solve', 'statC/cm^3')
 
         ! Cleanup
-        deallocate(A_block, b_block, A_Phi, Q_mat, M_hth, Q_hz, hz_xl, hth_xl)
+        deallocate(A_block, b_block, A_Phi, laplace_perp, alpha, hz_xl, hth_xl)
 
     end subroutine
 

@@ -154,6 +154,8 @@ module IO_collection_m
 
         call h5_add(h5grpid, 'btor', btor, &
             'Toroidal magnetic field at major radius R0.', 'float')
+        call h5_add(h5grpid, 'B_ref', btor, &
+            'Reference magnetic field at magnetic axis, used for effective radius r = sqrt(2 psi_tor / B_ref).', 'G')
         call h5_add(h5grpid, 'R0', R0, &
             'Major radius of the magnetic axis.', 'float')
         call h5_add(h5grpid, 'm_mode', m_mode, &

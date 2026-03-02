@@ -20,14 +20,24 @@ module rt_electrostatic_m
         use IO_collection_m, only: create_output_directories
         use equilibrium_m, only: calculate_equil, interpolate_equil
         use grid_m, only: rg_grid
+        use config_m, only: output_path, hdf5_output
 
         implicit none
 
         class(electrostatic_t), intent(inout) :: this
+        logical :: ex
 
         this%run_type = "electrostatic"
 
         call create_output_directories
+
+        ! Create setup/ directory for text output of setup parameters
+        if (.not. hdf5_output) then
+            inquire(file=trim(output_path)//'setup', exist=ex)
+            if (.not. ex) then
+                call system('mkdir -p '//trim(output_path)//'setup')
+            end if
+        end if
         call generate_grids
         call calculate_equil(.true.)
         call set_plasma_quantities(plasma)
@@ -44,10 +54,11 @@ module rt_electrostatic_m
         use grid_m, only: xl_grid
         use IO_collection_m, only: write_matrix, write_complex_profile, write_complex_profile_abs
         use poisson_solver_m, only: solve_poisson
-        use config_m, only: output_path, collision_model, calculate_asymptotics
+        use config_m, only: output_path, collision_model, calculate_asymptotics, hdf5_output
         use fields_m, only: EBdat, postprocess_electric_field,&
                             calculate_charge_density, calculate_current_density, calc_ideal_MA_phi
         use KIM_kinds_m, only: dp
+        use setup_m, only: btor
 
         implicit none
 
@@ -68,6 +79,13 @@ module rt_electrostatic_m
         integer,dimension(8) :: values
 
         call date_and_time(date,time,zone,values)
+
+        ! Write B_ref (= btor) to text file for MEPHIT interface
+        if (.not. hdf5_output) then
+            open(unit=10, file=trim(output_path)//'setup/B_ref.dat', status='replace', action='write')
+            write(10, *) btor
+            close(10)
+        end if
 
         call kernel_rho_phi_llp%init_kernel(xl_grid%npts_b, xl_grid%npts_b)
         call kernel_rho_B_llp%init_kernel(xl_grid%npts_b, xl_grid%npts_b)

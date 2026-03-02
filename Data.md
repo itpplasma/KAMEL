@@ -207,7 +207,7 @@ KIM uses a single Fortran namelist file for configuration.
 &kim_config
     number_of_ion_species = 1
     read_species_from_namelist = .false.
-    type_of_run = 'electrostatic'
+    type_of_run = 'electrostatic'          ! 'electrostatic', 'electromagnetic', 'WKB_dispersion', 'flr2_benchmark'
     collision_model = 'FokkerPlanck'    ! or 'Krook'
     artificial_debye_case = 0           ! 0=full, 1=Debye, 2=exclude Debye
     turn_off_ions = .false.
@@ -247,6 +247,8 @@ KIM uses a single Fortran namelist file for configuration.
     eps_reg = 0.01
     set_profiles_constant = 0
     bc_type = 3                         ! Boundary condition type
+    Br_boundary_re = 1.0                ! Real part of Br at right boundary (electromagnetic run type)
+    Br_boundary_im = 0.0                ! Imaginary part of Br at right boundary (electromagnetic run type)
 /
 ```
 

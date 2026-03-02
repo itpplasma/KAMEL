@@ -1,0 +1,111 @@
+! Electromagnetic run type configuration
+! Solves coupled Poisson-Ampere block system for Phi and Br self-consistently
+! All physical quantities in cgs units
+
+&kim_config
+    number_of_ion_species = 1
+    read_species_from_namelist = .false.
+    type_of_run = 'electromagnetic'
+    collision_model = 'FokkerPlanck'
+    artificial_debye_case = 0
+    turn_off_ions = .false.
+    turn_off_electrons = .false.
+    plasma_type = 'D'
+    rescale_density = .false.
+    number_density_rescale = 1d-6
+    ion_flr_scale_factor = 1.0
+/
+
+&wkb_dispersion
+    WKB_dispersion_mode = 'KIM'
+    WKB_dispersion_solver = 'ZEAL'
+    WKB_solve_for_kr_squared = .false.
+    WKB_max_tracked_branches = 4
+    WKB_branch_search_halfwidth = 1.5
+    WKB_broad_search_halfwidth = 5.0
+    WKB_broad_search_interval = 0
+    WKB_root_tolerance = 1.0d-6
+    WKB_verbose = .false.
+/
+
+&kim_io
+    profile_location = './profiles/'
+    output_path = './out/'
+    hdf5_input = .false.
+    hdf5_output = .false.
+    fdebug = 1
+    fstatus = 1
+    fdiagnostics = 0
+    calculate_asymptotics = .true.
+    h5_out_file = ''
+/
+
+&kim_setup
+    btor = -17977.413
+    r0 = 165.0
+    m_mode = -6
+    n_mode = 2
+    omega = 0.0
+    spline_base = 1
+    type_br_field = 12
+    collisions_off = .false.
+    set_profiles_constant = 0
+    bc_type = 3
+    mphi_max = 0
+    Br_boundary_re = 1.0
+    Br_boundary_im = 0.0
+/
+
+&kim_grid
+    r_min = 3.0
+    r_plas = 67.0
+
+    width_res = 0.5
+    ampl_res = 15.0
+    hrmax_scaling = 1.0
+
+    l_space_dim = 512
+    rg_space_dim = 512
+
+    grid_spacing_rg = "equidistant"
+    grid_spacing_xl = "equidistant"
+    theta_integration = "GaussLegendre"
+
+    rkf45_atol = 1.0d-9
+    rkf45_rtol = 1.0d-6
+
+    quadpack_algorithm = 'QAG'
+    quadpack_key = 6
+    quadpack_limit = 500
+    quadpack_epsabs = 1.0d-10
+    quadpack_epsrel = 1.0d-10
+    quadpack_use_u_substitution = .true.
+
+    kernel_taper_skip_threshold = 1.0d-6
+    Larmor_skip_factor = 5
+    gauss_int_nodes_Nx = 31
+    gauss_int_nodes_Nxp = 30
+    gauss_int_nodes_Ntheta = 17
+/
+
+&kim_species
+    zi = 1
+    ai = 2
+/
+
+&KIM_PROFILES
+    coord_type = 'auto'
+    input_profile_dir = './'
+    equil_file = ''
+    geqdsk_file = ''
+    n_input_file = 'n_of_psiN.dat'
+    Te_input_file = 'Te_of_psiN.dat'
+    Ti_input_file = 'Ti_of_psiN.dat'
+    Vz_input_file = 'Vz_of_psiN.dat'
+    n_file = 'n.dat'
+    Te_file = 'Te.dat'
+    Ti_file = 'Ti.dat'
+    Vz_file = 'Vz.dat'
+    Er_file = 'Er.dat'
+    q_file = 'q.dat'
+/

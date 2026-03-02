@@ -3,7 +3,7 @@
 &kim_config
     number_of_ion_species = 1
     read_species_from_namelist = .false.    ! if false, initialize deuterium plasma
-    type_of_run = 'electrostatic'           ! 'electrostatic', 'WKB_dispersion', or 'flr2_benchmark'
+    type_of_run = 'electrostatic'           ! 'electrostatic', 'electromagnetic', 'WKB_dispersion', or 'flr2_benchmark'
     collision_model = 'FokkerPlanck'        ! 'Krook' (unstable) or 'FokkerPlanck'
     artificial_debye_case = 0
     turn_off_ions = .false.

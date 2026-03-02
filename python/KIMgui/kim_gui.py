@@ -145,6 +145,8 @@ class KIMConfigGUI:
             ("collisions_off", "Collisions Off:", bool, True),
             ("eps_reg", "Regularization Parameter:", float, 0.01),
             ("set_profiles_constant", "Set Profiles Constant:", int, 0),
+            ("Br_boundary_re", "Br Boundary (Re):", float, 1.0),
+            ("Br_boundary_im", "Br Boundary (Im):", float, 0.0),
         ]
 
         self.create_config_fields(setup_frame, setup_fields, "kim_setup")
@@ -212,7 +214,7 @@ class KIMConfigGUI:
             elif field_name == "type_of_run":
                 var = tk.StringVar(value=default_value)
                 combo = ttk.Combobox(
-                    frame, textvariable=var, values=["electrostatic", "electromagnetic"], width=12
+                    frame, textvariable=var, values=["electrostatic", "electromagnetic", "WKB_dispersion", "flr2_benchmark"], width=18
                 )
                 combo.pack(side="left")
             else:

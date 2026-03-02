@@ -7,6 +7,7 @@ module fields_m
     type :: EBdat_t
         real(dp), allocatable :: r_grid(:)
         complex(dp), allocatable :: Br(:)
+        complex(dp), allocatable :: Apar(:)
         complex(dp), allocatable :: E_perp_psi(:)
         complex(dp), allocatable :: E_perp(:)
         complex(dp), allocatable :: E_perp_MA(:)

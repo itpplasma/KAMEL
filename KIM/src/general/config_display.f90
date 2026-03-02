@@ -126,6 +126,12 @@ contains
         if (trim(type_of_run) == "WKB_dispersion") then
             call print_config_line('WKB Dispersion Mode', trim(WKB_dispersion_mode), width)
         end if
+        if (trim(type_of_run) == "electromagnetic") then
+            write(value_str, '(ES12.3)') Br_boundary_re
+            call print_config_line('Br Boundary (Re)', trim(adjustl(value_str)), width)
+            write(value_str, '(ES12.3)') Br_boundary_im
+            call print_config_line('Br Boundary (Im)', trim(adjustl(value_str)), width)
+        end if
         call print_config_line('Plasma Type', trim(plasma_type), width)
         call print_config_line('Collision Model', trim(collision_model), width)
         call print_bool_line('Collisions', .not. collisions_off, width)

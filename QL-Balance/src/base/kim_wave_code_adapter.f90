@@ -34,6 +34,15 @@ module kim_wave_code_adapter_m
     !! Vacuum Br placeholder (filled properly in Task 7)
     complex(8), allocatable, public :: kim_vac_Br(:)
 
+    !! Per-mode stored field results (nrad, dim_mn)
+    !! Filled by kim_run_for_all_modes, read by kim_get_wave_fields
+    complex(8), allocatable :: kim_Es_modes(:,:)
+    complex(8), allocatable :: kim_Ep_modes(:,:)
+    complex(8), allocatable :: kim_Er_modes(:,:)
+    complex(8), allocatable :: kim_Et_modes(:,:)
+    complex(8), allocatable :: kim_Ez_modes(:,:)
+    complex(8), allocatable :: kim_Br_modes(:,:)
+
 contains
 
     subroutine kim_initialize(nrad, r_grid)
@@ -205,15 +214,140 @@ contains
     end subroutine interp_B0_components
 
     subroutine kim_run_for_all_modes()
-        !! Run KIM solver for all (m,n) modes.
-        ! TODO: implement in Task 5
-    end subroutine
+        !! Run KIM electrostatic solver for each (m,n) mode and
+        !! store the resulting fields in per-mode arrays.
+        !!
+        !! After this call, kim_Es_modes(:,i_mn) etc. hold the
+        !! field solutions interpolated onto the QL-Balance radial
+        !! grid.  kim_get_wave_fields(i_mn) copies from these
+        !! arrays into the wave_code_data module scalars.
+        use wave_code_data, only: dim_mn, m_vals, n_vals, &
+            dim_r, bal_r => r
+
+        implicit none
+
+        integer :: i_mn, kim_npts
+        real(8), allocatable :: kim_r(:)
+
+        ! -------------------------------------------------------
+        ! 1. (Re-)allocate per-mode storage
+        ! -------------------------------------------------------
+        if (allocated(kim_Es_modes)) deallocate(kim_Es_modes)
+        if (allocated(kim_Ep_modes)) deallocate(kim_Ep_modes)
+        if (allocated(kim_Er_modes)) deallocate(kim_Er_modes)
+        if (allocated(kim_Et_modes)) deallocate(kim_Et_modes)
+        if (allocated(kim_Ez_modes)) deallocate(kim_Ez_modes)
+        if (allocated(kim_Br_modes)) deallocate(kim_Br_modes)
+
+        allocate(kim_Es_modes(dim_r, dim_mn))
+        allocate(kim_Ep_modes(dim_r, dim_mn))
+        allocate(kim_Er_modes(dim_r, dim_mn))
+        allocate(kim_Et_modes(dim_r, dim_mn))
+        allocate(kim_Ez_modes(dim_r, dim_mn))
+        allocate(kim_Br_modes(dim_r, dim_mn))
+
+        kim_Es_modes = (0.0d0, 0.0d0)
+        kim_Ep_modes = (0.0d0, 0.0d0)
+        kim_Er_modes = (0.0d0, 0.0d0)
+        kim_Et_modes = (0.0d0, 0.0d0)
+        kim_Ez_modes = (0.0d0, 0.0d0)
+        kim_Br_modes = (0.0d0, 0.0d0)
+
+        ! -------------------------------------------------------
+        ! 2. Loop over modes: solve and store
+        ! -------------------------------------------------------
+        do i_mn = 1, dim_mn
+
+            ! Set mode numbers for this solve
+            kim_m_mode = m_vals(i_mn)
+            kim_n_mode = n_vals(i_mn)
+
+            ! Clean up EBdat from previous solve
+            call deallocate_EBdat()
+
+            ! Create a fresh solver, init grids/equilibrium, solve
+            call from_kim_factory_get_kim('electrostatic', kim_instance)
+            call kim_instance%init()
+            call kim_instance%run()
+
+            ! run() calls postprocess_electric_field which computes
+            ! Es, Ep, Er, Etheta, Ez from the Poisson-solved Phi.
+            ! EBdat%Br is set by set_Br_field inside solve_poisson.
+
+            ! Interpolate KIM fields (on xl_grid%xb) onto
+            ! the QL-Balance radial grid and store per-mode.
+            kim_npts = size(EBdat%r_grid)
+            allocate(kim_r(kim_npts))
+            kim_r = EBdat%r_grid
+
+            ! Es (perpendicular E field in rsp coordinates)
+            call interp_complex_profile(kim_npts, kim_r, EBdat%Es, &
+                dim_r, bal_r, kim_Es_modes(:, i_mn))
+
+            ! Ep (parallel E field in rsp coordinates)
+            call interp_complex_profile(kim_npts, kim_r, EBdat%Ep, &
+                dim_r, bal_r, kim_Ep_modes(:, i_mn))
+
+            ! Er (radial E field, cylindrical)
+            call interp_complex_profile(kim_npts, kim_r, EBdat%Er, &
+                dim_r, bal_r, kim_Er_modes(:, i_mn))
+
+            ! Etheta -> Et (poloidal E field, cylindrical)
+            call interp_complex_profile(kim_npts, kim_r, EBdat%Etheta, &
+                dim_r, bal_r, kim_Et_modes(:, i_mn))
+
+            ! Ez (axial E field, cylindrical)
+            call interp_complex_profile(kim_npts, kim_r, EBdat%Ez, &
+                dim_r, bal_r, kim_Ez_modes(:, i_mn))
+
+            ! Br (radial magnetic field perturbation)
+            call interp_complex_profile(kim_npts, kim_r, EBdat%Br, &
+                dim_r, bal_r, kim_Br_modes(:, i_mn))
+
+            deallocate(kim_r)
+
+            write(*, '(A,I3,A,I4,A,I4,A)') &
+                "  KIM adapter: solved mode ", i_mn, &
+                "  (m=", m_vals(i_mn), ", n=", n_vals(i_mn), ")"
+
+        end do
+
+        write(*, *) "KIM adapter: all modes solved"
+
+    end subroutine kim_run_for_all_modes
 
     subroutine kim_update_profiles()
-        !! Update KIM internal profiles from QL-Balance evolved
-        !! parameters.
-        ! TODO: implement in Task 5
-    end subroutine
+        !! Transfer QL-Balance time-evolved profiles into the
+        !! wave_code_data in-memory arrays, mirroring what
+        !! update_background_files does for the KiLCA path.
+        !!
+        !! QL-Balance params_b layout (at boundary grid points):
+        !!   params_b(1,:) = density      [1/cm^3]
+        !!   params_b(2,:) = Vphi         [rad/s]
+        !!   params_b(3,:) = Te           [erg]
+        !!   params_b(4,:) = Ti           [erg]
+        !!
+        !! wave_code_data stores Te, Ti in [eV], Vz in [cm/s].
+        use wave_code_data, only: dim_r, &
+            wcd_n => n, wcd_Te => Te, wcd_Ti => Ti, &
+            wcd_Vz => Vz, wcd_dPhi0 => dPhi0
+        use plasma_parameters, only: params_b
+        use baseparam_mod, only: ev, rtor
+        use grid_mod, only: Ercov
+
+        implicit none
+
+        integer :: k
+
+        do k = 1, dim_r
+            wcd_n(k)     = params_b(1, k)
+            wcd_Te(k)    = params_b(3, k) / ev   ! erg -> eV
+            wcd_Ti(k)    = params_b(4, k) / ev   ! erg -> eV
+            wcd_Vz(k)    = params_b(2, k) * rtor  ! rad/s -> cm/s
+            wcd_dPhi0(k) = -Ercov(k)
+        end do
+
+    end subroutine kim_update_profiles
 
     subroutine kim_get_wave_fields(i_mn)
         !! Extract wave fields from KIM EBdat into wave_code_data
@@ -239,5 +373,64 @@ contains
         !! wave_code_data arrays.
         ! TODO: implement in Task 6
     end subroutine
+
+    ! ---------------------------------------------------------------
+    ! Helper: deallocate EBdat fields between mode solves
+    ! ---------------------------------------------------------------
+    subroutine deallocate_EBdat()
+        !! Deallocate all allocated components of the global EBdat
+        !! so that the next call to run() can re-allocate them.
+        use fields_m, only: EBdat_t
+
+        implicit none
+
+        if (allocated(EBdat%r_grid))            deallocate(EBdat%r_grid)
+        if (allocated(EBdat%Br))                deallocate(EBdat%Br)
+        if (allocated(EBdat%Apar))              deallocate(EBdat%Apar)
+        if (allocated(EBdat%E_perp_psi))        deallocate(EBdat%E_perp_psi)
+        if (allocated(EBdat%E_perp))            deallocate(EBdat%E_perp)
+        if (allocated(EBdat%E_perp_MA))         deallocate(EBdat%E_perp_MA)
+        if (allocated(EBdat%Er))                deallocate(EBdat%Er)
+        if (allocated(EBdat%Etheta))            deallocate(EBdat%Etheta)
+        if (allocated(EBdat%Ez))                deallocate(EBdat%Ez)
+        if (allocated(EBdat%Es))                deallocate(EBdat%Es)
+        if (allocated(EBdat%Ep))                deallocate(EBdat%Ep)
+        if (allocated(EBdat%Phi))               deallocate(EBdat%Phi)
+        if (allocated(EBdat%Phi_e))             deallocate(EBdat%Phi_e)
+        if (allocated(EBdat%Phi_i))             deallocate(EBdat%Phi_i)
+        if (allocated(EBdat%Phi_aligned))       deallocate(EBdat%Phi_aligned)
+        if (allocated(EBdat%Phi_MA))            deallocate(EBdat%Phi_MA)
+        if (allocated(EBdat%Phi_MA_ideal))      deallocate(EBdat%Phi_MA_ideal)
+        if (allocated(EBdat%Phi_MA_asymptotic)) deallocate(EBdat%Phi_MA_asymptotic)
+
+    end subroutine deallocate_EBdat
+
+    ! ---------------------------------------------------------------
+    ! Helper: interpolate a complex profile onto a new grid
+    ! ---------------------------------------------------------------
+    subroutine interp_complex_profile(n_old, r_old, z_old, &
+                                      n_new, r_new, z_new)
+        !! Interpolate a complex(8) profile from one radial grid
+        !! to another.  Real and imaginary parts are interpolated
+        !! independently via the existing interp_profile routine.
+        implicit none
+
+        integer, intent(in)  :: n_old, n_new
+        real(8), intent(in)  :: r_old(n_old), r_new(n_new)
+        complex(8), intent(in)  :: z_old(n_old)
+        complex(8), intent(out) :: z_new(n_new)
+
+        real(8) :: re_old(n_old), im_old(n_old)
+        real(8) :: re_new(n_new), im_new(n_new)
+
+        re_old = real(z_old)
+        im_old = aimag(z_old)
+
+        call interp_profile(n_old, r_old, re_old, n_new, r_new, re_new)
+        call interp_profile(n_old, r_old, im_old, n_new, r_new, im_new)
+
+        z_new = cmplx(re_new, im_new, kind=8)
+
+    end subroutine interp_complex_profile
 
 end module kim_wave_code_adapter_m

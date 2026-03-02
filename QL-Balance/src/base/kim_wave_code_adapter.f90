@@ -43,6 +43,12 @@ module kim_wave_code_adapter_m
     complex(8), allocatable :: kim_Ez_modes(:,:)
     complex(8), allocatable :: kim_Br_modes(:,:)
 
+    !! Per-mode stored wave vectors (nrad, dim_mn)
+    !! kp and ks depend on (m,n) via the equilibrium formulas.
+    !! Filled by kim_run_for_all_modes, read by kim_get_wave_vectors
+    real(8), allocatable :: kim_kp_modes(:,:)
+    real(8), allocatable :: kim_ks_modes(:,:)
+
 contains
 
     subroutine kim_initialize(nrad, r_grid)
@@ -226,8 +232,9 @@ contains
 
         implicit none
 
-        integer :: i_mn, kim_npts
+        integer :: i_mn, kim_npts, kim_plasma_npts
         real(8), allocatable :: kim_r(:)
+        real(8), allocatable :: kim_plasma_r(:), work_real(:)
 
         ! -------------------------------------------------------
         ! 1. (Re-)allocate per-mode storage
@@ -238,6 +245,8 @@ contains
         if (allocated(kim_Et_modes)) deallocate(kim_Et_modes)
         if (allocated(kim_Ez_modes)) deallocate(kim_Ez_modes)
         if (allocated(kim_Br_modes)) deallocate(kim_Br_modes)
+        if (allocated(kim_kp_modes)) deallocate(kim_kp_modes)
+        if (allocated(kim_ks_modes)) deallocate(kim_ks_modes)
 
         allocate(kim_Es_modes(dim_r, dim_mn))
         allocate(kim_Ep_modes(dim_r, dim_mn))
@@ -245,6 +254,8 @@ contains
         allocate(kim_Et_modes(dim_r, dim_mn))
         allocate(kim_Ez_modes(dim_r, dim_mn))
         allocate(kim_Br_modes(dim_r, dim_mn))
+        allocate(kim_kp_modes(dim_r, dim_mn))
+        allocate(kim_ks_modes(dim_r, dim_mn))
 
         kim_Es_modes = (0.0d0, 0.0d0)
         kim_Ep_modes = (0.0d0, 0.0d0)
@@ -252,6 +263,8 @@ contains
         kim_Et_modes = (0.0d0, 0.0d0)
         kim_Ez_modes = (0.0d0, 0.0d0)
         kim_Br_modes = (0.0d0, 0.0d0)
+        kim_kp_modes = 0.0d0
+        kim_ks_modes = 0.0d0
 
         ! -------------------------------------------------------
         ! 2. Loop over modes: solve and store
@@ -306,6 +319,22 @@ contains
 
             deallocate(kim_r)
 
+            ! kp and ks (mode-dependent wave vectors on plasma grid)
+            kim_plasma_npts = kim_plasma%grid_size
+            allocate(kim_plasma_r(kim_plasma_npts))
+            allocate(work_real(kim_plasma_npts))
+            kim_plasma_r = kim_plasma%r_grid
+
+            work_real = kim_plasma%kp
+            call interp_profile(kim_plasma_npts, kim_plasma_r, &
+                work_real, dim_r, bal_r, kim_kp_modes(:, i_mn))
+
+            work_real = kim_plasma%ks
+            call interp_profile(kim_plasma_npts, kim_plasma_r, &
+                work_real, dim_r, bal_r, kim_ks_modes(:, i_mn))
+
+            deallocate(kim_plasma_r, work_real)
+
             write(*, '(A,I3,A,I4,A,I4,A)') &
                 "  KIM adapter: solved mode ", i_mn, &
                 "  (m=", m_vals(i_mn), ", n=", n_vals(i_mn), ")"
@@ -350,29 +379,72 @@ contains
     end subroutine kim_update_profiles
 
     subroutine kim_get_wave_fields(i_mn)
-        !! Extract wave fields from KIM EBdat into wave_code_data
-        !! arrays.
-        integer, intent(in) :: i_mn
-        ! TODO: implement in Task 6
-    end subroutine
+        !! Copy per-mode stored fields from kim_*_modes arrays
+        !! into the wave_code_data module scalars for mode i_mn.
+        !! Called inside the mode loop in get_dql.
+        use wave_code_data, only: Es, Br, Er, Ep, Et, Ez, &
+            Bs, Bp, Bt, Bz
 
-    subroutine kim_get_wave_vectors()
-        !! Extract wave vectors from KIM plasma into wave_code_data
-        !! arrays.
-        ! TODO: implement in Task 6
-    end subroutine
+        implicit none
+
+        integer, intent(in) :: i_mn
+
+        Es = kim_Es_modes(:, i_mn)
+        Br = kim_Br_modes(:, i_mn)
+        Er = kim_Er_modes(:, i_mn)
+        Ep = kim_Ep_modes(:, i_mn)
+        Et = kim_Et_modes(:, i_mn)
+        Ez = kim_Ez_modes(:, i_mn)
+
+        ! KIM does not compute magnetic field perturbation components
+        ! other than Br. Set remaining B components to zero.
+        Bs = (0.0d0, 0.0d0)
+        Bp = (0.0d0, 0.0d0)
+        Bt = (0.0d0, 0.0d0)
+        Bz = (0.0d0, 0.0d0)
+
+    end subroutine kim_get_wave_fields
+
+    subroutine kim_get_wave_vectors(i_mn)
+        !! Copy per-mode stored wave vectors kp and ks from
+        !! kim_kp_modes / kim_ks_modes into wave_code_data for
+        !! mode i_mn.  kp and ks depend on (m,n) through
+        !! the equilibrium geometry and are recomputed by KIM
+        !! for each mode in kim_run_for_all_modes.
+        use wave_code_data, only: kp, ks
+
+        implicit none
+
+        integer, intent(in) :: i_mn
+
+        kp = kim_kp_modes(:, i_mn)
+        ks = kim_ks_modes(:, i_mn)
+
+    end subroutine kim_get_wave_vectors
 
     subroutine kim_get_background_magnetic_fields()
-        !! Extract background B from KIM equilibrium into
-        !! wave_code_data arrays.
-        ! TODO: implement in Task 6
-    end subroutine
+        !! No-op: B0, B0t, B0z were already populated during
+        !! kim_initialize and stored directly in wave_code_data.
+        !! This subroutine exists to satisfy the adapter interface
+        !! contract expected by get_dql.
+
+        implicit none
+
+        ! Nothing to do -- B0, B0t, B0z are already set.
+
+    end subroutine kim_get_background_magnetic_fields
 
     subroutine kim_get_collision_frequencies()
-        !! Extract collision frequencies from KIM plasma into
-        !! wave_code_data arrays.
-        ! TODO: implement in Task 6
-    end subroutine
+        !! No-op: nue and nui were already populated during
+        !! kim_initialize and stored directly in wave_code_data.
+        !! This subroutine exists to satisfy the adapter interface
+        !! contract expected by get_dql.
+
+        implicit none
+
+        ! Nothing to do -- nue, nui are already set.
+
+    end subroutine kim_get_collision_frequencies
 
     ! ---------------------------------------------------------------
     ! Helper: deallocate EBdat fields between mode solves

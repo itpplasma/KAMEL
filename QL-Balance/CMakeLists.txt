@@ -115,8 +115,11 @@ target_include_directories(ql-balance_lib PUBLIC ${CMAKE_BINARY_DIR}/KiLCA/mod $
 # QL-Balance both define a module named resonances_mod with different contents.
 # The adapter source file that needs KIM modules will use a per-file include
 # (set_source_files_properties ... INCLUDE_DIRECTORIES) to resolve this.
-# kim_wave_code_adapter.f90 will need per-file INCLUDE_DIRECTORIES for KIM modules
-# (see note at target_include_directories about resonances_mod collision)
+# Give ONLY the KIM adapter file access to KIM's Fortran modules so it can
+# import species_m, equilibrium_m, config_m, etc.  Every other QL-Balance
+# source keeps seeing QL-Balance's own resonances_mod.
+set_source_files_properties(${base_balance_src}/kim_wave_code_adapter.f90
+    PROPERTIES INCLUDE_DIRECTORIES "${CMAKE_BINARY_DIR}/OBJS/kim/")
 
 # Include central slatec math sources via cache variable defined by common/math
 target_include_directories(ql-balance_lib PUBLIC ${SLATEC_INCLUDE_DIR})

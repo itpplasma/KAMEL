@@ -14,10 +14,12 @@ subroutine get_dql
                         , r_resonant, d11_misalign, Es_pert_flux, Ipar
     use plasma_parameters
     use baseparam_mod, only: Z_i, e_charge, am, p_mass, c, e_mass, ev, rtor, pi, rsepar
-    use control_mod, only: irf, suppression_mode, misalign_diffusion, type_of_run
+    use control_mod, only: irf, suppression_mode, misalign_diffusion, type_of_run, wave_code
     use time_evolution, only: save_prof_time_step, time_ind, br_formfactor, br_vac_res
     use h5mod
     use wave_code_data
+    use kim_wave_code_adapter_m, only: kim_update_profiles, kim_run_for_all_modes, &
+        kim_get_wave_fields, kim_get_wave_vectors, kim_vac_Br, kim_Br_modes
     use QLBalance_diag, only: i_mn_loop
     use QLBalance_kinds, only: dp
     use PolyLagrangeInterpolation
@@ -116,10 +118,17 @@ subroutine get_dql
 
     ! Compute diffusion coefficient matrices:
 
-    if (irf .eq. 1) call update_background_files(path2profs)
-    if (irf .eq. 1) call get_wave_code_data(1, dim_mn)
-    if (irf .eq. 1) call get_background_magnetic_fields_from_wave_code(flre_cd_ptr(1), dim_r, r, B0t, B0z, B0)
-    if (irf .eq. 1) call get_collision_frequences_from_wave_code(flre_cd_ptr(1), dim_r, r, nui, nue)
+    select case (trim(wave_code))
+    case ('KiLCA')
+        if (irf .eq. 1) call update_background_files(path2profs)
+        if (irf .eq. 1) call get_wave_code_data(1, dim_mn)
+        if (irf .eq. 1) call get_background_magnetic_fields_from_wave_code(flre_cd_ptr(1), dim_r, r, B0t, B0z, B0)
+        if (irf .eq. 1) call get_collision_frequences_from_wave_code(flre_cd_ptr(1), dim_r, r, nui, nue)
+    case ('KIM')
+        if (irf .eq. 1) call kim_update_profiles()
+        if (irf .eq. 1) call kim_run_for_all_modes()
+        ! B0 and collision freqs already set in kim_initialize
+    end select
 
     !  nu_e=15.4d-6*params_b(1,:)/sqrt(params_b(3,:)/ev)**3            &
     !      *(23.d0-0.5d0*log(params_b(1,:)/(params_b(3,:)/ev)**3))
@@ -142,10 +151,16 @@ subroutine get_dql
 
     !sum over modes:
     do i_mn = 1, dim_mn
-        call get_wave_vectors_from_wave_code(flre_cd_ptr(i_mn), dim_r, r, &
-                                                m_vals(i_mn), n_vals(i_mn), ks, kp)
-        call get_wave_fields_from_wave_code(flre_cd_ptr(i_mn), dim_r, r, &
-                                            m_vals(i_mn), n_vals(i_mn), Er, Es, Ep, Et, Ez, Br, Bs, Bp, Bt, Bz)
+        select case (trim(wave_code))
+        case ('KiLCA')
+            call get_wave_vectors_from_wave_code(flre_cd_ptr(i_mn), dim_r, r, &
+                                                    m_vals(i_mn), n_vals(i_mn), ks, kp)
+            call get_wave_fields_from_wave_code(flre_cd_ptr(i_mn), dim_r, r, &
+                                                m_vals(i_mn), n_vals(i_mn), Er, Es, Ep, Et, Ez, Br, Bs, Bp, Bt, Bz)
+        case ('KIM')
+            call kim_get_wave_vectors(i_mn)
+            call kim_get_wave_fields(i_mn)
+        end select
         om_E = ks * c * dPhi0 / B0
         vT_e = sqrt(params_b(3, :)/e_mass)
         vT_i = sqrt(params_b(4, :)/p_mass/am)
@@ -169,8 +184,13 @@ subroutine get_dql
         end if
 
         if (misalign_diffusion .eqv. .true.) then
-            call get_wave_fields_from_wave_code(flre_cd_ptr(i_mn), dim_r, r, &
-                                            m_vals(i_mn), n_vals(i_mn), Er, Es, Ep, Et, Ez, Br, Bs, Bp, Bt, Bz)
+            select case (trim(wave_code))
+            case ('KiLCA')
+                call get_wave_fields_from_wave_code(flre_cd_ptr(i_mn), dim_r, r, &
+                                                m_vals(i_mn), n_vals(i_mn), Er, Es, Ep, Et, Ez, Br, Bs, Bp, Bt, Bz)
+            case ('KIM')
+                call kim_get_wave_fields(i_mn)  ! already loaded, but refresh
+            end select
 
             ! caluclate part of perpendicular electric field perturbation that comes from
             if (.not. allocated(coef)) allocate(coef(0:nder,nlagr))
@@ -197,9 +217,13 @@ subroutine get_dql
             Es_pert_flux = Es_pert_flux + Es_pert_flux_temp
         end if
 
-        call get_wave_fields_from_wave_code(vac_cd_ptr(i_mn), dim_r, r, &
-                                            m_vals(i_mn), n_vals(i_mn), Bz, Bz, Bz, Bz, Bz, Br, Bz, Bz, Bz, Bz)
-
+        select case (trim(wave_code))
+        case ('KiLCA')
+            call get_wave_fields_from_wave_code(vac_cd_ptr(i_mn), dim_r, r, &
+                                                m_vals(i_mn), n_vals(i_mn), Bz, Bz, Bz, Bz, Bz, Br, Bz, Bz, Bz, Bz)
+        case ('KIM')
+            Br = kim_vac_Br
+        end select
         formfactor = (1.d0, 0.d0)/Br
 
         ! In case that the tmhd code uses double sided Fourier series, it
@@ -219,8 +243,13 @@ subroutine get_dql
             end if
         end if
 
-        call get_wave_fields_from_wave_code(flre_cd_ptr(i_mn), dim_r, r, &
-                                            m_vals(i_mn), n_vals(i_mn), Bz, Bz, Bz, Bz, Bz, Br, Bz, Bz, Bz, Bz)
+        select case (trim(wave_code))
+        case ('KiLCA')
+            call get_wave_fields_from_wave_code(flre_cd_ptr(i_mn), dim_r, r, &
+                                                m_vals(i_mn), n_vals(i_mn), Bz, Bz, Bz, Bz, Bz, Br, Bz, Bz, Bz, Bz)
+        case ('KIM')
+            Br = kim_Br_modes(:, i_mn)
+        end select
         formfactor = Br * formfactor
 
         ! todo: interpolate formfactor at resonant surface and write out. This is Brtot/Brvac at the resonant surface
@@ -239,8 +268,20 @@ subroutine get_dql
         dqli21_loc = dqli21_loc + di21*spec_weight
         dqli22_loc = dqli22_loc + di22*spec_weight
 
-        call get_current_densities_from_wave_code(flre_cd_ptr(i_mn), dim_r, r, &
-                            m_vals(i_mn), n_vals(i_mn), Jri, Jsi, Jpi, Jre, Jse, Jpe)
+        select case (trim(wave_code))
+        case ('KiLCA')
+            call get_current_densities_from_wave_code(flre_cd_ptr(i_mn), dim_r, r, &
+                                m_vals(i_mn), n_vals(i_mn), Jri, Jsi, Jpi, Jre, Jse, Jpe)
+        case ('KIM')
+            ! KIM only provides total jpar; approximate Jpe with it, zero rest
+            ! TODO: improve when KIM provides per-species currents
+            Jpe = (0.0d0, 0.0d0)
+            Jpi = (0.0d0, 0.0d0)
+            Jre = (0.0d0, 0.0d0)
+            Jri = (0.0d0, 0.0d0)
+            Jse = (0.0d0, 0.0d0)
+            Jsi = (0.0d0, 0.0d0)
+        end select
 
         call integrate_parallel_current(dim_r, r, Jpe, Jpi, Ipar)
     end do

@@ -148,6 +148,8 @@ target_link_libraries(KIM_lib PUBLIC
                                 hdf5::hdf5_hl_fortran
                                 kamel_hdf5_tools
                                 kamel_equil
+                                cerf
+                                ddeabm
 )
 
 add_executable(KIM_exe kim_main.f90)
@@ -157,7 +159,5 @@ set_target_properties(KIM_exe PROPERTIES
 target_link_libraries(KIM_exe
                         KIM_lib
                         lapack
-                        cerf
                         slatec
-                        ddeabm
 )

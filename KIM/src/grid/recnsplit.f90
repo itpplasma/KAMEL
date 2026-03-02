@@ -1,6 +1,6 @@
 subroutine recnsplit(r,recnsp)
 
-    use resonances_mod, only: r_res, prop
+    use kim_resonances_m, only: r_res, prop
     use grid_m, only: width_res, ampl_res
     use KIM_kinds_m, only: dp
 

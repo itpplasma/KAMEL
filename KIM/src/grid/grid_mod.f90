@@ -65,7 +65,7 @@ module grid_m
     contains
 
     subroutine ensure_node_at_r_res(this)
-        use resonances_mod, only: r_res
+        use kim_resonances_m, only: r_res
         use KIM_kinds_m, only: dp
         implicit none
         class(grid_type), intent(inout) :: this
@@ -191,7 +191,7 @@ module grid_m
 
     subroutine grid_generate(this)
 
-        use resonances_mod, only: r_res, index_rg_res
+        use kim_resonances_m, only: r_res, index_rg_res
         use config_m, only: fdebug, output_path
 
         implicit none
@@ -261,7 +261,7 @@ module grid_m
 
     subroutine grid_generate_equidistant(this)
 
-        use resonances_mod, only: r_res, index_rg_res
+        use kim_resonances_m, only: r_res, index_rg_res
         use config_m, only: fdebug, output_path
 
         implicit none

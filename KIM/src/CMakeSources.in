@@ -17,7 +17,6 @@ set(KIM_math math/suitesparse/umf4_f77zwrapper.c
             math/superlu/c_fortran_zgssv.c
             math/gsl_mod.f90
             math/use_libcerf_mod.f90
-            math/sparse_mod.f90
             math/plasma_disp_func.f90
             math/functions.f90
             math/numerics_utils.f90

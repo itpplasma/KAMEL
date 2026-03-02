@@ -108,8 +108,12 @@ set_target_properties(ql-balance_lib PROPERTIES LINKER_LANGUAGE Fortran
     ARCHIVE_OUTPUT_DIRECTORY "${lib}"
     Fortran_MODULE_DIRECTORY "${objs}")
 
-add_dependencies(ql-balance_lib kilca_lib kamel_hdf5_tools)
+add_dependencies(ql-balance_lib kilca_lib kamel_hdf5_tools KIM_lib)
 target_include_directories(ql-balance_lib PUBLIC ${CMAKE_BINARY_DIR}/KiLCA/mod ${CMAKE_BINARY_DIR}/modules)
+# NOTE: KIM Fortran modules (OBJS/kim/) are NOT added here because KIM and
+# QL-Balance both define a module named resonances_mod with different contents.
+# The adapter source file that needs KIM modules will use a per-file include
+# (set_source_files_properties ... INCLUDE_DIRECTORIES) to resolve this.
 
 # Include central slatec math sources via cache variable defined by common/math
 target_include_directories(ql-balance_lib PUBLIC ${SLATEC_INCLUDE_DIR})
@@ -147,6 +151,7 @@ target_link_libraries(ql-balance_lib PUBLIC
     hdf5::hdf5_hl
     hdf5::hdf5_hl_fortran
     kamel_hdf5_tools
+    KIM_lib
     kilca_lib
     lapack
     netcdf

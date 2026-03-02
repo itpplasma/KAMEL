@@ -258,10 +258,15 @@ class KIMElectromagneticSolver:
         b[0] = 0.0
 
         # Φ(right) = zero-misalignment BC
+        denom = self._b0_xl[-1] * self._kp_xl[-1]
+        if np.abs(denom) < 1e-30:
+            raise ValueError(
+                f"B0*kp ~ 0 at right boundary (|B0*kp|={np.abs(denom):.2e}); "
+                "cannot compute zero-misalignment BC"
+            )
         A[N - 1, :] = 0.0
         A[N - 1, N - 1] = 1.0
-        b[N - 1] = -1j * self._e0r_xl[-1] * Br_boundary / (
-            self._b0_xl[-1] * self._kp_xl[-1])
+        b[N - 1] = -1j * self._e0r_xl[-1] * Br_boundary / denom
 
         # A_∥(left) = 0
         A[N, :] = 0.0
@@ -269,6 +274,11 @@ class KIMElectromagneticSolver:
         b[N] = 0.0
 
         # A_∥(right) = Br_boundary / α(right)
+        if np.abs(alpha[-1]) < 1e-30:
+            raise ValueError(
+                f"alpha(r) ~ 0 at right boundary (|alpha|={np.abs(alpha[-1]):.2e}); "
+                "cannot set A_par BC"
+            )
         A[2 * N - 1, :] = 0.0
         A[2 * N - 1, 2 * N - 1] = 1.0
         b[2 * N - 1] = Br_boundary / alpha[-1]

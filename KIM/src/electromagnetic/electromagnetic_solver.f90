@@ -87,10 +87,21 @@ module rt_electromagnetic_m
 
         ! Validate collision model
         if (trim(collision_model) /= "FokkerPlanck") then
-            print *, "Error: electromagnetic run type requires collision_model = FokkerPlanck"
+            print *, "Error: electromagnetic run type requires &
+                &collision_model = FokkerPlanck"
             print *, "Current collision_model: ", trim(collision_model)
             error stop
         end if
+
+        ! Validate boundary condition type
+        select case (bc_type)
+            case (0, 2, 3)
+                ! supported: 0/2 = Dirichlet Phi=0, 3 = zero-misalignment
+            case default
+                print *, "Error: electromagnetic solver does not &
+                    &support bc_type =", bc_type
+                error stop
+        end select
 
         N = xl_grid%npts_b
         kz = dble(n_mode) / R0
@@ -194,6 +205,12 @@ module rt_electromagnetic_m
         A_block(N+1, N+1) = cmplx(1.0d0, 0.0d0, dp)
         b_block(N+1) = cmplx(0.0d0, 0.0d0, dp)
 
+        if (abs(alpha(N)) < 1.0d-30) then
+            print *, "Error: alpha(r) ~ 0 at right boundary; &
+                &cannot set A_par BC"
+            print *, "|alpha(N)| =", abs(alpha(N))
+            error stop
+        end if
         A_block(2*N, :) = cmplx(0.0d0, 0.0d0, dp)
         A_block(2*N, 2*N) = cmplx(1.0d0, 0.0d0, dp)
         b_block(2*N) = Br_boundary / alpha(N)
@@ -203,7 +220,9 @@ module rt_electromagnetic_m
             call apply_zero_misalignment_bc(A_block, b_block, N, Br_boundary)
         end if
 
-        if (fstatus >= 1) write(*,*) 'Status: solving coupled Poisson-Ampere block system for (Phi, A_par) (2N =', 2*N, ')'
+        if (fstatus >= 1) write(*,*) &
+            'Status: solving coupled Poisson-Ampere for &
+            &(Phi, A_par) (2N =', 2*N, ')'
 
         ! Solve
         if (fdebug < 2) sparse_talk = .false.
@@ -283,7 +302,15 @@ module rt_electromagnetic_m
         kp_right = sum(coef(0,:) * plasma%kp(ibeg:iend))
         B0_right = sum(coef(0,:) * plasma%B0(ibeg:iend))
 
-        phi_right = -com_unit * Er_right * Br_boundary / (B0_right * kp_right)
+        if (abs(B0_right * kp_right) < 1.0d-30) then
+            print *, "Error: B0*kp ~ 0 at right boundary; &
+                &cannot compute zero-misalignment BC"
+            print *, "B0_right =", B0_right, &
+                " kp_right =", kp_right
+            error stop
+        end if
+        phi_right = -com_unit * Er_right * Br_boundary &
+            / (B0_right * kp_right)
 
         b_block(N) = phi_right
 

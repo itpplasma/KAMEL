@@ -23,6 +23,11 @@ set_target_properties(KIM_lib PROPERTIES
                         OUTPUT_NAME KIM
                         ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/install/lib/")
 
+# Use the shared sparse target instead of bundling a local copy
+add_dependencies(KIM_lib sparse)
+target_link_libraries(KIM_lib PUBLIC sparse)
+target_include_directories(KIM_lib PUBLIC "${CMAKE_BINARY_DIR}/OBJS/sparse/")
+
 # TODO: unify this: either use the system library everywhere, or use the cloned version
 # KiLCA uses the cloned libraries for now, QL-Balance the system libraries
 find_package(GSL REQUIRED)

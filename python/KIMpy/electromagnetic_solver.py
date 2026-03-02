@@ -211,23 +211,36 @@ class KIMElectromagneticSolver:
         alpha = 1j * (self.m_mode / r * self._hz_xl - self.kz * self._hth_xl)
         D_alpha = np.diag(alpha)
 
-        # Build ∇²_⊥ FEM matrix (negative semi-definite, like self.laplace).
-        # self.laplace has zeroed boundary couplings (L[1,0]=0, L[N-2,N-1]=0)
-        # so we build a fresh matrix with full tridiagonal coupling.
+        # ks = (m·h_z - kz·h_θ) / r  (perpendicular wavenumber, matches Fortran plasma%ks)
+        ks = (self.m_mode * self._hz_xl - self.kz * self._hth_xl) / r
+
+        # Build corrected Laplacians with (1/r)d/dr and wavenumber terms.
+        # self.laplace is bare d²/dr² with zeroed boundary couplings,
+        # so we build fresh matrices.
+        # Poisson:  ∇² = d²/dr² + (1/r)d/dr - m²/r² - kz²
+        # Ampere:  ∇²_⊥ = d²/dr² + (1/r)d/dr - ks²
+        laplace_poisson = np.zeros((N, N))
         laplace_perp = np.zeros((N, N))
         for i in range(1, N - 1):
             hi_m = r[i] - r[i - 1]
             hi_p = r[i + 1] - r[i]
-            laplace_perp[i, i - 1] = 1.0 / hi_m
-            laplace_perp[i, i] = -(1.0 / hi_m + 1.0 / hi_p)
-            laplace_perp[i, i + 1] = 1.0 / hi_p
+            # d²/dr² + (1/r)d/dr (central difference)
+            off_m = 1.0 / hi_m - 1.0 / (r[i] * (hi_m + hi_p))
+            off_p = 1.0 / hi_p + 1.0 / (r[i] * (hi_m + hi_p))
+            d2 = -(1.0 / hi_m + 1.0 / hi_p)
+            laplace_poisson[i, i - 1] = off_m
+            laplace_poisson[i, i] = d2 - self.m_mode**2 / r[i]**2 - self.kz**2
+            laplace_poisson[i, i + 1] = off_p
+            laplace_perp[i, i - 1] = off_m
+            laplace_perp[i, i] = d2 - ks[i]**2
+            laplace_perp[i, i + 1] = off_p
 
         # Assemble 2N×2N block system for (Φ, A_∥)
         A = np.zeros((2 * N, 2 * N), dtype=complex)
         b = np.zeros(2 * N, dtype=complex)
 
-        # Top-left: Δ + 4π K^{ρΦ}  (same as Br formulation)
-        A[:N, :N] = self.laplace + 4.0 * pi * self.k_rho_phi
+        # Top-left: ∇² + 4π K^{ρΦ}  (full cylindrical Laplacian for Poisson)
+        A[:N, :N] = laplace_poisson + 4.0 * pi * self.k_rho_phi
 
         # Top-right: 4π K^{ρB} · D_α  (since Br = D_α · A_∥)
         A[:N, N:] = 4.0 * pi * self.k_rho_b @ D_alpha
@@ -270,18 +283,33 @@ class KIMElectromagneticSolver:
     def solve_poisson(self, br_prescribed):
         """Solve the Poisson-only (electrostatic) problem.
 
+        Uses the full cylindrical Laplacian:
+        ∇² = d²/dr² + (1/r)d/dr - m²/r² - kz²
+
         Parameters
         ----------
         br_prescribed : ndarray, shape (N,)
             Prescribed Br field on the xl grid.
         """
-        a_mat = self.laplace + 4.0 * pi * self.k_rho_phi
+        N = self.N
+        r = self.xl
+
+        # Build full cylindrical Laplacian (same as in solve_apar)
+        laplace_full = np.zeros((N, N))
+        for i in range(1, N - 1):
+            hi_m = r[i] - r[i - 1]
+            hi_p = r[i + 1] - r[i]
+            off_m = 1.0 / hi_m - 1.0 / (r[i] * (hi_m + hi_p))
+            off_p = 1.0 / hi_p + 1.0 / (r[i] * (hi_m + hi_p))
+            d2 = -(1.0 / hi_m + 1.0 / hi_p)
+            laplace_full[i, i - 1] = off_m
+            laplace_full[i, i] = d2 - self.m_mode**2 / r[i]**2 - self.kz**2
+            laplace_full[i, i + 1] = off_p
+
+        a_mat = laplace_full + 4.0 * pi * self.k_rho_phi
         b_vec = -4.0 * pi * (self.k_rho_b @ br_prescribed)
 
         # Zero-misalignment BCs (same as KIMPoissonSolver)
-        a_mat = a_mat.copy()
-        b_vec = b_vec.copy()
-        N = self.N
         phi_left = -self.phi_aligned[0]
         phi_right = -self.phi_aligned[-1]
 

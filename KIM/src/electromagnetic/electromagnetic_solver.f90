@@ -72,6 +72,7 @@ module rt_electromagnetic_m
         complex(dp), allocatable :: A_Phi(:,:)
         real(dp), allocatable :: laplace_perp(:,:)
         real(dp), allocatable :: hz_xl(:), hth_xl(:)
+        real(dp), allocatable :: ks_xl(:)
         complex(dp), allocatable :: alpha(:)
 
         complex(dp), allocatable :: jpar(:), rho(:)
@@ -132,15 +133,21 @@ module rt_electromagnetic_m
             alpha(i) = com_unit * (dble(m_mode) / xl_grid%xb(i) * hz_xl(i) - kz * hth_xl(i))
         end do
 
-        ! Build laplace_perp FEM stiffness matrix (1D Laplacian for A_parallel equation)
+        ! Compute ks(r) = (m * h_z - kz * h_theta) / r (perpendicular wavenumber)
+        allocate(ks_xl(N))
+        do i = 1, N
+            ks_xl(i) = (dble(m_mode) * hz_xl(i) - kz * hth_xl(i)) / xl_grid%xb(i)
+        end do
+
+        ! Build laplace_perp: nabla^2_perp = d^2/dr^2 + (1/r)d/dr - ks^2
         allocate(laplace_perp(N, N))
         laplace_perp = 0.0d0
         do i = 2, N-1
             hL = xl_grid%xb(i) - xl_grid%xb(i-1)
             hR = xl_grid%xb(i+1) - xl_grid%xb(i)
-            laplace_perp(i,i-1) = 1.0d0 / hL
-            laplace_perp(i,i)   = -(1.0d0 / hL + 1.0d0 / hR)
-            laplace_perp(i,i+1) = 1.0d0 / hR
+            laplace_perp(i,i-1) = 1.0d0 / hL - 1.0d0 / (xl_grid%xb(i) * (hL + hR))
+            laplace_perp(i,i)   = -(1.0d0 / hL + 1.0d0 / hR) - ks_xl(i)**2
+            laplace_perp(i,i+1) = 1.0d0 / hR + 1.0d0 / (xl_grid%xb(i) * (hL + hR))
         end do
 
         ! Assemble Poisson LHS block: A_Phi = Delta + 4*pi * K_rho_phi
@@ -235,7 +242,7 @@ module rt_electromagnetic_m
             'Charge density from self-consistent solve', 'statC/cm^3')
 
         ! Cleanup
-        deallocate(A_block, b_block, A_Phi, laplace_perp, alpha, hz_xl, hth_xl)
+        deallocate(A_block, b_block, A_Phi, laplace_perp, alpha, hz_xl, hth_xl, ks_xl)
 
     end subroutine
 

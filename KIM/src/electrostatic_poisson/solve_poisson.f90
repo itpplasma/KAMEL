@@ -97,7 +97,7 @@ module poisson_solver_m
 
     subroutine create_rhs_vector(type, K_rho_B, rhs_vec)
 
-        use resonances_mod, only: index_rg_res, r_res
+        use kim_resonances_m, only: index_rg_res, r_res
         use functions_m, only: varphi_l
         use grid_m, only: xl_grid
         use IO_collection_m, only: write_complex_profile, plot_profile

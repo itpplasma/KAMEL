@@ -882,7 +882,7 @@ module species_m
 
     subroutine calculate_susc_funcs_profiles(spec, mphi)
 
-        use resonances_mod, only: r_res
+        use kim_resonances_m, only: r_res
         use grid_m, only: width_res
 
         implicit none

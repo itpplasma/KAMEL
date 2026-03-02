@@ -736,7 +736,7 @@ module kernel_m
         use constants_m, only: com_unit, sol
         use config_m, only: turn_off_ions, turn_off_electrons, artificial_debye_case, ion_flr_scale_factor
         use grid_m, only: xl_grid
-        use resonances_mod, only: r_res
+        use kim_resonances_m, only: r_res
         use setup_m, only: mphi_max
 
         implicit none
@@ -1889,7 +1889,7 @@ module kernel_m
         ! use constants_m, only: com_unit, sol
         ! use config_m, only: turn_off_ions, turn_off_electrons, artificial_debye_case
         ! use grid_m, only: xl_grid
-        ! use resonances_mod, only: r_res
+        ! use kim_resonances_m, only: r_res
 
         ! implicit none
 

@@ -1,4 +1,4 @@
-module resonances_mod
+module kim_resonances_m
 
     use KIM_kinds_m, only: dp
 
@@ -9,4 +9,4 @@ module resonances_mod
     integer :: index_rg_res
     logical :: prop = .true.
 
-end module resonances_mod
+end module kim_resonances_m

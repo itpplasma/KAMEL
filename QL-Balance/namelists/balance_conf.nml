@@ -55,5 +55,6 @@
  misalign_diffusion = .false. ,
  equil_path = '/equil_r_q_psi.dat' ,
  type_of_run = 'SingleStep'
+ wave_code = 'KiLCA'
  ihdf5IO = 1
 /

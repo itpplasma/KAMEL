@@ -5,6 +5,7 @@ module control_mod
     implicit none
 
     character(100) :: type_of_run
+    character(len=32) :: wave_code = 'KiLCA'  ! 'KiLCA' or 'KIM'
     integer :: ihdf5IO ! added: Markus Markl
     logical :: paramscan ! added: Markus Markl, 03.03.2021
     logical :: timing_mode         ! added by Markus Markl 06.04.2021

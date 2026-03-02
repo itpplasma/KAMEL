@@ -2,7 +2,7 @@ subroutine read_config
     use baseparam_mod, only: btor, rtor, rsepar, dperp, Z_i, am, urelax
     use control_mod, only: eps, paramscan, diagnostics_output, suppression_mode, debug_mode, &
                            readfromtimestep, temperature_limit, gyro_current_study, &
-                           misalign_diffusion, equil_path, ihdf5IO
+                           misalign_diffusion, equil_path, ihdf5IO, wave_code
     use grid_mod, only: rmin, rmax, npoimin, gg_factor, gg_width, gg_r_res, iboutype, rb_cut_in, &
                         re_cut_in, rb_cut_out, re_cut_out
     use h5mod, only: path2inp, path2out, path2time
@@ -23,8 +23,8 @@ subroutine read_config
         timstep_min, paramscan, save_prof_time_step, diagnostics_output, br_stopping, &
         suppression_mode, debug_mode, readfromtimestep, path2time, ramp_up_mode, t_max_ramp_up, &
         temperature_limit, antenna_max_stopping, gyro_current_study, viscosity_factor, &
-        misalign_diffusion, equil_path, ihdf5IO, type_of_run, set_constant_time_step, &
-        constant_time_step, urelax
+        misalign_diffusion, equil_path, ihdf5IO, type_of_run, wave_code, &
+        set_constant_time_step, constant_time_step, urelax
 
     ! read the parameters from namelist file
     open (newunit=u, file=config_file, status="old", action="read", iostat=ios)
@@ -36,6 +36,7 @@ subroutine read_config
     write (*, *) ""
     write (*, *) "================================================================================="
     write (*, "(A,A)") "    Type of Run: ", type_of_run
+    write (*, "(A,A)") "    Wave Code:   ", trim(adjustl(wave_code))
     write (*, *) ""
     write (*, "(A,A,A)") "    Parameters from ", config_file, ":"
     write (*, *) "   ------------------------------------------------------------------------------"

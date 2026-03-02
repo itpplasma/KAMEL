@@ -62,6 +62,7 @@ set(balance_lib_base_fortran_sources
     ${base_balance_src}/grid_mod.f90
     ${base_balance_src}/h5mod.f90
     ${base_balance_src}/integrate_parallel_current.f90
+    ${base_balance_src}/kim_wave_code_adapter.f90
     ${base_balance_src}/magnetic_island_width.f90
     ${base_balance_src}/matrix_mod.f90
     ${base_balance_src}/paramscan.f90
@@ -114,6 +115,8 @@ target_include_directories(ql-balance_lib PUBLIC ${CMAKE_BINARY_DIR}/KiLCA/mod $
 # QL-Balance both define a module named resonances_mod with different contents.
 # The adapter source file that needs KIM modules will use a per-file include
 # (set_source_files_properties ... INCLUDE_DIRECTORIES) to resolve this.
+# kim_wave_code_adapter.f90 will need per-file INCLUDE_DIRECTORIES for KIM modules
+# (see note at target_include_directories about resonances_mod collision)
 
 # Include central slatec math sources via cache variable defined by common/math
 target_include_directories(ql-balance_lib PUBLIC ${SLATEC_INCLUDE_DIR})

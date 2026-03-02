@@ -2,7 +2,8 @@ subroutine read_config
     use baseparam_mod, only: btor, rtor, rsepar, dperp, Z_i, am, urelax
     use control_mod, only: eps, paramscan, diagnostics_output, suppression_mode, debug_mode, &
                            readfromtimestep, temperature_limit, gyro_current_study, &
-                           misalign_diffusion, equil_path, ihdf5IO, wave_code
+                           misalign_diffusion, equil_path, ihdf5IO, wave_code, &
+                           kim_config_path
     use grid_mod, only: rmin, rmax, npoimin, gg_factor, gg_width, gg_r_res, iboutype, rb_cut_in, &
                         re_cut_in, rb_cut_out, re_cut_out
     use h5mod, only: path2inp, path2out, path2time
@@ -24,7 +25,7 @@ subroutine read_config
         suppression_mode, debug_mode, readfromtimestep, path2time, ramp_up_mode, t_max_ramp_up, &
         temperature_limit, antenna_max_stopping, gyro_current_study, viscosity_factor, &
         misalign_diffusion, equil_path, ihdf5IO, type_of_run, wave_code, &
-        set_constant_time_step, constant_time_step, urelax
+        set_constant_time_step, constant_time_step, urelax, kim_config_path
 
     ! read the parameters from namelist file
     open (newunit=u, file=config_file, status="old", action="read", iostat=ios)
@@ -80,6 +81,7 @@ subroutine read_config
     write (*, "(A,L0)") "    set_constant_time_step = ", set_constant_time_step
     write (*, "(A,ES15.8,A)") "    constant_time_step = ", constant_time_step, " s"
     write (*, "(A,ES15.8)") "    urelax = ", urelax
+    write (*, "(A,A)") "    kim_config_path = ", trim(adjustl(kim_config_path))
     write (*, *) ""
     write (*, *) "================================================================================="
 end subroutine read_config

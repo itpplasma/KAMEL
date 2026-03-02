@@ -10,7 +10,7 @@ module kim_wave_code_adapter_m
     use species_m, only: kim_plasma => plasma
     use equilibrium_m, only: kim_B0 => B0
     use config_m, only: kim_type_of_run => type_of_run, &
-                        nml_config_path
+                        kim_nml_config_path => nml_config_path
     use setup_m, only: kim_m_mode => m_mode, kim_n_mode => n_mode
     use grid_m, only: kim_xl_grid => xl_grid, kim_rg_grid => rg_grid
     use fields_m, only: EBdat
@@ -56,6 +56,7 @@ contains
         !! Populate wave_code_data module arrays with background
         !! quantities by running the electrostatic solver for the
         !! first mode to generate equilibrium and plasma backgrounds.
+        use control_mod, only: kim_config_path
         use wave_code_data, only: dim_mn, m_vals, n_vals, &
             r => r, q => q, n => n, Te => Te, Ti => Ti, &
             Vth => Vth, Vz => Vz, dPhi0 => dPhi0, &
@@ -75,10 +76,10 @@ contains
         ! -----------------------------------------------------------
         ! 1. Set KIM config path and initialize KIM backend
         ! -----------------------------------------------------------
-        ! nml_config_path (from config_m) tells KIM where its
-        ! namelist file lives.  Default is ./KIM_config.nml which
-        ! the user can override via Task 8 (balance namelist).
-        nml_config_path = "./KIM_config.nml"
+        ! kim_nml_config_path (from config_m) tells KIM where its
+        ! namelist file lives.  Controlled by kim_config_path in
+        ! balance_conf.nml (default: ./KIM_config.nml).
+        kim_nml_config_path = trim(kim_config_path)
 
         call kim_init()
 

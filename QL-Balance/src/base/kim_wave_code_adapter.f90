@@ -27,6 +27,7 @@ module kim_wave_code_adapter_m
     public :: kim_get_wave_vectors
     public :: kim_get_background_magnetic_fields
     public :: kim_get_collision_frequencies
+    public :: interp_complex_profile  ! exposed for testing
 
     !! Module-level KIM solver instance (reused across calls)
     class(kim_t), allocatable :: kim_instance

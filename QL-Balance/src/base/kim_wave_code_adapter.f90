@@ -41,7 +41,7 @@ module kim_wave_code_adapter_m
     complex(8), allocatable :: kim_Er_modes(:,:)
     complex(8), allocatable :: kim_Et_modes(:,:)
     complex(8), allocatable :: kim_Ez_modes(:,:)
-    complex(8), allocatable :: kim_Br_modes(:,:)
+    complex(8), allocatable, public :: kim_Br_modes(:,:)
 
     !! Per-mode stored wave vectors (nrad, dim_mn)
     !! kp and ks depend on (m,n) via the equilibrium formulas.

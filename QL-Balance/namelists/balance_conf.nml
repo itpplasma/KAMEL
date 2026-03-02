@@ -56,5 +56,6 @@
  equil_path = '/equil_r_q_psi.dat' ,
  type_of_run = 'SingleStep'
  wave_code = 'KiLCA'
+ kim_config_path = './KIM_config.nml'
  ihdf5IO = 1
 /

@@ -112,6 +112,10 @@ P. Kravanja, M. Van Barel, O. Ragos, M.N. Vrahatis, F.A. Zafiropoulos,
 Computer Physics Communications **124** (2000) 212-232.
 [doi:10.1016/S0010-4655(99)00429-4](https://doi.org/10.1016/S0010-4655(99)00429-4)
 
+## Contributing
+
+Contributions are welcome! See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
+
 ## License
 
-See LICENSE file for details.
+This project is licensed under the MIT License. See [LICENSE](LICENSE) for details.

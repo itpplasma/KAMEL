@@ -2,9 +2,11 @@ repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v6.0.0
     hooks:
+      - id: check-case-conflict
       - id: check-executables-have-shebangs
-      - id: check-shebang-scripts-are-executable
+      - id: check-illegal-windows-names
       - id: check-merge-conflict
+      - id: check-shebang-scripts-are-executable
       - id: check-symlinks
       - id: check-toml
       - id: check-yaml

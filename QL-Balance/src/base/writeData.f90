@@ -145,9 +145,9 @@ subroutine write_dql_Br_Jp_profiles_to_hdf5(tempch)
                          ubound(T_EM_phi_e))
     call h5_add_double_1(h5_id, trim(tempch) // "T_EM_phi_i", T_EM_phi_i, lbound(T_EM_phi_i), &
                          ubound(T_EM_phi_i))
-    call h5_add_double_1(h5_id, trim(tempch) // "torque_ntv", torque_ntv, &
+    call h5_add_double_1(h5_id, trim(tempch) // "T_NTV_phi_i", torque_ntv, &
                          lbound(torque_ntv), ubound(torque_ntv), &
-                         comment="Total NTV torque calculated by NEO-RT")
+                         comment="NTV torque on ions calculated by NEO-RT")
     CALL h5_add_double_1(h5_id, trim(tempch)//"Br-ckpEs_om_E", &
                         abs(Br - c*kp*Es/om_E), lbound(Br), ubound(Br))
     CALL h5_add_double_1(h5_id, trim(tempch)//"Br-cksEp_om_E", &

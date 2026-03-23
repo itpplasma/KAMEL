@@ -66,7 +66,7 @@ contains
         allocate (profile_data(s_size, 2))
         allocate (transport_data(s_size))
 
-        ! prepare grid splines for NEO-RT
+        ! Prepare grid splines for NEO-RT
         call read_equil_file(r_eff=r_eff, psi_tor=psi_tor)
         allocate (s_tor_equil(size(psi_tor)))
         call calculate_s_tor(s_tor_equil, psi_tor)
@@ -79,6 +79,7 @@ contains
         s_min = s_splined(1, 1)
         s_max = s_splined(2, 1)
 
+        ! Create an equidistant grid in s
         call calculate_coarse_s_tor(s_tor, s_min, s_max, s_size)
         allocate (r_of_s_coeffs(size(s_tor_equil) - 1, 5))
         r_of_s_coeffs = spline_coeff(s_tor_equil, r_eff)

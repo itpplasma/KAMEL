@@ -263,7 +263,6 @@ contains
         ! Psi_tor = r²π * B_tor  =>  Psi_tor' = 2πr * B_tor
         ! our psi_tor == Psi_tor / (2π)
 
-
         real(dp), dimension(:), intent(out) :: Omega_tE
         real(dp), dimension(:), intent(in) :: r
 
@@ -465,7 +464,7 @@ contains
         real(dp), intent(in) :: antenna_factor_exponent
 
         real(dp), dimension(:), allocatable :: total_torque  ! torque per unit s [dyn·cm]
-        real(dp), dimension(:), allocatable :: dVds          ! volume per unit s [cm³]
+        real(dp), dimension(:), allocatable :: dVds  ! volume per unit s [cm³]
         real(dp), dimension(:, :), allocatable :: torque_of_r_coeffs
         real(dp), dimension(:, :), allocatable :: torque_splined
         integer :: ntorque, nrb, i, i_separatrix
@@ -502,7 +501,7 @@ contains
 
         ! torque for r > separatrix should be zero
         torque_ntv(1:i_separatrix) = torque_splined(:, 1)
-        torque_ntv(i_separatrix+1:nrb) = 0.0_dp
+        torque_ntv(i_separatrix + 1:nrb) = 0.0_dp
 
         ! rescale ntv by antenna factor proportion and
         ! exponent (for different collisionality regimes)

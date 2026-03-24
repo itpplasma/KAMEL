@@ -50,8 +50,6 @@ _LINEAR_PROFILE_QUANTITIES = [
     "Br_Im",  # B_r
     "T_EM_phi_e",
     "T_EM_phi_i",  # EM torque
-    "T_EM_phi_e_source",
-    "T_EM_phi_i_source",  # EM torque source
 ]
 
 # Time steps available in LinearProfiles (0-8)

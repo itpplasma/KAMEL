@@ -73,8 +73,9 @@ module rt_electromagnetic_m
         real(dp), allocatable :: ks_xl(:)
         complex(dp), allocatable :: alpha(:)
 
-        complex(dp), allocatable :: jpar(:), rho(:)
+        complex(dp), allocatable :: jpar(:), jpar_sp(:), rho(:)
         complex(dp) :: Br_boundary
+        integer :: sp
 
         integer :: N, i, j
         real(dp) :: kz, hL, hR
@@ -272,13 +273,26 @@ module rt_electromagnetic_m
         call write_complex_profile_abs(xl_grid%xb, EBdat%Br, N, "/fields/Br_selfconsistent", &
             'Self-consistent radial magnetic field perturbation Br', 'G')
 
-        ! Current density
+        ! Current density: total
         call calculate_current_density(jpar, EBdat%Phi, EBdat%Br, &
             kernel_j_phi_llp%Kllp, kernel_j_B_llp%Kllp)
         allocate(EBdat%jpar(N))
         EBdat%jpar = jpar
         call write_complex_profile_abs(xl_grid%xb, jpar, N, "/fields/jpar", &
             'Parallel current density from self-consistent solve', 'statA/cm^2')
+
+        ! Current density: electron
+        call calculate_current_density(EBdat%jpar_e, EBdat%Phi, EBdat%Br, &
+            kernel_j_phi_llp%Kllp_e, kernel_j_B_llp%Kllp_e)
+
+        ! Current density: ion (sum over all ion species)
+        allocate(EBdat%jpar_i(N))
+        EBdat%jpar_i = (0.0d0, 0.0d0)
+        do sp = 1, plasma%n_species - 1
+            call calculate_current_density(jpar_sp, EBdat%Phi, EBdat%Br, &
+                kernel_j_phi_llp%Kllp_i(:,:,sp), kernel_j_B_llp%Kllp_i(:,:,sp))
+            EBdat%jpar_i = EBdat%jpar_i + jpar_sp
+        end do
 
         ! Electric field postprocessing
         call postprocess_electric_field(EBdat)

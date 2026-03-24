@@ -376,6 +376,10 @@ subroutine get_dql
         ! Select which Ipar to use for antenna factor computation
         select case (trim(jpar_method))
         case ('curlB')
+            if (trim(wave_code) /= 'KiLCA') then
+                error stop "jpar_method='curlB' requires wave_code='KiLCA' " &
+                    // "(KIM does not output Bt/Bz components)"
+            end if
             Ipar = Ipar_curlB
             write(*,*) '  Using curlB Ipar for antenna factor'
         case ('conductivity')

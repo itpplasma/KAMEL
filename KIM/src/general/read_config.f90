@@ -1,4 +1,4 @@
-subroutine read_config
+subroutine kim_read_config
 
     use config_m
     use constants_m
@@ -107,4 +107,4 @@ subroutine read_config
     ! Display formatted configuration
     call display_kim_configuration()
 
-end subroutine
+end subroutine kim_read_config

@@ -122,6 +122,7 @@ module species_m
         implicit none
 
         plasma%n_species = number_of_ion_species+1
+        if (allocated(plasma%spec)) deallocate(plasma%spec)
         allocate(plasma%spec(0:plasma%n_species-1))
 
     end subroutine
@@ -1053,6 +1054,117 @@ module species_m
         r_space_dim = plasma%grid_size
 
     end subroutine
+
+    subroutine set_profiles_from_arrays(r_in, n_in, Te_in, Ti_in, q_in, Er_in, npts)
+        !! Populate the module-level `plasma` struct from arrays passed by
+        !! the caller (e.g. QL-Balance).  Replicates the effect of
+        !! read_from_text but without file I/O.  Handles reallocation for
+        !! repeated calls (time stepping).
+
+        use config_m, only: number_of_ion_species
+        use grid_m, only: r_space_dim
+        use kim_resonances_m, only: prop
+
+        implicit none
+
+        integer, intent(in) :: npts
+        real(dp), intent(in) :: r_in(npts)
+        real(dp), intent(in) :: n_in(npts)
+        real(dp), intent(in) :: Te_in(npts)
+        real(dp), intent(in) :: Ti_in(npts)
+        real(dp), intent(in) :: q_in(npts)
+        real(dp), intent(in) :: Er_in(npts)
+
+        integer :: sigma, total_Z
+
+        ! Force resonance re-detection on next solve
+        prop = .true.
+
+        ! Deallocate derived arrays to prevent double-allocation crashes
+        call deallocate_plasma_derived()
+
+        ! Set grid size
+        plasma%grid_size = npts
+        r_space_dim = npts
+
+        ! (Re-)allocate primary arrays
+        call reallocate(plasma%r_grid, npts)
+        call reallocate(plasma%q, npts)
+        call reallocate(plasma%Er, npts)
+
+        plasma%r_grid = r_in
+        plasma%q = q_in
+        plasma%Er = Er_in
+
+        ! Electron density and temperature
+        call reallocate(plasma%spec(0)%n, npts)
+        call reallocate(plasma%spec(0)%T, npts)
+        plasma%spec(0)%n = n_in
+        plasma%spec(0)%T = Te_in
+
+        ! Ion temperatures (all ion species get Ti)
+        do sigma = 1, number_of_ion_species
+            call reallocate(plasma%spec(sigma)%T, npts)
+            plasma%spec(sigma)%T = Ti_in
+        end do
+
+        ! Enforce quasineutrality for ion densities
+        total_Z = 0
+        do sigma = 1, number_of_ion_species
+            total_Z = total_Z + plasma%spec(sigma)%Zspec
+        end do
+
+        do sigma = 1, number_of_ion_species
+            call reallocate(plasma%spec(sigma)%n, npts)
+            plasma%spec(sigma)%n = n_in * plasma%spec(sigma)%Zspec / total_Z
+        end do
+
+        ! Deallocate derivative arrays to force recomputation
+        do sigma = 0, number_of_ion_species
+            if (allocated(plasma%spec(sigma)%dndr)) deallocate(plasma%spec(sigma)%dndr)
+            if (allocated(plasma%spec(sigma)%dTdr)) deallocate(plasma%spec(sigma)%dTdr)
+        end do
+        if (allocated(plasma%dqdr)) deallocate(plasma%dqdr)
+
+        ! Validate units
+        call validate_profile_units(plasma)
+
+    end subroutine set_profiles_from_arrays
+
+    subroutine deallocate_plasma_derived()
+        !! Deallocate plasma-level and species-derived arrays that
+        !! calculate_equil and calculate_plasma_backs allocate with
+        !! bare allocate() (no guard).  Without this, repeated calls
+        !! to these routines crash.
+        !!
+        !! NOTE: equilibrium_m arrays (B0z, B0th, etc.) must be
+        !! deallocated separately to avoid a circular module dependency.
+        !! See deallocate_equilibrium_arrays() in the adapter.
+        use config_m, only: number_of_ion_species
+
+        implicit none
+
+        integer :: sp
+
+        ! From plasma (allocated in calculate_equil)
+        if (allocated(plasma%B0)) deallocate(plasma%B0)
+        if (allocated(plasma%ks)) deallocate(plasma%ks)
+        if (allocated(plasma%kp)) deallocate(plasma%kp)
+        if (allocated(plasma%om_E)) deallocate(plasma%om_E)
+        if (allocated(plasma%dqdr)) deallocate(plasma%dqdr)
+
+        ! From plasma species (allocated in calculate_plasma_backs)
+        do sp = 0, number_of_ion_species
+            if (sp > ubound(plasma%spec, 1)) exit
+            if (allocated(plasma%spec(sp)%vT)) deallocate(plasma%spec(sp)%vT)
+            if (allocated(plasma%spec(sp)%nu)) deallocate(plasma%spec(sp)%nu)
+            if (allocated(plasma%spec(sp)%omega_c)) deallocate(plasma%spec(sp)%omega_c)
+            if (allocated(plasma%spec(sp)%rho_L)) deallocate(plasma%spec(sp)%rho_L)
+            if (allocated(plasma%spec(sp)%lambda_D)) deallocate(plasma%spec(sp)%lambda_D)
+            if (allocated(plasma%spec(sp)%z0)) deallocate(plasma%spec(sp)%z0)
+        end do
+
+    end subroutine deallocate_plasma_derived
 
     subroutine read_from_text
 

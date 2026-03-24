@@ -16,6 +16,7 @@ module fields_m
         complex(dp), allocatable :: Ez(:)
         complex(dp), allocatable :: Es(:) ! E "senkrecht", i.e. perpendicular to radial and parallel direction
         complex(dp), allocatable :: Ep(:) ! parallel to the equilibrium magnetic field
+        complex(dp), allocatable :: jpar(:) ! parallel current density
         complex(dp), allocatable :: Phi(:)
         complex(dp), allocatable :: Phi_e(:)
         complex(dp), allocatable :: Phi_i(:)
@@ -424,6 +425,21 @@ module fields_m
 
     end subroutine
 
+
+    subroutine postprocess_electric_field_no_write(EBdat)
+        !! Same as postprocess_electric_field but without HDF5 writes.
+        !! Used when hdf5_output is disabled (e.g. QL-Balance adapter mode).
+        use species_m, only: plasma
+
+        implicit none
+
+        type(EBdat_t), intent(inout) :: EBdat
+
+        call calculate_MA_field(plasma, EBdat)
+        call calculate_E_from_phi(EBdat)
+        call calculate_E_in_rsp_from_cyl(EBdat)
+
+    end subroutine
 
     subroutine calculate_charge_density(rho, EBdat)
 

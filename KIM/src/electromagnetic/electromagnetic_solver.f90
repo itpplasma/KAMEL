@@ -43,7 +43,7 @@ module rt_electromagnetic_m
         use kernel_adaptive_m, only: FP_fill_kernels_adaptive
         use grid_m, only: xl_grid, calc_mass_matrix, M_mat, theta_integration
         use IO_collection_m, only: write_complex_profile_abs
-        use poisson_solver_m, only: prepare_Laplace_matrix, dense_to_sparse
+        use poisson_solver_m, only: prepare_Laplace_matrix
         use config_m, only: output_path, collision_model, fstatus, fdebug
         use fields_m, only: EBdat, postprocess_electric_field, &
                             calculate_charge_density, calculate_current_density
@@ -52,7 +52,6 @@ module rt_electromagnetic_m
         use constants_m, only: pi, sol, com_unit
         use KIM_kinds_m, only: dp
         use species_m, only: plasma
-        use sparse_mod, only: sparse_solveComplex_b1, sparse_solve_method, sparse_talk
 
         implicit none
 
@@ -65,9 +64,8 @@ module rt_electromagnetic_m
 
         complex(dp), allocatable :: A_block(:,:)
         complex(dp), allocatable :: b_block(:)
-        complex(dp), allocatable :: A_nz(:)
-        integer, allocatable :: irow(:), pcol(:)
-        integer :: nz_out, nrow_sp, ncol_sp
+        integer, allocatable :: ipiv(:)
+        integer :: lapack_info
 
         complex(dp), allocatable :: A_Phi(:,:)
         real(dp), allocatable :: laplace_perp(:,:)
@@ -224,12 +222,40 @@ module rt_electromagnetic_m
             'Status: solving coupled Poisson-Ampere for &
             &(Phi, A_par) (2N =', 2*N, ')'
 
-        ! Solve
-        if (fdebug < 2) sparse_talk = .false.
-        sparse_solve_method = 1
+        ! Diagnostics: boundary conditions before solve
+        write(*,*) '--- EM solver diagnostics (before solve) ---'
+        write(*,*) '  N (grid points)  = ', N
+        write(*,*) '  alpha(1)         = ', alpha(1)
+        write(*,*) '  alpha(N)         = ', alpha(N)
+        write(*,*) '  Br_boundary      = ', Br_boundary
+        write(*,*) '  Br_bnd/alpha(N)  = ', Br_boundary / alpha(N)
+        write(*,*) '  A_block(1,1)     = ', A_block(1,1)
+        write(*,*) '  A_block(N,N)     = ', A_block(N,N)
+        write(*,*) '  A_block(N+1,N+1) = ', A_block(N+1,N+1)
+        write(*,*) '  A_block(2N,2N)   = ', A_block(2*N,2*N)
+        write(*,*) '  b_block(1)       = ', b_block(1), ' (Phi left BC)'
+        write(*,*) '  b_block(N)       = ', b_block(N), ' (Phi right BC)'
+        write(*,*) '  b_block(N+1)     = ', b_block(N+1), ' (Apar left BC)'
+        write(*,*) '  b_block(2N)      = ', b_block(2*N), ' (Apar right BC)'
 
-        call dense_to_sparse(A_block, irow, pcol, A_nz, nrow_sp, ncol_sp, nz_out)
-        call sparse_solveComplex_b1(nrow_sp, ncol_sp, nz_out, irow, pcol, A_nz, b_block, 0)
+        ! Solve using LAPACK ZGESV (dense direct solver, fast for 2N ~ 400)
+        allocate(ipiv(2*N))
+        call zgesv(2*N, 1, A_block, 2*N, ipiv, b_block, 2*N, lapack_info)
+        if (lapack_info /= 0) then
+            write(*,*) 'Error: ZGESV failed with info = ', lapack_info
+            error stop
+        end if
+        write(*,*) '  ZGESV solve succeeded (2N =', 2*N, ')'
+        deallocate(ipiv)
+
+        ! Diagnostics: solution at boundaries after solve
+        write(*,*) '--- EM solver diagnostics (after solve) ---'
+        write(*,*) '  Phi(1)   = ', b_block(1), '  (should be 0)'
+        write(*,*) '  Phi(N)   = ', b_block(N), '  (should be 0)'
+        write(*,*) '  Apar(1)  = ', b_block(N+1), '  (should be 0)'
+        write(*,*) '  Apar(N)  = ', b_block(2*N), '  (should be Br_bnd/alpha(N))'
+        write(*,*) '  max|Phi| = ', maxval(abs(b_block(1:N)))
+        write(*,*) '  max|Apar|= ', maxval(abs(b_block(N+1:2*N)))
 
         ! Extract solution: solve gives (Phi, A_par), recover Br = alpha * A_par
         allocate(EBdat%Phi(N), EBdat%Apar(N), EBdat%Br(N), EBdat%r_grid(N))
@@ -249,6 +275,8 @@ module rt_electromagnetic_m
         ! Current density
         call calculate_current_density(jpar, EBdat%Phi, EBdat%Br, &
             kernel_j_phi_llp%Kllp, kernel_j_B_llp%Kllp)
+        allocate(EBdat%jpar(N))
+        EBdat%jpar = jpar
         call write_complex_profile_abs(xl_grid%xb, jpar, N, "/fields/jpar", &
             'Parallel current density from self-consistent solve', 'statA/cm^2')
 

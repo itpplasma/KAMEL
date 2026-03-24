@@ -14,7 +14,8 @@ subroutine get_dql
                         , r_resonant, d11_misalign, Es_pert_flux, Ipar
     use plasma_parameters
     use baseparam_mod, only: Z_i, e_charge, am, p_mass, c, e_mass, ev, rtor, pi, rsepar
-    use control_mod, only: irf, suppression_mode, misalign_diffusion, type_of_run, wave_code
+    use control_mod, only: irf, suppression_mode, misalign_diffusion, type_of_run, wave_code, &
+                          jpar_method
     use time_evolution, only: save_prof_time_step, time_ind, br_formfactor, br_vac_res
     use h5mod
     use wave_code_data
@@ -50,6 +51,13 @@ subroutine get_dql
     integer :: ibrabsres, ind_begin_interp, ind_end_interp
     real(dp) :: MI_width
 
+    ! curl(B) current density
+    complex(dp), dimension(:), allocatable :: Jpar_curlB
+    complex(dp) :: Ipar_conductivity, Ipar_curlB
+    ! Temporary B field arrays for curl(B) computation (need fresh FLRE fields)
+    complex(dp), dimension(:), allocatable :: Br_flre, Bt_flre, Bz_flre
+    complex(dp), dimension(:), allocatable :: zeros_dim_r
+
     allocate (dqle11_loc(npoib))
     allocate (dqle12_loc(npoib))
     allocate (dqle21_loc(npoib))
@@ -62,6 +70,10 @@ subroutine get_dql
     if (.not. allocated(d11_misalign)) allocate (d11_misalign(npoib))
     if (.not. allocated(Es_pert_flux)) allocate (Es_pert_flux(npoib))
     if (.not. allocated(Es_pert_flux_temp)) allocate (Es_pert_flux_temp(npoib))
+    allocate(Jpar_curlB(npoib))
+    allocate(Br_flre(npoib), Bt_flre(npoib), Bz_flre(npoib))
+    allocate(zeros_dim_r(npoib))
+    zeros_dim_r = (0.0d0, 0.0d0)
 
     dqle11_loc = 0.0d0
     dqle12_loc = 0.0d0
@@ -319,6 +331,7 @@ subroutine get_dql
         dqli21_loc = dqli21_loc + di21*spec_weight
         dqli22_loc = dqli22_loc + di22*spec_weight
 
+        ! --- Conductivity-based current (sigma*E) ---
         select case (trim(wave_code))
         case ('KiLCA')
             call get_current_densities_from_wave_code(flre_cd_ptr(i_mn), dim_r, r, &
@@ -329,7 +342,48 @@ subroutine get_dql
             error stop "Unknown wave_code: "//trim(wave_code)
         end select
 
-        call integrate_parallel_current(dim_r, r, Jpe, Jpi, r_resonant(i_mn), Ipar)
+        write(*,*) '  --- Ipar (conductivity, sigma*E) ---'
+        call integrate_parallel_current(dim_r, r, Jpe, Jpi, r_resonant(i_mn), Ipar_conductivity)
+
+        ! --- curl(B)-based current (Ampere's law) ---
+        ! Reload full FLRE B field components (Bt, Bz may have been overwritten above)
+        select case (trim(wave_code))
+        case ('KiLCA')
+            call get_wave_fields_from_wave_code(flre_cd_ptr(i_mn), dim_r, r, &
+                m_vals(i_mn), n_vals(i_mn), Er, Es, Ep, Et, Ez, Br_flre, Bs, Bp, Bt_flre, Bz_flre)
+        case ('KIM')
+            Br_flre = kim_Br_modes(:, i_mn)
+            ! KIM stores Et (=Btheta) and Ez via kim_get_wave_fields
+            ! but Bt/Bz are not stored separately — for KIM, the EM solver
+            ! does not output cylindrical B components other than Br.
+            ! Use the conductivity-based current for KIM.
+            Bt_flre = (0.0d0, 0.0d0)
+            Bz_flre = (0.0d0, 0.0d0)
+        end select
+
+        call compute_jpar_curlB(dim_r, r, Br_flre, Bt_flre, Bz_flre, &
+                                B0t, B0z, B0, m_vals(i_mn), n_vals(i_mn), rtor, &
+                                Jpar_curlB)
+        ! compute_jpar_curlB returns Jpar in c=1 Gaussian units.
+        ! Convert to full CGS (multiply by c) so it goes through the
+        ! same integration/antenna_factor pipeline as conductivity Jpar.
+        Jpar_curlB = Jpar_curlB * c
+
+        write(*,*) '  --- Ipar (curlB, Ampere law) ---'
+        call integrate_parallel_current(dim_r, r, Jpar_curlB, zeros_dim_r, &
+            r_resonant(i_mn), Ipar_curlB)
+
+        ! Select which Ipar to use for antenna factor computation
+        select case (trim(jpar_method))
+        case ('curlB')
+            Ipar = Ipar_curlB
+            write(*,*) '  Using curlB Ipar for antenna factor'
+        case ('conductivity')
+            Ipar = Ipar_conductivity
+            write(*,*) '  Using conductivity Ipar for antenna factor'
+        case default
+            error stop "Unknown jpar_method: "//trim(jpar_method)
+        end select
     end do
 
 
@@ -366,6 +420,9 @@ subroutine get_dql
     deallocate (dqli21_loc);
     deallocate (dqli22_loc);
     deallocate (formfactor)
+    deallocate (Jpar_curlB)
+    deallocate (Br_flre, Bt_flre, Bz_flre)
+    deallocate (zeros_dim_r)
 
     call calc_parallel_current_directly
     call calc_ion_parallel_current_directly

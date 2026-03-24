@@ -4,7 +4,8 @@ subroutine read_config
                            readfromtimestep, temperature_limit, gyro_current_study, &
                            misalign_diffusion, equil_path, ihdf5IO, wave_code, &
                            kim_config_path, kim_profiles_from_balance, &
-                           kim_n_modes, kim_m_list, kim_n_list
+                           kim_n_modes, kim_m_list, kim_n_list, &
+                           jpar_method
     use grid_mod, only: rmin, rmax, npoimin, gg_factor, gg_width, gg_r_res, iboutype, rb_cut_in, &
                         re_cut_in, rb_cut_out, re_cut_out
     use h5mod, only: path2inp, path2out, path2time
@@ -28,7 +29,7 @@ subroutine read_config
         misalign_diffusion, equil_path, ihdf5IO, type_of_run, wave_code, &
         set_constant_time_step, constant_time_step, urelax, kim_config_path, &
         kim_profiles_from_balance, kim_n_modes, kim_m_list, kim_n_list, &
-        I_par_toroidal
+        I_par_toroidal, jpar_method
 
     ! read the parameters from namelist file
     open (newunit=u, file=config_file, status="old", action="read", iostat=ios)
@@ -85,6 +86,7 @@ subroutine read_config
     write (*, "(A,L0)") "    set_constant_time_step = ", set_constant_time_step
     write (*, "(A,ES15.8,A)") "    constant_time_step = ", constant_time_step, " s"
     write (*, "(A,ES15.8)") "    urelax = ", urelax
+    write (*, "(A,A)") "    jpar_method = ", trim(adjustl(jpar_method))
     write (*, "(A,A)") "    kim_config_path = ", trim(adjustl(kim_config_path))
     write (*, "(A,L0)") "    kim_profiles_from_balance = ", kim_profiles_from_balance
     write (*, "(A,I0)") "    kim_n_modes = ", kim_n_modes

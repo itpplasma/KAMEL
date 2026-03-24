@@ -8,11 +8,13 @@ module kim_wave_code_adapter_m
     !! All KIM symbols are renamed on import to avoid name clashes.
 
     use species_m, only: kim_plasma => plasma, &
-                        set_profiles_from_arrays, deallocate_plasma_derived
+                        set_profiles_from_arrays, deallocate_plasma_derived, &
+                        set_plasma_quantities
     use equilibrium_m, only: kim_B0 => B0, &
         eq_B0z => B0z, eq_B0th => B0th, &
         eq_hz => hz, eq_hth => hth, eq_equil_grid => equil_grid, &
-        eq_u => u, eq_dpress_prof => dpress_prof
+        eq_u => u, eq_dpress_prof => dpress_prof, &
+        calculate_equil, interpolate_equil
     use config_m, only: kim_type_of_run => type_of_run, &
                         kim_nml_config_path => nml_config_path, &
                         kim_profiles_in_memory => profiles_in_memory, &
@@ -47,8 +49,8 @@ module kim_wave_code_adapter_m
     !! Used for vacuum continuation cutoff and Br boundary condition.
     real(8) :: kim_r_boundary = 0.0d0
 
-    !! Vacuum Br placeholder (filled properly in Task 7)
-    complex(8), allocatable, public :: kim_vac_Br(:)
+    !! Per-mode vacuum Br on QL-Balance grid (dim_r, dim_mn)
+    complex(8), allocatable, public :: kim_vac_Br(:,:)
 
     !! Per-mode stored field results (nrad, dim_mn)
     !! Filled by kim_run_for_all_modes, read by kim_get_wave_fields
@@ -65,8 +67,10 @@ module kim_wave_code_adapter_m
     real(8), allocatable :: kim_kp_modes(:,:)
     real(8), allocatable :: kim_ks_modes(:,:)
 
-    !! Per-mode stored current density (nrad, dim_mn)
+    !! Per-mode stored current densities (nrad, dim_mn)
     complex(8), allocatable :: kim_jpar_modes(:,:)
+    complex(8), allocatable :: kim_jpar_e_modes(:,:)
+    complex(8), allocatable :: kim_jpar_i_modes(:,:)
 
 contains
 
@@ -269,10 +273,15 @@ contains
             deallocate(kim_r, work_old, work_new)
         end if
 
-        ! Vacuum Br placeholder
-        if (allocated(kim_vac_Br)) deallocate(kim_vac_Br)
-        allocate(kim_vac_Br(nrad))
-        kim_vac_Br = (1.0d0, 0.0d0)
+        ! Vacuum Br placeholder (NaN until kim_load_vacuum_fields fills it)
+        block
+            use ieee_arithmetic, only: ieee_value, ieee_quiet_nan
+            real(8) :: nan_val
+            nan_val = ieee_value(1.0d0, ieee_quiet_nan)
+            if (allocated(kim_vac_Br)) deallocate(kim_vac_Br)
+            allocate(kim_vac_Br(nrad, dim_mn))
+            kim_vac_Br = cmplx(nan_val, nan_val, kind=8)
+        end block
 
         write(*, *) "KIM adapter: initialization complete"
         write(*, *) "  Balance grid points: ", nrad
@@ -389,6 +398,8 @@ contains
         if (allocated(kim_kp_modes)) deallocate(kim_kp_modes)
         if (allocated(kim_ks_modes)) deallocate(kim_ks_modes)
         if (allocated(kim_jpar_modes)) deallocate(kim_jpar_modes)
+        if (allocated(kim_jpar_e_modes)) deallocate(kim_jpar_e_modes)
+        if (allocated(kim_jpar_i_modes)) deallocate(kim_jpar_i_modes)
 
         allocate(kim_Es_modes(dim_r, dim_mn))
         allocate(kim_Ep_modes(dim_r, dim_mn))
@@ -399,6 +410,8 @@ contains
         allocate(kim_kp_modes(dim_r, dim_mn))
         allocate(kim_ks_modes(dim_r, dim_mn))
         allocate(kim_jpar_modes(dim_r, dim_mn))
+        allocate(kim_jpar_e_modes(dim_r, dim_mn))
+        allocate(kim_jpar_i_modes(dim_r, dim_mn))
 
         kim_Es_modes = (0.0d0, 0.0d0)
         kim_Ep_modes = (0.0d0, 0.0d0)
@@ -409,6 +422,8 @@ contains
         kim_kp_modes = 0.0d0
         kim_ks_modes = 0.0d0
         kim_jpar_modes = (0.0d0, 0.0d0)
+        kim_jpar_e_modes = (0.0d0, 0.0d0)
+        kim_jpar_i_modes = (0.0d0, 0.0d0)
 
         ! -------------------------------------------------------
         ! 2. Loop over modes: solve and store
@@ -422,9 +437,14 @@ contains
             ! Clean up EBdat from previous solve
             call deallocate_EBdat()
 
-            ! Run electromagnetic solver (grids/equilibrium from kim_initialize)
-            ! NOTE: For multi-mode support, plasma kp/ks/om_E would need
-            ! updating here for modes 2+. Currently correct for single-mode.
+            ! For modes 2+, recompute equilibrium quantities (kp, ks, om_E)
+            ! which depend on the (m, n) mode numbers.
+            if (i_mn > 1) then
+                call calculate_equil(.false.)
+                call set_plasma_quantities(kim_plasma)
+                call interpolate_equil(kim_rg_grid%xb)
+            end if
+
             call kim_instance%run()
 
             ! run() fills kernels, solves coupled Poisson-Ampere, and calls
@@ -469,10 +489,18 @@ contains
             call interp_complex_profile(kim_npts, kim_r, EBdat%Br, &
                 dim_r, bal_r, kim_Br_modes(:, i_mn))
 
-            ! jpar (parallel current density)
+            ! jpar (parallel current density: total, electron, ion)
             if (allocated(EBdat%jpar)) then
                 call interp_complex_profile(kim_npts, kim_r, EBdat%jpar, &
                     dim_r, bal_r, kim_jpar_modes(:, i_mn))
+            end if
+            if (allocated(EBdat%jpar_e)) then
+                call interp_complex_profile(kim_npts, kim_r, EBdat%jpar_e, &
+                    dim_r, bal_r, kim_jpar_e_modes(:, i_mn))
+            end if
+            if (allocated(EBdat%jpar_i)) then
+                call interp_complex_profile(kim_npts, kim_r, EBdat%jpar_i, &
+                    dim_r, bal_r, kim_jpar_i_modes(:, i_mn))
             end if
 
             deallocate(kim_r)
@@ -698,6 +726,8 @@ contains
         if (allocated(EBdat%Phi_MA_ideal))      deallocate(EBdat%Phi_MA_ideal)
         if (allocated(EBdat%Phi_MA_asymptotic)) deallocate(EBdat%Phi_MA_asymptotic)
         if (allocated(EBdat%jpar))              deallocate(EBdat%jpar)
+        if (allocated(EBdat%jpar_e))            deallocate(EBdat%jpar_e)
+        if (allocated(EBdat%jpar_i))            deallocate(EBdat%jpar_i)
 
     end subroutine deallocate_EBdat
 
@@ -735,22 +765,28 @@ contains
 
     subroutine kim_load_vacuum_fields()
         !! Extract vacuum Br from KiLCA vacuum solution (vac_cd_ptr)
-        !! onto the balance grid and store in kim_vac_Br.
+        !! onto the balance grid and store in kim_vac_Br for each mode.
         use wave_code_data, only: dim_r, r, dim_mn, m_vals, n_vals, &
             vac_cd_ptr, Br, Bz
 
         implicit none
 
-        ! Extract vacuum Br for first mode (single-mode for now).
+        integer :: k
+
+        ! Extract vacuum Br for each mode.
         ! get_wave_fields_from_wave_code fills Br; we use Bz as dummy
         ! for all other field components.
-        call get_wave_fields_from_wave_code(vac_cd_ptr(1), dim_r, r, &
-            m_vals(1), n_vals(1), Bz, Bz, Bz, Bz, Bz, Br, Bz, Bz, Bz, Bz)
-        kim_vac_Br = Br
+        do k = 1, dim_mn
+            call get_wave_fields_from_wave_code(vac_cd_ptr(k), dim_r, r, &
+                m_vals(k), n_vals(k), Bz, Bz, Bz, Bz, Bz, Br, Bz, Bz, Bz, Bz)
+            kim_vac_Br(:, k) = Br
+        end do
 
-        write(*,*) 'KIM adapter: loaded vacuum Br from KiLCA'
-        write(*,*) '  |Br_vac| at r_min = ', abs(kim_vac_Br(1)), ' at r=', r(1)
-        write(*,*) '  |Br_vac| at r_max = ', abs(kim_vac_Br(dim_r)), ' at r=', r(dim_r)
+        write(*,*) 'KIM adapter: loaded vacuum Br from KiLCA for ', dim_mn, ' modes'
+        do k = 1, dim_mn
+            write(*,*) '  mode ', k, ': |Br_vac| at r_max = ', &
+                abs(kim_vac_Br(dim_r, k)), ' at r=', r(dim_r)
+        end do
 
         call kim_check_domain_consistency()
 
@@ -809,13 +845,13 @@ contains
             w = 0.0d0
         end if
 
-        Br_vac_at_bc = (1.0d0 - w) * kim_vac_Br(i_lo) &
-                     + w * kim_vac_Br(i_hi)
+        Br_vac_at_bc = (1.0d0 - w) * kim_vac_Br(i_lo, 1) &
+                     + w * kim_vac_Br(i_hi, 1)
 
-        write(*,*) '  Vacuum Br at r_boundary (linear interp):'
+        write(*,*) '  Vacuum Br at r_boundary (linear interp, mode 1):'
         write(*,*) '    r_lo=', r(i_lo), ' r_hi=', r(i_hi), ' w=', w
-        write(*,*) '    |Br_vac(r_lo)| = ', abs(kim_vac_Br(i_lo))
-        write(*,*) '    |Br_vac(r_hi)| = ', abs(kim_vac_Br(i_hi))
+        write(*,*) '    |Br_vac(r_lo)| = ', abs(kim_vac_Br(i_lo, 1))
+        write(*,*) '    |Br_vac(r_hi)| = ', abs(kim_vac_Br(i_hi, 1))
         write(*,*) '    |Br_vac(r_bc)| = ', abs(Br_vac_at_bc)
         write(*,*) '    Re(Br)    = ', real(Br_vac_at_bc)
         write(*,*) '    Im(Br)    = ', aimag(Br_vac_at_bc)
@@ -829,17 +865,19 @@ contains
     end subroutine kim_check_domain_consistency
 
     subroutine kim_get_current_densities(i_mn)
-        !! Copy per-mode stored parallel current density from
-        !! kim_jpar_modes into the wave_code_data J arrays for mode i_mn.
-        !! KIM provides total jpar; it goes into Jpi, rest is zeroed.
+        !! Copy per-mode stored parallel current densities from
+        !! kim_jpar_e_modes / kim_jpar_i_modes into the wave_code_data
+        !! J arrays for mode i_mn. KIM computes species-resolved
+        !! currents via separate electron and ion kernels.
         use wave_code_data, only: Jpi, Jpe, Jri, Jre, Jsi, Jse
 
         implicit none
 
         integer, intent(in) :: i_mn
 
-        Jpi = kim_jpar_modes(:, i_mn)
-        Jpe = (0.0d0, 0.0d0)
+        Jpe = kim_jpar_e_modes(:, i_mn)
+        Jpi = kim_jpar_i_modes(:, i_mn)
+        ! KIM does not compute radial/perpendicular current components
         Jri = (0.0d0, 0.0d0)
         Jre = (0.0d0, 0.0d0)
         Jsi = (0.0d0, 0.0d0)
@@ -874,11 +912,11 @@ contains
             write(*,*) '    Last KIM point:  r=', bal_r(i_last_kim), &
                        ' |Br_KIM|=', abs(kim_Br_modes(i_last_kim, i_mn))
             write(*,*) '    First vac point: r=', bal_r(i_last_kim+1), &
-                       ' |Br_vac|=', abs(kim_vac_Br(i_last_kim+1))
+                       ' |Br_vac|=', abs(kim_vac_Br(i_last_kim+1, i_mn))
             write(*,*) '    Vac Br at last KIM r: |Br_vac|=', &
-                       abs(kim_vac_Br(i_last_kim))
+                       abs(kim_vac_Br(i_last_kim, i_mn))
             write(*,*) '    Value jump: |Br_KIM - Br_vac| = ', &
-                       abs(kim_Br_modes(i_last_kim, i_mn) - kim_vac_Br(i_last_kim))
+                       abs(kim_Br_modes(i_last_kim, i_mn) - kim_vac_Br(i_last_kim, i_mn))
         end if
 
         do i = i_last_kim + 1, nrad
@@ -889,7 +927,7 @@ contains
             kim_Et_modes(i, i_mn) = (0.0d0, 0.0d0)
             kim_Ez_modes(i, i_mn) = (0.0d0, 0.0d0)
             ! Total Br = vacuum Br beyond plasma
-            kim_Br_modes(i, i_mn) = kim_vac_Br(i)
+            kim_Br_modes(i, i_mn) = kim_vac_Br(i, i_mn)
             ! Wave vectors not physical in vacuum
             kim_kp_modes(i, i_mn) = 0.0d0
             kim_ks_modes(i, i_mn) = 0.0d0

@@ -16,7 +16,9 @@ module fields_m
         complex(dp), allocatable :: Ez(:)
         complex(dp), allocatable :: Es(:) ! E "senkrecht", i.e. perpendicular to radial and parallel direction
         complex(dp), allocatable :: Ep(:) ! parallel to the equilibrium magnetic field
-        complex(dp), allocatable :: jpar(:) ! parallel current density
+        complex(dp), allocatable :: jpar(:)   ! total parallel current density
+        complex(dp), allocatable :: jpar_e(:) ! electron parallel current density
+        complex(dp), allocatable :: jpar_i(:) ! ion parallel current density (sum over ion species)
         complex(dp), allocatable :: Phi(:)
         complex(dp), allocatable :: Phi_e(:)
         complex(dp), allocatable :: Phi_i(:)

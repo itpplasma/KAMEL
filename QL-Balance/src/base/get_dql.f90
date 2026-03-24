@@ -129,6 +129,8 @@ subroutine get_dql
         if (irf .eq. 1) call kim_update_profiles()
         if (irf .eq. 1) call kim_run_for_all_modes()
         ! B0 and collision freqs already set in kim_initialize
+    case default
+        error stop "Unknown wave_code: "//trim(wave_code)
     end select
 
     !  nu_e=15.4d-6*params_b(1,:)/sqrt(params_b(3,:)/ev)**3            &
@@ -161,6 +163,8 @@ subroutine get_dql
         case ('KIM')
             call kim_get_wave_vectors(i_mn)
             call kim_get_wave_fields(i_mn)
+        case default
+            error stop "Unknown wave_code: "//trim(wave_code)
         end select
         om_E = ks * c * dPhi0 / B0
         vT_e = sqrt(params_b(3, :)/e_mass)
@@ -218,6 +222,8 @@ subroutine get_dql
                                                 m_vals(i_mn), n_vals(i_mn), Er, Es, Ep, Et, Ez, Br, Bs, Bp, Bt, Bz)
             case ('KIM')
                 call kim_get_wave_fields(i_mn)  ! already loaded, but refresh
+            case default
+                error stop "Unknown wave_code: "//trim(wave_code)
             end select
 
             ! caluclate part of perpendicular electric field perturbation that comes from
@@ -250,7 +256,9 @@ subroutine get_dql
             call get_wave_fields_from_wave_code(vac_cd_ptr(i_mn), dim_r, r, &
                                                 m_vals(i_mn), n_vals(i_mn), Bz, Bz, Bz, Bz, Bz, Br, Bz, Bz, Bz, Bz)
         case ('KIM')
-            Br = kim_vac_Br
+            Br = kim_vac_Br(:, i_mn)
+        case default
+            error stop "Unknown wave_code: "//trim(wave_code)
         end select
         formfactor = (1.d0, 0.d0)/Br
 
@@ -283,6 +291,8 @@ subroutine get_dql
                                                 m_vals(i_mn), n_vals(i_mn), Bz, Bz, Bz, Bz, Bz, Br, Bz, Bz, Bz, Bz)
         case ('KIM')
             Br = kim_Br_modes(:, i_mn)
+        case default
+            error stop "Unknown wave_code: "//trim(wave_code)
         end select
         formfactor = Br * formfactor
 
@@ -315,6 +325,8 @@ subroutine get_dql
                                 m_vals(i_mn), n_vals(i_mn), Jri, Jsi, Jpi, Jre, Jse, Jpe)
         case ('KIM')
             call kim_get_current_densities(i_mn)
+        case default
+            error stop "Unknown wave_code: "//trim(wave_code)
         end select
 
         call integrate_parallel_current(dim_r, r, Jpe, Jpi, r_resonant(i_mn), Ipar)

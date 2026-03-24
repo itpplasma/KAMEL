@@ -390,6 +390,7 @@ subroutine check_linear_discr_pen_ratio
         br_stopping, discr_reached, br_abs, br_predicted, write_br_dqle22_time_data, write_kin_prof_data_to_disk
     use control_mod, only: suppression_mode
     use h5mod, only: write_reason_for_stop_to_h5
+    use writeData_m, only: write_fields_currs_transp_coefs_to_h5
 
     implicit none
 
@@ -407,7 +408,7 @@ subroutine check_linear_discr_pen_ratio
             write(*,*) 'discrepancy to linearly predicted value of Br_abs_res > delta'
             if (modulo(time_ind, save_prof_time_step) .ne. 0) then
                 if (suppression_mode .eqv. .false.) then
-                    CALL write_fields_currs_transp_coefs_to_h5
+                    call write_fields_currs_transp_coefs_to_h5(time_ind)
                 end if
             end if
             if (suppression_mode .eqv. .false.) then

@@ -1,16 +1,29 @@
-subroutine write_fields_currs_transp_coefs_to_h5
+module writeData_m
+    use QLBalance_kinds, only: dp
+
+    implicit none
+    private
+
+    public :: write_fields_currs_transp_coefs_to_h5
+    public :: writefort9999
+    public :: writefort9999_stellarator
+    public :: write_D_one_over_nu_to_h5
+
+contains
+
+subroutine write_fields_currs_transp_coefs_to_h5(time_ind)
     use grid_mod, only: npoib, dqle11, dqle12, dqle22, dqli11, dqli12, dqli22, &
                         T_EM_phi_e, T_EM_phi_i
-    use baseparam_mod, only: e_charge, p_mass, c, e_mass, ev
+    use baseparam_mod, only: c
     use control_mod, only: ihdf5IO, data_verbosity, misalign_diffusion
     use logger_m, only: log_debug
     use wave_code_data
     use QLbalance_diag, only: iunit_diag
-    use time_evolution, only: time_ind
     use h5mod
 
     implicit none
 
+    integer, intent(in) :: time_ind
     integer :: ipoi
     character(len=1024) :: tempch
 
@@ -145,20 +158,19 @@ subroutine write_dql_Br_Jp_profiles_to_hdf5(tempch)
 
 end subroutine
 
-subroutine writefort9999
+subroutine writefort9999(dqle11_prev, dqli11_prev)
 
     use grid_mod, only: dqle11, dqli11, rb, rc, npoib
     use QLbalance_diag, only: timscal_dql, timscal_dqli, ind_dqle, ind_dqli
-    use time_evolution, only: dqle11_prev, dqli11_prev, determine_Dql_diagnostic
     use h5mod
     use logger_m, only: log_debug
 
     implicit none
 
+    real(dp), dimension(:), intent(in) :: dqle11_prev
+    real(dp), dimension(:), intent(in) :: dqli11_prev
     integer :: ipoi
     character(256) :: buf
-
-    call determine_Dql_diagnostic
 
     write(buf, '(A,ES12.4,A,ES12.4)') 'timscal_dqle = ', &
         sngl(timscal_dql), ' timscal_dqli = ', sngl(timscal_dqli)
@@ -197,20 +209,19 @@ subroutine writefort9999
 
 end subroutine
 
-subroutine writefort9999_stellarator
+subroutine writefort9999_stellarator(dqle11_prev, dqli11_prev)
 
     use grid_mod, only: dqle11, dqli11, rb, rc, npoib
     use QLbalance_diag, only: timscal_dql, timscal_dqli, ind_dqle, ind_dqli
-    use time_evolution_stellarator, only: dqle11_prev, dqli11_prev, determine_Dql_diagnostic
     use h5mod
     use logger_m, only: log_debug
 
     implicit none
 
+    real(dp), dimension(:), intent(in) :: dqle11_prev
+    real(dp), dimension(:), intent(in) :: dqli11_prev
     integer :: ipoi
     character(256) :: buf
-
-    call determine_Dql_diagnostic
 
     write(buf, '(A,ES12.4,A,ES12.4)') 'timscal_dqle = ', &
         sngl(timscal_dql), ' timscal_dqli = ', sngl(timscal_dqli)
@@ -249,15 +260,15 @@ subroutine writefort9999_stellarator
 
 end subroutine
 
-subroutine write_D_one_over_nu_to_h5
+subroutine write_D_one_over_nu_to_h5(time_ind)
 
     use grid_mod, only: Donue11, Donue12, Donue21, Donue22, &
         Donui11, Donui12, Donui21, Donui22
     use h5mod
-    use time_evolution, only: time_ind
 
     implicit none
 
+    integer, intent(in) :: time_ind
     character(256) :: tempch
     tempch = "/"//trim(h5_mode_groupname)//"/LinearProfiles"
     write (tempch, '(A,"/",I0,"/")') trim(tempch), time_ind
@@ -284,3 +295,5 @@ subroutine write_D_one_over_nu_to_h5
     CALL h5_close(h5_id)
     CALL h5_deinit()
 end subroutine
+
+end module writeData_m

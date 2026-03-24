@@ -121,6 +121,7 @@ module time_evolution_stellarator
         use transp_coeffs_mod, only: rescale_transp_coeffs_by_ant_fac
         use recstep_mod, only: timstep_arr
         use grid_mod, only: Ipar
+        use writeData_m, only: writefort9999_stellarator
 
         implicit none
 
@@ -148,7 +149,7 @@ module time_evolution_stellarator
             call message_Br_Dqle_values
 
             if (data_verbosity >= 2) then
-                call writefort9999_stellarator
+                call writefort9999_stellarator(dqle11_prev, dqli11_prev)
             end if
 
             if (.true.) then

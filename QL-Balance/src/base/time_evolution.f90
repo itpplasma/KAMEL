@@ -175,11 +175,11 @@ module time_evolution
         use baseparam_mod, only: factolmax, factolred
         use plasma_parameters, only: params, params_beg, params_begbeg, limit_temps_from_below
         use logger_m, only: log_debug
-        use recstep_mod, only: timstep_arr
-        use recstep_mod, only: tol
+        use recstep_mod, only: timstep_arr, tol
         use restart_mod, only: redostep
         use transp_coeffs_mod, only: rescale_transp_coeffs_by_ant_fac, &
             compute_antenna_factor_from_Ipar
+        use writeData_m, only: writefort9999
 
         implicit none
 
@@ -200,7 +200,7 @@ module time_evolution
         call message_Br_Dqle_values
 
         if (data_verbosity >= 2) then
-            call writefort9999
+            call writefort9999(dqle11_prev, dqli11_prev)
         end if
 
         if (.true.) then
@@ -446,6 +446,7 @@ module time_evolution
 
 
     subroutine check_linear_discr_pen_ratio
+        use writeData_m, only: write_fields_currs_transp_coefs_to_h5
 
         implicit none
 
@@ -463,7 +464,7 @@ module time_evolution
                 write(*,*) 'discrepancy to linearly predicted value of Br_abs_res > delta'
                 if (modulo(time_ind, save_prof_time_step) .ne. 0) then
                     if (suppression_mode .eqv. .false.) then
-                        CALL write_fields_currs_transp_coefs_to_h5
+                        call write_fields_currs_transp_coefs_to_h5(time_ind)
                     end if
                 end if
                 if (suppression_mode .eqv. .false.) then

@@ -26,6 +26,7 @@ subroutine get_dql
     use QLBalance_kinds, only: dp
     use PolyLagrangeInterpolation
     use logger_m, only: log_debug
+    use writeData_m, only: write_fields_currs_transp_coefs_to_h5, write_D_one_over_nu_to_h5
 
     implicit none
 
@@ -487,8 +488,8 @@ subroutine get_dql
 
     if (modulo(time_ind, save_prof_time_step) .eq. 0) then
         if (suppression_mode .eqv. .false.) then
-            call write_fields_currs_transp_coefs_to_h5
-            call write_D_one_over_nu_to_h5
+            call write_fields_currs_transp_coefs_to_h5(time_ind)
+            call write_D_one_over_nu_to_h5(time_ind)
         end if
     end if
 

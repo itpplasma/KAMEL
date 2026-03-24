@@ -18,6 +18,7 @@ module control_mod
     logical :: debug_mode
     logical :: suppression_mode    ! added by Markus Markl 13.04.2021
     logical :: misalign_diffusion ! trigger the calculation and addition of the diffusion due to misaligned equipotentials and flux surfaces
+    character(len=32) :: jpar_method = 'conductivity'  ! 'conductivity' or 'curlB'
     logical :: diagnostics_output
     logical :: write_gyro_current
     integer :: irf

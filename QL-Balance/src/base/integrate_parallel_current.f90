@@ -165,3 +165,76 @@ subroutine integrate_parallel_current(dim_r, r, Jpe, Jpi, r_res_in, Ipar)
     write(*,*) '  Re(Ipar)= ', real(Ipar), ' Im(Ipar)= ', aimag(Ipar)
 
 end subroutine
+
+
+subroutine compute_jpar_curlB(dim_r, r, Br_in, Bt_in, Bz_in, &
+                               B0t_in, B0z_in, B0_in, &
+                               m_mode, n_mode, Rtor, &
+                               Jpar_curlB)
+!
+!  Compute parallel current density from curl(B)/(4*pi) (Ampere's law).
+!  This matches the Matlab KiLCA_postprocessor convention.
+!
+!  In Gaussian CGS with c=1:
+!    J = curl(B) / (4*pi)
+!  Cylindrical components:
+!    Jr  = i/(4*pi) * (kth * Bz - kz * Bth)
+!    Jth = 1/(4*pi) * (i*kz * Br - dBz/dr)
+!    Jz  = 1/(4*pi) * (Bth/r + dBth/dr - i*kth * Br)
+!  Parallel projection:
+!    Jpar = (Jth * B0th + Jz * B0z) / B0
+!
+    use QLBalance_kinds, only: dp
+
+    implicit none
+
+    integer, intent(in) :: dim_r
+    real(dp), intent(in) :: r(dim_r)
+    complex(dp), intent(in) :: Br_in(dim_r), Bt_in(dim_r), Bz_in(dim_r)
+    real(dp), intent(in) :: B0t_in(dim_r), B0z_in(dim_r), B0_in(dim_r)
+    integer, intent(in) :: m_mode, n_mode
+    real(dp), intent(in) :: Rtor
+    complex(dp), intent(out) :: Jpar_curlB(dim_r)
+
+    complex(dp) :: Jr, Jth, Jz
+    real(dp) :: kth, kz, fourpi
+    complex(dp) :: dBt_dr, dBz_dr
+    real(dp) :: dr_l, dr_r
+    integer :: i
+
+    fourpi = 16.0d0 * atan(1.0d0)
+    kz = dble(n_mode) / Rtor
+
+    do i = 1, dim_r
+        kth = dble(m_mode) / r(i)
+
+        ! Numerical r-derivatives of Bt and Bz (central differences, one-sided at boundaries)
+        if (i == 1) then
+            dBt_dr = (Bt_in(2) - Bt_in(1)) / (r(2) - r(1))
+            dBz_dr = (Bz_in(2) - Bz_in(1)) / (r(2) - r(1))
+        else if (i == dim_r) then
+            dBt_dr = (Bt_in(dim_r) - Bt_in(dim_r-1)) / (r(dim_r) - r(dim_r-1))
+            dBz_dr = (Bz_in(dim_r) - Bz_in(dim_r-1)) / (r(dim_r) - r(dim_r-1))
+        else
+            dr_l = r(i) - r(i-1)
+            dr_r = r(i+1) - r(i)
+            ! Non-uniform central difference
+            dBt_dr = (Bt_in(i+1) * dr_l**2 - Bt_in(i-1) * dr_r**2 &
+                     + Bt_in(i) * (dr_r**2 - dr_l**2)) &
+                     / (dr_l * dr_r * (dr_l + dr_r))
+            dBz_dr = (Bz_in(i+1) * dr_l**2 - Bz_in(i-1) * dr_r**2 &
+                     + Bz_in(i) * (dr_r**2 - dr_l**2)) &
+                     / (dr_l * dr_r * (dr_l + dr_r))
+        end if
+
+        ! curl(B)/(4*pi) in cylindrical coordinates (c=1 Gaussian)
+        Jr  = cmplx(0.0d0, 1.0d0, dp) / fourpi * (kth * Bz_in(i) - kz * Bt_in(i))
+        Jth = 1.0d0 / fourpi * (cmplx(0.0d0, 1.0d0, dp) * kz * Br_in(i) - dBz_dr)
+        Jz  = 1.0d0 / fourpi * (Bt_in(i) / r(i) + dBt_dr &
+               - cmplx(0.0d0, 1.0d0, dp) * kth * Br_in(i))
+
+        ! Parallel projection
+        Jpar_curlB(i) = (Jth * B0t_in(i) + Jz * B0z_in(i)) / B0_in(i)
+    end do
+
+end subroutine compute_jpar_curlB

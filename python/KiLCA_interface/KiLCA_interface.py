@@ -1,4 +1,5 @@
 import copy
+import glob
 import inspect
 import os
 import subprocess as sp
@@ -338,6 +339,13 @@ class KiLCA_interface:
         m = [self.run_type, "vacuum", "vacuum"]
         self.set_zones(r, b, m)
 
+    @staticmethod
+    def _force_symlink(source, link_name):
+        """Create a symlink, removing any existing file/link at the destination."""
+        if os.path.islink(link_name) or os.path.exists(link_name):
+            os.unlink(link_name)
+        os.symlink(source, link_name)
+
     def write(self):
         """
         Description:
@@ -347,20 +355,26 @@ class KiLCA_interface:
         self.check_profile_consistency()
 
         # create paths if they are not there
-        os.system("mkdir -p " + self.path)
-        os.system("mkdir -p " + self.path_of_profiles)
-        os.system("mkdir -p " + self.path_of_run)
+        os.makedirs(self.path, exist_ok=True)
+        os.makedirs(self.path_of_profiles, exist_ok=True)
+        os.makedirs(self.path_of_run, exist_ok=True)
 
         # delete all existing input files
-        os.system("rm -f " + self.path + "background.in")
-        os.system("rm -f " + self.path + "eigmode.in")
-        os.system("rm -f " + self.path + "modes.in")
-        os.system("rm -f " + self.path + "output.in")
-        os.system("rm -f " + self.path_of_run + "antenna.in")
-        os.system("rm -f " + self.path_of_run + "zone*.in")
+        for f in ["background.in", "eigmode.in", "modes.in", "output.in"]:
+            p = os.path.join(self.path, f)
+            if os.path.exists(p):
+                os.remove(p)
+        antenna_path = os.path.join(self.path_of_run, "antenna.in")
+        if os.path.exists(antenna_path):
+            os.remove(antenna_path)
+        for p in glob.glob(os.path.join(self.path_of_run, "zone*.in")):
+            os.remove(p)
 
         # create sym link to exe
-        os.system("ln -sf " + self.EXEC_PATH + " " + self.path_of_run + "run_local")
+        run_local_path = os.path.join(self.path_of_run, "run_local")
+        if os.path.islink(run_local_path) or os.path.exists(run_local_path):
+            os.unlink(run_local_path)
+        os.symlink(self.EXEC_PATH, run_local_path)
         # create symbolic link to profiles directory
         # Safety check: path_of_run must be set and not be empty or just 'profiles'
         path_of_run_stripped = self.path_of_run.rstrip("/")
@@ -413,47 +427,27 @@ class KiLCA_interface:
         self.antenna.write(self.BLUE_PATH + self.antenna.BLUEPRINT, self.path_of_run)
 
         self.background.write(self.BLUE_PATH + self.background.BLUEPRINT, self.path)
-        os.system(
-            "ln -sf "
-            + os.path.abspath(self.path)
-            + "/"
-            + self.background.BLUEPRINT
-            + " "
-            + self.path_of_run
-            + self.background.BLUEPRINT
+        self._force_symlink(
+            os.path.join(os.path.abspath(self.path), self.background.BLUEPRINT),
+            os.path.join(self.path_of_run, self.background.BLUEPRINT),
         )
 
         self.eigmode.write(self.BLUE_PATH + self.eigmode.BLUEPRINT, self.path)
-        os.system(
-            "ln -sf "
-            + os.path.abspath(self.path)
-            + "/"
-            + self.eigmode.BLUEPRINT
-            + " "
-            + self.path_of_run
-            + self.eigmode.BLUEPRINT
+        self._force_symlink(
+            os.path.join(os.path.abspath(self.path), self.eigmode.BLUEPRINT),
+            os.path.join(self.path_of_run, self.eigmode.BLUEPRINT),
         )
 
         self.output.write(self.BLUE_PATH + self.output.BLUEPRINT, self.path)
-        os.system(
-            "ln -sf "
-            + os.path.abspath(self.path)
-            + "/"
-            + self.output.BLUEPRINT
-            + " "
-            + self.path_of_run
-            + self.output.BLUEPRINT
+        self._force_symlink(
+            os.path.join(os.path.abspath(self.path), self.output.BLUEPRINT),
+            os.path.join(self.path_of_run, self.output.BLUEPRINT),
         )
 
         self.modes.write(self.path)
-        os.system(
-            "ln -sf "
-            + os.path.abspath(self.path)
-            + "/"
-            + self.modes.BLUEPRINT
-            + " "
-            + self.path_of_run
-            + self.modes.BLUEPRINT
+        self._force_symlink(
+            os.path.join(os.path.abspath(self.path), self.modes.BLUEPRINT),
+            os.path.join(self.path_of_run, self.modes.BLUEPRINT),
         )
 
         for k in range(0, len(self.zones)):

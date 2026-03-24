@@ -33,8 +33,10 @@ subroutine initialize_wave_code_interface(nrad, r_grid)
 
     use wave_code_data
     use h5mod
-    use control_mod, only: readfromtimestep, debug_mode, ihdf5IO, wave_code
-    use kim_wave_code_adapter_m, only: kim_initialize
+    use control_mod, only: readfromtimestep, debug_mode, ihdf5IO, wave_code, &
+                           kim_profiles_from_balance, kim_n_modes, kim_m_list, kim_n_list, &
+                           type_of_run
+    use kim_wave_code_adapter_m, only: kim_initialize, kim_load_vacuum_fields
 
     implicit none
 
@@ -77,13 +79,46 @@ subroutine initialize_wave_code_interface(nrad, r_grid)
         call get_collision_frequences_from_wave_code(vac_cd_ptr(1), dim_r, r, nui, nue);
         vac_call_ind = vac_call_ind + 1;
 
-        ! Enable interface mode: KiLCA gets profiles directly from QL-Balance for all run types
-        ! that use initialize_wave_code_interface. This is set AFTER vacuum field initialization
-        ! to preserve original file-based behavior there.
-        call set_flag_for_profiles_in_background_input_file(trim(flre_path), -1)
+        ! Enable interface mode: KiLCA gets profiles directly from QL-Balance.
+        ! For SingleStep, profiles don't evolve so file-based reading (calc_back=1)
+        ! is both sufficient and numerically more robust (avoids interpolation chain).
+        if (trim(type_of_run) /= 'SingleStep') then
+            call set_flag_for_profiles_in_background_input_file(trim(flre_path), -1)
+        end if
 
     case ('KIM')
+        if (kim_profiles_from_balance) then
+            ! Set modes from balance namelist (no modes.in needed)
+            dim_mn = kim_n_modes
+            allocate(m_vals(dim_mn), n_vals(dim_mn))
+            m_vals(1:dim_mn) = kim_m_list(1:dim_mn)
+            n_vals(1:dim_mn) = kim_n_list(1:dim_mn)
+
+            call allocate_wave_code_data(nrad, r_grid)
+
+            ! Read QL-Balance profiles (same as KiLCA path)
+            if (ihdf5IO .eq. 1) then
+                if (readfromtimestep .eq. 0) then
+                    call read_background_profiles_h5
+                else
+                    call read_background_profiles_h5_timeevol(readfromtimestep)
+                end if
+            else
+                call read_background_profiles(profile_path)
+            end if
+            call interp_background_profiles()
+        end if
         call kim_initialize(nrad, r_grid)
+
+        ! Load vacuum solution from KiLCA vacuum run
+        do k = 1, dim_mn
+            call clear_wave_code_data(vac_cd_ptr(k))
+            call calc_wave_code_data_for_mode(vac_cd_ptr(k), &
+                trim(vac_path), len(trim(vac_path)), m_vals(k), n_vals(k))
+        end do
+
+        ! Fill kim_vac_Br from vacuum solution and check domain consistency
+        call kim_load_vacuum_fields()
 
     case default
         write(*,*) "ERROR: Unknown wave_code: ", trim(wave_code)

@@ -3,13 +3,14 @@ subroutine read_config
     use control_mod, only: eps, paramscan, diagnostics_output, suppression_mode, debug_mode, &
                            readfromtimestep, temperature_limit, gyro_current_study, &
                            misalign_diffusion, equil_path, ihdf5IO, wave_code, &
-                           kim_config_path
+                           kim_config_path, kim_profiles_from_balance, &
+                           kim_n_modes, kim_m_list, kim_n_list
     use grid_mod, only: rmin, rmax, npoimin, gg_factor, gg_width, gg_r_res, iboutype, rb_cut_in, &
                         re_cut_in, rb_cut_out, re_cut_out
     use h5mod, only: path2inp, path2out, path2time
     use paramscan_mod, only: viscosity_factor
     use time_evolution
-    use wave_code_data, only: flre_path, vac_path, antenna_factor
+    use wave_code_data, only: flre_path, vac_path, antenna_factor, I_par_toroidal
 
     implicit none
 
@@ -25,7 +26,9 @@ subroutine read_config
         suppression_mode, debug_mode, readfromtimestep, path2time, ramp_up_mode, t_max_ramp_up, &
         temperature_limit, antenna_max_stopping, gyro_current_study, viscosity_factor, &
         misalign_diffusion, equil_path, ihdf5IO, type_of_run, wave_code, &
-        set_constant_time_step, constant_time_step, urelax, kim_config_path
+        set_constant_time_step, constant_time_step, urelax, kim_config_path, &
+        kim_profiles_from_balance, kim_n_modes, kim_m_list, kim_n_list, &
+        I_par_toroidal
 
     ! read the parameters from namelist file
     open (newunit=u, file=config_file, status="old", action="read", iostat=ios)
@@ -55,6 +58,7 @@ subroutine read_config
     write (*, "(A,ES15.8)") "    tmax_factor = ", tmax_factor
     write (*, "(A,ES15.8)") "    timstep_min = ", timstep_min
     write (*, "(A,ES15.8)") "    antenna_factor = ", antenna_factor
+    write (*, "(A,ES15.8)") "    I_par_toroidal = ", I_par_toroidal
     write (*, "(A,I0)") "    iboutype = ", iboutype
     write (*, "(A,ES15.8)") "    eps = ", eps
     write (*, "(A,ES15.8)") "    dperp = ", dperp
@@ -82,6 +86,12 @@ subroutine read_config
     write (*, "(A,ES15.8,A)") "    constant_time_step = ", constant_time_step, " s"
     write (*, "(A,ES15.8)") "    urelax = ", urelax
     write (*, "(A,A)") "    kim_config_path = ", trim(adjustl(kim_config_path))
+    write (*, "(A,L0)") "    kim_profiles_from_balance = ", kim_profiles_from_balance
+    write (*, "(A,I0)") "    kim_n_modes = ", kim_n_modes
+    if (kim_n_modes > 0) then
+        write (*, "(A,100I5)") "    kim_m_list = ", kim_m_list(1:kim_n_modes)
+        write (*, "(A,100I5)") "    kim_n_list = ", kim_n_list(1:kim_n_modes)
+    end if
     write (*, *) ""
     write (*, *) "================================================================================="
 end subroutine read_config

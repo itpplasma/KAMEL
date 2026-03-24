@@ -32,11 +32,21 @@ subroutine write_fields_currs_transp_coefs_to_h5
                             real(Br), lbound(Br), ubound(Br))
         CALL h5_add_double_1(h5_id, trim(tempch)//"Br_Im", &
                             dimag(Br), lbound(Br), ubound(Br))
+        CALL h5_add_double_1(h5_id, trim(tempch)//"Es_abs", &
+                            abs(Es), lbound(Es), ubound(Es))
 
         CALL h5_add_double_1(h5_id, trim(tempch)//"Jpe_abs", &
                             abs(Jpe), lbound(Jpe), ubound(Jpe))
+        CALL h5_add_double_1(h5_id, trim(tempch)//"Jpe_Re", &
+                            real(Jpe), lbound(Jpe), ubound(Jpe))
+        CALL h5_add_double_1(h5_id, trim(tempch)//"Jpe_Im", &
+                            dimag(Jpe), lbound(Jpe), ubound(Jpe))
         CALL h5_add_double_1(h5_id, trim(tempch)//"Jpi_abs", &
                             abs(Jpi), lbound(Jpi), ubound(Jpi))
+        CALL h5_add_double_1(h5_id, trim(tempch)//"Jpi_Re", &
+                            real(Jpi), lbound(Jpi), ubound(Jpi))
+        CALL h5_add_double_1(h5_id, trim(tempch)//"Jpi_Im", &
+                            dimag(Jpi), lbound(Jpi), ubound(Jpi))
         CALL h5_add_double_1(h5_id, trim(tempch)//"dqle22", &
                                 dqle22, lbound(dqle22), ubound(dqle22))
 

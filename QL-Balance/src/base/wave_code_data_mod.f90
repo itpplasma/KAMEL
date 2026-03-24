@@ -69,6 +69,7 @@ module wave_code_data
     real(8), allocatable, dimension(:) :: rVz, iVz; !cm/c
     real(8), allocatable, dimension(:) :: rep, idPhi0; !electric potential, Gauss units
     double precision :: antenna_factor
+    double precision :: I_par_toroidal = 0.0d0
 
     character(1024) :: path2profs = './profiles/'; ! path to background profiles
 end module

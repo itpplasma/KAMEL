@@ -1,7 +1,7 @@
 CONFIG ?= Release
 INSTALL_KIM_SYMLINK ?= OFF
 
-.PHONY: all ninja test clean KIM KiLCA QL-Balance PreProc install install-kim
+.PHONY: all ninja test clean KIM KiLCA QL-Balance PreProc install install-kim ctest golden pytest
 
 all: ninja
 
@@ -23,11 +23,15 @@ QL-Balance: build/build.ninja
 PreProc:
 	$(MAKE) -C PreProc/fourier
 
-test: ninja
-	ctest --test-dir build --stop-on-failure --output-on-failure
+test: ninja golden
+	ctest --test-dir build --stop-on-failure --output-on-failure --no-label-summary
+
+golden: ninja
+	$(MAKE) -C test/ql-balance/golden_record
 
 clean:
 	rm -rf build
+	$(MAKE) -C test/ql-balance/golden_record clean
 
 install: ninja
 	cmake --install build

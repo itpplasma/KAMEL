@@ -1,7 +1,14 @@
 import os
 
-import f90nml
 import numpy as np
+
+try:
+    import f90nml
+except ModuleNotFoundError as exc:
+    raise ModuleNotFoundError(
+        "f90nml is required for balance_interface. Install it with "
+        "`python3 -m pip install f90nml`."
+    ) from exc
 
 
 class balance_conf:

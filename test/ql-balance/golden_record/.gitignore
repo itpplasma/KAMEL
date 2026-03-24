@@ -1,0 +1,7 @@
+# Generated files - do not commit
+main_ref/
+runfolder/
+golden.h5
+__pycache__/
+*.pyc
+.pytest_cache/

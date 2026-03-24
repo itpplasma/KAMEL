@@ -33,7 +33,8 @@ class QL_Balance_interface:
             input_file (str): Name of the input file (hdf5).
         """
 
-        self.run_path = run_path
+        # Normalize to ensure a trailing separator for string concatenation paths.
+        self.run_path = os.path.join(os.fspath(run_path), "")
         self.shot = shot
         self.time = time
         self.name = name

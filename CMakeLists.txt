@@ -110,6 +110,9 @@ add_subdirectory(QL-Balance)
 # Preprocessing tools
 add_subdirectory(PreProc/fourier)
 
+# Integration and regression tests (Python-based)
+add_subdirectory(test)
+
 # Install symbolic link for KIM if requested
 if(INSTALL_KIM_SYMLINK)
     # Create a custom target to install the symlink

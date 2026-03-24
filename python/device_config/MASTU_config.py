@@ -1,9 +1,6 @@
 import os
 
-import matplotlib.pyplot as plt
-import numpy as np
-
-DATA = os.environ["DATA"]
+DATA = os.environ.get("DATA", "")
 
 
 class MASTU_config:

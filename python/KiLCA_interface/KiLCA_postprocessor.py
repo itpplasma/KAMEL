@@ -281,7 +281,7 @@ class KiLCA_postprocessor:
         self.Ipar = (
             2
             * np.pi
-            * np.trapz(
+            * np.trapezoid(
                 self.Jpar[ind_lower:ind_upper] * self.r[ind_lower:ind_upper],
                 self.r[ind_lower:ind_upper],
             )

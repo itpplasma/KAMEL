@@ -77,7 +77,8 @@ module paramscan_mod
 
     subroutine runParameterScan(this)
 
-        use transp_coeffs_mod, only: rescale_transp_coeffs_by_ant_fac
+        use transp_coeffs_mod, only: rescale_transp_coeffs_by_ant_fac, &
+            compute_antenna_factor_from_Ipar
         use plasma_parameters, only: alloc_hold_parameters
 
         implicit none
@@ -105,6 +106,7 @@ module paramscan_mod
                         print *, "Before get dql"
                         call get_dql
                         print *, "Before rescale transp"
+                        call compute_antenna_factor_from_Ipar
                         call rescale_transp_coeffs_by_ant_fac
                         print *, "Before interpolate Br Dql"
                         call interpolate_Br_Dql_at_res_parscan

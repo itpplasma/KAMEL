@@ -135,7 +135,7 @@ subroutine calc_transport_coeffs_ornuhl(dim, vT, nu, D_11, D_12, D_21, D_22)
 
     implicit none
 
-    integer :: i
+    integer :: i, i_res
     integer, parameter :: mnmax = 3
     integer, intent(in) :: dim
     real(dp), dimension(dim), intent(in) :: vT, nu
@@ -160,6 +160,29 @@ subroutine calc_transport_coeffs_ornuhl(dim, vT, nu, D_11, D_12, D_21, D_22)
 !brm2=1.0d0 !vT**2*abs(Br)**2
 !epbr_re=0.0d0 !2.d0*c*vT*real(conjg(Es)*Br)
 !epbr_im=0.0d0 !2.d0*c*vT*dimag(conjg(Es)*Br)
+
+    ! DIAGNOSTIC: print D_22 terms at resonance
+    ! Find grid index closest to resonance
+    i_res = 1
+    do i = 2, dim
+        if (abs(rb(i) - r_resonant(i_mn_loop)) .lt. abs(rb(i_res) - r_resonant(i_mn_loop))) i_res = i
+    end do
+    write(*,*) '--- D_22 terms at resonance (i=', i_res, ', r=', rb(i_res), ') ---'
+    write(*,*) '  |Es| at res    = ', abs(Es(i_res))
+    write(*,*) '  |Br| at res    = ', abs(Br(i_res))
+    write(*,*) '  B0  at res     = ', B0(i_res)
+    write(*,*) '  nu  at res     = ', nu(i_res)
+    write(*,*) '  vT  at res     = ', vT(i_res)
+    write(*,*) '  kp  at res     = ', kp(i_res)
+    write(*,*) '  om_E at res    = ', om_E(i_res)
+    write(*,*) '  comfac at res  = ', comfac(i_res)
+    write(*,*) '  epm2 at res    = ', epm2(i_res), '  (c^2*|Es|^2)'
+    write(*,*) '  brm2 at res    = ', brm2(i_res), '  (vT^2*|Br|^2)'
+    write(*,*) '  epbr_re at res = ', epbr_re(i_res)
+    write(*,*) '  --- Approximate D_22 ~ comfac*(epm2 + brm2) ---'
+    write(*,*) '  epm2 contrib   = ', comfac(i_res)*epm2(i_res)
+    write(*,*) '  brm2 contrib   = ', comfac(i_res)*brm2(i_res)
+    write(*,*) ''
 
     x1 = kp*vT/nu
     x2 = -om_E/nu

@@ -7,6 +7,11 @@ module control_mod
     character(100) :: type_of_run
     character(len=32) :: wave_code = 'KiLCA'  ! 'KiLCA' or 'KIM'
     character(len=1024) :: kim_config_path = './KIM_config.nml'
+    logical :: kim_profiles_from_balance = .true.
+    integer, parameter :: kim_max_modes = 100
+    integer :: kim_n_modes = 0
+    integer :: kim_m_list(100) = 0
+    integer :: kim_n_list(100) = 0
     integer :: ihdf5IO ! added: Markus Markl
     logical :: paramscan ! added: Markus Markl, 03.03.2021
     logical :: timing_mode         ! added by Markus Markl 06.04.2021

@@ -19,7 +19,8 @@ subroutine get_dql
     use h5mod
     use wave_code_data
     use kim_wave_code_adapter_m, only: kim_update_profiles, kim_run_for_all_modes, &
-        kim_get_wave_fields, kim_get_wave_vectors, kim_vac_Br, kim_Br_modes
+        kim_get_wave_fields, kim_get_wave_vectors, kim_vac_Br, kim_Br_modes, &
+        kim_get_current_densities
     use QLBalance_diag, only: i_mn_loop
     use QLBalance_kinds, only: dp
     use PolyLagrangeInterpolation
@@ -167,6 +168,33 @@ subroutine get_dql
 
         i_mn_loop = i_mn
 
+        ! DIAGNOSTIC: compare field magnitudes between wave codes
+        write(*,*) ''
+        write(*,*) '========== FIELD DIAGNOSTICS (mode ', i_mn, ') =========='
+        write(*,*) '  wave_code      = ', trim(wave_code)
+        write(*,*) '  m/n            = ', m_vals(i_mn), '/', n_vals(i_mn)
+        write(*,*) '  r_resonant     = ', r_resonant(i_mn)
+        write(*,*) '  --- Peak field amplitudes ---'
+        write(*,*) '  max|Es|        = ', maxval(abs(Es))
+        write(*,*) '  max|Br|        = ', maxval(abs(Br))
+        write(*,*) '  max|Er|        = ', maxval(abs(Er))
+        write(*,*) '  max|Ep|        = ', maxval(abs(Ep))
+        write(*,*) '  max|Et|        = ', maxval(abs(Et))
+        write(*,*) '  max|Ez|        = ', maxval(abs(Ez))
+        write(*,*) '  --- Background quantities ---'
+        write(*,*) '  max B0         = ', maxval(B0)
+        write(*,*) '  max |kp|       = ', maxval(abs(kp))
+        write(*,*) '  max |ks|       = ', maxval(abs(ks))
+        write(*,*) '  max |om_E|     = ', maxval(abs(om_E))
+        write(*,*) '  max nue        = ', maxval(nue)
+        write(*,*) '  max nui        = ', maxval(nui)
+        write(*,*) '  --- D_22 input terms (at peak |Es| location) ---'
+        write(*,*) '  c^2*max|Es|^2  = ', c**2 * maxval(abs(Es))**2
+        write(*,*) '  vTe^2*max|Br|^2= ', maxval(vT_e)**2 * maxval(abs(Br))**2
+        write(*,*) '  0.5/(nue*B0^2) = ', 0.5d0/(maxval(nue)*maxval(B0)**2)
+        write(*,*) '================================================='
+        write(*,*) ''
+
         ! TODO: add switch to choose calculation of collisionless transport coefficients.
         if (.false.) then
             call calc_transport_coeffs_collisionless(npoib, vT_e, de11, de12, de22)
@@ -226,6 +254,12 @@ subroutine get_dql
         end select
         formfactor = (1.d0, 0.d0)/Br
 
+        ! DIAGNOSTIC: vacuum Br values
+        write(*,*) '  --- Vacuum Br ---'
+        write(*,*) '  |Br_vac| at r_min    = ', abs(Br(1)), ' at r=', r(1)
+        write(*,*) '  |Br_vac| at r_max    = ', abs(Br(dim_r)), ' at r=', r(dim_r)
+        write(*,*) '  max|Br_vac|          = ', maxval(abs(Br))
+
         ! In case that the tmhd code uses double sided Fourier series, it
         ! must be set to 4.0d0, since the factor 2.0d0 should occur in the fields.
         spec_weight = 1.0d0
@@ -252,6 +286,13 @@ subroutine get_dql
         end select
         formfactor = Br * formfactor
 
+        ! DIAGNOSTIC: Br_total and formfactor = Br_total/Br_vac
+        write(*,*) '  --- Br_total (self-consistent / full response) ---'
+        write(*,*) '  |Br_total| at r_max  = ', abs(Br(dim_r)), ' at r=', r(dim_r)
+        write(*,*) '  max|Br_total|        = ', maxval(abs(Br))
+        write(*,*) '  |formfactor| at r_max= ', abs(formfactor(dim_r))
+        write(*,*) '  max|formfactor|      = ', maxval(abs(formfactor))
+
         ! todo: interpolate formfactor at resonant surface and write out. This is Brtot/Brvac at the resonant surface
         if (trim(type_of_run) .eq. "TimeEvolution") then !TODO: this is a very bad solution... Make it better
             if (time_ind > 0) then
@@ -273,17 +314,10 @@ subroutine get_dql
             call get_current_densities_from_wave_code(flre_cd_ptr(i_mn), dim_r, r, &
                                 m_vals(i_mn), n_vals(i_mn), Jri, Jsi, Jpi, Jre, Jse, Jpe)
         case ('KIM')
-            ! KIM only provides total jpar; approximate Jpe with it, zero rest
-            ! TODO: improve when KIM provides per-species currents
-            Jpe = (0.0d0, 0.0d0)
-            Jpi = (0.0d0, 0.0d0)
-            Jre = (0.0d0, 0.0d0)
-            Jri = (0.0d0, 0.0d0)
-            Jse = (0.0d0, 0.0d0)
-            Jsi = (0.0d0, 0.0d0)
+            call kim_get_current_densities(i_mn)
         end select
 
-        call integrate_parallel_current(dim_r, r, Jpe, Jpi, Ipar)
+        call integrate_parallel_current(dim_r, r, Jpe, Jpi, r_resonant(i_mn), Ipar)
     end do
 
 

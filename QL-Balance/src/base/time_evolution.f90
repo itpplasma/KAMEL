@@ -79,7 +79,8 @@ module time_evolution
     subroutine initTimeEvolution(this)
 
         use recstep_mod, only: tol
-        use transp_coeffs_mod, only: rescale_transp_coeffs_by_ant_fac
+        use transp_coeffs_mod, only: rescale_transp_coeffs_by_ant_fac, &
+            compute_antenna_factor_from_Ipar
         use grid_mod, only: mwind, rmax, rmin, set_boundary_condition, npoib, rb
         use baseparam_mod, only: dperp, tol_max
         use QLbalance_diag, only: write_diag, write_diag_b
@@ -152,6 +153,7 @@ module time_evolution
 
         call alloc_Br_Dqle_for_timeevol
         call get_dql
+        call compute_antenna_factor_from_Ipar
         call rescale_transp_coeffs_by_ant_fac
         call hold_prev_transp_coeffs
 
@@ -174,7 +176,8 @@ module time_evolution
         use recstep_mod, only: timstep_arr
         use recstep_mod, only: tol
         use restart_mod, only: redostep
-        use transp_coeffs_mod, only: rescale_transp_coeffs_by_ant_fac
+        use transp_coeffs_mod, only: rescale_transp_coeffs_by_ant_fac, &
+            compute_antenna_factor_from_Ipar
 
         implicit none
 
@@ -186,6 +189,7 @@ module time_evolution
         redostep = .false.
 
         call get_dql
+        call compute_antenna_factor_from_Ipar
         call rescale_transp_coeffs_by_ant_fac
         call interp_Br_Dql_at_resonance_timeevol
         call determine_Dql_diagnostic

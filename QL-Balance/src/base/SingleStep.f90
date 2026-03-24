@@ -63,7 +63,8 @@ module singleStep
 
     subroutine runSingleStep(this)
 
-        use transp_coeffs_mod, only: rescale_transp_coeffs_by_ant_fac
+        use transp_coeffs_mod, only: rescale_transp_coeffs_by_ant_fac, &
+            compute_antenna_factor_from_Ipar
         use control_mod, only: debug_mode
 
         implicit none
@@ -77,6 +78,7 @@ module singleStep
         if (debug_mode) write(*,*) "Debug: before get_dql"
         call get_dql
         if (debug_mode) write(*,*) "Debug: after get_dql"
+        call compute_antenna_factor_from_Ipar
         call rescale_transp_coeffs_by_ant_fac
 
         call interp_Br_Dql_at_res

@@ -7,7 +7,7 @@
 
     use grid_mod
     use plasma_parameters
-    use control_mod, only: debug_mode
+    use control_mod, only: debug_mode, wave_code, kim_n_modes, kim_m_list, kim_n_list
     use PolyLagrangeInterpolation
 
     implicit none
@@ -174,7 +174,7 @@ subroutine prepare_resonances
 
     use resonances_mod
     use grid_mod, only: gg_width, gg_factor,r_resonant
-    use control_mod, only: ihdf5IO, debug_mode
+    use control_mod, only: ihdf5IO, debug_mode, wave_code, kim_n_modes, kim_m_list, kim_n_list
     use h5mod
 
     implicit none
@@ -228,56 +228,98 @@ subroutine prepare_resonances
     qmin=minval(q)
     qmax=maxval(q)
 
-    open(iunit_res,file='flre/antenna.in')
-    read(iunit_res,*)
-    read(iunit_res,*)
-    read(iunit_res,*)
-    read(iunit_res,*)
-    read(iunit_res,*)
-    read(iunit_res,*) numres
-    close(iunit_res)
-    if (debug_mode) write(*,*) "numres = ", numres
+    if (trim(wave_code) == 'KIM') then
+        ! KIM mode: read mode list from namelist parameters
+        numres = kim_n_modes
+        if (debug_mode) write(*,*) "numres = ", numres
 
-    allocate(r_res(numres),width_res(numres),ampl_res(numres))
-    allocate(r_resonant(numres))
-    width_res=gg_width
-    ampl_res=gg_factor
-    allocate(m_a(numres),n_a(numres))
-    allocate(m_aa(numres),n_aa(numres))
-    numres_orig=numres
+        allocate(r_res(numres),width_res(numres),ampl_res(numres))
+        allocate(r_resonant(numres))
+        width_res=gg_width
+        ampl_res=gg_factor
+        allocate(m_a(numres),n_a(numres))
+        allocate(m_aa(numres),n_aa(numres))
+        numres_orig=numres
 
-    open(iunit_res,file='flre/modes.in')
-    k=1
-    jj=1
-    read(iunit_res,*) a
-    m=nint(real(a))
-    n=abs(nint(imag(a)))
-    m_a(k)=m
-    n_a(k)=n
-    m_aa(jj)=m
-    n_aa(jj)=n
-    r_res(k)=abs(dfloat(m)/dfloat(n))
-    outer: do i=2,numres
+        k=1
+        jj=1
+        m = kim_m_list(1)
+        n = abs(kim_n_list(1))
+        m_a(k) = m
+        n_a(k) = n
+        m_aa(jj) = m
+        n_aa(jj) = n
+        r_res(k) = abs(dfloat(m)/dfloat(n))
+        outer_kim: do i=2,numres
+            m = kim_m_list(i)
+            n = abs(kim_n_list(i))
+            qres = abs(dfloat(m)/dfloat(n))
+            if(qres.lt.qmin.or.qres.gt.qmax) cycle
+            jj=jj+1
+            m_aa(jj) = m
+            n_aa(jj) = n
+            do j=1,k
+              if(m*n_a(j)-n*m_a(j).eq.0) cycle outer_kim
+            enddo
+            k=k+1
+            m_a(k) = m
+            n_a(k) = n
+            r_res(k) = qres
+        enddo outer_kim
+        numres=k
+    else
+        ! KiLCA mode: read mode list from flre/antenna.in and flre/modes.in
+        open(iunit_res,file='flre/antenna.in')
+        read(iunit_res,*)
+        read(iunit_res,*)
+        read(iunit_res,*)
+        read(iunit_res,*)
+        read(iunit_res,*)
+        read(iunit_res,*) numres
+        close(iunit_res)
+        if (debug_mode) write(*,*) "numres = ", numres
+
+        allocate(r_res(numres),width_res(numres),ampl_res(numres))
+        allocate(r_resonant(numres))
+        width_res=gg_width
+        ampl_res=gg_factor
+        allocate(m_a(numres),n_a(numres))
+        allocate(m_aa(numres),n_aa(numres))
+        numres_orig=numres
+
+        open(iunit_res,file='flre/modes.in')
+        k=1
+        jj=1
         read(iunit_res,*) a
-        m=-abs(nint(real(a)))
+        m=nint(real(a))
         n=abs(nint(imag(a)))
-        qres=abs(dfloat(m)/dfloat(n))
-        !check for existence of resonant point:
-        if(qres.lt.qmin.or.qres.gt.qmax) cycle
-        !check for repeated resonance radii:
-        jj=jj+1
-        m_aa(jj)=m
-        n_aa(jj)=n
-        do j=1,k
-          if(m*n_a(j)-n*m_a(j).eq.0) cycle outer
-        enddo
-        k=k+1
         m_a(k)=m
         n_a(k)=n
-        r_res(k)=qres
-    enddo outer
-    close(iunit_res)
-    numres=k
+        m_aa(jj)=m
+        n_aa(jj)=n
+        r_res(k)=abs(dfloat(m)/dfloat(n))
+        outer: do i=2,numres
+            read(iunit_res,*) a
+            m=-abs(nint(real(a)))
+            n=abs(nint(imag(a)))
+            qres=abs(dfloat(m)/dfloat(n))
+            !check for existence of resonant point:
+            if(qres.lt.qmin.or.qres.gt.qmax) cycle
+            !check for repeated resonance radii:
+            jj=jj+1
+            m_aa(jj)=m
+            n_aa(jj)=n
+            do j=1,k
+              if(m*n_a(j)-n*m_a(j).eq.0) cycle outer
+            enddo
+            k=k+1
+            m_a(k)=m
+            n_a(k)=n
+            r_res(k)=qres
+        enddo outer
+        close(iunit_res)
+        numres=k
+    end if
 
     do i=1,numres
         qres=r_res(i)

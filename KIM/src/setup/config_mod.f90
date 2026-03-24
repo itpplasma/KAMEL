@@ -36,6 +36,8 @@ module config_m
 
     character(256) :: nml_config_path = "./KIM_config.nml" ! path to the namelist file
 
+    logical :: profiles_in_memory = .false.  ! When true, skip file-based profile reading
+
     logical :: rescale_density
     real(dp) :: number_density_rescale
     real(dp) :: ion_flr_scale_factor

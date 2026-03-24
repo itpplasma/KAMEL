@@ -52,7 +52,7 @@ module poisson_solver_m
             call write_A_matrix_sparse_check_to_file
         end if
 
-        sparse_solve_method = 1
+        sparse_solve_method = 3  ! SuiteSparse (shared sparse lib does not support SuperLU=1)
         sparse_solver_option = 0
 
         call create_rhs_vector(type_br_field, K_rho_B, b_vec)

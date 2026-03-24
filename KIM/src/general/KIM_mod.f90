@@ -14,7 +14,7 @@ module kim_mod_m
 
         implicit none
 
-        character(100), intent(in) :: type_of_run
+        character(*), intent(in) :: type_of_run
         class(kim_t), allocatable, intent(out) :: kim_instance
 
         select case(trim(type_of_run))

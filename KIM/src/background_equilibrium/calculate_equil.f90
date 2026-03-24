@@ -52,6 +52,14 @@ module equilibrium_m
 
             if(.not. allocated(coef)) allocate(coef(0:nder, nlagr))
 
+            if (allocated(u)) deallocate(u)
+            if (allocated(B0z)) deallocate(B0z)
+            if (allocated(dpress_prof)) deallocate(dpress_prof)
+            if (allocated(B0th)) deallocate(B0th)
+            if (allocated(B0)) deallocate(B0)
+            if (allocated(hz)) deallocate(hz)
+            if (allocated(hth)) deallocate(hth)
+            if (allocated(equil_grid)) deallocate(equil_grid)
             allocate(u(plasma%grid_size), &
                     B0z(plasma%grid_size), &
                     dpress_prof(plasma%grid_size), &
@@ -104,6 +112,10 @@ module equilibrium_m
                 info(1) = 1
             end do
 
+            if (allocated(plasma%B0)) deallocate(plasma%B0)
+            if (allocated(plasma%ks)) deallocate(plasma%ks)
+            if (allocated(plasma%kp)) deallocate(plasma%kp)
+            if (allocated(plasma%om_E)) deallocate(plasma%om_E)
             allocate(plasma%B0(plasma%grid_size))
             allocate(plasma%ks(plasma%grid_size))
             allocate(plasma%kp(plasma%grid_size))

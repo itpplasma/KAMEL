@@ -12,7 +12,7 @@ subroutine kim_init_for_test
     integer :: i
     real(dp) :: h
 
-    call read_config
+    call kim_read_config
 
     iprof_length = 100
 

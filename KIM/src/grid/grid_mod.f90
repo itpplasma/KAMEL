@@ -133,6 +133,7 @@ module grid_m
         this%npts_c = this%npts_b - 1
         this%min_val = min_val
         this%max_val = max_val
+        if (allocated(this%name)) deallocate(this%name)
         allocate(character(len=len(name)) :: this%name)
         this%name = name
 
@@ -157,6 +158,7 @@ module grid_m
         this%npts_b = npts
         this%min_val = min_val
         this%max_val = max_val
+        if (allocated(this%name)) deallocate(this%name)
         allocate(character(len=len(name)) :: this%name)
         this%name = name
 
@@ -203,6 +205,8 @@ module grid_m
         real(dp), dimension(:,:), allocatable :: coef
         real(dp) :: recnsp
 
+        if (allocated(this%xb)) deallocate(this%xb)
+        if (allocated(this%xc)) deallocate(this%xc)
         allocate(this%xb(this%npts_b), this%xc(this%npts_c))
         allocate(coef(0:nder,npoi_der))
 
@@ -229,6 +233,11 @@ module grid_m
             stop
         endif
 
+        if (allocated(this%deriv_coef)) deallocate(this%deriv_coef)
+        if (allocated(this%deriv2_coef)) deallocate(this%deriv2_coef)
+        if (allocated(this%reint_coef)) deallocate(this%reint_coef)
+        if (allocated(this%ipbeg)) deallocate(this%ipbeg)
+        if (allocated(this%ipend)) deallocate(this%ipend)
         allocate(this%deriv_coef(npoi_der, this%npts_b))
         allocate(this%deriv2_coef(npoi_der, this%npts_b))
         allocate(this%reint_coef(npoi_der, this%npts_b))
@@ -272,6 +281,8 @@ module grid_m
         integer :: ipoib, ipb, ipe
         real(dp), dimension(:,:), allocatable :: coef
 
+        if (allocated(this%xb)) deallocate(this%xb)
+        if (allocated(this%xc)) deallocate(this%xc)
         allocate(this%xb(this%npts_b), this%xc(this%npts_c))
 
         h = (this%max_val - this%min_val) / this%npts_b
@@ -295,6 +306,11 @@ module grid_m
             stop
         endif
 
+        if (allocated(this%deriv_coef)) deallocate(this%deriv_coef)
+        if (allocated(this%deriv2_coef)) deallocate(this%deriv2_coef)
+        if (allocated(this%reint_coef)) deallocate(this%reint_coef)
+        if (allocated(this%ipbeg)) deallocate(this%ipbeg)
+        if (allocated(this%ipend)) deallocate(this%ipend)
         allocate(this%deriv_coef(npoi_der, this%npts_c))
         allocate(this%deriv2_coef(npoi_der, this%npts_c))
         allocate(this%reint_coef(npoi_der, this%npts_c))

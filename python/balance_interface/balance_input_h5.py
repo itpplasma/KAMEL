@@ -62,4 +62,4 @@ class Balance_Input_h5:
     def write_fac_with_bound_info(self, file, dataset, data):
         ds = file.create_dataset(dataset, data=data)
         ds.attrs["lbounds"] = [1]
-        ds.attrs["ubounds"] = [len(data[0])]
+        ds.attrs["ubounds"] = [len(data)]

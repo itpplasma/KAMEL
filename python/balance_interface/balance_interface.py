@@ -196,6 +196,7 @@ class QL_Balance_interface:
         self.kil_flre = KiLCA_interface(self.shot, self.time, self.run_path, "flre", self.machine)
         self.kil_flre.set_machine(delta_r_antenna=self.delta_r_antenna, a_minor=a_minor)
         self.kil_flre.background.data["Btor"] = Btor
+        self.kil_flre.background.data["vgalsys"] = -1e8
 
         self.kil_flre.set_modes(self.m_mode, self.n_mode)
         self.kil_flre.antenna.data["flab"] = [1.0, 0.0]
@@ -204,13 +205,7 @@ class QL_Balance_interface:
         self.kil_flre_post = KiLCA_postprocessor(self.kil_flre)
         self.I_KiLCA = self.get_KiLCA_current()
 
-        kil_vac = KiLCA_interface(self.shot, self.time, self.run_path, "vacuum", self.machine)
-        kil_vac.background.data["Btor"] = Btor
-        kil_vac.set_machine(delta_r_antenna=self.delta_r_antenna, a_minor=a_minor)
-        kil_vac.set_modes(self.m_mode, self.n_mode)
-        kil_vac.antenna.data["flab"] = [1.0, 0.0]
-        kil_vac.write()
-        kil_vac.run()
+        self.prepare_vacuum_kilca(Btor, a_minor)
         if self.debug:
             print("D: Finished KiLCA preperation")
 
@@ -278,6 +273,44 @@ class QL_Balance_interface:
         grp.create_dataset("jpar", data=self.jpar_kilca)
         grp.create_dataset("layer_width", data=[self.layer_width])
         h5f.close()
+
+    def prepare_balance_kim(self, Btor, a_minor):
+        """Prepare QL-Balance for KIM mode with vacuum solution.
+
+        When wave_code='KIM', the Fortran QL-Balance code calls KIM internally.
+        We prepare the HDF5 input (profiles + Da), run the KiLCA vacuum solver
+        (needed for vacuum fields beyond the plasma), and set up the output file.
+        """
+        if self.debug:
+            print("D: Prepare balance for KIM mode")
+        self.check_if_factors_set()
+        self.prepare_input_h5_without_kilca()
+        self.prepare_vacuum_kilca(Btor, a_minor)
+        self.prepare_output_h5()
+        self.link_executable()
+
+    def prepare_vacuum_kilca(self, Btor, a_minor):
+        """Run KiLCA vacuum solver only (no plasma response)."""
+        if self.debug:
+            print("D: Running KiLCA vacuum solver")
+        kil_vac = KiLCA_interface(self.shot, self.time, self.run_path, "vacuum", self.machine)
+        kil_vac.set_machine(delta_r_antenna=self.delta_r_antenna, a_minor=a_minor)
+        kil_vac.background.data["Btor"] = Btor
+        kil_vac.background.data["vgalsys"] = -1e8
+        kil_vac.set_modes(self.m_mode, self.n_mode)
+        kil_vac.antenna.data["flab"] = [1.0, 0.0]
+        kil_vac.write()
+        kil_vac.run()
+        if self.debug:
+            print("D: KiLCA vacuum solver finished")
+
+    def prepare_input_h5_without_kilca(self):
+        """Prepare input HDF5 with profiles and Da only (no KiLCA data)."""
+        self.input_h5 = Balance_Input_h5(
+            self.input_h5_file, os.path.join(self.run_path, "profiles/")
+        )
+        self.input_h5.get_required_data()
+        self.input_h5.write_data_to_h5(self.input_h5_file, self.facs)
 
     def run_balance(self, suppress_console_output=True):
         """Run the balance code."""

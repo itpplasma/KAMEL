@@ -38,12 +38,12 @@
  timstep_min = 1.d-30 ,
  paramscan = .false. ,
  save_prof_time_step = 10 , ! save the profile every "save_prov_time_step"th step
- diagnostics_output = .false. ,
+ data_verbosity = 1 ,
  ! The Br stopping criterion checks the discrepancy between the Br value
  ! and a linear regression thereof
  br_stopping = .true. ,
  suppression_mode = .true. ,
- debug_mode = .false. ,
+ log_level = 3 ,
  readfromtimestep = 0 ,
  path2time = ' ' ,
  ramp_up_mode = 0, ! ramp up mode, if 0 no faster ramp up

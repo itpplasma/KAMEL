@@ -1,6 +1,6 @@
 subroutine read_config
     use baseparam_mod, only: btor, rtor, rsepar, dperp, Z_i, am, urelax
-    use control_mod, only: eps, paramscan, diagnostics_output, suppression_mode, debug_mode, &
+    use control_mod, only: eps, paramscan, data_verbosity, suppression_mode, log_level, &
                            readfromtimestep, temperature_limit, gyro_current_study, &
                            misalign_diffusion, equil_path, ihdf5IO, wave_code, &
                            kim_config_path, kim_profiles_from_balance, &
@@ -12,6 +12,7 @@ subroutine read_config
     use paramscan_mod, only: viscosity_factor
     use time_evolution
     use wave_code_data, only: flre_path, vac_path, antenna_factor, I_par_toroidal
+    use logger_m, only: set_log_level
 
     implicit none
 
@@ -23,8 +24,8 @@ subroutine read_config
     namelist /BALANCENML/ flre_path, vac_path, btor, rtor, rmin, rmax, rsepar, npoimin, gg_factor, &
         gg_width, gg_r_res, Nstorage, tmax_factor, antenna_factor, iboutype, eps, dperp, Z_i, am, &
         rb_cut_in, re_cut_in, rb_cut_out, re_cut_out, stop_time_step, path2inp, path2out, &
-        timstep_min, paramscan, save_prof_time_step, diagnostics_output, br_stopping, &
-        suppression_mode, debug_mode, readfromtimestep, path2time, ramp_up_mode, t_max_ramp_up, &
+        timstep_min, paramscan, save_prof_time_step, data_verbosity, br_stopping, &
+        suppression_mode, log_level, readfromtimestep, path2time, ramp_up_mode, t_max_ramp_up, &
         temperature_limit, antenna_max_stopping, gyro_current_study, viscosity_factor, &
         misalign_diffusion, equil_path, ihdf5IO, type_of_run, wave_code, &
         set_constant_time_step, constant_time_step, urelax, kim_config_path, &
@@ -37,6 +38,8 @@ subroutine read_config
     read (u, nml=BALANCENML, iostat=ios)
     if (ios /= 0) error stop "Failed to read namelist"
     close (u)
+
+    call set_log_level(log_level)
 
     write (*, *) ""
     write (*, *) "================================================================================="
@@ -69,9 +72,9 @@ subroutine read_config
     write (*, "(A,A)") "    path2inp = ", trim(adjustl(path2inp))
     write (*, "(A,A)") "    path2out = ", trim(adjustl(path2out))
     write (*, "(A,L0)") "    paramscan = ", paramscan
-    write (*, "(A,L0)") "    diagnostics_output = ", diagnostics_output
+    write (*, "(A,I0)") "    data_verbosity = ", data_verbosity
     write (*, "(A,L0)") "    br_stopping = ", br_stopping
-    write (*, "(A,L0)") "    debug_mode = ", debug_mode
+    write (*, "(A,I0)") "    log_level = ", log_level
     write (*, "(A,I0)") "    readfromtimestep = ", readfromtimestep
     write (*, "(A,L0)") "    suppression_mode = ", suppression_mode
     write (*, "(A,I0)") "    ramp_up_mode = ", ramp_up_mode

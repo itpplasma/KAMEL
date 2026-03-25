@@ -116,9 +116,8 @@ contains
         call print_config_line('Output Path', trim(output_path), width)
         call print_bool_line('HDF5 Input', hdf5_input, width)
         call print_bool_line('HDF5 Output', hdf5_output, width)
-        call print_config_line('Debug Level', get_debug_string(fdebug), width)
-        call print_config_line('Status Level', get_status_string(fstatus), width)
-        call print_config_line('Diagnostics Level', get_status_string(fdiagnostics), width)
+        call print_config_line('Log Level', get_log_level_string(log_level), width)
+        call print_config_line('Data Verbosity', get_data_verbosity_string(data_verbosity), width)
 
         ! Display Physics Configuration
         call print_section_header('PHYSICS CONFIGURATION', width)
@@ -335,43 +334,53 @@ contains
 
     ! Helper functions
 
-    function get_debug_string(level) result(str)
+    function get_log_level_string(level) result(str)
+        use logger_m, only: LVL_SILENT, LVL_RESULT, LVL_ERROR, LVL_WARNING, &
+                            LVL_INFO, LVL_DEBUG, LVL_TRACE
+        implicit none
+        integer, intent(in) :: level
+        character(len=20) :: str
+
+        select case(level)
+        case(LVL_SILENT)
+            str = 'Silent'
+        case(LVL_RESULT)
+            str = 'Result'
+        case(LVL_ERROR)
+            str = 'Error'
+        case(LVL_WARNING)
+            str = 'Warning'
+        case(LVL_INFO)
+            str = 'Info'
+        case(LVL_DEBUG)
+            str = 'Debug'
+        case(LVL_TRACE)
+            str = 'Trace'
+        case default
+            write(str, '(A,I0)') 'Level ', level
+        end select
+
+    end function get_log_level_string
+
+    function get_data_verbosity_string(level) result(str)
         implicit none
         integer, intent(in) :: level
         character(len=20) :: str
 
         select case(level)
         case(0)
-            str = 'Off'
+            str = 'Minimal'
         case(1)
-            str = 'Basic'
+            str = 'Standard'
         case(2)
             str = 'Detailed'
         case(3)
-            str = 'Verbose'
+            str = 'Full'
         case default
             write(str, '(A,I0)') 'Level ', level
         end select
 
-    end function get_debug_string
-
-    function get_status_string(level) result(str)
-        implicit none
-        integer, intent(in) :: level
-        character(len=20) :: str
-
-        select case(level)
-        case(0)
-            str = 'Silent'
-        case(1)
-            str = 'Normal'
-        case(2)
-            str = 'Verbose'
-        case default
-            write(str, '(A,I0)') 'Level ', level
-        end select
-
-    end function get_status_string
+    end function get_data_verbosity_string
 
     function get_grid_type(gtype) result(str)
         implicit none

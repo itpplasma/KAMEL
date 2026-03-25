@@ -44,7 +44,8 @@ module equilibrium_m
             use species_m, only: plasma, calc_plasma_parameter_derivs
             use constants_m, only: ev, pi, sol
             use setup_m, only: btor, R0, m_mode, n_mode
-            use config_m
+            use config_m, only: number_of_ion_species, output_path, hdf5_output
+            use logger_m, only: log_info, log_warning
 
             implicit none
 
@@ -71,7 +72,7 @@ module equilibrium_m
 
             equil_grid = plasma%r_grid ! for future modifications
 
-            if (fstatus == 1) write(*,*) 'Status: Calculating equilibrium, write_out=', write_out
+            call log_info('Calculating equilibrium')
             if (.not. allocated(plasma%spec(0)%dndr)) then
                 call calc_plasma_parameter_derivs
             end if
@@ -106,7 +107,14 @@ module equilibrium_m
                 call ddeabm(dudr, ineq, radius0, u0, r1, info, rtol, atol, idid, rwork, lrw, &
                             iwork, liw, rpar, ipar)
 
-                if (idid .lt. 1) write(*,*) 'Warning: calculate_equil: r=', r1, ' idid=', idid
+                if (idid .lt. 1) then
+                    block
+                        character(len=100) :: wbuf
+                        write(wbuf, '(A,ES12.5,A,I0)') &
+                            'calculate_equil: r=', r1, ' idid=', idid
+                        call log_warning(trim(wbuf))
+                    end block
+                end if
 
                 u(i) = u0
                 info(1) = 1
@@ -177,12 +185,11 @@ module equilibrium_m
 
                 subroutine write_equil
 
-                    use config_m, only: output_path, hdf5_output, fstatus
                     use IO_collection_m, only: write_profile
 
                     implicit none
 
-                    if(fstatus == 1) write(*,*) 'Status: Writing equilibrium'
+                    call log_info('Writing equilibrium')
 
                     call write_profile(equil_grid, B0z, size(equil_grid), 'backs/B0z', &
                                         'z component of equilibrium magnetic field', 'G')

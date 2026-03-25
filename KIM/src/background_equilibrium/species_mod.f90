@@ -91,6 +91,7 @@ module species_m
     subroutine init_plasma(plasma_in)
 
         use config_m, only: read_species_from_namelist, plasma_type
+        use logger_m, only: log_error
 
         implicit none
 
@@ -105,8 +106,7 @@ module species_m
             else if (plasma_type == 'D') then
                 call init_deuterium_plasma(plasma_in)
             else
-                print *, "Error: Unknown plasma type. Please choose 'H' or 'D'."
-                stop
+                call log_error("Unknown plasma type. Please choose 'H' or 'D'.")
             end if
             !call init_deuterium_plasma(plasma_in)
         end if
@@ -146,10 +146,11 @@ module species_m
         read(unit=77, nml=KIM_species)
         close(unit=77)
 
-        print *,  "Reading species from namelist:"
-        print *, "Number of ion species: ", number_of_ion_species
-        print *, "Mass numbers: ", ai(1:number_of_ion_species)
-        print *, "Charge numbers: ", zi(1:number_of_ion_species)
+        block
+            use logger_m, only: log_info, fmt_val
+            call log_info('Reading species from namelist')
+            call log_info(fmt_val('Number of ion species', number_of_ion_species))
+        end block
 
         do i = 1, number_of_ion_species
             plasma_in%spec(i)%Aspec = ai(i)
@@ -542,11 +543,10 @@ module species_m
         end do
 
         if (rescale_density .eqv. .true.) then
-            print *, " "
-            print *, " ! ! ! "
-            print *, " ! ! ! Rescaling density (after collision frequency calculation) ! ! !"
-            print *, " ! ! ! "
-            print *, " "
+            block
+                use logger_m, only: log_warning
+                call log_warning('Rescaling density (after collision frequency calculation)')
+            end block
             do sp = 0, plasma_in%n_species-1
                 do i = 1, plasma_in%grid_size
                     ! density rescaling only affects lambda_D (in A_1 the rescaling cancels out)
@@ -920,24 +920,31 @@ module species_m
         logical :: check_succeeded = .true.
         integer :: i, sp
 
-        print *, "Checking quasineutrality..."
-        do i = 1, size(plasma_in%spec(0)%n)
-            n_zero = plasma_in%spec(0)%n(i)
-            do sp=1, number_of_ion_species
-                n_zero = n_zero - plasma_in%spec(sp)%Zspec * plasma_in%spec(sp)%n(i)
-            end do
-            if (.not. (abs(n_zero) <1.0)) then
-                check_succeeded = .false.
-                print *, "Warning: quasineutality check failed for r = ", plasma_in%r_grid(i), &
-                    " with n_zero = ", n_zero
-            end if
-        end do
+        block
+            use logger_m, only: log_info, log_warning
+            character(len=120) :: qbuf
 
-        if (check_succeeded) then
-            print *, "Quasineutrality check succeeded."
-        else
-            print *, "Quasineutrality check failed. Please check your profiles."
-        end if
+            call log_info('Checking quasineutrality...')
+            do i = 1, size(plasma_in%spec(0)%n)
+                n_zero = plasma_in%spec(0)%n(i)
+                do sp=1, number_of_ion_species
+                    n_zero = n_zero - plasma_in%spec(sp)%Zspec * plasma_in%spec(sp)%n(i)
+                end do
+                if (.not. (abs(n_zero) <1.0)) then
+                    check_succeeded = .false.
+                    write(qbuf, '(A,ES12.5,A,ES12.5)') &
+                        'Quasineutrality check failed for r = ', &
+                        plasma_in%r_grid(i), ' with n_zero = ', n_zero
+                    call log_warning(trim(qbuf))
+                end if
+            end do
+
+            if (check_succeeded) then
+                call log_info('Quasineutrality check succeeded.')
+            else
+                call log_warning('Quasineutrality check failed. Please check your profiles.')
+            end if
+        end block
 
     end subroutine
 
@@ -1168,7 +1175,8 @@ module species_m
 
     subroutine read_from_text
 
-        use config_m, only: number_of_ion_species, profile_location, fstatus
+        use config_m, only: number_of_ion_species, profile_location
+        use logger_m, only: log_info, log_error
         use KIM_kinds_m, only: dp
         use setup_m, only: set_profiles_constant
         use grid_m, only: r_plas
@@ -1181,7 +1189,7 @@ module species_m
         integer :: total_Z
         real(dp) :: r_temp
 
-        if (fstatus == 1) write(*,*) 'Status: Reading profiles from text files'
+        call log_info('Reading profiles from text files')
 
         ! find profile length
         plasma%grid_size = 0
@@ -1200,7 +1208,7 @@ module species_m
 
         ierr = 0
         if (.not. allocated(plasma%r_grid)) allocate(plasma%r_grid(plasma%grid_size), stat=ierr)
-        if (ierr /= 0) print *, "array: Allocation request denied"
+        if (ierr /= 0) call log_error('array: Allocation request denied')
 
         do sigma = 0, number_of_ion_species
             allocate(plasma%spec(sigma)%n(plasma%grid_size),&
@@ -1254,7 +1262,7 @@ module species_m
         end do
 
         if (set_profiles_constant == 1) then
-            write(*,*) 'Info: Setting profiles to constant values'
+            call log_info('Setting profiles to constant values')
             plasma%Er(:) = plasma%Er(1)
             do sigma = 0, number_of_ion_species
                 plasma%spec(sigma)%n(:) = plasma%spec(sigma)%n(1)
@@ -1263,7 +1271,7 @@ module species_m
         end if
 
         if (set_profiles_constant == 2) then
-            write(*,*) 'Info: Setting profiles to constant values'
+            call log_info('Setting profiles to constant values (T only)')
             do sigma = 0, number_of_ion_species
                 plasma%spec(sigma)%T(:) = plasma%spec(sigma)%T(1)
             end do
@@ -1272,7 +1280,7 @@ module species_m
         ! Validate units - density should be in CGS (1/cm^3), typically 10^12 to 10^15
         call validate_profile_units(plasma)
 
-        if (fstatus == 1) write(*,*) 'Status: Finished reading profiles from text files'
+        call log_info('Finished reading profiles from text files')
 
     end subroutine
 
@@ -1282,87 +1290,52 @@ module species_m
         !> Temperature: eV, typically 10 to 20000 eV
         !> Also checks q vs m_mode sign consistency
         use setup_m, only: m_mode
+        use logger_m, only: log_error, log_warning, fmt_val
         implicit none
 
         type(plasma_t), intent(in) :: plasma
         real(dp) :: n_max, T_max, q_mean
         integer :: sigma
+        character(len=120) :: vbuf
 
         ! Check electron density
         n_max = maxval(plasma%spec(0)%n)
 
         if (n_max > 1.0d17) then
-            write(*,*) ''
-            write(*,*) '╔══════════════════════════════════════════════════════════════════╗'
-            write(*,*) '║                    ERROR: DENSITY UNITS                          ║'
-            write(*,*) '╠══════════════════════════════════════════════════════════════════╣'
-            write(*,*) '║  Density appears to be in SI units (1/m^3) instead of CGS!       ║'
-            write(*,*) '╚══════════════════════════════════════════════════════════════════╝'
-            write(*,*) ''
-            write(*,*) '  Maximum density found: ', n_max, ' 1/cm^3'
-            write(*,*) '  Expected range (CGS):  1e12 to 1e15 1/cm^3'
-            write(*,*) ''
-            write(*,*) '  Your density values suggest SI units (1/m^3).'
-            write(*,*) '  Please convert to CGS by dividing by 1e6.'
-            write(*,*) ''
-            write(*,*) '  Example: n_SI = 4.67e19 1/m^3  -->  n_CGS = 4.67e13 1/cm^3'
-            write(*,*) ''
-            stop 1
+            call log_error( &
+                'Density appears to be in SI units (1/m^3) instead of CGS! ' // &
+                'Please convert to CGS by dividing by 1e6. ' // &
+                'Example: n_SI = 4.67e19 1/m^3 --> n_CGS = 4.67e13 1/cm^3')
         else if (n_max < 1.0d10) then
-            write(*,*) ''
-            write(*,*) 'WARNING: Density values appear very low'
-            write(*,*) '  Maximum density: ', n_max, ' 1/cm^3'
-            write(*,*) '  Expected range:  1e12 to 1e15 1/cm^3'
-            write(*,*) ''
+            call log_warning(trim(fmt_val( &
+                'Density values appear very low. Max density', n_max, '1/cm^3')))
         end if
 
         ! Check temperatures (should be in eV)
-        ! Note: spec array is 0:n_species-1 but read_profiles uses number_of_ion_species from config
         do sigma = 0, min(plasma%n_species, size(plasma%spec)-1)
             if (.not. allocated(plasma%spec(sigma)%T)) cycle
             T_max = maxval(plasma%spec(sigma)%T)
             if (T_max > 1.0d6) then
-                write(*,*) ''
-                write(*,*) 'WARNING: Temperature appears very high'
-                write(*,*) '  Species ', sigma, ' max T = ', T_max, ' eV'
-                write(*,*) '  Expected range: 10 to 20000 eV'
-                write(*,*) '  Check if temperature is in Kelvin instead of eV'
-                write(*,*) ''
+                write(vbuf, '(A,I0,A,ES12.5,A)') &
+                    'Temperature appears very high: species ', sigma, &
+                    ' max T = ', T_max, ' eV. Check if in Kelvin instead of eV'
+                call log_warning(trim(vbuf))
             end if
         end do
 
         ! Check q vs m_mode sign consistency
-        ! For positive q, m should be negative (and vice versa) for proper helicity
         if (allocated(plasma%q) .and. size(plasma%q) > 0) then
             q_mean = sum(plasma%q) / size(plasma%q)
             if (q_mean > 0.0_dp .and. m_mode > 0) then
-                write(*,*) ''
-                write(*,*) '╔══════════════════════════════════════════════════════════════════╗'
-                write(*,*) '║               WARNING: q AND m_mode SIGN MISMATCH                ║'
-                write(*,*) '╠══════════════════════════════════════════════════════════════════╣'
-                write(*,*) '║  Safety factor q > 0 typically requires m < 0 for resonance      ║'
-                write(*,*) '╚══════════════════════════════════════════════════════════════════╝'
-                write(*,*) ''
-                write(*,*) '  Mean safety factor q = ', q_mean
-                write(*,*) '  Poloidal mode number m = ', m_mode
-                write(*,*) ''
-                write(*,*) '  No resonant surfaces will be found with this configuration.'
-                write(*,*) '  For resonant behavior, use m = ', -abs(m_mode)
-                write(*,*) ''
+                write(vbuf, '(A,ES12.5,A,I0,A,I0)') &
+                    'q and m_mode sign mismatch: q_mean = ', q_mean, &
+                    ', m = ', m_mode, '. For resonance, use m = ', -abs(m_mode)
+                call log_warning(trim(vbuf))
             else if (q_mean < 0.0_dp .and. m_mode < 0) then
-                write(*,*) ''
-                write(*,*) '╔══════════════════════════════════════════════════════════════════╗'
-                write(*,*) '║               WARNING: q AND m_mode SIGN MISMATCH                ║'
-                write(*,*) '╠══════════════════════════════════════════════════════════════════╣'
-                write(*,*) '║  Safety factor q < 0 typically requires m > 0 for resonance      ║'
-                write(*,*) '╚══════════════════════════════════════════════════════════════════╝'
-                write(*,*) ''
-                write(*,*) '  Mean safety factor q = ', q_mean
-                write(*,*) '  Poloidal mode number m = ', m_mode
-                write(*,*) ''
-                write(*,*) '  No resonant surfaces will be found with this configuration.'
-                write(*,*) '  For resonant behavior, use m = ', abs(m_mode)
-                write(*,*) ''
+                write(vbuf, '(A,ES12.5,A,I0,A,I0)') &
+                    'q and m_mode sign mismatch: q_mean = ', q_mean, &
+                    ', m = ', m_mode, '. For resonance, use m = ', abs(m_mode)
+                call log_warning(trim(vbuf))
             end if
         end if
 
@@ -1370,11 +1343,11 @@ module species_m
 
     subroutine read_from_hdf5
 
-        use config_m, only: fstatus
+        use logger_m, only: log_info
 
         implicit none
 
-        if (fstatus == 1) write(*,*) 'Status: Reading profiles from hdf5 file'
+        call log_info('Reading profiles from hdf5 file')
 
     end subroutine
 
@@ -1426,8 +1399,10 @@ module species_m
         close(iunit)
 
         if (n_src == 0) then
-            write(*,*) 'ERROR: Empty profile file: ', trim(filename)
-            stop 1
+            block
+                use logger_m, only: log_error
+                call log_error('Empty profile file: ' // trim(filename))
+            end block
         end if
 
         ! Allocate and read source data
@@ -1453,9 +1428,19 @@ module species_m
             profile_out(1:n_target) = val_src(1:n_target)
         else
             ! Grids don't match - interpolate
-            write(*,*) 'Note: Interpolating ', trim(filename), ' to match grid'
-            write(*,*) '  Source: ', n_src, ' points, r = [', r_src(1), ', ', r_src(n_src), ']'
-            write(*,*) '  Target: ', n_target, ' points, r = [', target_grid(1), ', ', target_grid(n_target), ']'
+            block
+                use logger_m, only: log_info
+                character(len=200) :: ibuf
+                call log_info('Interpolating ' // trim(filename) // ' to match grid')
+                write(ibuf, '(A,I0,A,ES12.5,A,ES12.5,A)') &
+                    '  Source: ', n_src, ' points, r = [', r_src(1), &
+                    ', ', r_src(n_src), ']'
+                call log_info(trim(ibuf))
+                write(ibuf, '(A,I0,A,ES12.5,A,ES12.5,A)') &
+                    '  Target: ', n_target, ' points, r = [', target_grid(1), &
+                    ', ', target_grid(n_target), ']'
+                call log_info(trim(ibuf))
+            end block
 
             do i = 1, n_target
                 r_temp = target_grid(i)

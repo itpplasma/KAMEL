@@ -8,9 +8,9 @@ module poisson_solver_m
     ! using sparse matrix solver
     subroutine solve_poisson(K_rho_phi, K_rho_B, phi_sol)
 
-        use config_m, only: fstatus, fdebug
+        use config_m, only: data_verbosity, output_path
+        use logger_m, only: log_info, log_trace
         use sparse_mod, only: sp2fullComplex, sparse_solveComplex_b1, sparse_solve_method, sparse_talk
-        use config_m, only: output_path
         use constants_m, only: pi
         use grid_m, only: xl_grid, calc_mass_matrix, M_mat
         use setup_m, only: type_br_field
@@ -31,8 +31,8 @@ module poisson_solver_m
         integer :: i, j
         integer :: sparse_solver_option
 
-        if (fstatus >= 1) write(*,*) 'Status: solve poisson equation'
-        if (fdebug < 2) sparse_talk = .false. ! turn off sparse solver output for low fdebug
+        call log_info('Solving Poisson equation')
+        sparse_talk = .false.
 
         allocate(A_mat(xl_grid%npts_b, xl_grid%npts_b))
 
@@ -48,7 +48,7 @@ module poisson_solver_m
 
         A_mat = (A_mat + 4.0d0 * pi * K_rho_phi)
 
-        if (fdebug == 3) then
+        if (data_verbosity >= 3) then
             call write_A_matrix_sparse_check_to_file
         end if
 
@@ -77,7 +77,7 @@ module poisson_solver_m
 
             complex(dp), dimension(:,:), allocatable :: A_sparse_check ! A matrix reconfigured from sparse matrix
 
-            write(*,*) 'Debug: writing A matrix after sparse'
+            call log_trace('Writing A matrix after sparse')
             call sp2fullComplex(irow, pcol, A_nz, nrow, ncol, A_sparse_check)
             open(unit=77, file=trim(output_path)//'kernel/A_sparse_check_re.dat')
             open(unit=78, file=trim(output_path)//'kernel/A_sparse_check_im.dat')
@@ -165,7 +165,7 @@ module poisson_solver_m
 
     subroutine impose_bc_on_matrix_and_rhs(A_mat, b_vec, K_rho_phi, K_rho_B)
 
-        use config_m, only: fdebug
+        use logger_m, only: log_debug
         use grid_m, only: xl_grid
         use KIM_kinds_m, only: dp
         use setup_m, only: bc_type
@@ -177,6 +177,7 @@ module poisson_solver_m
         complex(dp), intent(inout) :: A_mat(:,:), b_vec(:)
         complex(dp), intent(in) :: K_rho_phi(:,:), K_rho_B(:,:)
         complex(dp) :: phi_boundary_left, phi_boundary_right
+        character(len=200) :: buf
 
         if(bc_type == 3) then ! zero misalignment field at boundaries
 
@@ -185,8 +186,12 @@ module poisson_solver_m
             phi_boundary_left = - EBdat%phi_aligned(1)
             phi_boundary_right = - EBdat%phi_aligned(xl_grid%npts_b)
 
-            if (fdebug == 1) print *, "Imposing BC of zero misalignment field: Phi_left = ", &
-                phi_boundary_left, ", Phi_right = ", phi_boundary_right
+            write(buf, '(A,2ES15.8,A,2ES15.8)') &
+                'Imposing BC of zero misalignment field: Phi_left = ', &
+                real(phi_boundary_left), aimag(phi_boundary_left), &
+                ', Phi_right = ', &
+                real(phi_boundary_right), aimag(phi_boundary_right)
+            call log_debug(trim(buf))
 
             b_vec(2:xl_grid%npts_b-1) = b_vec(2:xl_grid%npts_b-1) &
                 - A_mat(2:xl_grid%npts_b-1,1) * phi_boundary_left &

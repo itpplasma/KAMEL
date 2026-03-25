@@ -194,7 +194,8 @@ module grid_m
     subroutine grid_generate(this)
 
         use kim_resonances_m, only: r_res, index_rg_res
-        use config_m, only: fdebug, output_path
+        use config_m, only: output_path
+        use logger_m, only: log_error
 
         implicit none
 
@@ -229,8 +230,7 @@ module grid_m
         call binsrc(abs(this%xb), 1, this%npts_b, abs(r_res), index_rg_res)
 
         if(npoi_der .gt. this%npts_c) then
-            write(*,*) '! Error : not enough grid points for derivatives'
-            stop
+            call log_error('Not enough grid points for derivatives')
         endif
 
         if (allocated(this%deriv_coef)) deallocate(this%deriv_coef)
@@ -271,7 +271,8 @@ module grid_m
     subroutine grid_generate_equidistant(this)
 
         use kim_resonances_m, only: r_res, index_rg_res
-        use config_m, only: fdebug, output_path
+        use config_m, only: output_path
+        use logger_m, only: log_debug, log_error, fmt_val
 
         implicit none
 
@@ -286,7 +287,7 @@ module grid_m
         allocate(this%xb(this%npts_b), this%xc(this%npts_c))
 
         h = (this%max_val - this%min_val) / this%npts_b
-        print *, "Equidistant grid spacing h = ", h
+        call log_debug(trim(fmt_val('Equidistant grid spacing h', h, 'cm')))
 
         this%xb(1) = this%min_val
         do ipoib=2, this%npts_b
@@ -302,8 +303,7 @@ module grid_m
         call binsrc(abs(this%xb), 1, this%npts_b, abs(r_res), index_rg_res)
 
         if(npoi_der .gt. this%npts_c) then
-            write(*,*) '! Error : not enough grid points for derivatives'
-            stop
+            call log_error('Not enough grid points for derivatives')
         endif
 
         if (allocated(this%deriv_coef)) deallocate(this%deriv_coef)

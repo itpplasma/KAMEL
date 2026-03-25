@@ -6,7 +6,7 @@ add_executable(test_integration_methods ${CMAKE_SOURCE_DIR}/KIM/tests/test_integ
 set_target_properties(test_integration_methods PROPERTIES
                         OUTPUT_NAME test_integration_methods.x
                         RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/tests/")
-target_link_libraries(test_integration_methods KIM_lib "${KiLCA_lib_path}" lapack cerf slatec ddeabm)
+target_link_libraries(test_integration_methods KIM_lib "${KiLCA_lib_path}" lapack cerf ddeabm slatec)
 add_test(NAME test_integration_methods
          COMMAND ${CMAKE_BINARY_DIR}/tests/test_integration_methods.x)
 
@@ -15,7 +15,7 @@ add_executable(test_quadpack_qagi ${CMAKE_SOURCE_DIR}/KIM/tests/test_quadpack_qa
 set_target_properties(test_quadpack_qagi PROPERTIES
                         OUTPUT_NAME test_quadpack_qagi.x
                         RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/tests/")
-target_link_libraries(test_quadpack_qagi KIM_lib lapack cerf slatec ddeabm)
+target_link_libraries(test_quadpack_qagi KIM_lib lapack cerf ddeabm slatec)
 add_test(NAME test_quadpack_qagi
          COMMAND ${CMAKE_BINARY_DIR}/tests/test_quadpack_qagi.x)
 
@@ -48,6 +48,6 @@ add_executable(test_ampere_matrices ${CMAKE_SOURCE_DIR}/KIM/tests/test_ampere_ma
 set_target_properties(test_ampere_matrices PROPERTIES
                         OUTPUT_NAME test_ampere_matrices.x
                         RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/tests/")
-target_link_libraries(test_ampere_matrices KIM_lib "${KiLCA_lib_path}" lapack cerf slatec ddeabm)
+target_link_libraries(test_ampere_matrices KIM_lib "${KiLCA_lib_path}" lapack cerf ddeabm slatec)
 add_test(NAME test_ampere_matrices
          COMMAND ${CMAKE_BINARY_DIR}/tests/test_ampere_matrices.x)

@@ -31,9 +31,8 @@
     output_path = './out/'
     hdf5_input = .false.
     hdf5_output = .false.
-    fdebug = 1
-    fstatus = 1
-    fdiagnostics = 0
+    log_level = 3
+    data_verbosity = 1
     calculate_asymptotics = .true.          ! enable/disable asymptotic (WKB) calculations
     h5_out_file = ''
 /

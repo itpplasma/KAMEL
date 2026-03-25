@@ -31,7 +31,8 @@ module config_m
     character(256) :: dispersion_output_path  ! path to dispersion output subdirectory
     character(256) :: h5_out_file ! file name of the hdf5 output file
     logical :: hdf5_input, hdf5_output
-    integer :: fdebug, fstatus, fdiagnostics
+    integer :: log_level = 3         ! maps to LVL_INFO
+    integer :: data_verbosity = 1    ! standard output
     logical :: calculate_asymptotics ! enable/disable asymptotic calculations
 
     character(256) :: nml_config_path = "./KIM_config.nml" ! path to the namelist file

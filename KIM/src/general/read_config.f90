@@ -6,6 +6,7 @@ subroutine kim_read_config
     use grid_m
     use poisson_solver_m, only: solve_poisson
     use config_display_m, only: display_kim_configuration
+    use logger_m, only: set_log_level
 
     implicit none
 
@@ -25,7 +26,7 @@ subroutine kim_read_config
                         WKB_root_tolerance, WKB_verbose
 
     namelist /KIM_IO/ profile_location, hdf5_input, hdf5_output, &
-                        fdebug, fstatus, output_path, calculate_asymptotics, fdiagnostics, &
+                        log_level, data_verbosity, output_path, calculate_asymptotics, &
                         h5_out_file
 
     namelist /KIM_SETUP/ btor, R0, m_mode, n_mode, omega, spline_base, &
@@ -67,6 +68,8 @@ subroutine kim_read_config
     read(unit = 77, nml = KIM_GRID)
     read(unit = 77, nml = KIM_PROFILES)
     close(unit = 77)
+
+    call set_log_level(log_level)
 
     ! Map single-switch theta_integration to adaptive backend; allow users to omit theta_integration_method
     select case (trim(theta_integration))

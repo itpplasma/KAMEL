@@ -88,7 +88,7 @@ subroutine calc_equil_diffusion_coeffs
 
     !get other da
     ! [Heyn2014 below (68)]
-    ! D11 = D_perb
+    ! D11 = D_perp
     dae11 = dae12/1.499999d0 !previously used instead of 1.5d0, no idea why
     dae22 = 3.75d0*dae11
     dai11 = dae11

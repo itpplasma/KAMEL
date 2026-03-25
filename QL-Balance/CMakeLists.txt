@@ -157,6 +157,7 @@ target_link_libraries(ql-balance_lib PUBLIC
     hdf5::hdf5_hl
     hdf5::hdf5_hl_fortran
     kamel_hdf5_tools
+    kamel_logger
     KIM_lib
     kilca_lib
     lapack

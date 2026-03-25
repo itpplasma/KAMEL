@@ -150,6 +150,7 @@ target_link_libraries(KIM_lib PUBLIC
                                 hdf5::hdf5_hl
                                 hdf5::hdf5_hl_fortran
                                 kamel_hdf5_tools
+                                kamel_logger
                                 kamel_equil
                                 cerf
                                 ddeabm

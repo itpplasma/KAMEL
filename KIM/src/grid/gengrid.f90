@@ -3,7 +3,7 @@ subroutine generate_grids
     use grid_m, only: rg_grid, xl_grid, rg_space_dim, l_space_dim, grid_spacing_rg, grid_spacing_xl, &
         r_min, r_plas
     use species_m, only: plasma
-    use config_m, only: fdebug
+    use logger_m, only: log_debug, fmt_val
     use IO_collection_m, only: write_profile
 
     implicit none
@@ -34,13 +34,16 @@ subroutine generate_grids
         call xl_grid%grid_generate()
     end select
 
-    if (fdebug == 1) then
-        write(*,*) " Generated Grid number of points:"
-        write(*,*) ' Nrg = ', rg_grid%npts_b, ", Nl = ", xl_grid%npts_b
-        write(*,*) " rg grid h = ", minval(rg_grid%xb(2:rg_grid%npts_b) - rg_grid%xb(1:rg_grid%npts_b-1))
-        write(*,*) " xl grid h = ", minval(xl_grid%xb(2:xl_grid%npts_b) - xl_grid%xb(1:xl_grid%npts_b-1))
-        write(*,*) ''
-    end if
+    block
+        character(len=100) :: gbuf
+        call log_debug('Generated Grid number of points:')
+        write(gbuf, '(A,I0,A,I0)') ' Nrg = ', rg_grid%npts_b, ', Nl = ', xl_grid%npts_b
+        call log_debug(trim(gbuf))
+        call log_debug(trim(fmt_val(' rg grid h', &
+            minval(rg_grid%xb(2:rg_grid%npts_b) - rg_grid%xb(1:rg_grid%npts_b-1)), 'cm')))
+        call log_debug(trim(fmt_val(' xl grid h', &
+            minval(xl_grid%xb(2:xl_grid%npts_b) - xl_grid%xb(1:xl_grid%npts_b-1)), 'cm')))
+    end block
 
     call write_profile(xl_grid%xb, xl_grid%xb, xl_grid%npts_b, 'grid/'//trim(xl_grid%name)//'_xb', &
         'Cell boundary points of grid', 'cm')

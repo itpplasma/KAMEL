@@ -33,7 +33,10 @@ module rt_electromagnetic_m
         call set_plasma_quantities(plasma)
         call interpolate_equil(rg_grid%xb)
 
-        print *, "..."//trim(this%run_type)//" model initialized."
+        block
+            use logger_m, only: log_info
+            call log_info('...' // trim(this%run_type) // ' model initialized.')
+        end block
 
     end subroutine
 
@@ -44,7 +47,7 @@ module rt_electromagnetic_m
         use grid_m, only: xl_grid, calc_mass_matrix, M_mat, theta_integration
         use IO_collection_m, only: write_complex_profile_abs
         use poisson_solver_m, only: prepare_Laplace_matrix
-        use config_m, only: output_path, collision_model, fstatus, fdebug
+        use config_m, only: output_path, collision_model
         use fields_m, only: EBdat, postprocess_electric_field, &
                             calculate_charge_density, calculate_current_density
         use ampere_matrices_m, only: interpolate_equil_to_xl
@@ -52,11 +55,13 @@ module rt_electromagnetic_m
         use constants_m, only: pi, sol, com_unit
         use KIM_kinds_m, only: dp
         use species_m, only: plasma
+        use logger_m, only: log_info, log_debug, log_error
 
         implicit none
 
         class(electromagnetic_t), intent(inout) :: this
 
+        character(len=200) :: lbuf
         type(kernel_spl_t) :: kernel_rho_phi_llp
         type(kernel_spl_t) :: kernel_rho_B_llp
         type(kernel_spl_t) :: kernel_j_phi_llp
@@ -86,10 +91,8 @@ module rt_electromagnetic_m
 
         ! Validate collision model
         if (trim(collision_model) /= "FokkerPlanck") then
-            print *, "Error: electromagnetic run type requires &
-                &collision_model = FokkerPlanck"
-            print *, "Current collision_model: ", trim(collision_model)
-            error stop
+            call log_error('Electromagnetic run type requires ' // &
+                'collision_model = FokkerPlanck, got: ' // trim(collision_model))
         end if
 
         ! Validate boundary condition type
@@ -97,9 +100,9 @@ module rt_electromagnetic_m
             case (0, 2, 3)
                 ! supported: 0/2 = Dirichlet Phi=0, 3 = zero-misalignment
             case default
-                print *, "Error: electromagnetic solver does not &
-                    &support bc_type =", bc_type
-                error stop
+                write(lbuf, '(A,I0)') &
+                    'Electromagnetic solver does not support bc_type = ', bc_type
+                call log_error(trim(lbuf))
         end select
 
         N = xl_grid%npts_b
@@ -114,7 +117,7 @@ module rt_electromagnetic_m
 
         ! Fill kernels
         call date_and_time(date, time, zone, values)
-        write(*,*) "Start filling kernel at ", date, " ", time, " ..."
+        call log_info('Start filling kernel at ' // trim(date) // ' ' // trim(time))
 
         select case (trim(theta_integration))
             case ("GaussLegendre")
@@ -205,10 +208,7 @@ module rt_electromagnetic_m
         b_block(N+1) = cmplx(0.0d0, 0.0d0, dp)
 
         if (abs(alpha(N)) < 1.0d-30) then
-            print *, "Error: alpha(r) ~ 0 at right boundary; &
-                &cannot set A_par BC"
-            print *, "|alpha(N)| =", abs(alpha(N))
-            error stop
+            call log_error('alpha(r) ~ 0 at right boundary; cannot set A_par BC')
         end if
         A_block(2*N, :) = cmplx(0.0d0, 0.0d0, dp)
         A_block(2*N, 2*N) = cmplx(1.0d0, 0.0d0, dp)
@@ -219,44 +219,53 @@ module rt_electromagnetic_m
             call apply_zero_misalignment_bc(A_block, b_block, N, Br_boundary)
         end if
 
-        if (fstatus >= 1) write(*,*) &
-            'Status: solving coupled Poisson-Ampere for &
-            &(Phi, A_par) (2N =', 2*N, ')'
+        write(lbuf, '(A,I0,A)') &
+            'Solving coupled Poisson-Ampere for (Phi, A_par) (2N = ', 2*N, ')'
+        call log_info(trim(lbuf))
 
         ! Diagnostics: boundary conditions before solve
-        write(*,*) '--- EM solver diagnostics (before solve) ---'
-        write(*,*) '  N (grid points)  = ', N
-        write(*,*) '  alpha(1)         = ', alpha(1)
-        write(*,*) '  alpha(N)         = ', alpha(N)
-        write(*,*) '  Br_boundary      = ', Br_boundary
-        write(*,*) '  Br_bnd/alpha(N)  = ', Br_boundary / alpha(N)
-        write(*,*) '  A_block(1,1)     = ', A_block(1,1)
-        write(*,*) '  A_block(N,N)     = ', A_block(N,N)
-        write(*,*) '  A_block(N+1,N+1) = ', A_block(N+1,N+1)
-        write(*,*) '  A_block(2N,2N)   = ', A_block(2*N,2*N)
-        write(*,*) '  b_block(1)       = ', b_block(1), ' (Phi left BC)'
-        write(*,*) '  b_block(N)       = ', b_block(N), ' (Phi right BC)'
-        write(*,*) '  b_block(N+1)     = ', b_block(N+1), ' (Apar left BC)'
-        write(*,*) '  b_block(2N)      = ', b_block(2*N), ' (Apar right BC)'
+        call log_debug('--- EM solver diagnostics (before solve) ---')
+        write(lbuf, '(A,I0)') '  N (grid points)  = ', N
+        call log_debug(trim(lbuf))
+        write(lbuf, '(A,2ES15.8)') '  alpha(1)         = ', real(alpha(1)), aimag(alpha(1))
+        call log_debug(trim(lbuf))
+        write(lbuf, '(A,2ES15.8)') '  alpha(N)         = ', real(alpha(N)), aimag(alpha(N))
+        call log_debug(trim(lbuf))
+        write(lbuf, '(A,2ES15.8)') '  Br_boundary      = ', real(Br_boundary), aimag(Br_boundary)
+        call log_debug(trim(lbuf))
+        write(lbuf, '(A,2ES15.8)') '  Br_bnd/alpha(N)  = ', &
+            real(Br_boundary / alpha(N)), aimag(Br_boundary / alpha(N))
+        call log_debug(trim(lbuf))
 
         ! Solve using LAPACK ZGESV (dense direct solver, fast for 2N ~ 400)
         allocate(ipiv(2*N))
         call zgesv(2*N, 1, A_block, 2*N, ipiv, b_block, 2*N, lapack_info)
         if (lapack_info /= 0) then
-            write(*,*) 'Error: ZGESV failed with info = ', lapack_info
-            error stop
+            write(lbuf, '(A,I0)') 'ZGESV failed with info = ', lapack_info
+            call log_error(trim(lbuf))
         end if
-        write(*,*) '  ZGESV solve succeeded (2N =', 2*N, ')'
+        write(lbuf, '(A,I0,A)') '  ZGESV solve succeeded (2N = ', 2*N, ')'
+        call log_info(trim(lbuf))
         deallocate(ipiv)
 
         ! Diagnostics: solution at boundaries after solve
-        write(*,*) '--- EM solver diagnostics (after solve) ---'
-        write(*,*) '  Phi(1)   = ', b_block(1), '  (should be 0)'
-        write(*,*) '  Phi(N)   = ', b_block(N), '  (should be 0)'
-        write(*,*) '  Apar(1)  = ', b_block(N+1), '  (should be 0)'
-        write(*,*) '  Apar(N)  = ', b_block(2*N), '  (should be Br_bnd/alpha(N))'
-        write(*,*) '  max|Phi| = ', maxval(abs(b_block(1:N)))
-        write(*,*) '  max|Apar|= ', maxval(abs(b_block(N+1:2*N)))
+        call log_debug('--- EM solver diagnostics (after solve) ---')
+        write(lbuf, '(A,2ES15.8,A)') '  Phi(1)   = ', &
+            real(b_block(1)), aimag(b_block(1)), '  (should be 0)'
+        call log_debug(trim(lbuf))
+        write(lbuf, '(A,2ES15.8,A)') '  Phi(N)   = ', &
+            real(b_block(N)), aimag(b_block(N)), '  (should be 0)'
+        call log_debug(trim(lbuf))
+        write(lbuf, '(A,2ES15.8,A)') '  Apar(1)  = ', &
+            real(b_block(N+1)), aimag(b_block(N+1)), '  (should be 0)'
+        call log_debug(trim(lbuf))
+        write(lbuf, '(A,2ES15.8,A)') '  Apar(N)  = ', &
+            real(b_block(2*N)), aimag(b_block(2*N)), '  (should be Br_bnd/alpha(N))'
+        call log_debug(trim(lbuf))
+        write(lbuf, '(A,ES15.8)') '  max|Phi| = ', maxval(abs(b_block(1:N)))
+        call log_debug(trim(lbuf))
+        write(lbuf, '(A,ES15.8)') '  max|Apar|= ', maxval(abs(b_block(N+1:2*N)))
+        call log_debug(trim(lbuf))
 
         ! Extract solution: solve gives (Phi, A_par), recover Br = alpha * A_par
         allocate(EBdat%Phi(N), EBdat%Apar(N), EBdat%Br(N), EBdat%r_grid(N))
@@ -345,11 +354,11 @@ module rt_electromagnetic_m
         B0_right = sum(coef(0,:) * plasma%B0(ibeg:iend))
 
         if (abs(B0_right * kp_right) < 1.0d-30) then
-            print *, "Error: B0*kp ~ 0 at right boundary; &
-                &cannot compute zero-misalignment BC"
-            print *, "B0_right =", B0_right, &
-                " kp_right =", kp_right
-            error stop
+            block
+                use logger_m, only: log_error
+                call log_error('B0*kp ~ 0 at right boundary; ' // &
+                    'cannot compute zero-misalignment BC')
+            end block
         end if
         phi_right = -com_unit * Er_right * Br_boundary &
             / (B0_right * kp_right)

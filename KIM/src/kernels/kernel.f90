@@ -77,7 +77,7 @@ module kernel_m
         use FP_kernel_plasma_prefacs_m, only: FP_G1_rho_phi, FP_G2_rho_phi, FP_G3_rho_phi, &
             FP_G1_rho_B, FP_G2_rho_B, FP_G3_rho_B, FP_G1_j_phi, FP_G2_j_phi, FP_G3_j_phi, &
             FP_G1_j_B, FP_G2_j_B, FP_G3_j_B, FP_G0_rho_phi
-        use config_m, only: fdiagnostics
+        use config_m, only: data_verbosity
         use setup_m, only: mphi_max
 
         implicit none
@@ -126,7 +126,7 @@ module kernel_m
 
         pref_ready = .true.
 
-        if (fdiagnostics == 3) then
+        if (data_verbosity >= 3) then
             call write_cc_prefactors
         end if
 
@@ -202,6 +202,7 @@ module kernel_m
         use KIM_kinds_m, only: dp
         use integrals_gauss_m, only: gauss_config_t, init_gauss_int
         use grid_m, only: gauss_int_nodes_Ntheta, gauss_int_nodes_Nx, gauss_int_nodes_Nxp
+        use logger_m, only: log_info, log_error
 
         implicit none
 
@@ -216,7 +217,7 @@ module kernel_m
         gauss_conf%Ntheta = gauss_int_nodes_Ntheta
         call init_gauss_int(gauss_conf)
 
-        write(*,*) 'Filling Krook collision kernels...'
+        call log_info('Filling Krook collision kernels...')
 
         !$omp parallel do collapse(1) private(l,lp, k_rho_phi, k_rho_B)
         do l = 1, K_rho_phi_llp%npts_l
@@ -227,14 +228,10 @@ module kernel_m
                 K_rho_B_llp%Kllp(l, lp) = k_rho_B
 
                 if (isnan(real(k_rho_phi))) then
-                    print *, "semi analytical kernel_llp is NaN for l = ", l, " lp = ", lp
-                    print *, "semi analytical kernel_llp = ", k_rho_phi
-                    stop
+                    call log_error('Semi analytical kernel_llp is NaN')
                 end if
                 if (isnan(real(k_rho_B))) then
-                    print *, "semi analytical k_rho_B is NaN for l = ", l, " lp = ", lp
-                    print *, "semi analytical k_rho_B = ", k_rho_B
-                    stop
+                    call log_error('Semi analytical k_rho_B is NaN')
                 end if
 
                 K_rho_phi_llp%Kllp(lp, l) = K_rho_phi_llp%Kllp(l, lp)
@@ -244,16 +241,28 @@ module kernel_m
         end do
         !$omp end parallel do
 
-        write(*,*) '======== Kernel Distance Diagnostics (Krook) ========'
-        write(*,'(A,F12.6)') ' Maximum |xl - xlp| distance: ', max_distance_xl_xlp
-        write(*,'(A,I6,A,I6)') ' Occurred at l = ', max_dist_l, ', lp = ', max_dist_lp
-        write(*,'(A,F12.6)') ' Minimum |xl - xlp| distance: ', min_distance_xl_xlp
-        write(*,'(A,I6,A,I6)') ' Occurred at l = ', min_dist_l, ', lp = ', min_dist_lp
-        write(*,'(A,I6)') ' Maximum index distance |l - lp|: ', max_index_distance
-        write(*,'(A,I6,A,I6)') ' Occurred at l = ', max_idx_l, ', lp = ', max_idx_lp
-        write(*,'(A,I6)') ' Minimum index distance |l - lp|: ', min_index_distance
-        write(*,'(A,I6,A,I6)') ' Occurred at l = ', min_idx_l, ', lp = ', min_idx_lp
-        write(*,*) '===================================================='
+        block
+            use logger_m, only: log_debug
+            character(len=100) :: dbuf
+            call log_debug('======== Kernel Distance Diagnostics (Krook) ========')
+            write(dbuf, '(A,F12.6)') ' Maximum |xl - xlp| distance: ', max_distance_xl_xlp
+            call log_debug(trim(dbuf))
+            write(dbuf, '(A,I6,A,I6)') ' Occurred at l = ', max_dist_l, ', lp = ', max_dist_lp
+            call log_debug(trim(dbuf))
+            write(dbuf, '(A,F12.6)') ' Minimum |xl - xlp| distance: ', min_distance_xl_xlp
+            call log_debug(trim(dbuf))
+            write(dbuf, '(A,I6,A,I6)') ' Occurred at l = ', min_dist_l, ', lp = ', min_dist_lp
+            call log_debug(trim(dbuf))
+            write(dbuf, '(A,I6)') ' Maximum index distance |l - lp|: ', max_index_distance
+            call log_debug(trim(dbuf))
+            write(dbuf, '(A,I6,A,I6)') ' Occurred at l = ', max_idx_l, ', lp = ', max_idx_lp
+            call log_debug(trim(dbuf))
+            write(dbuf, '(A,I6)') ' Minimum index distance |l - lp|: ', min_index_distance
+            call log_debug(trim(dbuf))
+            write(dbuf, '(A,I6,A,I6)') ' Occurred at l = ', min_idx_l, ', lp = ', min_idx_lp
+            call log_debug(trim(dbuf))
+            call log_debug('====================================================')
+        end block
 
     end subroutine
 
@@ -369,8 +378,9 @@ module kernel_m
         use grid_m, only: Larmor_skip_factor, gauss_int_nodes_Ntheta, gauss_int_nodes_Nx, gauss_int_nodes_Nxp, &
                         kernel_taper_skip_threshold, rg_grid, xl_grid
         use species_m, only: plasma
-        use config_m, only: output_path, artificial_debye_case, fstatus, turn_off_ions, &
+        use config_m, only: output_path, artificial_debye_case, turn_off_ions, &
                             turn_off_electrons
+        use logger_m, only: log_info, log_debug, fmt_val
 
         implicit none
 
@@ -384,6 +394,7 @@ module kernel_m
         integer :: sigma
         integer :: total_iterations, current_iteration
         integer(kind=8) :: start_count, count_rate, count_max
+        character(len=100) :: kbuf
 
         if (turn_off_electrons .and. turn_off_ions) then
             error stop 'Cannot turn off both electrons and ions!'
@@ -470,23 +481,31 @@ module kernel_m
             end block
         end do
         current_iteration = 0
-        if (fstatus >= 1) write(*,*) 'Total band-limited iterations: ', total_iterations
-        if (fstatus >= 1) write(*,*) 'dmax_global: ', dmax_global, ' cm'
-        if (fstatus >= 2 .and. artificial_debye_case /= 1) then
-            write(*,*) '======== Kernel Distance Diagnostics (Fokker-Planck) ========'
-            write(*,'(A,F12.6)') ' Maximum |xl - xlp| distance: ', max_distance_xl_xlp
-            write(*,'(A,I6,A,I6)') ' Occurred at l = ', max_dist_l, ', lp = ', max_dist_lp
-            write(*,'(A,F12.6)') ' Minimum |xl - xlp| distance: ', min_distance_xl_xlp
-            write(*,'(A,I6,A,I6)') ' Occurred at l = ', min_dist_l, ', lp = ', min_dist_lp
-            write(*,'(A,I6)') ' Maximum index distance |l - lp|: ', max_index_distance
-            write(*,'(A,I6,A,I6)') ' Occurred at l = ', max_idx_l, ', lp = ', max_idx_lp
-            write(*,'(A,I6)') ' Minimum index distance |l - lp|: ', min_index_distance
-            write(*,'(A,I6,A,I6)') ' Occurred at l = ', min_idx_l, ', lp = ', min_idx_lp
-            write(*,*) '============================================================='
+        call log_info(trim(fmt_val('Total band-limited iterations', total_iterations)))
+        call log_info(trim(fmt_val('dmax_global', dmax_global, 'cm')))
+        if (artificial_debye_case /= 1) then
+            call log_debug('======== Kernel Distance Diagnostics (Fokker-Planck) ========')
+            write(kbuf, '(A,F12.6)') ' Maximum |xl - xlp| distance: ', max_distance_xl_xlp
+            call log_debug(trim(kbuf))
+            write(kbuf, '(A,I6,A,I6)') ' Occurred at l = ', max_dist_l, ', lp = ', max_dist_lp
+            call log_debug(trim(kbuf))
+            write(kbuf, '(A,F12.6)') ' Minimum |xl - xlp| distance: ', min_distance_xl_xlp
+            call log_debug(trim(kbuf))
+            write(kbuf, '(A,I6,A,I6)') ' Occurred at l = ', min_dist_l, ', lp = ', min_dist_lp
+            call log_debug(trim(kbuf))
+            write(kbuf, '(A,I6)') ' Maximum index distance |l - lp|: ', max_index_distance
+            call log_debug(trim(kbuf))
+            write(kbuf, '(A,I6,A,I6)') ' Occurred at l = ', max_idx_l, ', lp = ', max_idx_lp
+            call log_debug(trim(kbuf))
+            write(kbuf, '(A,I6)') ' Minimum index distance |l - lp|: ', min_index_distance
+            call log_debug(trim(kbuf))
+            write(kbuf, '(A,I6,A,I6)') ' Occurred at l = ', min_idx_l, ', lp = ', min_idx_lp
+            call log_debug(trim(kbuf))
+            call log_debug('=============================================================')
         end if
 
 
-        write(*,*) 'Filling Fokker-Planck collision kernels (Gauss)...'
+        call log_info('Filling Fokker-Planck collision kernels (Gauss)...')
         call system_clock(start_count, count_rate, count_max)
 
         !$omp parallel do schedule(dynamic) default(shared) private(l,lp)
@@ -571,21 +590,23 @@ module kernel_m
             K_j_B_llp%Kllp = K_j_B_llp%Kllp + K_j_B_llp%Kllp_i(:,:,sp)
         end do
 
-        write(*,*)
-        write(*,*) 'Finished filling kernels.'
+        call log_info('Finished filling kernels.')
 
     end subroutine
 
     subroutine check_is_nan(value, name, l, lp)
         use KIM_kinds_m, only: dp
+        use logger_m, only: log_error
         implicit none
         complex(dp), intent(in) :: value
         character(len=*), intent(in) :: name
         integer, intent(in) :: l, lp
+        character(len=100) :: nbuf
 
         if (isnan(real(value))) then
-            print *, trim(name)//' is NaN for l = ', l, ' lp = ', lp
-            stop
+            write(nbuf, '(A,A,I0,A,I0)') &
+                trim(name), ' is NaN for l = ', l, ' lp = ', lp
+            call log_error(trim(nbuf))
         end if
     end subroutine check_is_nan
 
@@ -844,9 +865,10 @@ module kernel_m
         use grid_m, only: Larmor_skip_factor, gauss_int_nodes_Ntheta, gauss_int_nodes_Nx, gauss_int_nodes_Nxp, &
                         kernel_taper_skip_threshold, rg_grid, xl_grid
         use species_m, only: plasma
-        use config_m, only: output_path, artificial_debye_case, fstatus, turn_off_ions, &
+        use config_m, only: output_path, artificial_debye_case, turn_off_ions, &
                             turn_off_electrons
         use constants_m, only: pi
+        use logger_m, only: log_info, log_debug, fmt_val
 
         implicit none
 
@@ -860,6 +882,7 @@ module kernel_m
         integer :: sigma
         integer :: total_iterations, current_iteration
         integer(kind=8) :: start_count, count_rate, count_max
+        character(len=100) :: kbuf
 
         if (turn_off_electrons .and. turn_off_ions) then
             error stop 'Cannot turn off both electrons and ions!'
@@ -944,23 +967,31 @@ module kernel_m
             end block
         end do
         current_iteration = 0
-        if (fstatus >= 1) write(*,*) 'Total band-limited iterations: ', total_iterations
-        if (fstatus >= 1) write(*,*) 'dmax_global: ', dmax_global, ' cm'
-        if (fstatus >= 1 .and. artificial_debye_case /= 1) then
-            write(*,*) '======== Kernel Distance Diagnostics (Fokker-Planck) ========'
-            write(*,'(A,F12.6)') ' Maximum |xl - xlp| distance: ', max_distance_xl_xlp
-            write(*,'(A,I6,A,I6)') ' Occurred at l = ', max_dist_l, ', lp = ', max_dist_lp
-            write(*,'(A,F12.6)') ' Minimum |xl - xlp| distance: ', min_distance_xl_xlp
-            write(*,'(A,I6,A,I6)') ' Occurred at l = ', min_dist_l, ', lp = ', min_dist_lp
-            write(*,'(A,I6)') ' Maximum index distance |l - lp|: ', max_index_distance
-            write(*,'(A,I6,A,I6)') ' Occurred at l = ', max_idx_l, ', lp = ', max_idx_lp
-            write(*,'(A,I6)') ' Minimum index distance |l - lp|: ', min_index_distance
-            write(*,'(A,I6,A,I6)') ' Occurred at l = ', min_idx_l, ', lp = ', min_idx_lp
-            write(*,*) '============================================================='
+        call log_info(trim(fmt_val('Total band-limited iterations', total_iterations)))
+        call log_info(trim(fmt_val('dmax_global', dmax_global, 'cm')))
+        if (artificial_debye_case /= 1) then
+            call log_debug('======== Kernel Distance Diagnostics (Fokker-Planck) ========')
+            write(kbuf, '(A,F12.6)') ' Maximum |xl - xlp| distance: ', max_distance_xl_xlp
+            call log_debug(trim(kbuf))
+            write(kbuf, '(A,I6,A,I6)') ' Occurred at l = ', max_dist_l, ', lp = ', max_dist_lp
+            call log_debug(trim(kbuf))
+            write(kbuf, '(A,F12.6)') ' Minimum |xl - xlp| distance: ', min_distance_xl_xlp
+            call log_debug(trim(kbuf))
+            write(kbuf, '(A,I6,A,I6)') ' Occurred at l = ', min_dist_l, ', lp = ', min_dist_lp
+            call log_debug(trim(kbuf))
+            write(kbuf, '(A,I6)') ' Maximum index distance |l - lp|: ', max_index_distance
+            call log_debug(trim(kbuf))
+            write(kbuf, '(A,I6,A,I6)') ' Occurred at l = ', max_idx_l, ', lp = ', max_idx_lp
+            call log_debug(trim(kbuf))
+            write(kbuf, '(A,I6)') ' Minimum index distance |l - lp|: ', min_index_distance
+            call log_debug(trim(kbuf))
+            write(kbuf, '(A,I6,A,I6)') ' Occurred at l = ', min_idx_l, ', lp = ', min_idx_lp
+            call log_debug(trim(kbuf))
+            call log_debug('=============================================================')
         end if
 
 
-        write(*,*) 'Filling Fokker-Planck collision kernels (Gauss)...'
+        call log_info('Filling Fokker-Planck collision kernels (Gauss)...')
         call system_clock(start_count, count_rate, count_max)
 
         !$omp parallel do schedule(dynamic) default(shared) private(l,lp)
@@ -1045,8 +1076,7 @@ module kernel_m
             K_j_B_llp%Kllp = K_j_B_llp%Kllp + K_j_B_llp%Kllp_i(:,:,sp)
         end do
 
-        write(*,*)
-        write(*,*) 'Finished filling kernels.'
+        call log_info('Finished filling kernels.')
 
         contains
 

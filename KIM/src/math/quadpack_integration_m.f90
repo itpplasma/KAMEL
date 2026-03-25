@@ -201,7 +201,7 @@ module quadpack_integration_m
                                      theta_min, theta_max, use_u_substitution)
         ! Integrate F1 using QUADPACK
         use grid_m, only: quadpack_key, quadpack_limit, quadpack_algorithm
-        use config_m, only: fdebug
+        use logger_m, only: log_debug, log_error, log_warning
         implicit none
 
         real(dp), intent(out) :: result
@@ -260,31 +260,27 @@ module quadpack_integration_m
                            result, abserr, neval, ier, limit, lenw, last, iwork_tl, work_tl)
             end if
         case default
-            print *, 'QUADPACK Error: Unsupported algorithm for finite-interval theta integrals: ', trim(quadpack_algorithm)
-            print *, 'Supported: QAG, QAGS'
-            error stop 'Invalid QUADPACK algorithm'
+            call log_error('QUADPACK: Unsupported algorithm: ' // &
+                trim(quadpack_algorithm) // '. Supported: QAG, QAGS')
         end select
 
-        ! Check for errors (throttle prints to higher debug levels)
+        ! Check for errors (throttle prints to debug level)
         if (ier /= 0) then
             if (ier == 6) then
-                print *, "QUADPACK Error: Invalid input parameters"
-                error stop "QUADPACK integration failed"
+                call log_error('QUADPACK: Invalid input parameters')
             else
-                if (fdebug >= 2) then
-                    select case(ier)
-                        case(1)
-                            print *, "QUADPACK Warning: Maximum subdivisions reached"
-                        case(2)
-                            print *, "QUADPACK Warning: Roundoff error detected"
-                        case(3)
-                            print *, "QUADPACK Warning: Extremely bad integrand behavior"
-                        case(4)
-                            print *, "QUADPACK Warning: Roundoff error in extrapolation"
-                        case(5)
-                            print *, "QUADPACK Warning: Divergent integral"
-                    end select
-                end if
+                select case(ier)
+                    case(1)
+                        call log_debug('QUADPACK: Maximum subdivisions reached')
+                    case(2)
+                        call log_debug('QUADPACK: Roundoff error detected')
+                    case(3)
+                        call log_debug('QUADPACK: Extremely bad integrand behavior')
+                    case(4)
+                        call log_debug('QUADPACK: Roundoff error in extrapolation')
+                    case(5)
+                        call log_debug('QUADPACK: Divergent integral')
+                end select
             end if
         end if
 
@@ -296,7 +292,7 @@ module quadpack_integration_m
                                      theta_min, theta_max, use_u_substitution)
         ! Integrate F2 using QUADPACK
         use grid_m, only: quadpack_key, quadpack_limit, quadpack_algorithm
-        use config_m, only: fdebug
+        use logger_m, only: log_debug, log_error, log_warning
         implicit none
 
         real(dp), intent(out) :: result
@@ -354,31 +350,27 @@ module quadpack_integration_m
                            result, abserr, neval, ier, limit, lenw, last, iwork_tl, work_tl)
             end if
         case default
-            print *, 'QUADPACK Error: Unsupported algorithm for finite-interval theta integrals: ', trim(quadpack_algorithm)
-            print *, 'Supported: QAG, QAGS'
-            error stop 'Invalid QUADPACK algorithm'
+            call log_error('QUADPACK: Unsupported algorithm: ' // &
+                trim(quadpack_algorithm) // '. Supported: QAG, QAGS')
         end select
 
         ! Check for errors (same as F1)
         if (ier /= 0) then
             if (ier == 6) then
-                print *, "QUADPACK Error: Invalid input parameters"
-                error stop "QUADPACK integration failed"
+                call log_error('QUADPACK: Invalid input parameters')
             else
-                if (fdebug >= 2) then
-                    select case(ier)
-                        case(1)
-                            print *, "QUADPACK Warning: Maximum subdivisions reached"
-                        case(2)
-                            print *, "QUADPACK Warning: Roundoff error detected"
-                        case(3)
-                            print *, "QUADPACK Warning: Extremely bad integrand behavior"
-                        case(4)
-                            print *, "QUADPACK Warning: Roundoff error in extrapolation"
-                        case(5)
-                            print *, "QUADPACK Warning: Divergent integral"
-                    end select
-                end if
+                select case(ier)
+                    case(1)
+                        call log_debug('QUADPACK: Maximum subdivisions reached')
+                    case(2)
+                        call log_debug('QUADPACK: Roundoff error detected')
+                    case(3)
+                        call log_debug('QUADPACK: Extremely bad integrand behavior')
+                    case(4)
+                        call log_debug('QUADPACK: Roundoff error in extrapolation')
+                    case(5)
+                        call log_debug('QUADPACK: Divergent integral')
+                end select
             end if
         end if
 
@@ -390,7 +382,7 @@ module quadpack_integration_m
                                      theta_min, theta_max, use_u_substitution)
         ! Integrate F3 using QUADPACK
         use grid_m, only: quadpack_key, quadpack_limit, quadpack_algorithm
-        use config_m, only: fdebug
+        use logger_m, only: log_debug, log_error, log_warning
         implicit none
 
         real(dp), intent(out) :: result
@@ -448,31 +440,27 @@ module quadpack_integration_m
                          result, abserr, neval, ier, limit, lenw, last, iwork_tl, work_tl)
             end if
         case default
-            print *, 'QUADPACK Error: Unsupported algorithm for finite-interval theta integrals: ', trim(quadpack_algorithm)
-            print *, 'Supported: QAG, QAGS'
-            error stop 'Invalid QUADPACK algorithm'
+            call log_error('QUADPACK: Unsupported algorithm: ' // &
+                trim(quadpack_algorithm) // '. Supported: QAG, QAGS')
         end select
 
         ! Check for errors (same as F1)
         if (ier /= 0) then
             if (ier == 6) then
-                print *, "QUADPACK Error: Invalid input parameters"
-                error stop "QUADPACK integration failed"
+                call log_error('QUADPACK: Invalid input parameters')
             else
-                if (fdebug >= 2) then
-                    select case(ier)
-                        case(1)
-                            print *, "QUADPACK Warning: Maximum subdivisions reached"
-                        case(2)
-                            print *, "QUADPACK Warning: Roundoff error detected"
-                        case(3)
-                            print *, "QUADPACK Warning: Extremely bad integrand behavior"
-                        case(4)
-                            print *, "QUADPACK Warning: Roundoff error in extrapolation"
-                        case(5)
-                            print *, "QUADPACK Warning: Divergent integral"
-                    end select
-                end if
+                select case(ier)
+                    case(1)
+                        call log_debug('QUADPACK: Maximum subdivisions reached')
+                    case(2)
+                        call log_debug('QUADPACK: Roundoff error detected')
+                    case(3)
+                        call log_debug('QUADPACK: Extremely bad integrand behavior')
+                    case(4)
+                        call log_debug('QUADPACK: Roundoff error in extrapolation')
+                    case(5)
+                        call log_debug('QUADPACK: Divergent integral')
+                end select
             end if
         end if
 

@@ -454,10 +454,12 @@ contains
 
     subroutine apply_ntv_transport(r, transport_data, antenna_factor_exponent)
         use PolyLagrangeInterpolation, only: binsrc
+        use control_mod, only: data_verbosity
         use grid_mod, only: rb, torque_ntv
+        use writeData_m, only: write_NTV_torque_diagnostic
         use spline, only: spline_coeff, spline_val
         use wave_code_data, only: antenna_factor
-        use time_evolution, only: antenna_factor_max
+        use time_evolution, only: antenna_factor_max, time_ind
 
         real(dp), dimension(:), intent(in) :: r
         type(transport_data_t), dimension(:), intent(in) :: transport_data
@@ -488,7 +490,14 @@ contains
         allocate (torque_splined(nrb, 3))
 
         ! translate to cgs via dividing by dVds
-        torque_of_r_coeffs = spline_coeff(r, total_torque / dVds)
+        total_torque = total_torque / dVds
+
+        if (data_verbosity >= 2) then
+            call write_NTV_torque_diagnostic(r, total_torque, time_ind)
+        end if
+
+        ! spline
+        torque_of_r_coeffs = spline_coeff(r, total_torque)
 
         ! find index/index+1 of last element from r in rb
         call binsrc(rb, 1, nrb, r(ntorque), i_separatrix)

@@ -4,10 +4,11 @@ module writeData_m
     implicit none
     private
 
+    public :: write_D_one_over_nu_to_h5
+    public :: write_NTV_torque_diagnostic
     public :: write_fields_currs_transp_coefs_to_h5
     public :: writefort9999
     public :: writefort9999_stellarator
-    public :: write_D_one_over_nu_to_h5
 
 contains
 
@@ -160,6 +161,41 @@ subroutine write_dql_Br_Jp_profiles_to_hdf5(tempch)
                         !abs(Jpe + Jpi), lbound(Jpe), ubound(Jpe))
 
 end subroutine
+
+subroutine write_NTV_torque_diagnostic(r, ntv_torque, time_ind)
+    use h5mod
+    use control_mod, only: ihdf5IO
+
+    implicit none
+
+    real(dp), dimension(:), intent(in) :: r
+    real(dp), dimension(:), intent(in) :: ntv_torque
+    integer, intent(in) :: time_ind
+
+    character(len=1024) :: tempch
+
+    if (ihdf5IO .eq. 1) then
+        call h5_init()
+        call h5_open_rw(path2out, h5_id)
+        tempch = "/"//trim(h5_mode_groupname)//"/LinearProfiles"
+
+        write (tempch, '(A,"/",I0,"/")') trim(tempch), time_ind
+
+        call create_group_if_not_existent(tempch)
+
+        call h5_add_double_1(h5_id, trim(tempch)//"r_NTV_no_spline", r, lbound(r), ubound(r), &
+                             comment="Radial grid for the un-splined NTV torque diagnostic.")
+
+        call h5_add_double_1(h5_id, trim(tempch)//"T_NTV_phi_i_no_spline", ntv_torque, &
+                             lbound(ntv_torque), ubound(ntv_torque), &
+                             comment="NTV torque on ions calculated by NEO-RT."// &
+                             " No splining to the full radial grid has been performed.")
+
+        call h5_close(h5_id)
+        call h5_deinit()
+    end if
+
+end subroutine write_NTV_torque_diagnostic
 
 subroutine writefort9999(dqle11_prev, dqli11_prev)
 

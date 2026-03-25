@@ -922,7 +922,7 @@ contains
 
     pure subroutine compute_diffusive_parts(dn_dr, dVphi_dr, dTe_dr, dTi_dr, n, Te, Ti, Z, S, &
                                             Dae11, Dqle11, Dae22, Dqle22, Dai22, Dni22, Dqli22, &
-                                            Dqli21, mu_perb, g_phi_phi, flux_diffusion)
+                                            Dqli21, mu_perp, g_phi_phi, flux_diffusion)
         !
         ! Compute diffusive fluxes for all four balance equations.
         ! These are only the operands of the divergence operator in each
@@ -962,7 +962,7 @@ contains
         real(dp), intent(in) :: n, Te, Ti, Z, S
         real(dp), intent(in) :: Dae11, Dqle11, Dae22, Dqle22
         real(dp), intent(in) :: Dai22, Dni22, Dqli22, Dqli21
-        real(dp), intent(in) :: mu_perb, g_phi_phi
+        real(dp), intent(in) :: mu_perp, g_phi_phi
         real(dp), dimension(4), intent(out) :: flux_diffusion
 
         real(dp) :: dfluxvphi
@@ -975,7 +975,7 @@ contains
         ! Eq. 2: Toroidal momentum diffusion (viscous term)
         ! Divide the equation by the factor mi to get velocity instead of momentum.
         ! This code evolves velocity directly.
-        dfluxvphi = -mu_perb * dVphi_dr * n / Z * g_phi_phi
+        dfluxvphi = -mu_perp * dVphi_dr * n / Z * g_phi_phi
         flux_diffusion(2) = S * dfluxvphi
 
         ! Eq. 3: Electron heat flux (diffusive part)

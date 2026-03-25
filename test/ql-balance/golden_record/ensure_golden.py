@@ -98,13 +98,20 @@ def build_main_ref() -> Path:
 
 
 def setup_runfolder() -> Path:
-    """Set up the runfolder using the user-provided setup script."""
+    """Set up the runfolder using the user-provided setup script.
+
+    Uses main branch's namelist template so the config only contains
+    variables that the main-branch binary recognises.
+    """
     # Clean up any existing runfolder
     if RUNFOLDER_DIR.exists():
         shutil.rmtree(RUNFOLDER_DIR)
     RUNFOLDER_DIR.mkdir(parents=True)
 
-    setup_runfolder_external(str(RUNFOLDER_DIR))
+    main_nml_template = str(
+        MAIN_REF_DIR / "QL-Balance" / "namelists" / "balance_conf.nml"
+    )
+    setup_runfolder_external(str(RUNFOLDER_DIR), nml_template=main_nml_template)
     return RUNFOLDER_DIR
 
 

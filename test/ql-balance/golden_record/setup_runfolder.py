@@ -47,7 +47,7 @@ from balance_interface import QL_Balance_interface
 from utility import create_parabolic_profiles_from_res_surf
 
 
-def setup_runfolder(run_path: str) -> None:
+def setup_runfolder(run_path: str, nml_template: str = "") -> None:
     """
     Set up a runfolder in the target directory with all necessary input files.
 
@@ -57,6 +57,12 @@ def setup_runfolder(run_path: str) -> None:
     Args:
         run_path: The directory where the runfolder should be created.
                   This directory already exists when this function is called.
+        nml_template: Optional path to a balance_conf.nml template file.
+                      When running against a different branch's binary (e.g.
+                      the golden record's main-branch build), pass that
+                      branch's template so the namelist only contains
+                      variables the binary recognises.  Defaults to the
+                      current source tree's template.
 
     Raises:
         RuntimeError: If setup fails for any reason.
@@ -81,7 +87,7 @@ def setup_runfolder(run_path: str) -> None:
     Btor = -17000  # toroidal magnetic field on axis in Gauss
 
     bi = QL_Balance_interface(run_path=run_path, shot=0, time=0, name="test")
-    bi.read_config_nml()
+    bi.read_config_nml(path=nml_template)
     bi.set_type_of_run(run_type="TimeEvolution")
     bi.set_modes(m_mode=mpol, n_mode=ntor)
 

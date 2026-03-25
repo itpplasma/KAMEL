@@ -120,16 +120,14 @@ module IO_collection_m
             'Logical switch for HDF5 input.', 'true/false')
         call h5_add(h5grpid, 'hdf5_output', hdf5_output, &
             'Logical switch for HDF5 output.', 'true/false')
-        call h5_add(h5grpid, 'fdebug', fdebug, &
-            'Logical switch for debug output.', 'true/false')
-        call h5_add(h5grpid, 'fstatus', fstatus, &
-            'Logical switch for status output.', 'true/false')
+        call h5_add(h5grpid, 'log_level', log_level, &
+            'Log verbosity level', 'i')
+        call h5_add(h5grpid, 'data_verbosity', data_verbosity, &
+            'Data output verbosity', 'i')
         call h5_add(h5grpid, 'output_path', trim(output_path), &
             'Path for output files.', 'str')
         call h5_add(h5grpid, 'calculate_asymptotics', calculate_asymptotics, &
             'Logical switch to calculate asymptotics.', 'true/false')
-        call h5_add(h5grpid, 'fdiagnostics', fdiagnostics, &
-            'Diagnostics output level.', 'integer')
         call h5_add(h5grpid, 'h5_out_file', trim(h5_out_file), &
             'Name of the HDF5 output file.', 'str')
 

@@ -3,12 +3,12 @@
 !> @date 13.03.2023
 subroutine ramp_coil
 
-    use control_mod, only: debug_mode
+    use logger_m, only: log_debug
     use time_evolution, only: ramp_up_mode
 
     implicit none
 
-    if (debug_mode) write(*,*) "Debug: - - ramp up antenna_factor - -"
+    call log_debug("- - ramp up antenna_factor - -")
 
     select case(ramp_up_mode)
         case(0)
@@ -42,11 +42,11 @@ subroutine ramp_up_linear
 
     use wave_code_data, only: antenna_factor
     use time_evolution, only: time
-    use control_mod, only: debug_mode
+    use logger_m, only: log_debug
 
     implicit none
 
-    if (debug_mode) write(*,*) "Debug: ramp-up mode linear"
+    call log_debug("ramp-up mode linear")
     ! initial ramp up. This is a linear ramp up of the antenna factor in time.
     antenna_factor = time**2 + 1.d-4
 
@@ -56,11 +56,11 @@ subroutine ramp_up_faster_1
 
     use wave_code_data, only: antenna_factor
     use time_evolution, only: timstep, t_max_ramp_up, antenna_factor_max
-    use control_mod, only: debug_mode
+    use logger_m, only: log_debug
 
     implicit none
 
-    if (debug_mode) write(*,*) "Debug: ramp-up mode faster 1"
+    call log_debug("ramp-up mode faster 1")
     ! First try for faster ramp up. Is (usually) not stable.
     antenna_factor = antenna_factor + antenna_factor_max * (timstep/t_max_ramp_up)
 
@@ -70,11 +70,11 @@ subroutine ramp_up_faster_2
 
     use wave_code_data, only: antenna_factor
     use time_evolution, only: time, t_max_ramp_up, antenna_factor_max
-    use control_mod, only: debug_mode
+    use logger_m, only: log_debug
 
     implicit none
 
-    if (debug_mode) write(*,*) "Debug: ramp-up mode faster 2, stable"
+    call log_debug("ramp-up mode faster 2, stable")
     ! Use this for faster ramp up. Ramps up antenna factor to 100% of max value
     ! in t_max_ramp_up time, but ramps-up further after that.
     if (time .eq. 0) then
@@ -89,11 +89,11 @@ subroutine ramp_up_instant
 
     use wave_code_data, only: antenna_factor
     use time_evolution, only: time, antenna_factor_max
-    use control_mod, only: debug_mode
+    use logger_m, only: log_debug
 
     implicit none
 
-    if (debug_mode) write(*,*) "Debug: ramp-up mode instant"
+    call log_debug("ramp-up mode instant")
 
     call stop_if_t_max_reached
 
@@ -108,11 +108,11 @@ end subroutine
 subroutine ramp_up_none
 
     use wave_code_data, only: antenna_factor
-    use control_mod, only: debug_mode
+    use logger_m, only: log_debug
 
     implicit none
 
-    if (debug_mode) write(*,*) "Debug: ramp-up mode none"
+    call log_debug("ramp-up mode none")
     call stop_if_t_max_reached
     antenna_factor = 0d0
 
@@ -123,25 +123,25 @@ subroutine ramp_up_hysteresis
     use time_evolution, only: time, ramp_up_down, t_hysteresis_turn, antenna_factor_max, antenna_max_stopping, &
         write_kin_prof_data_to_disk, write_br_dqle22_time_data
     use wave_code_data, only: antenna_factor
-    use control_mod, only: debug_mode
+    use logger_m, only: log_debug
     use h5mod
 
     implicit none
 
-    if (debug_mode) write(*,*) "Debug: ramp-up mode hysteresis"
-    if (debug_mode) write(*,*) "Debug: ramp_up_down = ", ramp_up_down
+    call log_debug("ramp-up mode hysteresis")
+    call log_debug("ramp_up_down processing")
     if (ramp_up_down .eq. 0) then ! ramp-up
-        if (debug_mode) write(*,*) "Ramp up ^"
+        call log_debug("Ramp up ^")
 
         antenna_factor = time**2 + 1.d-4
         if (antenna_factor .ge. antenna_factor_max * antenna_max_stopping) then ! switch to ramp-down
             ramp_up_down = 1
             t_hysteresis_turn = time
-            if (debug_mode) write(*,*) "Debug: Ramp turn at t = ", time
+            call log_debug("Ramp turn")
         end if
 
     else if (ramp_up_down .eq. 1) then !ramp down
-        if (debug_mode) write(*,*) "Debug: Ramp down v"
+        call log_debug("Ramp down v")
         ! get linear ramp-up in coil current (scales with sqrt of antenna_factor):
         antenna_factor = (sqrt(antenna_factor_max * antenna_max_stopping) - (time - t_hysteresis_turn))**2
         if ((antenna_factor/antenna_factor_max * 100) .le. 1.0) then ! if antenna factor would get below some percentage of the max value
@@ -158,7 +158,7 @@ subroutine ramp_up_hysteresis
                 CALL h5_close(h5_id)
                 CALL h5_deinit()
             end if
-            if (debug_mode) write(*,*) "Debug: Write br_time _data"
+            call log_debug("Write br_time_data")
             if (ihdf5IO .eq. 1) then
                 CALL write_br_dqle22_time_data!, br_abs_time, br_abs_antenna_factor, br_abs, dqle22_res_time)
             end if
@@ -174,24 +174,24 @@ subroutine ramp_up_fast_hysteresis
     use time_evolution, only: time, t_max_ramp_up, ramp_up_down, t_hysteresis_turn, antenna_factor_max, &
         antenna_max_stopping, write_kin_prof_data_to_disk, write_br_dqle22_time_data
     use wave_code_data, only: antenna_factor
-    use control_mod, only: debug_mode
+    use logger_m, only: log_debug
     use h5mod
 
     implicit none
 
-    if (debug_mode) write(*,*) "Debug: ramp-up mode fast hysteresis"
-    if (debug_mode) write(*,*) "Debug: ramp_up_down = ", ramp_up_down
+    call log_debug("ramp-up mode fast hysteresis")
+    call log_debug("ramp_up_down processing")
     if (ramp_up_down .eq. 0) then ! ramp-up
-        if (debug_mode) write(*,*) "Ramp up ^"
+        call log_debug("Ramp up ^")
         !antenna_factor = time**2 + 1.d-4
         antenna_factor = (antenna_factor_max/t_max_ramp_up * time)**2
         if (antenna_factor .ge. antenna_factor_max * antenna_max_stopping) then ! switch to ramp-down
             ramp_up_down = 1
             t_hysteresis_turn = time
-            if (debug_mode) write(*,*) "Debug: Ramp turn at t = ", time
+            call log_debug("Ramp turn")
         end if
     else if (ramp_up_down .eq. 1) then !ramp down
-        if (debug_mode) write(*,*) "Debug: Ramp down v"
+        call log_debug("Ramp down v")
         ! get linear ramp-up in coil current (scales with sqrt of antenna_factor):
         antenna_factor = (sqrt(antenna_factor_max * antenna_max_stopping) - (time - t_hysteresis_turn) &
         * antenna_factor_max/t_max_ramp_up)**2
@@ -224,12 +224,13 @@ subroutine stop_if_antenna_fac_max_reached
     use time_evolution, only: antenna_max_stopping, antenna_factor_max, write_br_dqle22_time_data, &
         write_kin_prof_data_to_disk
     use wave_code_data, only: antenna_factor
+    use logger_m, only: log_debug, log_info
     use h5mod
 
     implicit none
 
     if (antenna_factor .gt. (antenna_factor_max * antenna_max_stopping)) then
-        write(*,*) 'stop: reached antenna_factor_max * ', antenna_max_stopping
+        call log_info('stop: reached antenna_factor_max')
 
         if (suppression_mode .eqv. .false.) then
             call write_kin_prof_data_to_disk
@@ -244,7 +245,7 @@ subroutine stop_if_antenna_fac_max_reached
             CALL h5_deinit()
         end if
 
-        if (debug_mode) write(*,*) "Debug: Write br_time_data"
+        call log_debug("Write br_time_data")
         if (ihdf5IO .eq. 1) then
             CALL write_br_dqle22_time_data!, br_abs_time, br_abs_antenna_factor, br_abs, dqle22_res_time)
         end if
@@ -337,12 +338,13 @@ subroutine stop_if_t_max_reached
 
     use time_evolution, only: time, t_max_ramp_up, write_kin_prof_data_to_disk, write_br_dqle22_time_data
     use control_mod, only: suppression_mode, ihdf5IO
+    use logger_m, only: log_debug, log_info
     use h5mod
 
     implicit none
 
     if (time .ge. t_max_ramp_up) then ! if max time value is reached, stop the code
-        write(*,*) 'stop: reached time max: ', t_max_ramp_up
+        call log_info('stop: reached time max')
         if (suppression_mode .eqv. .false.) then
             call write_kin_prof_data_to_disk
         end if
@@ -357,7 +359,7 @@ subroutine stop_if_t_max_reached
 
             CALL write_br_dqle22_time_data!, br_abs_time, br_abs_antenna_factor, br_abs, dqle22_res_time)
         end if
-        if (debug_mode) write(*,*) "Debug: Write br_time _data"
+        call log_debug("Write br_time_data")
 
         stop
     end if

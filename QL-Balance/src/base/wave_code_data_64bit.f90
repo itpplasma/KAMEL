@@ -5,7 +5,7 @@
 subroutine get_wave_code_data(imin, imax)
 
     use wave_code_data
-    use control_mod, only: debug_mode
+    use logger_m, only: log_debug
 
     implicit none
 
@@ -13,11 +13,11 @@ subroutine get_wave_code_data(imin, imax)
     integer :: k
 
     do k = imin, imax
-        if (debug_mode) write(*,*) "Debug: in get_wave_code_data for mode ", k
+        call log_debug("in get_wave_code_data for mode")
         call clear_wave_code_data(flre_cd_ptr(k))
-        if (debug_mode) write(*,*) "Debug: calc_wave_code_data_for_mode"
+        call log_debug("calc_wave_code_data_for_mode")
         call calc_wave_code_data_for_mode(flre_cd_ptr(k), trim(flre_path), len(trim(flre_path)), m_vals(k), n_vals(k))
-        if (debug_mode) write(*,*) "Debug: after calc_wave_code_data_for_mode"
+        call log_debug("after calc_wave_code_data_for_mode")
     end do
 
     flre_call_ind = flre_call_ind + 1
@@ -33,10 +33,11 @@ subroutine initialize_wave_code_interface(nrad, r_grid)
 
     use wave_code_data
     use h5mod
-    use control_mod, only: readfromtimestep, debug_mode, ihdf5IO, wave_code, &
+    use control_mod, only: readfromtimestep, ihdf5IO, wave_code, &
                            kim_profiles_from_balance, kim_n_modes, kim_m_list, kim_n_list, &
                            type_of_run
     use kim_wave_code_adapter_m, only: kim_initialize, kim_load_vacuum_fields
+    use logger_m, only: log_debug, log_error
 
     implicit none
 
@@ -45,7 +46,7 @@ subroutine initialize_wave_code_interface(nrad, r_grid)
     character(1024) :: profile_path = "./profiles/"
     integer :: k
 
-    if (debug_mode) write(*,*) "Debug: Coming into initialize_wave_code_interface"
+    call log_debug("Coming into initialize_wave_code_interface")
 
     select case (trim(wave_code))
     case ('KiLCA')
@@ -55,10 +56,10 @@ subroutine initialize_wave_code_interface(nrad, r_grid)
     !call read_background_profiles(path2profs);
         if (ihdf5IO .eq. 1) then
             if (readfromtimestep .eq. 0) then
-                if(debug_mode) write(*,*) "reading initial profiles"
+                call log_debug("reading initial profiles")
                 call read_background_profiles_h5
             else
-                if(debug_mode) write(*,*) "reading time evolved profiles"
+                call log_debug("reading time evolved profiles")
                 call read_background_profiles_h5_timeevol(readfromtimestep)
             end if
         else
@@ -67,14 +68,14 @@ subroutine initialize_wave_code_interface(nrad, r_grid)
 
         call interp_background_profiles() ! interpolate the initial profiles to the balance grid
 
-        if (debug_mode) write(*,*) "Debug: after interp_background_profiles"
+        call log_debug("after interp_background_profiles")
         ! vacuum fields for the whole spectrum:
         do k = 1, dim_mn
             call clear_wave_code_data(vac_cd_ptr(k));
             call calc_wave_code_data_for_mode(vac_cd_ptr(k), trim(vac_path), len(trim(vac_path)), m_vals(k), n_vals(k));
         end do
 
-        if (debug_mode) write(*,*) "Debug: before get_background_magnetic_fields_from_wave_code"
+        call log_debug("before get_background_magnetic_fields_from_wave_code")
         call get_background_magnetic_fields_from_wave_code(vac_cd_ptr(1), dim_r, r, B0t, B0z, B0);
         call get_collision_frequences_from_wave_code(vac_cd_ptr(1), dim_r, r, nui, nue);
         vac_call_ind = vac_call_ind + 1;
@@ -121,12 +122,11 @@ subroutine initialize_wave_code_interface(nrad, r_grid)
         call kim_load_vacuum_fields()
 
     case default
-        write(*,*) "ERROR: Unknown wave_code: ", trim(wave_code)
-        stop 1
+        call log_error("Unknown wave_code: " // trim(wave_code))
 
     end select
 
-    if (debug_mode) write(*,*) "Debug: Going out of initialize_wave_code_interface"
+    call log_debug("Going out of initialize_wave_code_interface")
 end subroutine
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -242,7 +242,6 @@ subroutine update_background_files(path)
     use grid_mod, only: Ercov
     use plasma_parameters, only: params_b
     use baseparam_mod
-    use control_mod, only: debug_mode
 
     implicit none
 
@@ -436,10 +435,11 @@ subroutine read_antenna_modes(path)
 
     use wave_code_data, only: dim_mn, m_vals, n_vals;
     use resonances_mod, only: numres
-    use control_mod, only: debug_mode
+    use logger_m, only: log_debug
     implicit none;
     character(1024) :: path;
     character(1024) :: buffer;
+    character(64) :: buf_m, buf_n
     integer :: l, i1, i2, i3;
 
     dim_mn = numres
@@ -462,7 +462,10 @@ subroutine read_antenna_modes(path)
         i3 = index(buffer, ')');
         read (buffer(i1 + 1:i2 - 1), *) m_vals(l);
         read (buffer(i2 + 1:i3 - 1), *) n_vals(l);
-        if (debug_mode) write(*,*) "Debug: modes.in -> m = ", m_vals(l), ", n = ", n_vals(l)
+        write(buf_m, '(I0)') m_vals(l)
+        write(buf_n, '(I0)') n_vals(l)
+        call log_debug("modes.in -> m = " // trim(buf_m) // &
+            ", n = " // trim(buf_n))
     end do
     close (10);
 end subroutine
@@ -472,13 +475,13 @@ end subroutine
 subroutine read_background_profiles(path)
 
     use wave_code_data, only: rq, iq, rn, in, rTi, iTi, rTe, iTe, rVth, iVth, rVz, iVz, rep, idPhi0;
-    use control_mod, only: debug_mode
+    use logger_m, only: log_debug
     implicit none;
     character(1024) :: path;
     character(1024) :: file;
     integer :: l;
 
-    if (debug_mode) write(*,*) "Debug: Read background profiles from .dat files"
+    call log_debug("Read background profiles from .dat files")
 
     file = trim(path)//'q.dat';
     call find_file_length(file, l);
@@ -525,7 +528,8 @@ subroutine read_background_profiles_h5
 
     use h5mod
     use wave_code_data, only: rq, iq, rn, in, rTi, iTi, rTe, iTe, rVth, iVth, rVz, iVz, rep, idPhi0;
-    use control_mod, only: paramscan, debug_mode
+    use control_mod, only: paramscan
+    use logger_m, only: log_debug
 
     implicit none;
     character(len=*), parameter :: groupname = "/preprocprof"
@@ -537,7 +541,7 @@ subroutine read_background_profiles_h5
     !Er, is read from hdf5 file
     ! is the same for every fac_vz
 
-    if (debug_mode) write(*,*) 'Debug: Read background profiles from hdf5 file'
+    call log_debug('Read background profiles from hdf5 file')
     CALL h5_init()
     !CALL h5_check()
 
@@ -587,7 +591,7 @@ subroutine read_background_profiles_h5
     CALL h5_close_group(group_id_1)
     CALL h5_close(h5_id)
     CALL h5_deinit()
-    if (debug_mode) write (*, *) "Debug: finished reading background profiles from hdf5"
+    call log_debug("finished reading background profiles from hdf5")
 
     idPhi0 = -idPhi0; ! Er was loaded from Er.dat
 
@@ -604,8 +608,9 @@ subroutine read_background_profiles_h5_timeevol(tstep)
 
     use h5mod
     use wave_code_data, only: rq, iq, rn, in, rTi, iTi, rTe, iTe, rVth, iVth, rVz, iVz, rep, idPhi0, m_vals, n_vals
-    use control_mod, only: paramscan, debug_mode
+    use control_mod, only: paramscan
     use baseparam_mod, only: rtor
+    use logger_m, only: log_debug, log_info, log_warning
 
     implicit none;
     integer, intent(in) :: tstep
@@ -614,7 +619,7 @@ subroutine read_background_profiles_h5_timeevol(tstep)
     integer :: lb, ub;
 
 
-    write(*,*) 'Read time evolved background profiles from hdf5 file'
+    call log_info('Read time evolved background profiles from hdf5 file')
 
     write (groupname, '(A,I1,A,I1,A,I0,"/")') 'f_', m_vals(1), '_', n_vals(1), '/fort.1000/', &
                                               1000 + tstep
@@ -626,9 +631,9 @@ subroutine read_background_profiles_h5_timeevol(tstep)
 
     CALL h5_obj_exists(h5_id, trim(groupname), h5_exists_log)
     if (.not. h5_exists_log) then
-        write(*,*) "group ", trim(groupname), " does not exist."
+        call log_warning("group " // trim(groupname) // " does not exist.")
     else
-        write(*,*) "group ", trim(groupname), "does exist. Continue with reading"
+        call log_info("group " // trim(groupname) // " does exist. Continue with reading")
     end if
     ! open group where the profiles are located
     CALL h5_open_group(h5_id, trim(groupname), group_id_1)
@@ -694,7 +699,7 @@ subroutine read_background_profiles_h5_timeevol(tstep)
     CALL h5_close(h5_id)
 
     CALL h5_deinit()
-    if (debug_mode) write (*, *) "Debug: finished reading background profiles"
+    call log_debug("finished reading background profiles")
     idPhi0 = -idPhi0; ! Er was loaded from Er.dat
 
 

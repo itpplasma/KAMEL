@@ -4,7 +4,8 @@ subroutine det_balance_eqs_source_terms
 
     use grid_mod, only : y, dery, dery_equisource, nbaleqs, set_boundary_condition, npoi
     use plasma_parameters, only: params
-    use control_mod, only: diagnostics_output, debug_mode
+    use control_mod, only: data_verbosity
+    use logger_m, only: log_debug
     use h5mod
     use matrix_mod
     use QLBalance_kinds, only: dp
@@ -15,7 +16,7 @@ subroutine det_balance_eqs_source_terms
     integer :: ipoi, ieq, i, k
     real(dp) :: x
 
-    if (debug_mode) write(*,*) "Debug: Generating starting source"
+    call log_debug("Generating starting source")
 
     call set_boundary_condition
 
@@ -26,11 +27,11 @@ subroutine det_balance_eqs_source_terms
         enddo
     enddo
 
-    if (debug_mode) print *, "Debug: Before initialize_rhs"
+    call log_debug("Before initialize_rhs")
     call initialize_rhs(y,dery)
 
     dery_equisource=0.d0
-    if (debug_mode) print *, "Debug: Before rhs_balance"
+    call log_debug("Before rhs_balance")
     call rhs_balance(x,y,dery)
 
     do k = 1,nz
@@ -39,7 +40,7 @@ subroutine det_balance_eqs_source_terms
 
     dery_equisource=dery_equisource-rhsvec
 
-    if (diagnostics_output) then
+    if (data_verbosity >= 2) then
         call write_balance_eqs_source_terms
     end if
 
@@ -49,14 +50,15 @@ subroutine write_balance_eqs_source_terms
 
     use grid_mod, only : dery_equisource, npoi
     use h5mod
-    use control_mod, only: ihdf5IO, debug_mode
+    use control_mod, only: ihdf5IO
+    use logger_m, only: log_debug
 
     implicit none
 
     character(len=1024) :: tempch
     integer :: ipoi
 
-    if (debug_mode) write(*,*) "Debug: Writing equisource"
+    call log_debug("Writing equisource")
 
     if (ihdf5IO .eq. 1) then
         tempch = "/"//trim(h5_mode_groupname)//"/equisource.dat"

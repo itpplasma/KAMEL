@@ -2,7 +2,8 @@ subroutine write_fields_currs_transp_coefs_to_h5
     use grid_mod, only: npoib, dqle11, dqle12, dqle22, dqli11, dqli12, dqli22, &
                         T_EM_phi_e, T_EM_phi_i
     use baseparam_mod, only: e_charge, p_mass, c, e_mass, ev
-    use control_mod, only: ihdf5IO, diagnostics_output, misalign_diffusion
+    use control_mod, only: ihdf5IO, data_verbosity, misalign_diffusion
+    use logger_m, only: log_debug
     use wave_code_data
     use QLbalance_diag, only: iunit_diag
     use time_evolution, only: time_ind
@@ -17,7 +18,7 @@ subroutine write_fields_currs_transp_coefs_to_h5
 
         CALL h5_init()
         CALL h5_open_rw(path2out, h5_id)
-        if (debug_mode) print *, "Debug: ", trim(h5_mode_groupname)
+        call log_debug(trim(h5_mode_groupname))
         tempch = "/"//trim(h5_mode_groupname)//"/LinearProfiles"
 
         write (tempch, '(A,"/",I0,"/")') trim(tempch), time_ind
@@ -53,7 +54,7 @@ subroutine write_fields_currs_transp_coefs_to_h5
         if (misalign_diffusion .eqv. .true.) then
             call write_misalignment_data_to_hdf5(tempch)
         end if
-        if (diagnostics_output) then
+        if (data_verbosity >= 2) then
             call write_dql_Br_Jp_profiles_to_hdf5(tempch)
         end if
 
@@ -78,7 +79,7 @@ end subroutine write_fields_currs_transp_coefs_to_h5
 subroutine write_misalignment_data_to_hdf5(tempch)
 
     use h5mod
-    use control_mod, only: debug_mode
+    use logger_m, only: log_debug
     use grid_mod
     use wave_code_data
 
@@ -86,7 +87,7 @@ subroutine write_misalignment_data_to_hdf5(tempch)
 
     character(*), intent(in) :: tempch
 
-    if (debug_mode) write(*,*) "Writing misalignment diffusion to hdf5"
+    call log_debug("Writing misalignment diffusion to hdf5")
     CALL h5_add_double_1(h5_id, trim(tempch)//"D11_MA", d11_misalign, lbound(d11_misalign), ubound(d11_misalign))
     CALL h5_add_double_1(h5_id, trim(tempch)//"Es_pert_flux_real", real(Es_pert_flux), &
         lbound(real(Es_pert_flux)), ubound(dreal(Es_pert_flux)))
@@ -102,7 +103,7 @@ subroutine write_misalignment_data_to_hdf5(tempch)
         dimag(Br), lbound(dimag(Br)), ubound(dimag(Br)))
     CALL h5_add_double_1(h5_id, trim(tempch)//"Es_imag", &
         dimag(Es), lbound(dimag(Es)), ubound(dimag(Es)))
-    if (debug_mode) write(*,*) "Carry on from writing misalignment diffusion to hdf5"
+    call log_debug("Carry on from writing misalignment diffusion to hdf5")
 
 end subroutine
 
@@ -150,17 +151,21 @@ subroutine writefort9999
     use QLbalance_diag, only: timscal_dql, timscal_dqli, ind_dqle, ind_dqli
     use time_evolution, only: dqle11_prev, dqli11_prev, determine_Dql_diagnostic
     use h5mod
+    use logger_m, only: log_debug
 
     implicit none
 
     integer :: ipoi
+    character(256) :: buf
 
     call determine_Dql_diagnostic
 
-    if (debug_mode) print *, 'Debug: timscal_dqle = ', sngl(timscal_dql) &
-        , 'timscal_dqli = ', sngl(timscal_dqli)
-    if (debug_mode) print *, 'Debug: maximum dqle at r = ', rc(ind_dqle(1)) &
-        , 'maximum dqli at r = ', rc(ind_dqli(1))
+    write(buf, '(A,ES12.4,A,ES12.4)') 'timscal_dqle = ', &
+        sngl(timscal_dql), ' timscal_dqli = ', sngl(timscal_dqli)
+    call log_debug(trim(buf))
+    write(buf, '(A,ES12.4,A,ES12.4)') 'maximum dqle at r = ', &
+        rc(ind_dqle(1)), ' maximum dqli at r = ', rc(ind_dqli(1))
+    call log_debug(trim(buf))
     ! Edited by Markus Markl, 26.02.2021
     if (ihdf5IO .eq. 1) then
         ! write fort.9999 data to hdf5 file
@@ -198,17 +203,21 @@ subroutine writefort9999_stellarator
     use QLbalance_diag, only: timscal_dql, timscal_dqli, ind_dqle, ind_dqli
     use time_evolution_stellarator, only: dqle11_prev, dqli11_prev, determine_Dql_diagnostic
     use h5mod
+    use logger_m, only: log_debug
 
     implicit none
 
     integer :: ipoi
+    character(256) :: buf
 
     call determine_Dql_diagnostic
 
-    if (debug_mode) print *, 'Debug: timscal_dqle = ', sngl(timscal_dql) &
-        , 'timscal_dqli = ', sngl(timscal_dqli)
-    if (debug_mode) print *, 'Debug: maximum dqle at r = ', rc(ind_dqle(1)) &
-        , 'maximum dqli at r = ', rc(ind_dqli(1))
+    write(buf, '(A,ES12.4,A,ES12.4)') 'timscal_dqle = ', &
+        sngl(timscal_dql), ' timscal_dqli = ', sngl(timscal_dqli)
+    call log_debug(trim(buf))
+    write(buf, '(A,ES12.4,A,ES12.4)') 'maximum dqle at r = ', &
+        rc(ind_dqle(1)), ' maximum dqli at r = ', rc(ind_dqli(1))
+    call log_debug(trim(buf))
     ! Edited by Markus Markl, 26.02.2021
     if (ihdf5IO .eq. 1) then
         ! write fort.9999 data to hdf5 file

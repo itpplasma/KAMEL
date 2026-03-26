@@ -5,7 +5,7 @@ subroutine calc_equil_diffusion_coeffs
     use plasma_parameters, only: params_b
     use baseparam_mod, only: rsepar
     use h5mod
-    use control_mod, only: ihdf5IO, debug_mode
+    use control_mod, only: ihdf5IO
     use paramscan_mod, only: viscosity_factor
     use PolyLagrangeInterpolation
     use QLBalance_kinds, only: dp

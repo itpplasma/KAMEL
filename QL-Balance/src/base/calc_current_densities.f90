@@ -4,8 +4,9 @@ subroutine calc_parallel_current_directly
     use grid_mod, only: npoib, rb, Ercov
     use plasma_parameters, only: params_b, ddr_params_nl
     use baseparam_mod, only: e_charge, p_mass, c, e_mass, ev
-    use control_mod, only: ihdf5IO, diagnostics_output, write_gyro_current, &
+    use control_mod, only: ihdf5IO, data_verbosity, write_gyro_current, &
         gyro_current_study
+    use logger_m, only: log_debug
     use h5mod
     use wave_code_data
     use QLBalance_kinds, only: dp
@@ -49,7 +50,7 @@ subroutine calc_parallel_current_directly
         call h5_init()
         call h5_open_rw(path2out, h5_id)
         tempch = "/"//trim(h5_mode_groupname)//"/par_current_e/"
-        if (debug_mode) write(*,*) "Debug: In group: "//trim(tempch)
+        call log_debug("In group: "//trim(tempch))
 
         call h5_obj_exists(h5_id, trim(tempch), h5_exists_log)
         if (.not. h5_exists_log) then
@@ -65,7 +66,7 @@ subroutine calc_parallel_current_directly
                 !x2, lbound(x2), ubound(x2))
 
         if (write_gyro_current) then
-            if (debug_mode) write(*,*) "Debug: writing par_current_e.dat"
+            call log_debug("writing par_current_e.dat")
             ! Write out gyro current which is different to KiLCA current Jpe.
             ! The gyro current is calculated from (60) in Heyn et. al 2014
             !call h5_add_double_1(h5_id, trim(tempch)//"par_current_e_real", &
@@ -116,9 +117,9 @@ subroutine calc_parallel_current_directly
         call h5_close(h5_id)
         call h5_deinit()
 
-        if (diagnostics_output) then
+        if (data_verbosity >= 2) then
             if (ihdf5IO .eq. 1) then
-                if (debug_mode) write(*,*) "Debug: writing par_current_e.dat"
+                call log_debug("writing par_current_e.dat")
                 call h5_init()
                 call h5_open_rw(path2out, h5_id)
 
@@ -186,7 +187,7 @@ subroutine calc_parallel_current_directly
         CALL h5_init()
         CALL h5_open_rw(path2out, h5_id)
         tempch = "/"//trim(h5_mode_groupname)//"/gyro_current_study/"
-        if (debug_mode) write(*,*) "Debug: In group: "//trim(tempch)
+        call log_debug("In group: "//trim(tempch))
 
         CALL h5_define_group(h5_id, trim(tempch), group_id_1)
         CALL h5_close_group(group_id_1)
@@ -242,7 +243,7 @@ subroutine calc_parallel_current_directly
                 tempch = "/"//trim(h5_mode_groupname)//"/gyro_current_study/"
                 write(tempch, "(A,i4.4,A,i4.4,A)") trim(tempch), study_i_omE, "/", &
                     study_j_nue, "/"
-                if (debug_mode) write(*,*) "Debug: In group: "//trim(tempch)
+                call log_debug("In group: "//trim(tempch))
 
                 CALL h5_define_group(h5_id, trim(tempch), group_id_1)
                 CALL h5_close_group(group_id_1)
@@ -309,7 +310,7 @@ subroutine calc_parallel_current_directly
         CALL h5_init()
         CALL h5_open_rw(path2out, h5_id)
         tempch = "/"//trim(h5_mode_groupname)//"/currents/"
-        if (debug_mode) write(*,*) "Debug: In group: "//trim(tempch)
+        call log_debug("In group: "//trim(tempch))
 
         CALL h5_define_group(h5_id, trim(tempch), group_id_1)
         CALL h5_close_group(group_id_1)
@@ -382,7 +383,8 @@ subroutine calc_ion_parallel_current_directly
     use plasma_parameters, only: params_b, ddr_params_nl
     use baseparam_mod, only: Z_i, e_charge, p_mass, c, e_mass, ev
     use wave_code_data
-    use control_mod, only: ihdf5IO, diagnostics_output, write_gyro_current
+    use control_mod, only: ihdf5IO, data_verbosity, write_gyro_current
+    use logger_m, only: log_debug
     use h5mod
     use QLBalance_kinds, only: dp
 
@@ -421,13 +423,13 @@ subroutine calc_ion_parallel_current_directly
                     + vT*Br*((x1 + x2)*symbI(1, 1, :) + 0.5d0*x2*symbI(3, 1, :)))
 
     if (write_gyro_current) then
-        if (debug_mode) write(*,*) "Debug: writing par_current_i.dat"
+        call log_debug("writing par_current_i.dat")
         ! Write out gyro current which is different to KiLCA current Jpe.
         ! The gyro current is calculated from (60) in Heyn et. al 2014
         call h5_init()
         call h5_open_rw(path2out, h5_id)
         tempch = "/"//trim(h5_mode_groupname)//"/par_current_i/"
-        if (debug_mode) write(*,*) "Debug: In group: "//trim(tempch)
+        call log_debug("In group: "//trim(tempch))
 
         call h5_define_group(h5_id, trim(tempch), group_id_1)
         call h5_close_group(group_id_1)
@@ -466,9 +468,9 @@ subroutine calc_ion_parallel_current_directly
 
     end if ! write_gyro_current
 
-    if (diagnostics_output) then
+    if (data_verbosity >= 2) then
         if (ihdf5IO .eq. 1) then
-            if (debug_mode) print *, "Debug: writing par_current_i.dat"
+            call log_debug("writing par_current_i.dat")
             call h5_init()
             call h5_open_rw(path2out, h5_id)
             tempch = "/"//trim(h5_mode_groupname)//"/par_current_i.dat"

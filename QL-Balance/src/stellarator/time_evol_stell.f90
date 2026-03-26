@@ -36,8 +36,9 @@ module time_evolution_stellarator
         use QLbalance_diag, only: write_diag, write_diag_b
         use KAMEL_hdf5_tools, only: h5overwrite
         use h5mod, only: mode_m, mode_n
-        use control_mod, only: gyro_current_study, write_gyro_current, debug_mode, &
+        use control_mod, only: gyro_current_study, write_gyro_current, &
                         ihdf5IO
+        use logger_m, only: log_debug
         use wave_code_data, only: m_vals, n_vals
         use plasma_parameters, only: write_initial_parameters, alloc_hold_parameters, &
                                 params, params_begbeg, init_background_profiles
@@ -82,7 +83,7 @@ module time_evolution_stellarator
         if (ihdf5IO .eq. 1) then
             call create_group_structure_timeevol
         end if
-        if (debug_mode) write(*,*) 'Debug: mode_m = ', mode_m, 'mode_n = ', mode_n
+        call log_debug('mode_m/mode_n set')
 
         call allocate_prev_variables
         call init_background_profiles
@@ -146,7 +147,7 @@ module time_evolution_stellarator
             call write_br_dqle22_time_data
             call message_Br_Dqle_values
 
-            if (diagnostics_output)then
+            if (data_verbosity >= 2) then
                 call writefort9999_stellarator
             end if
 
@@ -162,7 +163,7 @@ module time_evolution_stellarator
                 params_beg = params
 
                 print *, ""
-                if (debug_mode) write(*,*) "Debug: Timstep before evolvestep is ", timstep, " eps = " , eps
+                call log_debug("Timstep before evolvestep")
                 call evolvestep_stell(timstep, eps)
 
                 call limit_temps_from_below
@@ -178,16 +179,7 @@ module time_evolution_stellarator
                 timstep_arr = timstep_arr * factolred
                 params = params_beg
 
-                if (debug_mode) then
-                    print *, "Redoing step: Maxval(timscal) is not lesser than tol * factolmax"
-                    print *, "Maxval(timscal) = ", maxval(timscal)
-                    print *, "tol = ", tol
-                    print *, "factolmax = ", factolmax
-                    print *, "tol * factolmax = ", tol * factolmax
-                    print *, "timstep_arr(1) = ", timstep_arr(1)
-                    print *, "timstep_arr(100) = ", timstep_arr(100)
-                    print *, ""
-                end if
+                call log_debug("Redoing step: Maxval(timscal) > tol * factolmax")
                 if (iredo > 300) then
                     stop "Redoing step: Maxval(timscal) is not lesser than tol * factolmax after 100 redos"
                 end if
@@ -207,7 +199,7 @@ module time_evolution_stellarator
             timstep_arr = timstep
             time = time + timstep
 
-            if (debug_mode) call msg_time_info
+            call log_debug("msg_time_info")
             if (.not. suppression_mode) call write_kin_profile_at_time_index
             call set_first_iteration_true
             call check_linear_discr_pen_ratio

@@ -3,6 +3,7 @@ module h5mod
 
     use KAMEL_hdf5_tools
     use control_mod
+    use logger_m, only: log_debug
 
     implicit none
 
@@ -38,7 +39,7 @@ module h5mod
 
         character(*), intent(in) :: group_name
 
-        if (debug_mode) print *, "Creating group ", trim(group_name)
+        call log_debug("Creating group " // trim(group_name))
 
         call h5_obj_exists(h5_id, trim(group_name), h5_exists_log)
         if (.not. h5_exists_log) then

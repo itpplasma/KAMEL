@@ -25,6 +25,7 @@ subroutine get_dql
     use QLBalance_diag, only: i_mn_loop
     use QLBalance_kinds, only: dp
     use PolyLagrangeInterpolation
+    use logger_m, only: log_debug
 
     implicit none
 
@@ -240,9 +241,9 @@ subroutine get_dql
 
             ! caluclate part of perpendicular electric field perturbation that comes from
             if (.not. allocated(coef)) allocate(coef(0:nder,nlagr))
-            if (debug_mode) write(*,*) "at r_resonant(i_mn) = ", r_resonant(i_mn)
+            call log_debug("at r_resonant for misalign_diffusion")
             call binsrc(rb, 1, npoib, r_resonant(i_mn), ibrabsres)
-            if (debug_mode) write(*,*) "binary search found ibrabsres = ", ibrabsres
+            call log_debug("binary search found ibrabsres")
 
             call get_ind_Lagr_interp(ibrabsres, ind_begin_interp, ind_end_interp)
             call plag_coeff(nlagr, nder, r_resonant(i_mn), rb(ind_begin_interp:ind_end_interp), coef)
@@ -482,7 +483,7 @@ subroutine get_dql
     end if
 
 
-    if (debug_mode) print *, "Debug: write_fields_currs_transp_coefs_to_h5"
+    call log_debug("write_fields_currs_transp_coefs_to_h5")
 
     if (modulo(time_ind, save_prof_time_step) .eq. 0) then
         if (suppression_mode .eqv. .false.) then
@@ -491,7 +492,7 @@ subroutine get_dql
         end if
     end if
 
-    if (debug_mode) write(*,*) "Debug: going out of get_dql"
+    call log_debug("going out of get_dql")
 
 end subroutine get_dql
 
@@ -563,7 +564,8 @@ subroutine write_Brvac(brvac_interp)
     use QLBalance_kinds, only: dp
     use grid_mod, only: npoib, r_resonant
     use wave_code_data, only: Br, r
-    use control_mod, only: ihdf5IO
+    use control_mod, only: ihdf5IO, data_verbosity
+    use logger_m, only: log_debug
 
     implicit none
 
@@ -572,21 +574,21 @@ subroutine write_Brvac(brvac_interp)
     integer :: ipoi
 
         if (ihdf5IO .eq. 1) then
-            if (debug_mode) print *, "Debug: Writing Brvac to hdf5 file"
-            if (debug_mode) write(*,*) "Debug: Brvac = ", brvac_interp, " at r_res = ", r_resonant(1)
+            call log_debug("Writing Brvac to hdf5 file")
+            call log_debug("Brvac computation complete")
             CALL h5_init()
             CALL h5_open_rw(path2out, h5_id)
             !call create_group_if_not_existent("/"//trim(h5_mode_groupname))
             tempch = "/"//trim(h5_mode_groupname)//"/Brvac_res_real"
-            if (debug_mode) write(*,*) "Debug: group name: ", trim(tempch)
+            call log_debug("group name: " // trim(tempch))
             CALL h5_add_double_0(h5_id, trim(tempch), real(brvac_interp))
 
             tempch = "/"//trim(h5_mode_groupname)//"/Brvac_res_imag"
-            if (debug_mode) write(*,*) "Debug: group name: ", trim(tempch)
+            call log_debug("group name: " // trim(tempch))
             CALL h5_add_double_0(h5_id, trim(tempch), aimag(brvac_interp))
 
-            if (diagnostics_output) then
-                if (debug_mode) write (*, *) "Debug: writing Brvac.dat"
+            if (data_verbosity >= 2) then
+                call log_debug("writing Brvac.dat")
                 tempch = "/"//trim(h5_mode_groupname)//"/Brvac.dat"
                 CALL h5_obj_exists(h5_id, trim(tempch), h5_exists_log)
                 if (h5_exists_log) then

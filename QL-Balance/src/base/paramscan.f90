@@ -4,6 +4,7 @@ module paramscan_mod
     use control_mod
     use balance_base, only: balance_t
     use QLBalance_kinds, only: dp
+    use logger_m, only: log_debug
 
     implicit none
 
@@ -31,8 +32,9 @@ module paramscan_mod
         use QLbalance_diag, only: write_diag, write_diag_b
         use KAMEL_hdf5_tools, only: h5overwrite
         use h5mod, only: mode_m, mode_n
-        use control_mod, only: gyro_current_study, write_gyro_current, debug_mode, &
+        use control_mod, only: gyro_current_study, write_gyro_current, &
                         ihdf5IO
+        use logger_m, only: log_debug
         use wave_code_data, only: m_vals, n_vals
         use plasma_parameters, only: write_initial_parameters, alloc_hold_parameters, &
                                 init_background_profiles
@@ -62,7 +64,7 @@ module paramscan_mod
 
         mode_m = m_vals(1)
         mode_n = n_vals(1)
-        if (debug_mode) write(*,*) 'Debug: mode_m = ', mode_m, 'mode_n = ', mode_n
+        call log_debug('mode_m/mode_n set')
         !call allocate_prev_variables
 
         if (ihdf5IO .eq. 1) then
@@ -129,9 +131,8 @@ module paramscan_mod
         call add_mode_group_to_h5_mode_groupname
         call determine_h5_mode_groupname_of_scan
         print *, "Prepare_h5_group_name : h5_mode_groupname: ", trim(h5_mode_groupname)
-        if (debug_mode) then
-            print *, "Prepare_h5_group_name : h5_mode_groupname: ", trim(h5_mode_groupname)
-        end if
+        call log_debug("Prepare_h5_group_name : h5_mode_groupname: " &
+            // trim(h5_mode_groupname))
 
     end subroutine
 
@@ -234,7 +235,7 @@ module paramscan_mod
     subroutine rescale_profiles
 
         use plasma_parameters, only: params, hold_n, hold_vz, hold_Te, hold_Ti, hold_dphi0
-        use control_mod, only: debug_mode
+        use logger_m, only: log_debug
         use h5mod
         use wave_code_data, only: idPhi0
 
@@ -243,7 +244,7 @@ module paramscan_mod
         double precision, dimension(:), allocatable :: ErVzfac ! factor to rescale Er
         integer :: lowerBound, upperBound
 
-        if (debug_mode) write(*,*) "Debug: coming into rescaling profiles"
+        call log_debug("coming into rescaling profiles")
 
         print *, "hold times fac"
         params(1, :) = hold_n * fac_n(ifac_n)
@@ -253,7 +254,7 @@ module paramscan_mod
         print *, "After hold times fac"
 
         if (fac_vz(ifac_vz) .ne. 1.d0) then
-            if (debug_mode) write(*,*) "Debug: fac_vz not equal 1. need to rescale Er as well"
+            call log_debug("fac_vz not equal 1. need to rescale Er as well")
             CALL h5_init()
             CALL h5_open_rw(path2out, h5_id)
             CALL h5_get_bounds_1(h5_id, '/factors/ErVzfac', lowerBound, upperBound)
@@ -272,7 +273,7 @@ module paramscan_mod
         write(*,*) "fac_Te = ", fac_Te(ifac_Te), "   ", ifac_Te, " of ", size(fac_Te)
         write(*,*) "fac_vz = ", fac_vz(ifac_vz), "   ", ifac_vz, " of ", size(fac_vz)
 
-        if (debug_mode) write(*,*) "Debug: going out of rescaling profiles"
+        call log_debug("going out of rescaling profiles")
 
     end subroutine !rescale_profiles
 
@@ -309,7 +310,7 @@ module paramscan_mod
                 Ercovavg(ipoi) = 0.5d0*(Ercov(ipoi) + Ercov(ipoi + 1))
             end do
             Er_res(ifac_n, ifac_Te, ifac_Ti, ifac_vz) = sum(coef(0, :)*Ercovavg(ind_begin_interp:ind_end_interp))
-            if (debug_mode) write (*, *) "Er_res = ", Er_res(ifac_n, ifac_Te, ifac_Ti, ifac_vz)
+            call log_debug("Er_res computed")
         end if
 
     end subroutine
@@ -323,11 +324,12 @@ module paramscan_mod
         use wave_code_data, only: m_vals, n_vals
         use resonances_mod, only: numres
         use h5mod
+        use logger_m, only: log_debug
 
         implicit none
         !logical :: suppression_mode = .true.
 
-        if (debug_mode) write (*, *) "Debug: Creating group structure"
+        call log_debug("Creating group structure")
         ! if the profiles should be written out, i.e. suppression_mode = false, then an extended group
         ! structure is created to save them
         CALL h5_init()
@@ -364,7 +366,7 @@ module paramscan_mod
 
                             ! create the groups that are furthest down: fort.1000,
                             ! fort.5000 and init_params
-                            if (debug_mode) write(*,*) "Debug: h5_mode_groupname ", trim(h5_mode_groupname)
+                            call log_debug("h5_mode_groupname " // trim(h5_mode_groupname))
                             CALL h5_create_parent_groups(h5_id, trim(h5_mode_groupname) //'/')
                             CALL h5_create_parent_groups(h5_id, trim(h5_mode_groupname)//"/KinProfiles/")
                             CALL h5_create_parent_groups(h5_id, trim(h5_mode_groupname)//"/LinearProfiles/")
@@ -392,7 +394,7 @@ module paramscan_mod
                 write (h5_mode_groupname, "(A)") "multi_mode"
             end if
 
-            if (debug_mode) write (*,*) "Debug: h5_mode_groupname: ", trim(h5_mode_groupname)
+            call log_debug("h5_mode_groupname: " // trim(h5_mode_groupname))
             CALL h5_define_group(h5_id, trim(h5_mode_groupname), group_id_2)
             CALL h5_close_group(group_id_2)
 
@@ -400,7 +402,7 @@ module paramscan_mod
         CALL h5_close(h5_id)
         CALL h5_deinit()
 
-        if (debug_mode) write (*, *) "Debug: finished creating group structure"
+        call log_debug("finished creating group structure")
     end subroutine
 
     subroutine write_Br_Dql_at_res_to_hdf5

@@ -4,7 +4,8 @@ subroutine det_balance_eqs_source_terms_stell
 
     use grid_mod, only : y, dery, dery_equisource, nbaleqs, iboutype, npoic
     use plasma_parameters, only: params
-    use control_mod, only: ihdf5IO, diagnostics_output, debug_mode
+    use control_mod, only: ihdf5IO, data_verbosity
+    use logger_m, only: log_debug
     use h5mod
     use matrix_mod
     use time_evolution_stellarator, only: set_momentum_source_to_zero
@@ -16,7 +17,7 @@ subroutine det_balance_eqs_source_terms_stell
     real(dp) :: x
     character(len=1024) :: tempch
 
-    if (debug_mode) write(*,*) "Debug: Generating starting source"
+    call log_debug("Generating starting source")
 
     if(iboutype.eq.1) then
         npoi=npoic-1
@@ -31,11 +32,11 @@ subroutine det_balance_eqs_source_terms_stell
         enddo
     enddo
 
-    if (debug_mode) print *, "Debug: Before initialize_rhs_stell"
+    call log_debug("Before initialize_rhs_stell")
     call initialize_rhs_stell(y,dery)
 
     dery_equisource=0.d0
-    if (debug_mode) print *, "Debug: Before rhs_balance_stell"
+    call log_debug("Before rhs_balance_stell")
     call rhs_balance_stell(x,y,dery)
 
     do k=1,nz
@@ -52,8 +53,8 @@ subroutine det_balance_eqs_source_terms_stell
         enddo
     end if
 
-    if (diagnostics_output) then
-        if (debug_mode) write(*,*) "Debug: Writing equisource"
+    if (data_verbosity >= 2) then
+        call log_debug("Writing equisource")
         if (ihdf5IO .eq. 1) then
             tempch = "/"//trim(h5_mode_groupname)//"/equisource.dat"
 

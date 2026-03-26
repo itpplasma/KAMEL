@@ -20,8 +20,9 @@ module singleStep
         use grid_mod, only: mwind, set_boundary_condition, npoib, rb
         use KAMEL_hdf5_tools, only: h5overwrite
         use h5mod, only: mode_m, mode_n
-        use control_mod, only: gyro_current_study, write_gyro_current, debug_mode, &
+        use control_mod, only: gyro_current_study, write_gyro_current, &
                         ihdf5IO
+        use logger_m, only: log_debug
         use wave_code_data, only: m_vals, n_vals
         use plasma_parameters, only: write_initial_parameters, alloc_hold_parameters, &
                                 init_background_profiles
@@ -49,7 +50,7 @@ module singleStep
 
         mode_m = m_vals(1)
         mode_n = n_vals(1)
-        if (debug_mode) write(*,*) 'Debug: mode_m = ', mode_m, 'mode_n = ', mode_n
+        call log_debug('mode_m/mode_n set')
         !call allocate_prev_variables
         if (ihdf5IO .eq. 1) then
             call create_group_structure_singlestep
@@ -65,7 +66,7 @@ module singleStep
 
         use transp_coeffs_mod, only: rescale_transp_coeffs_by_ant_fac, &
             compute_antenna_factor_from_Ipar
-        use control_mod, only: debug_mode
+        use logger_m, only: log_debug
 
         implicit none
 
@@ -75,9 +76,9 @@ module singleStep
 
         call initialize_get_dql
 
-        if (debug_mode) write(*,*) "Debug: before get_dql"
+        call log_debug("before get_dql")
         call get_dql
-        if (debug_mode) write(*,*) "Debug: after get_dql"
+        call log_debug("after get_dql")
         call compute_antenna_factor_from_Ipar
         call rescale_transp_coeffs_by_ant_fac
 
@@ -170,12 +171,11 @@ module singleStep
         use wave_code_data, only: m_vals, n_vals
         use resonances_mod, only: numres
         use h5mod
+        use logger_m, only: log_debug
 
         implicit none
 
-        if (debug_mode) then
-            print *, "Creating group structure for Single Step"
-        end if
+        call log_debug("Creating group structure for Single Step")
 
         if (numres .eq. 1) then
             if (m_vals(1) <= 9) then
@@ -191,9 +191,7 @@ module singleStep
         CALL h5_open_rw(path2out, h5_id)
 
         if (.not. suppression_mode) then
-            if (debug_mode) then
-                write(*,*) "h5_mode_groupname ", trim(h5_mode_groupname)
-            end if
+            call log_debug("h5_mode_groupname " // trim(h5_mode_groupname))
             CALL h5_create_parent_groups(h5_id, trim(h5_mode_groupname)//'/')
             CALL h5_create_parent_groups(h5_id, trim(h5_mode_groupname)//"/KinProfiles/")
             CALL h5_define_group(h5_id, trim(h5_mode_groupname)//"/LinearProfiles/", group_id_1)
@@ -204,9 +202,7 @@ module singleStep
                 CALL h5_close_group(group_id_2)
             end if
         else
-            if (debug_mode) then
-                write (*,*) "Debug: h5_mode_groupname: ", trim(h5_mode_groupname)
-            end if
+            call log_debug("h5_mode_groupname: " // trim(h5_mode_groupname))
             CALL h5_define_group(h5_id, trim(h5_mode_groupname), group_id_2)
             CALL h5_close_group(group_id_2)
             CALL h5_obj_exists(h5_id, "/init_params", h5_exists_log)
@@ -219,7 +215,7 @@ module singleStep
         CALL h5_close(h5_id)
         CALL h5_deinit()
 
-        if (debug_mode) write (*, *) "Debug: finished creating group structure for Single Step"
+        call log_debug("finished creating group structure for Single Step")
     end subroutine
 
 end module

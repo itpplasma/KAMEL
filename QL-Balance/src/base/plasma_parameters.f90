@@ -139,11 +139,12 @@ contains
     !> @date 05.10.2022
     subroutine write_initial_parameters
         use baseparam_mod, only: ev
-        use control_mod, only: debug_mode, ihdf5IO
+        use control_mod, only: ihdf5IO
         use h5mod
         use wave_code_data, only: r, Vth, dPhi0
+        use logger_m, only: log_debug
 
-        if (debug_mode) write (*, *) "Debug: writing initial background profiles"
+        call log_debug("writing initial background profiles")
         if (ihdf5IO .eq. 1) then
             call h5_init()
             ! open hdf5 file
@@ -173,12 +174,12 @@ contains
                 ! thermal velocity [cm/s]
                 call h5_add_double_1(h5_id, "/init_params/Vth", Vth, lbound(Vth), ubound(Vth))
             else
-                if (debug_mode) write (*, *) "Debug: they are already there -> skiping"
+                call log_debug("they are already there -> skipping")
             end if
 
             call h5_close(h5_id)
             call h5_deinit()
-            if (debug_mode) write (*, *) "Debug: finished writing initial background profiles"
+            call log_debug("finished writing initial background profiles")
             !stop ! for test purposes
 
         else

@@ -7,8 +7,9 @@
 
     use grid_mod
     use plasma_parameters
-    use control_mod, only: debug_mode, wave_code, kim_n_modes, kim_m_list, kim_n_list
+    use control_mod, only: wave_code, kim_n_modes, kim_m_list, kim_n_list
     use PolyLagrangeInterpolation
+    use logger_m, only: log_debug
 
     implicit none
 
@@ -16,7 +17,7 @@
     double precision :: hrmax, r, rnext, recnsp
     double precision, dimension(:), allocatable :: x
 
-    if (debug_mode) write(*,*) "Debug: coming in gengrid"
+    call log_debug("coming in gengrid")
     nbaleqs = 4
 
     nder = 1
@@ -114,7 +115,7 @@
     allocate(Ercov_lin(npoib))
 
 
-    if (debug_mode) write(*,*) "Debug: going out in gengrid"
+    call log_debug("going out of gengrid")
     return
 end subroutine gengrid
 
@@ -174,7 +175,8 @@ subroutine prepare_resonances
 
     use resonances_mod
     use grid_mod, only: gg_width, gg_factor,r_resonant
-    use control_mod, only: ihdf5IO, debug_mode, wave_code, kim_n_modes, kim_m_list, kim_n_list
+    use control_mod, only: ihdf5IO, wave_code, kim_n_modes, kim_m_list, kim_n_list
+    use logger_m, only: log_debug
     use h5mod
 
     implicit none
@@ -206,7 +208,7 @@ subroutine prepare_resonances
         nr = ub
 
     else
-        if (debug_mode) print *, "get number of q data points"
+        call log_debug("get number of q data points")
         nr=0
         open(iunit_res,file='profiles/q.dat')
         do
@@ -217,7 +219,7 @@ subroutine prepare_resonances
         close(iunit_res)
         allocate(r(nr),q(nr))
 
-        if (debug_mode) print *, "reading profiles/q.dat"
+        call log_debug("reading profiles/q.dat")
         open(iunit_res,file='profiles/q.dat')
         do i=1,nr
             read(iunit_res,*) r(i),q(i)
@@ -231,7 +233,7 @@ subroutine prepare_resonances
     if (trim(wave_code) == 'KIM') then
         ! KIM mode: read mode list from namelist parameters
         numres = kim_n_modes
-        if (debug_mode) write(*,*) "numres = ", numres
+        call log_debug("numres determined")
 
         allocate(r_res(numres),width_res(numres),ampl_res(numres))
         allocate(r_resonant(numres))
@@ -277,7 +279,7 @@ subroutine prepare_resonances
         read(iunit_res,*)
         read(iunit_res,*) numres
         close(iunit_res)
-        if (debug_mode) write(*,*) "numres = ", numres
+        call log_debug("numres determined")
 
         allocate(r_res(numres),width_res(numres),ampl_res(numres))
         allocate(r_resonant(numres))
@@ -331,7 +333,7 @@ subroutine prepare_resonances
         enddo
     enddo
 
-    if (debug_mode) print *,'Debug: gengrid: number of resonance points = ',numres
+    call log_debug('gengrid: number of resonance points determined')
     do i = 1, numres
         ! maximum width for resonant radius is 999.999 cm with this format
         ! adjust if necessary

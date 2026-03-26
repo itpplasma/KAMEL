@@ -4,6 +4,7 @@ module time_evolution
     use h5mod
     use balance_base, only: balance_t
     use QLBalance_kinds, only: dp
+    use logger_m, only: log_debug, log_info
 
     implicit none
 
@@ -86,12 +87,13 @@ module time_evolution
         use QLbalance_diag, only: write_diag, write_diag_b
         use KAMEL_hdf5_tools, only: h5overwrite
         use h5mod, only: mode_m, mode_n
-        use control_mod, only: gyro_current_study, write_gyro_current, debug_mode, &
+        use control_mod, only: gyro_current_study, write_gyro_current, &
                         ihdf5IO
         use wave_code_data, only: m_vals, n_vals
         use plasma_parameters, only: write_initial_parameters, alloc_hold_parameters, &
                                 params, params_begbeg, init_background_profiles
         use resonances_mod, only: write_resonant_radii_to_hdf5
+        use logger_m, only: log_debug
 
         implicit none
 
@@ -127,7 +129,7 @@ module time_evolution
         if (ihdf5IO .eq. 1) then
             call create_group_structure_timeevol
         end if
-        if (debug_mode) write(*,*) 'Debug: mode_m = ', mode_m, 'mode_n = ', mode_n
+        call log_debug('mode_m/mode_n set')
 
         call write_resonant_radii_to_hdf5
 
@@ -171,8 +173,8 @@ module time_evolution
 
     subroutine doStep(this)
         use baseparam_mod, only: factolmax, factolred
-        use control_mod, only: debug_mode
         use plasma_parameters, only: params, params_beg, params_begbeg, limit_temps_from_below
+        use logger_m, only: log_debug
         use recstep_mod, only: timstep_arr
         use recstep_mod, only: tol
         use restart_mod, only: redostep
@@ -197,7 +199,7 @@ module time_evolution
         call write_br_dqle22_time_data
         call message_Br_Dqle_values
 
-        if (diagnostics_output)then
+        if (data_verbosity >= 2) then
             call writefort9999
         end if
 
@@ -214,8 +216,7 @@ module time_evolution
             params_beg = params
 
             print *, ""
-            if (debug_mode) write(*, "(a, i0, a, f12.6)") &
-                            "Debug: Timstep before evolvestep is ", timstep, " eps = " , eps
+            call log_debug("Timstep before evolvestep")
 
             call evolvestep(timstep, eps)
 
@@ -232,16 +233,7 @@ module time_evolution
             timstep_arr = timstep_arr * factolred
             params = params_beg
 
-            if (debug_mode) then
-                print *, "Redoing step: Maxval(timscal) is not lesser than tol * factolmax"
-                print *, "Maxval(timscal) = ", maxval(timscal)
-                print *, "tol = ", tol
-                print *, "factolmax = ", factolmax
-                print *, "tol * factolmax = ", tol * factolmax
-                print *, "timstep_arr(1) = ", timstep_arr(1)
-                print *, "timstep_arr(100) = ", timstep_arr(100)
-                print *, ""
-            end if
+            call log_debug("Redoing step: Maxval(timscal) > tol * factolmax")
             if (iredo > 100) then
                 stop "Redoing step: Maxval(timscal) is not lesser than tol * factolmax " // &
                         "after 100 redos"
@@ -260,7 +252,7 @@ module time_evolution
         timstep_arr = timstep
         time = time + timstep
 
-        if (debug_mode) call msg_time_info
+        call log_debug("msg_time_info")
         if (.not. suppression_mode) call write_kin_profile_at_time_index
         call set_first_iteration_true
         call calculate_total_toroidal_torque(time_ind)
@@ -300,7 +292,7 @@ module time_evolution
 
         integer :: ipoi, ieq, k
 
-        if (debug_mode) write(*,*) 'Debug: yprev loop'
+        call log_debug('yprev loop')
         do ipoi = 1, npoi
             do ieq = 1, nbaleqs
                 k = nbaleqs*(ipoi - 1) + ieq
@@ -395,7 +387,7 @@ module time_evolution
 
         implicit none
 
-        if (debug_mode) write(*,*) "Debug: writing out br time evolution data"
+        call log_debug("writing out br time evolution data")
 
         if (ihdf5IO .eq. 1) then
         !if (.false.) then
@@ -536,7 +528,7 @@ module time_evolution
         integer :: ipoi
 
         if (ihdf5IO .eq. 1) then
-            if (debug_mode) print *, "Debug: Write kinetic profiles"
+            call log_debug("Write kinetic profiles")
             do ipoi = 1, npoic
                 sqg_bthet_overcavg(ipoi) = 0.5d0*(sqrt_g_times_B_theta_over_c(ipoi) &
                                                 + sqrt_g_times_B_theta_over_c(ipoi + 1))
@@ -553,8 +545,8 @@ module time_evolution
             write (h5_currentgrp, "(A,A,I4,A)") trim(h5_currentgrp), &
                 "/", 1000 + time_ind, "/"
 
-            if (debug_mode) write (*, *) "Debug: h5_currentgrp ", trim(h5_currentgrp)
-            if (debug_mode) write (*, *) "Debug: defining KinProfiles/1000 group ", 1000 + time_ind
+            call log_debug("h5_currentgrp " // trim(h5_currentgrp))
+            call log_debug("defining KinProfiles/1000 group")
 
             CALL h5_obj_exists(h5_id, trim(h5_currentgrp), h5_exists_log)
             if (.not. h5_exists_log) then
@@ -588,7 +580,7 @@ module time_evolution
 
             CALL h5_close(h5_id)
             CALL h5_deinit()
-            if (debug_mode) write (*, *) "Debug: finished writing KinProfiles"
+            call log_debug("finished writing KinProfiles")
 
         else
             do ipoi = 1, npoic
@@ -609,7 +601,7 @@ module time_evolution
 
         implicit none
 
-        if (debug_mode) write(*,*) "Debug: Write kinetic profiles at time index: ", time_ind
+        call log_debug("Write kinetic profiles at time index")
         if (modulo(time_ind, save_prof_time_step) .eq. 0) then
             call write_kin_prof_data_to_disk
         end if
@@ -745,10 +737,7 @@ module time_evolution
             end if
         end do
 
-        if (debug_mode) then
-            write(*,*) "maxval(timscal) = ", maxval(timscal)
-            write(*,*) "tol*factolmax = ", tol*factolmax
-        end if
+        call log_debug("determine_timscal complete")
 
     end subroutine
 
@@ -805,8 +794,7 @@ module time_evolution
             write(*,*) "constant time step = ", timstep
         end if
 
-        if (debug_mode) write(*,*) 'Debug: timstep', real(timstep), '   timescale', real(timescale), &
-            'tolerance', real(tol)
+        call log_debug('timstep set')
 
     end subroutine
 
@@ -858,7 +846,7 @@ module time_evolution
         CALL h5_open_rw(path2out, h5_id)
 
         if (.not. firstiterationdone) then
-            if (diagnostics_output) then
+            if (data_verbosity >= 2) then
                 CALL h5_define_unlimited_matrix(h5_id, trim(h5_currentgrp), &
                                                 H5T_NATIVE_DOUBLE, (/6, -1/), time_dataset_id)
             else
@@ -872,7 +860,7 @@ module time_evolution
         ! where the whole data is written at once. In the latter
         ! the data for one variable is saved in one row, i.e. there
         ! are length(variable) number of columns.
-        if (diagnostics_output) then
+        if (data_verbosity >= 2) then
             CALL h5_append_double_1(time_dataset_id, (/time_ind*1.d0, timstep, &
                                                         timscal_dql, timscal(1), rate_dql, time/), time_ind)
         else
@@ -946,7 +934,7 @@ module time_evolution
 
         implicit none
 
-        if (debug_mode) write (*, *) "Debug: Creating group structure for TimeEvol"
+        call log_debug("Creating group structure for TimeEvol")
 
         if (numres .eq. 1) then
             write (h5_mode_groupname, "(A,I0,A,I0)") "f_", m_vals(1), "_", n_vals(1)
@@ -958,14 +946,14 @@ module time_evolution
         CALL h5_open_rw(path2out, h5_id)
 
         if (.not. suppression_mode) then
-            if (debug_mode) write(*,*) "Debug: h5_mode_groupname ", trim(h5_mode_groupname)
+            call log_debug("h5_mode_groupname " // trim(h5_mode_groupname))
             CALL h5_create_parent_groups(h5_id, trim(h5_mode_groupname) //'/')
             CALL h5_create_parent_groups(h5_id, trim(h5_mode_groupname)//"/KinProfiles/")
 
             call create_group_if_not_existent(trim(h5_mode_groupname)//"/LinearProfiles/")
             call create_group_if_not_existent("/init_params")
         else
-            if (debug_mode) write (*,*) "Debug: h5_mode_groupname: ", trim(h5_mode_groupname)
+            call log_debug("h5_mode_groupname: " // trim(h5_mode_groupname))
             call create_group_if_not_existent(trim(h5_mode_groupname))
             call create_group_if_not_existent("/init_params")
         end if
@@ -973,7 +961,7 @@ module time_evolution
         CALL h5_close(h5_id)
         CALL h5_deinit()
 
-        if (debug_mode) write (*, *) "Debug: finished creating group structure for TimeEvol"
+        call log_debug("finished creating group structure for TimeEvol")
     end subroutine
 
 

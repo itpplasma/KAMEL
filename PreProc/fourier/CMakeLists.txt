@@ -20,11 +20,11 @@ include(Util)
 # Only fetch libneo if not already available (prevents duplicate targets)
 if(NOT TARGET LIBNEO::magfie)
     find_or_fetch(libneo)
-    include_directories(${CMAKE_CURRENT_BINARY_DIR}/libneo/include)
+    set(_FOURIER_LIBNEO_BINARY_DIR "${CMAKE_CURRENT_BINARY_DIR}/libneo")
 else()
-    # Use libneo from common/equil when building as part of KAMEL
-    include_directories(${CMAKE_BINARY_DIR}/common/equil/libneo/include)
+    set(_FOURIER_LIBNEO_BINARY_DIR "${KAMEL_LIBNEO_BINARY_DIR}")
 endif()
+include_directories(${_FOURIER_LIBNEO_BINARY_DIR}/include)
 
 # Add netcdf library paths (needed because libneo's link_directories doesn't propagate)
 find_program(NF_CONFIG "nf-config")
@@ -62,7 +62,7 @@ if(TARGET kamel_equil)
         LIBNEO::magfie
     )
     target_include_directories(fouriermodes PUBLIC
-        ${CMAKE_BINARY_DIR}/common/equil/libneo/include
+        ${_FOURIER_LIBNEO_BINARY_DIR}/include
         ${KAMEL_EQUIL_INCLUDE_DIRS}
     )
 else()

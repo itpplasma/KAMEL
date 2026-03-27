@@ -99,6 +99,20 @@ endif()
 
 list(APPEND CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/cmake)
 
+# Fetch libneo once at the top level so every KAMEL subproject uses the same
+# build tree and module directory.
+set(LIBNEO_BUILD_TESTING OFF CACHE BOOL "Disable libneo tests" FORCE)
+set(LIBNEO_ENABLE_TESTS OFF CACHE BOOL "Disable libneo tests" FORCE)
+set(LIBNEO_ENABLE_GOLDEN_TESTS OFF CACHE BOOL "Disable libneo golden tests" FORCE)
+set(_KAMEL_BUILD_TESTING_SAVED ${BUILD_TESTING})
+set(BUILD_TESTING OFF)
+if(NOT TARGET LIBNEO::magfie)
+    find_or_fetch(libneo)
+endif()
+set(BUILD_TESTING ${_KAMEL_BUILD_TESTING_SAVED})
+set(KAMEL_LIBNEO_BINARY_DIR "${CMAKE_CURRENT_BINARY_DIR}/libneo" CACHE INTERNAL
+    "Binary dir for the shared libneo subproject")
+
 # Unified build: add subprojects for KiLCA, KIM, and QL-Balance
 add_subdirectory(common/math)
 add_subdirectory(common/logger)

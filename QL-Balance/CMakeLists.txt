@@ -137,7 +137,7 @@ set(LIBNEO_BUILD_TESTING OFF CACHE BOOL "Disable libneo tests" FORCE)
 if(NOT TARGET LIBNEO::neo)
     find_or_fetch(libneo)
 endif()
-include_directories(${CMAKE_CURRENT_BINARY_DIR}/../libneo/include)
+include_directories(${KAMEL_LIBNEO_BINARY_DIR}/include)
 
 add_dependencies(ql-balance_lib sparse)
 

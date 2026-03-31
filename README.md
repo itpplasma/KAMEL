@@ -23,7 +23,6 @@ The framework consists of three main codes:
 
 ### Optional System Dependencies
 - **Ninja** build system (recommended for faster builds; falls back to Make if not found)
-- **SuperLU** (sparse matrix solver, used by KIM if found)
 - **Doxygen** (for documentation generation)
 
 ### Auto-Fetched Libraries

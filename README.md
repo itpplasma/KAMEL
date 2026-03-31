@@ -15,20 +15,20 @@ The framework consists of three main codes:
 ## Requirements
 
 ### System Dependencies
-- **CMake 3.24+** and **Ninja** build system
+- **CMake 3.24+**
 - **Fortran compiler** (gfortran 10+ or ifort)
 - **C/C++ compiler** (gcc/g++ 10+ or clang/clang++)
-- **MPI** (MPICH or OpenMPI)
-- **HDF5** with Fortran bindings
 - **LAPACK/BLAS** - Linear algebra
 - **Python 3.8+** with pip
 
 ### Optional System Dependencies
+- **Ninja** build system (recommended for faster builds; falls back to Make if not found)
 - **SuperLU** (sparse matrix solver, used by KIM if found)
 - **Doxygen** (for documentation generation)
 
 ### Auto-Fetched Libraries
 The following are automatically downloaded and built if not found on the system:
+- **HDF5** - Hierarchical Data Format (with Fortran and HL bindings)
 - **GSL** - GNU Scientific Library
 - **SuiteSparse** - Sparse matrix operations (UMFPACK)
 - **SUNDIALS** - Numerical differential equation solvers

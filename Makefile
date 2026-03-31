@@ -1,39 +1,50 @@
 CONFIG ?= Release
 INSTALL_KIM_SYMLINK ?= OFF
 
-.PHONY: all ninja test clean KIM KiLCA QL-Balance PreProc install install-kim ctest golden pytest
+# Detect Ninja; fall back to Unix Makefiles if not found
+NINJA := $(shell command -v ninja 2>/dev/null)
+ifdef NINJA
+    CMAKE_GENERATOR := Ninja
+    BUILD_SENTINEL := build/build.ninja
+else
+    $(warning *** Ninja not found — falling back to Unix Makefiles. Install ninja for faster builds.)
+    CMAKE_GENERATOR := "Unix Makefiles"
+    BUILD_SENTINEL := build/Makefile
+endif
 
-all: ninja
+.PHONY: all build test clean KIM KiLCA QL-Balance PreProc install install-kim ctest golden pytest
 
-build/build.ninja:
-	cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=$(CONFIG) -DCMAKE_EXPORT_COMPILE_COMMANDS=ON -DINSTALL_KIM_SYMLINK=$(INSTALL_KIM_SYMLINK)
+all: build
 
-ninja: build/build.ninja
+$(BUILD_SENTINEL):
+	cmake -S . -B build -G $(CMAKE_GENERATOR) -DCMAKE_BUILD_TYPE=$(CONFIG) -DCMAKE_EXPORT_COMPILE_COMMANDS=ON -DINSTALL_KIM_SYMLINK=$(INSTALL_KIM_SYMLINK)
+
+build: $(BUILD_SENTINEL)
 	cmake --build build --config $(CONFIG)
 
-KIM: build/build.ninja
+KIM: $(BUILD_SENTINEL)
 	cmake --build build --config $(CONFIG) --target KIM.x
 
-KiLCA: build/build.ninja
+KiLCA: $(BUILD_SENTINEL)
 	cmake --build build --config $(CONFIG) --target KiLCA
 
-QL-Balance: build/build.ninja
+QL-Balance: $(BUILD_SENTINEL)
 	cmake --build build --config $(CONFIG) --target ql-balance.x
 
 PreProc:
 	$(MAKE) -C PreProc/fourier
 
-test: ninja golden
+test: build golden
 	ctest --test-dir build --stop-on-failure --output-on-failure --no-label-summary
 
-golden: ninja
+golden: build
 	$(MAKE) -C test/ql-balance/golden_record
 
 clean:
 	rm -rf build
 	$(MAKE) -C test/ql-balance/golden_record clean
 
-install: ninja
+install: build
 	cmake --install build
 
 install-kim: KIM

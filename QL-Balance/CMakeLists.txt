@@ -124,8 +124,7 @@ set_source_files_properties(${base_balance_src}/kim_wave_code_adapter.f90
 # Include central slatec math sources via cache variable defined by common/math
 target_include_directories(ql-balance_lib PUBLIC ${SLATEC_INCLUDE_DIR})
 
-find_package(HDF5 REQUIRED COMPONENTS C HL Fortran Fortran_HL)
-message(" ====== HDF5 was found! ======")
+# HDF5 is found/fetched centrally in cmake/Dependencies.cmake
 
 set(BUILD_TESTING OFF)
 

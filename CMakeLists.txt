@@ -3,14 +3,14 @@ cmake_minimum_required(VERSION 3.24)
 # Set compilers BEFORE project() - only if not already set by user
 if(CMAKE_HOST_SYSTEM_NAME MATCHES "Darwin")
     if(NOT DEFINED CMAKE_C_COMPILER)
-        # 1. Search PATH first (works with Nix, manual installs, etc.)
-        find_program(_CLANG_C clang)
+        # 1. Homebrew LLVM first (Apple Clang lacks OpenMP support)
+        find_program(_CLANG_C clang
+            PATHS /opt/homebrew/opt/llvm/bin /usr/local/opt/llvm/bin
+            NO_DEFAULT_PATH)
         if(NOT _CLANG_C)
-            # 2. Homebrew LLVM as fallback
-            find_program(_CLANG_C_BREW clang
-                PATHS /opt/homebrew/opt/llvm/bin /usr/local/opt/llvm/bin
-                NO_DEFAULT_PATH)
-            set(_CLANG_C "${_CLANG_C_BREW}")
+            # 2. Fall back to PATH (Nix, manual installs, etc.)
+            find_program(_CLANG_C_PATH clang)
+            set(_CLANG_C "${_CLANG_C_PATH}")
         endif()
         if(_CLANG_C)
             message(STATUS "C compiler (Darwin): ${_CLANG_C}")
@@ -18,14 +18,14 @@ if(CMAKE_HOST_SYSTEM_NAME MATCHES "Darwin")
         endif()
     endif()
     if(NOT DEFINED CMAKE_CXX_COMPILER)
-        # 1. Search PATH first (works with Nix, manual installs, etc.)
-        find_program(_CLANG_CXX clang++)
+        # 1. Homebrew LLVM first (Apple Clang lacks OpenMP support)
+        find_program(_CLANG_CXX clang++
+            PATHS /opt/homebrew/opt/llvm/bin /usr/local/opt/llvm/bin
+            NO_DEFAULT_PATH)
         if(NOT _CLANG_CXX)
-            # 2. Homebrew LLVM as fallback
-            find_program(_CLANG_CXX_BREW clang++
-                PATHS /opt/homebrew/opt/llvm/bin /usr/local/opt/llvm/bin
-                NO_DEFAULT_PATH)
-            set(_CLANG_CXX "${_CLANG_CXX_BREW}")
+            # 2. Fall back to PATH (Nix, manual installs, etc.)
+            find_program(_CLANG_CXX_PATH clang++)
+            set(_CLANG_CXX "${_CLANG_CXX_PATH}")
         endif()
         if(_CLANG_CXX)
             message(STATUS "CXX compiler (Darwin): ${_CLANG_CXX}")

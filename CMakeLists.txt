@@ -47,20 +47,26 @@ elseif(CMAKE_HOST_SYSTEM_NAME MATCHES "Linux")
 endif()
 
 if(APPLE AND NOT DEFINED HDF5_DIR)
-    # locate brew
-    find_program(BREW_EXECUTABLE brew HINTS /opt/homebrew/bin /usr/local/bin)
-    if(BREW_EXECUTABLE)
-        execute_process(
-            COMMAND "${BREW_EXECUTABLE}" --prefix hdf5
-            OUTPUT_VARIABLE _hdf5_prefix
-            OUTPUT_STRIP_TRAILING_WHITESPACE
-            RESULT_VARIABLE _hdf5_res
-        )
-
-        if(_hdf5_res EQUAL 0 AND EXISTS "${_hdf5_prefix}/lib/cmake/hdf5")
-            set(HDF5_DIR "${_hdf5_prefix}/lib/cmake/hdf5" CACHE PATH "Path to HDF5Config.cmake")
-            message(STATUS "HDF5_DIR set to ${HDF5_DIR}")
+    # 1. Check if HDF5 is findable via standard paths / CMAKE_PREFIX_PATH
+    find_package(HDF5 COMPONENTS C Fortran HL QUIET CONFIG)
+    if(HDF5_FOUND)
+        message(STATUS "HDF5 found via standard paths: ${HDF5_VERSION}")
+    else()
+        # 2. Homebrew fallback
+        find_program(BREW_EXECUTABLE brew HINTS /opt/homebrew/bin /usr/local/bin)
+        if(BREW_EXECUTABLE)
+            execute_process(
+                COMMAND "${BREW_EXECUTABLE}" --prefix hdf5
+                OUTPUT_VARIABLE _hdf5_prefix
+                OUTPUT_STRIP_TRAILING_WHITESPACE
+                RESULT_VARIABLE _hdf5_res
+            )
+            if(_hdf5_res EQUAL 0 AND EXISTS "${_hdf5_prefix}/lib/cmake/hdf5")
+                set(HDF5_DIR "${_hdf5_prefix}/lib/cmake/hdf5" CACHE PATH "Path to HDF5Config.cmake")
+                message(STATUS "HDF5_DIR set from Homebrew: ${HDF5_DIR}")
+            endif()
         endif()
+        # 3. If still not found, FetchHDF5.cmake will build from source
     endif()
 endif()
 

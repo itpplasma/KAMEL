@@ -1,9 +1,36 @@
 # FetchHDF5.cmake — Find or auto-fetch HDF5 with Fortran and HL support
 #
-# If HDF5 is found on the system, use it. Otherwise, download and build
-# HDF5 from source (serial, with Fortran and HL bindings).
+# If HDF5 is found on the system (without MPI/parallel requirement), use it.
+# Otherwise, download and build HDF5 from source (serial, with Fortran and HL bindings).
+#
+# Users can pass -DHDF5_DIR=<path> to point to a specific HDF5 installation.
 
-find_package(HDF5 COMPONENTS C Fortran HL QUIET)
+# If user explicitly provided HDF5_DIR, trust it and try to use it.
+# Otherwise, check if the system HDF5 config requires parallel/MPI (which we don't use).
+# If it does, skip it and build from source to avoid MPI dependency.
+if(NOT DEFINED HDF5_DIR)
+    # Look for hdf5-config.cmake on CMAKE_PREFIX_PATH / system paths
+    find_file(_hdf5_config_file hdf5-config.cmake
+        PATHS ${CMAKE_PREFIX_PATH}
+        PATH_SUFFIXES lib/cmake/hdf5 share/cmake/hdf5
+        NO_DEFAULT_PATH)
+    if(NOT _hdf5_config_file)
+        find_file(_hdf5_config_file hdf5-config.cmake
+            PATH_SUFFIXES lib/cmake/hdf5 share/cmake/hdf5)
+    endif()
+    if(_hdf5_config_file)
+        file(READ "${_hdf5_config_file}" _hdf5_config_content)
+        string(FIND "${_hdf5_config_content}" "ENABLE_PARALLEL       ON" _parallel_pos)
+        if(_parallel_pos GREATER -1)
+            message(STATUS "System HDF5 requires MPI (parallel) — skipping, will build from source")
+            set(_skip_system_hdf5 TRUE)
+        endif()
+    endif()
+endif()
+
+if(NOT _skip_system_hdf5)
+    find_package(HDF5 COMPONENTS C Fortran HL QUIET)
+endif()
 
 if(HDF5_FOUND)
     message(STATUS "HDF5 found on system: ${HDF5_VERSION}")

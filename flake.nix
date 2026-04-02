@@ -45,6 +45,10 @@
                 "${hdf5.dev}/lib/cmake/$(basename "$f")" \
                 > "$f"
             done
+
+            # Create mod/shared symlink expected by hdf5-config.cmake
+            mkdir -p "$out/mod"
+            ln -s "$out/include" "$out/mod/shared"
           '';
         };
 
@@ -58,6 +62,9 @@
           pkgs.zlib
           pkgs.curl
           pkgs.llvmPackages.openmp  # libomp
+          pkgs.gmp                  # required by SuiteSparse (SPEX)
+          pkgs.mpfr                 # required by SuiteSparse
+          pkgs.suitesparse          # UMFPACK, AMD, etc.
         ];
 
         nativeDeps = [
@@ -94,7 +101,7 @@
 
           shellHook = ''
             echo "KAMEL dev shell (all deps from Nix)"
-            echo "  cmake -S . -B build -G Ninja && cmake --build build"
+            echo "  cmake -S . -B build -G Ninja -DHDF5_DIR=$HDF5_DIR -DPython_EXECUTABLE=$(which python3) && cmake --build build"
           '';
         };
       });

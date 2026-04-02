@@ -1,6 +1,8 @@
-# First try to find system LAPACK/BLAS installation
-find_package(LAPACK REQUIRED)
-find_package(BLAS REQUIRED)
+# First try to find system LAPACK/BLAS installation.
+# On macOS with flang, the top-level CMakeLists.txt sets BLA_VENDOR=OpenBLAS
+# and adds OpenBLAS to CMAKE_LIBRARY_PATH so FindBLAS can find it.
+find_package(LAPACK QUIET)
+find_package(BLAS QUIET)
 
 if(LAPACK_FOUND AND BLAS_FOUND)
     message(STATUS "Using system LAPACK/BLAS libraries")

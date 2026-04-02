@@ -4,26 +4,32 @@ cmake_minimum_required(VERSION 3.24)
 if(CMAKE_HOST_SYSTEM_NAME MATCHES "Darwin")
     if(NOT DEFINED CMAKE_C_COMPILER)
         # 1. Search PATH first (works with Nix, manual installs, etc.)
-        find_program(LLVM_CLANG clang)
-        if(NOT LLVM_CLANG)
+        find_program(_CLANG_C clang)
+        if(NOT _CLANG_C)
             # 2. Homebrew LLVM as fallback
-            find_program(LLVM_CLANG clang
+            find_program(_CLANG_C_BREW clang
                 PATHS /opt/homebrew/opt/llvm/bin /usr/local/opt/llvm/bin
                 NO_DEFAULT_PATH)
+            set(_CLANG_C "${_CLANG_C_BREW}")
         endif()
-        if(LLVM_CLANG)
-            set(CMAKE_C_COMPILER "${LLVM_CLANG}")
+        if(_CLANG_C)
+            message(STATUS "C compiler (Darwin): ${_CLANG_C}")
+            set(CMAKE_C_COMPILER "${_CLANG_C}")
         endif()
     endif()
     if(NOT DEFINED CMAKE_CXX_COMPILER)
-        find_program(LLVM_CLANGXX clang++)
-        if(NOT LLVM_CLANGXX)
-            find_program(LLVM_CLANGXX clang++
+        # 1. Search PATH first (works with Nix, manual installs, etc.)
+        find_program(_CLANG_CXX clang++)
+        if(NOT _CLANG_CXX)
+            # 2. Homebrew LLVM as fallback
+            find_program(_CLANG_CXX_BREW clang++
                 PATHS /opt/homebrew/opt/llvm/bin /usr/local/opt/llvm/bin
                 NO_DEFAULT_PATH)
+            set(_CLANG_CXX "${_CLANG_CXX_BREW}")
         endif()
-        if(LLVM_CLANGXX)
-            set(CMAKE_CXX_COMPILER "${LLVM_CLANGXX}")
+        if(_CLANG_CXX)
+            message(STATUS "CXX compiler (Darwin): ${_CLANG_CXX}")
+            set(CMAKE_CXX_COMPILER "${_CLANG_CXX}")
         endif()
     endif()
     # Append Homebrew prefix paths only if brew is available (don't overwrite)

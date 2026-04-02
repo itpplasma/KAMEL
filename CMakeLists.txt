@@ -3,23 +3,34 @@ cmake_minimum_required(VERSION 3.24)
 # Set compilers BEFORE project() - only if not already set by user
 if(CMAKE_HOST_SYSTEM_NAME MATCHES "Darwin")
     if(NOT DEFINED CMAKE_C_COMPILER)
-        # Search for LLVM clang (needed for OpenMP support on macOS)
-        find_program(LLVM_CLANG clang
-            PATHS /opt/homebrew/opt/llvm/bin /usr/local/opt/llvm/bin
-            NO_DEFAULT_PATH)
+        # 1. Search PATH first (works with Nix, manual installs, etc.)
+        find_program(LLVM_CLANG clang)
+        if(NOT LLVM_CLANG)
+            # 2. Homebrew LLVM as fallback
+            find_program(LLVM_CLANG clang
+                PATHS /opt/homebrew/opt/llvm/bin /usr/local/opt/llvm/bin
+                NO_DEFAULT_PATH)
+        endif()
         if(LLVM_CLANG)
             set(CMAKE_C_COMPILER "${LLVM_CLANG}")
         endif()
     endif()
     if(NOT DEFINED CMAKE_CXX_COMPILER)
-        find_program(LLVM_CLANGXX clang++
-            PATHS /opt/homebrew/opt/llvm/bin /usr/local/opt/llvm/bin
-            NO_DEFAULT_PATH)
+        find_program(LLVM_CLANGXX clang++)
+        if(NOT LLVM_CLANGXX)
+            find_program(LLVM_CLANGXX clang++
+                PATHS /opt/homebrew/opt/llvm/bin /usr/local/opt/llvm/bin
+                NO_DEFAULT_PATH)
+        endif()
         if(LLVM_CLANGXX)
             set(CMAKE_CXX_COMPILER "${LLVM_CLANGXX}")
         endif()
     endif()
-    set(CMAKE_PREFIX_PATH /opt/homebrew /usr/local)
+    # Append Homebrew prefix paths only if brew is available (don't overwrite)
+    find_program(_BREW_EXE brew HINTS /opt/homebrew/bin /usr/local/bin)
+    if(_BREW_EXE)
+        list(APPEND CMAKE_PREFIX_PATH /opt/homebrew /usr/local)
+    endif()
 elseif(CMAKE_HOST_SYSTEM_NAME MATCHES "Linux")
     if(NOT DEFINED CMAKE_C_COMPILER)
         set(CMAKE_C_COMPILER gcc)

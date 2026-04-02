@@ -78,30 +78,36 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 # Set architecture flags based on platform
 if(APPLE)
-    # On macOS, use libomp from Homebrew for OpenMP support
-    # find_package(OpenMP REQUIRED)
     find_package(OpenMP REQUIRED C Fortran)
 
-    # Locate libomp from Homebrew
-    find_program(BREW_EXECUTABLE brew HINTS /opt/homebrew/bin /usr/local/bin)
-    if(BREW_EXECUTABLE)
-        execute_process(
-            COMMAND "${BREW_EXECUTABLE}" --prefix libomp
-            OUTPUT_VARIABLE LIBOMP_PREFIX
-            OUTPUT_STRIP_TRAILING_WHITESPACE
-        )
-        if(EXISTS "${LIBOMP_PREFIX}")
-            include_directories(SYSTEM "${LIBOMP_PREFIX}/include")
-            link_directories("${LIBOMP_PREFIX}/lib")
-            message(STATUS "Found libomp at ${LIBOMP_PREFIX}")
+    # Check if find_package fully resolved OpenMP (compiler knows where it is)
+    if(NOT OpenMP_C_LIBRARIES OR NOT OpenMP_Fortran_LIBRARIES)
+        # Homebrew libomp fallback — only if find_package didn't populate libraries
+        find_program(BREW_EXECUTABLE brew HINTS /opt/homebrew/bin /usr/local/bin)
+        if(BREW_EXECUTABLE)
+            execute_process(
+                COMMAND "${BREW_EXECUTABLE}" --prefix libomp
+                OUTPUT_VARIABLE LIBOMP_PREFIX
+                OUTPUT_STRIP_TRAILING_WHITESPACE
+            )
+            if(EXISTS "${LIBOMP_PREFIX}")
+                message(STATUS "Using Homebrew libomp at ${LIBOMP_PREFIX}")
+                include_directories(SYSTEM "${LIBOMP_PREFIX}/include")
+                link_directories("${LIBOMP_PREFIX}/lib")
+                set(LIBOMP_LINK_FLAGS "-L${LIBOMP_PREFIX}/lib -lomp")
+            endif()
         endif()
+    else()
+        message(STATUS "OpenMP fully resolved by find_package (no Homebrew fallback needed)")
     endif()
 
     set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -fopenmp -O2 -g -fbacktrace -fcheck=all -Wall -Wextra -Wconversion -Wno-external-argument-mismatch")
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${OpenMP_C_FLAGS}")
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${OpenMP_CXX_FLAGS}")
-    set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -L${LIBOMP_PREFIX}/lib -lomp")
-    set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -L${LIBOMP_PREFIX}/lib -lomp")
+    if(LIBOMP_LINK_FLAGS)
+        set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} ${LIBOMP_LINK_FLAGS}")
+        set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} ${LIBOMP_LINK_FLAGS}")
+    endif()
 else()
     set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -fopenmp -O2 -mtune=generic -g -fbacktrace -fcheck=all -Wall -Wextra -Wconversion -Wno-external-argument-mismatch")
 endif()

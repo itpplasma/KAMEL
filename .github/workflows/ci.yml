@@ -28,21 +28,10 @@ jobs:
       - name: Run pre-commit hooks
         run: pre-commit run --all-files --show-diff-on-failure
 
-  build:
-    name: Build (${{ matrix.platform.name }})
+  build-ubuntu:
+    name: Build (Ubuntu)
     needs: pre-commit
-    runs-on: ${{ matrix.platform.runner }}
-
-    strategy:
-      fail-fast: false
-      matrix:
-        platform:
-          - name: ubuntu-latest
-            runner: ubuntu-latest
-            artifact: build-ubuntu-latest
-          - name: macos-14-arm64
-            runner: macos-14
-            artifact: build-macos-14-arm64
+    runs-on: ubuntu-latest
 
     steps:
       - name: Checkout repository
@@ -54,7 +43,6 @@ jobs:
           python-version: "3.11"
 
       - name: Install dependencies (Ubuntu)
-        if: runner.os == 'Linux'
         run: |
           sudo apt-get update
           sudo apt-get install -y \
@@ -79,8 +67,39 @@ jobs:
             python3-pip
           pip install numpy scipy matplotlib h5py f90nml pytest
 
+      - name: Cache external dependencies
+        uses: actions/cache@v4
+        with:
+          path: build/external-install
+          key: external-deps-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('cmake/Fetch*.cmake') }}
+          restore-keys: |
+            external-deps-${{ runner.os }}-${{ runner.arch }}-
+
+      - name: Build with make
+        run: make all
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-ubuntu-latest
+          path: build
+          if-no-files-found: error
+
+  build-macos-arm64:
+    name: Build (macOS 14 ARM64)
+    needs: pre-commit
+    runs-on: macos-14
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
       - name: Install dependencies (macOS)
-        if: runner.os == 'macOS'
         env:
           HOMEBREW_NO_AUTO_UPDATE: "1"
         run: |
@@ -117,25 +136,14 @@ jobs:
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ matrix.platform.artifact }}
+          name: build-macos-14-arm64
           path: build
           if-no-files-found: error
 
-  test:
-    name: Test (${{ matrix.platform.name }})
-    needs: build
-    runs-on: ${{ matrix.platform.runner }}
-
-    strategy:
-      fail-fast: false
-      matrix:
-        platform:
-          - name: ubuntu-latest
-            runner: ubuntu-latest
-            artifact: build-ubuntu-latest
-          - name: macos-14-arm64
-            runner: macos-14
-            artifact: build-macos-14-arm64
+  test-ubuntu:
+    name: Test (Ubuntu)
+    needs: build-ubuntu
+    runs-on: ubuntu-latest
 
     steps:
       - name: Checkout repository
@@ -147,7 +155,6 @@ jobs:
           python-version: "3.11"
 
       - name: Install dependencies (Ubuntu)
-        if: runner.os == 'Linux'
         run: |
           sudo apt-get update
           sudo apt-get install -y \
@@ -171,8 +178,32 @@ jobs:
             libgmp-dev
           pip install numpy scipy matplotlib h5py f90nml pytest
 
+      - name: Restore build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: build-ubuntu-latest
+          path: .
+
+      - name: Run tests with make
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: make test
+
+  test-macos-arm64:
+    name: Test (macOS 14 ARM64)
+    needs: build-macos-arm64
+    runs-on: macos-14
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
       - name: Install dependencies (macOS)
-        if: runner.os == 'macOS'
         env:
           HOMEBREW_NO_AUTO_UPDATE: "1"
         run: |
@@ -198,7 +229,7 @@ jobs:
       - name: Restore build artifacts
         uses: actions/download-artifact@v4
         with:
-          name: ${{ matrix.platform.artifact }}
+          name: build-macos-14-arm64
           path: .
 
       - name: Run tests with make

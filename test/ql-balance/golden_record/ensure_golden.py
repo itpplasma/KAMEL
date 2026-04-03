@@ -108,9 +108,7 @@ def setup_runfolder() -> Path:
         shutil.rmtree(RUNFOLDER_DIR)
     RUNFOLDER_DIR.mkdir(parents=True)
 
-    main_nml_template = str(
-        MAIN_REF_DIR / "QL-Balance" / "namelists" / "balance_conf.nml"
-    )
+    main_nml_template = str(MAIN_REF_DIR / "QL-Balance" / "namelists" / "balance_conf.nml")
     setup_runfolder_external(str(RUNFOLDER_DIR), nml_template=main_nml_template)
     return RUNFOLDER_DIR
 

@@ -5,6 +5,7 @@
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake")
 
 # Core dependencies
+include(FetchHDF5)
 include(FetchGSL)
 include(FetchLapack)
 include(FetchNetcdf)

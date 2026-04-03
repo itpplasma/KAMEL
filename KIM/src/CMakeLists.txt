@@ -122,15 +122,6 @@ endif()
 
 find_library(UMFPACK_LIBRARY umfpack)
 
-find_package(SuperLU REQUIRED)
-if("${SUPERLU_FOUND}")
-    message(" ====== SuperLU was found! =====")
-    target_link_libraries(KIM_lib PUBLIC "${SUPERLU_LIBRARIES}")
-    message("SuperLu libraries: ${SUPERLU_LIBRARIES}")
-    target_include_directories(KIM_lib PUBLIC "${SUPERLU_INCLUDES}")
-    message("${SUPERLU_INCLUDES}")
-endif()
-
 set(KILCA_PATH ${CMAKE_SOURCE_DIR}/KiLCA)
 set(KiLCA_lib_path ${CMAKE_SOURCE_DIR}/build/install/lib/libKiLCA_Lib_V_2.4.2_MDNO_FPGEN_POLYNOMIAL_Release_64bit.a)
 # KiLCA is NOT linked to KIM_lib: KIM does not use any KiLCA symbols.
@@ -141,9 +132,7 @@ set(KiLCA_lib_path ${CMAKE_SOURCE_DIR}/build/install/lib/libKiLCA_Lib_V_2.4.2_MD
 target_link_libraries(KIM_lib PUBLIC GSL::gsl GSL::gslcblas)
 target_include_directories(KIM_lib PUBLIC ${KILCA_PATH}/math/)
 
-find_package(HDF5 COMPONENTS C Fortran HL REQUIRED)
-message(" ====== HDF5 was found! ======")
-
+# HDF5 is found/fetched centrally in cmake/Dependencies.cmake
 target_link_libraries(KIM_lib PUBLIC
                                 hdf5::hdf5
                                 hdf5::hdf5_fortran

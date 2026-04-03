@@ -1,3 +1,4 @@
+#!/usr/bin/env bash
 curr_loc=$PWD
 libs_path=$curr_loc/../../build/install/lib
 lib_kilca=$curr_loc/../../build/install/lib

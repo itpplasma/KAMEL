@@ -17,7 +17,7 @@ import h5py
 import numpy as np
 from scipy.interpolate import CubicSpline
 
-from .constants import sol, pi
+from .constants import pi, sol
 
 
 class KIMElectromagneticSolver:
@@ -42,7 +42,7 @@ class KIMElectromagneticSolver:
         self.r_res = self._compute_r_res()
         self._build_fem_matrices()
         # B0 on xl grid from geometry (avoids HDF5 grid mismatch for backs/B0)
-        self._b0_xl = np.abs(self.btor) * np.sqrt(1.0 + (self.xl / (self._q_xl * self.R0))**2)
+        self._b0_xl = np.abs(self.btor) * np.sqrt(1.0 + (self.xl / (self._q_xl * self.R0)) ** 2)
         # Aligned potential for BCs
         self.phi_aligned = 1j * self._e0r_xl / (self._kp_xl * self._b0_xl)
 
@@ -104,14 +104,10 @@ class KIMElectromagneticSolver:
         crossings = []
         for i in range(len(q_abs) - 1):
             if (q_abs[i] - q_res) * (q_abs[i + 1] - q_res) < 0:
-                r_cross = r[i] + (q_res - q_abs[i]) * (r[i + 1] - r[i]) / (
-                    q_abs[i + 1] - q_abs[i]
-                )
+                r_cross = r[i] + (q_res - q_abs[i]) * (r[i + 1] - r[i]) / (q_abs[i + 1] - q_abs[i])
                 crossings.append(r_cross)
         if not crossings:
-            raise ValueError(
-                f"No resonant surface found for m={self.m_mode}, n={self.n_mode}"
-            )
+            raise ValueError(f"No resonant surface found for m={self.m_mode}, n={self.n_mode}")
         return crossings[-1]
 
     def _build_fem_matrices(self):
@@ -142,25 +138,31 @@ class KIMElectromagneticSolver:
 
             # Diagonal
             Q[i, i] = 0.5 * (
-                (r_l**2 + 2.0 * r_lm1**2 * (np.log(r_l) - np.log(r_lm1))
-                 - 4.0 * r_l * r_lm1 + 3.0 * r_lm1**2) / (r_l - r_lm1)**2
-                - (r_l**2 + 2.0 * r_lp1**2 * (np.log(r_l) - np.log(r_lp1))
-                   - 4.0 * r_l * r_lp1 + 3.0 * r_lp1**2) / (r_l - r_lp1)**2
+                (
+                    r_l**2
+                    + 2.0 * r_lm1**2 * (np.log(r_l) - np.log(r_lm1))
+                    - 4.0 * r_l * r_lm1
+                    + 3.0 * r_lm1**2
+                )
+                / (r_l - r_lm1) ** 2
+                - (
+                    r_l**2
+                    + 2.0 * r_lp1**2 * (np.log(r_l) - np.log(r_lp1))
+                    - 4.0 * r_l * r_lp1
+                    + 3.0 * r_lp1**2
+                )
+                / (r_l - r_lp1) ** 2
             )
             # Off-diagonal: l+1
             if i < N - 1:
                 Q[i, i + 1] = (
-                    -r_l**2
-                    + 2.0 * r_l * r_lp1 * (np.log(r_l) - np.log(r_lp1))
-                    + r_lp1**2
-                ) / (2.0 * (r_l - r_lp1)**2)
+                    -(r_l**2) + 2.0 * r_l * r_lp1 * (np.log(r_l) - np.log(r_lp1)) + r_lp1**2
+                ) / (2.0 * (r_l - r_lp1) ** 2)
             # Off-diagonal: l-1
             if i > 0:
                 Q[i, i - 1] = (
-                    r_l**2
-                    - 2.0 * r_l * r_lm1 * (np.log(r_l) - np.log(r_lm1))
-                    - r_lm1**2
-                ) / (2.0 * (r_l - r_lm1)**2)
+                    r_l**2 - 2.0 * r_l * r_lm1 * (np.log(r_l) - np.log(r_lm1)) - r_lm1**2
+                ) / (2.0 * (r_l - r_lm1) ** 2)
         self.potential_matrix = Q
 
         # --- hz, hth from q profile (with correct btor sign) ---
@@ -229,10 +231,10 @@ class KIMElectromagneticSolver:
             off_p = 1.0 / hi_p + 1.0 / (r[i] * (hi_m + hi_p))
             d2 = -(1.0 / hi_m + 1.0 / hi_p)
             laplace_poisson[i, i - 1] = off_m
-            laplace_poisson[i, i] = d2 - self.m_mode**2 / r[i]**2 - self.kz**2
+            laplace_poisson[i, i] = d2 - self.m_mode**2 / r[i] ** 2 - self.kz**2
             laplace_poisson[i, i + 1] = off_p
             laplace_perp[i, i - 1] = off_m
-            laplace_perp[i, i] = d2 - ks[i]**2
+            laplace_perp[i, i] = d2 - ks[i] ** 2
             laplace_perp[i, i + 1] = off_p
 
         # Assemble 2N×2N block system for (Φ, A_∥)
@@ -313,7 +315,7 @@ class KIMElectromagneticSolver:
             off_p = 1.0 / hi_p + 1.0 / (r[i] * (hi_m + hi_p))
             d2 = -(1.0 / hi_m + 1.0 / hi_p)
             laplace_full[i, i - 1] = off_m
-            laplace_full[i, i] = d2 - self.m_mode**2 / r[i]**2 - self.kz**2
+            laplace_full[i, i] = d2 - self.m_mode**2 / r[i] ** 2 - self.kz**2
             laplace_full[i, i + 1] = off_p
 
         a_mat = laplace_full + 4.0 * pi * self.k_rho_phi
@@ -323,10 +325,8 @@ class KIMElectromagneticSolver:
         phi_left = -self.phi_aligned[0]
         phi_right = -self.phi_aligned[-1]
 
-        b_vec[1:N - 1] = (
-            b_vec[1:N - 1]
-            - a_mat[1:N - 1, 0] * phi_left
-            - a_mat[1:N - 1, N - 1] * phi_right
+        b_vec[1 : N - 1] = (
+            b_vec[1 : N - 1] - a_mat[1 : N - 1, 0] * phi_left - a_mat[1 : N - 1, N - 1] * phi_right
         )
         a_mat[:, 0] = 0.0
         a_mat[:, -1] = 0.0

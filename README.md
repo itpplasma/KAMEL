@@ -1,4 +1,5 @@
 # KAMEL - Kinetic plAsma response ModEL
+ TEST
 
 [![CI](https://github.com/itpplasma/KAMEL/actions/workflows/ci.yml/badge.svg)](https://github.com/itpplasma/KAMEL/actions/workflows/ci.yml)
 

@@ -1,0 +1,9 @@
+line_length: 100
+# add directories with cmake files containing new function macros to this list
+# otherwise, gersemi does not know how to format these custom functions
+definitions: [
+    ./cmake,
+    ./QL-Balance/src/test,
+    ./KIM/src/math/libcerf-main/cmake,
+    ./KIM/src/math/libcerf-main/man,
+]

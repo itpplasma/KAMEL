@@ -27,3 +27,7 @@ repos:
     rev: 26.1.0
     hooks:
       - id: black
+  - repo: https://github.com/BlankSpruce/gersemi
+    rev: 0.26.1
+    hooks:
+    - id: gersemi

@@ -12,7 +12,6 @@ except ModuleNotFoundError as exc:
 
 
 class balance_conf:
-
     blueprint_path = os.path.join(
         os.path.dirname(__file__), "..", "..", "QL-Balance", "namelists", "balance_conf.nml"
     )

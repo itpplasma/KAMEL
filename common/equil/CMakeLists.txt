@@ -67,7 +67,7 @@ set_target_properties(kamel_equil PROPERTIES
 target_include_directories(kamel_equil
     PUBLIC
         ${EQUIL_MODULE_DIR}
-        ${CMAKE_CURRENT_BINARY_DIR}/libneo/include
+        ${KAMEL_LIBNEO_BINARY_DIR}/include
 )
 
 # Link libneo magfie for equilibrium field functionality

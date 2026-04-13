@@ -151,12 +151,7 @@ subroutine ramp_up_hysteresis
             end if
             ! Write the cause of the stopping into the hdf5 file
             if (ihdf5IO .eq. 1) then
-                CALL h5_init()
-                CALL h5_open_rw(path2out, h5_id)
-                CALL h5_add_string(h5_id, trim(h5_mode_groupname)// &
-                    '/stopping_criterion', 'ramp-up/down finished')
-                CALL h5_close(h5_id)
-                CALL h5_deinit()
+                call write_reason_for_stop_to_h5('ramp-up/down finished')
             end if
             call log_debug("Write br_time_data")
             if (ihdf5IO .eq. 1) then
@@ -202,13 +197,7 @@ subroutine ramp_up_fast_hysteresis
             end if
             ! Write the cause of the stopping into the hdf5 file
             if (ihdf5IO .eq. 1) then
-                CALL h5_init()
-                CALL h5_open_rw(path2out, h5_id)
-                CALL h5_add_string(h5_id, trim(h5_mode_groupname)// &
-                    '/stopping_criterion', 'ramp-up/down finished')
-                CALL h5_close(h5_id)
-                CALL h5_deinit()
-
+                call write_reason_for_stop_to_h5('ramp-up/down finished')
                 CALL write_br_dqle22_time_data!, br_abs_time, br_abs_antenna_factor, br_abs, dqle22_res_time)
             end if
 
@@ -237,12 +226,7 @@ subroutine stop_if_antenna_fac_max_reached
         end if
         ! Write the cause of the stopping into the hdf5 file
         if (ihdf5IO .eq. 1) then
-            CALL h5_init()
-            CALL h5_open_rw(path2out, h5_id)
-            CALL h5_add_string(h5_id, trim(h5_mode_groupname)// &
-                '/stopping_criterion', 'reached antenna_factor_max * antenna_max_stopping')
-            CALL h5_close(h5_id)
-            CALL h5_deinit()
+            call write_reason_for_stop_to_h5('reached antenna_factor_max * antenna_max_stopping')
         end if
 
         call log_debug("Write br_time_data")
@@ -350,12 +334,7 @@ subroutine stop_if_t_max_reached
         end if
         ! Write the cause of the stopping into the hdf5 file
         if (ihdf5IO .eq. 1) then
-            CALL h5_init()
-            CALL h5_open_rw(path2out, h5_id)
-            CALL h5_add_string(h5_id, trim(h5_mode_groupname)// &
-                    '/stopping_criterion', 'reached time max')
-            CALL h5_close(h5_id)
-            CALL h5_deinit()
+            call write_reason_for_stop_to_h5('reached time max')
 
             CALL write_br_dqle22_time_data!, br_abs_time, br_abs_antenna_factor, br_abs, dqle22_res_time)
         end if
@@ -433,10 +412,15 @@ end subroutine
 subroutine write_br_discrepancy_reached_info
 
     use h5mod
+    use KAMEL_hdf5_tools, only: h5overwrite
     use time_evolution, only: time_ind, time
 
     implicit none
 
+    logical :: old_h5overwrite
+
+    old_h5overwrite = h5overwrite
+    h5overwrite = .true.
     CALL h5_init()
     CALL h5_open_rw(path2out, h5_id)
     CALL h5_add_string(h5_id, trim(h5_mode_groupname)// &
@@ -445,5 +429,6 @@ subroutine write_br_discrepancy_reached_info
         '/discrep_time', (/time_ind*1.d0, time/), (/1/), (/2/))
     CALL h5_close(h5_id)
     CALL h5_deinit()
+    h5overwrite = old_h5overwrite
 
 end subroutine

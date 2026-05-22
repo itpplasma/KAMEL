@@ -7,6 +7,7 @@ subroutine kim_read_config
     use poisson_solver_m, only: solve_poisson
     use config_display_m, only: display_kim_configuration
     use logger_m, only: set_log_level
+    use getIfunc_config_m, only: getIfunc_boole_energy_conservation => boole_energy_conservation
 
     implicit none
 
@@ -17,7 +18,8 @@ subroutine kim_read_config
     namelist /KIM_CONFIG/ number_of_ion_species, artificial_debye_case, &
                         type_of_run, collision_model, read_species_from_namelist, &
                         turn_off_ions, turn_off_electrons, plasma_type, rescale_density, &
-                        number_density_rescale, ion_flr_scale_factor
+                        number_density_rescale, ion_flr_scale_factor, &
+                        boole_energy_conservation
 
     namelist /WKB_DISPERSION/ WKB_dispersion_mode, WKB_dispersion_solver, &
                         WKB_solve_for_kr_squared, &
@@ -68,6 +70,10 @@ subroutine kim_read_config
     read(unit = 77, nml = KIM_GRID)
     read(unit = 77, nml = KIM_PROFILES)
     close(unit = 77)
+
+    ! Propagate KIM_CONFIG flag to the QL-Balance getIfunc_config module
+    ! so the shared I-function code picks up the energy-conservation switch.
+    getIfunc_boole_energy_conservation = boole_energy_conservation
 
     call set_log_level(log_level)
 

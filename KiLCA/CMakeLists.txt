@@ -306,14 +306,3 @@ set_target_properties(post_proc PROPERTIES
 add_dependencies(post_proc ${EXTERNAL_LIBS})
 target_link_libraries (post_proc kilca_lib ${EXTERNAL_LIBS})
 
-# add a target to generate API documentation with Doxygen
-find_package (Doxygen)
-
-if (DOXYGEN_FOUND)
-  configure_file (${CMAKE_CURRENT_SOURCE_DIR}/doc/doxygen/Doxyfile.in ${CMAKE_CURRENT_SOURCE_DIR}/doc/doxygen/Doxyfile @ONLY)
-  add_custom_target (doc ${DOXYGEN_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/doc/doxygen/Doxyfile
-    WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/doc/doxygen
-    COMMENT "Generating API documentation with Doxygen" VERBATIM)
-else ()
-  message (FATAL_ERROR "No doxygen tool is found in the system!")
-endif ()

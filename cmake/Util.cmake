@@ -12,7 +12,13 @@ function(find_or_fetch DEPENDENCY)
         message(STATUS "Using ${DEPENDENCY} in $ENV{CODE}/${DEPENDENCY}")
     else()
         set(REPO_URL https://github.com/itpplasma/${DEPENDENCY}.git)
-        get_branch_or_main(${REPO_URL} REMOTE_BRANCH)
+        # <DEP>_BRANCH env overrides the ref so a release can test a candidate.
+        string(TOUPPER ${DEPENDENCY} _DEP_UPPER)
+        if(DEFINED ENV{${_DEP_UPPER}_BRANCH} AND NOT "$ENV{${_DEP_UPPER}_BRANCH}" STREQUAL "")
+            set(REMOTE_BRANCH "$ENV{${_DEP_UPPER}_BRANCH}")
+        else()
+            get_branch_or_main(${REPO_URL} REMOTE_BRANCH)
+        endif()
         message(STATUS "Using ${DEPENDENCY} branch ${REMOTE_BRANCH} from ${REPO_URL}")
 
         FetchContent_Declare(

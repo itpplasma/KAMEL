@@ -5,6 +5,13 @@ on:
     branches: [main, fix-ci]
   pull_request:
     branches: [main]
+  workflow_dispatch:
+    inputs:
+      libneo_ref:
+        default: ''
+
+env:
+  LIBNEO_BRANCH: ${{ inputs.libneo_ref }}
 
 jobs:
   build-and-test:

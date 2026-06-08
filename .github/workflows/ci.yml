@@ -9,6 +9,9 @@ on:
     inputs:
       libneo_ref:
         default: ''
+      full:
+        description: run the full suite incl. the golden record (nightly)
+        default: 'false'
 
 env:
   LIBNEO_BRANCH: ${{ inputs.libneo_ref }}
@@ -65,4 +68,11 @@ jobs:
       - name: Run tests
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: ctest --test-dir build --output-on-failure
+        run: |
+          # libneo-gate dispatch (no full) runs only the fast tests; push, PR and
+          # full=true also run the slow golden record.
+          if [ "${{ github.event_name }}" = workflow_dispatch ] && [ "${{ inputs.full }}" != true ]; then
+            ctest --test-dir build --output-on-failure -LE golden_record
+          else
+            ctest --test-dir build --output-on-failure
+          fi

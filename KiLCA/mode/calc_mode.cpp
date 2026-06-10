@@ -2,9 +2,7 @@
     \brief The implementation of mode_data class and other functions declared in mode.h.
 */
 
-#include <gsl/gsl_errno.h>
-#include <gsl/gsl_math.h>
-#include <gsl/gsl_roots.h>
+#include "brent_root.h"
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -50,45 +48,23 @@ int mode_data::find_resonance_location(void)
         return 0;
     }
 
-    int status;
-    int iter = 0, max_iter = 100;
-    const gsl_root_fsolver_type *T;
-    gsl_root_fsolver *s;
+    int max_iter = 100;
 
     struct func_params params = {bp, q_res};
 
-    gsl_function F;
-    F.function = &qminusq0;
-    F.params = &params;
+    double r_root;
 
-    T = gsl_root_fsolver_brent;
-    s = gsl_root_fsolver_alloc(T);
+    int status = brent_root (&qminusq0, &params, r1, r2, 1.0e-8, 1.0e-8,
+                             max_iter, &r_root);
 
-    gsl_root_fsolver_set(s, &F, r1, r2);
-
-    do
-    {
-        iter++;
-
-        status = gsl_root_fsolver_iterate(s);
-
-        r1 = gsl_root_fsolver_x_lower(s);
-        r2 = gsl_root_fsolver_x_upper(s);
-
-        status = gsl_root_test_interval(r1, r2, 1.0e-8, 1.0e-8);
-
-    } while (status == GSL_CONTINUE && iter < max_iter);
-
-    if (status != GSL_SUCCESS)
+    if (status != ROOT_SUCCESS)
     {
         fprintf(stdout, "\nfind_resonance_location: failed to find resonant surface for the mode m=%d n=%d", wd->m, wd->n);
         wd->r_res = 0.0e0;
         return 0;
     }
 
-    wd->r_res = gsl_root_fsolver_root(s);
-
-    gsl_root_fsolver_free(s);
+    wd->r_res = r_root;
 
     if (DEBUG_FLAG)
     {

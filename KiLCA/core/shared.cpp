@@ -7,6 +7,8 @@
 #include <math.h>
 #include <string.h>
 
+#include <algorithm>
+
 #include "constants.h"
 #include "shared.h"
 
@@ -58,6 +60,18 @@ const double *da = (const double *) a;
 const double *db = (const double *) b;
 
 return (*da > *db) - (*da < *db);
+}
+
+/*******************************************************************/
+
+void sort_index_doubles (size_t *perm, const double *data, size_t n)
+{
+//index permutation that sorts data ascending (replaces gsl_heapsort_index);
+//std::sort works in place and needs no C++ runtime support
+for (size_t i = 0; i < n; i++) perm[i] = i;
+
+std::sort (perm, perm + n,
+           [data] (size_t a, size_t b) { return data[a] < data[b]; });
 }
 
 /*******************************************************************/

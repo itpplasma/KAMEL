@@ -8,8 +8,8 @@
 #include <cstring>
 #include <climits>
 
-#include <gsl/gsl_math.h>
-#include <gsl/gsl_deriv.h>
+#include "deriv_central.h"
+#include "ode_rk8pd.h"
 
 #include "constants.h"
 #include "shared.h"
@@ -29,16 +29,14 @@ complex<double> B = Bfunc_hi_inc (r, params);
 //take A derivatives:
 diff_params ps = {zone, 0};
 
-gsl_function F = {&Afunc_hi_inc_part, &ps};
-
 double h = 1.0e-3, abserr;
 double der_re, der_im;
 
 ps.part = 0;
-gsl_deriv_central (&F, r, h, &der_re, &abserr);
+deriv_central (&Afunc_hi_inc_part, &ps, r, h, &der_re, &abserr);
 
 ps.part = 1;
-gsl_deriv_central (&F, r, h, &der_im, &abserr);
+deriv_central (&Afunc_hi_inc_part, &ps, r, h, &der_im, &abserr);
 
 complex<double> dA = der_re + I*der_im;
 
@@ -54,7 +52,7 @@ dy[1] = imag(df);
 dy[2] = real(dg);
 dy[3] = imag(dg);
 
-return GSL_SUCCESS;
+return ODE_SUCCESS;
 }
 
 /*******************************************************************/
@@ -111,9 +109,7 @@ complex<double> t2 = 4.0*kz*kz*Bt*Bt/(4.0*pi*r3k2)*(omega2_a/(omega2 - omega2_a)
 
 double t3, h = 1.0e-3, abserr;
 
-gsl_function FD = {&func_der, params};
-
-gsl_deriv_central (&FD, r, h, &t3, &abserr);
+deriv_central (&func_der, params, r, h, &t3, &abserr);
 
 return t1 + t2 + t3;
 }
@@ -128,63 +124,6 @@ complex<double> A = Afunc_hi_inc (r, (void *)dp->zone);
 
 if (dp->part == 0) return real (A);
 else               return imag (A);
-}
-
-/*******************************************************************/
-
-inline double Bfunc_hi_inc_part (double r, void *params)
-{
-diff_params *dp = (diff_params *) params;
-
-complex<double> B = Bfunc_hi_inc (r, (void *)dp->zone);
-
-if (dp->part == 0) return real (B);
-else               return imag (B);
-}
-
-/*******************************************************************/
-
-inline double dBfunc_hi_inc_part (double r, void *params)
-{
-diff_params *dp = (diff_params *) params;
-
-gsl_function F = {&Bfunc_hi_inc_part, dp};
-
-double h = 1.0e-3, abserr, der;
-
-gsl_deriv_central (&F, r, h, &der, &abserr);
-
-return der;
-}
-
-/*******************************************************************/
-
-inline double dAfunc_hi_inc_part (double r, void *params)
-{
-diff_params *dp = (diff_params *) params;
-
-gsl_function F = {&Afunc_hi_inc_part, dp};
-
-double h = 1.0e-3, abserr, der;
-
-gsl_deriv_central (&F, r, h, &der, &abserr);
-
-return der;
-}
-
-/*******************************************************************/
-
-inline double ddAfunc_hi_inc_part (double r, void *params)
-{
-diff_params *dp = (diff_params *) params;
-
-gsl_function F = {&dAfunc_hi_inc_part, dp};
-
-double h = 1.0e-3, abserr, der;
-
-gsl_deriv_central (&F, r, h, &der, &abserr);
-
-return der;
 }
 
 /*******************************************************************/
@@ -208,91 +147,19 @@ return Bt*Bt/(4.0*pi*r*r) + 2.0*kz*Bt*G/(4.0*pi*r2k2);
 
 /*******************************************************************/
 
-int jac_incompressible (double r, const double y[], double *dfdy, double dfdt[], void *params)
-{
-const imhd_zone *zone = (const imhd_zone *) params;
-
-complex<double> A = Afunc_hi_inc (r, params);
-complex<double> B = Bfunc_hi_inc (r, params);
-
-diff_params ps = {zone, 0};
-
-ps.part = 0;
-double dA_re = dAfunc_hi_inc_part (r, &ps);
-
-ps.part = 1;
-double dA_im = dAfunc_hi_inc_part (r, &ps);
-
-complex<double> dA = dA_re + I*dA_im;
-
-complex<double> C = - dA/A, D = - B/A;
-
-double Cre = real(C), Cim = imag(C);
-double Dre = real(D), Dim = imag(D);
-
-dfdy[0]  = 0.0;   dfdy[1]  = 0.0;   dfdy[2]  = 1.0;   dfdy[3]  = 0.0;
-
-dfdy[4]  = 0.0;   dfdy[5]  = 0.0;   dfdy[6]  = 1.0;   dfdy[7]  = 1.0;
-
-dfdy[8]  = Dre;   dfdy[9]  = -Dim;  dfdy[10] = Cre;   dfdy[11] = -Cim;
-
-dfdy[12] = Dim;   dfdy[13] = Dre;   dfdy[14] = Cim;   dfdy[15] = Cre;
-
-ps.part = 0;
-double ddA_re = ddAfunc_hi_inc_part (r, &ps);
-
-ps.part = 1;
-double ddA_im = ddAfunc_hi_inc_part (r, &ps);
-
-complex<double> ddA = ddA_re + I*ddA_im;
-
-ps.part = 0;
-double dB_re = dBfunc_hi_inc_part (r, &ps);
-
-ps.part = 1;
-double dB_im = dBfunc_hi_inc_part (r, &ps);
-
-complex<double> dB = dB_re + I*dB_im;
-
-complex<double> dC = - (ddA*A - dA*dA)/A/A;
-
-complex<double> dD = - (dB*A - B*dA)/A/A;
-
-double dCre = real(dC), dCim = imag(dC);
-double dDre = real(dD), dDim = imag(dD);
-
-dfdt[0] = 0.0;
-dfdt[1] = 0.0;
-dfdt[2] = dDre*y[0] - dDim*y[1] + dCre*y[2] - dCim*y[3];
-dfdt[3] = dDim*y[0] + dDre*y[1] + dCim*y[2] + dCre*y[3];
-
-return GSL_SUCCESS;
-}
-
-/*******************************************************************/
-
-void imhd_zone::calculate_basis_incompressible_gsl (void)
+void imhd_zone::calculate_basis_incompressible_rk8pd (void)
 {
 //for tests only, use general cvode version!
 
 if (!(bc1 == BOUNDARY_CENTER || bc2 == BOUNDARY_IDEALWALL))
 {
-    fprintf (stdout, "\nimhd::calculate_basis_incompressible_gsl: zone=%d: error!", index);
+    fprintf (stdout, "\nimhd::calculate_basis_incompressible_rk8pd: zone=%d: error!", index);
     exit (1);
 }
 
 size_t Neq = 4; //2 real eqs, 2 imag eqs for (r*zeta), (r*zeta)'
 
-const gsl_odeiv_step_type *T = gsl_odeiv_step_rk8pd; //the best I have found
-
-gsl_odeiv_step *step = gsl_odeiv_step_alloc (T, Neq);
-
-gsl_odeiv_control *control = gsl_odeiv_control_y_new (eps_abs, eps_rel);
-
-gsl_odeiv_evolve *evolve = gsl_odeiv_evolve_alloc (Neq);
-
-//gsl_odeiv_system sys = {&rhs_incompressible, NULL, Neq, fp};
-gsl_odeiv_system sys = {&rhs_incompressible, &jac_incompressible, Neq, this};
+ode_rk8pd_state solver (Neq, eps_abs, eps_rel);
 
 double t, tfinal;
 
@@ -327,7 +194,7 @@ else if (bc2 == BOUNDARY_IDEALWALL)
 }
 else
 {
-    fprintf (stdout, "\nimhd::calculate_basis_incompressible_gsl: error!");
+    fprintf (stdout, "\nimhd::calculate_basis_incompressible_rk8pd: error!");
     exit (1);
 }
 
@@ -353,11 +220,11 @@ state_to_EB_incompressible (grid[iter], syst+ib(iter, ind, 6, 0), syst+ib(iter, 
 
 while (t != tfinal)
 {
-    status = gsl_odeiv_evolve_apply (evolve, control, step, &sys, &t, tfinal, &h, y);
+    status = ode_rk8pd_evolve (solver, &rhs_incompressible, this, &t, tfinal, &h, y);
 
-    if (status != GSL_SUCCESS)
+    if (status != ODE_SUCCESS)
     {
-      fprintf (stderr, "\ncalculate_basis_incompressible_gsl: ODE solver failed at r = %le", t);
+      fprintf (stderr, "\ncalculate_basis_incompressible_rk8pd: ODE solver failed at r = %le", t);
       exit (1);
     }
 
@@ -428,13 +295,9 @@ else if (bc2 == BOUNDARY_IDEALWALL)
 }
 else
 {
-    fprintf (stdout, "\nimhd::calculate_basis_incompressible_gsl: error!");
+    fprintf (stdout, "\nimhd::calculate_basis_incompressible_rk8pd: error!");
     exit (1);
 }
-
-gsl_odeiv_evolve_free (evolve);
-gsl_odeiv_control_free (control);
-gsl_odeiv_step_free (step);
 
 delete [] grid;
 delete [] syst;

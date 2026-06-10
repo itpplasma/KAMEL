@@ -28,11 +28,6 @@ add_dependencies(KIM_lib sparse)
 target_link_libraries(KIM_lib PUBLIC sparse)
 target_include_directories(KIM_lib PUBLIC "${CMAKE_BINARY_DIR}/OBJS/sparse/")
 
-# TODO: unify this: either use the system library everywhere, or use the cloned version
-# KiLCA uses the cloned libraries for now, QL-Balance the system libraries
-find_package(GSL REQUIRED)
-target_include_directories(KIM_lib PUBLIC "${GSL_INCLUDE_DIRS}")
-
 find_package(LAPACK REQUIRED)
 if("${LAPACK_FOUND}")
     message(" ====== LAPACK was found! ======")
@@ -138,7 +133,7 @@ set(KiLCA_lib_path ${CMAKE_SOURCE_DIR}/build/install/lib/libKiLCA_Lib_V_2.4.2_MD
 # linked both KIM_lib and kilca_lib, corrupting symbol resolution order
 # and breaking KiLCA's wave solver (besselj failures, vacuum stitching errors).
 # KIM_exe links KiLCA directly via slatec (which provides the math routines).
-target_link_libraries(KIM_lib PUBLIC GSL::gsl GSL::gslcblas)
+target_link_libraries(KIM_lib PUBLIC LIBNEO::math)
 target_include_directories(KIM_lib PUBLIC ${KILCA_PATH}/math/)
 
 find_package(HDF5 COMPONENTS C Fortran HL REQUIRED)

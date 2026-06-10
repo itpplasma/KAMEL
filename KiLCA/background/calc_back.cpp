@@ -9,11 +9,7 @@
 #include <climits>
 #include <inttypes.h>
 
-#include <gsl/gsl_math.h>
-#include <gsl/gsl_deriv.h>
-#include <gsl/gsl_matrix.h>
-#include <gsl/gsl_odeiv.h>
-#include <gsl/gsl_errno.h>
+#include "ode_rk8pd.h"
 
 #include "shared.h"
 #include "settings.h"
@@ -53,16 +49,7 @@ double g = 1.0 + r*r/rtor/rtor/q/q;
 
 dy[0] = - 2.0*r*y[0]/(q*q*g*rtor*rtor) - 8.0*pi*dpress;
 
-return GSL_SUCCESS;
-}
-
-/*-----------------------------------------------------------------*/
-
-int jac_back (double r, const double y[], double *dfdy, double dfdt[], void *params)
-{
-fprintf (stderr, "\nwarning: impossible code flow: jac_back is called!");
-
-return GSL_SUCCESS;
+return ODE_SUCCESS;
 }
 
 /*-----------------------------------------------------------------*/
@@ -77,15 +64,7 @@ int background::calculate_equilibrium (void)
 
 size_t Neq = 1;
 
-const gsl_odeiv_step_type * T = gsl_odeiv_step_rk8pd; //the best I have found
-
-gsl_odeiv_step * step = gsl_odeiv_step_alloc (T, Neq);
-
-gsl_odeiv_control * control = gsl_odeiv_control_y_new (1.0e-16, 1.0e-16);
-
-gsl_odeiv_evolve * evolve = gsl_odeiv_evolve_alloc (Neq);
-
-gsl_odeiv_system sys = {&rhs_back, &jac_back, Neq, this};
+ode_rk8pd_state solver (Neq, 1.0e-16, 1.0e-16);
 
 double rtor = sd->bs->rtor;
 double B0   = sd->bs->B0;
@@ -112,9 +91,9 @@ for (int i = 1; i < dimx; ++i)
 
     while (rc < rf)
     {
-        status = gsl_odeiv_evolve_apply (evolve, control, step, &sys, &rc, rf, &h, uval);
+        status = ode_rk8pd_evolve (solver, &rhs_back, this, &rc, rf, &h, uval);
 
-        if (status != GSL_SUCCESS)
+        if (status != ODE_SUCCESS)
         {
             fprintf (stderr, "\ncalculate_equilibrium: ODE solver failed at r = %le", rc);
             exit (1);
@@ -131,10 +110,6 @@ for (int i = 1; i < dimx; ++i)
 
     u[i] = uval[0];
 }
-
-gsl_odeiv_evolve_free (evolve);
-gsl_odeiv_control_free (control);
-gsl_odeiv_step_free (step);
 
 if (sd->bs->flag_debug > 1) //save u if needed
 {

@@ -82,12 +82,12 @@ void imhd_zone::calc_basis_fields (int flag)
 {
 switch (version)
 {
-    case 0: //incompressible without background flows with gsl integrator
-    calculate_basis_incompressible_gsl ();
+    case 0: //incompressible without background flows with the rk8pd integrator
+    calculate_basis_incompressible_rk8pd ();
     break;
 
-    case 1: //incompressible with background flows with gsl integrator
-    calculate_basis_flow_gsl ();
+    case 1: //incompressible with background flows with the rk8pd integrator
+    calculate_basis_flow_rk8pd ();
     break;
 
     default:

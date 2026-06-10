@@ -7,9 +7,7 @@
 
 #include "constants.h"
 
-#include <gsl/gsl_errno.h>
-#include <gsl/gsl_math.h>
-#include <gsl/gsl_integration.h>
+#include "adaptive_quad.h"
 
 /*-----------------------------------------------------------------*/
 
@@ -65,13 +63,7 @@ return exp(-x*x)/(pow((P->a)*x + P->omE, 2)+(P->nu)*(P->nu))*real(field_fac)*ind
 
 void calc_velocity_integral_ (int ind, double vT, double ks, double kp, double omE, double nu, double *Es, double *Ep, double *res)
 {
-gsl_integration_workspace *W = gsl_integration_workspace_alloc (10000);
-
 struct quad_func_params P;
-
-gsl_function F;
-F.function = &func;
-F.params = &P;
 
 //set structure:
 P.ind = ind;
@@ -100,10 +92,7 @@ for (i=0; i<10000; i++)
 
 double err;
 
-gsl_integration_qagi (&F, 1.0e-6, 1.0e-6, 10000, W, res, &err);
-//gsl_integration_qag (&F, -10.0, 10.0, 1.0e-6, 1.0e-6, 10000, 3, W, res, &err);
-
-gsl_integration_workspace_free (W);
+quad_qagi (&func, &P, 1.0e-6, 1.0e-6, 10000, res, &err);
 }
 
 /*-----------------------------------------------------------------*/

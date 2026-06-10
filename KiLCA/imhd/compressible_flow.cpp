@@ -9,11 +9,8 @@
 #include <climits>
 #include <ctime>
 
-#include <gsl/gsl_math.h>
-#include <gsl/gsl_deriv.h>
-#include <gsl/gsl_matrix.h>
-#include <gsl/gsl_odeiv.h>
-#include <gsl/gsl_errno.h>
+#include "deriv_central.h"
+#include "ode_rk8pd.h"
 
 #include "constants.h"
 #include "shared.h"
@@ -230,9 +227,7 @@ imhd_zone const * zone = (const imhd_zone *) params;
 
 double der, h = 1.0e-3, abserr;
 
-gsl_function F = {&func_deriv_in_C4, params};
-
-gsl_deriv_central (&F, r, h, &der, &abserr);
+deriv_central (&func_deriv_in_C4, params, r, h, &der, &abserr);
 
 complex<double> A = A_flow (r, params);
 
@@ -266,33 +261,24 @@ dy[1] = imag(df);
 dy[2] = real(dg);
 dy[3] = imag(dg);
 
-return GSL_SUCCESS;
+return ODE_SUCCESS;
 }
 
 /*******************************************************************/
 
-void imhd_zone::calculate_basis_flow_gsl (void)
+void imhd_zone::calculate_basis_flow_rk8pd (void)
 {
 //for tests only, use general cvode version!
 
 if (!(bc1 == BOUNDARY_CENTER || bc2 == BOUNDARY_IDEALWALL))
 {
-    fprintf (stdout, "\nimhd::calculate_basis_incompressible_gsl: zone=%d: error!", index);
+    fprintf (stdout, "\nimhd::calculate_basis_incompressible_rk8pd: zone=%d: error!", index);
     exit (1);
 }
 
 size_t Neq = 4; //2 real eqs, 2 imag eqs for (r*zeta), pressure
 
-const gsl_odeiv_step_type *T = gsl_odeiv_step_rk8pd; //the best I have found
-
-gsl_odeiv_step *step = gsl_odeiv_step_alloc (T, Neq);
-
-gsl_odeiv_control *control = gsl_odeiv_control_y_new (eps_abs, eps_rel);
-
-gsl_odeiv_evolve *evolve = gsl_odeiv_evolve_alloc (Neq);
-
-//gsl_odeiv_system sys = {&rhs_incompressible, NULL, Neq, fp};
-gsl_odeiv_system sys = {&rhs_flow, &jac_flow, Neq, this};
+ode_rk8pd_state solver (Neq, eps_abs, eps_rel);
 
 double t, tfinal;
 
@@ -334,7 +320,7 @@ else if (bc2 == BOUNDARY_IDEALWALL)
 }
 else
 {
-    fprintf (stdout, "\nimhd::calculate_basis_compressible_gsl: error!");
+    fprintf (stdout, "\nimhd::calculate_basis_flow_rk8pd: error!");
     exit (1);
 }
 
@@ -360,11 +346,11 @@ state_to_EB_compressible_flow (grid[iter], syst+ib(iter, ind, 6, 0), syst+ib(ite
 
 while (t != tfinal)
 {
-    status = gsl_odeiv_evolve_apply (evolve, control, step, &sys, &t, tfinal, &h, y);
+    status = ode_rk8pd_evolve (solver, &rhs_flow, this, &t, tfinal, &h, y);
 
-    if (status != GSL_SUCCESS)
+    if (status != ODE_SUCCESS)
     {
-      fprintf (stderr, "\ncalculate_basis_flow_gsl: ODE solver failed at r = %le", t);
+      fprintf (stderr, "\ncalculate_basis_flow_rk8pd: ODE solver failed at r = %le", t);
       exit (1);
     }
 
@@ -435,13 +421,9 @@ else if (bc2 == BOUNDARY_IDEALWALL)
 }
 else
 {
-    fprintf (stdout, "\nimhd::calculate_basis_compressible_gsl: error!");
+    fprintf (stdout, "\nimhd::calculate_basis_flow_rk8pd: error!");
     exit (1);
 }
-
-gsl_odeiv_evolve_free (evolve);
-gsl_odeiv_control_free (control);
-gsl_odeiv_step_free (step);
 
 delete [] grid;
 delete [] syst;
@@ -557,15 +539,6 @@ fprintf (stdout, "\nr = %le\tdrzeta/r = %le %+lei", r, real(drzeta/r), imag(drze
 fprintf (stdout, "\nzeta_t = %le %+lei", real(zeta_t), imag(zeta_t));
 fprintf (stdout, "\nzeta_z = %le %+lei", real(zeta_z), imag(zeta_z));
 fprintf (stdout, "\ndivzeta = %le %+lei", real(divzeta), imag(divzeta));*/
-}
-
-/*******************************************************************/
-
-int jac_flow (double r, const double y[], double *dfdy, double dfdt[], void *params)
-{
-fprintf (stdout, "\nwarning: jac_flow is called!");
-
-return GSL_SUCCESS;
 }
 
 /*******************************************************************/

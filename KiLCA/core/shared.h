@@ -23,6 +23,8 @@ int signum(double x);
 
 int compare_doubles (const void *a, const void *b);
 
+void sort_index_doubles (size_t *perm, const double *data, size_t n);
+
 void binomial_coefficients (int N, double *BC);
 
 struct cmplx_number

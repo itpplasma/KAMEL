@@ -8,7 +8,8 @@ src_f77_names = \
 1F1
 
 src_cpp_names = \
-hyper1F1
+hyper1F1 \
+adaptive_quad
 
 # extension of the source files
 f90_ext = f90
@@ -24,7 +25,7 @@ $(addsuffix .o, ${src_cpp_names})
 obj_dir = .
 
 # search path for source & object files
-VPATH = .
+VPATH = . ../numeric
 #compilers section: SSE* instructions are VERY important for correct mathematics!
 
 COMPILER_PREFIX = -4.3.0
@@ -47,13 +48,12 @@ LINKER_PATH = /usr/local/gcc$(COMPILER_PREFIX)/lib
 math_lib_path = /usr/local/lib/math_lib
 cvode_lib_path = /usr/local/lib
 
-libs = -lgsl -lstdc++
+libs = -lstdc++
 
 
 # libs = -L$(LINKER_PATH) \
 # -L$(math_lib_path) -lslatec_gf_430 -llapack_gf_430 -lblas_gf_430 \
 # -L$(cvode_lib_path) -lsundials_cvode -lsundials_nvecserial \
-# -lgsl -lgslcblas \
 # -lgfortran \
 # -lstdc++
 

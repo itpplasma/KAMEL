@@ -51,9 +51,9 @@ public:
 
     void state_to_EB_incompressible (double, double *, double *);
 
-    void calculate_basis_incompressible_gsl (void);
+    void calculate_basis_incompressible_rk8pd (void);
 
-    void calculate_basis_flow_gsl (void);
+    void calculate_basis_flow_rk8pd (void);
 
     void state_to_EB_compressible_flow (double, double *, double *);
 

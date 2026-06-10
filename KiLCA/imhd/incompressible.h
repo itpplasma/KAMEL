@@ -10,10 +10,6 @@
 #include "constants.h"
 #include "imhd_zone.h"
 
-#include <gsl/gsl_matrix.h>
-#include <gsl/gsl_odeiv.h>
-#include <gsl/gsl_errno.h>
-
 /*******************************************************************/
 
 struct diff_params
@@ -26,21 +22,11 @@ struct diff_params
 
 int rhs_incompressible (double r, const double y[], double f[], void *params);
 
-int jac_incompressible (double t, const double y[], double *dfdy, double dfdt[], void *params);
-
 inline complex<double> Afunc_hi_inc (double r, void *params);
 
 inline double Afunc_hi_inc_part(double r, void *params);
 
-inline double dAfunc_hi_inc_part(double r, void *params);
-
-inline double ddAfunc_hi_inc_part(double r, void *params);
-
 inline complex<double> Bfunc_hi_inc (double r, void *params);
-
-inline double Bfunc_hi_inc_part(double r, void *params);
-
-inline double dBfunc_hi_inc_part(double r, void *params);
 
 inline double func_der (double r, void *params);
 

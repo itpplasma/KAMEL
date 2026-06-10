@@ -151,7 +151,7 @@ module flr2_asymptotics_m
         use equilibrium_m, only: B0
         use IO_collection_m, only: write_complex_profile_abs
         use config_m, only: output_path
-        use gsl_mod, only: gsl_sf_bessel_In
+        use neo_bessel_i, only: bessel_in
         use config_m, only: turn_off_ions, artificial_debye_case, turn_off_electrons
 
         implicit none
@@ -193,7 +193,7 @@ module flr2_asymptotics_m
                     if (turn_off_electrons .and. sp == 0) cycle
 
                     ! Don't Include full perpendicular wavenumber in FLR parameter: b = (k_r^2 + k_s^2) * rho_T^2
-                    ! k_s diverges at r=0, which is problematic for gsl Bessel functions
+                    ! k_s diverges at r=0, which is problematic for the Bessel functions
                     ks = plasma_in%ks(j)
 
                     b = (kr**2.0d0) * plasma_in%spec(sp)%rho_L(j)**2.0d0
@@ -208,39 +208,39 @@ module flr2_asymptotics_m
                             / (plasma_in%spec(sp)%omega_c(j) * plasma_in%spec(sp)%nu(j)) * exp(-b) * &
                             (&
                                 plasma_in%spec(sp)%I00(j, 0) * (&
-                                    gsl_sf_bessel_In(0, b) * (plasma_in%spec(sp)%A1(j) + plasma_in%spec(sp)%A2(j) * (1-b)) &
-                                    + plasma_in%spec(sp)%A2(j) * b * gsl_sf_bessel_In(-1, b) &
+                                    bessel_in(0, b) * (plasma_in%spec(sp)%A1(j) + plasma_in%spec(sp)%A2(j) * (1-b)) &
+                                    + plasma_in%spec(sp)%A2(j) * b * bessel_in(-1, b) &
                                 )&
-                                + 0.5d0 * plasma_in%spec(sp)%I20(j, 0) * plasma_in%spec(sp)%A2(j) * gsl_sf_bessel_In(0, b) &
+                                + 0.5d0 * plasma_in%spec(sp)%I20(j, 0) * plasma_in%spec(sp)%A2(j) * bessel_in(0, b) &
                             )
                         kernel_B(j) = kernel_B(j) - 1.0d0 / plasma_in%spec(sp)%lambda_D(j)**2.0d0 * plasma_in%spec(sp)%vT(j)**3.0d0 &
                             / (plasma_in%spec(sp)%omega_c(j) * plasma_in%spec(sp)%nu(j) * sol) * exp(-b) * &
                             (&
                                 plasma_in%spec(sp)%I01(j, 0) * (&
-                                    gsl_sf_bessel_In(0, b) * (plasma_in%spec(sp)%A1(j) + plasma_in%spec(sp)%A2(j) * (1-b)) &
-                                    + plasma_in%spec(sp)%A2(j) * b * gsl_sf_bessel_In(-1, b) &
+                                    bessel_in(0, b) * (plasma_in%spec(sp)%A1(j) + plasma_in%spec(sp)%A2(j) * (1-b)) &
+                                    + plasma_in%spec(sp)%A2(j) * b * bessel_in(-1, b) &
                                 )&
-                                + 0.5d0 * plasma_in%spec(sp)%I21(j, 0) * plasma_in%spec(sp)%A2(j) * gsl_sf_bessel_In(0, b) &
+                                + 0.5d0 * plasma_in%spec(sp)%I21(j, 0) * plasma_in%spec(sp)%A2(j) * bessel_in(0, b) &
                             )
 
                         kernel_jphi(j) = kernel_jphi(j) + 1.0d0 / plasma_in%spec(sp)%lambda_D(j)**2.0d0 * com_unit * plasma_in%spec(sp)%vT(j)**3.0d0 &
                             / (plasma_in%spec(sp)%omega_c(j) * plasma_in%spec(sp)%nu(j)) * ks * exp(-b) * &
                             (&
                                 plasma_in%spec(sp)%I01(j, 0) * (&
-                                    gsl_sf_bessel_In(0, b) * (plasma_in%spec(sp)%A1(j) + plasma_in%spec(sp)%A2(j) * (1-b)) &
-                                    + plasma_in%spec(sp)%A2(j) * b * gsl_sf_bessel_In(-1, b) &
+                                    bessel_in(0, b) * (plasma_in%spec(sp)%A1(j) + plasma_in%spec(sp)%A2(j) * (1-b)) &
+                                    + plasma_in%spec(sp)%A2(j) * b * bessel_in(-1, b) &
                                 )&
-                                + 0.5d0 * plasma_in%spec(sp)%I21(j, 0) * plasma_in%spec(sp)%A2(j) * gsl_sf_bessel_In(0, b) &
+                                + 0.5d0 * plasma_in%spec(sp)%I21(j, 0) * plasma_in%spec(sp)%A2(j) * bessel_in(0, b) &
                             )
 
                         kernel_jB(j) = kernel_jB(j) - 1.0d0 / plasma_in%spec(sp)%lambda_D(j)**2.0d0 * plasma_in%spec(sp)%vT(j)**4.0d0 &
                             / (plasma_in%spec(sp)%omega_c(j) * plasma_in%spec(sp)%nu(j) * sol) * exp(-b) * &
                             (&
                                 plasma_in%spec(sp)%I11(j, 0) * (&
-                                    gsl_sf_bessel_In(0, b) * (plasma_in%spec(sp)%A1(j) + plasma_in%spec(sp)%A2(j) * (1-b)) &
-                                    + plasma_in%spec(sp)%A2(j) * b * gsl_sf_bessel_In(-1, b) &
+                                    bessel_in(0, b) * (plasma_in%spec(sp)%A1(j) + plasma_in%spec(sp)%A2(j) * (1-b)) &
+                                    + plasma_in%spec(sp)%A2(j) * b * bessel_in(-1, b) &
                                 )&
-                                + 0.5d0 * plasma_in%spec(sp)%I13(j, 0) * plasma_in%spec(sp)%A2(j) * gsl_sf_bessel_In(0, b) &
+                                + 0.5d0 * plasma_in%spec(sp)%I13(j, 0) * plasma_in%spec(sp)%A2(j) * bessel_in(0, b) &
                             )
 
                     end if

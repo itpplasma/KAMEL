@@ -7,7 +7,8 @@ src_f77_names =
 
 src_cpp_names = \
 spline \
-four_transf
+four_transf \
+adaptive_quad
 
 # extension of the source files
 f90_ext = f90
@@ -29,6 +30,7 @@ $(obj_dir) \
 ./io \
 ./spline \
 ./math \
+./math/numeric \
 ./conductivity \
 ./quants \
 ./conductivity \
@@ -64,7 +66,6 @@ cvode_lib_path = /usr/local/lib
 libs = -L$(LINKER_PATH) \
 -L$(math_lib_path) -lslatec_gf_430 -llapack_gf_430 -lblas_gf_430 \
 -L$(cvode_lib_path) -lsundials_cvode -lsundials_nvecserial \
--lgsl -lgslcblas \
 -lgfortran \
 -lstdc++
 

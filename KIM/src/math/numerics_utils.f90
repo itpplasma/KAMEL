@@ -2,7 +2,6 @@ module numerics_utils_m
 
     use KIM_kinds_m, only: dp
     use constants_m, only: pi
-    use gsl_mod, only: erf => gsl_sf_erf
 
     implicit none
 

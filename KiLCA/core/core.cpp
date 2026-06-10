@@ -181,7 +181,7 @@ for (int ind=0; ind<dim; ind++)
     }
     else if (sd->es->search_flag == 0)
     {
-        //complex zero search by gsl real solver:
+        //complex zero search by the Newton solver:
         find_det_zeros (ind, m, n, this);
     }
     else if (sd->es->search_flag == -1)

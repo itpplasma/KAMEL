@@ -8,7 +8,6 @@
 #include <cstring>
 #include <complex>
 
-#include <gsl/gsl_heapsort.h>
 
 #include "calc_cond.h"
 #include "cond_profs.h"
@@ -101,7 +100,7 @@ void calc_splines_for_K (cond_profiles *cp)
 /*sorting grid points*/
 size_t *perm = new size_t[cp->dimx];
 
-gsl_heapsort_index (perm, cp->xt, cp->dimx, sizeof(double), compare_doubles);
+sort_index_doubles (perm, cp->xt, cp->dimx);
 
 //rearanging K array for splining:
 for (int node=0; node<cp->dimx; node++)
@@ -532,7 +531,7 @@ void set_arrays_for_K (cond_profiles *cp)
 /*sorting grid points*/
 size_t *perm = new size_t[cp->dimx];
 
-gsl_heapsort_index (perm, cp->xt, cp->dimx, sizeof(double), compare_doubles);
+sort_index_doubles (perm, cp->xt, cp->dimx);
 
 //rearanging K array for splining:
 for (int node=0; node<cp->dimx; node++)
@@ -614,7 +613,7 @@ void smooth_arrays_for_K (cond_profiles *cp)
 /*sorting grid points*/
 size_t *perm = new size_t[cp->dimx];
 
-gsl_heapsort_index (perm, cp->xt, cp->dimx, sizeof(double), compare_doubles);
+sort_index_doubles (perm, cp->xt, cp->dimx);
 
 for (int node=0; node<cp->dimx; node++)
 {

@@ -150,8 +150,6 @@ target_link_libraries(ql-balance_lib PUBLIC
     SUNDIALS::cvode
     SUNDIALS::nvecserial
     blas
-    gsl
-    gslcblas
     hdf5::hdf5
     hdf5::hdf5_fortran
     hdf5::hdf5_hl

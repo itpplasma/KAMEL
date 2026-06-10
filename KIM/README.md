@@ -5,7 +5,6 @@ This is the integral plasma response model based on the code and model Kinetic L
 
 ### Required Libraries
 - **LAPACK/BLAS** - Linear algebra
-- **GSL** - GNU Scientific Library
 - **HDF5** - Data storage (with Fortran bindings)
 - **SuiteSparse** - Sparse matrix operations (UMFPACK)
 - **SuperLU** - Sparse direct solver

@@ -21,8 +21,6 @@ struct diff_params
 
 int rhs_flow (double r, const double y[], double dy[], void * params);
 
-int jac_flow (double r, const double y[], double *dfdy, double dfdt[], void *params);
-
 /*****************************RWM  Bondenson et al.(1987)**************************************/
 
 inline complex<double> omega_D (double r, void * params);

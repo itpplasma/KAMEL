@@ -107,11 +107,7 @@ set (kilca_eigparam_main progs/main_eig_param.cpp)
 # --- Dependencies ---
 # Dependencies are provided by the top-level project via cmake/Dependencies.cmake
 
-# include paths:
-set (libs_root_path ${CMAKE_BINARY_DIR}/external-install)
-set (gsl_include_path ${libs_root_path}/gsl/include)
-
-set(EXTERNAL_LIBS slatec lapack blas SUNDIALS::cvode SUNDIALS::nvecserial gsl gslcblas)
+set(EXTERNAL_LIBS slatec lapack blas SUNDIALS::cvode SUNDIALS::nvecserial)
 
 # configure a header file to pass some of the CMake settings to the source code
 configure_file(
@@ -121,7 +117,6 @@ configure_file(
 # Make generated header available
 include_directories("${CMAKE_CURRENT_BINARY_DIR}")
 
-include_directories ("${gsl_include_path}")
 include_directories ("${PROJECT_BINARY_DIR}")
 include_directories ("${CMAKE_CURRENT_SOURCE_DIR}/antenna")
 include_directories ("${CMAKE_CURRENT_SOURCE_DIR}/background")
@@ -139,6 +134,7 @@ include_directories ("${CMAKE_CURRENT_SOURCE_DIR}/interp")
 include_directories ("${CMAKE_CURRENT_SOURCE_DIR}/io")
 include_directories ("${CMAKE_CURRENT_SOURCE_DIR}/math")
 include_directories ("${CMAKE_CURRENT_SOURCE_DIR}/math/adapt_grid")
+include_directories ("${CMAKE_CURRENT_SOURCE_DIR}/math/numeric")
 include_directories ("${CMAKE_CURRENT_SOURCE_DIR}/math/zersol-0.0.0/src")
 include_directories ("${CMAKE_CURRENT_SOURCE_DIR}/mod")
 include_directories ("${CMAKE_CURRENT_SOURCE_DIR}/mode")
@@ -187,6 +183,11 @@ set(kilca_lib_cpp_sources
     math/hyper/hyper1F1.cpp
     math/adapt_grid/adaptive_grid.cpp
     math/adapt_grid/adaptive_grid_pol.cpp
+    math/numeric/adaptive_quad.cpp
+    math/numeric/quadpack_qagi.cpp
+    math/numeric/brent_root.cpp
+    math/numeric/deriv_central.cpp
+    math/numeric/ode_rk8pd.cpp
 )
 
 #fortran source files for kilca lib:
@@ -274,6 +275,7 @@ target_include_directories(kilca_lib PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/io
     ${CMAKE_CURRENT_SOURCE_DIR}/math
     ${CMAKE_CURRENT_SOURCE_DIR}/math/adapt_grid
+    ${CMAKE_CURRENT_SOURCE_DIR}/math/numeric
     ${CMAKE_CURRENT_SOURCE_DIR}/math/zersol-0.0.0/src
     ${CMAKE_CURRENT_SOURCE_DIR}/mod
     ${CMAKE_CURRENT_SOURCE_DIR}/mode
@@ -282,7 +284,6 @@ target_include_directories(kilca_lib PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/spline
     # External dependencies
     ${sundials_include_path}
-    ${gsl_include_path}
 )
 
 add_executable (kilca_normal_exe ${kilca_normal_main})

@@ -9,8 +9,6 @@ f2py -c src/getIfunc.f90 src/W2_arr.f90 $curr_loc/../../KiLCA/flre/conductivity/
     -L$libs_path/sundials/build/src/nvector/serial/ -lsundials_nvecserial \
     -L$libs_path/slatec/ -lslatec \
     -L$libs_path/bessel/lib/ -lbessel \
-    -lgsl \
-    -lgslcblas \
     -lm \
     -lc \
     --verbose

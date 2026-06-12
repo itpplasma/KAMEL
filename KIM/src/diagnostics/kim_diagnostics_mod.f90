@@ -37,6 +37,7 @@ contains
         ! electron-only) from the electromagnetic solution in EBdat,
         ! then hand them to the IO layer. No-op when both the HDF5 and
         ! the flat-file diagnostics outputs are disabled.
+        use, intrinsic :: iso_fortran_env, only: error_unit
         use config_m, only: hdf5_output, write_diagnostics_dat
         use fields_m, only: EBdat
         use kim_resonances_m, only: r_res, prop
@@ -57,6 +58,21 @@ contains
         end if
 
         npts = size(EBdat%r_grid)
+
+        ! prepare_resonances leaves r_res = 0 when |m/n| is outside the
+        ! q range. Skip all diagnostics output then: a missing
+        ! kim_diagnostics.dat is the scan driver's failure signal,
+        ! whereas values evaluated at a bogus radius would be silently
+        ! machine-read. Non-fatal on purpose (logger_m's log_error
+        ! aborts the run, and the field solution itself is still valid).
+        if (r_res <= 0.0_dp .or. r_res < EBdat%r_grid(1) &
+            .or. r_res > EBdat%r_grid(npts)) then
+            write(error_unit, '(A, ES12.5, A)') &
+                '[ERROR] kim_diagnostics: no resonant surface inside the ' // &
+                'radial grid (r_res = ', r_res, '); diagnostics output skipped'
+            return
+        end if
+
         i_res = minloc(abs(EBdat%r_grid - r_res), 1)
         r_pt = EBdat%r_grid(i_res)
 
@@ -99,12 +115,6 @@ contains
         om_E = sum(coef(0, :) * plasma%om_E(ibeg:iend))
         B0 = sum(coef(0, :) * plasma%B0(ibeg:iend))
         kpar = sum(coef(0, :) * plasma%kp(ibeg:iend))
-
-        ! k_par vanishes exactly at the resonant surface; if the sample
-        ! point happens to coincide with it, fall back to the adjacent
-        ! profile value so that x1 = kpar*vTe/nue stays nonzero.
-        if (kpar == 0.0_dp) kpar = plasma%kp(max(ibeg - 1, 1))
-        if (kpar == 0.0_dp) kpar = plasma%kp(min(iend + 1, plasma%grid_size))
 
     end subroutine
 

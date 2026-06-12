@@ -260,7 +260,7 @@ module IO_collection_m
 
         use KIM_kinds_m, only: dp
         use config_m, only: output_path, hdf5_output, write_diagnostics_dat
-        use KAMEL_hdf5_tools, only: h5_define_group, h5_obj_exists, h5_add, h5_close_group
+        use KAMEL_hdf5_tools, only: h5_define_group, h5_open_group, h5_obj_exists, h5_add, h5_close_group
 
         implicit none
 
@@ -275,6 +275,8 @@ module IO_collection_m
             call h5_obj_exists(h5id, 'diagnostics/', ex)
             if (.not. ex) then
                 call h5_define_group(h5id, 'diagnostics/', h5grpid)
+            else
+                call h5_open_group(h5id, 'diagnostics/', h5grpid)
             end if
 
             call h5_add(h5grpid, 'dqle22', dqle22, &

@@ -14,6 +14,7 @@ program test_kim_diagnostics
     call test_dqle22_resonant('Dqle22 at resonance, omE/nue = 0.5', 0.5_dp)
     call test_dqle22_resonant('Dqle22 at resonance, omE/nue = 2.0', 2.0_dp)
     call test_em_solve_writes_diagnostics_file()
+    call test_em_solve_no_resonance_skips_file()
 
     print *, 'All kim_diagnostics tests passed.'
 
@@ -115,16 +116,10 @@ contains
 
         ! Analytic profiles on r in [2, 60] cm; q crosses |m/n| = 2 at
         ! r ~ 31 cm, inside the solver domain [r_min, r_plas] = [10, 50].
-        do i = 1, npts
-            r_prof(i) = 2.0_dp + 58.0_dp * real(i - 1, dp) / real(npts - 1, dp)
-            n_prof(i) = 2.0e13_dp * (1.1_dp - r_prof(i) / 100.0_dp)
-            Te_prof(i) = 1.0e3_dp * (1.2_dp - r_prof(i) / 100.0_dp)
-            Ti_prof(i) = Te_prof(i)
-            q_prof(i) = 1.5_dp + (r_prof(i) - 2.0_dp) / 58.0_dp
-            Er_prof(i) = -0.5_dp
-        end do
+        call make_test_profiles(npts, r_prof, n_prof, Te_prof, Ti_prof, &
+                                q_prof, Er_prof)
 
-        call write_test_namelist('./KIM_config_diag_test.nml')
+        call write_test_namelist('./KIM_config_diag_test.nml', -2)
         nml_config_path = './KIM_config_diag_test.nml'
 
         ! Remove stale output so an old file cannot mask a failure
@@ -180,10 +175,91 @@ contains
         print *, '  Ipar_e = ', vals(4), vals(5)
     end subroutine
 
-    subroutine write_test_namelist(path)
+    subroutine test_em_solve_no_resonance_skips_file()
+        ! Guard test: with m chosen so that |m/n| = 4 lies outside the
+        ! q range [1.5, 2.5] of the analytic test profiles, no resonant
+        ! surface exists. The diagnostics must then NOT be written --
+        ! a missing kim_diagnostics.dat is the scan driver's failure
+        ! signal, while plausible-looking values evaluated at a bogus
+        ! radius would be silently machine-read.
+        use config_m, only: profiles_in_memory, nml_config_path
+        use species_m, only: set_profiles_from_arrays
+        use kim_base_m, only: kim_t
+        use kim_mod_m, only: from_kim_factory_get_kim
+        use fields_m, only: EBdat, EBdat_t
+
+        integer, parameter :: npts = 101
+        character(len=*), parameter :: out_file = &
+            './out_diag_test/m-4_n1/kim_diagnostics.dat'
+
+        real(dp) :: r_prof(npts), n_prof(npts), Te_prof(npts)
+        real(dp) :: Ti_prof(npts), q_prof(npts), Er_prof(npts)
+        class(kim_t), allocatable :: kim_instance
+        integer :: iunit
+        logical :: ex
+
+        call make_test_profiles(npts, r_prof, n_prof, Te_prof, Ti_prof, &
+                                q_prof, Er_prof)
+
+        call write_test_namelist('./KIM_config_diag_test_nores.nml', -4)
+        nml_config_path = './KIM_config_diag_test_nores.nml'
+
+        ! Remove stale output so an old file cannot mask a failure
+        inquire(file=out_file, exist=ex)
+        if (ex) then
+            open(newunit=iunit, file=out_file, status='old')
+            close(iunit, status='delete')
+        end if
+
+        profiles_in_memory = .true.
+        call kim_init()
+        ! Resets the lazy resonance-detection flag, so the stale r_res
+        ! from the previous test cannot leak into this run.
+        call set_profiles_from_arrays(r_prof, n_prof, Te_prof, Ti_prof, &
+                                      q_prof, Er_prof, npts)
+        ! The EM solver allocates EBdat components without re-entry
+        ! handling; reset them for the second solve in this process.
+        EBdat = EBdat_t()
+
+        call from_kim_factory_get_kim('electromagnetic', kim_instance)
+        call kim_instance%init()
+        call kim_instance%run()
+
+        inquire(file=out_file, exist=ex)
+        if (ex) then
+            print *, 'FAIL: EM solve without resonance wrote ', out_file
+            print *, '  (values would be evaluated at a bogus radius)'
+            error stop
+        end if
+
+        print *, 'PASS: no resonance -> kim_diagnostics.dat not written'
+    end subroutine
+
+    subroutine make_test_profiles(npts, r_prof, n_prof, Te_prof, Ti_prof, &
+                                  q_prof, Er_prof)
+        ! Analytic profiles on r in [2, 60] cm with q in [1.5, 2.5];
+        ! q crosses |m/n| = 2 at r ~ 31 cm, inside the solver domain
+        ! [r_min, r_plas] = [10, 50].
+        integer, intent(in) :: npts
+        real(dp), intent(out) :: r_prof(npts), n_prof(npts), Te_prof(npts)
+        real(dp), intent(out) :: Ti_prof(npts), q_prof(npts), Er_prof(npts)
+        integer :: i
+
+        do i = 1, npts
+            r_prof(i) = 2.0_dp + 58.0_dp * real(i - 1, dp) / real(npts - 1, dp)
+            n_prof(i) = 2.0e13_dp * (1.1_dp - r_prof(i) / 100.0_dp)
+            Te_prof(i) = 1.0e3_dp * (1.2_dp - r_prof(i) / 100.0_dp)
+            Ti_prof(i) = Te_prof(i)
+            q_prof(i) = 1.5_dp + (r_prof(i) - 2.0_dp) / 58.0_dp
+            Er_prof(i) = -0.5_dp
+        end do
+    end subroutine
+
+    subroutine write_test_namelist(path, m_mode_val)
         ! Minimal electromagnetic configuration on a coarse grid, written
         ! in the exact group order kim_read_config reads them.
         character(len=*), intent(in) :: path
+        integer, intent(in) :: m_mode_val
         integer :: iunit
 
         open(newunit=iunit, file=path, status='replace', action='write')
@@ -216,7 +292,7 @@ contains
         write(iunit, '(A)') '&KIM_SETUP'
         write(iunit, '(A)') ' btor = -18000.0'
         write(iunit, '(A)') ' R0 = 165.0'
-        write(iunit, '(A)') ' m_mode = -2'
+        write(iunit, '(A,I0)') ' m_mode = ', m_mode_val
         write(iunit, '(A)') ' n_mode = 1'
         write(iunit, '(A)') ' omega = 0.0'
         write(iunit, '(A)') ' spline_base = 1'

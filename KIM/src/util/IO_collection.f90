@@ -130,6 +130,8 @@ module IO_collection_m
             'Logical switch to calculate asymptotics.', 'true/false')
         call h5_add(h5grpid, 'h5_out_file', trim(h5_out_file), &
             'Name of the HDF5 output file.', 'str')
+        call h5_add(h5grpid, 'write_diagnostics_dat', write_diagnostics_dat, &
+            'Logical switch for flat-file diagnostics output (kim_diagnostics.dat).', 'true/false')
 
         call h5_close_group(h5grpid)
 
@@ -246,6 +248,60 @@ module IO_collection_m
         call h5_close_group(h5grpid)
 
     end subroutine write_grid_namelist_to_hdf5
+
+
+    subroutine write_kim_diagnostics(dqle22, Ipar, Ipar_e)
+        !> Write the scalar KIM diagnostics (quasilinear electron heat
+        !> diffusion coefficient at the resonant surface and integrated
+        !> parallel currents) to the configured outputs:
+        !>   - HDF5 datasets under /diagnostics/ when hdf5_output is on
+        !>   - flat file kim_diagnostics.dat when write_diagnostics_dat is
+        !>     on (independent of hdf5_output; scan driver interface)
+
+        use KIM_kinds_m, only: dp
+        use config_m, only: output_path, hdf5_output, write_diagnostics_dat
+        use KAMEL_hdf5_tools, only: h5_define_group, h5_obj_exists, h5_add, h5_close_group
+
+        implicit none
+
+        real(dp), intent(in) :: dqle22
+        complex(dp), intent(in) :: Ipar, Ipar_e
+
+        logical :: ex
+        integer :: iunit
+        integer(HID_T) :: h5grpid
+
+        if (hdf5_output) then
+            call h5_obj_exists(h5id, 'diagnostics/', ex)
+            if (.not. ex) then
+                call h5_define_group(h5id, 'diagnostics/', h5grpid)
+            end if
+
+            call h5_add(h5grpid, 'dqle22', dqle22, &
+                'Quasilinear electron heat diffusion coefficient D_ql,e22 at the resonant surface', 'cm^2/s')
+            call h5_add(h5grpid, 'Ipar_re', real(Ipar, dp), &
+                'Re of integrated parallel current 2*pi*int(r*jpar dr)', 'statA')
+            call h5_add(h5grpid, 'Ipar_im', aimag(Ipar), &
+                'Im of integrated parallel current 2*pi*int(r*jpar dr)', 'statA')
+            call h5_add(h5grpid, 'Ipar_e_re', real(Ipar_e, dp), &
+                'Re of integrated electron parallel current 2*pi*int(r*jpar_e dr)', 'statA')
+            call h5_add(h5grpid, 'Ipar_e_im', aimag(Ipar_e), &
+                'Im of integrated electron parallel current 2*pi*int(r*jpar_e dr)', 'statA')
+
+            call h5_close_group(h5grpid)
+        end if
+
+        if (write_diagnostics_dat) then
+            open(newunit=iunit, file=trim(output_path)//'kim_diagnostics.dat', &
+                status='replace', action='write')
+            write(iunit, '(A)') '# dqle22 [cm^2/s]   Re(Ipar) [statA]   Im(Ipar) [statA]' // &
+                '   Re(Ipar_e) [statA]   Im(Ipar_e) [statA]'
+            write(iunit, '(5(es23.15, 1x))') dqle22, real(Ipar, dp), aimag(Ipar), &
+                real(Ipar_e, dp), aimag(Ipar_e)
+            close(iunit)
+        end if
+
+    end subroutine write_kim_diagnostics
 
 
     subroutine write_matrix(filename, A, nx, ny, comment, unit)

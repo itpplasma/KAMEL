@@ -48,7 +48,7 @@ add_executable(test_kim_diagnostics ${CMAKE_SOURCE_DIR}/KIM/tests/test_kim_diagn
 set_target_properties(test_kim_diagnostics PROPERTIES
                         OUTPUT_NAME test_kim_diagnostics.x
                         RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/tests/")
-target_link_libraries(test_kim_diagnostics KIM_lib)
+target_link_libraries(test_kim_diagnostics KIM_lib "${KiLCA_lib_path}" lapack cerf ddeabm slatec)
 add_test(NAME test_kim_diagnostics
          COMMAND ${CMAKE_BINARY_DIR}/tests/test_kim_diagnostics.x)
 

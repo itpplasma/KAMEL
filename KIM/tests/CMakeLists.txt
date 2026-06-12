@@ -44,6 +44,14 @@ target_link_libraries(test_profile_input_integration KIM_lib)
 add_test(NAME test_profile_input_integration
          COMMAND ${CMAKE_BINARY_DIR}/tests/test_profile_input_integration.x)
 
+add_executable(test_kim_diagnostics ${CMAKE_SOURCE_DIR}/KIM/tests/test_kim_diagnostics.f90)
+set_target_properties(test_kim_diagnostics PROPERTIES
+                        OUTPUT_NAME test_kim_diagnostics.x
+                        RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/tests/")
+target_link_libraries(test_kim_diagnostics KIM_lib)
+add_test(NAME test_kim_diagnostics
+         COMMAND ${CMAKE_BINARY_DIR}/tests/test_kim_diagnostics.x)
+
 add_executable(test_ampere_matrices ${CMAKE_SOURCE_DIR}/KIM/tests/test_ampere_matrices.f90)
 set_target_properties(test_ampere_matrices PROPERTIES
                         OUTPUT_NAME test_ampere_matrices.x

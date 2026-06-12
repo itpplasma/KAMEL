@@ -6,6 +6,7 @@ module kim_diagnostics_m
 
     private
     public :: integrate_Ipar
+    public :: interp_local_complex
     public :: compute_and_write_diagnostics
 
 contains
@@ -32,11 +33,14 @@ contains
     end function
 
     subroutine compute_and_write_diagnostics()
-        ! Evaluate D_ql,e22 at the grid point nearest to the resonant
-        ! surface and the integrated parallel currents (total and
-        ! electron-only) from the electromagnetic solution in EBdat,
-        ! then hand them to the IO layer. No-op when both the HDF5 and
-        ! the flat-file diagnostics outputs are disabled.
+        ! Evaluate D_ql,e22 at the resonant surface r_res itself (fields
+        ! and plasma parameters interpolated to r_res; the dqle22 layer
+        ! can be narrower than the grid spacing, so the nearest node is
+        ! not good enough), |Br(r_res)|, and the integrated parallel
+        ! currents (total and electron-only) from the electromagnetic
+        ! solution in EBdat, then hand them to the IO layer. No-op when
+        ! both the HDF5 and the flat-file diagnostics outputs are
+        ! disabled.
         use, intrinsic :: iso_fortran_env, only: error_unit
         use config_m, only: hdf5_output, write_diagnostics_dat
         use fields_m, only: EBdat
@@ -44,9 +48,9 @@ contains
         use kim_qldiff_m, only: calc_dqle22
         use IO_collection_m, only: write_kim_diagnostics
 
-        real(dp) :: r_pt, vTe, nue, om_E, B0, kpar, dqle22
-        complex(dp) :: Ipar, Ipar_e
-        integer :: i_res, npts
+        real(dp) :: vTe, nue, om_E, B0, kpar, dqle22, br_abs_res
+        complex(dp) :: Ipar, Ipar_e, Es_res, Br_res
+        integer :: npts
 
         if (.not. (hdf5_output .or. write_diagnostics_dat)) return
 
@@ -73,17 +77,20 @@ contains
             return
         end if
 
-        i_res = minloc(abs(EBdat%r_grid - r_res), 1)
-        r_pt = EBdat%r_grid(i_res)
+        ! kpar interpolated at r_res is tiny but generically nonzero;
+        ! calc_dqle22's collisional response is regular in the limit
+        ! kpar -> 0, so it is used as-is.
+        call interp_local_plasma(r_res, vTe, nue, om_E, B0, kpar)
 
-        call interp_local_plasma(r_pt, vTe, nue, om_E, B0, kpar)
+        Es_res = interp_local_complex(npts, EBdat%r_grid, EBdat%Es, r_res)
+        Br_res = interp_local_complex(npts, EBdat%r_grid, EBdat%Br, r_res)
+        br_abs_res = abs(Br_res)
 
-        dqle22 = calc_dqle22(vTe, nue, om_E, B0, kpar, &
-                             EBdat%Es(i_res), EBdat%Br(i_res))
+        dqle22 = calc_dqle22(vTe, nue, om_E, B0, kpar, Es_res, Br_res)
         Ipar = integrate_Ipar(npts, EBdat%r_grid, EBdat%jpar)
         Ipar_e = integrate_Ipar(npts, EBdat%r_grid, EBdat%jpar_e)
 
-        call write_kim_diagnostics(dqle22, Ipar, Ipar_e)
+        call write_kim_diagnostics(dqle22, Ipar, Ipar_e, br_abs_res)
 
     end subroutine
 
@@ -117,5 +124,33 @@ contains
         kpar = sum(coef(0, :) * plasma%kp(ibeg:iend))
 
     end subroutine
+
+    function interp_local_complex(npts, r_grid, f, r_pt) result(f_pt)
+        ! Interpolate the complex profile f from r_grid to r_pt with the
+        ! same 4-point Lagrange stencil (binsrc + plag_coeff) as
+        ! interp_local_plasma; the real weights act on real and
+        ! imaginary parts alike.
+        integer, intent(in) :: npts
+        real(dp), intent(in) :: r_grid(npts), r_pt
+        complex(dp), intent(in) :: f(npts)
+        complex(dp) :: f_pt
+
+        integer, parameter :: nlagr = 4, nder = 0
+        real(dp) :: coef(0:nder, nlagr)
+        integer :: ir, ibeg, iend
+
+        call binsrc(r_grid, 1, npts, r_pt, ir)
+        ibeg = max(1, ir - nlagr / 2)
+        iend = ibeg + nlagr - 1
+        if (iend > npts) then
+            iend = npts
+            ibeg = iend - nlagr + 1
+        end if
+
+        call plag_coeff(nlagr, nder, r_pt, r_grid(ibeg:iend), coef)
+
+        f_pt = sum(coef(0, :) * f(ibeg:iend))
+
+    end function
 
 end module

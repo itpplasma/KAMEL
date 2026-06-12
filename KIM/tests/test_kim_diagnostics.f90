@@ -1,7 +1,7 @@
 program test_kim_diagnostics
 
     use KIM_kinds_m, only: dp
-    use kim_diagnostics_m, only: integrate_Ipar
+    use kim_diagnostics_m, only: integrate_Ipar, interp_local_complex
     use kim_qldiff_m, only: calc_dqle22
 
     implicit none
@@ -11,6 +11,7 @@ program test_kim_diagnostics
 
     call test_constant_jpar()
     call test_linear_jpar()
+    call test_interp_local_complex()
     call test_dqle22_resonant('Dqle22 at resonance, omE/nue = 0.5', 0.5_dp)
     call test_dqle22_resonant('Dqle22 at resonance, omE/nue = 2.0', 2.0_dp)
     call test_em_solve_writes_diagnostics_file()
@@ -58,6 +59,33 @@ contains
         call assert_close('linear jpar', Ipar, Ipar_exact, 1.0e-3_dp)
     end subroutine
 
+    subroutine test_interp_local_complex()
+        ! Analytic complex profile f(r) = (r^2, -r) on a non-equidistant
+        ! grid: both parts are cubic-representable, so the 4-point
+        ! Lagrange interpolation is exact up to roundoff at any
+        ! off-node point.
+        integer, parameter :: npts = 37
+        real(dp) :: r(npts), r_pt
+        complex(dp) :: f(npts), f_pt, f_exact
+        real(dp), parameter :: r_test(3) = &
+            [1.6234_dp, 2.7181_dp, 3.9099_dp]
+        character(len=32) :: label
+        integer :: i, k
+
+        call make_nonequidistant_grid(npts, r)
+        do i = 1, npts
+            f(i) = cmplx(r(i)**2, -r(i), dp)
+        end do
+
+        do k = 1, 3
+            r_pt = r_test(k)
+            f_pt = interp_local_complex(npts, r, f, r_pt)
+            f_exact = cmplx(r_pt**2, -r_pt, dp)
+            write(label, '(A, I0)') 'interp_local_complex pt ', k
+            call assert_close(trim(label), f_pt, f_exact, 1.0e-10_dp)
+        end do
+    end subroutine
+
     subroutine test_dqle22_resonant(label, omE_over_nue)
         ! At the resonant surface (k_par -> 0, i.e. x1 -> 0) with a pure
         ! radial perturbation field |Br| (Es = 0), the susceptibility-based
@@ -95,8 +123,9 @@ contains
         ! Integration test: run the full electromagnetic solve on a small
         ! in-memory plasma (same injection path as the QL-Balance adapter)
         ! with write_diagnostics_dat enabled and assert that
-        ! kim_diagnostics.dat is written with five finite values and
-        ! dqle22 > 0. HDF5 output is off, mirroring the scan driver.
+        ! kim_diagnostics.dat is written with six finite values,
+        ! dqle22 > 0 and br_abs_res > 0. HDF5 output is off, mirroring
+        ! the scan driver.
         use config_m, only: profiles_in_memory, nml_config_path
         use species_m, only: set_profiles_from_arrays
         use kim_base_m, only: kim_t
@@ -108,7 +137,7 @@ contains
 
         real(dp) :: r_prof(npts), n_prof(npts), Te_prof(npts)
         real(dp) :: Ti_prof(npts), q_prof(npts), Er_prof(npts)
-        real(dp) :: vals(5)
+        real(dp) :: vals(6)
         class(kim_t), allocatable :: kim_instance
         character(len=256) :: header
         integer :: i, iunit, ios
@@ -154,10 +183,10 @@ contains
             error stop
         end if
         if (ios /= 0) then
-            print *, 'FAIL: could not parse 5 values from kim_diagnostics.dat'
+            print *, 'FAIL: could not parse 6 values from kim_diagnostics.dat'
             error stop
         end if
-        do i = 1, 5
+        do i = 1, 6
             if (vals(i) /= vals(i) .or. abs(vals(i)) > huge(1.0_dp)) then
                 print *, 'FAIL: non-finite diagnostics value at column ', i
                 print *, '  values = ', vals
@@ -168,11 +197,16 @@ contains
             print *, 'FAIL: dqle22 must be positive, got ', vals(1)
             error stop
         end if
+        if (vals(6) <= 0.0_dp) then
+            print *, 'FAIL: br_abs_res must be positive, got ', vals(6)
+            error stop
+        end if
 
         print *, 'PASS: EM solve wrote kim_diagnostics.dat'
-        print *, '  dqle22 = ', vals(1)
-        print *, '  Ipar   = ', vals(2), vals(3)
-        print *, '  Ipar_e = ', vals(4), vals(5)
+        print *, '  dqle22     = ', vals(1)
+        print *, '  Ipar       = ', vals(2), vals(3)
+        print *, '  Ipar_e     = ', vals(4), vals(5)
+        print *, '  br_abs_res = ', vals(6)
     end subroutine
 
     subroutine test_em_solve_no_resonance_skips_file()

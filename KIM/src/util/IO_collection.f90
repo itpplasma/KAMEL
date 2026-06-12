@@ -250,10 +250,10 @@ module IO_collection_m
     end subroutine write_grid_namelist_to_hdf5
 
 
-    subroutine write_kim_diagnostics(dqle22, Ipar, Ipar_e)
+    subroutine write_kim_diagnostics(dqle22, Ipar, Ipar_e, br_abs_res)
         !> Write the scalar KIM diagnostics (quasilinear electron heat
-        !> diffusion coefficient at the resonant surface and integrated
-        !> parallel currents) to the configured outputs:
+        !> diffusion coefficient and |Br| at the resonant surface and
+        !> integrated parallel currents) to the configured outputs:
         !>   - HDF5 datasets under /diagnostics/ when hdf5_output is on
         !>   - flat file kim_diagnostics.dat when write_diagnostics_dat is
         !>     on (independent of hdf5_output; scan driver interface)
@@ -264,7 +264,7 @@ module IO_collection_m
 
         implicit none
 
-        real(dp), intent(in) :: dqle22
+        real(dp), intent(in) :: dqle22, br_abs_res
         complex(dp), intent(in) :: Ipar, Ipar_e
 
         logical :: ex
@@ -289,6 +289,8 @@ module IO_collection_m
                 'Re of integrated electron parallel current 2*pi*int(r*jpar_e dr)', 'statA')
             call h5_add(h5grpid, 'Ipar_e_im', aimag(Ipar_e), &
                 'Im of integrated electron parallel current 2*pi*int(r*jpar_e dr)', 'statA')
+            call h5_add(h5grpid, 'br_abs_res', br_abs_res, &
+                'Absolute value of the radial magnetic field perturbation |Br| at the resonant surface', 'G')
 
             call h5_close_group(h5grpid)
         end if
@@ -297,9 +299,9 @@ module IO_collection_m
             open(newunit=iunit, file=trim(output_path)//'kim_diagnostics.dat', &
                 status='replace', action='write')
             write(iunit, '(A)') '# dqle22 [cm^2/s]   Re(Ipar) [statA]   Im(Ipar) [statA]' // &
-                '   Re(Ipar_e) [statA]   Im(Ipar_e) [statA]'
-            write(iunit, '(5(es23.15, 1x))') dqle22, real(Ipar, dp), aimag(Ipar), &
-                real(Ipar_e, dp), aimag(Ipar_e)
+                '   Re(Ipar_e) [statA]   Im(Ipar_e) [statA]   br_abs_res [G]'
+            write(iunit, '(6(es23.15, 1x))') dqle22, real(Ipar, dp), aimag(Ipar), &
+                real(Ipar_e, dp), aimag(Ipar_e), br_abs_res
             close(iunit)
         end if
 

@@ -124,6 +124,9 @@ set_source_files_properties(${base_balance_src}/kim_wave_code_adapter.f90
 # Include central slatec math sources via cache variable defined by common/math
 target_include_directories(ql-balance_lib PUBLIC ${SLATEC_INCLUDE_DIR})
 
+# fortnum C ABI header (fortnum.h) for vel_integral.cpp.
+target_include_directories(ql-balance_lib PUBLIC ${fortnum_SOURCE_DIR}/include)
+
 find_package(HDF5 REQUIRED COMPONENTS C HL Fortran Fortran_HL)
 message(" ====== HDF5 was found! ======")
 
@@ -150,8 +153,7 @@ target_link_libraries(ql-balance_lib PUBLIC
     SUNDIALS::cvode
     SUNDIALS::nvecserial
     blas
-    gsl
-    gslcblas
+    fortnum
     hdf5::hdf5
     hdf5::hdf5_fortran
     hdf5::hdf5_hl

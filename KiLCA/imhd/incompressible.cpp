@@ -8,14 +8,19 @@
 #include <cstring>
 #include <climits>
 
-#include <gsl/gsl_math.h>
-#include <gsl/gsl_deriv.h>
+#include "fortnum.h"
 
 #include "constants.h"
 #include "shared.h"
 #include "eval_back.h"
 #include "imhd_zone.h"
 #include "incompressible.h"
+
+// GSL returned 0 (GSL_SUCCESS) from rhs/jac callbacks; keep the value so the
+// callback contracts and the historical control flow stay byte-identical.
+#ifndef GSL_SUCCESS
+#define GSL_SUCCESS 0
+#endif
 
 /*******************************************************************/
 
@@ -29,16 +34,14 @@ complex<double> B = Bfunc_hi_inc (r, params);
 //take A derivatives:
 diff_params ps = {zone, 0};
 
-gsl_function F = {&Afunc_hi_inc_part, &ps};
-
 double h = 1.0e-3, abserr;
 double der_re, der_im;
 
 ps.part = 0;
-gsl_deriv_central (&F, r, h, &der_re, &abserr);
+fortnum_deriv_central (&Afunc_hi_inc_part, r, h, &der_re, &abserr, &ps);
 
 ps.part = 1;
-gsl_deriv_central (&F, r, h, &der_im, &abserr);
+fortnum_deriv_central (&Afunc_hi_inc_part, r, h, &der_im, &abserr, &ps);
 
 complex<double> dA = der_re + I*der_im;
 
@@ -55,6 +58,17 @@ dy[2] = real(dg);
 dy[3] = imag(dg);
 
 return GSL_SUCCESS;
+}
+
+/*******************************************************************/
+
+// fortnum_ode_rhs adapter: forwards to the historical rhs_incompressible,
+// dropping the GSL return code (errors are signalled via the integrator).
+static void rhs_incompressible_fn (double r, int n, const double y[],
+                                   double dydt[], void *ctx)
+{
+(void) n;
+rhs_incompressible (r, y, dydt, ctx);
 }
 
 /*******************************************************************/
@@ -111,9 +125,7 @@ complex<double> t2 = 4.0*kz*kz*Bt*Bt/(4.0*pi*r3k2)*(omega2_a/(omega2 - omega2_a)
 
 double t3, h = 1.0e-3, abserr;
 
-gsl_function FD = {&func_der, params};
-
-gsl_deriv_central (&FD, r, h, &t3, &abserr);
+fortnum_deriv_central (&func_der, r, h, &t3, &abserr, params);
 
 return t1 + t2 + t3;
 }
@@ -148,11 +160,9 @@ inline double dBfunc_hi_inc_part (double r, void *params)
 {
 diff_params *dp = (diff_params *) params;
 
-gsl_function F = {&Bfunc_hi_inc_part, dp};
-
 double h = 1.0e-3, abserr, der;
 
-gsl_deriv_central (&F, r, h, &der, &abserr);
+fortnum_deriv_central (&Bfunc_hi_inc_part, r, h, &der, &abserr, dp);
 
 return der;
 }
@@ -163,11 +173,9 @@ inline double dAfunc_hi_inc_part (double r, void *params)
 {
 diff_params *dp = (diff_params *) params;
 
-gsl_function F = {&Afunc_hi_inc_part, dp};
-
 double h = 1.0e-3, abserr, der;
 
-gsl_deriv_central (&F, r, h, &der, &abserr);
+fortnum_deriv_central (&Afunc_hi_inc_part, r, h, &der, &abserr, dp);
 
 return der;
 }
@@ -178,11 +186,9 @@ inline double ddAfunc_hi_inc_part (double r, void *params)
 {
 diff_params *dp = (diff_params *) params;
 
-gsl_function F = {&dAfunc_hi_inc_part, dp};
-
 double h = 1.0e-3, abserr, der;
 
-gsl_deriv_central (&F, r, h, &der, &abserr);
+fortnum_deriv_central (&dAfunc_hi_inc_part, r, h, &der, &abserr, dp);
 
 return der;
 }
@@ -281,18 +287,7 @@ if (!(bc1 == BOUNDARY_CENTER || bc2 == BOUNDARY_IDEALWALL))
     exit (1);
 }
 
-size_t Neq = 4; //2 real eqs, 2 imag eqs for (r*zeta), (r*zeta)'
-
-const gsl_odeiv_step_type *T = gsl_odeiv_step_rk8pd; //the best I have found
-
-gsl_odeiv_step *step = gsl_odeiv_step_alloc (T, Neq);
-
-gsl_odeiv_control *control = gsl_odeiv_control_y_new (eps_abs, eps_rel);
-
-gsl_odeiv_evolve *evolve = gsl_odeiv_evolve_alloc (Neq);
-
-//gsl_odeiv_system sys = {&rhs_incompressible, NULL, Neq, fp};
-gsl_odeiv_system sys = {&rhs_incompressible, &jac_incompressible, Neq, this};
+const int Neq = 4; //2 real eqs, 2 imag eqs for (r*zeta), (r*zeta)'
 
 double t, tfinal;
 
@@ -331,55 +326,52 @@ else
     exit (1);
 }
 
-double h = (1.0e-6)*signum(tfinal-t);
-
-size_t iter, status;
+size_t iter;
 
 //arrays:
 double *grid = new double[max_dim];
 
 double *syst = new double[max_dim*Nwaves*Ncomps*2];
 
-//initial point:
-iter = 0;
-grid[iter] = t;
+// Integrate the whole interval with the dop853 stepper. fortnum returns the
+// accepted-step mesh into t_buf/y_buf (column-major neq x npts); we replay it
+// into grid/syst exactly as the gsl_odeiv evolve loop stored each step.
+double *t_buf = new double[max_dim];
+double *y_buf = new double[(size_t)Neq*max_dim];
+int npts = 0;
 
-syst[ib(iter, ind, 6, 0)] = y[0];
-syst[ib(iter, ind, 6, 1)] = y[1];
-syst[ib(iter, ind, 7, 0)] = y[2];
-syst[ib(iter, ind, 7, 1)] = y[3];
+int ode_status = fortnum_ode_integrate_dop (&rhs_incompressible_fn, Neq, t,
+                tfinal, y, eps_rel, eps_abs, 100000, max_dim, t_buf, y_buf,
+                &npts, this);
 
-state_to_EB_incompressible (grid[iter], syst+ib(iter, ind, 6, 0), syst+ib(iter, ind, 0, 0));
-
-while (t != tfinal)
+if (ode_status != FORTNUM_OK)
 {
-    status = gsl_odeiv_evolve_apply (evolve, control, step, &sys, &t, tfinal, &h, y);
-
-    if (status != GSL_SUCCESS)
-    {
-      fprintf (stderr, "\ncalculate_basis_incompressible_gsl: ODE solver failed at r = %le", t);
-      exit (1);
-    }
-
-    //store values:
-    iter++;
-    grid[iter] = t;
-
-    syst[ib(iter, ind, 6, 0)] = y[0];
-    syst[ib(iter, ind, 6, 1)] = y[1];
-    syst[ib(iter, ind, 7, 0)] = y[2];
-    syst[ib(iter, ind, 7, 1)] = y[3];
-
-    state_to_EB_incompressible (grid[iter], syst+ib(iter, ind, 6, 0), syst+ib(iter, ind, 0, 0));
-
-    if (iter == max_dim-1)
-    {
-        fprintf (stderr, "\nMaximum allowed iteration number is reached: iter=%d r=%le", iter, t);
-        exit (1);
-    }
+  fprintf (stderr, "\ncalculate_basis_incompressible_gsl: ODE solver failed (status=%d)", ode_status);
+  exit (1);
 }
 
-dim = iter + 1;
+if (npts > max_dim)
+{
+    fprintf (stderr, "\nMaximum allowed iteration number is reached: npts=%d", npts);
+    exit (1);
+}
+
+for (iter = 0; iter < (size_t)npts; iter++)
+{
+    grid[iter] = t_buf[iter];
+
+    syst[ib(iter, ind, 6, 0)] = y_buf[0 + Neq*iter];
+    syst[ib(iter, ind, 6, 1)] = y_buf[1 + Neq*iter];
+    syst[ib(iter, ind, 7, 0)] = y_buf[2 + Neq*iter];
+    syst[ib(iter, ind, 7, 1)] = y_buf[3 + Neq*iter];
+
+    state_to_EB_incompressible (grid[iter], syst+ib(iter, ind, 6, 0), syst+ib(iter, ind, 0, 0));
+}
+
+delete [] t_buf;
+delete [] y_buf;
+
+dim = npts;
 
 //zone class data allocation:
 r = new double[dim];
@@ -431,10 +423,6 @@ else
     fprintf (stdout, "\nimhd::calculate_basis_incompressible_gsl: error!");
     exit (1);
 }
-
-gsl_odeiv_evolve_free (evolve);
-gsl_odeiv_control_free (control);
-gsl_odeiv_step_free (step);
 
 delete [] grid;
 delete [] syst;

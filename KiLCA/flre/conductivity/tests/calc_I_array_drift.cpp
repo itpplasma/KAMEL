@@ -5,8 +5,7 @@
 #include <complex>
 #include <cmath>
 
-#include <gsl/gsl_integration.h>
-#include <gsl/gsl_errno.h>
+#include "fortnum.h"
 
 #include "constants.h"
 
@@ -95,8 +94,6 @@ int calc_imnl_quad_ (int * m_max, int * n_max, int * l_max,
                      double * x4_re, double * x4_im,
                      double * Imnl)
 {
-gsl_set_error_handler_off();
-
 complex<double> x1(*x1_re, *x1_im);
 complex<double> x2(*x2_re, *x2_im);
 complex<double> x3(*x3_re, *x3_im);
@@ -117,14 +114,7 @@ x4 = x4 / ep2a;
 
 quad_params qp = {x1, x2, x3, x4, 0, gamma, 0, 0, 0};
 
-size_t limit = 1024;
 double epsabs = 1.0e-14, epsrel = 1.0e-14, err;
-
-gsl_integration_workspace * w = gsl_integration_workspace_alloc(limit);
-
-gsl_function F;
-F.function = &subint;
-F.params = &qp;
 
 double x = 0.0;
 double y = 0.0;
@@ -154,13 +144,11 @@ for(int l = 0; l <= *l_max; ++l)
     {
         double I_re;
         qp.part = 0;
-        //gsl_integration_qagiu(&F, 0.0e0, epsabs, epsrel, limit, w, &I_re, &err);
-        gsl_integration_qag(&F, t1, t2, epsabs, epsrel, limit, GSL_INTEG_GAUSS21, w, &I_re, &err);
+        fortnum_integrate_qag(&subint, t1, t2, epsabs, epsrel, 21, &I_re, &err, &qp);
 
         double I_im;
         qp.part = 1;
-        //gsl_integration_qagiu(&F, 0.0e0, epsabs, epsrel, limit, w, &I_im, &err);
-        gsl_integration_qag(&F, t1, t2, epsabs, epsrel, limit, GSL_INTEG_GAUSS21, w, &I_im, &err);
+        fortnum_integrate_qag(&subint, t1, t2, epsabs, epsrel, 21, &I_im, &err, &qp);
 
         InT = (I_re + I_im * I) / pow(ep2a, 0.5e0*(3 + m + n));
 
@@ -171,8 +159,6 @@ for(int l = 0; l <= *l_max; ++l)
         t2 += step;
     }
 }
-
-gsl_integration_workspace_free(w);
 
 return 0;
 }

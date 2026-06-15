@@ -11,6 +11,7 @@ include(FetchNetcdf)
 include(FetchSuiteSparse)
 include(FetchSUNDIALS)
 include(FetchZeal)
+include(FetchFortnum)
 
 # QL-Balance sparse module (shared dependency)
 set(QLBALANCE_BASE "${CMAKE_SOURCE_DIR}/QL-Balance/src/base")

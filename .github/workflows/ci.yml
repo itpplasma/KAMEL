@@ -10,7 +10,7 @@ on:
       libneo_ref:
         default: ''
       full:
-        description: run the full suite incl. the golden record (nightly)
+        description: run the full suite incl. the golden record (set by the libneo full-ci gate)
         default: 'false'
 
 jobs:

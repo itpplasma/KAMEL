@@ -32,7 +32,9 @@ add_executable(test_profile_input ${CMAKE_SOURCE_DIR}/KIM/tests/test_profile_inp
 set_target_properties(test_profile_input PROPERTIES
                         OUTPUT_NAME test_profile_input.x
                         RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/tests/")
-target_link_libraries(test_profile_input KIM_lib)
+# Links the full math set: using profile_input_m pulls KIM objects whose
+# transitive deps (W2_arr) need the hypergeometric routines from KiLCA/slatec.
+target_link_libraries(test_profile_input KIM_lib "${KiLCA_lib_path}" lapack cerf ddeabm slatec)
 add_test(NAME test_profile_input
          COMMAND ${CMAKE_BINARY_DIR}/tests/test_profile_input.x)
 
@@ -40,7 +42,7 @@ add_executable(test_profile_input_integration ${CMAKE_SOURCE_DIR}/KIM/tests/test
 set_target_properties(test_profile_input_integration PROPERTIES
                         OUTPUT_NAME test_profile_input_integration.x
                         RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/tests/")
-target_link_libraries(test_profile_input_integration KIM_lib)
+target_link_libraries(test_profile_input_integration KIM_lib "${KiLCA_lib_path}" lapack cerf ddeabm slatec)
 add_test(NAME test_profile_input_integration
          COMMAND ${CMAKE_BINARY_DIR}/tests/test_profile_input_integration.x)
 

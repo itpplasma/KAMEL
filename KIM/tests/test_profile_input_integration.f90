@@ -1,13 +1,17 @@
 program test_profile_input_integration
-    !> Integration tests for profile_input_m module
+    !> Integration tests for profile_input_m: exercise the production
+    !> calculate_derivative and compute_er_force_balance routines directly
+    !> (no inline reimplementation of the force-balance formula).
     use KIM_kinds_m, only: dp
+    use profile_input_m, only: calculate_derivative, compute_er_force_balance
     implicit none
 
     logical :: all_passed
     all_passed = .true.
 
-    call test_auto_detection_reff(all_passed)
-    call test_er_calculation_creates_file(all_passed)
+    call test_derivative_linear(all_passed)
+    call test_er_sign_decreasing(all_passed)
+    call test_er_zero_for_flat(all_passed)
 
     if (all_passed) then
         print *, 'All integration tests PASSED'
@@ -19,78 +23,64 @@ program test_profile_input_integration
 
 contains
 
-    subroutine test_auto_detection_reff(passed)
-        !> Test that auto-detection correctly identifies r_eff coordinates
-        !> when max(r) > 2.0
+    subroutine test_derivative_linear(passed)
+        !> Forward/central/backward differences are exact for a linear profile:
+        !> y = 3 r + 1  =>  dy/dr = 3 at every node.
         logical, intent(inout) :: passed
-        real(dp) :: test_data(4)
-        character(20) :: result
-        real(dp), parameter :: COORD_THRESHOLD = 2.0_dp
+        real(dp) :: r(4), y(4), dydx(4)
+        real(dp), parameter :: tol = 1.0e-10_dp
 
-        ! r_eff data from test_data/n.dat (max = 40.0)
-        test_data = [10.0_dp, 20.0_dp, 30.0_dp, 40.0_dp]
-
-        ! Test threshold detection
-        if (maxval(test_data) > COORD_THRESHOLD) then
-            result = 'r_eff'
-        else
-            result = 'sqrt_psiN'
-        end if
-
-        if (trim(result) == 'r_eff') then
-            print *, 'PASS: test_auto_detection_reff'
-        else
-            print *, 'FAIL: test_auto_detection_reff'
-            print *, '  Expected: r_eff'
-            print *, '  Got: ', trim(result)
-            passed = .false.
-        end if
-    end subroutine test_auto_detection_reff
-
-    subroutine test_er_calculation_creates_file(passed)
-        !> Test that Er calculation works with valid input
-        !> Uses profile data to calculate Er from force balance
-        logical, intent(inout) :: passed
-
-        ! This test validates the Er calculation formula
-        ! Er = (Ti/n)*dn/dr + dTi/dr + (r*B0*Vz)/(c*q*R0)
-        ! With Vz=0, Er simplifies to pressure gradient terms
-
-        real(dp) :: r(4), n(4), Ti(4), dn_dr(4), dTi_dr(4)
-        real(dp) :: Er_calc
-        integer :: i
-
-        ! Test data matching test_data files
         r = [10.0_dp, 20.0_dp, 30.0_dp, 40.0_dp]
-        n = [1.0e19_dp, 8.0e18_dp, 5.0e18_dp, 2.0e18_dp]
+        y = 3.0_dp * r + 1.0_dp
+        call calculate_derivative(r, y, dydx, 4)
+
+        call report('derivative exact for linear profile', &
+                    maxval(abs(dydx - 3.0_dp)) < tol, passed)
+    end subroutine test_derivative_linear
+
+    subroutine test_er_sign_decreasing(passed)
+        !> Decreasing n and Ti with Vz = 0  =>  Er < 0 at interior nodes
+        !> (both pressure-gradient terms are negative).
+        logical, intent(inout) :: passed
+        real(dp) :: r(4), n(4), Ti(4), Vz(4), q(4), Er(4)
+
+        r  = [10.0_dp, 20.0_dp, 30.0_dp, 40.0_dp]
+        n  = [1.0e19_dp, 8.0e18_dp, 5.0e18_dp, 2.0e18_dp]
         Ti = [1800.0_dp, 1600.0_dp, 1000.0_dp, 500.0_dp]
+        Vz = 0.0_dp
+        q  = 1.0_dp
+        call compute_er_force_balance(r, n, Ti, Vz, q, 2.5_dp, 165.0_dp, Er)
 
-        ! Calculate derivatives (simplified for test)
-        dn_dr(1) = (n(2) - n(1)) / (r(2) - r(1))
-        dn_dr(2) = (n(3) - n(1)) / (r(3) - r(1))
-        dn_dr(3) = (n(4) - n(2)) / (r(4) - r(2))
-        dn_dr(4) = (n(4) - n(3)) / (r(4) - r(3))
+        call report('Er < 0 for decreasing profiles (interior node)', &
+                    Er(2) < 0.0_dp, passed)
+    end subroutine test_er_sign_decreasing
 
-        dTi_dr(1) = (Ti(2) - Ti(1)) / (r(2) - r(1))
-        dTi_dr(2) = (Ti(3) - Ti(1)) / (r(3) - r(1))
-        dTi_dr(3) = (Ti(4) - Ti(2)) / (r(4) - r(2))
-        dTi_dr(4) = (Ti(4) - Ti(3)) / (r(4) - r(3))
+    subroutine test_er_zero_for_flat(passed)
+        !> Constant n and Ti with Vz = 0  =>  Er = 0 everywhere.
+        logical, intent(inout) :: passed
+        real(dp) :: r(4), n(4), Ti(4), Vz(4), q(4), Er(4)
+        real(dp), parameter :: tol = 1.0e-12_dp
 
-        ! With Vz=0, Er = (Ti/n)*dn/dr + dTi/dr
-        ! Check one point (i=2)
-        i = 2
-        Er_calc = (Ti(i) / n(i)) * dn_dr(i) + dTi_dr(i)
+        r  = [10.0_dp, 20.0_dp, 30.0_dp, 40.0_dp]
+        n  = 5.0e18_dp
+        Ti = 1000.0_dp
+        Vz = 0.0_dp
+        q  = 1.0_dp
+        call compute_er_force_balance(r, n, Ti, Vz, q, 2.5_dp, 165.0_dp, Er)
 
-        ! Er should be negative (decreasing profiles)
-        if (Er_calc < 0.0_dp) then
-            print *, 'PASS: test_er_calculation_creates_file'
-            print *, '  Er(r=20cm) = ', Er_calc
+        call report('Er = 0 for flat profiles', maxval(abs(Er)) < tol, passed)
+    end subroutine test_er_zero_for_flat
+
+    subroutine report(name, ok, passed)
+        character(*), intent(in) :: name
+        logical, intent(in) :: ok
+        logical, intent(inout) :: passed
+        if (ok) then
+            print *, 'PASS: ', name
         else
-            print *, 'FAIL: test_er_calculation_creates_file'
-            print *, '  Expected Er < 0 (decreasing profiles)'
-            print *, '  Got: ', Er_calc
+            print *, 'FAIL: ', name
             passed = .false.
         end if
-    end subroutine test_er_calculation_creates_file
+    end subroutine report
 
 end program test_profile_input_integration

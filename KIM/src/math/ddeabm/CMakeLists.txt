@@ -13,3 +13,7 @@ set(ddeabm_files
     dsteps.f
 )
 add_library(ddeabm "${ddeabm_files}")
+# ddeabm.f/ddes.f reference xermsg (and i1mach/d1mach via that path); those
+# live in libslatec.  Declare the dependency so the linker orders libslatec
+# after libddeabm and resolves xermsg_ instead of dropping it.
+target_link_libraries(ddeabm PUBLIC slatec)

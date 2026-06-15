@@ -42,34 +42,12 @@ if("${LAPACK_FOUND}")
     message("${LAPACK_INCLUDE_DIRS}")
 endif()
 
-## Fetch QUADPACK directly from Netlib (avoid Zeal's copies)
-set(QUADPACK_DIR "${CMAKE_BINARY_DIR}/external/quadpack")
-file(MAKE_DIRECTORY "${QUADPACK_DIR}")
-
-set(QUADPACK_FILES
-    dqag.f
-    dqage.f
-    dqags.f
-    dqagse.f
-    dqagi.f
-    dqagie.f
-    dqelg.f
-    dqpsrt.f
-    dqk15.f
-    dqk21.f
-    dqk31.f
-    dqk41.f
-    dqk51.f
-    dqk61.f
-    dqk15i.f
-)
-
-foreach(f ${QUADPACK_FILES})
-    if(NOT EXISTS "${QUADPACK_DIR}/${f}")
-        message(STATUS "Downloading QUADPACK source ${f} from netlib.org")
-        file(DOWNLOAD "https://netlib.org/quadpack/${f}" "${QUADPACK_DIR}/${f}" SHOW_PROGRESS)
-    endif()
-endforeach()
+# QUADPACK (vendored from Netlib, public domain). Previously downloaded at
+# configure time from netlib.org with no integrity check and an "if not exists"
+# guard, so a single bad/partial download poisoned the CI build cache (the
+# cached archive was missing dqagi_, breaking the link and never rebuilding).
+# Vendoring the sources removes the network/cache fragility.
+set(QUADPACK_DIR "${CMAKE_CURRENT_SOURCE_DIR}/math/quadpack")
 
 add_library(quadpack_netlib STATIC
     ${QUADPACK_DIR}/dqag.f

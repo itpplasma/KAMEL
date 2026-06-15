@@ -345,44 +345,67 @@ double *grid = new double[max_dim];
 
 double *syst = new double[max_dim*Nwaves*Ncomps*2];
 
-// Integrate the whole interval with the dop853 stepper. fortnum returns the
-// accepted-step mesh into t_buf/y_buf (column-major neq x npts); we replay it
-// into grid/syst exactly as the gsl_odeiv evolve loop stored each step.
-double *t_buf = new double[max_dim];
-double *y_buf = new double[(size_t)Neq*max_dim];
-int npts = 0;
+// Evolve continuously with the GSL-faithful rk8pd stepper, recording every
+// accepted step as the radial grid. This mirrors the original
+// gsl_odeiv_evolve_apply loop under gsl_odeiv_control_y_new(eps_abs, eps_rel):
+// the integrator carried its adaptive step across the interval and the loop
+// stored (t, y) after each accepted step. The dop853 path used a different
+// 8(7) error norm and accepted-step mesh, drifting the linear response from
+// the golden. The starting step matches the golden: h0 = 1e-6 in the
+// integration direction.
+double h0 = (1.0e-6)*signum(tfinal-t);
 
-int ode_status = fortnum_ode_integrate_dop (&rhs_flow_fn, Neq, t, tfinal, y,
-                eps_rel, eps_abs, 100000, max_dim, t_buf, y_buf, &npts, this);
+void *ode = fortnum_rk8pd_create (&rhs_flow_fn, Neq, h0,
+                eps_abs, eps_rel, 100000, this);
 
-if (ode_status != FORTNUM_OK)
+if (!ode)
 {
-  fprintf (stderr, "\ncalculate_basis_flow_gsl: ODE solver failed (status=%d)", ode_status);
-  exit (1);
-}
-
-if (npts > max_dim)
-{
-    fprintf (stderr, "\nMaximum allowed iteration number is reached: npts=%d", npts);
+    fprintf (stderr, "\ncalculate_basis_flow_gsl: failed to create ODE evolver");
     exit (1);
 }
 
-for (iter = 0; iter < (size_t)npts; iter++)
-{
-    grid[iter] = t_buf[iter];
+//initial point:
+iter = 0;
+grid[iter] = t;
 
-    syst[ib(iter, ind, 6, 0)] = y_buf[0 + Neq*iter];
-    syst[ib(iter, ind, 6, 1)] = y_buf[1 + Neq*iter];
-    syst[ib(iter, ind, 7, 0)] = y_buf[2 + Neq*iter];
-    syst[ib(iter, ind, 7, 1)] = y_buf[3 + Neq*iter];
+syst[ib(iter, ind, 6, 0)] = y[0];
+syst[ib(iter, ind, 6, 1)] = y[1];
+syst[ib(iter, ind, 7, 0)] = y[2];
+syst[ib(iter, ind, 7, 1)] = y[3];
+
+state_to_EB_compressible_flow (grid[iter], syst+ib(iter, ind, 6, 0), syst+ib(iter, ind, 0, 0));
+
+while (t != tfinal)
+{
+    int ode_status = fortnum_rk8pd_step_to (ode, &t, tfinal, y);
+
+    if (ode_status != FORTNUM_OK)
+    {
+      fprintf (stderr, "\ncalculate_basis_flow_gsl: ODE solver failed at r = %le", t);
+      exit (1);
+    }
+
+    //store values:
+    iter++;
+    grid[iter] = t;
+
+    syst[ib(iter, ind, 6, 0)] = y[0];
+    syst[ib(iter, ind, 6, 1)] = y[1];
+    syst[ib(iter, ind, 7, 0)] = y[2];
+    syst[ib(iter, ind, 7, 1)] = y[3];
 
     state_to_EB_compressible_flow (grid[iter], syst+ib(iter, ind, 6, 0), syst+ib(iter, ind, 0, 0));
+
+    if (iter == max_dim-1)
+    {
+        fprintf (stderr, "\nMaximum allowed iteration number is reached: iter=%d r=%le", (int)iter, t);
+        exit (1);
+    }
 }
 
-delete [] t_buf;
-delete [] y_buf;
+fortnum_rk8pd_destroy (ode);
 
-dim = npts;
+dim = iter + 1;
 
 //zone class data allocation:
 r = new double[dim];

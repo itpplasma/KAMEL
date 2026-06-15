@@ -9,17 +9,19 @@
 #include <climits>
 #include <ctime>
 
-#include <gsl/gsl_math.h>
-#include <gsl/gsl_deriv.h>
-#include <gsl/gsl_matrix.h>
-#include <gsl/gsl_odeiv.h>
-#include <gsl/gsl_errno.h>
+#include "fortnum.h"
 
 #include "constants.h"
 #include "shared.h"
 #include "eval_back.h"
 #include "imhd_zone.h"
 #include "compressible_flow.h"
+
+// GSL returned 0 (GSL_SUCCESS) from rhs/jac callbacks; keep the value so the
+// callback contracts and the historical control flow stay byte-identical.
+#ifndef GSL_SUCCESS
+#define GSL_SUCCESS 0
+#endif
 
 double adiabat = 5.0/3.0;
 //double adiabat = 1.0e6;
@@ -230,9 +232,7 @@ imhd_zone const * zone = (const imhd_zone *) params;
 
 double der, h = 1.0e-3, abserr;
 
-gsl_function F = {&func_deriv_in_C4, params};
-
-gsl_deriv_central (&F, r, h, &der, &abserr);
+fortnum_deriv_central (&func_deriv_in_C4, r, h, &der, &abserr, params);
 
 complex<double> A = A_flow (r, params);
 
@@ -271,6 +271,17 @@ return GSL_SUCCESS;
 
 /*******************************************************************/
 
+// fortnum_ode_rhs adapter: forwards to the historical rhs_flow, dropping the
+// GSL return code (errors are signalled via the integrator status).
+static void rhs_flow_fn (double r, int n, const double y[], double dydt[],
+                         void *ctx)
+{
+(void) n;
+rhs_flow (r, y, dydt, ctx);
+}
+
+/*******************************************************************/
+
 void imhd_zone::calculate_basis_flow_gsl (void)
 {
 //for tests only, use general cvode version!
@@ -281,18 +292,7 @@ if (!(bc1 == BOUNDARY_CENTER || bc2 == BOUNDARY_IDEALWALL))
     exit (1);
 }
 
-size_t Neq = 4; //2 real eqs, 2 imag eqs for (r*zeta), pressure
-
-const gsl_odeiv_step_type *T = gsl_odeiv_step_rk8pd; //the best I have found
-
-gsl_odeiv_step *step = gsl_odeiv_step_alloc (T, Neq);
-
-gsl_odeiv_control *control = gsl_odeiv_control_y_new (eps_abs, eps_rel);
-
-gsl_odeiv_evolve *evolve = gsl_odeiv_evolve_alloc (Neq);
-
-//gsl_odeiv_system sys = {&rhs_incompressible, NULL, Neq, fp};
-gsl_odeiv_system sys = {&rhs_flow, &jac_flow, Neq, this};
+const int Neq = 4; //2 real eqs, 2 imag eqs for (r*zeta), pressure
 
 double t, tfinal;
 
@@ -338,31 +338,48 @@ else
     exit (1);
 }
 
-double h = (1.0e-6)*signum(tfinal-t);
-
-size_t iter, status;
+size_t iter;
 
 //arrays:
 double *grid = new double[max_dim];
 
 double *syst = new double[max_dim*Nwaves*Ncomps*2];
 
+// Evolve continuously with the GSL-faithful rk8pd stepper, recording every
+// accepted step as the radial grid. This mirrors the original
+// gsl_odeiv_evolve_apply loop under gsl_odeiv_control_y_new(eps_abs, eps_rel):
+// the integrator carried its adaptive step across the interval and the loop
+// stored (t, y) after each accepted step. The dop853 path used a different
+// 8(7) error norm and accepted-step mesh, drifting the linear response from
+// the golden. The starting step matches the golden: h0 = 1e-6 in the
+// integration direction.
+double h0 = (1.0e-6)*signum(tfinal-t);
+
+void *ode = fortnum_rk8pd_create (&rhs_flow_fn, Neq, h0,
+                eps_abs, eps_rel, 100000, this);
+
+if (!ode)
+{
+    fprintf (stderr, "\ncalculate_basis_flow_gsl: failed to create ODE evolver");
+    exit (1);
+}
+
 //initial point:
 iter = 0;
 grid[iter] = t;
 
-syst[ib(iter, ind, 6, 0)] = y[0]; //real r*zeta for iter 0
-syst[ib(iter, ind, 6, 1)] = y[1]; //imag r*zeta for iter 0
-syst[ib(iter, ind, 7, 0)] = y[2]; //real pressure for iter 0
-syst[ib(iter, ind, 7, 1)] = y[3]; //imag pressure for iter 0
+syst[ib(iter, ind, 6, 0)] = y[0];
+syst[ib(iter, ind, 6, 1)] = y[1];
+syst[ib(iter, ind, 7, 0)] = y[2];
+syst[ib(iter, ind, 7, 1)] = y[3];
 
 state_to_EB_compressible_flow (grid[iter], syst+ib(iter, ind, 6, 0), syst+ib(iter, ind, 0, 0));
 
 while (t != tfinal)
 {
-    status = gsl_odeiv_evolve_apply (evolve, control, step, &sys, &t, tfinal, &h, y);
+    int ode_status = fortnum_rk8pd_step_to (ode, &t, tfinal, y);
 
-    if (status != GSL_SUCCESS)
+    if (ode_status != FORTNUM_OK)
     {
       fprintf (stderr, "\ncalculate_basis_flow_gsl: ODE solver failed at r = %le", t);
       exit (1);
@@ -381,10 +398,12 @@ while (t != tfinal)
 
     if (iter == max_dim-1)
     {
-        fprintf (stderr, "\nMaximum allowed iteration number is reached: iter=%d r=%le", iter, t);
+        fprintf (stderr, "\nMaximum allowed iteration number is reached: iter=%d r=%le", (int)iter, t);
         exit (1);
     }
 }
+
+fortnum_rk8pd_destroy (ode);
 
 dim = iter + 1;
 
@@ -438,10 +457,6 @@ else
     fprintf (stdout, "\nimhd::calculate_basis_compressible_gsl: error!");
     exit (1);
 }
-
-gsl_odeiv_evolve_free (evolve);
-gsl_odeiv_control_free (control);
-gsl_odeiv_step_free (step);
 
 delete [] grid;
 delete [] syst;

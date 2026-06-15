@@ -45,7 +45,7 @@ if("${LAPACK_FOUND}")
     message("${LAPACK_INCLUDE_DIRS}")
 endif()
 
-## Fetch QUADPACK directly from Netlib (avoid Zeal's copies)
+## Stage vendored QUADPACK sources (avoid Zeal's copies and netlib downloads)
 set(QUADPACK_DIR "${CMAKE_BINARY_DIR}/external/quadpack")
 file(MAKE_DIRECTORY "${QUADPACK_DIR}")
 
@@ -67,10 +67,10 @@ set(QUADPACK_FILES
     dqk15i.f
 )
 
+set(QUADPACK_VENDOR_DIR "${CMAKE_CURRENT_SOURCE_DIR}/math/quadpack")
 foreach(f ${QUADPACK_FILES})
     if(NOT EXISTS "${QUADPACK_DIR}/${f}")
-        message(STATUS "Downloading QUADPACK source ${f} from netlib.org")
-        file(DOWNLOAD "https://netlib.org/quadpack/${f}" "${QUADPACK_DIR}/${f}" SHOW_PROGRESS)
+        file(COPY "${QUADPACK_VENDOR_DIR}/${f}" DESTINATION "${QUADPACK_DIR}")
     endif()
 endforeach()
 

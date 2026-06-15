@@ -1,6 +1,8 @@
 module quadpack_integration_m
-    ! QUADPACK integration wrapper for KIM Fokker-Planck kernels
-    ! Provides thread-safe context passing and unified interface
+    ! Adaptive Gauss-Kronrod integration wrapper for KIM Fokker-Planck kernels.
+    ! Backed by the fortnum numerical core (fortnum_integrate); the
+    ! rkf45_integrand_context_t flows through the integrand callback's class(*)
+    ! ctx, so no module-scope thread context is needed.
 
     use KIM_kinds_m, only: dp
     use integrands_rkf45_m, only: rkf45_integrand_context_t
@@ -19,7 +21,7 @@ module quadpack_integration_m
     integer, parameter, public :: QUADPACK_QAG = 1
     integer, parameter, public :: QUADPACK_QAGS = 2
 
-    ! QUADPACK Gauss-Kronrod rule keys
+    ! Gauss-Kronrod rule keys (config selector values)
     integer, parameter, public :: QK15 = 1  ! 7-15 points
     integer, parameter, public :: QK21 = 2  ! 10-21 points
     integer, parameter, public :: QK31 = 3  ! 15-31 points
@@ -27,45 +29,13 @@ module quadpack_integration_m
     integer, parameter, public :: QK51 = 5  ! 25-51 points
     integer, parameter, public :: QK61 = 6  ! 30-61 points
 
-    ! Thread-local context storage (single threadprivate scalar)
-    type(rkf45_integrand_context_t), save :: current_context
-    !$omp threadprivate(current_context)
-
     ! Module initialization flag
     logical :: module_initialized = .false.
 
-    ! Per-thread reusable QUADPACK workspaces to avoid heavy per-call alloc/dealloc
-    integer, allocatable, save :: iwork_tl(:)
-    real(dp), allocatable, save :: work_tl(:)
-    integer, save :: work_limit_tl = 0
-    integer, save :: work_lenw_tl  = 0
-    !$omp threadprivate(iwork_tl, work_tl, work_limit_tl, work_lenw_tl)
-
     contains
 
-    subroutine ensure_workspace(limit)
-        ! Ensure per-thread QUADPACK workspace has at least the requested capacity
-        implicit none
-        integer, intent(in) :: limit
-        integer :: need_lenw
-
-        need_lenw = 4 * max(limit, 1)
-
-        if (work_limit_tl < limit) then
-            if (allocated(iwork_tl)) deallocate(iwork_tl)
-            allocate(iwork_tl(limit))
-            work_limit_tl = limit
-        end if
-
-        if (work_lenw_tl < need_lenw) then
-            if (allocated(work_tl)) deallocate(work_tl)
-            allocate(work_tl(need_lenw))
-            work_lenw_tl = need_lenw
-        end if
-    end subroutine ensure_workspace
-
     subroutine init_quadpack_module()
-        ! Initialize QUADPACK module and thread-local storage
+        ! Initialize QUADPACK module
         implicit none
         if (module_initialized) return
         module_initialized = .true.
@@ -74,398 +44,244 @@ module quadpack_integration_m
     subroutine cleanup_quadpack_module()
         ! Cleanup module resources
         implicit none
-
         module_initialized = .false.
-
-        ! Deallocate any thread-local workspaces
-        !$omp parallel
-        if (allocated(iwork_tl)) deallocate(iwork_tl)
-        if (allocated(work_tl))  deallocate(work_tl)
-        work_limit_tl = 0
-        work_lenw_tl  = 0
-        !$omp end parallel
-
     end subroutine cleanup_quadpack_module
 
-    subroutine set_thread_context(context)
-        ! Store context for current thread
+    integer function fortnum_gk_key(config_key) result(key)
+        ! Map the config rule selector (QK15..QK61) to a fortnum GK rule key.
+        ! fortnum supports the GK rules with 15, 21, 31, and 61 points; the
+        ! 41/51 selectors round up to the next available higher-order rule.
         implicit none
-        type(rkf45_integrand_context_t), intent(in) :: context
-        current_context = context
-    end subroutine set_thread_context
+        integer, intent(in) :: config_key
+        select case (config_key)
+        case (QK15)
+            key = 15
+        case (QK21)
+            key = 21
+        case (QK31)
+            key = 31
+        case (QK41, QK51, QK61)
+            key = 61
+        case default
+            key = 61
+        end select
+    end function fortnum_gk_key
 
-    function get_thread_context() result(context)
-        ! Retrieve context for current thread
-        implicit none
-        type(rkf45_integrand_context_t) :: context
-        context = current_context
-    end function get_thread_context
-
-    ! Wrapper functions for QUADPACK - these match QUADPACK's expected signature
-    function quadpack_wrapper_F1(theta) result(val)
+    ! Integrand callbacks on the fortnum integrate_integrand_t ABI. The
+    ! rkf45_integrand_context_t is forwarded unchanged through ctx; the _u
+    ! variants apply the u = sin(theta/2) substitution with its Jacobian.
+    function quadpack_wrapper_F1(theta, ctx) result(val)
         use integrands_rkf45_m, only: rkf45_integrand_F1
         implicit none
         real(dp), intent(in) :: theta
+        class(*), intent(in), optional :: ctx
         real(dp) :: val
-        type(rkf45_integrand_context_t) :: context
-
-        ! Retrieve context for this thread
-        context = get_thread_context()
-
-        ! Call the actual integrand with context
-        val = rkf45_integrand_F1(theta, context)
-
+        val = 0.0_dp
+        if (present(ctx)) then
+            select type (ctx)
+            type is (rkf45_integrand_context_t)
+                val = rkf45_integrand_F1(theta, ctx)
+            end select
+        end if
     end function quadpack_wrapper_F1
 
-    function quadpack_wrapper_F2(theta) result(val)
+    function quadpack_wrapper_F2(theta, ctx) result(val)
         use integrands_rkf45_m, only: rkf45_integrand_F2
         implicit none
         real(dp), intent(in) :: theta
+        class(*), intent(in), optional :: ctx
         real(dp) :: val
-        type(rkf45_integrand_context_t) :: context
-
-        context = get_thread_context()
-        val = rkf45_integrand_F2(theta, context)
-
+        val = 0.0_dp
+        if (present(ctx)) then
+            select type (ctx)
+            type is (rkf45_integrand_context_t)
+                val = rkf45_integrand_F2(theta, ctx)
+            end select
+        end if
     end function quadpack_wrapper_F2
 
-    function quadpack_wrapper_F3(theta) result(val)
+    function quadpack_wrapper_F3(theta, ctx) result(val)
         use integrands_rkf45_m, only: rkf45_integrand_F3
         implicit none
         real(dp), intent(in) :: theta
+        class(*), intent(in), optional :: ctx
         real(dp) :: val
-        type(rkf45_integrand_context_t) :: context
-
-        context = get_thread_context()
-        val = rkf45_integrand_F3(theta, context)
-
+        val = 0.0_dp
+        if (present(ctx)) then
+            select type (ctx)
+            type is (rkf45_integrand_context_t)
+                val = rkf45_integrand_F3(theta, ctx)
+            end select
+        end if
     end function quadpack_wrapper_F3
 
-    ! U-substitution wrapper functions (u = sin(theta/2))
-    function quadpack_wrapper_F1_u(u) result(val)
+    function quadpack_wrapper_F1_u(u, ctx) result(val)
         use integrands_rkf45_m, only: rkf45_integrand_F1
         implicit none
         real(dp), intent(in) :: u
+        class(*), intent(in), optional :: ctx
         real(dp) :: val
         real(dp) :: theta, jac, uu
-        type(rkf45_integrand_context_t) :: context
-
-        context = get_thread_context()
-
-        ! Transform from u to theta with Jacobian
-        uu = min(max(u, -1.0d0), 1.0d0)  ! Ensure u in [-1, 1]
-        theta = 2.0d0 * asin(uu)
-        jac = 2.0d0 / max(sqrt(1.0d0 - uu*uu), 1.0d-300)
-
-        val = rkf45_integrand_F1(theta, context) * jac
-
+        val = 0.0_dp
+        if (present(ctx)) then
+            select type (ctx)
+            type is (rkf45_integrand_context_t)
+                uu = min(max(u, -1.0d0), 1.0d0)  ! Ensure u in [-1, 1]
+                theta = 2.0d0 * asin(uu)
+                jac = 2.0d0 / max(sqrt(1.0d0 - uu*uu), 1.0d-300)
+                val = rkf45_integrand_F1(theta, ctx) * jac
+            end select
+        end if
     end function quadpack_wrapper_F1_u
 
-    function quadpack_wrapper_F2_u(u) result(val)
+    function quadpack_wrapper_F2_u(u, ctx) result(val)
         use integrands_rkf45_m, only: rkf45_integrand_F2
         implicit none
         real(dp), intent(in) :: u
+        class(*), intent(in), optional :: ctx
         real(dp) :: val
         real(dp) :: theta, jac, uu
-        type(rkf45_integrand_context_t) :: context
-
-        context = get_thread_context()
-
-        uu = min(max(u, -1.0d0), 1.0d0)
-        theta = 2.0d0 * asin(uu)
-        jac = 2.0d0 / max(sqrt(1.0d0 - uu*uu), 1.0d-300)
-
-        val = rkf45_integrand_F2(theta, context) * jac
-
+        val = 0.0_dp
+        if (present(ctx)) then
+            select type (ctx)
+            type is (rkf45_integrand_context_t)
+                uu = min(max(u, -1.0d0), 1.0d0)
+                theta = 2.0d0 * asin(uu)
+                jac = 2.0d0 / max(sqrt(1.0d0 - uu*uu), 1.0d-300)
+                val = rkf45_integrand_F2(theta, ctx) * jac
+            end select
+        end if
     end function quadpack_wrapper_F2_u
 
-    function quadpack_wrapper_F3_u(u) result(val)
+    function quadpack_wrapper_F3_u(u, ctx) result(val)
         use integrands_rkf45_m, only: rkf45_integrand_F3
         implicit none
         real(dp), intent(in) :: u
+        class(*), intent(in), optional :: ctx
         real(dp) :: val
         real(dp) :: theta, jac, uu
-        type(rkf45_integrand_context_t) :: context
-
-        context = get_thread_context()
-
-        uu = min(max(u, -1.0d0), 1.0d0)
-        theta = 2.0d0 * asin(uu)
-        jac = 2.0d0 / max(sqrt(1.0d0 - uu*uu), 1.0d-300)
-
-        val = rkf45_integrand_F3(theta, context) * jac
-
+        val = 0.0_dp
+        if (present(ctx)) then
+            select type (ctx)
+            type is (rkf45_integrand_context_t)
+                uu = min(max(u, -1.0d0), 1.0d0)
+                theta = 2.0d0 * asin(uu)
+                jac = 2.0d0 / max(sqrt(1.0d0 - uu*uu), 1.0d-300)
+                val = rkf45_integrand_F3(theta, ctx) * jac
+            end select
+        end if
     end function quadpack_wrapper_F3_u
 
-    subroutine quadpack_integrate_F1(result, epsabs, epsrel, context, &
-                                     theta_min, theta_max, use_u_substitution)
-        ! Integrate F1 using QUADPACK
+    subroutine run_quadpack(f, fu, result, epsabs, epsrel, context, &
+                            theta_min, theta_max, use_u_substitution)
+        ! Shared driver: select QAG/QAGS via grid config, apply the optional
+        ! u-substitution, and route to the matching fortnum adaptive routine.
+        use fortnum_integrate, only: integrate_integrand_t, integrate_qag, &
+            integrate_qags, integrate_workspace_t, integrate_epstab_t, &
+            integrate_result_t
+        use fortnum_status, only: fortnum_status_t, FORTNUM_OK
         use grid_m, only: quadpack_key, quadpack_limit, quadpack_algorithm
-        use logger_m, only: log_debug, log_error, log_warning
+        use logger_m, only: log_debug, log_error
         implicit none
 
+        procedure(integrate_integrand_t) :: f, fu
         real(dp), intent(out) :: result
         real(dp), intent(in) :: epsabs, epsrel
         type(rkf45_integrand_context_t), intent(in) :: context
         real(dp), intent(in) :: theta_min, theta_max
         logical, intent(in) :: use_u_substitution
 
-        ! QUADPACK variables
-        real(dp) :: abserr
-        integer :: neval, ier, last
-        integer :: limit, lenw
+        type(integrate_workspace_t) :: workspace
+        type(integrate_epstab_t) :: epstab
+        type(integrate_result_t) :: res
+        type(fortnum_status_t) :: status
         real(dp) :: a, b
-        integer :: key
+        integer :: key, limit
 
-        ! External QUADPACK entry points
-        external :: dqag, dqags, dqagi
-
-        ! Get thread ID and set context
-        call set_thread_context(context)
-
-        ! Set integration parameters
-        key = quadpack_key
-        if (key < 1 .or. key > 6) key = QK61  ! Default to highest order
+        key = fortnum_gk_key(quadpack_key)
 
         limit = quadpack_limit
         if (limit < 1) limit = 500
 
-        lenw = 4 * limit
-        call ensure_workspace(limit)
+        if (use_u_substitution) then
+            a = sin(0.5d0 * theta_min)
+            b = sin(0.5d0 * theta_max)
+        else
+            a = theta_min
+            b = theta_max
+        end if
 
         select case (trim(quadpack_algorithm))
-        case('QAG')
+        case ('QAG')
             if (use_u_substitution) then
-                a = sin(0.5d0 * theta_min)
-                b = sin(0.5d0 * theta_max)
-            call dqag(quadpack_wrapper_F1_u, a, b, epsabs, epsrel, key, &
-                     result, abserr, neval, ier, limit, lenw, last, iwork_tl, work_tl)
+                call integrate_qag(fu, a, b, epsabs, epsrel, workspace, res, &
+                                   status, key=key, limit=limit, ctx=context)
             else
-                a = theta_min
-                b = theta_max
-            call dqag(quadpack_wrapper_F1, a, b, epsabs, epsrel, key, &
-                     result, abserr, neval, ier, limit, lenw, last, iwork_tl, work_tl)
+                call integrate_qag(f, a, b, epsabs, epsrel, workspace, res, &
+                                   status, key=key, limit=limit, ctx=context)
             end if
-        case('QAGS')
-            ! Endpoint-singular integrands on finite intervals
+        case ('QAGS')
             if (use_u_substitution) then
-                a = sin(0.5d0 * theta_min)
-                b = sin(0.5d0 * theta_max)
-                call dqags(quadpack_wrapper_F1_u, a, b, epsabs, epsrel, &
-                           result, abserr, neval, ier, limit, lenw, last, iwork_tl, work_tl)
+                call integrate_qags(fu, a, b, epsabs, epsrel, workspace, &
+                                    epstab, res, status, limit=limit, ctx=context)
             else
-                a = theta_min
-                b = theta_max
-                call dqags(quadpack_wrapper_F1, a, b, epsabs, epsrel, &
-                           result, abserr, neval, ier, limit, lenw, last, iwork_tl, work_tl)
+                call integrate_qags(f, a, b, epsabs, epsrel, workspace, &
+                                    epstab, res, status, limit=limit, ctx=context)
             end if
         case default
             call log_error('QUADPACK: Unsupported algorithm: ' // &
                 trim(quadpack_algorithm) // '. Supported: QAG, QAGS')
+            result = 0.0_dp
+            return
         end select
 
-        ! Check for errors (throttle prints to debug level)
-        if (ier /= 0) then
-            if (ier == 6) then
-                call log_error('QUADPACK: Invalid input parameters')
-            else
-                select case(ier)
-                    case(1)
-                        call log_debug('QUADPACK: Maximum subdivisions reached')
-                    case(2)
-                        call log_debug('QUADPACK: Roundoff error detected')
-                    case(3)
-                        call log_debug('QUADPACK: Extremely bad integrand behavior')
-                    case(4)
-                        call log_debug('QUADPACK: Roundoff error in extrapolation')
-                    case(5)
-                        call log_debug('QUADPACK: Divergent integral')
-                end select
-            end if
+        result = res%value
+
+        if (status%code /= FORTNUM_OK) then
+            call log_debug('QUADPACK: integration did not fully converge')
         end if
+    end subroutine run_quadpack
 
-        ! Workspaces are reused per-thread; do not deallocate here
+    subroutine quadpack_integrate_F1(result, epsabs, epsrel, context, &
+                                     theta_min, theta_max, use_u_substitution)
+        implicit none
+        real(dp), intent(out) :: result
+        real(dp), intent(in) :: epsabs, epsrel
+        type(rkf45_integrand_context_t), intent(in) :: context
+        real(dp), intent(in) :: theta_min, theta_max
+        logical, intent(in) :: use_u_substitution
 
+        call run_quadpack(quadpack_wrapper_F1, quadpack_wrapper_F1_u, result, &
+                          epsabs, epsrel, context, theta_min, theta_max, &
+                          use_u_substitution)
     end subroutine quadpack_integrate_F1
 
     subroutine quadpack_integrate_F2(result, epsabs, epsrel, context, &
                                      theta_min, theta_max, use_u_substitution)
-        ! Integrate F2 using QUADPACK
-        use grid_m, only: quadpack_key, quadpack_limit, quadpack_algorithm
-        use logger_m, only: log_debug, log_error, log_warning
         implicit none
-
         real(dp), intent(out) :: result
         real(dp), intent(in) :: epsabs, epsrel
         type(rkf45_integrand_context_t), intent(in) :: context
         real(dp), intent(in) :: theta_min, theta_max
         logical, intent(in) :: use_u_substitution
 
-        ! QUADPACK variables
-        real(dp) :: abserr
-        integer :: neval, ier, last
-        integer :: limit, lenw
-        real(dp) :: a, b
-        integer :: key
-
-        ! External QUADPACK entry points
-        external :: dqag, dqags, dqagi
-
-        ! Get thread ID and set context
-        call set_thread_context(context)
-
-        ! Set integration parameters
-        key = quadpack_key
-        if (key < 1 .or. key > 6) key = QK61
-
-        limit = quadpack_limit
-        if (limit < 1) limit = 500
-
-        lenw = 4 * limit
-        call ensure_workspace(limit)
-
-        select case (trim(quadpack_algorithm))
-        case('QAG')
-            if (use_u_substitution) then
-                a = sin(0.5d0 * theta_min)
-                b = sin(0.5d0 * theta_max)
-            call dqag(quadpack_wrapper_F2_u, a, b, epsabs, epsrel, key, &
-                     result, abserr, neval, ier, limit, lenw, last, iwork_tl, work_tl)
-            else
-                a = theta_min
-                b = theta_max
-            call dqag(quadpack_wrapper_F2, a, b, epsabs, epsrel, key, &
-                     result, abserr, neval, ier, limit, lenw, last, iwork_tl, work_tl)
-            end if
-        case('QAGS')
-            if (use_u_substitution) then
-                a = sin(0.5d0 * theta_min)
-                b = sin(0.5d0 * theta_max)
-                call dqags(quadpack_wrapper_F2_u, a, b, epsabs, epsrel, &
-                           result, abserr, neval, ier, limit, lenw, last, iwork_tl, work_tl)
-            else
-                a = theta_min
-                b = theta_max
-                call dqags(quadpack_wrapper_F2, a, b, epsabs, epsrel, &
-                           result, abserr, neval, ier, limit, lenw, last, iwork_tl, work_tl)
-            end if
-        case default
-            call log_error('QUADPACK: Unsupported algorithm: ' // &
-                trim(quadpack_algorithm) // '. Supported: QAG, QAGS')
-        end select
-
-        ! Check for errors (same as F1)
-        if (ier /= 0) then
-            if (ier == 6) then
-                call log_error('QUADPACK: Invalid input parameters')
-            else
-                select case(ier)
-                    case(1)
-                        call log_debug('QUADPACK: Maximum subdivisions reached')
-                    case(2)
-                        call log_debug('QUADPACK: Roundoff error detected')
-                    case(3)
-                        call log_debug('QUADPACK: Extremely bad integrand behavior')
-                    case(4)
-                        call log_debug('QUADPACK: Roundoff error in extrapolation')
-                    case(5)
-                        call log_debug('QUADPACK: Divergent integral')
-                end select
-            end if
-        end if
-
-        ! Workspaces are reused per-thread; do not deallocate here
-
+        call run_quadpack(quadpack_wrapper_F2, quadpack_wrapper_F2_u, result, &
+                          epsabs, epsrel, context, theta_min, theta_max, &
+                          use_u_substitution)
     end subroutine quadpack_integrate_F2
 
     subroutine quadpack_integrate_F3(result, epsabs, epsrel, context, &
                                      theta_min, theta_max, use_u_substitution)
-        ! Integrate F3 using QUADPACK
-        use grid_m, only: quadpack_key, quadpack_limit, quadpack_algorithm
-        use logger_m, only: log_debug, log_error, log_warning
         implicit none
-
         real(dp), intent(out) :: result
         real(dp), intent(in) :: epsabs, epsrel
         type(rkf45_integrand_context_t), intent(in) :: context
         real(dp), intent(in) :: theta_min, theta_max
         logical, intent(in) :: use_u_substitution
 
-        ! QUADPACK variables
-        real(dp) :: abserr
-        integer :: neval, ier, last
-        integer :: limit, lenw
-        real(dp) :: a, b
-        integer :: key
-
-        ! External QUADPACK entry points
-        external :: dqag, dqags, dqagi
-
-        ! Get thread ID and set context
-        call set_thread_context(context)
-
-        ! Set integration parameters
-        key = quadpack_key
-        if (key < 1 .or. key > 6) key = QK61
-
-        limit = quadpack_limit
-        if (limit < 1) limit = 500
-
-        lenw = 4 * limit
-        call ensure_workspace(limit)
-
-        select case (trim(quadpack_algorithm))
-        case('QAG')
-            if (use_u_substitution) then
-                a = sin(0.5d0 * theta_min)
-                b = sin(0.5d0 * theta_max)
-            call dqag(quadpack_wrapper_F3_u, a, b, epsabs, epsrel, key, &
-                     result, abserr, neval, ier, limit, lenw, last, iwork_tl, work_tl)
-            else
-                a = theta_min
-                b = theta_max
-            call dqag(quadpack_wrapper_F3, a, b, epsabs, epsrel, key, &
-                     result, abserr, neval, ier, limit, lenw, last, iwork_tl, work_tl)
-            end if
-        case('QAGS')
-            if (use_u_substitution) then
-                a = sin(0.5d0 * theta_min)
-                b = sin(0.5d0 * theta_max)
-                call dqags(quadpack_wrapper_F3_u, a, b, epsabs, epsrel, &
-                         result, abserr, neval, ier, limit, lenw, last, iwork_tl, work_tl)
-            else
-                a = theta_min
-                b = theta_max
-                call dqags(quadpack_wrapper_F3, a, b, epsabs, epsrel, &
-                         result, abserr, neval, ier, limit, lenw, last, iwork_tl, work_tl)
-            end if
-        case default
-            call log_error('QUADPACK: Unsupported algorithm: ' // &
-                trim(quadpack_algorithm) // '. Supported: QAG, QAGS')
-        end select
-
-        ! Check for errors (same as F1)
-        if (ier /= 0) then
-            if (ier == 6) then
-                call log_error('QUADPACK: Invalid input parameters')
-            else
-                select case(ier)
-                    case(1)
-                        call log_debug('QUADPACK: Maximum subdivisions reached')
-                    case(2)
-                        call log_debug('QUADPACK: Roundoff error detected')
-                    case(3)
-                        call log_debug('QUADPACK: Extremely bad integrand behavior')
-                    case(4)
-                        call log_debug('QUADPACK: Roundoff error in extrapolation')
-                    case(5)
-                        call log_debug('QUADPACK: Divergent integral')
-                end select
-            end if
-        end if
-
-        ! Workspaces are reused per-thread; do not deallocate here
-
+        call run_quadpack(quadpack_wrapper_F3, quadpack_wrapper_F3_u, result, &
+                          epsabs, epsrel, context, theta_min, theta_max, &
+                          use_u_substitution)
     end subroutine quadpack_integrate_F3
 
 end module quadpack_integration_m

@@ -2,6 +2,7 @@
 module integrands_rkf45_m
 
     use KIM_kinds_m, only: dp
+    use gauss_quadrature_m, only: calc_xbar
 
     implicit none
 
@@ -168,17 +169,6 @@ module integrands_rkf45_m
 
     end function
 
-
-    function calc_xbar(x,xp) result(xbar)
-
-        implicit none
-
-        real(dp), intent(in) :: x, xp
-        real(dp) :: xbar
-
-        xbar = 0.5d0 * (xp + x)
-
-    end function
 
     function Jrg1(a, b, j)
 

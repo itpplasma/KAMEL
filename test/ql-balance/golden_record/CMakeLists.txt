@@ -12,8 +12,25 @@
 #   ctest -R golden_record        # Run golden record tests
 #   ctest -R golden_record -V     # Run with verbose output
 
-# Add the golden record test
-# This test depends on ql-balance.x being built
+# Setup fixture: clone + build the main-branch reference and generate
+# golden.h5. This is the expensive step (a full from-scratch cmake build of
+# main_ref), so it runs as its own fixture test outside the comparison timer.
+# ql-balance_golden_record below then only runs the comparison.
+add_test(
+    NAME ql-balance_golden_setup
+    COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/ensure_golden.py
+    WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+)
+set_tests_properties(ql-balance_golden_setup PROPERTIES
+    LABELS "golden_record;ql-balance;integration"
+    TIMEOUT 1800  # building main_ref from scratch can take several minutes
+    ENVIRONMENT "PYTHONPATH=${CMAKE_SOURCE_DIR}/python"
+    FIXTURES_SETUP ql-balance_golden
+)
+
+# Add the golden record test. With golden.h5 prebuilt by the fixture above, the
+# test only sets up a runfolder, runs the current-branch ql-balance.x, and
+# compares against golden.h5; no main_ref rebuild happens inside this timer.
 add_test(
     NAME ql-balance_golden_record
     COMMAND ${Python3_EXECUTABLE} -m pytest
@@ -31,10 +48,10 @@ set_tests_properties(ql-balance_golden_record PROPERTIES
     ENVIRONMENT "PYTHONPATH=${CMAKE_SOURCE_DIR}/python"
 )
 
-# Make the test depend on ql-balance.x being built
-# This ensures the executable exists before running the test
+# The comparison needs both the current-branch ql-balance.x and the prebuilt
+# golden record.
 set_tests_properties(ql-balance_golden_record PROPERTIES
-    FIXTURES_REQUIRED ql-balance_executable
+    FIXTURES_REQUIRED "ql-balance_executable;ql-balance_golden"
 )
 
 # Create a fixture test that ensures ql-balance.x is built

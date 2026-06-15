@@ -14,12 +14,30 @@ from pathlib import Path
 
 import pytest
 from compare import QUANTITIES_TO_COMPARE, compare_hdf5_files, format_comparison_report
-from ensure_golden import ensure_golden
 from setup_runfolder import get_output_hdf5_path
 from setup_runfolder import setup_runfolder as setup_runfolder_external
 
 SCRIPT_DIR = Path(__file__).resolve().parent
-GOLDEN_H5 = ensure_golden()
+GOLDEN_H5 = SCRIPT_DIR / "golden.h5"
+
+
+def _resolve_golden() -> Path:
+    """Locate golden.h5 without rebuilding inside the timed test.
+
+    The clone + build of main_ref and the reference ql-balance.x run are done by
+    the ql-balance_golden_setup CMake fixture, outside this test's timer, so the
+    timed comparison never pays for the main-branch build. When the golden
+    record is missing (a bare ``pytest`` invocation outside CTest), fall back to
+    building it once via ensure_golden() so the file can still be run directly.
+    """
+    if GOLDEN_H5.exists():
+        return GOLDEN_H5
+    from ensure_golden import ensure_golden
+
+    return ensure_golden()
+
+
+GOLDEN_H5 = _resolve_golden()
 
 
 @pytest.fixture(scope="module")

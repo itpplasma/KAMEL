@@ -16,7 +16,6 @@ The following are automatically downloaded during build:
 - **QUADPACK** - Adaptive quadrature (from Netlib)
 - **libcerf** - Complex error function
 - **SLATEC** - Mathematical library
-- **ddeabm** - ODE solver
 
 ### Build Dependencies
 - **KiLCA** - Must be built before KIM (provides core library)

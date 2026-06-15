@@ -33,7 +33,6 @@ The following are automatically downloaded and built if not found on the system:
 - **SuiteSparse** - Sparse matrix operations (UMFPACK)
 - **SUNDIALS** - Numerical differential equation solvers
 - **NetCDF** - Network Common Data Form (with Fortran bindings)
-- **Zeal** - Mathematical special functions (zero finding)
 - **LAPACK/BLAS** - Fallback if not found on system
 
 ### Bundled Libraries (built from source)

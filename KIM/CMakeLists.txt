@@ -26,7 +26,7 @@ include_directories("${CMAKE_Fortran_MODULE_DIRECTORY}")
 enable_testing()
 
 add_subdirectory(src)
-# slatec is provided by the top-level cmake/Dependencies.cmake; do not add its subdir here
+# fortnum_amos_compat is provided by the top-level cmake/Dependencies.cmake; do not add its subdir here
 add_subdirectory(src/math/libcerf-main)
 add_subdirectory(src/tests)
 add_subdirectory(tests)

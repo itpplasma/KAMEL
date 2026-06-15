@@ -39,42 +39,6 @@ if("${LAPACK_FOUND}")
     message("${LAPACK_INCLUDE_DIRS}")
 endif()
 
-# QUADPACK (vendored from Netlib, public domain). Previously downloaded at
-# configure time from netlib.org with no integrity check and an "if not exists"
-# guard, so a single bad/partial download poisoned the CI build cache (the
-# cached archive was missing dqagi_, breaking the link and never rebuilding).
-# Vendoring the sources removes the network/cache fragility.
-set(QUADPACK_DIR "${CMAKE_CURRENT_SOURCE_DIR}/math/quadpack")
-
-add_library(quadpack_netlib STATIC
-    ${QUADPACK_DIR}/dqag.f
-    ${QUADPACK_DIR}/dqage.f
-    ${QUADPACK_DIR}/dqags.f
-    ${QUADPACK_DIR}/dqagse.f
-    ${QUADPACK_DIR}/dqagi.f
-    ${QUADPACK_DIR}/dqagie.f
-    ${QUADPACK_DIR}/dqelg.f
-    ${QUADPACK_DIR}/dqpsrt.f
-    ${QUADPACK_DIR}/dqk15.f
-    ${QUADPACK_DIR}/dqk21.f
-    ${QUADPACK_DIR}/dqk31.f
-    ${QUADPACK_DIR}/dqk41.f
-    ${QUADPACK_DIR}/dqk51.f
-    ${QUADPACK_DIR}/dqk61.f
-    ${QUADPACK_DIR}/dqk15i.f
-)
-set_target_properties(quadpack_netlib PROPERTIES POSITION_INDEPENDENT_CODE ON)
-target_link_libraries(KIM_lib PUBLIC quadpack_netlib)
-
-# Optionally provide minimal XERROR compatibility if SLATEC doesn't provide it
-option(KIM_XERROR_FALLBACK "Provide fallback XERROR for QUADPACK if SLATEC lacks it" ON)
-if(KIM_XERROR_FALLBACK)
-  target_sources(quadpack_netlib PRIVATE ${CMAKE_SOURCE_DIR}/KIM/src/math/quadpack_compat_xerror.f90)
-endif()
-
-# Provide a portable D1MACH for QUADPACK (avoids platform-specific Netlib d1mach variants)
-target_sources(quadpack_netlib PRIVATE ${CMAKE_SOURCE_DIR}/KIM/src/math/quadpack_d1mach.f90)
-
 find_package(SuiteSparse REQUIRED)
 if("${SuiteSparse_FOUND}")
     message(" ====== SuiteSparse was found! ======")
@@ -109,7 +73,7 @@ set(KILCA_PATH ${CMAKE_SOURCE_DIR}/KiLCA)
 # Previously PUBLIC, this caused duplicate library linking when QL-Balance
 # linked both KIM_lib and kilca_lib, corrupting symbol resolution order
 # and breaking KiLCA's wave solver (besselj failures, vacuum stitching errors).
-# KIM_exe links KiLCA directly via slatec (which provides the math routines).
+# KIM_exe links KiLCA directly via fortnum_amos_compat (complex Bessel ABI).
 target_include_directories(KIM_lib PUBLIC ${KILCA_PATH}/math/)
 
 find_package(HDF5 COMPONENTS C Fortran HL REQUIRED)
@@ -134,5 +98,5 @@ target_link_libraries(KIM_exe
                         KIM_lib
                         kilca_lib
                         lapack
-                        slatec
+                        fortnum_amos_compat
 )

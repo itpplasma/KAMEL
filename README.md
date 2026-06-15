@@ -36,7 +36,7 @@ The following are automatically downloaded and built if not found on the system:
 - **LAPACK/BLAS** - Fallback if not found on system
 
 ### Bundled Libraries (built from source)
-- **slatec** - Special functions and ODE solvers (`common/math/`)
+- **fortnum_amos_compat** - AMOS complex-Bessel ABI backed by fortnum (`common/math/`)
 - **libcerf** - Complex error function (`KIM/src/math/`)
 
 ### Python Dependencies

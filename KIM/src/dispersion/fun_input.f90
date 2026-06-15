@@ -1,10 +1,11 @@
 MODULE Function_Input_Module
-    ! File copied from the ZEAL package. Adapted for KIM.
+    ! Dispersion function input for the WKB solver.
     !
-    ! Module for dispersion function input.
-    ! Keep this name, since ZEAL uses it.
+    ! Holds the KIM and FLRE dispersion relations, the active-mode pointer used
+    ! by the Muller solver, and the fortnum complex_root_fn_t adapter used by the
+    ! region-root solver.
 
-    USE KIM_kinds_m, only: DP
+    use KIM_kinds_m, only: dp
 
     IMPLICIT NONE
 
@@ -335,26 +336,21 @@ MODULE Function_Input_Module
         end subroutine test_FDF_derivative
 
 
-        FUNCTION VALREG(LV,H)
-            !-----------------------------------------------------------------------
-            !**PURPOSE
-            !  Given a rectangular region specified by LV and H (cf. the module
-            !  Zeal_Input_Module), decide whether the function is analytic inside
-            !  this region or not.
-            !-----------------------------------------------------------------------
-            !
+        subroutine dispersion_region_fn(kr, fk, ctx)
+            ! fortnum complex_root_fn_t adapter: evaluates the active dispersion
+            ! relation at the grid point selected by rg_index. The region-root
+            ! finder ignores ctx; the grid index rides on module state, set by
+            ! the caller before each search (as the Muller path does via rg_index).
+
+            use kim_kinds_m, only: dp
+
             implicit none
+            complex(dp), intent(in)            :: kr
+            complex(dp), intent(out)           :: fk
+            class(*),    intent(in), optional  :: ctx
 
-            logical :: VALREG
-            REAL(KIND=dp), INTENT(IN) :: LV(2), H(2)
+            call dispersion_function(kr, fk)
 
-            VALREG = .TRUE.
-
-            !  The following statement can be used for functions that have a
-            !  branch cut along the non-positive real axis.
-            !
-            !    VALREG = .NOT. ( LV(2)*(LV(2)+H(2)) <= ZERO .AND. LV(1) <= ZERO )
-
-        end function VALREG
+        end subroutine dispersion_region_fn
 
 END MODULE Function_Input_Module

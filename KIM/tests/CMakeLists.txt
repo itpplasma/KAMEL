@@ -29,6 +29,14 @@ target_link_libraries(test_root_finding KIM_lib)
 add_test(NAME test_root_finding
          COMMAND ${CMAKE_BINARY_DIR}/tests/test_root_finding.x)
 
+add_executable(test_region_roots_vs_muller ${CMAKE_SOURCE_DIR}/KIM/tests/test_region_roots_vs_muller.f90)
+set_target_properties(test_region_roots_vs_muller PROPERTIES
+                        OUTPUT_NAME test_region_roots_vs_muller.x
+                        RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/tests/")
+target_link_libraries(test_region_roots_vs_muller KIM_lib lapack)
+add_test(NAME test_region_roots_vs_muller
+         COMMAND ${CMAKE_BINARY_DIR}/tests/test_region_roots_vs_muller.x)
+
 add_executable(test_profile_input ${CMAKE_SOURCE_DIR}/KIM/tests/test_profile_input.f90)
 set_target_properties(test_profile_input PROPERTIES
                         OUTPUT_NAME test_profile_input.x

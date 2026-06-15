@@ -9,11 +9,7 @@
 #include <climits>
 #include <inttypes.h>
 
-#include <gsl/gsl_math.h>
-#include <gsl/gsl_deriv.h>
-#include <gsl/gsl_matrix.h>
-#include <gsl/gsl_odeiv.h>
-#include <gsl/gsl_errno.h>
+#include "fortnum.h"
 
 #include "shared.h"
 #include "settings.h"
@@ -25,6 +21,12 @@
 #include "eval_back.h"
 #include "constants.h"
 #include "conduct_parameters.h"
+
+// GSL returned 0 (GSL_SUCCESS) from rhs/jac callbacks; keep the value so the
+// callback contracts and the historical control flow stay byte-identical.
+#ifndef GSL_SUCCESS
+#define GSL_SUCCESS 0
+#endif
 
 /*-----------------------------------------------------------------*/
 
@@ -67,6 +69,17 @@ return GSL_SUCCESS;
 
 /*-----------------------------------------------------------------*/
 
+// fortnum_ode_rhs adapter: forwards to the historical rhs_back, dropping the
+// GSL return code (errors are signalled via the integrator status).
+static void rhs_back_fn (double r, int n, const double y[], double dydt[],
+                         void *ctx)
+{
+(void) n;
+rhs_back (r, y, dydt, ctx);
+}
+
+/*-----------------------------------------------------------------*/
+
 int background::calculate_equilibrium (void)
 {
 /*! \fn calculate_equilibrium (void)
@@ -75,22 +88,12 @@ int background::calculate_equilibrium (void)
     \param
 */
 
-size_t Neq = 1;
-
-const gsl_odeiv_step_type * T = gsl_odeiv_step_rk8pd; //the best I have found
-
-gsl_odeiv_step * step = gsl_odeiv_step_alloc (T, Neq);
-
-gsl_odeiv_control * control = gsl_odeiv_control_y_new (1.0e-16, 1.0e-16);
-
-gsl_odeiv_evolve * evolve = gsl_odeiv_evolve_alloc (Neq);
-
-gsl_odeiv_system sys = {&rhs_back, &jac_back, Neq, this};
+const int Neq = 1;
 
 double rtor = sd->bs->rtor;
 double B0   = sd->bs->B0;
 
-double rc = x[0], rf = x[1];
+double rc = x[0];
 
 spline_eval_ (sid, 1, &rc, 0, 0, i_q, i_q, R);
 
@@ -102,39 +105,36 @@ u[0] = B0*B0*g;
 
 double uval[1] = {u[0]}; //current u value
 
-double h = rf-rc; //initial step size
+// Advance u across each [x[i-1], x[i]] segment with the dop853 stepper at the
+// former gsl_odeiv_control_y_new(1e-16, 1e-16) tolerances and carry the
+// endpoint value forward, matching the segment-by-segment evolve loop.
+const int npts_cap = 100000;
+double *t_buf = new double[npts_cap];
+double *y_buf = new double[npts_cap];
 
 for (int i = 1; i < dimx; ++i)
 {
-    rf = x[i];
+    double rf = x[i];
+    int npts = 0;
 
-    size_t status, iter = 0;
+    int status = fortnum_ode_integrate_dop (&rhs_back_fn, Neq, rc, rf, uval,
+                    1.0e-16, 1.0e-16, 100000, npts_cap, t_buf, y_buf, &npts,
+                    this);
 
-    while (rc < rf)
+    if (status != FORTNUM_OK)
     {
-        status = gsl_odeiv_evolve_apply (evolve, control, step, &sys, &rc, rf, &h, uval);
-
-        if (status != GSL_SUCCESS)
-        {
-            fprintf (stderr, "\ncalculate_equilibrium: ODE solver failed at r = %le", rc);
-            exit (1);
-        }
-
-        if (iter == 100000)
-        {
-            fprintf (stderr, "\nMaximum allowed iteration number is reached: iter=%d r=%le", iter, rc);
-            exit (1);
-        }
-
-        ++iter;
+        fprintf (stderr, "\ncalculate_equilibrium: ODE solver failed at r = %le (status=%d)", rc, status);
+        exit (1);
     }
 
+    uval[0] = y_buf[npts-1];
     u[i] = uval[0];
+
+    rc = rf;
 }
 
-gsl_odeiv_evolve_free (evolve);
-gsl_odeiv_control_free (control);
-gsl_odeiv_step_free (step);
+delete [] t_buf;
+delete [] y_buf;
 
 if (sd->bs->flag_debug > 1) //save u if needed
 {

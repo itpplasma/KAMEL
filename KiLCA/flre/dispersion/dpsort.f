@@ -79,8 +79,6 @@ C     .. Local Scalars ..
       INTEGER I, IJ, INDX, INDX0, ISTRT, J, K, KK, L, LM, LMT, M, NN
 C     .. Local Arrays ..
       INTEGER IL(21), IU(21)
-C     .. External Subroutines ..
-      EXTERNAL XERMSG
 C     .. Intrinsic Functions ..
       INTRINSIC ABS, INT
 C***FIRST EXECUTABLE STATEMENT  DPSORT
@@ -88,18 +86,16 @@ C***FIRST EXECUTABLE STATEMENT  DPSORT
       NN = N
       IF (NN .LT. 1) THEN
          IER = 1
-         CALL XERMSG ('SLATEC', 'DPSORT',
-     +    'The number of values to be sorted, N, is not positive.',
-     +    IER, 1)
+         PRINT *, 'DPSORT: number of values to be sorted, N, ',
+     +    'is not positive.'
          RETURN
       ENDIF
 C
       KK = ABS(KFLAG)
       IF (KK.NE.1 .AND. KK.NE.2) THEN
          IER = 2
-         CALL XERMSG ('SLATEC', 'DPSORT',
-     +    'The sort control parameter, KFLAG, is not 2, 1, -1, or -2.',
-     +    IER, 1)
+         PRINT *, 'DPSORT: sort control parameter, KFLAG, ',
+     +    'is not 2, 1, -1, or -2.'
          RETURN
       ENDIF
 C

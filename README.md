@@ -29,7 +29,7 @@ The framework consists of three main codes:
 
 ### Auto-Fetched Libraries
 The following are automatically downloaded and built if not found on the system:
-- **GSL** - GNU Scientific Library
+- **fortnum** - Numerical core (special functions, quadrature, ODE, root finding)
 - **SuiteSparse** - Sparse matrix operations (UMFPACK)
 - **SUNDIALS** - Numerical differential equation solvers
 - **NetCDF** - Network Common Data Form (with Fortran bindings)
@@ -61,7 +61,7 @@ make QL-Balance
 make clean
 ```
 
-**Note:** External dependencies (LAPACK, SuiteSparse, GSL, SUNDIALS) are automatically downloaded and built during the first compilation if not found on the system.
+**Note:** External dependencies (LAPACK, SuiteSparse, fortnum, SUNDIALS) are automatically downloaded and built during the first compilation if not found on the system.
 
 ### System-wide Installation
 

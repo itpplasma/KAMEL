@@ -64,7 +64,7 @@ cvode_lib_path = /usr/local/lib
 libs = -L$(LINKER_PATH) \
 -L$(math_lib_path) -lslatec_gf_430 -llapack_gf_430 -lblas_gf_430 \
 -L$(cvode_lib_path) -lsundials_cvode -lsundials_nvecserial \
--lgsl -lgslcblas \
+-lfortnum \
 -lgfortran \
 -lstdc++
 

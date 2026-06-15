@@ -8,7 +8,6 @@ sudo pacman -Sy \
     gcc \
     gcc-fortran \
     git \
-    gsl \
     make \
     netcdf \
     netcdf-cxx \

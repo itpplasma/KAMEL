@@ -260,15 +260,19 @@ int hypergeometric1f1_cont_fract_1_modified_0_ada_ (double *b_re, double *b_im, 
 //computes modified function 1F1m(a,b,z) for a = 1 and complex b & z by continued fraction
 //1F1 = 1 + z/b + z^2/b/(b+1)*(1 + 1F1m)
 
-complex<double> b(*b_re, *b_im), z(*z_re, *z_im);
+complex<double> b(*b_re, *b_im), z(*z_re, *z_im), F11m(0.0, 0.0);
 
-// fortnum computes F11m = 1F1(1;b+2;z) - 1 directly, avoiding the
-// cancellation of the |z/b|-dispatch reconstruction at small z.
-fortnum_complex result;
-fortnum_hyperg_1f1m_a1 (b, z, &result);
-
-*f_re = result.real();
-*f_im = result.imag();
+if (abs(z/b) < 0.1e0)
+{
+    hypergeometric1f1_kummer_modified_0_ada_ (b_re, b_im, z_re, z_im, f_re, f_im);
+}
+else //big numbers substraction - better to implement direct continued fraction!
+{
+    hypergeometric1f1_cont_fract_1_inv_ada_ (b_re, b_im, z_re, z_im, f_re, f_im);
+    F11m = ((*f_re) + (*f_im)*I - 1.0 - z/b)*(b/z)*((b + 1.0)/z) - 1.0;
+    *f_re = real(F11m);
+    *f_im = imag(F11m);
+}
 
 return 0;
 }

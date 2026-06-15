@@ -124,7 +124,6 @@ target_link_libraries(KIM_lib PUBLIC
                                 kamel_logger
                                 kamel_equil
                                 cerf
-                                ddeabm
 )
 
 add_executable(KIM_exe kim_main.f90)

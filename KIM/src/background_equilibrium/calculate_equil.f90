@@ -8,17 +8,8 @@ module equilibrium_m
     real(dp), allocatable :: hz(:), hth(:)
     real(dp), allocatable :: equil_grid(:)
 
-    integer :: ineq = 1 ! numbers of equations to be solved
-    integer :: idid     ! indicator reporting what the code did
     real(dp) :: rtol = 1.0d-12 ! relative error tolerance
     real(dp) :: atol = 1.0d-12 ! absolute error tolerance
-    integer, dimension(4) :: info      ! info vector to control solver
-    integer, parameter :: lrw = 151
-    integer, parameter :: liw = 51
-    real(dp), dimension(lrw) :: rwork
-    integer, dimension(liw) :: iwork
-    real(dp) :: rpar
-    integer :: ipar
 
     integer :: i, sigma
     real(dp) :: r1, radius0
@@ -36,20 +27,33 @@ module equilibrium_m
     contains
 
         subroutine calculate_equil(write_out)
-        ! Calculate the magnetic field and current equilibrium from the input profiles
-        ! To solve the force balance equation for B0z, which is a first order ODE, we use
-        ! the ddeabm subroutine from the SLATEC library. This method uses the Adams-Bashforth
-        ! method.
+        ! Calculate the magnetic field and current equilibrium from the input profiles.
+        ! The force-balance equation for B0z is a scalar first-order ODE du/dr;
+        ! it is integrated over the monotone radial grid with the fortnum
+        ! variable-order Adams integrator (ddeabm), a clean-room equivalent of
+        ! SLATEC ddeabm. A single ddeabm_init seeds the state at r_grid(1); each
+        ! grid value u(i) is then produced by continuing the same re-entrant
+        ! state to r_grid(i) (the SLATEC INFO(1)=1 restart), with the integration
+        ! barred from stepping past r_grid(end) (the SLATEC RWORK(1)/INFO(4)=1
+        ! tstop bound).
 
             use species_m, only: plasma, calc_plasma_parameter_derivs
             use constants_m, only: ev, pi, sol
             use setup_m, only: btor, R0, m_mode, n_mode
             use config_m, only: number_of_ion_species, output_path, hdf5_output
             use logger_m, only: log_info, log_warning
+            use fortnum_ode_ddeabm, only: ddeabm_state_t, ddeabm_init, &
+                ddeabm_integrate_to
+            use fortnum_status, only: fortnum_status_t, FORTNUM_OK
 
             implicit none
 
             logical, intent(in) :: write_out
+
+            real(dp), allocatable :: u_seg(:)
+            real(dp) :: rstop
+            type(ddeabm_state_t) :: ode_state
+            type(fortnum_status_t) :: ode_status
 
             if(.not. allocated(coef)) allocate(coef(0:nder, nlagr))
 
@@ -86,38 +90,32 @@ module equilibrium_m
             end do
             dpress_prof = dpress_prof * ev
 
-            ! configuration of the solver:
-            ! info(1) = 0: initialization, i.e. tell code it is a new problem
-            ! info(2) = 0: input scalars for rtol and atol (instead of vectors)
-            ! info(3) = 0: solution is only given at TOUT (or r1 in this implementation)
-            info = 0
-            ! info(4) = 1: the integration can NOT be carried out without any restrictions
-            ! on the independent variable T
-            info(4) = 1
-
-            rwork = 0.0d0
-            rwork(1) = plasma%r_grid(plasma%grid_size) ! rwork(1) has to be set to the r stopping point
-
             radius0 = plasma%r_grid(1)
             u0 = btor**2.0d0 * (1.0d0 + radius0**2.0d0 / (R0**2.0d0 * plasma%q(1)**2.0d0)) ! initial value
             u(1) = u0
 
+            ! Seed the re-entrant integrator at the inner grid point, then carry
+            ! the same state forward to every outer point. rstop bars the Adams
+            ! step from overshooting the outer boundary.
+            rstop = plasma%r_grid(plasma%grid_size)
+            call ddeabm_init(ode_state, 1, radius0, [u0])
+
             do i=2, plasma%grid_size
                 r1 = plasma%r_grid(i)
-                call ddeabm(dudr, ineq, radius0, u0, r1, info, rtol, atol, idid, rwork, lrw, &
-                            iwork, liw, rpar, ipar)
+                call ddeabm_integrate_to(dudr, ode_state, r1, rtol, [atol], &
+                                         u_seg, ode_status, tstop=rstop)
 
-                if (idid .lt. 1) then
+                if (ode_status%code /= FORTNUM_OK .or. .not. allocated(u_seg)) then
                     block
-                        character(len=100) :: wbuf
-                        write(wbuf, '(A,ES12.5,A,I0)') &
-                            'calculate_equil: r=', r1, ' idid=', idid
+                        character(len=160) :: wbuf
+                        write(wbuf, '(A,ES12.5,A,A)') &
+                            'calculate_equil: r=', r1, ' ddeabm: ', trim(ode_status%msg)
                         call log_warning(trim(wbuf))
                     end block
+                    u(i) = u(i-1)
+                else
+                    u(i) = u_seg(1)
                 end if
-
-                u(i) = u0
-                info(1) = 1
             end do
 
             if (allocated(plasma%B0)) deallocate(plasma%B0)
@@ -155,15 +153,19 @@ module equilibrium_m
 
             contains
 
-                subroutine dudr(r, u, du)
+                subroutine dudr(r, u, du, ctx)
+                    ! fortnum ode_rhs_t: scalar force-balance RHS du/dr.
+                    ! u and du are size-1; the q-profile and dpress data ride on
+                    ! host association, so ctx is unused.
 
                     implicit none
 
-                    real(dp), intent(in) :: r
-                    real(dp), intent(in) :: u
-                    real(dp), intent(out) :: du
+                    real(dp), intent(in)  :: r
+                    real(dp), intent(in)  :: u(:)
+                    real(dp), intent(out) :: du(:)
+                    class(*), intent(in), optional :: ctx
 
-                    real(dp) :: q, dpress, g
+                    real(dp) :: q, dpress
 
                     ! interpolate q and pressure profiles at radial variable
                     call binsrc(plasma%r_grid, 1, plasma%grid_size, r, ir)
@@ -179,7 +181,7 @@ module equilibrium_m
                     q = sum(coef(0,:) * plasma%q(ibeg:iend))
                     dpress = sum(coef(0, :) * dpress_prof(ibeg:iend))
 
-                    du = -2.0d0 * r * u / (q**2.0d0 * R0**2.0d0 + r**2.0d0) - 8.0d0 * pi * dpress
+                    du(1) = -2.0d0 * r * u(1) / (q**2.0d0 * R0**2.0d0 + r**2.0d0) - 8.0d0 * pi * dpress
 
                 end subroutine
 

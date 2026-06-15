@@ -42,7 +42,6 @@ module integrands_rkf45_m
 
         use constants_m, only: pi
         use species_m, only: plasma
-        use gsl_mod, only: erf => gsl_sf_erf
         use KIM_kinds_m, only: dp
         use functions_m, only: varphi_l
 

@@ -13,6 +13,11 @@ module config_m
     logical :: turn_off_ions ! if true, only the first species (electrons) is considered in calculations
     logical :: turn_off_electrons
     character(100) :: plasma_type ! type of plasma ('H' for hydrogen, 'D' for deuterium)
+    ! Energy-conservation correction in the I-functions (getIfunc). When .true.
+    ! (default), the symmetric (Imn(m,0)-Imn(m,2))*(Imn(n,0)-Imn(n,2))/denom term
+    ! is added so the collision operator conserves energy. When .false., the bare
+    ! Imn is used — apples-to-apples with the GORILLA OU operator on v_par.
+    logical :: boole_energy_conservation = .true.
 
     ! WKB_DISPERSION namelist variables
     character(20) :: WKB_dispersion_mode = 'KIM'      ! 'KIM' (full Bessel) or 'FLRE' (finite Larmor radius)

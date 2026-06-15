@@ -80,3 +80,12 @@ set_target_properties(test_grid_equidistant PROPERTIES
 target_link_libraries(test_grid_equidistant KIM_lib "${KiLCA_lib_path}" lapack cerf ddeabm slatec)
 add_test(NAME test_grid_equidistant
          COMMAND ${CMAKE_BINARY_DIR}/tests/test_grid_equidistant.x)
+
+# Lifecycle/contract tests for the kim_solver_m API seam.
+add_executable(test_kim_solver ${CMAKE_SOURCE_DIR}/KIM/tests/test_kim_solver.f90)
+set_target_properties(test_kim_solver PROPERTIES
+                        OUTPUT_NAME test_kim_solver.x
+                        RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/tests/")
+target_link_libraries(test_kim_solver KIM_lib "${KiLCA_lib_path}" lapack cerf ddeabm slatec)
+add_test(NAME test_kim_solver
+         COMMAND ${CMAKE_BINARY_DIR}/tests/test_kim_solver.x)

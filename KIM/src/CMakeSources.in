@@ -8,6 +8,7 @@ set(KIM_general general/config_display.f90
                 general/KIM_mod.f90
                 general/KIM_init.f90
                 general/KIM_kinds.f90
+                general/kim_solver_m.f90
 )
 
 

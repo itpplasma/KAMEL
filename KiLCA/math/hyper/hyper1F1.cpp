@@ -6,10 +6,9 @@
 #include <stdio.h>
 #include <complex>
 #include <cmath>
+#include <cfloat>
 
-#include <gsl/gsl_integration.h>
-#include <gsl/gsl_errno.h>
-#include <gsl/gsl_sum.h>
+#include "fortnum.h"
 #include "constants.h"
 
 using namespace std;
@@ -30,8 +29,6 @@ int hypergeometric1f1_kummer_modified_0_ada_ (double *b_re, double *b_im, double
 
 int hypergeometric1f1_cont_fract_1_modified_0_ada_ (double *b_re, double *b_im, double *z_re, double *z_im, double *f_re, double *f_im);
 
-int hypergeometric1f1_kummer_modified_0_accel_ (double *b_re, double *b_im, double *z_re, double *z_im, double *f_re, double *f_im);
-
 int hypergeometric1f1_kummer_modified_1_ (double *b_re, double *b_im, double *z_re, double *z_im, double *f_re, double *f_im);
 
 int hypergeometric1f1_cont_fract_1_dir_ (double *b_re, double *b_im, double *z_re, double *z_im, double *f_re, double *f_im);
@@ -43,54 +40,17 @@ int hypergeometric1f1_cont_fract_1_inv_ada_ (double *b_re, double *b_im, double 
 
 /*******************************************************************/
 
-struct quad_params
-{
-    complex<double> b;
-    complex<double> z;
-    int part;
-};
-
-/*******************************************************************/
-
-double exp1mt (double t, void *params)
-{
-quad_params *qp = (quad_params *)params;
-
-complex<double> ans = ((qp->b)-1.0) * exp((qp->z)*t) * pow(1.0-t, (qp->b)-2.0);
-
-if (qp->part == 0) return real(ans);
-else               return imag(ans);
-}
-
-/*******************************************************************/
-
 int hypergeometric1f1_quad_ (double *b_re, double *b_im, double *z_re, double *z_im, double *f_re, double *f_im)
 {
-//computes function 1F1(a,b,z) for a = 1 and complex b & z by quadrature
-//must be optimized: avoid memory allocation!
-
-gsl_set_error_handler_off ();
+//computes function 1F1(a,b,z) for a = 1 and complex b & z
 
 complex<double> b(*b_re, *b_im), z(*z_re, *z_im);
 
-size_t limit = 100;
-double epsabs = 1.0e-12, epsrel = 1.0e-12, err;
+fortnum_complex result;
+fortnum_hyperg_1f1_a1 (b, z, &result);
 
-gsl_integration_workspace *w = gsl_integration_workspace_alloc (limit);
-
-quad_params qp = {b,z};
-
-gsl_function F;
-F.function = &exp1mt;
-F.params = &qp;
-
-qp.part = 0;
-gsl_integration_qag (&F, 0.0, 1.0, epsabs, epsrel, limit, GSL_INTEG_GAUSS21, w, f_re, &err);
-
-qp.part = 1;
-gsl_integration_qag (&F, 0.0, 1.0, epsabs, epsrel, limit, GSL_INTEG_GAUSS21, w, f_im, &err);
-
-gsl_integration_workspace_free (w);
+*f_re = result.real();
+*f_im = result.imag();
 
 return 0;
 }
@@ -295,72 +255,20 @@ return 0;
 
 /*******************************************************************/
 
-int hypergeometric1f1_kummer_modified_0_accel_ (double *b_re, double *b_im, double *z_re, double *z_im, double *f_re, double *f_im)
-{
-//computes modified function 1F1m(a,b,z) for a = 1 and complex b & z by kummer series
-//1F1 = 1 + z/b + z^2/b/(b+1)*(1 + 1F1m)
-//do not use: gives unstable results with wrong error estimation!!!
-
-complex<double> b(*b_re, *b_im), z(*z_re, *z_im);
-
-int N = min(50, (int) ceil(-20.0/log10(abs(z/b))) + 5);
-
-complex<double> term[N];
-double t_re[N], t_im[N];
-
-int n = 0;
-term[n] = z/(b+3.0);
-t_re[n] = real(term[n]);
-t_im[n] = imag(term[n]);
-
-for (n=1; n<N; n++)
-{
-    term[n] = term[n-1]*(z/(b+(double)(n+3)));
-    t_re[n] = real(term[n]);
-    t_im[n] = imag(term[n]);
-}
-
-gsl_sum_levin_u_workspace *w = gsl_sum_levin_u_alloc (N);
-
-double err;
-
-gsl_sum_levin_u_accel (t_re, N, w, f_re, &err);
-if (err > 1.e-16)
-{
-    fprintf (stdout, "\nerr = %.16le sum_re = %.16le using %d terms", err, *f_re, w->terms_used);
-}
-
-gsl_sum_levin_u_accel (t_im, N, w, f_im, &err);
-if (err > 1.e-16)
-{
-    fprintf (stdout, "\nerr = %.16le sum_im = %.16le using %d terms", err, *f_im, w->terms_used);
-}
-
-gsl_sum_levin_u_free (w);
-
-return 0;
-}
-
-/*******************************************************************/
-
 int hypergeometric1f1_cont_fract_1_modified_0_ada_ (double *b_re, double *b_im, double *z_re, double *z_im, double *f_re, double *f_im)
 {
 //computes modified function 1F1m(a,b,z) for a = 1 and complex b & z by continued fraction
 //1F1 = 1 + z/b + z^2/b/(b+1)*(1 + 1F1m)
 
-complex<double> b(*b_re, *b_im), z(*z_re, *z_im), F11m(0.0, 0.0);
+complex<double> b(*b_re, *b_im), z(*z_re, *z_im);
 
-if (abs(z/b) < 0.1e0)
-{
-    hypergeometric1f1_kummer_modified_0_ada_ (b_re, b_im, z_re, z_im, f_re, f_im);
-}
-else //big numbers substraction - better to implement direct continued fraction!
-{
-    hypergeometric1f1_cont_fract_1_inv_ada_ (b_re, b_im, z_re, z_im, f_re, f_im);
-    F11m = ((*f_re) + (*f_im)*I - 1.0 - z/b)*(b/z)*((b + 1.0)/z) - 1.0;
-    *f_re = real(F11m);
-    *f_im = imag(F11m);
-}
+// fortnum computes F11m = 1F1(1;b+2;z) - 1 directly, avoiding the
+// cancellation of the |z/b|-dispatch reconstruction at small z.
+fortnum_complex result;
+fortnum_hyperg_1f1m_a1 (b, z, &result);
+
+*f_re = result.real();
+*f_im = result.imag();
 
 return 0;
 }

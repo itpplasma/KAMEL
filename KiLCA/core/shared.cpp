@@ -9,6 +9,7 @@
 
 #include "constants.h"
 #include "shared.h"
+#include "fortnum.h"
 
 /*******************************************************************/
 
@@ -58,6 +59,23 @@ const double *da = (const double *) a;
 const double *db = (const double *) b;
 
 return (*da > *db) - (*da < *db);
+}
+
+/*******************************************************************/
+
+void sort_index_doubles (size_t *perm, const double *x, size_t n)
+{
+int ni = (int) n;
+int *iperm = new int[ni];
+
+fortnum_argsort (x, ni, iperm);
+
+for (int k=0; k<ni; k++)
+{
+    perm[k] = (size_t) iperm[k];
+}
+
+delete [] iperm;
 }
 
 /*******************************************************************/

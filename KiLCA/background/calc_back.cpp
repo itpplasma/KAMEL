@@ -105,36 +105,38 @@ u[0] = B0*B0*g;
 
 double uval[1] = {u[0]}; //current u value
 
-// Advance u across each [x[i-1], x[i]] segment with the dop853 stepper at the
-// former gsl_odeiv_control_y_new(1e-16, 1e-16) tolerances and carry the
-// endpoint value forward, matching the segment-by-segment evolve loop.
-const int npts_cap = 100000;
-double *t_buf = new double[npts_cap];
-double *y_buf = new double[npts_cap];
+// Advance u continuously across the radial grid with the GSL-faithful rk8pd
+// stepper, carrying the adaptive step across each output point. This mirrors
+// the original gsl_odeiv_evolve_apply loop under
+// gsl_odeiv_control_y_new(1e-16, 1e-16): the background equilibrium ODE is
+// near-resonant at some grid points, where a per-segment reset (or a different
+// 8(7) error norm) drifts from the recorded golden; one continuous rk8pd evolve
+// reproduces the golden bit-for-bit. The starting step matches the golden:
+// h0 = x[1] - x[0], the first segment width.
+void *ode = fortnum_rk8pd_create (&rhs_back_fn, Neq, x[1] - rc,
+                                  1.0e-16, 1.0e-16, 100000, this);
+if (!ode)
+{
+    fprintf (stderr, "\ncalculate_equilibrium: failed to create ODE evolver");
+    exit (1);
+}
+
+double rcur = rc;
 
 for (int i = 1; i < dimx; ++i)
 {
-    double rf = x[i];
-    int npts = 0;
-
-    int status = fortnum_ode_integrate_dop (&rhs_back_fn, Neq, rc, rf, uval,
-                    1.0e-16, 1.0e-16, 100000, npts_cap, t_buf, y_buf, &npts,
-                    this);
+    int status = fortnum_rk8pd_integrate_to (ode, &rcur, x[i], uval);
 
     if (status != FORTNUM_OK)
     {
-        fprintf (stderr, "\ncalculate_equilibrium: ODE solver failed at r = %le (status=%d)", rc, status);
+        fprintf (stderr, "\ncalculate_equilibrium: ODE solver failed at r = %le (status=%d)", rcur, status);
         exit (1);
     }
 
-    uval[0] = y_buf[npts-1];
     u[i] = uval[0];
-
-    rc = rf;
 }
 
-delete [] t_buf;
-delete [] y_buf;
+fortnum_rk8pd_destroy (ode);
 
 if (sd->bs->flag_debug > 1) //save u if needed
 {

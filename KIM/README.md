@@ -12,7 +12,7 @@ This is the integral plasma response model based on the code and model Kinetic L
 
 ### Auto-fetched Dependencies
 The following are automatically downloaded during build:
-- **ZEAL** - Complex root finder ([Kravanja et al., 2000](#references))
+- **fortnum** - Numerical core: complex region-root finder, quadrature, ODE, special functions
 - **QUADPACK** - Adaptive quadrature (from Netlib)
 - **libcerf** - Complex error function
 - **SLATEC** - Mathematical library
@@ -30,7 +30,7 @@ To compile the code:
 make
 ```
 
-The build process downloads the ZEAL package (complex root finder) which requires a working LAPACK installation.
+The complex region-root finder behind `WKB_dispersion_solver='ZEAL'` is provided by fortnum and requires a working LAPACK installation.
 
 ## WKB Dispersion Solver
 
@@ -49,10 +49,10 @@ Solves the kinetic dispersion relation D(k_r) = 0 for complex radial wavenumber 
 
 **Muller** (recommended): Iterative root finder using previous root as initial guess. Reliable branch tracking.
 
-**ZEAL**: Contour integration + Newton refinement. Per-branch tracking with configurable parameters in `zeal_input.f90`:
-- `MAX_TRACKED_BRANCHES = 4` - Maximum simultaneous branches
-- `BRANCH_SEARCH_HALFWIDTH = 1.5` - Search window per branch
-- `BROAD_SEARCH_HALFWIDTH = 5.0` - Initial discovery window
+**ZEAL**: Contour integration + Newton refinement via fortnum `complex_region_roots`. Per-branch tracking with configurable parameters in the `&wkb_dispersion` namelist:
+- `WKB_max_tracked_branches = 4` - Maximum simultaneous branches
+- `WKB_branch_search_halfwidth = 1.5` - Search window per branch
+- `WKB_broad_search_halfwidth = 5.0` - Initial discovery window
 
 ### Output
 

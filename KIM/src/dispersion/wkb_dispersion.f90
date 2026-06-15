@@ -415,12 +415,13 @@ module rt_WKB_dispersion_m
         ! Additional branches within this window might be found. Set 'do_broad_search = true' in
         ! KIM_config.nml to perform a broad search at certain grid points to find new branches.
         !-----------------------------------------------------------------------
-        use Zeal_Module
         use KIM_kinds_m, only: dp
-        use Function_Input_Module, only: rg_index, test_FDF_derivative, init_dispersion_mode
+        use Function_Input_Module, only: rg_index, test_FDF_derivative, &
+            init_dispersion_mode, dispersion_region_fn
+        use fortnum_roots_complex, only: complex_region_roots
+        use fortnum_status, only: fortnum_status_t, FORTNUM_OK
         use grid_m, only: rg_grid
         use IO_collection_m, only: write_tracked_roots
-        use Zeal_Input_Module, only: set_zeal_search_region
         use config_m, only: WKB_max_tracked_branches, WKB_branch_search_halfwidth, &
             WKB_broad_search_halfwidth, WKB_broad_search_interval, WKB_root_tolerance, &
             WKB_dispersion_mode, dispersion_output_path, WKB_solve_for_kr_squared
@@ -428,11 +429,18 @@ module rt_WKB_dispersion_m
         implicit none
 
         integer :: j, i, b, k
-        integer :: totalnumber, distinctnumber, refinednumber
-        integer, dimension(:), pointer            :: multiplicities => null()
-        logical, dimension(:), pointer            :: refinement_ok => null()
-        complex(kind=dp), dimension(:), pointer   :: zeros => null()
-        complex(kind=dp), dimension(:), pointer   :: fzeros => null()
+        integer :: distinctnumber
+
+        ! ZEAL M parameter: max zeros (counting multiplicity) per subregion
+        ! before the region finder bisects. Matches the historical Zeal_Input M.
+        integer, parameter :: M_MAX = 5
+
+        ! Results of one region search (allocatable, reset by each call).
+        complex(dp), allocatable :: zeros(:)
+        complex(dp), allocatable :: fzeros(:)
+        integer,     allocatable :: multiplicities(:)
+        type(fortnum_status_t)   :: rstatus
+        complex(dp)              :: ll, ur
 
         ! Per-branch tracking data
         complex(dp), allocatable :: branch_center(:)      ! Last known root position for each branch
@@ -543,19 +551,23 @@ module rt_WKB_dispersion_m
                 ! Set small search window centered on this branch's last position
                 search_center_re = real(branch_center(b), dp)
                 search_center_im = aimag(branch_center(b))
-                call set_zeal_search_region(search_center_re, search_center_im, WKB_branch_search_halfwidth)
+                ll = cmplx(search_center_re - WKB_branch_search_halfwidth, &
+                           search_center_im - WKB_branch_search_halfwidth, dp)
+                ur = cmplx(search_center_re + WKB_branch_search_halfwidth, &
+                           search_center_im + WKB_branch_search_halfwidth, dp)
 
                 print *, '  Branch ', b, ': searching near (', search_center_re, ',', search_center_im, ')'
 
-                ! Run ZEAL
-                nullify(zeros, fzeros, multiplicities, refinement_ok)
-                call zeal(totalnumber, distinctnumber, zeros, fzeros, multiplicities, refinednumber, refinement_ok)
+                ! Run the fortnum region-root finder over the rectangle [ll, ur].
+                call complex_region_roots(dispersion_region_fn, ll, ur, &
+                    zeros, fzeros, multiplicities, distinctnumber, rstatus, m_max=M_MAX)
+                if (rstatus%code /= FORTNUM_OK) distinctnumber = 0
 
                 ! Find best valid root (smallest |f(z)|)
                 best_idx = 0
-                if (distinctnumber > 0 .and. associated(zeros)) then
+                if (distinctnumber > 0 .and. allocated(zeros)) then
                     do i = 1, distinctnumber
-                        if (abs(fzeros(i)) < WKB_root_tolerance .or. refinement_ok(i)) then
+                        if (abs(fzeros(i)) < WKB_root_tolerance) then
                             if (best_idx == 0) then
                                 best_idx = i
                             else if (abs(fzeros(i)) < abs(fzeros(best_idx))) then
@@ -621,21 +633,25 @@ module rt_WKB_dispersion_m
                     search_center_im = -1.0_dp  ! Default center
                 end if
 
-                call set_zeal_search_region(search_center_re, search_center_im, WKB_broad_search_halfwidth)
+                ll = cmplx(search_center_re - WKB_broad_search_halfwidth, &
+                           search_center_im - WKB_broad_search_halfwidth, dp)
+                ur = cmplx(search_center_re + WKB_broad_search_halfwidth, &
+                           search_center_im + WKB_broad_search_halfwidth, dp)
                 print *, '  Broad search centered at (', search_center_re, ',', search_center_im, &
                     '), half-width = ', WKB_broad_search_halfwidth
 
-                ! Run ZEAL
-                nullify(zeros, fzeros, multiplicities, refinement_ok)
-                call zeal(totalnumber, distinctnumber, zeros, fzeros, multiplicities, refinednumber, refinement_ok)
+                ! Run the fortnum region-root finder over the broad rectangle.
+                call complex_region_roots(dispersion_region_fn, ll, ur, &
+                    zeros, fzeros, multiplicities, distinctnumber, rstatus, m_max=M_MAX)
+                if (rstatus%code /= FORTNUM_OK) distinctnumber = 0
 
                 print *, '  Broad search found ', distinctnumber, ' zeros'
 
                 ! Collect valid roots
                 n_temp_valid = 0
-                if (distinctnumber > 0 .and. associated(zeros)) then
+                if (distinctnumber > 0 .and. allocated(zeros)) then
                     do i = 1, min(distinctnumber, 20)
-                        if (abs(fzeros(i)) < WKB_root_tolerance .or. refinement_ok(i)) then
+                        if (abs(fzeros(i)) < WKB_root_tolerance) then
                             n_temp_valid = n_temp_valid + 1
                             temp_zeros(n_temp_valid) = zeros(i)
                             temp_fzeros(n_temp_valid) = fzeros(i)

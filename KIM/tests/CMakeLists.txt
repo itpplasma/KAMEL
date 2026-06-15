@@ -53,3 +53,30 @@ set_target_properties(test_ampere_matrices PROPERTIES
 target_link_libraries(test_ampere_matrices KIM_lib "${KiLCA_lib_path}" lapack cerf ddeabm slatec)
 add_test(NAME test_ampere_matrices
          COMMAND ${CMAKE_BINARY_DIR}/tests/test_ampere_matrices.x)
+
+# Pure-utility unit tests (Lagrange coefficients, binary search, index lookup,
+# equidistant grid generation). Full math link set: pulling these KIM objects
+# drags transitive deps (W2_arr) needing hypergeometric routines from KiLCA/slatec.
+add_executable(test_plag_coeff ${CMAKE_SOURCE_DIR}/KIM/tests/test_plag_coeff.f90)
+set_target_properties(test_plag_coeff PROPERTIES
+                        OUTPUT_NAME test_plag_coeff.x
+                        RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/tests/")
+target_link_libraries(test_plag_coeff KIM_lib "${KiLCA_lib_path}" lapack cerf ddeabm slatec)
+add_test(NAME test_plag_coeff
+         COMMAND ${CMAKE_BINARY_DIR}/tests/test_plag_coeff.x)
+
+add_executable(test_findIndex ${CMAKE_SOURCE_DIR}/KIM/tests/test_findIndex.f90)
+set_target_properties(test_findIndex PROPERTIES
+                        OUTPUT_NAME test_findIndex.x
+                        RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/tests/")
+target_link_libraries(test_findIndex KIM_lib "${KiLCA_lib_path}" lapack cerf ddeabm slatec)
+add_test(NAME test_findIndex
+         COMMAND ${CMAKE_BINARY_DIR}/tests/test_findIndex.x)
+
+add_executable(test_grid_equidistant ${CMAKE_SOURCE_DIR}/KIM/tests/test_grid_equidistant.f90)
+set_target_properties(test_grid_equidistant PROPERTIES
+                        OUTPUT_NAME test_grid_equidistant.x
+                        RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/tests/")
+target_link_libraries(test_grid_equidistant KIM_lib "${KiLCA_lib_path}" lapack cerf ddeabm slatec)
+add_test(NAME test_grid_equidistant
+         COMMAND ${CMAKE_BINARY_DIR}/tests/test_grid_equidistant.x)

@@ -1,12 +1,25 @@
 CONFIG ?= Release
 INSTALL_KIM_SYMLINK ?= OFF
 
+# Prevent make from auto-importing these as make variables and leaking
+# them into cmake via the environment.  Pass explicitly on the command
+# line with LIBNEO_REF=<ref> or LIBNEO_PATH=<dir> to override.
+unexport LIBNEO_REF LIBNEO_BRANCH LIBNEO_PATH
+
+_LIBNEO_DEFS :=
+ifneq ($(LIBNEO_REF),)
+  _LIBNEO_DEFS += -DLIBNEO_REF=$(LIBNEO_REF)
+endif
+ifneq ($(LIBNEO_PATH),)
+  _LIBNEO_DEFS += -DLIBNEO_PATH=$(LIBNEO_PATH)
+endif
+
 .PHONY: all ninja test clean KIM KiLCA QL-Balance PreProc install install-kim ctest golden pytest
 
 all: ninja
 
 build/build.ninja:
-	cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=$(CONFIG) -DCMAKE_EXPORT_COMPILE_COMMANDS=ON -DINSTALL_KIM_SYMLINK=$(INSTALL_KIM_SYMLINK)
+	cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=$(CONFIG) -DCMAKE_EXPORT_COMPILE_COMMANDS=ON -DINSTALL_KIM_SYMLINK=$(INSTALL_KIM_SYMLINK) $(_LIBNEO_DEFS)
 
 ninja: build/build.ninja
 	cmake --build build --config $(CONFIG)

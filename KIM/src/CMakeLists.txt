@@ -16,7 +16,6 @@ add_library(KIM_lib STATIC "${KIM_setup}"
                         "${KIM_WKB_dispersion}"
                         "${KIM_asymptotics}"
                         "${KIM_electromagnetic}"
-                        "${external_zeal}"
 )
 
 set_target_properties(KIM_lib PROPERTIES
@@ -67,8 +66,6 @@ add_library(quadpack_netlib STATIC
     ${QUADPACK_DIR}/dqk15i.f
 )
 set_target_properties(quadpack_netlib PROPERTIES POSITION_INDEPENDENT_CODE ON)
-# Add dqagx from zeal (not available on netlib, required by zeros.f90)
-target_sources(quadpack_netlib PRIVATE ${CMAKE_BINARY_DIR}/_deps/zeal-src/dqagx.f)
 target_link_libraries(KIM_lib PUBLIC quadpack_netlib)
 
 # Optionally provide minimal XERROR compatibility if SLATEC doesn't provide it

@@ -1,16 +1,15 @@
 CONFIG ?= Release
 INSTALL_KIM_SYMLINK ?= OFF
 
-# Prevent make from auto-importing these as make variables and leaking
-# them into cmake via the environment.  Pass explicitly on the command
-# line with LIBNEO_REF=<ref> or LIBNEO_PATH=<dir> to override.
-unexport LIBNEO_REF LIBNEO_BRANCH LIBNEO_PATH
+# Honor LIBNEO_REF/LIBNEO_PATH only when passed on the make command line; an
+# ambient value from the shell is ignored so it cannot change the libneo fetch.
+unexport LIBNEO_REF LIBNEO_PATH
 
 _LIBNEO_DEFS :=
-ifneq ($(LIBNEO_REF),)
+ifeq ($(origin LIBNEO_REF),command line)
   _LIBNEO_DEFS += -DLIBNEO_REF=$(LIBNEO_REF)
 endif
-ifneq ($(LIBNEO_PATH),)
+ifeq ($(origin LIBNEO_PATH),command line)
   _LIBNEO_DEFS += -DLIBNEO_PATH=$(LIBNEO_PATH)
 endif
 

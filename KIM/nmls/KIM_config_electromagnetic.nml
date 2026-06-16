@@ -18,7 +18,7 @@
 
 &wkb_dispersion
     WKB_dispersion_mode = 'KIM'
-    WKB_dispersion_solver = 'ZEAL'
+    WKB_dispersion_solver = 'Muller'
     WKB_solve_for_kr_squared = .false.
     WKB_max_tracked_branches = 4
     WKB_branch_search_halfwidth = 1.5

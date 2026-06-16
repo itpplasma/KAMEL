@@ -80,18 +80,3 @@ set(KIM_electromagnetic electromagnetic/electromagnetic_kernel.f90
                         electromagnetic/ampere_matrices.f90
                         electromagnetic/electromagnetic_solver.f90
 )
-
-# Keep Zeal sources for root finding, but do not use its QUADPACK copies
-# Use local modified copy of zeal_input.f90 instead of original form Zeal
-set(external_dir ${CMAKE_BINARY_DIR}/_deps/zeal-src/)
-set(external_zeal
-    ${external_dir}/prec.f90
-    dispersion/zeal_input.f90
-    ${external_dir}/integr_input.f90
-    ${external_dir}/error.f90
-    ${external_dir}/quad.f90
-    ${external_dir}/split.f90
-    ${external_dir}/refine.f90
-    ${external_dir}/zeal.f90
-    ${external_dir}/zeros.f90
-    )

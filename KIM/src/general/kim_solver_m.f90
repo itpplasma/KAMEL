@@ -171,17 +171,26 @@ contains
         res = self%last
     end function solver_results
 
-    !> Release run state: reset the field buffers and equilibrium background
-    !> (so a later init starts clean), drop the run-type, clear the flags.
+    !> Release run state: reset the field buffers and the full equilibrium
+    !> background (so a later init starts clean), drop the run-type, clear the
+    !> flags. The handle owns the complete equilibrium teardown that a re-init
+    !> requires: calculate_equil bare-allocates these arrays, so leaving any of
+    !> them allocated would crash the next init (the teardown the QL-Balance
+    !> adapter used to hand-code in deallocate_equilibrium_arrays).
     subroutine solver_finalize(self)
-        use equilibrium_m, only: B0, B0z, B0th
+        use equilibrium_m, only: B0, B0z, B0th, hz, hth, equil_grid, u, dpress_prof
 
         class(kim_solver_t), intent(inout) :: self
 
         call reset_fields()
-        if (allocated(B0))   deallocate(B0)
-        if (allocated(B0z))  deallocate(B0z)
-        if (allocated(B0th)) deallocate(B0th)
+        if (allocated(B0))          deallocate(B0)
+        if (allocated(B0z))         deallocate(B0z)
+        if (allocated(B0th))        deallocate(B0th)
+        if (allocated(hz))          deallocate(hz)
+        if (allocated(hth))         deallocate(hth)
+        if (allocated(equil_grid))  deallocate(equil_grid)
+        if (allocated(u))           deallocate(u)
+        if (allocated(dpress_prof)) deallocate(dpress_prof)
         if (allocated(self%run_type)) deallocate(self%run_type)
         self%is_setup = .false.
         self%has_solved = .false.

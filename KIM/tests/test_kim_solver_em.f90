@@ -82,6 +82,21 @@ program test_kim_solver_em
     call check('results mode == requested (m,n)', &
                res%m == m_mode .and. res%n == n_mode, all_passed)
 
+    ! Background quantities the QL-Balance adapter reads from results() --
+    ! guard them so the Phase-2 migration's background reads stay covered.
+    call check('plasma grid populated', &
+               allocated(res%r_plasma) .and. size(res%r_plasma) > 1, all_passed)
+    if (allocated(res%r_plasma)) then
+        call check_bg('kp',   res%kp,   size(res%r_plasma), all_passed)
+        call check_bg('ks',   res%ks,   size(res%r_plasma), all_passed)
+        call check_bg('om_E', res%om_E, size(res%r_plasma), all_passed)
+        call check_bg('nu_e', res%nu_e, size(res%r_plasma), all_passed)
+        call check_bg('nu_i', res%nu_i, size(res%r_plasma), all_passed)
+        call check_bg('B0',   res%B0,   size(res%r_plasma), all_passed)
+        call check_bg('B0z',  res%B0z,  size(res%r_plasma), all_passed)
+        call check_bg('B0th', res%B0th, size(res%r_plasma), all_passed)
+    end if
+
     call kim%finalize()
     call done(all_passed)
 
@@ -98,6 +113,19 @@ contains
             passed = .false.
         end if
     end subroutine check
+
+    subroutine check_bg(name, arr, n_plasma, passed)
+        !> A background quantity must be allocated on the plasma grid and finite.
+        character(*), intent(in) :: name
+        real(dp), allocatable, intent(in) :: arr(:)
+        integer, intent(in) :: n_plasma
+        logical, intent(inout) :: passed
+        logical :: ok
+        ok = allocated(arr)
+        if (ok) ok = size(arr) == n_plasma
+        if (ok) ok = all(ieee_is_finite(arr))
+        call check('background '//name//' populated, sized, finite', ok, passed)
+    end subroutine check_bg
 
     subroutine done(passed)
         logical, intent(in) :: passed

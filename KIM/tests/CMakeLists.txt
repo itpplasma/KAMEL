@@ -89,3 +89,16 @@ set_target_properties(test_kim_solver PROPERTIES
 target_link_libraries(test_kim_solver KIM_lib "${KiLCA_lib_path}" lapack cerf ddeabm slatec)
 add_test(NAME test_kim_solver
          COMMAND ${CMAKE_BINARY_DIR}/tests/test_kim_solver.x)
+
+# End-to-end keystone: a real electromagnetic solve through the kim_solver seam.
+add_executable(test_kim_solver_em ${CMAKE_SOURCE_DIR}/KIM/tests/test_kim_solver_em.f90)
+set_target_properties(test_kim_solver_em PROPERTIES
+                        OUTPUT_NAME test_kim_solver_em.x
+                        RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/tests/")
+target_link_libraries(test_kim_solver_em KIM_lib "${KiLCA_lib_path}" lapack cerf ddeabm slatec)
+configure_file(${CMAKE_SOURCE_DIR}/KIM/tests/test_data/KIM_config_em_small.nml
+               ${CMAKE_BINARY_DIR}/tests/KIM_config_em_small.nml COPYONLY)
+add_test(NAME test_kim_solver_em
+         COMMAND ${CMAKE_BINARY_DIR}/tests/test_kim_solver_em.x)
+set_tests_properties(test_kim_solver_em PROPERTIES
+                     WORKING_DIRECTORY ${CMAKE_BINARY_DIR}/tests/)

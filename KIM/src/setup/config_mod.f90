@@ -39,6 +39,9 @@ module config_m
     integer :: log_level = 3         ! maps to LVL_INFO
     integer :: data_verbosity = 1    ! standard output
     logical :: calculate_asymptotics ! enable/disable asymptotic calculations
+    ! Write kim_diagnostics.dat (dqle22, Ipar, Ipar_e) regardless of
+    ! hdf5_output; this flat file is the scan driver's interface.
+    logical :: write_diagnostics_dat = .false.
 
     character(256) :: nml_config_path = "./KIM_config.nml" ! path to the namelist file
 

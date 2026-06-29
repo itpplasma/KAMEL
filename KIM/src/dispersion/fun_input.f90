@@ -4,7 +4,7 @@ MODULE Function_Input_Module
     ! Module for dispersion function input.
     ! Keep this name, since ZEAL uses it.
 
-    USE Precision_Module, only: DP
+    USE KIM_kinds_m, only: DP
 
     IMPLICIT NONE
 

@@ -54,12 +54,17 @@
  viscosity_factor = 1 ,
  misalign_diffusion = .false. ,
  equil_path = '/equil_r_q_psi.dat' ,
- type_of_run = 'SingleStep'
- wave_code = 'KiLCA'
- kim_config_path = './KIM_config.nml'
- kim_profiles_from_balance = .true.
- kim_n_modes = 2
- kim_m_list = 6, -6
- kim_n_list = 2, 2
+ type_of_run = 'SingleStep' ,
+ wave_code = 'KiLCA' ,
+ kim_config_path = './KIM_config.nml' ,
+ kim_profiles_from_balance = .true. ,
+ kim_n_modes = 2 ,
+ kim_m_list = 6, -6 ,
+ kim_n_list = 2, 2 ,
+ I_par_toroidal = 0.0 ,
+ jpar_method = 'conductivity' ,
+ set_constant_time_step = .false. ,
+ constant_time_step = 0.5 ,
+ urelax = 0.0 ,
  ihdf5IO = 1
 /

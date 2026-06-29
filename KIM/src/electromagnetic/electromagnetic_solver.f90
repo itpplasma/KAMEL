@@ -56,6 +56,7 @@ module rt_electromagnetic_m
         use KIM_kinds_m, only: dp
         use species_m, only: plasma
         use logger_m, only: log_info, log_debug, log_error
+        use kim_diagnostics_m, only: compute_and_write_diagnostics
 
         implicit none
 
@@ -310,6 +311,10 @@ module rt_electromagnetic_m
         call calculate_charge_density(rho, EBdat)
         call write_complex_profile_abs(xl_grid%xb, rho, N, "/fields/rho", &
             'Charge density from self-consistent solve', 'statC/cm^3')
+
+        ! Scalar diagnostics: D_ql,e22 at the resonant surface and
+        ! integrated parallel currents (no-op if outputs disabled)
+        call compute_and_write_diagnostics()
 
         ! Cleanup
         deallocate(A_block, b_block, A_Phi, laplace_perp, alpha, hz_xl, hth_xl, ks_xl)

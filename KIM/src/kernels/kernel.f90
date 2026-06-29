@@ -419,8 +419,11 @@ module kernel_m
                     rhoT_max = max(rhoT_max, maxval(plasma%spec(sigma)%rho_L_cc))
                 end if
             end do
-            ! dmax_global = alpha * rhoT_max * sqrt(max(log(1.0d0/tau), 0.0d0))
-            dmax_global = tau * rhoT_max
+            ! BUGFIX 2026-06-16: restore the Larmor-taper band-limit distance. The
+            ! line `dmax_global = tau * rhoT_max` (committed 2026-01-29) made dmax_global
+            ! ~ 1e-6*rho ~ 2e-7 cm (<< grid dr), collapsing the kernel band to diagonal+1
+            ! and killing the ion FLR off-diagonal coupling.
+            dmax_global = alpha * rhoT_max * sqrt(max(log(1.0d0/tau), 0.0d0))
         end block
 
         ! Calculate actual number of iterations accounting for band-limiting
@@ -908,8 +911,11 @@ module kernel_m
                     rhoT_max = max(rhoT_max, maxval(plasma%spec(sigma)%rho_L_cc))
                 end if
             end do
-            ! dmax_global = alpha * rhoT_max * sqrt(max(log(1.0d0/tau), 0.0d0))
-            dmax_global = tau * rhoT_max
+            ! BUGFIX 2026-06-16: restore the Larmor-taper band-limit distance. The
+            ! line `dmax_global = tau * rhoT_max` (committed 2026-01-29) made dmax_global
+            ! ~ 1e-6*rho ~ 2e-7 cm (<< grid dr), collapsing the kernel band to diagonal+1
+            ! and killing the ion FLR off-diagonal coupling.
+            dmax_global = alpha * rhoT_max * sqrt(max(log(1.0d0/tau), 0.0d0))
         end block
 
         ! Calculate actual number of iterations accounting for band-limiting

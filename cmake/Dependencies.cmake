@@ -10,7 +10,6 @@ include(FetchLapack)
 include(FetchNetcdf)
 include(FetchSuiteSparse)
 include(FetchSUNDIALS)
-include(FetchZeal)
 include(FetchFortnum)
 
 # QL-Balance sparse module (shared dependency)

@@ -15,6 +15,8 @@ module profile_input_m
     private
 
     public :: prepare_profiles
+    ! I/O-free seams exercised by KIM/tests/test_profile_input*.f90
+    public :: classify_coordinate_type, calculate_derivative, compute_er_force_balance
 
     ! Coordinate detection threshold
     real(dp), parameter :: COORD_THRESHOLD = 2.0_dp
@@ -91,15 +93,28 @@ contains
         close(iunit)
 
         ! Determine coordinate type
-        if (max_r > COORD_THRESHOLD) then
-            detected_type = 'r_eff'
+        detected_type = classify_coordinate_type(max_r)
+        if (trim(detected_type) == 'r_eff') then
             write(*,*) 'Auto-detected coordinate type: r_eff (max_r = ', max_r, ' cm)'
         else
-            detected_type = 'sqrt_psiN'
             write(*,*) 'Auto-detected coordinate type: sqrt_psiN (max_r = ', max_r, ')'
         end if
 
     end subroutine detect_coordinate_type
+
+    function classify_coordinate_type(max_r) result(detected_type)
+        !> Pure coordinate-type decision: max_r above COORD_THRESHOLD => 'r_eff',
+        !> otherwise 'sqrt_psiN'. Shared by detect_coordinate_type and the tests.
+        real(dp), intent(in) :: max_r
+        character(20) :: detected_type
+
+        if (max_r > COORD_THRESHOLD) then
+            detected_type = 'r_eff'
+        else
+            detected_type = 'sqrt_psiN'
+        end if
+
+    end function classify_coordinate_type
 
     subroutine run_preprocessing()
         !> Run profile_preprocessor for sqrt_psiN -> r_eff transformation
@@ -316,7 +331,6 @@ contains
         implicit none
 
         real(dp), allocatable :: r(:), n(:), Ti(:), Vz(:), q(:), Er(:)
-        real(dp), allocatable :: dn_dr(:), dTi_dr(:)
         integer :: npts, i, iunit
         character(256) :: filename
         logical :: vz_exists
@@ -337,32 +351,9 @@ contains
             Vz = 0.0_dp
         end if
 
-        ! Calculate derivatives
-        allocate(dn_dr(npts), dTi_dr(npts), Er(npts))
-        call calculate_derivative(r, n, dn_dr, npts)
-        call calculate_derivative(r, Ti, dTi_dr, npts)
-
-        ! Calculate Er from radial force balance (CGS units)
-        ! From momentum balance: E_r = (T_i/e_i*n_i)*dn_i/dr + ((1-k)/e_i)*dT_i/dr + r*B0*Vtor/(c*q*R0)
-        ! With k=0 (no poloidal rotation):
-        ! E_r = (T_i*ev)/(e*n)*dn/dr + (ev/e)*dT/dr + r*B0*Vz/(c*q*R0)
-        ! Ti is in eV, convert to erg using ev = 1.6022e-12 erg/eV
-        ! e_charge = 4.803e-10 statcoulomb (CGS)
-        ! Er in statV/cm
-        do i = 1, npts
-            if (abs(n(i)) > 1.0e-20_dp) then
-                ! Term 1: (Ti*ev)/(e*n) * dn/dr (density gradient contribution)
-                Er(i) = (Ti(i) * ev / (e_charge * n(i))) * dn_dr(i)
-                ! Term 2: (ev/e) * dTi/dr (temperature gradient contribution, k=0)
-                Er(i) = Er(i) + (ev / e_charge) * dTi_dr(i)
-                ! Term 3: (r*B0*Vz)/(c*q*R0) (toroidal rotation contribution)
-                if (abs(q(i)) > 1.0e-10_dp .and. abs(R0) > 1.0e-10_dp) then
-                    Er(i) = Er(i) + (r(i) * btor * Vz(i)) / (sol * q(i) * R0)
-                end if
-            else
-                Er(i) = 0.0_dp
-            end if
-        end do
+        ! Calculate Er from radial force balance (CGS units), k=0 (no V_pol)
+        allocate(Er(npts))
+        call compute_er_force_balance(r, n, Ti, Vz, q, btor, R0, Er)
 
         ! Write to Er_no_Vpol.dat
         filename = trim(profile_location) // '/Er_no_Vpol.dat'
@@ -382,9 +373,45 @@ contains
         end do
         close(iunit)
 
-        deallocate(r, n, Ti, Vz, q, Er, dn_dr, dTi_dr)
+        deallocate(r, n, Ti, Vz, q, Er)
 
     end subroutine calculate_er_from_force_balance
+
+    subroutine compute_er_force_balance(r, n, Ti, Vz, q, btor_in, R0_in, Er)
+        !> Radial force-balance E_r (k=0, no poloidal rotation), CGS units (statV/cm):
+        !>   E_r = (T_i*ev)/(e*n) * dn/dr + (ev/e) * dT_i/dr + r*B0*Vz/(c*q*R0)
+        !> Ti in eV (ev converts to erg); e_charge in statcoulomb.
+        !> I/O-free; shared by calculate_er_from_force_balance and the tests.
+        real(dp), intent(in) :: r(:), n(:), Ti(:), Vz(:), q(:)
+        real(dp), intent(in) :: btor_in, R0_in
+        real(dp), intent(out) :: Er(:)
+
+        real(dp), allocatable :: dn_dr(:), dTi_dr(:)
+        integer :: npts, i
+
+        npts = size(r)
+        allocate(dn_dr(npts), dTi_dr(npts))
+        call calculate_derivative(r, n, dn_dr, npts)
+        call calculate_derivative(r, Ti, dTi_dr, npts)
+
+        do i = 1, npts
+            if (abs(n(i)) > 1.0e-20_dp) then
+                ! Term 1: (Ti*ev)/(e*n) * dn/dr (density gradient contribution)
+                Er(i) = (Ti(i) * ev / (e_charge * n(i))) * dn_dr(i)
+                ! Term 2: (ev/e) * dTi/dr (temperature gradient contribution, k=0)
+                Er(i) = Er(i) + (ev / e_charge) * dTi_dr(i)
+                ! Term 3: (r*B0*Vz)/(c*q*R0) (toroidal rotation contribution)
+                if (abs(q(i)) > 1.0e-10_dp .and. abs(R0_in) > 1.0e-10_dp) then
+                    Er(i) = Er(i) + (r(i) * btor_in * Vz(i)) / (sol * q(i) * R0_in)
+                end if
+            else
+                Er(i) = 0.0_dp
+            end if
+        end do
+
+        deallocate(dn_dr, dTi_dr)
+
+    end subroutine compute_er_force_balance
 
     subroutine read_profile_data(filename, r, data, npts)
         !> Read two-column profile data file

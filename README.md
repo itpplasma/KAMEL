@@ -33,7 +33,6 @@ The following are automatically downloaded and built if not found on the system:
 - **SuiteSparse** - Sparse matrix operations (UMFPACK)
 - **SUNDIALS** - Numerical differential equation solvers
 - **NetCDF** - Network Common Data Form (with Fortran bindings)
-- **Zeal** - Mathematical special functions (zero finding)
 - **LAPACK/BLAS** - Fallback if not found on system
 
 ### Bundled Libraries (built from source)
@@ -111,13 +110,6 @@ make test
 - `/PreProc/` - Preprocessing utilities (fouriermodes, neo-2 templates)
 - `/python/` - Python interface (KAMELpy) for all codes
 - `/common/` - Shared utilities: equilibrium handling, math libraries, logger
-
-## References
-
-P. Kravanja, M. Van Barel, O. Ragos, M.N. Vrahatis, F.A. Zafiropoulos,
-*ZEAL: A mathematical software package for computing zeros of analytic functions*,
-Computer Physics Communications **124** (2000) 212-232.
-[doi:10.1016/S0010-4655(99)00429-4](https://doi.org/10.1016/S0010-4655(99)00429-4)
 
 ## Contributing
 

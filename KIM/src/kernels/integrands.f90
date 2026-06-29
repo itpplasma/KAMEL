@@ -256,15 +256,4 @@ module integrands_gauss_m
 
     end subroutine
 
-    function calc_xbar(x,xp) result(xbar)
-
-        implicit none
-
-        real(dp), intent(in) :: x, xp
-        real(dp) :: xbar
-
-        xbar = 0.5d0 * (xp + x)
-
-    end function
-
 end module integrands_gauss_m

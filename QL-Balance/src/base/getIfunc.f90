@@ -1,4 +1,13 @@
+module getIfunc_config_m
+    ! Runtime flag for the energy-conservation correction in getIfunc.
+    ! Default .true. (energy-conserving). Standalone QL-Balance, KIM,
+    ! and other consumers can override via their own namelist parsing.
+    implicit none
+    logical :: boole_energy_conservation = .true.
+end module getIfunc_config_m
+
 subroutine getIfunc(x1, x2, symbI)
+    use getIfunc_config_m, only: boole_energy_conservation
     integer, parameter :: mnmax = 3
     integer :: m, n
     double precision, intent(in) :: x1, x2
@@ -28,7 +37,7 @@ subroutine getIfunc(x1, x2, symbI)
         ! collisional case:
         call W2_arr(x1, x2, Imn)
 
-        if (.true.) then
+        if (boole_energy_conservation) then
             ! energy conservation:
             denom = (1.d0, 0.d0) - Imn(0, 0) + (2.d0, 0.d0)*Imn(2, 0) - Imn(2, 2)
             do m = 0, 3

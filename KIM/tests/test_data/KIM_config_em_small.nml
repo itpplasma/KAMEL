@@ -1,6 +1,7 @@
-! Electromagnetic run type configuration
-! Solves coupled Poisson-Ampere block system for Phi and Br self-consistently
-! All physical quantities in cgs units
+! Small electromagnetic config for the kim_solver end-to-end keystone test.
+! Same physics setup as nmls/KIM_config_electromagnetic.nml, but on a reduced
+! grid (64 vs 512) with asymptotics/output off, so a full EM solve runs in
+! seconds. Profiles are injected in-memory by the test (profile files unused).
 
 &kim_config
     number_of_ion_species = 1
@@ -30,13 +31,12 @@
 
 &kim_io
     profile_location = './profiles/'
-    output_path = './out/'
+    output_path = './out_em_small/'
     hdf5_input = .false.
     hdf5_output = .false.
-    fdebug = 1
-    fstatus = 1
-    fdiagnostics = 0
-    calculate_asymptotics = .true.
+    log_level = 1
+    data_verbosity = 0
+    calculate_asymptotics = .false.
     h5_out_file = ''
 /
 
@@ -64,8 +64,8 @@
     ampl_res = 15.0
     hrmax_scaling = 1.0
 
-    l_space_dim = 512
-    rg_space_dim = 512
+    l_space_dim = 64
+    rg_space_dim = 64
 
     grid_spacing_rg = "equidistant"
     grid_spacing_xl = "equidistant"
@@ -83,9 +83,9 @@
 
     kernel_taper_skip_threshold = 1.0d-6
     Larmor_skip_factor = 5
-    gauss_int_nodes_Nx = 31
-    gauss_int_nodes_Nxp = 30
-    gauss_int_nodes_Ntheta = 17
+    gauss_int_nodes_Nx = 21
+    gauss_int_nodes_Nxp = 20
+    gauss_int_nodes_Ntheta = 12
 /
 
 &kim_species

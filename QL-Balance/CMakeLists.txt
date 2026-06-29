@@ -134,7 +134,7 @@ set(LIBNEO_BUILD_TESTING OFF CACHE BOOL "Disable libneo tests" FORCE)
 
 
 # Only fetch libneo if not already available (prevents duplicate targets)
-if(NOT TARGET LIBNEO::neo)
+if(NOT TARGET LIBNEO::polylag)
     find_or_fetch(libneo)
 endif()
 include_directories(${KAMEL_LIBNEO_BINARY_DIR}/include)
@@ -144,7 +144,7 @@ add_dependencies(ql-balance_lib sparse)
 # Link common dependencies defined in top-level Dependencies.cmake
 target_link_libraries(ql-balance_lib PUBLIC
     LIBNEO::collision_freqs
-    LIBNEO::neo
+    LIBNEO::polylag
     LIBNEO::species
     LIBNEO::transport
     SUNDIALS::cvode

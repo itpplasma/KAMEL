@@ -15,25 +15,29 @@ The framework consists of three main codes:
 ## Requirements
 
 ### System Dependencies
-- **MPI** (MPICH or OpenMPI)
-- **HDF5** with parallel support
-- **Python 3.8+** with pip
 - **CMake 3.24+** and **Ninja** build system
 - **Fortran compiler** (gfortran 10+ or ifort)
 - **C/C++ compiler** (gcc/g++ 10+ or clang/clang++)
+- **MPI** (MPICH or OpenMPI)
+- **HDF5** with Fortran bindings
+- **LAPACK/BLAS** - Linear algebra
+- **Python 3.8+** with pip
+
+### Optional System Dependencies
+- **SuperLU** (sparse matrix solver, used by KIM if found)
 - **Doxygen** (for documentation generation)
 
-### System Libraries
-- **NetCDF** with Fortran bindings (for QL-Balance)
-- **SuperLU** (sparse matrix solver)
-
-### External Libraries
-The following are automatically fetched during compilation:
-- **LAPACK/BLAS** - Linear algebra operations
-- **SuiteSparse** - Sparse matrix operations
+### Auto-Fetched Libraries
+The following are automatically downloaded and built if not found on the system:
 - **GSL** - GNU Scientific Library
+- **SuiteSparse** - Sparse matrix operations (UMFPACK)
 - **SUNDIALS** - Numerical differential equation solvers
-- **Zeal** - Mathematical special functions
+- **NetCDF** - Network Common Data Form (with Fortran bindings)
+- **LAPACK/BLAS** - Fallback if not found on system
+
+### Bundled Libraries (built from source)
+- **slatec** - Special functions and ODE solvers (`common/math/`)
+- **libcerf** - Complex error function (`KIM/src/math/`)
 
 ### Python Dependencies
 - numpy, scipy, h5py, f90nml, matplotlib
@@ -100,17 +104,10 @@ make test
 
 - `/KiLCA/` - Finite Larmor radius plasma response solver
 - `/KIM/` - Integral formalism plasma response solver
-- `/QL-Balance/` - Quasilinear transport code (requires KiLCA)
+- `/QL-Balance/` - Quasilinear transport code (supports KiLCA and KIM wave codes)
 - `/PreProc/` - Preprocessing utilities (fouriermodes, neo-2 templates)
 - `/python/` - Python interface (KAMELpy) for all codes
-- `/common/` - Shared utilities and equilibrium handling
-
-## References
-
-P. Kravanja, M. Van Barel, O. Ragos, M.N. Vrahatis, F.A. Zafiropoulos,
-*ZEAL: A mathematical software package for computing zeros of analytic functions*,
-Computer Physics Communications **124** (2000) 212-232.
-[doi:10.1016/S0010-4655(99)00429-4](https://doi.org/10.1016/S0010-4655(99)00429-4)
+- `/common/` - Shared utilities: equilibrium handling, math libraries, logger
 
 ## Contributing
 

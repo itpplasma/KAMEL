@@ -7,24 +7,13 @@ module kim_wave_code_adapter_m
     !! CMake to avoid collision with the QL-Balance resonances_mod.
     !! All KIM symbols are renamed on import to avoid name clashes.
 
-    use species_m, only: kim_plasma => plasma, &
-                        set_profiles_from_arrays, deallocate_plasma_derived, &
-                        set_plasma_quantities
-    use equilibrium_m, only: kim_B0 => B0, &
-        eq_B0z => B0z, eq_B0th => B0th, &
-        eq_hz => hz, eq_hth => hth, eq_equil_grid => equil_grid, &
-        eq_u => u, eq_dpress_prof => dpress_prof, &
-        calculate_equil, interpolate_equil
-    use config_m, only: kim_type_of_run => type_of_run, &
-                        kim_nml_config_path => nml_config_path, &
-                        kim_profiles_in_memory => profiles_in_memory, &
-                        kim_hdf5_output => hdf5_output
+    use kim_solver_m, only: kim_solver_t, kim_results_t, kim_profiles_t, KIM_OK
+    use species_m, only: kim_plasma => plasma     ! Path B reads KIM's file-loaded inputs
+    use equilibrium_m, only: kim_B0 => B0         ! Path B background B0
+    use config_m, only: kim_hdf5_output => hdf5_output
     use setup_m, only: kim_m_mode => m_mode, kim_n_mode => n_mode
-    use grid_m, only: kim_xl_grid => xl_grid, kim_rg_grid => rg_grid, &
+    use grid_m, only: kim_xl_grid => xl_grid, &
                       kim_r_min => r_min, kim_r_plas => r_plas
-    use fields_m, only: EBdat
-    use kim_base_m, only: kim_t
-    use kim_mod_m, only: from_kim_factory_get_kim
 
     implicit none
     private
@@ -41,8 +30,8 @@ module kim_wave_code_adapter_m
     public :: kim_get_current_densities
     public :: interp_complex_profile  ! exposed for testing
 
-    !! Module-level KIM solver instance (reused across calls)
-    class(kim_t), allocatable :: kim_instance
+    !! Module-level KIM solver handle (reused across calls)
+    type(kim_solver_t) :: kim_handle
 
     !! Actual KIM field grid boundary radius (xl_grid%xb(N)).
     !! This may differ from r_plas due to non-equidistant grid construction.
@@ -103,132 +92,65 @@ contains
         integer, intent(in) :: nrad
         real(8), intent(in) :: r_grid(nrad)
 
-        integer :: kim_npts, nrad_inside, i
-        real(8), allocatable :: kim_r(:)
-        real(8), allocatable :: work_old(:), work_new(:)
+        type(kim_profiles_t) :: prof
+        integer :: ierr, kim_npts
+        real(8), allocatable :: kim_r(:), work_old(:)
 
-        ! -----------------------------------------------------------
-        ! 1. Set KIM config path and initialize KIM backend
-        ! -----------------------------------------------------------
-        kim_nml_config_path = trim(kim_config_path)
+        ! The first mode sets the equilibrium that init() builds; the first
+        ! solve in kim_run_for_all_modes reuses it (no recompute on solve 1).
+        kim_m_mode = m_vals(1)
+        kim_n_mode = n_vals(1)
 
-        if (kim_profiles_from_balance) then
-            ! Path A: profiles come from QL-Balance in memory
-            kim_profiles_in_memory = .true.
-        end if
-
-        call kim_init()
-
-        ! Disable KIM HDF5 output for QL-Balance integration.
-        ! We only need in-memory fields; HDF5 writes conflict on re-init.
-        if (kim_hdf5_output) then
-            call deinitialize_hdf5_output()
-        end if
-        kim_hdf5_output = .false.
+        ! Re-init safe: clear any equilibrium/field state from a prior run.
+        call kim_handle%finalize()
 
         if (kim_profiles_from_balance) then
             ! -----------------------------------------------------------
-            ! Path A: inject QL-Balance profiles into KIM's plasma struct
+            ! Path A: inject QL-Balance profiles in memory (dPhi0 = -Er).
+            ! The derived background is read from results() after the first
+            ! solve (in kim_run_for_all_modes), not here.
             ! -----------------------------------------------------------
-            ! Grid coverage check
             if (r(1) > kim_r_min + 1.0d-6 .or. r(dim_r) < kim_r_plas - 1.0d-6) then
                 write(*,*) 'WARNING: QL-Balance grid [', r(1), ',', r(dim_r), &
                            '] does not fully cover KIM range [', kim_r_min, ',', kim_r_plas, ']'
             end if
 
-            ! Inject profiles: note dPhi0 = -Er, so pass -dPhi0 as Er
-            call deallocate_equilibrium_arrays()
-            call set_profiles_from_arrays(r, n, Te, Ti, q, -dPhi0, dim_r)
+            allocate(prof%r(dim_r), prof%n(dim_r), prof%Te(dim_r), &
+                     prof%Ti(dim_r), prof%q(dim_r), prof%Er(dim_r))
+            prof%r = r; prof%n = n; prof%Te = Te
+            prof%Ti = Ti; prof%q = q; prof%Er = -dPhi0
 
-            ! Initialize KIM grids and equilibrium for the first mode
-            kim_type_of_run = 'electromagnetic'
-            kim_m_mode = m_vals(1)
-            kim_n_mode = n_vals(1)
-
-            call from_kim_factory_get_kim(kim_type_of_run, kim_instance)
-            call kim_instance%init()
-
-            ! Store actual KIM grid boundary (may differ from r_plas)
-            kim_r_boundary = kim_xl_grid%xb(kim_xl_grid%npts_b)
-            write(*,*) '  KIM xl_grid boundary: r_plas=', kim_r_plas, &
-                       ' xl_grid(N)=', kim_r_boundary
-
-            ! Extract derived quantities from KIM back to wave_code_data
-            ! Do NOT overwrite n, Te, Ti, q, dPhi0 (they came from QL-Balance)
-            ! Interpolate only up to r_plas; clamp to boundary value beyond.
-            kim_npts = kim_plasma%grid_size
-            allocate(kim_r(kim_npts), work_old(kim_npts))
-
-            kim_r = kim_plasma%r_grid
-
-            ! Find last balance grid index within KIM domain
-            nrad_inside = nrad
-            do i = 1, nrad
-                if (r(i) > kim_r_plas) then
-                    nrad_inside = i - 1
-                    exit
-                end if
-            end do
-
-            ! Background magnetic field B0
-            work_old = kim_B0
-            call interp_profile(kim_npts, kim_r, work_old, nrad_inside, r(1:nrad_inside), B0(1:nrad_inside))
-            B0(nrad_inside+1:nrad) = B0(nrad_inside)
-
-            ! B0 toroidal and poloidal components
-            call interp_B0_components_clamped(kim_npts, kim_r, nrad, r, nrad_inside)
-
-            ! Wave vectors kp, ks
-            work_old = kim_plasma%kp
-            call interp_profile(kim_npts, kim_r, work_old, nrad_inside, r(1:nrad_inside), kp(1:nrad_inside))
-            kp(nrad_inside+1:nrad) = kp(nrad_inside)
-
-            work_old = kim_plasma%ks
-            call interp_profile(kim_npts, kim_r, work_old, nrad_inside, r(1:nrad_inside), ks(1:nrad_inside))
-            ks(nrad_inside+1:nrad) = ks(nrad_inside)
-
-            ! ExB drift frequency
-            work_old = kim_plasma%om_E
-            call interp_profile(kim_npts, kim_r, work_old, nrad_inside, r(1:nrad_inside), om_E(1:nrad_inside))
-            om_E(nrad_inside+1:nrad) = om_E(nrad_inside)
-
-            ! Collision frequencies
-            work_old = kim_plasma%spec(0)%nu
-            call interp_profile(kim_npts, kim_r, work_old, nrad_inside, r(1:nrad_inside), nue(1:nrad_inside))
-            nue(nrad_inside+1:nrad) = nue(nrad_inside)
-
-            work_old = kim_plasma%spec(1)%nu
-            call interp_profile(kim_npts, kim_r, work_old, nrad_inside, r(1:nrad_inside), nui(1:nrad_inside))
-            nui(nrad_inside+1:nrad) = nui(nrad_inside)
-
-            ! Vth and Vz: KIM does not store these
-            Vth = 0.0d0
-            Vz = 0.0d0
-
-            deallocate(kim_r, work_old)
-
+            call kim_handle%init(trim(kim_config_path), run_type='electromagnetic', &
+                                 profiles=prof, stat=ierr)
         else
             ! -----------------------------------------------------------
-            ! Path B: KIM reads its own files (original behavior)
+            ! Path B (legacy): KIM reads its own profile files.
             ! -----------------------------------------------------------
             call read_antenna_modes(flre_path)
             call allocate_wave_code_data(nrad, r_grid)
 
-            ! Initialize KIM grids and equilibrium for the first mode
-            kim_type_of_run = 'electromagnetic'
-            kim_m_mode = m_vals(1)
-            kim_n_mode = n_vals(1)
+            call kim_handle%init(trim(kim_config_path), run_type='electromagnetic', &
+                                 stat=ierr)
+        end if
 
-            call from_kim_factory_get_kim(kim_type_of_run, kim_instance)
-            call kim_instance%init()
+        if (ierr /= KIM_OK) then
+            write(*,*) 'ERROR: KIM init failed with status ', ierr
+            stop 1
+        end if
 
-            ! Store actual KIM grid boundary (may differ from r_plas)
-            kim_r_boundary = kim_xl_grid%xb(kim_xl_grid%npts_b)
+        ! Disable KIM HDF5 output for QL-Balance integration.
+        ! We only need in-memory fields; HDF5 writes conflict on re-init.
+        if (kim_hdf5_output) call deinitialize_hdf5_output()
+        kim_hdf5_output = .false.
 
-            ! Extract everything from KIM onto QL-Balance grid
+        ! Store actual KIM grid boundary (may differ from r_plas).
+        kim_r_boundary = kim_xl_grid%xb(kim_xl_grid%npts_b)
+
+        if (.not. kim_profiles_from_balance) then
+            ! Path B: read all background quantities back from KIM's globals
+            ! (populated by init()); per-mode fields come from the solve loop.
             kim_npts = kim_plasma%grid_size
-            allocate(kim_r(kim_npts), work_old(kim_npts), work_new(nrad))
-
+            allocate(kim_r(kim_npts), work_old(kim_npts))
             kim_r = kim_plasma%r_grid
 
             work_old = kim_plasma%q
@@ -270,7 +192,7 @@ contains
             Vth = 0.0d0
             Vz = 0.0d0
 
-            deallocate(kim_r, work_old, work_new)
+            deallocate(kim_r, work_old)
         end if
 
         ! Vacuum Br placeholder (NaN until kim_load_vacuum_fields fills it)
@@ -285,7 +207,6 @@ contains
 
         write(*, *) "KIM adapter: initialization complete"
         write(*, *) "  Balance grid points: ", nrad
-        write(*, *) "  KIM grid points:     ", kim_npts
         write(*, *) "  Number of modes:     ", dim_mn
         if (kim_profiles_from_balance) then
             write(*, *) "  Profile source:      QL-Balance (in-memory)"
@@ -325,33 +246,23 @@ contains
     end subroutine interp_B0_components
 
     ! ---------------------------------------------------------------
-    ! Helper: interpolate B0 components, clamped at r_plas
+    ! Helper: interpolate up to r_plas, clamp to the boundary beyond
     ! ---------------------------------------------------------------
-    subroutine interp_B0_components_clamped(kim_npts, kim_r, nbal, bal_r, nbal_inside)
-        !! Like interp_B0_components but only interpolates up to
-        !! nbal_inside points; clamps the rest to the boundary value.
-        use equilibrium_m, only: B0z_equil => B0z, B0th_equil => B0th
-        use wave_code_data, only: B0t, B0z
-
+    subroutine clamp_to_balance(n_old, r_old, f_old, nrad, nrad_inside, bal_r, f_new)
+        !! Interpolate f_old onto bal_r up to nrad_inside points, then clamp
+        !! the remaining points to the last in-domain value (the KIM solution
+        !! is valid only inside the plasma domain).
         implicit none
 
-        integer, intent(in) :: kim_npts, nbal, nbal_inside
-        real(8), intent(in) :: kim_r(kim_npts), bal_r(nbal)
-        real(8), allocatable :: work(:)
+        integer, intent(in) :: n_old, nrad, nrad_inside
+        real(8), intent(in) :: r_old(n_old), f_old(n_old), bal_r(nrad)
+        real(8), intent(out) :: f_new(nrad)
 
-        allocate(work(kim_npts))
+        call interp_profile(n_old, r_old, f_old, nrad_inside, &
+            bal_r(1:nrad_inside), f_new(1:nrad_inside))
+        f_new(nrad_inside+1:nrad) = f_new(nrad_inside)
 
-        work = B0z_equil
-        call interp_profile(kim_npts, kim_r, work, nbal_inside, bal_r(1:nbal_inside), B0z(1:nbal_inside))
-        B0z(nbal_inside+1:nbal) = B0z(nbal_inside)
-
-        work = B0th_equil
-        call interp_profile(kim_npts, kim_r, work, nbal_inside, bal_r(1:nbal_inside), B0t(1:nbal_inside))
-        B0t(nbal_inside+1:nbal) = B0t(nbal_inside)
-
-        deallocate(work)
-
-    end subroutine interp_B0_components_clamped
+    end subroutine clamp_to_balance
 
     subroutine kim_run_for_all_modes()
         !! Run KIM electrostatic solver for each (m,n) mode and
@@ -363,28 +274,16 @@ contains
         !! arrays into the wave_code_data module scalars.
         use wave_code_data, only: dim_mn, m_vals, n_vals, &
             dim_r, bal_r => r, &
-            wcd_n => n, wcd_Te => Te, wcd_Ti => Ti, &
-            wcd_q => q, wcd_dPhi0 => dPhi0, &
             wcd_kp => kp, wcd_ks => ks, wcd_om_E => om_E, &
-            wcd_B0 => B0, wcd_nue => nue, wcd_nui => nui
+            wcd_B0 => B0, wcd_nue => nue, wcd_nui => nui, &
+            wcd_B0t => B0t, wcd_B0z => B0z, wcd_Vth => Vth, wcd_Vz => Vz
         use control_mod, only: kim_profiles_from_balance
 
         implicit none
 
-        integer :: i_mn, kim_npts, kim_plasma_npts
-        real(8), allocatable :: kim_r(:)
-        real(8), allocatable :: kim_plasma_r(:), work_real(:)
-
-        ! -------------------------------------------------------
-        ! 0. Re-inject time-evolved QL-Balance profiles into KIM
-        ! -------------------------------------------------------
-        ! NOTE: Profile re-injection is only needed in TimeEvolution mode
-        ! where profiles change between calls. For SingleStep, skip it
-        ! because set_profiles_from_arrays deallocates derived quantities
-        ! (B0, kp, ks, vT, nu, x1, x2, etc.) that the solver needs.
-        ! Re-injection for TimeEvolution would require also calling
-        ! calculate_equil and set_plasma_quantities to recompute derived
-        ! quantities on the rg_grid.
+        type(kim_results_t) :: res
+        integer :: i_mn, ierr, kim_npts, kim_plasma_npts, nrad_inside, i
+        real(8), allocatable :: kim_r(:), kim_plasma_r(:)
 
         ! -------------------------------------------------------
         ! 1. (Re-)allocate per-mode storage
@@ -426,80 +325,67 @@ contains
         kim_jpar_i_modes = (0.0d0, 0.0d0)
 
         ! -------------------------------------------------------
-        ! 2. Loop over modes: solve and store
+        ! 2. Loop over modes: solve through the seam and store
         ! -------------------------------------------------------
         do i_mn = 1, dim_mn
 
-            ! Set mode numbers for this solve
-            kim_m_mode = m_vals(i_mn)
-            kim_n_mode = n_vals(i_mn)
-
-            ! Clean up EBdat from previous solve
-            call deallocate_EBdat()
-
-            ! For modes 2+, recompute equilibrium quantities (kp, ks, om_E)
-            ! which depend on the (m, n) mode numbers.
-            if (i_mn > 1) then
-                call calculate_equil(.false.)
-                call set_plasma_quantities(kim_plasma)
-                call interpolate_equil(kim_rg_grid%xb)
+            ! The seam owns mode setup, the per-mode equilibrium recompute
+            ! (modes 2+), the field reset, and the run.
+            call kim_handle%solve(m_vals(i_mn), n_vals(i_mn), stat=ierr)
+            if (ierr /= KIM_OK) then
+                write(*,*) 'ERROR: KIM solve failed for mode ', i_mn, &
+                           ' status ', ierr
+                stop 1
             end if
+            res = kim_handle%results()
 
-            call kim_instance%run()
-
-            ! run() fills kernels, solves coupled Poisson-Ampere, and calls
-            ! postprocess_electric_field which computes Es, Ep, Er, Etheta, Ez.
-            ! EBdat%Br = alpha * A_par (self-consistent).
-
-            ! Interpolate KIM fields (on xl_grid%xb) onto
-            ! the QL-Balance radial grid and store per-mode.
-            kim_npts = size(EBdat%r_grid)
+            ! Interpolate KIM fields (on res%r_field) onto the QL-Balance grid.
+            kim_npts = size(res%r_field)
             allocate(kim_r(kim_npts))
-            kim_r = EBdat%r_grid
+            kim_r = res%r_field
 
             if (i_mn == 1) then
                 write(*,*) '  KIM field grid: r_min=', kim_r(1), &
                            ' r_max=', kim_r(kim_npts), ' npts=', kim_npts
                 write(*,*) '  KIM r_plas =', kim_r_plas
-                write(*,*) '  KIM |Br| at last grid pt =', abs(EBdat%Br(kim_npts))
-                write(*,*) '  KIM |Br| at 2nd-last     =', abs(EBdat%Br(kim_npts-1))
+                write(*,*) '  KIM |Br| at last grid pt =', abs(res%Br(kim_npts))
             end if
 
             ! Es (perpendicular E field in rsp coordinates)
-            call interp_complex_profile(kim_npts, kim_r, EBdat%Es, &
+            call interp_complex_profile(kim_npts, kim_r, res%Es, &
                 dim_r, bal_r, kim_Es_modes(:, i_mn))
 
             ! Ep (parallel E field in rsp coordinates)
-            call interp_complex_profile(kim_npts, kim_r, EBdat%Ep, &
+            call interp_complex_profile(kim_npts, kim_r, res%Ep, &
                 dim_r, bal_r, kim_Ep_modes(:, i_mn))
 
             ! Er (radial E field, cylindrical)
-            call interp_complex_profile(kim_npts, kim_r, EBdat%Er, &
+            call interp_complex_profile(kim_npts, kim_r, res%Er, &
                 dim_r, bal_r, kim_Er_modes(:, i_mn))
 
             ! Etheta -> Et (poloidal E field, cylindrical)
-            call interp_complex_profile(kim_npts, kim_r, EBdat%Etheta, &
+            call interp_complex_profile(kim_npts, kim_r, res%Etheta, &
                 dim_r, bal_r, kim_Et_modes(:, i_mn))
 
             ! Ez (axial E field, cylindrical)
-            call interp_complex_profile(kim_npts, kim_r, EBdat%Ez, &
+            call interp_complex_profile(kim_npts, kim_r, res%Ez, &
                 dim_r, bal_r, kim_Ez_modes(:, i_mn))
 
             ! Br (radial magnetic field perturbation)
-            call interp_complex_profile(kim_npts, kim_r, EBdat%Br, &
+            call interp_complex_profile(kim_npts, kim_r, res%Br, &
                 dim_r, bal_r, kim_Br_modes(:, i_mn))
 
             ! jpar (parallel current density: total, electron, ion)
-            if (allocated(EBdat%jpar)) then
-                call interp_complex_profile(kim_npts, kim_r, EBdat%jpar, &
+            if (allocated(res%jpar)) then
+                call interp_complex_profile(kim_npts, kim_r, res%jpar, &
                     dim_r, bal_r, kim_jpar_modes(:, i_mn))
             end if
-            if (allocated(EBdat%jpar_e)) then
-                call interp_complex_profile(kim_npts, kim_r, EBdat%jpar_e, &
+            if (allocated(res%jpar_e)) then
+                call interp_complex_profile(kim_npts, kim_r, res%jpar_e, &
                     dim_r, bal_r, kim_jpar_e_modes(:, i_mn))
             end if
-            if (allocated(EBdat%jpar_i)) then
-                call interp_complex_profile(kim_npts, kim_r, EBdat%jpar_i, &
+            if (allocated(res%jpar_i)) then
+                call interp_complex_profile(kim_npts, kim_r, res%jpar_i, &
                     dim_r, bal_r, kim_jpar_i_modes(:, i_mn))
             end if
 
@@ -511,20 +397,49 @@ contains
             call apply_vacuum_continuation(i_mn, dim_r, bal_r)
 
             ! kp and ks (mode-dependent wave vectors on plasma grid)
-            kim_plasma_npts = kim_plasma%grid_size
+            kim_plasma_npts = size(res%r_plasma)
             allocate(kim_plasma_r(kim_plasma_npts))
-            allocate(work_real(kim_plasma_npts))
-            kim_plasma_r = kim_plasma%r_grid
+            kim_plasma_r = res%r_plasma
 
-            work_real = kim_plasma%kp
-            call interp_profile(kim_plasma_npts, kim_plasma_r, &
-                work_real, dim_r, bal_r, kim_kp_modes(:, i_mn))
+            call interp_profile(kim_plasma_npts, kim_plasma_r, res%kp, &
+                dim_r, bal_r, kim_kp_modes(:, i_mn))
+            call interp_profile(kim_plasma_npts, kim_plasma_r, res%ks, &
+                dim_r, bal_r, kim_ks_modes(:, i_mn))
 
-            work_real = kim_plasma%ks
-            call interp_profile(kim_plasma_npts, kim_plasma_r, &
-                work_real, dim_r, bal_r, kim_ks_modes(:, i_mn))
+            ! Path A: derived background from the first solve, interpolated up
+            ! to r_plas and clamped to the boundary value beyond.  n/Te/Ti/q/
+            ! dPhi0 are NOT touched -- they came from QL-Balance.
+            if (i_mn == 1 .and. kim_profiles_from_balance) then
+                nrad_inside = dim_r
+                do i = 1, dim_r
+                    if (bal_r(i) > kim_r_plas) then
+                        nrad_inside = i - 1
+                        exit
+                    end if
+                end do
 
-            deallocate(kim_plasma_r, work_real)
+                call clamp_to_balance(kim_plasma_npts, kim_plasma_r, res%B0, &
+                    dim_r, nrad_inside, bal_r, wcd_B0)
+                call clamp_to_balance(kim_plasma_npts, kim_plasma_r, res%B0z, &
+                    dim_r, nrad_inside, bal_r, wcd_B0z)
+                call clamp_to_balance(kim_plasma_npts, kim_plasma_r, res%B0th, &
+                    dim_r, nrad_inside, bal_r, wcd_B0t)
+                call clamp_to_balance(kim_plasma_npts, kim_plasma_r, res%kp, &
+                    dim_r, nrad_inside, bal_r, wcd_kp)
+                call clamp_to_balance(kim_plasma_npts, kim_plasma_r, res%ks, &
+                    dim_r, nrad_inside, bal_r, wcd_ks)
+                call clamp_to_balance(kim_plasma_npts, kim_plasma_r, res%om_E, &
+                    dim_r, nrad_inside, bal_r, wcd_om_E)
+                call clamp_to_balance(kim_plasma_npts, kim_plasma_r, res%nu_e, &
+                    dim_r, nrad_inside, bal_r, wcd_nue)
+                call clamp_to_balance(kim_plasma_npts, kim_plasma_r, res%nu_i, &
+                    dim_r, nrad_inside, bal_r, wcd_nui)
+
+                wcd_Vth = 0.0d0
+                wcd_Vz = 0.0d0
+            end if
+
+            deallocate(kim_plasma_r)
 
             write(*, '(A,I3,A,I4,A,I4,A)') &
                 "  KIM adapter: solved mode ", i_mn, &
@@ -533,31 +448,24 @@ contains
         end do
 
         ! -------------------------------------------------------
-        ! 3. Re-extract updated derived quantities when profiles
-        !    came from QL-Balance (they change with equilibrium)
+        ! 3. Path A: refresh derived quantities from the final
+        !    equilibrium state (non-clamped, full grid)
         ! -------------------------------------------------------
         if (kim_profiles_from_balance) then
-            kim_plasma_npts = kim_plasma%grid_size
-            allocate(kim_plasma_r(kim_plasma_npts), work_real(kim_plasma_npts))
-            kim_plasma_r = kim_plasma%r_grid
+            kim_plasma_npts = size(res%r_plasma)
+            allocate(kim_plasma_r(kim_plasma_npts))
+            kim_plasma_r = res%r_plasma
 
-            work_real = kim_plasma%om_E
-            call interp_profile(kim_plasma_npts, kim_plasma_r, &
-                work_real, dim_r, bal_r, wcd_om_E)
+            call interp_profile(kim_plasma_npts, kim_plasma_r, res%om_E, &
+                dim_r, bal_r, wcd_om_E)
+            call interp_profile(kim_plasma_npts, kim_plasma_r, res%nu_e, &
+                dim_r, bal_r, wcd_nue)
+            call interp_profile(kim_plasma_npts, kim_plasma_r, res%nu_i, &
+                dim_r, bal_r, wcd_nui)
+            call interp_profile(kim_plasma_npts, kim_plasma_r, res%B0, &
+                dim_r, bal_r, wcd_B0)
 
-            work_real = kim_plasma%spec(0)%nu
-            call interp_profile(kim_plasma_npts, kim_plasma_r, &
-                work_real, dim_r, bal_r, wcd_nue)
-
-            work_real = kim_plasma%spec(1)%nu
-            call interp_profile(kim_plasma_npts, kim_plasma_r, &
-                work_real, dim_r, bal_r, wcd_nui)
-
-            work_real = kim_B0
-            call interp_profile(kim_plasma_npts, kim_plasma_r, &
-                work_real, dim_r, bal_r, wcd_B0)
-
-            deallocate(kim_plasma_r, work_real)
+            deallocate(kim_plasma_r)
         end if
 
         write(*, *) "KIM adapter: all modes solved"
@@ -675,61 +583,6 @@ contains
         ! Nothing to do -- nue, nui are already set.
 
     end subroutine kim_get_collision_frequencies
-
-    ! ---------------------------------------------------------------
-    ! Helper: deallocate equilibrium_m arrays for re-initialization
-    ! ---------------------------------------------------------------
-    subroutine deallocate_equilibrium_arrays()
-        !! Deallocate arrays from equilibrium_m that calculate_equil
-        !! allocates with bare allocate() (no guard).
-        !! Separated from deallocate_plasma_derived to avoid circular
-        !! module dependency (equilibrium_m uses species_m).
-        implicit none
-
-        if (allocated(kim_B0)) deallocate(kim_B0)
-        if (allocated(eq_B0z)) deallocate(eq_B0z)
-        if (allocated(eq_B0th)) deallocate(eq_B0th)
-        if (allocated(eq_hz)) deallocate(eq_hz)
-        if (allocated(eq_hth)) deallocate(eq_hth)
-        if (allocated(eq_equil_grid)) deallocate(eq_equil_grid)
-        if (allocated(eq_u)) deallocate(eq_u)
-        if (allocated(eq_dpress_prof)) deallocate(eq_dpress_prof)
-
-    end subroutine deallocate_equilibrium_arrays
-
-    ! ---------------------------------------------------------------
-    ! Helper: deallocate EBdat fields between mode solves
-    ! ---------------------------------------------------------------
-    subroutine deallocate_EBdat()
-        !! Deallocate all allocated components of the global EBdat
-        !! so that the next call to run() can re-allocate them.
-        use fields_m, only: EBdat_t
-
-        implicit none
-
-        if (allocated(EBdat%r_grid))            deallocate(EBdat%r_grid)
-        if (allocated(EBdat%Br))                deallocate(EBdat%Br)
-        if (allocated(EBdat%Apar))              deallocate(EBdat%Apar)
-        if (allocated(EBdat%E_perp_psi))        deallocate(EBdat%E_perp_psi)
-        if (allocated(EBdat%E_perp))            deallocate(EBdat%E_perp)
-        if (allocated(EBdat%E_perp_MA))         deallocate(EBdat%E_perp_MA)
-        if (allocated(EBdat%Er))                deallocate(EBdat%Er)
-        if (allocated(EBdat%Etheta))            deallocate(EBdat%Etheta)
-        if (allocated(EBdat%Ez))                deallocate(EBdat%Ez)
-        if (allocated(EBdat%Es))                deallocate(EBdat%Es)
-        if (allocated(EBdat%Ep))                deallocate(EBdat%Ep)
-        if (allocated(EBdat%Phi))               deallocate(EBdat%Phi)
-        if (allocated(EBdat%Phi_e))             deallocate(EBdat%Phi_e)
-        if (allocated(EBdat%Phi_i))             deallocate(EBdat%Phi_i)
-        if (allocated(EBdat%Phi_aligned))       deallocate(EBdat%Phi_aligned)
-        if (allocated(EBdat%Phi_MA))            deallocate(EBdat%Phi_MA)
-        if (allocated(EBdat%Phi_MA_ideal))      deallocate(EBdat%Phi_MA_ideal)
-        if (allocated(EBdat%Phi_MA_asymptotic)) deallocate(EBdat%Phi_MA_asymptotic)
-        if (allocated(EBdat%jpar))              deallocate(EBdat%jpar)
-        if (allocated(EBdat%jpar_e))            deallocate(EBdat%jpar_e)
-        if (allocated(EBdat%jpar_i))            deallocate(EBdat%jpar_i)
-
-    end subroutine deallocate_EBdat
 
     ! ---------------------------------------------------------------
     ! Helper: interpolate a complex profile onto a new grid

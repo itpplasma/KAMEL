@@ -109,13 +109,6 @@ make test
 - `/python/` - Python interface (KAMELpy) for all codes
 - `/common/` - Shared utilities: equilibrium handling, math libraries, logger
 
-## References
-
-P. Kravanja, M. Van Barel, O. Ragos, M.N. Vrahatis, F.A. Zafiropoulos,
-*ZEAL: A mathematical software package for computing zeros of analytic functions*,
-Computer Physics Communications **124** (2000) 212-232.
-[doi:10.1016/S0010-4655(99)00429-4](https://doi.org/10.1016/S0010-4655(99)00429-4)
-
 ## Contributing
 
 Contributions are welcome! See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.

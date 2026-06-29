@@ -29,7 +29,7 @@ subroutine kim_read_config
 
     namelist /KIM_IO/ profile_location, hdf5_input, hdf5_output, &
                         log_level, data_verbosity, output_path, calculate_asymptotics, &
-                        h5_out_file
+                        h5_out_file, write_diagnostics_dat
 
     namelist /KIM_SETUP/ btor, R0, m_mode, n_mode, omega, spline_base, &
                         type_br_field, collisions_off, set_profiles_constant, bc_type, mphi_max, &

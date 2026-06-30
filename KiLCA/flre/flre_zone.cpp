@@ -158,8 +158,8 @@ void flre_zone::calc_basis_fields (int flag)
     allocate_and_set_conductivity_arrays_ ();
 
     {
-        double a_ = fmax (r1-1.0, bp->x[0]);
-        double b_ = fmin (r2+1.0, bp->x[bp->dimx-1]);
+        double a_ = fmax (r1-1.0, get_background_x0_ ());
+        double b_ = fmin (r2+1.0, get_background_xlast_ ());
 
         char path2linear_[1024];
         eval_path_to_linear_data (get_path_to_project (), wd->m, wd->n, wd->olab, path2linear_);

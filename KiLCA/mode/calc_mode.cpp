@@ -36,7 +36,7 @@ int mode_data::find_resonance_location(void)
 {
     double q_res = - ((double)(wd->m)) / ((double)(wd->n));
 
-    double r1 = bp->x[0], r2 = bp->x[bp->dimx - 1];
+    double r1 = get_background_x0_ (), r2 = get_background_xlast_ ();
 
     if ((q(r1, bp) - q_res) * (q(r2, bp) - q_res) > 0)
     {

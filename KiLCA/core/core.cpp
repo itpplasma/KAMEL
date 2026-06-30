@@ -51,7 +51,8 @@ core_data::~core_data (void)
 // Do NOT delete sd intentionally, as the static object, this member points to, will be reused
 // in the next iteration of the time evolution.
 
-delete bp;
+// background is now a Fortran singleton (kilca_background_data_m) with no
+// heap allocation behind bp's sentinel value - nothing to delete.
 
 delete [] path2project;
 
@@ -112,7 +113,7 @@ void core_data::calc_and_set_mode_independent_core_data (void)
 
     set_settings_in_core_module_(&sd);
 
-bp = new background (sd);
+bp = (background *) background_create_ (sd->path2project);
 
 set_background_in_core_module_ (&bp);
 
@@ -120,11 +121,11 @@ set_background_in_core_module_ (&bp);
 //currents, f0 parameters and other stuff:
 if (get_background_calc_back_() > 0)
 {
-    bp->set_background_profiles_from_files ();
+    background_set_profiles_from_files_ ();
 }
 else if(get_background_calc_back_() < 0)
 {
-    bp->set_background_profiles_from_interface ();
+    background_set_profiles_from_interface_ ();
 }
 else
 {

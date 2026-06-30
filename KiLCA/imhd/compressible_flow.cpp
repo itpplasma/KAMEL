@@ -36,7 +36,7 @@ inline complex<double> omega_D (double r, void * params)
 imhd_zone const * zone = (const imhd_zone *) params;
 
 int m = zone->wd->m;
-double kz = (zone->wd->n)/(zone->sd->bs->rtor);
+double kz = (zone->wd->n)/(get_background_rtor_());
 complex<double> omega = zone->wd->olab;
 
 double Vt; eval_Vt (r, zone->bp, &Vt);
@@ -166,7 +166,7 @@ imhd_zone const * zone = (const imhd_zone *) params;
 double mdens; eval_mass_density (r, zone->bp, &mdens);
 
 int m = zone->wd->m;
-double kz = (zone->wd->n)/(zone->sd->bs->rtor);
+double kz = (zone->wd->n)/(get_background_rtor_());
 
 complex<double> S = S_flow (r, params);
 
@@ -476,7 +476,7 @@ complex<double> zeta_r =  rzeta/r;
 
 //wave:
 double kt = (wd->m)/r;
-double kz = (wd->n)/(sd->bs->rtor);
+double kz = (wd->n)/(get_background_rtor_());
 double k0k0 = kt*kt + kz*kz;
 
 //background:

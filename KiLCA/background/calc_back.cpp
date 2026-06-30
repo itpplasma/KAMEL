@@ -34,7 +34,7 @@ int rhs_back (double r, const double y[], double dy[], void * params)
 {
 background * bp = (background *) params;
 
-double rtor = bp->sd->bs->rtor;
+double rtor = get_background_rtor_();
 
 spline_eval_ (bp->sid, 1, &r, 0, 1, bp->i_q, bp->i_T[1], bp->R); //R[n-Dmin+(j-Imin)*D1+k*D2], k=0 - new
 
@@ -90,8 +90,8 @@ int background::calculate_equilibrium (void)
 
 const int Neq = 1;
 
-double rtor = sd->bs->rtor;
-double B0   = sd->bs->B0;
+double rtor = get_background_rtor_();
+double B0   = get_background_B0_();
 
 double rc = x[0];
 
@@ -138,7 +138,7 @@ for (int i = 1; i < dimx; ++i)
 
 fortnum_rk8pd_destroy (ode);
 
-if (sd->bs->flag_debug > 1) //save u if needed
+if (get_background_flag_debug_() > 1) //save u if needed
 {
     char *full_name = new char[1024];
     sprintf (full_name, "%s%s", path2background, "u.dat");
@@ -263,9 +263,10 @@ int background::find_f0_parameters (void)
 int ierr;
 
 //renotation:
-double *mass = sd->bs->mass;
-double *charge = sd->bs->charge;
-char *flag_back = sd->bs->flag_back;
+double mass[2] = { get_background_mass_ (0), get_background_mass_ (1) };
+double charge[2] = { get_background_charge_ (0), get_background_charge_ (1) };
+char flag_back_buf[2] = { get_background_flag_back_ (), '\0' };
+char *flag_back = flag_back_buf;
 
 double *n   = y + (i_n)*dimx;
 double *Ti  = y + (i_T[0])*dimx;
@@ -326,8 +327,8 @@ for (i=0; i<dimx; i++)
     nuii = (1.4e-7)*n[i]*Lii*pow(charge[0]/e, 4.0)/sqrt(mass[0]/m_p)/sqrt(Ti[i])/(vf*Ti[i]);
 
     //sum up and add factors + limiting values:
-    nui[i] = (sd->bs->zion)*(nuie + nuii + 10.0);
-    nue[i] = (sd->bs->zele)*(nuee + nuei + 10.0);
+    nui[i] = (get_background_zion_())*(nuie + nuii + 10.0);
+    nue[i] = (get_background_zele_())*(nuee + nuei + 10.0);
 
     //density parameter:
     n_i_p[i] = n[i];
@@ -367,7 +368,7 @@ for (i=0; i<dimx; i++)
     }
     else //calculate dPhi0 from input Er profile
     {
-        dPhi0[i] = - Er[i] + bth[i]*(sd->bs->V_gal_sys)/c;
+        dPhi0[i] = - Er[i] + bth[i]*(get_background_V_gal_sys_())/c;
     }
 }
 
@@ -399,9 +400,10 @@ return ierr;
 
 int background::eval_and_save_f0_moments (void)
 {
-double *mass = sd->bs->mass;
-double *charge = sd->bs->charge;
-char *flag_back = sd->bs->flag_back;
+double mass[2] = { get_background_mass_ (0), get_background_mass_ (1) };
+double charge[2] = { get_background_charge_ (0), get_background_charge_ (1) };
+char flag_back_buf[2] = { get_background_flag_back_ (), '\0' };
+char *flag_back = flag_back_buf;
 
 const int num_moms = 16;
 FILE **mom_files = new FILE *[num_moms];
@@ -581,8 +583,8 @@ inline void background::transform_basic_background_profiles_to_lab_frame (double
 {
 double Bth; spline_eval_ (sid, 1, &r, 0, 0, i_Bth, i_Bth, &Bth);
 
-*Vz    += sd->bs->V_gal_sys;
-*dPhi0 -= Bth*(sd->bs->V_gal_sys)/c;
+*Vz    += get_background_V_gal_sys_();
+*dPhi0 -= Bth*(get_background_V_gal_sys_())/c;
 }
 
 /*-----------------------------------------------------------------*/

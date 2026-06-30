@@ -39,7 +39,7 @@ zone = Z;
 
 //begin external variables:
 
-double rtor = zone->sd->bs->rtor;
+double rtor = get_background_rtor_();
 
 flreo = zone->flre_order;
 

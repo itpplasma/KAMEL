@@ -98,8 +98,8 @@ spline_free_ (sid); sid = 0;
 
 void background::set_profiles_indices (void)
 {
-if      (abs(sd->bs->calc_back) == 1 || abs(sd->bs->calc_back) == 3) Nprofiles = 7;  //q, n, Ti, Te, Vth, Vz, Er
-else if (abs(sd->bs->calc_back) == 2)                                Nprofiles = 11; //q, n, Ti, Te, Vth, Vz, Er, Bth, Bz, Jth, Jz
+if      (abs(get_background_calc_back_()) == 1 || abs(get_background_calc_back_()) == 3) Nprofiles = 7;  //q, n, Ti, Te, Vth, Vz, Er
+else if (abs(get_background_calc_back_()) == 2)                                Nprofiles = 11; //q, n, Ti, Te, Vth, Vz, Er, Bth, Bz, Jth, Jz
 else
 {
     fprintf (stderr, "\nwarning: set_profiles_indices: unknown flag!\n");
@@ -112,7 +112,7 @@ int k;
 
 for (k=0; k<Nprofiles; k++) profile_names[k] = new char[8];
 
-if (abs(sd->bs->calc_back) == 1 || abs(sd->bs->calc_back) == 3)
+if (abs(get_background_calc_back_()) == 1 || abs(get_background_calc_back_()) == 3)
 {
     strcpy (profile_names[0], "q");
     strcpy (profile_names[1], "n");
@@ -122,7 +122,7 @@ if (abs(sd->bs->calc_back) == 1 || abs(sd->bs->calc_back) == 3)
     strcpy (profile_names[5], "Vz");
     strcpy (profile_names[6], "Er");
 }
-else if (abs(sd->bs->calc_back) == 2)
+else if (abs(get_background_calc_back_()) == 2)
 {
     strcpy (profile_names[0], "q");
     strcpy (profile_names[1], "n");
@@ -212,14 +212,16 @@ dimy = k; /*total number of background profiles*/
 void background::set_background_profiles_from_files (void)
 {
 char *file_name = new char[1024];
-sprintf (file_name, "%sn.dat", sd->bs->path2profiles);
+char path2profiles_buf[1024];
+get_background_path2profiles_ (path2profiles_buf);
+sprintf (file_name, "%sn.dat", path2profiles_buf);
 
 /*arrays allocation for background profiles:*/
 dimx = count_lines_in_file (file_name, 0);
 
 delete [] file_name;
 
-int N = sd->bs->N;
+int N = get_background_N_();
 
 ind = (int)0.5*(dimx);
 
@@ -241,12 +243,12 @@ ierr = load_input_background_profiles ();
 ierr = spline_input_profiles (); //first 7 profs, see later
 //fprintf (stdout, "\nbackground profiles are splined...\n");
 
-if (abs(sd->bs->calc_back) == 1)
+if (abs(get_background_calc_back_()) == 1)
 {
     ierr = calculate_equilibrium ();
     //fprintf (stdout, "\nequilibrium parameters are computed...\n");
 }
-else if (abs(sd->bs->calc_back) == 2)
+else if (abs(get_background_calc_back_()) == 2)
 {
     ierr = check_and_spline_equilibrium ();
     //fprintf (stdout, "\ninput equilibrium is checked...\n");
@@ -283,7 +285,7 @@ get_background_dimension_from_balance_ (&dimx);
 
 ind = (int)0.5*(dimx);
 
-int N = sd->bs->N;
+int N = get_background_N_();
 
 x = new double[dimx];
 
@@ -307,7 +309,7 @@ get_background_profiles_from_balance_ (&dimx, x, q, n, Ti, Te, Vth, Vz, Er);
 
 //transform background profiles to a moving frame
 //Er is not transformed, but dPhi0 is transformed later in find_f0_parameters
-for (int i=0; i<dimx; i++) Vz[i] -= sd->bs->V_gal_sys;
+for (int i=0; i<dimx; i++) Vz[i] -= get_background_V_gal_sys_();
 
 int ierr;
 
@@ -316,18 +318,18 @@ ierr = spline_input_profiles ();
 // recalculate dPhi0 in find_f0_parameters to match file-based mode behavior
 flag_dPhi0_calc = 1;
 
-if (abs(sd->bs->calc_back) == 1)
+if (abs(get_background_calc_back_()) == 1)
 {
     ierr = calculate_equilibrium ();
     //fprintf (stdout, "\nequilibrium parameters are computed...\n");
 }
-else if (abs(sd->bs->calc_back) == 2)
+else if (abs(get_background_calc_back_()) == 2)
 {
     //ierr = check_and_spline_equilibrium ();
     fprintf (stderr, "\nset_background_profiles_from_interface: this feature is not implemented yet!\n");
     exit(1);
 }
-else if (abs(sd->bs->calc_back) == 3)
+else if (abs(get_background_calc_back_()) == 3)
 {
     flag_dPhi0_calc = 1;
     ierr = calculate_equilibrium ();
@@ -360,21 +362,23 @@ double tmp1 = 0, tmp2 = 0;
 
 char *file_name = new char[1024];
 char *sys_command = new char[1024];
+char path2profiles_buf[1024];
+get_background_path2profiles_ (path2profiles_buf);
 
 int ind[11] = {i_q, i_n, i_T[0], i_T[1], i_Vth[2], i_Vz[2], i_Er, i_Bth, i_Bz, i_J0th[2], i_J0z[2]};
 
 /*loading profiles*/
 for (i=0; i<Nprofiles; i++)
 {
-    sprintf (file_name, "%s%s.dat", sd->bs->path2profiles, profile_names[i]);
+    sprintf (file_name, "%s%s.dat", path2profiles_buf, profile_names[i]);
     load_data_file (file_name, dimx, 1, x, y+ind[i]*dimx);
 
     if (i==5) //shift (negative) and scale Vz profile:
     {
         for (j=0; j<dimx; j++)
         {
-            *(y+ind[i]*dimx+j) *= sd->bs->V_scale;   //scale Vz profile
-            *(y+ind[i]*dimx+j) -= sd->bs->V_gal_sys; //shift Vz profile
+            *(y+ind[i]*dimx+j) *= get_background_V_scale_();   //scale Vz profile
+            *(y+ind[i]*dimx+j) -= get_background_V_gal_sys_(); //shift Vz profile
         }
     }
 

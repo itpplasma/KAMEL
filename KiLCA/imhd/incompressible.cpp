@@ -78,7 +78,7 @@ inline complex<double> Afunc_hi_inc (double r, void *params)
 const imhd_zone *zone = (const imhd_zone *) params;
 
 int m = zone->wd->m;
-double kz = (zone->wd->n)/(zone->sd->bs->rtor);
+double kz = (zone->wd->n)/(get_background_rtor_());
 
 complex<double> omega2 = (zone->wd->olab)*(zone->wd->olab);
 
@@ -102,7 +102,7 @@ inline complex<double> Bfunc_hi_inc (double r, void *params)
 const imhd_zone *zone = (const imhd_zone *) params;
 
 int m = zone->wd->m;
-double kz = (zone->wd->n)/(zone->sd->bs->rtor);
+double kz = (zone->wd->n)/(get_background_rtor_());
 
 complex<double> omega2 = (zone->wd->olab)*(zone->wd->olab);
 
@@ -200,7 +200,7 @@ inline double func_der (double r, void *params)
 const imhd_zone *zone = (const imhd_zone *) params;
 
 int m = zone->wd->m;
-double kz = (zone->wd->n)/(zone->sd->bs->rtor);
+double kz = (zone->wd->n)/(get_background_rtor_());
 
 double G = Gfunc(r, params);
 
@@ -465,7 +465,7 @@ complex<double> dzeta_r = (drzeta - zeta_r)/r;
 
 //wave:
 double kt = (wd->m)/r;
-double kz = (wd->n)/(sd->bs->rtor);
+double kz = (wd->n)/(get_background_rtor_());
 double k0k0 = kt*kt + kz*kz;
 
 //background:

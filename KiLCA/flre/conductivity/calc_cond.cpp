@@ -267,10 +267,10 @@ for (int p=0; p<=2*flreo; p++)
 
 double scale_fac;
 
-if (cp->flag_back[0] != 'f') scale_fac = cp->sd->bs->huge_factor;
+if (cp->flag_back[0] != 'f') scale_fac = get_background_huge_factor_();
 else                         scale_fac = 1.0e0;
 
-complex<double> cft = 2.0*pi*I*(cp->sd->bs->charge[spec])*(cp->sd->bs->charge[spec])/
+complex<double> cft = 2.0*pi*I*(get_background_charge_(spec))*(get_background_charge_(spec))/
                       (cp->wd->omov)/(r*scale_fac);
 
 for (int k=0; k<dimc; k++)

@@ -848,7 +848,7 @@ void mode_data::divEB(double x, complex<double> *div)
         dEB[comp] = re[1] + I * im[1];
     }
 
-    double kt = (wd->m) / x, kz = (wd->n) / (sd->bs->rtor);
+    double kt = (wd->m) / x, kz = (wd->n) / (get_background_rtor_());
 
     div[0] = EB[0] / x + dEB[0] + I * kt * EB[1] + I * kz * EB[2];
     div[1] = EB[3] / x + dEB[3] + I * kt * EB[4] + I * kz * EB[5];

@@ -92,7 +92,7 @@ core_data *cd = *cdptr;
 for (int i=0; i<*dim_r; i++)
 {
     double kth = (*m)/r[i];
-    double kz  = (*n)/(cd->sd->bs->rtor);
+    double kz  = (*n)/(get_background_rtor_());
 
     spline_eval_ (cd->bp->sid, 1, r+i, 0, 0, cd->bp->i_hth, cd->bp->i_hz, cd->bp->R);
 
@@ -426,7 +426,7 @@ if (num == -1)
     return;
 }
 
-*kz = cd->mda[num]->wd->n / cd->bp->sd->bs->rtor;
+*kz = cd->mda[num]->wd->n / get_background_rtor_();
 
 *omega_mov_re = real(cd->mda[num]->wd->omov);
 *omega_mov_im = imag(cd->mda[num]->wd->omov);

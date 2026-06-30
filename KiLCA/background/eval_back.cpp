@@ -54,7 +54,7 @@ spline_eval_ (bp->sid, 1, &r, 0, 0, bp->i_B, bp->i_B, &B);
 double dPhi0;
 spline_eval_ (bp->sid, 1, &r, 0, 0, bp->i_dPhi0, bp->i_dPhi0, &dPhi0);
 
-*res = c/B*(dPhi0+dpress/(bp->sd->bs->charge[spec])/n);
+*res = c/B*(dPhi0+dpress/(get_background_charge_(spec))/n);
 }
 
 /*-----------------------------------------------------------------*/
@@ -166,7 +166,7 @@ void eval_mass_density (double r, const background *bp, double *R)
 {
 spline_eval_ (bp->sid, 1, &r, 0, 0, bp->i_n, bp->i_n, R);
 
-R[0] *= bp->sd->bs->mass[0];
+R[0] *= get_background_mass_(0);
 }
 
 /*-----------------------------------------------------------------*/
@@ -175,7 +175,7 @@ void eval_dmass_density (double r, const background *bp, double *R)
 {
 spline_eval_ (bp->sid, 1, &r, 1, 1, bp->i_n, bp->i_n, R);
 
-R[0] *= bp->sd->bs->mass[0];
+R[0] *= get_background_mass_(0);
 }
 
 /*-----------------------------------------------------------------*/

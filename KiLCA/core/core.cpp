@@ -118,11 +118,11 @@ set_background_in_core_module_ (&bp);
 
 //loads and splines initial background profiles, computes equilibrium magnetic field,
 //currents, f0 parameters and other stuff:
-if (sd->bs->calc_back > 0)
+if (get_background_calc_back_() > 0)
 {
     bp->set_background_profiles_from_files ();
 }
-else if(sd->bs->calc_back < 0)
+else if(get_background_calc_back_() < 0)
 {
     bp->set_background_profiles_from_interface ();
 }

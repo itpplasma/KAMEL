@@ -404,7 +404,7 @@ void flre_zone::calculate_field_profiles_orth (void)
 
     for (int j=0; j<Nfs; j++) //over starting vectors
     {
-        galilean_transform_of_flre_state_vector (this, sd->bs->V_gal_sys, wd->olab, ri,
+        galilean_transform_of_flre_state_vector (this, get_background_V_gal_sys_(), wd->olab, ri,
                                                 &y[2*Nwaves*j], &state[2*Nwaves*j]);
     }
 
@@ -505,10 +505,12 @@ dim = dimnew;
 
 EB_mov = new double[dim*Ncomps*2]; //system vector in a mov frame
 
+char flag_back_buf[2] = { get_background_flag_back_ (), '\0' };
+
 for (int k=0; k<dim; k++)
 {
     r[k] = rnew[k];
-    state2sys_ (&r[k], sd->bs->flag_back, &snew[2*Nwaves*k], &EB_mov[2*Ncomps*k], rhs, 1);
+    state2sys_ (&r[k], flag_back_buf, &snew[2*Nwaves*k], &EB_mov[2*Ncomps*k], rhs, 1);
 }
 
 deactivate_fortran_modules_for_zone_ (&ptr);
@@ -516,7 +518,7 @@ deactivate_fortran_modules_for_zone_ (&ptr);
 //galilean transformation of the solution system vector EB_mov to lab frame:
 for (int k=0; k<dim; k++)
 {
-    galilean_transform_of_flre_system_vector (this, -sd->bs->V_gal_sys, wd->omov,
+    galilean_transform_of_flre_system_vector (this, -get_background_V_gal_sys_(), wd->omov,
                                               r[k], &EB_mov[2*Ncomps*k], &EB[2*Ncomps*k]);
 }
 
@@ -557,7 +559,7 @@ int mo[3] = {dim_Ersp_state[0]-1, dim_Ersp_state[1]-1, dim_Ersp_state[2]-1};
 
 //wave data:
 int m = zone->cp->wd->m;
-double kz = (zone->wd->n)/(zone->sd->bs->rtor);
+double kz = (zone->wd->n)/(get_background_rtor_());
 
 int ho = mo[2]; //max der order (2N-1);
 
@@ -691,7 +693,7 @@ int mob[3] = {dim_Brsp_sys[0]-1, dim_Brsp_sys[1]-1, dim_Brsp_sys[2]-1};
 
 //wave data:
 int m = zone->cp->wd->m;
-double kz = (zone->wd->n)/(zone->sd->bs->rtor);
+double kz = (zone->wd->n)/(get_background_rtor_());
 
 int ho = moe[2]; //max der order (2N);
 
@@ -982,6 +984,8 @@ double *sys_lab = new double[2*(zone->Ncomps)];
 
 activate_fortran_modules_for_zone_ (ptr);
 
+char flag_back_buf[2] = { get_background_flag_back_ (), '\0' };
+
 for (int k=0; k<zone->Nwaves; k++) //over basis system vectors:
 {
     int ind = zone->ib(0, k, 0, 0);
@@ -989,9 +993,9 @@ for (int k=0; k<zone->Nwaves; k++) //over basis system vectors:
     //calc full flre system vector in mov frame:
     system_to_state_copy (zone, EB1 + ind, state);
 
-    state2sys_ (r, zone->sd->bs->flag_back, state, sys_mov, rhs, 1);
+    state2sys_ (r, flag_back_buf, state, sys_mov, rhs, 1);
 
-    galilean_transform_of_flre_system_vector (zone, - zone->sd->bs->V_gal_sys,
+    galilean_transform_of_flre_system_vector (zone, - get_background_V_gal_sys_(),
     zone->wd->omov, *r, sys_mov, sys_lab);
 
     transform_of_flre_system_vector_to_cyl_coordinates (zone, *r, sys_lab, EB2 + ind);
@@ -1189,7 +1193,8 @@ interp_current_density (qp, x, type, spec, comp, J);
 
 void flre_zone::calc_dispersion (void)
 {
-dp = new disp_profiles (Nwaves, sp->dimx, sp->x, sd->bs->flag_back);
+char flag_back_buf[2] = { get_background_flag_back_ (), '\0' };
+dp = new disp_profiles (Nwaves, sp->dimx, sp->x, flag_back_buf);
 
 dp->calculate_dispersion_profiles ();
 }

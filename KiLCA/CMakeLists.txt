@@ -151,7 +151,6 @@ set(kilca_lib_cpp_sources
     core/shared.cpp
     core/core.cpp
     core/settings.cpp
-    background/back_sett.cpp
     background/background.cpp
     background/calc_back.cpp
     background/eval_back.cpp
@@ -349,6 +348,15 @@ add_dependencies(test_output_settings kilca_lib)
 target_link_libraries (test_output_settings kilca_lib ${EXTERNAL_LIBS})
 add_test(NAME test_output_settings COMMAND ${CMAKE_BINARY_DIR}/tests/test_output_settings.x)
 set_tests_properties(test_output_settings PROPERTIES WORKING_DIRECTORY ${CMAKE_BINARY_DIR}/tests/)
+
+add_executable (test_back_sett tests/test_back_sett.f90)
+set_target_properties(test_back_sett PROPERTIES
+    OUTPUT_NAME test_back_sett.x
+    RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/tests/)
+add_dependencies(test_back_sett kilca_lib)
+target_link_libraries (test_back_sett kilca_lib ${EXTERNAL_LIBS})
+add_test(NAME test_back_sett COMMAND ${CMAKE_BINARY_DIR}/tests/test_back_sett.x)
+set_tests_properties(test_back_sett PROPERTIES WORKING_DIRECTORY ${CMAKE_BINARY_DIR}/tests/)
 
 # add a target to generate API documentation with Doxygen
 find_package (Doxygen)

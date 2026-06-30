@@ -55,7 +55,7 @@ module kilca_flre_quants_m
     real(c_double), parameter :: pi = 3.141592653589793238462643383279502884197d0
     complex(c_double), parameter :: ii = (0.0d0, 1.0d0)
     real(c_double), parameter :: cspeed = 2.9979245800d10
-    real(c_double), parameter :: echarge = 4.8032047d-10
+    real(c_double), parameter :: echarge = 4.8032d-10
     integer(c_int), parameter :: boundary_antenna = 4
 
     !quants indices, 0-based to match get_output_flag_quants_(i):

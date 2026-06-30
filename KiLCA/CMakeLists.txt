@@ -110,7 +110,7 @@ set (kilca_eigparam_main progs/main_eig_param.cpp)
 # include paths:
 set (libs_root_path ${CMAKE_BINARY_DIR}/external-install)
 
-set(EXTERNAL_LIBS fortnum_amos_compat lapack blas SUNDIALS::cvode SUNDIALS::nvecserial fortnum)
+set(EXTERNAL_LIBS fortnum_amos_compat lapack blas SUNDIALS::cvode SUNDIALS::nvecserial fortnum sundials_fcvode_mod)
 
 # configure a header file to pass some of the CMake settings to the source code
 configure_file(
@@ -170,8 +170,6 @@ set(kilca_lib_cpp_sources
     mode/zone.cpp
     mode/transforms.cpp
     mode/wave_data.cpp
-    solver/solver.cpp
-    solver/rhs_func.cpp
     math/adapt_grid/adaptive_grid.cpp
     math/adapt_grid/adaptive_grid_pol.cpp
 )
@@ -195,6 +193,7 @@ set(kilca_lib_fortran_sources
     flre/dispersion/disp_profs_m.f90
     flre/conductivity/cond_profs_m.f90
     flre/quants/flre_quants_m.f90
+    solver/solver_m.f90
     background/f0moments${Jac}.f90
     background/density_p${Jac}.f90
     antenna/antenna_spectrum.f90

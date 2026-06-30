@@ -13,80 +13,6 @@
 
 /*******************************************************************/
 
-extern "C"
-int save_cmplx_matrix (int Nrows, int Ncols, int Npoints, const double *xgrid, const double *arr, const char *path_name)
-{
-FILE *outfile;
-
-size_t nchar = 1024;
-
-char *full_name = new char[nchar];
-
-int i, j, k;
-
-for (i=0; i<Ncols; i++)
-{
-    sprintf (full_name, "%s_%d.dat", path_name, i);
-    /*printf ("\nsave_cmplx_matrix: file=%s", full_name);*/
-
-    if (!(outfile = fopen (full_name, "w")))
-    {
-        fprintf (stderr, "\nFailed to open file %s\a\a\a\n", full_name);
-        continue;
-    }
-
-    for (k=0; k<Npoints; k++)
-    {
-        fprintf (outfile, "%.16le", xgrid[k]);
-        for (j=0; j<Nrows; j++) fprintf (outfile, "\t%.16le\t%.16le", arr[2*Nrows*Ncols*k+2*Nrows*i+2*j], arr[2*Nrows*Ncols*k+2*Nrows*i+2*j+1]);
-        fprintf (outfile, "\n");
-    }
-    fclose (outfile);
-}
-
-delete [] full_name;
-return 0;
-}
-
-/*******************************************************************/
-
-extern "C"
-int save_cmplx_matrix_to_one_file (int Nrows, int Ncols, int Npoints, const double *xgrid, const double *arr, const char *full_name)
-{
-//stores a complex matrix packed in 1D array (fortran order) to a file in the C order:
-//x1, a[1,1], a[1,2],...,a[2,1],...
-//x2, a[1,1], a[1,2],...,a[2,1],...
-//.................................
-
-FILE *outfile;
-
-int i, j, k;
-
-if (!(outfile = fopen (full_name, "w")))
-{
-    fprintf (stderr, "\nFailed to open file %s\a\a\a\n", full_name);
-    return 1;
-}
-
-for (k=0; k<Npoints; k++)
-{
-    fprintf (outfile, "%.16le", xgrid[k]);
-    //columns first:
-    for (i=0; i<Nrows; i++)
-    {
-        for (j=0; j<Ncols; j++)
-        {
-            fprintf (outfile, "\t%.16le\t%.16le", arr[2*Nrows*Ncols*k+2*Nrows*j+2*i], arr[2*Nrows*Ncols*k+2*Nrows*j+2*i+1]);
-        }
-    }
-    fprintf (outfile, "\n");
-}
-fclose (outfile);
-return 0;
-}
-
-/*******************************************************************/
-
 int save_real_matrix_to_one_file (int order, int Nrows, int Ncols, int Npoints, const double *xgrid, const double *arr, const char *full_name)
 {
 //stores a real matrix packed in 1D array (as defined by order) to a file as:
@@ -120,26 +46,6 @@ for (k=0; k<Npoints; k++)
     }
     fprintf (outfile, "\n");
 }
-
-fclose (outfile);
-return 0;
-}
-
-/*******************************************************************/
-
-int save_real_array (int dim, const double *xgrid, const double *arr, const char *full_name)
-{
-FILE *outfile;
-
-if (!(outfile = fopen (full_name, "w")))
-{
-    fprintf (stderr, "\nFailed to open file %s\a\a\a\n", full_name);
-    return 1;
-}
-
-int k;
-
-for (k=0; k<dim; k++) fprintf (outfile, "%.16le\t%.16le\n", xgrid[k], arr[k]);
 
 fclose (outfile);
 return 0;
@@ -447,37 +353,6 @@ return err;
 
 /*-----------------------------------------------------------------*/
 
-int count_lines_in_file (char *filename, int flag_print)
-{
-FILE *in;
-
-if ((in = fopen (filename, "r")) == NULL)
-{
-    fprintf (stderr, "\ncount_lines_in_file: failed to open file %s\n", filename);
-}
-
-size_t nchar = 65536;
-char *char_buf = new char[nchar];
-
-int num_lines = 0;
-
-while (getline (&char_buf, &nchar, in) > 0) num_lines++;
-
-fclose (in);
-
-delete [] char_buf;
-
-if (flag_print)
-{
-    fprintf (stdout, "\nfile %s contains %d non-empty lines\n", filename, num_lines);
-    fflush (stdout);
-}
-
-return num_lines;
-}
-
-/*-----------------------------------------------------------------*/
-
 int load_complex_profile (char *name, int dim, double *rgrid, double *qgrid)
 {
 FILE *in;
@@ -537,76 +412,6 @@ fclose (in);
 
 delete [] char_buf;
 delete [] file_name;
-
-return err;
-}
-
-/*-----------------------------------------------------------------*/
-
-int load_data_file (char *file_name, int dim, int ncols, double *rgrid, double *qgrid)
-{
-//dim and ncols to be checked inside; ncols means number of y data columns!
-//(x, y1, y2,...,yncols)
-
-if (dim != count_lines_in_file (file_name, 0))
-{
-    fprintf(stderr, "\nerror: load_data_file: read error or false input data dimension: %s\n", file_name);
-    exit(1);
-}
-
-FILE *in;
-
-size_t nchar = ncols*1024;
-
-char *char_buf = new char[nchar];
-
-if ((in=fopen(file_name, "r")) == NULL)
-{
-    fprintf (stderr, "\nload_data_file: failed to open file %s\n", file_name);
-    exit(1);
-}
-
-char *str1, *str2;
-
-int i, k;
-int err = 0;
-
-for (i=0; i<dim; i++)
-{
-    if (feof(in) || ferror(in)) break;
-
-    if (getline (&char_buf, &nchar, in) < 1) /*reads line*/
-    {
-        fprintf (stderr, "\nload_data_file: file %s reading error!\n", file_name);
-        exit(1);
-    }
-    rgrid[i] = strtod (char_buf, &str2);
-    if (str2 == char_buf) err++;
-    str1 = str2;
-
-    for (k=0; k<ncols; k++)
-    {
-        qgrid[i+k*dim] = strtod (str1, &str2);
-        if (str2 == str1) err++;
-        str1 = str2;
-    }
-}
-
-if (i != dim)
-{
-    fprintf(stderr, "\nerror: load_data_file: %s: read error or false data dimension!\n", file_name);
-    exit(1);
-}
-
-if (err)
-{
-    fprintf(stderr, "\nerror: load_data_file: %s: %d read errors detected!\n", file_name, err);
-    exit(1);
-}
-
-fclose (in);
-
-delete [] char_buf;
 
 return err;
 }
@@ -727,11 +532,3 @@ delete [] char_buf;
 return err;
 }
 
-/*-----------------------------------------------------------------*/
-
-void count_lines_in_file_ (char *filename, int *flag_print, int *dim)
-{
-*dim = count_lines_in_file (filename, *flag_print);
-}
-
-/*-----------------------------------------------------------------*/

@@ -19,6 +19,8 @@ int save_cmplx_matrix_to_one_file (int Nrows, int Ncols, int Npoints, const doub
 int save_real_array (int dim, const double *xgrid, const double *arr, const char *full_name);
 
 int load_data_file (char *file_name, int dim, int ncols, double *rgrid, double *qgrid);
+
+int count_lines_in_file (char *filename, int flag_print);
 }
 
 int save_real_matrix_to_one_file (int order, int Nrows, int Ncols, int Npoints, const double *xgrid, const double *arr, const char *full_name);
@@ -41,26 +43,10 @@ int load_profile (char *name, int dim, double *rgrid, double *qgrid);
 
 int load_and_alloc_profile (char *name, int *dim, double **rgrid, double **qgrid);
 
-int count_lines_in_file (char *filename, int flag_print);
-
 int load_complex_profile (char *name, int dim, double *rgrid, double *qgrid);
 
 int count_lines_in_file_with_comments (char *filename, int flag_print);
 
 int load_data_file_with_comments (char *file_name, int dim, int ncols, double *rgrid, double *qgrid);
-
-#if defined(__cplusplus)
-extern "C"
-{
-#endif
-
-#if defined(__cplusplus)
-}
-#endif
-
-extern "C"
-{
-void count_lines_in_file_ (char *filename, int *flag_print, int *dim);
-}
 
 #endif

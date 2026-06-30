@@ -24,7 +24,7 @@
 class flre_zone : public zone
 {
 public:
-    maxwell_eqs_data *me;  //!<pointer to maxwell equations data
+    intptr_t me;  //!<handle to the Fortran maxwell_eqs_data instance for this zone
     cond_profiles *cp;     //!<pointer to conductivity structure
     sysmat_profiles *sp;   //!<pointer to system matrix profiles
     disp_profiles *dp;     //!<dispersion profiles
@@ -75,8 +75,8 @@ public:
     inline int iF(int comp)
     {
         //indexing function for Er, Es, Ep, Br, Bs, Bp fields in a system EB vector
-        if (comp < 3) return me->iErsp_sys[comp];
-        else          return me->iBrsp_sys[comp-3];
+        if (comp < 3) return get_me_iersp_sys_ (me, comp);
+        else          return get_me_ibrsp_sys_ (me, comp-3);
     }
 
     inline int iF(int node, int comp, int part)
@@ -89,7 +89,7 @@ public:
     flre_zone (const settings *sd_p, const background *bp_p, const wave_data *wd_p,
                char *path_p, int index_p) : zone (sd_p, bp_p, wd_p, path_p, index_p)
     {
-        me = NULL;
+        me = 0;
         cp = NULL;
         sp = NULL;
         dp = NULL;
@@ -100,7 +100,7 @@ public:
 
     ~flre_zone (void)
     {
-        if (me) delete me;
+        if (me) maxwell_eqs_data_destroy_ (me);
         if (cp) delete cp;
         if (sp) delete sp;
         if (dp) delete dp;

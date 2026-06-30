@@ -63,7 +63,7 @@ complex<double> ja[2] = {jsurft[0]+jsurft[1]*I, jsurft[2]+jsurft[3]*I}; //ja_s, 
 
 int Ncomps = qp->zone->Ncomps;
 
-int const * iErsp_sys = qp->zone->me->iErsp_sys;
+int iErsp_sys[3] = {get_me_iersp_sys_ (qp->zone->me, 0), get_me_iersp_sys_ (qp->zone->me, 1), get_me_iersp_sys_ (qp->zone->me, 2)};
 
 //electric field at the antenna location:
 double Es_re = qp->zone->EB_mov[2*Ncomps*ia + 2*iErsp_sys[1] + 0];
@@ -103,7 +103,7 @@ complex<double> Ef[2];
 
 int Ncomps = qp->zone->Ncomps;
 
-int const * iErsp_sys = qp->zone->me->iErsp_sys;
+int iErsp_sys[3] = {get_me_iersp_sys_ (qp->zone->me, 0), get_me_iersp_sys_ (qp->zone->me, 1), get_me_iersp_sys_ (qp->zone->me, 2)};
 
 for (int k=0; k<qp->dimx; k++) //over r grid
 {
@@ -191,14 +191,14 @@ for (spec=0; spec<2; spec++) //over species
             cd = O; //complex zero
             for (j=0; j<3; j++) //over electric field (ef) components
             {
-                for (order=0; order<=qp->zone->me->der_order[i][j]; order++) //derivatives
+                for (order=0; order<=get_me_der_order_ (qp->zone->me, i, j); order++) //derivatives
                 {
                     //conductivity component for the given r node:
                     Cm = C[spec][type][order][i][j][0]+C[spec][type][order][i][j][1]*I;
 
                     //derivative of ef for the given r node:
-                    Ef = F[qp->node][qp->zone->me->iErsp_sys[j]+order][0] +
-                         F[qp->node][qp->zone->me->iErsp_sys[j]+order][1]*I;
+                    Ef = F[qp->node][get_me_iersp_sys_ (qp->zone->me, j)+order][0] +
+                         F[qp->node][get_me_iersp_sys_ (qp->zone->me, j)+order][1]*I;
 
                     //contribution to the curent:
                     cd += Cm*Ef;
@@ -310,8 +310,8 @@ for (int spec=0; spec<3; spec++) //over species
         {
             cd = CD[spec][type][i][0][qp->node] + CD[spec][type][i][1][qp->node]*I;
 
-            Ef = F[qp->node][qp->zone->me->iErsp_sys[i]][0] +
-                 F[qp->node][qp->zone->me->iErsp_sys[i]][1]*I;
+            Ef = F[qp->node][get_me_iersp_sys_ (qp->zone->me, i)][0] +
+                 F[qp->node][get_me_iersp_sys_ (qp->zone->me, i)][1]*I;
 
             apd += 0.5*real(cd*conj(Ef));
         }
@@ -445,11 +445,11 @@ for (spec=0; spec<2; spec++) //over species
                              K[0][spec][type][n1][n2][i][j][1]*I;
 
                         //derivative of ef for the given r node:
-                        Ef_1 = F[qp->node][qp->zone->me->iErsp_sys[i]+n1][0] +
-                               F[qp->node][qp->zone->me->iErsp_sys[i]+n1][1]*I;
+                        Ef_1 = F[qp->node][get_me_iersp_sys_ (qp->zone->me, i)+n1][0] +
+                               F[qp->node][get_me_iersp_sys_ (qp->zone->me, i)+n1][1]*I;
 
-                        Ef_2 = F[qp->node][qp->zone->me->iErsp_sys[j]+n2][0] +
-                               F[qp->node][qp->zone->me->iErsp_sys[j]+n2][1]*I;
+                        Ef_2 = F[qp->node][get_me_iersp_sys_ (qp->zone->me, j)+n2][0] +
+                               F[qp->node][get_me_iersp_sys_ (qp->zone->me, j)+n2][1]*I;
 
                         dpd += Km*conj(Ef_1)*Ef_2;
                     }
@@ -612,11 +612,11 @@ for (spec=0; spec<2; spec++) //over species
                                      K[n1-p-s-1][spec][type][n1][n2][i][j][1]*I;
 
                                 //derivative of ef for the given r node:
-                                Ef_1 = F[qp->node][qp->zone->me->iErsp_sys[i]+p][0] +
-                                       F[qp->node][qp->zone->me->iErsp_sys[i]+p][1]*I;
+                                Ef_1 = F[qp->node][get_me_iersp_sys_ (qp->zone->me, i)+p][0] +
+                                       F[qp->node][get_me_iersp_sys_ (qp->zone->me, i)+p][1]*I;
 
-                                Ef_2 = F[qp->node][qp->zone->me->iErsp_sys[j]+n2+s][0] +
-                                       F[qp->node][qp->zone->me->iErsp_sys[j]+n2+s][1]*I;
+                                Ef_2 = F[qp->node][get_me_iersp_sys_ (qp->zone->me, j)+n2+s][0] +
+                                       F[qp->node][get_me_iersp_sys_ (qp->zone->me, j)+n2+s][1]*I;
 
                                 kf += coeff*Km*conj(Ef_1)*Ef_2;
                             }
@@ -694,8 +694,8 @@ poy_flux &PF = *((poy_flux *)(qp->qloc[qp->POY_FLUX]));
 
 complex<double> Es, Ep, Bs, Bp; //electric and magnetic fields
 
-int const * iErsp_sys = qp->zone->me->iErsp_sys;
-int const * iBrsp_sys = qp->zone->me->iBrsp_sys;
+int iErsp_sys[3] = {get_me_iersp_sys_ (qp->zone->me, 0), get_me_iersp_sys_ (qp->zone->me, 1), get_me_iersp_sys_ (qp->zone->me, 2)};
+int iBrsp_sys[3] = {get_me_ibrsp_sys_ (qp->zone->me, 0), get_me_ibrsp_sys_ (qp->zone->me, 1), get_me_ibrsp_sys_ (qp->zone->me, 2)};
 
 Es = F[qp->node][iErsp_sys[1]][0] + F[qp->node][iErsp_sys[1]][1]*I;
 Ep = F[qp->node][iErsp_sys[2]][0] + F[qp->node][iErsp_sys[2]][1]*I;
@@ -1066,11 +1066,11 @@ for (int spec=0; spec<2; spec++) //over species (i,e)
         j_rsp[i] = CD[spec][type][i][0][qp->node] +
                    CD[spec][type][i][1][qp->node]*I;
 
-        E_rsp[i] = F[qp->node][qp->zone->me->iErsp_sys[i]][0] +
-                   F[qp->node][qp->zone->me->iErsp_sys[i]][1]*I;
+        E_rsp[i] = F[qp->node][get_me_iersp_sys_ (qp->zone->me, i)][0] +
+                   F[qp->node][get_me_iersp_sys_ (qp->zone->me, i)][1]*I;
 
-        B_rsp[i] = F[qp->node][qp->zone->me->iBrsp_sys[i]][0] +
-                   F[qp->node][qp->zone->me->iBrsp_sys[i]][1]*I;
+        B_rsp[i] = F[qp->node][get_me_ibrsp_sys_ (qp->zone->me, i)][0] +
+                   F[qp->node][get_me_ibrsp_sys_ (qp->zone->me, i)][1]*I;
     }
 
     //transformation to cyl system (r,th,z):

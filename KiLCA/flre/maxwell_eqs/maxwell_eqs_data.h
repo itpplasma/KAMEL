@@ -1,67 +1,77 @@
 /*! \file maxwell_eqs_data.h
-    \brief The declaration of maxwell_eqs_data class.
+    \brief C entry points for the per-zone Maxwell-equations layout snapshot,
+           now owned by the Fortran kilca_maxwell_eqs_data_m module (each
+           instance addressed by an opaque handle, since multiple zones can be
+           alive at once). The former C++ maxwell_eqs_data class has been
+           translated away.
 */
 
 #ifndef MAXWELL_EQS_INCLUDE
 
 #define MAXWELL_EQS_INCLUDE
 
-/*! \class maxwell_eqs_data
-    \brief Class containes data needed to build the system of Maxwell equations.
-*/
-class maxwell_eqs_data
-{
-public:
-    int Nwaves;                 //!<number of waves
-    int num_vars;               //!<number of all unknowns
-    int num_eqs;                //!<number of equations
-    int max_der_order_Ersp[3];  //!<maximum order of derivs
-    int der_order[3][3];        //!<order of derivs of E in a current (rsp)
-
-    ///names of the variables:
-    char **names_sys;
-    char **names_state;
-    char names_comp[3];
-
-    //indices:
-    int iEr, iEs, iEp, iBr, idBr, iBs, idBs, iBp, idBp, iddBp;
-
-    ///number of an appropriate E components in a state vector:
-    int dim_Ersp_state[3];
-    int iErsp_state[3];
-
-    ///number of an appropriate E and B components in a system vector:
-    int dim_Ersp_sys[3];
-    int iErsp_sys[3];
-    int dim_Brsp_sys[3];
-    int iBrsp_sys[3];
-
-    int *sys_ind; //!<indices of a state components in a system array
-
-    maxwell_eqs_data (int Nwaves_p)
-    {
-        Nwaves = Nwaves_p;
-        sys_ind = new int[Nwaves];
-    }
-
-    ~maxwell_eqs_data (void)
-    {
-        delete [] sys_ind;
-    }
-
-    void print (void);
-};
-
-void copy_module_data_to_maxwell_eqs_data_struct (maxwell_eqs_data *me);
+#include <cstdint>
+#include <cstdio>
 
 extern "C"
 {
-void copy_module_data_to_maxwell_eqs_data_struct_f_ (int *num_vars, int *num_eqs,
-int *dim_Ersp_sys, int *iErsp_sys, int *dim_Brsp_sys, int *iBrsp_sys, int *der_order);
+intptr_t maxwell_eqs_data_create_ (int Nwaves);
 
-void get_ersp_state_indices_and_dims_f_ (int *dim_Ersp_state_p, int *iErsp_state_p);
+void maxwell_eqs_data_destroy_ (intptr_t handle);
 
-void get_sys_ind_array_f_ (int *sys_ind_p);
+int get_me_nwaves_ (intptr_t handle);
+
+int get_me_num_vars_ (intptr_t handle);
+
+int get_me_num_eqs_ (intptr_t handle);
+
+int get_me_der_order_ (intptr_t handle, int i, int j);
+
+int get_me_dim_ersp_state_ (intptr_t handle, int k);
+
+int get_me_iersp_state_ (intptr_t handle, int k);
+
+int get_me_dim_ersp_sys_ (intptr_t handle, int k);
+
+int get_me_iersp_sys_ (intptr_t handle, int k);
+
+int get_me_dim_brsp_sys_ (intptr_t handle, int k);
+
+int get_me_ibrsp_sys_ (intptr_t handle, int k);
+
+int get_me_sys_ind_ (intptr_t handle, int k);
+}
+
+/*! \brief Mirrors the former maxwell_eqs_data::print(), reading via the getters. */
+inline void print_maxwell_eqs_data (intptr_t me)
+{
+fprintf (stdout, "\ncheck Maxwell system parameters:");
+fprintf (stdout, "\nnum_vars=%d", get_me_num_vars_ (me));
+fprintf (stdout, "\nnum_eqs=%d", get_me_num_eqs_ (me));
+
+fprintf (stdout, "\ndim_Ersp_state: %d %d %d", get_me_dim_ersp_state_ (me, 0), get_me_dim_ersp_state_ (me, 1), get_me_dim_ersp_state_ (me, 2));
+
+fprintf (stdout, "\niErsp_state: %d %d %d", get_me_iersp_state_ (me, 0), get_me_iersp_state_ (me, 1), get_me_iersp_state_ (me, 2));
+
+fprintf (stdout, "\ndim_Ersp_sys: %d %d %d", get_me_dim_ersp_sys_ (me, 0), get_me_dim_ersp_sys_ (me, 1), get_me_dim_ersp_sys_ (me, 2));
+
+fprintf (stdout, "\niErsp_sys: %d %d %d", get_me_iersp_sys_ (me, 0), get_me_iersp_sys_ (me, 1), get_me_iersp_sys_ (me, 2));
+
+fprintf (stdout, "\ndim_Brsp_sys: %d %d %d", get_me_dim_brsp_sys_ (me, 0), get_me_dim_brsp_sys_ (me, 1), get_me_dim_brsp_sys_ (me, 2));
+
+fprintf (stdout, "\niBrsp_sys: %d %d %d", get_me_ibrsp_sys_ (me, 0), get_me_ibrsp_sys_ (me, 1), get_me_ibrsp_sys_ (me, 2));
+
+fprintf (stdout, "\njr der_orders: %d %d %d", get_me_der_order_ (me, 0, 0), get_me_der_order_ (me, 0, 1), get_me_der_order_ (me, 0, 2));
+
+fprintf (stdout, "\njs der_orders: %d %d %d", get_me_der_order_ (me, 1, 0), get_me_der_order_ (me, 1, 1), get_me_der_order_ (me, 1, 2));
+
+fprintf (stdout, "\njp der_orders: %d %d %d", get_me_der_order_ (me, 2, 0), get_me_der_order_ (me, 2, 1), get_me_der_order_ (me, 2, 2));
+
+int Nwaves = get_me_nwaves_ (me);
+for (int k=0; k<Nwaves; k++)
+{
+    fprintf (stdout, "\nsys_ind[%d] = %d", k, get_me_sys_ind_ (me, k));
+}
 }
 
 #endif

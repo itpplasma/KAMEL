@@ -1,0 +1,39 @@
+# Per-quantity tolerance for the QL-Balance golden-record case (informational).
+#
+# The authoritative comparison is bin/compare.py's QUANTITIES_TO_COMPARE list,
+# applied HDF5-path by HDF5-path with numpy.allclose. This file just documents
+# what that comparison covers so a reviewer does not have to read compare.py.
+#
+# run: TimeEvolution, mode (m, n) = (6, 2)
+# output file: out/0_0_test.hdf5
+
+defaults:
+  rtol: 1.0e-8     # QuantitySpec default in compare.py
+  atol: 1.0e-15
+
+quantities:
+  init_params:        # initial plasma profiles
+    - Te
+    - Ti
+    - n
+    - Er
+    - Vz
+    - qsaf
+    - r
+  f_6_2/LinearProfiles:   # every time step t = 0..8
+    - dqle11
+    - dqle12
+    - dqle22          # D^ql_e
+    - dqli11
+    - dqli12
+    - dqli22          # D^ql_i
+    - Br_abs
+    - Br_Re
+    - Br_Im           # B_r
+    - T_EM_phi_e
+    - T_EM_phi_i      # EM torque
+  f_6_2/KinProfiles:      # initial (1000) and final (1008) time
+    - Te
+    - Ti
+    - n
+    - Er

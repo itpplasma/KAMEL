@@ -54,7 +54,7 @@ add_executable(test_kim_diagnostics ${CMAKE_SOURCE_DIR}/KIM/tests/test_kim_diagn
 set_target_properties(test_kim_diagnostics PROPERTIES
                         OUTPUT_NAME test_kim_diagnostics.x
                         RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/tests/")
-target_link_libraries(test_kim_diagnostics KIM_lib "${KiLCA_lib_path}" lapack cerf ddeabm slatec)
+target_link_libraries(test_kim_diagnostics KIM_lib kilca_lib lapack cerf slatec)
 add_test(NAME test_kim_diagnostics
          COMMAND ${CMAKE_BINARY_DIR}/tests/test_kim_diagnostics.x)
 
@@ -98,7 +98,7 @@ add_executable(test_kim_solver ${CMAKE_SOURCE_DIR}/KIM/tests/test_kim_solver.f90
 set_target_properties(test_kim_solver PROPERTIES
                         OUTPUT_NAME test_kim_solver.x
                         RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/tests/")
-target_link_libraries(test_kim_solver KIM_lib "${KiLCA_lib_path}" lapack cerf ddeabm slatec)
+target_link_libraries(test_kim_solver KIM_lib kilca_lib lapack cerf slatec)
 add_test(NAME test_kim_solver
          COMMAND ${CMAKE_BINARY_DIR}/tests/test_kim_solver.x)
 
@@ -107,7 +107,7 @@ add_executable(test_kim_solver_em ${CMAKE_SOURCE_DIR}/KIM/tests/test_kim_solver_
 set_target_properties(test_kim_solver_em PROPERTIES
                         OUTPUT_NAME test_kim_solver_em.x
                         RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/tests/")
-target_link_libraries(test_kim_solver_em KIM_lib "${KiLCA_lib_path}" lapack cerf ddeabm slatec)
+target_link_libraries(test_kim_solver_em KIM_lib kilca_lib lapack cerf slatec)
 configure_file(${CMAKE_SOURCE_DIR}/KIM/tests/test_data/KIM_config_em_small.nml
                ${CMAKE_BINARY_DIR}/tests/KIM_config_em_small.nml COPYONLY)
 add_test(NAME test_kim_solver_em

@@ -160,7 +160,6 @@ set(kilca_lib_cpp_sources
     flre/conductivity/calc_cond.cpp
     flre/conductivity/cond_profs${interp}.cpp
     flre/conductivity/eval_cond.cpp
-    flre/dispersion/disp_profs.cpp
     flre/maxwell_eqs/eval_sysmat.cpp
     flre/maxwell_eqs/sysmat_profs.cpp
     flre/quants/calc_flre_quants.cpp
@@ -197,6 +196,7 @@ set(kilca_lib_fortran_sources
     mode/mode_m.f90
     flre/maxwell_eqs/maxwell_eqs_m.f90
     flre/maxwell_eqs/maxwell_eqs_data_m.f90
+    flre/dispersion/disp_profs_m.f90
     background/f0moments${Jac}.f90
     background/density_p${Jac}.f90
     antenna/antenna_spectrum.f90
@@ -379,6 +379,18 @@ set_target_properties(test_maxwell_eqs_data PROPERTIES
     RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/tests/
     Fortran_MODULE_DIRECTORY ${CMAKE_BINARY_DIR}/OBJS/test_maxwell_eqs_data/)
 add_test(NAME test_maxwell_eqs_data COMMAND ${CMAKE_BINARY_DIR}/tests/test_maxwell_eqs_data.x)
+
+# Standalone: links disp_profs_m.f90 + fakes only, NOT kilca_lib, since the
+# fakes intentionally redefine calc_dispersion/save_cmplx_matrix_to_one_file.
+add_executable (test_disp_profiles
+    flre/dispersion/disp_profs_m.f90
+    tests/test_disp_profiles_fakes.f90
+    tests/test_disp_profiles.f90)
+set_target_properties(test_disp_profiles PROPERTIES
+    OUTPUT_NAME test_disp_profiles.x
+    RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/tests/
+    Fortran_MODULE_DIRECTORY ${CMAKE_BINARY_DIR}/OBJS/test_disp_profiles/)
+add_test(NAME test_disp_profiles COMMAND ${CMAKE_BINARY_DIR}/tests/test_disp_profiles.x)
 
 # add a target to generate API documentation with Doxygen
 find_package (Doxygen)

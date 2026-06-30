@@ -12,7 +12,10 @@ using namespace std;
 
 int save_cmplx_matrix (int Nrows, int Ncols, int Npoints, const double *xgrid, const double *arr, const char *path_name);
 
+extern "C"
+{
 int save_cmplx_matrix_to_one_file (int Nrows, int Ncols, int Npoints, const double *xgrid, const double *arr, const char *full_name);
+}
 
 int save_real_matrix_to_one_file (int order, int Nrows, int Ncols, int Npoints, const double *xgrid, const double *arr, const char *full_name);
 

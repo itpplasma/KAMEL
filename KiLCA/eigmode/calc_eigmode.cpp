@@ -22,7 +22,7 @@ int ind = ((det_params *) params)->ind;
 int m = ((det_params *) params)->m;
 int nn = ((det_params *) params)->n;
 
-core_data *cd = ((det_params *) params)->cd;
+intptr_t cd = ((det_params *) params)->cd;
 
 const double fre = x[0];
 const double fim = x[1];
@@ -31,13 +31,13 @@ complex<double> olab = 2.0*pi*(fre + I*fim);
 
 char cd_sd_path2project[1024];
 
-settings_get_path2project_ (cd->sd, cd_sd_path2project);
+settings_get_path2project_ (core_data_get_sd_(cd), cd_sd_path2project);
 
-cd->mda[ind] = mode_data_create_ (m, nn, real(olab), imag(olab), cd->sd, (intptr_t)cd->bp, cd_sd_path2project);
+core_data_set_mda_element_ (cd, ind, mode_data_create_ (m, nn, real(olab), imag(olab), core_data_get_sd_(cd), core_data_get_bp_(cd), cd_sd_path2project));
 
-mode_data_calc_all_mode_data_ (cd->mda[ind], 0);
+mode_data_calc_all_mode_data_ (core_data_get_mda_element_(cd, ind), 0);
 
-complex<double> det = complex<double>(wave_data_get_det_re_(mode_data_get_wd_(cd->mda[ind])), wave_data_get_det_im_(mode_data_get_wd_(cd->mda[ind])));
+complex<double> det = complex<double>(wave_data_get_det_re_(mode_data_get_wd_(core_data_get_mda_element_(cd, ind))), wave_data_get_det_im_(mode_data_get_wd_(core_data_get_mda_element_(cd, ind))));
 
 //for debugging:
 FILE *out;
@@ -55,21 +55,21 @@ f[0] = real(det);
 f[1] = imag(det);
 
 //clean up:
-mode_data_destroy_ (cd->mda[ind]);
-cd->mda[ind] = NULL;
+mode_data_destroy_ (core_data_get_mda_element_(cd, ind));
+core_data_set_mda_element_ (cd, ind, 0);
 clear_all_data_in_mode_data_module_ (); //clean up fortran module data
 }
 
 /**********************************************************************************/
 
-int find_det_zeros (int ind, int m, int n, core_data *cd)
+int find_det_zeros (int ind, int m, int n, intptr_t cd)
 {
 //output file:
 char *full_name = new char[1024];
 char es_fname[1024];
 get_eigmode_fname_ (es_fname);
 char cd_sd_path2project[1024];
-settings_get_path2project_ (cd->sd, cd_sd_path2project);
+settings_get_path2project_ (core_data_get_sd_(cd), cd_sd_path2project);
 sprintf (full_name, "%s%s", cd_sd_path2project, es_fname);
 
 FILE *out;
@@ -190,14 +190,14 @@ return exp(z)/(z-I)/(z-I)/(z-I);
 
 /**********************************************************************************/
 
-int loop_over_frequences (int ind, int m, int n, core_data *cd)
+int loop_over_frequences (int ind, int m, int n, intptr_t cd)
 {
 //output file:
 char *full_name = new char[1024];
 char es_fname[1024];
 get_eigmode_fname_ (es_fname);
 char cd_sd_path2project[1024];
-settings_get_path2project_ (cd->sd, cd_sd_path2project);
+settings_get_path2project_ (core_data_get_sd_(cd), cd_sd_path2project);
 sprintf (full_name, "%s%s", cd_sd_path2project, es_fname);
 
 FILE *out;
@@ -229,18 +229,18 @@ for (int i=0; i<es_rdim; i++)
 
         char cd_sd_path2project[1024];
 
-        settings_get_path2project_ (cd->sd, cd_sd_path2project);
+        settings_get_path2project_ (core_data_get_sd_(cd), cd_sd_path2project);
 
-        cd->mda[ind] = mode_data_create_ (m, n, real(olab), imag(olab), cd->sd, (intptr_t)cd->bp, cd_sd_path2project);
+        core_data_set_mda_element_ (cd, ind, mode_data_create_ (m, n, real(olab), imag(olab), core_data_get_sd_(cd), core_data_get_bp_(cd), cd_sd_path2project));
 
-        mode_data_calc_all_mode_data_ (cd->mda[ind], 0);
+        mode_data_calc_all_mode_data_ (core_data_get_mda_element_(cd, ind), 0);
 
         fprintf (out, "\n%6u\t%.20le  %.20le\t%.20le  %.20le", i*es_idim+k, fre, fim,
-                 wave_data_get_det_re_(mode_data_get_wd_(cd->mda[ind])), wave_data_get_det_im_(mode_data_get_wd_(cd->mda[ind])));
+                 wave_data_get_det_re_(mode_data_get_wd_(core_data_get_mda_element_(cd, ind))), wave_data_get_det_im_(mode_data_get_wd_(core_data_get_mda_element_(cd, ind))));
         fflush (out);
 
-        mode_data_destroy_ (cd->mda[ind]);
-        cd->mda[ind] = NULL;
+        mode_data_destroy_ (core_data_get_mda_element_(cd, ind));
+        core_data_set_mda_element_ (cd, ind, 0);
         clear_all_data_in_mode_data_module_ ();
     }
 }

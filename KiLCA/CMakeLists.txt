@@ -149,7 +149,6 @@ include_directories ("${CMAKE_CURRENT_SOURCE_DIR}/spline")
 #cpp source files for kilca lib:
 set(kilca_lib_cpp_sources
     core/shared.cpp
-    core/core.cpp
     eigmode/calc_eigmode.cpp
     eigmode/find_eigmodes.cpp
     flre/maxwell_eqs/eval_sysmat.cpp
@@ -165,6 +164,7 @@ set(kilca_lib_fortran_sources
     core/core_m.f90
     core/output_sett_m.f90
     core/settings_m.f90
+    core/core_data_m.f90
     io/inout_m.f90
     spline/spline_m.f90
     interp/neville_m.f90

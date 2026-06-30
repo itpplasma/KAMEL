@@ -287,21 +287,21 @@ delete [] sys_command;
 void run_kilca (char * path)
 {
 //!Allocates core data structure containing pointers to all important code data
-core_data *cd = new core_data (path);
+intptr_t cd = core_data_create_ (path);
 set_core_data_in_core_module_ (&cd);
 
-cd->calc_and_set_mode_independent_core_data ();
+core_data_calc_and_set_mode_independent_ (cd);
 
 if (get_antenna_flag_eigmode_ () == 0)
 {
-    cd->calc_and_set_mode_dependent_core_data_antenna ();
+    core_data_calc_and_set_mode_dependent_antenna_ (cd);
 }
 else
 {
-    cd->calc_and_set_mode_dependent_core_data_eigmode ();
+    core_data_calc_and_set_mode_dependent_eigmode_ (cd);
 }
 
-delete cd;
+core_data_destroy_ (cd);
 }
 
 /*******************************************************************/

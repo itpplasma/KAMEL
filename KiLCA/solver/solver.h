@@ -1,16 +1,9 @@
 /*! \file
-    \brief The declarations of functions implementing ODE solver for stiff set of linear equations u' = A(t)*u(t).
+    \brief C entry points for the ODE solver implementing the FLRE
+           basis-vector integration u' = A(r)*u(r), now owned by the Fortran
+           kilca_solver_m module. The former solver.cpp implementation has
+           been translated away.
 */
-
-#include <stdio.h>
-#include <limits.h>
-#include <math.h>
-#include <stdlib.h>
-
-#include "shared.h"
-#include "lapack.h"
-
-#include <nvector/nvector_serial.h>       /* serial N_Vector types, fct. and macros */
 
 struct solver_settings
 {
@@ -23,12 +16,7 @@ struct solver_settings
 
 typedef void (*SysRHSFcn)(double, double *, double *, void *);
 
-int func (sunrealtype t, N_Vector y, N_Vector ydot, void *params);
-
-int integrate_basis_vecs_ (SysRHSFcn f, int Nfs, int Nw, int dim, double *rvec, double *Smat, int *Nort, double *mem, void *params);
-
+extern "C"
+{
 int integrate_basis_vecs (SysRHSFcn f, int Nfs, int Nw, int dim, double *rvec, double *Smat, solver_settings *ss, void *params);
-
-int renorm_basis_vecs_ (int Nfs, int Nw, int dim, double *rvec, double *Smat, int Nort, double *rdata, double *ydata, double *taudata);
-
-int superpose_basis_vecs_ (int Nfs, int Nw, int nsteps, double *Smat, double *Cvec, double *Svec);
+}

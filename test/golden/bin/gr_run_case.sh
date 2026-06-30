@@ -25,6 +25,14 @@ if [ -n "$MIG" ] && [ -d "$ROOT/migrations" ]; then
     --migrations "$ROOT/migrations" --dir "$OUT_DIR" > migrate.log 2>&1 \
     || echo "gr_migrate $MIG failed (see migrate.log)" >&2
 fi
+# Optional per-case prepare hook (e.g. QL-Balance synthetic runfolder generation).
+# Runs before the executable, with GR_BUILD_SRC pointing at this build's worktree
+# root so KAMELpy uses the matching python tree + binaries.
+if [ -f "$OUT_DIR/gr_prepare.sh" ]; then
+  GR_BUILD_SRC="$(cd "$BUILD_DIR" && pwd)/src" \
+    bash "$OUT_DIR/gr_prepare.sh" > prepare.log 2>&1 \
+    || { echo "gr_prepare failed (see prepare.log)" >&2; echo 97 > exit_code.txt; exit 97; }
+fi
 s=$(date +%s.%N); "$EXE" > run.log 2>&1; rc=$?; e=$(date +%s.%N)
 awk "BEGIN{printf \"%.3f\n\", $e-$s}" > runtime_seconds.txt
 echo "$rc" > exit_code.txt

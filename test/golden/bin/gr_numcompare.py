@@ -10,7 +10,7 @@ A, B = sys.argv[1], sys.argv[2]
 rtol = float(sys.argv[3]) if len(sys.argv) > 3 else 1e-7
 atol = float(sys.argv[4]) if len(sys.argv) > 4 else 1e-12
 
-SKIP = {"run.log", "exit_code.txt", "runtime_seconds.txt", "migrate.log"}
+SKIP = {"run.log", "exit_code.txt", "runtime_seconds.txt", "migrate.log", "prepare.log"}
 
 
 def nums(p):

@@ -192,6 +192,7 @@ set(kilca_lib_fortran_sources
     core/constants_m${arch}.f90
     core/core_m.f90
     spline/spline_m.f90
+    interp/neville_m.f90
     math/hyper/hyper1F1_m.f90
     antenna/antenna_m.f90
     background/background_m.f90
@@ -322,6 +323,15 @@ set_target_properties(test_hyper1f1 PROPERTIES
 add_dependencies(test_hyper1f1 kilca_lib)
 target_link_libraries (test_hyper1f1 kilca_lib ${EXTERNAL_LIBS})
 add_test(NAME test_hyper1f1 COMMAND ${CMAKE_BINARY_DIR}/tests/test_hyper1f1.x)
+
+add_executable (test_neville tests/test_neville.f90)
+set_target_properties(test_neville PROPERTIES
+    OUTPUT_NAME test_neville.x
+    RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/tests/)
+target_include_directories (test_neville PRIVATE ${PROJECT_BINARY_DIR}/OBJS/kilca/)
+add_dependencies(test_neville kilca_lib)
+target_link_libraries (test_neville kilca_lib ${EXTERNAL_LIBS})
+add_test(NAME test_neville COMMAND ${CMAKE_BINARY_DIR}/tests/test_neville.x)
 
 # add a target to generate API documentation with Doxygen
 find_package (Doxygen)

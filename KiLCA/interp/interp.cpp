@@ -13,22 +13,6 @@
 
 /*****************************************************************************/
 
-void eval_neville_polynom_ (int * dim, const double * xg, const double * yg, int * deg,
-                            double * x, int * Dmin, int * Dmax, int * ind, double * R)
-{
-eval_neville_polynom(*dim, xg, yg, *deg, *x, *Dmin, *Dmax, ind, R);
-}
-
-/*****************************************************************************/
-
-void eval_neville_polynom_ready_ (const double * xa, const double * ya, int * deg,
-                                  double * x, int * Dmin, int * Dmax, double * R)
-{
-eval_neville_polynom(xa, ya, *deg, *x, *Dmin, *Dmax, R);
-}
-
-/*****************************************************************************/
-
 int make_adaptive_grid (void (*func)(double *, double *, void *p), void *p, double a, double b, int deg, int *dim, double *eps, int order, int debug, double *x1, double *y1)
 {
 //makes an adaptive x grid for moving interpolating polynoma of degree deg

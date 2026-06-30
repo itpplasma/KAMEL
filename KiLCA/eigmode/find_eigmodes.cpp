@@ -21,18 +21,18 @@ int ind = ((det_params *) params)->ind;
 int m   = ((det_params *) params)->m;
 int n   = ((det_params *) params)->n;
 
-core_data *cd = ((det_params *) params)->cd;
+intptr_t cd = ((det_params *) params)->cd;
 
 {
     std::complex<T> olab_local = 2.0*pi*freq;
     char cd_sd_path2project[1024];
-    settings_get_path2project_ (cd->sd, cd_sd_path2project);
-    cd->mda[ind] = mode_data_create_ (m, n, real(olab_local), imag(olab_local), cd->sd, (intptr_t)cd->bp, cd_sd_path2project);
+    settings_get_path2project_ (core_data_get_sd_(cd), cd_sd_path2project);
+    core_data_set_mda_element_ (cd, ind, mode_data_create_ (m, n, real(olab_local), imag(olab_local), core_data_get_sd_(cd), core_data_get_bp_(cd), cd_sd_path2project));
 }
 
-mode_data_calc_all_mode_data_ (cd->mda[ind], 0);
+mode_data_calc_all_mode_data_ (core_data_get_mda_element_(cd, ind), 0);
 
-complex<double> det = complex<double>(wave_data_get_det_re_(mode_data_get_wd_(cd->mda[ind])), wave_data_get_det_im_(mode_data_get_wd_(cd->mda[ind])));
+complex<double> det = complex<double>(wave_data_get_det_re_(mode_data_get_wd_(core_data_get_mda_element_(cd, ind))), wave_data_get_det_im_(mode_data_get_wd_(core_data_get_mda_element_(cd, ind))));
 
 //if (DEBUG_FLAG)
 //{
@@ -48,8 +48,8 @@ complex<double> det = complex<double>(wave_data_get_det_re_(mode_data_get_wd_(cd
 //}
 
 //clean up:
-mode_data_destroy_ (cd->mda[ind]);
-cd->mda[ind] = NULL;
+mode_data_destroy_ (core_data_get_mda_element_(cd, ind));
+core_data_set_mda_element_ (cd, ind, 0);
 clear_all_data_in_mode_data_module_ (); //clean up fortran module data
 
 return det;
@@ -57,7 +57,7 @@ return det;
 
 /**********************************************************************************/
 
-int find_eigmodes (int ind, int m, int n, core_data *cd)
+int find_eigmodes (int ind, int m, int n, intptr_t cd)
 {
 using namespace std;
 using namespace type;
@@ -136,7 +136,7 @@ char *full_name = new char[1024];
 char es_fname[1024];
 get_eigmode_fname_ (es_fname);
 char cd_sd_path2project[1024];
-settings_get_path2project_ (cd->sd, cd_sd_path2project);
+settings_get_path2project_ (core_data_get_sd_(cd), cd_sd_path2project);
 sprintf (full_name, "%s%s", cd_sd_path2project, es_fname);
 
 FILE *out;

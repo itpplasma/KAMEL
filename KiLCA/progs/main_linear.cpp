@@ -38,24 +38,24 @@ else if (argc >= 2)
 
 if (path[strlen(path)-1] != '/') strcat(path, "/");
 
-core_data *cd = new core_data (path); //!<core data structure contains pointers to all important code data
+intptr_t cd = core_data_create_ (path); //!<core data structure contains pointers to all important code data
 set_core_data_in_core_module_ (&cd);  //!<stores the core data pointer in fortran module for later use
 
-cd->calc_and_set_mode_independent_core_data (); //!<evident from the function name
+core_data_calc_and_set_mode_independent_ (cd); //!<evident from the function name
 
 if (get_antenna_flag_eigmode_ () == 0)
 {
-    cd->calc_and_set_mode_dependent_core_data_antenna (); //!<normal operation with antenna
+    core_data_calc_and_set_mode_dependent_antenna_ (cd); //!<normal operation with antenna
 }
 else
 {
-    cd->calc_and_set_mode_dependent_core_data_eigmode (); //!<special operation for instabilities hunting
+    core_data_calc_and_set_mode_dependent_eigmode_ (cd); //!<special operation for instabilities hunting
 }
 
 //!frees the used memory
 delete [] path;
 
-delete cd;
+core_data_destroy_ (cd);
 
 return 0;
 }

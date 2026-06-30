@@ -20,7 +20,7 @@
 
 /*******************************************************************/
 
-void calc_wave_code_data_ (core_data ** cdptr, char const * run_path, int * pathlength)
+void calc_wave_code_data_ (intptr_t * cdptr, char const * run_path, int * pathlength)
 {
     //!The function computes wave fields and other quantities which migth be obtained by subsequent calls of other get_* () interface functions
     //gets path to the project
@@ -31,19 +31,19 @@ void calc_wave_code_data_ (core_data ** cdptr, char const * run_path, int * path
     if (path[strlen(path)-1] != '/') strcat(path, "/");
 
     //!Allocates core data structure containing pointers to all important code data
-    core_data * cd = new core_data (path);
+    intptr_t cd = core_data_create_ (path);
     set_core_data_in_core_module_ (&cd);
     *cdptr = cd;
 
-    cd->calc_and_set_mode_independent_core_data ();
-    cd->calc_and_set_mode_dependent_core_data_antenna_interface ();
+    core_data_calc_and_set_mode_independent_ (cd);
+    core_data_calc_and_set_mode_dependent_antenna_interface_ (cd);
 
     delete [] path;
 }
 
 /*******************************************************************/
 
-void calc_wave_code_data_for_mode_ (core_data ** cdptr, char const * run_path, int * pathlength, int * m, int * n)
+void calc_wave_code_data_for_mode_ (intptr_t * cdptr, char const * run_path, int * pathlength, int * m, int * n)
 {
     //!The function computes wave fields and other quantities which migth be obtained by subsequent calls of other get_* () interface functions
     //gets path to the project
@@ -53,43 +53,43 @@ void calc_wave_code_data_for_mode_ (core_data ** cdptr, char const * run_path, i
     if (path[strlen(path)-1] != '/') strcat(path, "/");
 
     //!Allocates core data structure containing pointers to all important code data
-    core_data * cd = new core_data (path);
+    intptr_t cd = core_data_create_ (path);
     set_core_data_in_core_module_ (&cd);
     *cdptr = cd;
 
-    cd->calc_and_set_mode_independent_core_data ();
+    core_data_calc_and_set_mode_independent_ (cd);
 
-    cd->calc_and_set_mode_dependent_core_data_antenna_interface (*m, *n);
+    core_data_calc_and_set_mode_dependent_antenna_interface_mn_ (cd, *m, *n, 0);
 
     delete [] path;
 }
 
 /*******************************************************************/
 
-void clear_wave_code_data_ (core_data ** cdptr)
+void clear_wave_code_data_ (intptr_t * cdptr)
 {
 //!The functions deletes all wave code data
-delete *cdptr;
+core_data_destroy_ (*cdptr);
 }
 
 /*******************************************************************/
 
-void get_basic_background_profiles_from_wave_code_ (core_data ** cdptr, int * dim_r, double * r,
+void get_basic_background_profiles_from_wave_code_ (intptr_t * cdptr, int * dim_r, double * r,
                                                     double * q, double * n,
                                                     double * Ti, double * Te,
                                                     double * Vth, double * Vz, double * dPhi0)
 {
-core_data * cd = *cdptr;
+intptr_t cd = *cdptr;
 
 interp_basic_background_profiles_in_lab_frame_ (*dim_r, r, q, n, Ti, Te, Vth, Vz, dPhi0);
 }
 
 /*******************************************************************/
 
-void get_wave_vectors_from_wave_code_ (core_data ** cdptr, int * dim_r, double * r,
+void get_wave_vectors_from_wave_code_ (intptr_t * cdptr, int * dim_r, double * r,
                                        int * m, int * n, double * ks, double * kp)
 {
-core_data *cd = *cdptr;
+intptr_t cd = *cdptr;
 
 for (int i=0; i<*dim_r; i++)
 {
@@ -97,7 +97,7 @@ for (int i=0; i<*dim_r; i++)
     double kz  = (*n)/(get_background_rtor_());
 
     double htz[2];
-    eval_hthz (r[i], 0, 0, cd->bp, htz);
+    eval_hthz (r[i], 0, 0, reinterpret_cast<const background *>(core_data_get_bp_(cd)), htz);
 
     double ht = htz[0];
     double hz = htz[1];
@@ -109,10 +109,10 @@ for (int i=0; i<*dim_r; i++)
 
 /*******************************************************************/
 
-void get_background_magnetic_fields_from_wave_code_ (core_data ** cdptr, int * dim_r, double * r,
+void get_background_magnetic_fields_from_wave_code_ (intptr_t * cdptr, int * dim_r, double * r,
                                                      double * Bt, double * Bz, double * B0)
 {
-core_data * cd = *cdptr;
+intptr_t cd = *cdptr;
 
 for (int i=0; i<*dim_r; i++)
 {
@@ -122,10 +122,10 @@ for (int i=0; i<*dim_r; i++)
 
 /*******************************************************************/
 
-void get_collision_frequences_from_wave_code_ (core_data ** cdptr, int * dim_r, double * r,
+void get_collision_frequences_from_wave_code_ (intptr_t * cdptr, int * dim_r, double * r,
                                                double * nui, double * nue)
 {
-core_data * cd = *cdptr;
+intptr_t cd = *cdptr;
 
 for (int i=0; i<*dim_r; i++)
 {
@@ -135,21 +135,21 @@ for (int i=0; i<*dim_r; i++)
 
 /*******************************************************************/
 
-void get_wave_fields_from_wave_code_ (core_data ** cdptr, int * dim_r, double * r,
+void get_wave_fields_from_wave_code_ (intptr_t * cdptr, int * dim_r, double * r,
                                       int * m, int * n,
                                       double * Er, double * Es, double * Ep,
                                       double * Et, double * Ez,
                                       double * Br, double * Bs, double * Bp,
                                       double * Bt, double * Bz)
 {
-core_data *cd = *cdptr;
+intptr_t cd = *cdptr;
 
 //search for mode index
 int num = -1;
 
-for (int i=0; i<cd->dim; i++)
+for (int i=0; i<core_data_get_dim_(cd); i++)
 {
-    if (wave_data_get_m_(mode_data_get_wd_(cd->mda[i])) == *m && wave_data_get_n_(mode_data_get_wd_(cd->mda[i])) == *n)
+    if (wave_data_get_m_(mode_data_get_wd_(core_data_get_mda_element_(cd, i))) == *m && wave_data_get_n_(mode_data_get_wd_(core_data_get_mda_element_(cd, i))) == *n)
     {
         num = i;
         break;
@@ -167,9 +167,9 @@ for (int i=0; i<*dim_r; i++)
     complex<double> EBcyl[6];
     complex<double> EBrsp[6];
 
-    mode_data_eval_EB_fields_ (cd->mda[num], r[i], reinterpret_cast<double*>(EBcyl));
+    mode_data_eval_EB_fields_ (core_data_get_mda_element_(cd, num), r[i], reinterpret_cast<double*>(EBcyl));
 
-    transform_EB_from_cyl_to_rsp (cd->bp, r[i], EBcyl, EBrsp);
+    transform_EB_from_cyl_to_rsp (reinterpret_cast<const background *>(core_data_get_bp_(cd)), r[i], EBcyl, EBrsp);
 
     //copy values to fortran complex arrays passed as C double arrays:
     int ind = 2*i;
@@ -208,18 +208,18 @@ for (int i=0; i<*dim_r; i++)
 
 /*******************************************************************/
 
-void get_diss_power_density_from_wave_code_ (core_data ** cdptr, int * dim_r, double * r,
+void get_diss_power_density_from_wave_code_ (intptr_t * cdptr, int * dim_r, double * r,
                                              int * m, int * n,
                                              int * type, int * spec, double * pdis)
 {
-core_data *cd = *cdptr;
+intptr_t cd = *cdptr;
 
 //search for mode index
 int num = -1;
 
-for (int i=0; i<cd->dim; i++)
+for (int i=0; i<core_data_get_dim_(cd); i++)
 {
-    if (wave_data_get_m_(mode_data_get_wd_(cd->mda[i])) == *m && wave_data_get_n_(mode_data_get_wd_(cd->mda[i])) == *n)
+    if (wave_data_get_m_(mode_data_get_wd_(core_data_get_mda_element_(cd, i))) == *m && wave_data_get_n_(mode_data_get_wd_(core_data_get_mda_element_(cd, i))) == *n)
     {
         num = i;
         break;
@@ -234,53 +234,53 @@ if (num == -1)
 
 for (int i=0; i<*dim_r; i++)
 {
-    mode_data_eval_diss_power_density_ (cd->mda[num], r[i], *type, *spec, pdis+i);
+    mode_data_eval_diss_power_density_ (core_data_get_mda_element_(cd, num), r[i], *type, *spec, pdis+i);
 }
 }
 
 /*******************************************************************/
 
-void get_antenna_spectrum_dim_ (core_data ** cdptr, int * dim_mn)
+void get_antenna_spectrum_dim_ (intptr_t * cdptr, int * dim_mn)
 {
-core_data *cd = *cdptr;
+intptr_t cd = *cdptr;
 
-*dim_mn = cd->dim;
+*dim_mn = core_data_get_dim_(cd);
 }
 
 /*******************************************************************/
 
-void get_antenna_spectrum_numbers_ (core_data ** cdptr, int * dim_mn, int * m_vals, int * n_vals)
+void get_antenna_spectrum_numbers_ (intptr_t * cdptr, int * dim_mn, int * m_vals, int * n_vals)
 {
-core_data *cd = *cdptr;
+intptr_t cd = *cdptr;
 
-if (*dim_mn != cd->dim)
+if (*dim_mn != core_data_get_dim_(cd))
 {
    fprintf (stdout, "\nwarning: get_antenna_spectrum_numbers: spectrum dimensions must match");
    return;
 }
 
-for (int i=0; i<cd->dim; i++)
+for (int i=0; i<core_data_get_dim_(cd); i++)
 {
-    m_vals[i] = wave_data_get_m_(mode_data_get_wd_(cd->mda[i]));
-    n_vals[i] = wave_data_get_n_(mode_data_get_wd_(cd->mda[i]));
+    m_vals[i] = wave_data_get_m_(mode_data_get_wd_(core_data_get_mda_element_(cd, i)));
+    n_vals[i] = wave_data_get_n_(mode_data_get_wd_(core_data_get_mda_element_(cd, i)));
 }
 }
 
 /*******************************************************************/
 
-void get_current_densities_from_wave_code_ (core_data ** cdptr, int * dim_r, double * r,
+void get_current_densities_from_wave_code_ (intptr_t * cdptr, int * dim_r, double * r,
                                             int * m, int * n,
                                             double * Jri, double * Jsi, double * Jpi,
                                             double * Jre, double * Jse, double * Jpe)
 {
-core_data *cd = *cdptr;
+intptr_t cd = *cdptr;
 
 //search for mode index
 int num = -1;
 
-for (int i=0; i<cd->dim; i++)
+for (int i=0; i<core_data_get_dim_(cd); i++)
 {
-    if (wave_data_get_m_(mode_data_get_wd_(cd->mda[i])) == *m && wave_data_get_n_(mode_data_get_wd_(cd->mda[i])) == *n)
+    if (wave_data_get_m_(mode_data_get_wd_(core_data_get_mda_element_(cd, i))) == *m && wave_data_get_n_(mode_data_get_wd_(core_data_get_mda_element_(cd, i))) == *n)
     {
         num = i;
         break;
@@ -296,33 +296,33 @@ if (num == -1)
 for (int i=0; i<*dim_r; i++)
 {
     int ind = 2*i;
-    mode_data_eval_current_density_ (cd->mda[num], r[i], 0, 0, 0, Jri+ind);
-    mode_data_eval_current_density_ (cd->mda[num], r[i], 0, 0, 1, Jsi+ind);
-    mode_data_eval_current_density_ (cd->mda[num], r[i], 0, 0, 2, Jpi+ind);
-    mode_data_eval_current_density_ (cd->mda[num], r[i], 0, 1, 0, Jre+ind);
-    mode_data_eval_current_density_ (cd->mda[num], r[i], 0, 1, 1, Jse+ind);
-    mode_data_eval_current_density_ (cd->mda[num], r[i], 0, 1, 2, Jpe+ind);
+    mode_data_eval_current_density_ (core_data_get_mda_element_(cd, num), r[i], 0, 0, 0, Jri+ind);
+    mode_data_eval_current_density_ (core_data_get_mda_element_(cd, num), r[i], 0, 0, 1, Jsi+ind);
+    mode_data_eval_current_density_ (core_data_get_mda_element_(cd, num), r[i], 0, 0, 2, Jpi+ind);
+    mode_data_eval_current_density_ (core_data_get_mda_element_(cd, num), r[i], 0, 1, 0, Jre+ind);
+    mode_data_eval_current_density_ (core_data_get_mda_element_(cd, num), r[i], 0, 1, 1, Jse+ind);
+    mode_data_eval_current_density_ (core_data_get_mda_element_(cd, num), r[i], 0, 1, 2, Jpe+ind);
 }
 }
 
 /*******************************************************************/
 
-void activate_kilca_modules_for_flre_zone_ (core_data ** cdptr)
+void activate_kilca_modules_for_flre_zone_ (intptr_t * cdptr)
 {
 //!The function activates the fortran modules for flre zone
 
-intptr_t fz = mode_data_get_zone_handle_((*cdptr)->mda[0], 0);
+intptr_t fz = mode_data_get_zone_handle_(core_data_get_mda_element_(*cdptr, 0), 0);
 
 activate_fortran_modules_for_zone_ (&fz);
 }
 
 /*******************************************************************/
 
-void deactivate_kilca_modules_for_flre_zone_ (core_data ** cdptr)
+void deactivate_kilca_modules_for_flre_zone_ (intptr_t * cdptr)
 {
 //!The function activates the fortran modules for flre zone
 
-intptr_t fz = mode_data_get_zone_handle_((*cdptr)->mda[0], 0);
+intptr_t fz = mode_data_get_zone_handle_(core_data_get_mda_element_(*cdptr, 0), 0);
 
 deactivate_fortran_modules_for_zone_ (&fz);
 }
@@ -332,7 +332,7 @@ deactivate_fortran_modules_for_zone_ (&fz);
 void
 get_kilca_conductivity_array_
 (
-core_data ** cdptr,
+intptr_t * cdptr,
 int * m,
 int * n,
 int * zone_ind,
@@ -343,14 +343,14 @@ double ** r,
 double ** cptr
 )
 {
-core_data *cd = *cdptr;
+intptr_t cd = *cdptr;
 
 //search for mode index
 int num = -1;
 
-for (int i=0; i<cd->dim; i++)
+for (int i=0; i<core_data_get_dim_(cd); i++)
 {
-    if (wave_data_get_m_(mode_data_get_wd_(cd->mda[i])) == *m && wave_data_get_n_(mode_data_get_wd_(cd->mda[i])) == *n)
+    if (wave_data_get_m_(mode_data_get_wd_(core_data_get_mda_element_(cd, i))) == *m && wave_data_get_n_(mode_data_get_wd_(core_data_get_mda_element_(cd, i))) == *n)
     {
         num = i;
         break;
@@ -363,7 +363,7 @@ if (num == -1)
     return;
 }
 
-intptr_t zone = mode_data_get_zone_handle_(cd->mda[num], *zone_ind);
+intptr_t zone = mode_data_get_zone_handle_(core_data_get_mda_element_(cd, num), *zone_ind);
 intptr_t zone_cp = flre_zone_get_cp_ (zone);
 
 *flreo = flre_zone_get_flre_order_ (zone);
@@ -376,7 +376,7 @@ intptr_t zone_cp = flre_zone_get_cp_ (zone);
 
 void
 calc_conductivity_matrices_for_mode_
-(core_data ** cdptr, char const * run_path, int * pathlength, int * m, int * n)
+(intptr_t * cdptr, char const * run_path, int * pathlength, int * m, int * n)
 {
 //!The function computes wave fields and other quantities which migth be obtained by subsequent calls of other get_* () interface functions
 
@@ -390,29 +390,29 @@ path[*pathlength] = '\0'; //end of string symbol
 if (path[strlen(path)-1] != '/') strcat(path, "/");
 
 //!Allocates core data structure containing pointers to all important code data
-core_data * cd = new core_data (path);
+intptr_t cd = core_data_create_ (path);
 set_core_data_in_core_module_ (&cd);
 *cdptr = cd;
 
-cd->calc_and_set_mode_independent_core_data ();
+core_data_calc_and_set_mode_independent_ (cd);
 
-cd->calc_and_set_mode_dependent_core_data_antenna_interface (*m, *n, 1);
+core_data_calc_and_set_mode_dependent_antenna_interface_mn_ (cd, *m, *n, 1);
 
 delete [] path;
 }
 
 /*******************************************************************/
 
-void get_mode_parameters_ (core_data ** cdptr, int * m, int * n, double * kz, double * omega_mov_re, double * omega_mov_im)
+void get_mode_parameters_ (intptr_t * cdptr, int * m, int * n, double * kz, double * omega_mov_re, double * omega_mov_im)
 {
-core_data *cd = *cdptr;
+intptr_t cd = *cdptr;
 
 //search for mode index
 int num = -1;
 
-for (int i=0; i<cd->dim; i++)
+for (int i=0; i<core_data_get_dim_(cd); i++)
 {
-    if (wave_data_get_m_(mode_data_get_wd_(cd->mda[i])) == *m && wave_data_get_n_(mode_data_get_wd_(cd->mda[i])) == *n)
+    if (wave_data_get_m_(mode_data_get_wd_(core_data_get_mda_element_(cd, i))) == *m && wave_data_get_n_(mode_data_get_wd_(core_data_get_mda_element_(cd, i))) == *n)
     {
         num = i;
         break;
@@ -425,24 +425,24 @@ if (num == -1)
     return;
 }
 
-*kz = wave_data_get_n_(mode_data_get_wd_(cd->mda[num])) / get_background_rtor_();
+*kz = wave_data_get_n_(mode_data_get_wd_(core_data_get_mda_element_(cd, num))) / get_background_rtor_();
 
-*omega_mov_re = get_wave_data_obj_omov_re_(mode_data_get_wd_(cd->mda[num]));
-*omega_mov_im = get_wave_data_obj_omov_im_(mode_data_get_wd_(cd->mda[num]));
+*omega_mov_re = get_wave_data_obj_omov_re_(mode_data_get_wd_(core_data_get_mda_element_(cd, num)));
+*omega_mov_im = get_wave_data_obj_omov_im_(mode_data_get_wd_(core_data_get_mda_element_(cd, num)));
 }
 
 /*******************************************************************/
 
-void set_wave_parameters_ (core_data ** cdptr, int * m, int * n)
+void set_wave_parameters_ (intptr_t * cdptr, int * m, int * n)
 {
-core_data *cd = *cdptr;
+intptr_t cd = *cdptr;
 
 //search for mode index
 int num = -1;
 
-for (int i=0; i<cd->dim; i++)
+for (int i=0; i<core_data_get_dim_(cd); i++)
 {
-    if (wave_data_get_m_(mode_data_get_wd_(cd->mda[i])) == *m && wave_data_get_n_(mode_data_get_wd_(cd->mda[i])) == *n)
+    if (wave_data_get_m_(mode_data_get_wd_(core_data_get_mda_element_(cd, i))) == *m && wave_data_get_n_(mode_data_get_wd_(core_data_get_mda_element_(cd, i))) == *n)
     {
         num = i;
         break;
@@ -455,14 +455,14 @@ if (num == -1)
     return;
 }
 
-//set_wave_parameters_in_mode_data_module_(&(mode_data_get_wd_(cd->mda[num])->m), &(mode_data_get_wd_(cd->mda[num])->n),
-//                                         &(real(mode_data_get_wd_(cd->mda[num])->olab)), &(imag(mode_data_get_wd_(cd->mda[num])->olab)),
-//                                         &(real(mode_data_get_wd_(cd->mda[num])->omov)), &(imag(mode_data_get_wd_(cd->mda[num])->omov)));
+//set_wave_parameters_in_mode_data_module_(&(mode_data_get_wd_(core_data_get_mda_element_(cd, num))->m), &(mode_data_get_wd_(core_data_get_mda_element_(cd, num))->n),
+//                                         &(real(mode_data_get_wd_(core_data_get_mda_element_(cd, num))->olab)), &(imag(mode_data_get_wd_(core_data_get_mda_element_(cd, num))->olab)),
+//                                         &(real(mode_data_get_wd_(core_data_get_mda_element_(cd, num))->omov)), &(imag(mode_data_get_wd_(core_data_get_mda_element_(cd, num))->omov)));
 
-int mm = wave_data_get_m_(mode_data_get_wd_(cd->mda[num])), nn = wave_data_get_n_(mode_data_get_wd_(cd->mda[num]));
+int mm = wave_data_get_m_(mode_data_get_wd_(core_data_get_mda_element_(cd, num))), nn = wave_data_get_n_(mode_data_get_wd_(core_data_get_mda_element_(cd, num)));
 
-double olab_re = wave_data_get_olab_re_(mode_data_get_wd_(cd->mda[num])), olab_im = wave_data_get_olab_im_(mode_data_get_wd_(cd->mda[num]));
-double omov_re = get_wave_data_obj_omov_re_(mode_data_get_wd_(cd->mda[num])), omov_im = get_wave_data_obj_omov_im_(mode_data_get_wd_(cd->mda[num]));
+double olab_re = wave_data_get_olab_re_(mode_data_get_wd_(core_data_get_mda_element_(cd, num))), olab_im = wave_data_get_olab_im_(mode_data_get_wd_(core_data_get_mda_element_(cd, num)));
+double omov_re = get_wave_data_obj_omov_re_(mode_data_get_wd_(core_data_get_mda_element_(cd, num))), omov_im = get_wave_data_obj_omov_im_(mode_data_get_wd_(core_data_get_mda_element_(cd, num)));
 
 set_wave_parameters_in_mode_data_module_(&mm, &nn, &olab_re, &olab_im, &omov_re, &omov_im);
 }

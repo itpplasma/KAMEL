@@ -151,9 +151,6 @@ set(kilca_lib_cpp_sources
     core/shared.cpp
     core/core.cpp
     core/settings.cpp
-    background/background.cpp
-    background/calc_back.cpp
-    background/eval_back.cpp
     eigmode/calc_eigmode.cpp
     eigmode/find_eigmodes.cpp
     flre/flre_zone.cpp
@@ -184,6 +181,7 @@ set(kilca_lib_fortran_sources
     math/hyper/hyper1F1_m.f90
     antenna/antenna_m.f90
     background/background_m.f90
+    background/background_data_m.f90
     eigmode/eigmode_sett_m.f90
     flre/flre_sett_m.f90
     mode/mode_m.f90

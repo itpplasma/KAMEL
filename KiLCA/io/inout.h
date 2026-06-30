@@ -17,6 +17,8 @@ int save_cmplx_matrix (int Nrows, int Ncols, int Npoints, const double *xgrid, c
 int save_cmplx_matrix_to_one_file (int Nrows, int Ncols, int Npoints, const double *xgrid, const double *arr, const char *full_name);
 
 int save_real_array (int dim, const double *xgrid, const double *arr, const char *full_name);
+
+int load_data_file (char *file_name, int dim, int ncols, double *rgrid, double *qgrid);
 }
 
 int save_real_matrix_to_one_file (int order, int Nrows, int Ncols, int Npoints, const double *xgrid, const double *arr, const char *full_name);
@@ -42,8 +44,6 @@ int load_and_alloc_profile (char *name, int *dim, double **rgrid, double **qgrid
 int count_lines_in_file (char *filename, int flag_print);
 
 int load_complex_profile (char *name, int dim, double *rgrid, double *qgrid);
-
-int load_data_file (char *file_name, int dim, int ncols, double *rgrid, double *qgrid);
 
 int count_lines_in_file_with_comments (char *filename, int flag_print);
 

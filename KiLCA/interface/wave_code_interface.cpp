@@ -11,6 +11,7 @@
 #include "core.h"
 #include "mode.h"
 #include "background.h"
+#include "eval_back.h"
 #include "transforms.h"
 #include "spline.h"
 #include "flre_zone.h"
@@ -79,7 +80,7 @@ void get_basic_background_profiles_from_wave_code_ (core_data ** cdptr, int * di
 {
 core_data * cd = *cdptr;
 
-cd->bp->interp_basic_background_profiles_in_lab_frame (*dim_r, r, q, n, Ti, Te, Vth, Vz, dPhi0);
+interp_basic_background_profiles_in_lab_frame_ (*dim_r, r, q, n, Ti, Te, Vth, Vz, dPhi0);
 }
 
 /*******************************************************************/
@@ -94,10 +95,11 @@ for (int i=0; i<*dim_r; i++)
     double kth = (*m)/r[i];
     double kz  = (*n)/(get_background_rtor_());
 
-    spline_eval_ (cd->bp->sid, 1, r+i, 0, 0, cd->bp->i_hth, cd->bp->i_hz, cd->bp->R);
+    double htz[2];
+    eval_hthz (r[i], 0, 0, cd->bp, htz);
 
-    double ht = cd->bp->R[0];
-    double hz = cd->bp->R[1];
+    double ht = htz[0];
+    double hz = htz[1];
 
     kp[i] = ht*kth + hz*kz;
     ks[i] = hz*kth - ht*kz;
@@ -113,11 +115,7 @@ core_data * cd = *cdptr;
 
 for (int i=0; i<*dim_r; i++)
 {
-    spline_eval_ (cd->bp->sid, 1, r+i, 0, 0, cd->bp->i_Bth, cd->bp->i_B, cd->bp->R);
-
-    Bt[i] = cd->bp->R[0];
-    Bz[i] = cd->bp->R[1];
-    B0[i] = cd->bp->R[2];
+    get_background_magnetic_fields_ (r[i], Bt+i, Bz+i, B0+i);
 }
 }
 
@@ -130,8 +128,7 @@ core_data * cd = *cdptr;
 
 for (int i=0; i<*dim_r; i++)
 {
-    spline_eval_ (cd->bp->sid, 1, r+i, 0, 0, cd->bp->i_nu[0], cd->bp->i_nu[0], nui+i);
-    spline_eval_ (cd->bp->sid, 1, r+i, 0, 0, cd->bp->i_nu[1], cd->bp->i_nu[1], nue+i);
+    get_background_collision_freqs_ (r[i], nui+i, nue+i);
 }
 }
 

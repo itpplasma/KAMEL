@@ -214,19 +214,12 @@ module kilca_cond_profiles_m
             integer(c_int), intent(out) :: gal_corr
         end subroutine get_gal_corr_c
 
-        integer(c_int) function get_background_obj_dimx_c(bp) bind(C, name="get_background_obj_dimx_")
-            import :: c_int, c_ptr
-            type(c_ptr), value :: bp
-        end function get_background_obj_dimx_c
-
-        real(c_double) function get_background_obj_x0_c(bp) bind(C, name="get_background_obj_x0_")
-            import :: c_double, c_ptr
-            type(c_ptr), value :: bp
+        real(c_double) function get_background_obj_x0_c() bind(C, name="get_background_x0_")
+            import :: c_double
         end function get_background_obj_x0_c
 
-        real(c_double) function get_background_obj_xlast_c(bp) bind(C, name="get_background_obj_xlast_")
-            import :: c_double, c_ptr
-            type(c_ptr), value :: bp
+        real(c_double) function get_background_obj_xlast_c() bind(C, name="get_background_xlast_")
+            import :: c_double
         end function get_background_obj_xlast_c
 
         real(c_double) function get_wave_data_obj_omov_re_c(wd) bind(C, name="get_wave_data_obj_omov_re_")
@@ -403,10 +396,12 @@ contains
     !> wd_ptr/cp_ptr are passed BY REFERENCE (non-VALUE), matching the
     !> original `settings **sd_ptr`/`cond_profiles **cp_ptr` C ABI that
     !> conductivity.f90's implicit-interface call expects (same convention as
-    !> eval_c_matrices_f/eval_k_matrices_f above). bp/wd are still C++
-    !> instances (per-zone, not the Fortran-resident globals), so their
-    !> needed fields are read through small additive C++ accessors
-    !> (get_background_obj_*_/get_wave_data_obj_omov_*_).
+    !> eval_c_matrices_f/eval_k_matrices_f above). bp_ptr is accepted for ABI
+    !> compatibility but unused: background is now a Fortran singleton (see
+    !> kilca_background_data_m), so its x0/xlast come from that module's own
+    !> getters regardless of the handle value. wd is still a per-zone C++
+    !> instance, so its needed field is read through a small additive C++
+    !> accessor (get_wave_data_obj_omov_*_).
     subroutine calc_and_spline_conductivity_for_point(sd_ptr, bp_ptr, wd_ptr, &
         flag_back_p, r, cp_ptr) bind(C, name="calc_and_spline_conductivity_for_point_")
         integer(c_intptr_t), intent(in) :: sd_ptr, bp_ptr, wd_ptr
@@ -415,7 +410,7 @@ contains
         integer(c_intptr_t), intent(out) :: cp_ptr
 
         type(cond_profiles_t), pointer :: cp
-        type(c_ptr) :: bp_cptr, wd_cptr
+        type(c_ptr) :: wd_cptr
         integer(c_int) :: l, dim_err
         integer(c_int), allocatable :: ind_err(:)
         integer(c_int) :: spec, ttype, p, q, i, j, part
@@ -425,7 +420,6 @@ contains
 
         allocate (cp)
 
-        bp_cptr = transfer(bp_ptr, bp_cptr)
         wd_cptr = transfer(wd_ptr, wd_cptr)
 
         cp%flag_back = flag_back_p(1)
@@ -447,8 +441,8 @@ contains
         allocate (cp%xt(0:cp%dimx - 1))
         allocate (cp%yt(0:cp%dimx*cp%dimK - 1))
 
-        bp_x0 = get_background_obj_x0_c(bp_cptr)
-        bp_xlast = get_background_obj_xlast_c(bp_cptr)
+        bp_x0 = get_background_obj_x0_c()
+        bp_xlast = get_background_obj_xlast_c()
         omov_re = get_wave_data_obj_omov_re_c(wd_cptr)
         omov_im = get_wave_data_obj_omov_im_c(wd_cptr)
         cp%omov = cmplx(omov_re, omov_im, c_double)

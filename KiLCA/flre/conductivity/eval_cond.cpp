@@ -24,7 +24,7 @@ if (cp->flag_back[0] != 'f') //r is multiplied on huge_factor
 {
     for (int n=Dmin; n<=Dmax; n++)
     {
-        double scale_fac = pow (cp->sd->bs->huge_factor, n);
+        double scale_fac = pow (get_background_huge_factor_(), n);
         int ind = dimk*(n-Dmin);
         for (int j=0; j<dimk; j++) K[j+ind] /= scale_fac;
     }
@@ -48,7 +48,7 @@ if (cp->flag_back[0] != 'f') //r is multiplied on a huge_factor
 {
     for (n=Dmin; n<=Dmax; n++)
     {
-        scale_fac = pow (cp->sd->bs->huge_factor, n);
+        scale_fac = pow (get_background_huge_factor_(), n);
         ind = dimk*(n-Dmin);
         for (j=0; j<dimk; j++) K[j+ind] /= scale_fac;
     }
@@ -71,7 +71,7 @@ if (cp->flag_back[0] != 'f') //r is multiplied on huge_factor
 {
     for (n=Dmin; n<=Dmax; n++)
     {
-        scale_fac = pow (cp->sd->bs->huge_factor, n);
+        scale_fac = pow (get_background_huge_factor_(), n);
         ind = dimc*(n-Dmin);
         for (j=0; j<dimc; j++) C[j+ind] /= scale_fac;
     }
@@ -93,7 +93,7 @@ if (cp->flag_back[0] != 'f') //r is multiplied on huge_factor
 {
     for (n=Dmin; n<=Dmax; n++)
     {
-        scale_fac = pow (cp->sd->bs->huge_factor, n);
+        scale_fac = pow (get_background_huge_factor_(), n);
         ind = dimc*(n-Dmin);
         for (j=0; j<dimc; j++) C[j+ind] /= scale_fac;
     }

@@ -421,7 +421,7 @@ diss_pow_dens &DPD = *((diss_pow_dens *)(qp->qloc[qp->DISS_POWER_DENS]));
 
 complex<double> dpd, Km, Ef_1, Ef_2, fac;
 
-double *charge = qp->zone->sd->bs->charge;
+double charge[2] = { get_background_charge_ (0), get_background_charge_ (1) };
 
 int i, j, n1, n2, spec, type;
 
@@ -582,7 +582,7 @@ complex<double> kf, Km, Ef_1, Ef_2, fac;
 
 double coeff;
 
-double *charge = qp->zone->sd->bs->charge;
+double charge[2] = { get_background_charge_ (0), get_background_charge_ (1) };
 
 int i, j, n1, n2, spec, type, p, s;
 
@@ -933,7 +933,8 @@ number_dens &ND = *((number_dens *)(qp->qloc[qp->NUMBER_DENS]));
 //eval wave numbers for given r point:
 double kvals[3];
 
-char * flag_back = qp->zone->sd->bs->flag_back;
+char flag_back_buf[2] = { get_background_flag_back_ (), '\0' };
+char * flag_back = flag_back_buf;
 
 eval_and_set_background_parameters_spec_independent_ (&(qp->r), flag_back);
 eval_and_set_wave_parameters_ (&(qp->r), flag_back);
@@ -958,7 +959,7 @@ for (int spec=0; spec<2; spec++) //over species
 
     dj[0] = djr[0] + djr[1]*I;
 
-    nd = -I/(qp->zone->wd->omov)/(qp->zone->sd->bs->charge[spec])*
+    nd = -I/(qp->zone->wd->omov)/(get_background_charge_(spec))*
          (j[0]/(qp->r) + dj[0] + I*(kvals[1]*j[1] + kvals[2]*j[2]));
 
     ND[spec][0][qp->node] = real(nd);
@@ -969,8 +970,8 @@ for (int spec=0; spec<2; spec++) //over species
 //j_t' = j_t - V*(ei*n_i + ee*n_e).
 for (int part=0; part<2; part++) //over {re, im}
 {
-    ND[2][part][qp->node] = ND[0][part][qp->node]*(qp->zone->sd->bs->charge[0]/e) + //i
-                            ND[1][part][qp->node]*(qp->zone->sd->bs->charge[1]/e);  //e
+    ND[2][part][qp->node] = ND[0][part][qp->node]*(get_background_charge_(0)/e) + //i
+                            ND[1][part][qp->node]*(get_background_charge_(1)/e);  //e
 }
 
 qp->flag[qp->NUMBER_DENS] = 1;
@@ -1046,7 +1047,8 @@ typedef double lor_torq_dens[3][3][qp->dimx];
 lor_torq_dens &LTD = *((lor_torq_dens *)(qp->qloc[qp->LOR_TORQUE_DENS]));
 
 double h[3];
-eval_and_set_background_parameters_spec_independent_ (&(qp->r),qp->zone->sd->bs->flag_back);
+char flag_back_buf2[2] = { get_background_flag_back_ (), '\0' };
+eval_and_set_background_parameters_spec_independent_ (&(qp->r), flag_back_buf2);
 get_magnetic_field_parameters_ (h);
 
 complex<double> j_rsp[3], E_rsp[3], B_rsp[3];  //rsp sys
@@ -1094,13 +1096,13 @@ for (int spec=0; spec<2; spec++) //over species (i,e)
     //force density:
     for (int i=0; i<3; i++) //over components (r,th,z)
     {
-        LTD[spec][i][qp->node] = 0.5*real((qp->zone->sd->bs->charge[spec])*
+        LTD[spec][i][qp->node] = 0.5*real((get_background_charge_(spec))*
                                           nd*conj(E_cyl[i]) + E/c*jxBc[i]);
     }
 
     //torque density:
     LTD[spec][1][qp->node] *= qp->r;                  //T_theta = F_theta*r
-    LTD[spec][2][qp->node] *= qp->zone->sd->bs->rtor; //T_z = F_z*R
+    LTD[spec][2][qp->node] *= get_background_rtor_(); //T_z = F_z*R
 }
 
 //total torque t = i+e:
@@ -1261,8 +1263,8 @@ for (int k=0; k<qp->dimx; k++) //over r grid
     eval_hthz (qp->x[k], 0, 0, qp->zone->bp, htz);
 
     vel[0] =   0.0; //r component
-    vel[1] = - htz[0]*(qp->zone->sd->bs->V_gal_sys); //s component
-    vel[2] =   htz[1]*(qp->zone->sd->bs->V_gal_sys); //p component
+    vel[1] = - htz[0]*(get_background_V_gal_sys_()); //s component
+    vel[2] =   htz[1]*(get_background_V_gal_sys_()); //p component
 
     for (int type=0; type<2; type++) //over current types
     {
@@ -1272,7 +1274,7 @@ for (int k=0; k<qp->dimx; k++) //over r grid
             {
                 //j = j' + e n' V
                 J = (CD[spec][type][i][0][k] + I*CD[spec][type][i][1][k]) +
-                    (qp->zone->sd->bs->charge[spec])*(vel[i]) *
+                    (get_background_charge_(spec))*(vel[i]) *
                     (ND[spec][0][k] +I*ND[spec][1][k]);
 
                 cude[spec][type][i][0][k] = real(J);

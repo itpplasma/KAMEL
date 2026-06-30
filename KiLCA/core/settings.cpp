@@ -17,9 +17,7 @@ void settings::read_settings (void)
 
     read_antenna_settings_ (path2project);
 
-    bs = new back_sett;
-    bs->read_settings (path2project);
-    copy_background_data_to_background_module_ (&bs);
+    read_background_settings_ (path2project);
 
     read_output_settings_ (path2project);
 

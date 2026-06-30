@@ -91,7 +91,7 @@ r = new double[dim];
 basis = new double[dim*Nwaves*Ncomps*2];
 
 int m = wd->m;
-double kz = (wd->n)/(sd->bs->rtor);
+double kz = (wd->n)/(get_background_rtor_());
 
 double comega[2] = {real(wd->olab),  imag(wd->olab)}; //lab frame
 

@@ -25,8 +25,6 @@ class settings
 public:
     char *path2project; //!<project path
 
-    back_sett    *bs; //!<background settings
-
     eigmode_sett *es; //!<settings for eigmode search
 
 public:
@@ -40,19 +38,11 @@ public:
     {
         delete [] path2project;
 
-        delete bs;
         delete es;
     }
 
     void read_settings (void); //!<read settings from KiLCA input files
 };
-
-/*******************************************************************/
-
-extern "C"
-{
-void copy_background_data_to_background_module_ (back_sett **);
-}
 
 /*******************************************************************/
 

@@ -22,7 +22,7 @@ bp = bp_p;
 set_settings_in_mode_data_module_ (&sd);
 set_back_profiles_in_mode_data_module_ (&bp);
 
-complex<double> omov = olab - n*(sd->bs->V_gal_sys)/(sd->bs->rtor);
+complex<double> omov = olab - n*(get_background_V_gal_sys_())/(get_background_rtor_());
 
 wd = new wave_data (m, n, olab, omov);
 

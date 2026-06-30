@@ -40,7 +40,8 @@ eps_out = zone->eps_out;
 eps_res = zone->eps_res;
 
 flag_back = new char[8];
-strcpy (flag_back, sd->bs->flag_back);
+flag_back[0] = get_background_flag_back_ ();
+flag_back[1] = '\0';
 
 path2linear = new char[1024];
 
@@ -201,7 +202,7 @@ cp->bico = new double[(cp->flreo+1)*(cp->flreo+1)];
 
 binomial_coefficients (cp->flreo, cp->bico);
 
-cp->NK = cp->sd->bs->N - (cp->flreo + 1); //flreo is assumed to be odd
+cp->NK = get_background_N_() - (cp->flreo + 1); //flreo is assumed to be odd
 
 cp->dimt = 2; //2 types of K matrices
 cp->dimK = 2*(cp->dimt)*(cp->flreo+1)*(cp->flreo+1)*3*3*2;

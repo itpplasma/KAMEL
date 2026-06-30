@@ -120,7 +120,7 @@ const imhd_zone *zone = (const imhd_zone *) params;
 
 //wave staff:
 double kt = (zone->wd->m)/r;
-double kz = (zone->wd->n)/(zone->sd->bs->rtor);
+double kz = (zone->wd->n)/(get_background_rtor_());
 
 double BtBz[2];
 
@@ -137,7 +137,7 @@ const imhd_zone *zone = (const imhd_zone *) params;
 
 //wave staff:
 double kt = (zone->wd->m)/r;
-double kz = (zone->wd->n)/(zone->sd->bs->rtor);
+double kz = (zone->wd->n)/(get_background_rtor_());
 
 double BtBz[2];
 
@@ -157,7 +157,7 @@ complex<double> olab = zone->wd->olab;
 
 //wave staff:
 *kt = m/r;
-*kz = n/(zone->sd->bs->rtor);
+*kz = n/(get_background_rtor_());
 *k2 = (*kt)*(*kt) + (*kz)*(*kz);
 
 //background stuff:
@@ -176,7 +176,7 @@ double Vz = R[4];
 
 *kB = (*kp)*B0;
 
-double VA = B0/sqrt(4.0*pi*(zone->sd->bs->mass[0])*n0);
+double VA = B0/sqrt(4.0*pi*(get_background_mass_(0))*n0);
 
 *kA = (olab - (*kz)*Vz)/VA;
 

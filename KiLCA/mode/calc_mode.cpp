@@ -8,18 +8,189 @@
 #include <stdio.h>
 #include <cmath>
 #include <cstring>
+#include <dirent.h>
+#include <fnmatch.h>
 
 #include "constants.h"
 #include "mode.h"
 #include "eval_back.h"
-#include "zone.h"
+#include "inout.h"
 #include "stitching.h"
 #include "interp.h"
-#include "transforms.h"
 
-#include "hmedium_zone.h"
-#include "imhd_zone.h"
-#include "flre_zone.h"
+/*****************************************************************************/
+
+//zone settings-file discovery, formerly in zone.cpp: scans path2project for
+//zone_N.in files and determines each one's medium type. allocate_and_setup_zones
+//(below) is the sole caller.
+
+static int selector(const struct dirent *ent)
+{
+    if (!fnmatch("zone_*.in", ent->d_name, 0)) return 1;
+    else                                       return 0;
+}
+
+static int determine_number_of_zones(char *path2project)
+{
+    int Nzones = 0;
+
+    DIR *dp;
+    struct dirent *ep;
+
+    if (dp = opendir(path2project))
+    {
+        while (ep = readdir(dp))
+        {
+            if (!fnmatch("zone_*.in", ep->d_name, 0)) Nzones++;
+        }
+        closedir(dp);
+    }
+    else
+    {
+        fprintf(stderr, "\ndetermine_number_of_zones: faled to open the project directory %s", path2project);
+        exit(1);
+    }
+
+    if (DEBUG_FLAG)
+    {
+        fprintf(stdout, "\nNzones = %d", Nzones); fflush(stdout);
+    }
+
+    return Nzones;
+}
+
+static char *get_zone_file_name(char *path2project, int zone_index)
+{
+    DIR *dp;
+    struct dirent *ep;
+
+    char *file_name = new char[1024];
+
+    strcpy(file_name, path2project);
+
+    int count = 0;
+
+    if (dp = opendir(path2project))
+    {
+        char *file_pattern = new char[1024];
+
+        sprintf(file_pattern, "*zone_%d*.in", zone_index + 1);
+
+        while (ep = readdir(dp))
+        {
+            if (!fnmatch(file_pattern, ep->d_name, 0))
+            {
+                ++count;
+                strcat(file_name, ep->d_name);
+                break;
+            }
+        }
+        closedir(dp);
+        delete[] file_pattern;
+    }
+    else
+    {
+        fprintf(stderr, "\nget_zone_file_name: faled to open the project directory %s", path2project);
+        exit(1);
+    }
+
+    if (DEBUG_FLAG)
+    {
+        fprintf(stdout, "\nget_zone_file_name: file name for zone %d is: %s", zone_index, file_name);
+        fflush(stdout);
+    }
+
+    if (!count)
+    {
+        fprintf(stderr, "\nget_zone_file_name: failed to find the file name for zone %d!", zone_index);
+        delete[] file_name;
+        exit(1);
+    }
+
+    return file_name;
+}
+
+static int determine_zone_type(char *file)
+{
+    FILE *in;
+
+    if ((in = fopen(file, "r")) == NULL)
+    {
+        fprintf(stderr, "\nerror: determine_zone_type: failed to open file %s\a\n", file);
+        exit(0);
+    }
+
+    char *str_buf = new char[1024];
+    char *mstr = new char[64];
+
+    read_line_2skip_it(in, &str_buf);
+    read_line_2skip_it(in, &str_buf);
+    read_line_2skip_it(in, &str_buf);
+    read_line_2get_string(in, &mstr);
+
+    fclose(in);
+
+    static const int Nmed = 5;
+    static const char med_str[Nmed][64] = {{"vacuum"}, {"medium"}, {"imhd"}, {"rmhd"}, {"flre"}};
+
+    int medium = -1;
+
+    for (int k = 0; k < Nmed; k++)
+    {
+        if (!strcmp(med_str[k], mstr))
+        {
+            medium = k;
+            break;
+        }
+    }
+
+    if (medium == -1)
+    {
+        fprintf(stderr, "\nerror: determine_zone_type: medium type is unknown: %s", mstr);
+        exit(1);
+    }
+
+    delete[] str_buf;
+    delete[] mstr;
+
+    return medium;
+}
+
+/*****************************************************************************/
+
+extern "C"
+{
+void center_equations_hommed_ (int *Nw, int *len, intptr_t *code, double *EB, int *neq, int *nvar, double *M, double *J);
+void infinity_equations_hommed_ (int *Nw, int *len, intptr_t *code, double *EB, int *neq, int *nvar, double *M, double *J);
+void ideal_wall_equations_hommed_ (int *Nw, int *len, intptr_t *code, double *EB, int *neq, int *nvar, double *M, double *J);
+void stitching_equations_hommed_hommed_ (int *Nw1, int *len1, intptr_t *code1, double *EB1,
+                     int *Nw2, int *len2, intptr_t *code2, double *EB2,
+                     int *flg_ant, int *neq, int *nvar, double *M, double *J);
+
+void center_equations_imhd_ (int *Nw, int *len, intptr_t *code, double *EB, int *neq, int *nvar, double *M, double *J);
+void infinity_equations_imhd_ (int *Nw, int *len, intptr_t *code, double *EB, int *neq, int *nvar, double *M, double *J);
+void ideal_wall_equations_imhd_ (int *Nw, int *len, intptr_t *code, double *EB, int *neq, int *nvar, double *M, double *J);
+void stitching_equations_imhd_hommed_ (int *Nw1, int *len1, intptr_t *code1, double *EB1,
+                                       int *Nw2, int *len2, intptr_t *code2, double *EB2,
+                                       int *flg_ant, int *neq, int *nvar, double *M, double *J);
+void stitching_equations_imhd_imhd_ (int *Nw1, int *len1, intptr_t *code1, double *EB1,
+                                     int *Nw2, int *len2, intptr_t *code2, double *EB2,
+                                     int *flg_ant, int *neq, int *nvar, double *M, double *J);
+
+void center_equations_flre_ (int *Nw, int *len, intptr_t *code, double *EB, int *neq, int *nvar, double *M, double *J);
+void infinity_equations_flre_ (int *Nw, int *len, intptr_t *code, double *EB, int *neq, int *nvar, double *M, double *J);
+void ideal_wall_equations_flre_ (int *Nw, int *len, intptr_t *code, double *EB, int *neq, int *nvar, double *M, double *J);
+void stitching_equations_flre_hommed_ (int *Nw1, int *len1, intptr_t *code1, double *EB1,
+                                       int *Nw2, int *len2, intptr_t *code2, double *EB2,
+                                       int *flg_ant, int *neq, int *nvar, double *M, double *J);
+void stitching_equations_flre_flre_ (int *Nw1, int *len1, intptr_t *code1, double *EB1,
+                                     int *Nw2, int *len2, intptr_t *code2, double *EB2,
+                                     int *flg_ant, int *neq, int *nvar, double *M, double *J);
+
+void update_system_matrix_and_rhs_vector_ (int *Nc, double *A, double *B, int *neq, int *ieq, int *nvar, int *ivar, double *M, double *J);
+void calc_system_determinant_ (int *NoC, double *A, double *det);
+void find_superposition_coeffs_ (int *NoC, double *A, double *B, double *S);
+}
 
 /*****************************************************************************/
 
@@ -34,7 +205,7 @@ double qminusq0(double x, void *p)
 
 int mode_data::find_resonance_location(void)
 {
-    double q_res = - ((double)(wd->m)) / ((double)(wd->n));
+    double q_res = - ((double)(wave_data_get_m_(wd))) / ((double)(wave_data_get_n_(wd)));
 
     double r1 = get_background_x0_ (), r2 = get_background_xlast_ ();
 
@@ -42,9 +213,9 @@ int mode_data::find_resonance_location(void)
     {
         if (DEBUG_FLAG)
         {
-            fprintf(stdout, "\nfind_resonance_location: resonant surface for the mode m=%d n=%d is absent", wd->m, wd->n);
+            fprintf(stdout, "\nfind_resonance_location: resonant surface for the mode m=%d n=%d is absent", wave_data_get_m_(wd), wave_data_get_n_(wd));
         }
-        wd->r_res = 0.0e0;
+        wave_data_set_r_res_ (wd, 0.0e0);
         return 0;
     }
 
@@ -58,16 +229,17 @@ int mode_data::find_resonance_location(void)
 
     if (status != FORTNUM_OK)
     {
-        fprintf(stdout, "\nfind_resonance_location: failed to find resonant surface for the mode m=%d n=%d", wd->m, wd->n);
-        wd->r_res = 0.0e0;
+        fprintf(stdout, "\nfind_resonance_location: failed to find resonant surface for the mode m=%d n=%d", wave_data_get_m_(wd), wave_data_get_n_(wd));
+        wave_data_set_r_res_ (wd, 0.0e0);
         return 0;
     }
 
-    wd->r_res = root;
+    wave_data_set_r_res_ (wd, root);
 
     if (DEBUG_FLAG)
     {
-        fprintf(stdout, "\nresonant surface for the mode m=%d n=%d is found at:\nr=%.16le,  q(r)=%.16le\n", wd->m, wd->n, wd->r_res, q(wd->r_res, bp));
+        fprintf(stdout, "\nresonant surface for the mode m=%d n=%d is found at:\nr=%.16le,  q(r)=%.16le\n",
+                wave_data_get_m_(wd), wave_data_get_n_(wd), wave_data_get_r_res_(wd), q(wave_data_get_r_res_(wd), bp));
     }
     return 1;
 }
@@ -78,15 +250,15 @@ void mode_data::check_zones_parameters(void)
 {
     for (int k = 0; k < Nzones - 1; k++)
     {
-        if (zones[k]->r2 != zones[k + 1]->r1 || zones[k]->bc2 != zones[k + 1]->bc1)
+        if (zone_get_r2_(zones[k]) != zone_get_r1_(zones[k + 1]) || zone_get_bc2_(zones[k]) != zone_get_bc1_(zones[k + 1]))
         {
             fprintf(stdout, "\ncheck_zones: boundaries are different: k = %d", k);
             exit(1);
         }
 
-        if (!(zones[k]->bc2 == BOUNDARY_INTERFACE || zones[k]->bc2 == BOUNDARY_ANTENNA))
+        if (!(zone_get_bc2_(zones[k]) == BOUNDARY_INTERFACE || zone_get_bc2_(zones[k]) == BOUNDARY_ANTENNA))
         {
-            fprintf(stdout, "\ncheck_zones: improper type of the right boundary for zone %d: %d", k, zones[k]->bc2);
+            fprintf(stdout, "\ncheck_zones: improper type of the right boundary for zone %d: %d", k, zone_get_bc2_(zones[k]));
             exit(1);
         }
     }
@@ -95,17 +267,17 @@ void mode_data::check_zones_parameters(void)
 
     // check that the first boundary is either center or ideal wall:
     iz = 0;
-    if (!(zones[iz]->bc1 == BOUNDARY_CENTER || zones[iz]->bc1 == BOUNDARY_IDEALWALL))
+    if (!(zone_get_bc1_(zones[iz]) == BOUNDARY_CENTER || zone_get_bc1_(zones[iz]) == BOUNDARY_IDEALWALL))
     {
-        fprintf(stdout, "\ncheck_zones: improper type of the first boundary: %d", zones[iz]->bc1);
+        fprintf(stdout, "\ncheck_zones: improper type of the first boundary: %d", zone_get_bc1_(zones[iz]));
         exit(1);
     }
 
     // check that the last boundary is either infinity or ideal wall:
     iz = Nzones - 1;
-    if (!(zones[iz]->bc2 == BOUNDARY_INFINITY || zones[iz]->bc2 == BOUNDARY_IDEALWALL))
+    if (!(zone_get_bc2_(zones[iz]) == BOUNDARY_INFINITY || zone_get_bc2_(zones[iz]) == BOUNDARY_IDEALWALL))
     {
-        fprintf(stdout, "\ncheck_zones: improper type of the last boundary: %d", zones[iz]->bc2);
+        fprintf(stdout, "\ncheck_zones: improper type of the last boundary: %d", zone_get_bc2_(zones[iz]));
         exit(1);
     }
 
@@ -127,7 +299,7 @@ void mode_data::allocate_and_setup_zones(void)
         exit(1);
     }
 
-    zones = new zone *[Nzones]; // array of pointers
+    zones = new intptr_t[Nzones]; // array of handles to Fortran zone_t instances
 
     for (int k = 0; k < Nzones; k++)
     {
@@ -145,20 +317,20 @@ void mode_data::allocate_and_setup_zones(void)
         {
         case PLASMA_MODEL_VACUUM:
 
-            zones[k] = new hmedium_zone(sd, bp, (const wave_data *)wd, sd->path2project, k);
-            zones[k]->read_settings(filename);
+            zones[k] = hmedium_zone_create_((intptr_t)sd, (intptr_t)bp, wd, sd->path2project, k);
+            zone_read_settings_(zones[k], filename);
             break;
 
         case PLASMA_MODEL_MEDIUM:
 
-            zones[k] = new hmedium_zone(sd, bp, (const wave_data *)wd, sd->path2project, k);
-            zones[k]->read_settings(filename);
+            zones[k] = hmedium_zone_create_((intptr_t)sd, (intptr_t)bp, wd, sd->path2project, k);
+            zone_read_settings_(zones[k], filename);
             break;
 
         case PLASMA_MODEL_IMHD:
 
-            zones[k] = new imhd_zone(sd, bp, (const wave_data *)wd, sd->path2project, k);
-            zones[k]->read_settings(filename);
+            zones[k] = imhd_zone_create_((intptr_t)sd, (intptr_t)bp, wd, sd->path2project, k);
+            zone_read_settings_(zones[k], filename);
             break;
 
         case PLASMA_MODEL_RMHD:
@@ -168,8 +340,8 @@ void mode_data::allocate_and_setup_zones(void)
 
         case PLASMA_MODEL_FLRE:
 
-            zones[k] = new flre_zone(sd, bp, (const wave_data *)wd, sd->path2project, k);
-            zones[k]->read_settings(filename);
+            zones[k] = flre_zone_create_((intptr_t)sd, (intptr_t)bp, wd, sd->path2project, k);
+            zone_read_settings_(zones[k], filename);
             break;
 
         default:
@@ -237,7 +409,7 @@ void mode_data::calc_basis_fields_in_zones(int flag)
 {
     for (int iz = 0; iz < Nzones; iz++)
     {
-        zones[iz]->calc_basis_fields(flag);
+        zone_calc_basis_fields_(zones[iz], flag);
     }
 }
 
@@ -247,7 +419,7 @@ void mode_data::calc_dispersion_in_zones(void)
 {
     for (int iz = 0; iz < Nzones; iz++)
     {
-        zones[iz]->calc_dispersion();
+        zone_calc_dispersion_(zones[iz]);
     }
 }
 
@@ -257,7 +429,7 @@ void mode_data::save_dispersion_in_zones(void)
 {
     for (int iz = 0; iz < Nzones; iz++)
     {
-        zones[iz]->save_dispersion();
+        zone_save_dispersion_(zones[iz]);
     }
 }
 
@@ -268,7 +440,7 @@ void mode_data::calc_stitching_equations(void)
     Nc = 0;
     for (int iz = 0; iz < Nzones; iz++)
     {
-        Nc += zones[iz]->get_dim_of_basis();
+        Nc += zone_get_dim_of_basis_(zones[iz]);
     }
 
     if (DEBUG_FLAG)
@@ -298,25 +470,25 @@ void mode_data::calc_stitching_equations(void)
     int iz = 0;
 
     // dimensions of basis and a basis vector:
-    int Nw = zones[iz]->get_dim_of_basis();
-    int len = zones[iz]->get_dim_of_basis_vector();
-    zone *code = zones[iz];
+    int Nw = zone_get_dim_of_basis_(zones[iz]);
+    int len = zone_get_dim_of_basis_vector_(zones[iz]);
+    intptr_t code = zones[iz];
 
     // pointers to basis solutions at the boundary:
-    double *EB = zones[iz]->get_basis_at_left_boundary();
+    double *EB = zone_get_basis_at_left_boundary_(zones[iz]);
 
-    if (zones[iz]->medium == PLASMA_MODEL_VACUUM || zones[iz]->medium == PLASMA_MODEL_MEDIUM)
+    if (zone_get_medium_(zones[iz]) == PLASMA_MODEL_VACUUM || zone_get_medium_(zones[iz]) == PLASMA_MODEL_MEDIUM)
     {
-        switch (zones[iz]->bc1)
+        switch (zone_get_bc1_(zones[iz]))
         {
         case BOUNDARY_CENTER:
 
-            center_equations_hommed_(&Nw, &len, (hmedium_zone **)(&code), EB, &neq, &nvar, M, J);
+            center_equations_hommed_(&Nw, &len, &code, EB, &neq, &nvar, M, J);
             break;
 
         case BOUNDARY_IDEALWALL:
 
-            ideal_wall_equations_hommed_(&Nw, &len, (hmedium_zone **)(&code), EB, &neq, &nvar, M, J);
+            ideal_wall_equations_hommed_(&Nw, &len, &code, EB, &neq, &nvar, M, J);
             break;
 
         default:
@@ -325,18 +497,18 @@ void mode_data::calc_stitching_equations(void)
             exit(1);
         }
     }
-    else if (zones[iz]->medium == PLASMA_MODEL_IMHD)
+    else if (zone_get_medium_(zones[iz]) == PLASMA_MODEL_IMHD)
     {
-        switch (zones[iz]->bc1)
+        switch (zone_get_bc1_(zones[iz]))
         {
         case BOUNDARY_CENTER:
 
-            center_equations_imhd_(&Nw, &len, (imhd_zone **)(&code), EB, &neq, &nvar, M, J);
+            center_equations_imhd_(&Nw, &len, &code, EB, &neq, &nvar, M, J);
             break;
 
         case BOUNDARY_IDEALWALL:
 
-            ideal_wall_equations_imhd_(&Nw, &len, (imhd_zone **)(&code), EB, &neq, &nvar, M, J);
+            ideal_wall_equations_imhd_(&Nw, &len, &code, EB, &neq, &nvar, M, J);
             break;
 
         default:
@@ -345,9 +517,9 @@ void mode_data::calc_stitching_equations(void)
             exit(1);
         }
     }
-    else if (zones[iz]->medium == PLASMA_MODEL_RMHD)
+    else if (zone_get_medium_(zones[iz]) == PLASMA_MODEL_RMHD)
     {
-        switch (zones[iz]->bc1)
+        switch (zone_get_bc1_(zones[iz]))
         {
         case BOUNDARY_CENTER:
 
@@ -369,18 +541,18 @@ void mode_data::calc_stitching_equations(void)
             exit(1);
         }
     }
-    else if (zones[iz]->medium == PLASMA_MODEL_FLRE)
+    else if (zone_get_medium_(zones[iz]) == PLASMA_MODEL_FLRE)
     {
-        switch (zones[iz]->bc1)
+        switch (zone_get_bc1_(zones[iz]))
         {
         case BOUNDARY_CENTER:
 
-            center_equations_flre_(&Nw, &len, (flre_zone **)(&code), EB, &neq, &nvar, M, J);
+            center_equations_flre_(&Nw, &len, &code, EB, &neq, &nvar, M, J);
             break;
 
         case BOUNDARY_IDEALWALL:
 
-            ideal_wall_equations_flre_(&Nw, &len, (flre_zone **)(&code), EB, &neq, &nvar, M, J);
+            ideal_wall_equations_flre_(&Nw, &len, &code, EB, &neq, &nvar, M, J);
             break;
 
         default:
@@ -407,78 +579,78 @@ void mode_data::calc_stitching_equations(void)
     // internal boundaries:
     for (iz = 0; iz < Nzones - 1; iz++)
     {
-        int Nw1 = zones[iz + 0]->get_dim_of_basis();
-        int Nw2 = zones[iz + 1]->get_dim_of_basis();
+        int Nw1 = zone_get_dim_of_basis_(zones[iz + 0]);
+        int Nw2 = zone_get_dim_of_basis_(zones[iz + 1]);
 
-        int len1 = zones[iz + 0]->get_dim_of_basis_vector();
-        int len2 = zones[iz + 1]->get_dim_of_basis_vector();
+        int len1 = zone_get_dim_of_basis_vector_(zones[iz + 0]);
+        int len2 = zone_get_dim_of_basis_vector_(zones[iz + 1]);
 
-        zone *code1 = zones[iz + 0];
-        zone *code2 = zones[iz + 1];
+        intptr_t code1 = zones[iz + 0];
+        intptr_t code2 = zones[iz + 1];
 
-        double *EB1 = zones[iz + 0]->get_basis_at_right_boundary();
-        double *EB2 = zones[iz + 1]->get_basis_at_left_boundary();
+        double *EB1 = zone_get_basis_at_right_boundary_(zones[iz + 0]);
+        double *EB2 = zone_get_basis_at_left_boundary_(zones[iz + 1]);
 
         int flg_ant;
-        if (zones[iz]->bc2 == BOUNDARY_ANTENNA)
+        if (zone_get_bc2_(zones[iz]) == BOUNDARY_ANTENNA)
             flg_ant = 1;
         else
             flg_ant = 0;
 
-        if ((zones[iz + 0]->medium == PLASMA_MODEL_VACUUM ||
-             zones[iz + 0]->medium == PLASMA_MODEL_MEDIUM) &&
-            (zones[iz + 1]->medium == PLASMA_MODEL_VACUUM ||
-             zones[iz + 1]->medium == PLASMA_MODEL_MEDIUM))
+        if ((zone_get_medium_(zones[iz + 0]) == PLASMA_MODEL_VACUUM ||
+             zone_get_medium_(zones[iz + 0]) == PLASMA_MODEL_MEDIUM) &&
+            (zone_get_medium_(zones[iz + 1]) == PLASMA_MODEL_VACUUM ||
+             zone_get_medium_(zones[iz + 1]) == PLASMA_MODEL_MEDIUM))
         {
-            stitching_equations_hommed_hommed_(&Nw1, &len1, (hmedium_zone **)(&code1), EB1,
-                                               &Nw2, &len2, (hmedium_zone **)(&code2), EB2,
+            stitching_equations_hommed_hommed_(&Nw1, &len1, &code1, EB1,
+                                               &Nw2, &len2, &code2, EB2,
                                                &flg_ant, &neq, &nvar, M, J);
         }
-        else if ((zones[iz + 0]->medium == PLASMA_MODEL_IMHD) &&
-                 (zones[iz + 1]->medium == PLASMA_MODEL_VACUUM ||
-                  zones[iz + 1]->medium == PLASMA_MODEL_MEDIUM))
+        else if ((zone_get_medium_(zones[iz + 0]) == PLASMA_MODEL_IMHD) &&
+                 (zone_get_medium_(zones[iz + 1]) == PLASMA_MODEL_VACUUM ||
+                  zone_get_medium_(zones[iz + 1]) == PLASMA_MODEL_MEDIUM))
         {
-            stitching_equations_imhd_hommed_(&Nw1, &len1, (imhd_zone **)(&code1), EB1,
-                                             &Nw2, &len2, (hmedium_zone **)(&code2), EB2,
+            stitching_equations_imhd_hommed_(&Nw1, &len1, &code1, EB1,
+                                             &Nw2, &len2, &code2, EB2,
                                              &flg_ant, &neq, &nvar, M, J);
         }
-        else if (zones[iz + 0]->medium == PLASMA_MODEL_IMHD &&
-                 zones[iz + 1]->medium == PLASMA_MODEL_IMHD)
+        else if (zone_get_medium_(zones[iz + 0]) == PLASMA_MODEL_IMHD &&
+                 zone_get_medium_(zones[iz + 1]) == PLASMA_MODEL_IMHD)
         {
-            stitching_equations_imhd_imhd_(&Nw1, &len1, (imhd_zone **)(&code1), EB1,
-                                           &Nw2, &len2, (imhd_zone **)(&code2), EB2,
+            stitching_equations_imhd_imhd_(&Nw1, &len1, &code1, EB1,
+                                           &Nw2, &len2, &code2, EB2,
                                            &flg_ant, &neq, &nvar, M, J);
         }
-        else if ((zones[iz + 0]->medium == PLASMA_MODEL_RMHD) &&
-                 (zones[iz + 1]->medium == PLASMA_MODEL_VACUUM ||
-                  zones[iz + 1]->medium == PLASMA_MODEL_MEDIUM))
+        else if ((zone_get_medium_(zones[iz + 0]) == PLASMA_MODEL_RMHD) &&
+                 (zone_get_medium_(zones[iz + 1]) == PLASMA_MODEL_VACUUM ||
+                  zone_get_medium_(zones[iz + 1]) == PLASMA_MODEL_MEDIUM))
         {
             // stitching_equations_rmhd_hommed_ (&Nw1, &len1, &code1, EB1, &Nw2, &len2, &code2,
             //                                   EB2, &flg_ant, &neq, &nvar, M, J);
             fprintf(stderr, "\nerror: calc_stitching_equations: not implemented.");
             exit(1);
         }
-        else if (zones[iz + 0]->medium == PLASMA_MODEL_RMHD &&
-                 zones[iz + 1]->medium == PLASMA_MODEL_RMHD)
+        else if (zone_get_medium_(zones[iz + 0]) == PLASMA_MODEL_RMHD &&
+                 zone_get_medium_(zones[iz + 1]) == PLASMA_MODEL_RMHD)
         {
             // stitching_equations_rmhd_rmhd_ (&Nw1, &len1, &code1, EB1, &Nw2, &len2, &code2,
             //                                 EB2, &flg_ant, &neq, &nvar, M, J);
             fprintf(stderr, "\nerror: calc_stitching_equations: not implemented.");
             exit(1);
         }
-        else if ((zones[iz + 0]->medium == PLASMA_MODEL_FLRE) &&
-                 (zones[iz + 1]->medium == PLASMA_MODEL_VACUUM ||
-                  zones[iz + 1]->medium == PLASMA_MODEL_MEDIUM))
+        else if ((zone_get_medium_(zones[iz + 0]) == PLASMA_MODEL_FLRE) &&
+                 (zone_get_medium_(zones[iz + 1]) == PLASMA_MODEL_VACUUM ||
+                  zone_get_medium_(zones[iz + 1]) == PLASMA_MODEL_MEDIUM))
         {
-            stitching_equations_flre_hommed_(&Nw1, &len1, (flre_zone **)(&code1), EB1,
-                                             &Nw2, &len2, (hmedium_zone **)(&code2), EB2,
+            stitching_equations_flre_hommed_(&Nw1, &len1, &code1, EB1,
+                                             &Nw2, &len2, &code2, EB2,
                                              &flg_ant, &neq, &nvar, M, J);
         }
-        else if (zones[iz + 0]->medium == PLASMA_MODEL_FLRE &&
-                 zones[iz + 1]->medium == PLASMA_MODEL_FLRE)
+        else if (zone_get_medium_(zones[iz + 0]) == PLASMA_MODEL_FLRE &&
+                 zone_get_medium_(zones[iz + 1]) == PLASMA_MODEL_FLRE)
         {
-            stitching_equations_flre_flre_(&Nw1, &len1, (flre_zone **)(&code1), EB1,
-                                           &Nw2, &len2, (flre_zone **)(&code2), EB2,
+            stitching_equations_flre_flre_(&Nw1, &len1, &code1, EB1,
+                                           &Nw2, &len2, &code2, EB2,
                                            &flg_ant, &neq, &nvar, M, J);
         }
         else
@@ -501,25 +673,25 @@ void mode_data::calc_stitching_equations(void)
     iz = Nzones - 1;
 
     // dimensions of basis and a basis vector:
-    Nw = zones[iz]->get_dim_of_basis();
-    len = zones[iz]->get_dim_of_basis_vector();
+    Nw = zone_get_dim_of_basis_(zones[iz]);
+    len = zone_get_dim_of_basis_vector_(zones[iz]);
     code = zones[iz];
 
     // pointers to basis solutions at the boundary:
-    EB = zones[iz]->get_basis_at_right_boundary();
+    EB = zone_get_basis_at_right_boundary_(zones[iz]);
 
-    if (zones[iz]->medium == PLASMA_MODEL_VACUUM || zones[iz]->medium == PLASMA_MODEL_MEDIUM)
+    if (zone_get_medium_(zones[iz]) == PLASMA_MODEL_VACUUM || zone_get_medium_(zones[iz]) == PLASMA_MODEL_MEDIUM)
     {
-        switch (zones[iz]->bc2)
+        switch (zone_get_bc2_(zones[iz]))
         {
         case BOUNDARY_INFINITY:
 
-            infinity_equations_hommed_(&Nw, &len, (hmedium_zone **)(&code), EB, &neq, &nvar, M, J);
+            infinity_equations_hommed_(&Nw, &len, &code, EB, &neq, &nvar, M, J);
             break;
 
         case BOUNDARY_IDEALWALL:
 
-            ideal_wall_equations_hommed_(&Nw, &len, (hmedium_zone **)(&code), EB, &neq, &nvar, M, J);
+            ideal_wall_equations_hommed_(&Nw, &len, &code, EB, &neq, &nvar, M, J);
             break;
 
         default:
@@ -528,18 +700,18 @@ void mode_data::calc_stitching_equations(void)
             exit(1);
         }
     }
-    else if (zones[iz]->medium == PLASMA_MODEL_IMHD)
+    else if (zone_get_medium_(zones[iz]) == PLASMA_MODEL_IMHD)
     {
-        switch (zones[iz]->bc2)
+        switch (zone_get_bc2_(zones[iz]))
         {
         case BOUNDARY_INFINITY:
 
-            infinity_equations_imhd_(&Nw, &len, (imhd_zone **)(&code), EB, &neq, &nvar, M, J);
+            infinity_equations_imhd_(&Nw, &len, &code, EB, &neq, &nvar, M, J);
             break;
 
         case BOUNDARY_IDEALWALL:
 
-            ideal_wall_equations_imhd_(&Nw, &len, (imhd_zone **)(&code), EB, &neq, &nvar, M, J);
+            ideal_wall_equations_imhd_(&Nw, &len, &code, EB, &neq, &nvar, M, J);
             break;
 
         default:
@@ -548,9 +720,9 @@ void mode_data::calc_stitching_equations(void)
             exit(1);
         }
     }
-    else if (zones[iz]->medium == PLASMA_MODEL_RMHD)
+    else if (zone_get_medium_(zones[iz]) == PLASMA_MODEL_RMHD)
     {
-        switch (zones[iz]->bc2)
+        switch (zone_get_bc2_(zones[iz]))
         {
         case BOUNDARY_INFINITY:
 
@@ -572,18 +744,18 @@ void mode_data::calc_stitching_equations(void)
             exit(1);
         }
     }
-    else if (zones[iz]->medium == PLASMA_MODEL_FLRE)
+    else if (zone_get_medium_(zones[iz]) == PLASMA_MODEL_FLRE)
     {
-        switch (zones[iz]->bc2)
+        switch (zone_get_bc2_(zones[iz]))
         {
         case BOUNDARY_INFINITY:
 
-            infinity_equations_flre_(&Nw, &len, (flre_zone **)(&code), EB, &neq, &nvar, M, J);
+            infinity_equations_flre_(&Nw, &len, &code, EB, &neq, &nvar, M, J);
             break;
 
         case BOUNDARY_IDEALWALL:
 
-            ideal_wall_equations_flre_(&Nw, &len, (flre_zone **)(&code), EB, &neq, &nvar, M, J);
+            ideal_wall_equations_flre_(&Nw, &len, &code, EB, &neq, &nvar, M, J);
             break;
 
         default:
@@ -627,7 +799,7 @@ void mode_data::calc_stitching_equations_determinant(void)
 
     calc_system_determinant_(&Nc, A, det);
 
-    wd->det = det[0] + I * det[1];
+    set_det_in_wd_struct_ (&wd, &det[0], &det[1]);
 }
 
 /*****************************************************************************/
@@ -640,7 +812,7 @@ void mode_data::solve_stitching_equations(void)
 
     if (DEBUG_FLAG)
     {
-        fprintf(stdout, "\ndeterminat = %.20le %+.20lei\n", real(wd->det), imag(wd->det));
+        fprintf(stdout, "\ndeterminat = %.20le %+.20lei\n", wave_data_get_det_re_(wd), wave_data_get_det_im_(wd));
         fprintf(stdout, "\ncheck for superposition coefficients below:");
         for (int i = 0; i < Nc; i++)
         {
@@ -657,9 +829,9 @@ void mode_data::calc_superposition_of_basis_fields_in_zones(void)
 
     for (int iz = 0; iz < Nzones; iz++)
     {
-        zones[iz]->calc_superposition_of_basis_fields(&S[ind]);
+        zone_calc_superposition_of_basis_fields_(zones[iz], &S[ind]);
 
-        ind += 2 * zones[iz]->get_dim_of_basis();
+        ind += 2 * zone_get_dim_of_basis_(zones[iz]);
     }
 }
 
@@ -669,10 +841,10 @@ void mode_data::space_out_fields_in_zones(void)
 {
     for (int iz = 0; iz < Nzones; iz++)
     {
-        zones[iz]->calc_final_fields();
+        zone_calc_final_fields_(zones[iz]);
 
         if (DEBUG_FLAG)
-            zones[iz]->save_final_fields(path2linear);
+            zone_save_final_fields_(zones[iz], path2linear);
     }
 }
 
@@ -683,7 +855,7 @@ void mode_data::combine_final_wave_fields(void)
     dim = 0;
     for (int iz = 0; iz < Nzones; iz++)
     {
-        dim += zones[iz]->get_radial_grid_dimension();
+        dim += zone_get_radial_grid_dimension_(zones[iz]);
     }
 
     r = new double[dim];
@@ -698,11 +870,11 @@ void mode_data::combine_final_wave_fields(void)
     {
         index[iz] = ind;
 
-        zones[iz]->copy_radial_grid(r + ind);
+        zone_copy_radial_grid_(zones[iz], r + ind);
 
-        zones[iz]->copy_E_and_B_fields(EB + ind * 12);
+        zone_copy_E_and_B_fields_(zones[iz], EB + ind * 12);
 
-        ind += zones[iz]->get_radial_grid_dimension();
+        ind += zone_get_radial_grid_dimension_(zones[iz]);
     }
 }
 
@@ -760,7 +932,7 @@ void mode_data::calc_quants_in_zones(void)
 {
     for (int iz = 0; iz < Nzones; iz++)
     {
-        zones[iz]->calc_all_quants();
+        zone_calc_all_quants_(zones[iz]);
     }
 }
 
@@ -770,7 +942,7 @@ void mode_data::save_quants_in_zones(void)
 {
     for (int iz = 0; iz < Nzones; iz++)
     {
-        zones[iz]->save_all_quants();
+        zone_save_all_quants_(zones[iz]);
     }
 }
 
@@ -795,7 +967,7 @@ inline int mode_data::determine_zone_index_for_point(double x)
 
     for (int iz = 0; iz < Nzones; iz++)
     {
-        if (x >= zones[iz]->get_r1() && x <= zones[iz]->get_r2())
+        if (x >= zone_get_r1_(zones[iz]) && x <= zone_get_r2_(zones[iz]))
         {
             ind = iz;
             break;
@@ -817,7 +989,7 @@ void mode_data::divEB(double x, complex<double> *div)
 {
     int ind = determine_zone_index_for_point(x); // determines zone index for the x value
 
-    int D = zones[ind]->get_radial_grid_dimension();
+    int D = zone_get_radial_grid_dimension_(zones[ind]);
 
     int deg = 5; // degree of the interpolating polynom
 
@@ -848,7 +1020,7 @@ void mode_data::divEB(double x, complex<double> *div)
         dEB[comp] = re[1] + I * im[1];
     }
 
-    double kt = (wd->m) / x, kz = (wd->n) / (get_background_rtor_());
+    double kt = (wave_data_get_m_(wd)) / x, kz = (wave_data_get_n_(wd)) / (get_background_rtor_());
 
     div[0] = EB[0] / x + dEB[0] + I * kt * EB[1] + I * kz * EB[2];
     div[1] = EB[3] / x + dEB[3] + I * kt * EB[4] + I * kz * EB[5];
@@ -893,7 +1065,7 @@ void mode_data::eval_EB_fields(double x, complex<double> *EB)
 {
     int ind = determine_zone_index_for_point(x); // determines zone index for the x value
 
-    int D = zones[ind]->get_radial_grid_dimension();
+    int D = zone_get_radial_grid_dimension_(zones[ind]);
 
     int deg = 5; // degree of the interpolating polynom
 
@@ -928,7 +1100,7 @@ void mode_data::eval_diss_power_density(double x, int type, int spec, double *dp
 {
     int ind = determine_zone_index_for_point(x); // determines zone index for the x value
 
-    zones[ind]->eval_diss_power_density(x, type, spec, dpd);
+    zone_eval_diss_power_density_(zones[ind], x, type, spec, dpd);
 }
 
 /*******************************************************************/
@@ -937,7 +1109,7 @@ void mode_data::eval_current_density(double x, int type, int spec, int comp, dou
 {
     int ind = determine_zone_index_for_point(x); // determines zone index for the x value
 
-    zones[ind]->eval_current_density(x, type, spec, comp, J);
+    zone_eval_current_density_(zones[ind], x, type, spec, comp, J);
 }
 
 /*******************************************************************/

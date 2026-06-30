@@ -9,7 +9,6 @@
 #include "settings.h"
 #include "background.h"
 #include "mode.h"
-#include "zone.h"
 
 /*******************************************************************/
 
@@ -24,7 +23,7 @@ set_back_profiles_in_mode_data_module_ (&bp);
 
 complex<double> omov = olab - n*(get_background_V_gal_sys_())/(get_background_rtor_());
 
-wd = new wave_data (m, n, olab, omov);
+wd = wave_data_create_ (m, n, real(olab), imag(olab), real(omov), imag(omov));
 
 set_wave_data_in_mode_data_module_ (&wd);
 
@@ -39,14 +38,15 @@ set_wave_parameters_in_mode_data_module_ (&m, &n, &olab_re, &olab_im, &omov_re, 
 if (DEBUG_FLAG)
 {
     fprintf (stdout, "\n(m=%d, n=%d): f_lab=(%le, %le) f_mov=(%le, %le)\n",
-                     m, n, real((wd->olab)/2.0/pi), imag((wd->olab)/2.0/pi),
-                           real((wd->omov)/2.0/pi), imag((wd->omov)/2.0/pi));
+                     m, n, wave_data_get_olab_re_(wd)/2.0/pi, wave_data_get_olab_im_(wd)/2.0/pi,
+                           get_wave_data_obj_omov_re_(wd)/2.0/pi, get_wave_data_obj_omov_im_(wd)/2.0/pi);
 }
 
 if (get_output_flag_background_() > 0)
 {
     find_resonance_location ();
-    set_resonance_location_in_mode_data_module_ (&(wd->r_res));
+    double r_res_local = wave_data_get_r_res_ (wd);
+    set_resonance_location_in_mode_data_module_ (&r_res_local);
 }
 
 allocate_and_setup_zones ();
@@ -140,10 +140,10 @@ if (get_output_flag_emfield_() > 1)
     }
 
     fprintf (outfile, "%%m n\n%%Re(flab) Im(flab)\n%%Re(fmov) Im(fmov)\n%%r_res 0.0\n");
-    fprintf (outfile, "%d %d\n", wd->m, wd->n);
-    fprintf (outfile, "%.16lg %.16lg\n", real(wd->olab)/2.0/pi, imag(wd->olab)/2.0/pi);
-    fprintf (outfile, "%.16lg %.16lg\n", real(wd->omov)/2.0/pi, imag(wd->omov)/2.0/pi);
-    fprintf (outfile, "%.16lg %.16lg\n", wd->r_res, 0.0);
+    fprintf (outfile, "%d %d\n", wave_data_get_m_(wd), wave_data_get_n_(wd));
+    fprintf (outfile, "%.16lg %.16lg\n", wave_data_get_olab_re_(wd)/2.0/pi, wave_data_get_olab_im_(wd)/2.0/pi);
+    fprintf (outfile, "%.16lg %.16lg\n", get_wave_data_obj_omov_re_(wd)/2.0/pi, get_wave_data_obj_omov_im_(wd)/2.0/pi);
+    fprintf (outfile, "%.16lg %.16lg\n", wave_data_get_r_res_(wd), 0.0);
 
     fclose (outfile);
 }
@@ -184,27 +184,20 @@ void mode_data::save_mode_det_data (void)
 char *filename = new char[1024];
 FILE *outfile;
 
-sprintf (filename, "%smode_%d_%d_[%.16le,%.16le].dat", path2linear, wd->m, wd->n, real(wd->olab), imag(wd->olab));
+sprintf (filename, "%smode_%d_%d_[%.16le,%.16le].dat", path2linear, wave_data_get_m_(wd), wave_data_get_n_(wd),
+         wave_data_get_olab_re_(wd), wave_data_get_olab_im_(wd));
 
 if (!(outfile = fopen (filename, "w")))
 {
     fprintf (stderr, "\nFailed to open file %s\a\n", filename);
 }
 
-fprintf (outfile,"%.16le  %.16le\t%.16le  %.16le\n", real(wd->olab), imag(wd->olab), real(wd->det), imag(wd->det));
+fprintf (outfile,"%.16le  %.16le\t%.16le  %.16le\n", wave_data_get_olab_re_(wd), wave_data_get_olab_im_(wd),
+          wave_data_get_det_re_(wd), wave_data_get_det_im_(wd));
 
 fclose (outfile);
 
 delete [] filename;
-}
-
-/*****************************************************************************/
-
-void set_det_in_wd_struct_ (wave_data **wd_ptr, double *re_det, double *im_det)
-{
-wave_data *wd = (wave_data *)(*wd_ptr);
-
-wd->det = (*re_det) + (*im_det)*I;
 }
 
 /*****************************************************************************/

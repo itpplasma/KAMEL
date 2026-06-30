@@ -153,20 +153,11 @@ set(kilca_lib_cpp_sources
     core/settings.cpp
     eigmode/calc_eigmode.cpp
     eigmode/find_eigmodes.cpp
-    flre/flre_zone.cpp
     flre/maxwell_eqs/eval_sysmat.cpp
-    hom_medium/hmedium_zone.cpp
-    imhd/compressible_flow.cpp
-    imhd/imhd_zone.cpp
-    imhd/incompressible.cpp
     interface/wave_code_interface.cpp
-    interp/interp.cpp
     io/inout.cpp
     mode/mode.cpp
     mode/calc_mode.cpp
-    mode/zone.cpp
-    mode/transforms.cpp
-    mode/wave_data.cpp
     math/adapt_grid/adaptive_grid.cpp
     math/adapt_grid/adaptive_grid_pol.cpp
 )
@@ -185,6 +176,14 @@ set(kilca_lib_fortran_sources
     eigmode/eigmode_sett_m.f90
     flre/flre_sett_m.f90
     mode/mode_m.f90
+    mode/wave_data_m.f90
+    mode/transforms_m.f90
+    mode/zone_m.f90
+    hom_medium/hmedium_zone_m.f90
+    imhd/incompressible_m.f90
+    imhd/compressible_flow_m.f90
+    imhd/imhd_zone_m.f90
+    interp/interp_m.f90
     flre/maxwell_eqs/maxwell_eqs_m.f90
     flre/maxwell_eqs/maxwell_eqs_data_m.f90
     flre/maxwell_eqs/sysmat_profs_m.f90
@@ -192,6 +191,7 @@ set(kilca_lib_fortran_sources
     flre/conductivity/cond_profs_m.f90
     flre/quants/flre_quants_m.f90
     solver/solver_m.f90
+    flre/flre_zone_m.f90
     background/f0moments${Jac}.f90
     background/density_p${Jac}.f90
     antenna/antenna_spectrum.f90

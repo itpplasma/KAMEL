@@ -27,7 +27,7 @@ cd->mda[ind] = new mode_data (m, n, 2.0*pi*freq, (const settings *)cd->sd, (cons
 
 cd->mda[ind]->calc_all_mode_data ();
 
-complex<double> det = (cd->mda[ind])->wd->det;
+complex<double> det = complex<double>(wave_data_get_det_re_(cd->mda[ind]->wd), wave_data_get_det_im_(cd->mda[ind]->wd));
 
 //if (DEBUG_FLAG)
 //{

@@ -33,7 +33,7 @@ cd->mda[ind] = new mode_data (m, nn, olab, (const settings *)cd->sd, (const back
 
 cd->mda[ind]->calc_all_mode_data ();
 
-complex<double> det = (cd->mda[ind])->wd->det;
+complex<double> det = complex<double>(wave_data_get_det_re_(cd->mda[ind]->wd), wave_data_get_det_im_(cd->mda[ind]->wd));
 
 //for debugging:
 FILE *out;
@@ -224,7 +224,7 @@ for (int i=0; i<es_rdim; i++)
         cd->mda[ind]->calc_all_mode_data ();
 
         fprintf (out, "\n%6u\t%.20le  %.20le\t%.20le  %.20le", i*es_idim+k, fre, fim,
-                 real(cd->mda[ind]->wd->det), imag(cd->mda[ind]->wd->det));
+                 wave_data_get_det_re_(cd->mda[ind]->wd), wave_data_get_det_im_(cd->mda[ind]->wd));
         fflush (out);
 
         delete cd->mda[ind];

@@ -12,7 +12,6 @@
 #include "solver.h"
 #include "transforms.h"
 #include "typedefs.h"
-#include "calc_flre_quants.h"
 
 /*****************************************************************************/
 
@@ -1169,36 +1168,41 @@ for (uchar k=0; k<3; k++) iBrsp_sys[k] = get_me_ibrsp_sys_ (Z->me, k) + 1;
 
 void flre_zone::calc_all_quants (void)
 {
-qp = new flre_quants (this);
+char path2linear_[1024];
+eval_path_to_linear_data (get_path_to_project (), wd->m, wd->n, wd->olab, path2linear_);
 
-calculate_JaE (qp);
+qp = flre_quants_create_ (cp, me, (void *)bp, path2linear_, flre_order, dim, r,
+                          Ncomps, EB_mov, real (wd->omov), imag (wd->omov),
+                          bc1, bc2, index);
 
-qp->calculate_local_profiles ();
+flre_quants_calculate_jae_ (qp);
 
-qp->calculate_integrated_profiles ();
+flre_quants_calculate_local_profiles_ (qp);
 
-transform_quants_to_lab_cyl_frame (qp); //transforms and saves
+flre_quants_calculate_integrated_profiles_ (qp);
+
+flre_quants_transform_quants_to_lab_cyl_frame_ (qp); //transforms and saves
 }
 
 /*****************************************************************************/
 
 void flre_zone::save_all_quants (void)
 {
-qp->save_profiles ();
+flre_quants_save_profiles_ (qp);
 }
 
 /*****************************************************************************/
 
 void flre_zone::eval_diss_power_density (double x, int type, int spec, double * dpd)
 {
-interp_diss_power_density (qp, x, type, spec, dpd);
+flre_quants_interp_diss_power_density_ (qp, x, type, spec, dpd);
 }
 
 /*****************************************************************************/
 
 void flre_zone::eval_current_density (double x, int type, int spec, int comp, double * J)
 {
-interp_current_density (qp, x, type, spec, comp, J);
+flre_quants_interp_current_density_ (qp, x, type, spec, comp, J);
 }
 
 /*****************************************************************************/

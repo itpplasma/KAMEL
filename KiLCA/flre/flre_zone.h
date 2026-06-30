@@ -28,7 +28,7 @@ public:
     intptr_t cp;  //!<handle to the Fortran cond_profiles instance for this zone
     intptr_t sp;  //!<handle to the Fortran sysmat_profiles instance for this zone
     intptr_t dp;  //!<handle to the Fortran disp_profiles instance for this zone
-    flre_quants *qp;       //!<pointer to flre quantities
+    intptr_t qp;  //!<handle to the Fortran flre_quants instance for this zone
 
     //Conductivity settings:
     int flre_order; //!<order of FLR expansion
@@ -93,7 +93,7 @@ public:
         cp = 0;
         sp = 0;
         dp = 0;
-        qp = NULL;
+        qp = 0;
 
         EB_mov = NULL;
     }
@@ -104,7 +104,7 @@ public:
         if (cp) cond_profiles_destroy_ (cp);
         if (sp) sysmat_profiles_destroy_ (sp);
         if (dp) disp_profiles_destroy_ (dp);
-        if (qp) delete qp;
+        if (qp) flre_quants_destroy_ (qp);
 
         delete [] EB_mov;
     }

@@ -1,177 +1,42 @@
 /*! \file flre_quants.h
-    \brief The declaration of flre_quants class.
+    \brief C entry points for the auxiliary FLRE quantities (current/power/
+           flux/density/torque), now owned by the Fortran
+           kilca_flre_quants_m module (each instance addressed by an opaque
+           handle, since each flre_zone owns its own). The former C++
+           flre_quants class has been translated away.
 */
 
 #ifndef FLRE_QUANTS_INCLUDE
 
 #define FLRE_QUANTS_INCLUDE
 
-#include "constants.h"
-#include "settings.h"
-#include "cond_profs.h"
-#include "spline.h"
-
-/*******************************************************************/
-
-typedef void (*calc_func)(class flre_quants *);
-typedef void (*save_func)(const class flre_quants *);
-
-/*******************************************************************/
-
-/*! \class flre_quants
-    \brief The class represents auxiliary quantities (like current densities, dissipated power, etc) in a FLRE zone.
-*/
-class flre_quants
-{
-public:
-    class flre_zone *zone;      //!<pointer to zone
-
-    char *path2linear;          //!<path to linear data
-
-    double vol_fac;             //!<factor arising in integration over cylinder surface
-
-    double *bico;               //!<binomial coefficients
-
-    int num_tot;                //!<fixed total number of quantities
-
-    int *dimq;                  //!<array of dimensions for each quantity
-
-    char **name;                //!<names of the quantities
-
-    int *ind;                   //!<index of the quantity in the computational list
-
-    calc_func *calc_quant;      //!<array of functions to calculate quants
-
-    save_func *save_quant;      //!<array of functions to save quants
-
-    //quants indices in the typical order of calculation
-    int CURRENT_DENS;
-    int ABS_POWER_DENS;
-    int DISS_POWER_DENS;
-    int KIN_FLUX;
-    int POY_FLUX;
-    int TOT_FLUX;
-
-    //depend on previous quants on the grid:
-    int NUMBER_DENS;
-    int LOR_TORQUE_DENS;
-
-    int numq; //!<actual number of quantities to compute
-
-    int *dni; //!<index of the needed quantity in the global array
-
-    //state variables:
-    double r;           //!<current r value
-
-    int node;           //!<current grid node index
-
-    int *flag;          //!<flag showing whether the quantity is already computed for given r and node
-
-    double **qloc;      //!<all local quants array
-
-    double **qint;      //!<all integrated quants array
-
-    int flagC;          //!<flag if C is computed for the node
-
-    double *C;          //!<C matrices storage
-
-    int flagK;          //!<flag if K is computed for the node
-
-    double *K;          //!<K matrices storage
-
-    int Dmax;           //!<maximum order of K derivatives used for evaluation
-
-    int flreo;          //!<FLRE order
-
-    int dimx;           //!<radial grid dimension
-
-    double *x;          //!<radial grid
-
-    double JaE;         //!<work of the perturbation field over antenna current density
-
-    int N;              //!<spline degree
-
-    //jr splines
-    uintptr_t sidY;   //!<spline id
-    int nY;           //!<number of splines
-    double *Y;        //!<y grid of values
-    double *S;        //!<matrix of spline coefficients
-    double *R;        //!<array of spline values (+derivs) at some point
-    int flagS;        //!<flag if spline is computed
-
-    double *jaE;
-    double *jaEi;
-
-    double * cdlab;   //!current densities in lab frame used for interpolation
-
-    flre_quants (flre_zone *Z);
-
-    ~flre_quants (void)
-    {
-        delete [] path2linear;
-
-        delete [] bico;
-
-        for (int i=0; i<num_tot; i++) delete [] name[i];
-
-        delete [] name;
-        delete [] dimq;
-        delete [] flag;
-
-        delete [] calc_quant;
-        delete [] save_quant;
-
-        delete [] ind;
-        delete [] dni;
-
-        for (int i=0; i<numq; i++)
-        {
-            delete [] qloc[i];
-            delete [] qint[i];
-        }
-
-        if (qloc) delete [] qloc;
-        if (qint) delete [] qint;
-
-        if (C) delete [] C;
-        if (K) delete [] K;
-
-        //splines:
-        if (Y) delete [] Y;
-        if (S) delete [] S;
-        if (R) delete [] R;
-
-        if (sidY) spline_free_ (sidY);
-
-        if (jaE) delete [] jaE;
-        if (jaEi) delete [] jaEi;
-
-        if (cdlab) delete [] cdlab;
-    }
-
-    //member functions:
-    void set_all_known_quants_parameters (void);
-
-    void set_null_node_state (int k);
-
-    void calculate_local_profiles (void);
-
-    void calculate_integrated_profiles (void);
-
-    void save_profiles (void);
-};
-
-/*******************************************************************/
-
-inline int binary_search (double x, const double *xa, int ilo, int ihi);
-
-/*******************************************************************/
+#include <cstdint>
 
 extern "C"
 {
+intptr_t flre_quants_create_ (intptr_t zone_cp, intptr_t zone_me, void *zone_bp,
+                              const char *path2linear_p, int flreo, int dimx,
+                              double *x_ptr, int ncomps, double *eb_mov_ptr,
+                              double wd_omov_re, double wd_omov_im,
+                              int bc1, int bc2, int zone_index);
 
+void flre_quants_destroy_ (intptr_t handle);
+
+void flre_quants_calculate_local_profiles_ (intptr_t handle);
+
+void flre_quants_calculate_integrated_profiles_ (intptr_t handle);
+
+void flre_quants_save_profiles_ (intptr_t handle);
+
+void flre_quants_calculate_jae_ (intptr_t handle);
+
+void flre_quants_transform_quants_to_lab_cyl_frame_ (intptr_t handle);
+
+void flre_quants_interp_diss_power_density_ (intptr_t handle, double x, int type,
+                                             int spec, double *dpd);
+
+void flre_quants_interp_current_density_ (intptr_t handle, double x, int type,
+                                          int spec, int comp, double *J);
 }
-
-/*******************************************************************/
 
 #endif

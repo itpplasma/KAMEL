@@ -158,8 +158,6 @@ set(kilca_lib_cpp_sources
     eigmode/find_eigmodes.cpp
     flre/flre_zone.cpp
     flre/maxwell_eqs/eval_sysmat.cpp
-    flre/quants/calc_flre_quants.cpp
-    flre/quants/flre_quants.cpp
     hom_medium/hmedium_zone.cpp
     imhd/compressible_flow.cpp
     imhd/imhd_zone.cpp
@@ -196,6 +194,7 @@ set(kilca_lib_fortran_sources
     flre/maxwell_eqs/sysmat_profs_m.f90
     flre/dispersion/disp_profs_m.f90
     flre/conductivity/cond_profs_m.f90
+    flre/quants/flre_quants_m.f90
     background/f0moments${Jac}.f90
     background/density_p${Jac}.f90
     antenna/antenna_spectrum.f90

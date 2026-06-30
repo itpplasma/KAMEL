@@ -5,6 +5,13 @@ on:
     branches: [main, fix-ci]
   pull_request:
     branches: [main]
+  workflow_dispatch:
+    inputs:
+      libneo_ref:
+        default: ''
+      full:
+        description: run the full suite incl. the golden record (set by the libneo full-ci gate)
+        default: 'false'
 
 jobs:
   build-and-test:
@@ -50,7 +57,8 @@ jobs:
       - name: Configure CMake
         run: |
           cmake -B build -G Ninja \
-            -DCMAKE_BUILD_TYPE=Release
+            -DCMAKE_BUILD_TYPE=Release \
+            ${{ inputs.libneo_ref != '' && format('-DLIBNEO_REF={0}', inputs.libneo_ref) || '' }}
 
       - name: Build
         run: cmake --build build --parallel
@@ -58,4 +66,11 @@ jobs:
       - name: Run tests
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: ctest --test-dir build --output-on-failure
+        run: |
+          # libneo-gate dispatch (no full) runs only the fast tests; push, PR and
+          # full=true also run the slow golden record.
+          if [ "${{ github.event_name }}" = workflow_dispatch ] && [ "${{ inputs.full }}" != true ]; then
+            ctest --test-dir build --output-on-failure -LE golden_record
+          else
+            ctest --test-dir build --output-on-failure
+          fi

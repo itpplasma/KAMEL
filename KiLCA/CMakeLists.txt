@@ -151,7 +151,6 @@ set(kilca_lib_cpp_sources
     core/shared.cpp
     eigmode/calc_eigmode.cpp
     eigmode/find_eigmodes.cpp
-    flre/maxwell_eqs/eval_sysmat.cpp
     io/inout.cpp
     math/adapt_grid/adaptive_grid.cpp
     math/adapt_grid/adaptive_grid_pol.cpp

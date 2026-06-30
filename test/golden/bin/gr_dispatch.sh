@@ -20,8 +20,11 @@ run_one(){ b="$1"; c="$2"; bin/gr_run_case.sh "build_$b" "cases/$c" "out/$b/$c";
 drain(){ while read -r c b; do mkdir "claims/${b}__${c//\//_}" 2>/dev/null && run_one "$b" "$c"; done < caselist_builds.txt; }
 
 case "$BACKEND" in
-  local)  export -f run_one; export GR_EXE GR_INPUT
-          xargs -P "$LJOBS" -a caselist_builds.txt -L1 bash -c 'run_one "$1" "$0"' ;;
+  local)  # Portable across GNU and BSD xargs: feed the caselist on stdin (not the
+          # GNU-only `-a`) and invoke gr_run_case.sh directly (no `export -f`, which
+          # is fragile across bash versions). $0=case $1=build per "<case> <build>".
+          xargs -P "$LJOBS" -L1 bash -c \
+            'bin/gr_run_case.sh "build_$1" "cases/$0" "out/$1/$0"' < caselist_builds.txt ;;
   condor) sed -e "s#REPLACE_INITIALDIR#$ROOT#" -e "s#REPLACE_BATCH#gr-$(basename "$ROOT")#" \
               bin/condor.sub > logs/job.sub
           condor_submit logs/job.sub ;;

@@ -368,9 +368,9 @@ if (num == -1)
 flre_zone * zone = static_cast<flre_zone *>(cd->mda[num]->zones[*zone_ind]);
 
 *flreo = zone->flre_order;
-*dim   = zone->cp->dimx;
-*r     = zone->cp->x;
-*cptr  = &(zone->cp->K[zone->cp->iKs(*spec, 0, 0, 0, 0, 0, 0, 0)]);
+*dim   = get_cond_dimx_ (zone->cp);
+*r     = get_cond_x_ptr_ (zone->cp);
+*cptr  = get_cond_k_ptr_ (zone->cp) + get_cond_iks_ (zone->cp, *spec, 0, 0, 0, 0, 0, 0, 0);
 }
 
 /*******************************************************************/

@@ -25,7 +25,7 @@ class flre_zone : public zone
 {
 public:
     intptr_t me;  //!<handle to the Fortran maxwell_eqs_data instance for this zone
-    cond_profiles *cp;     //!<pointer to conductivity structure
+    intptr_t cp;  //!<handle to the Fortran cond_profiles instance for this zone
     intptr_t sp;  //!<handle to the Fortran sysmat_profiles instance for this zone
     intptr_t dp;  //!<handle to the Fortran disp_profiles instance for this zone
     flre_quants *qp;       //!<pointer to flre quantities
@@ -90,7 +90,7 @@ public:
                char *path_p, int index_p) : zone (sd_p, bp_p, wd_p, path_p, index_p)
     {
         me = 0;
-        cp = NULL;
+        cp = 0;
         sp = 0;
         dp = 0;
         qp = NULL;
@@ -101,7 +101,7 @@ public:
     ~flre_zone (void)
     {
         if (me) maxwell_eqs_data_destroy_ (me);
-        if (cp) delete cp;
+        if (cp) cond_profiles_destroy_ (cp);
         if (sp) sysmat_profiles_destroy_ (sp);
         if (dp) disp_profiles_destroy_ (dp);
         if (qp) delete qp;
@@ -156,7 +156,7 @@ void allocate_and_set_conductivity_arrays_ (void);
 
 void deallocate_conductivity_arrays_ (void);
 
-void set_cond_profiles_in_mode_data_module_ (cond_profiles **);
+void set_cond_profiles_in_mode_data_module_ (intptr_t *);
 
 void set_sysmat_profiles_in_mode_data_module_ (intptr_t *);
 

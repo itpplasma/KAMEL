@@ -425,3 +425,20 @@ return ierr;
 }
 
 /*-----------------------------------------------------------------*/
+
+int get_background_obj_dimx_ (const background *bp)
+{
+return bp->dimx;
+}
+
+double get_background_obj_x0_ (const background *bp)
+{
+return bp->x[0];
+}
+
+double get_background_obj_xlast_ (const background *bp)
+{
+return bp->x[bp->dimx-1];
+}
+
+/*-----------------------------------------------------------------*/

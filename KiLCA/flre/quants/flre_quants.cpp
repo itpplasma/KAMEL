@@ -8,7 +8,7 @@
 #include "flre_zone.h"
 #include "flre_quants.h"
 #include "calc_flre_quants.h"
-#include "eval_cond.h"
+#include "cond_profs.h"
 #include "spline.h"
 #include "shared.h"
 #include "mode.h"
@@ -45,11 +45,11 @@ flreo = zone->flre_order;
 
 int num_quants = get_output_num_quants_();
 
-int NK = zone->cp->NK;
-int dimK = zone->cp->dimK;
+int NK = get_cond_nk_ (zone->cp);
+int dimK = get_cond_dimk_ (zone->cp);
 
-int NC = zone->cp->NC;
-int dimC = zone->cp->dimC;
+int NC = get_cond_nc_ (zone->cp);
+int dimC = get_cond_dimc_ (zone->cp);
 
 dimx = zone->dim;
 
@@ -253,7 +253,7 @@ void flre_quants::calculate_local_profiles (void)
 //The function omputes radial densities of the selected quantities
 
 //begin external variables:
-cond_profiles *cp = zone->cp;
+intptr_t cp = zone->cp;
 
 //end external variables
 
@@ -261,7 +261,7 @@ if (numq == 0) return; //no quants to compute
 
 Dmax = flreo; //actually flreo-1, must be <= NK!!!
 
-if (Dmax > zone->cp->NK)
+if (Dmax > get_cond_nk_ (cp))
 {
     fprintf (stdout, "\nerror: calculate_local_profiles: Dmax > NK!!!");
     exit (1);
@@ -273,10 +273,10 @@ for (int k=0; k<dimx; k++)
     set_null_node_state (k);
 
     //calc conductivity:
-    eval_all_K_matrices (cp, 0, Dmax, r, K);
+    eval_all_k_matrices_ (cp, 0, Dmax, r, K);
     flagK = 1;
 
-    eval_all_C_matrices (cp, 0, 0, r, C);
+    eval_all_c_matrices_ (cp, 0, 0, r, C);
     flagC = 1;
 
     //calc local quants from the computational list: (depend on values at one r point)

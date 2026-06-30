@@ -109,4 +109,19 @@ public:
                                                         double *Vth, double *Vz, double *dPhi0);
 };
 
+//accessors for an arbitrary (per-zone) background instance, needed by the
+//Fortran translation of cond_profiles' "exact" per-point evaluation path
+//(kilca_cond_profiles_m::calc_and_spline_conductivity_for_point), which
+//cannot dereference a C++ background* directly. Not marked inline: as
+//Fortran-only callers, they are never ODR-used from C++, so an inline
+//definition would not be emitted into any object file.
+extern "C"
+{
+int get_background_obj_dimx_ (const background *bp);
+
+double get_background_obj_x0_ (const background *bp);
+
+double get_background_obj_xlast_ (const background *bp);
+}
+
 #endif

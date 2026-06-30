@@ -156,8 +156,6 @@ set(kilca_lib_cpp_sources
     flre/maxwell_eqs/eval_sysmat.cpp
     interface/wave_code_interface.cpp
     io/inout.cpp
-    mode/mode.cpp
-    mode/calc_mode.cpp
     math/adapt_grid/adaptive_grid.cpp
     math/adapt_grid/adaptive_grid_pol.cpp
 )
@@ -179,6 +177,7 @@ set(kilca_lib_fortran_sources
     mode/wave_data_m.f90
     mode/transforms_m.f90
     mode/zone_m.f90
+    mode/mode_data_m.f90
     hom_medium/hmedium_zone_m.f90
     imhd/incompressible_m.f90
     imhd/compressible_flow_m.f90

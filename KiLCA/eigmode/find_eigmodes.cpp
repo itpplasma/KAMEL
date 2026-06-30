@@ -23,11 +23,14 @@ int n   = ((det_params *) params)->n;
 
 core_data *cd = ((det_params *) params)->cd;
 
-cd->mda[ind] = new mode_data (m, n, 2.0*pi*freq, (const settings *)cd->sd, (const background *)cd->bp);
+{
+    std::complex<T> olab_local = 2.0*pi*freq;
+    cd->mda[ind] = mode_data_create_ (m, n, real(olab_local), imag(olab_local), (intptr_t)cd->sd, (intptr_t)cd->bp, cd->sd->path2project);
+}
 
-cd->mda[ind]->calc_all_mode_data ();
+mode_data_calc_all_mode_data_ (cd->mda[ind], 0);
 
-complex<double> det = complex<double>(wave_data_get_det_re_(cd->mda[ind]->wd), wave_data_get_det_im_(cd->mda[ind]->wd));
+complex<double> det = complex<double>(wave_data_get_det_re_(mode_data_get_wd_(cd->mda[ind])), wave_data_get_det_im_(mode_data_get_wd_(cd->mda[ind])));
 
 //if (DEBUG_FLAG)
 //{
@@ -43,7 +46,7 @@ complex<double> det = complex<double>(wave_data_get_det_re_(cd->mda[ind]->wd), w
 //}
 
 //clean up:
-delete cd->mda[ind];
+mode_data_destroy_ (cd->mda[ind]);
 cd->mda[ind] = NULL;
 clear_all_data_in_mode_data_module_ (); //clean up fortran module data
 

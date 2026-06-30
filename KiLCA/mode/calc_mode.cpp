@@ -135,7 +135,7 @@ void mode_data::allocate_and_setup_zones(void)
 
         int type = determine_zone_type(filename);
 
-        if (type > 1 && sd->os->flag_background == 0)
+        if (type > 1 && get_output_flag_background_() == 0)
         {
             fprintf(stderr, "\nerror: allocate_and_setup_zones: background is not set!");
             exit(1);
@@ -196,7 +196,7 @@ void mode_data::calc_all_mode_data(int flag)
 
     calc_stitching_equations_determinant();
 
-    if (sd->os->flag_emfield > 1)
+    if (get_output_flag_emfield_() > 1)
         save_mode_det_data();
 
     solve_stitching_equations();
@@ -209,7 +209,7 @@ void mode_data::calc_all_mode_data(int flag)
 
     setup_wave_fields_for_interpolation();
 
-    if (sd->os->flag_emfield > 1)
+    if (get_output_flag_emfield_() > 1)
         save_final_wave_fields();
 
     if (DEBUG_FLAG)
@@ -217,16 +217,16 @@ void mode_data::calc_all_mode_data(int flag)
         calc_and_save_divEB();
     }
 
-    if (sd->os->flag_additional > 0)
+    if (get_output_flag_additional_() > 0)
     {
         calc_quants_in_zones();
 
-        if (sd->os->flag_additional > 1)
+        if (get_output_flag_additional_() > 1)
             save_quants_in_zones();
 
         combine_final_quants();
 
-        if (sd->os->flag_additional > 1)
+        if (get_output_flag_additional_() > 1)
             save_final_quants();
     }
 }

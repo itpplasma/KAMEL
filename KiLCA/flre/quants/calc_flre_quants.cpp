@@ -78,7 +78,7 @@ qp->JaE = 0.5*(qp->vol_fac)*(qp->x[ia])*real(ja[0]*conj(Ef[0]) + ja[1]*conj(Ef[1
 
 if (DEBUG_FLAG) fprintf (stdout, "\nzone %d: - JaE: %le.\n", qp->zone->index, - qp->JaE);
 
-if (qp->zone->sd->os->flag_emfield > 1)
+if (get_output_flag_emfield_() > 1)
 {
     //save total absorbed energy:
     char *full_name = new char[1024];
@@ -130,7 +130,7 @@ qp->JaE = qp->jaEi[qp->dimx-1];
 
 if (DEBUG_FLAG) fprintf (stdout, "\nzone %d: - JaE: %le.\n", qp->zone->index, - qp->JaE);
 
-if (qp->zone->sd->os->flag_emfield > 1)
+if (get_output_flag_emfield_() > 1)
 {
     //save total absorbed energy:
     char *full_name = new char[1024];
@@ -326,7 +326,7 @@ qp->flag[qp->ABS_POWER_DENS] = 1; //apd is computed
 void calc_absorbed_power_in_cylinder (flre_quants *qp)
 {
 //check yourself that all needed quants are already computed:
-if (!(qp->zone->sd->os->flag_quants[qp->ABS_POWER_DENS]))
+if (!(get_output_flag_quants_(qp->ABS_POWER_DENS)))
 {
     fprintf (stderr, "\n\aerror: consistency check failed in the function '%s' at line %d of the file '%s'.",  __FUNCTION__, __LINE__, __FILE__);
     return;
@@ -479,7 +479,7 @@ qp->flag[qp->DISS_POWER_DENS] = 1; //dpd is computed
 void calc_dissipated_power_in_cylinder (flre_quants *qp)
 {
 //check yourself that all needed quants are already computed:
-if (!(qp->zone->sd->os->flag_quants[qp->DISS_POWER_DENS]))
+if (!(get_output_flag_quants_(qp->DISS_POWER_DENS)))
 {
     fprintf (stderr, "\n\aerror: consistency check failed in the function '%s' at line %d of the file '%s'.",  __FUNCTION__, __LINE__, __FILE__);
     return;
@@ -796,7 +796,7 @@ avrg_err /= (qp->dimx-1);
 
 if (DEBUG_FLAG) fprintf (stdout, "\naverage error of the solution: %le.\n", avrg_err);
 
-if (qp->zone->sd->os->flag_additional > 1)
+if (get_output_flag_additional_() > 1)
 {
     //save:
     char *full_name = new char[1024];
@@ -875,7 +875,7 @@ if (DEBUG_FLAG) fprintf (stdout, "\n%s is saved.", qp->name[qp->TOT_FLUX]);
 void calc_splines_for_current_density (flre_quants *qp)
 {
 //current density must be already computed:
-if (!(qp->zone->sd->os->flag_quants[qp->CURRENT_DENS]))
+if (!(get_output_flag_quants_(qp->CURRENT_DENS)))
 {
     fprintf (stderr, "\n\aerror: consistency check failed in the function '%s' at line %d of the file '%s'.",  __FUNCTION__, __LINE__, __FILE__);
     return;
@@ -1116,7 +1116,7 @@ qp->flag[qp->LOR_TORQUE_DENS] = 1; //LTD is computed
 
 void calc_lorentz_torque_on_cylinder (flre_quants *qp)
 {
-if (!(qp->zone->sd->os->flag_quants[qp->LOR_TORQUE_DENS]))
+if (!(get_output_flag_quants_(qp->LOR_TORQUE_DENS)))
 {
     fprintf (stderr, "\n\aerror: consistency check failed in the function '%s' at line %d of the file '%s'.",  __FUNCTION__, __LINE__, __FILE__);
     return;
@@ -1209,13 +1209,13 @@ void transform_quants_to_lab_cyl_frame (const flre_quants *qp)
 {
 //!transforms all relevant quants to the laboratory frame and cylindrical coordinates
 
-if (qp->zone->sd->os->flag_quants[qp->CURRENT_DENS] > 0)
+if (get_output_flag_quants_(qp->CURRENT_DENS) > 0)
 {
     eval_current_dens_in_lab_frame (qp, qp->cdlab);
 }
 
 //current density:
-if (qp->zone->sd->os->flag_quants[qp->CURRENT_DENS] > 1)
+if (get_output_flag_quants_(qp->CURRENT_DENS) > 1)
 {
     char lframe[]  = "lab";
     char cylcomp[] = "rtz";

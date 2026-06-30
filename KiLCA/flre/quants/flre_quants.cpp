@@ -43,7 +43,7 @@ double rtor = zone->sd->bs->rtor;
 
 flreo = zone->flre_order;
 
-int num_quants = zone->sd->os->num_quants;
+int num_quants = get_output_num_quants_();
 
 int NK = zone->cp->NK;
 int dimK = zone->cp->dimK;
@@ -81,7 +81,7 @@ dni = new int[num_tot]; //global indices of the quants from computational list
 numq = 0;
 for (int i=0; i<num_quants; i++)
 {
-    if (zone->sd->os->flag_quants[i])
+    if (get_output_flag_quants_(i))
     {
         dni[numq] = i;
         ind[i] = numq++;
@@ -282,7 +282,7 @@ for (int k=0; k<dimx; k++)
     //calc local quants from the computational list: (depend on values at one r point)
     for (int i=CURRENT_DENS; i<=TOT_FLUX; i++)
     {
-        if (zone->sd->os->flag_quants[i]) calc_quant[i](this);
+        if (get_output_flag_quants_(i)) calc_quant[i](this);
     }
 }
 
@@ -299,7 +299,7 @@ for (int k=0; k<dimx; k++)
     //calc quants from the computational list: (depend on values at several r points)
     for (int i=NUMBER_DENS; i<=LOR_TORQUE_DENS; i++)
     {
-        if (zone->sd->os->flag_quants[i]) calc_quant[i](this);
+        if (get_output_flag_quants_(i)) calc_quant[i](this);
     }
 }
 }
@@ -324,17 +324,17 @@ void flre_quants::calculate_integrated_profiles (void)
 {
 //!The function integrates various densities over cylinder volume
 
-if (zone->sd->os->flag_quants[ABS_POWER_DENS])
+if (get_output_flag_quants_(ABS_POWER_DENS))
 {
     calc_absorbed_power_in_cylinder (this);
 }
 
-if (zone->sd->os->flag_quants[DISS_POWER_DENS])
+if (get_output_flag_quants_(DISS_POWER_DENS))
 {
     calc_dissipated_power_in_cylinder (this);
 }
 
-if (zone->sd->os->flag_quants[LOR_TORQUE_DENS])
+if (get_output_flag_quants_(LOR_TORQUE_DENS))
 {
     calc_lorentz_torque_on_cylinder (this);
 }
@@ -344,7 +344,7 @@ if (zone->sd->os->flag_quants[LOR_TORQUE_DENS])
 
 void flre_quants::save_profiles (void)
 {
-for (int i=0; i<num_tot; i++) if (zone->sd->os->flag_quants[i] == 2) save_quant[i](this);
+for (int i=0; i<num_tot; i++) if (get_output_flag_quants_(i) == 2) save_quant[i](this);
 }
 
 /*******************************************************************/

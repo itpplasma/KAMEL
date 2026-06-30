@@ -21,7 +21,7 @@ eval_and_save_EB_fields_in_lab_frame (qp, field);
 delete [] field;
 
 //current density:
-if (qp->sd->os->flag_quants[qp->CURRENT_DENS] == 2)
+if (get_output_flag_quants_(qp->CURRENT_DENS) == 2)
 {
     double *cd = new double[3*2*3*2*(qp->dimx)];
 

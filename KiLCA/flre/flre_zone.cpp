@@ -186,7 +186,7 @@ void flre_zone::calc_basis_fields (int flag)
 
 
     //calc dispersion if needed:
-    if (sd->os->flag_dispersion > 1)
+    if (get_output_flag_dispersion_() > 1)
     {
         calc_dispersion ();
         save_dispersion ();

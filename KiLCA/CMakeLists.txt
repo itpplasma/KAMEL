@@ -151,7 +151,6 @@ set(kilca_lib_cpp_sources
     core/shared.cpp
     core/core.cpp
     core/settings.cpp
-    core/output_sett.cpp
     background/back_sett.cpp
     background/background.cpp
     background/calc_back.cpp
@@ -190,6 +189,7 @@ set(kilca_lib_cpp_sources
 set(kilca_lib_fortran_sources
     core/constants_m${arch}.f90
     core/core_m.f90
+    core/output_sett_m.f90
     spline/spline_m.f90
     interp/neville_m.f90
     math/hyper/hyper1F1_m.f90
@@ -340,6 +340,15 @@ add_dependencies(test_antenna_settings kilca_lib)
 target_link_libraries (test_antenna_settings kilca_lib ${EXTERNAL_LIBS})
 add_test(NAME test_antenna_settings COMMAND ${CMAKE_BINARY_DIR}/tests/test_antenna_settings.x)
 set_tests_properties(test_antenna_settings PROPERTIES WORKING_DIRECTORY ${CMAKE_BINARY_DIR}/tests/)
+
+add_executable (test_output_settings tests/test_output_settings.f90)
+set_target_properties(test_output_settings PROPERTIES
+    OUTPUT_NAME test_output_settings.x
+    RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/tests/)
+add_dependencies(test_output_settings kilca_lib)
+target_link_libraries (test_output_settings kilca_lib ${EXTERNAL_LIBS})
+add_test(NAME test_output_settings COMMAND ${CMAKE_BINARY_DIR}/tests/test_output_settings.x)
+set_tests_properties(test_output_settings PROPERTIES WORKING_DIRECTORY ${CMAKE_BINARY_DIR}/tests/)
 
 # add a target to generate API documentation with Doxygen
 find_package (Doxygen)

@@ -292,7 +292,7 @@ set_core_data_in_core_module_ (&cd);
 
 cd->calc_and_set_mode_independent_core_data ();
 
-if (cd->sd->as->flag_eigmode == 0)
+if (get_antenna_flag_eigmode_ () == 0)
 {
     cd->calc_and_set_mode_dependent_core_data_antenna ();
 }

@@ -43,7 +43,7 @@ set_core_data_in_core_module_ (&cd);  //!<stores the core data pointer in fortra
 
 cd->calc_and_set_mode_independent_core_data (); //!<evident from the function name
 
-if (cd->sd->as->flag_eigmode == 0)
+if (get_antenna_flag_eigmode_ () == 0)
 {
     cd->calc_and_set_mode_dependent_core_data_antenna (); //!<normal operation with antenna
 }

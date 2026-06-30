@@ -5,6 +5,7 @@
 #include "flre_zone.h"
 #include "flre_quants.h"
 #include "calc_flre_quants.h"
+#include "antenna.h"
 #include "inout.h"
 #include "eval_back.h"
 #include "eval_cond.h"
@@ -22,7 +23,7 @@ for (int k=0; k<qp->dimx; k++)
     qp->jaEi[k] = 0.0e0;
 }
 
-if (qp->zone->sd->as->wa == 0.0)
+if (get_antenna_wa_ () == 0.0)
 {
     calculate_JaE_delta (qp);
 }
@@ -55,7 +56,8 @@ else
 double jsurf[4], jsurft[4];
 
 current_density_ (jsurf);
-cyl2rsp_ (&(qp->zone->sd->as->ra), jsurf, jsurf+2, jsurft, jsurft+2);
+double antenna_ra = get_antenna_ra_ ();
+cyl2rsp_ (&antenna_ra, jsurf, jsurf+2, jsurft, jsurft+2);
 
 complex<double> ja[2] = {jsurft[0]+jsurft[1]*I, jsurft[2]+jsurft[3]*I}; //ja_s, ja_p
 

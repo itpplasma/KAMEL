@@ -161,7 +161,6 @@ set(kilca_lib_cpp_sources
     flre/conductivity/cond_profs${interp}.cpp
     flre/conductivity/eval_cond.cpp
     flre/maxwell_eqs/eval_sysmat.cpp
-    flre/maxwell_eqs/sysmat_profs.cpp
     flre/quants/calc_flre_quants.cpp
     flre/quants/flre_quants.cpp
     hom_medium/hmedium_zone.cpp
@@ -196,6 +195,7 @@ set(kilca_lib_fortran_sources
     mode/mode_m.f90
     flre/maxwell_eqs/maxwell_eqs_m.f90
     flre/maxwell_eqs/maxwell_eqs_data_m.f90
+    flre/maxwell_eqs/sysmat_profs_m.f90
     flre/dispersion/disp_profs_m.f90
     background/f0moments${Jac}.f90
     background/density_p${Jac}.f90
@@ -391,6 +391,20 @@ set_target_properties(test_disp_profiles PROPERTIES
     RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/tests/
     Fortran_MODULE_DIRECTORY ${CMAKE_BINARY_DIR}/OBJS/test_disp_profiles/)
 add_test(NAME test_disp_profiles COMMAND ${CMAKE_BINARY_DIR}/tests/test_disp_profiles.x)
+
+# Standalone: links sysmat_profs_m.f90 + fakes + fortnum (for argsort) only,
+# NOT kilca_lib, since the fakes intentionally redefine calc_diff_sys_matrix_/
+# calc_adaptive_1D_grid_4vector_/spline_alloc_/spline_calc_/save_cmplx_matrix.
+add_executable (test_sysmat_profiles
+    flre/maxwell_eqs/sysmat_profs_m.f90
+    tests/test_sysmat_profiles_fakes.f90
+    tests/test_sysmat_profiles.f90)
+set_target_properties(test_sysmat_profiles PROPERTIES
+    OUTPUT_NAME test_sysmat_profiles.x
+    RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/tests/
+    Fortran_MODULE_DIRECTORY ${CMAKE_BINARY_DIR}/OBJS/test_sysmat_profiles/)
+target_link_libraries (test_sysmat_profiles fortnum)
+add_test(NAME test_sysmat_profiles COMMAND ${CMAKE_BINARY_DIR}/tests/test_sysmat_profiles.x)
 
 # add a target to generate API documentation with Doxygen
 find_package (Doxygen)

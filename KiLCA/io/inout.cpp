@@ -13,6 +13,7 @@
 
 /*******************************************************************/
 
+extern "C"
 int save_cmplx_matrix (int Nrows, int Ncols, int Npoints, const double *xgrid, const double *arr, const char *path_name)
 {
 FILE *outfile;

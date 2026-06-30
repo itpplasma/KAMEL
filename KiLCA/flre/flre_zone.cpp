@@ -176,11 +176,10 @@ void flre_zone::calc_basis_fields (int flag)
     }
 
     //allocates and calculates system matrix:
-    sp = new sysmat_profiles;
+    sp = sysmat_profiles_create_ (Nwaves, cp->flag_back, cp->path2linear, cp->NC,
+                                  max_dim_c, eps_out, flag_debug, r1, r2, wd->r_res);
 
     set_sysmat_profiles_in_mode_data_module_ (&sp);
-
-    sp->calc_and_spline_sysmatrix_profiles (this);
 
 
     //calc dispersion if needed:
@@ -1193,7 +1192,7 @@ interp_current_density (qp, x, type, spec, comp, J);
 void flre_zone::calc_dispersion (void)
 {
 char flag_back_buf[2] = { get_background_flag_back_ (), '\0' };
-dp = disp_profiles_create_ (Nwaves, sp->dimx, sp->x, flag_back_buf);
+dp = disp_profiles_create_ (Nwaves, get_sysmat_dimx_ (sp), get_sysmat_x_ptr_ (sp), flag_back_buf);
 
 disp_profiles_calculate_ (dp);
 }

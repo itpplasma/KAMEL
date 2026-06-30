@@ -150,7 +150,6 @@ include_directories ("${CMAKE_CURRENT_SOURCE_DIR}/spline")
 set(kilca_lib_cpp_sources
     core/shared.cpp
     core/core.cpp
-    core/settings.cpp
     eigmode/calc_eigmode.cpp
     eigmode/find_eigmodes.cpp
     flre/maxwell_eqs/eval_sysmat.cpp
@@ -165,6 +164,7 @@ set(kilca_lib_fortran_sources
     core/constants_m${arch}.f90
     core/core_m.f90
     core/output_sett_m.f90
+    core/settings_m.f90
     spline/spline_m.f90
     interp/neville_m.f90
     math/hyper/hyper1F1_m.f90

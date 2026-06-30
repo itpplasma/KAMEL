@@ -29,7 +29,11 @@ const double fim = x[1];
 
 complex<double> olab = 2.0*pi*(fre + I*fim);
 
-cd->mda[ind] = mode_data_create_ (m, nn, real(olab), imag(olab), (intptr_t)cd->sd, (intptr_t)cd->bp, cd->sd->path2project);
+char cd_sd_path2project[1024];
+
+settings_get_path2project_ (cd->sd, cd_sd_path2project);
+
+cd->mda[ind] = mode_data_create_ (m, nn, real(olab), imag(olab), cd->sd, (intptr_t)cd->bp, cd_sd_path2project);
 
 mode_data_calc_all_mode_data_ (cd->mda[ind], 0);
 
@@ -64,7 +68,9 @@ int find_det_zeros (int ind, int m, int n, core_data *cd)
 char *full_name = new char[1024];
 char es_fname[1024];
 get_eigmode_fname_ (es_fname);
-sprintf (full_name, "%s%s", cd->sd->path2project, es_fname);
+char cd_sd_path2project[1024];
+settings_get_path2project_ (cd->sd, cd_sd_path2project);
+sprintf (full_name, "%s%s", cd_sd_path2project, es_fname);
 
 FILE *out;
 if (!(out = fopen (full_name, "w")))
@@ -190,7 +196,9 @@ int loop_over_frequences (int ind, int m, int n, core_data *cd)
 char *full_name = new char[1024];
 char es_fname[1024];
 get_eigmode_fname_ (es_fname);
-sprintf (full_name, "%s%s", cd->sd->path2project, es_fname);
+char cd_sd_path2project[1024];
+settings_get_path2project_ (cd->sd, cd_sd_path2project);
+sprintf (full_name, "%s%s", cd_sd_path2project, es_fname);
 
 FILE *out;
 if (!(out = fopen (full_name, "w")))
@@ -219,7 +227,11 @@ for (int i=0; i<es_rdim; i++)
 
         complex<double> olab = 2.0*pi*(fre + I*fim);
 
-        cd->mda[ind] = mode_data_create_ (m, n, real(olab), imag(olab), (intptr_t)cd->sd, (intptr_t)cd->bp, cd->sd->path2project);
+        char cd_sd_path2project[1024];
+
+        settings_get_path2project_ (cd->sd, cd_sd_path2project);
+
+        cd->mda[ind] = mode_data_create_ (m, n, real(olab), imag(olab), cd->sd, (intptr_t)cd->bp, cd_sd_path2project);
 
         mode_data_calc_all_mode_data_ (cd->mda[ind], 0);
 

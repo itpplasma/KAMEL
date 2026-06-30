@@ -82,26 +82,26 @@ mda = 0;
 
 void core_data::calc_and_set_mode_independent_core_data (void)
 {
-    static settings *static_settings_vacuum = nullptr;
-    static settings *static_settings_flre = nullptr;
+    static intptr_t static_settings_vacuum = 0;
+    static intptr_t static_settings_flre = 0;
 
     auto const p2pstr = std::string{path2project};
 
     if (p2pstr.find("vacuum") != std::string::npos)
     {
-        if (static_settings_vacuum == nullptr)
+        if (static_settings_vacuum == 0)
         {
-            static_settings_vacuum = new settings{path2project};
-            static_settings_vacuum->read_settings();
+            static_settings_vacuum = settings_create_ (path2project);
+            settings_read_settings_ (static_settings_vacuum);
         }
         sd = static_settings_vacuum;
     }
     else if (p2pstr.find("flre") != std::string::npos)
     {
-        if (static_settings_flre == nullptr)
+        if (static_settings_flre == 0)
         {
-            static_settings_flre = new settings{path2project};
-            static_settings_flre->read_settings();
+            static_settings_flre = settings_create_ (path2project);
+            settings_read_settings_ (static_settings_flre);
         }
         sd = static_settings_flre;
     }
@@ -113,7 +113,10 @@ void core_data::calc_and_set_mode_independent_core_data (void)
 
     set_settings_in_core_module_(&sd);
 
-bp = (background *) background_create_ (sd->path2project);
+char sd_path2project[1024];
+settings_get_path2project_ (sd, sd_path2project);
+
+bp = (background *) background_create_ (sd_path2project);
 
 set_background_in_core_module_ (&bp);
 
@@ -152,7 +155,9 @@ for (int ind=0; ind<dim; ind++)
     int m, n;
     get_antenna_mode_ (ind, &m, &n);
 
-    mda[ind] = mode_data_create_ (m, n, real(olab), imag(olab), (intptr_t)sd, (intptr_t)bp, sd->path2project);
+    char sd_path2project[1024];
+    settings_get_path2project_ (sd, sd_path2project);
+    mda[ind] = mode_data_create_ (m, n, real(olab), imag(olab), sd, (intptr_t)bp, sd_path2project);
 
     mode_data_calc_all_mode_data_ (mda[ind], 0);
 
@@ -218,7 +223,9 @@ complex<double> olab = (2.0*pi)*complex<double>(flab_re, flab_im);
         int m, n;
         get_antenna_mode_ (ind, &m, &n);
 
-        mda[ind] = mode_data_create_ (m, n, real(olab), imag(olab), (intptr_t)sd, (intptr_t)bp, sd->path2project);
+        char sd_path2project[1024];
+    settings_get_path2project_ (sd, sd_path2project);
+    mda[ind] = mode_data_create_ (m, n, real(olab), imag(olab), sd, (intptr_t)bp, sd_path2project);
 
         mode_data_calc_all_mode_data_ (mda[ind], 0);
 
@@ -241,7 +248,9 @@ complex<double> olab = (2.0*pi)*complex<double>(flab_re, flab_im);
 //loop over modes array:
 for (int ind=0; ind<dim; ind++)
 {
-    mda[ind] = mode_data_create_ (m, n, real(olab), imag(olab), (intptr_t)sd, (intptr_t)bp, sd->path2project);
+    char sd_path2project[1024];
+    settings_get_path2project_ (sd, sd_path2project);
+    mda[ind] = mode_data_create_ (m, n, real(olab), imag(olab), sd, (intptr_t)bp, sd_path2project);
 
     mode_data_calc_all_mode_data_ (mda[ind], flag);
 

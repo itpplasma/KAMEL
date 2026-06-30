@@ -1,12 +1,16 @@
 /*! \file settings.h
-    \brief The declaration of settings class.
+    \brief C entry points for the aggregated KiLCA settings, now owned by
+           the Fortran kilca_settings_m module (KiLCA/core/settings_m.f90).
+           The former C++ settings class has been translated away; still-C++
+           callers (core.cpp, eigmode/*.cpp) hold an opaque intptr_t handle
+           instead of a `settings*`.
 */
 
 #ifndef SETTINGS_INCLUDE
 
 #define SETTINGS_INCLUDE
 
-#include <cstring>
+#include <cstdint>
 
 #include "code_settings.h"
 
@@ -15,30 +19,16 @@
 #include "output_sett.h"
 #include "eigmode_sett.h"
 
-using namespace :: std;
-
-/*! \class settings
-    \brief The class contains all KiLCA settings.
-*/
-class settings
+extern "C"
 {
-public:
-    char *path2project; //!<project path
+intptr_t settings_create_ (const char *path);
 
-public:
-    settings (char *path)
-    {
-        path2project = new char[1024];
-        strcpy (path2project, path);
-    }
+void settings_destroy_ (intptr_t handle);
 
-    ~settings (void)
-    {
-        delete [] path2project;
-    }
+void settings_read_settings_ (intptr_t handle);
 
-    void read_settings (void); //!<read settings from KiLCA input files
-};
+void settings_get_path2project_ (intptr_t handle, char *buf);
+}
 
 /*******************************************************************/
 

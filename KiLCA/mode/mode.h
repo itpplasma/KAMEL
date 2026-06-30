@@ -40,10 +40,6 @@ void mode_data_eval_diss_power_density_ (intptr_t handle, double x, int type, in
 
 void mode_data_eval_current_density_ (intptr_t handle, double x, int type, int spec, int comp, double *J);
 
-void set_settings_in_mode_data_module_ (const settings **);
-
-void set_back_profiles_in_mode_data_module_ (const background **);
-
 void set_wave_parameters_in_mode_data_module_ (int *, int *, double *, double *, double *, double *);
 
 void set_current_density_in_antenna_module_ (void);

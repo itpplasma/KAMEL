@@ -151,8 +151,6 @@ set(kilca_lib_cpp_sources
     eigmode/calc_eigmode.cpp
     eigmode/find_eigmodes.cpp
     io/inout.cpp
-    math/adapt_grid/adaptive_grid.cpp
-    math/adapt_grid/adaptive_grid_pol.cpp
 )
 
 #fortran source files for kilca lib:
@@ -168,6 +166,8 @@ set(kilca_lib_fortran_sources
     spline/spline_m.f90
     interp/neville_m.f90
     math/hyper/hyper1F1_m.f90
+    math/adapt_grid/adaptive_grid_m.f90
+    math/adapt_grid/adaptive_grid_pol_m.f90
     antenna/antenna_m.f90
     background/background_m.f90
     background/background_data_m.f90

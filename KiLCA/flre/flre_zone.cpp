@@ -152,11 +152,9 @@ void flre_zone::calc_basis_fields (int flag)
     //calculates various data related to maxwell equations:
     calc_and_set_maxwell_system_parameters_module_ ();
 
-    me = new maxwell_eqs_data (Nwaves);
+    me = maxwell_eqs_data_create_ (Nwaves);
 
-    copy_module_data_to_maxwell_eqs_data_struct (me);
-
-    if (flag_debug) me->print ();
+    if (flag_debug) print_maxwell_eqs_data (me);
 
     allocate_and_set_conductivity_arrays_ ();
 
@@ -466,7 +464,8 @@ void flre_zone::calculate_field_profiles_orth (void)
     delete [] y;
 
     //normalization of the basis functions:
-    normalize_flre_basis_ (&Ncomps, &Nwaves, &dim, basis, me->iErsp_sys, &ind1, &ind2, &j2);
+    int iErsp_sys_local[3] = {get_me_iersp_sys_ (me, 0), get_me_iersp_sys_ (me, 1), get_me_iersp_sys_ (me, 2)};
+    normalize_flre_basis_ (&Ncomps, &Nwaves, &dim, basis, iErsp_sys_local, &ind1, &ind2, &j2);
 }
 
 /*******************************************************************/
@@ -489,8 +488,8 @@ for (int k=0; k<dim; k++) system_to_state_copy (this, &EB[2*Ncomps*k], &sold[2*N
 
 sparse_grid_polynom (r, dim, sold, 2*Nwaves, deg, &aeps, &reps, step, &dimnew, rnew, snew, ind);
 
-int num_vars = me->num_vars;
-int num_eqs = me->num_eqs;
+int num_vars = get_me_num_vars_ (me);
+int num_eqs = get_me_num_eqs_ (me);
 
 double *rhs = new double[2*num_eqs];
 
@@ -551,8 +550,8 @@ calc_derive_of_func_product (int N, double *C, int n, const T1 *f, const T2 *g, 
 
 inline void galilean_transform_of_flre_state_vector (const flre_zone *zone, double V, complex<double> omega, double r, const double *E1, double *E2)
 {
-int *dim_Ersp_state = (int *) zone->me->dim_Ersp_state;
-int *iErsp_state    = (int *) zone->me->iErsp_state;
+int dim_Ersp_state[3] = {get_me_dim_ersp_state_ (zone->me, 0), get_me_dim_ersp_state_ (zone->me, 1), get_me_dim_ersp_state_ (zone->me, 2)};
+int iErsp_state[3]    = {get_me_iersp_state_ (zone->me, 0), get_me_iersp_state_ (zone->me, 1), get_me_iersp_state_ (zone->me, 2)};
 
 //max orders of the derivative for Er, Es, Ep:
 int mo[3] = {dim_Ersp_state[0]-1, dim_Ersp_state[1]-1, dim_Ersp_state[2]-1};
@@ -681,11 +680,11 @@ delete [] hzBr;
 
 inline void galilean_transform_of_flre_system_vector (const flre_zone *zone, double V, complex<double> omega, double r, const double *EB1, double *EB2)
 {
-int *dim_Ersp_sys = (int *) zone->me->dim_Ersp_sys;
-int *iErsp_sys    = (int *) zone->me->iErsp_sys;
+int dim_Ersp_sys[3] = {get_me_dim_ersp_sys_ (zone->me, 0), get_me_dim_ersp_sys_ (zone->me, 1), get_me_dim_ersp_sys_ (zone->me, 2)};
+int iErsp_sys[3]    = {get_me_iersp_sys_ (zone->me, 0), get_me_iersp_sys_ (zone->me, 1), get_me_iersp_sys_ (zone->me, 2)};
 
-int *dim_Brsp_sys = (int *) zone->me->dim_Brsp_sys;
-int *iBrsp_sys    = (int *) zone->me->iBrsp_sys;
+int dim_Brsp_sys[3] = {get_me_dim_brsp_sys_ (zone->me, 0), get_me_dim_brsp_sys_ (zone->me, 1), get_me_dim_brsp_sys_ (zone->me, 2)};
+int iBrsp_sys[3]    = {get_me_ibrsp_sys_ (zone->me, 0), get_me_ibrsp_sys_ (zone->me, 1), get_me_ibrsp_sys_ (zone->me, 2)};
 
 //max orders of the derivative for Er, Es, Ep:
 int moe[3] = {dim_Ersp_sys[0]-1, dim_Ersp_sys[1]-1, dim_Ersp_sys[2]-1};
@@ -869,10 +868,10 @@ inline void system_to_state_copy (const flre_zone *zone, double *system, double 
 {
 for (int k=0; k<3; k++)
 {
-    for (int i=0; i<zone->me->dim_Ersp_state[k]; i++)
+    for (int i=0; i<get_me_dim_ersp_state_ (zone->me, k); i++)
     {
-        state[2*(zone->me->iErsp_state[k]+i)+0] = system[2*(zone->me->iErsp_sys[k]+i)+0];
-        state[2*(zone->me->iErsp_state[k]+i)+1] = system[2*(zone->me->iErsp_sys[k]+i)+1];
+        state[2*(get_me_iersp_state_ (zone->me, k)+i)+0] = system[2*(get_me_iersp_sys_ (zone->me, k)+i)+0];
+        state[2*(get_me_iersp_state_ (zone->me, k)+i)+1] = system[2*(get_me_iersp_sys_ (zone->me, k)+i)+1];
     }
 }
 }
@@ -883,10 +882,10 @@ inline void state_to_system_copy (const flre_zone *zone, double *state, double *
 {
 for (int k=0; k<3; k++)
 {
-    for (int i=0; i<zone->me->dim_Ersp_state[k]; i++)
+    for (int i=0; i<get_me_dim_ersp_state_ (zone->me, k); i++)
     {
-        system[2*(zone->me->iErsp_sys[k]+i)+0] = state[2*(zone->me->iErsp_state[k]+i)+0];
-        system[2*(zone->me->iErsp_sys[k]+i)+1] = state[2*(zone->me->iErsp_state[k]+i)+1];
+        system[2*(get_me_iersp_sys_ (zone->me, k)+i)+0] = state[2*(get_me_iersp_state_ (zone->me, k)+i)+0];
+        system[2*(get_me_iersp_sys_ (zone->me, k)+i)+1] = state[2*(get_me_iersp_state_ (zone->me, k)+i)+1];
     }
 }
 }
@@ -899,7 +898,7 @@ flre_zone *zone = (flre_zone *)(*ptr);
 
 for (int k=0; k<zone->Nwaves; k++)
 {
-    sys_ind[k] = zone->me->sys_ind[k] + 1; //in Fortran index starts from 1
+    sys_ind[k] = get_me_sys_ind_ (zone->me, k) + 1; //in Fortran index starts from 1
 }
 }
 
@@ -974,9 +973,9 @@ void calc_flre_basis_in_lab_cyl_frame_with_full_system_vectors_ (flre_zone **ptr
 {
 flre_zone *zone = (flre_zone *)(*ptr);
 
-double *rhs = new double[2*(zone->me->num_eqs)];
+double *rhs = new double[2*(get_me_num_eqs_ (zone->me))];
 
-for (int j=0; j<2*(zone->me->num_eqs); j++) rhs[j] = 0.0e0;
+for (int j=0; j<2*(get_me_num_eqs_ (zone->me)); j++) rhs[j] = 0.0e0;
 
 double *state   = new double[2*(zone->Nwaves)];
 double *sys_mov = new double[2*(zone->Ncomps)];
@@ -1013,11 +1012,11 @@ delete [] sys_lab;
 
 inline void transform_of_flre_system_vector_to_cyl_coordinates (const flre_zone *zone, double r, const double *EB1, double *EB2)
 {
-int *dim_Ersp_sys = (int *) zone->me->dim_Ersp_sys;
-int *iErsp_sys    = (int *) zone->me->iErsp_sys;
+int dim_Ersp_sys[3] = {get_me_dim_ersp_sys_ (zone->me, 0), get_me_dim_ersp_sys_ (zone->me, 1), get_me_dim_ersp_sys_ (zone->me, 2)};
+int iErsp_sys[3]    = {get_me_iersp_sys_ (zone->me, 0), get_me_iersp_sys_ (zone->me, 1), get_me_iersp_sys_ (zone->me, 2)};
 
-int *dim_Brsp_sys = (int *) zone->me->dim_Brsp_sys;
-int *iBrsp_sys    = (int *) zone->me->iBrsp_sys;
+int dim_Brsp_sys[3] = {get_me_dim_brsp_sys_ (zone->me, 0), get_me_dim_brsp_sys_ (zone->me, 1), get_me_dim_brsp_sys_ (zone->me, 2)};
+int iBrsp_sys[3]    = {get_me_ibrsp_sys_ (zone->me, 0), get_me_ibrsp_sys_ (zone->me, 1), get_me_ibrsp_sys_ (zone->me, 2)};
 
 //max orders of the derivative for Er, Es, Ep:
 int moe[3] = {dim_Ersp_sys[0]-1, dim_Ersp_sys[1]-1, dim_Ersp_sys[2]-1};
@@ -1141,7 +1140,7 @@ void get_iersp_sys_array_ (flre_zone **ptr, int *iErsp_sys)
 {
 flre_zone *Z = (flre_zone *)(*ptr);
 
-for (uchar k=0; k<3; k++) iErsp_sys[k] = Z->me->iErsp_sys[k] + 1;
+for (uchar k=0; k<3; k++) iErsp_sys[k] = get_me_iersp_sys_ (Z->me, k) + 1;
 }
 
 /*****************************************************************************/
@@ -1150,7 +1149,7 @@ void get_ibrsp_sys_array_ (flre_zone **ptr, int *iBrsp_sys)
 {
 flre_zone *Z = (flre_zone *)(*ptr);
 
-for (uchar k=0; k<3; k++) iBrsp_sys[k] = Z->me->iBrsp_sys[k] + 1;
+for (uchar k=0; k<3; k++) iBrsp_sys[k] = get_me_ibrsp_sys_ (Z->me, k) + 1;
 }
 
 /*****************************************************************************/

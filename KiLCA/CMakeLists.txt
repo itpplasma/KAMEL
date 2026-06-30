@@ -162,7 +162,6 @@ set(kilca_lib_cpp_sources
     flre/conductivity/eval_cond.cpp
     flre/dispersion/disp_profs.cpp
     flre/maxwell_eqs/eval_sysmat.cpp
-    flre/maxwell_eqs/maxwell_eqs_data.cpp
     flre/maxwell_eqs/sysmat_profs.cpp
     flre/quants/calc_flre_quants.cpp
     flre/quants/flre_quants.cpp
@@ -197,6 +196,7 @@ set(kilca_lib_fortran_sources
     flre/flre_sett_m.f90
     mode/mode_m.f90
     flre/maxwell_eqs/maxwell_eqs_m.f90
+    flre/maxwell_eqs/maxwell_eqs_data_m.f90
     background/f0moments${Jac}.f90
     background/density_p${Jac}.f90
     antenna/antenna_spectrum.f90
@@ -366,6 +366,19 @@ add_dependencies(test_eigmode_sett kilca_lib)
 target_link_libraries (test_eigmode_sett kilca_lib ${EXTERNAL_LIBS})
 add_test(NAME test_eigmode_sett COMMAND ${CMAKE_BINARY_DIR}/tests/test_eigmode_sett.x)
 set_tests_properties(test_eigmode_sett PROPERTIES WORKING_DIRECTORY ${CMAKE_BINARY_DIR}/tests/)
+
+# Standalone: links maxwell_eqs_data_m.f90 + fakes only, NOT kilca_lib, since
+# the fakes intentionally redefine the same C-ABI symbols maxwell_eqs_m.f90
+# (inside kilca_lib) provides for real zones.
+add_executable (test_maxwell_eqs_data
+    flre/maxwell_eqs/maxwell_eqs_data_m.f90
+    tests/test_maxwell_eqs_data_fakes.f90
+    tests/test_maxwell_eqs_data.f90)
+set_target_properties(test_maxwell_eqs_data PROPERTIES
+    OUTPUT_NAME test_maxwell_eqs_data.x
+    RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/tests/
+    Fortran_MODULE_DIRECTORY ${CMAKE_BINARY_DIR}/OBJS/test_maxwell_eqs_data/)
+add_test(NAME test_maxwell_eqs_data COMMAND ${CMAKE_BINARY_DIR}/tests/test_maxwell_eqs_data.x)
 
 # add a target to generate API documentation with Doxygen
 find_package (Doxygen)

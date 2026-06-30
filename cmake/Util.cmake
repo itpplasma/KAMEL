@@ -7,13 +7,20 @@ if(NOT DEFINED FETCHCONTENT_UPDATES_DISCONNECTED)
 endif()
 
 function(find_or_fetch DEPENDENCY)
-    if(DEFINED ENV{CODE} AND EXISTS $ENV{CODE}/${DEPENDENCY})
-        set(${DEPENDENCY}_SOURCE_DIR $ENV{CODE}/${DEPENDENCY})
-        message(STATUS "Using ${DEPENDENCY} in $ENV{CODE}/${DEPENDENCY}")
+    string(TOUPPER ${DEPENDENCY} _DEP_UPPER)
+    # Cache-variable local-source override: -DLIBNEO_PATH=<dir>
+    if(DEFINED ${_DEP_UPPER}_PATH AND EXISTS "${${_DEP_UPPER}_PATH}/CMakeLists.txt")
+        set(${DEPENDENCY}_SOURCE_DIR "${${_DEP_UPPER}_PATH}")
+        message(STATUS "Using ${DEPENDENCY} from ${${_DEP_UPPER}_PATH} (${_DEP_UPPER}_PATH)")
     else()
         set(REPO_URL https://github.com/itpplasma/${DEPENDENCY}.git)
-        get_branch_or_main(${REPO_URL} REMOTE_BRANCH)
-        message(STATUS "Using ${DEPENDENCY} branch ${REMOTE_BRANCH} from ${REPO_URL}")
+        # Cache-variable ref override: -DLIBNEO_REF=<branch|tag|sha>
+        if(DEFINED ${_DEP_UPPER}_REF AND NOT "${${_DEP_UPPER}_REF}" STREQUAL "")
+            set(REMOTE_BRANCH "${${_DEP_UPPER}_REF}")
+        else()
+            get_branch_or_main(${REPO_URL} REMOTE_BRANCH)
+        endif()
+        message(STATUS "Using ${DEPENDENCY} ref ${REMOTE_BRANCH} from ${REPO_URL}")
 
         FetchContent_Declare(
             ${DEPENDENCY}

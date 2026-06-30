@@ -152,7 +152,6 @@ set(kilca_lib_cpp_sources
     eigmode/calc_eigmode.cpp
     eigmode/find_eigmodes.cpp
     flre/maxwell_eqs/eval_sysmat.cpp
-    interface/wave_code_interface.cpp
     io/inout.cpp
     math/adapt_grid/adaptive_grid.cpp
     math/adapt_grid/adaptive_grid_pol.cpp
@@ -166,6 +165,7 @@ set(kilca_lib_fortran_sources
     core/settings_m.f90
     core/core_data_m.f90
     io/inout_m.f90
+    interface/wave_code_interface_m.f90
     spline/spline_m.f90
     interp/neville_m.f90
     math/hyper/hyper1F1_m.f90

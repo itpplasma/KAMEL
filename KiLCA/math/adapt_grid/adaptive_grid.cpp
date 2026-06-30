@@ -4,6 +4,7 @@
 
 #include <cmath>
 #include <cfloat>
+#include <cstdio>
 
 #include "adaptive_grid.h"
 #include "shared.h"

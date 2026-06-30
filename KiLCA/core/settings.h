@@ -25,8 +25,6 @@ class settings
 public:
     char *path2project; //!<project path
 
-    antenna      *as; //!<antenna settings
-
     back_sett    *bs; //!<background settings
 
     output_sett  *os; //!<output settings
@@ -44,7 +42,6 @@ public:
     {
         delete [] path2project;
 
-        delete as;
         delete bs;
         delete os;
         delete es;
@@ -57,8 +54,6 @@ public:
 
 extern "C"
 {
-void copy_antenna_data_to_antenna_module_ (antenna **);
-
 void copy_background_data_to_background_module_ (back_sett **);
 }
 

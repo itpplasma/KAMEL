@@ -1,52 +1,28 @@
 /*! \file antenna.h
-    \brief The declaration of antenna class representing the antenna settings.
+    \brief C entry points for the antenna settings, now owned by the Fortran
+           antenna_data module (read_antenna_settings_ parses antenna.in and
+           modes.in). The former C++ antenna class has been translated away.
 */
 
 #ifndef ANTENNA_INCLUDE
 
 #define ANTENNA_INCLUDE
 
-#include <inttypes.h>
-
-#include "constants.h"
-
-/*! \class antenna
-    \brief The class contains the antenna parameters.
-*/
-class antenna
-{
-public:
-    double ra; //!<small radius (cm) of antenna location
-
-    double wa; //!<current density layer width
-
-    double I0; //!<current in antenna coils (statamp)
-
-    complex<double> flab; //!<frequency (Hz) in the laboratory frame
-
-    int dma; //!<dimension of modes array
-
-    int *modes; //!<array of modes (m,n)
-
-    int flag_debug; //!>debug flag
-
-    int flag_eigmode; //!<flag for eigmode search
-
-public:
-    antenna (void) {}
-
-    ~antenna (void)
-    {
-        delete [] modes;
-    }
-
-    void read_settings (char *path);
-    void print_settings ();
-};
-
 extern "C"
 {
-void set_antenna_settings_c_ (antenna **ptr, double *ra, double *wa, double *I0, double *flab_re, double *flab_im, int *dma, int *flag_debug);
+void read_antenna_settings_ (char *path);
+
+int get_antenna_dma_ (void);
+
+void get_antenna_flab_ (double *re, double *im);
+
+void get_antenna_mode_ (int ind, int *m, int *n);
+
+double get_antenna_ra_ (void);
+
+double get_antenna_wa_ (void);
+
+int get_antenna_flag_eigmode_ (void);
 }
 
 #endif

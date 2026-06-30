@@ -159,7 +159,6 @@ set(kilca_lib_cpp_sources
     eigmode/eigmode_sett.cpp
     eigmode/calc_eigmode.cpp
     eigmode/find_eigmodes.cpp
-    antenna/antenna.cpp
     flre/flre_zone.cpp
     flre/conductivity/calc_cond.cpp
     flre/conductivity/cond_profs${interp}.cpp
@@ -332,6 +331,15 @@ target_include_directories (test_neville PRIVATE ${PROJECT_BINARY_DIR}/OBJS/kilc
 add_dependencies(test_neville kilca_lib)
 target_link_libraries (test_neville kilca_lib ${EXTERNAL_LIBS})
 add_test(NAME test_neville COMMAND ${CMAKE_BINARY_DIR}/tests/test_neville.x)
+
+add_executable (test_antenna_settings tests/test_antenna_settings.f90)
+set_target_properties(test_antenna_settings PROPERTIES
+    OUTPUT_NAME test_antenna_settings.x
+    RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/tests/)
+add_dependencies(test_antenna_settings kilca_lib)
+target_link_libraries (test_antenna_settings kilca_lib ${EXTERNAL_LIBS})
+add_test(NAME test_antenna_settings COMMAND ${CMAKE_BINARY_DIR}/tests/test_antenna_settings.x)
+set_tests_properties(test_antenna_settings PROPERTIES WORKING_DIRECTORY ${CMAKE_BINARY_DIR}/tests/)
 
 # add a target to generate API documentation with Doxygen
 find_package (Doxygen)

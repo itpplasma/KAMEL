@@ -138,16 +138,18 @@ else
 void core_data::calc_and_set_mode_dependent_core_data_antenna (void)
 {
 //allocates modes array in core struct:
-dim = sd->as->dma;
+dim = get_antenna_dma_ ();
 mda = new mode_data * [dim];
 
-complex<double> olab = (2.0*pi)*(sd->as->flab);
+double flab_re, flab_im;
+get_antenna_flab_ (&flab_re, &flab_im);
+complex<double> olab = (2.0*pi)*complex<double>(flab_re, flab_im);
 
 //loop over modes array:
 for (int ind=0; ind<dim; ind++)
 {
-    int m = sd->as->modes[2*ind+0];
-    int n = sd->as->modes[2*ind+1];
+    int m, n;
+    get_antenna_mode_ (ind, &m, &n);
 
     mda[ind] = new mode_data (m, n, olab, (const settings *)sd, (const background *)bp);
 
@@ -165,14 +167,14 @@ for (int ind=0; ind<dim; ind++)
 void core_data::calc_and_set_mode_dependent_core_data_eigmode (void)
 {
 //allocates modes array in core struct:
-dim = sd->as->dma;
+dim = get_antenna_dma_ ();
 mda = new mode_data * [dim];
 
 //loop over modes array:
 for (int ind=0; ind<dim; ind++)
 {
-    int m = sd->as->modes[2*ind+0];
-    int n = sd->as->modes[2*ind+1];
+    int m, n;
+    get_antenna_mode_ (ind, &m, &n);
 
     if (sd->es->search_flag == 1)
     {
@@ -202,16 +204,18 @@ for (int ind=0; ind<dim; ind++)
 void core_data::calc_and_set_mode_dependent_core_data_antenna_interface (void)
 {
     //allocates modes array in core struct:
-    dim = sd->as->dma;
+    dim = get_antenna_dma_ ();
     mda = new mode_data * [dim];
 
-    complex<double> olab = (2.0*pi)*(sd->as->flab);
+    double flab_re, flab_im;
+get_antenna_flab_ (&flab_re, &flab_im);
+complex<double> olab = (2.0*pi)*complex<double>(flab_re, flab_im);
 
     //loop over modes array:
     for (int ind=0; ind<dim; ind++)
     {
-        int m = sd->as->modes[2*ind+0];
-        int n = sd->as->modes[2*ind+1];
+        int m, n;
+        get_antenna_mode_ (ind, &m, &n);
 
         mda[ind] = new mode_data (m, n, olab, (const settings *)sd, (const background *)bp);
 
@@ -229,7 +233,9 @@ void core_data::calc_and_set_mode_dependent_core_data_antenna_interface (int m, 
 dim = 1;
 mda = new mode_data * [dim];
 
-complex<double> olab = (2.0*pi)*(sd->as->flab);
+double flab_re, flab_im;
+get_antenna_flab_ (&flab_re, &flab_im);
+complex<double> olab = (2.0*pi)*complex<double>(flab_re, flab_im);
 
 //loop over modes array:
 for (int ind=0; ind<dim; ind++)

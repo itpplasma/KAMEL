@@ -80,9 +80,20 @@ module kilca_background_data_m
             integer(c_int) :: n
         end function eval_path_to_linear_data_c
 
-        function count_lines_in_file_c(filename) result(n) bind(C, name="count_lines_in_file_")
+        !> Was wrongly bound to "count_lines_in_file_" (a 3-arg void C
+        !> wrapper, `count_lines_in_file_(char*,int*,int*)`) with only 1 of
+        !> its args declared and treated as a function returning a value -
+        !> a genuine ABI mismatch (1 arg passed where 3 were expected, a
+        !> function call against a void target) that the test suite never
+        !> exercised since count_lines() below is only reached via the
+        !> background_set_profiles_from_files_ path. Fixed to bind directly
+        !> to "count_lines_in_file" (the real 2-arg function, filename +
+        !> flag_print) with both arguments declared.
+        function count_lines_in_file_c(filename, flag_print) result(n) &
+            bind(C, name="count_lines_in_file")
             import :: c_int, c_char
             character(kind=c_char), intent(in) :: filename(*)
+            integer(c_int), value :: flag_print
             integer(c_int) :: n
         end function count_lines_in_file_c
 
@@ -127,7 +138,7 @@ contains
         character(len=*), intent(in) :: fname
         character(kind=c_char) :: cbuf(len(fname) + 1)
         call to_cstr(fname, cbuf)
-        n = count_lines_in_file_c(cbuf)
+        n = count_lines_in_file_c(cbuf, 0_c_int)
     end function count_lines
 
     subroutine load_data(fname, dim_, ncols, rgrid, qgrid)

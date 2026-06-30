@@ -165,6 +165,7 @@ set(kilca_lib_fortran_sources
     core/core_m.f90
     core/output_sett_m.f90
     core/settings_m.f90
+    io/inout_m.f90
     spline/spline_m.f90
     interp/neville_m.f90
     math/hyper/hyper1F1_m.f90

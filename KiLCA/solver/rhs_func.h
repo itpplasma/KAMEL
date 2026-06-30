@@ -2,6 +2,8 @@
     \brief The declaration of a right hand side function for ODE solver.
 */
 
+#include <cstdint>
+
 #include "sysmat_profs.h"
 
 #include <cvode/cvode.h>
@@ -14,7 +16,7 @@ struct rhs_func_params {
     const int Nphys;
     const int Nfs;
     double* Dmat;
-    const sysmat_profiles* sp;
+    const intptr_t sp;
 };
 
 /*-----------------------------------------------------------------*/

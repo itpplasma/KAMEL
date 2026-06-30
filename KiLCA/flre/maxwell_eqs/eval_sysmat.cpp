@@ -7,17 +7,9 @@
 
 /*******************************************************************/
 
-void eval_diff_sys_matrix_ (const sysmat_profiles *sp, double *r, double *M)
+void eval_diff_sys_matrix_ (intptr_t sp, double *r, double *M)
 {
-spline_eval_d_ (sp->sidM, 1, r, 0, 0, 0, sp->dimM-1, M);
-}
-
-/*******************************************************************/
-
-void eval_diff_sys_matrix_f_ (sysmat_profiles **sp_ptr, double *r, double *M)
-{
-const sysmat_profiles *sp = *sp_ptr;
-spline_eval_d_ (sp->sidM, 1, r, 0, 0, 0, sp->dimM-1, M);
+spline_eval_d_ ((uintptr_t) get_sysmat_sidm_ (sp), 1, r, 0, 0, 0, get_sysmat_dimm_ (sp)-1, M);
 }
 
 /*******************************************************************/

@@ -19,7 +19,8 @@ void rhs_func(double r, double* y, double* ydot, void* params) {
 
 #else
 
-    calc_diff_sys_matrix_(&r, fp->sp->flag_back, fp->Dmat, 1); // exact
+    char flag_back_buf[2] = { get_sysmat_flag_back_ (fp->sp), '\0' };
+    calc_diff_sys_matrix_(&r, flag_back_buf, fp->Dmat, 1); // exact
 
 #endif
 
@@ -46,7 +47,8 @@ int Jacobian(long int N, sunrealtype t, N_Vector y, N_Vector fy, SUNDlsMat J, vo
 
 #else
 
-    calc_diff_sys_matrix_(&t, fp->sp->flag_back, fp->Dmat, 1); // exact
+    char flag_back_buf[2] = { get_sysmat_flag_back_ (fp->sp), '\0' };
+    calc_diff_sys_matrix_(&t, flag_back_buf, fp->Dmat, 1); // exact
 
 #endif
 

@@ -26,7 +26,7 @@ class flre_zone : public zone
 public:
     intptr_t me;  //!<handle to the Fortran maxwell_eqs_data instance for this zone
     cond_profiles *cp;     //!<pointer to conductivity structure
-    sysmat_profiles *sp;   //!<pointer to system matrix profiles
+    intptr_t sp;  //!<handle to the Fortran sysmat_profiles instance for this zone
     intptr_t dp;  //!<handle to the Fortran disp_profiles instance for this zone
     flre_quants *qp;       //!<pointer to flre quantities
 
@@ -91,7 +91,7 @@ public:
     {
         me = 0;
         cp = NULL;
-        sp = NULL;
+        sp = 0;
         dp = 0;
         qp = NULL;
 
@@ -102,7 +102,7 @@ public:
     {
         if (me) maxwell_eqs_data_destroy_ (me);
         if (cp) delete cp;
-        if (sp) delete sp;
+        if (sp) sysmat_profiles_destroy_ (sp);
         if (dp) disp_profiles_destroy_ (dp);
         if (qp) delete qp;
 
@@ -158,7 +158,7 @@ void deallocate_conductivity_arrays_ (void);
 
 void set_cond_profiles_in_mode_data_module_ (cond_profiles **);
 
-void set_sysmat_profiles_in_mode_data_module_ (sysmat_profiles **);
+void set_sysmat_profiles_in_mode_data_module_ (intptr_t *);
 
 void set_conductivity_settings_c_ (flre_zone **ptr, int *flre_order, int *Nmax, int *gal_corr, int *rsp);
 

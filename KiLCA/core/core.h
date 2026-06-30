@@ -7,6 +7,7 @@
 #define CORE_INCLUDE
 
 #include <cstring>
+#include <cstdint>
 
 #include "code_settings.h"
 
@@ -30,7 +31,7 @@ public:
 
     int dim; //!<dimension of the mode_data array (number of modes)
 
-    mode_data **mda; //!<array of mode_data objects
+    intptr_t *mda; //!<array of handles to Fortran mode_data_t instances
 
 public:
     core_data (char *path); //!<constructor

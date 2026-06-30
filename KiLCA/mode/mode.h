@@ -1,5 +1,10 @@
 /*! \file
-    \brief The declaration of mode_data class.
+    \brief C entry points for the per-mode orchestrator, now owned by the
+           Fortran kilca_mode_data_m module (KiLCA/mode/mode_data_m.f90).
+           The former C++ mode_data class has been translated away; still-C++
+           callers (core.cpp, eigmode/*.cpp, wave_code_interface.cpp) hold an
+           opaque intptr_t handle instead of a `mode_data*` and dispatch
+           through the functions below.
 */
 
 #ifndef MODE_INCLUDE
@@ -16,175 +21,32 @@
 
 /*****************************************************************************/
 
-inline int iFFM(int node, int comp, int part)
-{
-    //indexing function for E, B fields in final EB array in mode class
-    return part + 2*(comp + 6*node);
-}
-
-/*****************************************************************************/
-
-/*! \class mode_data
-    \brief Class represents data related to a particular mode of a perturbation.
-*/
-class mode_data
-{
-public:
-    //pointers to common structures:
-    const settings *sd;         //!<pointer to settings
-    const background *bp;       //!<pointer to background
-
-    //handle to the Fortran wave_data_t instance for this mode:
-    intptr_t wd;
-
-    //Directories for a given mode:
-    char *path2linear;          //!<path to linear-data
-    char *path2dispersion;      //!<path to dispersion-data
-    char *path2poincare;        //!<path to poincare-data
-
-    int  Nzones;                //!<number of zones
-    intptr_t *zones;            //!<zones array (handles to Fortran zone_t instances)
-
-    int dim;         //!<final radial grid dimension
-    double *r;       //!<final radial grid
-    double *EB;      //!<final EB fields on the r grid in lab frame in cyl coordinates
-    double *EB_int;  //!<EB_lab fields ready for the interpolation
-    int *index;      //!<zone first point index in the final grids
-
-    int Nc;      //!<number of superposition coefficients
-    double *A;   //!<system matrix
-    double *B;   //!<system rhs vector
-    double *S;   //!<superposition coefficients
-
-public:
-    mode_data (int m, int n, complex<double> olab, const settings *, const background *);
-
-    ~mode_data (void)
-    {
-        delete [] path2linear;
-        delete [] path2dispersion;
-        delete [] path2poincare;
-
-        wave_data_destroy_ (wd);
-
-        delete [] r;
-        delete [] EB;
-        delete [] EB_int;
-        delete [] index;
-
-        delete [] A;
-        delete [] B;
-        delete [] S;
-
-        //loop over zones:
-        for (int iz=0; iz<Nzones; iz++)
-        {
-            if (zones[iz]) zone_destroy_ (zones[iz]);
-        }
-        delete [] zones;
-    }
-
-    inline int iFint(int node, int comp, int part)
-    {
-        //indexing function for E, B fields in EB_int array used for interpolation
-        return node + dim*(part + 2*(comp));
-    }
-
-    void calc_all_mode_data (int flag = 0);
-
-    void allocate_and_setup_zones (void);
-
-    void set_and_make_mode_data_directories (void);
-
-    int determine_zone_index_for_point (double);
-
-    void divEB (double x, complex<double> *divEB);
-
-    void calc_and_save_divEB (void);
-
-    void eval_EB_fields (double, complex<double> *);
-
-    void eval_diss_power_density (double, int type, int spec, double *pdd);
-
-    void eval_current_density (double x, int type, int spec, int comp, double * J);
-
-private:
-    int find_resonance_location (void);
-
-    void check_zones_parameters (void);
-
-    void calc_basis_fields_in_zones (int flag = 0);
-
-    void calc_dispersion_in_zones (void);
-
-    void save_dispersion_in_zones (void);
-
-    void calc_stitching_equations (void);
-
-    void calc_stitching_equations_determinant (void);
-
-    void save_mode_det_data (void);
-
-    void solve_stitching_equations (void);
-
-    void calc_superposition_of_basis_fields_in_zones (void);
-
-    void space_out_fields_in_zones (void);
-
-    void combine_final_wave_fields (void);
-
-    void setup_wave_fields_for_interpolation (void);
-
-    void save_final_wave_fields (void);
-
-    void calc_quants_in_zones (void);
-
-    void save_quants_in_zones (void);
-
-    void combine_final_quants (void);
-
-    void save_final_quants (void);
-};
-
-/*****************************************************************************/
-
-struct func_params
-{
-    const background *bp;
-    double q_res;
-};
-
-/*****************************************************************************/
-
-double qminusq0 (double x, void *p);
-
-/*****************************************************************************/
-
-void eval_path_to_linear_data (const char *path2project, int m, int n, complex<double> olab, char *path2linear);
-
-void eval_path_to_dispersion_data (const char *path2project, int m, int n, complex<double> olab, char *path2dispersion);
-
-void eval_path_to_poincare_data (const char *path2project, int m, int n, complex<double> olab, char *path2poincare);
-
-/*****************************************************************************/
-
 extern "C"
 {
+intptr_t mode_data_create_ (int m, int n, double olab_re, double olab_im,
+                            intptr_t sd_ptr, intptr_t bp_ptr, const char *path2project);
+
+void mode_data_destroy_ (intptr_t handle);
+
+void mode_data_calc_all_mode_data_ (intptr_t handle, int flag);
+
+intptr_t mode_data_get_wd_ (intptr_t handle);
+
+intptr_t mode_data_get_zone_handle_ (intptr_t handle, int zone_ind);
+
+void mode_data_eval_EB_fields_ (intptr_t handle, double x, double *EB_out);
+
+void mode_data_eval_diss_power_density_ (intptr_t handle, double x, int type, int spec, double *dpd);
+
+void mode_data_eval_current_density_ (intptr_t handle, double x, int type, int spec, int comp, double *J);
+
 void set_settings_in_mode_data_module_ (const settings **);
 
 void set_back_profiles_in_mode_data_module_ (const background **);
 
-void set_wave_data_in_mode_data_module_ (intptr_t *);
-
 void set_wave_parameters_in_mode_data_module_ (int *, int *, double *, double *, double *, double *);
 
-void set_resonance_location_in_mode_data_module_ (double *r_res);
-
 void set_current_density_in_antenna_module_ (void);
-
-void copy_mode_paths_to_mode_data_module_ (mode_data **);
-
-void copy_mode_paths_from_mode_data_struct_ (mode_data **md, char *path2linear, char *path2dispersion, char *path2poincare);
 
 void clear_all_data_in_mode_data_module_ (void);
 }

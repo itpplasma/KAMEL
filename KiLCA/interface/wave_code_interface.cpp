@@ -149,7 +149,7 @@ int num = -1;
 
 for (int i=0; i<cd->dim; i++)
 {
-    if (wave_data_get_m_(cd->mda[i]->wd) == *m && wave_data_get_n_(cd->mda[i]->wd) == *n)
+    if (wave_data_get_m_(mode_data_get_wd_(cd->mda[i])) == *m && wave_data_get_n_(mode_data_get_wd_(cd->mda[i])) == *n)
     {
         num = i;
         break;
@@ -167,7 +167,7 @@ for (int i=0; i<*dim_r; i++)
     complex<double> EBcyl[6];
     complex<double> EBrsp[6];
 
-    cd->mda[num]->eval_EB_fields (r[i], EBcyl);
+    mode_data_eval_EB_fields_ (cd->mda[num], r[i], reinterpret_cast<double*>(EBcyl));
 
     transform_EB_from_cyl_to_rsp (cd->bp, r[i], EBcyl, EBrsp);
 
@@ -219,7 +219,7 @@ int num = -1;
 
 for (int i=0; i<cd->dim; i++)
 {
-    if (wave_data_get_m_(cd->mda[i]->wd) == *m && wave_data_get_n_(cd->mda[i]->wd) == *n)
+    if (wave_data_get_m_(mode_data_get_wd_(cd->mda[i])) == *m && wave_data_get_n_(mode_data_get_wd_(cd->mda[i])) == *n)
     {
         num = i;
         break;
@@ -234,7 +234,7 @@ if (num == -1)
 
 for (int i=0; i<*dim_r; i++)
 {
-    cd->mda[num]->eval_diss_power_density (r[i], *type, *spec, pdis+i);
+    mode_data_eval_diss_power_density_ (cd->mda[num], r[i], *type, *spec, pdis+i);
 }
 }
 
@@ -261,8 +261,8 @@ if (*dim_mn != cd->dim)
 
 for (int i=0; i<cd->dim; i++)
 {
-    m_vals[i] = wave_data_get_m_(cd->mda[i]->wd);
-    n_vals[i] = wave_data_get_n_(cd->mda[i]->wd);
+    m_vals[i] = wave_data_get_m_(mode_data_get_wd_(cd->mda[i]));
+    n_vals[i] = wave_data_get_n_(mode_data_get_wd_(cd->mda[i]));
 }
 }
 
@@ -280,7 +280,7 @@ int num = -1;
 
 for (int i=0; i<cd->dim; i++)
 {
-    if (wave_data_get_m_(cd->mda[i]->wd) == *m && wave_data_get_n_(cd->mda[i]->wd) == *n)
+    if (wave_data_get_m_(mode_data_get_wd_(cd->mda[i])) == *m && wave_data_get_n_(mode_data_get_wd_(cd->mda[i])) == *n)
     {
         num = i;
         break;
@@ -296,12 +296,12 @@ if (num == -1)
 for (int i=0; i<*dim_r; i++)
 {
     int ind = 2*i;
-    cd->mda[num]->eval_current_density (r[i], 0, 0, 0, Jri+ind);
-    cd->mda[num]->eval_current_density (r[i], 0, 0, 1, Jsi+ind);
-    cd->mda[num]->eval_current_density (r[i], 0, 0, 2, Jpi+ind);
-    cd->mda[num]->eval_current_density (r[i], 0, 1, 0, Jre+ind);
-    cd->mda[num]->eval_current_density (r[i], 0, 1, 1, Jse+ind);
-    cd->mda[num]->eval_current_density (r[i], 0, 1, 2, Jpe+ind);
+    mode_data_eval_current_density_ (cd->mda[num], r[i], 0, 0, 0, Jri+ind);
+    mode_data_eval_current_density_ (cd->mda[num], r[i], 0, 0, 1, Jsi+ind);
+    mode_data_eval_current_density_ (cd->mda[num], r[i], 0, 0, 2, Jpi+ind);
+    mode_data_eval_current_density_ (cd->mda[num], r[i], 0, 1, 0, Jre+ind);
+    mode_data_eval_current_density_ (cd->mda[num], r[i], 0, 1, 1, Jse+ind);
+    mode_data_eval_current_density_ (cd->mda[num], r[i], 0, 1, 2, Jpe+ind);
 }
 }
 
@@ -311,7 +311,7 @@ void activate_kilca_modules_for_flre_zone_ (core_data ** cdptr)
 {
 //!The function activates the fortran modules for flre zone
 
-intptr_t fz = (*cdptr)->mda[0]->zones[0];
+intptr_t fz = mode_data_get_zone_handle_((*cdptr)->mda[0], 0);
 
 activate_fortran_modules_for_zone_ (&fz);
 }
@@ -322,7 +322,7 @@ void deactivate_kilca_modules_for_flre_zone_ (core_data ** cdptr)
 {
 //!The function activates the fortran modules for flre zone
 
-intptr_t fz = (*cdptr)->mda[0]->zones[0];
+intptr_t fz = mode_data_get_zone_handle_((*cdptr)->mda[0], 0);
 
 deactivate_fortran_modules_for_zone_ (&fz);
 }
@@ -350,7 +350,7 @@ int num = -1;
 
 for (int i=0; i<cd->dim; i++)
 {
-    if (wave_data_get_m_(cd->mda[i]->wd) == *m && wave_data_get_n_(cd->mda[i]->wd) == *n)
+    if (wave_data_get_m_(mode_data_get_wd_(cd->mda[i])) == *m && wave_data_get_n_(mode_data_get_wd_(cd->mda[i])) == *n)
     {
         num = i;
         break;
@@ -363,7 +363,7 @@ if (num == -1)
     return;
 }
 
-intptr_t zone = cd->mda[num]->zones[*zone_ind];
+intptr_t zone = mode_data_get_zone_handle_(cd->mda[num], *zone_ind);
 intptr_t zone_cp = flre_zone_get_cp_ (zone);
 
 *flreo = flre_zone_get_flre_order_ (zone);
@@ -412,7 +412,7 @@ int num = -1;
 
 for (int i=0; i<cd->dim; i++)
 {
-    if (wave_data_get_m_(cd->mda[i]->wd) == *m && wave_data_get_n_(cd->mda[i]->wd) == *n)
+    if (wave_data_get_m_(mode_data_get_wd_(cd->mda[i])) == *m && wave_data_get_n_(mode_data_get_wd_(cd->mda[i])) == *n)
     {
         num = i;
         break;
@@ -425,10 +425,10 @@ if (num == -1)
     return;
 }
 
-*kz = wave_data_get_n_(cd->mda[num]->wd) / get_background_rtor_();
+*kz = wave_data_get_n_(mode_data_get_wd_(cd->mda[num])) / get_background_rtor_();
 
-*omega_mov_re = get_wave_data_obj_omov_re_(cd->mda[num]->wd);
-*omega_mov_im = get_wave_data_obj_omov_im_(cd->mda[num]->wd);
+*omega_mov_re = get_wave_data_obj_omov_re_(mode_data_get_wd_(cd->mda[num]));
+*omega_mov_im = get_wave_data_obj_omov_im_(mode_data_get_wd_(cd->mda[num]));
 }
 
 /*******************************************************************/
@@ -442,7 +442,7 @@ int num = -1;
 
 for (int i=0; i<cd->dim; i++)
 {
-    if (wave_data_get_m_(cd->mda[i]->wd) == *m && wave_data_get_n_(cd->mda[i]->wd) == *n)
+    if (wave_data_get_m_(mode_data_get_wd_(cd->mda[i])) == *m && wave_data_get_n_(mode_data_get_wd_(cd->mda[i])) == *n)
     {
         num = i;
         break;
@@ -455,14 +455,14 @@ if (num == -1)
     return;
 }
 
-//set_wave_parameters_in_mode_data_module_(&(cd->mda[num]->wd->m), &(cd->mda[num]->wd->n),
-//                                         &(real(cd->mda[num]->wd->olab)), &(imag(cd->mda[num]->wd->olab)),
-//                                         &(real(cd->mda[num]->wd->omov)), &(imag(cd->mda[num]->wd->omov)));
+//set_wave_parameters_in_mode_data_module_(&(mode_data_get_wd_(cd->mda[num])->m), &(mode_data_get_wd_(cd->mda[num])->n),
+//                                         &(real(mode_data_get_wd_(cd->mda[num])->olab)), &(imag(mode_data_get_wd_(cd->mda[num])->olab)),
+//                                         &(real(mode_data_get_wd_(cd->mda[num])->omov)), &(imag(mode_data_get_wd_(cd->mda[num])->omov)));
 
-int mm = wave_data_get_m_(cd->mda[num]->wd), nn = wave_data_get_n_(cd->mda[num]->wd);
+int mm = wave_data_get_m_(mode_data_get_wd_(cd->mda[num])), nn = wave_data_get_n_(mode_data_get_wd_(cd->mda[num]));
 
-double olab_re = wave_data_get_olab_re_(cd->mda[num]->wd), olab_im = wave_data_get_olab_im_(cd->mda[num]->wd);
-double omov_re = get_wave_data_obj_omov_re_(cd->mda[num]->wd), omov_im = get_wave_data_obj_omov_im_(cd->mda[num]->wd);
+double olab_re = wave_data_get_olab_re_(mode_data_get_wd_(cd->mda[num])), olab_im = wave_data_get_olab_im_(mode_data_get_wd_(cd->mda[num]));
+double omov_re = get_wave_data_obj_omov_re_(mode_data_get_wd_(cd->mda[num])), omov_im = get_wave_data_obj_omov_im_(mode_data_get_wd_(cd->mda[num]));
 
 set_wave_parameters_in_mode_data_module_(&mm, &nn, &olab_re, &olab_im, &omov_re, &omov_im);
 }

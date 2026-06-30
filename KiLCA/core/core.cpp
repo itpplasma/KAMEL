@@ -58,7 +58,7 @@ delete [] path2project;
 
 if (mda == 0) return;
 
-for (int ind=0; ind<dim; ind++) if (mda[ind]) delete mda[ind];
+for (int ind=0; ind<dim; ind++) if (mda[ind]) mode_data_destroy_ (mda[ind]);
 
 delete [] mda;
 
@@ -71,7 +71,7 @@ void core_data::delete_modes_array (void)
 {
 if (mda == 0) return;
 
-for (int ind=0; ind<dim; ind++) if (mda[ind]) delete mda[ind];
+for (int ind=0; ind<dim; ind++) if (mda[ind]) mode_data_destroy_ (mda[ind]);
 
 delete [] mda;
 
@@ -140,7 +140,7 @@ void core_data::calc_and_set_mode_dependent_core_data_antenna (void)
 {
 //allocates modes array in core struct:
 dim = get_antenna_dma_ ();
-mda = new mode_data * [dim];
+mda = new intptr_t [dim];
 
 double flab_re, flab_im;
 get_antenna_flab_ (&flab_re, &flab_im);
@@ -152,11 +152,11 @@ for (int ind=0; ind<dim; ind++)
     int m, n;
     get_antenna_mode_ (ind, &m, &n);
 
-    mda[ind] = new mode_data (m, n, olab, (const settings *)sd, (const background *)bp);
+    mda[ind] = mode_data_create_ (m, n, real(olab), imag(olab), (intptr_t)sd, (intptr_t)bp, sd->path2project);
 
-    mda[ind]->calc_all_mode_data ();
+    mode_data_calc_all_mode_data_ (mda[ind], 0);
 
-    delete mda[ind]; //delete mode_data object (if only needed)
+    mode_data_destroy_ (mda[ind]); //delete mode_data object (if only needed)
     mda[ind] = 0;
 
     clear_all_data_in_mode_data_module_ (); //clean up fortran module data
@@ -169,7 +169,7 @@ void core_data::calc_and_set_mode_dependent_core_data_eigmode (void)
 {
 //allocates modes array in core struct:
 dim = get_antenna_dma_ ();
-mda = new mode_data * [dim];
+mda = new intptr_t [dim];
 
 //loop over modes array:
 for (int ind=0; ind<dim; ind++)
@@ -206,7 +206,7 @@ void core_data::calc_and_set_mode_dependent_core_data_antenna_interface (void)
 {
     //allocates modes array in core struct:
     dim = get_antenna_dma_ ();
-    mda = new mode_data * [dim];
+    mda = new intptr_t [dim];
 
     double flab_re, flab_im;
 get_antenna_flab_ (&flab_re, &flab_im);
@@ -218,9 +218,9 @@ complex<double> olab = (2.0*pi)*complex<double>(flab_re, flab_im);
         int m, n;
         get_antenna_mode_ (ind, &m, &n);
 
-        mda[ind] = new mode_data (m, n, olab, (const settings *)sd, (const background *)bp);
+        mda[ind] = mode_data_create_ (m, n, real(olab), imag(olab), (intptr_t)sd, (intptr_t)bp, sd->path2project);
 
-        mda[ind]->calc_all_mode_data ();
+        mode_data_calc_all_mode_data_ (mda[ind], 0);
 
         clear_all_data_in_mode_data_module_ (); //clean up fortran module data
     }
@@ -232,7 +232,7 @@ void core_data::calc_and_set_mode_dependent_core_data_antenna_interface (int m, 
 {
 //allocates modes array in core struct:
 dim = 1;
-mda = new mode_data * [dim];
+mda = new intptr_t [dim];
 
 double flab_re, flab_im;
 get_antenna_flab_ (&flab_re, &flab_im);
@@ -241,9 +241,9 @@ complex<double> olab = (2.0*pi)*complex<double>(flab_re, flab_im);
 //loop over modes array:
 for (int ind=0; ind<dim; ind++)
 {
-    mda[ind] = new mode_data (m, n, olab, (const settings *)sd, (const background *)bp);
+    mda[ind] = mode_data_create_ (m, n, real(olab), imag(olab), (intptr_t)sd, (intptr_t)bp, sd->path2project);
 
-    mda[ind]->calc_all_mode_data (flag);
+    mode_data_calc_all_mode_data_ (mda[ind], flag);
 
     clear_all_data_in_mode_data_module_ (); //clean up fortran module data
 }

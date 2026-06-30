@@ -29,11 +29,11 @@ const double fim = x[1];
 
 complex<double> olab = 2.0*pi*(fre + I*fim);
 
-cd->mda[ind] = new mode_data (m, nn, olab, (const settings *)cd->sd, (const background *)cd->bp);
+cd->mda[ind] = mode_data_create_ (m, nn, real(olab), imag(olab), (intptr_t)cd->sd, (intptr_t)cd->bp, cd->sd->path2project);
 
-cd->mda[ind]->calc_all_mode_data ();
+mode_data_calc_all_mode_data_ (cd->mda[ind], 0);
 
-complex<double> det = complex<double>(wave_data_get_det_re_(cd->mda[ind]->wd), wave_data_get_det_im_(cd->mda[ind]->wd));
+complex<double> det = complex<double>(wave_data_get_det_re_(mode_data_get_wd_(cd->mda[ind])), wave_data_get_det_im_(mode_data_get_wd_(cd->mda[ind])));
 
 //for debugging:
 FILE *out;
@@ -51,7 +51,7 @@ f[0] = real(det);
 f[1] = imag(det);
 
 //clean up:
-delete cd->mda[ind];
+mode_data_destroy_ (cd->mda[ind]);
 cd->mda[ind] = NULL;
 clear_all_data_in_mode_data_module_ (); //clean up fortran module data
 }
@@ -219,15 +219,15 @@ for (int i=0; i<es_rdim; i++)
 
         complex<double> olab = 2.0*pi*(fre + I*fim);
 
-        cd->mda[ind] = new mode_data (m, n, olab, (const settings *)cd->sd, (const background *)cd->bp);
+        cd->mda[ind] = mode_data_create_ (m, n, real(olab), imag(olab), (intptr_t)cd->sd, (intptr_t)cd->bp, cd->sd->path2project);
 
-        cd->mda[ind]->calc_all_mode_data ();
+        mode_data_calc_all_mode_data_ (cd->mda[ind], 0);
 
         fprintf (out, "\n%6u\t%.20le  %.20le\t%.20le  %.20le", i*es_idim+k, fre, fim,
-                 wave_data_get_det_re_(cd->mda[ind]->wd), wave_data_get_det_im_(cd->mda[ind]->wd));
+                 wave_data_get_det_re_(mode_data_get_wd_(cd->mda[ind])), wave_data_get_det_im_(mode_data_get_wd_(cd->mda[ind])));
         fflush (out);
 
-        delete cd->mda[ind];
+        mode_data_destroy_ (cd->mda[ind]);
         cd->mda[ind] = NULL;
         clear_all_data_in_mode_data_module_ ();
     }

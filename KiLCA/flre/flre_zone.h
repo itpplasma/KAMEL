@@ -27,7 +27,7 @@ public:
     intptr_t me;  //!<handle to the Fortran maxwell_eqs_data instance for this zone
     cond_profiles *cp;     //!<pointer to conductivity structure
     sysmat_profiles *sp;   //!<pointer to system matrix profiles
-    disp_profiles *dp;     //!<dispersion profiles
+    intptr_t dp;  //!<handle to the Fortran disp_profiles instance for this zone
     flre_quants *qp;       //!<pointer to flre quantities
 
     //Conductivity settings:
@@ -92,7 +92,7 @@ public:
         me = 0;
         cp = NULL;
         sp = NULL;
-        dp = NULL;
+        dp = 0;
         qp = NULL;
 
         EB_mov = NULL;
@@ -103,7 +103,7 @@ public:
         if (me) maxwell_eqs_data_destroy_ (me);
         if (cp) delete cp;
         if (sp) delete sp;
-        if (dp) delete dp;
+        if (dp) disp_profiles_destroy_ (dp);
         if (qp) delete qp;
 
         delete [] EB_mov;

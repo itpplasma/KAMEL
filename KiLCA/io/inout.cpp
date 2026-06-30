@@ -49,6 +49,7 @@ return 0;
 
 /*******************************************************************/
 
+extern "C"
 int save_cmplx_matrix_to_one_file (int Nrows, int Ncols, int Npoints, const double *xgrid, const double *arr, const char *full_name)
 {
 //stores a complex matrix packed in 1D array (fortran order) to a file in the C order:

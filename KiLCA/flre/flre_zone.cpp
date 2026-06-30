@@ -1193,9 +1193,9 @@ interp_current_density (qp, x, type, spec, comp, J);
 void flre_zone::calc_dispersion (void)
 {
 char flag_back_buf[2] = { get_background_flag_back_ (), '\0' };
-dp = new disp_profiles (Nwaves, sp->dimx, sp->x, flag_back_buf);
+dp = disp_profiles_create_ (Nwaves, sp->dimx, sp->x, flag_back_buf);
 
-dp->calculate_dispersion_profiles ();
+disp_profiles_calculate_ (dp);
 }
 
 /*****************************************************************************/
@@ -1208,7 +1208,7 @@ eval_path_to_dispersion_data (sd->path2project, wd->m, wd->n, wd->olab, path2dis
 char * filename = new char[1024];
 sprintf (filename, "%szone_%d_%s", path2disp, index, "kr.dat");
 
-dp->save_dispersion_profiles (filename);
+disp_profiles_save_ (dp, filename);
 
 delete [] path2disp;
 delete [] filename;

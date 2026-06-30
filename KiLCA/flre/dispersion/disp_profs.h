@@ -1,67 +1,25 @@
 /*! \file disp_profs.h
-    \brief The declaration of disp_profiles class.
+    \brief C entry points for dispersion-relation profiles, now owned by the
+           Fortran kilca_disp_profiles_m module (each instance addressed by an
+           opaque handle, since each flre_zone owns its own). The former C++
+           disp_profiles class has been translated away.
 */
 
 #ifndef DISP_PROFS_INCLUDE
 
 #define DISP_PROFS_INCLUDE
 
-#include <inttypes.h>
-
-#include "spline.h"
-
-/*! \class disp_profiles
-    \brief Class stores various data related to dispersion profiles.
-*/
-class disp_profiles
-{
-public:
-    int Nwaves; //!<number of waves
-
-    char *flag_back; //!<background flag
-
-    int dimx;   //!<dimension of the x grid
-    double *x;  //!<x grid for profiles
-
-    int dimk;  //!<number of k dispersion profiles
-    double *k; //!<k dispersion array
-
-    int dimp;  //!<number of polarization vector profiles
-    double *p; //!<p dispersion array
-
-    ///splines:
-    int N;          //!<spline degree
-    uintptr_t sid;  //!<spline id
-    double *S;      //!<matrix of splines coefficients
-    double *R;      //!<array for all spline values (+derivs) at some point
-
-    disp_profiles (int, int, double *, const char *);
-
-    ~disp_profiles (void)
-    {
-        if (flag_back) delete [] flag_back;
-
-        if (k) delete [] k;
-        if (p) delete [] p;
-
-        if (S) delete [] S;
-        if (R) delete [] R;
-
-        if (sid) spline_free_ (sid);
-    }
-
-    void calculate_dispersion_profiles (void);
-
-    void sort_dispersion_profiles (void);
-
-    void save_dispersion_profiles (char *);
-};
+#include <cstdint>
 
 extern "C"
 {
-void calc_dispersion_ (double *, char *, int *, double *, double *, int);
+intptr_t disp_profiles_create_ (int Nw, int dimx_p, double *x_p, const char *flag_back_p);
 
-void dpsort_ (double *, int *, int *, int *, int *);
+void disp_profiles_destroy_ (intptr_t handle);
+
+void disp_profiles_calculate_ (intptr_t handle);
+
+void disp_profiles_save_ (intptr_t handle, const char *filename);
 }
 
 #endif

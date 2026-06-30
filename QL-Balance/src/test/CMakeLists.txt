@@ -26,3 +26,8 @@ add_fortran_test(test_rhs_balance)
 add_executable(test_kim_adapter.x test_kim_adapter.f90)
 target_link_libraries(test_kim_adapter.x PUBLIC ql-balance_lib)
 add_fortran_test(test_kim_adapter)
+
+# Velocity-space integral port (vel_integral_m) regression test
+add_executable(test_vel_integral.x test_vel_integral.f90)
+target_link_libraries(test_vel_integral.x PUBLIC ql-balance_lib)
+add_fortran_test(test_vel_integral)

@@ -62,6 +62,8 @@ make clean
 
 **Note:** External dependencies (LAPACK, SuiteSparse, GSL, SUNDIALS) are automatically downloaded and built during the first compilation if not found on the system.
 
+To pin libneo to a specific branch, tag, or commit, pass `-DLIBNEO_REF=<ref>` to cmake or `LIBNEO_REF=<ref>` to make. To use a local checkout instead of fetching, pass `-DLIBNEO_PATH=<dir>` / `LIBNEO_PATH=<dir>`.
+
 ### System-wide Installation
 
 To install KIM so it can be run from anywhere as `kim`:

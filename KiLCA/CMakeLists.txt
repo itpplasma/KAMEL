@@ -183,7 +183,6 @@ set(kilca_lib_cpp_sources
     mode/transforms.cpp
     solver/solver.cpp
     solver/rhs_func.cpp
-    math/hyper/hyper1F1.cpp
     math/adapt_grid/adaptive_grid.cpp
     math/adapt_grid/adaptive_grid_pol.cpp
 )
@@ -193,6 +192,7 @@ set(kilca_lib_fortran_sources
     core/constants_m${arch}.f90
     core/core_m.f90
     spline/spline_m.f90
+    math/hyper/hyper1F1_m.f90
     antenna/antenna_m.f90
     background/background_m.f90
     flre/flre_sett_m.f90
@@ -314,6 +314,14 @@ target_include_directories (test_spline PRIVATE ${PROJECT_BINARY_DIR}/OBJS/kilca
 add_dependencies(test_spline kilca_lib)
 target_link_libraries (test_spline kilca_lib ${EXTERNAL_LIBS})
 add_test(NAME test_spline COMMAND ${CMAKE_BINARY_DIR}/tests/test_spline.x)
+
+add_executable (test_hyper1f1 tests/test_hyper1f1.f90)
+set_target_properties(test_hyper1f1 PROPERTIES
+    OUTPUT_NAME test_hyper1f1.x
+    RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/tests/)
+add_dependencies(test_hyper1f1 kilca_lib)
+target_link_libraries (test_hyper1f1 kilca_lib ${EXTERNAL_LIBS})
+add_test(NAME test_hyper1f1 COMMAND ${CMAKE_BINARY_DIR}/tests/test_hyper1f1.x)
 
 # add a target to generate API documentation with Doxygen
 find_package (Doxygen)

@@ -22,18 +22,57 @@ function(find_or_fetch DEPENDENCY)
         endif()
         message(STATUS "Using ${DEPENDENCY} ref ${REMOTE_BRANCH} from ${REPO_URL}")
 
-        FetchContent_Declare(
-            ${DEPENDENCY}
-            DOWNLOAD_EXTRACT_TIMESTAMP TRUE
-            GIT_REPOSITORY ${REPO_URL}
-            GIT_TAG ${REMOTE_BRANCH}
-        )
-        FetchContent_GetProperties(${DEPENDENCY})
-        if(NOT ${DEPENDENCY}_POPULATED)
-            if(DEFINED ${DEPENDENCY}_SOURCE_DIR AND EXISTS "${${DEPENDENCY}_SOURCE_DIR}/CMakeLists.txt")
+        # A bare commit SHA -- e.g. the libneo full-ci gate dispatches KAMEL with
+        # libneo_ref=${github.event.pull_request.head.sha} -- lives only on the
+        # source repo's refs/pull/* and is NOT on any branch while the PR is open.
+        # A normal clone (what FetchContent does) never fetches those refs, so its
+        # checkout dies with "fatal: unable to read tree". Resolve a commit SHA with
+        # an explicit fetch-by-SHA instead (GitHub serves any reachable commit);
+        # branch and tag refs keep the proven FetchContent path so the common
+        # push/PR build is unchanged.
+        if(REMOTE_BRANCH MATCHES "^[0-9a-fA-F]+$" AND NOT REMOTE_BRANCH MATCHES "^[0-9]+$")
+            set(${DEPENDENCY}_SOURCE_DIR "${CMAKE_BINARY_DIR}/_deps/${DEPENDENCY}-src")
+            if(EXISTS "${${DEPENDENCY}_SOURCE_DIR}/CMakeLists.txt")
                 message(STATUS "Reusing existing ${DEPENDENCY} sources at ${${DEPENDENCY}_SOURCE_DIR}")
             else()
-                FetchContent_Populate(${DEPENDENCY})
+                message(STATUS "Fetching ${DEPENDENCY} commit ${REMOTE_BRANCH} by SHA")
+                file(REMOVE_RECURSE "${${DEPENDENCY}_SOURCE_DIR}")
+                file(MAKE_DIRECTORY "${${DEPENDENCY}_SOURCE_DIR}")
+                execute_process(COMMAND git init -q
+                    WORKING_DIRECTORY "${${DEPENDENCY}_SOURCE_DIR}")
+                execute_process(COMMAND git remote add origin "${REPO_URL}"
+                    WORKING_DIRECTORY "${${DEPENDENCY}_SOURCE_DIR}" ERROR_QUIET)
+                execute_process(
+                    COMMAND git fetch --depth 1 origin "${REMOTE_BRANCH}"
+                    WORKING_DIRECTORY "${${DEPENDENCY}_SOURCE_DIR}"
+                    RESULT_VARIABLE _gr_fetch_rc)
+                if(NOT _gr_fetch_rc EQUAL 0)
+                    message(FATAL_ERROR
+                        "Failed to fetch ${DEPENDENCY} commit ${REMOTE_BRANCH} from ${REPO_URL}")
+                endif()
+                execute_process(
+                    COMMAND git checkout -q --detach FETCH_HEAD
+                    WORKING_DIRECTORY "${${DEPENDENCY}_SOURCE_DIR}"
+                    RESULT_VARIABLE _gr_checkout_rc)
+                if(NOT _gr_checkout_rc EQUAL 0)
+                    message(FATAL_ERROR
+                        "Failed to checkout ${DEPENDENCY} commit ${REMOTE_BRANCH}")
+                endif()
+            endif()
+        else()
+            FetchContent_Declare(
+                ${DEPENDENCY}
+                DOWNLOAD_EXTRACT_TIMESTAMP TRUE
+                GIT_REPOSITORY ${REPO_URL}
+                GIT_TAG ${REMOTE_BRANCH}
+            )
+            FetchContent_GetProperties(${DEPENDENCY})
+            if(NOT ${DEPENDENCY}_POPULATED)
+                if(DEFINED ${DEPENDENCY}_SOURCE_DIR AND EXISTS "${${DEPENDENCY}_SOURCE_DIR}/CMakeLists.txt")
+                    message(STATUS "Reusing existing ${DEPENDENCY} sources at ${${DEPENDENCY}_SOURCE_DIR}")
+                else()
+                    FetchContent_Populate(${DEPENDENCY})
+                endif()
             endif()
         endif()
     endif()

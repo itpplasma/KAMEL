@@ -25,8 +25,6 @@ class settings
 public:
     char *path2project; //!<project path
 
-    eigmode_sett *es; //!<settings for eigmode search
-
 public:
     settings (char *path)
     {
@@ -37,8 +35,6 @@ public:
     ~settings (void)
     {
         delete [] path2project;
-
-        delete es;
     }
 
     void read_settings (void); //!<read settings from KiLCA input files

@@ -176,24 +176,24 @@ for (int ind=0; ind<dim; ind++)
     int m, n;
     get_antenna_mode_ (ind, &m, &n);
 
-    if (sd->es->search_flag == 1)
+    if (get_eigmode_search_flag_ () == 1)
     {
         //loop over frequences:
         loop_over_frequences (ind, m, n, this);
     }
-    else if (sd->es->search_flag == 0)
+    else if (get_eigmode_search_flag_ () == 0)
     {
         //complex zero search by gsl real solver:
         find_det_zeros (ind, m, n, this);
     }
-    else if (sd->es->search_flag == -1)
+    else if (get_eigmode_search_flag_ () == -1)
     {
         //all complex zeros search by complex zero finder:
         find_eigmodes (ind, m, n, this);
     }
     else
     {
-        fprintf (stdout, "\nError: unknown search_flag in eigmode options file: %d.", sd->es->search_flag);
+        fprintf (stdout, "\nError: unknown search_flag in eigmode options file: %d.", get_eigmode_search_flag_ ());
         exit(1);
     }
 }

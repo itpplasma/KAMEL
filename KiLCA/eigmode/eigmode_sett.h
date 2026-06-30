@@ -1,74 +1,57 @@
 /*! \file eigmode_sett.h
-    \brief The declaration of eigmode_sett class.
+    \brief C entry points for eigenmode search settings, now owned by the
+           Fortran eigmode_sett_data module (read_eigmode_settings_ parses
+           eigmode.in). The former C++ eigmode_sett class has been translated
+           away.
 */
 
 #ifndef EIGMODE_SETT_INCLUDE
 
 #define EIGMODE_SETT_INCLUDE
 
-#include <complex>
-
-using namespace std;
-
-/*****************************************************************************/
-
-/*! \class eigmode_sett
-    \brief Class represents set of settings for eigenmode search.
-*/
-class eigmode_sett
+extern "C"
 {
-public:
-    char *fname; //!<name of output file
+void read_eigmode_settings_ (char *path);
 
-    int search_flag; //!<flag specifies the search option
+int get_eigmode_search_flag_ (void);
 
-    ///parameters of a grid: real and imag parts
-    int rdim;
-    double rfmin;
-    double rfmax;
-    int idim;
-    double ifmin;
-    double ifmax;
+double get_eigmode_delta_ (void);
 
-    int stop_flag;
+double get_eigmode_rfmin_ (void);
 
-    ///accuracies
-    double eps_res;
-    double eps_abs;
-    double eps_rel;
+double get_eigmode_rfmax_ (void);
 
-    double delta; //!<a delta for a numerical derivative
+double get_eigmode_ifmin_ (void);
 
-    int test_roots;
+double get_eigmode_ifmax_ (void);
 
-    int flag_debug;
+int get_eigmode_rdim_ (void);
 
-    ///starting values for root search
-    int Nguess;
-    int kmin;
-    int kmax;
+int get_eigmode_idim_ (void);
 
-    complex<double> *fstart;
+int get_eigmode_n_zeros_ (void);
 
-    ///number of zeros to be found
-    int n_zeros;
+int get_eigmode_use_winding_ (void);
 
-    ///flag specifies whether to use winding number evaluation or not
-    int use_winding;
+int get_eigmode_Nguess_ (void);
 
-public:
-    //eigmode_sett (void);
+int get_eigmode_kmin_ (void);
 
-    ~eigmode_sett (void)
-    {
-        delete [] fname;
-        delete [] fstart;
-    }
+int get_eigmode_kmax_ (void);
 
-    void read_settings (char *path);
-    void print_settings ();
-};
+int get_eigmode_test_roots_ (void);
 
-/*****************************************************************************/
+double get_eigmode_eps_abs_ (void);
+
+double get_eigmode_eps_rel_ (void);
+
+double get_eigmode_eps_res_ (void);
+
+void get_eigmode_fname_ (char *out);
+
+double get_eigmode_fstart_re_ (int k);
+
+double get_eigmode_fstart_im_ (int k);
+}
 
 #endif

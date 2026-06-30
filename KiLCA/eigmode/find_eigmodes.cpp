@@ -54,21 +54,21 @@ return det;
 
 int find_eigmodes (int ind, int m, int n, core_data *cd)
 {
-const eigmode_sett *es = cd->sd->es;
-
 using namespace std;
 using namespace type;
 using namespace alg;
 
 typedef double P; // define double precision for the zeros search algorithm (recommended)
 
-det_params p = {ind, m, n, es->delta, cd};
+double es_delta = get_eigmode_delta_ ();
+
+det_params p = {ind, m, n, es_delta, cd};
 
 type::Function<P> F(determinant, 0, &p, "determinant"); // define the function object with numerical evaluation of the derivative
 F.set_nd_method(1);                                     // set the fourth order accurate finite difference approximation
-if (es->delta > 0.0) F.set_nd_step(es->delta);          // set the stepsize for evaluation of numerical derivative
+if (es_delta > 0.0) F.set_nd_step(es_delta);            // set the stepsize for evaluation of numerical derivative
 
-type::Box<P> B(es->rfmin, es->rfmax, es->ifmin, es->ifmax);
+type::Box<P> B(get_eigmode_rfmin_ (), get_eigmode_rfmax_ (), get_eigmode_ifmin_ (), get_eigmode_ifmax_ ());
 
 alg::zersol::Settings<P> S;      // define the default solver setings
 
@@ -79,16 +79,23 @@ S.set_min_rec_lev(8);            // set the minimum recursion level for the func
 //S.set_jump_err(1.0e-2);        // set the tolerance of test for the function argument discontinuities
 
 //Newton iterations settings:
-S.set_n_target(es->n_zeros);                  // set the target number of the function zeros
-S.set_start_array(es->Nguess, es->fstart);    // set user supplied starting array
+int es_Nguess = get_eigmode_Nguess_ ();
+complex<double> *es_fstart = new complex<double>[es_Nguess];
+for (int k = 0; k < es_Nguess; k++)
+{
+    es_fstart[k] = complex<double> (get_eigmode_fstart_re_ (k), get_eigmode_fstart_im_ (k));
+}
+
+S.set_n_target(get_eigmode_n_zeros_ ());            // set the target number of the function zeros
+S.set_start_array(es_Nguess, es_fstart);            // set user supplied starting array
 S.set_n_split_x(4);                           // set the number of automatic starting points along Re{z}
 S.set_n_split_y(4);                           // set the number of automatic starting points along Im{z}
 S.set_max_iter_num(24);                       // set the maximum number of Newton iterations for each starting point
-S.set_eps_for_arg(es->eps_abs, es->eps_rel);  // set absolute and relative tolerances for convergence condition on z
-S.set_eps_for_func(0.0, es->eps_res);         // set absolute and relative tolerances for convergence condition on f(z)
+S.set_eps_for_arg(get_eigmode_eps_abs_ (), get_eigmode_eps_rel_ ());  // set absolute and relative tolerances for convergence condition on z
+S.set_eps_for_func(0.0, get_eigmode_eps_res_ ());     // set absolute and relative tolerances for convergence condition on f(z)
 
 //the region partition settings:
-S.set_use_winding(es->use_winding);  // define whether the solver will use the winding number evaluation or just simple Newton's iterations
+S.set_use_winding(get_eigmode_use_winding_ ());  // define whether the solver will use the winding number evaluation or just simple Newton's iterations
 //S.set_max_part_level(64);          // set the maximum level of the rectangle partition
 S.set_debug_level(1);                // set the debug level (amount of internal checks)
 S.set_print_level(1);                // set the print level (amount of the details printed)
@@ -117,9 +124,13 @@ solver.print_status();       // the solver prints information about the search s
     file.close();
 //}
 
+delete [] es_fstart;
+
 //output file:
 char *full_name = new char[1024];
-sprintf (full_name, "%s%s", cd->sd->path2project, es->fname);
+char es_fname[1024];
+get_eigmode_fname_ (es_fname);
+sprintf (full_name, "%s%s", cd->sd->path2project, es_fname);
 
 FILE *out;
 if (!(out = fopen (full_name, "w")))

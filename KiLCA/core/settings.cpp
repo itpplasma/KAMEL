@@ -21,8 +21,7 @@ void settings::read_settings (void)
 
     read_output_settings_ (path2project);
 
-    es = new eigmode_sett;
-    es->read_settings (path2project);
+    read_eigmode_settings_ (path2project);
     std::cout << ">> KiLCA: Settings read successfully.\n";
 }
 

@@ -60,11 +60,11 @@ clear_all_data_in_mode_data_module_ (); //clean up fortran module data
 
 int find_det_zeros (int ind, int m, int n, core_data *cd)
 {
-const eigmode_sett *es = cd->sd->es;
-
 //output file:
 char *full_name = new char[1024];
-sprintf (full_name, "%s%s", cd->sd->path2project, es->fname);
+char es_fname[1024];
+get_eigmode_fname_ (es_fname);
+sprintf (full_name, "%s%s", cd->sd->path2project, es_fname);
 
 FILE *out;
 if (!(out = fopen (full_name, "w")))
@@ -76,7 +76,7 @@ int status = 0;
 
 const int N = 2;
 
-det_params p = {ind, m, n, es->delta, cd};
+det_params p = {ind, m, n, get_eigmode_delta_ (), cd};
 
 double x_init[2];
 double x_root[2];
@@ -88,22 +88,22 @@ fprintf (out, "%%Re(f)\t\t\tIm(f)\t\t\tRe(det)\t\t\tIm(det)");
 fclose (out);
 
 int k;
-for (k=es->kmin; k<=es->kmax; k++)
+for (k=get_eigmode_kmin_ (); k<=get_eigmode_kmax_ (); k++)
 {
     if (!(out = fopen (full_name, "a")))
     {
         fprintf (stderr, "\nFailed to open file %s\a\n", full_name);
     }
 
-    x_init[0] = real (es->fstart[k]);
-    x_init[1] = imag (es->fstart[k]);
+    x_init[0] = get_eigmode_fstart_re_ (k);
+    x_init[1] = get_eigmode_fstart_im_ (k);
 
     // fortnum_multiroot_hybrid does a hybrid Newton solve building the Jacobian
     // by central differences, matching the former gsl_multiroot_fdfsolver
     // (hybridsj) usage with the finite-difference eval_jac. The residual and
     // step-size tolerances reuse the eigmode-options eps values.
-    status = fortnum_multiroot_hybrid (&eval_det, N, x_init, es->eps_abs,
-                                       es->eps_res, (int) 1e6, x_root, &p);
+    status = fortnum_multiroot_hybrid (&eval_det, N, x_init, get_eigmode_eps_abs_ (),
+                                       get_eigmode_eps_res_ (), (int) 1e6, x_root, &p);
 
     double det_out[2];
     eval_det (N, x_root, det_out, &p);
@@ -113,7 +113,7 @@ for (k=es->kmin; k<=es->kmax; k++)
     fprintf (out, "\n%%status = %d", status);
 
     //check if it is really root:
-    if (es->test_roots == 1)
+    if (get_eigmode_test_roots_ () == 1)
     {
         radius = 1.0e1;
 
@@ -186,11 +186,11 @@ return exp(z)/(z-I)/(z-I)/(z-I);
 
 int loop_over_frequences (int ind, int m, int n, core_data *cd)
 {
-const eigmode_sett *es = cd->sd->es;
-
 //output file:
 char *full_name = new char[1024];
-sprintf (full_name, "%s%s", cd->sd->path2project, es->fname);
+char es_fname[1024];
+get_eigmode_fname_ (es_fname);
+sprintf (full_name, "%s%s", cd->sd->path2project, es_fname);
 
 FILE *out;
 if (!(out = fopen (full_name, "w")))
@@ -202,13 +202,20 @@ delete [] full_name;
 
 fprintf (out, "%%iter\tRe(f)\t\t\tIm(f)\t\t\tRe(det)\t\t\tIm(det)");
 
-for (int i=0; i<es->rdim; i++)
-{
-    double fre = es->rfmin + i*(es->rfmax - es->rfmin)/max(es->rdim-1, 1);
+int es_rdim = get_eigmode_rdim_ ();
+int es_idim = get_eigmode_idim_ ();
+double es_rfmin = get_eigmode_rfmin_ ();
+double es_rfmax = get_eigmode_rfmax_ ();
+double es_ifmin = get_eigmode_ifmin_ ();
+double es_ifmax = get_eigmode_ifmax_ ();
 
-    for (int k=0; k<es->idim; k++)
+for (int i=0; i<es_rdim; i++)
+{
+    double fre = es_rfmin + i*(es_rfmax - es_rfmin)/max(es_rdim-1, 1);
+
+    for (int k=0; k<es_idim; k++)
     {
-        double fim = es->ifmin + k*(es->ifmax - es->ifmin)/max(es->idim-1, 1);
+        double fim = es_ifmin + k*(es_ifmax - es_ifmin)/max(es_idim-1, 1);
 
         complex<double> olab = 2.0*pi*(fre + I*fim);
 
@@ -216,7 +223,7 @@ for (int i=0; i<es->rdim; i++)
 
         cd->mda[ind]->calc_all_mode_data ();
 
-        fprintf (out, "\n%6u\t%.20le  %.20le\t%.20le  %.20le", i*(es->idim)+k, fre, fim,
+        fprintf (out, "\n%6u\t%.20le  %.20le\t%.20le  %.20le", i*es_idim+k, fre, fim,
                  real(cd->mda[ind]->wd->det), imag(cd->mda[ind]->wd->det));
         fflush (out);
 

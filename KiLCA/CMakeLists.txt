@@ -154,7 +154,6 @@ set(kilca_lib_cpp_sources
     background/background.cpp
     background/calc_back.cpp
     background/eval_back.cpp
-    eigmode/eigmode_sett.cpp
     eigmode/calc_eigmode.cpp
     eigmode/find_eigmodes.cpp
     flre/flre_zone.cpp
@@ -194,6 +193,7 @@ set(kilca_lib_fortran_sources
     math/hyper/hyper1F1_m.f90
     antenna/antenna_m.f90
     background/background_m.f90
+    eigmode/eigmode_sett_m.f90
     flre/flre_sett_m.f90
     mode/mode_m.f90
     flre/maxwell_eqs/maxwell_eqs_m.f90
@@ -357,6 +357,15 @@ add_dependencies(test_back_sett kilca_lib)
 target_link_libraries (test_back_sett kilca_lib ${EXTERNAL_LIBS})
 add_test(NAME test_back_sett COMMAND ${CMAKE_BINARY_DIR}/tests/test_back_sett.x)
 set_tests_properties(test_back_sett PROPERTIES WORKING_DIRECTORY ${CMAKE_BINARY_DIR}/tests/)
+
+add_executable (test_eigmode_sett tests/test_eigmode_sett.f90)
+set_target_properties(test_eigmode_sett PROPERTIES
+    OUTPUT_NAME test_eigmode_sett.x
+    RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/tests/)
+add_dependencies(test_eigmode_sett kilca_lib)
+target_link_libraries (test_eigmode_sett kilca_lib ${EXTERNAL_LIBS})
+add_test(NAME test_eigmode_sett COMMAND ${CMAKE_BINARY_DIR}/tests/test_eigmode_sett.x)
+set_tests_properties(test_eigmode_sett PROPERTIES WORKING_DIRECTORY ${CMAKE_BINARY_DIR}/tests/)
 
 # add a target to generate API documentation with Doxygen
 find_package (Doxygen)

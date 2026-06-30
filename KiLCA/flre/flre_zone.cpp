@@ -158,11 +158,19 @@ void flre_zone::calc_basis_fields (int flag)
 
     allocate_and_set_conductivity_arrays_ ();
 
-    cp = new cond_profiles;
+    {
+        double a_ = fmax (r1-1.0, bp->x[0]);
+        double b_ = fmin (r2+1.0, bp->x[bp->dimx-1]);
+
+        char path2linear_[1024];
+        eval_path_to_linear_data (get_path_to_project (), wd->m, wd->n, wd->olab, path2linear_);
+
+        cp = cond_profiles_create_ (path2linear_, flre_order, gal_corr, N, max_dim_c,
+                                    r1, r2, D, eps_out, eps_res, a_, b_, wd->r_res,
+                                    real (wd->omov), imag (wd->omov), flag_debug, flag);
+    }
 
     set_cond_profiles_in_mode_data_module_ (&cp);
-
-    cp->calc_and_spline_main_conductivity_profiles (this, flag);
 
     if (flag)
     {
@@ -176,8 +184,14 @@ void flre_zone::calc_basis_fields (int flag)
     }
 
     //allocates and calculates system matrix:
-    sp = sysmat_profiles_create_ (Nwaves, cp->flag_back, cp->path2linear, cp->NC,
-                                  max_dim_c, eps_out, flag_debug, r1, r2, wd->r_res);
+    {
+        char flag_back_buf[2] = { get_cond_flag_back_ (cp), '\0' };
+        char path2linear_buf[1024];
+        get_cond_path2linear_ (cp, path2linear_buf);
+
+        sp = sysmat_profiles_create_ (Nwaves, flag_back_buf, path2linear_buf, get_cond_nc_ (cp),
+                                      max_dim_c, eps_out, flag_debug, r1, r2, wd->r_res);
+    }
 
     set_sysmat_profiles_in_mode_data_module_ (&sp);
 
@@ -556,7 +570,7 @@ int iErsp_state[3]    = {get_me_iersp_state_ (zone->me, 0), get_me_iersp_state_ 
 int mo[3] = {dim_Ersp_state[0]-1, dim_Ersp_state[1]-1, dim_Ersp_state[2]-1};
 
 //wave data:
-int m = zone->cp->wd->m;
+int m = zone->wd->m;
 double kz = (zone->wd->n)/(get_background_rtor_());
 
 int ho = mo[2]; //max der order (2N-1);
@@ -690,7 +704,7 @@ int moe[3] = {dim_Ersp_sys[0]-1, dim_Ersp_sys[1]-1, dim_Ersp_sys[2]-1};
 int mob[3] = {dim_Brsp_sys[0]-1, dim_Brsp_sys[1]-1, dim_Brsp_sys[2]-1};
 
 //wave data:
-int m = zone->cp->wd->m;
+int m = zone->wd->m;
 double kz = (zone->wd->n)/(get_background_rtor_());
 
 int ho = moe[2]; //max der order (2N);

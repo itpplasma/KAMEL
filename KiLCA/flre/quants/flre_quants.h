@@ -9,6 +9,7 @@
 #include "constants.h"
 #include "settings.h"
 #include "cond_profs.h"
+#include "spline.h"
 
 /*******************************************************************/
 

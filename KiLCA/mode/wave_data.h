@@ -38,6 +38,19 @@ public:
     ~wave_data (void) {}
 };
 
+//accessors for an arbitrary wave_data instance, needed by the Fortran
+//translation of cond_profiles' "exact" per-point evaluation path
+//(kilca_cond_profiles_m::calc_and_spline_conductivity_for_point), which
+//cannot dereference a C++ wave_data* directly. Not marked inline: as
+//Fortran-only callers, they are never ODR-used from C++, so an inline
+//definition would not be emitted into any object file.
+extern "C"
+{
+double get_wave_data_obj_omov_re_ (const wave_data *wd);
+
+double get_wave_data_obj_omov_im_ (const wave_data *wd);
+}
+
 /*-----------------------------------------------------------------*/
 
 #endif

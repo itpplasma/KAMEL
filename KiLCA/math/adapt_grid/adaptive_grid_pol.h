@@ -27,9 +27,18 @@ int adaptive_grid_polynom (void (*func)(double *, double *, void *p), void *p,
                            double a, double b, int dimy, int deg, int *xdim, double *eps,
                            int dim_err, int *ind_err, double *x1, double *y1);
 
+extern "C"
 int adaptive_grid_polynom_res (void (*func)(double *, double *, void *p), void *p,
                                double a, double b, int dimy, int deg, int *xdim, double *eps,
                                double r_res, double D, double eps_res,
+                               int dim_err, int *ind_err, double *x1, double *y1);
+
+//extern "C" forwarding wrapper for the dim_err/ind_err overload of
+//adaptive_grid_polynom above, needed by the Fortran translation of
+//cond_profiles::calc_and_spline_conductivity_for_point_ (kilca_cond_profiles_m).
+extern "C"
+int adaptive_grid_polynom_err (void (*func)(double *, double *, void *p), void *p,
+                               double a, double b, int dimy, int deg, int *xdim, double *eps,
                                int dim_err, int *ind_err, double *x1, double *y1);
 
 int sparse_grid_polynom (double *x, int dimx, double *y, int dimy, int deg, double *eps_a,

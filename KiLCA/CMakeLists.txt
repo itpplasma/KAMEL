@@ -148,9 +148,8 @@ include_directories ("${CMAKE_CURRENT_SOURCE_DIR}/spline")
 
 #cpp source files for kilca lib:
 set(kilca_lib_cpp_sources
-    eigmode/calc_eigmode.cpp
-    eigmode/find_eigmodes.cpp
     io/inout.cpp
+    math/zersol-0.0.0/src/zersolc.cpp
 )
 
 #fortran source files for kilca lib:
@@ -178,6 +177,7 @@ set(kilca_lib_fortran_sources
     mode/transforms_m.f90
     mode/zone_m.f90
     mode/mode_data_m.f90
+    eigmode/eigmode_solve_m.f90
     hom_medium/hmedium_zone_m.f90
     imhd/incompressible_m.f90
     imhd/compressible_flow_m.f90

@@ -101,9 +101,9 @@ module kilca_core_data_m
             integer(c_intptr_t), intent(in) :: sd
         end subroutine set_settings_in_core_module
 
-        !> Still C++ (eigmode/find_eigmodes.cpp/calc_eigmode.cpp), zersol-
-        !> based complex-root search - takes the new opaque core_data
-        !> handle in place of the oracle's `core_data *cd`.
+        !> Fortran (eigmode/eigmode_solve_m.f90), eigenmode root-search
+        !> strategies - take the opaque core_data handle in place of the
+        !> oracle's `core_data *cd`.
         function loop_over_frequences(ind, m, n, cd) bind(C, name="loop_over_frequences") result(stat)
             import :: c_int, c_intptr_t
             integer(c_int), value :: ind, m, n
@@ -368,10 +368,9 @@ contains
         res = cd%mda(int(ind) + 1)
     end function core_data_get_mda_element_
 
-    !> Lets still-C++ callers (eigmode/calc_eigmode.cpp's eval_det/
-    !> loop_over_frequences) write a freshly-created mode_data handle into
-    !> cd->mda[ind] the same way the oracle did via direct field
-    !> assignment.
+    !> Lets callers (eigmode/eigmode_solve_m.f90's determinant evaluation)
+    !> write a freshly-created mode_data handle into cd->mda[ind] the same
+    !> way the oracle did via direct field assignment.
     subroutine core_data_set_mda_element_(handle, ind, val) &
         bind(C, name="core_data_set_mda_element_")
         integer(c_intptr_t), value :: handle

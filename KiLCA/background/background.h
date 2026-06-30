@@ -3,15 +3,16 @@
            by the Fortran kilca_background_data_m module. The former C++
            background class has been translated away; `background` is kept
            as a forward-declared, never-defined marker type purely so the
-           still-C++ zone hierarchy (zone.h/mode.h/core.h/flre_zone.h/
-           imhd_zone.h/hmedium_zone.h and the IMHD zone implementation
-           files) can keep compiling unchanged - they only ever pass
-           `const background *bp` around as an opaque token to the eval_*
-           functions below (confirmed by an exhaustive grep: none of them
-           dereference it), never allocate or inspect one directly. The
-           Fortran side ignores the pointer value entirely, since
-           background is a singleton (the only live `new background(...)`
-           call site anywhere was core.cpp, called exactly once per run).
+           remaining still-C++ files (mode.h/mode.cpp/calc_mode.cpp/core.h/
+           core.cpp/wave_code_interface.cpp) can keep compiling unchanged -
+           they only ever pass `const background *bp` around as an opaque
+           token, never allocate or inspect one directly. The Fortran side
+           ignores the pointer value entirely, since background is a
+           singleton (the only live `new background(...)` call site anywhere
+           was core.cpp, called exactly once per run). The zone hierarchy
+           itself (zone/hmedium_zone/imhd_zone/flre_zone) is Fortran too now
+           (kilca_zone_m and siblings); it threads this same opaque bp value
+           through unchanged.
 */
 
 #ifndef BACKGROUND_INCLUDE

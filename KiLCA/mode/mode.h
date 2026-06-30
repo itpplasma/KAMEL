@@ -7,11 +7,12 @@
 #define MODE_INCLUDE
 
 #include <complex>
+#include <cstdint>
 
 #include "settings.h"
 #include "background.h"
-#include "wave_data.h"
-#include "zone.h"
+#include "wave_data_dispatch.h"
+#include "zone_dispatch.h"
 
 /*****************************************************************************/
 
@@ -33,8 +34,8 @@ public:
     const settings *sd;         //!<pointer to settings
     const background *bp;       //!<pointer to background
 
-    //pointers to structures for the given mode:
-    wave_data *wd;              //!<pointer to wave_data
+    //handle to the Fortran wave_data_t instance for this mode:
+    intptr_t wd;
 
     //Directories for a given mode:
     char *path2linear;          //!<path to linear-data
@@ -42,7 +43,7 @@ public:
     char *path2poincare;        //!<path to poincare-data
 
     int  Nzones;                //!<number of zones
-    zone **zones;               //!<zones array (pointers)
+    intptr_t *zones;            //!<zones array (handles to Fortran zone_t instances)
 
     int dim;         //!<final radial grid dimension
     double *r;       //!<final radial grid
@@ -64,7 +65,7 @@ public:
         delete [] path2dispersion;
         delete [] path2poincare;
 
-        delete wd;
+        wave_data_destroy_ (wd);
 
         delete [] r;
         delete [] EB;
@@ -78,7 +79,7 @@ public:
         //loop over zones:
         for (int iz=0; iz<Nzones; iz++)
         {
-            if (zones[iz]) delete zones[iz];
+            if (zones[iz]) zone_destroy_ (zones[iz]);
         }
         delete [] zones;
     }
@@ -173,7 +174,7 @@ void set_settings_in_mode_data_module_ (const settings **);
 
 void set_back_profiles_in_mode_data_module_ (const background **);
 
-void set_wave_data_in_mode_data_module_ (wave_data **);
+void set_wave_data_in_mode_data_module_ (intptr_t *);
 
 void set_wave_parameters_in_mode_data_module_ (int *, int *, double *, double *, double *, double *);
 
@@ -186,8 +187,6 @@ void copy_mode_paths_to_mode_data_module_ (mode_data **);
 void copy_mode_paths_from_mode_data_struct_ (mode_data **md, char *path2linear, char *path2dispersion, char *path2poincare);
 
 void clear_all_data_in_mode_data_module_ (void);
-
-void set_det_in_wd_struct_ (wave_data **wd_ptr, double *re_det, double *im_det);
 }
 
 /*****************************************************************************/

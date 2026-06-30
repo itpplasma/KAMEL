@@ -12,9 +12,10 @@
 #include "mode.h"
 #include "background.h"
 #include "eval_back.h"
-#include "transforms.h"
+#include "transforms_dispatch.h"
 #include "spline.h"
-#include "flre_zone.h"
+#include "flre_zone_dispatch.h"
+#include "cond_profs.h"
 #include "wave_code_interface.h"
 
 /*******************************************************************/
@@ -148,7 +149,7 @@ int num = -1;
 
 for (int i=0; i<cd->dim; i++)
 {
-    if (cd->mda[i]->wd->m == *m && cd->mda[i]->wd->n == *n)
+    if (wave_data_get_m_(cd->mda[i]->wd) == *m && wave_data_get_n_(cd->mda[i]->wd) == *n)
     {
         num = i;
         break;
@@ -218,7 +219,7 @@ int num = -1;
 
 for (int i=0; i<cd->dim; i++)
 {
-    if (cd->mda[i]->wd->m == *m && cd->mda[i]->wd->n == *n)
+    if (wave_data_get_m_(cd->mda[i]->wd) == *m && wave_data_get_n_(cd->mda[i]->wd) == *n)
     {
         num = i;
         break;
@@ -260,8 +261,8 @@ if (*dim_mn != cd->dim)
 
 for (int i=0; i<cd->dim; i++)
 {
-    m_vals[i] = cd->mda[i]->wd->m;
-    n_vals[i] = cd->mda[i]->wd->n;
+    m_vals[i] = wave_data_get_m_(cd->mda[i]->wd);
+    n_vals[i] = wave_data_get_n_(cd->mda[i]->wd);
 }
 }
 
@@ -279,7 +280,7 @@ int num = -1;
 
 for (int i=0; i<cd->dim; i++)
 {
-    if (cd->mda[i]->wd->m == *m && cd->mda[i]->wd->n == *n)
+    if (wave_data_get_m_(cd->mda[i]->wd) == *m && wave_data_get_n_(cd->mda[i]->wd) == *n)
     {
         num = i;
         break;
@@ -310,7 +311,7 @@ void activate_kilca_modules_for_flre_zone_ (core_data ** cdptr)
 {
 //!The function activates the fortran modules for flre zone
 
-flre_zone * fz = static_cast<flre_zone *>((*cdptr)->mda[0]->zones[0]);
+intptr_t fz = (*cdptr)->mda[0]->zones[0];
 
 activate_fortran_modules_for_zone_ (&fz);
 }
@@ -321,7 +322,7 @@ void deactivate_kilca_modules_for_flre_zone_ (core_data ** cdptr)
 {
 //!The function activates the fortran modules for flre zone
 
-flre_zone * fz = static_cast<flre_zone *>((*cdptr)->mda[0]->zones[0]);
+intptr_t fz = (*cdptr)->mda[0]->zones[0];
 
 deactivate_fortran_modules_for_zone_ (&fz);
 }
@@ -349,7 +350,7 @@ int num = -1;
 
 for (int i=0; i<cd->dim; i++)
 {
-    if (cd->mda[i]->wd->m == *m && cd->mda[i]->wd->n == *n)
+    if (wave_data_get_m_(cd->mda[i]->wd) == *m && wave_data_get_n_(cd->mda[i]->wd) == *n)
     {
         num = i;
         break;
@@ -362,12 +363,13 @@ if (num == -1)
     return;
 }
 
-flre_zone * zone = static_cast<flre_zone *>(cd->mda[num]->zones[*zone_ind]);
+intptr_t zone = cd->mda[num]->zones[*zone_ind];
+intptr_t zone_cp = flre_zone_get_cp_ (zone);
 
-*flreo = zone->flre_order;
-*dim   = get_cond_dimx_ (zone->cp);
-*r     = get_cond_x_ptr_ (zone->cp);
-*cptr  = get_cond_k_ptr_ (zone->cp) + get_cond_iks_ (zone->cp, *spec, 0, 0, 0, 0, 0, 0, 0);
+*flreo = flre_zone_get_flre_order_ (zone);
+*dim   = get_cond_dimx_ (zone_cp);
+*r     = get_cond_x_ptr_ (zone_cp);
+*cptr  = get_cond_k_ptr_ (zone_cp) + get_cond_iks_ (zone_cp, *spec, 0, 0, 0, 0, 0, 0, 0);
 }
 
 /*******************************************************************/
@@ -410,7 +412,7 @@ int num = -1;
 
 for (int i=0; i<cd->dim; i++)
 {
-    if (cd->mda[i]->wd->m == *m && cd->mda[i]->wd->n == *n)
+    if (wave_data_get_m_(cd->mda[i]->wd) == *m && wave_data_get_n_(cd->mda[i]->wd) == *n)
     {
         num = i;
         break;
@@ -423,10 +425,10 @@ if (num == -1)
     return;
 }
 
-*kz = cd->mda[num]->wd->n / get_background_rtor_();
+*kz = wave_data_get_n_(cd->mda[num]->wd) / get_background_rtor_();
 
-*omega_mov_re = real(cd->mda[num]->wd->omov);
-*omega_mov_im = imag(cd->mda[num]->wd->omov);
+*omega_mov_re = get_wave_data_obj_omov_re_(cd->mda[num]->wd);
+*omega_mov_im = get_wave_data_obj_omov_im_(cd->mda[num]->wd);
 }
 
 /*******************************************************************/
@@ -440,7 +442,7 @@ int num = -1;
 
 for (int i=0; i<cd->dim; i++)
 {
-    if (cd->mda[i]->wd->m == *m && cd->mda[i]->wd->n == *n)
+    if (wave_data_get_m_(cd->mda[i]->wd) == *m && wave_data_get_n_(cd->mda[i]->wd) == *n)
     {
         num = i;
         break;
@@ -457,10 +459,10 @@ if (num == -1)
 //                                         &(real(cd->mda[num]->wd->olab)), &(imag(cd->mda[num]->wd->olab)),
 //                                         &(real(cd->mda[num]->wd->omov)), &(imag(cd->mda[num]->wd->omov)));
 
-int mm = cd->mda[num]->wd->m, nn = cd->mda[num]->wd->n;
+int mm = wave_data_get_m_(cd->mda[num]->wd), nn = wave_data_get_n_(cd->mda[num]->wd);
 
-double olab_re = real(cd->mda[num]->wd->olab), olab_im = imag(cd->mda[num]->wd->olab);
-double omov_re = real(cd->mda[num]->wd->omov), omov_im = imag(cd->mda[num]->wd->omov);
+double olab_re = wave_data_get_olab_re_(cd->mda[num]->wd), olab_im = wave_data_get_olab_im_(cd->mda[num]->wd);
+double omov_re = get_wave_data_obj_omov_re_(cd->mda[num]->wd), omov_im = get_wave_data_obj_omov_im_(cd->mda[num]->wd);
 
 set_wave_parameters_in_mode_data_module_(&mm, &nn, &olab_re, &olab_im, &omov_re, &omov_im);
 }

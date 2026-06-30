@@ -6,6 +6,7 @@
 #include <stdio.h>
 #include <math.h>
 #include <string.h>
+#include <algorithm>
 
 #include "constants.h"
 #include "shared.h"
@@ -76,6 +77,18 @@ for (int k=0; k<ni; k++)
 }
 
 delete [] iperm;
+
+// fortnum_argsort is a heapsort and not stable: equal keys emerge in a
+// heap-dependent order. The conductivity grid shares zone-boundary nodes
+// (duplicated x), so the sort must be deterministic for the spline to be
+// well-defined. Break exact-key ties by ascending original index.
+for (size_t a=0; a<n; )
+{
+    size_t b = a+1;
+    while (b<n && x[perm[b]]==x[perm[a]]) b++;
+    if (b-a > 1) std::sort (perm+a, perm+b);
+    a = b;
+}
 }
 
 /*******************************************************************/

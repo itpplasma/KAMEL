@@ -53,7 +53,7 @@ int mode_data::find_resonance_location(void)
     struct func_params params = {bp, q_res};
 
     double root = 0.0e0;
-    int status = fortnum_root_brent(&qminusq0, r1, r2, 1.0e-8, 1.0e-8, max_iter,
+    int status = fortnum_root_brent(&qminusq0, r1, r2, 0.0e0, 0.0e0, max_iter,
                                     &root, &params);
 
     if (status != FORTNUM_OK)

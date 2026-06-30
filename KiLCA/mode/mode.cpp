@@ -43,7 +43,7 @@ if (DEBUG_FLAG)
                            real((wd->omov)/2.0/pi), imag((wd->omov)/2.0/pi));
 }
 
-if (sd->os->flag_background > 0)
+if (get_output_flag_background_() > 0)
 {
     find_resonance_location ();
     set_resonance_location_in_mode_data_module_ (&(wd->r_res));
@@ -114,7 +114,7 @@ void mode_data::set_and_make_mode_data_directories (void)
 {
 char *sys_command = new char[1024];
 
-if (sd->os->flag_emfield > 1)
+if (get_output_flag_emfield_() > 1)
 {
     sprintf (sys_command, "%s%s", "mkdir -p ", path2linear);
     if (system (sys_command)==-1)
@@ -148,7 +148,7 @@ if (sd->os->flag_emfield > 1)
     fclose (outfile);
 }
 
-if (sd->os->flag_dispersion > 1)
+if (get_output_flag_dispersion_() > 1)
 {
     //makes dispersion data directory:
     sprintf (sys_command, "%s%s", "mkdir -p ", path2dispersion);

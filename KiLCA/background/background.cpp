@@ -35,7 +35,7 @@ path2background = new char[1024];
 
 sprintf (path2background, "%s%s", sd->path2project, "background-data/");
 
-if (sd->os->flag_background > 1)
+if (get_output_flag_background_() > 1)
 {
     //make dir for background data:
     char *sys_command = new char[1024];
@@ -264,7 +264,7 @@ flag_dPhi0_calc = 1; //to recalculate dPhi0
 ierr = find_f0_parameters ();
 //fprintf (stdout, "\nf0 parameters are computed...\n");
 
-if (sd->os->flag_background > 1)
+if (get_output_flag_background_() > 1)
 {
     save_background ();
     //fprintf (stdout, "\nbackground quantities are stored...\n");
@@ -341,7 +341,7 @@ else
 
 ierr = find_f0_parameters ();
 
-if (sd->os->flag_background > 1)
+if (get_output_flag_background_() > 1)
 {
     save_background ();
 
@@ -387,7 +387,7 @@ for (i=0; i<Nprofiles; i++)
     }
     tmp1 = tmp2;
 
-    if (sd->os->flag_background > 1)
+    if (get_output_flag_background_() > 1)
     {
         /*copy input profile to background-data dir*/
         sprintf (sys_command, "%s%s%s%s%s%s", "cp ", file_name, " ", path2background, profile_names[i], "_i.dat");

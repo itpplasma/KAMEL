@@ -21,8 +21,7 @@ void settings::read_settings (void)
     bs->read_settings (path2project);
     copy_background_data_to_background_module_ (&bs);
 
-    os = new output_sett;
-    os->read_settings (path2project);
+    read_output_settings_ (path2project);
 
     es = new eigmode_sett;
     es->read_settings (path2project);

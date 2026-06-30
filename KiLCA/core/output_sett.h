@@ -1,5 +1,7 @@
 /*! \file output_sett.h
-    \brief The declaration of output_sett class.
+    \brief C entry points for output settings, now owned by the Fortran
+           output_data module (read_output_settings_ parses output.in). The
+           former C++ output_sett class has been translated away.
 */
 
 #ifndef OUTPUT_SETTINGS_INCLUDE
@@ -8,37 +10,21 @@
 
 #include "constants.h"
 
-/*****************************************************************************/
-
-/*! \class output_sett
-    \brief Class for output settings.
-*/
-class output_sett
+extern "C"
 {
-public:
-    //Output settings:
-    int flag_background;   //!<1 if compute background data, 2 - store
-    int flag_emfield;      //!<1 if compute em field data, 2 - store
-    int flag_additional;   //!<1 if compute additional quants, 2 - store
-    int flag_dispersion;   //!<1 if compute dispersion, 2 - store
+void read_output_settings_ (char *path);
 
-    int num_quants;        //!<number of flags
-    int *flag_quants;      //!<flags for each quantitity if compute it
+int get_output_flag_background_ (void);
 
-    int flag_debug;        //!<flag for debugging mode
+int get_output_flag_emfield_ (void);
 
-public:
-    output_sett (void) {}
+int get_output_flag_additional_ (void);
 
-    ~output_sett (void)
-    {
-        delete [] flag_quants;
-    }
+int get_output_flag_dispersion_ (void);
 
-    void read_settings (char *path);
-    void print_settings (void);
-};
+int get_output_num_quants_ (void);
 
-/*****************************************************************************/
+int get_output_flag_quants_ (int i);
+}
 
 #endif

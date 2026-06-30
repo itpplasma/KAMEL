@@ -27,8 +27,6 @@ public:
 
     back_sett    *bs; //!<background settings
 
-    output_sett  *os; //!<output settings
-
     eigmode_sett *es; //!<settings for eigmode search
 
 public:
@@ -43,7 +41,6 @@ public:
         delete [] path2project;
 
         delete bs;
-        delete os;
         delete es;
     }
 

@@ -1,0 +1,38 @@
+name: golden-record
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  golden:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout (full history + tags)
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0          # need golden-baseline tag + worktree of it
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake ninja-build gfortran \
+            libopenmpi-dev openmpi-bin libhdf5-openmpi-dev libnetcdf-dev \
+            libnetcdff-dev libomp-dev libopenblas-dev liblapack-dev \
+            libgsl-dev libsuitesparse-dev libsuperlu-dev python3-dev python3-pip \
+            libmpfr-dev libgmp-dev
+          pip install numpy scipy h5py f90nml
+
+      - name: Cache external dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            test/golden/build_ref/src/build/external-install
+            test/golden/build_cur/src/build/external-install
+          key: golden-ext-${{ runner.os }}-${{ hashFiles('cmake/Fetch*.cmake') }}
+          restore-keys: golden-ext-${{ runner.os }}-
+
+      - name: Run golden-record suite (ref=golden-baseline, cur=HEAD)
+        run: test/golden/run_golden.sh golden-baseline ${{ github.sha }}

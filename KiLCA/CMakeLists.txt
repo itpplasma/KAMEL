@@ -110,7 +110,7 @@ set (kilca_eigparam_main progs/main_eig_param.cpp)
 # include paths:
 set (libs_root_path ${CMAKE_BINARY_DIR}/external-install)
 
-set(EXTERNAL_LIBS slatec lapack blas SUNDIALS::cvode SUNDIALS::nvecserial fortnum)
+set(EXTERNAL_LIBS fortnum_amos_compat lapack blas SUNDIALS::cvode SUNDIALS::nvecserial fortnum)
 
 # configure a header file to pass some of the CMake settings to the source code
 configure_file(

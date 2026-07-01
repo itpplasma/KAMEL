@@ -25,9 +25,59 @@ module kilca_shared_m
     implicit none
     private
 
-    public :: signum, sort_index_doubles
+    public :: signum, sort_index_doubles, strtol_int
 
 contains
+
+    !> Reproduces C's strtol(s, NULL, 10) exactly: skip leading whitespace,
+    !> an optional sign, then consume a run of decimal digits, stopping at
+    !> the first non-digit character (0 if no digits are found at all).
+    !> This is NOT the same as a clean "parse the whole string as an
+    !> integer, 0 on any failure" - the .in file readers throughout this
+    !> port's oracle (read_line_2get_int_ in io/inout.cpp, and every
+    !> zone-settings/eigmode-settings reader built on the same convention)
+    !> use exactly this truncating strtol behavior, so genuinely malformed-
+    !> looking input like "1.00e+05" for an integer field is not an error
+    !> in the oracle - it silently becomes 1 (the leading digit run before
+    !> the decimal point), and this port's Fortran translations must
+    !> reproduce that silent truncation bit-for-bit rather than "properly"
+    !> parsing the full numeric literal or defaulting to 0.
+    function strtol_int(s) result(val)
+        character(len=*), intent(in) :: s
+        integer :: val
+        integer :: i, n, sgn
+        logical :: found_digit
+
+        n = len(s)
+        i = 1
+        val = 0
+        sgn = 1
+        found_digit = .false.
+
+        do while (i <= n)
+            if (s(i:i) /= ' ' .and. s(i:i) /= achar(9)) exit
+            i = i + 1
+        end do
+
+        if (i <= n) then
+            if (s(i:i) == '-') then
+                sgn = -1
+                i = i + 1
+            else if (s(i:i) == '+') then
+                i = i + 1
+            end if
+        end if
+
+        do while (i <= n)
+            if (s(i:i) < '0' .or. s(i:i) > '9') exit
+            val = val*10 + (iachar(s(i:i)) - iachar('0'))
+            found_digit = .true.
+            i = i + 1
+        end do
+
+        if (.not. found_digit) val = 0
+        val = val*sgn
+    end function strtol_int
 
     function signum(x) result(s) bind(C, name="signum")
         real(c_double), value :: x

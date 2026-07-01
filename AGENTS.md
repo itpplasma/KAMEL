@@ -153,6 +153,12 @@ Output written to `Er_no_Vpol.dat` (without poloidal rotation contribution).
   - Name sources `test_*.f90`; register with `add_test` in `CMakeLists.txt`.
   - Keep self-contained, avoid interactive I/O.
   - Print diagnostics for debugging; prefer explicit diagnostics in failing cases.
+- **Golden-record regression** (KIM, QL-Balance, KiLCA): an A/B two-build
+  comparison lives in `test/golden/` and runs in the dedicated `golden-record`
+  GitHub Actions job (`.github/workflows/golden.yml`). It is intentionally
+  excluded from local `ctest` / `make test` so normal builds stay fast and
+  offline. It compares a frozen `golden-baseline` tag against the PR head; see
+  `test/golden/README.md` for how to add a case or re-bless the baseline.
 
 ## Commit & Pull Request Guidelines
 

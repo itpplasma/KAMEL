@@ -1,20 +1,9 @@
 # Test directory CMakeLists.txt
-# Contains Python-based integration and regression tests
-
-# Find Python for running pytest (prefer the current environment's python3)
-find_program(PYTHON3_FROM_PATH python3)
-if(PYTHON3_FROM_PATH)
-    set(Python3_EXECUTABLE "${PYTHON3_FROM_PATH}" CACHE FILEPATH "Python interpreter" FORCE)
-endif()
-find_package(Python3 COMPONENTS Interpreter REQUIRED)
-
-execute_process(
-    COMMAND ${Python3_EXECUTABLE} -c "import f90nml"
-    RESULT_VARIABLE F90NML_STATUS
-)
-if(NOT F90NML_STATUS EQUAL 0)
-    message(WARNING "Python package 'f90nml' is not available for ${Python3_EXECUTABLE}; tests depending on it (e.g., ql-balance) will be skipped.")
-else()
-    # Add subdirectories for different test categories that require f90nml
-    add_subdirectory(ql-balance)
-endif()
+#
+# Golden-record regression tests for KIM, QL-Balance, and KiLCA used to live here
+# (test/ql-balance/golden_record) and ran under CTest. They have moved to
+# test/golden/ and now run ONLY in the dedicated "golden-record" GitHub Actions
+# job (.github/workflows/golden.yml) -- never in local ctest / make test, so a
+# normal build stays fast and offline.
+#
+# No CTest-registered tests remain in this directory.

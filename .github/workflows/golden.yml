@@ -1,0 +1,44 @@
+name: golden-record
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  golden:
+    runs-on: ubuntu-latest
+    # Backstop: a hanging build or case (e.g. a non-terminating ported solver)
+    # must not tie up a runner for GitHub's 6h default. Two clean ref+cur builds
+    # plus the tiny case runs finish in <10 min; 30 leaves generous headroom.
+    timeout-minutes: 30
+    steps:
+      - name: Checkout (full history + tags)
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0          # need golden-baseline tag + worktree of it
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake ninja-build gfortran \
+            libopenmpi-dev openmpi-bin libhdf5-openmpi-dev libnetcdf-dev \
+            libnetcdff-dev libomp-dev libopenblas-dev liblapack-dev doxygen \
+            libgsl-dev libsuitesparse-dev libsuperlu-dev python3-dev python3-pip \
+            libmpfr-dev libgmp-dev
+          # matplotlib: KAMELpy's KiLCA_interface imports it, so the QL-Balance
+          # prepare hook needs it. doxygen: required by KiLCA's CMake build.
+          pip install numpy scipy matplotlib h5py f90nml
+
+      - name: Cache external dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            test/golden/build_ref/src/build/external-install
+            test/golden/build_cur/src/build/external-install
+          key: golden-ext-${{ runner.os }}-${{ hashFiles('cmake/Fetch*.cmake') }}
+          restore-keys: golden-ext-${{ runner.os }}-
+
+      - name: Run golden-record suite (ref=golden-baseline, cur=HEAD)
+        run: test/golden/run_golden.sh golden-baseline ${{ github.sha }}

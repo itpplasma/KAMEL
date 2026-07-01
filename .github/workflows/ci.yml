@@ -5,6 +5,13 @@ on:
     branches: [main, fix-ci]
   pull_request:
     branches: [main]
+  workflow_dispatch:
+    inputs:
+      libneo_ref:
+        default: ''
+      full:
+        description: run the full suite incl. the golden record (set by the libneo full-ci gate)
+        default: 'false'
 
 jobs:
   pre-commit:
@@ -76,7 +83,7 @@ jobs:
             external-deps-${{ runner.os }}-${{ runner.arch }}-
 
       - name: Build with make
-        run: make all
+        run: make all ${{ inputs.libneo_ref != '' && format('LIBNEO_REF={0}', inputs.libneo_ref) || '' }}
 
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4
@@ -131,7 +138,7 @@ jobs:
             external-deps-${{ runner.os }}-${{ runner.arch }}-
 
       - name: Build with make
-        run: make all
+        run: make all ${{ inputs.libneo_ref != '' && format('LIBNEO_REF={0}', inputs.libneo_ref) || '' }}
 
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4

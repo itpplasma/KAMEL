@@ -9,6 +9,10 @@ on:
 jobs:
   golden:
     runs-on: ubuntu-latest
+    # Backstop: a hanging build or case (e.g. a non-terminating ported solver)
+    # must not tie up a runner for GitHub's 6h default. Two clean ref+cur builds
+    # plus the tiny case runs finish in <10 min; 30 leaves generous headroom.
+    timeout-minutes: 30
     steps:
       - name: Checkout (full history + tags)
         uses: actions/checkout@v4

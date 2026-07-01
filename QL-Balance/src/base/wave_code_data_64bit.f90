@@ -738,6 +738,7 @@ subroutine interp_profile(dim_old, r_old, q_old, dim_new, r_new, q_new)
     real(8), dimension(dim_new) :: r_new, q_new;
     integer :: deg = 9, Dmin = 0, Dmax = 0, l, ind;
 
+    ind = 0;
     do l = 1, dim_new
         call eval_neville_polynom(dim_old, r_old, q_old, deg, r_new(l), Dmin, Dmax, ind, q_new(l));
     end do

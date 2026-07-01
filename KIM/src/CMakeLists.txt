@@ -28,6 +28,9 @@ add_dependencies(KIM_lib sparse)
 target_link_libraries(KIM_lib PUBLIC sparse)
 target_include_directories(KIM_lib PUBLIC "${CMAKE_BINARY_DIR}/OBJS/sparse/")
 
+# fortnum provides the special functions (bessel_in) used by FLR2_asymptotics.
+target_link_libraries(KIM_lib PUBLIC fortnum)
+
 # TODO: unify this: either use the system library everywhere, or use the cloned version
 # KiLCA uses the cloned libraries for now, QL-Balance the system libraries
 find_package(GSL REQUIRED)
@@ -97,6 +100,15 @@ if("${UMFPACK_FOUND}")
 endif()
 
 find_library(UMFPACK_LIBRARY umfpack)
+
+find_package(SuperLU REQUIRED)
+if("${SUPERLU_FOUND}")
+    message(" ====== SuperLU was found! =====")
+    target_link_libraries(KIM_lib PUBLIC "${SUPERLU_LIBRARIES}")
+    message("SuperLu libraries: ${SUPERLU_LIBRARIES}")
+    target_include_directories(KIM_lib PUBLIC "${SUPERLU_INCLUDES}")
+    message("${SUPERLU_INCLUDES}")
+endif()
 
 set(KILCA_PATH ${CMAKE_SOURCE_DIR}/KiLCA)
 set(KiLCA_lib_path ${CMAKE_SOURCE_DIR}/build/install/lib/libKiLCA_Lib_V_2.4.2_MDNO_FPGEN_POLYNOMIAL_Release_64bit.a)

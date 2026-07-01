@@ -10,10 +10,6 @@
 #include "constants.h"
 #include "imhd_zone.h"
 
-#include <gsl/gsl_matrix.h>
-#include <gsl/gsl_odeiv.h>
-#include <gsl/gsl_errno.h>
-
 /*******************************************************************/
 
 struct diff_params

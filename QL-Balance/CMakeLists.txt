@@ -103,6 +103,9 @@ set_source_files_properties(${base_balance_src}/kim_wave_code_adapter.f90
 # Include central slatec math sources via cache variable defined by common/math
 target_include_directories(ql-balance_lib PUBLIC ${SLATEC_INCLUDE_DIR})
 
+# fortnum C ABI header (fortnum.h) for vel_integral.cpp.
+target_include_directories(ql-balance_lib PUBLIC ${fortnum_SOURCE_DIR}/include)
+
 # HDF5 is found/fetched centrally in cmake/Dependencies.cmake
 
 set(BUILD_TESTING OFF)
@@ -128,6 +131,7 @@ target_link_libraries(ql-balance_lib PUBLIC
     SUNDIALS::cvode
     SUNDIALS::nvecserial
     blas
+    fortnum
     gsl
     gslcblas
     hdf5::hdf5

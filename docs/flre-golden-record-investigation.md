@@ -82,7 +82,51 @@ the same fixture, compared bit-for-bit.
       `f_re` bit-exact for the probed input but left `f_im` 1 ULP off and did
       **not** change EB.dat/poy — so 1F1 is at most a minor contributor.
 
-## Open — the remaining ~1e-9 divergence
+## ROOT CAUSE (confirmed) — ill-conditioned 1F1, cross-compiler-irreducible
+
+Bisecting the conductivity pipeline (multi-agent workflow + manual, dumping each
+stage in the port and a fresh oracle worktree at 3c364ab8, hex, bit-for-bit):
+
+- Conductivity **samples** feeding the spline (`cp%K`) already differ. Walking
+  up: `W2` (calc_W2_array_gen) differs at the first sample; its inputs
+  `collmod/x1/x2/nu` are bit-identical but `Imn` (calc_Imn_array) differs; and
+  inside `calc_Imn_array` the 1F1 **inputs are bit-identical** while its **output
+  differs**:
+  - `b = 40D7BCF4D4A45489 (−26889.34i)`, `z = 40D7BCB4D4A45489` — identical.
+  - oracle `F_re = 3F1A70E4EA8CC000`, port `F_re = 3F1A70E4EA8D0000` (~2e-12).
+
+- The call is `hypergeometric1f1_cont_fract_1_modified_0_ada` with `b ≈ z`
+  (|z/b| ≥ 0.1). The raw continued fraction `S2` is bit-identical port/oracle;
+  the divergence is entirely in the modified form
+  `1F1m = (S2 − 1 − z/b)(b/z)((b+1)/z) − 1`, whose subtraction cancels to ~1e-11
+  of its operands. High-precision (mpmath) shows the true value is
+  `≈ 3F1A70E4EA8C8840`; both the oracle (`8CC000`) and the port (`8D0000`) are
+  ~10^4 ULP of cancellation garbage away from it, in different directions.
+
+- The exact garbage bits are **codegen-dependent** and not reproducible across
+  compilers. Verified: gfortran intrinsic in a small unit → `8CC000`, in the
+  library object → `8D0000`; explicit libstdc++-formula `cdiv`/`cmul` →
+  `8CC000` (f_re) but `f_im` 1 ULP off; even the **C++ standalone** (`...B58F`)
+  differs from the **C++ oracle full build** (`...B591`). No arithmetic form,
+  `-fcx-limited-range`, `-ffp-contract`, `-O` level, module split, or forced
+  inlining reproduces the oracle full-build's exact result.
+
+- This ~2e-12 amplifies through the `Imn` formula's own denominator
+  cancellation to ~1e-9 in the conductivity tensor `cti/cte`, then through the
+  CVODE integration to ~5e-6 near the resonant layer, changing the adaptive
+  output-grid row count (2682 vs 2648). **The physical values agree to ~1e-9
+  (well inside rtol=1e-7); the golden fails only on shape (row count).**
+
+Conclusion: reproducing the pre-port C++ output for `EB.dat`/`poy_test_err`
+byte-for-byte requires reproducing a specific compiler's rounding of a
+catastrophically ill-conditioned hypergeometric evaluation — a fundamental
+cross-compiler floating-point limit, not a porting bug. Options: (A) compile the
+single `hypergeometric1f1_cont_fract_1_modified_0_ada` kernel with the C++
+compiler (byte-exact, ~99.99% Fortran); (B) accept the ~1e-9 difference as
+floating-point-accurate and make the EB.dat/poy golden comparison grid-agnostic
+(resample before compare); (C) leave as documented 56/58.
+
+## Earlier framing — the ~1e-9 divergence (superseded by the root cause above)
 
 The system matrix `Dmat` from `calc_diff_sys_matrix` (legacy) already differs at
 the first RHS evaluation (r=3.0): oracle `Dmat_sum = 6.8086399267114894e+03` vs

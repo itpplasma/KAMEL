@@ -30,8 +30,8 @@ module time_evolution
     real(dp) :: timstep
     real(dp) :: time
     real(dp) :: t_hysteresis_turn = 0
-    real(dp) :: constant_time_step
-    logical :: set_constant_time_step
+    real(dp) :: constant_time_step = 0.0_dp
+    logical :: set_constant_time_step = .false.
 
     real(dp), dimension(:), allocatable :: timscal
 

@@ -53,6 +53,7 @@ module kilca_mode_data_m
     use kilca_neville_m, only: eval_neville_polynom
     use fortnum_capi, only: fortnum_root_brent
     use fortnum_status, only: FORTNUM_OK
+    use kilca_progs_common_m, only: fmt_g, fmt_e
     implicit none
     private
 
@@ -417,18 +418,20 @@ contains
         character(len=1024) :: fname
         integer :: unit, ios
 
-        write (fname, '(a,a,i0,a,i0,a,es24.16e3,a,es24.16e3,a)') trim(md%path2linear), &
-            'mode_', md%wd%m, '_', md%wd%n, '_[', real(md%wd%olab, dp), ',', &
-            aimag(md%wd%olab), '].dat'
+        write (fname, '(a,a,i0,a,i0,a,a,a,a,a)') trim(md%path2linear), &
+            'mode_', md%wd%m, '_', md%wd%n, '_[', fmt_e(real(md%wd%olab, dp), 16), ',', &
+            fmt_e(aimag(md%wd%olab), 16), '].dat'
 
         open (newunit=unit, file=trim(fname), status='replace', action='write', iostat=ios)
         if (ios /= 0) then
             write (*, '(a,a)') 'Failed to open file ', trim(fname)
         end if
 
-        write (unit, '(es24.16e3,a,es24.16e3,a,es24.16e3,a,es24.16e3)') &
-            real(md%wd%olab, dp), char(9), aimag(md%wd%olab), char(9), &
-            real(md%wd%det, dp), char(9), aimag(md%wd%det)
+        ! Mirrors the oracle's fprintf format exactly:
+        ! "%.16le  %.16le\t%.16le  %.16le\n" (two spaces / tab / two spaces).
+        write (unit, '(a,a,a,a,a,a,a)') &
+            fmt_e(real(md%wd%olab, dp), 16), '  ', fmt_e(aimag(md%wd%olab), 16), char(9), &
+            fmt_e(real(md%wd%det, dp), 16), '  ', fmt_e(aimag(md%wd%det), 16)
 
         close (unit)
     end subroutine save_mode_det_data
@@ -485,8 +488,9 @@ contains
         character(len=*), intent(out) :: path2linear
         complex(dp) :: flab
         flab = olab/twopi
-        write (path2linear, '(a,a,i0,a,i0,a,g0.15,a,g0.15,a)') trim(path2project), &
-            'linear-data/m_', m, '_n_', n, '_flab_[', real(flab, dp), ',', aimag(flab), ']/'
+        write (path2linear, '(a,a,i0,a,i0,a,a,a,a,a)') trim(path2project), &
+            'linear-data/m_', m, '_n_', n, '_flab_[', fmt_g(real(flab, dp), 15), ',', &
+            fmt_g(aimag(flab), 15), ']/'
     end subroutine eval_path_to_linear_data
 
     subroutine eval_path_to_dispersion_data(path2project, m, n, olab, path2dispersion)
@@ -496,8 +500,9 @@ contains
         character(len=*), intent(out) :: path2dispersion
         complex(dp) :: flab
         flab = olab/twopi
-        write (path2dispersion, '(a,a,i0,a,i0,a,g0.15,a,g0.15,a)') trim(path2project), &
-            'dispersion-data/m_', m, '_n_', n, '_flab_[', real(flab, dp), ',', aimag(flab), ']/'
+        write (path2dispersion, '(a,a,i0,a,i0,a,a,a,a,a)') trim(path2project), &
+            'dispersion-data/m_', m, '_n_', n, '_flab_[', fmt_g(real(flab, dp), 15), ',', &
+            fmt_g(aimag(flab), 15), ']/'
     end subroutine eval_path_to_dispersion_data
 
     subroutine eval_path_to_poincare_data(path2project, m, n, olab, path2poincare)
@@ -507,8 +512,9 @@ contains
         character(len=*), intent(out) :: path2poincare
         complex(dp) :: flab
         flab = olab/twopi
-        write (path2poincare, '(a,a,i0,a,i0,a,g0.15,a,g0.15,a)') trim(path2project), &
-            'poincare-data/m_', m, '_n_', n, '_flab_[', real(flab, dp), ',', aimag(flab), ']/'
+        write (path2poincare, '(a,a,i0,a,i0,a,a,a,a,a)') trim(path2project), &
+            'poincare-data/m_', m, '_n_', n, '_flab_[', fmt_g(real(flab, dp), 15), ',', &
+            fmt_g(aimag(flab), 15), ']/'
     end subroutine eval_path_to_poincare_data
 
     !> ---- mode_data::set_and_make_mode_data_directories (mode.cpp) ----
@@ -532,9 +538,11 @@ contains
             write (unit, '(a)') '%Re(fmov) Im(fmov)'
             write (unit, '(a)') '%r_res 0.0'
             write (unit, '(i0,1x,i0)') md%wd%m, md%wd%n
-            write (unit, '(g0.16,1x,g0.16)') real(md%wd%olab, dp)/twopi, aimag(md%wd%olab)/twopi
-            write (unit, '(g0.16,1x,g0.16)') real(md%wd%omov, dp)/twopi, aimag(md%wd%omov)/twopi
-            write (unit, '(g0.16,1x,g0.16)') md%wd%r_res, 0.0_dp
+            write (unit, '(a,a,a)') fmt_g(real(md%wd%olab, dp)/twopi, 16), ' ', &
+                fmt_g(aimag(md%wd%olab)/twopi, 16)
+            write (unit, '(a,a,a)') fmt_g(real(md%wd%omov, dp)/twopi, 16), ' ', &
+                fmt_g(aimag(md%wd%omov)/twopi, 16)
+            write (unit, '(a,a,a)') fmt_g(md%wd%r_res, 16), ' ', fmt_g(0.0_dp, 16)
             close (unit)
         end if
 

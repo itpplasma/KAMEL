@@ -379,30 +379,47 @@ contains
             return
         end if
 
-        allocate (qp%current_dens(0:36*dimx - 1))
-        allocate (qp%abs_pow_dens(0:6*dimx - 1), qp%abs_pow_int(0:6*dimx - 1))
-        allocate (qp%diss_pow_dens(0:9*dimx - 1), qp%diss_pow_int(0:9*dimx - 1))
-        allocate (qp%kin_flux(0:9*dimx - 1))
-        allocate (qp%poy_flux(0:dimx - 1))
-        allocate (qp%tot_flux(0:dimx - 1))
-        allocate (qp%number_dens(0:6*dimx - 1))
-        allocate (qp%lor_torque_dens(0:9*dimx - 1), qp%lor_torque_int(0:9*dimx - 1))
+        ! 1-based (indices 1..N), NOT 0-based: every access site throughout
+        ! this module uses a uniform idx_2/idx_3/idx_cd/idx_nd(...) + 1
+        ! shift (the idx_* helpers themselves return a 0-based flat index
+        ! in [0, N-1]; the +1 converts that into this array's own 1-based
+        ! Fortran indexing). Allocating these 0-based instead put the
+        ! valid range one past the array's declared upper bound.
+        allocate (qp%current_dens(1:36*dimx))
+        allocate (qp%abs_pow_dens(1:6*dimx), qp%abs_pow_int(1:6*dimx))
+        allocate (qp%diss_pow_dens(1:9*dimx), qp%diss_pow_int(1:9*dimx))
+        allocate (qp%kin_flux(1:9*dimx))
+        allocate (qp%poy_flux(1:dimx))
+        allocate (qp%tot_flux(1:dimx))
+        allocate (qp%number_dens(1:6*dimx))
+        allocate (qp%lor_torque_dens(1:9*dimx), qp%lor_torque_int(1:9*dimx))
 
         qp%n_spline = get_cond_nc(zone_cp)
 
         qp%flagC = .false.
         qp%flagK = .false.
         allocate (qp%cmat(0:(qp%n_spline + 1)*2*2*(2*flreo + 1)*3*3*2 - 1))
-        allocate (qp%kmat(0:(qp%n_spline + 1)*2*2*2*(flreo + 1)*(flreo + 1)*3*3*2 - 1))
+        ! 1-based: idx_kmat(...) + 1 is used at every kmat access site
+        ! (unlike cmat/bico, which are accessed via idx_cmat/idx_bico with
+        ! NO +1, correctly matching their own 0-based allocation).
+        allocate (qp%kmat(1:(qp%n_spline + 1)*2*2*2*(flreo + 1)*(flreo + 1)*3*3*2))
 
         qp%ny = 2*1*1*3
-        allocate (qp%yarr(0:dimx*qp%ny - 1))
+        ! 1-based: calc_splines_for_current_density's ind+k+1 reaches up to
+        ! 6*dimx (spec=2, part=1, k=dimx-1), one past a 0-based dimx*ny-1
+        ! upper bound.
+        allocate (qp%yarr(1:dimx*qp%ny))
         allocate (qp%sarr(0:(qp%n_spline + 1)*dimx*qp%ny - 1))
         call spline_alloc_c(qp%n_spline, 1, dimx, qp%x, qp%sarr, qp%sidY)
         qp%flagS = .false.
 
-        allocate (qp%jae_arr(0:dimx - 1))
-        allocate (qp%jaei_arr(0:dimx - 1))
+        ! 1-based (indices 1..dimx), NOT 0-based: every access site
+        ! (calculate_jae, calculate_jae_delta/_distributed,
+        ! flre_quants_calculate_jae) uses a uniform k+1 shift matching the
+        ! oracle's 0-based qp->jaE[k]/qp->jaEi[qp->dimx-1] - the array
+        ! itself must hold dimx elements at indices 1..dimx, not 0..dimx-1.
+        allocate (qp%jae_arr(1:dimx))
+        allocate (qp%jaei_arr(1:dimx))
 
         allocate (qp%cdlab(0:2*3*2*3*dimx - 1))
 

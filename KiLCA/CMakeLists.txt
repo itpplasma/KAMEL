@@ -101,8 +101,8 @@ else ()
     set (Jac )
 endif ()
 
-set (kilca_normal_main progs/main_linear.cpp)
-set (kilca_eigparam_main progs/main_eig_param.cpp)
+set (kilca_normal_main progs/main_linear.f90)
+set (kilca_eigparam_main progs/main_eig_param.f90)
 
 # --- Dependencies ---
 # Dependencies are provided by the top-level project via cmake/Dependencies.cmake
@@ -160,6 +160,7 @@ set(kilca_lib_fortran_sources
     core/settings_m.f90
     core/core_data_m.f90
     io/inout_m.f90
+    progs/progs_common_m.f90
     interface/wave_code_interface_m.f90
     spline/spline_m.f90
     interp/neville_m.f90
@@ -281,6 +282,7 @@ add_executable (kilca_normal_exe ${kilca_normal_main})
 set_target_properties(kilca_normal_exe PROPERTIES
     OUTPUT_NAME ${kilca_normal_exe}
     RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/install/bin/)
+target_include_directories (kilca_normal_exe PRIVATE ${PROJECT_BINARY_DIR}/OBJS/kilca/)
 add_dependencies(kilca_normal_exe ${EXTERNAL_LIBS})
 target_link_libraries (kilca_normal_exe kilca_lib ${EXTERNAL_LIBS})
 
@@ -288,13 +290,15 @@ add_executable (kilca_eigparam_exe ${kilca_eigparam_main})
 set_target_properties(kilca_eigparam_exe PROPERTIES
     OUTPUT_NAME ${kilca_eigparam_exe}
     RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/install/bin/)
+target_include_directories (kilca_eigparam_exe PRIVATE ${PROJECT_BINARY_DIR}/OBJS/kilca/)
 add_dependencies(kilca_eigparam_exe ${EXTERNAL_LIBS})
 target_link_libraries (kilca_eigparam_exe kilca_lib ${EXTERNAL_LIBS})
 
-add_executable (post_proc post_processing/main_post_proc.cpp post_processing/save_fortran.f90)
+add_executable (post_proc post_processing/main_post_proc.f90 post_processing/save_fortran.f90)
 set_target_properties(post_proc PROPERTIES
     OUTPUT_NAME post_processor_${KiLCA_ARCHITECTURE}
     RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/install/bin/)
+target_include_directories (post_proc PRIVATE ${PROJECT_BINARY_DIR}/OBJS/kilca/)
 add_dependencies(post_proc ${EXTERNAL_LIBS})
 target_link_libraries (post_proc kilca_lib ${EXTERNAL_LIBS})
 

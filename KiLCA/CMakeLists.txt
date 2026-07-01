@@ -148,7 +148,6 @@ include_directories ("${CMAKE_CURRENT_SOURCE_DIR}/spline")
 
 #cpp source files for kilca lib:
 set(kilca_lib_cpp_sources
-    io/inout.cpp
     math/zersol-0.0.0/src/zersolc.cpp
 )
 

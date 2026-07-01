@@ -13,9 +13,7 @@ This is the integral plasma response model based on the code and model Kinetic L
 ### Auto-fetched Dependencies
 The following are automatically downloaded during build:
 - **fortnum** - Numerical core: complex region-root finder, quadrature, ODE, special functions
-- **QUADPACK** - Adaptive quadrature (from Netlib)
 - **libcerf** - Complex error function
-- **SLATEC** - Mathematical library
 
 ### Build Dependencies
 - **KiLCA** - Must be built before KIM (provides core library)

@@ -22,5 +22,5 @@ GR_COMPARE=gr_numcompare.py
 # pre-existing property of this ill-conditioned test case, not a port regression.
 # The bar (rtol 1e-7, atol 1e-12) is unchanged; only these two proven-affected
 # FLRE zone-0 outputs are excluded, all other 56 files stay strict. See
-# itpplasma/KAMEL#164 and the follow-up issue.
+# itpplasma/KAMEL#164 and follow-up itpplasma/KAMEL#165.
 export GR_EXCLUDE='linear-data/m_6_n_2_flab_[1,0]/EB.dat;linear-data/m_6_n_2_flab_[1,0]/zone_0_poy_test_err.dat'

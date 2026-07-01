@@ -163,7 +163,7 @@ bit-exact/float comparison** and the gate still fails on any real regression
 (verified: exit 1 without the exclusion). KiLCA golden: **56 strict PASS + 2
 documented EXCLUDED → green.**
 
-Follow-up (filed): remove the C++/GSL residue by replacing the modified-form
+Follow-up (filed as itpplasma/KAMEL#165): remove the C++/GSL residue by replacing the modified-form
 `1F1m` with a numerically stable evaluation (compiler-independent), then drop the
 exclusion and regenerate the golden record.
 

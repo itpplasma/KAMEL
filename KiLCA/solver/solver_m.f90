@@ -404,7 +404,7 @@ contains
 
         Nort = step
 
-        call renorm_basis_vecs(Nfs, Nw, dim, rvec, Smat((dim - 1)*Neq:), Nort, &
+        call renorm_basis_vecs(Nfs, Nw, dim, rvec, Smat, (dim - 1)*Neq, Nort, &
                                mem, rdata_i, ydata_i, taudata_i)
 
         call FN_VDestroy(y)
@@ -422,17 +422,27 @@ contains
     !> (re,im interleaved), exactly as the oracle. rdata_i/ydata_i/taudata_i
     !> are the 0-based offsets into mem at the LAST orthonormalization step
     !> (mirrors the oracle's rdata-1/ydata-Neq/taudata-2*Nfs pointers).
-    subroutine renorm_basis_vecs(Nfs, Nw, dim, rvec, udata, Nort, mem, rdata_i0, ydata_i0, taudata_i0)
+    !>
+    !> udata_i0 is the 0-based offset (into the FULL udata array, which the
+    !> caller now passes in its entirety rather than a section starting at
+    !> the last block) of the last grid point's block - (dim-1)*Neq. The
+    !> oracle walks a raw pointer `udata -= Neq` from that last block back
+    !> to the first (absolute position 0); an earlier translation attempt
+    !> passed the caller's Smat((dim-1)*Neq:) SECTION as the actual argument
+    !> and let udata_i go NEGATIVE relative to that section's own start to
+    !> reach the same absolute positions - legal C pointer arithmetic, but
+    !> gfortran's -fcheck=all (enabled by this project's build) flags any
+    !> negative index into an assumed-size dummy regardless of whether the
+    !> underlying memory access is actually in-bounds. Passing the FULL
+    !> array and tracking udata_i as an ABSOLUTE 0-based offset (starting at
+    !> udata_i0, walking down to 0, never negative) reaches the exact same
+    !> memory locations without ever forming an out-of-declared-range index.
+    subroutine renorm_basis_vecs(Nfs, Nw, dim, rvec, udata, udata_i0, Nort, mem, &
+                                  rdata_i0, ydata_i0, taudata_i0)
         integer(c_int), intent(in) :: Nfs, Nw, dim, Nort
         real(c_double), intent(in) :: rvec(0:dim - 1)
-        ! Assumed-SIZE (not assumed-shape): the caller passes a section
-        ! starting at the LAST grid point's block, and this routine walks
-        ! udata_i NEGATIVE to reach earlier blocks (mirroring the oracle's
-        ! `udata -= Neq` raw pointer arithmetic). Assumed-shape would track
-        ! the section's own bounds and make that out-of-bounds; assumed-size
-        ! has no bounds descriptor, so negative offsets correctly resolve to
-        ! earlier elements of the same contiguous Smat array underneath.
         real(c_double), intent(inout) :: udata(*)
+        integer(c_int), intent(in) :: udata_i0
         real(c_double), intent(inout) :: mem(0:)
         integer(c_int), intent(in) :: rdata_i0, ydata_i0, taudata_i0
 
@@ -464,7 +474,7 @@ contains
         rdata_i = rdata_i0
         ydata_i = ydata_i0
         taudata_i = taudata_i0
-        udata_i = 0
+        udata_i = udata_i0
 
         do k = dim - 1, 0, -1
             do step = ropind - 1, 0, -1

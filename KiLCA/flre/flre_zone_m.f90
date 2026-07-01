@@ -926,8 +926,8 @@ contains
 
         allocate (htz(0:2*ho + 1))
         call eval_hthz(rpt, 0, ho, c_null_ptr, htz)
-        ht => htz(0:ho)
-        hz => htz(ho + 1:2*ho + 1)
+        ht(0:ho) => htz(0:ho)
+        hz(0:ho) => htz(ho + 1:2*ho + 1)
 
         allocate (mor(0:ho))
         mor(0) = real(m, dp)/rpt
@@ -1031,8 +1031,8 @@ contains
 
         allocate (htz(0:2*ho + 1))
         call eval_hthz(rpt, 0, ho, c_null_ptr, htz)
-        ht => htz(0:ho)
-        hz => htz(ho + 1:2*ho + 1)
+        ht(0:ho) => htz(0:ho)
+        hz(0:ho) => htz(ho + 1:2*ho + 1)
 
         allocate (mor(0:ho))
         mor(0) = real(m, dp)/rpt
@@ -1153,8 +1153,8 @@ contains
 
         allocate (htz(0:2*ho + 1))
         call eval_hthz(rpt, 0, ho, c_null_ptr, htz)
-        ht => htz(0:ho)
-        hz => htz(ho + 1:2*ho + 1)
+        ht(0:ho) => htz(0:ho)
+        hz(0:ho) => htz(ho + 1:2*ho + 1)
 
         allocate (E1c(0:2, 0:ho), E2c(0:2, 0:ho), B1c(0:2, 0:ho), B2c(0:2, 0:ho))
         E1c = (0.0_dp, 0.0_dp)

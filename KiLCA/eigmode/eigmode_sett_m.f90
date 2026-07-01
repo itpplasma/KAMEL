@@ -32,6 +32,7 @@ subroutine read_eigmode_settings(path) bind(C, name="read_eigmode_settings_")
 use, intrinsic :: iso_c_binding, only: c_char, c_null_char
 use, intrinsic :: iso_fortran_env, only: error_unit
 use eigmode_sett_data
+use kilca_shared_m, only: strtol_int
 
 character(kind=c_char), dimension(*), intent(in) :: path
 
@@ -58,43 +59,43 @@ call value_before_hash(u, before); fname = trim(adjustl(before))
 call skip(u)
 
 call skip(u)
-call value_before_hash(u, before); read (before, *) search_flag
+call value_before_hash(u, before); call parse_int(before, search_flag)
 call skip(u)
 
 call skip(u)
-call value_before_hash(u, before); read (before, *) rdim
-call value_before_hash(u, before); read (before, *) rfmin
-call value_before_hash(u, before); read (before, *) rfmax
-call value_before_hash(u, before); read (before, *) idim
-call value_before_hash(u, before); read (before, *) ifmin
-call value_before_hash(u, before); read (before, *) ifmax
+call value_before_hash(u, before); call parse_int(before, rdim)
+call value_before_hash(u, before); call parse_real(before, rfmin)
+call value_before_hash(u, before); call parse_real(before, rfmax)
+call value_before_hash(u, before); call parse_int(before, idim)
+call value_before_hash(u, before); call parse_real(before, ifmin)
+call value_before_hash(u, before); call parse_real(before, ifmax)
 call skip(u)
 
 call skip(u)
-call value_before_hash(u, before); read (before, *) stop_flag
-call value_before_hash(u, before); read (before, *) eps_res
-call value_before_hash(u, before); read (before, *) eps_abs
-call value_before_hash(u, before); read (before, *) eps_rel
+call value_before_hash(u, before); call parse_int(before, stop_flag)
+call value_before_hash(u, before); call parse_real(before, eps_res)
+call value_before_hash(u, before); call parse_real(before, eps_abs)
+call value_before_hash(u, before); call parse_real(before, eps_rel)
 call skip(u)
 
 call skip(u)
-call value_before_hash(u, before); read (before, *) delta
+call value_before_hash(u, before); call parse_real(before, delta)
 call skip(u)
 
 call skip(u)
-call value_before_hash(u, before); read (before, *) test_roots
-call value_before_hash(u, before); read (before, *) flag_debug
+call value_before_hash(u, before); call parse_int(before, test_roots)
+call value_before_hash(u, before); call parse_int(before, flag_debug)
 call skip(u)
 
 call skip(u)
-call value_before_hash(u, before); read (before, *) n_zeros
-call value_before_hash(u, before); read (before, *) use_winding
+call value_before_hash(u, before); call parse_int(before, n_zeros)
+call value_before_hash(u, before); call parse_int(before, use_winding)
 call skip(u)
 
 call skip(u)
-call value_before_hash(u, before); read (before, *) Nguess
-call value_before_hash(u, before); read (before, *) kmin
-call value_before_hash(u, before); read (before, *) kmax
+call value_before_hash(u, before); call parse_int(before, Nguess)
+call value_before_hash(u, before); call parse_int(before, kmin)
+call value_before_hash(u, before); call parse_int(before, kmax)
 call skip(u)
 
 if (allocated(fstart)) deallocate (fstart)
@@ -103,7 +104,7 @@ allocate (fstart(0:Nguess - 1))
 call skip(u)
 do k = 0, Nguess - 1
     call value_before_hash(u, before)
-    read (before, *) fstart(k)
+    call parse_complex(before, fstart(k))
 end do
 
 close (u)
@@ -137,6 +138,40 @@ contains
             out = buf
         end if
     end subroutine value_before_hash
+
+    !> Mirrors read_line_2get_int_'s exact C strtol(s, NULL, 10) semantics
+    !> (see kilca_shared_m::strtol_int): eigmode_sett_data's own file
+    !> parsing must tolerate the same malformed/misaligned input the
+    !> oracle's read_line_2get_int does, rather than aborting - a real
+    !> eigmode.in in the wild (e.g. this port's golden-record fixture) is
+    !> missing the "ZerSol parameters" section (n_zeros/use_winding) that
+    !> read_settings expects, which shifts every subsequent field by two
+    !> lines; the oracle silently continues with garbage-but-defined
+    !> values (confirmed against the pristine C++ build: n_zeros=4,
+    !> use_winding=0, Nguess=0, so the fstart-reading loop below never
+    !> executes) instead of crashing - matching that exactly is more
+    !> faithful than erroring out on input the oracle happens to tolerate.
+    subroutine parse_int(s, val)
+        character(len=*), intent(in) :: s
+        integer, intent(out) :: val
+        val = strtol_int(s)
+    end subroutine parse_int
+
+    subroutine parse_real(s, val)
+        character(len=*), intent(in) :: s
+        real(dp), intent(out) :: val
+        integer :: jos
+        read (s, *, iostat=jos) val
+        if (jos /= 0) val = 0.0_dp
+    end subroutine parse_real
+
+    subroutine parse_complex(s, val)
+        character(len=*), intent(in) :: s
+        complex(dpc), intent(out) :: val
+        integer :: jos
+        read (s, *, iostat=jos) val
+        if (jos /= 0) val = (0.0_dp, 0.0_dp)
+    end subroutine parse_complex
 
 end subroutine read_eigmode_settings
 

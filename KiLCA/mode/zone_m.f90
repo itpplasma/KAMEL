@@ -28,6 +28,7 @@ module kilca_zone_m
         c_ptr, c_loc, c_f_pointer, c_null_char
     use constants, only: dp
     use kilca_wave_data_m, only: wave_data_t
+    use kilca_shared_m, only: strtol_int
     implicit none
     private
 
@@ -263,61 +264,98 @@ contains
         end if
     end subroutine zone_read
 
+    !> Mirrors read_line_2get_double_'s tolerance: a short/failed line read
+    !> (EOF) or an unparseable value-before-hash leaves val at 0.0 rather
+    !> than aborting, matching the oracle's getline/strtod-based reader
+    !> which only warns to stderr and continues.
     subroutine read_real_before_hash(unit, val)
         integer, intent(in) :: unit
         real(dp), intent(out) :: val
         character(len=1024) :: line
-        integer :: ipos
-        read (unit, '(a)') line
+        integer :: ipos, jos
+        read (unit, '(a)', iostat=jos) line
+        if (jos /= 0) line = ''
         ipos = index(line, '#')
         if (ipos == 0) ipos = len_trim(line) + 1
-        read (line(1:ipos - 1), *) val
+        read (line(1:ipos - 1), *, iostat=jos) val
+        if (jos /= 0) val = 0.0_dp
     end subroutine read_real_before_hash
 
+    !> Mirrors read_line_2get_int_'s exact C strtol(s, NULL, 10) semantics
+    !> (kilca_shared_m::strtol_int) rather than a clean Fortran integer
+    !> read: some zone_N.in fields declared as integers (e.g. flre_zone's
+    !> max_dim) are written in the file using scientific-notation float
+    !> literals like "1.00e+05" - the oracle's strtol-based reader silently
+    !> truncates that to the leading digit run (1), and this port's
+    !> translation must reproduce that truncation bit-for-bit rather than
+    !> erroring out (a plain Fortran list-directed integer read rejects
+    !> "1.00e+05" outright) or "properly" parsing the full float literal.
+    !> A short/failed line read (EOF) leaves val at 0, matching the
+    !> oracle's tolerant getline-based reader.
     subroutine read_int_before_hash(unit, val)
         integer, intent(in) :: unit
         integer, intent(out) :: val
         character(len=1024) :: line
-        integer :: ipos
-        read (unit, '(a)') line
+        integer :: ipos, jos
+        read (unit, '(a)', iostat=jos) line
+        if (jos /= 0) line = ''
         ipos = index(line, '#')
         if (ipos == 0) ipos = len_trim(line) + 1
-        read (line(1:ipos - 1), *) val
+        val = strtol_int(line(1:ipos - 1))
     end subroutine read_int_before_hash
 
     subroutine read_token_before_hash(unit, val)
         integer, intent(in) :: unit
         character(len=*), intent(out) :: val
         character(len=1024) :: line
-        integer :: ipos
-        read (unit, '(a)') line
+        integer :: ipos, jos
+        read (unit, '(a)', iostat=jos) line
+        if (jos /= 0) line = ''
         ipos = index(line, '#')
         if (ipos == 0) ipos = len_trim(line) + 1
-        read (line(1:ipos - 1), *) val
+        val = ''
+        if (len_trim(line(1:ipos - 1)) > 0) read (line(1:ipos - 1), *, iostat=jos) val
     end subroutine read_token_before_hash
 
-    !> Matches read_line_2get_complex: the text before '#' is "(re,im)".
+    !> Matches read_line_2get_complex: the text before '#' is "(re,im)". A
+    !> short/failed line read (EOF) or unparseable content leaves val at
+    !> (0,0), matching the oracle's tolerant getline-based reader.
     subroutine read_complex_before_hash(unit, val)
         integer, intent(in) :: unit
         complex(dp), intent(out) :: val
         character(len=1024) :: line
-        integer :: ipos, p1, p2, p3
+        integer :: ipos, p1, p2, p3, jos
         real(dp) :: re, im
-        read (unit, '(a)') line
+        read (unit, '(a)', iostat=jos) line
+        if (jos /= 0) line = ''
         ipos = index(line, '#')
         if (ipos == 0) ipos = len_trim(line) + 1
         p1 = index(line(1:ipos - 1), '(')
         p2 = index(line(1:ipos - 1), ',')
         p3 = index(line(1:ipos - 1), ')')
-        read (line(p1 + 1:p2 - 1), *) re
-        read (line(p2 + 1:p3 - 1), *) im
+        re = 0.0_dp
+        im = 0.0_dp
+        if (p1 > 0 .and. p2 > p1 .and. p3 > p2) then
+            read (line(p1 + 1:p2 - 1), *, iostat=jos) re
+            if (jos /= 0) re = 0.0_dp
+            read (line(p2 + 1:p3 - 1), *, iostat=jos) im
+            if (jos /= 0) im = 0.0_dp
+        end if
         val = cmplx(re, im, dp)
     end subroutine read_complex_before_hash
 
+    !> Mirrors read_line_2skip_it_: the oracle's getline-based reader only
+    !> warns to stderr on a short/failed read (`if (getline(...) < 2)
+    !> fprintf(stderr, ...)`), it never aborts - a caller can legitimately
+    !> skip_line past true EOF (e.g. a zone_N.in with no trailing blank
+    !> line after its last data field) and the oracle just continues with
+    !> whatever settings it already parsed. A bare `read` here would abort
+    !> the whole program on that same input, which is not bit-identical.
     subroutine skip_line(unit)
         integer, intent(in) :: unit
         character(len=1024) :: line
-        read (unit, '(a)') line
+        integer :: jos
+        read (unit, '(a)', iostat=jos) line
     end subroutine skip_line
 
     subroutine zone_print(self)

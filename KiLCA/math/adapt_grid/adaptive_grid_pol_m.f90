@@ -31,6 +31,7 @@ module adaptive_grid_pol_m
     private
 
     public :: adaptive_grid_polynom_res, adaptive_grid_polynom_err
+    public :: find_index_for_interp, eval_neville_polynom
 
     abstract interface
         subroutine sample_cb(r, fval, ctx) bind(C)

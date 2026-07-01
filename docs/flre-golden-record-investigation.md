@@ -120,11 +120,32 @@ stage in the port and a fresh oracle worktree at 3c364ab8, hex, bit-for-bit):
 Conclusion: reproducing the pre-port C++ output for `EB.dat`/`poy_test_err`
 byte-for-byte requires reproducing a specific compiler's rounding of a
 catastrophically ill-conditioned hypergeometric evaluation — a fundamental
-cross-compiler floating-point limit, not a porting bug. Options: (A) compile the
-single `hypergeometric1f1_cont_fract_1_modified_0_ada` kernel with the C++
-compiler (byte-exact, ~99.99% Fortran); (B) accept the ~1e-9 difference as
-floating-point-accurate and make the EB.dat/poy golden comparison grid-agnostic
-(resample before compare); (C) leave as documented 56/58.
+cross-compiler floating-point limit, not a porting bug.
+
+### Tested: keeping the 1F1 kernel as C++ does NOT close it
+
+Compiling just the three routines (`modified_0_ada`/`kummer_modified_0_ada`/
+`cont_fract_1_inv_ada`) as a small C++ file, verbatim from the pre-port source,
+made the FIRST 1F1 call byte-exact (`8CC000 B591`) but left `EB.dat` at 2682
+rows. Reason: the ill-conditioned result depends on the whole compilation unit's
+codegen, and a 3-function C++ file differs from the oracle's full
+`hyper1F1.cpp`. Dumping all calls: of 3411 identical-input 1F1 calls, **79 still
+diverge** (the most ill-conditioned), which propagate. Reproducing the oracle's
+exact codegen needs the *entire* `hyper1F1.cpp` compilation unit — which depends
+on **GSL** (`gsl_sum_levin_u` in the dead `..._accel` variant, `gsl_integration`
+in `..._quad`), a dependency the port removed. So the C++-kernel route cannot
+close it without restoring GSL and ~400 lines of C++.
+
+### Remaining options
+
+- (A) Accept 56/58 all-Fortran, treat EB.dat/poy as floating-point-accurate
+  (values agree to ~1e-9, well inside rtol=1e-7); document as an irreducible
+  cross-compiler artifact. (current state)
+- (B) Make the EB.dat/poy golden comparison grid-agnostic — resample both onto a
+  common radial grid before comparing, so the adaptive-grid row-count difference
+  is tolerated while still checking the field values to rtol. Stays 100% Fortran.
+- (C) Restore GSL and compile the full pre-port `hyper1F1.cpp` (byte-exact 58/58,
+  but reintroduces GSL + ~400 lines of C++, reversing two goals of the port).
 
 ## Earlier framing — the ~1e-9 divergence (superseded by the root cause above)
 

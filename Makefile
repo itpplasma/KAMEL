@@ -35,15 +35,22 @@ QL-Balance: build/build.ninja
 PreProc:
 	$(MAKE) -C PreProc/fourier
 
-test: ninja golden
+test: ninja
 	ctest --test-dir build --stop-on-failure --output-on-failure --no-label-summary
 
-golden: ninja
-	$(MAKE) -C test/ql-balance/golden_record
+# Golden-record regression now lives in test/golden/ and runs in the dedicated
+# GitHub Actions job, NOT in `make test`/ctest. This target is for manual local
+# runs only; it does the A/B double build and needs the golden-baseline tag.
+golden:
+	test/golden/run_golden.sh
 
 clean:
 	rm -rf build
-	$(MAKE) -C test/ql-balance/golden_record clean
+	rm -rf test/golden/build_ref test/golden/build_cur \
+	       test/golden/*/build_ref test/golden/*/build_cur \
+	       test/golden/*/out test/golden/*/logs test/golden/*/claims \
+	       test/golden/*/caselist_builds.txt
+	-git worktree prune
 
 install: ninja
 	cmake --install build

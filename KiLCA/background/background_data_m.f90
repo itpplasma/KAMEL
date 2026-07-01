@@ -23,7 +23,7 @@
 module kilca_background_data_m
     use, intrinsic :: iso_c_binding
     use, intrinsic :: iso_fortran_env, only: error_unit, output_unit
-    use constants, only: dp, pi, boltz, c, mp, me, e
+    use constants, only: dp, pi, boltz, mp, me, e
     use kilca_spline_m, only: spline_alloc, spline_calc, spline_eval, spline_free
     use fortnum_status, only: fortnum_status_t, FORTNUM_OK
     use fortnum_ode_rk8pd, only: rk8pd_state_t, rk8pd_evolve_init, rk8pd_evolve_apply
@@ -31,6 +31,12 @@ module kilca_background_data_m
         rtor, B0, V_gal_sys, V_scale, mass, charge, zion, zele, flag_debug
     implicit none
     private
+
+    !> Speed of light at full double precision, mirroring the C++ oracle's
+    !> constants.h (const double c = 29979245800.0) that this ported code
+    !> descends from. The Fortran constants module keeps a legacy
+    !> single-precision c for its own (unported) physics; see that module.
+    real(dp), parameter :: c = 29979245800.0_dp
 
     public :: background_create, background_set_profiles_from_files
     public :: background_set_profiles_from_interface

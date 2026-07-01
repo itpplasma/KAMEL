@@ -29,7 +29,7 @@
 module kilca_flre_zone_m
     use, intrinsic :: iso_c_binding, only: c_int, c_intptr_t, c_double, c_char, &
         c_ptr, c_funptr, c_funloc, c_loc, c_f_pointer, c_null_ptr, c_null_char
-    use constants, only: dp, c, im
+    use constants, only: dp, im
     use kilca_zone_m, only: zone_t, zone_register, handle_to_zone, zone_read, zone_print, &
         skip_line, read_real_before_hash, read_int_before_hash, read_token_before_hash, &
         read_complex_before_hash, &
@@ -58,6 +58,11 @@ module kilca_flre_zone_m
     use mode_data, only: md_path2linear => path2linear, md_path2dispersion => path2dispersion
     implicit none
     private
+
+    !> Speed of light at full double precision, mirroring the C++ oracle's
+    !> constants.h that this ported code descends from. The Fortran constants
+    !> module keeps a legacy single-precision c for its own physics.
+    real(dp), parameter :: c = 29979245800.0_dp
 
     public :: flre_zone_t
     public :: flre_zone_create_

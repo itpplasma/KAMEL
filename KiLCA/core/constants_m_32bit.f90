@@ -32,7 +32,8 @@ real(dp), parameter :: tppoh = (2.0d0*pi)**(1.5d0)
 
 complex(dpc), parameter :: im = (0.0d0, 1.0d0)
 
-real(dp), parameter :: c  = 29979245800.0   !speed of light in vacuum
+real(dp), parameter :: c  = real(29979245800.0_sp, dp)   !speed of light in vacuum; legacy single-precision value (29979246592.0) preserved for golden-record parity of Fortran-side physics; C++-ported code uses a local double-precision c
+
 real(dp), parameter :: mp = 1.67262158d-24  !proton mass
 real(dp), parameter :: me = mp/1.8361526675d3 !electron mass
 real(dp), parameter :: e  = 4.8032d-10        !elementary charge

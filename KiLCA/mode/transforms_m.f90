@@ -9,10 +9,15 @@
 !> a Fortran singleton; see kilca_background_data_m).
 module kilca_transforms_m
     use, intrinsic :: iso_c_binding, only: c_intptr_t, c_double, c_double_complex, c_null_ptr
-    use constants, only: dp, c
+    use constants, only: dp
     use kilca_background_data_m, only: eval_hthz_native => eval_hthz
     implicit none
     private
+
+    !> Speed of light at full double precision, mirroring the C++ oracle's
+    !> constants.h that this ported code descends from. The Fortran constants
+    !> module keeps a legacy single-precision c for its own physics.
+    real(dp), parameter :: c = 29979245800.0_dp
 
     public :: galilean_transform_of_EB_fields
     public :: transform_EB_from_cyl_to_rsp

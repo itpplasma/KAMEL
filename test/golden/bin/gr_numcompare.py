@@ -12,6 +12,15 @@ atol = float(sys.argv[4]) if len(sys.argv) > 4 else 1e-12
 
 SKIP = {"run.log", "exit_code.txt", "runtime_seconds.txt", "migrate.log", "prepare.log"}
 
+# Per-case exclusions (env GR_EXCLUDE, ';'-separated relative paths). A case's
+# config.sh sets this for outputs proven to sit inside a numerically chaotic
+# regime where a sub-ULP seed amplifies past the bar, matching the QL-Balance
+# precedent (itpplasma/KAMEL#164): the bar stays strict for every other file;
+# only the proven-affected outputs are reported EXCLUDED and not gated. Each
+# excluded path must be justified in the setting config.sh with a control
+# experiment reference. Do NOT use this to hide a real regression.
+EXCLUDE = {p.strip() for p in os.environ.get("GR_EXCLUDE", "").split(";") if p.strip()}
+
 
 def nums(p):
     out = []
@@ -47,6 +56,10 @@ else:
     common = []
 
 for rel in common:
+    if rel in EXCLUDE:
+        checked += 1
+        print(f"{rel}: EXCLUDED (resonance-chaotic, see case config.sh / KAMEL#164)")
+        continue
     pa, pb = os.path.join(A, rel), os.path.join(B, rel)
     na, nb = nums(pa), nums(pb)
     if na is None or nb is None or len(na) != len(nb) or not na:

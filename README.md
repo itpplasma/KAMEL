@@ -16,8 +16,9 @@ The framework consists of three main codes:
 
 ### System Dependencies
 - **CMake 3.24+**
-- **Fortran compiler** (gfortran 10+)
+- **Fortran compiler** (gfortran 10+ or ifort)
 - **C/C++ compiler** with OpenMP support (LLVM clang or gcc/g++)
+- **MPI** (MPICH or OpenMPI)
 - **Python 3.8+** with pip
 - **NetCDF** with Fortran bindings (`nf-config` must be on PATH)
 
@@ -74,6 +75,8 @@ make clean          # Clean build
 ```
 
 **Note:** External dependencies are automatically downloaded and built during the first compilation if not found on the system.
+
+To pin libneo to a specific branch, tag, or commit, pass `-DLIBNEO_REF=<ref>` to cmake or `LIBNEO_REF=<ref>` to make. To use a local checkout instead of fetching, pass `-DLIBNEO_PATH=<dir>` / `LIBNEO_PATH=<dir>`.
 
 ### macOS
 

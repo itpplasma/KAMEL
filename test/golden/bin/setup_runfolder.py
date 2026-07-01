@@ -38,10 +38,19 @@ import os
 import sys
 from pathlib import Path
 
-# Add the python package directory to sys.path for standalone execution
-_python_dir = Path(__file__).resolve().parents[3] / "python"
-if str(_python_dir) not in sys.path:
-    sys.path.insert(0, str(_python_dir))
+# Add the python package directory to sys.path for standalone execution.
+# Prefer GR_PYTHON_DIR (set by the golden-record prepare hook so the generator
+# uses the *build's own* python tree); otherwise walk up to the repo's python/.
+_python_dir = os.environ.get("GR_PYTHON_DIR")
+if _python_dir is None:
+    # Fallback: walk up to a directory containing 'python/balance_interface'
+    p = Path(__file__).resolve()
+    for cand in p.parents:
+        if (cand / "python" / "balance_interface").is_dir():
+            _python_dir = str(cand / "python")
+            break
+if _python_dir and _python_dir not in sys.path:
+    sys.path.insert(0, _python_dir)
 
 from balance_interface import QL_Balance_interface
 from utility import create_parabolic_profiles_from_res_surf
@@ -132,3 +141,23 @@ def get_output_hdf5_path(runfolder: Path) -> Path:
     if not output_file.exists():
         raise FileNotFoundError(f"Output file not found: {output_file}")
     return output_file
+
+
+if __name__ == "__main__":
+    import argparse
+
+    parser = argparse.ArgumentParser(
+        description="Generate a QL-Balance synthetic runfolder (profiles + "
+        "balance_conf.nml + an internal KiLCA run) in the given directory. "
+        "Used as the golden-record prepare hook."
+    )
+    parser.add_argument("run_path", help="directory to populate (must already exist)")
+    parser.add_argument(
+        "--nml-template",
+        dest="nml_template",
+        default="",
+        help="balance_conf.nml template matching this build's binary "
+        "(empty -> the build's own source-tree default)",
+    )
+    args = parser.parse_args()
+    setup_runfolder(args.run_path, args.nml_template)

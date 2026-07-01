@@ -147,6 +147,34 @@ contains
             allocate (perm(sp%dimx))
             call argsort(sp%xt(1:sp%dimx), perm)
 
+            ! fortnum argsort is an unstable heapsort; the sysmat grid shares
+            ! zone-boundary nodes (duplicated x), so break exact-key ties by
+            ! ascending original index, reproducing the oracle's
+            ! sort_index_doubles (KiLCA/core/shared.cpp) so the spline is
+            ! well-defined and matches the C++ oracle bit-for-bit.
+            block
+                integer :: ta, tb, kk, tmp
+                ta = 1
+                do while (ta <= sp%dimx)
+                    tb = ta + 1
+                    do while (tb <= sp%dimx)
+                        if (sp%xt(perm(tb)) /= sp%xt(perm(ta))) exit
+                        tb = tb + 1
+                    end do
+                    do kk = ta + 1, tb - 1
+                        tmp = perm(kk)
+                        i = kk - 1
+                        do while (i >= ta)
+                            if (perm(i) <= tmp) exit
+                            perm(i + 1) = perm(i)
+                            i = i - 1
+                        end do
+                        perm(i + 1) = tmp
+                    end do
+                    ta = tb
+                end do
+            end block
+
             do i = 1, sp%dimx
                 sp%x(i) = sp%xt(perm(i))
                 do j = 0, sp%dimM - 1

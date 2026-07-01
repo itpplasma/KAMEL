@@ -5,8 +5,6 @@
 #include <cmath>
 #include <cfloat>
 
-#include <gsl/gsl_heapsort.h>
-
 #include "adaptive_grid.h"
 #include "shared.h"
 
@@ -149,7 +147,7 @@ for(i=0; i<dimI; i++) err[i] = Iarr[i].xs; //err is not needed any more
 /*sorting intervals: qsort is faster (uses pointers) but we need indices*/
 size_t *perm = new size_t[dimI];
 
-gsl_heapsort_index (perm, err, dimI, sizeof(double), compare_doubles);
+sort_index_doubles (perm, err, dimI);
 
 //setting up output grid values:
 for(i=0; i<dimI; i++)

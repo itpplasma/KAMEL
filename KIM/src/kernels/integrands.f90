@@ -74,7 +74,6 @@ module integrands_gauss_m
 
         use constants_m, only: pi
         use species_m, only: plasma
-        use gsl_mod, only: erf => gsl_sf_erf
         use KIM_kinds_m, only: dp
         use functions_m, only: varphi_l
         use numerics_utils_m, only: erf_diff
@@ -108,7 +107,6 @@ module integrands_gauss_m
 
         use constants_m, only: pi
         use species_m, only: plasma
-        use gsl_mod, only: erf => gsl_sf_erf
         use KIM_kinds_m, only: dp
         use functions_m, only: varphi_l
 
@@ -143,7 +141,6 @@ module integrands_gauss_m
 
         use constants_m, only: pi
         use species_m, only: plasma
-        use gsl_mod, only: erf => gsl_sf_erf
         use KIM_kinds_m, only: dp
         use functions_m, only: varphi_l
 

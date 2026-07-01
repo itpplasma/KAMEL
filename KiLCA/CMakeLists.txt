@@ -111,7 +111,7 @@ set (kilca_eigparam_main progs/main_eig_param.cpp)
 set (libs_root_path ${CMAKE_BINARY_DIR}/external-install)
 set (gsl_include_path ${libs_root_path}/gsl/include)
 
-set(EXTERNAL_LIBS slatec lapack blas SUNDIALS::cvode SUNDIALS::nvecserial gsl gslcblas)
+set(EXTERNAL_LIBS slatec lapack blas SUNDIALS::cvode SUNDIALS::nvecserial fortnum gsl gslcblas)
 
 # configure a header file to pass some of the CMake settings to the source code
 configure_file(
@@ -122,6 +122,8 @@ configure_file(
 include_directories("${CMAKE_CURRENT_BINARY_DIR}")
 
 include_directories ("${gsl_include_path}")
+# fortnum C ABI header (fortnum.h); the Fortran fortnum target is linked above.
+include_directories ("${fortnum_SOURCE_DIR}/include")
 include_directories ("${PROJECT_BINARY_DIR}")
 include_directories ("${CMAKE_CURRENT_SOURCE_DIR}/antenna")
 include_directories ("${CMAKE_CURRENT_SOURCE_DIR}/background")
@@ -283,6 +285,7 @@ target_include_directories(kilca_lib PUBLIC
     # External dependencies
     ${sundials_include_path}
     ${gsl_include_path}
+    ${fortnum_SOURCE_DIR}/include
 )
 
 add_executable (kilca_normal_exe ${kilca_normal_main})

@@ -29,14 +29,14 @@ The framework consists of three main codes:
 
 ### Auto-Fetched Libraries
 The following are automatically downloaded and built if not found on the system:
-- **GSL** - GNU Scientific Library
+- **fortnum** - Numerical core (special functions, quadrature, ODE, root finding)
 - **SuiteSparse** - Sparse matrix operations (UMFPACK)
 - **SUNDIALS** - Numerical differential equation solvers
 - **NetCDF** - Network Common Data Form (with Fortran bindings)
 - **LAPACK/BLAS** - Fallback if not found on system
 
 ### Bundled Libraries (built from source)
-- **slatec** - Special functions and ODE solvers (`common/math/`)
+- **fortnum_amos_compat** - AMOS complex-Bessel ABI backed by fortnum (`common/math/`)
 - **libcerf** - Complex error function (`KIM/src/math/`)
 
 ### Python Dependencies
@@ -60,7 +60,7 @@ make QL-Balance
 make clean
 ```
 
-**Note:** External dependencies (LAPACK, SuiteSparse, GSL, SUNDIALS) are automatically downloaded and built during the first compilation if not found on the system.
+**Note:** External dependencies (LAPACK, SuiteSparse, fortnum, SUNDIALS) are automatically downloaded and built during the first compilation if not found on the system.
 
 To pin libneo to a specific branch, tag, or commit, pass `-DLIBNEO_REF=<ref>` to cmake or `LIBNEO_REF=<ref>` to make. To use a local checkout instead of fetching, pass `-DLIBNEO_PATH=<dir>` / `LIBNEO_PATH=<dir>`.
 

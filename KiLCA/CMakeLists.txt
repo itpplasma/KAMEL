@@ -101,17 +101,16 @@ else ()
     set (Jac )
 endif ()
 
-set (kilca_normal_main progs/main_linear.cpp)
-set (kilca_eigparam_main progs/main_eig_param.cpp)
+set (kilca_normal_main progs/main_linear.f90)
+set (kilca_eigparam_main progs/main_eig_param.f90)
 
 # --- Dependencies ---
 # Dependencies are provided by the top-level project via cmake/Dependencies.cmake
 
 # include paths:
 set (libs_root_path ${CMAKE_BINARY_DIR}/external-install)
-set (gsl_include_path ${libs_root_path}/gsl/include)
 
-set(EXTERNAL_LIBS slatec lapack blas SUNDIALS::cvode SUNDIALS::nvecserial fortnum gsl gslcblas)
+set(EXTERNAL_LIBS fortnum_amos_compat lapack blas SUNDIALS::cvode SUNDIALS::nvecserial fortnum sundials_fcvode_mod)
 
 # configure a header file to pass some of the CMake settings to the source code
 configure_file(
@@ -121,7 +120,6 @@ configure_file(
 # Make generated header available
 include_directories("${CMAKE_CURRENT_BINARY_DIR}")
 
-include_directories ("${gsl_include_path}")
 # fortnum C ABI header (fortnum.h); the Fortran fortnum target is linked above.
 include_directories ("${fortnum_SOURCE_DIR}/include")
 include_directories ("${PROJECT_BINARY_DIR}")
@@ -150,56 +148,49 @@ include_directories ("${CMAKE_CURRENT_SOURCE_DIR}/spline")
 
 #cpp source files for kilca lib:
 set(kilca_lib_cpp_sources
-    core/shared.cpp
-    core/core.cpp
-    core/settings.cpp
-    core/output_sett.cpp
-    background/back_sett.cpp
-    background/background.cpp
-    background/calc_back.cpp
-    background/eval_back.cpp
-    eigmode/eigmode_sett.cpp
-    eigmode/calc_eigmode.cpp
-    eigmode/find_eigmodes.cpp
-    antenna/antenna.cpp
-    flre/flre_zone.cpp
-    flre/conductivity/calc_cond.cpp
-    flre/conductivity/cond_profs${interp}.cpp
-    flre/conductivity/eval_cond.cpp
-    flre/dispersion/disp_profs.cpp
-    flre/maxwell_eqs/eval_sysmat.cpp
-    flre/maxwell_eqs/maxwell_eqs_data.cpp
-    flre/maxwell_eqs/sysmat_profs.cpp
-    flre/quants/calc_flre_quants.cpp
-    flre/quants/flre_quants.cpp
-    hom_medium/hmedium_zone.cpp
-    imhd/compressible_flow.cpp
-    imhd/imhd_zone.cpp
-    imhd/incompressible.cpp
-    interface/wave_code_interface.cpp
-    interp/interp.cpp
-    io/inout.cpp
-    mode/mode.cpp
-    mode/calc_mode.cpp
-    mode/zone.cpp
-    mode/transforms.cpp
-    solver/solver.cpp
-    solver/rhs_func.cpp
-    spline/spline.cpp
-    math/hyper/hyper1F1.cpp
-    math/adapt_grid/adaptive_grid.cpp
-    math/adapt_grid/adaptive_grid_pol.cpp
+    math/zersol-0.0.0/src/zersolc.cpp
 )
 
 #fortran source files for kilca lib:
 set(kilca_lib_fortran_sources
     core/constants_m${arch}.f90
+    core/shared_m.f90
     core/core_m.f90
+    core/output_sett_m.f90
+    core/settings_m.f90
+    core/core_data_m.f90
+    io/inout_m.f90
+    progs/progs_common_m.f90
+    interface/wave_code_interface_m.f90
+    spline/spline_m.f90
+    interp/neville_m.f90
+    math/hyper/hyper1F1_m.f90
+    math/adapt_grid/adaptive_grid_m.f90
+    math/adapt_grid/adaptive_grid_pol_m.f90
     antenna/antenna_m.f90
     background/background_m.f90
+    background/background_data_m.f90
+    eigmode/eigmode_sett_m.f90
     flre/flre_sett_m.f90
     mode/mode_m.f90
+    mode/wave_data_m.f90
+    mode/transforms_m.f90
+    mode/zone_m.f90
+    mode/mode_data_m.f90
+    eigmode/eigmode_solve_m.f90
+    hom_medium/hmedium_zone_m.f90
+    imhd/incompressible_m.f90
+    imhd/compressible_flow_m.f90
+    imhd/imhd_zone_m.f90
+    interp/interp_m.f90
     flre/maxwell_eqs/maxwell_eqs_m.f90
+    flre/maxwell_eqs/maxwell_eqs_data_m.f90
+    flre/maxwell_eqs/sysmat_profs_m.f90
+    flre/dispersion/disp_profs_m.f90
+    flre/conductivity/cond_profs_m.f90
+    flre/quants/flre_quants_m.f90
+    solver/solver_m.f90
+    flre/flre_zone_m.f90
     background/f0moments${Jac}.f90
     background/density_p${Jac}.f90
     antenna/antenna_spectrum.f90
@@ -284,7 +275,6 @@ target_include_directories(kilca_lib PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/spline
     # External dependencies
     ${sundials_include_path}
-    ${gsl_include_path}
     ${fortnum_SOURCE_DIR}/include
 )
 
@@ -292,6 +282,7 @@ add_executable (kilca_normal_exe ${kilca_normal_main})
 set_target_properties(kilca_normal_exe PROPERTIES
     OUTPUT_NAME ${kilca_normal_exe}
     RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/install/bin/)
+target_include_directories (kilca_normal_exe PRIVATE ${PROJECT_BINARY_DIR}/OBJS/kilca/)
 add_dependencies(kilca_normal_exe ${EXTERNAL_LIBS})
 target_link_libraries (kilca_normal_exe kilca_lib ${EXTERNAL_LIBS})
 
@@ -299,15 +290,118 @@ add_executable (kilca_eigparam_exe ${kilca_eigparam_main})
 set_target_properties(kilca_eigparam_exe PROPERTIES
     OUTPUT_NAME ${kilca_eigparam_exe}
     RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/install/bin/)
+target_include_directories (kilca_eigparam_exe PRIVATE ${PROJECT_BINARY_DIR}/OBJS/kilca/)
 add_dependencies(kilca_eigparam_exe ${EXTERNAL_LIBS})
 target_link_libraries (kilca_eigparam_exe kilca_lib ${EXTERNAL_LIBS})
 
-add_executable (post_proc post_processing/main_post_proc.cpp post_processing/save_fortran.f90)
+add_executable (post_proc post_processing/main_post_proc.f90 post_processing/save_fortran.f90)
 set_target_properties(post_proc PROPERTIES
     OUTPUT_NAME post_processor_${KiLCA_ARCHITECTURE}
     RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/install/bin/)
+target_include_directories (post_proc PRIVATE ${PROJECT_BINARY_DIR}/OBJS/kilca/)
 add_dependencies(post_proc ${EXTERNAL_LIBS})
 target_link_libraries (post_proc kilca_lib ${EXTERNAL_LIBS})
+
+add_executable (test_spline tests/test_spline.f90)
+set_target_properties(test_spline PROPERTIES
+    OUTPUT_NAME test_spline.x
+    RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/tests/)
+target_include_directories (test_spline PRIVATE ${PROJECT_BINARY_DIR}/OBJS/kilca/)
+add_dependencies(test_spline kilca_lib)
+target_link_libraries (test_spline kilca_lib ${EXTERNAL_LIBS})
+add_test(NAME test_spline COMMAND ${CMAKE_BINARY_DIR}/tests/test_spline.x)
+
+add_executable (test_hyper1f1 tests/test_hyper1f1.f90)
+set_target_properties(test_hyper1f1 PROPERTIES
+    OUTPUT_NAME test_hyper1f1.x
+    RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/tests/)
+add_dependencies(test_hyper1f1 kilca_lib)
+target_link_libraries (test_hyper1f1 kilca_lib ${EXTERNAL_LIBS})
+add_test(NAME test_hyper1f1 COMMAND ${CMAKE_BINARY_DIR}/tests/test_hyper1f1.x)
+
+add_executable (test_neville tests/test_neville.f90)
+set_target_properties(test_neville PROPERTIES
+    OUTPUT_NAME test_neville.x
+    RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/tests/)
+target_include_directories (test_neville PRIVATE ${PROJECT_BINARY_DIR}/OBJS/kilca/)
+add_dependencies(test_neville kilca_lib)
+target_link_libraries (test_neville kilca_lib ${EXTERNAL_LIBS})
+add_test(NAME test_neville COMMAND ${CMAKE_BINARY_DIR}/tests/test_neville.x)
+
+add_executable (test_antenna_settings tests/test_antenna_settings.f90)
+set_target_properties(test_antenna_settings PROPERTIES
+    OUTPUT_NAME test_antenna_settings.x
+    RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/tests/)
+add_dependencies(test_antenna_settings kilca_lib)
+target_link_libraries (test_antenna_settings kilca_lib ${EXTERNAL_LIBS})
+add_test(NAME test_antenna_settings COMMAND ${CMAKE_BINARY_DIR}/tests/test_antenna_settings.x)
+set_tests_properties(test_antenna_settings PROPERTIES WORKING_DIRECTORY ${CMAKE_BINARY_DIR}/tests/)
+
+add_executable (test_output_settings tests/test_output_settings.f90)
+set_target_properties(test_output_settings PROPERTIES
+    OUTPUT_NAME test_output_settings.x
+    RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/tests/)
+add_dependencies(test_output_settings kilca_lib)
+target_link_libraries (test_output_settings kilca_lib ${EXTERNAL_LIBS})
+add_test(NAME test_output_settings COMMAND ${CMAKE_BINARY_DIR}/tests/test_output_settings.x)
+set_tests_properties(test_output_settings PROPERTIES WORKING_DIRECTORY ${CMAKE_BINARY_DIR}/tests/)
+
+add_executable (test_back_sett tests/test_back_sett.f90)
+set_target_properties(test_back_sett PROPERTIES
+    OUTPUT_NAME test_back_sett.x
+    RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/tests/)
+add_dependencies(test_back_sett kilca_lib)
+target_link_libraries (test_back_sett kilca_lib ${EXTERNAL_LIBS})
+add_test(NAME test_back_sett COMMAND ${CMAKE_BINARY_DIR}/tests/test_back_sett.x)
+set_tests_properties(test_back_sett PROPERTIES WORKING_DIRECTORY ${CMAKE_BINARY_DIR}/tests/)
+
+add_executable (test_eigmode_sett tests/test_eigmode_sett.f90)
+set_target_properties(test_eigmode_sett PROPERTIES
+    OUTPUT_NAME test_eigmode_sett.x
+    RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/tests/)
+add_dependencies(test_eigmode_sett kilca_lib)
+target_link_libraries (test_eigmode_sett kilca_lib ${EXTERNAL_LIBS})
+add_test(NAME test_eigmode_sett COMMAND ${CMAKE_BINARY_DIR}/tests/test_eigmode_sett.x)
+set_tests_properties(test_eigmode_sett PROPERTIES WORKING_DIRECTORY ${CMAKE_BINARY_DIR}/tests/)
+
+# Standalone: links maxwell_eqs_data_m.f90 + fakes only, NOT kilca_lib, since
+# the fakes intentionally redefine the same C-ABI symbols maxwell_eqs_m.f90
+# (inside kilca_lib) provides for real zones.
+add_executable (test_maxwell_eqs_data
+    flre/maxwell_eqs/maxwell_eqs_data_m.f90
+    tests/test_maxwell_eqs_data_fakes.f90
+    tests/test_maxwell_eqs_data.f90)
+set_target_properties(test_maxwell_eqs_data PROPERTIES
+    OUTPUT_NAME test_maxwell_eqs_data.x
+    RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/tests/
+    Fortran_MODULE_DIRECTORY ${CMAKE_BINARY_DIR}/OBJS/test_maxwell_eqs_data/)
+add_test(NAME test_maxwell_eqs_data COMMAND ${CMAKE_BINARY_DIR}/tests/test_maxwell_eqs_data.x)
+
+# Standalone: links disp_profs_m.f90 + fakes only, NOT kilca_lib, since the
+# fakes intentionally redefine calc_dispersion/save_cmplx_matrix_to_one_file.
+add_executable (test_disp_profiles
+    flre/dispersion/disp_profs_m.f90
+    tests/test_disp_profiles_fakes.f90
+    tests/test_disp_profiles.f90)
+set_target_properties(test_disp_profiles PROPERTIES
+    OUTPUT_NAME test_disp_profiles.x
+    RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/tests/
+    Fortran_MODULE_DIRECTORY ${CMAKE_BINARY_DIR}/OBJS/test_disp_profiles/)
+add_test(NAME test_disp_profiles COMMAND ${CMAKE_BINARY_DIR}/tests/test_disp_profiles.x)
+
+# Standalone: links sysmat_profs_m.f90 + fakes + fortnum (for argsort) only,
+# NOT kilca_lib, since the fakes intentionally redefine calc_diff_sys_matrix_/
+# calc_adaptive_1D_grid_4vector_/spline_alloc_/spline_calc_/save_cmplx_matrix.
+add_executable (test_sysmat_profiles
+    flre/maxwell_eqs/sysmat_profs_m.f90
+    tests/test_sysmat_profiles_fakes.f90
+    tests/test_sysmat_profiles.f90)
+set_target_properties(test_sysmat_profiles PROPERTIES
+    OUTPUT_NAME test_sysmat_profiles.x
+    RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/tests/
+    Fortran_MODULE_DIRECTORY ${CMAKE_BINARY_DIR}/OBJS/test_sysmat_profiles/)
+target_link_libraries (test_sysmat_profiles fortnum)
+add_test(NAME test_sysmat_profiles COMMAND ${CMAKE_BINARY_DIR}/tests/test_sysmat_profiles.x)
 
 # add a target to generate API documentation with Doxygen
 find_package (Doxygen)

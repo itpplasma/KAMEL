@@ -82,6 +82,7 @@ set(balance_lib_base_fortran_sources
     ${base_balance_src}/time_evolution.f90
     ${base_balance_src}/toroidal_torque.f90
     ${base_balance_src}/transp_coeffs_mod.f90
+    ${base_balance_src}/vel_integral_m.f90
     ${base_balance_src}/W2_arr.f90
     ${base_balance_src}/wave_code_data_64bit.f90
     ${base_balance_src}/wave_code_data_mod.f90
@@ -96,7 +97,6 @@ set(balance_lib_stellarator_fortran_sources
     ${src}/stellarator/evolvestep_stell.f90
 )
 set(balance_lib_cpp_sources
-    ${base_balance_src}/vel_integral.cpp
     ${base_balance_src}/cvodeint.cpp
 )
 
@@ -120,9 +120,6 @@ target_include_directories(ql-balance_lib PUBLIC ${CMAKE_BINARY_DIR}/KiLCA/mod $
 # source keeps seeing QL-Balance's own resonances_mod.
 set_source_files_properties(${base_balance_src}/kim_wave_code_adapter.f90
     PROPERTIES INCLUDE_DIRECTORIES "${CMAKE_BINARY_DIR}/OBJS/kim/")
-
-# Include central slatec math sources via cache variable defined by common/math
-target_include_directories(ql-balance_lib PUBLIC ${SLATEC_INCLUDE_DIR})
 
 # fortnum C ABI header (fortnum.h) for vel_integral.cpp.
 target_include_directories(ql-balance_lib PUBLIC ${fortnum_SOURCE_DIR}/include)
@@ -154,8 +151,6 @@ target_link_libraries(ql-balance_lib PUBLIC
     SUNDIALS::nvecserial
     blas
     fortnum
-    gsl
-    gslcblas
     hdf5::hdf5
     hdf5::hdf5_fortran
     hdf5::hdf5_hl
@@ -167,7 +162,7 @@ target_link_libraries(ql-balance_lib PUBLIC
     lapack
     netcdf
     netcdff
-    slatec
+    fortnum_amos_compat
     sparse
 )
 

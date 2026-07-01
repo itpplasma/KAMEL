@@ -23,7 +23,7 @@ void calc_wave_code_data_ (core_data ** cdptr, char const * run_path, int * path
     //!The function computes wave fields and other quantities which migth be obtained by subsequent calls of other get_* () interface functions
     //gets path to the project
     char * path = new char[1024];
-    strcpy (path, run_path);
+    memcpy (path, run_path, *pathlength);
     path[*pathlength] = '\0'; //end of string symbol
 
     if (path[strlen(path)-1] != '/') strcat(path, "/");
@@ -46,7 +46,7 @@ void calc_wave_code_data_for_mode_ (core_data ** cdptr, char const * run_path, i
     //!The function computes wave fields and other quantities which migth be obtained by subsequent calls of other get_* () interface functions
     //gets path to the project
     char * path = new char[1024];
-    strcpy (path, run_path);
+    memcpy (path, run_path, *pathlength);
     path[*pathlength] = '\0'; //end of string symbol
     if (path[strlen(path)-1] != '/') strcat(path, "/");
 
@@ -384,7 +384,7 @@ calc_conductivity_matrices_for_mode_
 //gets path to the project
 char * path = new char[1024];
 
-strcpy (path, run_path);
+memcpy (path, run_path, *pathlength);
 
 path[*pathlength] = '\0'; //end of string symbol
 

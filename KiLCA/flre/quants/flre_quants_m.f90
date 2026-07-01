@@ -535,7 +535,8 @@ contains
                             cm = cmplx(qp%cmat(idx_cmat(qp%flreo, spec, type_, order, i, j, 0)), &
                                        qp%cmat(idx_cmat(qp%flreo, spec, type_, order, i, j, 1)), c_double)
                             ef = cmplx(qp%eb_mov(idx_f(qp%ncomps, qp%node, get_me_iersp_sys(qp%zone_me, j) + order, 0) + 1), &
-                                       qp%eb_mov(idx_f(qp%ncomps, qp%node, get_me_iersp_sys(qp%zone_me, j) + order, 1) + 1), c_double)
+                                       qp%eb_mov(idx_f(qp%ncomps, qp%node, &
+                                                       get_me_iersp_sys(qp%zone_me, j) + order, 1) + 1), c_double)
                             cd = cd + cm*ef
                         end do
                     end do
@@ -665,9 +666,11 @@ contains
                                 km = cmplx(qp%kmat(idx_kmat(dimk, qp%flreo, 0, spec, type_, n1, n2, i, j, 0) + 1), &
                                            qp%kmat(idx_kmat(dimk, qp%flreo, 0, spec, type_, n1, n2, i, j, 1) + 1), c_double)
                                 ef1 = cmplx(qp%eb_mov(idx_f(qp%ncomps, qp%node, get_me_iersp_sys(qp%zone_me, i) + n1, 0) + 1), &
-                                            qp%eb_mov(idx_f(qp%ncomps, qp%node, get_me_iersp_sys(qp%zone_me, i) + n1, 1) + 1), c_double)
+                                            qp%eb_mov(idx_f(qp%ncomps, qp%node, &
+                                                            get_me_iersp_sys(qp%zone_me, i) + n1, 1) + 1), c_double)
                                 ef2 = cmplx(qp%eb_mov(idx_f(qp%ncomps, qp%node, get_me_iersp_sys(qp%zone_me, j) + n2, 0) + 1), &
-                                            qp%eb_mov(idx_f(qp%ncomps, qp%node, get_me_iersp_sys(qp%zone_me, j) + n2, 1) + 1), c_double)
+                                            qp%eb_mov(idx_f(qp%ncomps, qp%node, &
+                                                            get_me_iersp_sys(qp%zone_me, j) + n2, 1) + 1), c_double)
                                 dpd = dpd + km*conjg(ef1)*ef2
                             end do
                         end do
@@ -751,12 +754,18 @@ contains
                                 coeff = (-1.0d0)**(n1 + p)*qp%bico(idx_bico(qp%flreo, s, n1 - p - 1))
                                 do i = 0, 2
                                     do j = 0, 2
-                                        km = cmplx(qp%kmat(idx_kmat(dimk, qp%flreo, n1 - p - s - 1, spec, type_, n1, n2, i, j, 0) + 1), &
-                                                   qp%kmat(idx_kmat(dimk, qp%flreo, n1 - p - s - 1, spec, type_, n1, n2, i, j, 1) + 1), c_double)
-                                        ef1 = cmplx(qp%eb_mov(idx_f(qp%ncomps, qp%node, get_me_iersp_sys(qp%zone_me, i) + p, 0) + 1), &
-                                                    qp%eb_mov(idx_f(qp%ncomps, qp%node, get_me_iersp_sys(qp%zone_me, i) + p, 1) + 1), c_double)
-                                        ef2 = cmplx(qp%eb_mov(idx_f(qp%ncomps, qp%node, get_me_iersp_sys(qp%zone_me, j) + n2 + s, 0) + 1), &
-                                                    qp%eb_mov(idx_f(qp%ncomps, qp%node, get_me_iersp_sys(qp%zone_me, j) + n2 + s, 1) + 1), c_double)
+                                        km = cmplx(qp%kmat(idx_kmat(dimk, qp%flreo, n1 - p - s - 1, &
+                                                                    spec, type_, n1, n2, i, j, 0) + 1), &
+                                                   qp%kmat(idx_kmat(dimk, qp%flreo, n1 - p - s - 1, &
+                                                                    spec, type_, n1, n2, i, j, 1) + 1), c_double)
+                                        ef1 = cmplx(qp%eb_mov(idx_f(qp%ncomps, qp%node, &
+                                                                    get_me_iersp_sys(qp%zone_me, i) + p, 0) + 1), &
+                                                    qp%eb_mov(idx_f(qp%ncomps, qp%node, &
+                                                                    get_me_iersp_sys(qp%zone_me, i) + p, 1) + 1), c_double)
+                                        ef2 = cmplx(qp%eb_mov(idx_f(qp%ncomps, qp%node, &
+                                                                    get_me_iersp_sys(qp%zone_me, j) + n2 + s, 0) + 1), &
+                                                    qp%eb_mov(idx_f(qp%ncomps, qp%node, &
+                                                                    get_me_iersp_sys(qp%zone_me, j) + n2 + s, 1) + 1), c_double)
                                         kf = kf + coeff*km*conjg(ef1)*ef2
                                     end do
                                 end do

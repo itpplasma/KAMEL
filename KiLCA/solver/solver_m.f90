@@ -404,8 +404,12 @@ contains
 
         Nort = step
 
+        ! The oracle passes pointers to the LAST orthonormalization's entries
+        ! (rdata-1, ydata-Neq, taudata-2*Nfs), not the post-advance positions:
+        ! the reconstruction must start at the final renorm's r and its stored
+        ! R factor, else the first segment crossing inverts the Q slot.
         call renorm_basis_vecs(Nfs, Nw, dim, rvec, Smat, (dim - 1)*Neq, Nort, &
-                               mem, rdata_i, ydata_i, taudata_i)
+                               mem, rdata_i - 1, ydata_i - Neq, taudata_i - 2*Nfs)
 
         call FN_VDestroy(y)
         call FN_VDestroy(yval)

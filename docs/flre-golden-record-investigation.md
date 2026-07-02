@@ -6,17 +6,51 @@ Oracle: C++ KiLCA built at the port branch's merge-base with `main`
 golden record was generated with. Comparison tool: `test/golden/bin/gr_numcompare.py`
 (rtol=1e-7, atol=1e-12).
 
-## Status
+## Status — RESOLVED (2026-07-02)
 
-58 files compared. **56 pass byte/float-exact.** 2 remain:
+The EB.dat/poy divergence was not irreducible 1F1 cancellation (the earlier
+conclusion below is superseded). Four discrete bugs caused it; all are fixed
+on this branch:
 
-- `linear-data/m_6_n_2_flab_[1,0]/EB.dat` — DIFFER (shape: 2682 rows vs oracle 2648)
-- `linear-data/m_6_n_2_flab_[1,0]/zone_0_poy_test_err.dat` — DIFFER (shape: 681 vs 647)
+1. **Electron mass, 2 ULP** (`fix(kilca): mirror the C++ oracle's electron-mass
+   literal in ported settings`). `constants.h` has `m_e = 9.10938185917485e-28`;
+   the Fortran constants module computes `me = mp/1836.1526675`, 2 ULP away.
+   Every ported electron-parameter path (`omc_`, `vT_`) needs the C++ literal,
+   like the speed-of-light split above.
+2. **libmvec vector cos** (`fix(kilca): keep scalar libm cos in the ported
+   adaptive-grid unit`). gfortran has no math-errno semantics and vectorizes
+   the Chebyshev-node loop to `_ZGVbN2v_cos` at `-O3`; g++ keeps scalar `cos`.
+   Vector and scalar cos differ in last bits, so the adaptive sampling grid
+   nodes sat 2 ULP off. Diagnostic: `nm -D <exe> | grep ZGV` must show the
+   same set for port and oracle.
+3. **1F1m via fortnum on both sides** (`port(kilca): route the 1F1m hot path
+   through fortnum hyperg_1f1m_a1`). The modified form's low bits are
+   codegen-dependent (analysis below still holds); the fix is one shared
+   compiled kernel, not reproduction of cancellation garbage. Pairs with the
+   C++-side swap in #146.
+4. **DOMINANT: basis-reconstruction off-by-one** (`fix(kilca): start basis
+   reconstruction at the last renorm's stored entries`). `solver_m.f90` passed
+   post-advance indices to `renorm_basis_vecs`; the oracle passes
+   `rdata-1, ydata-Neq, taudata-2*Nfs`. With at least one QR renormalization
+   active, the first segment crossing inverted the orthonormal Q slot instead
+   of the R factor and shifted every later segment lookup. The result was a
+   local field defect at renorm radii: Poynting self-consistency 1.01 at
+   r=5.03 against the healthy 2.9e-2, and 34 extra rows kept by the output
+   thinning (2682 vs 2648). Harmless when no renorm fires, which is why unit
+   tests and 56/58 files passed.
 
-Both are FLRE zone-0 outputs. The row-count difference is downstream of the
-adaptive output grid (`sparse_grid_polynom`), which keeps points based on the
-integrated basis fields; the fields differ at the ~1e-9 level near the resonant
-layer, so the thinning keeps a slightly different number of points.
+Verified against an oracle built as current `main` + #145 (fortnum Bessel
+shim) + #146 (fortnum 1F1m): **58/58 kilca files pass** (EB.dat max_rel 0.0,
+poy residual equal at 2.867e-2), and the QL-Balance `f_6_2` golden passes
+**33/33 quantities at rtol 1e-8** including the `LinearProfiles` Br and D^ql
+series. Against the pre-swap baseline the only residual is the deliberate
+#145/#146 kernel-value change (EB.dat max_rel 9.7e-6), which lands with those
+PRs and one golden-baseline re-bless.
+
+The bisection method that found these: identical bit-pattern dump probes
+(hex via `transfer`) inserted into legacy files present verbatim in both
+trees, walked stage by stage (cti/cte at the RHS, K-matrix samples, W2 inputs,
+adaptive-grid nodes, thinning input rows).
 
 ## Fixed and committed
 
@@ -82,7 +116,13 @@ the same fixture, compared bit-for-bit.
       `f_re` bit-exact for the probed input but left `f_im` 1 ULP off and did
       **not** change EB.dat/poy — so 1F1 is at most a minor contributor.
 
-## ROOT CAUSE (confirmed) — ill-conditioned 1F1, cross-compiler-irreducible
+## SUPERSEDED: ill-conditioned 1F1 as sole root cause
+
+The 1F1 low-bit analysis below is correct and motivated routing the modified
+form through fortnum on both sides. Its conclusion (that the 1F1 bits alone
+set the row count and that exclusion was the only option) was wrong: with the
+1F1 unified, the row-count gap persisted until the electron-mass, vector-cos,
+and renorm-reconstruction fixes above landed.
 
 Bisecting the conductivity pipeline (multi-agent workflow + manual, dumping each
 stage in the port and a fresh oracle worktree at 3c364ab8, hex, bit-for-bit):
@@ -136,65 +176,19 @@ on **GSL** (`gsl_sum_levin_u` in the dead `..._accel` variant, `gsl_integration`
 in `..._quad`), a dependency the port removed. So the C++-kernel route cannot
 close it without restoring GSL and ~400 lines of C++.
 
-### Resolution — exclude the two proven-chaotic outputs (KAMEL #164 precedent)
+### RETRACTED: exclusion of the two outputs
 
-This is the same situation as `itpplasma/KAMEL#164` (commit 7b57578d, "scope
-golden bar past the resonance-chaotic regime"), where the QL-Balance f_6_2 case
-was found to amplify a sub-ULP root-finder difference to O(1) through the
-resonant surface, proven by a control experiment, and the proven-affected
-quantities were excluded while the bar stayed strict for all else.
-
-**Control experiment (this case).** In the unmodified C++ oracle, multiplying its
-own `1F1m` result by `(1 + 1e-12)` — a perturbation the size of the port/oracle
-1F1 difference — and comparing to the unperturbed oracle reproduces the identical
-failure: `EB.dat max_rel = 1.576e-06`, `zone_0_poy_test_err max_rel = 1.393e+01`.
-This proves the divergence is a pre-existing numerical-instability property of
-this ill-conditioned FLRE-resonance test case, independent of the port, and
-cannot be removed without either the exact pre-port C++ translation unit (which
-needs the removed GSL dependency) or a numerically stable 1F1m + a regenerated
-golden record.
-
-**Strongest proof: the C++ oracle disagrees with itself.** The golden-baseline
-tag (`aa92bfb5`) and the port's translation base (`3c364ab8`) are both full-C++
-KiLCA, differing only in the resonance-root tolerance (`gsl_root_test_interval`
-`1e-8` vs `fortnum_root_brent` `0`, the #164 determinism fix). Built and run on
-`flre_m6n2`, those two C++ builds differ from **each other** by
-`EB.dat max_rel = 1.6e-6` and `zone_0_poy_test_err = 5.0` — while matching
-bit-for-bit on the other 56 files. So the "oracle" has **no well-defined value**
-for these two outputs: a ~1e-8 root-tolerance change (a legitimate, accepted C++
-fix) moves them past the bar. The port matches the actual golden-baseline
-(`aa92bfb5`) on 56/58; the 2 that differ are exactly the ones the oracle can't
-reproduce against itself. "Match the oracle for same input, same output" is
-therefore undefined for these two files — no implementation, C++ or Fortran, can
-satisfy it.
-
-**Why exclusion, not a loosened tolerance.** The divergence is not a
-suppressible floating-point difference — it is O(1). At the 2648 shared x-rows
-(gr_numcompare's own `d/(|y|+atol)` metric) the port vs oracle differ by
-`EB.dat max_rel = 2.32` (232%) and `zone_0_poy_test_err max_rel = 21.9` (2189%);
-225 / 152 cells exceed even rtol = 0.1. There is no "floating-point accuracy"
-tolerance that would admit these while remaining a real gate — loosening the
-rtol to pass a 232% difference would be the actual bar-lowering. The
-resonant-layer fields are genuinely different (equally-valid) numerical
-solutions of a stiff, ill-conditioned system seeded by the ~2e-12 1F1m
-difference; matching the oracle byte-for-byte is only possible by reproducing
-its exact C++ translation unit (GSL + full `hyper1F1.cpp`), which reverses the
-all-Fortran goal. Following KAMEL #164, the proven-affected outputs are therefore
-**removed from the comparison**, exactly as that precedent removed its
-resonance-chaotic quantities; the strict bar is untouched for everything else.
-
-**Fix applied.** `test/golden/bin/gr_numcompare.py` gained a documented
-`GR_EXCLUDE` mechanism; `test/golden/kilca/config.sh` excludes exactly the two
-resonance-chaotic FLRE zone-0 outputs
-(`EB.dat`, `zone_0_poy_test_err.dat`) with the justification above. The bar
-(rtol 1e-7, atol 1e-12) is unchanged; the other **56 files stay on the strict
-bit-exact/float comparison** and the gate still fails on any real regression
-(verified: exit 1 without the exclusion). KiLCA golden: **56 strict PASS + 2
-documented EXCLUDED → green.**
-
-Follow-up (filed as itpplasma/KAMEL#165): remove the C++/GSL residue by replacing the modified-form
-`1F1m` with a numerically stable evaluation (compiler-independent), then drop the
-exclusion and regenerate the golden record.
+An earlier revision excluded `EB.dat` and `zone_0_poy_test_err.dat` from the
+comparison via a `GR_EXCLUDE` mechanism, arguing the divergence was a
+pre-existing chaotic property of the case (control experiment: a 1e-12
+perturbation of the oracle's own 1F1m moved EB.dat by 1.6e-6). The control
+experiment was sound but measured the wrong thing: it proved the case
+amplifies kernel-value changes, not that the port's row-count difference was
+unfixable. The actual defect was the renorm-reconstruction off-by-one (see
+Status). The exclusion and its mechanism are removed; the comparison now runs
+main's harness unmodified (`zone_*_poy_test_err.dat` is checked against an
+absolute self-consistency bar there, per #172, because it amplifies last-bit
+noise ~1e8x between any two runs).
 
 ## Earlier framing — the ~1e-9 divergence (superseded by the root cause above)
 

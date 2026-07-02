@@ -195,6 +195,11 @@ contains
 
         call read_c_string(path2project_p, path2project)
 
+        ! Fresh-object semantics of the oracle's `new background(...)`:
+        ! ql-balance re-creates the background every wave-code invocation,
+        ! so the singleton state must reset on each create.
+        call reset_state()
+
         call set_profiles_indices()
 
         call set_back_aliases_in_conductivity_parameters()
@@ -208,6 +213,18 @@ contains
 
         handle = 1_c_intptr_t
     end function background_create
+
+    subroutine reset_state()
+        if (allocated(profile_names)) deallocate (profile_names)
+        if (allocated(x)) deallocate (x)
+        if (allocated(y)) deallocate (y)
+        if (allocated(Carr)) deallocate (Carr)
+        if (allocated(Rarr)) deallocate (Rarr)
+        if (sid /= 0_c_intptr_t) then
+            call spline_free(sid)
+            sid = 0_c_intptr_t
+        end if
+    end subroutine reset_state
 
     !> Mirrors background::set_profiles_indices exactly: the k++ assignment
     !> order is load-bearing (the oracle's own comment: "DO NOT CHANGE, ONLY

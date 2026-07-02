@@ -21,6 +21,17 @@ rtol = float(sys.argv[3]) if len(sys.argv) > 3 else 1e-7
 atol = float(sys.argv[4]) if len(sys.argv) > 4 else 1e-12
 floor = float(sys.argv[5]) if len(sys.argv) > 5 else 1e-9
 
+# zone_*_poy_test_err.dat is the Poynting energy-balance residual (the solution's
+# own numerical self-consistency error, |div S - (P_abs + jE)|/max(1,|div S|)). It
+# is a diagnostic, never consumed downstream, and is a near-cancellation: its
+# pointwise value amplifies last-bit differences ~1e8x, so two independent
+# backends that agree bit-for-bit on every physical field still diverge tens of
+# percent here (itpplasma-KAMEL#164/#172). It therefore cannot be compared
+# relatively ref-vs-cur. Instead each build is checked against an absolute
+# self-consistency bar (the healthy residual peaks at ~3e-2 at the plasma edge, so
+# the default 1e-1 catches gross solve breakage without flagging last-bit noise).
+POY_BAR = float(os.environ.get("GR_POY_TEST_ERR_BAR", "1e-1"))
+
 SKIP = {"run.log", "exit_code.txt", "runtime_seconds.txt", "migrate.log", "prepare.log"}
 
 
@@ -31,6 +42,22 @@ def nums(p):
             for tok in line.split():
                 try:
                     out.append(float(tok))
+                except ValueError:
+                    pass
+    except Exception:
+        return None
+    return out
+
+
+def last_col(p):
+    """Residual column (last whitespace token per line) of a save_real_array file."""
+    out = []
+    try:
+        for line in open(p, errors="ignore"):
+            toks = line.split()
+            if toks:
+                try:
+                    out.append(float(toks[-1]))
                 except ValueError:
                     pass
     except Exception:
@@ -59,6 +86,16 @@ else:
 
 for rel in common:
     pa, pb = os.path.join(A, rel), os.path.join(B, rel)
+    if os.path.basename(rel).endswith("poy_test_err.dat"):
+        ra, rb = last_col(pa) or [], last_col(pb) or []
+        ma = max((abs(v) for v in ra), default=0.0)
+        mb = max((abs(v) for v in rb), default=0.0)
+        checked += 1
+        ok = ma <= POY_BAR and mb <= POY_BAR
+        print(f"{rel}: poy_test_err self-consistency max(ref)={ma:.3e} "
+              f"max(cur)={mb:.3e} bar={POY_BAR:.1e} {'PASS' if ok else 'FAIL'}")
+        fail += 0 if ok else 1
+        continue
     na, nb = nums(pa), nums(pb)
     if na is None or nb is None or len(na) != len(nb) or not na:
         same = open(pa, "rb").read() == open(pb, "rb").read()

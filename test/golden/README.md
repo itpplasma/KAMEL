@@ -102,6 +102,19 @@ The KiLCA `flre_m6n2` deck was generated once from KAMELpy's validated
 `KiLCA_interface.write()` (mode `(6,2)`, AUG 3-zone stack flre→vacuum→vacuum)
 and frozen here.
 
+## Known coverage gaps
+
+- **KiLCA eigenmode / dispersion (`flag_eigmode=1`) is not covered.** The only
+  KiLCA deck (`flre_m6n2`) runs the driven-antenna path (`flag_eigmode=0`), so the
+  determinant root search (`find_det_zeros` → `fortnum_multiroot_hybrid`) and the
+  grid scan never execute. Adding an eigenmode deck on this equilibrium is not
+  viable: its mode-matrix determinant is numerically ill-posed across the frequency
+  range (singular `zgetrf` info=9/11 at ~2/3 of points, cvode failures, no clean
+  zero), so any "root" found is garbage and not backend-reproducible. The eigenmode
+  mode is also no longer used. Consequently `fortnum_multiroot_hybrid` (migrated in
+  #144) is exercised by no test. Reviving coverage requires a well-conditioned,
+  eigenmode-bearing equilibrium. See the note in `KiLCA/eigmode/calc_eigmode.cpp`.
+
 ## Adding an input migration
 
 If a PR renames a namelist key, the older `ref` binary won't understand the new

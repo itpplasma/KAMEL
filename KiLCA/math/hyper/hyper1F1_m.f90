@@ -176,21 +176,22 @@ contains
 
     subroutine h_cont_fract_1_modified_0_ada(b_re, b_im, z_re, z_im, f_re, f_im) &
         bind(C, name="hypergeometric1f1_cont_fract_1_modified_0_ada_")
+        use fortnum_special_hypergeometric_1f1, only: hyperg_1f1m_a1
+        use fortnum_status, only: fortnum_status_t
         real(c_double), intent(in) :: b_re, b_im, z_re, z_im
         real(c_double), intent(out) :: f_re, f_im
-        complex(dp) :: b, z, F11m
+        complex(dp) :: b, z, res
+        type(fortnum_status_t) :: status
 
         b = cmplx(b_re, b_im, dp)
         z = cmplx(z_re, z_im, dp)
 
-        if (abs(z/b) < 0.1_dp) then
-            call h_kummer_modified_0_ada(b_re, b_im, z_re, z_im, f_re, f_im)
-        else
-            call h_cont_fract_1_inv_ada(b_re, b_im, z_re, z_im, f_re, f_im)
-            F11m = (cmplx(f_re, f_im, dp) - 1.0_dp - z/b)*(b/z)*((b + 1.0_dp)/z) - 1.0_dp
-            f_re = real(F11m, dp)
-            f_im = aimag(F11m)
-        end if
+        ! fortnum computes F11m = 1F1(1;b+2;z) - 1 directly, avoiding the
+        ! cancellation of the |z/b|-dispatch reconstruction. Mirrors the C++
+        ! swap in KAMEL#146 so oracle and port share one compiled kernel.
+        call hyperg_1f1m_a1(b, z, res, status)
+        f_re = real(res, dp)
+        f_im = aimag(res)
     end subroutine h_cont_fract_1_modified_0_ada
 
     subroutine h_cont_fract_1_inv_ada(b_re, b_im, z_re, z_im, f_re, f_im) &

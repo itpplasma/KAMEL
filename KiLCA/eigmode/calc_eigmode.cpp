@@ -9,6 +9,18 @@
 
 #include "fortnum.h"
 
+// NOTE (2026-07): the KiLCA flre eigenmode determinant search below
+// (find_det_zeros -> fortnum_multiroot_hybrid, and the loop_over_frequences grid
+// scan) is BROKEN for the available equilibria and is no longer used. On the
+// golden flre_m6n2 case the mode-matrix determinant is numerically ill-posed over
+// the frequency range: calc_det_lu()'s zgetrf reports singular factors (info=9/11)
+// at ~2/3 of scanned frequencies and cvode integration fails, so the scan shows no
+// clean determinant zero and the root search converges to garbage (e.g. (0,0) with
+// det~1e-95). Because there is no well-conditioned eigenmode case, this path -- and
+// therefore fortnum_multiroot_hybrid (migrated in #144 from gsl_multiroot_fdfsolver
+// hybridsj) -- is exercised by NO unit test or golden case. Revive with a
+// physically valid eigenmode-bearing equilibrium before relying on it.
+
 /**********************************************************************************/
 
 // fortnum_vector_fn residual: x = (Re f, Im f), out = (Re det, Im det).

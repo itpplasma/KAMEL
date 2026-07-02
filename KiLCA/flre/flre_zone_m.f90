@@ -1219,7 +1219,7 @@ contains
     !> (real,complex->complex).
     real(dp) function calc_deriv_product_rr(N, Cbin, ordn, f, g) result(fg)
         integer, intent(in) :: N, ordn
-        real(dp), intent(in) :: Cbin(0:N, 0:N), f(0:N), g(0:N)
+        real(dp), intent(in) :: Cbin(0:N, 0:N), f(0:), g(0:)
         integer :: k
         fg = 0.0_dp
         do k = 0, ordn
@@ -1229,8 +1229,8 @@ contains
 
     function calc_deriv_product_rc(N, Cbin, ordn, f, g) result(fg)
         integer, intent(in) :: N, ordn
-        real(dp), intent(in) :: Cbin(0:N, 0:N), f(0:N)
-        complex(dp), intent(in) :: g(0:N)
+        real(dp), intent(in) :: Cbin(0:N, 0:N), f(0:)
+        complex(dp), intent(in) :: g(0:)
         complex(dp) :: fg
         integer :: k
         fg = (0.0_dp, 0.0_dp)

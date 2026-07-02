@@ -45,7 +45,7 @@ subroutine read_background_settings(path) bind(C, name="read_background_settings
 
 use, intrinsic :: iso_c_binding, only: c_char, c_null_char
 use, intrinsic :: iso_fortran_env, only: error_unit
-use constants, only: mp, me, e
+use constants, only: mp, e
 use background
 
 character(kind=c_char), dimension(*), intent(in) :: path
@@ -53,6 +53,10 @@ character(kind=c_char), dimension(*), intent(in) :: path
 character(len=1024) :: fpath, fname, line, before
 real(dp) :: m_i
 integer :: i, u, ios
+!> C++ constants.h m_e literal (2 ULP off the Fortran constants module's
+!> me = mp/1836.15...); the golden record encodes the C++ value on every
+!> ported electron-parameter path (omc_, vT_).
+real(dp), parameter :: m_e_cpp = 9.10938185917485d-28
 
 fpath = ''
 i = 1
@@ -94,7 +98,7 @@ call skip(u)
 close (u)
 
 mass(0) = m_i*mp
-mass(1) = me
+mass(1) = m_e_cpp
 charge(0) = e
 charge(1) = -e
 huge_factor = 1.0d20

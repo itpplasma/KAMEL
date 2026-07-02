@@ -233,6 +233,13 @@ set(kilca_lib_fortran_sources
     math/det/solve_hom_syst.f90
 )
 
+# The C++ this file was ported from evaluated cos() through scalar libm
+# (C/C++ math-errno semantics block libmvec); gfortran auto-vectorizes the
+# Chebyshev-node loop to _ZGVbN2v_cos, whose last bits differ from scalar
+# cos and shift the adaptive grid nodes off the golden record.
+set_source_files_properties(math/adapt_grid/adaptive_grid_pol_m.f90
+    PROPERTIES COMPILE_OPTIONS "-fno-tree-loop-vectorize")
+
 add_library (kilca_lib STATIC ${kilca_lib_fortran_sources} ${kilca_lib_cpp_sources})
 #add_library (kilca_lib SHARED ${kilca_lib_fortran_sources} ${kilca_lib_cpp_sources})
 target_compile_options(kilca_lib PRIVATE -fPIC)

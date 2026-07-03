@@ -24,25 +24,6 @@ MODULE Function_Input_Module
     ! Set once via init_dispersion_mode, avoids string comparison per call
     procedure(dispersion_func_interface), pointer :: dispersion_impl => null()
 
-    !-----------------------------------------------------------------------
-    ! Documentation from ZEAL:
-    !
-    ! > If ICON = 3 or 4 (as specified in Zeal_Input_Module), then specify
-    ! > the values of NEWTONZ and NEWTONF.
-    ! > These variables are used as follows. The modified Newton's method,
-    ! > which takes into account the multiplicity of a zero and converges
-    ! > quadratically, is used to refine the calculated approximations for
-    ! > the zeros. The iteration stops if
-    ! >   - the relative distance between two successive approximations is
-    ! >     at most NEWTONZ
-    ! > or
-    ! >   - the absolute value of the function at the last approximation is
-    ! >     at most NEWTONF
-    ! > or if a maximum number of iterations is exceeded.
-    !
-     real(dp) :: NEWTONZ = 5.0d-08
-     real(dp) :: NEWTONF = 1.0d-14
-
      integer :: rg_index
 
      CONTAINS
@@ -253,87 +234,6 @@ MODULE Function_Input_Module
             D_of_kr = kr_squared + plasma%kp(j)**2.0d0 - D_of_kr
 
         end subroutine
-
-
-        subroutine test_FDF_derivative(kr_test)
-            !-----------------------------------------------------------------------
-            ! Test that FDF derivative matches independent numerical calculation.
-            ! Call this after rg_index is set to a valid grid point.
-            !-----------------------------------------------------------------------
-            use kim_kinds_m, only: dp
-
-            implicit none
-
-            complex(dp), intent(in) :: kr_test
-            complex(dp) :: D_center, dD_from_FDF
-            complex(dp) :: D_plus_re, D_minus_re
-            complex(dp) :: D_plus_im, D_minus_im
-            complex(dp) :: dD_numerical_re, dD_numerical_im
-            real(dp) :: eps
-            real(dp) :: rel_error_re, rel_error_im
-
-            eps = 1.0d-6
-
-            ! Get derivative from FDF
-            call FDF(kr_test, D_center, dD_from_FDF)
-
-            ! Independent numerical derivative using dispersion_function directly
-            call dispersion_function(kr_test + cmplx(eps, 0.0d0, dp), D_plus_re)
-            call dispersion_function(kr_test - cmplx(eps, 0.0d0, dp), D_minus_re)
-            dD_numerical_re = (D_plus_re - D_minus_re) / (2.0d0 * eps)
-
-            ! Numerical derivative in imaginary direction: dD/d(Im(kr))
-            call dispersion_function(kr_test + cmplx(0.0d0, eps, dp), D_plus_im)
-            call dispersion_function(kr_test - cmplx(0.0d0, eps, dp), D_minus_im)
-            dD_numerical_im = (D_plus_im - D_minus_im) / (2.0d0 * eps)
-
-            ! For a holomorphic function: dD/dkr = dD/d(Re(kr)) = -i * dD/d(Im(kr))
-
-            print *
-            print *, '=== FDF Derivative Test ==='
-            print *, 'Test point kr = (', real(kr_test), ',', aimag(kr_test), ')'
-            print *, 'D(kr) = (', real(D_center), ',', aimag(D_center), ')'
-            print *
-            print *, 'dD/dkr from FDF:'
-            print *, '  Real part:      ', real(dD_from_FDF)
-            print *, '  Imaginary part: ', aimag(dD_from_FDF)
-            print *
-            print *, 'Numerical dD/dkr (independent check):'
-            print *, '  Real part:      ', real(dD_numerical_re)
-            print *, '  Imaginary part: ', aimag(dD_numerical_re)
-            print *
-
-            ! Relative errors
-            rel_error_re = 0.0d0
-            if (abs(dD_from_FDF) > 1.0d-10) then
-                rel_error_re = abs(dD_from_FDF - dD_numerical_re) / abs(dD_from_FDF)
-                print *, 'Relative error: ', rel_error_re
-            else
-                print *, 'Absolute error: ', abs(dD_from_FDF - dD_numerical_re)
-            end if
-
-            print *
-            print *, 'Cauchy-Riemann check (imag perturbation should give i * dD/dkr):'
-            print *, '  dD/d(Im(kr)):   (', real(dD_numerical_im), ',', aimag(dD_numerical_im), ')'
-            print *, '  i * dD/dkr:     (', -aimag(dD_from_FDF), ',', real(dD_from_FDF), ')'
-
-            if (abs(dD_from_FDF) > 1.0d-10) then
-                rel_error_im = abs(dD_numerical_im - cmplx(0.0d0, 1.0d0, dp) * dD_from_FDF) / abs(dD_from_FDF)
-                print *, 'Cauchy-Riemann error: ', rel_error_im
-            end if
-
-            print *
-            if (rel_error_re > 0.01d0) then
-                print *, '*** WARNING: Derivative error > 1% ***'
-            else if (rel_error_re > 0.001d0) then
-                print *, '*** Note: Derivative error > 0.1% ***'
-            else
-                print *, 'Derivative OK (error < 0.1%)'
-            end if
-            print *, '=== End Derivative Test ==='
-            print *
-
-        end subroutine test_FDF_derivative
 
 
         subroutine dispersion_region_fn(kr, fk, ctx)

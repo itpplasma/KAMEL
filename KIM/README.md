@@ -53,6 +53,7 @@ Solves the kinetic dispersion relation D(k_r) = 0 for complex radial wavenumber 
 - `WKB_max_tracked_branches = 4` - Maximum simultaneous branches
 - `WKB_branch_search_halfwidth = 1.5` - Search window per branch
 - `WKB_broad_search_halfwidth = 5.0` - Initial discovery window
+- `WKB_broad_search_interval = 0` - Broad discovery every N grid points; 0 means only when starting or all branches are lost
 
 ### Output
 

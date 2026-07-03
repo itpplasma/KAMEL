@@ -33,7 +33,8 @@ add_executable(test_region_roots_vs_muller ${CMAKE_SOURCE_DIR}/KIM/tests/test_re
 set_target_properties(test_region_roots_vs_muller PROPERTIES
                         OUTPUT_NAME test_region_roots_vs_muller.x
                         RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/tests/")
-target_link_libraries(test_region_roots_vs_muller KIM_lib lapack)
+target_link_libraries(test_region_roots_vs_muller KIM_lib kilca_lib lapack cerf ddeabm slatec
+                      OpenMP::OpenMP_Fortran)
 add_test(NAME test_region_roots_vs_muller
          COMMAND ${CMAKE_BINARY_DIR}/tests/test_region_roots_vs_muller.x)
 

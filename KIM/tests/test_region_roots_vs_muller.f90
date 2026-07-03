@@ -1,15 +1,15 @@
 program test_region_roots_vs_muller
 
-    ! Equivalence check for the ZEAL replacement (Z1): the fortnum
-    ! complex_region_roots finder must return the same dispersion zeros as the
+    ! Equivalence check for the ZEAL replacement (Z1): the fortnum-backed
+    ! dispersion_region_fn adapter must return the same dispersion zeros as the
     ! in-tree Muller solver (run_Muller_dispersion uses the same roots() driver).
-    ! Both solvers run on one analytic test function with known complex zeros
-    ! inside the search rectangle; the root sets must agree to ~1e-6.
 
     use KIM_kinds_m, only: dp
     use muller_root_finding, only: roots
     use fortnum_roots_complex, only: complex_region_roots
     use fortnum_status, only: fortnum_status_t, FORTNUM_OK
+    use Function_Input_Module, only: dispersion_impl, dispersion_region_fn
+    use rt_WKB_dispersion_m, only: zeal_root_store_t, compact_zeal_branch_ids
 
     implicit none
 
@@ -38,9 +38,13 @@ program test_region_roots_vs_muller
     complex(dp), allocatable :: m_rts(:), m_fnv(:)
 
     integer :: i
+    type(zeal_root_store_t) :: branch_store
+    integer :: n_compact_branches
 
-    ! --- fortnum region root finder over [ll, ur] ---
-    call complex_region_roots(ftest, ll, ur, rg_roots, rg_fvals, rg_mult, &
+    dispersion_impl => ftest_scalar
+
+    ! --- fortnum region root finder through the production adapter over [ll, ur] ---
+    call complex_region_roots(dispersion_region_fn, ll, ur, rg_roots, rg_fvals, rg_mult, &
         rg_nfound, rstatus, m_max=5)
     if (rstatus%code /= FORTNUM_OK) then
         print *, 'complex_region_roots failed: ', trim(rstatus%msg)
@@ -88,6 +92,30 @@ program test_region_roots_vs_muller
             error stop 6
         end if
     end do
+
+    ! --- branch IDs must be compact before write_tracked_roots sees n_branches ---
+    allocate(branch_store%zeros(4, 2))
+    allocate(branch_store%fzeros(4, 2))
+    allocate(branch_store%multiplicities(4, 2))
+    allocate(branch_store%branch_id(4, 2))
+    allocate(branch_store%n_per_point(2))
+    branch_store%zeros = (0.0_dp, 0.0_dp)
+    branch_store%fzeros = (0.0_dp, 0.0_dp)
+    branch_store%multiplicities = 0
+    branch_store%branch_id = 0
+    branch_store%n_per_point = [1, 1]
+    branch_store%branch_id(1, 1) = 4
+    branch_store%branch_id(1, 2) = 4
+
+    call compact_zeal_branch_ids(branch_store, n_compact_branches)
+    if (n_compact_branches /= 1) then
+        print *, 'compact branch count mismatch: ', n_compact_branches
+        error stop 7
+    end if
+    if (any(branch_store%branch_id(1, :) /= 1)) then
+        print *, 'branch IDs were not compacted to one output branch'
+        error stop 8
+    end if
 
     print *, 'Region/Muller equivalence OK: ', rg_nfound, ' shared zeros within', tol
     do i = 1, rg_nfound

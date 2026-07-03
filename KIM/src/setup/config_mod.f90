@@ -28,7 +28,7 @@ module config_m
     real(dp) :: WKB_broad_search_halfwidth = 5.0_dp   ! Broad search window half-width
     integer :: WKB_broad_search_interval = 0          ! Run broad search every N points (0=only at start)
     real(dp) :: WKB_root_tolerance = 1.0d-6           ! |f(z)| tolerance for valid roots
-    logical :: WKB_verbose = .true.                   ! Verbose dispersion solver output
+    logical :: WKB_verbose = .false.                  ! Verbose dispersion solver output
 
     ! KIM_IO namelist variables
     character(256) :: profile_location ! path to profile directory

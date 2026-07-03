@@ -550,8 +550,10 @@ subroutine calc_imnl_quad(npar, nper, x1, x2, x3, x4, Imnl, status)
 use constants, only: dpc, dp, im, sqrt2p;
 use spec_data, only: bx1, bx2, bx4, gamma, gr, powmibx1;
 use spec_data, only: mpara, mperp, npara, nperp;
-use spec_data, only: III, NEQ, LRW, LIW, INFO, RWORK, IWORK;
+use spec_data, only: III, NEQ;
 use spec_data, only: feval;
+use fortnum_ode_ddeabm, only: ddeabm_state_t, ddeabm_init, ddeabm_integrate_to;
+use fortnum_status, only: fortnum_status_t, FORTNUM_OK;
 
 implicit none;
 
@@ -567,9 +569,9 @@ complex(dpc) :: alpha, ep2a, factor, arg;
 ! for ode solver:
 real(dp) :: T, TOUT;
 real(dp) :: RTOL, ATOL;
-real(dp) :: RPAR;
-integer  :: IPAR;
-integer  :: IDID;
+real(dp), allocatable :: YREAL(:), YOUT(:);
+type(ddeabm_state_t) :: ODE_STATE;
+type(fortnum_status_t) :: ODE_STATUS;
 
 integer :: k, mm, nn, ll, ind;
 
@@ -626,26 +628,32 @@ end if
 
 T = 0.0d0;
 
-INFO(1) = 0;
-
 RTOL = 1.0d-10;
 ATOL = 1.0d-10;
 
-IDID = 0;
+allocate(YREAL(NEQ));
+call complex_to_real_state(III, YREAL);
+call ddeabm_init(ODE_STATE, NEQ, T, YREAL);
+call ddeabm_integrate_to(ode_func_real, ODE_STATE, TOUT, RTOL, [ATOL], YOUT, ODE_STATUS, tstop=TOUT);
 
-do while(IDID < 2)
+if (ODE_STATUS%code /= FORTNUM_OK) then
 
-    call ddeabm(ODE_FUNC, NEQ, T, III, TOUT, INFO, RTOL, ATOL, IDID, RWORK, LRW, IWORK, LIW, RPAR, IPAR);
+    print *, 'warning: calc_imnl_quad: ddeabm failed to integrate the equations:', trim(ODE_STATUS%msg);
+    status = 1;
+    return;
 
-    !call dderkf(ODE_FUNC, NEQ, T, III, TOUT, INFO, RTOL, ATOL, IDID, RWORK, LRW, IWORK, LIW, RPAR, IPAR);
+end if
 
-    INFO(1) = 1;
+if (.not. allocated(YOUT)) then
 
-    if (IDID < -1) then
-        print *, 'warning: calc_imnl_quad: solver has troubles to integrate the equations:', TOUT, T, IDID;
-    end if
+    print *, 'warning: calc_imnl_quad: ddeabm returned no solution.';
+    status = 1;
+    return;
 
-end do
+end if
+
+call real_to_complex_state(YOUT, III);
+T = TOUT;
 
 do mm = 0,npara
 
@@ -685,6 +693,50 @@ end if
 !     write(100,*) t, real(arg), imag(arg), real(III), imag(III);
 ! end do
 ! close(100);
+
+contains
+
+subroutine ode_func_real(t, y, dydt, ctx)
+
+real(dp), intent(in) :: t;
+real(dp), intent(in) :: y(:);
+real(dp), intent(out) :: dydt(:);
+class(*), intent(in), optional :: ctx;
+
+complex(dpc) :: y_complex(0:NEQ/2-1), dydt_complex(0:NEQ/2-1);
+
+call real_to_complex_state(y, y_complex);
+call ode_func(t, y_complex, dydt_complex, 0.0d0, 0);
+call complex_to_real_state(dydt_complex, dydt);
+
+end subroutine
+
+subroutine complex_to_real_state(z, y)
+
+complex(dpc), intent(in) :: z(0:);
+real(dp), intent(out) :: y(:);
+
+integer :: iz;
+
+do iz = 0,size(z)-1
+    y(2*iz + 1) = real(z(iz), dp);
+    y(2*iz + 2) = aimag(z(iz));
+end do
+
+end subroutine
+
+subroutine real_to_complex_state(y, z)
+
+real(dp), intent(in) :: y(:);
+complex(dpc), intent(out) :: z(0:);
+
+integer :: iz;
+
+do iz = 0,size(z)-1
+    z(iz) = cmplx(y(2*iz + 1), y(2*iz + 2), dpc);
+end do
+
+end subroutine
 
 end subroutine
 

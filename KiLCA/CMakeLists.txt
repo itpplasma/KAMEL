@@ -21,7 +21,7 @@ set (KiLCA_ARCHITECTURE 64bit) #possible values: 32bit, 64bit; must conform to c
 set (KiLCA_VERSION_MAJOR 2)
 set (KiLCA_VERSION_MINOR 4.2)
 
-set (MAGNETIC_DRIFT MDNO) #possible values: MDNO, MDYES
+set (MAGNETIC_DRIFT MDNO CACHE STRING "Magnetic drift mode: MDNO or MDYES")
 
 set (COLLISION_MODEL FPGEN) #possible values: FPN, FPNE, FPNEP, FPGEN - with collisions, NC - no collisions
 
@@ -104,7 +104,7 @@ endif ()
 set (kilca_normal_main progs/main_linear.cpp)
 set (kilca_eigparam_main progs/main_eig_param.cpp)
 
-# --- Dependencies ---
+# Dependencies
 # Dependencies are provided by the top-level project via cmake/Dependencies.cmake
 
 # include paths:

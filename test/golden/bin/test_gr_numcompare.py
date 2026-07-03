@@ -58,6 +58,17 @@ def test_uff_byte_divergence_flags(tmp_path):
     assert "DIFFER(bytes" in out
 
 
+def test_missing_file_flags(tmp_path):
+    _write(tmp_path / "ref" / "only-ref.dat", "1.0\n")
+    _write(tmp_path / "cur" / "common.dat", "2.0\n")
+    _write(tmp_path / "ref" / "common.dat", "2.0\n")
+
+    rc, out = _run(tmp_path / "ref", tmp_path / "cur")
+
+    assert rc == 1, out
+    assert "only-ref.dat: MISSING(cur)" in out
+
+
 def test_near_zero_noise_not_flagged(tmp_path):
     # An oscillatory field (like KIM's rho): physical elements match, but the
     # zero-crossing elements are float noise (~1e-12) that differ hugely in

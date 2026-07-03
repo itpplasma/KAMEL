@@ -80,7 +80,17 @@ def rel_files(root):
 fail = 0
 checked = 0
 if os.path.isdir(A) and os.path.isdir(B):
-    common = sorted(rel_files(A) & rel_files(B))
+    files_a = rel_files(A)
+    files_b = rel_files(B)
+    for rel in sorted(files_a - files_b):
+        checked += 1
+        fail += 1
+        print(f"{rel}: MISSING(cur)")
+    for rel in sorted(files_b - files_a):
+        checked += 1
+        fail += 1
+        print(f"{rel}: MISSING(ref)")
+    common = sorted(files_a & files_b)
 else:
     common = []
 

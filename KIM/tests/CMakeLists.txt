@@ -37,13 +37,13 @@ target_link_libraries(test_region_roots_vs_muller KIM_lib kilca_lib lapack cerf 
 add_test(NAME test_region_roots_vs_muller
          COMMAND ${CMAKE_BINARY_DIR}/tests/test_region_roots_vs_muller.x)
 
-add_executable(test_equil_ode_dop853 ${CMAKE_SOURCE_DIR}/KIM/tests/test_equil_ode_dop853.f90)
-set_target_properties(test_equil_ode_dop853 PROPERTIES
-                        OUTPUT_NAME test_equil_ode_dop853.x
+add_executable(test_equil_ode_ddeabm ${CMAKE_SOURCE_DIR}/KIM/tests/test_equil_ode_ddeabm.f90)
+set_target_properties(test_equil_ode_ddeabm PROPERTIES
+                        OUTPUT_NAME test_equil_ode_ddeabm.x
                         RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/tests/")
-target_link_libraries(test_equil_ode_dop853 KIM_lib)
-add_test(NAME test_equil_ode_dop853
-         COMMAND ${CMAKE_BINARY_DIR}/tests/test_equil_ode_dop853.x)
+target_link_libraries(test_equil_ode_ddeabm KIM_lib)
+add_test(NAME test_equil_ode_ddeabm
+         COMMAND ${CMAKE_BINARY_DIR}/tests/test_equil_ode_ddeabm.x)
 
 add_executable(test_profile_input ${CMAKE_SOURCE_DIR}/KIM/tests/test_profile_input.f90)
 set_target_properties(test_profile_input PROPERTIES

@@ -1,6 +1,6 @@
-# OpenMP runtime: KIM/libneo objects use OMP critical sections, so test
-# executables that pull them need libgomp (GOMP_critical_*) at link time.
-find_package(OpenMP REQUIRED COMPONENTS C Fortran)
+# OpenMP runtime (GOMP_critical_* from libneo's OMP critical sections) is
+# carried transitively by kilca_lib's PUBLIC link interface, so no per-target
+# OpenMP linkage is needed here.
 
 # Optional: build QUADPACK/RKF45 integration comparison test
 add_executable(test_integration_methods ${CMAKE_SOURCE_DIR}/KIM/tests/test_integration_methods.f90)
@@ -35,7 +35,7 @@ set_target_properties(test_profile_input PROPERTIES
                         RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/tests/")
 # Links the full math set: using profile_input_m pulls KIM objects whose
 # transitive deps (W2_arr) need the hypergeometric routines from KiLCA/slatec.
-target_link_libraries(test_profile_input KIM_lib kilca_lib lapack cerf ddeabm slatec OpenMP::OpenMP_Fortran)
+target_link_libraries(test_profile_input KIM_lib kilca_lib lapack cerf ddeabm slatec)
 add_test(NAME test_profile_input
          COMMAND ${CMAKE_BINARY_DIR}/tests/test_profile_input.x)
 
@@ -43,7 +43,7 @@ add_executable(test_profile_input_integration ${CMAKE_SOURCE_DIR}/KIM/tests/test
 set_target_properties(test_profile_input_integration PROPERTIES
                         OUTPUT_NAME test_profile_input_integration.x
                         RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/tests/")
-target_link_libraries(test_profile_input_integration KIM_lib kilca_lib lapack cerf ddeabm slatec OpenMP::OpenMP_Fortran)
+target_link_libraries(test_profile_input_integration KIM_lib kilca_lib lapack cerf ddeabm slatec)
 add_test(NAME test_profile_input_integration
          COMMAND ${CMAKE_BINARY_DIR}/tests/test_profile_input_integration.x)
 
@@ -51,7 +51,7 @@ add_executable(test_kim_diagnostics ${CMAKE_SOURCE_DIR}/KIM/tests/test_kim_diagn
 set_target_properties(test_kim_diagnostics PROPERTIES
                         OUTPUT_NAME test_kim_diagnostics.x
                         RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/tests/")
-target_link_libraries(test_kim_diagnostics KIM_lib kilca_lib lapack cerf ddeabm slatec OpenMP::OpenMP_Fortran)
+target_link_libraries(test_kim_diagnostics KIM_lib kilca_lib lapack cerf ddeabm slatec)
 add_test(NAME test_kim_diagnostics
          COMMAND ${CMAKE_BINARY_DIR}/tests/test_kim_diagnostics.x)
 
@@ -95,7 +95,7 @@ add_executable(test_kim_solver ${CMAKE_SOURCE_DIR}/KIM/tests/test_kim_solver.f90
 set_target_properties(test_kim_solver PROPERTIES
                         OUTPUT_NAME test_kim_solver.x
                         RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/tests/")
-target_link_libraries(test_kim_solver KIM_lib kilca_lib lapack cerf ddeabm slatec OpenMP::OpenMP_Fortran)
+target_link_libraries(test_kim_solver KIM_lib kilca_lib lapack cerf ddeabm slatec)
 add_test(NAME test_kim_solver
          COMMAND ${CMAKE_BINARY_DIR}/tests/test_kim_solver.x)
 
@@ -104,7 +104,7 @@ add_executable(test_kim_solver_em ${CMAKE_SOURCE_DIR}/KIM/tests/test_kim_solver_
 set_target_properties(test_kim_solver_em PROPERTIES
                         OUTPUT_NAME test_kim_solver_em.x
                         RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/tests/")
-target_link_libraries(test_kim_solver_em KIM_lib kilca_lib lapack cerf ddeabm slatec OpenMP::OpenMP_Fortran)
+target_link_libraries(test_kim_solver_em KIM_lib kilca_lib lapack cerf ddeabm slatec)
 configure_file(${CMAKE_SOURCE_DIR}/KIM/tests/test_data/KIM_config_em_small.nml
                ${CMAKE_BINARY_DIR}/tests/KIM_config_em_small.nml COPYONLY)
 add_test(NAME test_kim_solver_em

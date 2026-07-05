@@ -28,3 +28,20 @@ target_link_libraries(kamel_hdf5_tools
 
 set(KAMEL_HDF5_TOOLS_LIBRARIES kamel_hdf5_tools CACHE INTERNAL "KAMEL HDF5 tools library")
 set(KAMEL_HDF5_TOOLS_INCLUDE_DIRS ${CMAKE_BINARY_DIR}/modules CACHE INTERNAL "KAMEL HDF5 tools include directory")
+
+add_executable(test_hdf5_tools
+    ${CMAKE_CURRENT_SOURCE_DIR}/test/test_hdf5_tools.f90
+)
+target_link_libraries(test_hdf5_tools PRIVATE kamel_hdf5_tools)
+target_include_directories(test_hdf5_tools
+    PRIVATE
+        ${HDF5_INCLUDE_DIRS}
+        ${CMAKE_BINARY_DIR}/modules
+)
+set_target_properties(test_hdf5_tools PROPERTIES
+    RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/tests
+)
+add_test(NAME test_hdf5_tools COMMAND test_hdf5_tools)
+set_tests_properties(test_hdf5_tools PROPERTIES
+    WORKING_DIRECTORY ${CMAKE_BINARY_DIR}/tests
+)

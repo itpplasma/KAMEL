@@ -1,6 +1,6 @@
 module KAMEL_hdf5_tools
-  use hdf5, only: HID_T, HSIZE_T, SIZE_T, H5S_SELECT_SET_F, H5T_NATIVE_DOUBLE, &
-                  h5dset_extent_f, h5screate_simple_f, h5dget_space_f,       &
+  use hdf5, only: HID_T, HSIZE_T, H5S_SELECT_SET_F, H5T_NATIVE_DOUBLE, &
+                  h5dset_extent_f, h5screate_simple_f, h5dget_space_f,  &
                   h5sselect_hyperslab_f, h5dwrite_f, h5sclose_f
   use hdf5_tools
 
@@ -17,6 +17,8 @@ contains
     character(len=*), optional        :: comment
     character(len=*), optional        :: unit
 
+    ! Deliberate widening: the on-disk dataset is written as H5T_NATIVE_DOUBLE
+    ! (float64) via the double-precision path, not float32. Widening is lossless.
     call h5_add_double_1(h5id, dataset, dble(value), lbounds, ubounds, comment, unit)
   end subroutine h5_add_float_1
 
@@ -25,8 +27,8 @@ contains
     double precision, dimension(:), intent(in) :: value
     integer, intent(in)                    :: offset
 
-    integer(SIZE_T), dimension(2)          :: dims
-    integer(SIZE_T), dimension(2)          :: extent
+    integer(HSIZE_T), dimension(2)         :: dims
+    integer(HSIZE_T), dimension(2)         :: extent
     integer(HID_T)                         :: memspace
     integer(HID_T)                         :: dspaceid
     integer                                :: rank
@@ -35,8 +37,8 @@ contains
 
     rank = 2
     nvalues = size(value)
-    extent = (/int(nvalues, kind=SIZE_T), int(offset, kind=SIZE_T)/)
-    dims = (/int(nvalues, kind=SIZE_T), 1_SIZE_T/)
+    extent = (/int(nvalues, kind=HSIZE_T), int(offset, kind=HSIZE_T)/)
+    dims = (/int(nvalues, kind=HSIZE_T), 1_HSIZE_T/)
     offsetd = (/0_HSIZE_T, int(offset - 1, kind=HSIZE_T)/)
 
     call h5dset_extent_f(dsetid, extent, h5error)

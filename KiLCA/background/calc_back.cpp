@@ -14,7 +14,6 @@
 #include "shared.h"
 #include "settings.h"
 #include "background.h"
-#include "slatec.h"
 #include "spline.h"
 #include "inout.h"
 #include "calc_back.h"

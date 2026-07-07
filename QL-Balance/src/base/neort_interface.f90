@@ -35,8 +35,8 @@ contains
         type(meta_config_neort_t), intent(out) :: meta_config
 
         ! mode numbers
-        integer :: poloidal_mode
-        integer :: toroidal_mode
+        integer :: poloidal_mode_number
+        integer :: toroidal_mode_number
 
         ! I/O error handling
         integer :: iostat
@@ -91,8 +91,8 @@ contains
         end if
 
         ! mode numbers (from KiLCA input)
-        poloidal_mode = abs(m_vals(1))
-        toroidal_mode = n_vals(1)
+        poloidal_mode_number = abs(m_vals(1))
+        toroidal_mode_number = n_vals(1)
 
         ! set values from namelist in meta config struct
         meta_config%boozer_file = trim(adjustl(boozer_file))
@@ -100,8 +100,8 @@ contains
         meta_config%amount_of_s = amount_of_s
         meta_config%antenna_factor_exponent = antenna_factor_exponent
         meta_config%config%epsmn = epsmn
-        meta_config%config%m0 = poloidal_mode
-        meta_config%config%mph = toroidal_mode
+        meta_config%config%m0 = poloidal_mode_number
+        meta_config%config%mph = toroidal_mode_number
         meta_config%config%comptorque = .true.  ! must be true
         meta_config%config%magdrift = magdrift
         meta_config%config%nopassing = nopassing

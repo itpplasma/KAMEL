@@ -465,8 +465,9 @@ contains
         type(transport_data_t), dimension(:), intent(in) :: transport_data
         real(dp), intent(in) :: antenna_factor_exponent
 
-        real(dp), dimension(:), allocatable :: total_torque  ! torque per unit s [dyn·cm]
-        real(dp), dimension(:), allocatable :: dVds  ! volume per unit s [cm³]
+        real(dp), dimension(:), allocatable :: total_torque_per_s  ! dT_phi/ds [dyn cm]
+        real(dp), dimension(:), allocatable :: dVds  ! dV/ds [cm³]
+        real(dp), dimension(:), allocatable :: total_torque_density  ! dT_phi/dV [dyn cm-²]
         real(dp), dimension(:, :), allocatable :: torque_of_r_coeffs
         real(dp), dimension(:, :), allocatable :: torque_splined
         integer :: ntorque, nrb, i, i_separatrix
@@ -476,28 +477,30 @@ contains
         ntorque = size(transport_data)
         nrb = size(rb)
 
-        allocate (total_torque(ntorque))
+        allocate (total_torque_per_s(ntorque))
         allocate (dVds(ntorque))
 
         do i = 1, ntorque
-            total_torque(i) = transport_data(i)%torque%Tco + &
-                              transport_data(i)%torque%Tctr + &
-                              transport_data(i)%torque%Tt
+            total_torque_per_s(i) = transport_data(i)%torque%Tco + &
+                                    transport_data(i)%torque%Tctr + &
+                                    transport_data(i)%torque%Tt
             dVds(i) = transport_data(i)%torque%dVds
         end do
 
+        allocate (total_torque_density(ntorque))
         allocate (torque_of_r_coeffs(ntorque - 1, 5))
         allocate (torque_splined(nrb, 3))
 
-        ! translate to cgs via dividing by dVds
-        total_torque = total_torque / dVds
+        ! Convert flux-surface torque derivative dT_phi/ds [dyn cm] to
+        ! volume torque density dT_phi/dV [dyn cm-²] using dV/ds [cm³].
+        total_torque_density = total_torque_per_s / dVds
 
         if (data_verbosity >= 2) then
-            call write_NTV_torque_diagnostic(r, total_torque, time_ind)
+            call write_NTV_torque_diagnostic(r, total_torque_density, time_ind)
         end if
 
         ! spline
-        torque_of_r_coeffs = spline_coeff(r, total_torque)
+        torque_of_r_coeffs = spline_coeff(r, total_torque_density)
 
         ! find index/index+1 of last element from r in rb
         call binsrc(rb, 1, nrb, r(ntorque), i_separatrix)
@@ -952,7 +955,6 @@ contains
 
         close (iunit)
     end subroutine write_torque_csv_splined
-
 
     subroutine write_plasma_input(path, nplasma, am1, am2, Z1, Z2, plasma)
         character(len=*), intent(in) :: path

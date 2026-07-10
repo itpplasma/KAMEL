@@ -1,6 +1,6 @@
 program test_region_roots_vs_muller
 
-    ! Equivalence check for the ZEAL replacement (Z1): the fortnum-backed
+    ! Equivalence check for the region_roots solver (Z1): the fortnum-backed
     ! dispersion_region_fn adapter must return the same dispersion zeros as the
     ! in-tree Muller solver (run_Muller_dispersion uses the same roots() driver).
 
@@ -9,11 +9,11 @@ program test_region_roots_vs_muller
     use fortnum_roots_complex, only: complex_region_roots
     use fortnum_status, only: fortnum_status_t, FORTNUM_OK
     use Function_Input_Module, only: dispersion_impl, dispersion_region_fn
-    use rt_WKB_dispersion_m, only: zeal_root_store_t, compact_zeal_branch_ids
+    use rt_WKB_dispersion_m, only: region_root_store_t, compact_region_branch_ids
 
     implicit none
 
-    ! Search box matches the ZEAL/Muller usage: a rectangle in the complex
+    ! Search box matches the region_roots/Muller usage: a rectangle in the complex
     ! plane centered near the cluster of dispersion roots.
     complex(dp), parameter :: ll = (-3.0_dp, -3.0_dp)
     complex(dp), parameter :: ur = ( 3.0_dp,  3.0_dp)
@@ -38,7 +38,7 @@ program test_region_roots_vs_muller
     complex(dp), allocatable :: m_rts(:), m_fnv(:)
 
     integer :: i
-    type(zeal_root_store_t) :: branch_store
+    type(region_root_store_t) :: branch_store
     integer :: n_compact_branches
 
     dispersion_impl => ftest_scalar
@@ -107,7 +107,7 @@ program test_region_roots_vs_muller
     branch_store%branch_id(1, 1) = 4
     branch_store%branch_id(1, 2) = 4
 
-    call compact_zeal_branch_ids(branch_store, n_compact_branches)
+    call compact_region_branch_ids(branch_store, n_compact_branches)
     if (n_compact_branches /= 1) then
         print *, 'compact branch count mismatch: ', n_compact_branches
         error stop 7

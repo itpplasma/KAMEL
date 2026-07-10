@@ -2,7 +2,7 @@ module rt_WKB_dispersion_m
 
     !==========================================================================================
     ! module for running the WKB dispersion relation solver
-    ! Algorithms for root finding are Muller and ZEAL, both with per-branch tracking
+    ! Algorithms for root finding are Muller and region-roots, both with per-branch tracking
     ! Dispersion functions implemented: KIM and FLRE to second order
     !
     ! Configuration namelist is in KIM_config.nml named &wkb_dispersion
@@ -13,25 +13,25 @@ module rt_WKB_dispersion_m
 
     implicit none
 
-    integer, parameter :: ZEAL_M_MAX = 5
-    integer, parameter :: ZEAL_MAX_MISS_COUNT = 3
+    integer, parameter :: REGION_M_MAX = 5
+    integer, parameter :: REGION_MAX_MISS_COUNT = 3
 
-    type zeal_branch_state_t
+    type region_branch_state_t
         complex(dp), allocatable :: center(:)
         complex(dp), allocatable :: fvalue(:)
         integer, allocatable :: mult(:)
         logical, allocatable :: active(:)
         integer, allocatable :: miss_count(:)
         integer :: n_active = 0
-    end type zeal_branch_state_t
+    end type region_branch_state_t
 
-    type zeal_root_store_t
+    type region_root_store_t
         complex(dp), allocatable :: zeros(:,:)
         complex(dp), allocatable :: fzeros(:,:)
         integer, allocatable :: multiplicities(:,:)
         integer, allocatable :: branch_id(:,:)
         integer, allocatable :: n_per_point(:)
-    end type zeal_root_store_t
+    end type region_root_store_t
 
     type, extends(kim_t) :: WKB_dispersion_t
         contains
@@ -100,8 +100,8 @@ module rt_WKB_dispersion_m
                     call write_complex_profile_abs(rg_grid%xb, found_roots(:,i), rg_grid%npts_b, &
                         trim(out_str), "WKB dispersion relation", "cm^{-2}", dispersion_output_path)
                 end do
-            case ('ZEAL')
-                call run_ZEAL_dispersion()
+            case ('region_roots')
+                call run_region_roots_dispersion()
             case default
                 stop "Unknown WKB dispersion solver"
         end select
@@ -426,7 +426,7 @@ module rt_WKB_dispersion_m
     end subroutine test_dispersion_KIM
 
 
-    subroutine run_ZEAL_dispersion()
+    subroutine run_region_roots_dispersion()
         use Function_Input_Module, only: rg_index, init_dispersion_mode
         use grid_m, only: rg_grid
         use IO_collection_m, only: write_tracked_roots
@@ -434,20 +434,20 @@ module rt_WKB_dispersion_m
 
         implicit none
 
-        type(zeal_branch_state_t) :: branches
-        type(zeal_root_store_t) :: roots
+        type(region_branch_state_t) :: branches
+        type(region_root_store_t) :: roots
         integer :: j, n_output_branches
 
-        call allocate_zeal_tracking(branches, roots, rg_grid%npts_b)
+        call allocate_region_tracking(branches, roots, rg_grid%npts_b)
         call init_dispersion_mode()
-        call print_zeal_start()
+        call print_region_start()
 
         do j = 1, rg_grid%npts_b
             rg_index = j
             if (WKB_verbose) print *, '--- Grid point ', j, ' at x = ', rg_grid%xb(j), ' ---'
 
-            call track_zeal_branches(j, branches, roots)
-            if (zeal_needs_broad_search(j, branches)) call run_zeal_broad_search(j, branches, roots)
+            call track_region_branches(j, branches, roots)
+            if (region_needs_broad_search(j, branches)) call run_region_broad_search(j, branches, roots)
 
             if (WKB_verbose) then
                 print *, '  Active branches: ', branches%n_active, &
@@ -456,25 +456,25 @@ module rt_WKB_dispersion_m
             end if
         end do
 
-        call compact_zeal_branch_ids(roots, n_output_branches)
-        call print_zeal_summary(branches, roots, n_output_branches)
+        call compact_region_branch_ids(roots, n_output_branches)
+        call print_region_summary(branches, roots, n_output_branches)
         call write_tracked_roots(rg_grid%xb, rg_grid%npts_b, &
             roots%zeros, roots%fzeros, roots%multiplicities, &
             roots%n_per_point, roots%branch_id, n_output_branches, &
-            'zeal_branches', 'ZEAL per-branch tracked dispersion', dispersion_output_path)
-        call deallocate_zeal_tracking(branches, roots)
+            'region_roots_branches', 'region-roots per-branch tracked dispersion', dispersion_output_path)
+        call deallocate_region_tracking(branches, roots)
 
         print *, 'Tracked branches written to output files.'
 
-    end subroutine run_ZEAL_dispersion
+    end subroutine run_region_roots_dispersion
 
-    subroutine allocate_zeal_tracking(branches, roots, n_grid)
+    subroutine allocate_region_tracking(branches, roots, n_grid)
         use config_m, only: WKB_max_tracked_branches
 
         implicit none
 
-        type(zeal_branch_state_t), intent(out) :: branches
-        type(zeal_root_store_t), intent(out) :: roots
+        type(region_branch_state_t), intent(out) :: branches
+        type(region_root_store_t), intent(out) :: roots
         integer, intent(in) :: n_grid
 
         allocate(branches%center(WKB_max_tracked_branches))
@@ -500,22 +500,22 @@ module rt_WKB_dispersion_m
         roots%branch_id = 0
         roots%n_per_point = 0
 
-    end subroutine allocate_zeal_tracking
+    end subroutine allocate_region_tracking
 
-    subroutine deallocate_zeal_tracking(branches, roots)
+    subroutine deallocate_region_tracking(branches, roots)
         implicit none
 
-        type(zeal_branch_state_t), intent(inout) :: branches
-        type(zeal_root_store_t), intent(inout) :: roots
+        type(region_branch_state_t), intent(inout) :: branches
+        type(region_root_store_t), intent(inout) :: roots
 
         deallocate(branches%center, branches%fvalue, branches%mult)
         deallocate(branches%active, branches%miss_count)
         deallocate(roots%zeros, roots%fzeros, roots%multiplicities)
         deallocate(roots%branch_id, roots%n_per_point)
 
-    end subroutine deallocate_zeal_tracking
+    end subroutine deallocate_region_tracking
 
-    subroutine print_zeal_start()
+    subroutine print_region_start()
         use config_m, only: WKB_max_tracked_branches, WKB_branch_search_halfwidth, &
             WKB_broad_search_halfwidth, WKB_broad_search_interval, WKB_dispersion_mode, &
             WKB_solve_for_kr_squared, WKB_verbose
@@ -523,7 +523,7 @@ module rt_WKB_dispersion_m
         implicit none
 
         print *
-        print *, '=== Per-Branch ZEAL Tracking ==='
+        print *, '=== Per-Branch region-roots Tracking ==='
         print *, 'Dispersion mode: ', trim(WKB_dispersion_mode)
         if (WKB_solve_for_kr_squared) then
             print *, 'Solver variable: kr^2 (solving D(kr^2)=0)'
@@ -537,16 +537,16 @@ module rt_WKB_dispersion_m
         print *, 'Verbose branch tracing: ', WKB_verbose
         print *
 
-    end subroutine print_zeal_start
+    end subroutine print_region_start
 
-    subroutine track_zeal_branches(j, branches, roots)
+    subroutine track_region_branches(j, branches, roots)
         use config_m, only: WKB_max_tracked_branches, WKB_branch_search_halfwidth, WKB_verbose
 
         implicit none
 
         integer, intent(in) :: j
-        type(zeal_branch_state_t), intent(inout) :: branches
-        type(zeal_root_store_t), intent(inout) :: roots
+        type(region_branch_state_t), intent(inout) :: branches
+        type(region_root_store_t), intent(inout) :: roots
         integer :: b, best_idx, distinctnumber
         complex(dp), allocatable :: zeros(:), fzeros(:)
         integer, allocatable :: multiplicities(:)
@@ -561,33 +561,33 @@ module rt_WKB_dispersion_m
                 WKB_branch_search_halfwidth, dp)
             if (WKB_verbose) print *, '  Branch ', b, ': searching near ', branches%center(b)
 
-            call zeal_region_search('branch', j, ll, ur, zeros, fzeros, &
+            call region_search('branch', j, ll, ur, zeros, fzeros, &
                 multiplicities, distinctnumber)
-            call best_zeal_root(fzeros, distinctnumber, best_idx)
+            call best_region_root(fzeros, distinctnumber, best_idx)
             if (best_idx > 0) then
-                call update_zeal_branch(branches, roots, j, b, zeros(best_idx), &
+                call update_region_branch(branches, roots, j, b, zeros(best_idx), &
                     fzeros(best_idx), multiplicities(best_idx))
             else
-                call record_zeal_miss(branches, b)
+                call record_region_miss(branches, b)
             end if
         end do
 
-    end subroutine track_zeal_branches
+    end subroutine track_region_branches
 
-    subroutine run_zeal_broad_search(j, branches, roots)
+    subroutine run_region_broad_search(j, branches, roots)
         use config_m, only: WKB_broad_search_halfwidth, WKB_root_tolerance, WKB_verbose
 
         implicit none
 
         integer, intent(in) :: j
-        type(zeal_branch_state_t), intent(inout) :: branches
-        type(zeal_root_store_t), intent(inout) :: roots
+        type(region_branch_state_t), intent(inout) :: branches
+        type(region_root_store_t), intent(inout) :: roots
         integer :: i, distinctnumber
         complex(dp), allocatable :: zeros(:), fzeros(:)
         integer, allocatable :: multiplicities(:)
         complex(dp) :: center, ll, ur
 
-        center = zeal_broad_search_center(branches)
+        center = region_broad_search_center(branches)
         ll = center - cmplx(WKB_broad_search_halfwidth, WKB_broad_search_halfwidth, dp)
         ur = center + cmplx(WKB_broad_search_halfwidth, WKB_broad_search_halfwidth, dp)
 
@@ -596,25 +596,25 @@ module rt_WKB_dispersion_m
                 ' with half-width ', WKB_broad_search_halfwidth
         end if
 
-        call zeal_region_search('broad', j, ll, ur, zeros, fzeros, multiplicities, distinctnumber)
+        call region_search('broad', j, ll, ur, zeros, fzeros, multiplicities, distinctnumber)
         if (WKB_verbose) print *, '  Broad search found ', distinctnumber, ' zeros'
         if (distinctnumber <= 0) return
         if (.not. allocated(zeros)) return
 
         do i = 1, min(distinctnumber, size(zeros))
             if (abs(fzeros(i)) >= WKB_root_tolerance) cycle
-            if (zeal_root_is_tracked(zeros(i), branches)) cycle
-            if (.not. activate_zeal_branch(branches, roots, j, zeros(i), &
+            if (region_root_is_tracked(zeros(i), branches)) cycle
+            if (.not. activate_region_branch(branches, roots, j, zeros(i), &
                     fzeros(i), multiplicities(i))) then
-                print *, 'Warning: ZEAL broad search found more valid roots than tracked ', &
+                print *, 'Warning: region-roots broad search found more valid roots than tracked ', &
                     'branch slots.'
                 exit
             end if
         end do
 
-    end subroutine run_zeal_broad_search
+    end subroutine run_region_broad_search
 
-    subroutine zeal_region_search(label, j, ll, ur, zeros, fzeros, multiplicities, distinctnumber)
+    subroutine region_search(label, j, ll, ur, zeros, fzeros, multiplicities, distinctnumber)
         use Function_Input_Module, only: dispersion_region_fn
         use fortnum_roots_complex, only: complex_region_roots
         use fortnum_status, only: fortnum_status_t, FORTNUM_OK
@@ -630,16 +630,16 @@ module rt_WKB_dispersion_m
         type(fortnum_status_t) :: rstatus
 
         call complex_region_roots(dispersion_region_fn, ll, ur, &
-            zeros, fzeros, multiplicities, distinctnumber, rstatus, m_max=ZEAL_M_MAX)
+            zeros, fzeros, multiplicities, distinctnumber, rstatus, m_max=REGION_M_MAX)
         if (rstatus%code == FORTNUM_OK) return
 
-        print *, 'Warning: ZEAL ', trim(label), ' search failed at grid point ', j, ': ', &
+        print *, 'Warning: region-roots ', trim(label), ' search failed at grid point ', j, ': ', &
             trim(rstatus%msg)
         distinctnumber = 0
 
-    end subroutine zeal_region_search
+    end subroutine region_search
 
-    subroutine best_zeal_root(fzeros, distinctnumber, best_idx)
+    subroutine best_region_root(fzeros, distinctnumber, best_idx)
         use config_m, only: WKB_root_tolerance
 
         implicit none
@@ -664,15 +664,15 @@ module rt_WKB_dispersion_m
             end if
         end do
 
-    end subroutine best_zeal_root
+    end subroutine best_region_root
 
-    subroutine update_zeal_branch(branches, roots, j, branch_id, zero, fzero, multiplicity)
+    subroutine update_region_branch(branches, roots, j, branch_id, zero, fzero, multiplicity)
         use config_m, only: WKB_verbose
 
         implicit none
 
-        type(zeal_branch_state_t), intent(inout) :: branches
-        type(zeal_root_store_t), intent(inout) :: roots
+        type(region_branch_state_t), intent(inout) :: branches
+        type(region_root_store_t), intent(inout) :: roots
         integer, intent(in) :: j, branch_id, multiplicity
         complex(dp), intent(in) :: zero, fzero
 
@@ -680,20 +680,20 @@ module rt_WKB_dispersion_m
         branches%fvalue(branch_id) = fzero
         branches%mult(branch_id) = multiplicity
         branches%miss_count(branch_id) = 0
-        call store_zeal_root(roots, j, branch_id, zero, fzero, multiplicity)
+        call store_region_root(roots, j, branch_id, zero, fzero, multiplicity)
 
         if (WKB_verbose) then
             print *, '    Found branch ', branch_id, ' root ', zero, ' |f| = ', abs(fzero)
         end if
 
-    end subroutine update_zeal_branch
+    end subroutine update_region_branch
 
-    subroutine record_zeal_miss(branches, branch_id)
+    subroutine record_region_miss(branches, branch_id)
         use config_m, only: WKB_verbose
 
         implicit none
 
-        type(zeal_branch_state_t), intent(inout) :: branches
+        type(region_branch_state_t), intent(inout) :: branches
         integer, intent(in) :: branch_id
 
         branches%miss_count(branch_id) = branches%miss_count(branch_id) + 1
@@ -701,91 +701,91 @@ module rt_WKB_dispersion_m
             print *, '    No valid root found for branch ', branch_id, &
                 ' (miss count: ', branches%miss_count(branch_id), ')'
         end if
-        if (branches%miss_count(branch_id) < ZEAL_MAX_MISS_COUNT) return
+        if (branches%miss_count(branch_id) < REGION_MAX_MISS_COUNT) return
 
         branches%active(branch_id) = .false.
         branches%n_active = branches%n_active - 1
         if (WKB_verbose) then
-            print *, '    Branch ', branch_id, ' deactivated after ', ZEAL_MAX_MISS_COUNT, &
+            print *, '    Branch ', branch_id, ' deactivated after ', REGION_MAX_MISS_COUNT, &
                 ' consecutive misses'
         end if
 
-    end subroutine record_zeal_miss
+    end subroutine record_region_miss
 
-    logical function zeal_needs_broad_search(j, branches)
+    logical function region_needs_broad_search(j, branches)
         use config_m, only: WKB_broad_search_interval
 
         implicit none
 
         integer, intent(in) :: j
-        type(zeal_branch_state_t), intent(in) :: branches
+        type(region_branch_state_t), intent(in) :: branches
 
-        zeal_needs_broad_search = (j == 1)
-        if (.not. zeal_needs_broad_search) then
+        region_needs_broad_search = (j == 1)
+        if (.not. region_needs_broad_search) then
             if (WKB_broad_search_interval > 0) then
-                if (mod(j - 1, WKB_broad_search_interval) == 0) zeal_needs_broad_search = .true.
+                if (mod(j - 1, WKB_broad_search_interval) == 0) region_needs_broad_search = .true.
             end if
         end if
-        if (branches%n_active == 0) zeal_needs_broad_search = .true.
+        if (branches%n_active == 0) region_needs_broad_search = .true.
 
-    end function zeal_needs_broad_search
+    end function region_needs_broad_search
 
-    complex(dp) function zeal_broad_search_center(branches)
+    complex(dp) function region_broad_search_center(branches)
         use config_m, only: WKB_max_tracked_branches
 
         implicit none
 
-        type(zeal_branch_state_t), intent(in) :: branches
+        type(region_branch_state_t), intent(in) :: branches
         integer :: b, n_centers
 
-        zeal_broad_search_center = (0.0_dp, -1.0_dp)
+        region_broad_search_center = (0.0_dp, -1.0_dp)
         if (branches%n_active <= 0) return
 
-        zeal_broad_search_center = (0.0_dp, 0.0_dp)
+        region_broad_search_center = (0.0_dp, 0.0_dp)
         n_centers = 0
         do b = 1, WKB_max_tracked_branches
             if (branches%active(b)) then
-                zeal_broad_search_center = zeal_broad_search_center + branches%center(b)
+                region_broad_search_center = region_broad_search_center + branches%center(b)
                 n_centers = n_centers + 1
             end if
         end do
-        if (n_centers > 0) zeal_broad_search_center = zeal_broad_search_center / real(n_centers, dp)
+        if (n_centers > 0) region_broad_search_center = region_broad_search_center / real(n_centers, dp)
 
-    end function zeal_broad_search_center
+    end function region_broad_search_center
 
-    logical function zeal_root_is_tracked(zero, branches)
+    logical function region_root_is_tracked(zero, branches)
         use config_m, only: WKB_max_tracked_branches, WKB_branch_search_halfwidth
 
         implicit none
 
         complex(dp), intent(in) :: zero
-        type(zeal_branch_state_t), intent(in) :: branches
+        type(region_branch_state_t), intent(in) :: branches
         integer :: b
 
-        zeal_root_is_tracked = .false.
+        region_root_is_tracked = .false.
         do b = 1, WKB_max_tracked_branches
             if (branches%active(b)) then
                 if (abs(zero - branches%center(b)) < WKB_branch_search_halfwidth) then
-                    zeal_root_is_tracked = .true.
+                    region_root_is_tracked = .true.
                     return
                 end if
             end if
         end do
 
-    end function zeal_root_is_tracked
+    end function region_root_is_tracked
 
-    logical function activate_zeal_branch(branches, roots, j, zero, fzero, multiplicity)
+    logical function activate_region_branch(branches, roots, j, zero, fzero, multiplicity)
         use config_m, only: WKB_max_tracked_branches, WKB_verbose
 
         implicit none
 
-        type(zeal_branch_state_t), intent(inout) :: branches
-        type(zeal_root_store_t), intent(inout) :: roots
+        type(region_branch_state_t), intent(inout) :: branches
+        type(region_root_store_t), intent(inout) :: roots
         integer, intent(in) :: j, multiplicity
         complex(dp), intent(in) :: zero, fzero
         integer :: b
 
-        activate_zeal_branch = .false.
+        activate_region_branch = .false.
         do b = 1, WKB_max_tracked_branches
             if (branches%active(b)) cycle
 
@@ -795,24 +795,24 @@ module rt_WKB_dispersion_m
             branches%mult(b) = multiplicity
             branches%miss_count(b) = 0
             branches%n_active = branches%n_active + 1
-            call store_zeal_root(roots, j, b, zero, fzero, multiplicity)
-            activate_zeal_branch = .true.
+            call store_region_root(roots, j, b, zero, fzero, multiplicity)
+            activate_region_branch = .true.
             if (WKB_verbose) print *, '  New branch ', b, ' at ', zero
             return
         end do
 
-    end function activate_zeal_branch
+    end function activate_region_branch
 
-    subroutine store_zeal_root(roots, j, branch_id, zero, fzero, multiplicity)
+    subroutine store_region_root(roots, j, branch_id, zero, fzero, multiplicity)
         implicit none
 
-        type(zeal_root_store_t), intent(inout) :: roots
+        type(region_root_store_t), intent(inout) :: roots
         integer, intent(in) :: j, branch_id, multiplicity
         complex(dp), intent(in) :: zero, fzero
         integer :: slot
 
         if (roots%n_per_point(j) >= size(roots%zeros, 1)) then
-            print *, 'Warning: ZEAL root storage full at grid point ', j, &
+            print *, 'Warning: region-roots root storage full at grid point ', j, &
                 '; dropping branch ', branch_id
             return
         end if
@@ -824,12 +824,12 @@ module rt_WKB_dispersion_m
         roots%multiplicities(slot, j) = multiplicity
         roots%branch_id(slot, j) = branch_id
 
-    end subroutine store_zeal_root
+    end subroutine store_region_root
 
-    subroutine compact_zeal_branch_ids(roots, n_branches)
+    subroutine compact_region_branch_ids(roots, n_branches)
         implicit none
 
-        type(zeal_root_store_t), intent(inout) :: roots
+        type(region_root_store_t), intent(inout) :: roots
         integer, intent(out) :: n_branches
         integer, allocatable :: branch_map(:)
         integer :: i, j, branch_id, max_branches
@@ -864,20 +864,20 @@ module rt_WKB_dispersion_m
 
         deallocate(branch_map)
 
-    end subroutine compact_zeal_branch_ids
+    end subroutine compact_region_branch_ids
 
-    subroutine print_zeal_summary(branches, roots, n_output_branches)
+    subroutine print_region_summary(branches, roots, n_output_branches)
         use config_m, only: WKB_max_tracked_branches, WKB_verbose
 
         implicit none
 
-        type(zeal_branch_state_t), intent(in) :: branches
-        type(zeal_root_store_t), intent(in) :: roots
+        type(region_branch_state_t), intent(in) :: branches
+        type(region_root_store_t), intent(in) :: roots
         integer, intent(in) :: n_output_branches
         integer :: b
 
         print *
-        print *, '=== ZEAL Per-Branch Tracking Summary ==='
+        print *, '=== region-roots Per-Branch Tracking Summary ==='
         print *, 'Total grid points: ', size(roots%n_per_point)
         print *, 'Final active branches: ', branches%n_active
         print *, 'Output branches with stored roots: ', n_output_branches
@@ -892,6 +892,6 @@ module rt_WKB_dispersion_m
         end if
         print *
 
-    end subroutine print_zeal_summary
+    end subroutine print_region_summary
 
 end module

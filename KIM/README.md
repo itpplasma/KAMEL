@@ -30,7 +30,7 @@ To compile the code:
 make
 ```
 
-The complex region-root finder behind `WKB_dispersion_solver='ZEAL'` is provided by fortnum and requires a working LAPACK installation.
+The complex region-root finder behind `WKB_dispersion_solver='region_roots'` is provided by fortnum and requires a working LAPACK installation.
 
 ## WKB Dispersion Solver
 
@@ -40,7 +40,7 @@ Solves the kinetic dispersion relation D(k_r) = 0 for complex radial wavenumber 
 
 ```fortran
 &WKB_dispersion
-  WKB_dispersion_solver = 'Muller'  ! 'Muller' or 'ZEAL'
+  WKB_dispersion_solver = 'Muller'  ! 'Muller' or 'region_roots'
   WKB_dispersion_mode = 'KIM'       ! 'KIM' (full Bessel) or 'FLRE' (finite Larmor radius expansion)
 /
 ```
@@ -49,7 +49,7 @@ Solves the kinetic dispersion relation D(k_r) = 0 for complex radial wavenumber 
 
 **Muller** (recommended): Iterative root finder using previous root as initial guess. Reliable branch tracking.
 
-**ZEAL**: Contour integration + Newton refinement via fortnum `complex_region_roots`. Per-branch tracking with configurable parameters in the `&wkb_dispersion` namelist:
+**region_roots**: Contour integration + Newton refinement via fortnum `complex_region_roots`. Per-branch tracking with configurable parameters in the `&wkb_dispersion` namelist:
 - `WKB_max_tracked_branches = 4` - Maximum simultaneous branches
 - `WKB_branch_search_halfwidth = 1.5` - Search window per branch
 - `WKB_broad_search_halfwidth = 5.0` - Initial discovery window
@@ -58,7 +58,7 @@ Solves the kinetic dispersion relation D(k_r) = 0 for complex radial wavenumber 
 ### Output
 
 Results written to `out/m*_n*/dispersion/` directory:
-- `muller_branches_*.dat` or `zeal_branches_*.dat` - Branch-tracked roots
+- `muller_branches_*.dat` or `region_roots_branches_*.dat` - Branch-tracked roots
 - HDF5 files with same data for post-processing
 
 ### Python Alternative

@@ -699,7 +699,7 @@ module IO_collection_m
         if (present(comment)) then
             comment_str = comment
         else
-            comment_str = 'ZEAL root finding results'
+            comment_str = 'region-roots finding results'
         end if
 
         if (hdf5_output) then
@@ -879,7 +879,7 @@ module IO_collection_m
         if (present(comment)) then
             comment_str = comment
         else
-            comment_str = 'ZEAL tracked root branches'
+            comment_str = 'region-roots tracked root branches'
         end if
 
         ! Allocate temporary arrays for branch data

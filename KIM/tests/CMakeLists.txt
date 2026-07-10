@@ -150,6 +150,17 @@ target_link_libraries(test_periodic_background KIM_lib kilca_lib lapack cerf dde
 add_test(NAME test_periodic_background
          COMMAND ${CMAKE_BINARY_DIR}/tests/test_periodic_background.x)
 
+# Build a periodic background plasma on a redirected window grid (Phase-2.3).
+add_executable(test_periodic_background_build ${CMAKE_SOURCE_DIR}/KIM/tests/test_periodic_background_build.f90)
+set_target_properties(test_periodic_background_build PROPERTIES
+                        OUTPUT_NAME test_periodic_background_build.x
+                        RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/tests/")
+target_link_libraries(test_periodic_background_build KIM_lib kilca_lib lapack cerf ddeabm slatec)
+add_test(NAME test_periodic_background_build
+         COMMAND ${CMAKE_BINARY_DIR}/tests/test_periodic_background_build.x)
+set_tests_properties(test_periodic_background_build PROPERTIES
+                     WORKING_DIRECTORY ${CMAKE_BINARY_DIR}/tests/)
+
 # Lifecycle/contract tests for the kim_solver_m API seam.
 add_executable(test_kim_solver ${CMAKE_SOURCE_DIR}/KIM/tests/test_kim_solver.f90)
 set_target_properties(test_kim_solver PROPERTIES

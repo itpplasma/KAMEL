@@ -44,6 +44,7 @@ module kim_solver_m
         real(dp),    allocatable :: r_field(:)
         complex(dp), allocatable :: Es(:), Ep(:), Er(:), Etheta(:), Ez(:), Br(:)
         complex(dp), allocatable :: jpar(:), jpar_e(:), jpar_i(:)
+        complex(dp), allocatable :: Phi(:)
 
         ! derived background (plasma grid)
         real(dp), allocatable :: r_plasma(:)
@@ -278,6 +279,7 @@ contains
         if (allocated(EBdat%jpar))   res%jpar    = EBdat%jpar
         if (allocated(EBdat%jpar_e)) res%jpar_e  = EBdat%jpar_e
         if (allocated(EBdat%jpar_i)) res%jpar_i  = EBdat%jpar_i
+        if (allocated(EBdat%Phi))    res%Phi     = EBdat%Phi
 
         ! derived background (plasma grid)
         if (allocated(plasma%r_grid)) res%r_plasma = plasma%r_grid

@@ -48,6 +48,13 @@ subroutine kim_read_config
                         n_input_file, Te_input_file, Ti_input_file, Vz_input_file, &
                         n_file, Te_file, Ti_file, Vz_file, Er_file, q_file
 
+    ! Optional group for the forced-periodicity electrostatic run-type. Read
+    ! separately (iostat-guarded, below) so config files without it still parse.
+    namelist /KIM_PERIODIC/ periodic_dr_asis_scale, periodic_dr_tr_scale, &
+                        periodic_kmax_scale, periodic_n_rg
+
+    integer :: periodic_iostat
+
     num_args = command_argument_count()
     if (num_args > 1) then
         write(*,*) 'Too many arguments'
@@ -69,6 +76,12 @@ subroutine kim_read_config
     read(unit = 77, nml = KIM_SETUP)
     read(unit = 77, nml = KIM_GRID)
     read(unit = 77, nml = KIM_PROFILES)
+
+    ! Optional KIM_PERIODIC group: rewind and read with iostat so config files
+    ! that omit it keep the config_m defaults instead of aborting the read.
+    rewind(unit = 77)
+    read(unit = 77, nml = KIM_PERIODIC, iostat = periodic_iostat)
+
     close(unit = 77)
 
     ! Propagate KIM_CONFIG flag to the QL-Balance getIfunc_config module

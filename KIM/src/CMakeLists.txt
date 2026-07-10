@@ -76,25 +76,15 @@ endif()
 # Provide a portable D1MACH for QUADPACK (avoids platform-specific Netlib d1mach variants)
 target_sources(quadpack_netlib PRIVATE ${CMAKE_SOURCE_DIR}/KIM/src/math/quadpack_d1mach.f90)
 
-find_package(SuiteSparse REQUIRED)
-if("${SuiteSparse_FOUND}")
-    message(" ====== SuiteSparse was found! ======")
-    target_link_libraries(KIM_lib PUBLIC "${SuiteSparse_LIBRARIES}")
-    message("SuiteSparse libraries: ${SUITESPARSE_LIBRARIES}")
-    target_include_directories(KIM_lib PUBLIC "${SuiteSparse_INCLUDE_DIRS}")
-    message("${SUITESPARSE_INCLUDE_DIRS}")
-endif()
-
-find_package(Umfpack REQUIRED)
-if("${UMFPACK_FOUND}")
-    message(" ====== Umfpack was found! ======")
-    target_link_libraries(KIM_lib PUBLIC "${UMFPACK_LIBRARIES}")
-    message("UMFPACK libraries: ${UMFPACK_LIBRARIES}")
-    target_include_directories(KIM_lib PUBLIC "${UMFPACK_INCLUDES}")
-    message("${UMFPACK_INCLUDES}")
-endif()
-
-find_library(UMFPACK_LIBRARY umfpack)
+# SuiteSparse/UMFPACK come SOLELY from the fetched-static SuiteSparse v7.8.3 via the
+# `sparse` target linked above (Dependencies.cmake -> SuiteSparse::umfpack{,_wrappers},
+# built with -DDLONG -DZLONG). Previously a find_package(SuiteSparse)+find_package(Umfpack)
+# here ALSO linked the system (Homebrew) UMFPACK, so the binary loaded two conflicting
+# UMFPACK builds at once (static 7.8.3 + dylib 6.3.7). The duplicate SuiteSparse_config
+# global state corrupted every complex sparse solve (umf4zsym -> UMFPACK_ERROR_invalid_matrix,
+# solutions Inf/0), which silently made the global electrostatic Poisson solve return Phi==0.
+# The umf4_f77*.c wrappers' umfpack.h and the UMFPACK symbols both propagate transitively from
+# SuiteSparse::umfpack via the `sparse` target, so no separate find_package is needed.
 
 find_package(SuperLU REQUIRED)
 if("${SUPERLU_FOUND}")

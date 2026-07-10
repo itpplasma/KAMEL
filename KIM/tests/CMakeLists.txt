@@ -79,6 +79,15 @@ add_test(NAME test_collisionless_ion_assembly
          COMMAND ${CMAKE_BINARY_DIR}/tests/test_collisionless_ion_assembly.x)
 set_tests_properties(test_collisionless_ion_assembly PROPERTIES
                      WORKING_DIRECTORY ${CMAKE_BINARY_DIR}/tests/)
+
+add_executable(test_flr2_fourier_kernel ${CMAKE_SOURCE_DIR}/KIM/tests/test_flr2_fourier_kernel.f90)
+set_target_properties(test_flr2_fourier_kernel PROPERTIES
+                        OUTPUT_NAME test_flr2_fourier_kernel.x
+                        RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/tests/")
+target_link_libraries(test_flr2_fourier_kernel KIM_lib kilca_lib lapack cerf fortnum_amos_compat)
+add_test(NAME test_flr2_fourier_kernel
+         COMMAND ${CMAKE_BINARY_DIR}/tests/test_flr2_fourier_kernel.x)
+
 add_executable(test_ampere_matrices ${CMAKE_SOURCE_DIR}/KIM/tests/test_ampere_matrices.f90)
 set_target_properties(test_ampere_matrices PROPERTIES
                         OUTPUT_NAME test_ampere_matrices.x

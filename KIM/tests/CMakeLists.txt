@@ -172,6 +172,17 @@ add_test(NAME test_periodic_assembly
 set_tests_properties(test_periodic_assembly PROPERTIES
                      WORKING_DIRECTORY ${CMAKE_BINARY_DIR}/tests/)
 
+# Dense zgesv solve + inverse DFT for the periodic potential (Phase-2.5).
+add_executable(test_periodic_solve ${CMAKE_SOURCE_DIR}/KIM/tests/test_periodic_solve.f90)
+set_target_properties(test_periodic_solve PROPERTIES
+                        OUTPUT_NAME test_periodic_solve.x
+                        RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/tests/")
+target_link_libraries(test_periodic_solve KIM_lib kilca_lib lapack cerf ddeabm slatec)
+add_test(NAME test_periodic_solve
+         COMMAND ${CMAKE_BINARY_DIR}/tests/test_periodic_solve.x)
+set_tests_properties(test_periodic_solve PROPERTIES
+                     WORKING_DIRECTORY ${CMAKE_BINARY_DIR}/tests/)
+
 # Lifecycle/contract tests for the kim_solver_m API seam.
 add_executable(test_kim_solver ${CMAKE_SOURCE_DIR}/KIM/tests/test_kim_solver.f90)
 set_target_properties(test_kim_solver PROPERTIES

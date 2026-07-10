@@ -32,6 +32,8 @@ program test_flr2_fourier_kernel
     call test_collapse_rho_B()
     call test_collapse_rho_B_ks2()
     call test_zero_wavenumber_limit_rho_B()
+    call test_scaled_bessel_large_arg()
+    call test_large_bcross_kernel_finite()
 
     print *, 'All tests PASSED'
     stop 0
@@ -713,6 +715,121 @@ contains
         end do
 
         print *, 'PASS: fused rho-B kernel matches b->0 closed form'
+    end subroutine
+
+    subroutine test_scaled_bessel_large_arg()
+        ! Overflow-safe scaled Bessel products in the large-argument regime.
+        ! At b_+ = b_x = 1000 the unscaled I_0(1000) overflows to +Inf (near
+        ! the ~710 argument limit), so the naive exp(-b_+)*I_0(b_x) is Inf*0.
+        ! The asymptotic branch must instead return finite values matching the
+        ! analytic limits exp(-b)*I_0(b) -> 1/sqrt(2*pi*b) and I_{-1}/I_0 -> 1.
+        use, intrinsic :: ieee_arithmetic, only: ieee_is_finite
+        use flr2_fourier_kernel_m, only: scaled_bessel_pair
+        use constants_m, only: pi
+
+        real(dp) :: b, sI0, sIm1, analytic_sI0, tol
+
+        b = 1000.0_dp
+        call scaled_bessel_pair(b, b, sI0, sIm1)
+
+        if (.not. ieee_is_finite(sI0)) then
+            print *, 'FAIL: scaled_bessel_pair sI0 not finite at b=1000: ', sI0
+            error stop
+        end if
+        if (.not. ieee_is_finite(sIm1)) then
+            print *, 'FAIL: scaled_bessel_pair sIm1 not finite at b=1000: ', sIm1
+            error stop
+        end if
+
+        ! exp(-b)*I_0(b) -> 1/sqrt(2*pi*b) as b -> infinity.
+        analytic_sI0 = 1.0_dp / sqrt(2.0_dp * pi * b)
+        tol = 1.0e-3_dp * analytic_sI0
+        if (abs(sI0 - analytic_sI0) >= tol) then
+            print *, 'FAIL: scaled sI0 off analytic limit at b=1000'
+            print *, '  sI0      = ', sI0
+            print *, '  analytic = ', analytic_sI0
+            print *, '  |diff|   = ', abs(sI0 - analytic_sI0), ' tol = ', tol
+            error stop
+        end if
+
+        ! I_{-1}(b)/I_0(b) -> 1, so sIm1 is positive and within ~2% of sI0.
+        if (.not. (sIm1 > 0.0_dp)) then
+            print *, 'FAIL: scaled sIm1 must be positive at b=1000, got ', sIm1
+            error stop
+        end if
+        if (abs(sIm1 - sI0) >= 0.02_dp * sI0) then
+            print *, 'FAIL: scaled sIm1 not within 2% of sI0 at b=1000'
+            print *, '  sI0    = ', sI0
+            print *, '  sIm1   = ', sIm1
+            print *, '  |diff| = ', abs(sIm1 - sI0), ' tol = ', 0.02_dp * sI0
+            error stop
+        end if
+
+        print *, 'PASS: scaled_bessel_pair finite and matches large-arg asymptotics'
+    end subroutine
+
+    subroutine test_large_bcross_kernel_finite()
+        ! End-to-end overflow guard: the per-species cores must stay finite when
+        ! driven with a forced large FLR argument (b_x = 1000) that would
+        ! overflow the naive exp(-b_+)*I_0(b_x) path. Uses the public
+        ! core_*_sp entry points with an interior guiding-centre index and the
+        ! default artificial_debye_case = 0 (FP term active).
+        use config_m, only: profiles_in_memory, nml_config_path
+        use config_m, only: artificial_debye_case
+        use flr2_fourier_kernel_m, only: core_rho_phi_sp, core_rho_B_sp
+        use species_m, only: plasma, set_profiles_from_arrays
+        use grid_m, only: rg_grid
+        use kim_base_m, only: kim_t
+        use kim_mod_m, only: from_kim_factory_get_kim
+
+        integer, parameter :: npts = 101
+
+        real(dp) :: r_prof(npts), n_prof(npts), Te_prof(npts)
+        real(dp) :: Ti_prof(npts), q_prof(npts), Er_prof(npts)
+        class(kim_t), allocatable :: kim_instance
+        real(dp) :: big
+        integer :: j
+        complex(dp) :: g_phi, g_B
+
+        call make_test_profiles(npts, r_prof, n_prof, Te_prof, Ti_prof, &
+                                q_prof, Er_prof)
+
+        call write_test_namelist('./KIM_config_fourier_large_bcross_test.nml')
+        nml_config_path = './KIM_config_fourier_large_bcross_test.nml'
+
+        profiles_in_memory = .true.
+        call kim_init()
+        call set_profiles_from_arrays(r_prof, n_prof, Te_prof, Ti_prof, &
+                                      q_prof, Er_prof, npts)
+
+        call from_kim_factory_get_kim('electrostatic', kim_instance)
+        call kim_instance%init()
+
+        ! The namelist sets artificial_debye_case = 0, so the FP branch (which
+        ! evaluates the Bessel products) is active.
+        if (.not. (artificial_debye_case == 0 .or. artificial_debye_case == 2)) then
+            print *, 'FAIL: FP branch inactive; artificial_debye_case = ', artificial_debye_case
+            error stop
+        end if
+
+        j = rg_grid%npts_b / 2
+        big = 1000.0_dp
+
+        g_phi = core_rho_phi_sp(plasma, 0, big, big, j)
+        g_B = core_rho_B_sp(plasma, 0, big, big, j)
+
+        if (.not. is_finite_complex(g_phi)) then
+            print *, 'FAIL: core_rho_phi_sp not finite at bcross=1000: ', g_phi
+            error stop
+        end if
+        if (.not. is_finite_complex(g_B)) then
+            print *, 'FAIL: core_rho_B_sp not finite at bcross=1000: ', g_B
+            error stop
+        end if
+
+        print *, 'PASS: core_*_sp stay finite at large bcross (overflow guard)'
+        print *, '  core_rho_phi_sp = ', g_phi
+        print *, '  core_rho_B_sp   = ', g_B
     end subroutine
 
     subroutine test_populated_plasma_and_kernel_stub()

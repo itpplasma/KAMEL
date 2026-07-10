@@ -121,9 +121,6 @@ target_include_directories(ql-balance_lib PUBLIC ${CMAKE_BINARY_DIR}/KiLCA/mod $
 set_source_files_properties(${base_balance_src}/kim_wave_code_adapter.f90
     PROPERTIES INCLUDE_DIRECTORIES "${CMAKE_BINARY_DIR}/OBJS/kim/")
 
-# Include central slatec math sources via cache variable defined by common/math
-target_include_directories(ql-balance_lib PUBLIC ${SLATEC_INCLUDE_DIR})
-
 # fortnum C ABI header (fortnum.h) for vel_integral.cpp.
 target_include_directories(ql-balance_lib PUBLIC ${fortnum_SOURCE_DIR}/include)
 
@@ -165,7 +162,7 @@ target_link_libraries(ql-balance_lib PUBLIC
     lapack
     netcdf
     netcdff
-    slatec
+    fortnum_amos_compat
     sparse
 )
 

@@ -189,3 +189,16 @@ add_test(NAME test_kim_solver_periodic
          COMMAND ${CMAKE_BINARY_DIR}/tests/test_kim_solver_periodic.x)
 set_tests_properties(test_kim_solver_periodic PROPERTIES
                      WORKING_DIRECTORY ${CMAKE_BINARY_DIR}/tests/)
+
+# Phase-2.7 cross-check: periodic vs global electrostatic delta-Phi on the same
+# (m,n) = (-6,2) resonant case. Diagnostic (approx-vs-approx): logs the relative
+# difference; soft gate (only on missing/all-zero/NaN).
+add_executable(test_periodic_vs_global ${CMAKE_SOURCE_DIR}/KIM/tests/test_periodic_vs_global.f90)
+set_target_properties(test_periodic_vs_global PROPERTIES
+                        OUTPUT_NAME test_periodic_vs_global.x
+                        RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/tests/")
+target_link_libraries(test_periodic_vs_global KIM_lib kilca_lib lapack cerf ddeabm slatec)
+add_test(NAME test_periodic_vs_global
+         COMMAND ${CMAKE_BINARY_DIR}/tests/test_periodic_vs_global.x)
+set_tests_properties(test_periodic_vs_global PROPERTIES
+                     WORKING_DIRECTORY ${CMAKE_BINARY_DIR}/tests/)

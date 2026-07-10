@@ -27,6 +27,7 @@ program test_flr2_fourier_kernel
     call test_diagonal_matches_inline()
     call test_collapse_rho_phi()
     call test_phase_rho_phi()
+    call test_collapse_rho_phi_ks2()
 
     print *, 'All tests PASSED'
     stop 0
@@ -297,6 +298,86 @@ contains
         end do
 
         print *, 'PASS: fused rho-Phi kernel carries the Fourier phase only'
+    end subroutine
+
+    subroutine test_collapse_rho_phi_ks2()
+        ! Structural collapse for the k_s^2-inclusive path (kern_include_ks2 =
+        ! .true.). This branch keeps k_s in the FLR arguments, so it does NOT
+        ! collapse to the k_s-dropped diagonal source-of-truth. Instead, on the
+        ! diagonal k_r = k'_r the two FLR arguments both reduce to the full
+        ! perpendicular argument bf = (k_s^2 + k_r^2) * rho_L^2, so the fused
+        ! kernel must equal the per-species core evaluated at (bf, bf), summed
+        ! over the non-turned-off species and divided by 4*pi. This validates the
+        ! sqrt/2 algebra of the .true. branch without needing a k_s = 0 setup.
+        use config_m, only: profiles_in_memory, nml_config_path
+        use config_m, only: turn_off_ions, turn_off_electrons
+        use flr2_fourier_kernel_m, only: hatG_rho_phi, core_rho_phi_sp, kern_include_ks2
+        use constants_m, only: pi
+        use species_m, only: plasma, set_profiles_from_arrays
+        use grid_m, only: rg_grid
+        use kim_base_m, only: kim_t
+        use kim_mod_m, only: from_kim_factory_get_kim
+
+        integer, parameter :: npts = 101
+
+        real(dp) :: r_prof(npts), n_prof(npts), Te_prof(npts)
+        real(dp) :: Ti_prof(npts), q_prof(npts), Er_prof(npts)
+        class(kim_t), allocatable :: kim_instance
+        real(dp) :: kr_arr(3), kr, bf, tol
+        integer :: i, j, sp, jj_arr(3), k
+        complex(dp) :: ref, gfused
+
+        call make_test_profiles(npts, r_prof, n_prof, Te_prof, Ti_prof, &
+                                q_prof, Er_prof)
+
+        call write_test_namelist('./KIM_config_fourier_collapse_ks2_test.nml')
+        nml_config_path = './KIM_config_fourier_collapse_ks2_test.nml'
+
+        profiles_in_memory = .true.
+        call kim_init()
+        call set_profiles_from_arrays(r_prof, n_prof, Te_prof, Ti_prof, &
+                                      q_prof, Er_prof, npts)
+
+        call from_kim_factory_get_kim('electrostatic', kim_instance)
+        call kim_instance%init()
+
+        kern_include_ks2 = .true.
+
+        kr_arr = [0.1_dp, 1.0_dp, 5.0_dp]
+        jj_arr = [rg_grid%npts_b / 4, rg_grid%npts_b / 2, (3 * rg_grid%npts_b) / 4]
+
+        do i = 1, size(kr_arr)
+            kr = kr_arr(i)
+            do k = 1, size(jj_arr)
+                j = jj_arr(k)
+
+                ref = (0.0_dp, 0.0_dp)
+                do sp = 0, plasma%n_species - 1
+                    if (turn_off_ions .and. sp >= 1) cycle
+                    if (turn_off_electrons .and. sp == 0) cycle
+                    bf = (plasma%ks(j)**2 + kr**2) * plasma%spec(sp)%rho_L(j)**2
+                    ref = ref + core_rho_phi_sp(plasma, sp, bf, bf, j)
+                end do
+                ref = ref / (4.0d0 * pi)
+
+                gfused = hatG_rho_phi(plasma, kr, kr, j)
+
+                tol = 1.0e-12_dp * (1.0_dp + abs(ref))
+                if (abs(gfused - ref) >= tol) then
+                    print *, 'FAIL: rho-Phi ks2 collapse mismatch at kr=', kr, ' j=', j
+                    print *, '  core(bf,bf)/4pi = ', ref
+                    print *, '  fused           = ', gfused
+                    print *, '  |diff|          = ', abs(gfused - ref), ' tol = ', tol
+                    error stop
+                end if
+            end do
+        end do
+
+        ! Defensive: restore the default so any later test sees the drop-k_s^2
+        ! path in the shared module state.
+        kern_include_ks2 = .false.
+
+        print *, 'PASS: fused rho-Phi kernel (ks2 path) collapses to core(bf,bf) at kr=krp'
     end subroutine
 
     subroutine test_populated_plasma_and_kernel_stub()

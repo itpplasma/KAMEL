@@ -106,6 +106,15 @@ target_link_libraries(test_grid_equidistant KIM_lib kilca_lib lapack cerf ddeabm
 add_test(NAME test_grid_equidistant
          COMMAND ${CMAKE_BINARY_DIR}/tests/test_grid_equidistant.x)
 
+# Regression test for the vendored periodization utility (make_periodic/localizer).
+add_executable(test_periodization ${CMAKE_SOURCE_DIR}/KIM/tests/test_periodization.f90)
+set_target_properties(test_periodization PROPERTIES
+                        OUTPUT_NAME test_periodization.x
+                        RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/tests/")
+target_link_libraries(test_periodization KIM_lib kilca_lib lapack cerf ddeabm slatec)
+add_test(NAME test_periodization
+         COMMAND ${CMAKE_BINARY_DIR}/tests/test_periodization.x)
+
 # Lifecycle/contract tests for the kim_solver_m API seam.
 add_executable(test_kim_solver ${CMAKE_SOURCE_DIR}/KIM/tests/test_kim_solver.f90)
 set_target_properties(test_kim_solver PROPERTIES

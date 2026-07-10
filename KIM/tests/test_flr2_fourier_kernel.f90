@@ -25,6 +25,8 @@ program test_flr2_fourier_kernel
 
     call test_populated_plasma_and_kernel_stub()
     call test_diagonal_matches_inline()
+    call test_collapse_rho_phi()
+    call test_phase_rho_phi()
 
     print *, 'All tests PASSED'
     stop 0
@@ -149,6 +151,149 @@ contains
         end do
 
         print *, 'PASS: shared diagonal integrand matches inline reference'
+    end subroutine
+
+    subroutine test_collapse_rho_phi()
+        ! Collapse-by-construction: the fused two-wavenumber kernel evaluated on
+        ! the diagonal k_r = k'_r must equal the per-species diagonal integrand
+        ! summed over the non-turned-off species and divided by 4*pi (the
+        ! source-of-truth normalization). Exact to machine precision because the
+        ! diagonal and the fused kernel share the same per-species core.
+        use config_m, only: profiles_in_memory, nml_config_path
+        use config_m, only: turn_off_ions, turn_off_electrons
+        use flr2_fourier_kernel_m, only: hatG_rho_phi, hatG_rho_phi_diag_sp, kern_include_ks2
+        use constants_m, only: pi
+        use species_m, only: plasma, set_profiles_from_arrays
+        use grid_m, only: rg_grid
+        use kim_base_m, only: kim_t
+        use kim_mod_m, only: from_kim_factory_get_kim
+
+        integer, parameter :: npts = 101
+
+        real(dp) :: r_prof(npts), n_prof(npts), Te_prof(npts)
+        real(dp) :: Ti_prof(npts), q_prof(npts), Er_prof(npts)
+        class(kim_t), allocatable :: kim_instance
+        real(dp) :: kr_arr(3), kr, tol
+        integer :: i, j, sp, jj_arr(3), k
+        complex(dp) :: dref, gfused
+
+        call make_test_profiles(npts, r_prof, n_prof, Te_prof, Ti_prof, &
+                                q_prof, Er_prof)
+
+        call write_test_namelist('./KIM_config_fourier_collapse_test.nml')
+        nml_config_path = './KIM_config_fourier_collapse_test.nml'
+
+        profiles_in_memory = .true.
+        call kim_init()
+        call set_profiles_from_arrays(r_prof, n_prof, Te_prof, Ti_prof, &
+                                      q_prof, Er_prof, npts)
+
+        call from_kim_factory_get_kim('electrostatic', kim_instance)
+        call kim_instance%init()
+
+        kern_include_ks2 = .false.
+
+        kr_arr = [0.1_dp, 1.0_dp, 5.0_dp]
+        jj_arr = [rg_grid%npts_b / 4, rg_grid%npts_b / 2, (3 * rg_grid%npts_b) / 4]
+
+        do i = 1, size(kr_arr)
+            kr = kr_arr(i)
+            do k = 1, size(jj_arr)
+                j = jj_arr(k)
+
+                dref = (0.0_dp, 0.0_dp)
+                do sp = 0, plasma%n_species - 1
+                    if (turn_off_ions .and. sp >= 1) cycle
+                    if (turn_off_electrons .and. sp == 0) cycle
+                    dref = dref + hatG_rho_phi_diag_sp(plasma, sp, kr, j)
+                end do
+                dref = dref / (4.0d0 * pi)
+
+                gfused = hatG_rho_phi(plasma, kr, kr, j)
+
+                tol = 1.0e-12_dp * (1.0_dp + abs(dref))
+                if (abs(gfused - dref) >= tol) then
+                    print *, 'FAIL: rho-Phi collapse mismatch at kr=', kr, ' j=', j
+                    print *, '  diag/4pi = ', dref
+                    print *, '  fused    = ', gfused
+                    print *, '  |diff|   = ', abs(gfused - dref), ' tol = ', tol
+                    error stop
+                end if
+            end do
+        end do
+
+        print *, 'PASS: fused rho-Phi kernel collapses to diagonal at kr=krp'
+    end subroutine
+
+    subroutine test_phase_rho_phi()
+        ! Off-diagonal phase structure: for k_r /= k'_r the fused kernel carries
+        ! the Fourier phase exp(i*(kr-krp)*rg). Because b_+ and b_x are symmetric
+        ! under (kr,krp) -> (krp,kr), the per-species cores are equal, so the only
+        ! difference between hatG(kr,krp) and hatG(krp,kr) is that phase factor.
+        ! Stripping each of its own phase must leave identical (real-core) values.
+        use config_m, only: profiles_in_memory, nml_config_path
+        use flr2_fourier_kernel_m, only: hatG_rho_phi, kern_include_ks2
+        use constants_m, only: com_unit
+        use species_m, only: plasma, set_profiles_from_arrays
+        use grid_m, only: rg_grid
+        use kim_base_m, only: kim_t
+        use kim_mod_m, only: from_kim_factory_get_kim
+
+        integer, parameter :: npts = 101
+
+        real(dp) :: r_prof(npts), n_prof(npts), Te_prof(npts)
+        real(dp) :: Ti_prof(npts), q_prof(npts), Er_prof(npts)
+        class(kim_t), allocatable :: kim_instance
+        real(dp) :: kr_arr(3), krp_arr(3), kr, krp, rg, tol
+        integer :: i, j, jj_arr(3), k
+        complex(dp) :: ci, g_fwd, g_rev, stripped_fwd, stripped_rev
+
+        call make_test_profiles(npts, r_prof, n_prof, Te_prof, Ti_prof, &
+                                q_prof, Er_prof)
+
+        call write_test_namelist('./KIM_config_fourier_phase_test.nml')
+        nml_config_path = './KIM_config_fourier_phase_test.nml'
+
+        profiles_in_memory = .true.
+        call kim_init()
+        call set_profiles_from_arrays(r_prof, n_prof, Te_prof, Ti_prof, &
+                                      q_prof, Er_prof, npts)
+
+        call from_kim_factory_get_kim('electrostatic', kim_instance)
+        call kim_instance%init()
+
+        kern_include_ks2 = .false.
+        ci = com_unit
+
+        kr_arr = [0.1_dp, 1.0_dp, 2.0_dp]
+        krp_arr = [1.0_dp, 5.0_dp, 0.5_dp]
+        jj_arr = [rg_grid%npts_b / 4, rg_grid%npts_b / 2, (3 * rg_grid%npts_b) / 4]
+
+        do i = 1, size(kr_arr)
+            kr = kr_arr(i)
+            krp = krp_arr(i)
+            do k = 1, size(jj_arr)
+                j = jj_arr(k)
+                rg = rg_grid%xb(j)
+
+                g_fwd = hatG_rho_phi(plasma, kr, krp, j)
+                g_rev = hatG_rho_phi(plasma, krp, kr, j)
+
+                stripped_fwd = g_fwd * exp(-ci * (kr - krp) * rg)
+                stripped_rev = g_rev * exp(-ci * (krp - kr) * rg)
+
+                tol = 1.0e-10_dp * (1.0_dp + abs(g_fwd))
+                if (abs(stripped_fwd - stripped_rev) >= tol) then
+                    print *, 'FAIL: rho-Phi phase mismatch at kr=', kr, ' krp=', krp, ' j=', j
+                    print *, '  stripped_fwd = ', stripped_fwd
+                    print *, '  stripped_rev = ', stripped_rev
+                    print *, '  |diff|       = ', abs(stripped_fwd - stripped_rev), ' tol = ', tol
+                    error stop
+                end if
+            end do
+        end do
+
+        print *, 'PASS: fused rho-Phi kernel carries the Fourier phase only'
     end subroutine
 
     subroutine test_populated_plasma_and_kernel_stub()

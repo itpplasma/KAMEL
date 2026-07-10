@@ -132,6 +132,15 @@ target_link_libraries(test_collision_scale_z0 KIM_lib kilca_lib lapack cerf fort
 add_test(NAME test_collision_scale_z0
          COMMAND ${CMAKE_BINARY_DIR}/tests/test_collision_scale_z0.x)
 
+# Regression test for the vendored periodization utility.
+add_executable(test_periodization ${CMAKE_SOURCE_DIR}/KIM/tests/test_periodization.f90)
+set_target_properties(test_periodization PROPERTIES
+                        OUTPUT_NAME test_periodization.x
+                        RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/tests/")
+target_link_libraries(test_periodization KIM_lib kilca_lib lapack cerf fortnum_amos_compat)
+add_test(NAME test_periodization
+         COMMAND ${CMAKE_BINARY_DIR}/tests/test_periodization.x)
+
 # Lifecycle/contract tests for the kim_solver_m API seam.
 add_executable(test_kim_solver ${CMAKE_SOURCE_DIR}/KIM/tests/test_kim_solver.f90)
 set_target_properties(test_kim_solver PROPERTIES

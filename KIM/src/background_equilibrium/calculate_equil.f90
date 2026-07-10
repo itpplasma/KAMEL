@@ -26,7 +26,7 @@ module equilibrium_m
 
     contains
 
-        subroutine calculate_equil(write_out)
+        subroutine calculate_equil(write_out, u0_seed)
         ! Calculate the magnetic field and current equilibrium from the input profiles.
         ! The force-balance equation for B0z is a scalar first-order ODE du/dr;
         ! it is integrated over the monotone radial grid with the fortnum
@@ -36,6 +36,15 @@ module equilibrium_m
         ! state to r_grid(i) (the SLATEC INFO(1)=1 restart), with the integration
         ! barred from stepping past r_grid(end) (the SLATEC RWORK(1)/INFO(4)=1
         ! tstop bound).
+        !
+        ! u0_seed (optional): initial value u(r_grid(1)) = B0(r_grid(1))**2 for the
+        ! force-balance ODE. When absent, the pressureless (vacuum) approximation
+        ! u0 = btor**2*(1 + r0**2/(R0**2 q0**2)) is used, which is accurate only
+        ! when r_grid(1) is near the axis. Callers that redirect the solve onto a
+        ! sub-window far from the axis (e.g. build_periodic_plasma) must pass the
+        ! true B0(r_grid(1))**2 so the accumulated pressure work from the global
+        ! domain is not lost and the absolute B0 level (hence omega_c, rho_L)
+        ! matches the global solve.
 
             use species_m, only: plasma, calc_plasma_parameter_derivs
             use constants_m, only: ev, pi, sol
@@ -49,6 +58,7 @@ module equilibrium_m
             implicit none
 
             logical, intent(in) :: write_out
+            real(dp), intent(in), optional :: u0_seed
 
             real(dp), allocatable :: u_seg(:)
             real(dp) :: rstop
@@ -91,7 +101,11 @@ module equilibrium_m
             dpress_prof = dpress_prof * ev
 
             radius0 = plasma%r_grid(1)
-            u0 = btor**2.0d0 * (1.0d0 + radius0**2.0d0 / (R0**2.0d0 * plasma%q(1)**2.0d0)) ! initial value
+            if (present(u0_seed)) then
+                u0 = u0_seed ! u = B0**2; caller supplies true B0(r_grid(1))**2
+            else
+                u0 = btor**2.0d0 * (1.0d0 + radius0**2.0d0 / (R0**2.0d0 * plasma%q(1)**2.0d0)) ! vacuum initial value
+            end if
             u(1) = u0
 
             ! Seed the re-entrant integrator at the inner grid point, then carry

@@ -15,13 +15,15 @@ program test_periodic_background_build
     ! Assertions on the window:
     !   (1) rho_L, lambda_D finite and > 0 everywhere,
     !   (2) I00(j,0) finite everywhere (susceptibility recomputed),
-    !   (3) periodicity: rho_L at index j equals rho_L one period L away,
+    !   (3) as-is fidelity: inside the as-is core the BUILT derived quantities
+    !       (rho_L, lambda_D) reproduce the TRUE global derived plasma there
+    !       (the periodized primitives equal the true primitives in the core),
     !   (4) resonance: parallel wavenumber kp ~ 0 at the window point nearest rm
     !       (confirms q = 3 there and a correct kp recompute),
     !   (5) all finite (no NaN/Inf).
 
     use KIM_kinds_m, only: dp
-    use periodic_background_m, only: build_periodic_plasma, sample_periodic_primitives
+    use periodic_background_m, only: build_periodic_plasma
 
     implicit none
 
@@ -42,16 +44,16 @@ contains
         use grid_m, only: rg_grid
 
         integer, parameter :: npts = 201
-        integer, parameter :: nfuns = 5
 
         real(dp) :: r_prof(npts), n_prof(npts), Te_prof(npts)
         real(dp) :: Ti_prof(npts), q_prof(npts), Er_prof(npts)
         class(kim_t), allocatable :: kim_instance
 
-        real(dp) :: rm, dx_asis, dx_tr, dx_asis_glob, dx_tr_glob, L, rho_L_rm
+        real(dp) :: rm, dx_asis, dx_tr, rho_L_rm
+        real(dp) :: r_asis, rho_L_true, lambda_D_true, rho_L_built, lambda_D_built
         integer :: n_rg
         integer :: j, gs, j_rm
-        real(dp) :: kp_scale, tol_kp, rel, tol_per
+        real(dp) :: kp_scale, tol_kp, tol_asis, rel
         logical :: any_bad
 
         call make_test_profiles(npts, r_prof, n_prof, Te_prof, Ti_prof, &
@@ -91,11 +93,20 @@ contains
             print *, 'NOTE: rho_L(rm) tiny; using fixed dx_asis/dx_tr [cm]'
         end if
         n_rg = 96
-        L = 2.0_dp*(dx_asis + dx_tr)
 
-        ! Keep the periodization half-widths for the periodicity check below.
-        dx_asis_glob = dx_asis
-        dx_tr_glob   = dx_tr
+        ! Capture the TRUE (non-periodic) resonant-layer physics BEFORE the
+        ! build. At this point the global `plasma` is the true derived plasma on
+        ! the global rg_grid. Pick r_asis inside the as-is core (|r - rm| <=
+        ! dx_asis), where the periodized primitives equal the true primitives so
+        ! the derived quantities of the periodic build MUST reproduce the true
+        ! global build. Interpolate the true rho_L / lambda_D at r_asis with the
+        ! same 4-point Lagrange pattern KIM uses (binsrc + plag_coeff on
+        ! plasma%r_grid). These are just scalars, safe across the mutation.
+        r_asis = rm + 0.5_dp*dx_asis
+        rho_L_true    = interp_lagrange4(plasma%r_grid, plasma%spec(0)%rho_L, &
+                                         plasma%grid_size, r_asis)
+        lambda_D_true = interp_lagrange4(plasma%r_grid, plasma%spec(0)%lambda_D, &
+                                         plasma%grid_size, r_asis)
 
         call build_periodic_plasma(rm, dx_asis, dx_tr, n_rg)
 
@@ -137,51 +148,38 @@ contains
         end do
         print *, 'PASS: rho_L, lambda_D finite/positive; I00 finite everywhere'
 
-        ! (3) Periodicity of a DERIVED quantity, lambda_D.
-        ! The window [rm-L/2, rm+L/2] is EXACTLY one period wide (make_periodic
-        ! uses period = 2*(dx_asis+dx_tr) = L). On an equidistant grid of n_rg
-        ! points over one period, h = L/n_rg and NO two interior grid points are
-        ! exactly L apart -- so on-grid index shifts cannot express a period.
-        ! We instead verify periodicity of lambda_D directly: lambda_D is a pure
-        ! function of the primitives (n, T) only (lambda_D = sqrt(T ev /
-        ! (4 pi n (Z e)^2))), and those primitives are exactly L-periodic. Hence
-        ! lambda_D(r) must equal lambda_D(r+L).
-        !
-        ! We compare a built grid point in the as-is core (index j_rm, radius
-        ! ~rm) against the same physical location reached one period to the
-        ! right, r_ref + L, via re-sampling. r_ref is kept clear of the period
-        ! seam (r_lo / r_hi) so the make_periodic modulo is well-conditioned;
-        ! sampling AT the seam is numerically ill-posed (modulo(L, L) rounds to
-        ! either 0 or L) and is not a property of the built plasma. We
-        ! reconstruct lambda_D(r_ref+L) from the built lambda_D(j_rm) via the
-        ! primitive ratio (no hardcoded constants):
-        !   lambda_D(r+L) = lambda_D(r) * sqrt( (T(r+L)/T(r)) * (n(r)/n(r+L)) ).
-        ! If lambda_D is periodic the correction factor is 1 to round-off.
-        block
-            integer :: j_ref
-            real(dp) :: funs_shift(nfuns), lam_ref, lam_recon, tshift, nshift, r_ref
-            ! Reference point: nearest grid node to rm (interior, in the as-is
-            ! core, far from the period seam).
-            j_ref = minloc(abs(rg_grid%xb - rm), dim=1)
-            r_ref = rg_grid%xb(j_ref)
-            call sample_periodic_primitives(rm, dx_asis_glob, dx_tr_glob, &
-                                            r_ref + L, funs_shift)
-            nshift = funs_shift(1)
-            tshift = funs_shift(2)
-            lam_ref   = plasma%spec(0)%lambda_D(j_ref)
-            lam_recon = lam_ref * sqrt((tshift / plasma%spec(0)%T(j_ref)) * &
-                                       (plasma%spec(0)%n(j_ref) / nshift))
-            tol_per = 1.0e-6_dp
-            rel = abs(lam_recon - lam_ref) / max(abs(lam_ref), tiny(1.0_dp))
-            if (rel >= tol_per) then
-                print *, 'FAIL: lambda_D not L-periodic'
-                print *, '  lambda_D(r_ref)     = ', lam_ref, ' at r=', r_ref
-                print *, '  lambda_D(r_ref + L) = ', lam_recon, ' at r=', r_ref + L
-                print *, '  rel diff = ', rel
-                error stop
-            end if
-            print *, 'PASS: lambda_D is L-periodic (rel diff = ', rel, ')'
-        end block
+        ! (3) As-is fidelity: the periodic build must reproduce the TRUE
+        ! resonant-layer physics inside the as-is core. In |r - rm| <= dx_asis
+        ! the periodized primitives equal the true primitives, so the DERIVED
+        ! quantities recomputed by build_periodic_plasma must match the true
+        ! global derived plasma there. We interpolate the BUILT rho_L / lambda_D
+        ! at the SAME r_asis (now on the window grid) and compare to the true
+        ! values captured before the build. The modest 1e-3 relative tolerance
+        ! covers only the resolution difference between the global grid and the
+        ! finer window grid -- it cannot pass trivially: a broken recompute
+        ! (wrong B0/omega_c, wrong n/T redirection) would miss by orders of
+        ! magnitude. This is the load-bearing correctness signal.
+        rho_L_built    = interp_lagrange4(rg_grid%xb, plasma%spec(0)%rho_L, &
+                                          gs, r_asis)
+        lambda_D_built = interp_lagrange4(rg_grid%xb, plasma%spec(0)%lambda_D, &
+                                          gs, r_asis)
+        tol_asis = 1.0e-3_dp
+
+        rel = abs(rho_L_built - rho_L_true) / max(abs(rho_L_true), tiny(1.0_dp))
+        print *, 'as-is r_asis =', r_asis
+        print *, '  rho_L  true =', rho_L_true, ' built =', rho_L_built, ' rel =', rel
+        if (rel >= tol_asis) then
+            print *, 'FAIL: built rho_L does not reproduce true value in as-is core'
+            error stop
+        end if
+
+        rel = abs(lambda_D_built - lambda_D_true) / max(abs(lambda_D_true), tiny(1.0_dp))
+        print *, '  lambda_D true =', lambda_D_true, ' built =', lambda_D_built, ' rel =', rel
+        if (rel >= tol_asis) then
+            print *, 'FAIL: built lambda_D does not reproduce true value in as-is core'
+            error stop
+        end if
+        print *, 'PASS: periodic build reproduces true rho_L, lambda_D in as-is core'
 
         ! (4) Resonance: kp ~ 0 at the window point nearest rm (q = 3 there).
         j_rm = minloc(abs(rg_grid%xb - rm), dim=1)
@@ -220,6 +218,27 @@ contains
         jn = minloc(abs(plasma%r_grid - r), dim=1)
         val = plasma%spec(0)%rho_L(jn)
     end function rho_L_near
+
+    real(dp) function interp_lagrange4(grid, vals, ngrid, x) result(fx)
+        !> 4-point Lagrange interpolation of vals(:) on grid(:) at radius x.
+        !> Mirrors the binsrc + plag_coeff stencil used throughout KIM
+        !> (kim_aperfuns, interpolate_plasma_backs, calculate_equil).
+        integer, intent(in) :: ngrid
+        real(dp), intent(in) :: grid(ngrid), vals(ngrid), x
+        integer, parameter :: nlagr = 4, nder = 0
+        real(dp) :: coef(0:nder, nlagr)
+        integer :: ir, ibeg, iend
+
+        call binsrc(grid, 1, ngrid, x, ir)
+        ibeg = max(1, ir - nlagr/2)
+        iend = ibeg + nlagr - 1
+        if (iend > ngrid) then
+            iend = ngrid
+            ibeg = iend - nlagr + 1
+        end if
+        call plag_coeff(nlagr, nder, x, grid(ibeg:iend), coef)
+        fx = sum(coef(0, :) * vals(ibeg:iend))
+    end function interp_lagrange4
 
     subroutine make_test_profiles(npts, r_prof, n_prof, Te_prof, Ti_prof, &
                                   q_prof, Er_prof)

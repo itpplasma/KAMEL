@@ -249,7 +249,11 @@ set_target_properties(kilca_lib PROPERTIES
     ARCHIVE_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}/install/lib/
     Fortran_MODULE_DIRECTORY ${PROJECT_BINARY_DIR}/OBJS/kilca/)
 add_dependencies(kilca_lib ${EXTERNAL_LIBS})
-target_link_libraries(kilca_lib PUBLIC ${EXTERNAL_LIBS})
+# libneo objects pulled into the KiLCA link closure use OMP critical sections
+# (GOMP_critical_*). Carry the OpenMP runtime on kilca_lib's PUBLIC interface so
+# every consumer (KIM_exe, ql-balance_lib, and all KIM tests) inherits it and no
+# downstream target has to re-declare OpenMP to link.
+target_link_libraries(kilca_lib PUBLIC ${EXTERNAL_LIBS} OpenMP::OpenMP_Fortran)
 
 # Add include directories on `kilca_lib` target for all source and module paths
 target_include_directories(kilca_lib PUBLIC

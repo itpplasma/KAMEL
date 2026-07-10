@@ -35,11 +35,20 @@ module equilibrium_m
 
     contains
 
-        subroutine calculate_equil(write_out)
+        subroutine calculate_equil(write_out, u0_seed)
         ! Calculate the magnetic field and current equilibrium from the input profiles
         ! To solve the force balance equation for B0z, which is a first order ODE, we use
         ! the ddeabm subroutine from the SLATEC library. This method uses the Adams-Bashforth
         ! method.
+        !
+        ! u0_seed (optional): initial value u(r_grid(1)) = B0(r_grid(1))**2 for the
+        ! force-balance ODE. When absent, the pressureless (vacuum) approximation
+        ! u0 = btor**2*(1 + r0**2/(R0**2 q0**2)) is used, which is accurate only
+        ! when r_grid(1) is near the axis. Callers that redirect the solve onto a
+        ! sub-window far from the axis (e.g. build_periodic_plasma) must pass the
+        ! true B0(r_grid(1))**2 so the accumulated pressure work from the global
+        ! domain is not lost and the absolute B0 level (hence omega_c, rho_L)
+        ! matches the global solve.
 
             use species_m, only: plasma, calc_plasma_parameter_derivs
             use constants_m, only: ev, pi, sol
@@ -50,6 +59,7 @@ module equilibrium_m
             implicit none
 
             logical, intent(in) :: write_out
+            real(dp), intent(in), optional :: u0_seed
 
             if(.not. allocated(coef)) allocate(coef(0:nder, nlagr))
 
@@ -99,7 +109,11 @@ module equilibrium_m
             rwork(1) = plasma%r_grid(plasma%grid_size) ! rwork(1) has to be set to the r stopping point
 
             radius0 = plasma%r_grid(1)
-            u0 = btor**2.0d0 * (1.0d0 + radius0**2.0d0 / (R0**2.0d0 * plasma%q(1)**2.0d0)) ! initial value
+            if (present(u0_seed)) then
+                u0 = u0_seed ! u = B0**2; caller supplies true B0(r_grid(1))**2
+            else
+                u0 = btor**2.0d0 * (1.0d0 + radius0**2.0d0 / (R0**2.0d0 * plasma%q(1)**2.0d0)) ! vacuum initial value
+            end if
             u(1) = u0
 
             do i=2, plasma%grid_size

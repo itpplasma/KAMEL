@@ -103,6 +103,11 @@ contains
     !>
     !> NOTE: this MUTATES the module-global rg_grid and plasma. It is meant to be
     !> called once per forced-periodicity assembly on an independent process.
+    !>
+    !> SIDE EFFECT: not filesystem-side-effect-free. set_plasma_quantities
+    !> unconditionally calls write_species_backs / write_plasma_backs, which
+    !> create output_path//backs/ and write the background profile .dat files
+    !> (rho_L, lambda_D, kp, om_E, ...) for the window plasma.
     subroutine build_periodic_plasma(rm, dx_asis, dx_tr, n_rg)
         use species_m, only: plasma, set_plasma_quantities, reallocate, &
                              deallocate_plasma_derived
@@ -114,7 +119,7 @@ contains
         real(dp), intent(in) :: rm, dx_asis, dx_tr
         integer, intent(in) :: n_rg
 
-        real(dp) :: L, r_lo, r_hi
+        real(dp) :: L, r_lo, r_hi, u0_seed
         real(dp) :: funs(n_primitives)
         real(dp), allocatable :: r_win(:)
         real(dp), allocatable :: n_win(:), Te_win(:), Ti_win(:), q_win(:), Er_win(:)
@@ -147,6 +152,14 @@ contains
             q_win(j)  = funs(4)
             Er_win(j) = funs(5)
         end do
+
+        ! Capture the TRUE B0 at the window's left edge (still on the global grid
+        ! here) as the force-balance ODE seed u0 = B0(r_lo)**2. Without this the
+        ! window solve restarts from the pressureless vacuum initial condition
+        ! and loses the pressure work accumulated over [r_min, r_lo], offsetting
+        ! the absolute B0 level (hence omega_c, rho_L) by ~O(0.5%). See
+        ! calculate_equil's u0_seed argument.
+        u0_seed = interp_global_B0(r_lo)**2
 
         ! ---- 3. Redirect the plasma onto the window grid. ---------------------
         ! Clear ALL derived state so the recompute chain reallocates cleanly at
@@ -200,18 +213,44 @@ contains
         ! ---- 4./5. Recompute derivatives + all derived quantities. ------------
         ! calculate_equil: recomputes dndr/dTdr/dqdr (via calc_plasma_parameter_
         ! derivs on the equidistant window) and B0, ks, kp, om_E from the
-        ! periodized q/Er and btor/R0/m_mode/n_mode. write_out=.false. keeps this
-        ! side-effect-free (no equilibrium files).
-        call calculate_equil(.false.)
+        ! periodized q/Er and btor/R0/m_mode/n_mode. write_out=.false. suppresses
+        ! only the equilibrium (B0z/B0th/...) file dump; the profile .dat writes
+        ! below (via set_plasma_quantities) still happen -- see SIDE EFFECT note.
+        ! u0_seed carries the true B0(r_lo)**2 so the window B0 level matches the
+        ! global solve (see the capture above).
+        call calculate_equil(.false., u0_seed=u0_seed)
 
         ! set_plasma_quantities: calculate_plasma_backs (vT, nu, omega_c, rho_L,
         ! lambda_D, z0), interpolate_plasma_backs(rg_grid%xb) -- the IDENTITY
-        ! here because plasma%r_grid == rg_grid%xb -- cell centres, and
+        ! here because plasma%r_grid == rg_grid%xb -- cell centres,
         ! calculate_thermodynamic_forces_and_susc (A1, A2, x1, x2, I00..I21) on
-        ! rg_grid%npts_b == the window.
+        ! rg_grid%npts_b == the window, and write_species_backs /
+        ! write_plasma_backs (writes background profile .dat files to
+        ! output_path//backs/).
         call set_plasma_quantities(plasma)
 
     contains
+
+        !> 4-point Lagrange interpolation of the global plasma%B0 at radius x,
+        !> using the same binsrc + plag_coeff stencil as the rest of KIM. Called
+        !> while `plasma` still holds the TRUE global-grid B0 (before redirect).
+        real(dp) function interp_global_B0(x) result(b0x)
+            real(dp), intent(in) :: x
+            integer, parameter :: nlagr = 4, nder = 0
+            real(dp) :: coef(0:nder, nlagr)
+            integer :: gs, ir, ibeg, iend
+
+            gs = plasma%grid_size
+            call binsrc(plasma%r_grid, 1, gs, x, ir)
+            ibeg = max(1, ir - nlagr/2)
+            iend = ibeg + nlagr - 1
+            if (iend > gs) then
+                iend = gs
+                ibeg = iend - nlagr + 1
+            end if
+            call plag_coeff(nlagr, nder, x, plasma%r_grid(ibeg:iend), coef)
+            b0x = sum(coef(0, :) * plasma%B0(ibeg:iend))
+        end function interp_global_B0
 
         subroutine set_ion_density_quasineutral()
             integer :: total_Z, sp, jj

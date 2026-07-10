@@ -8,6 +8,7 @@ module flr2_fourier_kernel_m
     private
     public :: hatG_rho_phi, hatG_rho_B
     public :: hatG_rho_phi_diag_sp, hatG_rho_B_diag_sp
+    public :: core_rho_phi_sp
 
     ! FLR-parameter convention for the two-wavenumber kernel. When .false.
     ! (default) the perpendicular wavenumber k_s is dropped from b_+ / b_x, so
@@ -30,7 +31,7 @@ contains
         real(dp), intent(in) :: kr, krp
         integer, intent(in) :: j
         integer :: sp
-        real(dp) :: rho_L2, bplus, bcross
+        real(dp) :: rho_L2, ks, bplus, bcross
         complex(dp) :: acc
 
         acc = (0.0_dp, 0.0_dp)
@@ -38,10 +39,15 @@ contains
             if (turn_off_ions .and. sp >= 1) cycle
             if (turn_off_electrons .and. sp == 0) cycle
 
+            rho_L2 = plasma_in%spec(sp)%rho_L(j)**2.0d0
             if (kern_include_ks2) then
-                error stop 'hatG_rho_phi: kern_include_ks2=.true. path not implemented yet (Task 3b)'
+                ! k_s^2-inclusive FLR: the perpendicular wavenumbers are
+                ! kperp = sqrt(k_s^2 + k_r^2), kperpp = sqrt(k_s^2 + k'_r^2), so
+                ! b_+ = rho_L^2/2 (kperp^2 + kperpp^2) and b_x = rho_L^2 kperp kperpp.
+                ks = plasma_in%ks(j)
+                bplus = rho_L2 * (2.0d0 * ks**2 + kr**2 + krp**2) / 2.0d0
+                bcross = rho_L2 * sqrt(ks**2 + kr**2) * sqrt(ks**2 + krp**2)
             else
-                rho_L2 = plasma_in%spec(sp)%rho_L(j)**2.0d0
                 bplus = rho_L2 * (kr**2.0d0 + krp**2.0d0) / 2.0d0
                 bcross = rho_L2 * abs(kr * krp)
             end if

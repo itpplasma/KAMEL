@@ -28,6 +28,7 @@ program test_flr2_fourier_kernel
     call test_collapse_rho_phi()
     call test_phase_rho_phi()
     call test_collapse_rho_phi_ks2()
+    call test_zero_wavenumber_limit()
 
     print *, 'All tests PASSED'
     stop 0
@@ -378,6 +379,101 @@ contains
         kern_include_ks2 = .false.
 
         print *, 'PASS: fused rho-Phi kernel (ks2 path) collapses to core(bf,bf) at kr=krp'
+    end subroutine
+
+    subroutine test_zero_wavenumber_limit()
+        ! Analytic b -> 0 anchor: at kr = krp = 0 in the default drop-k_s^2 path,
+        ! both FLR arguments vanish (b_+ = b_x = 0). The Bessel/exp assembly then
+        ! reduces to a closed form INDEPENDENT of the Bessel routine, because
+        ! exp(-b_+) = 1, (1 - b_+) = 1, I_0(0) = 1, I_{-1}(0) = 0, and the
+        ! A2 * b_x * I_{-1}(b_x) term vanishes with b_x = 0. The Fourier phase
+        ! exp(i*0*rg) = 1. So the per-species FP core collapses to
+        !   1/lambda_D^2 * i * vT^2 * ks / (omega_c*nu) * ( I00*(A1+A2) + 0.5*I20*A2 )
+        ! and the Debye term stays -1/lambda_D^2. We hard-code I_0(0)=1 and
+        ! I_{-1}(0)=0 here rather than calling bessel_in, so this test validates
+        ! the kernel's argument assembly against math, not against the Bessel
+        ! routine it shares with the collapse/phase tests. Only valid for the
+        ! .false. path (in the .true. path the arguments are rho_L^2*ks^2 /= 0).
+        use config_m, only: profiles_in_memory, nml_config_path
+        use config_m, only: artificial_debye_case, turn_off_ions, turn_off_electrons
+        use flr2_fourier_kernel_m, only: hatG_rho_phi, kern_include_ks2
+        use constants_m, only: com_unit, pi
+        use species_m, only: plasma, set_profiles_from_arrays
+        use grid_m, only: rg_grid
+        use kim_base_m, only: kim_t
+        use kim_mod_m, only: from_kim_factory_get_kim
+
+        integer, parameter :: npts = 101
+
+        real(dp) :: r_prof(npts), n_prof(npts), Te_prof(npts)
+        real(dp) :: Ti_prof(npts), q_prof(npts), Er_prof(npts)
+        class(kim_t), allocatable :: kim_instance
+        real(dp) :: tol, ks
+        integer :: j, sp, jj_arr(3), k
+        complex(dp) :: closed, gfused
+
+        call make_test_profiles(npts, r_prof, n_prof, Te_prof, Ti_prof, &
+                                q_prof, Er_prof)
+
+        call write_test_namelist('./KIM_config_fourier_zero_wavenumber_test.nml')
+        nml_config_path = './KIM_config_fourier_zero_wavenumber_test.nml'
+
+        profiles_in_memory = .true.
+        call kim_init()
+        call set_profiles_from_arrays(r_prof, n_prof, Te_prof, Ti_prof, &
+                                      q_prof, Er_prof, npts)
+
+        call from_kim_factory_get_kim('electrostatic', kim_instance)
+        call kim_instance%init()
+
+        ! Closed form derived above only holds for the drop-k_s^2 path; the
+        ! toggle is deliberately fixed here (do NOT sweep it).
+        kern_include_ks2 = .false.
+
+        jj_arr = [rg_grid%npts_b / 4, rg_grid%npts_b / 2, (3 * rg_grid%npts_b) / 4]
+
+        do k = 1, size(jj_arr)
+            j = jj_arr(k)
+
+            ! Per-species b -> 0 closed form, summed over the non-turned-off
+            ! species, with I_0(0)=1 and I_{-1}(0)=0 folded in analytically.
+            closed = (0.0_dp, 0.0_dp)
+            do sp = 0, plasma%n_species - 1
+                if (turn_off_ions .and. sp >= 1) cycle
+                if (turn_off_electrons .and. sp == 0) cycle
+
+                ks = plasma%ks(j)
+
+                if (artificial_debye_case <= 1) then
+                    closed = closed - 1.0d0 / plasma%spec(sp)%lambda_D(j)**2.0d0
+                end if
+
+                if (artificial_debye_case == 0 .or. artificial_debye_case == 2) then
+                    closed = closed + 1.0d0 / plasma%spec(sp)%lambda_D(j)**2.0d0 &
+                        * com_unit * plasma%spec(sp)%vT(j)**2.0d0 * ks &
+                        / (plasma%spec(sp)%omega_c(j) * plasma%spec(sp)%nu(j)) * &
+                        (&
+                            plasma%spec(sp)%I00(j, 0) &
+                                * (plasma%spec(sp)%A1(j) + plasma%spec(sp)%A2(j)) &
+                            + 0.5d0 * plasma%spec(sp)%I20(j, 0) * plasma%spec(sp)%A2(j) &
+                        )
+                end if
+            end do
+            closed = closed / (4.0d0 * pi)
+
+            gfused = hatG_rho_phi(plasma, 0.0_dp, 0.0_dp, j)
+
+            tol = 1.0e-12_dp * (1.0_dp + abs(closed))
+            if (abs(gfused - closed) >= tol) then
+                print *, 'FAIL: rho-Phi b->0 limit mismatch at j=', j
+                print *, '  closed = ', closed
+                print *, '  fused  = ', gfused
+                print *, '  |diff| = ', abs(gfused - closed), ' tol = ', tol
+                error stop
+            end if
+        end do
+
+        print *, 'PASS: fused rho-Phi kernel matches b->0 closed form'
     end subroutine
 
     subroutine test_populated_plasma_and_kernel_stub()

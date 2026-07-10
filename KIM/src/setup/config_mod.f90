@@ -33,6 +33,15 @@ module config_m
     real(dp) :: WKB_root_tolerance = 1.0d-6           ! |f(z)| tolerance for valid roots
     logical :: WKB_verbose = .false.                  ! Verbose dispersion solver output
 
+    ! KIM_PERIODIC namelist variables (forced-periodicity electrostatic run-type).
+    ! Window half-widths and Fourier cutoff are set in units of the resonant-
+    ! surface Larmor radius rho_L(rm): dx_asis = scale*rho_L, dx_tr = scale*rho_L,
+    ! k_max = scale/rho_L. Defaults apply when the &KIM_PERIODIC group is absent.
+    real(dp) :: periodic_dr_asis_scale = 5.0_dp   ! as-is half-width / rho_L(rm)
+    real(dp) :: periodic_dr_tr_scale   = 10.0_dp  ! transition width / rho_L(rm)
+    real(dp) :: periodic_kmax_scale    = 5.0_dp   ! k_max * rho_L(rm)
+    integer  :: periodic_n_rg          = 96       ! window grid boundary points
+
     ! KIM_IO namelist variables
     character(256) :: profile_location ! path to profile directory
     character(256) :: output_path         ! path to output directory

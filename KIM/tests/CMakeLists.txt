@@ -115,6 +115,15 @@ target_link_libraries(test_periodization KIM_lib kilca_lib lapack cerf ddeabm sl
 add_test(NAME test_periodization
          COMMAND ${CMAKE_BINARY_DIR}/tests/test_periodization.x)
 
+# Periodic sampling of KIM background primitives (aperfuns callback + wrapper).
+add_executable(test_periodic_background ${CMAKE_SOURCE_DIR}/KIM/tests/test_periodic_background.f90)
+set_target_properties(test_periodic_background PROPERTIES
+                        OUTPUT_NAME test_periodic_background.x
+                        RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/tests/")
+target_link_libraries(test_periodic_background KIM_lib kilca_lib lapack cerf ddeabm slatec)
+add_test(NAME test_periodic_background
+         COMMAND ${CMAKE_BINARY_DIR}/tests/test_periodic_background.x)
+
 # Lifecycle/contract tests for the kim_solver_m API seam.
 add_executable(test_kim_solver ${CMAKE_SOURCE_DIR}/KIM/tests/test_kim_solver.f90)
 set_target_properties(test_kim_solver PROPERTIES

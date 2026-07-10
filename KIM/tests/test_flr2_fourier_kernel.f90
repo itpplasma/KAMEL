@@ -105,13 +105,10 @@ contains
     end subroutine
 
     logical function is_finite_complex(z) result(ok)
+        use, intrinsic :: ieee_arithmetic, only: ieee_is_finite
         complex(dp), intent(in) :: z
-        real(dp) :: re, im
 
-        re = real(z, dp)
-        im = aimag(z)
-        ok = (re == re) .and. (im == im) &
-             .and. (abs(re) < huge(1.0_dp)) .and. (abs(im) < huge(1.0_dp))
+        ok = ieee_is_finite(real(z, dp)) .and. ieee_is_finite(aimag(z))
     end function is_finite_complex
 
     subroutine make_test_profiles(npts, r_prof, n_prof, Te_prof, Ti_prof, &

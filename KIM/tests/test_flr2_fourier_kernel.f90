@@ -230,7 +230,10 @@ contains
         ! the Fourier phase exp(i*(kr-krp)*rg). Because b_+ and b_x are symmetric
         ! under (kr,krp) -> (krp,kr), the per-species cores are equal, so the only
         ! difference between hatG(kr,krp) and hatG(krp,kr) is that phase factor.
-        ! Stripping each of its own phase must leave identical (real-core) values.
+        ! Stripping each of its own phase must leave identical (phase-free,
+        ! still complex) core values. Tolerance is looser than the collapse
+        ! test: this compares two independent complex-exp/Bessel evaluations,
+        ! not a construction identity.
         use config_m, only: profiles_in_memory, nml_config_path
         use flr2_fourier_kernel_m, only: hatG_rho_phi, kern_include_ks2
         use constants_m, only: com_unit

@@ -12,8 +12,10 @@ module flr2_fourier_kernel_m
 
     ! FLR-parameter convention for the two-wavenumber kernel. When .false.
     ! (default) the perpendicular wavenumber k_s is dropped from b_+ / b_x, so
-    ! the kernel depends only on the radial wavenumbers k_r, k'_r. The .true.
-    ! path (which reintroduces k_s^2) is implemented in a later task.
+    ! the kernel depends only on the radial wavenumbers k_r, k'_r and collapses
+    ! exactly to the diagonal source-of-truth calc_hatK_Phi_in_Fourier. The
+    ! .true. path reintroduces k_s^2 via kperp = sqrt(k_s^2 + k_r^2) (see
+    ! hatG_rho_phi) — the canonical form of the recovered kernel_mod.f90.
     logical, save, public :: kern_include_ks2 = .false.
 contains
     complex(dp) function hatG_rho_phi(plasma_in, kr, krp, j) result(G)

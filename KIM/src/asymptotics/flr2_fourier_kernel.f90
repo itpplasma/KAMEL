@@ -9,6 +9,7 @@ module flr2_fourier_kernel_m
     public :: hatG_rho_phi, hatG_rho_B
     public :: hatG_rho_phi_diag_sp, hatG_rho_B_diag_sp
     public :: core_rho_phi_sp, core_rho_B_sp
+    public :: scaled_bessel_pair
 
     ! FLR-parameter convention for the two-wavenumber kernel. When .false.
     ! (default) the perpendicular wavenumber k_s is dropped from b_+ / b_x, so
@@ -42,6 +43,29 @@ contains
             bcross = rho_L2 * abs(kr * krp)
         end if
     end subroutine flr_arg_pair_sp
+
+    subroutine scaled_bessel_pair(bplus, bcross, sI0, sIm1)
+        ! Overflow-safe scaled modified Bessel products:
+        !   sI0  = exp(-bplus) * I_0(bcross)
+        !   sIm1 = exp(-bplus) * I_{-1}(bcross)
+        ! For large bcross the unscaled I_n(bcross) would overflow before the
+        ! exp(-bplus) damping (b_+ >= b_x by construction), so use the large-
+        ! argument asymptotics (lifted from the recovered kernel_mod.f90).
+        use fortnum_special, only: bessel_in
+        real(dp), intent(in) :: bplus, bcross
+        real(dp), intent(out) :: sI0, sIm1
+        real(dp), parameter :: asymptotic_threshold = 500.0d0  ! safely below the ~710 I_0 overflow
+        real(dp), parameter :: twopi = 6.283185307179586d0
+
+        if (bcross > asymptotic_threshold) then
+            sI0  = exp(bcross - bplus) / sqrt(twopi * bcross)
+            sIm1 = exp(-bplus + asinh(-1.0d0/bcross) + bcross*sqrt(1.0d0 + 1.0d0/bcross**2)) &
+                   / sqrt(twopi * bcross * sqrt(1.0d0 + 1.0d0/bcross**2))
+        else
+            sI0  = exp(-bplus) * bessel_in(0, bcross)
+            sIm1 = exp(-bplus) * bessel_in(-1, bcross)
+        end if
+    end subroutine scaled_bessel_pair
 
     complex(dp) function hatG_rho_phi(plasma_in, kr, krp, j) result(G)
         ! Fused two-wavenumber rho-Phi kernel Ghat^{rho Phi}(k_r, k'_r, r_g):
@@ -113,11 +137,10 @@ contains
         ! No phase, NO /(4*pi); species selection (turn_off_*) stays in callers.
         use config_m, only: artificial_debye_case
         use constants_m, only: com_unit
-        use fortnum_special, only: bessel_in
         type(plasma_t), intent(in) :: plasma_in
         integer, intent(in) :: sp, j
         real(dp), intent(in) :: bplus, bcross
-        real(dp) :: ks
+        real(dp) :: ks, sI0, sIm1
 
         G = (0.0_dp, 0.0_dp)
         ks = plasma_in%ks(j)
@@ -127,15 +150,16 @@ contains
         end if
 
         if (artificial_debye_case == 0 .or. artificial_debye_case == 2) then
+            call scaled_bessel_pair(bplus, bcross, sI0, sIm1)
             G = G + 1.0d0 / plasma_in%spec(sp)%lambda_D(j)**2.0d0 &
                 * com_unit * plasma_in%spec(sp)%vT(j)**2.0d0 * ks &
-                / (plasma_in%spec(sp)%omega_c(j) * plasma_in%spec(sp)%nu(j)) * exp(-bplus) * &
+                / (plasma_in%spec(sp)%omega_c(j) * plasma_in%spec(sp)%nu(j)) * &
                 (&
                     plasma_in%spec(sp)%I00(j, 0) * (&
-                        bessel_in(0, bcross) * (plasma_in%spec(sp)%A1(j) + plasma_in%spec(sp)%A2(j) * (1-bplus)) &
-                        + plasma_in%spec(sp)%A2(j) * bcross * bessel_in(-1, bcross) &
+                        sI0 * (plasma_in%spec(sp)%A1(j) + plasma_in%spec(sp)%A2(j) * (1-bplus)) &
+                        + plasma_in%spec(sp)%A2(j) * bcross * sIm1 &
                     )&
-                    + 0.5d0 * plasma_in%spec(sp)%I20(j, 0) * plasma_in%spec(sp)%A2(j) * bessel_in(0, bcross) &
+                    + 0.5d0 * plasma_in%spec(sp)%I20(j, 0) * plasma_in%spec(sp)%A2(j) * sI0 &
                 )
         end if
     end function core_rho_phi_sp
@@ -151,22 +175,23 @@ contains
         ! NO /(4*pi); species selection (turn_off_*) stays in callers.
         use config_m, only: artificial_debye_case
         use constants_m, only: sol
-        use fortnum_special, only: bessel_in
         type(plasma_t), intent(in) :: plasma_in
         integer, intent(in) :: sp, j
         real(dp), intent(in) :: bplus, bcross
+        real(dp) :: sI0, sIm1
 
         G = (0.0_dp, 0.0_dp)
 
         if (artificial_debye_case == 0 .or. artificial_debye_case == 2) then
+            call scaled_bessel_pair(bplus, bcross, sI0, sIm1)
             G = G - 1.0d0 / plasma_in%spec(sp)%lambda_D(j)**2.0d0 * plasma_in%spec(sp)%vT(j)**3.0d0 &
-                / (plasma_in%spec(sp)%omega_c(j) * plasma_in%spec(sp)%nu(j) * sol) * exp(-bplus) * &
+                / (plasma_in%spec(sp)%omega_c(j) * plasma_in%spec(sp)%nu(j) * sol) * &
                 (&
                     plasma_in%spec(sp)%I01(j, 0) * (&
-                        bessel_in(0, bcross) * (plasma_in%spec(sp)%A1(j) + plasma_in%spec(sp)%A2(j) * (1-bplus)) &
-                        + plasma_in%spec(sp)%A2(j) * bcross * bessel_in(-1, bcross) &
+                        sI0 * (plasma_in%spec(sp)%A1(j) + plasma_in%spec(sp)%A2(j) * (1-bplus)) &
+                        + plasma_in%spec(sp)%A2(j) * bcross * sIm1 &
                     )&
-                    + 0.5d0 * plasma_in%spec(sp)%I21(j, 0) * plasma_in%spec(sp)%A2(j) * bessel_in(0, bcross) &
+                    + 0.5d0 * plasma_in%spec(sp)%I21(j, 0) * plasma_in%spec(sp)%A2(j) * sI0 &
                 )
         end if
     end function core_rho_B_sp

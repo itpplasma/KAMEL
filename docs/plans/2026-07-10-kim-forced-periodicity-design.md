@@ -28,25 +28,33 @@ layer. This lets us:
   `G(k_r, k'_r, r_g)` (spec Eq. 15–16), **avoiding the hat-basis transform** entirely;
 - solve a small **dense** system instead of a large sparse one.
 
-### 1.1 Deviation from the spec: keep the true background
+### 1.1 Periodize the background (per the spec; REVISED 2026-07-10)
 
-The write-up periodizes the background profiles over the window (transition region
-`Δr_tr`, period `L = 2(Δr + Δr_tr)`). **We deliberately do *not* do this.** We keep the
-**true, non-periodic** background inside the window and only truncate the integration to a
-finite region. Consequences:
+**Earlier this design deviated from the spec by keeping the true, non-periodic background and
+truncating the integration (single knob `W = L/2`). That decision is REVERSED: we follow the
+spec and periodize the background**, reusing the author's existing periodization code
+(`~/1_projects/KIM_forced_periodicity/FORCED_PERIODICITY/SRC/make_periodic.f90`,
+`localizer.f90`).
 
-- No background deformation, no transition region; `Δr_tr` disappears. The single geometric
-  knob is the **window half-width `W = L/2`**.
-- `G(k_r, k'_r, r_g)` is **no longer periodic** in `r_g`, so the spec's "cheap lowest-order
-  equidistant quadrature because `G` is periodic" (Eq. 16) is replaced by an ordinary
-  finite-interval quadrature.
-- The finite-window matrix element is now *itself* the approximation to the exact
-  infinite-domain element (spec Eq. 13). **This is precisely the error we quantify.** Its
-  interpretation is clean: the boundary/truncation term dropped when the periodicity
-  cancellation is not exact, controlled by `W` via kernel locality.
+The background is made periodic over period `L = 2(Δr + Δr_tr)`: the **as-is** region
+`[rm − Δr, rm + Δr]` (`Δr = dx_asis`) keeps the true background, and a **transition** region
+of half-width `Δr_tr = dx_tr` on each side uses `localizer` — a C∞ transition
+`exp(−2π/(1−t)·exp(−√2/t))` — to blend smoothly into the periodic images so all derivatives
+stay continuous. Consequences:
 
-This is more honest than deforming the background: rather than an uncontrolled deformation,
-we accept a truncation whose error is directly measurable.
+- `G(k_r, k'_r, r_g)` **is** periodic in `r_g` (spec §; memo eq. `matelrhoPhi_discr`), so the
+  matrix element `K_{m,m'} = (2π/L) ∫_{rm−L/2}^{rm+L/2} dr_g G(k_m,k_{m'},r_g)` is evaluated
+  with **cheap lowest-order equidistant quadrature** that is spectrally exact over one period.
+- Two geometric knobs: `Δr` (as-is half-width — controls how much of the resonant layer is
+  kept true) and `Δr_tr` (transition half-width — controls smoothness of the periodic
+  extension); together `L = 2(Δr + Δr_tr)`.
+- The error to quantify is now the **periodization deformation** — how much periodizing the
+  background outside the as-is layer perturbs the resonant-layer solution — controlled by
+  `Δr` (larger `Δr` ⇒ less deformation). This replaces the truncation-error interpretation.
+
+The FP kernel `G` is unchanged by this choice (the memo assembles the matrix element from the
+same `G`); periodization affects only how the background is **sampled** and how the `r_g`
+integral is discretized.
 
 ---
 

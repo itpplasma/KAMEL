@@ -53,12 +53,14 @@ project(KAMEL LANGUAGES C CXX Fortran)
 set(CMAKE_CXX_STANDARD 11)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
+# OpenMP is a project-wide dependency: -fopenmp is on the global compile flags
+# below, and libneo objects in the KiLCA link closure use OMP critical sections
+# (GOMP_critical_*). Resolve the imported target once at top scope so it is
+# visible to every subdirectory and can ride on targets' PUBLIC link interfaces.
+find_package(OpenMP REQUIRED COMPONENTS C Fortran)
+
 # Set architecture flags based on platform
 if(APPLE)
-    # On macOS, use libomp from Homebrew for OpenMP support
-    # find_package(OpenMP REQUIRED)
-    find_package(OpenMP REQUIRED C Fortran)
-
     # Locate libomp from Homebrew
     find_program(BREW_EXECUTABLE brew HINTS /opt/homebrew/bin /usr/local/bin)
     if(BREW_EXECUTABLE)

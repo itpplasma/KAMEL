@@ -37,7 +37,6 @@ jobs:
             libopenblas-dev \
             liblapack-dev \
             doxygen \
-            libgsl-dev \
             libsuitesparse-dev \
             libsuperlu-dev \
             python3-dev \

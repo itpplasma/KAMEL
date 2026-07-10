@@ -109,9 +109,8 @@ set (kilca_eigparam_main progs/main_eig_param.cpp)
 
 # include paths:
 set (libs_root_path ${CMAKE_BINARY_DIR}/external-install)
-set (gsl_include_path ${libs_root_path}/gsl/include)
 
-set(EXTERNAL_LIBS slatec lapack blas SUNDIALS::cvode SUNDIALS::nvecserial fortnum gsl gslcblas)
+set(EXTERNAL_LIBS slatec lapack blas SUNDIALS::cvode SUNDIALS::nvecserial fortnum)
 
 # configure a header file to pass some of the CMake settings to the source code
 configure_file(
@@ -121,7 +120,6 @@ configure_file(
 # Make generated header available
 include_directories("${CMAKE_CURRENT_BINARY_DIR}")
 
-include_directories ("${gsl_include_path}")
 # fortnum C ABI header (fortnum.h); the Fortran fortnum target is linked above.
 include_directories ("${fortnum_SOURCE_DIR}/include")
 include_directories ("${PROJECT_BINARY_DIR}")
@@ -251,7 +249,11 @@ set_target_properties(kilca_lib PROPERTIES
     ARCHIVE_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}/install/lib/
     Fortran_MODULE_DIRECTORY ${PROJECT_BINARY_DIR}/OBJS/kilca/)
 add_dependencies(kilca_lib ${EXTERNAL_LIBS})
-target_link_libraries(kilca_lib PUBLIC ${EXTERNAL_LIBS})
+# libneo objects pulled into the KiLCA link closure use OMP critical sections
+# (GOMP_critical_*). Carry the OpenMP runtime on kilca_lib's PUBLIC interface so
+# every consumer (KIM_exe, ql-balance_lib, and all KIM tests) inherits it and no
+# downstream target has to re-declare OpenMP to link.
+target_link_libraries(kilca_lib PUBLIC ${EXTERNAL_LIBS} OpenMP::OpenMP_Fortran)
 
 # Add include directories on `kilca_lib` target for all source and module paths
 target_include_directories(kilca_lib PUBLIC
@@ -284,7 +286,6 @@ target_include_directories(kilca_lib PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/spline
     # External dependencies
     ${sundials_include_path}
-    ${gsl_include_path}
     ${fortnum_SOURCE_DIR}/include
 )
 

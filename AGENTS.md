@@ -58,7 +58,7 @@ make clean
 - **LAPACK/BLAS** - Linear algebra
 - **SuiteSparse** - Sparse matrix operations
 - **HDF5** - Data storage
-- **GSL** - GNU Scientific Library
+- **fortnum** - Numerical core (special functions, quadrature, ODE, root finding)
 - **SUNDIALS** - Numerical solvers
 
 ### Python Dependencies

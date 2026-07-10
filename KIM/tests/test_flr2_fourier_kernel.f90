@@ -19,15 +19,137 @@ program test_flr2_fourier_kernel
 
     use KIM_kinds_m, only: dp
     use flr2_fourier_kernel_m, only: hatG_rho_phi
+    use flr2_fourier_kernel_m, only: hatG_rho_phi_diag_sp, hatG_rho_B_diag_sp
 
     implicit none
 
     call test_populated_plasma_and_kernel_stub()
+    call test_diagonal_matches_inline()
 
     print *, 'All tests PASSED'
     stop 0
 
 contains
+
+    subroutine test_diagonal_matches_inline()
+        ! Characterization test: the shared per-species diagonal integrand
+        ! functions must reproduce, bit-for-bit within tolerance, the original
+        ! inline expressions in calc_hatK_Phi_in_Fourier. The INLINE reference
+        ! below is the permanent anchor (verbatim copy of the source-of-truth
+        ! per-species rho-Phi Debye+FP term and signed rho-B FP term). It must
+        ! not be refactored to call the functions it validates.
+        use config_m, only: profiles_in_memory, nml_config_path
+        use config_m, only: artificial_debye_case, turn_off_ions, turn_off_electrons
+        use constants_m, only: com_unit, sol
+        use fortnum_special, only: bessel_in
+        use species_m, only: plasma, set_profiles_from_arrays, plasma_t
+        use grid_m, only: rg_grid
+        use kim_base_m, only: kim_t
+        use kim_mod_m, only: from_kim_factory_get_kim
+
+        integer, parameter :: npts = 101
+
+        real(dp) :: r_prof(npts), n_prof(npts), Te_prof(npts)
+        real(dp) :: Ti_prof(npts), q_prof(npts), Er_prof(npts)
+        class(kim_t), allocatable :: kim_instance
+        real(dp) :: kr_arr(3), kr, b, ks
+        integer :: i, j, sp, jj_arr(3), k
+        complex(dp) :: phi_inline, phi_func, B_inline, B_func
+        real(dp) :: tol_phi, tol_B
+
+        call make_test_profiles(npts, r_prof, n_prof, Te_prof, Ti_prof, &
+                                q_prof, Er_prof)
+
+        call write_test_namelist('./KIM_config_fourier_diag_test.nml')
+        nml_config_path = './KIM_config_fourier_diag_test.nml'
+
+        profiles_in_memory = .true.
+        call kim_init()
+        call set_profiles_from_arrays(r_prof, n_prof, Te_prof, Ti_prof, &
+                                      q_prof, Er_prof, npts)
+
+        call from_kim_factory_get_kim('electrostatic', kim_instance)
+        call kim_instance%init()
+
+        kr_arr = [0.1_dp, 1.0_dp, 5.0_dp]
+        ! A few interior guiding-centre boundary-grid indices.
+        jj_arr = [rg_grid%npts_b / 4, rg_grid%npts_b / 2, (3 * rg_grid%npts_b) / 4]
+
+        do i = 1, size(kr_arr)
+            kr = kr_arr(i)
+            do k = 1, size(jj_arr)
+                j = jj_arr(k)
+
+                ! (i) INLINE reference: verbatim per-species expressions,
+                ! summed over the non-turned-off species.
+                phi_inline = (0.0_dp, 0.0_dp)
+                B_inline = (0.0_dp, 0.0_dp)
+                do sp = 0, plasma%n_species - 1
+                    if (turn_off_ions .and. sp >= 1) cycle
+                    if (turn_off_electrons .and. sp == 0) cycle
+
+                    ks = plasma%ks(j)
+                    b = (kr**2.0d0) * plasma%spec(sp)%rho_L(j)**2.0d0
+
+                    if (artificial_debye_case <= 1) then
+                        phi_inline = phi_inline - 1.0d0 / plasma%spec(sp)%lambda_D(j)**2.0d0
+                    end if
+
+                    if (artificial_debye_case == 0 .or. artificial_debye_case == 2) then
+                        phi_inline = phi_inline + 1.0d0 / plasma%spec(sp)%lambda_D(j)**2.0d0 &
+                            * com_unit * plasma%spec(sp)%vT(j)**2.0d0 * plasma%ks(j) &
+                            / (plasma%spec(sp)%omega_c(j) * plasma%spec(sp)%nu(j)) * exp(-b) * &
+                            (&
+                                plasma%spec(sp)%I00(j, 0) * (&
+                                    bessel_in(0, b) * (plasma%spec(sp)%A1(j) + plasma%spec(sp)%A2(j) * (1-b)) &
+                                    + plasma%spec(sp)%A2(j) * b * bessel_in(-1, b) &
+                                )&
+                                + 0.5d0 * plasma%spec(sp)%I20(j, 0) * plasma%spec(sp)%A2(j) * bessel_in(0, b) &
+                            )
+                        B_inline = B_inline - 1.0d0 / plasma%spec(sp)%lambda_D(j)**2.0d0 * plasma%spec(sp)%vT(j)**3.0d0 &
+                            / (plasma%spec(sp)%omega_c(j) * plasma%spec(sp)%nu(j) * sol) * exp(-b) * &
+                            (&
+                                plasma%spec(sp)%I01(j, 0) * (&
+                                    bessel_in(0, b) * (plasma%spec(sp)%A1(j) + plasma%spec(sp)%A2(j) * (1-b)) &
+                                    + plasma%spec(sp)%A2(j) * b * bessel_in(-1, b) &
+                                )&
+                                + 0.5d0 * plasma%spec(sp)%I21(j, 0) * plasma%spec(sp)%A2(j) * bessel_in(0, b) &
+                            )
+                    end if
+                end do
+
+                ! (ii) Shared functions: sum over the same non-turned-off species.
+                phi_func = (0.0_dp, 0.0_dp)
+                B_func = (0.0_dp, 0.0_dp)
+                do sp = 0, plasma%n_species - 1
+                    if (turn_off_ions .and. sp >= 1) cycle
+                    if (turn_off_electrons .and. sp == 0) cycle
+                    phi_func = phi_func + hatG_rho_phi_diag_sp(plasma, sp, kr, j)
+                    B_func = B_func + hatG_rho_B_diag_sp(plasma, sp, kr, j)
+                end do
+
+                tol_phi = 1.0e-12_dp * (1.0_dp + abs(phi_inline))
+                tol_B = 1.0e-12_dp * (1.0_dp + abs(B_inline))
+
+                if (abs(phi_inline - phi_func) >= tol_phi) then
+                    print *, 'FAIL: rho-Phi diagonal mismatch at kr=', kr, ' j=', j
+                    print *, '  inline   = ', phi_inline
+                    print *, '  fromfunc = ', phi_func
+                    print *, '  |diff|   = ', abs(phi_inline - phi_func), ' tol = ', tol_phi
+                    error stop
+                end if
+                if (abs(B_inline - B_func) >= tol_B) then
+                    print *, 'FAIL: rho-B diagonal mismatch at kr=', kr, ' j=', j
+                    print *, '  inline   = ', B_inline
+                    print *, '  fromfunc = ', B_func
+                    print *, '  |diff|   = ', abs(B_inline - B_func), ' tol = ', tol_B
+                    error stop
+                end if
+            end do
+        end do
+
+        print *, 'PASS: shared diagonal integrand matches inline reference'
+    end subroutine
 
     subroutine test_populated_plasma_and_kernel_stub()
         use config_m, only: profiles_in_memory, nml_config_path

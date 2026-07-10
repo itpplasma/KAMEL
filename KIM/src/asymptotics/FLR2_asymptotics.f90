@@ -153,6 +153,7 @@ module flr2_asymptotics_m
         use config_m, only: output_path
         use fortnum_special, only: bessel_in
         use config_m, only: turn_off_ions, artificial_debye_case, turn_off_electrons
+        use flr2_fourier_kernel_m, only: hatG_rho_phi_diag_sp, hatG_rho_B_diag_sp
 
         implicit none
 
@@ -187,10 +188,15 @@ module flr2_asymptotics_m
 
 
             do j = 1, size(rg_grid%xb)
-                kernel_phi_temp = 0.0d0
                 do sp = 0, plasma_in%n_species-1
                     if (turn_off_ions .and. sp >= 1) cycle
                     if (turn_off_electrons .and. sp == 0) cycle
+
+                    ! Reset per species: hatG_rho_phi_diag_sp returns the full
+                    ! per-species Debye + FP contribution, so accumulate it
+                    ! fresh for each species (the original reassigned the Debye
+                    ! term per species, then added the temp to kernel_phi(j)).
+                    kernel_phi_temp = 0.0d0
 
                     ! Don't Include full perpendicular wavenumber in FLR parameter: b = (k_r^2 + k_s^2) * rho_T^2
                     ! k_s diverges at r=0, which is problematic for gsl Bessel functions
@@ -198,30 +204,14 @@ module flr2_asymptotics_m
 
                     b = (kr**2.0d0) * plasma_in%spec(sp)%rho_L(j)**2.0d0
 
-                    if (artificial_debye_case <= 1) then
-                        kernel_phi_temp = - 1.0d0 / plasma_in%spec(sp)%lambda_D(j)**2.0d0
-                    end if
+                    ! Diagonal rho-Phi (Debye + FP) and rho-B (signed FP)
+                    ! integrands now live in flr2_fourier_kernel_m so the
+                    ! diagonal math has a single home. Both functions apply the
+                    ! same artificial_debye_case gating internally.
+                    kernel_phi_temp = kernel_phi_temp + hatG_rho_phi_diag_sp(plasma_in, sp, kr, j)
 
                     if (artificial_debye_case == 0 .or. artificial_debye_case == 2) then
-                        kernel_phi_temp = kernel_phi_temp + 1.0d0 / plasma_in%spec(sp)%lambda_D(j)**2.0d0 &
-                            * com_unit * plasma_in%spec(sp)%vT(j)**2.0d0 * plasma_in%ks(j) &
-                            / (plasma_in%spec(sp)%omega_c(j) * plasma_in%spec(sp)%nu(j)) * exp(-b) * &
-                            (&
-                                plasma_in%spec(sp)%I00(j, 0) * (&
-                                    bessel_in(0, b) * (plasma_in%spec(sp)%A1(j) + plasma_in%spec(sp)%A2(j) * (1-b)) &
-                                    + plasma_in%spec(sp)%A2(j) * b * bessel_in(-1, b) &
-                                )&
-                                + 0.5d0 * plasma_in%spec(sp)%I20(j, 0) * plasma_in%spec(sp)%A2(j) * bessel_in(0, b) &
-                            )
-                        kernel_B(j) = kernel_B(j) - 1.0d0 / plasma_in%spec(sp)%lambda_D(j)**2.0d0 * plasma_in%spec(sp)%vT(j)**3.0d0 &
-                            / (plasma_in%spec(sp)%omega_c(j) * plasma_in%spec(sp)%nu(j) * sol) * exp(-b) * &
-                            (&
-                                plasma_in%spec(sp)%I01(j, 0) * (&
-                                    bessel_in(0, b) * (plasma_in%spec(sp)%A1(j) + plasma_in%spec(sp)%A2(j) * (1-b)) &
-                                    + plasma_in%spec(sp)%A2(j) * b * bessel_in(-1, b) &
-                                )&
-                                + 0.5d0 * plasma_in%spec(sp)%I21(j, 0) * plasma_in%spec(sp)%A2(j) * bessel_in(0, b) &
-                            )
+                        kernel_B(j) = kernel_B(j) + hatG_rho_B_diag_sp(plasma_in, sp, kr, j)
 
                         kernel_jphi(j) = kernel_jphi(j) + 1.0d0 / plasma_in%spec(sp)%lambda_D(j)**2.0d0 * com_unit * plasma_in%spec(sp)%vT(j)**3.0d0 &
                             / (plasma_in%spec(sp)%omega_c(j) * plasma_in%spec(sp)%nu(j)) * ks * exp(-b) * &

@@ -28,6 +28,7 @@ program test_periodic_convergence
     call test_core_on_fixed_grid()
     call test_nrg_convergence()
     call test_M_convergence()
+    call test_dr_deformation_scan()
 
     print *, 'All tests PASSED'
     stop 0
@@ -413,6 +414,211 @@ contains
         print *, 'PASS: res_L2 decreasing and res_L2(finest) < 1.0e-2'
         print *, '=== test_M_convergence PASSED ==='
     end subroutine test_M_convergence
+
+    !> Phase-3 Task 4: PERIODIZATION-DEFORMATION error bar (design section 5.1).
+    !>
+    !> This is the payoff of Phase 3: it quantifies the PHYSICAL error introduced
+    !> by periodizing the background, distinct from the numerical convergence
+    !> pinned by Tasks 2-3. As the as-is half-width dx_asis grows, LESS of the
+    !> background is deformed near the resonant layer, so the resonant-layer
+    !> delta-Phi approaches the true (undeformed) solution. The Cauchy residual
+    !> between successive dx_asis is the periodization-deformation error bar.
+    !>
+    !> CRITICAL (design section 4.1): the NUMERICAL resolution is held constant
+    !> across the scan so the residual measures PHYSICAL deformation, not
+    !> numerical under-resolution. As dx_asis grows, L = 2*(dx_asis + dx_tr)
+    !> grows, so M and n_rg are SCALED with L:
+    !>   M    = ceiling( (5/rhoL) * L / (2 pi) )  -> fixed k_max = 5/rhoL
+    !>   n_rg = ceiling( 16 * L / rhoL )          -> fixed 16 points per rho_L
+    !> The M formula matches the run-type's own sizing (periodic_kmax_scale = 5),
+    !> and n_rg sits well above the P3.2-converged density.
+    !>
+    !> SOFT GATE (this REPORTS the error bar, it does NOT tightly pass/fail): the
+    !> test error-stops ONLY on a genuine defect -- non-finite / all-zero dPhi, a
+    !> non-finite residual, or a residual sequence that GROWS without bound (a
+    !> growing residual means the deformation is NOT converging: a real finding).
+    !> A decreasing / plateauing residual is the physical expectation; the plateau
+    !> value (residual at the largest dx_asis) is the reported deformation error
+    !> bar. A small-but-finite plateau does NOT hard-fail.
+    subroutine test_dr_deformation_scan()
+        use, intrinsic :: ieee_arithmetic, only: ieee_is_finite
+        use config_m, only: profiles_in_memory, nml_config_path
+        use species_m, only: set_profiles_from_arrays
+        use kim_base_m, only: kim_t
+        use kim_mod_m, only: from_kim_factory_get_kim
+        use kim_resonances_m, only: r_res
+        use rt_electrostatic_periodic_m, only: compute_periodic_delta_phi
+
+        integer, parameter :: npts = 201
+        integer, parameter :: ndiag = 41, nseq = 4
+        real(dp), parameter :: dx_asis_scale(nseq) = &
+            [3.0_dp, 5.0_dp, 8.0_dp, 12.0_dp]
+
+        real(dp) :: r_prof(npts), n_prof(npts), Te_prof(npts)
+        real(dp) :: Ti_prof(npts), q_prof(npts), Er_prof(npts)
+        class(kim_t), allocatable :: kim_instance
+
+        complex(dp), allocatable :: dPhi(:)
+        complex(dp) :: dphi_k(ndiag, nseq)
+        real(dp) :: r_diag(ndiag)
+        real(dp) :: res_L2(nseq), res_max(nseq)
+        real(dp) :: rm, rhoL_rm, dx_asis, dx_tr, L, k_max, pi
+        real(dp) :: denom_L2, denom_max
+        integer :: M_seq(nseq), n_rg_seq(nseq)
+        integer :: i, k, info
+        logical :: growing
+
+        pi = acos(-1.0_dp)
+
+        print *, ''
+        print *, '=== test_dr_deformation_scan: PERIODIZATION-DEFORMATION error bar ==='
+
+        call make_test_profiles(npts, r_prof, n_prof, Te_prof, Ti_prof, &
+                                q_prof, Er_prof)
+
+        call write_test_namelist('./KIM_config_periodic_conv_test.nml')
+        nml_config_path = './KIM_config_periodic_conv_test.nml'
+
+        profiles_in_memory = .true.
+        call kim_init()
+        call set_profiles_from_arrays(r_prof, n_prof, Te_prof, Ti_prof, &
+                                      q_prof, Er_prof, npts)
+
+        call from_kim_factory_get_kim('electrostatic', kim_instance)
+        call kim_instance%init()
+
+        call prepare_resonances
+        if (.not. (r_res > 0.0_dp)) then
+            print *, 'FAIL: resonance not found, r_res = ', r_res
+            error stop
+        end if
+        rm = r_res
+
+        rhoL_rm = interp_rho_L(rm)
+        if (.not. (rhoL_rm > 0.0_dp)) then
+            print *, 'FAIL: rho_L(rm) not positive, = ', rhoL_rm
+            error stop
+        end if
+        print *, 'resonant radius rm       = ', rm
+        print *, 'rho_L(rm) [electron]     = ', rhoL_rm
+
+        ! FIXED diagnostic grid: 41 equidistant points on [rm - 2 rho_L,
+        ! rm + 2 rho_L]. The SAME physical grid is used for EVERY dx_asis, so the
+        ! Cauchy residuals are directly comparable. 2 rho_L is safely INSIDE the
+        ! as-is region for ALL dx_asis in the scan (the smallest dx_asis =
+        ! 3 rho_L > 2 rho_L), so the diagnostic layer always sees the undeformed
+        ! background and the residual isolates the periodization deformation.
+        do i = 1, ndiag
+            r_diag(i) = (rm - 2.0_dp * rhoL_rm) &
+                      + 4.0_dp * rhoL_rm * real(i - 1, dp) / real(ndiag - 1, dp)
+        end do
+
+        ! Scan the as-is half-width. Memo ratio dx_tr = 2*dx_asis => L = 6*dx_asis.
+        ! Hold the NUMERICAL resolution constant by scaling M and n_rg with L:
+        ! fixed k_max = 5/rho_L (matches the run-type) and fixed 16 pts / rho_L.
+        do k = 1, nseq
+            dx_asis = dx_asis_scale(k) * rhoL_rm
+            dx_tr   = 2.0_dp * dx_asis
+            L       = 2.0_dp * (dx_asis + dx_tr)
+            k_max   = 5.0_dp / rhoL_rm
+            M_seq(k)    = ceiling(k_max * L / (2.0_dp * pi))
+            n_rg_seq(k) = ceiling(16.0_dp * L / rhoL_rm)
+
+            print '(A,F6.1,A,ES14.6,A,I5,A,I6)', &
+                '   dx_asis = ', dx_asis_scale(k), ' rho_L  (=', dx_asis, &
+                ')  ->  M = ', M_seq(k), '  n_rg = ', n_rg_seq(k)
+
+            call compute_periodic_delta_phi(rm, dx_asis, dx_tr, M_seq(k), &
+                                            n_rg_seq(k), (1.0_dp, 0.0_dp), &
+                                            r_diag, dPhi, info)
+            if (info /= 0) then
+                print *, 'FAIL: compute_periodic_delta_phi info /= 0 at dx_asis =', &
+                    dx_asis_scale(k), ' rho_L, info =', info
+                error stop
+            end if
+            if (size(dPhi) /= ndiag) then
+                print *, 'FAIL: size(dPhi) /=', ndiag, ' got ', size(dPhi)
+                error stop
+            end if
+            do i = 1, ndiag
+                if (.not. ieee_is_finite(real(dPhi(i), dp)) .or. &
+                    .not. ieee_is_finite(aimag(dPhi(i)))) then
+                    print *, 'FAIL: non-finite dPhi at i =', i, &
+                        ' dx_asis =', dx_asis_scale(k), ' rho_L'
+                    error stop 'test_dr_deformation_scan: non-finite dPhi'
+                end if
+            end do
+            if (.not. (maxval(abs(dPhi)) > 0.0_dp)) then
+                print *, 'FAIL: dPhi all zero at dx_asis =', dx_asis_scale(k), ' rho_L'
+                error stop 'test_dr_deformation_scan: all-zero dPhi'
+            end if
+            dphi_k(:, k) = dPhi
+        end do
+        print *, 'PASS: all solves returned info == 0 with finite, non-zero dPhi'
+
+        ! Cauchy relative residual between successive dx_asis (k = 2, 3, 4).
+        res_L2  = 0.0_dp
+        res_max = 0.0_dp
+        do k = 2, nseq
+            denom_L2  = sqrt(sum(abs(dphi_k(:, k))**2))
+            denom_max = maxval(abs(dphi_k(:, k)))
+            res_L2(k)  = sqrt(sum(abs(dphi_k(:, k) - dphi_k(:, k-1))**2)) / denom_L2
+            res_max(k) = maxval(abs(dphi_k(:, k) - dphi_k(:, k-1))) / denom_max
+            if (.not. ieee_is_finite(res_L2(k)) .or. &
+                .not. ieee_is_finite(res_max(k))) then
+                print *, 'FAIL: non-finite residual at k =', k, &
+                    ' res_L2 =', res_L2(k), ' res_max =', res_max(k)
+                error stop 'test_dr_deformation_scan: non-finite residual'
+            end if
+        end do
+
+        print *, ''
+        print *, '==================================================================='
+        print *, '   PERIODIZATION-DEFORMATION ERROR BAR (design section 5.1)'
+        print *, '   fixed diagnostic layer [rm-2 rho_L, rm+2 rho_L]; M, n_rg scaled'
+        print *, '   with L so k_max and r_g spacing are constant across the scan'
+        print *, '==================================================================='
+        print '(A)', '   dx_asis pair [rho_L]      res_L2            res_max'
+        do k = 2, nseq
+            print '(3X,F5.1," ->",F5.1,6X,ES16.8,2X,ES16.8)', &
+                dx_asis_scale(k-1), dx_asis_scale(k), res_L2(k), res_max(k)
+        end do
+        print *, '-------------------------------------------------------------------'
+        print '(A,ES16.8)', &
+            '   DEFORMATION ERROR BAR (plateau, res_L2 at largest dx_asis)  = ', &
+            res_L2(nseq)
+        print '(A,ES16.8)', &
+            '   DEFORMATION ERROR BAR (plateau, res_max at largest dx_asis) = ', &
+            res_max(nseq)
+        print *, '==================================================================='
+
+        ! SOFT GATE: only error-stop on a genuinely GROWING residual sequence (the
+        ! deformation is NOT converging -- a finding to investigate). Non-finite /
+        ! all-zero / non-finite-residual defects are already caught above. A
+        ! decreasing / plateauing sequence is the physical expectation and is
+        ! reported, NOT failed, however small the finite plateau.
+        growing = (res_L2(3) > res_L2(2)) .and. (res_L2(4) > res_L2(3))
+        if (growing) then
+            print *, 'FINDING: res_L2 sequence GROWS across the dx_asis scan:'
+            print *, '   res_L2 =', res_L2(2), res_L2(3), res_L2(4)
+            print *, '   -> periodization deformation is NOT converging as the'
+            print *, '      as-is window grows; this is a real finding to'
+            print *, '      investigate, not a numerical-resolution artifact'
+            print *, '      (M and n_rg were scaled with L to hold resolution).'
+            error stop 'test_dr_deformation_scan: deformation residual growing'
+        end if
+
+        if (res_L2(nseq) <= res_L2(2)) then
+            print *, 'PASS: deformation residual decreases / plateaus (converging);'
+            print '(A,ES14.6)', &
+                '       reported periodization-deformation error bar = ', res_L2(nseq)
+        else
+            print *, 'NOTE: non-monotone but non-growing residual; plateau reported'
+            print '(A,ES14.6)', &
+                '       reported periodization-deformation error bar = ', res_L2(nseq)
+        end if
+        print *, '=== test_dr_deformation_scan PASSED ==='
+    end subroutine test_dr_deformation_scan
 
     !> 4-point Lagrange interpolation of the global electron Larmor radius
     !> plasma%spec(0)%rho_L at radius x, matching the run-type's interp_rho_L.

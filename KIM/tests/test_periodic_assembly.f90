@@ -8,10 +8,10 @@ program test_periodic_assembly
     ! Because the periodic background makes the integrand L-periodic and the
     ! Fourier phase exp(i(k_m - k_m') r_g) is exactly L-periodic
     ! ((k_m - k_m')*L = 2*pi*(m - m')), the periodic trapezoidal (equidistant)
-    ! rule is spectrally accurate. The window grid rg_grid%xb has N = npts_b
-    ! equidistant points on [rm - L/2, rm + L/2]; points 1 and N are one period
-    ! apart, so only the N-1 DISTINCT samples are summed:
-    !   K_{m,m'} = (2*pi/(N-1)) * sum_{j=1}^{N-1} hatG(plasma, k_m, k_m', j).
+    ! rule is spectrally accurate. The window grid rg_grid%xb is endpoint-
+    ! exclusive over one period (h = L/N, xb(N) = rm + L/2 - h), so the N points
+    ! are the N DISTINCT samples and all are summed with equal weight:
+    !   K_{m,m'} = (2*pi/N) * sum_{j=1}^{N} hatG(plasma, k_m, k_m', j).
     !
     ! Setup mirrors test_periodic_background_build.f90 (in-memory profiles,
     ! (m,n) = (-6, 2) so q resonant at q = 3, build a periodic window at rm).
@@ -180,14 +180,16 @@ contains
         k_m  = 2.0_dp * pi * real(mm,  dp) / L
         k_mp = 2.0_dp * pi * real(mmp, dp) / L
 
+        ! SAME formula as assemble_periodic_matrices: endpoint-exclusive window,
+        ! sum ALL N distinct samples with equal weight 2*pi/N.
         acc_phi = (0.0_dp, 0.0_dp)
         acc_B   = (0.0_dp, 0.0_dp)
-        do j = 1, N - 1
+        do j = 1, N
             acc_phi = acc_phi + hatG_rho_phi(plasma, k_m, k_mp, j)
             acc_B   = acc_B   + hatG_rho_B(plasma, k_m, k_mp, j)
         end do
-        ref_phi = (2.0_dp * pi / real(N - 1, dp)) * acc_phi
-        ref_B   = (2.0_dp * pi / real(N - 1, dp)) * acc_B
+        ref_phi = (2.0_dp * pi / real(N, dp)) * acc_phi
+        ref_B   = (2.0_dp * pi / real(N, dp)) * acc_B
 
         im  = mm  + M + 1
         imp = mmp + M + 1

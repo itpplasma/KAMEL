@@ -26,6 +26,7 @@ program test_periodic_convergence
     implicit none
 
     call test_core_on_fixed_grid()
+    call test_nrg_convergence()
 
     print *, 'All tests PASSED'
     stop 0
@@ -125,6 +126,146 @@ contains
         end if
         print *, 'PASS: dPhi non-zero, max|dPhi| =', maxval(abs(dPhi))
     end subroutine test_core_on_fixed_grid
+
+    !> Phase-3 Task 2: r_g QUADRATURE convergence of the periodic solver.
+    !>
+    !> With M and the window (dx_asis, dx_tr) FIXED, refine only the number of
+    !> radial quadrature nodes n_rg and reconstruct delta-Phi on a FIXED
+    !> diagnostic grid. The periodic-trapezoidal rule is spectrally accurate for
+    !> the near-periodic window integrand, so the Cauchy residual between
+    !> successive refinements must fall fast and beat 1e-2. A failure to converge
+    !> is a real finding about the quadrature / seam handling, not a reason to
+    !> loosen the tolerance.
+    subroutine test_nrg_convergence()
+        use config_m, only: profiles_in_memory, nml_config_path
+        use species_m, only: set_profiles_from_arrays
+        use kim_base_m, only: kim_t
+        use kim_mod_m, only: from_kim_factory_get_kim
+        use kim_resonances_m, only: r_res
+        use rt_electrostatic_periodic_m, only: compute_periodic_delta_phi
+
+        integer, parameter :: npts = 201
+        integer, parameter :: M = 32, ndiag = 41, nseq = 4
+        integer, parameter :: n_rg_seq(nseq) = [48, 96, 192, 384]
+
+        real(dp) :: r_prof(npts), n_prof(npts), Te_prof(npts)
+        real(dp) :: Ti_prof(npts), q_prof(npts), Er_prof(npts)
+        class(kim_t), allocatable :: kim_instance
+
+        complex(dp), allocatable :: dPhi(:)
+        complex(dp) :: dphi_k(ndiag, nseq)
+        real(dp) :: r_diag(ndiag)
+        real(dp) :: res_L2(nseq), res_max(nseq)
+        real(dp) :: rm, rhoL_rm, dx_asis, dx_tr
+        real(dp) :: denom_L2, denom_max
+        integer :: i, k, info
+        logical :: decreasing
+
+        print *, ''
+        print *, '=== test_nrg_convergence: r_g quadrature convergence ==='
+
+        call make_test_profiles(npts, r_prof, n_prof, Te_prof, Ti_prof, &
+                                q_prof, Er_prof)
+
+        call write_test_namelist('./KIM_config_periodic_conv_test.nml')
+        nml_config_path = './KIM_config_periodic_conv_test.nml'
+
+        profiles_in_memory = .true.
+        call kim_init()
+        call set_profiles_from_arrays(r_prof, n_prof, Te_prof, Ti_prof, &
+                                      q_prof, Er_prof, npts)
+
+        call from_kim_factory_get_kim('electrostatic', kim_instance)
+        call kim_instance%init()
+
+        call prepare_resonances
+        if (.not. (r_res > 0.0_dp)) then
+            print *, 'FAIL: resonance not found, r_res = ', r_res
+            error stop
+        end if
+        rm = r_res
+
+        rhoL_rm = interp_rho_L(rm)
+        if (.not. (rhoL_rm > 0.0_dp)) then
+            print *, 'FAIL: rho_L(rm) not positive, = ', rhoL_rm
+            error stop
+        end if
+        print *, 'resonant radius rm       = ', rm
+        print *, 'rho_L(rm) [electron]     = ', rhoL_rm
+
+        ! FIXED window (M and dx_asis / dx_tr do NOT change with n_rg): the only
+        ! knob refined here is the r_g quadrature node count.
+        dx_asis =  5.0_dp * rhoL_rm
+        dx_tr   = 10.0_dp * rhoL_rm
+        print *, 'FIXED M                  = ', M
+        print *, 'FIXED dx_asis (5 rho_L)  = ', dx_asis
+        print *, 'FIXED dx_tr  (10 rho_L)  = ', dx_tr
+        print *, 'window L/2 (15 rho_L)    = ', dx_asis + dx_tr
+
+        ! FIXED diagnostic grid: 41 equidistant points on [rm - 3 rho_L,
+        ! rm + 3 rho_L], well inside L/2 = 15 rho_L and INDEPENDENT of n_rg, so
+        ! the Cauchy residuals are comparable across refinements.
+        do i = 1, ndiag
+            r_diag(i) = (rm - 3.0_dp * rhoL_rm) &
+                      + 6.0_dp * rhoL_rm * real(i - 1, dp) / real(ndiag - 1, dp)
+        end do
+
+        ! Refine n_rg only; store delta-Phi on the fixed grid for each n_rg.
+        do k = 1, nseq
+            call compute_periodic_delta_phi(rm, dx_asis, dx_tr, M, n_rg_seq(k), &
+                                            (1.0_dp, 0.0_dp), r_diag, dPhi, info)
+            if (info /= 0) then
+                print *, 'FAIL: compute_periodic_delta_phi info /= 0 at n_rg =', &
+                    n_rg_seq(k), ' info =', info
+                error stop
+            end if
+            if (size(dPhi) /= ndiag) then
+                print *, 'FAIL: size(dPhi) /=', ndiag, ' got ', size(dPhi)
+                error stop
+            end if
+            dphi_k(:, k) = dPhi
+        end do
+        print *, 'PASS: all four solves returned info == 0'
+
+        ! Cauchy relative residual between successive refinements.
+        res_L2  = 0.0_dp
+        res_max = 0.0_dp
+        do k = 2, nseq
+            denom_L2  = sqrt(sum(abs(dphi_k(:, k))**2))
+            denom_max = maxval(abs(dphi_k(:, k)))
+            res_L2(k)  = sqrt(sum(abs(dphi_k(:, k) - dphi_k(:, k-1))**2)) / denom_L2
+            res_max(k) = maxval(abs(dphi_k(:, k) - dphi_k(:, k-1))) / denom_max
+        end do
+
+        print *, ''
+        print *, '--- n_rg convergence (fixed M, window, diagnostic grid) ---'
+        print '(A)', '   n_rg pair          res_L2            res_max'
+        do k = 2, nseq
+            print '(3X,I5," ->",I5,4X,ES16.8,2X,ES16.8)', &
+                n_rg_seq(k-1), n_rg_seq(k), res_L2(k), res_max(k)
+        end do
+        print *, '-----------------------------------------------------------'
+
+        ! Assert: the residual sequence DECREASES and the finest beats 1e-2.
+        decreasing = (res_L2(4) < res_L2(3)) .and. (res_L2(3) < res_L2(2))
+        if (.not. decreasing) then
+            print *, 'FAIL: res_L2 sequence does not decrease monotonically:'
+            print *, '   res_L2 =', res_L2(2), res_L2(3), res_L2(4)
+            print *, '   -> real finding about r_g quadrature / seam handling;'
+            print *, '      investigate, do NOT loosen the threshold blindly.'
+            error stop 'test_nrg_convergence: residual not decreasing'
+        end if
+        if (.not. (res_L2(4) < 1.0e-2_dp)) then
+            print *, 'FAIL: finest res_L2(4) =', res_L2(4), ' not < 1.0e-2'
+            print *, '   res_L2 =', res_L2(2), res_L2(3), res_L2(4)
+            print *, '   -> quadrature has NOT converged; investigate, do NOT'
+            print *, '      loosen the threshold blindly.'
+            error stop 'test_nrg_convergence: quadrature not converged'
+        end if
+
+        print *, 'PASS: res_L2 decreasing and res_L2(finest) < 1.0e-2'
+        print *, '=== test_nrg_convergence PASSED ==='
+    end subroutine test_nrg_convergence
 
     !> 4-point Lagrange interpolation of the global electron Larmor radius
     !> plasma%spec(0)%rho_L at radius x, matching the run-type's interp_rho_L.

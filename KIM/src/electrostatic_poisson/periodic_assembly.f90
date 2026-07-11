@@ -15,15 +15,17 @@ module periodic_assembly_m
     !> The periodic background makes the integrand L-periodic, and the Fourier
     !> phase exp(i(k_m - k_{m'}) r_g) is exactly L-periodic since
     !> (k_m - k_{m'})*L = 2*pi*(m - m'). The periodic trapezoidal (equidistant)
-    !> rule is therefore spectrally accurate. The window grid rg_grid%xb has
-    !> N = rg_grid%npts_b equidistant points on [rm-L/2, rm+L/2]; points 1 and N
-    !> are one period apart (they coincide mod L), so only the N-1 DISTINCT
-    !> samples are summed -- no endpoint half-weights, no double-counted seam:
+    !> rule is therefore spectrally accurate. The window grid rg_grid%xb is
+    !> ENDPOINT-EXCLUSIVE over one period: grid_generate_equidistant sets h = L/N
+    !> and xb(j) = r_lo + (j-1)*h (N = rg_grid%npts_b), so the N grid points are the
+    !> N DISTINCT samples over [rm-L/2, rm+L/2) and xb(1)+L = rm+L/2 is NOT a node.
+    !> The periodic trapezoidal rule therefore sums ALL N samples with equal weight
+    !> -- no endpoint half-weights, no dropped sample:
     !>
-    !>   K^{rhoPhi}_{m,m'} = (2*pi/(N-1)) * sum_{j=1}^{N-1}
+    !>   K^{rhoPhi}_{m,m'} = (2*pi/N) * sum_{j=1}^{N}
     !>                         hatG_rho_phi(plasma, k_m, k_{m'}, j).
     !>
-    !> This equals (2*pi/L)*h*sum with h = L/(N-1); the L cancels. K^{rhoB} is
+    !> This equals (2*pi/L)*h*sum with h = L/N; the L cancels. K^{rhoB} is
     !> assembled identically with hatG_rho_B.
     !>
     !> The FLR factors depend on BOTH k_m and k_{m'} (design section 4.2), so K is
@@ -74,8 +76,13 @@ contains
         dim = 2 * M + 1
         allocate(Kphi(dim, dim), KB(dim, dim))
 
-        ! Periodic trapezoidal weight: (2*pi/L)*h with h = L/(N-1) -> 2*pi/(N-1).
-        weight = 2.0_dp * pi / real(N - 1, dp)
+        ! Periodic trapezoidal weight. rg_grid%xb is EQUIDISTANT and ENDPOINT-
+        ! EXCLUSIVE over one period (grid_generate_equidistant: h = L/N, xb(N) =
+        ! r_hi - h), so the N grid points are the N DISTINCT samples over one
+        ! period. Sum ALL N with equal weight (2*pi/L)*h = 2*pi/N -- dropping
+        ! sample N and using 2*pi/(N-1) (as if endpoint-inclusive) is an O(1/N)
+        ! error that caps r_g-quadrature convergence.
+        weight = 2.0_dp * pi / real(N, dp)
 
         do m_col = -M, M
             k_mp = k_of_m(m_col, L)
@@ -86,7 +93,7 @@ contains
 
                 acc_phi = (0.0_dp, 0.0_dp)
                 acc_B   = (0.0_dp, 0.0_dp)
-                do j = 1, N - 1
+                do j = 1, N
                     acc_phi = acc_phi + hatG_rho_phi(plasma, k_m, k_mp, j)
                     acc_B   = acc_B   + hatG_rho_B(plasma, k_m, k_mp, j)
                 end do

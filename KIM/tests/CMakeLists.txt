@@ -202,3 +202,15 @@ add_test(NAME test_periodic_vs_global
          COMMAND ${CMAKE_BINARY_DIR}/tests/test_periodic_vs_global.x)
 set_tests_properties(test_periodic_vs_global PROPERTIES
                      WORKING_DIRECTORY ${CMAKE_BINARY_DIR}/tests/)
+
+# Phase-3.1: reusable periodic core compute_periodic_delta_phi evaluated on a
+# FIXED diagnostic grid (basis for the convergence harness P3.2-3.4).
+add_executable(test_periodic_convergence ${CMAKE_SOURCE_DIR}/KIM/tests/test_periodic_convergence.f90)
+set_target_properties(test_periodic_convergence PROPERTIES
+                        OUTPUT_NAME test_periodic_convergence.x
+                        RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/tests/")
+target_link_libraries(test_periodic_convergence KIM_lib kilca_lib lapack cerf ddeabm slatec)
+add_test(NAME test_periodic_convergence
+         COMMAND ${CMAKE_BINARY_DIR}/tests/test_periodic_convergence.x)
+set_tests_properties(test_periodic_convergence PROPERTIES
+                     WORKING_DIRECTORY ${CMAKE_BINARY_DIR}/tests/)

@@ -19,7 +19,46 @@ module rt_electrostatic_periodic_m
             procedure :: run => run_electrostatic_periodic
     end type electrostatic_periodic_t
 
+    public :: compute_periodic_delta_phi
+
     contains
+
+    !> Reusable periodic core: build the window plasma, assemble the Fourier
+    !> matrices, solve for the coefficients Phi_m under a constant Br drive, and
+    !> reconstruct delta_Phi on the EXPLICIT output grid r_out (NOT on the window
+    !> grid rg_grid%xb). All window sizing is passed in EXPLICITLY so both the
+    !> run-type and the Phase-3 convergence harness can evaluate delta_Phi on a
+    !> fixed diagnostic grid independent of the (n_rg, M, dx) discretization.
+    !>
+    !> Does NOT error stop on a singular solve: it returns info /= 0 so the
+    !> caller can decide (the run-type error stops; the tests inspect info).
+    subroutine compute_periodic_delta_phi(rm, dx_asis, dx_tr, M, n_rg, Br_const, &
+                                          r_out, dPhi, info)
+        use KIM_kinds_m, only: dp
+        use species_m, only: plasma
+        use periodic_background_m, only: build_periodic_plasma
+        use periodic_assembly_m, only: assemble_periodic_matrices
+        use periodic_solve_m, only: solve_periodic, reconstruct_delta_phi
+
+        real(dp),    intent(in)  :: rm, dx_asis, dx_tr
+        integer,     intent(in)  :: M, n_rg
+        complex(dp), intent(in)  :: Br_const
+        real(dp),    intent(in)  :: r_out(:)
+        complex(dp), allocatable, intent(out) :: dPhi(:)
+        integer,     intent(out) :: info
+
+        complex(dp), allocatable :: Kphi(:,:), KB(:,:), Phi_m(:)
+        real(dp) :: L
+
+        L = 2.0_dp * (dx_asis + dx_tr)
+
+        call build_periodic_plasma(rm, dx_asis, dx_tr, n_rg)
+        call assemble_periodic_matrices(plasma, L, M, Kphi, KB)
+        call solve_periodic(Kphi, KB, L, M, Br_const, Phi_m, info)
+        if (info /= 0) return
+
+        dPhi = reconstruct_delta_phi(Phi_m, L, M, r_out)
+    end subroutine compute_periodic_delta_phi
 
     !> Global setup, identical to the electrostatic run-type's init: build the
     !> grids and equilibrium and populate the GLOBAL plasma. run() reads the
@@ -71,9 +110,6 @@ module rt_electrostatic_periodic_m
         use species_m, only: plasma
         use grid_m, only: rg_grid
         use kim_resonances_m, only: r_res
-        use periodic_background_m, only: build_periodic_plasma
-        use periodic_assembly_m, only: assemble_periodic_matrices
-        use periodic_solve_m, only: solve_periodic, reconstruct_delta_phi
         use fields_m, only: EBdat
         use IO_collection_m, only: write_complex_profile_abs
 
@@ -81,10 +117,11 @@ module rt_electrostatic_periodic_m
 
         class(electrostatic_periodic_t), intent(inout) :: this
 
-        complex(dp), allocatable :: Kphi(:,:), KB(:,:), Phi_m(:), dPhi(:)
+        complex(dp), allocatable :: dPhi(:)
         complex(dp) :: Br_const
+        real(dp), allocatable :: r_win(:)
         real(dp) :: rm, rhoL_rm, dx_asis, dx_tr, L, k_max
-        integer :: M, n_rg, info
+        integer :: M, n_rg, info, i
 
         ! 1. Locate the resonant surface rm = r_res (q = |m/n|) on the global plasma.
         call prepare_resonances
@@ -113,27 +150,27 @@ module rt_electrostatic_periodic_m
         print *, "electrostatic_periodic: rm = ", rm, " rho_L(rm) = ", rhoL_rm
         print *, "electrostatic_periodic: L = ", L, " M = ", M, " n_rg = ", n_rg
 
-        ! 4. Build the periodic window plasma (redirects rg_grid + plasma).
-        call build_periodic_plasma(rm, dx_asis, dx_tr, n_rg)
+        ! 4. Window output grid: n_rg equidistant points on [rm - L/2, rm + L/2],
+        ! matching the grid build_periodic_plasma installs as rg_grid%xb.
+        allocate(r_win(n_rg))
+        do i = 1, n_rg
+            r_win(i) = (rm - 0.5_dp * L) + real(i - 1, dp) * L / real(n_rg - 1, dp)
+        end do
 
-        ! 5. Assemble the dense periodic Fourier matrices over one period.
-        call assemble_periodic_matrices(plasma, L, M, Kphi, KB)
-
-        ! 6. Solve for the Fourier coefficients Phi_m under the constant Br drive.
+        ! 5. Build -> assemble -> solve -> reconstruct on r_win via the reusable
+        ! periodic core. It does NOT error stop on a singular solve; do it here.
         Br_const = cmplx(Br_boundary_re, Br_boundary_im, dp)
-        call solve_periodic(Kphi, KB, L, M, Br_const, Phi_m, info)
+        call compute_periodic_delta_phi(rm, dx_asis, dx_tr, M, n_rg, Br_const, &
+                                        r_win, dPhi, info)
         if (info /= 0) then
             print *, "Error (electrostatic_periodic): solve_periodic failed, info = ", info
             error stop "electrostatic_periodic: periodic solve failed"
         end if
 
-        ! 7. Reconstruct delta_Phi on the window grid via inverse DFT.
-        dPhi = reconstruct_delta_phi(Phi_m, L, M, rg_grid%xb)
-
-        ! 8. Pack into EBdat (window grid + reconstructed potential).
+        ! 6. Pack into EBdat (window grid + reconstructed potential).
         if (allocated(EBdat%r_grid)) deallocate(EBdat%r_grid)
         if (allocated(EBdat%Phi))    deallocate(EBdat%Phi)
-        EBdat%r_grid = rg_grid%xb
+        EBdat%r_grid = r_win
         EBdat%Phi    = dPhi
 
         if (hdf5_output) then

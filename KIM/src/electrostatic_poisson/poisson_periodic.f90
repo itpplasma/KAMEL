@@ -151,10 +151,12 @@ module rt_electrostatic_periodic_m
         print *, "electrostatic_periodic: L = ", L, " M = ", M, " n_rg = ", n_rg
 
         ! 4. Window output grid: n_rg equidistant points on [rm - L/2, rm + L/2],
-        ! matching the grid build_periodic_plasma installs as rg_grid%xb.
+        ! bit-identical to the grid build_periodic_plasma installs as rg_grid%xb
+        ! via grid_generate_equidistant: spacing h = L/n_rg (NOT L/(n_rg-1)),
+        ! endpoint-exclusive at the top (last node = rm + L/2 - L/n_rg).
         allocate(r_win(n_rg))
         do i = 1, n_rg
-            r_win(i) = (rm - 0.5_dp * L) + real(i - 1, dp) * L / real(n_rg - 1, dp)
+            r_win(i) = (rm - 0.5_dp * L) + real(i - 1, dp) * L / real(n_rg, dp)
         end do
 
         ! 5. Build -> assemble -> solve -> reconstruct on r_win via the reusable
@@ -167,6 +169,12 @@ module rt_electrostatic_periodic_m
             error stop "electrostatic_periodic: periodic solve failed"
         end if
 
+        ! Lock: the core has installed rg_grid%xb via build_periodic_plasma; the
+        ! run-type's output grid r_win MUST equal it so EBdat is on the window.
+        if (maxval(abs(r_win - rg_grid%xb)) > 1.0e-9_dp) then
+            error stop "run_electrostatic_periodic: r_win grid does not match rg_grid%xb"
+        end if
+
         ! 6. Pack into EBdat (window grid + reconstructed potential).
         if (allocated(EBdat%r_grid)) deallocate(EBdat%r_grid)
         if (allocated(EBdat%Phi))    deallocate(EBdat%Phi)
@@ -174,7 +182,7 @@ module rt_electrostatic_periodic_m
         EBdat%Phi    = dPhi
 
         if (hdf5_output) then
-            call write_complex_profile_abs(rg_grid%xb, EBdat%Phi, rg_grid%npts_b, &
+            call write_complex_profile_abs(EBdat%r_grid, EBdat%Phi, rg_grid%npts_b, &
                 "/fields/Phi", &
                 'Electrostatic potential perturbation Phi, forced-periodicity solution', &
                 'statV')

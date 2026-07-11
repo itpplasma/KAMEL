@@ -20,6 +20,7 @@ program test_periodic_background
     implicit none
 
     call test_periodic_sampling()
+    call test_cache_invalidation()
 
     print *, 'All tests PASSED'
     stop 0
@@ -138,6 +139,74 @@ contains
         end do
 
         print *, 'PASS: periodic sampling is as-is faithful, L-periodic, finite'
+    end subroutine
+
+    !> Prove the true-background cache AUTO-INVALIDATES when the profiles change.
+    !> Two DIFFERENT cases in one process: init with profile set A (kim_aperfuns
+    !> captures the cache at generation G), then swap in a DIFFERENT set B via
+    !> set_profiles_from_arrays + re-init (which bumps
+    !> species_m::profiles_generation to G+1 and rebuilds the true geometry),
+    !> sample again, and assert the periodized as-is value now reflects B -- NOT
+    !> the stale A snapshot. Without auto-invalidation kim_aperfuns would keep
+    !> returning A's density. Mirrors the production QL-Balance / time-step path
+    !> (set_profiles_from_arrays is always followed by an equilibrium re-init).
+    subroutine test_cache_invalidation()
+        use config_m, only: profiles_in_memory, nml_config_path
+        use species_m, only: set_profiles_from_arrays, profiles_generation
+        use kim_base_m, only: kim_t
+        use kim_mod_m, only: from_kim_factory_get_kim
+
+        integer, parameter :: npts = 101, nfuns = 5
+        real(dp) :: r_prof(npts), n_prof(npts), Te_prof(npts)
+        real(dp) :: Ti_prof(npts), q_prof(npts), Er_prof(npts)
+        real(dp) :: x_core, funs_A(nfuns), funs_B(nfuns), n_expected_B
+        class(kim_t), allocatable :: kim_instance
+        integer :: gen_A, gen_B
+
+        call write_test_namelist('./KIM_config_periodic_bg_test.nml')
+        nml_config_path = './KIM_config_periodic_bg_test.nml'
+        profiles_in_memory = .true.
+
+        ! Case A: analytic profiles, init the equilibrium, sample n_e at a core
+        ! radius. The direct kim_aperfuns callback captures the cache at gen A.
+        call make_test_profiles(npts, r_prof, n_prof, Te_prof, Ti_prof, &
+                                q_prof, Er_prof)
+        call kim_init()
+        call set_profiles_from_arrays(r_prof, n_prof, Te_prof, Ti_prof, &
+                                      q_prof, Er_prof, npts)
+        call from_kim_factory_get_kim('electrostatic', kim_instance)
+        call kim_instance%init()
+        gen_A = profiles_generation
+
+        x_core = 30.0_dp
+        call kim_aperfuns(nfuns, x_core, funs_A)
+
+        ! Case B: DOUBLE the density everywhere (a clearly distinct case), swap it
+        ! in and re-init the equilibrium -- this bumps profiles_generation.
+        n_prof = 2.0_dp * n_prof
+        call set_profiles_from_arrays(r_prof, n_prof, Te_prof, Ti_prof, &
+                                      q_prof, Er_prof, npts)
+        call kim_instance%init()
+        gen_B = profiles_generation
+
+        if (gen_B <= gen_A) then
+            print *, 'FAIL: profiles_generation did not advance:', gen_A, gen_B
+            error stop
+        end if
+
+        call kim_aperfuns(nfuns, x_core, funs_B)
+
+        ! B's electron density at x_core must be ~2x A's (auto-invalidated cache).
+        n_expected_B = 2.0_dp * funs_A(1)
+        if (abs(funs_B(1) - n_expected_B) > 1.0e-6_dp * abs(n_expected_B)) then
+            print *, 'FAIL: cache did NOT invalidate on profile change.'
+            print *, '  n_e(A)          = ', funs_A(1)
+            print *, '  n_e(B) returned = ', funs_B(1)
+            print *, '  n_e(B) expected = ', n_expected_B, ' (2x A)'
+            error stop
+        end if
+
+        print *, 'PASS: true-background cache auto-invalidates on profile change'
     end subroutine
 
     subroutine make_test_profiles(npts, r_prof, n_prof, Te_prof, Ti_prof, &

@@ -27,6 +27,7 @@ program test_periodic_convergence
 
     call test_core_on_fixed_grid()
     call test_nrg_convergence()
+    call test_M_convergence()
 
     print *, 'All tests PASSED'
     stop 0
@@ -266,6 +267,152 @@ contains
         print *, 'PASS: res_L2 decreasing and res_L2(finest) < 1.0e-2'
         print *, '=== test_nrg_convergence PASSED ==='
     end subroutine test_nrg_convergence
+
+    !> Phase-3 Task 3: FOURIER BASIS truncation convergence of the periodic
+    !> solver.
+    !>
+    !> With the r_g quadrature (n_rg = 192, converged in P3.2) and the window
+    !> (dx_asis, dx_tr) FIXED, refine only the number of Fourier modes M (the
+    !> basis has 2M+1 modes) and reconstruct delta-Phi on a FIXED diagnostic
+    !> grid. The localized solution's Fourier coefficients decay for
+    !> |k_m| >> 1/rho_L, so the Cauchy residual between successive M must fall
+    !> and beat 1e-2 by M ~ 24-32. A failure to converge is a real finding about
+    !> the basis truncation or the k-resolution, not a reason to loosen the
+    !> tolerance (bump n_rg first: the exp(i(k_m - k_m')r) quadrature is exact
+    !> for |m - m'| < n_rg by Nyquist, and 2M = 64 < 192, so n_rg = 192 resolves
+    !> M up to 32).
+    subroutine test_M_convergence()
+        use config_m, only: profiles_in_memory, nml_config_path
+        use species_m, only: set_profiles_from_arrays
+        use kim_base_m, only: kim_t
+        use kim_mod_m, only: from_kim_factory_get_kim
+        use kim_resonances_m, only: r_res
+        use rt_electrostatic_periodic_m, only: compute_periodic_delta_phi
+
+        integer, parameter :: npts = 201
+        integer, parameter :: n_rg = 192, ndiag = 41, nseq = 4
+        integer, parameter :: M_seq(nseq) = [8, 16, 24, 32]
+
+        real(dp) :: r_prof(npts), n_prof(npts), Te_prof(npts)
+        real(dp) :: Ti_prof(npts), q_prof(npts), Er_prof(npts)
+        class(kim_t), allocatable :: kim_instance
+
+        complex(dp), allocatable :: dPhi(:)
+        complex(dp) :: dphi_k(ndiag, nseq)
+        real(dp) :: r_diag(ndiag)
+        real(dp) :: res_L2(nseq), res_max(nseq)
+        real(dp) :: rm, rhoL_rm, dx_asis, dx_tr
+        real(dp) :: denom_L2, denom_max
+        integer :: i, k, info
+        logical :: decreasing
+
+        print *, ''
+        print *, '=== test_M_convergence: Fourier basis truncation convergence ==='
+
+        call make_test_profiles(npts, r_prof, n_prof, Te_prof, Ti_prof, &
+                                q_prof, Er_prof)
+
+        call write_test_namelist('./KIM_config_periodic_conv_test.nml')
+        nml_config_path = './KIM_config_periodic_conv_test.nml'
+
+        profiles_in_memory = .true.
+        call kim_init()
+        call set_profiles_from_arrays(r_prof, n_prof, Te_prof, Ti_prof, &
+                                      q_prof, Er_prof, npts)
+
+        call from_kim_factory_get_kim('electrostatic', kim_instance)
+        call kim_instance%init()
+
+        call prepare_resonances
+        if (.not. (r_res > 0.0_dp)) then
+            print *, 'FAIL: resonance not found, r_res = ', r_res
+            error stop
+        end if
+        rm = r_res
+
+        rhoL_rm = interp_rho_L(rm)
+        if (.not. (rhoL_rm > 0.0_dp)) then
+            print *, 'FAIL: rho_L(rm) not positive, = ', rhoL_rm
+            error stop
+        end if
+        print *, 'resonant radius rm       = ', rm
+        print *, 'rho_L(rm) [electron]     = ', rhoL_rm
+
+        ! FIXED quadrature and window (only M is refined here). n_rg = 192 is the
+        ! P3.2-converged node count; it resolves the k-modes for M up to 32
+        ! (2M = 64 < 192, Nyquist).
+        dx_asis =  5.0_dp * rhoL_rm
+        dx_tr   = 10.0_dp * rhoL_rm
+        print *, 'FIXED n_rg               = ', n_rg
+        print *, 'FIXED dx_asis (5 rho_L)  = ', dx_asis
+        print *, 'FIXED dx_tr  (10 rho_L)  = ', dx_tr
+        print *, 'window L/2 (15 rho_L)    = ', dx_asis + dx_tr
+
+        ! FIXED diagnostic grid: 41 equidistant points on [rm - 3 rho_L,
+        ! rm + 3 rho_L], INDEPENDENT of M, so the Cauchy residuals are
+        ! comparable across basis refinements.
+        do i = 1, ndiag
+            r_diag(i) = (rm - 3.0_dp * rhoL_rm) &
+                      + 6.0_dp * rhoL_rm * real(i - 1, dp) / real(ndiag - 1, dp)
+        end do
+
+        ! Refine M only; store delta-Phi on the fixed grid for each M.
+        do k = 1, nseq
+            call compute_periodic_delta_phi(rm, dx_asis, dx_tr, M_seq(k), n_rg, &
+                                            (1.0_dp, 0.0_dp), r_diag, dPhi, info)
+            if (info /= 0) then
+                print *, 'FAIL: compute_periodic_delta_phi info /= 0 at M =', &
+                    M_seq(k), ' info =', info
+                error stop
+            end if
+            if (size(dPhi) /= ndiag) then
+                print *, 'FAIL: size(dPhi) /=', ndiag, ' got ', size(dPhi)
+                error stop
+            end if
+            dphi_k(:, k) = dPhi
+        end do
+        print *, 'PASS: all four solves returned info == 0'
+
+        ! Cauchy relative residual between successive refinements.
+        res_L2  = 0.0_dp
+        res_max = 0.0_dp
+        do k = 2, nseq
+            denom_L2  = sqrt(sum(abs(dphi_k(:, k))**2))
+            denom_max = maxval(abs(dphi_k(:, k)))
+            res_L2(k)  = sqrt(sum(abs(dphi_k(:, k) - dphi_k(:, k-1))**2)) / denom_L2
+            res_max(k) = maxval(abs(dphi_k(:, k) - dphi_k(:, k-1))) / denom_max
+        end do
+
+        print *, ''
+        print *, '--- M convergence (fixed n_rg, window, diagnostic grid) ---'
+        print '(A)', '   M pair             res_L2            res_max'
+        do k = 2, nseq
+            print '(3X,I5," ->",I5,4X,ES16.8,2X,ES16.8)', &
+                M_seq(k-1), M_seq(k), res_L2(k), res_max(k)
+        end do
+        print *, '-----------------------------------------------------------'
+
+        ! Assert: the residual sequence DECREASES and the finest beats 1e-2.
+        decreasing = (res_L2(4) < res_L2(3)) .and. (res_L2(3) < res_L2(2))
+        if (.not. decreasing) then
+            print *, 'FAIL: res_L2 sequence does not decrease monotonically:'
+            print *, '   res_L2 =', res_L2(2), res_L2(3), res_L2(4)
+            print *, '   -> real finding about basis truncation / k-resolution;'
+            print *, '      investigate (bump n_rg first), do NOT loosen the'
+            print *, '      threshold blindly.'
+            error stop 'test_M_convergence: residual not decreasing'
+        end if
+        if (.not. (res_L2(4) < 1.0e-2_dp)) then
+            print *, 'FAIL: finest res_L2(4) =', res_L2(4), ' not < 1.0e-2'
+            print *, '   res_L2 =', res_L2(2), res_L2(3), res_L2(4)
+            print *, '   -> Fourier basis has NOT converged; investigate (bump'
+            print *, '      n_rg first), do NOT loosen the threshold blindly.'
+            error stop 'test_M_convergence: basis not converged'
+        end if
+
+        print *, 'PASS: res_L2 decreasing and res_L2(finest) < 1.0e-2'
+        print *, '=== test_M_convergence PASSED ==='
+    end subroutine test_M_convergence
 
     !> 4-point Lagrange interpolation of the global electron Larmor radius
     !> plasma%spec(0)%rho_L at radius x, matching the run-type's interp_rho_L.

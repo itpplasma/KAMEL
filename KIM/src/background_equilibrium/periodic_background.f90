@@ -41,36 +41,50 @@ module periodic_background_m
     !> (kim_geom_aperfuns) read the cache, makes repeated calls exactly correct:
     !> every call periodizes the SAME true background.
     !>
+    !> AUTO-INVALIDATION: the cache records the species_m::profiles_generation it
+    !> was captured at (cached_generation). set_profiles_from_arrays bumps that
+    !> counter on every profile swap (new case / time step / parameter-scan point),
+    !> so capture_true_background re-captures whenever the generations differ. This
+    !> means a second case in the same process gets a FRESH capture of ITS true
+    !> background -- no silent staleness -- without species_m having to know about
+    !> this cache (which would create a circular module dependency). No manual
+    !> reset is needed after set_profiles_from_arrays.
+    !>
     !> Order in cache_prim: [ n_e, Te, Ti, q, Er ]  (matches kim_aperfuns).
     !> Order in cache_geom: [ B0, ks, kp, om_E ]     (matches kim_geom_aperfuns).
-    logical, save :: cache_ready = .false.
+    integer, save :: cached_generation = -1
     real(dp), allocatable, save :: cache_r(:)
     real(dp), allocatable, save :: cache_prim(:, :)   ! (grid_size, n_primitives)
     real(dp), allocatable, save :: cache_geom(:, :)   ! (grid_size, n_geom)
 
 contains
 
-    !> Clear the cached true background so the NEXT build_periodic_plasma call
-    !> re-captures it from the current global plasma. Call this whenever the
-    !> global profiles change (e.g. a new time step / a fresh set_profiles_from_
-    !> arrays) so the periodic window tracks the updated background.
+    !> Force the cached true background to be re-captured on the next
+    !> capture_true_background call. Not needed for correctness -- invalidation is
+    !> automatic via species_m::profiles_generation (see the cache header) -- but
+    !> kept for callers that want to drop the snapshot explicitly.
     subroutine reset_true_background_cache()
-        cache_ready = .false.
+        cached_generation = -1
         if (allocated(cache_r))    deallocate(cache_r)
         if (allocated(cache_prim)) deallocate(cache_prim)
         if (allocated(cache_geom)) deallocate(cache_geom)
     end subroutine reset_true_background_cache
 
     !> Capture the TRUE background (r-grid, primitives, geometry) from the global
-    !> plasma into the module cache, ONCE. No-op if already cached. Must be called
-    !> while `plasma` still holds the true global-grid background (i.e. at the top
-    !> of build_periodic_plasma, before the redirect).
+    !> plasma into the module cache. Self-guarding: a no-op while the cache matches
+    !> the current species_m::profiles_generation, and a (re)capture otherwise.
+    !> Must be called while `plasma` still holds the true global-grid background
+    !> (i.e. at the top of build_periodic_plasma, before the redirect).
     subroutine capture_true_background()
-        use species_m, only: plasma
+        use species_m, only: plasma, profiles_generation
 
         integer :: gs, i
 
-        if (cache_ready) return
+        if (cached_generation == profiles_generation) return
+
+        if (allocated(cache_r))    deallocate(cache_r)
+        if (allocated(cache_prim)) deallocate(cache_prim)
+        if (allocated(cache_geom)) deallocate(cache_geom)
 
         gs = plasma%grid_size
         allocate(cache_r(gs), cache_prim(gs, n_primitives), cache_geom(gs, n_geom))
@@ -89,7 +103,7 @@ contains
             cache_geom(i, 4) = plasma%om_E(i)        ! ExB rotation frequency
         end do
 
-        cache_ready = .true.
+        cached_generation = profiles_generation
     end subroutine capture_true_background
 
     !> 4-point Lagrange interpolation of ALL columns of a cached-background table
@@ -141,14 +155,15 @@ contains
         real(dp), intent(in) :: x
         real(dp), intent(out) :: funs(nfuns)
 
-        ! Lazy capture: if this callback is invoked directly (e.g. a unit test
-        ! exercising kim_aperfuns / sample_periodic_primitives without going
-        ! through build_periodic_plasma), populate the cache from the current
-        ! global plasma on first use. MUST happen before cache_prim is passed as
-        ! an argument (passing an unallocated allocatable to an assumed-shape
-        ! dummy is illegal). build_periodic_plasma captures explicitly at its top
-        ! before the redirect, so this is a no-op in the normal solver path.
-        if (.not. cache_ready) call capture_true_background()
+        ! Ensure the cache is fresh for the current profile generation. If this
+        ! callback is invoked directly (e.g. a unit test exercising kim_aperfuns /
+        ! sample_periodic_primitives without going through build_periodic_plasma),
+        ! this captures on first use; it also re-captures if the profiles changed.
+        ! MUST happen before cache_prim is passed as an argument (passing an
+        ! unallocated allocatable to an assumed-shape dummy is illegal).
+        ! capture_true_background self-guards on generation, so it is a cheap
+        ! no-op in the normal solver path (build_periodic_plasma already captured).
+        call capture_true_background()
 
         call interp_cache_row(cache_prim, nfuns, x, funs)
     end subroutine kim_aperfuns
@@ -172,8 +187,8 @@ contains
         real(dp), intent(in) :: x
         real(dp), intent(out) :: funs(nfuns)
 
-        ! Lazy capture before passing cache_geom (see kim_aperfuns note).
-        if (.not. cache_ready) call capture_true_background()
+        ! Ensure a fresh cache before passing cache_geom (see kim_aperfuns note).
+        call capture_true_background()
 
         call interp_cache_row(cache_geom, nfuns, x, funs)
     end subroutine kim_geom_aperfuns

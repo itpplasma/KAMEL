@@ -86,6 +86,14 @@ module species_m
 
     integer, parameter :: nmmax = 3 ! max order of susceptibility functions to be calculated
 
+    !> Monotonic counter bumped every time the module-global `plasma` primitive
+    !> profiles are replaced via set_profiles_from_arrays (a new case / time step /
+    !> parameter-scan point). Downstream caches that snapshot the true background
+    !> (e.g. periodic_background_m's true-background cache) compare against this to
+    !> auto-invalidate on ANY profile change, without species_m needing to know
+    !> about them (which would create a circular module dependency).
+    integer, save, public :: profiles_generation = 0
+
     contains
 
     subroutine init_plasma(plasma_in)
@@ -1086,6 +1094,10 @@ module species_m
 
         ! Force resonance re-detection on next solve
         prop = .true.
+
+        ! Bump the profile generation so downstream true-background caches
+        ! (periodic_background_m) auto-invalidate: the profiles just changed.
+        profiles_generation = profiles_generation + 1
 
         ! Deallocate derived arrays to prevent double-allocation crashes
         call deallocate_plasma_derived()

@@ -39,12 +39,6 @@ set(KIM_util util/findIndex.f90
             util/gauss_quadrature_m.f90
 )
 
-#set(KIM_kernels kernels/integrands.f90
-                ##kernels/kernel_functions.f90
-                #kernels/cut_off_integration.f90
-                #kernels/kernel_mod.f90
-#)
-
 set(KIM_background_equilibrium background_equilibrium/species_mod.f90
                             background_equilibrium/calculate_equil.f90
                             background_equilibrium/profile_input_m.f90
@@ -59,6 +53,7 @@ set(KIM_poisson electrostatic_poisson/poisson.f90
                 electrostatic_poisson/flr2_benchmark.f90
                 electrostatic_poisson/solve_poisson.f90
                 kernels/kernel.f90
+                kernels/kernel_mod.f90
                 kernels/integrands.f90
                 electrostatic_poisson/fields_mod.f90
                 kernels/integrals.f90

@@ -118,3 +118,26 @@ add_test(NAME test_kim_solver_em
          COMMAND ${CMAKE_BINARY_DIR}/tests/test_kim_solver_em.x)
 set_tests_properties(test_kim_solver_em PROPERTIES
                      WORKING_DIRECTORY ${CMAKE_BINARY_DIR}/tests/)
+
+# Restored continuous-Fourier kernels for the enforced-periodicity solver.
+add_library(kernel_test_background STATIC
+            ${CMAKE_SOURCE_DIR}/KIM/tests/kernel_test_background.f90)
+target_link_libraries(kernel_test_background KIM_lib)
+
+add_executable(test_kernel_rho_phi
+               ${CMAKE_SOURCE_DIR}/KIM/tests/test_kernel_rho_phi.f90)
+set_target_properties(test_kernel_rho_phi PROPERTIES
+                        OUTPUT_NAME test_kernel_rho_phi.x
+                        RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/tests/")
+target_link_libraries(test_kernel_rho_phi kernel_test_background KIM_lib kilca_lib lapack cerf fortnum_amos_compat)
+add_test(NAME test_kernel_rho_phi
+         COMMAND ${CMAKE_BINARY_DIR}/tests/test_kernel_rho_phi.x)
+
+add_executable(test_kernel_rho_B
+               ${CMAKE_SOURCE_DIR}/KIM/tests/test_kernel_rho_B.f90)
+set_target_properties(test_kernel_rho_B PROPERTIES
+                        OUTPUT_NAME test_kernel_rho_B.x
+                        RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/tests/")
+target_link_libraries(test_kernel_rho_B kernel_test_background KIM_lib kilca_lib lapack cerf fortnum_amos_compat)
+add_test(NAME test_kernel_rho_B
+         COMMAND ${CMAKE_BINARY_DIR}/tests/test_kernel_rho_B.x)

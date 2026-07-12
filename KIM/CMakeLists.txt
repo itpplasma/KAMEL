@@ -28,7 +28,6 @@ enable_testing()
 add_subdirectory(src)
 # fortnum_amos_compat is provided by the top-level cmake/Dependencies.cmake; do not add its subdir here
 add_subdirectory(src/math/libcerf-main)
-add_subdirectory(src/tests)
 add_subdirectory(tests)
 
 set(CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/cmake" ${CMAKE_MODULE_PATH})

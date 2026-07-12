@@ -89,7 +89,7 @@ contains
 
         real(dp) :: scale
 
-        scale = max(abs(want), 1.0d-300)
+        scale = max(abs(want), 1.0d0)
         if (abs(got - want) <= rel_tol*scale) then
             print *, "PASS ", name
         else

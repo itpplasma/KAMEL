@@ -11,8 +11,11 @@ module kernels_m
 
     implicit none
 
-    ! Replaces the retired kernel_debye_case config flag: pure Debye
-    ! response with the gyroaverage Gaussian, no kinetic A1/A2 terms.
+    ! Adiabatic-only response: drop the thermodynamic-force terms while
+    ! keeping the sign, gyroaverage, and Fourier phase of the full
+    ! expression. Matches the artificial_debye_case semantics of the
+    ! hat-basis path; the historical branch flipped the sign and dropped
+    ! the phase and is not restored.
     logical :: kernel_debye_case = .false.
 
     real(dp) :: bessel_large_arg_limit = 10d0
@@ -91,36 +94,34 @@ contains
             eval_bt = rhoL_interp**2*kperp*kperpp
 
             if (kernel_debye_case) then
-                kernel_rho_phi_of_kr_krp_rg = kernel_rho_phi_of_kr_krp_rg &
-                    + 1.0d0/lambda_D_interp**2 &
-                    *exp(-vT_interp**2/(2.0d0*omc_interp**2) &
-                         *(val_kr - val_krp)**2)
-            else
-                if (eval_bt > bessel_large_arg_limit) then
-                    ! limit close to magnetic axis (k_s -> infinity) and
-                    ! large k_r and k_rp: asymptotics for Bessel I functions
-                    eval_besselI0 = exp(eval_bt - eval_bp) &
-                                    /sqrt(2.0d0*pi*eval_bt)
-                    eval_besselIm1 = exp(-eval_bp + asinh(-1.0d0/eval_bt) &
-                                         + eval_bt*sqrt(1.0d0 + 1.0d0/eval_bt**2)) &
-                                     /sqrt(2.0d0*pi*eval_bt &
-                                           *sqrt(1.0d0 + 1.0d0/eval_bt**2))
-                else
-                    eval_besselI0 = bessel_in(0, eval_bt)*exp(-eval_bp)
-                    eval_besselIm1 = bessel_in(-1, eval_bt)*exp(-eval_bp)
-                end if
-
-                kernel_rho_phi_of_kr_krp_rg = kernel_rho_phi_of_kr_krp_rg &
-                    + 1.0d0/lambda_D_interp**2 &
-                    *exp(com_unit*(val_kr - val_krp)*val_rg) &
-                    *(-exp(-rhoL_interp**2/2.0d0*(val_kr - val_krp)**2) &
-                      + ks_interp*rhoL_interp/(kp_interp*sqrt(2.0d0)) &
-                      *(A1_interp*eval_besselI0*plasma_Z(z0_interp) &
-                        + A2_interp*(plasma_Z(z0_interp)*eval_besselI0 &
-                                     *(1.0d0 + eval_bp + z0_interp**2) &
-                                     + eval_besselIm1*eval_bt &
-                                     + z0_interp*eval_besselI0)))
+                A1_interp = 0.0d0
+                A2_interp = 0.0d0
             end if
+
+            if (eval_bt > bessel_large_arg_limit) then
+                ! limit close to magnetic axis (k_s -> infinity) and
+                ! large k_r and k_rp: asymptotics for Bessel I functions
+                eval_besselI0 = exp(eval_bt - eval_bp) &
+                                /sqrt(2.0d0*pi*eval_bt)
+                eval_besselIm1 = exp(-eval_bp + asinh(-1.0d0/eval_bt) &
+                                     + eval_bt*sqrt(1.0d0 + 1.0d0/eval_bt**2)) &
+                                 /sqrt(2.0d0*pi*eval_bt &
+                                       *sqrt(1.0d0 + 1.0d0/eval_bt**2))
+            else
+                eval_besselI0 = bessel_in(0, eval_bt)*exp(-eval_bp)
+                eval_besselIm1 = bessel_in(-1, eval_bt)*exp(-eval_bp)
+            end if
+
+            kernel_rho_phi_of_kr_krp_rg = kernel_rho_phi_of_kr_krp_rg &
+                + 1.0d0/lambda_D_interp**2 &
+                *exp(com_unit*(val_kr - val_krp)*val_rg) &
+                *(-exp(-rhoL_interp**2/2.0d0*(val_kr - val_krp)**2) &
+                  + ks_interp*rhoL_interp/(kp_interp*sqrt(2.0d0)) &
+                  *(A1_interp*eval_besselI0*plasma_Z(z0_interp) &
+                    + A2_interp*(plasma_Z(z0_interp)*eval_besselI0 &
+                                 *(1.0d0 + eval_bp + z0_interp**2) &
+                                 + eval_besselIm1*eval_bt &
+                                 + z0_interp*eval_besselI0)))
         end do
 
         kernel_rho_phi_of_kr_krp_rg = kernel_rho_phi_of_kr_krp_rg &
@@ -171,25 +172,22 @@ contains
             eval_bt = rhoL_interp**2*kperp*kperpp
 
             if (kernel_debye_case) then
-                eval_besselI0 = (0.0d0, 0.0d0)
-                eval_besselIm1 = (0.0d0, 0.0d0)
                 A1_interp = 0.0d0
                 A2_interp = 0.0d0
-                z0_interp = (0.0d0, 0.0d0)
+            end if
+
+            if (eval_bt > bessel_large_arg_limit) then
+                ! limit close to magnetic axis (k_s -> infinity) and
+                ! large k_r and k_rp: asymptotics for Bessel I functions
+                eval_besselI0 = exp(eval_bt - eval_bp) &
+                                /sqrt(2.0d0*pi*eval_bt)
+                eval_besselIm1 = exp(-eval_bp + asinh(-1.0d0/eval_bt) &
+                                     + eval_bt*sqrt(1.0d0 + 1.0d0/eval_bt**2)) &
+                                 /sqrt(2.0d0*pi*eval_bt &
+                                       *sqrt(1.0d0 + 1.0d0/eval_bt**2))
             else
-                if (eval_bt > bessel_large_arg_limit) then
-                    ! limit close to magnetic axis (k_s -> infinity) and
-                    ! large k_r and k_rp: asymptotics for Bessel I functions
-                    eval_besselI0 = exp(eval_bt - eval_bp) &
-                                    /sqrt(2.0d0*pi*eval_bt)
-                    eval_besselIm1 = exp(-eval_bp + asinh(-1.0d0/eval_bt) &
-                                         + eval_bt*sqrt(1.0d0 + 1.0d0/eval_bt**2)) &
-                                     /sqrt(2.0d0*pi*eval_bt &
-                                           *sqrt(1.0d0 + 1.0d0/eval_bt**2))
-                else
-                    eval_besselI0 = bessel_in(0, eval_bt)*exp(-eval_bp)
-                    eval_besselIm1 = bessel_in(-1, eval_bt)*exp(-eval_bp)
-                end if
+                eval_besselI0 = bessel_in(0, eval_bt)*exp(-eval_bp)
+                eval_besselIm1 = bessel_in(-1, eval_bt)*exp(-eval_bp)
             end if
 
             kernel_rho_B_of_kr_krp_rg = kernel_rho_B_of_kr_krp_rg &

@@ -57,13 +57,15 @@ program test_kernel_rho_phi
                        shifted, kernel_value*exp(com_unit*(kr - krp)*shift), &
                        1.0d-12)
 
-    ! Debye switch: positive screening sum with the gyro Gaussian.
+    ! Debye switch: drops the force response, keeps the adiabatic part.
+    base = kernel_rho_phi_of_kr_krp_rg(kr, krp, rg)
+    call set_forces(1, 3.0d-2, 2.0d-2)
     kernel_debye_case = .true.
-    kernel_value = kernel_rho_phi_of_kr_krp_rg(kr, kr, rg)
-    call require_close("Debye-case switch gives +1/(8 pi^2 lambda_D^2)", &
-                       kernel_value, cmplx(debye_sum/(8.0d0*pi**2), 0.0d0, dp), &
-                       1.0d-12)
+    kernel_value = kernel_rho_phi_of_kr_krp_rg(kr, krp, rg)
+    call require_close("Debye-case switch removes the force response", &
+                       kernel_value, base, 1.0d-12)
     kernel_debye_case = .false.
+    call set_forces(1, 0.0d0, 0.0d0)
 
     ! Kinetic response is linear in each thermodynamic force.
     base = kernel_rho_phi_of_kr_krp_rg(kr, krp, rg)

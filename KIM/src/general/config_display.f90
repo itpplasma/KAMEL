@@ -1,8 +1,6 @@
 module config_display_m
     ! Module for displaying configuration with formatted tables, colors, and status indicators
 
-    use KIM_kinds_m, only: dp
-
     implicit none
 
     private
@@ -134,6 +132,10 @@ contains
         call print_config_line('Plasma Type', trim(plasma_type), width)
         call print_config_line('Collision Model', trim(collision_model), width)
         call print_bool_line('Collisions', .not. collisions_off, width)
+        if (collision_frequency_scale /= 1.0d0) then
+            write(value_str, '(ES12.3)') collision_frequency_scale
+            call print_config_line('Collision Frequency Scale', trim(adjustl(value_str)), width)
+        end if
         write(value_str, '(I0)') artificial_debye_case
         call print_config_line('Artificial Debye Case', trim(adjustl(value_str)), width)
         call print_bool_line('Turn Off Ions', turn_off_ions, width)

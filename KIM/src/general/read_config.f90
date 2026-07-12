@@ -4,7 +4,6 @@ subroutine kim_read_config
     use constants_m
     use setup_m
     use grid_m
-    use poisson_solver_m, only: solve_poisson
     use config_display_m, only: display_kim_configuration
     use logger_m, only: set_log_level
     use getIfunc_config_m, only: getIfunc_boole_energy_conservation => boole_energy_conservation
@@ -18,7 +17,7 @@ subroutine kim_read_config
     namelist /KIM_CONFIG/ number_of_ion_species, artificial_debye_case, &
                         type_of_run, collision_model, read_species_from_namelist, &
                         turn_off_ions, turn_off_electrons, plasma_type, rescale_density, &
-                        number_density_rescale, ion_flr_scale_factor, &
+                        number_density_rescale, ion_flr_scale_factor, collision_frequency_scale, &
                         boole_energy_conservation
 
     namelist /WKB_DISPERSION/ WKB_dispersion_mode, WKB_dispersion_solver, &
@@ -103,6 +102,11 @@ subroutine kim_read_config
     if (collisions_off .and. collision_model == "FokkerPlanck") then
         write(*,*) 'Error: collision_model is set to "FokkerPlanck" but collisions_off is true.'
         write(*,*) 'Please set collisions_off to false or change collision_model.'
+        stop
+    end if
+
+    if (collision_frequency_scale <= 0.0_dp) then
+        write(*,*) 'Error: collision_frequency_scale must be positive.'
         stop
     end if
 

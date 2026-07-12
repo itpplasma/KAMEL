@@ -11,7 +11,7 @@ program test_periodized_background_feed
     use rt_fourier_periodic_m, only: build_periodized_background
     use kernel_test_background_m, only: setup_uniform_background, n0, T0, b0
     use config_m, only: number_of_ion_species, rescale_density, &
-                        ion_flr_scale_factor
+                        ion_flr_scale_factor, collision_frequency_scale
     use setup_m, only: collisions_off, omega
 
     implicit none
@@ -26,12 +26,14 @@ program test_periodized_background_feed
     real(dp), parameter :: slope = -1.0d0/(4.0d0*67.0d0)
 
     real(dp) :: r, physical, got, centered, physical_slope, deviation
+    real(dp) :: lee, lei, expected_nue
     complex(dp) :: kernel_a, kernel_b
     integer :: i, j, sp
 
     number_of_ion_species = 1
     rescale_density = .false.
     ion_flr_scale_factor = 1.0d0
+    collision_frequency_scale = 3.0d0
     collisions_off = .false.
     omega = 0.0d0
 
@@ -48,6 +50,18 @@ program test_periodized_background_feed
     end do
 
     call build_periodized_background(r_res, dr_layer, dr_transition, n_points)
+
+    j = point_index(r_res)
+    associate (ne => plasma%spec(0)%n(j), ni => plasma%spec(1)%n(j), &
+            te => plasma%spec(0)%T(j))
+        lee = 23.5d0 - log(sqrt(ne)/te**1.25d0) &
+            - sqrt(1d-5 + (log(te) - 2.0d0)**2/16.0d0)
+        lei = 24.0d0 - log(sqrt(ne)/te)
+        expected_nue = 3.0d0*(5.8e-6*ne*lee/te**1.5d0 &
+            + 7.7d-6*ni*lei/te**1.5d0)
+    end associate
+    call require_close("collision-frequency scale reaches the background", &
+        plasma%spec(0)%nu(j), expected_nue, 1.0d-12)
 
     ! Inside the resonant layer the linear physical profile survives
     ! exactly (four-point Lagrange interpolation is exact on it).

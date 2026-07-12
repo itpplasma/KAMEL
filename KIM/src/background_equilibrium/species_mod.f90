@@ -451,7 +451,8 @@ module species_m
 
         use constants_m, only: sol, e_charge, ev, pi, com_unit
         use setup_m, only: omega, collisions_off
-        use config_m, only: number_of_ion_species, rescale_density, number_density_rescale, ion_flr_scale_factor
+        use config_m, only: number_of_ion_species, rescale_density, number_density_rescale, &
+                            ion_flr_scale_factor, collision_frequency_scale
 
         implicit none
 
@@ -530,6 +531,10 @@ module species_m
             do i = 1, plasma_in%grid_size
                 plasma_in%spec(sp)%nu(i) = nui(sp, i)
             end do
+        end do
+
+        do sp = 0, plasma_in%n_species-1
+            plasma_in%spec(sp)%nu = plasma_in%spec(sp)%nu*collision_frequency_scale
         end do
 
         do sp =0, plasma_in%n_species-1

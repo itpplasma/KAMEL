@@ -12,6 +12,7 @@
     rescale_density = .false.
     number_density_rescale = 1d-6
     ion_flr_scale_factor = 1.0
+    collision_frequency_scale = 1.0
 /
 
 &wkb_dispersion

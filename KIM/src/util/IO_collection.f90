@@ -140,6 +140,7 @@ module IO_collection_m
     subroutine write_setup_namelist_to_hdf5()
 
         use KAMEL_hdf5_tools, only: HID_T, h5_define_group, h5_obj_exists, h5_add, h5_close_group
+        use config_m, only: collision_frequency_scale
         use setup_m
 
         implicit none
@@ -170,6 +171,8 @@ module IO_collection_m
             'Integer type of delta Br.', '1')
         call h5_add(h5grpid, 'collisions_off', collisions_off, &
             'Logical switch to turn off collisions.', 'true/false')
+        call h5_add(h5grpid, 'collision_frequency_scale', collision_frequency_scale, &
+            'Multiplier applied to calculated collision frequencies.', '1')
         call h5_add(h5grpid, 'set_profiles_constant', set_profiles_constant, &
             'Integer switch for setting (some) profiles constant.', '1')
         call h5_add(h5grpid, 'bc_type', bc_type, &

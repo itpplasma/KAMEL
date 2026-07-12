@@ -149,3 +149,11 @@ set_target_properties(test_periodize PROPERTIES
 target_link_libraries(test_periodize KIM_lib kilca_lib lapack cerf fortnum_amos_compat)
 add_test(NAME test_periodize
          COMMAND ${CMAKE_BINARY_DIR}/tests/test_periodize.x)
+
+add_executable(test_fourier_periodic ${CMAKE_SOURCE_DIR}/KIM/tests/test_fourier_periodic.f90)
+set_target_properties(test_fourier_periodic PROPERTIES
+                        OUTPUT_NAME test_fourier_periodic.x
+                        RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/tests/")
+target_link_libraries(test_fourier_periodic kernel_test_background KIM_lib kilca_lib lapack cerf fortnum_amos_compat)
+add_test(NAME test_fourier_periodic
+         COMMAND ${CMAKE_BINARY_DIR}/tests/test_fourier_periodic.x)

@@ -45,6 +45,9 @@ set(KIM_background_equilibrium background_equilibrium/species_mod.f90
                             background_equilibrium/periodize_m.f90
 )
 
+set(KIM_fourier_periodic fourier_periodic/fourier_periodic_m.f90
+)
+
 set(KIM_dispersion  dispersion/fun_input.f90
                     dispersion/wkb_dispersion.f90
                     dispersion/root_finding.f90

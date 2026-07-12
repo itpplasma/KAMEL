@@ -11,6 +11,7 @@ module kim_mod_m
         use rt_electrostatic_m, only: electrostatic_t
         use rt_electromagnetic_m, only: electromagnetic_t
         use rt_flr2_benchmark_m, only: flr2_benchmark_t
+        use rt_fourier_periodic_m, only: fourier_periodic_t
 
         implicit none
 
@@ -26,9 +27,11 @@ module kim_mod_m
                 allocate(kim_instance, source=WKB_dispersion_t())
             case("electromagnetic")
                 allocate(kim_instance, source=electromagnetic_t())
+            case("fourier_periodic")
+                allocate(kim_instance, source=fourier_periodic_t())
             case default
                 print *, "Invalid kim type of run " // trim(type_of_run)
-                print *, "Options are: electrostatic, electromagnetic, flr2_benchmark, WKB_dispersion"
+                print *, "Options are: electrostatic, electromagnetic, flr2_benchmark, WKB_dispersion, fourier_periodic"
                 stop "Due to invalid type of run"
         end select
 

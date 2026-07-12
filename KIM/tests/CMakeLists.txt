@@ -157,3 +157,12 @@ set_target_properties(test_fourier_periodic PROPERTIES
 target_link_libraries(test_fourier_periodic kernel_test_background KIM_lib kilca_lib lapack cerf fortnum_amos_compat)
 add_test(NAME test_fourier_periodic
          COMMAND ${CMAKE_BINARY_DIR}/tests/test_fourier_periodic.x)
+
+add_executable(test_periodized_background_feed
+               ${CMAKE_SOURCE_DIR}/KIM/tests/test_periodized_background_feed.f90)
+set_target_properties(test_periodized_background_feed PROPERTIES
+                        OUTPUT_NAME test_periodized_background_feed.x
+                        RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/tests/")
+target_link_libraries(test_periodized_background_feed kernel_test_background KIM_lib kilca_lib lapack cerf fortnum_amos_compat)
+add_test(NAME test_periodized_background_feed
+         COMMAND ${CMAKE_BINARY_DIR}/tests/test_periodized_background_feed.x)

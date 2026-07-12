@@ -33,7 +33,9 @@ subroutine kim_read_config
 
     namelist /KIM_SETUP/ btor, R0, m_mode, n_mode, omega, spline_base, &
                         type_br_field, collisions_off, set_profiles_constant, bc_type, mphi_max, &
-                        Br_boundary_re, Br_boundary_im
+                        Br_boundary_re, Br_boundary_im, &
+                        fp_r_res, fp_dr_layer, fp_dr_transition, fp_n_modes, &
+                        fp_n_quad, fp_grid_points
 
     namelist /KIM_GRID/ grid_spacing_rg, grid_spacing_xl, l_space_dim, theta_integration, &
                         theta_integration_method, &

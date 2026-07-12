@@ -20,4 +20,14 @@ module setup_m
     real(dp) :: Br_boundary_re = 1.0d0  ! real part of Br at right boundary
     real(dp) :: Br_boundary_im = 0.0d0  ! imaginary part of Br at right boundary
 
+    ! fourier_periodic run type: resonant radius, resonant-layer and
+    ! transition half-widths in cm, mode count, one-period quadrature
+    ! points, and the periodized-background tabulation size
+    real(dp) :: fp_r_res = -1.0d0
+    real(dp) :: fp_dr_layer = -1.0d0
+    real(dp) :: fp_dr_transition = -1.0d0
+    integer :: fp_n_modes = 128
+    integer :: fp_n_quad = 512
+    integer :: fp_grid_points = 2048
+
 end module

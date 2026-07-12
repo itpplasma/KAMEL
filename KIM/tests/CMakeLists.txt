@@ -141,3 +141,11 @@ set_target_properties(test_kernel_rho_B PROPERTIES
 target_link_libraries(test_kernel_rho_B kernel_test_background KIM_lib kilca_lib lapack cerf fortnum_amos_compat)
 add_test(NAME test_kernel_rho_B
          COMMAND ${CMAKE_BINARY_DIR}/tests/test_kernel_rho_B.x)
+
+add_executable(test_periodize ${CMAKE_SOURCE_DIR}/KIM/tests/test_periodize.f90)
+set_target_properties(test_periodize PROPERTIES
+                        OUTPUT_NAME test_periodize.x
+                        RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/tests/")
+target_link_libraries(test_periodize KIM_lib kilca_lib lapack cerf fortnum_amos_compat)
+add_test(NAME test_periodize
+         COMMAND ${CMAKE_BINARY_DIR}/tests/test_periodize.x)

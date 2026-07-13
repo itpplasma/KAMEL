@@ -13,7 +13,8 @@ ifeq ($(origin LIBNEO_PATH),command line)
   _LIBNEO_DEFS += -DLIBNEO_PATH=$(LIBNEO_PATH)
 endif
 
-.PHONY: all ninja test clean KIM KiLCA QL-Balance PreProc install install-kim ctest golden pytest
+.PHONY: all ninja test clean KIM KiLCA QL-Balance PreProc install install-kim ctest golden pytest \
+	verify-mathematica-inventory verify-mathematica-inventory-negative
 
 all: ninja
 
@@ -37,6 +38,24 @@ PreProc:
 
 test: ninja
 	ctest --test-dir build --stop-on-failure --output-on-failure --no-label-summary
+
+WOLFRAM_KERNEL ?= $(firstword $(shell command -v WolframKernel 2>/dev/null) \
+	$(shell command -v math 2>/dev/null) $(wildcard \
+	/Applications/Wolfram.app/Contents/MacOS/WolframKernel \
+	/Applications/Mathematica.app/Contents/MacOS/WolframKernel))
+
+verify-mathematica-inventory:
+	@test -n "$(WOLFRAM_KERNEL)" || { echo "WolframKernel not found; set WOLFRAM_KERNEL"; exit 1; }
+	$(WOLFRAM_KERNEL) -noinit -noprompt -script verification/mathematica/01_conventions_and_inventory.wl
+
+verify-mathematica-inventory-negative:
+	@for fixture in missing-thesis missing-code duplicate-convention unclassified; do \
+		if KAMEL_VERIFY_NEGATIVE_FIXTURE=$$fixture $(MAKE) --no-print-directory verify-mathematica-inventory >/dev/null 2>&1; then \
+			echo "negative fixture unexpectedly passed: $$fixture"; exit 1; \
+		else \
+			echo "negative fixture rejected: $$fixture"; \
+		fi; \
+	done
 
 # Golden-record regression now lives in test/golden/ and runs in the dedicated
 # GitHub Actions job, NOT in `make test`/ctest. This target is for manual local

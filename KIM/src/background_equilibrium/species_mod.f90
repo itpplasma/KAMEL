@@ -739,7 +739,9 @@ module species_m
     subroutine interpolate_plasma_backs(plasma_in, grid)
 
         use KIM_kinds_m, only: dp
+        use constants_m, only: com_unit
         use IO_collection_m, only: plot_profile
+        use setup_m, only: omega
 
         implicit none
 
@@ -784,7 +786,6 @@ module species_m
                 plasma_temp%spec(sp)%omega_c(i)  = sum(coef(0,:) * plasma_in%spec(sp)%omega_c(ibeg:iend))
                 plasma_temp%spec(sp)%lambda_D(i) = sum(coef(0,:) * plasma_in%spec(sp)%lambda_D(ibeg:iend))
                 plasma_temp%spec(sp)%rho_L(i)    = sum(coef(0,:) * plasma_in%spec(sp)%rho_L(ibeg:iend))
-                plasma_temp%spec(sp)%z0(i)       = sum(coef(0,:) * plasma_in%spec(sp)%z0(ibeg:iend))
             end do
 
             plasma_temp%B0(i)   = sum(coef(0,:) * plasma_in%B0(ibeg:iend))
@@ -795,6 +796,12 @@ module species_m
             plasma_temp%dqdr(i) = sum(coef(0,:) * plasma_in%dqdr(ibeg:iend))
             plasma_temp%Er(i)   = sum(coef(0,:) * plasma_in%Er(ibeg:iend))
 
+        end do
+
+        do sp = 0, plasma_temp%n_species-1
+            plasma_temp%spec(sp)%z0 = -(plasma_temp%om_E - omega &
+                - com_unit*plasma_temp%spec(sp)%nu) &
+                /(abs(plasma_temp%kp)*sqrt(2.0d0)*plasma_temp%spec(sp)%vT)
         end do
 
         plasma_in = plasma_temp

@@ -17,7 +17,9 @@ endif
 	verify-mathematica-inventory verify-mathematica-inventory-negative \
 	verify-mathematica-susceptibilities verify-mathematica-susceptibilities-negative \
 	regenerate-fp-susceptibility-oracle verify-mathematica-charge-kernels \
-	verify-mathematica-charge-kernels-negative regenerate-rho-phi-kernel-oracle
+	verify-mathematica-charge-kernels-negative regenerate-rho-phi-kernel-oracle \
+	verify-mathematica-field-operators verify-mathematica-field-operators-negative \
+	regenerate-field-operator-oracle
 
 all: ninja
 
@@ -94,6 +96,24 @@ verify-mathematica-charge-kernels-negative:
 regenerate-rho-phi-kernel-oracle:
 	@test -n "$(WOLFRAM_KERNEL)" || { echo "WolframKernel not found; set WOLFRAM_KERNEL"; exit 1; }
 	KAMEL_REGENERATE_ORACLE=1 $(WOLFRAM_KERNEL) -noinit -noprompt -script verification/mathematica/04_charge_potential_kernels.wl
+
+verify-mathematica-field-operators:
+	@test -n "$(WOLFRAM_KERNEL)" || { echo "WolframKernel not found; set WOLFRAM_KERNEL"; exit 1; }
+	@test -f verification/mathematica/05_magnetic_current_basis_poisson.wl || { echo "field-operator verification script not found"; exit 1; }
+	$(WOLFRAM_KERNEL) -noinit -noprompt -script verification/mathematica/05_magnetic_current_basis_poisson.wl
+
+verify-mathematica-field-operators-negative:
+	@for fixture in source-sign boundary-term transform-factor transposed-kernel unjustified-gauge hidden-ks2; do \
+		if KAMEL_VERIFY_NEGATIVE_FIXTURE=$$fixture $(MAKE) --no-print-directory verify-mathematica-field-operators >/dev/null 2>&1; then \
+			echo "negative fixture unexpectedly passed: $$fixture"; exit 1; \
+		else \
+			echo "negative fixture rejected: $$fixture"; \
+		fi; \
+	done
+
+regenerate-field-operator-oracle:
+	@test -n "$(WOLFRAM_KERNEL)" || { echo "WolframKernel not found; set WOLFRAM_KERNEL"; exit 1; }
+	KAMEL_REGENERATE_ORACLE=1 $(WOLFRAM_KERNEL) -noinit -noprompt -script verification/mathematica/05_magnetic_current_basis_poisson.wl
 
 # Golden-record regression now lives in test/golden/ and runs in the dedicated
 # GitHub Actions job, NOT in `make test`/ctest. This target is for manual local

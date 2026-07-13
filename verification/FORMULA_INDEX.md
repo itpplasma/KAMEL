@@ -29,7 +29,7 @@ it does **not** mean independently verified.
 | C-collision | Collision scale | `nu_sigma` is the total species collision frequency used in `x1=k_parallel vT/nu` and `x2`; it is positive. | thesis (5.16)–(5.17); `species_m` |
 | C-velocity-measure | Velocity measure | Moments use `d^3p` (or the exactly transformed velocity measure) and species charge once in the outer species sum. | thesis (4.8), (11.4)–(11.8) |
 | C-poisson | Electrostatic equation | Gaussian CGS Poisson equation is `nabla^2 deltaPhi=-4 pi delta rho`; kernel assembly must not absorb a second `4 pi`. | thesis (12.25); global/periodic Poisson solvers |
-| C-boundary | Boundary and gauge | Current global `bc_type=3` fixes the aligned-potential boundary. The accepted periodic unknown/gauge is not yet derived; it remains explicitly pending #197/#188. | `poisson.f90`, `periodic_solve.f90` |
+| C-boundary | Boundary and gauge | Global `bc_type=3` fixes the aligned-potential boundary. Periodic KIM solves for a deviation from a physical-space lifting field; screened mode zero is retained, while a true vacuum null space requires compatibility plus an explicit mean-zero gauge. | thesis Ch. 15; `05_magnetic_current_basis_poisson.wl`; implementation #188 |
 | C-parity | Mode/harmonic parity | Cyclotron harmonics `m_phi` are signed integers; no implicit replacement by `abs(m_phi)` is allowed. | thesis Ch. 13–14; FP susceptibility loops |
 
 ### Assumption classes
@@ -483,10 +483,10 @@ page are both recorded so the inventory is reproducible.
 | (14.1) | 120 (PDF 131) | 14 | C14 | KIM | indexed; oracles #194/#196 |
 | (14.2) | 120 (PDF 131) | 14 | C14 | KIM | indexed; oracles #194/#196 |
 | (14.3) | 120 (PDF 131) | 14 | C14 | KIM | indexed; oracles #194/#196 |
-| (14.4) | 121 (PDF 132) | 14 | C14 | KIM | indexed; oracles #194/#196 |
-| (14.5) | 121 (PDF 132) | 14 | C14 | KIM | indexed; oracles #194/#196 |
-| (14.6) | 121 (PDF 132) | 14 | C14 | KIM | indexed; oracles #194/#196 |
-| (15.1) | 122 (PDF 133) | 15 | C15 | KIM periodic | indexed; oracle #197 |
+| (14.4) | 121 (PDF 132) | 14 | C14 | KIM | verified; oracles #196/#197 |
+| (14.5) | 121 (PDF 132) | 14 | C14 | KIM | verified using `I01=I10`, `I21=I12`; oracle #197 |
+| (14.6) | 121 (PDF 132) | 14 | C14 | KIM | printed `I02/I22` rejected; production mixed moments `I11/I13` verified by oracle #197 |
+| (15.1) | 122 (PDF 133) | 15 | C15 | KIM periodic | derived; oracle #197 |
 | (15.2) | 122 (PDF 133) | 15 | C15 | KIM periodic | indexed; oracle #197 |
 | (15.3) | 122 (PDF 133) | 15 | C15 | KIM periodic | indexed; oracle #197 |
 | (15.4) | 123 (PDF 134) | 15 | C15 | KIM periodic | indexed; oracle #197 |
@@ -563,10 +563,10 @@ path exists and that each code family has a source-to-check chain.
 | KIM-03 | `KIM/src/background_equilibrium/calculate_equil.f90::calculate_equil` | h_theta/h_z, k_s, k_parallel, omega_E | (3.5), (5.18)–(5.20) | conventions script; #198 pending |
 | KIM-04 | `KIM/src/asymptotics/flr2_fourier_kernel.f90` | b_plus, b_cross, phases, charge/current kernels | Ch. 14 | independent #196 oracle; production #187 verified |
 | KIM-05 | `KIM/src/kernels/FP_kernel_plasma_prefacs.f90` | finite-radius FP kernel prefactors | Ch. 14 | independent #196 derivation; production Fourier consumption #187 verified |
-| KIM-06 | `KIM/src/kernels/kernel.f90` | real-space charge/current kernels and 1/(4 pi) normalization | Ch. 13–14 | independent #196 derivation; off-diagonal normalization #187 verified; #197 pending |
-| KIM-07 | `KIM/src/electrostatic_poisson/poisson.f90` | global Gaussian-CGS weak Poisson problem | (12.25), Ch. 15 | #197 pending |
-| KIM-08 | `KIM/src/electrostatic_poisson/periodic_solve.f90` | periodic Fourier Poisson matrix/RHS | (12.25), Ch. 15 | #197/#188 pending |
-| KIM-09 | `KIM/src/asymptotics/FLR2_asymptotics.f90` | aligned potential and FLR2 limits | Ch. 5 | #197 pending |
+| KIM-06 | `KIM/src/kernels/kernel.f90` | real-space charge/current kernels and 1/(4 pi) normalization | Ch. 13–14 | independent #196 derivation; off-diagonal normalization #187 verified; current moments #197 verified |
+| KIM-07 | `KIM/src/electrostatic_poisson/poisson.f90` | global Gaussian-CGS weak Poisson problem | (12.25), Ch. 15 | weak matrix, boundary term, and source sign verified by #197 |
+| KIM-08 | `KIM/src/electrostatic_poisson/periodic_solve.f90` | periodic Fourier Poisson matrix/RHS | (12.25), Ch. 15 | basis/operator/gauge oracle #197; deviation implementation #188 pending |
+| KIM-09 | `KIM/src/asymptotics/FLR2_asymptotics.f90` | aligned potential and FLR2 limits | Ch. 5 | aligned phase/sign and real-field convention verified by #197 |
 | KIM-10 | `KIM/src/grid/prepare_resonances.f90` | q_res=abs(m/n) | (3.5)–(3.6) | conventions script |
 | KIM-11 | `KIM/src/background_equilibrium/profile_input_m.f90` | radial force balance and Vz-to-Vparallel projection | (8.8)–(8.9) | profile/flow tests |
 | KIM-12 | `KIM/src/background_equilibrium/periodic_background.f90` | periodic primitive state and derivative reconstruction | Ch. 3, 8 | #198 pending |
@@ -624,6 +624,20 @@ rank-one correction (5.13), and traces `x1/x2` through (4.1), (4.26),
 finite flow, `m_phi=-1,0,+1`, near-resonance, strong-collision, and
 collisionless-scaled points. `test_fp_susceptibility_oracle` reads this file
 without requiring Mathematica and compares it to the production implementation.
+
+### Field-operator and Poisson oracle (#197)
+
+`verification/mathematica/05_magnetic_current_basis_poisson.wl` derives the
+full cylindrical harmonic Laplacian and records the chapter-15 radial-only
+reduction, radial Fourier phase and measure, variable-grid hat mass/weak
+Laplacian rows, Gaussian-CGS source sign, aligned-potential phase, screened and
+vacuum zero-mode policies, physical-space deviation lifting, and real-field
+reconstruction. It also verifies the production mixed `I11/I13` parallel
+current response and records why the thesis (14.6) `I02/I22` pair is rejected.
+`verification/oracles/field_operator_matrices.dat` commits 14 deterministic
+Fourier, hat, drive-transform, and current rows. Six negative fixtures mutate
+the source sign, boundary term, transform factor, kernel transpose, gauge, and
+an undeclared `k_s^2` term.
 
 The inventory script requires all 494 thesis labels, all 19 convention rows,
 and all 25 semantic code sites. It rejects a missing equation, missing code

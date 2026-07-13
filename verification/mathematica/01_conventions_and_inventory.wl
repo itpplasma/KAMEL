@@ -42,7 +42,8 @@ check["formula index exists", FileExistsQ[indexPath]];
 check["494 unique thesis equations indexed", Length[DeleteDuplicates[indexedEquations]] == 494];
 check["complete thesis equation labels", Sort[indexedEquations] === Sort[expectedEquations]];
 check["no duplicate thesis equation rows", DuplicateFreeQ[indexedEquations]];
-check["25 semantic code formula sites classified", Length[codeSiteRows] == 25];
+check["29 semantic code formula sites classified", Length[codeSiteRows] == 29];
+check["no duplicate semantic code site identifiers", DuplicateFreeQ[codeSiteRows]];
 check["19 conventions classified", Length[conventionRows] == 19];
 
 codePaths = {
@@ -57,6 +58,8 @@ codePaths = {
   "KIM/src/grid/prepare_resonances.f90",
   "KIM/src/background_equilibrium/profile_input_m.f90",
   "KIM/src/background_equilibrium/periodic_background.f90",
+  "KiLCA/background/plasma_background_formulas.cpp",
+  "KiLCA/background/calc_back.cpp",
   "KiLCA/flre/conductivity/calc_I_array.f90",
   "KiLCA/solver/VER_5_STABLE/wave_stuff.f90",
   "KiLCA/flre/conductivity/calc_I_array_drift_serg.f90",

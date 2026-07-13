@@ -5,7 +5,7 @@ module constants_m
     implicit none
 
     real(dp), parameter :: pi       = 3.14159265358979d0
-    real(dp), parameter :: sol      = 29979245800.0
+    real(dp), parameter :: sol      = 29979245800.0_dp
     real(dp), parameter :: e_mass   = 9.1094d-28
     real(dp), parameter :: p_mass   = 1.6726d-24
     real(dp), parameter :: e_charge = 4.8032d-10

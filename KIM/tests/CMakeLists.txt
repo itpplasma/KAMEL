@@ -167,6 +167,22 @@ add_test(NAME test_fp_susceptibility_oracle
 set_tests_properties(test_fp_susceptibility_oracle PROPERTIES
                      WORKING_DIRECTORY ${CMAKE_BINARY_DIR}/tests/)
 
+# Independent equilibrium/profile oracle, including multispecies collision
+# frequencies, quasineutral array profiles, and cell-centre reconstruction.
+add_executable(test_plasma_background_oracle
+               ${CMAKE_SOURCE_DIR}/KIM/tests/test_plasma_background_oracle.f90)
+set_target_properties(test_plasma_background_oracle PROPERTIES
+                        OUTPUT_NAME test_plasma_background_oracle.x
+                        RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/tests/")
+target_link_libraries(test_plasma_background_oracle
+                      KIM_lib kilca_lib lapack cerf ddeabm slatec)
+configure_file(${CMAKE_SOURCE_DIR}/verification/oracles/plasma_background.dat
+               ${CMAKE_BINARY_DIR}/tests/plasma_background.dat COPYONLY)
+add_test(NAME test_plasma_background_oracle
+         COMMAND ${CMAKE_BINARY_DIR}/tests/test_plasma_background_oracle.x)
+set_tests_properties(test_plasma_background_oracle PROPERTIES
+                     WORKING_DIRECTORY ${CMAKE_BINARY_DIR}/tests/)
+
 # Assemble the dense periodic Fourier matrices K_{m,m'} (Phase-2.4).
 add_executable(test_periodic_assembly ${CMAKE_SOURCE_DIR}/KIM/tests/test_periodic_assembly.f90)
 set_target_properties(test_periodic_assembly PROPERTIES

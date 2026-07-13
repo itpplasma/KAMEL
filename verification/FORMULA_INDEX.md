@@ -558,9 +558,9 @@ path exists and that each code family has a source-to-check chain.
 <!-- CODE-SITES-BEGIN -->
 | Site | Code symbol | Class | Thesis mapping | Verification |
 | --- | --- | --- | --- | --- |
-| KIM-01 | `KIM/src/background_equilibrium/species_mod.f90::calculate_plasma_backs` | vT, gyrofrequency, Larmor/Debye lengths, collision scale | (4.14)–(4.16), (5.8) | conventions script; #198 pending |
+| KIM-01 | `KIM/src/background_equilibrium/species_mod.f90::calculate_plasma_backs` | vT, signed gyrofrequency, absolute Larmor/Debye lengths, collisions, z0 | (2.48)–(2.51), (4.14)–(4.16), (5.8) | independent #198 oracle; KIM production CTest |
 | KIM-02 | `KIM/src/background_equilibrium/species_mod.f90::calculate_thermodynamic_forces_and_susc` | A1/A2, x1/x2, FP susceptibilities | (5.8), (5.12)–(5.20) | flow test; independent #194 oracle |
-| KIM-03 | `KIM/src/background_equilibrium/calculate_equil.f90::calculate_equil` | h_theta/h_z, k_s, k_parallel, omega_E | (3.5), (5.18)–(5.20) | conventions script; #198 pending |
+| KIM-03 | `KIM/src/background_equilibrium/calculate_equil.f90::calculate_equil` | radial force-balance ODE, h_theta/h_z, k_s, k_parallel, omega_E | Ch. 3, (3.5), (5.18)–(5.20) | symbolic current/force-balance/geometry checks and #198 fixtures |
 | KIM-04 | `KIM/src/asymptotics/flr2_fourier_kernel.f90` | b_plus, b_cross, phases, charge/current kernels | Ch. 14 | independent #196 oracle; production #187 verified |
 | KIM-05 | `KIM/src/kernels/FP_kernel_plasma_prefacs.f90` | finite-radius FP kernel prefactors | Ch. 14 | independent #196 derivation; production Fourier consumption #187 verified |
 | KIM-06 | `KIM/src/kernels/kernel.f90` | real-space charge/current kernels and 1/(4 pi) normalization | Ch. 13–14 | independent #196 derivation; off-diagonal normalization #187 verified; current moments #197 verified |
@@ -568,12 +568,16 @@ path exists and that each code family has a source-to-check chain.
 | KIM-08 | `KIM/src/electrostatic_poisson/periodic_solve.f90` | periodic Fourier Poisson matrix/RHS | (12.25), Ch. 15 | basis/operator/gauge oracle #197; physical-space deviation and projection gate #188 verified |
 | KIM-09 | `KIM/src/asymptotics/FLR2_asymptotics.f90` | aligned potential and FLR2 limits | Ch. 5 | aligned phase/sign and real-field convention verified by #197 |
 | KIM-10 | `KIM/src/grid/prepare_resonances.f90` | q_res=abs(m/n) | (3.5)–(3.6) | conventions script |
-| KIM-11 | `KIM/src/background_equilibrium/profile_input_m.f90` | radial force balance and Vz-to-Vparallel projection | (8.8)–(8.9) | profile/flow tests |
-| KIM-12 | `KIM/src/background_equilibrium/periodic_background.f90` | periodic primitive state and derivative reconstruction | Ch. 3, 8 | #198 pending |
+| KIM-11 | `KIM/src/background_equilibrium/profile_input_m.f90` | radial electric-field force balance and Vz-to-Vparallel projection | (8.8)–(8.9) | symbolic zero/finite-rotation checks; profile/flow tests |
+| KIM-12 | `KIM/src/background_equilibrium/periodic_background.f90` | periodic primitive state and derivative reconstruction | Ch. 3, 8 | #198 multispecies/seam tests; derivatives recomputed after periodization |
+| KIM-13 | `KIM/src/background_equilibrium/species_mod.f90::set_profiles_from_arrays` | supplied/fallback ion composition and temperature profiles | Ch. 3, 8 | #198 quasineutral D/C production CTest |
 | KILCA-01 | `KiLCA/flre/conductivity/calc_I_array.f90::calc_Imn_array` | susceptibility-function definition | (5.12)–(5.17), App. A | not exercised by KIM #194 oracle |
 | KILCA-02 | `KiLCA/solver/VER_5_STABLE/wave_stuff.f90` | plasma/cyclotron frequencies and dielectric response | Ch. 4–5 | not exercised by KIM #194 oracle; #197 pending |
 | KILCA-03 | `KiLCA/flre/conductivity/calc_I_array_drift_serg.f90` | drift/FP conductivity integrals | Ch. 5, App. A | not exercised by KIM #194 oracle |
-| KILCA-04 | `PreProc/fourier/src/rhs_flt.f90` | exp(-i m iota phi) field-line Fourier phase | (4.3) | conventions script |
+| KILCA-04 | `KiLCA/background/plasma_background_formulas.cpp::evaluate_kilca_background` | named legacy single-ion NRL collision and thermal-speed model | (2.48)–(2.52), (4.14) | independent #198 KiLCA oracle row and production CTest |
+| KILCA-05 | `KiLCA/background/calc_back.cpp::calculate_equilibrium` | cylindrical B_theta/B_z, Ampere current, radial force-balance ODE | Ch. 3 | independent #198 current/force-balance fixture |
+| KILCA-06 | `KiLCA/background/calc_back.cpp::find_f0_parameters` | named legacy single-ion potential-gradient and flow model | (8.8)–(8.9) | symbolic zero/finite-flow checks in #198 |
+| PRE-01 | `PreProc/fourier/src/rhs_flt.f90` | exp(-i m iota phi) field-line Fourier phase | (4.3) | conventions script |
 | QLB-01 | `QL-Balance/src/base/getIfunc.f90` | susceptibility functions | App. A | independent #194 oracle |
 | QLB-02 | `QL-Balance/src/base/get_dql.f90` | quasilinear transport coefficients | (6.11)–(6.16) | broader #199 |
 | QLB-03 | `QL-Balance/src/base/rhs_balance_m.f90::compute_particle_fluxes` | particle fluxes | (6.2), (6.11)–(6.16) | unit tests; broader #199 |
@@ -582,7 +586,7 @@ path exists and that each code family has a source-to-check chain.
 | QLB-06 | `QL-Balance/src/base/W2_arr.f90::W2_arr` | production differential FP moments consumed by KIM | (5.14)–(5.15), (A.1)–(A.3) | independent #194 oracle |
 | EQ-01 | `common/equil/mag_wrapper.f90::magfie` | cylindrical metric and field unit vector | Ch. 3 | #198 pending |
 | EQ-02 | `common/equil/equil_profiles.f90` | flux-surface equilibrium profiles | Ch. 3, 8 | #198 pending |
-| PRE-01 | `PreProc/fourier/src/fouriermodes.f90` | straight-field-line angle and equilibrium Fourier modes | (4.3), Ch. 7–8 | #198 pending |
+| PRE-02 | `PreProc/fourier/src/fouriermodes.f90` | straight-field-line angle and equilibrium Fourier modes | (4.3), Ch. 7–8 | symbolic geometry checks in #198 |
 <!-- CODE-SITES-END -->
 
 ## Coverage policy
@@ -643,8 +647,22 @@ tests, and an under-resolved projection rejection. #188 reconstructs the
 non-periodic aligned lift in physical space and keeps its analytic radial
 second derivative distinct from the projected kinetic action.
 
+### Equilibrium and plasma-background oracle (#198)
+
+`verification/mathematica/06_equilibrium_profiles_units.wl` checks cylindrical
+geometry, safety-factor inversion, resonance and rotation signs, Gaussian-CGS
+dimensions, density scaling, and nonlinear cell-centre reconstruction. Its
+17-row oracle covers axis-near, resonant, zero/finite-rotation, current/force-
+balance, and periodic-seam fixtures, plus KIM electron, deuterium, and carbon
+backgrounds with distinct ion temperatures and a separately named KiLCA
+legacy single-ion model. KIM now sums every ion collision partner, preserves
+supplied per-ion profiles, and uses an equal-number-density fallback satisfying
+`sum_i Z_i n_i = n_e`. The KIM and KiLCA CTests consume the committed oracle;
+the symbolic gate passes 46 checks and rejects charge-weighted density,
+electron-window, eV-conversion, and interpolated-derived-value mutations.
+
 The inventory script requires all 494 thesis labels, all 19 convention rows,
-and all 25 semantic code sites. It rejects a missing equation, missing code
+and all 29 semantic code sites. It rejects a missing equation, missing code
 site/path, incompatible duplicate convention, or unclassified convention.
 Subsequent oracle issues replace “pending” statuses with deterministic
 script/test links; copying a formula here never upgrades its status.

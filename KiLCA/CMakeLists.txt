@@ -155,6 +155,7 @@ set(kilca_lib_cpp_sources
     background/back_sett.cpp
     background/background.cpp
     background/calc_back.cpp
+    background/plasma_background_formulas.cpp
     background/eval_back.cpp
     eigmode/eigmode_sett.cpp
     eigmode/calc_eigmode.cpp
@@ -309,6 +310,18 @@ set_target_properties(post_proc PROPERTIES
     RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/install/bin/)
 add_dependencies(post_proc ${EXTERNAL_LIBS})
 target_link_libraries (post_proc kilca_lib ${EXTERNAL_LIBS})
+
+add_executable(test_kilca_plasma_background_oracle
+    background/test_plasma_background_oracle.cpp)
+set_target_properties(test_kilca_plasma_background_oracle PROPERTIES
+    RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/tests/")
+target_link_libraries(test_kilca_plasma_background_oracle kilca_lib ${EXTERNAL_LIBS})
+configure_file(${CMAKE_SOURCE_DIR}/verification/oracles/plasma_background.dat
+               ${CMAKE_BINARY_DIR}/tests/plasma_background.dat COPYONLY)
+add_test(NAME test_kilca_plasma_background_oracle
+         COMMAND ${CMAKE_BINARY_DIR}/tests/test_kilca_plasma_background_oracle)
+set_tests_properties(test_kilca_plasma_background_oracle PROPERTIES
+    WORKING_DIRECTORY ${CMAKE_BINARY_DIR}/tests/)
 
 # add a target to generate API documentation with Doxygen
 find_package (Doxygen)

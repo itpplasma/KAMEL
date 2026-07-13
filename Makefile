@@ -19,7 +19,8 @@ endif
 	regenerate-fp-susceptibility-oracle verify-mathematica-charge-kernels \
 	verify-mathematica-charge-kernels-negative regenerate-rho-phi-kernel-oracle \
 	verify-mathematica-field-operators verify-mathematica-field-operators-negative \
-	regenerate-field-operator-oracle
+	regenerate-field-operator-oracle verify-mathematica-background \
+	verify-mathematica-background-negative regenerate-plasma-background-oracle
 
 all: ninja
 
@@ -114,6 +115,24 @@ verify-mathematica-field-operators-negative:
 regenerate-field-operator-oracle:
 	@test -n "$(WOLFRAM_KERNEL)" || { echo "WolframKernel not found; set WOLFRAM_KERNEL"; exit 1; }
 	KAMEL_REGENERATE_ORACLE=1 $(WOLFRAM_KERNEL) -noinit -noprompt -script verification/mathematica/05_magnetic_current_basis_poisson.wl
+
+verify-mathematica-background:
+	@test -n "$(WOLFRAM_KERNEL)" || { echo "WolframKernel not found; set WOLFRAM_KERNEL"; exit 1; }
+	@test -f verification/mathematica/06_equilibrium_profiles_units.wl || { echo "background verification script not found"; exit 1; }
+	$(WOLFRAM_KERNEL) -noinit -noprompt -script verification/mathematica/06_equilibrium_profiles_units.wl
+
+verify-mathematica-background-negative:
+	@for fixture in charge-weighted-density electron-window-scale wrong-ev interpolated-derived-ratio; do \
+		if KAMEL_VERIFY_NEGATIVE_FIXTURE=$$fixture $(MAKE) --no-print-directory verify-mathematica-background >/dev/null 2>&1; then \
+			echo "negative fixture unexpectedly passed: $$fixture"; exit 1; \
+		else \
+			echo "negative fixture rejected: $$fixture"; \
+		fi; \
+	done
+
+regenerate-plasma-background-oracle:
+	@test -n "$(WOLFRAM_KERNEL)" || { echo "WolframKernel not found; set WOLFRAM_KERNEL"; exit 1; }
+	KAMEL_REGENERATE_ORACLE=1 $(WOLFRAM_KERNEL) -noinit -noprompt -script verification/mathematica/06_equilibrium_profiles_units.wl
 
 # Golden-record regression now lives in test/golden/ and runs in the dedicated
 # GitHub Actions job, NOT in `make test`/ctest. This target is for manual local

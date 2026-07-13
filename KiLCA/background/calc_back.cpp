@@ -19,6 +19,7 @@
 #include "inout.h"
 #include "calc_back.h"
 #include "eval_back.h"
+#include "plasma_background_formulas.h"
 #include "constants.h"
 #include "conduct_parameters.h"
 
@@ -302,8 +303,6 @@ double dpress, dn, dTi, dTe, Vsi_, Vse_;
 /*estimations for the f0 parameters:*/
 int i;
 
-double nuee, nuei, nuie, nuii; //freqs
-double Lee, Lei, Lie, Lii; //Coulomb logs
 double vf = 1.0; //velocity factor
 
 for (i=0; i<dimx; i++)
@@ -312,30 +311,22 @@ for (i=0; i<dimx; i++)
     //nui[i] = zion/sqrt(mass[0]/m_p)*pow(charge[0]/e, 4.0)*n[i]/pow(Ti[i], 1.5);
     //nue[i] = zele*pow(charge[0]/e, 2.0)*n[i]/pow(Te[i], 1.5);
 
-    /*more correct collision frequences: NRL formulary: page 32 (in 2009)*/
-    /*zion, zele is redefined so that true frequencies correspond to 1.0!*/
-    Lee = 23.5 - log(sqrt(n[i])/pow(Te[i],1.25)) - (log(Te[i])-2.0)/4.0;
-    Lei = 30.0 - log(sqrt(n[i])/pow(Ti[i],1.5)*pow(charge[0]/e, 2.0)/(mass[0]/m_p));
-    Lie = Lei;
-    Lii = 23.0 - log(pow(charge[0]/e,3.0)/pow(Ti[i],1.5)*sqrt(2.0*n[i]));
-
-    //perpendicular coll freqs: (eps = T)
-    nuee = (5.8e-6)*n[i]*Lee/sqrt(Te[i])/(vf*Te[i]);
-    nuei = (7.7e-6)*n[i]*Lei*pow(charge[0]/e, 2.0)/pow(vf*Te[i], 1.5);
-    nuie = (3.2e-9)*n[i]*Lie*pow(charge[0]/e, 2.0)/(mass[0]/m_p)/sqrt(Te[i])/(vf*Ti[i]);
-    nuii = (1.4e-7)*n[i]*Lii*pow(charge[0]/e, 4.0)/sqrt(mass[0]/m_p)/sqrt(Ti[i])/(vf*Ti[i]);
+    /*more correct collision frequencies: NRL formulary page 32 (2009).
+      zion and zele scale the verified legacy single-ion model.*/
+    const kilca_background_values background = evaluate_kilca_background(
+        n[i], Ti[i], Te[i], charge[0]/e, mass[0]/m_p, mass[0], mass[1], vf);
 
     //sum up and add factors + limiting values:
-    nui[i] = (sd->bs->zion)*(nuie + nuii + 10.0);
-    nue[i] = (sd->bs->zele)*(nuee + nuei + 10.0);
+    nui[i] = (sd->bs->zion)*background.nui;
+    nue[i] = (sd->bs->zele)*background.nue;
 
     //density parameter:
     n_i_p[i] = n[i];
     n_e_p[i] = n[i];
 
     //thermal velocity:
-    Vt_i_p[i] = sqrt (boltz*Ti[i]/mass[0]);
-    Vt_e_p[i] = sqrt (boltz*Te[i]/mass[1]);
+    Vt_i_p[i] = background.vti;
+    Vt_e_p[i] = background.vte;
 
     //parallel velocity:
     Vp_tot = hth[i]*Vth[i] + hz[i]*Vz[i];

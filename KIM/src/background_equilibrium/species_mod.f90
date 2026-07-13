@@ -288,15 +288,23 @@ module species_m
     end subroutine
 
     subroutine compute_rg_cell_centers(plasma_in)
-        ! Compute cell-centered values of all plasma background profiles on rg_grid%xc
-        ! Simple averaging of boundary values for smooth quantities
+        ! Interpolate primitives to rg_grid%xc, then recompute every nonlinear
+        ! derived quantity there. Averaging derived boundary values corrupts
+        ! thermal speeds, collision frequencies, Debye lengths, and rho_L.
 
         use grid_m, only: rg_grid
+        use constants_m, only: sol, e_charge, ev, pi
+        use config_m, only: ion_flr_scale_factor
+        use setup_m, only: collisions_off
 
         implicit none
 
         type(plasma_t), intent(inout) :: plasma_in
         integer :: sp, j
+        real(dp) :: magnetic_field_center
+        real(dp) :: density_center(0:plasma_in%n_species-1)
+        real(dp) :: temperature_center(0:plasma_in%n_species-1)
+        real(dp) :: collision_center(0:plasma_in%n_species-1)
 
         if (.not. allocated(plasma_in%ks_cc)) allocate(plasma_in%ks_cc(rg_grid%npts_c))
         if (.not. allocated(plasma_in%Er_cc)) allocate(plasma_in%Er_cc(rg_grid%npts_c))
@@ -321,21 +329,81 @@ module species_m
             plasma_in%ks_cc(j) = 0.5d0 * (plasma_in%ks(j) + plasma_in%ks(j+1))
             plasma_in%Er_cc(j) = 0.5d0 * (plasma_in%Er(j) + plasma_in%Er(j+1))
             plasma_in%om_E_cc(j) = 0.5d0 * (plasma_in%om_E(j) + plasma_in%om_E(j+1))
+            magnetic_field_center = 0.5_dp*(plasma_in%B0(j) + plasma_in%B0(j + 1))
             do sp = 0, plasma_in%n_species-1
                 plasma_in%spec(sp)%n_cc(j)        = 0.5d0 * (plasma_in%spec(sp)%n(j)        + plasma_in%spec(sp)%n(j+1))
                 plasma_in%spec(sp)%dndr_cc(j)     = 0.5d0 * (plasma_in%spec(sp)%dndr(j)     + plasma_in%spec(sp)%dndr(j+1))
                 plasma_in%spec(sp)%T_cc(j)        = 0.5d0 * (plasma_in%spec(sp)%T(j)        + plasma_in%spec(sp)%T(j+1))
                 plasma_in%spec(sp)%dTdr_cc(j)     = 0.5d0 * (plasma_in%spec(sp)%dTdr(j)     + plasma_in%spec(sp)%dTdr(j+1))
                 plasma_in%spec(sp)%Vpar_cc(j)     = 0.5d0 * (plasma_in%spec(sp)%Vpar(j)     + plasma_in%spec(sp)%Vpar(j+1))
-                plasma_in%spec(sp)%nu_cc(j)       = 0.5d0 * (plasma_in%spec(sp)%nu(j)       + plasma_in%spec(sp)%nu(j+1))
-                plasma_in%spec(sp)%vT_cc(j)       = 0.5d0 * (plasma_in%spec(sp)%vT(j)       + plasma_in%spec(sp)%vT(j+1))
-                plasma_in%spec(sp)%omega_c_cc(j)  = 0.5d0 * (plasma_in%spec(sp)%omega_c(j)  + plasma_in%spec(sp)%omega_c(j+1))
-                plasma_in%spec(sp)%lambda_D_cc(j) = 0.5d0 * (plasma_in%spec(sp)%lambda_D(j) + plasma_in%spec(sp)%lambda_D(j+1))
-                plasma_in%spec(sp)%rho_L_cc(j)    = 0.5d0 * (plasma_in%spec(sp)%rho_L(j)    + plasma_in%spec(sp)%rho_L(j+1))
+                density_center(sp) = plasma_in%spec(sp)%n_cc(j)
+                temperature_center(sp) = plasma_in%spec(sp)%T_cc(j)
+                plasma_in%spec(sp)%vT_cc(j) = sqrt(temperature_center(sp)*ev / &
+                    plasma_in%spec(sp)%mass)
+                plasma_in%spec(sp)%omega_c_cc(j) = real(plasma_in%spec(sp)%Zspec, dp) * &
+                    e_charge*abs(magnetic_field_center) / (plasma_in%spec(sp)%mass*sol)
+                plasma_in%spec(sp)%lambda_D_cc(j) = sqrt(temperature_center(sp)*ev / &
+                    (4.0_dp*pi*density_center(sp) * &
+                     (real(plasma_in%spec(sp)%Zspec, dp)*e_charge)**2))
+                plasma_in%spec(sp)%rho_L_cc(j) = abs(plasma_in%spec(sp)%vT_cc(j) / &
+                    plasma_in%spec(sp)%omega_c_cc(j))
+                if (sp > 0) plasma_in%spec(sp)%rho_L_cc(j) = &
+                    plasma_in%spec(sp)%rho_L_cc(j)*ion_flr_scale_factor
+            end do
+            call calculate_collision_frequencies_point(plasma_in, density_center, &
+                                                        temperature_center, collision_center)
+            do sp = 0, plasma_in%n_species-1
+                plasma_in%spec(sp)%nu_cc(j) = collision_center(sp)
+                if (collisions_off) plasma_in%spec(sp)%nu_cc(j) = 0.0_dp
             end do
         end do
 
     end subroutine compute_rg_cell_centers
+
+    subroutine calculate_collision_frequencies_point(plasma_in, density, temperature, frequency)
+        ! NRL collision frequencies and Coulomb logarithms used by both
+        ! boundary and cell-centred backgrounds. Ion-ion terms follow thesis
+        ! Eq. (2.51) and include every configured ion collision partner.
+
+        implicit none
+
+        type(plasma_t), intent(in) :: plasma_in
+        real(dp), intent(in) :: density(0:plasma_in%n_species-1)
+        real(dp), intent(in) :: temperature(0:plasma_in%n_species-1)
+        real(dp), intent(out) :: frequency(0:plasma_in%n_species-1)
+        integer :: sp, sp_col
+        real(dp) :: lee, lei, lii, mass_scale
+
+        lee = 23.5_dp - log(sqrt(density(0))/temperature(0)**1.25_dp) - &
+            sqrt(1.0e-5_dp + (log(temperature(0)) - 2.0_dp)**2/16.0_dp)
+        lei = 24.0_dp - log(sqrt(density(0))/temperature(0))
+        frequency = 0.0_dp
+        frequency(0) = 5.8e-6_dp*density(0)*lee/temperature(0)**1.5_dp
+
+        do sp = 1, plasma_in%n_species-1
+            frequency(0) = frequency(0) + 7.7e-6_dp*density(sp) * &
+                real(plasma_in%spec(sp)%Zspec**2, dp)*lei/temperature(0)**1.5_dp
+
+            mass_scale = sqrt(real(plasma_in%spec(sp)%Aspec, dp)) * &
+                temperature(sp)**1.5_dp
+            frequency(sp) = 1.8e-7_dp*density(0) * &
+                real(plasma_in%spec(sp)%Zspec**2, dp)*lei/mass_scale
+
+            do sp_col = 1, plasma_in%n_species-1
+                lii = 23.0_dp - log( &
+                    real(plasma_in%spec(sp)%Zspec*plasma_in%spec(sp_col)%Zspec, dp) * &
+                    real(plasma_in%spec(sp)%Aspec + plasma_in%spec(sp_col)%Aspec, dp) / &
+                    (real(plasma_in%spec(sp)%Aspec, dp)*temperature(sp_col) + &
+                     real(plasma_in%spec(sp_col)%Aspec, dp)*temperature(sp)) * &
+                    sqrt(density(sp)*real(plasma_in%spec(sp)%Zspec**2, dp)/temperature(sp) + &
+                         density(sp_col)*real(plasma_in%spec(sp_col)%Zspec**2, dp)/temperature(sp_col)))
+                frequency(sp) = frequency(sp) + 1.8e-7_dp*density(sp_col) * &
+                    real(plasma_in%spec(sp)%Zspec**2, dp) * &
+                    real(plasma_in%spec(sp_col)%Zspec**2, dp)*lii/mass_scale
+            end do
+        end do
+
+    end subroutine calculate_collision_frequencies_point
 
     subroutine calculate_thermodynamic_forces_and_susc(plasma_in)
         ! Calculate x1, x2, A1, A2, and susceptibility functions on rg_grid
@@ -447,7 +515,7 @@ module species_m
 
                 do mphi = -mphi_max, mphi_max
                     plasma_in%spec(sp)%x2_cc(j, mphi) = - (plasma_in%om_E_cc(j)  & !* ion_flr_scale_factor & !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-                                                        + mphi * plasma_in%spec(sp)%omega_c(j) - omega) &
+                                                        + mphi * plasma_in%spec(sp)%omega_c_cc(j) - omega) &
                                                         / plasma_in%spec(sp)%nu_cc(j)
                     if (abs(plasma_in%spec(sp)%Vpar_cc(j)) > tiny(1.0_dp)) then
                         plasma_in%spec(sp)%x2_cc(j, mphi) = &
@@ -480,20 +548,18 @@ module species_m
 
         use constants_m, only: sol, e_charge, ev, pi, com_unit
         use setup_m, only: omega, collisions_off
-        use config_m, only: number_of_ion_species, rescale_density, number_density_rescale, ion_flr_scale_factor
+        use config_m, only: rescale_density, number_density_rescale, ion_flr_scale_factor
 
         implicit none
 
         type(plasma_t), intent(inout) :: plasma_in
-        integer :: i, sp, sp_col
-        real(dp) :: Lee(plasma%grid_size)
-        real(dp) :: Lei(number_of_ion_species, plasma%grid_size)
-        real(dp) :: Lii(number_of_ion_species, number_of_ion_species, plasma%grid_size)
-        real(dp) :: nue(plasma%grid_size)
-        real(dp) :: nui(number_of_ion_species, plasma%grid_size)
+        integer :: i, sp
+        real(dp) :: density_point(0:plasma_in%n_species-1)
+        real(dp) :: temperature_point(0:plasma_in%n_species-1)
+        real(dp) :: collision_point(0:plasma_in%n_species-1)
 
 
-        do sp = 0, plasma%n_species-1
+        do sp = 0, plasma_in%n_species-1
 
             allocate(plasma_in%spec(sp)%rho_L(plasma_in%grid_size))
             allocate(plasma_in%spec(sp)%z0(plasma_in%grid_size))
@@ -505,7 +571,7 @@ module species_m
             do i=1, plasma_in%grid_size
                 plasma_in%spec(sp)%vT(i) = sqrt(plasma_in%spec(sp)%T(i) * ev / (plasma_in%spec(sp)%mass))
                 plasma_in%spec(sp)%omega_c(i) = plasma_in%spec(sp)%Zspec * e_charge * abs(plasma_in%B0(i)) &
-                    / (plasma%spec(sp)%mass * sol)
+                    / (plasma_in%spec(sp)%mass * sol)
 
                 if (sp > 0)then
                     plasma_in%spec(sp)%rho_L(i) = abs(plasma_in%spec(sp)%vT(i) / (plasma_in%spec(sp)%omega_c(i))) * ion_flr_scale_factor
@@ -518,46 +584,15 @@ module species_m
             end do
         end do
 
-        do i=1, plasma_in%grid_size
-            ! Coulomb logarithm
-            Lee(i) = 23.5d0 - log(sqrt(plasma_in%spec(0)%n(i)) / plasma_in%spec(0)%T(i)**1.25d0) - &
-                sqrt(1d-5 + (log(plasma_in%spec(0)%T(i)) -2.0d0)**2.0d0 / 16.0d0)
-            nue(i) = 5.8e-6 * plasma_in%spec(0)%n(i) * Lee(i) / plasma_in%spec(0)%T(i)**(1.5d0)
-            Lei(:, i) = 24.0d0 - log(sqrt(plasma_in%spec(0)%n(i)) / plasma_in%spec(0)%T(i))
-        end do
-
-        do sp=1, number_of_ion_species
-            do i=1, plasma_in%grid_size
-                ! Coulomb logarithm electrons ions (= ions electrons)
-
-
-                nue(i) = nue(i) + 7.7d-6 * plasma_in%spec(sp)%n(i) * Lei(sp, i) * plasma_in%spec(sp)%Zspec**2 / plasma_in%spec(0)%T(i)**(1.5d0)
-
-                nui(sp, i) = 1.8d-7 * plasma_in%spec(sp)%Aspec**(-1.0/2.0) * plasma_in%spec(sp)%T(i)**(-3.0/2.0) * plasma_in%spec(0)%n(i) * &
-                                plasma_in%spec(sp)%Zspec**2 * Lei(sp,i)
-
-                do sp_col=sp, number_of_ion_species
-                    ! Coulomb logarithm ions - ions'
-                    Lii(sp, sp_col, i) = 23.0d0 - log(plasma_in%spec(sp)%Zspec * plasma_in%spec(sp_col)%Zspec &
-                                        * (plasma_in%spec(sp)%Aspec + plasma_in%spec(sp_col)%Aspec)&
-                                        / (plasma_in%spec(sp)%T(i) * plasma_in%spec(sp_col)%Aspec + plasma_in%spec(sp_col)%T(i) * plasma_in%spec(sp)%Aspec)&
-                                        * (plasma_in%spec(sp)%n(i) * plasma_in%spec(sp)%Zspec**2 / plasma_in%spec(sp)%T(i) &
-                                        + plasma_in%spec(sp_col)%n(i) * plasma_in%spec(sp_col)%Zspec**2) / plasma_in%spec(sp_col)%T(i))
-                    ! Collision frequency ions - ions'
-                    nui(sp, i) = nui(sp, i) + 1.8d-7 * plasma_in%spec(sp_col)%n(i) * plasma_in%spec(sp)%Zspec**2 &
-                                    * plasma_in%spec(sp_col)%Zspec**2 * Lii(sp, sp_col, i) * plasma_in%spec(sp)%Aspec**(-1.0/2.0)&
-                                    * plasma_in%spec(sp)%T(i)**(-3.0/2.0)
-                end do
-            end do
-        end do
-
         do i = 1, plasma_in%grid_size
-            plasma_in%spec(0)%nu(i) = nue(i)
-        end do
-
-        do sp = 1, plasma_in%n_species-1
-            do i = 1, plasma_in%grid_size
-                plasma_in%spec(sp)%nu(i) = nui(sp, i)
+            do sp = 0, plasma_in%n_species-1
+                density_point(sp) = plasma_in%spec(sp)%n(i)
+                temperature_point(sp) = plasma_in%spec(sp)%T(i)
+            end do
+            call calculate_collision_frequencies_point(plasma_in, density_point, &
+                                                        temperature_point, collision_point)
+            do sp = 0, plasma_in%n_species-1
+                plasma_in%spec(sp)%nu(i) = collision_point(sp)
             end do
         end do
 
@@ -1097,7 +1132,8 @@ module species_m
     end subroutine
 
     subroutine set_profiles_from_arrays(r_in, n_in, Te_in, Ti_in, q_in, Er_in, &
-                                        npts, Vpar_in)
+                                        npts, Vpar_in, ion_density_in, &
+                                        ion_temperature_in)
         !! Populate the module-level `plasma` struct from arrays passed by
         !! the caller (e.g. QL-Balance).  Replicates the effect of
         !! read_from_text but without file I/O.  Handles reallocation for
@@ -1119,8 +1155,14 @@ module species_m
         ! Explicit field-parallel ion flow. All ions are enabled; electrons
         ! remain stationary. Omission preserves the historical zero-flow path.
         real(dp), intent(in), optional :: Vpar_in(npts)
+        ! Optional per-ion primitive profiles. When omitted, the scalar Ti
+        ! profile is shared and equal ion number densities enforce
+        ! sum_i(Z_i n_i)=n_e. Supplied densities must already be quasineutral.
+        real(dp), intent(in), optional :: ion_density_in(npts, number_of_ion_species)
+        real(dp), intent(in), optional :: ion_temperature_in(npts, number_of_ion_species)
 
         integer :: sigma, total_Z
+        real(dp) :: quasineutral_residual, density_scale
 
         ! Force resonance re-detection on next solve
         prop = .true.
@@ -1153,10 +1195,15 @@ module species_m
         call reallocate(plasma%spec(0)%Vpar, npts)
         plasma%spec(0)%Vpar = 0.0_dp
 
-        ! Ion temperatures (all ion species get Ti)
+        ! Ion temperatures. The scalar Ti input remains the backward-compatible
+        ! fallback; callers with mixtures can preserve each primitive profile.
         do sigma = 1, number_of_ion_species
             call reallocate(plasma%spec(sigma)%T, npts)
-            plasma%spec(sigma)%T = Ti_in
+            if (present(ion_temperature_in)) then
+                plasma%spec(sigma)%T = ion_temperature_in(:, sigma)
+            else
+                plasma%spec(sigma)%T = Ti_in
+            end if
             call reallocate(plasma%spec(sigma)%Vpar, npts)
             if (present(Vpar_in)) then
                 plasma%spec(sigma)%Vpar = Vpar_in
@@ -1171,10 +1218,29 @@ module species_m
             total_Z = total_Z + plasma%spec(sigma)%Zspec
         end do
 
+        if (total_Z <= 0) error stop 'ion charge sum must be positive'
+
         do sigma = 1, number_of_ion_species
             call reallocate(plasma%spec(sigma)%n, npts)
-            plasma%spec(sigma)%n = n_in * plasma%spec(sigma)%Zspec / total_Z
+            if (present(ion_density_in)) then
+                plasma%spec(sigma)%n = ion_density_in(:, sigma)
+            else
+                plasma%spec(sigma)%n = n_in / real(total_Z, dp)
+            end if
         end do
+
+        if (any(plasma%spec(0)%n <= 0.0_dp) .or. any(plasma%spec(0)%T <= 0.0_dp)) &
+            error stop 'electron density and temperature must be positive'
+        do sigma = 1, number_of_ion_species
+            if (any(plasma%spec(sigma)%n <= 0.0_dp) .or. &
+                any(plasma%spec(sigma)%T <= 0.0_dp)) &
+                error stop 'ion density and temperature must be positive'
+        end do
+
+        density_scale = max(1.0_dp, maxval(abs(n_in)))
+        quasineutral_residual = maxval(abs(sum_ion_charge_density() - n_in))
+        if (quasineutral_residual > 100.0_dp*epsilon(1.0_dp)*density_scale) &
+            error stop 'ion density profiles violate quasineutrality'
 
         ! Deallocate derivative arrays to force recomputation
         do sigma = 0, number_of_ion_species
@@ -1185,6 +1251,19 @@ module species_m
 
         ! Validate units
         call validate_profile_units(plasma)
+
+    contains
+
+        function sum_ion_charge_density() result(charge_density)
+            real(dp) :: charge_density(npts)
+            integer :: ion
+
+            charge_density = 0.0_dp
+            do ion = 1, number_of_ion_species
+                charge_density = charge_density + &
+                    real(plasma%spec(ion)%Zspec, dp)*plasma%spec(ion)%n
+            end do
+        end function sum_ion_charge_density
 
     end subroutine set_profiles_from_arrays
 
@@ -1332,11 +1411,13 @@ module species_m
         do sigma = 1, number_of_ion_species
             total_Z = total_Z + plasma%spec(sigma)%Zspec
         end do
+        if (total_Z <= 0) error stop 'ion charge sum must be positive'
 
         do i = 1, plasma%grid_size
             do sigma = 1, number_of_ion_species
-                ! ion density to fulfill quasineutrality
-                plasma%spec(sigma)%n(i) = plasma%spec(0)%n(i) * plasma%spec(sigma)%Zspec / total_Z
+                ! Equal fallback ion number densities fulfill
+                ! sum_s Z_s n_s = n_e for arbitrary charge states.
+                plasma%spec(sigma)%n(i) = plasma%spec(0)%n(i) / real(total_Z, dp)
             end do
         end do
 

@@ -22,7 +22,9 @@ program test_periodic_background_build
     !   (4) resonance: parallel wavenumber kp ~ 0 at the window point nearest rm
     !       (confirms q = 3 there and a correct kp recompute),
     !   (5) each ion profile survives independently and quasineutrality holds,
-    !   (6) all finite (no NaN/Inf).
+    !   (6) all finite (no NaN/Inf),
+    !   (7) profile derivatives are recomputed from the periodized primitives
+    !       with the wrapped central-difference stencil at the seam.
 
     use KIM_kinds_m, only: dp
     use periodic_background_m, only: build_periodic_plasma, &
@@ -282,9 +284,33 @@ contains
         end do
         print *, 'PASS: all derived quantities finite across the window'
 
+        call test_periodic_derivatives()
         call test_multispecies_periodicity(rm, dx_asis, dx_tr)
         call test_negative_dependent_density_rejected(rm, dx_asis, dx_tr, n_rg)
     end subroutine test_build_periodic
+
+    subroutine test_periodic_derivatives()
+        use species_m, only: plasma
+        use grid_m, only: rg_grid
+
+        real(dp) :: h, expected
+        integer :: sp, npts
+
+        npts = rg_grid%npts_b
+        h = rg_grid%xb(2) - rg_grid%xb(1)
+        do sp = 0, plasma%n_species - 1
+            expected = (plasma%spec(sp)%n(2) - plasma%spec(sp)%n(npts))/(2.0_dp*h)
+            call assert_relative_close('periodic seam density derivative', &
+                plasma%spec(sp)%dndr(1), expected, 100.0_dp*epsilon(1.0_dp))
+            expected = (plasma%spec(sp)%T(2) - plasma%spec(sp)%T(npts))/(2.0_dp*h)
+            call assert_relative_close('periodic seam temperature derivative', &
+                plasma%spec(sp)%dTdr(1), expected, 100.0_dp*epsilon(1.0_dp))
+        end do
+        expected = (plasma%q(2) - plasma%q(npts))/(2.0_dp*h)
+        call assert_relative_close('periodic seam q derivative', plasma%dqdr(1), &
+                                   expected, 100.0_dp*epsilon(1.0_dp))
+        print *, 'PASS: derivatives recomputed from periodized seam primitives'
+    end subroutine test_periodic_derivatives
 
     subroutine test_multispecies_periodicity(rm, dx_asis, dx_tr)
         real(dp), intent(in) :: rm, dx_asis, dx_tr

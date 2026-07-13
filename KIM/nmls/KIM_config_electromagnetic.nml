@@ -106,6 +106,7 @@
     Te_file = 'Te.dat'
     Ti_file = 'Ti.dat'
     Vz_file = 'Vz.dat'
+    parallel_flow_convention = 'toroidal'
     Er_file = 'Er.dat'
     q_file = 'q.dat'
 /

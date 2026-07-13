@@ -46,7 +46,8 @@ subroutine kim_read_config
 
     namelist /KIM_PROFILES/ coord_type, input_profile_dir, equil_file, geqdsk_file, &
                         n_input_file, Te_input_file, Ti_input_file, Vz_input_file, &
-                        n_file, Te_file, Ti_file, Vz_file, Er_file, q_file
+                        n_file, Te_file, Ti_file, Vz_file, parallel_flow_convention, &
+                        Er_file, q_file
 
     ! Optional group for the forced-periodicity electrostatic run-type. Read
     ! separately (iostat-guarded, below) so config files without it still parse.

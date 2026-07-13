@@ -33,6 +33,9 @@ module species_m
         real(dp), allocatable :: dndr(:) ! density gradient
         real(dp), allocatable :: T(:) ! temperature
         real(dp), allocatable :: dTdr(:) ! temperature gradient
+        ! Field-parallel equilibrium Maxwellian drift [cm/s]. File input Vz is
+        ! projected from the cylindrical toroidal component before storage.
+        real(dp), allocatable :: Vpar(:)
         real(dp), allocatable :: A1(:) ! thermodynamic force
         real(dp), allocatable :: A2(:) ! thermodynamic force
         real(dp), allocatable :: nu(:) ! collision frequency
@@ -61,6 +64,7 @@ module species_m
         real(dp), allocatable :: dndr_cc(:)
         real(dp), allocatable :: T_cc(:)
         real(dp), allocatable :: dTdr_cc(:)
+        real(dp), allocatable :: Vpar_cc(:)
         real(dp), allocatable :: A1_cc(:)
         real(dp), allocatable :: A2_cc(:)
         real(dp), allocatable :: nu_cc(:)
@@ -304,6 +308,7 @@ module species_m
                 allocate(plasma_in%spec(sp)%dndr_cc(rg_grid%npts_c))
                 allocate(plasma_in%spec(sp)%T_cc(rg_grid%npts_c))
                 allocate(plasma_in%spec(sp)%dTdr_cc(rg_grid%npts_c))
+                allocate(plasma_in%spec(sp)%Vpar_cc(rg_grid%npts_c))
                 allocate(plasma_in%spec(sp)%nu_cc(rg_grid%npts_c))
                 allocate(plasma_in%spec(sp)%vT_cc(rg_grid%npts_c))
                 allocate(plasma_in%spec(sp)%omega_c_cc(rg_grid%npts_c))
@@ -321,6 +326,7 @@ module species_m
                 plasma_in%spec(sp)%dndr_cc(j)     = 0.5d0 * (plasma_in%spec(sp)%dndr(j)     + plasma_in%spec(sp)%dndr(j+1))
                 plasma_in%spec(sp)%T_cc(j)        = 0.5d0 * (plasma_in%spec(sp)%T(j)        + plasma_in%spec(sp)%T(j+1))
                 plasma_in%spec(sp)%dTdr_cc(j)     = 0.5d0 * (plasma_in%spec(sp)%dTdr(j)     + plasma_in%spec(sp)%dTdr(j+1))
+                plasma_in%spec(sp)%Vpar_cc(j)     = 0.5d0 * (plasma_in%spec(sp)%Vpar(j)     + plasma_in%spec(sp)%Vpar(j+1))
                 plasma_in%spec(sp)%nu_cc(j)       = 0.5d0 * (plasma_in%spec(sp)%nu(j)       + plasma_in%spec(sp)%nu(j+1))
                 plasma_in%spec(sp)%vT_cc(j)       = 0.5d0 * (plasma_in%spec(sp)%vT(j)       + plasma_in%spec(sp)%vT(j+1))
                 plasma_in%spec(sp)%omega_c_cc(j)  = 0.5d0 * (plasma_in%spec(sp)%omega_c(j)  + plasma_in%spec(sp)%omega_c(j+1))
@@ -401,8 +407,17 @@ module species_m
                 plasma_in%spec(sp)%x1(j) = plasma_in%kp(j) * plasma_in%spec(sp)%vT(j) / plasma_in%spec(sp)%nu(j)
                 do mphi = -mphi_max, mphi_max
                     plasma_in%spec(sp)%x2(j, mphi) = - (plasma_in%om_E(j) & !* ion_flr_scale_factor & !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!1
-                                                    + mphi * plasma%spec(sp)%omega_c(j)  - omega) &
+                                                    + mphi * plasma_in%spec(sp)%omega_c(j)  - omega) &
                                                     / plasma_in%spec(sp)%nu(j)
+                    ! Preserve the historical operation sequence bit-for-bit
+                    ! when Vpar=0; enabled drifting species receive the Doppler
+                    ! correction -k_parallel*Vpar/nu.
+                    if (abs(plasma_in%spec(sp)%Vpar(j)) > tiny(1.0_dp)) then
+                        plasma_in%spec(sp)%x2(j, mphi) = &
+                            plasma_in%spec(sp)%x2(j, mphi) - &
+                            plasma_in%kp(j)*plasma_in%spec(sp)%Vpar(j) / &
+                            plasma_in%spec(sp)%nu(j)
+                    end if
 
                     call getIfunc(plasma_in%spec(sp)%x1(j), plasma_in%spec(sp)%x2(j, mphi), plasma_in%spec(sp)%symbI)
                     plasma_in%spec(sp)%I00(j, mphi) = plasma_in%spec(sp)%symbI(0, 0)
@@ -434,6 +449,12 @@ module species_m
                     plasma_in%spec(sp)%x2_cc(j, mphi) = - (plasma_in%om_E_cc(j)  & !* ion_flr_scale_factor & !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
                                                         + mphi * plasma_in%spec(sp)%omega_c(j) - omega) &
                                                         / plasma_in%spec(sp)%nu_cc(j)
+                    if (abs(plasma_in%spec(sp)%Vpar_cc(j)) > tiny(1.0_dp)) then
+                        plasma_in%spec(sp)%x2_cc(j, mphi) = &
+                            plasma_in%spec(sp)%x2_cc(j, mphi) - &
+                            0.5_dp*(plasma_in%kp(j) + plasma_in%kp(j + 1))* &
+                            plasma_in%spec(sp)%Vpar_cc(j) / plasma_in%spec(sp)%nu_cc(j)
+                    end if
 
                     call getIfunc(plasma_in%spec(sp)%x1_cc(j), plasma_in%spec(sp)%x2_cc(j, mphi), plasma_in%spec(sp)%symbI)
                     plasma_in%spec(sp)%I00_cc(j, mphi) = plasma_in%spec(sp)%symbI(0, 0)
@@ -651,6 +672,9 @@ module species_m
             'Temperature T', 'eV')
         call write_profile(r_grid, spec%n, size(r_grid), 'backs/'//trim(spec%name)//'/n', &
             'Particle density n', '1/cm^3')
+        call write_profile(r_grid, spec%Vpar, size(r_grid), &
+            'backs/'//trim(spec%name)//'/Vpar', &
+            'Field-parallel equilibrium Maxwellian drift', 'cm/s')
 
     end subroutine
 
@@ -782,6 +806,7 @@ module species_m
                 plasma_temp%spec(sp)%dndr(i)     = sum(coef(0,:) * plasma_in%spec(sp)%dndr(ibeg:iend))
                 plasma_temp%spec(sp)%T(i)        = sum(coef(0,:) * plasma_in%spec(sp)%T(ibeg:iend))
                 plasma_temp%spec(sp)%dTdr(i)     = sum(coef(0,:) * plasma_in%spec(sp)%dTdr(ibeg:iend))
+                plasma_temp%spec(sp)%Vpar(i)     = sum(coef(0,:) * plasma_in%spec(sp)%Vpar(ibeg:iend))
                 plasma_temp%spec(sp)%nu(i)       = sum(coef(0,:) * plasma_in%spec(sp)%nu(ibeg:iend))
                 plasma_temp%spec(sp)%vT(i)       = sum(coef(0,:) * plasma_in%spec(sp)%vT(ibeg:iend))
                 plasma_temp%spec(sp)%omega_c(i)  = sum(coef(0,:) * plasma_in%spec(sp)%omega_c(ibeg:iend))
@@ -818,6 +843,7 @@ module species_m
         call reallocate(spec%dndr, grid_size)
         call reallocate(spec%T, grid_size)
         call reallocate(spec%dTdr, grid_size)
+        call reallocate(spec%Vpar, grid_size)
         call reallocate(spec%nu, grid_size)
         call reallocate(spec%vT, grid_size)
         call reallocate(spec%omega_c, grid_size)
@@ -1070,7 +1096,8 @@ module species_m
 
     end subroutine
 
-    subroutine set_profiles_from_arrays(r_in, n_in, Te_in, Ti_in, q_in, Er_in, npts)
+    subroutine set_profiles_from_arrays(r_in, n_in, Te_in, Ti_in, q_in, Er_in, &
+                                        npts, Vpar_in)
         !! Populate the module-level `plasma` struct from arrays passed by
         !! the caller (e.g. QL-Balance).  Replicates the effect of
         !! read_from_text but without file I/O.  Handles reallocation for
@@ -1089,6 +1116,9 @@ module species_m
         real(dp), intent(in) :: Ti_in(npts)
         real(dp), intent(in) :: q_in(npts)
         real(dp), intent(in) :: Er_in(npts)
+        ! Explicit field-parallel ion flow. All ions are enabled; electrons
+        ! remain stationary. Omission preserves the historical zero-flow path.
+        real(dp), intent(in), optional :: Vpar_in(npts)
 
         integer :: sigma, total_Z
 
@@ -1120,11 +1150,19 @@ module species_m
         call reallocate(plasma%spec(0)%T, npts)
         plasma%spec(0)%n = n_in
         plasma%spec(0)%T = Te_in
+        call reallocate(plasma%spec(0)%Vpar, npts)
+        plasma%spec(0)%Vpar = 0.0_dp
 
         ! Ion temperatures (all ion species get Ti)
         do sigma = 1, number_of_ion_species
             call reallocate(plasma%spec(sigma)%T, npts)
             plasma%spec(sigma)%T = Ti_in
+            call reallocate(plasma%spec(sigma)%Vpar, npts)
+            if (present(Vpar_in)) then
+                plasma%spec(sigma)%Vpar = Vpar_in
+            else
+                plasma%spec(sigma)%Vpar = 0.0_dp
+            end if
         end do
 
         ! Enforce quasineutrality for ion densities
@@ -1192,14 +1230,18 @@ module species_m
         use KIM_kinds_m, only: dp
         use setup_m, only: set_profiles_constant
         use grid_m, only: r_plas
+        use profile_input_m, only: read_parallel_flow_profile, FLOW_PROFILE_OK, &
+                                   FLOW_PROFILE_AMBIGUOUS_CONVENTION, &
+                                   FLOW_PROFILE_INCOMPATIBLE_COVERAGE
 
         implicit none
 
         integer :: i, sigma
         integer :: ierr
         integer :: ios
-        integer :: total_Z
+        integer :: total_Z, flow_info
         real(dp) :: r_temp
+        real(dp), allocatable :: Vpar(:)
 
         call log_info('Reading profiles from text files')
 
@@ -1261,6 +1303,31 @@ module species_m
         end do
         close(11)
 
+        ! Vz.dat is the toroidal/axial velocity used by force balance. The
+        ! profile-input module validates coverage and projects it once to the
+        ! field-parallel Maxwellian drift stored on every ion species.
+        allocate(Vpar(plasma%grid_size))
+        call read_parallel_flow_profile(plasma%r_grid, plasma%q, Vpar, flow_info)
+        if (flow_info /= FLOW_PROFILE_OK) then
+            if (flow_info == FLOW_PROFILE_AMBIGUOUS_CONVENTION) then
+                call log_error('Finite Vz profile requires parallel_flow_convention="toroidal"')
+            else if (flow_info == FLOW_PROFILE_INCOMPATIBLE_COVERAGE) then
+                call log_error('Vz profile does not cover the full plasma profile grid')
+            else
+                call log_error('Vz profile contains invalid flow data or geometry')
+            end if
+            error stop 'invalid equilibrium parallel-flow profile'
+        end if
+        do sigma = 0, number_of_ion_species
+            allocate(plasma%spec(sigma)%Vpar(plasma%grid_size))
+            if (sigma == 0) then
+                plasma%spec(sigma)%Vpar = 0.0_dp
+            else
+                plasma%spec(sigma)%Vpar = Vpar
+            end if
+        end do
+        deallocate(Vpar)
+
         total_Z = 0
         do sigma = 1, number_of_ion_species
             total_Z = total_Z + plasma%spec(sigma)%Zspec
@@ -1279,6 +1346,7 @@ module species_m
             do sigma = 0, number_of_ion_species
                 plasma%spec(sigma)%n(:) = plasma%spec(sigma)%n(1)
                 plasma%spec(sigma)%T(:) = plasma%spec(sigma)%T(1)
+                plasma%spec(sigma)%Vpar(:) = plasma%spec(sigma)%Vpar(1)
             end do
         end if
 

@@ -42,7 +42,7 @@ check["formula index exists", FileExistsQ[indexPath]];
 check["494 unique thesis equations indexed", Length[DeleteDuplicates[indexedEquations]] == 494];
 check["complete thesis equation labels", Sort[indexedEquations] === Sort[expectedEquations]];
 check["no duplicate thesis equation rows", DuplicateFreeQ[indexedEquations]];
-check["24 semantic code formula sites classified", Length[codeSiteRows] == 24];
+check["25 semantic code formula sites classified", Length[codeSiteRows] == 25];
 check["19 conventions classified", Length[conventionRows] == 19];
 
 codePaths = {
@@ -62,6 +62,7 @@ codePaths = {
   "KiLCA/flre/conductivity/calc_I_array_drift_serg.f90",
   "PreProc/fourier/src/rhs_flt.f90",
   "QL-Balance/src/base/getIfunc.f90",
+  "QL-Balance/src/base/W2_arr.f90",
   "QL-Balance/src/base/get_dql.f90",
   "QL-Balance/src/base/rhs_balance_m.f90",
   "QL-Balance/src/base/calc_current_densities.f90",

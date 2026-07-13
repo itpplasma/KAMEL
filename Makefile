@@ -14,7 +14,9 @@ ifeq ($(origin LIBNEO_PATH),command line)
 endif
 
 .PHONY: all ninja test clean KIM KiLCA QL-Balance PreProc install install-kim ctest golden pytest \
-	verify-mathematica-inventory verify-mathematica-inventory-negative
+	verify-mathematica-inventory verify-mathematica-inventory-negative \
+	verify-mathematica-susceptibilities verify-mathematica-susceptibilities-negative \
+	regenerate-fp-susceptibility-oracle
 
 all: ninja
 
@@ -56,6 +58,23 @@ verify-mathematica-inventory-negative:
 			echo "negative fixture rejected: $$fixture"; \
 		fi; \
 	done
+
+verify-mathematica-susceptibilities:
+	@test -n "$(WOLFRAM_KERNEL)" || { echo "WolframKernel not found; set WOLFRAM_KERNEL"; exit 1; }
+	$(WOLFRAM_KERNEL) -noinit -noprompt -script verification/mathematica/02_kinetic_and_susceptibilities.wl
+
+verify-mathematica-susceptibilities-negative:
+	@for fixture in wrong-branch thermal-speed flow-sign recurrence-index; do \
+		if KAMEL_VERIFY_NEGATIVE_FIXTURE=$$fixture $(MAKE) --no-print-directory verify-mathematica-susceptibilities >/dev/null 2>&1; then \
+			echo "negative fixture unexpectedly passed: $$fixture"; exit 1; \
+		else \
+			echo "negative fixture rejected: $$fixture"; \
+		fi; \
+	done
+
+regenerate-fp-susceptibility-oracle:
+	@test -n "$(WOLFRAM_KERNEL)" || { echo "WolframKernel not found; set WOLFRAM_KERNEL"; exit 1; }
+	KAMEL_REGENERATE_ORACLE=1 $(WOLFRAM_KERNEL) -noinit -noprompt -script verification/mathematica/02_kinetic_and_susceptibilities.wl
 
 # Golden-record regression now lives in test/golden/ and runs in the dedicated
 # GitHub Actions job, NOT in `make test`/ctest. This target is for manual local

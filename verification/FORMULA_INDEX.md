@@ -559,7 +559,7 @@ path exists and that each code family has a source-to-check chain.
 | Site | Code symbol | Class | Thesis mapping | Verification |
 | --- | --- | --- | --- | --- |
 | KIM-01 | `KIM/src/background_equilibrium/species_mod.f90::calculate_plasma_backs` | vT, gyrofrequency, Larmor/Debye lengths, collision scale | (4.14)–(4.16), (5.8) | conventions script; #198 pending |
-| KIM-02 | `KIM/src/background_equilibrium/species_mod.f90::calculate_thermodynamic_forces_and_susc` | A1/A2, x1/x2, FP susceptibilities | (5.8), (5.12)–(5.20) | flow test; #194 pending |
+| KIM-02 | `KIM/src/background_equilibrium/species_mod.f90::calculate_thermodynamic_forces_and_susc` | A1/A2, x1/x2, FP susceptibilities | (5.8), (5.12)–(5.20) | flow test; independent #194 oracle |
 | KIM-03 | `KIM/src/background_equilibrium/calculate_equil.f90::calculate_equil` | h_theta/h_z, k_s, k_parallel, omega_E | (3.5), (5.18)–(5.20) | conventions script; #198 pending |
 | KIM-04 | `KIM/src/asymptotics/flr2_fourier_kernel.f90` | b_plus, b_cross, phases, charge/current kernels | Ch. 14 | #196 pending |
 | KIM-05 | `KIM/src/kernels/FP_kernel_plasma_prefacs.f90` | finite-radius FP kernel prefactors | Ch. 14 | #196 pending |
@@ -570,15 +570,16 @@ path exists and that each code family has a source-to-check chain.
 | KIM-10 | `KIM/src/grid/prepare_resonances.f90` | q_res=abs(m/n) | (3.5)–(3.6) | conventions script |
 | KIM-11 | `KIM/src/background_equilibrium/profile_input_m.f90` | radial force balance and Vz-to-Vparallel projection | (8.8)–(8.9) | profile/flow tests |
 | KIM-12 | `KIM/src/background_equilibrium/periodic_background.f90` | periodic primitive state and derivative reconstruction | Ch. 3, 8 | #198 pending |
-| KILCA-01 | `KiLCA/flre/conductivity/calc_I_array.f90::calc_Imn_array` | susceptibility-function definition | (5.12)–(5.17), App. A | #194 pending |
-| KILCA-02 | `KiLCA/solver/VER_5_STABLE/wave_stuff.f90` | plasma/cyclotron frequencies and dielectric response | Ch. 4–5 | #194/#197 pending |
-| KILCA-03 | `KiLCA/flre/conductivity/calc_I_array_drift_serg.f90` | drift/FP conductivity integrals | Ch. 5, App. A | #194 pending |
+| KILCA-01 | `KiLCA/flre/conductivity/calc_I_array.f90::calc_Imn_array` | susceptibility-function definition | (5.12)–(5.17), App. A | not exercised by KIM #194 oracle |
+| KILCA-02 | `KiLCA/solver/VER_5_STABLE/wave_stuff.f90` | plasma/cyclotron frequencies and dielectric response | Ch. 4–5 | not exercised by KIM #194 oracle; #197 pending |
+| KILCA-03 | `KiLCA/flre/conductivity/calc_I_array_drift_serg.f90` | drift/FP conductivity integrals | Ch. 5, App. A | not exercised by KIM #194 oracle |
 | KILCA-04 | `PreProc/fourier/src/rhs_flt.f90` | exp(-i m iota phi) field-line Fourier phase | (4.3) | conventions script |
-| QLB-01 | `QL-Balance/src/base/getIfunc.f90` | susceptibility functions | App. A | #194 pending |
+| QLB-01 | `QL-Balance/src/base/getIfunc.f90` | susceptibility functions | App. A | independent #194 oracle |
 | QLB-02 | `QL-Balance/src/base/get_dql.f90` | quasilinear transport coefficients | (6.11)–(6.16) | broader #199 |
 | QLB-03 | `QL-Balance/src/base/rhs_balance_m.f90::compute_particle_fluxes` | particle fluxes | (6.2), (6.11)–(6.16) | unit tests; broader #199 |
 | QLB-04 | `QL-Balance/src/base/rhs_balance_m.f90::compute_total_heat_fluxes` | heat fluxes | (6.9), (6.11)–(6.16) | unit tests; broader #199 |
 | QLB-05 | `QL-Balance/src/base/calc_current_densities.f90` | current moments and thermal speeds | (4.8), (5.8) | broader #199 |
+| QLB-06 | `QL-Balance/src/base/W2_arr.f90::W2_arr` | production differential FP moments consumed by KIM | (5.14)–(5.15), (A.1)–(A.3) | independent #194 oracle |
 | EQ-01 | `common/equil/mag_wrapper.f90::magfie` | cylindrical metric and field unit vector | Ch. 3 | #198 pending |
 | EQ-02 | `common/equil/equil_profiles.f90` | flux-surface equilibrium profiles | Ch. 3, 8 | #198 pending |
 | PRE-01 | `PreProc/fourier/src/fouriermodes.f90` | straight-field-line angle and equilibrium Fourier modes | (4.3), Ch. 7–8 | #198 pending |
@@ -586,8 +587,20 @@ path exists and that each code family has a source-to-check chain.
 
 ## Coverage policy
 
+### Fokker–Planck susceptibility oracle (#194)
+
+`verification/mathematica/02_kinetic_and_susceptibilities.wl` independently
+evaluates the generating integral (5.14)–(5.15), applies the energy-conserving
+rank-one correction (5.13), and traces `x1/x2` through (4.1), (4.26),
+(5.16)–(5.20), (2.52)–(2.54), and Appendix (A.1)–(A.29). The generated
+`verification/oracles/fp_susceptibilities.dat` covers every `I00`, `I20`,
+`I02`, `I01`, `I21`, `I22`, `I11`, and `I13` consumed by KIM, including
+finite flow, `m_phi=-1,0,+1`, near-resonance, strong-collision, and
+collisionless-scaled points. `test_fp_susceptibility_oracle` reads this file
+without requiring Mathematica and compares it to the production implementation.
+
 The inventory script requires all 494 thesis labels, all 19 convention rows,
-and all 24 semantic code sites. It rejects a missing equation, missing code
+and all 25 semantic code sites. It rejects a missing equation, missing code
 site/path, incompatible duplicate convention, or unclassified convention.
 Subsequent oracle issues replace “pending” statuses with deterministic
 script/test links; copying a formula here never upgrades its status.

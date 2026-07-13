@@ -1,6 +1,7 @@
 BeginPackage["checklib`"];
 
 check::usage = "check[name, condition] records one Boolean verification.";
+checkNumeric::usage = "checkNumeric[name, actual, expected, tolerance] checks a scaled numerical error.";
 registerConvention::usage = "registerConvention[name, definition, source] rejects incompatible duplicates.";
 registeredConventions::usage = "registeredConventions[] returns the convention registry.";
 resetChecks::usage = "resetChecks[] clears checks and registered conventions.";
@@ -21,6 +22,12 @@ check[name_String, condition_] := Module[{passed = TrueQ[condition]},
     Print["[FAIL] ", name]
   ];
   passed
+];
+
+checkNumeric[name_String, actual_, expected_, tolerance_] := Module[
+  {scale = Max[1, Abs[N[expected]]], error},
+  error = Abs[N[actual] - N[expected]]/scale;
+  check[name <> " (scaled error " <> ToString[ScientificForm[error, 3]] <> ")", error <= tolerance]
 ];
 
 registerConvention[name_String, definition_String, source_String] := Module[{},

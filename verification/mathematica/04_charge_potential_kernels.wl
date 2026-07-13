@@ -213,7 +213,8 @@ x1FromCase[c_] := c["kpar"] c["vT"]/c["nu"];
 x2FromCase[c_] := -(c["omegaE"] + c["kpar"] c["Vpar"] +
   c["mphi"] c["omegaC"] - c["omega"])/c["nu"];
 kernelParts[c_] := Module[
-  {rho, bp, bx, ph, x1, x2, i00, i20, f0, f2, dynamic, debye, total},
+  {rho, bp, bx, ph, x1, x2, i00, i20, i01, i21, f0, f2, dynamic,
+   rhoBDynamic, debye, total, speedOfLight = 29979245800},
   rho = Abs[c["vT"]/c["omegaC"]];
   bp = bPlus[c["ks"], c["kr"], c["krp"], rho];
   bx = bCross[c["ks"], c["kr"], c["krp"], rho];
@@ -221,18 +222,24 @@ kernelParts[c_] := Module[
   x1 = x1FromCase[c]; x2 = x2FromCase[c];
   i00 = fpConserving[0, 0, x1, x2];
   i20 = fpConserving[2, 0, x1, x2];
+  i01 = fpConserving[0, 1, x1, x2];
+  i21 = fpConserving[2, 1, x1, x2];
   f0 = flrDensity[bp, bx, c["mphi"]];
   f2 = flrEnergy[bp, bx, c["mphi"]];
   dynamic = ph kernelNormalization I c["vT"]^2 c["ks"] /
     (c["lambda"]^2 c["omegaC"] c["nu"]) *
     (i00 (c["A1"] f0 + c["A2"] f2) + c["A2"] i20 f0/2);
+  rhoBDynamic = -ph kernelNormalization c["vT"]^3 /
+    (c["lambda"]^2 c["omegaC"] c["nu"] speedOfLight) *
+    (i01 (c["A1"] f0 + c["A2"] f2) + c["A2"] i21 f0/2);
   debye = If[c["debye"] == 1 && c["mphi"] == 0,
     -ph kernelNormalization/c["lambda"]^2, 0];
   total = debye + dynamic;
   <|"rho" -> rho, "bp" -> bp, "bx" -> bx, "phase" -> ph,
     "x1" -> x1, "x2" -> x2, "I00" -> i00, "I20" -> i20,
+    "I01" -> i01, "I21" -> i21,
     "F0" -> f0, "F2" -> f2, "dynamic" -> dynamic,
-    "debyeTerm" -> debye, "total" -> total|>
+    "debyeTerm" -> debye, "total" -> total, "rhoBDynamic" -> rhoBDynamic|>
 ];
 
 (* Geometry and limit proofs do not assume a collision model. *)
@@ -283,9 +290,11 @@ oracleRows = Table[
       {ToString[c["debye"]]},
       formatNumber /@ {p["x1"], p["x2"], p["rho"], p["bp"], p["bx"],
         Re[p["phase"]], Im[p["phase"]], Re[p["I00"]], Im[p["I00"]],
-        Re[p["I20"]], Im[p["I20"]], p["F0"], p["F2"],
+        Re[p["I20"]], Im[p["I20"]], Re[p["I01"]], Im[p["I01"]],
+        Re[p["I21"]], Im[p["I21"]], p["F0"], p["F2"],
         Re[p["dynamic"]], Im[p["dynamic"]], Re[p["debyeTerm"]],
-        Im[p["debyeTerm"]], Re[p["total"]], Im[p["total"]]}
+        Im[p["debyeTerm"]], Re[p["total"]], Im[p["total"]],
+        Re[p["rhoBDynamic"]], Im[p["rhoBDynamic"]]}
     ]
   ],
   {c, cases}
@@ -304,7 +313,7 @@ oracleHeader = {
   "# Full finite-radius b+/bx include ks^2. The upstream Gaussian moment proves 1-b+-mphi.",
   "# Case 6 has bx=600; case 7 is zero-FLR; case 8 is Debye-only; cases 9-13 record mphi=-2..2.",
   "# Values generated at 70-digit working precision and committed with 34 digits.",
-  "# id charge lambdaD vT omegaC nu ks kr krp rg mphi A1 A2 kpar omegaE Vpar omega debye x1 x2 rhoL bplus bcross phaseRe phaseIm I00Re I00Im I20Re I20Im F0 F2 dynamicRe dynamicIm debyeRe debyeIm totalRe totalIm"
+  "# id charge lambdaD vT omegaC nu ks kr krp rg mphi A1 A2 kpar omegaE Vpar omega debye x1 x2 rhoL bplus bcross phaseRe phaseIm I00Re I00Im I20Re I20Im I01Re I01Im I21Re I21Im F0 F2 rhoPhiDynamicRe rhoPhiDynamicIm debyeRe debyeIm rhoPhiTotalRe rhoPhiTotalIm rhoBDynamicRe rhoBDynamicIm"
 };
 
 If[regenerate,
@@ -322,6 +331,10 @@ If[regenerate,
     If[Length[committedRows] == Length[oracleRows],
       Do[
         checkNumeric["kernel oracle row " <> ToString[row],
+          committedRows[[row, -4]] + I committedRows[[row, -3]],
+          parseNumber[oracleRows[[row, -4]]] + I parseNumber[oracleRows[[row, -3]]],
+          10^-30];
+        checkNumeric["rho-B oracle row " <> ToString[row],
           committedRows[[row, -2]] + I committedRows[[row, -1]],
           parseNumber[oracleRows[[row, -2]]] + I parseNumber[oracleRows[[row, -1]]],
           10^-30],

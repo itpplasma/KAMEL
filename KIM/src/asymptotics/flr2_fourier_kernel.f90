@@ -1,7 +1,8 @@
 module flr2_fourier_kernel_m
-    ! Fused Fokker-Planck off-diagonal Fourier-space kernel integrand
-    ! G(k_r, k'_r, r_g) for the forced-periodicity solver. Collapses to the
-    ! diagonal source-of-truth calc_hatK_Phi_in_Fourier at k_r = k'_r.
+    ! Oracle-verified Fokker-Planck off-diagonal Fourier-space kernel integrand
+    ! G(k_r, k'_r, r_g) for the forced-periodicity solver. Production uses the
+    ! full finite-radius k_perp model; the historical radial-only diagonal is
+    ! retained as an explicitly named approximation for compatibility checks.
     use KIM_kinds_m, only: dp
     use species_m, only: plasma_t
     implicit none
@@ -9,132 +10,258 @@ module flr2_fourier_kernel_m
     public :: hatG_rho_phi, hatG_rho_B
     public :: hatG_rho_phi_diag_sp, hatG_rho_B_diag_sp
     public :: core_rho_phi_sp, core_rho_B_sp
-    public :: scaled_bessel_pair
+    public :: scaled_bessel_pair, flr_arg_pair
+    public :: fp_rho_phi_harmonic, fp_rho_B_harmonic, fp_rho_phi_debye
 
-    ! FLR-parameter convention for the two-wavenumber kernel. When .false.
-    ! (default) the perpendicular wavenumber k_s is dropped from b_+ / b_x, so
-    ! the kernel depends only on the radial wavenumbers k_r, k'_r and collapses
-    ! exactly to the diagonal source-of-truth calc_hatK_Phi_in_Fourier. The
-    ! .true. path reintroduces k_s^2 via kperp = sqrt(k_s^2 + k_r^2) (see
-    ! hatG_rho_phi) — the canonical form of the recovered kernel_mod.f90.
-    logical, save, public :: kern_include_ks2 = .false.
+    integer, parameter, public :: FP_KPERP_FULL = 1
+    integer, parameter, public :: FP_KR_ONLY_APPROX = 2
+    integer, save, public :: fp_ks_model = FP_KPERP_FULL
 contains
+    pure subroutine flr_arg_pair(ks, kr, krp, rho_L, model, bplus, bcross, status)
+        use, intrinsic :: ieee_arithmetic, only: ieee_is_finite
+        real(dp), intent(in) :: ks, kr, krp, rho_L
+        integer, intent(in) :: model
+        real(dp), intent(out) :: bplus, bcross
+        integer, intent(out) :: status
+        real(dp) :: rho_L2
+
+        status = 0
+        bplus = 0.0_dp
+        bcross = 0.0_dp
+        if (.not. ieee_is_finite(kr) .or. .not. ieee_is_finite(krp) .or. &
+            .not. ieee_is_finite(rho_L) .or. rho_L < 0.0_dp) then
+            status = 1
+            return
+        end if
+
+        rho_L2 = rho_L*rho_L
+        select case (model)
+        case (FP_KPERP_FULL)
+            if (.not. ieee_is_finite(ks)) then
+                status = 2
+                return
+            end if
+            bplus = rho_L2*(2.0_dp*ks*ks + kr*kr + krp*krp)/2.0_dp
+            bcross = rho_L2*sqrt(ks*ks + kr*kr)*sqrt(ks*ks + krp*krp)
+        case (FP_KR_ONLY_APPROX)
+            bplus = rho_L2*(kr*kr + krp*krp)/2.0_dp
+            bcross = rho_L2*abs(kr*krp)
+        case default
+            status = 3
+        end select
+    end subroutine flr_arg_pair
+
     subroutine flr_arg_pair_sp(plasma_in, sp, kr, krp, j, bplus, bcross)
-        ! Shared FLR argument pair (b_+, b_x) for the two-wavenumber kernels.
-        ! Single home for the kern_include_ks2 branch used by both hatG_rho_phi
-        ! and hatG_rho_B. When .false. (default) the perpendicular wavenumber
-        ! k_s is dropped, so the pair depends only on the radial wavenumbers
-        ! k_r, k'_r and collapses exactly to the diagonal source-of-truth. The
-        ! .true. path reintroduces k_s^2 via kperp = sqrt(k_s^2 + k_r^2), giving
-        ! b_+ = rho_L^2/2 (kperp^2 + kperpp^2) and b_x = rho_L^2 kperp kperpp.
         type(plasma_t), intent(in) :: plasma_in
         integer, intent(in) :: sp, j
         real(dp), intent(in) :: kr, krp
         real(dp), intent(out) :: bplus, bcross
-        real(dp) :: rho_L2, ks
+        integer :: status
 
-        rho_L2 = plasma_in%spec(sp)%rho_L(j)**2.0d0
-        if (kern_include_ks2) then
-            ks = plasma_in%ks(j)
-            bplus = rho_L2 * (2.0d0 * ks**2 + kr**2 + krp**2) / 2.0d0
-            bcross = rho_L2 * sqrt(ks**2 + kr**2) * sqrt(ks**2 + krp**2)
-        else
-            bplus = rho_L2 * (kr**2 + krp**2) / 2.0d0
-            bcross = rho_L2 * abs(kr * krp)
-        end if
+        call flr_arg_pair(plasma_in%ks(j), kr, krp, plasma_in%spec(sp)%rho_L(j), &
+            fp_ks_model, bplus, bcross, status)
+        if (status /= 0) error stop 'invalid finite-radius FLR arguments'
     end subroutine flr_arg_pair_sp
 
-    subroutine scaled_bessel_pair(bplus, bcross, sI0, sIm1)
-        ! Overflow-safe scaled modified Bessel products:
-        !   sI0  = exp(-bplus) * I_0(bcross)
-        !   sIm1 = exp(-bplus) * I_{-1}(bcross)
-        ! For large bcross the unscaled I_n(bcross) would overflow before the
-        ! exp(-bplus) damping (b_+ >= b_x by construction), so use the large-
-        ! argument asymptotics (lifted from the recovered kernel_mod.f90).
+    subroutine scaled_bessel_harmonic(bplus, bcross, order, value, status)
         use fortnum_special, only: bessel_in
         real(dp), intent(in) :: bplus, bcross
-        real(dp), intent(out) :: sI0, sIm1
-        real(dp), parameter :: asymptotic_threshold = 500.0d0  ! safely below the ~710 I_0 overflow
-        real(dp), parameter :: twopi = 6.283185307179586d0
+        integer, intent(in) :: order
+        real(dp), intent(out) :: value
+        integer, intent(out) :: status
+        real(dp), parameter :: asymptotic_threshold = 500.0_dp
+        real(dp), parameter :: twopi = 6.283185307179586_dp
+        real(dp) :: mu, term, series
+        integer :: k, n
 
-        if (bcross > asymptotic_threshold) then
-            sI0  = exp(bcross - bplus) / sqrt(twopi * bcross)
-            sIm1 = exp(-bplus + asinh(-1.0d0/bcross) + bcross*sqrt(1.0d0 + 1.0d0/bcross**2)) &
-                   / sqrt(twopi * bcross * sqrt(1.0d0 + 1.0d0/bcross**2))
-        else
-            sI0  = exp(-bplus) * bessel_in(0, bcross)
-            sIm1 = exp(-bplus) * bessel_in(-1, bcross)
+        status = 0
+        value = 0.0_dp
+        if (bcross < 0.0_dp .or. bplus < 0.0_dp .or. &
+            bplus + 128.0_dp*epsilon(1.0_dp)*max(1.0_dp, bplus) < bcross) then
+            status = 1
+            return
         end if
+        n = abs(order)
+        if (bcross == 0.0_dp) then
+            if (n == 0) value = exp(-bplus)
+        else if (bcross > asymptotic_threshold) then
+            mu = 4.0_dp*real(n*n, dp)
+            series = 1.0_dp
+            term = 1.0_dp
+            do k = 1, 5
+                term = term * (-(mu - real((2*k - 1)**2, dp))) / &
+                    (real(k, dp)*8.0_dp*bcross)
+                series = series + term
+            end do
+            value = exp(bcross - bplus)*series/sqrt(twopi*bcross)
+        else
+            value = exp(-bplus)*bessel_in(n, bcross)
+        end if
+    end subroutine scaled_bessel_harmonic
+
+    subroutine scaled_bessel_pair(bplus, bcross, sI0, sIm1)
+        real(dp), intent(in) :: bplus, bcross
+        real(dp), intent(out) :: sI0, sIm1
+        integer :: status
+
+        call scaled_bessel_harmonic(bplus, bcross, 0, sI0, status)
+        if (status /= 0) error stop 'invalid scaled Bessel arguments'
+        call scaled_bessel_harmonic(bplus, bcross, -1, sIm1, status)
+        if (status /= 0) error stop 'invalid scaled Bessel arguments'
     end subroutine scaled_bessel_pair
 
-    complex(dp) function hatG_rho_phi(plasma_in, kr, krp, j) result(G)
-        ! Fused two-wavenumber rho-Phi kernel Ghat^{rho Phi}(k_r, k'_r, r_g):
-        ! sum the per-species core over the non-turned-off species, then apply
-        ! the Fourier phase exp(i (k_r - k'_r) r_g) and the /(4*pi) source-of-
-        ! truth normalization. On the diagonal k_r = k'_r the FLR pair collapses
-        ! to a single b and the phase is unity, so this equals the diagonal
-        ! integrand summed over species and divided by 4*pi (collapse by
-        ! construction, since the diagonal shares this same core).
-        use grid_m, only: rg_grid
+    subroutine fp_rho_phi_harmonic(lambda_D, vT, omega_c, nu, ks, kr, krp, rg, &
+            mphi, A1, A2, I00, I20, model, value, status)
         use constants_m, only: pi, com_unit
+        real(dp), intent(in) :: lambda_D, vT, omega_c, nu, ks, kr, krp, rg
+        integer, intent(in) :: mphi, model
+        real(dp), intent(in) :: A1, A2
+        complex(dp), intent(in) :: I00, I20
+        complex(dp), intent(out) :: value
+        integer, intent(out) :: status
+        real(dp) :: bplus, bcross, sIm, sImm1, energy_moment, alpha, alphap
+        complex(dp) :: phase
+
+        value = (0.0_dp, 0.0_dp)
+        if (lambda_D <= 0.0_dp .or. omega_c == 0.0_dp .or. nu <= 0.0_dp) then
+            status = 4
+            return
+        end if
+        call flr_arg_pair(ks, kr, krp, abs(vT/omega_c), model, bplus, bcross, status)
+        if (status /= 0) return
+        call scaled_bessel_harmonic(bplus, bcross, mphi, sIm, status)
+        if (status /= 0) return
+        call scaled_bessel_harmonic(bplus, bcross, mphi - 1, sImm1, status)
+        if (status /= 0) return
+
+        energy_moment = (1.0_dp - bplus - real(mphi, dp))*sIm + bcross*sImm1
+        alpha = atan2(kr, ks)
+        alphap = atan2(krp, ks)
+        phase = exp(com_unit*((kr - krp)*rg + real(mphi, dp)*(alphap - alpha)))
+        value = phase/(4.0_dp*pi*lambda_D**2) * com_unit*vT**2*ks/(omega_c*nu) * &
+            (I00*(A1*sIm + A2*energy_moment) + 0.5_dp*A2*I20*sIm)
+    end subroutine fp_rho_phi_harmonic
+
+    subroutine fp_rho_B_harmonic(lambda_D, vT, omega_c, nu, ks, kr, krp, rg, &
+            mphi, A1, A2, I01, I21, model, value, status)
+        use constants_m, only: pi, com_unit, sol
+        real(dp), intent(in) :: lambda_D, vT, omega_c, nu, ks, kr, krp, rg
+        integer, intent(in) :: mphi, model
+        real(dp), intent(in) :: A1, A2
+        complex(dp), intent(in) :: I01, I21
+        complex(dp), intent(out) :: value
+        integer, intent(out) :: status
+        real(dp) :: bplus, bcross, sIm, sImm1, energy_moment, alpha, alphap
+        complex(dp) :: phase
+
+        value = (0.0_dp, 0.0_dp)
+        if (lambda_D <= 0.0_dp .or. omega_c == 0.0_dp .or. nu <= 0.0_dp) then
+            status = 4
+            return
+        end if
+        call flr_arg_pair(ks, kr, krp, abs(vT/omega_c), model, bplus, bcross, status)
+        if (status /= 0) return
+        call scaled_bessel_harmonic(bplus, bcross, mphi, sIm, status)
+        if (status /= 0) return
+        call scaled_bessel_harmonic(bplus, bcross, mphi - 1, sImm1, status)
+        if (status /= 0) return
+
+        energy_moment = (1.0_dp - bplus - real(mphi, dp))*sIm + bcross*sImm1
+        alpha = atan2(kr, ks)
+        alphap = atan2(krp, ks)
+        phase = exp(com_unit*((kr - krp)*rg + real(mphi, dp)*(alphap - alpha)))
+        value = -phase/(4.0_dp*pi*lambda_D**2) * vT**3/(omega_c*nu*sol) * &
+            (I01*(A1*sIm + A2*energy_moment) + 0.5_dp*A2*I21*sIm)
+    end subroutine fp_rho_B_harmonic
+
+    pure subroutine fp_rho_phi_debye(lambda_D, kr, krp, rg, include_debye, value)
+        use constants_m, only: pi, com_unit
+        real(dp), intent(in) :: lambda_D, kr, krp, rg
+        logical, intent(in) :: include_debye
+        complex(dp), intent(out) :: value
+
+        value = (0.0_dp, 0.0_dp)
+        if (include_debye) then
+            value = -exp(com_unit*(kr - krp)*rg)/(4.0_dp*pi*lambda_D**2)
+        end if
+    end subroutine fp_rho_phi_debye
+
+    complex(dp) function hatG_rho_phi(plasma_in, kr, krp, j) result(G)
+        ! Full two-wavenumber rho-Phi kernel Ghat^{rho Phi}(k_r,k'_r,r_g).
+        ! Each retained harmonic carries its gyro-angle/radial Fourier phase,
+        ! finite-radius moments, and 1/(4*pi) normalization. The Debye term is
+        ! independent of m_phi and is therefore included exactly once/species.
+        use grid_m, only: rg_grid
         use config_m, only: turn_off_ions, turn_off_electrons
+        use config_m, only: artificial_debye_case
+        use setup_m, only: mphi_max
         type(plasma_t), intent(in) :: plasma_in
         real(dp), intent(in) :: kr, krp
         integer, intent(in) :: j
-        integer :: sp
-        real(dp) :: bplus, bcross
-        complex(dp) :: acc
+        integer :: sp, mphi, status
+        complex(dp) :: term
 
-        acc = (0.0_dp, 0.0_dp)
+        G = (0.0_dp, 0.0_dp)
         do sp = 0, plasma_in%n_species - 1
             if (turn_off_ions .and. sp >= 1) cycle
             if (turn_off_electrons .and. sp == 0) cycle
 
-            call flr_arg_pair_sp(plasma_in, sp, kr, krp, j, bplus, bcross)
-            acc = acc + core_rho_phi_sp(plasma_in, sp, bplus, bcross, j)
-        end do
+            call fp_rho_phi_debye(plasma_in%spec(sp)%lambda_D(j), kr, krp, &
+                rg_grid%xb(j), artificial_debye_case <= 1, term)
+            G = G + term
+            if (artificial_debye_case == 1) cycle
 
-        G = exp(com_unit * (kr - krp) * rg_grid%xb(j)) / (4.0d0 * pi) * acc
+            do mphi = -mphi_max, mphi_max
+                call fp_rho_phi_harmonic(plasma_in%spec(sp)%lambda_D(j), &
+                    plasma_in%spec(sp)%vT(j), plasma_in%spec(sp)%omega_c(j), &
+                    plasma_in%spec(sp)%nu(j), plasma_in%ks(j), kr, krp, rg_grid%xb(j), &
+                    mphi, plasma_in%spec(sp)%A1(j), plasma_in%spec(sp)%A2(j), &
+                    plasma_in%spec(sp)%I00(j, mphi), plasma_in%spec(sp)%I20(j, mphi), &
+                    fp_ks_model, term, status)
+                if (status /= 0) error stop 'invalid rho-Phi harmonic arguments'
+                G = G + term
+            end do
+        end do
     end function hatG_rho_phi
 
     complex(dp) function hatG_rho_B(plasma_in, kr, krp, j) result(G)
-        ! Fused two-wavenumber rho-B kernel Ghat^{rho B}(k_r, k'_r, r_g): sum the
-        ! signed per-species core over the non-turned-off species, then apply the
-        ! Fourier phase exp(i (k_r - k'_r) r_g) and the /(4*pi) source-of-truth
-        ! normalization. On the diagonal k_r = k'_r the FLR pair collapses to a
-        ! single b and the phase is unity, so this equals the diagonal integrand
-        ! summed over species and divided by 4*pi (collapse by construction).
-        ! rho-B has no Debye term (handled inside core_rho_B_sp).
+        ! Full two-wavenumber rho-B kernel Ghat^{rho B}(k_r,k'_r,r_g).
+        ! Each retained harmonic carries its gyro-angle/radial Fourier phase,
+        ! signed current moment, finite-radius factors, and 1/(4*pi)
+        ! normalization. rho-B has no Debye contribution.
         use grid_m, only: rg_grid
-        use constants_m, only: pi, com_unit
         use config_m, only: turn_off_ions, turn_off_electrons
+        use config_m, only: artificial_debye_case
+        use setup_m, only: mphi_max
         type(plasma_t), intent(in) :: plasma_in
         real(dp), intent(in) :: kr, krp
         integer, intent(in) :: j
-        integer :: sp
-        real(dp) :: bplus, bcross
-        complex(dp) :: acc
+        integer :: sp, mphi, status
+        complex(dp) :: term
 
-        acc = (0.0_dp, 0.0_dp)
+        G = (0.0_dp, 0.0_dp)
+        if (artificial_debye_case == 1) return
         do sp = 0, plasma_in%n_species - 1
             if (turn_off_ions .and. sp >= 1) cycle
             if (turn_off_electrons .and. sp == 0) cycle
 
-            call flr_arg_pair_sp(plasma_in, sp, kr, krp, j, bplus, bcross)
-            acc = acc + core_rho_B_sp(plasma_in, sp, bplus, bcross, j)
+            do mphi = -mphi_max, mphi_max
+                call fp_rho_B_harmonic(plasma_in%spec(sp)%lambda_D(j), &
+                    plasma_in%spec(sp)%vT(j), plasma_in%spec(sp)%omega_c(j), &
+                    plasma_in%spec(sp)%nu(j), plasma_in%ks(j), kr, krp, rg_grid%xb(j), &
+                    mphi, plasma_in%spec(sp)%A1(j), plasma_in%spec(sp)%A2(j), &
+                    plasma_in%spec(sp)%I01(j, mphi), plasma_in%spec(sp)%I21(j, mphi), &
+                    fp_ks_model, term, status)
+                if (status /= 0) error stop 'invalid rho-B harmonic arguments'
+                G = G + term
+            end do
         end do
-
-        G = exp(com_unit * (kr - krp) * rg_grid%xb(j)) / (4.0d0 * pi) * acc
     end function hatG_rho_B
 
     complex(dp) function core_rho_phi_sp(plasma_in, sp, bplus, bcross, j) result(G)
-        ! Per-species rho-Phi core (Debye + FP) parameterized by the FLR
-        ! argument pair (b_+, b_x). This is the single home for the rho-Phi
-        ! integrand math: the diagonal integrand calls it with bplus=bcross=b,
-        ! and the fused two-wavenumber kernel calls it with the off-diagonal
-        ! pair. b_+ scales exp(-b) and the (1 - b) polynomial factor; b_x is the
-        ! argument (and the leading multiplier) of the modified Bessel terms.
-        ! No phase, NO /(4*pi); species selection (turn_off_*) stays in callers.
+        ! Historical m_phi=0 per-species rho-Phi core used by diagonal
+        ! compatibility tests and diagnostics. The production off-diagonal
+        ! path uses fp_rho_phi_harmonic instead. No phase or 1/(4*pi).
         use config_m, only: artificial_debye_case
         use constants_m, only: com_unit
         type(plasma_t), intent(in) :: plasma_in
@@ -165,14 +292,9 @@ contains
     end function core_rho_phi_sp
 
     complex(dp) function core_rho_B_sp(plasma_in, sp, bplus, bcross, j) result(G)
-        ! Per-species rho-B core (SIGNED FP term) parameterized by the FLR
-        ! argument pair (b_+, b_x). Single home for the rho-B integrand math:
-        ! the diagonal integrand calls it with bplus=bcross=b, and the fused
-        ! two-wavenumber kernel calls it with the off-diagonal pair. b_+ scales
-        ! exp(-b) and the (1 - b) polynomial factor; b_x is the argument (and the
-        ! leading multiplier) of the modified Bessel terms. rho-B carries the
-        ! leading minus, so callers accumulate with '+'. NO Debye term, no phase,
-        ! NO /(4*pi); species selection (turn_off_*) stays in callers.
+        ! Historical m_phi=0 per-species signed rho-B core used by diagonal
+        ! compatibility tests and diagnostics. The production off-diagonal
+        ! path uses fp_rho_B_harmonic instead. No phase or 1/(4*pi).
         use config_m, only: artificial_debye_case
         use constants_m, only: sol
         type(plasma_t), intent(in) :: plasma_in
@@ -206,10 +328,10 @@ contains
         type(plasma_t), intent(in) :: plasma_in
         integer, intent(in) :: sp, j
         real(dp), intent(in) :: kr
-        real(dp) :: b
+        real(dp) :: b, bcross
 
-        b = (kr**2.0d0) * plasma_in%spec(sp)%rho_L(j)**2.0d0
-        G = core_rho_phi_sp(plasma_in, sp, b, b, j)
+        call flr_arg_pair_sp(plasma_in, sp, kr, kr, j, b, bcross)
+        G = core_rho_phi_sp(plasma_in, sp, b, bcross, j)
     end function hatG_rho_phi_diag_sp
 
     complex(dp) function hatG_rho_B_diag_sp(plasma_in, sp, kr, j) result(G)
@@ -221,9 +343,9 @@ contains
         type(plasma_t), intent(in) :: plasma_in
         integer, intent(in) :: sp, j
         real(dp), intent(in) :: kr
-        real(dp) :: b
+        real(dp) :: b, bcross
 
-        b = (kr**2.0d0) * plasma_in%spec(sp)%rho_L(j)**2.0d0
-        G = core_rho_B_sp(plasma_in, sp, b, b, j)
+        call flr_arg_pair_sp(plasma_in, sp, kr, kr, j, b, bcross)
+        G = core_rho_B_sp(plasma_in, sp, b, bcross, j)
     end function hatG_rho_B_diag_sp
 end module flr2_fourier_kernel_m

@@ -10,6 +10,7 @@ program test_fourier_periodic
     use kernels_m, only: kernel_rho_phi_of_kr_krp_rg
     use fourier_periodic_m, only: periodic_k_grid, assemble_periodic_kernel, &
                                   solve_periodic_potential, periodic_field_value
+    use rt_fourier_periodic_m, only: periodic_collision_model_supported
     use kernel_test_background_m, only: setup_uniform_background, require_close
 
     implicit none
@@ -25,6 +26,13 @@ program test_fourier_periodic
     complex(dp) :: kernel_matrix(n_k, n_k), rhs(n_k), phi_modes(n_k)
     complex(dp) :: analytic, value_a, value_b
     integer :: m, mp, sp
+
+    if (.not. periodic_collision_model_supported("Krook")) then
+        error stop "fourier_periodic rejects its implemented Krook model"
+    end if
+    if (periodic_collision_model_supported("FokkerPlanck")) then
+        error stop "fourier_periodic silently accepts unimplemented FP kernels"
+    end if
 
     call setup_uniform_background()
     k_modes = periodic_k_grid(period, n_modes)

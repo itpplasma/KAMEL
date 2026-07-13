@@ -20,6 +20,16 @@ module rt_fourier_periodic_m
 
 contains
 
+    pure logical function periodic_collision_model_supported(model)
+
+        implicit none
+
+        character(*), intent(in) :: model
+
+        periodic_collision_model_supported = trim(model) == "Krook"
+
+    end function periodic_collision_model_supported
+
     subroutine init_fourier_periodic(this)
 
         use species_m, only: plasma, set_plasma_quantities
@@ -28,7 +38,7 @@ contains
         use grid_m, only: rg_grid
         use setup_m, only: fp_r_res, fp_dr_layer, fp_dr_transition, &
                            fp_grid_points
-        use config_m, only: rescale_density
+        use config_m, only: collision_model, rescale_density
 
         implicit none
 
@@ -36,6 +46,10 @@ contains
 
         this%run_type = "fourier_periodic"
 
+        if (.not. periodic_collision_model_supported(collision_model)) then
+            error stop "fourier_periodic: only collision_model = Krook is &
+                &implemented"
+        end if
         if (rescale_density) then
             error stop "fourier_periodic: rescale_density is not supported; &
                 &the periodized collision frequencies would rescale twice"

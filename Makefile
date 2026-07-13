@@ -16,7 +16,8 @@ endif
 .PHONY: all ninja test clean KIM KiLCA QL-Balance PreProc install install-kim ctest golden pytest \
 	verify-mathematica-inventory verify-mathematica-inventory-negative \
 	verify-mathematica-susceptibilities verify-mathematica-susceptibilities-negative \
-	regenerate-fp-susceptibility-oracle
+	regenerate-fp-susceptibility-oracle verify-mathematica-charge-kernels \
+	verify-mathematica-charge-kernels-negative regenerate-rho-phi-kernel-oracle
 
 all: ninja
 
@@ -75,6 +76,24 @@ verify-mathematica-susceptibilities-negative:
 regenerate-fp-susceptibility-oracle:
 	@test -n "$(WOLFRAM_KERNEL)" || { echo "WolframKernel not found; set WOLFRAM_KERNEL"; exit 1; }
 	KAMEL_REGENERATE_ORACLE=1 $(WOLFRAM_KERNEL) -noinit -noprompt -script verification/mathematica/02_kinetic_and_susceptibilities.wl
+
+verify-mathematica-charge-kernels:
+	@test -n "$(WOLFRAM_KERNEL)" || { echo "WolframKernel not found; set WOLFRAM_KERNEL"; exit 1; }
+	@test -f verification/mathematica/04_charge_potential_kernels.wl || { echo "charge-kernel verification script not found"; exit 1; }
+	$(WOLFRAM_KERNEL) -noinit -noprompt -script verification/mathematica/04_charge_potential_kernels.wl
+
+verify-mathematica-charge-kernels-negative:
+	@for fixture in four-pi fourier-measure phase bessel-index bplus-sign hidden-ks2; do \
+		if KAMEL_VERIFY_NEGATIVE_FIXTURE=$$fixture $(MAKE) --no-print-directory verify-mathematica-charge-kernels >/dev/null 2>&1; then \
+			echo "negative fixture unexpectedly passed: $$fixture"; exit 1; \
+		else \
+			echo "negative fixture rejected: $$fixture"; \
+		fi; \
+	done
+
+regenerate-rho-phi-kernel-oracle:
+	@test -n "$(WOLFRAM_KERNEL)" || { echo "WolframKernel not found; set WOLFRAM_KERNEL"; exit 1; }
+	KAMEL_REGENERATE_ORACLE=1 $(WOLFRAM_KERNEL) -noinit -noprompt -script verification/mathematica/04_charge_potential_kernels.wl
 
 # Golden-record regression now lives in test/golden/ and runs in the dedicated
 # GitHub Actions job, NOT in `make test`/ctest. This target is for manual local

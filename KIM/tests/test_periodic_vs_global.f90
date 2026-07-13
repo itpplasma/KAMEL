@@ -47,6 +47,7 @@ program test_periodic_vs_global
 
     call run_global(r_prof, n_prof, Te_prof, Ti_prof, q_prof, Er_prof, &
                     r_global, phi_global, rm, rhoL_rm)
+    call assert_diagnostic_uses_reference_scale(rm, rhoL_rm)
     call run_periodic(r_prof, n_prof, Te_prof, Ti_prof, q_prof, Er_prof, &
                       r_periodic, phi_periodic)
 
@@ -58,18 +59,48 @@ program test_periodic_vs_global
 
 contains
 
+    subroutine assert_diagnostic_uses_reference_scale(rm, diagnostic_rho)
+        use config_m, only: turn_off_electrons, turn_off_ions
+        use species_m, only: plasma
+        use rt_electrostatic_periodic_m, only: select_periodic_reference_scale, &
+                                               PERIODIC_SCALE_OK
+
+        real(dp), intent(in) :: rm, diagnostic_rho
+        real(dp) :: selected_rho, tol
+        integer :: reference_species, info
+
+        call select_periodic_reference_scale(plasma, rm, .not. turn_off_electrons, &
+                                             .not. turn_off_ions, selected_rho, &
+                                             reference_species, info)
+        if (info /= PERIODIC_SCALE_OK) then
+            print *, 'FAIL: could not select the physical diagnostic scale, info =', info
+            error stop
+        end if
+        tol = 1.0e-10_dp * selected_rho
+        if (abs(diagnostic_rho - selected_rho) > tol) then
+            print *, 'FAIL: cross-check interval does not use the selected species scale'
+            print *, '  diagnostic rho_L =', diagnostic_rho
+            print *, '  selected species =', reference_species
+            print *, '  selected rho_L =', selected_rho
+            error stop
+        end if
+    end subroutine assert_diagnostic_uses_reference_scale
+
     subroutine run_global(r_prof, n_prof, Te_prof, Ti_prof, q_prof, Er_prof, &
                           r_out, phi_out, rm, rhoL_rm)
         ! Global electrostatic (FokkerPlanck, hat-basis) run. Captures deep
         ! copies of EBdat%Phi and EBdat%r_grid (the FIELD grid xl_grid%xb), and
         ! reads rm = r_res and rho_L(rm) off the GLOBAL plasma so the periodic
         ! run can be compared on the same resonant layer.
-        use config_m, only: profiles_in_memory, nml_config_path
-        use species_m, only: set_profiles_from_arrays
+        use config_m, only: profiles_in_memory, nml_config_path, &
+                            turn_off_electrons, turn_off_ions
+        use species_m, only: plasma, set_profiles_from_arrays
         use kim_base_m, only: kim_t
         use kim_mod_m, only: from_kim_factory_get_kim
         use kim_resonances_m, only: r_res
         use fields_m, only: EBdat
+        use rt_electrostatic_periodic_m, only: select_periodic_reference_scale, &
+                                               PERIODIC_SCALE_OK
 
         real(dp), intent(out) :: r_prof(npts), n_prof(npts), Te_prof(npts)
         real(dp), intent(out) :: Ti_prof(npts), q_prof(npts), Er_prof(npts)
@@ -78,7 +109,7 @@ contains
         real(dp), intent(out) :: rm, rhoL_rm
 
         class(kim_t), allocatable :: kim_g
-        integer :: N
+        integer :: N, reference_species, scale_info
 
         call make_test_profiles(npts, r_prof, n_prof, Te_prof, Ti_prof, &
                                 q_prof, Er_prof)
@@ -103,9 +134,11 @@ contains
             print *, 'FAIL: global run -- resonance not found, r_res = ', rm
             error stop
         end if
-        rhoL_rm = interp_rho_L(rm)
-        if (.not. (rhoL_rm > 0.0_dp)) then
-            print *, 'FAIL: global run -- rho_L(rm) not positive, = ', rhoL_rm
+        call select_periodic_reference_scale(plasma, rm, .not. turn_off_electrons, &
+                                             .not. turn_off_ions, rhoL_rm, &
+                                             reference_species, scale_info)
+        if (scale_info /= PERIODIC_SCALE_OK) then
+            print *, 'FAIL: global run -- invalid reference rho_L, info = ', scale_info
             error stop
         end if
 
@@ -132,7 +165,8 @@ contains
 
         print *, 'GLOBAL: max|Phi| = ', maxval(abs(phi_out)), &
                  ' on r in [', r_out(1), ',', r_out(N), '], N = ', N
-        print *, 'GLOBAL: rm = ', rm, ' rho_L(rm) = ', rhoL_rm
+        print *, 'GLOBAL: rm = ', rm, ' reference species = ', reference_species, &
+                 ' rho_L(rm) = ', rhoL_rm
 
         ! The global potential is expected to be finite; whether it is non-zero
         ! is a FINDING reported by cross_check (on this coarse in-memory
@@ -288,6 +322,9 @@ contains
                                 sqrt(sum(abs(pg_dc)**2)))
         rel_max_dc = safe_ratio(maxval(abs(diff_dc)), maxval(abs(pg_dc)))
 
+        call write_curve_data('periodic_vs_global_curve.dat', r_c(1:nc), &
+                              pg_c(1:nc), pp_c(1:nc), pg_dc, pp_dc)
+
         ! Soft gate: bail only on non-finite results, never on a large finite one.
         if (.not. ieee_is_finite(rel_L2) .or. .not. ieee_is_finite(rel_max) .or. &
             .not. ieee_is_finite(rel_L2_dc) .or. &
@@ -346,6 +383,29 @@ contains
         end if
         print *, ''
     end subroutine cross_check
+
+    subroutine write_curve_data(path, r, phi_global, phi_periodic, &
+                                phi_global_dc, phi_periodic_dc)
+        character(len=*), intent(in) :: path
+        real(dp), intent(in) :: r(:)
+        complex(dp), intent(in) :: phi_global(:), phi_periodic(:)
+        complex(dp), intent(in) :: phi_global_dc(:), phi_periodic_dc(:)
+        integer :: i, io_unit
+
+        open(newunit=io_unit, file=path, status='replace', action='write')
+        write(io_unit, '(A)') &
+            '# r_cm global_re global_im periodic_re periodic_im ' // &
+            'global_dc_re global_dc_im periodic_dc_re periodic_dc_im'
+        do i = 1, size(r)
+            write(io_unit, '(9(ES24.16,1X))') r(i), &
+                real(phi_global(i), dp), aimag(phi_global(i)), &
+                real(phi_periodic(i), dp), aimag(phi_periodic(i)), &
+                real(phi_global_dc(i), dp), aimag(phi_global_dc(i)), &
+                real(phi_periodic_dc(i), dp), aimag(phi_periodic_dc(i))
+        end do
+        close(io_unit)
+        print *, '  curve data                  = ', path
+    end subroutine write_curve_data
 
     real(dp) function safe_ratio(num, den) result(ratio)
         ! num/den, guarding against a zero (or tiny) denominator so an all-zero
@@ -420,28 +480,6 @@ contains
             end if
         end do
     end subroutine assert_finite
-
-    real(dp) function interp_rho_L(x) result(rhoLx)
-        ! 4-point Lagrange interpolation of the global electron Larmor radius
-        ! plasma%spec(0)%rho_L at radius x -- same stencil as the periodic
-        ! run-type uses to size its window, so rm/Delta match the solver.
-        use species_m, only: plasma
-        real(dp), intent(in) :: x
-        integer, parameter :: nlagr = 4, nder = 0
-        real(dp) :: coef(0:nder, nlagr)
-        integer :: gs, ir, ibeg, iend
-
-        gs = plasma%grid_size
-        call binsrc(plasma%r_grid, 1, gs, x, ir)
-        ibeg = max(1, ir - nlagr / 2)
-        iend = ibeg + nlagr - 1
-        if (iend > gs) then
-            iend = gs
-            ibeg = iend - nlagr + 1
-        end if
-        call plag_coeff(nlagr, nder, x, plasma%r_grid(ibeg:iend), coef)
-        rhoLx = sum(coef(0, :) * plasma%spec(0)%rho_L(ibeg:iend))
-    end function interp_rho_L
 
     subroutine make_test_profiles(npts, r_prof, n_prof, Te_prof, Ti_prof, &
                                   q_prof, Er_prof)

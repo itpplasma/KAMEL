@@ -25,6 +25,7 @@ program test_kim_solver_periodic
     implicit none
 
     call test_run_type_end_to_end()
+    call test_multi_ion_order_independence()
 
     print *, 'All tests PASSED'
     stop 0
@@ -33,8 +34,9 @@ contains
 
     subroutine test_run_type_end_to_end()
         use, intrinsic :: ieee_arithmetic, only: ieee_is_finite
-        use config_m, only: profiles_in_memory, nml_config_path
-        use species_m, only: plasma, set_profiles_from_arrays
+        use config_m, only: profiles_in_memory, nml_config_path, &
+                            periodic_dr_asis_scale, periodic_dr_tr_scale
+        use species_m, only: set_profiles_from_arrays
         use kim_base_m, only: kim_t
         use kim_mod_m, only: from_kim_factory_get_kim
         use kim_resonances_m, only: r_res
@@ -47,7 +49,7 @@ contains
         real(dp) :: Ti_prof(npts), q_prof(npts), Er_prof(npts)
         class(kim_t), allocatable :: kim_instance
 
-        real(dp) :: rm, r_lo, r_hi, tol
+        real(dp) :: rm, r_lo, r_hi, tol, rho_i_rm, expected_r_lo
         integer :: i, N
 
         call make_test_profiles(npts, r_prof, n_prof, Te_prof, Ti_prof, &
@@ -64,14 +66,23 @@ contains
         ! Full lifecycle through the new run-type.
         call from_kim_factory_get_kim('electrostatic_periodic', kim_instance)
         call kim_instance%init()
-        call kim_instance%run()
 
-        ! The resonance the run-type located (q = |m/n| = 3 on the global plasma).
+        ! Capture the reference scale from the TRUE global plasma before run()
+        ! redirects it onto the periodic window. This is the same state used by
+        ! run_electrostatic_periodic to derive and store the window parameters.
+        call prepare_resonances
         rm = r_res
         if (.not. (rm > 0.0_dp)) then
             print *, 'FAIL: resonance not found, r_res = ', rm
             error stop
         end if
+        rho_i_rm = interp_species_rho_L(1, rm)
+        if (.not. (rho_i_rm > 0.0_dp)) then
+            print *, 'FAIL: deuterium rho_L(rm) is not positive:', rho_i_rm
+            error stop
+        end if
+
+        call kim_instance%run()
         print *, 'resonant radius rm = ', rm
 
         N = rg_grid%npts_b
@@ -116,6 +127,14 @@ contains
         r_lo = EBdat%r_grid(1)
         r_hi = EBdat%r_grid(N)
         tol = 1.0e-8_dp * (1.0_dp + abs(rm))
+        expected_r_lo = rm - (periodic_dr_asis_scale + periodic_dr_tr_scale) * rho_i_rm
+        if (abs(r_lo - expected_r_lo) > tol) then
+            print *, 'FAIL: periodic window is not sized from deuterium rho_L'
+            print *, '  actual lower edge =', r_lo
+            print *, '  expected lower edge =', expected_r_lo
+            print *, '  deuterium rho_L(rm) =', rho_i_rm
+            error stop
+        end if
         if (abs(0.5_dp * (r_lo + r_hi) - rm) > (r_hi - r_lo) / real(N - 1, dp)) then
             print *, 'FAIL: window not centred on rm; midpoint =', &
                      0.5_dp * (r_lo + r_hi), ' rm =', rm
@@ -127,7 +146,157 @@ contains
         end if
         print *, 'PASS: EBdat%r_grid spans window [', r_lo, ',', r_hi, &
                  '] about rm =', rm
+
+        call assert_scale_metadata(rho_i_rm)
     end subroutine test_run_type_end_to_end
+
+    subroutine assert_scale_metadata(expected_rho)
+        use constants_m, only: pi
+        use config_m, only: output_path, periodic_dr_asis_scale, &
+                            periodic_dr_tr_scale, periodic_kmax_scale, periodic_n_rg
+
+        real(dp), intent(in) :: expected_rho
+        character(len=512) :: metadata_path, header
+        integer :: io_unit, io_status, reference_species, charge, M, n_rg
+        real(dp) :: mass, rho_ref, dx_asis, dx_tr, k_max, period, tol
+        logical :: exists
+
+        metadata_path = trim(output_path)//'setup/periodic_scale.dat'
+        inquire(file=trim(metadata_path), exist=exists)
+        if (.not. exists) then
+            print *, 'FAIL: periodic scale metadata was not stored at ', trim(metadata_path)
+            error stop
+        end if
+
+        open(newunit=io_unit, file=trim(metadata_path), status='old', action='read')
+        read(io_unit, '(A)', iostat=io_status) header
+        if (io_status /= 0 .or. index(header, 'reference_species') == 0) then
+            print *, 'FAIL: periodic scale metadata header is missing or invalid'
+            error stop
+        end if
+        read(io_unit, *, iostat=io_status) reference_species, charge, mass, rho_ref, &
+            dx_asis, dx_tr, k_max, M, n_rg
+        close(io_unit)
+        if (io_status /= 0) then
+            print *, 'FAIL: periodic scale metadata row could not be read'
+            error stop
+        end if
+
+        tol = 1.0e-10_dp * max(1.0_dp, expected_rho)
+        period = 2.0_dp * (periodic_dr_asis_scale + periodic_dr_tr_scale) * expected_rho
+        if (reference_species /= 1 .or. charge /= 1 .or. .not. (mass > 0.0_dp) .or. &
+            abs(rho_ref - expected_rho) > tol .or. &
+            abs(dx_asis - periodic_dr_asis_scale * expected_rho) > tol .or. &
+            abs(dx_tr - periodic_dr_tr_scale * expected_rho) > tol .or. &
+            abs(k_max - periodic_kmax_scale / expected_rho) > tol .or. &
+            M /= ceiling((periodic_kmax_scale / expected_rho) * period / (2.0_dp * pi)) .or. &
+            n_rg /= periodic_n_rg) then
+            print *, 'FAIL: stored periodic scale metadata does not match the run'
+            print *, '  species/Z/mass =', reference_species, charge, mass
+            print *, '  rho stored/expected/tol =', rho_ref, expected_rho, tol
+            print *, '  dx_asis stored/expected =', dx_asis, &
+                     periodic_dr_asis_scale * expected_rho
+            print *, '  dx_tr stored/expected =', dx_tr, &
+                     periodic_dr_tr_scale * expected_rho
+            print *, '  k_max stored/expected =', k_max, &
+                     periodic_kmax_scale / expected_rho
+            print *, '  M/N_rg stored =', M, n_rg, ' expected N_rg =', periodic_n_rg
+            error stop
+        end if
+        print *, 'PASS: periodic scale provenance stored in ', trim(metadata_path)
+    end subroutine assert_scale_metadata
+
+    subroutine test_multi_ion_order_independence()
+        integer, parameter :: masses_forward(2) = [2, 12]
+        integer, parameter :: masses_reverse(2) = [12, 2]
+        real(dp) :: lower_forward, lower_reverse, expected_forward, expected_reverse
+        real(dp) :: tol
+
+        call run_multi_ion_case(masses_forward, lower_forward, expected_forward)
+        call run_multi_ion_case(masses_reverse, lower_reverse, expected_reverse)
+
+        tol = 1.0e-8_dp * (1.0_dp + abs(expected_forward))
+        if (abs(lower_forward - expected_forward) > tol) then
+            print *, 'FAIL: forward-order window does not cover the largest ion rho_L'
+            print *, '  actual lower edge =', lower_forward
+            print *, '  expected lower edge =', expected_forward
+            error stop
+        end if
+        if (abs(lower_reverse - expected_reverse) > tol) then
+            print *, 'FAIL: reverse-order window does not cover the largest ion rho_L'
+            print *, '  actual lower edge =', lower_reverse
+            print *, '  expected lower edge =', expected_reverse
+            error stop
+        end if
+        if (abs(lower_forward - lower_reverse) > tol) then
+            print *, 'FAIL: reference scale depends on ion storage order'
+            print *, '  forward lower edge =', lower_forward
+            print *, '  reverse lower edge =', lower_reverse
+            error stop
+        end if
+        print *, 'PASS: largest active-ion rho_L is storage-order independent'
+    end subroutine test_multi_ion_order_independence
+
+    subroutine run_multi_ion_case(ion_masses, lower_edge, expected_lower_edge)
+        use config_m, only: profiles_in_memory, nml_config_path, &
+                            periodic_dr_asis_scale, periodic_dr_tr_scale
+        use species_m, only: plasma, set_profiles_from_arrays
+        use kim_base_m, only: kim_t
+        use kim_mod_m, only: from_kim_factory_get_kim
+        use kim_resonances_m, only: r_res
+        use fields_m, only: EBdat, EBdat_t
+
+        integer, intent(in) :: ion_masses(:)
+        real(dp), intent(out) :: lower_edge, expected_lower_edge
+        integer, parameter :: npts = 201
+        real(dp) :: r_prof(npts), n_prof(npts), Te_prof(npts)
+        real(dp) :: Ti_prof(npts), q_prof(npts), Er_prof(npts)
+        real(dp) :: rho_max
+        class(kim_t), allocatable :: kim_instance
+        integer :: sp
+
+        call make_test_profiles(npts, r_prof, n_prof, Te_prof, Ti_prof, &
+                                q_prof, Er_prof)
+        call write_test_namelist('./KIM_config_periodic_run_test.nml', ion_masses)
+        nml_config_path = './KIM_config_periodic_run_test.nml'
+
+        profiles_in_memory = .true.
+        call kim_init()
+        call set_profiles_from_arrays(r_prof, n_prof, Te_prof, Ti_prof, &
+                                      q_prof, Er_prof, npts)
+        EBdat = EBdat_t()
+        call from_kim_factory_get_kim('electrostatic_periodic', kim_instance)
+        call kim_instance%init()
+        call kim_instance%run()
+
+        rho_max = 0.0_dp
+        do sp = 1, plasma%n_species - 1
+            rho_max = max(rho_max, interp_species_rho_L(sp, r_res))
+        end do
+        lower_edge = EBdat%r_grid(1)
+        expected_lower_edge = r_res &
+            - (periodic_dr_asis_scale + periodic_dr_tr_scale) * rho_max
+    end subroutine run_multi_ion_case
+
+    real(dp) function interp_species_rho_L(sp, x) result(rhoLx)
+        use species_m, only: plasma
+        integer, intent(in) :: sp
+        real(dp), intent(in) :: x
+        integer, parameter :: nlagr = 4, nder = 0
+        real(dp) :: coef(0:nder, nlagr)
+        integer :: gs, ir, ibeg, iend
+
+        gs = plasma%grid_size
+        call binsrc(plasma%r_grid, 1, gs, x, ir)
+        ibeg = max(1, ir - nlagr / 2)
+        iend = ibeg + nlagr - 1
+        if (iend > gs) then
+            iend = gs
+            ibeg = iend - nlagr + 1
+        end if
+        call plag_coeff(nlagr, nder, x, plasma%r_grid(ibeg:iend), coef)
+        rhoLx = sum(coef(0, :) * plasma%spec(sp)%rho_L(ibeg:iend))
+    end function interp_species_rho_L
 
     subroutine make_test_profiles(npts, r_prof, n_prof, Te_prof, Ti_prof, &
                                   q_prof, Er_prof)
@@ -148,21 +317,27 @@ contains
         end do
     end subroutine make_test_profiles
 
-    subroutine write_test_namelist(path)
+    subroutine write_test_namelist(path, ion_masses)
         ! Minimal electrostatic-periodic FokkerPlanck configuration; m_mode = -6,
         ! n_mode = 2 makes q resonant at q = 3, type_br_field = 12 (constant Br).
         ! Deliberately OMITS the &KIM_PERIODIC group to prove the periodic_*
         ! config defaults apply when the optional namelist is absent.
         character(len=*), intent(in) :: path
-        integer :: iunit
+        integer, intent(in), optional :: ion_masses(:)
+        integer :: iunit, i, nions
+        logical :: custom_species
+
+        custom_species = present(ion_masses)
+        nions = 1
+        if (custom_species) nions = size(ion_masses)
 
         open(newunit=iunit, file=path, status='replace', action='write')
         write(iunit, '(A)') '&KIM_CONFIG'
-        write(iunit, '(A)') ' number_of_ion_species = 1'
+        write(iunit, '(A,I0)') ' number_of_ion_species = ', nions
         write(iunit, '(A)') ' artificial_debye_case = 0'
         write(iunit, '(A)') " type_of_run = 'electrostatic_periodic'"
         write(iunit, '(A)') " collision_model = 'FokkerPlanck'"
-        write(iunit, '(A)') ' read_species_from_namelist = .false.'
+        write(iunit, '(A,L1)') ' read_species_from_namelist = ', custom_species
         write(iunit, '(A)') ' turn_off_ions = .false.'
         write(iunit, '(A)') ' turn_off_electrons = .false.'
         write(iunit, '(A)') " plasma_type = 'D'"
@@ -170,6 +345,20 @@ contains
         write(iunit, '(A)') ' number_density_rescale = 1.0'
         write(iunit, '(A)') ' ion_flr_scale_factor = 1.0'
         write(iunit, '(A)') '/'
+        if (custom_species) then
+            write(iunit, '(A)') '&KIM_species'
+            write(iunit, '(A)', advance='no') ' ai ='
+            do i = 1, nions
+                write(iunit, '(1X,I0)', advance='no') ion_masses(i)
+            end do
+            write(iunit, *)
+            write(iunit, '(A)', advance='no') ' zi ='
+            do i = 1, nions
+                write(iunit, '(1X,I0)', advance='no') 1
+            end do
+            write(iunit, *)
+            write(iunit, '(A)') '/'
+        end if
         write(iunit, '(A)') '&WKB_DISPERSION'
         write(iunit, '(A)') '/'
         write(iunit, '(A)') '&KIM_IO'

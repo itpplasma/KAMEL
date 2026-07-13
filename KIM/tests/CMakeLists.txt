@@ -184,6 +184,8 @@ set_target_properties(test_periodic_solve PROPERTIES
                         OUTPUT_NAME test_periodic_solve.x
                         RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/tests/")
 target_link_libraries(test_periodic_solve KIM_lib kilca_lib lapack cerf ddeabm slatec)
+configure_file(${CMAKE_SOURCE_DIR}/verification/oracles/field_operator_matrices.dat
+               ${CMAKE_BINARY_DIR}/tests/field_operator_matrices.dat COPYONLY)
 add_test(NAME test_periodic_solve
          COMMAND ${CMAKE_BINARY_DIR}/tests/test_periodic_solve.x)
 set_tests_properties(test_periodic_solve PROPERTIES

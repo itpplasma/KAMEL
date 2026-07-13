@@ -215,7 +215,10 @@ contains
 
         integer, parameter :: npts = 201
         integer, parameter :: M = 32, ndiag = 41, nseq = 4
-        integer, parameter :: n_rg_seq(nseq) = [48, 96, 192, 384]
+        ! 2*M+1=65 coefficients require at least 65 endpoint-exclusive DFT
+        ! samples.  Starting at 48 aliases distinct harmonics and is no longer
+        ! accepted by the physical-lift projection gate.
+        integer, parameter :: n_rg_seq(nseq) = [72, 96, 192, 384]
 
         real(dp) :: r_prof(npts), n_prof(npts), Te_prof(npts)
         real(dp) :: Ti_prof(npts), q_prof(npts), Er_prof(npts)

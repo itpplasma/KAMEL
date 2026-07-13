@@ -18,7 +18,8 @@ module periodic_background_m
     implicit none
     private
 
-    public :: kim_aperfuns, sample_periodic_primitives, build_periodic_plasma
+    public :: kim_aperfuns, kim_geom_aperfuns
+    public :: sample_periodic_primitives, build_periodic_plasma
     public :: sample_periodic_species_profiles
     public :: reset_true_background_cache
 

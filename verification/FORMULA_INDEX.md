@@ -565,7 +565,7 @@ path exists and that each code family has a source-to-check chain.
 | KIM-05 | `KIM/src/kernels/FP_kernel_plasma_prefacs.f90` | finite-radius FP kernel prefactors | Ch. 14 | independent #196 derivation; production Fourier consumption #187 verified |
 | KIM-06 | `KIM/src/kernels/kernel.f90` | real-space charge/current kernels and 1/(4 pi) normalization | Ch. 13–14 | independent #196 derivation; off-diagonal normalization #187 verified; current moments #197 verified |
 | KIM-07 | `KIM/src/electrostatic_poisson/poisson.f90` | global Gaussian-CGS weak Poisson problem | (12.25), Ch. 15 | weak matrix, boundary term, and source sign verified by #197 |
-| KIM-08 | `KIM/src/electrostatic_poisson/periodic_solve.f90` | periodic Fourier Poisson matrix/RHS | (12.25), Ch. 15 | basis/operator/gauge oracle #197; deviation implementation #188 pending |
+| KIM-08 | `KIM/src/electrostatic_poisson/periodic_solve.f90` | periodic Fourier Poisson matrix/RHS | (12.25), Ch. 15 | basis/operator/gauge oracle #197; physical-space deviation and projection gate #188 verified |
 | KIM-09 | `KIM/src/asymptotics/FLR2_asymptotics.f90` | aligned potential and FLR2 limits | Ch. 5 | aligned phase/sign and real-field convention verified by #197 |
 | KIM-10 | `KIM/src/grid/prepare_resonances.f90` | q_res=abs(m/n) | (3.5)–(3.6) | conventions script |
 | KIM-11 | `KIM/src/background_equilibrium/profile_input_m.f90` | radial force balance and Vz-to-Vparallel projection | (8.8)–(8.9) | profile/flow tests |
@@ -637,7 +637,11 @@ current response and records why the thesis (14.6) `I02/I22` pair is rejected.
 `verification/oracles/field_operator_matrices.dat` commits 14 deterministic
 Fourier, hat, drive-transform, and current rows. Six negative fixtures mutate
 the source sign, boundary term, transform factor, kernel transpose, gauge, and
-an undeclared `k_s^2` term.
+an undeclared `k_s^2` term. `test_periodic_solve` consumes all rows and adds a
+manufactured complex physical-lift solve, explicit screened/vacuum zero-mode
+tests, and an under-resolved projection rejection. #188 reconstructs the
+non-periodic aligned lift in physical space and keeps its analytic radial
+second derivative distinct from the projected kinetic action.
 
 The inventory script requires all 494 thesis labels, all 19 convention rows,
 and all 25 semantic code sites. It rejects a missing equation, missing code

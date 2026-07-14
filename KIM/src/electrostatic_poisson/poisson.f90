@@ -49,7 +49,8 @@ module rt_electrostatic_m
 
     subroutine run_electrostatic(this)
 
-        use kernel_m, only: Krook_fill_kernel_phi, FP_fill_kernels, fill_kernels_krook_fp, kernel_spl_t
+        use kernel_m, only: Krook_fill_kernel_phi, FP_fill_kernels, fill_kernels_krook_fp, &
+                            assemble_configured_fp_charge, kernel_spl_t
         use kernel_adaptive_m, only: FP_fill_kernels_adaptive
         use grid_m, only: xl_grid
         use IO_collection_m, only: write_matrix, write_complex_profile, write_complex_profile_abs
@@ -133,7 +134,7 @@ module rt_electrostatic_m
             use species_m, only: plasma
             use flr2_asymptotics_m, only: calc_flr2_asymptotic_Phi_MA, calc_hatK_Phi_in_Fourier
             use kernel_m, only: write_kernels
-            use config_m, only: turn_off_electrons, turn_off_ions
+            use config_m, only: turn_off_electrons, turn_off_ions, ion_collision_model
 
             implicit none
 
@@ -149,6 +150,15 @@ module rt_electrostatic_m
                 case default
                     stop "Error: theta integration method not recognized."
             end select
+
+            call assemble_configured_fp_charge(kernel_rho_phi_llp, kernel_rho_B_llp)
+
+            if (trim(ion_collision_model) == 'collisionless') then
+                kernel_j_phi_llp%Kllp_i = (0.0_dp, 0.0_dp)
+                kernel_j_B_llp%Kllp_i = (0.0_dp, 0.0_dp)
+                kernel_j_phi_llp%Kllp = kernel_j_phi_llp%Kllp_e
+                kernel_j_B_llp%Kllp = kernel_j_B_llp%Kllp_e
+            end if
 
             call write_kernels(kernel_rho_phi_llp, kernel_rho_B_llp, kernel_j_phi_llp, kernel_j_B_llp)
 
@@ -171,8 +181,13 @@ module rt_electrostatic_m
             call write_complex_profile_abs(xl_grid%xb, EBdat%Phi, xl_grid%npts_b, "/fields/Phi_m", &
                 'Electrostatic potential perturbation Phi, solution of Poisson problem', 'statV')
             call calculate_current_density(jpar, EBdat%Phi, EBdat%Br, kernel_j_phi_llp%Kllp, kernel_j_B_llp%Kllp)
-            call write_complex_profile_abs(xl_grid%xb, jpar, xl_grid%npts_b, "/fields/jpar", &
-                'Parallel current density perturbation j_par calculated from Poisson solution', 'statA/cm^2')
+            if (trim(ion_collision_model) == 'collisionless') then
+                call write_complex_profile_abs(xl_grid%xb, jpar, xl_grid%npts_b, "/fields/jpar", &
+                    'Electron parallel current density; collisionless ion current is not modelled', 'statA/cm^2')
+            else
+                call write_complex_profile_abs(xl_grid%xb, jpar, xl_grid%npts_b, "/fields/jpar", &
+                    'Parallel current density perturbation j_par calculated from Poisson solution', 'statA/cm^2')
+            end if
 
             ! solve for electrons only, but use total phi in jpar calculation
             if (.not.turn_off_electrons) then

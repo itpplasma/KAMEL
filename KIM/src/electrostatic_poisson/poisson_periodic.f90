@@ -19,7 +19,11 @@ module rt_electrostatic_periodic_m
             procedure :: run => run_electrostatic_periodic
     end type electrostatic_periodic_t
 
-    public :: compute_periodic_delta_phi
+    integer, parameter, public :: PERIODIC_SCALE_OK = 0
+    integer, parameter, public :: PERIODIC_SCALE_NO_ACTIVE = 1
+    integer, parameter, public :: PERIODIC_SCALE_INVALID_RHO = 2
+
+    public :: compute_periodic_delta_phi, select_periodic_reference_scale
 
     contains
 
@@ -59,6 +63,80 @@ module rt_electrostatic_periodic_m
 
         dPhi = reconstruct_delta_phi(Phi_m, L, M, r_out)
     end subroutine compute_periodic_delta_phi
+
+    !> Select the largest Larmor radius among species active in the FP kernel.
+    subroutine select_periodic_reference_scale(plasma_in, x, electrons_active, ions_active, &
+                                               rho_ref, reference_species, info)
+        use, intrinsic :: ieee_arithmetic, only: ieee_is_finite
+        use KIM_kinds_m, only: dp
+        use species_m, only: plasma_t
+
+        type(plasma_t), intent(in) :: plasma_in
+        real(dp), intent(in) :: x
+        logical, intent(in) :: electrons_active, ions_active
+        real(dp), intent(out) :: rho_ref
+        integer, intent(out) :: reference_species, info
+
+        real(dp) :: rho_sp
+        integer :: sp
+
+        rho_ref = 0.0_dp
+        reference_species = -1
+        info = PERIODIC_SCALE_NO_ACTIVE
+        if (plasma_in%n_species <= 0) return
+        if (.not. allocated(plasma_in%spec) .or. .not. allocated(plasma_in%r_grid) &
+            .or. plasma_in%grid_size < 4) then
+            info = PERIODIC_SCALE_INVALID_RHO
+            return
+        end if
+
+        do sp = 0, plasma_in%n_species - 1
+            if (.not. electrons_active .and. sp == 0) cycle
+            if (.not. ions_active .and. sp >= 1) cycle
+            if (.not. allocated(plasma_in%spec(sp)%rho_L) &
+                .or. size(plasma_in%spec(sp)%rho_L) < plasma_in%grid_size) then
+                reference_species = sp
+                info = PERIODIC_SCALE_INVALID_RHO
+                return
+            end if
+            rho_sp = interp_species_rho_L(plasma_in, sp, x)
+            if (.not. ieee_is_finite(rho_sp) .or. rho_sp <= 0.0_dp) then
+                rho_ref = rho_sp
+                reference_species = sp
+                info = PERIODIC_SCALE_INVALID_RHO
+                return
+            end if
+            if (rho_sp > rho_ref) then
+                rho_ref = rho_sp
+                reference_species = sp
+            end if
+        end do
+
+        if (reference_species >= 0) info = PERIODIC_SCALE_OK
+    end subroutine select_periodic_reference_scale
+
+    real(dp) function interp_species_rho_L(plasma_in, sp, x) result(rhoLx)
+        use KIM_kinds_m, only: dp
+        use species_m, only: plasma_t
+
+        type(plasma_t), intent(in) :: plasma_in
+        integer, intent(in) :: sp
+        real(dp), intent(in) :: x
+        integer, parameter :: nlagr = 4, nder = 0
+        real(dp) :: coef(0:nder, nlagr)
+        integer :: gs, ir, ibeg, iend
+
+        gs = plasma_in%grid_size
+        call binsrc(plasma_in%r_grid, 1, gs, x, ir)
+        ibeg = max(1, ir - nlagr / 2)
+        iend = ibeg + nlagr - 1
+        if (iend > gs) then
+            iend = gs
+            ibeg = iend - nlagr + 1
+        end if
+        call plag_coeff(nlagr, nder, x, plasma_in%r_grid(ibeg:iend), coef)
+        rhoLx = sum(coef(0, :) * plasma_in%spec(sp)%rho_L(ibeg:iend))
+    end function interp_species_rho_L
 
     !> Global setup, identical to the electrostatic run-type's init: build the
     !> grids and equilibrium and populate the GLOBAL plasma. run() reads the
@@ -105,13 +183,14 @@ module rt_electrostatic_periodic_m
         use KIM_kinds_m, only: dp
         use constants_m, only: pi
         use config_m, only: periodic_dr_asis_scale, periodic_dr_tr_scale, &
-                            periodic_kmax_scale, periodic_n_rg, hdf5_output
+                            periodic_kmax_scale, periodic_n_rg, hdf5_output, &
+                            turn_off_electrons, turn_off_ions
         use setup_m, only: Br_boundary_re, Br_boundary_im
         use species_m, only: plasma
         use grid_m, only: rg_grid
         use kim_resonances_m, only: r_res
         use fields_m, only: EBdat
-        use IO_collection_m, only: write_complex_profile_abs
+        use IO_collection_m, only: write_complex_profile_abs, write_periodic_scale_metadata
 
         implicit none
 
@@ -121,7 +200,7 @@ module rt_electrostatic_periodic_m
         complex(dp) :: Br_const
         real(dp), allocatable :: r_win(:)
         real(dp) :: rm, rhoL_rm, dx_asis, dx_tr, L, k_max
-        integer :: M, n_rg, info, i
+        integer :: M, n_rg, info, i, reference_species
 
         ! 1. Locate the resonant surface rm = r_res (q = |m/n|) on the global plasma.
         call prepare_resonances
@@ -131,13 +210,20 @@ module rt_electrostatic_periodic_m
         end if
         rm = r_res
 
-        ! 2. Representative Larmor radius rho_L(rm) (electrons) on the global
-        ! plasma via 4-point Lagrange interpolation.
-        rhoL_rm = interp_rho_L(rm)
-        if (.not. (rhoL_rm > 0.0_dp)) then
-            print *, "Error (electrostatic_periodic): rho_L(rm) not positive, = ", rhoL_rm
-            error stop "electrostatic_periodic: invalid rho_L(rm)"
-        end if
+        ! 2. Select the largest Larmor radius among the species that the FP
+        ! kernel will actually assemble. This keeps the full response of every
+        ! active species resolved and is independent of species storage order.
+        call select_periodic_reference_scale(plasma, rm, .not. turn_off_electrons, &
+                                             .not. turn_off_ions, rhoL_rm, &
+                                             reference_species, info)
+        select case (info)
+        case (PERIODIC_SCALE_NO_ACTIVE)
+            error stop "electrostatic_periodic: no active kinetic species"
+        case (PERIODIC_SCALE_INVALID_RHO)
+            print *, "Error (electrostatic_periodic): invalid rho_L for species ", &
+                     reference_species, " value = ", rhoL_rm
+            error stop "electrostatic_periodic: invalid active-species rho_L(rm)"
+        end select
 
         ! 3. Window geometry and Fourier cutoff from rho_L(rm).
         dx_asis = periodic_dr_asis_scale * rhoL_rm
@@ -147,8 +233,19 @@ module rt_electrostatic_periodic_m
         M       = ceiling(k_max * L / (2.0_dp * pi))
         n_rg    = periodic_n_rg
 
-        print *, "electrostatic_periodic: rm = ", rm, " rho_L(rm) = ", rhoL_rm
-        print *, "electrostatic_periodic: L = ", L, " M = ", M, " n_rg = ", n_rg
+        print *, "electrostatic_periodic: reference species = ", reference_species, &
+                 " Z = ", plasma%spec(reference_species)%Zspec, &
+                 " mass [g] = ", plasma%spec(reference_species)%mass
+        print *, "electrostatic_periodic: rm [cm] = ", rm, &
+                 " rho_L(rm) [cm] = ", rhoL_rm
+        print *, "electrostatic_periodic: dx_asis [cm] = ", dx_asis, &
+                 " dx_tr [cm] = ", dx_tr, " L [cm] = ", L
+        print *, "electrostatic_periodic: k_max [1/cm] = ", k_max, &
+                 " M = ", M, " n_rg = ", n_rg
+        call write_periodic_scale_metadata(reference_species, &
+            plasma%spec(reference_species)%Zspec, &
+            plasma%spec(reference_species)%mass, rhoL_rm, dx_asis, dx_tr, &
+            k_max, M, n_rg)
 
         ! 4. Window output grid: n_rg equidistant points on [rm - L/2, rm + L/2],
         ! bit-identical to the grid build_periodic_plasma installs as rg_grid%xb
@@ -187,29 +284,6 @@ module rt_electrostatic_periodic_m
                 'Electrostatic potential perturbation Phi, forced-periodicity solution', &
                 'statV')
         end if
-
-    contains
-
-        !> 4-point Lagrange interpolation of the global electron Larmor radius
-        !> plasma%spec(0)%rho_L at radius x, using the same binsrc + plag_coeff
-        !> stencil as the rest of KIM.
-        real(dp) function interp_rho_L(x) result(rhoLx)
-            real(dp), intent(in) :: x
-            integer, parameter :: nlagr = 4, nder = 0
-            real(dp) :: coef(0:nder, nlagr)
-            integer :: gs, ir, ibeg, iend
-
-            gs = plasma%grid_size
-            call binsrc(plasma%r_grid, 1, gs, x, ir)
-            ibeg = max(1, ir - nlagr/2)
-            iend = ibeg + nlagr - 1
-            if (iend > gs) then
-                iend = gs
-                ibeg = iend - nlagr + 1
-            end if
-            call plag_coeff(nlagr, nder, x, plasma%r_grid(ibeg:iend), coef)
-            rhoLx = sum(coef(0, :) * plasma%spec(0)%rho_L(ibeg:iend))
-        end function interp_rho_L
 
     end subroutine run_electrostatic_periodic
 

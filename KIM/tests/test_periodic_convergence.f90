@@ -25,6 +25,7 @@ program test_periodic_convergence
 
     implicit none
 
+    call test_reference_scale_validation()
     call test_core_on_fixed_grid()
     call test_nrg_convergence()
     call test_M_convergence()
@@ -35,10 +36,48 @@ program test_periodic_convergence
 
 contains
 
+    subroutine test_reference_scale_validation()
+        use, intrinsic :: ieee_arithmetic, only: ieee_quiet_nan, ieee_value
+        use species_m, only: plasma_t
+        use rt_electrostatic_periodic_m, only: select_periodic_reference_scale, &
+                                               PERIODIC_SCALE_NO_ACTIVE, &
+                                               PERIODIC_SCALE_INVALID_RHO
+
+        type(plasma_t) :: test_plasma
+        real(dp) :: rho_ref
+        integer :: sp, reference_species, info
+
+        test_plasma%n_species = 3
+        test_plasma%grid_size = 4
+        allocate(test_plasma%r_grid(4), test_plasma%spec(0:2))
+        test_plasma%r_grid = [0.0_dp, 1.0_dp, 2.0_dp, 3.0_dp]
+        do sp = 0, 2
+            allocate(test_plasma%spec(sp)%rho_L(4))
+            test_plasma%spec(sp)%rho_L = 0.1_dp * real(sp + 1, dp)
+        end do
+
+        call select_periodic_reference_scale(test_plasma, 1.5_dp, .false., .false., &
+                                             rho_ref, reference_species, info)
+        if (info /= PERIODIC_SCALE_NO_ACTIVE) then
+            print *, 'FAIL: selector did not reject a plasma with no active species'
+            error stop
+        end if
+
+        test_plasma%spec(2)%rho_L(2) = ieee_value(0.0_dp, ieee_quiet_nan)
+        call select_periodic_reference_scale(test_plasma, 1.5_dp, .true., .true., &
+                                             rho_ref, reference_species, info)
+        if (info /= PERIODIC_SCALE_INVALID_RHO) then
+            print *, 'FAIL: selector accepted a non-finite active-species rho_L'
+            print *, '  info =', info, ' reference species =', reference_species
+            error stop
+        end if
+        print *, 'PASS: reference-scale selector rejects invalid active species'
+    end subroutine test_reference_scale_validation
+
     subroutine test_core_on_fixed_grid()
         use, intrinsic :: ieee_arithmetic, only: ieee_is_finite
         use config_m, only: profiles_in_memory, nml_config_path
-        use species_m, only: plasma, set_profiles_from_arrays
+        use species_m, only: set_profiles_from_arrays
         use kim_base_m, only: kim_t
         use kim_mod_m, only: from_kim_factory_get_kim
         use kim_resonances_m, only: r_res
@@ -79,14 +118,15 @@ contains
         rm = r_res
         print *, 'resonant radius rm = ', rm
 
-        ! Representative electron Larmor radius at rm, via the SAME 4-point
-        ! Lagrange stencil the run-type uses to size its window.
+        ! Reference Larmor radius at rm, selected from the same active species
+        ! set used by the production run type.
         rhoL_rm = interp_rho_L(rm)
         if (.not. (rhoL_rm > 0.0_dp)) then
             print *, 'FAIL: rho_L(rm) not positive, = ', rhoL_rm
             error stop
         end if
-        print *, 'rho_L(rm) [electron] = ', rhoL_rm
+        call assert_convergence_uses_reference_scale(rm, rhoL_rm)
+        print *, 'rho_L(rm) [active-species reference] = ', rhoL_rm
 
         dx_asis =  5.0_dp * rhoL_rm
         dx_tr   = 10.0_dp * rhoL_rm
@@ -128,6 +168,33 @@ contains
         end if
         print *, 'PASS: dPhi non-zero, max|dPhi| =', maxval(abs(dPhi))
     end subroutine test_core_on_fixed_grid
+
+    subroutine assert_convergence_uses_reference_scale(rm, convergence_rho)
+        use config_m, only: turn_off_electrons, turn_off_ions
+        use species_m, only: plasma
+        use rt_electrostatic_periodic_m, only: select_periodic_reference_scale, &
+                                               PERIODIC_SCALE_OK
+
+        real(dp), intent(in) :: rm, convergence_rho
+        real(dp) :: selected_rho, tol
+        integer :: reference_species, info
+
+        call select_periodic_reference_scale(plasma, rm, .not. turn_off_electrons, &
+                                             .not. turn_off_ions, selected_rho, &
+                                             reference_species, info)
+        if (info /= PERIODIC_SCALE_OK) then
+            print *, 'FAIL: convergence harness could not select a physical scale'
+            error stop
+        end if
+        tol = 1.0e-10_dp * selected_rho
+        if (abs(convergence_rho - selected_rho) > tol) then
+            print *, 'FAIL: convergence scans do not use the selected species scale'
+            print *, '  convergence rho_L =', convergence_rho
+            print *, '  selected species =', reference_species
+            print *, '  selected rho_L =', selected_rho
+            error stop
+        end if
+    end subroutine assert_convergence_uses_reference_scale
 
     !> Phase-3 Task 2: r_g QUADRATURE convergence of the periodic solver.
     !>
@@ -193,7 +260,7 @@ contains
             error stop
         end if
         print *, 'resonant radius rm       = ', rm
-        print *, 'rho_L(rm) [electron]     = ', rhoL_rm
+        print *, 'rho_L(rm) [active-species reference] = ', rhoL_rm
 
         ! FIXED window (M and dx_asis / dx_tr do NOT change with n_rg): the only
         ! knob refined here is the r_g quadrature node count.
@@ -272,16 +339,16 @@ contains
     !> Phase-3 Task 3: FOURIER BASIS truncation convergence of the periodic
     !> solver.
     !>
-    !> With the r_g quadrature (n_rg = 192, converged in P3.2) and the window
+    !> With the r_g quadrature (n_rg = 512, converged in P3.2) and the window
     !> (dx_asis, dx_tr) FIXED, refine only the number of Fourier modes M (the
     !> basis has 2M+1 modes) and reconstruct delta-Phi on a FIXED diagnostic
     !> grid. The localized solution's Fourier coefficients decay for
     !> |k_m| >> 1/rho_L, so the Cauchy residual between successive M must fall
-    !> and beat 1e-2 by M ~ 24-32. A failure to converge is a real finding about
+    !> and beat 1e-2 at the finest tested M. A failure to converge is a real finding about
     !> the basis truncation or the k-resolution, not a reason to loosen the
     !> tolerance (bump n_rg first: the exp(i(k_m - k_m')r) quadrature is exact
-    !> for |m - m'| < n_rg by Nyquist, and 2M = 64 < 192, so n_rg = 192 resolves
-    !> M up to 32).
+    !> for |m - m'| < n_rg by Nyquist, and 2M = 256 < 512, so n_rg = 512 resolves
+    !> M up to 128).
     subroutine test_M_convergence()
         use config_m, only: profiles_in_memory, nml_config_path
         use species_m, only: set_profiles_from_arrays
@@ -291,8 +358,8 @@ contains
         use rt_electrostatic_periodic_m, only: compute_periodic_delta_phi
 
         integer, parameter :: npts = 201
-        integer, parameter :: n_rg = 192, ndiag = 41, nseq = 4
-        integer, parameter :: M_seq(nseq) = [8, 16, 24, 32]
+        integer, parameter :: n_rg = 512, ndiag = 41, nseq = 5
+        integer, parameter :: M_seq(nseq) = [32, 48, 64, 96, 128]
 
         real(dp) :: r_prof(npts), n_prof(npts), Te_prof(npts)
         real(dp) :: Ti_prof(npts), q_prof(npts), Er_prof(npts)
@@ -337,11 +404,10 @@ contains
             error stop
         end if
         print *, 'resonant radius rm       = ', rm
-        print *, 'rho_L(rm) [electron]     = ', rhoL_rm
+        print *, 'rho_L(rm) [active-species reference] = ', rhoL_rm
 
-        ! FIXED quadrature and window (only M is refined here). n_rg = 192 is the
-        ! P3.2-converged node count; it resolves the k-modes for M up to 32
-        ! (2M = 64 < 192, Nyquist).
+        ! FIXED quadrature and window (only M is refined here). n_rg = 512 is the
+        ! P3.2-converged node count; it resolves the k-modes for M up to 128.
         dx_asis =  5.0_dp * rhoL_rm
         dx_tr   = 10.0_dp * rhoL_rm
         print *, 'FIXED n_rg               = ', n_rg
@@ -372,7 +438,7 @@ contains
             end if
             dphi_k(:, k) = dPhi
         end do
-        print *, 'PASS: all four solves returned info == 0'
+        print *, 'PASS: all Fourier-refinement solves returned info == 0'
 
         ! Cauchy relative residual between successive refinements.
         res_L2  = 0.0_dp
@@ -394,18 +460,21 @@ contains
         print *, '-----------------------------------------------------------'
 
         ! Assert: the residual sequence DECREASES and the finest beats 1e-2.
-        decreasing = (res_L2(4) < res_L2(3)) .and. (res_L2(3) < res_L2(2))
+        decreasing = .true.
+        do k = 3, nseq
+            decreasing = decreasing .and. (res_L2(k) < res_L2(k - 1))
+        end do
         if (.not. decreasing) then
             print *, 'FAIL: res_L2 sequence does not decrease monotonically:'
-            print *, '   res_L2 =', res_L2(2), res_L2(3), res_L2(4)
+            print *, '   res_L2 =', res_L2(2:nseq)
             print *, '   -> real finding about basis truncation / k-resolution;'
             print *, '      investigate (bump n_rg first), do NOT loosen the'
             print *, '      threshold blindly.'
             error stop 'test_M_convergence: residual not decreasing'
         end if
-        if (.not. (res_L2(4) < 1.0e-2_dp)) then
-            print *, 'FAIL: finest res_L2(4) =', res_L2(4), ' not < 1.0e-2'
-            print *, '   res_L2 =', res_L2(2), res_L2(3), res_L2(4)
+        if (.not. (res_L2(nseq) < 1.0e-2_dp)) then
+            print *, 'FAIL: finest res_L2 =', res_L2(nseq), ' not < 1.0e-2'
+            print *, '   res_L2 =', res_L2(2:nseq)
             print *, '   -> Fourier basis has NOT converged; investigate (bump'
             print *, '      n_rg first), do NOT loosen the threshold blindly.'
             error stop 'test_M_convergence: basis not converged'
@@ -426,12 +495,14 @@ contains
     !>
     !> CRITICAL (design section 4.1): the NUMERICAL resolution is held constant
     !> across the scan so the residual measures PHYSICAL deformation, not
-    !> numerical under-resolution. As dx_asis grows, L = 2*(dx_asis + dx_tr)
-    !> grows, so M and n_rg are SCALED with L:
-    !>   M    = ceiling( (5/rhoL) * L / (2 pi) )  -> fixed k_max = 5/rhoL
-    !>   n_rg = ceiling( 16 * L / rhoL )          -> fixed 16 points per rho_L
-    !> The M formula matches the run-type's own sizing (periodic_kmax_scale = 5),
-    !> and n_rg sits well above the P3.2-converged density.
+    !> numerical under-resolution. Hold dx_tr fixed at 10 rho_L so dx_asis is
+    !> the only physical knob. As dx_asis grows, L = 2*(dx_asis + dx_tr) grows,
+    !> so M and n_rg are SCALED with L:
+    !>   M    = ceiling( (27/rhoL) * L / (2 pi) ) -> fixed converged k_max
+    !>   n_rg = max(ceiling(16 L/rhoL), 4 M)      -> converged quadrature/Nyquist
+    !> The cutoff follows the preceding M scan, where M=128 on the 15-rho_L
+    !> half-window reduced the Cauchy residual below 1e-2. This scan therefore
+    !> measures deformation rather than the known under-resolution at k_max=5/rho_L.
     !>
     !> SOFT GATE (this REPORTS the error bar, it does NOT tightly pass/fail): the
     !> test error-stops ONLY on a genuine defect -- non-finite / all-zero dPhi, a
@@ -500,7 +571,7 @@ contains
             error stop
         end if
         print *, 'resonant radius rm       = ', rm
-        print *, 'rho_L(rm) [electron]     = ', rhoL_rm
+        print *, 'rho_L(rm) [active-species reference] = ', rhoL_rm
 
         ! FIXED diagnostic grid: 41 equidistant points on [rm - 2 rho_L,
         ! rm + 2 rho_L]. The SAME physical grid is used for EVERY dx_asis, so the
@@ -513,16 +584,17 @@ contains
                       + 4.0_dp * rhoL_rm * real(i - 1, dp) / real(ndiag - 1, dp)
         end do
 
-        ! Scan the as-is half-width. Memo ratio dx_tr = 2*dx_asis => L = 6*dx_asis.
-        ! Hold the NUMERICAL resolution constant by scaling M and n_rg with L:
-        ! fixed k_max = 5/rho_L (matches the run-type) and fixed 16 pts / rho_L.
+        ! Scan ONLY the as-is half-width. Keep dx_tr fixed at the run-type's
+        ! configured 10-rho_L transition scale, and hold numerical resolution
+        ! constant by scaling M and n_rg with L. The fixed k_max = 27/rho_L is
+        ! justified by test_M_convergence above.
         do k = 1, nseq
             dx_asis = dx_asis_scale(k) * rhoL_rm
-            dx_tr   = 2.0_dp * dx_asis
+            dx_tr   = 10.0_dp * rhoL_rm
             L       = 2.0_dp * (dx_asis + dx_tr)
-            k_max   = 5.0_dp / rhoL_rm
+            k_max   = 27.0_dp / rhoL_rm
             M_seq(k)    = ceiling(k_max * L / (2.0_dp * pi))
-            n_rg_seq(k) = ceiling(16.0_dp * L / rhoL_rm)
+            n_rg_seq(k) = max(ceiling(16.0_dp * L / rhoL_rm), 4 * M_seq(k))
 
             print '(A,F6.1,A,ES14.6,A,I5,A,I6)', &
                 '   dx_asis = ', dx_asis_scale(k), ' rho_L  (=', dx_asis, &
@@ -620,25 +692,22 @@ contains
         print *, '=== test_dr_deformation_scan PASSED ==='
     end subroutine test_dr_deformation_scan
 
-    !> 4-point Lagrange interpolation of the global electron Larmor radius
-    !> plasma%spec(0)%rho_L at radius x, matching the run-type's interp_rho_L.
+    !> Active-species reference scale selected by the production run type.
     real(dp) function interp_rho_L(x) result(rhoLx)
+        use config_m, only: turn_off_electrons, turn_off_ions
         use species_m, only: plasma
+        use rt_electrostatic_periodic_m, only: select_periodic_reference_scale, &
+                                               PERIODIC_SCALE_OK
         real(dp), intent(in) :: x
-        integer, parameter :: nlagr = 4, nder = 0
-        real(dp) :: coef(0:nder, nlagr)
-        integer :: gs, ir, ibeg, iend
+        integer :: reference_species, info
 
-        gs = plasma%grid_size
-        call binsrc(plasma%r_grid, 1, gs, x, ir)
-        ibeg = max(1, ir - nlagr/2)
-        iend = ibeg + nlagr - 1
-        if (iend > gs) then
-            iend = gs
-            ibeg = iend - nlagr + 1
+        call select_periodic_reference_scale(plasma, x, .not. turn_off_electrons, &
+                                             .not. turn_off_ions, rhoLx, &
+                                             reference_species, info)
+        if (info /= PERIODIC_SCALE_OK) then
+            print *, 'FAIL: could not select convergence reference scale, info =', info
+            error stop
         end if
-        call plag_coeff(nlagr, nder, x, plasma%r_grid(ibeg:iend), coef)
-        rhoLx = sum(coef(0, :) * plasma%spec(0)%rho_L(ibeg:iend))
     end function interp_rho_L
 
     subroutine make_test_profiles(npts, r_prof, n_prof, Te_prof, Ti_prof, &

@@ -58,6 +58,62 @@ module IO_collection_m
 
     end subroutine write_KIM_namelist_to_hdf5
 
+    subroutine write_periodic_scale_metadata(reference_species, charge, mass, rho_ref, &
+                                             dx_asis, dx_tr, k_max, n_modes, n_rg)
+
+        use config_m, only: output_path, hdf5_output
+        use KAMEL_hdf5_tools, only: HID_T, h5_define_group, h5_open_group, &
+                                   h5_obj_exists, h5_add, h5_close_group
+
+        implicit none
+
+        integer, intent(in) :: reference_species, charge, n_modes, n_rg
+        real(dp), intent(in) :: mass, rho_ref, dx_asis, dx_tr, k_max
+
+        character(len=*), parameter :: header = &
+            '# reference_species charge mass_g rho_ref_cm dx_asis_cm dx_tr_cm ' // &
+            'k_max_cm_inv M N_rg'
+        integer :: iunit
+        integer(HID_T) :: h5grpid
+        logical :: ex
+
+        if (hdf5_output) then
+            call h5_obj_exists(h5id, 'setup/periodic_scale/', ex)
+            if (.not. ex) then
+                call h5_define_group(h5id, 'setup/periodic_scale/', h5grpid)
+            else
+                call h5_open_group(h5id, 'setup/periodic_scale/', h5grpid)
+            end if
+            call h5_add(h5grpid, 'reference_species', reference_species, &
+                        'Zero-based index of the species defining the periodic scale', '1')
+            call h5_add(h5grpid, 'charge', charge, &
+                        'Charge number of the periodic reference species', '1')
+            call h5_add(h5grpid, 'mass', mass, &
+                        'Mass of the periodic reference species', 'g')
+            call h5_add(h5grpid, 'rho_ref', rho_ref, &
+                        'Reference Larmor radius at the resonant surface', 'cm')
+            call h5_add(h5grpid, 'dx_asis', dx_asis, &
+                        'As-is half-width of the periodic window', 'cm')
+            call h5_add(h5grpid, 'dx_tr', dx_tr, &
+                        'Transition half-width of the periodic window', 'cm')
+            call h5_add(h5grpid, 'k_max', k_max, &
+                        'Maximum resolved radial wavenumber', '1/cm')
+            call h5_add(h5grpid, 'M', n_modes, &
+                        'Maximum positive periodic Fourier mode', '1')
+            call h5_add(h5grpid, 'N_rg', n_rg, &
+                        'Number of radial quadrature points', '1')
+            call h5_close_group(h5grpid)
+        else
+            open(newunit=iunit, file=trim(output_path)//'setup/periodic_scale.dat', &
+                 status='replace', action='write')
+            write(iunit, '(A)') header
+            write(iunit, *) reference_species, charge, mass, rho_ref, dx_asis, &
+                            dx_tr, k_max, n_modes, n_rg
+            close(iunit)
+        end if
+
+    end subroutine write_periodic_scale_metadata
+
     subroutine write_config_namelist_to_hdf5()
 
         use KAMEL_hdf5_tools, only: HID_T, h5_define_group, h5_obj_exists, h5_add, h5_close_group

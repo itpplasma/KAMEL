@@ -33,7 +33,8 @@ program test_periodic_solve
         solve_with_derived_gauge, solve_periodic_deviation, &
         reconstruct_delta_phi_from_lift, build_physical_c2_lift, &
         PERIODIC_SOLVE_OK, PERIODIC_SOLVE_GAUGE_REQUIRED, &
-        PERIODIC_SOLVE_INCOMPATIBLE_NULLSPACE, PERIODIC_SOLVE_PROJECTION_REJECTED
+        PERIODIC_SOLVE_INCOMPATIBLE_NULLSPACE, PERIODIC_SOLVE_PROJECTION_REJECTED, &
+        PERIODIC_SOLVE_RCOND_TOLERANCE, PERIODIC_SOLVE_RESIDUAL_TOLERANCE
 
     implicit none
 
@@ -91,12 +92,12 @@ contains
                      maxval(abs(x - Phi_known))
             error stop
         end if
-        if (.not. ieee_is_finite(rcond) .or. rcond <= 1.0e-12_dp) then
+        if (.not. ieee_is_finite(rcond) .or. rcond <= PERIODIC_SOLVE_RCOND_TOLERANCE) then
             print *, 'FAIL: dense_solve invalid rcond =', rcond
             error stop
         end if
         if (.not. ieee_is_finite(backward_error) .or. &
-            backward_error >= 1.0e-10_dp) then
+            backward_error >= PERIODIC_SOLVE_RESIDUAL_TOLERANCE) then
             print *, 'FAIL: dense_solve backward error =', backward_error
             error stop
         end if
@@ -140,7 +141,7 @@ contains
             print *, '  rcond =', rcond, ' backward error =', backward_error
             error stop
         end if
-        if (rcond >= 1.0e-12_dp) then
+        if (rcond >= PERIODIC_SOLVE_RCOND_TOLERANCE) then
             print *, 'FAIL: nearly singular fixture rcond =', rcond
             error stop
         end if

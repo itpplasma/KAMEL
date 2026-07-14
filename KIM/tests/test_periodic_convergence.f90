@@ -47,13 +47,20 @@ contains
         converged = [1.0e-1_dp, 1.0e-2_dp, 5.0e-4_dp]
         nonmonotone = [0.3570_dp, 0.3028_dp, 0.7836_dp]
         if (.not. sequence_passes_gate(converged, numerical_tolerance)) then
+            print *, 'FAIL: gate rejected residuals =', converged, &
+                ' tolerance =', numerical_tolerance
             error stop 'convergence gate rejected a valid sequence'
         end if
         if (sequence_passes_gate(nonmonotone, deformation_tolerance)) then
+            print *, 'FAIL: gate accepted residuals =', nonmonotone, &
+                ' tolerance =', deformation_tolerance
             error stop 'convergence gate accepted non-monotone 78% deformation'
         end if
         if (conservative_ceiling(256.0_dp + 8.0_dp*spacing(256.0_dp)) /= 256 .or. &
             conservative_ceiling(256.25_dp) /= 257) then
+            print *, 'FAIL: conservative_ceiling(256+8ulp) =', &
+                conservative_ceiling(256.0_dp + 8.0_dp*spacing(256.0_dp)), &
+                ' conservative_ceiling(256.25) =', conservative_ceiling(256.25_dp)
             error stop 'resolution ceiling mishandled integer roundoff'
         end if
         print *, 'PASS: hard convergence policy accepts/refuses declared fixtures'
@@ -572,6 +579,9 @@ contains
                 end do
             else if (abs(rm_k - rm) > 10.0_dp * epsilon(rm) * abs(rm) .or. &
                      abs(rhoL_k - rhoL_rm) > 10.0_dp * epsilon(rhoL_rm) * rhoL_rm) then
+                print *, 'FAIL: rm =', rm_k, ' expected', rm, &
+                    '; rho_L =', rhoL_k, ' expected', rhoL_rm, &
+                    ' at mphi_max =', harmonic_seq(k)
                 error stop 'test_harmonic_convergence: physical scale changed'
             end if
 

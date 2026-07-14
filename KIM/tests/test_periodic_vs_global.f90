@@ -240,7 +240,9 @@ contains
         ! [rm - Delta, rm + Delta], keep only points covered by BOTH solutions'
         ! radial ranges, interpolate both potentials onto it (4-pt Lagrange,
         ! real/imag separately), and report relative L2 / max differences, both
-        ! raw and DC-removed. Soft gate only on missing/all-zero/NaN.
+        ! raw and DC-removed. All gates are hard (error stop): non-finite
+        ! differences, a degenerate (all-zero) global reference, and the
+        ! pre-declared 5% cross-method relative-L2 policy.
         real(dp), intent(in) :: r_g(:), r_p(:), rm, Delta
         complex(dp), intent(in) :: phi_g(:), phi_p(:)
 

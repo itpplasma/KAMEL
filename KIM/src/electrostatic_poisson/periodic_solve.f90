@@ -26,8 +26,8 @@ module periodic_solve_m
     integer, parameter, public :: PERIODIC_SOLVE_INACCURATE = -105
     integer, parameter, public :: PERIODIC_SOLVE_NONFINITE = -106
     integer, parameter, public :: PERIODIC_SOLVE_SINGULAR = -107
-    real(dp), parameter, public :: SOLVE_RCOND_TOLERANCE = 1.0e-12_dp
-    real(dp), parameter, public :: SOLVE_RESIDUAL_TOLERANCE = 1.0e-10_dp
+    real(dp), parameter, public :: PERIODIC_SOLVE_RCOND_TOLERANCE = 1.0e-12_dp
+    real(dp), parameter, public :: PERIODIC_SOLVE_RESIDUAL_TOLERANCE = 1.0e-10_dp
 
     public :: solve_periodic, solve_periodic_deviation
     public :: assemble_periodic_operator, magnetic_drive_rhs
@@ -295,10 +295,10 @@ contains
         real(dp), intent(out), optional :: reciprocal_condition, backward_error
 
         integer, allocatable :: ipiv(:)
-        complex(dp), allocatable :: A0(:,:), b0(:), A_condition(:,:)
+        complex(dp), allocatable :: A0(:,:), b0(:)
         complex(dp), allocatable :: condition_work(:), residual(:)
         real(dp), allocatable :: condition_real_work(:)
-        real(dp) :: anorm, condition_scale, matrix_norm, solution_norm, rhs_norm
+        real(dp) :: anorm, norm_scale, matrix_norm, solution_norm, rhs_norm
         real(dp) :: residual_norm, rcond_local, backward_error_local
         integer :: dim, condition_info
 
@@ -321,6 +321,14 @@ contains
 
         A0 = A
         b0 = b
+        ! 1-norm of A for ZGECON, taken before ZGESV overwrites A with its LU
+        ! factors.  Uniform scaling keeps the column sums from overflowing
+        ! without changing the returned value.
+        norm_scale = maxval(abs(A0))
+        anorm = 0.0_dp
+        if (norm_scale > 0.0_dp) then
+            anorm = norm_scale * maxval(sum(abs(A0)/norm_scale, dim=1))
+        end if
         allocate(ipiv(dim))
         call zgesv(dim, 1, A, dim, ipiv, b, dim, info)
         if (info /= 0) then
@@ -339,24 +347,11 @@ contains
             return
         end if
 
-        ! ZGECON estimates reciprocal condition number in the matrix 1-norm.
-        ! Uniform scaling preserves the condition number and prevents the
-        ! column sums/factorization used only for estimation from overflowing.
-        condition_scale = maxval(abs(A0))
-        A_condition = A0 / condition_scale
-        anorm = maxval(sum(abs(A_condition), dim=1))
-        call zgetrf(dim, dim, A_condition, dim, ipiv, condition_info)
-        if (condition_info /= 0) then
-            if (condition_info > 0) then
-                info = PERIODIC_SOLVE_SINGULAR
-            else
-                info = PERIODIC_SOLVE_INVALID_INPUT
-            end if
-            call export_diagnostics()
-            return
-        end if
+        ! ZGECON estimates the reciprocal condition number in the matrix
+        ! 1-norm directly from the LU factors ZGESV left in A, so no second
+        ! factorization and no matrix copy are needed for the estimate.
         allocate(condition_work(2*dim), condition_real_work(2*dim))
-        call zgecon('1', dim, A_condition, dim, anorm, rcond_local, &
+        call zgecon('1', dim, A, dim, anorm, rcond_local, &
                     condition_work, condition_real_work, condition_info)
         if (condition_info /= 0) then
             info = PERIODIC_SOLVE_INVALID_INPUT
@@ -382,9 +377,9 @@ contains
         if (.not. ieee_is_finite(rcond_local) .or. &
             .not. ieee_is_finite(backward_error_local)) then
             info = PERIODIC_SOLVE_NONFINITE
-        else if (rcond_local <= SOLVE_RCOND_TOLERANCE) then
+        else if (rcond_local <= PERIODIC_SOLVE_RCOND_TOLERANCE) then
             info = PERIODIC_SOLVE_ILL_CONDITIONED
-        else if (backward_error_local >= SOLVE_RESIDUAL_TOLERANCE) then
+        else if (backward_error_local >= PERIODIC_SOLVE_RESIDUAL_TOLERANCE) then
             info = PERIODIC_SOLVE_INACCURATE
         else
             info = PERIODIC_SOLVE_OK
@@ -394,11 +389,19 @@ contains
     contains
 
         subroutine export_diagnostics()
+            use, intrinsic :: iso_fortran_env, only: error_unit
+
             if (present(reciprocal_condition)) reciprocal_condition = rcond_local
             if (present(backward_error)) backward_error = backward_error_local
-            write(*, '(A,ES12.4,A,ES12.4,A,I0)') ' dense_solve: rcond=', &
-                rcond_local, ' backward_error=', backward_error_local, &
-                ' status=', info
+            ! Healthy solves stay silent: hosts read the diagnostics through
+            ! the optional arguments, and printing every solve floods
+            ! production and test logs.  Rejections go to error_unit.
+            if (info /= PERIODIC_SOLVE_OK) then
+                write(error_unit, '(A,ES12.4,A,ES12.4,A,I0)') &
+                    ' dense_solve: rcond=', rcond_local, &
+                    ' backward_error=', backward_error_local, &
+                    ' status=', info
+            end if
         end subroutine export_diagnostics
 
         real(dp) function scaled_vector_norm(values) result(norm)
@@ -430,6 +433,11 @@ contains
             real(dp), intent(in) :: residual_norm, matrix_norm, solution_norm, rhs_norm
             real(dp) :: product_norm, scale
 
+            ! Overflow guard: when ||A||*||x|| would overflow, fall back to
+            ! ||r||/(||A||*||x||), dropping the ||b|| term of the regular
+            ! denominator.  A smaller denominator only enlarges the reported
+            ! backward error, so the reject-gate stays conservative; the
+            ! discontinuity at the branch point is accepted for a gate.
             if (matrix_norm > 0.0_dp .and. solution_norm > 0.0_dp .and. &
                 matrix_norm > huge(1.0_dp)/solution_norm) then
                 ratio = (residual_norm/matrix_norm)/solution_norm

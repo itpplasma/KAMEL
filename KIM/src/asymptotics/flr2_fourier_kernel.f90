@@ -12,11 +12,58 @@ module flr2_fourier_kernel_m
     public :: core_rho_phi_sp, core_rho_B_sp
     public :: scaled_bessel_pair, flr_arg_pair
     public :: fp_rho_phi_harmonic, fp_rho_B_harmonic, fp_rho_phi_debye
+    public :: fp_ks_model_from_name, fp_mphi_truncation_check
 
     integer, parameter, public :: FP_KPERP_FULL = 1
     integer, parameter, public :: FP_KR_ONLY_APPROX = 2
+    ! Selected via the KIM_CONFIG namelist key fp_ks_model_name
+    ! ('kperp_full' | 'kr_only'); kim_read_config applies the mapping.
     integer, save, public :: fp_ks_model = FP_KPERP_FULL
 contains
+    pure subroutine fp_ks_model_from_name(name, model, status)
+        ! Map the config-facing model name onto the module constants.
+        ! status /= 0 marks an unknown name; model then stays at the default.
+        character(len=*), intent(in) :: name
+        integer, intent(out) :: model, status
+
+        status = 0
+        select case (trim(name))
+        case ('kperp_full')
+            model = FP_KPERP_FULL
+        case ('kr_only')
+            model = FP_KR_ONLY_APPROX
+        case default
+            model = FP_KPERP_FULL
+            status = 1
+        end select
+    end subroutine fp_ks_model_from_name
+
+    pure subroutine fp_mphi_truncation_check(harmonics, tolerance, tail_fraction, ok)
+        ! Validation gate for the cyclotron-harmonic truncation. harmonics(:)
+        ! are the per-m_phi kernel contributions ordered m_phi = -mphi_max ..
+        ! +mphi_max (size 2*mphi_max+1). The estimated truncation tail is the
+        ! outermost-shell magnitude relative to the total. Sums too short to
+        ! carry a measurable tail (mphi_max = 0), even-sized inputs, and a
+        ! vanishing total fail closed: hosts must not treat an unassessable
+        ! truncation as verified.
+        complex(dp), intent(in) :: harmonics(:)
+        real(dp), intent(in) :: tolerance
+        real(dp), intent(out) :: tail_fraction
+        logical, intent(out) :: ok
+        complex(dp) :: total
+        integer :: n
+
+        n = size(harmonics)
+        total = sum(harmonics)
+        if (n < 3 .or. mod(n, 2) == 0 .or. abs(total) == 0.0_dp) then
+            tail_fraction = huge(1.0_dp)
+            ok = .false.
+            return
+        end if
+        tail_fraction = (abs(harmonics(1)) + abs(harmonics(n)))/abs(total)
+        ok = tail_fraction < tolerance
+    end subroutine fp_mphi_truncation_check
+
     pure subroutine flr_arg_pair(ks, kr, krp, rho_L, model, bplus, bcross, status)
         use, intrinsic :: ieee_arithmetic, only: ieee_is_finite
         real(dp), intent(in) :: ks, kr, krp, rho_L
@@ -110,10 +157,13 @@ contains
         if (status /= 0) error stop 'invalid scaled Bessel arguments'
     end subroutine scaled_bessel_pair
 
-    subroutine fp_rho_phi_harmonic(lambda_D, vT, omega_c, nu, ks, kr, krp, rg, &
+    subroutine fp_rho_phi_harmonic(lambda_D, vT, omega_c, nu, rho_L, ks, kr, krp, rg, &
             mphi, A1, A2, I00, I20, model, value, status)
+        ! rho_L is an explicit input (not recomputed from vT/omega_c) so the
+        ! caller's stored species value — including the ion_flr_scale_factor
+        ! config option — reaches the FLR arguments, as in flr_arg_pair_sp.
         use constants_m, only: pi, com_unit
-        real(dp), intent(in) :: lambda_D, vT, omega_c, nu, ks, kr, krp, rg
+        real(dp), intent(in) :: lambda_D, vT, omega_c, nu, rho_L, ks, kr, krp, rg
         integer, intent(in) :: mphi, model
         real(dp), intent(in) :: A1, A2
         complex(dp), intent(in) :: I00, I20
@@ -127,7 +177,7 @@ contains
             status = 4
             return
         end if
-        call flr_arg_pair(ks, kr, krp, abs(vT/omega_c), model, bplus, bcross, status)
+        call flr_arg_pair(ks, kr, krp, rho_L, model, bplus, bcross, status)
         if (status /= 0) return
         call scaled_bessel_harmonic(bplus, bcross, mphi, sIm, status)
         if (status /= 0) return
@@ -142,10 +192,12 @@ contains
             (I00*(A1*sIm + A2*energy_moment) + 0.5_dp*A2*I20*sIm)
     end subroutine fp_rho_phi_harmonic
 
-    subroutine fp_rho_B_harmonic(lambda_D, vT, omega_c, nu, ks, kr, krp, rg, &
+    subroutine fp_rho_B_harmonic(lambda_D, vT, omega_c, nu, rho_L, ks, kr, krp, rg, &
             mphi, A1, A2, I01, I21, model, value, status)
+        ! rho_L is an explicit input for the same reason as in
+        ! fp_rho_phi_harmonic.
         use constants_m, only: pi, com_unit, sol
-        real(dp), intent(in) :: lambda_D, vT, omega_c, nu, ks, kr, krp, rg
+        real(dp), intent(in) :: lambda_D, vT, omega_c, nu, rho_L, ks, kr, krp, rg
         integer, intent(in) :: mphi, model
         real(dp), intent(in) :: A1, A2
         complex(dp), intent(in) :: I01, I21
@@ -159,7 +211,7 @@ contains
             status = 4
             return
         end if
-        call flr_arg_pair(ks, kr, krp, abs(vT/omega_c), model, bplus, bcross, status)
+        call flr_arg_pair(ks, kr, krp, rho_L, model, bplus, bcross, status)
         if (status /= 0) return
         call scaled_bessel_harmonic(bplus, bcross, mphi, sIm, status)
         if (status /= 0) return
@@ -214,7 +266,8 @@ contains
             do mphi = -mphi_max, mphi_max
                 call fp_rho_phi_harmonic(plasma_in%spec(sp)%lambda_D(j), &
                     plasma_in%spec(sp)%vT(j), plasma_in%spec(sp)%omega_c(j), &
-                    plasma_in%spec(sp)%nu(j), plasma_in%ks(j), kr, krp, rg_grid%xb(j), &
+                    plasma_in%spec(sp)%nu(j), plasma_in%spec(sp)%rho_L(j), &
+                    plasma_in%ks(j), kr, krp, rg_grid%xb(j), &
                     mphi, plasma_in%spec(sp)%A1(j), plasma_in%spec(sp)%A2(j), &
                     plasma_in%spec(sp)%I00(j, mphi), plasma_in%spec(sp)%I20(j, mphi), &
                     fp_ks_model, term, status)
@@ -248,7 +301,8 @@ contains
             do mphi = -mphi_max, mphi_max
                 call fp_rho_B_harmonic(plasma_in%spec(sp)%lambda_D(j), &
                     plasma_in%spec(sp)%vT(j), plasma_in%spec(sp)%omega_c(j), &
-                    plasma_in%spec(sp)%nu(j), plasma_in%ks(j), kr, krp, rg_grid%xb(j), &
+                    plasma_in%spec(sp)%nu(j), plasma_in%spec(sp)%rho_L(j), &
+                    plasma_in%ks(j), kr, krp, rg_grid%xb(j), &
                     mphi, plasma_in%spec(sp)%A1(j), plasma_in%spec(sp)%A2(j), &
                     plasma_in%spec(sp)%I01(j, mphi), plasma_in%spec(sp)%I21(j, mphi), &
                     fp_ks_model, term, status)

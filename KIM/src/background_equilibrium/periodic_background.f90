@@ -7,10 +7,9 @@ module periodic_background_m
     !>   - sample_periodic_primitives: a thin wrapper that returns the PERIODIZED
     !>                    primitives at a query radius by driving make_periodic.
     !>
-    !> ORDER CONTRACT (relied upon by Phase-2.3): the five sampled functions are
-    !> returned in the FIXED order
+    !> LEGACY SAMPLING CONTRACT: the public five-value sampler returns
     !>     funs = [ n_e, Te, Ti, q, Er ].
-    !> Do not reorder without updating every consumer.
+    !> The full periodic build caches and samples n_s and T_s for every species.
 
     use KIM_kinds_m, only: dp
     use periodization_m, only: make_periodic
@@ -19,10 +18,15 @@ module periodic_background_m
     private
 
     public :: kim_aperfuns, sample_periodic_primitives, build_periodic_plasma
+    public :: sample_periodic_species_profiles
     public :: reset_true_background_cache
 
-    !> Number of primitive functions sampled, and their FIXED order.
-    integer, parameter :: n_primitives = 5
+    integer, parameter, public :: PERIODIC_BACKGROUND_OK = 0
+    integer, parameter, public :: PERIODIC_BACKGROUND_INVALID_MAIN_ION = 1
+    integer, parameter, public :: PERIODIC_BACKGROUND_NONPHYSICAL_PROFILE = 2
+
+    !> Number of values in the legacy public primitive-sampling interface.
+    integer, parameter :: n_legacy_primitives = 5
 
     !> Number of GEOMETRY functions periodized, and their FIXED order.
     !>     geom = [ B0, ks, kp, om_E ].
@@ -50,11 +54,13 @@ module periodic_background_m
     !> this cache (which would create a circular module dependency). No manual
     !> reset is needed after set_profiles_from_arrays.
     !>
-    !> Order in cache_prim: [ n_e, Te, Ti, q, Er ]  (matches kim_aperfuns).
+    !> Order in cache_prim for S species:
+    !>   [ n_0..n_(S-1), T_0..T_(S-1), q, Er ].
     !> Order in cache_geom: [ B0, ks, kp, om_E ]     (matches kim_geom_aperfuns).
     integer, save :: cached_generation = -1
+    integer, save :: cached_n_species = 0
     real(dp), allocatable, save :: cache_r(:)
-    real(dp), allocatable, save :: cache_prim(:, :)   ! (grid_size, n_primitives)
+    real(dp), allocatable, save :: cache_prim(:, :)   ! (grid_size, 2*S + 2)
     real(dp), allocatable, save :: cache_geom(:, :)   ! (grid_size, n_geom)
 
 contains
@@ -65,6 +71,7 @@ contains
     !> kept for callers that want to drop the snapshot explicitly.
     subroutine reset_true_background_cache()
         cached_generation = -1
+        cached_n_species = 0
         if (allocated(cache_r))    deallocate(cache_r)
         if (allocated(cache_prim)) deallocate(cache_prim)
         if (allocated(cache_geom)) deallocate(cache_geom)
@@ -78,7 +85,7 @@ contains
     subroutine capture_true_background()
         use species_m, only: plasma, profiles_generation
 
-        integer :: gs, i
+        integer :: gs, i, sp, ncols
 
         if (cached_generation == profiles_generation) return
 
@@ -87,15 +94,18 @@ contains
         if (allocated(cache_geom)) deallocate(cache_geom)
 
         gs = plasma%grid_size
-        allocate(cache_r(gs), cache_prim(gs, n_primitives), cache_geom(gs, n_geom))
+        cached_n_species = plasma%n_species
+        ncols = 2*cached_n_species + 2
+        allocate(cache_r(gs), cache_prim(gs, ncols), cache_geom(gs, n_geom))
 
         cache_r = plasma%r_grid(1:gs)
         do i = 1, gs
-            cache_prim(i, 1) = plasma%spec(0)%n(i)   ! electron density
-            cache_prim(i, 2) = plasma%spec(0)%T(i)   ! electron temperature
-            cache_prim(i, 3) = plasma%spec(1)%T(i)   ! ion temperature
-            cache_prim(i, 4) = plasma%q(i)           ! safety factor
-            cache_prim(i, 5) = plasma%Er(i)          ! radial electric field
+            do sp = 0, cached_n_species - 1
+                cache_prim(i, sp + 1) = plasma%spec(sp)%n(i)
+                cache_prim(i, cached_n_species + sp + 1) = plasma%spec(sp)%T(i)
+            end do
+            cache_prim(i, 2*cached_n_species + 1) = plasma%q(i)
+            cache_prim(i, 2*cached_n_species + 2) = plasma%Er(i)
 
             cache_geom(i, 1) = plasma%B0(i)          ! equilibrium field magnitude
             cache_geom(i, 2) = plasma%ks(i)          ! perpendicular wavenumber
@@ -165,8 +175,29 @@ contains
         ! no-op in the normal solver path (build_periodic_plasma already captured).
         call capture_true_background()
 
-        call interp_cache_row(cache_prim, nfuns, x, funs)
+        block
+            real(dp) :: all_funs(2*cached_n_species + 2)
+
+            call interp_cache_row(cache_prim, size(all_funs), x, all_funs)
+            funs(1) = all_funs(1)
+            funs(2) = all_funs(cached_n_species + 1)
+            funs(3) = all_funs(cached_n_species + 2)
+            funs(4) = all_funs(2*cached_n_species + 1)
+            funs(5) = all_funs(2*cached_n_species + 2)
+        end block
     end subroutine kim_aperfuns
+
+    !> Internal callback used by build_periodic_plasma. Unlike the legacy public
+    !> sampler, this passes every species profile through make_periodic in the
+    !> cache order [n_0..n_(S-1), T_0..T_(S-1), q, Er].
+    subroutine kim_all_profiles_aperfuns(nfuns, x, funs)
+        integer, intent(in) :: nfuns
+        real(dp), intent(in) :: x
+        real(dp), intent(out) :: funs(nfuns)
+
+        call capture_true_background()
+        call interp_cache_row(cache_prim, nfuns, x, funs)
+    end subroutine kim_all_profiles_aperfuns
 
     !> Aperiodic sample callback for the equilibrium GEOMETRY, conforming to
     !> periodization_m::aperfuns_i. Evaluates the TRUE geometry at radius x via
@@ -200,10 +231,42 @@ contains
     !> kim_aperfuns: funs_per = [ n_e, Te, Ti, q, Er ].
     subroutine sample_periodic_primitives(x_mid, dx_asis, dx_tr, x, funs_per)
         real(dp), intent(in) :: x_mid, dx_asis, dx_tr, x
-        real(dp), intent(out) :: funs_per(n_primitives)
+        real(dp), intent(out) :: funs_per(n_legacy_primitives)
 
-        call make_periodic(kim_aperfuns, n_primitives, x_mid, dx_asis, dx_tr, x, funs_per)
+        call make_periodic(kim_aperfuns, n_legacy_primitives, x_mid, dx_asis, dx_tr, &
+                           x, funs_per)
     end subroutine sample_periodic_primitives
+
+    !> Return independently periodized densities and temperatures for every
+    !> configured species, plus q and Er. Arrays use species indices 0:S-1.
+    subroutine sample_periodic_species_profiles(x_mid, dx_asis, dx_tr, x, &
+                                                n_per, T_per, q_per, Er_per)
+        real(dp), intent(in) :: x_mid, dx_asis, dx_tr, x
+        real(dp), intent(out) :: n_per(0:), T_per(0:)
+        real(dp), intent(out) :: q_per, Er_per
+
+        integer :: sp, n_profile_values
+
+        call capture_true_background()
+        if (size(n_per) /= cached_n_species .or. &
+            size(T_per) /= cached_n_species) then
+            error stop 'periodic species sampler received the wrong species count'
+        end if
+
+        n_profile_values = 2*cached_n_species + 2
+        block
+            real(dp) :: all_funs(n_profile_values)
+
+            call make_periodic(kim_all_profiles_aperfuns, n_profile_values, x_mid, &
+                               dx_asis, dx_tr, x, all_funs)
+            do sp = 0, cached_n_species - 1
+                n_per(sp) = all_funs(sp + 1)
+                T_per(sp) = all_funs(cached_n_species + sp + 1)
+            end do
+            q_per = all_funs(2*cached_n_species + 1)
+            Er_per = all_funs(2*cached_n_species + 2)
+        end block
+    end subroutine sample_periodic_species_profiles
 
     !> Return the PERIODIZED geometry [ B0, ks, kp, om_E ] at query radius x,
     !> driving make_periodic with kim_geom_aperfuns. Same window layout as
@@ -239,7 +302,7 @@ contains
     !> unconditionally calls write_species_backs / write_plasma_backs, which
     !> create output_path//backs/ and write the background profile .dat files
     !> (rho_L, lambda_D, kp, om_E, ...) for the window plasma.
-    subroutine build_periodic_plasma(rm, dx_asis, dx_tr, n_rg)
+    subroutine build_periodic_plasma(rm, dx_asis, dx_tr, n_rg, info)
         use species_m, only: plasma, reallocate, deallocate_plasma_derived, &
                              calc_plasma_parameter_derivs, calculate_plasma_backs, &
                              interpolate_plasma_backs, compute_rg_cell_centers, &
@@ -253,45 +316,63 @@ contains
 
         real(dp), intent(in) :: rm, dx_asis, dx_tr
         integer, intent(in) :: n_rg
+        integer, intent(out), optional :: info
 
         real(dp) :: L, r_lo, r_hi, u0_seed
-        real(dp) :: funs(n_primitives)
         real(dp), allocatable :: r_win(:)
-        real(dp), allocatable :: n_win(:), Te_win(:), Ti_win(:), q_win(:), Er_win(:)
-        integer :: j, sigma, npts
+        real(dp), allocatable :: n_win(:, :), T_win(:, :), q_win(:), Er_win(:)
+        integer :: j, sigma, npts, n_species, profile_status
+
+        if (present(info)) info = PERIODIC_BACKGROUND_OK
 
         ! Capture the TRUE background (r-grid, primitives, geometry) from the
         ! global plasma ONCE, before any redirect destroys it; all periodization
         ! (primitives AND geometry) then reads this cache, so repeated calls stay
         ! correct even though `plasma` is redirected onto the window after call 1.
         call capture_true_background()
+        n_species = cached_n_species
 
-        ! ---- 1. Equidistant window grid, reused as the global rg_grid. --------
+        ! ---- 1. Construct an equidistant window without mutating globals. -----
         L = 2.0_dp * (dx_asis + dx_tr)
         r_lo = rm - 0.5_dp * L
         r_hi = rm + 0.5_dp * L
 
-        ! grid_init_equidistant takes npts as intent(inout); pass a variable.
+        ! ---- 2. Sample and validate PERIODIZED primitives before redirect. ----
+        ! kim_aperfuns reads the CACHED true primitives (captured above), so this
+        ! is robust to the redirect and to repeated calls. Sample into temporaries;
+        ! only a valid profile is allowed to mutate rg_grid or plasma below.
+        ! Dynamic order: [n_0..n_(S-1), T_0..T_(S-1), q, Er].
+        allocate(r_win(n_rg), n_win(n_rg, 0:n_species - 1), &
+                 T_win(n_rg, 0:n_species - 1), q_win(n_rg), Er_win(n_rg))
+        do j = 1, n_rg
+            r_win(j) = r_lo + L*real(j - 1, dp)/real(n_rg, dp)
+            call sample_periodic_species_profiles(rm, dx_asis, dx_tr, r_win(j), &
+                n_win(j, :), T_win(j, :), q_win(j), Er_win(j))
+        end do
+
+        ! Preserve independently periodized impurity densities and use the main
+        ! ion (species 1) as the dependent density. This documents one unique
+        ! quasineutrality policy and avoids changing impurity concentration
+        ! ratios merely because a species has a higher charge state.
+        call enforce_dependent_main_ion_density(n_win, T_win, profile_status)
+        if (profile_status /= PERIODIC_BACKGROUND_OK) then
+            deallocate(r_win, n_win, T_win, q_win, Er_win)
+            if (present(info)) then
+                info = profile_status
+                return
+            end if
+            if (profile_status == PERIODIC_BACKGROUND_INVALID_MAIN_ION) then
+                error stop 'periodic background requires a positive-Z main ion'
+            end if
+            error stop 'periodic background contains a nonphysical species profile'
+        end if
+
+        ! Validation succeeded. Redirect the global rg grid to the same
+        ! endpoint-exclusive equidistant window used for sampling.
         npts = n_rg
         call rg_grid%grid_init_equidistant(npts, r_lo, r_hi, 'rg')
         call rg_grid%grid_generate_equidistant()
-
-        ! ---- 2. Sample the PERIODIZED primitives on the window FIRST. ----------
-        ! kim_aperfuns reads the CACHED true primitives (captured above), so this
-        ! is robust to the redirect and to repeated calls. Sample into temporaries;
-        ! write them onto the redirected plasma in step 3.
-        ! FIXED order from sample_periodic_primitives: [ n_e, Te, Ti, q, Er ].
-        allocate(r_win(rg_grid%npts_b), n_win(rg_grid%npts_b), Te_win(rg_grid%npts_b), &
-                 Ti_win(rg_grid%npts_b), q_win(rg_grid%npts_b), Er_win(rg_grid%npts_b))
         r_win = rg_grid%xb
-        do j = 1, rg_grid%npts_b
-            call sample_periodic_primitives(rm, dx_asis, dx_tr, r_win(j), funs)
-            n_win(j)  = funs(1)
-            Te_win(j) = funs(2)
-            Ti_win(j) = funs(3)
-            q_win(j)  = funs(4)
-            Er_win(j) = funs(5)
-        end do
 
         ! Capture the TRUE B0 at the window's left edge (from the cached true
         ! geometry) as the force-balance ODE seed u0 = B0(r_lo)**2. Without this
@@ -330,14 +411,14 @@ contains
         call reallocate(plasma%spec(0)%T, rg_grid%npts_b)
         plasma%q  = q_win
         plasma%Er = Er_win
-        plasma%spec(0)%n = n_win
-        plasma%spec(0)%T = Te_win
+        plasma%spec(0)%n = n_win(:, 0)
+        plasma%spec(0)%T = T_win(:, 0)
         do sigma = 1, number_of_ion_species
             call reallocate(plasma%spec(sigma)%n, rg_grid%npts_b)
             call reallocate(plasma%spec(sigma)%T, rg_grid%npts_b)
-            plasma%spec(sigma)%T = Ti_win
+            plasma%spec(sigma)%n = n_win(:, sigma)
+            plasma%spec(sigma)%T = T_win(:, sigma)
         end do
-        call set_ion_density_quasineutral()
 
         ! Force calculate_equil / calc_plasma_parameter_derivs to recompute the
         ! profile derivatives (dndr, dTdr, dqdr) on the window instead of reusing
@@ -348,7 +429,7 @@ contains
         end do
         if (allocated(plasma%dqdr)) deallocate(plasma%dqdr)
 
-        deallocate(r_win, n_win, Te_win, Ti_win, q_win, Er_win)
+        deallocate(r_win, n_win, T_win, q_win, Er_win)
 
         ! ---- 4./5. Recompute derivatives + all derived quantities. ------------
         ! calculate_equil: recomputes dndr/dTdr/dqdr (via calc_plasma_parameter_
@@ -475,20 +556,49 @@ contains
             dfdr(N) = (f(1) - f(N-1)) / (2.0_dp * h)
         end subroutine periodic_central_diff
 
-        subroutine set_ion_density_quasineutral()
-            integer :: total_Z, sp, jj
+        subroutine enforce_dependent_main_ion_density(density, temperature, status)
+            use, intrinsic :: ieee_arithmetic, only: ieee_is_finite
 
-            total_Z = 0
-            do sp = 1, number_of_ion_species
-                total_Z = total_Z + plasma%spec(sp)%Zspec
+            real(dp), intent(inout) :: density(:, 0:)
+            real(dp), intent(in) :: temperature(:, 0:)
+            integer, intent(out) :: status
+            real(dp) :: impurity_charge_density(size(density, 1))
+            integer :: sp
+
+            status = PERIODIC_BACKGROUND_INVALID_MAIN_ION
+            if (number_of_ion_species < 1 .or. plasma%spec(1)%Zspec <= 0) then
+                return
+            end if
+            do sp = 2, number_of_ion_species
+                if (plasma%spec(sp)%Zspec <= 0) return
             end do
-            if (total_Z == 0) return
-            do sp = 1, number_of_ion_species
-                do jj = 1, rg_grid%npts_b
-                    plasma%spec(sp)%n(jj) = plasma%spec(0)%n(jj) * plasma%spec(sp)%Zspec / total_Z
-                end do
+
+            status = PERIODIC_BACKGROUND_NONPHYSICAL_PROFILE
+            if (any(.not. ieee_is_finite(density(:, 0))) .or. &
+                any(density(:, 0) <= 0.0_dp) .or. &
+                any(.not. ieee_is_finite(temperature)) .or. &
+                any(temperature <= 0.0_dp)) then
+                return
+            end if
+            do sp = 2, number_of_ion_species
+                if (any(.not. ieee_is_finite(density(:, sp))) .or. &
+                    any(density(:, sp) <= 0.0_dp)) return
             end do
-        end subroutine set_ion_density_quasineutral
+
+            impurity_charge_density = 0.0_dp
+            do sp = 2, number_of_ion_species
+                impurity_charge_density = impurity_charge_density + &
+                    real(plasma%spec(sp)%Zspec, dp)*density(:, sp)
+            end do
+            density(:, 1) = (density(:, 0) - impurity_charge_density) / &
+                            real(plasma%spec(1)%Zspec, dp)
+
+            if (any(.not. ieee_is_finite(density(:, 1))) .or. &
+                any(density(:, 1) <= 0.0_dp)) then
+                return
+            end if
+            status = PERIODIC_BACKGROUND_OK
+        end subroutine enforce_dependent_main_ion_density
 
         !> Deallocate the thermodynamic-force and susceptibility arrays that
         !> calculate_thermodynamic_forces_and_susc allocates behind a

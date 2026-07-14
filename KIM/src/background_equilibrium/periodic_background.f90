@@ -9,7 +9,8 @@ module periodic_background_m
     !>
     !> LEGACY SAMPLING CONTRACT: the public five-value sampler returns
     !>     funs = [ n_e, Te, Ti, q, Er ].
-    !> The full periodic build caches and samples n_s and T_s for every species.
+    !> The full periodic build caches and samples n_s, T_s, and V_parallel,s for
+    !> every species.
 
     use KIM_kinds_m, only: dp
     use periodization_m, only: make_periodic
@@ -55,12 +56,12 @@ module periodic_background_m
     !> reset is needed after set_profiles_from_arrays.
     !>
     !> Order in cache_prim for S species:
-    !>   [ n_0..n_(S-1), T_0..T_(S-1), q, Er ].
+    !>   [ n_0..n_(S-1), T_0..T_(S-1), Vpar_0..Vpar_(S-1), q, Er ].
     !> Order in cache_geom: [ B0, ks, kp, om_E ]     (matches kim_geom_aperfuns).
     integer, save :: cached_generation = -1
     integer, save :: cached_n_species = 0
     real(dp), allocatable, save :: cache_r(:)
-    real(dp), allocatable, save :: cache_prim(:, :)   ! (grid_size, 2*S + 2)
+    real(dp), allocatable, save :: cache_prim(:, :)   ! (grid_size, 3*S + 2)
     real(dp), allocatable, save :: cache_geom(:, :)   ! (grid_size, n_geom)
 
 contains
@@ -95,7 +96,7 @@ contains
 
         gs = plasma%grid_size
         cached_n_species = plasma%n_species
-        ncols = 2*cached_n_species + 2
+        ncols = 3*cached_n_species + 2
         allocate(cache_r(gs), cache_prim(gs, ncols), cache_geom(gs, n_geom))
 
         cache_r = plasma%r_grid(1:gs)
@@ -103,9 +104,10 @@ contains
             do sp = 0, cached_n_species - 1
                 cache_prim(i, sp + 1) = plasma%spec(sp)%n(i)
                 cache_prim(i, cached_n_species + sp + 1) = plasma%spec(sp)%T(i)
+                cache_prim(i, 2*cached_n_species + sp + 1) = plasma%spec(sp)%Vpar(i)
             end do
-            cache_prim(i, 2*cached_n_species + 1) = plasma%q(i)
-            cache_prim(i, 2*cached_n_species + 2) = plasma%Er(i)
+            cache_prim(i, 3*cached_n_species + 1) = plasma%q(i)
+            cache_prim(i, 3*cached_n_species + 2) = plasma%Er(i)
 
             cache_geom(i, 1) = plasma%B0(i)          ! equilibrium field magnitude
             cache_geom(i, 2) = plasma%ks(i)          ! perpendicular wavenumber
@@ -176,20 +178,20 @@ contains
         call capture_true_background()
 
         block
-            real(dp) :: all_funs(2*cached_n_species + 2)
+            real(dp) :: all_funs(3*cached_n_species + 2)
 
             call interp_cache_row(cache_prim, size(all_funs), x, all_funs)
             funs(1) = all_funs(1)
             funs(2) = all_funs(cached_n_species + 1)
             funs(3) = all_funs(cached_n_species + 2)
-            funs(4) = all_funs(2*cached_n_species + 1)
-            funs(5) = all_funs(2*cached_n_species + 2)
+            funs(4) = all_funs(3*cached_n_species + 1)
+            funs(5) = all_funs(3*cached_n_species + 2)
         end block
     end subroutine kim_aperfuns
 
     !> Internal callback used by build_periodic_plasma. Unlike the legacy public
     !> sampler, this passes every species profile through make_periodic in the
-    !> cache order [n_0..n_(S-1), T_0..T_(S-1), q, Er].
+    !> cache order [n_0..n_(S-1), T_0..T_(S-1), Vpar_0..Vpar_(S-1), q, Er].
     subroutine kim_all_profiles_aperfuns(nfuns, x, funs)
         integer, intent(in) :: nfuns
         real(dp), intent(in) :: x
@@ -238,12 +240,14 @@ contains
     end subroutine sample_periodic_primitives
 
     !> Return independently periodized densities and temperatures for every
-    !> configured species, plus q and Er. Arrays use species indices 0:S-1.
+    !> configured species, plus q and Er. When requested, Vpar_per returns each
+    !> species' field-parallel Maxwellian drift. Arrays use indices 0:S-1.
     subroutine sample_periodic_species_profiles(x_mid, dx_asis, dx_tr, x, &
-                                                n_per, T_per, q_per, Er_per)
+                                                n_per, T_per, q_per, Er_per, Vpar_per)
         real(dp), intent(in) :: x_mid, dx_asis, dx_tr, x
         real(dp), intent(out) :: n_per(0:), T_per(0:)
         real(dp), intent(out) :: q_per, Er_per
+        real(dp), intent(out), optional :: Vpar_per(0:)
 
         integer :: sp, n_profile_values
 
@@ -252,8 +256,13 @@ contains
             size(T_per) /= cached_n_species) then
             error stop 'periodic species sampler received the wrong species count'
         end if
+        if (present(Vpar_per)) then
+            if (size(Vpar_per) /= cached_n_species) then
+                error stop 'periodic flow sampler received the wrong species count'
+            end if
+        end if
 
-        n_profile_values = 2*cached_n_species + 2
+        n_profile_values = 3*cached_n_species + 2
         block
             real(dp) :: all_funs(n_profile_values)
 
@@ -262,9 +271,12 @@ contains
             do sp = 0, cached_n_species - 1
                 n_per(sp) = all_funs(sp + 1)
                 T_per(sp) = all_funs(cached_n_species + sp + 1)
+                if (present(Vpar_per)) then
+                    Vpar_per(sp) = all_funs(2*cached_n_species + sp + 1)
+                end if
             end do
-            q_per = all_funs(2*cached_n_species + 1)
-            Er_per = all_funs(2*cached_n_species + 2)
+            q_per = all_funs(3*cached_n_species + 1)
+            Er_per = all_funs(3*cached_n_species + 2)
         end block
     end subroutine sample_periodic_species_profiles
 
@@ -320,7 +332,8 @@ contains
 
         real(dp) :: L, r_lo, r_hi, u0_seed
         real(dp), allocatable :: r_win(:)
-        real(dp), allocatable :: n_win(:, :), T_win(:, :), q_win(:), Er_win(:)
+        real(dp), allocatable :: n_win(:, :), T_win(:, :), Vpar_win(:, :)
+        real(dp), allocatable :: q_win(:), Er_win(:)
         integer :: j, sigma, npts, n_species, profile_status
 
         if (present(info)) info = PERIODIC_BACKGROUND_OK
@@ -341,22 +354,24 @@ contains
         ! kim_aperfuns reads the CACHED true primitives (captured above), so this
         ! is robust to the redirect and to repeated calls. Sample into temporaries;
         ! only a valid profile is allowed to mutate rg_grid or plasma below.
-        ! Dynamic order: [n_0..n_(S-1), T_0..T_(S-1), q, Er].
+        ! Dynamic order: [n_0..n_(S-1), T_0..T_(S-1),
+        !                 Vpar_0..Vpar_(S-1), q, Er].
         allocate(r_win(n_rg), n_win(n_rg, 0:n_species - 1), &
-                 T_win(n_rg, 0:n_species - 1), q_win(n_rg), Er_win(n_rg))
+                 T_win(n_rg, 0:n_species - 1), &
+                 Vpar_win(n_rg, 0:n_species - 1), q_win(n_rg), Er_win(n_rg))
         do j = 1, n_rg
             r_win(j) = r_lo + L*real(j - 1, dp)/real(n_rg, dp)
             call sample_periodic_species_profiles(rm, dx_asis, dx_tr, r_win(j), &
-                n_win(j, :), T_win(j, :), q_win(j), Er_win(j))
+                n_win(j, :), T_win(j, :), q_win(j), Er_win(j), Vpar_win(j, :))
         end do
 
         ! Preserve independently periodized impurity densities and use the main
         ! ion (species 1) as the dependent density. This documents one unique
         ! quasineutrality policy and avoids changing impurity concentration
         ! ratios merely because a species has a higher charge state.
-        call enforce_dependent_main_ion_density(n_win, T_win, profile_status)
+        call enforce_dependent_main_ion_density(n_win, T_win, Vpar_win, profile_status)
         if (profile_status /= PERIODIC_BACKGROUND_OK) then
-            deallocate(r_win, n_win, T_win, q_win, Er_win)
+            deallocate(r_win, n_win, T_win, Vpar_win, q_win, Er_win)
             if (present(info)) then
                 info = profile_status
                 return
@@ -409,15 +424,19 @@ contains
         call reallocate(plasma%Er, rg_grid%npts_b)
         call reallocate(plasma%spec(0)%n, rg_grid%npts_b)
         call reallocate(plasma%spec(0)%T, rg_grid%npts_b)
+        call reallocate(plasma%spec(0)%Vpar, rg_grid%npts_b)
         plasma%q  = q_win
         plasma%Er = Er_win
         plasma%spec(0)%n = n_win(:, 0)
         plasma%spec(0)%T = T_win(:, 0)
+        plasma%spec(0)%Vpar = Vpar_win(:, 0)
         do sigma = 1, number_of_ion_species
             call reallocate(plasma%spec(sigma)%n, rg_grid%npts_b)
             call reallocate(plasma%spec(sigma)%T, rg_grid%npts_b)
+            call reallocate(plasma%spec(sigma)%Vpar, rg_grid%npts_b)
             plasma%spec(sigma)%n = n_win(:, sigma)
             plasma%spec(sigma)%T = T_win(:, sigma)
+            plasma%spec(sigma)%Vpar = Vpar_win(:, sigma)
         end do
 
         ! Force calculate_equil / calc_plasma_parameter_derivs to recompute the
@@ -429,7 +448,7 @@ contains
         end do
         if (allocated(plasma%dqdr)) deallocate(plasma%dqdr)
 
-        deallocate(r_win, n_win, T_win, q_win, Er_win)
+        deallocate(r_win, n_win, T_win, Vpar_win, q_win, Er_win)
 
         ! ---- 4./5. Recompute derivatives + all derived quantities. ------------
         ! calculate_equil: recomputes dndr/dTdr/dqdr (via calc_plasma_parameter_
@@ -556,11 +575,13 @@ contains
             dfdr(N) = (f(1) - f(N-1)) / (2.0_dp * h)
         end subroutine periodic_central_diff
 
-        subroutine enforce_dependent_main_ion_density(density, temperature, status)
+        subroutine enforce_dependent_main_ion_density(density, temperature, &
+                                                      parallel_velocity, status)
             use, intrinsic :: ieee_arithmetic, only: ieee_is_finite
 
             real(dp), intent(inout) :: density(:, 0:)
             real(dp), intent(in) :: temperature(:, 0:)
+            real(dp), intent(in) :: parallel_velocity(:, 0:)
             integer, intent(out) :: status
             real(dp) :: impurity_charge_density(size(density, 1))
             integer :: sp
@@ -577,7 +598,8 @@ contains
             if (any(.not. ieee_is_finite(density(:, 0))) .or. &
                 any(density(:, 0) <= 0.0_dp) .or. &
                 any(.not. ieee_is_finite(temperature)) .or. &
-                any(temperature <= 0.0_dp)) then
+                any(temperature <= 0.0_dp) .or. &
+                any(.not. ieee_is_finite(parallel_velocity))) then
                 return
             end if
             do sp = 2, number_of_ion_species
@@ -627,6 +649,7 @@ contains
                 if (allocated(plasma%spec(sp)%dndr_cc)) deallocate(plasma%spec(sp)%dndr_cc)
                 if (allocated(plasma%spec(sp)%T_cc)) deallocate(plasma%spec(sp)%T_cc)
                 if (allocated(plasma%spec(sp)%dTdr_cc)) deallocate(plasma%spec(sp)%dTdr_cc)
+                if (allocated(plasma%spec(sp)%Vpar_cc)) deallocate(plasma%spec(sp)%Vpar_cc)
                 if (allocated(plasma%spec(sp)%nu_cc)) deallocate(plasma%spec(sp)%nu_cc)
                 if (allocated(plasma%spec(sp)%vT_cc)) deallocate(plasma%spec(sp)%vT_cc)
                 if (allocated(plasma%spec(sp)%omega_c_cc)) deallocate(plasma%spec(sp)%omega_c_cc)

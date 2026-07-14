@@ -5,7 +5,8 @@ module profile_input_m
     use KIM_kinds_m, only: dp
     use config_m, only: coord_type, input_profile_dir, equil_file, geqdsk_file, profile_location, &
                         n_input_file, Te_input_file, Ti_input_file, Vz_input_file, &
-                        n_file, Te_file, Ti_file, Vz_file, Er_file, q_file
+                        n_file, Te_file, Ti_file, Vz_file, parallel_flow_convention, &
+                        Er_file, q_file
     use setup_m, only: btor, R0
     use constants_m, only: e_charge, sol, ev
     use grid_m, only: r_min, r_plas
@@ -17,6 +18,12 @@ module profile_input_m
     public :: prepare_profiles
     ! I/O-free seams exercised by KIM/tests/test_profile_input*.f90
     public :: classify_coordinate_type, calculate_derivative, compute_er_force_balance
+    public :: read_parallel_flow_profile
+
+    integer, parameter, public :: FLOW_PROFILE_OK = 0
+    integer, parameter, public :: FLOW_PROFILE_AMBIGUOUS_CONVENTION = 1
+    integer, parameter, public :: FLOW_PROFILE_INCOMPATIBLE_COVERAGE = 2
+    integer, parameter, public :: FLOW_PROFILE_INVALID_DATA = 3
 
     ! Coordinate detection threshold
     real(dp), parameter :: COORD_THRESHOLD = 2.0_dp
@@ -412,6 +419,98 @@ contains
         deallocate(dn_dr, dTi_dr)
 
     end subroutine compute_er_force_balance
+
+    subroutine read_parallel_flow_profile(target_r, q, Vpar, info)
+        !> Read the configured equilibrium-flow profile onto target_r and return
+        !> the field-parallel velocity used by the drifting ion Maxwellians.
+        !>
+        !> Vz.dat is the cylindrical z component (the toroidal component in the
+        !> straight-cylinder model) already used by radial force balance. For a
+        !> flow parallel to B, Vz = h_z*V_parallel, with
+        !>   h_z = sign(B_z)/sqrt(1 + (r/(q R0))**2).
+        !> The projection V_parallel = Vz/h_z is applied exactly once here.
+        use, intrinsic :: ieee_arithmetic, only: ieee_is_finite
+
+        real(dp), intent(in) :: target_r(:), q(:)
+        real(dp), intent(out) :: Vpar(:)
+        integer, intent(out) :: info
+
+        real(dp), allocatable :: source_r(:), Vz_source(:), Vz_target(:)
+        real(dp) :: coverage_tol, hz, weight
+        integer :: n_source, i, j
+        character(512) :: filename
+        logical :: file_exists
+
+        info = FLOW_PROFILE_INVALID_DATA
+        Vpar = 0.0_dp
+        if (size(q) /= size(target_r) .or. size(Vpar) /= size(target_r)) return
+        if (size(target_r) < 1) return
+        if (any(.not. ieee_is_finite(target_r)) .or. &
+            any(.not. ieee_is_finite(q))) return
+
+        filename = trim(profile_location)//'/'//trim(Vz_file)
+        inquire(file=trim(filename), exist=file_exists)
+        if (.not. file_exists) then
+            info = FLOW_PROFILE_OK
+            return
+        end if
+
+        call read_profile_data(trim(filename), source_r, Vz_source, n_source)
+        if (n_source < 2 .or. any(.not. ieee_is_finite(source_r)) .or. &
+            any(.not. ieee_is_finite(Vz_source))) return
+        do i = 2, n_source
+            if (source_r(i) <= source_r(i - 1)) return
+        end do
+
+        coverage_tol = 100.0_dp*epsilon(1.0_dp)*max(1.0_dp, maxval(abs(target_r)))
+        if (minval(target_r) < source_r(1) - coverage_tol .or. &
+            maxval(target_r) > source_r(n_source) + coverage_tol) then
+            info = FLOW_PROFILE_INCOMPATIBLE_COVERAGE
+            return
+        end if
+
+        allocate(Vz_target(size(target_r)))
+        j = 1
+        do i = 1, size(target_r)
+            do while (j < n_source - 1 .and. source_r(j + 1) < target_r(i))
+                j = j + 1
+            end do
+            weight = (target_r(i) - source_r(j)) / &
+                     (source_r(j + 1) - source_r(j))
+            weight = max(0.0_dp, min(1.0_dp, weight))
+            Vz_target(i) = Vz_source(j) + weight*(Vz_source(j + 1) - Vz_source(j))
+        end do
+
+        if (maxval(abs(Vz_target)) <= tiny(1.0_dp)) then
+            info = FLOW_PROFILE_OK
+            deallocate(source_r, Vz_source, Vz_target)
+            return
+        end if
+        if (trim(parallel_flow_convention) /= 'toroidal') then
+            info = FLOW_PROFILE_AMBIGUOUS_CONVENTION
+            deallocate(source_r, Vz_source, Vz_target)
+            return
+        end if
+        if (abs(btor) <= tiny(1.0_dp) .or. abs(R0) <= tiny(1.0_dp) .or. &
+            any(abs(q) <= tiny(1.0_dp))) then
+            deallocate(source_r, Vz_source, Vz_target)
+            return
+        end if
+
+        do i = 1, size(target_r)
+            hz = sign(1.0_dp, btor) / &
+                 sqrt(1.0_dp + (target_r(i)/(q(i)*R0))**2)
+            Vpar(i) = Vz_target(i)/hz
+        end do
+        if (any(.not. ieee_is_finite(Vpar))) then
+            Vpar = 0.0_dp
+            deallocate(source_r, Vz_source, Vz_target)
+            return
+        end if
+
+        info = FLOW_PROFILE_OK
+        deallocate(source_r, Vz_source, Vz_target)
+    end subroutine read_parallel_flow_profile
 
     subroutine read_profile_data(filename, r, data, npts)
         !> Read two-column profile data file

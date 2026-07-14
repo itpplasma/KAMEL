@@ -77,6 +77,9 @@ module config_m
     character(256) :: Te_file = 'Te.dat'
     character(256) :: Ti_file = 'Ti.dat'
     character(256) :: Vz_file = 'Vz.dat'
+    ! Velocity stored in Vz_file. 'toroidal' means the cylindrical z/toroidal
+    ! component used by radial force balance; 'none' permits only zero flow.
+    character(20) :: parallel_flow_convention = 'none'
     character(256) :: Er_file = 'Er.dat'
     character(256) :: q_file = 'q.dat'
 

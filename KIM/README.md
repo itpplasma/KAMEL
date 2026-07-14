@@ -24,6 +24,37 @@ The following are automatically downloaded during build:
 ## Configuration
 The code is configured with the namelist file */nmls/KIM_config.nml*.
 
+### Fokker-Planck equilibrium parallel flow
+
+`Vz_file` is the cylindrical `z` velocity (the toroidal component in KIM's
+straight-cylinder model), in cm/s. A finite file must be declared explicitly:
+
+```fortran
+&KIM_PROFILES
+  Vz_file = 'Vz.dat'
+  parallel_flow_convention = 'toroidal'
+/
+```
+
+KIM treats this as the axial component of a field-aligned ion flow and applies
+the cylindrical projection once,
+`V_parallel = Vz/h_z`, where
+`h_z = sign(B_z)/sqrt(1 + (r/(q R0))**2)`. All configured ion Maxwellians use
+that profile; electrons remain stationary. Radial force balance continues to
+use the original toroidal component, while Fokker-Planck susceptibilities use
+
+```text
+x2(s,m_phi) = -(omega_E + k_parallel V_parallel(s)
+                 + m_phi omega_c(s) - omega) / nu(s).
+```
+
+No `Vz.dat`, or an identically zero profile, preserves the historical zero-flow
+path bit-for-bit. A finite profile with no declared convention or insufficient
+radial coverage is rejected before susceptibility assembly. In-memory callers
+may pass the explicitly field-parallel `Vpar_in` argument to
+`set_profiles_from_arrays`; omission means zero flow. Poloidal neoclassical flow
+is not added by this model.
+
 ## Compilation
 To compile the code:
 ```

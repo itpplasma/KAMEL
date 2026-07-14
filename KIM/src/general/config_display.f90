@@ -133,6 +133,13 @@ contains
         end if
         call print_config_line('Plasma Type', trim(plasma_type), width)
         call print_config_line('Collision Model', trim(collision_model), width)
+        call print_config_line('Ion Collision Model', trim(ion_collision_model), width)
+        write(value_str, '(ES12.4)') ion_fp_collision_scale
+        call print_config_line('Ion FP nu scale', trim(adjustl(value_str)), width)
+        if (trim(ion_collision_model) == 'collisionless') then
+            write(value_str, '(ES12.4,A)') collisionless_kpar_epsilon, ' 1/cm'
+            call print_config_line('Collisionless kpar eps', trim(adjustl(value_str)), width)
+        end if
         call print_bool_line('Collisions', .not. collisions_off, width)
         write(value_str, '(I0)') artificial_debye_case
         call print_config_line('Artificial Debye Case', trim(adjustl(value_str)), width)

@@ -81,6 +81,12 @@ module IO_collection_m
             'Type of run: electrostatic, FLR2_benchmark, etc.', 'str')
         call h5_add(h5grpid, 'collision_model', trim(collision_model), &
             'Type of collision model used in the simulation.', 'str')
+        call h5_add(h5grpid, 'ion_collision_model', trim(ion_collision_model), &
+            'Ion collision model: FokkerPlanck or collisionless analytical Krook/Hamiltonian.', 'str')
+        call h5_add(h5grpid, 'collisionless_kpar_epsilon', collisionless_kpar_epsilon, &
+            'Positive imaginary part of the causal collisionless k_parallel pole.', '1/cm')
+        call h5_add(h5grpid, 'ion_fp_collision_scale', ion_fp_collision_scale, &
+            'Multiplier applied only to computed Fokker-Planck ion collision frequencies.', '1')
         call h5_add(h5grpid, 'read_species_from_namelist', read_species_from_namelist, &
             'Logical switch to read species from namelist or use default deuterium plasma.', 'true/false')
         call h5_add(h5grpid, 'turn_off_ions', turn_off_ions, &

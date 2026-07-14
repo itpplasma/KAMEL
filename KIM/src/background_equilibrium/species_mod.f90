@@ -88,6 +88,17 @@ module species_m
 
     contains
 
+    pure function scale_fp_collision_frequency(nu, species_index, ion_scale) result(scaled_nu)
+
+        real(dp), intent(in) :: nu, ion_scale
+        integer, intent(in) :: species_index
+        real(dp) :: scaled_nu
+
+        scaled_nu = nu
+        if (species_index > 0) scaled_nu = ion_scale * nu
+
+    end function scale_fp_collision_frequency
+
     subroutine init_plasma(plasma_in)
 
         use config_m, only: read_species_from_namelist, plasma_type
@@ -451,7 +462,8 @@ module species_m
 
         use constants_m, only: sol, e_charge, ev, pi, com_unit
         use setup_m, only: omega, collisions_off
-        use config_m, only: number_of_ion_species, rescale_density, number_density_rescale, ion_flr_scale_factor
+        use config_m, only: number_of_ion_species, rescale_density, number_density_rescale, &
+            ion_flr_scale_factor, ion_fp_collision_scale
 
         implicit none
 
@@ -528,7 +540,8 @@ module species_m
 
         do sp = 1, plasma_in%n_species-1
             do i = 1, plasma_in%grid_size
-                plasma_in%spec(sp)%nu(i) = nui(sp, i)
+                plasma_in%spec(sp)%nu(i) = scale_fp_collision_frequency(&
+                    nui(sp, i), sp, ion_fp_collision_scale)
             end do
         end do
 

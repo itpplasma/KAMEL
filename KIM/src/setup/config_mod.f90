@@ -9,6 +9,9 @@ module config_m
     logical :: read_species_from_namelist ! read species from namelist or use deuterium plasma
     character(100) :: type_of_run
     character(100) :: collision_model ! type of collision model
+    character(20) :: ion_collision_model = 'FokkerPlanck' ! FokkerPlanck or collisionless Krook/Hamiltonian
+    real(dp) :: collisionless_kpar_epsilon = -1.0_dp ! causal +i epsilon pole [1/cm]; required for collisionless ions
+    real(dp) :: ion_fp_collision_scale = 1.0_dp ! multiplier applied only to computed FP ion collision frequencies
     integer :: artificial_debye_case
     logical :: turn_off_ions ! if true, only the first species (electrons) is considered in calculations
     logical :: turn_off_electrons

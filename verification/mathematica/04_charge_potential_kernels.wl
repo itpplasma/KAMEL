@@ -144,7 +144,9 @@ check[
 ];
 
 (* Thesis (5.13)-(5.15), independently integrated here so the full kernel
-   fixture does not inherit production getIfunc/W2_arr recurrence algebra. *)
+   fixture does not inherit production getIfunc/W2_arr recurrence algebra.
+   Third-order moments are included because the upstream rho-B derivation
+   needs the cubic source moment I03 (see the derivation checks below). *)
 generatingIntegrand[x1_, x2_, al_, be_, y_] := Module[
   {scale = 1 + x1^2, tau},
   tau = y/scale;
@@ -160,7 +162,7 @@ fpMomentMatrix[x1in_?NumericQ, x2in_?NumericQ] :=
     expressions = Flatten[Table[
       D[generatingIntegrand[x1, x2, al, be, y], {al, k}, {be, l}] /.
         {al -> 0, be -> 0},
-      {k, 0, 2}, {l, 0, 2}
+      {k, 0, 3}, {l, 0, 3}
     ]];
     Partition[
       Quiet[NIntegrate[
@@ -169,7 +171,7 @@ fpMomentMatrix[x1in_?NumericQ, x2in_?NumericQ] :=
         PrecisionGoal -> 40, MaxRecursion -> 40,
         Method -> {"GlobalAdaptive", "SymbolicProcessing" -> 0}
       ], {NIntegrate::precw, NIntegrate::slwcon}],
-      3
+      4
     ]
   ];
 fpDifferential[k_, l_, x1_, x2_] := fpMomentMatrix[x1, x2][[k + 1, l + 1]];
@@ -213,8 +215,8 @@ x1FromCase[c_] := c["kpar"] c["vT"]/c["nu"];
 x2FromCase[c_] := -(c["omegaE"] + c["kpar"] c["Vpar"] +
   c["mphi"] c["omegaC"] - c["omega"])/c["nu"];
 kernelParts[c_] := Module[
-  {rho, bp, bx, ph, x1, x2, i00, i20, i01, i21, f0, f2, dynamic,
-   rhoBDynamic, debye, total, speedOfLight = 29979245800},
+  {rho, bp, bx, ph, x1, x2, i00, i20, i01, i21, i02, i03, f0, f2, dynamic,
+   rhoBDynamic, rhoBDerived, debye, total, speedOfLight = 29979245800},
   rho = Abs[c["vT"]/c["omegaC"]];
   bp = bPlus[c["ks"], c["kr"], c["krp"], rho];
   bx = bCross[c["ks"], c["kr"], c["krp"], rho];
@@ -224,11 +226,27 @@ kernelParts[c_] := Module[
   i20 = fpConserving[2, 0, x1, x2];
   i01 = fpConserving[0, 1, x1, x2];
   i21 = fpConserving[2, 1, x1, x2];
+  i02 = fpConserving[0, 2, x1, x2];
+  i03 = fpConserving[0, 3, x1, x2];
   f0 = flrDensity[bp, bx, c["mphi"]];
   f2 = flrEnergy[bp, bx, c["mphi"]];
   dynamic = ph kernelNormalization I c["vT"]^2 c["ks"] /
     (c["lambda"]^2 c["omegaC"] c["nu"]) *
     (i00 (c["A1"] f0 + c["A2"] f2) + c["A2"] i20 f0/2);
+  (* Upstream rho-B derivation, thesis (4.39)/(4.41)/(13.23)/(5.12): the B
+     drive u' B^r/B0 replaces the Phi drive -i c k_s Phi/B0; every shared
+     factor (measures, 4 pi, Jacobian, Maxwellian norm, phases, Weber
+     integrals) cancels in the ratio.  Per (5.12) the drive factor u' raises
+     each SOURCE moment index by one and contributes one power of vT, so the
+     verified rho-Phi assembly maps under vT/(-I c k_s) onto
+       -vT^3/(omega_c nu c) (I01 (A1 F0 + A2 F2) + A2 I03 F0/2).
+     This fixes the prefactor to vT^3 (the vT^2 printed in (14.4) is a
+     dimensional misprint, like its b_+/m_phi signs).  The production form
+     below uses I21 in the cubic slot; I03 = I21 by the (A.3)-(A.4)
+     recurrence algebra and is checked per case before the oracle rows. *)
+  rhoBDerived = -ph kernelNormalization c["vT"]^3 /
+    (c["lambda"]^2 c["omegaC"] c["nu"] speedOfLight) *
+    (i01 (c["A1"] f0 + c["A2"] f2) + c["A2"] i03 f0/2);
   rhoBDynamic = -ph kernelNormalization c["vT"]^3 /
     (c["lambda"]^2 c["omegaC"] c["nu"] speedOfLight) *
     (i01 (c["A1"] f0 + c["A2"] f2) + c["A2"] i21 f0/2);
@@ -237,9 +255,10 @@ kernelParts[c_] := Module[
   total = debye + dynamic;
   <|"rho" -> rho, "bp" -> bp, "bx" -> bx, "phase" -> ph,
     "x1" -> x1, "x2" -> x2, "I00" -> i00, "I20" -> i20,
-    "I01" -> i01, "I21" -> i21,
+    "I01" -> i01, "I21" -> i21, "I02" -> i02, "I03" -> i03,
     "F0" -> f0, "F2" -> f2, "dynamic" -> dynamic,
-    "debyeTerm" -> debye, "total" -> total, "rhoBDynamic" -> rhoBDynamic|>
+    "debyeTerm" -> debye, "total" -> total, "rhoBDynamic" -> rhoBDynamic,
+    "rhoBDerived" -> rhoBDerived|>
 ];
 
 (* Geometry and limit proofs do not assume a collision model. *)
@@ -273,6 +292,25 @@ truncationB = SetPrecision[1/10, workingPrecision];
 retainedWeight = Exp[-truncationB] Sum[BesselI[m, truncationB], {m, -2, 2}];
 truncationTailBound = 1 - retainedWeight;
 check["mphi=-2..2 geometric tail below 1e-4", 0 < truncationTailBound < 10^-4];
+
+(* rho-B derivation gates.  The upstream form needs the source moments I01
+   and I03; production stores I20/I21 instead.  Both substitutions rest on
+   moment identities of the energy-conserving FP response ((5.13), (A.3),
+   (A.4)): the generating integral (A.2) is symmetric under alpha <-> beta,
+   giving I02 = I20, and the recurrence algebra gives I03 = I21.  Checking
+   them per case (not just at one probe) keeps every committed oracle row
+   covered by the derivation. *)
+Do[
+  Module[{p = kernelParts[c], label = " case " <> ToString[c["id"]]},
+    checkNumeric["source-moment symmetry I02=I20" <> label,
+      p["I02"], p["I20"], 10^-36];
+    checkNumeric["cubic source moment I03=I21" <> label,
+      p["I03"], p["I21"], 10^-36];
+    checkNumeric["derived rho-B matches production form" <> label,
+      p["rhoBDerived"], p["rhoBDynamic"], 10^-30]
+  ],
+  {c, cases}
+];
 
 formatNumber[value_] := StringReplace[
   ToString[FortranForm[N[value, 34]], InputForm], {"*^" -> "E", " " -> ""}

@@ -614,11 +614,19 @@ approximation, selectable via the `fp_ks_model_name` key of `&KIM_CONFIG`.
 tolerance of `1e-12` (maximum observed scaled error `6.4e-14`), so the tiny
 rho-B magnitudes (`1e-14`..`1e-22`) are genuinely enforced: a Fortran-side
 mutation of the sign, `4 pi`, Fourier phase, Bessel order, or `k_s^2` fails
-the ctest (mutation battery re-run against each). The rho-B WL entry is still
-a transcription of the Fortran assembly, not an upstream derivation — K^{rho B}
-independence remains open pending a Mathematica derivation pass. The FLR
-arguments come from the stored per-species `rho_L`, so `ion_flr_scale_factor`
-acts on the off-diagonal path exactly as on the diagonal one.
+the ctest (mutation battery re-run against each). K^{rho B} is derived
+upstream in the WL script from (4.39)/(4.41)/(13.23)/(5.12): the B drive
+`u' B^r/B0` maps the verified rho-Phi assembly under the exact drive ratio
+`u'/(-i c k_s)` onto `-vT^3/(4 pi lambda^2 omega_c nu c)` times
+`I01 (A1 F0 + A2 F2) + A2 I03 F0/2`. Per-case gates check the FP moment
+identities `I02 = I20` and `I03 = I21` ((5.13), (A.3)-(A.4)) that justify
+the production `I20`/`I21` slots, and that the derived kernel equals the
+committed rho-B assembly, so the oracle rows are unchanged. The derivation
+fixes the rho-B prefactor to `vT^3`; the `vT^2` printed in (14.4) is a
+dimensional misprint, alongside the `b_+`/`m_phi` sign misprint noted above.
+The FLR arguments come from the stored per-species `rho_L`, so
+`ion_flr_scale_factor` acts on the off-diagonal path exactly as on the
+diagonal one.
 
 ### Fokker–Planck susceptibility oracle (#194)
 

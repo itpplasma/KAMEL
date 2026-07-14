@@ -1105,6 +1105,7 @@ CONTAINS
     REAL(kind=dp), ALLOCATABLE, DIMENSION(:) :: x !vector to store the solution
 
     ALLOCATE( x(SIZE(b)) )
+    x = 0.0_dp   ! zero-init: UMFPACK leaves decoupled/empty-row DOFs unwritten
     ALLOCATE( Ai(SIZE(irow)) )
     ALLOCATE( Ap(SIZE(pcol)) )
 
@@ -1195,6 +1196,10 @@ CONTAINS
 
     ALLOCATE( xx(nrow) )
     ALLOCATE( xz(nrow) )
+    ! zero-init: UMFPACK leaves decoupled/empty-row DOFs unwritten; without
+    ! this they carry uninitialized heap into the solution (b=DCMPLX(xx,xz)).
+    xx = 0.0_dp
+    xz = 0.0_dp
     ALLOCATE( bx(nrow) )
     ALLOCATE( bz(nrow) )
     ALLOCATE( valx(nz) )
@@ -1335,6 +1340,7 @@ CONTAINS
     ! Wrong allocation size of x fixed
     !**********************************************************
     ALLOCATE( x(nrow) )
+    x = 0.0_dp   ! zero-init: UMFPACK leaves decoupled/empty-row DOFs unwritten
     ALLOCATE( Ai(SIZE(irow)) )
     ALLOCATE( Ap(SIZE(pcol)) )
     ALLOCATE(bloc(nrow))
@@ -1436,6 +1442,10 @@ CONTAINS
 
     ALLOCATE( xx(nrow) )
     ALLOCATE( xz(nrow) )
+    ! zero-init: UMFPACK leaves decoupled/empty-row DOFs unwritten; without
+    ! this they carry uninitialized heap into the solution (b=DCMPLX(xx,xz)).
+    xx = 0.0_dp
+    xz = 0.0_dp
     ALLOCATE( bx(nrow, SIZE(b,2)) )
     ALLOCATE( bz(nrow, SIZE(b,2)) )
     ALLOCATE( valx(nz) )

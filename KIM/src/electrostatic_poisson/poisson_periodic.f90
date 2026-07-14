@@ -3,13 +3,13 @@
 ! On a given (m, n) case this run-type locates the resonant surface rm, sizes a
 ! periodic window from a representative Larmor radius rho_L(rm), builds the
 ! periodic plasma on that window (Phase-2.3), assembles the dense Fourier
-! matrices K^{rhoPhi}/K^{rhoB} over one period (Phase-2.4), solves the periodic
-! electrostatic system for the Fourier coefficients Phi_m and inverse-DFTs them
-! into delta_Phi(r) on the window grid (Phase-2.5), then packs delta_Phi into
-! fields_m::EBdat.
+! matrices K^{rhoPhi}/K^{rhoB} over one period, solves for the periodic
+! deviation from a physical aligned-potential lift, reconstructs delta_Phi(r)
+! on the window grid, then packs it into fields_m::EBdat.
 module rt_electrostatic_periodic_m
 
     use kim_base_m, only: kim_t
+    use KIM_kinds_m, only: dp
 
     implicit none
 
@@ -22,14 +22,15 @@ module rt_electrostatic_periodic_m
     integer, parameter, public :: PERIODIC_SCALE_OK = 0
     integer, parameter, public :: PERIODIC_SCALE_NO_ACTIVE = 1
     integer, parameter, public :: PERIODIC_SCALE_INVALID_RHO = 2
+    real(dp), parameter :: PERIODIC_LIFT_PROJECTION_TOLERANCE = 5.0e-2_dp
 
     public :: compute_periodic_delta_phi, select_periodic_reference_scale
 
     contains
 
     !> Reusable periodic core: build the window plasma, assemble the Fourier
-    !> matrices, solve for the coefficients Phi_m under a constant Br drive, and
-    !> reconstruct delta_Phi on the EXPLICIT output grid r_out (NOT on the window
+    !> matrices, solve for deviation coefficients under a constant Br drive, and
+    !> reconstruct physical delta_Phi on the EXPLICIT output grid r_out (not the window
     !> grid rg_grid%xb). All window sizing is passed in EXPLICITLY so both the
     !> run-type and the Phase-3 convergence harness can evaluate delta_Phi on a
     !> fixed diagnostic grid independent of the (n_rg, M, dx) discretization.
@@ -37,12 +38,15 @@ module rt_electrostatic_periodic_m
     !> Does NOT error stop on a singular solve: it returns info /= 0 so the
     !> caller can decide (the run-type error stops; the tests inspect info).
     subroutine compute_periodic_delta_phi(rm, dx_asis, dx_tr, M, n_rg, Br_const, &
-                                          r_out, dPhi, info)
+                                          r_out, dPhi, info, lift_projection_residual)
         use KIM_kinds_m, only: dp
         use species_m, only: plasma
+        use grid_m, only: rg_grid
         use periodic_background_m, only: build_periodic_plasma
         use periodic_assembly_m, only: assemble_periodic_matrices
-        use periodic_solve_m, only: solve_periodic, reconstruct_delta_phi
+        use periodic_solve_m, only: solve_periodic_deviation, &
+            reconstruct_delta_phi_from_lift, build_physical_c2_lift, &
+            PERIODIC_SOLVE_INVALID_INPUT
 
         real(dp),    intent(in)  :: rm, dx_asis, dx_tr
         integer,     intent(in)  :: M, n_rg
@@ -50,19 +54,86 @@ module rt_electrostatic_periodic_m
         real(dp),    intent(in)  :: r_out(:)
         complex(dp), allocatable, intent(out) :: dPhi(:)
         integer,     intent(out) :: info
+        real(dp), intent(out), optional :: lift_projection_residual
 
-        complex(dp), allocatable :: Kphi(:,:), KB(:,:), Phi_m(:)
-        real(dp) :: L
+        complex(dp), allocatable :: Kphi(:,:), KB(:,:), psi_m(:), Br_m(:)
+        complex(dp), allocatable :: Phi_ref_grid(:), d2Phi_ref_grid(:)
+        complex(dp), allocatable :: Phi_ref_out(:), d2Phi_ref_out(:)
+        logical, allocatable :: projection_mask(:)
+        complex(dp) :: phi_left, phi_right
+        real(dp) :: L, projection_residual
+        integer :: dim
 
+        if (present(lift_projection_residual)) lift_projection_residual = huge(1.0_dp)
+        if (dx_asis <= 0.0_dp .or. dx_tr <= 0.0_dp .or. M < 0 .or. n_rg <= 0) then
+            info = PERIODIC_SOLVE_INVALID_INPUT
+            return
+        end if
         L = 2.0_dp * (dx_asis + dx_tr)
 
+        ! Capture the two physical ideal-MHD edge values before periodization
+        ! replaces the outer background by artificial periodic transitions.
+        call aligned_lift_anchor(rm - 0.5_dp * L, Br_const, phi_left, info)
+        if (info /= 0) return
+        call aligned_lift_anchor(rm + 0.5_dp * L, Br_const, phi_right, info)
+        if (info /= 0) return
         call build_periodic_plasma(rm, dx_asis, dx_tr, n_rg)
         call assemble_periodic_matrices(plasma, L, M, Kphi, KB)
-        call solve_periodic(Kphi, KB, L, M, Br_const, Phi_m, info)
+
+        allocate(Phi_ref_grid(size(rg_grid%xb)), d2Phi_ref_grid(size(rg_grid%xb)))
+        call build_physical_c2_lift(rg_grid%xb, rm, dx_asis, dx_tr, phi_left, phi_right, &
+                                    Phi_ref_grid, d2Phi_ref_grid)
+        allocate(projection_mask(size(rg_grid%xb)))
+        projection_mask = abs(rg_grid%xb - rm) <= dx_asis
+        dim = 2 * M + 1
+        allocate(Br_m(dim))
+        Br_m = (0.0_dp, 0.0_dp)
+        Br_m(M + 1) = Br_const
+        call solve_periodic_deviation(Kphi, KB, L, M, Br_m, rg_grid%xb, &
+            Phi_ref_grid, d2Phi_ref_grid, PERIODIC_LIFT_PROJECTION_TOLERANCE, &
+            psi_m, projection_residual, info, projection_mask=projection_mask)
+        if (present(lift_projection_residual)) lift_projection_residual = projection_residual
         if (info /= 0) return
 
-        dPhi = reconstruct_delta_phi(Phi_m, L, M, r_out)
+        allocate(Phi_ref_out(size(r_out)), d2Phi_ref_out(size(r_out)))
+        call build_physical_c2_lift(r_out, rm, dx_asis, dx_tr, phi_left, phi_right, &
+                                    Phi_ref_out, d2Phi_ref_out)
+        dPhi = reconstruct_delta_phi_from_lift(psi_m, L, M, r_out, Phi_ref_out)
     end subroutine compute_periodic_delta_phi
+
+    subroutine aligned_lift_anchor(x, Br_const, phi_anchor, info)
+        use, intrinsic :: ieee_arithmetic, only: ieee_is_finite
+        use KIM_kinds_m, only: dp
+        use constants_m, only: com_unit
+        use periodic_background_m, only: kim_aperfuns, kim_geom_aperfuns
+        use periodic_solve_m, only: PERIODIC_SOLVE_OK, PERIODIC_SOLVE_INVALID_INPUT
+
+        real(dp), intent(in) :: x
+        complex(dp), intent(in) :: Br_const
+        complex(dp), intent(out) :: phi_anchor
+        integer, intent(out) :: info
+
+        real(dp) :: primitives(5), geometry(4), Er_x, kp_x, B0_x
+
+        phi_anchor = (0.0_dp, 0.0_dp)
+        info = PERIODIC_SOLVE_INVALID_INPUT
+        ! Both callbacks sample the cached true background, so repeated
+        ! convergence solves never derive anchors from an already-periodized
+        ! live plasma.
+        call kim_aperfuns(size(primitives), x, primitives)
+        call kim_geom_aperfuns(size(geometry), x, geometry)
+        Er_x = primitives(5)
+        B0_x = geometry(1)
+        kp_x = geometry(3)
+        if (.not. ieee_is_finite(Er_x) .or. .not. ieee_is_finite(kp_x) .or. &
+            .not. ieee_is_finite(B0_x) .or. abs(B0_x) <= tiny(1.0_dp) .or. &
+            abs(kp_x) <= sqrt(epsilon(1.0_dp))) return
+
+        ! Global bc_type=3 imposes Phi=-phi_aligned with
+        ! phi_aligned=+i Er Br/(B0 k_parallel).
+        phi_anchor = -com_unit * Er_x * Br_const / (B0_x * kp_x)
+        info = PERIODIC_SOLVE_OK
+    end subroutine aligned_lift_anchor
 
     !> Select the largest Larmor radius among species active in the FP kernel.
     subroutine select_periodic_reference_scale(plasma_in, x, electrons_active, ions_active, &
@@ -199,7 +270,7 @@ module rt_electrostatic_periodic_m
         complex(dp), allocatable :: dPhi(:)
         complex(dp) :: Br_const
         real(dp), allocatable :: r_win(:)
-        real(dp) :: rm, rhoL_rm, dx_asis, dx_tr, L, k_max
+        real(dp) :: rm, rhoL_rm, dx_asis, dx_tr, L, k_max, lift_projection_residual
         integer :: M, n_rg, info, i, reference_species
 
         ! 1. Locate the resonant surface rm = r_res (q = |m/n|) on the global plasma.
@@ -260,11 +331,13 @@ module rt_electrostatic_periodic_m
         ! periodic core. It does NOT error stop on a singular solve; do it here.
         Br_const = cmplx(Br_boundary_re, Br_boundary_im, dp)
         call compute_periodic_delta_phi(rm, dx_asis, dx_tr, M, n_rg, Br_const, &
-                                        r_win, dPhi, info)
+                                        r_win, dPhi, info, lift_projection_residual)
         if (info /= 0) then
             print *, "Error (electrostatic_periodic): solve_periodic failed, info = ", info
             error stop "electrostatic_periodic: periodic solve failed"
         end if
+        print *, "electrostatic_periodic: aligned-lift projection residual = ", &
+                 lift_projection_residual
 
         ! Lock: the core has installed rg_grid%xb via build_periodic_plasma; the
         ! run-type's output grid r_win MUST equal it so EBdat is on the window.

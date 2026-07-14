@@ -1,7 +1,6 @@
 program test_periodic_solve
-    ! Validates periodic_solve_m (Phase-2.5): the dense zgesv solve of the
-    ! periodic electrostatic system and the inverse-DFT reconstruction of the
-    ! potential.
+    ! Validates the derived periodic electrostatic operator, physical-space
+    ! deviation lift, explicit gauge policy, and inverse-DFT reconstruction.
     !
     ! System over Fourier modes m = -M..M (k_m = 2*pi*m/L):
     !   [ D_m delta_{m,m'} + 4*pi K^{rhoPhi}_{m,m'} ] Phi_{m'}
@@ -29,12 +28,21 @@ program test_periodic_solve
 
     use KIM_kinds_m, only: dp
     use constants_m, only: pi, com_unit
-    use periodic_solve_m, only: solve_periodic, reconstruct_delta_phi, dense_solve
+    use periodic_solve_m, only: solve_periodic, reconstruct_delta_phi, dense_solve, &
+        assemble_periodic_operator, project_onto_periodic_basis, &
+        solve_with_derived_gauge, solve_periodic_deviation, &
+        reconstruct_delta_phi_from_lift, build_physical_c2_lift, &
+        PERIODIC_SOLVE_OK, PERIODIC_SOLVE_GAUGE_REQUIRED, &
+        PERIODIC_SOLVE_INCOMPATIBLE_NULLSPACE, PERIODIC_SOLVE_PROJECTION_REJECTED
 
     implicit none
 
     call test_dense_solve_roundtrip()
     call test_inverse_dft()
+    call test_field_operator_oracle()
+    call test_zero_mode_policy()
+    call test_manufactured_deviation()
+    call test_projection_rejection()
     call test_end_to_end()
 
     print *, 'All tests PASSED'
@@ -137,6 +145,163 @@ contains
         print *, 'PASS: inverse DFT two-mode superposition, max err =', &
                  maxval(abs(dPhi - expected))
     end subroutine test_inverse_dft
+
+    subroutine test_field_operator_oracle()
+        integer, parameter :: M = 2, dim = 2 * M + 1
+        complex(dp) :: Kphi(dim, dim), A_expected(dim, dim), psi(dim), rhs(dim)
+        complex(dp), allocatable :: A(:,:), solved(:), drive_m(:)
+        complex(dp) :: drive_values(4)
+        real(dp) :: values(20), nodes(4), L, kappa, hat_nodes(3)
+        real(dp) :: hat_mass(3), hat_laplace(3), current_correct, current_printed
+        character(len=1024) :: line
+        integer :: unit, ios, kind, icase, row, col, idx, seen
+
+        Kphi = (0.0_dp, 0.0_dp)
+        A_expected = (0.0_dp, 0.0_dp)
+        psi = (0.0_dp, 0.0_dp)
+        rhs = (0.0_dp, 0.0_dp)
+        seen = 0
+        open(newunit=unit, file='field_operator_matrices.dat', status='old', action='read', iostat=ios)
+        if (ios /= 0) error stop 'cannot open field_operator_matrices.dat'
+        do
+            read(unit, '(A)', iostat=ios) line
+            if (ios /= 0) exit
+            if (len_trim(line) == 0 .or. line(1:1) == '#') cycle
+            read(line, *, iostat=ios) kind, icase, row, col, values
+            if (ios /= 0) error stop 'invalid field_operator_matrices.dat row'
+            seen = seen + 1
+            select case (kind)
+            case (1)
+                idx = row + M + 1
+                L = values(1)
+                kappa = values(2)
+                Kphi(idx, idx) = -kappa * kappa / (4.0_dp * pi)
+                A_expected(idx, idx) = cmplx(values(4), values(5), dp)
+                psi(idx) = cmplx(values(8), values(9), dp)
+                rhs(idx) = cmplx(values(12), values(13), dp)
+            case (2)
+                hat_nodes(col) = values(2)
+                hat_mass(col) = values(3)
+                hat_laplace(col) = values(4)
+            case (4)
+                current_correct = values(11)
+                current_printed = values(13)
+            end select
+        end do
+        close(unit)
+        if (seen /= 14) error stop 'field/operator oracle row count mismatch'
+
+        call assemble_periodic_operator(Kphi, L, M, A)
+        if (maxval(abs(A - A_expected)) > &
+            128.0_dp * epsilon(1.0_dp) * max(1.0_dp, maxval(abs(A_expected)))) &
+            error stop 'field/operator oracle periodic matrix mismatch'
+        call solve_with_derived_gauge(A, rhs, M, .false., solved, ios)
+        if (ios /= PERIODIC_SOLVE_OK .or. maxval(abs(solved - psi)) > 1.0e-13_dp) &
+            error stop 'field/operator oracle screened solution mismatch'
+
+        nodes = [0.0_dp, 1.0_dp, 2.0_dp, 3.0_dp]
+        drive_values = 2.0_dp + exp(com_unit * 2.0_dp * pi * nodes / 4.0_dp)
+        call project_onto_periodic_basis(drive_values, nodes, 4.0_dp, M, drive_m)
+        if (maxval(abs(drive_m - [cmplx(0.0_dp, 0.0_dp, dp), &
+            cmplx(0.0_dp, 0.0_dp, dp), cmplx(2.0_dp, 0.0_dp, dp), &
+            cmplx(1.0_dp, 0.0_dp, dp), cmplx(0.0_dp, 0.0_dp, dp)])) > 1.0e-13_dp) &
+            error stop 'field/operator oracle drive transform mismatch'
+        if (maxval(abs(hat_nodes - [0.0_dp, 1.0_dp, 3.0_dp])) > 1.0e-15_dp .or. &
+            maxval(abs(hat_mass - [1.0_dp/6.0_dp, 1.0_dp, 1.0_dp/3.0_dp])) > 1.0e-15_dp .or. &
+            maxval(abs(hat_laplace - [1.0_dp, -1.5_dp, 0.5_dp])) > 1.0e-15_dp) &
+            error stop 'field/operator oracle hat row mismatch'
+        if (abs(current_correct - current_printed) < 1.0e-6_dp) &
+            error stop 'field/operator oracle current mutation not distinguished'
+        print *, 'PASS: all 14 field/operator oracle rows consumed'
+    end subroutine test_field_operator_oracle
+
+    subroutine test_zero_mode_policy()
+        integer, parameter :: M = 1, dim = 3
+        complex(dp) :: A(dim, dim), rhs(dim)
+        complex(dp), allocatable :: solution(:)
+        integer :: info
+
+        A = (0.0_dp, 0.0_dp)
+        A(1, 1) = (-1.0_dp, 0.0_dp)
+        A(3, 3) = (-1.0_dp, 0.0_dp)
+        rhs = (0.0_dp, 0.0_dp)
+        call solve_with_derived_gauge(A, rhs, M, .false., solution, info)
+        if (info /= PERIODIC_SOLVE_GAUGE_REQUIRED) error stop 'missing vacuum gauge was accepted'
+        call solve_with_derived_gauge(A, rhs, M, .true., solution, info)
+        if (info /= PERIODIC_SOLVE_OK .or. abs(solution(M + 1)) > 1.0e-15_dp) &
+            error stop 'declared mean-zero vacuum gauge failed'
+        rhs(M + 1) = (1.0_dp, 0.0_dp)
+        call solve_with_derived_gauge(A, rhs, M, .true., solution, info)
+        if (info /= PERIODIC_SOLVE_INCOMPATIBLE_NULLSPACE) &
+            error stop 'incompatible vacuum source was accepted'
+        print *, 'PASS: screened/vacuum zero-mode policy'
+    end subroutine test_zero_mode_policy
+
+    subroutine test_manufactured_deviation()
+        integer, parameter :: M = 12, dim = 25, n = 96
+        real(dp), parameter :: L = 30.0_dp, dx_asis = 5.0_dp
+        real(dp) :: nodes(n), residual
+        logical :: projection_mask(n)
+        complex(dp) :: Kphi(dim, dim), KB(dim, dim), Br_m(dim), psi_known(dim)
+        complex(dp) :: phi_ref(n), d2phi_ref(n), total(n), expected(n)
+        complex(dp), allocatable :: A(:,:), ref_m(:), d2ref_m(:), psi_m(:)
+        integer :: i, info
+
+        do i = 1, n
+            nodes(i) = -0.5_dp * L + real(i - 1, dp) * L / real(n, dp)
+        end do
+        call build_physical_c2_lift(nodes, 0.0_dp, dx_asis, 10.0_dp, &
+            cmplx(-1.0_dp, 0.4_dp, dp), cmplx(0.7_dp, -0.2_dp, dp), phi_ref, d2phi_ref)
+        projection_mask = abs(nodes) <= dx_asis
+        Kphi = (0.0_dp, 0.0_dp)
+        KB = (0.0_dp, 0.0_dp)
+        do i = 1, dim
+            Kphi(i, i) = -0.75_dp**2 / (4.0_dp * pi)
+            KB(i, i) = (1.0_dp, 0.0_dp)
+        end do
+        call assemble_periodic_operator(Kphi, L, M, A)
+        call project_onto_periodic_basis(phi_ref, nodes, L, M, ref_m)
+        call project_onto_periodic_basis(d2phi_ref, nodes, L, M, d2ref_m)
+        psi_known = (0.0_dp, 0.0_dp)
+        psi_known(M) = (0.2_dp, -0.1_dp)
+        psi_known(M + 1) = (-0.3_dp, 0.25_dp)
+        psi_known(M + 2) = (0.15_dp, 0.05_dp)
+        Br_m = -(d2ref_m + 4.0_dp * pi * matmul(Kphi, ref_m) + &
+            matmul(A, psi_known)) / (4.0_dp * pi)
+        call solve_periodic_deviation(Kphi, KB, L, M, Br_m, nodes, phi_ref, d2phi_ref, &
+            6.0e-2_dp, psi_m, residual, info, projection_mask=projection_mask)
+        if (info /= PERIODIC_SOLVE_OK .or. maxval(abs(psi_m - psi_known)) > 2.0e-12_dp) &
+            error stop 'manufactured periodic deviation was not recovered'
+        total = reconstruct_delta_phi_from_lift(psi_m, L, M, nodes, phi_ref)
+        expected = phi_ref + reconstruct_delta_phi(psi_known, L, M, nodes)
+        if (maxval(abs(total - expected)) > 2.0e-12_dp) &
+            error stop 'physical-space lift reconstruction mismatch'
+        print *, 'PASS: manufactured complex deviation, projection residual =', residual
+    end subroutine test_manufactured_deviation
+
+    subroutine test_projection_rejection()
+        integer, parameter :: M = 2, dim = 5, n = 96
+        real(dp), parameter :: L = 30.0_dp
+        real(dp) :: nodes(n), residual
+        complex(dp) :: Kphi(dim, dim), KB(dim, dim), Br_m(dim)
+        complex(dp) :: phi_ref(n), d2phi_ref(n)
+        complex(dp), allocatable :: psi_m(:)
+        integer :: i, info
+
+        do i = 1, n
+            nodes(i) = -0.5_dp * L + real(i - 1, dp) * L / real(n, dp)
+        end do
+        call build_physical_c2_lift(nodes, 0.0_dp, 5.0_dp, 10.0_dp, &
+            cmplx(-1.0_dp, 0.0_dp, dp), cmplx(1.0_dp, 0.0_dp, dp), phi_ref, d2phi_ref)
+        Kphi = (0.0_dp, 0.0_dp)
+        KB = (0.0_dp, 0.0_dp)
+        Br_m = (0.0_dp, 0.0_dp)
+        call solve_periodic_deviation(Kphi, KB, L, M, Br_m, nodes, phi_ref, d2phi_ref, &
+            1.0e-2_dp, psi_m, residual, info)
+        if (info /= PERIODIC_SOLVE_PROJECTION_REJECTED) &
+            error stop 'under-resolved physical lift was accepted'
+        print *, 'PASS: under-resolved lift rejected, projection residual =', residual
+    end subroutine test_projection_rejection
 
     !> (c) End-to-end sanity with the REAL assembled matrices. Mirrors
     !> test_periodic_assembly's setup: build the (m,n)=(-6,2) periodic plasma,

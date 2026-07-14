@@ -1,50 +1,72 @@
 module periodic_solve_m
-    !> Dense solve of the periodic electrostatic system and inverse-DFT
-    !> reconstruction of the potential (Phase-2.5).
+    !> Fourier discretization of the reduced radial CGS Poisson problem.
     !>
-    !> Over Fourier modes m = -M..M with k_m = 2*pi*m/L, the electrostatic
-    !> forced-periodicity system (design section 3.4) is
+    !> The chapter-15 KIM model uses the radial operator d2/dr2.  In the
+    !> exp(+i k_m r) basis its symbol is D_m=-k_m^2, so
     !>
-    !>   [ D_m delta_{m,m'} + 4*pi K^{rhoPhi}_{m,m'} ] Phi_{m'}
-    !>                                        = -4*pi K^{rhoB}_{m,m'} Br_{m'},
+    !>   A = D + 4*pi*K^{rhoPhi},       g = -4*pi*K^{rhoB}*Br.
     !>
-    !> with D_m = -k_m^2 the (diagonal) Fourier-space radial Poisson operator.
-    !> This matches solve_poisson.f90, whose left-hand operator is
-    !> A_mat = Laplace + 4*pi K_rho_phi (solve_poisson.f90:49): the FEM Laplace
-    !> operator there (prepare_Laplace_matrix) is the RADIAL second derivative
-    !> only, which in the Fourier basis maps to -k_m^2. There is NO perpendicular
-    !> -k_s^2 term in that operator, so D_m = -k_m^2 as the design specifies.
-    !> (Convention question flagged for the P2.7 cross-check: whether a physical
-    !> perpendicular k_s^2 contribution belongs on the diagonal.)
-    !>
-    !> The right-hand side matches create_rhs_vector's sign convention
-    !> (solve_poisson.f90:129, rhs = -4*pi * K_rho_B * Br). For type_br_field=12
-    !> Br is constant over the window, so its Fourier coefficient is nonzero only
-    !> at m' = 0:  Br_{m'} = Br_const * delta_{m',0}. The RHS therefore reduces to
-    !>
-    !>   b_m = -4*pi * Br_const * KB(m, m'=0) = -4*pi * Br_const * KB(:, M+1).
-    !>
-    !> The dense complex system is solved with LAPACK zgesv (same argument
-    !> pattern as electromagnetic_solver.f90:243), then the potential is
-    !> reconstructed on an output radial grid as
-    !>
-    !>   dPhi(r) = sum_{m=-M}^{M} Phi_m exp(i k_m r).
+    !> The physical solution is represented as deltaPhi=Phi_ref+psi.  Phi_ref
+    !> remains a physical-space lifting field; only its kinetic action and
+    !> supplied continuous second derivative are projected.  Projecting and
+    !> adding Phi_ref in the same finite basis would cancel algebraically and
+    !> silently reproduce the old direct-periodic solve.
 
     use KIM_kinds_m, only: dp
 
     implicit none
     private
 
-    public :: solve_periodic, reconstruct_delta_phi, dense_solve
+    integer, parameter, public :: PERIODIC_SOLVE_OK = 0
+    integer, parameter, public :: PERIODIC_SOLVE_INVALID_INPUT = -100
+    integer, parameter, public :: PERIODIC_SOLVE_GAUGE_REQUIRED = -101
+    integer, parameter, public :: PERIODIC_SOLVE_INCOMPATIBLE_NULLSPACE = -102
+    integer, parameter, public :: PERIODIC_SOLVE_PROJECTION_REJECTED = -103
+
+    public :: solve_periodic, solve_periodic_deviation
+    public :: assemble_periodic_operator, magnetic_drive_rhs
+    public :: project_onto_periodic_basis, solve_with_derived_gauge
+    public :: reconstruct_delta_phi, reconstruct_delta_phi_from_lift
+    public :: build_physical_c2_lift, dense_solve
 
 contains
 
-    !> Solve the periodic electrostatic system for the Fourier coefficients
-    !> Phi_m of the potential, given the Phase-2.4 matrices Kphi/KB, the period
-    !> L, the mode cutoff M, and the constant drive amplitude Br_const.
-    subroutine solve_periodic(Kphi, KB, L, M, Br_const, Phi_m, info)
+    subroutine assemble_periodic_operator(Kphi, L, M, A)
         use constants_m, only: pi
 
+        complex(dp), intent(in) :: Kphi(:,:)
+        real(dp), intent(in) :: L
+        integer, intent(in) :: M
+        complex(dp), allocatable, intent(out) :: A(:,:)
+
+        real(dp) :: k_m
+        integer :: dim, im, m_row
+
+        dim = 2 * M + 1
+        allocate(A(dim, dim))
+        A = 4.0_dp * pi * Kphi
+        do m_row = -M, M
+            im = m_row + M + 1
+            k_m = 2.0_dp * pi * real(m_row, dp) / L
+            A(im, im) = A(im, im) - k_m * k_m
+        end do
+    end subroutine assemble_periodic_operator
+
+    subroutine magnetic_drive_rhs(KB, Br_m, rhs)
+        use constants_m, only: pi
+
+        complex(dp), intent(in) :: KB(:,:), Br_m(:)
+        complex(dp), allocatable, intent(out) :: rhs(:)
+
+        allocate(rhs(size(Br_m)))
+        rhs = -4.0_dp * pi * matmul(KB, Br_m)
+    end subroutine magnetic_drive_rhs
+
+    !> Compatibility wrapper for the original constant-drive direct solve.
+    !> It now uses the same operator, source, and explicit zero-mode policy as
+    !> the deviation path.  A vacuum null space without a declared gauge is an
+    !> error rather than an arbitrary LAPACK result.
+    subroutine solve_periodic(Kphi, KB, L, M, Br_const, Phi_m, info)
         complex(dp), intent(in) :: Kphi(:,:), KB(:,:)
         real(dp), intent(in) :: L
         integer, intent(in) :: M
@@ -52,35 +74,209 @@ contains
         complex(dp), allocatable, intent(out) :: Phi_m(:)
         integer, intent(out) :: info
 
-        complex(dp), allocatable :: A(:,:), b(:)
-        real(dp) :: k_m
-        integer :: dim, im, m_row
+        complex(dp), allocatable :: A(:,:), Br_m(:), rhs(:)
+        integer :: dim
 
         dim = 2 * M + 1
-        allocate(A(dim, dim), b(dim))
+        if (M < 0 .or. L <= 0.0_dp .or. any(shape(Kphi) /= [dim, dim]) .or. &
+            any(shape(KB) /= [dim, dim])) then
+            allocate(Phi_m(max(0, dim)))
+            Phi_m = (0.0_dp, 0.0_dp)
+            info = PERIODIC_SOLVE_INVALID_INPUT
+            return
+        end if
 
-        ! A = 4*pi Kphi with the diagonal Fourier-space radial operator
-        ! D_m = -k_m^2 (k_m = 2*pi*m/L) added on the diagonal.
-        A = 4.0_dp * pi * Kphi
+        allocate(Br_m(dim))
+        Br_m = (0.0_dp, 0.0_dp)
+        Br_m(M + 1) = Br_const
+        call assemble_periodic_operator(Kphi, L, M, A)
+        call magnetic_drive_rhs(KB, Br_m, rhs)
+        call solve_with_derived_gauge(A, rhs, M, .false., Phi_m, info)
+    end subroutine solve_periodic
+
+    !> Solve L psi = g-L Phi_ref.  The caller supplies physical-space samples
+    !> of Phi_ref and its continuous radial second derivative on the DFT grid.
+    subroutine solve_periodic_deviation(Kphi, KB, L, M, Br_m, r_nodes, &
+                                        Phi_ref, d2Phi_ref, projection_tolerance, &
+                                        psi_m, projection_residual, info, &
+                                        declare_mean_zero_gauge, projection_mask)
+        use constants_m, only: pi
+
+        complex(dp), intent(in) :: Kphi(:,:), KB(:,:), Br_m(:)
+        real(dp), intent(in) :: L, r_nodes(:), projection_tolerance
+        integer, intent(in) :: M
+        complex(dp), intent(in) :: Phi_ref(:), d2Phi_ref(:)
+        complex(dp), allocatable, intent(out) :: psi_m(:)
+        real(dp), intent(out) :: projection_residual
+        integer, intent(out) :: info
+        logical, intent(in), optional :: declare_mean_zero_gauge
+        logical, intent(in), optional :: projection_mask(:)
+
+        complex(dp), allocatable :: A(:,:), rhs(:), ref_m(:), d2ref_m(:)
+        complex(dp), allocatable :: projected_ref(:)
+        real(dp) :: reference_norm
+        integer :: dim
+        logical :: use_gauge
+
+        dim = 2 * M + 1
+        projection_residual = huge(1.0_dp)
+        if (M < 0 .or. L <= 0.0_dp .or. projection_tolerance < 0.0_dp .or. &
+            size(r_nodes) == 0 .or. size(Phi_ref) /= size(r_nodes) .or. &
+            size(d2Phi_ref) /= size(r_nodes) .or. size(Br_m) /= dim .or. &
+            any(shape(Kphi) /= [dim, dim]) .or. any(shape(KB) /= [dim, dim])) then
+            allocate(psi_m(max(0, dim)))
+            psi_m = (0.0_dp, 0.0_dp)
+            info = PERIODIC_SOLVE_INVALID_INPUT
+            return
+        end if
+        if (present(projection_mask)) then
+            if (size(projection_mask) /= size(r_nodes) .or. .not. any(projection_mask)) then
+                allocate(psi_m(dim))
+                psi_m = (0.0_dp, 0.0_dp)
+                info = PERIODIC_SOLVE_INVALID_INPUT
+                return
+            end if
+        end if
+
+        call project_onto_periodic_basis(Phi_ref, r_nodes, L, M, ref_m)
+        call project_onto_periodic_basis(d2Phi_ref, r_nodes, L, M, d2ref_m)
+        projected_ref = reconstruct_delta_phi(ref_m, L, M, r_nodes)
+        if (present(projection_mask)) then
+            reference_norm = sqrt(sum(abs(Phi_ref)**2, mask=projection_mask))
+        else
+            reference_norm = sqrt(sum(abs(Phi_ref)**2))
+        end if
+        if (reference_norm > tiny(1.0_dp)) then
+            if (present(projection_mask)) then
+                projection_residual = sqrt(sum(abs(projected_ref - Phi_ref)**2, &
+                    mask=projection_mask)) / reference_norm
+            else
+                projection_residual = sqrt(sum(abs(projected_ref - Phi_ref)**2)) / reference_norm
+            end if
+        else
+            if (present(projection_mask)) then
+                projection_residual = sqrt(sum(abs(projected_ref - Phi_ref)**2, mask=projection_mask))
+            else
+                projection_residual = sqrt(sum(abs(projected_ref - Phi_ref)**2))
+            end if
+        end if
+        if (projection_residual > projection_tolerance) then
+            allocate(psi_m(dim))
+            psi_m = (0.0_dp, 0.0_dp)
+            info = PERIODIC_SOLVE_PROJECTION_REJECTED
+            return
+        end if
+
+        call assemble_periodic_operator(Kphi, L, M, A)
+        call magnetic_drive_rhs(KB, Br_m, rhs)
+        rhs = rhs - d2ref_m - 4.0_dp * pi * matmul(Kphi, ref_m)
+        use_gauge = .false.
+        if (present(declare_mean_zero_gauge)) use_gauge = declare_mean_zero_gauge
+        call solve_with_derived_gauge(A, rhs, M, use_gauge, psi_m, info)
+    end subroutine solve_periodic_deviation
+
+    !> Explicit zero-mode rule.  Screening retains and solves mode zero.  If
+    !> the mode is a true decoupled null space, the source must be compatible
+    !> and the caller must declare the mean-zero gauge.
+    subroutine solve_with_derived_gauge(A_in, rhs_in, M, declare_mean_zero_gauge, &
+                                        solution, info)
+        complex(dp), intent(in) :: A_in(:,:), rhs_in(:)
+        integer, intent(in) :: M
+        logical, intent(in) :: declare_mean_zero_gauge
+        complex(dp), allocatable, intent(out) :: solution(:)
+        integer, intent(out) :: info
+
+        complex(dp), allocatable :: A(:,:), rhs(:)
+        real(dp) :: scale, null_tolerance
+        integer :: dim, izero
+        logical :: zero_is_null
+
+        dim = 2 * M + 1
+        allocate(solution(max(0, dim)))
+        solution = (0.0_dp, 0.0_dp)
+        if (M < 0 .or. any(shape(A_in) /= [dim, dim]) .or. size(rhs_in) /= dim) then
+            info = PERIODIC_SOLVE_INVALID_INPUT
+            return
+        end if
+
+        A = A_in
+        rhs = rhs_in
+        izero = M + 1
+        scale = max(1.0_dp, maxval(abs(A)))
+        null_tolerance = 100.0_dp * epsilon(1.0_dp) * scale
+        zero_is_null = maxval(abs(A(izero, :))) <= null_tolerance .and. &
+                       maxval(abs(A(:, izero))) <= null_tolerance
+        if (zero_is_null) then
+            if (abs(rhs(izero)) > null_tolerance) then
+                info = PERIODIC_SOLVE_INCOMPATIBLE_NULLSPACE
+                return
+            end if
+            if (.not. declare_mean_zero_gauge) then
+                info = PERIODIC_SOLVE_GAUGE_REQUIRED
+                return
+            end if
+            A(izero, :) = (0.0_dp, 0.0_dp)
+            A(:, izero) = (0.0_dp, 0.0_dp)
+            A(izero, izero) = (1.0_dp, 0.0_dp)
+            rhs(izero) = (0.0_dp, 0.0_dp)
+        end if
+
+        call dense_solve(A, rhs, info)
+        solution = rhs
+    end subroutine solve_with_derived_gauge
+
+    subroutine project_onto_periodic_basis(values, r_nodes, L, M, coefficients)
+        use constants_m, only: pi, com_unit
+
+        complex(dp), intent(in) :: values(:)
+        real(dp), intent(in) :: r_nodes(:), L
+        integer, intent(in) :: M
+        complex(dp), allocatable, intent(out) :: coefficients(:)
+
+        real(dp) :: k_m
+        integer :: m_row, im
+
+        allocate(coefficients(2 * M + 1))
         do m_row = -M, M
             im = m_row + M + 1
             k_m = 2.0_dp * pi * real(m_row, dp) / L
-            A(im, im) = A(im, im) - k_m * k_m
+            coefficients(im) = sum(values * exp(-com_unit * k_m * r_nodes)) / &
+                               real(size(values), dp)
         end do
+    end subroutine project_onto_periodic_basis
 
-        ! b = -4*pi Br_const KB(:, m'=0). The constant drive projects onto the
-        ! m' = 0 column only (column index M+1).
-        b = -4.0_dp * pi * Br_const * KB(:, M + 1)
+    !> C2 physical-space lifting field between the two ideal aligned edge
+    !> values.  Quintic smootherstep gives zero slope and curvature at both
+    !> ends while avoiding the 1/k_parallel singularity at resonance.  Its
+    !> unequal endpoint values are intentionally not made periodic: doing so
+    !> would restore the old boundary-value problem.
+    subroutine build_physical_c2_lift(r_nodes, rm, dx_asis, dx_tr, &
+                                      phi_left, phi_right, Phi_ref, d2Phi_ref)
+        real(dp), intent(in) :: r_nodes(:), rm, dx_asis, dx_tr
+        complex(dp), intent(in) :: phi_left, phi_right
+        complex(dp), intent(out) :: Phi_ref(size(r_nodes)), d2Phi_ref(size(r_nodes))
 
-        call dense_solve(A, b, info)
+        real(dp) :: x, t, width, s, d2s
+        integer :: i
 
-        Phi_m = b
-    end subroutine solve_periodic
+        width = 2.0_dp * (dx_asis + dx_tr)
+        do i = 1, size(r_nodes)
+            x = r_nodes(i) - rm
+            t = max(0.0_dp, min(1.0_dp, (x + 0.5_dp * width) / width))
+            call smootherstep_with_second(t, width, s, d2s)
+            Phi_ref(i) = phi_left + (phi_right - phi_left) * s
+            d2Phi_ref(i) = (phi_right - phi_left) * d2s
+        end do
+    end subroutine build_physical_c2_lift
 
-    !> Solve the dense complex system A x = b in place via LAPACK zgesv, using
-    !> the same argument pattern as electromagnetic_solver.f90:243. On entry b
-    !> is the RHS; on exit b holds the solution and A is LU-overwritten.
-    !> info == 0 on success.
+    subroutine smootherstep_with_second(t, width, value, second_derivative)
+        real(dp), intent(in) :: t, width
+        real(dp), intent(out) :: value, second_derivative
+
+        value = 6.0_dp * t**5 - 15.0_dp * t**4 + 10.0_dp * t**3
+        second_derivative = (120.0_dp * t**3 - 180.0_dp * t**2 + 60.0_dp * t) / width**2
+    end subroutine smootherstep_with_second
+
     subroutine dense_solve(A, b, info)
         complex(dp), intent(inout) :: A(:,:), b(:)
         integer, intent(out) :: info
@@ -91,12 +287,8 @@ contains
         dim = size(A, 1)
         allocate(ipiv(dim))
         call zgesv(dim, 1, A, dim, ipiv, b, dim, info)
-        deallocate(ipiv)
     end subroutine dense_solve
 
-    !> Inverse DFT: reconstruct dPhi(r) = sum_{m=-M}^{M} Phi_m exp(i k_m r)
-    !> on the output radial grid r_out, with k_m = 2*pi*m/L. Phi_m is indexed
-    !> im = m + M + 1 (size 2M+1).
     function reconstruct_delta_phi(Phi_m, L, M, r_out) result(dPhi)
         use constants_m, only: pi, com_unit
 
@@ -106,16 +298,23 @@ contains
         complex(dp) :: dPhi(size(r_out))
 
         real(dp) :: k_m
-        integer :: i, m_row, im
+        integer :: m_row, im
 
         dPhi = (0.0_dp, 0.0_dp)
         do m_row = -M, M
             im = m_row + M + 1
             k_m = 2.0_dp * pi * real(m_row, dp) / L
-            do i = 1, size(r_out)
-                dPhi(i) = dPhi(i) + Phi_m(im) * exp(com_unit * k_m * r_out(i))
-            end do
+            dPhi = dPhi + Phi_m(im) * exp(com_unit * k_m * r_out)
         end do
     end function reconstruct_delta_phi
+
+    function reconstruct_delta_phi_from_lift(psi_m, L, M, r_out, Phi_ref) result(dPhi)
+        complex(dp), intent(in) :: psi_m(:), Phi_ref(:)
+        real(dp), intent(in) :: L, r_out(:)
+        integer, intent(in) :: M
+        complex(dp) :: dPhi(size(r_out))
+
+        dPhi = Phi_ref + reconstruct_delta_phi(psi_m, L, M, r_out)
+    end function reconstruct_delta_phi_from_lift
 
 end module periodic_solve_m

@@ -17,6 +17,7 @@ subroutine kim_read_config
 
     namelist /KIM_CONFIG/ number_of_ion_species, artificial_debye_case, &
                         type_of_run, collision_model, read_species_from_namelist, &
+                        ion_collision_model, collisionless_kpar_epsilon, ion_fp_collision_scale, &
                         turn_off_ions, turn_off_electrons, plasma_type, rescale_density, &
                         number_density_rescale, ion_flr_scale_factor, &
                         boole_energy_conservation
@@ -103,6 +104,27 @@ subroutine kim_read_config
         write(*,*) 'Please set collisions_off to false or change collision_model.'
         stop
     end if
+
+    if (ion_fp_collision_scale <= 0.0_dp) then
+        error stop 'ion_fp_collision_scale must be > 0 for FP collision kernels'
+    end if
+
+    select case (trim(ion_collision_model))
+    case ('FokkerPlanck')
+        continue
+    case ('collisionless')
+        if (trim(collision_model) /= 'FokkerPlanck') then
+            error stop 'ion_collision_model=collisionless requires collision_model=FokkerPlanck'
+        end if
+        if (trim(theta_integration) /= 'GaussLegendre') then
+            error stop 'ion_collision_model=collisionless currently requires GaussLegendre integration'
+        end if
+        if (collisionless_kpar_epsilon <= 0.0_dp) then
+            error stop 'ion_collision_model=collisionless requires collisionless_kpar_epsilon > 0 [1/cm]'
+        end if
+    case default
+        error stop 'ion_collision_model must be FokkerPlanck or collisionless'
+    end select
 
     write(output_path, '(A,A,I0,A,I0,A)') trim(output_path), '/m', m_mode, '_n', n_mode, '/'
     inquire(file=trim(output_path), exist=ex)

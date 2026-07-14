@@ -59,6 +59,10 @@ module config_m
     logical :: rescale_density
     real(dp) :: number_density_rescale
     real(dp) :: ion_flr_scale_factor
+    ! FLR model of the FP Fourier kernels (flr2_fourier_kernel_m):
+    ! 'kperp_full' keeps k_s^2 in b_+/b_x (default); 'kr_only' is the named
+    ! historical radial-only approximation. Mapped in kim_read_config.
+    character(20) :: fp_ks_model_name = 'kperp_full'
 
     ! KIM_PROFILES namelist variables
     character(20) :: coord_type = 'auto'           ! 'auto', 'sqrt_psiN', or 'r_eff'

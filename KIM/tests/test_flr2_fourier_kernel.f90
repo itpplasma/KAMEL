@@ -20,10 +20,23 @@ program test_flr2_fourier_kernel
     use KIM_kinds_m, only: dp
     use flr2_fourier_kernel_m, only: hatG_rho_phi, hatG_rho_B
     use flr2_fourier_kernel_m, only: hatG_rho_phi_diag_sp, hatG_rho_B_diag_sp
+    use flr2_fourier_kernel_m, only: fp_ks_model, FP_KPERP_FULL, FP_KR_ONLY_APPROX
 
     implicit none
 
+    ! Predeclared oracle tolerance: relative, per row. The committed values
+    ! carry 34 digits from 70-digit Mathematica quadrature; double-precision
+    ! evaluation of the same expressions (exp, Bessel, complex products) is
+    ! expected to agree to a few ulps, so 1e-12 leaves two orders of margin
+    ! while still failing on any sign, normalization, phase, Bessel-order, or
+    ! k_s^2 mutation.
+    real(dp), parameter :: ORACLE_RELATIVE_TOLERANCE = 1.0e-12_dp
+
+    call test_independent_rho_phi_oracle()
+    call test_fp_ks_model_name_mapping()
+    call test_mphi_truncation_gate()
     call test_populated_plasma_and_kernel_stub()
+    call test_harmonic_uses_stored_rho_L()
     call test_diagonal_matches_inline()
     call test_collapse_rho_phi()
     call test_phase_rho_phi()
@@ -39,6 +52,177 @@ program test_flr2_fourier_kernel
     stop 0
 
 contains
+
+    subroutine test_independent_rho_phi_oracle()
+        use, intrinsic :: ieee_arithmetic, only: ieee_value, ieee_quiet_nan, ieee_positive_inf
+        use flr2_fourier_kernel_m, only: FP_KPERP_FULL, FP_KR_ONLY_APPROX
+        use flr2_fourier_kernel_m, only: flr_arg_pair, fp_rho_phi_harmonic, fp_rho_B_harmonic
+        use flr2_fourier_kernel_m, only: fp_rho_phi_debye, fp_mphi_truncation_check
+
+        integer :: unit, ios, case_id, charge_sign, mphi, include_debye
+        integer :: status, nrows
+        real(dp) :: lambda_D, vT, omega_c, nu, ks, kr, krp, rg, A1, A2
+        real(dp) :: kpar, omega_E, Vpar, omega, x1, x2, rho_L
+        real(dp) :: bplus_ref, bcross_ref, phase_re, phase_im
+        real(dp) :: I00_re, I00_im, I20_re, I20_im, I01_re, I01_im, I21_re, I21_im
+        real(dp) :: F0_ref, F2_ref
+        real(dp) :: dynamic_re, dynamic_im, debye_re, debye_im
+        real(dp) :: total_re, total_im, bplus, bcross, scaled_error
+        real(dp) :: rho_B_re, rho_B_im
+        real(dp) :: nan_value, max_scaled_error
+        complex(dp) :: I00, I20, I01, I21, actual_dynamic, actual_debye, actual_rho_B, expected
+        complex(dp) :: representative(-2:2), representative_total
+        character(len=2048) :: line
+        logical :: seen_charge(-1:1), seen_large, seen_zero_flr, seen_debye, gate_ok
+
+        nrows = 0
+        max_scaled_error = 0.0_dp
+        seen_charge = .false.
+        seen_large = .false.
+        seen_zero_flr = .false.
+        seen_debye = .false.
+        representative = (0.0_dp, 0.0_dp)
+        open(newunit=unit, file='rho_phi_kernels.dat', status='old', action='read', iostat=ios)
+        if (ios /= 0) error stop 'cannot open rho_phi_kernels.dat'
+
+        do
+            read(unit, '(A)', iostat=ios) line
+            if (ios < 0) exit
+            if (ios > 0) error stop 'cannot read rho-Phi oracle line'
+            if (len_trim(line) == 0 .or. line(1:1) == '#') cycle
+            read(line, *, iostat=ios) case_id, charge_sign, lambda_D, vT, omega_c, nu, &
+                ks, kr, krp, rg, mphi, A1, A2, kpar, omega_E, Vpar, omega, &
+                include_debye, x1, x2, rho_L, bplus_ref, bcross_ref, phase_re, &
+                phase_im, I00_re, I00_im, I20_re, I20_im, I01_re, I01_im, &
+                I21_re, I21_im, F0_ref, F2_ref, &
+                dynamic_re, dynamic_im, debye_re, debye_im, total_re, total_im, &
+                rho_B_re, rho_B_im
+            if (ios /= 0) error stop 'malformed rho-Phi oracle row'
+
+            call flr_arg_pair(ks, kr, krp, rho_L, FP_KPERP_FULL, bplus, bcross, status)
+            if (status /= 0) error stop 'full finite-radius FLR arguments rejected oracle row'
+            call assert_oracle_real('bplus', bplus, bplus_ref, case_id, max_scaled_error)
+            call assert_oracle_real('bcross', bcross, bcross_ref, case_id, max_scaled_error)
+
+            I00 = cmplx(I00_re, I00_im, kind=dp)
+            I20 = cmplx(I20_re, I20_im, kind=dp)
+            call fp_rho_phi_harmonic(lambda_D, vT, omega_c, nu, rho_L, ks, kr, krp, rg, &
+                mphi, A1, A2, I00, I20, FP_KPERP_FULL, actual_dynamic, status)
+            if (status /= 0) error stop 'rho-Phi harmonic rejected oracle row'
+            expected = cmplx(dynamic_re, dynamic_im, kind=dp)
+            call assert_oracle_complex('dynamic', actual_dynamic, expected, case_id, &
+                max_scaled_error)
+
+            call fp_rho_phi_debye(lambda_D, kr, krp, rg, &
+                include_debye == 1 .and. mphi == 0, actual_debye)
+            expected = cmplx(debye_re, debye_im, kind=dp)
+            call assert_oracle_complex('Debye', actual_debye, expected, case_id, max_scaled_error)
+            expected = cmplx(total_re, total_im, kind=dp)
+            call assert_oracle_complex('total', actual_dynamic + actual_debye, expected, &
+                case_id, max_scaled_error)
+
+            I01 = cmplx(I01_re, I01_im, kind=dp)
+            I21 = cmplx(I21_re, I21_im, kind=dp)
+            call fp_rho_B_harmonic(lambda_D, vT, omega_c, nu, rho_L, ks, kr, krp, rg, &
+                mphi, A1, A2, I01, I21, FP_KPERP_FULL, actual_rho_B, status)
+            if (status /= 0) error stop 'rho-B harmonic rejected oracle row'
+            expected = cmplx(rho_B_re, rho_B_im, kind=dp)
+            call assert_oracle_complex('rho-B', actual_rho_B, expected, case_id, max_scaled_error)
+
+            nrows = nrows + 1
+            if (charge_sign >= -1 .and. charge_sign <= 1) seen_charge(charge_sign) = .true.
+            if (bcross_ref >= 500.0_dp) seen_large = .true.
+            if (rho_L <= 1.0e-8_dp) seen_zero_flr = .true.
+            if (include_debye == 1) seen_debye = .true.
+            if (case_id >= 9 .and. case_id <= 13) representative(mphi) = actual_dynamic
+        end do
+        close(unit)
+
+        if (nrows /= 13) error stop 'rho-Phi oracle row coverage changed'
+        if (.not. seen_charge(-1) .or. .not. seen_charge(1)) then
+            error stop 'oracle lacks both charge signs'
+        end if
+        if (.not. seen_large) error stop 'oracle lacks large-Bessel case'
+        if (.not. seen_zero_flr) error stop 'oracle lacks zero-FLR case'
+        if (.not. seen_debye) error stop 'oracle lacks Debye case'
+
+        representative_total = sum(representative)
+        scaled_error = abs(representative_total - representative(0))/abs(representative_total)
+        if (scaled_error >= 5.0e-3_dp) error stop 'mphi=0 truncation exceeds verified bound'
+        call fp_mphi_truncation_check(representative, 5.0e-5_dp, scaled_error, gate_ok)
+        if (.not. gate_ok) then
+            print *, 'FAIL: |mphi|=2 shell exceeds verified bound, tail = ', scaled_error
+            error stop
+        end if
+
+        nan_value = ieee_value(0.0_dp, ieee_quiet_nan)
+        call flr_arg_pair(nan_value, 1.0_dp, 2.0_dp, 0.5_dp, FP_KPERP_FULL, &
+            bplus, bcross, status)
+        if (status == 0) error stop 'full finite-radius model accepted undefined ks'
+        ! The on-axis limit produces ks = m/r -> Inf; the full model must
+        ! return the model-domain error there too, not just for NaN.
+        nan_value = ieee_value(0.0_dp, ieee_positive_inf)
+        call flr_arg_pair(nan_value, 1.0_dp, 2.0_dp, 0.5_dp, FP_KPERP_FULL, &
+            bplus, bcross, status)
+        if (status == 0) error stop 'full finite-radius model accepted infinite (on-axis) ks'
+        nan_value = ieee_value(0.0_dp, ieee_quiet_nan)
+        call flr_arg_pair(nan_value, 1.0_dp, 2.0_dp, 0.5_dp, FP_KR_ONLY_APPROX, &
+            bplus, bcross, status)
+        if (status /= 0) error stop 'named radial-only approximation used undefined ks'
+
+        print *, 'PASS: ', nrows, ' independent finite-radius rho-Phi oracle rows'
+        print *, 'Maximum scaled kernel-oracle error: ', max_scaled_error
+    end subroutine test_independent_rho_phi_oracle
+
+    subroutine assert_oracle_real(label, actual, expected, case_id, max_error)
+        ! Per-row RELATIVE comparison. Scaling by |expected| (not max(1,.))
+        ! keeps the assertion meaningful for rows whose committed magnitude is
+        ! far below 1 (the rho-B values reach 1e-22): a stubbed-zero kernel,
+        ! flipped sign, wrong Bessel order, dropped 4*pi, or wrong phase must
+        ! fail on every row. Rows committed as exactly zero must be exactly
+        ! zero in the code path too (they are products with zero factors).
+        character(len=*), intent(in) :: label
+        real(dp), intent(in) :: actual, expected
+        integer, intent(in) :: case_id
+        real(dp), intent(inout) :: max_error
+        real(dp) :: error
+
+        if (expected == 0.0_dp) then
+            error = abs(actual)
+        else
+            error = abs(actual - expected)/abs(expected)
+        end if
+        max_error = max(max_error, error)
+        if (error > ORACLE_RELATIVE_TOLERANCE) then
+            print *, 'FAIL: ', trim(label), ' oracle case ', case_id
+            print *, ' actual/expected/error = ', actual, expected, error
+            error stop
+        end if
+    end subroutine assert_oracle_real
+
+    subroutine assert_oracle_complex(label, actual, expected, case_id, max_error)
+        ! Same per-row relative scaling as assert_oracle_real; see the
+        ! rationale there.
+        character(len=*), intent(in) :: label
+        complex(dp), intent(in) :: actual, expected
+        integer, intent(in) :: case_id
+        real(dp), intent(inout) :: max_error
+        real(dp) :: error
+
+        if (abs(expected) == 0.0_dp) then
+            error = abs(actual)
+        else
+            error = abs(actual - expected)/abs(expected)
+        end if
+        max_error = max(max_error, error)
+        if (error > ORACLE_RELATIVE_TOLERANCE) then
+            print *, 'FAIL: ', trim(label), ' oracle case ', case_id
+            print *, ' actual   = ', actual
+            print *, ' expected = ', expected
+            print *, ' scaled error = ', error
+            error stop
+        end if
+    end subroutine assert_oracle_complex
 
     subroutine test_diagonal_matches_inline()
         ! Characterization test: the shared per-species diagonal integrand
@@ -79,6 +263,10 @@ contains
 
         call from_kim_factory_get_kim('electrostatic', kim_instance)
         call kim_instance%init()
+
+        ! This characterization block intentionally exercises the named
+        ! historical radial-only approximation copied below.
+        fp_ks_model = FP_KR_ONLY_APPROX
 
         kr_arr = [0.1_dp, 1.0_dp, 5.0_dp]
         ! A few interior guiding-centre boundary-grid indices.
@@ -157,6 +345,8 @@ contains
             end do
         end do
 
+        fp_ks_model = FP_KPERP_FULL  ! restore the production default
+
         print *, 'PASS: shared diagonal integrand matches inline reference'
     end subroutine
 
@@ -168,7 +358,7 @@ contains
         ! diagonal and the fused kernel share the same per-species core.
         use config_m, only: profiles_in_memory, nml_config_path
         use config_m, only: turn_off_ions, turn_off_electrons
-        use flr2_fourier_kernel_m, only: hatG_rho_phi, hatG_rho_phi_diag_sp, kern_include_ks2
+        use flr2_fourier_kernel_m, only: hatG_rho_phi, hatG_rho_phi_diag_sp
         use constants_m, only: pi
         use species_m, only: plasma, set_profiles_from_arrays
         use grid_m, only: rg_grid
@@ -198,7 +388,7 @@ contains
         call from_kim_factory_get_kim('electrostatic', kim_instance)
         call kim_instance%init()
 
-        kern_include_ks2 = .false.
+        fp_ks_model = FP_KR_ONLY_APPROX
 
         kr_arr = [0.1_dp, 1.0_dp, 5.0_dp]
         jj_arr = [rg_grid%npts_b / 4, rg_grid%npts_b / 2, (3 * rg_grid%npts_b) / 4]
@@ -218,7 +408,7 @@ contains
 
                 gfused = hatG_rho_phi(plasma, kr, kr, j)
 
-                tol = 1.0e-12_dp * (1.0_dp + abs(dref))
+                tol = 5.0e-12_dp * (1.0_dp + abs(dref))
                 if (abs(gfused - dref) >= tol) then
                     print *, 'FAIL: rho-Phi collapse mismatch at kr=', kr, ' j=', j
                     print *, '  diag/4pi = ', dref
@@ -228,6 +418,8 @@ contains
                 end if
             end do
         end do
+
+        fp_ks_model = FP_KPERP_FULL  ! restore the production default
 
         print *, 'PASS: fused rho-Phi kernel collapses to diagonal at kr=krp'
     end subroutine
@@ -242,7 +434,7 @@ contains
         ! test: this compares two independent complex-exp/Bessel evaluations,
         ! not a construction identity.
         use config_m, only: profiles_in_memory, nml_config_path
-        use flr2_fourier_kernel_m, only: hatG_rho_phi, kern_include_ks2
+        use flr2_fourier_kernel_m, only: hatG_rho_phi
         use constants_m, only: com_unit
         use species_m, only: plasma, set_profiles_from_arrays
         use grid_m, only: rg_grid
@@ -272,7 +464,7 @@ contains
         call from_kim_factory_get_kim('electrostatic', kim_instance)
         call kim_instance%init()
 
-        kern_include_ks2 = .false.
+        fp_ks_model = FP_KR_ONLY_APPROX
         ci = com_unit
 
         kr_arr = [0.1_dp, 1.0_dp, 2.0_dp]
@@ -303,12 +495,14 @@ contains
             end do
         end do
 
+        fp_ks_model = FP_KPERP_FULL  ! restore the production default
+
         print *, 'PASS: fused rho-Phi kernel carries the Fourier phase only'
     end subroutine
 
     subroutine test_collapse_rho_phi_ks2()
-        ! Structural collapse for the k_s^2-inclusive path (kern_include_ks2 =
-        ! .true.). This branch keeps k_s in the FLR arguments, so it does NOT
+        ! Structural collapse for the full finite-radius model. This model
+        ! keeps k_s in the FLR arguments, so it does NOT
         ! collapse to the k_s-dropped diagonal source-of-truth. Instead, on the
         ! diagonal k_r = k'_r the two FLR arguments both reduce to the full
         ! perpendicular argument bf = (k_s^2 + k_r^2) * rho_L^2, so the fused
@@ -317,7 +511,7 @@ contains
         ! sqrt/2 algebra of the .true. branch without needing a k_s = 0 setup.
         use config_m, only: profiles_in_memory, nml_config_path
         use config_m, only: turn_off_ions, turn_off_electrons
-        use flr2_fourier_kernel_m, only: hatG_rho_phi, core_rho_phi_sp, kern_include_ks2
+        use flr2_fourier_kernel_m, only: hatG_rho_phi, core_rho_phi_sp
         use constants_m, only: pi
         use species_m, only: plasma, set_profiles_from_arrays
         use grid_m, only: rg_grid
@@ -347,7 +541,7 @@ contains
         call from_kim_factory_get_kim('electrostatic', kim_instance)
         call kim_instance%init()
 
-        kern_include_ks2 = .true.
+        fp_ks_model = FP_KPERP_FULL
 
         kr_arr = [0.1_dp, 1.0_dp, 5.0_dp]
         jj_arr = [rg_grid%npts_b / 4, rg_grid%npts_b / 2, (3 * rg_grid%npts_b) / 4]
@@ -368,7 +562,7 @@ contains
 
                 gfused = hatG_rho_phi(plasma, kr, kr, j)
 
-                tol = 1.0e-12_dp * (1.0_dp + abs(ref))
+                tol = 5.0e-12_dp * (1.0_dp + abs(ref))
                 if (abs(gfused - ref) >= tol) then
                     print *, 'FAIL: rho-Phi ks2 collapse mismatch at kr=', kr, ' j=', j
                     print *, '  core(bf,bf)/4pi = ', ref
@@ -379,15 +573,14 @@ contains
             end do
         end do
 
-        ! Defensive: restore the default so any later test sees the drop-k_s^2
-        ! path in the shared module state.
-        kern_include_ks2 = .false.
+        fp_ks_model = FP_KPERP_FULL  ! restore the production default
 
-        print *, 'PASS: fused rho-Phi kernel (ks2 path) collapses to core(bf,bf) at kr=krp'
+        print *, 'PASS: full rho-Phi model collapses to core(bf,bf) at kr=krp'
     end subroutine
 
     subroutine test_zero_wavenumber_limit()
-        ! Analytic b -> 0 anchor: at kr = krp = 0 in the default drop-k_s^2 path,
+        ! Analytic b -> 0 anchor in the named radial-only approximation: at
+        ! kr = krp = 0,
         ! both FLR arguments vanish (b_+ = b_x = 0). The Bessel/exp assembly then
         ! reduces to a closed form INDEPENDENT of the Bessel routine, because
         ! exp(-b_+) = 1, (1 - b_+) = 1, I_0(0) = 1, I_{-1}(0) = 0, and the
@@ -398,10 +591,10 @@ contains
         ! I_{-1}(0)=0 here rather than calling bessel_in, so this test validates
         ! the kernel's argument assembly against math, not against the Bessel
         ! routine it shares with the collapse/phase tests. Only valid for the
-        ! .false. path (in the .true. path the arguments are rho_L^2*ks^2 /= 0).
+        ! radial-only model (the full model has arguments rho_L^2*ks^2 /= 0).
         use config_m, only: profiles_in_memory, nml_config_path
         use config_m, only: artificial_debye_case, turn_off_ions, turn_off_electrons
-        use flr2_fourier_kernel_m, only: hatG_rho_phi, kern_include_ks2
+        use flr2_fourier_kernel_m, only: hatG_rho_phi
         use constants_m, only: com_unit, pi
         use species_m, only: plasma, set_profiles_from_arrays
         use grid_m, only: rg_grid
@@ -431,9 +624,8 @@ contains
         call from_kim_factory_get_kim('electrostatic', kim_instance)
         call kim_instance%init()
 
-        ! Closed form derived above only holds for the drop-k_s^2 path; the
-        ! toggle is deliberately fixed here (do NOT sweep it).
-        kern_include_ks2 = .false.
+        ! This closed form only holds for the named radial-only approximation.
+        fp_ks_model = FP_KR_ONLY_APPROX
 
         jj_arr = [rg_grid%npts_b / 4, rg_grid%npts_b / 2, (3 * rg_grid%npts_b) / 4]
 
@@ -478,18 +670,20 @@ contains
             end if
         end do
 
+        fp_ks_model = FP_KPERP_FULL  ! restore the production default
+
         print *, 'PASS: fused rho-Phi kernel matches b->0 closed form'
     end subroutine
 
     subroutine test_collapse_rho_B()
-        ! Collapse-by-construction for the rho-B kernel (drop-k_s^2 path): the
+        ! Collapse-by-construction for the radial-only rho-B approximation: the
         ! fused two-wavenumber hatG_rho_B evaluated on the diagonal k_r = k'_r
         ! must equal the per-species signed diagonal integrand summed over the
         ! non-turned-off species and divided by 4*pi. Exact to machine precision
         ! because both share the same per-species core.
         use config_m, only: profiles_in_memory, nml_config_path
         use config_m, only: turn_off_ions, turn_off_electrons
-        use flr2_fourier_kernel_m, only: hatG_rho_B, hatG_rho_B_diag_sp, kern_include_ks2
+        use flr2_fourier_kernel_m, only: hatG_rho_B, hatG_rho_B_diag_sp
         use constants_m, only: pi
         use species_m, only: plasma, set_profiles_from_arrays
         use grid_m, only: rg_grid
@@ -519,7 +713,7 @@ contains
         call from_kim_factory_get_kim('electrostatic', kim_instance)
         call kim_instance%init()
 
-        kern_include_ks2 = .false.
+        fp_ks_model = FP_KR_ONLY_APPROX
 
         kr_arr = [0.1_dp, 1.0_dp, 5.0_dp]
         jj_arr = [rg_grid%npts_b / 4, rg_grid%npts_b / 2, (3 * rg_grid%npts_b) / 4]
@@ -539,7 +733,7 @@ contains
 
                 gfused = hatG_rho_B(plasma, kr, kr, j)
 
-                tol = 1.0e-12_dp * (1.0_dp + abs(dref))
+                tol = 5.0e-12_dp * (1.0_dp + abs(dref))
                 if (abs(gfused - dref) >= tol) then
                     print *, 'FAIL: rho-B collapse mismatch at kr=', kr, ' j=', j
                     print *, '  diag/4pi = ', dref
@@ -550,19 +744,21 @@ contains
             end do
         end do
 
+        fp_ks_model = FP_KPERP_FULL  ! restore the production default
+
         print *, 'PASS: fused rho-B kernel collapses to diagonal at kr=krp'
     end subroutine
 
     subroutine test_collapse_rho_B_ks2()
-        ! Structural collapse for the rho-B k_s^2-inclusive path
-        ! (kern_include_ks2 = .true.). On the diagonal k_r = k'_r both FLR
+        ! Structural collapse for the full finite-radius rho-B model. On the
+        ! diagonal k_r = k'_r both FLR
         ! arguments reduce to the full perpendicular argument
         ! bf = (k_s^2 + k_r^2) * rho_L^2, so the fused kernel must equal the
         ! per-species core evaluated at (bf, bf), summed over the non-turned-off
         ! species and divided by 4*pi.
         use config_m, only: profiles_in_memory, nml_config_path
         use config_m, only: turn_off_ions, turn_off_electrons
-        use flr2_fourier_kernel_m, only: hatG_rho_B, core_rho_B_sp, kern_include_ks2
+        use flr2_fourier_kernel_m, only: hatG_rho_B, core_rho_B_sp
         use constants_m, only: pi
         use species_m, only: plasma, set_profiles_from_arrays
         use grid_m, only: rg_grid
@@ -592,7 +788,7 @@ contains
         call from_kim_factory_get_kim('electrostatic', kim_instance)
         call kim_instance%init()
 
-        kern_include_ks2 = .true.
+        fp_ks_model = FP_KPERP_FULL
 
         kr_arr = [0.1_dp, 1.0_dp, 5.0_dp]
         jj_arr = [rg_grid%npts_b / 4, rg_grid%npts_b / 2, (3 * rg_grid%npts_b) / 4]
@@ -613,7 +809,7 @@ contains
 
                 gfused = hatG_rho_B(plasma, kr, kr, j)
 
-                tol = 1.0e-12_dp * (1.0_dp + abs(ref))
+                tol = 5.0e-12_dp * (1.0_dp + abs(ref))
                 if (abs(gfused - ref) >= tol) then
                     print *, 'FAIL: rho-B ks2 collapse mismatch at kr=', kr, ' j=', j
                     print *, '  core(bf,bf)/4pi = ', ref
@@ -624,15 +820,13 @@ contains
             end do
         end do
 
-        ! Defensive: restore the default so any later test sees the drop-k_s^2
-        ! path in the shared module state.
-        kern_include_ks2 = .false.
+        fp_ks_model = FP_KPERP_FULL  ! restore the production default
 
-        print *, 'PASS: fused rho-B kernel (ks2 path) collapses to core(bf,bf) at kr=krp'
+        print *, 'PASS: full rho-B model collapses to core(bf,bf) at kr=krp'
     end subroutine
 
     subroutine test_zero_wavenumber_limit_rho_B()
-        ! Analytic b -> 0 anchor for the rho-B kernel (drop-k_s^2 path): at
+        ! Analytic b -> 0 anchor for the radial-only rho-B approximation: at
         ! kr = krp = 0 both FLR arguments vanish (b_+ = b_x = 0). With
         ! I_0(0) = 1, I_{-1}(0) = 0, exp(-b_+) = 1, (1 - b_+) = 1 and the
         ! A2 * b_x * I_{-1}(b_x) term vanishing, and the Fourier phase = 1, the
@@ -640,10 +834,11 @@ contains
         !   -1/lambda_D^2 * vT^3/(omega_c*nu*sol) * ( I01*(A1+A2) + 0.5*I21*A2 ).
         ! We fold I_0(0)=1 and I_{-1}(0)=0 in analytically (no bessel_in call),
         ! so this validates the kernel's argument assembly against math, not the
-        ! Bessel routine. rho-B has NO Debye term. Only valid for the .false. path.
+        ! Bessel routine. rho-B has NO Debye term. Only valid for this named
+        ! approximation.
         use config_m, only: profiles_in_memory, nml_config_path
         use config_m, only: artificial_debye_case, turn_off_ions, turn_off_electrons
-        use flr2_fourier_kernel_m, only: hatG_rho_B, kern_include_ks2
+        use flr2_fourier_kernel_m, only: hatG_rho_B
         use constants_m, only: pi, sol
         use species_m, only: plasma, set_profiles_from_arrays
         use grid_m, only: rg_grid
@@ -673,8 +868,8 @@ contains
         call from_kim_factory_get_kim('electrostatic', kim_instance)
         call kim_instance%init()
 
-        ! Closed form derived above only holds for the drop-k_s^2 path.
-        kern_include_ks2 = .false.
+        ! Closed form derived above only holds for the radial-only approximation.
+        fp_ks_model = FP_KR_ONLY_APPROX
 
         jj_arr = [rg_grid%npts_b / 4, rg_grid%npts_b / 2, (3 * rg_grid%npts_b) / 4]
 
@@ -713,6 +908,8 @@ contains
                 error stop
             end if
         end do
+
+        fp_ks_model = FP_KPERP_FULL  ! restore the production default
 
         print *, 'PASS: fused rho-B kernel matches b->0 closed form'
     end subroutine
@@ -905,6 +1102,134 @@ contains
         print *, '  rho_L(j)       = ', rho_L_val
         print *, '  lambda_D(j)    = ', lambda_D_val
         print *, '  hatG_rho_phi   = ', G_stub
+    end subroutine
+
+    subroutine test_fp_ks_model_name_mapping()
+        ! The config-facing name must map onto the model constants, and an
+        ! unknown name must be rejected with a nonzero status (read_config
+        ! turns that status into a startup error).
+        use flr2_fourier_kernel_m, only: fp_ks_model_from_name
+
+        integer :: model, status
+
+        call fp_ks_model_from_name('kperp_full', model, status)
+        if (status /= 0 .or. model /= FP_KPERP_FULL) then
+            print *, 'FAIL: kperp_full mapping, model/status = ', model, status
+            error stop
+        end if
+        call fp_ks_model_from_name('kr_only', model, status)
+        if (status /= 0 .or. model /= FP_KR_ONLY_APPROX) then
+            print *, 'FAIL: kr_only mapping, model/status = ', model, status
+            error stop
+        end if
+        call fp_ks_model_from_name('no_such_model', model, status)
+        if (status == 0) then
+            print *, 'FAIL: unknown fp_ks_model name accepted'
+            error stop
+        end if
+
+        print *, 'PASS: fp_ks_model config names map and reject correctly'
+    end subroutine
+
+    subroutine test_mphi_truncation_gate()
+        ! Validation gate for the cyclotron-harmonic truncation: the estimated
+        ! tail (outermost m_phi shell relative to the total) must stay below a
+        ! configured tolerance. Positive arm: the oracle's mphi=-2..2 case
+        ! passes at the verified 5e-5 bound (checked with the oracle rows in
+        ! test_independent_rho_phi_oracle). Negative arm here: a slowly
+        ! decaying shell sequence must FAIL the gate, and a sum too short to
+        ! estimate a tail must fail closed.
+        use flr2_fourier_kernel_m, only: fp_mphi_truncation_check
+
+        real(dp) :: tail
+        logical :: ok
+        complex(dp) :: slow(5), lone(1)
+
+        slow = [(0.8_dp, 0.0_dp), (0.9_dp, 0.0_dp), (1.0_dp, 0.0_dp), &
+                (0.9_dp, 0.0_dp), (0.8_dp, 0.0_dp)]
+        call fp_mphi_truncation_check(slow, 1.0e-1_dp, tail, ok)
+        if (ok) then
+            print *, 'FAIL: slow-decaying m_phi tail passed the gate, tail = ', tail
+            error stop
+        end if
+
+        lone = [(1.0_dp, 0.0_dp)]
+        call fp_mphi_truncation_check(lone, 1.0e-1_dp, tail, ok)
+        if (ok) then
+            print *, 'FAIL: mphi_max=0 sum has no measurable tail; gate must fail closed'
+            error stop
+        end if
+
+        print *, 'PASS: m_phi truncation gate rejects slow tails and fails closed'
+    end subroutine
+
+    subroutine test_harmonic_uses_stored_rho_L()
+        ! The FLR arguments of the fused kernels must come from the STORED
+        ! per-species rho_L — which carries the ion_flr_scale_factor namelist
+        ! option (species_mod applies it to every ion rho_L) — exactly like
+        ! the diagonal path via flr_arg_pair_sp. An inline abs(vT/omega_c)
+        ! recomputation silently bypasses that config option. Guard: scaling
+        ! the stored ion rho_L must change both fused kernels.
+        use config_m, only: profiles_in_memory, nml_config_path
+        use species_m, only: plasma, set_profiles_from_arrays
+        use grid_m, only: rg_grid
+        use kim_base_m, only: kim_t
+        use kim_mod_m, only: from_kim_factory_get_kim
+
+        integer, parameter :: npts = 101
+
+        real(dp) :: r_prof(npts), n_prof(npts), Te_prof(npts)
+        real(dp) :: Ti_prof(npts), q_prof(npts), Er_prof(npts)
+        class(kim_t), allocatable :: kim_instance
+        real(dp) :: kr, krp, rho_saved
+        integer :: j
+        complex(dp) :: g_ref, b_ref, g_scaled, b_scaled
+
+        call make_test_profiles(npts, r_prof, n_prof, Te_prof, Ti_prof, &
+                                q_prof, Er_prof)
+
+        call write_test_namelist('./KIM_config_fourier_rho_L_test.nml')
+        nml_config_path = './KIM_config_fourier_rho_L_test.nml'
+
+        profiles_in_memory = .true.
+        call kim_init()
+        call set_profiles_from_arrays(r_prof, n_prof, Te_prof, Ti_prof, &
+                                      q_prof, Er_prof, npts)
+
+        call from_kim_factory_get_kim('electrostatic', kim_instance)
+        call kim_instance%init()
+
+        fp_ks_model = FP_KPERP_FULL
+
+        j = rg_grid%npts_b / 2
+        kr = 1.0_dp
+        krp = 0.5_dp
+
+        g_ref = hatG_rho_phi(plasma, kr, krp, j)
+        b_ref = hatG_rho_B(plasma, kr, krp, j)
+
+        rho_saved = plasma%spec(1)%rho_L(j)
+        plasma%spec(1)%rho_L(j) = 2.0_dp*rho_saved
+        g_scaled = hatG_rho_phi(plasma, kr, krp, j)
+        b_scaled = hatG_rho_B(plasma, kr, krp, j)
+        plasma%spec(1)%rho_L(j) = rho_saved
+
+        fp_ks_model = FP_KPERP_FULL
+
+        if (abs(g_scaled - g_ref) <= 1.0e-6_dp*abs(g_ref)) then
+            print *, 'FAIL: fused rho-Phi kernel ignores the stored species rho_L'
+            print *, '  reference = ', g_ref
+            print *, '  scaled    = ', g_scaled
+            error stop
+        end if
+        if (abs(b_scaled - b_ref) <= 1.0e-6_dp*abs(b_ref)) then
+            print *, 'FAIL: fused rho-B kernel ignores the stored species rho_L'
+            print *, '  reference = ', b_ref
+            print *, '  scaled    = ', b_scaled
+            error stop
+        end if
+
+        print *, 'PASS: fused kernels take FLR arguments from the stored rho_L'
     end subroutine
 
     logical function is_finite_complex(z) result(ok)

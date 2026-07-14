@@ -14,6 +14,7 @@
     rescale_density = .false.
     number_density_rescale = 1d-6
     ion_flr_scale_factor = 1.0
+    fp_ks_model_name = 'kperp_full'         ! FP Fourier-kernel FLR model: 'kperp_full' keeps ks^2 in b_+/b_x (default); 'kr_only' = historical radial-only approximation
 /
 
 &wkb_dispersion

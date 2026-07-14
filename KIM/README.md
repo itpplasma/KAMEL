@@ -55,6 +55,28 @@ may pass the explicitly field-parallel `Vpar_in` argument to
 `set_profiles_from_arrays`; omission means zero flow. Poloidal neoclassical flow
 is not added by this model.
 
+### Fokker-Planck Fourier-kernel FLR model
+
+The two-wavenumber FP kernels take their finite-Larmor-radius arguments from a
+named model selected in `&KIM_CONFIG`:
+
+```fortran
+&KIM_CONFIG
+  fp_ks_model_name = 'kperp_full'   ! or 'kr_only'
+/
+```
+
+`'kperp_full'` (the default) keeps the helical wavenumber in the arguments,
+`b_+ = rho_L^2 (2 k_s^2 + k_r^2 + k_r'^2)/2` and
+`b_x = rho_L^2 sqrt(k_s^2+k_r^2) sqrt(k_s^2+k_r'^2)`, as required by the
+oracle-verified derivation. `'kr_only'` is the named historical radial-only
+approximation (`k_s` dropped), retained for compatibility comparisons with the
+old diagonal routine; it is an approximation, not the physics default. Note
+that earlier revisions dropped `k_s^2` by default — results at finite `k_s`
+change under the new default. The FLR arguments use the stored per-species
+Larmor radius, so `ion_flr_scale_factor` applies to this kernel exactly as it
+does to the diagonal path.
+
 ## Compilation
 To compile the code:
 ```

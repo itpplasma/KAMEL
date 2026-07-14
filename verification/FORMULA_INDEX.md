@@ -561,9 +561,9 @@ path exists and that each code family has a source-to-check chain.
 | KIM-01 | `KIM/src/background_equilibrium/species_mod.f90::calculate_plasma_backs` | vT, gyrofrequency, Larmor/Debye lengths, collision scale | (4.14)–(4.16), (5.8) | conventions script; #198 pending |
 | KIM-02 | `KIM/src/background_equilibrium/species_mod.f90::calculate_thermodynamic_forces_and_susc` | A1/A2, x1/x2, FP susceptibilities | (5.8), (5.12)–(5.20) | flow test; independent #194 oracle |
 | KIM-03 | `KIM/src/background_equilibrium/calculate_equil.f90::calculate_equil` | h_theta/h_z, k_s, k_parallel, omega_E | (3.5), (5.18)–(5.20) | conventions script; #198 pending |
-| KIM-04 | `KIM/src/asymptotics/flr2_fourier_kernel.f90` | b_plus, b_cross, phases, charge/current kernels | Ch. 14 | independent #196 oracle; production #187 pending |
-| KIM-05 | `KIM/src/kernels/FP_kernel_plasma_prefacs.f90` | finite-radius FP kernel prefactors | Ch. 14 | independent #196 derivation; production #187 pending |
-| KIM-06 | `KIM/src/kernels/kernel.f90` | real-space charge/current kernels and 1/(4 pi) normalization | Ch. 13–14 | independent #196 derivation; #187/#197 pending |
+| KIM-04 | `KIM/src/asymptotics/flr2_fourier_kernel.f90` | b_plus, b_cross, phases, charge/current kernels | Ch. 14 | independent #196 oracle; production #187 verified |
+| KIM-05 | `KIM/src/kernels/FP_kernel_plasma_prefacs.f90` | finite-radius FP kernel prefactors | Ch. 14 | independent #196 derivation; #187 exercises the equivalent prefactors only via KIM-04; direct verification of this file pending |
+| KIM-06 | `KIM/src/kernels/kernel.f90` | real-space charge/current kernels and 1/(4 pi) normalization | Ch. 13–14 | independent #196 derivation; #187 covers the 1/(4 pi) convention only in the Fourier path (KIM-04); this file untouched; #197 pending |
 | KIM-07 | `KIM/src/electrostatic_poisson/poisson.f90` | global Gaussian-CGS weak Poisson problem | (12.25), Ch. 15 | #197 pending |
 | KIM-08 | `KIM/src/electrostatic_poisson/periodic_solve.f90` | periodic Fourier Poisson matrix/RHS | (12.25), Ch. 15 | #197/#188 pending |
 | KIM-09 | `KIM/src/asymptotics/FLR2_asymptotics.f90` | aligned potential and FLR2 limits | Ch. 5 | #197 pending |
@@ -600,12 +600,33 @@ upstream Weber integral proves that the energy moment is
 plasma-dispersion integral, homogeneous harmonic sum (13.70)–(13.73), and
 Horton small-FLR limit so Krook assumptions are never substituted for FP.
 
-`verification/oracles/rho_phi_kernels.dat` records signed electron/ion,
+`verification/oracles/rho_phi_kernels.dat` records rho-Phi and rho-B values for signed electron/ion,
 diagonal/off-diagonal, finite-`k_s`, `m_phi=-2..2`, zero-FLR, Debye-only, and
 `b_x=600` cases at 34 committed digits. Six negative fixtures independently
 mutate `4 pi`, Fourier measure, phase, Bessel order, the `b_+` sign, and hidden
-removal of `k_s^2`. Production consumption and the finite-radius default are
-completed by #187.
+removal of `k_s^2`. The #187 production path defaults to the full
+`k_perp^2=k_s^2+k_r^2` model, sums every configured harmonic, includes the
+Debye source once rather than once per harmonic, rejects undefined `k_s`, and
+uses a stabilized scaled-Bessel expansion for large arguments. The explicitly
+named radial-only model remains available solely as a compatibility
+approximation, selectable via the `fp_ks_model_name` key of `&KIM_CONFIG`.
+`test_flr2_fourier_kernel` consumes all 13 rows at a per-row RELATIVE
+tolerance of `1e-12` (maximum observed scaled error `6.4e-14`), so the tiny
+rho-B magnitudes (`1e-14`..`1e-22`) are genuinely enforced: a Fortran-side
+mutation of the sign, `4 pi`, Fourier phase, Bessel order, or `k_s^2` fails
+the ctest (mutation battery re-run against each). K^{rho B} is derived
+upstream in the WL script from (4.39)/(4.41)/(13.23)/(5.12): the B drive
+`u' B^r/B0` maps the verified rho-Phi assembly under the exact drive ratio
+`u'/(-i c k_s)` onto `-vT^3/(4 pi lambda^2 omega_c nu c)` times
+`I01 (A1 F0 + A2 F2) + A2 I03 F0/2`. Per-case gates check the FP moment
+identities `I02 = I20` and `I03 = I21` ((5.13), (A.3)-(A.4)) that justify
+the production `I20`/`I21` slots, and that the derived kernel equals the
+committed rho-B assembly, so the oracle rows are unchanged. The derivation
+fixes the rho-B prefactor to `vT^3`; the `vT^2` printed in (14.4) is a
+dimensional misprint, alongside the `b_+`/`m_phi` sign misprint noted above.
+The FLR arguments come from the stored per-species `rho_L`, so
+`ion_flr_scale_factor` acts on the off-diagonal path exactly as on the
+diagonal one.
 
 ### Fokker–Planck susceptibility oracle (#194)
 

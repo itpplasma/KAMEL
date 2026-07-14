@@ -8,18 +8,19 @@ subroutine kim_read_config
     use config_display_m, only: display_kim_configuration
     use logger_m, only: set_log_level
     use getIfunc_config_m, only: getIfunc_boole_energy_conservation => boole_energy_conservation
+    use flr2_fourier_kernel_m, only: fp_ks_model, fp_ks_model_from_name
 
     implicit none
 
     character(len=256), dimension(:), allocatable :: args
-    integer :: ix, num_args
+    integer :: ix, num_args, fp_ks_status
     logical :: ex
 
     namelist /KIM_CONFIG/ number_of_ion_species, artificial_debye_case, &
                         type_of_run, collision_model, read_species_from_namelist, &
                         turn_off_ions, turn_off_electrons, plasma_type, rescale_density, &
                         number_density_rescale, ion_flr_scale_factor, &
-                        boole_energy_conservation
+                        boole_energy_conservation, fp_ks_model_name
 
     namelist /WKB_DISPERSION/ WKB_dispersion_mode, WKB_dispersion_solver, &
                         WKB_solve_for_kr_squared, &
@@ -88,6 +89,14 @@ subroutine kim_read_config
     ! Propagate KIM_CONFIG flag to the QL-Balance getIfunc_config module
     ! so the shared I-function code picks up the energy-conservation switch.
     getIfunc_boole_energy_conservation = boole_energy_conservation
+
+    ! Map the FP Fourier-kernel FLR model name onto flr2_fourier_kernel_m.
+    call fp_ks_model_from_name(fp_ks_model_name, fp_ks_model, fp_ks_status)
+    if (fp_ks_status /= 0) then
+        write(*,*) 'Error: Unknown fp_ks_model_name: ', trim(fp_ks_model_name), &
+            ". Use 'kperp_full' or 'kr_only'."
+        stop
+    end if
 
     call set_log_level(log_level)
 

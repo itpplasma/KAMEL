@@ -20,7 +20,7 @@ subroutine kim_read_config
                         ion_collision_model, collisionless_kpar_epsilon, ion_fp_collision_scale, &
                         turn_off_ions, turn_off_electrons, plasma_type, rescale_density, &
                         number_density_rescale, ion_flr_scale_factor, &
-                        boole_energy_conservation
+                        collision_frequency_scale, boole_energy_conservation
 
     namelist /WKB_DISPERSION/ WKB_dispersion_mode, WKB_dispersion_solver, &
                         WKB_solve_for_kr_squared, &
@@ -125,6 +125,11 @@ subroutine kim_read_config
     case default
         error stop 'ion_collision_model must be FokkerPlanck or collisionless'
     end select
+
+    if (collision_frequency_scale <= 0.0_dp) then
+        write(*,*) 'Error: collision_frequency_scale must be positive. Got: ', collision_frequency_scale
+        stop
+    end if
 
     write(output_path, '(A,A,I0,A,I0,A)') trim(output_path), '/m', m_mode, '_n', n_mode, '/'
     inquire(file=trim(output_path), exist=ex)

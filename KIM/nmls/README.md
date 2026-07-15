@@ -6,6 +6,7 @@ KIM is configured via the namelist file KIM_config.nml containing multiple namel
 - read_species_from_namelist ... boolean, if false, initialize deuterium plasma
 - type_of_run ... string, specifies the type of run, options are: 'electrostatic', 'electromagnetic', 'WKB_dispersion', 'flr2_benchmark'
 - collision_model ... string, collision model to use, options are: 'Krook', 'FokkerPlanck'
+- collision_frequency_scale ... real, positive multiplier applied to the calculated electron and ion collision frequencies before the Krook argument z0 and the Fokker-Planck susceptibility inputs are assembled; default 1.0 leaves the collision formulas unchanged
 - artificial_debye_case ... integer, if 0: full calculation of kernel, if 1: Debye case, if 2: exclude Debye case
 
 ## KIM_IO

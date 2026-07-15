@@ -19,7 +19,7 @@ subroutine kim_read_config
                         type_of_run, collision_model, read_species_from_namelist, &
                         turn_off_ions, turn_off_electrons, plasma_type, rescale_density, &
                         number_density_rescale, ion_flr_scale_factor, &
-                        boole_energy_conservation
+                        collision_frequency_scale, boole_energy_conservation
 
     namelist /WKB_DISPERSION/ WKB_dispersion_mode, WKB_dispersion_solver, &
                         WKB_solve_for_kr_squared, &
@@ -114,6 +114,11 @@ subroutine kim_read_config
     if (collisions_off .and. collision_model == "FokkerPlanck") then
         write(*,*) 'Error: collision_model is set to "FokkerPlanck" but collisions_off is true.'
         write(*,*) 'Please set collisions_off to false or change collision_model.'
+        stop
+    end if
+
+    if (collision_frequency_scale <= 0.0_dp) then
+        write(*,*) 'Error: collision_frequency_scale must be positive. Got: ', collision_frequency_scale
         stop
     end if
 

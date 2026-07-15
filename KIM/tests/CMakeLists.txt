@@ -115,6 +115,15 @@ target_link_libraries(test_periodization KIM_lib kilca_lib lapack cerf ddeabm sl
 add_test(NAME test_periodization
          COMMAND ${CMAKE_BINARY_DIR}/tests/test_periodization.x)
 
+# Derived Krook argument z0 recompute + collision-frequency scale (ex-wp5 #182/#183).
+add_executable(test_collision_scale_z0 ${CMAKE_SOURCE_DIR}/KIM/tests/test_collision_scale_z0.f90)
+set_target_properties(test_collision_scale_z0 PROPERTIES
+                        OUTPUT_NAME test_collision_scale_z0.x
+                        RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/tests/")
+target_link_libraries(test_collision_scale_z0 KIM_lib kilca_lib lapack cerf ddeabm slatec)
+add_test(NAME test_collision_scale_z0
+         COMMAND ${CMAKE_BINARY_DIR}/tests/test_collision_scale_z0.x)
+
 # Periodic sampling of KIM background primitives (aperfuns callback + wrapper).
 add_executable(test_periodic_background ${CMAKE_SOURCE_DIR}/KIM/tests/test_periodic_background.f90)
 set_target_properties(test_periodic_background PROPERTIES

@@ -33,11 +33,15 @@ program test_periodic_solve
         solve_with_derived_gauge, solve_periodic_deviation, &
         reconstruct_delta_phi_from_lift, build_physical_c2_lift, &
         PERIODIC_SOLVE_OK, PERIODIC_SOLVE_GAUGE_REQUIRED, &
-        PERIODIC_SOLVE_INCOMPATIBLE_NULLSPACE, PERIODIC_SOLVE_PROJECTION_REJECTED
+        PERIODIC_SOLVE_INCOMPATIBLE_NULLSPACE, PERIODIC_SOLVE_PROJECTION_REJECTED, &
+        PERIODIC_SOLVE_RCOND_TOLERANCE, PERIODIC_SOLVE_RESIDUAL_TOLERANCE
 
     implicit none
 
     call test_dense_solve_roundtrip()
+    call test_dense_solve_singular_rejection()
+    call test_dense_solve_condition_rejection()
+    call test_dense_solve_nonfinite_rejection()
     call test_inverse_dft()
     call test_field_operator_oracle()
     call test_zero_mode_policy()
@@ -55,11 +59,13 @@ contains
     !> conditioned diagonally-dominant complex A0, pick a known Phi, form
     !> b0 = A0*Phi, solve, and assert recovery to < 1e-10.
     subroutine test_dense_solve_roundtrip()
+        use, intrinsic :: ieee_arithmetic, only: ieee_is_finite
+
         integer, parameter :: M = 3
         integer, parameter :: dim = 2 * M + 1
         complex(dp) :: A0(dim, dim), Phi_known(dim), b0(dim), x(dim)
         integer :: i, j, info
-        real(dp) :: re, im
+        real(dp) :: re, im, rcond, backward_error
 
         do j = 1, dim
             do i = 1, dim
@@ -75,7 +81,7 @@ contains
 
         b0 = matmul(A0, Phi_known)
         x = b0
-        call dense_solve(A0, x, info)
+        call dense_solve(A0, x, info, rcond, backward_error)
 
         if (info /= 0) then
             print *, 'FAIL: dense_solve info /= 0:', info
@@ -86,9 +92,79 @@ contains
                      maxval(abs(x - Phi_known))
             error stop
         end if
+        if (.not. ieee_is_finite(rcond) .or. rcond <= PERIODIC_SOLVE_RCOND_TOLERANCE) then
+            print *, 'FAIL: dense_solve invalid rcond =', rcond
+            error stop
+        end if
+        if (.not. ieee_is_finite(backward_error) .or. &
+            backward_error >= PERIODIC_SOLVE_RESIDUAL_TOLERANCE) then
+            print *, 'FAIL: dense_solve backward error =', backward_error
+            error stop
+        end if
         print *, 'PASS: dense_solve round-trip, max err =', &
                  maxval(abs(x - Phi_known))
+        print *, '  rcond =', rcond, ' backward error =', backward_error
     end subroutine test_dense_solve_roundtrip
+
+    subroutine test_dense_solve_singular_rejection()
+        use periodic_solve_m, only: PERIODIC_SOLVE_SINGULAR
+
+        complex(dp) :: matrix(2, 2), rhs(2)
+        integer :: info
+
+        matrix = (0.0_dp, 0.0_dp)
+        matrix(1, 1) = (1.0_dp, 0.0_dp)
+        rhs = [(1.0_dp, 0.0_dp), (0.0_dp, 0.0_dp)]
+        call dense_solve(matrix, rhs, info)
+        if (info /= PERIODIC_SOLVE_SINGULAR) then
+            print *, 'FAIL: singular dense solve status =', info
+            error stop
+        end if
+        print *, 'PASS: exactly singular dense solve rejected with host status'
+    end subroutine test_dense_solve_singular_rejection
+
+    subroutine test_dense_solve_condition_rejection()
+        use periodic_solve_m, only: PERIODIC_SOLVE_ILL_CONDITIONED
+
+        complex(dp) :: matrix(2, 2), rhs(2)
+        real(dp) :: rcond, backward_error
+        integer :: info
+
+        matrix = (0.0_dp, 0.0_dp)
+        matrix(1, 1) = (1.0_dp, 0.0_dp)
+        matrix(2, 2) = (1.0e-14_dp, 0.0_dp)
+        rhs = [(1.0_dp, 0.0_dp), (1.0e-14_dp, 0.0_dp)]
+        call dense_solve(matrix, rhs, info, rcond, backward_error)
+
+        if (info /= PERIODIC_SOLVE_ILL_CONDITIONED) then
+            print *, 'FAIL: nearly singular solve status =', info
+            print *, '  rcond =', rcond, ' backward error =', backward_error
+            error stop
+        end if
+        if (rcond >= PERIODIC_SOLVE_RCOND_TOLERANCE) then
+            print *, 'FAIL: nearly singular fixture rcond =', rcond
+            error stop
+        end if
+        print *, 'PASS: nearly singular dense solve rejected, rcond =', rcond
+    end subroutine test_dense_solve_condition_rejection
+
+    subroutine test_dense_solve_nonfinite_rejection()
+        use, intrinsic :: ieee_arithmetic, only: ieee_quiet_nan, ieee_value
+        use periodic_solve_m, only: PERIODIC_SOLVE_NONFINITE
+
+        complex(dp) :: matrix(1, 1), rhs(1)
+        real(dp) :: rcond, backward_error
+        integer :: info
+
+        matrix(1, 1) = cmplx(ieee_value(0.0_dp, ieee_quiet_nan), 0.0_dp, dp)
+        rhs(1) = (1.0_dp, 0.0_dp)
+        call dense_solve(matrix, rhs, info, rcond, backward_error)
+        if (info /= PERIODIC_SOLVE_NONFINITE) then
+            print *, 'FAIL: non-finite dense solve status =', info
+            error stop
+        end if
+        print *, 'PASS: non-finite dense solve input rejected'
+    end subroutine test_dense_solve_nonfinite_rejection
 
     !> (b) Inverse DFT correctness. A single nonzero coefficient at m=1 must
     !> reconstruct exp(i k_1 r); a two-mode case confirms linear superposition.

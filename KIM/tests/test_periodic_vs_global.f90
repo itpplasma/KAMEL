@@ -7,9 +7,8 @@ program test_periodic_vs_global
     ! run-type, then compare their reconstructed delta_Phi(r) on the resonant
     ! layer.
     !
-    ! This is a VALIDATION/DIAGNOSTIC task (design 5.2): approx-vs-approx, so
-    ! the deliverable is a measured cross-check number, not a brittle hard
-    ! pass/fail. The global electrostatic solver writes EBdat%Phi on the FIELD
+    ! This is a VALIDATION task (design 5.2). The global electrostatic solver
+    ! writes EBdat%Phi on the FIELD
     ! grid (xl_grid%xb); the periodic solver writes it on the window grid
     ! (rg_grid%xb). We build a common equidistant grid over a few Larmor radii
     ! around rm = r_res, intersect it with BOTH solutions' radial ranges,
@@ -18,11 +17,10 @@ program test_periodic_vs_global
     ! (mean) removed, since a constant gauge/offset in Phi is physically
     ! irrelevant.
     !
-    ! Soft gate: error stop ONLY if a solution is missing / all-zero / NaN, or
-    ! if a computed relative difference is non-finite. A large-but-finite
-    ! discrepancy is a Phase-2 finding, not a test failure: it is printed in a
-    ! CROSS-CHECK DIAGNOSTIC block (with a WARNING when rel_L2 > 0.5) and the
-    ! test still exits 0 so CI stays green -- the number is the diagnostic.
+    ! Missing, non-finite, or degenerate solutions fail distinctly from the
+    ! pre-registered 5% relative-L2 physical agreement gate. The current
+    ! mismatch therefore remains visible as a nonzero test until the matched
+    ! benchmark work resolves it; it can never silently return success.
 
     use KIM_kinds_m, only: dp
     use, intrinsic :: ieee_arithmetic, only: ieee_is_finite
@@ -242,7 +240,9 @@ contains
         ! [rm - Delta, rm + Delta], keep only points covered by BOTH solutions'
         ! radial ranges, interpolate both potentials onto it (4-pt Lagrange,
         ! real/imag separately), and report relative L2 / max differences, both
-        ! raw and DC-removed. Soft gate only on missing/all-zero/NaN.
+        ! raw and DC-removed. All gates are hard (error stop): non-finite
+        ! differences, a degenerate (all-zero) global reference, and the
+        ! pre-declared 5% cross-method relative-L2 policy.
         real(dp), intent(in) :: r_g(:), r_p(:), rm, Delta
         complex(dp), intent(in) :: phi_g(:), phi_p(:)
 
@@ -325,7 +325,7 @@ contains
         call write_curve_data('periodic_vs_global_curve.dat', r_c(1:nc), &
                               pg_c(1:nc), pp_c(1:nc), pg_dc, pp_dc)
 
-        ! Soft gate: bail only on non-finite results, never on a large finite one.
+        ! Numerical sanity is separate from the physical agreement gate below.
         if (.not. ieee_is_finite(rel_L2) .or. .not. ieee_is_finite(rel_max) .or. &
             .not. ieee_is_finite(rel_L2_dc) .or. &
             .not. ieee_is_finite(rel_max_dc)) then
@@ -368,17 +368,19 @@ contains
             print *, '   cross-check finding to investigate (electrostatic Poisson solve),'
             print *, '   NOT a failure of the periodic solver or of this diagnostic.'
             print *, '======================================================================'
+            error stop 'periodic/global reference is degenerate'
         else
             print *, '  rel_L2  (raw)              = ', rel_L2
             print *, '  rel_max (raw)              = ', rel_max
             print *, '  rel_L2_dc_removed          = ', rel_L2_dc
             print *, '  rel_max_dc_removed         = ', rel_max_dc
             print *, '======================================================================'
-            if (rel_L2 > 0.5_dp) then
-                print *, ' WARNING: periodic vs global differ by >50% -- investigate'
-                print *, '   (candidates: k_s^2 D_m convention, DC/gauge,'
-                print *, '    periodization deformation, normalization)'
+            if (rel_L2 >= 5.0e-2_dp) then
+                print *, ' FAIL: periodic/global relative L2 exceeds 5% policy'
+                print *, '   This is a physical cross-method gate, distinct from'
+                print *, '   dense-solve residual and numerical self-convergence.'
                 print *, '======================================================================'
+                error stop 'periodic/global matched-problem tolerance failed'
             end if
         end if
         print *, ''

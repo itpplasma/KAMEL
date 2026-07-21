@@ -56,25 +56,33 @@ contains
     !> periodic_background_m::build_periodic_plasma (rg_grid%xb holds the N
     !> equidistant boundary points that hatG_rho_phi / hatG_rho_B index).
     !>
-    !> Kphi and KB are allocated here to (2M+1) x (2M+1), row index im = m+M+1,
-    !> column index imp = m'+M+1.
-    subroutine assemble_periodic_matrices(plasma, L, M, Kphi, KB)
+    !> All four matrices are allocated here to (2M+1) x (2M+1), row index
+    !> im = m+M+1, column index imp = m'+M+1.
+    !>
+    !> Kjphi and KjB are the parallel-current analogues, assembled with the same
+    !> quadrature from hatG_j_phi / hatG_j_B. They are post-processing only: the
+    !> solve uses Kphi/KB, and j_par follows from thesis (11.7) as
+    !> Kjphi . Phi_m + KjB . Br_m. Note the j-kernels carry NO /(4*pi) (see
+    !> flr2_fourier_kernel_m), so these matrices must not be scaled by 4*pi the
+    !> way solve_periodic scales Kphi/KB.
+    subroutine assemble_periodic_matrices(plasma, L, M, Kphi, KB, Kjphi, KjB)
         use grid_m, only: rg_grid
-        use flr2_fourier_kernel_m, only: hatG_rho_phi, hatG_rho_B
+        use flr2_fourier_kernel_m, only: hatG_rho_phi, hatG_rho_B, hatG_j_phi, hatG_j_B
         use constants_m, only: pi
 
         type(plasma_t), intent(in) :: plasma
         real(dp), intent(in) :: L
         integer, intent(in) :: M
         complex(dp), allocatable, intent(out) :: Kphi(:,:), KB(:,:)
+        complex(dp), allocatable, intent(out) :: Kjphi(:,:), KjB(:,:)
 
         integer :: N, dim, m_row, m_col, im, imp, j
         real(dp) :: k_m, k_mp, weight
-        complex(dp) :: acc_phi, acc_B
+        complex(dp) :: acc_phi, acc_B, acc_jphi, acc_jB
 
         N = rg_grid%npts_b
         dim = 2 * M + 1
-        allocate(Kphi(dim, dim), KB(dim, dim))
+        allocate(Kphi(dim, dim), KB(dim, dim), Kjphi(dim, dim), KjB(dim, dim))
 
         ! Periodic trapezoidal weight. rg_grid%xb is EQUIDISTANT and ENDPOINT-
         ! EXCLUSIVE over one period (grid_generate_equidistant: h = L/N, xb(N) =
@@ -91,15 +99,21 @@ contains
                 k_m = k_of_m(m_row, L)
                 im = m_row + M + 1
 
-                acc_phi = (0.0_dp, 0.0_dp)
-                acc_B   = (0.0_dp, 0.0_dp)
+                acc_phi  = (0.0_dp, 0.0_dp)
+                acc_B    = (0.0_dp, 0.0_dp)
+                acc_jphi = (0.0_dp, 0.0_dp)
+                acc_jB   = (0.0_dp, 0.0_dp)
                 do j = 1, N
-                    acc_phi = acc_phi + hatG_rho_phi(plasma, k_m, k_mp, j)
-                    acc_B   = acc_B   + hatG_rho_B(plasma, k_m, k_mp, j)
+                    acc_phi  = acc_phi  + hatG_rho_phi(plasma, k_m, k_mp, j)
+                    acc_B    = acc_B    + hatG_rho_B(plasma, k_m, k_mp, j)
+                    acc_jphi = acc_jphi + hatG_j_phi(plasma, k_m, k_mp, j)
+                    acc_jB   = acc_jB   + hatG_j_B(plasma, k_m, k_mp, j)
                 end do
 
-                Kphi(im, imp) = weight * acc_phi
-                KB(im, imp)   = weight * acc_B
+                Kphi(im, imp)  = weight * acc_phi
+                KB(im, imp)    = weight * acc_B
+                Kjphi(im, imp) = weight * acc_jphi
+                KjB(im, imp)   = weight * acc_jB
             end do
         end do
     end subroutine assemble_periodic_matrices

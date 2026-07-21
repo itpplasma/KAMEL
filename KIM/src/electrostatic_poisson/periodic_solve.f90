@@ -35,7 +35,7 @@ module periodic_solve_m
     implicit none
     private
 
-    public :: solve_periodic, reconstruct_delta_phi, dense_solve
+    public :: solve_periodic, reconstruct_delta_phi, dense_solve, reconstruct_jpar
 
 contains
 
@@ -93,6 +93,44 @@ contains
         call zgesv(dim, 1, A, dim, ipiv, b, dim, info)
         deallocate(ipiv)
     end subroutine dense_solve
+
+    !> Reconstruct the parallel current density perturbation j_par(r) on the
+    !> output grid r_out, given the solved potential coefficients Phi_m and the
+    !> constant drive amplitude Br_const.
+    !>
+    !> Thesis (11.7) defines the current density directly from the two fields,
+    !>
+    !>   delta_j_par(x) = K^{jPhi}(x,x') delta_Phi(x') + K^{jB}(x,x') delta_Br(x'),
+    !>
+    !> which in the Fourier basis over m = -M..M is
+    !>
+    !>   j_m = sum_{m'} [ Kjphi(m,m') Phi_{m'} + KjB(m,m') Br_{m'} ].
+    !>
+    !> For type_br_field = 12 the drive is constant over the window, so
+    !> Br_{m'} = Br_const * delta_{m',0} and the KjB term collapses to the
+    !> m' = 0 column (index M+1) -- the same convention as solve_periodic's RHS.
+    !>
+    !> There is NO 4*pi here. solve_periodic carries one because the potential
+    !> obeys Poisson's equation; (11.7) does not, and correspondingly hatG_j_phi
+    !> / hatG_j_B omit the /(4*pi) that hatG_rho_* apply (see
+    !> flr2_fourier_kernel_m). Kjphi/KjB therefore enter unscaled.
+    !>
+    !> j_par is then inverse-DFT'd exactly as the potential is:
+    !>   j_par(r) = sum_{m=-M}^{M} j_m exp(i k_m r).
+    function reconstruct_jpar(Kjphi, KjB, Phi_m, Br_const, L, M, r_out) result(jpar)
+        complex(dp), intent(in) :: Kjphi(:,:), KjB(:,:)
+        complex(dp), intent(in) :: Phi_m(:)
+        complex(dp), intent(in) :: Br_const
+        real(dp), intent(in) :: L, r_out(:)
+        integer, intent(in) :: M
+        complex(dp) :: jpar(size(r_out))
+
+        complex(dp), allocatable :: j_m(:)
+
+        j_m = matmul(Kjphi, Phi_m) + Br_const * KjB(:, M + 1)
+
+        jpar = reconstruct_delta_phi(j_m, L, M, r_out)
+    end function reconstruct_jpar
 
     !> Inverse DFT: reconstruct dPhi(r) = sum_{m=-M}^{M} Phi_m exp(i k_m r)
     !> on the output radial grid r_out, with k_m = 2*pi*m/L. Phi_m is indexed

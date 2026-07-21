@@ -30,11 +30,13 @@ program test_periodic_solve
     use KIM_kinds_m, only: dp
     use constants_m, only: pi, com_unit
     use periodic_solve_m, only: solve_periodic, reconstruct_delta_phi, dense_solve
+    use periodic_solve_m, only: reconstruct_jpar
 
     implicit none
 
     call test_dense_solve_roundtrip()
     call test_inverse_dft()
+    call test_reconstruct_jpar()
     call test_end_to_end()
 
     print *, 'All tests PASSED'
@@ -138,6 +140,93 @@ contains
                  maxval(abs(dPhi - expected))
     end subroutine test_inverse_dft
 
+    !> j_par reconstruction (thesis 11.7): j_m = Kjphi . Phi_m + KjB . Br_m with
+    !> Br_m = Br_const*delta_{m',0} for a constant window drive, then inverse-DFT.
+    !> Manufactured matrices keep this independent of any plasma.
+    subroutine test_reconstruct_jpar()
+        integer, parameter :: M = 3
+        integer, parameter :: dim = 2 * M + 1
+        integer, parameter :: nr = 5
+        real(dp), parameter :: L = 4.0_dp
+        complex(dp) :: Kjphi(dim, dim), KjB(dim, dim), Phi_m(dim)
+        complex(dp) :: jpar(nr), expected(nr), Br_const
+        real(dp) :: r_out(nr), k1
+        integer :: i, im
+
+        do i = 1, nr
+            r_out(i) = -1.5_dp + 0.7_dp * real(i - 1, dp)
+        end do
+        k1 = 2.0_dp * pi * 1.0_dp / L
+
+        ! (a) Phi path alone: Kjphi = I, KjB = 0, Phi_m = delta_{m,1}.
+        ! Then j_m = delta_{m,1} and j_par(r) = exp(i k_1 r).
+        Kjphi = (0.0_dp, 0.0_dp)
+        do im = 1, dim
+            Kjphi(im, im) = (1.0_dp, 0.0_dp)
+        end do
+        KjB = (0.0_dp, 0.0_dp)
+        Phi_m = (0.0_dp, 0.0_dp)
+        Phi_m(1 + M + 1) = (1.0_dp, 0.0_dp)
+        Br_const = (0.0_dp, 0.0_dp)
+
+        jpar = reconstruct_jpar(Kjphi, KjB, Phi_m, Br_const, L, M, r_out)
+        do i = 1, nr
+            expected(i) = exp(com_unit * k1 * r_out(i))
+        end do
+        if (maxval(abs(jpar - expected)) >= 1.0e-12_dp) then
+            print *, 'FAIL: j_par Phi-path /= exp(i k_1 r), err =', &
+                     maxval(abs(jpar - expected))
+            error stop
+        end if
+        print *, 'PASS: j_par Phi path = Kjphi . Phi_m, max err =', &
+                 maxval(abs(jpar - expected))
+
+        ! (b) Br path alone, and the m'=0 column convention. Kjphi = 0 (so an
+        ! arbitrary Phi_m must be killed); KjB carries junk everywhere EXCEPT a
+        ! clean m'=0 column. A constant drive has Br_m = Br_const*delta_{m',0},
+        ! so only that column may contribute -- if the junk leaks, j_par blows up.
+        Kjphi = (0.0_dp, 0.0_dp)
+        KjB = (99.0_dp, -99.0_dp)
+        KjB(:, 0 + M + 1) = (0.0_dp, 0.0_dp)
+        KjB(0 + M + 1, 0 + M + 1) = (2.0_dp, 0.0_dp)
+        Phi_m = (7.0_dp, 3.0_dp)
+        Br_const = (0.5_dp, 0.0_dp)
+
+        ! j_m = 2*0.5 = 1 at m = 0 only -> j_par(r) = 1 everywhere.
+        jpar = reconstruct_jpar(Kjphi, KjB, Phi_m, Br_const, L, M, r_out)
+        expected = (1.0_dp, 0.0_dp)
+        if (maxval(abs(jpar - expected)) >= 1.0e-12_dp) then
+            print *, 'FAIL: j_par Br-path /= 1 (m''=0 column leak?), err =', &
+                     maxval(abs(jpar - expected))
+            print *, '  jpar =', jpar
+            error stop
+        end if
+        print *, 'PASS: j_par Br path uses the m''=0 column only, max err =', &
+                 maxval(abs(jpar - expected))
+
+        ! (c) Additivity: both paths on together must superpose.
+        Kjphi = (0.0_dp, 0.0_dp)
+        do im = 1, dim
+            Kjphi(im, im) = (1.0_dp, 0.0_dp)
+        end do
+        KjB = (0.0_dp, 0.0_dp)
+        KjB(0 + M + 1, 0 + M + 1) = (2.0_dp, 0.0_dp)
+        Phi_m = (0.0_dp, 0.0_dp)
+        Phi_m(1 + M + 1) = (1.0_dp, 0.0_dp)
+        Br_const = (0.5_dp, 0.0_dp)
+
+        jpar = reconstruct_jpar(Kjphi, KjB, Phi_m, Br_const, L, M, r_out)
+        do i = 1, nr
+            expected(i) = exp(com_unit * k1 * r_out(i)) + (1.0_dp, 0.0_dp)
+        end do
+        if (maxval(abs(jpar - expected)) >= 1.0e-12_dp) then
+            print *, 'FAIL: j_par superposition err =', maxval(abs(jpar - expected))
+            error stop
+        end if
+        print *, 'PASS: j_par superposes the Phi and Br paths, max err =', &
+                 maxval(abs(jpar - expected))
+    end subroutine test_reconstruct_jpar
+
     !> (c) End-to-end sanity with the REAL assembled matrices. Mirrors
     !> test_periodic_assembly's setup: build the (m,n)=(-6,2) periodic plasma,
     !> assemble Kphi/KB with M=6, solve with a constant Br drive, and check the
@@ -161,7 +250,7 @@ contains
         real(dp) :: Ti_prof(npts), q_prof(npts), Er_prof(npts)
         class(kim_t), allocatable :: kim_instance
 
-        complex(dp), allocatable :: Kphi(:,:), KB(:,:), Phi_m(:)
+        complex(dp), allocatable :: Kphi(:,:), KB(:,:), Kjphi(:,:), KjB(:,:), Phi_m(:)
         complex(dp), allocatable :: dPhi(:)
         real(dp) :: rm, dx_asis, dx_tr, rho_L_rm, L
         integer :: n_rg, N, dim, info, i
@@ -200,7 +289,7 @@ contains
         call build_periodic_plasma(rm, dx_asis, dx_tr, n_rg)
         N = rg_grid%npts_b
 
-        call assemble_periodic_matrices(plasma, L, M, Kphi, KB)
+        call assemble_periodic_matrices(plasma, L, M, Kphi, KB, Kjphi, KjB)
 
         call solve_periodic(Kphi, KB, L, M, (1.0_dp, 0.0_dp), Phi_m, info)
 

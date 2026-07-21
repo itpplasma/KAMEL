@@ -111,6 +111,32 @@ contains
         print *, 'PASS: EBdat%Phi allocated, size ', N, &
                  ', finite & non-zero, max|Phi| =', maxval(abs(EBdat%Phi))
 
+        ! (jpar) allocated, correct size, all finite, and NOT all-zero: the same
+        ! constant Br that drives Phi must drive a parallel current response via
+        ! thesis (11.7), j_par = K^{jPhi} Phi + K^{jB} Br.
+        if (.not. allocated(EBdat%jpar)) then
+            print *, 'FAIL: EBdat%jpar not allocated'
+            error stop
+        end if
+        if (size(EBdat%jpar) /= N) then
+            print *, 'FAIL: size(EBdat%jpar) /= rg_grid%npts_b; got ', &
+                     size(EBdat%jpar), ' expected ', N
+            error stop
+        end if
+        do i = 1, N
+            if (.not. ieee_is_finite(real(EBdat%jpar(i), dp)) .or. &
+                .not. ieee_is_finite(aimag(EBdat%jpar(i)))) then
+                print *, 'FAIL: non-finite EBdat%jpar at', i
+                error stop
+            end if
+        end do
+        if (.not. (maxval(abs(EBdat%jpar)) > 0.0_dp)) then
+            print *, 'FAIL: EBdat%jpar all zero (constant Br should drive a current)'
+            error stop
+        end if
+        print *, 'PASS: EBdat%jpar allocated, size ', N, &
+                 ', finite & non-zero, max|jpar| =', maxval(abs(EBdat%jpar))
+
         ! (r_grid) allocated, correct size, spans the window [rm - L/2, rm + L/2].
         if (.not. allocated(EBdat%r_grid)) then
             print *, 'FAIL: EBdat%r_grid not allocated'

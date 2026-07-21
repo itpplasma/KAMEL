@@ -36,13 +36,19 @@ module rt_electrostatic_periodic_m
     !>
     !> Does NOT error stop on a singular solve: it returns info /= 0 so the
     !> caller can decide (the run-type error stops; the tests inspect info).
+    !>
+    !> The optional jpar returns the parallel current density perturbation on the
+    !> same r_out, per thesis (11.7): j_par = K^{jPhi} Phi + K^{jB} Br. It is
+    !> OPTIONAL because the Phase-3 convergence harnesses scan many (n_rg, M)
+    !> values for dPhi alone and have no use for it. Like dPhi, it is left
+    !> unallocated when the solve fails (info /= 0).
     subroutine compute_periodic_delta_phi(rm, dx_asis, dx_tr, M, n_rg, Br_const, &
-                                          r_out, dPhi, info)
+                                          r_out, dPhi, info, jpar)
         use KIM_kinds_m, only: dp
         use species_m, only: plasma
         use periodic_background_m, only: build_periodic_plasma
         use periodic_assembly_m, only: assemble_periodic_matrices
-        use periodic_solve_m, only: solve_periodic, reconstruct_delta_phi
+        use periodic_solve_m, only: solve_periodic, reconstruct_delta_phi, reconstruct_jpar
 
         real(dp),    intent(in)  :: rm, dx_asis, dx_tr
         integer,     intent(in)  :: M, n_rg
@@ -50,18 +56,23 @@ module rt_electrostatic_periodic_m
         real(dp),    intent(in)  :: r_out(:)
         complex(dp), allocatable, intent(out) :: dPhi(:)
         integer,     intent(out) :: info
+        complex(dp), allocatable, intent(out), optional :: jpar(:)
 
-        complex(dp), allocatable :: Kphi(:,:), KB(:,:), Phi_m(:)
+        complex(dp), allocatable :: Kphi(:,:), KB(:,:), Kjphi(:,:), KjB(:,:), Phi_m(:)
         real(dp) :: L
 
         L = 2.0_dp * (dx_asis + dx_tr)
 
         call build_periodic_plasma(rm, dx_asis, dx_tr, n_rg)
-        call assemble_periodic_matrices(plasma, L, M, Kphi, KB)
+        call assemble_periodic_matrices(plasma, L, M, Kphi, KB, Kjphi, KjB)
         call solve_periodic(Kphi, KB, L, M, Br_const, Phi_m, info)
         if (info /= 0) return
 
         dPhi = reconstruct_delta_phi(Phi_m, L, M, r_out)
+
+        if (present(jpar)) then
+            jpar = reconstruct_jpar(Kjphi, KjB, Phi_m, Br_const, L, M, r_out)
+        end if
     end subroutine compute_periodic_delta_phi
 
     !> Select the largest Larmor radius among species active in the FP kernel.
@@ -196,7 +207,7 @@ module rt_electrostatic_periodic_m
 
         class(electrostatic_periodic_t), intent(inout) :: this
 
-        complex(dp), allocatable :: dPhi(:)
+        complex(dp), allocatable :: dPhi(:), jpar(:)
         complex(dp) :: Br_const
         real(dp), allocatable :: r_win(:)
         real(dp) :: rm, rhoL_rm, dx_asis, dx_tr, L, k_max
@@ -260,7 +271,7 @@ module rt_electrostatic_periodic_m
         ! periodic core. It does NOT error stop on a singular solve; do it here.
         Br_const = cmplx(Br_boundary_re, Br_boundary_im, dp)
         call compute_periodic_delta_phi(rm, dx_asis, dx_tr, M, n_rg, Br_const, &
-                                        r_win, dPhi, info)
+                                        r_win, dPhi, info, jpar)
         if (info /= 0) then
             print *, "Error (electrostatic_periodic): solve_periodic failed, info = ", info
             error stop "electrostatic_periodic: periodic solve failed"
@@ -272,17 +283,23 @@ module rt_electrostatic_periodic_m
             error stop "run_electrostatic_periodic: r_win grid does not match rg_grid%xb"
         end if
 
-        ! 6. Pack into EBdat (window grid + reconstructed potential).
+        ! 6. Pack into EBdat (window grid + reconstructed potential + current).
         if (allocated(EBdat%r_grid)) deallocate(EBdat%r_grid)
         if (allocated(EBdat%Phi))    deallocate(EBdat%Phi)
+        if (allocated(EBdat%jpar))   deallocate(EBdat%jpar)
         EBdat%r_grid = r_win
         EBdat%Phi    = dPhi
+        EBdat%jpar   = jpar
 
         if (hdf5_output) then
             call write_complex_profile_abs(EBdat%r_grid, EBdat%Phi, rg_grid%npts_b, &
                 "/fields/Phi", &
                 'Electrostatic potential perturbation Phi, forced-periodicity solution', &
                 'statV')
+            call write_complex_profile_abs(EBdat%r_grid, EBdat%jpar, rg_grid%npts_b, &
+                "/fields/jpar", &
+                'Parallel current density perturbation j_par, forced-periodicity solution', &
+                'statA/cm^2')
         end if
 
     end subroutine run_electrostatic_periodic

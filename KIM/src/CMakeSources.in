@@ -12,9 +12,7 @@ set(KIM_general general/config_display.f90
 )
 
 
-set(KIM_math math/suitesparse/umf4_f77zwrapper.c
-            math/suitesparse/umf4_f77wrapper.c
-            math/superlu/c_fortran_dgssv.c
+set(KIM_math math/superlu/c_fortran_dgssv.c
             math/superlu/c_fortran_zgssv.c
             math/use_libcerf_mod.f90
             math/plasma_disp_func.f90
@@ -48,6 +46,8 @@ set(KIM_util util/findIndex.f90
 set(KIM_background_equilibrium background_equilibrium/species_mod.f90
                             background_equilibrium/calculate_equil.f90
                             background_equilibrium/profile_input_m.f90
+                            background_equilibrium/periodization.f90
+                            background_equilibrium/periodic_background.f90
 )
 
 set(KIM_dispersion  dispersion/fun_input.f90
@@ -56,8 +56,11 @@ set(KIM_dispersion  dispersion/fun_input.f90
 )
 
 set(KIM_poisson electrostatic_poisson/poisson.f90
+                electrostatic_poisson/poisson_periodic.f90
                 electrostatic_poisson/flr2_benchmark.f90
                 electrostatic_poisson/solve_poisson.f90
+                electrostatic_poisson/periodic_assembly.f90
+                electrostatic_poisson/periodic_solve.f90
                 kernels/kernel.f90
                 kernels/integrands.f90
                 electrostatic_poisson/fields_mod.f90
@@ -73,7 +76,9 @@ set(KIM_fokkerplanck ${CMAKE_SOURCE_DIR}/QL-Balance/src/base/getIfunc.f90
                      ${CMAKE_SOURCE_DIR}/QL-Balance/src/base/W2_arr.f90
 )
 
-set(KIM_asymptotics asymptotics/FLR2_asymptotics.f90)
+set(KIM_asymptotics asymptotics/FLR2_asymptotics.f90
+                    asymptotics/flr2_fourier_kernel.f90
+)
 
 set(KIM_diagnostics diagnostics/kim_diagnostics_mod.f90
                     diagnostics/kim_qldiff_mod.f90

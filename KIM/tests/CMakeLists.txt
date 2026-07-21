@@ -79,6 +79,15 @@ add_test(NAME test_collisionless_ion_assembly
          COMMAND ${CMAKE_BINARY_DIR}/tests/test_collisionless_ion_assembly.x)
 set_tests_properties(test_collisionless_ion_assembly PROPERTIES
                      WORKING_DIRECTORY ${CMAKE_BINARY_DIR}/tests/)
+
+add_executable(test_flr2_fourier_kernel ${CMAKE_SOURCE_DIR}/KIM/tests/test_flr2_fourier_kernel.f90)
+set_target_properties(test_flr2_fourier_kernel PROPERTIES
+                        OUTPUT_NAME test_flr2_fourier_kernel.x
+                        RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/tests/")
+target_link_libraries(test_flr2_fourier_kernel KIM_lib kilca_lib lapack cerf fortnum_amos_compat)
+add_test(NAME test_flr2_fourier_kernel
+         COMMAND ${CMAKE_BINARY_DIR}/tests/test_flr2_fourier_kernel.x)
+
 add_executable(test_ampere_matrices ${CMAKE_SOURCE_DIR}/KIM/tests/test_ampere_matrices.f90)
 set_target_properties(test_ampere_matrices PROPERTIES
                         OUTPUT_NAME test_ampere_matrices.x
@@ -123,6 +132,57 @@ target_link_libraries(test_collision_scale_z0 KIM_lib kilca_lib lapack cerf fort
 add_test(NAME test_collision_scale_z0
          COMMAND ${CMAKE_BINARY_DIR}/tests/test_collision_scale_z0.x)
 
+# Regression test for the vendored periodization utility.
+add_executable(test_periodization ${CMAKE_SOURCE_DIR}/KIM/tests/test_periodization.f90)
+set_target_properties(test_periodization PROPERTIES
+                        OUTPUT_NAME test_periodization.x
+                        RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/tests/")
+target_link_libraries(test_periodization KIM_lib kilca_lib lapack cerf fortnum_amos_compat)
+add_test(NAME test_periodization
+         COMMAND ${CMAKE_BINARY_DIR}/tests/test_periodization.x)
+
+# Periodic sampling of KIM background primitives (aperfuns callback + wrapper).
+add_executable(test_periodic_background ${CMAKE_SOURCE_DIR}/KIM/tests/test_periodic_background.f90)
+set_target_properties(test_periodic_background PROPERTIES
+                        OUTPUT_NAME test_periodic_background.x
+                        RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/tests/")
+target_link_libraries(test_periodic_background KIM_lib kilca_lib lapack cerf fortnum_amos_compat)
+add_test(NAME test_periodic_background
+         COMMAND ${CMAKE_BINARY_DIR}/tests/test_periodic_background.x)
+
+# Build a periodic background plasma on a redirected window grid (Phase-2.3).
+add_executable(test_periodic_background_build ${CMAKE_SOURCE_DIR}/KIM/tests/test_periodic_background_build.f90)
+set_target_properties(test_periodic_background_build PROPERTIES
+                        OUTPUT_NAME test_periodic_background_build.x
+                        RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/tests/")
+target_link_libraries(test_periodic_background_build KIM_lib kilca_lib lapack cerf fortnum_amos_compat)
+add_test(NAME test_periodic_background_build
+         COMMAND ${CMAKE_BINARY_DIR}/tests/test_periodic_background_build.x)
+set_tests_properties(test_periodic_background_build PROPERTIES
+                     WORKING_DIRECTORY ${CMAKE_BINARY_DIR}/tests/)
+
+# Assemble the dense periodic Fourier matrices K_{m,m'} (Phase-2.4).
+add_executable(test_periodic_assembly ${CMAKE_SOURCE_DIR}/KIM/tests/test_periodic_assembly.f90)
+set_target_properties(test_periodic_assembly PROPERTIES
+                        OUTPUT_NAME test_periodic_assembly.x
+                        RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/tests/")
+target_link_libraries(test_periodic_assembly KIM_lib kilca_lib lapack cerf fortnum_amos_compat)
+add_test(NAME test_periodic_assembly
+         COMMAND ${CMAKE_BINARY_DIR}/tests/test_periodic_assembly.x)
+set_tests_properties(test_periodic_assembly PROPERTIES
+                     WORKING_DIRECTORY ${CMAKE_BINARY_DIR}/tests/)
+
+# Dense zgesv solve + inverse DFT for the periodic potential (Phase-2.5).
+add_executable(test_periodic_solve ${CMAKE_SOURCE_DIR}/KIM/tests/test_periodic_solve.f90)
+set_target_properties(test_periodic_solve PROPERTIES
+                        OUTPUT_NAME test_periodic_solve.x
+                        RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/tests/")
+target_link_libraries(test_periodic_solve KIM_lib kilca_lib lapack cerf fortnum_amos_compat)
+add_test(NAME test_periodic_solve
+         COMMAND ${CMAKE_BINARY_DIR}/tests/test_periodic_solve.x)
+set_tests_properties(test_periodic_solve PROPERTIES
+                     WORKING_DIRECTORY ${CMAKE_BINARY_DIR}/tests/)
+
 # Lifecycle/contract tests for the kim_solver_m API seam.
 add_executable(test_kim_solver ${CMAKE_SOURCE_DIR}/KIM/tests/test_kim_solver.f90)
 set_target_properties(test_kim_solver PROPERTIES
@@ -143,4 +203,40 @@ configure_file(${CMAKE_SOURCE_DIR}/KIM/tests/test_data/KIM_config_em_small.nml
 add_test(NAME test_kim_solver_em
          COMMAND ${CMAKE_BINARY_DIR}/tests/test_kim_solver_em.x)
 set_tests_properties(test_kim_solver_em PROPERTIES
+                     WORKING_DIRECTORY ${CMAKE_BINARY_DIR}/tests/)
+
+# End-to-end: the electrostatic_periodic run-type through the factory (Phase-2.6).
+add_executable(test_kim_solver_periodic ${CMAKE_SOURCE_DIR}/KIM/tests/test_kim_solver_periodic.f90)
+set_target_properties(test_kim_solver_periodic PROPERTIES
+                        OUTPUT_NAME test_kim_solver_periodic.x
+                        RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/tests/")
+target_link_libraries(test_kim_solver_periodic KIM_lib kilca_lib lapack cerf fortnum_amos_compat)
+add_test(NAME test_kim_solver_periodic
+         COMMAND ${CMAKE_BINARY_DIR}/tests/test_kim_solver_periodic.x)
+set_tests_properties(test_kim_solver_periodic PROPERTIES
+                     WORKING_DIRECTORY ${CMAKE_BINARY_DIR}/tests/)
+
+# Phase-2.7 cross-check: periodic vs global electrostatic delta-Phi on the same
+# (m,n) = (-6,2) resonant case. Diagnostic (approx-vs-approx): logs the relative
+# difference; soft gate (only on missing/all-zero/NaN).
+add_executable(test_periodic_vs_global ${CMAKE_SOURCE_DIR}/KIM/tests/test_periodic_vs_global.f90)
+set_target_properties(test_periodic_vs_global PROPERTIES
+                        OUTPUT_NAME test_periodic_vs_global.x
+                        RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/tests/")
+target_link_libraries(test_periodic_vs_global KIM_lib kilca_lib lapack cerf fortnum_amos_compat)
+add_test(NAME test_periodic_vs_global
+         COMMAND ${CMAKE_BINARY_DIR}/tests/test_periodic_vs_global.x)
+set_tests_properties(test_periodic_vs_global PROPERTIES
+                     WORKING_DIRECTORY ${CMAKE_BINARY_DIR}/tests/)
+
+# Phase-3.1: reusable periodic core compute_periodic_delta_phi evaluated on a
+# FIXED diagnostic grid (basis for the convergence harness P3.2-3.4).
+add_executable(test_periodic_convergence ${CMAKE_SOURCE_DIR}/KIM/tests/test_periodic_convergence.f90)
+set_target_properties(test_periodic_convergence PROPERTIES
+                        OUTPUT_NAME test_periodic_convergence.x
+                        RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/tests/")
+target_link_libraries(test_periodic_convergence KIM_lib kilca_lib lapack cerf fortnum_amos_compat)
+add_test(NAME test_periodic_convergence
+         COMMAND ${CMAKE_BINARY_DIR}/tests/test_periodic_convergence.x)
+set_tests_properties(test_periodic_convergence PROPERTIES
                      WORKING_DIRECTORY ${CMAKE_BINARY_DIR}/tests/)

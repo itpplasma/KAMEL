@@ -52,7 +52,8 @@ subroutine kim_read_config
     ! Optional group for the forced-periodicity electrostatic run-type. Read
     ! separately (iostat-guarded, below) so config files without it still parse.
     namelist /KIM_PERIODIC/ periodic_dr_asis_scale, periodic_dr_tr_scale, &
-                        periodic_kmax_scale, periodic_n_rg
+                        periodic_kmax_scale, periodic_n_rg, &
+                        periodic_match_global_kernel_approximations
 
     integer :: periodic_iostat
 
@@ -80,6 +81,7 @@ subroutine kim_read_config
 
     ! Optional KIM_PERIODIC group: rewind and read with iostat so config files
     ! that omit it keep the config_m defaults instead of aborting the read.
+    periodic_match_global_kernel_approximations = .false.
     rewind(unit = 77)
     read(unit = 77, nml = KIM_PERIODIC, iostat = periodic_iostat)
 

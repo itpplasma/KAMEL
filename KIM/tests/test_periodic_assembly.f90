@@ -83,11 +83,13 @@ contains
         rm = r_res
         print *, 'resonant radius rm = ', rm
 
-        ! Representative Larmor radius near rm (electrons) on the global plasma.
+        ! Representative ion Larmor radius near rm on the global plasma. The
+        ! production kernel deliberately takes electrons in the zero-FLR limit,
+        ! so ion FLR must set the test window and supply the non-Toeplitz signal.
         rho_L_rm = rho_L_near(rm)
-        print *, 'rho_L(rm) [electron] = ', rho_L_rm
+        print *, 'rho_L(rm) [ion] = ', rho_L_rm
 
-        ! Window half-widths: 5 and 10 Larmor radii (guard against a degenerate
+        ! Window half-widths: 5 and 10 ion Larmor radii (guard against a degenerate
         ! window if rho_L is unexpectedly small).
         dx_asis =  5.0_dp * rho_L_rm
         dx_tr   = 10.0_dp * rho_L_rm
@@ -253,13 +255,13 @@ contains
     end function not_equal_pair
 
     real(dp) function rho_L_near(r) result(val)
-        !> Electron Larmor radius of the global plasma at the grid point nearest
+        !> Ion Larmor radius of the global plasma at the grid point nearest
         !> radius r (the plasma is still on the global grid here).
         use species_m, only: plasma
         real(dp), intent(in) :: r
         integer :: jn
         jn = minloc(abs(plasma%r_grid - r), dim=1)
-        val = plasma%spec(0)%rho_L(jn)
+        val = plasma%spec(1)%rho_L(jn)
     end function rho_L_near
 
     subroutine make_test_profiles(npts, r_prof, n_prof, Te_prof, Ti_prof, &

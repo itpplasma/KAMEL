@@ -49,6 +49,8 @@ module rt_electrostatic_periodic_m
         use periodic_background_m, only: build_periodic_plasma
         use periodic_assembly_m, only: assemble_periodic_matrices
         use periodic_solve_m, only: solve_periodic, reconstruct_delta_phi, reconstruct_jpar
+        use config_m, only: periodic_match_global_kernel_approximations
+        use flr2_fourier_kernel_m, only: set_global_kernel_approximations
 
         real(dp),    intent(in)  :: rm, dx_asis, dx_tr
         integer,     intent(in)  :: M, n_rg
@@ -63,6 +65,7 @@ module rt_electrostatic_periodic_m
 
         L = 2.0_dp * (dx_asis + dx_tr)
 
+        call set_global_kernel_approximations(periodic_match_global_kernel_approximations)
         call build_periodic_plasma(rm, dx_asis, dx_tr, n_rg)
         call assemble_periodic_matrices(plasma, L, M, Kphi, KB, Kjphi, KjB)
         call solve_periodic(Kphi, KB, L, M, Br_const, Phi_m, info)
@@ -195,6 +198,7 @@ module rt_electrostatic_periodic_m
         use constants_m, only: pi
         use config_m, only: periodic_dr_asis_scale, periodic_dr_tr_scale, &
                             periodic_kmax_scale, periodic_n_rg, hdf5_output, &
+                            periodic_match_global_kernel_approximations, &
                             turn_off_electrons, turn_off_ions
         use setup_m, only: Br_boundary_re, Br_boundary_im
         use species_m, only: plasma
@@ -253,6 +257,8 @@ module rt_electrostatic_periodic_m
                  " dx_tr [cm] = ", dx_tr, " L [cm] = ", L
         print *, "electrostatic_periodic: k_max [1/cm] = ", k_max, &
                  " M = ", M, " n_rg = ", n_rg
+        print *, "electrostatic_periodic: match global kernel approximations = ", &
+                 periodic_match_global_kernel_approximations
         call write_periodic_scale_metadata(reference_species, &
             plasma%spec(reference_species)%Zspec, &
             plasma%spec(reference_species)%mass, rhoL_rm, dx_asis, dx_tr, &

@@ -241,8 +241,8 @@ module flr2_asymptotics_m
 
             kernel_phi = kernel_phi / (4.0d0 * pi)
             kernel_B = kernel_B / (4.0d0 * pi)
-            kernel_jphi = kernel_jphi / (4.0d0 * pi)
-            kernel_jB = kernel_jB / (4.0d0 * pi)
+            kernel_jphi = kernel_jphi / (8.0d0 * pi**2)
+            kernel_jB = kernel_jB / (8.0d0 * pi**2)
 
             write(filename, '(A,I0)') "/fields/hatK_Phi_kr", int(kr)
             call write_complex_profile_abs(rg_grid%xb, kernel_phi, rg_grid%npts_b, filename, &

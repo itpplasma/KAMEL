@@ -122,3 +122,13 @@
     Er_file = 'Er.dat'
     q_file = 'q.dat'
 /
+
+&KIM_PERIODIC
+    periodic_dr_asis_scale = 5.0
+    periodic_dr_tr_scale = 10.0
+    periodic_kmax_scale = 5.0
+    periodic_n_rg = 96
+    ! Enable only when comparing against the approximated global FEM kernel:
+    ! omit k_s^2 from FLR arguments and use zero electron FLR.
+    periodic_match_global_kernel_approximations = .false.
+/

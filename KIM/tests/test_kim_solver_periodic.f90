@@ -26,6 +26,7 @@ program test_kim_solver_periodic
 
     call test_run_type_end_to_end()
     call test_multi_ion_order_independence()
+    call test_global_approximation_enabled()
 
     print *, 'All tests PASSED'
     stop 0
@@ -35,7 +36,9 @@ contains
     subroutine test_run_type_end_to_end()
         use, intrinsic :: ieee_arithmetic, only: ieee_is_finite
         use config_m, only: profiles_in_memory, nml_config_path, &
-                            periodic_dr_asis_scale, periodic_dr_tr_scale
+                            periodic_dr_asis_scale, periodic_dr_tr_scale, &
+                            periodic_match_global_kernel_approximations
+        use flr2_fourier_kernel_m, only: kern_include_ks2, kern_zero_flr_electrons
         use species_m, only: set_profiles_from_arrays
         use kim_base_m, only: kim_t
         use kim_mod_m, only: from_kim_factory_get_kim
@@ -84,6 +87,16 @@ contains
 
         call kim_instance%run()
         print *, 'resonant radius rm = ', rm
+
+        if (periodic_match_global_kernel_approximations) then
+            print *, 'FAIL: global-kernel approximation must default to false'
+            error stop
+        end if
+        if (.not. kern_include_ks2 .or. kern_zero_flr_electrons) then
+            print *, 'FAIL: default periodic run did not use the full Fourier kernel'
+            error stop
+        end if
+        print *, 'PASS: omitted periodic approximation flag selects full kernel'
 
         N = rg_grid%npts_b
 
@@ -263,6 +276,44 @@ contains
         print *, 'PASS: largest active-ion rho_L is storage-order independent'
     end subroutine test_multi_ion_order_independence
 
+    subroutine test_global_approximation_enabled()
+        use config_m, only: profiles_in_memory, nml_config_path, &
+                            periodic_match_global_kernel_approximations
+        use flr2_fourier_kernel_m, only: kern_include_ks2, kern_zero_flr_electrons
+        use species_m, only: set_profiles_from_arrays
+        use kim_base_m, only: kim_t
+        use kim_mod_m, only: from_kim_factory_get_kim
+
+        integer, parameter :: npts = 201
+        real(dp) :: r_prof(npts), n_prof(npts), Te_prof(npts)
+        real(dp) :: Ti_prof(npts), q_prof(npts), Er_prof(npts)
+        class(kim_t), allocatable :: kim_instance
+
+        call make_test_profiles(npts, r_prof, n_prof, Te_prof, Ti_prof, &
+                                q_prof, Er_prof)
+        call write_test_namelist('./KIM_config_periodic_run_test.nml', &
+                                 match_global_approximations=.true.)
+        nml_config_path = './KIM_config_periodic_run_test.nml'
+
+        profiles_in_memory = .true.
+        call kim_init()
+        call set_profiles_from_arrays(r_prof, n_prof, Te_prof, Ti_prof, &
+                                      q_prof, Er_prof, npts)
+        call from_kim_factory_get_kim('electrostatic_periodic', kim_instance)
+        call kim_instance%init()
+        call kim_instance%run()
+
+        if (.not. periodic_match_global_kernel_approximations) then
+            print *, 'FAIL: explicit global-kernel approximation flag was not read'
+            error stop
+        end if
+        if (kern_include_ks2 .or. .not. kern_zero_flr_electrons) then
+            print *, 'FAIL: enabled global approximation did not configure kernels'
+            error stop
+        end if
+        print *, 'PASS: enabled global approximation matches global kernel assumptions'
+    end subroutine test_global_approximation_enabled
+
     subroutine run_multi_ion_case(ion_masses, lower_edge, expected_lower_edge)
         use config_m, only: profiles_in_memory, nml_config_path, &
                             periodic_dr_asis_scale, periodic_dr_tr_scale
@@ -343,13 +394,14 @@ contains
         end do
     end subroutine make_test_profiles
 
-    subroutine write_test_namelist(path, ion_masses)
+    subroutine write_test_namelist(path, ion_masses, match_global_approximations)
         ! Minimal electrostatic-periodic FokkerPlanck configuration; m_mode = -6,
         ! n_mode = 2 makes q resonant at q = 3, type_br_field = 12 (constant Br).
         ! Deliberately OMITS the &KIM_PERIODIC group to prove the periodic_*
         ! config defaults apply when the optional namelist is absent.
         character(len=*), intent(in) :: path
         integer, intent(in), optional :: ion_masses(:)
+        logical, intent(in), optional :: match_global_approximations
         integer :: iunit, i, nions
         logical :: custom_species
 
@@ -441,6 +493,13 @@ contains
         write(iunit, '(A)') '/'
         write(iunit, '(A)') '&KIM_PROFILES'
         write(iunit, '(A)') '/'
+        if (present(match_global_approximations)) then
+            write(iunit, '(A)') '&KIM_PERIODIC'
+            write(iunit, '(A,L1)') &
+                ' periodic_match_global_kernel_approximations = ', &
+                match_global_approximations
+            write(iunit, '(A)') '/'
+        end if
         close(iunit)
     end subroutine write_test_namelist
 

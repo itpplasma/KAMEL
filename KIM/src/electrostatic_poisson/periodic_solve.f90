@@ -110,10 +110,9 @@ contains
     !> Br_{m'} = Br_const * delta_{m',0} and the KjB term collapses to the
     !> m' = 0 column (index M+1) -- the same convention as solve_periodic's RHS.
     !>
-    !> There is NO 4*pi here. solve_periodic carries one because the potential
-    !> obeys Poisson's equation; (11.7) does not, and correspondingly hatG_j_phi
-    !> / hatG_j_B omit the /(4*pi) that hatG_rho_* apply (see
-    !> flr2_fourier_kernel_m). Kjphi/KjB therefore enter unscaled.
+    !> hatG_j_phi / hatG_j_B already include the 1/(8*pi^2) Fourier
+    !> normalization from equations (14.5)/(14.6). Kjphi/KjB therefore enter
+    !> this reconstruction without further scaling.
     !>
     !> j_par is then inverse-DFT'd exactly as the potential is:
     !>   j_par(r) = sum_{m=-M}^{M} j_m exp(i k_m r).

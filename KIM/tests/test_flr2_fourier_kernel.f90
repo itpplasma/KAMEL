@@ -18,21 +18,25 @@ program test_flr2_fourier_kernel
     ! is needed to read the boundary-grid susceptibility functions.
 
     use KIM_kinds_m, only: dp
-    use flr2_fourier_kernel_m, only: hatG_rho_phi, hatG_rho_B
+    use flr2_fourier_kernel_m, only: hatG_rho_phi, hatG_rho_B, kern_include_ks2
+    use flr2_fourier_kernel_m, only: kern_zero_flr_electrons, flr_arg_pair_sp
     use flr2_fourier_kernel_m, only: hatG_rho_phi_diag_sp, hatG_rho_B_diag_sp
 
     implicit none
 
+    call test_full_kernel_defaults()
+    call test_global_approximation_switch()
     call test_populated_plasma_and_kernel_stub()
     call test_diagonal_matches_inline()
     call test_diagonal_j_matches_inline()
     call test_collapse_rho_phi()
-    call test_phase_rho_phi()
+    call test_kernel_fourier_phase()
     call test_collapse_rho_phi_ks2()
     call test_zero_wavenumber_limit()
     call test_collapse_rho_B()
     call test_collapse_rho_B_ks2()
     call test_zero_wavenumber_limit_rho_B()
+    call test_electron_zero_flr_arguments()
     call test_scaled_bessel_large_arg()
     call test_large_bcross_kernel_finite()
 
@@ -40,6 +44,37 @@ program test_flr2_fourier_kernel
     stop 0
 
 contains
+
+    subroutine test_full_kernel_defaults()
+        if (.not. kern_include_ks2) then
+            print *, 'FAIL: full periodic kernel must include k_s^2 by default'
+            error stop
+        end if
+        if (kern_zero_flr_electrons) then
+            print *, 'FAIL: full periodic kernel must retain electron FLR by default'
+            error stop
+        end if
+
+        print *, 'PASS: production defaults select the full periodic kernel'
+    end subroutine test_full_kernel_defaults
+
+    subroutine test_global_approximation_switch()
+        use flr2_fourier_kernel_m, only: set_global_kernel_approximations
+
+        call set_global_kernel_approximations(.true.)
+        if (kern_include_ks2 .or. .not. kern_zero_flr_electrons) then
+            print *, 'FAIL: enabled global approximation did not select the simplified kernel'
+            error stop
+        end if
+
+        call set_global_kernel_approximations(.false.)
+        if (.not. kern_include_ks2 .or. kern_zero_flr_electrons) then
+            print *, 'FAIL: disabled global approximation did not restore the full kernel'
+            error stop
+        end if
+
+        print *, 'PASS: global-kernel approximation switch is reversible'
+    end subroutine test_global_approximation_switch
 
     subroutine test_diagonal_matches_inline()
         ! Characterization test: the shared per-species diagonal integrand
@@ -163,22 +198,19 @@ contains
 
     subroutine test_diagonal_j_matches_inline()
         ! Characterization test: the fused two-wavenumber j-kernels evaluated on
-        ! the diagonal kr = krp must reproduce the diagonal j-kernel expressions
-        ! of calc_hatK_Phi_in_Fourier (FLR2_asymptotics.f90:216-234), the
-        ! source of truth for j-Phi (thesis 14.5) and j-B (thesis 14.6, reached
-        ! via the identities I11 = I02 and I13 = I22).
+        ! the diagonal kr = krp must reproduce equations (14.5)/(14.6), with
+        ! I11 = I02 and I13 = I22 for the j-B susceptibility moments.
         !
         ! The INLINE reference below is the permanent anchor (verbatim copy of
         ! the per-species source-of-truth expressions). It must not be
         ! refactored to call the functions it validates.
         !
-        ! Note the deliberately absent /(4*pi): the rho kernels carry that factor
-        ! only to cancel solve_periodic's Poisson 4*pi. Thesis (11.7) defines
-        ! delta_j_par = K^{jPhi} delta_Phi + K^{jB} delta_Br with no 4*pi, so
-        ! hatG_j_* omit it and the reference here is the raw per-species sum.
+        ! Equations (14.5) and (14.6) carry the full current-kernel Fourier
+        ! normalization 1/(2^3*pi^2). Keep it explicit in this independent
+        ! reference: omitting it inflated reconstructed j_parallel by 8*pi^2.
         use config_m, only: profiles_in_memory, nml_config_path
         use config_m, only: artificial_debye_case, turn_off_ions, turn_off_electrons
-        use constants_m, only: com_unit, sol
+        use constants_m, only: pi, com_unit, sol
         use fortnum_special, only: bessel_in
         use flr2_fourier_kernel_m, only: hatG_j_phi, hatG_j_B, kern_include_ks2
         use species_m, only: plasma, set_profiles_from_arrays
@@ -220,8 +252,8 @@ contains
             do k = 1, size(jj_arr)
                 j = jj_arr(k)
 
-                ! (i) INLINE reference: verbatim per-species expressions,
-                ! summed over the non-turned-off species. NO /(4*pi).
+                ! (i) INLINE reference numerator, summed over active species;
+                ! the independent Fourier normalization is applied below.
                 jphi_inline = (0.0_dp, 0.0_dp)
                 jB_inline = (0.0_dp, 0.0_dp)
                 do sp = 0, plasma%n_species - 1
@@ -256,6 +288,9 @@ contains
                     end if
                 end do
 
+                jphi_inline = jphi_inline / (8.0_dp * pi**2)
+                jB_inline = jB_inline / (8.0_dp * pi**2)
+
                 ! (ii) Fused two-wavenumber kernels on the diagonal: the phase
                 ! exp(i*(kr-krp)*rg) is unity and (b_+, b_x) collapse to b.
                 jphi_func = hatG_j_phi(plasma, kr, kr, j)
@@ -287,8 +322,8 @@ contains
     subroutine test_collapse_rho_phi()
         ! Collapse-by-construction: the fused two-wavenumber kernel evaluated on
         ! the diagonal k_r = k'_r must equal the per-species diagonal integrand
-        ! summed over the non-turned-off species and divided by 4*pi (the
-        ! source-of-truth normalization). Exact to machine precision because the
+        ! summed over the non-turned-off species and divided by 8*pi^2 (the
+        ! continuous Fourier-kernel normalization). Exact to machine precision because the
         ! diagonal and the fused kernel share the same per-species core.
         use config_m, only: profiles_in_memory, nml_config_path
         use config_m, only: turn_off_ions, turn_off_electrons
@@ -338,14 +373,14 @@ contains
                     if (turn_off_electrons .and. sp == 0) cycle
                     dref = dref + hatG_rho_phi_diag_sp(plasma, sp, kr, j)
                 end do
-                dref = dref / (4.0d0 * pi)
+                dref = dref / (8.0d0 * pi**2)
 
                 gfused = hatG_rho_phi(plasma, kr, kr, j)
 
                 tol = 1.0e-12_dp * (1.0_dp + abs(dref))
                 if (abs(gfused - dref) >= tol) then
                     print *, 'FAIL: rho-Phi collapse mismatch at kr=', kr, ' j=', j
-                    print *, '  diag/4pi = ', dref
+                    print *, '  diag/(8pi^2) = ', dref
                     print *, '  fused    = ', gfused
                     print *, '  |diff|   = ', abs(gfused - dref), ' tol = ', tol
                     error stop
@@ -356,9 +391,9 @@ contains
         print *, 'PASS: fused rho-Phi kernel collapses to diagonal at kr=krp'
     end subroutine
 
-    subroutine test_phase_rho_phi()
+    subroutine test_kernel_fourier_phase()
         ! Off-diagonal phase structure: for k_r /= k'_r the fused kernel carries
-        ! the Fourier phase exp(i*(kr-krp)*rg). Because b_+ and b_x are symmetric
+        ! the forward-transform phase exp(-i*(kr-krp)*rg). Because b_+ and b_x are symmetric
         ! under (kr,krp) -> (krp,kr), the per-species cores are equal, so the only
         ! difference between hatG(kr,krp) and hatG(krp,kr) is that phase factor.
         ! Stripping each of its own phase must leave identical (phase-free,
@@ -366,7 +401,8 @@ contains
         ! test: this compares two independent complex-exp/Bessel evaluations,
         ! not a construction identity.
         use config_m, only: profiles_in_memory, nml_config_path
-        use flr2_fourier_kernel_m, only: hatG_rho_phi, kern_include_ks2
+        use flr2_fourier_kernel_m, only: hatG_rho_phi, hatG_rho_B
+        use flr2_fourier_kernel_m, only: hatG_j_phi, hatG_j_B, kern_include_ks2
         use constants_m, only: com_unit
         use species_m, only: plasma, set_profiles_from_arrays
         use grid_m, only: rg_grid
@@ -379,8 +415,10 @@ contains
         real(dp) :: Ti_prof(npts), q_prof(npts), Er_prof(npts)
         class(kim_t), allocatable :: kim_instance
         real(dp) :: kr_arr(3), krp_arr(3), kr, krp, rg, tol
-        integer :: i, j, jj_arr(3), k
-        complex(dp) :: ci, g_fwd, g_rev, stripped_fwd, stripped_rev
+        integer :: i, j, jj_arr(3), k, ikernel
+        complex(dp) :: ci, g_fwd(4), g_rev(4), stripped_fwd, stripped_rev
+        character(len=7), parameter :: kernel_name(4) = &
+            ['rho-Phi', 'rho-B  ', 'j-Phi  ', 'j-B    ']
 
         call make_test_profiles(npts, r_prof, n_prof, Te_prof, Ti_prof, &
                                 q_prof, Er_prof)
@@ -410,25 +448,34 @@ contains
                 j = jj_arr(k)
                 rg = rg_grid%xb(j)
 
-                g_fwd = hatG_rho_phi(plasma, kr, krp, j)
-                g_rev = hatG_rho_phi(plasma, krp, kr, j)
+                g_fwd = [hatG_rho_phi(plasma, kr, krp, j), &
+                         hatG_rho_B(plasma, kr, krp, j), &
+                         hatG_j_phi(plasma, kr, krp, j), &
+                         hatG_j_B(plasma, kr, krp, j)]
+                g_rev = [hatG_rho_phi(plasma, krp, kr, j), &
+                         hatG_rho_B(plasma, krp, kr, j), &
+                         hatG_j_phi(plasma, krp, kr, j), &
+                         hatG_j_B(plasma, krp, kr, j)]
 
-                stripped_fwd = g_fwd * exp(-ci * (kr - krp) * rg)
-                stripped_rev = g_rev * exp(-ci * (krp - kr) * rg)
+                do ikernel = 1, size(g_fwd)
+                    stripped_fwd = g_fwd(ikernel) * exp(ci * (kr - krp) * rg)
+                    stripped_rev = g_rev(ikernel) * exp(ci * (krp - kr) * rg)
 
-                tol = 1.0e-10_dp * (1.0_dp + abs(g_fwd))
-                if (abs(stripped_fwd - stripped_rev) >= tol) then
-                    print *, 'FAIL: rho-Phi phase mismatch at kr=', kr, ' krp=', krp, ' j=', j
-                    print *, '  stripped_fwd = ', stripped_fwd
-                    print *, '  stripped_rev = ', stripped_rev
-                    print *, '  |diff|       = ', abs(stripped_fwd - stripped_rev), ' tol = ', tol
-                    error stop
-                end if
+                    tol = 1.0e-10_dp * (1.0_dp + abs(g_fwd(ikernel)))
+                    if (abs(stripped_fwd - stripped_rev) >= tol) then
+                        print *, 'FAIL: ', trim(kernel_name(ikernel)), &
+                            ' phase mismatch at kr=', kr, ' krp=', krp, ' j=', j
+                        print *, '  stripped_fwd = ', stripped_fwd
+                        print *, '  stripped_rev = ', stripped_rev
+                        print *, '  |diff|       = ', abs(stripped_fwd - stripped_rev), ' tol = ', tol
+                        error stop
+                    end if
+                end do
             end do
         end do
 
-        print *, 'PASS: fused rho-Phi kernel carries the Fourier phase only'
-    end subroutine
+        print *, 'PASS: all fused kernels carry the forward-transform phase only'
+    end subroutine test_kernel_fourier_phase
 
     subroutine test_collapse_rho_phi_ks2()
         ! Structural collapse for the k_s^2-inclusive path (kern_include_ks2 =
@@ -437,7 +484,7 @@ contains
         ! diagonal k_r = k'_r the two FLR arguments both reduce to the full
         ! perpendicular argument bf = (k_s^2 + k_r^2) * rho_L^2, so the fused
         ! kernel must equal the per-species core evaluated at (bf, bf), summed
-        ! over the non-turned-off species and divided by 4*pi. This validates the
+        ! over the non-turned-off species and divided by 8*pi^2. This validates the
         ! sqrt/2 algebra of the .true. branch without needing a k_s = 0 setup.
         use config_m, only: profiles_in_memory, nml_config_path
         use config_m, only: turn_off_ions, turn_off_electrons
@@ -488,14 +535,14 @@ contains
                     bf = (plasma%ks(j)**2 + kr**2) * plasma%spec(sp)%rho_L(j)**2
                     ref = ref + core_rho_phi_sp(plasma, sp, bf, bf, j)
                 end do
-                ref = ref / (4.0d0 * pi)
+                ref = ref / (8.0d0 * pi**2)
 
                 gfused = hatG_rho_phi(plasma, kr, kr, j)
 
                 tol = 1.0e-12_dp * (1.0_dp + abs(ref))
                 if (abs(gfused - ref) >= tol) then
                     print *, 'FAIL: rho-Phi ks2 collapse mismatch at kr=', kr, ' j=', j
-                    print *, '  core(bf,bf)/4pi = ', ref
+                    print *, '  core(bf,bf)/(8pi^2) = ', ref
                     print *, '  fused           = ', gfused
                     print *, '  |diff|          = ', abs(gfused - ref), ' tol = ', tol
                     error stop
@@ -588,7 +635,7 @@ contains
                         )
                 end if
             end do
-            closed = closed / (4.0d0 * pi)
+            closed = closed / (8.0d0 * pi**2)
 
             gfused = hatG_rho_phi(plasma, 0.0_dp, 0.0_dp, j)
 
@@ -609,7 +656,7 @@ contains
         ! Collapse-by-construction for the rho-B kernel (drop-k_s^2 path): the
         ! fused two-wavenumber hatG_rho_B evaluated on the diagonal k_r = k'_r
         ! must equal the per-species signed diagonal integrand summed over the
-        ! non-turned-off species and divided by 4*pi. Exact to machine precision
+        ! non-turned-off species and divided by 8*pi^2. Exact to machine precision
         ! because both share the same per-species core.
         use config_m, only: profiles_in_memory, nml_config_path
         use config_m, only: turn_off_ions, turn_off_electrons
@@ -659,14 +706,14 @@ contains
                     if (turn_off_electrons .and. sp == 0) cycle
                     dref = dref + hatG_rho_B_diag_sp(plasma, sp, kr, j)
                 end do
-                dref = dref / (4.0d0 * pi)
+                dref = dref / (8.0d0 * pi**2)
 
                 gfused = hatG_rho_B(plasma, kr, kr, j)
 
                 tol = 1.0e-12_dp * (1.0_dp + abs(dref))
                 if (abs(gfused - dref) >= tol) then
                     print *, 'FAIL: rho-B collapse mismatch at kr=', kr, ' j=', j
-                    print *, '  diag/4pi = ', dref
+                    print *, '  diag/(8pi^2) = ', dref
                     print *, '  fused    = ', gfused
                     print *, '  |diff|   = ', abs(gfused - dref), ' tol = ', tol
                     error stop
@@ -683,7 +730,7 @@ contains
         ! arguments reduce to the full perpendicular argument
         ! bf = (k_s^2 + k_r^2) * rho_L^2, so the fused kernel must equal the
         ! per-species core evaluated at (bf, bf), summed over the non-turned-off
-        ! species and divided by 4*pi.
+        ! species and divided by 8*pi^2.
         use config_m, only: profiles_in_memory, nml_config_path
         use config_m, only: turn_off_ions, turn_off_electrons
         use flr2_fourier_kernel_m, only: hatG_rho_B, core_rho_B_sp, kern_include_ks2
@@ -733,14 +780,14 @@ contains
                     bf = (plasma%ks(j)**2 + kr**2) * plasma%spec(sp)%rho_L(j)**2
                     ref = ref + core_rho_B_sp(plasma, sp, bf, bf, j)
                 end do
-                ref = ref / (4.0d0 * pi)
+                ref = ref / (8.0d0 * pi**2)
 
                 gfused = hatG_rho_B(plasma, kr, kr, j)
 
                 tol = 1.0e-12_dp * (1.0_dp + abs(ref))
                 if (abs(gfused - ref) >= tol) then
                     print *, 'FAIL: rho-B ks2 collapse mismatch at kr=', kr, ' j=', j
-                    print *, '  core(bf,bf)/4pi = ', ref
+                    print *, '  core(bf,bf)/(8pi^2) = ', ref
                     print *, '  fused           = ', gfused
                     print *, '  |diff|          = ', abs(gfused - ref), ' tol = ', tol
                     error stop
@@ -824,7 +871,7 @@ contains
                         )
                 end if
             end do
-            closed = closed / (4.0d0 * pi)
+            closed = closed / (8.0d0 * pi**2)
 
             gfused = hatG_rho_B(plasma, 0.0_dp, 0.0_dp, j)
 
@@ -840,6 +887,49 @@ contains
 
         print *, 'PASS: fused rho-B kernel matches b->0 closed form'
     end subroutine
+
+    subroutine test_electron_zero_flr_arguments()
+        use config_m, only: profiles_in_memory, nml_config_path
+        use species_m, only: plasma, set_profiles_from_arrays
+        use grid_m, only: rg_grid
+        use kim_base_m, only: kim_t
+        use kim_mod_m, only: from_kim_factory_get_kim
+
+        integer, parameter :: npts = 101
+        real(dp) :: r_prof(npts), n_prof(npts), Te_prof(npts)
+        real(dp) :: Ti_prof(npts), q_prof(npts), Er_prof(npts)
+        class(kim_t), allocatable :: kim_instance
+        real(dp) :: bplus, bcross
+        integer :: j
+
+        call make_test_profiles(npts, r_prof, n_prof, Te_prof, Ti_prof, &
+                                q_prof, Er_prof)
+        call write_test_namelist('./KIM_config_fourier_electron_zero_flr_test.nml')
+        nml_config_path = './KIM_config_fourier_electron_zero_flr_test.nml'
+        profiles_in_memory = .true.
+        call kim_init()
+        call set_profiles_from_arrays(r_prof, n_prof, Te_prof, Ti_prof, &
+                                      q_prof, Er_prof, npts)
+        call from_kim_factory_get_kim('electrostatic', kim_instance)
+        call kim_instance%init()
+
+        j = rg_grid%npts_b / 2
+        kern_include_ks2 = .false.
+        kern_zero_flr_electrons = .true.
+        call flr_arg_pair_sp(plasma, 0, 3.0_dp, -5.0_dp, j, bplus, bcross)
+        if (bplus /= 0.0_dp .or. bcross /= 0.0_dp) then
+            print *, 'FAIL: electron FLR arguments are not zero: ', bplus, bcross
+            error stop
+        end if
+
+        call flr_arg_pair_sp(plasma, 1, 3.0_dp, -5.0_dp, j, bplus, bcross)
+        if (bplus <= 0.0_dp .or. bcross <= 0.0_dp) then
+            print *, 'FAIL: ion FLR arguments were incorrectly zeroed: ', bplus, bcross
+            error stop
+        end if
+
+        print *, 'PASS: zero-FLR production approximation applies only to electrons'
+    end subroutine test_electron_zero_flr_arguments
 
     subroutine test_scaled_bessel_large_arg()
         ! Overflow-safe scaled Bessel products in the large-argument regime.

@@ -61,10 +61,9 @@ contains
     !>
     !> Kjphi and KjB are the parallel-current analogues, assembled with the same
     !> quadrature from hatG_j_phi / hatG_j_B. They are post-processing only: the
-    !> solve uses Kphi/KB, and j_par follows from thesis (11.7) as
-    !> Kjphi . Phi_m + KjB . Br_m. Note the j-kernels carry NO /(4*pi) (see
-    !> flr2_fourier_kernel_m), so these matrices must not be scaled by 4*pi the
-    !> way solve_periodic scales Kphi/KB.
+    !> solve uses Kphi/KB, and j_par follows from thesis (11.8) as
+    !> Kjphi . Phi_m + KjB . Br_m. The j-kernels already carry their
+    !> 1/(8*pi^2) Fourier normalization, so no further scaling is applied here.
     subroutine assemble_periodic_matrices(plasma, L, M, Kphi, KB, Kjphi, KjB)
         use grid_m, only: rg_grid
         use flr2_fourier_kernel_m, only: hatG_rho_phi, hatG_rho_B, hatG_j_phi, hatG_j_B
@@ -92,6 +91,13 @@ contains
         ! error that caps r_g-quadrature convergence.
         weight = 2.0_dp * pi / real(N, dp)
 
+        ! Each Fourier-space column is independent.  Parallelize the expensive
+        ! radial quadrature while retaining a fixed summation order in j for
+        ! bitwise-reproducible entries at a given compiler/architecture.
+        !$omp parallel do default(none) schedule(static) &
+        !$omp shared(M, L, N, weight, plasma, Kphi, KB, Kjphi, KjB) &
+        !$omp private(m_col, k_mp, imp, m_row, k_m, im, j, &
+        !$omp         acc_phi, acc_B, acc_jphi, acc_jB)
         do m_col = -M, M
             k_mp = k_of_m(m_col, L)
             imp = m_col + M + 1
@@ -116,6 +122,7 @@ contains
                 KjB(im, imp)   = weight * acc_jB
             end do
         end do
+        !$omp end parallel do
     end subroutine assemble_periodic_matrices
 
 end module periodic_assembly_m

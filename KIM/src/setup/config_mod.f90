@@ -41,6 +41,10 @@ module config_m
     real(dp) :: periodic_dr_tr_scale   = 10.0_dp  ! transition width / rho_L(rm)
     real(dp) :: periodic_kmax_scale    = 5.0_dp   ! k_max * rho_L(rm)
     integer  :: periodic_n_rg          = 96       ! window grid boundary points
+    ! Reproduce the global FEM kernel approximations for direct comparisons:
+    ! drop k_s^2 from Bessel arguments and take electrons in the zero-FLR limit.
+    ! The forced-periodic solver uses its full Fourier kernel by default.
+    logical :: periodic_match_global_kernel_approximations = .false.
 
     ! KIM_IO namelist variables
     character(256) :: profile_location ! path to profile directory

@@ -114,6 +114,15 @@ target_link_libraries(test_grid_equidistant KIM_lib kilca_lib lapack cerf fortnu
 add_test(NAME test_grid_equidistant
          COMMAND ${CMAKE_BINARY_DIR}/tests/test_grid_equidistant.x)
 
+# Derived Krook argument z0 recompute + collision-frequency scale.
+add_executable(test_collision_scale_z0 ${CMAKE_SOURCE_DIR}/KIM/tests/test_collision_scale_z0.f90)
+set_target_properties(test_collision_scale_z0 PROPERTIES
+                        OUTPUT_NAME test_collision_scale_z0.x
+                        RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/tests/")
+target_link_libraries(test_collision_scale_z0 KIM_lib kilca_lib lapack cerf fortnum_amos_compat)
+add_test(NAME test_collision_scale_z0
+         COMMAND ${CMAKE_BINARY_DIR}/tests/test_collision_scale_z0.x)
+
 # Lifecycle/contract tests for the kim_solver_m API seam.
 add_executable(test_kim_solver ${CMAKE_SOURCE_DIR}/KIM/tests/test_kim_solver.f90)
 set_target_properties(test_kim_solver PROPERTIES

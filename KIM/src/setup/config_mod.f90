@@ -53,6 +53,7 @@ module config_m
     logical :: rescale_density
     real(dp) :: number_density_rescale
     real(dp) :: ion_flr_scale_factor
+    real(dp) :: collision_frequency_scale = 1.0_dp
 
     ! KIM_PROFILES namelist variables
     character(20) :: coord_type = 'auto'           ! 'auto', 'sqrt_psiN', or 'r_eff'

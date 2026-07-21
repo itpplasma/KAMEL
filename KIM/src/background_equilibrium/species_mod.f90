@@ -463,7 +463,8 @@ module species_m
         use constants_m, only: sol, e_charge, ev, pi, com_unit
         use setup_m, only: omega, collisions_off
         use config_m, only: number_of_ion_species, rescale_density, number_density_rescale, &
-            ion_flr_scale_factor, ion_fp_collision_scale
+                            ion_flr_scale_factor, ion_fp_collision_scale, &
+                            collision_frequency_scale
 
         implicit none
 
@@ -543,6 +544,13 @@ module species_m
                 plasma_in%spec(sp)%nu(i) = scale_fp_collision_frequency(&
                     nui(sp, i), sp, ion_fp_collision_scale)
             end do
+        end do
+
+        ! Sensitivity knob: scales the calculated frequencies before z0 and the
+        ! FP susceptibility inputs are assembled. The default 1.0 leaves the
+        ! Coulomb-logarithm formulas above untouched.
+        do sp = 0, plasma_in%n_species-1
+            plasma_in%spec(sp)%nu = plasma_in%spec(sp)%nu * collision_frequency_scale
         end do
 
         do sp =0, plasma_in%n_species-1
@@ -745,8 +753,15 @@ module species_m
     end subroutine
 
     subroutine interpolate_plasma_backs(plasma_in, grid)
+        ! Primitive quantities are interpolated; the derived Krook argument z0
+        ! is recomputed from them afterwards. z0 carries a 1/|k_parallel|
+        ! singularity at the resonance, so a Lagrange stencil spanning
+        ! k_parallel=0 produces values that violate its defining formula by
+        ! many orders of magnitude.
 
         use KIM_kinds_m, only: dp
+        use constants_m, only: com_unit
+        use setup_m, only: omega
         use IO_collection_m, only: plot_profile
 
         implicit none
@@ -792,7 +807,6 @@ module species_m
                 plasma_temp%spec(sp)%omega_c(i)  = sum(coef(0,:) * plasma_in%spec(sp)%omega_c(ibeg:iend))
                 plasma_temp%spec(sp)%lambda_D(i) = sum(coef(0,:) * plasma_in%spec(sp)%lambda_D(ibeg:iend))
                 plasma_temp%spec(sp)%rho_L(i)    = sum(coef(0,:) * plasma_in%spec(sp)%rho_L(ibeg:iend))
-                plasma_temp%spec(sp)%z0(i)       = sum(coef(0,:) * plasma_in%spec(sp)%z0(ibeg:iend))
             end do
 
             plasma_temp%B0(i)   = sum(coef(0,:) * plasma_in%B0(ibeg:iend))
@@ -803,6 +817,12 @@ module species_m
             plasma_temp%dqdr(i) = sum(coef(0,:) * plasma_in%dqdr(ibeg:iend))
             plasma_temp%Er(i)   = sum(coef(0,:) * plasma_in%Er(ibeg:iend))
 
+        end do
+
+        do sp = 0, plasma_temp%n_species-1
+            plasma_temp%spec(sp)%z0 = -(plasma_temp%om_E - omega &
+                - com_unit * plasma_temp%spec(sp)%nu) &
+                / (abs(plasma_temp%kp) * sqrt(2d0) * plasma_temp%spec(sp)%vT)
         end do
 
         plasma_in = plasma_temp

@@ -146,7 +146,7 @@ add_executable(test_periodic_background ${CMAKE_SOURCE_DIR}/KIM/tests/test_perio
 set_target_properties(test_periodic_background PROPERTIES
                         OUTPUT_NAME test_periodic_background.x
                         RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/tests/")
-target_link_libraries(test_periodic_background KIM_lib kilca_lib lapack cerf ddeabm slatec)
+target_link_libraries(test_periodic_background KIM_lib kilca_lib lapack cerf fortnum_amos_compat)
 add_test(NAME test_periodic_background
          COMMAND ${CMAKE_BINARY_DIR}/tests/test_periodic_background.x)
 
@@ -155,7 +155,7 @@ add_executable(test_periodic_background_build ${CMAKE_SOURCE_DIR}/KIM/tests/test
 set_target_properties(test_periodic_background_build PROPERTIES
                         OUTPUT_NAME test_periodic_background_build.x
                         RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/tests/")
-target_link_libraries(test_periodic_background_build KIM_lib kilca_lib lapack cerf ddeabm slatec)
+target_link_libraries(test_periodic_background_build KIM_lib kilca_lib lapack cerf fortnum_amos_compat)
 add_test(NAME test_periodic_background_build
          COMMAND ${CMAKE_BINARY_DIR}/tests/test_periodic_background_build.x)
 set_tests_properties(test_periodic_background_build PROPERTIES
@@ -166,7 +166,7 @@ add_executable(test_periodic_assembly ${CMAKE_SOURCE_DIR}/KIM/tests/test_periodi
 set_target_properties(test_periodic_assembly PROPERTIES
                         OUTPUT_NAME test_periodic_assembly.x
                         RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/tests/")
-target_link_libraries(test_periodic_assembly KIM_lib kilca_lib lapack cerf ddeabm slatec)
+target_link_libraries(test_periodic_assembly KIM_lib kilca_lib lapack cerf fortnum_amos_compat)
 add_test(NAME test_periodic_assembly
          COMMAND ${CMAKE_BINARY_DIR}/tests/test_periodic_assembly.x)
 set_tests_properties(test_periodic_assembly PROPERTIES
@@ -177,7 +177,7 @@ add_executable(test_periodic_solve ${CMAKE_SOURCE_DIR}/KIM/tests/test_periodic_s
 set_target_properties(test_periodic_solve PROPERTIES
                         OUTPUT_NAME test_periodic_solve.x
                         RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/tests/")
-target_link_libraries(test_periodic_solve KIM_lib kilca_lib lapack cerf ddeabm slatec)
+target_link_libraries(test_periodic_solve KIM_lib kilca_lib lapack cerf fortnum_amos_compat)
 add_test(NAME test_periodic_solve
          COMMAND ${CMAKE_BINARY_DIR}/tests/test_periodic_solve.x)
 set_tests_properties(test_periodic_solve PROPERTIES
@@ -210,7 +210,7 @@ add_executable(test_kim_solver_periodic ${CMAKE_SOURCE_DIR}/KIM/tests/test_kim_s
 set_target_properties(test_kim_solver_periodic PROPERTIES
                         OUTPUT_NAME test_kim_solver_periodic.x
                         RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/tests/")
-target_link_libraries(test_kim_solver_periodic KIM_lib kilca_lib lapack cerf ddeabm slatec)
+target_link_libraries(test_kim_solver_periodic KIM_lib kilca_lib lapack cerf fortnum_amos_compat)
 add_test(NAME test_kim_solver_periodic
          COMMAND ${CMAKE_BINARY_DIR}/tests/test_kim_solver_periodic.x)
 set_tests_properties(test_kim_solver_periodic PROPERTIES
@@ -223,7 +223,7 @@ add_executable(test_periodic_vs_global ${CMAKE_SOURCE_DIR}/KIM/tests/test_period
 set_target_properties(test_periodic_vs_global PROPERTIES
                         OUTPUT_NAME test_periodic_vs_global.x
                         RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/tests/")
-target_link_libraries(test_periodic_vs_global KIM_lib kilca_lib lapack cerf ddeabm slatec)
+target_link_libraries(test_periodic_vs_global KIM_lib kilca_lib lapack cerf fortnum_amos_compat)
 add_test(NAME test_periodic_vs_global
          COMMAND ${CMAKE_BINARY_DIR}/tests/test_periodic_vs_global.x)
 set_tests_properties(test_periodic_vs_global PROPERTIES
@@ -235,7 +235,7 @@ add_executable(test_periodic_convergence ${CMAKE_SOURCE_DIR}/KIM/tests/test_peri
 set_target_properties(test_periodic_convergence PROPERTIES
                         OUTPUT_NAME test_periodic_convergence.x
                         RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/tests/")
-target_link_libraries(test_periodic_convergence KIM_lib kilca_lib lapack cerf ddeabm slatec)
+target_link_libraries(test_periodic_convergence KIM_lib kilca_lib lapack cerf fortnum_amos_compat)
 add_test(NAME test_periodic_convergence
          COMMAND ${CMAKE_BINARY_DIR}/tests/test_periodic_convergence.x)
 set_tests_properties(test_periodic_convergence PROPERTIES

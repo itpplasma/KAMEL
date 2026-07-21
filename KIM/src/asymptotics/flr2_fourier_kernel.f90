@@ -7,8 +7,10 @@ module flr2_fourier_kernel_m
     implicit none
     private
     public :: hatG_rho_phi, hatG_rho_B
+    public :: hatG_j_phi, hatG_j_B
     public :: hatG_rho_phi_diag_sp, hatG_rho_B_diag_sp
     public :: core_rho_phi_sp, core_rho_B_sp
+    public :: core_j_phi_sp, core_j_B_sp
     public :: scaled_bessel_pair
 
     ! FLR-parameter convention for the two-wavenumber kernel. When .false.
@@ -126,6 +128,143 @@ contains
 
         G = exp(com_unit * (kr - krp) * rg_grid%xb(j)) / (4.0d0 * pi) * acc
     end function hatG_rho_B
+
+    complex(dp) function hatG_j_phi(plasma_in, kr, krp, j) result(G)
+        ! Fused two-wavenumber j-Phi kernel Ghat^{jPhi}(k_r, k'_r, r_g): sum the
+        ! per-species core over the non-turned-off species, then apply the
+        ! Fourier phase exp(i (k_r - k'_r) r_g). On the diagonal k_r = k'_r the
+        ! FLR pair collapses to a single b and the phase is unity, so this equals
+        ! the diagonal j-Phi expression of calc_hatK_Phi_in_Fourier summed over
+        ! species (thesis 14.5).
+        !
+        ! NO /(4*pi), unlike hatG_rho_*: that factor exists there only to cancel
+        ! solve_periodic's Poisson 4*pi. Thesis (11.7) defines
+        ! delta_j_par = K^{jPhi} delta_Phi + K^{jB} delta_Br with no such factor.
+        use grid_m, only: rg_grid
+        use constants_m, only: com_unit
+        use config_m, only: turn_off_ions, turn_off_electrons
+        type(plasma_t), intent(in) :: plasma_in
+        real(dp), intent(in) :: kr, krp
+        integer, intent(in) :: j
+        integer :: sp
+        real(dp) :: bplus, bcross
+        complex(dp) :: acc
+
+        acc = (0.0_dp, 0.0_dp)
+        do sp = 0, plasma_in%n_species - 1
+            if (turn_off_ions .and. sp >= 1) cycle
+            if (turn_off_electrons .and. sp == 0) cycle
+
+            call flr_arg_pair_sp(plasma_in, sp, kr, krp, j, bplus, bcross)
+            acc = acc + core_j_phi_sp(plasma_in, sp, bplus, bcross, j)
+        end do
+
+        G = exp(com_unit * (kr - krp) * rg_grid%xb(j)) * acc
+    end function hatG_j_phi
+
+    complex(dp) function hatG_j_B(plasma_in, kr, krp, j) result(G)
+        ! Fused two-wavenumber j-B kernel Ghat^{jB}(k_r, k'_r, r_g): sum the
+        ! signed per-species core over the non-turned-off species, then apply the
+        ! Fourier phase exp(i (k_r - k'_r) r_g). On the diagonal k_r = k'_r this
+        ! equals the diagonal j-B expression of calc_hatK_Phi_in_Fourier summed
+        ! over species (thesis 14.6, via I11 = I02 and I13 = I22).
+        !
+        ! NO /(4*pi) -- see hatG_j_phi.
+        use grid_m, only: rg_grid
+        use constants_m, only: com_unit
+        use config_m, only: turn_off_ions, turn_off_electrons
+        type(plasma_t), intent(in) :: plasma_in
+        real(dp), intent(in) :: kr, krp
+        integer, intent(in) :: j
+        integer :: sp
+        real(dp) :: bplus, bcross
+        complex(dp) :: acc
+
+        acc = (0.0_dp, 0.0_dp)
+        do sp = 0, plasma_in%n_species - 1
+            if (turn_off_ions .and. sp >= 1) cycle
+            if (turn_off_electrons .and. sp == 0) cycle
+
+            call flr_arg_pair_sp(plasma_in, sp, kr, krp, j, bplus, bcross)
+            acc = acc + core_j_B_sp(plasma_in, sp, bplus, bcross, j)
+        end do
+
+        G = exp(com_unit * (kr - krp) * rg_grid%xb(j)) * acc
+    end function hatG_j_B
+
+    complex(dp) function core_j_phi_sp(plasma_in, sp, bplus, bcross, j) result(G)
+        ! Per-species j-Phi core (FP only, NO Debye term) parameterized by the
+        ! FLR argument pair (b_+, b_x). Shares the skeleton of core_rho_phi_sp;
+        ! only the moment pair and the prefactor differ.
+        !
+        ! Moments (I01, I21) per thesis (14.5). j-Phi and rho-B legitimately
+        ! SHARE moments: the pair is (I^{0s}, I^{2s}) with s = moment power +
+        ! drive power, and both have s = 1. This is not a copy-paste artifact.
+        !
+        ! The prefactor carries vT^3 = vT^(2+s), not the vT^2 printed in (14.5):
+        ! (14.3)-(14.6) all print vT^2, and (14.4)'s was confirmed dimensionally
+        ! to be a misprint. The code's powers follow vT^(2+s) throughout.
+        !
+        ! No phase, NO /(4*pi); species selection (turn_off_*) stays in callers.
+        use config_m, only: artificial_debye_case
+        use constants_m, only: com_unit
+        type(plasma_t), intent(in) :: plasma_in
+        integer, intent(in) :: sp, j
+        real(dp), intent(in) :: bplus, bcross
+        real(dp) :: ks, sI0, sIm1
+
+        G = (0.0_dp, 0.0_dp)
+        ks = plasma_in%ks(j)
+
+        if (artificial_debye_case == 0 .or. artificial_debye_case == 2) then
+            call scaled_bessel_pair(bplus, bcross, sI0, sIm1)
+            G = 1.0d0 / plasma_in%spec(sp)%lambda_D(j)**2.0d0 &
+                * com_unit * plasma_in%spec(sp)%vT(j)**3.0d0 * ks &
+                / (plasma_in%spec(sp)%omega_c(j) * plasma_in%spec(sp)%nu(j)) * &
+                (&
+                    plasma_in%spec(sp)%I01(j, 0) * (&
+                        sI0 * (plasma_in%spec(sp)%A1(j) + plasma_in%spec(sp)%A2(j) * (1-bplus)) &
+                        + plasma_in%spec(sp)%A2(j) * bcross * sIm1 &
+                    )&
+                    + 0.5d0 * plasma_in%spec(sp)%I21(j, 0) * plasma_in%spec(sp)%A2(j) * sI0 &
+                )
+        end if
+    end function core_j_phi_sp
+
+    complex(dp) function core_j_B_sp(plasma_in, sp, bplus, bcross, j) result(G)
+        ! Per-species j-B core (SIGNED FP term, NO Debye) parameterized by the
+        ! FLR argument pair (b_+, b_x). Carries the leading minus, so callers
+        ! accumulate with '+'.
+        !
+        ! Moments (I11, I13) = thesis (14.6)'s (I02, I22) via the susceptibility
+        ! identities I11 = I02 and I13 = I22. s = 2 here (first moment in u_par,
+        ! B-drive), hence the vT^(2+s) = vT^4 prefactor -- again not the vT^2
+        ! printed in (14.6). See core_j_phi_sp.
+        !
+        ! No phase, NO /(4*pi); species selection (turn_off_*) stays in callers.
+        use config_m, only: artificial_debye_case
+        use constants_m, only: sol
+        type(plasma_t), intent(in) :: plasma_in
+        integer, intent(in) :: sp, j
+        real(dp), intent(in) :: bplus, bcross
+        real(dp) :: sI0, sIm1
+
+        G = (0.0_dp, 0.0_dp)
+
+        if (artificial_debye_case == 0 .or. artificial_debye_case == 2) then
+            call scaled_bessel_pair(bplus, bcross, sI0, sIm1)
+            G = - 1.0d0 / plasma_in%spec(sp)%lambda_D(j)**2.0d0 &
+                * plasma_in%spec(sp)%vT(j)**4.0d0 &
+                / (plasma_in%spec(sp)%omega_c(j) * plasma_in%spec(sp)%nu(j) * sol) * &
+                (&
+                    plasma_in%spec(sp)%I11(j, 0) * (&
+                        sI0 * (plasma_in%spec(sp)%A1(j) + plasma_in%spec(sp)%A2(j) * (1-bplus)) &
+                        + plasma_in%spec(sp)%A2(j) * bcross * sIm1 &
+                    )&
+                    + 0.5d0 * plasma_in%spec(sp)%I13(j, 0) * plasma_in%spec(sp)%A2(j) * sI0 &
+                )
+        end if
+    end function core_j_B_sp
 
     complex(dp) function core_rho_phi_sp(plasma_in, sp, bplus, bcross, j) result(G)
         ! Per-species rho-Phi core (Debye + FP) parameterized by the FLR

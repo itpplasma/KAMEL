@@ -25,6 +25,7 @@ program test_flr2_fourier_kernel
 
     call test_populated_plasma_and_kernel_stub()
     call test_diagonal_matches_inline()
+    call test_diagonal_j_matches_inline()
     call test_collapse_rho_phi()
     call test_phase_rho_phi()
     call test_collapse_rho_phi_ks2()
@@ -158,6 +159,129 @@ contains
         end do
 
         print *, 'PASS: shared diagonal integrand matches inline reference'
+    end subroutine
+
+    subroutine test_diagonal_j_matches_inline()
+        ! Characterization test: the fused two-wavenumber j-kernels evaluated on
+        ! the diagonal kr = krp must reproduce the diagonal j-kernel expressions
+        ! of calc_hatK_Phi_in_Fourier (FLR2_asymptotics.f90:216-234), the
+        ! source of truth for j-Phi (thesis 14.5) and j-B (thesis 14.6, reached
+        ! via the identities I11 = I02 and I13 = I22).
+        !
+        ! The INLINE reference below is the permanent anchor (verbatim copy of
+        ! the per-species source-of-truth expressions). It must not be
+        ! refactored to call the functions it validates.
+        !
+        ! Note the deliberately absent /(4*pi): the rho kernels carry that factor
+        ! only to cancel solve_periodic's Poisson 4*pi. Thesis (11.7) defines
+        ! delta_j_par = K^{jPhi} delta_Phi + K^{jB} delta_Br with no 4*pi, so
+        ! hatG_j_* omit it and the reference here is the raw per-species sum.
+        use config_m, only: profiles_in_memory, nml_config_path
+        use config_m, only: artificial_debye_case, turn_off_ions, turn_off_electrons
+        use constants_m, only: com_unit, sol
+        use fortnum_special, only: bessel_in
+        use flr2_fourier_kernel_m, only: hatG_j_phi, hatG_j_B, kern_include_ks2
+        use species_m, only: plasma, set_profiles_from_arrays
+        use grid_m, only: rg_grid
+        use kim_base_m, only: kim_t
+        use kim_mod_m, only: from_kim_factory_get_kim
+
+        integer, parameter :: npts = 101
+
+        real(dp) :: r_prof(npts), n_prof(npts), Te_prof(npts)
+        real(dp) :: Ti_prof(npts), q_prof(npts), Er_prof(npts)
+        class(kim_t), allocatable :: kim_instance
+        real(dp) :: kr_arr(3), kr, b, ks
+        integer :: i, j, sp, jj_arr(3), k
+        complex(dp) :: jphi_inline, jphi_func, jB_inline, jB_func
+        real(dp) :: tol_jphi, tol_jB
+
+        call make_test_profiles(npts, r_prof, n_prof, Te_prof, Ti_prof, &
+                                q_prof, Er_prof)
+
+        call write_test_namelist('./KIM_config_fourier_jdiag_test.nml')
+        nml_config_path = './KIM_config_fourier_jdiag_test.nml'
+
+        profiles_in_memory = .true.
+        call kim_init()
+        call set_profiles_from_arrays(r_prof, n_prof, Te_prof, Ti_prof, &
+                                      q_prof, Er_prof, npts)
+
+        call from_kim_factory_get_kim('electrostatic', kim_instance)
+        call kim_instance%init()
+
+        kern_include_ks2 = .false.
+
+        kr_arr = [0.1_dp, 1.0_dp, 5.0_dp]
+        jj_arr = [rg_grid%npts_b / 4, rg_grid%npts_b / 2, (3 * rg_grid%npts_b) / 4]
+
+        do i = 1, size(kr_arr)
+            kr = kr_arr(i)
+            do k = 1, size(jj_arr)
+                j = jj_arr(k)
+
+                ! (i) INLINE reference: verbatim per-species expressions,
+                ! summed over the non-turned-off species. NO /(4*pi).
+                jphi_inline = (0.0_dp, 0.0_dp)
+                jB_inline = (0.0_dp, 0.0_dp)
+                do sp = 0, plasma%n_species - 1
+                    if (turn_off_ions .and. sp >= 1) cycle
+                    if (turn_off_electrons .and. sp == 0) cycle
+
+                    ks = plasma%ks(j)
+                    b = (kr**2.0d0) * plasma%spec(sp)%rho_L(j)**2.0d0
+
+                    if (artificial_debye_case == 0 .or. artificial_debye_case == 2) then
+                        jphi_inline = jphi_inline + 1.0d0 / plasma%spec(sp)%lambda_D(j)**2.0d0 &
+                            * com_unit * plasma%spec(sp)%vT(j)**3.0d0 &
+                            / (plasma%spec(sp)%omega_c(j) * plasma%spec(sp)%nu(j)) * ks * exp(-b) * &
+                            (&
+                                plasma%spec(sp)%I01(j, 0) * (&
+                                    bessel_in(0, b) * (plasma%spec(sp)%A1(j) + plasma%spec(sp)%A2(j) * (1-b)) &
+                                    + plasma%spec(sp)%A2(j) * b * bessel_in(-1, b) &
+                                )&
+                                + 0.5d0 * plasma%spec(sp)%I21(j, 0) * plasma%spec(sp)%A2(j) * bessel_in(0, b) &
+                            )
+
+                        jB_inline = jB_inline - 1.0d0 / plasma%spec(sp)%lambda_D(j)**2.0d0 &
+                            * plasma%spec(sp)%vT(j)**4.0d0 &
+                            / (plasma%spec(sp)%omega_c(j) * plasma%spec(sp)%nu(j) * sol) * exp(-b) * &
+                            (&
+                                plasma%spec(sp)%I11(j, 0) * (&
+                                    bessel_in(0, b) * (plasma%spec(sp)%A1(j) + plasma%spec(sp)%A2(j) * (1-b)) &
+                                    + plasma%spec(sp)%A2(j) * b * bessel_in(-1, b) &
+                                )&
+                                + 0.5d0 * plasma%spec(sp)%I13(j, 0) * plasma%spec(sp)%A2(j) * bessel_in(0, b) &
+                            )
+                    end if
+                end do
+
+                ! (ii) Fused two-wavenumber kernels on the diagonal: the phase
+                ! exp(i*(kr-krp)*rg) is unity and (b_+, b_x) collapse to b.
+                jphi_func = hatG_j_phi(plasma, kr, kr, j)
+                jB_func = hatG_j_B(plasma, kr, kr, j)
+
+                tol_jphi = 1.0e-12_dp * (1.0_dp + abs(jphi_inline))
+                tol_jB = 1.0e-12_dp * (1.0_dp + abs(jB_inline))
+
+                if (abs(jphi_inline - jphi_func) >= tol_jphi) then
+                    print *, 'FAIL: j-Phi diagonal mismatch at kr=', kr, ' j=', j
+                    print *, '  inline   = ', jphi_inline
+                    print *, '  fromfunc = ', jphi_func
+                    print *, '  |diff|   = ', abs(jphi_inline - jphi_func), ' tol = ', tol_jphi
+                    error stop
+                end if
+                if (abs(jB_inline - jB_func) >= tol_jB) then
+                    print *, 'FAIL: j-B diagonal mismatch at kr=', kr, ' j=', j
+                    print *, '  inline   = ', jB_inline
+                    print *, '  fromfunc = ', jB_func
+                    print *, '  |diff|   = ', abs(jB_inline - jB_func), ' tol = ', tol_jB
+                    error stop
+                end if
+            end do
+        end do
+
+        print *, 'PASS: fused j kernels match inline diagonal reference'
     end subroutine
 
     subroutine test_collapse_rho_phi()

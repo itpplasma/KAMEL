@@ -51,6 +51,8 @@ module kilca_flre_quants_m
     public :: flre_quants_transform_quants_to_lab_cyl_frame
     public :: flre_quants_interp_diss_power_density
     public :: flre_quants_interp_current_density
+    ! Diagnostic-only kernel access for manufactured coordinate/sign probes.
+    public :: vec_product_3d, integrate_over_cylinder
 
     real(c_double), parameter :: pi = 3.141592653589793238462643383279502884197d0
     complex(c_double), parameter :: ii = (0.0d0, 1.0d0)
@@ -135,7 +137,7 @@ module kilca_flre_quants_m
         end subroutine spline_calc_c
 
         subroutine spline_eval_d_c(sid, dimz, z, Dmin, Dmax, Imin, Imax, R) &
-            bind(C, name="spline_eval_d_")
+                bind(C, name="spline_eval_d_")
             import :: c_intptr_t, c_double, c_int
             integer(c_intptr_t), value :: sid
             integer(c_int), value :: dimz, Dmin, Dmax, Imin, Imax
@@ -149,7 +151,7 @@ module kilca_flre_quants_m
         end subroutine spline_free_c
 
         integer(c_int) function save_real_array_c(dim, xgrid, arr, full_name) &
-            bind(C, name="save_real_array")
+                bind(C, name="save_real_array")
             import :: c_int, c_double, c_char
             integer(c_int), value :: dim
             real(c_double), intent(in) :: xgrid(*), arr(*)
@@ -174,7 +176,7 @@ module kilca_flre_quants_m
         end subroutine calc_current_density_r_s_p_c
 
         subroutine eval_and_set_background_parameters_spec_independent_c(r, flagback, fb_len) &
-            bind(C, name="eval_and_set_background_parameters_spec_independent_")
+                bind(C, name="eval_and_set_background_parameters_spec_independent_")
             import :: c_double, c_char, c_int
             real(c_double), intent(in) :: r
             character(kind=c_char), intent(in) :: flagback(*)
@@ -182,7 +184,7 @@ module kilca_flre_quants_m
         end subroutine eval_and_set_background_parameters_spec_independent_c
 
         subroutine eval_and_set_wave_parameters_c(r, flagback, fb_len) &
-            bind(C, name="eval_and_set_wave_parameters_")
+                bind(C, name="eval_and_set_wave_parameters_")
             import :: c_double, c_char, c_int
             real(c_double), intent(in) :: r
             character(kind=c_char), intent(in) :: flagback(*)
@@ -301,7 +303,7 @@ contains
     integer(c_int) function idx_kmat(dimk, flreo, deriv, spec, type_, p, q, i, j, part) result(idx)
         integer(c_int), intent(in) :: dimk, flreo, deriv, spec, type_, p, q, i, j, part
         idx = deriv*dimk + part + 2*(j + 3*(i + 3*(q + (flreo + 1)*(p + (flreo + 1)*( &
-              type_ + 2*spec)))))
+            type_ + 2*spec)))))
     end function idx_kmat
 
     integer(c_int) function idx_cmat(flreo, spec, type_, s, i, j, part) result(idx)
@@ -336,8 +338,8 @@ contains
     end function itoa
 
     function flre_quants_create(zone_cp, zone_me, zone_bp, path2linear_p, &
-        flreo, dimx, x_ptr, ncomps, eb_mov_ptr, wd_omov_re, wd_omov_im, &
-        bc1, bc2, zone_index) result(handle) bind(C, name="flre_quants_create_")
+            flreo, dimx, x_ptr, ncomps, eb_mov_ptr, wd_omov_re, wd_omov_im, &
+            bc1, bc2, zone_index) result(handle) bind(C, name="flre_quants_create_")
         integer(c_intptr_t), value :: zone_cp, zone_me
         type(c_ptr), value :: zone_bp, path2linear_p, x_ptr, eb_mov_ptr
         integer(c_int), value :: flreo, dimx, ncomps, bc1, bc2, zone_index
@@ -448,7 +450,7 @@ contains
     end subroutine set_null_node_state
 
     subroutine flre_quants_calculate_local_profiles(handle) &
-        bind(C, name="flre_quants_calculate_local_profiles_")
+            bind(C, name="flre_quants_calculate_local_profiles_")
         integer(c_intptr_t), value :: handle
         type(flre_quants_t), pointer :: qp
         integer(c_int) :: k
@@ -488,7 +490,7 @@ contains
     end subroutine flre_quants_calculate_local_profiles
 
     subroutine flre_quants_calculate_integrated_profiles(handle) &
-        bind(C, name="flre_quants_calculate_integrated_profiles_")
+            bind(C, name="flre_quants_calculate_integrated_profiles_")
         integer(c_intptr_t), value :: handle
         type(flre_quants_t), pointer :: qp
 
@@ -533,10 +535,10 @@ contains
                     do j = 0, 2
                         do order = 0, get_me_der_order(qp%zone_me, i, j)
                             cm = cmplx(qp%cmat(idx_cmat(qp%flreo, spec, type_, order, i, j, 0)), &
-                                       qp%cmat(idx_cmat(qp%flreo, spec, type_, order, i, j, 1)), c_double)
+                                qp%cmat(idx_cmat(qp%flreo, spec, type_, order, i, j, 1)), c_double)
                             ef = cmplx(qp%eb_mov(idx_f(qp%ncomps, qp%node, get_me_iersp_sys(qp%zone_me, j) + order, 0) + 1), &
-                                       qp%eb_mov(idx_f(qp%ncomps, qp%node, &
-                                                       get_me_iersp_sys(qp%zone_me, j) + order, 1) + 1), c_double)
+                                qp%eb_mov(idx_f(qp%ncomps, qp%node, &
+                                get_me_iersp_sys(qp%zone_me, j) + order, 1) + 1), c_double)
                             cd = cd + cm*ef
                         end do
                     end do
@@ -572,8 +574,8 @@ contains
             do type_ = 0, 1
                 do i = 0, 2
                     call save_arr(qp%dimx, qp%x, qp%current_dens(idx_cd(qp%dimx, spec, type_, i, 0, 0) + 1:), &
-                                  trim(qp%path2linear)//'zone_'//trim(itoa(qp%zone_index))// &
-                                  '_current_dens_'//comp(i)//'_'//trim(itoa(type_))//'_'//sort(spec)//'.dat')
+                        trim(qp%path2linear)//'zone_'//trim(itoa(qp%zone_index))// &
+                        '_current_dens_'//comp(i)//'_'//trim(itoa(type_))//'_'//sort(spec)//'.dat')
                 end do
             end do
         end do
@@ -596,9 +598,9 @@ contains
                 apd = 0.0d0
                 do i = 0, 2
                     cd = cmplx(qp%current_dens(idx_cd(qp%dimx, spec, type_, i, 0, qp%node) + 1), &
-                               qp%current_dens(idx_cd(qp%dimx, spec, type_, i, 1, qp%node) + 1), c_double)
+                        qp%current_dens(idx_cd(qp%dimx, spec, type_, i, 1, qp%node) + 1), c_double)
                     ef = cmplx(qp%eb_mov(idx_f(qp%ncomps, qp%node, get_me_iersp_sys(qp%zone_me, i), 0) + 1), &
-                               qp%eb_mov(idx_f(qp%ncomps, qp%node, get_me_iersp_sys(qp%zone_me, i), 1) + 1), c_double)
+                        qp%eb_mov(idx_f(qp%ncomps, qp%node, get_me_iersp_sys(qp%zone_me, i), 1) + 1), c_double)
                     apd = apd + 0.5d0*real(cd*conjg(ef), c_double)
                 end do
                 qp%abs_pow_dens(idx_2(qp%dimx, spec, type_, qp%node) + 1) = apd
@@ -617,7 +619,7 @@ contains
         do spec = 0, 2
             do type_ = 0, 1
                 call integrate_over_cylinder(qp%dimx, qp%x, qp%abs_pow_dens(idx_2(qp%dimx, spec, type_, 0) + 1:), &
-                                             qp%vol_fac, qp%abs_pow_int(idx_2(qp%dimx, spec, type_, 0) + 1:))
+                    qp%vol_fac, qp%abs_pow_int(idx_2(qp%dimx, spec, type_, 0) + 1:))
             end do
         end do
     end subroutine calc_absorbed_power_in_cylinder
@@ -632,11 +634,11 @@ contains
         do spec = 0, 2
             do type_ = 0, 1
                 call save_arr(qp%dimx, qp%x, qp%abs_pow_dens(idx_2(qp%dimx, spec, type_, 0) + 1:), &
-                              trim(qp%path2linear)//'zone_'//trim(itoa(qp%zone_index))// &
-                              '_abs_pow_dens_'//trim(itoa(type_))//'_'//sort(spec)//'.dat')
+                    trim(qp%path2linear)//'zone_'//trim(itoa(qp%zone_index))// &
+                    '_abs_pow_dens_'//trim(itoa(type_))//'_'//sort(spec)//'.dat')
                 call save_arr(qp%dimx, qp%x, qp%abs_pow_int(idx_2(qp%dimx, spec, type_, 0) + 1:), &
-                              trim(qp%path2linear)//'zone_'//trim(itoa(qp%zone_index))// &
-                              '_abs_pow_int_'//trim(itoa(type_))//'_'//sort(spec)//'.dat')
+                    trim(qp%path2linear)//'zone_'//trim(itoa(qp%zone_index))// &
+                    '_abs_pow_int_'//trim(itoa(type_))//'_'//sort(spec)//'.dat')
             end do
         end do
     end subroutine save_absorbed_power
@@ -664,13 +666,13 @@ contains
                         do i = 0, 2
                             do j = 0, 2
                                 km = cmplx(qp%kmat(idx_kmat(dimk, qp%flreo, 0, spec, type_, n1, n2, i, j, 0) + 1), &
-                                           qp%kmat(idx_kmat(dimk, qp%flreo, 0, spec, type_, n1, n2, i, j, 1) + 1), c_double)
+                                    qp%kmat(idx_kmat(dimk, qp%flreo, 0, spec, type_, n1, n2, i, j, 1) + 1), c_double)
                                 ef1 = cmplx(qp%eb_mov(idx_f(qp%ncomps, qp%node, get_me_iersp_sys(qp%zone_me, i) + n1, 0) + 1), &
-                                            qp%eb_mov(idx_f(qp%ncomps, qp%node, &
-                                                            get_me_iersp_sys(qp%zone_me, i) + n1, 1) + 1), c_double)
+                                    qp%eb_mov(idx_f(qp%ncomps, qp%node, &
+                                    get_me_iersp_sys(qp%zone_me, i) + n1, 1) + 1), c_double)
                                 ef2 = cmplx(qp%eb_mov(idx_f(qp%ncomps, qp%node, get_me_iersp_sys(qp%zone_me, j) + n2, 0) + 1), &
-                                            qp%eb_mov(idx_f(qp%ncomps, qp%node, &
-                                                            get_me_iersp_sys(qp%zone_me, j) + n2, 1) + 1), c_double)
+                                    qp%eb_mov(idx_f(qp%ncomps, qp%node, &
+                                    get_me_iersp_sys(qp%zone_me, j) + n2, 1) + 1), c_double)
                                 dpd = dpd + km*conjg(ef1)*ef2
                             end do
                         end do
@@ -704,7 +706,7 @@ contains
         do spec = 0, 2
             do type_ = 0, 2
                 call integrate_over_cylinder(qp%dimx, qp%x, qp%diss_pow_dens(idx_3(qp%dimx, spec, type_, 0) + 1:), &
-                                             qp%vol_fac, qp%diss_pow_int(idx_3(qp%dimx, spec, type_, 0) + 1:))
+                    qp%vol_fac, qp%diss_pow_int(idx_3(qp%dimx, spec, type_, 0) + 1:))
             end do
         end do
     end subroutine calc_dissipated_power_in_cylinder
@@ -719,11 +721,11 @@ contains
         do spec = 0, 2
             do type_ = 0, 2
                 call save_arr(qp%dimx, qp%x, qp%diss_pow_dens(idx_3(qp%dimx, spec, type_, 0) + 1:), &
-                              trim(qp%path2linear)//'zone_'//trim(itoa(qp%zone_index))// &
-                              '_dis_pow_dens_'//trim(itoa(type_))//'_'//sort(spec)//'.dat')
+                    trim(qp%path2linear)//'zone_'//trim(itoa(qp%zone_index))// &
+                    '_dis_pow_dens_'//trim(itoa(type_))//'_'//sort(spec)//'.dat')
                 call save_arr(qp%dimx, qp%x, qp%diss_pow_int(idx_3(qp%dimx, spec, type_, 0) + 1:), &
-                              trim(qp%path2linear)//'zone_'//trim(itoa(qp%zone_index))// &
-                              '_dis_pow_int_'//trim(itoa(type_))//'_'//sort(spec)//'.dat')
+                    trim(qp%path2linear)//'zone_'//trim(itoa(qp%zone_index))// &
+                    '_dis_pow_int_'//trim(itoa(type_))//'_'//sort(spec)//'.dat')
             end do
         end do
     end subroutine save_dissipated_power
@@ -755,17 +757,17 @@ contains
                                 do i = 0, 2
                                     do j = 0, 2
                                         km = cmplx(qp%kmat(idx_kmat(dimk, qp%flreo, n1 - p - s - 1, &
-                                                                    spec, type_, n1, n2, i, j, 0) + 1), &
-                                                   qp%kmat(idx_kmat(dimk, qp%flreo, n1 - p - s - 1, &
-                                                                    spec, type_, n1, n2, i, j, 1) + 1), c_double)
+                                            spec, type_, n1, n2, i, j, 0) + 1), &
+                                            qp%kmat(idx_kmat(dimk, qp%flreo, n1 - p - s - 1, &
+                                            spec, type_, n1, n2, i, j, 1) + 1), c_double)
                                         ef1 = cmplx(qp%eb_mov(idx_f(qp%ncomps, qp%node, &
-                                                                    get_me_iersp_sys(qp%zone_me, i) + p, 0) + 1), &
-                                                    qp%eb_mov(idx_f(qp%ncomps, qp%node, &
-                                                                    get_me_iersp_sys(qp%zone_me, i) + p, 1) + 1), c_double)
+                                            get_me_iersp_sys(qp%zone_me, i) + p, 0) + 1), &
+                                            qp%eb_mov(idx_f(qp%ncomps, qp%node, &
+                                            get_me_iersp_sys(qp%zone_me, i) + p, 1) + 1), c_double)
                                         ef2 = cmplx(qp%eb_mov(idx_f(qp%ncomps, qp%node, &
-                                                                    get_me_iersp_sys(qp%zone_me, j) + n2 + s, 0) + 1), &
-                                                    qp%eb_mov(idx_f(qp%ncomps, qp%node, &
-                                                                    get_me_iersp_sys(qp%zone_me, j) + n2 + s, 1) + 1), c_double)
+                                            get_me_iersp_sys(qp%zone_me, j) + n2 + s, 0) + 1), &
+                                            qp%eb_mov(idx_f(qp%ncomps, qp%node, &
+                                            get_me_iersp_sys(qp%zone_me, j) + n2 + s, 1) + 1), c_double)
                                         kf = kf + coeff*km*conjg(ef1)*ef2
                                     end do
                                 end do
@@ -802,8 +804,8 @@ contains
         do spec = 0, 2
             do type_ = 0, 2
                 call save_arr(qp%dimx, qp%x, qp%kin_flux(idx_3(qp%dimx, spec, type_, 0) + 1:), &
-                              trim(qp%path2linear)//'zone_'//trim(itoa(qp%zone_index))// &
-                              '_kin_flux_'//trim(itoa(type_))//'_'//sort(spec)//'.dat')
+                    trim(qp%path2linear)//'zone_'//trim(itoa(qp%zone_index))// &
+                    '_kin_flux_'//trim(itoa(type_))//'_'//sort(spec)//'.dat')
             end do
         end do
     end subroutine save_kinetic_flux
@@ -817,16 +819,16 @@ contains
         complex(c_double) :: es, ep, bs, bp_
 
         es = cmplx(qp%eb_mov(idx_f(qp%ncomps, qp%node, get_me_iersp_sys(qp%zone_me, 1), 0) + 1), &
-                   qp%eb_mov(idx_f(qp%ncomps, qp%node, get_me_iersp_sys(qp%zone_me, 1), 1) + 1), c_double)
+            qp%eb_mov(idx_f(qp%ncomps, qp%node, get_me_iersp_sys(qp%zone_me, 1), 1) + 1), c_double)
         ep = cmplx(qp%eb_mov(idx_f(qp%ncomps, qp%node, get_me_iersp_sys(qp%zone_me, 2), 0) + 1), &
-                   qp%eb_mov(idx_f(qp%ncomps, qp%node, get_me_iersp_sys(qp%zone_me, 2), 1) + 1), c_double)
+            qp%eb_mov(idx_f(qp%ncomps, qp%node, get_me_iersp_sys(qp%zone_me, 2), 1) + 1), c_double)
         bs = cmplx(qp%eb_mov(idx_f(qp%ncomps, qp%node, get_me_ibrsp_sys(qp%zone_me, 1), 0) + 1), &
-                   qp%eb_mov(idx_f(qp%ncomps, qp%node, get_me_ibrsp_sys(qp%zone_me, 1), 1) + 1), c_double)
+            qp%eb_mov(idx_f(qp%ncomps, qp%node, get_me_ibrsp_sys(qp%zone_me, 1), 1) + 1), c_double)
         bp_ = cmplx(qp%eb_mov(idx_f(qp%ncomps, qp%node, get_me_ibrsp_sys(qp%zone_me, 2), 0) + 1), &
-                    qp%eb_mov(idx_f(qp%ncomps, qp%node, get_me_ibrsp_sys(qp%zone_me, 2), 1) + 1), c_double)
+            qp%eb_mov(idx_f(qp%ncomps, qp%node, get_me_ibrsp_sys(qp%zone_me, 2), 1) + 1), c_double)
 
         qp%poy_flux(qp%node + 1) = qp%vol_fac*qp%r*cspeed/(4.0d0*pi)*0.5d0* &
-                                   real(conjg(es)*bp_ - conjg(ep)*bs, c_double)
+            real(conjg(es)*bp_ - conjg(ep)*bs, c_double)
 
         qp%flag_computed(poy_flux_q) = .true.
     end subroutine calc_poynting_flux
@@ -835,7 +837,7 @@ contains
         type(flre_quants_t), intent(in) :: qp
 
         call save_arr(qp%dimx, qp%x, qp%poy_flux, &
-                      trim(qp%path2linear)//'zone_'//trim(itoa(qp%zone_index))//'_poy_flux.dat')
+            trim(qp%path2linear)//'zone_'//trim(itoa(qp%zone_index))//'_poy_flux.dat')
     end subroutine save_poynting_flux
 
     subroutine calc_total_flux(qp)
@@ -852,7 +854,7 @@ contains
         type(flre_quants_t), intent(in) :: qp
 
         call save_arr(qp%dimx, qp%x, qp%tot_flux, &
-                      trim(qp%path2linear)//'zone_'//trim(itoa(qp%zone_index))//'_tot_flux.dat')
+            trim(qp%path2linear)//'zone_'//trim(itoa(qp%zone_index))//'_tot_flux.dat')
     end subroutine save_total_flux
 
     subroutine calculate_field_profiles_poy_test(qp)
@@ -882,7 +884,7 @@ contains
             divpfd(1) = divpfd(1)/(-qp%r*qp%vol_fac)
 
             err(k) = abs(divpfd(1) - (qp%abs_pow_dens(idx_2(qp%dimx, 2, 0, k) + 1) + qp%jae_arr(k + 1)))/ &
-                     max(1.0d0, abs(divpfd(1)))
+                max(1.0d0, abs(divpfd(1)))
 
             if (err(k) > max_err) max_err = err(k)
 
@@ -893,7 +895,7 @@ contains
 
         if (get_output_flag_additional_c() > 1) then
             call save_arr(qp%dimx - 1, qp%x, err, &
-                          trim(qp%path2linear)//'zone_'//trim(itoa(qp%zone_index))//'_poy_test_err.dat')
+                trim(qp%path2linear)//'zone_'//trim(itoa(qp%zone_index))//'_poy_test_err.dat')
         end if
 
         call spline_free_c(sidpf)
@@ -944,7 +946,7 @@ contains
         do spec = 0, 1
             do i = 0, 2
                 j(i) = cmplx(qp%current_dens(idx_cd(qp%dimx, spec, 0, i, 0, qp%node) + 1), &
-                             qp%current_dens(idx_cd(qp%dimx, spec, 0, i, 1, qp%node) + 1), c_double)
+                    qp%current_dens(idx_cd(qp%dimx, spec, 0, i, 1, qp%node) + 1), c_double)
             end do
 
             imin = 2*spec
@@ -955,7 +957,7 @@ contains
             dj = cmplx(djr(1), djr(2), c_double)
 
             nd = -ii/qp%wd_omov/get_background_charge_c(spec)* &
-                 (j(0)/qp%r + dj + ii*(kvals(2)*j(1) + kvals(3)*j(2)))
+                (j(0)/qp%r + dj + ii*(kvals(2)*j(1) + kvals(3)*j(2)))
 
             qp%number_dens(idx_nd(qp%dimx, spec, 0, qp%node) + 1) = real(nd, c_double)
             qp%number_dens(idx_nd(qp%dimx, spec, 1, qp%node) + 1) = aimag(nd)
@@ -980,7 +982,7 @@ contains
 
         do spec = 0, 2
             call save_arr(qp%dimx, qp%x, qp%number_dens(idx_nd(qp%dimx, spec, 0, 0) + 1:), &
-                          trim(qp%path2linear)//'zone_'//trim(itoa(qp%zone_index))//'_density_re_'//sort(spec)//'.dat')
+                trim(qp%path2linear)//'zone_'//trim(itoa(qp%zone_index))//'_density_re_'//sort(spec)//'.dat')
         end do
     end subroutine save_number_density
 
@@ -1002,11 +1004,11 @@ contains
         do spec = 0, 1
             do i = 0, 2
                 j_rsp(i) = cmplx(qp%current_dens(idx_cd(qp%dimx, spec, 0, i, 0, qp%node) + 1), &
-                                 qp%current_dens(idx_cd(qp%dimx, spec, 0, i, 1, qp%node) + 1), c_double)
+                    qp%current_dens(idx_cd(qp%dimx, spec, 0, i, 1, qp%node) + 1), c_double)
                 e_rsp(i) = cmplx(qp%eb_mov(idx_f(qp%ncomps, qp%node, get_me_iersp_sys(qp%zone_me, i), 0) + 1), &
-                                 qp%eb_mov(idx_f(qp%ncomps, qp%node, get_me_iersp_sys(qp%zone_me, i), 1) + 1), c_double)
+                    qp%eb_mov(idx_f(qp%ncomps, qp%node, get_me_iersp_sys(qp%zone_me, i), 1) + 1), c_double)
                 b_rsp(i) = cmplx(qp%eb_mov(idx_f(qp%ncomps, qp%node, get_me_ibrsp_sys(qp%zone_me, i), 0) + 1), &
-                                 qp%eb_mov(idx_f(qp%ncomps, qp%node, get_me_ibrsp_sys(qp%zone_me, i), 1) + 1), c_double)
+                    qp%eb_mov(idx_f(qp%ncomps, qp%node, get_me_ibrsp_sys(qp%zone_me, i), 1) + 1), c_double)
             end do
 
             j_cyl(0) = j_rsp(0)
@@ -1024,12 +1026,12 @@ contains
             call vec_product_3d(j_cyl, bc_cyl, jxbc)
 
             nd = cmplx(qp%number_dens(idx_nd(qp%dimx, spec, 0, qp%node) + 1), &
-                       qp%number_dens(idx_nd(qp%dimx, spec, 1, qp%node) + 1), c_double)
+                qp%number_dens(idx_nd(qp%dimx, spec, 1, qp%node) + 1), c_double)
 
             do i = 0, 2
                 qp%lor_torque_dens(idx_3(qp%dimx, spec, i, qp%node) + 1) = &
                     0.5d0*real(get_background_charge_c(spec)*nd*conjg(e_cyl(i)) + &
-                              echarge/cspeed*jxbc(i), c_double)
+                    echarge/cspeed*jxbc(i), c_double)
             end do
 
             qp%lor_torque_dens(idx_3(qp%dimx, spec, 1, qp%node) + 1) = &
@@ -1062,7 +1064,7 @@ contains
                     factor = qp%vol_fac
                 end if
                 call integrate_over_cylinder(qp%dimx, qp%x, qp%lor_torque_dens(idx_3(qp%dimx, spec, i, 0) + 1:), &
-                                             factor, qp%lor_torque_int(idx_3(qp%dimx, spec, i, 0) + 1:))
+                    factor, qp%lor_torque_int(idx_3(qp%dimx, spec, i, 0) + 1:))
             end do
         end do
     end subroutine calc_lorentz_torque_on_cylinder
@@ -1078,11 +1080,11 @@ contains
         do spec = 0, 2
             do i = 0, 2
                 call save_arr(qp%dimx, qp%x, qp%lor_torque_dens(idx_3(qp%dimx, spec, i, 0) + 1:), &
-                              trim(qp%path2linear)//'zone_'//trim(itoa(qp%zone_index))// &
-                              '_torque_dens_'//comp(i)//'_'//sort(spec)//'.dat')
+                    trim(qp%path2linear)//'zone_'//trim(itoa(qp%zone_index))// &
+                    '_torque_dens_'//comp(i)//'_'//sort(spec)//'.dat')
                 call save_arr(qp%dimx, qp%x, qp%lor_torque_int(idx_3(qp%dimx, spec, i, 0) + 1:), &
-                              trim(qp%path2linear)//'zone_'//trim(itoa(qp%zone_index))// &
-                              '_torque_int_'//comp(i)//'_'//sort(spec)//'.dat')
+                    trim(qp%path2linear)//'zone_'//trim(itoa(qp%zone_index))// &
+                    '_torque_int_'//comp(i)//'_'//sort(spec)//'.dat')
             end do
         end do
     end subroutine save_lorentz_torque
@@ -1116,7 +1118,7 @@ contains
     !==================================================================
 
     subroutine flre_quants_transform_quants_to_lab_cyl_frame(handle) &
-        bind(C, name="flre_quants_transform_quants_to_lab_cyl_frame_")
+            bind(C, name="flre_quants_transform_quants_to_lab_cyl_frame_")
         integer(c_intptr_t), value :: handle
         type(flre_quants_t), pointer :: qp
         real(c_double), allocatable :: cd(:)
@@ -1158,18 +1160,18 @@ contains
                 do i = 0, 2
                     do spec = 0, 1
                         jj = cmplx(qp%current_dens(idx_cd(qp%dimx, spec, type_, i, 0, k) + 1), &
-                                   qp%current_dens(idx_cd(qp%dimx, spec, type_, i, 1, k) + 1), c_double) + &
-                             get_background_charge_c(spec)*vel(i)* &
-                             cmplx(qp%number_dens(idx_nd(qp%dimx, spec, 0, k) + 1), &
-                                   qp%number_dens(idx_nd(qp%dimx, spec, 1, k) + 1), c_double)
+                            qp%current_dens(idx_cd(qp%dimx, spec, type_, i, 1, k) + 1), c_double) + &
+                            get_background_charge_c(spec)*vel(i)* &
+                            cmplx(qp%number_dens(idx_nd(qp%dimx, spec, 0, k) + 1), &
+                            qp%number_dens(idx_nd(qp%dimx, spec, 1, k) + 1), c_double)
 
                         cd(idx_cd(qp%dimx, spec, type_, i, 0, k)) = real(jj, c_double)
                         cd(idx_cd(qp%dimx, spec, type_, i, 1, k)) = aimag(jj)
                     end do
                     cd(idx_cd(qp%dimx, 2, type_, i, 0, k)) = cd(idx_cd(qp%dimx, 0, type_, i, 0, k)) + &
-                                                             cd(idx_cd(qp%dimx, 1, type_, i, 0, k))
+                        cd(idx_cd(qp%dimx, 1, type_, i, 0, k))
                     cd(idx_cd(qp%dimx, 2, type_, i, 1, k)) = cd(idx_cd(qp%dimx, 0, type_, i, 1, k)) + &
-                                                             cd(idx_cd(qp%dimx, 1, type_, i, 1, k))
+                        cd(idx_cd(qp%dimx, 1, type_, i, 1, k))
                 end do
             end do
         end do
@@ -1189,7 +1191,7 @@ contains
                 do spec = 0, 2
                     do i = 0, 2
                         jrsp(i) = cmplx(cd(idx_cd(qp%dimx, spec, type_, i, 0, k)), &
-                                        cd(idx_cd(qp%dimx, spec, type_, i, 1, k)), c_double)
+                            cd(idx_cd(qp%dimx, spec, type_, i, 1, k)), c_double)
                     end do
 
                     jcyl(0) = jrsp(0)
@@ -1219,9 +1221,9 @@ contains
             do type_ = 0, 1
                 do i = 0, 2
                     call save_arr(qp%dimx, qp%x, cd(idx_cd(qp%dimx, spec, type_, i, 0, 0):), &
-                                  trim(qp%path2linear)//'zone_'//trim(itoa(qp%zone_index))// &
-                                  '_current_dens_'//comp_set(i + 1:i + 1)//'_'//trim(itoa(type_))// &
-                                  '_'//sort(spec)//'_'//trim(frame)//'.dat')
+                        trim(qp%path2linear)//'zone_'//trim(itoa(qp%zone_index))// &
+                        '_current_dens_'//comp_set(i + 1:i + 1)//'_'//trim(itoa(type_))// &
+                        '_'//sort(spec)//'_'//trim(frame)//'.dat')
                 end do
             end do
         end do
@@ -1232,7 +1234,7 @@ contains
     !==================================================================
 
     subroutine flre_quants_interp_diss_power_density(handle, x, type_, spec, dpd) &
-        bind(C, name="flre_quants_interp_diss_power_density_")
+            bind(C, name="flre_quants_interp_diss_power_density_")
         integer(c_intptr_t), value :: handle
         real(c_double), value :: x
         integer(c_int), value :: type_, spec
@@ -1246,11 +1248,11 @@ contains
         ind = qp%dimx/2
 
         call eval_neville_polynom(qp%dimx, qp%x, qp%diss_pow_dens(idx_3(qp%dimx, spec, type_, 0) + 1:), &
-                                  deg, x, 0, 0, ind, dpd)
+            deg, x, 0, 0, ind, dpd)
     end subroutine flre_quants_interp_diss_power_density
 
     subroutine flre_quants_interp_current_density(handle, x, type_, spec, comp, jout) &
-        bind(C, name="flre_quants_interp_current_density_")
+            bind(C, name="flre_quants_interp_current_density_")
         integer(c_intptr_t), value :: handle
         real(c_double), value :: x
         integer(c_int), value :: type_, spec, comp
@@ -1264,10 +1266,10 @@ contains
         ind = qp%dimx/2
 
         call eval_neville_polynom(qp%dimx, qp%x, qp%cdlab(idx_cd(qp%dimx, spec, type_, comp, 0, 0) + 1:), &
-                                  deg, x, 0, 0, ind, jout(1))
+            deg, x, 0, 0, ind, jout(1))
         ind = qp%dimx/2
         call eval_neville_polynom(qp%dimx, qp%x, qp%cdlab(idx_cd(qp%dimx, spec, type_, comp, 1, 0) + 1:), &
-                                  deg, x, 0, 0, ind, jout(2))
+            deg, x, 0, 0, ind, jout(2))
     end subroutine flre_quants_interp_current_density
 
     !==================================================================
@@ -1332,7 +1334,7 @@ contains
 
         if (get_output_flag_emfield_c() > 1) then
             call save_arr(1, qp%x(ia + 1:ia + 1), [qp%jae], &
-                          trim(qp%path2linear)//'zone_'//trim(itoa(qp%zone_index))//'_JaE.dat')
+                trim(qp%path2linear)//'zone_'//trim(itoa(qp%zone_index))//'_JaE.dat')
         end if
     end subroutine calculate_jae_delta
 
@@ -1371,11 +1373,11 @@ contains
 
         if (get_output_flag_emfield_c() > 1) then
             call save_arr(1, qp%x(qp%dimx:qp%dimx), [qp%jae], &
-                          trim(qp%path2linear)//'zone_'//trim(itoa(qp%zone_index))//'_JaE.dat')
+                trim(qp%path2linear)//'zone_'//trim(itoa(qp%zone_index))//'_JaE.dat')
             call save_arr(qp%dimx, qp%x, qp%jae_arr, &
-                          trim(qp%path2linear)//'zone_'//trim(itoa(qp%zone_index))//'_jaE_dens.dat')
+                trim(qp%path2linear)//'zone_'//trim(itoa(qp%zone_index))//'_jaE_dens.dat')
             call save_arr(qp%dimx, qp%x, qp%jaei_arr, &
-                          trim(qp%path2linear)//'zone_'//trim(itoa(qp%zone_index))//'_jaE_int.dat')
+                trim(qp%path2linear)//'zone_'//trim(itoa(qp%zone_index))//'_jaE_int.dat')
         end if
     end subroutine calculate_jae_distributed
 

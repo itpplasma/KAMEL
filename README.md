@@ -1,120 +1,179 @@
-# KAMEL - Kinetic plAsma response ModEL
+# KAMEL — Kinetic plAsma response ModEL
 
 [![CI](https://github.com/itpplasma/KAMEL/actions/workflows/ci.yml/badge.svg)](https://github.com/itpplasma/KAMEL/actions/workflows/ci.yml)
+[![Golden record](https://github.com/itpplasma/KAMEL/actions/workflows/golden.yml/badge.svg)](https://github.com/itpplasma/KAMEL/actions/workflows/golden.yml)
 
-KAMEL is a scientific computing framework for modeling plasma response to external magnetic perturbations in fusion plasmas.
+KAMEL is a collection of research codes for kinetic plasma response and
+quasilinear transport in fusion plasmas. The repository provides one CMake
+build for three coupled solvers, their preprocessing tools, and Python
+interfaces.
 
-## Overview
+## Components
 
-The framework consists of three main codes:
+| Component | Purpose | Documentation |
+| --- | --- | --- |
+| KiLCA | Cylindrical kinetic response solver with finite-Larmor-radius effects | [KiLCA/README](KiLCA/README) |
+| KIM | Non-local integral plasma-response model, including global and forced-periodic electrostatic solvers | [KIM/README.md](KIM/README.md) |
+| QL-Balance | One-dimensional quasilinear transport solver using KIM or KiLCA response fields | [QL-Balance/README.md](QL-Balance/README.md) |
 
-1. **KiLCA** - Kinetic Linear Cylindrical Approximation, plasma response solver using finite Larmor radius formalism
-2. **KIM** - KiLCA Integral Model using integral formalism for non-local plasma response
-3. **QL-Balance** - Quasilinear 1D radial transport code including anomalous and electromagnetic diffusion for time-evolution studies
+Supporting directories include:
 
-## Requirements
+- [`PreProc/`](PreProc/) — Fourier-mode and NEO-2 preprocessing tools.
+- [`python/`](python/) — KAMELpy interfaces and analysis utilities.
+- [`common/`](common/) — shared equilibrium, HDF5, logging, and numerical code.
+- [`test/golden/`](test/golden/) — physics-output regression tests for all three solvers.
 
-### System Dependencies
-- **CMake 3.24+** and **Ninja** build system
-- **Fortran compiler** (gfortran 10+ or ifort)
-- **C/C++ compiler** (gcc/g++ 10+ or clang/clang++)
-- **MPI** (MPICH or OpenMPI)
-- **HDF5** with Fortran bindings
-- **LAPACK/BLAS** - Linear algebra
-- **Python 3.8+** with pip
+KIM supports electrostatic, forced-periodic electrostatic, electromagnetic,
+WKB-dispersion, and FLR2 benchmark runs. Its forced-periodic solver can use
+Fokker–Planck ions or collisionless ion charge and parallel-current kernels;
+electrons remain Fokker–Planck in the collisionless-ion configuration. See the
+[KIM namelist reference](KIM/nmls/README.md) for the current options and their
+restrictions.
 
-### Optional System Dependencies
-- **SuperLU** (sparse matrix solver, used by KIM if found)
-- **Doxygen** (for documentation generation)
+## Prerequisites
 
-### Auto-Fetched Libraries
-The following are automatically downloaded and built if not found on the system:
-- **fortnum** - Numerical core (special functions, quadrature, ODE, root finding)
-- **SuiteSparse** - Sparse matrix operations (UMFPACK)
-- **SUNDIALS** - Numerical differential equation solvers
-- **NetCDF** - Network Common Data Form (with Fortran bindings)
-- **LAPACK/BLAS** - Fallback if not found on system
+The complete build requires:
 
-### Bundled Libraries (built from source)
-- **fortnum_amos_compat** - AMOS complex-Bessel ABI backed by fortnum (`common/math/`)
-- **libcerf** - Complex error function (`KIM/src/math/`)
+- CMake 3.24 or newer, Ninja, Git, and a POSIX build environment.
+- C, C++, and Fortran compilers with OpenMP support.
+- BLAS and LAPACK.
+- HDF5 with C, Fortran, high-level C, and high-level Fortran components.
+- NetCDF C and Fortran development packages providing `nc-config` and
+  `nf-config`.
+- SuperLU.
 
-### Python Dependencies
-- numpy, scipy, h5py, f90nml, matplotlib
+The first configuration needs network access. CMake fetches pinned or selected
+versions of fortnum, SUNDIALS, SuiteSparse, and libneo. The complex error
+function library libcerf is bundled in KIM. Python is optional for the compiled
+solvers but required for KAMELpy and several analysis workflows; its package
+requirements are listed in [`python/requirements.txt`](python/requirements.txt).
 
-## Compilation
+CI builds on Ubuntu with GNU compilers. The CMake configuration also contains
+macOS/Homebrew support for LLVM OpenMP and HDF5.
 
-```bash
-# Build all three codes (Release mode by default)
+## Build
+
+From the repository root:
+
+```sh
+git clone https://github.com/itpplasma/KAMEL.git
+cd KAMEL
 make all
+```
 
-# Build in Debug mode
-CONFIG=Debug make all
+The Makefile is a thin wrapper around the unified CMake/Ninja build. Common
+targets are:
 
-# Build individual components
-make KiLCA
-make KIM
-make QL-Balance
-
-# Clean build
+```sh
+make KIM          # build KIM.x
+make KiLCA        # build the KiLCA executables
+make QL-Balance   # build ql-balance.x
+make PreProc      # build the Fourier preprocessing program
 make clean
 ```
 
-**Note:** External dependencies (LAPACK, SuiteSparse, fortnum, SUNDIALS) are automatically downloaded and built during the first compilation if not found on the system.
+Executables and libraries are written below `build/install/`; the principal
+executables are:
 
-To pin libneo to a specific branch, tag, or commit, pass `-DLIBNEO_REF=<ref>` to cmake or `LIBNEO_REF=<ref>` to make. To use a local checkout instead of fetching, pass `-DLIBNEO_PATH=<dir>` / `LIBNEO_PATH=<dir>`.
-
-### System-wide Installation
-
-To install KIM so it can be run from anywhere as `kim`:
-
-```bash
-# Step 1: Build and prepare KIM
-make install-kim
-
-# Step 2: Follow the instructions displayed, which will show:
-sudo ln -sf /path/to/KAMEL/build/install/bin/KIM.x /usr/local/bin/kim
+```text
+build/install/bin/KIM.x
+build/install/bin/KiLCA_Normal_...
+build/install/bin/ql-balance.x
 ```
 
-Alternatively, you can add an alias to your shell configuration file (`.bashrc`, `.zshrc`, etc.):
-```bash
-alias kim='/path/to/KAMEL/build/install/bin/KIM.x'
+For direct CMake use, the equivalent release build is:
+
+```sh
+cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
+cmake --build build --parallel
 ```
 
-### Tested Configurations
-- **Apple Silicon**: clang 16.0 + gfortran 14.2
-- **Debian/Ubuntu**: GNU compiler 12.2.0
+To select a libneo branch, tag, or commit, pass `LIBNEO_REF=<ref>` to `make`
+or `-DLIBNEO_REF=<ref>` to CMake. To use a local libneo checkout, use
+`LIBNEO_PATH=<dir>` or `-DLIBNEO_PATH=<dir>`.
 
-## Quick Start
+## Run
 
-```bash
-# 1. Clone repository
-git clone https://github.com/itpplasma/KAMEL.git
-cd KAMEL
+Each solver expects a prepared run directory; the example namelists describe
+the configuration format but are not self-contained plasma datasets.
 
-# 2. Build all codes
-make all
+### KIM
 
-# 3. Install Python interface
-cd python && make init && make install
+KIM accepts the namelist path as its first argument:
 
-# 4. Run tests
+```sh
+build/install/bin/KIM.x /path/to/KIM_config.nml
+```
+
+Start from [`KIM/nmls/KIM_config.nml`](KIM/nmls/KIM_config.nml) and consult the
+[namelist reference](KIM/nmls/README.md). Profile files use CGS units and may
+be supplied as radial-profile files or through the supported HDF5/in-memory
+interfaces.
+
+### KiLCA
+
+Run the versioned `KiLCA_Normal_...` executable from a directory containing a
+complete KiLCA input set. The
+[`python/KiLCA_interface/`](python/KiLCA_interface/) package is the recommended
+way to prepare and manage those runs.
+
+### QL-Balance
+
+QL-Balance reads `balance_conf.nml` from its working directory:
+
+```sh
+cd /path/to/run-directory
+/path/to/KAMEL/build/install/bin/ql-balance.x
+```
+
+The template is [`QL-Balance/namelists/balance_conf.nml`](QL-Balance/namelists/balance_conf.nml).
+
+## Test
+
+Build and run the CTest suite with:
+
+```sh
 make test
 ```
 
-## Project Structure
+The golden-record suite compares the current physics output with the frozen
+`golden-baseline` tag. It is intentionally separate because it performs two
+complete builds:
 
-- `/KiLCA/` - Finite Larmor radius plasma response solver
-- `/KIM/` - Integral formalism plasma response solver
-- `/QL-Balance/` - Quasilinear transport code (supports KiLCA and KIM wave codes)
-- `/PreProc/` - Preprocessing utilities (fouriermodes, neo-2 templates)
-- `/python/` - Python interface (KAMELpy) for all codes
-- `/common/` - Shared utilities: equilibrium handling, math libraries, logger
+```sh
+make golden
+```
+
+See [`test/golden/README.md`](test/golden/README.md) before adding a case or
+re-blessing the baseline.
+
+## Python interface
+
+Install KAMELpy in editable mode from a virtual environment:
+
+```sh
+cd python
+make init
+make install
+```
+
+See [`python/README.md`](python/README.md) and the component-specific Python
+READMEs for usage.
+
+## Installation
+
+The build already stages its executables and libraries below `build/install`.
+For a convenient `kim` command, `make install-kim` builds KIM and prints the
+command needed to create `/usr/local/bin/kim`; it does not silently modify the
+system path.
 
 ## Contributing
 
-Contributions are welcome! See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
+See [`CONTRIBUTING.md`](CONTRIBUTING.md) for the development workflow and
+formatting requirements. KAMEL is academic research software; numerical
+changes should include focused tests and must pass the physics golden record
+when they intentionally affect solver output.
 
 ## License
 
-This project is licensed under the MIT License. See [LICENSE](LICENSE) for details.
+KAMEL is licensed under the MIT License. See [`LICENSE`](LICENSE).

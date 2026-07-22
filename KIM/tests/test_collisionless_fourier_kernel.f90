@@ -26,14 +26,17 @@ program test_collisionless_fourier_kernel
 
     rho_phi_ref = cmplx(-2.1836855175510750e-2_dp, -8.2515585946286270e-3_dp, dp)
     rho_B_ref = cmplx(-3.0215925066508310e-14_dp, 4.7259864203647080e-14_dp, dp)
-    j_phi_ref = cmplx(3.3181741084489427e-3_dp, -2.0023934758877357e-2_dp, dp)
+    ! Independent quadrature of the defining velocity integral (thesis 13.56).
+    ! This deliberately does not use the reduced expression from thesis 13.59,
+    ! whose printed first-moment recurrence misses a common (1 + zeta Z) factor.
+    j_phi_ref = cmplx(8.1530507195319300e-3_dp, -6.8379196814533620e-3_dp, dp)
     j_B_ref = cmplx(3.0810039432056770e-14_dp, -4.8189101490788025e-14_dp, dp)
 
     call assert_close('rho-Phi Mathematica oracle', rho_phi, rho_phi_ref, 2.0e-13_dp)
     ! fortnum's integer-order Bessel approximation is accurate to about 1e-8
     ! for the I_{-1} value used by this manufactured case.
     call assert_close('rho-B Mathematica oracle', rho_B, rho_B_ref, 5.0e-8_dp)
-    call assert_close('j-Phi Mathematica oracle', j_phi, j_phi_ref, 2.0e-13_dp)
+    call assert_close('j-Phi direct-quadrature oracle', j_phi, j_phi_ref, 2.0e-13_dp)
     call assert_close('j-B Mathematica oracle', j_B, j_B_ref, 5.0e-8_dp)
 
     call test_magnetic_recurrence(test_plasma)

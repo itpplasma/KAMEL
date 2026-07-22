@@ -31,3 +31,9 @@ add_fortran_test(test_kim_adapter)
 add_executable(test_vel_integral.x test_vel_integral.f90)
 target_link_libraries(test_vel_integral.x PUBLIC ql-balance_lib)
 add_fortran_test(test_vel_integral)
+
+# Diagnostic-only manufactured volume-normalization probe. It executes the
+# production total-torque routine but is not a regression test until the
+# one-sided harmonic normalization contract is settled upstream.
+add_executable(probe_toroidal_torque_volume.x probe_toroidal_torque_volume.f90)
+target_link_libraries(probe_toroidal_torque_volume.x PUBLIC ql-balance_lib)

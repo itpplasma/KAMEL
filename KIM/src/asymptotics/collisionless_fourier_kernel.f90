@@ -176,7 +176,7 @@ contains
         ! Debye limit independently of the sign of k_parallel.
         coeff0 = sI0 * (&
             -plasma_in%om_E(j) / omega_c &
-            + ks * vT**2 / omega_c**2 * (grad_A1 + (1.0_dp + bplus) * grad_A2)) &
+            + ks * vT**2 / omega_c**2 * (grad_A1 + (1.0_dp - bplus) * grad_A2)) &
             + ks * vT**2 / omega_c**2 * grad_A2 * bcross * sIm1
         coeff1 = -k_abs / omega_c * sI0
         coeff2 = ks * grad_A2 / (2.0_dp * omega_c**2) * sI0
@@ -204,7 +204,7 @@ contains
         ! Mathematica-reduced common bracket in thesis (13.151),(13.153).
         magnetic_bracket = 0.5_dp * grad_A2 * sI0 &
             + (zeta0 * response_Z + 1.0_dp) * (&
-                (grad_A1 + grad_A2 * (1.0_dp + bplus + zeta0**2)) * sI0 &
+                (grad_A1 + grad_A2 * (1.0_dp - bplus + zeta0**2)) * sI0 &
                 + grad_A2 * bcross * sIm1)
 
         rho_B = com_unit * vT**2 / (sol * lambda_D**2 * omega_c * k_pole) &

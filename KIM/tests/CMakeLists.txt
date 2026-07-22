@@ -70,6 +70,15 @@ target_link_libraries(test_collisionless_ion_kernel KIM_lib kilca_lib lapack cer
 add_test(NAME test_collisionless_ion_kernel
          COMMAND ${CMAKE_BINARY_DIR}/tests/test_collisionless_ion_kernel.x)
 
+# m_phi=0 collisionless ion charge/current kernels in the periodic Fourier basis.
+add_executable(test_collisionless_fourier_kernel ${CMAKE_SOURCE_DIR}/KIM/tests/test_collisionless_fourier_kernel.f90)
+set_target_properties(test_collisionless_fourier_kernel PROPERTIES
+                        OUTPUT_NAME test_collisionless_fourier_kernel.x
+                        RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/tests/")
+target_link_libraries(test_collisionless_fourier_kernel KIM_lib kilca_lib lapack cerf fortnum_amos_compat)
+add_test(NAME test_collisionless_fourier_kernel
+         COMMAND ${CMAKE_BINARY_DIR}/tests/test_collisionless_fourier_kernel.x)
+
 add_executable(test_collisionless_ion_assembly ${CMAKE_SOURCE_DIR}/KIM/tests/test_collisionless_ion_assembly.f90)
 set_target_properties(test_collisionless_ion_assembly PROPERTIES
                         OUTPUT_NAME test_collisionless_ion_assembly.x

@@ -103,6 +103,8 @@ contains
 
         call build_periodic_plasma(rm, dx_asis, dx_tr, n_rg)
 
+        call test_configured_dispatch(plasma)
+
         N = rg_grid%npts_b
         if (N /= n_rg) then
             print *, 'FAIL: rg_grid%npts_b /= n_rg; got ', N
@@ -169,6 +171,117 @@ contains
         end do
         print *, 'PASS: all matrix elements finite'
     end subroutine test_assemble
+
+    subroutine test_configured_dispatch(plasma)
+        use collisionless_fourier_kernel_m, only: collisionless_ion_cores, &
+            configured_hatG_rho_phi, configured_hatG_rho_B, &
+            configured_hatG_j_phi, configured_hatG_j_B
+        use config_m, only: ion_collision_model, collisionless_kpar_epsilon, &
+            turn_off_electrons, turn_off_ions
+        use constants_m, only: com_unit, pi
+        use flr2_fourier_kernel_m, only: hatG_rho_phi, hatG_rho_B, &
+            hatG_j_phi, hatG_j_B, flr_arg_pair_sp, core_rho_phi_sp, &
+            core_rho_B_sp, core_j_phi_sp, core_j_B_sp
+        use grid_m, only: rg_grid
+        use species_m, only: plasma_t
+
+        type(plasma_t), intent(inout) :: plasma
+        real(dp), parameter :: kr = 0.17_dp, krp = -0.09_dp
+        integer :: j, sp
+        real(dp) :: bplus, bcross, saved_nu
+        complex(dp) :: phase, electron_phi, electron_B, electron_jphi, electron_jB
+        complex(dp) :: ion_phi, ion_B, ion_jphi, ion_jB
+        complex(dp) :: core_phi, core_B, core_jphi, core_jB
+        complex(dp) :: actual_phi, actual_B, actual_jphi, actual_jB
+
+        j = max(1, rg_grid%npts_b / 2)
+        collisionless_kpar_epsilon = 1.0e-5_dp
+        turn_off_electrons = .false.
+        turn_off_ions = .false.
+
+        ! The configured wrapper must be an exact delegation in the default FP
+        ! mode so existing production results do not change.
+        ion_collision_model = 'FokkerPlanck'
+        call assert_dispatch_close('FP rho-Phi delegation', &
+            configured_hatG_rho_phi(plasma, kr, krp, j), hatG_rho_phi(plasma, kr, krp, j))
+        call assert_dispatch_close('FP rho-B delegation', &
+            configured_hatG_rho_B(plasma, kr, krp, j), hatG_rho_B(plasma, kr, krp, j))
+        call assert_dispatch_close('FP j-Phi delegation', &
+            configured_hatG_j_phi(plasma, kr, krp, j), hatG_j_phi(plasma, kr, krp, j))
+        call assert_dispatch_close('FP j-B delegation', &
+            configured_hatG_j_B(plasma, kr, krp, j), hatG_j_B(plasma, kr, krp, j))
+
+        phase = exp(-com_unit * (kr - krp) * rg_grid%xb(j))
+        call flr_arg_pair_sp(plasma, 0, kr, krp, j, bplus, bcross)
+        electron_phi = phase * core_rho_phi_sp(plasma, 0, bplus, bcross, j) / (8.0_dp * pi**2)
+        electron_B = phase * core_rho_B_sp(plasma, 0, bplus, bcross, j) / (8.0_dp * pi**2)
+        electron_jphi = phase * core_j_phi_sp(plasma, 0, bplus, bcross, j) / (8.0_dp * pi**2)
+        electron_jB = phase * core_j_B_sp(plasma, 0, bplus, bcross, j) / (8.0_dp * pi**2)
+
+        ion_phi = (0.0_dp, 0.0_dp)
+        ion_B = (0.0_dp, 0.0_dp)
+        ion_jphi = (0.0_dp, 0.0_dp)
+        ion_jB = (0.0_dp, 0.0_dp)
+        do sp = 1, plasma%n_species - 1
+            call collisionless_ion_cores(plasma, sp, kr, krp, j, &
+                collisionless_kpar_epsilon, core_phi, core_B, core_jphi, core_jB)
+            ion_phi = ion_phi + phase * core_phi
+            ion_B = ion_B + phase * core_B
+            ion_jphi = ion_jphi + phase * core_jphi
+            ion_jB = ion_jB + phase * core_jB
+        end do
+
+        ion_collision_model = 'collisionless'
+        actual_phi = configured_hatG_rho_phi(plasma, kr, krp, j)
+        actual_B = configured_hatG_rho_B(plasma, kr, krp, j)
+        actual_jphi = configured_hatG_j_phi(plasma, kr, krp, j)
+        actual_jB = configured_hatG_j_B(plasma, kr, krp, j)
+        call assert_dispatch_close('hybrid rho-Phi composition', actual_phi, electron_phi + ion_phi)
+        call assert_dispatch_close('hybrid rho-B composition', actual_B, electron_B + ion_B)
+        call assert_dispatch_close('hybrid j-Phi composition', actual_jphi, electron_jphi + ion_jphi)
+        call assert_dispatch_close('hybrid j-B composition', actual_jB, electron_jB + ion_jB)
+        if (abs(ion_jphi) <= tiny(1.0_dp) .and. abs(ion_jB) <= tiny(1.0_dp)) then
+            print *, 'FAIL: configured collisionless ion current is zero'
+            error stop
+        end if
+
+        turn_off_electrons = .true.
+        call assert_dispatch_close('electron-off rho-Phi', &
+            configured_hatG_rho_phi(plasma, kr, krp, j), ion_phi)
+        call assert_dispatch_close('electron-off j-Phi', &
+            configured_hatG_j_phi(plasma, kr, krp, j), ion_jphi)
+        saved_nu = plasma%spec(1)%nu(j)
+        plasma%spec(1)%nu(j) = saved_nu * 17.0_dp
+        call assert_dispatch_close('collisionless ion nu independence', &
+            configured_hatG_rho_phi(plasma, kr, krp, j), ion_phi)
+        plasma%spec(1)%nu(j) = saved_nu
+
+        turn_off_electrons = .false.
+        turn_off_ions = .true.
+        call assert_dispatch_close('ion-off rho-Phi', &
+            configured_hatG_rho_phi(plasma, kr, krp, j), electron_phi)
+        call assert_dispatch_close('ion-off j-Phi', &
+            configured_hatG_j_phi(plasma, kr, krp, j), electron_jphi)
+
+        turn_off_ions = .false.
+        ion_collision_model = 'FokkerPlanck'
+        print *, 'PASS: configured FP/collisionless hybrid dispatch'
+    end subroutine test_configured_dispatch
+
+    subroutine assert_dispatch_close(label, actual, expected)
+        character(*), intent(in) :: label
+        complex(dp), intent(in) :: actual, expected
+        real(dp) :: tolerance
+
+        tolerance = 2.0e-12_dp * max(1.0_dp, abs(expected))
+        if (abs(actual - expected) > tolerance) then
+            print *, 'FAIL: ', label
+            print *, '  actual   = ', actual
+            print *, '  expected = ', expected
+            print *, '  error    = ', abs(actual - expected), ' tolerance = ', tolerance
+            error stop
+        end if
+    end subroutine assert_dispatch_close
 
     !> Recompute K^{rhoPhi}, K^{rhoB}, K^{jPhi} and K^{jB} at (m,m') by an INLINE
     !> brute-force periodic-trapezoidal sum using the SAME formula as the module,

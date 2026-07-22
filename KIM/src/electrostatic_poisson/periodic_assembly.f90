@@ -66,7 +66,7 @@ contains
     !> 1/(8*pi^2) Fourier normalization, so no further scaling is applied here.
     subroutine assemble_periodic_matrices(plasma, L, M, Kphi, KB, Kjphi, KjB)
         use grid_m, only: rg_grid
-        use flr2_fourier_kernel_m, only: hatG_rho_phi, hatG_rho_B, hatG_j_phi, hatG_j_B
+        use collisionless_fourier_kernel_m, only: configured_hatG_all
         use constants_m, only: pi
 
         type(plasma_t), intent(in) :: plasma
@@ -78,6 +78,7 @@ contains
         integer :: N, dim, m_row, m_col, im, imp, j
         real(dp) :: k_m, k_mp, weight
         complex(dp) :: acc_phi, acc_B, acc_jphi, acc_jB
+        complex(dp) :: point_phi, point_B, point_jphi, point_jB
 
         N = rg_grid%npts_b
         dim = 2 * M + 1
@@ -97,7 +98,8 @@ contains
         !$omp parallel do default(none) schedule(static) &
         !$omp shared(M, L, N, weight, plasma, Kphi, KB, Kjphi, KjB) &
         !$omp private(m_col, k_mp, imp, m_row, k_m, im, j, &
-        !$omp         acc_phi, acc_B, acc_jphi, acc_jB)
+        !$omp         acc_phi, acc_B, acc_jphi, acc_jB, &
+        !$omp         point_phi, point_B, point_jphi, point_jB)
         do m_col = -M, M
             k_mp = k_of_m(m_col, L)
             imp = m_col + M + 1
@@ -110,10 +112,12 @@ contains
                 acc_jphi = (0.0_dp, 0.0_dp)
                 acc_jB   = (0.0_dp, 0.0_dp)
                 do j = 1, N
-                    acc_phi  = acc_phi  + hatG_rho_phi(plasma, k_m, k_mp, j)
-                    acc_B    = acc_B    + hatG_rho_B(plasma, k_m, k_mp, j)
-                    acc_jphi = acc_jphi + hatG_j_phi(plasma, k_m, k_mp, j)
-                    acc_jB   = acc_jB   + hatG_j_B(plasma, k_m, k_mp, j)
+                    call configured_hatG_all(plasma, k_m, k_mp, j, &
+                        point_phi, point_B, point_jphi, point_jB)
+                    acc_phi  = acc_phi  + point_phi
+                    acc_B    = acc_B    + point_B
+                    acc_jphi = acc_jphi + point_jphi
+                    acc_jB   = acc_jB   + point_jB
                 end do
 
                 Kphi(im, imp)  = weight * acc_phi

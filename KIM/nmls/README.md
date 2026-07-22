@@ -4,10 +4,18 @@ KIM is configured via the namelist file KIM_config.nml containing multiple namel
 ## KIM_CONFIG
 - number_of_ion_species ... integer, number of ion species
 - read_species_from_namelist ... boolean, if false, initialize deuterium plasma
-- type_of_run ... string, specifies the type of run, options are: 'electrostatic', 'electromagnetic', 'WKB_dispersion', 'flr2_benchmark'
+- type_of_run ... string, specifies the type of run, options include: 'electrostatic', 'electrostatic_periodic', 'electromagnetic', 'WKB_dispersion', 'flr2_benchmark'
 - collision_model ... string, collision model to use, options are: 'Krook', 'FokkerPlanck'
+- ion_collision_model ... string, ion model used with `collision_model='FokkerPlanck'`: `FokkerPlanck` (default) or `collisionless`. In `electrostatic_periodic`, collisionless mode keeps FP electrons and uses the $m_\phi=0$ collisionless ion kernels for both charge and parallel current.
+- collisionless_kpar_epsilon ... real, positive causal-pole width in 1/cm required by `ion_collision_model='collisionless'`. KIM uses $k_{\parallel}+i\epsilon$ for signed inverse factors and $\sqrt{k_{\parallel}^2+\epsilon^2}$ for even charge-response factors.
+- ion_fp_collision_scale ... real, positive multiplier applied only to ion FP collision frequencies. It has no effect on collisionless ion kernels.
 - collision_frequency_scale ... real, positive multiplier applied to the calculated electron and ion collision frequencies before the Krook argument z0 and the Fokker-Planck susceptibility inputs are assembled; default 1.0 leaves the collision formulas unchanged
 - artificial_debye_case ... integer, if 0: full calculation of kernel, if 1: Debye case, if 2: exclude Debye case
+
+Collisionless forced periodicity currently requires `artificial_debye_case=0`,
+`theta_integration='GaussLegendre'`, and a positive
+`collisionless_kpar_epsilon`. Higher cyclotron harmonics are not included in
+this ion model; the implemented derivation uses $m_\phi=0$.
 
 ## KIM_IO
 - profile_location ... string, path to the profiles
@@ -85,3 +93,16 @@ Notes:
 ## KIM_SPECIES
 - zi ... integer array, ion charge numbers (e.g., zi = 1, 2 for H+ and He++)
 - ai ... integer array, ion mass numbers (e.g., ai = 2, 4 for D and He)
+
+## KIM_PERIODIC
+
+- periodic_dr_asis_scale ... real, half-width of the unchanged profile region in units of the selected reference Larmor radius
+- periodic_dr_tr_scale ... real, width of the transition buffer on each side in units of the selected reference Larmor radius
+- periodic_kmax_scale ... real, radial Fourier cutoff multiplied by the reference Larmor radius; the solver derives the integer harmonic count $M$ from this cutoff and the period
+- periodic_n_rg ... integer, number of endpoint-exclusive guiding-centre samples over one period
+- periodic_match_global_kernel_approximations ... boolean, if true drops $k_s^2$ from the FLR arguments and takes electrons in the zero-FLR limit for comparison with the simplified global model; default false
+
+For `ion_collision_model='collisionless'`, these settings control the same
+periodic window and Fourier basis as in FP mode. The assembled response is FP
+electrons plus collisionless ion charge and current. Both `Phi` and `jpar` are
+written through the standard forced-periodicity output path.

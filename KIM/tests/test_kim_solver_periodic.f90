@@ -25,6 +25,7 @@ program test_kim_solver_periodic
     implicit none
 
     call test_run_type_end_to_end()
+    call test_collisionless_ions_end_to_end()
     call test_multi_ion_order_independence()
     call test_global_approximation_enabled()
 
@@ -32,6 +33,89 @@ program test_kim_solver_periodic
     stop 0
 
 contains
+
+    subroutine test_collisionless_ions_end_to_end()
+        use, intrinsic :: ieee_arithmetic, only: ieee_is_finite
+        use config_m, only: profiles_in_memory, nml_config_path, &
+            ion_collision_model, collisionless_kpar_epsilon
+        use fields_m, only: EBdat, EBdat_t
+        use kim_base_m, only: kim_t
+        use kim_mod_m, only: from_kim_factory_get_kim
+        use species_m, only: set_profiles_from_arrays
+
+        integer, parameter :: npts = 201
+        real(dp) :: r_prof(npts), n_prof(npts), Te_prof(npts)
+        real(dp) :: Ti_prof(npts), q_prof(npts), Er_prof(npts)
+        complex(dp), allocatable :: phi_with_ions(:), jpar_with_ions(:)
+        complex(dp), allocatable :: phi_electrons(:), jpar_electrons(:)
+        class(kim_t), allocatable :: kim_instance
+        real(dp) :: current_scale
+        integer :: i
+
+        call make_test_profiles(npts, r_prof, n_prof, Te_prof, Ti_prof, &
+            q_prof, Er_prof)
+        call write_test_namelist('./KIM_config_periodic_collisionless_test.nml', &
+            collisionless_ions=.true.)
+        nml_config_path = './KIM_config_periodic_collisionless_test.nml'
+        profiles_in_memory = .true.
+        call kim_init()
+        call set_profiles_from_arrays(r_prof, n_prof, Te_prof, Ti_prof, &
+            q_prof, Er_prof, npts)
+        EBdat = EBdat_t()
+        call from_kim_factory_get_kim('electrostatic_periodic', kim_instance)
+        call kim_instance%init()
+        call kim_instance%run()
+
+        if (trim(ion_collision_model) /= 'collisionless' .or. &
+                collisionless_kpar_epsilon <= 0.0_dp) then
+            print *, 'FAIL: collisionless periodic configuration was not retained'
+            error stop
+        end if
+        phi_with_ions = EBdat%Phi
+        jpar_with_ions = EBdat%jpar
+        do i = 1, size(phi_with_ions)
+            if (.not. ieee_is_finite(real(phi_with_ions(i), dp)) .or. &
+                .not. ieee_is_finite(aimag(phi_with_ions(i))) .or. &
+                .not. ieee_is_finite(real(jpar_with_ions(i), dp)) .or. &
+                .not. ieee_is_finite(aimag(jpar_with_ions(i)))) then
+                print *, 'FAIL: non-finite collisionless periodic output at ', i
+                error stop
+            end if
+        end do
+        if (maxval(abs(phi_with_ions)) <= 0.0_dp .or. &
+                maxval(abs(jpar_with_ions)) <= 0.0_dp) then
+            print *, 'FAIL: collisionless periodic Phi or jpar is identically zero'
+            error stop
+        end if
+
+        ! Repeat with ions disabled.  A changed current proves that the new ion
+        ! current kernels reach reconstruction rather than only charge assembly.
+        deallocate(kim_instance)
+        call write_test_namelist('./KIM_config_periodic_collisionless_test.nml', &
+            collisionless_ions=.true., ions_disabled=.true.)
+        call kim_init()
+        call set_profiles_from_arrays(r_prof, n_prof, Te_prof, Ti_prof, &
+            q_prof, Er_prof, npts)
+        EBdat = EBdat_t()
+        call from_kim_factory_get_kim('electrostatic_periodic', kim_instance)
+        call kim_instance%init()
+        call kim_instance%run()
+        phi_electrons = EBdat%Phi
+        jpar_electrons = EBdat%jpar
+
+        current_scale = max(1.0_dp, maxval(abs(jpar_with_ions)))
+        if (maxval(abs(jpar_with_ions - jpar_electrons)) <= 1.0e-10_dp * current_scale) then
+            print *, 'FAIL: disabling collisionless ions did not change jpar'
+            error stop
+        end if
+        if (maxval(abs(phi_with_ions - phi_electrons)) <= &
+                1.0e-10_dp * max(1.0_dp, maxval(abs(phi_with_ions)))) then
+            print *, 'FAIL: disabling collisionless ions did not change Phi'
+            error stop
+        end if
+
+        print *, 'PASS: collisionless periodic ions contribute finite Phi and jpar'
+    end subroutine test_collisionless_ions_end_to_end
 
     subroutine test_run_type_end_to_end()
         use, intrinsic :: ieee_arithmetic, only: ieee_is_finite
@@ -394,7 +478,8 @@ contains
         end do
     end subroutine make_test_profiles
 
-    subroutine write_test_namelist(path, ion_masses, match_global_approximations)
+    subroutine write_test_namelist(path, ion_masses, match_global_approximations, &
+            collisionless_ions, ions_disabled)
         ! Minimal electrostatic-periodic FokkerPlanck configuration; m_mode = -6,
         ! n_mode = 2 makes q resonant at q = 3, type_br_field = 12 (constant Br).
         ! Deliberately OMITS the &KIM_PERIODIC group to prove the periodic_*
@@ -402,10 +487,15 @@ contains
         character(len=*), intent(in) :: path
         integer, intent(in), optional :: ion_masses(:)
         logical, intent(in), optional :: match_global_approximations
+        logical, intent(in), optional :: collisionless_ions, ions_disabled
         integer :: iunit, i, nions
-        logical :: custom_species
+        logical :: custom_species, use_collisionless, disable_ions
 
         custom_species = present(ion_masses)
+        use_collisionless = .false.
+        if (present(collisionless_ions)) use_collisionless = collisionless_ions
+        disable_ions = .false.
+        if (present(ions_disabled)) disable_ions = ions_disabled
         nions = 1
         if (custom_species) nions = size(ion_masses)
 
@@ -415,8 +505,14 @@ contains
         write(iunit, '(A)') ' artificial_debye_case = 0'
         write(iunit, '(A)') " type_of_run = 'electrostatic_periodic'"
         write(iunit, '(A)') " collision_model = 'FokkerPlanck'"
+        if (use_collisionless) then
+            write(iunit, '(A)') " ion_collision_model = 'collisionless'"
+            write(iunit, '(A)') ' collisionless_kpar_epsilon = 1.0e-5'
+        else
+            write(iunit, '(A)') " ion_collision_model = 'FokkerPlanck'"
+        end if
         write(iunit, '(A,L1)') ' read_species_from_namelist = ', custom_species
-        write(iunit, '(A)') ' turn_off_ions = .false.'
+        write(iunit, '(A,L1)') ' turn_off_ions = ', disable_ions
         write(iunit, '(A)') ' turn_off_electrons = .false.'
         write(iunit, '(A)') " plasma_type = 'D'"
         write(iunit, '(A)') ' rescale_density = .false.'

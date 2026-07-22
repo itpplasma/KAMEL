@@ -238,7 +238,8 @@ contains
         actual_jB = configured_hatG_j_B(plasma, kr, krp, j)
         call assert_dispatch_close('hybrid rho-Phi composition', actual_phi, electron_phi + ion_phi)
         call assert_dispatch_close('hybrid rho-B composition', actual_B, electron_B + ion_B)
-        call assert_dispatch_close('hybrid j-Phi composition', actual_jphi, electron_jphi + ion_jphi)
+        call assert_dispatch_close('hybrid j-Phi composition', actual_jphi, &
+            electron_jphi + ion_jphi)
         call assert_dispatch_close('hybrid j-B composition', actual_jB, electron_jB + ion_jB)
         if (abs(ion_jphi) <= tiny(1.0_dp) .and. abs(ion_jB) <= tiny(1.0_dp)) then
             print *, 'FAIL: configured collisionless ion current is zero'

@@ -355,15 +355,6 @@ target_link_libraries (test_back_sett kilca_lib ${EXTERNAL_LIBS})
 add_test(NAME test_back_sett COMMAND ${CMAKE_BINARY_DIR}/tests/test_back_sett.x)
 set_tests_properties(test_back_sett PROPERTIES WORKING_DIRECTORY ${CMAKE_BINARY_DIR}/tests/)
 
-add_executable(probe_lorentz_torque_kernel tests/probe_lorentz_torque_kernel.f90)
-set_target_properties(probe_lorentz_torque_kernel PROPERTIES
-    OUTPUT_NAME probe_lorentz_torque_kernel.x
-    RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/tests)
-target_include_directories(probe_lorentz_torque_kernel PRIVATE
-    ${PROJECT_BINARY_DIR}/OBJS/kilca/)
-add_dependencies(probe_lorentz_torque_kernel kilca_lib)
-target_link_libraries(probe_lorentz_torque_kernel kilca_lib ${EXTERNAL_LIBS})
-
 add_executable (test_eigmode_sett tests/test_eigmode_sett.f90)
 set_target_properties(test_eigmode_sett PROPERTIES
     OUTPUT_NAME test_eigmode_sett.x

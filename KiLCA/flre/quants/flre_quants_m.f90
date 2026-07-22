@@ -51,6 +51,8 @@ module kilca_flre_quants_m
     public :: flre_quants_transform_quants_to_lab_cyl_frame
     public :: flre_quants_interp_diss_power_density
     public :: flre_quants_interp_current_density
+    ! Diagnostic-only kernel access for manufactured coordinate/sign probes.
+    public :: vec_product_3d, integrate_over_cylinder
 
     real(c_double), parameter :: pi = 3.141592653589793238462643383279502884197d0
     complex(c_double), parameter :: ii = (0.0d0, 1.0d0)

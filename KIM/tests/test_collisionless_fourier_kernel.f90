@@ -24,17 +24,21 @@ program test_collisionless_fourier_kernel
     call collisionless_ion_cores(test_plasma, 1, kr, krp, 1, epsilon, &
         rho_phi, rho_B, j_phi, j_B)
 
-    rho_phi_ref = cmplx(-2.1836855175510750e-2_dp, -8.2515585946286270e-3_dp, dp)
-    rho_B_ref = cmplx(-3.0215925066508310e-14_dp, 4.7259864203647080e-14_dp, dp)
-    j_phi_ref = cmplx(3.3181741084489427e-3_dp, -2.0023934758877357e-2_dp, dp)
-    j_B_ref = cmplx(3.0810039432056770e-14_dp, -4.8189101490788025e-14_dp, dp)
+    ! Independent Fourier-space evaluation of the global collisionless
+    ! G1+G2+G3 decomposition.  In particular, G2 supplies the -b_plus term,
+    ! and the velocity moments retain their Z(zeta) and 1+zeta*Z(zeta)
+    ! dependence.  The global solver is the normalization/sign baseline.
+    rho_phi_ref = cmplx(-2.1566076735926778e-2_dp, -7.8627199009209740e-3_dp, dp)
+    rho_B_ref = cmplx(-5.9925789298467730e-14_dp, 1.5662372153310280e-14_dp, dp)
+    j_phi_ref = cmplx(7.8025611966209100e-3_dp, -6.5083683321303820e-3_dp, dp)
+    j_B_ref = cmplx(6.1104067713266680e-14_dp, -1.5970330300359097e-14_dp, dp)
 
-    call assert_close('rho-Phi Mathematica oracle', rho_phi, rho_phi_ref, 2.0e-13_dp)
+    call assert_close('rho-Phi global-kernel oracle', rho_phi, rho_phi_ref, 2.0e-13_dp)
     ! fortnum's integer-order Bessel approximation is accurate to about 1e-8
     ! for the I_{-1} value used by this manufactured case.
-    call assert_close('rho-B Mathematica oracle', rho_B, rho_B_ref, 5.0e-8_dp)
-    call assert_close('j-Phi Mathematica oracle', j_phi, j_phi_ref, 2.0e-13_dp)
-    call assert_close('j-B Mathematica oracle', j_B, j_B_ref, 5.0e-8_dp)
+    call assert_close('rho-B global-kernel oracle', rho_B, rho_B_ref, 5.0e-8_dp)
+    call assert_close('j-Phi global-kernel oracle', j_phi, j_phi_ref, 2.0e-13_dp)
+    call assert_close('j-B global-kernel oracle', j_B, j_B_ref, 5.0e-8_dp)
 
     call test_magnetic_recurrence(test_plasma)
     call test_homogeneous_static_limit(test_plasma)

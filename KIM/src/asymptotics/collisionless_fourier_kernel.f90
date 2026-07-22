@@ -176,20 +176,23 @@ contains
         ! Debye limit independently of the sign of k_parallel.
         coeff0 = sI0 * (&
             -plasma_in%om_E(j) / omega_c &
-            + ks * vT**2 / omega_c**2 * (grad_A1 + (1.0_dp + bplus) * grad_A2)) &
+            + ks * vT**2 / omega_c**2 * (grad_A1 + (1.0_dp - bplus) * grad_A2)) &
             + ks * vT**2 / omega_c**2 * grad_A2 * bcross * sIm1
         coeff1 = -k_abs / omega_c * sI0
         coeff2 = ks * grad_A2 / (2.0_dp * omega_c**2) * sI0
 
-        ! Zeroth and first parallel-velocity moments, thesis (13.58),(13.59).
+        ! Zeroth parallel-velocity moment, thesis (13.58), and the first
+        ! moment obtained directly from the defining integral (13.56).  The
+        ! printed expression (13.59) misses the common (1 + zeta0*Z) factor
+        ! on the coeff1 and coeff2 terms and doubles the residual coeff2 term.
         rho_phi_moment = response_Z * (&
             coeff0 + sqrt(2.0_dp) * vT * zeta0 * coeff1 &
             + 2.0_dp * vT**2 * zeta0**2 * coeff2) &
             + sqrt(2.0_dp) * vT * (coeff1 + sqrt(2.0_dp) * vT * zeta0 * coeff2)
-        j_phi_moment = (zeta0 * response_Z + 1.0_dp) * coeff0 &
-            + sqrt(2.0_dp) * vT * zeta0 * coeff1 &
-            + 2.0_dp * vT**2 * zeta0**2 * coeff2 &
-            + 2.0_dp * vT**2 * coeff2
+        j_phi_moment = (zeta0 * response_Z + 1.0_dp) * (&
+            coeff0 + sqrt(2.0_dp) * vT * zeta0 * coeff1 &
+            + 2.0_dp * vT**2 * zeta0**2 * coeff2) &
+            + vT**2 * coeff2
 
         ! The original 2^(-7/2)/pi^2 and 1/(8*pi^2) prefactors are
         ! written with the same explicit 1/(8*pi^2) normalization.
@@ -201,7 +204,7 @@ contains
         ! Mathematica-reduced common bracket in thesis (13.151),(13.153).
         magnetic_bracket = 0.5_dp * grad_A2 * sI0 &
             + (zeta0 * response_Z + 1.0_dp) * (&
-                (grad_A1 + grad_A2 * (1.0_dp + bplus + zeta0**2)) * sI0 &
+                (grad_A1 + grad_A2 * (1.0_dp - bplus + zeta0**2)) * sI0 &
                 + grad_A2 * bcross * sIm1)
 
         rho_B = com_unit * vT**2 / (sol * lambda_D**2 * omega_c * k_pole) &

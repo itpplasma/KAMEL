@@ -107,6 +107,58 @@ module species_m
 
     end function scale_fp_collision_frequency
 
+    subroutine evaluate_susceptibility(x1, x2, symbI)
+        ! Markl et al., Nucl. Fusion 63 (2023) 126007, appendix A:
+        ! use the collisionless moments once the collisional W2_arr
+        ! representation enters its empirically identified cancellation
+        ! regime. Requiring both arguments to be large keeps the resonant
+        ! x1 -> 0 and Er -> 0 limits on the regular collisional evaluator.
+        use constants_m, only: pi
+        use use_libcerf_m, only: w_of_z_F
+
+        real(dp), intent(in) :: x1, x2
+        complex(dp), intent(out) :: symbI(0:nmmax, 0:nmmax)
+
+        real(dp), parameter :: smaller_argument_threshold = 1.0e3_dp
+        real(dp), parameter :: larger_argument_threshold = 1.0e4_dp
+        complex(dp), parameter :: imaginary_unit = (0.0_dp, 1.0_dp)
+        complex(dp) :: moment(0:2 * nmmax), plasma_z
+        real(dp) :: sigma, zeta
+        integer :: k, l, order
+
+        if (min(abs(x1), abs(x2)) < smaller_argument_threshold .or. &
+                max(abs(x1), abs(x2)) < larger_argument_threshold) then
+            call getIfunc(x1, x2, symbI)
+            return
+        end if
+
+        sigma = sign(1.0_dp, x1)
+        zeta = x2 / (sqrt(2.0_dp) * x1)
+        plasma_z = imaginary_unit * sqrt(pi) &
+            * w_of_z_F(cmplx(sigma * zeta, 0.0_dp, dp))
+
+        moment(0) = -imaginary_unit * plasma_z &
+            / (sqrt(2.0_dp) * abs(x1))
+        do order = 1, 2 * nmmax
+            moment(order) = sqrt(2.0_dp) * zeta * moment(order - 1)
+            if (mod(order, 2) == 1) then
+                select case (order)
+                case (1, 3)
+                    moment(order) = moment(order) - imaginary_unit / x1
+                case (5)
+                    moment(order) = moment(order) &
+                        - 3.0_dp * imaginary_unit / x1
+                end select
+            end if
+        end do
+
+        do k = 0, nmmax
+            do l = 0, nmmax
+                symbI(k, l) = moment(k + l)
+            end do
+        end do
+    end subroutine evaluate_susceptibility
+
     subroutine init_plasma(plasma_in)
 
         use config_m, only: read_species_from_namelist, plasma_type
@@ -415,7 +467,8 @@ module species_m
                                                     + mphi * plasma%spec(sp)%omega_c(j)  - omega) &
                                                     / plasma_in%spec(sp)%nu(j)
 
-                    call getIfunc(plasma_in%spec(sp)%x1(j), plasma_in%spec(sp)%x2(j, mphi), plasma_in%spec(sp)%symbI)
+                    call evaluate_susceptibility(plasma_in%spec(sp)%x1(j), &
+                        plasma_in%spec(sp)%x2(j, mphi), plasma_in%spec(sp)%symbI)
                     plasma_in%spec(sp)%I00(j, mphi) = plasma_in%spec(sp)%symbI(0, 0)
                     plasma_in%spec(sp)%I20(j, mphi) = plasma_in%spec(sp)%symbI(2, 0)
                     plasma_in%spec(sp)%I02(j, mphi) = plasma_in%spec(sp)%symbI(0, 2)
@@ -446,7 +499,8 @@ module species_m
                                                         + mphi * plasma_in%spec(sp)%omega_c(j) - omega) &
                                                         / plasma_in%spec(sp)%nu_cc(j)
 
-                    call getIfunc(plasma_in%spec(sp)%x1_cc(j), plasma_in%spec(sp)%x2_cc(j, mphi), plasma_in%spec(sp)%symbI)
+                    call evaluate_susceptibility(plasma_in%spec(sp)%x1_cc(j), &
+                        plasma_in%spec(sp)%x2_cc(j, mphi), plasma_in%spec(sp)%symbI)
                     plasma_in%spec(sp)%I00_cc(j, mphi) = plasma_in%spec(sp)%symbI(0, 0)
                     plasma_in%spec(sp)%I20_cc(j, mphi) = plasma_in%spec(sp)%symbI(2, 0)
                     plasma_in%spec(sp)%I10_cc(j, mphi) = plasma_in%spec(sp)%symbI(1, 0)
@@ -936,7 +990,7 @@ module species_m
         if (.not. allocated(spec%symbI)) allocate(spec%symbI(0:nmmax, 0:nmmax))
         spec%symbI = 0.0d0
         do j = 1, plasma%grid_size
-            call getIfunc(spec%x1(j), spec%x2(j, mphi), spec%symbI)
+            call evaluate_susceptibility(spec%x1(j), spec%x2(j, mphi), spec%symbI)
             spec%I00(j, mphi) = spec%symbI(0, 0)
             spec%I20(j, mphi) = spec%symbI(2, 0)
             spec%I02(j, mphi) = spec%symbI(0, 2)

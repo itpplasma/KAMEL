@@ -89,6 +89,16 @@ add_test(NAME test_collisionless_ion_assembly
 set_tests_properties(test_collisionless_ion_assembly PROPERTIES
                      WORKING_DIRECTORY ${CMAKE_BINARY_DIR}/tests/)
 
+add_executable(test_susceptibility_collisionless_limit
+               ${CMAKE_SOURCE_DIR}/KIM/tests/test_susceptibility_collisionless_limit.f90)
+set_target_properties(test_susceptibility_collisionless_limit PROPERTIES
+                      OUTPUT_NAME test_susceptibility_collisionless_limit.x
+                      RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/tests/")
+target_link_libraries(test_susceptibility_collisionless_limit
+                      KIM_lib kilca_lib lapack cerf fortnum_amos_compat)
+add_test(NAME test_susceptibility_collisionless_limit
+         COMMAND ${CMAKE_BINARY_DIR}/tests/test_susceptibility_collisionless_limit.x)
+
 add_executable(test_flr2_fourier_kernel ${CMAKE_SOURCE_DIR}/KIM/tests/test_flr2_fourier_kernel.f90)
 set_target_properties(test_flr2_fourier_kernel PROPERTIES
                         OUTPUT_NAME test_flr2_fourier_kernel.x

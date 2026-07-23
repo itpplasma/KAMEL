@@ -21,6 +21,13 @@ The following are automatically downloaded during build:
 ## Configuration
 The code is configured with the namelist file */nmls/KIM_config.nml*.
 
+For `type_of_run = 'electrostatic_periodic'`, the HDF5 `/fields` group contains
+the total parallel current `jpar`, the electron contribution `jpar_e`, the
+summed ion contribution `jpar_i`, and one dataset per configured ion species:
+`jpar_i1`, `jpar_i2`, and so on. Ion dataset indices follow the one-based ion
+order in `&KIM_species`; consequently, `jpar = jpar_e + jpar_i` and
+`jpar_i = sum(jpar_i1, jpar_i2, ...)`.
+
 ## Compilation
 To compile the code:
 ```

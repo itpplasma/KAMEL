@@ -64,7 +64,8 @@ contains
     !> solve uses Kphi/KB, and j_par follows from thesis (11.8) as
     !> Kjphi . Phi_m + KjB . Br_m. The j-kernels already carry their
     !> 1/(8*pi^2) Fourier normalization, so no further scaling is applied here.
-    subroutine assemble_periodic_matrices(plasma, L, M, Kphi, KB, Kjphi, KjB)
+    subroutine assemble_periodic_matrices(plasma, L, M, Kphi, KB, Kjphi, KjB, &
+            Kjphi_species, KjB_species)
         use grid_m, only: rg_grid
         use collisionless_fourier_kernel_m, only: configured_hatG_all
         use constants_m, only: pi
@@ -74,15 +75,30 @@ contains
         integer, intent(in) :: M
         complex(dp), allocatable, intent(out) :: Kphi(:,:), KB(:,:)
         complex(dp), allocatable, intent(out) :: Kjphi(:,:), KjB(:,:)
+        complex(dp), allocatable, intent(out), optional :: Kjphi_species(:,:,:)
+        complex(dp), allocatable, intent(out), optional :: KjB_species(:,:,:)
 
         integer :: N, dim, m_row, m_col, im, imp, j
         real(dp) :: k_m, k_mp, weight
         complex(dp) :: acc_phi, acc_B, acc_jphi, acc_jB
         complex(dp) :: point_phi, point_B, point_jphi, point_jB
+        complex(dp) :: acc_jphi_species(0:plasma%n_species - 1)
+        complex(dp) :: acc_jB_species(0:plasma%n_species - 1)
+        complex(dp) :: point_jphi_species(0:plasma%n_species - 1)
+        complex(dp) :: point_jB_species(0:plasma%n_species - 1)
+        logical :: want_species
 
         N = rg_grid%npts_b
         dim = 2 * M + 1
         allocate(Kphi(dim, dim), KB(dim, dim), Kjphi(dim, dim), KjB(dim, dim))
+        if (present(Kjphi_species) .neqv. present(KjB_species)) then
+            error stop 'assemble_periodic_matrices requires both species-current matrices'
+        end if
+        want_species = present(Kjphi_species)
+        if (want_species) then
+            allocate(Kjphi_species(dim, dim, 0:plasma%n_species - 1))
+            allocate(KjB_species(dim, dim, 0:plasma%n_species - 1))
+        end if
 
         ! Periodic trapezoidal weight. rg_grid%xb is EQUIDISTANT and ENDPOINT-
         ! EXCLUSIVE over one period (grid_generate_equidistant: h = L/N, xb(N) =
@@ -96,10 +112,13 @@ contains
         ! radial quadrature while retaining a fixed summation order in j for
         ! bitwise-reproducible entries at a given compiler/architecture.
         !$omp parallel do default(none) schedule(static) &
-        !$omp shared(M, L, N, weight, plasma, Kphi, KB, Kjphi, KjB) &
+        !$omp shared(M, L, N, weight, plasma, Kphi, KB, Kjphi, KjB, &
+        !$omp        want_species, Kjphi_species, KjB_species) &
         !$omp private(m_col, k_mp, imp, m_row, k_m, im, j, &
         !$omp         acc_phi, acc_B, acc_jphi, acc_jB, &
-        !$omp         point_phi, point_B, point_jphi, point_jB)
+        !$omp         acc_jphi_species, acc_jB_species, &
+        !$omp         point_phi, point_B, point_jphi, point_jB, &
+        !$omp         point_jphi_species, point_jB_species)
         do m_col = -M, M
             k_mp = k_of_m(m_col, L)
             imp = m_col + M + 1
@@ -111,9 +130,21 @@ contains
                 acc_B    = (0.0_dp, 0.0_dp)
                 acc_jphi = (0.0_dp, 0.0_dp)
                 acc_jB   = (0.0_dp, 0.0_dp)
+                if (want_species) then
+                    acc_jphi_species = (0.0_dp, 0.0_dp)
+                    acc_jB_species = (0.0_dp, 0.0_dp)
+                end if
                 do j = 1, N
-                    call configured_hatG_all(plasma, k_m, k_mp, j, &
-                        point_phi, point_B, point_jphi, point_jB)
+                    if (want_species) then
+                        call configured_hatG_all(plasma, k_m, k_mp, j, &
+                            point_phi, point_B, point_jphi, point_jB, &
+                            point_jphi_species, point_jB_species)
+                        acc_jphi_species = acc_jphi_species + point_jphi_species
+                        acc_jB_species = acc_jB_species + point_jB_species
+                    else
+                        call configured_hatG_all(plasma, k_m, k_mp, j, &
+                            point_phi, point_B, point_jphi, point_jB)
+                    end if
                     acc_phi  = acc_phi  + point_phi
                     acc_B    = acc_B    + point_B
                     acc_jphi = acc_jphi + point_jphi
@@ -124,6 +155,10 @@ contains
                 KB(im, imp)    = weight * acc_B
                 Kjphi(im, imp) = weight * acc_jphi
                 KjB(im, imp)   = weight * acc_jB
+                if (want_species) then
+                    Kjphi_species(im, imp, :) = weight * acc_jphi_species
+                    KjB_species(im, imp, :) = weight * acc_jB_species
+                end if
             end do
         end do
         !$omp end parallel do

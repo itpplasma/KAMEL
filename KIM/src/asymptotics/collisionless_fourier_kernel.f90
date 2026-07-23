@@ -16,78 +16,117 @@ module collisionless_fourier_kernel_m
 
 contains
 
-    subroutine configured_hatG_all(plasma_in, kr, krp, j, rho_phi, rho_B, j_phi, j_B)
+    subroutine configured_hatG_all(plasma_in, kr, krp, j, rho_phi, rho_B, j_phi, j_B, &
+            j_phi_species, j_B_species)
         ! Select the configured ion model without changing the electron model.
-        ! In the default FP mode this delegates directly to the established
-        ! functions.  In collisionless mode, electrons remain FP while every
-        ! enabled ion species uses collisionless_ion_cores.
-        use config_m, only: collisionless_kpar_epsilon, ion_collision_model, &
-            turn_off_electrons, turn_off_ions
-        use constants_m, only: com_unit, pi
-        use flr2_fourier_kernel_m, only: hatG_rho_phi, hatG_rho_B, &
-            hatG_j_phi, hatG_j_B, flr_arg_pair_sp, core_rho_phi_sp, &
-            core_rho_B_sp, core_j_phi_sp, core_j_B_sp
-        use grid_m, only: rg_grid
-
+        ! Accumulate the established per-species FP kernels in FokkerPlanck mode.
+        ! In collisionless mode, electrons remain FP while every enabled ion
+        ! species uses collisionless_ion_cores. Optionally return the individual
+        ! species' current kernels alongside their sums.
         type(plasma_t), intent(in) :: plasma_in
         real(dp), intent(in) :: kr, krp
         integer, intent(in) :: j
         complex(dp), intent(out) :: rho_phi, rho_B, j_phi, j_B
+        complex(dp), intent(out), optional :: j_phi_species(0:), j_B_species(0:)
 
         integer :: sp
-        real(dp) :: bplus, bcross
-        complex(dp) :: phase, species_rho_phi, species_rho_B
+        complex(dp) :: species_rho_phi, species_rho_B
         complex(dp) :: species_j_phi, species_j_B
 
-        select case (trim(ion_collision_model))
-        case ('FokkerPlanck')
-            ! Preserve the original arithmetic path exactly by delegation.
-            rho_phi = hatG_rho_phi(plasma_in, kr, krp, j)
-            rho_B = hatG_rho_B(plasma_in, kr, krp, j)
-            j_phi = hatG_j_phi(plasma_in, kr, krp, j)
-            j_B = hatG_j_B(plasma_in, kr, krp, j)
-            return
-        case ('collisionless')
-            continue
-        case default
-            error stop 'Periodic ion_collision_model must be FokkerPlanck or collisionless'
-        end select
-
-        if (collisionless_kpar_epsilon <= 0.0_dp) then
-            error stop 'Collisionless periodic ions require collisionless_kpar_epsilon > 0'
+        if (present(j_phi_species) .neqv. present(j_B_species)) then
+            error stop 'configured_hatG_all requires both species-current arrays'
+        end if
+        if (present(j_phi_species)) then
+            if (ubound(j_phi_species, 1) < plasma_in%n_species - 1 .or. &
+                    ubound(j_B_species, 1) < plasma_in%n_species - 1) then
+                error stop 'configured_hatG_all species-current arrays are too small'
+            end if
+            j_phi_species = (0.0_dp, 0.0_dp)
+            j_B_species = (0.0_dp, 0.0_dp)
         end if
 
-        phase = exp(-com_unit * (kr - krp) * rg_grid%xb(j))
         rho_phi = (0.0_dp, 0.0_dp)
         rho_B = (0.0_dp, 0.0_dp)
         j_phi = (0.0_dp, 0.0_dp)
         j_B = (0.0_dp, 0.0_dp)
 
-        if (.not. turn_off_electrons) then
-            call flr_arg_pair_sp(plasma_in, 0, kr, krp, j, bplus, bcross)
-            rho_phi = core_rho_phi_sp(plasma_in, 0, bplus, bcross, j) / (8.0_dp * pi**2)
-            rho_B = core_rho_B_sp(plasma_in, 0, bplus, bcross, j) / (8.0_dp * pi**2)
-            j_phi = core_j_phi_sp(plasma_in, 0, bplus, bcross, j) / (8.0_dp * pi**2)
-            j_B = core_j_B_sp(plasma_in, 0, bplus, bcross, j) / (8.0_dp * pi**2)
-        end if
+        do sp = 0, plasma_in%n_species - 1
+            call configured_hatG_species(plasma_in, sp, kr, krp, j, &
+                species_rho_phi, species_rho_B, species_j_phi, species_j_B)
+            rho_phi = rho_phi + species_rho_phi
+            rho_B = rho_B + species_rho_B
+            j_phi = j_phi + species_j_phi
+            j_B = j_B + species_j_B
+            if (present(j_phi_species)) then
+                j_phi_species(sp) = species_j_phi
+                j_B_species(sp) = species_j_B
+            end if
+        end do
+    end subroutine configured_hatG_all
 
-        if (.not. turn_off_ions) then
-            do sp = 1, plasma_in%n_species - 1
+    subroutine configured_hatG_species(plasma_in, sp, kr, krp, j, &
+            rho_phi, rho_B, j_phi, j_B)
+        use config_m, only: collisionless_kpar_epsilon, ion_collision_model, &
+            turn_off_electrons, turn_off_ions
+        use constants_m, only: com_unit, pi
+        use flr2_fourier_kernel_m, only: flr_arg_pair_sp, core_rho_phi_sp, &
+            core_rho_B_sp, core_j_phi_sp, core_j_B_sp
+        use grid_m, only: rg_grid
+
+        type(plasma_t), intent(in) :: plasma_in
+        integer, intent(in) :: sp, j
+        real(dp), intent(in) :: kr, krp
+        complex(dp), intent(out) :: rho_phi, rho_B, j_phi, j_B
+
+        real(dp) :: bplus, bcross
+        complex(dp) :: phase
+
+        rho_phi = (0.0_dp, 0.0_dp)
+        rho_B = (0.0_dp, 0.0_dp)
+        j_phi = (0.0_dp, 0.0_dp)
+        j_B = (0.0_dp, 0.0_dp)
+        if ((sp == 0 .and. turn_off_electrons) .or. &
+                (sp >= 1 .and. turn_off_ions)) return
+
+        phase = exp(-com_unit * (kr - krp) * rg_grid%xb(j))
+        select case (trim(ion_collision_model))
+        case ('FokkerPlanck')
+            call flr_arg_pair_sp(plasma_in, sp, kr, krp, j, bplus, bcross)
+            rho_phi = core_rho_phi_sp(plasma_in, sp, bplus, bcross, j) &
+                / (8.0_dp * pi**2)
+            rho_B = core_rho_B_sp(plasma_in, sp, bplus, bcross, j) &
+                / (8.0_dp * pi**2)
+            j_phi = core_j_phi_sp(plasma_in, sp, bplus, bcross, j) &
+                / (8.0_dp * pi**2)
+            j_B = core_j_B_sp(plasma_in, sp, bplus, bcross, j) &
+                / (8.0_dp * pi**2)
+        case ('collisionless')
+            if (collisionless_kpar_epsilon <= 0.0_dp) then
+                error stop 'Collisionless periodic ions require collisionless_kpar_epsilon > 0'
+            end if
+            if (sp == 0) then
+                call flr_arg_pair_sp(plasma_in, sp, kr, krp, j, bplus, bcross)
+                rho_phi = core_rho_phi_sp(plasma_in, sp, bplus, bcross, j) &
+                    / (8.0_dp * pi**2)
+                rho_B = core_rho_B_sp(plasma_in, sp, bplus, bcross, j) &
+                    / (8.0_dp * pi**2)
+                j_phi = core_j_phi_sp(plasma_in, sp, bplus, bcross, j) &
+                    / (8.0_dp * pi**2)
+                j_B = core_j_B_sp(plasma_in, sp, bplus, bcross, j) &
+                    / (8.0_dp * pi**2)
+            else
                 call collisionless_ion_cores(plasma_in, sp, kr, krp, j, &
-                    collisionless_kpar_epsilon, species_rho_phi, species_rho_B, &
-                    species_j_phi, species_j_B)
-                rho_phi = rho_phi + species_rho_phi
-                rho_B = rho_B + species_rho_B
-                j_phi = j_phi + species_j_phi
-                j_B = j_B + species_j_B
-            end do
-        end if
+                    collisionless_kpar_epsilon, rho_phi, rho_B, j_phi, j_B)
+            end if
+        case default
+            error stop 'Periodic ion_collision_model must be FokkerPlanck or collisionless'
+        end select
 
         rho_phi = phase * rho_phi
         rho_B = phase * rho_B
         j_phi = phase * j_phi
         j_B = phase * j_B
-    end subroutine configured_hatG_all
+    end subroutine configured_hatG_species
 
     complex(dp) function configured_hatG_rho_phi(plasma_in, kr, krp, j) result(value)
         type(plasma_t), intent(in) :: plasma_in

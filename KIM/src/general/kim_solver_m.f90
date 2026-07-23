@@ -142,6 +142,7 @@ contains
         class(kim_solver_t), intent(inout) :: self
         integer, intent(in) :: m, n
         integer, intent(out), optional :: stat
+        logical :: mode_changed
 
         if (.not. self%is_setup) then
             self%status = KIM_NOT_SETUP
@@ -149,12 +150,14 @@ contains
             return
         end if
 
+        mode_changed = m /= m_mode .or. n /= n_mode
         m_mode = m
         n_mode = n
 
-        ! The first solve reuses the equilibrium that init() built for the
-        ! configured mode; later solves recompute it for the new (m, n).
-        if (self%has_solved) call recompute_equilibrium_for_mode()
+        ! init() prepares the configured mode. Reuse it only when the first
+        ! requested mode matches; subsequent solves also rebuild because
+        ! callers may have replaced the in-memory profiles.
+        if (self%has_solved .or. mode_changed) call recompute_equilibrium_for_mode()
 
         call reset_fields()
         call self%run_type%run()
@@ -219,9 +222,10 @@ contains
     !> Recompute the background equilibrium for the current (m_mode, n_mode).
     subroutine recompute_equilibrium_for_mode()
         use equilibrium_m, only: calculate_equil, interpolate_equil
-        use species_m, only: plasma, set_plasma_quantities
+        use species_m, only: deallocate_plasma_derived, plasma, set_plasma_quantities
         use grid_m, only: rg_grid
 
+        call deallocate_plasma_derived()
         call calculate_equil(.false.)
         call set_plasma_quantities(plasma)
         call interpolate_equil(rg_grid%xb)

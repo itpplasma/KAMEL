@@ -24,10 +24,14 @@ Supporting directories include:
 - [`test/golden/`](test/golden/) — physics-output regression tests for all three solvers.
 
 KIM supports electrostatic, forced-periodic electrostatic, electromagnetic,
-WKB-dispersion, and FLR2 benchmark runs. Its forced-periodic solver can use
-Fokker–Planck ions or collisionless ion charge and parallel-current kernels;
-electrons remain Fokker–Planck in the collisionless-ion configuration. See the
-[KIM namelist reference](KIM/nmls/README.md) for the current options and their
+WKB-dispersion, standalone-FLR2, and FLR2 benchmark runs. The `flr2` run type
+integrates the second-order local response solver from KiLCA-FLR2 while reusing
+KIM's profile, equilibrium, collision-frequency, and susceptibility
+calculation. It is distinct from `flr2_benchmark`, which benchmarks KIM's
+non-local kernel. The forced-periodic solver can use Fokker–Planck ions or
+collisionless ion charge and parallel-current kernels; electrons remain
+Fokker–Planck in the collisionless-ion configuration. See the
+[KIM namelist reference](KIM/nmls/README.md) for current options and
 restrictions.
 
 ## Prerequisites

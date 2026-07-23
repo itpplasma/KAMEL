@@ -1208,6 +1208,8 @@ module species_m
         ! From plasma species (allocated in calculate_plasma_backs)
         do sp = 0, number_of_ion_species
             if (sp > ubound(plasma%spec, 1)) exit
+            if (allocated(plasma%spec(sp)%dndr)) deallocate(plasma%spec(sp)%dndr)
+            if (allocated(plasma%spec(sp)%dTdr)) deallocate(plasma%spec(sp)%dTdr)
             if (allocated(plasma%spec(sp)%vT)) deallocate(plasma%spec(sp)%vT)
             if (allocated(plasma%spec(sp)%nu)) deallocate(plasma%spec(sp)%nu)
             if (allocated(plasma%spec(sp)%omega_c)) deallocate(plasma%spec(sp)%omega_c)

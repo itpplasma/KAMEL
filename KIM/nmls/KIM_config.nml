@@ -3,7 +3,7 @@
 &kim_config
     number_of_ion_species = 1
     read_species_from_namelist = .false.    ! if false, initialize deuterium plasma
-    type_of_run = 'electrostatic'           ! 'electrostatic', 'electromagnetic', 'WKB_dispersion', or 'flr2_benchmark'
+    type_of_run = 'electrostatic'           ! Also: 'flr2', 'flr2_benchmark', 'electromagnetic', 'WKB_dispersion'
     collision_model = 'FokkerPlanck'        ! 'Krook' (unstable) or 'FokkerPlanck'
     artificial_debye_case = 0
     turn_off_ions = .false.
@@ -85,6 +85,16 @@
     gauss_int_nodes_Nx = 31                 ! Gauss integration node points, should be different from Nxp to avoid numerical problems
     gauss_int_nodes_Nxp = 30                !
     gauss_int_nodes_Ntheta = 17             ! For GaussLegendre integration of theta
+/
+
+&KIM_FLR2
+    flr2_electron_flr = .true.
+    flr2_ion_flr = .true.
+    flr2_electron_potential = .true.
+    flr2_ion_potential = .true.
+    flr2_electron_current = .true.
+    flr2_ion_current = .true.
+    flr2_include_potential_in_current = .true.
 /
 
 &kim_species ! not used rn

@@ -55,7 +55,12 @@ subroutine kim_read_config
                         periodic_kmax_scale, periodic_n_rg, &
                         periodic_match_global_kernel_approximations
 
-    integer :: periodic_iostat
+    namelist /KIM_FLR2/ flr2_electron_flr, flr2_ion_flr, &
+                        flr2_electron_potential, flr2_ion_potential, &
+                        flr2_electron_current, flr2_ion_current, &
+                        flr2_include_potential_in_current
+
+    integer :: flr2_iostat, periodic_iostat
 
     num_args = command_argument_count()
     if (num_args > 1) then
@@ -84,6 +89,18 @@ subroutine kim_read_config
     periodic_match_global_kernel_approximations = .false.
     rewind(unit = 77)
     read(unit = 77, nml = KIM_PERIODIC, iostat = periodic_iostat)
+
+    ! Optional standalone-FLR2 term switches. KIM's background and shared
+    ! susceptibility settings remain controlled by the existing groups.
+    flr2_electron_flr = .true.
+    flr2_ion_flr = .true.
+    flr2_electron_potential = .true.
+    flr2_ion_potential = .true.
+    flr2_electron_current = .true.
+    flr2_ion_current = .true.
+    flr2_include_potential_in_current = .true.
+    rewind(unit = 77)
+    read(unit = 77, nml = KIM_FLR2, iostat = flr2_iostat)
 
     close(unit = 77)
 

@@ -57,6 +57,7 @@ module rt_electromagnetic_m
         use species_m, only: plasma
         use logger_m, only: log_info, log_debug, log_error
         use kim_diagnostics_m, only: compute_and_write_diagnostics
+        use wavenumber_geometry_m, only: perpendicular_wavenumber
 
         implicit none
 
@@ -84,7 +85,7 @@ module rt_electromagnetic_m
         integer :: sp
 
         integer :: N, i, j
-        real(dp) :: kz, hL, hR
+        real(dp) :: hL, hR
         character(8) :: date
         character(10) :: time
         character(5) :: zone
@@ -107,7 +108,6 @@ module rt_electromagnetic_m
         end select
 
         N = xl_grid%npts_b
-        kz = dble(n_mode) / R0
         Br_boundary = cmplx(Br_boundary_re, Br_boundary_im, dp)
 
         ! Initialize kernels
@@ -140,17 +140,13 @@ module rt_electromagnetic_m
             call calc_mass_matrix(M_mat)
         end if
 
-        ! Compute alpha(r) = i * (m/r * h_z - kz * h_theta) for A_par -> Br conversion
+        ! Compute ks and alpha = i*ks for A_par -> Br conversion.
         call interpolate_equil_to_xl(hz_xl, hth_xl)
-        allocate(alpha(N))
+        allocate(alpha(N), ks_xl(N))
         do i = 1, N
-            alpha(i) = com_unit * (dble(m_mode) / xl_grid%xb(i) * hz_xl(i) - kz * hth_xl(i))
-        end do
-
-        ! Compute ks(r) = (m * h_z - kz * h_theta) / r (perpendicular wavenumber)
-        allocate(ks_xl(N))
-        do i = 1, N
-            ks_xl(i) = (dble(m_mode) * hz_xl(i) - kz * hth_xl(i)) / xl_grid%xb(i)
+            ks_xl(i) = perpendicular_wavenumber(m_mode, n_mode, xl_grid%xb(i), &
+                                                R0, hth_xl(i), hz_xl(i))
+            alpha(i) = com_unit * ks_xl(i)
         end do
 
         ! Build laplace_perp: nabla^2_perp = d^2/dr^2 + (1/r)d/dr - ks^2

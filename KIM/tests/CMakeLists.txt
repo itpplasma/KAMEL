@@ -36,6 +36,15 @@ target_link_libraries(test_equil_ode_ddeabm KIM_lib)
 add_test(NAME test_equil_ode_ddeabm
          COMMAND ${CMAKE_BINARY_DIR}/tests/test_equil_ode_ddeabm.x)
 
+add_executable(test_wavenumber_geometry
+               ${CMAKE_SOURCE_DIR}/KIM/tests/test_wavenumber_geometry.f90)
+set_target_properties(test_wavenumber_geometry PROPERTIES
+                      OUTPUT_NAME test_wavenumber_geometry.x
+                      RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/tests/")
+target_link_libraries(test_wavenumber_geometry KIM_lib)
+add_test(NAME test_wavenumber_geometry
+         COMMAND ${CMAKE_BINARY_DIR}/tests/test_wavenumber_geometry.x)
+
 add_executable(test_profile_input ${CMAKE_SOURCE_DIR}/KIM/tests/test_profile_input.f90)
 set_target_properties(test_profile_input PROPERTIES
                         OUTPUT_NAME test_profile_input.x

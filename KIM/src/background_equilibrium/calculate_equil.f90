@@ -47,10 +47,12 @@ module equilibrium_m
         ! matches the global solve.
 
             use species_m, only: plasma, calc_plasma_parameter_derivs
-            use constants_m, only: ev, pi, sol
+            use constants_m, only: ev, pi
             use setup_m, only: btor, R0, m_mode, n_mode
             use config_m, only: number_of_ion_species, output_path, hdf5_output
             use logger_m, only: log_info, log_warning
+            use wavenumber_geometry_m, only: parallel_wavenumber, perpendicular_wavenumber, &
+                                            exb_rotation_frequency
             use fortnum_ode_ddeabm, only: ddeabm_state_t, ddeabm_init, &
                 ddeabm_integrate_to
             use fortnum_status, only: fortnum_status_t, FORTNUM_OK
@@ -155,11 +157,13 @@ module equilibrium_m
                 hth(i) = B0th(i) / B0(i)
 
                 ! "senkrecht" wavenumber
-                plasma%ks(i) = (m_mode * hz(i) - n_mode * hth(i) / R0) / plasma%r_grid(i)
+                plasma%ks(i) = perpendicular_wavenumber(m_mode, n_mode, plasma%r_grid(i), &
+                                                        R0, hth(i), hz(i))
                 ! parallel wavenumber
-                plasma%kp(i) = (m_mode/(plasma%r_grid(i)) * hth(i) + n_mode / R0 * hz(i))
+                plasma%kp(i) = parallel_wavenumber(m_mode, n_mode, plasma%r_grid(i), &
+                                                   R0, hth(i), hz(i))
                 ! ExB rotation frequency
-                plasma%om_E(i) = - sol * plasma%ks(i) * plasma%Er(i) / plasma%B0(i)
+                plasma%om_E(i) = exb_rotation_frequency(plasma%ks(i), plasma%Er(i), plasma%B0(i))
 
             end do
 

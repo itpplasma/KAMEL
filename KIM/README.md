@@ -28,6 +28,51 @@ summed ion contribution `jpar_i`, and one dataset per configured ion species:
 order in `&KIM_species`; consequently, `jpar = jpar_e + jpar_i` and
 `jpar_i = sum(jpar_i1, jpar_i2, ...)`.
 
+## FLR2 run type
+
+Set `type_of_run = 'flr2'` to solve the second-order finite-Larmor-radius
+response imported from KiLCA-FLR2 through the normal KIM lifecycle:
+
+```fortran
+&KIM_CONFIG
+  type_of_run = 'flr2'
+  collision_model = 'FokkerPlanck'
+  number_of_ion_species = 1
+/
+
+&KIM_SETUP
+  m_mode = -6
+  n_mode = 2
+  R0 = 165.0
+  type_br_field = 12
+  Br_boundary_re = 1.0
+  Br_boundary_im = 0.0
+/
+```
+
+This mode does not use KiLCA-FLR2's profile or equilibrium readers. KIM
+calculates the radial grid, cylindrical equilibrium, thermodynamic forces,
+collision frequencies, Larmor radii, and Fokker–Planck susceptibilities once;
+the FLR2 response consumes those prepared arrays directly. The result is
+written through the standard KIM field outputs:
+
+- `fields/Br`: radial magnetic-field perturbation in G
+- `fields/Phi`: electrostatic potential perturbation in statV
+- `fields/jpar`: parallel current density in statA/cm²
+
+`type_br_field = 12` applies the constant complex field configured by
+`Br_boundary_re` and `Br_boundary_im`. `type_br_field = 11` reads
+`./inp/Br_in.dat`. The current implementation requires Fokker–Planck
+collisions, `omega = 0`, and exactly one positively charged ion species.
+
+The optional `&KIM_FLR2` group enables or disables electron and ion FLR,
+potential, and current terms. All switches default to `.true.`; see the
+[namelist reference](nmls/README.md).
+
+The existing `type_of_run = 'flr2_benchmark'` is different: it exercises the
+FLR2 approximation of KIM's non-local integral kernel and global Poisson
+solver.
+
 ## Compilation
 To compile the code:
 ```

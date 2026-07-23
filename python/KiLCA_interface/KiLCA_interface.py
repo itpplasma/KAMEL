@@ -479,24 +479,25 @@ class KiLCA_interface:
         os.chdir(self.path_of_run)
         start = time.time()
         self.run_out = sp.Popen("./run_local", stdout=sp.PIPE, stderr=sp.PIPE)
-        self.run_out.wait()
+        # communicate() drains both pipes while waiting; wait() alone deadlocks
+        # once the child fills one pipe buffer.
+        run_stdout, run_stderr = self.run_out.communicate()
         end = time.time()
         os.chdir(cdir)
         print(f"The KiLCA run took {end-start}s")
 
-        if self.run_out.stderr.read() == b"":
-            if not (self.run_out.stdout.read() == b""):
+        if run_stderr == b"":
+            if run_stdout != b"":
                 print("Output:")
-                for line in self.run_out.stdout:
+                for line in run_stdout.splitlines():
                     print(line.decode("utf8"))
             print("")
         else:
             print("KiLCA ran into problems!")
             print("Errors:")
-            for line in self.run_out.stderr:
+            for line in run_stderr.splitlines():
                 print(line.decode("utf8"))
             print("")
-        # print(self.output.stdout.read())
 
     def run_remote(self):
         pass

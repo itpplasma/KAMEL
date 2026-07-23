@@ -82,6 +82,7 @@ set(balance_lib_base_fortran_sources
     ${base_balance_src}/time_evolution.f90
     ${base_balance_src}/toroidal_torque.f90
     ${base_balance_src}/transp_coeffs_mod.f90
+    ${base_balance_src}/vel_integral_m.f90
     ${base_balance_src}/W2_arr.f90
     ${base_balance_src}/wave_code_data_64bit.f90
     ${base_balance_src}/wave_code_data_mod.f90
@@ -96,7 +97,6 @@ set(balance_lib_stellarator_fortran_sources
     ${src}/stellarator/evolvestep_stell.f90
 )
 set(balance_lib_cpp_sources
-    ${base_balance_src}/vel_integral.cpp
     ${base_balance_src}/cvodeint.cpp
 )
 

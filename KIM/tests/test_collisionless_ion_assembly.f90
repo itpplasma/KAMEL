@@ -6,7 +6,9 @@ program test_collisionless_ion_assembly
     use species_m, only: plasma, scale_fp_collision_frequency, set_profiles_from_arrays
     use grid_m, only: xl_grid, kernel_taper_skip_threshold
     use kernel_m, only: kernel_spl_t, FP_fill_kernels, assemble_configured_fp_charge, &
-        Krook_fill_kernel_phi_ions_collisionless, initialize_krook_mphi
+        Krook_fill_kernel_phi_ions_collisionless, initialize_krook_mphi, &
+        FP_calc_kernel_element_ions, Krook_calc_kernel_rho_term_by_term, &
+        larmor_taper_band_limit
     use integrands_gauss_m, only: integration_point_t
     use kim_base_m, only: kim_t
     use kim_mod_m, only: from_kim_factory_get_kim
@@ -22,7 +24,11 @@ program test_collisionless_ion_assembly
     class(kim_t), allocatable :: kim_instance
     complex(dp), allocatable :: ion_sum(:,:), electron_phi(:,:), electron_B(:,:)
     complex(dp), allocatable :: wide_band_ion(:,:), narrow_band_ion(:,:)
-    real(dp) :: scale, offdiag_max
+    complex(dp), allocatable :: weak_fp_ion_phi(:,:), weak_fp_ion_B(:,:)
+    complex(dp) :: rho_phi_projection, rho_B_projection
+    real(dp) :: scale, offdiag_max, rho_phi_error, rho_B_error
+    real(dp) :: rho_phi_shape_error, rho_B_shape_error
+    real(dp) :: requested_fp_scale, requested_kpar_epsilon
     integer :: i, j, wide_band_entries, narrow_band_entries
 
     krook_point%mphi = 17
@@ -42,7 +48,11 @@ program test_collisionless_ion_assembly
     end if
 
     call make_test_profiles(r_prof, n_prof, Te_prof, Ti_prof, q_prof, Er_prof)
-    call write_test_namelist('./KIM_config_collisionless_assembly.nml')
+    requested_fp_scale = requested_ion_fp_scale()
+    requested_kpar_epsilon = requested_collisionless_kpar_epsilon()
+    call write_test_namelist(&
+        './KIM_config_collisionless_assembly.nml', requested_fp_scale, &
+        requested_kpar_epsilon)
     nml_config_path = './KIM_config_collisionless_assembly.nml'
     profiles_in_memory = .true.
     call kim_init()
@@ -50,17 +60,19 @@ program test_collisionless_ion_assembly
         print *, 'FAIL: ion_collision_model was not read from KIM_CONFIG'
         error stop
     end if
-    if (abs(collisionless_kpar_epsilon - 1.0e-5_dp) > 1.0e-15_dp) then
+    if (abs(collisionless_kpar_epsilon - requested_kpar_epsilon) > 1.0e-15_dp) then
         print *, 'FAIL: collisionless_kpar_epsilon was not read from KIM_CONFIG'
         error stop
     end if
-    if (abs(ion_fp_collision_scale - 0.25_dp) > 1.0e-15_dp) then
+    if (abs(ion_fp_collision_scale - requested_fp_scale) > 1.0e-15_dp) then
         print *, 'FAIL: ion_fp_collision_scale was not read from KIM_CONFIG'
         error stop
     end if
     call set_profiles_from_arrays(r_prof, n_prof, Te_prof, Ti_prof, q_prof, Er_prof, npts)
     call from_kim_factory_get_kim('electrostatic', kim_instance)
     call kim_instance%init()
+    print *, 'ion max |x1| = ', maxval(abs(plasma%spec(1)%x1_cc))
+    print *, 'ion max |x2| = ', maxval(abs(plasma%spec(1)%x2_cc(:,0)))
 
     call Kphi%init_kernel(xl_grid%npts_b, xl_grid%npts_b)
     call KB%init_kernel(xl_grid%npts_b, xl_grid%npts_b)
@@ -82,7 +94,37 @@ program test_collisionless_ion_assembly
     call FP_fill_kernels(Kphi, KB, Kjphi, KjB)
     electron_phi = Kphi%Kllp_e
     electron_B = KB%Kllp_e
+    weak_fp_ion_phi = Kphi%Kllp_i(:,:,1)
+    weak_fp_ion_B = KB%Kllp_i(:,:,1)
     call assemble_configured_fp_charge(Kphi, KB)
+
+    rho_phi_error = relative_frobenius_error(&
+        Kphi%Kllp_i(:,:,1), weak_fp_ion_phi)
+    rho_B_error = relative_frobenius_error(&
+        KB%Kllp_i(:,:,1), weak_fp_ion_B)
+    rho_phi_projection = least_squares_projection(&
+        Kphi%Kllp_i(:,:,1), weak_fp_ion_phi)
+    rho_B_projection = least_squares_projection(&
+        KB%Kllp_i(:,:,1), weak_fp_ion_B)
+    rho_phi_shape_error = relative_frobenius_error(&
+        Kphi%Kllp_i(:,:,1), rho_phi_projection * weak_fp_ion_phi)
+    rho_B_shape_error = relative_frobenius_error(&
+        KB%Kllp_i(:,:,1), rho_B_projection * weak_fp_ion_B)
+    print *, 'weak-FP -> collisionless rho-Phi relative error = ', rho_phi_error
+    print *, 'weak-FP -> collisionless rho-B relative error   = ', rho_B_error
+    print *, 'rho-Phi collisionless/FP norm ratio             = ', &
+        frobenius_norm(Kphi%Kllp_i(:,:,1)) / frobenius_norm(weak_fp_ion_phi)
+    print *, 'rho-B collisionless/FP norm ratio               = ', &
+        frobenius_norm(KB%Kllp_i(:,:,1)) / frobenius_norm(weak_fp_ion_B)
+    print *, 'rho-Phi best-fit complex factor                 = ', rho_phi_projection
+    print *, 'rho-B best-fit complex factor                   = ', rho_B_projection
+    print *, 'rho-Phi residual after best-fit factor          = ', rho_phi_shape_error
+    print *, 'rho-B residual after best-fit factor            = ', rho_B_shape_error
+    call compare_rho_B_terms(weak_fp_ion_B, KB%Kllp_i(:,:,1))
+    if (rho_phi_error > 0.01_dp .or. rho_B_error > 0.01_dp) then
+        print *, 'FAIL: collisionless ion charge kernels do not converge to weak FP'
+        error stop
+    end if
 
     if (maxval(abs(Kphi%Kllp_e - electron_phi)) > 0.0_dp .or. &
         maxval(abs(KB%Kllp_e - electron_B)) > 0.0_dp) then
@@ -168,8 +210,9 @@ contains
         end do
     end subroutine make_test_profiles
 
-    subroutine write_test_namelist(path)
+    subroutine write_test_namelist(path, fp_scale, kpar_epsilon)
         character(len=*), intent(in) :: path
+        real(dp), intent(in) :: fp_scale, kpar_epsilon
         integer :: unit
         open(newunit=unit, file=path, status='replace', action='write')
         write(unit, '(A)') '&KIM_CONFIG'
@@ -178,8 +221,8 @@ contains
         write(unit, '(A)') " type_of_run = 'electrostatic'"
         write(unit, '(A)') " collision_model = 'FokkerPlanck'"
         write(unit, '(A)') " ion_collision_model = 'collisionless'"
-        write(unit, '(A)') ' collisionless_kpar_epsilon = 1.0e-5'
-        write(unit, '(A)') ' ion_fp_collision_scale = 0.25'
+        write(unit, '(A,ES15.8)') ' collisionless_kpar_epsilon = ', kpar_epsilon
+        write(unit, '(A,ES15.8)') ' ion_fp_collision_scale = ', fp_scale
         write(unit, '(A)') ' read_species_from_namelist = .false.'
         write(unit, '(A)') ' turn_off_ions = .false.'
         write(unit, '(A)') ' turn_off_electrons = .false.'
@@ -246,5 +289,127 @@ contains
         write(unit, '(A)') '/'
         close(unit)
     end subroutine write_test_namelist
+
+    real(dp) function requested_ion_fp_scale() result(scale)
+        character(len=64) :: value
+        integer :: status
+
+        scale = 1.0e-5_dp
+        call get_environment_variable(&
+            'KIM_TEST_ION_FP_SCALE', value, status=status)
+        if (status == 0 .and. len_trim(value) > 0) read(value, *) scale
+    end function requested_ion_fp_scale
+
+    real(dp) function requested_collisionless_kpar_epsilon() result(epsilon)
+        character(len=64) :: value
+        integer :: status
+
+        epsilon = 1.0e-7_dp
+        call get_environment_variable(&
+            'KIM_TEST_KPAR_EPSILON', value, status=status)
+        if (status == 0 .and. len_trim(value) > 0) read(value, *) epsilon
+    end function requested_collisionless_kpar_epsilon
+
+    real(dp) function relative_frobenius_error(actual, expected) result(error)
+        complex(dp), intent(in) :: actual(:,:), expected(:,:)
+        real(dp) :: expected_norm
+
+        expected_norm = frobenius_norm(expected)
+        error = frobenius_norm(actual - expected) &
+            / max(expected_norm, tiny(1.0_dp))
+    end function relative_frobenius_error
+
+    real(dp) function frobenius_norm(matrix) result(norm)
+        complex(dp), intent(in) :: matrix(:,:)
+
+        norm = sqrt(sum(abs(matrix)**2))
+    end function frobenius_norm
+
+    complex(dp) function least_squares_projection(actual, expected) result(factor)
+        complex(dp), intent(in) :: actual(:,:), expected(:,:)
+        real(dp) :: expected_norm_squared
+
+        expected_norm_squared = sum(abs(expected)**2)
+        factor = sum(conjg(expected) * actual) &
+            / max(expected_norm_squared, tiny(1.0_dp))
+    end function least_squares_projection
+
+    subroutine compare_rho_B_terms(fp_total, collisionless_total)
+        use grid_m, only: gauss_int_nodes_Ntheta, gauss_int_nodes_Nx, &
+            gauss_int_nodes_Nxp
+        use integrals_gauss_m, only: gauss_config_t, init_gauss_int
+
+        complex(dp), intent(in) :: fp_total(:,:), collisionless_total(:,:)
+        type(gauss_config_t) :: gauss_conf
+        complex(dp), allocatable :: fp_terms(:,:,:), collisionless_terms(:,:,:)
+        complex(dp) :: fp_phi, fp_B, fp_j_phi, fp_j_B
+        complex(dp) :: collisionless_phi, collisionless_B
+        complex(dp) :: fp_element_terms(3), collisionless_element_terms(3)
+        complex(dp) :: projection
+        real(dp) :: dmax_global, error, shape_error
+        integer :: l, lp, lp_lo, term
+
+        allocate(fp_terms(size(fp_total,1), size(fp_total,2), 3))
+        allocate(collisionless_terms(size(fp_total,1), size(fp_total,2), 3))
+        fp_terms = (0.0_dp, 0.0_dp)
+        collisionless_terms = (0.0_dp, 0.0_dp)
+
+        gauss_conf%Nx = gauss_int_nodes_Nx
+        gauss_conf%Nxp = gauss_int_nodes_Nxp
+        gauss_conf%Ntheta = gauss_int_nodes_Ntheta
+        call init_gauss_int(gauss_conf)
+        dmax_global = larmor_taper_band_limit()
+
+        do l = 1, size(fp_total, 1)
+            lp_lo = l
+            do
+                if (lp_lo <= 1) exit
+                if (abs(xl_grid%xb(lp_lo-1) - xl_grid%xb(l)) > dmax_global) exit
+                lp_lo = lp_lo - 1
+            end do
+            lp_lo = min(lp_lo, l - 1)
+            if (lp_lo < 1) lp_lo = 1
+
+            do lp = lp_lo, l
+                call FP_calc_kernel_element_ions(l, lp, fp_phi, fp_B, fp_j_phi, &
+                    fp_j_B, gauss_conf, 1, k_rho_B_terms=fp_element_terms)
+                call Krook_calc_kernel_rho_term_by_term(l, lp, collisionless_phi, &
+                    collisionless_B, gauss_conf, species_first=1, species_last=1, &
+                    collisionless=.true., k_rho_B_terms=collisionless_element_terms)
+                fp_terms(l,lp,:) = fp_element_terms
+                fp_terms(lp,l,:) = fp_element_terms
+                collisionless_terms(l,lp,:) = collisionless_element_terms
+                collisionless_terms(lp,l,:) = collisionless_element_terms
+            end do
+        end do
+
+        print *, 'rho-B term reconstruction error (FP)          = ', &
+            relative_frobenius_error(sum(fp_terms, dim=3), fp_total)
+        print *, 'rho-B term reconstruction error (CL)          = ', &
+            relative_frobenius_error(sum(collisionless_terms, dim=3), &
+            collisionless_total)
+        do term = 1, 3
+            error = relative_frobenius_error(&
+                collisionless_terms(:,:,term), fp_terms(:,:,term))
+            projection = least_squares_projection(&
+                collisionless_terms(:,:,term), fp_terms(:,:,term))
+            shape_error = relative_frobenius_error(&
+                collisionless_terms(:,:,term), projection * fp_terms(:,:,term))
+            print *, 'rho-B F', term, 'G', term, ' relative error         = ', error
+            print *, 'rho-B F', term, 'G', term, ' CL/FP norm ratio       = ', &
+                frobenius_norm(collisionless_terms(:,:,term)) / &
+                max(frobenius_norm(fp_terms(:,:,term)), tiny(1.0_dp))
+            print *, 'rho-B F', term, 'G', term, ' FP fraction of total  = ', &
+                frobenius_norm(fp_terms(:,:,term)) / &
+                max(frobenius_norm(fp_total), tiny(1.0_dp))
+            print *, 'rho-B F', term, 'G', term, ' CL fraction of total  = ', &
+                frobenius_norm(collisionless_terms(:,:,term)) / &
+                max(frobenius_norm(collisionless_total), tiny(1.0_dp))
+            print *, 'rho-B F', term, 'G', term, ' best-fit factor        = ', &
+                projection
+            print *, 'rho-B F', term, 'G', term, ' shape residual         = ', &
+                shape_error
+        end do
+    end subroutine compare_rho_B_terms
 
 end program test_collisionless_ion_assembly

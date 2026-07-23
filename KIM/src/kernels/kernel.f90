@@ -412,7 +412,8 @@ module kernel_m
     end subroutine initialize_krook_mphi
 
     subroutine Krook_calc_kernel_rho_term_by_term(l, lp, k_rho_phi, k_rho_B, gauss_conf, &
-                                                   species_first, species_last, collisionless)
+                                                   species_first, species_last, collisionless, &
+                                                   k_rho_B_terms)
 
         use KIM_kinds_m, only: dp
         use integrals_gauss_m, only: gauss_integrate_F0, gauss_integrate_F1, gauss_integrate_F2, gauss_integrate_F3,&
@@ -432,6 +433,7 @@ module kernel_m
         type(gauss_config_t), intent(in) :: gauss_conf
         integer, intent(in), optional :: species_first, species_last
         logical, intent(in), optional :: collisionless
+        complex(dp), intent(out), optional :: k_rho_B_terms(3)
         real(dp) :: integral_val
         real(dp) :: current_distance
         integer :: current_idx_distance
@@ -446,6 +448,7 @@ module kernel_m
 
         k_rho_phi = 0.0d0
         k_rho_B = 0.0d0
+        if (present(k_rho_B_terms)) k_rho_B_terms = (0.0_dp, 0.0_dp)
 
         first_species = 0
         last_species = plasma%n_species - 1
@@ -462,7 +465,8 @@ module kernel_m
 
         do sigma = first_species, last_species
             if (turn_off_ions .and. sigma >= 1) cycle
-            do j = 2, size(plasma%r_grid)-1
+            ! Use the same complete radial-cell range as the FP assembly.
+            do j = 1, size(plasma%r_grid)-1
                 int_point%j = j
                 int_point%rhoT = 0.5d0 * (plasma%spec(sigma)%rho_L(j) + plasma%spec(sigma)%rho_L(j+1))
                 int_F0%int_point = int_point
@@ -512,6 +516,12 @@ module kernel_m
                     k_rho_B = k_rho_B + integral_val * Krook_G1_rho_B(j, plasma%spec(sigma), &
                         use_collisionless, collisionless_kpar_epsilon) * Krook_kappa_rho_B(j, plasma%spec(sigma), &
                         use_collisionless, collisionless_kpar_epsilon)
+                    if (present(k_rho_B_terms)) then
+                        k_rho_B_terms(1) = k_rho_B_terms(1) + integral_val * &
+                            Krook_G1_rho_B(j, plasma%spec(sigma), use_collisionless, &
+                            collisionless_kpar_epsilon) * Krook_kappa_rho_B(j, &
+                            plasma%spec(sigma), use_collisionless, collisionless_kpar_epsilon)
+                    end if
 
                     call gauss_integrate_F2(int_F2, integral_val, gauss_conf)
                     k_rho_phi = k_rho_phi + integral_val * Krook_kappa_rho_phi(j, plasma%spec(sigma)) * &
@@ -519,6 +529,12 @@ module kernel_m
                     k_rho_B = k_rho_B + integral_val * Krook_G2_rho_B(j, plasma%spec(sigma), &
                         use_collisionless, collisionless_kpar_epsilon) * Krook_kappa_rho_B(j, plasma%spec(sigma), &
                         use_collisionless, collisionless_kpar_epsilon)
+                    if (present(k_rho_B_terms)) then
+                        k_rho_B_terms(2) = k_rho_B_terms(2) + integral_val * &
+                            Krook_G2_rho_B(j, plasma%spec(sigma), use_collisionless, &
+                            collisionless_kpar_epsilon) * Krook_kappa_rho_B(j, &
+                            plasma%spec(sigma), use_collisionless, collisionless_kpar_epsilon)
+                    end if
 
                     call gauss_integrate_F3(int_F3, integral_val, gauss_conf)
                     k_rho_phi = k_rho_phi + integral_val * Krook_kappa_rho_phi(j, plasma%spec(sigma)) * &
@@ -526,6 +542,12 @@ module kernel_m
                     k_rho_B = k_rho_B + integral_val * Krook_G3_rho_B(j, plasma%spec(sigma), &
                         use_collisionless, collisionless_kpar_epsilon) * &
                         Krook_kappa_rho_B(j, plasma%spec(sigma), use_collisionless, collisionless_kpar_epsilon)
+                    if (present(k_rho_B_terms)) then
+                        k_rho_B_terms(3) = k_rho_B_terms(3) + integral_val * &
+                            Krook_G3_rho_B(j, plasma%spec(sigma), use_collisionless, &
+                            collisionless_kpar_epsilon) * Krook_kappa_rho_B(j, &
+                            plasma%spec(sigma), use_collisionless, collisionless_kpar_epsilon)
+                    end if
                 end if
 
             end do
@@ -533,6 +555,9 @@ module kernel_m
 
         k_rho_phi = k_rho_phi / (8.0d0 * pi**3.0d0)
         k_rho_B = k_rho_B / (8.0d0 * pi**3.0d0)
+        if (present(k_rho_B_terms)) then
+            k_rho_B_terms = k_rho_B_terms / (8.0_dp * pi**3)
+        end if
 
     end subroutine
 
@@ -895,7 +920,8 @@ module kernel_m
 
     end subroutine
 
-    subroutine FP_calc_kernel_element_ions(l, lp, k_rho_phi, k_rho_B, k_j_phi, k_j_B, gauss_conf, sigma)
+    subroutine FP_calc_kernel_element_ions(l, lp, k_rho_phi, k_rho_B, k_j_phi, k_j_B, &
+                                           gauss_conf, sigma, k_rho_B_terms)
 
         use KIM_kinds_m, only: dp
         use integrals_gauss_m, only: gauss_integrate_F0, gauss_integrate_F1, gauss_integrate_F2, gauss_integrate_F3,&
@@ -916,6 +942,7 @@ module kernel_m
 
         integer, intent(in) :: l, lp, sigma
         complex(dp) :: k_rho_phi, k_rho_B, k_j_phi, k_j_B
+        complex(dp), intent(out), optional :: k_rho_B_terms(3)
         integer :: j, mphi
         type(gauss_config_t), intent(in) :: gauss_conf
         real(dp) :: integral_val
@@ -931,6 +958,7 @@ module kernel_m
         k_rho_B = (0.0d0, 0.0d0)
         k_j_phi = (0.0d0, 0.0d0)
         k_j_B = (0.0d0, 0.0d0)
+        if (present(k_rho_B_terms)) k_rho_B_terms = (0.0_dp, 0.0_dp)
 
         call set_xl_at_edge(l, lp, int_point)
 
@@ -971,6 +999,10 @@ module kernel_m
                 ! end if
                 k_rho_phi = k_rho_phi + integral_val * pref_rho_phi_g1(sigma+1, j, mphi) * (-1.0d0)**mphi
                 k_rho_B = k_rho_B + integral_val * pref_rho_B_g1(sigma+1, j, mphi) * (-1.0d0)**mphi
+                if (present(k_rho_B_terms)) then
+                    k_rho_B_terms(1) = k_rho_B_terms(1) + integral_val * &
+                        pref_rho_B_g1(sigma+1, j, mphi) * (-1.0_dp)**mphi
+                end if
                 k_j_phi = k_j_phi + integral_val * pref_j_phi_g1(sigma+1, j, mphi) * (-1.0d0)**mphi
                 k_j_B = k_j_B + integral_val * pref_j_B_g1(sigma+1, j, mphi) * (-1.0d0)**mphi
             end do
@@ -987,6 +1019,10 @@ module kernel_m
                 call gauss_integrate_F2(int_F2, integral_val, gauss_conf)
                 k_rho_phi = k_rho_phi + integral_val * pref_rho_phi_g2(sigma+1, j, mphi) * (-1.0d0)**mphi
                 k_rho_B = k_rho_B + integral_val * pref_rho_B_g2(sigma+1, j, mphi) * (-1.0d0)**mphi
+                if (present(k_rho_B_terms)) then
+                    k_rho_B_terms(2) = k_rho_B_terms(2) + integral_val * &
+                        pref_rho_B_g2(sigma+1, j, mphi) * (-1.0_dp)**mphi
+                end if
                 k_j_phi = k_j_phi + integral_val * pref_j_phi_g2(sigma+1, j, mphi) * (-1.0d0)**mphi
                 k_j_B = k_j_B + integral_val * pref_j_B_g2(sigma+1, j, mphi) * (-1.0d0)**mphi
 
@@ -995,6 +1031,10 @@ module kernel_m
                 call gauss_integrate_F3(int_F3, integral_val, gauss_conf)
                 k_rho_phi = k_rho_phi + integral_val * pref_rho_phi_g3(sigma+1, j, mphi) * (-1.0d0)**mphi
                 k_rho_B = k_rho_B + integral_val * pref_rho_B_g3(sigma+1, j, mphi) * (-1.0d0)**mphi
+                if (present(k_rho_B_terms)) then
+                    k_rho_B_terms(3) = k_rho_B_terms(3) + integral_val * &
+                        pref_rho_B_g3(sigma+1, j, mphi) * (-1.0_dp)**mphi
+                end if
                 k_j_phi = k_j_phi + integral_val * pref_j_phi_g3(sigma+1,j, mphi) * (-1.0d0)**mphi
                 k_j_B = k_j_B + integral_val * pref_j_B_g3(sigma+1, j, mphi) * (-1.0d0)**mphi
             end do
@@ -1003,6 +1043,9 @@ module kernel_m
 
         k_rho_phi = k_rho_phi / (8.0d0 * pi**3.0d0)
         k_rho_B = k_rho_B / (8.0d0 * pi**3.0d0)
+        if (present(k_rho_B_terms)) then
+            k_rho_B_terms = k_rho_B_terms / (8.0_dp * pi**3)
+        end if
 
         k_j_phi = k_j_phi / (8.0d0 * pi**3.0d0)
         k_j_B = k_j_B / (8.0d0 * pi**3.0d0)

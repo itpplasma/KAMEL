@@ -81,6 +81,11 @@ set(KIM_asymptotics asymptotics/FLR2_asymptotics.f90
                     asymptotics/collisionless_fourier_kernel.f90
 )
 
+set(KIM_flr2 flr2/flr2_tridiagonal.f90
+              flr2/flr2_response.f90
+              flr2/flr2_run_type.f90
+)
+
 set(KIM_diagnostics diagnostics/kim_diagnostics_mod.f90
                     diagnostics/kim_qldiff_mod.f90
 )

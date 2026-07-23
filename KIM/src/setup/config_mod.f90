@@ -46,6 +46,16 @@ module config_m
     ! The forced-periodic solver uses its full Fourier kernel by default.
     logical :: periodic_match_global_kernel_approximations = .false.
 
+    ! KIM_FLR2 namelist variables. These switches only select terms in the
+    ! imported FLR2 response; all profiles and susceptibilities come from KIM.
+    logical :: flr2_electron_flr = .true.
+    logical :: flr2_ion_flr = .true.
+    logical :: flr2_electron_potential = .true.
+    logical :: flr2_ion_potential = .true.
+    logical :: flr2_electron_current = .true.
+    logical :: flr2_ion_current = .true.
+    logical :: flr2_include_potential_in_current = .true.
+
     ! KIM_IO namelist variables
     character(256) :: profile_location ! path to profile directory
     character(256) :: output_path         ! path to output directory

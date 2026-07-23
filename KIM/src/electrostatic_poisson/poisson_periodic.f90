@@ -37,13 +37,12 @@ module rt_electrostatic_periodic_m
     !> Does NOT error stop on a singular solve: it returns info /= 0 so the
     !> caller can decide (the run-type error stops; the tests inspect info).
     !>
-    !> The optional jpar returns the parallel current density perturbation on the
-    !> same r_out, per thesis (11.7): j_par = K^{jPhi} Phi + K^{jB} Br. It is
-    !> OPTIONAL because the Phase-3 convergence harnesses scan many (n_rg, M)
-    !> values for dPhi alone and have no use for it. Like dPhi, it is left
-    !> unallocated when the solve fails (info /= 0).
+    !> The optional jpar returns the total parallel current density perturbation
+    !> on the same r_out, per thesis (11.7): j_par = K^{jPhi} Phi + K^{jB} Br.
+    !> The optional jpar_species(:,sp) returns the contribution from each species,
+    !> with electron index sp=0. Both are left unallocated when the solve fails.
     subroutine compute_periodic_delta_phi(rm, dx_asis, dx_tr, M, n_rg, Br_const, &
-                                          r_out, dPhi, info, jpar)
+                                          r_out, dPhi, info, jpar, jpar_species)
         use KIM_kinds_m, only: dp
         use species_m, only: plasma
         use periodic_background_m, only: build_periodic_plasma
@@ -59,19 +58,36 @@ module rt_electrostatic_periodic_m
         complex(dp), allocatable, intent(out) :: dPhi(:)
         integer,     intent(out) :: info
         complex(dp), allocatable, intent(out), optional :: jpar(:)
+        complex(dp), allocatable, intent(out), optional :: jpar_species(:,:)
 
         complex(dp), allocatable :: Kphi(:,:), KB(:,:), Kjphi(:,:), KjB(:,:), Phi_m(:)
+        complex(dp), allocatable :: Kjphi_species(:,:,:), KjB_species(:,:,:)
         real(dp) :: L
+        integer :: sp
 
         L = 2.0_dp * (dx_asis + dx_tr)
 
         call set_global_kernel_approximations(periodic_match_global_kernel_approximations)
         call build_periodic_plasma(rm, dx_asis, dx_tr, n_rg)
-        call assemble_periodic_matrices(plasma, L, M, Kphi, KB, Kjphi, KjB)
+        if (present(jpar_species)) then
+            call assemble_periodic_matrices(plasma, L, M, Kphi, KB, Kjphi, KjB, &
+                Kjphi_species, KjB_species)
+        else
+            call assemble_periodic_matrices(plasma, L, M, Kphi, KB, Kjphi, KjB)
+        end if
         call solve_periodic(Kphi, KB, L, M, Br_const, Phi_m, info)
         if (info /= 0) return
 
         dPhi = reconstruct_delta_phi(Phi_m, L, M, r_out)
+
+        if (present(jpar_species)) then
+            allocate(jpar_species(size(r_out), 0:plasma%n_species - 1))
+            do sp = 0, plasma%n_species - 1
+                jpar_species(:, sp) = reconstruct_jpar(&
+                    Kjphi_species(:, :, sp), KjB_species(:, :, sp), &
+                    Phi_m, Br_const, L, M, r_out)
+            end do
+        end if
 
         if (present(jpar)) then
             jpar = reconstruct_jpar(Kjphi, KjB, Phi_m, Br_const, L, M, r_out)
@@ -205,17 +221,18 @@ module rt_electrostatic_periodic_m
         use grid_m, only: rg_grid
         use kim_resonances_m, only: r_res
         use fields_m, only: EBdat
-        use IO_collection_m, only: write_complex_profile_abs, write_periodic_scale_metadata
+        use IO_collection_m, only: itoa, write_complex_profile_abs, &
+            write_periodic_scale_metadata
 
         implicit none
 
         class(electrostatic_periodic_t), intent(inout) :: this
 
-        complex(dp), allocatable :: dPhi(:), jpar(:)
+        complex(dp), allocatable :: dPhi(:), jpar(:), jpar_species(:,:)
         complex(dp) :: Br_const
         real(dp), allocatable :: r_win(:)
         real(dp) :: rm, rhoL_rm, dx_asis, dx_tr, L, k_max
-        integer :: M, n_rg, info, i, reference_species
+        integer :: M, n_rg, info, i, reference_species, sp
 
         ! 1. Locate the resonant surface rm = r_res (q = |m/n|) on the global plasma.
         call prepare_resonances
@@ -277,7 +294,7 @@ module rt_electrostatic_periodic_m
         ! periodic core. It does NOT error stop on a singular solve; do it here.
         Br_const = cmplx(Br_boundary_re, Br_boundary_im, dp)
         call compute_periodic_delta_phi(rm, dx_asis, dx_tr, M, n_rg, Br_const, &
-                                        r_win, dPhi, info, jpar)
+                                        r_win, dPhi, info, jpar, jpar_species)
         if (info /= 0) then
             print *, "Error (electrostatic_periodic): solve_periodic failed, info = ", info
             error stop "electrostatic_periodic: periodic solve failed"
@@ -293,9 +310,17 @@ module rt_electrostatic_periodic_m
         if (allocated(EBdat%r_grid)) deallocate(EBdat%r_grid)
         if (allocated(EBdat%Phi))    deallocate(EBdat%Phi)
         if (allocated(EBdat%jpar))   deallocate(EBdat%jpar)
+        if (allocated(EBdat%jpar_e)) deallocate(EBdat%jpar_e)
+        if (allocated(EBdat%jpar_i)) deallocate(EBdat%jpar_i)
         EBdat%r_grid = r_win
         EBdat%Phi    = dPhi
         EBdat%jpar   = jpar
+        EBdat%jpar_e = jpar_species(:, 0)
+        allocate(EBdat%jpar_i(size(jpar)))
+        EBdat%jpar_i = (0.0_dp, 0.0_dp)
+        if (plasma%n_species > 1) then
+            EBdat%jpar_i = sum(jpar_species(:, 1:plasma%n_species - 1), dim=2)
+        end if
 
         if (hdf5_output) then
             call write_complex_profile_abs(EBdat%r_grid, EBdat%Phi, rg_grid%npts_b, &
@@ -306,6 +331,20 @@ module rt_electrostatic_periodic_m
                 "/fields/jpar", &
                 'Parallel current density perturbation j_par, forced-periodicity solution', &
                 'statA/cm^2')
+            call write_complex_profile_abs(EBdat%r_grid, EBdat%jpar_e, rg_grid%npts_b, &
+                "/fields/jpar_e", &
+                'Electron parallel current density, forced-periodicity solution', &
+                'statA/cm^2')
+            call write_complex_profile_abs(EBdat%r_grid, EBdat%jpar_i, rg_grid%npts_b, &
+                "/fields/jpar_i", &
+                'Summed ion parallel current density, forced-periodicity solution', &
+                'statA/cm^2')
+            do sp = 1, plasma%n_species - 1
+                call write_complex_profile_abs(EBdat%r_grid, jpar_species(:, sp), &
+                    rg_grid%npts_b, "/fields/jpar_i"//trim(itoa(sp)), &
+                    'Ion-species parallel current density, forced-periodicity solution', &
+                    'statA/cm^2')
+            end do
         end if
 
     end subroutine run_electrostatic_periodic

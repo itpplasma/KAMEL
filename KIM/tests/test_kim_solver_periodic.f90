@@ -28,11 +28,99 @@ program test_kim_solver_periodic
     call test_collisionless_ions_end_to_end()
     call test_multi_ion_order_independence()
     call test_global_approximation_enabled()
+    call test_species_resolved_currents(.false.)
+    call test_species_resolved_currents(.true.)
 
     print *, 'All tests PASSED'
     stop 0
 
 contains
+
+    subroutine test_species_resolved_currents(collisionless_ions)
+        use config_m, only: profiles_in_memory, nml_config_path
+        use fields_m, only: EBdat, EBdat_t
+        use IO_collection_m, only: deinitialize_hdf5_output, h5id
+        use KAMEL_hdf5_tools, only: h5_get, h5_obj_exists
+        use kim_base_m, only: kim_t
+        use kim_mod_m, only: from_kim_factory_get_kim
+        use species_m, only: set_profiles_from_arrays
+
+        logical, intent(in) :: collisionless_ions
+
+        integer, parameter :: npts = 201
+        integer, parameter :: ion_masses(2) = [2, 3]
+        real(dp) :: r_prof(npts), n_prof(npts), Te_prof(npts)
+        real(dp) :: Ti_prof(npts), q_prof(npts), Er_prof(npts)
+        complex(dp), allocatable :: jpar(:), jpar_e(:), jpar_i(:)
+        complex(dp), allocatable :: jpar_i1(:), jpar_i2(:)
+        class(kim_t), allocatable :: kim_instance
+        real(dp) :: scale
+        integer :: N
+        logical :: ex
+
+        call make_test_profiles(npts, r_prof, n_prof, Te_prof, Ti_prof, &
+                                q_prof, Er_prof)
+        call write_test_namelist('./KIM_config_periodic_species_jpar_test.nml', &
+            ion_masses=ion_masses, collisionless_ions=collisionless_ions, &
+            hdf5_enabled=.true.)
+        nml_config_path = './KIM_config_periodic_species_jpar_test.nml'
+
+        profiles_in_memory = .true.
+        call kim_init()
+        call set_profiles_from_arrays(r_prof, n_prof, Te_prof, Ti_prof, &
+                                      q_prof, Er_prof, npts)
+        EBdat = EBdat_t()
+        call from_kim_factory_get_kim('electrostatic_periodic', kim_instance)
+        call kim_instance%init()
+        call kim_instance%run()
+
+        if (.not. allocated(EBdat%jpar_e)) then
+            print *, 'FAIL: periodic EBdat%jpar_e not allocated'
+            error stop
+        end if
+        if (.not. allocated(EBdat%jpar_i)) then
+            print *, 'FAIL: periodic EBdat%jpar_i not allocated'
+            error stop
+        end if
+
+        call h5_obj_exists(h5id, 'fields/jpar', ex)
+        if (.not. ex) error stop 'periodic total jpar dataset missing'
+        call h5_obj_exists(h5id, 'fields/jpar_e', ex)
+        if (.not. ex) error stop 'periodic electron jpar dataset missing'
+        call h5_obj_exists(h5id, 'fields/jpar_i', ex)
+        if (.not. ex) error stop 'periodic ion-sum jpar dataset missing'
+        call h5_obj_exists(h5id, 'fields/jpar_i1', ex)
+        if (.not. ex) error stop 'periodic first-ion jpar dataset missing'
+        call h5_obj_exists(h5id, 'fields/jpar_i2', ex)
+        if (.not. ex) error stop 'periodic second-ion jpar dataset missing'
+
+        N = size(EBdat%jpar)
+        allocate(jpar(N), jpar_e(N), jpar_i(N), jpar_i1(N), jpar_i2(N))
+        call h5_get(h5id, 'fields/jpar', jpar)
+        call h5_get(h5id, 'fields/jpar_e', jpar_e)
+        call h5_get(h5id, 'fields/jpar_i', jpar_i)
+        call h5_get(h5id, 'fields/jpar_i1', jpar_i1)
+        call h5_get(h5id, 'fields/jpar_i2', jpar_i2)
+
+        scale = max(1.0_dp, maxval(abs(jpar)))
+        if (maxval(abs(jpar_i - jpar_i1 - jpar_i2)) > 1.0e-12_dp * scale) then
+            error stop 'periodic ion species currents do not sum to jpar_i'
+        end if
+        if (maxval(abs(jpar - jpar_e - jpar_i)) > 1.0e-12_dp * scale) then
+            error stop 'periodic species currents do not sum to total jpar'
+        end if
+        if (maxval(abs(EBdat%jpar_e - jpar_e)) > 1.0e-12_dp * scale .or. &
+                maxval(abs(EBdat%jpar_i - jpar_i)) > 1.0e-12_dp * scale) then
+            error stop 'periodic EBdat species currents differ from HDF5 output'
+        end if
+
+        call deinitialize_hdf5_output()
+        if (collisionless_ions) then
+            print *, 'PASS: collisionless periodic species currents sum to total jpar'
+        else
+            print *, 'PASS: FokkerPlanck periodic species currents sum to total jpar'
+        end if
+    end subroutine test_species_resolved_currents
 
     subroutine test_collisionless_ions_end_to_end()
         use, intrinsic :: ieee_arithmetic, only: ieee_is_finite
@@ -479,7 +567,7 @@ contains
     end subroutine make_test_profiles
 
     subroutine write_test_namelist(path, ion_masses, match_global_approximations, &
-            collisionless_ions, ions_disabled)
+            collisionless_ions, ions_disabled, hdf5_enabled)
         ! Minimal electrostatic-periodic FokkerPlanck configuration; m_mode = -6,
         ! n_mode = 2 makes q resonant at q = 3, type_br_field = 12 (constant Br).
         ! Deliberately OMITS the &KIM_PERIODIC group to prove the periodic_*
@@ -487,15 +575,17 @@ contains
         character(len=*), intent(in) :: path
         integer, intent(in), optional :: ion_masses(:)
         logical, intent(in), optional :: match_global_approximations
-        logical, intent(in), optional :: collisionless_ions, ions_disabled
+        logical, intent(in), optional :: collisionless_ions, ions_disabled, hdf5_enabled
         integer :: iunit, i, nions
-        logical :: custom_species, use_collisionless, disable_ions
+        logical :: custom_species, use_collisionless, disable_ions, write_hdf5
 
         custom_species = present(ion_masses)
         use_collisionless = .false.
         if (present(collisionless_ions)) use_collisionless = collisionless_ions
         disable_ions = .false.
         if (present(ions_disabled)) disable_ions = ions_disabled
+        write_hdf5 = .false.
+        if (present(hdf5_enabled)) write_hdf5 = hdf5_enabled
         nions = 1
         if (custom_species) nions = size(ion_masses)
 
@@ -539,11 +629,11 @@ contains
         write(iunit, '(A)') " profile_location = './'"
         write(iunit, '(A)') " output_path = './out_periodic_run_test/'"
         write(iunit, '(A)') ' hdf5_input = .false.'
-        write(iunit, '(A)') ' hdf5_output = .false.'
+        write(iunit, '(A,L1)') ' hdf5_output = ', write_hdf5
         write(iunit, '(A)') ' log_level = 3'
         write(iunit, '(A)') ' data_verbosity = 0'
         write(iunit, '(A)') ' calculate_asymptotics = .false.'
-        write(iunit, '(A)') " h5_out_file = ''"
+        write(iunit, '(A)') " h5_out_file = 'KIM_species_jpar.h5'"
         write(iunit, '(A)') ' write_diagnostics_dat = .false.'
         write(iunit, '(A)') '/'
         write(iunit, '(A)') '&KIM_SETUP'

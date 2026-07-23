@@ -57,6 +57,7 @@ contains
         class(kim_t), allocatable :: kim_instance
 
         complex(dp), allocatable :: Kphi(:,:), KB(:,:), Kjphi(:,:), KjB(:,:)
+        complex(dp), allocatable :: Kjphi_species(:,:,:), KjB_species(:,:,:)
         real(dp) :: rm, dx_asis, dx_tr, rho_L_rm, L
         integer :: n_rg, N, dim, im, imp
 
@@ -111,7 +112,8 @@ contains
             error stop
         end if
 
-        call assemble_periodic_matrices(plasma, L, M, Kphi, KB, Kjphi, KjB)
+        call assemble_periodic_matrices(plasma, L, M, Kphi, KB, Kjphi, KjB, &
+            Kjphi_species, KjB_species)
 
         ! (shape) all four matrices are (2M+1) x (2M+1).
         dim = 2 * M + 1
@@ -127,6 +129,19 @@ contains
             error stop
         end if
         print *, 'PASS: shape (2M+1)x(2M+1) =', dim, 'x', dim
+
+        if (lbound(Kjphi_species, 3) /= 0 .or. &
+                ubound(Kjphi_species, 3) /= plasma%n_species - 1 .or. &
+                any(shape(Kjphi_species) /= shape(KjB_species))) then
+            error stop 'species-current matrix shape or bounds are wrong'
+        end if
+        if (maxval(abs(Kjphi - sum(Kjphi_species, dim=3))) > &
+                2.0e-12_dp * max(1.0_dp, maxval(abs(Kjphi))) .or. &
+                maxval(abs(KjB - sum(KjB_species, dim=3))) > &
+                2.0e-12_dp * max(1.0_dp, maxval(abs(KjB)))) then
+            error stop 'species-current matrices do not sum to aggregate matrices'
+        end if
+        print *, 'PASS: species-current matrices sum to aggregate matrices'
 
         ! (characterization) recompute two elements by an inline brute-force sum
         ! with the SAME quadrature formula and compare to the stored elements.

@@ -26,3 +26,7 @@ add_fortran_test(test_rhs_balance)
 add_executable(test_kim_adapter.x test_kim_adapter.f90)
 target_link_libraries(test_kim_adapter.x PUBLIC ql-balance_lib)
 add_fortran_test(test_kim_adapter)
+configure_file(${CMAKE_SOURCE_DIR}/KIM/tests/test_data/KIM_config_em_small.nml
+               ${CMAKE_BINARY_DIR}/tests/KIM_config_em_small.nml COPYONLY)
+set_tests_properties(test_kim_adapter PROPERTIES
+                     WORKING_DIRECTORY ${CMAKE_BINARY_DIR}/tests/)

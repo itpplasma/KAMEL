@@ -108,6 +108,26 @@ target_link_libraries(test_susceptibility_collisionless_limit
 add_test(NAME test_susceptibility_collisionless_limit
          COMMAND ${CMAKE_BINARY_DIR}/tests/test_susceptibility_collisionless_limit.x)
 
+add_executable(test_ifunc_conservation_models
+               ${CMAKE_SOURCE_DIR}/KIM/tests/test_ifunc_conservation_models.f90)
+set_target_properties(test_ifunc_conservation_models PROPERTIES
+                      OUTPUT_NAME test_ifunc_conservation_models.x
+                      RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/tests/")
+target_link_libraries(test_ifunc_conservation_models
+                      KIM_lib kilca_lib lapack cerf fortnum_amos_compat)
+add_test(NAME test_ifunc_conservation_models
+         COMMAND ${CMAKE_BINARY_DIR}/tests/test_ifunc_conservation_models.x)
+
+add_executable(test_ifunc_model_config
+               ${CMAKE_SOURCE_DIR}/KIM/tests/test_ifunc_model_config.f90)
+set_target_properties(test_ifunc_model_config PROPERTIES
+                      OUTPUT_NAME test_ifunc_model_config.x
+                      RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/tests/")
+target_link_libraries(test_ifunc_model_config
+                      KIM_lib kilca_lib lapack cerf fortnum_amos_compat)
+add_test(NAME test_ifunc_model_config
+         COMMAND ${CMAKE_BINARY_DIR}/tests/test_ifunc_model_config.x)
+
 add_executable(test_flr2_fourier_kernel ${CMAKE_SOURCE_DIR}/KIM/tests/test_flr2_fourier_kernel.f90)
 set_target_properties(test_flr2_fourier_kernel PROPERTIES
                         OUTPUT_NAME test_flr2_fourier_kernel.x

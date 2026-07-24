@@ -107,7 +107,7 @@ module species_m
 
     end function scale_fp_collision_frequency
 
-    subroutine evaluate_susceptibility(x1, x2, symbI)
+    subroutine evaluate_susceptibility(x1, x2, conservation_model, symbI)
         ! Markl et al., Nucl. Fusion 63 (2023) 126007, appendix A:
         ! use the collisionless moments once the collisional W2_arr
         ! representation enters its empirically identified cancellation
@@ -117,6 +117,7 @@ module species_m
         use use_libcerf_m, only: w_of_z_F
 
         real(dp), intent(in) :: x1, x2
+        integer, intent(in) :: conservation_model
         complex(dp), intent(out) :: symbI(0:nmmax, 0:nmmax)
 
         real(dp), parameter :: smaller_argument_threshold = 1.0e3_dp
@@ -128,7 +129,7 @@ module species_m
 
         if (min(abs(x1), abs(x2)) < smaller_argument_threshold .or. &
                 max(abs(x1), abs(x2)) < larger_argument_threshold) then
-            call getIfunc(x1, x2, symbI)
+            call getIfunc_model(x1, x2, conservation_model, symbI)
             return
         end if
 
@@ -403,12 +404,12 @@ module species_m
         use setup_m, only: omega, mphi_max
         use grid_m, only: rg_grid
         use KIM_kinds_m, only: dp
-        use config_m, only: ion_flr_scale_factor
+        use config_m, only: ion_flr_scale_factor, ifunc_model_for_species
 
         implicit none
 
         type(plasma_t), intent(inout) :: plasma_in
-        integer :: sp, j, mphi
+        integer :: sp, j, mphi, ifunc_model
 
         ! Allocate arrays
         do sp = 0, plasma_in%n_species-1
@@ -452,6 +453,7 @@ module species_m
         ! Calculate on boundary points (npts_b)
         do sp = 0, plasma_in%n_species-1
             plasma_in%spec(sp)%symbI = 0.0d0
+            ifunc_model = ifunc_model_for_species(sp)
 
             do j = 1, rg_grid%npts_b
 
@@ -468,7 +470,8 @@ module species_m
                                                     / plasma_in%spec(sp)%nu(j)
 
                     call evaluate_susceptibility(plasma_in%spec(sp)%x1(j), &
-                        plasma_in%spec(sp)%x2(j, mphi), plasma_in%spec(sp)%symbI)
+                        plasma_in%spec(sp)%x2(j, mphi), ifunc_model, &
+                        plasma_in%spec(sp)%symbI)
                     plasma_in%spec(sp)%I00(j, mphi) = plasma_in%spec(sp)%symbI(0, 0)
                     plasma_in%spec(sp)%I20(j, mphi) = plasma_in%spec(sp)%symbI(2, 0)
                     plasma_in%spec(sp)%I02(j, mphi) = plasma_in%spec(sp)%symbI(0, 2)
@@ -484,6 +487,7 @@ module species_m
         ! Calculate on cell centers (npts_c)
         do sp = 0, plasma_in%n_species-1
             plasma_in%spec(sp)%symbI = 0.0d0
+            ifunc_model = ifunc_model_for_species(sp)
 
             do j = 1, rg_grid%npts_c
                 plasma_in%spec(sp)%A1_cc(j) = plasma_in%spec(sp)%dndr_cc(j) / plasma_in%spec(sp)%n_cc(j) &
@@ -500,7 +504,8 @@ module species_m
                                                         / plasma_in%spec(sp)%nu_cc(j)
 
                     call evaluate_susceptibility(plasma_in%spec(sp)%x1_cc(j), &
-                        plasma_in%spec(sp)%x2_cc(j, mphi), plasma_in%spec(sp)%symbI)
+                        plasma_in%spec(sp)%x2_cc(j, mphi), ifunc_model, &
+                        plasma_in%spec(sp)%symbI)
                     plasma_in%spec(sp)%I00_cc(j, mphi) = plasma_in%spec(sp)%symbI(0, 0)
                     plasma_in%spec(sp)%I20_cc(j, mphi) = plasma_in%spec(sp)%symbI(2, 0)
                     plasma_in%spec(sp)%I10_cc(j, mphi) = plasma_in%spec(sp)%symbI(1, 0)
@@ -980,17 +985,22 @@ module species_m
 
         use kim_resonances_m, only: r_res
         use grid_m, only: width_res
+        use config_m, only: resolved_electron_ifunc_conservation_model, &
+                            resolved_ion_ifunc_conservation_model
 
         implicit none
 
         type(species_t), intent(inout) :: spec
         integer, intent(in) :: mphi
-        integer :: j
+        integer :: j, ifunc_model
 
         if (.not. allocated(spec%symbI)) allocate(spec%symbI(0:nmmax, 0:nmmax))
         spec%symbI = 0.0d0
+        ifunc_model = resolved_ion_ifunc_conservation_model
+        if (spec%Zspec < 0) ifunc_model = resolved_electron_ifunc_conservation_model
         do j = 1, plasma%grid_size
-            call evaluate_susceptibility(spec%x1(j), spec%x2(j, mphi), spec%symbI)
+            call evaluate_susceptibility(spec%x1(j), spec%x2(j, mphi), &
+                ifunc_model, spec%symbI)
             spec%I00(j, mphi) = spec%symbI(0, 0)
             spec%I20(j, mphi) = spec%symbI(2, 0)
             spec%I02(j, mphi) = spec%symbI(0, 2)

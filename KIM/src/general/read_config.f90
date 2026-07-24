@@ -20,7 +20,8 @@ subroutine kim_read_config
                         ion_collision_model, collisionless_kpar_epsilon, ion_fp_collision_scale, &
                         turn_off_ions, turn_off_electrons, plasma_type, rescale_density, &
                         number_density_rescale, ion_flr_scale_factor, &
-                        collision_frequency_scale, boole_energy_conservation
+                        collision_frequency_scale, boole_energy_conservation, &
+                        electron_ifunc_conservation_model, ion_ifunc_conservation_model
 
     namelist /WKB_DISPERSION/ WKB_dispersion_mode, WKB_dispersion_solver, &
                         WKB_solve_for_kr_squared, &
@@ -76,6 +77,10 @@ subroutine kim_read_config
         write(*,*) 'Namelist path provided: ', nml_config_path
     end if
 
+    electron_ifunc_conservation_model = IFUNC_MODEL_INHERIT
+    ion_ifunc_conservation_model = IFUNC_MODEL_INHERIT
+    boole_energy_conservation = .true.
+
     open(unit = 77, file = trim(nml_config_path))
     read(unit = 77, nml = KIM_CONFIG)
     read(unit = 77, nml = WKB_DISPERSION)
@@ -104,8 +109,22 @@ subroutine kim_read_config
 
     close(unit = 77)
 
-    ! Propagate KIM_CONFIG flag to the QL-Balance getIfunc_config module
-    ! so the shared I-function code picks up the energy-conservation switch.
+    if (.not. ifunc_model_is_valid(electron_ifunc_conservation_model)) then
+        write(*,*) 'Invalid electron_ifunc_conservation_model: ', &
+            electron_ifunc_conservation_model
+        error stop 'I-function conservation models must be -1, 0, 1, 2, or 3'
+    end if
+    if (.not. ifunc_model_is_valid(ion_ifunc_conservation_model)) then
+        write(*,*) 'Invalid ion_ifunc_conservation_model: ', ion_ifunc_conservation_model
+        error stop 'I-function conservation models must be -1, 0, 1, 2, or 3'
+    end if
+
+    resolved_electron_ifunc_conservation_model = resolve_ifunc_model( &
+        electron_ifunc_conservation_model, boole_energy_conservation)
+    resolved_ion_ifunc_conservation_model = resolve_ifunc_model( &
+        ion_ifunc_conservation_model, boole_energy_conservation)
+
+    ! Preserve the legacy wrapper for standalone QL-Balance callers.
     getIfunc_boole_energy_conservation = boole_energy_conservation
 
     call set_log_level(log_level)

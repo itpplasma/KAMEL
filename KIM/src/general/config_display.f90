@@ -143,6 +143,10 @@ contains
         call print_config_line('Plasma Type', trim(plasma_type), width)
         call print_config_line('Collision Model', trim(collision_model), width)
         call print_config_line('Ion Collision Model', trim(ion_collision_model), width)
+        call print_config_line('Electron I-function Model', &
+            trim(ifunc_model_name(resolved_electron_ifunc_conservation_model)), width)
+        call print_config_line('Ion I-function Model', &
+            trim(ifunc_model_name(resolved_ion_ifunc_conservation_model)), width)
         write(value_str, '(ES12.4)') ion_fp_collision_scale
         call print_config_line('Ion FP nu scale', trim(adjustl(value_str)), width)
         if (trim(ion_collision_model) == 'collisionless') then

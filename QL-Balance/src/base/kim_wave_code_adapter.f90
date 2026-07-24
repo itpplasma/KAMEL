@@ -487,17 +487,18 @@ contains
         !!
         !! Note: dPhi0 is only updated from Ercov during time evolution.
         !! For SingleStep runs, the input Er profile is preserved.
-        use wave_code_data, only: dim_r, &
+        use wave_code_data, only: dim_r, wcd_r => r, wcd_q => q, &
             wcd_n => n, wcd_Te => Te, wcd_Ti => Ti, &
             wcd_Vz => Vz, wcd_dPhi0 => dPhi0
         use plasma_parameters, only: params_b
         use baseparam_mod, only: ev, rtor
         use grid_mod, only: Ercov
-        use control_mod, only: type_of_run
+        use control_mod, only: type_of_run, kim_profiles_from_balance
 
         implicit none
 
-        integer :: k
+        type(kim_profiles_t) :: prof
+        integer :: k, ierr
 
         do k = 1, dim_r
             wcd_n(k)     = params_b(1, k)
@@ -512,6 +513,26 @@ contains
             do k = 1, dim_r
                 wcd_dPhi0(k) = -Ercov(k)
             end do
+        end if
+
+        ! Path A owns the current profiles in QL-Balance. Push every updated
+        ! scan/time-evolution state through KIM's public seam so the next solve
+        ! rebuilds its derived equilibrium from these values.
+        if (kim_profiles_from_balance) then
+            allocate(prof%r(dim_r), prof%n(dim_r), prof%Te(dim_r), &
+                     prof%Ti(dim_r), prof%q(dim_r), prof%Er(dim_r))
+            prof%r = wcd_r
+            prof%n = wcd_n
+            prof%Te = wcd_Te
+            prof%Ti = wcd_Ti
+            prof%q = wcd_q
+            prof%Er = -wcd_dPhi0
+
+            call kim_handle%set_profiles(prof, stat=ierr)
+            if (ierr /= KIM_OK) then
+                write(*,*) 'ERROR: KIM profile update failed with status ', ierr
+                stop 1
+            end if
         end if
 
     end subroutine kim_update_profiles

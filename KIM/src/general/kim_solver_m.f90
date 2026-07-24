@@ -59,6 +59,7 @@ module kim_solver_m
         class(kim_t), allocatable :: run_type
         logical :: is_setup = .false.
         logical :: has_solved = .false.
+        logical :: profiles_dirty = .false.
         integer :: status = KIM_OK
         type(kim_results_t) :: last
     contains
@@ -112,6 +113,7 @@ contains
         call self%run_type%init()
 
         self%is_setup = .true.
+        self%profiles_dirty = .false.
         if (present(stat)) stat = self%status
     end subroutine solver_init
 
@@ -128,6 +130,7 @@ contains
         end if
 
         call inject_profiles(profiles)
+        self%profiles_dirty = .true.
         self%status = KIM_OK
         if (present(stat)) stat = self%status
     end subroutine solver_set_profiles
@@ -154,10 +157,12 @@ contains
         m_mode = m
         n_mode = n
 
-        ! init() prepares the configured mode. Reuse it only when the first
-        ! requested mode matches; subsequent solves also rebuild because
-        ! callers may have replaced the in-memory profiles.
-        if (self%has_solved .or. mode_changed) call recompute_equilibrium_for_mode()
+        ! init() prepares the configured mode. Reuse it only while neither the
+        ! mode nor the in-memory profiles have changed.
+        if (self%has_solved .or. mode_changed .or. self%profiles_dirty) then
+            call recompute_equilibrium_for_mode()
+            self%profiles_dirty = .false.
+        end if
 
         call reset_fields()
         call self%run_type%run()
@@ -198,6 +203,7 @@ contains
         if (allocated(self%run_type)) deallocate(self%run_type)
         self%is_setup = .false.
         self%has_solved = .false.
+        self%profiles_dirty = .false.
         self%status = KIM_OK
     end subroutine solver_finalize
 

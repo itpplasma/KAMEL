@@ -1047,11 +1047,11 @@ double h[3];
 eval_and_set_background_parameters_spec_independent_ (&(qp->r),qp->zone->sd->bs->flag_back);
 get_magnetic_field_parameters_ (h);
 
-complex<double> j_rsp[3], E_rsp[3], B_rsp[3];  //rsp sys
-complex<double> j_cyl[3], E_cyl[3], Bc_cyl[3];  //cyl sys
+complex<double> j_rsp[3], E_rsp[3], B_rsp[3]; //rsp sys
+complex<double> j_cyl[3], E_cyl[3], B_cyl[3]; //cyl sys
 
-complex<double> jxBc[3]; //j x B*
-complex<double> nd;      //density perturbation
+complex<double> nd; //density perturbation
+double force_density[3], torque_density[3];
 
 for (int spec=0; spec<2; spec++) //over species (i,e)
 {
@@ -1080,25 +1080,31 @@ for (int spec=0; spec<2; spec++) //over species (i,e)
     E_cyl[1] = h[2]*E_rsp[1] + h[1]*E_rsp[2];
     E_cyl[2] = h[2]*E_rsp[2] - h[1]*E_rsp[1];
 
-    //conjugate magnetic field:
-    Bc_cyl[0] = conj(B_rsp[0]);
-    Bc_cyl[1] = conj(h[2]*B_rsp[1] + h[1]*B_rsp[2]);
-    Bc_cyl[2] = conj(h[2]*B_rsp[2] - h[1]*B_rsp[1]);
-
-    vec_product_3D (j_cyl, Bc_cyl, jxBc);
+    //magnetic field:
+    B_cyl[0] = B_rsp[0];
+    B_cyl[1] = h[2]*B_rsp[1] + h[1]*B_rsp[2];
+    B_cyl[2] = h[2]*B_rsp[2] - h[1]*B_rsp[1];
 
     nd = ND[spec][0][qp->node] + ND[spec][1][qp->node]*I; //density perturbation
 
-    //force density:
+    calc_time_averaged_lorentz_force (
+        qp->zone->sd->bs->charge[spec],
+        nd,
+        E_cyl,
+        j_cyl,
+        B_cyl,
+        force_density);
+
+    calc_cylindrical_torque_density (
+        qp->r,
+        qp->zone->sd->bs->rtor,
+        force_density,
+        torque_density);
+
     for (int i=0; i<3; i++) //over components (r,th,z)
     {
-        LTD[spec][i][qp->node] = 0.5*real((qp->zone->sd->bs->charge[spec])*
-                                          nd*conj(E_cyl[i]) + E/c*jxBc[i]);
+        LTD[spec][i][qp->node] = torque_density[i];
     }
-
-    //torque density:
-    LTD[spec][1][qp->node] *= qp->r;                  //T_theta = F_theta*r
-    LTD[spec][2][qp->node] *= qp->zone->sd->bs->rtor; //T_z = F_z*R
 }
 
 //total torque t = i+e:
@@ -1181,11 +1187,57 @@ if (DEBUG_FLAG) fprintf (stdout, "\n%s is saved.", qp->name[qp->LOR_TORQUE_DENS]
 
 /*******************************************************************/
 
-void vec_product_3D (complex<double> *a, complex<double> *b, complex<double> *res)
+void vec_product_3D (
+    const complex<double> *a,
+    const complex<double> *b,
+    complex<double> *res)
 {
 res[0] =  (a[1]*b[2] - a[2]*b[1]);
 res[1] = -(a[0]*b[2] - a[2]*b[0]);
 res[2] =  (a[0]*b[1] - a[1]*b[0]);
+}
+
+/*******************************************************************/
+
+void calc_time_averaged_lorentz_force (
+    double charge,
+    complex<double> density,
+    const complex<double> *electric_field,
+    const complex<double> *current_density,
+    const complex<double> *magnetic_field,
+    double *force_density)
+{
+complex<double> conjugate_magnetic_field[3];
+complex<double> current_cross_magnetic_field[3];
+
+for (int i=0; i<3; i++)
+{
+    conjugate_magnetic_field[i] = conj(magnetic_field[i]);
+}
+
+vec_product_3D (
+    current_density,
+    conjugate_magnetic_field,
+    current_cross_magnetic_field);
+
+for (int i=0; i<3; i++)
+{
+    force_density[i] = 0.5*real(
+        charge*density*conj(electric_field[i]) + current_cross_magnetic_field[i]/c);
+}
+}
+
+/*******************************************************************/
+
+void calc_cylindrical_torque_density (
+    double radius,
+    double major_radius,
+    const double *force_density,
+    double *torque_density)
+{
+torque_density[0] = force_density[0];
+torque_density[1] = radius*force_density[1];
+torque_density[2] = major_radius*force_density[2];
 }
 
 /*******************************************************************/

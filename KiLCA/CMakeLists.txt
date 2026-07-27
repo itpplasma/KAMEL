@@ -310,6 +310,8 @@ set_target_properties(post_proc PROPERTIES
 add_dependencies(post_proc ${EXTERNAL_LIBS})
 target_link_libraries (post_proc kilca_lib ${EXTERNAL_LIBS})
 
+add_subdirectory(tests)
+
 # add a target to generate API documentation with Doxygen
 find_package (Doxygen)
 

@@ -62,6 +62,9 @@ jobs:
       - name: Build
         run: cmake --build build --parallel
 
+      - name: Test golden-record harness
+        run: make pytest
+
       - name: Run tests
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

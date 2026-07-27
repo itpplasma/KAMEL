@@ -1,5 +1,6 @@
 CONFIG ?= Release
 INSTALL_KIM_SYMLINK ?= OFF
+PYTHON ?= python3
 
 # Honor LIBNEO_REF/LIBNEO_PATH only when passed on the make command line; an
 # ambient value from the shell is ignored so it cannot change the libneo fetch.
@@ -37,6 +38,9 @@ PreProc:
 
 test: ninja
 	ctest --test-dir build --stop-on-failure --output-on-failure --no-label-summary
+
+pytest:
+	$(PYTHON) -m pytest test/golden/bin -q
 
 # Golden-record regression now lives in test/golden/ and runs in the dedicated
 # GitHub Actions job, NOT in `make test`/ctest. This target is for manual local

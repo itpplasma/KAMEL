@@ -520,10 +520,6 @@ end subroutine
 ! Added this routine which reads the initial background
 ! profiles from an hdf5 file that is located in path.
 ! This uses the hdf5_tools module.
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-! Updated 16.03.2021 by Markus Markl
-! Rescales Er profile if velocity scan is done
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 subroutine read_background_profiles_h5
 
     use h5mod
@@ -537,10 +533,6 @@ subroutine read_background_profiles_h5
     integer :: lb, ub;
     ! Each hdf5 "direction" needs its own ID number
     !integer(HID_T) :: h5_id, group_id, dset_id, dspace_id
-    double precision, dimension(:), allocatable :: ErVzfac ! factor to rescale
-    !Er, is read from hdf5 file
-    ! is the same for every fac_vz
-
     call log_debug('Read background profiles from hdf5 file')
     CALL h5_init()
     !CALL h5_check()

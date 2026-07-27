@@ -104,7 +104,7 @@ contains
     ! A constant complex function should interpolate exactly.
     ! ------------------------------------------------------------------
     subroutine test_interp_complex_constant()
-        integer, parameter :: n_old = 5, n_new = 3
+        integer, parameter :: n_old = 10, n_new = 3
         real(8) :: r_old(n_old), r_new(n_new)
         complex(8) :: z_old(n_old), z_new(n_new)
         complex(8), parameter :: val = (2.5d0, -1.3d0)
@@ -113,7 +113,7 @@ contains
 
         print *, "--- test_interp_complex_constant ---"
 
-        ! Old grid: [10, 20, 30, 40, 50]
+        ! Old grid: [10, 20, 30, ..., 100]
         do i = 1, n_old
             r_old(i) = 10.0d0 * dble(i)
             z_old(i) = val

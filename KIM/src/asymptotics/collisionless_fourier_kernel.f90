@@ -17,7 +17,7 @@ module collisionless_fourier_kernel_m
 contains
 
     subroutine configured_hatG_all(plasma_in, kr, krp, j, rho_phi, rho_B, j_phi, j_B, &
-            j_phi_species, j_B_species)
+            j_phi_species, j_B_species, rho_phi_species, rho_B_species)
         ! Select the configured ion model without changing the electron model.
         ! Accumulate the established per-species FP kernels in FokkerPlanck mode.
         ! In collisionless mode, electrons remain FP while every enabled ion
@@ -28,6 +28,7 @@ contains
         integer, intent(in) :: j
         complex(dp), intent(out) :: rho_phi, rho_B, j_phi, j_B
         complex(dp), intent(out), optional :: j_phi_species(0:), j_B_species(0:)
+        complex(dp), intent(out), optional :: rho_phi_species(0:), rho_B_species(0:)
 
         integer :: sp
         complex(dp) :: species_rho_phi, species_rho_B
@@ -43,6 +44,17 @@ contains
             end if
             j_phi_species = (0.0_dp, 0.0_dp)
             j_B_species = (0.0_dp, 0.0_dp)
+        end if
+        if (present(rho_phi_species) .neqv. present(rho_B_species)) then
+            error stop 'configured_hatG_all requires both species-charge arrays'
+        end if
+        if (present(rho_phi_species)) then
+            if (ubound(rho_phi_species, 1) < plasma_in%n_species - 1 .or. &
+                    ubound(rho_B_species, 1) < plasma_in%n_species - 1) then
+                error stop 'configured_hatG_all species-charge arrays are too small'
+            end if
+            rho_phi_species = (0.0_dp, 0.0_dp)
+            rho_B_species = (0.0_dp, 0.0_dp)
         end if
 
         rho_phi = (0.0_dp, 0.0_dp)
@@ -60,6 +72,10 @@ contains
             if (present(j_phi_species)) then
                 j_phi_species(sp) = species_j_phi
                 j_B_species(sp) = species_j_B
+            end if
+            if (present(rho_phi_species)) then
+                rho_phi_species(sp) = species_rho_phi
+                rho_B_species(sp) = species_rho_B
             end if
         end do
     end subroutine configured_hatG_all

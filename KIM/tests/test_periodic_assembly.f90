@@ -58,6 +58,7 @@ contains
 
         complex(dp), allocatable :: Kphi(:,:), KB(:,:), Kjphi(:,:), KjB(:,:)
         complex(dp), allocatable :: Kjphi_species(:,:,:), KjB_species(:,:,:)
+        complex(dp), allocatable :: Kphi_species(:,:,:), KB_species(:,:,:)
         real(dp) :: rm, dx_asis, dx_tr, rho_L_rm, L
         integer :: n_rg, N, dim, im, imp
 
@@ -113,7 +114,7 @@ contains
         end if
 
         call assemble_periodic_matrices(plasma, L, M, Kphi, KB, Kjphi, KjB, &
-            Kjphi_species, KjB_species)
+            Kjphi_species, KjB_species, Kphi_species, KB_species)
 
         ! (shape) all four matrices are (2M+1) x (2M+1).
         dim = 2 * M + 1
@@ -142,6 +143,22 @@ contains
             error stop 'species-current matrices do not sum to aggregate matrices'
         end if
         print *, 'PASS: species-current matrices sum to aggregate matrices'
+
+        if (lbound(Kphi_species, 3) /= 0 .or. &
+                ubound(Kphi_species, 3) /= plasma%n_species - 1 .or. &
+                any(shape(Kphi_species) /= shape(KB_species))) then
+            error stop 'species-charge matrix shape or bounds are wrong'
+        end if
+        if (maxval(abs(Kphi - sum(Kphi_species, dim=3))) > &
+                2.0e-12_dp * max(1.0_dp, maxval(abs(Kphi))) .or. &
+                maxval(abs(KB - sum(KB_species, dim=3))) > &
+                2.0e-12_dp * max(1.0_dp, maxval(abs(KB)))) then
+            error stop 'species-charge matrices do not sum to aggregate matrices'
+        end if
+        if (maxval(abs(KB_species(:, :, 1))) <= tiny(1.0_dp)) then
+            error stop 'ion rho-B matrix is unexpectedly zero'
+        end if
+        print *, 'PASS: species-charge matrices sum to aggregate matrices'
 
         ! (characterization) recompute two elements by an inline brute-force sum
         ! with the SAME quadrature formula and compare to the stored elements.

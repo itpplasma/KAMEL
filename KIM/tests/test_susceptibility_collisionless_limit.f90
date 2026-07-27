@@ -1,6 +1,5 @@
 program test_susceptibility_collisionless_limit
 
-    use getIfunc_config_m, only: boole_energy_conservation
     use KIM_kinds_m, only: dp
     use species_m, only: evaluate_susceptibility
     use use_libcerf_m, only: w_of_z_F
@@ -13,12 +12,11 @@ program test_susceptibility_collisionless_limit
         [1.0_dp, 10.0_dp, 100.0_dp, 1000.0_dp, 10000.0_dp]
     complex(dp) :: numerical(0:3, 0:3), exact(0:3, 0:3)
     real(dp) :: x1, x2, z, large_argument_error
-    integer :: i, conservation, iz
+    integer :: i, conservation_model, iz
 
-    do conservation = 1, 2
-        boole_energy_conservation = conservation == 1
+    do conservation_model = 0, 3
         large_argument_error = 0.0_dp
-        print '(A,L1)', 'energy conservation = ', boole_energy_conservation
+        print '(A,I0)', 'conservation model = ', conservation_model
         do iz = 1, size(z_values)
             z = z_values(iz)
             print '(A,F5.1)', 'z = ', z
@@ -26,7 +24,7 @@ program test_susceptibility_collisionless_limit
             do i = 1, size(scales)
                 x1 = scales(i)
                 x2 = sqrt(2.0_dp) * z * x1
-                call evaluate_susceptibility(x1, x2, numerical)
+                call evaluate_susceptibility(x1, x2, conservation_model, numerical)
                 call collisionless_limit(x1, x2, exact)
                 print '(F7.0,5(1X,ES10.3))', scales(i), &
                     relative_error(numerical(0, 0), exact(0, 0)), &
@@ -54,7 +52,7 @@ program test_susceptibility_collisionless_limit
     x1 = -10000.0_dp
     do iz = 1, size(z_values)
         x2 = sqrt(2.0_dp) * z_values(iz) * abs(x1)
-        call evaluate_susceptibility(x1, x2, numerical)
+        call evaluate_susceptibility(x1, x2, 1, numerical)
         call collisionless_limit(x1, x2, exact)
         large_argument_error = max( &
             relative_error(numerical(0, 0), exact(0, 0)), &

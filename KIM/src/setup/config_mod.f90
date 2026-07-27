@@ -16,10 +16,24 @@ module config_m
     logical :: turn_off_ions ! if true, only the first species (electrons) is considered in calculations
     logical :: turn_off_electrons
     character(100) :: plasma_type ! type of plasma ('H' for hydrogen, 'D' for deuterium)
-    ! Energy-conservation correction in the I-functions (getIfunc). When .true.
-    ! (default), the symmetric (Imn(m,0)-Imn(m,2))*(Imn(n,0)-Imn(n,2))/denom term
-    ! is added so the collision operator conserves energy. When .false., the bare
-    ! Imn is used — apples-to-apples with the GORILLA OU operator on v_par.
+    integer, parameter :: IFUNC_MODEL_INHERIT = -1
+    integer, parameter :: IFUNC_MODEL_NUMBER = 0
+    integer, parameter :: IFUNC_MODEL_ENERGY = 1
+    integer, parameter :: IFUNC_MODEL_MOMENTUM = 2
+    integer, parameter :: IFUNC_MODEL_ENERGY_MOMENTUM = 3
+    ! KiLCA-compatible per-species conservation models: 0=N, 1=N+E,
+    ! 2=N+P_parallel, 3=N+E+P_parallel. The -1 default inherits the legacy
+    ! boole_energy_conservation setting.
+    integer :: electron_ifunc_conservation_model = IFUNC_MODEL_INHERIT
+    integer :: ion_ifunc_conservation_model = IFUNC_MODEL_INHERIT
+    integer :: resolved_electron_ifunc_conservation_model = IFUNC_MODEL_ENERGY
+    integer :: resolved_ion_ifunc_conservation_model = IFUNC_MODEL_ENERGY
+    ! Diagnostic control for the ion thermodynamic-force terms. This changes
+    ! only A1i/A2i; the physical Ti profile and all quantities derived from it
+    ! remain unchanged.
+    character(24) :: ion_temperature_gradient_model = 'full'
+    ! Deprecated compatibility setting. It is consulted only when a species'
+    ! integer conservation model is left at IFUNC_MODEL_INHERIT.
     logical :: boole_energy_conservation = .true.
 
     ! WKB_DISPERSION namelist variables
@@ -98,4 +112,101 @@ module config_m
     character(256) :: Er_file = 'Er.dat'
     character(256) :: q_file = 'q.dat'
 
-end module
+contains
+
+    pure logical function ifunc_model_is_valid(model)
+
+        integer, intent(in) :: model
+
+        ifunc_model_is_valid = model >= IFUNC_MODEL_INHERIT &
+            .and. model <= IFUNC_MODEL_ENERGY_MOMENTUM
+
+    end function ifunc_model_is_valid
+
+    pure logical function ion_temperature_gradient_model_is_valid(model)
+
+        character(*), intent(in) :: model
+
+        select case (trim(model))
+        case ('full', 'zero_A2', 'zero_Tprime')
+            ion_temperature_gradient_model_is_valid = .true.
+        case default
+            ion_temperature_gradient_model_is_valid = .false.
+        end select
+
+    end function ion_temperature_gradient_model_is_valid
+
+    pure subroutine temperature_gradient_force_terms(species_index, model, &
+            normalized_gradient, a1_temperature, a2)
+
+        integer, intent(in) :: species_index
+        character(*), intent(in) :: model
+        real(dp), intent(in) :: normalized_gradient
+        real(dp), intent(out) :: a1_temperature, a2
+
+        a1_temperature = -1.5_dp * normalized_gradient
+        a2 = normalized_gradient
+
+        if (species_index > 0) then
+            select case (trim(model))
+            case ('zero_A2')
+                a2 = 0.0_dp
+            case ('zero_Tprime')
+                a1_temperature = 0.0_dp
+                a2 = 0.0_dp
+            case default
+                continue
+            end select
+        end if
+
+    end subroutine temperature_gradient_force_terms
+
+    pure integer function resolve_ifunc_model(model, legacy_energy_conservation)
+
+        integer, intent(in) :: model
+        logical, intent(in) :: legacy_energy_conservation
+
+        if (model == IFUNC_MODEL_INHERIT) then
+            resolve_ifunc_model = merge(IFUNC_MODEL_ENERGY, IFUNC_MODEL_NUMBER, &
+                legacy_energy_conservation)
+        else
+            resolve_ifunc_model = model
+        end if
+
+    end function resolve_ifunc_model
+
+    pure function ifunc_model_name(model) result(name)
+
+        integer, intent(in) :: model
+        character(len=16) :: name
+
+        select case (model)
+        case (IFUNC_MODEL_NUMBER)
+            name = '0 (N)'
+        case (IFUNC_MODEL_ENERGY)
+            name = '1 (N+E)'
+        case (IFUNC_MODEL_MOMENTUM)
+            name = '2 (N+P)'
+        case (IFUNC_MODEL_ENERGY_MOMENTUM)
+            name = '3 (N+E+P)'
+        case (IFUNC_MODEL_INHERIT)
+            name = '-1 (inherit)'
+        case default
+            name = 'invalid'
+        end select
+
+    end function ifunc_model_name
+
+    integer function ifunc_model_for_species(species_index)
+
+        integer, intent(in) :: species_index
+
+        if (species_index == 0) then
+            ifunc_model_for_species = resolved_electron_ifunc_conservation_model
+        else
+            ifunc_model_for_species = resolved_ion_ifunc_conservation_model
+        end if
+
+    end function ifunc_model_for_species
+
+end module config_m

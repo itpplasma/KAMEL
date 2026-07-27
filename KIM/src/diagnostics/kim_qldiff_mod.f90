@@ -29,6 +29,7 @@ contains
         !   Es   - complex perpendicular electric field amplitude [statV/cm]
         !   Br   - complex radial magnetic perturbation amplitude [G]
         use constants_m, only: sol
+        use config_m, only: resolved_electron_ifunc_conservation_model
 
         real(dp), intent(in) :: vTe, nue, om_E, B0, kpar
         complex(dp), intent(in) :: Es, Br
@@ -38,10 +39,11 @@ contains
         complex(dp) :: symbI(0:3, 0:3)
 
         interface
-            subroutine getIfunc(x1, x2, symbI)
+            subroutine getIfunc_model(x1, x2, conservation_model, symbI)
                 double precision, intent(in) :: x1, x2
+                integer, intent(in) :: conservation_model
                 double complex, dimension(0:3, 0:3), intent(out) :: symbI
-            end subroutine
+            end subroutine getIfunc_model
         end interface
 
         ! Normalized distance to resonance and inverse normalized
@@ -49,7 +51,8 @@ contains
         x1 = kpar * vTe / nue
         x2 = -om_E / nue
 
-        call getIfunc(x1, x2, symbI)
+        call getIfunc_model(x1, x2, &
+            resolved_electron_ifunc_conservation_model, symbI)
 
         comfac = 0.5_dp / (nue * B0**2)
         epm2 = sol**2 * abs(Es)**2

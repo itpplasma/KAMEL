@@ -404,12 +404,15 @@ module species_m
         use setup_m, only: omega, mphi_max
         use grid_m, only: rg_grid
         use KIM_kinds_m, only: dp
-        use config_m, only: ion_flr_scale_factor, ifunc_model_for_species
+        use config_m, only: ion_flr_scale_factor, ifunc_model_for_species, &
+                            ion_temperature_gradient_model, &
+                            temperature_gradient_force_terms
 
         implicit none
 
         type(plasma_t), intent(inout) :: plasma_in
         integer :: sp, j, mphi, ifunc_model
+        real(dp) :: normalized_temperature_gradient, a1_temperature, a2_force
 
         ! Allocate arrays
         do sp = 0, plasma_in%n_species-1
@@ -457,10 +460,15 @@ module species_m
 
             do j = 1, rg_grid%npts_b
 
+                normalized_temperature_gradient = plasma_in%spec(sp)%dTdr(j) &
+                    / plasma_in%spec(sp)%T(j)
+                call temperature_gradient_force_terms(sp, &
+                    ion_temperature_gradient_model, &
+                    normalized_temperature_gradient, a1_temperature, a2_force)
                 plasma_in%spec(sp)%A1(j) = plasma_in%spec(sp)%dndr(j) / plasma_in%spec(sp)%n(j) &
                     - plasma_in%spec(sp)%Zspec * e_charge / (plasma_in%spec(sp)%T(j) * ev) * plasma_in%Er(j) &
-                    - 3.0d0 / (2.0d0 * plasma_in%spec(sp)%T(j)) * plasma_in%spec(sp)%dTdr(j)
-                plasma_in%spec(sp)%A2(j) = plasma_in%spec(sp)%dTdr(j) / plasma_in%spec(sp)%T(j)
+                    + a1_temperature
+                plasma_in%spec(sp)%A2(j) = a2_force
 
 
                 plasma_in%spec(sp)%x1(j) = plasma_in%kp(j) * plasma_in%spec(sp)%vT(j) / plasma_in%spec(sp)%nu(j)
@@ -490,10 +498,15 @@ module species_m
             ifunc_model = ifunc_model_for_species(sp)
 
             do j = 1, rg_grid%npts_c
+                normalized_temperature_gradient = plasma_in%spec(sp)%dTdr_cc(j) &
+                    / plasma_in%spec(sp)%T_cc(j)
+                call temperature_gradient_force_terms(sp, &
+                    ion_temperature_gradient_model, &
+                    normalized_temperature_gradient, a1_temperature, a2_force)
                 plasma_in%spec(sp)%A1_cc(j) = plasma_in%spec(sp)%dndr_cc(j) / plasma_in%spec(sp)%n_cc(j) &
                     - plasma_in%spec(sp)%Zspec * e_charge / (plasma_in%spec(sp)%T_cc(j) * ev) * plasma_in%Er_cc(j) &
-                    - 3.0d0 / (2.0d0 * plasma_in%spec(sp)%T_cc(j)) * plasma_in%spec(sp)%dTdr_cc(j)
-                plasma_in%spec(sp)%A2_cc(j) = plasma_in%spec(sp)%dTdr_cc(j) / plasma_in%spec(sp)%T_cc(j)
+                    + a1_temperature
+                plasma_in%spec(sp)%A2_cc(j) = a2_force
 
                 plasma_in%spec(sp)%x1_cc(j) = 0.5d0 * (plasma_in%kp(j) + plasma_in%kp(j+1)) &
                     * plasma_in%spec(sp)%vT_cc(j) / plasma_in%spec(sp)%nu_cc(j)

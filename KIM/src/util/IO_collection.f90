@@ -149,6 +149,9 @@ module IO_collection_m
         call h5_add(h5grpid, 'ion_ifunc_conservation_model', &
             resolved_ion_ifunc_conservation_model, &
             'Resolved ion I-function model: 0=N, 1=N+E, 2=N+P, 3=N+E+P.', '1')
+        call h5_add(h5grpid, 'ion_temperature_gradient_model', &
+            trim(ion_temperature_gradient_model), &
+            'Ion force diagnostic: full, zero_A2, or zero_Tprime.', 'str')
         call h5_add(h5grpid, 'read_species_from_namelist', read_species_from_namelist, &
             'Logical switch to read species from namelist or use default deuterium plasma.', 'true/false')
         call h5_add(h5grpid, 'turn_off_ions', turn_off_ions, &

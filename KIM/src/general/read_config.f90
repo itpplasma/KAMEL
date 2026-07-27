@@ -21,7 +21,8 @@ subroutine kim_read_config
                         turn_off_ions, turn_off_electrons, plasma_type, rescale_density, &
                         number_density_rescale, ion_flr_scale_factor, &
                         collision_frequency_scale, boole_energy_conservation, &
-                        electron_ifunc_conservation_model, ion_ifunc_conservation_model
+                        electron_ifunc_conservation_model, ion_ifunc_conservation_model, &
+                        ion_temperature_gradient_model
 
     namelist /WKB_DISPERSION/ WKB_dispersion_mode, WKB_dispersion_solver, &
                         WKB_solve_for_kr_squared, &
@@ -79,6 +80,7 @@ subroutine kim_read_config
 
     electron_ifunc_conservation_model = IFUNC_MODEL_INHERIT
     ion_ifunc_conservation_model = IFUNC_MODEL_INHERIT
+    ion_temperature_gradient_model = 'full'
     boole_energy_conservation = .true.
 
     open(unit = 77, file = trim(nml_config_path))
@@ -117,6 +119,12 @@ subroutine kim_read_config
     if (.not. ifunc_model_is_valid(ion_ifunc_conservation_model)) then
         write(*,*) 'Invalid ion_ifunc_conservation_model: ', ion_ifunc_conservation_model
         error stop 'I-function conservation models must be -1, 0, 1, 2, or 3'
+    end if
+    if (.not. ion_temperature_gradient_model_is_valid( &
+            ion_temperature_gradient_model)) then
+        write(*,*) 'Invalid ion_temperature_gradient_model: ', &
+            trim(ion_temperature_gradient_model)
+        error stop 'ion_temperature_gradient_model must be full, zero_A2, or zero_Tprime'
     end if
 
     resolved_electron_ifunc_conservation_model = resolve_ifunc_model( &

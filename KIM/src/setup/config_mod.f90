@@ -28,6 +28,10 @@ module config_m
     integer :: ion_ifunc_conservation_model = IFUNC_MODEL_INHERIT
     integer :: resolved_electron_ifunc_conservation_model = IFUNC_MODEL_ENERGY
     integer :: resolved_ion_ifunc_conservation_model = IFUNC_MODEL_ENERGY
+    ! Diagnostic control for the ion thermodynamic-force terms. This changes
+    ! only A1i/A2i; the physical Ti profile and all quantities derived from it
+    ! remain unchanged.
+    character(24) :: ion_temperature_gradient_model = 'full'
     ! Deprecated compatibility setting. It is consulted only when a species'
     ! integer conservation model is left at IFUNC_MODEL_INHERIT.
     logical :: boole_energy_conservation = .true.
@@ -118,6 +122,44 @@ contains
             .and. model <= IFUNC_MODEL_ENERGY_MOMENTUM
 
     end function ifunc_model_is_valid
+
+    pure logical function ion_temperature_gradient_model_is_valid(model)
+
+        character(*), intent(in) :: model
+
+        select case (trim(model))
+        case ('full', 'zero_A2', 'zero_Tprime')
+            ion_temperature_gradient_model_is_valid = .true.
+        case default
+            ion_temperature_gradient_model_is_valid = .false.
+        end select
+
+    end function ion_temperature_gradient_model_is_valid
+
+    pure subroutine temperature_gradient_force_terms(species_index, model, &
+            normalized_gradient, a1_temperature, a2)
+
+        integer, intent(in) :: species_index
+        character(*), intent(in) :: model
+        real(dp), intent(in) :: normalized_gradient
+        real(dp), intent(out) :: a1_temperature, a2
+
+        a1_temperature = -1.5_dp * normalized_gradient
+        a2 = normalized_gradient
+
+        if (species_index > 0) then
+            select case (trim(model))
+            case ('zero_A2')
+                a2 = 0.0_dp
+            case ('zero_Tprime')
+                a1_temperature = 0.0_dp
+                a2 = 0.0_dp
+            case default
+                continue
+            end select
+        end if
+
+    end subroutine temperature_gradient_force_terms
 
     pure integer function resolve_ifunc_model(model, legacy_energy_conservation)
 

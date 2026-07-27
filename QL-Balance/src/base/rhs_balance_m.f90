@@ -89,6 +89,7 @@ module rhs_balance_m
     public :: compute_thermodynamic_forces
     public :: compute_particle_fluxes
     public :: compute_total_heat_fluxes
+    public :: compute_linearized_product
     public :: compute_diffusive_parts
     public :: compute_convective_parts
     public :: compute_source_terms_at_point
@@ -666,12 +667,26 @@ contains
 
         ! Eq. 3: Electron temperature
         ! Complete linearization: δ(E0r·Γ_ql) = E0r·δΓ_ql + δE0r·Γ_ql_frozen
-        qlheat_e = +e_charge * (E0r * Gamma_ql_e + E0r_lin * Gamma_ql_e_froz)
+        qlheat_e = +e_charge * compute_linearized_product(E0r, Gamma_ql_e, E0r_lin, &
+                                                          Gamma_ql_e_froz)
 
         ! Eq. 4: Ion temperature
         ! Complete linearization: δ(E0r·Γ_ql) = E0r·δΓ_ql + δE0r·Γ_ql_frozen
-        qlheat_i = -Z * e_charge * (E0r * Gamma_ql_i + E0r_lin * Gamma_ql_i_froz)
+        qlheat_i = -Z * e_charge * compute_linearized_product(E0r, Gamma_ql_i, E0r_lin, &
+                                                              Gamma_ql_i_froz)
     end subroutine compute_rmp_induced_sources
+
+    pure function compute_linearized_product(base, response_delta, base_delta, response_frozen) &
+        result(product_delta)
+        ! First variation of a product:
+        !   delta(base * response) = base * delta(response) + delta(base) * response.
+        implicit none
+
+        real(dp), intent(in) :: base, response_delta, base_delta, response_frozen
+        real(dp) :: product_delta
+
+        product_delta = base * response_delta + base_delta * response_frozen
+    end function compute_linearized_product
 
     pure subroutine compute_dot_params_at_point(ipoi, npoi, nbaleqs, fluxes_dif, fluxes_con, &
                                                 fluxes_con_nl, params, params_lin, params_b_lin, &

@@ -54,6 +54,20 @@ void save_total_flux (const flre_quants *qp);
 void calc_number_density (flre_quants *qp);
 void save_number_density (const flre_quants *qp);
 
+void calc_time_averaged_lorentz_force (
+    double charge,
+    complex<double> density,
+    const complex<double> *electric_field,
+    const complex<double> *current_density,
+    const complex<double> *magnetic_field,
+    double *force_density);
+
+void calc_cylindrical_torque_density (
+    double radius,
+    double major_radius,
+    const double *force_density,
+    double *torque_density);
+
 void calc_lorentz_torque_density (flre_quants *qp);
 void calc_lorentz_torque_on_cylinder (flre_quants *qp);
 void save_lorentz_torque (const flre_quants *qp);
@@ -62,7 +76,10 @@ void calculate_field_profiles_poy_test (flre_quants *qp);
 
 inline int binary_search (double x, const double *xa, int ilo, int ihi);
 
-void vec_product_3D (complex<double> *a, complex<double> *b, complex<double> *res);
+void vec_product_3D (
+    const complex<double> *a,
+    const complex<double> *b,
+    complex<double> *res);
 
 void integrate_over_cylinder (int dim, double *x, double *q, double vol_fac, double *qi);
 

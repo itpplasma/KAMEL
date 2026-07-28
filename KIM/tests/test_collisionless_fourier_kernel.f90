@@ -4,6 +4,7 @@ program test_collisionless_fourier_kernel
     use config_m, only: artificial_debye_case
     use constants_m, only: pi
     use flr2_fourier_kernel_m, only: set_global_kernel_approximations
+    use fortnum_special, only: bessel_in
     use setup_m, only: omega
     use species_m, only: plasma_t
     use, intrinsic :: ieee_arithmetic, only: ieee_is_finite
@@ -13,6 +14,7 @@ program test_collisionless_fourier_kernel
     type(plasma_t) :: test_plasma
     complex(dp) :: rho_phi, rho_B, j_phi, j_B
     complex(dp) :: rho_phi_ref, rho_B_ref, j_phi_ref, j_B_ref
+    real(dp) :: bplus_ref, bcross_ref, radial_gaussian_ref, remainder_ref
     real(dp), parameter :: epsilon = 0.05_dp
     real(dp), parameter :: kr = 0.73_dp, krp = -0.41_dp
 
@@ -21,14 +23,34 @@ program test_collisionless_fourier_kernel
     artificial_debye_case = 0
     omega = 0.17_dp
 
+    ! Run the static-limit checks first. They are independent of the
+    ! manufactured oracle below and must catch an incomplete FLR response
+    ! before any hard-coded non-static reference values are considered.
+    call test_homogeneous_static_limit(test_plasma)
+
     call collisionless_ion_cores(test_plasma, 1, kr, krp, 1, epsilon, &
         rho_phi, rho_B, j_phi, j_B)
 
     ! Independent Fourier-space evaluation of the global collisionless
-    ! G1+G2+G3 decomposition.  In particular, G2 supplies the -b_plus term,
+    ! G1+G2+G3 decomposition. In particular, G2 supplies the -b_plus term,
     ! and the velocity moments retain their Z(zeta) and 1+zeta*Z(zeta)
-    ! dependence.  The global solver is the normalization/sign baseline.
-    rho_phi_ref = cmplx(-2.1566076735926778e-2_dp, -7.8627199009209740e-3_dp, dp)
+    ! dependence. The hard-coded rho-Phi value is the independently checked
+    ! m_phi=0 moment. Add the analytically summed m_phi /= 0 remainder using
+    ! primitive definitions rather than the production FLR helpers, so a
+    ! shared error in b_plus, b_cross, or the radial Gaussian cannot self-pass.
+    bplus_ref = 0.5_dp * test_plasma%spec(1)%rho_L(1)**2 * (&
+        2.0_dp * test_plasma%ks(1)**2 + kr**2 + krp**2)
+    bcross_ref = test_plasma%spec(1)%rho_L(1)**2 &
+        * sqrt(test_plasma%ks(1)**2 + kr**2) &
+        * sqrt(test_plasma%ks(1)**2 + krp**2)
+    radial_gaussian_ref = exp(&
+        -0.5_dp * test_plasma%spec(1)%rho_L(1)**2 * (kr - krp)**2)
+    remainder_ref = (&
+        exp(-bplus_ref) * bessel_in(0, bcross_ref) - radial_gaussian_ref) &
+        / (test_plasma%spec(1)%lambda_D(1)**2 * 8.0_dp * pi**2)
+    rho_phi_ref = cmplx(&
+        -2.1566076735926778e-2_dp + remainder_ref, &
+        -7.8627199009209740e-3_dp, dp)
     rho_B_ref = cmplx(-5.9925789298467730e-14_dp, 1.5662372153310280e-14_dp, dp)
     j_phi_ref = cmplx(7.8025611966209100e-3_dp, -6.5083683321303820e-3_dp, dp)
     j_B_ref = cmplx(6.1104067713266680e-14_dp, -1.5970330300359097e-14_dp, dp)
@@ -41,7 +63,6 @@ program test_collisionless_fourier_kernel
     call assert_close('j-B global-kernel oracle', j_B, j_B_ref, 5.0e-8_dp)
 
     call test_magnetic_recurrence(test_plasma)
-    call test_homogeneous_static_limit(test_plasma)
     call test_resonance_regularization(test_plasma)
     call test_collision_frequency_independence(test_plasma)
 
@@ -87,6 +108,7 @@ contains
     subroutine test_homogeneous_static_limit(plasma)
         type(plasma_t), intent(inout) :: plasma
         complex(dp) :: rp, rb, jp, jb, expected
+        real(dp) :: gaussian
         real(dp) :: saved_omega, saved_om_E, saved_ks, saved_rho_L
         real(dp) :: saved_A1, saved_A2
 
@@ -99,17 +121,61 @@ contains
 
         omega = 0.0_dp
         plasma%om_E(1) = 0.0_dp
-        plasma%ks(1) = 0.0_dp
-        plasma%spec(1)%rho_L(1) = 0.0_dp
         plasma%spec(1)%A1(1) = 0.0_dp
         plasma%spec(1)%A2(1) = 0.0_dp
 
+        ! At finite FLR the sum over all cyclotron harmonics restores the
+        ! complete static Debye response. On the Fourier diagonal the
+        ! canonical radial Gaussian is exactly unity, irrespective of ks.
+        call collisionless_ion_cores(plasma, 1, kr, kr, 1, epsilon, rp, rb, jp, jb)
+        expected = cmplx(-1.0_dp / (8.0_dp * pi**2 * plasma%spec(1)%lambda_D(1)**2), &
+            0.0_dp, dp)
+        call assert_close('homogeneous finite-FLR diagonal Debye limit', rp, expected, 2.0e-13_dp)
+        call assert_close('homogeneous finite-FLR diagonal rho-B vanishes', rb, &
+            cmplx(0.0_dp, 0.0_dp, dp), 1.0e-30_dp)
+        call assert_close('homogeneous finite-FLR diagonal j-Phi vanishes', jp, &
+            cmplx(0.0_dp, 0.0_dp, dp), 1.0e-30_dp)
+        call assert_close('homogeneous finite-FLR diagonal j-B vanishes', jb, &
+            cmplx(0.0_dp, 0.0_dp, dp), 1.0e-30_dp)
+
+        ! Off the Fourier diagonal, the same static response is broadened
+        ! only by the radial guiding-centre Gaussian. It must not depend on
+        ! the individual perpendicular wavenumbers through Gamma_0(b).
+        call collisionless_ion_cores(plasma, 1, kr, krp, 1, epsilon, rp, rb, jp, jb)
+        gaussian = exp(-0.5_dp * plasma%spec(1)%rho_L(1)**2 * (kr - krp)**2)
+        expected = cmplx(-gaussian / &
+            (8.0_dp * pi**2 * plasma%spec(1)%lambda_D(1)**2), 0.0_dp, dp)
+        call assert_close('homogeneous finite-FLR off-diagonal Debye limit', &
+            rp, expected, 2.0e-13_dp)
+        call assert_close('homogeneous finite-FLR off-diagonal rho-B vanishes', rb, &
+            cmplx(0.0_dp, 0.0_dp, dp), 1.0e-30_dp)
+        call assert_close('homogeneous finite-FLR off-diagonal j-Phi vanishes', jp, &
+            cmplx(0.0_dp, 0.0_dp, dp), 1.0e-30_dp)
+        call assert_close('homogeneous finite-FLR off-diagonal j-B vanishes', jb, &
+            cmplx(0.0_dp, 0.0_dp, dp), 1.0e-30_dp)
+
+        ! The optional global-comparison approximation omits ks from b_plus
+        ! and b_cross. Its m_phi=0 term changes, but the analytic remainder
+        ! must still cancel it and leave the same canonical radial Gaussian.
+        call set_global_kernel_approximations(.true.)
+        call collisionless_ion_cores(plasma, 1, kr, krp, 1, epsilon, rp, rb, jp, jb)
+        call assert_close('homogeneous simplified-FLR off-diagonal Debye limit', &
+            rp, expected, 2.0e-13_dp)
+        call set_global_kernel_approximations(.false.)
+
+        ! Retain the zero-FLR case as a separate limiting check. This case
+        ! alone is insufficient because both competing formulas reduce to 1.
+        plasma%ks(1) = 0.0_dp
+        plasma%spec(1)%rho_L(1) = 0.0_dp
         call collisionless_ion_cores(plasma, 1, kr, krp, 1, epsilon, rp, rb, jp, jb)
         expected = cmplx(-1.0_dp / (8.0_dp * pi**2 * plasma%spec(1)%lambda_D(1)**2), 0.0_dp, dp)
-        call assert_close('homogeneous static Debye limit', rp, expected, 2.0e-13_dp)
-        call assert_close('homogeneous rho-B vanishes', rb, cmplx(0.0_dp, 0.0_dp, dp), 1.0e-30_dp)
-        call assert_close('homogeneous j-Phi vanishes', jp, cmplx(0.0_dp, 0.0_dp, dp), 1.0e-30_dp)
-        call assert_close('homogeneous j-B vanishes', jb, cmplx(0.0_dp, 0.0_dp, dp), 1.0e-30_dp)
+        call assert_close('homogeneous zero-FLR Debye limit', rp, expected, 2.0e-13_dp)
+        call assert_close('homogeneous zero-FLR rho-B vanishes', rb, &
+            cmplx(0.0_dp, 0.0_dp, dp), 1.0e-30_dp)
+        call assert_close('homogeneous zero-FLR j-Phi vanishes', jp, &
+            cmplx(0.0_dp, 0.0_dp, dp), 1.0e-30_dp)
+        call assert_close('homogeneous zero-FLR j-B vanishes', jb, &
+            cmplx(0.0_dp, 0.0_dp, dp), 1.0e-30_dp)
 
         omega = saved_omega
         plasma%om_E(1) = saved_om_E

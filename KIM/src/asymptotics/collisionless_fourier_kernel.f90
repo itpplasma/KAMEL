@@ -199,6 +199,7 @@ contains
         complex(dp), intent(out) :: rho_phi, rho_B, j_phi, j_B
 
         real(dp) :: grad_A1, grad_A2, bplus, bcross, ks, k_abs
+        real(dp) :: radial_gaussian
         real(dp) :: lambda_D, omega_c, sI0, sIm1, vT
         real(dp) :: coeff0, coeff1, coeff2
         complex(dp) :: k_pole, zeta0, response_Z
@@ -219,6 +220,8 @@ contains
 
         call flr_arg_pair_sp(plasma_in, sp, kr, krp, j, bplus, bcross)
         call scaled_bessel_pair(bplus, bcross, sI0, sIm1)
+        radial_gaussian = exp(&
+            -0.5_dp * plasma_in%spec(sp)%rho_L(j)**2 * (kr - krp)**2)
 
         k_abs = Krook_collisionless_kpar_magnitude(plasma_in%kp(j), epsilon)
         k_pole = Krook_collisionless_kpar(plasma_in%kp(j), epsilon)
@@ -253,6 +256,16 @@ contains
         ! written with the same explicit 1/(8*pi^2) normalization.
         rho_phi = omega_c / (sqrt(2.0_dp) * lambda_D**2 * vT * k_abs) &
             * rho_phi_moment / (8.0_dp * pi**2)
+
+        ! The moment above is the m_phi=0 contribution. The analytically
+        ! summed nonzero cyclotron harmonics add the finite-FLR remainder
+        ! [exp(-b_plus) I_0(b_cross) - exp(-rho_L^2 (kr-krp)^2/2)]/lambda_D^2;
+        ! see thesis (13.125)--(13.127). In a homogeneous static plasma this
+        ! cancels the -sI0 zeroth harmonic and restores the complete radial
+        ! Gaussian Debye response. The common Fourier normalization is the
+        ! same as for the zeroth-harmonic moment.
+        rho_phi = rho_phi + (sI0 - radial_gaussian) &
+            / (lambda_D**2 * 8.0_dp * pi**2)
         j_phi = omega_c / (lambda_D**2 * k_pole) &
             * j_phi_moment / (8.0_dp * pi**2)
 

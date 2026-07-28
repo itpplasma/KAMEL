@@ -260,14 +260,16 @@ module FP_kernel_plasma_prefacs_m
         type(species_t), intent(in) :: spec
         complex(dp) :: val
         complex(dp) :: I10, I12
-        real(dp) :: A1, A2
+        real(dp) :: A1, A2, harmonic_force
 
         A1 = spec%A1_cc(j)
         A2 = spec%A2_cc(j)
         I10 = spec%I10_cc(j, mphi)
         I12 = spec%I12_cc(j, mphi)
+        harmonic_force = A1 + A2 * (1.0_dp - mphi)
 
-        val = (I10 * (A1 + A2) + 0.5d0 * A2 * I12) * FP_kappa_j_phi(j, spec) * plasma%ks_cc(j)
+        val = (I10 * harmonic_force + 0.5d0 * A2 * I12) &
+            * FP_kappa_j_phi(j, spec) * plasma%ks_cc(j)
 
     end function
 
@@ -325,14 +327,16 @@ module FP_kernel_plasma_prefacs_m
         type(species_t), intent(in) :: spec
         complex(dp) :: val
         complex(dp) :: I11, I13
-        real(dp) :: A1, A2
+        real(dp) :: A1, A2, harmonic_force
 
         A1 = spec%A1_cc(j)
         A2 = spec%A2_cc(j)
         I11 = spec%I11_cc(j, mphi)
         I13 = spec%I13_cc(j, mphi)
+        harmonic_force = A1 + A2 * (1.0_dp - mphi)
 
-        val = (I11 * (A1 + A2) + 0.5d0 * A2 * I13) * FP_kappa_j_B(j, spec)
+        val = (I11 * harmonic_force + 0.5d0 * A2 * I13) &
+            * FP_kappa_j_B(j, spec)
 
     end function
 

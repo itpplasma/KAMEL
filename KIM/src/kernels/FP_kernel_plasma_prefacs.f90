@@ -5,6 +5,24 @@ module FP_kernel_plasma_prefacs_m
 
     contains
 
+    function FP_flr_scale(spec) result(scale)
+
+        use species_m, only: species_t
+        use KIM_kinds_m, only: dp
+        use config_m, only: ion_flr_scale_factor
+
+        implicit none
+
+        type(species_t), intent(in) :: spec
+        real(dp) :: scale
+
+        ! KIM supports negatively charged electrons and positively charged
+        ! ions; the artificial ion scale must never alter electron FLR terms.
+        scale = 1.0_dp
+        if (spec%Zspec > 0) scale = ion_flr_scale_factor
+
+    end function FP_flr_scale
+
     function FP_kappa_rho_phi(j, spec) result(val)
 
         use species_m, only: species_t
@@ -25,7 +43,6 @@ module FP_kernel_plasma_prefacs_m
         use species_m, only: species_t
         use KIM_kinds_m, only: dp
         use constants_m, only: sol
-        use config_m, only: ion_flr_scale_factor
 
         implicit none
 
@@ -39,7 +56,8 @@ module FP_kernel_plasma_prefacs_m
         nu = spec%nu_cc(j)
         omega_c = spec%omega_c_cc(j)
 
-        val = - vT**3.0d0 / (lambda**2.0d0 * omega_c * nu * sol) * ion_flr_scale_factor
+        val = - vT**3.0d0 / (lambda**2.0d0 * omega_c * nu * sol) &
+            * FP_flr_scale(spec)
 
     end function FP_kappa_rho_B
 
@@ -61,7 +79,8 @@ module FP_kernel_plasma_prefacs_m
         nu = spec%nu_cc(j)
         omega_c = spec%omega_c_cc(j)
 
-        val = com_unit * vT**3.0d0 / (lambda**2.0d0 * omega_c * nu)
+        val = com_unit * vT**3.0d0 / (lambda**2.0d0 * omega_c * nu) &
+            * FP_flr_scale(spec)
 
     end function FP_kappa_j_phi
 
@@ -83,7 +102,8 @@ module FP_kernel_plasma_prefacs_m
         nu = spec%nu_cc(j)
         omega_c = spec%omega_c_cc(j)
 
-        val = - vT**4.0d0 / (lambda**2.0d0 * omega_c * nu * sol)
+        val = - vT**4.0d0 / (lambda**2.0d0 * omega_c * nu * sol) &
+            * FP_flr_scale(spec)
 
     end function FP_kappa_j_B
 
@@ -107,7 +127,6 @@ module FP_kernel_plasma_prefacs_m
         use species_m, only: species_t, plasma
         use KIM_kinds_m, only: dp
         use constants_m, only: com_unit
-        use config_m, only: ion_flr_scale_factor
 
         implicit none
 
@@ -124,7 +143,8 @@ module FP_kernel_plasma_prefacs_m
         I20 = spec%I20_cc(j, mphi)
 
         prefactor = FP_kappa_rho_phi(j, spec) * com_unit * spec%vT_cc(j)**2.0d0 / &
-            (spec%omega_c_cc(j) * spec%nu_cc(j)) * plasma%ks_cc(j) * ion_flr_scale_factor
+            (spec%omega_c_cc(j) * spec%nu_cc(j)) * plasma%ks_cc(j) &
+            * FP_flr_scale(spec)
 
         val = (I00 * (A1 + A2 * (1.0d0 - mphi)) + 0.5d0 * A2 * I20) * prefactor
 
@@ -136,7 +156,6 @@ module FP_kernel_plasma_prefacs_m
         use species_m, only: species_t, plasma
         use KIM_kinds_m, only: dp
         use constants_m, only: com_unit
-        use config_m, only: ion_flr_scale_factor
 
         implicit none
 
@@ -151,7 +170,8 @@ module FP_kernel_plasma_prefacs_m
         I00 = spec%I00_cc(j, mphi)
 
         prefactor = com_unit * spec%vT_cc(j)**2.0d0 / &
-            (spec%omega_c_cc(j) * spec%nu_cc(j)) * plasma%ks_cc(j) * ion_flr_scale_factor
+            (spec%omega_c_cc(j) * spec%nu_cc(j)) * plasma%ks_cc(j) &
+            * FP_flr_scale(spec)
 
         val = - I00 * A2 * prefactor * FP_kappa_rho_phi(j, spec)
 
@@ -162,7 +182,6 @@ module FP_kernel_plasma_prefacs_m
         use species_m, only: species_t, plasma
         use KIM_kinds_m, only: dp
         use constants_m, only: com_unit
-        use config_m, only: ion_flr_scale_factor
 
         implicit none
 
@@ -177,7 +196,8 @@ module FP_kernel_plasma_prefacs_m
         I00 = spec%I00_cc(j, mphi)
 
         prefactor = com_unit * spec%vT_cc(j)**2.0d0 / &
-            (spec%omega_c_cc(j) * spec%nu_cc(j)) * plasma%ks_cc(j) * ion_flr_scale_factor
+            (spec%omega_c_cc(j) * spec%nu_cc(j)) * plasma%ks_cc(j) &
+            * FP_flr_scale(spec)
 
         val = I00 * A2 * prefactor * FP_kappa_rho_phi(j, spec)
 

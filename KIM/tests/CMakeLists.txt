@@ -244,6 +244,16 @@ target_link_libraries(test_fp_kernel_prefactors
 add_test(NAME test_fp_kernel_prefactors
          COMMAND ${CMAKE_BINARY_DIR}/tests/test_fp_kernel_prefactors.x)
 
+add_executable(test_ion_flr_scale_factor
+               ${CMAKE_SOURCE_DIR}/KIM/tests/test_ion_flr_scale_factor.f90)
+set_target_properties(test_ion_flr_scale_factor PROPERTIES
+                      OUTPUT_NAME test_ion_flr_scale_factor.x
+                      RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/tests/")
+target_link_libraries(test_ion_flr_scale_factor
+                      KIM_lib kilca_lib lapack cerf fortnum_amos_compat)
+add_test(NAME test_ion_flr_scale_factor
+         COMMAND ${CMAKE_BINARY_DIR}/tests/test_ion_flr_scale_factor.x)
+
 # Regression test for the vendored periodization utility.
 add_executable(test_periodization ${CMAKE_SOURCE_DIR}/KIM/tests/test_periodization.f90)
 set_target_properties(test_periodization PROPERTIES

@@ -17,7 +17,7 @@ if(NOT TARGET fortio)
     FetchContent_Declare(
         fortio
         GIT_REPOSITORY https://github.com/lazy-fortran/fortio.git
-        GIT_TAG c81214dda7271d294e9bba5195d535bec2c211e0
+        GIT_TAG cab69f3297fcda0ffa6c1acaa989da575865e64e
     )
     FetchContent_MakeAvailable(fortio)
     set(BUILD_TESTING ${_KAMEL_BUILD_TESTING_SAVED})

@@ -33,7 +33,9 @@ class Balance_Input_h5:
     def write_data_to_h5(self, file_name, facs):
         if self.debug:
             print("Writing data to input h5 file: ", file_name)
-        h5f = h5py.File(file_name, "w")
+        # fortio intentionally implements the compact modern HDF5 subset used
+        # by KAMEL, rather than legacy v0 superblocks/object headers.
+        h5f = h5py.File(file_name, "w", libver="latest")
         self.write_with_bound_info(h5f, "/da_estimation/Da", data=self.Da[:, 1])
         self.write_with_bound_info(h5f, "/da_estimation/r", data=self.Da[:, 0])
 

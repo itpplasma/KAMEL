@@ -307,7 +307,7 @@ module FP_kernel_plasma_prefacs_m
         real(dp) :: A2
 
         A2 = spec%A2_cc(j)
-        I10 = spec%I01_cc(j, mphi)
+        I10 = spec%I10_cc(j, mphi)
 
         val = I10 * A2 * FP_kappa_j_phi(j, spec) * plasma%ks_cc(j)
 

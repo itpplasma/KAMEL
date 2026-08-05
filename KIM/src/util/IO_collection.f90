@@ -116,7 +116,8 @@ module IO_collection_m
 
     subroutine write_config_namelist_to_hdf5()
 
-        use KAMEL_hdf5_tools, only: HID_T, h5_define_group, h5_obj_exists, h5_add, h5_close_group
+        use KAMEL_hdf5_tools, only: HID_T, h5_define_group, h5_open_group, h5_obj_exists, &
+            h5_add, h5_close_group
         use config_m
 
         implicit none
@@ -127,6 +128,8 @@ module IO_collection_m
         call h5_obj_exists(h5id, 'config/', ex)
         if (.not. ex) then
             call h5_define_group(h5id, 'config/', h5grpid)
+        else
+            call h5_open_group(h5id, 'config/', h5grpid)
         end if
 
         call h5_add(h5grpid, 'number_of_ion_species', number_of_ion_species, &

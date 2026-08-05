@@ -234,6 +234,16 @@ target_link_libraries(test_collision_scale_z0 KIM_lib kilca_lib lapack cerf fort
 add_test(NAME test_collision_scale_z0
          COMMAND ${CMAKE_BINARY_DIR}/tests/test_collision_scale_z0.x)
 
+add_executable(test_fp_kernel_prefactors
+               ${CMAKE_SOURCE_DIR}/KIM/tests/test_fp_kernel_prefactors.f90)
+set_target_properties(test_fp_kernel_prefactors PROPERTIES
+                      OUTPUT_NAME test_fp_kernel_prefactors.x
+                      RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/tests/")
+target_link_libraries(test_fp_kernel_prefactors
+                      KIM_lib kilca_lib lapack cerf fortnum_amos_compat)
+add_test(NAME test_fp_kernel_prefactors
+         COMMAND ${CMAKE_BINARY_DIR}/tests/test_fp_kernel_prefactors.x)
+
 # Regression test for the vendored periodization utility.
 add_executable(test_periodization ${CMAKE_SOURCE_DIR}/KIM/tests/test_periodization.f90)
 set_target_properties(test_periodization PROPERTIES

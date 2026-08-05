@@ -26,18 +26,6 @@ endif()
 # Restore BUILD_TESTING for KAMEL's own tests
 set(BUILD_TESTING ${_KAMEL_BUILD_TESTING_SAVED})
 
-# Add netcdf library paths (needed because libneo's link_directories doesn't propagate)
-find_program(NF_CONFIG "nf-config")
-if(NF_CONFIG)
-    execute_process(COMMAND nf-config --prefix
-        OUTPUT_VARIABLE NETCDF_FORTRAN_PREFIX
-        OUTPUT_STRIP_TRAILING_WHITESPACE)
-    execute_process(COMMAND nc-config --prefix
-        OUTPUT_VARIABLE NETCDF_PREFIX
-        OUTPUT_STRIP_TRAILING_WHITESPACE)
-    link_directories(${NETCDF_FORTRAN_PREFIX}/lib ${NETCDF_PREFIX}/lib)
-endif()
-
 set(EQUIL_MODULE_DIR ${CMAKE_BINARY_DIR}/modules/equil)
 file(MAKE_DIRECTORY ${EQUIL_MODULE_DIR})
 

@@ -32,9 +32,12 @@ ExternalProject_Add(
     UPDATE_COMMAND "" # ignore any potential updates
 
     BUILD_COMMAND
-        ${CMAKE_COMMAND} --build <BINARY_DIR> --target UMFPACK/install &&
-        ${CMAKE_COMMAND} --build <BINARY_DIR> --target AMD/install &&
-        ${CMAKE_COMMAND} --build <BINARY_DIR> --target SuiteSparse_config/install
+        ${CMAKE_COMMAND} --build <BINARY_DIR> --target
+            UMFPACK UMFPACK_static AMD AMD_static
+            SuiteSparseConfig SuiteSparseConfig_static
+    COMMAND ${CMAKE_COMMAND} -P <BINARY_DIR>/SuiteSparse_config/cmake_install.cmake
+    COMMAND ${CMAKE_COMMAND} -P <BINARY_DIR>/AMD/cmake_install.cmake
+    COMMAND ${CMAKE_COMMAND} -P <BINARY_DIR>/UMFPACK/cmake_install.cmake
 
     INSTALL_COMMAND "" # not needed
 

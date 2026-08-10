@@ -29,24 +29,6 @@ elseif(CMAKE_HOST_SYSTEM_NAME MATCHES "Linux")
     endif()
 endif()
 
-if(APPLE AND NOT DEFINED HDF5_DIR)
-    # locate brew
-    find_program(BREW_EXECUTABLE brew HINTS /opt/homebrew/bin /usr/local/bin)
-    if(BREW_EXECUTABLE)
-        execute_process(
-            COMMAND "${BREW_EXECUTABLE}" --prefix hdf5
-            OUTPUT_VARIABLE _hdf5_prefix
-            OUTPUT_STRIP_TRAILING_WHITESPACE
-            RESULT_VARIABLE _hdf5_res
-        )
-
-        if(_hdf5_res EQUAL 0 AND EXISTS "${_hdf5_prefix}/lib/cmake/hdf5")
-            set(HDF5_DIR "${_hdf5_prefix}/lib/cmake/hdf5" CACHE PATH "Path to HDF5Config.cmake")
-            message(STATUS "HDF5_DIR set to ${HDF5_DIR}")
-        endif()
-    endif()
-endif()
-
 project(KAMEL LANGUAGES C CXX Fortran)
 
 # Set C++ standard globally

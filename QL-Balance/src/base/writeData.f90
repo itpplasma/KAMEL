@@ -270,6 +270,12 @@ subroutine write_D_one_over_nu_to_h5(time_ind)
 
     integer, intent(in) :: time_ind
     character(256) :: tempch
+
+    if (.not. allocated(Donue11)) return
+    if (.not. allocated(Donue12)) return
+    if (.not. allocated(Donue21)) return
+    if (.not. allocated(Donue22)) return
+
     tempch = "/"//trim(h5_mode_groupname)//"/LinearProfiles"
     write (tempch, '(A,"/",I0,"/")') trim(tempch), time_ind
 

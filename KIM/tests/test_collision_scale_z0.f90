@@ -37,6 +37,7 @@ program test_collision_scale_z0
     call test_z0_matches_formula_off_resonance()
     call test_harmonic_detuning_uses_local_grid_values()
     call test_collision_scale_reaches_production_paths()
+    call test_collisions_off_reaches_derived_quantities()
 
     print *, 'All tests PASSED'
     stop 0
@@ -332,5 +333,48 @@ contains
         end do
         print *, 'PASS: collision scale reaches electron/ion nu, z0, and FP inputs'
     end subroutine test_collision_scale_reaches_production_paths
+
+    subroutine test_collisions_off_reaches_derived_quantities()
+        type(plasma_t) :: template
+        real(dp) :: nu(0:1), x1(0:1), x2(0:1)
+        complex(dp) :: z0(0:1)
+        integer :: sp
+
+        number_of_ion_species = 1
+        rescale_density = .false.
+        ion_flr_scale_factor = 1.0d0
+        collisions_off = .true.
+        mphi_max = 0
+        omega = 1.0d5
+        call build_collision_plasma(template)
+        call run_collision_scale_case(template, 1.0d0, nu, z0, x1, x2)
+
+        do sp = 0, 1
+            call require_close(nu(sp), 0.0_dp, 'collisions_off clears nu')
+            if (.not. ieee_is_finite(real(z0(sp), dp)) .or. &
+                    .not. ieee_is_finite(aimag(z0(sp))) .or. &
+                    .not. ieee_is_finite(x1(sp)) .or. .not. ieee_is_finite(x2(sp))) then
+                print *, 'FAIL: collisions_off produced non-finite derived values for species ', sp
+                print *, '  z0 = ', z0(sp), ' x1 = ', x1(sp), ' x2 = ', x2(sp)
+                error stop 'collisions_off derived values are not finite'
+            end if
+            call require_close(aimag(z0(sp)), 0.0_dp, 'collisions_off reaches z0')
+            call require_close(plasma%spec(sp)%nu_cc(1), 0.0_dp, &
+                               'collisions_off reaches cell-center nu')
+            call require_close(plasma%spec(sp)%x1_cc(1), 0.0_dp, &
+                               'collisions_off guards cell-center x1')
+            call require_close(plasma%spec(sp)%x2_cc(1, 0), 0.0_dp, &
+                               'collisions_off guards cell-center x2')
+            if (.not. ieee_is_finite(real(plasma%spec(sp)%I00(2, 0), dp)) .or. &
+                    .not. ieee_is_finite(aimag(plasma%spec(sp)%I00(2, 0))) .or. &
+                    .not. ieee_is_finite(real(plasma%spec(sp)%I00_cc(1, 0), dp)) .or. &
+                    .not. ieee_is_finite(aimag(plasma%spec(sp)%I00_cc(1, 0)))) then
+                error stop 'collisions_off produced a non-finite unused susceptibility'
+            end if
+        end do
+
+        collisions_off = .false.
+        print *, 'PASS: collisions_off reaches nu and z0 without singular FP inputs'
+    end subroutine test_collisions_off_reaches_derived_quantities
 
 end program test_collision_scale_z0

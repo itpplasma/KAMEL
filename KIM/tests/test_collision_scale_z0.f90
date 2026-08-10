@@ -14,6 +14,10 @@ program test_collision_scale_z0
     !   (b) collision_frequency_scale multiplies the calculated collision
     !       frequencies, and the default 1.0 leaves them untouched. The scaled
     !       nu must reach z0, since z0 is assembled after the scaling.
+    !
+    !   (c) nonzero-harmonic FP detuning uses the cyclotron frequency from the
+    !       supplied plasma object and from the same boundary/cell-center grid
+    !       as the other quantities in x2.
 
     use, intrinsic :: ieee_arithmetic, only: ieee_is_finite
     use KIM_kinds_m, only: dp
@@ -31,6 +35,7 @@ program test_collision_scale_z0
 
     call test_z0_recomputed_across_resonance()
     call test_z0_matches_formula_off_resonance()
+    call test_harmonic_detuning_uses_local_grid_values()
     call test_collision_scale_reaches_production_paths()
     call test_collisions_off_reaches_derived_quantities()
 
@@ -168,6 +173,56 @@ contains
             error stop 'scaled production quantity has the wrong value'
         end if
     end subroutine require_close
+
+    subroutine test_harmonic_detuning_uses_local_grid_values()
+        type(plasma_t) :: template, local_plasma
+        real(dp) :: want
+        integer :: j, mphi
+
+        number_of_ion_species = 1
+        rescale_density = .false.
+        ion_flr_scale_factor = 1.0d0
+        collision_frequency_scale = 1.0d0
+        collisions_off = .false.
+        mphi_max = 1
+        omega = 17.0d0
+
+        call build_collision_plasma(template)
+        local_plasma = template
+        plasma = template
+        call calculate_plasma_backs(local_plasma)
+        call calculate_plasma_backs(plasma)
+        call compute_rg_cell_centers(local_plasma)
+        call compute_rg_cell_centers(plasma)
+
+        local_plasma%spec(0)%omega_c = [11.0d0, 22.0d0, 33.0d0, 44.0d0]
+        local_plasma%spec(0)%omega_c_cc = [101.0d0, 202.0d0, 303.0d0]
+        local_plasma%spec(0)%nu = 5.0d0
+        local_plasma%spec(0)%nu_cc = 7.0d0
+        plasma%spec(0)%omega_c = [1001.0d0, 1002.0d0, 1003.0d0, 1004.0d0]
+
+        call calculate_thermodynamic_forces_and_susc(local_plasma)
+
+        do mphi = -1, 1
+            do j = 1, rg_grid%npts_b
+                want = -(local_plasma%om_E(j) &
+                    + mphi * local_plasma%spec(0)%omega_c(j) - omega) &
+                    / local_plasma%spec(0)%nu(j)
+                call require_close(local_plasma%spec(0)%x2(j, mphi), want, &
+                                   'boundary harmonic detuning uses local omega_c')
+            end do
+
+            do j = 1, rg_grid%npts_c
+                want = -(local_plasma%om_E_cc(j) &
+                    + mphi * local_plasma%spec(0)%omega_c_cc(j) - omega) &
+                    / local_plasma%spec(0)%nu_cc(j)
+                call require_close(local_plasma%spec(0)%x2_cc(j, mphi), want, &
+                                   'cell-center harmonic detuning uses omega_c_cc')
+            end do
+        end do
+
+        print *, 'PASS: harmonic detuning uses local boundary/cell-center values'
+    end subroutine test_harmonic_detuning_uses_local_grid_values
 
     subroutine build_collision_plasma(template)
         type(plasma_t), intent(out) :: template

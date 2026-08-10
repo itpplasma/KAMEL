@@ -486,8 +486,9 @@ module species_m
 
                 plasma_in%spec(sp)%x1(j) = plasma_in%kp(j) * plasma_in%spec(sp)%vT(j) / plasma_in%spec(sp)%nu(j)
                 do mphi = -mphi_max, mphi_max
-                    plasma_in%spec(sp)%x2(j, mphi) = - (plasma_in%om_E(j) & !* ion_flr_scale_factor & !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!1
-                                                    + mphi * plasma%spec(sp)%omega_c(j)  - omega) &
+                    plasma_in%spec(sp)%x2(j, mphi) = - (plasma_in%om_E(j) &
+                                                    + mphi * plasma_in%spec(sp)%omega_c(j) &
+                                                    - omega) &
                                                     / plasma_in%spec(sp)%nu(j)
 
                     call evaluate_susceptibility(plasma_in%spec(sp)%x1(j), &
@@ -541,8 +542,9 @@ module species_m
                     * plasma_in%spec(sp)%vT_cc(j) / plasma_in%spec(sp)%nu_cc(j)
 
                 do mphi = -mphi_max, mphi_max
-                    plasma_in%spec(sp)%x2_cc(j, mphi) = - (plasma_in%om_E_cc(j)  & !* ion_flr_scale_factor & !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-                                                        + mphi * plasma_in%spec(sp)%omega_c(j) - omega) &
+                    plasma_in%spec(sp)%x2_cc(j, mphi) = - (plasma_in%om_E_cc(j) &
+                                                        + mphi * plasma_in%spec(sp)%omega_c_cc(j) &
+                                                        - omega) &
                                                         / plasma_in%spec(sp)%nu_cc(j)
 
                     call evaluate_susceptibility(plasma_in%spec(sp)%x1_cc(j), &

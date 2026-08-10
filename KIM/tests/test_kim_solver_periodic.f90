@@ -66,10 +66,10 @@ contains
     subroutine test_species_resolved_currents(collisionless_ions)
         use config_m, only: profiles_in_memory, nml_config_path, &
             resolved_electron_ifunc_conservation_model, &
-            resolved_ion_ifunc_conservation_model
+            resolved_ion_ifunc_conservation_model, output_path, h5_out_file
         use fields_m, only: EBdat, EBdat_t
         use IO_collection_m, only: deinitialize_hdf5_output, h5id
-        use KAMEL_hdf5_tools, only: h5_get, h5_obj_exists
+        use KAMEL_hdf5_tools, only: h5_get, h5_obj_exists, h5_open, h5_close
         use kim_base_m, only: kim_t
         use kim_mod_m, only: from_kim_factory_get_kim
         use species_m, only: set_profiles_from_arrays
@@ -114,6 +114,8 @@ contains
         call from_kim_factory_get_kim('electrostatic_periodic', kim_instance)
         call kim_instance%init()
         call kim_instance%run()
+        call deinitialize_hdf5_output()
+        call h5_open(trim(output_path)//trim(h5_out_file), h5id)
 
         if (.not. allocated(EBdat%jpar_e)) then
             print *, 'FAIL: periodic EBdat%jpar_e not allocated'
@@ -173,7 +175,7 @@ contains
             error stop 'periodic EBdat species currents differ from HDF5 output'
         end if
 
-        call deinitialize_hdf5_output()
+        call h5_close(h5id)
         if (collisionless_ions) then
             print *, 'PASS: collisionless periodic species currents sum to total jpar'
         else

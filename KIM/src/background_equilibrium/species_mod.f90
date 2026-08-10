@@ -404,8 +404,7 @@ module species_m
         use setup_m, only: collisions_off, omega, mphi_max
         use grid_m, only: rg_grid
         use KIM_kinds_m, only: dp
-        use config_m, only: ion_flr_scale_factor, ifunc_model_for_species, &
-                            ion_temperature_gradient_model, &
+        use config_m, only: ifunc_model_for_species, ion_temperature_gradient_model, &
                             temperature_gradient_force_terms
 
         implicit none

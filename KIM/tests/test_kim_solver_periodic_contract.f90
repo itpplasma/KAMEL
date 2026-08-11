@@ -11,6 +11,7 @@ program test_kim_solver_periodic_contract
     integer, parameter :: m_mode = -6, n_mode = 2
     type(kim_solver_t) :: kim
     type(kim_results_t) :: res
+    type(kim_results_t) :: res_first
     type(kim_profiles_t) :: prof
     integer :: ierr, i
     real(dp) :: frac
@@ -56,6 +57,14 @@ program test_kim_solver_periodic_contract
         call check_complex_field('jpar_e', res%jpar_e, res%r_field, all_passed)
         call check_complex_field('jpar_i', res%jpar_i, res%r_field, all_passed)
         call check('result mode matches request', res%m == m_mode .and. res%n == n_mode, all_passed)
+        res_first = res
+        call kim%solve(m=-m_mode, n=n_mode, stat=ierr)
+        call check('second periodic mode returns KIM_OK', ierr == KIM_OK, all_passed)
+        call kim%solve(m=m_mode, n=n_mode, stat=ierr)
+        call check('periodic mode can be repeated after another mode', ierr == KIM_OK, all_passed)
+        res = kim%results()
+        call check('repeated periodic result remains finite', allocated(res%Phi) .and. &
+                   all(ieee_is_finite(real(res%Phi,dp))) .and. all(ieee_is_finite(aimag(res%Phi))), all_passed)
     end if
 
     call kim%finalize()

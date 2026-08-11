@@ -10,6 +10,20 @@ KAMEL (Kinetic plAsma response ModEL) is a scientific computing framework for mo
 2. **KIM** - KiLCA Integral Model using integral formalism
 3. **QL-Balance** - Quasilinear 1D radial transport code
 
+## Agent skills
+
+### Issue tracker
+
+Issues and PRDs live in `itpplasma/KAMEL` GitHub Issues. See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+Use `needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`, and `wontfix`. See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+This is a multi-context repository. Read `CONTEXT-MAP.md`, then the relevant component context. See `docs/agents/domain.md`.
+
 ## Project Structure
 
 - **Top-level build config**: `CMakeLists.txt`, `Makefile`; build outputs in `build/`

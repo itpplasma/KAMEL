@@ -5,9 +5,33 @@ module kim_qldiff_m
     implicit none
 
     private
-    public :: calc_dqle22
+    public :: calc_dqle22, calc_dqli11_phi
 
 contains
+
+    function calc_dqli11_phi(vTi, nui, om_E, B0, kpar, Es) result(dqli11)
+        ! Ion Phi-only integral coefficient (the D11 tracer bullet).  This is
+        ! the direct integral-formalism analogue of the electrostatic term in
+        ! the Onsager tensor; magnetic and cross terms are deliberately absent.
+        use constants_m, only: sol
+        use config_m, only: resolved_ion_ifunc_conservation_model
+        real(dp), intent(in) :: vTi, nui, om_E, B0, kpar
+        complex(dp), intent(in) :: Es
+        real(dp) :: dqli11, x1, x2, comfac
+        complex(dp) :: symbI(0:3,0:3)
+        interface
+            subroutine getIfunc_model(x1, x2, conservation_model, symbI)
+                double precision, intent(in) :: x1, x2
+                integer, intent(in) :: conservation_model
+                double complex, dimension(0:3,0:3), intent(out) :: symbI
+            end subroutine getIfunc_model
+        end interface
+        x1 = kpar*vTi/nui
+        x2 = -om_E/nui
+        call getIfunc_model(x1, x2, resolved_ion_ifunc_conservation_model, symbI)
+        comfac = 0.5_dp/(nui*B0**2)
+        dqli11 = comfac*sol**2*abs(Es)**2*real(symbI(0,0),dp)
+    end function calc_dqli11_phi
 
     function calc_dqle22(vTe, nue, om_E, B0, kpar, Es, Br) result(dqle22)
         ! Quasilinear electron heat diffusion coefficient D_ql,e22, the

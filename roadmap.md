@@ -303,7 +303,7 @@ with a documented phase policy. Apply under-relaxation, a current floor, finite-
 
 The old scalar `antenna_factor` may remain as a backward-compatible output equal to \(|s_{mn}|^2\), but it must not cause a second coefficient scaling.
 
-### 8.4 Alternative physical closure requiring a decision
+### 8.4 Deferred electromagnetic-response alternative
 
 If “rescale \(B^r\) according to the shielding current” instead means an electromagnetic response relation such as
 
@@ -311,7 +311,7 @@ If “rescale \(B^r\) according to the shielding current” instead means an ele
 B^r=B^r_{\mathrm{vac}}+\mathcal G I_\parallel^{\mathrm{shield}},
 \]
 
-then the response operator \(\mathcal G\), its phase, and its radial/mode normalization must be supplied or derived. This is different from the current `I_par_toroidal` target-current normalization. The milestones below assume the target-current interpretation until this is resolved.
+then the response operator \(\mathcal G\), its phase, and its radial/mode normalization must be supplied or derived. This is different from the current `I_par_toroidal` target-current normalization and is explicitly deferred from the first implementation.
 
 ## 9. Species policy
 
@@ -689,11 +689,27 @@ The project is complete when:
 - configuration and output fully identify the model, normalization, transition, and algebra version;
 - the periodic coupled workflow meets an agreed speedup target relative to global KIM.
 
-## 14. Decision needed before M6
+## 14. Resolved shielding-closure decision
 
-Confirm which physical shielding closure is intended:
+Target-current normalization was approved on 2026-08-11. M6 will preserve the existing `I_par_toroidal` interpretation and choose the common \(B^r\)/\(B_\parallel\) amplitude so that the integrated shielding current matches that target.
 
-1. **Target-current normalization (roadmap assumption):** preserve the existing `I_par_toroidal` interpretation and choose \(B^r\) so the integrated shielding current matches that target.
-2. **Electromagnetic response closure:** update \(B^r\) from \(B^r_{\mathrm{vac}}+\mathcal G I_\parallel^{\mathrm{shield}}\), which requires a specified/derived response operator \(\mathcal G\) and phase convention.
+An electromagnetic response closure of the form \(B^r=B^r_{\mathrm{vac}}+\mathcal G I_\parallel^{\mathrm{shield}}\) is a possible later extension. It is not part of this implementation chain.
 
-This decision does not block M0--M5, but it changes the governing update in M6 and the associated validation cases.
+## 15. Published implementation chain
+
+The roadmap is split into AFK-ready GitHub issues in dependency order:
+
+1. Existing prerequisites: #231 (signed resonances) and #258 (cyclotron harmonics).
+2. #285 returns a state-isolated periodic KIM local response.
+3. #286 delivers a \(\Phi\)-only integral-ion \(D_{11}\) tracer bullet.
+4. #287 completes the \((\Phi,B^r)\) ion tensor.
+5. #288 carries the KiLCA \(B_\parallel\) vacuum drive through periodic KIM.
+6. #289 completes all \(B_\parallel\) transport channels.
+7. #290 couples one periodic mode to QL-Balance with compact global embedding.
+8. #291 benchmarks the integral ion tensor against the drift-kinetic limit.
+9. #292 normalizes one mode to the target shielding current.
+10. #293 adds multi-mode periodic response with profile feedback.
+11. #294 evolves and restarts the shielding amplitudes.
+12. #295 ships configuration, provenance, golden coverage, scientific validation, and performance reporting.
+
+Issues #285--#295 carry the `ready-for-agent` label. The final production acceptance in #295 remains a human scientific sign-off after the automated implementation and validation report are complete.

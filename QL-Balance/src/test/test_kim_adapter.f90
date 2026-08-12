@@ -10,10 +10,11 @@ program test_kim_adapter
     !
     use kim_wave_code_adapter_m, only: interp_complex_profile, kim_initialize, &
         kim_update_profiles, kim_run_for_all_modes, kim_Br_modes, kim_vac_Br
+    use kim_wave_code_adapter_m, only: kim_Bparallel_modes, kim_get_wave_fields
     use control_mod, only: wave_code, kim_config_path, kim_profiles_from_balance, &
         type_of_run
     use wave_code_data, only: dim_mn, m_vals, n_vals, r, n, Te, Ti, q, &
-        Vth, Vz, dPhi0
+        Vth, Vz, dPhi0, Bp
     use plasma_parameters, only: params_b
     use grid_mod, only: Ercov
     use baseparam_mod, only: ev
@@ -221,6 +222,17 @@ contains
 
         call kim_update_profiles()
         call kim_run_for_all_modes()
+
+        ! B_parallel is a first-class KIM output and must reach the
+        ! wave-code contract as Bp (the RSP parallel component).
+        call kim_get_wave_fields(1)
+        if (maxval(abs(Bp - kim_Bparallel_modes(:, 1))) <= 1.0d-12) then
+            print '(A)', "  PASS: KIM Bparallel reaches wave_code_data Bp"
+            num_passed = num_passed + 1
+        else
+            print '(A)', "  FAIL: KIM Bparallel was not copied to Bp"
+            num_failed = num_failed + 1
+        end if
 
         allocate(br_rescaled(npts))
         br_rescaled = kim_Br_modes(:, 1)

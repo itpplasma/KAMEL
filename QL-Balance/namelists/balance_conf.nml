@@ -58,6 +58,7 @@
  wave_code = 'KiLCA' ,
  kim_config_path = './KIM_config.nml' ,
  kim_profiles_from_balance = .true. ,
+ kim_run_type = 'electrostatic_periodic' ,
  kim_n_modes = 2 ,
  kim_m_list = 6, -6 ,
  kim_n_list = 2, 2 ,

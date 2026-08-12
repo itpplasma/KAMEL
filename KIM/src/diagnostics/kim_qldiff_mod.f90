@@ -7,6 +7,7 @@ module kim_qldiff_m
     private
     public :: calc_dqle22, calc_dqli11_phi, calc_dqli_tensor
     public :: calc_dqli_integral_harmonic
+    public :: calc_dqli_limit_benchmark
 
 contains
 
@@ -38,6 +39,61 @@ contains
             vTi, abs(omega_ci), omega_ci, sol, B0, nui, fields_s, &
             fields_o, symbI, tensor)
     end subroutine calc_dqli_integral_harmonic
+
+    subroutine calc_dqli_limit_benchmark(vTi, nui, om_E, B0, kpar, ks, omega_ci, &
+            omega_mode, Es, Br, old_tensor, new_tensor, absolute_residual, relative_residual)
+        !! Evaluate the established drift-kinetic ion tensor and the integral
+        !! tensor side by side in the k_perp-rho_i -> 0, ell=0, Bparallel=0
+        !! limit. Es is the physical perpendicular electric field; the
+        !! integral interface receives Phi = i Es/(c ks).
+        use constants_m, only: sol
+        use config_m, only: resolved_ion_ifunc_conservation_model
+        use species_m, only: evaluate_susceptibility
+        use quasilinear_integral_m, only: calc_ion_integral_harmonic
+        real(dp), intent(in) :: vTi, nui, om_E, B0, kpar, ks, omega_ci, omega_mode
+        complex(dp), intent(in) :: Es, Br
+        real(dp), intent(out) :: old_tensor(2,2), new_tensor(2,2)
+        real(dp), intent(out) :: absolute_residual(2,2), relative_residual(2,2)
+        complex(dp) :: ifunc(0:3,0:3), fields(3)
+        real(dp) :: x1, x2, comfac, epm2, brm2, epbr_re, epbr_im, d12a
+        integer :: i, j
+
+        if (ks < 0.0_dp .or. abs(omega_ci) <= tiny(1.0_dp)) &
+            error stop 'calc_dqli_limit_benchmark: invalid limiting wave number'
+        x1 = kpar*vTi/nui
+        x2 = -(om_E-omega_mode)/nui
+        call evaluate_susceptibility(x1, x2, resolved_ion_ifunc_conservation_model, ifunc)
+
+        comfac = 0.5_dp/(nui*B0**2)
+        epm2 = sol**2*abs(Es)**2
+        brm2 = vTi**2*abs(Br)**2
+        epbr_re = 2.0_dp*sol*vTi*real(conjg(Es)*Br,dp)
+        epbr_im = 2.0_dp*sol*vTi*aimag(conjg(Es)*Br)
+        old_tensor(1,1) = comfac*(epm2*real(ifunc(0,0),dp) + epbr_re*real(ifunc(1,0),dp) &
+            + brm2*real(ifunc(1,1),dp))
+        old_tensor(1,2) = comfac*(epm2*real(ifunc(0,0)+0.5_dp*ifunc(2,0),dp) &
+            + epbr_re*real(ifunc(1,0)+0.25_dp*(ifunc(3,0)+ifunc(2,1)),dp) &
+            + brm2*real(ifunc(1,1)+0.5_dp*ifunc(3,1),dp))
+        d12a = comfac*epbr_im*0.25_dp*aimag(ifunc(2,1)-ifunc(3,0))
+        old_tensor(1,2) = old_tensor(1,2) + d12a
+        old_tensor(2,1) = old_tensor(1,2) - 2.0_dp*d12a
+        old_tensor(2,2) = comfac*(epm2*real(2.0_dp*ifunc(0,0)+ifunc(2,0) &
+            + 0.25_dp*ifunc(2,2),dp) + epbr_re*real(2.0_dp*ifunc(1,0) &
+            + 0.5_dp*(ifunc(3,0)+ifunc(2,1))+0.25_dp*ifunc(3,2),dp) &
+            + brm2*real(2.0_dp*ifunc(1,1)+ifunc(3,1)+0.25_dp*ifunc(3,3),dp))
+
+        fields = (0.0_dp, 0.0_dp)
+        if (ks > tiny(1.0_dp)) fields(1) = cmplx(0.0_dp,1.0_dp,dp)*Es/(sol*ks)
+        fields(2) = Br
+        call calc_ion_integral_harmonic(0, ks, 0.0_dp, ks, 0.0_dp, vTi, abs(omega_ci), &
+            omega_ci, sol, B0, nui, fields, fields, ifunc, new_tensor)
+        do i = 1, 2
+            do j = 1, 2
+                absolute_residual(i,j) = new_tensor(i,j)-old_tensor(i,j)
+                relative_residual(i,j) = absolute_residual(i,j)/max(1.0_dp,abs(old_tensor(i,j)))
+            end do
+        end do
+    end subroutine calc_dqli_limit_benchmark
 
     function calc_dqli11_phi(vTi, nui, om_E, B0, kpar, Es) result(dqli11)
         ! Ion Phi-only integral coefficient (the D11 tracer bullet).  This is

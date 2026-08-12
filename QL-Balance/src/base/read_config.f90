@@ -4,6 +4,7 @@ subroutine read_config
                            readfromtimestep, temperature_limit, gyro_current_study, &
                            misalign_diffusion, equil_path, ihdf5IO, wave_code, &
                            kim_config_path, kim_profiles_from_balance, &
+                           kim_run_type, &
                            kim_n_modes, kim_m_list, kim_n_list, &
                            jpar_method
     use grid_mod, only: rmin, rmax, npoimin, gg_factor, gg_width, gg_r_res, iboutype, rb_cut_in, &
@@ -29,7 +30,7 @@ subroutine read_config
         temperature_limit, antenna_max_stopping, gyro_current_study, viscosity_factor, &
         misalign_diffusion, equil_path, ihdf5IO, type_of_run, wave_code, &
         set_constant_time_step, constant_time_step, urelax, kim_config_path, &
-        kim_profiles_from_balance, kim_n_modes, kim_m_list, kim_n_list, &
+        kim_profiles_from_balance, kim_run_type, kim_n_modes, kim_m_list, kim_n_list, &
         I_par_toroidal, jpar_method
 
     ! read the parameters from namelist file
@@ -91,6 +92,7 @@ subroutine read_config
     call log_info(fmt_val("    jpar_method", trim(adjustl(jpar_method))))
     call log_info(fmt_val("    kim_config_path", trim(adjustl(kim_config_path))))
     call log_info(fmt_val("    kim_profiles_from_balance", kim_profiles_from_balance))
+    call log_info(fmt_val("    kim_run_type", trim(adjustl(kim_run_type))))
     call log_info(fmt_val("    kim_n_modes", kim_n_modes))
     if (kim_n_modes > 0) then
         write (*, "(A,100I5)") "    kim_m_list = ", kim_m_list(1:kim_n_modes)

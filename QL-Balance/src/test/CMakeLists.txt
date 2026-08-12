@@ -48,3 +48,7 @@ add_fortran_test(test_periodic_embedding)
 add_executable(test_periodic_response_contract.x test_periodic_response_contract.f90)
 target_link_libraries(test_periodic_response_contract.x PUBLIC ql-balance_lib)
 add_fortran_test(test_periodic_response_contract)
+
+add_executable(test_periodic_kim_selector.x test_periodic_kim_selector.f90)
+target_link_libraries(test_periodic_kim_selector.x PUBLIC ql-balance_lib)
+add_fortran_test(test_periodic_kim_selector)

@@ -29,6 +29,7 @@ module kim_wave_code_adapter_m
     public :: kim_check_domain_consistency
     public :: kim_get_current_densities
     public :: interp_complex_profile  ! exposed for testing
+    public :: kim_periodic_mode_selected
 
     !! Module-level KIM solver handle (reused across calls)
     type(kim_solver_t) :: kim_handle
@@ -80,7 +81,7 @@ contains
         !!   kim_profiles_from_balance = .false. (Path B):
         !!     KIM reads its own files, adapter reads modes.in, extracts
         !!     everything — original behavior.
-        use control_mod, only: kim_config_path, kim_profiles_from_balance
+        use control_mod, only: kim_config_path, kim_profiles_from_balance, kim_run_type
         use IO_collection_m, only: deinitialize_hdf5_output
         use wave_code_data, only: dim_mn, m_vals, n_vals, dim_r, &
             r => r, q => q, n => n, Te => Te, Ti => Ti, &
@@ -123,7 +124,7 @@ contains
             prof%r = r; prof%n = n; prof%Te = Te
             prof%Ti = Ti; prof%q = q; prof%Er = -dPhi0
 
-            call kim_handle%init(trim(kim_config_path), run_type='electromagnetic', &
+            call kim_handle%init(trim(kim_config_path), run_type=trim(kim_run_type), &
                                  profiles=prof, stat=ierr)
         else
             ! -----------------------------------------------------------
@@ -132,7 +133,7 @@ contains
             call read_antenna_modes(flre_path)
             call allocate_wave_code_data(nrad, r_grid)
 
-            call kim_handle%init(trim(kim_config_path), run_type='electromagnetic', &
+            call kim_handle%init(trim(kim_config_path), run_type=trim(kim_run_type), &
                                  stat=ierr)
         end if
 
@@ -408,7 +409,7 @@ contains
             ! Apply vacuum continuation beyond r_plas:
             ! KIM fields are only valid inside the plasma domain.
             ! Beyond r_plas, use the vacuum Br from KiLCA and zero E fields.
-            call apply_vacuum_continuation(i_mn, dim_r, bal_r)
+            if (.not. kim_periodic_mode_selected()) call apply_vacuum_continuation(i_mn, dim_r, bal_r)
 
             ! kp and ks (mode-dependent wave vectors on plasma grid)
             kim_plasma_npts = size(res%r_plasma)
@@ -550,6 +551,11 @@ contains
         end if
 
     end subroutine kim_update_profiles
+
+    logical function kim_periodic_mode_selected()
+        use control_mod, only: kim_run_type
+        kim_periodic_mode_selected = trim(kim_run_type) == 'electrostatic_periodic'
+    end function kim_periodic_mode_selected
 
     subroutine kim_get_wave_fields(i_mn)
         !! Copy per-mode stored fields from kim_*_modes arrays

@@ -52,3 +52,7 @@ add_fortran_test(test_periodic_response_contract)
 add_executable(test_periodic_kim_selector.x test_periodic_kim_selector.f90)
 target_link_libraries(test_periodic_kim_selector.x PUBLIC ql-balance_lib)
 add_fortran_test(test_periodic_kim_selector)
+
+add_executable(test_periodic_current_normalization.x test_periodic_current_normalization.f90)
+target_link_libraries(test_periodic_current_normalization.x PUBLIC ql-balance_lib)
+add_fortran_test(test_periodic_current_normalization)

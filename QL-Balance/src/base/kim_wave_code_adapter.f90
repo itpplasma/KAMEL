@@ -32,6 +32,7 @@ module kim_wave_code_adapter_m
     public :: interp_complex_profile  ! exposed for testing
     public :: kim_periodic_mode_selected
     public :: kim_D_ion_modes, kim_transition_weights
+    public :: kim_periodic_scale_modes, kim_periodic_current_unit, kim_periodic_scale_status
 
     !! Module-level KIM solver handle (reused across calls)
     type(kim_solver_t) :: kim_handle
@@ -57,6 +58,9 @@ module kim_wave_code_adapter_m
     complex(8), allocatable, public :: kim_Bparallel_modes(:,:)
     real(8), allocatable :: kim_D_ion_modes(:,:,:,:)
     real(8), allocatable :: kim_transition_weights(:,:)
+    complex(8), allocatable :: kim_periodic_scale_modes(:)
+    complex(8), allocatable :: kim_periodic_current_unit(:)
+    integer, allocatable :: kim_periodic_scale_status(:)
 
     !! Per-mode stored wave vectors (nrad, dim_mn)
     !! kp and ks depend on (m,n) via the equilibrium formulas.
@@ -284,8 +288,10 @@ contains
             dim_r, bal_r => r, &
             wcd_kp => kp, wcd_ks => ks, wcd_om_E => om_E, &
             wcd_B0 => B0, wcd_nue => nue, wcd_nui => nui, &
-            wcd_B0t => B0t, wcd_B0z => B0z, wcd_Vth => Vth, wcd_Vz => Vz
+            wcd_B0t => B0t, wcd_B0z => B0z, wcd_Vth => Vth, wcd_Vz => Vz, &
+            I_par_toroidal
         use control_mod, only: kim_profiles_from_balance
+        use periodic_current_normalization_m, only: integrate_trusted_current, periodic_drive_scale
 
         implicit none
 
@@ -293,6 +299,8 @@ contains
         integer :: i_mn, ierr, kim_npts, kim_plasma_npts, nrad_inside, i
         real(8), allocatable :: kim_r(:), kim_plasma_r(:), weights(:)
         real(8) :: core_lo, core_hi, width
+        complex(8) :: current_unit, drive_scale
+        integer :: scale_status
         logical :: periodic
 
         periodic = kim_periodic_mode_selected()
@@ -309,6 +317,9 @@ contains
         if (allocated(kim_Bparallel_modes)) deallocate(kim_Bparallel_modes)
         if (allocated(kim_D_ion_modes)) deallocate(kim_D_ion_modes)
         if (allocated(kim_transition_weights)) deallocate(kim_transition_weights)
+        if (allocated(kim_periodic_scale_modes)) deallocate(kim_periodic_scale_modes)
+        if (allocated(kim_periodic_current_unit)) deallocate(kim_periodic_current_unit)
+        if (allocated(kim_periodic_scale_status)) deallocate(kim_periodic_scale_status)
         if (allocated(kim_kp_modes)) deallocate(kim_kp_modes)
         if (allocated(kim_ks_modes)) deallocate(kim_ks_modes)
         if (allocated(kim_jpar_modes)) deallocate(kim_jpar_modes)
@@ -324,6 +335,8 @@ contains
         allocate(kim_Bparallel_modes(dim_r, dim_mn))
         allocate(kim_D_ion_modes(2, 2, dim_r, dim_mn))
         allocate(kim_transition_weights(dim_r, dim_mn))
+        allocate(kim_periodic_scale_modes(dim_mn), kim_periodic_current_unit(dim_mn), &
+            kim_periodic_scale_status(dim_mn))
         allocate(kim_kp_modes(dim_r, dim_mn))
         allocate(kim_ks_modes(dim_r, dim_mn))
         allocate(kim_jpar_modes(dim_r, dim_mn))
@@ -339,6 +352,9 @@ contains
         kim_Bparallel_modes = (0.0d0, 0.0d0)
         kim_D_ion_modes = 0.0d0
         kim_transition_weights = 1.0d0
+        kim_periodic_scale_modes = (1.0d0, 0.0d0)
+        kim_periodic_current_unit = (0.0d0, 0.0d0)
+        kim_periodic_scale_status = 0
         kim_kp_modes = 0.0d0
         kim_ks_modes = 0.0d0
         kim_jpar_modes = (0.0d0, 0.0d0)
@@ -373,6 +389,31 @@ contains
                     error stop 'periodic KIM result lacks compact embedding metadata'
                 end if
                 allocate(weights(dim_r))
+                current_unit = integrate_trusted_current(kim_r, res%jpar, core_lo, core_hi)
+                call periodic_drive_scale(I_par_toroidal, current_unit, 2.99792458d10, &
+                    1.0d-30, 1.0d12, 1.0d0, drive_scale, scale_status)
+                kim_periodic_current_unit(i_mn) = current_unit
+                kim_periodic_scale_modes(i_mn) = drive_scale
+                kim_periodic_scale_status(i_mn) = scale_status
+                write(*,*) '  periodic KIM current normalization: mode ', i_mn, &
+                    ' unit=', current_unit, ' scale=', drive_scale, ' status=', scale_status
+                if (I_par_toroidal > 0.0d0 .and. scale_status /= 0) then
+                    write(*,*) 'WARNING: periodic current normalization guard status ', scale_status, &
+                        ' for mode ', i_mn
+                end if
+                if (I_par_toroidal > 0.0d0 .and. scale_status == 0) then
+                    res%Es = drive_scale*res%Es
+                    res%Ep = drive_scale*res%Ep
+                    res%Er = drive_scale*res%Er
+                    res%Etheta = drive_scale*res%Etheta
+                    res%Ez = drive_scale*res%Ez
+                    res%Br = drive_scale*res%Br
+                    if (allocated(res%Bparallel)) res%Bparallel = drive_scale*res%Bparallel
+                    if (allocated(res%jpar)) res%jpar = drive_scale*res%jpar
+                    if (allocated(res%jpar_e)) res%jpar_e = drive_scale*res%jpar_e
+                    if (allocated(res%jpar_i)) res%jpar_i = drive_scale*res%jpar_i
+                    if (allocated(res%D_ion)) res%D_ion = abs(drive_scale)**2*res%D_ion
+                end if
             end if
 
             if (i_mn == 1) then

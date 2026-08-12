@@ -5,6 +5,7 @@ module time_evolution
     use balance_base, only: balance_t
     use QLBalance_kinds, only: dp
     use logger_m, only: log_debug, log_info
+    use periodic_amplitude_state_m, only: periodic_amplitudes
 
     implicit none
 
@@ -155,6 +156,8 @@ module time_evolution
 
         call alloc_Br_Dqle_for_timeevol
         call get_dql
+        call sync_periodic_amplitude_trial()
+        if (periodic_amplitudes%initialized) call periodic_amplitudes%accept()
         call compute_antenna_factor_from_Ipar
         call rescale_transp_coeffs_by_ant_fac
         call hold_prev_transp_coeffs
@@ -191,6 +194,7 @@ module time_evolution
         redostep = .false.
 
         call get_dql
+        call sync_periodic_amplitude_trial()
         call compute_antenna_factor_from_Ipar
         call rescale_transp_coeffs_by_ant_fac
         call interp_Br_Dql_at_resonance_timeevol
@@ -232,6 +236,7 @@ module time_evolution
 
             timstep_arr = timstep_arr * factolred
             params = params_beg
+            call periodic_amplitudes%reject()
 
             call log_debug("Redoing step: Maxval(timscal) > tol * factolmax")
             if (iredo > 100) then
@@ -251,6 +256,7 @@ module time_evolution
         call evolvestep(timstep, eps)
         timstep_arr = timstep
         time = time + timstep
+        if (periodic_amplitudes%initialized) call periodic_amplitudes%accept()
 
         call log_debug("msg_time_info")
         if (.not. suppression_mode) call write_kin_profile_at_time_index
@@ -262,6 +268,29 @@ module time_evolution
 
         call ramp_coil
     end subroutine doStep
+
+    subroutine sync_periodic_amplitude_trial()
+        use kim_wave_code_adapter_m, only: kim_periodic_mode_selected, kim_periodic_scale_modes, &
+            kim_periodic_current_unit, kim_periodic_scale_status, kim_periodic_normalization_relaxation
+        use wave_code_data, only: I_par_toroidal
+        complex(dp), allocatable :: residual(:)
+        integer :: i
+
+        if (kim_periodic_mode_selected() .and. allocated(kim_periodic_scale_modes)) then
+            allocate(residual(size(kim_periodic_scale_modes)))
+            residual = (0.0_dp, 0.0_dp)
+            do i = 1, size(residual)
+                if (allocated(kim_periodic_current_unit)) then
+                    residual(i) = I_par_toroidal * 2.99792458d10 / (2.0_dp*acos(-1.0_dp)) &
+                        - kim_periodic_scale_modes(i) * kim_periodic_current_unit(i)
+                end if
+            end do
+            call periodic_amplitudes%begin_trial(kim_periodic_scale_modes, &
+                kim_periodic_current_unit, residual, kim_periodic_scale_status, &
+                I_par_toroidal, kim_periodic_normalization_relaxation)
+            deallocate(residual)
+        end if
+    end subroutine sync_periodic_amplitude_trial
 
     subroutine allocate_prev_variables
 
@@ -524,8 +553,11 @@ module time_evolution
         use h5mod
         use KAMEL_hdf5_tools
         use wave_code_data, only: Vth
+        use periodic_amplitude_state_m, only: periodic_amplitudes, periodic_normalization_version, &
+            periodic_phase_policy
 
         implicit none
+        real(dp), allocatable :: amp_status(:)
         integer :: ipoi
 
         if (ihdf5IO .eq. 1) then
@@ -578,6 +610,39 @@ module time_evolution
 
             CALL h5_add_float_1(h5_id, trim(h5_currentgrp)//"Vth", &
                                 real(Vth), lbound(Vth), ubound(Vth))
+
+            ! Checkpoint the accepted/trial periodic KIM state alongside the
+            ! profile snapshot.  Real/imaginary parts are used because the
+            ! HDF5 helper has no corresponding complex read interface.
+            if (periodic_amplitudes%initialized) then
+                allocate(amp_status(size(periodic_amplitudes%accepted_status)))
+                amp_status = real(periodic_amplitudes%accepted_status, dp)
+                CALL h5_add_double_1(h5_id, trim(h5_currentgrp)//"periodic_amplitude_accepted_real", &
+                    real(periodic_amplitudes%accepted), (/1/), (/size(periodic_amplitudes%accepted)/))
+                CALL h5_add_double_1(h5_id, trim(h5_currentgrp)//"periodic_amplitude_accepted_imag", &
+                    aimag(periodic_amplitudes%accepted), (/1/), (/size(periodic_amplitudes%accepted)/))
+                CALL h5_add_double_1(h5_id, trim(h5_currentgrp)//"periodic_amplitude_trial_real", &
+                    real(periodic_amplitudes%trial), (/1/), (/size(periodic_amplitudes%trial)/))
+                CALL h5_add_double_1(h5_id, trim(h5_currentgrp)//"periodic_amplitude_trial_imag", &
+                    aimag(periodic_amplitudes%trial), (/1/), (/size(periodic_amplitudes%trial)/))
+                CALL h5_add_double_1(h5_id, trim(h5_currentgrp)//"periodic_current_unit_real", &
+                    real(periodic_amplitudes%accepted_current_unit), (/1/), (/size(periodic_amplitudes%accepted_current_unit)/))
+                CALL h5_add_double_1(h5_id, trim(h5_currentgrp)//"periodic_current_unit_imag", &
+                    aimag(periodic_amplitudes%accepted_current_unit), (/1/), (/size(periodic_amplitudes%accepted_current_unit)/))
+                CALL h5_add_double_1(h5_id, trim(h5_currentgrp)//"periodic_current_residual_real", &
+                    real(periodic_amplitudes%accepted_residual), (/1/), (/size(periodic_amplitudes%accepted_residual)/))
+                CALL h5_add_double_1(h5_id, trim(h5_currentgrp)//"periodic_current_residual_imag", &
+                    aimag(periodic_amplitudes%accepted_residual), (/1/), (/size(periodic_amplitudes%accepted_residual)/))
+                CALL h5_add_double_1(h5_id, trim(h5_currentgrp)//"periodic_scale_status", amp_status, (/1/), (/size(amp_status)/))
+                CALL h5_add_double_1(h5_id, trim(h5_currentgrp)//"periodic_target_current", &
+                    [periodic_amplitudes%accepted_target_current], (/1/), (/1/))
+                CALL h5_add_double_1(h5_id, trim(h5_currentgrp)//"periodic_normalization_relaxation", &
+                    [periodic_amplitudes%accepted_relaxation], (/1/), (/1/))
+                CALL h5_add_double_1(h5_id, trim(h5_currentgrp)//"periodic_normalization_version", &
+                    [real(periodic_normalization_version, dp)], (/1/), (/1/))
+                CALL h5_add_string(h5_id, trim(h5_currentgrp)//"periodic_phase_policy", periodic_phase_policy)
+                deallocate(amp_status)
+            end if
 
             CALL h5_close(h5_id)
             CALL h5_deinit()

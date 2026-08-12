@@ -46,6 +46,8 @@ module kim_wave_code_adapter_m
         complex(8), allocatable :: unit_jpar(:), normalized_jpar(:)
     end type periodic_current_record_t
     type(periodic_current_record_t), allocatable :: kim_current_records(:)
+    public :: kim_periodic_normalization_relaxation, kim_periodic_normalization_version, &
+        kim_periodic_phase_policy
     public :: kim_mode_m, kim_mode_n, kim_mode_resonance, kim_mode_status
 
     !! Module-level KIM solver handle (reused across calls)
@@ -78,6 +80,10 @@ module kim_wave_code_adapter_m
     complex(8), allocatable :: kim_periodic_current_unit(:)
     integer, allocatable :: kim_periodic_scale_status(:)
     real(8), parameter :: periodic_c_light = 2.99792458d10
+    logical :: periodic_constant_psi_pending = .true.
+    real(8), parameter :: kim_periodic_normalization_relaxation = 1.0d0
+    integer, parameter :: kim_periodic_normalization_version = 1
+    character(len=32), parameter :: kim_periodic_phase_policy = 'complex-current'
     integer, allocatable :: kim_mode_m(:), kim_mode_n(:), kim_mode_status(:)
     real(8), allocatable :: kim_mode_resonance(:)
 
@@ -134,6 +140,7 @@ contains
 
         ! Re-init safe: clear any equilibrium/field state from a prior run.
         call kim_handle%finalize()
+        periodic_constant_psi_pending = .true.
 
         if (kim_profiles_from_balance) then
             ! -----------------------------------------------------------
@@ -309,7 +316,7 @@ contains
             wcd_B0 => B0, wcd_nue => nue, wcd_nui => nui, &
             wcd_B0t => B0t, wcd_B0z => B0z, wcd_Vth => Vth, wcd_Vz => Vz, &
             I_par_toroidal
-        use control_mod, only: kim_profiles_from_balance, kim_current_floor, &
+        use control_mod, only: kim_profiles_from_balance, type_of_run, kim_current_floor, &
             kim_current_max_scale, kim_current_relaxation
         use, intrinsic :: ieee_arithmetic, only: ieee_is_finite
         use setup_m, only: Br_boundary_re, Br_boundary_im
@@ -457,8 +464,14 @@ contains
                     kim_current_records(i_mn)%core = [core_lo, core_hi]
                     kim_current_records(i_mn)%r = kim_r
                     kim_current_records(i_mn)%unit_jpar = res%jpar
-                    call kim_normalize_periodic_response(res, I_par_toroidal, &
-                        current_unit, drive_scale, scale_status)
+                    if (trim(type_of_run) == 'TimeEvolution' .and. periodic_constant_psi_pending) then
+                        current_unit = integrate_trusted_current(kim_r, res%jpar, core_lo, core_hi)
+                        drive_scale = (1.0d0, 0.0d0)
+                        scale_status = 0
+                    else
+                        call kim_normalize_periodic_response(res, I_par_toroidal, &
+                            current_unit, drive_scale, scale_status)
+                    end if
                     kim_periodic_current_unit(i_mn) = current_unit
                     kim_periodic_scale_modes(i_mn) = drive_scale
                     kim_periodic_scale_status(i_mn) = scale_status
@@ -668,6 +681,9 @@ contains
             deallocate(kim_plasma_r)
         end if
 
+        if (periodic .and. trim(type_of_run) == 'TimeEvolution' .and. periodic_constant_psi_pending) then
+            periodic_constant_psi_pending = .false.
+        end if
         write(*, *) "KIM adapter: all modes solved"
 
     end subroutine kim_run_for_all_modes

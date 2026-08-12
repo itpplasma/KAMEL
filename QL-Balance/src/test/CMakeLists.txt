@@ -129,3 +129,6 @@ add_fortran_test(test_periodic_multimode_assembly)
 file(MAKE_DIRECTORY ${CMAKE_BINARY_DIR}/tests/periodic_multimode_assembly)
 set_tests_properties(test_periodic_multimode_assembly PROPERTIES
     WORKING_DIRECTORY ${CMAKE_BINARY_DIR}/tests/periodic_multimode_assembly)
+add_executable(test_periodic_amplitude_state.x test_periodic_amplitude_state.f90)
+target_link_libraries(test_periodic_amplitude_state.x PUBLIC ql-balance_lib)
+add_fortran_test(test_periodic_amplitude_state)

@@ -66,6 +66,7 @@ set(balance_lib_base_fortran_sources
     ${base_balance_src}/magnetic_island_width.f90
     ${base_balance_src}/matrix_mod.f90
     ${base_balance_src}/paramscan.f90
+    ${base_balance_src}/periodic_embedding_m.f90
     ${base_balance_src}/plag_coeff.f90
     ${base_balance_src}/plasma_parameters.f90
     ${base_balance_src}/ql-balance_mod.f90

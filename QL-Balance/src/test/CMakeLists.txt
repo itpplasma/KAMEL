@@ -40,3 +40,7 @@ configure_file(${CMAKE_SOURCE_DIR}/KIM/tests/test_data/KIM_config_em_small.nml
                ${CMAKE_BINARY_DIR}/tests/KIM_config_em_small.nml COPYONLY)
 set_tests_properties(test_kim_adapter PROPERTIES
                      WORKING_DIRECTORY ${CMAKE_BINARY_DIR}/tests/)
+
+add_executable(test_periodic_embedding.x test_periodic_embedding.f90)
+target_link_libraries(test_periodic_embedding.x PUBLIC ql-balance_lib)
+add_fortran_test(test_periodic_embedding)

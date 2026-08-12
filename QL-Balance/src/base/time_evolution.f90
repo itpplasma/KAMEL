@@ -130,6 +130,7 @@ module time_evolution
         if (ihdf5IO .eq. 1) then
             call create_group_structure_timeevol
         end if
+        call write_periodic_workflow_provenance
         call log_debug('mode_m/mode_n set')
 
         call write_resonant_radii_to_hdf5
@@ -291,6 +292,51 @@ module time_evolution
             deallocate(residual)
         end if
     end subroutine sync_periodic_amplitude_trial
+
+    subroutine write_periodic_workflow_provenance
+        use control_mod, only: wave_code, kim_run_type, kim_profiles_from_balance, kim_config_path, &
+            kim_n_modes, kim_m_list, kim_n_list, kim_electron_transport_model, kim_ion_transport_model, &
+            kim_bparallel_source, kim_benchmark_mode
+        use wave_code_data, only: I_par_toroidal
+        use control_mod, only: ihdf5IO
+        use h5mod, only: h5_id, h5_mode_groupname, path2out
+        use KAMEL_hdf5_tools, only: h5_init, h5_open_rw, h5_close, h5_deinit, h5_add_string, h5_add_double_1
+        use periodic_amplitude_state_m, only: periodic_normalization_version, periodic_phase_policy
+        real(dp), allocatable :: modes_m(:), modes_n(:)
+        character(len=1024) :: group
+
+        if (trim(wave_code) /= 'KIM' .or. trim(kim_run_type) /= 'electrostatic_periodic') return
+        if (ihdf5IO /= 1) return
+        allocate(modes_m(kim_n_modes), modes_n(kim_n_modes))
+        modes_m = real(kim_m_list(1:kim_n_modes), dp)
+        modes_n = real(kim_n_list(1:kim_n_modes), dp)
+        group = "/"//trim(h5_mode_groupname)//"/periodic_workflow"
+        call h5_init()
+        call h5_open_rw(path2out, h5_id)
+        call h5_add_string(h5_id, trim(group)//"/wave_code", trim(wave_code))
+        call h5_add_string(h5_id, trim(group)//"/kim_run_type", trim(kim_run_type))
+        call h5_add_string(h5_id, trim(group)//"/electron_transport_model", trim(kim_electron_transport_model))
+        call h5_add_string(h5_id, trim(group)//"/ion_transport_model", trim(kim_ion_transport_model))
+        call h5_add_string(h5_id, trim(group)//"/bparallel_source", trim(kim_bparallel_source))
+        call h5_add_string(h5_id, trim(group)//"/benchmark_mode", trim(kim_benchmark_mode))
+        call h5_add_string(h5_id, trim(group)//"/phase_policy", periodic_phase_policy)
+        call h5_add_string(h5_id, trim(group)//"/fourier_convention", "exp(i*(kr*r + ell*theta - omega*t))")
+        call h5_add_string(h5_id, trim(group)//"/field_order", "Phi,Br,Bparallel")
+        call h5_add_string(h5_id, trim(group)//"/transition_contract", "compact-C1-common-window")
+        call h5_add_string(h5_id, trim(group)//"/kim_config_path", trim(kim_config_path))
+        call h5_add_string(h5_id, trim(group)//"/algebra_generator_sha256", &
+            "a7591175092dd15b54ddd0eaf294f990f3441a90f3bcd1f0459092e4bf36891e")
+        call h5_add_double_1(h5_id, trim(group)//"/mode_m", modes_m, (/1/), (/kim_n_modes/))
+        call h5_add_double_1(h5_id, trim(group)//"/mode_n", modes_n, (/1/), (/kim_n_modes/))
+        call h5_add_double_1(h5_id, trim(group)//"/target_current", [I_par_toroidal], (/1/), (/1/))
+        call h5_add_double_1(h5_id, trim(group)//"/normalization_version", &
+            [real(periodic_normalization_version, dp)], (/1/), (/1/))
+        call h5_add_double_1(h5_id, trim(group)//"/profiles_from_balance", &
+            [merge(1.0_dp, 0.0_dp, kim_profiles_from_balance)], (/1/), (/1/))
+        call h5_close(h5_id)
+        call h5_deinit()
+        deallocate(modes_m, modes_n)
+    end subroutine write_periodic_workflow_provenance
 
     subroutine allocate_prev_variables
 

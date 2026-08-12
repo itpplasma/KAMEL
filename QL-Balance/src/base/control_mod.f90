@@ -8,6 +8,10 @@ module control_mod
     character(len=32) :: wave_code = 'KiLCA'  ! 'KiLCA' or 'KIM'
     character(len=1024) :: kim_config_path = './KIM_config.nml'
     character(len=32) :: kim_run_type = 'electrostatic_periodic'
+    character(len=32) :: kim_electron_transport_model = 'drift_kinetic'
+    character(len=32) :: kim_ion_transport_model = 'integral'
+    character(len=32) :: kim_bparallel_source = 'periodic'
+    character(len=32) :: kim_benchmark_mode = 'none'
     logical :: kim_profiles_from_balance = .true.
     integer, parameter :: kim_max_modes = 100
     integer :: kim_n_modes = 0

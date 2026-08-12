@@ -33,6 +33,7 @@ module kim_wave_code_adapter_m
     public :: kim_periodic_mode_selected
     public :: kim_D_ion_modes, kim_transition_weights
     public :: kim_periodic_scale_modes, kim_periodic_current_unit, kim_periodic_scale_status
+    public :: kim_mode_m, kim_mode_n, kim_mode_resonance, kim_mode_status
 
     !! Module-level KIM solver handle (reused across calls)
     type(kim_solver_t) :: kim_handle
@@ -61,6 +62,8 @@ module kim_wave_code_adapter_m
     complex(8), allocatable :: kim_periodic_scale_modes(:)
     complex(8), allocatable :: kim_periodic_current_unit(:)
     integer, allocatable :: kim_periodic_scale_status(:)
+    integer, allocatable :: kim_mode_m(:), kim_mode_n(:), kim_mode_status(:)
+    real(8), allocatable :: kim_mode_resonance(:)
 
     !! Per-mode stored wave vectors (nrad, dim_mn)
     !! kp and ks depend on (m,n) via the equilibrium formulas.
@@ -320,6 +323,10 @@ contains
         if (allocated(kim_periodic_scale_modes)) deallocate(kim_periodic_scale_modes)
         if (allocated(kim_periodic_current_unit)) deallocate(kim_periodic_current_unit)
         if (allocated(kim_periodic_scale_status)) deallocate(kim_periodic_scale_status)
+        if (allocated(kim_mode_m)) deallocate(kim_mode_m)
+        if (allocated(kim_mode_n)) deallocate(kim_mode_n)
+        if (allocated(kim_mode_resonance)) deallocate(kim_mode_resonance)
+        if (allocated(kim_mode_status)) deallocate(kim_mode_status)
         if (allocated(kim_kp_modes)) deallocate(kim_kp_modes)
         if (allocated(kim_ks_modes)) deallocate(kim_ks_modes)
         if (allocated(kim_jpar_modes)) deallocate(kim_jpar_modes)
@@ -337,6 +344,7 @@ contains
         allocate(kim_transition_weights(dim_r, dim_mn))
         allocate(kim_periodic_scale_modes(dim_mn), kim_periodic_current_unit(dim_mn), &
             kim_periodic_scale_status(dim_mn))
+        allocate(kim_mode_m(dim_mn), kim_mode_n(dim_mn), kim_mode_resonance(dim_mn), kim_mode_status(dim_mn))
         allocate(kim_kp_modes(dim_r, dim_mn))
         allocate(kim_ks_modes(dim_r, dim_mn))
         allocate(kim_jpar_modes(dim_r, dim_mn))
@@ -355,6 +363,10 @@ contains
         kim_periodic_scale_modes = (1.0d0, 0.0d0)
         kim_periodic_current_unit = (0.0d0, 0.0d0)
         kim_periodic_scale_status = 0
+        kim_mode_m = m_vals
+        kim_mode_n = n_vals
+        kim_mode_resonance = 0.0d0
+        kim_mode_status = 0
         kim_kp_modes = 0.0d0
         kim_ks_modes = 0.0d0
         kim_jpar_modes = (0.0d0, 0.0d0)
@@ -369,12 +381,14 @@ contains
             ! The seam owns mode setup, the per-mode equilibrium recompute
             ! (modes 2+), the field reset, and the run.
             call kim_handle%solve(m_vals(i_mn), n_vals(i_mn), stat=ierr)
+            kim_mode_status(i_mn) = ierr
             if (ierr /= KIM_OK) then
                 write(*,*) 'ERROR: KIM solve failed for mode ', i_mn, &
                            ' status ', ierr
                 stop 1
             end if
             res = kim_handle%results()
+            kim_mode_resonance(i_mn) = res%r_resonance
 
             ! Interpolate KIM fields (on res%r_field) onto the QL-Balance grid.
             kim_npts = size(res%r_field)

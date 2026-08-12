@@ -6,8 +6,38 @@ module kim_qldiff_m
 
     private
     public :: calc_dqle22, calc_dqli11_phi, calc_dqli_tensor
+    public :: calc_dqli_integral_harmonic
 
 contains
+
+    subroutine calc_dqli_integral_harmonic(ell, ks_s, kr_s, ks_o, kr_o, &
+            vTi, nui, omega_ci, omega_mode, om_E, B0, kpar, fields_s, &
+            fields_o, tensor)
+        !! Production entry point for one ion cyclotron harmonic and one
+        !! ordered radial-wave pair.  Periodic KIM's spectral assembly sums
+        !! this building block over ell, kr_s and kr_o; #290 consumes that
+        !! completed local tensor without duplicating KIM's conventions.
+        use constants_m, only: sol
+        use config_m, only: resolved_ion_ifunc_conservation_model
+        use quasilinear_integral_m, only: calc_ion_integral_harmonic
+        use species_m, only: evaluate_susceptibility
+        integer, intent(in) :: ell
+        real(dp), intent(in) :: ks_s, kr_s, ks_o, kr_o
+        real(dp), intent(in) :: vTi, nui, omega_ci, omega_mode, om_E, B0, kpar
+        complex(dp), intent(in) :: fields_s(3), fields_o(3)
+        real(dp), intent(out) :: tensor(2,2)
+        real(dp) :: x1, x2
+        complex(dp) :: symbI(0:3,0:3)
+        if (abs(omega_ci) <= tiny(1.0_dp)) &
+            error stop 'calc_dqli_integral_harmonic: zero signed cyclotron frequency'
+        x1 = kpar*vTi/nui
+        x2 = -(om_E+real(ell,dp)*omega_ci-omega_mode)/nui
+        call evaluate_susceptibility(x1, x2, &
+            resolved_ion_ifunc_conservation_model, symbI)
+        call calc_ion_integral_harmonic(ell, ks_s, kr_s, ks_o, kr_o, &
+            vTi, abs(omega_ci), omega_ci, sol, B0, nui, fields_s, &
+            fields_o, symbI, tensor)
+    end subroutine calc_dqli_integral_harmonic
 
     function calc_dqli11_phi(vTi, nui, om_E, B0, kpar, Es) result(dqli11)
         ! Ion Phi-only integral coefficient (the D11 tracer bullet).  This is

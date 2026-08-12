@@ -87,6 +87,8 @@ set(KIM_flr2 flr2/flr2_tridiagonal.f90
               flr2/flr2_run_type.f90
 )
 
+set(KIM_transport transport/quasilinear_integral_m.f90)
+
 set(KIM_diagnostics diagnostics/kim_diagnostics_mod.f90
                     diagnostics/kim_qldiff_mod.f90
 )

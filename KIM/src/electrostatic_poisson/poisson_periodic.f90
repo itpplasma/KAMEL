@@ -242,7 +242,7 @@ module rt_electrostatic_periodic_m
         use species_m, only: plasma
         use grid_m, only: rg_grid
         use kim_resonances_m, only: r_res
-        use fields_m, only: EBdat
+        use fields_m, only: EBdat, EBdat_t
         use fields_m, only: calculate_MA_field, calculate_E_in_rsp_from_cyl
         use IO_collection_m, only: itoa, write_complex_profile_abs, &
             write_periodic_scale_metadata
@@ -332,11 +332,10 @@ module rt_electrostatic_periodic_m
         end if
 
         ! 6. Pack into EBdat (window grid + reconstructed potential + current).
-        if (allocated(EBdat%r_grid)) deallocate(EBdat%r_grid)
-        if (allocated(EBdat%Phi))    deallocate(EBdat%Phi)
-        if (allocated(EBdat%jpar))   deallocate(EBdat%jpar)
-        if (allocated(EBdat%jpar_e)) deallocate(EBdat%jpar_e)
-        if (allocated(EBdat%jpar_i)) deallocate(EBdat%jpar_i)
+        ! A periodic solve may be repeated with a different window.  Reset the
+        ! complete allocatable record so fields added to the local-response
+        ! contract cannot retain a stale allocation or shape between solves.
+        EBdat = EBdat_t()
         EBdat%r_grid = r_win
         EBdat%Phi    = dPhi
         allocate(EBdat%Br(size(dPhi)))

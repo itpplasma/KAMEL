@@ -159,3 +159,7 @@ foreach(case version phase partial modes status duplicate nonfinite)
     set_tests_properties(test_periodic_checkpoint_${case} PROPERTIES WILL_FAIL TRUE
         WORKING_DIRECTORY ${CMAKE_BINARY_DIR}/tests/periodic_checkpoint)
 endforeach()
+
+add_executable(test_periodic_workflow_validation.x test_periodic_workflow_validation.f90)
+target_link_libraries(test_periodic_workflow_validation.x PUBLIC ql-balance_lib)
+add_fortran_test(test_periodic_workflow_validation)

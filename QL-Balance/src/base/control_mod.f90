@@ -9,7 +9,10 @@ module control_mod
     character(len=1024) :: kim_config_path = './KIM_config.nml'
     ! Preserve existing KIM decks; periodic coupling requires explicit selection.
     character(len=32) :: kim_run_type = 'electromagnetic'
+    character(len=32) :: kim_electron_transport_model = 'drift_kinetic'
     character(len=32) :: kim_ion_transport_model = 'finite_larmor_radius'
+    character(len=32) :: kim_bparallel_source = 'periodic'
+    character(len=32) :: kim_benchmark_mode = 'none'
     real(dp) :: kim_current_floor = 1.0e-30_dp
     real(dp) :: kim_current_max_scale = 1.0e12_dp
     real(dp) :: kim_current_relaxation = 1.0_dp

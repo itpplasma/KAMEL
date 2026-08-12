@@ -21,7 +21,7 @@ subroutine get_dql
     use wave_code_data
     use kim_wave_code_adapter_m, only: kim_update_profiles, kim_run_for_all_modes, &
         kim_get_wave_fields, kim_get_wave_vectors, kim_vac_Br, kim_Br_modes, &
-        kim_get_current_densities
+        kim_get_current_densities, kim_D_ion_modes, kim_periodic_mode_selected
     use QLBalance_diag, only: i_mn_loop
     use QLBalance_kinds, only: dp
     use PolyLagrangeInterpolation
@@ -221,8 +221,20 @@ subroutine get_dql
             di21 = di12
         else
             if (.true.) then
+                ! Electrons retain the established drift-kinetic Heyn/Markl
+                ! coefficients.  Periodic KIM supplies the ion tensor from
+                ! the gyrokinetic integral formalism, already embedded on
+                ! the global grid with the squared compact-transition weight.
                 call calc_transport_coeffs_ornuhl(npoib, vT_e, nu_e, de11, de12, de21, de22)
-                call calc_transport_coeffs_ornuhl(npoib, vT_i, nu_i, di11, di12, di21, di22)
+                if (trim(wave_code) == 'KIM' .and. kim_periodic_mode_selected() &
+                    .and. allocated(kim_D_ion_modes)) then
+                    di11 = kim_D_ion_modes(1, 1, :, i_mn)
+                    di12 = kim_D_ion_modes(1, 2, :, i_mn)
+                    di21 = kim_D_ion_modes(2, 1, :, i_mn)
+                    di22 = kim_D_ion_modes(2, 2, :, i_mn)
+                else
+                    call calc_transport_coeffs_ornuhl(npoib, vT_i, nu_i, di11, di12, di21, di22)
+                end if
             else
                 call calc_transport_coeffs_ornuhl_drift(1, npoib, de11, de12, de21, de22)
                 call calc_transport_coeffs_ornuhl_drift(2, npoib, di11, di12, di21, di22)

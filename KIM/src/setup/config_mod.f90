@@ -59,6 +59,7 @@ module config_m
     ! drop k_s^2 from Bessel arguments and take electrons in the zero-FLR limit.
     ! The forced-periodic solver uses its full Fourier kernel by default.
     logical :: periodic_match_global_kernel_approximations = .false.
+    complex(dp) :: periodic_Bparallel_ratio = (0.0_dp, 0.0_dp)
 
     ! KIM_FLR2 namelist variables. These switches only select terms in the
     ! imported FLR2 response; all profiles and susceptibilities come from KIM.

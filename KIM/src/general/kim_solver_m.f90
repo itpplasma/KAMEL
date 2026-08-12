@@ -42,9 +42,13 @@ module kim_solver_m
 
         ! field solution (field grid)
         real(dp),    allocatable :: r_field(:)
+        real(dp) :: r_resonance = 0.0_dp
+        real(dp) :: dx_asis = 0.0_dp
+        real(dp) :: dx_transition = 0.0_dp
         complex(dp), allocatable :: Es(:), Ep(:), Er(:), Etheta(:), Ez(:), Br(:), Bparallel(:)
         complex(dp), allocatable :: jpar(:), jpar_e(:), jpar_i(:)
         complex(dp), allocatable :: Phi(:)
+        real(dp), allocatable :: D_ion(:,:,:)
 
         ! derived background (plasma grid)
         real(dp), allocatable :: r_plasma(:)
@@ -242,8 +246,12 @@ contains
         use fields_m, only: EBdat
 
         if (allocated(EBdat%r_grid))            deallocate(EBdat%r_grid)
+        EBdat%r_resonance = 0.0_dp
+        EBdat%dx_asis = 0.0_dp
+        EBdat%dx_transition = 0.0_dp
         if (allocated(EBdat%Br))                deallocate(EBdat%Br)
         if (allocated(EBdat%Bparallel))         deallocate(EBdat%Bparallel)
+        if (allocated(EBdat%D_ion))              deallocate(EBdat%D_ion)
         if (allocated(EBdat%Apar))              deallocate(EBdat%Apar)
         if (allocated(EBdat%E_perp_psi))        deallocate(EBdat%E_perp_psi)
         if (allocated(EBdat%E_perp))            deallocate(EBdat%E_perp)
@@ -281,6 +289,9 @@ contains
 
         ! field solution (field grid)
         if (allocated(EBdat%r_grid)) res%r_field = EBdat%r_grid
+        res%r_resonance = EBdat%r_resonance
+        res%dx_asis = EBdat%dx_asis
+        res%dx_transition = EBdat%dx_transition
         if (allocated(EBdat%Es))     res%Es      = EBdat%Es
         if (allocated(EBdat%Ep))     res%Ep      = EBdat%Ep
         if (allocated(EBdat%Er))     res%Er      = EBdat%Er
@@ -292,6 +303,7 @@ contains
         if (allocated(EBdat%jpar_e)) res%jpar_e  = EBdat%jpar_e
         if (allocated(EBdat%jpar_i)) res%jpar_i  = EBdat%jpar_i
         if (allocated(EBdat%Phi))    res%Phi     = EBdat%Phi
+        if (allocated(EBdat%D_ion)) res%D_ion    = EBdat%D_ion
 
         ! derived background (plasma grid)
         if (allocated(plasma%r_grid)) res%r_plasma = plasma%r_grid

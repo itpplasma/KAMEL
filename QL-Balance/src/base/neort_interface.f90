@@ -230,11 +230,15 @@ contains
             profile_data(i, 1) = s_tor(i)
 
             ! Calculate thermal velocity [Albert2016, above (51)]
+            ! Source detail: Albert2016, PDF p. 14, text before Eq. (51).
             T_i = Ti_splined(i, 1)  ! ion temperature in erg
             vth = sqrt(2 * T_i / m_i)  ! thermal velocity
 
             ! Calculate toroidal Mach number (ExB Mach number) [Albert2016 below (57)]
+            ! Source detail: Albert2016, PDF p. 16, text following Eq. (57).
             ! rtor is the major radius (R)
+            ! TODO: need to calculate Ω_tE here s.t. it gets info from the updated dPhi0
+            ! => cannot cache it, no need to calculate it in the beginning
             M_t = Omega_tE(i) * rtor / vth
 
             ! Column 2: toroidal Mach number M_t
@@ -262,6 +266,32 @@ contains
         ! and dpsi_pol/dr = B^theta = psi_tor' / q = r * B_tor / q
         ! Psi_tor = r²π * B_tor  =>  Psi_tor' = 2πr * B_tor
         ! our psi_tor == Psi_tor / (2π)
+        !
+        ! Source details for the comments above:
+        ! Albert defines the bounce-averaged E x B contribution in
+        ! [Albert2020, Eq. (3.103), printed p. 71, PDF p. 74].
+        ! In Albert's flux-coordinate convention,
+        !   ψ'_pol = √g B^θ
+        !   q = ψ'_tor / ψ'_pol
+        ! [Albert2020, Eqs. (A.12) and (A.14), printed p. 122, PDF p. 125].
+        ! The earlier shorthand dpsi_pol/dr = B^theta omits the Jacobian factor.
+        ! The implemented denominator is the flux derivative ψ'_pol.
+        ! Markl defines the effective radius through
+        !   r = sqrt(2 ψ_tor / B_ref)
+        ! [Markl2023, Eq. (37), PDF p. 10].
+        ! This assumes a circular toroidal cross-section and fixed B_ref.
+        ! Therefore, ψ'_tor = r B_ref and ψ'_pol = r B_ref / q.
+        ! In this convention, KAMEL's btor is the signed reference field.
+        ! Thus, B_tor in the original shorthand means this fixed B_ref.
+        ! It is not a radius-dependent local toroidal field.
+        ! The effective-radius conversion is implemented in
+        ! $KAMEL/common/equil/equil_profiles.f90:421-423 and
+        ! $KAMEL/KIM/src/util/IO_collection.f90:153-156.
+        ! Albert defines lowercase fluxes per radian by dividing full fluxes
+        ! by 2π [Albert2020, Eqs. (A.8)-(A.9), printed p. 120, PDF p. 123].
+        ! KAMEL stores the potential gradient rather than the potential.
+        ! dPhi0 = -Ercov = ∂Φ/∂r follows from
+        ! $KAMEL/QL-Balance/src/base/wave_code_data_64bit.f90:258,296.
 
         real(dp), dimension(:), intent(out) :: Omega_tE
         real(dp), dimension(:), intent(in) :: r
@@ -287,6 +317,11 @@ contains
             dPhi_dr = dPhi0_splined(i, 1)
             dpsi_pol_dr = r(i) * btor / q_splined(i, 1)
             Omega_tE(i) = -c * dPhi_dr / dpsi_pol_dr
+            ! The leading minus is fixed by Albert2020, Eq. (3.103).
+            ! TODO: validate the complete coordinate and field orientation with a controlled case.
+            ! Do not treat M_t * T_phi^NTV < 0 as a universal identity.
+            ! Albert2016, Eq. (13), PDF p. 6, gives the torque-flux sign relation
+            ! but does not impose a pointwise damping inequality.
         end do
     end subroutine calculate_Omega_tE
 

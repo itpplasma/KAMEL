@@ -55,3 +55,7 @@ set_tests_properties(test_hdf5_diagnostic_writers PROPERTIES
 add_executable(test_periodic_embedding.x test_periodic_embedding.f90)
 target_link_libraries(test_periodic_embedding.x PUBLIC ql-balance_lib)
 add_fortran_test(test_periodic_embedding)
+
+add_executable(test_periodic_response_contract.x test_periodic_response_contract.f90)
+target_link_libraries(test_periodic_response_contract.x PUBLIC ql-balance_lib)
+add_fortran_test(test_periodic_response_contract)

@@ -2,7 +2,7 @@ program test_kim_diagnostics
 
     use KIM_kinds_m, only: dp
     use kim_diagnostics_m, only: integrate_Ipar, interp_local_complex
-    use kim_qldiff_m, only: calc_dqle22
+    use kim_qldiff_m, only: calc_dqle22, calc_dqli11_phi, calc_dqli_tensor
 
     implicit none
 
@@ -14,6 +14,7 @@ program test_kim_diagnostics
     call test_interp_local_complex()
     call test_dqle22_resonant('Dqle22 at resonance, omE/nue = 0.5', 0.5_dp)
     call test_dqle22_resonant('Dqle22 at resonance, omE/nue = 2.0', 2.0_dp)
+    call test_dqli_tensor_contract()
     call test_em_solve_writes_diagnostics_file()
     call test_em_solve_no_resonance_skips_file()
 
@@ -117,6 +118,27 @@ contains
 
         call assert_close(label, cmplx(dqle22, 0.0_dp, dp), &
                           cmplx(dqle22_exact, 0.0_dp, dp), 1.0e-2_dp)
+    end subroutine
+
+    subroutine test_dqli_tensor_contract()
+        real(dp), parameter :: vTi = 3.0e7_dp, nui = 2.0e5_dp
+        real(dp), parameter :: omE = 0.75_dp*nui, B0 = 1.8e4_dp, kpar = 1.0e-8_dp
+        complex(dp), parameter :: Es = cmplx(2.0e-3_dp, -1.0e-3_dp, dp)
+        complex(dp), parameter :: Br = cmplx(0.7_dp, 0.4_dp, dp)
+        real(dp) :: D11, D12, D21, D22, D11phi, D11zero, D12phi, D21phi, D22phi
+
+        call calc_dqli_tensor(vTi, nui, omE, B0, kpar, Es, Br, D11, D12, D21, D22)
+        D11phi = calc_dqli11_phi(vTi, nui, omE, B0, kpar, Es)
+        call calc_dqli_tensor(vTi, nui, omE, B0, kpar, Es, (0.0_dp,0.0_dp), &
+                              D11zero, D12phi, D21phi, D22phi)
+        call assert_close('ion tensor Phi-only D11 limit', cmplx(D11zero,0.0_dp,dp), &
+                          cmplx(D11phi,0.0_dp,dp), 1.0e-10_dp)
+        call calc_dqli_tensor(vTi, nui, omE, B0, kpar, Es, Br, D11, D12, D21, D22)
+        if (.not. (D11 > 0.0_dp .and. D22 > 0.0_dp)) error stop 'ion tensor diagonal is not positive'
+        if (abs(D11-D11zero) <= 1.0e-14_dp*max(1.0_dp,abs(D11))) &
+            error stop 'ion Br channel did not contribute to D11'
+        if (abs(D12) > huge(1.0_dp) .or. abs(D21) > huge(1.0_dp)) &
+            error stop 'ion tensor cross channel is non-finite'
     end subroutine
 
     subroutine test_em_solve_writes_diagnostics_file()

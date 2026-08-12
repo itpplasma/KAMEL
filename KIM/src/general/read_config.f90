@@ -55,7 +55,7 @@ subroutine kim_read_config
     ! separately (iostat-guarded, below) so config files without it still parse.
     namelist /KIM_PERIODIC/ periodic_dr_asis_scale, periodic_dr_tr_scale, &
                         periodic_kmax_scale, periodic_n_rg, &
-                        periodic_match_global_kernel_approximations
+                        periodic_match_global_kernel_approximations, periodic_Bparallel_ratio
 
     namelist /KIM_FLR2/ flr2_electron_flr, flr2_ion_flr, &
                         flr2_electron_potential, flr2_ion_potential, &

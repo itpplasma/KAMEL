@@ -307,6 +307,8 @@ contains
 
         allocate (dPhi0_coeffs(rb_size - 1, 5))
         allocate (q_coeffs(rc_size - 1, 5))
+        allocate (dPhi0_splined(r_size, 3))
+        allocate (q_splined(r_size, 3))
 
         dPhi0_coeffs = spline_coeff(rb, dPhi0)
         dPhi0_splined = spline_val(dPhi0_coeffs, r)

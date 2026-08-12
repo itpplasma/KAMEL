@@ -12,11 +12,18 @@ if(CMAKE_HOST_SYSTEM_NAME MATCHES "Darwin")
         endif()
     endif()
     if(NOT DEFINED CMAKE_CXX_COMPILER)
-        find_program(LLVM_CLANGXX clang++
-            PATHS /opt/homebrew/opt/llvm/bin /usr/local/opt/llvm/bin
+        find_program(HOMEBREW_GXX g++-16
+            PATHS /opt/homebrew/bin /usr/local/bin
             NO_DEFAULT_PATH)
-        if(LLVM_CLANGXX)
-            set(CMAKE_CXX_COMPILER "${LLVM_CLANGXX}")
+        if(HOMEBREW_GXX)
+            set(CMAKE_CXX_COMPILER "${HOMEBREW_GXX}")
+        else()
+            find_program(LLVM_CLANGXX clang++
+                PATHS /opt/homebrew/opt/llvm/bin /usr/local/opt/llvm/bin
+                NO_DEFAULT_PATH)
+            if(LLVM_CLANGXX)
+                set(CMAKE_CXX_COMPILER "${LLVM_CLANGXX}")
+            endif()
         endif()
     endif()
     set(CMAKE_PREFIX_PATH /opt/homebrew /usr/local)

@@ -33,6 +33,8 @@ module kim_wave_code_adapter_m
     public :: kim_periodic_mode_selected
     public :: kim_D_ion_modes, kim_transition_weights
     public :: kim_periodic_scale_modes, kim_periodic_current_unit, kim_periodic_scale_status
+    public :: kim_periodic_normalization_relaxation, kim_periodic_normalization_version, &
+        kim_periodic_phase_policy
     public :: kim_mode_m, kim_mode_n, kim_mode_resonance, kim_mode_status
 
     !! Module-level KIM solver handle (reused across calls)
@@ -62,6 +64,10 @@ module kim_wave_code_adapter_m
     complex(8), allocatable :: kim_periodic_scale_modes(:)
     complex(8), allocatable :: kim_periodic_current_unit(:)
     integer, allocatable :: kim_periodic_scale_status(:)
+    logical :: periodic_constant_psi_pending = .true.
+    real(8), parameter :: kim_periodic_normalization_relaxation = 1.0d0
+    integer, parameter :: kim_periodic_normalization_version = 1
+    character(len=32), parameter :: kim_periodic_phase_policy = 'complex-current'
     integer, allocatable :: kim_mode_m(:), kim_mode_n(:), kim_mode_status(:)
     real(8), allocatable :: kim_mode_resonance(:)
 
@@ -118,6 +124,7 @@ contains
 
         ! Re-init safe: clear any equilibrium/field state from a prior run.
         call kim_handle%finalize()
+        periodic_constant_psi_pending = .true.
 
         if (kim_profiles_from_balance) then
             ! -----------------------------------------------------------
@@ -293,7 +300,7 @@ contains
             wcd_B0 => B0, wcd_nue => nue, wcd_nui => nui, &
             wcd_B0t => B0t, wcd_B0z => B0z, wcd_Vth => Vth, wcd_Vz => Vz, &
             I_par_toroidal
-        use control_mod, only: kim_profiles_from_balance
+        use control_mod, only: kim_profiles_from_balance, type_of_run
         use periodic_current_normalization_m, only: integrate_trusted_current, periodic_drive_scale
 
         implicit none
@@ -404,8 +411,13 @@ contains
                 end if
                 allocate(weights(dim_r))
                 current_unit = integrate_trusted_current(kim_r, res%jpar, core_lo, core_hi)
-                call periodic_drive_scale(I_par_toroidal, current_unit, 2.99792458d10, &
-                    1.0d-30, 1.0d12, 1.0d0, drive_scale, scale_status)
+                if (trim(type_of_run) == 'TimeEvolution' .and. periodic_constant_psi_pending) then
+                    drive_scale = (1.0d0, 0.0d0)
+                    scale_status = 0
+                else
+                    call periodic_drive_scale(I_par_toroidal, current_unit, 2.99792458d10, &
+                        1.0d-30, 1.0d12, 1.0d0, drive_scale, scale_status)
+                end if
                 kim_periodic_current_unit(i_mn) = current_unit
                 kim_periodic_scale_modes(i_mn) = drive_scale
                 kim_periodic_scale_status(i_mn) = scale_status
@@ -620,6 +632,9 @@ contains
             deallocate(kim_plasma_r)
         end if
 
+        if (periodic .and. trim(type_of_run) == 'TimeEvolution' .and. periodic_constant_psi_pending) then
+            periodic_constant_psi_pending = .false.
+        end if
         write(*, *) "KIM adapter: all modes solved"
 
     end subroutine kim_run_for_all_modes

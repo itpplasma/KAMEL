@@ -603,17 +603,24 @@ subroutine read_background_profiles_h5_timeevol(tstep)
     use control_mod, only: paramscan
     use baseparam_mod, only: rtor
     use logger_m, only: log_debug, log_info, log_warning
+    use periodic_amplitude_state_m, only: periodic_amplitudes
 
     implicit none;
     integer, intent(in) :: tstep
     double precision, dimension(:), allocatable :: Er_dummy, Vth_dummy
     character(len=1024) :: groupname
-    integer :: lb, ub;
+    integer :: lb, ub, amp_lb, amp_ub, i
+    logical :: amp_exists
+    real(8), allocatable :: amp_acc_real(:), amp_acc_imag(:), amp_trial_real(:), amp_trial_imag(:)
+    real(8), allocatable :: amp_unit_real(:), amp_unit_imag(:), amp_res_real(:), amp_res_imag(:)
+    real(8), allocatable :: amp_status(:), amp_target(:), amp_relax(:)
+    complex(8), allocatable :: amp_acc(:), amp_trial(:), amp_unit(:), amp_res(:)
+    integer, allocatable :: amp_status_int(:)
 
 
     call log_info('Read time evolved background profiles from hdf5 file')
 
-    write (groupname, '(A,I1,A,I1,A,I0,"/")') 'f_', m_vals(1), '_', n_vals(1), '/fort.1000/', &
+    write (groupname, '(A,I1,A,I1,A,I0,"/")') 'f_', m_vals(1), '_', n_vals(1), '/KinProfiles/', &
                                               1000 + tstep
 
     CALL h5_init()
@@ -622,6 +629,13 @@ subroutine read_background_profiles_h5_timeevol(tstep)
     CALL h5_open_rw(path2time, h5_id)
 
     CALL h5_obj_exists(h5_id, trim(groupname), h5_exists_log)
+    if (.not. h5_exists_log) then
+        ! Preserve compatibility with pre-KinProfiles output, while using the
+        ! current writer's group so periodic amplitude checkpoints are found.
+        write (groupname, '(A,I1,A,I1,A,I0,"/")') 'f_', m_vals(1), '_', n_vals(1), '/fort.1000/', &
+                                                  1000 + tstep
+        CALL h5_obj_exists(h5_id, trim(groupname), h5_exists_log)
+    end if
     if (.not. h5_exists_log) then
         call log_warning("group " // trim(groupname) // " does not exist.")
     else
@@ -671,6 +685,41 @@ subroutine read_background_profiles_h5_timeevol(tstep)
     rVth = rn
     rVz = rn
     rep = rn
+
+    ! Restore the periodic KIM response state when it is present in the
+    ! profile checkpoint.  Older files simply take the documented unit-drive
+    ! constant-psi initial state.
+    CALL h5_obj_exists(group_id_1, "periodic_amplitude_accepted_real", amp_exists)
+    if (amp_exists) then
+        CALL h5_get_bounds_1(group_id_1, "periodic_amplitude_accepted_real", amp_lb, amp_ub)
+        allocate(amp_acc_real(amp_ub), amp_acc_imag(amp_ub), amp_trial_real(amp_ub), amp_trial_imag(amp_ub))
+        allocate(amp_unit_real(amp_ub), amp_unit_imag(amp_ub), amp_res_real(amp_ub), amp_res_imag(amp_ub))
+        allocate(amp_status(amp_ub), amp_status_int(amp_ub), amp_target(1), amp_relax(1))
+        CALL h5_get_double_1(group_id_1, "periodic_amplitude_accepted_real", amp_acc_real)
+        CALL h5_get_double_1(group_id_1, "periodic_amplitude_accepted_imag", amp_acc_imag)
+        CALL h5_get_double_1(group_id_1, "periodic_amplitude_trial_real", amp_trial_real)
+        CALL h5_get_double_1(group_id_1, "periodic_amplitude_trial_imag", amp_trial_imag)
+        CALL h5_get_double_1(group_id_1, "periodic_current_unit_real", amp_unit_real)
+        CALL h5_get_double_1(group_id_1, "periodic_current_unit_imag", amp_unit_imag)
+        CALL h5_get_double_1(group_id_1, "periodic_current_residual_real", amp_res_real)
+        CALL h5_get_double_1(group_id_1, "periodic_current_residual_imag", amp_res_imag)
+        CALL h5_get_double_1(group_id_1, "periodic_scale_status", amp_status)
+        CALL h5_get_double_1(group_id_1, "periodic_target_current", amp_target)
+        CALL h5_get_double_1(group_id_1, "periodic_normalization_relaxation", amp_relax)
+        amp_acc = cmplx(amp_acc_real, amp_acc_imag, 8)
+        amp_trial = cmplx(amp_trial_real, amp_trial_imag, 8)
+        amp_unit = cmplx(amp_unit_real, amp_unit_imag, 8)
+        amp_res = cmplx(amp_res_real, amp_res_imag, 8)
+        do i = 1, amp_ub
+            amp_status_int(i) = nint(amp_status(i))
+        end do
+        call periodic_amplitudes%initialize(amp_acc, amp_unit, amp_res, amp_status_int, amp_target(1), amp_relax(1))
+        call periodic_amplitudes%begin_trial(amp_trial, amp_unit, amp_res, amp_status_int, amp_target(1), amp_relax(1))
+        deallocate(amp_acc_real, amp_acc_imag, amp_trial_real, amp_trial_imag, amp_unit_real, amp_unit_imag)
+        deallocate(amp_res_real, amp_res_imag, amp_status, amp_status_int, amp_target, amp_relax)
+        deallocate(amp_acc, amp_trial, amp_unit, amp_res)
+        call log_info('restored periodic KIM amplitudes from time-evolution checkpoint')
+    end if
 
     CALL h5_close_group(group_id_1)
     CALL h5_close(h5_id)

@@ -1,5 +1,6 @@
 module radial_current_fourier_kernel_m
     use KIM_kinds_m, only: dp
+    use species_m, only: plasma_t
 
     implicit none
     private
@@ -13,8 +14,184 @@ module radial_current_fourier_kernel_m
 
     public :: radial_flr_coefficients
     public :: scaled_bessel_harmonic
+    public :: hatG_jrad_phi, hatG_jrad_br, hatG_jrad_bparallel
+    public :: hatG_jrad_phi_harmonic_sp, hatG_jrad_br_harmonic_sp
+    public :: hatG_jrad_bparallel_harmonic_sp
 
 contains
+
+    complex(dp) function hatG_jrad_phi(plasma_in, kr_response, kr_source, j, &
+        cutoff) result(kernel)
+        use config_m, only: turn_off_electrons, turn_off_ions
+
+        type(plasma_t), intent(in) :: plasma_in
+        real(dp), intent(in) :: kr_response, kr_source
+        integer, intent(in) :: j
+        integer, intent(in), optional :: cutoff
+        integer :: ell, harmonic_cutoff, sp
+
+        harmonic_cutoff = checked_harmonic_cutoff(cutoff)
+        kernel = (0.0_dp, 0.0_dp)
+        do sp = 0, plasma_in%n_species - 1
+            if (turn_off_electrons .and. sp == 0) cycle
+            if (turn_off_ions .and. sp >= 1) cycle
+            do ell = -harmonic_cutoff, harmonic_cutoff
+                kernel = kernel + hatG_jrad_phi_harmonic_sp(plasma_in, sp, ell, &
+                    kr_response, kr_source, j)
+            end do
+        end do
+    end function hatG_jrad_phi
+
+    complex(dp) function hatG_jrad_br(plasma_in, kr_response, kr_source, j, &
+        cutoff) result(kernel)
+        use config_m, only: turn_off_electrons, turn_off_ions
+
+        type(plasma_t), intent(in) :: plasma_in
+        real(dp), intent(in) :: kr_response, kr_source
+        integer, intent(in) :: j
+        integer, intent(in), optional :: cutoff
+        integer :: ell, harmonic_cutoff, sp
+
+        harmonic_cutoff = checked_harmonic_cutoff(cutoff)
+        kernel = (0.0_dp, 0.0_dp)
+        do sp = 0, plasma_in%n_species - 1
+            if (turn_off_electrons .and. sp == 0) cycle
+            if (turn_off_ions .and. sp >= 1) cycle
+            do ell = -harmonic_cutoff, harmonic_cutoff
+                kernel = kernel + hatG_jrad_br_harmonic_sp(plasma_in, sp, ell, &
+                    kr_response, kr_source, j)
+            end do
+        end do
+    end function hatG_jrad_br
+
+    complex(dp) function hatG_jrad_bparallel(plasma_in, kr_response, kr_source, j, &
+        cutoff) result(kernel)
+        use config_m, only: turn_off_electrons, turn_off_ions
+
+        type(plasma_t), intent(in) :: plasma_in
+        real(dp), intent(in) :: kr_response, kr_source
+        integer, intent(in) :: j
+        integer, intent(in), optional :: cutoff
+        integer :: ell, harmonic_cutoff, sp
+
+        harmonic_cutoff = checked_harmonic_cutoff(cutoff)
+        kernel = (0.0_dp, 0.0_dp)
+        do sp = 0, plasma_in%n_species - 1
+            if (turn_off_electrons .and. sp == 0) cycle
+            if (turn_off_ions .and. sp >= 1) cycle
+            do ell = -harmonic_cutoff, harmonic_cutoff
+                kernel = kernel + hatG_jrad_bparallel_harmonic_sp(plasma_in, sp, ell, &
+                    kr_response, kr_source, j)
+            end do
+        end do
+    end function hatG_jrad_bparallel
+
+    complex(dp) function hatG_jrad_phi_harmonic_sp(plasma_in, sp, ell, &
+        kr_response, kr_source, j) result(kernel)
+        use config_m, only: artificial_debye_case
+
+        type(plasma_t), intent(in) :: plasma_in
+        integer, intent(in) :: sp, ell, j
+        real(dp), intent(in) :: kr_response, kr_source
+        complex(dp) :: o0, o2, w0, w2
+
+        kernel = (0.0_dp, 0.0_dp)
+        if (artificial_debye_case /= 0 .and. artificial_debye_case /= 2) return
+        call check_harmonic_is_available(plasma_in, sp, ell)
+        call radial_flr_coefficients(ell, plasma_in%ks(j), kr_source, &
+            plasma_in%ks(j), kr_response, plasma_in%spec(sp)%rho_L(j), &
+            plasma_in%spec(sp)%A1(j), plasma_in%spec(sp)%A2(j), o0, o2, w0, w2)
+        kernel = -radial_kernel_phase(ell, kr_response, kr_source, plasma_in%ks(j), j) &
+            * plasma_in%spec(sp)%vT(j)**2 * plasma_in%ks(j) &
+            / (plasma_in%spec(sp)%lambda_D(j)**2 * plasma_in%spec(sp)%nu(j)) &
+            * (o0 * plasma_in%spec(sp)%I00(j, ell) &
+            + o2 * plasma_in%spec(sp)%I02(j, ell))
+    end function hatG_jrad_phi_harmonic_sp
+
+    complex(dp) function hatG_jrad_br_harmonic_sp(plasma_in, sp, ell, &
+        kr_response, kr_source, j) result(kernel)
+        use config_m, only: artificial_debye_case
+        use constants_m, only: com_unit, sol
+
+        type(plasma_t), intent(in) :: plasma_in
+        integer, intent(in) :: sp, ell, j
+        real(dp), intent(in) :: kr_response, kr_source
+        complex(dp) :: o0, o2, w0, w2
+
+        kernel = (0.0_dp, 0.0_dp)
+        if (artificial_debye_case /= 0 .and. artificial_debye_case /= 2) return
+        call check_harmonic_is_available(plasma_in, sp, ell)
+        call radial_flr_coefficients(ell, plasma_in%ks(j), kr_source, &
+            plasma_in%ks(j), kr_response, plasma_in%spec(sp)%rho_L(j), &
+            plasma_in%spec(sp)%A1(j), plasma_in%spec(sp)%A2(j), o0, o2, w0, w2)
+        kernel = -com_unit &
+            * radial_kernel_phase(ell, kr_response, kr_source, plasma_in%ks(j), j) &
+            * plasma_in%spec(sp)%vT(j)**3 &
+            / (plasma_in%spec(sp)%lambda_D(j)**2 * plasma_in%spec(sp)%nu(j) * sol) &
+            * (o0 * plasma_in%spec(sp)%I01(j, ell) &
+            + o2 * plasma_in%spec(sp)%I03(j, ell))
+    end function hatG_jrad_br_harmonic_sp
+
+    complex(dp) function hatG_jrad_bparallel_harmonic_sp(plasma_in, sp, ell, &
+        kr_response, kr_source, j) result(kernel)
+        use config_m, only: artificial_debye_case
+        use constants_m, only: sol
+
+        type(plasma_t), intent(in) :: plasma_in
+        integer, intent(in) :: sp, ell, j
+        real(dp), intent(in) :: kr_response, kr_source
+        complex(dp) :: o0, o2, w0, w2
+
+        kernel = (0.0_dp, 0.0_dp)
+        if (artificial_debye_case /= 0 .and. artificial_debye_case /= 2) return
+        call check_harmonic_is_available(plasma_in, sp, ell)
+        call radial_flr_coefficients(ell, plasma_in%ks(j), kr_source, &
+            plasma_in%ks(j), kr_response, plasma_in%spec(sp)%rho_L(j), &
+            plasma_in%spec(sp)%A1(j), plasma_in%spec(sp)%A2(j), o0, o2, w0, w2)
+        kernel = radial_kernel_phase(ell, kr_response, kr_source, plasma_in%ks(j), j) &
+            * plasma_in%spec(sp)%vT(j)**2 * plasma_in%spec(sp)%omega_c(j) &
+            / (plasma_in%spec(sp)%lambda_D(j)**2 * plasma_in%spec(sp)%nu(j) * sol) &
+            * (w0 * plasma_in%spec(sp)%I00(j, ell) &
+            + w2 * plasma_in%spec(sp)%I02(j, ell))
+    end function hatG_jrad_bparallel_harmonic_sp
+
+    complex(dp) function radial_kernel_phase(ell, kr_response, kr_source, ks, j) &
+        result(phase)
+        use constants_m, only: com_unit, pi
+        use grid_m, only: rg_grid
+
+        integer, intent(in) :: ell, j
+        real(dp), intent(in) :: kr_response, kr_source, ks
+        real(dp) :: alpha_response, alpha_source
+
+        alpha_response = atan2(kr_response, ks)
+        alpha_source = atan2(kr_source, ks)
+        phase = exp(-com_unit * (kr_response - kr_source) * rg_grid%xb(j) &
+            + com_unit * real(ell, dp) * (alpha_response - alpha_source)) &
+            / (8.0_dp * pi**2)
+    end function radial_kernel_phase
+
+    integer function checked_harmonic_cutoff(cutoff) result(harmonic_cutoff)
+        use setup_m, only: mphi_max
+
+        integer, intent(in), optional :: cutoff
+
+        harmonic_cutoff = mphi_max
+        if (present(cutoff)) harmonic_cutoff = cutoff
+        if (harmonic_cutoff < 0 .or. harmonic_cutoff > mphi_max) then
+            error stop 'Radial-current harmonic cutoff must satisfy 0 <= cutoff <= mphi_max'
+        end if
+    end function checked_harmonic_cutoff
+
+    subroutine check_harmonic_is_available(plasma_in, sp, ell)
+        type(plasma_t), intent(in) :: plasma_in
+        integer, intent(in) :: sp, ell
+
+        if (ell < lbound(plasma_in%spec(sp)%I00, 2) &
+            .or. ell > ubound(plasma_in%spec(sp)%I00, 2)) then
+            error stop 'Requested radial-current harmonic is unavailable'
+        end if
+    end subroutine check_harmonic_is_available
 
     real(dp) function scaled_bessel_harmonic(ell, bplus, bcross) result(value)
         !> Return exp(-bplus) I_ell(bcross) without overflowing the unscaled

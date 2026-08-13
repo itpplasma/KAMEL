@@ -1,11 +1,14 @@
 program test_radial_current_fourier_kernel
     use KIM_kinds_m, only: dp
-    use radial_current_fourier_kernel_m, only: radial_flr_coefficients, &
-        scaled_bessel_harmonic
+    use radial_current_fourier_kernel_m, only: hatG_jrad_bparallel, hatG_jrad_br, &
+        hatG_jrad_phi, hatG_jrad_bparallel_harmonic_sp, hatG_jrad_br_harmonic_sp, &
+        hatG_jrad_phi_harmonic_sp, radial_flr_coefficients, scaled_bessel_harmonic
 
     implicit none
 
     call test_i03_is_retained()
+    call test_radial_current_harmonic_kernels()
+    call test_radial_current_cutoff_sums()
     call test_scaled_bessel_harmonics()
     call test_radial_flr_coefficients()
     call test_zero_wavenumber_radial_flr_coefficients()
@@ -14,6 +17,93 @@ program test_radial_current_fourier_kernel
     stop 0
 
 contains
+
+    subroutine test_radial_current_harmonic_kernels()
+        use constants_m, only: com_unit, pi, sol
+        use grid_m, only: rg_grid
+        use species_m, only: plasma
+
+        real(dp), parameter :: tolerance = 1.0e-12_dp
+        real(dp), parameter :: kr_response = 0.47_dp
+        real(dp), parameter :: kr_source = -0.31_dp
+        complex(dp) :: actual(3), expected(3), o0, o2, w0, w2, phase
+        real(dp) :: ks, lambda_d, nu, omega_c, rho_l, v_t
+        integer :: ell, j, sp
+
+        sp = 1
+        ell = 1
+        j = rg_grid%npts_b / 2
+        ks = plasma%ks(j)
+        lambda_d = plasma%spec(sp)%lambda_D(j)
+        nu = plasma%spec(sp)%nu(j)
+        omega_c = plasma%spec(sp)%omega_c(j)
+        rho_l = plasma%spec(sp)%rho_L(j)
+        v_t = plasma%spec(sp)%vT(j)
+
+        call radial_flr_coefficients(ell, ks, kr_source, ks, kr_response, rho_l, &
+            plasma%spec(sp)%A1(j), plasma%spec(sp)%A2(j), o0, o2, w0, w2)
+        phase = exp(-com_unit * (kr_response - kr_source) * rg_grid%xb(j)) &
+            * harmonic_phase(ell, ks, kr_source, ks, kr_response) / (8.0_dp * pi**2)
+
+        expected(1) = -phase * v_t**2 * ks / (lambda_d**2 * nu) &
+            * (o0 * plasma%spec(sp)%I00(j, ell) + o2 * plasma%spec(sp)%I02(j, ell))
+        expected(2) = -com_unit * phase * v_t**3 / (lambda_d**2 * nu * sol) &
+            * (o0 * plasma%spec(sp)%I01(j, ell) + o2 * plasma%spec(sp)%I03(j, ell))
+        expected(3) = phase * v_t**2 * omega_c / (lambda_d**2 * nu * sol) &
+            * (w0 * plasma%spec(sp)%I00(j, ell) + w2 * plasma%spec(sp)%I02(j, ell))
+
+        actual = [hatG_jrad_phi_harmonic_sp(plasma, sp, ell, kr_response, &
+            kr_source, j), hatG_jrad_br_harmonic_sp(plasma, sp, ell, kr_response, &
+            kr_source, j), hatG_jrad_bparallel_harmonic_sp(plasma, sp, ell, &
+            kr_response, kr_source, j)]
+        call assert_complex_close(actual(1), expected(1), tolerance, &
+            'jrad-Phi harmonic kernel has wrong moments, prefactor, or phase')
+        call assert_complex_close(actual(2), expected(2), tolerance, &
+            'jrad-Br harmonic kernel has wrong moments, prefactor, or phase')
+        call assert_complex_close(actual(3), expected(3), tolerance, &
+            'jrad-Bparallel harmonic kernel has wrong moments, signed frequency, or phase')
+
+        print *, 'PASS: all radial-current harmonic kernels match documented formulas'
+    end subroutine test_radial_current_harmonic_kernels
+
+    subroutine test_radial_current_cutoff_sums()
+        use config_m, only: turn_off_electrons, turn_off_ions
+        use grid_m, only: rg_grid
+        use species_m, only: plasma
+
+        real(dp), parameter :: tolerance = 1.0e-13_dp
+        real(dp), parameter :: kr_response = -0.53_dp
+        real(dp), parameter :: kr_source = 0.22_dp
+        complex(dp) :: actual(3), expected(3)
+        integer :: ell, j, sp
+
+        turn_off_electrons = .false.
+        turn_off_ions = .false.
+        j = rg_grid%npts_b / 3
+        expected = (0.0_dp, 0.0_dp)
+        do sp = 0, plasma%n_species - 1
+            do ell = -1, 1
+                expected(1) = expected(1) + hatG_jrad_phi_harmonic_sp(plasma, sp, ell, &
+                    kr_response, kr_source, j)
+                expected(2) = expected(2) + hatG_jrad_br_harmonic_sp(plasma, sp, ell, &
+                    kr_response, kr_source, j)
+                expected(3) = expected(3) + hatG_jrad_bparallel_harmonic_sp(plasma, sp, &
+                    ell, kr_response, kr_source, j)
+            end do
+        end do
+
+        actual = [hatG_jrad_phi(plasma, kr_response, kr_source, j, cutoff=1), &
+            hatG_jrad_br(plasma, kr_response, kr_source, j, cutoff=1), &
+            hatG_jrad_bparallel(plasma, kr_response, kr_source, j, cutoff=1)]
+        call assert_complex_close(actual(1), expected(1), tolerance, &
+            'jrad-Phi cutoff sum is not symmetric')
+        call assert_complex_close(actual(2), expected(2), tolerance, &
+            'jrad-Br cutoff sum is not symmetric')
+        call assert_complex_close(actual(3), expected(3), tolerance, &
+            'jrad-Bparallel cutoff sum is not symmetric')
+
+        print *, 'PASS: all radial-current kernels sum harmonics symmetrically'
+    end subroutine test_radial_current_cutoff_sums
 
     subroutine test_radial_flr_coefficients()
         real(dp), parameter :: derivative_step = 2.0e-5_dp

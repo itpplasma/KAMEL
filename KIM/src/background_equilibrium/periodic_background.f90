@@ -620,6 +620,7 @@ contains
                 if (allocated(plasma%spec(sp)%I21)) deallocate(plasma%spec(sp)%I21)
                 if (allocated(plasma%spec(sp)%I22)) deallocate(plasma%spec(sp)%I22)
                 if (allocated(plasma%spec(sp)%I02)) deallocate(plasma%spec(sp)%I02)
+                if (allocated(plasma%spec(sp)%I03)) deallocate(plasma%spec(sp)%I03)
                 if (allocated(plasma%spec(sp)%I11)) deallocate(plasma%spec(sp)%I11)
                 if (allocated(plasma%spec(sp)%I13)) deallocate(plasma%spec(sp)%I13)
 
@@ -644,6 +645,7 @@ contains
                 if (allocated(plasma%spec(sp)%I12_cc)) deallocate(plasma%spec(sp)%I12_cc)
                 if (allocated(plasma%spec(sp)%I22_cc)) deallocate(plasma%spec(sp)%I22_cc)
                 if (allocated(plasma%spec(sp)%I02_cc)) deallocate(plasma%spec(sp)%I02_cc)
+                if (allocated(plasma%spec(sp)%I03_cc)) deallocate(plasma%spec(sp)%I03_cc)
                 if (allocated(plasma%spec(sp)%I13_cc)) deallocate(plasma%spec(sp)%I13_cc)
                 if (allocated(plasma%spec(sp)%I11_cc)) deallocate(plasma%spec(sp)%I11_cc)
             end do

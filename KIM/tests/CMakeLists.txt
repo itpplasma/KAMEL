@@ -156,6 +156,18 @@ target_link_libraries(test_radial_current_fourier_kernel
 add_test(NAME test_radial_current_fourier_kernel
          COMMAND ${CMAKE_BINARY_DIR}/tests/test_radial_current_fourier_kernel.x)
 
+add_executable(test_radial_current_harmonics
+               ${CMAKE_SOURCE_DIR}/KIM/tests/test_radial_current_harmonics.f90)
+set_target_properties(test_radial_current_harmonics PROPERTIES
+                      OUTPUT_NAME test_radial_current_harmonics.x
+                      RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/tests/")
+target_link_libraries(test_radial_current_harmonics
+                      KIM_lib kilca_lib lapack cerf fortnum_amos_compat)
+add_test(NAME test_radial_current_harmonics
+         COMMAND ${CMAKE_BINARY_DIR}/tests/test_radial_current_harmonics.x)
+set_tests_properties(test_radial_current_harmonics PROPERTIES
+                     WORKING_DIRECTORY ${CMAKE_BINARY_DIR}/tests/)
+
 add_executable(test_flr2_tridiagonal
                ${CMAKE_SOURCE_DIR}/KIM/tests/test_flr2_tridiagonal.f90)
 set_target_properties(test_flr2_tridiagonal PROPERTIES

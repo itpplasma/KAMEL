@@ -1,14 +1,59 @@
 program test_radial_current_fourier_kernel
     use KIM_kinds_m, only: dp
+    use radial_current_fourier_kernel_m, only: scaled_bessel_harmonic
 
     implicit none
 
     call test_i03_is_retained()
+    call test_scaled_bessel_harmonics()
 
     print *, 'All radial-current Fourier-kernel tests PASSED'
     stop 0
 
 contains
+
+    subroutine test_scaled_bessel_harmonics()
+        use, intrinsic :: ieee_arithmetic, only: ieee_is_finite
+        use fortnum_special, only: bessel_in
+
+        real(dp), parameter :: tolerance = 1.0e-13_dp
+        real(dp) :: actual, expected
+        integer :: ell
+
+        do ell = -4, 4
+            actual = scaled_bessel_harmonic(ell, 1.25_dp, 0.75_dp)
+            expected = exp(-1.25_dp) * bessel_in(ell, 0.75_dp)
+            if (abs(actual - expected) > tolerance * (1.0_dp + abs(expected))) then
+                error stop 'scaled harmonic Bessel mismatch at moderate argument'
+            end if
+
+            if (scaled_bessel_harmonic(ell, 1.25_dp, 0.75_dp) /= &
+                scaled_bessel_harmonic(-ell, 1.25_dp, 0.75_dp)) then
+                error stop 'integer-order scaled Bessel symmetry failed'
+            end if
+        end do
+
+        if (scaled_bessel_harmonic(0, 0.0_dp, 0.0_dp) /= 1.0_dp) then
+            error stop 'scaled I0 has wrong zero-argument limit'
+        end if
+        do ell = 1, 4
+            if (scaled_bessel_harmonic(ell, 0.0_dp, 0.0_dp) /= 0.0_dp) then
+                error stop 'nonzero-order scaled Bessel has wrong zero-argument limit'
+            end if
+        end do
+
+        do ell = -4, 4
+            actual = scaled_bessel_harmonic(ell, 1000.5_dp, 1000.0_dp)
+            if (.not. ieee_is_finite(actual)) then
+                error stop 'scaled harmonic Bessel is not finite at large argument'
+            end if
+            if (actual < 0.0_dp) then
+                error stop 'scaled harmonic Bessel must be nonnegative for positive argument'
+            end if
+        end do
+
+        print *, 'PASS: arbitrary-order scaled Bessel values are finite and symmetric'
+    end subroutine test_scaled_bessel_harmonics
 
     subroutine test_i03_is_retained()
         use config_m, only: nml_config_path, profiles_in_memory

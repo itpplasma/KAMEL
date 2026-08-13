@@ -16,7 +16,6 @@ module time_evolution_ntv
     ! for NEO-RT
     real(dp), dimension(:), allocatable :: r
     real(dp), dimension(:), allocatable :: s_tor
-    real(dp), dimension(:), allocatable :: Omega_tE
     real(dp) :: am1
     real(dp) :: am2
     real(dp) :: Z1
@@ -34,9 +33,7 @@ contains
         use baseparam_mod, only: am, Z_i, rsepar
         use grid_mod, only: rmin
         use neort_interface, only: meta_config_neort_t, read_neort_meta_config, read_equil_file, &
-                                   calculate_s_tor, calculate_coarse_s_tor, &
-                                   calculate_Omega_tE, prepare_plasma_data_for_neort, &
-                                   prepare_profile_data_for_neort
+                                   calculate_s_tor, calculate_coarse_s_tor
         use spline, only: spline_coeff, spline_val
 
         class(TimeEvolutionNTV_t), intent(inout) :: this
@@ -61,7 +58,6 @@ contains
         allocate (r_splined(s_size, 3))
         allocate (r(s_size))
         allocate (s_tor(s_size))
-        allocate (Omega_tE(s_size))
         allocate (plasma_data(s_size, 6))
         allocate (profile_data(s_size, 2))
         allocate (transport_data(s_size))
@@ -85,7 +81,6 @@ contains
         r_of_s_coeffs = spline_coeff(s_tor_equil, r_eff)
         r_splined = spline_val(r_of_s_coeffs, s_tor)
         r = r_splined(:, 1)
-        call calculate_Omega_tE(Omega_tE, r)
 
         ! Cache species parameters for parallel use (same mass/charge for both species)
         am1 = am
@@ -126,8 +121,8 @@ contains
 
     subroutine neo_rt
         use loading_bar_m, only: updateLoadingBarWithETA
-        use neort_interface, only: prepare_plasma_data_for_neort, prepare_profile_data_for_neort, &
-                                   apply_ntv_transport
+        use neort_interface, only: prepare_plasma_data_for_neort, &
+                                   prepare_profile_data_for_neort, apply_ntv_transport
 
         integer :: s_size, s_idx
         integer(kind=8) :: start_count, count_rate
@@ -136,7 +131,7 @@ contains
         s_size = size(s_tor)
 
         call prepare_plasma_data_for_neort(plasma_data, r, s_tor)
-        call prepare_profile_data_for_neort(profile_data, r, s_tor, Omega_tE)
+        call prepare_profile_data_for_neort(profile_data, r, s_tor)
         call neort_prepare_splines(s_size, am1, am2, Z1, Z2, plasma_data, profile_data)
 
         ! Initialize progress tracking

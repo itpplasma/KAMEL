@@ -18,7 +18,6 @@ module neort_interface
     end type meta_config_neort_t
 
     public :: apply_ntv_transport
-    public :: calculate_Omega_tE
     public :: calculate_coarse_s_tor
     public :: calculate_s_tor
     public :: prepare_plasma_data_for_neort
@@ -193,41 +192,103 @@ contains
     !> @param[out] profile_data 2D array (nflux, 2) for NEO-RT profile input:
     !>             Column 1: normalized toroidal flux s [dimensionless]
     !>             Column 2: toroidal Mach number M_t [dimensionless]
-    subroutine prepare_profile_data_for_neort(profile_data, r, s_tor, Omega_tE)
-        use baseparam_mod, only: am, p_mass, rtor
-        use grid_mod, only: rc
-        use plasma_parameters, only: params
+    subroutine prepare_profile_data_for_neort(profile_data, r, s_tor)
+        use baseparam_mod, only: am, btor, c, p_mass, rtor
+        use grid_mod, only: Ercov, rb, rc
+        use plasma_parameters, only: params, qsaf
         use spline, only: spline_coeff, spline_val
+
+        ! Calculate toroidal electric precession frequency Omega_tE
+        ! The prime (') denotes the spatial derivative d/dr:
+        !   <Omega_tE>_b = -c / psi'_pol * <dPhi/dr>_b
+        !     [Albert thesis (3.103)]
+        !   q = psi'_tor / psi'_pol
+        !     [Albert thesis (A.14)]
+        !   psi_tor = r^2 * B_tor / 2
+        !     [Markl2023 (37)]
+        !
+        ! Ercov is the radial electric field E_r = -dPhi/dr.
+        ! Therefore, the implemented electric-field form is:
+        !   Omega_tE = c * Ercov / psi'_pol
+        !
+        ! The effective-radius relation gives:
+        !   dpsi_pol/dr = psi'_pol = r * B_tor / q
+        !   Psi_tor = r^2 * pi * B_tor
+        !   Psi_tor' = 2 * pi * r * B_tor
+        ! Our psi_tor is Psi_tor / (2*pi), so psi_tor' = r * B_tor.
+        !
+        ! Source details for the relations above:
+        ! Albert defines the bounce-averaged ExB contribution in
+        ! [Albert2020, Eq. (3.103), printed p. 71, PDF p. 74].
+        ! In Albert's flux-coordinate convention:
+        !   psi'_pol = sqrt(g) * B^theta
+        !   q = psi'_tor / psi'_pol
+        ! [Albert2020, Eqs. (A.12) and (A.14), printed p. 122, PDF p. 125].
+        ! The shorthand dpsi_pol/dr = B^theta omits the Jacobian factor;
+        ! the implemented denominator is the flux derivative psi'_pol.
+        !
+        ! Markl defines the effective radius through:
+        !   r = sqrt(2 * psi_tor / B_ref)
+        ! [Markl2023 (37), PDF p. 10].
+        ! This assumes a circular toroidal cross-section and fixed B_ref.
+        ! Therefore, psi'_tor = r * B_ref and psi'_pol = r * B_ref / q.
+        ! In this convention, KAMEL's btor is the signed reference field.
+        ! Thus, B_tor in the shorthand above means this fixed B_ref,
+        ! not a radius-dependent local toroidal field.
+        ! The effective-radius conversion is implemented in
+        ! $KAMEL/common/equil/equil_profiles.f90:421-423 and
+        ! $KAMEL/KIM/src/util/IO_collection.f90:153-156.
+        !
+        ! Albert defines lowercase fluxes per radian by dividing full fluxes
+        ! by 2*pi [Albert2020, Eqs. (A.8)-(A.9), printed p. 120, PDF p. 123].
+        ! The current Ercov profile is splined from the QL-Balance boundary
+        ! grid rb to the NEO-RT radial grid r before applying this formula.
 
         real(dp), dimension(:, :), intent(out) :: profile_data
         real(dp), dimension(:), intent(in) :: r
         real(dp), dimension(:), intent(in) :: s_tor
-        real(dp), dimension(:), intent(in) :: Omega_tE
 
-        real(dp) :: T_i, m_i, vth, M_t
-        real(dp), dimension(:, :), allocatable :: Ti_of_r_coeffs, Ti_splined
-        integer :: i, rc_size, s_size
+        real(dp) :: E_r, T_i, m_i, vth, dpsi_pol_dr, Omega_tE, M_t
+        real(dp), dimension(:, :), allocatable :: Ercov_coeffs, q_coeffs
+        real(dp), dimension(:, :), allocatable :: Ti_of_r_coeffs
+        real(dp), dimension(:, :), allocatable :: Ercov_splined
+        real(dp), dimension(:, :), allocatable :: q_splined, Ti_splined
+        integer :: i, rb_size, rc_size, s_size
 
+        rb_size = size(rb)
         rc_size = size(rc)
         s_size = size(s_tor)
-
-        allocate (Ti_of_r_coeffs(rc_size - 1, 5))
-        allocate (Ti_splined(s_size, 3))
-
-        Ti_of_r_coeffs = spline_coeff(rc, params(4, :))
-        Ti_splined = spline_val(Ti_of_r_coeffs, r)
-
-        m_i = am * p_mass  ! ion mass
 
         ! Check dimensions
         if (size(profile_data, 1) /= s_size .or. size(profile_data, 2) /= 2) then
             error stop "prepare_neort_profile_data: profile_data dimension mismatch"
         end if
 
+        allocate (Ercov_coeffs(rb_size - 1, 5))
+        allocate (q_coeffs(rc_size - 1, 5))
+        allocate (Ti_of_r_coeffs(rc_size - 1, 5))
+        allocate (Ercov_splined(s_size, 3))
+        allocate (q_splined(s_size, 3))
+        allocate (Ti_splined(s_size, 3))
+
+        Ercov_coeffs = spline_coeff(rb, Ercov)
+        Ercov_splined = spline_val(Ercov_coeffs, r)
+        q_coeffs = spline_coeff(rc, qsaf)
+        q_splined = spline_val(q_coeffs, r)
+        Ti_of_r_coeffs = spline_coeff(rc, params(4, :))
+        Ti_splined = spline_val(Ti_of_r_coeffs, r)
+
+        m_i = am * p_mass  ! ion mass
+
         ! Fill profile data array
         do i = 1, s_size
             ! Column 1: Normalized toroidal flux s (0 to 1)
             profile_data(i, 1) = s_tor(i)
+
+            ! Calculate electric precession frequency from the current Ercov.
+            E_r = Ercov_splined(i, 1)
+            dpsi_pol_dr = r(i) * btor / q_splined(i, 1)
+            Omega_tE = c * E_r / dpsi_pol_dr
 
             ! Calculate thermal velocity [Albert2016, above (51)]
             ! Source detail: Albert2016, PDF p. 14, text before Eq. (51).
@@ -237,95 +298,12 @@ contains
             ! Calculate toroidal Mach number (ExB Mach number) [Albert2016 below (57)]
             ! Source detail: Albert2016, PDF p. 16, text following Eq. (57).
             ! rtor is the major radius (R)
-            ! TODO: need to calculate Ω_tE here s.t. it gets info from the updated dPhi0
-            ! => cannot cache it, no need to calculate it in the beginning
-            M_t = Omega_tE(i) * rtor / vth
+            M_t = Omega_tE * rtor / vth
 
             ! Column 2: toroidal Mach number M_t
             profile_data(i, 2) = M_t
         end do
     end subroutine prepare_profile_data_for_neort
-
-    subroutine calculate_Omega_tE(Omega_tE, r)
-        use baseparam_mod, only: btor, c
-        use grid_mod, only: rb, rc
-        use plasma_parameters, only: qsaf
-        use wave_code_data, only: dPhi0
-        use spline, only: spline_coeff, spline_val
-
-        ! Calculate toroidal electric precession frequency Ω_tE
-        ! the prime (') denotes the spatial derivative ∂/∂r
-        !   ⟨Ω_tE⟩_b = -c / ψ'_pol · ⟨∂Φ/∂r⟩_b
-        !     [Albert thesis (3.103)]
-        !   q = ψ'_tor / ψ'_pol
-        !     [Albert thesis (A.14)]
-        !   ψ_tor = r²·B_tor / 2
-        !     [Markl2023 (37)]
-        ! Note: dPhi0 is already the electric potential gradient ∂Φ/∂r
-        ! TODO: understand the following:
-        ! and dpsi_pol/dr = B^theta = psi_tor' / q = r * B_tor / q
-        ! Psi_tor = r²π * B_tor  =>  Psi_tor' = 2πr * B_tor
-        ! our psi_tor == Psi_tor / (2π)
-        !
-        ! Source details for the comments above:
-        ! Albert defines the bounce-averaged E x B contribution in
-        ! [Albert2020, Eq. (3.103), printed p. 71, PDF p. 74].
-        ! In Albert's flux-coordinate convention,
-        !   ψ'_pol = √g B^θ
-        !   q = ψ'_tor / ψ'_pol
-        ! [Albert2020, Eqs. (A.12) and (A.14), printed p. 122, PDF p. 125].
-        ! The earlier shorthand dpsi_pol/dr = B^theta omits the Jacobian factor.
-        ! The implemented denominator is the flux derivative ψ'_pol.
-        ! Markl defines the effective radius through
-        !   r = sqrt(2 ψ_tor / B_ref)
-        ! [Markl2023, Eq. (37), PDF p. 10].
-        ! This assumes a circular toroidal cross-section and fixed B_ref.
-        ! Therefore, ψ'_tor = r B_ref and ψ'_pol = r B_ref / q.
-        ! In this convention, KAMEL's btor is the signed reference field.
-        ! Thus, B_tor in the original shorthand means this fixed B_ref.
-        ! It is not a radius-dependent local toroidal field.
-        ! The effective-radius conversion is implemented in
-        ! $KAMEL/common/equil/equil_profiles.f90:421-423 and
-        ! $KAMEL/KIM/src/util/IO_collection.f90:153-156.
-        ! Albert defines lowercase fluxes per radian by dividing full fluxes
-        ! by 2π [Albert2020, Eqs. (A.8)-(A.9), printed p. 120, PDF p. 123].
-        ! KAMEL stores the potential gradient rather than the potential.
-        ! dPhi0 = -Ercov = ∂Φ/∂r follows from
-        ! $KAMEL/QL-Balance/src/base/wave_code_data_64bit.f90:258,296.
-
-        real(dp), dimension(:), intent(out) :: Omega_tE
-        real(dp), dimension(:), intent(in) :: r
-
-        real(dp) :: dPhi_dr, dpsi_pol_dr
-        real(dp), dimension(:, :), allocatable :: dPhi0_coeffs, q_coeffs
-        real(dp), dimension(:, :), allocatable :: dPhi0_splined, q_splined
-        integer :: i, rb_size, rc_size, r_size
-
-        rb_size = size(rb)
-        rc_size = size(rc)
-        r_size = size(r)
-
-        allocate (dPhi0_coeffs(rb_size - 1, 5))
-        allocate (q_coeffs(rc_size - 1, 5))
-        allocate (dPhi0_splined(r_size, 3))
-        allocate (q_splined(r_size, 3))
-
-        dPhi0_coeffs = spline_coeff(rb, dPhi0)
-        dPhi0_splined = spline_val(dPhi0_coeffs, r)
-        q_coeffs = spline_coeff(rc, qsaf)
-        q_splined = spline_val(q_coeffs, r)
-
-        do i = 1, r_size
-            dPhi_dr = dPhi0_splined(i, 1)
-            dpsi_pol_dr = r(i) * btor / q_splined(i, 1)
-            Omega_tE(i) = -c * dPhi_dr / dpsi_pol_dr
-            ! The leading minus is fixed by Albert2020, Eq. (3.103).
-            ! TODO: validate the complete coordinate and field orientation with a controlled case.
-            ! Do not treat M_t * T_phi^NTV < 0 as a universal identity.
-            ! Albert2016, Eq. (13), PDF p. 6, gives the torque-flux sign relation
-            ! but does not impose a pointwise damping inequality.
-        end do
-    end subroutine calculate_Omega_tE
 
     !> @brief Read equilibrium data from equilibrium file
     !> @details Reads equilibrium quantities from the equil_r_q_psi.dat file

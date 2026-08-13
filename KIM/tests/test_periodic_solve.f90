@@ -30,13 +30,14 @@ program test_periodic_solve
     use KIM_kinds_m, only: dp
     use constants_m, only: pi, com_unit
     use periodic_solve_m, only: solve_periodic, reconstruct_delta_phi, dense_solve
-    use periodic_solve_m, only: reconstruct_jpar
+    use periodic_solve_m, only: reconstruct_jpar, reconstruct_jrad
 
     implicit none
 
     call test_dense_solve_roundtrip()
     call test_inverse_dft()
     call test_reconstruct_jpar()
+    call test_reconstruct_jrad()
     call test_end_to_end()
 
     print *, 'All tests PASSED'
@@ -227,6 +228,39 @@ contains
                  maxval(abs(jpar - expected))
     end subroutine test_reconstruct_jpar
 
+    subroutine test_reconstruct_jrad()
+        integer, parameter :: M = 2
+        integer, parameter :: dim = 2 * M + 1
+        integer, parameter :: nr = 4
+        real(dp), parameter :: L = 5.0_dp
+        complex(dp) :: Kjrphi(dim, dim), KjrB(dim, dim), Phi_m(dim)
+        complex(dp) :: jrad(nr), expected(nr), Br_const
+        real(dp) :: r_out(nr), k1
+        integer :: i
+
+        r_out = [-1.1_dp, -0.2_dp, 0.6_dp, 1.4_dp]
+        k1 = 2.0_dp * pi / L
+        Kjrphi = (0.0_dp, 0.0_dp)
+        KjrB = (0.0_dp, 0.0_dp)
+        Kjrphi(1 + M + 1, 1 + M + 1) = (1.5_dp, -0.25_dp)
+        KjrB(0 + M + 1, 0 + M + 1) = (-0.4_dp, 0.2_dp)
+        Phi_m = (0.0_dp, 0.0_dp)
+        Phi_m(1 + M + 1) = (0.5_dp, 0.3_dp)
+        Br_const = (0.7_dp, -0.1_dp)
+
+        jrad = reconstruct_jrad(Kjrphi, KjrB, Phi_m, Br_const, L, M, r_out)
+        do i = 1, nr
+            expected(i) = (1.5_dp, -0.25_dp) * (0.5_dp, 0.3_dp) &
+                * exp(com_unit * k1 * r_out(i)) &
+                + (-0.4_dp, 0.2_dp) * Br_const
+        end do
+        if (maxval(abs(jrad - expected)) >= 1.0e-12_dp) then
+            print *, 'FAIL: jrad reconstruction error =', maxval(abs(jrad - expected))
+            error stop
+        end if
+        print *, 'PASS: jrad reconstructs KjrPhi.Phi + KjrBr.Br'
+    end subroutine test_reconstruct_jrad
+
     !> (c) End-to-end sanity with the REAL assembled matrices. Mirrors
     !> test_periodic_assembly's setup: build the (m,n)=(-6,2) periodic plasma,
     !> assemble Kphi/KB with M=6, solve with a constant Br drive, and check the
@@ -251,7 +285,7 @@ contains
         class(kim_t), allocatable :: kim_instance
 
         complex(dp), allocatable :: Kphi(:,:), KB(:,:), Kjphi(:,:), KjB(:,:), Phi_m(:)
-        complex(dp), allocatable :: dPhi(:)
+        complex(dp), allocatable :: Kjrphi(:,:), KjrB(:,:), dPhi(:), jrad(:)
         real(dp) :: rm, dx_asis, dx_tr, rho_L_rm, L
         integer :: n_rg, N, dim, info, i
 
@@ -289,7 +323,8 @@ contains
         call build_periodic_plasma(rm, dx_asis, dx_tr, n_rg)
         N = rg_grid%npts_b
 
-        call assemble_periodic_matrices(plasma, L, M, Kphi, KB, Kjphi, KjB)
+        call assemble_periodic_matrices(plasma, L, M, Kphi, KB, Kjphi, KjB, &
+            Kjrphi, KjrB)
 
         call solve_periodic(Kphi, KB, L, M, (1.0_dp, 0.0_dp), Phi_m, info)
 
@@ -318,6 +353,8 @@ contains
 
         ! Reconstruct on the window grid and assert finite.
         dPhi = reconstruct_delta_phi(Phi_m, L, M, rg_grid%xb)
+        jrad = reconstruct_jrad(Kjrphi, KjrB, Phi_m, (1.0_dp, 0.0_dp), &
+            L, M, rg_grid%xb)
         do i = 1, size(dPhi)
             if (.not. ieee_is_finite(real(dPhi(i), dp)) .or. &
                 .not. ieee_is_finite(aimag(dPhi(i)))) then
@@ -325,8 +362,17 @@ contains
                 error stop
             end if
         end do
+        do i = 1, size(jrad)
+            if (.not. ieee_is_finite(real(jrad(i), dp)) .or. &
+                .not. ieee_is_finite(aimag(jrad(i)))) then
+                print *, 'FAIL: non-finite jrad at', i
+                error stop
+            end if
+        end do
         print *, 'PASS: end-to-end reconstruct dPhi on window finite, ', &
                  'max|dPhi| =', maxval(abs(dPhi))
+        print *, 'PASS: end-to-end reconstructed jrad finite, max|jrad| =', &
+            maxval(abs(jrad))
     end subroutine test_end_to_end
 
     real(dp) function rho_L_near(r) result(val)

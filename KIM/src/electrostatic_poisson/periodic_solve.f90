@@ -36,6 +36,7 @@ module periodic_solve_m
     private
 
     public :: solve_periodic, reconstruct_delta_phi, dense_solve, reconstruct_jpar
+    public :: reconstruct_jrad
 
 contains
 
@@ -130,6 +131,23 @@ contains
 
         jpar = reconstruct_delta_phi(j_m, L, M, r_out)
     end function reconstruct_jpar
+
+    !> Reconstruct j_rad from its potential and radial-field response matrices.
+    !> The constant Br drive occupies only Fourier column m'=0, as in the
+    !> Poisson right-hand side and parallel-current reconstruction.
+    function reconstruct_jrad(Kjrphi, KjrB, Phi_m, Br_const, L, M, r_out) result(jrad)
+        complex(dp), intent(in) :: Kjrphi(:,:), KjrB(:,:)
+        complex(dp), intent(in) :: Phi_m(:)
+        complex(dp), intent(in) :: Br_const
+        real(dp), intent(in) :: L, r_out(:)
+        integer, intent(in) :: M
+        complex(dp) :: jrad(size(r_out))
+
+        complex(dp), allocatable :: j_m(:)
+
+        j_m = matmul(Kjrphi, Phi_m) + Br_const * KjrB(:, M + 1)
+        jrad = reconstruct_delta_phi(j_m, L, M, r_out)
+    end function reconstruct_jrad
 
     !> Inverse DFT: reconstruct dPhi(r) = sum_{m=-M}^{M} Phi_m exp(i k_m r)
     !> on the output radial grid r_out, with k_m = 2*pi*m/L. Phi_m is indexed

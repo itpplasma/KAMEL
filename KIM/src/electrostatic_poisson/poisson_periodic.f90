@@ -42,12 +42,13 @@ module rt_electrostatic_periodic_m
     !> The optional jpar_species(:,sp) returns the contribution from each species,
     !> with electron index sp=0. Both are left unallocated when the solve fails.
     subroutine compute_periodic_delta_phi(rm, dx_asis, dx_tr, M, n_rg, Br_const, &
-                                          r_out, dPhi, info, jpar, jpar_species, rho_B, rho_B_species)
+            r_out, dPhi, info, jpar, jpar_species, rho_B, rho_B_species, jrad)
         use KIM_kinds_m, only: dp
         use species_m, only: plasma
         use periodic_background_m, only: build_periodic_plasma
         use periodic_assembly_m, only: assemble_periodic_matrices
-        use periodic_solve_m, only: solve_periodic, reconstruct_delta_phi, reconstruct_jpar
+        use periodic_solve_m, only: solve_periodic, reconstruct_delta_phi, &
+            reconstruct_jpar, reconstruct_jrad
         use config_m, only: periodic_match_global_kernel_approximations
         use flr2_fourier_kernel_m, only: set_global_kernel_approximations
 
@@ -61,8 +62,10 @@ module rt_electrostatic_periodic_m
         complex(dp), allocatable, intent(out), optional :: jpar_species(:,:)
         complex(dp), allocatable, intent(out), optional :: rho_B(:)
         complex(dp), allocatable, intent(out), optional :: rho_B_species(:,:)
+        complex(dp), allocatable, intent(out), optional :: jrad(:)
 
         complex(dp), allocatable :: Kphi(:,:), KB(:,:), Kjphi(:,:), KjB(:,:), Phi_m(:)
+        complex(dp), allocatable :: Kjrphi(:,:), KjrB(:,:)
         complex(dp), allocatable :: Kjphi_species(:,:,:), KjB_species(:,:,:)
         complex(dp), allocatable :: Kphi_species(:,:,:), KB_species(:,:,:)
         real(dp) :: L
@@ -74,15 +77,17 @@ module rt_electrostatic_periodic_m
         call build_periodic_plasma(rm, dx_asis, dx_tr, n_rg)
         if (present(jpar_species) .and. present(rho_B_species)) then
             call assemble_periodic_matrices(plasma, L, M, Kphi, KB, Kjphi, KjB, &
-                Kjphi_species, KjB_species, Kphi_species, KB_species)
+                Kjrphi, KjrB, Kjphi_species, KjB_species, Kphi_species, KB_species)
         else if (present(jpar_species)) then
             call assemble_periodic_matrices(plasma, L, M, Kphi, KB, Kjphi, KjB, &
-                Kjphi_species, KjB_species)
+                Kjrphi, KjrB, Kjphi_species, KjB_species)
         else if (present(rho_B_species)) then
             call assemble_periodic_matrices(plasma, L, M, Kphi, KB, Kjphi, KjB, &
+                Kjrphi, KjrB, &
                 Kphi_species=Kphi_species, KB_species=KB_species)
         else
-            call assemble_periodic_matrices(plasma, L, M, Kphi, KB, Kjphi, KjB)
+            call assemble_periodic_matrices(plasma, L, M, Kphi, KB, Kjphi, KjB, &
+                Kjrphi, KjrB)
         end if
         call solve_periodic(Kphi, KB, L, M, Br_const, Phi_m, info)
         if (info /= 0) return
@@ -111,6 +116,9 @@ module rt_electrostatic_periodic_m
 
         if (present(jpar)) then
             jpar = reconstruct_jpar(Kjphi, KjB, Phi_m, Br_const, L, M, r_out)
+        end if
+        if (present(jrad)) then
+            jrad = reconstruct_jrad(Kjrphi, KjrB, Phi_m, Br_const, L, M, r_out)
         end if
     end subroutine compute_periodic_delta_phi
 
@@ -248,7 +256,7 @@ module rt_electrostatic_periodic_m
 
         class(electrostatic_periodic_t), intent(inout) :: this
 
-        complex(dp), allocatable :: dPhi(:), jpar(:), jpar_species(:,:)
+        complex(dp), allocatable :: dPhi(:), jpar(:), jpar_species(:,:), jrad(:)
         complex(dp), allocatable :: rho_B(:), rho_B_species(:,:), rho_B_i(:)
         complex(dp) :: Br_const
         real(dp), allocatable :: r_win(:)
@@ -316,7 +324,7 @@ module rt_electrostatic_periodic_m
         Br_const = cmplx(Br_boundary_re, Br_boundary_im, dp)
         call compute_periodic_delta_phi(rm, dx_asis, dx_tr, M, n_rg, Br_const, &
                                         r_win, dPhi, info, jpar, jpar_species, &
-                                        rho_B, rho_B_species)
+                                        rho_B, rho_B_species, jrad)
         if (info /= 0) then
             print *, "Error (electrostatic_periodic): solve_periodic failed, info = ", info
             error stop "electrostatic_periodic: periodic solve failed"
@@ -334,12 +342,14 @@ module rt_electrostatic_periodic_m
         if (allocated(EBdat%jpar))   deallocate(EBdat%jpar)
         if (allocated(EBdat%jpar_e)) deallocate(EBdat%jpar_e)
         if (allocated(EBdat%jpar_i)) deallocate(EBdat%jpar_i)
+        if (allocated(EBdat%jrad))   deallocate(EBdat%jrad)
         EBdat%r_grid = r_win
         EBdat%Phi    = dPhi
         EBdat%jpar   = jpar
         EBdat%jpar_e = jpar_species(:, 0)
         allocate(EBdat%jpar_i(size(jpar)))
         EBdat%jpar_i = (0.0_dp, 0.0_dp)
+        EBdat%jrad   = jrad
         if (plasma%n_species > 1) then
             EBdat%jpar_i = sum(jpar_species(:, 1:plasma%n_species - 1), dim=2)
         end if
@@ -365,6 +375,10 @@ module rt_electrostatic_periodic_m
             call write_complex_profile_abs(EBdat%r_grid, EBdat%jpar_i, rg_grid%npts_b, &
                 "/fields/jpar_i", &
                 'Summed ion parallel current density, forced-periodicity solution', &
+                'statA/cm^2')
+            call write_complex_profile_abs(EBdat%r_grid, EBdat%jrad, rg_grid%npts_b, &
+                "/fields/jrad", &
+                'Radial current density perturbation j_rad, forced-periodicity solution', &
                 'statA/cm^2')
             call write_complex_profile_abs(EBdat%r_grid, rho_B, rg_grid%npts_b, &
                 "/fields/rho_B", &

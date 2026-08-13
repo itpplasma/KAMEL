@@ -128,6 +128,8 @@ contains
 
         call h5_obj_exists(h5id, 'fields/jpar', ex)
         if (.not. ex) error stop 'periodic total jpar dataset missing'
+        call h5_obj_exists(h5id, 'fields/jrad', ex)
+        if (.not. ex) error stop 'periodic jrad dataset missing'
         call h5_obj_exists(h5id, 'fields/jpar_e', ex)
         if (.not. ex) error stop 'periodic electron jpar dataset missing'
         call h5_obj_exists(h5id, 'fields/jpar_i', ex)
@@ -382,6 +384,24 @@ contains
         end if
         print *, 'PASS: EBdat%jpar allocated, size ', N, &
                  ', finite & non-zero, max|jpar| =', maxval(abs(EBdat%jpar))
+
+        if (.not. allocated(EBdat%jrad)) then
+            print *, 'FAIL: EBdat%jrad not allocated'
+            error stop
+        end if
+        if (size(EBdat%jrad) /= N) then
+            print *, 'FAIL: size(EBdat%jrad) /= rg_grid%npts_b'
+            error stop
+        end if
+        do i = 1, N
+            if (.not. ieee_is_finite(real(EBdat%jrad(i), dp)) .or. &
+                .not. ieee_is_finite(aimag(EBdat%jrad(i)))) then
+                print *, 'FAIL: non-finite EBdat%jrad at', i
+                error stop
+            end if
+        end do
+        print *, 'PASS: EBdat%jrad allocated, finite, max|jrad| =', &
+            maxval(abs(EBdat%jrad))
 
         ! (r_grid) allocated, correct size, spans the window [rm - L/2, rm + L/2].
         if (.not. allocated(EBdat%r_grid)) then

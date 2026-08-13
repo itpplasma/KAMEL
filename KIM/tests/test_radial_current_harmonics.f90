@@ -88,6 +88,7 @@ contains
         call assert_finite_3d(KjrBparallel, 'KjrBparallel')
         call assert_finite_2d(jrad, 'jrad')
         call assert_finite_2d(sample, 'fixed-sample kernels')
+        call maybe_write_jrad_profiles(rg_grid%xb, jrad)
 
         full_norm = [frobenius_norm(Kjrphi(:, :, max_cutoff)), &
             frobenius_norm(KjrB(:, :, max_cutoff)), &
@@ -209,6 +210,39 @@ contains
         if (.not. all(ieee_is_finite(real(values, dp))) .or. &
             .not. all(ieee_is_finite(aimag(values)))) error stop label//' is non-finite'
     end subroutine assert_finite_3d
+
+    subroutine maybe_write_jrad_profiles(radii, jrad)
+        real(dp), intent(in) :: radii(:)
+        complex(dp), intent(in) :: jrad(:, 0:)
+        character(1024) :: output_path
+        integer :: cutoff, i, path_length, status, unit
+
+        call get_environment_variable('KIM_HARMONIC_PROFILE_PATH', output_path, &
+            length=path_length, status=status)
+        if (status == 1) return
+        if (status /= 0 .or. path_length <= 0) then
+            error stop 'invalid KIM_HARMONIC_PROFILE_PATH'
+        end if
+
+        open(newunit=unit, file=output_path(:path_length), status='replace', &
+            action='write')
+        write(unit, '(A)', advance='no') 'radius_cm'
+        do cutoff = lbound(jrad, 2), ubound(jrad, 2)
+            write(unit, '(A,I0,A,I0)', advance='no') ',jrad_re_N', cutoff, &
+                ',jrad_im_N', cutoff
+        end do
+        write(unit, *)
+
+        do i = 1, size(radii)
+            write(unit, '(ES24.16)', advance='no') radii(i)
+            do cutoff = lbound(jrad, 2), ubound(jrad, 2)
+                write(unit, '(A,ES24.16,A,ES24.16)', advance='no') ',', &
+                    real(jrad(i, cutoff), dp), ',', aimag(jrad(i, cutoff))
+            end do
+            write(unit, *)
+        end do
+        close(unit)
+    end subroutine maybe_write_jrad_profiles
 
     subroutine make_test_profiles(r, density, te, ti, q, er)
         real(dp), intent(out) :: r(:), density(:), te(:), ti(:), q(:), er(:)

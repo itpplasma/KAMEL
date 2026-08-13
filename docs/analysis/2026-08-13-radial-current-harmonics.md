@@ -36,6 +36,11 @@ included in (j^r_N), because the present periodic solver has no
 
 ![Cyclotron-harmonic convergence of the three radial-current kernels and reconstructed radial current](radial-current-harmonic-convergence.png)
 
+The radial profiles below show both the cumulative current for each symmetric
+cutoff and the spatial structure added by each nonzero harmonic pair.
+
+![Radial-current profiles for cyclotron-harmonic cutoffs and individual symmetric shells](radial-current-harmonic-profiles.png)
+
 | Shell | (K^{j^r\Phi}) | (K^{j^rB^r}) | (K^{j^rB_\parallel}) | (j^r) shell | (j^r) tail after shell |
 |---:|---:|---:|---:|---:|---:|
 | 1 | 2.162318e-2 | 3.860048e-9 | 1.112077e-3 | 2.274028e-2 | 1.541936e-3 |

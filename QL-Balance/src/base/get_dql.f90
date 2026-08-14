@@ -564,6 +564,7 @@ subroutine write_Brvac(brvac_interp)
 
     character(len=1024) :: tempch
     complex(dp), intent(in) :: brvac_interp
+    real(dp), dimension(:, :), allocatable :: diagnostic_data
     integer :: ipoi
 
         if (ihdf5IO .eq. 1) then
@@ -588,10 +589,12 @@ subroutine write_Brvac(brvac_interp)
                 CALL h5_delete(h5_id, trim(tempch))
                 end if
 
-                CALL h5_define_unlimited_matrix(h5_id, trim(tempch), &
-                                            H5T_NATIVE_DOUBLE, (/-1, 2/), dataset_id)
-                CALL h5_append_double_1(dataset_id, r, 1)
-                CALL h5_append_double_1(dataset_id, abs(Br), 2)
+                allocate (diagnostic_data(npoib, 2))
+                diagnostic_data(:, 1) = r
+                diagnostic_data(:, 2) = abs(Br)
+                call h5_add(h5_id, trim(tempch), diagnostic_data, lbound(diagnostic_data), &
+                            ubound(diagnostic_data))
+                deallocate (diagnostic_data)
             end if
 
             CALL h5_close(h5_id)

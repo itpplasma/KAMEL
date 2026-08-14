@@ -52,10 +52,12 @@ subroutine write_balance_eqs_source_terms
     use h5mod
     use control_mod, only: ihdf5IO
     use logger_m, only: log_debug
+    use QLBalance_kinds, only: dp
 
     implicit none
 
     character(len=1024) :: tempch
+    real(dp), dimension(:, :), allocatable :: diagnostic_data
     integer :: ipoi
 
     call log_debug("Writing equisource")
@@ -72,12 +74,13 @@ subroutine write_balance_eqs_source_terms
             CALL h5_delete(h5_id, trim(tempch))
         end if
 
-        CALL h5_define_unlimited_matrix(h5_id, trim(tempch), &
-            H5T_NATIVE_DOUBLE, (/4,-1/), dataset_id)
+        allocate (diagnostic_data(4, npoi))
         do ipoi = 1, npoi
-            CALL h5_append_double_1(dataset_id, &
-                dery_equisource(4*(ipoi-1)+1:4*ipoi), ipoi)
+            diagnostic_data(:, ipoi) = dery_equisource(4 * (ipoi - 1) + 1:4 * ipoi)
         enddo
+        call h5_add(h5_id, trim(tempch), diagnostic_data, lbound(diagnostic_data), &
+                    ubound(diagnostic_data))
+        deallocate (diagnostic_data)
         CALL h5_close(h5_id)
         CALL h5_deinit()
     else

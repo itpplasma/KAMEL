@@ -194,8 +194,9 @@ contains
     !>             Column 2: toroidal Mach number M_t [dimensionless]
     subroutine prepare_profile_data_for_neort(profile_data, r, s_tor)
         use baseparam_mod, only: am, btor, c, p_mass, rtor
-        use grid_mod, only: Ercov, rb, rc
+        use grid_mod, only: rb, rc
         use plasma_parameters, only: params, qsaf
+        use rhs_balance_m, only: compute_unsmoothed_radial_electric_field
         use spline, only: spline_coeff, spline_val
 
         ! Calculate toroidal electric precession frequency Omega_tE
@@ -207,9 +208,9 @@ contains
         !   psi_tor = r^2 * B_tor / 2
         !     [Markl2023 (37)]
         !
-        ! Ercov is the radial electric field E_r = -dPhi/dr.
+        ! E_r_boundary is the radial electric field E_r = -dPhi/dr.
         ! Therefore, the implemented electric-field form is:
-        !   Omega_tE = c * Ercov / psi'_pol
+        !   Omega_tE = c * E_r / psi'_pol
         !
         ! The effective-radius relation gives:
         !   dpsi_pol/dr = psi'_pol = r * B_tor / q
@@ -241,7 +242,7 @@ contains
         !
         ! Albert defines lowercase fluxes per radian by dividing full fluxes
         ! by 2*pi [Albert2020, Eqs. (A.8)-(A.9), printed p. 120, PDF p. 123].
-        ! The current Ercov profile is splined from the QL-Balance boundary
+        ! The accepted-state E_r profile is splined from the QL-Balance boundary
         ! grid rb to the NEO-RT radial grid r before applying this formula.
 
         real(dp), dimension(:, :), intent(out) :: profile_data
@@ -249,9 +250,10 @@ contains
         real(dp), dimension(:), intent(in) :: s_tor
 
         real(dp) :: E_r, T_i, m_i, vth, dpsi_pol_dr, Omega_tE, M_t
-        real(dp), dimension(:, :), allocatable :: Ercov_coeffs, q_coeffs
+        real(dp), dimension(:), allocatable :: E_r_boundary
+        real(dp), dimension(:, :), allocatable :: E_r_coeffs, q_coeffs
         real(dp), dimension(:, :), allocatable :: Ti_of_r_coeffs
-        real(dp), dimension(:, :), allocatable :: Ercov_splined
+        real(dp), dimension(:, :), allocatable :: E_r_splined
         real(dp), dimension(:, :), allocatable :: q_splined, Ti_splined
         integer :: i, rb_size, rc_size, s_size
 
@@ -264,15 +266,17 @@ contains
             error stop "prepare_neort_profile_data: profile_data dimension mismatch"
         end if
 
-        allocate (Ercov_coeffs(rb_size - 1, 5))
+        allocate (E_r_boundary(rb_size))
+        allocate (E_r_coeffs(rb_size - 1, 5))
         allocate (q_coeffs(rc_size - 1, 5))
         allocate (Ti_of_r_coeffs(rc_size - 1, 5))
-        allocate (Ercov_splined(s_size, 3))
+        allocate (E_r_splined(s_size, 3))
         allocate (q_splined(s_size, 3))
         allocate (Ti_splined(s_size, 3))
 
-        Ercov_coeffs = spline_coeff(rb, Ercov)
-        Ercov_splined = spline_val(Ercov_coeffs, r)
+        call compute_unsmoothed_radial_electric_field(params, E_r_boundary)
+        E_r_coeffs = spline_coeff(rb, E_r_boundary)
+        E_r_splined = spline_val(E_r_coeffs, r)
         q_coeffs = spline_coeff(rc, qsaf)
         q_splined = spline_val(q_coeffs, r)
         Ti_of_r_coeffs = spline_coeff(rc, params(4, :))
@@ -285,8 +289,8 @@ contains
             ! Column 1: Normalized toroidal flux s (0 to 1)
             profile_data(i, 1) = s_tor(i)
 
-            ! Calculate electric precession frequency from the current Ercov.
-            E_r = Ercov_splined(i, 1)
+            ! Calculate electric precession frequency from the accepted-state field.
+            E_r = E_r_splined(i, 1)
             dpsi_pol_dr = r(i) * btor / q_splined(i, 1)
             Omega_tE = c * E_r / dpsi_pol_dr
 

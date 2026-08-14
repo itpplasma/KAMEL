@@ -87,7 +87,7 @@ contains
         call from_kim_factory_get_kim('electrostatic', kim)
         call kim%init()
 
-        call prepare_resonances
+        call kim_prepare_resonances
         if (.not. (r_res > 0.0_dp)) error stop 'radial harmonic study found no resonance'
         rm = r_res
         nearest = minloc(abs(plasma%r_grid - rm), dim=1)

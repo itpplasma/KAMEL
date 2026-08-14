@@ -64,6 +64,10 @@ module kim_wave_code_adapter_m
     integer, allocatable :: kim_periodic_scale_status(:)
     integer, allocatable :: kim_mode_m(:), kim_mode_n(:), kim_mode_status(:)
     real(8), allocatable :: kim_mode_resonance(:)
+    real(8), parameter :: periodic_c_light = 2.99792458d10
+    real(8), parameter :: periodic_current_floor = 1.0d-30
+    real(8), parameter :: periodic_max_scale_ratio = 1.0d12
+    real(8), parameter :: periodic_scale_relaxation = 1.0d0
 
     !! Per-mode stored wave vectors (nrad, dim_mn)
     !! kp and ks depend on (m,n) via the equilibrium formulas.
@@ -404,8 +408,9 @@ contains
                 end if
                 allocate(weights(dim_r))
                 current_unit = integrate_trusted_current(kim_r, res%jpar, core_lo, core_hi)
-                call periodic_drive_scale(I_par_toroidal, current_unit, 2.99792458d10, &
-                    1.0d-30, 1.0d12, 1.0d0, drive_scale, scale_status)
+                call periodic_drive_scale(I_par_toroidal, current_unit, periodic_c_light, &
+                    periodic_current_floor, periodic_max_scale_ratio, &
+                    periodic_scale_relaxation, drive_scale, scale_status)
                 kim_periodic_current_unit(i_mn) = current_unit
                 kim_periodic_scale_modes(i_mn) = drive_scale
                 kim_periodic_scale_status(i_mn) = scale_status
@@ -415,7 +420,11 @@ contains
                     write(*,*) 'WARNING: periodic current normalization guard status ', scale_status, &
                         ' for mode ', i_mn
                 end if
-                if (I_par_toroidal > 0.0d0 .and. scale_status == 0) then
+                ! For guard statuses 2 and 3, periodic_drive_scale returns a
+                ! zero scale.  Apply it so a failed normalization cannot leak
+                ! the unit-amplitude response into a run whose later antenna
+                ! factor is deliberately fixed to one.
+                if (I_par_toroidal > 0.0d0) then
                     res%Es = drive_scale*res%Es
                     res%Ep = drive_scale*res%Ep
                     res%Er = drive_scale*res%Er

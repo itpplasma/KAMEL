@@ -277,8 +277,11 @@ contains
 
         rho_B = com_unit * vT**2 / (sol * lambda_D**2 * omega_c * k_pole) &
             * magnetic_bracket / (8.0_dp * pi**2)
+        ! zeta0 is evaluated with k_abs to keep the retarded response in the
+        ! stable half-plane.  The derived current contains signed
+        ! zeta/k_parallel, whose regularized combination is zeta0/k_abs.
         j_B = com_unit * sqrt(2.0_dp) * vT**3 * zeta0 &
-            / (sol * lambda_D**2 * omega_c * k_pole) &
+            / (sol * lambda_D**2 * omega_c * k_abs) &
             * magnetic_bracket / (8.0_dp * pi**2)
     end subroutine collisionless_ion_cores
 

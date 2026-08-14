@@ -392,7 +392,7 @@ contains
                 stop 1
             end if
             res = kim_handle%results()
-            kim_mode_resonance(i_mn) = res%r_resonance
+            if (periodic) kim_mode_resonance(i_mn) = res%r_resonance
 
             ! Interpolate KIM fields (on res%r_field) onto the QL-Balance grid.
             kim_npts = size(res%r_field)

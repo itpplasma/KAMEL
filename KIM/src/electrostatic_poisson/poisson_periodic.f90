@@ -332,9 +332,9 @@ module rt_electrostatic_periodic_m
         end if
 
         ! 6. Pack into EBdat (window grid + reconstructed potential + current).
-        ! A periodic solve may be repeated with a different window.  Reset the
-        ! complete allocatable record so fields added to the local-response
-        ! contract cannot retain a stale allocation or shape between solves.
+        ! A periodic solve may be repeated with a different window. Reset the
+        ! complete allocatable record so newly added response fields cannot
+        ! retain stale allocations or shapes between direct runs.
         EBdat = EBdat_t()
         EBdat%r_grid = r_win
         EBdat%Phi    = dPhi

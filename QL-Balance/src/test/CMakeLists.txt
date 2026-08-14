@@ -132,3 +132,9 @@ set_tests_properties(test_periodic_multimode_assembly PROPERTIES
 add_executable(test_periodic_amplitude_state.x test_periodic_amplitude_state.f90)
 target_link_libraries(test_periodic_amplitude_state.x PUBLIC ql-balance_lib)
 add_fortran_test(test_periodic_amplitude_state)
+
+add_executable(test_periodic_restart_adapter.x test_periodic_restart_adapter.f90)
+target_link_libraries(test_periodic_restart_adapter.x PUBLIC ql-balance_lib)
+add_fortran_test(test_periodic_restart_adapter)
+set_tests_properties(test_periodic_restart_adapter PROPERTIES
+    WORKING_DIRECTORY ${CMAKE_BINARY_DIR}/tests/)

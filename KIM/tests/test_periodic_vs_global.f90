@@ -128,7 +128,7 @@ contains
         call kim_g%run()
 
         ! rm = resonant radius (q = |m/n| = 3) located on the global plasma.
-        call prepare_resonances
+        call kim_prepare_resonances
         rm = r_res
         if (.not. (rm > 0.0_dp)) then
             print *, 'FAIL: global run -- resonance not found, r_res = ', rm

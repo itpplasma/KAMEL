@@ -306,7 +306,7 @@ contains
         ! Capture the reference scale from the TRUE global plasma before run()
         ! redirects it onto the periodic window. This is the same state used by
         ! run_electrostatic_periodic to derive and store the window parameters.
-        call prepare_resonances
+        call kim_prepare_resonances
         rm = r_res
         if (.not. (rm > 0.0_dp)) then
             print *, 'FAIL: resonance not found, r_res = ', rm

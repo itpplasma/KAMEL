@@ -58,7 +58,7 @@ contains
         ! resonance detection here (same guard as recnsplit).
         if (prop) then
             prop = .false.
-            call prepare_resonances
+            call kim_prepare_resonances
         end if
 
         npts = size(EBdat%r_grid)

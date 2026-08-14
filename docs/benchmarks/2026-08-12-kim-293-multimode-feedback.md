@@ -7,7 +7,8 @@ each batch, refreshes the injected QL-Balance profiles before solving, and
 stores each mode independently. `get_dql` then adds the already embedded
 per-mode tensors incoherently on the global radial grid.
 
-No absolute-value or mode-index rewrite is performed. A failed or nonresonant
-mode retains a nonzero status and is reported by the adapter; successful
-periodic modes carry positive resonance metadata. Repeated batches therefore
-cannot reuse fields, grids, currents, or tensors from an earlier mode list.
+No absolute-value or mode-index rewrite is performed. A failed solve terminates
+the batch with its KIM status; a successful periodic mode carries positive
+resonance metadata. Nonperiodic modes retain the initialized zero resonance.
+Repeated batches therefore cannot reuse fields, grids, currents, or tensors
+from an earlier mode list.

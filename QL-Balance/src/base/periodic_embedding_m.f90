@@ -98,16 +98,21 @@ contains
         use, intrinsic :: ieee_arithmetic, only: ieee_is_finite
         real(dp), intent(in) :: local_r(:), global_r(:), core_lo, core_hi, width
         integer :: i
+        real(dp) :: w
 
         if (size(local_r) < 2 .or. size(global_r) < 1) &
             error stop 'periodic embedding requires non-empty grids'
         if (width <= 0.0_dp .or. core_hi < core_lo) &
             error stop 'periodic embedding has invalid core or width'
-        if (local_r(1) > core_lo - width .or. local_r(size(local_r)) < core_hi + width) &
-            error stop 'periodic embedding local grid does not cover compact support'
         do i = 2, size(local_r)
             if (.not. ieee_is_finite(local_r(i)) .or. local_r(i) <= local_r(i-1)) &
                 error stop 'periodic embedding local grid must be finite and increasing'
+        end do
+        do i = 1, size(global_r)
+            w = compact_transition(global_r(i), core_lo, core_hi, width)
+            if (w > 0.0_dp .and. (global_r(i) < local_r(1) .or. &
+                    global_r(i) > local_r(size(local_r)))) &
+                error stop 'periodic embedding local grid does not cover a weighted global point'
         end do
     end subroutine validate_embedding_grids
 

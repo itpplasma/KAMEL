@@ -41,6 +41,22 @@ module kernel_m
 
     contains
 
+    subroutine set_fp_integration_radius(point, spec, j)
+
+        use integrands_gauss_m, only: integration_point_t
+        use species_m, only: species_t
+
+        implicit none
+
+        type(integration_point_t), intent(inout) :: point
+        type(species_t), intent(in) :: spec
+        integer, intent(in) :: j
+
+        ! rho_L_cc already contains the ion-only artificial FLR scale.
+        point%rhoT = max(spec%rho_L_cc(j), 0.0_dp)
+
+    end subroutine set_fp_integration_radius
+
     ! Thread-safe wrapper to update loading bar from within OpenMP
     subroutine update_bar(cur, tot, sc, cr)
         use loading_bar_m, only: updateLoadingBarWithETA
@@ -933,7 +949,7 @@ module kernel_m
         use FP_kernel_plasma_prefacs_m, only: FP_G0_rho_phi
         use grid_m, only: Larmor_skip_factor, rg_grid
         use constants_m, only: com_unit, sol
-        use config_m, only: turn_off_ions, turn_off_electrons, artificial_debye_case, ion_flr_scale_factor
+        use config_m, only: turn_off_ions, turn_off_electrons, artificial_debye_case
         use grid_m, only: xl_grid
         use kim_resonances_m, only: r_res
         use setup_m, only: mphi_max
@@ -965,7 +981,7 @@ module kernel_m
         do j = 1, rg_grid%npts_b-1
 
             int_point%j = j
-            int_point%rhoT = max(plasma%spec(sigma)%rho_L_cc(j), 0.0d0) * ion_flr_scale_factor
+            call set_fp_integration_radius(int_point, plasma%spec(sigma), j)
 
             ! Debye term (F0) integration
             if (abs(l-lp)<=1 .and. artificial_debye_case /= 2 &

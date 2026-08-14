@@ -92,6 +92,9 @@ module rhs_balance_m
     public :: compute_linearized_product
     public :: compute_diffusive_parts
     public :: compute_convective_parts
+    public :: project_params_to_boundary_grid
+    public :: compute_radial_electric_field
+    public :: compute_unsmoothed_radial_electric_field
     public :: compute_source_terms_at_point
 
     public :: thermodynamic_forces_t
@@ -231,14 +234,8 @@ contains
         end do
 
         ! Interpolate to boundary points
-        do ipoi = 1, npoib
-            do ieq = 1, nbaleqs
-                associate (param => params(ieq, ipbeg(ipoi):ipend(ipoi)))
-                    ddr_params_nl(ieq, ipoi) = sum(param * deriv_coef(:, ipoi))
-                    params_b(ieq, ipoi) = sum(param * reint_coef(:, ipoi))
-                end associate
-            end do
-        end do
+        call project_params_to_boundary_grid(params, ipbeg, ipend, deriv_coef, reint_coef, &
+                                             params_b, ddr_params_nl)
 
         ! Compute E0r at actual state
         call compute_radial_electric_field(npoib, rb, params_b, ddr_params_nl, &
@@ -492,6 +489,49 @@ contains
     !===========================================================================
     ! Core computation routines (shared by rhs_balance and rhs_balance_source)
     !===========================================================================
+
+    pure subroutine project_params_to_boundary_grid(params_in, ipbeg, ipend, deriv_coef, &
+                                                    reint_coef, params_boundary, ddr_params)
+        real(dp), dimension(:, :), intent(in) :: params_in
+        integer, dimension(:), intent(in) :: ipbeg, ipend
+        real(dp), dimension(:, :), intent(in) :: deriv_coef, reint_coef
+        real(dp), dimension(:, :), intent(out) :: params_boundary, ddr_params
+
+        integer :: ipoi, ieq
+
+        do ipoi = 1, size(ipbeg)
+            do ieq = 1, size(params_in, 1)
+                associate (param => params_in(ieq, ipbeg(ipoi):ipend(ipoi)))
+                    ddr_params(ieq, ipoi) = sum(param * deriv_coef(:, ipoi))
+                    params_boundary(ieq, ipoi) = sum(param * reint_coef(:, ipoi))
+                end associate
+            end do
+        end do
+    end subroutine project_params_to_boundary_grid
+
+    subroutine compute_unsmoothed_radial_electric_field(params_in, E_r)
+        use baseparam_mod, only: Z_i
+        use grid_mod, only: npoib, rb, ipbeg, ipend, deriv_coef, reint_coef, &
+                            sqrt_g_times_B_theta_over_c
+        use wave_code_data, only: q, Vth
+
+        real(dp), dimension(:, :), intent(in) :: params_in
+        real(dp), dimension(:), intent(out) :: E_r
+
+        real(dp), dimension(:, :), allocatable :: params_boundary, ddr_params
+
+        if (size(E_r) /= npoib) then
+            error stop "compute_unsmoothed_radial_electric_field: E_r size mismatch"
+        end if
+
+        allocate (params_boundary(size(params_in, 1), npoib))
+        allocate (ddr_params(size(params_in, 1), npoib))
+
+        call project_params_to_boundary_grid(params_in, ipbeg, ipend, deriv_coef, reint_coef, &
+                                             params_boundary, ddr_params)
+        call compute_radial_electric_field(npoib, rb, params_boundary, ddr_params, &
+                                           sqrt_g_times_B_theta_over_c, Vth, q, Z_i, E_r)
+    end subroutine compute_unsmoothed_radial_electric_field
 
     pure subroutine compute_radial_electric_field(npoib, rb, params_b, ddr_params, &
                                                   sqrt_g_Bth_over_c, V_pol_arr, q_arr, Z, E0r)

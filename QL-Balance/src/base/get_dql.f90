@@ -27,6 +27,7 @@ subroutine get_dql
     use PolyLagrangeInterpolation
     use logger_m, only: log_debug
     use writeData_m, only: write_fields_currs_transp_coefs_to_h5, write_D_one_over_nu_to_h5
+    use rhs_balance_m, only: project_params_to_boundary_grid, compute_radial_electric_field
 
     implicit none
 
@@ -100,16 +101,8 @@ subroutine get_dql
         return
     end if
 
-    do ipoi = 1, npoib
-        do ieq = 1, nbaleqs
-            ! radial derivatives of equilibrium parameters at cell boundaries:
-            ddr_params_nl(ieq, ipoi) &
-                = sum(params(ieq, ipbeg(ipoi):ipend(ipoi))*deriv_coef(:, ipoi))
-            ! equilibrium parameters at cell boundaries:
-            params_b(ieq, ipoi) &
-                = sum(params(ieq, ipbeg(ipoi):ipend(ipoi))*reint_coef(:, ipoi))
-        end do
-    end do
+    call project_params_to_boundary_grid(params, ipbeg, ipend, deriv_coef, reint_coef, &
+                                         params_b, ddr_params_nl)
 
     ! Smooth input for KILCA
     if (.true.) then
@@ -127,9 +120,8 @@ subroutine get_dql
     end if
 
     ! Compute radial electric field:
-    Ercov = sqrt_g_times_B_theta_over_c*(params_b(2, :) - Vth*q/rb) &
-            + (params_b(4, :)*ddr_params_nl(1, :)/params_b(1, :) + ddr_params_nl(4, :)) &
-            /(Z_i*e_charge)
+    call compute_radial_electric_field(npoib, rb, params_b, ddr_params_nl, &
+                                       sqrt_g_times_B_theta_over_c, Vth, q, Z_i, Ercov)
 
     ! Compute diffusion coefficient matrices:
 

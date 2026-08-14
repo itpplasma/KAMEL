@@ -110,7 +110,7 @@ contains
         call kim_instance%init()
 
         ! Locate the resonance (q = |m/n| = 3) on the global plasma.
-        call prepare_resonances
+        call kim_prepare_resonances
         if (.not. (r_res > 0.0_dp)) then
             print *, 'FAIL: resonance not found, r_res = ', r_res
             error stop
@@ -247,7 +247,7 @@ contains
         call from_kim_factory_get_kim('electrostatic', kim_instance)
         call kim_instance%init()
 
-        call prepare_resonances
+        call kim_prepare_resonances
         if (.not. (r_res > 0.0_dp)) then
             print *, 'FAIL: resonance not found, r_res = ', r_res
             error stop
@@ -391,7 +391,7 @@ contains
         call from_kim_factory_get_kim('electrostatic', kim_instance)
         call kim_instance%init()
 
-        call prepare_resonances
+        call kim_prepare_resonances
         if (.not. (r_res > 0.0_dp)) then
             print *, 'FAIL: resonance not found, r_res = ', r_res
             error stop
@@ -558,7 +558,7 @@ contains
         call from_kim_factory_get_kim('electrostatic', kim_instance)
         call kim_instance%init()
 
-        call prepare_resonances
+        call kim_prepare_resonances
         if (.not. (r_res > 0.0_dp)) then
             print *, 'FAIL: resonance not found, r_res = ', r_res
             error stop

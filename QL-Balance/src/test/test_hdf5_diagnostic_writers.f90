@@ -2,7 +2,7 @@ program test_hdf5_diagnostic_writers
     use iso_fortran_env, only: real64
     use control_mod, only: data_verbosity, ihdf5IO
     use grid_mod, only: npoib
-    use h5mod, only: h5_close, h5_create, h5_deinit, h5_id, h5_mode_groupname, &
+    use h5mod, only: h5_close, h5_create, h5_deinit, h5_id, h5_init, h5_mode_groupname, &
         h5_obj_exists, h5_open, path2out
     use wave_code_data, only: Br, r
 

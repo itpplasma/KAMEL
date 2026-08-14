@@ -10,7 +10,7 @@ subroutine recnsplit(r,recnsp)
 
     if(prop) then
         prop=.false.
-        call prepare_resonances
+        call kim_prepare_resonances
     endif
 
     recnsp = 1.0d0 +  ampl_res * exp(-((r - r_res) / width_res)**2.0d0)

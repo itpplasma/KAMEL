@@ -132,20 +132,28 @@ contains
         jpar = reconstruct_delta_phi(j_m, L, M, r_out)
     end function reconstruct_jpar
 
-    !> Reconstruct j_rad from its potential and radial-field response matrices.
-    !> The constant Br drive occupies only Fourier column m'=0, as in the
-    !> Poisson right-hand side and parallel-current reconstruction.
-    function reconstruct_jrad(Kjrphi, KjrB, Phi_m, Br_const, L, M, r_out) result(jrad)
+    !> Reconstruct j_rad from its potential and magnetic-field response matrices.
+    !> Constant Br and optional Bparallel drives occupy only Fourier column m'=0,
+    !> as in the Poisson right-hand side and parallel-current reconstruction.
+    function reconstruct_jrad(Kjrphi, KjrB, Phi_m, Br_const, L, M, r_out, &
+            KjrBparallel, Bparallel_const) result(jrad)
         complex(dp), intent(in) :: Kjrphi(:,:), KjrB(:,:)
         complex(dp), intent(in) :: Phi_m(:)
         complex(dp), intent(in) :: Br_const
         real(dp), intent(in) :: L, r_out(:)
         integer, intent(in) :: M
+        complex(dp), intent(in), optional :: KjrBparallel(:,:), Bparallel_const
         complex(dp) :: jrad(size(r_out))
 
         complex(dp), allocatable :: j_m(:)
 
+        if (present(KjrBparallel) .neqv. present(Bparallel_const)) then
+            error stop 'KjrBparallel and Bparallel_const must be supplied together'
+        end if
         j_m = matmul(Kjrphi, Phi_m) + Br_const * KjrB(:, M + 1)
+        if (present(KjrBparallel)) then
+            j_m = j_m + Bparallel_const * KjrBparallel(:, M + 1)
+        end if
         jrad = reconstruct_delta_phi(j_m, L, M, r_out)
     end function reconstruct_jrad
 

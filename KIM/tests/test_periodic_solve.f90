@@ -233,8 +233,8 @@ contains
         integer, parameter :: dim = 2 * M + 1
         integer, parameter :: nr = 4
         real(dp), parameter :: L = 5.0_dp
-        complex(dp) :: Kjrphi(dim, dim), KjrB(dim, dim), Phi_m(dim)
-        complex(dp) :: jrad(nr), expected(nr), Br_const
+        complex(dp) :: Kjrphi(dim, dim), KjrB(dim, dim), KjrBparallel(dim, dim)
+        complex(dp) :: Phi_m(dim), jrad(nr), expected(nr), Br_const, Bparallel_const
         real(dp) :: r_out(nr), k1
         integer :: i
 
@@ -242,23 +242,29 @@ contains
         k1 = 2.0_dp * pi / L
         Kjrphi = (0.0_dp, 0.0_dp)
         KjrB = (0.0_dp, 0.0_dp)
+        KjrBparallel = (0.0_dp, 0.0_dp)
         Kjrphi(1 + M + 1, 1 + M + 1) = (1.5_dp, -0.25_dp)
         KjrB(0 + M + 1, 0 + M + 1) = (-0.4_dp, 0.2_dp)
+        KjrBparallel(-1 + M + 1, 0 + M + 1) = (0.3_dp, 0.1_dp)
         Phi_m = (0.0_dp, 0.0_dp)
         Phi_m(1 + M + 1) = (0.5_dp, 0.3_dp)
         Br_const = (0.7_dp, -0.1_dp)
+        Bparallel_const = (1.0_dp, 0.0_dp)
 
-        jrad = reconstruct_jrad(Kjrphi, KjrB, Phi_m, Br_const, L, M, r_out)
+        jrad = reconstruct_jrad(Kjrphi, KjrB, Phi_m, Br_const, L, M, r_out, &
+            KjrBparallel=KjrBparallel, Bparallel_const=Bparallel_const)
         do i = 1, nr
             expected(i) = (1.5_dp, -0.25_dp) * (0.5_dp, 0.3_dp) &
                 * exp(com_unit * k1 * r_out(i)) &
-                + (-0.4_dp, 0.2_dp) * Br_const
+                + (-0.4_dp, 0.2_dp) * Br_const &
+                + (0.3_dp, 0.1_dp) * Bparallel_const &
+                * exp(-com_unit * k1 * r_out(i))
         end do
         if (maxval(abs(jrad - expected)) >= 1.0e-12_dp) then
             print *, 'FAIL: jrad reconstruction error =', maxval(abs(jrad - expected))
             error stop
         end if
-        print *, 'PASS: jrad reconstructs KjrPhi.Phi + KjrBr.Br'
+        print *, 'PASS: jrad reconstructs Phi, Br, and constant Bparallel paths'
     end subroutine test_reconstruct_jrad
 
     !> (c) End-to-end sanity with the REAL assembled matrices. Mirrors

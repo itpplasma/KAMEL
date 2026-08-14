@@ -237,7 +237,7 @@ module time_evolution
 
             timstep_arr = timstep_arr * factolred
             params = params_beg
-            call periodic_amplitudes%reject()
+            if (periodic_amplitudes%initialized) call periodic_amplitudes%reject()
 
             call log_debug("Redoing step: Maxval(timscal) > tol * factolmax")
             if (iredo > 100) then
@@ -257,6 +257,15 @@ module time_evolution
         call evolvestep(timstep, eps)
         timstep_arr = timstep
         time = time + timstep
+
+        ! A rejected trial has been rolled back to the accepted response.  The
+        ! successfully advanced profiles now define a new response, so refresh
+        ! KIM and its normalization diagnostics before committing/checkpointing
+        ! the amplitude associated with those profiles.
+        call get_dql
+        call sync_periodic_amplitude_trial()
+        call compute_antenna_factor_from_Ipar
+        call rescale_transp_coeffs_by_ant_fac
         if (periodic_amplitudes%initialized) call periodic_amplitudes%accept()
 
         call log_debug("msg_time_info")

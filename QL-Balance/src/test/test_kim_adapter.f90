@@ -12,11 +12,13 @@ program test_kim_adapter
         kim_update_profiles, kim_run_for_all_modes, kim_Br_modes, kim_vac_Br
     use kim_wave_code_adapter_m, only: kim_Bparallel_modes, kim_get_wave_fields
     use kim_wave_code_adapter_m, only: kim_mode_m, kim_mode_n, kim_mode_status, kim_mode_resonance
+    use kim_wave_code_adapter_m, only: kim_periodic_scale_modes
     use control_mod, only: wave_code, kim_config_path, kim_profiles_from_balance, &
-        type_of_run, kim_run_type
+        type_of_run, kim_run_type, kim_n_modes, kim_m_list, kim_n_list
     use wave_code_data, only: dim_mn, m_vals, n_vals, r, n, Te, Ti, q, &
         Vth, Vz, dPhi0, Bp
     use plasma_parameters, only: params_b
+    use periodic_amplitude_state_m, only: periodic_amplitudes
     use grid_mod, only: Ercov
     use baseparam_mod, only: ev
 
@@ -179,7 +181,8 @@ contains
         integer, parameter :: m_mode = -6, n_mode = 2
         real(8) :: r_grid(npts), frac, response_change, response_scale
         real(8), allocatable :: base_n(:)
-        complex(8), allocatable :: br_rescaled(:)
+        complex(8), allocatable :: br_rescaled(:), br_restored(:)
+        complex(8) :: restored_scale(1)
         integer :: i
 
         print *, "--- test_rescaled_profiles_change_kim_solution ---"
@@ -207,8 +210,14 @@ contains
 
         kim_config_path = "KIM_config_em_small.nml"
         kim_profiles_from_balance = .true.
-        kim_run_type = "electromagnetic"
-        type_of_run = "ParameterScan"
+        wave_code = "KIM"
+        kim_run_type = "electrostatic_periodic"
+        kim_n_modes = dim_mn
+        kim_m_list(1:dim_mn) = m_vals
+        kim_n_list(1:dim_mn) = n_vals
+        type_of_run = "TimeEvolution"
+        restored_scale(1) = cmplx(0.5d0, 0.25d0, kind=8)
+        call periodic_amplitudes%initialize(restored_scale)
 
         call kim_initialize(npts, r_grid)
         kim_vac_Br = (0.0d0, 0.0d0)
@@ -220,10 +229,34 @@ contains
         params_b(2, :) = 0.0d0
         params_b(3, :) = Te * ev
         params_b(4, :) = Ti * ev
-        Ercov = 0.0d0
+        ! Keep the static resonant susceptibility away from the degenerate
+        ! x1=x2=0 point; the dedicated susceptibility tests cover that limit.
+        Ercov = -0.5d0
 
         call kim_update_profiles()
         call kim_run_for_all_modes()
+
+        if (maxval(abs(kim_periodic_scale_modes-restored_scale)) > 1.0d-14) then
+            print '(A,2ES15.8)', "  FAIL: restored periodic amplitude not applied: ", &
+                kim_periodic_scale_modes(1)
+            num_failed = num_failed + 1
+        else
+            print '(A)', "  PASS: restored periodic amplitude seeds first response"
+            num_passed = num_passed + 1
+        end if
+        allocate(br_restored(npts))
+        br_restored = kim_Br_modes(:, 1)
+        call kim_run_for_all_modes()
+        response_scale = max(maxval(abs(br_restored)), 1.0d-30)
+        if (maxval(abs(br_restored-restored_scale(1)*kim_Br_modes(:,1))) &
+                <= 1.0d-2*response_scale) then
+            print '(A)', "  PASS: restored amplitude scales the physical response"
+            num_passed = num_passed + 1
+        else
+            print '(A)', "  FAIL: restored amplitude was metadata-only"
+            num_failed = num_failed + 1
+        end if
+        deallocate(br_restored)
 
         if (kim_mode_m(1) /= m_mode .or. kim_mode_n(1) /= n_mode .or. kim_mode_status(1) /= 0) then
             print '(A)', "  FAIL: signed mode identity/status was not retained"
@@ -265,6 +298,7 @@ contains
                 response_change
             num_failed = num_failed + 1
         end if
+
     end subroutine
 
 end program test_kim_adapter

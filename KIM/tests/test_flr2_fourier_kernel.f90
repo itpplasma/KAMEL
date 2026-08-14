@@ -199,7 +199,8 @@ contains
     subroutine test_diagonal_j_matches_inline()
         ! Characterization test: the fused two-wavenumber j-kernels evaluated on
         ! the diagonal kr = krp must reproduce equations (14.5)/(14.6), with
-        ! I11 = I02 and I13 = I22 for the j-B susceptibility moments.
+        ! directly counted I11 and I13 moments for j-B. The thesis's I02 and I22
+        ! indices are incorrect.
         !
         ! The INLINE reference below is the permanent anchor (verbatim copy of
         ! the per-species source-of-truth expressions). It must not be

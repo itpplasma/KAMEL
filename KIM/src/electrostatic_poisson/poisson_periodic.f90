@@ -292,7 +292,7 @@ module rt_electrostatic_periodic_m
         integer :: M, n_rg, info, i, reference_species, sp
 
         ! 1. Locate the resonant surface rm = r_res (q = |m/n|) on the global plasma.
-        call prepare_resonances
+        call kim_prepare_resonances
         if (.not. (r_res > 0.0_dp)) then
             print *, "Error (electrostatic_periodic): no resonance found, r_res = ", r_res
             error stop "electrostatic_periodic: resonance not found"
@@ -365,9 +365,9 @@ module rt_electrostatic_periodic_m
         end if
 
         ! 6. Pack into EBdat (window grid + reconstructed potential + current).
-        ! A periodic solve may be repeated with a different window.  Reset the
-        ! complete allocatable record so fields added to the local-response
-        ! contract cannot retain a stale allocation or shape between solves.
+        ! A periodic solve may be repeated with a different window. Reset the
+        ! complete allocatable record so newly added response fields cannot
+        ! retain stale allocations or shapes between direct runs.
         EBdat = EBdat_t()
         EBdat%r_grid = r_win
         EBdat%r_resonance = rm

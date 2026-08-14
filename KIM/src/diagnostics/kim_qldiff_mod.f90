@@ -54,7 +54,7 @@ contains
         complex(dp), intent(in) :: Es, Br
         real(dp), intent(out) :: old_tensor(2,2), new_tensor(2,2)
         real(dp), intent(out) :: absolute_residual(2,2), relative_residual(2,2)
-        complex(dp) :: ifunc(0:3,0:3), fields(3)
+        complex(dp) :: ifunc(0:3,0:3), fields(3), Es_limit
         real(dp) :: x1, x2, comfac, epm2, brm2, epbr_re, epbr_im, d12a
         integer :: i, j
 
@@ -64,11 +64,17 @@ contains
         x2 = -(om_E-omega_mode)/nui
         call evaluate_susceptibility(x1, x2, resolved_ion_ifunc_conservation_model, ifunc)
 
+        ! The integral vertex contains -i*c*k_s*Phi = Es, so Es already has
+        ! the normalization used by the drift expression here.  Multiplying
+        ! it by c again would count the conversion twice.  At exact k_s=0,
+        ! E_perp vanishes and both sides reduce to the magnetic-only branch.
+        Es_limit = Es
+        if (ks <= tiny(1.0_dp)) Es_limit = cmplx(0.0_dp, 0.0_dp, dp)
         comfac = 0.5_dp/(nui*B0**2)
-        epm2 = sol**2*abs(Es)**2
+        epm2 = abs(Es_limit)**2
         brm2 = vTi**2*abs(Br)**2
-        epbr_re = 2.0_dp*sol*vTi*real(conjg(Es)*Br,dp)
-        epbr_im = 2.0_dp*sol*vTi*aimag(conjg(Es)*Br)
+        epbr_re = 2.0_dp*vTi*real(conjg(Es_limit)*Br,dp)
+        epbr_im = 2.0_dp*vTi*aimag(conjg(Es_limit)*Br)
         old_tensor(1,1) = comfac*(epm2*real(ifunc(0,0),dp) + epbr_re*real(ifunc(1,0),dp) &
             + brm2*real(ifunc(1,1),dp))
         old_tensor(1,2) = comfac*(epm2*real(ifunc(0,0)+0.5_dp*ifunc(2,0),dp) &
@@ -83,7 +89,7 @@ contains
             + brm2*real(2.0_dp*ifunc(1,1)+ifunc(3,1)+0.25_dp*ifunc(3,3),dp))
 
         fields = (0.0_dp, 0.0_dp)
-        if (ks > tiny(1.0_dp)) fields(1) = cmplx(0.0_dp,1.0_dp,dp)*Es/(sol*ks)
+        if (ks > tiny(1.0_dp)) fields(1) = cmplx(0.0_dp,1.0_dp,dp)*Es_limit/(sol*ks)
         fields(2) = Br
         call calc_ion_integral_harmonic(0, ks, 0.0_dp, ks, 0.0_dp, vTi, abs(omega_ci), &
             omega_ci, sol, B0, nui, fields, fields, ifunc, new_tensor)

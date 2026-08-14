@@ -124,7 +124,8 @@ contains
         use neort_interface, only: prepare_plasma_data_for_neort, &
                                    prepare_profile_data_for_neort, apply_ntv_transport
 
-        integer :: s_size, s_idx
+        integer :: s_size, work_idx, s_idx
+        real(dp) :: s_val
         integer(kind=8) :: start_count, count_rate
         integer :: completed_steps
 
@@ -138,16 +139,19 @@ contains
         call system_clock(start_count, count_rate)
         completed_steps = 0
 
-        !$omp parallel do schedule(guided, 1)
-        do s_idx = 1, s_size
-            call neort_compute_at_s(s_tor(s_idx), transport_data(s_idx))
+        ! Higher s takes longer to compute, therefore schedule it in reverse
+        !$omp parallel do private(s_idx, s_val) schedule(runtime)
+        do work_idx = 1, s_size
+            s_idx = s_size - work_idx + 1
+            s_val = s_tor(s_idx)
+            call neort_compute_at_s(s_val, transport_data(s_idx))
+
             !$omp critical
             completed_steps = completed_steps + 1
             call updateLoadingBarWithETA(completed_steps, s_size, start_count, count_rate, "NEO-RT")
             !$omp end critical
         end do
         !$omp end parallel do
-        write (*, "(a)") ""  ! newline after progress bar
 
         ! Add torque to global torque_ntv array to be used in rhs_balance
         call apply_ntv_transport(r, transport_data, antenna_factor_exponent)

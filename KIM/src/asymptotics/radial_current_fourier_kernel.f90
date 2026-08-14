@@ -15,6 +15,8 @@ module radial_current_fourier_kernel_m
     public :: radial_flr_coefficients
     public :: scaled_bessel_harmonic
     public :: hatG_jrad_phi, hatG_jrad_br, hatG_jrad_bparallel
+    public :: hatG_jrad_phi_harmonic, hatG_jrad_br_harmonic
+    public :: hatG_jrad_bparallel_harmonic
     public :: hatG_jrad_phi_harmonic_sp, hatG_jrad_br_harmonic_sp
     public :: hatG_jrad_bparallel_harmonic_sp
 
@@ -22,69 +24,120 @@ contains
 
     complex(dp) function hatG_jrad_phi(plasma_in, kr_response, kr_source, j, &
         cutoff) result(kernel)
-        use config_m, only: turn_off_electrons, turn_off_ions
-
         type(plasma_t), intent(in) :: plasma_in
         real(dp), intent(in) :: kr_response, kr_source
         integer, intent(in) :: j
         integer, intent(in), optional :: cutoff
-        integer :: ell, harmonic_cutoff, sp
+        integer :: ell, harmonic_cutoff
 
         harmonic_cutoff = checked_harmonic_cutoff(cutoff)
         kernel = (0.0_dp, 0.0_dp)
-        do sp = 0, plasma_in%n_species - 1
-            if (turn_off_electrons .and. sp == 0) cycle
-            if (turn_off_ions .and. sp >= 1) cycle
-            do ell = -harmonic_cutoff, harmonic_cutoff
-                kernel = kernel + hatG_jrad_phi_harmonic_sp(plasma_in, sp, ell, &
-                    kr_response, kr_source, j)
-            end do
+        do ell = -harmonic_cutoff, harmonic_cutoff
+            kernel = kernel + hatG_jrad_phi_harmonic(plasma_in, ell, &
+                kr_response, kr_source, j)
         end do
     end function hatG_jrad_phi
 
     complex(dp) function hatG_jrad_br(plasma_in, kr_response, kr_source, j, &
         cutoff) result(kernel)
-        use config_m, only: turn_off_electrons, turn_off_ions
-
         type(plasma_t), intent(in) :: plasma_in
         real(dp), intent(in) :: kr_response, kr_source
         integer, intent(in) :: j
         integer, intent(in), optional :: cutoff
-        integer :: ell, harmonic_cutoff, sp
+        integer :: ell, harmonic_cutoff
 
         harmonic_cutoff = checked_harmonic_cutoff(cutoff)
         kernel = (0.0_dp, 0.0_dp)
-        do sp = 0, plasma_in%n_species - 1
-            if (turn_off_electrons .and. sp == 0) cycle
-            if (turn_off_ions .and. sp >= 1) cycle
-            do ell = -harmonic_cutoff, harmonic_cutoff
-                kernel = kernel + hatG_jrad_br_harmonic_sp(plasma_in, sp, ell, &
-                    kr_response, kr_source, j)
-            end do
+        do ell = -harmonic_cutoff, harmonic_cutoff
+            kernel = kernel + hatG_jrad_br_harmonic(plasma_in, ell, &
+                kr_response, kr_source, j)
         end do
     end function hatG_jrad_br
 
     complex(dp) function hatG_jrad_bparallel(plasma_in, kr_response, kr_source, j, &
         cutoff) result(kernel)
-        use config_m, only: turn_off_electrons, turn_off_ions
-
         type(plasma_t), intent(in) :: plasma_in
         real(dp), intent(in) :: kr_response, kr_source
         integer, intent(in) :: j
         integer, intent(in), optional :: cutoff
-        integer :: ell, harmonic_cutoff, sp
+        integer :: ell, harmonic_cutoff
 
         harmonic_cutoff = checked_harmonic_cutoff(cutoff)
+        kernel = (0.0_dp, 0.0_dp)
+        do ell = -harmonic_cutoff, harmonic_cutoff
+            kernel = kernel + hatG_jrad_bparallel_harmonic(plasma_in, ell, &
+                kr_response, kr_source, j)
+        end do
+    end function hatG_jrad_bparallel
+
+    complex(dp) function hatG_jrad_phi_harmonic(plasma_in, ell, kr_response, &
+            kr_source, j) result(kernel)
+        use config_m, only: turn_off_electrons, turn_off_ions
+
+        type(plasma_t), intent(in) :: plasma_in
+        integer, intent(in) :: ell, j
+        real(dp), intent(in) :: kr_response, kr_source
+        integer :: sp
+
         kernel = (0.0_dp, 0.0_dp)
         do sp = 0, plasma_in%n_species - 1
             if (turn_off_electrons .and. sp == 0) cycle
             if (turn_off_ions .and. sp >= 1) cycle
-            do ell = -harmonic_cutoff, harmonic_cutoff
-                kernel = kernel + hatG_jrad_bparallel_harmonic_sp(plasma_in, sp, ell, &
+            if (use_collisionless_ion(sp)) then
+                kernel = kernel + collisionless_jrad_phi_harmonic_sp(plasma_in, &
+                    sp, ell, kr_response, kr_source, j)
+            else
+                kernel = kernel + hatG_jrad_phi_harmonic_sp(plasma_in, sp, ell, &
                     kr_response, kr_source, j)
-            end do
+            end if
         end do
-    end function hatG_jrad_bparallel
+    end function hatG_jrad_phi_harmonic
+
+    complex(dp) function hatG_jrad_br_harmonic(plasma_in, ell, kr_response, &
+            kr_source, j) result(kernel)
+        use config_m, only: turn_off_electrons, turn_off_ions
+
+        type(plasma_t), intent(in) :: plasma_in
+        integer, intent(in) :: ell, j
+        real(dp), intent(in) :: kr_response, kr_source
+        integer :: sp
+
+        kernel = (0.0_dp, 0.0_dp)
+        do sp = 0, plasma_in%n_species - 1
+            if (turn_off_electrons .and. sp == 0) cycle
+            if (turn_off_ions .and. sp >= 1) cycle
+            if (use_collisionless_ion(sp)) then
+                kernel = kernel + collisionless_jrad_br_harmonic_sp(plasma_in, &
+                    sp, ell, kr_response, kr_source, j)
+            else
+                kernel = kernel + hatG_jrad_br_harmonic_sp(plasma_in, sp, ell, &
+                    kr_response, kr_source, j)
+            end if
+        end do
+    end function hatG_jrad_br_harmonic
+
+    complex(dp) function hatG_jrad_bparallel_harmonic(plasma_in, ell, kr_response, &
+            kr_source, j) result(kernel)
+        use config_m, only: turn_off_electrons, turn_off_ions
+
+        type(plasma_t), intent(in) :: plasma_in
+        integer, intent(in) :: ell, j
+        real(dp), intent(in) :: kr_response, kr_source
+        integer :: sp
+
+        kernel = (0.0_dp, 0.0_dp)
+        do sp = 0, plasma_in%n_species - 1
+            if (turn_off_electrons .and. sp == 0) cycle
+            if (turn_off_ions .and. sp >= 1) cycle
+            if (use_collisionless_ion(sp)) then
+                kernel = kernel + collisionless_jrad_bparallel_harmonic_sp( &
+                    plasma_in, sp, ell, kr_response, kr_source, j)
+            else
+                kernel = kernel + hatG_jrad_bparallel_harmonic_sp(plasma_in, &
+                    sp, ell, kr_response, kr_source, j)
+            end if
+        end do
+    end function hatG_jrad_bparallel_harmonic
 
     complex(dp) function hatG_jrad_phi_harmonic_sp(plasma_in, sp, ell, &
         kr_response, kr_source, j) result(kernel)
@@ -154,6 +207,142 @@ contains
             * (w0 * plasma_in%spec(sp)%I00(j, ell) &
             + w2 * plasma_in%spec(sp)%I02(j, ell))
     end function hatG_jrad_bparallel_harmonic_sp
+
+    complex(dp) function collisionless_jrad_phi_harmonic_sp(plasma_in, sp, ell, &
+            kr_response, kr_source, j) result(kernel)
+        use constants_m, only: com_unit, pi
+
+        type(plasma_t), intent(in) :: plasma_in
+        integer, intent(in) :: sp, ell, j
+        real(dp), intent(in) :: kr_response, kr_source
+        complex(dp) :: even_o, even_w, odd_o
+
+        call collisionless_radial_moments(plasma_in, sp, ell, kr_response, &
+            kr_source, j, even_o, odd_o, even_w)
+        kernel = com_unit &
+            * radial_kernel_phase(ell, kr_response, kr_source, plasma_in%ks(j), j) &
+            * plasma_in%ks(j) * plasma_in%spec(sp)%vT(j) &
+            / (sqrt(2.0_dp * pi) * plasma_in%spec(sp)%lambda_D(j)**2) * even_o
+    end function collisionless_jrad_phi_harmonic_sp
+
+    complex(dp) function collisionless_jrad_br_harmonic_sp(plasma_in, sp, ell, &
+            kr_response, kr_source, j) result(kernel)
+        use constants_m, only: pi, sol
+
+        type(plasma_t), intent(in) :: plasma_in
+        integer, intent(in) :: sp, ell, j
+        real(dp), intent(in) :: kr_response, kr_source
+        complex(dp) :: even_o, even_w, odd_o
+
+        call collisionless_radial_moments(plasma_in, sp, ell, kr_response, &
+            kr_source, j, even_o, odd_o, even_w)
+        kernel = -radial_kernel_phase(ell, kr_response, kr_source, plasma_in%ks(j), j) &
+            * plasma_in%spec(sp)%vT(j) &
+            / (sqrt(2.0_dp * pi) * plasma_in%spec(sp)%lambda_D(j)**2 * sol) * odd_o
+    end function collisionless_jrad_br_harmonic_sp
+
+    complex(dp) function collisionless_jrad_bparallel_harmonic_sp(plasma_in, sp, ell, &
+            kr_response, kr_source, j) result(kernel)
+        use constants_m, only: com_unit, pi, sol
+
+        type(plasma_t), intent(in) :: plasma_in
+        integer, intent(in) :: sp, ell, j
+        real(dp), intent(in) :: kr_response, kr_source
+        complex(dp) :: even_o, even_w, odd_o
+
+        call collisionless_radial_moments(plasma_in, sp, ell, kr_response, &
+            kr_source, j, even_o, odd_o, even_w)
+        kernel = -com_unit &
+            * radial_kernel_phase(ell, kr_response, kr_source, plasma_in%ks(j), j) &
+            * plasma_in%spec(sp)%omega_c(j) * plasma_in%spec(sp)%vT(j) &
+            / (sqrt(2.0_dp * pi) * plasma_in%spec(sp)%lambda_D(j)**2 * sol) * even_w
+    end function collisionless_jrad_bparallel_harmonic_sp
+
+    subroutine collisionless_radial_moments(plasma_in, sp, ell, kr_response, &
+            kr_source, j, even_o, odd_o, even_w)
+        use config_m, only: artificial_debye_case, collisionless_kpar_epsilon
+        use constants_m, only: pi
+        use Krook_kernel_plasma_prefacs_m, only: Krook_collisionless_kpar, &
+            Krook_collisionless_kpar_magnitude
+        use setup_m, only: omega
+
+        type(plasma_t), intent(in) :: plasma_in
+        integer, intent(in) :: sp, ell, j
+        real(dp), intent(in) :: kr_response, kr_source
+        complex(dp), intent(out) :: even_o, odd_o, even_w
+
+        complex(dp) :: o0, o2, w0, w2, k_pole, response_z, zeta
+        complex(dp) :: plasma_Z
+        real(dp) :: k_abs, resonance, v_t
+
+        call validate_collisionless_radial_inputs(plasma_in, sp, j, &
+            collisionless_kpar_epsilon)
+        if (artificial_debye_case /= 0) then
+            error stop 'Collisionless radial-current ions require artificial_debye_case=0'
+        end if
+        call check_harmonic_is_available(plasma_in, sp, ell)
+        call radial_flr_coefficients(ell, plasma_in%ks(j), kr_source, &
+            plasma_in%ks(j), kr_response, plasma_in%spec(sp)%rho_L(j), &
+            plasma_in%spec(sp)%A1(j), plasma_in%spec(sp)%A2(j), o0, o2, w0, w2)
+
+        v_t = plasma_in%spec(sp)%vT(j)
+        k_abs = Krook_collisionless_kpar_magnitude(plasma_in%kp(j), &
+            collisionless_kpar_epsilon)
+        k_pole = Krook_collisionless_kpar(plasma_in%kp(j), &
+            collisionless_kpar_epsilon)
+        resonance = plasma_in%om_E(j) &
+            + real(ell, dp) * plasma_in%spec(sp)%omega_c(j) - omega
+        zeta = cmplx(-resonance / (sqrt(2.0_dp) * k_abs * v_t), 0.0_dp, dp)
+        response_z = plasma_Z(zeta)
+
+        even_o = sqrt(pi) / k_abs * (o0 * response_z &
+            + 2.0_dp * o2 * zeta * (1.0_dp + zeta * response_z))
+        even_w = sqrt(pi) / k_abs * (w0 * response_z &
+            + 2.0_dp * w2 * zeta * (1.0_dp + zeta * response_z))
+        odd_o = sqrt(2.0_dp * pi) * v_t / k_pole &
+            * (o0 * (1.0_dp + zeta * response_z) &
+            + 2.0_dp * o2 * (0.5_dp + zeta**2 * (1.0_dp + zeta * response_z)))
+    end subroutine collisionless_radial_moments
+
+    logical function use_collisionless_ion(sp) result(use_collisionless)
+        use config_m, only: ion_collision_model
+
+        integer, intent(in) :: sp
+
+        select case (trim(ion_collision_model))
+        case ('FokkerPlanck')
+            use_collisionless = .false.
+        case ('collisionless')
+            use_collisionless = sp >= 1
+        case default
+            error stop 'Periodic ion_collision_model must be FokkerPlanck or collisionless'
+        end select
+    end function use_collisionless_ion
+
+    subroutine validate_collisionless_radial_inputs(plasma_in, sp, j, epsilon)
+        type(plasma_t), intent(in) :: plasma_in
+        integer, intent(in) :: sp, j
+        real(dp), intent(in) :: epsilon
+
+        if (sp < 1 .or. sp >= plasma_in%n_species) then
+            error stop 'Collisionless radial-current kernel requires an ion species index'
+        end if
+        if (j < 1 .or. j > plasma_in%grid_size) then
+            error stop 'Collisionless radial-current kernel radial index is out of range'
+        end if
+        if (epsilon <= 0.0_dp) then
+            error stop 'Collisionless radial-current kernel requires epsilon > 0'
+        end if
+        if (plasma_in%spec(sp)%vT(j) <= 0.0_dp) then
+            error stop 'Collisionless radial-current kernel requires vT > 0'
+        end if
+        if (plasma_in%spec(sp)%lambda_D(j) <= 0.0_dp) then
+            error stop 'Collisionless radial-current kernel requires lambda_D > 0'
+        end if
+        if (abs(plasma_in%spec(sp)%omega_c(j)) <= tiny(1.0_dp)) then
+            error stop 'Collisionless radial-current kernel requires nonzero omega_c'
+        end if
+    end subroutine validate_collisionless_radial_inputs
 
     complex(dp) function radial_kernel_phase(ell, kr_response, kr_source, ks, j) &
         result(phase)

@@ -1,8 +1,10 @@
 program test_radial_current_fourier_kernel
     use KIM_kinds_m, only: dp
     use radial_current_fourier_kernel_m, only: hatG_jrad_bparallel, hatG_jrad_br, &
-        hatG_jrad_phi, hatG_jrad_bparallel_harmonic_sp, hatG_jrad_br_harmonic_sp, &
-        hatG_jrad_phi_harmonic_sp, radial_flr_coefficients, scaled_bessel_harmonic
+        hatG_jrad_phi, hatG_jrad_bparallel_harmonic, hatG_jrad_br_harmonic, &
+        hatG_jrad_phi_harmonic, hatG_jrad_bparallel_harmonic_sp, &
+        hatG_jrad_br_harmonic_sp, hatG_jrad_phi_harmonic_sp, &
+        radial_flr_coefficients, scaled_bessel_harmonic
 
     implicit none
 
@@ -12,11 +14,84 @@ program test_radial_current_fourier_kernel
     call test_scaled_bessel_harmonics()
     call test_radial_flr_coefficients()
     call test_zero_wavenumber_radial_flr_coefficients()
+    call test_collisionless_ion_radial_current()
 
     print *, 'All radial-current Fourier-kernel tests PASSED'
     stop 0
 
 contains
+
+    subroutine test_collisionless_ion_radial_current()
+        use config_m, only: collisionless_kpar_epsilon, ion_collision_model, &
+            turn_off_electrons, turn_off_ions
+        use constants_m, only: com_unit, pi, sol
+        use grid_m, only: rg_grid
+        use setup_m, only: omega
+        use species_m, only: plasma
+
+        real(dp), parameter :: kr_response = 0.47_dp
+        real(dp), parameter :: kr_source = -0.31_dp
+        real(dp), parameter :: tolerance = 5.0e-12_dp
+        complex(dp) :: actual(3), expected(3), even_o, even_w, odd_o
+        complex(dp) :: o0, o2, w0, w2, phase, response_z, zeta, k_pole
+        complex(dp) :: plasma_Z
+        real(dp) :: k_abs, lambda_d, omega_c, resonance, v_t
+        integer :: ell, j, sp
+
+        ion_collision_model = 'collisionless'
+        collisionless_kpar_epsilon = 1.0e-5_dp
+        turn_off_electrons = .true.
+        turn_off_ions = .false.
+        j = max(1, rg_grid%npts_b / 2)
+        expected = (0.0_dp, 0.0_dp)
+
+        do sp = 1, plasma%n_species - 1
+            lambda_d = plasma%spec(sp)%lambda_D(j)
+            omega_c = plasma%spec(sp)%omega_c(j)
+            v_t = plasma%spec(sp)%vT(j)
+            k_abs = sqrt(plasma%kp(j)**2 + collisionless_kpar_epsilon**2)
+            k_pole = cmplx(plasma%kp(j), collisionless_kpar_epsilon, dp)
+            do ell = -1, 1
+                call radial_flr_coefficients(ell, plasma%ks(j), kr_source, &
+                    plasma%ks(j), kr_response, plasma%spec(sp)%rho_L(j), &
+                    plasma%spec(sp)%A1(j), plasma%spec(sp)%A2(j), o0, o2, w0, w2)
+                resonance = plasma%om_E(j) + real(ell, dp) * omega_c - omega
+                zeta = cmplx(-resonance / (sqrt(2.0_dp) * k_abs * v_t), 0.0_dp, dp)
+                response_z = plasma_Z(zeta)
+                even_o = sqrt(pi) / k_abs * (o0 * response_z &
+                    + 2.0_dp * o2 * zeta * (1.0_dp + zeta * response_z))
+                even_w = sqrt(pi) / k_abs * (w0 * response_z &
+                    + 2.0_dp * w2 * zeta * (1.0_dp + zeta * response_z))
+                odd_o = sqrt(2.0_dp * pi) * v_t / k_pole &
+                    * (o0 * (1.0_dp + zeta * response_z) &
+                    + 2.0_dp * o2 * (0.5_dp + zeta**2 &
+                    * (1.0_dp + zeta * response_z)))
+                phase = exp(-com_unit * (kr_response - kr_source) * rg_grid%xb(j)) &
+                    * harmonic_phase(ell, plasma%ks(j), kr_source, plasma%ks(j), &
+                    kr_response) / (8.0_dp * pi**2)
+                expected(1) = expected(1) + com_unit * phase * plasma%ks(j) * v_t &
+                    / (sqrt(2.0_dp * pi) * lambda_d**2) * even_o
+                expected(2) = expected(2) - phase * v_t &
+                    / (sqrt(2.0_dp * pi) * lambda_d**2 * sol) * odd_o
+                expected(3) = expected(3) - com_unit * phase * omega_c * v_t &
+                    / (sqrt(2.0_dp * pi) * lambda_d**2 * sol) * even_w
+            end do
+        end do
+
+        actual = [hatG_jrad_phi(plasma, kr_response, kr_source, j, cutoff=1), &
+            hatG_jrad_br(plasma, kr_response, kr_source, j, cutoff=1), &
+            hatG_jrad_bparallel(plasma, kr_response, kr_source, j, cutoff=1)]
+        call assert_complex_close(actual(1), expected(1), tolerance, &
+            'collisionless jrad-Phi does not match the documented even moment')
+        call assert_complex_close(actual(2), expected(2), tolerance, &
+            'collisionless jrad-Br does not match the documented odd moment')
+        call assert_complex_close(actual(3), expected(3), tolerance, &
+            'collisionless jrad-Bparallel does not match the documented even moment')
+
+        ion_collision_model = 'FokkerPlanck'
+        turn_off_electrons = .false.
+        print *, 'PASS: collisionless ion radial-current moments match the documentation'
+    end subroutine test_collisionless_ion_radial_current
 
     subroutine test_radial_current_harmonic_kernels()
         use constants_m, only: com_unit, pi, sol
@@ -75,21 +150,19 @@ contains
         real(dp), parameter :: kr_response = -0.53_dp
         real(dp), parameter :: kr_source = 0.22_dp
         complex(dp) :: actual(3), expected(3)
-        integer :: ell, j, sp
+        integer :: ell, j
 
         turn_off_electrons = .false.
         turn_off_ions = .false.
         j = rg_grid%npts_b / 3
         expected = (0.0_dp, 0.0_dp)
-        do sp = 0, plasma%n_species - 1
-            do ell = -1, 1
-                expected(1) = expected(1) + hatG_jrad_phi_harmonic_sp(plasma, sp, ell, &
-                    kr_response, kr_source, j)
-                expected(2) = expected(2) + hatG_jrad_br_harmonic_sp(plasma, sp, ell, &
-                    kr_response, kr_source, j)
-                expected(3) = expected(3) + hatG_jrad_bparallel_harmonic_sp(plasma, sp, &
-                    ell, kr_response, kr_source, j)
-            end do
+        do ell = -1, 1
+            expected(1) = expected(1) + hatG_jrad_phi_harmonic(plasma, ell, &
+                kr_response, kr_source, j)
+            expected(2) = expected(2) + hatG_jrad_br_harmonic(plasma, ell, &
+                kr_response, kr_source, j)
+            expected(3) = expected(3) + hatG_jrad_bparallel_harmonic(plasma, ell, &
+                kr_response, kr_source, j)
         end do
 
         actual = [hatG_jrad_phi(plasma, kr_response, kr_source, j, cutoff=1), &
@@ -325,7 +398,7 @@ contains
     end subroutine test_scaled_bessel_harmonics
 
     subroutine test_i03_is_retained()
-        use config_m, only: nml_config_path, profiles_in_memory
+      use config_m, only: ifunc_model_for_species, nml_config_path, profiles_in_memory
         use grid_m, only: rg_grid
         use kim_base_m, only: kim_t
         use kim_mod_m, only: from_kim_factory_get_kim
@@ -359,13 +432,15 @@ contains
 
             do ell = -2, 2
                 call evaluate_susceptibility(plasma%spec(sp)%x1(j), &
-                    plasma%spec(sp)%x2(j, ell), moments)
+                    plasma%spec(sp)%x2(j, ell), ifunc_model_for_species(sp), &
+                    moments)
                 if (abs(plasma%spec(sp)%I03(j, ell) - moments(0, 3)) > tolerance) then
                     error stop 'retained boundary I03 does not match symbI(0,3)'
                 end if
 
                 call evaluate_susceptibility(plasma%spec(sp)%x1_cc(j), &
-                    plasma%spec(sp)%x2_cc(j, ell), moments)
+                    plasma%spec(sp)%x2_cc(j, ell), ifunc_model_for_species(sp), &
+                    moments)
                 if (abs(plasma%spec(sp)%I03_cc(j, ell) - moments(0, 3)) > tolerance) then
                     error stop 'retained cell-centred I03 does not match symbI(0,3)'
                 end if

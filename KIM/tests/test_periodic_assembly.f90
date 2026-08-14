@@ -224,6 +224,8 @@ contains
             hatG_j_phi, hatG_j_B, flr_arg_pair_sp, core_rho_phi_sp, &
             core_rho_B_sp, core_j_phi_sp, core_j_B_sp
         use grid_m, only: rg_grid
+        use radial_current_fourier_kernel_m, only: hatG_jrad_bparallel, &
+            hatG_jrad_br, hatG_jrad_phi
         use species_m, only: plasma_t
 
         type(plasma_t), intent(inout) :: plasma
@@ -234,6 +236,7 @@ contains
         complex(dp) :: ion_phi, ion_B, ion_jphi, ion_jB
         complex(dp) :: core_phi, core_B, core_jphi, core_jB
         complex(dp) :: actual_phi, actual_B, actual_jphi, actual_jB
+        complex(dp) :: actual_jrad(3), collisionless_jrad(3)
 
         j = max(1, rg_grid%npts_b / 2)
         collisionless_kpar_epsilon = 1.0e-5_dp
@@ -292,10 +295,22 @@ contains
             configured_hatG_rho_phi(plasma, kr, krp, j), ion_phi)
         call assert_dispatch_close('electron-off j-Phi', &
             configured_hatG_j_phi(plasma, kr, krp, j), ion_jphi)
+        collisionless_jrad = [hatG_jrad_phi(plasma, kr, krp, j), &
+            hatG_jrad_br(plasma, kr, krp, j), &
+            hatG_jrad_bparallel(plasma, kr, krp, j)]
         saved_nu = plasma%spec(1)%nu(j)
         plasma%spec(1)%nu(j) = saved_nu * 17.0_dp
         call assert_dispatch_close('collisionless ion nu independence', &
             configured_hatG_rho_phi(plasma, kr, krp, j), ion_phi)
+        actual_jrad = [hatG_jrad_phi(plasma, kr, krp, j), &
+            hatG_jrad_br(plasma, kr, krp, j), &
+            hatG_jrad_bparallel(plasma, kr, krp, j)]
+        call assert_dispatch_close('collisionless jrad-Phi nu independence', &
+            actual_jrad(1), collisionless_jrad(1))
+        call assert_dispatch_close('collisionless jrad-Br nu independence', &
+            actual_jrad(2), collisionless_jrad(2))
+        call assert_dispatch_close('collisionless jrad-Bparallel nu independence', &
+            actual_jrad(3), collisionless_jrad(3))
         plasma%spec(1)%nu(j) = saved_nu
 
         turn_off_electrons = .false.

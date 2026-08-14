@@ -177,6 +177,7 @@ module time_evolution
 
     subroutine doStep(this)
         use baseparam_mod, only: factolmax, factolred
+        use kim_wave_code_adapter_m, only: kim_periodic_mode_selected
         use plasma_parameters, only: params, params_beg, params_begbeg, limit_temps_from_below
         use logger_m, only: log_debug
         use recstep_mod, only: timstep_arr, tol
@@ -262,11 +263,13 @@ module time_evolution
         ! successfully advanced profiles now define a new response, so refresh
         ! KIM and its normalization diagnostics before committing/checkpointing
         ! the amplitude associated with those profiles.
-        call get_dql
-        call sync_periodic_amplitude_trial()
-        call compute_antenna_factor_from_Ipar
-        call rescale_transp_coeffs_by_ant_fac
-        if (periodic_amplitudes%initialized) call periodic_amplitudes%accept()
+        if (kim_periodic_mode_selected() .and. periodic_amplitudes%initialized) then
+            call get_dql
+            call sync_periodic_amplitude_trial()
+            call compute_antenna_factor_from_Ipar
+            call rescale_transp_coeffs_by_ant_fac
+            call periodic_amplitudes%accept()
+        end if
 
         call log_debug("msg_time_info")
         if (.not. suppression_mode) call write_kin_profile_at_time_index

@@ -21,14 +21,6 @@ contains
         end if
         if (trim(wave_code) /= 'KIM') return
 
-        select case (trim(kim_run_type))
-        case ('electrostatic_periodic', 'electrostatic', 'electromagnetic', 'flr2', &
-              'flr2_benchmark', 'WKB_dispersion')
-            continue
-        case default
-            error stop 'unsupported KIM run type; select an explicit supported solver'
-        end select
-
         if (trim(kim_run_type) /= 'electrostatic_periodic') return
         if (.not. profiles_from_balance) then
             error stop 'periodic KIM production workflow requires profiles_from_balance=.true.'

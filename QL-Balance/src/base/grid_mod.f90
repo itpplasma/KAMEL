@@ -14,7 +14,9 @@ module grid_mod
 
     integer, dimension(:),   allocatable :: ipbeg,ipend
     real(dp), dimension(:),   allocatable :: rb,rc,Sb,Sc
-    real(dp), dimension(:),   allocatable :: sqrt_g_times_B_theta_over_c,Ercov
+    real(dp), dimension(:), allocatable :: sqrt_g_times_B_theta_over_c
+    ! Workspace for the active RHS or get_dql evaluation. Recompute from params before cross-stage use.
+    real(dp), dimension(:), allocatable :: Ercov
     real(dp), dimension(:),   allocatable :: sqg_bthet_overcavg,Ercovavg
     real(dp), dimension(:),   allocatable :: y,dery,dery_equisource
     real(dp), dimension(:),   allocatable :: dae11,dae12,dae22

@@ -132,13 +132,15 @@ set(LIBNEO_ENABLE_TESTS OFF CACHE BOOL "Disable libneo tests" FORCE)
 set(LIBNEO_BUILD_TESTING OFF CACHE BOOL "Disable libneo tests" FORCE)
 
 
+if(NOT TARGET neo_rt)
+    find_or_fetch(neo-rt) # must be lowercase!
+endif()
+
 # Only fetch libneo if not already available (prevents duplicate targets)
 if(NOT TARGET LIBNEO::polylag)
     find_or_fetch(libneo)
 endif()
 include_directories(${CMAKE_CURRENT_BINARY_DIR}/../libneo/include)
-
-find_or_fetch(neo-rt) # must be lowercase!
 
 add_dependencies(ql-balance_lib sparse)
 
@@ -160,9 +162,6 @@ target_link_libraries(ql-balance_lib PUBLIC
     lapack
     fortnum_amos_compat
     neo_rt
-    netcdf
-    netcdff
-    slatec
     sparse
 )
 

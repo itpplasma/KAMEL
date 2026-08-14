@@ -40,3 +40,17 @@ target_include_directories(sparse PUBLIC "${QLBALANCE_BASE}")
 
 # Utility macros
 include(Util)
+
+# NEO-RT's standalone mode adds libneo unconditionally.  Configure it before
+# KAMEL's other libneo consumers so the whole build shares one libneo target
+# namespace instead of trying to add a second copy later.
+set(NEORT_BUILD_TESTING OFF CACHE BOOL "Build tests for NEO-RT" FORCE)
+set(_KAMEL_BUILD_TESTING_SAVED ${BUILD_TESTING})
+set(BUILD_TESTING OFF)
+if(DEFINED LIBNEO_PATH AND EXISTS "${LIBNEO_PATH}/CMakeLists.txt")
+    get_filename_component(_KAMEL_LIBNEO_PATH "${LIBNEO_PATH}" ABSOLUTE
+        BASE_DIR "${CMAKE_SOURCE_DIR}")
+    set(FETCHCONTENT_SOURCE_DIR_LIBNEO "${_KAMEL_LIBNEO_PATH}")
+endif()
+find_or_fetch(neo-rt)
+set(BUILD_TESTING ${_KAMEL_BUILD_TESTING_SAVED})

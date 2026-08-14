@@ -1116,17 +1116,21 @@ module time_evolution
         use wave_code_data, only: Vth, m_vals, n_vals
         use kim_wave_code_adapter_m, only: kim_periodic_mode_selected
         use periodic_checkpoint_m, only: periodic_restart_t, write_periodic_checkpoint
+        use rhs_balance_m, only: compute_unsmoothed_radial_electric_field
 
         implicit none
         type(periodic_restart_t) :: checkpoint
         integer :: ipoi
+        real(dp), dimension(npoib) :: E_r_current
+
+        call compute_unsmoothed_radial_electric_field(params, E_r_current)
 
         if (ihdf5IO .eq. 1) then
             call log_debug("Write kinetic profiles")
             do ipoi = 1, npoic
                 sqg_bthet_overcavg(ipoi) = 0.5d0*(sqrt_g_times_B_theta_over_c(ipoi) &
                                                 + sqrt_g_times_B_theta_over_c(ipoi + 1))
-                Ercovavg(ipoi) = 0.5d0*(Ercov(ipoi) + Ercov(ipoi + 1))
+                Ercovavg(ipoi) = 0.5d0*(E_r_current(ipoi) + E_r_current(ipoi + 1))
             end do
             ! h5_mode_groupname
             !h5_currentgrp = "/"//trim(h5_mode_groupname) &
@@ -1188,7 +1192,7 @@ module time_evolution
                 write (1000 + time_ind, *) rc(ipoi), params(1:2, ipoi) &
                     , params(3, ipoi)/ev &
                     , params(4, ipoi)/ev &
-                    , 0.5d0*(Ercov(ipoi) + Ercov(ipoi + 1)) &
+                    , 0.5d0*(E_r_current(ipoi) + E_r_current(ipoi + 1)) &
                     , 0.5d0*(sqrt_g_times_B_theta_over_c(ipoi) + &
                             sqrt_g_times_B_theta_over_c(ipoi + 1))
             end do
@@ -1571,35 +1575,39 @@ module time_evolution
     subroutine redoTimeStep
 
         use recstep_mod, only: timstep_arr
-        use grid_mod, only: npoic, rc, Ercov
+        use grid_mod, only: npoib, npoic, rc
         use plasma_parameters, only: params, params_begbeg
         use baseparam_mod, only: eV, factolmax
+        use rhs_balance_m, only: compute_unsmoothed_radial_electric_field
         use restart_mod
 
         implicit none
 
         integer :: ipoi
+        real(dp), dimension(npoib) :: E_r_current
 
         print *, 'redo step with old DQL'
 
         call hold_prev_transp_coeffs
         iunit_redo = 137
 
+        call compute_unsmoothed_radial_electric_field(params, E_r_current)
         open (iunit_redo, file='params_redostep.after')
         do ipoi = 1, npoic
             write (iunit_redo, *) rc(ipoi), params(1:2, ipoi) &
                 , params(3, ipoi)/ev &
                 , params(4, ipoi)/ev &
-                , 0.5d0*(Ercov(ipoi) + Ercov(ipoi + 1))
+                , 0.5d0*(E_r_current(ipoi) + E_r_current(ipoi + 1))
         end do
         close (iunit_redo)
         params = params_begbeg
+        call compute_unsmoothed_radial_electric_field(params, E_r_current)
         open (iunit_redo, file='params_redostep.before')
         do ipoi = 1, npoic
             write (iunit_redo, *) rc(ipoi), params(1:2, ipoi) &
                 , params(3, ipoi)/ev &
                 , params(4, ipoi)/ev &
-                , 0.5d0*(Ercov(ipoi) + Ercov(ipoi + 1))
+                , 0.5d0*(E_r_current(ipoi) + E_r_current(ipoi + 1))
         end do
         close (iunit_redo)
 

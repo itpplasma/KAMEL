@@ -188,7 +188,8 @@ contains
         ! signed per-species core over the non-turned-off species, then apply the
         ! Fourier phase exp(-i (k_r - k'_r) r_g). On the diagonal k_r = k'_r this
         ! equals the diagonal j-B expression of calc_hatK_Phi_in_Fourier summed
-        ! over species (thesis 14.6, via I11 = I02 and I13 = I22).
+        ! over species. Direct output/source moment counting requires I11 and I13;
+        ! the I02 and I22 indices printed in thesis equation 14.6 are incorrect.
         !
         ! The same 1/(8*pi^2) normalization applies as in hatG_j_phi.
         use grid_m, only: rg_grid
@@ -259,10 +260,11 @@ contains
         ! FLR argument pair (b_+, b_x). Carries the leading minus, so callers
         ! accumulate with '+'.
         !
-        ! Moments (I11, I13) = thesis (14.6)'s (I02, I22) via the susceptibility
-        ! identities I11 = I02 and I13 = I22. s = 2 here (first moment in u_par,
-        ! B-drive), hence the vT^(2+s) = vT^4 prefactor -- again not the vT^2
-        ! printed in (14.6). See core_j_phi_sp.
+        ! Direct output/source power counting gives moments I11 and I13: the
+        ! current output supplies one power of u_par, while the B drive supplies
+        ! one or three source powers. The thesis's I02 and I22 indices are
+        ! incorrect. With s = 2, the prefactor is vT^(2+s) = vT^4, not the vT^2
+        ! printed in thesis equation 14.6. See core_j_phi_sp.
         !
         ! No phase or Fourier normalization; callers supply both after summing
         ! species contributions.

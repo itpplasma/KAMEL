@@ -53,7 +53,7 @@ program test_collisionless_fourier_kernel
         -7.8627199009209740e-3_dp, dp)
     rho_B_ref = cmplx(-5.9925789298467730e-14_dp, 1.5662372153310280e-14_dp, dp)
     j_phi_ref = cmplx(7.8025611966209100e-3_dp, -6.5083683321303820e-3_dp, dp)
-    j_B_ref = cmplx(6.1104067713266680e-14_dp, -1.5970330300359097e-14_dp, dp)
+    j_B_ref = cmplx(-5.631687763559327e-14_dp, 2.858614390986371e-14_dp, dp)
 
     call assert_close('rho-Phi global-kernel oracle', rho_phi, rho_phi_ref, 2.0e-13_dp)
     ! fortnum's integer-order Bessel approximation is accurate to about 1e-8
@@ -62,6 +62,7 @@ program test_collisionless_fourier_kernel
     call assert_close('j-Phi global-kernel oracle', j_phi, j_phi_ref, 2.0e-13_dp)
     call assert_close('j-B global-kernel oracle', j_B, j_B_ref, 5.0e-8_dp)
 
+    call test_kpar_parity(test_plasma)
     call test_magnetic_recurrence(test_plasma)
     call test_resonance_regularization(test_plasma)
     call test_collision_frequency_independence(test_plasma)
@@ -93,16 +94,38 @@ contains
         plasma%spec(1)%nu(1) = 9.0e7_dp
     end subroutine make_manufactured_plasma
 
+    subroutine test_kpar_parity(plasma)
+        type(plasma_t), intent(inout) :: plasma
+        complex(dp) :: rp_positive, rb_positive, jp_positive, jb_positive
+        complex(dp) :: rp_negative, rb_negative, jp_negative, jb_negative
+        real(dp) :: saved_kp
+
+        saved_kp = plasma%kp(1)
+        plasma%kp(1) = abs(saved_kp)
+        call collisionless_ion_cores(plasma, 1, kr, krp, 1, epsilon, &
+            rp_positive, rb_positive, jp_positive, jb_positive)
+        plasma%kp(1) = -abs(saved_kp)
+        call collisionless_ion_cores(plasma, 1, kr, krp, 1, epsilon, &
+            rp_negative, rb_negative, jp_negative, jb_negative)
+        plasma%kp(1) = saved_kp
+
+        call assert_close('j-B is even in k_parallel', jb_negative, jb_positive, 2.0e-13_dp)
+    end subroutine test_kpar_parity
+
     subroutine test_magnetic_recurrence(plasma)
-        use Krook_kernel_plasma_prefacs_m, only: Krook_collisionless_z0
+        use Krook_kernel_plasma_prefacs_m, only: Krook_collisionless_kpar, &
+            Krook_collisionless_kpar_magnitude, Krook_collisionless_z0
         type(plasma_t), intent(in) :: plasma
-        complex(dp) :: rp, rb, jp, jb, z0
+        complex(dp) :: k_pole, rp, rb, jp, jb, z0
+        real(dp) :: k_abs
 
         call collisionless_ion_cores(plasma, 1, kr, krp, 1, epsilon, rp, rb, jp, jb)
+        k_abs = Krook_collisionless_kpar_magnitude(plasma%kp(1), epsilon)
+        k_pole = Krook_collisionless_kpar(plasma%kp(1), epsilon)
         z0 = Krook_collisionless_z0(plasma%om_E(1), omega, plasma%kp(1), &
             plasma%spec(1)%vT(1), epsilon)
         call assert_close('j-B/rho-B recurrence', jb, &
-            sqrt(2.0_dp) * plasma%spec(1)%vT(1) * z0 * rb, 2.0e-13_dp)
+            sqrt(2.0_dp) * plasma%spec(1)%vT(1) * z0 * k_pole / k_abs * rb, 2.0e-13_dp)
     end subroutine test_magnetic_recurrence
 
     subroutine test_homogeneous_static_limit(plasma)

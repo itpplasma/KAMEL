@@ -27,6 +27,10 @@ contains
 
     subroutine periodic_drive_scale(target_current, unit_current, c_light, current_floor, &
                                     max_scale_ratio, relaxation, scale, status)
+        !! status = 0: normalized response
+        !! status = 1: invalid configuration (unit response retained)
+        !! status = 2: unit current below the trusted floor (response suppressed)
+        !! status = 3: non-finite or excessive scale (response suppressed)
         real(dp), intent(in) :: target_current, c_light, current_floor, max_scale_ratio, relaxation
         complex(dp), intent(in) :: unit_current
         complex(dp), intent(out) :: scale
@@ -41,6 +45,7 @@ contains
         end if
         if (abs(unit_current) <= current_floor) then
             status = 2
+            scale = (0.0_dp, 0.0_dp)
             return
         end if
         scale = relaxation * (target_current*c_light/(unit_current)) / (2.0_dp*acos(-1.0_dp)) &
@@ -48,7 +53,7 @@ contains
         ratio = abs(scale)
         if (.not. (ratio == ratio) .or. ratio > max_scale_ratio) then
             status = 3
-            scale = (1.0_dp, 0.0_dp)
+            scale = (0.0_dp, 0.0_dp)
         end if
     end subroutine periodic_drive_scale
 

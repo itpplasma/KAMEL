@@ -35,7 +35,11 @@ contains
         end if
 
         ! Calculate the percentage completion
-        percentage = real(current_step, dp) / real(total_steps, dp) * 100.0_dp
+        if (total_steps <= 0) then
+            percentage = 0.0_dp
+        else
+            percentage = real(current_step, dp) / real(total_steps, dp) * 100.0_dp
+        end if
 
         call renderLoadingBar(percentage, display_label, "]")
     end subroutine updateLoadingBar

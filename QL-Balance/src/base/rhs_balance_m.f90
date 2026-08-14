@@ -353,7 +353,7 @@ contains
                                                  Gamma_ql_e_frozen(ipoi), Gamma_ql_i_frozen(ipoi), &
                                                  Ercov(ipoi), Ercov_lin(ipoi), &
                                                  sqrt_g_times_B_theta_over_c(ipoi), Z_i, am, &
-                                                 torque_ntv(ipoi), polforce(ipoi), qlheat_e(ipoi), &
+                                                 0.0_dp, polforce(ipoi), qlheat_e(ipoi), &
                                                  qlheat_i(ipoi), T_EM_phi_e(ipoi), T_EM_phi_i(ipoi))
             end do
 

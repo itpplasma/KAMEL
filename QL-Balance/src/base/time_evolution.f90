@@ -309,7 +309,8 @@ module time_evolution
         use wave_code_data, only: I_par_toroidal
         use control_mod, only: ihdf5IO
         use h5mod, only: h5_id, h5_mode_groupname, path2out
-        use KAMEL_hdf5_tools, only: h5_init, h5_open_rw, h5_close, h5_deinit, h5_add_string, h5_add_double_1
+        use KAMEL_hdf5_tools, only: h5_init, h5_open_rw, h5_close, h5_deinit, h5_add_string, &
+            h5_add_double_1, h5_create_parent_groups
         use periodic_amplitude_state_m, only: periodic_normalization_version, periodic_phase_policy
         real(dp), allocatable :: modes_m(:), modes_n(:)
         character(len=1024) :: group
@@ -322,6 +323,7 @@ module time_evolution
         group = "/"//trim(h5_mode_groupname)//"/periodic_workflow"
         call h5_init()
         call h5_open_rw(path2out, h5_id)
+        call h5_create_parent_groups(h5_id, trim(group)//"/")
         call h5_add_string(h5_id, trim(group)//"/wave_code", trim(wave_code))
         call h5_add_string(h5_id, trim(group)//"/kim_run_type", trim(kim_run_type))
         call h5_add_string(h5_id, trim(group)//"/electron_transport_model", trim(kim_electron_transport_model))

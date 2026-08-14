@@ -98,7 +98,9 @@ class QL_Balance_interface:
         compact-transition controls are solver-specific.  The balance
         namelist is generated with the validated species/B-parallel policy.
         """
+        modes = list(modes)
         self.configure_periodic_kim(modes, target_current, benchmark_mode)
+        self.m_mode, self.n_mode = (int(mode) for mode in modes[0])
         if kim_config_file is not None:
             if not os.path.isfile(kim_config_file):
                 raise FileNotFoundError(f"KIM configuration not found: {kim_config_file}")

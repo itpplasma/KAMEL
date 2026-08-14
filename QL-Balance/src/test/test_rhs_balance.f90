@@ -13,6 +13,8 @@ program test_rhs_balance
                              compute_particle_fluxes, &
                              compute_total_heat_fluxes, &
                              compute_linearized_product, &
+                             project_params_to_boundary_grid, &
+                             compute_radial_electric_field, &
                              compute_source_terms_at_point, &
                              species_fluxes_t, &
                              transport_fluxes_t
@@ -34,6 +36,8 @@ program test_rhs_balance
     call test_particle_fluxes()
     call test_heat_fluxes()
     call test_linearized_product()
+    call test_boundary_projection()
+    call test_radial_electric_field()
     call test_source_terms_at_point()
 
     print *, ""
@@ -300,6 +304,76 @@ contains
 
     end subroutine test_linearized_product
 
+    subroutine test_boundary_projection()
+        real(dp), dimension(4, 3) :: params_in
+        integer, dimension(2) :: ipbeg, ipend
+        real(dp), dimension(2, 2) :: deriv_coef, reint_coef
+        real(dp), dimension(4, 2) :: params_boundary, ddr_params
+        character(len=*), parameter :: test_name = "test_boundary_projection"
+
+        print *, "Running: ", test_name
+
+        params_in(1, :) = [10.0_dp, 20.0_dp, 30.0_dp]
+        params_in(2, :) = [1.0_dp, 2.0_dp, 4.0_dp]
+        params_in(3, :) = [100.0_dp, 200.0_dp, 300.0_dp]
+        params_in(4, :) = [5.0_dp, 7.0_dp, 11.0_dp]
+
+        ipbeg = [1, 2]
+        ipend = [2, 3]
+        reint_coef(:, 1) = [0.25_dp, 0.75_dp]
+        reint_coef(:, 2) = [0.5_dp, 0.5_dp]
+        deriv_coef(:, 1) = [-1.0_dp, 1.0_dp]
+        deriv_coef(:, 2) = [-1.0_dp, 1.0_dp]
+
+        call project_params_to_boundary_grid(params_in, ipbeg, ipend, deriv_coef, reint_coef, &
+                                             params_boundary, ddr_params)
+
+        call assert_equal(params_boundary(2, 1), 1.75_dp, "projected Vphi")
+        call assert_equal(ddr_params(2, 1), 1.0_dp, "Vphi derivative")
+        call assert_equal(params_boundary(4, 2), 9.0_dp, "projected Ti")
+        call assert_equal(ddr_params(4, 2), 4.0_dp, "Ti derivative")
+
+        print *, "  PASSED: ", test_name
+    end subroutine test_boundary_projection
+
+
+    subroutine test_radial_electric_field()
+        integer, parameter :: npoib = 2
+        real(dp), dimension(npoib) :: rb
+        real(dp), dimension(4, npoib) :: params_boundary, ddr_params
+        real(dp), dimension(npoib) :: sqrt_g_Bth_over_c, V_pol, q, E_r
+        real(dp), dimension(npoib) :: expected
+        real(dp) :: Z
+        integer :: i
+        character(len=*), parameter :: test_name = "test_radial_electric_field"
+
+        print *, "Running: ", test_name
+
+        rb = [1.0_dp, 2.0_dp]
+        params_boundary = 0.0_dp
+        ddr_params = 0.0_dp
+        params_boundary(1, :) = [2.0_dp, 4.0_dp]
+        params_boundary(2, :) = [3.0_dp, -2.0_dp]
+        params_boundary(4, :) = [10.0_dp, 20.0_dp]
+        ddr_params(1, :) = [1.0_dp, -2.0_dp]
+        ddr_params(4, :) = [3.0_dp, -5.0_dp]
+        sqrt_g_Bth_over_c = [2.0_dp, 4.0_dp]
+        V_pol = 0.0_dp
+        q = 1.0_dp
+        Z = 2.0_dp
+
+        call compute_radial_electric_field(npoib, rb, params_boundary, ddr_params, &
+                                           sqrt_g_Bth_over_c, V_pol, q, Z, E_r)
+
+        do i = 1, npoib
+            expected(i) = (params_boundary(4, i) / params_boundary(1, i) * ddr_params(1, i) + &
+                           ddr_params(4, i)) / (Z * e_charge) + &
+                          sqrt_g_Bth_over_c(i) * params_boundary(2, i)
+            call assert_equal(E_r(i), expected(i), "radial electric field")
+        end do
+
+        print *, "  PASSED: ", test_name
+    end subroutine test_radial_electric_field
 
     subroutine test_source_terms_at_point()
         !

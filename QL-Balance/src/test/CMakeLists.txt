@@ -32,6 +32,11 @@ add_executable(test_toroidal_torque.x test_toroidal_torque.f90)
 target_link_libraries(test_toroidal_torque.x PUBLIC ql-balance_lib)
 add_fortran_test(test_toroidal_torque)
 
+# Accepted-state radial electric field and NTV profile coupling
+add_executable(test_ntv_feedback.x test_ntv_feedback.f90)
+target_link_libraries(test_ntv_feedback.x PUBLIC ql-balance_lib)
+add_fortran_test(test_ntv_feedback)
+
 # KIM adapter module tests (unit tests for adapter helpers and linkage)
 add_executable(test_kim_adapter.x test_kim_adapter.f90)
 target_link_libraries(test_kim_adapter.x PUBLIC ql-balance_lib)

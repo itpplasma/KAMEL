@@ -17,11 +17,11 @@ parallel current on the trusted core, and evaluates the target-current scale.
 The scale is applied once to the linear fields and currents and as
 `abs(scale)**2` to the ion diffusion tensor before the profile advance.
 
-The trial scale is recorded before the profile update. A successful update
-commits the scale and diagnostics; an error-controlled redo restores the trial
-state from the last accepted state. The next response refresh then uses the
-restored profiles and recomputes the unit response, so no stale shielding
-current is reused.
+The trial scale is recorded before the profile update. An error-controlled redo
+restores it from the last accepted state. After the profile advance succeeds,
+KIM is rerun for the accepted profiles and that refreshed scale and diagnostics
+are committed, so a checkpoint never pairs new profiles with stale shielding
+current.
 
 ## Checkpoint and continuation
 
@@ -35,8 +35,9 @@ the unit-drive default).
 
 The accepted/trial split is deliberately explicit: a failed step cannot alter
 the accepted amplitude or its diagnostics. On restart, the restored accepted
-state is used as the trial baseline and the next KIM solve refreshes the unit
-response against the restarted profiles.
+amplitude is applied to the first KIM unit response; constant-psi initialization
+is skipped. Subsequent accepted profile states refresh the unit response and
+target-current normalization normally.
 
 ## Validation
 

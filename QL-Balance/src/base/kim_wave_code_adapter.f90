@@ -65,6 +65,7 @@ module kim_wave_code_adapter_m
     complex(8), allocatable :: kim_periodic_current_unit(:)
     integer, allocatable :: kim_periodic_scale_status(:)
     logical :: periodic_constant_psi_pending = .true.
+    logical :: periodic_restored_amplitude_pending = .false.
     real(8), parameter :: kim_periodic_normalization_relaxation = 1.0d0
     integer, parameter :: kim_periodic_normalization_version = 1
     character(len=32), parameter :: kim_periodic_phase_policy = 'complex-current'
@@ -101,8 +102,9 @@ contains
         !!   kim_profiles_from_balance = .false. (Path B):
         !!     KIM reads its own files, adapter reads modes.in, extracts
         !!     everything — original behavior.
-        use control_mod, only: kim_config_path, kim_profiles_from_balance, kim_run_type
+        use control_mod, only: kim_config_path, kim_profiles_from_balance, kim_run_type, type_of_run
         use IO_collection_m, only: deinitialize_hdf5_output
+        use periodic_amplitude_state_m, only: periodic_amplitudes
         use wave_code_data, only: dim_mn, m_vals, n_vals, dim_r, &
             r => r, q => q, n => n, Te => Te, Ti => Ti, &
             Vth => Vth, Vz => Vz, dPhi0 => dPhi0, &
@@ -128,6 +130,17 @@ contains
         ! Re-init safe: clear any equilibrium/field state from a prior run.
         call kim_handle%finalize()
         periodic_constant_psi_pending = .true.
+        periodic_restored_amplitude_pending = .false.
+        if (trim(type_of_run) == 'TimeEvolution' .and. periodic_amplitudes%initialized) then
+            if (allocated(periodic_amplitudes%accepted) .and. &
+                    size(periodic_amplitudes%accepted) == dim_mn) then
+                periodic_constant_psi_pending = .false.
+                periodic_restored_amplitude_pending = .true.
+            else
+                write(*,*) 'WARNING: restored periodic amplitude count does not match mode count; ', &
+                    'using constant-psi initialization'
+            end if
+        end if
 
         if (kim_profiles_from_balance) then
             ! -----------------------------------------------------------
@@ -305,6 +318,7 @@ contains
             I_par_toroidal
         use control_mod, only: kim_profiles_from_balance, type_of_run
         use periodic_current_normalization_m, only: integrate_trusted_current, periodic_drive_scale
+        use periodic_amplitude_state_m, only: periodic_amplitudes
 
         implicit none
 
@@ -312,9 +326,9 @@ contains
         integer :: i_mn, ierr, kim_npts, kim_plasma_npts, nrad_inside, i
         real(8), allocatable :: kim_r(:), kim_plasma_r(:), weights(:)
         real(8) :: core_lo, core_hi, width
-        complex(8) :: current_unit, drive_scale
+        complex(8) :: current_unit, drive_scale, guarded_scale
         integer :: scale_status
-        logical :: periodic
+        logical :: periodic, apply_drive_scale
 
         periodic = kim_periodic_mode_selected()
 
@@ -387,6 +401,7 @@ contains
         ! 2. Loop over modes: solve through the seam and store
         ! -------------------------------------------------------
         do i_mn = 1, dim_mn
+            apply_drive_scale = .false.
 
             ! The seam owns mode setup, the per-mode equilibrium recompute
             ! (modes 2+), the field reset, and the run.
@@ -414,13 +429,31 @@ contains
                 end if
                 allocate(weights(dim_r))
                 current_unit = integrate_trusted_current(kim_r, res%jpar, core_lo, core_hi)
-                if (trim(type_of_run) == 'TimeEvolution' .and. periodic_constant_psi_pending) then
-                    drive_scale = (1.0d0, 0.0d0)
-                    scale_status = 0
+                if (trim(type_of_run) == 'TimeEvolution' .and. &
+                        periodic_restored_amplitude_pending) then
+                    drive_scale = periodic_amplitudes%accepted(i_mn)
+                    scale_status = periodic_amplitudes%accepted_status(i_mn)
+                    apply_drive_scale = .true.
+                elseif (trim(type_of_run) == 'TimeEvolution' .and. periodic_constant_psi_pending) then
+                    apply_drive_scale = .true.
+                    if (I_par_toroidal > 0.0d0) then
+                        call periodic_drive_scale(I_par_toroidal, current_unit, periodic_c_light, &
+                            periodic_current_floor, periodic_max_scale_ratio, &
+                            kim_periodic_normalization_relaxation, guarded_scale, scale_status)
+                        if (scale_status == 0) then
+                            drive_scale = (1.0d0, 0.0d0)
+                        else
+                            drive_scale = guarded_scale
+                        end if
+                    else
+                        drive_scale = (1.0d0, 0.0d0)
+                        scale_status = 0
+                    end if
                 else
                     call periodic_drive_scale(I_par_toroidal, current_unit, periodic_c_light, &
                         periodic_current_floor, periodic_max_scale_ratio, &
                         kim_periodic_normalization_relaxation, drive_scale, scale_status)
+                    apply_drive_scale = I_par_toroidal > 0.0d0
                 end if
                 kim_periodic_current_unit(i_mn) = current_unit
                 kim_periodic_scale_modes(i_mn) = drive_scale
@@ -435,7 +468,7 @@ contains
                 ! zero scale.  Apply it so a failed normalization cannot leak
                 ! the unit-amplitude response into a run whose later antenna
                 ! factor is deliberately fixed to one.
-                if (I_par_toroidal > 0.0d0) then
+                if (apply_drive_scale) then
                     res%Es = drive_scale*res%Es
                     res%Ep = drive_scale*res%Ep
                     res%Er = drive_scale*res%Er
@@ -642,6 +675,10 @@ contains
 
         if (periodic .and. trim(type_of_run) == 'TimeEvolution' .and. periodic_constant_psi_pending) then
             periodic_constant_psi_pending = .false.
+        end if
+        if (periodic .and. trim(type_of_run) == 'TimeEvolution' .and. &
+                periodic_restored_amplitude_pending) then
+            periodic_restored_amplitude_pending = .false.
         end if
         write(*, *) "KIM adapter: all modes solved"
 

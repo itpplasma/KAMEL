@@ -12,7 +12,7 @@ program test_collisionless_ion_kernel
     implicit none
 
     complex(dp) :: actual, expected, explicit_c0, collisional
-    complex(dp) :: pole_wide, pole_narrow, pole_cc, z0_cc, plasma_Z
+    complex(dp) :: pole_wide, pole_narrow, pole_cc, z0_cc, z0_finite, plasma_Z
     real(dp) :: magnitude_wide, magnitude_narrow, pole_magnitude
     type(species_t) :: spec
 
@@ -123,6 +123,11 @@ program test_collisionless_ion_kernel
     call assert_prefactor('G3_rho_phi', collisional, explicit_c0, expected)
 
     collisional = Krook_G1_rho_B(1, spec)
+    z0_finite = Krook_z0_cc(1, spec, collisionless=.false.)
+    expected = 0.45_dp * (z0_finite * plasma_Z(z0_finite) + 1.0_dp) - 0.15_dp * (&
+        0.5_dp + (z0_finite * plasma_Z(z0_finite) + 1.0_dp) * (1.0_dp + z0_finite**2))
+    call assert_close('finite Krook G1_rho_B', collisional, expected)
+
     explicit_c0 = Krook_G1_rho_B(1, spec, collisionless=.true., epsilon=0.25_dp)
     expected = 0.45_dp * (z0_cc * plasma_Z(z0_cc) + 1.0_dp) - 0.15_dp * (&
         0.5_dp + (z0_cc * plasma_Z(z0_cc) + 1.0_dp) * (1.0_dp + z0_cc**2))
@@ -146,6 +151,20 @@ program test_collisionless_ion_kernel
     print *, 'PASS: collisionless magnitude terms and causal signed poles remain distinct'
 
 contains
+
+    subroutine assert_close(name, actual_value, reference_value)
+        character(len=*), intent(in) :: name
+        complex(dp), intent(in) :: actual_value, reference_value
+        real(dp) :: tolerance
+
+        tolerance = 1.0e-13_dp * (1.0_dp + abs(reference_value))
+        if (abs(actual_value - reference_value) > tolerance) then
+            print *, 'FAIL: prefactor mismatch for ', name
+            print *, '  actual   = ', actual_value
+            print *, '  expected = ', reference_value
+            error stop
+        end if
+    end subroutine assert_close
 
     subroutine assert_prefactor(name, fp_value, c0_value, reference_value)
         character(len=*), intent(in) :: name

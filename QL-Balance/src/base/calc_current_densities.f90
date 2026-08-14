@@ -15,6 +15,7 @@ subroutine calc_parallel_current_directly
 
     integer :: ipoi, i, iunit, mnmax
     real(dp), dimension(:), allocatable :: x1, x2, vT, A1, A2
+    real(dp), dimension(:, :), allocatable :: diagnostic_data
     complex(dp), dimension(:), allocatable :: curr_e_par
     complex(dp), dimension(:, :, :), allocatable :: symbI
     real(dp), dimension(1) :: coll_fac = (/1/)!(/10.0, 100.0, 1.0e3, 1.0e4, 1.0e5/)
@@ -131,13 +132,15 @@ subroutine calc_parallel_current_directly
                     call h5_delete(h5_id, trim(tempch))
                 end if
 
-                call h5_define_unlimited_matrix(h5_id, trim(tempch), &
-                                            H5T_NATIVE_DOUBLE, (/-1, 5/), dataset_id)
-                call h5_append_double_1(dataset_id, rb, 1)
-                call h5_append_double_1(dataset_id, real(curr_e_par), 2)
-                call h5_append_double_1(dataset_id, dimag(curr_e_par), 3)
-                call h5_append_double_1(dataset_id, real(Jpe), 4)
-                call h5_append_double_1(dataset_id, dimag(Jpe), 5)
+                allocate (diagnostic_data(npoib, 5))
+                diagnostic_data(:, 1) = rb
+                diagnostic_data(:, 2) = real(curr_e_par)
+                diagnostic_data(:, 3) = dimag(curr_e_par)
+                diagnostic_data(:, 4) = real(Jpe)
+                diagnostic_data(:, 5) = dimag(Jpe)
+                call h5_add(h5_id, trim(tempch), diagnostic_data, &
+                    lbound(diagnostic_data), ubound(diagnostic_data))
+                deallocate (diagnostic_data)
 
                 ! cond_e data
                 tempch = "/"//trim(h5_mode_groupname)//"/cond_e.dat"
@@ -147,17 +150,19 @@ subroutine calc_parallel_current_directly
                     call h5_delete(h5_id, trim(tempch))
                 end if
 
-                call h5_define_unlimited_matrix(h5_id, trim(tempch), &
-                                            H5T_NATIVE_DOUBLE, (/-1, 9/), dataset_id)
-                call h5_append_double_1(dataset_id, rb, 1)
-                call h5_append_double_1(dataset_id, real(symbI(1, 0, :)), 2)
-                call h5_append_double_1(dataset_id, dimag(symbI(1, 0, :)), 3)
-                call h5_append_double_1(dataset_id, real(symbI(1, 1, :)), 4)
-                call h5_append_double_1(dataset_id, dimag(symbI(1, 1, :)), 5)
-                call h5_append_double_1(dataset_id, real(symbI(2, 1, :)), 6)
-                call h5_append_double_1(dataset_id, dimag(symbI(2, 1, :)), 7)
-                call h5_append_double_1(dataset_id, real(symbI(3, 1, :)), 8)
-                call h5_append_double_1(dataset_id, dimag(symbI(3, 1, :)), 9)
+                allocate (diagnostic_data(npoib, 9))
+                diagnostic_data(:, 1) = rb
+                diagnostic_data(:, 2) = real(symbI(1, 0, :))
+                diagnostic_data(:, 3) = dimag(symbI(1, 0, :))
+                diagnostic_data(:, 4) = real(symbI(1, 1, :))
+                diagnostic_data(:, 5) = dimag(symbI(1, 1, :))
+                diagnostic_data(:, 6) = real(symbI(2, 1, :))
+                diagnostic_data(:, 7) = dimag(symbI(2, 1, :))
+                diagnostic_data(:, 8) = real(symbI(3, 1, :))
+                diagnostic_data(:, 9) = dimag(symbI(3, 1, :))
+                call h5_add(h5_id, trim(tempch), diagnostic_data, lbound(diagnostic_data), &
+                            ubound(diagnostic_data))
+                deallocate (diagnostic_data)
 
                 call h5_close(h5_id)
                 call h5_deinit()
@@ -393,6 +398,7 @@ subroutine calc_ion_parallel_current_directly
     integer :: ipoi, i, iunit, mnmax
     real(dp) :: ei_charge
     real(dp), dimension(:), allocatable :: x1, x2, vT
+    real(dp), dimension(:, :), allocatable :: diagnostic_data
     complex(dp), dimension(:), allocatable :: curr_i_par
     complex(dp), dimension(:, :, :), allocatable :: symbI
 
@@ -480,13 +486,15 @@ subroutine calc_ion_parallel_current_directly
                 call h5_delete(h5_id, trim(tempch))
             end if
 
-            call h5_define_unlimited_matrix(h5_id, trim(tempch), &
-                                            H5T_NATIVE_DOUBLE, (/-1, 5/), dataset_id)
-            call h5_append_double_1(dataset_id, rb, 1)
-            call h5_append_double_1(dataset_id, real(curr_i_par), 2)
-            call h5_append_double_1(dataset_id, dimag(curr_i_par), 3)
-            call h5_append_double_1(dataset_id, real(Jpi), 4)
-            call h5_append_double_1(dataset_id, dimag(Jpi), 5)
+            allocate (diagnostic_data(npoib, 5))
+            diagnostic_data(:, 1) = rb
+            diagnostic_data(:, 2) = real(curr_i_par)
+            diagnostic_data(:, 3) = dimag(curr_i_par)
+            diagnostic_data(:, 4) = real(Jpi)
+            diagnostic_data(:, 5) = dimag(Jpi)
+            call h5_add(h5_id, trim(tempch), diagnostic_data, lbound(diagnostic_data), &
+                        ubound(diagnostic_data))
+            deallocate (diagnostic_data)
 
             call h5_close(h5_id)
             call h5_deinit()

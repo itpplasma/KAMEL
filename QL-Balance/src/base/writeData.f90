@@ -169,6 +169,7 @@ subroutine writefort9999(dqle11_prev, dqli11_prev)
 
     real(dp), dimension(:), intent(in) :: dqle11_prev
     real(dp), dimension(:), intent(in) :: dqli11_prev
+    real(dp), dimension(:, :), allocatable :: diagnostic_data
     integer :: ipoi
     character(256) :: buf
 
@@ -190,11 +191,13 @@ subroutine writefort9999(dqle11_prev, dqli11_prev)
             CALL h5_delete(h5_id, trim(h5_currentgrp))
         end if
 
-        CALL h5_define_unlimited_matrix(h5_id, trim(h5_currentgrp), &
-                                        H5T_NATIVE_DOUBLE, (/-1, 3/), dataset_id)
-        CALL h5_append_double_1(dataset_id, rb, 1)
-        CALL h5_append_double_1(dataset_id, abs(dqle11_prev - dqle11), 2)
-        CALL h5_append_double_1(dataset_id, abs(dqli11_prev - dqli11), 3)
+        allocate (diagnostic_data(npoib, 3))
+        diagnostic_data(:, 1) = rb
+        diagnostic_data(:, 2) = abs(dqle11_prev - dqle11)
+        diagnostic_data(:, 3) = abs(dqli11_prev - dqli11)
+        call h5_add(h5_id, trim(h5_currentgrp), diagnostic_data, lbound(diagnostic_data), &
+                    ubound(diagnostic_data))
+        deallocate (diagnostic_data)
 
         CALL h5_close(h5_id)
         CALL h5_deinit()
@@ -220,6 +223,7 @@ subroutine writefort9999_stellarator(dqle11_prev, dqli11_prev)
 
     real(dp), dimension(:), intent(in) :: dqle11_prev
     real(dp), dimension(:), intent(in) :: dqli11_prev
+    real(dp), dimension(:, :), allocatable :: diagnostic_data
     integer :: ipoi
     character(256) :: buf
 
@@ -241,11 +245,13 @@ subroutine writefort9999_stellarator(dqle11_prev, dqli11_prev)
             CALL h5_delete(h5_id, trim(h5_currentgrp))
         end if
 
-        CALL h5_define_unlimited_matrix(h5_id, trim(h5_currentgrp), &
-                                        H5T_NATIVE_DOUBLE, (/-1, 3/), dataset_id)
-        CALL h5_append_double_1(dataset_id, rb, 1)
-        CALL h5_append_double_1(dataset_id, abs(dqle11_prev - dqle11), 2)
-        CALL h5_append_double_1(dataset_id, abs(dqli11_prev - dqli11), 3)
+        allocate (diagnostic_data(npoib, 3))
+        diagnostic_data(:, 1) = rb
+        diagnostic_data(:, 2) = abs(dqle11_prev - dqle11)
+        diagnostic_data(:, 3) = abs(dqli11_prev - dqli11)
+        call h5_add(h5_id, trim(h5_currentgrp), diagnostic_data, lbound(diagnostic_data), &
+                    ubound(diagnostic_data))
+        deallocate (diagnostic_data)
 
         CALL h5_close(h5_id)
         CALL h5_deinit()

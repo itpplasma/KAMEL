@@ -103,13 +103,12 @@
     allocate(dqli11(npoib),dqli12(npoib),dqli21(npoib),dqli22(npoib))
     allocate(de11(npoib),de12(npoib),de21(npoib),de22(npoib))
     allocate(di11(npoib),di12(npoib),di21(npoib),di22(npoib))
-    allocate(T_EM_phi_e(npoib), T_EM_phi_i(npoib))
+    allocate(torque_density_e(npoib), torque_density_i(npoib), torque_density_ntv(npoib))
     allocate(polforce(npoib), qlheat_e(npoib), qlheat_i(npoib))
-    allocate(torque_ntv(npoib))
 
     ! initialize to 0 as otherwise garbage would be added to polforce
     ! if no TimeEvolutionNTV is run
-    torque_ntv = 0.0_dp
+    torque_density_ntv = 0.0_dp
     dni22=0.d0
 
     allocate(cneo(npoib),gpp_av(npoib))

@@ -1,7 +1,7 @@
 program test_toroidal_torque
     use iso_fortran_env, only: dp => real64
     use baseparam_mod, only: pi, rtor
-    use grid_mod, only: T_EM_phi_e, T_EM_phi_i, T_tot_phi_e, T_tot_phi_i
+    use grid_mod, only: torque_density_e, torque_density_i, T_tot_phi_e, T_tot_phi_i
     use wave_code_data, only: r
 
     implicit none
@@ -11,12 +11,12 @@ program test_toroidal_torque
     external :: calculate_total_toroidal_torque
 
     allocate(r(3))
-    allocate(T_EM_phi_e(3), T_EM_phi_i(3))
+    allocate(torque_density_e(3), torque_density_i(3))
     allocate(T_tot_phi_e(1), T_tot_phi_i(1))
 
     r = [0.0_dp, 0.5_dp, 1.0_dp]
-    T_EM_phi_e = 1.0_dp
-    T_EM_phi_i = -2.0_dp
+    torque_density_e = 1.0_dp
+    torque_density_i = -2.0_dp
     rtor = 3.0_dp
 
     call calculate_total_toroidal_torque(1)

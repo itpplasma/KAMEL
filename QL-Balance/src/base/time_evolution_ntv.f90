@@ -153,7 +153,7 @@ contains
         end do
         !$omp end parallel do
 
-        ! Add torque to global torque_ntv array to be used in rhs_balance
+        ! Add torque to global torque_density_ntv array to be used in rhs_balance
         call apply_ntv_transport(r, transport_data, antenna_factor_exponent)
 
     end subroutine neo_rt

@@ -318,7 +318,7 @@ module time_evolution
 
     subroutine alloc_Br_Dqle_for_timeevol
 
-        use grid_mod, only: T_tot_phi_e, T_tot_phi_i, T_tot_ntv_i
+        use grid_mod, only: T_tot_phi_e, T_tot_phi_i, T_tot_phi_ntv
 
         implicit none
 
@@ -333,7 +333,7 @@ module time_evolution
         allocate(Ipar_time(Nstorage))
         allocate(T_tot_phi_e(Nstorage))
         allocate(T_tot_phi_i(Nstorage))
-        allocate(T_tot_ntv_i(Nstorage))
+        allocate(T_tot_phi_ntv(Nstorage))
 
     end subroutine
 

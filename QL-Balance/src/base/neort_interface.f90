@@ -118,11 +118,11 @@ contains
     !> @param[out] plasma_data 2D array (nflux, 6) for NEO-RT plasma input
     !> @details Passes KAMEL data to NEO-RT. Data format expected by NEO-RT:
     !>          Column 1: s_tor - normalized toroidal flux (dimensionless)
-    !>          Column 2: ni1 - density of species 1 [cm^-3]
-    !>          Column 3: ni2 - density of species 2 [cm^-3]
-    !>          Column 4: Ti1 - temperature of species 1 [eV]
-    !>          Column 5: Ti2 - temperature of species 2 [eV]
-    !>          Column 6: Te - electron temperature [eV]
+    !>          Column 2: ni1   - density of species 1 [cm^-3]
+    !>          Column 3: ni2   - density of species 2 [cm^-3]
+    !>          Column 4: Ti1   - temperature of species 1 [eV]
+    !>          Column 5: Ti2   - temperature of species 2 [eV]
+    !>          Column 6: Te    - electron temperature [eV]
     subroutine prepare_plasma_data_for_neort(plasma_data, r, s_tor)
         use baseparam_mod, only: EV_TO_ERG => ev
         use grid_mod, only: rc

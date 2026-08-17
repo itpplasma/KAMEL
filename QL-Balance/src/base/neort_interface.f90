@@ -46,8 +46,7 @@ contains
         ! as some values are deliberately unused or fixed plus the following:
         ! - explicit paths for the Boozer input files, where the perturbation file is optional
         ! - amount of equidistant s to compute on
-        ! - an exponent for the antenna_factor that gets multiplied onto the resulting torque
-        !   NTV torque scales with the current in the RMP coils as well
+        ! - an exponent for the antenna_factor the resulting torque gets scaled with
         ! new meta config values:
         character(len=1024) :: boozer_file
         character(len=1024) :: boozer_pert_file  ! optional
@@ -55,28 +54,29 @@ contains
         real(dp) :: antenna_factor_exponent
         ! original NEO-RT config values
         real(dp) :: epsmn
+        ! m0 is set from the internal poloidal mode
+        ! mph is set from the internal toroidal mode
+        ! comptorque must be .true.
+        logical :: supban
         logical :: magdrift
+        integer :: magdrift_passing
         logical :: nopassing
         logical :: noshear
+        ! pertfile is .true. if boozer_pert_file is non-empty
         logical :: nonlin
         real(dp) :: bfac
         real(dp) :: efac
         integer :: inp_swi
+        integer :: inp_swi_pert
         integer :: vsteps
+        integer :: mth_max_abs
+        real(dp) :: vmax_over_vth
         integer :: log_level
+        ! output_format not needed, nothing is written to disk
 
         namelist /NEORT/ boozer_file, boozer_pert_file, amount_of_s, antenna_factor_exponent, &
-            epsmn, magdrift, nopassing, noshear, nonlin, bfac, efac, inp_swi, vsteps, log_level
-
-        ! some default values
-        boozer_pert_file = ""
-        amount_of_s = 100
-        antenna_factor_exponent = 1.0
-        bfac = 1.0
-        efac = 1.0
-        inp_swi = 9  ! AUG
-        vsteps = 512
-        log_level = -1  ! silent
+            epsmn, supban, magdrift, magdrift_passing, nopassing, noshear, nonlin, bfac, efac, &
+            inp_swi, inp_swi_pert, vsteps, mth_max_abs, vmax_over_vth, log_level
 
         ! read namelist
         open (22, file=config_file)
@@ -102,7 +102,9 @@ contains
         meta_config%config%m0 = poloidal_mode_number
         meta_config%config%mph = toroidal_mode_number
         meta_config%config%comptorque = .true.  ! must be true
+        meta_config%config%supban = supban
         meta_config%config%magdrift = magdrift
+        meta_config%config%magdrift_passing = magdrift_passing
         meta_config%config%nopassing = nopassing
         meta_config%config%noshear = noshear
         meta_config%config%pertfile = boozer_pert_file /= ""  ! only if boozer_pert_file was set
@@ -110,8 +112,12 @@ contains
         meta_config%config%bfac = bfac
         meta_config%config%efac = efac
         meta_config%config%inp_swi = inp_swi
+        meta_config%config%inp_swi_pert = inp_swi_pert
         meta_config%config%vsteps = vsteps
+        meta_config%config%mth_max_abs = mth_max_abs
+        meta_config%config%vmax_over_vth = vmax_over_vth
         meta_config%config%log_level = log_level
+        ! output_format irrelevant, write_output not called by the lib interface
     end subroutine read_neort_meta_config
 
     !> @brief Prepare plasma profile data for NEO-RT from KAMEL arrays

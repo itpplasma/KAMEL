@@ -71,18 +71,30 @@
 
 ! NEO-RT configuration namelist (for TimeEvolutionNTV runs)
 &NEORT
- boozer_file = ''
- boozer_pert_file = ''
+ ! meta config settings
+ boozer_file = ""
+ boozer_pert_file = ""
  amount_of_s = 100
- antenna_factor_exponent = 1.0
- epsmn = 0.001
+ antenna_factor_exponent = 0.0
+ ! original NEO-RT settings
+ epsmn = 1.0
+ ! m0 is set from the internal poloidal mode
+ ! mph is set from the internal toroidal mode
+ ! comptorque must be .true.
+ supban = .false.
  magdrift = .true.
+ magdrift_passing = -1
  nopassing = .false.
  noshear = .false.
+ ! pertfile is .true. if boozer_pert_file is non-empty
  nonlin = .false.
  bfac = 1.0
  efac = 1.0
- inp_swi = 9
+ inp_swi = 9  ! AUG
+ inp_swi_pert = -1
  vsteps = 512
- log_level = -1
+ mth_max_abs = -1
+ vmax_over_vth = 4.0
+ log_level = -1  ! silent
+ ! output_format not needed, nothing is written to disk
 /

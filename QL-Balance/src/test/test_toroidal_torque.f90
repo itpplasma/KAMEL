@@ -1,31 +1,35 @@
 program test_toroidal_torque
     use iso_fortran_env, only: dp => real64
     use baseparam_mod, only: pi, rtor
-    use grid_mod, only: torque_density_e, torque_density_i, T_tot_phi_e, T_tot_phi_i
+    use grid_mod, only: torque_density_e, torque_density_i, torque_density_ntv, &
+                        T_tot_phi_e, T_tot_phi_i, T_tot_phi_ntv
     use wave_code_data, only: r
 
     implicit none
 
     real(dp), parameter :: tolerance = 1.0e-12_dp
-    real(dp) :: expected_e, expected_i
+    real(dp) :: expected_e, expected_i, expected_ntv
     external :: calculate_total_toroidal_torque
 
     allocate(r(3))
-    allocate(torque_density_e(3), torque_density_i(3))
-    allocate(T_tot_phi_e(1), T_tot_phi_i(1))
+    allocate(torque_density_e(3), torque_density_i(3), torque_density_ntv(3))
+    allocate(T_tot_phi_e(1), T_tot_phi_i(1), T_tot_phi_ntv(1))
 
     r = [0.0_dp, 0.5_dp, 1.0_dp]
     torque_density_e = 1.0_dp
     torque_density_i = -2.0_dp
+    torque_density_ntv = 3.0_dp
     rtor = 3.0_dp
 
     call calculate_total_toroidal_torque(1)
 
     expected_e = 4.0_dp * pi**2 * rtor * 0.5_dp
     expected_i = -2.0_dp * expected_e
+    expected_ntv = 3.0_dp * expected_e
 
     call assert_close(T_tot_phi_e(1), expected_e, "electron total torque")
     call assert_close(T_tot_phi_i(1), expected_i, "ion total torque")
+    call assert_close(T_tot_phi_ntv(1), expected_ntv, "NTV total torque")
 
 contains
 

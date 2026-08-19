@@ -52,6 +52,7 @@ module species_m
         complex(dp), allocatable :: I13(:, :)
         complex(dp), allocatable :: I20(:, :)
         complex(dp), allocatable :: I02(:, :)
+        complex(dp), allocatable :: I03(:, :)
         complex(dp), allocatable :: I01(:, :)
         complex(dp), allocatable :: I21(:, :)
         complex(dp), allocatable :: I22(:, :)
@@ -78,6 +79,7 @@ module species_m
         complex(dp), allocatable :: I21_cc(:, :)
         complex(dp), allocatable :: I22_cc(:, :)
         complex(dp), allocatable :: I02_cc(:, :)
+        complex(dp), allocatable :: I03_cc(:, :)
         complex(dp), allocatable :: I13_cc(:, :)
         complex(dp), allocatable :: I11_cc(:, :)
     end type
@@ -429,6 +431,7 @@ module species_m
                 allocate(plasma_in%spec(sp)%I21(rg_grid%npts_b, -mphi_max:mphi_max))
                 allocate(plasma_in%spec(sp)%I22(rg_grid%npts_b, -mphi_max:mphi_max))
                 allocate(plasma_in%spec(sp)%I02(rg_grid%npts_b, -mphi_max:mphi_max))
+                allocate(plasma_in%spec(sp)%I03(rg_grid%npts_b, -mphi_max:mphi_max))
                 allocate(plasma_in%spec(sp)%I11(rg_grid%npts_b, -mphi_max:mphi_max))
                 allocate(plasma_in%spec(sp)%I13(rg_grid%npts_b, -mphi_max:mphi_max))
             end if
@@ -447,6 +450,7 @@ module species_m
                 allocate(plasma_in%spec(sp)%I12_cc(rg_grid%npts_c, -mphi_max:mphi_max))
                 allocate(plasma_in%spec(sp)%I22_cc(rg_grid%npts_c, -mphi_max:mphi_max))
                 allocate(plasma_in%spec(sp)%I02_cc(rg_grid%npts_c, -mphi_max:mphi_max))
+                allocate(plasma_in%spec(sp)%I03_cc(rg_grid%npts_c, -mphi_max:mphi_max))
                 allocate(plasma_in%spec(sp)%I13_cc(rg_grid%npts_c, -mphi_max:mphi_max))
                 allocate(plasma_in%spec(sp)%I11_cc(rg_grid%npts_c, -mphi_max:mphi_max))
             end if
@@ -496,6 +500,7 @@ module species_m
                     plasma_in%spec(sp)%I00(j, mphi) = plasma_in%spec(sp)%symbI(0, 0)
                     plasma_in%spec(sp)%I20(j, mphi) = plasma_in%spec(sp)%symbI(2, 0)
                     plasma_in%spec(sp)%I02(j, mphi) = plasma_in%spec(sp)%symbI(0, 2)
+                    plasma_in%spec(sp)%I03(j, mphi) = plasma_in%spec(sp)%symbI(0, 3)
                     plasma_in%spec(sp)%I01(j, mphi) = plasma_in%spec(sp)%symbI(0, 1)
                     plasma_in%spec(sp)%I21(j, mphi) = plasma_in%spec(sp)%symbI(2, 1)
                     plasma_in%spec(sp)%I22(j, mphi) = plasma_in%spec(sp)%symbI(2, 2)
@@ -554,6 +559,7 @@ module species_m
                     plasma_in%spec(sp)%I10_cc(j, mphi) = plasma_in%spec(sp)%symbI(1, 0)
                     plasma_in%spec(sp)%I12_cc(j, mphi) = plasma_in%spec(sp)%symbI(1, 2)
                     plasma_in%spec(sp)%I02_cc(j, mphi) = plasma_in%spec(sp)%symbI(0, 2)
+                    plasma_in%spec(sp)%I03_cc(j, mphi) = plasma_in%spec(sp)%symbI(0, 3)
                     plasma_in%spec(sp)%I01_cc(j, mphi) = plasma_in%spec(sp)%symbI(0, 1)
                     plasma_in%spec(sp)%I21_cc(j, mphi) = plasma_in%spec(sp)%symbI(2, 1)
                     plasma_in%spec(sp)%I22_cc(j, mphi) = plasma_in%spec(sp)%symbI(2, 2)
@@ -847,6 +853,9 @@ module species_m
                 call write_complex_profile(r_grid_cc, spec%I02_cc(:, mphi), size(r_grid_cc), &
                     'backs/'//trim(spec%name)//'/I02_cc_mphi_'//trim(adjustl(itoa(mphi))), &
                     'Susceptibility function I02 at cell centers, mphi='//trim(adjustl(itoa(mphi))), '1')
+                call write_complex_profile(r_grid_cc, spec%I03_cc(:, mphi), size(r_grid_cc), &
+                    'backs/'//trim(spec%name)//'/I03_cc_mphi_'//trim(adjustl(itoa(mphi))), &
+                    'Susceptibility function I03 at cell centers, mphi='//trim(adjustl(itoa(mphi))), '1')
                 call write_complex_profile(r_grid_cc, spec%I13_cc(:, mphi), size(r_grid_cc), &
                     'backs/'//trim(spec%name)//'/I13_cc_mphi_'//trim(adjustl(itoa(mphi))), &
                     'Susceptibility function I13 at cell centers, mphi='//trim(adjustl(itoa(mphi))), '1')
@@ -1050,6 +1059,7 @@ module species_m
             spec%I00(j, mphi) = spec%symbI(0, 0)
             spec%I20(j, mphi) = spec%symbI(2, 0)
             spec%I02(j, mphi) = spec%symbI(0, 2)
+            spec%I03(j, mphi) = spec%symbI(0, 3)
             spec%I01(j, mphi) = spec%symbI(0, 1)
             spec%I21(j, mphi) = spec%symbI(2, 1)
             spec%I22(j, mphi) = spec%symbI(2, 2)

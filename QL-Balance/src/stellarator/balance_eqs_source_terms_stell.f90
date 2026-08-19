@@ -16,6 +16,7 @@ subroutine det_balance_eqs_source_terms_stell
     integer :: ipoi, ieq, i, npoi, k
     real(dp) :: x
     character(len=1024) :: tempch
+    real(dp), dimension(:, :), allocatable :: diagnostic_data
 
     call log_debug("Generating starting source")
 
@@ -73,12 +74,13 @@ subroutine det_balance_eqs_source_terms_stell
                 CALL h5_delete(h5_id, trim(tempch))
             end if
 
-            CALL h5_define_unlimited_matrix(h5_id, trim(tempch), &
-                H5T_NATIVE_DOUBLE, (/4,-1/), dataset_id)
+            allocate (diagnostic_data(4, npoi))
             do ipoi = 1, npoi
-                CALL h5_append_double_1(dataset_id, &
-                    dery_equisource(4*(ipoi-1)+1:4*ipoi), ipoi)
+                diagnostic_data(:, ipoi) = dery_equisource(4 * (ipoi - 1) + 1:4 * ipoi)
             enddo
+            call h5_add(h5_id, trim(tempch), diagnostic_data, lbound(diagnostic_data), &
+                        ubound(diagnostic_data))
+            deallocate (diagnostic_data)
             CALL h5_close(h5_id)
             CALL h5_deinit()
         else

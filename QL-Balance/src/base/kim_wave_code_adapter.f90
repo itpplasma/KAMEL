@@ -14,6 +14,7 @@ module kim_wave_code_adapter_m
     use setup_m, only: kim_m_mode => m_mode, kim_n_mode => n_mode
     use grid_m, only: kim_xl_grid => xl_grid, &
                       kim_r_min => r_min, kim_r_plas => r_plas
+    use periodic_embedding_m, only: embed_complex_profile, embed_tensor_profile
 
     implicit none
     private
@@ -29,6 +30,8 @@ module kim_wave_code_adapter_m
     public :: kim_check_domain_consistency
     public :: kim_get_current_densities
     public :: interp_complex_profile  ! exposed for testing
+    public :: kim_periodic_mode_selected
+    public :: kim_D_ion_modes, kim_transition_weights
 
     !! Module-level KIM solver handle (reused across calls)
     type(kim_solver_t) :: kim_handle
@@ -52,6 +55,8 @@ module kim_wave_code_adapter_m
     !! Parallel magnetic perturbation in RSP coordinates.  This is
     !! exposed through wave_code_data%Bp, matching the KiLCA interface.
     complex(8), allocatable, public :: kim_Bparallel_modes(:,:)
+    real(8), allocatable :: kim_D_ion_modes(:,:,:,:)
+    real(8), allocatable :: kim_transition_weights(:,:)
 
     !! Per-mode stored wave vectors (nrad, dim_mn)
     !! kp and ks depend on (m,n) via the equilibrium formulas.
@@ -80,7 +85,7 @@ contains
         !!   kim_profiles_from_balance = .false. (Path B):
         !!     KIM reads its own files, adapter reads modes.in, extracts
         !!     everything — original behavior.
-        use control_mod, only: kim_config_path, kim_profiles_from_balance
+        use control_mod, only: kim_config_path, kim_profiles_from_balance, kim_run_type
         use IO_collection_m, only: deinitialize_hdf5_output
         use wave_code_data, only: dim_mn, m_vals, n_vals, dim_r, &
             r => r, q => q, n => n, Te => Te, Ti => Ti, &
@@ -123,7 +128,7 @@ contains
             prof%r = r; prof%n = n; prof%Te = Te
             prof%Ti = Ti; prof%q = q; prof%Er = -dPhi0
 
-            call kim_handle%init(trim(kim_config_path), run_type='electromagnetic', &
+            call kim_handle%init(trim(kim_config_path), run_type=trim(kim_run_type), &
                                  profiles=prof, stat=ierr)
         else
             ! -----------------------------------------------------------
@@ -132,7 +137,7 @@ contains
             call read_antenna_modes(flre_path)
             call allocate_wave_code_data(nrad, r_grid)
 
-            call kim_handle%init(trim(kim_config_path), run_type='electromagnetic', &
+            call kim_handle%init(trim(kim_config_path), run_type=trim(kim_run_type), &
                                  stat=ierr)
         end if
 
@@ -286,7 +291,11 @@ contains
 
         type(kim_results_t) :: res
         integer :: i_mn, ierr, kim_npts, kim_plasma_npts, nrad_inside, i
-        real(8), allocatable :: kim_r(:), kim_plasma_r(:)
+        real(8), allocatable :: kim_r(:), kim_plasma_r(:), weights(:)
+        real(8) :: core_lo, core_hi, width
+        logical :: periodic
+
+        periodic = kim_periodic_mode_selected()
 
         ! -------------------------------------------------------
         ! 1. (Re-)allocate per-mode storage
@@ -298,6 +307,8 @@ contains
         if (allocated(kim_Ez_modes)) deallocate(kim_Ez_modes)
         if (allocated(kim_Br_modes)) deallocate(kim_Br_modes)
         if (allocated(kim_Bparallel_modes)) deallocate(kim_Bparallel_modes)
+        if (allocated(kim_D_ion_modes)) deallocate(kim_D_ion_modes)
+        if (allocated(kim_transition_weights)) deallocate(kim_transition_weights)
         if (allocated(kim_kp_modes)) deallocate(kim_kp_modes)
         if (allocated(kim_ks_modes)) deallocate(kim_ks_modes)
         if (allocated(kim_jpar_modes)) deallocate(kim_jpar_modes)
@@ -311,6 +322,8 @@ contains
         allocate(kim_Ez_modes(dim_r, dim_mn))
         allocate(kim_Br_modes(dim_r, dim_mn))
         allocate(kim_Bparallel_modes(dim_r, dim_mn))
+        allocate(kim_D_ion_modes(2, 2, dim_r, dim_mn))
+        allocate(kim_transition_weights(dim_r, dim_mn))
         allocate(kim_kp_modes(dim_r, dim_mn))
         allocate(kim_ks_modes(dim_r, dim_mn))
         allocate(kim_jpar_modes(dim_r, dim_mn))
@@ -324,6 +337,8 @@ contains
         kim_Ez_modes = (0.0d0, 0.0d0)
         kim_Br_modes = (0.0d0, 0.0d0)
         kim_Bparallel_modes = (0.0d0, 0.0d0)
+        kim_D_ion_modes = 0.0d0
+        kim_transition_weights = 1.0d0
         kim_kp_modes = 0.0d0
         kim_ks_modes = 0.0d0
         kim_jpar_modes = (0.0d0, 0.0d0)
@@ -350,6 +365,16 @@ contains
             allocate(kim_r(kim_npts))
             kim_r = res%r_field
 
+            if (periodic) then
+                width = res%dx_transition
+                core_lo = res%r_resonance - res%dx_asis
+                core_hi = res%r_resonance + res%dx_asis
+                if (width <= 0.0d0 .or. core_hi <= core_lo) then
+                    error stop 'periodic KIM result lacks compact embedding metadata'
+                end if
+                allocate(weights(dim_r))
+            end if
+
             if (i_mn == 1) then
                 write(*,*) '  KIM field grid: r_min=', kim_r(1), &
                            ' r_max=', kim_r(kim_npts), ' npts=', kim_npts
@@ -357,58 +382,116 @@ contains
                 write(*,*) '  KIM |Br| at last grid pt =', abs(res%Br(kim_npts))
             end if
 
-            ! Es (perpendicular E field in rsp coordinates)
-            call interp_complex_profile(kim_npts, kim_r, res%Es, &
-                dim_r, bal_r, kim_Es_modes(:, i_mn))
+            ! Physical fields are interpolated before applying one common
+            ! compact transition; no derivative of the window is introduced.
+            if (periodic) then
+                call embed_complex_profile(kim_r, res%Es, bal_r, core_lo, core_hi, width, &
+                    kim_Es_modes(:, i_mn), weights)
+            else
+                call interp_complex_profile(kim_npts, kim_r, res%Es, &
+                    dim_r, bal_r, kim_Es_modes(:, i_mn))
+            end if
 
             ! Ep (parallel E field in rsp coordinates)
-            call interp_complex_profile(kim_npts, kim_r, res%Ep, &
-                dim_r, bal_r, kim_Ep_modes(:, i_mn))
+            if (periodic) then
+                call embed_complex_profile(kim_r, res%Ep, bal_r, core_lo, core_hi, width, &
+                    kim_Ep_modes(:, i_mn), weights)
+            else
+                call interp_complex_profile(kim_npts, kim_r, res%Ep, &
+                    dim_r, bal_r, kim_Ep_modes(:, i_mn))
+            end if
 
             ! Er (radial E field, cylindrical)
-            call interp_complex_profile(kim_npts, kim_r, res%Er, &
-                dim_r, bal_r, kim_Er_modes(:, i_mn))
+            if (periodic) then
+                call embed_complex_profile(kim_r, res%Er, bal_r, core_lo, core_hi, width, &
+                    kim_Er_modes(:, i_mn), weights)
+            else
+                call interp_complex_profile(kim_npts, kim_r, res%Er, &
+                    dim_r, bal_r, kim_Er_modes(:, i_mn))
+            end if
 
             ! Etheta -> Et (poloidal E field, cylindrical)
-            call interp_complex_profile(kim_npts, kim_r, res%Etheta, &
-                dim_r, bal_r, kim_Et_modes(:, i_mn))
+            if (periodic) then
+                call embed_complex_profile(kim_r, res%Etheta, bal_r, core_lo, core_hi, width, &
+                    kim_Et_modes(:, i_mn), weights)
+            else
+                call interp_complex_profile(kim_npts, kim_r, res%Etheta, &
+                    dim_r, bal_r, kim_Et_modes(:, i_mn))
+            end if
 
             ! Ez (axial E field, cylindrical)
-            call interp_complex_profile(kim_npts, kim_r, res%Ez, &
-                dim_r, bal_r, kim_Ez_modes(:, i_mn))
+            if (periodic) then
+                call embed_complex_profile(kim_r, res%Ez, bal_r, core_lo, core_hi, width, &
+                    kim_Ez_modes(:, i_mn), weights)
+            else
+                call interp_complex_profile(kim_npts, kim_r, res%Ez, &
+                    dim_r, bal_r, kim_Ez_modes(:, i_mn))
+            end if
 
             ! Br (radial magnetic field perturbation)
-            call interp_complex_profile(kim_npts, kim_r, res%Br, &
-                dim_r, bal_r, kim_Br_modes(:, i_mn))
+            if (periodic) then
+                call embed_complex_profile(kim_r, res%Br, bal_r, core_lo, core_hi, width, &
+                    kim_Br_modes(:, i_mn), weights)
+            else
+                call interp_complex_profile(kim_npts, kim_r, res%Br, &
+                    dim_r, bal_r, kim_Br_modes(:, i_mn))
+            end if
 
             ! Bparallel is already represented in RSP coordinates by KIM;
             ! store it separately so the wave-code adapter can expose it as
             ! Bp without confusing it with the radial Br component.
             if (allocated(res%Bparallel)) then
-                call interp_complex_profile(kim_npts, kim_r, res%Bparallel, &
-                    dim_r, bal_r, kim_Bparallel_modes(:, i_mn))
+                if (periodic) then
+                    call embed_complex_profile(kim_r, res%Bparallel, bal_r, core_lo, core_hi, width, &
+                        kim_Bparallel_modes(:, i_mn), weights)
+                else
+                    call interp_complex_profile(kim_npts, kim_r, res%Bparallel, &
+                        dim_r, bal_r, kim_Bparallel_modes(:, i_mn))
+                end if
             end if
 
             ! jpar (parallel current density: total, electron, ion)
             if (allocated(res%jpar)) then
-                call interp_complex_profile(kim_npts, kim_r, res%jpar, &
-                    dim_r, bal_r, kim_jpar_modes(:, i_mn))
+                if (periodic) then
+                    call embed_complex_profile(kim_r, res%jpar, bal_r, core_lo, core_hi, width, &
+                        kim_jpar_modes(:, i_mn), weights)
+                else
+                    call interp_complex_profile(kim_npts, kim_r, res%jpar, &
+                        dim_r, bal_r, kim_jpar_modes(:, i_mn))
+                end if
             end if
             if (allocated(res%jpar_e)) then
-                call interp_complex_profile(kim_npts, kim_r, res%jpar_e, &
-                    dim_r, bal_r, kim_jpar_e_modes(:, i_mn))
+                if (periodic) then
+                    call embed_complex_profile(kim_r, res%jpar_e, bal_r, core_lo, core_hi, width, &
+                        kim_jpar_e_modes(:, i_mn), weights)
+                else
+                    call interp_complex_profile(kim_npts, kim_r, res%jpar_e, &
+                        dim_r, bal_r, kim_jpar_e_modes(:, i_mn))
+                end if
             end if
             if (allocated(res%jpar_i)) then
-                call interp_complex_profile(kim_npts, kim_r, res%jpar_i, &
-                    dim_r, bal_r, kim_jpar_i_modes(:, i_mn))
+                if (periodic) then
+                    call embed_complex_profile(kim_r, res%jpar_i, bal_r, core_lo, core_hi, width, &
+                        kim_jpar_i_modes(:, i_mn), weights)
+                else
+                    call interp_complex_profile(kim_npts, kim_r, res%jpar_i, &
+                        dim_r, bal_r, kim_jpar_i_modes(:, i_mn))
+                end if
+            end if
+
+            if (periodic .and. allocated(res%D_ion)) then
+                call embed_tensor_profile(kim_r, res%D_ion, bal_r, core_lo, core_hi, width, &
+                    kim_D_ion_modes(:, :, :, i_mn))
+                kim_transition_weights(:, i_mn) = weights
             end if
 
             deallocate(kim_r)
+            if (periodic) deallocate(weights)
 
             ! Apply vacuum continuation beyond r_plas:
             ! KIM fields are only valid inside the plasma domain.
             ! Beyond r_plas, use the vacuum Br from KiLCA and zero E fields.
-            call apply_vacuum_continuation(i_mn, dim_r, bal_r)
+            if (.not. kim_periodic_mode_selected()) call apply_vacuum_continuation(i_mn, dim_r, bal_r)
 
             ! kp and ks (mode-dependent wave vectors on plasma grid)
             kim_plasma_npts = size(res%r_plasma)
@@ -550,6 +633,11 @@ contains
         end if
 
     end subroutine kim_update_profiles
+
+    logical function kim_periodic_mode_selected()
+        use control_mod, only: kim_run_type
+        kim_periodic_mode_selected = trim(kim_run_type) == 'electrostatic_periodic'
+    end function kim_periodic_mode_selected
 
     subroutine kim_get_wave_fields(i_mn)
         !! Copy per-mode stored fields from kim_*_modes arrays

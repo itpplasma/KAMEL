@@ -24,8 +24,39 @@ module rt_electrostatic_periodic_m
     integer, parameter, public :: PERIODIC_SCALE_INVALID_RHO = 2
 
     public :: compute_periodic_delta_phi, select_periodic_reference_scale
+    public :: compute_periodic_ion_tensor
 
     contains
+
+    subroutine compute_periodic_ion_tensor(fields_s, ks_s, kr_s, kpar, vTi, nui, omega_ci, &
+                                            omega_mode, om_E, B0, tensor)
+        use KIM_kinds_m, only: dp
+        use config_m, only: resolved_ion_ifunc_conservation_model
+        use setup_m, only: mphi_max
+        use species_m, only: evaluate_susceptibility
+        use quasilinear_integral_m, only: calc_ion_integral_harmonic
+        use constants_m, only: sol
+
+        complex(dp), intent(in) :: fields_s(3)
+        real(dp), intent(in) :: ks_s, kr_s, kpar, vTi, nui, omega_ci
+        real(dp), intent(in) :: omega_mode, om_E, B0
+        real(dp), intent(out) :: tensor(2,2)
+        complex(dp) :: symbI(0:3,0:3), fields_o(3)
+        real(dp) :: harmonic_tensor(2,2), x1, x2
+        integer :: ell
+
+        tensor = 0.0_dp
+        if (nui <= tiny(1.0_dp) .or. abs(omega_ci) <= tiny(1.0_dp)) return
+        fields_o = fields_s
+        x1 = kpar*vTi/nui
+        do ell = -mphi_max, mphi_max
+            x2 = -(om_E + real(ell,dp)*omega_ci - omega_mode)/nui
+            call evaluate_susceptibility(x1, x2, resolved_ion_ifunc_conservation_model, symbI)
+            call calc_ion_integral_harmonic(ell, ks_s, kr_s, ks_s, kr_s, vTi, abs(omega_ci), &
+                omega_ci, sol, B0, nui, fields_s, fields_o, symbI, harmonic_tensor)
+            tensor = tensor + harmonic_tensor
+        end do
+    end subroutine compute_periodic_ion_tensor
 
     !> Reusable periodic core: build the window plasma, assemble the Fourier
     !> matrices, solve for the coefficients Phi_m under a constant Br drive, and
@@ -237,8 +268,8 @@ module rt_electrostatic_periodic_m
         use config_m, only: periodic_dr_asis_scale, periodic_dr_tr_scale, &
                             periodic_kmax_scale, periodic_n_rg, hdf5_output, &
                             periodic_match_global_kernel_approximations, &
-                            turn_off_electrons, turn_off_ions
-        use setup_m, only: Br_boundary_re, Br_boundary_im, m_mode, n_mode, R0
+                            periodic_Bparallel_ratio, turn_off_electrons, turn_off_ions
+        use setup_m, only: Br_boundary_re, Br_boundary_im, m_mode, n_mode, R0, omega
         use species_m, only: plasma
         use grid_m, only: rg_grid
         use kim_resonances_m, only: r_res
@@ -253,6 +284,8 @@ module rt_electrostatic_periodic_m
 
         complex(dp), allocatable :: dPhi(:), dPhi_dr(:), jpar(:), jpar_species(:,:)
         complex(dp), allocatable :: rho_B(:), rho_B_species(:,:), rho_B_i(:)
+        complex(dp) :: fields_local(3)
+        real(dp) :: tensor_local(2,2)
         complex(dp) :: Br_const
         real(dp), allocatable :: r_win(:)
         real(dp) :: rm, rhoL_rm, dx_asis, dx_tr, L, k_max
@@ -337,11 +370,14 @@ module rt_electrostatic_periodic_m
         ! retain stale allocations or shapes between direct runs.
         EBdat = EBdat_t()
         EBdat%r_grid = r_win
+        EBdat%r_resonance = rm
+        EBdat%dx_asis = dx_asis
+        EBdat%dx_transition = dx_tr
         EBdat%Phi    = dPhi
         allocate(EBdat%Br(size(dPhi)))
         EBdat%Br = Br_const
         allocate(EBdat%Bparallel(size(dPhi)))
-        EBdat%Bparallel = (0.0_dp, 0.0_dp)
+        EBdat%Bparallel = periodic_Bparallel_ratio * Br_const
         allocate(EBdat%Er(size(dPhi)), EBdat%Etheta(size(dPhi)), EBdat%Ez(size(dPhi)))
         EBdat%Er = -dPhi_dr
         do i = 1, size(dPhi)
@@ -350,6 +386,17 @@ module rt_electrostatic_periodic_m
         end do
         call calculate_MA_field(plasma, EBdat)
         call calculate_E_in_rsp_from_cyl(EBdat)
+        allocate(EBdat%D_ion(2, 2, size(dPhi)))
+        EBdat%D_ion = 0.0_dp
+        do i = 1, size(dPhi)
+            fields_local = [EBdat%Phi(i), EBdat%Br(i), EBdat%Bparallel(i)]
+            do sp = 1, plasma%n_species - 1
+                call compute_periodic_ion_tensor(fields_local, plasma%ks(i), 0.0_dp, plasma%kp(i), &
+                    plasma%spec(sp)%vT(i), plasma%spec(sp)%nu(i), plasma%spec(sp)%omega_c(i), &
+                    omega, plasma%om_E(i), plasma%B0(i), tensor_local)
+                EBdat%D_ion(:, :, i) = EBdat%D_ion(:, :, i) + tensor_local
+            end do
+        end do
         EBdat%jpar   = jpar
         EBdat%jpar_e = jpar_species(:, 0)
         allocate(EBdat%jpar_i(size(jpar)))

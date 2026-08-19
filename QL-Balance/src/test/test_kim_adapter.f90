@@ -12,7 +12,7 @@ program test_kim_adapter
         kim_update_profiles, kim_run_for_all_modes, kim_Br_modes, kim_vac_Br
     use kim_wave_code_adapter_m, only: kim_Bparallel_modes, kim_get_wave_fields
     use control_mod, only: wave_code, kim_config_path, kim_profiles_from_balance, &
-        type_of_run
+        type_of_run, kim_run_type
     use wave_code_data, only: dim_mn, m_vals, n_vals, r, n, Te, Ti, q, &
         Vth, Vz, dPhi0, Bp
     use plasma_parameters, only: params_b
@@ -206,6 +206,7 @@ contains
 
         kim_config_path = "KIM_config_em_small.nml"
         kim_profiles_from_balance = .true.
+        kim_run_type = "electromagnetic"
         type_of_run = "ParameterScan"
 
         call kim_initialize(npts, r_grid)

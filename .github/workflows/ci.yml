@@ -46,7 +46,7 @@ jobs:
           pip install numpy scipy matplotlib h5py f90nml pytest
 
       - name: Cache external dependencies
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: build/external-install
           key: external-deps-${{ runner.os }}-${{ hashFiles('cmake/Fetch*.cmake') }}

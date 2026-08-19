@@ -5,6 +5,8 @@ subroutine read_config
                            misalign_diffusion, equil_path, ihdf5IO, wave_code, &
                            kim_config_path, kim_profiles_from_balance, &
                            kim_run_type, &
+                           kim_electron_transport_model, kim_ion_transport_model, &
+                           kim_bparallel_source, kim_benchmark_mode, &
                            kim_n_modes, kim_m_list, kim_n_list, &
                            jpar_method
     use grid_mod, only: rmin, rmax, npoimin, gg_factor, gg_width, gg_r_res, iboutype, rb_cut_in, &
@@ -14,6 +16,7 @@ subroutine read_config
     use time_evolution
     use wave_code_data, only: flre_path, vac_path, antenna_factor, I_par_toroidal
     use logger_m, only: set_log_level, log_info, fmt_val
+    use periodic_workflow_validation_m, only: validate_periodic_workflow
 
     implicit none
 
@@ -31,7 +34,8 @@ subroutine read_config
         misalign_diffusion, equil_path, ihdf5IO, type_of_run, wave_code, &
         set_constant_time_step, constant_time_step, urelax, kim_config_path, &
         kim_profiles_from_balance, kim_run_type, kim_n_modes, kim_m_list, kim_n_list, &
-        I_par_toroidal, jpar_method
+        I_par_toroidal, jpar_method, kim_electron_transport_model, kim_ion_transport_model, &
+        kim_bparallel_source, kim_benchmark_mode
 
     ! read the parameters from namelist file
     open (newunit=u, file=config_file, status="old", action="read", iostat=ios)
@@ -39,6 +43,11 @@ subroutine read_config
     read (u, nml=BALANCENML, iostat=ios)
     if (ios /= 0) error stop "Failed to read namelist"
     close (u)
+
+    call validate_periodic_workflow(wave_code, kim_run_type, type_of_run, &
+        kim_profiles_from_balance, kim_n_modes, kim_m_list, kim_n_list, I_par_toroidal, &
+        jpar_method, kim_electron_transport_model, kim_ion_transport_model, &
+        kim_bparallel_source, kim_benchmark_mode)
 
     call set_log_level(log_level)
 
@@ -93,6 +102,10 @@ subroutine read_config
     call log_info(fmt_val("    kim_config_path", trim(adjustl(kim_config_path))))
     call log_info(fmt_val("    kim_profiles_from_balance", kim_profiles_from_balance))
     call log_info(fmt_val("    kim_run_type", trim(adjustl(kim_run_type))))
+    call log_info(fmt_val("    kim_electron_transport_model", trim(adjustl(kim_electron_transport_model))))
+    call log_info(fmt_val("    kim_ion_transport_model", trim(adjustl(kim_ion_transport_model))))
+    call log_info(fmt_val("    kim_bparallel_source", trim(adjustl(kim_bparallel_source))))
+    call log_info(fmt_val("    kim_benchmark_mode", trim(adjustl(kim_benchmark_mode))))
     call log_info(fmt_val("    kim_n_modes", kim_n_modes))
     if (kim_n_modes > 0) then
         write (*, "(A,100I5)") "    kim_m_list = ", kim_m_list(1:kim_n_modes)

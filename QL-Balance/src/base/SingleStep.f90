@@ -27,6 +27,7 @@ module singleStep
         use plasma_parameters, only: write_initial_parameters, alloc_hold_parameters, &
                                 init_background_profiles
         use QLbalance_diag, only: write_diag, write_diag_b
+        use time_evolution, only: write_periodic_workflow_provenance
 
         implicit none
 
@@ -55,6 +56,7 @@ module singleStep
         if (ihdf5IO .eq. 1) then
             call create_group_structure_singlestep
         end if
+        call write_periodic_workflow_provenance
         call init_background_profiles
         call write_initial_parameters
         call calc_geometric_parameter_profiles

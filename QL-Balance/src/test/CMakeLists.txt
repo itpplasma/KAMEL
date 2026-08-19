@@ -65,3 +65,7 @@ add_fortran_test(test_periodic_current_normalization)
 add_executable(test_periodic_amplitude_state.x test_periodic_amplitude_state.f90)
 target_link_libraries(test_periodic_amplitude_state.x PUBLIC ql-balance_lib)
 add_fortran_test(test_periodic_amplitude_state)
+
+add_executable(test_periodic_workflow_validation.x test_periodic_workflow_validation.f90)
+target_link_libraries(test_periodic_workflow_validation.x PUBLIC ql-balance_lib)
+add_fortran_test(test_periodic_workflow_validation)

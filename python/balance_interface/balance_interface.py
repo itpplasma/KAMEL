@@ -76,6 +76,42 @@ class QL_Balance_interface:
         self.m_mode = m_mode
         self.n_mode = n_mode
 
+    def configure_periodic_kim(self, modes, target_current=0.0, benchmark_mode="none"):
+        """Configure the complete periodic KIM/QL-Balance transport workflow."""
+        if not hasattr(self, "conf"):
+            self.read_config_nml()
+        self.conf.configure_periodic_kim(modes, target_current, benchmark_mode)
+
+    def run_periodic_kim(
+        self,
+        Btor,
+        a_minor,
+        modes,
+        target_current=0.0,
+        benchmark_mode="none",
+        kim_config_file=None,
+        suppress_console_output=True,
+    ):
+        """Prepare and execute a periodic-KIM QL-Balance run.
+
+        The caller supplies the KIM namelist because grid, harmonic, and
+        compact-transition controls are solver-specific.  The balance
+        namelist is generated with the validated species/B-parallel policy.
+        """
+        modes = list(modes)
+        self.configure_periodic_kim(modes, target_current, benchmark_mode)
+        self.m_mode, self.n_mode = (int(mode) for mode in modes[0])
+        if kim_config_file is not None:
+            if not os.path.isfile(kim_config_file):
+                raise FileNotFoundError(f"KIM configuration not found: {kim_config_file}")
+            kim_destination = os.path.join(self.run_path, "KIM_config.nml")
+            shutil.copy2(kim_config_file, kim_destination)
+            self.conf.conf["balancenml"]["kim_config_path"] = "./KIM_config.nml"
+        self.prepare_balance_kim(Btor, a_minor)
+        self.set_config_nml()
+        self.write_config_nml(os.path.join(self.run_path, "balance_conf.nml"))
+        return self.run_balance(suppress_console_output=suppress_console_output)
+
     def copy_profiles(self, profile_path):
         """Copy the profiles to the run directory."""
         os.makedirs(os.path.join(self.run_path, "profiles"), exist_ok=True)

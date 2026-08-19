@@ -142,6 +142,28 @@ Do[
       <> ", q=" <> ToString[q]],
   {q, 0, 2}, {observation, fields}, {source, fields}];
 
+(* Drift-kinetic limiting oracle.  Set both radial wave numbers to zero and
+   approach k_s,k_s' from the positive side.  The gyro-average becomes
+   W_0 -> 1 and W_1,W_2 -> 0; with Bparallel=0 this removes every finite-FLR
+   correction and leaves exactly the Heyn/Markl four-entry ledger. *)
+ClearAll[epsilon, zeroFlrMoment];
+zeroFlrMoment[q_Integer] := FullSimplify[
+  Limit[(wExpected[q] /. {bp -> vT^2 (epsilon^2 + epsilon^2)/(2 omegaC^2),
+      bx -> vT^2 epsilon^2/omegaC^2, l -> 0}), epsilon -> 0,
+    Direction -> "FromAbove"]];
+assertTrue[zeroFlrMoment[0] === 1, "zero-FLR W0 reduction"];
+assertTrue[zeroFlrMoment[1] === 1, "zero-FLR W1 reduction"];
+assertTrue[zeroFlrMoment[2] === 2, "zero-FLR W2 reduction"];
+
+zeroFlrLedger = <|
+  {1, 1} -> momentZero,
+  {1, 2} -> momentOne,
+  {2, 1} -> momentOne,
+  {2, 2} -> 2 momentZero|> /. {momentZero -> 1, momentOne -> 1};
+assertTrue[zeroFlrLedger === <|{1, 1} -> 1, {1, 2} -> 1,
+    {2, 1} -> 1, {2, 2} -> 2|>,
+  "zero-FLR four-entry drift-kinetic ledger"];
+
 (* The thermodynamic polynomials determine the complete coefficient family
    and the parallel-susceptibility ledger. *)
 

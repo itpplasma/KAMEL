@@ -5,7 +5,7 @@ module kim_qldiff_m
     implicit none
 
     private
-    public :: calc_dqle22, calc_dqli11_phi
+    public :: calc_dqle22, calc_dqli11_phi, calc_dqli_tensor
 
 contains
 
@@ -32,6 +32,52 @@ contains
         comfac = 0.5_dp/(nui*B0**2)
         dqli11 = comfac*sol**2*abs(Es)**2*real(symbI(0,0),dp)
     end function calc_dqli11_phi
+
+    subroutine calc_dqli_tensor(vTi, nui, om_E, B0, kpar, Es, Br, D11, D12, D21, D22)
+        ! Complete ion Phi/Br Onsager tensor in the integral formalism.
+        ! This is the scalar, local counterpart of QL-Balance's
+        ! calc_transport_coeffs_ornuhl; electrons intentionally retain their
+        ! existing drift-kinetic path.
+        use constants_m, only: sol
+        use config_m, only: resolved_ion_ifunc_conservation_model
+        real(dp), intent(in) :: vTi, nui, om_E, B0, kpar
+        complex(dp), intent(in) :: Es, Br
+        real(dp), intent(out) :: D11, D12, D21, D22
+        real(dp) :: x1, x2, comfac, epm2, brm2, epbr_re, epbr_im, d12a
+        complex(dp) :: symbI(0:3,0:3)
+        interface
+            subroutine getIfunc_model(x1, x2, conservation_model, symbI)
+                double precision, intent(in) :: x1, x2
+                integer, intent(in) :: conservation_model
+                double complex, dimension(0:3,0:3), intent(out) :: symbI
+            end subroutine getIfunc_model
+        end interface
+
+        x1 = kpar*vTi/nui
+        x2 = -om_E/nui
+        call getIfunc_model(x1, x2, resolved_ion_ifunc_conservation_model, symbI)
+
+        comfac = 0.5_dp/(nui*B0**2)
+        epm2 = sol**2*abs(Es)**2
+        brm2 = vTi**2*abs(Br)**2
+        epbr_re = 2.0_dp*sol*vTi*real(conjg(Es)*Br,dp)
+        epbr_im = 2.0_dp*sol*vTi*aimag(conjg(Es)*Br)
+
+        D11 = comfac*(epm2*real(symbI(0,0),dp) + epbr_re*real(symbI(1,0),dp) &
+             + brm2*real(symbI(1,1),dp))
+        D12 = comfac*(epm2*real(symbI(0,0)+0.5_dp*symbI(2,0),dp) &
+             + epbr_re*real(symbI(1,0)+0.25_dp*(symbI(3,0)+symbI(2,1)),dp) &
+             + brm2*real(symbI(1,1)+0.5_dp*symbI(3,1),dp))
+        D21 = D12
+        D22 = comfac*(epm2*real(2.0_dp*symbI(0,0)+symbI(2,0)+0.25_dp*symbI(2,2),dp) &
+             + epbr_re*real(2.0_dp*symbI(1,0)+0.5_dp*(symbI(3,0)+symbI(2,1)) &
+                              +0.25_dp*symbI(3,2),dp) &
+             + brm2*real(2.0_dp*symbI(1,1)+symbI(3,1)+0.25_dp*symbI(3,3),dp))
+
+        d12a = comfac*epbr_im*0.25_dp*aimag(symbI(2,1)-symbI(3,0))
+        D12 = D12 + d12a
+        D21 = D21 - d12a
+    end subroutine calc_dqli_tensor
 
     function calc_dqle22(vTe, nue, om_E, B0, kpar, Es, Br) result(dqle22)
         ! Quasilinear electron heat diffusion coefficient D_ql,e22, the

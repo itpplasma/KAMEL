@@ -49,6 +49,9 @@ module kim_wave_code_adapter_m
     complex(8), allocatable :: kim_Et_modes(:,:)
     complex(8), allocatable :: kim_Ez_modes(:,:)
     complex(8), allocatable, public :: kim_Br_modes(:,:)
+    !! Parallel magnetic perturbation in RSP coordinates.  This is
+    !! exposed through wave_code_data%Bp, matching the KiLCA interface.
+    complex(8), allocatable, public :: kim_Bparallel_modes(:,:)
 
     !! Per-mode stored wave vectors (nrad, dim_mn)
     !! kp and ks depend on (m,n) via the equilibrium formulas.
@@ -294,6 +297,7 @@ contains
         if (allocated(kim_Et_modes)) deallocate(kim_Et_modes)
         if (allocated(kim_Ez_modes)) deallocate(kim_Ez_modes)
         if (allocated(kim_Br_modes)) deallocate(kim_Br_modes)
+        if (allocated(kim_Bparallel_modes)) deallocate(kim_Bparallel_modes)
         if (allocated(kim_kp_modes)) deallocate(kim_kp_modes)
         if (allocated(kim_ks_modes)) deallocate(kim_ks_modes)
         if (allocated(kim_jpar_modes)) deallocate(kim_jpar_modes)
@@ -306,6 +310,7 @@ contains
         allocate(kim_Et_modes(dim_r, dim_mn))
         allocate(kim_Ez_modes(dim_r, dim_mn))
         allocate(kim_Br_modes(dim_r, dim_mn))
+        allocate(kim_Bparallel_modes(dim_r, dim_mn))
         allocate(kim_kp_modes(dim_r, dim_mn))
         allocate(kim_ks_modes(dim_r, dim_mn))
         allocate(kim_jpar_modes(dim_r, dim_mn))
@@ -318,6 +323,7 @@ contains
         kim_Et_modes = (0.0d0, 0.0d0)
         kim_Ez_modes = (0.0d0, 0.0d0)
         kim_Br_modes = (0.0d0, 0.0d0)
+        kim_Bparallel_modes = (0.0d0, 0.0d0)
         kim_kp_modes = 0.0d0
         kim_ks_modes = 0.0d0
         kim_jpar_modes = (0.0d0, 0.0d0)
@@ -374,6 +380,14 @@ contains
             ! Br (radial magnetic field perturbation)
             call interp_complex_profile(kim_npts, kim_r, res%Br, &
                 dim_r, bal_r, kim_Br_modes(:, i_mn))
+
+            ! Bparallel is already represented in RSP coordinates by KIM;
+            ! store it separately so the wave-code adapter can expose it as
+            ! Bp without confusing it with the radial Br component.
+            if (allocated(res%Bparallel)) then
+                call interp_complex_profile(kim_npts, kim_r, res%Bparallel, &
+                    dim_r, bal_r, kim_Bparallel_modes(:, i_mn))
+            end if
 
             ! jpar (parallel current density: total, electron, ion)
             if (allocated(res%jpar)) then
@@ -550,15 +564,15 @@ contains
 
         Es = kim_Es_modes(:, i_mn)
         Br = kim_Br_modes(:, i_mn)
+        Bp = kim_Bparallel_modes(:, i_mn)
         Er = kim_Er_modes(:, i_mn)
         Ep = kim_Ep_modes(:, i_mn)
         Et = kim_Et_modes(:, i_mn)
         Ez = kim_Ez_modes(:, i_mn)
 
-        ! KIM does not compute magnetic field perturbation components
-        ! other than Br. Set remaining B components to zero.
+        ! KIM does not compute the cylindrical magnetic perturbations or the
+        ! perpendicular RSP component.  Bparallel is carried above as Bp.
         Bs = (0.0d0, 0.0d0)
-        Bp = (0.0d0, 0.0d0)
         Bt = (0.0d0, 0.0d0)
         Bz = (0.0d0, 0.0d0)
 
@@ -802,6 +816,7 @@ contains
             kim_Ez_modes(i, i_mn) = (0.0d0, 0.0d0)
             ! Total Br = vacuum Br beyond plasma
             kim_Br_modes(i, i_mn) = kim_vac_Br(i, i_mn)
+            kim_Bparallel_modes(i, i_mn) = (0.0d0, 0.0d0)
             ! Wave vectors not physical in vacuum
             kim_kp_modes(i, i_mn) = 0.0d0
             kim_ks_modes(i, i_mn) = 0.0d0

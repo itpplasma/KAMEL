@@ -37,8 +37,10 @@ if("${LAPACK_FOUND}")
     message(" ====== LAPACK was found! ======")
     target_link_libraries(KIM_lib PUBLIC "${LAPACK_LIBRARIES}")
     message("LAPACK libraries: ${LAPACK_LIBRARIES}")
-    target_include_directories(KIM_lib PUBLIC "${LAPACK_INCLUDE_DIRS}")
-    message("${LAPACK_INCLUDE_DIRS}")
+    # KIM calls LAPACK through its Fortran ABI; no C/C++ LAPACK headers are
+    # required.  In particular, on macOS FindLAPACK may report the Darwin SDK
+    # `usr/include` directory here.  Propagating that directory to C++ users
+    # breaks libc++'s <cmath>/<cstdio> include_next logic.
 endif()
 
 # SuiteSparse/UMFPACK come SOLELY from the fetched-static SuiteSparse v7.8.3 via the

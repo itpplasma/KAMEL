@@ -35,7 +35,7 @@ module periodic_solve_m
     implicit none
     private
 
-    public :: solve_periodic, reconstruct_delta_phi, dense_solve, reconstruct_jpar
+    public :: solve_periodic, reconstruct_delta_phi, reconstruct_delta_phi_derivative, dense_solve, reconstruct_jpar
 
 contains
 
@@ -130,6 +130,25 @@ contains
 
         jpar = reconstruct_delta_phi(j_m, L, M, r_out)
     end function reconstruct_jpar
+
+    function reconstruct_delta_phi_derivative(Phi_m, L, M, r_out) result(dphi)
+        use constants_m, only: pi, com_unit
+        complex(dp), intent(in) :: Phi_m(:)
+        real(dp), intent(in) :: L
+        integer, intent(in) :: M
+        real(dp), intent(in) :: r_out(:)
+        complex(dp) :: dphi(size(r_out))
+        integer :: i, mm, im
+        real(dp) :: k
+        dphi = (0.0_dp, 0.0_dp)
+        do i = 1, size(r_out)
+            do mm = -M, M
+                im = mm + M + 1
+                k = 2.0_dp*pi*real(mm,dp)/L
+                dphi(i) = dphi(i) + com_unit*k*Phi_m(im)*exp(com_unit*k*r_out(i))
+            end do
+        end do
+    end function reconstruct_delta_phi_derivative
 
     !> Inverse DFT: reconstruct dPhi(r) = sum_{m=-M}^{M} Phi_m exp(i k_m r)
     !> on the output radial grid r_out, with k_m = 2*pi*m/L. Phi_m is indexed

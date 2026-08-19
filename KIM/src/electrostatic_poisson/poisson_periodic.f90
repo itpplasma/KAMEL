@@ -42,12 +42,12 @@ module rt_electrostatic_periodic_m
     !> The optional jpar_species(:,sp) returns the contribution from each species,
     !> with electron index sp=0. Both are left unallocated when the solve fails.
     subroutine compute_periodic_delta_phi(rm, dx_asis, dx_tr, M, n_rg, Br_const, &
-                                          r_out, dPhi, info, jpar, jpar_species, rho_B, rho_B_species)
+                                          r_out, dPhi, info, jpar, jpar_species, rho_B, rho_B_species, dPhi_dr)
         use KIM_kinds_m, only: dp
         use species_m, only: plasma
         use periodic_background_m, only: build_periodic_plasma
         use periodic_assembly_m, only: assemble_periodic_matrices
-        use periodic_solve_m, only: solve_periodic, reconstruct_delta_phi, reconstruct_jpar
+        use periodic_solve_m, only: solve_periodic, reconstruct_delta_phi, reconstruct_delta_phi_derivative, reconstruct_jpar
         use config_m, only: periodic_match_global_kernel_approximations
         use flr2_fourier_kernel_m, only: set_global_kernel_approximations
 
@@ -61,6 +61,7 @@ module rt_electrostatic_periodic_m
         complex(dp), allocatable, intent(out), optional :: jpar_species(:,:)
         complex(dp), allocatable, intent(out), optional :: rho_B(:)
         complex(dp), allocatable, intent(out), optional :: rho_B_species(:,:)
+        complex(dp), allocatable, intent(out), optional :: dPhi_dr(:)
 
         complex(dp), allocatable :: Kphi(:,:), KB(:,:), Kjphi(:,:), KjB(:,:), Phi_m(:)
         complex(dp), allocatable :: Kjphi_species(:,:,:), KjB_species(:,:,:)
@@ -88,6 +89,7 @@ module rt_electrostatic_periodic_m
         if (info /= 0) return
 
         dPhi = reconstruct_delta_phi(Phi_m, L, M, r_out)
+        if (present(dPhi_dr)) dPhi_dr = reconstruct_delta_phi_derivative(Phi_m, L, M, r_out)
         if (present(rho_B)) then
             rho_B = reconstruct_delta_phi(Br_const * KB(:, M + 1), L, M, r_out)
         end if
@@ -231,16 +233,17 @@ module rt_electrostatic_periodic_m
     subroutine run_electrostatic_periodic(this)
 
         use KIM_kinds_m, only: dp
-        use constants_m, only: pi
+        use constants_m, only: pi, com_unit
         use config_m, only: periodic_dr_asis_scale, periodic_dr_tr_scale, &
                             periodic_kmax_scale, periodic_n_rg, hdf5_output, &
                             periodic_match_global_kernel_approximations, &
                             turn_off_electrons, turn_off_ions
-        use setup_m, only: Br_boundary_re, Br_boundary_im
+        use setup_m, only: Br_boundary_re, Br_boundary_im, m_mode, n_mode, R0
         use species_m, only: plasma
         use grid_m, only: rg_grid
         use kim_resonances_m, only: r_res
-        use fields_m, only: EBdat
+        use fields_m, only: EBdat, EBdat_t
+        use fields_m, only: calculate_MA_field, calculate_E_in_rsp_from_cyl
         use IO_collection_m, only: itoa, write_complex_profile_abs, &
             write_periodic_scale_metadata
 
@@ -248,7 +251,7 @@ module rt_electrostatic_periodic_m
 
         class(electrostatic_periodic_t), intent(inout) :: this
 
-        complex(dp), allocatable :: dPhi(:), jpar(:), jpar_species(:,:)
+        complex(dp), allocatable :: dPhi(:), dPhi_dr(:), jpar(:), jpar_species(:,:)
         complex(dp), allocatable :: rho_B(:), rho_B_species(:,:), rho_B_i(:)
         complex(dp) :: Br_const
         real(dp), allocatable :: r_win(:)
@@ -316,7 +319,7 @@ module rt_electrostatic_periodic_m
         Br_const = cmplx(Br_boundary_re, Br_boundary_im, dp)
         call compute_periodic_delta_phi(rm, dx_asis, dx_tr, M, n_rg, Br_const, &
                                         r_win, dPhi, info, jpar, jpar_species, &
-                                        rho_B, rho_B_species)
+                                        rho_B, rho_B_species, dPhi_dr)
         if (info /= 0) then
             print *, "Error (electrostatic_periodic): solve_periodic failed, info = ", info
             error stop "electrostatic_periodic: periodic solve failed"
@@ -329,13 +332,24 @@ module rt_electrostatic_periodic_m
         end if
 
         ! 6. Pack into EBdat (window grid + reconstructed potential + current).
-        if (allocated(EBdat%r_grid)) deallocate(EBdat%r_grid)
-        if (allocated(EBdat%Phi))    deallocate(EBdat%Phi)
-        if (allocated(EBdat%jpar))   deallocate(EBdat%jpar)
-        if (allocated(EBdat%jpar_e)) deallocate(EBdat%jpar_e)
-        if (allocated(EBdat%jpar_i)) deallocate(EBdat%jpar_i)
+        ! A periodic solve may be repeated with a different window. Reset the
+        ! complete allocatable record so newly added response fields cannot
+        ! retain stale allocations or shapes between direct runs.
+        EBdat = EBdat_t()
         EBdat%r_grid = r_win
         EBdat%Phi    = dPhi
+        allocate(EBdat%Br(size(dPhi)))
+        EBdat%Br = Br_const
+        allocate(EBdat%Bparallel(size(dPhi)))
+        EBdat%Bparallel = (0.0_dp, 0.0_dp)
+        allocate(EBdat%Er(size(dPhi)), EBdat%Etheta(size(dPhi)), EBdat%Ez(size(dPhi)))
+        EBdat%Er = -dPhi_dr
+        do i = 1, size(dPhi)
+            EBdat%Etheta(i) = -com_unit * m_mode * dPhi(i) / r_win(i)
+            EBdat%Ez(i) = -com_unit * n_mode * dPhi(i) / R0
+        end do
+        call calculate_MA_field(plasma, EBdat)
+        call calculate_E_in_rsp_from_cyl(EBdat)
         EBdat%jpar   = jpar
         EBdat%jpar_e = jpar_species(:, 0)
         allocate(EBdat%jpar_i(size(jpar)))

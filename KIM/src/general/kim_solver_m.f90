@@ -42,7 +42,7 @@ module kim_solver_m
 
         ! field solution (field grid)
         real(dp),    allocatable :: r_field(:)
-        complex(dp), allocatable :: Es(:), Ep(:), Er(:), Etheta(:), Ez(:), Br(:)
+        complex(dp), allocatable :: Es(:), Ep(:), Er(:), Etheta(:), Ez(:), Br(:), Bparallel(:)
         complex(dp), allocatable :: jpar(:), jpar_e(:), jpar_i(:)
         complex(dp), allocatable :: Phi(:)
 
@@ -243,6 +243,7 @@ contains
 
         if (allocated(EBdat%r_grid))            deallocate(EBdat%r_grid)
         if (allocated(EBdat%Br))                deallocate(EBdat%Br)
+        if (allocated(EBdat%Bparallel))         deallocate(EBdat%Bparallel)
         if (allocated(EBdat%Apar))              deallocate(EBdat%Apar)
         if (allocated(EBdat%E_perp_psi))        deallocate(EBdat%E_perp_psi)
         if (allocated(EBdat%E_perp))            deallocate(EBdat%E_perp)
@@ -286,6 +287,7 @@ contains
         if (allocated(EBdat%Etheta)) res%Etheta  = EBdat%Etheta
         if (allocated(EBdat%Ez))     res%Ez      = EBdat%Ez
         if (allocated(EBdat%Br))     res%Br      = EBdat%Br
+        if (allocated(EBdat%Bparallel)) res%Bparallel = EBdat%Bparallel
         if (allocated(EBdat%jpar))   res%jpar    = EBdat%jpar
         if (allocated(EBdat%jpar_e)) res%jpar_e  = EBdat%jpar_e
         if (allocated(EBdat%jpar_i)) res%jpar_i  = EBdat%jpar_i

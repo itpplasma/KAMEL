@@ -11,8 +11,9 @@ program test_kim_adapter
     use kim_wave_code_adapter_m, only: interp_complex_profile, kim_initialize, &
         kim_update_profiles, kim_run_for_all_modes, kim_Br_modes, kim_vac_Br
     use kim_wave_code_adapter_m, only: kim_Bparallel_modes, kim_get_wave_fields
+    use kim_wave_code_adapter_m, only: kim_mode_m, kim_mode_n, kim_mode_status, kim_mode_resonance
     use control_mod, only: wave_code, kim_config_path, kim_profiles_from_balance, &
-        type_of_run, kim_run_type
+        type_of_run, kim_run_type, kim_n_modes, kim_m_list, kim_n_list
     use wave_code_data, only: dim_mn, m_vals, n_vals, r, n, Te, Ti, q, &
         Vth, Vz, dPhi0, Bp
     use plasma_parameters, only: params_b
@@ -206,7 +207,11 @@ contains
 
         kim_config_path = "KIM_config_em_small.nml"
         kim_profiles_from_balance = .true.
-        kim_run_type = "electromagnetic"
+        wave_code = "KIM"
+        kim_run_type = "electrostatic_periodic"
+        kim_n_modes = dim_mn
+        kim_m_list(1:dim_mn) = m_vals
+        kim_n_list(1:dim_mn) = n_vals
         type_of_run = "ParameterScan"
 
         call kim_initialize(npts, r_grid)
@@ -219,10 +224,23 @@ contains
         params_b(2, :) = 0.0d0
         params_b(3, :) = Te * ev
         params_b(4, :) = Ti * ev
-        Ercov = 0.0d0
+        ! Keep the static resonant susceptibility away from the degenerate
+        ! x1=x2=0 point; the dedicated susceptibility tests cover that limit.
+        Ercov = -0.5d0
 
         call kim_update_profiles()
         call kim_run_for_all_modes()
+
+        if (kim_mode_m(1) /= m_mode .or. kim_mode_n(1) /= n_mode .or. kim_mode_status(1) /= 0) then
+            print '(A)', "  FAIL: signed mode identity/status was not retained"
+            num_failed = num_failed + 1
+        elseif (trim(kim_run_type) == 'electrostatic_periodic' .and. kim_mode_resonance(1) <= 0.0d0) then
+            print '(A)', "  FAIL: periodic mode resonance metadata missing"
+            num_failed = num_failed + 1
+        else
+            print '(A)', "  PASS: signed mode identity and resonance metadata retained"
+            num_passed = num_passed + 1
+        end if
 
         ! B_parallel is a first-class KIM output and must reach the
         ! wave-code contract as Bp (the RSP parallel component).
@@ -253,6 +271,7 @@ contains
                 response_change
             num_failed = num_failed + 1
         end if
+
     end subroutine
 
 end program test_kim_adapter

@@ -292,7 +292,7 @@ module rt_electrostatic_periodic_m
         integer :: M, n_rg, info, i, reference_species, sp
 
         ! 1. Locate the resonant surface rm = r_res (q = |m/n|) on the global plasma.
-        call prepare_resonances
+        call kim_prepare_resonances
         if (.not. (r_res > 0.0_dp)) then
             print *, "Error (electrostatic_periodic): no resonance found, r_res = ", r_res
             error stop "electrostatic_periodic: resonance not found"

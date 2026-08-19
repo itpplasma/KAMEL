@@ -38,6 +38,11 @@ target_link_libraries(test_kim_adapter.x PUBLIC ql-balance_lib)
 add_fortran_test(test_kim_adapter)
 configure_file(${CMAKE_SOURCE_DIR}/KIM/tests/test_data/KIM_config_em_small.nml
                ${CMAKE_BINARY_DIR}/tests/KIM_config_em_small.nml COPYONLY)
+file(MAKE_DIRECTORY ${CMAKE_BINARY_DIR}/tests/profiles)
+foreach(profile_file n.dat q.dat Te.dat Ti.dat)
+    configure_file(${CMAKE_SOURCE_DIR}/KIM/tests/test_data/${profile_file}
+                   ${CMAKE_BINARY_DIR}/tests/profiles/${profile_file} COPYONLY)
+endforeach()
 set_tests_properties(test_kim_adapter PROPERTIES
                      WORKING_DIRECTORY ${CMAKE_BINARY_DIR}/tests/)
 

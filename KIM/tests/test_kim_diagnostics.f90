@@ -2,7 +2,9 @@ program test_kim_diagnostics
 
     use KIM_kinds_m, only: dp
     use kim_diagnostics_m, only: integrate_Ipar, interp_local_complex
-    use kim_qldiff_m, only: calc_dqle22, calc_dqli11_phi, calc_dqli_tensor
+    use kim_qldiff_m, only: calc_dqle22, calc_dqli11_phi, calc_dqli_tensor, &
+        calc_dqli_integral_harmonic
+    use quasilinear_integral_m, only: QL_PHI, QL_BR, QL_BPAR
 
     implicit none
 
@@ -15,6 +17,8 @@ program test_kim_diagnostics
     call test_dqle22_resonant('Dqle22 at resonance, omE/nue = 0.5', 0.5_dp)
     call test_dqle22_resonant('Dqle22 at resonance, omE/nue = 2.0', 2.0_dp)
     call test_dqli_tensor_contract()
+    call test_dqli_integral_production_entry()
+    call test_dqli_integral_harmonic_convergence()
     call test_em_solve_writes_diagnostics_file()
     call test_em_solve_no_resonance_skips_file()
 
@@ -119,6 +123,70 @@ contains
         call assert_close(label, cmplx(dqle22, 0.0_dp, dp), &
                           cmplx(dqle22_exact, 0.0_dp, dp), 1.0e-2_dp)
     end subroutine
+
+    subroutine test_dqli_integral_production_entry()
+        complex(dp) :: fields(3)
+        real(dp) :: with_bpar(2,2), without_bpar(2,2), shifted_detuning(2,2)
+
+        fields(QL_PHI) = cmplx(0.3_dp,-0.1_dp,dp)
+        fields(QL_BR) = cmplx(-0.2_dp,0.05_dp,dp)
+        fields(QL_BPAR) = cmplx(0.15_dp,0.08_dp,dp)
+        call calc_dqli_integral_harmonic(1, 0.7_dp, -0.4_dp, 0.7_dp, &
+            -0.4_dp, 3.0e7_dp, 2.0e5_dp, 4.0e7_dp, 0.0_dp, &
+            0.75_dp*2.0e5_dp, &
+            1.8e4_dp, 1.0e-8_dp, fields, fields, with_bpar)
+        call calc_dqli_integral_harmonic(1, 0.7_dp, -0.4_dp, 0.7_dp, &
+            -0.4_dp, 3.0e7_dp, 2.0e5_dp, 4.0e7_dp, 0.25_dp*2.0e5_dp, &
+            1.00_dp*2.0e5_dp, 1.8e4_dp, 1.0e-8_dp, fields, fields, &
+            shifted_detuning)
+        if (maxval(abs(with_bpar-shifted_detuning)) > &
+            3.0e-13_dp*maxval(abs(with_bpar))) &
+            error stop 'mode-frequency shift changed invariant detuning'
+        fields(QL_BPAR) = (0.0_dp,0.0_dp)
+        call calc_dqli_integral_harmonic(1, 0.7_dp, -0.4_dp, 0.7_dp, &
+            -0.4_dp, 3.0e7_dp, 2.0e5_dp, 4.0e7_dp, 0.0_dp, &
+            0.75_dp*2.0e5_dp, &
+            1.8e4_dp, 1.0e-8_dp, fields, fields, without_bpar)
+        if (maxval(abs(with_bpar-without_bpar)) <= &
+            1.0e-14_dp*maxval(abs(with_bpar))) &
+            error stop 'production integral entry omitted Bparallel channels'
+    end subroutine test_dqli_integral_production_entry
+
+    subroutine test_dqli_integral_harmonic_convergence()
+        real(dp) :: sum8(2,2), sum10(2,2), scale
+
+        call production_harmonic_sum(8, sum8)
+        call production_harmonic_sum(10, sum10)
+        scale = max(maxval(abs(sum10)), tiny(1.0_dp))
+        if (maxval(abs(sum10-sum8)) > 2.0e-9_dp*scale) then
+            print *, 'FAIL: detuning-dependent Bparallel harmonic sum did not converge'
+            print *, '  N=8  = ', sum8
+            print *, '  N=10 = ', sum10
+            error stop
+        end if
+    end subroutine test_dqli_integral_harmonic_convergence
+
+    subroutine production_harmonic_sum(limit, tensor_sum)
+        integer, intent(in) :: limit
+        real(dp), intent(out) :: tensor_sum(2,2)
+        complex(dp) :: fields(3)
+        real(dp) :: tensor(2,2)
+        integer :: ell
+
+        ! A pure B_parallel perturbation makes this a direct convergence
+        ! gate for the new channels.  calc_dqli_integral_harmonic supplies
+        ! the ell-dependent x2 detuning and production collision model.
+        fields = (0.0_dp,0.0_dp)
+        fields(QL_BPAR) = cmplx(0.2_dp,0.35_dp,dp)
+        tensor_sum = 0.0_dp
+        do ell = -limit, limit
+            call calc_dqli_integral_harmonic(ell, 0.7_dp, -0.4_dp, 0.7_dp, &
+                -0.4_dp, 1.2_dp, 1.4_dp, -1.8_dp, 0.0_dp, &
+                0.75_dp*1.4_dp, &
+                0.9_dp, 0.3_dp, fields, fields, tensor)
+            tensor_sum = tensor_sum + tensor
+        end do
+    end subroutine production_harmonic_sum
 
     subroutine test_dqli_tensor_contract()
         real(dp), parameter :: vTi = 3.0e7_dp, nui = 2.0e5_dp

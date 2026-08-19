@@ -71,6 +71,40 @@ target_link_libraries(test_kim_diagnostics KIM_lib kilca_lib lapack cerf fortnum
 add_test(NAME test_kim_diagnostics
          COMMAND ${CMAKE_BINARY_DIR}/tests/test_kim_diagnostics.x)
 
+add_executable(test_quasilinear_integral_algebra
+               ${CMAKE_SOURCE_DIR}/KIM/tests/test_quasilinear_integral_algebra.f90)
+file(SHA256
+  ${CMAKE_SOURCE_DIR}/KIM/mathematica/verify_quasilinear_integral_transport.wl
+  QL_INTEGRAL_ORACLE_SHA256)
+foreach(oracle_fixture IN ITEMS
+    quasilinear_transverse_oracle.dat
+    quasilinear_channel_oracle.dat)
+  file(STRINGS ${CMAKE_SOURCE_DIR}/KIM/tests/test_data/${oracle_fixture}
+       oracle_header LIMIT_COUNT 2)
+  list(GET oracle_header 1 oracle_hash_header)
+  if(NOT oracle_hash_header STREQUAL
+      "# generator_sha256 ${QL_INTEGRAL_ORACLE_SHA256}")
+    message(FATAL_ERROR
+      "Stale ${oracle_fixture}; regenerate it with "
+      "KIM/mathematica/verify_quasilinear_integral_transport.wl")
+  endif()
+endforeach()
+configure_file(
+  ${CMAKE_SOURCE_DIR}/KIM/tests/test_data/quasilinear_transverse_oracle.dat
+  ${CMAKE_BINARY_DIR}/tests/quasilinear_transverse_oracle.dat COPYONLY)
+configure_file(
+  ${CMAKE_SOURCE_DIR}/KIM/tests/test_data/quasilinear_channel_oracle.dat
+  ${CMAKE_BINARY_DIR}/tests/quasilinear_channel_oracle.dat COPYONLY)
+set_target_properties(test_quasilinear_integral_algebra PROPERTIES
+                      OUTPUT_NAME test_quasilinear_integral_algebra.x
+                      RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/tests/")
+target_link_libraries(test_quasilinear_integral_algebra
+                      KIM_lib kilca_lib lapack cerf fortnum_amos_compat)
+add_test(NAME test_quasilinear_integral_algebra
+         COMMAND ${CMAKE_BINARY_DIR}/tests/test_quasilinear_integral_algebra.x)
+set_tests_properties(test_quasilinear_integral_algebra PROPERTIES
+                     WORKING_DIRECTORY ${CMAKE_BINARY_DIR}/tests/)
+
 add_executable(test_collisionless_ion_kernel ${CMAKE_SOURCE_DIR}/KIM/tests/test_collisionless_ion_kernel.f90)
 set_target_properties(test_collisionless_ion_kernel PROPERTIES
                         OUTPUT_NAME test_collisionless_ion_kernel.x

@@ -50,7 +50,7 @@ contains
         allocate(spec%lambda_D_cc(1), spec%vT_cc(1), spec%nu_cc(1))
         allocate(spec%omega_c_cc(1), spec%rho_L_cc(1))
         allocate(spec%A1_cc(1), spec%A2_cc(1))
-        allocate(spec%I00_cc(1, 0:0), spec%I20_cc(1, 0:0))
+        allocate(spec%I00_cc(1, 0:0), spec%I02_cc(1, 0:0))
 
         spec%lambda_D_cc = 2.0_dp
         spec%vT_cc = 3.0_dp
@@ -60,7 +60,7 @@ contains
         spec%A1_cc = 0.11_dp
         spec%A2_cc = -0.04_dp
         spec%I00_cc(:, 0) = cmplx(0.8_dp, -0.2_dp, dp)
-        spec%I20_cc(:, 0) = cmplx(-0.3_dp, 0.1_dp, dp)
+        spec%I02_cc(:, 0) = cmplx(-0.3_dp, 0.1_dp, dp)
     end subroutine populate_species
 
     subroutine evaluate_scaled_prefactors(spec, values)

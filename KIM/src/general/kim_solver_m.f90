@@ -14,7 +14,9 @@ module kim_solver_m
     !> behind this same public surface. See docs/plans/2026-06-15-kim-solver-api-design.md.
 
     use KIM_kinds_m, only: dp
+    use grid_m, only: grid_type
     use kim_base_m, only: kim_t
+    use species_m, only: plasma_t
 
     implicit none
     private
@@ -65,8 +67,11 @@ module kim_solver_m
         logical :: is_setup = .false.
         logical :: has_solved = .false.
         logical :: profiles_dirty = .false.
+        logical :: authoritative_state_valid = .false.
         integer :: status = KIM_OK
         type(kim_results_t) :: last
+        type(plasma_t) :: authoritative_plasma
+        type(grid_type) :: authoritative_rg_grid
     contains
         procedure :: init        => solver_init
         procedure :: set_profiles => solver_set_profiles
@@ -84,6 +89,9 @@ contains
     subroutine solver_init(self, config_path, run_type, profiles, stat)
         use config_m, only: nml_config_path, type_of_run, profiles_in_memory
         use kim_mod_m, only: from_kim_factory_get_kim
+        use kim_resonances_m, only: prop, r_res
+        use periodic_background_m, only: reset_true_background_cache
+        use species_m, only: plasma
 
         class(kim_solver_t), intent(inout) :: self
         character(*), intent(in) :: config_path
@@ -105,7 +113,13 @@ contains
         end if
 
         nml_config_path = trim(config_path)
-        if (present(profiles)) profiles_in_memory = .true.
+        profiles_in_memory = present(profiles)
+
+        ! recnsplit caches the resonance used by adaptive/non-equidistant grid
+        ! generation in module state. Every new handle must invalidate that
+        ! cache before either file-backed or in-memory profiles build a grid.
+        prop = .true.
+        r_res = 0.0_dp
 
         ! Config read + plasma allocation/init (file profiles skipped when in-memory).
         call kim_init
@@ -114,8 +128,14 @@ contains
 
         if (present(run_type)) type_of_run = trim(run_type)
 
+        ! Preserve the caller's/raw profile grid before run-type initialization
+        ! interpolates the module-level plasma onto a computational mesh.
+        self%authoritative_plasma = plasma
+        self%authoritative_state_valid = .true.
         call from_kim_factory_get_kim(trim(type_of_run), self%run_type)
         call self%run_type%init()
+        call capture_authoritative_grid(self)
+        call reset_true_background_cache()
 
         self%is_setup = .true.
         self%profiles_dirty = .false.
@@ -124,6 +144,8 @@ contains
 
     !> Update the in-memory profiles between solves (e.g. time evolution).
     subroutine solver_set_profiles(self, profiles, stat)
+        use species_m, only: plasma
+
         class(kim_solver_t), intent(inout) :: self
         type(kim_profiles_t), intent(in) :: profiles
         integer, intent(out), optional :: stat
@@ -134,7 +156,12 @@ contains
             return
         end if
 
+        ! A preceding periodic solve leaves the module globals on its local
+        ! window. Restore the authoritative grid before replacing profiles so
+        ! retained state can never inherit local-window dimensions.
+        call restore_authoritative_state(self)
         call inject_profiles(profiles)
+        self%authoritative_plasma = plasma
         self%profiles_dirty = .true.
         self%status = KIM_OK
         if (present(stat)) stat = self%status
@@ -144,13 +171,22 @@ contains
     !> consistent for it, run, and store results. The per-mode equilibrium
     !> recompute and field reset are the orchestration the QL-Balance adapter
     !> currently hand-codes; here they are owned by the handle.
-    subroutine solver_solve(self, m, n, stat)
-        use setup_m, only: m_mode, n_mode
+    subroutine solver_solve(self, m, n, stat, Br_drive, Bparallel_drive, &
+            resonance_radius)
+        use config_m, only: periodic_Bparallel_drive, periodic_Bparallel_ratio
+        use kim_resonances_m, only: prescribed_r_res, prescribed_r_res_active
+        use setup_m, only: m_mode, n_mode, Br_boundary_re, Br_boundary_im
 
         class(kim_solver_t), intent(inout) :: self
         integer, intent(in) :: m, n
         integer, intent(out), optional :: stat
+        complex(dp), intent(in), optional :: Br_drive, Bparallel_drive
+        real(dp), intent(in), optional :: resonance_radius
         logical :: mode_changed
+        logical :: saved_r_res_active
+        real(dp) :: saved_Br_boundary_re, saved_Br_boundary_im
+        real(dp) :: saved_r_res
+        complex(dp) :: saved_Bparallel_drive, saved_Bparallel_ratio
 
         if (.not. self%is_setup) then
             self%status = KIM_NOT_SETUP
@@ -158,14 +194,35 @@ contains
             return
         end if
 
+        saved_Br_boundary_re = Br_boundary_re
+        saved_Br_boundary_im = Br_boundary_im
+        saved_Bparallel_drive = periodic_Bparallel_drive
+        saved_Bparallel_ratio = periodic_Bparallel_ratio
+        saved_r_res = prescribed_r_res
+        saved_r_res_active = prescribed_r_res_active
+
         mode_changed = m /= m_mode .or. n /= n_mode
         m_mode = m
         n_mode = n
+        if (present(Br_drive)) then
+            Br_boundary_re = real(Br_drive, dp)
+            Br_boundary_im = aimag(Br_drive)
+        end if
+        if (present(Bparallel_drive)) then
+            periodic_Bparallel_drive = Bparallel_drive
+            periodic_Bparallel_ratio = (0.0_dp, 0.0_dp)
+        end if
+        if (present(resonance_radius)) then
+            prescribed_r_res = resonance_radius
+            prescribed_r_res_active = .true.
+        end if
 
         ! init() prepares the configured mode. Reuse it only while neither the
         ! mode nor the in-memory profiles have changed.
         if (self%has_solved .or. mode_changed .or. self%profiles_dirty) then
+            call restore_authoritative_state(self)
             call recompute_equilibrium_for_mode()
+            call capture_authoritative_grid(self)
             self%profiles_dirty = .false.
         end if
 
@@ -173,6 +230,12 @@ contains
         call self%run_type%run()
 
         call copy_results_from_globals(self%last, m, n)
+        Br_boundary_re = saved_Br_boundary_re
+        Br_boundary_im = saved_Br_boundary_im
+        periodic_Bparallel_drive = saved_Bparallel_drive
+        periodic_Bparallel_ratio = saved_Bparallel_ratio
+        prescribed_r_res = saved_r_res
+        prescribed_r_res_active = saved_r_res_active
         self%has_solved = .true.
         self%status = KIM_OK
         if (present(stat)) stat = self%status
@@ -193,6 +256,7 @@ contains
     !> adapter used to hand-code in deallocate_equilibrium_arrays).
     subroutine solver_finalize(self)
         use equilibrium_m, only: B0, B0z, B0th, hz, hth, equil_grid, u, dpress_prof
+        use species_m, only: reset_plasma
 
         class(kim_solver_t), intent(inout) :: self
 
@@ -206,9 +270,11 @@ contains
         if (allocated(u))           deallocate(u)
         if (allocated(dpress_prof)) deallocate(dpress_prof)
         if (allocated(self%run_type)) deallocate(self%run_type)
+        call reset_plasma
         self%is_setup = .false.
         self%has_solved = .false.
         self%profiles_dirty = .false.
+        self%authoritative_state_valid = .false.
         self%status = KIM_OK
     end subroutine solver_finalize
 
@@ -230,13 +296,50 @@ contains
                                       size(profiles%r))
     end subroutine inject_profiles
 
+    !> Snapshot the generated global grid before a periodic run redirects it
+    !> onto its local window. The authoritative plasma is deliberately not
+    !> replaced here: set_plasma_quantities has already interpolated that module
+    !> object onto this mode's mesh, while later modes must restart from the raw
+    !> caller/file profiles retained by solver_init or solver_set_profiles.
+    subroutine capture_authoritative_grid(self)
+        use grid_m, only: rg_grid
+
+        class(kim_solver_t), intent(inout) :: self
+
+        self%authoritative_rg_grid = rg_grid
+    end subroutine capture_authoritative_grid
+
+    !> Restore the global-grid state and invalidate the periodic background
+    !> cache before recomputing geometry for the requested mode.
+    subroutine restore_authoritative_state(self)
+        use grid_m, only: rg_grid
+        use periodic_background_m, only: reset_true_background_cache
+        use species_m, only: plasma
+
+        class(kim_solver_t), intent(in) :: self
+
+        if (.not. self%authoritative_state_valid) then
+            error stop 'KIM solver lacks an authoritative profile snapshot'
+        end if
+        plasma = self%authoritative_plasma
+        rg_grid = self%authoritative_rg_grid
+        call reset_true_background_cache()
+    end subroutine restore_authoritative_state
+
     !> Recompute the background equilibrium for the current (m_mode, n_mode).
     subroutine recompute_equilibrium_for_mode()
         use equilibrium_m, only: calculate_equil, interpolate_equil
         use species_m, only: deallocate_plasma_derived, plasma, set_plasma_quantities
         use grid_m, only: rg_grid
+        use kim_resonances_m, only: prop
 
         call deallocate_plasma_derived()
+        ! Adaptive/non-equidistant grids are resonance-centred. Force a fresh
+        ! signed-resonance lookup and rebuild both global grids after every
+        ! mode or profile change; retaining the first mode's mesh makes later
+        ! responses depend on solve order.
+        prop = .true.
+        call generate_grids
         call calculate_equil(.false.)
         call set_plasma_quantities(plasma)
         call interpolate_equil(rg_grid%xb)
@@ -245,7 +348,11 @@ contains
     !> Deallocate the global field buffers so the next run() re-allocates cleanly.
     subroutine reset_fields()
         use fields_m, only: EBdat
+        use grid_m, only: M_mat
+        use kernel_m, only: reset_cc_prefactors
 
+        call reset_cc_prefactors()
+        if (allocated(M_mat))                  deallocate(M_mat)
         if (allocated(EBdat%r_grid))            deallocate(EBdat%r_grid)
         EBdat%r_resonance = 0.0_dp
         EBdat%dx_asis = 0.0_dp

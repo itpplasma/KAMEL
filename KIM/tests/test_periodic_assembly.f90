@@ -28,7 +28,8 @@ program test_periodic_assembly
     !   (finiteness)     all elements finite.
 
     use KIM_kinds_m, only: dp
-    use periodic_assembly_m, only: assemble_periodic_matrices
+    use periodic_assembly_m, only: assemble_periodic_matrices, &
+        assemble_periodic_bparallel_matrices
 
     implicit none
 
@@ -60,6 +61,9 @@ contains
         complex(dp), allocatable :: Kjrphi(:,:), KjrB(:,:)
         complex(dp), allocatable :: Kjphi_species(:,:,:), KjB_species(:,:,:)
         complex(dp), allocatable :: Kphi_species(:,:,:), KB_species(:,:,:)
+        complex(dp), allocatable :: KBparallel(:,:), KjBparallel(:,:), KjrBparallel(:,:)
+        complex(dp), allocatable :: KBparallel_species(:,:,:)
+        complex(dp), allocatable :: KjBparallel_species(:,:,:)
         real(dp) :: rm, dx_asis, dx_tr, rho_L_rm, L
         integer :: n_rg, N, dim, im, imp
 
@@ -116,6 +120,9 @@ contains
 
         call assemble_periodic_matrices(plasma, L, M, Kphi, KB, Kjphi, KjB, &
             Kjrphi, KjrB, Kjphi_species, KjB_species, Kphi_species, KB_species)
+        call assemble_periodic_bparallel_matrices(plasma, L, M, &
+            KBparallel, KjBparallel, KBparallel_species, &
+            KjBparallel_species, KjrBparallel)
 
         ! (shape) all four matrices are (2M+1) x (2M+1).
         dim = 2 * M + 1
@@ -163,6 +170,25 @@ contains
         end if
         print *, 'PASS: species-charge matrices sum to aggregate matrices'
 
+        if (lbound(KBparallel_species, 3) /= 0 .or. &
+                ubound(KBparallel_species, 3) /= plasma%n_species - 1 .or. &
+                any(shape(KBparallel_species) /= &
+                    shape(KjBparallel_species))) then
+            error stop 'Bparallel species matrix shape or bounds are wrong'
+        end if
+        if (maxval(abs(KBparallel - sum(KBparallel_species, dim=3))) > &
+                2.0e-12_dp * max(1.0_dp, maxval(abs(KBparallel))) .or. &
+                maxval(abs(KjBparallel - sum(KjBparallel_species, dim=3))) > &
+                2.0e-12_dp * max(1.0_dp, maxval(abs(KjBparallel)))) then
+            error stop 'Bparallel species matrices do not sum to aggregate matrices'
+        end if
+        if (maxval(abs(KBparallel)) <= tiny(1.0_dp) .or. &
+                maxval(abs(KjBparallel)) <= tiny(1.0_dp) .or. &
+                maxval(abs(KjrBparallel)) <= tiny(1.0_dp)) then
+            error stop 'Bparallel charge/current response matrix is unexpectedly zero'
+        end if
+        print *, 'PASS: Bparallel charge/current matrices include radial response'
+
         ! (characterization) recompute two elements by an inline brute-force sum
         ! with the SAME quadrature formula and compare to the stored elements.
         call check_element(plasma, Kphi, KB, Kjphi, KjB, Kjrphi, KjrB, &
@@ -204,7 +230,9 @@ contains
                     .not. ieee_is_finite(real(Kjrphi(im, imp), dp)) .or. &
                     .not. ieee_is_finite(aimag(Kjrphi(im, imp))) .or. &
                     .not. ieee_is_finite(real(KjrB(im, imp), dp)) .or. &
-                    .not. ieee_is_finite(aimag(KjrB(im, imp)))) then
+                    .not. ieee_is_finite(aimag(KjrB(im, imp))) .or. &
+                    .not. ieee_is_finite(real(KjrBparallel(im, imp), dp)) .or. &
+                    .not. ieee_is_finite(aimag(KjrBparallel(im, imp)))) then
                     print *, 'FAIL: non-finite matrix element at', im, imp
                     error stop
                 end if

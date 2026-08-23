@@ -110,7 +110,8 @@ Notes:
 - periodic_dr_tr_scale ... real, width of the transition buffer on each side in units of the selected reference Larmor radius
 - periodic_kmax_scale ... real, radial Fourier cutoff multiplied by the reference Larmor radius; the solver derives the integer harmonic count $M$ from this cutoff and the period
 - periodic_n_rg ... integer, number of endpoint-exclusive guiding-centre samples over one period
-- periodic_Bparallel_ratio ... complex ratio multiplying the imposed Br drive to form B_parallel in the local periodic response; the default zero is an explicit pure-Br benchmark setting
+- periodic_Bparallel_drive ... independent complex prescribed $B_\parallel$ amplitude in Gauss; nonzero values require Fokker--Planck species kernels, `artificial_debye_case=0` or `2`, `mphi_max=0`, and the full periodic gyrogeometry
+- periodic_Bparallel_ratio ... legacy standalone compatibility ratio multiplying the imposed Br drive; do not set it together with `periodic_Bparallel_drive`
 - periodic_match_global_kernel_approximations ... boolean, if true drops $k_s^2$ from the FLR arguments and takes electrons in the zero-FLR limit for comparison with the simplified global model; default false
 
 For `ion_collision_model='collisionless'`, these settings control the same

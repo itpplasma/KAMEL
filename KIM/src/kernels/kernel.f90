@@ -111,6 +111,26 @@ module kernel_m
 
     end function larmor_taper_band_limit
 
+    !> Drop grid- and profile-dependent prefactors before a new solver run.
+    subroutine reset_cc_prefactors
+
+        if (allocated(pref_rho_phi_g0)) deallocate(pref_rho_phi_g0)
+        if (allocated(pref_rho_phi_g1)) deallocate(pref_rho_phi_g1)
+        if (allocated(pref_rho_phi_g2)) deallocate(pref_rho_phi_g2)
+        if (allocated(pref_rho_phi_g3)) deallocate(pref_rho_phi_g3)
+        if (allocated(pref_rho_B_g1))   deallocate(pref_rho_B_g1)
+        if (allocated(pref_rho_B_g2))   deallocate(pref_rho_B_g2)
+        if (allocated(pref_rho_B_g3))   deallocate(pref_rho_B_g3)
+        if (allocated(pref_j_phi_g1))   deallocate(pref_j_phi_g1)
+        if (allocated(pref_j_phi_g2))   deallocate(pref_j_phi_g2)
+        if (allocated(pref_j_phi_g3))   deallocate(pref_j_phi_g3)
+        if (allocated(pref_j_B_g1))     deallocate(pref_j_B_g1)
+        if (allocated(pref_j_B_g2))     deallocate(pref_j_B_g2)
+        if (allocated(pref_j_B_g3))     deallocate(pref_j_B_g3)
+        pref_ready = .false.
+
+    end subroutine reset_cc_prefactors
+
     subroutine compute_cc_prefactors
 
         use species_m, only: plasma

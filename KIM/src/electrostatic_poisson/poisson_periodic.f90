@@ -22,11 +22,69 @@ module rt_electrostatic_periodic_m
     integer, parameter, public :: PERIODIC_SCALE_OK = 0
     integer, parameter, public :: PERIODIC_SCALE_NO_ACTIVE = 1
     integer, parameter, public :: PERIODIC_SCALE_INVALID_RHO = 2
+    integer, parameter, public :: PERIODIC_BPAR_OK = 0
+    integer, parameter, public :: PERIODIC_BPAR_UNSUPPORTED_COLLISION = 1
+    integer, parameter, public :: PERIODIC_BPAR_UNSUPPORTED_HARMONIC = 2
+    integer, parameter, public :: PERIODIC_BPAR_UNSUPPORTED_APPROXIMATION = 3
+    integer, parameter, public :: PERIODIC_BPAR_UNSUPPORTED_DEBYE_MODEL = 4
 
     public :: compute_periodic_delta_phi, select_periodic_reference_scale
     public :: compute_periodic_ion_tensor
+    public :: periodic_bparallel_support_status
 
     contains
+
+    pure integer function periodic_bparallel_support_status(Bparallel_drive, &
+            collision_model, ion_model, collisions_disabled, debye_case, &
+            harmonic_max, match_global_approximations) result(status)
+        use KIM_kinds_m, only: dp
+        complex(dp), intent(in) :: Bparallel_drive
+        character(*), intent(in) :: collision_model, ion_model
+        integer, intent(in) :: debye_case, harmonic_max
+        logical, intent(in) :: collisions_disabled, match_global_approximations
+
+        status = PERIODIC_BPAR_OK
+        if (Bparallel_drive == (0.0_dp, 0.0_dp)) return
+        if (trim(collision_model) /= 'FokkerPlanck' .or. &
+                trim(ion_model) /= 'FokkerPlanck' .or. &
+                collisions_disabled) then
+            status = PERIODIC_BPAR_UNSUPPORTED_COLLISION
+        else if (debye_case /= 0 .and. debye_case /= 2) then
+            status = PERIODIC_BPAR_UNSUPPORTED_DEBYE_MODEL
+        else if (harmonic_max /= 0) then
+            status = PERIODIC_BPAR_UNSUPPORTED_HARMONIC
+        else if (match_global_approximations) then
+            status = PERIODIC_BPAR_UNSUPPORTED_APPROXIMATION
+        end if
+    end function periodic_bparallel_support_status
+
+    subroutine validate_periodic_bparallel(Bparallel_drive)
+        use KIM_kinds_m, only: dp
+        use config_m, only: artificial_debye_case, collision_model, &
+            ion_collision_model, periodic_match_global_kernel_approximations
+        use setup_m, only: collisions_off, mphi_max
+        complex(dp), intent(in) :: Bparallel_drive
+        integer :: status
+
+        status = periodic_bparallel_support_status(Bparallel_drive, &
+            collision_model, ion_collision_model, collisions_off, &
+            artificial_debye_case, mphi_max, &
+            periodic_match_global_kernel_approximations)
+        select case (status)
+        case (PERIODIC_BPAR_OK)
+            return
+        case (PERIODIC_BPAR_UNSUPPORTED_COLLISION)
+            error stop 'Nonzero periodic Bparallel requires enabled FokkerPlanck collisions'
+        case (PERIODIC_BPAR_UNSUPPORTED_DEBYE_MODEL)
+            error stop 'Nonzero periodic Bparallel requires full or no-Debye FP response'
+        case (PERIODIC_BPAR_UNSUPPORTED_HARMONIC)
+            error stop 'Nonzero periodic Bparallel currently requires mphi_max=0'
+        case (PERIODIC_BPAR_UNSUPPORTED_APPROXIMATION)
+            error stop 'Nonzero periodic Bparallel cannot drop ks from gyrogeometry'
+        case default
+            error stop 'Unknown periodic Bparallel validation status'
+        end select
+    end subroutine validate_periodic_bparallel
 
     subroutine compute_periodic_ion_tensor(fields_s, ks_s, kr_s, kpar, vTi, nui, omega_ci, &
                                             omega_mode, om_E, B0, tensor)
@@ -74,11 +132,12 @@ module rt_electrostatic_periodic_m
     !> with electron index sp=0. Both are left unallocated when the solve fails.
     subroutine compute_periodic_delta_phi(rm, dx_asis, dx_tr, M, n_rg, Br_const, &
             r_out, dPhi, info, jpar, jpar_species, rho_B, rho_B_species, &
-            dPhi_dr, jrad)
+            dPhi_dr, jrad, Bparallel_const, rho_Bparallel, rho_Bparallel_species)
         use KIM_kinds_m, only: dp
         use species_m, only: plasma
         use periodic_background_m, only: build_periodic_plasma
-        use periodic_assembly_m, only: assemble_periodic_matrices
+        use periodic_assembly_m, only: assemble_periodic_matrices, &
+            assemble_periodic_bparallel_matrices
         use periodic_solve_m, only: solve_periodic, reconstruct_delta_phi, &
             reconstruct_delta_phi_derivative, reconstruct_jpar, reconstruct_jrad
         use config_m, only: periodic_match_global_kernel_approximations
@@ -96,15 +155,27 @@ module rt_electrostatic_periodic_m
         complex(dp), allocatable, intent(out), optional :: rho_B_species(:,:)
         complex(dp), allocatable, intent(out), optional :: dPhi_dr(:)
         complex(dp), allocatable, intent(out), optional :: jrad(:)
+        complex(dp), intent(in), optional :: Bparallel_const
+        complex(dp), allocatable, intent(out), optional :: rho_Bparallel(:)
+        complex(dp), allocatable, intent(out), optional :: rho_Bparallel_species(:,:)
 
         complex(dp), allocatable :: Kphi(:,:), KB(:,:), Kjphi(:,:), KjB(:,:), Phi_m(:)
         complex(dp), allocatable :: Kjrphi(:,:), KjrB(:,:)
         complex(dp), allocatable :: Kjphi_species(:,:,:), KjB_species(:,:,:)
         complex(dp), allocatable :: Kphi_species(:,:,:), KB_species(:,:,:)
+        complex(dp), allocatable :: KBparallel(:,:), KjBparallel(:,:), KjrBparallel(:,:)
+        complex(dp), allocatable :: KBparallel_species(:,:,:)
+        complex(dp), allocatable :: KjBparallel_species(:,:,:)
+        complex(dp) :: Bparallel_drive
         real(dp) :: L
         integer :: sp
+        logical :: bparallel_active, want_bparallel_species
 
         L = 2.0_dp * (dx_asis + dx_tr)
+        Bparallel_drive = (0.0_dp, 0.0_dp)
+        if (present(Bparallel_const)) Bparallel_drive = Bparallel_const
+        call validate_periodic_bparallel(Bparallel_drive)
+        bparallel_active = Bparallel_drive /= (0.0_dp, 0.0_dp)
 
         call set_global_kernel_approximations(periodic_match_global_kernel_approximations)
         call build_periodic_plasma(rm, dx_asis, dx_tr, n_rg)
@@ -122,7 +193,22 @@ module rt_electrostatic_periodic_m
             call assemble_periodic_matrices(plasma, L, M, Kphi, KB, Kjphi, KjB, &
                 Kjrphi, KjrB)
         end if
-        call solve_periodic(Kphi, KB, L, M, Br_const, Phi_m, info)
+        if (bparallel_active) then
+            want_bparallel_species = present(jpar_species) .or. &
+                present(rho_Bparallel_species)
+            if (want_bparallel_species) then
+                call assemble_periodic_bparallel_matrices(plasma, L, M, &
+                    KBparallel, KjBparallel, KBparallel_species, &
+                    KjBparallel_species, KjrBparallel)
+            else
+                call assemble_periodic_bparallel_matrices(plasma, L, M, &
+                    KBparallel, KjBparallel, KjrBparallel=KjrBparallel)
+            end if
+            call solve_periodic(Kphi, KB, L, M, Br_const, Phi_m, info, &
+                KBparallel=KBparallel, Bparallel_const=Bparallel_drive)
+        else
+            call solve_periodic(Kphi, KB, L, M, Br_const, Phi_m, info)
+        end if
         if (info /= 0) return
 
         dPhi = reconstruct_delta_phi(Phi_m, L, M, r_out)
@@ -139,20 +225,60 @@ module rt_electrostatic_periodic_m
             end do
         end if
 
+        if (present(rho_Bparallel)) then
+            allocate(rho_Bparallel(size(r_out)))
+            rho_Bparallel = (0.0_dp, 0.0_dp)
+            if (bparallel_active) then
+                rho_Bparallel = reconstruct_delta_phi(&
+                    Bparallel_drive * KBparallel(:, M + 1), L, M, r_out)
+            end if
+        end if
+
+        if (present(rho_Bparallel_species)) then
+            allocate(rho_Bparallel_species(size(r_out), 0:plasma%n_species - 1))
+            rho_Bparallel_species = (0.0_dp, 0.0_dp)
+            if (bparallel_active) then
+                do sp = 0, plasma%n_species - 1
+                    rho_Bparallel_species(:, sp) = reconstruct_delta_phi(&
+                        Bparallel_drive * KBparallel_species(:, M + 1, sp), &
+                        L, M, r_out)
+                end do
+            end if
+        end if
+
         if (present(jpar_species)) then
             allocate(jpar_species(size(r_out), 0:plasma%n_species - 1))
             do sp = 0, plasma%n_species - 1
-                jpar_species(:, sp) = reconstruct_jpar(&
-                    Kjphi_species(:, :, sp), KjB_species(:, :, sp), &
-                    Phi_m, Br_const, L, M, r_out)
+                if (bparallel_active) then
+                    jpar_species(:, sp) = reconstruct_jpar(&
+                        Kjphi_species(:, :, sp), KjB_species(:, :, sp), &
+                        Phi_m, Br_const, L, M, r_out, &
+                        KjBparallel=KjBparallel_species(:, :, sp), &
+                        Bparallel_const=Bparallel_drive)
+                else
+                    jpar_species(:, sp) = reconstruct_jpar(&
+                        Kjphi_species(:, :, sp), KjB_species(:, :, sp), &
+                        Phi_m, Br_const, L, M, r_out)
+                end if
             end do
         end if
 
         if (present(jpar)) then
-            jpar = reconstruct_jpar(Kjphi, KjB, Phi_m, Br_const, L, M, r_out)
+            if (bparallel_active) then
+                jpar = reconstruct_jpar(Kjphi, KjB, Phi_m, Br_const, L, M, &
+                    r_out, KjBparallel=KjBparallel, &
+                    Bparallel_const=Bparallel_drive)
+            else
+                jpar = reconstruct_jpar(Kjphi, KjB, Phi_m, Br_const, L, M, r_out)
+            end if
         end if
         if (present(jrad)) then
-            jrad = reconstruct_jrad(Kjrphi, KjrB, Phi_m, Br_const, L, M, r_out)
+            if (bparallel_active) then
+                jrad = reconstruct_jrad(Kjrphi, KjrB, Phi_m, Br_const, L, M, r_out, &
+                    KjrBparallel=KjrBparallel, Bparallel_const=Bparallel_drive)
+            else
+                jrad = reconstruct_jrad(Kjrphi, KjrB, Phi_m, Br_const, L, M, r_out)
+            end if
         end if
     end subroutine compute_periodic_delta_phi
 
@@ -277,7 +403,8 @@ module rt_electrostatic_periodic_m
         use config_m, only: periodic_dr_asis_scale, periodic_dr_tr_scale, &
                             periodic_kmax_scale, periodic_n_rg, hdf5_output, &
                             periodic_match_global_kernel_approximations, &
-                            periodic_Bparallel_ratio, turn_off_electrons, turn_off_ions
+                            periodic_Bparallel_drive, periodic_Bparallel_ratio, &
+                            turn_off_electrons, turn_off_ions
         use setup_m, only: Br_boundary_re, Br_boundary_im, m_mode, n_mode, R0, omega
         use species_m, only: plasma
         use grid_m, only: rg_grid
@@ -294,14 +421,16 @@ module rt_electrostatic_periodic_m
         complex(dp), allocatable :: dPhi(:), dPhi_dr(:), jpar(:), jpar_species(:,:)
         complex(dp), allocatable :: jrad(:)
         complex(dp), allocatable :: rho_B(:), rho_B_species(:,:), rho_B_i(:)
+        complex(dp), allocatable :: rho_Bparallel(:), rho_Bparallel_species(:,:)
+        complex(dp), allocatable :: rho_Bparallel_i(:)
         complex(dp) :: fields_local(3)
         real(dp) :: tensor_local(2,2)
-        complex(dp) :: Br_const
+        complex(dp) :: Br_const, Bparallel_const
         real(dp), allocatable :: r_win(:)
         real(dp) :: rm, rhoL_rm, dx_asis, dx_tr, L, k_max
         integer :: M, n_rg, info, i, reference_species, sp
 
-        ! 1. Locate the resonant surface rm = r_res (q = |m/n|) on the global plasma.
+        ! 1. Locate the resonant surface rm = r_res (q = -m/n) on the global plasma.
         call kim_prepare_resonances
         if (.not. (r_res > 0.0_dp)) then
             print *, "Error (electrostatic_periodic): no resonance found, r_res = ", r_res
@@ -360,9 +489,19 @@ module rt_electrostatic_periodic_m
         ! 5. Build -> assemble -> solve -> reconstruct on r_win via the reusable
         ! periodic core. It does NOT error stop on a singular solve; do it here.
         Br_const = cmplx(Br_boundary_re, Br_boundary_im, dp)
+        if (periodic_Bparallel_drive /= (0.0_dp, 0.0_dp) .and. &
+                periodic_Bparallel_ratio /= (0.0_dp, 0.0_dp)) then
+            error stop 'Set periodic_Bparallel_drive or legacy ratio, not both'
+        end if
+        Bparallel_const = periodic_Bparallel_drive
+        if (Bparallel_const == (0.0_dp, 0.0_dp)) then
+            Bparallel_const = periodic_Bparallel_ratio * Br_const
+        end if
         call compute_periodic_delta_phi(rm, dx_asis, dx_tr, M, n_rg, Br_const, &
             r_win, dPhi, info, jpar, jpar_species, rho_B, rho_B_species, &
-            dPhi_dr=dPhi_dr, jrad=jrad)
+            dPhi_dr=dPhi_dr, jrad=jrad, Bparallel_const=Bparallel_const, &
+            rho_Bparallel=rho_Bparallel, &
+            rho_Bparallel_species=rho_Bparallel_species)
         if (info /= 0) then
             print *, "Error (electrostatic_periodic): solve_periodic failed, info = ", info
             error stop "electrostatic_periodic: periodic solve failed"
@@ -387,7 +526,7 @@ module rt_electrostatic_periodic_m
         allocate(EBdat%Br(size(dPhi)))
         EBdat%Br = Br_const
         allocate(EBdat%Bparallel(size(dPhi)))
-        EBdat%Bparallel = periodic_Bparallel_ratio * Br_const
+        EBdat%Bparallel = Bparallel_const
         allocate(EBdat%Er(size(dPhi)), EBdat%Etheta(size(dPhi)), EBdat%Ez(size(dPhi)))
         EBdat%Er = -dPhi_dr
         do i = 1, size(dPhi)
@@ -419,6 +558,12 @@ module rt_electrostatic_periodic_m
         rho_B_i = (0.0_dp, 0.0_dp)
         if (plasma%n_species > 1) then
             rho_B_i = sum(rho_B_species(:, 1:plasma%n_species - 1), dim=2)
+        end if
+        allocate(rho_Bparallel_i(size(rho_Bparallel)))
+        rho_Bparallel_i = (0.0_dp, 0.0_dp)
+        if (plasma%n_species > 1) then
+            rho_Bparallel_i = sum(&
+                rho_Bparallel_species(:, 1:plasma%n_species - 1), dim=2)
         end if
 
         if (hdf5_output) then
@@ -454,6 +599,21 @@ module rt_electrostatic_periodic_m
                 "/fields/rho_B_i", &
                 'Summed ion charge density driven directly by imposed radial magnetic field', &
                 'statC/cm^3')
+            call write_complex_profile_abs(EBdat%r_grid, EBdat%Bparallel, &
+                rg_grid%npts_b, '/fields/Bparallel', &
+                'Prescribed parallel magnetic perturbation', 'G')
+            call write_complex_profile_abs(EBdat%r_grid, rho_Bparallel, &
+                rg_grid%npts_b, '/fields/rho_Bparallel', &
+                'Charge density driven directly by Bparallel', 'statC/cm^3')
+            call write_complex_profile_abs(EBdat%r_grid, &
+                rho_Bparallel_species(:, 0), rg_grid%npts_b, &
+                '/fields/rho_Bparallel_e', &
+                'Electron charge density driven directly by Bparallel', &
+                'statC/cm^3')
+            call write_complex_profile_abs(EBdat%r_grid, rho_Bparallel_i, &
+                rg_grid%npts_b, '/fields/rho_Bparallel_i', &
+                'Summed ion charge density driven directly by Bparallel', &
+                'statC/cm^3')
             do sp = 1, plasma%n_species - 1
                 call write_complex_profile_abs(EBdat%r_grid, jpar_species(:, sp), &
                     rg_grid%npts_b, "/fields/jpar_i"//trim(itoa(sp)), &
@@ -462,6 +622,11 @@ module rt_electrostatic_periodic_m
                 call write_complex_profile_abs(EBdat%r_grid, rho_B_species(:, sp), &
                     rg_grid%npts_b, "/fields/rho_B_i"//trim(itoa(sp)), &
                     'Ion-species charge density driven directly by imposed radial magnetic field', &
+                    'statC/cm^3')
+                call write_complex_profile_abs(EBdat%r_grid, &
+                    rho_Bparallel_species(:, sp), rg_grid%npts_b, &
+                    '/fields/rho_Bparallel_i'//trim(itoa(sp)), &
+                    'Ion-species charge density driven directly by Bparallel', &
                     'statC/cm^3')
             end do
         end if

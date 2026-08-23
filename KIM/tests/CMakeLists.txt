@@ -252,6 +252,60 @@ add_test(NAME test_radial_current_harmonics
 set_tests_properties(test_radial_current_harmonics PROPERTIES
                      WORKING_DIRECTORY ${CMAKE_BINARY_DIR}/tests/)
 
+add_executable(test_bparallel_linear_response
+               ${CMAKE_SOURCE_DIR}/KIM/tests/test_bparallel_linear_response.f90)
+set_target_properties(test_bparallel_linear_response PROPERTIES
+                      OUTPUT_NAME test_bparallel_linear_response.x
+                      RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/tests/")
+target_link_libraries(test_bparallel_linear_response
+                      KIM_lib kilca_lib lapack cerf fortnum_amos_compat)
+add_test(NAME test_bparallel_linear_response
+         COMMAND ${CMAKE_BINARY_DIR}/tests/test_bparallel_linear_response.x)
+add_test(NAME test_bparallel_reject_harmonic
+         COMMAND ${CMAKE_BINARY_DIR}/tests/test_bparallel_linear_response.x harmonic)
+set_tests_properties(test_bparallel_reject_harmonic PROPERTIES WILL_FAIL TRUE)
+add_test(NAME test_bparallel_reject_dropped_ks
+         COMMAND ${CMAKE_BINARY_DIR}/tests/test_bparallel_linear_response.x dropped-ks)
+set_tests_properties(test_bparallel_reject_dropped_ks PROPERTIES WILL_FAIL TRUE)
+
+add_executable(test_periodic_config_read
+               ${CMAKE_SOURCE_DIR}/KIM/tests/test_periodic_config_read.f90)
+set_target_properties(test_periodic_config_read PROPERTIES
+                      OUTPUT_NAME test_periodic_config_read.x
+                      RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/tests/")
+target_link_libraries(test_periodic_config_read
+                      KIM_lib kilca_lib lapack cerf fortnum_amos_compat)
+configure_file(${CMAKE_SOURCE_DIR}/KIM/tests/test_data/KIM_config_em_small.nml
+               ${CMAKE_BINARY_DIR}/tests/KIM_config_bparallel_valid.nml COPYONLY)
+file(APPEND ${CMAKE_BINARY_DIR}/tests/KIM_config_bparallel_valid.nml
+     "\n&KIM_PERIODIC\n    periodic_dr_asis_scale = 7.0\n    periodic_dr_tr_scale = 13.0\n    periodic_kmax_scale = 9.0\n    periodic_n_rg = 17\n    periodic_Bparallel_drive = (0.25, -0.5)\n/\n")
+configure_file(${CMAKE_SOURCE_DIR}/KIM/tests/test_data/KIM_config_em_small.nml
+               ${CMAKE_BINARY_DIR}/tests/KIM_config_bparallel_malformed.nml COPYONLY)
+file(APPEND ${CMAKE_BINARY_DIR}/tests/KIM_config_bparallel_malformed.nml
+     "\n&KIM_PERIODIC\n    periodic_Bparallel_driv = (0.25, -0.5)\n/\n")
+configure_file(${CMAKE_SOURCE_DIR}/KIM/tests/test_data/KIM_config_em_small.nml
+               ${CMAKE_BINARY_DIR}/tests/KIM_config_bparallel_unterminated.nml COPYONLY)
+file(APPEND ${CMAKE_BINARY_DIR}/tests/KIM_config_bparallel_unterminated.nml
+     "\n&KIM_PERIODIC\n    periodic_Bparallel_drive = (0.25, -0.5)\n")
+add_test(NAME test_periodic_config_bparallel_valid
+         COMMAND ${CMAKE_BINARY_DIR}/tests/test_periodic_config_read.x
+                 ${CMAKE_BINARY_DIR}/tests/KIM_config_bparallel_valid.nml)
+add_test(NAME test_periodic_config_defaults_reset
+         COMMAND ${CMAKE_BINARY_DIR}/tests/test_periodic_config_read.x)
+set_tests_properties(test_periodic_config_defaults_reset PROPERTIES
+    ENVIRONMENT
+        "KIM_TEST_CONFIG_PATH=${CMAKE_BINARY_DIR}/tests/KIM_config_bparallel_valid.nml;KIM_TEST_SECOND_CONFIG_PATH=${CMAKE_BINARY_DIR}/tests/KIM_config_em_small.nml"
+    PASS_REGULAR_EXPRESSION "periodic config default-reset assertions PASSED")
+add_test(NAME test_periodic_config_bparallel_malformed
+         COMMAND ${CMAKE_BINARY_DIR}/tests/test_periodic_config_read.x
+                 ${CMAKE_BINARY_DIR}/tests/KIM_config_bparallel_malformed.nml)
+add_test(NAME test_periodic_config_bparallel_unterminated
+         COMMAND ${CMAKE_BINARY_DIR}/tests/test_periodic_config_read.x
+                 ${CMAKE_BINARY_DIR}/tests/KIM_config_bparallel_unterminated.nml)
+set_tests_properties(test_periodic_config_bparallel_malformed
+                     test_periodic_config_bparallel_unterminated
+                     PROPERTIES WILL_FAIL TRUE)
+
 add_executable(test_flr2_tridiagonal
                ${CMAKE_SOURCE_DIR}/KIM/tests/test_flr2_tridiagonal.f90)
 set_target_properties(test_flr2_tridiagonal PROPERTIES
@@ -438,6 +492,16 @@ set_target_properties(test_kim_solver_em PROPERTIES
 target_link_libraries(test_kim_solver_em KIM_lib kilca_lib lapack cerf fortnum_amos_compat)
 configure_file(${CMAKE_SOURCE_DIR}/KIM/tests/test_data/KIM_config_em_small.nml
                ${CMAKE_BINARY_DIR}/tests/KIM_config_em_small.nml COPYONLY)
+file(READ ${CMAKE_SOURCE_DIR}/KIM/tests/test_data/KIM_config_em_small.nml
+     KIM_CONFIG_EM_ADAPTIVE)
+string(REPLACE "    grid_spacing_rg = \"equidistant\""
+       "    grid_spacing_rg = \"adaptive\""
+       KIM_CONFIG_EM_ADAPTIVE "${KIM_CONFIG_EM_ADAPTIVE}")
+string(REPLACE "    grid_spacing_xl = \"equidistant\""
+       "    grid_spacing_xl = \"adaptive\""
+       KIM_CONFIG_EM_ADAPTIVE "${KIM_CONFIG_EM_ADAPTIVE}")
+file(WRITE ${CMAKE_BINARY_DIR}/tests/KIM_config_em_adaptive.nml
+     "${KIM_CONFIG_EM_ADAPTIVE}")
 add_test(NAME test_kim_solver_em
          COMMAND ${CMAKE_BINARY_DIR}/tests/test_kim_solver_em.x)
 set_tests_properties(test_kim_solver_em PROPERTIES
@@ -464,6 +528,64 @@ target_link_libraries(test_kim_solver_periodic_contract
                       KIM_lib kilca_lib lapack cerf fortnum_amos_compat)
 configure_file(${CMAKE_SOURCE_DIR}/KIM/tests/test_data/KIM_config_em_small.nml
                ${CMAKE_BINARY_DIR}/tests/KIM_config_em_small.nml COPYONLY)
+file(READ ${CMAKE_SOURCE_DIR}/KIM/tests/test_data/KIM_config_em_small.nml
+     KIM_CONFIG_PROFILE_UPDATE_LARGE_RG)
+string(REPLACE "    rg_space_dim = 64" "    rg_space_dim = 128"
+       KIM_CONFIG_PROFILE_UPDATE_LARGE_RG
+       "${KIM_CONFIG_PROFILE_UPDATE_LARGE_RG}")
+file(WRITE ${CMAKE_BINARY_DIR}/tests/KIM_config_profile_update_large_rg.nml
+     "${KIM_CONFIG_PROFILE_UPDATE_LARGE_RG}")
+string(REPLACE "    grid_spacing_rg = \"equidistant\""
+       "    grid_spacing_rg = \"adaptive\""
+       KIM_CONFIG_ADAPTIVE_MODE_A
+       "${KIM_CONFIG_PROFILE_UPDATE_LARGE_RG}")
+string(REPLACE "    grid_spacing_xl = \"equidistant\""
+       "    grid_spacing_xl = \"adaptive\""
+       KIM_CONFIG_ADAPTIVE_MODE_A
+       "${KIM_CONFIG_ADAPTIVE_MODE_A}")
+file(WRITE ${CMAKE_BINARY_DIR}/tests/KIM_config_adaptive_mode_a.nml
+     "${KIM_CONFIG_ADAPTIVE_MODE_A}")
+string(REPLACE "    m_mode = -6" "    m_mode = -7"
+       KIM_CONFIG_ADAPTIVE_MODE_B
+       "${KIM_CONFIG_ADAPTIVE_MODE_A}")
+file(WRITE ${CMAKE_BINARY_DIR}/tests/KIM_config_adaptive_mode_b.nml
+     "${KIM_CONFIG_ADAPTIVE_MODE_B}")
+file(MAKE_DIRECTORY ${CMAKE_BINARY_DIR}/tests/file_profiles)
+file(WRITE ${CMAKE_BINARY_DIR}/tests/file_profiles/n.dat
+     "3.0 1.20e13\n20.0 1.10e13\n36.8 1.00e13\n55.0 0.90e13\n70.0 0.80e13\n")
+file(WRITE ${CMAKE_BINARY_DIR}/tests/file_profiles/Te.dat
+     "3.0 1200.0\n20.0 1100.0\n36.8 1000.0\n55.0 900.0\n70.0 800.0\n")
+file(WRITE ${CMAKE_BINARY_DIR}/tests/file_profiles/Ti.dat
+     "3.0 1000.0\n20.0 950.0\n36.8 900.0\n55.0 850.0\n70.0 800.0\n")
+file(WRITE ${CMAKE_BINARY_DIR}/tests/file_profiles/Er.dat
+     "3.0 0.0\n20.0 0.0\n36.8 0.0\n55.0 0.0\n70.0 0.0\n")
+file(WRITE ${CMAKE_BINARY_DIR}/tests/file_profiles/q.dat
+     "3.0 2.4\n20.0 2.7\n36.8 3.0\n55.0 3.3\n70.0 3.5\n")
+string(REPLACE "    profile_location = './profiles/'"
+       "    profile_location = './file_profiles/'"
+       KIM_CONFIG_FILE_PROFILES "${KIM_CONFIG_PROFILE_UPDATE_LARGE_RG}")
+string(REPLACE "    input_profile_dir = './'"
+       "    input_profile_dir = './file_profiles/'"
+       KIM_CONFIG_FILE_PROFILES "${KIM_CONFIG_FILE_PROFILES}")
+string(REPLACE "    coord_type = 'auto'" "    coord_type = 'r_eff'"
+       KIM_CONFIG_FILE_PROFILES "${KIM_CONFIG_FILE_PROFILES}")
+string(REPLACE "    r_plas = 67.0" "    r_plas = 55.1"
+       KIM_CONFIG_FILE_PROFILES "${KIM_CONFIG_FILE_PROFILES}")
+string(REPLACE "    output_path = './out_em_small/'"
+       "    output_path = './out_file_profiles/'"
+       KIM_CONFIG_FILE_PROFILES "${KIM_CONFIG_FILE_PROFILES}")
+file(WRITE ${CMAKE_BINARY_DIR}/tests/KIM_config_file_profiles.nml
+     "${KIM_CONFIG_FILE_PROFILES}")
+string(REPLACE "    grid_spacing_rg = \"equidistant\""
+       "    grid_spacing_rg = \"adaptive\""
+       KIM_CONFIG_FILE_PROFILES_ADAPTIVE
+       "${KIM_CONFIG_FILE_PROFILES}")
+string(REPLACE "    grid_spacing_xl = \"equidistant\""
+       "    grid_spacing_xl = \"adaptive\""
+       KIM_CONFIG_FILE_PROFILES_ADAPTIVE
+       "${KIM_CONFIG_FILE_PROFILES_ADAPTIVE}")
+file(WRITE ${CMAKE_BINARY_DIR}/tests/KIM_config_file_profiles_adaptive.nml
+     "${KIM_CONFIG_FILE_PROFILES_ADAPTIVE}")
 add_test(NAME test_kim_solver_periodic_contract
          COMMAND ${CMAKE_BINARY_DIR}/tests/test_kim_solver_periodic_contract.x)
 set_tests_properties(test_kim_solver_periodic_contract PROPERTIES

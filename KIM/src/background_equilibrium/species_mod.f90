@@ -6,8 +6,8 @@ module species_m
 
     type :: plasma_t
         type(species_t), allocatable :: spec(:)
-        integer :: n_species
-        integer :: grid_size
+        integer :: n_species = 0
+        integer :: grid_size = 0
         real(dp), allocatable :: om_E(:) ! ExB rotation frequency
         real(dp), allocatable :: ks(:) ! "senkrecht" wavenumber
         real(dp), allocatable :: kp(:) ! parallel wavenumber
@@ -54,6 +54,8 @@ module species_m
         complex(dp), allocatable :: I02(:, :)
         complex(dp), allocatable :: I03(:, :)
         complex(dp), allocatable :: I01(:, :)
+        complex(dp), allocatable :: I10(:, :)
+        complex(dp), allocatable :: I12(:, :)
         complex(dp), allocatable :: I21(:, :)
         complex(dp), allocatable :: I22(:, :)
 
@@ -195,11 +197,18 @@ module species_m
 
         implicit none
 
+        call reset_plasma
         plasma%n_species = number_of_ion_species+1
-        if (allocated(plasma%spec)) deallocate(plasma%spec)
         allocate(plasma%spec(0:plasma%n_species-1))
 
     end subroutine
+
+    subroutine reset_plasma
+        !! Release primitive and derived module-global profile state. Intrinsic
+        !! assignment deep-finalizes every allocatable component, so a later
+        !! file-backed or in-memory initialization starts from an empty plasma.
+        plasma = plasma_t()
+    end subroutine reset_plasma
 
     subroutine read_species_from_nml(plasma_in)
 
@@ -427,6 +436,8 @@ module species_m
                 allocate(plasma_in%spec(sp)%x2(rg_grid%npts_b, -mphi_max:mphi_max))
                 allocate(plasma_in%spec(sp)%I00(rg_grid%npts_b, -mphi_max:mphi_max))
                 allocate(plasma_in%spec(sp)%I01(rg_grid%npts_b, -mphi_max:mphi_max))
+                allocate(plasma_in%spec(sp)%I10(rg_grid%npts_b, -mphi_max:mphi_max))
+                allocate(plasma_in%spec(sp)%I12(rg_grid%npts_b, -mphi_max:mphi_max))
                 allocate(plasma_in%spec(sp)%I20(rg_grid%npts_b, -mphi_max:mphi_max))
                 allocate(plasma_in%spec(sp)%I21(rg_grid%npts_b, -mphi_max:mphi_max))
                 allocate(plasma_in%spec(sp)%I22(rg_grid%npts_b, -mphi_max:mphi_max))
@@ -478,6 +489,8 @@ module species_m
                     plasma_in%spec(sp)%x2(j, :) = 0.0_dp
                     plasma_in%spec(sp)%I00(j, :) = (0.0_dp, 0.0_dp)
                     plasma_in%spec(sp)%I01(j, :) = (0.0_dp, 0.0_dp)
+                    plasma_in%spec(sp)%I10(j, :) = (0.0_dp, 0.0_dp)
+                    plasma_in%spec(sp)%I12(j, :) = (0.0_dp, 0.0_dp)
                     plasma_in%spec(sp)%I20(j, :) = (0.0_dp, 0.0_dp)
                     plasma_in%spec(sp)%I21(j, :) = (0.0_dp, 0.0_dp)
                     plasma_in%spec(sp)%I22(j, :) = (0.0_dp, 0.0_dp)
@@ -503,6 +516,8 @@ module species_m
                     plasma_in%spec(sp)%I02(j, mphi) = plasma_in%spec(sp)%symbI(0, 2)
                     plasma_in%spec(sp)%I03(j, mphi) = plasma_in%spec(sp)%symbI(0, 3)
                     plasma_in%spec(sp)%I01(j, mphi) = plasma_in%spec(sp)%symbI(0, 1)
+                    plasma_in%spec(sp)%I10(j, mphi) = plasma_in%spec(sp)%symbI(1, 0)
+                    plasma_in%spec(sp)%I12(j, mphi) = plasma_in%spec(sp)%symbI(1, 2)
                     plasma_in%spec(sp)%I21(j, mphi) = plasma_in%spec(sp)%symbI(2, 1)
                     plasma_in%spec(sp)%I22(j, mphi) = plasma_in%spec(sp)%symbI(2, 2)
                     plasma_in%spec(sp)%I11(j, mphi) = plasma_in%spec(sp)%symbI(1, 1)
@@ -1066,6 +1081,8 @@ module species_m
             spec%I02(j, mphi) = spec%symbI(0, 2)
             spec%I03(j, mphi) = spec%symbI(0, 3)
             spec%I01(j, mphi) = spec%symbI(0, 1)
+            spec%I10(j, mphi) = spec%symbI(1, 0)
+            spec%I12(j, mphi) = spec%symbI(1, 2)
             spec%I21(j, mphi) = spec%symbI(2, 1)
             spec%I22(j, mphi) = spec%symbI(2, 2)
             spec%I11(j, mphi) = spec%symbI(1, 1)
@@ -1329,6 +1346,9 @@ module species_m
         if (allocated(plasma%kp)) deallocate(plasma%kp)
         if (allocated(plasma%om_E)) deallocate(plasma%om_E)
         if (allocated(plasma%dqdr)) deallocate(plasma%dqdr)
+        if (allocated(plasma%ks_cc)) deallocate(plasma%ks_cc)
+        if (allocated(plasma%Er_cc)) deallocate(plasma%Er_cc)
+        if (allocated(plasma%om_E_cc)) deallocate(plasma%om_E_cc)
 
         ! From plasma species (allocated in calculate_plasma_backs)
         do sp = 0, number_of_ion_species
@@ -1341,6 +1361,45 @@ module species_m
             if (allocated(plasma%spec(sp)%rho_L)) deallocate(plasma%spec(sp)%rho_L)
             if (allocated(plasma%spec(sp)%lambda_D)) deallocate(plasma%spec(sp)%lambda_D)
             if (allocated(plasma%spec(sp)%z0)) deallocate(plasma%spec(sp)%z0)
+            if (allocated(plasma%spec(sp)%symbI)) deallocate(plasma%spec(sp)%symbI)
+            if (allocated(plasma%spec(sp)%A1)) deallocate(plasma%spec(sp)%A1)
+            if (allocated(plasma%spec(sp)%A2)) deallocate(plasma%spec(sp)%A2)
+            if (allocated(plasma%spec(sp)%x1)) deallocate(plasma%spec(sp)%x1)
+            if (allocated(plasma%spec(sp)%x2)) deallocate(plasma%spec(sp)%x2)
+            if (allocated(plasma%spec(sp)%I00)) deallocate(plasma%spec(sp)%I00)
+            if (allocated(plasma%spec(sp)%I01)) deallocate(plasma%spec(sp)%I01)
+            if (allocated(plasma%spec(sp)%I10)) deallocate(plasma%spec(sp)%I10)
+            if (allocated(plasma%spec(sp)%I12)) deallocate(plasma%spec(sp)%I12)
+            if (allocated(plasma%spec(sp)%I20)) deallocate(plasma%spec(sp)%I20)
+            if (allocated(plasma%spec(sp)%I21)) deallocate(plasma%spec(sp)%I21)
+            if (allocated(plasma%spec(sp)%I22)) deallocate(plasma%spec(sp)%I22)
+            if (allocated(plasma%spec(sp)%I02)) deallocate(plasma%spec(sp)%I02)
+            if (allocated(plasma%spec(sp)%I11)) deallocate(plasma%spec(sp)%I11)
+            if (allocated(plasma%spec(sp)%I13)) deallocate(plasma%spec(sp)%I13)
+
+            if (allocated(plasma%spec(sp)%n_cc)) deallocate(plasma%spec(sp)%n_cc)
+            if (allocated(plasma%spec(sp)%dndr_cc)) deallocate(plasma%spec(sp)%dndr_cc)
+            if (allocated(plasma%spec(sp)%T_cc)) deallocate(plasma%spec(sp)%T_cc)
+            if (allocated(plasma%spec(sp)%dTdr_cc)) deallocate(plasma%spec(sp)%dTdr_cc)
+            if (allocated(plasma%spec(sp)%nu_cc)) deallocate(plasma%spec(sp)%nu_cc)
+            if (allocated(plasma%spec(sp)%vT_cc)) deallocate(plasma%spec(sp)%vT_cc)
+            if (allocated(plasma%spec(sp)%omega_c_cc)) deallocate(plasma%spec(sp)%omega_c_cc)
+            if (allocated(plasma%spec(sp)%lambda_D_cc)) deallocate(plasma%spec(sp)%lambda_D_cc)
+            if (allocated(plasma%spec(sp)%rho_L_cc)) deallocate(plasma%spec(sp)%rho_L_cc)
+            if (allocated(plasma%spec(sp)%A1_cc)) deallocate(plasma%spec(sp)%A1_cc)
+            if (allocated(plasma%spec(sp)%A2_cc)) deallocate(plasma%spec(sp)%A2_cc)
+            if (allocated(plasma%spec(sp)%x1_cc)) deallocate(plasma%spec(sp)%x1_cc)
+            if (allocated(plasma%spec(sp)%x2_cc)) deallocate(plasma%spec(sp)%x2_cc)
+            if (allocated(plasma%spec(sp)%I00_cc)) deallocate(plasma%spec(sp)%I00_cc)
+            if (allocated(plasma%spec(sp)%I01_cc)) deallocate(plasma%spec(sp)%I01_cc)
+            if (allocated(plasma%spec(sp)%I10_cc)) deallocate(plasma%spec(sp)%I10_cc)
+            if (allocated(plasma%spec(sp)%I20_cc)) deallocate(plasma%spec(sp)%I20_cc)
+            if (allocated(plasma%spec(sp)%I21_cc)) deallocate(plasma%spec(sp)%I21_cc)
+            if (allocated(plasma%spec(sp)%I12_cc)) deallocate(plasma%spec(sp)%I12_cc)
+            if (allocated(plasma%spec(sp)%I22_cc)) deallocate(plasma%spec(sp)%I22_cc)
+            if (allocated(plasma%spec(sp)%I02_cc)) deallocate(plasma%spec(sp)%I02_cc)
+            if (allocated(plasma%spec(sp)%I13_cc)) deallocate(plasma%spec(sp)%I13_cc)
+            if (allocated(plasma%spec(sp)%I11_cc)) deallocate(plasma%spec(sp)%I11_cc)
         end do
 
     end subroutine deallocate_plasma_derived

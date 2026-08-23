@@ -37,7 +37,8 @@ module periodic_assembly_m
     implicit none
     private
 
-    public :: assemble_periodic_matrices, k_of_m
+    public :: assemble_periodic_matrices, assemble_periodic_bparallel_matrices
+    public :: k_of_m
 
 contains
 
@@ -199,5 +200,98 @@ contains
         end do
         !$omp end parallel do
     end subroutine assemble_periodic_matrices
+
+    subroutine assemble_periodic_bparallel_matrices(plasma, L, M, &
+            KBparallel, KjBparallel, KBparallel_species, KjBparallel_species, &
+            KjrBparallel)
+        ! Assemble only the linear B_parallel charge/current columns. Keeping
+        ! this separate leaves the established Phi/Br path and its zero-drive
+        ! arithmetic unchanged. The configured kernel enforces the supported
+        ! FP, m_phi=0 source-only derivative model before this routine is called.
+        use collisionless_fourier_kernel_m, only: configured_hatG_Bparallel_all
+        use constants_m, only: pi
+        use grid_m, only: rg_grid
+        use radial_current_fourier_kernel_m, only: hatG_jrad_bparallel
+
+        type(plasma_t), intent(in) :: plasma
+        real(dp), intent(in) :: L
+        integer, intent(in) :: M
+        complex(dp), allocatable, intent(out) :: KBparallel(:,:), KjBparallel(:,:)
+        complex(dp), allocatable, intent(out), optional :: KBparallel_species(:,:,:)
+        complex(dp), allocatable, intent(out), optional :: KjBparallel_species(:,:,:)
+        complex(dp), allocatable, intent(out), optional :: KjrBparallel(:,:)
+        complex(dp) :: point_rho, point_j, point_jrad
+        complex(dp) :: acc_rho, acc_j, acc_jrad
+        complex(dp) :: point_rho_species(0:plasma%n_species - 1)
+        complex(dp) :: point_j_species(0:plasma%n_species - 1)
+        complex(dp) :: acc_rho_species(0:plasma%n_species - 1)
+        complex(dp) :: acc_j_species(0:plasma%n_species - 1)
+        real(dp) :: k_m, k_mp, weight
+        integer :: N, dim, m_row, m_col, im, imp, j
+        logical :: want_species, want_jrad
+
+        if (present(KBparallel_species) .neqv. present(KjBparallel_species)) then
+            error stop 'assemble_periodic_bparallel_matrices requires both species matrices'
+        end if
+        N = rg_grid%npts_b
+        dim = 2 * M + 1
+        allocate(KBparallel(dim, dim), KjBparallel(dim, dim))
+        want_species = present(KBparallel_species)
+        want_jrad = present(KjrBparallel)
+        if (want_jrad) allocate(KjrBparallel(dim, dim))
+        if (want_species) then
+            allocate(KBparallel_species(dim, dim, 0:plasma%n_species - 1))
+            allocate(KjBparallel_species(dim, dim, 0:plasma%n_species - 1))
+        end if
+        weight = 2.0_dp * pi / real(N, dp)
+
+        !$omp parallel do default(none) schedule(static) &
+        !$omp shared(M, L, N, weight, plasma, KBparallel, KjBparallel, &
+        !$omp        want_species, KBparallel_species, KjBparallel_species, &
+        !$omp        want_jrad, KjrBparallel) &
+        !$omp private(m_col, k_mp, imp, m_row, k_m, im, j, point_rho, &
+        !$omp         point_j, point_jrad, acc_rho, acc_j, acc_jrad, point_rho_species, &
+        !$omp         point_j_species, acc_rho_species, acc_j_species)
+        do m_col = -M, M
+            k_mp = k_of_m(m_col, L)
+            imp = m_col + M + 1
+            do m_row = -M, M
+                k_m = k_of_m(m_row, L)
+                im = m_row + M + 1
+                acc_rho = (0.0_dp, 0.0_dp)
+                acc_j = (0.0_dp, 0.0_dp)
+                acc_jrad = (0.0_dp, 0.0_dp)
+                if (want_species) then
+                    acc_rho_species = (0.0_dp, 0.0_dp)
+                    acc_j_species = (0.0_dp, 0.0_dp)
+                end if
+                do j = 1, N
+                    if (want_species) then
+                        call configured_hatG_Bparallel_all(plasma, k_m, k_mp, j, &
+                            point_rho, point_j, point_rho_species, point_j_species)
+                        acc_rho_species = acc_rho_species + point_rho_species
+                        acc_j_species = acc_j_species + point_j_species
+                    else
+                        call configured_hatG_Bparallel_all(plasma, k_m, k_mp, j, &
+                            point_rho, point_j)
+                    end if
+                    acc_rho = acc_rho + point_rho
+                    acc_j = acc_j + point_j
+                    if (want_jrad) then
+                        point_jrad = hatG_jrad_bparallel(plasma, k_m, k_mp, j)
+                        acc_jrad = acc_jrad + point_jrad
+                    end if
+                end do
+                KBparallel(im, imp) = weight * acc_rho
+                KjBparallel(im, imp) = weight * acc_j
+                if (want_jrad) KjrBparallel(im, imp) = weight * acc_jrad
+                if (want_species) then
+                    KBparallel_species(im, imp, :) = weight * acc_rho_species
+                    KjBparallel_species(im, imp, :) = weight * acc_j_species
+                end if
+            end do
+        end do
+        !$omp end parallel do
+    end subroutine assemble_periodic_bparallel_matrices
 
 end module periodic_assembly_m

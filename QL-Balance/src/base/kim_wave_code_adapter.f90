@@ -14,6 +14,7 @@ module kim_wave_code_adapter_m
     use setup_m, only: kim_m_mode => m_mode, kim_n_mode => n_mode
     use grid_m, only: kim_xl_grid => xl_grid, &
                       kim_r_min => r_min, kim_r_plas => r_plas
+    use kim_resonances_m, only: locate_periodic_resonance, KIM_RESONANCE_OK
     use periodic_embedding_m, only: embed_complex_profile, embed_tensor_profile
 
     implicit none
@@ -28,6 +29,7 @@ module kim_wave_code_adapter_m
     public :: kim_get_collision_frequencies
     public :: kim_load_vacuum_fields
     public :: kim_check_domain_consistency
+    public :: sample_periodic_vacuum_drives
     public :: kim_get_current_densities
     public :: interp_complex_profile  ! exposed for testing
     public :: kim_periodic_mode_selected
@@ -36,6 +38,8 @@ module kim_wave_code_adapter_m
     public :: kim_periodic_normalization_relaxation, kim_periodic_normalization_version, &
         kim_periodic_phase_policy
     public :: kim_mode_m, kim_mode_n, kim_mode_resonance, kim_mode_status
+    public :: kim_periodic_Br_drive_modes
+    public :: kim_periodic_Bparallel_drive_modes, kim_periodic_drive_radius
 
     !! Module-level KIM solver handle (reused across calls)
     type(kim_solver_t) :: kim_handle
@@ -47,6 +51,13 @@ module kim_wave_code_adapter_m
 
     !! Per-mode vacuum Br on QL-Balance grid (dim_r, dim_mn)
     complex(8), allocatable, public :: kim_vac_Br(:,:)
+    !! KiLCA vacuum Bp is the RSP component parallel to the equilibrium field.
+    !! It has the same Gauss units, complex phase convention, and signed (m,n)
+    !! mode identity as kim_vac_Br.
+    complex(8), allocatable, public :: kim_vac_Bparallel(:,:)
+    complex(8), allocatable :: kim_periodic_Br_drive_modes(:)
+    complex(8), allocatable :: kim_periodic_Bparallel_drive_modes(:)
+    real(8), allocatable :: kim_periodic_drive_radius(:)
 
     !! Per-mode stored field results (nrad, dim_mn)
     !! Filled by kim_run_for_all_modes, read by kim_get_wave_fields
@@ -234,14 +245,17 @@ contains
             deallocate(kim_r, work_old)
         end if
 
-        ! Vacuum Br placeholder (NaN until kim_load_vacuum_fields fills it)
+        ! Vacuum-drive placeholders (NaN until kim_load_vacuum_fields fills them).
         block
             use ieee_arithmetic, only: ieee_value, ieee_quiet_nan
             real(8) :: nan_val
             nan_val = ieee_value(1.0d0, ieee_quiet_nan)
             if (allocated(kim_vac_Br)) deallocate(kim_vac_Br)
+            if (allocated(kim_vac_Bparallel)) deallocate(kim_vac_Bparallel)
             allocate(kim_vac_Br(nrad, dim_mn))
+            allocate(kim_vac_Bparallel(nrad, dim_mn))
             kim_vac_Br = cmplx(nan_val, nan_val, kind=8)
+            kim_vac_Bparallel = cmplx(nan_val, nan_val, kind=8)
         end block
 
         write(*, *) "KIM adapter: initialization complete"
@@ -328,6 +342,8 @@ contains
         real(8), allocatable :: kim_r(:), kim_plasma_r(:), weights(:)
         real(8) :: core_lo, core_hi, width
         complex(8) :: current_unit, drive_scale, guarded_scale
+        complex(8) :: Br_drive, Bparallel_drive
+        real(8) :: drive_radius, resonance_tolerance
         integer :: scale_status
         logical :: periodic, apply_drive_scale
 
@@ -352,6 +368,11 @@ contains
         if (allocated(kim_mode_n)) deallocate(kim_mode_n)
         if (allocated(kim_mode_resonance)) deallocate(kim_mode_resonance)
         if (allocated(kim_mode_status)) deallocate(kim_mode_status)
+        if (allocated(kim_periodic_Br_drive_modes)) deallocate(kim_periodic_Br_drive_modes)
+        if (allocated(kim_periodic_Bparallel_drive_modes)) then
+            deallocate(kim_periodic_Bparallel_drive_modes)
+        end if
+        if (allocated(kim_periodic_drive_radius)) deallocate(kim_periodic_drive_radius)
         if (allocated(kim_kp_modes)) deallocate(kim_kp_modes)
         if (allocated(kim_ks_modes)) deallocate(kim_ks_modes)
         if (allocated(kim_jpar_modes)) deallocate(kim_jpar_modes)
@@ -370,6 +391,9 @@ contains
         allocate(kim_periodic_scale_modes(dim_mn), kim_periodic_current_unit(dim_mn), &
             kim_periodic_scale_status(dim_mn))
         allocate(kim_mode_m(dim_mn), kim_mode_n(dim_mn), kim_mode_resonance(dim_mn), kim_mode_status(dim_mn))
+        allocate(kim_periodic_Br_drive_modes(dim_mn))
+        allocate(kim_periodic_Bparallel_drive_modes(dim_mn))
+        allocate(kim_periodic_drive_radius(dim_mn))
         allocate(kim_kp_modes(dim_r, dim_mn))
         allocate(kim_ks_modes(dim_r, dim_mn))
         allocate(kim_jpar_modes(dim_r, dim_mn))
@@ -392,6 +416,9 @@ contains
         kim_mode_n = n_vals
         kim_mode_resonance = 0.0d0
         kim_mode_status = 0
+        kim_periodic_Br_drive_modes = (0.0d0, 0.0d0)
+        kim_periodic_Bparallel_drive_modes = (0.0d0, 0.0d0)
+        kim_periodic_drive_radius = 0.0d0
         kim_kp_modes = 0.0d0
         kim_ks_modes = 0.0d0
         kim_jpar_modes = (0.0d0, 0.0d0)
@@ -406,7 +433,18 @@ contains
 
             ! The seam owns mode setup, the per-mode equilibrium recompute
             ! (modes 2+), the field reset, and the run.
-            call kim_handle%solve(m_vals(i_mn), n_vals(i_mn), stat=ierr)
+            if (periodic) then
+                call periodic_vacuum_drive_for_mode(i_mn, drive_radius, &
+                    Br_drive, Bparallel_drive)
+                kim_periodic_drive_radius(i_mn) = drive_radius
+                kim_periodic_Br_drive_modes(i_mn) = Br_drive
+                kim_periodic_Bparallel_drive_modes(i_mn) = Bparallel_drive
+                call kim_handle%solve(m_vals(i_mn), n_vals(i_mn), stat=ierr, &
+                    Br_drive=Br_drive, Bparallel_drive=Bparallel_drive, &
+                    resonance_radius=drive_radius)
+            else
+                call kim_handle%solve(m_vals(i_mn), n_vals(i_mn), stat=ierr)
+            end if
             kim_mode_status(i_mn) = ierr
             if (ierr /= KIM_OK) then
                 write(*,*) 'ERROR: KIM solve failed for mode ', i_mn, &
@@ -414,7 +452,15 @@ contains
                 stop 1
             end if
             res = kim_handle%results()
-            if (periodic) kim_mode_resonance(i_mn) = res%r_resonance
+            if (periodic) then
+                resonance_tolerance = 64.0d0 * epsilon(1.0d0) * &
+                    max(1.0d0, abs(drive_radius), abs(res%r_resonance))
+                if (abs(drive_radius - res%r_resonance) > &
+                        resonance_tolerance) then
+                    error stop 'KiLCA drive and KIM response use different resonances'
+                end if
+                kim_mode_resonance(i_mn) = res%r_resonance
+            end if
 
             ! Interpolate KIM fields (on res%r_field) onto the QL-Balance grid.
             kim_npts = size(res%r_field)
@@ -856,110 +902,200 @@ contains
     ! ---------------------------------------------------------------
 
     subroutine kim_load_vacuum_fields()
-    use kilca_wave_code_interface_m, only: &
-        get_wave_fields_from_wave_code => &
-            get_wave_fields_from_wave_code_
-        !! Extract vacuum Br from KiLCA vacuum solution (vac_cd_ptr)
-        !! onto the balance grid and store in kim_vac_Br for each mode.
+        !! Extract vacuum Br and RSP Bp (= physical B_parallel) from the same
+        !! KiLCA vacuum solution, grid, signed mode, and complex phase convention.
+        use, intrinsic :: ieee_arithmetic, only: ieee_is_finite, &
+            ieee_quiet_nan, ieee_value
+        use kilca_wave_code_interface_m, only: &
+            get_wave_fields_from_wave_code => &
+                get_wave_fields_from_wave_code_
         use wave_code_data, only: dim_r, r, dim_mn, m_vals, n_vals, &
-            vac_cd_ptr, Br, Bz
+            vac_cd_ptr, Er, Es, Ep, Et, Ez, Br, Bs, Bp, Bt, Bz
 
         implicit none
 
         integer :: k
-        complex(8) :: unused_fields(dim_r, 8)
+        real(8) :: nan_value
 
-        ! Extract vacuum Br for each mode.
-        ! Keep unused output components in separate storage.
+        ! Validate every opaque KiLCA handle before passing it through the wave-code
+        ! interface. The field arrays are then poisoned for each call so the
+        ! interface's "mode not found" early return cannot reuse a prior mode.
+        call validate_vacuum_sources()
+        nan_value = ieee_value(1.0d0, ieee_quiet_nan)
         do k = 1, dim_mn
+            Br = cmplx(nan_value, nan_value, 8)
+            Bp = cmplx(nan_value, nan_value, 8)
             call get_wave_fields_from_wave_code(vac_cd_ptr(k), dim_r, r, &
-                m_vals(k), n_vals(k), unused_fields(:,1), unused_fields(:,2), unused_fields(:,3), &
-                unused_fields(:,4), unused_fields(:,5), Br, unused_fields(:,6), &
-                unused_fields(:,7), unused_fields(:,8), Bz)
+                m_vals(k), n_vals(k), Er, Es, Ep, Et, Ez, Br, Bs, Bp, Bt, Bz)
+            if (.not. all(ieee_is_finite(real(Br, 8))) .or. &
+                    .not. all(ieee_is_finite(aimag(Br))) .or. &
+                    .not. all(ieee_is_finite(real(Bp, 8))) .or. &
+                    .not. all(ieee_is_finite(aimag(Bp)))) then
+                error stop 'Requested signed KiLCA vacuum mode did not return finite Br/Bparallel'
+            end if
             kim_vac_Br(:, k) = Br
+            kim_vac_Bparallel(:, k) = Bp
         end do
 
-        write(*,*) 'KIM adapter: loaded vacuum Br from KiLCA for ', dim_mn, ' modes'
+        write(*,*) 'KIM adapter: loaded KiLCA vacuum Br/Bparallel for ', &
+            dim_mn, ' modes [G, signed complex (m,n) amplitudes]'
         do k = 1, dim_mn
-            write(*,*) '  mode ', k, ': |Br_vac| at r_max = ', &
-                abs(kim_vac_Br(dim_r, k)), ' at r=', r(dim_r)
+            write(*,*) '  mode ', k, ': |Br_vac|, |Bparallel_vac| at r_max = ', &
+                abs(kim_vac_Br(dim_r, k)), abs(kim_vac_Bparallel(dim_r, k)), &
+                ' at r=', r(dim_r)
         end do
 
+        ! Preserve the established non-periodic adapter contract. Periodic
+        ! solves override this first-mode boundary value with their own exact
+        ! per-mode resonance samples immediately before each solve.
         call kim_check_domain_consistency()
 
     end subroutine kim_load_vacuum_fields
 
     subroutine kim_check_domain_consistency()
-        !! Set KIM Br boundary condition from KiLCA vacuum solution
-        !! at the actual KIM grid boundary (kim_r_boundary = xl_grid%xb(N)),
-        !! which may differ from r_plas due to non-equidistant grid construction.
-        !! Uses linear interpolation on the balance grid to get vacuum Br
-        !! at exactly kim_r_boundary.
-        use wave_code_data, only: dim_r, r, vac_cd_ptr
+        !! Validate the vacuum/KIM domains and retain the legacy first-mode Br
+        !! boundary assignment for non-periodic runs. Periodic Br/Bparallel
+        !! drives are sampled independently at one common resonance later.
+        use wave_code_data, only: dim_r, r
         use setup_m, only: Br_boundary_re, Br_boundary_im
 
         implicit none
 
-        integer :: i, i_lo, i_hi
-        real(8) :: w, r_bc
-        complex(8) :: Br_vac_at_bc
+        complex(8) :: Br_vac_at_boundary, Bparallel_vac_at_boundary
 
-        ! Use actual KIM grid boundary for the boundary condition
-        r_bc = kim_r_boundary
-
-        ! 1. Report domain info
+        call validate_vacuum_sources()
         write(*,*) 'KIM adapter: domain check'
         write(*,*) '  KIM r_plas       = ', kim_r_plas
-        write(*,*) '  KIM r_boundary   = ', r_bc, ' (actual grid boundary)'
+        write(*,*) '  KIM r_boundary   = ', kim_r_boundary, ' (actual grid boundary)'
         write(*,*) '  Balance grid max = ', r(dim_r)
 
-        if (r_bc < r(dim_r)) then
+        if (kim_r_boundary < r(dim_r)) then
             write(*,*) '  Vacuum continuation beyond r_boundary to r=', r(dim_r), ' cm'
         end if
 
-        ! 2. Check vacuum solution is available
-        if (vac_cd_ptr(1) == 0) then
-            write(*,*) 'ERROR: KIM mode requires vacuum solution but vac_cd_ptr is not loaded.'
-            write(*,*) '       Set vac_path in balance_conf.nml and run KiLCA vacuum solver.'
-            stop 1
+        if (.not. allocated(kim_vac_Br) .or. &
+                .not. allocated(kim_vac_Bparallel)) then
+            error stop 'KIM vacuum fields must be extracted before the domain check'
+        end if
+        if (size(kim_vac_Br, 1) /= dim_r .or. &
+                size(kim_vac_Bparallel, 1) /= dim_r .or. &
+                size(kim_vac_Br, 2) < 1 .or. &
+                size(kim_vac_Bparallel, 2) < 1) then
+            error stop 'KIM vacuum field grid does not match the balance grid'
+        end if
+        call sample_periodic_vacuum_drives(r, kim_vac_Br(:, 1), &
+            kim_vac_Bparallel(:, 1), kim_r_boundary, Br_vac_at_boundary, &
+            Bparallel_vac_at_boundary)
+        write(*,*) '  Legacy non-periodic Br at KIM boundary [G]=', &
+            Br_vac_at_boundary
+        write(*,*) '  Bparallel at the same boundary sample [G]=', &
+            Bparallel_vac_at_boundary
+        Br_boundary_re = real(Br_vac_at_boundary, 8)
+        Br_boundary_im = aimag(Br_vac_at_boundary)
+
+    end subroutine kim_check_domain_consistency
+
+    subroutine validate_vacuum_sources()
+        use wave_code_data, only: dim_r, dim_mn, r, vac_cd_ptr
+        integer :: k
+
+        if (dim_r < 2 .or. dim_mn < 1 .or. .not. allocated(r)) then
+            error stop 'KIM vacuum drive requires an allocated radial grid'
+        end if
+        if (size(r) < dim_r) error stop 'KIM vacuum radial grid is too small'
+        if (any(r(2:dim_r) <= r(1:dim_r - 1))) then
+            error stop 'KIM vacuum radial grid must be strictly increasing'
+        end if
+        if (.not. allocated(vac_cd_ptr)) then
+            error stop 'KIM vacuum drive handles are not allocated for every mode'
+        end if
+        if (size(vac_cd_ptr) < dim_mn) then
+            error stop 'KIM vacuum drive handle array is too small'
+        end if
+        if (kim_r_boundary < r(1) .or. kim_r_boundary > r(dim_r)) then
+            error stop 'KIM field domain is not covered by the vacuum grid'
+        end if
+        do k = 1, dim_mn
+            if (vac_cd_ptr(k) == 0) then
+                error stop 'KIM mode requires a loaded KiLCA vacuum solution'
+            end if
+        end do
+    end subroutine validate_vacuum_sources
+
+    subroutine sample_periodic_vacuum_drives(radius, Br_shape, Bparallel_shape, &
+            resonance, Br_drive, Bparallel_drive)
+        real(8), intent(in) :: radius(:), resonance
+        complex(8), intent(in) :: Br_shape(:), Bparallel_shape(:)
+        complex(8), intent(out) :: Br_drive, Bparallel_drive
+        real(8) :: weight
+        integer :: i, lower
+
+        if (size(radius) < 2) error stop 'Vacuum drive sampling requires two radii'
+        if (size(Br_shape) /= size(radius)) then
+            error stop 'Vacuum Br shape does not match its radial grid'
+        end if
+        if (size(Bparallel_shape) /= size(radius)) then
+            error stop 'Vacuum Bparallel shape does not match its radial grid'
+        end if
+        if (resonance < radius(1) .or. resonance > radius(size(radius))) then
+            error stop 'Periodic resonance is outside the KiLCA vacuum grid'
         end if
 
-        ! 3. Set KIM Br boundary from vacuum Br at exactly r_bc
-        ! Find bracketing indices for linear interpolation
-        i_lo = 1
-        do i = 1, dim_r - 1
-            if (r(i) <= r_bc .and. r(i+1) >= r_bc) then
-                i_lo = i
+        lower = size(radius) - 1
+        do i = 1, size(radius) - 1
+            if (radius(i) > radius(i + 1)) then
+                error stop 'KiLCA vacuum radius must be monotonically increasing'
+            end if
+            if (resonance >= radius(i) .and. resonance <= radius(i + 1)) then
+                lower = i
                 exit
             end if
         end do
-        i_hi = i_lo + 1
+        if (radius(lower + 1) == radius(lower)) then
+            error stop 'KiLCA vacuum radius contains a duplicate interpolation node'
+        end if
+        weight = (resonance - radius(lower)) / &
+            (radius(lower + 1) - radius(lower))
+        Br_drive = (1.0d0 - weight) * Br_shape(lower) + &
+            weight * Br_shape(lower + 1)
+        Bparallel_drive = (1.0d0 - weight) * Bparallel_shape(lower) + &
+            weight * Bparallel_shape(lower + 1)
+    end subroutine sample_periodic_vacuum_drives
 
-        ! Linear interpolation weight
-        if (abs(r(i_hi) - r(i_lo)) > 1.0d-30) then
-            w = (r_bc - r(i_lo)) / (r(i_hi) - r(i_lo))
-        else
-            w = 0.0d0
+    subroutine periodic_vacuum_drive_for_mode(mode_index, resonance, &
+            Br_drive, Bparallel_drive)
+        use, intrinsic :: ieee_arithmetic, only: ieee_is_finite
+        use wave_code_data, only: r, q, m_vals, n_vals
+        integer, intent(in) :: mode_index
+        real(8), intent(out) :: resonance
+        complex(8), intent(out) :: Br_drive, Bparallel_drive
+        integer :: resonance_status
+
+        ! The balance profile is the authoritative physical input. Its crossing
+        ! is passed into the KIM solve as a scoped resonance override, so KIM's
+        ! internal profile resampling cannot move the drive and response apart.
+        call locate_periodic_resonance(r, q, m_vals(mode_index), &
+            n_vals(mode_index), resonance, resonance_status)
+        if (resonance_status /= KIM_RESONANCE_OK) then
+            error stop 'Periodic vacuum drive resonance not found uniquely'
         end if
 
-        Br_vac_at_bc = (1.0d0 - w) * kim_vac_Br(i_lo, 1) &
-                     + w * kim_vac_Br(i_hi, 1)
-
-        write(*,*) '  Vacuum Br at r_boundary (linear interp, mode 1):'
-        write(*,*) '    r_lo=', r(i_lo), ' r_hi=', r(i_hi), ' w=', w
-        write(*,*) '    |Br_vac(r_lo)| = ', abs(kim_vac_Br(i_lo, 1))
-        write(*,*) '    |Br_vac(r_hi)| = ', abs(kim_vac_Br(i_hi, 1))
-        write(*,*) '    |Br_vac(r_bc)| = ', abs(Br_vac_at_bc)
-        write(*,*) '    Re(Br)    = ', real(Br_vac_at_bc)
-        write(*,*) '    Im(Br)    = ', aimag(Br_vac_at_bc)
-
-        ! Override KIM boundary condition with vacuum value
-        write(*,*) '  Old Br_boundary: Re=', Br_boundary_re, ' Im=', Br_boundary_im
-        Br_boundary_re = real(Br_vac_at_bc)
-        Br_boundary_im = aimag(Br_vac_at_bc)
-        write(*,*) '  New Br_boundary: Re=', Br_boundary_re, ' Im=', Br_boundary_im
-
-    end subroutine kim_check_domain_consistency
+        call sample_periodic_vacuum_drives(r, kim_vac_Br(:, mode_index), &
+            kim_vac_Bparallel(:, mode_index), resonance, Br_drive, Bparallel_drive)
+        if (.not. ieee_is_finite(real(Br_drive, 8)) .or. &
+                .not. ieee_is_finite(aimag(Br_drive))) then
+            error stop 'Requested periodic Br vacuum drive is not finite'
+        end if
+        if (.not. ieee_is_finite(real(Bparallel_drive, 8)) .or. &
+                .not. ieee_is_finite(aimag(Bparallel_drive))) then
+            error stop 'Requested periodic Bparallel vacuum drive is not finite'
+        end if
+        write(*,*) '  KiLCA periodic vacuum drive provenance: mode=', mode_index, &
+            ' m=', m_vals(mode_index), ' n=', n_vals(mode_index), &
+            ' r_res[cm]=', resonance
+        write(*,*) '    Br[G]=', Br_drive, ' Bparallel=RSP Bp[G]=', &
+            Bparallel_drive
+    end subroutine periodic_vacuum_drive_for_mode
 
     subroutine kim_get_current_densities(i_mn)
         !! Copy per-mode stored parallel current densities from
@@ -1025,7 +1161,7 @@ contains
             kim_Ez_modes(i, i_mn) = (0.0d0, 0.0d0)
             ! Total Br = vacuum Br beyond plasma
             kim_Br_modes(i, i_mn) = kim_vac_Br(i, i_mn)
-            kim_Bparallel_modes(i, i_mn) = (0.0d0, 0.0d0)
+            kim_Bparallel_modes(i, i_mn) = kim_vac_Bparallel(i, i_mn)
             ! Wave vectors not physical in vacuum
             kim_kp_modes(i, i_mn) = 0.0d0
             kim_ks_modes(i, i_mn) = 0.0d0

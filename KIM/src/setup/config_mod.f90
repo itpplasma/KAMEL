@@ -51,14 +51,21 @@ module config_m
     ! Window half-widths and Fourier cutoff are set in units of the resonant-
     ! surface Larmor radius rho_L(rm): dx_asis = scale*rho_L, dx_tr = scale*rho_L,
     ! k_max = scale/rho_L. Defaults apply when the &KIM_PERIODIC group is absent.
-    real(dp) :: periodic_dr_asis_scale = 5.0_dp   ! as-is half-width / rho_L(rm)
-    real(dp) :: periodic_dr_tr_scale   = 10.0_dp  ! transition width / rho_L(rm)
-    real(dp) :: periodic_kmax_scale    = 5.0_dp   ! k_max * rho_L(rm)
-    integer  :: periodic_n_rg          = 96       ! window grid boundary points
+    real(dp), parameter :: periodic_dr_asis_scale_default = 5.0_dp
+    real(dp), parameter :: periodic_dr_tr_scale_default = 10.0_dp
+    real(dp), parameter :: periodic_kmax_scale_default = 5.0_dp
+    integer, parameter :: periodic_n_rg_default = 96
+    real(dp) :: periodic_dr_asis_scale = periodic_dr_asis_scale_default
+    real(dp) :: periodic_dr_tr_scale = periodic_dr_tr_scale_default
+    real(dp) :: periodic_kmax_scale = periodic_kmax_scale_default
+    integer :: periodic_n_rg = periodic_n_rg_default
     ! Reproduce the global FEM kernel approximations for direct comparisons:
     ! drop k_s^2 from Bessel arguments and take electrons in the zero-FLR limit.
     ! The forced-periodic solver uses its full Fourier kernel by default.
     logical :: periodic_match_global_kernel_approximations = .false.
+    ! Independent prescribed B_parallel amplitude [G] for the local periodic
+    ! response. The legacy ratio remains only as a standalone compatibility path.
+    complex(dp) :: periodic_Bparallel_drive = (0.0_dp, 0.0_dp)
     complex(dp) :: periodic_Bparallel_ratio = (0.0_dp, 0.0_dp)
 
     ! KIM_FLR2 namelist variables. These switches only select terms in the

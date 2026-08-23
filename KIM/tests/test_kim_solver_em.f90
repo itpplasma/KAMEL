@@ -98,9 +98,94 @@ program test_kim_solver_em
     end if
 
     call kim%finalize()
+    call test_adaptive_mass_matrix_refresh(prof, all_passed)
     call done(all_passed)
 
 contains
+
+    subroutine test_adaptive_mass_matrix_refresh(profiles, passed)
+        use grid_m, only: M_mat, xl_grid
+
+        type(kim_profiles_t), intent(in) :: profiles
+        logical, intent(inout) :: passed
+        logical :: current_ok, mass_shape_ok
+        type(kim_solver_t) :: adaptive
+        type(kim_results_t) :: adaptive_result
+        real(dp), allocatable :: first_grid(:), expected_mass(:,:)
+        real(dp) :: grid_change, mass_error
+        integer :: status, n
+
+        call adaptive%init('KIM_config_em_adaptive.nml', &
+            run_type='electromagnetic', profiles=profiles, stat=status)
+        call check('adaptive EM init returns KIM_OK', status == KIM_OK, passed)
+        if (status == KIM_OK) then
+            call adaptive%solve(m_mode, n_mode, stat=status)
+            call check('adaptive EM first mode returns KIM_OK', &
+                status == KIM_OK, passed)
+        end if
+        if (status == KIM_OK) first_grid = xl_grid%xb
+
+        if (status == KIM_OK) then
+            call adaptive%solve(-7, 2, stat=status)
+            call check('adaptive EM second mode returns KIM_OK', &
+                status == KIM_OK, passed)
+        end if
+        if (status == KIM_OK) then
+            if (size(first_grid) == size(xl_grid%xb)) then
+                grid_change = maxval(abs(first_grid - xl_grid%xb))
+            else
+                grid_change = huge(1.0_dp)
+            end if
+            call check('adaptive EM mode change rebuilds the field mesh', &
+                grid_change > 1.0e-3_dp, passed)
+
+            n = xl_grid%npts_b
+            mass_shape_ok = allocated(M_mat)
+            if (mass_shape_ok) then
+                mass_shape_ok = size(M_mat, 1) == n .and. &
+                    size(M_mat, 2) == n
+            end if
+            call check('adaptive EM mass matrix matches current mesh shape', &
+                mass_shape_ok, passed)
+            if (mass_shape_ok) then
+                allocate(expected_mass(n, n))
+                call assemble_mass_oracle(xl_grid%xb, expected_mass)
+                mass_error = maxval(abs(M_mat - expected_mass))
+                call check('adaptive EM mass matrix is rebuilt on current mesh', &
+                    mass_error <= 32.0_dp*epsilon(1.0_dp), passed)
+            end if
+
+            adaptive_result = adaptive%results()
+            current_ok = allocated(adaptive_result%jpar)
+            if (current_ok) then
+                current_ok = all(ieee_is_finite(real(adaptive_result%jpar))) &
+                    .and. all(ieee_is_finite(aimag(adaptive_result%jpar)))
+            end if
+            call check('adaptive EM refreshed current remains finite', &
+                current_ok, passed)
+        end if
+        call adaptive%finalize()
+    end subroutine test_adaptive_mass_matrix_refresh
+
+    subroutine assemble_mass_oracle(nodes, mass)
+        real(dp), intent(in) :: nodes(:)
+        real(dp), intent(out) :: mass(:,:)
+        real(dp) :: h
+        integer :: i, n
+
+        n = size(nodes)
+        mass = 0.0_dp
+        do i = 1, n - 1
+            h = nodes(i + 1) - nodes(i)
+            mass(i, i) = mass(i, i) + h/3.0_dp
+            mass(i, i + 1) = mass(i, i + 1) + h/6.0_dp
+            mass(i + 1, i) = mass(i + 1, i) + h/6.0_dp
+            mass(i + 1, i + 1) = mass(i + 1, i + 1) + h/3.0_dp
+        end do
+        mass(n, :) = 0.0_dp
+        mass(:, n) = 0.0_dp
+        mass(n, n) = 1.0_dp
+    end subroutine assemble_mass_oracle
 
     subroutine check(name, ok, passed)
         character(*), intent(in) :: name

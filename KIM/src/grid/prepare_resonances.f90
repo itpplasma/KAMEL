@@ -1,47 +1,35 @@
 subroutine kim_prepare_resonances
 
     use kim_resonances_m
-    use config_m, only: hdf5_output
     use setup_m, only: m_mode, n_mode, type_br_field
     use species_m, only: plasma
-    use KIM_kinds_m, only: dp
 
     implicit none
 
-    integer :: j
-    real(dp) :: qres,qmin,qmax
-    real(dp), dimension(:), allocatable :: q
-    integer :: lb, ub
+    integer :: resonance_status
 
     iunit_res=157
 
-    allocate(q(plasma%grid_size))
-
-    q = abs(plasma%q)
-    qmin = minval(q)
-    qmax = maxval(q)
-
-    qres = abs(dfloat(m_mode)/dfloat(n_mode))
-    if(qres.lt.qmin.or.qres.gt.qmax) then
-        write(*,*) "Resonance location not found in q"
-        r_res = 0.0d0
-        return
+    if (prescribed_r_res_active) then
+        if (prescribed_r_res < minval(plasma%r_grid) .or. &
+                prescribed_r_res > maxval(plasma%r_grid)) then
+            error stop 'Prescribed resonance is outside the KIM profile grid'
+        end if
+        r_res = prescribed_r_res
+    else
+        call locate_periodic_resonance(plasma%r_grid, plasma%q, m_mode, n_mode, &
+            r_res, resonance_status)
+        if (resonance_status /= KIM_RESONANCE_OK) then
+            write(*,*) "Resonance location not found in q"
+            r_res = 0.0d0
+            return
+        end if
     end if
 
-    r_res = qres
-
-    do j= 2, plasma%grid_size
-        if(qres .gt. q(j-1) .and. qres .le. q(j)) then
-            r_res = (plasma%r_grid(j-1) * (q(j) - qres) + plasma%r_grid(j) * (qres-q(j-1))) / (q(j)-q(j-1))
-            exit
-        endif
-    enddo
-
-    if (type_br_field == 2) then
+    if (.not. prescribed_r_res_active .and. type_br_field == 2) then
         r_res = plasma%r_grid(plasma%grid_size)/2
     end if
 
     write(*,*) 'resonant radius: ',r_res
-    deallocate(q)
 
 end subroutine kim_prepare_resonances

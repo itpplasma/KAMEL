@@ -38,6 +38,7 @@ program test_periodic_solve
     call test_inverse_dft()
     call test_reconstruct_jpar()
     call test_reconstruct_jrad()
+    call test_bparallel_only_and_linearity()
     call test_end_to_end()
 
     print *, 'All tests PASSED'
@@ -266,6 +267,86 @@ contains
         end if
         print *, 'PASS: jrad reconstructs Phi, Br, and constant Bparallel paths'
     end subroutine test_reconstruct_jrad
+
+    subroutine test_bparallel_only_and_linearity()
+        integer, parameter :: M = 1
+        integer, parameter :: dim = 2 * M + 1
+        integer, parameter :: nr = 3
+        real(dp), parameter :: L = 4.0_dp
+        real(dp), parameter :: r_out(nr) = [-0.5_dp, 0.0_dp, 0.75_dp]
+        complex(dp) :: Kphi(dim, dim), KBr(dim, dim), KBparallel(dim, dim)
+        complex(dp) :: Kjphi(dim, dim), KjBr(dim, dim), KjBparallel(dim, dim)
+        complex(dp), allocatable :: phi_base(:), phi_zero(:), phi_drive(:)
+        complex(dp), allocatable :: phi_both(:), phi_scaled(:)
+        complex(dp) :: j_drive(nr), j_both(nr), j_scaled(nr)
+        complex(dp) :: expected_phi, expected_j
+        complex(dp) :: Br_drive, Bparallel_drive, scalar
+        integer :: i, info_base, info_zero, info_drive, info_scaled
+
+        Kphi = (0.0_dp, 0.0_dp)
+        do i = 1, dim
+            Kphi(i, i) = cmplx(1.0_dp / (4.0_dp * pi), 0.0_dp, dp)
+        end do
+        KBr = (0.0_dp, 0.0_dp)
+        KBparallel = (0.0_dp, 0.0_dp)
+        KBparallel(M + 1, M + 1) = (2.0_dp, 0.0_dp)
+        Br_drive = (0.0_dp, 0.0_dp)
+        Bparallel_drive = (0.3_dp, -0.2_dp)
+
+        call solve_periodic(Kphi, KBr, L, M, Br_drive, phi_base, info_base)
+        call solve_periodic(Kphi, KBr, L, M, Br_drive, phi_zero, info_zero, &
+            KBparallel=KBparallel, Bparallel_const=(0.0_dp, 0.0_dp))
+        if (info_base /= 0 .or. info_zero /= 0 .or. &
+                .not. all(phi_base == phi_zero)) then
+            error stop 'Bparallel=0 did not exactly reproduce the legacy solve'
+        end if
+
+        call solve_periodic(Kphi, KBr, L, M, Br_drive, phi_drive, info_drive, &
+            KBparallel=KBparallel, Bparallel_const=Bparallel_drive)
+        expected_phi = -8.0_dp * pi * Bparallel_drive
+        if (info_drive /= 0 .or. abs(phi_drive(M + 1) - expected_phi) > 1.0e-13_dp .or. &
+                maxval(abs(phi_drive([1, 3]))) > 1.0e-13_dp) then
+            error stop 'Bparallel-only analytic potential fixture failed'
+        end if
+
+        Kjphi = (0.0_dp, 0.0_dp)
+        KjBr = (0.0_dp, 0.0_dp)
+        KjBparallel = (0.0_dp, 0.0_dp)
+        KjBparallel(M + 1, M + 1) = (-1.5_dp, 0.5_dp)
+        j_drive = reconstruct_jpar(Kjphi, KjBr, phi_drive, Br_drive, L, M, r_out, &
+            KjBparallel=KjBparallel, Bparallel_const=Bparallel_drive)
+        expected_j = KjBparallel(M + 1, M + 1) * Bparallel_drive
+        if (maxval(abs(j_drive - expected_j)) > 1.0e-13_dp) then
+            error stop 'Bparallel-only analytic current fixture failed'
+        end if
+
+        ! The acceptance relation scales two independent, simultaneously
+        ! nonzero magnetic drives. Give the Br columns distinct complex values
+        ! so replacing either drive by the other cannot satisfy this oracle.
+        KBr(M + 1, M + 1) = (0.7_dp, -0.1_dp)
+        Kjphi(M + 1, M + 1) = (0.35_dp, 0.2_dp)
+        KjBr(M + 1, M + 1) = (0.25_dp, -0.75_dp)
+        Br_drive = (-0.2_dp, 0.6_dp)
+        call solve_periodic(Kphi, KBr, L, M, Br_drive, phi_both, info_drive, &
+            KBparallel=KBparallel, Bparallel_const=Bparallel_drive)
+        j_both = reconstruct_jpar(Kjphi, KjBr, phi_both, Br_drive, L, M, &
+            r_out, KjBparallel=KjBparallel, &
+            Bparallel_const=Bparallel_drive)
+
+        scalar = (-0.4_dp, 1.2_dp)
+        call solve_periodic(Kphi, KBr, L, M, scalar * Br_drive, &
+            phi_scaled, info_scaled, KBparallel=KBparallel, &
+            Bparallel_const=scalar * Bparallel_drive)
+        j_scaled = reconstruct_jpar(Kjphi, KjBr, phi_scaled, scalar * Br_drive, &
+            L, M, r_out, KjBparallel=KjBparallel, &
+            Bparallel_const=scalar * Bparallel_drive)
+        if (info_drive /= 0 .or. info_scaled /= 0 .or. &
+                maxval(abs(phi_scaled - scalar * phi_both)) > 1.0e-12_dp .or. &
+                maxval(abs(j_scaled - scalar * j_both)) > 1.0e-12_dp) then
+            error stop 'common-complex-scalar two-drive linearity failed'
+        end if
+        print *, 'PASS: Bparallel-only analytic, zero regression, and two-drive complex linearity'
+    end subroutine test_bparallel_only_and_linearity
 
     !> (c) End-to-end sanity with the REAL assembled matrices. Mirrors
     !> test_periodic_assembly's setup: build the (m,n)=(-6,2) periodic plasma,

@@ -88,6 +88,7 @@ module integrands_gauss_m
 
         ks_val = 0.5d0 * (plasma%ks(this%int_point%j) + plasma%ks(this%int_point%j+1))
 
+        ! Exact cell transform: KIM/tests/symbolic/verify_gauss_segment_transforms.wl.
         val = varphi_l(xp, this%int_point%xlpm1, this%int_point%xlp, this%int_point%xlpp1) &
             * varphi_l(x, this%int_point%xlm1, this%int_point%xl, this%int_point%xlp1) &
             * pi**1.5d0 * sqrt(1.0d0 + cos(theta)) &
@@ -121,6 +122,7 @@ module integrands_gauss_m
 
         ks_val = 0.5d0 * (plasma%ks(this%int_point%j) + plasma%ks(this%int_point%j+1))
 
+        ! Exact b+ moment reduction: KIM/tests/symbolic/verify_gauss_segment_transforms.wl.
         val = varphi_l(xp, this%int_point%xlpm1, this%int_point%xlp, this%int_point%xlpp1) &
             * varphi_l(x, this%int_point%xlm1, this%int_point%xl, this%int_point%xlp1) &
             * exp(- ks_val**2.0d0 * this%int_point%rhoT**2.0d0 &

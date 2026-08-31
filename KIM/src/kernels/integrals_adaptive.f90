@@ -209,7 +209,7 @@ module integrals_rkf45_m
         !$omp end parallel do
 
         result = result * exp(- context%ks**2.0d0 * context%rhoT**2.0d0) * norm_factor &
-                * (-pi) / (4.0d0 * context%rhoT**4.0d0)
+            * (-1.0d0) / (8.0d0 * context%rhoT**4.0d0)
 
     end subroutine
 
@@ -260,7 +260,7 @@ module integrals_rkf45_m
         !$omp end parallel do
 
         result = result * exp(- context%ks**2.0d0 * context%rhoT**2.0d0) * norm_factor &
-                * (-pi) / (2.0d0 * context%rhoT**4.0d0)
+            * (-1.0d0) / (4.0d0 * context%rhoT**4.0d0)
 
     end subroutine
 
@@ -323,12 +323,12 @@ module integrals_rkf45_m
 
         result = result * exp(-context%ks**2.0d0 * context%rhoT**2.0d0) * norm_factor
 
-        ! F2/F3 carry an additional -pi/(c*rhoT^4) factor
+        ! F2/F3 carry their direct segment-normalization factors.
         select case (which)
         case (2)
-            result = result * (-pi) / (4.0d0 * context%rhoT**4.0d0)
+            result = result * (-1.0d0) / (8.0d0 * context%rhoT**4.0d0)
         case (3)
-            result = result * (-pi) / (2.0d0 * context%rhoT**4.0d0)
+            result = result * (-1.0d0) / (4.0d0 * context%rhoT**4.0d0)
         end select
 
     end subroutine quadpack_integrate_wrapper

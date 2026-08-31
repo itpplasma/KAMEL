@@ -21,6 +21,16 @@ target_link_libraries(test_gauss_segment_transforms
 add_test(NAME test_gauss_segment_transforms
          COMMAND ${CMAKE_BINARY_DIR}/tests/test_gauss_segment_transforms.x)
 
+add_executable(test_adaptive_normalization
+               ${CMAKE_SOURCE_DIR}/KIM/tests/test_adaptive_normalization.f90)
+set_target_properties(test_adaptive_normalization PROPERTIES
+                      OUTPUT_NAME test_adaptive_normalization.x
+                      RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/tests/")
+target_link_libraries(test_adaptive_normalization
+                      KIM_lib kilca_lib lapack cerf fortnum_amos_compat)
+add_test(NAME test_adaptive_normalization
+         COMMAND ${CMAKE_BINARY_DIR}/tests/test_adaptive_normalization.x)
+
 
 add_executable(test_root_finding ${CMAKE_SOURCE_DIR}/KIM/tests/test_root_finding.f90)
 set_target_properties(test_root_finding PROPERTIES

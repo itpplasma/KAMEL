@@ -6,8 +6,8 @@
 !> spline_eval_d, plus the opaque-handle round trip, independently of the heavy
 !> end-to-end golden record.
 program test_spline
-    use, intrinsic :: iso_c_binding, only: c_int, c_double, c_intptr_t, c_ptr, &
-        c_loc, c_null_ptr
+    use, intrinsic :: iso_c_binding, only: c_int, c_double, c_intptr_t, c_loc, &
+                                                                              c_null_ptr
     use kilca_spline_m, only: spline_alloc, spline_calc, spline_eval, &
         spline_eval_d, spline_free
     implicit none
@@ -45,7 +45,7 @@ program test_spline
     do i = 1, dimz
         val = R(2*(i - 1) + 1)
         der = R(2*(i - 1) + 2)
-        want = a + b*z(i)
+        want = a + b * z(i)
         if (abs(val - want) > tol) then
             write (*, '(a,i0,a,es16.8,a,es16.8)') &
                 "FAIL: eval value at z(", i, ") got ", val, " want ", want
@@ -65,7 +65,7 @@ program test_spline
     do i = 1, dimz
         val = Rd(2*(i - 1) + 1)
         der = Rd(2*(i - 1) + 2)
-        want = a + b*z(i)
+        want = a + b * z(i)
         if (abs(val - want) > tol) then
             write (*, '(a,i0)') "FAIL: eval_d value at z=", i
             failures = failures + 1
@@ -103,6 +103,10 @@ contains
     !> strides (j*len in C, j*dimx in y, j*(N+1) in boundary blocks) that the
     !> single-function case leaves untested.
     subroutine check_two_functions(fails)
+        use kilca_spline_m, only: spline_alloc
+        use kilca_spline_m, only: spline_calc
+        use kilca_spline_m, only: spline_eval_d
+        use kilca_spline_m, only: spline_free
         integer(c_int), intent(inout) :: fails
         integer(c_int), parameter :: nf = 2
         real(c_double), target :: xx(dimx), yy(dimx*nf), CC((N + 1)*dimx*nf)
@@ -112,8 +116,8 @@ contains
 
         do ii = 1, dimx
             xx(ii) = dble(ii - 1)/dble(dimx - 1)
-            yy(ii) = xx(ii)*xx(ii)                 ! f0 = x^2
-            yy(dimx + ii) = cos(3.0d0*xx(ii))      ! f1 = cos(3x)
+            yy(ii) = xx(ii) * xx(ii) ! f0 = x^2
+            yy(dimx + ii) = cos(3.0d0 * xx(ii)) ! f1 = cos(3x)
         end do
 
         call spline_alloc(N, stype, dimx, c_loc(xx), c_loc(CC), h)

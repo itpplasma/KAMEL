@@ -31,9 +31,16 @@
 !> Directory scanning preserves POSIX readdir order and fnmatch patterns.
 !> A small C adapter accesses native dirent names without assuming their layout.
 module kilca_mode_data_m
-    use, intrinsic :: iso_c_binding, only: c_int, c_intptr_t, c_double, c_char, &
-        c_ptr, c_funptr, c_funloc, c_loc, c_f_pointer, c_null_char, c_null_ptr, &
-        c_associated
+    use kilca_background_data_m, only: eval_q_for_resonance => eval_q
+    use kilca_background_settings_m, only: get_background_rtor
+    use kilca_background_settings_m, only: get_background_v_gal_sys
+    use kilca_output_settings_m, only: get_output_flag_additional
+    use kilca_output_settings_m, only: get_output_flag_background
+    use kilca_output_settings_m, only: get_output_flag_dispersion
+    use kilca_output_settings_m, only: get_output_flag_emfield
+    use, intrinsic :: iso_c_binding, only: &
+        c_int, c_intptr_t, c_double, c_char, c_ptr, c_funloc, c_loc, c_f_pointer, &
+        c_null_char, c_null_ptr, c_associated
     use constants, only: dp, twopi
     use kilca_zone_m, only: zone_t, handle_to_zone, zone_destroy_c, &
         PLASMA_MODEL_VACUUM, PLASMA_MODEL_MEDIUM, PLASMA_MODEL_IMHD, &
@@ -81,40 +88,6 @@ module kilca_mode_data_m
     end type mode_data_t
 
     interface
-        integer(c_int) function get_output_flag_background() &
-                bind(C, name="get_output_flag_background_")
-            import :: c_int
-        end function get_output_flag_background
-
-        integer(c_int) function get_output_flag_emfield() &
-                bind(C, name="get_output_flag_emfield_")
-            import :: c_int
-        end function get_output_flag_emfield
-
-        integer(c_int) function get_output_flag_additional() &
-                bind(C, name="get_output_flag_additional_")
-            import :: c_int
-        end function get_output_flag_additional
-
-        integer(c_int) function get_output_flag_dispersion() &
-                bind(C, name="get_output_flag_dispersion_")
-            import :: c_int
-        end function get_output_flag_dispersion
-
-        real(c_double) function get_background_rtor() bind(C, name="get_background_rtor_")
-            import :: c_double
-        end function get_background_rtor
-
-        real(c_double) function get_background_V_gal_sys() &
-                bind(C, name="get_background_V_gal_sys_")
-            import :: c_double
-        end function get_background_V_gal_sys
-
-        real(c_double) function eval_q_for_resonance(rval, bp) bind(C, name="q")
-            import :: c_double, c_ptr
-            real(c_double), value :: rval
-            type(c_ptr), value :: bp
-        end function eval_q_for_resonance
 
         integer(c_int) function fnmatch_c(pattern, str, flags) bind(C, name="fnmatch")
             import :: c_char, c_int
@@ -148,12 +121,13 @@ contains
 
     !> ---- construction / destruction ----
 
-    function mode_data_create_(m, n, olab_re, olab_im, sd_ptr, bp_ptr, path2project) &
-            result(handle) bind(C, name="mode_data_create_")
+    function mode_data_create_(m, n, olab_re, olab_im, sd_ptr, bp_ptr, &
+                               path2project) &
+        result(handle)
         integer(c_int), value :: m, n
         real(c_double), value :: olab_re, olab_im
         integer(c_intptr_t), value :: sd_ptr, bp_ptr
-        character(kind=c_char), intent(in) :: path2project(*)
+        character(len=*), intent(in) :: path2project
         integer(c_intptr_t) :: handle
 
         type(mode_data_t), pointer :: md
@@ -164,7 +138,7 @@ contains
 
         allocate (md)
         md%bp = bp_ptr
-        md%path2project = c_string_to_fortran_local(path2project)
+        md%path2project = path2project
 
         call set_settings_in_mode_data_module(sd_ptr)
         call set_back_profiles_in_mode_data_module(bp_ptr)
@@ -200,7 +174,7 @@ contains
         handle = mode_data_register(md)
     end function mode_data_create_
 
-    subroutine mode_data_destroy_(handle) bind(C, name="mode_data_destroy_")
+    subroutine mode_data_destroy_(handle)
         integer(c_intptr_t), value :: handle
         type(mode_data_t), pointer :: md
         integer :: iz
@@ -245,8 +219,7 @@ contains
 
     !> ---- main driver ----
 
-    subroutine mode_data_calc_all_mode_data_(handle, flag) &
-            bind(C, name="mode_data_calc_all_mode_data_")
+    subroutine mode_data_calc_all_mode_data_(handle, flag)
         integer(c_intptr_t), value :: handle
         integer(c_int), value :: flag
         type(mode_data_t), pointer :: md
@@ -294,9 +267,9 @@ contains
         end if
     end subroutine mode_data_calc_all_mode_data_
 
-    !> ---- accessors for still-C++ callers ----
+    !> ---- native accessors for the core and wave-code interface ----
 
-    function mode_data_get_wd_(handle) result(res) bind(C, name="mode_data_get_wd_")
+    function mode_data_get_wd_(handle) result(res)
         integer(c_intptr_t), value :: handle
         integer(c_intptr_t) :: res
         type(mode_data_t), pointer :: md
@@ -304,8 +277,7 @@ contains
         res = transfer(c_loc(md%wd), res)
     end function mode_data_get_wd_
 
-    function mode_data_get_zone_handle_(handle, zone_ind) result(res) &
-            bind(C, name="mode_data_get_zone_handle_")
+    function mode_data_get_zone_handle_(handle, zone_ind) result(res)
         integer(c_intptr_t), value :: handle
         integer(c_int), value :: zone_ind
         integer(c_intptr_t) :: res
@@ -314,8 +286,7 @@ contains
         res = md%zone_handles(int(zone_ind) + 1)
     end function mode_data_get_zone_handle_
 
-    subroutine mode_data_eval_EB_fields_(handle, x, EB_out) &
-            bind(C, name="mode_data_eval_EB_fields_")
+    subroutine mode_data_eval_EB_fields_(handle, x, EB_out)
         integer(c_intptr_t), value :: handle
         real(c_double), value :: x
         real(c_double), intent(out) :: EB_out(*)
@@ -331,8 +302,7 @@ contains
         end do
     end subroutine mode_data_eval_EB_fields_
 
-    subroutine mode_data_eval_diss_power_density_(handle, x, ttype, spec, dpd) &
-            bind(C, name="mode_data_eval_diss_power_density_")
+    subroutine mode_data_eval_diss_power_density_(handle, x, ttype, spec, dpd)
         integer(c_intptr_t), value :: handle
         real(c_double), value :: x
         integer(c_int), value :: ttype, spec
@@ -347,8 +317,7 @@ contains
         call z%eval_diss_power_density(real(x, dp), int(ttype), int(spec), dpd)
     end subroutine mode_data_eval_diss_power_density_
 
-    subroutine mode_data_eval_current_density_(handle, x, ttype, spec, comp, J) &
-            bind(C, name="mode_data_eval_current_density_")
+    subroutine mode_data_eval_current_density_(handle, x, ttype, spec, comp, J)
         integer(c_intptr_t), value :: handle
         real(c_double), value :: x
         integer(c_int), value :: ttype, spec, comp
@@ -455,7 +424,7 @@ contains
         complex(dp), intent(in) :: olab
         character(len=*), intent(out) :: path2linear
         complex(dp) :: flab
-        flab = olab/twopi
+        flab = olab / twopi
         write (path2linear, '(a,a,i0,a,i0,a,a,a,a,a)') trim(path2project), &
             'linear-data/m_', m, '_n_', n, '_flab_[', fmt_g(real(flab, dp), 15), ',', &
             fmt_g(aimag(flab), 15), ']/'
@@ -467,7 +436,7 @@ contains
         complex(dp), intent(in) :: olab
         character(len=*), intent(out) :: path2dispersion
         complex(dp) :: flab
-        flab = olab/twopi
+        flab = olab / twopi
         write (path2dispersion, '(a,a,i0,a,i0,a,a,a,a,a)') trim(path2project), &
             'dispersion-data/m_', m, '_n_', n, '_flab_[', fmt_g(real(flab, dp), 15), ',', &
             fmt_g(aimag(flab), 15), ']/'
@@ -479,7 +448,7 @@ contains
         complex(dp), intent(in) :: olab
         character(len=*), intent(out) :: path2poincare
         complex(dp) :: flab
-        flab = olab/twopi
+        flab = olab / twopi
         write (path2poincare, '(a,a,i0,a,i0,a,a,a,a,a)') trim(path2project), &
             'poincare-data/m_', m, '_n_', n, '_flab_[', fmt_g(real(flab, dp), 15), ',', &
             fmt_g(aimag(flab), 15), ']/'
@@ -527,7 +496,6 @@ contains
         integer(c_intptr_t), intent(in) :: sd_ptr, bp_ptr, wd_handle
         integer :: k, ztype
         character(len=1024) :: filename
-        character(kind=c_char), allocatable :: cpath(:)
         class(zone_t), pointer :: z
 
         md%Nzones = determine_number_of_zones(md%path2project)
@@ -540,8 +508,6 @@ contains
         if (allocated(md%zone_handles)) deallocate (md%zone_handles)
         allocate (md%zone_handles(md%Nzones))
 
-        cpath = to_cstr(md%path2project)
-
         do k = 0, md%Nzones - 1
             filename = get_zone_file_name(md%path2project, k)
             ztype = determine_zone_type(filename)
@@ -553,17 +519,19 @@ contains
 
             select case (ztype)
             case (PLASMA_MODEL_VACUUM, PLASMA_MODEL_MEDIUM)
-                md%zone_handles(k + 1) = hmedium_zone_create(sd_ptr, bp_ptr, wd_handle, &
-                    cpath, int(k, c_int))
+                md%zone_handles(k + 1) = hmedium_zone_create(sd_ptr, bp_ptr, &
+                                                             wd_handle, &
+                                                             md%path2project, int(k, c_int))
             case (PLASMA_MODEL_IMHD)
                 md%zone_handles(k + 1) = imhd_zone_create(sd_ptr, bp_ptr, wd_handle, &
-                    cpath, int(k, c_int))
+                                                          md%path2project, int(k, c_int))
             case (PLASMA_MODEL_RMHD)
                 write (*, '(a,i0,a)') 'The plasma model for zone ', k, ' is not implemented.'
                 stop 1
             case (PLASMA_MODEL_FLRE)
-                md%zone_handles(k + 1) = flre_zone_create_(sd_ptr, bp_ptr, wd_handle, &
-                    cpath, int(k, c_int))
+                md%zone_handles(k + 1) = flre_zone_create_(sd_ptr, bp_ptr, &
+                                                           wd_handle, &
+                                                           md%path2project, int(k, c_int))
             case default
                 write (*, '(a,i0,a)') 'The plasma model for zone ', k, ' is unknown.'
                 stop 1
@@ -675,7 +643,8 @@ contains
 
         if (found == 0) then
             write (*, '(a,i0,a)') &
-                'get_zone_file_name: failed to find the file name for zone ', zone_index, '!'
+                'get_zone_file_name: failed to find the file name for zone ', &
+                zone_index, '!'
             stop 1
         end if
     end function get_zone_file_name
@@ -726,17 +695,6 @@ contains
         c(n + 1) = c_null_char
     end function to_cstr
 
-    function c_string_to_fortran_local(cstr) result(fstr)
-        character(kind=c_char), intent(in) :: cstr(*)
-        character(len=1024) :: fstr
-        integer :: i
-        fstr = ''
-        do i = 1, 1024
-            if (cstr(i) == c_null_char) exit
-            fstr(i:i) = cstr(i)
-        end do
-    end function c_string_to_fortran_local
-
     !> ---- mode_data::calc_basis_fields_in_zones (calc_mode.cpp) ----
 
     subroutine calc_basis_fields_in_zones(md, flag)
@@ -777,7 +735,8 @@ contains
         neq = 1; ieq = 0; nvar = 1; ivar = 0
 
         ! zeroes A, B (the legacy routine's ieq == 0 branch is the zeroing call)
-        call update_system_matrix_and_rhs_vector(md%Nc, md%A, md%B, neq, ieq, nvar, ivar, M, J)
+        call update_system_matrix_and_rhs_vector(md%Nc, md%A, md%B, neq, ieq, nvar, &
+                                                 ivar, M, J)
 
         ieq = 1
         ivar = 1
@@ -832,7 +791,8 @@ contains
             stop 1
         end if
 
-        call update_system_matrix_and_rhs_vector(md%Nc, md%A, md%B, neq, ieq, nvar, ivar, M, J)
+        call update_system_matrix_and_rhs_vector(md%Nc, md%A, md%B, neq, ieq, nvar, &
+                                                 ivar, M, J)
 
         ieq = ieq + neq
         ! ivar unchanged: same zone & variables (oracle's `ivar += 0`)
@@ -888,7 +848,8 @@ contains
                 stop 1
             end if
 
-            call update_system_matrix_and_rhs_vector(md%Nc, md%A, md%B, neq, ieq, nvar, ivar, M, J)
+            call update_system_matrix_and_rhs_vector(md%Nc, md%A, md%B, neq, ieq, &
+                                                     nvar, ivar, M, J)
 
             ieq = ieq + neq
             ivar = ivar + Nw1
@@ -944,7 +905,8 @@ contains
             stop 1
         end if
 
-        call update_system_matrix_and_rhs_vector(md%Nc, md%A, md%B, neq, ieq, nvar, ivar, M, J)
+        call update_system_matrix_and_rhs_vector(md%Nc, md%A, md%B, neq, ieq, nvar, &
+                                                 ivar, M, J)
 
         ieq = ieq + neq
         ivar = ivar + Nw

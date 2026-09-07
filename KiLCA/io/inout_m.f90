@@ -1,10 +1,9 @@
 !> The file-I/O utilities ported from io/inout.h and io/inout.cpp: filename-based
 !> savers/loaders (save_cmplx_matrix*, save_real_array, load_data_file,
-!> count_lines_in_file and their with-comments variants) plus the FILE*-based
-!> line readers (read_line_2get_*/read_line_2skip_it) called by the still-C++
-!> post_processing and progs entry points. The line readers keep the C
-!> "FILE *" handle opaque as type(c_ptr) and read through libc getline, so their
-!> C++ callers pass the fopen'd handle through unchanged. The confirmed-dead
+!> count_lines_in_file and their with-comments variants) plus the line readers
+!> used by post-processing and driver modules. Filename interfaces accept native
+!> strings. The stream readers retain opaque libc FILE pointers and call getline
+!> through its C interface. The confirmed-dead
 !> functions (save_real_matrix_to_one_file/save_complex_array/trim/load_profile/
 !> load_and_alloc_profile/load_complex_profile) had zero callers across the
 !> built targets and were dropped, completing the translation of inout.cpp.
@@ -48,18 +47,18 @@ contains
     !> Mirrors save_cmplx_matrix exactly: one file per column "i",
     !> path_name_i.dat, each row "x(k) re im re im ...".
     function save_cmplx_matrix_(Nrows, Ncols, Npoints, xgrid, arr, path_name) &
-        result(ierr) bind(C, name="save_cmplx_matrix")
+        result(ierr)
         integer(c_int), value :: Nrows, Ncols, Npoints
         real(c_double), intent(in) :: xgrid(0:Npoints - 1)
-        real(c_double), intent(in) :: arr(0:2*Nrows*Ncols*Npoints - 1)
-        character(kind=c_char), intent(in) :: path_name(*)
+        real(c_double), intent(in) :: arr(0:2 * Nrows * Ncols * Npoints - 1)
+        character(len=*), intent(in) :: path_name
         integer(c_int) :: ierr
 
         character(len=1024) :: fname
         integer :: i, j, k, unit, ios
 
         do i = 0, Ncols - 1
-            write (fname, '(a,a,i0,a)') trim(c_string_to_fortran(path_name)), '_', i, '.dat'
+            write (fname, '(a,a,i0,a)') trim(path_name), '_', i, '.dat'
             open (newunit=unit, file=trim(fname), status='replace', action='write', iostat=ios)
             if (ios /= 0) then
                 write (*, '(a,a)') 'Failed to open file ', trim(fname)
@@ -83,20 +82,21 @@ contains
 
     !> Mirrors save_cmplx_matrix_to_one_file: a complex Nrows x Ncols matrix
     !> per point, columns-first (i outer, j inner), to one file.
-    function save_cmplx_matrix_to_one_file_(Nrows, Ncols, Npoints, xgrid, arr, full_name) &
-        result(ierr) bind(C, name="save_cmplx_matrix_to_one_file")
+    function save_cmplx_matrix_to_one_file_(Nrows, Ncols, Npoints, xgrid, arr, &
+                                            full_name) &
+        result(ierr)
         integer(c_int), value :: Nrows, Ncols, Npoints
         real(c_double), intent(in) :: xgrid(0:Npoints - 1)
-        real(c_double), intent(in) :: arr(0:2*Nrows*Ncols*Npoints - 1)
-        character(kind=c_char), intent(in) :: full_name(*)
+        real(c_double), intent(in) :: arr(0:2 * Nrows * Ncols * Npoints - 1)
+        character(len=*), intent(in) :: full_name
         integer(c_int) :: ierr
 
         integer :: i, j, k, unit, ios
 
-        open (newunit=unit, file=trim(c_string_to_fortran(full_name)), status='replace', &
-            action='write', iostat=ios)
+        open (newunit=unit, file=trim(full_name), status='replace', &
+              action='write', iostat=ios)
         if (ios /= 0) then
-            write (*, '(a,a)') 'Failed to open file ', trim(c_string_to_fortran(full_name))
+            write (*, '(a,a)') 'Failed to open file ', trim(full_name)
             ierr = 1
             return
         end if
@@ -118,19 +118,18 @@ contains
     end function save_cmplx_matrix_to_one_file_
 
     !> Mirrors save_real_array: "x(k) arr(k)" per line.
-    function save_real_array_(dim_, xgrid, arr, full_name) result(ierr) &
-        bind(C, name="save_real_array")
+    function save_real_array_(dim_, xgrid, arr, full_name) result(ierr)
         integer(c_int), value :: dim_
         real(c_double), intent(in) :: xgrid(0:dim_ - 1), arr(0:dim_ - 1)
-        character(kind=c_char), intent(in) :: full_name(*)
+        character(len=*), intent(in) :: full_name
         integer(c_int) :: ierr
 
         integer :: k, unit, ios
 
-        open (newunit=unit, file=trim(c_string_to_fortran(full_name)), status='replace', &
-            action='write', iostat=ios)
+        open (newunit=unit, file=trim(full_name), status='replace', &
+              action='write', iostat=ios)
         if (ios /= 0) then
-            write (*, '(a,a)') 'Failed to open file ', trim(c_string_to_fortran(full_name))
+            write (*, '(a,a)') 'Failed to open file ', trim(full_name)
             ierr = 1
             return
         end if
@@ -146,9 +145,8 @@ contains
     !> Mirrors count_lines_in_file: counts lines via a raw read loop
     !> (matching the oracle's getline-until-EOF convention, not a
     !> line-ending-aware text scan).
-    function count_lines_in_file_(filename, flag_print) result(num_lines) &
-        bind(C, name="count_lines_in_file")
-        character(kind=c_char), intent(in) :: filename(*)
+    function count_lines_in_file_(filename, flag_print) result(num_lines)
+        character(len=*), intent(in) :: filename
         integer(c_int), value :: flag_print
         integer(c_int) :: num_lines
 
@@ -156,10 +154,12 @@ contains
         integer :: unit, ios
         character(len=65536) :: line
 
-        fname = c_string_to_fortran(filename)
-        open (newunit=unit, file=trim(fname), status='old', action='read', iostat=ios)
+        fname = filename
+        open (newunit=unit, file=trim(fname), status='old', action='read', &
+              iostat=ios)
         if (ios /= 0) then
-            write (*, '(a,a)') 'count_lines_in_file: failed to open file ', trim(fname)
+            write (*, '(a,a)') 'count_lines_in_file: failed to open file ', &
+                trim(fname)
         end if
 
         num_lines = 0
@@ -172,26 +172,26 @@ contains
         close (unit)
 
         if (flag_print /= 0) then
-            write (*, '(a,a,a,i0,a)') 'file ', trim(fname), ' contains ', num_lines, ' non-empty lines'
+            write (*, '(a,a,a,i0,a)') 'file ', trim(fname), ' contains ', num_lines, &
+                ' non-empty lines'
         end if
     end function count_lines_in_file_
 
     !> Mirrors load_data_file exactly: dim must equal count_lines_in_file's
     !> result; each line is (x, y_1, ..., y_ncols), columns stored
     !> column-major in qgrid (qgrid(i + k*dim) for column k, row i).
-    function load_data_file_(file_name, dim_, ncols, rgrid, qgrid) result(ierr) &
-        bind(C, name="load_data_file")
-        character(kind=c_char), intent(in) :: file_name(*)
+    function load_data_file_(file_name, dim_, ncols, rgrid, qgrid) result(ierr)
+        character(len=*), intent(in) :: file_name
         integer(c_int), value :: dim_, ncols
         real(c_double), intent(out) :: rgrid(0:dim_ - 1)
-        real(c_double), intent(out) :: qgrid(0:dim_*ncols - 1)
+        real(c_double), intent(out) :: qgrid(0:dim_ * ncols - 1)
         integer(c_int) :: ierr
 
         character(len=1024) :: fname
         integer :: unit, ios, i, k
         real(dp) :: vals(0:ncols)
 
-        fname = c_string_to_fortran(file_name)
+        fname = file_name
 
         if (dim_ /= count_lines_in_file_(file_name, 0_c_int)) then
             write (*, '(a,a)') &
@@ -199,7 +199,8 @@ contains
             stop 1
         end if
 
-        open (newunit=unit, file=trim(fname), status='old', action='read', iostat=ios)
+        open (newunit=unit, file=trim(fname), status='old', action='read', &
+              iostat=ios)
         if (ios /= 0) then
             write (*, '(a,a)') 'load_data_file: failed to open file ', trim(fname)
             stop 1
@@ -209,7 +210,8 @@ contains
         do i = 0, dim_ - 1
             read (unit, *, iostat=ios) vals(0:ncols)
             if (ios /= 0) then
-                write (*, '(a,a,a)') 'load_data_file: file ', trim(fname), ' reading error!'
+                write (*, '(a,a,a)') 'load_data_file: file ', trim(fname), &
+                    ' reading error!'
                 stop 1
             end if
             rgrid(i) = vals(0)
@@ -224,7 +226,7 @@ contains
     !> Mirrors read_line_2get_double: reads one line from the C FILE* handle,
     !> takes the text before '#' and parses it as a double (0 on no conversion,
     !> matching strtod).
-    subroutine read_line_2get_double_(in, value) bind(C, name="read_line_2get_double")
+    subroutine read_line_2get_double_(in, value)
         type(c_ptr), value :: in
         real(c_double), intent(out) :: value
 
@@ -240,7 +242,7 @@ contains
 
     !> Mirrors read_line_2get_complex: the text before '#' is "(re,im)", which is
     !> exactly Fortran list-directed complex input.
-    subroutine read_line_2get_complex_(in, value) bind(C, name="read_line_2get_complex")
+    subroutine read_line_2get_complex_(in, value)
         type(c_ptr), value :: in
         complex(c_double), intent(out) :: value
 
@@ -255,7 +257,7 @@ contains
     end subroutine read_line_2get_complex_
 
     !> Mirrors read_line_2get_int: text before '#' parsed as an integer.
-    subroutine read_line_2get_int_(in, value) bind(C, name="read_line_2get_int")
+    subroutine read_line_2get_int_(in, value)
         type(c_ptr), value :: in
         integer(c_int), intent(out) :: value
 
@@ -272,7 +274,7 @@ contains
     !> Mirrors read_line_2get_string: the first whitespace/tab-delimited token of
     !> the text before '#' is copied (null-terminated) into the caller's buffer.
     !> "value" is a C "char **"; *value is the destination char buffer.
-    subroutine read_line_2get_string_(in, value) bind(C, name="read_line_2get_string")
+    subroutine read_line_2get_string_(in, value)
         type(c_ptr), value :: in
         type(c_ptr), value :: value
 
@@ -316,7 +318,7 @@ contains
 
     !> Mirrors read_line_2skip_it: read and discard one line. "value" is unused,
     !> matching the oracle.
-    subroutine read_line_2skip_it_(in, value) bind(C, name="read_line_2skip_it")
+    subroutine read_line_2skip_it_(in, value)
         type(c_ptr), value :: in
         type(c_ptr), value :: value
 
@@ -329,8 +331,8 @@ contains
     !> Mirrors count_lines_in_file_with_comments: counts lines that contain none
     !> of '%', '#', '!'.
     function count_lines_in_file_with_comments_(filename, flag_print) &
-        result(num_lines) bind(C, name="count_lines_in_file_with_comments")
-        character(kind=c_char), intent(in) :: filename(*)
+        result(num_lines)
+        character(len=*), intent(in) :: filename
         integer(c_int), value :: flag_print
         integer(c_int) :: num_lines
 
@@ -338,10 +340,12 @@ contains
         integer :: unit, ios
         character(len=65536) :: line
 
-        fname = c_string_to_fortran(filename)
-        open (newunit=unit, file=trim(fname), status='old', action='read', iostat=ios)
+        fname = filename
+        open (newunit=unit, file=trim(fname), status='old', action='read', &
+              iostat=ios)
         if (ios /= 0) then
-            write (*, '(a,a)') 'count_lines_in_file: failed to open file ', trim(fname)
+            write (*, '(a,a)') 'count_lines_in_file: failed to open file ', &
+                trim(fname)
         end if
 
         num_lines = 0
@@ -367,11 +371,11 @@ contains
     !> bound dimf is the raw line count (count_lines_in_file), preserving the
     !> oracle's mix of the two counters.
     function load_data_file_with_comments_(file_name, dim_, ncols, rgrid, qgrid) &
-        result(ierr) bind(C, name="load_data_file_with_comments")
-        character(kind=c_char), intent(in) :: file_name(*)
+        result(ierr)
+        character(len=*), intent(in) :: file_name
         integer(c_int), value :: dim_, ncols
         real(c_double), intent(out) :: rgrid(0:dim_ - 1)
-        real(c_double), intent(out) :: qgrid(0:dim_*ncols - 1)
+        real(c_double), intent(out) :: qgrid(0:dim_ * ncols - 1)
         integer(c_int) :: ierr
 
         character(len=1024) :: fname
@@ -379,7 +383,7 @@ contains
         real(dp) :: vals(0:ncols)
         character(len=65536) :: line
 
-        fname = c_string_to_fortran(file_name)
+        fname = file_name
 
         if (dim_ /= count_lines_in_file_with_comments_(file_name, 0_c_int)) then
             write (*, '(a,a)') 'error: load_data_file: read error or false input '// &
@@ -387,7 +391,8 @@ contains
             stop 1
         end if
 
-        open (newunit=unit, file=trim(fname), status='old', action='read', iostat=ios)
+        open (newunit=unit, file=trim(fname), status='old', action='read', &
+              iostat=ios)
         if (ios /= 0) then
             write (*, '(a,a)') 'load_data_file: failed to open file ', trim(fname)
             stop 1
@@ -482,18 +487,5 @@ contains
             sub = line
         end if
     end subroutine read_line_before_hash
-
-    function c_string_to_fortran(cstr) result(fstr)
-        character(kind=c_char), intent(in) :: cstr(*)
-        character(len=1024) :: fstr
-        integer :: i
-        fstr = ''
-        i = 0
-        do
-            if (cstr(i + 1) == c_null_char .or. i >= 1024) exit
-            fstr(i + 1:i + 1) = cstr(i + 1)
-            i = i + 1
-        end do
-    end function c_string_to_fortran
 
 end module kilca_inout_m

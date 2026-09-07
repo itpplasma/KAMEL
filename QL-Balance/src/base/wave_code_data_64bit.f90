@@ -3,8 +3,12 @@
 
     !runs wave code to compute (E,B) - fields.
 subroutine get_wave_code_data(imin, imax)
+    use kilca_wave_code_interface_m, only: &
+        calc_wave_code_data_for_mode => &
+            calc_wave_code_data_for_mode_
+    use kilca_wave_code_interface_m, only: clear_wave_code_data => clear_wave_code_data_
 
-    use wave_code_data
+    use wave_code_data;
     use logger_m, only: log_debug
 
     implicit none
@@ -30,8 +34,18 @@ end subroutine
 !>the background profiles and reads the mode numbers from modes.in. Also,
 !> Calculates background EM fields and collision frequencies.
 subroutine initialize_wave_code_interface(nrad, r_grid)
+    use kilca_wave_code_interface_m, only: &
+        calc_wave_code_data_for_mode => &
+            calc_wave_code_data_for_mode_
+    use kilca_wave_code_interface_m, only: clear_wave_code_data => clear_wave_code_data_
+    use kilca_wave_code_interface_m, only: &
+        get_background_magnetic_fields_from_wave_code => &
+            get_background_magnetic_fields_from_wave_code_
+    use kilca_wave_code_interface_m, only: &
+        get_collision_frequences_from_wave_code => &
+            get_collision_frequences_from_wave_code_
 
-    use wave_code_data
+    use wave_code_data;
     use h5mod
     use control_mod, only: readfromtimestep, ihdf5IO, wave_code, &
                            kim_profiles_from_balance, kim_n_modes, kim_m_list, kim_n_list, &
@@ -157,6 +171,7 @@ end subroutine
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
 subroutine deallocate_wave_code_data()
+    use kilca_wave_code_interface_m, only: clear_wave_code_data => clear_wave_code_data_
 
     use wave_code_data;
     implicit none;
@@ -193,7 +208,7 @@ end subroutine
 
 subroutine save_wave_code_data()
 
-    use wave_code_data
+    use wave_code_data;
 
     implicit none
 
@@ -238,7 +253,7 @@ end subroutine
 
 subroutine update_background_files(path)
 
-    use wave_code_data
+    use wave_code_data;
     use grid_mod, only: Ercov
     use plasma_parameters, only: params_b
     use baseparam_mod
@@ -299,16 +314,23 @@ end subroutine
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
 subroutine eval_diss_power_density(dim, r, type, spec, d_p_d)
+    use kilca_wave_code_interface_m, only: &
+        get_diss_power_density_from_wave_code => &
+            get_diss_power_density_from_wave_code_
+    use kilca_wave_code_interface_m, only: &
+        get_wave_fields_from_wave_code => &
+            get_wave_fields_from_wave_code_
 
     use wave_code_data, only: dim_mn, m_vals, n_vals, vac_cd_ptr, flre_cd_ptr;
-    use baseparam_mod, only: rtor;
+    use baseparam_mod, only: rtor
     implicit none;
     integer, intent(in) :: dim;
     real(8), dimension(dim), intent(in) :: r;
     integer, intent(in) :: type, spec;
     real(8), dimension(dim), intent(out) :: d_p_d;
     complex(8), dimension(dim) :: amn_psi, amn_theta, amn_theta_cyl;
-    complex(8), dimension(dim) :: F, Br; !for vacuum fields
+    complex(8), dimension(dim) :: Br;
+    complex(8) :: unused_fields(dim, 9); !for vacuum fields
 
     real(8), dimension(dim) :: dpd_mn;
     integer :: ind, k, ierr;
@@ -323,8 +345,10 @@ subroutine eval_diss_power_density(dim, r, type, spec, d_p_d)
             !end if
         end do
 
-        call get_wave_fields_from_wave_code(vac_cd_ptr, dim, r, m_vals(ind), n_vals(ind), F, F, F, F, F, Br, F, F, F, F);
-        call get_diss_power_density_from_wave_code(flre_cd_ptr, dim, r, m_vals(ind), n_vals(ind), type, spec, dpd_mn);
+        call get_wave_fields_from_wave_code(vac_cd_ptr(ind), dim, r, m_vals(ind), n_vals(ind), unused_fields(:,1), unused_fields(:,2), unused_fields(:,3), &
+            unused_fields(:,4), unused_fields(:,5), Br, unused_fields(:,6), &
+            unused_fields(:,7), unused_fields(:,8), unused_fields(:,9));
+        call get_diss_power_density_from_wave_code(flre_cd_ptr(ind), dim, r, m_vals(ind), n_vals(ind), type, spec, dpd_mn);
         amn_theta_cyl = (r*rtor/n_vals(ind))*Br;
         d_p_d = d_p_d + 2.0d0*dpd_mn*(abs(amn_theta)**2/abs(amn_theta_cyl)**2);
     end do
@@ -589,7 +613,6 @@ subroutine read_background_profiles_h5
 
 end subroutine
 
-
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 ! Added by Markus Markl, 01.06.2021
 ! The idea is to read profiles that evolved already in time. These profiles can
@@ -609,7 +632,6 @@ subroutine read_background_profiles_h5_timeevol(tstep)
     double precision, dimension(:), allocatable :: Er_dummy, Vth_dummy
     character(len=1024) :: groupname
     integer :: lb, ub;
-
 
     call log_info('Read time evolved background profiles from hdf5 file')
 
@@ -694,10 +716,7 @@ subroutine read_background_profiles_h5_timeevol(tstep)
     call log_debug("finished reading background profiles")
     idPhi0 = -idPhi0; ! Er was loaded from Er.dat
 
-
-
 end subroutine
-
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
@@ -719,6 +738,7 @@ end subroutine
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
 subroutine interp_profile(dim_old, r_old, q_old, dim_new, r_new, q_new)
+    use kilca_neville_m, only: eval_neville_polynom
 
 ! interpolate a profile to a new grid by moving polynom of degree deg
 

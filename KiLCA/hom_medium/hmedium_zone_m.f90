@@ -4,7 +4,8 @@
 !> dispersion/quantities support (those methods are no-ops or error stubs
 !> in the oracle, preserved as-is).
 module kilca_hmedium_zone_m
-    use, intrinsic :: iso_c_binding, only: c_int, c_intptr_t, c_double, c_char, c_ptr
+    use kilca_background_settings_m, only: get_background_rtor
+    use, intrinsic :: iso_c_binding, only: c_int, c_intptr_t, c_ptr
     use constants, only: dp
     use kilca_wave_data_m, only: wave_data_t
     use kilca_zone_m, only: zone_t, zone_register, zone_read, zone_print, skip_line, &
@@ -41,18 +42,14 @@ module kilca_hmedium_zone_m
             complex(dp), intent(out) :: EB(6, 4)
         end subroutine eval_basis_in_hom_media
 
-        function get_background_rtor() bind(C, name="get_background_rtor_") result(rtor)
-            import :: c_double
-            real(c_double) :: rtor
-        end function get_background_rtor
     end interface
 
 contains
 
     function hmedium_zone_create(sd_ptr, bp_ptr, wd_handle, path, index_p) &
-        result(handle) bind(C, name="hmedium_zone_create_")
+        result(handle)
         integer(c_intptr_t), value :: sd_ptr, bp_ptr, wd_handle
-        character(kind=c_char), intent(in) :: path(*)
+        character(len=*), intent(in) :: path
         integer(c_int), value :: index_p
         integer(c_intptr_t) :: handle
 
@@ -63,7 +60,7 @@ contains
         allocate (hz)
         hz%bp = bp_ptr
         hz%index = int(index_p)
-        hz%path = zone_c_string(path)
+        hz%path = path
         wd_cptr = transfer(wd_handle, wd_cptr)
         call c_f_pointer_local(wd_cptr, hz%wd)
 
@@ -78,20 +75,6 @@ contains
         call c_f_pointer(cptr, wd)
     end subroutine c_f_pointer_local
 
-    function zone_c_string(cstr) result(fstr)
-        use, intrinsic :: iso_c_binding, only: c_null_char
-        character(kind=c_char), intent(in) :: cstr(*)
-        character(len=1024) :: fstr
-        integer :: i
-        fstr = ''
-        i = 0
-        do
-            if (cstr(i + 1) == c_null_char .or. i >= 1024) exit
-            fstr(i + 1:i + 1) = cstr(i + 1)
-            i = i + 1
-        end do
-    end function zone_c_string
-
     subroutine hmedium_read_settings(self, file)
         class(hmedium_zone_t), intent(inout) :: self
         character(len=*), intent(in) :: file
@@ -101,7 +84,7 @@ contains
 
         open (newunit=unit, file=trim(file), status='old', action='read', iostat=ios)
         if (ios /= 0) then
-            write (*, '(a,a)') 'error: hmedium_zone: read_settings: failed to open file ', trim(file)
+           write (*, '(a,a)') 'error: hmedium_zone: read_settings: failed to open file ', trim(file)
             stop 1
         end if
 

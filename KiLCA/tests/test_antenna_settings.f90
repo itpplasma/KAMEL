@@ -1,48 +1,26 @@
 !> Unit test for the Fortran antenna settings reader (antenna_data module).
 !>
 !> Writes a known antenna.in / modes.in in the "value #comment" format the C++
-!> antenna::read_settings used, runs read_antenna_settings_, and checks every
-!> exposed field through the bind(C) getters. This locks the parser behavior the
+!> antenna::read_settings used, runs read_antenna_settings, and checks every
+!> exposed field through the module getters. This locks the parser behavior the
 !> former C++ class provided (doubles, the (re,im) complex, ints, and the
 !> "(m,n)" mode list).
 program test_antenna_settings
-    use, intrinsic :: iso_c_binding, only: c_int, c_double, c_char, c_null_char
+    use, intrinsic :: iso_c_binding, only: c_int
+    use, intrinsic :: iso_c_binding, only: c_double, c_intptr_t
+    use kilca_antenna_settings_m, only: &
+        read_antenna_settings, get_antenna_dma, get_antenna_flab, get_antenna_mode, &
+        get_antenna_ra, get_antenna_wa, get_antenna_flag_eigmode
+    use kilca_settings_m, only: settings_create_, settings_destroy_, &
+                                settings_get_path2project_
     implicit none
 
-    interface
-        subroutine read_antenna_settings(path) bind(C, name="read_antenna_settings_")
-            import :: c_char
-            character(kind=c_char), dimension(*), intent(in) :: path
-        end subroutine
-        integer(c_int) function get_antenna_dma() bind(C, name="get_antenna_dma_")
-            import :: c_int
-        end function
-        subroutine get_antenna_flab(re, im) bind(C, name="get_antenna_flab_")
-            import :: c_double
-            real(c_double), intent(out) :: re, im
-        end subroutine
-        subroutine get_antenna_mode(ind, m, n) bind(C, name="get_antenna_mode_")
-            import :: c_int
-            integer(c_int), value :: ind
-            integer(c_int), intent(out) :: m, n
-        end subroutine
-        real(c_double) function get_antenna_ra() bind(C, name="get_antenna_ra_")
-            import :: c_double
-        end function
-        real(c_double) function get_antenna_wa() bind(C, name="get_antenna_wa_")
-            import :: c_double
-        end function
-        integer(c_int) function get_antenna_flag_eigmode() bind(C, name="get_antenna_flag_eigmode_")
-            import :: c_int
-        end function
-    end interface
-
     real(c_double), parameter :: tol = 1.0d-12
-    character(kind=c_char), dimension(2) :: cpath
     integer :: u, failures, m, n
     real(c_double) :: re, im
 
     failures = 0
+    call check_native_settings_path()
 
     open (newunit=u, file='antenna.in', status='replace', action='write')
     write (u, '(a)') '#Antenna settings:'
@@ -62,9 +40,7 @@ program test_antenna_settings
     write (u, '(a)') '(5,2)'
     close (u)
 
-    cpath(1) = '.'
-    cpath(2) = c_null_char
-    call read_antenna_settings(cpath)
+    call read_antenna_settings('.')
 
     call check_d("ra", get_antenna_ra(), 70.0d0)
     call check_d("wa", get_antenna_wa(), 0.5d0)
@@ -88,6 +64,27 @@ program test_antenna_settings
     end if
 
 contains
+
+    subroutine check_native_settings_path()
+        character(len=*), parameter :: project_path = 'project with spaces/case'
+        character(len=1024) :: result_path
+        character(len=12) :: short_path
+        integer(c_intptr_t) :: handle
+
+        handle = settings_create_(project_path)
+        call settings_get_path2project_(handle, result_path)
+        if (result_path /= project_path) then
+            write (*, '(a,a)') 'FAIL native settings path roundtrip: ', &
+                trim(result_path)
+            failures = failures + 1
+        end if
+        call settings_get_path2project_(handle, short_path)
+        if (short_path /= project_path(:len(short_path))) then
+            write (*, '(a,a)') 'FAIL native settings path truncation: ', short_path
+            failures = failures + 1
+        end if
+        call settings_destroy_(handle)
+    end subroutine check_native_settings_path
 
     subroutine check_d(label, got, want)
         character(*), intent(in) :: label

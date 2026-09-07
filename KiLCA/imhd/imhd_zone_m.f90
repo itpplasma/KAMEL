@@ -9,8 +9,11 @@
 !> implicit self-reference, so read_settings needs somewhere to recover it
 !> for set_imhd_data_module_).
 module kilca_imhd_zone_m
-    use, intrinsic :: iso_c_binding, only: c_int, c_intptr_t, c_double, c_char, c_ptr, &
-        c_null_ptr
+    use kilca_background_data_m, only: eval_b0_ht_hz_n0_vz
+    use kilca_background_settings_m, only: get_background_mass
+    use kilca_background_settings_m, only: get_background_rtor
+    use, intrinsic :: iso_c_binding, only: c_int, c_intptr_t, c_double, c_ptr, &
+                                                                              c_null_ptr
     use constants, only: dp, pi
     use kilca_wave_data_m, only: wave_data_t
     use kilca_zone_m, only: zone_t, zone_register, zone_read, zone_print, skip_line, &
@@ -41,37 +44,14 @@ module kilca_imhd_zone_m
         procedure :: eval_diss_power_density => imhd_eval_diss_power_density
         procedure :: eval_current_density => imhd_eval_current_density
     end type imhd_zone_t
-
-    interface
-        function get_background_rtor() bind(C, name="get_background_rtor_") result(rtor)
-            import :: c_double
-            real(c_double) :: rtor
-        end function get_background_rtor
-
-        function get_background_mass(i) bind(C, name="get_background_mass_") result(m)
-            import :: c_double, c_int
-            integer(c_int), value :: i
-            real(c_double) :: m
-        end function get_background_mass
-    end interface
-
-    interface
-        subroutine eval_B0_ht_hz_n0_Vz(rval, bp, R) bind(C, name="eval_B0_ht_hz_n0_Vz")
-            import :: c_double, c_ptr
-            real(c_double), value :: rval
-            type(c_ptr), value :: bp
-            real(c_double), intent(out) :: R(*)
-        end subroutine eval_B0_ht_hz_n0_Vz
-    end interface
-
     external :: set_imhd_data_module
 
 contains
 
     function imhd_zone_create(sd_ptr, bp_ptr, wd_handle, path, index_p) &
-        result(handle) bind(C, name="imhd_zone_create_")
+        result(handle)
         integer(c_intptr_t), value :: sd_ptr, bp_ptr, wd_handle
-        character(kind=c_char), intent(in) :: path(*)
+        character(len=*), intent(in) :: path
         integer(c_int), value :: index_p
         integer(c_intptr_t) :: handle
 
@@ -82,7 +62,7 @@ contains
         allocate (iz)
         iz%bp = bp_ptr
         iz%index = int(index_p)
-        iz%path = zone_c_string(path)
+        iz%path = path
         wd_cptr = transfer(wd_handle, wd_cptr)
         call c_f_pointer_local(wd_cptr, iz%wd)
 
@@ -97,20 +77,6 @@ contains
         type(wave_data_t), pointer, intent(out) :: wd
         call c_f_pointer(cptr, wd)
     end subroutine c_f_pointer_local
-
-    function zone_c_string(cstr) result(fstr)
-        use, intrinsic :: iso_c_binding, only: c_null_char
-        character(kind=c_char), intent(in) :: cstr(*)
-        character(len=1024) :: fstr
-        integer :: i
-        fstr = ''
-        i = 0
-        do
-            if (cstr(i + 1) == c_null_char .or. i >= 1024) exit
-            fstr(i + 1:i + 1) = cstr(i + 1)
-            i = i + 1
-        end do
-    end function zone_c_string
 
     !> Mirrors imhd_zone::read_settings: the base read() (8 lines), then a
     !> fresh open re-skipping those same 8 lines (matching hmedium_zone's
@@ -240,16 +206,13 @@ contains
             'error: eval_current_density() is not implemented for the imhd_zone'
     end subroutine imhd_eval_current_density
 
-    !> bind(C, name="calc_k_vals_") so that imhd.f90's existing
-    !> calc_k_vals_sub (an unchanged legacy Fortran external call) resolves
-    !> to this routine. Inlines the oracle's free `calc_k_vals` (a helper
-    !> with no other caller) directly, matching `calc_k_vals_`'s own
-    !> C++ body. `E` in the oracle's `kfac = E - kA*kA/(kp*kp)` is
+    !> Native wave-number evaluation used by imhd.f90's calc_k_vals_sub.
+    !> `E` in the oracle's `kfac = E - kA*kA/(kp*kp)` is
     !> constants.h's `const complex<double> E(1.0, 0.0)` (just the complex
     !> value 1+0i, unrelated to Euler's number or the elementary charge
     !> `e` also defined in that header) - inlined here as cmplx_one.
     subroutine calc_k_vals_(zone_ptr_handle, r, kt, kz, ks, kp, k2, kB, &
-        re_kA, im_kA, re_kfac, im_kfac) bind(C, name="calc_k_vals_")
+                            re_kA, im_kA, re_kfac, im_kfac)
         integer(c_intptr_t), intent(in) :: zone_ptr_handle
         real(c_double), intent(in) :: r
         real(c_double), intent(out) :: kt, kz, ks, kp, k2, kB

@@ -1,22 +1,7 @@
 !> Vector-valued adaptive 1D grid refinement by moving polynomial
-!> interpolation, formerly KiLCA/math/adapt_grid/adaptive_grid_pol.cpp. The two
-!> live entry points are adaptive_grid_polynom_res and adaptive_grid_polynom_err,
-!> both called by the Fortran conductivity-grid generator (kilca_cond_profiles_m)
-!> through bind(C) interface blocks, so the C symbol names are preserved.
-!>
-!> Dropped as dead (verified by grep across all C++, header and Fortran
-!> sources):
-!>   - the two-overload adaptive_grid_polynom: the dimy/no-ind_err overload is
-!>     reached only from the orphaned demo main_agp.cpp (in no CMake target);
-!>     the dim_err/ind_err overload had exactly one caller, the thin extern "C"
-!>     adaptive_grid_polynom_err forwarder, whose algorithm body is therefore
-!>     folded directly into adaptive_grid_polynom_err here.
-!>   - sparse_grid_polynom and its helpers eval_interp_polynom/func_interp were
-!>     already ported (kilca_interp_m) and have no caller of this file's copies.
-!>   - sign was never called.
-!>   - the DEBUG_FLAG (compile-time 0) and local debug (always 0) warning prints
-!>     never executed, so their dead branches and the xmerr/ymerr/jmerr trace
-!>     variables that only fed them are omitted.
+!> interpolation. The conductivity-grid generator supplies native Fortran
+!> callbacks to adaptive_grid_polynom_res and adaptive_grid_polynom_err.
+!> Context pointers remain opaque handles owned by the caller.
 !>
 !> find_index_for_interp/search_array/binary_search and this file's own
 !> yshift-strided eval_neville_polynom (distinct from kilca_neville_m's
@@ -25,8 +10,7 @@
 !> memory-reuse detail with no numerical effect; here the swap uses move_alloc
 !> and the result is always copied into the caller's x1/y1.
 module adaptive_grid_pol_m
-    use, intrinsic :: iso_c_binding, only: c_double, c_int, c_ptr, c_funptr, &
-                                           c_f_procpointer
+    use, intrinsic :: iso_c_binding, only: c_double, c_int, c_ptr
     implicit none
     private
 
@@ -34,7 +18,7 @@ module adaptive_grid_pol_m
     public :: find_index_for_interp, eval_neville_polynom
 
     abstract interface
-        subroutine sample_cb(r, fval, ctx) bind(C)
+        subroutine sample_cb(r, fval, ctx)
             import :: c_double, c_ptr
             real(c_double), intent(in) :: r
             real(c_double), intent(out) :: fval(*)
@@ -48,12 +32,10 @@ contains
     !> ind_err, the error of the central moving polynomial against its left and
     !> right neighbours falls below eps. Returns 0 on convergence, 1 if the
     !> buffer dimension xdim was reached first (then the previous grid and its
-    !> error are restored). Body folded from the C++ dim_err overload of
-    !> adaptive_grid_polynom that the extern "C" forwarder called.
+    !> error are restored).
     function adaptive_grid_polynom_err(f, p, a, b, dimy, deg, xdim, eps, &
-                                       dim_err, ind_err, x1, y1) result(stat) &
-        bind(C, name="adaptive_grid_polynom_err")
-        type(c_funptr), value :: f
+                                       dim_err, ind_err, x1, y1) result(stat)
+        procedure(sample_cb) :: f
         type(c_ptr), value :: p
         real(c_double), value :: a, b
         integer(c_int), value :: dimy, deg, dim_err
@@ -63,18 +45,15 @@ contains
         real(c_double), intent(inout) :: x1(0:*), y1(0:*)
         integer(c_int) :: stat
 
-        procedure(sample_cb), pointer :: cb
         real(c_double), allocatable :: xold(:), xnew(:), yold(:), ynew(:)
         real(c_double), allocatable :: yl(:), ym(:), yr(:)
         integer(c_int) :: maxdim, dimx, k, j, l, ind, indl, indr, node, m, jj, flag
         real(c_double) :: pi, xc, errl, errr, errt, merr, peps, err
 
-        call c_f_procpointer(f, cb)
-
         maxdim = xdim
 
         allocate (xold(0:maxdim - 1), xnew(0:maxdim - 1))
-        allocate (yold(0:maxdim*dimy - 1), ynew(0:maxdim*dimy - 1))
+        allocate (yold(0:maxdim * dimy - 1), ynew(0:maxdim * dimy - 1))
         allocate (yl(0:dim_err - 1), ym(0:dim_err - 1), yr(0:dim_err - 1))
 
         dimx = deg + 3
@@ -85,12 +64,12 @@ contains
         pi = 3.141592653589793238_c_double
 
         do k = 1, deg + 1
-            xold(k) = 0.5_c_double*(a + b) - 0.5_c_double*(b - a) &
-                      *cos(real(2*k - 1, c_double)*pi/real(2*(deg + 1), c_double))
+            xold(k) = 0.5_c_double * (a + b) - 0.5_c_double * (b - a) &
+                      * cos(real(2 * k - 1, c_double) * pi / real(2 * (deg + 1), c_double))
         end do
 
         do k = 0, dimx - 1
-            call cb(xold(k), yold(k*dimy), p)
+            call f(xold(k), yold(k * dimy), p)
         end do
 
         merr = 0.0_c_double
@@ -105,11 +84,11 @@ contains
             do k = 0, dimx - 2
                 xnew(node) = xold(k)
                 do j = 0, dimy - 1
-                    ynew(node*dimy + j) = yold(k*dimy + j)
+                    ynew(node * dimy + j) = yold(k * dimy + j)
                 end do
                 node = node + 1
 
-                xc = xold(k) + 0.5_c_double*(xold(k + 1) - xold(k))
+                xc = xold(k) + 0.5_c_double * (xold(k + 1) - xold(k))
 
                 call find_index_for_interp(deg, xc, dimx, xold, ind)
 
@@ -121,11 +100,11 @@ contains
                 do l = 0, dim_err - 1
                     j = ind_err(l)
 
-                    call eval_neville_polynom(xold(ind), yold(ind*dimy + j), &
+                    call eval_neville_polynom(xold(ind), yold(ind * dimy + j), &
                                               dimy, deg, xc, ym(l))
-                    call eval_neville_polynom(xold(indl), yold(indl*dimy + j), &
+                    call eval_neville_polynom(xold(indl), yold(indl * dimy + j), &
                                               dimy, deg, xc, yl(l))
-                    call eval_neville_polynom(xold(indr), yold(indr*dimy + j), &
+                    call eval_neville_polynom(xold(indr), yold(indr * dimy + j), &
                                               dimy, deg, xc, yr(l))
 
                     errl = abs(yl(l) - ym(l))
@@ -133,7 +112,7 @@ contains
 
                     errt = max(errl, errr)
 
-                    if (abs(ym(l)) > 1.0_c_double) errt = errt/abs(ym(l))
+                    if (abs(ym(l)) > 1.0_c_double) errt = errt / abs(ym(l))
 
                     if (errt > merr) merr = errt
 
@@ -146,7 +125,7 @@ contains
                     do m = 0, dimx - 1
                         x1(m) = xold(m)
                         do jj = 0, dimy - 1
-                            y1(m*dimy + jj) = yold(m*dimy + jj)
+                            y1(m * dimy + jj) = yold(m * dimy + jj)
                         end do
                     end do
                     xdim = dimx
@@ -158,13 +137,13 @@ contains
                 if (flag == 0) cycle
 
                 xnew(node) = xc
-                call cb(xnew(node), ynew(node*dimy), p)
+                call f(xnew(node), ynew(node * dimy), p)
                 node = node + 1
             end do
 
             xnew(node) = xold(dimx - 1)
             do j = 0, dimy - 1
-                ynew(node*dimy + j) = yold((dimx - 1)*dimy + j)
+                ynew(node * dimy + j) = yold((dimx - 1) * dimy + j)
             end do
             node = node + 1
 
@@ -179,7 +158,7 @@ contains
         do m = 0, dimx - 1
             x1(m) = xold(m)
             do jj = 0, dimy - 1
-                y1(m*dimy + jj) = yold(m*dimy + jj)
+                y1(m * dimy + jj) = yold(m * dimy + jj)
             end do
         end do
 
@@ -192,9 +171,10 @@ contains
     !> threshold is relaxed away from the resonance radius r_res by a Gaussian
     !> of width D, dropping to eps_res at r_res and rising to eps far from it.
     function adaptive_grid_polynom_res(f, p, a, b, dimy, deg, xdim, eps, &
-                                       r_res, D, eps_res, dim_err, ind_err, x1, y1) &
-        result(stat) bind(C, name="adaptive_grid_polynom_res")
-        type(c_funptr), value :: f
+                                       r_res, D, eps_res, dim_err, ind_err, x1, &
+                                       y1) &
+        result(stat)
+        procedure(sample_cb) :: f
         type(c_ptr), value :: p
         real(c_double), value :: a, b, r_res, D, eps_res
         real(c_double), intent(inout) :: eps
@@ -204,18 +184,15 @@ contains
         real(c_double), intent(inout) :: x1(0:*), y1(0:*)
         integer(c_int) :: stat
 
-        procedure(sample_cb), pointer :: cb
         real(c_double), allocatable :: xold(:), xnew(:), yold(:), ynew(:)
         real(c_double), allocatable :: yl(:), ym(:), yr(:)
         integer(c_int) :: maxdim, dimx, k, j, l, ind, indl, indr, node, m, jj, flag
         real(c_double) :: pi, xc, errl, errr, errt, merr, peps, err
 
-        call c_f_procpointer(f, cb)
-
         maxdim = xdim
 
         allocate (xold(0:maxdim - 1), xnew(0:maxdim - 1))
-        allocate (yold(0:maxdim*dimy - 1), ynew(0:maxdim*dimy - 1))
+        allocate (yold(0:maxdim * dimy - 1), ynew(0:maxdim * dimy - 1))
         allocate (yl(0:dim_err - 1), ym(0:dim_err - 1), yr(0:dim_err - 1))
 
         dimx = deg + 3
@@ -226,12 +203,12 @@ contains
         pi = 3.141592653589793238_c_double
 
         do k = 1, deg + 1
-            xold(k) = 0.5_c_double*(a + b) - 0.5_c_double*(b - a) &
-                      *cos(real(2*k - 1, c_double)*pi/real(2*(deg + 1), c_double))
+            xold(k) = 0.5_c_double * (a + b) - 0.5_c_double * (b - a) &
+                      * cos(real(2 * k - 1, c_double) * pi / real(2 * (deg + 1), c_double))
         end do
 
         do k = 0, dimx - 1
-            call cb(xold(k), yold(k*dimy), p)
+            call f(xold(k), yold(k * dimy), p)
         end do
 
         merr = 0.0_c_double
@@ -246,11 +223,11 @@ contains
             do k = 0, dimx - 2
                 xnew(node) = xold(k)
                 do j = 0, dimy - 1
-                    ynew(node*dimy + j) = yold(k*dimy + j)
+                    ynew(node * dimy + j) = yold(k * dimy + j)
                 end do
                 node = node + 1
 
-                xc = xold(k) + 0.5_c_double*(xold(k + 1) - xold(k))
+                xc = xold(k) + 0.5_c_double * (xold(k + 1) - xold(k))
 
                 call find_index_for_interp(deg, xc, dimx, xold, ind)
 
@@ -262,11 +239,11 @@ contains
                 do l = 0, dim_err - 1
                     j = ind_err(l)
 
-                    call eval_neville_polynom(xold(ind), yold(ind*dimy + j), &
+                    call eval_neville_polynom(xold(ind), yold(ind * dimy + j), &
                                               dimy, deg, xc, ym(l))
-                    call eval_neville_polynom(xold(indl), yold(indl*dimy + j), &
+                    call eval_neville_polynom(xold(indl), yold(indl * dimy + j), &
                                               dimy, deg, xc, yl(l))
-                    call eval_neville_polynom(xold(indr), yold(indr*dimy + j), &
+                    call eval_neville_polynom(xold(indr), yold(indr * dimy + j), &
                                               dimy, deg, xc, yr(l))
 
                     errl = abs(yl(l) - ym(l))
@@ -274,7 +251,7 @@ contains
 
                     errt = max(errl, errr)
 
-                    if (abs(ym(l)) > 1.0_c_double) errt = errt/abs(ym(l))
+                    if (abs(ym(l)) > 1.0_c_double) errt = errt / abs(ym(l))
 
                     if (errt > merr) merr = errt
 
@@ -288,7 +265,7 @@ contains
                     do m = 0, dimx - 1
                         x1(m) = xold(m)
                         do jj = 0, dimy - 1
-                            y1(m*dimy + jj) = yold(m*dimy + jj)
+                            y1(m * dimy + jj) = yold(m * dimy + jj)
                         end do
                     end do
                     xdim = dimx
@@ -300,13 +277,13 @@ contains
                 if (flag == 0) cycle
 
                 xnew(node) = xc
-                call cb(xnew(node), ynew(node*dimy), p)
+                call f(xnew(node), ynew(node * dimy), p)
                 node = node + 1
             end do
 
             xnew(node) = xold(dimx - 1)
             do j = 0, dimy - 1
-                ynew(node*dimy + j) = yold((dimx - 1)*dimy + j)
+                ynew(node * dimy + j) = yold((dimx - 1) * dimy + j)
             end do
             node = node + 1
 
@@ -321,7 +298,7 @@ contains
         do m = 0, dimx - 1
             x1(m) = xold(m)
             do jj = 0, dimy - 1
-                y1(m*dimy + jj) = yold(m*dimy + jj)
+                y1(m * dimy + jj) = yold(m * dimy + jj)
             end do
         end do
 

@@ -15,6 +15,8 @@
 !> opendir/readdir walk but replaces fnmatch with the equivalent literal
 !> substring / exact-name tests its known patterns reduce to.
 program main_eig_param
+    use kilca_legacy_interfaces_m, only: set_core_data_in_core_module
+    use kilca_antenna_settings_m, only: get_antenna_flag_eigmode
     use, intrinsic :: iso_c_binding, only: c_int, c_intptr_t, c_double, c_char, &
         c_ptr, c_null_char, c_null_ptr, c_loc, c_associated
     use, intrinsic :: iso_fortran_env, only: dp => real64
@@ -29,16 +31,6 @@ program main_eig_param
     implicit none
 
     interface
-        subroutine set_core_data_in_core_module(cd) &
-            bind(C, name="set_core_data_in_core_module_")
-            import :: c_intptr_t
-            integer(c_intptr_t), intent(in) :: cd
-        end subroutine set_core_data_in_core_module
-
-        integer(c_int) function get_antenna_flag_eigmode() &
-            bind(C, name="get_antenna_flag_eigmode_")
-            import :: c_int
-        end function get_antenna_flag_eigmode
 
         function c_fopen(path, mode) result(fp) bind(C, name="fopen")
             import :: c_char, c_ptr
@@ -260,12 +252,11 @@ contains
     end subroutine run_system
 
     subroutine run_kilca(runpath)
+    use kilca_antenna_settings_m, only: get_antenna_flag_eigmode
         character(len=*), intent(in) :: runpath
         integer(c_intptr_t) :: cd
-        character(kind=c_char), allocatable :: cpath(:)
 
-        cpath = to_cstr(runpath)
-        cd = core_data_create_(cpath)
+        cd = core_data_create_(runpath)
         call set_core_data_in_core_module(cd)
 
         call core_data_calc_and_set_mode_independent_(cd)

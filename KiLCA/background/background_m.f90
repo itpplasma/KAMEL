@@ -41,205 +41,216 @@ end module
 !> path2profiles, calc_back, flag_back, N, V_gal_sys, V_scale, m_i, zele, zion,
 !> skip, header, flag_debug, skip; then mass/charge/huge_factor are derived
 !> exactly as the C++ constructor did.
-subroutine read_background_settings(path) bind(C, name="read_background_settings_")
+module kilca_background_settings_m
+    implicit none
+    private
 
-use, intrinsic :: iso_c_binding, only: c_char, c_null_char
-use, intrinsic :: iso_fortran_env, only: error_unit
-use constants, only: mp, e
-use background
-use kilca_shared_m, only: first_token
-
-character(kind=c_char), dimension(*), intent(in) :: path
-
-character(len=1024) :: fpath, fname, line, before
-real(dp) :: m_i
-integer :: i, u, ios
-!> C++ constants.h m_e literal (2 ULP off the Fortran constants module's
-!> me = mp/1836.15...); the golden record encodes the C++ value on every
-!> ported electron-parameter path (omc_, vT_).
-real(dp), parameter :: m_e_cpp = 9.10938185917485d-28
-
-fpath = ''
-i = 1
-do
-    if (path(i) == c_null_char .or. i > 1024) exit
-    fpath(i:i) = path(i)
-    i = i + 1
-end do
-
-fname = trim(fpath)//'/background.in'
-open (newunit=u, file=trim(fname), status='old', action='read', iostat=ios)
-if (ios /= 0) then
-    write (error_unit, '(a,a)') "error: read_background_settings: cannot open ", trim(fname)
-    error stop
-end if
-
-call skip(u)
-call value_before_hash(u, before); read (before, *) rtor
-call value_before_hash(u, before); read (before, *) rp
-call value_before_hash(u, before); read (before, *) B0
-call skip(u)
-
-call skip(u)
-call value_before_hash(u, before); path2profiles = first_token(before)
-call value_before_hash(u, before); read (before, *) calc_back
-call value_before_hash(u, before); flag_back = first_token(before)
-call value_before_hash(u, before); read (before, *) N
-call value_before_hash(u, before); read (before, *) V_gal_sys
-call value_before_hash(u, before); read (before, *) V_scale
-call value_before_hash(u, before); read (before, *) m_i
-call value_before_hash(u, before); read (before, *) zele
-call value_before_hash(u, before); read (before, *) zion
-call skip(u)
-
-call skip(u)
-call value_before_hash(u, before); read (before, *) flag_debug
-call skip(u)
-
-close (u)
-
-mass(0) = m_i*mp
-mass(1) = m_e_cpp
-charge(0) = e
-charge(1) = -e
-huge_factor = 1.0d20
-
-if (flag_debug > 0) call print_background_module_data()
+    public :: read_background_settings
+    public :: get_background_rtor
+    public :: get_background_rp
+    public :: get_background_B0
+    public :: get_background_V_gal_sys
+    public :: get_background_V_scale
+    public :: get_background_zele
+    public :: get_background_zion
+    public :: get_background_flag_debug
+    public :: get_background_huge_factor
+    public :: get_background_calc_back
+    public :: get_background_N
+    public :: get_background_mass
+    public :: get_background_charge
+    public :: get_background_flag_back
+    public :: get_background_path2profiles
 
 contains
 
-    subroutine skip(unit)
-        integer, intent(in) :: unit
-        integer :: jos
-        read (unit, '(a)', iostat=jos) line
-        if (jos /= 0) then
-            write (error_unit, '(a)') "error: read_background_settings: read error"
+    subroutine read_background_settings(path)
+
+use, intrinsic :: iso_fortran_env, only: error_unit
+use constants, only: mp, e
+use background;
+use kilca_shared_m, only: first_token
+
+        character(len=*), intent(in) :: path
+
+        character(len=1024) :: fpath, fname, line, before
+        real(dp) :: m_i
+        integer :: u, ios
+!> C++ constants.h m_e literal (2 ULP off the Fortran constants module's
+!> me = mp/1836.15...); the golden record encodes the C++ value on every
+!> ported electron-parameter path (omc_, vT_).
+        real(dp), parameter :: m_e_cpp = 9.10938185917485d-28
+
+        fpath = path
+
+        fname = trim(fpath)//'/background.in'
+        open (newunit=u, file=trim(fname), status='old', action='read', iostat=ios)
+        if (ios /= 0) then
+            write (error_unit, '(a,a)') "error: read_background_settings: cannot open ", trim(fname)
             error stop
         end if
-    end subroutine skip
 
-    subroutine value_before_hash(unit, out)
-        integer, intent(in) :: unit
-        character(len=*), intent(out) :: out
-        character(len=1024) :: buf
-        integer :: pos, jos
-        read (unit, '(a)', iostat=jos) buf
-        if (jos /= 0) then
-            write (error_unit, '(a)') "error: read_background_settings: read error"
-            error stop
-        end if
-        pos = index(buf, '#')
-        if (pos > 0) then
-            out = buf(1:pos - 1)
-        else
-            out = buf
-        end if
-    end subroutine value_before_hash
+        call skip(u)
+        call value_before_hash(u, before); read (before, *) rtor
+        call value_before_hash(u, before); read (before, *) rp
+        call value_before_hash(u, before); read (before, *) B0
+        call skip(u)
 
-end subroutine read_background_settings
+        call skip(u)
+        call value_before_hash(u, before); path2profiles = first_token(before)
+        call value_before_hash(u, before); read (before, *) calc_back
+        call value_before_hash(u, before); flag_back = first_token(before)
+        call value_before_hash(u, before); read (before, *) N
+        call value_before_hash(u, before); read (before, *) V_gal_sys
+        call value_before_hash(u, before); read (before, *) V_scale
+        call value_before_hash(u, before); read (before, *) m_i
+        call value_before_hash(u, before); read (before, *) zele
+        call value_before_hash(u, before); read (before, *) zion
+        call skip(u)
+
+        call skip(u)
+        call value_before_hash(u, before); read (before, *) flag_debug
+        call skip(u)
+
+        close (u)
+
+        mass(0) = m_i * mp
+        mass(1) = m_e_cpp
+        charge(0) = e
+        charge(1) = -e
+        huge_factor = 1.0d20
+
+        if (flag_debug > 0) call print_background_module_data()
+
+    contains
+
+        subroutine skip(unit)
+            integer, intent(in) :: unit
+            integer :: jos
+            read (unit, '(a)', iostat=jos) line
+            if (jos /= 0) then
+                write (error_unit, '(a)') "error: read_background_settings: read error"
+                error stop
+            end if
+        end subroutine skip
+
+        subroutine value_before_hash(unit, out)
+            integer, intent(in) :: unit
+            character(len=*), intent(out) :: out
+            character(len=1024) :: buf
+            integer :: pos, jos
+            read (unit, '(a)', iostat=jos) buf
+            if (jos /= 0) then
+                write (error_unit, '(a)') "error: read_background_settings: read error"
+                error stop
+            end if
+            pos = index(buf, '#')
+            if (pos > 0) then
+                out = buf(1:pos - 1)
+            else
+                out = buf
+            end if
+        end subroutine value_before_hash
+
+    end subroutine read_background_settings
 
 !------------------------------------------------------------------------------
 
-real(c_double) function get_background_rtor() bind(C, name="get_background_rtor_")
+    real(c_double) function get_background_rtor()
     use, intrinsic :: iso_c_binding, only: c_double
     use background, only: rtor
-    get_background_rtor = rtor
-end function
+        get_background_rtor = rtor
+    end function
 
-real(c_double) function get_background_rp() bind(C, name="get_background_rp_")
+    real(c_double) function get_background_rp()
     use, intrinsic :: iso_c_binding, only: c_double
     use background, only: rp
-    get_background_rp = rp
-end function
+        get_background_rp = rp
+    end function
 
-real(c_double) function get_background_B0() bind(C, name="get_background_B0_")
+    real(c_double) function get_background_B0()
     use, intrinsic :: iso_c_binding, only: c_double
     use background, only: B0
-    get_background_B0 = B0
-end function
+        get_background_B0 = B0
+    end function
 
-real(c_double) function get_background_V_gal_sys() bind(C, name="get_background_V_gal_sys_")
+    real(c_double) function get_background_V_gal_sys()
     use, intrinsic :: iso_c_binding, only: c_double
     use background, only: V_gal_sys
-    get_background_V_gal_sys = V_gal_sys
-end function
+        get_background_V_gal_sys = V_gal_sys
+    end function
 
-real(c_double) function get_background_V_scale() bind(C, name="get_background_V_scale_")
+    real(c_double) function get_background_V_scale()
     use, intrinsic :: iso_c_binding, only: c_double
     use background, only: V_scale
-    get_background_V_scale = V_scale
-end function
+        get_background_V_scale = V_scale
+    end function
 
-real(c_double) function get_background_zele() bind(C, name="get_background_zele_")
+    real(c_double) function get_background_zele()
     use, intrinsic :: iso_c_binding, only: c_double
     use background, only: zele
-    get_background_zele = zele
-end function
+        get_background_zele = zele
+    end function
 
-real(c_double) function get_background_zion() bind(C, name="get_background_zion_")
+    real(c_double) function get_background_zion()
     use, intrinsic :: iso_c_binding, only: c_double
     use background, only: zion
-    get_background_zion = zion
-end function
+        get_background_zion = zion
+    end function
 
-integer(c_int) function get_background_flag_debug() bind(C, name="get_background_flag_debug_")
+    integer(c_int) function get_background_flag_debug()
     use, intrinsic :: iso_c_binding, only: c_int
     use background, only: flag_debug
-    get_background_flag_debug = flag_debug
-end function
+        get_background_flag_debug = flag_debug
+    end function
 
-real(c_double) function get_background_huge_factor() bind(C, name="get_background_huge_factor_")
+    real(c_double) function get_background_huge_factor()
     use, intrinsic :: iso_c_binding, only: c_double
     use background, only: huge_factor
-    get_background_huge_factor = huge_factor
-end function
+        get_background_huge_factor = huge_factor
+    end function
 
-integer(c_int) function get_background_calc_back() bind(C, name="get_background_calc_back_")
+    integer(c_int) function get_background_calc_back()
     use, intrinsic :: iso_c_binding, only: c_int
     use background, only: calc_back
-    get_background_calc_back = calc_back
-end function
+        get_background_calc_back = calc_back
+    end function
 
-integer(c_int) function get_background_N() bind(C, name="get_background_N_")
+    integer(c_int) function get_background_N()
     use, intrinsic :: iso_c_binding, only: c_int
     use background, only: N
-    get_background_N = N
-end function
+        get_background_N = N
+    end function
 
-real(c_double) function get_background_mass(i) bind(C, name="get_background_mass_")
+    real(c_double) function get_background_mass(i)
     use, intrinsic :: iso_c_binding, only: c_int, c_double
     use background, only: mass
-    integer(c_int), value :: i
-    get_background_mass = mass(i)
-end function
+        integer(c_int), value :: i
+        get_background_mass = mass(i)
+    end function
 
-real(c_double) function get_background_charge(i) bind(C, name="get_background_charge_")
+    real(c_double) function get_background_charge(i)
     use, intrinsic :: iso_c_binding, only: c_int, c_double
     use background, only: charge
-    integer(c_int), value :: i
-    get_background_charge = charge(i)
-end function
+        integer(c_int), value :: i
+        get_background_charge = charge(i)
+    end function
 
-function get_background_flag_back() result(ch) bind(C, name="get_background_flag_back_")
-    use, intrinsic :: iso_c_binding, only: c_char
+    function get_background_flag_back() result(ch)
     use background, only: flag_back
-    character(kind=c_char) :: ch
-    ch = flag_back(1:1)
-end function
+        character(len=1) :: ch
+        ch = flag_back(1:1)
+    end function
 
-subroutine get_background_path2profiles(out) bind(C, name="get_background_path2profiles_")
-    use, intrinsic :: iso_c_binding, only: c_char, c_null_char
+    subroutine get_background_path2profiles(out)
     use background, only: path2profiles
-    character(kind=c_char), dimension(*), intent(out) :: out
-    integer :: i, n
-    n = len_trim(path2profiles)
-    do i = 1, n
-        out(i) = path2profiles(i:i)
-    end do
-    out(n + 1) = c_null_char
-end subroutine
+        character(len=*), intent(out) :: out
+        out = path2profiles
+    end subroutine get_background_path2profiles
 
 !--------------------------------------------------------------------
+
+end module kilca_background_settings_m
 
 subroutine print_background_module_data ()
 

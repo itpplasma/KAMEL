@@ -1,14 +1,16 @@
 !> Fortran interface to KiLCA library functions for the balance code
-!> (QL-Balance/KIM), formerly interface/wave_code_interface.{h,cpp}. All
-!> entry points keep their original bind(C) names (called by the
-!> pre-existing legacy Fortran KiLCA/interface/wave_code_data_64bit.f90 and
-!> QL-Balance/src/base/wave_code_data_64bit.f90, both by-reference F77-style
-!> callers, so every dummy below is by-reference, matching the oracle's
-!> pointer-typed C parameters, never VALUE unless the oracle itself took a
-!> plain (non-pointer) scalar).
+!> (QL-Balance/KIM), formerly interface/wave_code_interface.{h,cpp}. Callers
+!> import native module procedures with compiler-checked argument types and ranks.
 module kilca_wave_code_interface_m
-    use, intrinsic :: iso_c_binding, only: c_int, c_intptr_t, c_double, c_double_complex, &
-        c_char, c_ptr, c_loc, c_f_pointer, c_null_ptr, c_null_char
+    use kilca_legacy_interfaces_m, only: set_core_data_in_core_module
+    use kilca_legacy_interfaces_m, only: set_wave_parameters_in_mode_data_module
+    use kilca_legacy_interfaces_m, only: clear_all_data_in_mode_data_module
+    use kilca_background_data_m, only: get_background_collision_freqs
+    use kilca_background_data_m, only: get_background_magnetic_fields
+    use kilca_background_settings_m, only: get_background_rtor
+    use, intrinsic :: iso_c_binding, only: &
+        c_int, c_intptr_t, c_double, c_double_complex, c_ptr, c_loc, c_f_pointer, &
+        c_null_ptr
     use constants, only: dp
     use kilca_core_data_m, only: core_data_create_, core_data_destroy_, &
         core_data_calc_and_set_mode_independent_, &
@@ -42,88 +44,41 @@ module kilca_wave_code_interface_m
     public :: activate_kilca_modules_for_flre_zone_, deactivate_kilca_modules_for_flre_zone_
     public :: get_kilca_conductivity_array_, calc_conductivity_matrices_for_mode_
     public :: get_mode_parameters_, set_wave_parameters_, unset_wave_parameters_
-
-    interface
-        real(c_double) function get_background_rtor() bind(C, name="get_background_rtor_")
-            import :: c_double
-        end function get_background_rtor
-
-        !> Matches background_data_m's own (not exported) definitions -
-        !> single-radius evaluators, each writing one element per call.
-        subroutine get_background_magnetic_fields(rval, Bt, Bz, B0) &
-            bind(C, name="get_background_magnetic_fields_")
-            import :: c_double
-            real(c_double), value :: rval
-            real(c_double), intent(out) :: Bt(1), Bz(1), B0(1)
-        end subroutine get_background_magnetic_fields
-
-        subroutine get_background_collision_freqs(rval, nui, nue) &
-            bind(C, name="get_background_collision_freqs_")
-            import :: c_double
-            real(c_double), value :: rval
-            real(c_double), intent(out) :: nui(1), nue(1)
-        end subroutine get_background_collision_freqs
-
-        !> Pre-existing legacy Fortran (core_m.f90), stores the core_data
-        !> handle for later opaque-handle callback use.
-        subroutine set_core_data_in_core_module(cd) bind(C, name="set_core_data_in_core_module_")
-            import :: c_intptr_t
-            integer(c_intptr_t), intent(in) :: cd
-        end subroutine set_core_data_in_core_module
-
-        subroutine set_wave_parameters_in_mode_data_module(m, n, olab_re, olab_im, &
-            omov_re, omov_im) bind(C, name="set_wave_parameters_in_mode_data_module_")
-            import :: c_int, c_double
-            integer(c_int), intent(in) :: m, n
-            real(c_double), intent(in) :: olab_re, olab_im, omov_re, omov_im
-        end subroutine set_wave_parameters_in_mode_data_module
-
-        subroutine clear_all_data_in_mode_data_module() &
-            bind(C, name="clear_all_data_in_mode_data_module_")
-        end subroutine clear_all_data_in_mode_data_module
-    end interface
-
 contains
 
     !> --- entry points used by the antenna-driven (run-the-whole-code) path ---
 
-    subroutine calc_wave_code_data_(cdptr, run_path, pathlength) &
-        bind(C, name="calc_wave_code_data_")
+    subroutine calc_wave_code_data_(cdptr, run_path, pathlength)
         integer(c_intptr_t), intent(out) :: cdptr
-        character(kind=c_char), intent(in) :: run_path(*)
+        character(len=*), intent(in) :: run_path
         integer(c_int), intent(in) :: pathlength
-        character(kind=c_char), allocatable :: cpath(:)
 
-        cpath = to_cstr(build_path(run_path, pathlength))
-        cdptr = core_data_create_(cpath)
+        cdptr = core_data_create_(build_path(run_path, pathlength))
         call set_core_data_in_core_module(cdptr)
 
         call core_data_calc_and_set_mode_independent_(cdptr)
         call core_data_calc_and_set_mode_dependent_antenna_interface_(cdptr)
     end subroutine calc_wave_code_data_
 
-    subroutine calc_wave_code_data_for_mode_(cdptr, run_path, pathlength, m, n) &
-        bind(C, name="calc_wave_code_data_for_mode_")
+    subroutine calc_wave_code_data_for_mode_(cdptr, run_path, pathlength, m, n)
         integer(c_intptr_t), intent(out) :: cdptr
-        character(kind=c_char), intent(in) :: run_path(*)
+        character(len=*), intent(in) :: run_path
         integer(c_int), intent(in) :: pathlength, m, n
-        character(kind=c_char), allocatable :: cpath(:)
 
-        cpath = to_cstr(build_path(run_path, pathlength))
-        cdptr = core_data_create_(cpath)
+        cdptr = core_data_create_(build_path(run_path, pathlength))
         call set_core_data_in_core_module(cdptr)
 
         call core_data_calc_and_set_mode_independent_(cdptr)
         call core_data_calc_and_set_mode_dependent_antenna_interface_mn_(cdptr, m, n, 0_c_int)
     end subroutine calc_wave_code_data_for_mode_
 
-    subroutine clear_wave_code_data_(cdptr) bind(C, name="clear_wave_code_data_")
+    subroutine clear_wave_code_data_(cdptr)
         integer(c_intptr_t), intent(in) :: cdptr
         call core_data_destroy_(cdptr)
     end subroutine clear_wave_code_data_
 
     subroutine get_basic_background_profiles_from_wave_code_(cdptr, dim_r, r, q, n, &
-        Ti, Te, Vth, Vz, dPhi0) bind(C, name="get_basic_background_profiles_from_wave_code_")
+                                                             Ti, Te, Vth, Vz, dPhi0)
         integer(c_intptr_t), intent(in) :: cdptr
         integer(c_int), intent(in) :: dim_r
         real(c_double), intent(in) :: r(0:dim_r - 1)
@@ -134,8 +89,7 @@ contains
         call background_interp_in_lab_frame(dim_r, r, q, n, Ti, Te, Vth, Vz, dPhi0)
     end subroutine get_basic_background_profiles_from_wave_code_
 
-    subroutine get_wave_vectors_from_wave_code_(cdptr, dim_r, r, m, n, ks, kp) &
-        bind(C, name="get_wave_vectors_from_wave_code_")
+    subroutine get_wave_vectors_from_wave_code_(cdptr, dim_r, r, m, n, ks, kp)
         integer(c_intptr_t), intent(in) :: cdptr
         integer(c_int), intent(in) :: dim_r, m, n
         real(c_double), intent(in) :: r(0:dim_r - 1)
@@ -152,8 +106,8 @@ contains
         end do
     end subroutine get_wave_vectors_from_wave_code_
 
-    subroutine get_background_magnetic_fields_from_wave_code_(cdptr, dim_r, r, Bt, Bz, B0) &
-        bind(C, name="get_background_magnetic_fields_from_wave_code_")
+    subroutine get_background_magnetic_fields_from_wave_code_(cdptr, dim_r, r, Bt, &
+                                                              Bz, B0)
         integer(c_intptr_t), intent(in) :: cdptr
         integer(c_int), intent(in) :: dim_r
         real(c_double), intent(in) :: r(0:dim_r - 1)
@@ -165,8 +119,7 @@ contains
         end do
     end subroutine get_background_magnetic_fields_from_wave_code_
 
-    subroutine get_collision_frequences_from_wave_code_(cdptr, dim_r, r, nui, nue) &
-        bind(C, name="get_collision_frequences_from_wave_code_")
+    subroutine get_collision_frequences_from_wave_code_(cdptr, dim_r, r, nui, nue)
         integer(c_intptr_t), intent(in) :: cdptr
         integer(c_int), intent(in) :: dim_r
         real(c_double), intent(in) :: r(0:dim_r - 1)
@@ -179,15 +132,16 @@ contains
     end subroutine get_collision_frequences_from_wave_code_
 
     subroutine get_wave_fields_from_wave_code_(cdptr, dim_r, r, m, n, &
-        Er, Es, Ep, Et, Ez, Br, Bs, Bp, Bt, Bz) &
-        bind(C, name="get_wave_fields_from_wave_code_")
+                                               Er, Es, Ep, Et, Ez, Br, Bs, Bp, Bt, Bz)
         integer(c_intptr_t), intent(in) :: cdptr
         integer(c_int), intent(in) :: dim_r, m, n
         real(c_double), intent(in) :: r(0:dim_r - 1)
-        real(c_double), intent(out) :: Er(0:2*dim_r - 1), Es(0:2*dim_r - 1), Ep(0:2*dim_r - 1)
-        real(c_double), intent(out) :: Et(0:2*dim_r - 1), Ez(0:2*dim_r - 1)
-        real(c_double), intent(out) :: Br(0:2*dim_r - 1), Bs(0:2*dim_r - 1), Bp(0:2*dim_r - 1)
-        real(c_double), intent(out) :: Bt(0:2*dim_r - 1), Bz(0:2*dim_r - 1)
+        complex(c_double_complex), intent(out) :: Er(0:dim_r - 1), Es(0:dim_r - 1), &
+                                                  Ep(0:dim_r - 1)
+        complex(c_double_complex), intent(out) :: Et(0:dim_r - 1), Ez(0:dim_r - 1)
+        complex(c_double_complex), intent(out) :: Br(0:dim_r - 1), Bs(0:dim_r - 1), &
+                                                  Bp(0:dim_r - 1)
+        complex(c_double_complex), intent(out) :: Bt(0:dim_r - 1), Bz(0:dim_r - 1)
         integer :: i, num, ind, comp
         real(c_double) :: EBflat(12)
         complex(c_double_complex) :: EBcyl(6), EBrsp(6)
@@ -207,22 +161,21 @@ contains
             end do
             call transform_EB_from_cyl_to_rsp(core_data_get_bp_(cdptr), r(i), EBcyl, EBrsp)
 
-            ind = 2*i
-            Er(ind) = real(EBcyl(1), dp); Er(ind + 1) = aimag(EBcyl(1))
-            Es(ind) = real(EBrsp(2), dp); Es(ind + 1) = aimag(EBrsp(2))
-            Ep(ind) = real(EBrsp(3), dp); Ep(ind + 1) = aimag(EBrsp(3))
-            Et(ind) = real(EBcyl(2), dp); Et(ind + 1) = aimag(EBcyl(2))
-            Ez(ind) = real(EBcyl(3), dp); Ez(ind + 1) = aimag(EBcyl(3))
-            Br(ind) = real(EBcyl(4), dp); Br(ind + 1) = aimag(EBcyl(4))
-            Bs(ind) = real(EBrsp(5), dp); Bs(ind + 1) = aimag(EBrsp(5))
-            Bp(ind) = real(EBrsp(6), dp); Bp(ind + 1) = aimag(EBrsp(6))
-            Bt(ind) = real(EBcyl(5), dp); Bt(ind + 1) = aimag(EBcyl(5))
-            Bz(ind) = real(EBcyl(6), dp); Bz(ind + 1) = aimag(EBcyl(6))
+            Er(i) = EBcyl(1)
+            Es(i) = EBrsp(2)
+            Ep(i) = EBrsp(3)
+            Et(i) = EBcyl(2)
+            Ez(i) = EBcyl(3)
+            Br(i) = EBcyl(4)
+            Bs(i) = EBrsp(5)
+            Bp(i) = EBrsp(6)
+            Bt(i) = EBcyl(5)
+            Bz(i) = EBcyl(6)
         end do
     end subroutine get_wave_fields_from_wave_code_
 
     subroutine get_diss_power_density_from_wave_code_(cdptr, dim_r, r, m, n, &
-        ttype, spec, pdis) bind(C, name="get_diss_power_density_from_wave_code_")
+                                                      ttype, spec, pdis)
         integer(c_intptr_t), intent(in) :: cdptr
         integer(c_int), intent(in) :: dim_r, m, n, ttype, spec
         real(c_double), intent(in) :: r(0:dim_r - 1)
@@ -246,14 +199,13 @@ contains
         end do
     end subroutine get_diss_power_density_from_wave_code_
 
-    subroutine get_antenna_spectrum_dim_(cdptr, dim_mn) bind(C, name="get_antenna_spectrum_dim_")
+    subroutine get_antenna_spectrum_dim_(cdptr, dim_mn)
         integer(c_intptr_t), intent(in) :: cdptr
         integer(c_int), intent(out) :: dim_mn
         dim_mn = core_data_get_dim_(cdptr)
     end subroutine get_antenna_spectrum_dim_
 
-    subroutine get_antenna_spectrum_numbers_(cdptr, dim_mn, m_vals, n_vals) &
-        bind(C, name="get_antenna_spectrum_numbers_")
+    subroutine get_antenna_spectrum_numbers_(cdptr, dim_mn, m_vals, n_vals)
         integer(c_intptr_t), intent(in) :: cdptr
         integer(c_int), intent(in) :: dim_mn
         integer(c_int), intent(out) :: m_vals(0:dim_mn - 1), n_vals(0:dim_mn - 1)
@@ -273,13 +225,16 @@ contains
     end subroutine get_antenna_spectrum_numbers_
 
     subroutine get_current_densities_from_wave_code_(cdptr, dim_r, r, m, n, &
-        Jri, Jsi, Jpi, Jre, Jse, Jpe) bind(C, name="get_current_densities_from_wave_code_")
+                                                     Jri, Jsi, Jpi, Jre, Jse, Jpe)
         integer(c_intptr_t), intent(in) :: cdptr
         integer(c_int), intent(in) :: dim_r, m, n
         real(c_double), intent(in) :: r(0:dim_r - 1)
-        real(c_double), intent(out) :: Jri(0:2*dim_r - 1), Jsi(0:2*dim_r - 1), Jpi(0:2*dim_r - 1)
-        real(c_double), intent(out) :: Jre(0:2*dim_r - 1), Jse(0:2*dim_r - 1), Jpe(0:2*dim_r - 1)
-        integer :: i, num, ind
+        complex(c_double_complex), intent(out) :: Jri(0:dim_r - 1), &
+                                                  Jsi(0:dim_r - 1), Jpi(0:dim_r - 1)
+        complex(c_double_complex), intent(out) :: Jre(0:dim_r - 1), &
+                                                  Jse(0:dim_r - 1), Jpe(0:dim_r - 1)
+        integer :: i, num
+        real(c_double) :: current(2)
         integer(c_intptr_t) :: mdh
 
         num = find_mode_index(cdptr, m, n)
@@ -292,34 +247,38 @@ contains
 
         mdh = core_data_get_mda_element_(cdptr, num)
         do i = 0, dim_r - 1
-            ind = 2*i
-            call mode_data_eval_current_density_(mdh, r(i), 0, 0, 0, Jri(ind))
-            call mode_data_eval_current_density_(mdh, r(i), 0, 0, 1, Jsi(ind))
-            call mode_data_eval_current_density_(mdh, r(i), 0, 0, 2, Jpi(ind))
-            call mode_data_eval_current_density_(mdh, r(i), 0, 1, 0, Jre(ind))
-            call mode_data_eval_current_density_(mdh, r(i), 0, 1, 1, Jse(ind))
-            call mode_data_eval_current_density_(mdh, r(i), 0, 1, 2, Jpe(ind))
+            call mode_data_eval_current_density_(mdh, r(i), 0, 0, 0, current)
+            Jri(i) = cmplx(current(1), current(2), c_double_complex)
+            call mode_data_eval_current_density_(mdh, r(i), 0, 0, 1, current)
+            Jsi(i) = cmplx(current(1), current(2), c_double_complex)
+            call mode_data_eval_current_density_(mdh, r(i), 0, 0, 2, current)
+            Jpi(i) = cmplx(current(1), current(2), c_double_complex)
+            call mode_data_eval_current_density_(mdh, r(i), 0, 1, 0, current)
+            Jre(i) = cmplx(current(1), current(2), c_double_complex)
+            call mode_data_eval_current_density_(mdh, r(i), 0, 1, 1, current)
+            Jse(i) = cmplx(current(1), current(2), c_double_complex)
+            call mode_data_eval_current_density_(mdh, r(i), 0, 1, 2, current)
+            Jpe(i) = cmplx(current(1), current(2), c_double_complex)
         end do
     end subroutine get_current_densities_from_wave_code_
 
     !> --- FLRE conductivity / QL-Balance coupling ---
 
-    subroutine activate_kilca_modules_for_flre_zone_(cdptr) &
-        bind(C, name="activate_kilca_modules_for_flre_zone_")
+    subroutine activate_kilca_modules_for_flre_zone_(cdptr)
         integer(c_intptr_t), intent(in) :: cdptr
         call activate_fortran_modules_for_zone_(mode_data_get_zone_handle_( &
             core_data_get_mda_element_(cdptr, 0), 0))
     end subroutine activate_kilca_modules_for_flre_zone_
 
-    subroutine deactivate_kilca_modules_for_flre_zone_(cdptr) &
-        bind(C, name="deactivate_kilca_modules_for_flre_zone_")
+    subroutine deactivate_kilca_modules_for_flre_zone_(cdptr)
         integer(c_intptr_t), intent(in) :: cdptr
         call deactivate_fortran_modules_for_zone_(mode_data_get_zone_handle_( &
             core_data_get_mda_element_(cdptr, 0), 0))
     end subroutine deactivate_kilca_modules_for_flre_zone_
 
-    subroutine get_kilca_conductivity_array_(cdptr, m, n, zone_ind, spec, flreo, dimv, &
-        rptr, cptr) bind(C, name="get_kilca_conductivity_array_")
+    subroutine get_kilca_conductivity_array_(cdptr, m, n, zone_ind, spec, flreo, &
+                                             dimv, &
+                                             rptr, cptr)
         integer(c_intptr_t), intent(in) :: cdptr
         integer(c_int), intent(in) :: m, n, zone_ind, spec
         integer(c_int), intent(out) :: flreo, dimv
@@ -351,23 +310,22 @@ contains
         cptr = c_loc(kflat(iks_off + 1))
     end subroutine get_kilca_conductivity_array_
 
-    subroutine calc_conductivity_matrices_for_mode_(cdptr, run_path, pathlength, m, n) &
-        bind(C, name="calc_conductivity_matrices_for_mode_")
+    subroutine calc_conductivity_matrices_for_mode_(cdptr, run_path, pathlength, m, &
+                                                    n)
         integer(c_intptr_t), intent(out) :: cdptr
-        character(kind=c_char), intent(in) :: run_path(*)
+        character(len=*), intent(in) :: run_path
         integer(c_int), intent(in) :: pathlength, m, n
-        character(kind=c_char), allocatable :: cpath(:)
 
-        cpath = to_cstr(build_path(run_path, pathlength))
-        cdptr = core_data_create_(cpath)
+        cdptr = core_data_create_(build_path(run_path, pathlength))
         call set_core_data_in_core_module(cdptr)
 
         call core_data_calc_and_set_mode_independent_(cdptr)
         call core_data_calc_and_set_mode_dependent_antenna_interface_mn_(cdptr, m, n, 1_c_int)
     end subroutine calc_conductivity_matrices_for_mode_
 
-    subroutine get_mode_parameters_(cdptr, m, n, kz, omega_mov_re, omega_mov_im) &
-        bind(C, name="get_mode_parameters_")
+    subroutine get_mode_parameters_(cdptr, m, n, kz, omega_mov_re, omega_mov_im)
+        use kilca_wave_data_m, only: get_wave_data_obj_omov_im
+        use kilca_wave_data_m, only: get_wave_data_obj_omov_re
         integer(c_intptr_t), intent(in) :: cdptr
         integer(c_int), intent(in) :: m, n
         real(c_double), intent(out) :: kz, omega_mov_re, omega_mov_im
@@ -390,7 +348,11 @@ contains
         omega_mov_im = get_wave_data_obj_omov_im(intptr_to_cptr(wd))
     end subroutine get_mode_parameters_
 
-    subroutine set_wave_parameters_(cdptr, m, n) bind(C, name="set_wave_parameters_")
+    subroutine set_wave_parameters_(cdptr, m, n)
+        use kilca_wave_data_m, only: get_wave_data_obj_omov_im
+        use kilca_wave_data_m, only: get_wave_data_obj_omov_re
+        use kilca_wave_data_m, only: wave_data_get_olab_im
+        use kilca_wave_data_m, only: wave_data_get_olab_re
         integer(c_intptr_t), intent(in) :: cdptr
         integer(c_int), intent(in) :: m, n
         integer :: num
@@ -417,7 +379,7 @@ contains
         call set_wave_parameters_in_mode_data_module(mm, nn, olab_re, olab_im, omov_re, omov_im)
     end subroutine set_wave_parameters_
 
-    subroutine unset_wave_parameters_() bind(C, name="unset_wave_parameters_")
+    subroutine unset_wave_parameters_()
         call clear_all_data_in_mode_data_module()
     end subroutine unset_wave_parameters_
 
@@ -457,30 +419,18 @@ contains
     !> if (path[strlen(path)-1] != '/') strcat(path, "/");` - run_path is
     !> NOT null-terminated by the caller, pathlength is its true length.
     function build_path(run_path, pathlength) result(path)
-        character(kind=c_char), intent(in) :: run_path(*)
+        character(len=*), intent(in) :: run_path
         integer(c_int), intent(in) :: pathlength
         character(len=1024) :: path
         integer :: i
 
         path = ''
         do i = 1, pathlength
-            path(i:i) = run_path(i)
+            path(i:i) = run_path(i:i)
         end do
         if (path(pathlength:pathlength) /= '/') then
             path(pathlength + 1:pathlength + 1) = '/'
         end if
     end function build_path
-
-    function to_cstr(s) result(c)
-        character(len=*), intent(in) :: s
-        character(kind=c_char), allocatable :: c(:)
-        integer :: i, n
-        n = len_trim(s)
-        allocate (c(n + 1))
-        do i = 1, n
-            c(i) = s(i:i)
-        end do
-        c(n + 1) = c_null_char
-    end function to_cstr
 
 end module kilca_wave_code_interface_m

@@ -1,5 +1,6 @@
 program test_inout
-    use iso_c_binding, only: c_int, c_double, c_null_char
+    use, intrinsic :: iso_c_binding, only: c_int
+    use iso_c_binding, only: c_double
     use kilca_inout_m, only: save_cmplx_matrix_
     implicit none
     real(c_double) :: x(2) = [1.0_c_double, 2.0_c_double]
@@ -9,7 +10,7 @@ program test_inout
     character(len=32) :: filename
 
     rc = save_cmplx_matrix_(1_c_int, 2_c_int, 2_c_int, x, matrix, &
-                            'matrix_output'//c_null_char)
+                            'matrix_output')
     if (rc /= 0) error stop 'Matrix output failed'
     do col = 0, 1
         write (filename, '(a,i0,a)') 'matrix_output_', col, '.dat'

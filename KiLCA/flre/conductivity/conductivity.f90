@@ -1,6 +1,9 @@
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
 subroutine ctensor (spec, tip, r, backflag, ct)
+    use kilca_cond_profiles_m, only: calc_and_spline_conductivity_for_point
+    use kilca_cond_profiles_m, only: delete_conductivity_profiles_f
+    use kilca_cond_profiles_m, only: eval_c_matrices_f
 
 use constants, only: dp, dpc, pp;
 use flre_sett, only: flre_order;
@@ -36,6 +39,9 @@ end subroutine
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
 subroutine kmatrices (spec, tip, Dmin, Dmax, r, backflag, K)
+    use kilca_cond_profiles_m, only: calc_and_spline_conductivity_for_point
+    use kilca_cond_profiles_m, only: delete_conductivity_profiles_f
+    use kilca_cond_profiles_m, only: eval_k_matrices_f
 
 use constants, only: dp, dpc, pp;
 use flre_sett, only: flre_order;

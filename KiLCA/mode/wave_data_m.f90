@@ -2,10 +2,9 @@
 !> stitching determinant), formerly the C++ wave_data class. Per-instance
 !> handle (same pattern as kilca_cond_profiles_m/kilca_background_data_m's
 !> sibling modules): one wave_data per mode_data, shared by all zones of
-!> that mode. mode_data (mode.cpp, still C++ until S6) owns the lifetime;
+!> that mode. The mode-data orchestrator owns the lifetime;
 !> the legacy mode_data Fortran module (mode_m.f90) and the new zone_t
-!> hierarchy both hold the same opaque handle, exactly as they held the raw
-!> C++ pointer before.
+!> hierarchy both hold the same opaque handle.
 module kilca_wave_data_m
     use, intrinsic :: iso_c_binding, only: c_int, c_intptr_t, c_double, c_ptr, &
         c_loc, c_f_pointer
@@ -30,7 +29,7 @@ module kilca_wave_data_m
 contains
 
     function wave_data_create(m, n, olab_re, olab_im, omov_re, omov_im) &
-        result(handle) bind(C, name="wave_data_create_")
+        result(handle)
         integer(c_int), value :: m, n
         real(c_double), value :: olab_re, olab_im, omov_re, omov_im
         integer(c_intptr_t) :: handle
@@ -47,7 +46,7 @@ contains
         handle = transfer(c_loc(wd), handle)
     end function wave_data_create
 
-    subroutine wave_data_destroy(handle) bind(C, name="wave_data_destroy_")
+    subroutine wave_data_destroy(handle)
         integer(c_intptr_t), value :: handle
         type(wave_data_t), pointer :: wd
 
@@ -56,7 +55,7 @@ contains
         deallocate (wd)
     end subroutine wave_data_destroy
 
-    function wave_data_get_m(handle) result(res) bind(C, name="wave_data_get_m_")
+    function wave_data_get_m(handle) result(res)
         type(c_ptr), value :: handle
         integer(c_int) :: res
         type(wave_data_t), pointer :: wd
@@ -64,7 +63,7 @@ contains
         res = wd%m
     end function wave_data_get_m
 
-    function wave_data_get_n(handle) result(res) bind(C, name="wave_data_get_n_")
+    function wave_data_get_n(handle) result(res)
         type(c_ptr), value :: handle
         integer(c_int) :: res
         type(wave_data_t), pointer :: wd
@@ -72,7 +71,7 @@ contains
         res = wd%n
     end function wave_data_get_n
 
-    function wave_data_get_olab_re(handle) result(res) bind(C, name="wave_data_get_olab_re_")
+    function wave_data_get_olab_re(handle) result(res)
         type(c_ptr), value :: handle
         real(c_double) :: res
         type(wave_data_t), pointer :: wd
@@ -80,7 +79,7 @@ contains
         res = real(wd%olab, c_double)
     end function wave_data_get_olab_re
 
-    function wave_data_get_olab_im(handle) result(res) bind(C, name="wave_data_get_olab_im_")
+    function wave_data_get_olab_im(handle) result(res)
         type(c_ptr), value :: handle
         real(c_double) :: res
         type(wave_data_t), pointer :: wd
@@ -88,7 +87,7 @@ contains
         res = aimag(wd%olab)
     end function wave_data_get_olab_im
 
-    function wave_data_get_r_res(handle) result(res) bind(C, name="wave_data_get_r_res_")
+    function wave_data_get_r_res(handle) result(res)
         type(c_ptr), value :: handle
         real(c_double) :: res
         type(wave_data_t), pointer :: wd
@@ -96,7 +95,7 @@ contains
         res = wd%r_res
     end function wave_data_get_r_res
 
-    subroutine wave_data_set_r_res(handle, val) bind(C, name="wave_data_set_r_res_")
+    subroutine wave_data_set_r_res(handle, val)
         type(c_ptr), value :: handle
         real(c_double), value :: val
         type(wave_data_t), pointer :: wd
@@ -104,7 +103,7 @@ contains
         wd%r_res = val
     end subroutine wave_data_set_r_res
 
-    function wave_data_get_det_re(handle) result(res) bind(C, name="wave_data_get_det_re_")
+    function wave_data_get_det_re(handle) result(res)
         type(c_ptr), value :: handle
         real(c_double) :: res
         type(wave_data_t), pointer :: wd
@@ -112,7 +111,7 @@ contains
         res = real(wd%det, c_double)
     end function wave_data_get_det_re
 
-    function wave_data_get_det_im(handle) result(res) bind(C, name="wave_data_get_det_im_")
+    function wave_data_get_det_im(handle) result(res)
         type(c_ptr), value :: handle
         real(c_double) :: res
         type(wave_data_t), pointer :: wd
@@ -122,8 +121,7 @@ contains
 
     !> Pre-existing names/by-value c_ptr convention, called from Fortran
     !> (kilca_cond_profiles_m's per-point fallback path).
-    function get_wave_data_obj_omov_re(handle) result(res) &
-        bind(C, name="get_wave_data_obj_omov_re_")
+    function get_wave_data_obj_omov_re(handle) result(res)
         type(c_ptr), value :: handle
         real(c_double) :: res
         type(wave_data_t), pointer :: wd
@@ -131,8 +129,7 @@ contains
         res = real(wd%omov, c_double)
     end function get_wave_data_obj_omov_re
 
-    function get_wave_data_obj_omov_im(handle) result(res) &
-        bind(C, name="get_wave_data_obj_omov_im_")
+    function get_wave_data_obj_omov_im(handle) result(res)
         type(c_ptr), value :: handle
         real(c_double) :: res
         type(wave_data_t), pointer :: wd
@@ -143,8 +140,7 @@ contains
     !> Pre-existing name, BY-REFERENCE handle (Fortran caller convention):
     !> the legacy stitching-equations Fortran (calc_system_determinant_)
     !> calls this with the handle held in mode_m.f90's wd_ptr.
-    subroutine set_det_in_wd_struct(wd_ptr, re_det, im_det) &
-        bind(C, name="set_det_in_wd_struct_")
+    subroutine set_det_in_wd_struct(wd_ptr, re_det, im_det)
         integer(c_intptr_t), intent(in) :: wd_ptr
         real(c_double), intent(in) :: re_det, im_det
         type(wave_data_t), pointer :: wd

@@ -76,3 +76,42 @@ Fresh hosted Ubuntu/macOS builds, tests, and strict golden comparisons are attac
 to [PR #161](https://github.com/itpplasma/KAMEL/pull/161/checks). The pre-fortnum job
 is diagnostic and permits failure; its green job status alone is not evidence of
 numerical equivalence.
+
+## Native Fortran interface cleanup (2026-09-07)
+
+The follow-up cleanup replaces internal C linkage with module imports and native
+Fortran interfaces. Production KiLCA/QL-Balance `bind(C)` declarations decreased
+from 443 to 39, counting procedure definitions, interface declarations, and types
+and excluding tests. The remaining declarations describe libc/POSIX, SUNDIALS,
+fortnum, and ZerSol interfaces or their callbacks and context types.
+
+Settings readers, constructors, path getters, and file writers accept native
+character strings. Adaptive-grid and solver callbacks use native procedure
+arguments. The solver and FLRE zone share the actual parameter types. Opaque
+handles retain their existing ownership. Legacy external Fortran procedures have
+canonical interfaces in `legacy_interfaces_m.f90`, including their true complex
+array types and compiler-managed character lengths. Eigenmode orchestration uses
+a submodule to avoid a core/eigenmode dependency cycle; legacy FLRE settings data
+is compiled separately from its higher-level adapters.
+
+Explicit interfaces also required correcting previously unchecked calls: the
+background dimension provider is a subroutine; Maxwell system-index retrieval
+takes one argument; conductivity fills contiguous background-array sections;
+wave fields and currents return complex arrays; and per-mode dissipation selects
+the corresponding scalar core handle. Unused field outputs now have separate
+storage instead of aliasing the same output argument repeatedly.
+
+The updated regressions cover native settings strings (including embedded spaces
+and short output buffers), callback replacement between integrations, typed
+profile test providers, and short paths in all three zone factories. Restoring
+the missed C-string scan in an isolated homogeneous-medium object makes the new
+zone-path regression fail; the corrected production implementation passes.
+
+Fresh local Release validation uses gfortran 16.1.0 with runtime checking. The
+full project builds, all 79 CTests pass, and all 12 Python tests pass. All 114
+numeric linear-data files in the full-output FLRE/vacuum case are exactly equal
+to the saved pre-cleanup Fortran build at `1f655463`, including their radial grids
+and every output column. No golden inputs, baselines, or tolerances changed.
+
+Independent specification and code-quality reviews found no remaining blockers.
+Hosted validation must be checked on the final cleanup commit before merging.

@@ -13,14 +13,62 @@
 !> smooth_arrays_for_K) and the *_fine debug dumpers are dead (only reachable
 !> via the inactive cond_profs.cpp or commented-out call sites).
 !>
-!> sd/bp (settings*/background*) are write-only in the C++ constructor (read
-!> nowhere else in cond_profiles), so they are not translated at all; wd
-!> (wave_data*) is only read for path2linear/omov/r_res at construction time,
-!> so the caller (flre_zone.cpp, still C++) passes those directly instead of
-!> an opaque wave_data handle.
+!> Construction receives the output path, frequency, and resonance position
+!> directly from the owning FLRE zone; no settings or background object is owned.
 module kilca_cond_profiles_m
-    use, intrinsic :: iso_c_binding, only: c_int, c_intptr_t, c_double, c_char, &
-        c_ptr, c_funptr, c_funloc, c_loc, c_f_pointer, c_null_ptr, c_null_char
+    use kilca_legacy_interfaces_m, &
+        only: binomial_coefficients_c => binomial_coefficients
+    use kilca_legacy_interfaces_m, only: &
+        eval_and_set_background_parameters_spec_independent_c => &
+            eval_and_set_background_parameters_spec_independent
+    use kilca_legacy_interfaces_m, only: &
+        eval_and_set_wave_parameters_c => &
+            eval_and_set_wave_parameters
+    use kilca_legacy_interfaces_m, only: eval_a_matrix_c => eval_a_matrix
+    use kilca_legacy_interfaces_m, &
+        only: calc_dem_djmi_arrays_c => calc_dem_djmi_arrays
+    use kilca_legacy_interfaces_m, only: &
+        eval_and_set_background_parameters_spec_dependent_c => &
+            eval_and_set_background_parameters_spec_dependent
+    use kilca_legacy_interfaces_m, only: &
+        eval_and_set_f0_parameters_nu_and_derivs_c => &
+            eval_and_set_f0_parameters_nu_and_derivs
+    use kilca_legacy_interfaces_m, only: &
+        eval_electric_drift_velocities_c => &
+            eval_electric_drift_velocities
+    use kilca_legacy_interfaces_m, only: eval_fgi_arrays_c => eval_fgi_arrays
+    use kilca_legacy_interfaces_m, only: calc_w2_array_c => calc_w2_array
+    use kilca_legacy_interfaces_m, only: calc_d_array_c => calc_d_array
+    use kilca_legacy_interfaces_m, only: calc_k_matrices_c => calc_k_matrices
+    use kilca_legacy_interfaces_m, only: calc_k1_matrices_c => calc_k1_matrices
+    use kilca_legacy_interfaces_m, only: &
+        calc_and_add_galilelian_correction_c => &
+            calc_and_add_galilelian_correction
+    use kilca_legacy_interfaces_m, only: get_flre_order_c => get_flre_order
+    use kilca_legacy_interfaces_m, only: get_gal_corr_c => get_gal_corr
+    use adaptive_grid_pol_m, only: adaptive_grid_polynom_err
+    use adaptive_grid_pol_m, only: adaptive_grid_polynom_res
+    use kilca_background_data_m, only: get_background_obj_x0_c => get_background_x0
+    use kilca_background_data_m, &
+        only: get_background_obj_xlast_c => get_background_xlast
+    use kilca_background_settings_m, &
+        only: get_background_charge_c => get_background_charge
+    use kilca_background_settings_m, &
+        only: get_background_flag_back_c => get_background_flag_back
+    use kilca_background_settings_m, only: &
+        get_background_huge_factor_c => &
+            get_background_huge_factor
+    use kilca_background_settings_m, only: get_background_n_c => get_background_n
+    use kilca_spline_m, only: spline_alloc_c => spline_alloc
+    use kilca_spline_m, only: spline_calc_c => spline_calc
+    use kilca_spline_m, only: spline_eval_d_c => spline_eval_d
+    use kilca_spline_m, only: spline_free_c => spline_free
+    use kilca_wave_data_m, &
+        only: get_wave_data_obj_omov_im_c => get_wave_data_obj_omov_im
+    use kilca_wave_data_m, &
+        only: get_wave_data_obj_omov_re_c => get_wave_data_obj_omov_re
+    use, intrinsic :: iso_c_binding, only: &
+        c_int, c_intptr_t, c_double, c_char, c_ptr, c_loc, c_f_pointer, c_null_ptr
     implicit none
     private
 
@@ -56,198 +104,7 @@ module kilca_cond_profiles_m
         real(c_double), allocatable :: xt(:)
         real(c_double), allocatable :: yt(:)
     end type cond_profiles_t
-
-    interface
-        function adaptive_grid_polynom_res(f, p, a, b, dimy, deg, xdim, eps, &
-            r_res, D, eps_res, dim_err, ind_err, x1, y1) result(stat) &
-            bind(C, name="adaptive_grid_polynom_res")
-            import :: c_funptr, c_ptr, c_int, c_double
-            type(c_funptr), value :: f
-            type(c_ptr), value :: p
-            real(c_double), value :: a, b, r_res, D, eps_res
-            real(c_double), intent(inout) :: eps
-            integer(c_int), value :: dimy, deg, dim_err
-            integer(c_int), intent(inout) :: xdim
-            integer(c_int), intent(in) :: ind_err(*)
-            real(c_double), intent(inout) :: x1(*), y1(*)
-            integer(c_int) :: stat
-        end function adaptive_grid_polynom_res
-
-        subroutine spline_alloc_c(N, styp, dimx, x, Carr, sid) bind(C, name="spline_alloc_")
-            import :: c_int, c_double, c_intptr_t
-            integer(c_int), value :: N, styp, dimx
-            real(c_double), intent(in) :: x(*)
-            real(c_double), intent(inout) :: Carr(*)
-            integer(c_intptr_t), intent(out) :: sid
-        end subroutine spline_alloc_c
-
-        subroutine spline_calc_c(sid, y, Imin, Imax, W, ierr) bind(C, name="spline_calc_")
-            import :: c_intptr_t, c_double, c_int, c_ptr
-            integer(c_intptr_t), value :: sid
-            real(c_double), intent(in) :: y(*)
-            integer(c_int), value :: Imin, Imax
-            type(c_ptr), value :: W
-            integer(c_int), intent(out) :: ierr
-        end subroutine spline_calc_c
-
-        subroutine spline_eval_d_c(sid, dimz, z, Dmin, Dmax, Imin, Imax, R) &
-            bind(C, name="spline_eval_d_")
-            import :: c_intptr_t, c_double, c_int
-            integer(c_intptr_t), value :: sid
-            integer(c_int), value :: dimz, Dmin, Dmax, Imin, Imax
-            real(c_double), intent(in) :: z(*)
-            real(c_double), intent(out) :: R(*)
-        end subroutine spline_eval_d_c
-
-        subroutine spline_free_c(sid) bind(C, name="spline_free_")
-            import :: c_intptr_t
-            integer(c_intptr_t), value :: sid
-        end subroutine spline_free_c
-
-        subroutine binomial_coefficients_c(N, BC) bind(C, name="binomial_coefficients_")
-            import :: c_int, c_double
-            integer(c_int), value :: N
-            real(c_double), intent(out) :: BC(*)
-        end subroutine binomial_coefficients_c
-
-        subroutine eval_and_set_background_parameters_spec_independent_c(r, flagback, fb_len) &
-            bind(C, name="eval_and_set_background_parameters_spec_independent_")
-            import :: c_double, c_char, c_int
-            real(c_double), intent(in) :: r
-            character(kind=c_char), intent(in) :: flagback(*)
-            integer(c_int), value :: fb_len
-        end subroutine eval_and_set_background_parameters_spec_independent_c
-
-        subroutine eval_and_set_wave_parameters_c(r, flagback, fb_len) &
-            bind(C, name="eval_and_set_wave_parameters_")
-            import :: c_double, c_char, c_int
-            real(c_double), intent(in) :: r
-            character(kind=c_char), intent(in) :: flagback(*)
-            integer(c_int), value :: fb_len
-        end subroutine eval_and_set_wave_parameters_c
-
-        subroutine eval_a_matrix_c() bind(C, name="eval_a_matrix_")
-        end subroutine eval_a_matrix_c
-
-        subroutine calc_dem_djmi_arrays_c(r) bind(C, name="calc_dem_djmi_arrays_")
-            import :: c_double
-            real(c_double), intent(in) :: r
-        end subroutine calc_dem_djmi_arrays_c
-
-        subroutine eval_and_set_background_parameters_spec_dependent_c(r, spec, flagback, fb_len) &
-            bind(C, name="eval_and_set_background_parameters_spec_dependent_")
-            import :: c_double, c_int, c_char
-            real(c_double), intent(in) :: r
-            integer(c_int), intent(in) :: spec
-            character(kind=c_char), intent(in) :: flagback(*)
-            integer(c_int), value :: fb_len
-        end subroutine eval_and_set_background_parameters_spec_dependent_c
-
-        subroutine eval_and_set_f0_parameters_nu_and_derivs_c(r, spec, flagback, fb_len) &
-            bind(C, name="eval_and_set_f0_parameters_nu_and_derivs_")
-            import :: c_double, c_int, c_char
-            real(c_double), intent(in) :: r
-            integer(c_int), intent(in) :: spec
-            character(kind=c_char), intent(in) :: flagback(*)
-            integer(c_int), value :: fb_len
-        end subroutine eval_and_set_f0_parameters_nu_and_derivs_c
-
-        subroutine eval_electric_drift_velocities_c() bind(C, name="eval_electric_drift_velocities_")
-        end subroutine eval_electric_drift_velocities_c
-
-        subroutine eval_fgi_arrays_c() bind(C, name="eval_fgi_arrays_")
-        end subroutine eval_fgi_arrays_c
-
-        subroutine calc_w2_array_c(spec) bind(C, name="calc_w2_array_")
-            import :: c_int
-            integer(c_int), intent(in) :: spec
-        end subroutine calc_w2_array_c
-
-        subroutine calc_d_array_c() bind(C, name="calc_d_array_")
-        end subroutine calc_d_array_c
-
-        subroutine calc_k_matrices_c(K) bind(C, name="calc_k_matrices_")
-            import :: c_double
-            real(c_double), intent(out) :: K(*)
-        end subroutine calc_k_matrices_c
-
-        subroutine calc_k1_matrices_c(K) bind(C, name="calc_k1_matrices_")
-            import :: c_double
-            real(c_double), intent(out) :: K(*)
-        end subroutine calc_k1_matrices_c
-
-        subroutine calc_and_add_galilelian_correction_c(r, spec, flagback, ct, fb_len) &
-            bind(C, name="calc_and_add_galilelian_correction_")
-            import :: c_double, c_int, c_char
-            real(c_double), intent(in) :: r
-            integer(c_int), intent(in) :: spec
-            character(kind=c_char), intent(in) :: flagback(*)
-            real(c_double), intent(inout) :: ct(*)
-            integer(c_int), value :: fb_len
-        end subroutine calc_and_add_galilelian_correction_c
-
-        real(c_double) function get_background_huge_factor_c() bind(C, name="get_background_huge_factor_")
-            import :: c_double
-        end function get_background_huge_factor_c
-
-        real(c_double) function get_background_charge_c(i) bind(C, name="get_background_charge_")
-            import :: c_int, c_double
-            integer(c_int), value :: i
-        end function get_background_charge_c
-
-        function get_background_flag_back_c() result(ch) bind(C, name="get_background_flag_back_")
-            import :: c_char
-            character(kind=c_char) :: ch
-        end function get_background_flag_back_c
-
-        integer(c_int) function get_background_n_c() bind(C, name="get_background_N_")
-            import :: c_int
-        end function get_background_n_c
-
-        subroutine get_flre_order_c(flre_order) bind(C, name="get_flre_order_")
-            import :: c_int
-            integer(c_int), intent(out) :: flre_order
-        end subroutine get_flre_order_c
-
-        subroutine get_gal_corr_c(gal_corr) bind(C, name="get_gal_corr_")
-            import :: c_int
-            integer(c_int), intent(out) :: gal_corr
-        end subroutine get_gal_corr_c
-
-        real(c_double) function get_background_obj_x0_c() bind(C, name="get_background_x0_")
-            import :: c_double
-        end function get_background_obj_x0_c
-
-        real(c_double) function get_background_obj_xlast_c() bind(C, name="get_background_xlast_")
-            import :: c_double
-        end function get_background_obj_xlast_c
-
-        real(c_double) function get_wave_data_obj_omov_re_c(wd) bind(C, name="get_wave_data_obj_omov_re_")
-            import :: c_double, c_ptr
-            type(c_ptr), value :: wd
-        end function get_wave_data_obj_omov_re_c
-
-        real(c_double) function get_wave_data_obj_omov_im_c(wd) bind(C, name="get_wave_data_obj_omov_im_")
-            import :: c_double, c_ptr
-            type(c_ptr), value :: wd
-        end function get_wave_data_obj_omov_im_c
-
-        function adaptive_grid_polynom_err(f, p, a, b, dimy, deg, xdim, eps, &
-            dim_err, ind_err, x1, y1) result(stat) &
-            bind(C, name="adaptive_grid_polynom_err")
-            import :: c_funptr, c_ptr, c_int, c_double
-            type(c_funptr), value :: f
-            type(c_ptr), value :: p
-            real(c_double), value :: a, b
-            integer(c_int), value :: dimy, deg, dim_err
-            integer(c_int), intent(inout) :: xdim
-            real(c_double), intent(inout) :: eps
-            integer(c_int), intent(in) :: ind_err(*)
-            real(c_double), intent(inout) :: x1(*), y1(*)
-            integer(c_int) :: stat
-        end function adaptive_grid_polynom_err
-    end interface
-
+    public :: sample_cond_func_polynom
 contains
 
     integer(c_int) function iKs(cp, spec, ttype, p, q, i, j, part, node) result(idx)
@@ -276,15 +133,13 @@ contains
         idx = part + 2*(j + 3*(i + 3*s))
     end function iCa
 
-    !> path2linear_p: caller-computed (via eval_path_to_linear_data, still
-    !> C++) null-terminated string. a/b: caller-computed adaptive-grid
-    !> bounds (max(r1-1,bp->x[0])/min(r2+1,bp->x[dimx-1])) since bp (the C++
-    !> background physics instance) is not Fortran-resident. r_res/omov_re/
-    !> omov_im: from the zone's still-C++ wave_data instance.
+    !> The owning zone supplies a native output path, adaptive-grid bounds a/b,
+    !> and the wave's resonance position and complex frequency components.
     function cond_profiles_create(path2linear_p, flreo, gal_corr, N, max_dim_c, &
-        r1, r2, D, eps_out, eps_res, a, b, r_res, omov_re, omov_im, flag_debug, flag) &
-        result(handle) bind(C, name="cond_profiles_create_")
-        type(c_ptr), value :: path2linear_p
+         r1, r2, D, eps_out, eps_res, a, b, r_res, omov_re, omov_im, flag_debug, &
+        flag) &
+         result(handle)
+        character(len=*), intent(in) :: path2linear_p
         integer(c_int), value :: flreo, gal_corr, N, max_dim_c, flag_debug, flag
         real(c_double), value :: r1, r2, D, eps_out, eps_res, a, b, r_res, omov_re, omov_im
         integer(c_intptr_t) :: handle
@@ -298,7 +153,7 @@ contains
 
         allocate (cp)
         cp%flag_back = get_background_flag_back_c()
-        call read_c_string(path2linear_p, cp%path2linear)
+        cp%path2linear = path2linear_p
 
         cp%flreo = flreo
         cp%gal_corr = gal_corr
@@ -330,7 +185,8 @@ contains
                         do i = 0, 2
                             do j = 0, 2
                                 do part = 0, 1
-                                    ind_err(l) = iKa(cp, spec, ttype, p, q, i, j, part, 0)
+                                    ind_err(l) = iKa(cp, spec, ttype, p, q, i, j, &
+        part, 0)
                                     l = l + 1
                                 end do
                             end do
@@ -342,9 +198,10 @@ contains
 
         epso = eps_out
         epsi = eps_res
-        stat_unused = adaptive_grid_polynom_res(c_funloc(sample_cond_func_polynom), c_loc(cp), &
+        stat_unused = adaptive_grid_polynom_res(sample_cond_func_polynom, c_loc(cp), &
                                                 a, b, cp%dimK, cp%NK, cp%dimx, epso, &
-                                                r_res, D, epsi, dim_err, ind_err, cp%xt, cp%yt)
+                                                r_res, D, epsi, dim_err, ind_err, &
+        cp%xt, cp%yt)
         deallocate (ind_err)
 
         allocate (cp%x(0:cp%dimx - 1))
@@ -378,7 +235,7 @@ contains
         handle = transfer(c_loc(cp), handle)
     end function cond_profiles_create
 
-    subroutine cond_profiles_destroy(handle) bind(C, name="cond_profiles_destroy_")
+    subroutine cond_profiles_destroy(handle)
         integer(c_intptr_t), value :: handle
         type(cond_profiles_t), pointer :: cp
 
@@ -389,23 +246,13 @@ contains
         deallocate (cp)
     end subroutine cond_profiles_destroy
 
-    !> bind(C) replacement for calc_and_spline_conductivity_for_point_,
-    !> reachable only via the provably-dead branch in ctensor/kmatrices
-    !> (conductivity.f90), but translated in full since the symbol is
-    !> statically referenced by that still-live Fortran code. sd_ptr/bp_ptr/
-    !> wd_ptr/cp_ptr are passed BY REFERENCE (non-VALUE), matching the
-    !> original `settings **sd_ptr`/`cond_profiles **cp_ptr` C ABI that
-    !> conductivity.f90's implicit-interface call expects (same convention as
-    !> eval_c_matrices_f/eval_k_matrices_f above). bp_ptr is accepted for ABI
-    !> compatibility but unused: background is now a Fortran singleton (see
-    !> kilca_background_data_m), so its x0/xlast come from that module's own
-    !> getters regardless of the handle value. wd is still a per-zone C++
-    !> instance, so its needed field is read through a small additive C++
-    !> accessor (get_wave_data_obj_omov_*_).
+    !> Per-point fallback retained for the statically referenced branch in
+    !> conductivity.f90. Handles are passed by reference through native interfaces;
+    !> background bounds and wave parameters come from their owning modules.
     subroutine calc_and_spline_conductivity_for_point(sd_ptr, bp_ptr, wd_ptr, &
-        flag_back_p, r, cp_ptr) bind(C, name="calc_and_spline_conductivity_for_point_")
+         flag_back_p, r, cp_ptr)
         integer(c_intptr_t), intent(in) :: sd_ptr, bp_ptr, wd_ptr
-        character(kind=c_char), intent(in) :: flag_back_p(*)
+        character(len=*), intent(in) :: flag_back_p
         real(c_double), intent(in) :: r
         integer(c_intptr_t), intent(out) :: cp_ptr
 
@@ -422,7 +269,7 @@ contains
 
         wd_cptr = transfer(wd_ptr, wd_cptr)
 
-        cp%flag_back = flag_back_p(1)
+        cp%flag_back = flag_back_p(1:1)
         cp%path2linear = ''
 
         call get_flre_order_c(cp%flreo)
@@ -461,7 +308,8 @@ contains
                         do i = 0, 2
                             do j = 0, 2
                                 do part = 0, 1
-                                    ind_err(l) = iKa(cp, spec, ttype, p, q, i, j, part, 0)
+                                    ind_err(l) = iKa(cp, spec, ttype, p, q, i, j, &
+        part, 0)
                                     l = l + 1
                                 end do
                             end do
@@ -472,7 +320,7 @@ contains
         end do
 
         eps = 0.0d0
-        stat_unused = adaptive_grid_polynom_err(c_funloc(sample_cond_func_polynom), c_loc(cp), &
+        stat_unused = adaptive_grid_polynom_err(sample_cond_func_polynom, c_loc(cp), &
                                                 a, b, cp%dimK, cp%NK, cp%dimx, eps, &
                                                 dim_err, ind_err, cp%xt, cp%yt)
         deallocate (ind_err)
@@ -498,9 +346,8 @@ contains
         cp_ptr = transfer(c_loc(cp), cp_ptr)
     end subroutine calc_and_spline_conductivity_for_point
 
-    !> bind(C) replacement for delete_conductivity_profiles_f_ (same
-    !> reference-passing convention as above).
-    subroutine delete_conductivity_profiles_f(cp_ptr) bind(C, name="delete_conductivity_profiles_f_")
+    !> Release the conductivity instance referenced by the caller's handle.
+    subroutine delete_conductivity_profiles_f(cp_ptr)
         integer(c_intptr_t), intent(in) :: cp_ptr
         type(cond_profiles_t), pointer :: cp
 
@@ -510,9 +357,8 @@ contains
         deallocate (cp)
     end subroutine delete_conductivity_profiles_f
 
-    !> bind(C) callback matching void(double *r, double *f, void *p): mirrors
-    !> sample_cond_func_polynom exactly (target buffer is f, not *cp->yt).
-    subroutine sample_cond_func_polynom(r, f, p) bind(C)
+    !> Native adaptive-grid callback; f receives the sampled convergence vector.
+    subroutine sample_cond_func_polynom(r, f, p)
         real(c_double), intent(in) :: r
         real(c_double), intent(out) :: f(*)
         type(c_ptr), value :: p
@@ -521,29 +367,44 @@ contains
 
         call c_f_pointer(p, cp)
 
-        call eval_and_set_background_parameters_spec_independent_c(r, cp%flag_back, 1_c_int)
-        call eval_and_set_wave_parameters_c(r, cp%flag_back, 1_c_int)
+        call eval_and_set_background_parameters_spec_independent_c(r, cp%flag_back)
+        call eval_and_set_wave_parameters_c(r, cp%flag_back)
         call eval_a_matrix_c()
         call calc_dem_djmi_arrays_c(r)
 
         do spec = 0, 1
-            call eval_and_set_background_parameters_spec_dependent_c(r, spec, cp%flag_back, 1_c_int)
-            call eval_and_set_f0_parameters_nu_and_derivs_c(r, spec, cp%flag_back, 1_c_int)
+            call eval_and_set_background_parameters_spec_dependent_c(r, spec, &
+        cp%flag_back)
+            call eval_and_set_f0_parameters_nu_and_derivs_c(r, spec, cp%flag_back)
             call eval_electric_drift_velocities_c()
             call eval_fgi_arrays_c()
             call calc_w2_array_c(spec)
             call calc_d_array_c()
 
             ttype = 0
-            call calc_k_matrices_c(f(iKa(cp, spec, ttype, 0, 0, 0, 0, 0, 0) + 1))
+            block
+                complex(c_double) :: kmat(3, 3, 0:cp%flreo, 0:cp%flreo)
+                integer :: offset, count
+                call calc_k_matrices_c(kmat)
+                offset = iKa(cp, spec, ttype, 0, 0, 0, 0, 0, 0)
+                count = 2*size(kmat)
+                f(offset + 1:offset + count) = transfer(kmat, f(1), count)
+            end block
 
             ttype = 1
-            call calc_k1_matrices_c(f(iKa(cp, spec, ttype, 0, 0, 0, 0, 0, 0) + 1))
+            block
+                complex(c_double) :: kmat(3, 3, 0:cp%flreo, 0:cp%flreo)
+                integer :: offset, count
+                call calc_k1_matrices_c(kmat)
+                offset = iKa(cp, spec, ttype, 0, 0, 0, 0, 0, 0)
+                count = 2*size(kmat)
+                f(offset + 1:offset + count) = transfer(kmat, f(1), count)
+            end block
         end do
     end subroutine sample_cond_func_polynom
 
     subroutine set_arrays_for_K_polynom(cp)
-        type(cond_profiles_t), intent(inout) :: cp
+        type(cond_profiles_t), target, intent(inout) :: cp
         integer(c_int) :: node, spec, ttype, p, q, i, j, part
 
         do node = 0, cp%dimx - 1
@@ -568,17 +429,17 @@ contains
     end subroutine set_arrays_for_K_polynom
 
     subroutine calc_splines_for_K_polynom(cp)
-        type(cond_profiles_t), intent(inout) :: cp
+        type(cond_profiles_t), target, intent(inout) :: cp
         integer(c_int) :: ierr
 
         call set_arrays_for_K_polynom(cp)
 
-        call spline_alloc_c(cp%NK, 1, cp%dimx, cp%x, cp%CK, cp%sidK)
-        call spline_calc_c(cp%sidK, cp%K, 0, cp%dimK - 1, c_null_ptr, ierr)
+        call spline_alloc_c(cp%NK, 1, cp%dimx, c_loc(cp%x), c_loc(cp%CK), cp%sidK)
+        call spline_calc_c(cp%sidK, c_loc(cp%K), 0, cp%dimK - 1, c_null_ptr, ierr)
     end subroutine calc_splines_for_K_polynom
 
     subroutine calc_splines_for_C(cp)
-        type(cond_profiles_t), intent(inout) :: cp
+        type(cond_profiles_t), target, intent(inout) :: cp
         integer(c_int) :: spec, ttype, node, s, i, j, part, ierr
 
         do spec = 0, 1
@@ -599,18 +460,18 @@ contains
             end do
         end do
 
-        call spline_alloc_c(cp%NC, 1, cp%dimx, cp%x, cp%CC, cp%sidC)
-        call spline_calc_c(cp%sidC, cp%C, 0, cp%dimC - 1, c_null_ptr, ierr)
+        call spline_alloc_c(cp%NC, 1, cp%dimx, c_loc(cp%x), c_loc(cp%CC), cp%sidC)
+        call spline_calc_c(cp%sidC, c_loc(cp%C), 0, cp%dimC - 1, c_null_ptr, ierr)
     end subroutine calc_splines_for_C
 
     !> Mirrors calc_C_matrices exactly: evaluates K-matrices and derivatives,
     !> combines them via the binomial-coefficient sum into the C matrix, scales
     !> by the conductivity prefactor, and applies the Galilean correction.
     subroutine calc_C_matrices(cp, spec, ttype, r, Cout)
-        type(cond_profiles_t), intent(inout) :: cp
+        type(cond_profiles_t), target, intent(inout) :: cp
         integer(c_int), intent(in) :: spec, ttype
         real(c_double), intent(in) :: r
-        real(c_double), intent(out) :: Cout(*)
+        real(c_double), target, intent(out) :: Cout(*)
 
         integer(c_int) :: flreo, dimc, dimk, p, nmin, nmax, n, m, i, j, ind, k
         real(c_double) :: coeff, scale_fac
@@ -658,7 +519,13 @@ contains
         end do
 
         if (cp%gal_corr == 1 .and. cp%flag_back(1:1) == 'f' .and. ttype == 0 .and. flreo == 1) then
-            call calc_and_add_galilelian_correction_c(r, spec, cp%flag_back, Cout, 1_c_int)
+            block
+                complex(c_double) :: ct(3, 3, 0:2*flreo)
+                ct = reshape(transfer(Cout(1:2*size(ct)), [(0.0d0, 0.0d0)]), &
+        shape(ct))
+                call calc_and_add_galilelian_correction_c(r, spec, cp%flag_back, ct)
+                Cout(1:2*size(ct)) = transfer(ct, Cout(1), 2*size(ct))
+            end block
         end if
     end subroutine calc_C_matrices
 
@@ -669,15 +536,17 @@ contains
         type(cond_profiles_t), intent(in) :: cp
         integer(c_int), intent(in) :: spec, ttype, Dmin, Dmax
         real(c_double), intent(in) :: r
-        real(c_double), intent(out) :: Kout(*)
+        real(c_double), target, intent(out) :: Kout(*)
         integer(c_int) :: dimk, ind_ka, n, ind, jj
-        real(c_double) :: scale_fac, rloc(1)
+        real(c_double) :: scale_fac
+        real(c_double), target :: rloc(1)
 
         dimk = 2*9*(cp%flreo + 1)*(cp%flreo + 1)
         ind_ka = iKa(cp, spec, ttype, 0, 0, 0, 0, 0, 0)
 
         rloc(1) = r
-        call spline_eval_d_c(cp%sidK, 1, rloc, Dmin, Dmax, ind_ka, ind_ka + dimk - 1, Kout)
+        call spline_eval_d_c(cp%sidK, 1, c_loc(rloc), Dmin, Dmax, ind_ka, &
+        ind_ka + dimk - 1, c_loc(Kout))
 
         if (cp%flag_back(1:1) /= 'f') then
             do n = Dmin, Dmax
@@ -696,15 +565,17 @@ contains
         type(cond_profiles_t), intent(in) :: cp
         integer(c_int), intent(in) :: spec, ttype, Dmin, Dmax
         real(c_double), intent(in) :: r
-        real(c_double), intent(out) :: Cout(*)
+        real(c_double), target, intent(out) :: Cout(*)
         integer(c_int) :: dimc, ind_ca, n, ind, jj
-        real(c_double) :: scale_fac, rloc(1)
+        real(c_double) :: scale_fac
+        real(c_double), target :: rloc(1)
 
         dimc = 18*(2*cp%flreo + 1)
         ind_ca = dimc*(ttype + cp%dimt*spec)
 
         rloc(1) = r
-        call spline_eval_d_c(cp%sidC, 1, rloc, Dmin, Dmax, ind_ca, ind_ca + dimc - 1, Cout)
+        call spline_eval_d_c(cp%sidC, 1, c_loc(rloc), Dmin, Dmax, ind_ca, &
+        ind_ca + dimc - 1, c_loc(Cout))
 
         if (cp%flag_back(1:1) /= 'f') then
             do n = Dmin, Dmax
@@ -717,52 +588,51 @@ contains
         end if
     end subroutine eval_C_matrices
 
-    !> bind(C) replacement for eval_c_matrices_f_, called from the still-live
-    !> Fortran ctensor (conductivity.f90), itself called every RHS evaluation
-    !> from diff_sys.f90. Handle and index args are passed BY REFERENCE,
-    !> matching the original `cond_profiles **cp_ptr`/`int *spec` C ABI that
-    !> conductivity.f90's implicit-interface call expects.
-    subroutine eval_c_matrices_f(cp_ptr, spec, ttype, Dmin, Dmax, r, ct) &
-        bind(C, name="eval_c_matrices_f_")
+    !> Native complex-matrix interface used by ctensor during RHS evaluation.
+    subroutine eval_c_matrices_f(cp_ptr, spec, ttype, Dmin, Dmax, r, ct)
         integer(c_intptr_t), intent(in) :: cp_ptr
         integer(c_int), intent(in) :: spec, ttype, Dmin, Dmax
         real(c_double), intent(in) :: r
-        real(c_double), intent(out) :: ct(*)
+        complex(c_double), target, intent(out) :: ct(*)
+        real(c_double), pointer :: flat(:)
         type(cond_profiles_t), pointer :: cp
 
         call handle_to_cp(cp_ptr, cp)
-        call eval_C_matrices(cp, spec, ttype, Dmin, Dmax, r, ct)
+        call c_f_pointer(c_loc(ct), flat, [2*9*(2*cp%flreo + 1)*(Dmax - Dmin + 1)])
+        call eval_C_matrices(cp, spec, ttype, Dmin, Dmax, r, flat)
     end subroutine eval_c_matrices_f
 
-    !> bind(C) replacement for eval_k_matrices_f_ (same calling convention).
-    subroutine eval_k_matrices_f(cp_ptr, spec, ttype, Dmin, Dmax, r, km) &
-        bind(C, name="eval_k_matrices_f_")
+    !> Native complex-matrix interface used by kmatrices.
+    subroutine eval_k_matrices_f(cp_ptr, spec, ttype, Dmin, Dmax, r, km)
         integer(c_intptr_t), intent(in) :: cp_ptr
         integer(c_int), intent(in) :: spec, ttype, Dmin, Dmax
         real(c_double), intent(in) :: r
-        real(c_double), intent(out) :: km(*)
+        complex(c_double), target, intent(out) :: km(*)
+        real(c_double), pointer :: flat(:)
         type(cond_profiles_t), pointer :: cp
 
         call handle_to_cp(cp_ptr, cp)
-        call eval_K_matrices(cp, spec, ttype, Dmin, Dmax, r, km)
+        call c_f_pointer(c_loc(km), flat, [2*9*(cp%flreo + 1)**2*(Dmax - Dmin + 1)])
+        call eval_K_matrices(cp, spec, ttype, Dmin, Dmax, r, flat)
     end subroutine eval_k_matrices_f
 
     !> Matches eval_all_K_matrices: full dimK spline evaluation (no per-spec
-    !> index offset), same huge_factor unscaling. Handle by VALUE (called
-    !> from still-C++ flre_quants.cpp, normal C call convention).
-    subroutine eval_all_k_matrices(handle, Dmin, Dmax, r, Kout) bind(C, name="eval_all_k_matrices_")
+    !> index offset), with the same huge_factor unscaling and a handle passed by value.
+    subroutine eval_all_k_matrices(handle, Dmin, Dmax, r, Kout)
         integer(c_intptr_t), value :: handle
         integer(c_int), value :: Dmin, Dmax
         real(c_double), value :: r
-        real(c_double), intent(out) :: Kout(*)
+        real(c_double), target, intent(out) :: Kout(*)
         type(cond_profiles_t), pointer :: cp
         integer(c_int) :: dimk, n, ind, jj
-        real(c_double) :: scale_fac, rloc(1)
+        real(c_double) :: scale_fac
+        real(c_double), target :: rloc(1)
 
         call handle_to_cp(handle, cp)
         dimk = cp%dimK
         rloc(1) = r
-        call spline_eval_d_c(cp%sidK, 1, rloc, Dmin, Dmax, 0, dimk - 1, Kout)
+        call spline_eval_d_c(cp%sidK, 1, c_loc(rloc), Dmin, Dmax, 0, dimk - 1, &
+        c_loc(Kout))
 
         if (cp%flag_back(1:1) /= 'f') then
             do n = Dmin, Dmax
@@ -776,19 +646,21 @@ contains
     end subroutine eval_all_k_matrices
 
     !> Matches eval_all_C_matrices.
-    subroutine eval_all_c_matrices(handle, Dmin, Dmax, r, Cout) bind(C, name="eval_all_c_matrices_")
+    subroutine eval_all_c_matrices(handle, Dmin, Dmax, r, Cout)
         integer(c_intptr_t), value :: handle
         integer(c_int), value :: Dmin, Dmax
         real(c_double), value :: r
-        real(c_double), intent(out) :: Cout(*)
+        real(c_double), target, intent(out) :: Cout(*)
         type(cond_profiles_t), pointer :: cp
         integer(c_int) :: dimc, n, ind, jj
-        real(c_double) :: scale_fac, rloc(1)
+        real(c_double) :: scale_fac
+        real(c_double), target :: rloc(1)
 
         call handle_to_cp(handle, cp)
         dimc = cp%dimC
         rloc(1) = r
-        call spline_eval_d_c(cp%sidC, 1, rloc, Dmin, Dmax, 0, dimc - 1, Cout)
+        call spline_eval_d_c(cp%sidC, 1, c_loc(rloc), Dmin, Dmax, 0, dimc - 1, &
+        c_loc(Cout))
 
         if (cp%flag_back(1:1) /= 'f') then
             do n = Dmin, Dmax
@@ -820,7 +692,8 @@ contains
                 do part = 0, 1
                     write (fname, '(a,a,i0,i0,a,a,a)') trim(cp%path2linear), &
                         'debug-data/kt_', p, q, '_', trim(reim(part)), '.dat'
-                    open (newunit=u, file=trim(fname), status='replace', action='write')
+                    open (newunit=u, file=trim(fname), status='replace', &
+        action='write')
                     do k = 0, cp%dimx - 1
                         do i = 0, 2
                             do j = 0, 2
@@ -875,42 +748,42 @@ contains
         end do
     end subroutine save_C_matrices
 
-    integer(c_int) function get_cond_nk(handle) bind(C, name="get_cond_nk_")
+    integer(c_int) function get_cond_nk(handle)
         integer(c_intptr_t), value :: handle
         type(cond_profiles_t), pointer :: cp
         call handle_to_cp(handle, cp)
         get_cond_nk = cp%NK
     end function get_cond_nk
 
-    integer(c_int) function get_cond_dimk(handle) bind(C, name="get_cond_dimk_")
+    integer(c_int) function get_cond_dimk(handle)
         integer(c_intptr_t), value :: handle
         type(cond_profiles_t), pointer :: cp
         call handle_to_cp(handle, cp)
         get_cond_dimk = cp%dimK
     end function get_cond_dimk
 
-    integer(c_int) function get_cond_nc(handle) bind(C, name="get_cond_nc_")
+    integer(c_int) function get_cond_nc(handle)
         integer(c_intptr_t), value :: handle
         type(cond_profiles_t), pointer :: cp
         call handle_to_cp(handle, cp)
         get_cond_nc = cp%NC
     end function get_cond_nc
 
-    integer(c_int) function get_cond_dimc(handle) bind(C, name="get_cond_dimc_")
+    integer(c_int) function get_cond_dimc(handle)
         integer(c_intptr_t), value :: handle
         type(cond_profiles_t), pointer :: cp
         call handle_to_cp(handle, cp)
         get_cond_dimc = cp%dimC
     end function get_cond_dimc
 
-    integer(c_int) function get_cond_dimx(handle) bind(C, name="get_cond_dimx_")
+    integer(c_int) function get_cond_dimx(handle)
         integer(c_intptr_t), value :: handle
         type(cond_profiles_t), pointer :: cp
         call handle_to_cp(handle, cp)
         get_cond_dimx = cp%dimx
     end function get_cond_dimx
 
-    function get_cond_x_ptr(handle) result(ptr) bind(C, name="get_cond_x_ptr_")
+    function get_cond_x_ptr(handle) result(ptr)
         integer(c_intptr_t), value :: handle
         type(c_ptr) :: ptr
         type(cond_profiles_t), pointer :: cp
@@ -918,7 +791,7 @@ contains
         ptr = c_loc(cp%x(0))
     end function get_cond_x_ptr
 
-    function get_cond_k_ptr(handle) result(ptr) bind(C, name="get_cond_k_ptr_")
+    function get_cond_k_ptr(handle) result(ptr)
         integer(c_intptr_t), value :: handle
         type(c_ptr) :: ptr
         type(cond_profiles_t), pointer :: cp
@@ -926,8 +799,7 @@ contains
         ptr = c_loc(cp%K(0))
     end function get_cond_k_ptr
 
-    integer(c_int) function get_cond_iks(handle, spec, ttype, p, q, i, j, part, node) &
-        bind(C, name="get_cond_iks_")
+    integer(c_int) function get_cond_iks(handle, spec, ttype, p, q, i, j, part, node)
         integer(c_intptr_t), value :: handle
         integer(c_int), value :: spec, ttype, p, q, i, j, part, node
         type(cond_profiles_t), pointer :: cp
@@ -935,7 +807,7 @@ contains
         get_cond_iks = iKs(cp, spec, ttype, p, q, i, j, part, node)
     end function get_cond_iks
 
-    function get_cond_flag_back(handle) result(ch) bind(C, name="get_cond_flag_back_")
+    function get_cond_flag_back(handle) result(ch)
         integer(c_intptr_t), value :: handle
         character(kind=c_char) :: ch
         type(cond_profiles_t), pointer :: cp
@@ -943,18 +815,14 @@ contains
         ch = cp%flag_back(1:1)
     end function get_cond_flag_back
 
-    subroutine get_cond_path2linear(handle, buf) bind(C, name="get_cond_path2linear_")
+    subroutine get_cond_path2linear(handle, buf)
         integer(c_intptr_t), value :: handle
-        character(kind=c_char), intent(out) :: buf(*)
+        character(len=*), intent(out) :: buf
         type(cond_profiles_t), pointer :: cp
         integer :: i, n
 
         call handle_to_cp(handle, cp)
-        n = len_trim(cp%path2linear)
-        do i = 1, n
-            buf(i) = cp%path2linear(i:i)
-        end do
-        buf(n + 1) = c_null_char
+        buf = cp%path2linear
     end subroutine get_cond_path2linear
 
     subroutine handle_to_cp(handle, cp)
@@ -964,19 +832,5 @@ contains
         ccp = transfer(handle, ccp)
         call c_f_pointer(ccp, cp)
     end subroutine handle_to_cp
-
-    subroutine read_c_string(cp_, out)
-        type(c_ptr), value :: cp_
-        character(len=*), intent(out) :: out
-        character(kind=c_char), pointer :: chars(:)
-        integer :: i
-
-        call c_f_pointer(cp_, chars, [len(out)])
-        out = ''
-        do i = 1, len(out)
-            if (chars(i) == c_null_char) exit
-            out(i:i) = chars(i)
-        end do
-    end subroutine read_c_string
 
 end module kilca_cond_profiles_m

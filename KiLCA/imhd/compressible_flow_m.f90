@@ -4,7 +4,8 @@
 !> rk8pd/deriv_central instead of the C-ABI callback shims) as
 !> kilca_incompressible_m, whose Ffunc/zone_ctx_t/signum are reused here.
 module kilca_compressible_flow_m
-    use, intrinsic :: iso_c_binding, only: c_double, c_null_ptr
+    use kilca_background_settings_m, only: get_background_rtor
+    use, intrinsic :: iso_c_binding, only: c_null_ptr
     use constants, only: dp, pi
     use kilca_zone_m, only: zone_t, BOUNDARY_CENTER, BOUNDARY_IDEALWALL
     use kilca_background_data_m, only: eval_Bt, eval_Bz, eval_Vt, eval_Vz, &
@@ -22,14 +23,6 @@ module kilca_compressible_flow_m
     complex(dp), parameter :: cmplx_i = (0.0_dp, 1.0_dp)
     real(dp), parameter :: deriv_h = 1.0e-3_dp
     real(dp), parameter :: adiabat = 5.0_dp/3.0_dp
-
-    interface
-        function get_background_rtor() bind(C, name="get_background_rtor_") result(rtor)
-            import :: c_double
-            real(c_double) :: rtor
-        end function get_background_rtor
-    end interface
-
     external :: normalize_imhd_basis
 
 contains

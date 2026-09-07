@@ -1,6 +1,7 @@
 !------------------------------------------------------------------------------
 
 recursive complex(8) function besselj (nu, zarg, n) result (res)
+    use kilca_legacy_interfaces_m, only: binomial_coefficients
 
 !Evaluates n-th derivative of a bessel J_nu(zarg) function, nu - integer, zarg - complex!!!
 !The subroutines from AMOS are used for.
@@ -16,8 +17,6 @@ integer :: k
 real(dp) :: rr, ri
 integer :: nz, ierr
 real(dp), allocatable, dimension(:,:) :: bico
-
-external :: binomial_coefficients
 
 if(n == 0) then
     call zbesj (real(zarg), aimag(zarg), abs(dble(nu)), 1, 1, rr, ri, nz, ierr)
@@ -44,7 +43,7 @@ end if
 allocate (bico(0:n,0:n));
 
 !computes C^k_n = n!/k!/(n-k)! coefficients for n=0..N, k=0..n
-call binomial_coefficients (%val(n), bico);
+call binomial_coefficients (n, bico);
 
 res = cmplx(0.0d0,0.0d0,dp)
 do k=0,n

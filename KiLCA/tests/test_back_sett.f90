@@ -5,70 +5,30 @@
 !> the single-character flag_back and path2profiles string fields that risked
 !> subtle truncation bugs during translation.
 program test_back_sett
-    use, intrinsic :: iso_c_binding, only: c_int, c_double, c_char, c_null_char
+    use, intrinsic :: iso_c_binding, only: c_int
+    use, intrinsic :: iso_c_binding, only: c_double
+    use kilca_background_settings_m, only: &
+        read_background_settings, get_rtor => &
+        get_background_rtor, get_rp => &
+        get_background_rp, get_B0 => &
+        get_background_B0, get_Vgal => &
+        get_background_V_gal_sys, get_Vscale => &
+        get_background_V_scale, get_zele => &
+        get_background_zele, get_zion => &
+        get_background_zion, get_flag_debug => &
+        get_background_flag_debug, get_huge_factor => &
+        get_background_huge_factor, get_calc_back => &
+        get_background_calc_back, get_N => &
+        get_background_N, get_mass => &
+        get_background_mass, get_charge => &
+        get_background_charge, get_flag_back => &
+        get_background_flag_back, get_path2profiles => &
+        get_background_path2profiles
     implicit none
-
-    interface
-        subroutine read_background_settings(path) bind(C, name="read_background_settings_")
-            import :: c_char
-            character(kind=c_char), dimension(*), intent(in) :: path
-        end subroutine
-        real(c_double) function get_rtor() bind(C, name="get_background_rtor_")
-            import :: c_double
-        end function
-        real(c_double) function get_rp() bind(C, name="get_background_rp_")
-            import :: c_double
-        end function
-        real(c_double) function get_B0() bind(C, name="get_background_B0_")
-            import :: c_double
-        end function
-        real(c_double) function get_Vgal() bind(C, name="get_background_V_gal_sys_")
-            import :: c_double
-        end function
-        real(c_double) function get_Vscale() bind(C, name="get_background_V_scale_")
-            import :: c_double
-        end function
-        real(c_double) function get_zele() bind(C, name="get_background_zele_")
-            import :: c_double
-        end function
-        real(c_double) function get_zion() bind(C, name="get_background_zion_")
-            import :: c_double
-        end function
-        integer(c_int) function get_flag_debug() bind(C, name="get_background_flag_debug_")
-            import :: c_int
-        end function
-        real(c_double) function get_huge_factor() bind(C, name="get_background_huge_factor_")
-            import :: c_double
-        end function
-        integer(c_int) function get_calc_back() bind(C, name="get_background_calc_back_")
-            import :: c_int
-        end function
-        integer(c_int) function get_N() bind(C, name="get_background_N_")
-            import :: c_int
-        end function
-        real(c_double) function get_mass(i) bind(C, name="get_background_mass_")
-            import :: c_int, c_double
-            integer(c_int), value :: i
-        end function
-        real(c_double) function get_charge(i) bind(C, name="get_background_charge_")
-            import :: c_int, c_double
-            integer(c_int), value :: i
-        end function
-        function get_flag_back() result(ch) bind(C, name="get_background_flag_back_")
-            import :: c_char
-            character(kind=c_char) :: ch
-        end function
-        subroutine get_path2profiles(out) bind(C, name="get_background_path2profiles_")
-            import :: c_char
-            character(kind=c_char), dimension(*), intent(out) :: out
-        end subroutine
-    end interface
 
     real(c_double), parameter :: tol = 1.0d-10
     real(c_double), parameter :: mp = 1.67262158d-24, me = mp/1.8361526675d3, e = 4.8032d-10
-    character(kind=c_char), dimension(2) :: cpath
-    character(kind=c_char), dimension(1024) :: pbuf
-    integer :: u, failures, i
+    integer :: u, failures
     character(len=1024) :: path2profiles
 
     failures = 0
@@ -95,9 +55,7 @@ program test_back_sett
     write (u, '(a)') '#skip'
     close (u)
 
-    cpath(1) = '.'
-    cpath(2) = c_null_char
-    call read_background_settings(cpath)
+    call read_background_settings('.')
 
     call check_d("rtor", get_rtor(), 170.05d0)
     call check_d("rp", get_rp(), 67.0d0)
@@ -121,12 +79,7 @@ program test_back_sett
         failures = failures + 1
     end if
 
-    call get_path2profiles(pbuf)
-    path2profiles = ''
-    do i = 1, 1024
-        if (pbuf(i) == c_null_char) exit
-        path2profiles(i:i) = pbuf(i)
-    end do
+    call get_path2profiles(path2profiles)
     if (trim(path2profiles) /= './profiles/') then
         write (*, '(a,a)') "FAIL path2profiles: ", trim(path2profiles)
         failures = failures + 1

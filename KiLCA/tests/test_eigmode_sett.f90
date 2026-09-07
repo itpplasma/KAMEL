@@ -3,84 +3,35 @@
 !> Writes a known eigmode.in matching eigmode_sett::read_settings' layout and
 !> checks every getter, including the fname string and the fstart complex array.
 program test_eigmode_sett
-    use, intrinsic :: iso_c_binding, only: c_int, c_double, c_char, c_null_char
+    use, intrinsic :: iso_c_binding, only: c_int
+    use, intrinsic :: iso_c_binding, only: c_double
+    use kilca_eigmode_settings_m, only: &
+        read_eigmode_settings, get_search_flag => &
+        get_eigmode_search_flag, get_delta => &
+        get_eigmode_delta, get_rfmin => &
+        get_eigmode_rfmin, get_rfmax => &
+        get_eigmode_rfmax, get_ifmin => &
+        get_eigmode_ifmin, get_ifmax => &
+        get_eigmode_ifmax, get_rdim => &
+        get_eigmode_rdim, get_idim => &
+        get_eigmode_idim, get_n_zeros => &
+        get_eigmode_n_zeros, get_use_winding => &
+        get_eigmode_use_winding, get_Nguess => &
+        get_eigmode_Nguess, get_kmin => &
+        get_eigmode_kmin, get_kmax => &
+        get_eigmode_kmax, get_test_roots => &
+        get_eigmode_test_roots, get_eps_abs => &
+        get_eigmode_eps_abs, get_eps_rel => &
+        get_eigmode_eps_rel, get_eps_res => &
+        get_eigmode_eps_res, get_fname => &
+        get_eigmode_fname, get_fstart_re => &
+        get_eigmode_fstart_re, get_fstart_im => &
+        get_eigmode_fstart_im
     implicit none
 
-    interface
-        subroutine read_eigmode_settings(path) bind(C, name="read_eigmode_settings_")
-            import :: c_char
-            character(kind=c_char), dimension(*), intent(in) :: path
-        end subroutine
-        integer(c_int) function get_search_flag() bind(C, name="get_eigmode_search_flag_")
-            import :: c_int
-        end function
-        real(c_double) function get_delta() bind(C, name="get_eigmode_delta_")
-            import :: c_double
-        end function
-        real(c_double) function get_rfmin() bind(C, name="get_eigmode_rfmin_")
-            import :: c_double
-        end function
-        real(c_double) function get_rfmax() bind(C, name="get_eigmode_rfmax_")
-            import :: c_double
-        end function
-        real(c_double) function get_ifmin() bind(C, name="get_eigmode_ifmin_")
-            import :: c_double
-        end function
-        real(c_double) function get_ifmax() bind(C, name="get_eigmode_ifmax_")
-            import :: c_double
-        end function
-        integer(c_int) function get_rdim() bind(C, name="get_eigmode_rdim_")
-            import :: c_int
-        end function
-        integer(c_int) function get_idim() bind(C, name="get_eigmode_idim_")
-            import :: c_int
-        end function
-        integer(c_int) function get_n_zeros() bind(C, name="get_eigmode_n_zeros_")
-            import :: c_int
-        end function
-        integer(c_int) function get_use_winding() bind(C, name="get_eigmode_use_winding_")
-            import :: c_int
-        end function
-        integer(c_int) function get_Nguess() bind(C, name="get_eigmode_Nguess_")
-            import :: c_int
-        end function
-        integer(c_int) function get_kmin() bind(C, name="get_eigmode_kmin_")
-            import :: c_int
-        end function
-        integer(c_int) function get_kmax() bind(C, name="get_eigmode_kmax_")
-            import :: c_int
-        end function
-        integer(c_int) function get_test_roots() bind(C, name="get_eigmode_test_roots_")
-            import :: c_int
-        end function
-        real(c_double) function get_eps_abs() bind(C, name="get_eigmode_eps_abs_")
-            import :: c_double
-        end function
-        real(c_double) function get_eps_rel() bind(C, name="get_eigmode_eps_rel_")
-            import :: c_double
-        end function
-        real(c_double) function get_eps_res() bind(C, name="get_eigmode_eps_res_")
-            import :: c_double
-        end function
-        subroutine get_fname(out) bind(C, name="get_eigmode_fname_")
-            import :: c_char
-            character(kind=c_char), dimension(*), intent(out) :: out
-        end subroutine
-        real(c_double) function get_fstart_re(k) bind(C, name="get_eigmode_fstart_re_")
-            import :: c_int, c_double
-            integer(c_int), value :: k
-        end function
-        real(c_double) function get_fstart_im(k) bind(C, name="get_eigmode_fstart_im_")
-            import :: c_int, c_double
-            integer(c_int), value :: k
-        end function
-    end interface
-
     real(c_double), parameter :: tol = 1.0d-10
-    character(kind=c_char), dimension(2) :: cpath
-    character(kind=c_char), dimension(1024) :: fbuf
     character(len=1024) :: fname
-    integer :: u, failures, i
+    integer :: u, failures
 
     failures = 0
 
@@ -127,9 +78,7 @@ program test_eigmode_sett
     write (u, '(a)') '(1.5e3, 0.0)'
     close (u)
 
-    cpath(1) = '.'
-    cpath(2) = c_null_char
-    call read_eigmode_settings(cpath)
+    call read_eigmode_settings('.')
 
     call check_i("search_flag", get_search_flag(), -1)
     call check_d("delta", get_delta(), 1.0d-3)
@@ -149,12 +98,7 @@ program test_eigmode_sett
     call check_d("eps_rel", get_eps_rel(), 1.0d-10)
     call check_d("eps_res", get_eps_res(), 1.0d-8)
 
-    call get_fname(fbuf)
-    fname = ''
-    do i = 1, 1024
-        if (fbuf(i) == c_null_char) exit
-        fname(i:i) = fbuf(i)
-    end do
+    call get_fname(fname)
     if (trim(fname) /= 'eigmode_search.dat') then
         write (*, '(a,a)') "FAIL fname: ", trim(fname)
         failures = failures + 1

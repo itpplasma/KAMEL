@@ -1,11 +1,7 @@
 !> Neville polynomial interpolation with derivatives.
 !>
-!> Fortran port of the Fortran-facing wrappers eval_neville_polynom_ and
-!> eval_neville_polynom_ready_ formerly defined in interp.cpp (the underlying
-!> algorithm lived as inline functions in interp.h). The C symbols and their
-!> by-reference int*/double* argument convention are preserved so the Fortran
-!> callers (KiLCA/QL-Balance wave_code_data) link unchanged. The C++ inline
-!> versions in interp.h are untouched and keep serving the C++ call sites.
+!> Native module procedures shared by KiLCA and QL-Balance. The polynomial
+!> recurrence and derivative ordering preserve the original interpolation algorithm.
 module kilca_neville_m
     use, intrinsic :: iso_c_binding, only: c_int, c_double
     use, intrinsic :: iso_fortran_env, only: error_unit
@@ -16,8 +12,7 @@ module kilca_neville_m
 
 contains
 
-    subroutine eval_neville_polynom(dim, xg, yg, deg, x, Dmin, Dmax, ind, R) &
-        bind(C, name="eval_neville_polynom_")
+    subroutine eval_neville_polynom(dim, xg, yg, deg, x, Dmin, Dmax, ind, R)
         integer(c_int), intent(in) :: dim, deg, Dmin, Dmax
         integer(c_int), intent(inout) :: ind
         real(c_double), intent(in) :: xg(0:*), yg(0:*), x
@@ -41,8 +36,7 @@ contains
         call neville_ready(xg(ind:ind + edeg), yg(ind:ind + edeg), edeg, x, Dmin, Dmax, R)
     end subroutine eval_neville_polynom
 
-    subroutine eval_neville_polynom_ready(xa, ya, deg, x, Dmin, Dmax, R) &
-        bind(C, name="eval_neville_polynom_ready_")
+    subroutine eval_neville_polynom_ready(xa, ya, deg, x, Dmin, Dmax, R)
         integer(c_int), intent(in) :: deg, Dmin, Dmax
         real(c_double), intent(in) :: xa(0:*), ya(0:*), x
         real(c_double), intent(out) :: R(0:*)

@@ -1,9 +1,7 @@
 !> Confluent hypergeometric function 1F1(a,b,z) for a = 1 and complex b, z.
 !>
-!> Fortran port of the former hyper1F1.cpp. Each routine keeps its single-trailing
-!> -underscore C symbol so the existing Fortran callers (KiLCA conductivity,
-!> QL-Balance W2_arr) link unchanged. Inputs/outputs are real(c_double) by
-!> reference, matching the former extern "C" double* signatures. The quadrature
+!> Native module procedures shared by KiLCA conductivity and QL-Balance W2_arr.
+!> Inputs and outputs retain separate real and imaginary components. The quadrature
 !> variant defers to fortnum's clean-room 1F1; the others reproduce the Kummer
 !> series and continued-fraction evaluations verbatim.
 module kilca_hyper1f1_m
@@ -14,10 +12,19 @@ module kilca_hyper1f1_m
 
     complex(dp), parameter :: im = (0.0_dp, 1.0_dp)
 
+    public :: h_cont_fract_1_dir
+    public :: h_cont_fract_1_inv_ada
+    public :: h_cont_fract_1_inv_nmax
+    public :: h_cont_fract_1_modified_0_ada
+    public :: h_kummer_ada
+    public :: h_kummer_modified_0_ada
+    public :: h_kummer_modified_0_nmax
+    public :: h_kummer_modified_1
+    public :: h_kummer_nmax
+    public :: h_quad
 contains
 
-    subroutine h_quad(b_re, b_im, z_re, z_im, f_re, f_im) &
-        bind(C, name="hypergeometric1f1_quad_")
+    subroutine h_quad(b_re, b_im, z_re, z_im, f_re, f_im)
         use fortnum_special_hypergeometric_1f1, only: hyperg_1f1_a1
         use fortnum_status, only: fortnum_status_t
         real(c_double), intent(in) :: b_re, b_im, z_re, z_im
@@ -32,8 +39,7 @@ contains
         f_im = aimag(res)
     end subroutine h_quad
 
-    subroutine h_kummer_nmax(b_re, b_im, z_re, z_im, f_re, f_im) &
-        bind(C, name="hypergeometric1f1_kummer_nmax_")
+    subroutine h_kummer_nmax(b_re, b_im, z_re, z_im, f_re, f_im)
         real(c_double), intent(in) :: b_re, b_im, z_re, z_im
         real(c_double), intent(out) :: f_re, f_im
         complex(dp) :: b, z, term
@@ -41,20 +47,19 @@ contains
 
         b = cmplx(b_re, b_im, dp)
         z = cmplx(z_re, z_im, dp)
-        N = int(ceiling(-20.0_dp/log10(abs(z/b))), int64) + 5
+        N = int(ceiling(-20.0_dp / log10(abs(z / b))), int64) + 5
         if (N < 1 .or. N > 1000000_int64) call warn_nb(b, z)
 
-        term = z/(b + real(N, dp))
+        term = z / (b + real(N, dp))
         do n_ = N - 1, 0, -1
-            term = 1.0_dp + z/(b + real(n_, dp))*term
+            term = 1.0_dp + z / (b + real(n_, dp)) * term
         end do
 
         f_re = real(term, dp)
         f_im = aimag(term)
     end subroutine h_kummer_nmax
 
-    subroutine h_kummer_ada(b_re, b_im, z_re, z_im, f_re, f_im) &
-        bind(C, name="hypergeometric1f1_kummer_ada_")
+    subroutine h_kummer_ada(b_re, b_im, z_re, z_im, f_re, f_im)
         real(c_double), intent(in) :: b_re, b_im, z_re, z_im
         real(c_double), intent(out) :: f_re, f_im
         complex(dp) :: b, z, term, S1, S2
@@ -69,21 +74,21 @@ contains
 
         Nmax = 4
         do while (Nmax < maxNmax)
-            term = z/(b + real(Nmax, dp))
+            term = z / (b + real(Nmax, dp))
             do n_ = Nmax - 1, 0, -1
-                term = 1.0_dp + z/(b + real(n_, dp))*term
+                term = 1.0_dp + z / (b + real(n_, dp)) * term
             end do
             S1 = term
 
-            term = z/(b + real(Nmax + 1, dp))
+            term = z / (b + real(Nmax + 1, dp))
             do n_ = Nmax, 0, -1
-                term = 1.0_dp + z/(b + real(n_, dp))*term
+                term = 1.0_dp + z / (b + real(n_, dp)) * term
             end do
             S2 = term
 
             err = min(abs((S2 - S1)/S2), abs(S2 - S1))
             if (err < eps) exit
-            Nmax = Nmax*2
+            Nmax = Nmax * 2
         end do
 
         if (Nmax >= maxNmax) call warn_conv("kummer_ada", Nmax, err, S2, b, z)
@@ -92,8 +97,7 @@ contains
         f_im = aimag(S2)
     end subroutine h_kummer_ada
 
-    subroutine h_kummer_modified_1(b_re, b_im, z_re, z_im, f_re, f_im) &
-        bind(C, name="hypergeometric1f1_kummer_modified_1_")
+    subroutine h_kummer_modified_1(b_re, b_im, z_re, z_im, f_re, f_im)
         real(c_double), intent(in) :: b_re, b_im, z_re, z_im
         real(c_double), intent(out) :: f_re, f_im
         complex(dp) :: b, z, term
@@ -101,20 +105,19 @@ contains
 
         b = cmplx(b_re, b_im, dp)
         z = cmplx(z_re, z_im, dp)
-        N = int(ceiling(-20.0_dp/log10(abs(z/b))), int64) + 5
+        N = int(ceiling(-20.0_dp / log10(abs(z / b))), int64) + 5
         if (N < 1 .or. N > 1000000_int64) call warn_nb(b, z)
 
-        term = z/(b + real(N, dp))
+        term = z / (b + real(N, dp))
         do n_ = N - 1, 2, -1
-            term = 1.0_dp + z/(b + real(n_, dp))*term
+            term = 1.0_dp + z / (b + real(n_, dp)) * term
         end do
 
         f_re = real(term, dp)
         f_im = aimag(term)
     end subroutine h_kummer_modified_1
 
-    subroutine h_kummer_modified_0_nmax(b_re, b_im, z_re, z_im, f_re, f_im) &
-        bind(C, name="hypergeometric1f1_kummer_modified_0_nmax_")
+    subroutine h_kummer_modified_0_nmax(b_re, b_im, z_re, z_im, f_re, f_im)
         real(c_double), intent(in) :: b_re, b_im, z_re, z_im
         real(c_double), intent(out) :: f_re, f_im
         complex(dp) :: b, z, term
@@ -122,12 +125,12 @@ contains
 
         b = cmplx(b_re, b_im, dp)
         z = cmplx(z_re, z_im, dp)
-        N = int(ceiling(-20.0_dp/log10(abs(z/b))), int64) + 5
+        N = int(ceiling(-20.0_dp / log10(abs(z / b))), int64) + 5
         if (N < 1 .or. N > 1000000_int64) call warn_nb(b, z)
 
-        term = z/(b + real(N, dp))
+        term = z / (b + real(N, dp))
         do n_ = N - 1, 3, -1
-            term = 1.0_dp + z/(b + real(n_, dp))*term
+            term = 1.0_dp + z / (b + real(n_, dp)) * term
         end do
         term = term*(z/(b + 2.0_dp))
 
@@ -135,8 +138,7 @@ contains
         f_im = aimag(term)
     end subroutine h_kummer_modified_0_nmax
 
-    subroutine h_kummer_modified_0_ada(b_re, b_im, z_re, z_im, f_re, f_im) &
-        bind(C, name="hypergeometric1f1_kummer_modified_0_ada_")
+    subroutine h_kummer_modified_0_ada(b_re, b_im, z_re, z_im, f_re, f_im)
         real(c_double), intent(in) :: b_re, b_im, z_re, z_im
         real(c_double), intent(out) :: f_re, f_im
         complex(dp) :: b, z, term, S1, S2
@@ -151,21 +153,21 @@ contains
 
         Nmax = 4
         do while (Nmax < maxNmax)
-            term = z/(b + real(Nmax, dp))
+            term = z / (b + real(Nmax, dp))
             do n_ = Nmax - 1, 3, -1
-                term = 1.0_dp + (z/(b + real(n_, dp)))*term
+                term = 1.0_dp + (z / (b + real(n_, dp))) * term
             end do
             S1 = term*(z/(b + 2.0_dp))
 
-            term = z/(b + real(Nmax + 1, dp))
+            term = z / (b + real(Nmax + 1, dp))
             do n_ = Nmax, 3, -1
-                term = 1.0_dp + (z/(b + real(n_, dp)))*term
+                term = 1.0_dp + (z / (b + real(n_, dp))) * term
             end do
             S2 = term*(z/(b + 2.0_dp))
 
-            err = abs((S2 - S1)/S2)
+            err = abs((S2 - S1) / S2)
             if (err < eps) exit
-            Nmax = Nmax*2
+            Nmax = Nmax * 2
         end do
 
         if (Nmax >= maxNmax) call warn_conv("kummer_modified_0_ada", Nmax, err, S2, b, z)
@@ -174,8 +176,7 @@ contains
         f_im = aimag(S2)
     end subroutine h_kummer_modified_0_ada
 
-    subroutine h_cont_fract_1_modified_0_ada(b_re, b_im, z_re, z_im, f_re, f_im) &
-        bind(C, name="hypergeometric1f1_cont_fract_1_modified_0_ada_")
+    subroutine h_cont_fract_1_modified_0_ada(b_re, b_im, z_re, z_im, f_re, f_im)
         use fortnum_special_hypergeometric_1f1, only: hyperg_1f1m_a1
         use fortnum_status, only: fortnum_status_t
         real(c_double), intent(in) :: b_re, b_im, z_re, z_im
@@ -194,8 +195,7 @@ contains
         f_im = aimag(res)
     end subroutine h_cont_fract_1_modified_0_ada
 
-    subroutine h_cont_fract_1_inv_ada(b_re, b_im, z_re, z_im, f_re, f_im) &
-        bind(C, name="hypergeometric1f1_cont_fract_1_inv_ada_")
+    subroutine h_cont_fract_1_inv_ada(b_re, b_im, z_re, z_im, f_re, f_im)
         real(c_double), intent(in) :: b_re, b_im, z_re, z_im
         real(c_double), intent(out) :: f_re, f_im
         complex(dp) :: b, z, term, S1, S2
@@ -210,21 +210,21 @@ contains
 
         Nmax = 4
         do while (Nmax < maxNmax)
-            term = real(Nmax, dp)*z/(b - z + real(Nmax, dp))
+            term = real(Nmax, dp) * z / (b - z + real(Nmax, dp))
             do n_ = Nmax - 1, 1, -1
-                term = real(n_, dp)*z/(b - z + real(n_, dp) + term)
+                term = real(n_, dp) * z / (b - z + real(n_, dp) + term)
             end do
             S1 = b/(b - z + term)
 
             term = real(Nmax + 1, dp)*z/(b - z + real(Nmax + 1, dp))
             do n_ = Nmax, 1, -1
-                term = real(n_, dp)*z/(b - z + real(n_, dp) + term)
+                term = real(n_, dp) * z / (b - z + real(n_, dp) + term)
             end do
             S2 = b/(b - z + term)
 
-            err = abs((S2 - S1)/S2)
+            err = abs((S2 - S1) / S2)
             if (err < eps) exit
-            Nmax = Nmax*2
+            Nmax = Nmax * 2
         end do
 
         if (Nmax >= maxNmax) call warn_conv("cont_fract_1_inv_ada", Nmax, err, S2, b, z)
@@ -233,8 +233,7 @@ contains
         f_im = aimag(S2)
     end subroutine h_cont_fract_1_inv_ada
 
-    subroutine h_cont_fract_1_inv_nmax(b_re, b_im, z_re, z_im, f_re, f_im) &
-        bind(C, name="hypergeometric1f1_cont_fract_1_inv_nmax_")
+    subroutine h_cont_fract_1_inv_nmax(b_re, b_im, z_re, z_im, f_re, f_im)
         real(c_double), intent(in) :: b_re, b_im, z_re, z_im
         real(c_double), intent(out) :: f_re, f_im
         complex(dp) :: b, z, term
@@ -244,9 +243,9 @@ contains
         b = cmplx(b_re - 1.0_dp, b_im, dp)
         z = cmplx(z_re, z_im, dp)
 
-        term = real(Nmax, dp)*z/(b - z + real(Nmax, dp))
+        term = real(Nmax, dp) * z / (b - z + real(Nmax, dp))
         do n_ = Nmax - 1, 1, -1
-            term = real(n_, dp)*z/(b - z + real(n_, dp) + term)
+            term = real(n_, dp) * z / (b - z + real(n_, dp) + term)
         end do
         term = b/(b - z + term)
 
@@ -254,8 +253,7 @@ contains
         f_im = aimag(term)
     end subroutine h_cont_fract_1_inv_nmax
 
-    subroutine h_cont_fract_1_dir(b_re, b_im, z_re, z_im, f_re, f_im) &
-        bind(C, name="hypergeometric1f1_cont_fract_1_dir_")
+    subroutine h_cont_fract_1_dir(b_re, b_im, z_re, z_im, f_re, f_im)
         real(c_double), intent(in) :: b_re, b_im, z_re, z_im
         real(c_double), intent(out) :: f_re, f_im
         complex(dp) :: b, z, An2, An1, An, Bn2, Bn1, Bn, acoef, bcoef, Sn1, Sn

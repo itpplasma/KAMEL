@@ -67,6 +67,10 @@ set(KILCA_PATH ${CMAKE_SOURCE_DIR}/KiLCA)
 # and breaking KiLCA's wave solver (besselj failures, vacuum stitching errors).
 # KIM_exe links KiLCA directly via fortnum_amos_compat (complex Bessel ABI).
 target_include_directories(KIM_lib PUBLIC ${KILCA_PATH}/math/)
+# Shared W2_arr uses KiLCA's native hypergeometric module; executable consumers
+# already supply kilca_lib for the corresponding implementation.
+add_dependencies(KIM_lib kilca_lib)
+target_include_directories(KIM_lib PRIVATE ${CMAKE_BINARY_DIR}/OBJS/kilca/)
 
 target_link_libraries(KIM_lib PUBLIC
                                 kamel_hdf5_tools

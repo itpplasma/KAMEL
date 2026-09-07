@@ -16,7 +16,8 @@
 !> anything imhd_zone_t adds over the base type (imhd_zone has no data
 !> members of its own in the C++ oracle either).
 module kilca_incompressible_m
-    use, intrinsic :: iso_c_binding, only: c_double, c_null_ptr
+    use kilca_background_settings_m, only: get_background_rtor
+    use, intrinsic :: iso_c_binding, only: c_null_ptr
     use constants, only: dp, pi
     use kilca_zone_m, only: zone_t, BOUNDARY_CENTER, BOUNDARY_IDEALWALL
     use kilca_background_data_m, only: eval_Bt_Bz, eval_Bt, eval_mass_density, &
@@ -47,14 +48,6 @@ module kilca_incompressible_m
         class(zone_t), pointer :: zone => null()
         integer :: part = 0
     end type zone_part_ctx_t
-
-    interface
-        function get_background_rtor() bind(C, name="get_background_rtor_") result(rtor)
-            import :: c_double
-            real(c_double) :: rtor
-        end function get_background_rtor
-    end interface
-
     external :: normalize_imhd_basis
 
 contains
@@ -381,8 +374,7 @@ contains
     !> (r*zeta), (r*zeta)' as (re, im) pairs; EB returns Er, Et, Ez, Br, Bt,
     !> Bz, (r*zeta), (r*zeta)' as genuine complex values (the oracle's flat
     !> 16-double EB[] is just the same 8 complex values written as re/im
-    !> pairs - this routine has no external/bind(C) caller, so the native
-    !> complex representation is used directly instead).
+    !> pairs). The native complex representation is used directly.
     subroutine state_to_EB_incompressible(zone, r, state, EB)
         class(zone_t), pointer, intent(in) :: zone
         real(dp), intent(in) :: r

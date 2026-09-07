@@ -23,132 +23,141 @@ end module
 !> former C++ antenna::read_settings. Each scalar line is "value #comment"; the
 !> value before '#' is read list-directed, so the complex flab parses from its
 !> (re, im) form natively. modes.in holds dma lines "(m,n)".
-subroutine read_antenna_settings(path) bind(C, name="read_antenna_settings_")
+module kilca_antenna_settings_m
+    implicit none
+    private
 
-use, intrinsic :: iso_c_binding, only: c_char, c_null_char
-use, intrinsic :: iso_fortran_env, only: error_unit
-use antenna_data
-
-character(kind=c_char), dimension(*), intent(in) :: path
-
-character(len=1024) :: fpath, fname, line, before
-integer :: i, u, ios, hp, k
-
-fpath = ''
-i = 1
-do
-    if (path(i) == c_null_char .or. i > 1024) exit
-    fpath(i:i) = path(i)
-    i = i + 1
-end do
-
-fname = trim(fpath)//'/antenna.in'
-open (newunit=u, file=trim(fname), status='old', action='read', iostat=ios)
-if (ios /= 0) then
-    write (error_unit, '(a,a)') "error: read_antenna_settings: cannot open ", trim(fname)
-    error stop
-end if
-
-read (u, '(a)', iostat=ios) line              ! header line
-call value_before_hash(u, before); read (before, *) ra
-call value_before_hash(u, before); read (before, *) wa
-call value_before_hash(u, before); read (before, *) I0
-call value_before_hash(u, before); read (before, *) flab
-call value_before_hash(u, before); read (before, *) dma
-call value_before_hash(u, before); read (before, *) flag_debug
-call value_before_hash(u, before); read (before, *) flag_eigmode
-close (u)
-
-fname = trim(fpath)//'/modes.in'
-open (newunit=u, file=trim(fname), status='old', action='read', iostat=ios)
-if (ios /= 0) then
-    write (error_unit, '(a,a)') "error: read_antenna_settings: cannot open ", trim(fname)
-    error stop
-end if
-
-if (allocated(modes)) deallocate (modes)
-allocate (modes(2*dma))
-do k = 0, dma - 1
-    read (u, '(a)', iostat=ios) line
-    if (ios /= 0) then
-        write (error_unit, '(a)') "error: read_antenna_settings: modes.in read error"
-        error stop
-    end if
-    do i = 1, len(line)
-        if (line(i:i) == '(' .or. line(i:i) == ')' .or. line(i:i) == ',') line(i:i) = ' '
-    end do
-    read (line, *) modes(2*k + 1), modes(2*k + 2)
-end do
-close (u)
-
-if (flag_debug > 0) call print_antenna_module_data()
+    public :: read_antenna_settings
+    public :: get_antenna_dma
+    public :: get_antenna_flab
+    public :: get_antenna_mode
+    public :: get_antenna_ra
+    public :: get_antenna_wa
+    public :: get_antenna_flag_eigmode
 
 contains
 
-    subroutine value_before_hash(unit, out)
-        integer, intent(in) :: unit
-        character(len=*), intent(out) :: out
-        character(len=1024) :: buf
-        integer :: pos, jos
-        read (unit, '(a)', iostat=jos) buf
-        if (jos /= 0) then
-            write (error_unit, '(a)') "error: read_antenna_settings: antenna.in read error"
+    subroutine read_antenna_settings(path)
+
+use, intrinsic :: iso_fortran_env, only: error_unit
+use antenna_data;
+
+        character(len=*), intent(in) :: path
+
+        character(len=1024) :: fpath, fname, line, before
+        integer :: i, u, ios, k
+
+        fpath = path
+
+        fname = trim(fpath)//'/antenna.in'
+        open (newunit=u, file=trim(fname), status='old', action='read', iostat=ios)
+        if (ios /= 0) then
+            write (error_unit, '(a,a)') "error: read_antenna_settings: cannot open ", trim(fname)
             error stop
         end if
-        pos = index(buf, '#')
-        if (pos > 0) then
-            out = buf(1:pos - 1)
-        else
-            out = buf
-        end if
-    end subroutine value_before_hash
 
-end subroutine read_antenna_settings
+        read (u, '(a)', iostat=ios) line ! header line
+        call value_before_hash(u, before); read (before, *) ra
+        call value_before_hash(u, before); read (before, *) wa
+        call value_before_hash(u, before); read (before, *) I0
+        call value_before_hash(u, before); read (before, *) flab
+        call value_before_hash(u, before); read (before, *) dma
+        call value_before_hash(u, before); read (before, *) flag_debug
+        call value_before_hash(u, before); read (before, *) flag_eigmode
+        close (u)
+
+        fname = trim(fpath)//'/modes.in'
+        open (newunit=u, file=trim(fname), status='old', action='read', iostat=ios)
+        if (ios /= 0) then
+            write (error_unit, '(a,a)') "error: read_antenna_settings: cannot open ", trim(fname)
+            error stop
+        end if
+
+        if (allocated(modes)) deallocate (modes)
+        allocate (modes(2 * dma))
+        do k = 0, dma - 1
+            read (u, '(a)', iostat=ios) line
+            if (ios /= 0) then
+                write (error_unit, '(a)') "error: read_antenna_settings: modes.in read error"
+                error stop
+            end if
+            do i = 1, len(line)
+                if (line(i:i) == '(' .or. line(i:i) == ')' .or. line(i:i) == ',') line(i:i) = ' '
+            end do
+            read (line, *) modes(2 * k + 1), modes(2 * k + 2)
+        end do
+        close (u)
+
+        if (flag_debug > 0) call print_antenna_module_data()
+
+    contains
+
+        subroutine value_before_hash(unit, out)
+            integer, intent(in) :: unit
+            character(len=*), intent(out) :: out
+            character(len=1024) :: buf
+            integer :: pos, jos
+            read (unit, '(a)', iostat=jos) buf
+            if (jos /= 0) then
+                write (error_unit, '(a)') "error: read_antenna_settings: antenna.in read error"
+                error stop
+            end if
+            pos = index(buf, '#')
+            if (pos > 0) then
+                out = buf(1:pos - 1)
+            else
+                out = buf
+            end if
+        end subroutine value_before_hash
+
+    end subroutine read_antenna_settings
 
 !------------------------------------------------------------------------------
 
-integer(c_int) function get_antenna_dma() bind(C, name="get_antenna_dma_")
+    integer(c_int) function get_antenna_dma()
     use, intrinsic :: iso_c_binding, only: c_int
     use antenna_data, only: dma
-    get_antenna_dma = dma
-end function
+        get_antenna_dma = dma
+    end function
 
-subroutine get_antenna_flab(re, im) bind(C, name="get_antenna_flab_")
+    subroutine get_antenna_flab(re, im)
     use, intrinsic :: iso_c_binding, only: c_double
     use antenna_data, only: flab
-    real(c_double), intent(out) :: re, im
-    re = real(flab, c_double)
-    im = aimag(flab)
-end subroutine
+        real(c_double), intent(out) :: re, im
+        re = real(flab, c_double)
+        im = aimag(flab)
+    end subroutine
 
-subroutine get_antenna_mode(ind, m, n) bind(C, name="get_antenna_mode_")
+    subroutine get_antenna_mode(ind, m, n)
     use, intrinsic :: iso_c_binding, only: c_int
     use antenna_data, only: modes
-    integer(c_int), value :: ind
-    integer(c_int), intent(out) :: m, n
-    m = modes(2*ind + 1)
-    n = modes(2*ind + 2)
-end subroutine
+        integer(c_int), value :: ind
+        integer(c_int), intent(out) :: m, n
+        m = modes(2 * ind + 1)
+        n = modes(2 * ind + 2)
+    end subroutine
 
-real(c_double) function get_antenna_ra() bind(C, name="get_antenna_ra_")
+    real(c_double) function get_antenna_ra()
     use, intrinsic :: iso_c_binding, only: c_double
     use antenna_data, only: ra
-    get_antenna_ra = ra
-end function
+        get_antenna_ra = ra
+    end function
 
-real(c_double) function get_antenna_wa() bind(C, name="get_antenna_wa_")
+    real(c_double) function get_antenna_wa()
     use, intrinsic :: iso_c_binding, only: c_double
     use antenna_data, only: wa
-    get_antenna_wa = wa
-end function
+        get_antenna_wa = wa
+    end function
 
-integer(c_int) function get_antenna_flag_eigmode() bind(C, name="get_antenna_flag_eigmode_")
+    integer(c_int) function get_antenna_flag_eigmode()
     use, intrinsic :: iso_c_binding, only: c_int
     use antenna_data, only: flag_eigmode
-    get_antenna_flag_eigmode = flag_eigmode
-end function
+        get_antenna_flag_eigmode = flag_eigmode
+    end function
 
 !------------------------------------------------------------------------------
+
+end module kilca_antenna_settings_m
 
 subroutine set_current_density_in_antenna_module ()
 

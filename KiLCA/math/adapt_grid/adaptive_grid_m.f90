@@ -1,9 +1,7 @@
-!> Scalar adaptive 1D grid refinement, formerly
-!> KiLCA/math/adapt_grid/adaptive_grid.cpp. Only the vector-valued entry
-!> calc_adaptive_1D_grid_4vector_ is live: its sole caller is the Fortran
-!> sysmat_profiles_create (kilca_sysmat_profiles_m), which reaches it through
-!> a bind(C, name="calc_adaptive_1D_grid_4vector_") interface block, so the
-!> C symbol name is preserved and that caller needs no change.
+!> Adaptive 1D grid refinement for the system-matrix profiles. The caller
+!> supplies a native Fortran callback that stores the sampled vector and
+!> returns a scalar accuracy proxy. The context pointer is an opaque handle
+!> owned by the caller.
 !>
 !> The companion scalar entry calc_adaptive_1D_grid_ and its only helper
 !> check_and_remove_grid_condensations_ had zero callers anywhere in KiLCA or
@@ -12,8 +10,7 @@
 !> add_new_interval_to_the_array, update_max_err_interval and eval_error were
 !> shared by both entries and survive as private helpers of the live one.
 module adaptive_grid_m
-    use, intrinsic :: iso_c_binding, only: c_double, c_int, c_ptr, c_funptr, &
-                                           c_f_procpointer
+    use, intrinsic :: iso_c_binding, only: c_double, c_int, c_ptr
     implicit none
     private
 
@@ -28,7 +25,7 @@ module adaptive_grid_m
     end type interval5_t
 
     abstract interface
-        subroutine sample_cb(r, fval, ctx) bind(C)
+        subroutine sample_cb(r, fval, ctx)
             import :: c_double, c_ptr
             real(c_double), intent(in) :: r
             real(c_double), intent(out) :: fval
@@ -44,9 +41,8 @@ contains
     !> eps holds the error reached. The grid itself is collected through p by
     !> the callback, so this routine never sorts or emits it (unlike the
     !> dropped scalar entry).
-    subroutine calc_adaptive_1D_grid_4vector(f, p, max_dimx, eps, dimx, x, y) &
-        bind(C, name="calc_adaptive_1D_grid_4vector_")
-        type(c_funptr), value :: f
+    subroutine calc_adaptive_1D_grid_4vector(f, p, max_dimx, eps, dimx, x, y)
+        procedure(sample_cb) :: f
         type(c_ptr), value :: p
         integer(c_int), intent(in) :: max_dimx
         real(c_double), intent(inout) :: eps
@@ -54,13 +50,10 @@ contains
         real(c_double), intent(in) :: x(0:*)
         real(c_double), intent(in) :: y(0:*)
 
-        procedure(sample_cb), pointer :: cb
         type(interval5_t), allocatable :: Iarr(:)
         real(c_double), allocatable :: err(:)
         integer(c_int) :: max_dimI, dimI, i, max_ind
         real(c_double) :: max_err
-
-        call c_f_procpointer(f, cb)
 
         max_dimI = (max_dimx - 1)/4
 
@@ -68,7 +61,7 @@ contains
         allocate (err(0:max_dimI - 1))
 
         do i = 0, dimx - 2
-            call set_interval(Iarr(i), x(i), x(i + 1), y(i), y(i + 1), cb, p)
+            call set_interval(Iarr(i), x(i), x(i + 1), y(i), y(i + 1), f, p)
             call eval_error(Iarr(i), err(i))
         end do
 
@@ -88,11 +81,11 @@ contains
 
             if (max_err < eps) exit
 
-            call add_new_interval_to_the_array(Iarr, max_ind, dimI, cb, p)
+            call add_new_interval_to_the_array(Iarr, max_ind, dimI, f, p)
             call eval_error(Iarr(dimI), err(dimI))
             dimI = dimI + 1
 
-            call update_max_err_interval(Iarr, max_ind, cb, p)
+            call update_max_err_interval(Iarr, max_ind, f, p)
             call eval_error(Iarr(max_ind), err(max_ind))
         end do
 

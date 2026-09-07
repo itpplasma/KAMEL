@@ -16,6 +16,7 @@
 !> callback ABIs (fortnum_vector_fn and ZerSol's complex_function) are thin
 !> bind(C) shims over eval_determinant_core.
 module kilca_eigmode_solve_m
+    use kilca_legacy_interfaces_m, only: clear_all_data_in_mode_data_module
     use, intrinsic :: iso_c_binding, only: c_int, c_double, c_double_complex, &
         c_intptr_t, c_ptr, c_funptr, c_char, c_null_char, c_loc, c_funloc, &
         c_f_pointer, c_null_funptr
@@ -53,12 +54,6 @@ module kilca_eigmode_solve_m
     end type det_params_t
 
     interface
-        !> Legacy free Fortran subroutine in mode/mode_m.f90 (single trailing
-        !> underscore), not a module procedure - declared bind(C) here.
-        subroutine clear_all_data_in_mode_data_module() &
-                bind(C, name="clear_all_data_in_mode_data_module_")
-        end subroutine clear_all_data_in_mode_data_module
-
         !> fortnum multidimensional hybrid Newton solve, F(x)=0 in R^n. fdf is
         !> the residual-only callback (fortnum_vector_fn); the wrapper builds
         !> the Jacobian by central differences.
@@ -202,7 +197,7 @@ contains
 
     !> --- multi-start hybrid Newton search (oracle find_det_zeros) ---
 
-    function find_det_zeros(ind, m, n, cd) bind(C, name="find_det_zeros") result(stat)
+    function find_det_zeros(ind, m, n, cd) result(stat)
         integer(c_int), value :: ind, m, n
         integer(c_intptr_t), value :: cd
         integer(c_int) :: stat
@@ -319,8 +314,8 @@ contains
 
     !> --- brute-force 2D frequency scan (oracle loop_over_frequences) ---
 
-    function loop_over_frequences(ind, m, n, cd) bind(C, name="loop_over_frequences") &
-            result(stat)
+    function loop_over_frequences(ind, m, n, cd) &
+        result(stat)
         integer(c_int), value :: ind, m, n
         integer(c_intptr_t), value :: cd
         integer(c_int) :: stat
@@ -357,7 +352,7 @@ contains
 
     !> --- reliable zeros search via the ZerSol C wrapper (oracle find_eigmodes) ---
 
-    function find_eigmodes(ind, m, n, cd) bind(C, name="find_eigmodes") result(stat)
+    function find_eigmodes(ind, m, n, cd) result(stat)
         integer(c_int), value :: ind, m, n
         integer(c_intptr_t), value :: cd
         integer(c_int) :: stat
@@ -488,7 +483,7 @@ contains
         real(c_double) :: olab_re, olab_im
         integer(c_intptr_t) :: sd, bp, mdh, wdh
         type(c_ptr) :: wd_cptr
-        character(kind=c_char) :: path_c(1024)
+        character(len=1024) :: path_c
 
         olab_re = 2.0_dp*pi*fre
         olab_im = 2.0_dp*pi*fim
@@ -520,17 +515,13 @@ contains
     subroutine build_output_name(cd, full_name)
         integer(c_intptr_t), intent(in) :: cd
         character(len=*), intent(out) :: full_name
-        character(kind=c_char) :: path_c(1024)
+        character(len=1024) :: path_c
         character(len=1024) :: path
         integer :: i
 
         call settings_get_path2project_(core_data_get_sd_(cd), path_c)
 
-        path = ''
-        do i = 1, 1024
-            if (path_c(i) == c_null_char) exit
-            path(i:i) = path_c(i)
-        end do
+        path = path_c
 
         full_name = trim(path)//trim(es_fname)
     end subroutine build_output_name

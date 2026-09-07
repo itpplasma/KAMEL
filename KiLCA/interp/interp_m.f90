@@ -1,10 +1,6 @@
 !> Adaptive grid thinning by polynomial-interpolation error, formerly
-!> KiLCA/math/adapt_grid/adaptive_grid_pol.cpp's `sparse_grid_polynom` -- the
-!> 12-argument, multi-component overload declared in adaptive_grid_pol.h and
-!> actually reachable from flre_zone.cpp (which includes adaptive_grid_pol.h,
-!> not interp.h). There is an unrelated, scalar 11-argument function with the
-!> same name in KiLCA/interp/interp.cpp; flre_zone.cpp never includes
-!> interp.h, so that one is not its caller's target and is left untranslated.
+!> the multi-component sparse_grid_polynom algorithm in adaptive_grid_pol.cpp.
+!> FLRE zones call this native module interface to thin vector-valued profiles.
 !>
 !> find_index_for_interp/search_array/binary_search/eval_interp_polynom/
 !> func_interp below are private helpers ported from the same

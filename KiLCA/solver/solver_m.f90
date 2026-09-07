@@ -1,34 +1,20 @@
-!> ODE solver for the stiff linear system u' = A(r)*u(r) (the FLRE basis-vector
-!> integration), formerly solver.cpp + rhs_func.cpp. Translated to Fortran
-!> using the F2003 SUNDIALS CVODE interface (fcvode_mod/fnvector_serial_mod/
-!> fsunmatrix_dense_mod/fsunlinsol_dense_mod, enabled in S0) and native LAPACK
-!> complex routines (called via implicit/external interfaces, exactly as the
-!> C++ oracle treated COMPLEX*16 arrays as flat REAL*8 pairs with no type
-!> checking across the call -- using `external` here instead of an explicit
-!> interface block avoids re-litigating that real/complex aliasing under
-!> Fortran's stricter type checking).
+!> Integrates the stiff linear system u' = A(r)*u(r) using SUNDIALS CVODE
+!> and LAPACK QR factorization. Callers supply a native Fortran RHS procedure;
+!> only the adapter registered with CVODE uses C interoperability.
 !>
-!> solver_a.cpp (a near-duplicate of solver.cpp) and eigtransform.{h,cpp} are
-!> NOT in the CMake build (KiLCA/CMakeLists.txt only lists solver.cpp) and
-!> have zero live callers - dropped entirely, matching the
-!> ADAPTIVE_GRID_GENERATOR=USUAL/cond_profs.cpp precedent. Within the live
-!> solver.cpp itself: integrate_basis_vecs_ (trailing-underscore variant) is
-!> declared in solver.h but never defined anywhere - dropped.
-!> superpose_basis_vecs_ is defined but has zero callers anywhere (not even
-!> within solver.cpp) - dropped. The Jacobian path is hard-coded
-!> `#if false // USE_JACOBIAN_IN_ODE_SOLVER == 1` in the live solver.cpp
-!> (overriding the macro itself being 1 in code_settings.h/CMakeLists.txt) -
-!> CVodeSetJacFn is therefore never called, so Jacobian (rhs_func.cpp) and
-!> rhs_func_coeff (declared, never defined) are both dropped too.
+!> Complex basis arrays retain their interleaved real storage. ZGEQRF uses
+!> explicitly typed complex views and workspace; the remaining LAPACK calls
+!> retain the original storage convention.
 !>
-!> integrate_basis_vecs has exactly one call site in the whole live tree
-!> (flre_zone.cpp), always with f = &rhs_func - but the generic SysRHSFcn
-!> callback indirection (a module-level function pointer, mirroring the
-!> oracle's `SysRHSFcn rhs_mat` global) is kept rather than hard-coding the
-!> call to rhs_func, since the entry point's own signature still accepts an
-!> arbitrary callback.
+!> The active RHS procedure is module state, so integration remains serial
+!> and non-reentrant, as in the original solver.
 module kilca_solver_m
-    use, intrinsic :: iso_c_binding
+    use kilca_legacy_interfaces_m, &
+        only: calc_diff_sys_matrix_c => calc_diff_sys_matrix
+    use kilca_sysmat_profiles_m, only: get_sysmat_flag_back_c => get_sysmat_flag_back
+    use, intrinsic :: iso_c_binding, only: &
+        c_associated, c_double, c_double_complex, c_f_pointer, c_funloc, c_int, &
+        c_int64_t, c_intptr_t, c_loc, c_ptr
     use, intrinsic :: iso_fortran_env, only: error_unit, output_unit
     use fsundials_core_mod
     use fcvode_mod
@@ -38,10 +24,10 @@ module kilca_solver_m
     implicit none
     private
 
-    public :: integrate_basis_vecs, rhs_func
+    public :: integrate_basis_vecs, rhs_func, solver_settings_t, rhs_func_params_t
 
-    !> Mirrors solver.h's `struct solver_settings`.
-    type, bind(C) :: solver_settings_t
+    !> Integration tolerances and basis-renormalization settings.
+    type :: solver_settings_t
         integer(c_int) :: Nort
         real(c_double) :: eps_rel
         real(c_double) :: eps_abs
@@ -49,8 +35,8 @@ module kilca_solver_m
         integer(c_int) :: debug
     end type solver_settings_t
 
-    !> Mirrors rhs_func.h's `struct rhs_func_params`.
-    type, bind(C) :: rhs_func_params_t
+    !> Parameters owned by the FLRE zone and used by the native matrix RHS.
+    type :: rhs_func_params_t
         integer(c_int) :: Nwaves
         integer(c_int) :: Nphys
         integer(c_int) :: Nfs
@@ -59,7 +45,7 @@ module kilca_solver_m
     end type rhs_func_params_t
 
     abstract interface
-        subroutine sys_rhs_fcn(t, y, ydot, params) bind(C)
+        subroutine sys_rhs_fcn(t, y, ydot, params)
             import :: c_double, c_ptr
             real(c_double), value :: t
             real(c_double), intent(in) :: y(*)
@@ -68,10 +54,8 @@ module kilca_solver_m
         end subroutine sys_rhs_fcn
     end interface
 
-    !> Mirrors the oracle's file-scope `SysRHSFcn rhs_mat;` global, set once
-    !> per integrate_basis_vecs call and read back inside the CVODE RHS
-    !> callback (func).
-    type(c_funptr) :: rhs_mat_funptr
+    !> Active native callback, valid only during integrate_basis_vecs.
+    procedure(sys_rhs_fcn), pointer :: rhs_mat => null()
 
     external :: zungqr, ztrtri, ztrmm, zgemm, zgemv
 
@@ -84,20 +68,6 @@ module kilca_solver_m
             integer(c_int), intent(out) :: info
         end subroutine zgeqrf
 
-        function get_sysmat_flag_back_c(handle) result(ch) bind(C, name="get_sysmat_flag_back_")
-            import :: c_intptr_t, c_char
-            integer(c_intptr_t), value :: handle
-            character(kind=c_char) :: ch
-        end function get_sysmat_flag_back_c
-
-        subroutine calc_diff_sys_matrix_c(r, flagback, Dmat, fb_len) &
-            bind(C, name="calc_diff_sys_matrix_")
-            import :: c_double, c_char, c_int
-            real(c_double), intent(in) :: r
-            character(kind=c_char), intent(in) :: flagback(*)
-            real(c_double), intent(out) :: Dmat(*)
-            integer(c_int), value :: fb_len
-        end subroutine calc_diff_sys_matrix_c
     end interface
 
 contains
@@ -113,8 +83,7 @@ contains
         end if
     end function signum
 
-    !> CVODE RhsFn callback: dispatches to whatever was registered as `f` in
-    !> integrate_basis_vecs (mirrors the oracle's `func`).
+    !> C-interoperable CVODE adapter dispatching to the active native RHS.
     integer(c_int) function cvode_rhs_func(t, sunvec_y, sunvec_ydot, user_data) &
         result(ierr) bind(C)
         real(c_double), value :: t
@@ -122,26 +91,24 @@ contains
         type(N_Vector) :: sunvec_ydot
         type(c_ptr), value :: user_data
         real(c_double), pointer :: yvec(:), ydotvec(:)
-        procedure(sys_rhs_fcn), pointer :: rhs_mat
 
         yvec => FN_VGetArrayPointer(sunvec_y)
         ydotvec => FN_VGetArrayPointer(sunvec_ydot)
 
-        call c_f_procpointer(rhs_mat_funptr, rhs_mat)
         call rhs_mat(t, yvec, ydotvec, user_data)
 
         ierr = 0
     end function cvode_rhs_func
 
-    !> f: a SysRHSFcn rhs callback; Nfs: number of fundamental solutions
+    !> f: a native RHS callback; Nfs: number of fundamental solutions
     !> integrated simultaneously; Nw: dimension of the problem (number of
     !> waves); dim: dimension of the r-grid; rvec: grid points where the
     !> solution is needed; Smat: on entrance Smat(0:Neq-1) holds the starting
     !> values (re,im,re,im,...), on exit holds the basis vectors at every
     !> rvec point packed one after another.
     function integrate_basis_vecs(f, Nfs, Nw, dim, rvec, Smat, ss_ptr, params) &
-        result(ret) bind(C, name="integrate_basis_vecs")
-        type(c_funptr), value :: f
+        result(ret)
+        procedure(sys_rhs_fcn) :: f
         integer(c_int), value :: Nfs, Nw, dim
         real(c_double), intent(in) :: rvec(0:dim - 1)
         real(c_double), target, intent(inout) :: Smat(0:2*Nfs*Nw*dim - 1)
@@ -174,14 +141,15 @@ contains
         if (flag /= 0) then
             write (error_unit, '(a)') 'Error creating SUNContext'
             ret = 1
+            nullify (rhs_mat)
             return
         end if
 
         call c_f_pointer(ss_ptr, ss)
 
-        rhs_mat_funptr = f
+        rhs_mat => f
 
-        Neq = 2*Nfs*Nw
+        Neq = 2 * Nfs * Nw
         Nort = ss%Nort
 
         allocate (mem(0:Nort*(1 + Neq + 2*Nfs) - 1))
@@ -197,15 +165,19 @@ contains
 
         y => FN_VMake_Serial(int(Neq, c_int64_t), mem(ydata_i:ydata_i + Neq - 1), sunctx)
         if (.not. associated(y)) then
-            write (error_unit, '(a)') 'error: int_basis_vecs: y vector allocation failed!..'
+            write (error_unit, &
+                   '(a)') 'error: int_basis_vecs: y vector allocation failed!..'
             ret = 1
+            nullify (rhs_mat)
             return
         end if
 
         yval => FN_VMake_Serial(int(Neq, c_int64_t), mem(ydata_i:ydata_i + Neq - 1), sunctx)
         if (.not. associated(yval)) then
-            write (error_unit, '(a)') 'error: int_basis_vecs: yval vector allocation failed!..'
+            write (error_unit, &
+                   '(a)') 'error: int_basis_vecs: yval vector allocation failed!..'
             ret = 1
+            nullify (rhs_mat)
             return
         end if
 
@@ -216,6 +188,7 @@ contains
         if (.not. c_associated(cvode_mem)) then
             write (error_unit, '(a)') 'error: int_basis_vecs: cvodecreate failed!..'
             ret = 1
+            nullify (rhs_mat)
             return
         end if
 
@@ -223,41 +196,52 @@ contains
         if (flag /= 0) then
             write (error_unit, '(a)') 'error: int_basis_vecs: CVodeInit failed!..'
             ret = 1
+            nullify (rhs_mat)
             return
         end if
 
         flag = FCVodeSetMaxOrd(cvode_mem, 12)
         if (flag /= 0) then
-            write (error_unit, '(a)') 'error: int_basis_vecs: CVodeSetMaxOrd failed!..'
+            write (error_unit, &
+                   '(a)') 'error: int_basis_vecs: CVodeSetMaxOrd failed!..'
             ret = 1
+            nullify (rhs_mat)
             return
         end if
 
         flag = FCVodeSStolerances(cvode_mem, reltol, abstol)
         if (flag /= 0) then
-            write (error_unit, '(a)') 'error: int_basis_vecs: CVodeSStolerances failed!..'
+            write (error_unit, &
+                   '(a)') 'error: int_basis_vecs: CVodeSStolerances failed!..'
             ret = 1
+            nullify (rhs_mat)
             return
         end if
 
         A => FSUNDenseMatrix(int(Neq, c_int64_t), int(Neq, c_int64_t), sunctx)
         if (.not. associated(A)) then
-            write (error_unit, '(a)') 'error: int_basis_vecs: SUNDenseMatrix failed!..'
+            write (error_unit, &
+                   '(a)') 'error: int_basis_vecs: SUNDenseMatrix failed!..'
             ret = 1
+            nullify (rhs_mat)
             return
         end if
 
         LS => FSUNLinSol_Dense(y, A, sunctx)
         if (.not. associated(LS)) then
-            write (error_unit, '(a)') 'error: int_basis_vecs: SUNLinSol_Dense failed!..'
+            write (error_unit, &
+                   '(a)') 'error: int_basis_vecs: SUNLinSol_Dense failed!..'
             ret = 1
+            nullify (rhs_mat)
             return
         end if
 
         flag = FCVodeSetLinearSolver(cvode_mem, LS, A)
         if (flag /= 0) then
-            write (error_unit, '(a)') 'error: int_basis_vecs: CVodeSetLinearSolver failed!..'
+            write (error_unit, &
+                   '(a)') 'error: int_basis_vecs: CVodeSetLinearSolver failed!..'
             ret = 1
+            nullify (rhs_mat)
             return
         end if
 
@@ -265,15 +249,19 @@ contains
 
         flag = FCVodeSetStopTime(cvode_mem, rf)
         if (flag /= 0) then
-            write (error_unit, '(a)') 'error: int_basis_vecs: cvodestoptime failed!..'
+            write (error_unit, &
+                   '(a)') 'error: int_basis_vecs: cvodestoptime failed!..'
             ret = 1
+            nullify (rhs_mat)
             return
         end if
 
         flag = FCVodeSetUserData(cvode_mem, params)
         if (flag /= 0) then
-            write (error_unit, '(a)') 'error: int_basis_vecs: CVodeSetUserData failed!..'
+            write (error_unit, &
+                   '(a)') 'error: int_basis_vecs: CVodeSetUserData failed!..'
             ret = 1
+            nullify (rhs_mat)
             return
         end if
 
@@ -285,8 +273,10 @@ contains
         call c_f_pointer(c_loc(mem(taudata_i)), qr_tau, [Nfs])
         call zgeqrf(Nw, Nfs, qr_matrix, Nw, qr_tau, work_query, lwork, info)
         if (info /= 0) then
-            write (error_unit, '(a,i0)') 'error: int_basis_vecs: zgeqrf_ failed!: ', info
+            write (error_unit, '(a,i0)') 'error: int_basis_vecs: zgeqrf_ failed!: ', &
+                info
             ret = 1
+            nullify (rhs_mat)
             return
         end if
 
@@ -310,7 +300,8 @@ contains
 
             if (.not. (flag == CV_SUCCESS .or. flag == CV_TSTOP_RETURN)) then
                 write (error_unit, '(a,es12.4,a,i0)') &
-                    'error: int_basis_vecs: cvode failed!: t=', mem(rdata_i), ' flag=', flag
+                    'error: int_basis_vecs: cvode failed!: t=', mem(rdata_i), &
+                    ' flag=', flag
                 exit
             end if
 
@@ -321,8 +312,10 @@ contains
 
                     if (flag2 /= CV_SUCCESS) then
                         write (error_unit, '(a,es12.4,a,i0)') &
-                            'error: int_basis_vecs_: cvodegetdky failed!: t=', mem(rdata_i), ' flag=', flag2
+                            'error: int_basis_vecs_: cvodegetdky failed!: t=', &
+                            mem(rdata_i), ' flag=', flag2
                         ret = 1
+                        nullify (rhs_mat)
                         return
                     end if
                     rpind = i
@@ -349,7 +342,8 @@ contains
             call c_f_pointer(c_loc(mem(taudata_i)), qr_tau, [Nfs])
             call zgeqrf(Nw, Nfs, qr_matrix, Nw, qr_tau, work, lwork, info)
             if (info /= 0) then
-                write (error_unit, '(a,i0)') 'error: int_basis_vecs: zgeqrf_ failed!: ', info
+                write (error_unit, &
+                       '(a,i0)') 'error: int_basis_vecs: zgeqrf_ failed!: ', info
                 exit
             end if
 
@@ -387,7 +381,8 @@ contains
             ydata_i = ydata_i + Neq
             call zungqr(Nw, Nfs, Nfs, mem(ydata_i:), Nw, mem(taudata_i:), work, lwork, info)
             if (info /= 0) then
-                write (error_unit, '(a,i0)') 'error: int_basis_vecs: zungqr_ failed!: ', info
+                write (error_unit, &
+                       '(a,i0)') 'error: int_basis_vecs: zungqr_ failed!: ', info
                 exit
             end if
 
@@ -398,7 +393,8 @@ contains
 
             flag = FCVodeReInit(cvode_mem, mem(rdata_i), y)
             if (flag /= 0) then
-                write (error_unit, '(a,i0)') 'error: int_basis_vecs: cvodereinit failed!: flag=', flag
+                write (error_unit, &
+                       '(a,i0)') 'error: int_basis_vecs: cvodereinit failed!: flag=', flag
                 exit
             end if
         end do
@@ -412,6 +408,7 @@ contains
             (taudata_i /= Nort + Neq*Nort + 2*Nfs*step)) then
             write (error_unit, '(a)') 'error: int_basis_vecs: wrong pointers to renormalization info:'
             ret = 1
+            nullify (rhs_mat)
             return
         end if
 
@@ -433,6 +430,7 @@ contains
 
         deallocate (work)
         deallocate (mem)
+        nullify (rhs_mat)
     end function integrate_basis_vecs
 
     !> All complex arrays are stored as flat double arrays of double length
@@ -470,7 +468,7 @@ contains
         integer(c_int) :: info, dirint, step, ropind
         integer(c_int) :: rdata_i, ydata_i, taudata_i, udata_i
 
-        Neq = 2*Nfs*Nw
+        Neq = 2 * Nfs * Nw
 
         alpha = [1.0d0, 0.0d0]
         beta = [0.0d0, 0.0d0]
@@ -502,7 +500,8 @@ contains
                 call ztrtri(uplo, diag, Nfs, mem(ydata_i:), Nw, info)
                 if (info /= 0) then
                     write (error_unit, '(a,i0,a,i0,a,f0.6)') &
-                        'error: renorm_basis_vecs_: ztrtri_ failed!: info=', info, ' k=', k, ' r=', rvec(k)
+                        'error: renorm_basis_vecs_: ztrtri_ failed!: info=', info, &
+                        ' k=', k, ' r=', rvec(k)
                 end if
 
                 call ztrmm(side, uplo, trans, diag, Nfs, Nfs, alpha, mem(ydata_i:), Nw, buf, Nw)
@@ -526,7 +525,7 @@ contains
     !> (Fortran-resident) calc_diff_sys_matrix_, then multiplies it onto y to
     !> get ydot. USE_SPLINES_IN_RHS_EVALUATION's spline branch is dead
     !> (hard-coded 0), matching the precedent established for sysmat_profiles.
-    subroutine rhs_func(r, y, ydot, params) bind(C, name="rhs_func")
+    subroutine rhs_func(r, y, ydot, params)
         real(c_double), value :: r
         real(c_double), intent(in) :: y(*)
         real(c_double), intent(out) :: ydot(*)
@@ -534,16 +533,18 @@ contains
 
         type(rhs_func_params_t), pointer :: fp
         real(c_double), pointer :: Dmat(:)
-        character(kind=c_char) :: flag_back_buf(1)
+        complex(c_double), pointer :: matrix(:, :)
+        character(len=1) :: flag_back_buf
         real(c_double) :: alpha(2), beta(2)
         character(len=1) :: trans
         integer(c_int) :: Nw, Nfs
 
         call c_f_pointer(params, fp)
-        call c_f_pointer(fp%Dmat, Dmat, [2*fp%Nwaves*(fp%Nwaves + 2*fp%Nfs)])
+        call c_f_pointer(fp%Dmat, Dmat, [2 * fp%Nwaves * fp%Nwaves])
+        call c_f_pointer(fp%Dmat, matrix, [fp%Nwaves, fp%Nwaves])
 
-        flag_back_buf(1) = get_sysmat_flag_back_c(fp%sp)
-        call calc_diff_sys_matrix_c(r, flag_back_buf, Dmat, 1_c_int)
+        flag_back_buf = get_sysmat_flag_back_c(fp%sp)
+        call calc_diff_sys_matrix_c(r, flag_back_buf, matrix)
 
         alpha = [1.0d0, 0.0d0]
         beta = [0.0d0, 0.0d0]

@@ -25,16 +25,52 @@
 !> (declared in calc_flre_quants.h) and the file-local `binary_search` are
 !> dropped: both have zero definitions/callers anywhere in the live tree.
 !>
-!> calc_quant/save_quant member functions are called ONLY from within this
-!> class's own dispatch methods (never directly by flre_zone.cpp or other
-!> files), so they are plain private module subroutines, not bind(C) -- only
-!> the handful of true external entry points (create/destroy/
-!> calculate_local_profiles/calculate_integrated_profiles/save_profiles/
-!> calculate_JaE/transform_quants_to_lab_cyl_frame/interp_diss_power_density/
-!> interp_current_density) need bind(C) names.
+!> Quantity calculation and saving use private module procedures. Construction,
+!> profile evaluation, and interpolation are exposed through native module interfaces.
 module kilca_flre_quants_m
-    use, intrinsic :: iso_c_binding, only: c_int, c_intptr_t, c_double, c_char, &
-        c_ptr, c_loc, c_f_pointer, c_null_ptr, c_null_char
+    use kilca_legacy_interfaces_m, only: current_density_c => current_density
+    use kilca_legacy_interfaces_m, only: cyl2rsp_c => cyl2rsp
+    use kilca_legacy_interfaces_m, &
+        only: calc_current_density_r_s_p_c => calc_current_density_r_s_p
+    use kilca_legacy_interfaces_m, only: &
+        eval_and_set_background_parameters_spec_independent_c => &
+            eval_and_set_background_parameters_spec_independent
+    use kilca_legacy_interfaces_m, only: &
+        eval_and_set_wave_parameters_c => &
+            eval_and_set_wave_parameters
+    use kilca_legacy_interfaces_m, only: get_wave_parameters_c => get_wave_parameters
+    use kilca_legacy_interfaces_m, only: &
+        get_magnetic_field_parameters_c => &
+            get_magnetic_field_parameters
+    use kilca_legacy_interfaces_m, &
+        only: binomial_coefficients_c => binomial_coefficients
+    use kilca_antenna_settings_m, only: get_antenna_ra_c => get_antenna_ra
+    use kilca_antenna_settings_m, only: get_antenna_wa_c => get_antenna_wa
+    use kilca_background_data_m, only: eval_hthz_c
+    use kilca_background_settings_m, &
+        only: get_background_charge_c => get_background_charge
+    use kilca_background_settings_m, &
+        only: get_background_flag_back_c => get_background_flag_back
+    use kilca_background_settings_m, &
+        only: get_background_rtor_c => get_background_rtor
+    use kilca_background_settings_m, &
+        only: get_background_v_gal_sys_c => get_background_v_gal_sys
+    use kilca_inout_m, only: save_cmplx_matrix_to_one_file_c => save_cmplx_matrix_to_one_file_
+    use kilca_inout_m, only: save_real_array_c => save_real_array_
+    use kilca_output_settings_m, &
+        only: get_output_flag_additional_c => get_output_flag_additional
+    use kilca_output_settings_m, &
+        only: get_output_flag_emfield_c => get_output_flag_emfield
+    use kilca_output_settings_m, &
+        only: get_output_flag_quants_c => get_output_flag_quants
+    use kilca_output_settings_m, &
+        only: get_output_num_quants_c => get_output_num_quants
+    use kilca_spline_m, only: spline_alloc_c => spline_alloc
+    use kilca_spline_m, only: spline_calc_c => spline_calc
+    use kilca_spline_m, only: spline_eval_d_c => spline_eval_d
+    use kilca_spline_m, only: spline_free_c => spline_free
+    use, intrinsic :: iso_c_binding, only: &
+        c_int, c_intptr_t, c_double, c_ptr, c_loc, c_f_pointer, c_null_ptr
     use kilca_cond_profiles_m, only: eval_all_k_matrices, eval_all_c_matrices, &
         get_cond_nc
     use kilca_maxwell_eqs_data_m, only: get_me_iersp_sys, get_me_ibrsp_sys, &
@@ -75,7 +111,7 @@ module kilca_flre_quants_m
     type :: flre_quants_t
         integer(c_intptr_t) :: zone_cp = 0
         integer(c_intptr_t) :: zone_me = 0
-        type(c_ptr) :: zone_bp = c_null_ptr
+        integer(c_intptr_t) :: zone_bp = 0_c_intptr_t
         character(len=1024) :: path2linear
         integer(c_int) :: zone_index
         integer(c_int) :: bc1, bc2
@@ -119,165 +155,6 @@ module kilca_flre_quants_m
         real(c_double), allocatable :: number_dens(:)
         real(c_double), allocatable :: lor_torque_dens(:), lor_torque_int(:)
     end type flre_quants_t
-
-    interface
-        subroutine spline_alloc_c(N, styp, dimx, x, Carr, sid) bind(C, name="spline_alloc_")
-            import :: c_int, c_double, c_intptr_t
-            integer(c_int), value :: N, styp, dimx
-            real(c_double), intent(in) :: x(*)
-            real(c_double), intent(inout) :: Carr(*)
-            integer(c_intptr_t), intent(out) :: sid
-        end subroutine spline_alloc_c
-
-        subroutine spline_calc_c(sid, y, Imin, Imax, W, ierr) bind(C, name="spline_calc_")
-            import :: c_intptr_t, c_double, c_int, c_ptr
-            integer(c_intptr_t), value :: sid
-            real(c_double), intent(in) :: y(*)
-            integer(c_int), value :: Imin, Imax
-            type(c_ptr), value :: W
-            integer(c_int), intent(out) :: ierr
-        end subroutine spline_calc_c
-
-        subroutine spline_eval_d_c(sid, dimz, z, Dmin, Dmax, Imin, Imax, R) &
-            bind(C, name="spline_eval_d_")
-            import :: c_intptr_t, c_double, c_int
-            integer(c_intptr_t), value :: sid
-            integer(c_int), value :: dimz, Dmin, Dmax, Imin, Imax
-            real(c_double), intent(in) :: z(*)
-            real(c_double), intent(out) :: R(*)
-        end subroutine spline_eval_d_c
-
-        subroutine spline_free_c(sid) bind(C, name="spline_free_")
-            import :: c_intptr_t
-            integer(c_intptr_t), value :: sid
-        end subroutine spline_free_c
-
-        integer(c_int) function save_real_array_c(dim, xgrid, arr, full_name) &
-            bind(C, name="save_real_array")
-            import :: c_int, c_double, c_char
-            integer(c_int), value :: dim
-            real(c_double), intent(in) :: xgrid(*), arr(*)
-            character(kind=c_char), intent(in) :: full_name(*)
-        end function save_real_array_c
-
-        integer(c_int) function save_cmplx_matrix_to_one_file_c(nrows, ncols, dim, &
-            xgrid, arr, full_name) bind(C, name="save_cmplx_matrix_to_one_file")
-            import :: c_int, c_double, c_char
-            integer(c_int), value :: nrows, ncols, dim
-            real(c_double), intent(in) :: xgrid(*), arr(*)
-            character(kind=c_char), intent(in) :: full_name(*)
-        end function save_cmplx_matrix_to_one_file_c
-
-        subroutine current_density_c(jsurf) bind(C, name="current_density_")
-            import :: c_double
-            real(c_double), intent(out) :: jsurf(*)
-        end subroutine current_density_c
-
-        subroutine cyl2rsp_c(ra, jr, jt, js, jp) bind(C, name="cyl2rsp_")
-            import :: c_double
-            real(c_double), intent(in) :: ra, jr(*), jt(*)
-            real(c_double), intent(out) :: js(*), jp(*)
-        end subroutine cyl2rsp_c
-
-        subroutine calc_current_density_r_s_p_c(r, jrsp) bind(C, name="calc_current_density_r_s_p_")
-            import :: c_double
-            real(c_double), intent(in) :: r
-            real(c_double), intent(out) :: jrsp(*)
-        end subroutine calc_current_density_r_s_p_c
-
-        subroutine eval_and_set_background_parameters_spec_independent_c(r, flagback, fb_len) &
-            bind(C, name="eval_and_set_background_parameters_spec_independent_")
-            import :: c_double, c_char, c_int
-            real(c_double), intent(in) :: r
-            character(kind=c_char), intent(in) :: flagback(*)
-            integer(c_int), value :: fb_len
-        end subroutine eval_and_set_background_parameters_spec_independent_c
-
-        subroutine eval_and_set_wave_parameters_c(r, flagback, fb_len) &
-            bind(C, name="eval_and_set_wave_parameters_")
-            import :: c_double, c_char, c_int
-            real(c_double), intent(in) :: r
-            character(kind=c_char), intent(in) :: flagback(*)
-            integer(c_int), value :: fb_len
-        end subroutine eval_and_set_wave_parameters_c
-
-        subroutine get_wave_parameters_c(kvals) bind(C, name="get_wave_parameters_")
-            import :: c_double
-            real(c_double), intent(out) :: kvals(*)
-        end subroutine get_wave_parameters_c
-
-        subroutine get_magnetic_field_parameters_c(hvals) bind(C, name="get_magnetic_field_parameters_")
-            import :: c_double
-            real(c_double), intent(out) :: hvals(*)
-        end subroutine get_magnetic_field_parameters_c
-
-        subroutine eval_hthz_c(rval, omin, omax, bp, hout) bind(C, name="eval_hthz_")
-            import :: c_double, c_int, c_ptr
-            real(c_double), intent(in) :: rval
-            integer(c_int), intent(in) :: omin, omax
-            type(c_ptr), intent(in) :: bp
-            real(c_double), intent(out) :: hout(*)
-        end subroutine eval_hthz_c
-
-        function get_antenna_wa_c() result(wa) bind(C, name="get_antenna_wa_")
-            import :: c_double
-            real(c_double) :: wa
-        end function get_antenna_wa_c
-
-        function get_antenna_ra_c() result(ra) bind(C, name="get_antenna_ra_")
-            import :: c_double
-            real(c_double) :: ra
-        end function get_antenna_ra_c
-
-        function get_background_rtor_c() result(rtor) bind(C, name="get_background_rtor_")
-            import :: c_double
-            real(c_double) :: rtor
-        end function get_background_rtor_c
-
-        function get_background_v_gal_sys_c() result(v) bind(C, name="get_background_V_gal_sys_")
-            import :: c_double
-            real(c_double) :: v
-        end function get_background_v_gal_sys_c
-
-        function get_background_charge_c(i) result(ch) bind(C, name="get_background_charge_")
-            import :: c_int, c_double
-            integer(c_int), value :: i
-            real(c_double) :: ch
-        end function get_background_charge_c
-
-        function get_background_flag_back_c() result(ch) bind(C, name="get_background_flag_back_")
-            import :: c_char
-            character(kind=c_char) :: ch
-        end function get_background_flag_back_c
-
-        function get_output_flag_quants_c(i) result(flag) bind(C, name="get_output_flag_quants_")
-            import :: c_int
-            integer(c_int), value :: i
-            integer(c_int) :: flag
-        end function get_output_flag_quants_c
-
-        function get_output_flag_emfield_c() result(flag) bind(C, name="get_output_flag_emfield_")
-            import :: c_int
-            integer(c_int) :: flag
-        end function get_output_flag_emfield_c
-
-        function get_output_flag_additional_c() result(flag) bind(C, name="get_output_flag_additional_")
-            import :: c_int
-            integer(c_int) :: flag
-        end function get_output_flag_additional_c
-
-        function get_output_num_quants_c() result(n) bind(C, name="get_output_num_quants_")
-            import :: c_int
-            integer(c_int) :: n
-        end function get_output_num_quants_c
-
-        subroutine binomial_coefficients_c(N, BC) bind(C, name="binomial_coefficients_")
-            import :: c_int, c_double
-            integer(c_int), value :: N
-            real(c_double), intent(out) :: BC(*)
-        end subroutine binomial_coefficients_c
-    end interface
-
 contains
 
     !flat-index helpers, row-major (rightmost fastest), matching the C
@@ -330,15 +207,9 @@ contains
         integer(c_int), intent(in) :: dim
         real(c_double), intent(in) :: xgrid(*), arr(*)
         character(len=*), intent(in) :: fname
-        character(kind=c_char) :: cbuf(len(fname) + 1)
         integer :: i, n, ierr_unused
 
-        n = len_trim(fname)
-        do i = 1, n
-            cbuf(i) = fname(i:i)
-        end do
-        cbuf(n + 1) = c_null_char
-        ierr_unused = save_real_array_c(dim, xgrid, arr, cbuf)
+        ierr_unused = save_real_array_c(dim, xgrid, arr, fname)
     end subroutine save_arr
 
     !> Preserve the complex profile format: radius, real part, imaginary part.
@@ -347,16 +218,11 @@ contains
         real(c_double), intent(in) :: xgrid(dim), re(dim), im(dim)
         character(len=*), intent(in) :: fname
         real(c_double) :: arr(2, dim)
-        character(kind=c_char) :: cbuf(len_trim(fname) + 1)
         integer :: i, ierr_unused
 
         arr(1, :) = re
         arr(2, :) = im
-        do i = 1, len_trim(fname)
-            cbuf(i) = fname(i:i)
-        end do
-        cbuf(len_trim(fname) + 1) = c_null_char
-        ierr_unused = save_cmplx_matrix_to_one_file_c(1, 1, dim, xgrid, arr, cbuf)
+        ierr_unused = save_cmplx_matrix_to_one_file_c(1, 1, dim, xgrid, arr, fname)
     end subroutine save_complex_arr
 
     function itoa(n) result(s)
@@ -366,10 +232,13 @@ contains
     end function itoa
 
     function flre_quants_create(zone_cp, zone_me, zone_bp, path2linear_p, &
-        flreo, dimx, x_ptr, ncomps, eb_mov_ptr, wd_omov_re, wd_omov_im, &
-        bc1, bc2, zone_index) result(handle) bind(C, name="flre_quants_create_")
+         flreo, dimx, x_ptr, ncomps, eb_mov_ptr, wd_omov_re, wd_omov_im, &
+         bc1, bc2, zone_index) result(handle)
+    use kilca_cond_profiles_m, only: get_cond_nc
         integer(c_intptr_t), value :: zone_cp, zone_me
-        type(c_ptr), value :: zone_bp, path2linear_p, x_ptr, eb_mov_ptr
+        integer(c_intptr_t), value :: zone_bp
+        type(c_ptr), value :: x_ptr, eb_mov_ptr
+        character(len=*), intent(in) :: path2linear_p
         integer(c_int), value :: flreo, dimx, ncomps, bc1, bc2, zone_index
         real(c_double), value :: wd_omov_re, wd_omov_im
         integer(c_intptr_t) :: handle
@@ -381,7 +250,7 @@ contains
         qp%zone_cp = zone_cp
         qp%zone_me = zone_me
         qp%zone_bp = zone_bp
-        call read_c_string(path2linear_p, qp%path2linear)
+        qp%path2linear = path2linear_p
         qp%bc1 = bc1
         qp%bc2 = bc2
         qp%zone_index = zone_index
@@ -440,7 +309,8 @@ contains
         ! upper bound.
         allocate (qp%yarr(1:dimx*qp%ny))
         allocate (qp%sarr(0:(qp%n_spline + 1)*dimx*qp%ny - 1))
-        call spline_alloc_c(qp%n_spline, 1, dimx, qp%x, qp%sarr, qp%sidY)
+        call spline_alloc_c(qp%n_spline, 1, dimx, c_loc(qp%x), c_loc(qp%sarr), &
+        qp%sidY)
         qp%flagS = .false.
 
         ! 1-based (indices 1..dimx), NOT 0-based: every access site
@@ -456,7 +326,7 @@ contains
         handle = transfer(c_loc(qp), handle)
     end function flre_quants_create
 
-    subroutine flre_quants_destroy(handle) bind(C, name="flre_quants_destroy_")
+    subroutine flre_quants_destroy(handle)
         integer(c_intptr_t), value :: handle
         type(flre_quants_t), pointer :: qp
 
@@ -467,7 +337,7 @@ contains
     end subroutine flre_quants_destroy
 
     subroutine set_null_node_state(qp, k)
-        type(flre_quants_t), intent(inout) :: qp
+        type(flre_quants_t), target, intent(inout) :: qp
         integer(c_int), intent(in) :: k
 
         qp%node = k
@@ -477,8 +347,7 @@ contains
         qp%flagK = .false.
     end subroutine set_null_node_state
 
-    subroutine flre_quants_calculate_local_profiles(handle) &
-        bind(C, name="flre_quants_calculate_local_profiles_")
+    subroutine flre_quants_calculate_local_profiles(handle)
         integer(c_intptr_t), value :: handle
         type(flre_quants_t), pointer :: qp
         integer(c_int) :: k
@@ -517,8 +386,7 @@ contains
         end do
     end subroutine flre_quants_calculate_local_profiles
 
-    subroutine flre_quants_calculate_integrated_profiles(handle) &
-        bind(C, name="flre_quants_calculate_integrated_profiles_")
+    subroutine flre_quants_calculate_integrated_profiles(handle)
         integer(c_intptr_t), value :: handle
         type(flre_quants_t), pointer :: qp
 
@@ -529,7 +397,7 @@ contains
         if (get_output_flag_quants_c(lor_torque_dens_q) /= 0) call calc_lorentz_torque_on_cylinder(qp)
     end subroutine flre_quants_calculate_integrated_profiles
 
-    subroutine flre_quants_save_profiles(handle) bind(C, name="flre_quants_save_profiles_")
+    subroutine flre_quants_save_profiles(handle)
         integer(c_intptr_t), value :: handle
         type(flre_quants_t), pointer :: qp
 
@@ -550,7 +418,8 @@ contains
     !==================================================================
 
     subroutine calc_current_density(qp)
-        type(flre_quants_t), intent(inout) :: qp
+    use kilca_maxwell_eqs_data_m, only: get_me_der_order
+        type(flre_quants_t), target, intent(inout) :: qp
         integer(c_int) :: i, j, spec, type_, order
         complex(c_double) :: cd, cm, ef
 
@@ -616,7 +485,7 @@ contains
     !==================================================================
 
     subroutine calc_absorbed_power_density(qp)
-        type(flre_quants_t), intent(inout) :: qp
+        type(flre_quants_t), target, intent(inout) :: qp
         integer(c_int) :: spec, type_, i
         complex(c_double) :: cd, ef
         real(c_double) :: apd
@@ -641,7 +510,7 @@ contains
     end subroutine calc_absorbed_power_density
 
     subroutine calc_absorbed_power_in_cylinder(qp)
-        type(flre_quants_t), intent(inout) :: qp
+        type(flre_quants_t), target, intent(inout) :: qp
         integer(c_int) :: spec, type_
 
         if (get_output_flag_quants_c(abs_power_dens_q) == 0) return
@@ -678,7 +547,7 @@ contains
     !==================================================================
 
     subroutine calc_dissipated_power_density(qp)
-        type(flre_quants_t), intent(inout) :: qp
+        type(flre_quants_t), target, intent(inout) :: qp
         integer(c_int) :: i, j, n1, n2, spec, type_, dimk
         complex(c_double) :: dpd, km, ef1, ef2, fac
 
@@ -728,7 +597,7 @@ contains
     end subroutine calc_dissipated_power_density
 
     subroutine calc_dissipated_power_in_cylinder(qp)
-        type(flre_quants_t), intent(inout) :: qp
+        type(flre_quants_t), target, intent(inout) :: qp
         integer(c_int) :: spec, type_
 
         if (get_output_flag_quants_c(diss_power_dens_q) == 0) return
@@ -765,7 +634,7 @@ contains
     !==================================================================
 
     subroutine calc_kinetic_flux(qp)
-        type(flre_quants_t), intent(inout) :: qp
+        type(flre_quants_t), target, intent(inout) :: qp
         integer(c_int) :: i, j, n1, n2, spec, type_, p, s, dimk
         complex(c_double) :: kf, km, ef1, ef2, fac
         real(c_double) :: coeff
@@ -845,7 +714,7 @@ contains
     !==================================================================
 
     subroutine calc_poynting_flux(qp)
-        type(flre_quants_t), intent(inout) :: qp
+        type(flre_quants_t), target, intent(inout) :: qp
         complex(c_double) :: es, ep, bs, bp_
 
         es = cmplx(qp%eb_mov(idx_f(qp%ncomps, qp%node, get_me_iersp_sys(qp%zone_me, 1), 0) + 1), &
@@ -871,7 +740,7 @@ contains
     end subroutine save_poynting_flux
 
     subroutine calc_total_flux(qp)
-        type(flre_quants_t), intent(inout) :: qp
+        type(flre_quants_t), target, intent(inout) :: qp
 
         if (.not. (qp%flag_computed(kin_flux_q) .and. qp%flag_computed(poy_flux_q))) return
 
@@ -888,17 +757,19 @@ contains
     end subroutine save_total_flux
 
     subroutine calculate_field_profiles_poy_test(qp)
-        type(flre_quants_t), intent(inout) :: qp
+        type(flre_quants_t), target, intent(inout) :: qp
         integer(c_intptr_t) :: sidpf
-        real(c_double), allocatable :: spf(:), err(:)
-        real(c_double) :: divpfd(1), avrg_err, max_err
+        real(c_double), allocatable, target :: spf(:)
+        real(c_double), allocatable :: err(:)
+        real(c_double), target :: divpfd(1)
+        real(c_double) :: avrg_err, max_err
         integer(c_int) :: k, ierr
 
         if (.not. (qp%flag_computed(abs_power_dens_q) .and. qp%flag_computed(poy_flux_q))) return
 
         allocate (spf(0:(qp%n_spline + 1)*qp%dimx - 1))
-        call spline_alloc_c(qp%n_spline, 1, qp%dimx, qp%x, spf, sidpf)
-        call spline_calc_c(sidpf, qp%poy_flux, 0, 0, c_null_ptr, ierr)
+        call spline_alloc_c(qp%n_spline, 1, qp%dimx, c_loc(qp%x), c_loc(spf), sidpf)
+        call spline_calc_c(sidpf, c_loc(qp%poy_flux), 0, 0, c_null_ptr, ierr)
 
         allocate (err(0:qp%dimx - 1))
 
@@ -909,7 +780,8 @@ contains
             qp%node = k
             qp%r = qp%x(k + 1)
 
-            call spline_eval_d_c(sidpf, 1, qp%x(k + 1:k + 1), 1, 1, 0, 0, divpfd)
+            call spline_eval_d_c(sidpf, 1, c_loc(qp%x(k + 1)), 1, 1, 0, 0, &
+        c_loc(divpfd))
 
             divpfd(1) = divpfd(1)/(-qp%r*qp%vol_fac)
 
@@ -938,7 +810,7 @@ contains
     !==================================================================
 
     subroutine calc_splines_for_current_density(qp)
-        type(flre_quants_t), intent(inout) :: qp
+        type(flre_quants_t), target, intent(inout) :: qp
         integer(c_int) :: spec, part, ind, k, ierr
         integer(c_int), parameter :: type_ = 0, comp = 0
 
@@ -953,24 +825,26 @@ contains
             end do
         end do
 
-        call spline_calc_c(qp%sidY, qp%yarr, 0, qp%ny - 1, c_null_ptr, ierr)
+        call spline_calc_c(qp%sidY, c_loc(qp%yarr), 0, qp%ny - 1, c_null_ptr, ierr)
 
         qp%flagS = .true.
     end subroutine calc_splines_for_current_density
 
     subroutine calc_number_density(qp)
-        type(flre_quants_t), intent(inout) :: qp
-        character(kind=c_char) :: flag_back_buf(1)
-        real(c_double) :: kvals(3), djr(2)
+        type(flre_quants_t), target, intent(inout) :: qp
+        character(len=1) :: flag_back_buf
+        real(c_double) :: kvals(3)
+        real(c_double), target :: djr(2)
         complex(c_double) :: j(0:2), dj, nd
         integer(c_int) :: spec, i, imin, imax
 
         if (.not. qp%flagS) return
 
-        flag_back_buf(1) = get_background_flag_back_c()
+        flag_back_buf = get_background_flag_back_c()
 
-        call eval_and_set_background_parameters_spec_independent_c(qp%r, flag_back_buf, 1_c_int)
-        call eval_and_set_wave_parameters_c(qp%r, flag_back_buf, 1_c_int)
+        call eval_and_set_background_parameters_spec_independent_c(qp%r, &
+        flag_back_buf)
+        call eval_and_set_wave_parameters_c(qp%r, flag_back_buf)
         call get_wave_parameters_c(kvals)
 
         do spec = 0, 1
@@ -982,7 +856,8 @@ contains
             imin = 2*spec
             imax = imin + 1
 
-            call spline_eval_d_c(qp%sidY, 1, qp%x(qp%node + 1:qp%node + 1), 1, 1, imin, imax, djr)
+            call spline_eval_d_c(qp%sidY, 1, c_loc(qp%x(qp%node + 1)), 1, 1, imin, &
+        imax, c_loc(djr))
 
             dj = cmplx(djr(1), djr(2), c_double)
 
@@ -1020,9 +895,9 @@ contains
     end subroutine save_number_density
 
     subroutine calc_lorentz_torque_density(qp)
-        type(flre_quants_t), intent(inout) :: qp
+        type(flre_quants_t), target, intent(inout) :: qp
         real(c_double) :: h(3)
-        character(kind=c_char) :: flag_back_buf(1)
+        character(len=1) :: flag_back_buf
         complex(c_double) :: j_rsp(0:2), e_rsp(0:2), b_rsp(0:2)
         complex(c_double) :: j_cyl(0:2), e_cyl(0:2), b_cyl(0:2)
         real(c_double) :: force_density(0:2), torque_density(0:2)
@@ -1031,8 +906,9 @@ contains
 
         if (.not. qp%flag_computed(number_dens_q)) return
 
-        flag_back_buf(1) = get_background_flag_back_c()
-        call eval_and_set_background_parameters_spec_independent_c(qp%r, flag_back_buf, 1_c_int)
+        flag_back_buf = get_background_flag_back_c()
+        call eval_and_set_background_parameters_spec_independent_c(qp%r, &
+        flag_back_buf)
         call get_magnetic_field_parameters_c(h)
 
         do spec = 0, 1
@@ -1079,7 +955,7 @@ contains
     end subroutine calc_lorentz_torque_density
 
     subroutine calc_lorentz_torque_on_cylinder(qp)
-        type(flre_quants_t), intent(inout) :: qp
+        type(flre_quants_t), target, intent(inout) :: qp
         integer(c_int) :: spec, i
         real(c_double) :: factor
 
@@ -1169,8 +1045,7 @@ contains
     ! lab-frame / cylindrical-system current density transform
     !==================================================================
 
-    subroutine flre_quants_transform_quants_to_lab_cyl_frame(handle) &
-        bind(C, name="flre_quants_transform_quants_to_lab_cyl_frame_")
+    subroutine flre_quants_transform_quants_to_lab_cyl_frame(handle)
         integer(c_intptr_t), value :: handle
         type(flre_quants_t), pointer :: qp
         real(c_double), allocatable :: cd(:)
@@ -1284,11 +1159,10 @@ contains
     end subroutine save_current_density_ext
 
     !==================================================================
-    ! interpolation entry points (called externally from flre_zone.cpp)
+    ! Native interpolation entry points used by FLRE zones.
     !==================================================================
 
-    subroutine flre_quants_interp_diss_power_density(handle, x, type_, spec, dpd) &
-        bind(C, name="flre_quants_interp_diss_power_density_")
+    subroutine flre_quants_interp_diss_power_density(handle, x, type_, spec, dpd)
         integer(c_intptr_t), value :: handle
         real(c_double), value :: x
         integer(c_int), value :: type_, spec
@@ -1305,8 +1179,7 @@ contains
                                   deg, x, 0, 0, ind, dpd)
     end subroutine flre_quants_interp_diss_power_density
 
-    subroutine flre_quants_interp_current_density(handle, x, type_, spec, comp, jout) &
-        bind(C, name="flre_quants_interp_current_density_")
+    subroutine flre_quants_interp_current_density(handle, x, type_, spec, comp, jout)
         integer(c_intptr_t), value :: handle
         real(c_double), value :: x
         integer(c_int), value :: type_, spec, comp
@@ -1330,7 +1203,7 @@ contains
     ! absorbed energy from antenna current (work of E field on Ja)
     !==================================================================
 
-    subroutine flre_quants_calculate_jae(handle) bind(C, name="flre_quants_calculate_jae_")
+    subroutine flre_quants_calculate_jae(handle)
         integer(c_intptr_t), value :: handle
         type(flre_quants_t), pointer :: qp
         integer(c_int) :: k
@@ -1350,9 +1223,10 @@ contains
     end subroutine flre_quants_calculate_jae
 
     subroutine calculate_jae_delta(qp)
-        type(flre_quants_t), intent(inout) :: qp
+        type(flre_quants_t), target, intent(inout) :: qp
         integer(c_int) :: ia
-        real(c_double) :: jsurf(4), jsurft(4), antenna_ra
+        complex(c_double) :: jsurf(2), jsurft(2)
+        real(c_double) :: antenna_ra
         complex(c_double) :: ja(0:1), ef(0:1)
         integer(c_int) :: iersp_sys(0:2)
         real(c_double) :: es_re, es_im, ep_re, ep_im
@@ -1367,10 +1241,10 @@ contains
 
         call current_density_c(jsurf)
         antenna_ra = get_antenna_ra_c()
-        call cyl2rsp_c(antenna_ra, jsurf, jsurf(3:), jsurft, jsurft(3:))
+        call cyl2rsp_c(antenna_ra, jsurf(1), jsurf(2), jsurft(1), jsurft(2))
 
-        ja(0) = cmplx(jsurft(1), jsurft(2), c_double)
-        ja(1) = cmplx(jsurft(3), jsurft(4), c_double)
+        ja(0) = jsurft(1)
+        ja(1) = jsurft(2)
 
         iersp_sys(0) = get_me_iersp_sys(qp%zone_me, 0)
         iersp_sys(1) = get_me_iersp_sys(qp%zone_me, 1)
@@ -1393,8 +1267,8 @@ contains
     end subroutine calculate_jae_delta
 
     subroutine calculate_jae_distributed(qp)
-        type(flre_quants_t), intent(inout) :: qp
-        real(c_double) :: ja_rsp(4)
+        type(flre_quants_t), target, intent(inout) :: qp
+        complex(c_double) :: ja_rsp(2)
         complex(c_double) :: ja(0:1), ef(0:1)
         integer(c_int) :: iersp_sys(0:2)
         integer(c_int) :: k
@@ -1407,8 +1281,8 @@ contains
         do k = 0, qp%dimx - 1
             call calc_current_density_r_s_p_c(qp%x(k + 1), ja_rsp)
 
-            ja(0) = cmplx(ja_rsp(1), ja_rsp(2), c_double)
-            ja(1) = cmplx(ja_rsp(3), ja_rsp(4), c_double)
+            ja(0) = ja_rsp(1)
+            ja(1) = ja_rsp(2)
 
             es_re = qp%eb_mov(idx_f(qp%ncomps, k, iersp_sys(1), 0) + 1)
             es_im = qp%eb_mov(idx_f(qp%ncomps, k, iersp_sys(1), 1) + 1)
@@ -1446,19 +1320,5 @@ contains
         ccp = transfer(handle, ccp)
         call c_f_pointer(ccp, qp)
     end subroutine handle_to_qp
-
-    subroutine read_c_string(cp_, out)
-        type(c_ptr), value :: cp_
-        character(len=*), intent(out) :: out
-        character(kind=c_char), pointer :: chars(:)
-        integer :: i
-
-        call c_f_pointer(cp_, chars, [len(out)])
-        out = ''
-        do i = 1, len(out)
-            if (chars(i) == c_null_char) exit
-            out(i:i) = chars(i)
-        end do
-    end subroutine read_c_string
 
 end module kilca_flre_quants_m

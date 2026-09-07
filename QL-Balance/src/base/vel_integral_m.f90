@@ -65,8 +65,7 @@ contains
         fx = exp(-x*x)/((P%a*x + P%omE)**2 + P%nu*P%nu)*re_field*ind_fac
     end function vi_func
 
-    subroutine calc_velocity_integral(ind, vT, ks, kp, omE, nu, Es, Ep, res) &
-        bind(C, name="calc_velocity_integral_")
+    subroutine calc_velocity_integral(ind, vT, ks, kp, omE, nu, Es, Ep, res)
         integer(c_int), value :: ind
         real(c_double), value :: vT, ks, kp, omE, nu
         real(c_double) :: Es(*), Ep(*), res(*)

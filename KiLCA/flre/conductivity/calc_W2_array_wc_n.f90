@@ -3,6 +3,9 @@
 !------------------------------------------------------------------------------
 
 subroutine calc_W2_array (spec)
+    use kilca_hyper1f1_m, only: &
+        hypergeometric1f1_cont_fract_1_modified_0_ada => &
+            h_cont_fract_1_modified_0_ada
 
 use constants, only: dpc, dp, sqrt2p;
 use conduct_arrays, only: vE, W2;

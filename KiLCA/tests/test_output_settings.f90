@@ -2,39 +2,19 @@
 !>
 !> Writes a known output.in matching output_sett::read_settings' layout (header,
 !> four run flags, two skips, flag_debug, two skips, then 8 flag_quants), runs
-!> read_output_settings_, and checks every getter. Locks the skip positions and
+!> read_output_settings, and checks every getter. Locks the skip positions and
 !> the flag_quants array indexing.
 program test_output_settings
-    use, intrinsic :: iso_c_binding, only: c_int, c_char, c_null_char
+    use kilca_output_settings_m, only: &
+        read_output_settings, get_bg => &
+        get_output_flag_background, get_em => &
+        get_output_flag_emfield, get_add => &
+        get_output_flag_additional, get_disp => &
+        get_output_flag_dispersion, get_nq => &
+        get_output_num_quants, get_fq => &
+        get_output_flag_quants
     implicit none
 
-    interface
-        subroutine read_output_settings(path) bind(C, name="read_output_settings_")
-            import :: c_char
-            character(kind=c_char), dimension(*), intent(in) :: path
-        end subroutine
-        integer(c_int) function get_bg() bind(C, name="get_output_flag_background_")
-            import :: c_int
-        end function
-        integer(c_int) function get_em() bind(C, name="get_output_flag_emfield_")
-            import :: c_int
-        end function
-        integer(c_int) function get_add() bind(C, name="get_output_flag_additional_")
-            import :: c_int
-        end function
-        integer(c_int) function get_disp() bind(C, name="get_output_flag_dispersion_")
-            import :: c_int
-        end function
-        integer(c_int) function get_nq() bind(C, name="get_output_num_quants_")
-            import :: c_int
-        end function
-        integer(c_int) function get_fq(i) bind(C, name="get_output_flag_quants_")
-            import :: c_int
-            integer(c_int), value :: i
-        end function
-    end interface
-
-    character(kind=c_char), dimension(2) :: cpath
     integer :: u, failures, k
 
     failures = 0
@@ -55,9 +35,7 @@ program test_output_settings
     end do
     close (u)
 
-    cpath(1) = '.'
-    cpath(2) = c_null_char
-    call read_output_settings(cpath)
+    call read_output_settings('.')
 
     call check("flag_background", get_bg(), 1)
     call check("flag_emfield", get_em(), 2)

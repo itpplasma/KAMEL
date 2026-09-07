@@ -12,8 +12,9 @@
 !> hard-coded to 0 in CMakeLists.txt, so the C++ #if SORT_DISPERSION_PROFILES
 !> == 1 branch calling it was dead code in the active build.
 module kilca_disp_profiles_m
-    use, intrinsic :: iso_c_binding, only: c_int, c_intptr_t, c_char, c_double, &
-        c_ptr, c_null_ptr, c_loc, c_f_pointer
+    use kilca_inout_m, only: save_cmplx_matrix_to_one_file => save_cmplx_matrix_to_one_file_
+    use, intrinsic :: iso_c_binding, only: &
+        c_int, c_intptr_t, c_double, c_ptr, c_null_ptr, c_loc, c_f_pointer
     use, intrinsic :: iso_fortran_env, only: dp => real64
     implicit none
     private
@@ -38,39 +39,27 @@ module kilca_disp_profiles_m
             real(dp), intent(in) :: r
             character(*), intent(in) :: flagback
             integer, intent(in) :: flagprint
-            real(dp), intent(out) :: kval(*)
-            real(dp), intent(out) :: polvec(*)
+            complex(dp), intent(out) :: kval(*)
+            complex(dp), intent(out) :: polvec(*)
         end subroutine calc_dispersion
 
-        function save_cmplx_matrix_to_one_file(Nrows, Ncols, Npoints, xgrid, arr, full_name) &
-            result(ierr) bind(C, name="save_cmplx_matrix_to_one_file")
-            import :: c_int, c_double, c_char
-            integer(c_int), value :: Nrows, Ncols, Npoints
-            real(c_double), intent(in) :: xgrid(*)
-            real(c_double), intent(in) :: arr(*)
-            character(kind=c_char), intent(in) :: full_name(*)
-            integer(c_int) :: ierr
-        end function save_cmplx_matrix_to_one_file
     end interface
 
 contains
 
-    function disp_profiles_create(Nw, dimx_p, x_p, flag_back_p) result(handle) &
-        bind(C, name="disp_profiles_create_")
+    function disp_profiles_create(Nw, dimx_p, x_p, flag_back_p) result(handle)
         integer(c_int), value :: Nw, dimx_p
         type(c_ptr), value :: x_p
-        type(c_ptr), value :: flag_back_p
+        character(len=*), intent(in) :: flag_back_p
         integer(c_intptr_t) :: handle
         type(disp_profiles_t), pointer :: d
-        character(kind=c_char), pointer :: fb
 
         allocate (d)
         d%Nwaves = Nw
         d%dimx = dimx_p
         d%x_ptr = x_p
 
-        call c_f_pointer(flag_back_p, fb)
-        d%flag_back = fb
+        d%flag_back = flag_back_p
 
         d%dimk = 2*Nw
         allocate (d%k(d%dimk*dimx_p))
@@ -81,7 +70,7 @@ contains
         handle = transfer(c_loc(d), handle)
     end function disp_profiles_create
 
-    subroutine disp_profiles_destroy(handle) bind(C, name="disp_profiles_destroy_")
+    subroutine disp_profiles_destroy(handle)
         integer(c_intptr_t), value :: handle
         type(disp_profiles_t), pointer :: d
 
@@ -92,7 +81,7 @@ contains
         deallocate (d)
     end subroutine disp_profiles_destroy
 
-    subroutine disp_profiles_calculate(handle) bind(C, name="disp_profiles_calculate_")
+    subroutine disp_profiles_calculate(handle)
         integer(c_intptr_t), value :: handle
         type(disp_profiles_t), pointer :: d
         real(c_double), pointer :: x(:)
@@ -102,24 +91,26 @@ contains
         call c_f_pointer(d%x_ptr, x, [d%dimx])
 
         do i = 0, d%dimx - 1
-            call calc_dispersion(x(i + 1), d%flag_back, 0, &
-                                 d%k(d%dimk*i + 1:), d%p(d%dimp*i + 1:))
+            block
+                complex(dp) :: kval(d%Nwaves), polvec(d%Nwaves, d%Nwaves)
+                call calc_dispersion(x(i + 1), d%flag_back, 0, kval, polvec)
+                d%k(d%dimk * i + 1:d%dimk * (i + 1)) = transfer(kval, d%k(1), d%dimk)
+                d%p(d%dimp * i + 1:d%dimp * (i + 1)) = transfer(polvec, d%p(1), d%dimp)
+            end block
         end do
     end subroutine disp_profiles_calculate
 
-    subroutine disp_profiles_save(handle, filename) bind(C, name="disp_profiles_save_")
+    subroutine disp_profiles_save(handle, filename)
         integer(c_intptr_t), value :: handle
-        type(c_ptr), value :: filename
+        character(len=*), intent(in) :: filename
         type(disp_profiles_t), pointer :: d
         real(c_double), pointer :: x(:)
-        character(kind=c_char), pointer :: fname(:)
         integer(c_int) :: ierr
 
         call handle_to_d(handle, d)
         call c_f_pointer(d%x_ptr, x, [d%dimx])
-        call c_f_pointer(filename, fname, [1024])
 
-        ierr = save_cmplx_matrix_to_one_file(d%Nwaves, 1, d%dimx, x, d%k, fname)
+        ierr = save_cmplx_matrix_to_one_file(d%Nwaves, 1, d%dimx, x, d%k, filename)
     end subroutine disp_profiles_save
 
     subroutine handle_to_d(handle, d)

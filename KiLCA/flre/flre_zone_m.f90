@@ -9,26 +9,23 @@
 !> Field renamed from the C++ class: `dp` -> `dp_handle` (collides with the
 !> `dp` real-kind parameter from `constants`).
 !>
-!> Several free C functions declared in flre_zone.h are callbacks invoked BY
-!> pre-existing legacy Fortran (flre_sett_m.f90's setup_flre_data_module,
-!> KiLCA/flre/maxwell_eqs/flre.f90, KiLCA/interface/wave_code_interface.cpp)
-!> with a zone handle passed BY REFERENCE (address-of-handle, matching the
-!> oracle's `flre_zone **ptr` convention) -- NOT by VALUE like the
-!> mode.cpp-facing zone_*_c dispatch shims in kilca_zone_m. These are defined
-!> here as bind(C) subroutines taking `integer(c_intptr_t), intent(in)`
-!> (no VALUE attribute).
+!> Legacy physics entry points pass zone handles by reference; the native
+!> zone-dispatch procedures in kilca_zone_m pass handles by value. Explicit
+!> interfaces preserve this distinction without C linkage.
 !>
-!> path2linear/path2dispersion: the oracle recomputes these via
-!> eval_path_to_linear_data/eval_path_to_dispersion_data (mode.cpp, still
-!> C++, NOT extern "C" so unreachable from Fortran). mode.cpp already
-!> computes the identical strings once at mode construction and copies them
-!> into the shared `mode_data` Fortran module (mode_m.f90) via
-!> copy_mode_paths_to_mode_data_module_; this module reads them from there
-!> instead of recomputing, which is both simpler and guarantees identical
-!> strings to whatever mode.cpp itself uses for the same mode.
+!> Output paths are read from the shared mode_data module, populated once
+!> during mode construction, so all zones use the owning mode's paths.
 module kilca_flre_zone_m
-    use, intrinsic :: iso_c_binding, only: c_int, c_intptr_t, c_double, c_char, &
-        c_ptr, c_funptr, c_funloc, c_loc, c_f_pointer, c_null_ptr, c_null_char
+    use kilca_legacy_interfaces_m, &
+        only: binomial_coefficients_local => binomial_coefficients
+    use kilca_background_settings_m, only: get_background_flag_back
+    use kilca_background_settings_m, only: get_background_rtor
+    use kilca_background_settings_m, only: get_background_v_gal_sys
+    use kilca_output_settings_m, only: get_output_flag_dispersion
+    use kilca_solver_m, only: integrate_basis_vecs_local => integrate_basis_vecs
+    use kilca_solver_m, only: solver_settings_t, rhs_func_params_t
+    use, intrinsic :: iso_c_binding, only: &
+        c_int, c_intptr_t, c_char, c_ptr, c_loc, c_f_pointer, c_null_ptr
     use constants, only: dp, im
     use kilca_zone_m, only: zone_t, zone_register, handle_to_zone, zone_read, zone_print, &
         skip_line, read_real_before_hash, read_int_before_hash, read_token_before_hash, &
@@ -72,24 +69,8 @@ module kilca_flre_zone_m
     public :: calc_flre_basis_in_lab_cyl_frame_with_full_system_vectors_
     public :: flre_zone_get_flre_order_, flre_zone_get_cp_
 
-    type, bind(C) :: solver_settings_local_t
-        integer(c_int) :: Nort
-        real(c_double) :: eps_rel
-        real(c_double) :: eps_abs
-        real(c_double) :: norm_fac
-        integer(c_int) :: debug
-    end type solver_settings_local_t
-
     !> Mirrors kilca_solver_m's private rhs_func_params_t field-for-field
     !> (cannot `use` it directly: not in that module's public list).
-    type, bind(C) :: rhs_func_params_local_t
-        integer(c_int) :: Nwaves
-        integer(c_int) :: Nphys
-        integer(c_int) :: Nfs
-        type(c_ptr) :: Dmat
-        integer(c_intptr_t) :: sp
-    end type rhs_func_params_local_t
-
     type, extends(zone_t) :: flre_zone_t
         integer(c_intptr_t) :: me = 0, cp = 0, sp = 0, dp_handle = 0, qp = 0
         integer(c_intptr_t) :: self_handle = 0
@@ -123,11 +104,7 @@ module kilca_flre_zone_m
         module procedure calc_deriv_product_rc
     end interface calc_deriv_product
 
-    !> Free-function / legacy-Fortran callbacks. Names without a trailing
-    !> underscore are pre-existing plain Fortran subprograms (90k-LOC legacy
-    !> physics code, predating this port); gfortran's default external-name
-    !> mangling already matches the trailing-underscore C declarations in
-    !> flre_zone.h, so they are called here by their bare Fortran name.
+    !> Native interfaces to pre-existing external Fortran physics routines.
     !> Array dummies use assumed-size (F77 sequence association) to match
     !> the legacy routines' own explicit-shape, descriptor-free ABI.
     interface
@@ -189,52 +166,6 @@ module kilca_flre_zone_m
             integer, intent(in) :: iErsp_sys(3)
         end subroutine normalize_flre_basis
 
-        function get_background_rtor() bind(C, name="get_background_rtor_") result(rtor)
-            import :: c_double
-            real(c_double) :: rtor
-        end function get_background_rtor
-
-        function get_background_V_gal_sys() bind(C, name="get_background_V_gal_sys_") result(vgal)
-            import :: c_double
-            real(c_double) :: vgal
-        end function get_background_V_gal_sys
-
-        function get_background_flag_back() bind(C, name="get_background_flag_back_") result(ch)
-            import :: c_char
-            character(kind=c_char) :: ch
-        end function get_background_flag_back
-
-        integer(c_int) function get_output_flag_dispersion() &
-            bind(C, name="get_output_flag_dispersion_")
-            import :: c_int
-        end function get_output_flag_dispersion
-
-        !> Still-C++ shared.cpp free function (binomial_coefficients_,
-        !> extern "C"); same interface duplicated per-module already by
-        !> kilca_cond_profiles_m/kilca_flre_quants_m, since it is module-
-        !> private there too.
-        subroutine binomial_coefficients_local(N, BC) bind(C, name="binomial_coefficients_")
-            import :: c_int, c_double
-            integer(c_int), value :: N
-            real(c_double), intent(out) :: BC(*)
-        end subroutine binomial_coefficients_local
-
-        !> Local redeclaration of kilca_solver_m's integrate_basis_vecs with
-        !> a COMPLEX Smat dummy (bind(C) explicit-shape array dummies are
-        !> passed as plain base addresses, so this is ABI-identical to the
-        !> module's own REAL(c_double) declaration -- same established
-        !> convention as LAPACK/legacy-Fortran complex-as-flat-real calls
-        !> elsewhere in this port).
-        function integrate_basis_vecs_local(f, Nfs, Nw, dim, rvec, Smat, ss_ptr, params) &
-            result(ret) bind(C, name="integrate_basis_vecs")
-            import :: c_funptr, c_int, c_double, c_ptr, dp
-            type(c_funptr), value :: f
-            integer(c_int), value :: Nfs, Nw, dim
-            real(c_double), intent(in) :: rvec(0:dim - 1)
-            complex(dp), intent(inout) :: Smat(0:Nfs*Nw*dim - 1)
-            type(c_ptr), value :: ss_ptr, params
-            integer(c_int) :: ret
-        end function integrate_basis_vecs_local
     end interface
 
 contains
@@ -242,9 +173,9 @@ contains
     !> ---- construction / destruction ----
 
     function flre_zone_create_(sd_ptr, bp_ptr, wd_handle, path, index_p) &
-        result(handle) bind(C, name="flre_zone_create_")
+        result(handle)
         integer(c_intptr_t), value :: sd_ptr, bp_ptr, wd_handle
-        character(kind=c_char), intent(in) :: path(*)
+        character(len=*), intent(in) :: path
         integer(c_int), value :: index_p
         integer(c_intptr_t) :: handle
 
@@ -256,13 +187,7 @@ contains
         allocate (fz)
         fz%bp = bp_ptr
         fz%index = int(index_p)
-        fz%path = ''
-        i = 0
-        do
-            if (path(i + 1) == c_null_char .or. i >= len(fz%path)) exit
-            fz%path(i + 1:i + 1) = path(i + 1)
-            i = i + 1
-        end do
+        fz%path = path
         wd_cptr = transfer(wd_handle, wd_cptr)
         call c_f_pointer(wd_cptr, fz%wd)
 
@@ -356,7 +281,7 @@ contains
 
         if (self%bc1 == BOUNDARY_CENTER .or. self%bc1 == BOUNDARY_IDEALWALL .or. &
             self%bc2 == BOUNDARY_INFINITY .or. self%bc2 == BOUNDARY_IDEALWALL) then
-            self%Nfs = self%Nwaves/2
+            self%Nfs = self%Nwaves / 2
         else
             self%Nfs = self%Nwaves
         end if
@@ -395,12 +320,14 @@ contains
     !> ---- basis-field calculation ----
 
     subroutine flre_calc_basis_fields(self, flag)
+        use kilca_cond_profiles_m, only: get_cond_flag_back
+        use kilca_cond_profiles_m, only: get_cond_nc
+        use kilca_cond_profiles_m, only: get_cond_path2linear
         class(flre_zone_t), intent(inout) :: self
         integer, intent(in) :: flag
         real(dp) :: a_, b_
-        character(kind=c_char), target :: path2linear_buf(1025)
-        character(kind=c_char), target :: flag_back_buf(2)
-        character(kind=c_char), target :: path2linear_buf2(1025)
+        character(len=1) :: flag_back_buf
+        character(len=1024) :: path2linear_buf2
 
         if (flag /= 0) then
             self%rsp = 0
@@ -421,13 +348,14 @@ contains
         a_ = max(self%r1 - 1.0_dp, get_background_x0())
         b_ = min(self%r2 + 1.0_dp, get_background_xlast())
 
-        call to_cstr(trim(md_path2linear), path2linear_buf)
-
-        self%cp = cond_profiles_create(c_loc(path2linear_buf), self%flre_order, self%gal_corr, &
-                                        self%N, self%max_dim_c, self%r1, self%r2, self%D, &
-                                        self%eps_out, self%eps_res, a_, b_, self%wd%r_res, &
-                                        real(self%wd%omov, dp), aimag(self%wd%omov), &
-                                        self%flag_debug, flag)
+        self%cp = cond_profiles_create(md_path2linear, self%flre_order, &
+                                       self%gal_corr, &
+                                       self%N, self%max_dim_c, self%r1, self%r2, &
+                                       self%D, &
+                                       self%eps_out, self%eps_res, a_, b_, &
+                                       self%wd%r_res, &
+                                       real(self%wd%omov, dp), aimag(self%wd%omov), &
+                                       self%flag_debug, flag)
 
         call set_cond_profiles_in_mode_data_module(self%cp)
 
@@ -438,14 +366,14 @@ contains
             return
         end if
 
-        flag_back_buf(1) = get_cond_flag_back(self%cp)
-        flag_back_buf(2) = c_null_char
+        flag_back_buf = get_cond_flag_back(self%cp)
         call get_cond_path2linear(self%cp, path2linear_buf2)
 
-        self%sp = sysmat_profiles_create(self%Nwaves, c_loc(flag_back_buf), &
-                                          c_loc(path2linear_buf2), get_cond_nc(self%cp), &
-                                          self%max_dim_c, self%eps_out, self%flag_debug, &
-                                          self%r1, self%r2, self%wd%r_res)
+        self%sp = sysmat_profiles_create(self%Nwaves, flag_back_buf, &
+                                         path2linear_buf2, get_cond_nc(self%cp), &
+                                         self%max_dim_c, self%eps_out, &
+                                         self%flag_debug, &
+                                         self%r1, self%r2, self%wd%r_res)
 
         call set_sysmat_profiles_in_mode_data_module(self%sp)
 
@@ -470,6 +398,7 @@ contains
     !> commented-out alternative start-value calls (left as comments, never
     !> activated).
     subroutine flre_calculate_field_profiles_orth(self)
+        use kilca_maxwell_eqs_data_m, only: get_me_iersp_sys
         class(flre_zone_t), intent(inout) :: self
         complex(dp), allocatable :: y(:, :)
         integer :: ind1, ind2
@@ -479,10 +408,11 @@ contains
         real(dp) :: sgn, r_res, rcur, dr
         integer :: node, dim_local
         complex(dp), allocatable, target :: state(:, :, :)
+        real(dp), pointer :: state_real(:)
         integer :: j, j1, j2, dj, k, ind, node_param
         real(dp), allocatable, target :: Dmat(:)
-        type(solver_settings_local_t), target :: ss
-        type(rhs_func_params_local_t), target :: params
+        type(solver_settings_t), target :: ss
+        type(rhs_func_params_t), target :: params
         integer(c_int) :: ret
         integer :: iErsp_sys_local(0:2)
 
@@ -494,20 +424,20 @@ contains
             rf = self%r2
             !calc_start_values_anywhere_low_derivs_ (&ri, y); -- oracle also has this commented out
             call calc_start_values_center_with_correct_asymptotic(ri, y(:, 1:self%Nwaves/2))
-            self%Nfs = self%Nwaves/2
+            self%Nfs = self%Nwaves / 2
             ind1 = 0
             ind2 = self%Nfs - 1
         else if (self%bc1 == BOUNDARY_IDEALWALL) then
             ri = self%r1
             rf = self%r2
-            call calc_start_values_anywhere_low_derivs(ri, y(:, 1:self%Nwaves/2))
-            self%Nfs = self%Nwaves/2
+            call calc_start_values_anywhere_low_derivs(ri, y(:, 1:self%Nwaves / 2))
+            self%Nfs = self%Nwaves / 2
             ind1 = 0
             ind2 = self%Nfs - 1
         else if (self%bc2 == BOUNDARY_INFINITY) then
             ri = self%r2
             rf = self%r1
-            self%Nfs = self%Nwaves/2
+            self%Nfs = self%Nwaves / 2
             ind1 = self%Nfs
             ind2 = self%Nwaves - 1
             write (*, '(a)') 'flre_zone::calculate_field_profiles_orth: not implemented!'
@@ -515,8 +445,8 @@ contains
         else if (self%bc2 == BOUNDARY_IDEALWALL) then
             ri = self%r2
             rf = self%r1
-            call calc_start_values_anywhere_low_derivs(ri, y(:, 1:self%Nwaves/2))
-            self%Nfs = self%Nwaves/2
+            call calc_start_values_anywhere_low_derivs(ri, y(:, 1:self%Nwaves / 2))
+            self%Nfs = self%Nwaves / 2
             ind1 = 0
             ind2 = self%Nfs - 1
         else
@@ -538,10 +468,10 @@ contains
 
             rcur = ri
             node = 0
-            do while ((rcur - rf)*sgn < 0.0_dp)
-                rcur = rcur + ((self%dr_out - self%dr_res)* &
-                               (1.0_dp - exp(-(rcur - r_res)*(rcur - r_res)/self%del/self%del)) + &
-                               self%dr_res)*sgn
+            do while ((rcur - rf) * sgn < 0.0_dp)
+                rcur = rcur + ((self%dr_out - self%dr_res) * &
+                          (1.0_dp - exp(-(rcur - r_res) * (rcur - r_res) / self%del / self%del)) + &
+                               self%dr_res) * sgn
                 node = node + 1
             end do
 
@@ -550,12 +480,12 @@ contains
 
             rcur = ri
             node = 0
-            do while ((rcur - rf)*sgn < 0.0_dp)
+            do while ((rcur - rf) * sgn < 0.0_dp)
                 node = node + 1
                 grid(node) = rcur
-                rcur = rcur + ((self%dr_out - self%dr_res)* &
-                               (1.0_dp - exp(-(rcur - r_res)*(rcur - r_res)/self%del/self%del)) + &
-                               self%dr_res)*sgn
+                rcur = rcur + ((self%dr_out - self%dr_res) * &
+                          (1.0_dp - exp(-(rcur - r_res) * (rcur - r_res) / self%del / self%del)) + &
+                               self%dr_res) * sgn
             end do
             grid(node + 1) = rf
         else
@@ -592,8 +522,9 @@ contains
         ss%norm_fac = self%norm_fac
         ss%debug = self%flag_debug
 
-        ret = integrate_basis_vecs_local(c_funloc(rhs_func), self%Nfs, self%Nwaves, dim_local, &
-                                          grid, state, c_loc(ss), c_loc(params))
+        call c_f_pointer(c_loc(state), state_real, [2 * size(state)])
+        ret = integrate_basis_vecs_local(rhs_func, self%Nfs, self%Nwaves, dim_local, &
+                                         grid, state_real, c_loc(ss), c_loc(params))
 
         deallocate (Dmat)
 
@@ -668,6 +599,8 @@ contains
     !> shrinks the logical `dim`); only self%EB_mov is freshly allocated at
     !> the new (smaller-or-equal) dimension.
     subroutine flre_calc_final_fields(self)
+        use kilca_maxwell_eqs_data_m, only: get_me_num_eqs
+        use kilca_maxwell_eqs_data_m, only: get_me_num_vars
         class(flre_zone_t), intent(inout) :: self
         integer, allocatable :: ind(:)
         real(dp), allocatable :: rnew(:)
@@ -758,30 +691,35 @@ contains
     end subroutine flre_save_system_vector_in_mov_frame
 
     subroutine flre_calc_dispersion(self)
+        use kilca_disp_profiles_m, only: disp_profiles_calculate
+        use kilca_sysmat_profiles_m, only: get_sysmat_dimx
+        use kilca_sysmat_profiles_m, only: get_sysmat_x_ptr
         class(flre_zone_t), intent(inout) :: self
-        character(kind=c_char), target :: flag_back_buf(2)
-        flag_back_buf(1) = get_background_flag_back()
-        flag_back_buf(2) = c_null_char
+        character(len=1) :: flag_back_buf
+        flag_back_buf = get_background_flag_back()
         self%dp_handle = disp_profiles_create(self%Nwaves, get_sysmat_dimx(self%sp), &
-                                               get_sysmat_x_ptr(self%sp), c_loc(flag_back_buf))
+                                              get_sysmat_x_ptr(self%sp), &
+                                              flag_back_buf)
         call disp_profiles_calculate(self%dp_handle)
     end subroutine flre_calc_dispersion
 
     subroutine flre_save_dispersion(self)
+        use kilca_disp_profiles_m, only: disp_profiles_save
         class(flre_zone_t), intent(inout) :: self
-        character(kind=c_char), target :: filename(1025)
         character(len=1024) :: fname_str
 
         write (fname_str, '(a,a,i0,a)') trim(md_path2dispersion), 'zone_', self%index, '_kr.dat'
-        call to_cstr(trim(fname_str), filename)
-        call disp_profiles_save(self%dp_handle, c_loc(filename))
+        call disp_profiles_save(self%dp_handle, fname_str)
     end subroutine flre_save_dispersion
 
     subroutine flre_calc_all_quants(self)
+        use kilca_flre_quants_m, only: flre_quants_calculate_integrated_profiles
+        use kilca_flre_quants_m, only: flre_quants_calculate_jae
+        use kilca_flre_quants_m, only: flre_quants_calculate_local_profiles
+        use kilca_flre_quants_m, only: flre_quants_transform_quants_to_lab_cyl_frame
         class(flre_zone_t), intent(inout) :: self
         class(zone_t), pointer :: zp
         type(c_ptr) :: x_cptr, ebmov_cptr
-        character(kind=c_char), target :: path2linear_buf(1025)
 
         call handle_to_zone(self%self_handle, zp)
         select type (zp)
@@ -790,12 +728,11 @@ contains
             ebmov_cptr = c_loc(zp%EB_mov)
         end select
 
-        call to_cstr(trim(md_path2linear), path2linear_buf)
-
-        self%qp = flre_quants_create(self%cp, self%me, c_null_ptr, c_loc(path2linear_buf), &
-                                      self%flre_order, self%dim, x_cptr, self%Ncomps, ebmov_cptr, &
-                                      real(self%wd%omov, dp), aimag(self%wd%omov), &
-                                      self%bc1, self%bc2, self%index)
+        self%qp = flre_quants_create(self%cp, self%me, self%bp, md_path2linear, &
+                                     self%flre_order, self%dim, x_cptr, &
+                                     self%Ncomps, ebmov_cptr, &
+                                     real(self%wd%omov, dp), aimag(self%wd%omov), &
+                                     self%bc1, self%bc2, self%index)
 
         call flre_quants_calculate_jae(self%qp)
         call flre_quants_calculate_local_profiles(self%qp)
@@ -804,11 +741,13 @@ contains
     end subroutine flre_calc_all_quants
 
     subroutine flre_save_all_quants(self)
+        use kilca_flre_quants_m, only: flre_quants_save_profiles
         class(flre_zone_t), intent(inout) :: self
         call flre_quants_save_profiles(self%qp)
     end subroutine flre_save_all_quants
 
     subroutine flre_eval_diss_power_density(self, x, ttype, spec, dpd)
+        use kilca_flre_quants_m, only: flre_quants_interp_diss_power_density
         class(flre_zone_t), intent(in) :: self
         real(dp), intent(in) :: x
         integer, intent(in) :: ttype, spec
@@ -817,6 +756,7 @@ contains
     end subroutine flre_eval_diss_power_density
 
     subroutine flre_eval_current_density(self, x, ttype, spec, comp, J)
+        use kilca_flre_quants_m, only: flre_quants_interp_current_density
         class(flre_zone_t), intent(in) :: self
         real(dp), intent(in) :: x
         integer, intent(in) :: ttype, spec, comp
@@ -824,9 +764,8 @@ contains
         call flre_quants_interp_current_density(self%qp, x, ttype, spec, comp, J)
     end subroutine flre_eval_current_density
 
-    !> ---- activation helpers (shared by calc_final_fields and the
-    !> bind(C) activate_/deactivate_fortran_modules_for_zone_ entry points
-    !> called from wave_code_interface.cpp) ----
+    !> ---- activation helpers shared by final-field calculation and the
+    !> native wave-code interface entry points ----
 
     subroutine flre_activate_fortran_modules(self)
         class(flre_zone_t), intent(inout) :: self
@@ -853,6 +792,8 @@ contains
     !> the maxwell_eqs_data component lookup the oracle's flre_zone::iF(int)
     !> performed.
     integer function iF_comp(self, comp) result(idx)
+        use kilca_maxwell_eqs_data_m, only: get_me_ibrsp_sys
+        use kilca_maxwell_eqs_data_m, only: get_me_iersp_sys
         class(flre_zone_t), intent(in) :: self
         integer, intent(in) :: comp
         if (comp < 3) then
@@ -863,6 +804,9 @@ contains
     end function iF_comp
 
     subroutine system_to_state_copy(self, system, state)
+        use kilca_maxwell_eqs_data_m, only: get_me_dim_ersp_state
+        use kilca_maxwell_eqs_data_m, only: get_me_iersp_state
+        use kilca_maxwell_eqs_data_m, only: get_me_iersp_sys
         class(flre_zone_t), intent(in) :: self
         complex(dp), intent(in) :: system(*)
         complex(dp), intent(out) :: state(*)
@@ -880,6 +824,9 @@ contains
     !> Only the Ersp slots of `system` are written (matching the oracle:
     !> "warning: basis array is filled (partly) by state vectors").
     subroutine state_to_system_copy(self, state, system)
+        use kilca_maxwell_eqs_data_m, only: get_me_dim_ersp_state
+        use kilca_maxwell_eqs_data_m, only: get_me_iersp_state
+        use kilca_maxwell_eqs_data_m, only: get_me_iersp_sys
         class(flre_zone_t), intent(in) :: self
         complex(dp), intent(in) :: state(*)
         complex(dp), intent(inout) :: system(*)
@@ -901,6 +848,8 @@ contains
     !> reads E1c[1]/E1c[2] up to index ho regardless of their own per-
     !> component allocation size).
     subroutine galilean_transform_of_flre_state_vector(self, V, omega, rpt, E1, E2)
+        use kilca_maxwell_eqs_data_m, only: get_me_dim_ersp_state
+        use kilca_maxwell_eqs_data_m, only: get_me_iersp_state
         class(flre_zone_t), intent(in) :: self
         real(dp), intent(in) :: V, rpt
         complex(dp), intent(in) :: omega
@@ -924,30 +873,30 @@ contains
         mo = dim_Ersp_state - 1
 
         m = self%wd%m
-        kz = real(self%wd%n, dp)/get_background_rtor()
+        kz = real(self%wd%n, dp) / get_background_rtor()
 
         ho = mo(2)
 
         allocate (Cbin(0:ho, 0:ho))
         call binomial_coefficients_local(ho, Cbin)
 
-        allocate (htz(0:2*ho + 1))
+        allocate (htz(0:2 * ho + 1))
         call eval_hthz(rpt, 0, ho, c_null_ptr, htz)
         ht(0:ho) => htz(0:ho)
-        hz(0:ho) => htz(ho + 1:2*ho + 1)
+        hz(0:ho) => htz(ho + 1:2 * ho + 1)
 
         allocate (mor(0:ho))
-        mor(0) = real(m, dp)/rpt
+        mor(0) = real(m, dp) / rpt
         do o = 1, ho
-            mor(o) = (-real(o, dp)/rpt)*mor(o - 1)
+            mor(o) = (-real(o, dp) / rpt) * mor(o - 1)
         end do
 
         allocate (ks(0:ho), kp(0:ho))
         do o = 0, ho
             htmor = calc_deriv_product(ho, Cbin, o, ht, mor)
             hzmor = calc_deriv_product(ho, Cbin, o, hz, mor)
-            ks(o) = hzmor - ht(o)*kz
-            kp(o) = htmor + hz(o)*kz
+            ks(o) = hzmor - ht(o) * kz
+            kp(o) = htmor + hz(o) * kz
         end do
 
         allocate (E1c(0:2, 0:ho), E2c(0:2, 0:ho))
@@ -966,7 +915,7 @@ contains
             kpEs = calc_deriv_product(ho, Cbin, o, kp, E1c(1, :))
             ksEp = calc_deriv_product(ho, Cbin, o, ks, E1c(2, :))
 
-            Br(o) = (c/omega)*(ksEp - kpEs)
+            Br(o) = (c / omega) * (ksEp - kpEs)
 
             htBr(o) = calc_deriv_product(ho, Cbin, o, ht, Br)
             hzBr(o) = calc_deriv_product(ho, Cbin, o, hz, Br)
@@ -978,13 +927,13 @@ contains
         end do
 
         do o = 0, mo(0)
-            E2c(0, o) = E1c(0, o) - V/omega*(kz*E1c(0, o) + im*Ez(o + 1))
+            E2c(0, o) = E1c(0, o) - V / omega * (kz * E1c(0, o) + im * Ez(o + 1))
         end do
         do o = 0, mo(1)
-            E2c(1, o) = E1c(1, o) + (V/c)*hzBr(o)
+            E2c(1, o) = E1c(1, o) + (V / c) * hzBr(o)
         end do
         do o = 0, mo(2)
-            E2c(2, o) = E1c(2, o) + (V/c)*htBr(o)
+            E2c(2, o) = E1c(2, o) + (V / c) * htBr(o)
         end do
 
         do k = 0, 2
@@ -1001,6 +950,10 @@ contains
     !> source and never activated); Et/htEr/hzEr are computed but unused,
     !> matching the oracle's own dead-but-computed values exactly.
     subroutine galilean_transform_of_flre_system_vector(self, V, omega, rpt, EB1, EB2)
+        use kilca_maxwell_eqs_data_m, only: get_me_dim_brsp_sys
+        use kilca_maxwell_eqs_data_m, only: get_me_dim_ersp_sys
+        use kilca_maxwell_eqs_data_m, only: get_me_ibrsp_sys
+        use kilca_maxwell_eqs_data_m, only: get_me_iersp_sys
         class(flre_zone_t), intent(in) :: self
         real(dp), intent(in) :: V, rpt
         complex(dp), intent(in) :: omega
@@ -1029,30 +982,30 @@ contains
         mob = dim_Brsp_sys - 1
 
         m = self%wd%m
-        kz = real(self%wd%n, dp)/get_background_rtor()
+        kz = real(self%wd%n, dp) / get_background_rtor()
 
         ho = moe(2)
 
         allocate (Cbin(0:ho, 0:ho))
         call binomial_coefficients_local(ho, Cbin)
 
-        allocate (htz(0:2*ho + 1))
+        allocate (htz(0:2 * ho + 1))
         call eval_hthz(rpt, 0, ho, c_null_ptr, htz)
         ht(0:ho) => htz(0:ho)
-        hz(0:ho) => htz(ho + 1:2*ho + 1)
+        hz(0:ho) => htz(ho + 1:2 * ho + 1)
 
         allocate (mor(0:ho))
-        mor(0) = real(m, dp)/rpt
+        mor(0) = real(m, dp) / rpt
         do o = 1, ho
-            mor(o) = (-real(o, dp)/rpt)*mor(o - 1)
+            mor(o) = (-real(o, dp) / rpt) * mor(o - 1)
         end do
 
         allocate (ks(0:ho), kp(0:ho))
         do o = 0, ho
             htmor = calc_deriv_product(ho, Cbin, o, ht, mor)
             hzmor = calc_deriv_product(ho, Cbin, o, hz, mor)
-            ks(o) = hzmor - ht(o)*kz
-            kp(o) = htmor + hz(o)*kz
+            ks(o) = hzmor - ht(o) * kz
+            kp(o) = htmor + hz(o) * kz
         end do
 
         allocate (E1c(0:2, 0:ho), E2c(0:2, 0:ho), B1c(0:2, 0:ho), B2c(0:2, 0:ho))
@@ -1076,7 +1029,7 @@ contains
             kpEs = calc_deriv_product(ho, Cbin, o, kp, E1c(1, :))
             ksEp = calc_deriv_product(ho, Cbin, o, ks, E1c(2, :))
 
-            Br(o) = (c/omega)*(ksEp - kpEs)
+            Br(o) = (c / omega) * (ksEp - kpEs)
 
             htBr(o) = calc_deriv_product(ho, Cbin, o, ht, Br)
             hzBr(o) = calc_deriv_product(ho, Cbin, o, hz, Br)
@@ -1097,13 +1050,13 @@ contains
         end do
 
         do o = 0, moe(0)
-            E2c(0, o) = E1c(0, o) - V/omega*(kz*E1c(0, o) + im*Ez(o + 1))
+            E2c(0, o) = E1c(0, o) - V / omega * (kz * E1c(0, o) + im * Ez(o + 1))
         end do
         do o = 0, moe(1)
-            E2c(1, o) = E1c(1, o) + (V/c)*hzBr(o)
+            E2c(1, o) = E1c(1, o) + (V / c) * hzBr(o)
         end do
         do o = 0, moe(2)
-            E2c(2, o) = E1c(2, o) + (V/c)*htBr(o)
+            E2c(2, o) = E1c(2, o) + (V / c) * htBr(o)
         end do
 
         do o = 0, mob(0)
@@ -1130,6 +1083,10 @@ contains
     !> (Er,Et,Ez,Br,Bt,Bz). Same uniform-ho sizing assumption as the two
     !> galilean transforms above.
     subroutine transform_of_flre_system_vector_to_cyl_coordinates(self, rpt, EB1, EB2)
+        use kilca_maxwell_eqs_data_m, only: get_me_dim_brsp_sys
+        use kilca_maxwell_eqs_data_m, only: get_me_dim_ersp_sys
+        use kilca_maxwell_eqs_data_m, only: get_me_ibrsp_sys
+        use kilca_maxwell_eqs_data_m, only: get_me_iersp_sys
         class(flre_zone_t), intent(in) :: self
         real(dp), intent(in) :: rpt
         complex(dp), intent(in) :: EB1(0:*)
@@ -1158,10 +1115,10 @@ contains
         allocate (Cbin(0:ho, 0:ho))
         call binomial_coefficients_local(ho, Cbin)
 
-        allocate (htz(0:2*ho + 1))
+        allocate (htz(0:2 * ho + 1))
         call eval_hthz(rpt, 0, ho, c_null_ptr, htz)
         ht(0:ho) => htz(0:ho)
-        hz(0:ho) => htz(ho + 1:2*ho + 1)
+        hz(0:ho) => htz(ho + 1:2 * ho + 1)
 
         allocate (E1c(0:2, 0:ho), E2c(0:2, 0:ho), B1c(0:2, 0:ho), B2c(0:2, 0:ho))
         E1c = (0.0_dp, 0.0_dp)
@@ -1225,7 +1182,7 @@ contains
         integer :: k
         fg = 0.0_dp
         do k = 0, ordn
-            fg = fg + Cbin(ordn, k)*f(k)*g(ordn - k)
+            fg = fg + Cbin(ordn, k) * f(k) * g(ordn - k)
         end do
     end function calc_deriv_product_rr
 
@@ -1237,7 +1194,7 @@ contains
         integer :: k
         fg = (0.0_dp, 0.0_dp)
         do k = 0, ordn
-            fg = fg + Cbin(ordn, k)*f(k)*g(ordn - k)
+            fg = fg + Cbin(ordn, k) * f(k) * g(ordn - k)
         end do
     end function calc_deriv_product_rc
 
@@ -1252,10 +1209,19 @@ contains
         end if
     end function signum_local
 
-    !> Mirrors maxwell_eqs_data.h's inline print_maxwell_eqs_data (header-
-    !> only C++, not extern "C", so unreachable from Fortran): reads the
-    !> same fields via this module's own get_me_* getters.
+    !> Print the zone's Maxwell layout through native snapshot accessors.
     subroutine print_maxwell_eqs_data_local(me)
+        use kilca_maxwell_eqs_data_m, only: get_me_der_order
+        use kilca_maxwell_eqs_data_m, only: get_me_dim_brsp_sys
+        use kilca_maxwell_eqs_data_m, only: get_me_dim_ersp_state
+        use kilca_maxwell_eqs_data_m, only: get_me_dim_ersp_sys
+        use kilca_maxwell_eqs_data_m, only: get_me_ibrsp_sys
+        use kilca_maxwell_eqs_data_m, only: get_me_iersp_state
+        use kilca_maxwell_eqs_data_m, only: get_me_iersp_sys
+        use kilca_maxwell_eqs_data_m, only: get_me_num_eqs
+        use kilca_maxwell_eqs_data_m, only: get_me_num_vars
+        use kilca_maxwell_eqs_data_m, only: get_me_nwaves
+        use kilca_maxwell_eqs_data_m, only: get_me_sys_ind
         integer(c_intptr_t), intent(in) :: me
         integer :: k, Nw
 
@@ -1288,22 +1254,10 @@ contains
         end do
     end subroutine print_maxwell_eqs_data_local
 
-    subroutine to_cstr(str, buf)
-        character(len=*), intent(in) :: str
-        character(kind=c_char), intent(out) :: buf(*)
-        integer :: i, n
-        n = len_trim(str)
-        do i = 1, n
-            buf(i) = str(i:i)
-        end do
-        buf(n + 1) = c_null_char
-    end subroutine to_cstr
+    !> ---- native physics entry points with zone handles passed by reference ----
 
-    !> ---- bind(C) free-function callbacks (called BY legacy Fortran /
-    !> still-C++ callers with a zone handle BY REFERENCE) ----
-
-    subroutine set_equations_settings_c_(ptr, hom_sys, Nwaves, Nfs, Nphys, flag_debug) &
-        bind(C, name="set_equations_settings_c_")
+    subroutine set_equations_settings_c_(ptr, hom_sys, Nwaves, Nfs, Nphys, &
+                                         flag_debug)
         integer(c_intptr_t), intent(in) :: ptr
         integer(c_int), intent(out) :: hom_sys, Nwaves, Nfs, Nphys, flag_debug
         class(zone_t), pointer :: z
@@ -1318,8 +1272,7 @@ contains
         end select
     end subroutine set_equations_settings_c_
 
-    subroutine set_conductivity_settings_c_(ptr, flre_order, Nmax, gal_corr, rsp) &
-        bind(C, name="set_conductivity_settings_c_")
+    subroutine set_conductivity_settings_c_(ptr, flre_order, Nmax, gal_corr, rsp)
         integer(c_intptr_t), intent(in) :: ptr
         integer(c_int), intent(out) :: flre_order, Nmax, gal_corr, rsp
         class(zone_t), pointer :: z
@@ -1333,7 +1286,7 @@ contains
         end select
     end subroutine set_conductivity_settings_c_
 
-    subroutine set_collisions_settings_c_(ptr, collmod) bind(C, name="set_collisions_settings_c_")
+    subroutine set_collisions_settings_c_(ptr, collmod)
         integer(c_intptr_t), intent(in) :: ptr
         integer(c_int), intent(out) :: collmod(2)
         class(zone_t), pointer :: z
@@ -1344,7 +1297,8 @@ contains
         end select
     end subroutine set_collisions_settings_c_
 
-    subroutine get_iersp_sys_array_(ptr, iErsp_sys) bind(C, name="get_iersp_sys_array_")
+    subroutine get_iersp_sys_array_(ptr, iErsp_sys)
+        use kilca_maxwell_eqs_data_m, only: get_me_iersp_sys
         integer(c_intptr_t), intent(in) :: ptr
         integer(c_int), intent(out) :: iErsp_sys(*)
         class(zone_t), pointer :: z
@@ -1358,7 +1312,8 @@ contains
         end select
     end subroutine get_iersp_sys_array_
 
-    subroutine get_ibrsp_sys_array_(ptr, iBrsp_sys) bind(C, name="get_ibrsp_sys_array_")
+    subroutine get_ibrsp_sys_array_(ptr, iBrsp_sys)
+        use kilca_maxwell_eqs_data_m, only: get_me_ibrsp_sys
         integer(c_intptr_t), intent(in) :: ptr
         integer(c_int), intent(out) :: iBrsp_sys(*)
         class(zone_t), pointer :: z
@@ -1372,7 +1327,8 @@ contains
         end select
     end subroutine get_ibrsp_sys_array_
 
-    subroutine get_sys_ind_array_(ptr, sys_ind) bind(C, name="get_sys_ind_array_")
+    subroutine get_sys_ind_array_(ptr, sys_ind)
+        use kilca_maxwell_eqs_data_m, only: get_me_sys_ind
         integer(c_intptr_t), intent(in) :: ptr
         integer(c_int), intent(out) :: sys_ind(*)
         class(zone_t), pointer :: z
@@ -1386,8 +1342,7 @@ contains
         end select
     end subroutine get_sys_ind_array_
 
-    subroutine activate_fortran_modules_for_zone_(ptr) &
-        bind(C, name="activate_fortran_modules_for_zone_")
+    subroutine activate_fortran_modules_for_zone_(ptr)
         integer(c_intptr_t), intent(in) :: ptr
         class(zone_t), pointer :: z
         call handle_to_zone(ptr, z)
@@ -1397,8 +1352,7 @@ contains
         end select
     end subroutine activate_fortran_modules_for_zone_
 
-    subroutine deactivate_fortran_modules_for_zone_(ptr) &
-        bind(C, name="deactivate_fortran_modules_for_zone_")
+    subroutine deactivate_fortran_modules_for_zone_(ptr)
         integer(c_intptr_t), intent(in) :: ptr
         class(zone_t), pointer :: z
         call handle_to_zone(ptr, z)
@@ -1414,8 +1368,9 @@ contains
     !> Fortran caller's `complex(8), dimension(D1,Nw1)` convention
     !> (flre.f90's stitching_equations_flre_N1_hommed), so EB1/EB2 here are
     !> COMPLEX, not flat real, despite the oracle's `double *` signature.
-    subroutine calc_flre_basis_in_lab_cyl_frame_with_full_system_vectors_(ptr, rpt, EB1, EB2) &
-        bind(C, name="calc_flre_basis_in_lab_cyl_frame_with_full_system_vectors_")
+    subroutine calc_flre_basis_in_lab_cyl_frame_with_full_system_vectors_(ptr, rpt, &
+                                                                          EB1, EB2)
+        use kilca_maxwell_eqs_data_m, only: get_me_num_eqs
         integer(c_intptr_t), intent(in) :: ptr
         real(dp), intent(in) :: rpt
         complex(dp), intent(in) :: EB1(*)
@@ -1457,7 +1412,7 @@ contains
     !> `static_cast<flre_zone*>` a zone* and read ->flre_order/->cp
     !> directly; with the hierarchy now Fortran, it gets the same data
     !> through these two getters instead.
-    function flre_zone_get_flre_order_(handle) bind(C, name="flre_zone_get_flre_order_") result(res)
+    function flre_zone_get_flre_order_(handle) result(res)
         integer(c_intptr_t), value :: handle
         integer(c_int) :: res
         class(zone_t), pointer :: z
@@ -1468,7 +1423,7 @@ contains
         end select
     end function flre_zone_get_flre_order_
 
-    function flre_zone_get_cp_(handle) bind(C, name="flre_zone_get_cp_") result(res)
+    function flre_zone_get_cp_(handle) result(res)
         integer(c_intptr_t), value :: handle
         integer(c_intptr_t) :: res
         class(zone_t), pointer :: z

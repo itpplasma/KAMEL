@@ -1,4 +1,7 @@
 subroutine calc_parallel_current_directly
+    use kilca_wave_code_interface_m, only: &
+        get_current_densities_from_wave_code => &
+            get_current_densities_from_wave_code_
     ! this subroutine calculates the electron parallel current (eq. (60) in Heyn et. al 2014)
 
     use grid_mod, only: npoib, rb, Ercov
@@ -31,7 +34,6 @@ subroutine calc_parallel_current_directly
 
     vT = sqrt(params_b(3, :)/e_mass)
 
-
     if (gyro_current_study .eq. 0) then
         x1 = kp*vT/nue
         x2 = -om_E/nue
@@ -39,7 +41,6 @@ subroutine calc_parallel_current_directly
         do i = 1, npoib
             call getIfunc(x1(i), x2(i), symbI(:, :, i))
         end do
-
 
         A2 = ddr_params_nl(3, :)/params_b(3, :)
         A1 = ddr_params_nl(1, :)/params_b(1, :) + e_charge*Ercov/params_b(3, :) - 1.5d0*A2
@@ -58,7 +59,6 @@ subroutine calc_parallel_current_directly
             call h5_define_group(h5_id, trim(tempch), group_id_1)
             call h5_close_group(group_id_1)
         end if
-
 
         ! TODO: fix this, makes problem when writing
         !call h5_add_double_1(h5_id, trim(tempch)//"rb", &
@@ -311,7 +311,6 @@ subroutine calc_parallel_current_directly
         x1 = kp*vT/nue
         x2 = -om_E/nue
 
-
         CALL h5_init()
         CALL h5_open_rw(path2out, h5_id)
         tempch = "/"//trim(h5_mode_groupname)//"/currents/"
@@ -380,7 +379,6 @@ subroutine calc_parallel_current_directly
     deallocate (x1, x2, symbI, curr_e_par, vT)
 
 end subroutine calc_parallel_current_directly
-
 
 subroutine calc_ion_parallel_current_directly
 

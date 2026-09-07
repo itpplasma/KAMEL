@@ -116,6 +116,10 @@ end module
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
 subroutine get_wave_code_data(imin, imax)
+    use kilca_wave_code_interface_m, only: &
+        calc_wave_code_data_for_mode => &
+            calc_wave_code_data_for_mode_
+    use kilca_wave_code_interface_m, only: clear_wave_code_data => clear_wave_code_data_
 
 !runs wave code to compute (E,B) - fields.
 
@@ -142,6 +146,15 @@ end subroutine
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
 subroutine get_conductivity_matrices(imin, imax)
+    use kilca_wave_code_interface_m, only: &
+        calc_conductivity_matrices_for_mode => &
+            calc_conductivity_matrices_for_mode_
+    use kilca_wave_code_interface_m, only: clear_wave_code_data => clear_wave_code_data_
+    use kilca_wave_code_interface_m, only: &
+        get_kilca_conductivity_array => &
+            get_kilca_conductivity_array_
+    use kilca_wave_code_interface_m, only: set_wave_parameters => set_wave_parameters_
+    use kilca_wave_code_interface_m, only: unset_wave_parameters => unset_wave_parameters_
 
 !runs wave code to compute conductivity matrices for modes imin:imax.
 
@@ -195,6 +208,16 @@ end subroutine
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
 subroutine initialize_wave_code_interface(nrad, r_grid)
+    use kilca_wave_code_interface_m, only: &
+        calc_wave_code_data_for_mode => &
+            calc_wave_code_data_for_mode_
+    use kilca_wave_code_interface_m, only: clear_wave_code_data => clear_wave_code_data_
+    use kilca_wave_code_interface_m, only: &
+        get_background_magnetic_fields_from_wave_code => &
+            get_background_magnetic_fields_from_wave_code_
+    use kilca_wave_code_interface_m, only: &
+        get_collision_frequences_from_wave_code => &
+            get_collision_frequences_from_wave_code_
 
 use wave_code_data;
 
@@ -277,6 +300,7 @@ end subroutine
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
 subroutine deallocate_wave_code_data ()
+    use kilca_wave_code_interface_m, only: clear_wave_code_data => clear_wave_code_data_
 
 use wave_code_data;
 
@@ -502,6 +526,12 @@ end subroutine
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
 subroutine eval_diss_power_density (dim, r, type, spec, d_p_d)
+    use kilca_wave_code_interface_m, only: &
+        get_diss_power_density_from_wave_code => &
+            get_diss_power_density_from_wave_code_
+    use kilca_wave_code_interface_m, only: &
+        get_wave_fields_from_wave_code => &
+            get_wave_fields_from_wave_code_
 
 use wave_code_data, only: dim_mn, m_vals, n_vals, vac_cd_ptr, flre_cd_ptr;
 use baseparam_mod, only: rtor;
@@ -515,7 +545,8 @@ real(8), dimension(dim), intent (out) :: d_p_d;
 
 complex(8), dimension(dim) :: amn_psi, amn_theta, amn_theta_cyl;
 
-complex(8), dimension(dim) :: F, Br; !for vacuum fields
+complex(8), dimension(dim) :: Br;
+    complex(8) :: unused_fields(dim, 9); !for vacuum fields
 
 real(8), dimension(dim) :: dpd_mn;
 
@@ -534,9 +565,11 @@ do ind = 1,dim_mn !over modes
         !end if
     end do
 
-    call get_wave_fields_from_wave_code (vac_cd_ptr, dim, r, m_vals(ind), n_vals(ind), F, F, F, F, F, Br, F, F, F, F);
+    call get_wave_fields_from_wave_code (vac_cd_ptr(ind), dim, r, m_vals(ind), n_vals(ind), unused_fields(:,1), unused_fields(:,2), unused_fields(:,3), &
+            unused_fields(:,4), unused_fields(:,5), Br, unused_fields(:,6), &
+            unused_fields(:,7), unused_fields(:,8), unused_fields(:,9));
 
-    call get_diss_power_density_from_wave_code (flre_cd_ptr, dim, r, m_vals(ind), n_vals(ind), type, spec, dpd_mn);
+    call get_diss_power_density_from_wave_code (flre_cd_ptr(ind), dim, r, m_vals(ind), n_vals(ind), type, spec, dpd_mn);
 
     amn_theta_cyl = (r*rtor/n_vals(ind)) * Br;
 
@@ -789,6 +822,7 @@ end subroutine
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
 subroutine interp_profile(dim_old, r_old, q_old, dim_new, r_new, q_new)
+    use kilca_neville_m, only: eval_neville_polynom
 
 ! interpolate a profile to a new grid by moving polynom of degree deg
 

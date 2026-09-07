@@ -9,8 +9,8 @@
 !> load_data_file*) and the polynomial interpolation (find_index_for_interp,
 !> eval_neville_polynom) are the already-Fortran KiLCA library routines.
 program main_post_proc
-    use, intrinsic :: iso_c_binding, only: c_int, c_double, c_char, c_ptr, &
-        c_null_char, c_null_ptr, c_loc, c_associated, c_f_pointer
+    use, intrinsic :: iso_c_binding, only: &
+        c_int, c_double, c_char, c_ptr, c_null_char, c_null_ptr, c_loc, c_associated
     use, intrinsic :: iso_fortran_env, only: dp => real64
     use kilca_inout_m, only: read_line_2skip_it_, read_line_2get_string_, &
         read_line_2get_int_, read_line_2get_double_, read_line_2get_complex_, &
@@ -158,10 +158,10 @@ program main_post_proc
             eb_file = trim(path2projects(p))//'linear-data/m_'// &
                 itoa(modes(2*i))//'_n_'//itoa(modes(2*i + 1))//'_flab_['// &
                 fmt_g(real(flab, dp), 6)//','//fmt_g(aimag(flab), 6)//']/EB.dat'
-            dim_EB(p) = count_lines_in_file_(to_cstr(eb_file), 0_c_int)
+            dim_EB(p) = count_lines_in_file_(eb_file, 0_c_int)
             allocate (r_EB(p)%v(0:dim_EB(p) - 1))
             allocate (prof_EB(p)%v(0:ncols_EB*dim_EB(p) - 1))
-            ios = load_data_file_(to_cstr(eb_file), dim_EB(p), ncols_EB, &
+            ios = load_data_file_(eb_file, dim_EB(p), ncols_EB, &
                                   r_EB(p)%v, prof_EB(p)%v)
         end do
 
@@ -171,10 +171,10 @@ program main_post_proc
                 itoa(modes(2*i))//'_n_'//itoa(modes(2*i + 1))//'_flab_['// &
                 fmt_g(real(flab, dp), 6)//','//fmt_g(aimag(flab), 6)// &
                 ']/zone_0_current_dens_p_0_t_lab.dat'
-            dim_jp(0) = count_lines_in_file_(to_cstr(eb_file), 0_c_int)
+            dim_jp(0) = count_lines_in_file_(eb_file, 0_c_int)
             allocate (r_jp(0)%v(0:dim_jp(0) - 1))
             allocate (prof_jp(0)%v(0:ncols_jp*dim_jp(0) - 1))
-            ios = load_data_file_(to_cstr(eb_file), dim_jp(0), ncols_jp, &
+            ios = load_data_file_(eb_file, dim_jp(0), ncols_jp, &
                                   r_jp(0)%v, prof_jp(0)%v)
         end if
 
@@ -406,9 +406,9 @@ contains
         real(dp) :: norm_coeff
         integer :: k, io
 
-        dim_eq = count_lines_in_file_with_comments_(to_cstr('equil_r_q_psi.dat'), 1_c_int)
+        dim_eq = count_lines_in_file_with_comments_('equil_r_q_psi.dat', 1_c_int)
         allocate (x_eq(0:dim_eq - 1), prof_eq(0:ncols*dim_eq - 1), label_eq(0:dim_eq - 1))
-        io = load_data_file_with_comments_(to_cstr('equil_r_q_psi.dat'), dim_eq, ncols, &
+        io = load_data_file_with_comments_('equil_r_q_psi.dat', dim_eq, ncols, &
                                            x_eq, prof_eq)
 
         select case (label_flag)

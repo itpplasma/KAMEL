@@ -160,8 +160,10 @@ set(kilca_lib_fortran_sources
     core/output_sett_m.f90
     core/settings_m.f90
     core/core_data_m.f90
+    core/core_eigmode_s.f90
     io/inout_m.f90
     progs/progs_common_m.f90
+    interface/legacy_interfaces_m.f90
     interface/wave_code_interface_m.f90
     spline/spline_m.f90
     interp/neville_m.f90
@@ -172,6 +174,7 @@ set(kilca_lib_fortran_sources
     background/background_m.f90
     background/background_data_m.f90
     eigmode/eigmode_sett_m.f90
+    flre/flre_sett_data_m.f90
     flre/flre_sett_m.f90
     mode/mode_m.f90
     mode/wave_data_m.f90
@@ -378,9 +381,10 @@ add_test(NAME test_eigmode_sett COMMAND ${CMAKE_BINARY_DIR}/tests/test_eigmode_s
 set_tests_properties(test_eigmode_sett PROPERTIES WORKING_DIRECTORY ${CMAKE_BINARY_DIR}/tests/)
 
 # Standalone: links maxwell_eqs_data_m.f90 + fakes only, NOT kilca_lib, since
-# the fakes intentionally redefine the same C-ABI symbols maxwell_eqs_m.f90
-# (inside kilca_lib) provides for real zones.
+# the fakes implement the native external procedures used for real zones.
+# The canonical interface module checks calls against their actual types.
 add_executable (test_maxwell_eqs_data
+    interface/legacy_interfaces_m.f90
     flre/maxwell_eqs/maxwell_eqs_data_m.f90
     tests/test_maxwell_eqs_data_fakes.f90
     tests/test_maxwell_eqs_data.f90)
@@ -388,11 +392,14 @@ set_target_properties(test_maxwell_eqs_data PROPERTIES
     OUTPUT_NAME test_maxwell_eqs_data.x
     RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/tests/
     Fortran_MODULE_DIRECTORY ${CMAKE_BINARY_DIR}/OBJS/test_maxwell_eqs_data/)
+target_include_directories(test_maxwell_eqs_data BEFORE PRIVATE
+    ${CMAKE_BINARY_DIR}/OBJS/test_maxwell_eqs_data/)
 add_test(NAME test_maxwell_eqs_data COMMAND ${CMAKE_BINARY_DIR}/tests/test_maxwell_eqs_data.x)
 
 # Standalone: links disp_profs_m.f90 + fakes only, NOT kilca_lib, since the
 # fakes intentionally redefine calc_dispersion/save_cmplx_matrix_to_one_file.
 add_executable (test_disp_profiles
+    interface/legacy_interfaces_m.f90
     flre/dispersion/disp_profs_m.f90
     tests/test_disp_profiles_fakes.f90
     tests/test_disp_profiles.f90)
@@ -400,12 +407,15 @@ set_target_properties(test_disp_profiles PROPERTIES
     OUTPUT_NAME test_disp_profiles.x
     RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/tests/
     Fortran_MODULE_DIRECTORY ${CMAKE_BINARY_DIR}/OBJS/test_disp_profiles/)
+target_include_directories(test_disp_profiles BEFORE PRIVATE
+    ${CMAKE_BINARY_DIR}/OBJS/test_disp_profiles/)
 add_test(NAME test_disp_profiles COMMAND ${CMAKE_BINARY_DIR}/tests/test_disp_profiles.x)
 
 # Standalone: links sysmat_profs_m.f90 + fakes + fortnum (for argsort) only,
-# NOT kilca_lib, since the fakes intentionally redefine calc_diff_sys_matrix_/
-# calc_adaptive_1D_grid_4vector_/spline_alloc_/spline_calc_/save_cmplx_matrix.
+# NOT kilca_lib: test-local modules provide the native adaptive-grid,
+# spline, and output procedures; calc_diff_sys_matrix is a native external.
 add_executable (test_sysmat_profiles
+    interface/legacy_interfaces_m.f90
     flre/maxwell_eqs/sysmat_profs_m.f90
     tests/test_sysmat_profiles_fakes.f90
     tests/test_sysmat_profiles.f90)
@@ -414,6 +424,8 @@ set_target_properties(test_sysmat_profiles PROPERTIES
     RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/tests/
     Fortran_MODULE_DIRECTORY ${CMAKE_BINARY_DIR}/OBJS/test_sysmat_profiles/)
 target_link_libraries (test_sysmat_profiles fortnum)
+target_include_directories(test_sysmat_profiles BEFORE PRIVATE
+    ${CMAKE_BINARY_DIR}/OBJS/test_sysmat_profiles/)
 add_test(NAME test_sysmat_profiles COMMAND ${CMAKE_BINARY_DIR}/tests/test_sysmat_profiles.x)
 add_subdirectory(tests)
 include(tests/migration_regressions.cmake)

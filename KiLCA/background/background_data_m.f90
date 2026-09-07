@@ -1,26 +1,24 @@
 !> Background equilibrium profiles and physics, formerly the C++ background
 !> class (background.{h,cpp} + calc_back.cpp + eval_back.cpp). Translated as
-!> a Fortran SINGLETON module, not a per-instance handle: the only live
-!> `new background(...)` call site anywhere in the tree is core.cpp's
-!> calc_and_set_mode_independent_core_data, called exactly once per run (the
-!> other `new background` hit, post_processing/torque_facs.cpp, is dead -
-!> not in any CMake target, like transf_quants.cpp/quants_profs.h which it
-!> belongs to).
+!> a Fortran singleton initialized by the core's mode-independent setup.
 !>
-!> bp_ptr (core_m.f90) is read by ~10 existing live Fortran files
-!> (conduct_parameters.f90's eval_and_set_background_parameters_spec_
-!> independent/_spec_dependent/eval_and_set_f0_parameters_nu_and_derivs, and
-!> transitively gcorr.f90/kmatrices*.f90/diff_sys.f90) as an opaque handle
-!> passed to the (formerly C++) eval_background_spec_independent_/
-!> eval_f0_parameters_nu_and_derivs_/vs_0_f_/eval_hthz_ extern "C" functions,
-!> which dereferenced it as `background*`. Since background is now a
-!> singleton with no heap address to hand out, bp_ptr is kept only as a
-!> harmless nonzero sentinel (set once by background_create_) so none of
-!> those ~10 existing Fortran files need editing; the bind(C) functions
-!> below still accept a handle argument to match those callers' existing
-!> argument lists exactly, but ignore its value and operate on this
-!> module's own state.
+!> Legacy physics routines pass bp_ptr as an opaque handle. It remains a
+!> nonzero sentinel: native module procedures accept the handle but operate
+!> on this module's shared state rather than dereferencing it.
 module kilca_background_data_m
+    use kilca_legacy_interfaces_m, only: &
+        get_background_dimension_from_balance_c => &
+        get_background_dimension_from_balance
+    use kilca_legacy_interfaces_m, only: &
+        get_background_profiles_from_balance_x => &
+        get_background_profiles_from_balance
+    use kilca_background_settings_m, only: &
+        get_background_path2profiles_c => &
+        get_background_path2profiles
+    use kilca_inout_m, only: count_lines_in_file_c => count_lines_in_file_
+    use kilca_inout_m, only: load_data_file_c => load_data_file_
+    use kilca_inout_m, only: save_real_array_c => save_real_array_
+    use kilca_output_settings_m, only: get_output_flag_background
     use, intrinsic :: iso_c_binding
     use, intrinsic :: iso_fortran_env, only: error_unit, output_unit
     use constants, only: dp, pi, boltz, mp, me, e
@@ -74,126 +72,44 @@ module kilca_background_data_m
     integer(c_int) :: i_n_p(0:1), i_Vp_p(0:1), i_Vt_p(0:1), i_nu(0:1)
 
     integer(c_int) :: flag_dPhi0_calc
-
-    interface
-        integer(c_int) function get_output_flag_background() bind(C, name="get_output_flag_background_")
-            import :: c_int
-        end function get_output_flag_background
-
-        function eval_path_to_linear_data_c(buf) result(n) bind(C)
-            import :: c_int, c_char
-            character(kind=c_char), intent(in) :: buf(*)
-            integer(c_int) :: n
-        end function eval_path_to_linear_data_c
-
-        !> Was wrongly bound to "count_lines_in_file_" (a 3-arg void C
-        !> wrapper, `count_lines_in_file_(char*,int*,int*)`) with only 1 of
-        !> its args declared and treated as a function returning a value -
-        !> a genuine ABI mismatch (1 arg passed where 3 were expected, a
-        !> function call against a void target) that the test suite never
-        !> exercised since count_lines() below is only reached via the
-        !> background_set_profiles_from_files_ path. Fixed to bind directly
-        !> to "count_lines_in_file" (the real 2-arg function, filename +
-        !> flag_print) with both arguments declared.
-        function count_lines_in_file_c(filename, flag_print) result(n) &
-            bind(C, name="count_lines_in_file")
-            import :: c_int, c_char
-            character(kind=c_char), intent(in) :: filename(*)
-            integer(c_int), value :: flag_print
-            integer(c_int) :: n
-        end function count_lines_in_file_c
-
-        function load_data_file_c(file_name, dim_, ncols, rgrid, qgrid) result(ierr) &
-            bind(C, name="load_data_file")
-            import :: c_int, c_char, c_double
-            character(kind=c_char), intent(in) :: file_name(*)
-            integer(c_int), value :: dim_, ncols
-            real(c_double), intent(in) :: rgrid(*)
-            real(c_double), intent(out) :: qgrid(*)
-            integer(c_int) :: ierr
-        end function load_data_file_c
-
-        integer(c_int) function save_real_array_c(dim_, xgrid, arr, full_name) &
-            bind(C, name="save_real_array")
-            import :: c_int, c_double, c_char
-            integer(c_int), value :: dim_
-            real(c_double), intent(in) :: xgrid(*), arr(*)
-            character(kind=c_char), intent(in) :: full_name(*)
-        end function save_real_array_c
-
-        function get_background_dimension_from_balance_c(dimx_) result(stat) &
-            bind(C, name="get_background_dimension_from_balance_")
-            import :: c_int
-            integer(c_int), intent(out) :: dimx_
-            integer(c_int) :: stat
-        end function get_background_dimension_from_balance_c
-    end interface
-
-    interface
-        subroutine get_background_profiles_from_balance_x(dimx_, x_, q_, n_, Ti_, Te_, Vth_, Vz_, Er_) &
-            bind(C, name="get_background_profiles_from_balance_")
-            import :: c_int, c_double
-            integer(c_int), intent(in) :: dimx_
-            real(c_double), intent(out) :: x_(*), q_(*), n_(*), Ti_(*), Te_(*), Vth_(*), Vz_(*), Er_(*)
-        end subroutine get_background_profiles_from_balance_x
-    end interface
-
+    public :: eval_q
+    public :: get_background_collision_freqs
+    public :: get_background_magnetic_fields
 contains
 
     integer(c_int) function count_lines(fname) result(n)
         character(len=*), intent(in) :: fname
-        character(kind=c_char) :: cbuf(len(fname) + 1)
-        call to_cstr(fname, cbuf)
-        n = count_lines_in_file_c(cbuf, 0_c_int)
+
+        n = count_lines_in_file_c(fname, 0_c_int)
     end function count_lines
 
     subroutine load_data(fname, dim_, ncols, rgrid, qgrid)
         character(len=*), intent(in) :: fname
         integer(c_int), intent(in) :: dim_, ncols
-        real(c_double), intent(in) :: rgrid(*)
+        real(c_double), intent(out) :: rgrid(*)
         real(c_double), intent(out) :: qgrid(*)
-        character(kind=c_char) :: cbuf(len(fname) + 1)
+
         integer(c_int) :: ierr_unused
-        call to_cstr(fname, cbuf)
-        ierr_unused = load_data_file_c(cbuf, dim_, ncols, rgrid, qgrid)
+        ierr_unused = load_data_file_c(fname, dim_, ncols, rgrid, qgrid)
     end subroutine load_data
 
     subroutine save_arr(dim_, xgrid, arr, fname)
         integer(c_int), intent(in) :: dim_
         real(c_double), intent(in) :: xgrid(*), arr(*)
         character(len=*), intent(in) :: fname
-        character(kind=c_char) :: cbuf(len(fname) + 1)
+
         integer :: ierr_unused
-        call to_cstr(fname, cbuf)
-        ierr_unused = save_real_array_c(dim_, xgrid, arr, cbuf)
+        ierr_unused = save_real_array_c(dim_, xgrid, arr, fname)
     end subroutine save_arr
 
-    subroutine to_cstr(str, cbuf)
-        character(len=*), intent(in) :: str
-        character(kind=c_char), intent(out) :: cbuf(*)
-        integer :: i, n
-        n = len_trim(str)
-        do i = 1, n
-            cbuf(i) = str(i:i)
-        end do
-        cbuf(n + 1) = c_null_char
-    end subroutine to_cstr
-
-    !> Mirrors background::background(const settings *s): sets up the index
-    !> table and the output directory. path2project comes from the caller
-    !> (core.cpp, still C++, has sd->path2project directly). Returns a fixed
-    !> nonzero sentinel handle for compatibility with core.h's intptr_t bp
-    !> field and the existing bp_ptr plumbing - the value itself is never
-    !> read back by anything in this module.
-    function background_create(path2project_p) result(handle) bind(C, name="background_create_")
-        type(c_ptr), value :: path2project_p
+    !> Initialize the index table and output directory for the supplied project
+    !> path. Return a nonzero sentinel for the shared background state.
+    function background_create(path2project) result(handle)
         integer(c_intptr_t) :: handle
-        character(len=1024) :: path2project
+        character(len=*), intent(in) :: path2project
         integer(c_int) :: k, ierr_unused
         character(len=1024) :: sys_command
         external :: set_back_aliases_in_conductivity_parameters
-
-        call read_c_string(path2project_p, path2project)
 
         ! Fresh-object semantics of the oracle's `new background(...)`:
         ! ql-balance re-creates the background every wave-code invocation,
@@ -293,7 +209,7 @@ contains
         dimy = k
     end subroutine set_profiles_indices
 
-    subroutine background_set_profiles_from_files() bind(C, name="background_set_profiles_from_files_")
+    subroutine background_set_profiles_from_files()
         character(len=1024) :: file_name, path2profiles_buf
         integer(c_int) :: Nspl, ierr, acalc
 
@@ -303,12 +219,12 @@ contains
         dimx = count_lines(file_name)
 
         Nspl = N
-        ind_search = int(0.5d0*dimx)
+        ind_search = int(0.5d0 * dimx)
 
         allocate (x(0:dimx - 1))
-        allocate (y(0:dimx*dimy - 1))
-        allocate (Carr(0:(Nspl + 1)*dimx*dimy - 1))
-        allocate (Rarr(0:(Nspl + 1)*dimy - 1))
+        allocate (y(0:dimx * dimy - 1))
+        allocate (Carr(0:(Nspl + 1) * dimx * dimy - 1))
+        allocate (Rarr(0:(Nspl + 1) * dimy - 1))
 
         call spline_alloc(Nspl, 1, dimx, c_loc(x), c_loc(Carr), sid)
 
@@ -336,21 +252,20 @@ contains
         end if
     end subroutine background_set_profiles_from_files
 
-    subroutine background_set_profiles_from_interface() &
-        bind(C, name="background_set_profiles_from_interface_")
+    subroutine background_set_profiles_from_interface()
         integer(c_int) :: Nspl, ierr, acalc, stat_unused
         real(dp), allocatable :: q_(:), n_(:), Ti_(:), Te_(:), Vth_(:), Vz_(:), Er_(:)
         integer(c_int) :: i
 
-        stat_unused = get_background_dimension_from_balance_c(dimx)
+        call get_background_dimension_from_balance_c(dimx)
 
-        ind_search = int(0.5d0*dimx)
+        ind_search = int(0.5d0 * dimx)
         Nspl = N
 
         allocate (x(0:dimx - 1))
-        allocate (y(0:dimx*dimy - 1))
-        allocate (Carr(0:(Nspl + 1)*dimx*dimy - 1))
-        allocate (Rarr(0:(Nspl + 1)*dimy - 1))
+        allocate (y(0:dimx * dimy - 1))
+        allocate (Carr(0:(Nspl + 1) * dimx * dimy - 1))
+        allocate (Rarr(0:(Nspl + 1) * dimy - 1))
 
         call spline_alloc(Nspl, 1, dimx, c_loc(x), c_loc(Carr), sid)
 
@@ -401,22 +316,8 @@ contains
     end subroutine background_set_profiles_from_interface
 
     subroutine get_path2profiles(buf)
-        character(len=1024), intent(out) :: buf
-        interface
-            subroutine get_background_path2profiles_c(out) bind(C, name="get_background_path2profiles_")
-                import :: c_char
-                character(kind=c_char), intent(out) :: out(*)
-            end subroutine get_background_path2profiles_c
-        end interface
-        character(kind=c_char) :: cbuf(1024)
-        integer :: i
-
-        call get_background_path2profiles_c(cbuf)
-        buf = ''
-        do i = 1, 1024
-            if (cbuf(i) == c_null_char) exit
-            buf(i:i) = cbuf(i)
-        end do
+        character(len=*), intent(out) :: buf
+        call get_background_path2profiles_c(buf)
     end subroutine get_path2profiles
 
     !> Mirrors background::load_input_background_profiles: all profiles are
@@ -449,7 +350,8 @@ contains
             end do
             if (tmp2 /= tmp1 .and. i /= 0) then
                 write (output_unit, '(a,es25.16,a,es25.16,a,i0,a)') &
-                    'warning: load_input_profiles: r grids look different: tmp1=', tmp1, &
+                    'warning: load_input_profiles: r grids look different: tmp1=', &
+                    tmp1, &
                     ' tmp2=', tmp2, ' i=', i, '!'
             end if
             tmp1 = tmp2
@@ -557,25 +459,25 @@ contains
         end if
 
         qarr(0:dimx - 1) => y(i_q*dimx:i_q*dimx + dimx - 1)
-        bth(0:dimx - 1) => y(i_Bth*dimx:i_Bth*dimx + dimx - 1)
-        bz(0:dimx - 1) => y(i_Bz*dimx:i_Bz*dimx + dimx - 1)
-        b0arr(0:dimx - 1) => y(i_B*dimx:i_B*dimx + dimx - 1)
+        bth(0:dimx - 1) => y(i_Bth * dimx:i_Bth * dimx + dimx - 1)
+        bz(0:dimx - 1) => y(i_Bz * dimx:i_Bz * dimx + dimx - 1)
+        b0arr(0:dimx - 1) => y(i_B * dimx:i_B * dimx + dimx - 1)
 
         do i = 0, dimx - 1
-            bz(i) = sign(1.0d0, B0)*sqrt(u(i)/(1.0d0 + x(i)*x(i)/rtor/rtor/qarr(i)/qarr(i)))
+      bz(i) = sign(1.0d0, B0) * sqrt(u(i) / (1.0d0 + x(i) * x(i) / rtor / rtor / qarr(i) / qarr(i)))
             bth(i) = bz(i)*x(i)/qarr(i)/rtor
-            b0arr(i) = sqrt(bth(i)*bth(i) + bz(i)*bz(i))
+            b0arr(i) = sqrt(bth(i) * bth(i) + bz(i) * bz(i))
         end do
 
-        hth(0:dimx - 1) => y(i_hth*dimx:i_hth*dimx + dimx - 1)
-        hz(0:dimx - 1) => y(i_hz*dimx:i_hz*dimx + dimx - 1)
+        hth(0:dimx - 1) => y(i_hth * dimx:i_hth * dimx + dimx - 1)
+        hz(0:dimx - 1) => y(i_hz * dimx:i_hz * dimx + dimx - 1)
 
         do i = 0, dimx - 1
-            hth(i) = bth(i)/b0arr(i)
-            hz(i) = bz(i)/b0arr(i)
+            hth(i) = bth(i) / b0arr(i)
+            hz(i) = bz(i) / b0arr(i)
         end do
 
-        call spline_calc(sid, c_loc(y(i_Bth*dimx:)), i_Bth, i_hz, c_null_ptr, ierr)
+        call spline_calc(sid, c_loc(y(i_Bth * dimx:)), i_Bth, i_hz, c_null_ptr, ierr)
 
         jth(0:dimx - 1) => y(i_J0th(2)*dimx:i_J0th(2)*dimx + dimx - 1)
         jz(0:dimx - 1) => y(i_J0z(2)*dimx:i_J0z(2)*dimx + dimx - 1)
@@ -590,7 +492,8 @@ contains
             jz(i) = c/4.0d0/pi*(bth(i)/x(i) + dbth)
         end do
 
-        call spline_calc(sid, c_loc(y(i_J0th(2)*dimx:)), i_J0th(2), i_J0z(2), c_null_ptr, ierr)
+        call spline_calc(sid, c_loc(y(i_J0th(2) * dimx:)), i_J0th(2), i_J0z(2), &
+                         c_null_ptr, ierr)
 
         deallocate (u)
     end subroutine calculate_equilibrium
@@ -602,20 +505,21 @@ contains
         real(dp) :: dev, Bt, dBt, Bz_, dBz_, p, dpp
         real(dp), target :: rloc(1)
 
-        bth(0:dimx - 1) => y(i_Bth*dimx:i_Bth*dimx + dimx - 1)
-        bz(0:dimx - 1) => y(i_Bz*dimx:i_Bz*dimx + dimx - 1)
-        b0arr(0:dimx - 1) => y(i_B*dimx:i_B*dimx + dimx - 1)
-        hth(0:dimx - 1) => y(i_hth*dimx:i_hth*dimx + dimx - 1)
-        hz(0:dimx - 1) => y(i_hz*dimx:i_hz*dimx + dimx - 1)
+        bth(0:dimx - 1) => y(i_Bth * dimx:i_Bth * dimx + dimx - 1)
+        bz(0:dimx - 1) => y(i_Bz * dimx:i_Bz * dimx + dimx - 1)
+        b0arr(0:dimx - 1) => y(i_B * dimx:i_B * dimx + dimx - 1)
+        hth(0:dimx - 1) => y(i_hth * dimx:i_hth * dimx + dimx - 1)
+        hz(0:dimx - 1) => y(i_hz * dimx:i_hz * dimx + dimx - 1)
 
         do i = 0, dimx - 1
-            b0arr(i) = sqrt(bth(i)*bth(i) + bz(i)*bz(i))
-            hth(i) = bth(i)/b0arr(i)
-            hz(i) = bz(i)/b0arr(i)
+            b0arr(i) = sqrt(bth(i) * bth(i) + bz(i) * bz(i))
+            hth(i) = bth(i) / b0arr(i)
+            hz(i) = bz(i) / b0arr(i)
         end do
 
-        call spline_calc(sid, c_loc(y(i_Bth*dimx:)), i_Bth, i_hz, c_null_ptr, ierr)
-        call spline_calc(sid, c_loc(y(i_J0th(2)*dimx:)), i_J0th(2), i_J0z(2), c_null_ptr, ierr)
+        call spline_calc(sid, c_loc(y(i_Bth * dimx:)), i_Bth, i_hz, c_null_ptr, ierr)
+        call spline_calc(sid, c_loc(y(i_J0th(2) * dimx:)), i_J0th(2), i_J0z(2), &
+                         c_null_ptr, ierr)
 
         do i = 0, dimx - 1
             rloc(1) = x(i)
@@ -690,7 +594,7 @@ contains
 
             nuee = (5.8d-6)*n_(i)*Lee/sqrt(Te_(i))/(vf*Te_(i))
             nuei = (7.7d-6)*n_(i)*Lei*(charge(0)/e)**2/(vf*Te_(i))**1.5d0
-            nuie = (3.2d-9)*n_(i)*Lie*(charge(0)/e)**2/(mass(0)/mp)/sqrt(Te_(i))/(vf*Ti_(i))
+  nuie = (3.2d-9) * n_(i) * Lie * (charge(0) / e)**2 / (mass(0) / mp) / sqrt(Te_(i)) / (vf * Ti_(i))
             nuii = (1.4d-7)*n_(i)*Lii*(charge(0)/e)**4/sqrt(mass(0)/mp)/sqrt(Ti_(i))/(vf*Ti_(i))
 
             nui(i) = zion*(nuie + nuii + 10.0d0)
@@ -705,7 +609,7 @@ contains
             Vp_tot = hth_(i)*Vth_(i) + hz_(i)*Vz_(i)
             Jp_tot = hth_(i)*jth_(i) + hz_(i)*jz_(i)
 
-            Vp_i_p(i) = Vp_tot + Jp_tot*mass(1)/mass(0)/e/n_(i)/(1.0d0 + mass(1)/mass(0))
+           Vp_i_p(i) = Vp_tot + Jp_tot * mass(1) / mass(0) / e / n_(i) / (1.0d0 + mass(1) / mass(0))
             Vp_e_p(i) = Vp_tot - Jp_tot/e/n_(i)/(1.0d0 + mass(1)/mass(0))
 
             if (flag_dPhi0_calc > 0) then
@@ -732,7 +636,8 @@ contains
             call eval_and_set_background_parameters_spec_independent(x(i), flag_back)
 
             do spec = 0, 1
-                call eval_and_set_background_parameters_spec_dependent(x(i), spec, flag_back)
+                call eval_and_set_background_parameters_spec_dependent(x(i), spec, &
+                                                                       flag_back)
                 call eval_and_set_f0_parameters_nu_and_derivs(x(i), spec, flag_back)
                 call dens_par(n_(i), y(i_n_p(spec)*dimx + i))
             end do
@@ -772,7 +677,8 @@ contains
             call eval_and_set_background_parameters_spec_independent(x(i), flag_back)
 
             do spec = 0, 1
-                call eval_and_set_background_parameters_spec_dependent(x(i), spec, flag_back)
+                call eval_and_set_background_parameters_spec_dependent(x(i), spec, &
+                                                                       flag_back)
                 call eval_and_set_f0_parameters_nu_and_derivs(x(i), spec, flag_back)
 
                 call dens_mom(n_m(spec))
@@ -859,8 +765,8 @@ contains
         dPhi0v = dPhi0v - Bth*V_gal_sys/c
     end subroutine transform_basic_background_profiles_to_lab_frame
 
-    subroutine background_interp_in_lab_frame(dim_, rv, qq, n_, Ti, Te, Vth, Vz, dPhi0v) &
-        bind(C, name="interp_basic_background_profiles_in_lab_frame_")
+    subroutine background_interp_in_lab_frame(dim_, rv, qq, n_, Ti, Te, Vth, Vz, &
+                                              dPhi0v)
         integer(c_int), value :: dim_
         real(c_double), intent(in) :: rv(0:dim_ - 1)
         real(c_double), intent(out) :: qq(0:dim_ - 1), n_(0:dim_ - 1), Ti(0:dim_ - 1), Te(0:dim_ - 1)
@@ -872,45 +778,24 @@ contains
         end do
     end subroutine background_interp_in_lab_frame
 
-    real(c_double) function get_background_x0() bind(C, name="get_background_x0_")
+    real(c_double) function get_background_x0()
         get_background_x0 = x(0)
     end function get_background_x0
 
-    real(c_double) function get_background_xlast() bind(C, name="get_background_xlast_")
+    real(c_double) function get_background_xlast()
         get_background_xlast = x(dimx - 1)
     end function get_background_xlast
 
-    integer(c_int) function get_background_dimx() bind(C, name="get_background_dimx_")
+    integer(c_int) function get_background_dimx()
         get_background_dimx = dimx
     end function get_background_dimx
 
     !==================================================================
-    ! eval_back.cpp live functions.
-    !
-    ! Two distinct calling conventions, matching the oracle exactly:
-    !  - eval_background_spec_independent_/eval_f0_parameters_nu_and_derivs_
-    !    (trailing underscore) are called ONLY from the pre-existing,
-    !    unchanged Fortran conduct_parameters.f90 via an implicit interface
-    !    (F77-style), so every argument is BY REFERENCE - matching the
-    !    oracle's `double *r`/`int *spec`/`background **bpro` pointer args.
-    !    The handle argument is accepted for ABI compatibility (so
-    !    conduct_parameters.f90 needs zero edits) but never read, since
-    !    background is a singleton.
-    !  - eval_hthz/eval_Bt_dBt_Bz_dBz/eval_p_dp/eval_mass_density/eval_Bt_Bz/
-    !    eval_Bt/eval_Bz/eval_Vt/eval_Vz/eval_B0_ht_hz_n0_Vz are called from
-    !    still-C++ files (imhd/compressible_flow.cpp, imhd/incompressible.cpp,
-    !    imhd/imhd_zone.cpp, flre/flre_zone.cpp, mode/transforms.cpp) as
-    !    ordinary C++ function calls, so r/bp are BY VALUE (matching the
-    !    oracle's plain `double r, const background *bp` signatures) - bp
-    !    is accepted (background.h now forward-declares `class background;`
-    !    with no body, so these C++ files keep compiling unchanged, passing
-    !    around an opaque, never-dereferenced pointer value) but never read.
-    !  eval_hthz_ (trailing underscore) is the BY-REFERENCE sibling of
-    !  eval_hthz, called only from this port's own flre_quants_m.f90.
+    ! Native background evaluators shared by conductivity, zones, and transforms.
+    ! Handle parameters identify the shared background state and are not dereferenced.
     !==================================================================
 
-    subroutine eval_background_spec_independent(rval, handle, Rout) &
-        bind(C, name="eval_background_spec_independent_")
+    subroutine eval_background_spec_independent(rval, handle, Rout)
         real(c_double), intent(in) :: rval
         integer(c_intptr_t), intent(in) :: handle
         real(c_double), intent(out), target :: Rout(*)
@@ -919,8 +804,7 @@ contains
         call spline_eval(sid, 1, c_loc(rloc), 0, 2, i_B, i_dPhi0, c_loc(Rout))
     end subroutine eval_background_spec_independent
 
-    subroutine eval_f0_parameters_nu_and_derivs(rval, spec, handle, Rout) &
-        bind(C, name="eval_f0_parameters_nu_and_derivs_")
+    subroutine eval_f0_parameters_nu_and_derivs(rval, spec, handle, Rout)
         real(c_double), intent(in) :: rval
         integer(c_int), intent(in) :: spec
         integer(c_intptr_t), intent(in) :: handle
@@ -930,13 +814,7 @@ contains
         call spline_eval(sid, 1, c_loc(rloc), 0, 2, i_n_p(spec), i_nu(spec), c_loc(Rout))
     end subroutine eval_f0_parameters_nu_and_derivs
 
-    !> Internal helper, called from eval_and_save_f0_moments and (via the
-    !> bind(C) sibling vs_0_f below) gcorr.f90's still-live
-    !> eval_and_set_params_for_additional_current_ - a genuine miss in an
-    !> earlier "0 callers" grep pass (which only checked C++ files; gcorr.f90
-    !> is Fortran), caught only by the link step. Re-confirms: always check
-    !> Fortran (.f90) callers too, not just C++ ones, before calling
-    !> something dead.
+    !> Drift-velocity helper shared by moment output and gcorr.f90 via vs_0_f.
     subroutine vs_0(r, spec, res)
         real(dp), intent(in) :: r
         integer(c_int), intent(in) :: spec
@@ -960,9 +838,8 @@ contains
         res = c/Bv*(dPhi0v + dpress/charge(spec)/n_)
     end subroutine vs_0
 
-    !> bind(C) replacement for vs_0_f_, called via bp_ptr from gcorr.f90 -
-    !> same by-reference convention as eval_background_spec_independent_.
-    subroutine vs_0_f(rval, spec, handle, res) bind(C, name="vs_0_f_")
+    !> Native entry point used by gcorr.f90 with the shared background handle.
+    subroutine vs_0_f(rval, spec, handle, res)
         real(c_double), intent(in) :: rval
         integer(c_int), intent(in) :: spec
         integer(c_intptr_t), intent(in) :: handle
@@ -972,7 +849,7 @@ contains
         res = res_local
     end subroutine vs_0_f
 
-    subroutine eval_hthz_c(rval, omin, omax, bp, hout) bind(C, name="eval_hthz_")
+    subroutine eval_hthz_c(rval, omin, omax, bp, hout)
         real(c_double), intent(in) :: rval
         integer(c_int), intent(in) :: omin, omax
         integer(c_intptr_t), intent(in) :: bp
@@ -982,7 +859,7 @@ contains
         call spline_eval(sid, 1, c_loc(rloc), omin, omax, i_hth, i_hz, c_loc(hout))
     end subroutine eval_hthz_c
 
-    subroutine eval_hthz(rval, omin, omax, bp, hout) bind(C, name="eval_hthz")
+    subroutine eval_hthz(rval, omin, omax, bp, hout)
         real(c_double), value :: rval
         integer(c_int), value :: omin, omax
         type(c_ptr), value :: bp
@@ -992,7 +869,7 @@ contains
         call spline_eval(sid, 1, c_loc(rloc), omin, omax, i_hth, i_hz, c_loc(hout))
     end subroutine eval_hthz
 
-    subroutine eval_Bt_dBt_Bz_dBz(rval, bp, R) bind(C, name="eval_Bt_dBt_Bz_dBz")
+    subroutine eval_Bt_dBt_Bz_dBz(rval, bp, R)
         real(c_double), value :: rval
         type(c_ptr), value :: bp
         real(c_double), intent(out), target :: R(*)
@@ -1001,7 +878,7 @@ contains
         call spline_eval(sid, 1, c_loc(rloc), 0, 1, i_Bth, i_Bz, c_loc(R))
     end subroutine eval_Bt_dBt_Bz_dBz
 
-    subroutine eval_p_dp(rval, bp, R) bind(C, name="eval_p_dp")
+    subroutine eval_p_dp(rval, bp, R)
         real(c_double), value :: rval
         type(c_ptr), value :: bp
         real(c_double), intent(out), target :: R(*)
@@ -1010,7 +887,7 @@ contains
         call eval_p_dp_local(rloc(1), R)
     end subroutine eval_p_dp
 
-    !> Shared by eval_p_dp (external C++ callers) and
+    !> Shared by eval_p_dp (zone callers) and
     !> check_and_spline_equilibrium (internal use).
     subroutine eval_p_dp_local(r, Rout)
         real(dp), intent(in) :: r
@@ -1027,7 +904,7 @@ contains
         Rout(1) = boltz*(dn*(Ti + Te) + n_*(dTi + dTe))
     end subroutine eval_p_dp_local
 
-    subroutine eval_mass_density(rval, bp, R) bind(C, name="eval_mass_density")
+    subroutine eval_mass_density(rval, bp, R)
         real(c_double), value :: rval
         type(c_ptr), value :: bp
         real(c_double), intent(out), target :: R(*)
@@ -1037,7 +914,7 @@ contains
         R(1) = R(1)*mass(0)
     end subroutine eval_mass_density
 
-    subroutine eval_Bt_Bz(rval, bp, R) bind(C, name="eval_Bt_Bz")
+    subroutine eval_Bt_Bz(rval, bp, R)
         real(c_double), value :: rval
         type(c_ptr), value :: bp
         real(c_double), intent(out), target :: R(*)
@@ -1046,7 +923,7 @@ contains
         call spline_eval(sid, 1, c_loc(rloc), 0, 0, i_Bth, i_Bz, c_loc(R))
     end subroutine eval_Bt_Bz
 
-    subroutine eval_Bt(rval, bp, R) bind(C, name="eval_Bt")
+    subroutine eval_Bt(rval, bp, R)
         real(c_double), value :: rval
         type(c_ptr), value :: bp
         real(c_double), intent(out), target :: R(*)
@@ -1055,7 +932,7 @@ contains
         call spline_eval(sid, 1, c_loc(rloc), 0, 0, i_Bth, i_Bth, c_loc(R))
     end subroutine eval_Bt
 
-    subroutine eval_Bz(rval, bp, R) bind(C, name="eval_Bz")
+    subroutine eval_Bz(rval, bp, R)
         real(c_double), value :: rval
         type(c_ptr), value :: bp
         real(c_double), intent(out), target :: R(*)
@@ -1064,7 +941,7 @@ contains
         call spline_eval(sid, 1, c_loc(rloc), 0, 0, i_Bz, i_Bz, c_loc(R))
     end subroutine eval_Bz
 
-    subroutine eval_Vt(rval, bp, R) bind(C, name="eval_Vt")
+    subroutine eval_Vt(rval, bp, R)
         real(c_double), value :: rval
         type(c_ptr), value :: bp
         real(c_double), intent(out), target :: R(*)
@@ -1073,7 +950,7 @@ contains
         call spline_eval(sid, 1, c_loc(rloc), 0, 0, i_Vth(2), i_Vth(2), c_loc(R))
     end subroutine eval_Vt
 
-    subroutine eval_Vz(rval, bp, R) bind(C, name="eval_Vz")
+    subroutine eval_Vz(rval, bp, R)
         real(c_double), value :: rval
         type(c_ptr), value :: bp
         real(c_double), intent(out), target :: R(*)
@@ -1082,7 +959,7 @@ contains
         call spline_eval(sid, 1, c_loc(rloc), 0, 0, i_Vz(2), i_Vz(2), c_loc(R))
     end subroutine eval_Vz
 
-    subroutine eval_B0_ht_hz_n0_Vz(rval, bp, R) bind(C, name="eval_B0_ht_hz_n0_Vz")
+    subroutine eval_B0_ht_hz_n0_Vz(rval, bp, R)
         real(c_double), value :: rval
         type(c_ptr), value :: bp
         real(c_double), intent(out), target :: R(0:4)
@@ -1103,8 +980,7 @@ contains
     !> channels) and get_collision_frequences_from_wave_code_'s two
     !> single-channel calls (i_nu(0), i_nu(1) - NOT consecutive in the
     !> index table, so two separate evaluations).
-    subroutine get_background_magnetic_fields(rval, Bt, Bz, B0) &
-        bind(C, name="get_background_magnetic_fields_")
+    subroutine get_background_magnetic_fields(rval, Bt, Bz, B0)
         real(c_double), value :: rval
         real(c_double), intent(out), target :: Bt(1), Bz(1), B0(1)
         real(dp), target :: rloc(1), Rl(0:2)
@@ -1113,8 +989,7 @@ contains
         Bt(1) = Rl(0); Bz(1) = Rl(1); B0(1) = Rl(2)
     end subroutine get_background_magnetic_fields
 
-    subroutine get_background_collision_freqs(rval, nui, nue) &
-        bind(C, name="get_background_collision_freqs_")
+    subroutine get_background_collision_freqs(rval, nui, nue)
         real(c_double), value :: rval
         real(c_double), intent(out), target :: nui(1), nue(1)
         real(dp), target :: rloc(1)
@@ -1123,7 +998,7 @@ contains
         call spline_eval(sid, 1, c_loc(rloc), 0, 0, i_nu(1), i_nu(1), c_loc(nue))
     end subroutine get_background_collision_freqs
 
-    real(c_double) function eval_q(rval, bp) bind(C, name="q")
+    real(c_double) function eval_q(rval, bp)
         real(c_double), value :: rval
         type(c_ptr), value :: bp
         real(dp), target :: rloc(1), ans(1)
@@ -1131,19 +1006,5 @@ contains
         call spline_eval(sid, 1, c_loc(rloc), 0, 0, i_q, i_q, c_loc(ans))
         eval_q = ans(1)
     end function eval_q
-
-    subroutine read_c_string(cp_, out)
-        type(c_ptr), value :: cp_
-        character(len=*), intent(out) :: out
-        character(kind=c_char), pointer :: chars(:)
-        integer :: i
-
-        call c_f_pointer(cp_, chars, [len(out)])
-        out = ''
-        do i = 1, len(out)
-            if (chars(i) == c_null_char) exit
-            out(i:i) = chars(i)
-        end do
-    end subroutine read_c_string
 
 end module kilca_background_data_m

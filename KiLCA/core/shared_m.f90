@@ -5,19 +5,10 @@
 !> C++, header and Fortran source files) and were dropped, matching this
 !> port's established dead-code precedent.
 !>
-!> signum and sort_index_doubles keep C++ linkage (bind(C), no trailing
-!> underscore) since their one remaining caller each is still C++
-!> (progs/main_eig_param.cpp, math/adapt_grid/adaptive_grid.cpp - both S8
-!> scope, not yet translated).
+!> signum and sort_index_doubles are native module procedures.
 !>
-!> binomial_coefficients is the live subset's odd one out: it is called
-!> only by PRE-EXISTING legacy Fortran (flre/conductivity/kmatrices*.f90,
-!> conduct_arrays*.f90) via implicit/external interface
-!> (`call binomial_coefficients (%val(N), bico)`, no trailing underscore
-!> in the source text) - gfortran mangles that call to the external
-!> symbol "binomial_coefficients_". A free (non-module-contained)
-!> subprogram below provides exactly that symbol, per this port's
-!> established free-subprogram-vs-module-contained-procedure rule.
+!> binomial_coefficients remains an external Fortran procedure with a VALUE
+!> order argument. Its callers import the canonical legacy interface.
 module kilca_shared_m
     use, intrinsic :: iso_c_binding, only: c_double, c_int, c_size_t
     use constants, only: dp
@@ -97,7 +88,7 @@ contains
         val = val*sgn
     end function strtol_int
 
-    function signum(x) result(s) bind(C, name="signum")
+    function signum(x) result(s)
         real(c_double), value :: x
         integer(c_int) :: s
         if (x < 0.0_c_double) then
@@ -111,13 +102,13 @@ contains
 
     !> Ascending index sort: perm(k) receives the (0-based) index into x of
     !> the k-th smallest value. Uses fortnum_multiroot's native argsort
-    !> (heapsort, 1-based) then converts to 0-based for the still-C++
-    !> caller. argsort's heapsort is not stable; the conductivity grid
+    !> (heapsort, 1-based) then converts to the callers' 0-based
+    !> indexing. argsort's heapsort is not stable; the conductivity grid
     !> shares zone-boundary nodes (duplicated x), so the sort must be
     !> deterministic for the spline to be well-defined - the oracle's own
     !> fixup (break exact-key ties by ascending original index) is
     !> reproduced verbatim below.
-    subroutine sort_index_doubles(perm, xarr, n) bind(C, name="sort_index_doubles")
+    subroutine sort_index_doubles(perm, xarr, n)
         integer(c_size_t), value :: n
         real(c_double), intent(in) :: xarr(0:n - 1)
         integer(c_size_t), intent(out) :: perm(0:n - 1)

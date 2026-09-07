@@ -5,27 +5,15 @@
 !> kilca_imhd_zone_m/kilca_flre_zone_m) extend zone_t and override the
 !> deferred bindings below.
 !>
-!> sd (settings*) is write-only at construction in the C++ oracle (zone.cpp
-!> never dereferences it; `path` already holds a copy of sd->path2project),
-!> so it is accepted by the create shims for ABI/call-site fidelity but not
-!> stored. bp (background*) IS read by several subclasses (imhd_zone.cpp,
-!> incompressible.cpp, compressible_flow.cpp, flre_zone.cpp all pass
-!> `zone->bp` into eval_* calls), but background is now a Fortran singleton
-!> (kilca_background_data_m) whose handle value is always ignored, so bp is
-!> kept only as a pass-through sentinel for call-site shape fidelity.
+!> The settings handle is accepted by factories but not stored: path already
+!> contains the project directory. Background state is shared through
+!> kilca_background_data_m, so its handle is a pass-through sentinel.
 !>
-!> mode_data (mode.cpp/calc_mode.cpp, still C++ until S6) cannot hold or
-!> dispatch through a class(zone_t) directly, so this module also exports a
-!> bind(C) dispatch-shim layer: one zone_<method>_ function per
-!> deferred/concrete binding, taking an opaque handle, recovering a
-!> class(zone_t) pointer via c_f_pointer, and making a normal type-bound
-!> call (dispatched by the compiler to the right override). Per-subtype
-!> <name>_zone_create_ factories (in each subtype's own module) return that
-!> handle. This shim is temporary: S6 removes it once mode_data itself
-!> becomes Fortran and can hold class(zone_t) natively.
+!> Native zone_<method>_ procedures recover a class(zone_t) pointer from an
+!> opaque handle and dispatch to the concrete type-bound implementation.
+!> Subtype factories return handles; the owning mode releases each zone.
 module kilca_zone_m
-    use, intrinsic :: iso_c_binding, only: c_int, c_intptr_t, c_double, c_char, &
-        c_ptr, c_loc, c_f_pointer, c_null_char
+    use, intrinsic :: iso_c_binding, only: c_int, c_intptr_t, c_double, c_ptr, c_loc
     use constants, only: dp
     use kilca_wave_data_m, only: wave_data_t
     use kilca_shared_m, only: strtol_int
@@ -500,25 +488,24 @@ contains
         z => zone_pool(int(handle))%z
     end subroutine handle_to_zone
 
-    !> ---- bind(C) dispatch shims for still-C++ callers (mode.cpp,
-    !> calc_mode.cpp, wave_code_interface.cpp) ----
+    !> ---- native handle-based dispatch procedures ----
 
-    subroutine zone_read_settings_c(handle, file) bind(C, name="zone_read_settings_")
+    subroutine zone_read_settings_c(handle, file)
         integer(c_intptr_t), value :: handle
-        character(kind=c_char), intent(in) :: file(*)
+        character(len=*), intent(in) :: file
         class(zone_t), pointer :: z
         call handle_to_zone(handle, z)
-        call z%read_settings(c_string_to_fortran(file))
+        call z%read_settings(file)
     end subroutine zone_read_settings_c
 
-    subroutine zone_print_settings_c(handle) bind(C, name="zone_print_settings_")
+    subroutine zone_print_settings_c(handle)
         integer(c_intptr_t), value :: handle
         class(zone_t), pointer :: z
         call handle_to_zone(handle, z)
         call z%print_settings()
     end subroutine zone_print_settings_c
 
-    subroutine zone_calc_basis_fields_c(handle, flag) bind(C, name="zone_calc_basis_fields_")
+    subroutine zone_calc_basis_fields_c(handle, flag)
         integer(c_intptr_t), value :: handle
         integer(c_int), value :: flag
         class(zone_t), pointer :: z
@@ -526,7 +513,7 @@ contains
         call z%calc_basis_fields(int(flag))
     end subroutine zone_calc_basis_fields_c
 
-    subroutine zone_copy_E_and_B_fields_c(handle, EB_out) bind(C, name="zone_copy_E_and_B_fields_")
+    subroutine zone_copy_E_and_B_fields_c(handle, EB_out)
         integer(c_intptr_t), value :: handle
         real(c_double), intent(out) :: EB_out(*)
         class(zone_t), pointer :: z
@@ -534,43 +521,42 @@ contains
         call z%copy_E_and_B_fields(EB_out)
     end subroutine zone_copy_E_and_B_fields_c
 
-    subroutine zone_calc_final_fields_c(handle) bind(C, name="zone_calc_final_fields_")
+    subroutine zone_calc_final_fields_c(handle)
         integer(c_intptr_t), value :: handle
         class(zone_t), pointer :: z
         call handle_to_zone(handle, z)
         call z%calc_final_fields()
     end subroutine zone_calc_final_fields_c
 
-    subroutine zone_calc_dispersion_c(handle) bind(C, name="zone_calc_dispersion_")
+    subroutine zone_calc_dispersion_c(handle)
         integer(c_intptr_t), value :: handle
         class(zone_t), pointer :: z
         call handle_to_zone(handle, z)
         call z%calc_dispersion()
     end subroutine zone_calc_dispersion_c
 
-    subroutine zone_save_dispersion_c(handle) bind(C, name="zone_save_dispersion_")
+    subroutine zone_save_dispersion_c(handle)
         integer(c_intptr_t), value :: handle
         class(zone_t), pointer :: z
         call handle_to_zone(handle, z)
         call z%save_dispersion()
     end subroutine zone_save_dispersion_c
 
-    subroutine zone_calc_all_quants_c(handle) bind(C, name="zone_calc_all_quants_")
+    subroutine zone_calc_all_quants_c(handle)
         integer(c_intptr_t), value :: handle
         class(zone_t), pointer :: z
         call handle_to_zone(handle, z)
         call z%calc_all_quants()
     end subroutine zone_calc_all_quants_c
 
-    subroutine zone_save_all_quants_c(handle) bind(C, name="zone_save_all_quants_")
+    subroutine zone_save_all_quants_c(handle)
         integer(c_intptr_t), value :: handle
         class(zone_t), pointer :: z
         call handle_to_zone(handle, z)
         call z%save_all_quants()
     end subroutine zone_save_all_quants_c
 
-    subroutine zone_eval_diss_power_density_c(handle, x, ttype, spec, dpd) &
-        bind(C, name="zone_eval_diss_power_density_")
+    subroutine zone_eval_diss_power_density_c(handle, x, ttype, spec, dpd)
         integer(c_intptr_t), value :: handle
         real(c_double), value :: x
         integer(c_int), value :: ttype, spec
@@ -580,8 +566,7 @@ contains
         call z%eval_diss_power_density(x, int(ttype), int(spec), dpd)
     end subroutine zone_eval_diss_power_density_c
 
-    subroutine zone_eval_current_density_c(handle, x, ttype, spec, comp, J) &
-        bind(C, name="zone_eval_current_density_")
+    subroutine zone_eval_current_density_c(handle, x, ttype, spec, comp, J)
         integer(c_intptr_t), value :: handle
         real(c_double), value :: x
         integer(c_int), value :: ttype, spec, comp
@@ -591,21 +576,21 @@ contains
         call z%eval_current_density(x, int(ttype), int(spec), int(comp), J)
     end subroutine zone_eval_current_density_c
 
-    real(c_double) function zone_get_r1_c(handle) bind(C, name="zone_get_r1_") result(res)
+    real(c_double) function zone_get_r1_c(handle) result(res)
         integer(c_intptr_t), value :: handle
         class(zone_t), pointer :: z
         call handle_to_zone(handle, z)
         res = z%get_r1()
     end function zone_get_r1_c
 
-    real(c_double) function zone_get_r2_c(handle) bind(C, name="zone_get_r2_") result(res)
+    real(c_double) function zone_get_r2_c(handle) result(res)
         integer(c_intptr_t), value :: handle
         class(zone_t), pointer :: z
         call handle_to_zone(handle, z)
         res = z%get_r2()
     end function zone_get_r2_c
 
-    integer(c_int) function zone_get_dim_of_basis_c(handle) bind(C, name="zone_get_dim_of_basis_") result(res)
+    integer(c_int) function zone_get_dim_of_basis_c(handle) result(res)
         integer(c_intptr_t), value :: handle
         class(zone_t), pointer :: z
         call handle_to_zone(handle, z)
@@ -613,7 +598,7 @@ contains
     end function zone_get_dim_of_basis_c
 
     integer(c_int) function zone_get_dim_of_basis_vector_c(handle) &
-        bind(C, name="zone_get_dim_of_basis_vector_") result(res)
+        result(res)
         integer(c_intptr_t), value :: handle
         class(zone_t), pointer :: z
         call handle_to_zone(handle, z)
@@ -621,35 +606,35 @@ contains
     end function zone_get_dim_of_basis_vector_c
 
     integer(c_int) function zone_get_radial_grid_dimension_c(handle) &
-        bind(C, name="zone_get_radial_grid_dimension_") result(res)
+        result(res)
         integer(c_intptr_t), value :: handle
         class(zone_t), pointer :: z
         call handle_to_zone(handle, z)
         res = z%get_radial_grid_dimension()
     end function zone_get_radial_grid_dimension_c
 
-    integer(c_int) function zone_get_code_version_c(handle) bind(C, name="zone_get_code_version_") result(res)
+    integer(c_int) function zone_get_code_version_c(handle) result(res)
         integer(c_intptr_t), value :: handle
         class(zone_t), pointer :: z
         call handle_to_zone(handle, z)
         res = z%get_code_version()
     end function zone_get_code_version_c
 
-    integer(c_int) function zone_get_medium_c(handle) bind(C, name="zone_get_medium_") result(res)
+    integer(c_int) function zone_get_medium_c(handle) result(res)
         integer(c_intptr_t), value :: handle
         class(zone_t), pointer :: z
         call handle_to_zone(handle, z)
         res = z%medium
     end function zone_get_medium_c
 
-    integer(c_int) function zone_get_bc1_c(handle) bind(C, name="zone_get_bc1_") result(res)
+    integer(c_int) function zone_get_bc1_c(handle) result(res)
         integer(c_intptr_t), value :: handle
         class(zone_t), pointer :: z
         call handle_to_zone(handle, z)
         res = z%bc1
     end function zone_get_bc1_c
 
-    integer(c_int) function zone_get_bc2_c(handle) bind(C, name="zone_get_bc2_") result(res)
+    integer(c_int) function zone_get_bc2_c(handle) result(res)
         integer(c_intptr_t), value :: handle
         class(zone_t), pointer :: z
         call handle_to_zone(handle, z)
@@ -657,7 +642,7 @@ contains
     end function zone_get_bc2_c
 
     type(c_ptr) function zone_get_basis_at_left_boundary_c(handle) &
-        bind(C, name="zone_get_basis_at_left_boundary_") result(res)
+        result(res)
         integer(c_intptr_t), value :: handle
         class(zone_t), pointer :: z
         call handle_to_zone(handle, z)
@@ -665,23 +650,22 @@ contains
     end function zone_get_basis_at_left_boundary_c
 
     type(c_ptr) function zone_get_basis_at_right_boundary_c(handle) &
-        bind(C, name="zone_get_basis_at_right_boundary_") result(res)
+        result(res)
         integer(c_intptr_t), value :: handle
         class(zone_t), pointer :: z
         call handle_to_zone(handle, z)
         res = c_loc(z%basis(1, 1, z%dim))
     end function zone_get_basis_at_right_boundary_c
 
-    subroutine zone_save_basis_fields_c(handle, path2linear) bind(C, name="zone_save_basis_fields_")
+    subroutine zone_save_basis_fields_c(handle, path2linear)
         integer(c_intptr_t), value :: handle
-        character(kind=c_char), intent(in) :: path2linear(*)
+        character(len=*), intent(in) :: path2linear
         class(zone_t), pointer :: z
         call handle_to_zone(handle, z)
-        call z%save_basis_fields(c_string_to_fortran(path2linear))
+        call z%save_basis_fields(path2linear)
     end subroutine zone_save_basis_fields_c
 
-    subroutine zone_calc_superposition_of_basis_fields_c(handle, S_p) &
-        bind(C, name="zone_calc_superposition_of_basis_fields_")
+    subroutine zone_calc_superposition_of_basis_fields_c(handle, S_p)
         integer(c_intptr_t), value :: handle
         real(c_double), intent(in) :: S_p(*)
         class(zone_t), pointer :: z
@@ -689,15 +673,15 @@ contains
         call z%calc_superposition_of_basis_fields(S_p(1:2*z%Nwaves))
     end subroutine zone_calc_superposition_of_basis_fields_c
 
-    subroutine zone_save_final_fields_c(handle, path2linear) bind(C, name="zone_save_final_fields_")
+    subroutine zone_save_final_fields_c(handle, path2linear)
         integer(c_intptr_t), value :: handle
-        character(kind=c_char), intent(in) :: path2linear(*)
+        character(len=*), intent(in) :: path2linear
         class(zone_t), pointer :: z
         call handle_to_zone(handle, z)
-        call z%save_final_fields(c_string_to_fortran(path2linear))
+        call z%save_final_fields(path2linear)
     end subroutine zone_save_final_fields_c
 
-    subroutine zone_copy_radial_grid_c(handle, r_p) bind(C, name="zone_copy_radial_grid_")
+    subroutine zone_copy_radial_grid_c(handle, r_p)
         integer(c_intptr_t), value :: handle
         real(c_double), intent(out) :: r_p(*)
         class(zone_t), pointer :: z
@@ -705,7 +689,7 @@ contains
         call z%copy_radial_grid(r_p)
     end subroutine zone_copy_radial_grid_c
 
-    subroutine zone_destroy_c(handle) bind(C, name="zone_destroy_")
+    subroutine zone_destroy_c(handle)
         integer(c_intptr_t), value :: handle
         class(zone_t), pointer :: z
         if (handle == 0_c_intptr_t) return
@@ -716,7 +700,7 @@ contains
 
     !> Pre-existing names (zone.h), unchanged signatures: legacy stitching
     !> Fortran already treats zone**/subclass** purely as an opaque handle.
-    subroutine get_right_boundary_of_zone(handle, rout) bind(C, name="get_right_boundary_of_zone_")
+    subroutine get_right_boundary_of_zone(handle, rout)
         integer(c_intptr_t), intent(in) :: handle
         real(c_double), intent(out) :: rout
         class(zone_t), pointer :: z
@@ -724,27 +708,12 @@ contains
         rout = z%get_r2()
     end subroutine get_right_boundary_of_zone
 
-    subroutine get_left_boundary_of_zone(handle, rout) bind(C, name="get_left_boundary_of_zone_")
+    subroutine get_left_boundary_of_zone(handle, rout)
         integer(c_intptr_t), intent(in) :: handle
         real(c_double), intent(out) :: rout
         class(zone_t), pointer :: z
         call handle_to_zone(handle, z)
         rout = z%get_r1()
     end subroutine get_left_boundary_of_zone
-
-    function c_string_to_fortran(cstr) result(fstr)
-        character(kind=c_char), intent(in) :: cstr(*)
-        character(len=:), allocatable :: fstr
-        integer :: i
-        i = 0
-        do
-            if (cstr(i + 1) == c_null_char) exit
-            i = i + 1
-        end do
-        allocate (character(len=i) :: fstr)
-        do i = 1, len(fstr)
-            fstr(i:i) = cstr(i)
-        end do
-    end function c_string_to_fortran
 
 end module kilca_zone_m

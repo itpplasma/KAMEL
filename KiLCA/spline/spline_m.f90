@@ -1,9 +1,8 @@
 !> Splines of arbitrary odd degree for arrays of data.
 !>
-!> Fortran port of the former spline.cpp. The C ABI (spline_alloc_,
-!> spline_calc_, spline_eval_, spline_eval_d_, spline_free_) is preserved so the
-!> KiLCA C++ callers link unchanged. The opaque handle sid is the C address of
-!> the spline_data_t allocated here; x and the coefficient array C stay owned by
+!> Native module procedures manage allocation, construction, evaluation, and release.
+!> The opaque handle sid stores the address of the spline_data_t allocated here;
+!> x and the coefficient array C stay owned by
 !> the caller and are referenced through stored C pointers.
 module kilca_spline_m
     use, intrinsic :: iso_c_binding, only: c_int, c_double, c_intptr_t, c_ptr, &
@@ -25,14 +24,13 @@ module kilca_spline_m
     end type spline_data_t
 
     interface
-        subroutine dgesv(n, nrhs, a, lda, ipiv, b, ldb, info) bind(C, name="dgesv_")
+        subroutine dgesv(n, nrhs, a, lda, ipiv, b, ldb, info)
             import :: c_int, c_double
             integer(c_int) :: n, nrhs, lda, ldb, info
             integer(c_int) :: ipiv(*)
             real(c_double) :: a(*), b(*)
         end subroutine dgesv
-        subroutine dgbsv(n, kl, ku, nrhs, ab, ldab, ipiv, b, ldb, info) &
-            bind(C, name="dgbsv_")
+        subroutine dgbsv(n, kl, ku, nrhs, ab, ldab, ipiv, b, ldb, info)
             import :: c_int, c_double
             integer(c_int) :: n, kl, ku, nrhs, ldab, ldb, info
             integer(c_int) :: ipiv(*)
@@ -42,7 +40,7 @@ module kilca_spline_m
 
 contains
 
-    subroutine spline_alloc(N, stype, dimx, x, Carr, sid) bind(C, name="spline_alloc_")
+    subroutine spline_alloc(N, stype, dimx, x, Carr, sid)
         integer(c_int), value :: N, stype, dimx
         type(c_ptr), value :: x, Carr
         integer(c_intptr_t), intent(out) :: sid
@@ -81,7 +79,7 @@ contains
             "error: check of input parameters failed in spline_alloc_."
     end subroutine alloc_fail
 
-    subroutine spline_calc(sid, y, Imin, Imax, W, ierr) bind(C, name="spline_calc_")
+    subroutine spline_calc(sid, y, Imin, Imax, W, ierr)
         integer(c_intptr_t), value :: sid
         type(c_ptr), value :: y, W
         integer(c_int), value :: Imin, Imax
@@ -182,7 +180,7 @@ contains
 
         do n_ = 0, s
             iunk = n_
-            W(moff + KLKU + ieqn + iunk*(LDAB - 1)) = 1.0d0
+            W(moff + KLKU + ieqn + iunk * (LDAB - 1)) = 1.0d0
             do j = 0, dimy - 1
                 Cf(sc_off + ieqn + j*len) = W(n_ + j*(N + 1))
             end do
@@ -192,25 +190,25 @@ contains
         do k = 1, dimx - 2
             do n_ = 0, N - 1
                 p = n_
-                iunk = (k - 1)*(N + 1) + p
+                iunk = (k - 1) * (N + 1) + p
                 dx = 1.0d0
-                idx = n_*(N + 1)
-                W(moff + KLKU + ieqn + iunk*(LDAB - 1)) = sd%BC(p + idx)*dx
+                idx = n_ * (N + 1)
+                W(moff + KLKU + ieqn + iunk * (LDAB - 1)) = sd%BC(p + idx) * dx
                 do p = n_ + 1, N
-                    iunk = (k - 1)*(N + 1) + p
-                    dx = dx*(x(k) - x(k - 1))
-                    W(moff + KLKU + ieqn + iunk*(LDAB - 1)) = sd%BC(p + idx)*dx
+                    iunk = (k - 1) * (N + 1) + p
+                    dx = dx * (x(k) - x(k - 1))
+                    W(moff + KLKU + ieqn + iunk * (LDAB - 1)) = sd%BC(p + idx) * dx
                 end do
-                iunk = k*(N + 1) + n_
-                W(moff + KLKU + ieqn + iunk*(LDAB - 1)) = -1.0d0
+                iunk = k * (N + 1) + n_
+                W(moff + KLKU + ieqn + iunk * (LDAB - 1)) = -1.0d0
                 do j = 0, dimy - 1
-                    Cf(sc_off + ieqn + j*len) = 0.0d0
+                    Cf(sc_off + ieqn + j * len) = 0.0d0
                 end do
                 ieqn = ieqn + 1
             end do
 
             iunk = k*(N + 1)
-            W(moff + KLKU + ieqn + iunk*(LDAB - 1)) = 1.0d0
+            W(moff + KLKU + ieqn + iunk * (LDAB - 1)) = 1.0d0
             do j = 0, dimy - 1
                 Cf(sc_off + ieqn + j*len) = y(k + j*dimx)
             end do
@@ -220,26 +218,26 @@ contains
         k = dimx - 1
         do n_ = 0, s
             p = n_
-            iunk = (k - 1)*(N + 1) + p
+            iunk = (k - 1) * (N + 1) + p
             dx = 1.0d0
-            idx = n_*(N + 1)
-            W(moff + KLKU + ieqn + iunk*(LDAB - 1)) = sd%BC(p + idx)*dx
+            idx = n_ * (N + 1)
+            W(moff + KLKU + ieqn + iunk * (LDAB - 1)) = sd%BC(p + idx) * dx
             do p = n_ + 1, N
-                iunk = (k - 1)*(N + 1) + p
-                dx = dx*(x(k) - x(k - 1))
-                W(moff + KLKU + ieqn + iunk*(LDAB - 1)) = sd%BC(p + idx)*dx
+                iunk = (k - 1) * (N + 1) + p
+                dx = dx * (x(k) - x(k - 1))
+                W(moff + KLKU + ieqn + iunk * (LDAB - 1)) = sd%BC(p + idx) * dx
             end do
-            iunk = k*(N + 1) + n_
-            W(moff + KLKU + ieqn + iunk*(LDAB - 1)) = -1.0d0
+            iunk = k * (N + 1) + n_
+            W(moff + KLKU + ieqn + iunk * (LDAB - 1)) = -1.0d0
             do j = 0, dimy - 1
-                Cf(sc_off + ieqn + j*len) = 0.0d0
+                Cf(sc_off + ieqn + j * len) = 0.0d0
             end do
             ieqn = ieqn + 1
         end do
 
         do n_ = 0, N
-            iunk = k*(N + 1) + n_
-            W(moff + KLKU + ieqn + iunk*(LDAB - 1)) = 1.0d0
+            iunk = k * (N + 1) + n_
+            W(moff + KLKU + ieqn + iunk * (LDAB - 1)) = 1.0d0
             do j = 0, dimy - 1
                 Cf(sc_off + ieqn + j*len) = W((N + 1)*dimy + n_ + j*(N + 1))
             end do
@@ -253,8 +251,7 @@ contains
             "error: calc_spline_coefficients: INFO=", info
     end function calc_spline_coefficients
 
-    subroutine spline_eval(sid, dimz, z, Dmin, Dmax, Imin, Imax, R) &
-        bind(C, name="spline_eval_")
+    subroutine spline_eval(sid, dimz, z, Dmin, Dmax, Imin, Imax, R)
         integer(c_intptr_t), value :: sid
         integer(c_int), value :: dimz, Dmin, Dmax, Imin, Imax
         type(c_ptr), value :: z, R
@@ -266,27 +263,27 @@ contains
         call handle_to_sd(sid, sd)
         N = sd%N
         call cptr0(z, zp, dimz)
-        call cptr0(R, Rp, dimz*(Dmax - Dmin + 1)*(Imax - Imin + 1))
+        call cptr0(R, Rp, dimz * (Dmax - Dmin + 1) * (Imax - Imin + 1))
         call cptr0(sd%x_ptr, x, sd%dimx)
-        call cptr0(sd%C_ptr, Cf, (N + 1)*sd%dimx*(Imax + 1))
+        call cptr0(sd%c_ptr, Cf, (N + 1) * sd%dimx * (Imax + 1))
         fac => sd%fac
 
-        len = (N + 1)*sd%dimx
+        len = (N + 1) * sd%dimx
         D1 = Dmax - Dmin + 1; D2 = D1*(Imax - Imin + 1)
 
         do k = 0, dimz - 1
             call search_array(zp(k), sd%dimx, x, sd%ind)
-            ic0 = sd%ind*(N + 1)
+            ic0 = sd%ind * (N + 1)
             ir0 = k*D2 - Dmin
             do j = Imin, Imax
-                ic1 = ic0 + j*len
+                ic1 = ic0 + j * len
                 ir1 = ir0 + (j - Imin)*D1
                 do n_ = Dmin, Dmax
-                    idx = n_*(N + 1)
-                    tmp = fac(N + idx)*Cf(N + ic1)
+                    idx = n_ * (N + 1)
+                    tmp = fac(N + idx) * Cf(N + ic1)
                     do p = N - n_, 1, -1
-                        tmp = fac(p + n_ - 1 + idx)*Cf(p + n_ - 1 + ic1) + &
-                              (zp(k) - x(sd%ind))*tmp
+                        tmp = fac(p + n_ - 1 + idx) * Cf(p + n_ - 1 + ic1) + &
+                              (zp(k) - x(sd%ind)) * tmp
                     end do
                     Rp(n_ + ir1) = tmp
                 end do
@@ -294,8 +291,7 @@ contains
         end do
     end subroutine spline_eval
 
-    subroutine spline_eval_d(sid, dimz, z, Dmin, Dmax, Imin, Imax, R) &
-        bind(C, name="spline_eval_d_")
+    subroutine spline_eval_d(sid, dimz, z, Dmin, Dmax, Imin, Imax, R)
         integer(c_intptr_t), value :: sid
         integer(c_int), value :: dimz, Dmin, Dmax, Imin, Imax
         type(c_ptr), value :: z, R
@@ -307,27 +303,27 @@ contains
         call handle_to_sd(sid, sd)
         N = sd%N
         call cptr0(z, zp, dimz)
-        call cptr0(R, Rp, dimz*(Dmax - Dmin + 1)*(Imax - Imin + 1))
+        call cptr0(R, Rp, dimz * (Dmax - Dmin + 1) * (Imax - Imin + 1))
         call cptr0(sd%x_ptr, x, sd%dimx)
-        call cptr0(sd%C_ptr, Cf, (N + 1)*sd%dimx*(Imax + 1))
+        call cptr0(sd%c_ptr, Cf, (N + 1) * sd%dimx * (Imax + 1))
         fac => sd%fac
 
-        len = (N + 1)*sd%dimx
+        len = (N + 1) * sd%dimx
         D1 = Imax - Imin + 1; D2 = D1*(Dmax - Dmin + 1)
 
         do k = 0, dimz - 1
             call search_array(zp(k), sd%dimx, x, sd%ind)
-            ic0 = sd%ind*(N + 1)
+            ic0 = sd%ind * (N + 1)
             ir0 = k*D2 - (Imin + D1*Dmin)
             do j = Imin, Imax
-                ic1 = ic0 + j*len
+                ic1 = ic0 + j * len
                 ir1 = ir0 + j
                 do n_ = Dmin, Dmax
-                    idx = n_*(N + 1)
-                    tmp = fac(N + idx)*Cf(N + ic1)
+                    idx = n_ * (N + 1)
+                    tmp = fac(N + idx) * Cf(N + ic1)
                     do p = N - n_, 1, -1
-                        tmp = fac(p + n_ - 1 + idx)*Cf(p + n_ - 1 + ic1) + &
-                              (zp(k) - x(sd%ind))*tmp
+                        tmp = fac(p + n_ - 1 + idx) * Cf(p + n_ - 1 + ic1) + &
+                              (zp(k) - x(sd%ind)) * tmp
                     end do
                     Rp(ir1 + D1*n_) = tmp
                 end do
@@ -335,7 +331,7 @@ contains
         end do
     end subroutine spline_eval_d
 
-    subroutine spline_free(sid) bind(C, name="spline_free_")
+    subroutine spline_free(sid)
         integer(c_intptr_t), value :: sid
         type(spline_data_t), pointer :: sd
 

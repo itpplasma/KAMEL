@@ -5,17 +5,9 @@
 !> inputs that exercise both branches: |z/b| < 0.1 (Kummer series) and |z/b|
 !> >= 0.1 (continued fraction). The port reproduces them to ~1e-15.
 program test_hyper1f1
+    use kilca_hyper1f1_m, only: disp => h_cont_fract_1_modified_0_ada
     use, intrinsic :: iso_c_binding, only: c_double
     implicit none
-
-    interface
-        subroutine disp(br, bi, zr, zi, fr, fi) &
-            bind(C, name="hypergeometric1f1_cont_fract_1_modified_0_ada_")
-            import :: c_double
-            real(c_double) :: br, bi, zr, zi, fr, fi
-        end subroutine disp
-    end interface
-
     real(c_double), parameter :: tol = 1.0d-12
     real(c_double) :: bs(2, 4), zs(2, 4), ref(2, 4)
     real(c_double) :: br, bi, zr, zi, fr, fi

@@ -565,11 +565,14 @@ do ind = 1,dim_mn !over modes
         !end if
     end do
 
-    call get_wave_fields_from_wave_code (vac_cd_ptr(ind), dim, r, m_vals(ind), n_vals(ind), unused_fields(:,1), unused_fields(:,2), unused_fields(:,3), &
+    call get_wave_fields_from_wave_code (vac_cd_ptr(ind), dim, r, &
+            m_vals(ind), n_vals(ind), unused_fields(:,1), unused_fields(:,2), &
+            unused_fields(:,3), &
             unused_fields(:,4), unused_fields(:,5), Br, unused_fields(:,6), &
             unused_fields(:,7), unused_fields(:,8), unused_fields(:,9));
 
-    call get_diss_power_density_from_wave_code (flre_cd_ptr(ind), dim, r, m_vals(ind), n_vals(ind), type, spec, dpd_mn);
+    call get_diss_power_density_from_wave_code (flre_cd_ptr(ind), dim, r, &
+            m_vals(ind), n_vals(ind), type, spec, dpd_mn);
 
     amn_theta_cyl = (r*rtor/n_vals(ind)) * Br;
 

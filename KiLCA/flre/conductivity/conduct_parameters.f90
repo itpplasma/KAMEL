@@ -182,7 +182,8 @@ character(*), intent(in) :: flag_back
 
 r_ = r
 
-call eval_background_spec_independent (r, bp_ptr, back_data(0:11)); !fills a part of the back_data array
+! Fill the contiguous background values and their derivatives.
+call eval_background_spec_independent (r, bp_ptr, back_data(0:11));
 
 h_t = ht_;
 h_z = hz_;

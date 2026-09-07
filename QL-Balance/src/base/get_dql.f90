@@ -285,7 +285,8 @@ subroutine get_dql
         select case (trim(wave_code))
         case ('KiLCA')
             call get_wave_fields_from_wave_code(vac_cd_ptr(i_mn), dim_r, r, &
-                                                m_vals(i_mn), n_vals(i_mn), unused_fields(:,1), unused_fields(:,2), unused_fields(:,3), &
+                m_vals(i_mn), n_vals(i_mn), unused_fields(:,1), &
+                unused_fields(:,2), unused_fields(:,3), &
                 unused_fields(:,4), unused_fields(:,5), Br, unused_fields(:,6), &
                 unused_fields(:,7), unused_fields(:,8), Bz)
         case ('KIM')
@@ -321,7 +322,8 @@ subroutine get_dql
         select case (trim(wave_code))
         case ('KiLCA')
             call get_wave_fields_from_wave_code(flre_cd_ptr(i_mn), dim_r, r, &
-                                                m_vals(i_mn), n_vals(i_mn), unused_fields(:,1), unused_fields(:,2), unused_fields(:,3), &
+                m_vals(i_mn), n_vals(i_mn), unused_fields(:,1), &
+                unused_fields(:,2), unused_fields(:,3), &
                 unused_fields(:,4), unused_fields(:,5), Br, unused_fields(:,6), &
                 unused_fields(:,7), unused_fields(:,8), Bz)
         case ('KIM')

@@ -8,6 +8,7 @@ module control_mod
     character(len=32) :: wave_code = 'KiLCA'  ! 'KiLCA' or 'KIM'
     character(len=1024) :: kim_config_path = './KIM_config.nml'
     character(len=32) :: kim_run_type = 'electrostatic_periodic'
+    character(len=32) :: kim_ion_transport_model = 'integral'
     logical :: kim_profiles_from_balance = .true.
     integer, parameter :: kim_max_modes = 100
     integer :: kim_n_modes = 0
@@ -28,5 +29,24 @@ module control_mod
     character(len=1024) :: equil_path ! path to equil file containing q, psi, phi,...
     real(dp) :: eps
     real(dp) :: temperature_limit ! limits ion and electron temperatures from below, in eV
+
+    integer, parameter :: ION_TRANSPORT_INVALID = 0
+    integer, parameter :: ION_TRANSPORT_INTEGRAL = 1
+    integer, parameter :: ION_TRANSPORT_DRIFT_KINETIC = 2
+
+contains
+
+    pure integer function ion_transport_model_id(model) result(model_id)
+        character(*), intent(in) :: model
+
+        select case (trim(model))
+        case ('integral')
+            model_id = ION_TRANSPORT_INTEGRAL
+        case ('drift_kinetic')
+            model_id = ION_TRANSPORT_DRIFT_KINETIC
+        case default
+            model_id = ION_TRANSPORT_INVALID
+        end select
+    end function ion_transport_model_id
 
 end module control_mod

@@ -11,3 +11,11 @@ foreach(test_name IN ITEMS test_inout test_zersol_bridge test_solver test_direct
     set_tests_properties(${test_name} PROPERTIES
         WORKING_DIRECTORY ${CMAKE_BINARY_DIR}/tests/${test_name})
 endforeach()
+
+find_package(Python3 REQUIRED COMPONENTS Interpreter)
+add_test(NAME kilca_full_output
+    COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_full_output.py
+        $<TARGET_FILE:kilca_normal_exe>
+        ${PROJECT_SOURCE_DIR}/test/golden/kilca/cases/flre_m6n2)
+set_tests_properties(kilca_full_output PROPERTIES
+    WORKING_DIRECTORY ${CMAKE_BINARY_DIR}/tests TIMEOUT 150)

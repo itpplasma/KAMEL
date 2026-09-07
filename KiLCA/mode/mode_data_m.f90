@@ -751,6 +751,8 @@ contains
     end subroutine calc_basis_fields_in_zones
 
     !> ---- mode_data::calc_stitching_equations (calc_mode.cpp) ----
+    !> Pass contiguous basis planes by their first element to the explicit-shape
+    !> legacy dummies, avoiding gfortran 16 polymorphic-section bounds-check bugs.
 
     subroutine calc_stitching_equations(md)
         type(mode_data_t), intent(inout) :: md
@@ -789,11 +791,11 @@ contains
         if (z%medium == PLASMA_MODEL_VACUUM .or. z%medium == PLASMA_MODEL_MEDIUM) then
             select case (z%bc1)
             case (BOUNDARY_CENTER)
-                call center_equations_hommed(Nw, len_b, md%zone_handles(iz), z%basis(:, :, 1), &
+                call center_equations_hommed(Nw, len_b, md%zone_handles(iz), z%basis(1, 1, 1), &
                     neq, nvar, M, J)
             case (BOUNDARY_IDEALWALL)
                 call ideal_wall_equations_hommed(Nw, len_b, md%zone_handles(iz), &
-                    z%basis(:, :, 1), neq, nvar, M, J)
+                    z%basis(1, 1, 1), neq, nvar, M, J)
             case default
                 write (*, '(a)') 'error: calc_stitching_equations: first boundary is unknown.'
                 stop 1
@@ -801,11 +803,11 @@ contains
         else if (z%medium == PLASMA_MODEL_IMHD) then
             select case (z%bc1)
             case (BOUNDARY_CENTER)
-                call center_equations_imhd(Nw, len_b, md%zone_handles(iz), z%basis(:, :, 1), &
+                call center_equations_imhd(Nw, len_b, md%zone_handles(iz), z%basis(1, 1, 1), &
                     neq, nvar, M, J)
             case (BOUNDARY_IDEALWALL)
                 call ideal_wall_equations_imhd(Nw, len_b, md%zone_handles(iz), &
-                    z%basis(:, :, 1), neq, nvar, M, J)
+                    z%basis(1, 1, 1), neq, nvar, M, J)
             case default
                 write (*, '(a)') 'error: calc_stitching_equations: first boundary is unknown.'
                 stop 1
@@ -816,11 +818,11 @@ contains
         else if (z%medium == PLASMA_MODEL_FLRE) then
             select case (z%bc1)
             case (BOUNDARY_CENTER)
-                call center_equations_flre(Nw, len_b, md%zone_handles(iz), z%basis(:, :, 1), &
+                call center_equations_flre(Nw, len_b, md%zone_handles(iz), z%basis(1, 1, 1), &
                     neq, nvar, M, J)
             case (BOUNDARY_IDEALWALL)
                 call ideal_wall_equations_flre(Nw, len_b, md%zone_handles(iz), &
-                    z%basis(:, :, 1), neq, nvar, M, J)
+                    z%basis(1, 1, 1), neq, nvar, M, J)
             case default
                 write (*, '(a)') 'error: calc_stitching_equations: first boundary is unknown.'
                 stop 1
@@ -854,17 +856,17 @@ contains
             if ((z1%medium == PLASMA_MODEL_VACUUM .or. z1%medium == PLASMA_MODEL_MEDIUM) .and. &
                 (z2%medium == PLASMA_MODEL_VACUUM .or. z2%medium == PLASMA_MODEL_MEDIUM)) then
                 call stitching_equations_hommed_hommed(Nw1, len1, md%zone_handles(iz), &
-                    z1%basis(:, :, z1%dim), Nw2, len2, md%zone_handles(iz + 1), &
-                    z2%basis(:, :, 1), flg_ant, neq, nvar, M, J)
+                    z1%basis(1, 1, z1%dim), Nw2, len2, md%zone_handles(iz + 1), &
+                    z2%basis(1, 1, 1), flg_ant, neq, nvar, M, J)
             else if (z1%medium == PLASMA_MODEL_IMHD .and. &
                     (z2%medium == PLASMA_MODEL_VACUUM .or. z2%medium == PLASMA_MODEL_MEDIUM)) then
                 call stitching_equations_imhd_hommed(Nw1, len1, md%zone_handles(iz), &
-                    z1%basis(:, :, z1%dim), Nw2, len2, md%zone_handles(iz + 1), &
-                    z2%basis(:, :, 1), flg_ant, neq, nvar, M, J)
+                    z1%basis(1, 1, z1%dim), Nw2, len2, md%zone_handles(iz + 1), &
+                    z2%basis(1, 1, 1), flg_ant, neq, nvar, M, J)
             else if (z1%medium == PLASMA_MODEL_IMHD .and. z2%medium == PLASMA_MODEL_IMHD) then
                 call stitching_equations_imhd_imhd(Nw1, len1, md%zone_handles(iz), &
-                    z1%basis(:, :, z1%dim), Nw2, len2, md%zone_handles(iz + 1), &
-                    z2%basis(:, :, 1), flg_ant, neq, nvar, M, J)
+                    z1%basis(1, 1, z1%dim), Nw2, len2, md%zone_handles(iz + 1), &
+                    z2%basis(1, 1, 1), flg_ant, neq, nvar, M, J)
             else if (z1%medium == PLASMA_MODEL_RMHD .and. &
                     (z2%medium == PLASMA_MODEL_VACUUM .or. z2%medium == PLASMA_MODEL_MEDIUM)) then
                 write (*, '(a)') 'error: calc_stitching_equations: not implemented.'
@@ -875,12 +877,12 @@ contains
             else if (z1%medium == PLASMA_MODEL_FLRE .and. &
                     (z2%medium == PLASMA_MODEL_VACUUM .or. z2%medium == PLASMA_MODEL_MEDIUM)) then
                 call stitching_equations_flre_hommed(Nw1, len1, md%zone_handles(iz), &
-                    z1%basis(:, :, z1%dim), Nw2, len2, md%zone_handles(iz + 1), &
-                    z2%basis(:, :, 1), flg_ant, neq, nvar, M, J)
+                    z1%basis(1, 1, z1%dim), Nw2, len2, md%zone_handles(iz + 1), &
+                    z2%basis(1, 1, 1), flg_ant, neq, nvar, M, J)
             else if (z1%medium == PLASMA_MODEL_FLRE .and. z2%medium == PLASMA_MODEL_FLRE) then
                 call stitching_equations_flre_flre(Nw1, len1, md%zone_handles(iz), &
-                    z1%basis(:, :, z1%dim), Nw2, len2, md%zone_handles(iz + 1), &
-                    z2%basis(:, :, 1), flg_ant, neq, nvar, M, J)
+                    z1%basis(1, 1, z1%dim), Nw2, len2, md%zone_handles(iz + 1), &
+                    z2%basis(1, 1, 1), flg_ant, neq, nvar, M, J)
             else
                 write (*, '(a)') 'error: calc_stitching_equations: unknown type of boundary.'
                 stop 1
@@ -902,10 +904,10 @@ contains
             select case (z%bc2)
             case (BOUNDARY_INFINITY)
                 call infinity_equations_hommed(Nw, len_b, md%zone_handles(iz), &
-                    z%basis(:, :, z%dim), neq, nvar, M, J)
+                    z%basis(1, 1, z%dim), neq, nvar, M, J)
             case (BOUNDARY_IDEALWALL)
                 call ideal_wall_equations_hommed(Nw, len_b, md%zone_handles(iz), &
-                    z%basis(:, :, z%dim), neq, nvar, M, J)
+                    z%basis(1, 1, z%dim), neq, nvar, M, J)
             case default
                 write (*, '(a)') 'error: calc_stitching_equations: last boundary is unknown.'
                 stop 1
@@ -914,10 +916,10 @@ contains
             select case (z%bc2)
             case (BOUNDARY_INFINITY)
                 call infinity_equations_imhd(Nw, len_b, md%zone_handles(iz), &
-                    z%basis(:, :, z%dim), neq, nvar, M, J)
+                    z%basis(1, 1, z%dim), neq, nvar, M, J)
             case (BOUNDARY_IDEALWALL)
                 call ideal_wall_equations_imhd(Nw, len_b, md%zone_handles(iz), &
-                    z%basis(:, :, z%dim), neq, nvar, M, J)
+                    z%basis(1, 1, z%dim), neq, nvar, M, J)
             case default
                 write (*, '(a)') 'error: calc_stitching_equations: last boundary is unknown.'
                 stop 1
@@ -929,10 +931,10 @@ contains
             select case (z%bc2)
             case (BOUNDARY_INFINITY)
                 call infinity_equations_flre(Nw, len_b, md%zone_handles(iz), &
-                    z%basis(:, :, z%dim), neq, nvar, M, J)
+                    z%basis(1, 1, z%dim), neq, nvar, M, J)
             case (BOUNDARY_IDEALWALL)
                 call ideal_wall_equations_flre(Nw, len_b, md%zone_handles(iz), &
-                    z%basis(:, :, z%dim), neq, nvar, M, J)
+                    z%basis(1, 1, z%dim), neq, nvar, M, J)
             case default
                 write (*, '(a)') 'error: calc_stitching_equations: last boundary is unknown.'
                 stop 1

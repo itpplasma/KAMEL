@@ -162,13 +162,15 @@ contains
 
         dr = (self%r2 - self%r1)/(self%dim - 1)
 
+        ! Pass each contiguous plane by sequence association; gfortran 16 can
+        ! miscompile bounds checks for slices of polymorphic array components.
         do i = 1, self%dim
             self%r(i) = self%r1 + dr*(i - 1)
-            call eval_basis_in_hom_media(m, kz, self%wd%olab, self%sigma, self%r(i), self%basis(:, :, i))
+            call eval_basis_in_hom_media(m, kz, self%wd%olab, self%sigma, self%r(i), self%basis(1, 1, i))
         end do
 
         self%r(self%dim) = self%r2
-        call eval_basis_in_hom_media(m, kz, self%wd%olab, self%sigma, self%r(self%dim), self%basis(:, :, self%dim))
+        call eval_basis_in_hom_media(m, kz, self%wd%olab, self%sigma, self%r(self%dim), self%basis(1, 1, self%dim))
     end subroutine hmedium_calc_basis_fields
 
     subroutine hmedium_copy_E_and_B_fields(self, EB_out)

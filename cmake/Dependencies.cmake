@@ -5,12 +5,23 @@
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake")
 
 # Core dependencies
-include(FetchGSL)
 include(FetchLapack)
-include(FetchNetcdf)
 include(FetchSuiteSparse)
 include(FetchSUNDIALS)
 include(FetchFortnum)
+
+include(FetchContent)
+if(NOT TARGET fortio)
+    set(_KAMEL_BUILD_TESTING_SAVED ${BUILD_TESTING})
+    set(BUILD_TESTING OFF)
+    FetchContent_Declare(
+        fortio
+        GIT_REPOSITORY https://github.com/lazy-fortran/fortio.git
+        GIT_TAG 11afd0bd1af0c99ea4e9a1c0df683dbdcc299b69
+    )
+    FetchContent_MakeAvailable(fortio)
+    set(BUILD_TESTING ${_KAMEL_BUILD_TESTING_SAVED})
+endif()
 
 # QL-Balance sparse module (shared dependency)
 set(QLBALANCE_BASE "${CMAKE_SOURCE_DIR}/QL-Balance/src/base")

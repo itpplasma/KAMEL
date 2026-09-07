@@ -47,13 +47,13 @@ LINKER_PATH = /usr/local/gcc$(COMPILER_PREFIX)/lib
 math_lib_path = /usr/local/lib/math_lib
 cvode_lib_path = /usr/local/lib
 
-libs = -lgsl -lstdc++
+libs = -lfortnum -lstdc++
 
 
 # libs = -L$(LINKER_PATH) \
 # -L$(math_lib_path) -lslatec_gf_430 -llapack_gf_430 -lblas_gf_430 \
 # -L$(cvode_lib_path) -lsundials_cvode -lsundials_nvecserial \
-# -lgsl -lgslcblas \
+# -lfortnum \
 # -lgfortran \
 # -lstdc++
 

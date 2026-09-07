@@ -44,6 +44,7 @@ module kim_solver_m
         real(dp),    allocatable :: r_field(:)
         complex(dp), allocatable :: Es(:), Ep(:), Er(:), Etheta(:), Ez(:), Br(:)
         complex(dp), allocatable :: jpar(:), jpar_e(:), jpar_i(:)
+        complex(dp), allocatable :: Phi(:)
 
         ! derived background (plasma grid)
         real(dp), allocatable :: r_plasma(:)
@@ -58,6 +59,7 @@ module kim_solver_m
         class(kim_t), allocatable :: run_type
         logical :: is_setup = .false.
         logical :: has_solved = .false.
+        logical :: profiles_dirty = .false.
         integer :: status = KIM_OK
         type(kim_results_t) :: last
     contains
@@ -111,6 +113,7 @@ contains
         call self%run_type%init()
 
         self%is_setup = .true.
+        self%profiles_dirty = .false.
         if (present(stat)) stat = self%status
     end subroutine solver_init
 
@@ -127,6 +130,7 @@ contains
         end if
 
         call inject_profiles(profiles)
+        self%profiles_dirty = .true.
         self%status = KIM_OK
         if (present(stat)) stat = self%status
     end subroutine solver_set_profiles
@@ -141,6 +145,7 @@ contains
         class(kim_solver_t), intent(inout) :: self
         integer, intent(in) :: m, n
         integer, intent(out), optional :: stat
+        logical :: mode_changed
 
         if (.not. self%is_setup) then
             self%status = KIM_NOT_SETUP
@@ -148,12 +153,16 @@ contains
             return
         end if
 
+        mode_changed = m /= m_mode .or. n /= n_mode
         m_mode = m
         n_mode = n
 
-        ! The first solve reuses the equilibrium that init() built for the
-        ! configured mode; later solves recompute it for the new (m, n).
-        if (self%has_solved) call recompute_equilibrium_for_mode()
+        ! init() prepares the configured mode. Reuse it only while neither the
+        ! mode nor the in-memory profiles have changed.
+        if (self%has_solved .or. mode_changed .or. self%profiles_dirty) then
+            call recompute_equilibrium_for_mode()
+            self%profiles_dirty = .false.
+        end if
 
         call reset_fields()
         call self%run_type%run()
@@ -194,6 +203,7 @@ contains
         if (allocated(self%run_type)) deallocate(self%run_type)
         self%is_setup = .false.
         self%has_solved = .false.
+        self%profiles_dirty = .false.
         self%status = KIM_OK
     end subroutine solver_finalize
 
@@ -218,9 +228,10 @@ contains
     !> Recompute the background equilibrium for the current (m_mode, n_mode).
     subroutine recompute_equilibrium_for_mode()
         use equilibrium_m, only: calculate_equil, interpolate_equil
-        use species_m, only: plasma, set_plasma_quantities
+        use species_m, only: deallocate_plasma_derived, plasma, set_plasma_quantities
         use grid_m, only: rg_grid
 
+        call deallocate_plasma_derived()
         call calculate_equil(.false.)
         call set_plasma_quantities(plasma)
         call interpolate_equil(rg_grid%xb)
@@ -278,6 +289,7 @@ contains
         if (allocated(EBdat%jpar))   res%jpar    = EBdat%jpar
         if (allocated(EBdat%jpar_e)) res%jpar_e  = EBdat%jpar_e
         if (allocated(EBdat%jpar_i)) res%jpar_i  = EBdat%jpar_i
+        if (allocated(EBdat%Phi))    res%Phi     = EBdat%Phi
 
         ! derived background (plasma grid)
         if (allocated(plasma%r_grid)) res%r_plasma = plasma%r_grid

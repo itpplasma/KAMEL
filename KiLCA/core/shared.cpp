@@ -6,9 +6,11 @@
 #include <stdio.h>
 #include <math.h>
 #include <string.h>
+#include <algorithm>
 
 #include "constants.h"
 #include "shared.h"
+#include "fortnum.h"
 
 /*******************************************************************/
 
@@ -58,6 +60,35 @@ const double *da = (const double *) a;
 const double *db = (const double *) b;
 
 return (*da > *db) - (*da < *db);
+}
+
+/*******************************************************************/
+
+void sort_index_doubles (size_t *perm, const double *x, size_t n)
+{
+int ni = (int) n;
+int *iperm = new int[ni];
+
+fortnum_argsort (x, ni, iperm);
+
+for (int k=0; k<ni; k++)
+{
+    perm[k] = (size_t) iperm[k];
+}
+
+delete [] iperm;
+
+// fortnum_argsort is a heapsort and not stable: equal keys emerge in a
+// heap-dependent order. The conductivity grid shares zone-boundary nodes
+// (duplicated x), so the sort must be deterministic for the spline to be
+// well-defined. Break exact-key ties by ascending original index.
+for (size_t a=0; a<n; )
+{
+    size_t b = a+1;
+    while (b<n && x[perm[b]]==x[perm[a]]) b++;
+    if (b-a > 1) std::sort (perm+a, perm+b);
+    a = b;
+}
 }
 
 /*******************************************************************/

@@ -29,36 +29,20 @@ elseif(CMAKE_HOST_SYSTEM_NAME MATCHES "Linux")
     endif()
 endif()
 
-if(APPLE AND NOT DEFINED HDF5_DIR)
-    # locate brew
-    find_program(BREW_EXECUTABLE brew HINTS /opt/homebrew/bin /usr/local/bin)
-    if(BREW_EXECUTABLE)
-        execute_process(
-            COMMAND "${BREW_EXECUTABLE}" --prefix hdf5
-            OUTPUT_VARIABLE _hdf5_prefix
-            OUTPUT_STRIP_TRAILING_WHITESPACE
-            RESULT_VARIABLE _hdf5_res
-        )
-
-        if(_hdf5_res EQUAL 0 AND EXISTS "${_hdf5_prefix}/lib/cmake/hdf5")
-            set(HDF5_DIR "${_hdf5_prefix}/lib/cmake/hdf5" CACHE PATH "Path to HDF5Config.cmake")
-            message(STATUS "HDF5_DIR set to ${HDF5_DIR}")
-        endif()
-    endif()
-endif()
-
 project(KAMEL LANGUAGES C CXX Fortran)
 
 # Set C++ standard globally
 set(CMAKE_CXX_STANDARD 11)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
+# OpenMP is a project-wide dependency: -fopenmp is on the global compile flags
+# below, and libneo objects in the KiLCA link closure use OMP critical sections
+# (GOMP_critical_*). Resolve the imported target once at top scope so it is
+# visible to every subdirectory and can ride on targets' PUBLIC link interfaces.
+find_package(OpenMP REQUIRED COMPONENTS C Fortran)
+
 # Set architecture flags based on platform
 if(APPLE)
-    # On macOS, use libomp from Homebrew for OpenMP support
-    # find_package(OpenMP REQUIRED)
-    find_package(OpenMP REQUIRED C Fortran)
-
     # Locate libomp from Homebrew
     find_program(BREW_EXECUTABLE brew HINTS /opt/homebrew/bin /usr/local/bin)
     if(BREW_EXECUTABLE)
@@ -104,6 +88,7 @@ add_subdirectory(common/math)
 add_subdirectory(common/logger)
 add_subdirectory(common/hdf5_tools)
 add_subdirectory(common/equil)
+add_subdirectory(common/util)
 add_subdirectory(KiLCA)
 add_subdirectory(KIM)
 add_subdirectory(QL-Balance)

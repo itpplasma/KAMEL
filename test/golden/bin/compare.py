@@ -69,24 +69,13 @@ def _build_quantities_list() -> list[QuantitySpec]:
         QuantitySpec("/init_params/r"),
     ]
 
-    # LinearProfiles for all time steps
     for t in _TIME_STEPS:
         for q in _LINEAR_PROFILE_QUANTITIES:
             quantities.append(QuantitySpec(f"/f_6_2/LinearProfiles/{t}/{q}"))
 
-    # KinProfiles at initial and final time
-    quantities.extend(
-        [
-            QuantitySpec("/f_6_2/KinProfiles/1000/Te"),
-            QuantitySpec("/f_6_2/KinProfiles/1000/Ti"),
-            QuantitySpec("/f_6_2/KinProfiles/1000/n"),
-            QuantitySpec("/f_6_2/KinProfiles/1000/Er"),
-            QuantitySpec("/f_6_2/KinProfiles/1008/Te"),
-            QuantitySpec("/f_6_2/KinProfiles/1008/Ti"),
-            QuantitySpec("/f_6_2/KinProfiles/1008/n"),
-            QuantitySpec("/f_6_2/KinProfiles/1008/Er"),
-        ]
-    )
+    for t in (1000, 1008):
+        for q in ("Te", "Ti", "n", "Er"):
+            quantities.append(QuantitySpec(f"/f_6_2/KinProfiles/{t}/{q}"))
 
     return quantities
 

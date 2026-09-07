@@ -1,0 +1,108 @@
+&KIM_CONFIG
+    number_of_ion_species = 1
+    read_species_from_namelist = .false.
+    type_of_run = 'flr2'
+    collision_model = 'FokkerPlanck'
+    ion_collision_model = 'FokkerPlanck'
+    artificial_debye_case = 0
+    turn_off_ions = .false.
+    turn_off_electrons = .false.
+    plasma_type = 'D'
+    rescale_density = .false.
+    number_density_rescale = 1.0
+    ion_flr_scale_factor = 1.0
+    collision_frequency_scale = 1.0
+    boole_energy_conservation = .true.
+/
+
+&WKB_DISPERSION
+    WKB_dispersion_mode = 'KIM'
+    WKB_dispersion_solver = 'Muller'
+    WKB_solve_for_kr_squared = .false.
+    WKB_max_tracked_branches = 4
+    WKB_branch_search_halfwidth = 1.5
+    WKB_broad_search_halfwidth = 5.0
+    WKB_broad_search_interval = 0
+    WKB_root_tolerance = 1.0e-6
+    WKB_verbose = .false.
+/
+
+&KIM_IO
+    profile_location = './profiles/'
+    output_path = './out_flr2_small/'
+    hdf5_input = .false.
+    hdf5_output = .false.
+    log_level = 1
+    data_verbosity = 0
+    calculate_asymptotics = .false.
+    h5_out_file = ''
+/
+
+&KIM_SETUP
+    btor = -17977.413
+    R0 = 165.0
+    m_mode = -6
+    n_mode = 2
+    omega = 0.0
+    spline_base = 1
+    type_br_field = 12
+    collisions_off = .false.
+    set_profiles_constant = 0
+    bc_type = 3
+    mphi_max = 0
+    Br_boundary_re = 1.0
+    Br_boundary_im = 0.0
+/
+
+&KIM_GRID
+    r_min = 3.0
+    r_plas = 67.0
+    width_res = 0.5
+    ampl_res = 15.0
+    hrmax_scaling = 1.0
+    l_space_dim = 32
+    rg_space_dim = 32
+    grid_spacing_rg = 'equidistant'
+    grid_spacing_xl = 'equidistant'
+    theta_integration = 'GaussLegendre'
+    rkf45_atol = 1.0e-9
+    rkf45_rtol = 1.0e-6
+    kernel_taper_skip_threshold = 1.0e-6
+    Larmor_skip_factor = 5
+    gauss_int_nodes_Nx = 15
+    gauss_int_nodes_Nxp = 14
+    gauss_int_nodes_Ntheta = 10
+    quadpack_algorithm = 'QAG'
+    quadpack_key = 6
+    quadpack_limit = 500
+    quadpack_epsabs = 1.0e-10
+    quadpack_epsrel = 1.0e-10
+    quadpack_use_u_substitution = .true.
+/
+
+&KIM_PROFILES
+    coord_type = 'auto'
+    input_profile_dir = './'
+    equil_file = ''
+    geqdsk_file = ''
+    n_input_file = 'n_of_psiN.dat'
+    Te_input_file = 'Te_of_psiN.dat'
+    Ti_input_file = 'Ti_of_psiN.dat'
+    Vz_input_file = 'Vz_of_psiN.dat'
+    n_file = 'n.dat'
+    Te_file = 'Te.dat'
+    Ti_file = 'Ti.dat'
+    Vz_file = 'Vz.dat'
+    Er_file = 'Er.dat'
+    q_file = 'q.dat'
+/
+
+&KIM_FLR2
+    flr2_electron_flr = .true.
+    flr2_ion_flr = .false.
+    flr2_electron_potential = .true.
+    flr2_ion_potential = .true.
+    flr2_electron_current = .true.
+    flr2_ion_current = .true.
+    flr2_include_potential_in_current = .true.
+/

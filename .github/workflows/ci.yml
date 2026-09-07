@@ -20,7 +20,7 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -42,7 +42,7 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -75,7 +75,7 @@ jobs:
           pip install numpy scipy matplotlib h5py f90nml pytest
 
       - name: Cache external dependencies
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: build/external-install
           key: external-deps-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('cmake/Fetch*.cmake') }}
@@ -85,11 +85,17 @@ jobs:
       - name: Build with make
         run: make all ${{ inputs.libneo_ref != '' && format('LIBNEO_REF={0}', inputs.libneo_ref) || '' }}
 
+      # Preserve the build directory, executable modes and shared-library symlinks.
+      - name: Archive build
+        run: tar -czf build.tar.gz build
+
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4
         with:
           name: build-ubuntu-latest
-          path: build
+          path: build.tar.gz
+          compression-level: 0
+          retention-days: 1
           if-no-files-found: error
 
   build-macos-arm64:
@@ -99,7 +105,7 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -113,6 +119,7 @@ jobs:
           brew install \
             cmake \
             ninja \
+            doxygen \
             gcc \
             llvm \
             lapack \
@@ -130,7 +137,7 @@ jobs:
           pip install numpy scipy matplotlib h5py f90nml pytest
 
       - name: Cache external dependencies
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: build/external-install
           key: external-deps-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('cmake/Fetch*.cmake') }}
@@ -140,11 +147,17 @@ jobs:
       - name: Build with make
         run: make all ${{ inputs.libneo_ref != '' && format('LIBNEO_REF={0}', inputs.libneo_ref) || '' }}
 
+      # Preserve the build directory, executable modes and shared-library symlinks.
+      - name: Archive build
+        run: tar -czf build.tar.gz build
+
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4
         with:
           name: build-macos-14-arm64
-          path: build
+          path: build.tar.gz
+          compression-level: 0
+          retention-days: 1
           if-no-files-found: error
 
   test-ubuntu:
@@ -154,7 +167,7 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -191,10 +204,24 @@ jobs:
           name: build-ubuntu-latest
           path: .
 
-      - name: Run tests with make
+      - name: Extract build artifacts
+        run: tar -xzf build.tar.gz
+
+      - name: Test golden-record harness
+        run: make pytest
+
+      # Invoke CTest directly: make test would rebuild after the fresh checkout.
+      - name: Run tests
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: make test
+          EVENT_NAME: ${{ github.event_name }}
+          FULL: ${{ inputs.full }}
+        run: |
+          if [ "$EVENT_NAME" = workflow_dispatch ] && [ "$FULL" != true ]; then
+            ctest --test-dir build --output-on-failure -LE golden_record
+          else
+            ctest --test-dir build --output-on-failure
+          fi
 
   test-macos-arm64:
     name: Test (macOS 14 ARM64)
@@ -203,7 +230,7 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -217,6 +244,7 @@ jobs:
           brew install \
             cmake \
             ninja \
+            doxygen \
             gcc \
             llvm \
             lapack \
@@ -239,7 +267,21 @@ jobs:
           name: build-macos-14-arm64
           path: .
 
-      - name: Run tests with make
+      - name: Extract build artifacts
+        run: tar -xzf build.tar.gz
+
+      - name: Test golden-record harness
+        run: make pytest
+
+      # Invoke CTest directly: make test would rebuild after the fresh checkout.
+      - name: Run tests
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: make test
+          EVENT_NAME: ${{ github.event_name }}
+          FULL: ${{ inputs.full }}
+        run: |
+          if [ "$EVENT_NAME" = workflow_dispatch ] && [ "$FULL" != true ]; then
+            ctest --test-dir build --output-on-failure -LE golden_record
+          else
+            ctest --test-dir build --output-on-failure
+          fi

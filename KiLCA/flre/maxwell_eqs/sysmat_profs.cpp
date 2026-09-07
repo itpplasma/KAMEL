@@ -9,8 +9,6 @@
 #include <climits>
 #include <cfloat>
 
-#include <gsl/gsl_heapsort.h>
-
 #include "sysmat_profs.h"
 #include "eval_sysmat.h"
 #include "shared.h"
@@ -101,7 +99,7 @@ void sysmat_profiles::calc_and_spline_sysmatrix_profiles (const flre_zone *zone)
     /*sorting grid points*/
     size_t *perm = new size_t[dimx];
 
-    gsl_heapsort_index (perm, xt, dimx, sizeof(double), compare_doubles);
+    sort_index_doubles (perm, xt, dimx);
 
     //rearanging arrays:
     for (int i=0; i<dimx; i++)

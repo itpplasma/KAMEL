@@ -23,6 +23,11 @@ int signum(double x);
 
 int compare_doubles (const void *a, const void *b);
 
+// Ascending index sort: perm[k] receives the index into x of the k-th
+// smallest value (x[perm] nondecreasing). Wraps fortnum_argsort and adapts
+// the int permutation to the size_t buffers used by the KiLCA callers.
+void sort_index_doubles (size_t *perm, const double *x, size_t n);
+
 void binomial_coefficients (int N, double *BC);
 
 struct cmplx_number

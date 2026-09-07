@@ -234,15 +234,10 @@ module paramscan_mod
     !> @date 05.10.2022
     subroutine rescale_profiles
 
-        use plasma_parameters, only: params, hold_n, hold_vz, hold_Te, hold_Ti, hold_dphi0
+        use plasma_parameters, only: params, hold_n, hold_vz, hold_Te, hold_Ti
         use logger_m, only: log_debug
-        use h5mod
-        use wave_code_data, only: idPhi0
 
         implicit none
-
-        double precision, dimension(:), allocatable :: ErVzfac ! factor to rescale Er
-        integer :: lowerBound, upperBound
 
         call log_debug("coming into rescaling profiles")
 
@@ -253,19 +248,8 @@ module paramscan_mod
         params(4, :) = hold_Ti * fac_Ti(ifac_Ti)
         print *, "After hold times fac"
 
-        if (fac_vz(ifac_vz) .ne. 1.d0) then
-            call log_debug("fac_vz not equal 1. need to rescale Er as well")
-            CALL h5_init()
-            CALL h5_open_rw(path2out, h5_id)
-            CALL h5_get_bounds_1(h5_id, '/factors/ErVzfac', lowerBound, upperBound)
-            allocate(ErVzfac(upperBound))
-            CALL h5_get_double_1(h5_id, '/factors/ErVzfac', ErVzfac)
-            CALL h5_close(h5_id)
-            CALL h5_deinit()
-            write (*, *) "rescale Er"
-            idPhi0 = hold_dphi0 + ErVzfac*params(2, :)*(fac_vz(ifac_vz) - 1.d0)
-            deallocate (ErVzfac)
-        end if
+        ! get_dql recomputes Er from radial force balance for every scan point.
+        ! Its rotation term is linear in the rescaled params(2, :).
 
         write(*,*) "Parameter scan, current factors: "
         write(*,*) "fac_n = ", fac_n(ifac_n), "   ", ifac_n, " of ", size(fac_n)

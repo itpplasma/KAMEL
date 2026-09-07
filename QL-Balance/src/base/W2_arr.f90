@@ -3,6 +3,9 @@
 !------------------------------------------------------------------------------
 
 subroutine W2_arr (x1_in,x2_in,Imn)
+    use kilca_hyper1f1_m, only: &
+        hypergeometric1f1_cont_fract_1_modified_0_ada => &
+            h_cont_fract_1_modified_0_ada
 
 implicit none;
 
@@ -30,7 +33,6 @@ x1 = dcmplx(x1_in,0.d0)
 t1 = x1**2
 
 do l = 0, nmax ! does not work for 3, 2 and 1!
-
 
     x2 = x2_in + I*l
 
@@ -96,7 +98,6 @@ x2*((-I)*F11m*x2**3+ I*(3 + 2*F11m)*x2 -  &
    x2**2*(3*F11m - x1**2) - x1**4)/ &
  ((x2+ I*x1**2)*(x2+ I*(1 + x1**2))* &
   (x2+ I*(2 + x1**2)))
-
 
 end do
 

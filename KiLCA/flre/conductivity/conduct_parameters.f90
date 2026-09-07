@@ -167,6 +167,7 @@ end subroutine
 !------------------------------------------------------------------------------
 
 subroutine eval_and_set_background_parameters_spec_independent (r, flag_back)
+    use kilca_background_data_m, only: eval_background_spec_independent
 
 !evaluates and sets background quants (B, hth, hz, dPhi0 + derivs) which do not depend on a sort of particles
 use constants, only: dp;
@@ -176,14 +177,13 @@ use background, only: B0, huge_factor;
 
 implicit none;
 
-external :: eval_background_spec_independent
-
 real(dp), intent(in) :: r
 character(*), intent(in) :: flag_back
 
 r_ = r
 
-call eval_background_spec_independent (r, bp_ptr, B); !fills a part of the back_data array
+! Fill the contiguous background values and their derivatives.
+call eval_background_spec_independent (r, bp_ptr, back_data(0:11));
 
 h_t = ht_;
 h_z = hz_;
@@ -355,6 +355,7 @@ end subroutine
 !------------------------------------------------------------------------------
 
 subroutine eval_and_set_f0_parameters_nu_and_derivs (r, spec, flag_back)
+    use kilca_background_data_m, only: eval_f0_parameters_nu_and_derivs
 
 !evaluates and sets (n_p, Vp_p, Vt_p, nu + derivs) which depend on a sort of particles
 
@@ -364,14 +365,12 @@ use constants, only: dp;
 
 implicit none;
 
-external :: eval_f0_parameters_nu_and_derivs
-
 real(dp), intent(in) :: r
 integer, intent(in) :: spec
 !character(1), intent(in) :: flag_back
 character(*), intent(in) :: flag_back
 
-call eval_f0_parameters_nu_and_derivs (r, spec, bp_ptr, n_);
+call eval_f0_parameters_nu_and_derivs (r, spec, bp_ptr, back_data(12:23));
 
 if (flag_back == 'w') then !keep rotational transform and set only derivs to zero
     dn_ = 0.0d0;
@@ -421,7 +420,7 @@ subroutine eval_z_and_oms ()
 
 use conduct_parameters;
 use constants, only: dpc, dp, im;
-use flre_sett, only: Nmax;
+use flre_sett, only: Nmax
 
 implicit complex(dpc) (t)
 
@@ -469,7 +468,7 @@ subroutine eval_w_array ()
 
 use constants, only: dpc, dp, pi, im
 use flre_sett, only: Nmax
-use conduct_parameters
+use conduct_parameters;
 
 implicit none;
 

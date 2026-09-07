@@ -3,6 +3,9 @@
 !------------------------------------------------------------------------------
 
 subroutine calc_Imn_array(x1_in, x2_in, Imn)
+    use kilca_hyper1f1_m, only: &
+        hypergeometric1f1_cont_fract_1_modified_0_ada => &
+            h_cont_fract_1_modified_0_ada
 
 implicit none;
 

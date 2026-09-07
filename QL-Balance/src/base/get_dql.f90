@@ -30,7 +30,9 @@ subroutine get_dql
     use plasma_parameters
     use baseparam_mod, only: Z_i, e_charge, am, p_mass, c, e_mass, ev, rtor, pi, rsepar
     use control_mod, only: irf, suppression_mode, misalign_diffusion, type_of_run, wave_code, &
-                          jpar_method
+                          jpar_method, kim_ion_transport_model, &
+                          ion_transport_model_id, ION_TRANSPORT_INTEGRAL, &
+                          ION_TRANSPORT_DRIFT_KINETIC
     use time_evolution, only: save_prof_time_step, time_ind, br_formfactor, br_vac_res
     use h5mod
     use wave_code_data
@@ -237,24 +239,31 @@ subroutine get_dql
             call calc_transport_coeffs_collisionless(npoib, vT_i, di11, di12, di22)
             di21 = di12
         else
-            if (.true.) then
-                ! Electrons retain the established drift-kinetic Heyn/Markl
-                ! coefficients.  Periodic KIM supplies the ion tensor from
-                ! the gyrokinetic integral formalism, already embedded on
-                ! the global grid with the squared compact-transition weight.
-                call calc_transport_coeffs_ornuhl(npoib, vT_e, nu_e, de11, de12, de21, de22)
-                if (trim(wave_code) == 'KIM' .and. kim_periodic_mode_selected() &
-                    .and. allocated(kim_D_ion_modes)) then
+            ! Electrons retain the established drift-kinetic Heyn/Markl
+            ! coefficients. The ion model is selectable for periodic KIM so
+            ! both formalisms can be compared using the same physical fields.
+            call calc_transport_coeffs_ornuhl(npoib, vT_e, nu_e, de11, de12, de21, de22)
+            if (trim(wave_code) == 'KIM' .and. kim_periodic_mode_selected()) then
+                select case (ion_transport_model_id(kim_ion_transport_model))
+                case (ION_TRANSPORT_INTEGRAL)
+                    if (.not. allocated(kim_D_ion_modes)) then
+                        error stop 'integral ion transport tensor is unavailable'
+                    end if
+                    if (size(kim_D_ion_modes, 3) /= npoib .or. &
+                            i_mn > size(kim_D_ion_modes, 4)) then
+                        error stop 'integral ion transport tensor has an invalid shape'
+                    end if
                     di11 = kim_D_ion_modes(1, 1, :, i_mn)
                     di12 = kim_D_ion_modes(1, 2, :, i_mn)
                     di21 = kim_D_ion_modes(2, 1, :, i_mn)
                     di22 = kim_D_ion_modes(2, 2, :, i_mn)
-                else
+                case (ION_TRANSPORT_DRIFT_KINETIC)
                     call calc_transport_coeffs_ornuhl(npoib, vT_i, nu_i, di11, di12, di21, di22)
-                end if
+                case default
+                    error stop 'invalid kim_ion_transport_model'
+                end select
             else
-                call calc_transport_coeffs_ornuhl_drift(1, npoib, de11, de12, de21, de22)
-                call calc_transport_coeffs_ornuhl_drift(2, npoib, di11, di12, di21, di22)
+                call calc_transport_coeffs_ornuhl(npoib, vT_i, nu_i, di11, di12, di21, di22)
             end if
         end if
 

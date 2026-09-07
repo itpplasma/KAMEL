@@ -1,5 +1,5 @@
 foreach(test_name IN ITEMS test_inout test_zersol_bridge test_solver test_directory
-                          test_native_zone_paths)
+                          test_native_zone_paths test_zone_registry)
     add_executable(${test_name} tests/${test_name}.f90)
     target_link_libraries(${test_name} PRIVATE kilca_lib ${EXTERNAL_LIBS})
     target_include_directories(${test_name} PRIVATE ${PROJECT_BINARY_DIR}/OBJS/kilca/)

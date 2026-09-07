@@ -188,8 +188,8 @@ module kilca_zone_m
     !> c_loc/transfer cannot recover a polymorphic dynamic type from a bare
     !> address (the C pointer carries no type-descriptor information), so
     !> handles are plain 1-based indices into this fixed-size pool instead
-    !> of memory addresses. Sized far above any plausible Nzones (single
-    !> digits to a few dozen per mode, a handful of modes per run).
+    !> of memory addresses. Released entries are reused, so the capacity
+    !> limits simultaneously live zones rather than cumulative creations.
     integer, parameter :: max_zones = 4096
     type :: zone_box_t
         class(zone_t), pointer :: z => null()
@@ -473,6 +473,15 @@ contains
     function zone_register(z) result(handle)
         class(zone_t), pointer, intent(in) :: z
         integer(c_intptr_t) :: handle
+        integer :: i
+
+        do i = 1, zone_pool_size
+            if (associated(zone_pool(i)%z)) cycle
+            zone_pool(i)%z => z
+            handle = int(i, c_intptr_t)
+            return
+        end do
+
         if (zone_pool_size >= max_zones) then
             write (*, '(a)') 'error: zone_register: zone pool exhausted'
             stop 1

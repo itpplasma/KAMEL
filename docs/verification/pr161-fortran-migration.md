@@ -115,3 +115,16 @@ and every output column. No golden inputs, baselines, or tolerances changed.
 
 Independent specification and code-quality reviews found no remaining blockers.
 Hosted validation must be checked on the final cleanup commit before merging.
+
+## Zone registry lifecycle repair
+
+The registry now reuses released slots before extending the pool. Its 4,096-entry
+limit applies to simultaneously live zones instead of all zones created during a
+transport run or eigenmode search. Existing live handles remain unchanged.
+
+`test_zone_registry` creates and destroys 5,000 zones across all three concrete
+zone types, with a reusable hole between two retained zones. It checks that both
+retained handles still address their original objects and that shared wave
+ownership is preserved. The test failed with `zone pool exhausted` before the fix
+and passes afterward. The full local build and all 80 CTests pass, including the
+full-output KiLCA regression; pre-commit checks pass.

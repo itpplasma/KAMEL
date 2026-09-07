@@ -48,26 +48,22 @@ module plasma_parameters
     !>          hold_Te    = initial electron temperature [erg]
     !>          hold_Ti    = initial ion temperature [erg]
     !>          hold_Vz    = initial toroidal rotation frequency [rad/s]
-    !>          hold_dphi0 = initial electric potential gradient [statV/cm]
-    real(dp), dimension(:), allocatable :: hold_n, hold_Te, hold_Ti, hold_Vz, hold_dphi0
+    real(dp), dimension(:), allocatable :: hold_n, hold_Te, hold_Ti, hold_Vz
 
 contains
 
     subroutine alloc_hold_parameters
-        use grid_mod, only: npoib
-        use wave_code_data, only: idPhi0
+        use grid_mod, only: npoic
 
-        allocate (hold_n(npoib))
-        allocate (hold_Vz(npoib))
-        allocate (hold_Te(npoib))
-        allocate (hold_Ti(npoib))
-        allocate (hold_dphi0(npoib))
+        allocate (hold_n(npoic))
+        allocate (hold_Vz(npoic))
+        allocate (hold_Te(npoic))
+        allocate (hold_Ti(npoic))
 
         hold_n = params(1, :)
         hold_Vz = params(2, :)
         hold_Te = params(3, :)
         hold_Ti = params(4, :)
-        hold_dphi0 = idPhi0
     end subroutine
 
     subroutine limit_temps_from_below

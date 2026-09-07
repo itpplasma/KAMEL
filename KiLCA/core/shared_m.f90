@@ -25,9 +25,27 @@ module kilca_shared_m
     implicit none
     private
 
-    public :: signum, sort_index_doubles, strtol_int
+    public :: signum, sort_index_doubles, strtol_int, first_token
 
 contains
+
+    pure function first_token(text) result(token)
+        character(len=*), intent(in) :: text
+        character(len=:), allocatable :: token
+        character(len=*), parameter :: whitespace = ' '//achar(9)//achar(10)// &
+                                                    achar(11)//achar(12)//achar(13)
+        integer :: start, count
+
+        start = verify(text, whitespace)
+        token = ''
+        if (start == 0) return
+        count = scan(text(start:), whitespace)
+        if (count == 0) then
+            token = text(start:)
+        else
+            token = text(start:start + count - 2)
+        end if
+    end function first_token
 
     !> Reproduces C's strtol(s, NULL, 10) exactly: skip leading whitespace,
     !> an optional sign, then consume a run of decimal digits, stopping at

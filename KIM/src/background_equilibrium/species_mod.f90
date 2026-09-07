@@ -52,6 +52,7 @@ module species_m
         complex(dp), allocatable :: I13(:, :)
         complex(dp), allocatable :: I20(:, :)
         complex(dp), allocatable :: I02(:, :)
+        complex(dp), allocatable :: I03(:, :)
         complex(dp), allocatable :: I01(:, :)
         complex(dp), allocatable :: I21(:, :)
         complex(dp), allocatable :: I22(:, :)
@@ -78,6 +79,7 @@ module species_m
         complex(dp), allocatable :: I21_cc(:, :)
         complex(dp), allocatable :: I22_cc(:, :)
         complex(dp), allocatable :: I02_cc(:, :)
+        complex(dp), allocatable :: I03_cc(:, :)
         complex(dp), allocatable :: I13_cc(:, :)
         complex(dp), allocatable :: I11_cc(:, :)
     end type
@@ -86,7 +88,79 @@ module species_m
 
     integer, parameter :: nmmax = 3 ! max order of susceptibility functions to be calculated
 
+    !> Monotonic counter bumped every time the module-global `plasma` primitive
+    !> profiles are replaced via set_profiles_from_arrays (a new case / time step /
+    !> parameter-scan point). Downstream caches that snapshot the true background
+    !> (e.g. periodic_background_m's true-background cache) compare against this to
+    !> auto-invalidate on ANY profile change, without species_m needing to know
+    !> about them (which would create a circular module dependency).
+    integer, save, public :: profiles_generation = 0
+
     contains
+
+    pure function scale_fp_collision_frequency(nu, species_index, ion_scale) result(scaled_nu)
+
+        real(dp), intent(in) :: nu, ion_scale
+        integer, intent(in) :: species_index
+        real(dp) :: scaled_nu
+
+        scaled_nu = nu
+        if (species_index > 0) scaled_nu = ion_scale * nu
+
+    end function scale_fp_collision_frequency
+
+    subroutine evaluate_susceptibility(x1, x2, conservation_model, symbI)
+        ! Markl et al., Nucl. Fusion 63 (2023) 126007, appendix A:
+        ! use the collisionless moments once the collisional W2_arr
+        ! representation enters its empirically identified cancellation
+        ! regime. Requiring both arguments to be large keeps the resonant
+        ! x1 -> 0 and Er -> 0 limits on the regular collisional evaluator.
+        use constants_m, only: pi
+        use use_libcerf_m, only: w_of_z_F
+
+        real(dp), intent(in) :: x1, x2
+        integer, intent(in) :: conservation_model
+        complex(dp), intent(out) :: symbI(0:nmmax, 0:nmmax)
+
+        real(dp), parameter :: smaller_argument_threshold = 1.0e3_dp
+        real(dp), parameter :: larger_argument_threshold = 1.0e4_dp
+        complex(dp), parameter :: imaginary_unit = (0.0_dp, 1.0_dp)
+        complex(dp) :: moment(0:2 * nmmax), plasma_z
+        real(dp) :: sigma, zeta
+        integer :: k, l, order
+
+        if (min(abs(x1), abs(x2)) < smaller_argument_threshold .or. &
+                max(abs(x1), abs(x2)) < larger_argument_threshold) then
+            call getIfunc_model(x1, x2, conservation_model, symbI)
+            return
+        end if
+
+        sigma = sign(1.0_dp, x1)
+        zeta = x2 / (sqrt(2.0_dp) * x1)
+        plasma_z = imaginary_unit * sqrt(pi) &
+            * w_of_z_F(cmplx(sigma * zeta, 0.0_dp, dp))
+
+        moment(0) = -imaginary_unit * plasma_z &
+            / (sqrt(2.0_dp) * abs(x1))
+        do order = 1, 2 * nmmax
+            moment(order) = sqrt(2.0_dp) * zeta * moment(order - 1)
+            if (mod(order, 2) == 1) then
+                select case (order)
+                case (1, 3)
+                    moment(order) = moment(order) - imaginary_unit / x1
+                case (5)
+                    moment(order) = moment(order) &
+                        - 3.0_dp * imaginary_unit / x1
+                end select
+            end if
+        end do
+
+        do k = 0, nmmax
+            do l = 0, nmmax
+                symbI(k, l) = moment(k + l)
+            end do
+        end do
+    end subroutine evaluate_susceptibility
 
     subroutine init_plasma(plasma_in)
 
@@ -329,15 +403,17 @@ module species_m
         ! Calculates BOTH boundary values (for FLR2 asymptotics) AND cell-center values (for kernels)
 
         use constants_m, only: e_charge, ev
-        use setup_m, only: omega, mphi_max
+        use setup_m, only: collisions_off, omega, mphi_max
         use grid_m, only: rg_grid
         use KIM_kinds_m, only: dp
-        use config_m, only: ion_flr_scale_factor
+        use config_m, only: ifunc_model_for_species, ion_temperature_gradient_model, &
+                            temperature_gradient_force_terms
 
         implicit none
 
         type(plasma_t), intent(inout) :: plasma_in
-        integer :: sp, j, mphi
+        integer :: sp, j, mphi, ifunc_model
+        real(dp) :: normalized_temperature_gradient, a1_temperature, a2_force
 
         ! Allocate arrays
         do sp = 0, plasma_in%n_species-1
@@ -355,6 +431,7 @@ module species_m
                 allocate(plasma_in%spec(sp)%I21(rg_grid%npts_b, -mphi_max:mphi_max))
                 allocate(plasma_in%spec(sp)%I22(rg_grid%npts_b, -mphi_max:mphi_max))
                 allocate(plasma_in%spec(sp)%I02(rg_grid%npts_b, -mphi_max:mphi_max))
+                allocate(plasma_in%spec(sp)%I03(rg_grid%npts_b, -mphi_max:mphi_max))
                 allocate(plasma_in%spec(sp)%I11(rg_grid%npts_b, -mphi_max:mphi_max))
                 allocate(plasma_in%spec(sp)%I13(rg_grid%npts_b, -mphi_max:mphi_max))
             end if
@@ -373,6 +450,7 @@ module species_m
                 allocate(plasma_in%spec(sp)%I12_cc(rg_grid%npts_c, -mphi_max:mphi_max))
                 allocate(plasma_in%spec(sp)%I22_cc(rg_grid%npts_c, -mphi_max:mphi_max))
                 allocate(plasma_in%spec(sp)%I02_cc(rg_grid%npts_c, -mphi_max:mphi_max))
+                allocate(plasma_in%spec(sp)%I03_cc(rg_grid%npts_c, -mphi_max:mphi_max))
                 allocate(plasma_in%spec(sp)%I13_cc(rg_grid%npts_c, -mphi_max:mphi_max))
                 allocate(plasma_in%spec(sp)%I11_cc(rg_grid%npts_c, -mphi_max:mphi_max))
             end if
@@ -381,25 +459,49 @@ module species_m
         ! Calculate on boundary points (npts_b)
         do sp = 0, plasma_in%n_species-1
             plasma_in%spec(sp)%symbI = 0.0d0
+            ifunc_model = ifunc_model_for_species(sp)
 
             do j = 1, rg_grid%npts_b
 
+                normalized_temperature_gradient = plasma_in%spec(sp)%dTdr(j) &
+                    / plasma_in%spec(sp)%T(j)
+                call temperature_gradient_force_terms(sp, &
+                    ion_temperature_gradient_model, &
+                    normalized_temperature_gradient, a1_temperature, a2_force)
                 plasma_in%spec(sp)%A1(j) = plasma_in%spec(sp)%dndr(j) / plasma_in%spec(sp)%n(j) &
                     - plasma_in%spec(sp)%Zspec * e_charge / (plasma_in%spec(sp)%T(j) * ev) * plasma_in%Er(j) &
-                    - 3.0d0 / (2.0d0 * plasma_in%spec(sp)%T(j)) * plasma_in%spec(sp)%dTdr(j)
-                plasma_in%spec(sp)%A2(j) = plasma_in%spec(sp)%dTdr(j) / plasma_in%spec(sp)%T(j)
+                    + a1_temperature
+                plasma_in%spec(sp)%A2(j) = a2_force
 
+                if (collisions_off) then
+                    plasma_in%spec(sp)%x1(j) = 0.0_dp
+                    plasma_in%spec(sp)%x2(j, :) = 0.0_dp
+                    plasma_in%spec(sp)%I00(j, :) = (0.0_dp, 0.0_dp)
+                    plasma_in%spec(sp)%I01(j, :) = (0.0_dp, 0.0_dp)
+                    plasma_in%spec(sp)%I20(j, :) = (0.0_dp, 0.0_dp)
+                    plasma_in%spec(sp)%I21(j, :) = (0.0_dp, 0.0_dp)
+                    plasma_in%spec(sp)%I22(j, :) = (0.0_dp, 0.0_dp)
+                    plasma_in%spec(sp)%I02(j, :) = (0.0_dp, 0.0_dp)
+                    plasma_in%spec(sp)%I03(j, :) = (0.0_dp, 0.0_dp)
+                    plasma_in%spec(sp)%I11(j, :) = (0.0_dp, 0.0_dp)
+                    plasma_in%spec(sp)%I13(j, :) = (0.0_dp, 0.0_dp)
+                    cycle
+                end if
 
                 plasma_in%spec(sp)%x1(j) = plasma_in%kp(j) * plasma_in%spec(sp)%vT(j) / plasma_in%spec(sp)%nu(j)
                 do mphi = -mphi_max, mphi_max
-                    plasma_in%spec(sp)%x2(j, mphi) = - (plasma_in%om_E(j) & !* ion_flr_scale_factor & !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!1
-                                                    + mphi * plasma%spec(sp)%omega_c(j)  - omega) &
+                    plasma_in%spec(sp)%x2(j, mphi) = - (plasma_in%om_E(j) &
+                                                    + mphi * plasma_in%spec(sp)%omega_c(j) &
+                                                    - omega) &
                                                     / plasma_in%spec(sp)%nu(j)
 
-                    call getIfunc(plasma_in%spec(sp)%x1(j), plasma_in%spec(sp)%x2(j, mphi), plasma_in%spec(sp)%symbI)
+                    call evaluate_susceptibility(plasma_in%spec(sp)%x1(j), &
+                        plasma_in%spec(sp)%x2(j, mphi), ifunc_model, &
+                        plasma_in%spec(sp)%symbI)
                     plasma_in%spec(sp)%I00(j, mphi) = plasma_in%spec(sp)%symbI(0, 0)
                     plasma_in%spec(sp)%I20(j, mphi) = plasma_in%spec(sp)%symbI(2, 0)
                     plasma_in%spec(sp)%I02(j, mphi) = plasma_in%spec(sp)%symbI(0, 2)
+                    plasma_in%spec(sp)%I03(j, mphi) = plasma_in%spec(sp)%symbI(0, 3)
                     plasma_in%spec(sp)%I01(j, mphi) = plasma_in%spec(sp)%symbI(0, 1)
                     plasma_in%spec(sp)%I21(j, mphi) = plasma_in%spec(sp)%symbI(2, 1)
                     plasma_in%spec(sp)%I22(j, mphi) = plasma_in%spec(sp)%symbI(2, 2)
@@ -412,27 +514,54 @@ module species_m
         ! Calculate on cell centers (npts_c)
         do sp = 0, plasma_in%n_species-1
             plasma_in%spec(sp)%symbI = 0.0d0
+            ifunc_model = ifunc_model_for_species(sp)
 
             do j = 1, rg_grid%npts_c
+                normalized_temperature_gradient = plasma_in%spec(sp)%dTdr_cc(j) &
+                    / plasma_in%spec(sp)%T_cc(j)
+                call temperature_gradient_force_terms(sp, &
+                    ion_temperature_gradient_model, &
+                    normalized_temperature_gradient, a1_temperature, a2_force)
                 plasma_in%spec(sp)%A1_cc(j) = plasma_in%spec(sp)%dndr_cc(j) / plasma_in%spec(sp)%n_cc(j) &
                     - plasma_in%spec(sp)%Zspec * e_charge / (plasma_in%spec(sp)%T_cc(j) * ev) * plasma_in%Er_cc(j) &
-                    - 3.0d0 / (2.0d0 * plasma_in%spec(sp)%T_cc(j)) * plasma_in%spec(sp)%dTdr_cc(j)
-                plasma_in%spec(sp)%A2_cc(j) = plasma_in%spec(sp)%dTdr_cc(j) / plasma_in%spec(sp)%T_cc(j)
+                    + a1_temperature
+                plasma_in%spec(sp)%A2_cc(j) = a2_force
+
+                if (collisions_off) then
+                    plasma_in%spec(sp)%x1_cc(j) = 0.0_dp
+                    plasma_in%spec(sp)%x2_cc(j, :) = 0.0_dp
+                    plasma_in%spec(sp)%I00_cc(j, :) = (0.0_dp, 0.0_dp)
+                    plasma_in%spec(sp)%I01_cc(j, :) = (0.0_dp, 0.0_dp)
+                    plasma_in%spec(sp)%I10_cc(j, :) = (0.0_dp, 0.0_dp)
+                    plasma_in%spec(sp)%I20_cc(j, :) = (0.0_dp, 0.0_dp)
+                    plasma_in%spec(sp)%I21_cc(j, :) = (0.0_dp, 0.0_dp)
+                    plasma_in%spec(sp)%I12_cc(j, :) = (0.0_dp, 0.0_dp)
+                    plasma_in%spec(sp)%I22_cc(j, :) = (0.0_dp, 0.0_dp)
+                    plasma_in%spec(sp)%I02_cc(j, :) = (0.0_dp, 0.0_dp)
+                    plasma_in%spec(sp)%I03_cc(j, :) = (0.0_dp, 0.0_dp)
+                    plasma_in%spec(sp)%I13_cc(j, :) = (0.0_dp, 0.0_dp)
+                    plasma_in%spec(sp)%I11_cc(j, :) = (0.0_dp, 0.0_dp)
+                    cycle
+                end if
 
                 plasma_in%spec(sp)%x1_cc(j) = 0.5d0 * (plasma_in%kp(j) + plasma_in%kp(j+1)) &
                     * plasma_in%spec(sp)%vT_cc(j) / plasma_in%spec(sp)%nu_cc(j)
 
                 do mphi = -mphi_max, mphi_max
-                    plasma_in%spec(sp)%x2_cc(j, mphi) = - (plasma_in%om_E_cc(j)  & !* ion_flr_scale_factor & !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-                                                        + mphi * plasma_in%spec(sp)%omega_c(j) - omega) &
+                    plasma_in%spec(sp)%x2_cc(j, mphi) = - (plasma_in%om_E_cc(j) &
+                                                        + mphi * plasma_in%spec(sp)%omega_c_cc(j) &
+                                                        - omega) &
                                                         / plasma_in%spec(sp)%nu_cc(j)
 
-                    call getIfunc(plasma_in%spec(sp)%x1_cc(j), plasma_in%spec(sp)%x2_cc(j, mphi), plasma_in%spec(sp)%symbI)
+                    call evaluate_susceptibility(plasma_in%spec(sp)%x1_cc(j), &
+                        plasma_in%spec(sp)%x2_cc(j, mphi), ifunc_model, &
+                        plasma_in%spec(sp)%symbI)
                     plasma_in%spec(sp)%I00_cc(j, mphi) = plasma_in%spec(sp)%symbI(0, 0)
                     plasma_in%spec(sp)%I20_cc(j, mphi) = plasma_in%spec(sp)%symbI(2, 0)
                     plasma_in%spec(sp)%I10_cc(j, mphi) = plasma_in%spec(sp)%symbI(1, 0)
                     plasma_in%spec(sp)%I12_cc(j, mphi) = plasma_in%spec(sp)%symbI(1, 2)
                     plasma_in%spec(sp)%I02_cc(j, mphi) = plasma_in%spec(sp)%symbI(0, 2)
+                    plasma_in%spec(sp)%I03_cc(j, mphi) = plasma_in%spec(sp)%symbI(0, 3)
                     plasma_in%spec(sp)%I01_cc(j, mphi) = plasma_in%spec(sp)%symbI(0, 1)
                     plasma_in%spec(sp)%I21_cc(j, mphi) = plasma_in%spec(sp)%symbI(2, 1)
                     plasma_in%spec(sp)%I22_cc(j, mphi) = plasma_in%spec(sp)%symbI(2, 2)
@@ -451,7 +580,9 @@ module species_m
 
         use constants_m, only: sol, e_charge, ev, pi, com_unit
         use setup_m, only: omega, collisions_off
-        use config_m, only: number_of_ion_species, rescale_density, number_density_rescale, ion_flr_scale_factor
+        use config_m, only: number_of_ion_species, rescale_density, number_density_rescale, &
+                            ion_flr_scale_factor, ion_fp_collision_scale, &
+                            collision_frequency_scale
 
         implicit none
 
@@ -528,17 +659,28 @@ module species_m
 
         do sp = 1, plasma_in%n_species-1
             do i = 1, plasma_in%grid_size
-                plasma_in%spec(sp)%nu(i) = nui(sp, i)
+                plasma_in%spec(sp)%nu(i) = scale_fp_collision_frequency(&
+                    nui(sp, i), sp, ion_fp_collision_scale)
             end do
         end do
+
+        ! Sensitivity knob: scales the calculated frequencies before z0 and the
+        ! FP susceptibility inputs are assembled. The default 1.0 leaves the
+        ! Coulomb-logarithm formulas above untouched.
+        do sp = 0, plasma_in%n_species-1
+            plasma_in%spec(sp)%nu = plasma_in%spec(sp)%nu * collision_frequency_scale
+        end do
+
+        if (collisions_off) then
+            do sp = 0, plasma_in%n_species-1
+                plasma_in%spec(sp)%nu = 0.0_dp
+            end do
+        end if
 
         do sp =0, plasma_in%n_species-1
             do i = 1,plasma_in%grid_size
                 plasma_in%spec(sp)%z0(i) = - (plasma_in%om_E(i) - omega - com_unit * plasma_in%spec(sp)%nu(i)) &
                     / (abs(plasma_in%kp(i)) * sqrt(2d0) * plasma_in%spec(sp)%vT(i) )
-                if (collisions_off .eqv. .true.)then
-                    plasma_in%spec(sp)%nu(i) = 0.0d0
-                end if
             end do
         end do
 
@@ -713,6 +855,12 @@ module species_m
                 call write_complex_profile(r_grid_cc, spec%I02_cc(:, mphi), size(r_grid_cc), &
                     'backs/'//trim(spec%name)//'/I02_cc_mphi_'//trim(adjustl(itoa(mphi))), &
                     'Susceptibility function I02 at cell centers, mphi='//trim(adjustl(itoa(mphi))), '1')
+                call write_complex_profile(r_grid_cc, spec%I03_cc(:, mphi), &
+                    size(r_grid_cc), &
+                    'backs/'//trim(spec%name)//'/I03_cc_mphi_' &
+                    //trim(adjustl(itoa(mphi))), &
+                    'Susceptibility function I03 at cell centers, mphi=' &
+                    //trim(adjustl(itoa(mphi))), '1')
                 call write_complex_profile(r_grid_cc, spec%I13_cc(:, mphi), size(r_grid_cc), &
                     'backs/'//trim(spec%name)//'/I13_cc_mphi_'//trim(adjustl(itoa(mphi))), &
                     'Susceptibility function I13 at cell centers, mphi='//trim(adjustl(itoa(mphi))), '1')
@@ -732,8 +880,15 @@ module species_m
     end subroutine
 
     subroutine interpolate_plasma_backs(plasma_in, grid)
+        ! Primitive quantities are interpolated; the derived Krook argument z0
+        ! is recomputed from them afterwards. z0 carries a 1/|k_parallel|
+        ! singularity at the resonance, so a Lagrange stencil spanning
+        ! k_parallel=0 produces values that violate its defining formula by
+        ! many orders of magnitude.
 
         use KIM_kinds_m, only: dp
+        use constants_m, only: com_unit
+        use setup_m, only: omega
         use IO_collection_m, only: plot_profile
 
         implicit none
@@ -779,7 +934,6 @@ module species_m
                 plasma_temp%spec(sp)%omega_c(i)  = sum(coef(0,:) * plasma_in%spec(sp)%omega_c(ibeg:iend))
                 plasma_temp%spec(sp)%lambda_D(i) = sum(coef(0,:) * plasma_in%spec(sp)%lambda_D(ibeg:iend))
                 plasma_temp%spec(sp)%rho_L(i)    = sum(coef(0,:) * plasma_in%spec(sp)%rho_L(ibeg:iend))
-                plasma_temp%spec(sp)%z0(i)       = sum(coef(0,:) * plasma_in%spec(sp)%z0(ibeg:iend))
             end do
 
             plasma_temp%B0(i)   = sum(coef(0,:) * plasma_in%B0(ibeg:iend))
@@ -790,6 +944,12 @@ module species_m
             plasma_temp%dqdr(i) = sum(coef(0,:) * plasma_in%dqdr(ibeg:iend))
             plasma_temp%Er(i)   = sum(coef(0,:) * plasma_in%Er(ibeg:iend))
 
+        end do
+
+        do sp = 0, plasma_temp%n_species-1
+            plasma_temp%spec(sp)%z0 = -(plasma_temp%om_E - omega &
+                - com_unit * plasma_temp%spec(sp)%nu) &
+                / (abs(plasma_temp%kp) * sqrt(2d0) * plasma_temp%spec(sp)%vT)
         end do
 
         plasma_in = plasma_temp
@@ -885,20 +1045,26 @@ module species_m
 
         use kim_resonances_m, only: r_res
         use grid_m, only: width_res
+        use config_m, only: resolved_electron_ifunc_conservation_model, &
+                            resolved_ion_ifunc_conservation_model
 
         implicit none
 
         type(species_t), intent(inout) :: spec
         integer, intent(in) :: mphi
-        integer :: j
+        integer :: j, ifunc_model
 
         if (.not. allocated(spec%symbI)) allocate(spec%symbI(0:nmmax, 0:nmmax))
         spec%symbI = 0.0d0
+        ifunc_model = resolved_ion_ifunc_conservation_model
+        if (spec%Zspec < 0) ifunc_model = resolved_electron_ifunc_conservation_model
         do j = 1, plasma%grid_size
-            call getIfunc(spec%x1(j), spec%x2(j, mphi), spec%symbI)
+            call evaluate_susceptibility(spec%x1(j), spec%x2(j, mphi), &
+                ifunc_model, spec%symbI)
             spec%I00(j, mphi) = spec%symbI(0, 0)
             spec%I20(j, mphi) = spec%symbI(2, 0)
             spec%I02(j, mphi) = spec%symbI(0, 2)
+            spec%I03(j, mphi) = spec%symbI(0, 3)
             spec%I01(j, mphi) = spec%symbI(0, 1)
             spec%I21(j, mphi) = spec%symbI(2, 1)
             spec%I22(j, mphi) = spec%symbI(2, 2)
@@ -1087,6 +1253,10 @@ module species_m
         ! Force resonance re-detection on next solve
         prop = .true.
 
+        ! Bump the profile generation so downstream true-background caches
+        ! (periodic_background_m) auto-invalidate: the profiles just changed.
+        profiles_generation = profiles_generation + 1
+
         ! Deallocate derived arrays to prevent double-allocation crashes
         call deallocate_plasma_derived()
 
@@ -1163,6 +1333,8 @@ module species_m
         ! From plasma species (allocated in calculate_plasma_backs)
         do sp = 0, number_of_ion_species
             if (sp > ubound(plasma%spec, 1)) exit
+            if (allocated(plasma%spec(sp)%dndr)) deallocate(plasma%spec(sp)%dndr)
+            if (allocated(plasma%spec(sp)%dTdr)) deallocate(plasma%spec(sp)%dTdr)
             if (allocated(plasma%spec(sp)%vT)) deallocate(plasma%spec(sp)%vT)
             if (allocated(plasma%spec(sp)%nu)) deallocate(plasma%spec(sp)%nu)
             if (allocated(plasma%spec(sp)%omega_c)) deallocate(plasma%spec(sp)%omega_c)

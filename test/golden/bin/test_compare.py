@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Unit tests for the QL-Balance HDF5 comparator quantity list."""
+
 import compare
 
 

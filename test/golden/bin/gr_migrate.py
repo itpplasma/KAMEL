@@ -23,6 +23,7 @@ Namelist edits are line-based and formatting-preserving: only the touched key
 line changes. Applying a direction is idempotent (a rename whose source key is
 absent is a no-op), so reruns are safe.
 """
+
 import argparse
 import json
 import re
@@ -76,9 +77,20 @@ def invert_op(op):
             return None  # cannot re-add without a default; down is a no-op for this op
         return {"op": "add", "namelist": op["namelist"], "key": op["key"], "value": op["default"]}
     if kind == "add":
-        return {"op": "drop", "namelist": op["namelist"], "key": op["key"], "default": op.get("value")}
+        return {
+            "op": "drop",
+            "namelist": op["namelist"],
+            "key": op["key"],
+            "default": op.get("value"),
+        }
     if kind == "set":
-        return {"op": "set", "namelist": op["namelist"], "key": op["key"], "old": op["new"], "new": op["old"]}
+        return {
+            "op": "set",
+            "namelist": op["namelist"],
+            "key": op["key"],
+            "old": op["new"],
+            "new": op["old"],
+        }
     raise ValueError("unknown op: %r" % kind)
 
 
@@ -131,7 +143,9 @@ def apply_op(lines, op, log):
         elif kind == "add":
             key = op["key"]
             kre = _key_re(key)
-            present = any(kre.match(lines[i]) for i in range(start + 1, end) if lines[i] is not None)
+            present = any(
+                kre.match(lines[i]) for i in range(start + 1, end) if lines[i] is not None
+            )
             if present:
                 log.append("  skip add &%s %s (already present)" % (nl, key))
                 continue
@@ -214,7 +228,9 @@ def cmd_list(args):
 
 
 def main(argv=None):
-    ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    ap = argparse.ArgumentParser(
+        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
+    )
     sub = ap.add_subparsers(dest="cmd", required=True)
     a = sub.add_parser("apply", help="apply migrations up or down")
     a.add_argument("--direction", choices=("up", "down"), required=True)

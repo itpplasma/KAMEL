@@ -12,8 +12,8 @@ subroutine calculate_total_toroidal_torque(time_index)
     call simpson_nonequi(T_tot_phi_e(time_index), r, r * T_EM_phi_e)
     call simpson_nonequi(T_tot_phi_i(time_index), r, r * T_EM_phi_i)
 
-    T_tot_phi_e(time_index) = T_tot_phi_e(time_index) * 2.0_dp * pi**2 * rtor
-    T_tot_phi_i(time_index) = T_tot_phi_i(time_index) * 2.0_dp * pi**2 * rtor
+    T_tot_phi_e(time_index) = T_tot_phi_e(time_index) * 4.0_dp * pi**2 * rtor
+    T_tot_phi_i(time_index) = T_tot_phi_i(time_index) * 4.0_dp * pi**2 * rtor
 
 end subroutine calculate_total_toroidal_torque
 

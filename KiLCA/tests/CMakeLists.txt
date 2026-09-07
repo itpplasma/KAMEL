@@ -1,0 +1,13 @@
+add_executable(test_kilca_lorentz_torque test_lorentz_torque.f90)
+set_target_properties(test_kilca_lorentz_torque PROPERTIES OUTPUT_NAME test_kilca_lorentz_torque.x)
+target_link_libraries(test_kilca_lorentz_torque PRIVATE kilca_lib)
+add_test(NAME kilca_lorentz_torque COMMAND test_kilca_lorentz_torque)
+
+add_executable(test_kilca_flre_quantities test_flre_quantities.f90)
+set_target_properties(test_kilca_flre_quantities PROPERTIES OUTPUT_NAME test_kilca_flre_quantities.x)
+target_link_libraries(test_kilca_flre_quantities PRIVATE kilca_lib)
+add_test(NAME kilca_current_interpolation COMMAND test_kilca_flre_quantities interpolation)
+add_test(NAME kilca_complex_quantity_output COMMAND test_kilca_flre_quantities output)
+file(MAKE_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/quantity_output")
+set_tests_properties(kilca_complex_quantity_output PROPERTIES
+    WORKING_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/quantity_output")

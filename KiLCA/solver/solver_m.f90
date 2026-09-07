@@ -73,9 +73,17 @@ module kilca_solver_m
     !> callback (func).
     type(c_funptr) :: rhs_mat_funptr
 
-    external :: zgeqrf, zungqr, ztrtri, ztrmm, zgemm, zgemv
+    external :: zungqr, ztrtri, ztrmm, zgemm, zgemv
 
     interface
+        subroutine zgeqrf(m, n, a, lda, tau, work, lwork, info)
+            import :: c_int, c_double_complex
+            integer(c_int), intent(in) :: m, n, lda, lwork
+            complex(c_double_complex), intent(inout) :: a(lda, *)
+            complex(c_double_complex), intent(out) :: tau(*), work(*)
+            integer(c_int), intent(out) :: info
+        end subroutine zgeqrf
+
         function get_sysmat_flag_back_c(handle) result(ch) bind(C, name="get_sysmat_flag_back_")
             import :: c_intptr_t, c_char
             integer(c_intptr_t), value :: handle
@@ -153,8 +161,9 @@ contains
         real(c_double) :: reltol, abstol, rf
 
         integer(c_int) :: i, step, ort_flag, info, lwork
-        real(c_double), allocatable :: work(:)
-        real(c_double) :: work_query(1)
+        complex(c_double_complex), allocatable :: work(:)
+        complex(c_double_complex) :: work_query(1)
+        complex(c_double_complex), pointer :: qr_matrix(:, :), qr_tau(:)
         real(c_double) :: maxv, minv, modv
         integer(c_int) :: ind, rpind, tot_steps, dirint
         integer(c_int) :: adr_i
@@ -272,15 +281,17 @@ contains
 
         ! Determine the optimal LWORK; ydata must not change here.
         lwork = -1
-        call zgeqrf(Nw, Nfs, mem(ydata_i:), Nw, mem(taudata_i:), work_query, lwork, info)
+        call c_f_pointer(c_loc(mem(ydata_i)), qr_matrix, [Nw, Nfs])
+        call c_f_pointer(c_loc(mem(taudata_i)), qr_tau, [Nfs])
+        call zgeqrf(Nw, Nfs, qr_matrix, Nw, qr_tau, work_query, lwork, info)
         if (info /= 0) then
             write (error_unit, '(a,i0)') 'error: int_basis_vecs: zgeqrf_ failed!: ', info
             ret = 1
             return
         end if
 
-        lwork = int(work_query(1))
-        allocate (work(0:2*lwork - 1))
+        lwork = int(real(work_query(1), c_double))
+        allocate (work(0:lwork - 1))
 
         rpind = 0
         tot_steps = 0
@@ -334,7 +345,9 @@ contains
                 mem(adr_i + i) = mem(ydata_i + i)
             end do
 
-            call zgeqrf(Nw, Nfs, mem(adr_i:), Nw, mem(taudata_i:), work, lwork, info)
+            call c_f_pointer(c_loc(mem(adr_i)), qr_matrix, [Nw, Nfs])
+            call c_f_pointer(c_loc(mem(taudata_i)), qr_tau, [Nfs])
+            call zgeqrf(Nw, Nfs, qr_matrix, Nw, qr_tau, work, lwork, info)
             if (info /= 0) then
                 write (error_unit, '(a,i0)') 'error: int_basis_vecs: zgeqrf_ failed!: ', info
                 exit

@@ -109,7 +109,7 @@ set_target_properties(ql-balance_lib PROPERTIES LINKER_LANGUAGE Fortran
     ARCHIVE_OUTPUT_DIRECTORY "${lib}"
     Fortran_MODULE_DIRECTORY "${objs}")
 
-add_dependencies(ql-balance_lib kilca_lib kamel_hdf5_tools KIM_lib)
+add_dependencies(ql-balance_lib kilca_lib kamel_hdf5_tools KIM_lib kamel_util)
 target_include_directories(ql-balance_lib PUBLIC ${CMAKE_BINARY_DIR}/KiLCA/mod ${CMAKE_BINARY_DIR}/modules)
 # NOTE: KIM Fortran modules (OBJS/kim/) are NOT added here because KIM and
 # QL-Balance both define a module named resonances_mod with different contents.
@@ -123,9 +123,6 @@ set_source_files_properties(${base_balance_src}/kim_wave_code_adapter.f90
 
 # fortnum C ABI header (fortnum.h) for vel_integral.cpp.
 target_include_directories(ql-balance_lib PUBLIC ${fortnum_SOURCE_DIR}/include)
-
-find_package(HDF5 REQUIRED COMPONENTS C HL Fortran Fortran_HL)
-message(" ====== HDF5 was found! ======")
 
 set(BUILD_TESTING OFF)
 
@@ -151,17 +148,12 @@ target_link_libraries(ql-balance_lib PUBLIC
     SUNDIALS::nvecserial
     blas
     fortnum
-    hdf5::hdf5
-    hdf5::hdf5_fortran
-    hdf5::hdf5_hl
-    hdf5::hdf5_hl_fortran
     kamel_hdf5_tools
     kamel_logger
     KIM_lib
+    kamel_util
     kilca_lib
     lapack
-    netcdf
-    netcdff
     fortnum_amos_compat
     sparse
 )

@@ -58,9 +58,66 @@ module IO_collection_m
 
     end subroutine write_KIM_namelist_to_hdf5
 
+    subroutine write_periodic_scale_metadata(reference_species, charge, mass, rho_ref, &
+                                             dx_asis, dx_tr, k_max, n_modes, n_rg)
+
+        use config_m, only: output_path, hdf5_output
+        use KAMEL_hdf5_tools, only: HID_T, h5_define_group, h5_open_group, &
+                                   h5_obj_exists, h5_add, h5_close_group
+
+        implicit none
+
+        integer, intent(in) :: reference_species, charge, n_modes, n_rg
+        real(dp), intent(in) :: mass, rho_ref, dx_asis, dx_tr, k_max
+
+        character(len=*), parameter :: header = &
+            '# reference_species charge mass_g rho_ref_cm dx_asis_cm dx_tr_cm ' // &
+            'k_max_cm_inv M N_rg'
+        integer :: iunit
+        integer(HID_T) :: h5grpid
+        logical :: ex
+
+        if (hdf5_output) then
+            call h5_obj_exists(h5id, 'setup/periodic_scale/', ex)
+            if (.not. ex) then
+                call h5_define_group(h5id, 'setup/periodic_scale/', h5grpid)
+            else
+                call h5_open_group(h5id, 'setup/periodic_scale/', h5grpid)
+            end if
+            call h5_add(h5grpid, 'reference_species', reference_species, &
+                        'Zero-based index of the species defining the periodic scale', '1')
+            call h5_add(h5grpid, 'charge', charge, &
+                        'Charge number of the periodic reference species', '1')
+            call h5_add(h5grpid, 'mass', mass, &
+                        'Mass of the periodic reference species', 'g')
+            call h5_add(h5grpid, 'rho_ref', rho_ref, &
+                        'Reference Larmor radius at the resonant surface', 'cm')
+            call h5_add(h5grpid, 'dx_asis', dx_asis, &
+                        'As-is half-width of the periodic window', 'cm')
+            call h5_add(h5grpid, 'dx_tr', dx_tr, &
+                        'Transition half-width of the periodic window', 'cm')
+            call h5_add(h5grpid, 'k_max', k_max, &
+                        'Maximum resolved radial wavenumber', '1/cm')
+            call h5_add(h5grpid, 'M', n_modes, &
+                        'Maximum positive periodic Fourier mode', '1')
+            call h5_add(h5grpid, 'N_rg', n_rg, &
+                        'Number of radial quadrature points', '1')
+            call h5_close_group(h5grpid)
+        else
+            open(newunit=iunit, file=trim(output_path)//'setup/periodic_scale.dat', &
+                 status='replace', action='write')
+            write(iunit, '(A)') header
+            write(iunit, *) reference_species, charge, mass, rho_ref, dx_asis, &
+                            dx_tr, k_max, n_modes, n_rg
+            close(iunit)
+        end if
+
+    end subroutine write_periodic_scale_metadata
+
     subroutine write_config_namelist_to_hdf5()
 
-        use KAMEL_hdf5_tools, only: HID_T, h5_define_group, h5_obj_exists, h5_add, h5_close_group
+        use KAMEL_hdf5_tools, only: HID_T, h5_define_group, h5_open_group, h5_obj_exists, &
+            h5_add, h5_close_group
         use config_m
 
         implicit none
@@ -71,6 +128,8 @@ module IO_collection_m
         call h5_obj_exists(h5id, 'config/', ex)
         if (.not. ex) then
             call h5_define_group(h5id, 'config/', h5grpid)
+        else
+            call h5_open_group(h5id, 'config/', h5grpid)
         end if
 
         call h5_add(h5grpid, 'number_of_ion_species', number_of_ion_species, &
@@ -81,6 +140,21 @@ module IO_collection_m
             'Type of run: electrostatic, FLR2_benchmark, etc.', 'str')
         call h5_add(h5grpid, 'collision_model', trim(collision_model), &
             'Type of collision model used in the simulation.', 'str')
+        call h5_add(h5grpid, 'ion_collision_model', trim(ion_collision_model), &
+            'Ion collision model: FokkerPlanck or collisionless analytical Krook/Hamiltonian.', 'str')
+        call h5_add(h5grpid, 'collisionless_kpar_epsilon', collisionless_kpar_epsilon, &
+            'Positive imaginary part of the causal collisionless k_parallel pole.', '1/cm')
+        call h5_add(h5grpid, 'ion_fp_collision_scale', ion_fp_collision_scale, &
+            'Multiplier applied only to computed Fokker-Planck ion collision frequencies.', '1')
+        call h5_add(h5grpid, 'electron_ifunc_conservation_model', &
+            resolved_electron_ifunc_conservation_model, &
+            'Resolved electron I-function model: 0=N, 1=N+E, 2=N+P, 3=N+E+P.', '1')
+        call h5_add(h5grpid, 'ion_ifunc_conservation_model', &
+            resolved_ion_ifunc_conservation_model, &
+            'Resolved ion I-function model: 0=N, 1=N+E, 2=N+P, 3=N+E+P.', '1')
+        call h5_add(h5grpid, 'ion_temperature_gradient_model', &
+            trim(ion_temperature_gradient_model), &
+            'Ion force diagnostic: full, zero_A2, or zero_Tprime.', 'str')
         call h5_add(h5grpid, 'read_species_from_namelist', read_species_from_namelist, &
             'Logical switch to read species from namelist or use default deuterium plasma.', 'true/false')
         call h5_add(h5grpid, 'turn_off_ions', turn_off_ions, &
@@ -140,6 +214,7 @@ module IO_collection_m
     subroutine write_setup_namelist_to_hdf5()
 
         use KAMEL_hdf5_tools, only: HID_T, h5_define_group, h5_obj_exists, h5_add, h5_close_group
+        use config_m, only: collision_frequency_scale
         use setup_m
 
         implicit none
@@ -170,6 +245,8 @@ module IO_collection_m
             'Integer type of delta Br.', '1')
         call h5_add(h5grpid, 'collisions_off', collisions_off, &
             'Logical switch to turn off collisions.', 'true/false')
+        call h5_add(h5grpid, 'collision_frequency_scale', collision_frequency_scale, &
+            'Multiplier applied to calculated collision frequencies.', '1')
         call h5_add(h5grpid, 'set_profiles_constant', set_profiles_constant, &
             'Integer switch for setting (some) profiles constant.', '1')
         call h5_add(h5grpid, 'bc_type', bc_type, &

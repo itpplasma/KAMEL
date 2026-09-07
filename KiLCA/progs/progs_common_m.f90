@@ -6,14 +6,37 @@
 !> to rebuild byte-for-byte the directory, glob and label strings the drivers
 !> emitted with those conversions.
 module kilca_progs_common_m
-    use, intrinsic :: iso_c_binding, only: c_char, c_size_t, c_ptr, c_null_char
+    use, intrinsic :: iso_c_binding, only: c_char, c_size_t, c_ptr, c_null_char, &
+        c_int, c_associated
     use, intrinsic :: iso_fortran_env, only: dp => real64
     implicit none
     private
 
     public :: get_project_path, to_cstr, fmt_g, fmt_e
+    public :: open_directory, read_directory, close_directory, clean_run, shell_quote
 
     interface
+        function c_opendir(path) result(directory) bind(C, name="opendir")
+            import :: c_char, c_ptr
+            character(kind=c_char), intent(in) :: path(*)
+            type(c_ptr) :: directory
+        end function c_opendir
+
+        function c_readdir_name(directory, name, capacity) result(status) &
+                bind(C, name="kilca_readdir_name")
+            import :: c_ptr, c_char, c_size_t, c_int
+            type(c_ptr), value :: directory
+            character(kind=c_char), intent(out) :: name(*)
+            integer(c_size_t), value :: capacity
+            integer(c_int) :: status
+        end function c_readdir_name
+
+        function c_closedir(directory) result(status) bind(C, name="closedir")
+            import :: c_ptr, c_int
+            type(c_ptr), value :: directory
+            integer(c_int) :: status
+        end function c_closedir
+
         function c_getcwd(buf, size) result(res) bind(C, name="getcwd")
             import :: c_char, c_size_t, c_ptr
             character(kind=c_char), intent(out) :: buf(*)
@@ -23,6 +46,99 @@ module kilca_progs_common_m
     end interface
 
 contains
+
+    function open_directory(path) result(directory)
+        character(len=*), intent(in) :: path
+        type(c_ptr) :: directory
+        directory = c_opendir(to_cstr(path))
+    end function open_directory
+
+    !> Preserve readdir order, copying only d_name through the native C adapter.
+    logical function read_directory(directory, name) result(found)
+        type(c_ptr), intent(in) :: directory
+        character(len=*), intent(out) :: name
+        character(kind=c_char) :: buffer(len(name) + 1)
+        integer :: i
+        integer(c_int) :: status
+
+        name = ''
+        status = c_readdir_name(directory, buffer, int(size(buffer), c_size_t))
+        if (status < 0) error stop 'Failed to read directory entry (or name too long)'
+        found = status == 1
+        if (.not. found) return
+        do i = 1, len(name)
+            if (buffer(i) == c_null_char) exit
+            name(i:i) = buffer(i)
+        end do
+    end function read_directory
+
+    subroutine close_directory(directory)
+        type(c_ptr), intent(in) :: directory
+        integer(c_int) :: status
+        status = c_closedir(directory)
+        if (status /= 0) error stop 'Failed to close directory'
+    end subroutine close_directory
+
+    !> Quote one shell argument, including embedded apostrophes.
+    function shell_quote(value) result(quoted)
+        character(len=*), intent(in) :: value
+        character(len=:), allocatable :: quoted
+        integer :: i
+        quoted = "'"
+        do i = 1, len_trim(value)
+            if (value(i:i) == "'") then
+                quoted = quoted//"'"//'"'//"'"//'"'//"'"
+            else
+                quoted = quoted//value(i:i)
+            end if
+        end do
+        quoted = quoted//"'"
+    end function shell_quote
+
+    !> Retain the two bracketing eigenfunction folders and the legacy '...' entry.
+    !> The production driver and regression test call this same cleanup routine.
+    subroutine clean_run(fullpath, funct_first, funct_last)
+        character(len=*), intent(in) :: fullpath
+        complex(dp), intent(in) :: funct_first, funct_last
+        character(len=:), allocatable :: base, dir_path, sub0, sub1
+        character(len=1024) :: name
+        type(c_ptr) :: directory
+
+        if (len_trim(fullpath) == 0) return
+        base = trim(fullpath)
+        if (base(len(base):) /= '/') base = base//'/'
+        dir_path = base//'linear-data/'
+        sub0 = '['//fmt_g(real(funct_first, dp), 15)//','//fmt_g(aimag(funct_first), 15)//']'
+        sub1 = '['//fmt_g(real(funct_last, dp), 15)//','//fmt_g(aimag(funct_last), 15)//']'
+
+        directory = open_directory(dir_path)
+        if (c_associated(directory)) then
+            do while (read_directory(directory, name))
+                if (len_trim(name) == 0) cycle
+                if (name == '.' .or. name == '..' .or. name == '...') cycle
+                if (index(name, sub0) /= 0 .or. index(name, sub1) /= 0) cycle
+                call remove_tree(dir_path//trim(name))
+            end do
+            call close_directory(directory)
+        else
+            write (*, '(/,a,a,a)') 'clean_run: failed to open the directory ', dir_path, '.'
+        end if
+        call remove_tree(base//'dispersion-data')
+        call remove_tree(base//'poincare-data')
+    end subroutine clean_run
+
+    subroutine remove_tree(path)
+        character(len=*), intent(in) :: path
+        integer :: command_status, exit_status
+        if (len_trim(path) == 0) return
+        call execute_command_line('rm -R -f -- '//shell_quote(path), wait=.true., &
+            cmdstat=command_status, exitstat=exit_status)
+        if (command_status /= 0) then
+            write (*, '(a)') 'clean_run: failed to start cleanup command'
+        else if (exit_status /= 0) then
+            write (*, '(a,a)') 'clean_run: failed to remove ', path
+        end if
+    end subroutine remove_tree
 
     !> Mirrors the drivers' path bootstrap: no command-line argument means the
     !> current working directory, otherwise the first argument; a trailing '/'

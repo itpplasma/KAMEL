@@ -59,7 +59,7 @@ contains
         integer :: i, j, k, unit, ios
 
         do i = 0, Ncols - 1
-            write (fname, '(a,a,i0,a)') c_string_to_fortran(path_name), '_', i, '.dat'
+            write (fname, '(a,a,i0,a)') trim(c_string_to_fortran(path_name)), '_', i, '.dat'
             open (newunit=unit, file=trim(fname), status='replace', action='write', iostat=ios)
             if (ios /= 0) then
                 write (*, '(a,a)') 'Failed to open file ', trim(fname)

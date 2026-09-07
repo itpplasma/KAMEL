@@ -149,6 +149,7 @@ include_directories ("${CMAKE_CURRENT_SOURCE_DIR}/spline")
 #cpp source files for kilca lib:
 set(kilca_lib_cpp_sources
     math/zersol-0.0.0/src/zersolc.cpp
+    io/directory.c
 )
 
 #fortran source files for kilca lib:
@@ -241,6 +242,7 @@ set_source_files_properties(math/adapt_grid/adaptive_grid_pol_m.f90
     PROPERTIES COMPILE_OPTIONS "-fno-tree-loop-vectorize")
 
 add_library (kilca_lib STATIC ${kilca_lib_fortran_sources} ${kilca_lib_cpp_sources})
+target_include_directories(kilca_lib PUBLIC ${PROJECT_BINARY_DIR}/OBJS/kilca/)
 #add_library (kilca_lib SHARED ${kilca_lib_fortran_sources} ${kilca_lib_cpp_sources})
 target_compile_options(kilca_lib PRIVATE -fPIC)
 
@@ -413,6 +415,8 @@ set_target_properties(test_sysmat_profiles PROPERTIES
     Fortran_MODULE_DIRECTORY ${CMAKE_BINARY_DIR}/OBJS/test_sysmat_profiles/)
 target_link_libraries (test_sysmat_profiles fortnum)
 add_test(NAME test_sysmat_profiles COMMAND ${CMAKE_BINARY_DIR}/tests/test_sysmat_profiles.x)
+add_subdirectory(tests)
+include(tests/migration_regressions.cmake)
 
 # add a target to generate API documentation with Doxygen
 find_package (Doxygen)

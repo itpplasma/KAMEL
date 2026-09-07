@@ -16,7 +16,7 @@
 !> substring / exact-name tests its known patterns reduce to.
 program main_eig_param
     use, intrinsic :: iso_c_binding, only: c_int, c_intptr_t, c_double, c_char, &
-        c_ptr, c_null_char, c_null_ptr, c_loc, c_associated, c_f_pointer
+        c_ptr, c_null_char, c_null_ptr, c_loc, c_associated
     use, intrinsic :: iso_fortran_env, only: dp => real64
     use kilca_inout_m, only: read_line_2skip_it_, read_line_2get_string_, &
         read_line_2get_double_, read_line_2get_complex_
@@ -25,7 +25,7 @@ program main_eig_param
         core_data_calc_and_set_mode_independent_, &
         core_data_calc_and_set_mode_dependent_antenna_, &
         core_data_calc_and_set_mode_dependent_eigmode_
-    use kilca_progs_common_m, only: get_project_path, to_cstr, fmt_g, fmt_e
+    use kilca_progs_common_m, only: get_project_path, to_cstr, fmt_g, fmt_e, clean_run
     implicit none
 
     interface
@@ -51,24 +51,6 @@ program main_eig_param
             type(c_ptr), value :: fp
             integer(c_int) :: res
         end function c_fclose
-
-        function c_opendir(name) result(dp) bind(C, name="opendir")
-            import :: c_char, c_ptr
-            character(kind=c_char), intent(in) :: name(*)
-            type(c_ptr) :: dp
-        end function c_opendir
-
-        function c_readdir(dp) result(ep) bind(C, name="readdir")
-            import :: c_ptr
-            type(c_ptr), value :: dp
-            type(c_ptr) :: ep
-        end function c_readdir
-
-        function c_closedir(dp) result(r) bind(C, name="closedir")
-            import :: c_ptr, c_int
-            type(c_ptr), value :: dp
-            integer(c_int) :: r
-        end function c_closedir
     end interface
 
     integer, parameter :: max_iter_num = 10000
@@ -488,71 +470,6 @@ contains
         character(len=*), intent(in) :: fullpath
         call run_system('rm -R -f '//trim(fullpath))
     end subroutine remove_run
-
-    !> Prunes fullpath/linear-data to the two eigenfunction folders bracketing
-    !> the accepted root, then drops the dispersion- and poincare-data trees.
-    !> The oracle's five fnmatch patterns reduce to: keep any name containing
-    !> "[re,im]" for the first or last frequency (%.15lg formatted), and keep
-    !> ".", "..", "..." exactly; everything else is removed.
-    subroutine clean_run(fullpath, funct_first, funct_last)
-        character(len=*), intent(in) :: fullpath
-        complex(dp), intent(in) :: funct_first, funct_last
-        character(len=1024) :: dir_path
-        character(len=:), allocatable :: sub0, sub1, dname
-        type(c_ptr) :: dp_h, ep
-        integer(c_intptr_t) :: addr
-        character(kind=c_char), pointer :: cname(:)
-        type(c_ptr) :: namep
-        integer :: j, r
-        logical :: keep
-
-        dir_path = trim(fullpath)//'linear-data/'
-
-        sub0 = '['//fmt_g(real(funct_first, dp), 15)//','//fmt_g(aimag(funct_first), 15)//']'
-        sub1 = '['//fmt_g(real(funct_last, dp), 15)//','//fmt_g(aimag(funct_last), 15)//']'
-
-        dp_h = c_opendir(to_cstr(dir_path))
-        if (c_associated(dp_h)) then
-            do
-                ep = c_readdir(dp_h)
-                if (.not. c_associated(ep)) exit
-
-                addr = transfer(ep, addr) + 19_c_intptr_t
-                namep = transfer(addr, namep)
-                call c_f_pointer(namep, cname, [256])
-                dname = ''
-                do j = 1, 256
-                    if (cname(j) == c_null_char) exit
-                    dname = dname//cname(j)
-                end do
-
-                keep = .false.
-                if (dname == '.' .or. dname == '..') keep = .true.
-                if (dname == '...') keep = .true.
-                if (index(dname, sub0) /= 0) keep = .true.
-                if (index(dname, sub1) /= 0) keep = .true.
-                if (keep) cycle
-
-                call run_system_soft('rm -R -f '//trim(fullpath)//'linear-data/'//dname)
-            end do
-            r = c_closedir(dp_h)
-        else
-            write (*, '(/,a,a,a)') 'clean_run: faled to open the directory ', trim(dir_path), '.'
-        end if
-
-        call run_system_soft('rm -R -f '//trim(fullpath)//'dispersion-data')
-        call run_system_soft('rm -R -f '//trim(fullpath)//'poincare-data')
-    end subroutine clean_run
-
-    !> system() variant matching clean_run's non-fatal error handling: a failed
-    !> shell start only warns ("error: system()!"), the scan continues.
-    subroutine run_system_soft(cmd)
-        character(len=*), intent(in) :: cmd
-        integer :: cstat
-        character(len=256) :: cmsg
-        call execute_command_line(cmd, wait=.true., cmdstat=cstat, cmdmsg=cmsg)
-        if (cstat /= 0) write (*, '(/,a)') 'error: system()!'
-    end subroutine run_system_soft
 
     subroutine save_result(filename, p_curr, f_curr)
         character(len=*), intent(in) :: filename

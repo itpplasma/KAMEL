@@ -41,6 +41,22 @@ module kernel_m
 
     contains
 
+    subroutine set_fp_integration_radius(point, spec, j)
+
+        use integrands_gauss_m, only: integration_point_t
+        use species_m, only: species_t
+
+        implicit none
+
+        type(integration_point_t), intent(inout) :: point
+        type(species_t), intent(in) :: spec
+        integer, intent(in) :: j
+
+        ! rho_L_cc already contains the ion-only artificial FLR scale.
+        point%rhoT = max(spec%rho_L_cc(j), 0.0_dp)
+
+    end subroutine set_fp_integration_radius
+
     ! Thread-safe wrapper to update loading bar from within OpenMP
     subroutine update_bar(cur, tot, sc, cr)
         use loading_bar_m, only: updateLoadingBarWithETA
@@ -69,6 +85,31 @@ module kernel_m
         this%Kllp_i = (0.0d0, 0.0d0)
 
     end subroutine init_kernel
+
+    function larmor_taper_band_limit() result(dmax_global)
+
+        use grid_m, only: Larmor_skip_factor, kernel_taper_skip_threshold
+        use species_m, only: plasma
+
+        implicit none
+
+        real(dp) :: dmax_global
+        real(dp) :: alpha, rhoT_max, tau
+        integer :: sigma
+
+        alpha = Larmor_skip_factor
+        tau = max(kernel_taper_skip_threshold, 1.0d-12)
+        rhoT_max = 0.0d0
+
+        do sigma = 0, plasma%n_species - 1
+            if (allocated(plasma%spec(sigma)%rho_L_cc)) then
+                rhoT_max = max(rhoT_max, maxval(plasma%spec(sigma)%rho_L_cc))
+            end if
+        end do
+
+        dmax_global = alpha * rhoT_max * sqrt(max(log(1.0d0 / tau), 0.0d0))
+
+    end function larmor_taper_band_limit
 
     subroutine compute_cc_prefactors
 
@@ -266,7 +307,129 @@ module kernel_m
 
     end subroutine
 
-    subroutine Krook_calc_kernel_rho_term_by_term(l, lp, k_rho_phi, k_rho_B, gauss_conf)
+    subroutine Krook_fill_kernel_phi_ions_collisionless(K_rho_phi_llp, K_rho_B_llp)
+
+        use KIM_kinds_m, only: dp
+        use integrals_gauss_m, only: gauss_config_t, init_gauss_int
+        use grid_m, only: gauss_int_nodes_Ntheta, gauss_int_nodes_Nx, gauss_int_nodes_Nxp, xl_grid
+        use species_m, only: plasma
+        use logger_m, only: log_info
+
+        implicit none
+
+        type(kernel_spl_t), intent(inout) :: K_rho_phi_llp
+        type(kernel_spl_t), intent(inout) :: K_rho_B_llp
+        type(gauss_config_t) :: gauss_conf
+        integer :: l, lp, sp
+        complex(dp) :: k_rho_phi, k_rho_B
+        real(dp) :: dmax_global
+
+        gauss_conf%Nx = gauss_int_nodes_Nx
+        gauss_conf%Nxp = gauss_int_nodes_Nxp
+        gauss_conf%Ntheta = gauss_int_nodes_Ntheta
+        call init_gauss_int(gauss_conf)
+
+        dmax_global = larmor_taper_band_limit()
+
+        K_rho_phi_llp%Kllp = (0.0_dp, 0.0_dp)
+        K_rho_B_llp%Kllp = (0.0_dp, 0.0_dp)
+        K_rho_phi_llp%Kllp_i = (0.0_dp, 0.0_dp)
+        K_rho_B_llp%Kllp_i = (0.0_dp, 0.0_dp)
+
+        call log_info('Filling ion-only collisionless Krook kernels...')
+
+        !$omp parallel do private(l,lp,sp,k_rho_phi,k_rho_B)
+        do l = 1, K_rho_phi_llp%npts_l
+            block
+                real(dp) :: xl_val
+                integer :: lp_lo
+
+                xl_val = xl_grid%xb(l)
+                lp_lo = l
+                do
+                    if (lp_lo <= 1) exit
+                    if (abs(xl_grid%xb(lp_lo-1) - xl_val) > dmax_global) exit
+                    lp_lo = lp_lo - 1
+                end do
+
+                ! Match the FP banding rule, including its minimum off-diagonal support.
+                lp_lo = min(lp_lo, l - 1)
+                if (lp_lo < 1) lp_lo = 1
+
+                do lp = max(1, lp_lo), l
+                    do sp = 1, plasma%n_species - 1
+                        call Krook_calc_kernel_rho_term_by_term(l, lp, k_rho_phi, k_rho_B, gauss_conf, &
+                            species_first=sp, species_last=sp, collisionless=.true.)
+                        K_rho_phi_llp%Kllp_i(l, lp, sp) = k_rho_phi
+                        K_rho_B_llp%Kllp_i(l, lp, sp) = k_rho_B
+                        K_rho_phi_llp%Kllp_i(lp, l, sp) = k_rho_phi
+                        K_rho_B_llp%Kllp_i(lp, l, sp) = k_rho_B
+                    end do
+                end do
+            end block
+        end do
+        !$omp end parallel do
+
+        K_rho_phi_llp%Kllp = sum(K_rho_phi_llp%Kllp_i, dim=3)
+        K_rho_B_llp%Kllp = sum(K_rho_B_llp%Kllp_i, dim=3)
+
+        call log_info('Finished ion-only collisionless Krook kernels.')
+
+    end subroutine Krook_fill_kernel_phi_ions_collisionless
+
+    subroutine assemble_fp_electron_collisionless_ion_charge(K_rho_phi_llp, K_rho_B_llp)
+
+        use KIM_kinds_m, only: dp
+
+        implicit none
+
+        type(kernel_spl_t), intent(inout) :: K_rho_phi_llp
+        type(kernel_spl_t), intent(inout) :: K_rho_B_llp
+
+        call Krook_fill_kernel_phi_ions_collisionless(K_rho_phi_llp, K_rho_B_llp)
+
+        K_rho_phi_llp%Kllp = K_rho_phi_llp%Kllp_e + sum(K_rho_phi_llp%Kllp_i, dim=3)
+        K_rho_B_llp%Kllp = K_rho_B_llp%Kllp_e + sum(K_rho_B_llp%Kllp_i, dim=3)
+
+    end subroutine assemble_fp_electron_collisionless_ion_charge
+
+    subroutine assemble_configured_fp_charge(K_rho_phi_llp, K_rho_B_llp)
+
+        use config_m, only: ion_collision_model
+
+        implicit none
+
+        type(kernel_spl_t), intent(inout) :: K_rho_phi_llp
+        type(kernel_spl_t), intent(inout) :: K_rho_B_llp
+
+        select case (trim(ion_collision_model))
+            case ('FokkerPlanck')
+                return
+            case ('collisionless')
+                call assemble_fp_electron_collisionless_ion_charge(K_rho_phi_llp, K_rho_B_llp)
+            case default
+                error stop 'Unsupported ion collision model in FP charge-kernel assembly.'
+        end select
+
+    end subroutine assemble_configured_fp_charge
+
+    subroutine initialize_krook_mphi(int_point)
+
+        use integrands_gauss_m, only: integration_point_t
+
+        implicit none
+
+        type(integration_point_t), intent(inout) :: int_point
+
+        ! The closed-form Krook and collisionless prefactors use the m_phi = 0
+        ! spatial decomposition.  Set it explicitly before evaluating F1-F3.
+        int_point%mphi = 0
+
+    end subroutine initialize_krook_mphi
+
+    subroutine Krook_calc_kernel_rho_term_by_term(l, lp, k_rho_phi, k_rho_B, gauss_conf, &
+                                                   species_first, species_last, collisionless, &
+                                                   k_rho_B_terms)
 
         use KIM_kinds_m, only: dp
         use integrals_gauss_m, only: gauss_integrate_F0, gauss_integrate_F1, gauss_integrate_F2, gauss_integrate_F3,&
@@ -277,18 +440,21 @@ module kernel_m
             integration_point_t
         use Krook_kernel_plasma_prefacs_m, only: Krook_G0_rho_phi, Krook_G1_rho_phi, Krook_G2_rho_phi, Krook_G3_rho_phi, &
             Krook_G1_rho_B, Krook_G2_rho_B, Krook_G3_rho_B, Krook_kappa_rho_phi, Krook_kappa_rho_B
-        use config_m, only: artificial_debye_case, turn_off_ions
-        use grid_m, only: Larmor_skip_factor
-
+        use config_m, only: artificial_debye_case, turn_off_ions, collisionless_kpar_epsilon
         implicit none
 
         integer, intent(in) :: l, lp
         complex(dp) :: k_rho_phi, k_rho_B
         integer :: j, sigma
         type(gauss_config_t), intent(in) :: gauss_conf
+        integer, intent(in), optional :: species_first, species_last
+        logical, intent(in), optional :: collisionless
+        complex(dp), intent(out), optional :: k_rho_B_terms(3)
         real(dp) :: integral_val
         real(dp) :: current_distance
         integer :: current_idx_distance
+        integer :: first_species, last_species
+        logical :: use_collisionless
 
         type(integration_point_t) :: int_point
         type(gauss_int_F0_rho_phi_t) :: int_F0
@@ -298,17 +464,30 @@ module kernel_m
 
         k_rho_phi = 0.0d0
         k_rho_B = 0.0d0
+        if (present(k_rho_B_terms)) k_rho_B_terms = (0.0_dp, 0.0_dp)
+
+        first_species = 0
+        last_species = plasma%n_species - 1
+        use_collisionless = .false.
+        if (present(species_first)) first_species = species_first
+        if (present(species_last)) last_species = species_last
+        if (present(collisionless)) use_collisionless = collisionless
+        if (first_species < 0 .or. last_species >= plasma%n_species .or. first_species > last_species) then
+            error stop 'Invalid species range in Krook kernel assembly'
+        end if
 
         call set_xl_at_edge(l, lp, int_point)
+        call initialize_krook_mphi(int_point)
 
-        do sigma = 0, plasma%n_species - 1
+        do sigma = first_species, last_species
             if (turn_off_ions .and. sigma >= 1) cycle
-            do j = 2, size(plasma%r_grid)-1
+            ! Use the same complete radial-cell range as the FP assembly.
+            do j = 1, size(plasma%r_grid)-1
                 int_point%j = j
                 int_point%rhoT = 0.5d0 * (plasma%spec(sigma)%rho_L(j) + plasma%spec(sigma)%rho_L(j+1))
                 int_F0%int_point = int_point
 
-                if (l == lp) then
+                if (abs(l-lp) <= 1 .and. artificial_debye_case /= 2) then
                     call gauss_integrate_F0(int_F0, int_point%xlm1, int_point%xlp1, integral_val, gauss_conf)
                     k_rho_phi = k_rho_phi &
                                     + integral_val * Krook_G0_rho_phi(j, plasma%spec(sigma)) * Krook_kappa_rho_phi(j, plasma%spec(sigma))
@@ -316,8 +495,6 @@ module kernel_m
 
                 ! Track maximum distances for diagnostics
                 current_distance = abs(int_point%xl - int_point%xlp)
-
-                if (current_distance > Larmor_skip_factor * int_point%rhoT) cycle
 
                 current_idx_distance = abs(l - lp)
 
@@ -350,16 +527,43 @@ module kernel_m
                     int_F3%int_point = int_point
 
                     call gauss_integrate_F1(int_F1, integral_val, gauss_conf)
-                    k_rho_phi = k_rho_phi + integral_val * Krook_G1_rho_phi(j, plasma%spec(sigma)) * Krook_kappa_rho_phi(j, plasma%spec(sigma))
-                    k_rho_B = k_rho_B + integral_val * Krook_G1_rho_B(j, plasma%spec(sigma)) * Krook_kappa_rho_B(j, plasma%spec(sigma))
+                    k_rho_phi = k_rho_phi + integral_val * Krook_G1_rho_phi(j, plasma%spec(sigma), &
+                        use_collisionless, collisionless_kpar_epsilon) * Krook_kappa_rho_phi(j, plasma%spec(sigma))
+                    k_rho_B = k_rho_B + integral_val * Krook_G1_rho_B(j, plasma%spec(sigma), &
+                        use_collisionless, collisionless_kpar_epsilon) * Krook_kappa_rho_B(j, plasma%spec(sigma), &
+                        use_collisionless, collisionless_kpar_epsilon)
+                    if (present(k_rho_B_terms)) then
+                        k_rho_B_terms(1) = k_rho_B_terms(1) + integral_val * &
+                            Krook_G1_rho_B(j, plasma%spec(sigma), use_collisionless, &
+                            collisionless_kpar_epsilon) * Krook_kappa_rho_B(j, &
+                            plasma%spec(sigma), use_collisionless, collisionless_kpar_epsilon)
+                    end if
 
                     call gauss_integrate_F2(int_F2, integral_val, gauss_conf)
-                    k_rho_phi = k_rho_phi + integral_val * Krook_kappa_rho_phi(j, plasma%spec(sigma)) * Krook_G2_rho_phi(j, plasma%spec(sigma))
-                    k_rho_B = k_rho_B + integral_val * Krook_G2_rho_B(j, plasma%spec(sigma)) * Krook_kappa_rho_B(j, plasma%spec(sigma))
+                    k_rho_phi = k_rho_phi + integral_val * Krook_kappa_rho_phi(j, plasma%spec(sigma)) * &
+                        Krook_G2_rho_phi(j, plasma%spec(sigma), use_collisionless, collisionless_kpar_epsilon)
+                    k_rho_B = k_rho_B + integral_val * Krook_G2_rho_B(j, plasma%spec(sigma), &
+                        use_collisionless, collisionless_kpar_epsilon) * Krook_kappa_rho_B(j, plasma%spec(sigma), &
+                        use_collisionless, collisionless_kpar_epsilon)
+                    if (present(k_rho_B_terms)) then
+                        k_rho_B_terms(2) = k_rho_B_terms(2) + integral_val * &
+                            Krook_G2_rho_B(j, plasma%spec(sigma), use_collisionless, &
+                            collisionless_kpar_epsilon) * Krook_kappa_rho_B(j, &
+                            plasma%spec(sigma), use_collisionless, collisionless_kpar_epsilon)
+                    end if
 
                     call gauss_integrate_F3(int_F3, integral_val, gauss_conf)
-                    k_rho_phi = k_rho_phi + integral_val * Krook_kappa_rho_phi(j, plasma%spec(sigma)) * Krook_G3_rho_phi(j, plasma%spec(sigma))
-                    k_rho_B = k_rho_B + integral_val * Krook_G3_rho_B(j, plasma%spec(sigma)) * Krook_kappa_rho_B(j, plasma%spec(sigma))
+                    k_rho_phi = k_rho_phi + integral_val * Krook_kappa_rho_phi(j, plasma%spec(sigma)) * &
+                        Krook_G3_rho_phi(j, plasma%spec(sigma), use_collisionless, collisionless_kpar_epsilon)
+                    k_rho_B = k_rho_B + integral_val * Krook_G3_rho_B(j, plasma%spec(sigma), &
+                        use_collisionless, collisionless_kpar_epsilon) * &
+                        Krook_kappa_rho_B(j, plasma%spec(sigma), use_collisionless, collisionless_kpar_epsilon)
+                    if (present(k_rho_B_terms)) then
+                        k_rho_B_terms(3) = k_rho_B_terms(3) + integral_val * &
+                            Krook_G3_rho_B(j, plasma%spec(sigma), use_collisionless, &
+                            collisionless_kpar_epsilon) * Krook_kappa_rho_B(j, &
+                            plasma%spec(sigma), use_collisionless, collisionless_kpar_epsilon)
+                    end if
                 end if
 
             end do
@@ -367,6 +571,9 @@ module kernel_m
 
         k_rho_phi = k_rho_phi / (8.0d0 * pi**3.0d0)
         k_rho_B = k_rho_B / (8.0d0 * pi**3.0d0)
+        if (present(k_rho_B_terms)) then
+            k_rho_B_terms = k_rho_B_terms / (8.0_dp * pi**3)
+        end if
 
     end subroutine
 
@@ -375,8 +582,7 @@ module kernel_m
 
         use KIM_kinds_m, only: dp
         use integrals_gauss_m, only: gauss_config_t, init_gauss_int
-        use grid_m, only: Larmor_skip_factor, gauss_int_nodes_Ntheta, gauss_int_nodes_Nx, gauss_int_nodes_Nxp, &
-                        kernel_taper_skip_threshold, rg_grid, xl_grid
+        use grid_m, only: gauss_int_nodes_Ntheta, gauss_int_nodes_Nx, gauss_int_nodes_Nxp, rg_grid, xl_grid
         use species_m, only: plasma
         use config_m, only: output_path, artificial_debye_case, turn_off_ions, &
                             turn_off_electrons
@@ -390,8 +596,7 @@ module kernel_m
         type(kernel_spl_t), intent(inout) :: K_j_B_llp
         type(gauss_config_t) :: gauss_conf
         integer :: l, lp, sp
-        real(dp) :: dmax_global, alpha, tau
-        integer :: sigma
+        real(dp) :: dmax_global
         integer :: total_iterations, current_iteration
         integer(kind=8) :: start_count, count_rate, count_max
         character(len=100) :: kbuf
@@ -409,22 +614,7 @@ module kernel_m
         if (.not. pref_ready) call compute_cc_prefactors
 
         ! Compute a global band-limit distance dmax using Larmor taper and skip threshold
-        alpha = Larmor_skip_factor
-        tau   = max(kernel_taper_skip_threshold, 1.0d-12)
-        block
-            real(dp) :: rhoT_max
-            rhoT_max = 0.0d0
-            do sigma = 0, plasma%n_species - 1
-                if (allocated(plasma%spec(sigma)%rho_L_cc)) then
-                    rhoT_max = max(rhoT_max, maxval(plasma%spec(sigma)%rho_L_cc))
-                end if
-            end do
-            ! BUGFIX 2026-06-16: restore the Larmor-taper band-limit distance. The
-            ! line `dmax_global = tau * rhoT_max` (committed 2026-01-29) made dmax_global
-            ! ~ 1e-6*rho ~ 2e-7 cm (<< grid dr), collapsing the kernel band to diagonal+1
-            ! and killing the ion FLR off-diagonal coupling.
-            dmax_global = alpha * rhoT_max * sqrt(max(log(1.0d0/tau), 0.0d0))
-        end block
+        dmax_global = larmor_taper_band_limit()
 
         ! Calculate actual number of iterations accounting for band-limiting
         ! Also track maximum and minimum distances for diagnostics
@@ -746,7 +936,8 @@ module kernel_m
 
     end subroutine
 
-    subroutine FP_calc_kernel_element_ions(l, lp, k_rho_phi, k_rho_B, k_j_phi, k_j_B, gauss_conf, sigma)
+    subroutine FP_calc_kernel_element_ions(l, lp, k_rho_phi, k_rho_B, k_j_phi, k_j_B, &
+                                           gauss_conf, sigma, k_rho_B_terms)
 
         use KIM_kinds_m, only: dp
         use integrals_gauss_m, only: gauss_integrate_F0, gauss_integrate_F1, gauss_integrate_F2, gauss_integrate_F3,&
@@ -758,7 +949,7 @@ module kernel_m
         use FP_kernel_plasma_prefacs_m, only: FP_G0_rho_phi
         use grid_m, only: Larmor_skip_factor, rg_grid
         use constants_m, only: com_unit, sol
-        use config_m, only: turn_off_ions, turn_off_electrons, artificial_debye_case, ion_flr_scale_factor
+        use config_m, only: turn_off_ions, turn_off_electrons, artificial_debye_case
         use grid_m, only: xl_grid
         use kim_resonances_m, only: r_res
         use setup_m, only: mphi_max
@@ -767,6 +958,7 @@ module kernel_m
 
         integer, intent(in) :: l, lp, sigma
         complex(dp) :: k_rho_phi, k_rho_B, k_j_phi, k_j_B
+        complex(dp), intent(out), optional :: k_rho_B_terms(3)
         integer :: j, mphi
         type(gauss_config_t), intent(in) :: gauss_conf
         real(dp) :: integral_val
@@ -782,13 +974,14 @@ module kernel_m
         k_rho_B = (0.0d0, 0.0d0)
         k_j_phi = (0.0d0, 0.0d0)
         k_j_B = (0.0d0, 0.0d0)
+        if (present(k_rho_B_terms)) k_rho_B_terms = (0.0_dp, 0.0_dp)
 
         call set_xl_at_edge(l, lp, int_point)
 
         do j = 1, rg_grid%npts_b-1
 
             int_point%j = j
-            int_point%rhoT = max(plasma%spec(sigma)%rho_L_cc(j), 0.0d0) * ion_flr_scale_factor
+            call set_fp_integration_radius(int_point, plasma%spec(sigma), j)
 
             ! Debye term (F0) integration
             if (abs(l-lp)<=1 .and. artificial_debye_case /= 2 &
@@ -822,6 +1015,10 @@ module kernel_m
                 ! end if
                 k_rho_phi = k_rho_phi + integral_val * pref_rho_phi_g1(sigma+1, j, mphi) * (-1.0d0)**mphi
                 k_rho_B = k_rho_B + integral_val * pref_rho_B_g1(sigma+1, j, mphi) * (-1.0d0)**mphi
+                if (present(k_rho_B_terms)) then
+                    k_rho_B_terms(1) = k_rho_B_terms(1) + integral_val * &
+                        pref_rho_B_g1(sigma+1, j, mphi) * (-1.0_dp)**mphi
+                end if
                 k_j_phi = k_j_phi + integral_val * pref_j_phi_g1(sigma+1, j, mphi) * (-1.0d0)**mphi
                 k_j_B = k_j_B + integral_val * pref_j_B_g1(sigma+1, j, mphi) * (-1.0d0)**mphi
             end do
@@ -838,6 +1035,10 @@ module kernel_m
                 call gauss_integrate_F2(int_F2, integral_val, gauss_conf)
                 k_rho_phi = k_rho_phi + integral_val * pref_rho_phi_g2(sigma+1, j, mphi) * (-1.0d0)**mphi
                 k_rho_B = k_rho_B + integral_val * pref_rho_B_g2(sigma+1, j, mphi) * (-1.0d0)**mphi
+                if (present(k_rho_B_terms)) then
+                    k_rho_B_terms(2) = k_rho_B_terms(2) + integral_val * &
+                        pref_rho_B_g2(sigma+1, j, mphi) * (-1.0_dp)**mphi
+                end if
                 k_j_phi = k_j_phi + integral_val * pref_j_phi_g2(sigma+1, j, mphi) * (-1.0d0)**mphi
                 k_j_B = k_j_B + integral_val * pref_j_B_g2(sigma+1, j, mphi) * (-1.0d0)**mphi
 
@@ -846,6 +1047,10 @@ module kernel_m
                 call gauss_integrate_F3(int_F3, integral_val, gauss_conf)
                 k_rho_phi = k_rho_phi + integral_val * pref_rho_phi_g3(sigma+1, j, mphi) * (-1.0d0)**mphi
                 k_rho_B = k_rho_B + integral_val * pref_rho_B_g3(sigma+1, j, mphi) * (-1.0d0)**mphi
+                if (present(k_rho_B_terms)) then
+                    k_rho_B_terms(3) = k_rho_B_terms(3) + integral_val * &
+                        pref_rho_B_g3(sigma+1, j, mphi) * (-1.0_dp)**mphi
+                end if
                 k_j_phi = k_j_phi + integral_val * pref_j_phi_g3(sigma+1,j, mphi) * (-1.0d0)**mphi
                 k_j_B = k_j_B + integral_val * pref_j_B_g3(sigma+1, j, mphi) * (-1.0d0)**mphi
             end do
@@ -854,6 +1059,9 @@ module kernel_m
 
         k_rho_phi = k_rho_phi / (8.0d0 * pi**3.0d0)
         k_rho_B = k_rho_B / (8.0d0 * pi**3.0d0)
+        if (present(k_rho_B_terms)) then
+            k_rho_B_terms = k_rho_B_terms / (8.0_dp * pi**3)
+        end if
 
         k_j_phi = k_j_phi / (8.0d0 * pi**3.0d0)
         k_j_B = k_j_B / (8.0d0 * pi**3.0d0)

@@ -17,9 +17,12 @@ subroutine kim_read_config
 
     namelist /KIM_CONFIG/ number_of_ion_species, artificial_debye_case, &
                         type_of_run, collision_model, read_species_from_namelist, &
+                        ion_collision_model, collisionless_kpar_epsilon, ion_fp_collision_scale, &
                         turn_off_ions, turn_off_electrons, plasma_type, rescale_density, &
                         number_density_rescale, ion_flr_scale_factor, &
-                        boole_energy_conservation
+                        collision_frequency_scale, boole_energy_conservation, &
+                        electron_ifunc_conservation_model, ion_ifunc_conservation_model, &
+                        ion_temperature_gradient_model
 
     namelist /WKB_DISPERSION/ WKB_dispersion_mode, WKB_dispersion_solver, &
                         WKB_solve_for_kr_squared, &
@@ -48,6 +51,19 @@ subroutine kim_read_config
                         n_input_file, Te_input_file, Ti_input_file, Vz_input_file, &
                         n_file, Te_file, Ti_file, Vz_file, Er_file, q_file
 
+    ! Optional group for the forced-periodicity electrostatic run-type. Read
+    ! separately (iostat-guarded, below) so config files without it still parse.
+    namelist /KIM_PERIODIC/ periodic_dr_asis_scale, periodic_dr_tr_scale, &
+                        periodic_kmax_scale, periodic_n_rg, &
+                        periodic_match_global_kernel_approximations
+
+    namelist /KIM_FLR2/ flr2_electron_flr, flr2_ion_flr, &
+                        flr2_electron_potential, flr2_ion_potential, &
+                        flr2_electron_current, flr2_ion_current, &
+                        flr2_include_potential_in_current
+
+    integer :: flr2_iostat, periodic_iostat
+
     num_args = command_argument_count()
     if (num_args > 1) then
         write(*,*) 'Too many arguments'
@@ -62,6 +78,11 @@ subroutine kim_read_config
         write(*,*) 'Namelist path provided: ', nml_config_path
     end if
 
+    electron_ifunc_conservation_model = IFUNC_MODEL_INHERIT
+    ion_ifunc_conservation_model = IFUNC_MODEL_INHERIT
+    ion_temperature_gradient_model = 'full'
+    boole_energy_conservation = .true.
+
     open(unit = 77, file = trim(nml_config_path))
     read(unit = 77, nml = KIM_CONFIG)
     read(unit = 77, nml = WKB_DISPERSION)
@@ -69,10 +90,49 @@ subroutine kim_read_config
     read(unit = 77, nml = KIM_SETUP)
     read(unit = 77, nml = KIM_GRID)
     read(unit = 77, nml = KIM_PROFILES)
+
+    ! Optional KIM_PERIODIC group: rewind and read with iostat so config files
+    ! that omit it keep the config_m defaults instead of aborting the read.
+    periodic_match_global_kernel_approximations = .false.
+    rewind(unit = 77)
+    read(unit = 77, nml = KIM_PERIODIC, iostat = periodic_iostat)
+
+    ! Optional standalone-FLR2 term switches. KIM's background and shared
+    ! susceptibility settings remain controlled by the existing groups.
+    flr2_electron_flr = .true.
+    flr2_ion_flr = .true.
+    flr2_electron_potential = .true.
+    flr2_ion_potential = .true.
+    flr2_electron_current = .true.
+    flr2_ion_current = .true.
+    flr2_include_potential_in_current = .true.
+    rewind(unit = 77)
+    read(unit = 77, nml = KIM_FLR2, iostat = flr2_iostat)
+
     close(unit = 77)
 
-    ! Propagate KIM_CONFIG flag to the QL-Balance getIfunc_config module
-    ! so the shared I-function code picks up the energy-conservation switch.
+    if (.not. ifunc_model_is_valid(electron_ifunc_conservation_model)) then
+        write(*,*) 'Invalid electron_ifunc_conservation_model: ', &
+            electron_ifunc_conservation_model
+        error stop 'I-function conservation models must be -1, 0, 1, 2, or 3'
+    end if
+    if (.not. ifunc_model_is_valid(ion_ifunc_conservation_model)) then
+        write(*,*) 'Invalid ion_ifunc_conservation_model: ', ion_ifunc_conservation_model
+        error stop 'I-function conservation models must be -1, 0, 1, 2, or 3'
+    end if
+    if (.not. ion_temperature_gradient_model_is_valid( &
+            ion_temperature_gradient_model)) then
+        write(*,*) 'Invalid ion_temperature_gradient_model: ', &
+            trim(ion_temperature_gradient_model)
+        error stop 'ion_temperature_gradient_model must be full, zero_A2, or zero_Tprime'
+    end if
+
+    resolved_electron_ifunc_conservation_model = resolve_ifunc_model( &
+        electron_ifunc_conservation_model, boole_energy_conservation)
+    resolved_ion_ifunc_conservation_model = resolve_ifunc_model( &
+        ion_ifunc_conservation_model, boole_energy_conservation)
+
+    ! Preserve the legacy wrapper for standalone QL-Balance callers.
     getIfunc_boole_energy_conservation = boole_energy_conservation
 
     call set_log_level(log_level)
@@ -101,6 +161,32 @@ subroutine kim_read_config
     if (collisions_off .and. collision_model == "FokkerPlanck") then
         write(*,*) 'Error: collision_model is set to "FokkerPlanck" but collisions_off is true.'
         write(*,*) 'Please set collisions_off to false or change collision_model.'
+        stop
+    end if
+
+    if (ion_fp_collision_scale <= 0.0_dp) then
+        error stop 'ion_fp_collision_scale must be > 0 for FP collision kernels'
+    end if
+
+    select case (trim(ion_collision_model))
+    case ('FokkerPlanck')
+        continue
+    case ('collisionless')
+        if (trim(collision_model) /= 'FokkerPlanck') then
+            error stop 'ion_collision_model=collisionless requires collision_model=FokkerPlanck'
+        end if
+        if (trim(theta_integration) /= 'GaussLegendre') then
+            error stop 'ion_collision_model=collisionless currently requires GaussLegendre integration'
+        end if
+        if (collisionless_kpar_epsilon <= 0.0_dp) then
+            error stop 'ion_collision_model=collisionless requires collisionless_kpar_epsilon > 0 [1/cm]'
+        end if
+    case default
+        error stop 'ion_collision_model must be FokkerPlanck or collisionless'
+    end select
+
+    if (collision_frequency_scale <= 0.0_dp) then
+        write(*,*) 'Error: collision_frequency_scale must be positive. Got: ', collision_frequency_scale
         stop
     end if
 

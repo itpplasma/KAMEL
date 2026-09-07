@@ -22,6 +22,16 @@ add_executable(test_rhs_balance.x test_rhs_balance.f90)
 target_link_libraries(test_rhs_balance.x PUBLIC ql-balance_lib)
 add_fortran_test(test_rhs_balance)
 
+# Parameter-scan profile rescaling
+add_executable(test_paramscan.x test_paramscan.f90)
+target_link_libraries(test_paramscan.x PUBLIC ql-balance_lib)
+add_fortran_test(test_paramscan)
+
+# Integrated toroidal torque normalization
+add_executable(test_toroidal_torque.x test_toroidal_torque.f90)
+target_link_libraries(test_toroidal_torque.x PUBLIC ql-balance_lib)
+add_fortran_test(test_toroidal_torque)
+
 # KIM adapter module tests (unit tests for adapter helpers and linkage)
 add_executable(test_kim_adapter.x test_kim_adapter.f90)
 target_link_libraries(test_kim_adapter.x PUBLIC ql-balance_lib)
@@ -31,3 +41,13 @@ add_fortran_test(test_kim_adapter)
 add_executable(test_vel_integral.x test_vel_integral.f90)
 target_link_libraries(test_vel_integral.x PUBLIC ql-balance_lib)
 add_fortran_test(test_vel_integral)
+configure_file(${CMAKE_SOURCE_DIR}/KIM/tests/test_data/KIM_config_em_small.nml
+               ${CMAKE_BINARY_DIR}/tests/KIM_config_em_small.nml COPYONLY)
+set_tests_properties(test_kim_adapter PROPERTIES
+                     WORKING_DIRECTORY ${CMAKE_BINARY_DIR}/tests/)
+
+add_executable(test_hdf5_diagnostic_writers.x test_hdf5_diagnostic_writers.f90)
+target_link_libraries(test_hdf5_diagnostic_writers.x PUBLIC ql-balance_lib)
+add_fortran_test(test_hdf5_diagnostic_writers)
+set_tests_properties(test_hdf5_diagnostic_writers PROPERTIES
+                     WORKING_DIRECTORY ${CMAKE_BINARY_DIR}/tests)

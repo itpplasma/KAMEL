@@ -173,7 +173,9 @@ class QL_Balance_interface:
         self.prepare_output_h5()
 
     def prepare_output_h5(self):
-        h5f = h5py.File(self.output_h5_file, "w")
+        # Keep files consumed by the Fortran I/O layer on the modern HDF5
+        # representation supported by fortio.
+        h5f = h5py.File(self.output_h5_file, "w", libver="latest")
         self.input_h5.write_fac_with_bound_info(h5f, "/factors/fac_n", data=[self.facs["fac_n"]])
         self.input_h5.write_fac_with_bound_info(h5f, "/factors/fac_Te", data=[self.facs["fac_Te"]])
         self.input_h5.write_fac_with_bound_info(h5f, "/factors/fac_Ti", data=[self.facs["fac_Ti"]])

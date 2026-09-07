@@ -80,7 +80,7 @@ program test_back_sett
     write (u, '(a)') '-17563.3704  #B0'
     write (u, '(a)') '#skip'
     write (u, '(a)') '#Background settings:'
-    write (u, '(a)') './profiles/   #path'
+    write (u, '(a)') achar(9)//'./profiles/'//achar(9)//' #path'
     write (u, '(a)') '1         #calc_back'
     write (u, '(a)') 'f         #flag_back'
     write (u, '(a)') '9         #N'

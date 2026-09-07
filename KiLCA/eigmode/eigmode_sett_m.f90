@@ -32,7 +32,7 @@ subroutine read_eigmode_settings(path) bind(C, name="read_eigmode_settings_")
 use, intrinsic :: iso_c_binding, only: c_char, c_null_char
 use, intrinsic :: iso_fortran_env, only: error_unit
 use eigmode_sett_data
-use kilca_shared_m, only: strtol_int
+use kilca_shared_m, only: strtol_int, first_token
 
 character(kind=c_char), dimension(*), intent(in) :: path
 
@@ -55,7 +55,7 @@ if (ios /= 0) then
 end if
 
 call skip(u)
-call value_before_hash(u, before); fname = trim(adjustl(before))
+call value_before_hash(u, before); fname = first_token(before)
 call skip(u)
 
 call skip(u)

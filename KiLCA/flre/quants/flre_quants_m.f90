@@ -43,6 +43,10 @@ module kilca_flre_quants_m
     implicit none
     private
 
+    ! Typed state and writer for native Fortran consumers of quantity profiles.
+    public :: flre_quants_t, save_current_density_ext
+    public :: calc_time_averaged_lorentz_force, calc_cylindrical_torque_density
+    public :: integrate_over_cylinder
     public :: flre_quants_create, flre_quants_destroy
     public :: flre_quants_calculate_local_profiles
     public :: flre_quants_calculate_integrated_profiles
@@ -155,6 +159,14 @@ module kilca_flre_quants_m
             real(c_double), intent(in) :: xgrid(*), arr(*)
             character(kind=c_char), intent(in) :: full_name(*)
         end function save_real_array_c
+
+        integer(c_int) function save_cmplx_matrix_to_one_file_c(nrows, ncols, dim, &
+            xgrid, arr, full_name) bind(C, name="save_cmplx_matrix_to_one_file")
+            import :: c_int, c_double, c_char
+            integer(c_int), value :: nrows, ncols, dim
+            real(c_double), intent(in) :: xgrid(*), arr(*)
+            character(kind=c_char), intent(in) :: full_name(*)
+        end function save_cmplx_matrix_to_one_file_c
 
         subroutine current_density_c(jsurf) bind(C, name="current_density_")
             import :: c_double
@@ -328,6 +340,24 @@ contains
         cbuf(n + 1) = c_null_char
         ierr_unused = save_real_array_c(dim, xgrid, arr, cbuf)
     end subroutine save_arr
+
+    !> Preserve the complex profile format: radius, real part, imaginary part.
+    subroutine save_complex_arr(dim, xgrid, re, im, fname)
+        integer(c_int), intent(in) :: dim
+        real(c_double), intent(in) :: xgrid(dim), re(dim), im(dim)
+        character(len=*), intent(in) :: fname
+        real(c_double) :: arr(2, dim)
+        character(kind=c_char) :: cbuf(len_trim(fname) + 1)
+        integer :: i, ierr_unused
+
+        arr(1, :) = re
+        arr(2, :) = im
+        do i = 1, len_trim(fname)
+            cbuf(i) = fname(i:i)
+        end do
+        cbuf(len_trim(fname) + 1) = c_null_char
+        ierr_unused = save_cmplx_matrix_to_one_file_c(1, 1, dim, xgrid, arr, cbuf)
+    end subroutine save_complex_arr
 
     function itoa(n) result(s)
         integer(c_int), intent(in) :: n
@@ -571,9 +601,11 @@ contains
         do spec = 0, 2
             do type_ = 0, 1
                 do i = 0, 2
-                    call save_arr(qp%dimx, qp%x, qp%current_dens(idx_cd(qp%dimx, spec, type_, i, 0, 0) + 1:), &
-                                  trim(qp%path2linear)//'zone_'//trim(itoa(qp%zone_index))// &
-                                  '_current_dens_'//comp(i)//'_'//trim(itoa(type_))//'_'//sort(spec)//'.dat')
+                    call save_complex_arr(qp%dimx, qp%x, &
+                        qp%current_dens(idx_cd(qp%dimx, spec, type_, i, 0, 0) + 1:), &
+                        qp%current_dens(idx_cd(qp%dimx, spec, type_, i, 1, 0) + 1:), &
+                        trim(qp%path2linear)//'zone_'//trim(itoa(qp%zone_index))// &
+                        '_current_dens_'//comp(i)//'_'//trim(itoa(type_))//'_'//sort(spec)//'.dat')
                 end do
             end do
         end do
@@ -979,8 +1011,11 @@ contains
         sort = ['i', 'e', 't']
 
         do spec = 0, 2
-            call save_arr(qp%dimx, qp%x, qp%number_dens(idx_nd(qp%dimx, spec, 0, 0) + 1:), &
-                          trim(qp%path2linear)//'zone_'//trim(itoa(qp%zone_index))//'_density_re_'//sort(spec)//'.dat')
+            call save_complex_arr(qp%dimx, qp%x, &
+                qp%number_dens(idx_nd(qp%dimx, spec, 0, 0) + 1:), &
+                qp%number_dens(idx_nd(qp%dimx, spec, 1, 0) + 1:), &
+                trim(qp%path2linear)//'zone_'//trim(itoa(qp%zone_index))// &
+                '_density_'//sort(spec)//'.dat')
         end do
     end subroutine save_number_density
 
@@ -989,7 +1024,8 @@ contains
         real(c_double) :: h(3)
         character(kind=c_char) :: flag_back_buf(1)
         complex(c_double) :: j_rsp(0:2), e_rsp(0:2), b_rsp(0:2)
-        complex(c_double) :: j_cyl(0:2), e_cyl(0:2), bc_cyl(0:2), jxbc(0:2)
+        complex(c_double) :: j_cyl(0:2), e_cyl(0:2), b_cyl(0:2)
+        real(c_double) :: force_density(0:2), torque_density(0:2)
         complex(c_double) :: nd
         integer(c_int) :: spec, i
 
@@ -1017,25 +1053,20 @@ contains
             e_cyl(1) = h(3)*e_rsp(1) + h(2)*e_rsp(2)
             e_cyl(2) = h(3)*e_rsp(2) - h(2)*e_rsp(1)
 
-            bc_cyl(0) = conjg(b_rsp(0))
-            bc_cyl(1) = conjg(h(3)*b_rsp(1) + h(2)*b_rsp(2))
-            bc_cyl(2) = conjg(h(3)*b_rsp(2) - h(2)*b_rsp(1))
-
-            call vec_product_3d(j_cyl, bc_cyl, jxbc)
+            b_cyl(0) = b_rsp(0)
+            b_cyl(1) = h(3)*b_rsp(1) + h(2)*b_rsp(2)
+            b_cyl(2) = h(3)*b_rsp(2) - h(2)*b_rsp(1)
 
             nd = cmplx(qp%number_dens(idx_nd(qp%dimx, spec, 0, qp%node) + 1), &
                        qp%number_dens(idx_nd(qp%dimx, spec, 1, qp%node) + 1), c_double)
 
+            call calc_time_averaged_lorentz_force(get_background_charge_c(spec), nd, &
+                e_cyl, j_cyl, b_cyl, force_density)
+            call calc_cylindrical_torque_density(qp%r, get_background_rtor_c(), &
+                force_density, torque_density)
             do i = 0, 2
-                qp%lor_torque_dens(idx_3(qp%dimx, spec, i, qp%node) + 1) = &
-                    0.5d0*real(get_background_charge_c(spec)*nd*conjg(e_cyl(i)) + &
-                              echarge/cspeed*jxbc(i), c_double)
+                qp%lor_torque_dens(idx_3(qp%dimx, spec, i, qp%node) + 1) = torque_density(i)
             end do
-
-            qp%lor_torque_dens(idx_3(qp%dimx, spec, 1, qp%node) + 1) = &
-                qp%lor_torque_dens(idx_3(qp%dimx, spec, 1, qp%node) + 1)*qp%r
-            qp%lor_torque_dens(idx_3(qp%dimx, spec, 2, qp%node) + 1) = &
-                qp%lor_torque_dens(idx_3(qp%dimx, spec, 2, qp%node) + 1)*get_background_rtor_c()
         end do
 
         do i = 0, 2
@@ -1098,6 +1129,29 @@ contains
         res(1) = -(a(0)*b(2) - a(2)*b(0))
         res(2) = a(0)*b(1) - a(1)*b(0)
     end subroutine vec_product_3d
+
+    !> CGS force for complex amplitudes: 1/2 Re(q n E* + j x B* / c).
+    subroutine calc_time_averaged_lorentz_force(charge, density, electric_field, &
+        current_density, magnetic_field, force_density)
+        real(c_double), intent(in) :: charge
+        complex(c_double), intent(in) :: density
+        complex(c_double), intent(in) :: electric_field(3), current_density(3), magnetic_field(3)
+        real(c_double), intent(out) :: force_density(3)
+        complex(c_double) :: current_cross_magnetic_field(3)
+
+        call vec_product_3d(current_density, conjg(magnetic_field), current_cross_magnetic_field)
+        force_density = 0.5d0*real(charge*density*conjg(electric_field) + &
+            current_cross_magnetic_field/cspeed, c_double)
+    end subroutine calc_time_averaged_lorentz_force
+
+    subroutine calc_cylindrical_torque_density(radius, major_radius, force_density, torque_density)
+        real(c_double), intent(in) :: radius, major_radius, force_density(3)
+        real(c_double), intent(out) :: torque_density(3)
+
+        torque_density(1) = force_density(1)
+        torque_density(2) = radius*force_density(2)
+        torque_density(3) = major_radius*force_density(3)
+    end subroutine calc_cylindrical_torque_density
 
     subroutine integrate_over_cylinder(dim, x, q, vol_fac, qi)
         integer(c_int), intent(in) :: dim
@@ -1218,10 +1272,12 @@ contains
         do spec = 0, 2
             do type_ = 0, 1
                 do i = 0, 2
-                    call save_arr(qp%dimx, qp%x, cd(idx_cd(qp%dimx, spec, type_, i, 0, 0):), &
-                                  trim(qp%path2linear)//'zone_'//trim(itoa(qp%zone_index))// &
-                                  '_current_dens_'//comp_set(i + 1:i + 1)//'_'//trim(itoa(type_))// &
-                                  '_'//sort(spec)//'_'//trim(frame)//'.dat')
+                    call save_complex_arr(qp%dimx, qp%x, &
+                        cd(idx_cd(qp%dimx, spec, type_, i, 0, 0):), &
+                        cd(idx_cd(qp%dimx, spec, type_, i, 1, 0):), &
+                        trim(qp%path2linear)//'zone_'//trim(itoa(qp%zone_index))// &
+                        '_current_dens_'//comp_set(i + 1:i + 1)//'_'//trim(itoa(type_))// &
+                        '_'//sort(spec)//'_'//trim(frame)//'.dat')
                 end do
             end do
         end do
@@ -1263,10 +1319,10 @@ contains
         deg = 5
         ind = qp%dimx/2
 
-        call eval_neville_polynom(qp%dimx, qp%x, qp%cdlab(idx_cd(qp%dimx, spec, type_, comp, 0, 0) + 1:), &
+        call eval_neville_polynom(qp%dimx, qp%x, qp%cdlab(idx_cd(qp%dimx, spec, type_, comp, 0, 0):), &
                                   deg, x, 0, 0, ind, jout(1))
         ind = qp%dimx/2
-        call eval_neville_polynom(qp%dimx, qp%x, qp%cdlab(idx_cd(qp%dimx, spec, type_, comp, 1, 0) + 1:), &
+        call eval_neville_polynom(qp%dimx, qp%x, qp%cdlab(idx_cd(qp%dimx, spec, type_, comp, 1, 0):), &
                                   deg, x, 0, 0, ind, jout(2))
     end subroutine flre_quants_interp_current_density
 

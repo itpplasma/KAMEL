@@ -36,6 +36,11 @@ module kilca_sysmat_profiles_m
     end type sysmat_profiles_t
 
     interface
+        subroutine spline_free_c(sid) bind(C, name="spline_free_")
+            import :: c_intptr_t
+            integer(c_intptr_t), value :: sid
+        end subroutine spline_free_c
+
         subroutine calc_diff_sys_matrix_c(r, flagback, Dmat, fb_len) &
             bind(C, name="calc_diff_sys_matrix_")
             import :: c_double, c_char, c_int
@@ -201,6 +206,7 @@ contains
 
         if (handle == 0_c_intptr_t) return
         call handle_to_sp(handle, sp)
+        if (sp%sidM /= 0_c_intptr_t) call spline_free_c(sp%sidM)
         if (allocated(sp%x)) deallocate (sp%x)
         if (allocated(sp%M)) deallocate (sp%M)
         if (allocated(sp%C)) deallocate (sp%C)

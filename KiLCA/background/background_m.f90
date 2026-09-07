@@ -47,6 +47,7 @@ use, intrinsic :: iso_c_binding, only: c_char, c_null_char
 use, intrinsic :: iso_fortran_env, only: error_unit
 use constants, only: mp, e
 use background
+use kilca_shared_m, only: first_token
 
 character(kind=c_char), dimension(*), intent(in) :: path
 
@@ -80,9 +81,9 @@ call value_before_hash(u, before); read (before, *) B0
 call skip(u)
 
 call skip(u)
-call value_before_hash(u, before); path2profiles = trim(adjustl(before))
+call value_before_hash(u, before); path2profiles = first_token(before)
 call value_before_hash(u, before); read (before, *) calc_back
-call value_before_hash(u, before); flag_back = trim(adjustl(before))
+call value_before_hash(u, before); flag_back = first_token(before)
 call value_before_hash(u, before); read (before, *) N
 call value_before_hash(u, before); read (before, *) V_gal_sys
 call value_before_hash(u, before); read (before, *) V_scale

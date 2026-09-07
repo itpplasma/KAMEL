@@ -15,6 +15,7 @@ add_library(KIM_lib STATIC "${KIM_setup}"
                         "${KIM_dispersion}"
                         "${KIM_WKB_dispersion}"
                         "${KIM_asymptotics}"
+                        "${KIM_flr2}"
                         "${KIM_diagnostics}"
                         "${KIM_electromagnetic}"
 )
@@ -40,25 +41,15 @@ if("${LAPACK_FOUND}")
     message("${LAPACK_INCLUDE_DIRS}")
 endif()
 
-find_package(SuiteSparse REQUIRED)
-if("${SuiteSparse_FOUND}")
-    message(" ====== SuiteSparse was found! ======")
-    target_link_libraries(KIM_lib PUBLIC "${SuiteSparse_LIBRARIES}")
-    message("SuiteSparse libraries: ${SUITESPARSE_LIBRARIES}")
-    target_include_directories(KIM_lib PUBLIC "${SuiteSparse_INCLUDE_DIRS}")
-    message("${SUITESPARSE_INCLUDE_DIRS}")
-endif()
-
-find_package(Umfpack REQUIRED)
-if("${UMFPACK_FOUND}")
-    message(" ====== Umfpack was found! ======")
-    target_link_libraries(KIM_lib PUBLIC "${UMFPACK_LIBRARIES}")
-    message("UMFPACK libraries: ${UMFPACK_LIBRARIES}")
-    target_include_directories(KIM_lib PUBLIC "${UMFPACK_INCLUDES}")
-    message("${UMFPACK_INCLUDES}")
-endif()
-
-find_library(UMFPACK_LIBRARY umfpack)
+# SuiteSparse/UMFPACK come SOLELY from the fetched-static SuiteSparse v7.8.3 via the
+# `sparse` target linked above (Dependencies.cmake -> SuiteSparse::umfpack{,_wrappers},
+# built with -DDLONG -DZLONG). Previously a find_package(SuiteSparse)+find_package(Umfpack)
+# here ALSO linked the system (Homebrew) UMFPACK, so the binary loaded two conflicting
+# UMFPACK builds at once (static 7.8.3 + dylib 6.3.7). The duplicate SuiteSparse_config
+# global state corrupted every complex sparse solve (umf4zsym -> UMFPACK_ERROR_invalid_matrix,
+# solutions Inf/0), which silently made the global electrostatic Poisson solve return Phi==0.
+# The umf4_f77*.c wrappers' umfpack.h and the UMFPACK symbols both propagate transitively from
+# SuiteSparse::umfpack via the `sparse` target, so no separate find_package is needed.
 
 find_package(SuperLU REQUIRED)
 if("${SUPERLU_FOUND}")
@@ -77,18 +68,12 @@ set(KILCA_PATH ${CMAKE_SOURCE_DIR}/KiLCA)
 # KIM_exe links KiLCA directly via fortnum_amos_compat (complex Bessel ABI).
 target_include_directories(KIM_lib PUBLIC ${KILCA_PATH}/math/)
 
-find_package(HDF5 COMPONENTS C Fortran HL REQUIRED)
-message(" ====== HDF5 was found! ======")
-
 target_link_libraries(KIM_lib PUBLIC
-                                hdf5::hdf5
-                                hdf5::hdf5_fortran
-                                hdf5::hdf5_hl
-                                hdf5::hdf5_hl_fortran
                                 kamel_hdf5_tools
                                 kamel_logger
                                 kamel_equil
                                 cerf
+                                kamel_util
 )
 
 add_executable(KIM_exe kim_main.f90)

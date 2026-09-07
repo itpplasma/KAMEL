@@ -16,6 +16,7 @@ module sysmat_test_state
     use, intrinsic :: iso_c_binding, only: c_int
     implicit none
     integer(c_int) :: failures = 0
+    integer(c_int) :: spline_frees = 0
 end module
 
 subroutine calc_diff_sys_matrix_c_fake(r, flagback, Rarr, fb_len) &
@@ -111,6 +112,18 @@ end function
 
 integer(c_int) function get_sysmat_test_failures() bind(C, name="get_sysmat_test_failures_")
     use, intrinsic :: iso_c_binding, only: c_int
-    use sysmat_test_state, only: failures
+    use sysmat_test_state, only: failures, spline_frees
+    if (spline_frees /= 1) then
+        print *, "Expected one spline release, got", spline_frees
+        failures = failures + 1
+    end if
     get_sysmat_test_failures = failures
 end function
+
+subroutine spline_free(sid) bind(C, name="spline_free_")
+    use iso_c_binding, only: c_intptr_t
+    use sysmat_test_state, only: failures, spline_frees
+    integer(c_intptr_t), value :: sid
+    if (sid /= 42_c_intptr_t) failures = failures + 1
+    spline_frees = spline_frees + 1
+end subroutine

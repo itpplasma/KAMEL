@@ -28,16 +28,12 @@
 !> calling the now-impossible round trip; the legacy module ends up holding
 !> the exact same strings at the exact same point in construction.
 !>
-!> Directory scanning (allocate_and_setup_zones' zone_*.in discovery) is
-!> translated via direct POSIX opendir/readdir/closedir/fnmatch C interop
-!> (glibc x86_64 struct dirent layout, matching this build's platform
-!> exactly, same as the oracle's own dirent.h/fnmatch.h includes), preserving
-!> readdir's filesystem-order-dependent first-match semantics byte for byte
-!> rather than substituting a sorted listing.
+!> Directory scanning preserves POSIX readdir order and fnmatch patterns.
+!> A small C adapter accesses native dirent names without assuming their layout.
 module kilca_mode_data_m
     use, intrinsic :: iso_c_binding, only: c_int, c_intptr_t, c_double, c_char, &
         c_ptr, c_funptr, c_funloc, c_loc, c_f_pointer, c_null_char, c_null_ptr, &
-        c_associated, c_long, c_short, c_signed_char
+        c_associated
     use constants, only: dp, twopi
     use kilca_zone_m, only: zone_t, handle_to_zone, zone_destroy_c, &
         PLASMA_MODEL_VACUUM, PLASMA_MODEL_MEDIUM, PLASMA_MODEL_IMHD, &
@@ -53,7 +49,8 @@ module kilca_mode_data_m
     use kilca_neville_m, only: eval_neville_polynom
     use fortnum_capi, only: fortnum_root_brent
     use fortnum_status, only: FORTNUM_OK
-    use kilca_progs_common_m, only: fmt_g, fmt_e
+    use kilca_progs_common_m, only: fmt_g, fmt_e, open_directory, read_directory, &
+        close_directory
     implicit none
     private
 
@@ -82,18 +79,6 @@ module kilca_mode_data_m
         complex(dp), allocatable :: B(:)
         complex(dp), allocatable :: S(:)
     end type mode_data_t
-
-    !> glibc x86_64 struct dirent (default 64-bit ino_t/off_t on LP64 Linux):
-    !> 8+8+2+1 bytes of header then a NUL-terminated name, no padding before
-    !> d_name since char has alignment 1. offsetof(d_name) == 19, confirmed
-    !> against this platform's <dirent.h> via offsetof().
-    type, bind(c) :: dirent_t
-        integer(c_long) :: d_ino
-        integer(c_long) :: d_off
-        integer(c_short) :: d_reclen
-        integer(c_signed_char) :: d_type
-        character(kind=c_char) :: d_name(256)
-    end type dirent_t
 
     interface
         integer(c_int) function get_output_flag_background() &
@@ -130,23 +115,6 @@ module kilca_mode_data_m
             real(c_double), value :: rval
             type(c_ptr), value :: bp
         end function eval_q_for_resonance
-
-        function opendir_c(path) bind(C, name="opendir") result(dirp)
-            import :: c_char, c_ptr
-            character(kind=c_char), intent(in) :: path(*)
-            type(c_ptr) :: dirp
-        end function opendir_c
-
-        function readdir_c(dirp) bind(C, name="readdir") result(ep)
-            import :: c_ptr
-            type(c_ptr), value :: dirp
-            type(c_ptr) :: ep
-        end function readdir_c
-
-        integer(c_int) function closedir_c(dirp) bind(C, name="closedir")
-            import :: c_ptr, c_int
-            type(c_ptr), value :: dirp
-        end function closedir_c
 
         integer(c_int) function fnmatch_c(pattern, str, flags) bind(C, name="fnmatch")
             import :: c_char, c_int
@@ -650,16 +618,14 @@ contains
     function determine_number_of_zones(path2project) result(nz)
         character(len=*), intent(in) :: path2project
         integer :: nz
-        character(kind=c_char), allocatable :: cpath(:), cpattern(:)
-        type(c_ptr) :: dirp, ep_cptr
-        type(dirent_t), pointer :: ep
-        integer(c_int) :: ret
+        character(kind=c_char), allocatable :: cpattern(:)
+        type(c_ptr) :: dirp
+        character(len=1024) :: dname
 
-        cpath = to_cstr(path2project)
         cpattern = to_cstr('zone_*.in')
         nz = 0
 
-        dirp = opendir_c(cpath)
+        dirp = open_directory(path2project)
         if (.not. c_associated(dirp)) then
             write (*, '(a,a)') &
                 'determine_number_of_zones: faled to open the project directory ', &
@@ -667,55 +633,45 @@ contains
             stop 1
         end if
 
-        do
-            ep_cptr = readdir_c(dirp)
-            if (.not. c_associated(ep_cptr)) exit
-            call c_f_pointer(ep_cptr, ep)
-            if (fnmatch_c(cpattern, ep%d_name, 0_c_int) == 0) nz = nz + 1
+        do while (read_directory(dirp, dname))
+            if (fnmatch_c(cpattern, to_cstr(trim(dname)), 0_c_int) == 0) nz = nz + 1
         end do
 
-        ret = closedir_c(dirp)
+        call close_directory(dirp)
     end function determine_number_of_zones
 
     function get_zone_file_name(path2project, zone_index) result(fname)
         character(len=*), intent(in) :: path2project
         integer, intent(in) :: zone_index
         character(len=1024) :: fname
-        character(kind=c_char), allocatable :: cpath(:), cpattern(:)
+        character(kind=c_char), allocatable :: cpattern(:)
         character(len=32) :: pattern_str
-        character(len=256) :: dname
-        type(c_ptr) :: dirp, ep_cptr
-        type(dirent_t), pointer :: ep
+        character(len=1024) :: dname
+        type(c_ptr) :: dirp
         integer :: found
-        integer(c_int) :: ret
 
-        cpath = to_cstr(path2project)
         write (pattern_str, '(a,i0,a)') '*zone_', zone_index + 1, '*.in'
         cpattern = to_cstr(trim(pattern_str))
 
         fname = ''
         found = 0
 
-        dirp = opendir_c(cpath)
+        dirp = open_directory(path2project)
         if (.not. c_associated(dirp)) then
             write (*, '(a,a)') 'get_zone_file_name: faled to open the project directory ', &
                 trim(path2project)
             stop 1
         end if
 
-        do
-            ep_cptr = readdir_c(dirp)
-            if (.not. c_associated(ep_cptr)) exit
-            call c_f_pointer(ep_cptr, ep)
-            if (fnmatch_c(cpattern, ep%d_name, 0_c_int) == 0) then
-                call dirent_name_to_fortran(ep%d_name, dname)
+        do while (read_directory(dirp, dname))
+            if (fnmatch_c(cpattern, to_cstr(trim(dname)), 0_c_int) == 0) then
                 fname = trim(path2project)//trim(dname)
                 found = 1
                 exit
             end if
         end do
 
-        ret = closedir_c(dirp)
+        call close_directory(dirp)
 
         if (found == 0) then
             write (*, '(a,i0,a)') &
@@ -757,17 +713,6 @@ contains
             stop 1
         end if
     end function determine_zone_type
-
-    subroutine dirent_name_to_fortran(cname, fname)
-        character(kind=c_char), intent(in) :: cname(:)
-        character(len=*), intent(out) :: fname
-        integer :: i
-        fname = ''
-        do i = 1, min(size(cname), len(fname))
-            if (cname(i) == c_null_char) exit
-            fname(i:i) = cname(i)
-        end do
-    end subroutine dirent_name_to_fortran
 
     function to_cstr(s) result(c)
         character(len=*), intent(in) :: s

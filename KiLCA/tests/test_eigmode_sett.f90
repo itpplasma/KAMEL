@@ -86,7 +86,7 @@ program test_eigmode_sett
 
     open (newunit=u, file='eigmode.in', status='replace', action='write')
     write (u, '(a)') '#Output:'
-    write (u, '(a)') 'eigmode_search.dat  #fname'
+    write (u, '(a)') achar(9)//'eigmode_search.dat'//achar(9)//' #fname'
     write (u, '(a)') '#skip'
     write (u, '(a)') '#frequency scan or root search:'
     write (u, '(a)') '-1        #search_flag'

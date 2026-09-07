@@ -125,15 +125,41 @@ contains
         if (trim(type_of_run) == "WKB_dispersion") then
             call print_config_line('WKB Dispersion Mode', trim(WKB_dispersion_mode), width)
         end if
-        if (trim(type_of_run) == "electromagnetic") then
+        if (trim(type_of_run) == "electromagnetic" .or. trim(type_of_run) == "flr2") then
             write(value_str, '(ES12.3)') Br_boundary_re
             call print_config_line('Br Boundary (Re)', trim(adjustl(value_str)), width)
             write(value_str, '(ES12.3)') Br_boundary_im
             call print_config_line('Br Boundary (Im)', trim(adjustl(value_str)), width)
         end if
+        if (trim(type_of_run) == "flr2") then
+            call print_bool_line('FLR2 Electron FLR', flr2_electron_flr, width)
+            call print_bool_line('FLR2 Ion FLR', flr2_ion_flr, width)
+            call print_bool_line('FLR2 Electron Potential', flr2_electron_potential, width)
+            call print_bool_line('FLR2 Ion Potential', flr2_ion_potential, width)
+            call print_bool_line('FLR2 Electron Current', flr2_electron_current, width)
+            call print_bool_line('FLR2 Ion Current', flr2_ion_current, width)
+            call print_bool_line('FLR2 Phi in Current', flr2_include_potential_in_current, width)
+        end if
         call print_config_line('Plasma Type', trim(plasma_type), width)
         call print_config_line('Collision Model', trim(collision_model), width)
+        call print_config_line('Ion Collision Model', trim(ion_collision_model), width)
+        call print_config_line('Electron I-function Model', &
+            trim(ifunc_model_name(resolved_electron_ifunc_conservation_model)), width)
+        call print_config_line('Ion I-function Model', &
+            trim(ifunc_model_name(resolved_ion_ifunc_conservation_model)), width)
+        call print_config_line('Ion Temperature-gradient Model', &
+            trim(ion_temperature_gradient_model), width)
+        write(value_str, '(ES12.4)') ion_fp_collision_scale
+        call print_config_line('Ion FP nu scale', trim(adjustl(value_str)), width)
+        if (trim(ion_collision_model) == 'collisionless') then
+            write(value_str, '(ES12.4,A)') collisionless_kpar_epsilon, ' 1/cm'
+            call print_config_line('Collisionless kpar eps', trim(adjustl(value_str)), width)
+        end if
         call print_bool_line('Collisions', .not. collisions_off, width)
+        if (collision_frequency_scale /= 1.0d0) then
+            write(value_str, '(ES12.3)') collision_frequency_scale
+            call print_config_line('Collision Frequency Scale', trim(adjustl(value_str)), width)
+        end if
         write(value_str, '(I0)') artificial_debye_case
         call print_config_line('Artificial Debye Case', trim(adjustl(value_str)), width)
         call print_bool_line('Turn Off Ions', turn_off_ions, width)

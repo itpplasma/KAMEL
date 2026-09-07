@@ -41,7 +41,6 @@ module integrands_rkf45_m
 
     function rkf45_integrand_F1(theta, context) result(val)
 
-        use constants_m, only: pi
         use species_m, only: plasma
         use KIM_kinds_m, only: dp
         use functions_m, only: varphi_l
@@ -67,7 +66,7 @@ module integrands_rkf45_m
 
             val = varphi_l(context%xp, context%xlpm1, context%xlp, context%xlpp1) &
                 * varphi_l(context%x, context%xlm1, context%xl, context%xlp1) &
-                * 2.0d0 * pi / (context%rhoT**2.0d0 * max(sin_t, 1.0d-300)) &
+                / (context%rhoT**2.0d0 * max(sin_t, 1.0d-300)) &
                 * exp(- (context%x - context%xp)**2.0d0 / (4.0d0 * max(context%rhoT**2.0d0, 1.0d-300) * &
                            max(2.0d0 * sin(0.5d0*theta)**2.0d0, 1.0d-300))) &
                 * Jrg1(a, b, context%j)

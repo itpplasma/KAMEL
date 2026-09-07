@@ -133,20 +133,20 @@ module FP_kernel_plasma_prefacs_m
         integer, intent(in) :: j, mphi
         type(species_t), intent(in) :: spec
         complex(dp) :: val
-        complex(dp) :: I00, I20
+        complex(dp) :: I00, I02
         real(dp) :: A1, A2
         complex(dp) :: prefactor
 
         A1 = spec%A1_cc(j)
         A2 = spec%A2_cc(j)
         I00 = spec%I00_cc(j, mphi)
-        I20 = spec%I20_cc(j, mphi)
+        I02 = spec%I02_cc(j, mphi)
 
         prefactor = FP_kappa_rho_phi(j, spec) * com_unit * spec%vT_cc(j)**2.0d0 / &
             (spec%omega_c_cc(j) * spec%nu_cc(j)) * plasma%ks_cc(j) &
             * FP_flr_scale(spec)
 
-        val = (I00 * (A1 + A2 * (1.0d0 - mphi)) + 0.5d0 * A2 * I20) * prefactor
+        val = (I00 * (A1 + A2 * (1.0d0 - mphi)) + 0.5d0 * A2 * I02) * prefactor
 
     end function FP_G1_rho_phi
 
@@ -214,15 +214,16 @@ module FP_kernel_plasma_prefacs_m
         integer, intent(in) :: j, mphi
         type(species_t), intent(in) :: spec
         complex(dp) :: val
-        complex(dp) :: I01, I21
+        complex(dp) :: I01, I03
         real(dp) :: A1, A2
 
         A1 = spec%A1_cc(j)
         A2 = spec%A2_cc(j)
         I01 = spec%I01_cc(j, mphi)
-        I21 = spec%I21_cc(j, mphi)
+        I03 = spec%I03_cc(j, mphi)
 
-        val = (I01 * (A1 + A2 * (1.0d0 - mphi)) + 0.5d0 * A2 * I21) * FP_kappa_rho_B(j, spec)
+        val = (I01 * (A1 + A2 * (1.0d0 - mphi)) + 0.5d0 * A2 * I03) &
+            * FP_kappa_rho_B(j, spec)
 
     end function
 

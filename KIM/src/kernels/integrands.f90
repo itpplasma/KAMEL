@@ -88,9 +88,12 @@ module integrands_gauss_m
 
         ks_val = 0.5d0 * (plasma%ks(this%int_point%j) + plasma%ks(this%int_point%j+1))
 
+        ! Exact cell transform: KIM/tests/symbolic/verify_gauss_segment_transforms.wl.
         val = varphi_l(xp, this%int_point%xlpm1, this%int_point%xlp, this%int_point%xlpp1) &
             * varphi_l(x, this%int_point%xlm1, this%int_point%xl, this%int_point%xlp1) &
-            * pi ** 1.5d0 * (1.0d0 + cos(theta)) * cos(this%int_point%mphi * theta) / (this%int_point%rhoT * sin(theta)) &
+            * pi**1.5d0 * sqrt(1.0d0 + cos(theta)) &
+            * cos(this%int_point%mphi * theta) &
+            / (this%int_point%rhoT * sin(theta)) &
             * exp(- ks_val**2.0d0 * this%int_point%rhoT**2.0d0 &
                   - (x - xp)**2.0d0 / (4.0d0 * this%int_point%rhoT**2.0d0 * (1.0d0 - cos(theta)))) &
             * erf_diff( &
@@ -119,6 +122,7 @@ module integrands_gauss_m
 
         ks_val = 0.5d0 * (plasma%ks(this%int_point%j) + plasma%ks(this%int_point%j+1))
 
+        ! Exact b+ moment reduction: KIM/tests/symbolic/verify_gauss_segment_transforms.wl.
         val = varphi_l(xp, this%int_point%xlpm1, this%int_point%xlp, this%int_point%xlpp1) &
             * varphi_l(x, this%int_point%xlm1, this%int_point%xl, this%int_point%xlp1) &
             * exp(- ks_val**2.0d0 * this%int_point%rhoT**2.0d0 &
@@ -126,8 +130,10 @@ module integrands_gauss_m
             * pi * cos(this%int_point%mphi * theta) / (this%int_point%rhoT * sin(theta)**5.0d0) &
             * ( &
                 this%int_point%Jrg1 * (&
-                    (ks_val**2.0d0 * this%int_point%rhoT**2.0d0 + 2.0d0) &
-                    * sin(theta)**2.0d0 &
+                    2.0d0 * sin(theta)**2.0d0 * (&
+                        1.0d0 + ks_val**2.0d0 * this%int_point%rhoT**2.0d0 &
+                        * sin(theta)**2.0d0 &
+                    ) &
                 ) &
                 - (cos(theta)**2.0d0 + 1.0d0) * this%int_point%Jrg23 &
                 + 4.0d0 * cos(theta) * this%int_point%Jrg4 &

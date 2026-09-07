@@ -69,7 +69,8 @@ contains
 
         res = kim%results()
         call report('default results are empty', &
-                    (.not. allocated(res%r_field)) .and. res%m == 0, passed)
+                    (.not. allocated(res%r_field)) .and. &
+                    (.not. allocated(res%jrad)) .and. res%m == 0, passed)
     end subroutine test_results_default_empty
 
     subroutine report(name, ok, passed)

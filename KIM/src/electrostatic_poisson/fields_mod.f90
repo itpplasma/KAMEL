@@ -19,6 +19,7 @@ module fields_m
         complex(dp), allocatable :: jpar(:)   ! total parallel current density
         complex(dp), allocatable :: jpar_e(:) ! electron parallel current density
         complex(dp), allocatable :: jpar_i(:) ! ion parallel current density (sum over ion species)
+        complex(dp), allocatable :: jrad(:)   ! radial current density
         complex(dp), allocatable :: Phi(:)
         complex(dp), allocatable :: Phi_e(:)
         complex(dp), allocatable :: Phi_i(:)

@@ -14,7 +14,8 @@
 # percent). This floors only genuine near-zero noise -- the smallest physically
 # meaningful value in the current golden set is ~1e-6, far above it -- so it
 # never masks a real divergence on a physical value. Tune per code via arg 5.
-import sys, os
+import os
+import sys
 
 A, B = sys.argv[1], sys.argv[2]
 rtol = float(sys.argv[3]) if len(sys.argv) > 3 else 1e-7
@@ -102,8 +103,10 @@ for rel in common:
         mb = max((abs(v) for v in rb), default=0.0)
         checked += 1
         ok = ma <= POY_BAR and mb <= POY_BAR
-        print(f"{rel}: poy_test_err self-consistency max(ref)={ma:.3e} "
-              f"max(cur)={mb:.3e} bar={POY_BAR:.1e} {'PASS' if ok else 'FAIL'}")
+        print(
+            f"{rel}: poy_test_err self-consistency max(ref)={ma:.3e} "
+            f"max(cur)={mb:.3e} bar={POY_BAR:.1e} {'PASS' if ok else 'FAIL'}"
+        )
         fail += 0 if ok else 1
         continue
     na, nb = nums(pa), nums(pb)
@@ -117,7 +120,7 @@ for rel in common:
     skipped = 0
     for x, y in zip(na, nb):
         if abs(x) <= floor and abs(y) <= floor:
-            skipped += 1                       # near-zero noise: carries no signal
+            skipped += 1  # near-zero noise: carries no signal
             continue
         d = abs(x - y)
         s = d / (abs(y) + atol)

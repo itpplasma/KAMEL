@@ -55,6 +55,7 @@ _LINEAR_PROFILE_QUANTITIES = [
 # Time steps available in LinearProfiles (0-8)
 _TIME_STEPS = range(9)
 
+
 def _build_quantities_list() -> list[QuantitySpec]:
     """Build the full list of quantities to compare."""
     quantities = [

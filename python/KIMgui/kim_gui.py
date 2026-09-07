@@ -214,7 +214,10 @@ class KIMConfigGUI:
             elif field_name == "type_of_run":
                 var = tk.StringVar(value=default_value)
                 combo = ttk.Combobox(
-                    frame, textvariable=var, values=["electrostatic", "electromagnetic", "WKB_dispersion", "flr2_benchmark"], width=18
+                    frame,
+                    textvariable=var,
+                    values=["electrostatic", "electromagnetic", "WKB_dispersion", "flr2_benchmark"],
+                    width=18,
                 )
                 combo.pack(side="left")
             else:

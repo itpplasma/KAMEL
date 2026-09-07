@@ -36,7 +36,18 @@ add_fortran_test(test_toroidal_torque)
 add_executable(test_kim_adapter.x test_kim_adapter.f90)
 target_link_libraries(test_kim_adapter.x PUBLIC ql-balance_lib)
 add_fortran_test(test_kim_adapter)
+
+# Velocity-space integral port (vel_integral_m) regression test
+add_executable(test_vel_integral.x test_vel_integral.f90)
+target_link_libraries(test_vel_integral.x PUBLIC ql-balance_lib)
+add_fortran_test(test_vel_integral)
 configure_file(${CMAKE_SOURCE_DIR}/KIM/tests/test_data/KIM_config_em_small.nml
                ${CMAKE_BINARY_DIR}/tests/KIM_config_em_small.nml COPYONLY)
 set_tests_properties(test_kim_adapter PROPERTIES
                      WORKING_DIRECTORY ${CMAKE_BINARY_DIR}/tests/)
+
+add_executable(test_hdf5_diagnostic_writers.x test_hdf5_diagnostic_writers.f90)
+target_link_libraries(test_hdf5_diagnostic_writers.x PUBLIC ql-balance_lib)
+add_fortran_test(test_hdf5_diagnostic_writers)
+set_tests_properties(test_hdf5_diagnostic_writers PROPERTIES
+                     WORKING_DIRECTORY ${CMAKE_BINARY_DIR}/tests)

@@ -21,6 +21,16 @@
 
 #include "zersolc.h"
 
+// GCC and Clang expose the C complex ABI in C++ through these operators.
+// Do not rely on C99 macros/functions being exported by libc++'s complex.h.
+static _complex_ make_c_complex(_real_ re, _real_ im)
+{
+    _complex_ value;
+    __real__ value = re;
+    __imag__ value = im;
+    return value;
+}
+
 /********************************************************************/
 
 class Fparam
@@ -58,8 +68,8 @@ template <typename T> class Solver
             delete B;
             delete S;
             delete Z;
-            delete Cstart;
-            delete Pstart;
+            delete [] Cstart;
+            delete [] Pstart;
         }
 
         Fparam                     * D;
@@ -78,11 +88,11 @@ template <typename T> std::complex<T> func (const std::complex<T> & z, void * p)
 {
 Fparam * P = static_cast<Fparam *>(p);
 
-_complex_ Z = z.real() + z.imag() * IU;
+_complex_ Z = make_c_complex(z.real(), z.imag());
 
 _complex_ F = P->f(Z, P->data);
 
-return std::complex<T>(creal(F), cimag(F));
+return std::complex<T>((__real__ F), (__imag__ F));
 }
 
 /********************************************************************/
@@ -91,11 +101,11 @@ template <typename T> std::complex<T> dfunc (const std::complex<T> & z, void * p
 {
 Fparam * P = static_cast<Fparam *>(p);
 
-_complex_ Z = z.real() + z.imag() * IU;
+_complex_ Z = make_c_complex(z.real(), z.imag());
 
 _complex_ dF = P->df(Z, P->data);
 
-return std::complex<T>(creal(dF), cimag(dF));
+return std::complex<T>((__real__ dF), (__imag__ dF));
 }
 
 /********************************************************************/
@@ -159,8 +169,8 @@ int count = std::min(*n_zeros, N);
 
 for (int i = 0; i < count; ++i)
 {
-    Z[i] = ZZ[i].real() + ZZ[i].imag() * IU;
-    V[i] = VV[i].real() + VV[i].imag() * IU;
+    Z[i] = make_c_complex(ZZ[i].real(), ZZ[i].imag());
+    V[i] = make_c_complex(VV[i].real(), VV[i].imag());
 }
 
 delete [] ZZ;
@@ -265,7 +275,7 @@ static_cast<Solver<_real_> *>(solver)->Pstart = new std::complex<_real_>[n_start
 
 for (int i = 0; i < n_start; ++i)
 {
-    static_cast<Solver<_real_> *>(solver)->Pstart[i] = std::complex<_real_>(creal(start[i]), cimag(start[i]));
+    static_cast<Solver<_real_> *>(solver)->Pstart[i] = std::complex<_real_>((__real__ start[i]), (__imag__ start[i]));
 }
 
 static_cast<Solver<_real_> *>(solver)->S->set_start_array(n_start, static_cast<Solver<_real_> *>(solver)->Pstart);
@@ -406,7 +416,7 @@ static_cast<Solver<_real_> *>(solver)->Cstart = new _complex_[*n_start];
 
 for (int i = 0; i < *n_start; ++i)
 {
-    static_cast<Solver<_real_> *>(solver)->Cstart[i] = ptr[i].real() + ptr[i].imag() * IU;
+    static_cast<Solver<_real_> *>(solver)->Cstart[i] = make_c_complex(ptr[i].real(), ptr[i].imag());
 }
 
 *start = static_cast<Solver<_real_> *>(solver)->Cstart;

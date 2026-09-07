@@ -645,7 +645,9 @@ contains
                 if (allocated(plasma%spec(sp)%I12_cc)) deallocate(plasma%spec(sp)%I12_cc)
                 if (allocated(plasma%spec(sp)%I22_cc)) deallocate(plasma%spec(sp)%I22_cc)
                 if (allocated(plasma%spec(sp)%I02_cc)) deallocate(plasma%spec(sp)%I02_cc)
-                if (allocated(plasma%spec(sp)%I03_cc)) deallocate(plasma%spec(sp)%I03_cc)
+                if (allocated(plasma%spec(sp)%I03_cc)) then
+                    deallocate(plasma%spec(sp)%I03_cc)
+                end if
                 if (allocated(plasma%spec(sp)%I13_cc)) deallocate(plasma%spec(sp)%I13_cc)
                 if (allocated(plasma%spec(sp)%I11_cc)) deallocate(plasma%spec(sp)%I11_cc)
             end do

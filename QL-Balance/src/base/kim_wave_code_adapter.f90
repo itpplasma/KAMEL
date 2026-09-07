@@ -638,6 +638,9 @@ contains
     ! ---------------------------------------------------------------
 
     subroutine kim_load_vacuum_fields()
+    use kilca_wave_code_interface_m, only: &
+        get_wave_fields_from_wave_code => &
+            get_wave_fields_from_wave_code_
         !! Extract vacuum Br from KiLCA vacuum solution (vac_cd_ptr)
         !! onto the balance grid and store in kim_vac_Br for each mode.
         use wave_code_data, only: dim_r, r, dim_mn, m_vals, n_vals, &
@@ -646,13 +649,15 @@ contains
         implicit none
 
         integer :: k
+        complex(8) :: unused_fields(dim_r, 8)
 
         ! Extract vacuum Br for each mode.
-        ! get_wave_fields_from_wave_code fills Br; we use Bz as dummy
-        ! for all other field components.
+        ! Keep unused output components in separate storage.
         do k = 1, dim_mn
             call get_wave_fields_from_wave_code(vac_cd_ptr(k), dim_r, r, &
-                m_vals(k), n_vals(k), Bz, Bz, Bz, Bz, Bz, Br, Bz, Bz, Bz, Bz)
+                m_vals(k), n_vals(k), unused_fields(:,1), unused_fields(:,2), unused_fields(:,3), &
+                unused_fields(:,4), unused_fields(:,5), Br, unused_fields(:,6), &
+                unused_fields(:,7), unused_fields(:,8), Bz)
             kim_vac_Br(:, k) = Br
         end do
 

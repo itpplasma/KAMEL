@@ -123,6 +123,13 @@ end subroutine
 !------------------------------------------------------------------------------
 
 subroutine stitching_equations_flre_flre (Nw1, D1, code1, EB1, Nw2, D2, code2, EB2, flg_ant, neq_, nvar_, M, J)
+    use kilca_flre_zone_m, only: &
+        activate_fortran_modules_for_zone => &
+            activate_fortran_modules_for_zone_
+    use kilca_flre_zone_m, only: &
+        deactivate_fortran_modules_for_zone => &
+            deactivate_fortran_modules_for_zone_
+    use kilca_flre_zone_m, only: get_sys_ind_array => get_sys_ind_array_
 
 use constants, only: pp;
 
@@ -229,6 +236,12 @@ end subroutine
 !------------------------------------------------------------------------------
 
 subroutine stitching_equations_flre_N1_hommed (Nw1, D1, code1, EB1, Nw2, D2, code2, EB2, flg_ant, neq_, nvar_, M, J)
+    use kilca_flre_zone_m, only: &
+        calc_flre_basis_in_lab_cyl_frame_with_full_system_vectors => &
+            calc_flre_basis_in_lab_cyl_frame_with_full_system_vectors_
+    use kilca_flre_zone_m, only: get_ibrsp_sys_array => get_ibrsp_sys_array_
+    use kilca_flre_zone_m, only: get_iersp_sys_array => get_iersp_sys_array_
+    use kilca_zone_m, only: get_right_boundary_of_zone
 
 use constants, only: pp;
 

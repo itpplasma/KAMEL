@@ -1,6 +1,21 @@
 
 !> @brief subroutine get_dql. Calculates quasilinear diffusion coefficients.
 subroutine get_dql
+    use kilca_wave_code_interface_m, only: &
+        get_background_magnetic_fields_from_wave_code => &
+            get_background_magnetic_fields_from_wave_code_
+    use kilca_wave_code_interface_m, only: &
+        get_collision_frequences_from_wave_code => &
+            get_collision_frequences_from_wave_code_
+    use kilca_wave_code_interface_m, only: &
+        get_current_densities_from_wave_code => &
+            get_current_densities_from_wave_code_
+    use kilca_wave_code_interface_m, only: &
+        get_wave_fields_from_wave_code => &
+            get_wave_fields_from_wave_code_
+    use kilca_wave_code_interface_m, only: &
+        get_wave_vectors_from_wave_code => &
+            get_wave_vectors_from_wave_code_
 
     use grid_mod, only: nbaleqs, npoib &
                         , deriv_coef &
@@ -31,6 +46,7 @@ subroutine get_dql
     implicit none
 
     integer :: ipoi, ieq, i_mn, mwind_save
+    complex(dp), allocatable :: unused_fields(:, :)
     real(dp), dimension(:), allocatable :: dummy
     real(dp), dimension(:), allocatable :: row_buffer
 
@@ -60,6 +76,7 @@ subroutine get_dql
     complex(dp), dimension(:), allocatable :: Br_flre, Bt_flre, Bz_flre
     complex(dp), dimension(:), allocatable :: zeros_dim_r
 
+    allocate(unused_fields(dim_r, 8))
     allocate (dqle11_loc(npoib))
     allocate (dqle12_loc(npoib))
     allocate (dqle21_loc(npoib))
@@ -268,7 +285,10 @@ subroutine get_dql
         select case (trim(wave_code))
         case ('KiLCA')
             call get_wave_fields_from_wave_code(vac_cd_ptr(i_mn), dim_r, r, &
-                                                m_vals(i_mn), n_vals(i_mn), Bz, Bz, Bz, Bz, Bz, Br, Bz, Bz, Bz, Bz)
+                m_vals(i_mn), n_vals(i_mn), unused_fields(:,1), &
+                unused_fields(:,2), unused_fields(:,3), &
+                unused_fields(:,4), unused_fields(:,5), Br, unused_fields(:,6), &
+                unused_fields(:,7), unused_fields(:,8), Bz)
         case ('KIM')
             Br = kim_vac_Br(:, i_mn)
         case default
@@ -302,7 +322,10 @@ subroutine get_dql
         select case (trim(wave_code))
         case ('KiLCA')
             call get_wave_fields_from_wave_code(flre_cd_ptr(i_mn), dim_r, r, &
-                                                m_vals(i_mn), n_vals(i_mn), Bz, Bz, Bz, Bz, Bz, Br, Bz, Bz, Bz, Bz)
+                m_vals(i_mn), n_vals(i_mn), unused_fields(:,1), &
+                unused_fields(:,2), unused_fields(:,3), &
+                unused_fields(:,4), unused_fields(:,5), Br, unused_fields(:,6), &
+                unused_fields(:,7), unused_fields(:,8), Bz)
         case ('KIM')
             Br = kim_Br_modes(:, i_mn)
         case default
@@ -392,7 +415,6 @@ subroutine get_dql
         end select
     end do
 
-
     ! calculate diffusion due to misalignment of equipotentials and flux surfaces
     if (misalign_diffusion .eqv. .true.) then
         ! rsepar/rtor is the inverse aspect ratio
@@ -432,7 +454,6 @@ subroutine get_dql
 
     call calc_parallel_current_directly
     call calc_ion_parallel_current_directly
-
 
     if (.true.) then
         mwind_save = mwind
@@ -483,7 +504,6 @@ subroutine get_dql
         deallocate (dummy)
     end if
 
-
     call log_debug("write_fields_currs_transp_coefs_to_h5")
 
     if (modulo(time_ind, save_prof_time_step) .eq. 0) then
@@ -508,7 +528,6 @@ subroutine initialize_get_dql
     irf = 1
 
 end subroutine
-
 
 subroutine interp_rb_at_r0(func, r0, func_res)
 
@@ -572,6 +591,7 @@ subroutine write_Brvac(brvac_interp)
 
     character(len=1024) :: tempch
     complex(dp), intent(in) :: brvac_interp
+    real(dp), dimension(:, :), allocatable :: diagnostic_data
     integer :: ipoi
 
         if (ihdf5IO .eq. 1) then
@@ -596,10 +616,12 @@ subroutine write_Brvac(brvac_interp)
                 CALL h5_delete(h5_id, trim(tempch))
                 end if
 
-                CALL h5_define_unlimited_matrix(h5_id, trim(tempch), &
-                                            H5T_NATIVE_DOUBLE, (/-1, 2/), dataset_id)
-                CALL h5_append_double_1(dataset_id, r, 1)
-                CALL h5_append_double_1(dataset_id, abs(Br), 2)
+                allocate (diagnostic_data(npoib, 2))
+                diagnostic_data(:, 1) = r
+                diagnostic_data(:, 2) = abs(Br)
+                call h5_add(h5_id, trim(tempch), diagnostic_data, lbound(diagnostic_data), &
+                            ubound(diagnostic_data))
+                deallocate (diagnostic_data)
             end if
 
             CALL h5_close(h5_id)

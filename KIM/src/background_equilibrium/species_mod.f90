@@ -482,6 +482,7 @@ module species_m
                     plasma_in%spec(sp)%I21(j, :) = (0.0_dp, 0.0_dp)
                     plasma_in%spec(sp)%I22(j, :) = (0.0_dp, 0.0_dp)
                     plasma_in%spec(sp)%I02(j, :) = (0.0_dp, 0.0_dp)
+                    plasma_in%spec(sp)%I03(j, :) = (0.0_dp, 0.0_dp)
                     plasma_in%spec(sp)%I11(j, :) = (0.0_dp, 0.0_dp)
                     plasma_in%spec(sp)%I13(j, :) = (0.0_dp, 0.0_dp)
                     cycle
@@ -537,6 +538,7 @@ module species_m
                     plasma_in%spec(sp)%I12_cc(j, :) = (0.0_dp, 0.0_dp)
                     plasma_in%spec(sp)%I22_cc(j, :) = (0.0_dp, 0.0_dp)
                     plasma_in%spec(sp)%I02_cc(j, :) = (0.0_dp, 0.0_dp)
+                    plasma_in%spec(sp)%I03_cc(j, :) = (0.0_dp, 0.0_dp)
                     plasma_in%spec(sp)%I13_cc(j, :) = (0.0_dp, 0.0_dp)
                     plasma_in%spec(sp)%I11_cc(j, :) = (0.0_dp, 0.0_dp)
                     cycle
@@ -853,9 +855,12 @@ module species_m
                 call write_complex_profile(r_grid_cc, spec%I02_cc(:, mphi), size(r_grid_cc), &
                     'backs/'//trim(spec%name)//'/I02_cc_mphi_'//trim(adjustl(itoa(mphi))), &
                     'Susceptibility function I02 at cell centers, mphi='//trim(adjustl(itoa(mphi))), '1')
-                call write_complex_profile(r_grid_cc, spec%I03_cc(:, mphi), size(r_grid_cc), &
-                    'backs/'//trim(spec%name)//'/I03_cc_mphi_'//trim(adjustl(itoa(mphi))), &
-                    'Susceptibility function I03 at cell centers, mphi='//trim(adjustl(itoa(mphi))), '1')
+                call write_complex_profile(r_grid_cc, spec%I03_cc(:, mphi), &
+                    size(r_grid_cc), &
+                    'backs/'//trim(spec%name)//'/I03_cc_mphi_' &
+                    //trim(adjustl(itoa(mphi))), &
+                    'Susceptibility function I03 at cell centers, mphi=' &
+                    //trim(adjustl(itoa(mphi))), '1')
                 call write_complex_profile(r_grid_cc, spec%I13_cc(:, mphi), size(r_grid_cc), &
                     'backs/'//trim(spec%name)//'/I13_cc_mphi_'//trim(adjustl(itoa(mphi))), &
                     'Susceptibility function I13 at cell centers, mphi='//trim(adjustl(itoa(mphi))), '1')

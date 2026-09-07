@@ -11,6 +11,36 @@ target_link_libraries(test_integration_methods KIM_lib kilca_lib lapack cerf for
 add_test(NAME test_integration_methods
          COMMAND ${CMAKE_BINARY_DIR}/tests/test_integration_methods.x)
 
+add_executable(test_gauss_segment_transforms
+               ${CMAKE_SOURCE_DIR}/KIM/tests/test_gauss_segment_transforms.f90)
+set_target_properties(test_gauss_segment_transforms PROPERTIES
+                      OUTPUT_NAME test_gauss_segment_transforms.x
+                      RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/tests/")
+target_link_libraries(test_gauss_segment_transforms
+                      KIM_lib kilca_lib lapack cerf fortnum_amos_compat)
+add_test(NAME test_gauss_segment_transforms
+         COMMAND ${CMAKE_BINARY_DIR}/tests/test_gauss_segment_transforms.x)
+
+add_executable(test_adaptive_normalization
+               ${CMAKE_SOURCE_DIR}/KIM/tests/test_adaptive_normalization.f90)
+set_target_properties(test_adaptive_normalization PROPERTIES
+                      OUTPUT_NAME test_adaptive_normalization.x
+                      RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/tests/")
+target_link_libraries(test_adaptive_normalization
+                      KIM_lib kilca_lib lapack cerf fortnum_amos_compat)
+add_test(NAME test_adaptive_normalization
+         COMMAND ${CMAKE_BINARY_DIR}/tests/test_adaptive_normalization.x)
+
+add_executable(test_adaptive_local_cutoff
+               ${CMAKE_SOURCE_DIR}/KIM/tests/test_adaptive_local_cutoff.f90)
+set_target_properties(test_adaptive_local_cutoff PROPERTIES
+                      OUTPUT_NAME test_adaptive_local_cutoff.x
+                      RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/tests/")
+target_link_libraries(test_adaptive_local_cutoff
+                      KIM_lib kilca_lib lapack cerf fortnum_amos_compat)
+add_test(NAME test_adaptive_local_cutoff
+         COMMAND ${CMAKE_BINARY_DIR}/tests/test_adaptive_local_cutoff.x)
+
 
 add_executable(test_root_finding ${CMAKE_SOURCE_DIR}/KIM/tests/test_root_finding.f90)
 set_target_properties(test_root_finding PROPERTIES
@@ -24,7 +54,8 @@ add_executable(test_region_roots_vs_muller ${CMAKE_SOURCE_DIR}/KIM/tests/test_re
 set_target_properties(test_region_roots_vs_muller PROPERTIES
                         OUTPUT_NAME test_region_roots_vs_muller.x
                         RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/tests/")
-target_link_libraries(test_region_roots_vs_muller KIM_lib kilca_lib lapack cerf fortnum_amos_compat)
+target_link_libraries(test_region_roots_vs_muller KIM_lib kilca_lib lapack cerf fortnum_amos_compat
+                      OpenMP::OpenMP_Fortran)
 add_test(NAME test_region_roots_vs_muller
          COMMAND ${CMAKE_BINARY_DIR}/tests/test_region_roots_vs_muller.x)
 

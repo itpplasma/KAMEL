@@ -6,6 +6,7 @@
 !------------------------------------------------------------------------------
 
 subroutine continuity (inner, outer, coeffs)
+    use kilca_wave_data_m, only: set_det_in_wd_struct
 
 !This routine solves the continuity conditions at the antenna corresonding
 !to the current in the antenna. The mode numbers are imported from the module "mode".
@@ -288,6 +289,7 @@ end subroutine
 !------------------------------------------------------------------------------
 
 subroutine continuity_mhd (Nwaves, Nfs, inner, outer, coeffs)
+    use kilca_wave_data_m, only: set_det_in_wd_struct
 
 !This routine solves the continuity conditions at the antenna corresonding
 !to the current in the antenna. The mode numbers are imported from the module "mode".
@@ -445,6 +447,7 @@ end subroutine
 !------------------------------------------------------------------------------
 
 subroutine continuity_mhd_zeta (Nwaves, Nfs, inner, outer, coeffs)
+    use kilca_wave_data_m, only: set_det_in_wd_struct
 
 !This routine solves the continuity conditions at the antenna corresonding
 !to the current in the antenna. The mode numbers are imported from the module "mode".
@@ -604,6 +607,7 @@ end subroutine
 !------------------------------------------------------------------------------
 
 subroutine continuity_mhd_hi (Nwaves, Nfs, inner, outer, coeffs)
+    use kilca_wave_data_m, only: set_det_in_wd_struct
 
 !This routine solves the continuity conditions at the antenna corresonding
 !to the current in the antenna. The mode numbers are imported from the module "mode".

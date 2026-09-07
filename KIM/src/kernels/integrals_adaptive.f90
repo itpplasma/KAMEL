@@ -133,19 +133,21 @@ module integrals_rkf45_m
         !norm_factor = (context%xlpp1 - context%xlpm1) / 4.0d0 ! gauss integration normalizaton
         norm_factor = (context%xlp1 - context%xlm1)* (context%xlpp1 - context%xlpm1) / 4.0d0 ! gauss integration normalizaton
 
-        ! Endpoint exclusion based on local separation and rhoT to avoid singular sin terms
-        delta = abs(context%x - context%xp)
-        denom = max(abs(context%rhoT), 1.0d-300)
-        theta_eps = max(theta_cutoff_min, min(0.2d0, delta / (sqrt(2.0d0*theta_M) * denom)))
-        theta_0_local = theta_eps
-        theta_max_local = pi - theta_eps
-
-        !$omp parallel do collapse(2) private(j, k, rk45_res, u0, umax, h_local) firstprivate(context) reduction(+:result)
+        !$omp parallel do collapse(2) &
+        !$omp& private(j, k, rk45_res, theta_0_local, theta_max_local, &
+        !$omp& theta_eps, delta, denom, u0, umax, h_local) &
+        !$omp& firstprivate(context) reduction(+:result)
         do j=1,rkf45_conf%Nxp ! xp
             do k=1,rkf45_conf%Nx !x
                 context%xp = 0.5d0 * ((context%xlpp1 - context%xlpm1) * rkf45_conf%x_xp(j) + context%xlpp1 + context%xlpm1)
                 context%x = 0.5d0 * ((context%xlp1 - context%xlm1) * rkf45_conf%x_x(k) + context%xlp1 + context%xlm1)
 
+                delta = abs(context%x - context%xp)
+                denom = max(abs(context%rhoT), 1.0d-300)
+                theta_eps = max(theta_cutoff_min, &
+                    min(0.2d0, delta / (sqrt(2.0d0 * theta_M) * denom)))
+                theta_0_local = theta_eps
+                theta_max_local = pi - theta_eps
                 rk45_res = 0.0d0
                 u0   = sin(0.5d0 * theta_0_local)
                 umax = sin(0.5d0 * theta_max_local)
@@ -184,19 +186,21 @@ module integrals_rkf45_m
         norm_factor = (context%xlp1 - context%xlm1)* (context%xlpp1 - context%xlpm1) / 4.0d0 ! gauss integration normalizaton
         !norm_factor = (context%xlpp1 - context%xlpm1) / 4.0d0 ! gauss integration normalizaton
 
-        ! Endpoint exclusion based on local separation and rhoT to avoid singular sin terms
-        delta = abs(context%x - context%xp)
-        denom = max(abs(context%rhoT), 1.0d-300)
-        theta_eps = max(theta_cutoff_min, min(0.2d0, delta / (sqrt(2.0d0*theta_M) * denom)))
-        theta_0_local = theta_eps
-        theta_max_local = pi - theta_eps
-
-        !$omp parallel do collapse(2) private(j, k, rk45_res, u0, umax, h_local) firstprivate(context) reduction(+:result)
+        !$omp parallel do collapse(2) &
+        !$omp& private(j, k, rk45_res, theta_0_local, theta_max_local, &
+        !$omp& theta_eps, delta, denom, u0, umax, h_local) &
+        !$omp& firstprivate(context) reduction(+:result)
         do j=1,rkf45_conf%Nxp ! xp
             do k=1,rkf45_conf%Nx !x
                 context%xp = 0.5d0 * ((context%xlpp1 - context%xlpm1) * rkf45_conf%x_xp(j) + context%xlpp1 + context%xlpm1)
                 context%x = 0.5d0 * ((context%xlp1 - context%xlm1) * rkf45_conf%x_x(k) + context%xlp1 + context%xlm1)
 
+                delta = abs(context%x - context%xp)
+                denom = max(abs(context%rhoT), 1.0d-300)
+                theta_eps = max(theta_cutoff_min, &
+                    min(0.2d0, delta / (sqrt(2.0d0 * theta_M) * denom)))
+                theta_0_local = theta_eps
+                theta_max_local = pi - theta_eps
                 rk45_res = 0.0d0
                 u0   = sin(0.5d0 * theta_0_local)
                 umax = sin(0.5d0 * theta_max_local)
@@ -209,7 +213,7 @@ module integrals_rkf45_m
         !$omp end parallel do
 
         result = result * exp(- context%ks**2.0d0 * context%rhoT**2.0d0) * norm_factor &
-                * (-pi) / (4.0d0 * context%rhoT**4.0d0)
+            * (-1.0d0) / (8.0d0 * context%rhoT**4.0d0)
 
     end subroutine
 
@@ -235,19 +239,21 @@ module integrals_rkf45_m
         norm_factor = (context%xlp1 - context%xlm1)* (context%xlpp1 - context%xlpm1) / 4.0d0 ! gauss integration normalizaton
         !norm_factor = (context%xlpp1 - context%xlpm1) / 4.0d0 ! gauss integration normalizaton
 
-        ! Endpoint exclusion based on local separation and rhoT to avoid singular sin terms
-        delta = abs(context%x - context%xp)
-        denom = max(abs(context%rhoT), 1.0d-300)
-        theta_eps = max(theta_cutoff_min, min(0.2d0, delta / (sqrt(2.0d0*theta_M) * denom)))
-        theta_0_local = theta_eps
-        theta_max_local = pi - theta_eps
-
-        !$omp parallel do collapse(2) private(j, k, rk45_res, u0, umax, h_local) firstprivate(context) reduction(+:result)
+        !$omp parallel do collapse(2) &
+        !$omp& private(j, k, rk45_res, theta_0_local, theta_max_local, &
+        !$omp& theta_eps, delta, denom, u0, umax, h_local) &
+        !$omp& firstprivate(context) reduction(+:result)
         do j=1,rkf45_conf%Nxp ! xp
             do k=1,rkf45_conf%Nx !x
                 context%xp = 0.5d0 * ((context%xlpp1 - context%xlpm1) * rkf45_conf%x_xp(j) + context%xlpp1 + context%xlpm1)
                 context%x = 0.5d0 * ((context%xlp1 - context%xlm1) * rkf45_conf%x_x(k) + context%xlp1 + context%xlm1)
 
+                delta = abs(context%x - context%xp)
+                denom = max(abs(context%rhoT), 1.0d-300)
+                theta_eps = max(theta_cutoff_min, &
+                    min(0.2d0, delta / (sqrt(2.0d0 * theta_M) * denom)))
+                theta_0_local = theta_eps
+                theta_max_local = pi - theta_eps
                 rk45_res = 0.0d0
                 u0   = sin(0.5d0 * theta_0_local)
                 umax = sin(0.5d0 * theta_max_local)
@@ -260,7 +266,7 @@ module integrals_rkf45_m
         !$omp end parallel do
 
         result = result * exp(- context%ks**2.0d0 * context%rhoT**2.0d0) * norm_factor &
-                * (-pi) / (2.0d0 * context%rhoT**4.0d0)
+            * (-1.0d0) / (4.0d0 * context%rhoT**4.0d0)
 
     end subroutine
 
@@ -290,19 +296,20 @@ module integrals_rkf45_m
         result = 0.0d0
         norm_factor = (context%xlp1 - context%xlm1) * (context%xlpp1 - context%xlpm1) / 4.0d0
 
-        ! Endpoint exclusion based on local separation and rhoT
-        delta = abs(context%x - context%xp)
-        denom = max(abs(context%rhoT), 1.0d-300)
-        theta_eps = max(theta_cutoff_min, min(0.2d0, delta / (sqrt(2.0d0*theta_M) * denom)))
-        theta_0_local = theta_eps
-        theta_max_local = pi - theta_eps
-
-        !$omp parallel do collapse(2) private(j, k, quadpack_res) firstprivate(context) reduction(+:result)
+        !$omp parallel do collapse(2) &
+        !$omp& private(j, k, quadpack_res, theta_0_local, theta_max_local, &
+        !$omp& theta_eps, delta, denom) firstprivate(context) reduction(+:result)
         do j = 1, rkf45_conf%Nxp
             do k = 1, rkf45_conf%Nx
                 context%xp = 0.5d0 * ((context%xlpp1 - context%xlpm1) * rkf45_conf%x_xp(j) + context%xlpp1 + context%xlpm1)
                 context%x = 0.5d0 * ((context%xlp1 - context%xlm1) * rkf45_conf%x_x(k) + context%xlp1 + context%xlm1)
 
+                delta = abs(context%x - context%xp)
+                denom = max(abs(context%rhoT), 1.0d-300)
+                theta_eps = max(theta_cutoff_min, &
+                    min(0.2d0, delta / (sqrt(2.0d0 * theta_M) * denom)))
+                theta_0_local = theta_eps
+                theta_max_local = pi - theta_eps
                 quadpack_res = 0.0d0
                 select case (which)
                 case (1)
@@ -323,12 +330,12 @@ module integrals_rkf45_m
 
         result = result * exp(-context%ks**2.0d0 * context%rhoT**2.0d0) * norm_factor
 
-        ! F2/F3 carry an additional -pi/(c*rhoT^4) factor
+        ! F2/F3 carry their direct segment-normalization factors.
         select case (which)
         case (2)
-            result = result * (-pi) / (4.0d0 * context%rhoT**4.0d0)
+            result = result * (-1.0d0) / (8.0d0 * context%rhoT**4.0d0)
         case (3)
-            result = result * (-pi) / (2.0d0 * context%rhoT**4.0d0)
+            result = result * (-1.0d0) / (4.0d0 * context%rhoT**4.0d0)
         end select
 
     end subroutine quadpack_integrate_wrapper

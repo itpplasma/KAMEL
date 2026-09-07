@@ -224,6 +224,7 @@ end subroutine
 !------------------------------------------------------------------------------
 
 subroutine eval_maxwell_system_coeffs (r, flagback)
+    use kilca_background_data_m, only: eval_hthz => eval_hthz_c
 
 use constants, only: dp, dpc, pi, im, c
 use core, only: bp_ptr

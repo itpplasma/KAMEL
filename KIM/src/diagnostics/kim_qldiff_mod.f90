@@ -10,9 +10,9 @@ module kim_qldiff_m
 contains
 
     function calc_dqli11_phi(vTi, nui, om_E, B0, kpar, Es) result(dqli11)
-        ! Ion Phi-only integral coefficient (the D11 tracer bullet).  This is
-        ! the direct integral-formalism analogue of the electrostatic term in
-        ! the Onsager tensor; magnetic and cross terms are deliberately absent.
+        ! Local ion Phi-only I-function coefficient (the D11 tracer bullet).
+        ! This is the electrostatic term in the Onsager tensor; magnetic and
+        ! cross terms are deliberately absent.
         use constants_m, only: sol
         use config_m, only: resolved_ion_ifunc_conservation_model
         real(dp), intent(in) :: vTi, nui, om_E, B0, kpar

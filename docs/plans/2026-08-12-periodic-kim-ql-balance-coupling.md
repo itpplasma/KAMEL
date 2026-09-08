@@ -2,7 +2,7 @@
 
 > **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
 
-**Goal:** Run the configured QL-Balance modes through KIM's forced-periodicity solver, embed the local physical response on the global balance grid with a compact transition, retain drift-kinetic electrons, and consume KIM's integral ion tensor with diagnostic provenance.
+**Goal:** Run the configured QL-Balance modes through KIM's forced-periodicity solver, embed the local physical response on the global balance grid with a compact transition, retain drift-kinetic electrons, and consume KIM's finite-Larmor-radius ion tensor with diagnostic provenance.
 
 **Architecture:** QL-Balance selects `electrostatic_periodic` explicitly through its KIM adapter. KIM returns a bounded local response; the adapter interpolates already-derived physical fields and current only inside the local support, while a shared compact weight applies to fields and the square of that weight applies to transport tensors. The adapter computes the local ion integral tensor through KIM's public harmonic seam and keeps the legacy electron drift-kinetic calculation separate.
 
@@ -103,7 +103,7 @@ Expected: compile or contract failure because `kim_results_t` has no tensor memb
 
 **Step 3: Implement the minimal production seam**
 
-Add optional periodic Bparallel shape/amplitude inputs with a zero-default benchmark mode, compute the local diagonal radial-wave-number contraction by summing the configured cyclotron harmonics through `calc_dqli_integral_harmonic`, and copy the tensor and Bparallel into `kim_results_t`. Preserve the signed cyclotron frequency, perturbation-frequency detuning, and KIM susceptibility evaluator.
+Add optional periodic Bparallel shape/amplitude inputs with a zero-default benchmark mode, compute the local diagonal radial-wave-number contraction by summing the configured cyclotron harmonics through `calc_dqli_flr_harmonic`, and copy the tensor and Bparallel into `kim_results_t`. Preserve the signed cyclotron frequency, perturbation-frequency detuning, and KIM susceptibility evaluator.
 
 **Step 4: Run the focused tensor test**
 
@@ -115,7 +115,7 @@ Expected: PASS.
 
 ```bash
 git add KIM/src/general/kim_solver_m.f90 KIM/src/electrostatic_poisson/poisson_periodic.f90 KIM/src/diagnostics/kim_qldiff_mod.f90 KIM/src/CMakeSources.in QL-Balance/src/base/kim_wave_code_adapter.f90 QL-Balance/src/test/test_periodic_ion_tensor.f90
-git commit -m "feat(KIM): expose periodic integral ion tensor"
+git commit -m "feat(KIM): expose periodic finite-Larmor-radius ion tensor"
 ```
 
 ### Task 4: Dispatch species models and embed mode responses

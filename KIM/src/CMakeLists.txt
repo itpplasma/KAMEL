@@ -58,7 +58,11 @@ if("${SUPERLU_FOUND}")
     message(" ====== SuperLU was found! =====")
     target_link_libraries(KIM_lib PUBLIC "${SUPERLU_LIBRARIES}")
     message("SuperLu libraries: ${SUPERLU_LIBRARIES}")
-    target_include_directories(KIM_lib PUBLIC "${SUPERLU_INCLUDES}")
+    # SuperLU headers are needed only while compiling KIM.  Keeping this
+    # include directory PRIVATE prevents FindSuperLU's Darwin SDK
+    # `usr/include` result from leaking into downstream C++ targets, where it
+    # breaks libc++'s include_next-based C headers.
+    target_include_directories(KIM_lib PRIVATE "${SUPERLU_INCLUDES}")
     message("${SUPERLU_INCLUDES}")
 endif()
 

@@ -34,7 +34,7 @@ module rt_electrostatic_periodic_m
         use config_m, only: resolved_ion_ifunc_conservation_model
         use setup_m, only: mphi_max
         use species_m, only: evaluate_susceptibility
-        use quasilinear_integral_m, only: calc_ion_integral_harmonic
+        use quasilinear_flr_m, only: calc_ion_flr_harmonic
         use constants_m, only: sol
 
         complex(dp), intent(in) :: fields_s(3)
@@ -52,7 +52,7 @@ module rt_electrostatic_periodic_m
         do ell = -mphi_max, mphi_max
             x2 = -(om_E + real(ell,dp)*omega_ci - omega_mode)/nui
             call evaluate_susceptibility(x1, x2, resolved_ion_ifunc_conservation_model, symbI)
-            call calc_ion_integral_harmonic(ell, ks_s, kr_s, ks_s, kr_s, vTi, abs(omega_ci), &
+            call calc_ion_flr_harmonic(ell, ks_s, kr_s, ks_s, kr_s, vTi, abs(omega_ci), &
                 omega_ci, sol, B0, nui, fields_s, fields_o, symbI, harmonic_tensor)
             tensor = tensor + harmonic_tensor
         end do

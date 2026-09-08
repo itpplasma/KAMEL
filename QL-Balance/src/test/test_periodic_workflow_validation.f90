@@ -39,7 +39,7 @@ program test_periodic_workflow_validation
     kim_m_list(1:2) = modes_m
     kim_n_list(1:2) = modes_n
     kim_electron_transport_model = 'drift_kinetic'
-    kim_ion_transport_model = 'integral'
+    kim_ion_transport_model = 'finite_larmor_radius'
     kim_bparallel_source = 'periodic'
     kim_benchmark_mode = 'none'
     I_par_toroidal = 4.0_dp

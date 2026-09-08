@@ -1,6 +1,6 @@
 # KIM #291: drift-kinetic limiting benchmark
 
-The benchmark compares the integral ion tensor with the established
+The benchmark compares the finite-Larmor-radius ion tensor with the established
 Heyn/Markl drift-kinetic tensor. It is diagnostic-only: QL-Balance continues
 to use the explicitly selected production model. Electrons remain on the
 drift-kinetic path in all cases.
@@ -31,7 +31,7 @@ case.
 
 - `KIM/tests/test_dqli_limit_benchmark.f90` checks the exact zero-FLR branch
   and a finite small-FLR point.
-- `KIM/mathematica/verify_quasilinear_integral_transport.wl` proves the
+- `KIM/mathematica/verify_quasilinear_flr_transport.wl` proves the
   Gaussian--Bessel limiting moments and records the reduced four-entry ledger.
 - `kim_qldiff_m::calc_dqli_limit_benchmark` exposes a side-by-side diagnostic
   result with absolute and normalized residuals; it does not alter evolution.

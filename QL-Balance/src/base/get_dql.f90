@@ -31,7 +31,7 @@ subroutine get_dql
     use baseparam_mod, only: Z_i, e_charge, am, p_mass, c, e_mass, ev, rtor, pi, rsepar
     use control_mod, only: irf, suppression_mode, misalign_diffusion, type_of_run, wave_code, &
                           jpar_method, kim_ion_transport_model, &
-                          ion_transport_model_id, ION_TRANSPORT_INTEGRAL, &
+                          ion_transport_model_id, ION_TRANSPORT_FLR, &
                           ION_TRANSPORT_DRIFT_KINETIC
     use time_evolution, only: save_prof_time_step, time_ind, br_formfactor, br_vac_res
     use h5mod
@@ -245,13 +245,13 @@ subroutine get_dql
             call calc_transport_coeffs_ornuhl(npoib, vT_e, nu_e, de11, de12, de21, de22)
             if (trim(wave_code) == 'KIM' .and. kim_periodic_mode_selected()) then
                 select case (ion_transport_model_id(kim_ion_transport_model))
-                case (ION_TRANSPORT_INTEGRAL)
+                case (ION_TRANSPORT_FLR)
                     if (.not. allocated(kim_D_ion_modes)) then
-                        error stop 'integral ion transport tensor is unavailable'
+                        error stop 'finite-Larmor-radius ion transport tensor is unavailable'
                     end if
                     if (size(kim_D_ion_modes, 3) /= npoib .or. &
                             i_mn > size(kim_D_ion_modes, 4)) then
-                        error stop 'integral ion transport tensor has an invalid shape'
+                        error stop 'finite-Larmor-radius ion transport tensor has an invalid shape'
                     end if
                     di11 = kim_D_ion_modes(1, 1, :, i_mn)
                     di12 = kim_D_ion_modes(1, 2, :, i_mn)

@@ -44,7 +44,7 @@ subroutine read_config
 
     if (ion_transport_model_id(kim_ion_transport_model) == &
             ION_TRANSPORT_INVALID) then
-        error stop 'kim_ion_transport_model must be integral or drift_kinetic'
+        error stop 'kim_ion_transport_model must be finite_larmor_radius or drift_kinetic'
     end if
 
     call set_log_level(log_level)

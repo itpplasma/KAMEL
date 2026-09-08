@@ -34,7 +34,7 @@ contains
     end function calc_dqli11_phi
 
     subroutine calc_dqli_tensor(vTi, nui, om_E, B0, kpar, Es, Br, D11, D12, D21, D22)
-        ! Complete ion Phi/Br Onsager tensor in the integral formalism.
+        ! Complete local ion Phi/Br I-function Onsager tensor.
         ! This is the scalar, local counterpart of QL-Balance's
         ! calc_transport_coeffs_ornuhl; electrons intentionally retain their
         ! existing drift-kinetic path.

@@ -1,10 +1,10 @@
-program test_quasilinear_integral_algebra
+program test_quasilinear_flr_algebra
     use, intrinsic :: ieee_arithmetic, only: ieee_is_finite
     use KIM_kinds_m, only: dp
-    use quasilinear_integral_m, only: calc_ion_integral_harmonic, &
-        calc_ion_integral_harmonic_debug, build_transverse_moments, &
+    use quasilinear_flr_m, only: calc_ion_flr_harmonic, &
+        calc_ion_flr_harmonic_debug, build_transverse_moments, &
         QL_PHI, QL_BR, QL_BPAR, &
-        QL_INTEGRAL_ALGEBRA_VERSION
+        QL_FLR_ALGEBRA_VERSION
     implicit none
 
     call test_mathematica_oracles()
@@ -19,7 +19,7 @@ program test_quasilinear_integral_algebra
     call test_harmonic_convergence()
     call test_flr_convergence()
 
-    print *, 'quasilinear integral algebra tests passed'
+    print *, 'quasilinear FLR algebra tests passed'
 
 contains
 
@@ -68,7 +68,7 @@ contains
         close(unit)
 
         call set_oracle_inputs(fields_s, fields_o, ifunc)
-        call calc_ion_integral_harmonic_debug(2, 0.7_dp, -0.4_dp, 1.1_dp, 0.3_dp, &
+        call calc_ion_flr_harmonic_debug(2, 0.7_dp, -0.4_dp, 1.1_dp, 0.3_dp, &
             1.2_dp, 1.8_dp, -1.8_dp, 1.3_dp, 0.9_dp, 1.4_dp, fields_s, &
             fields_o, ifunc, tensor, channels)
         open(newunit=unit, file='quasilinear_channel_oracle.dat', &
@@ -87,7 +87,7 @@ contains
         end do
         close(unit)
 
-        call calc_ion_integral_harmonic(2, 0.7_dp, -0.4_dp, 1.1_dp, 0.3_dp, &
+        call calc_ion_flr_harmonic(2, 0.7_dp, -0.4_dp, 1.1_dp, 0.3_dp, &
             1.2_dp, 1.8_dp, -1.8_dp, 1.3_dp, 0.9_dp, 1.4_dp, fields_s, &
             fields_o, ifunc, production_tensor)
         call assert_array_real('optional debug channels leave production tensor', &
@@ -108,12 +108,12 @@ contains
 
         call set_oracle_inputs(fields, fields_o, ifunc)
         fields_o = fields
-        call calc_ion_integral_harmonic_debug(1, 0.7_dp, -0.4_dp, 1.1_dp, 0.3_dp, &
+        call calc_ion_flr_harmonic_debug(1, 0.7_dp, -0.4_dp, 1.1_dp, 0.3_dp, &
             1.2_dp, 1.8_dp, -1.8_dp, 1.3_dp, 0.9_dp, 1.4_dp, fields, &
             fields_o, ifunc, tensor_all, channels_all)
         fields(QL_BPAR) = (0.0_dp, 0.0_dp)
         fields_o(QL_BPAR) = (0.0_dp, 0.0_dp)
-        call calc_ion_integral_harmonic_debug(1, 0.7_dp, -0.4_dp, 1.1_dp, 0.3_dp, &
+        call calc_ion_flr_harmonic_debug(1, 0.7_dp, -0.4_dp, 1.1_dp, 0.3_dp, &
             1.2_dp, 1.8_dp, -1.8_dp, 1.3_dp, 0.9_dp, 1.4_dp, fields, &
             fields_o, ifunc, tensor_no, channels_no)
 
@@ -144,7 +144,7 @@ contains
         ifunc = (0.0_dp, 0.0_dp)
         ifunc(0,0) = (1.0_dp, 0.0_dp)
         fields(QL_BPAR) = cmplx(0.7_dp, -0.2_dp, dp)
-        call calc_ion_integral_harmonic_debug(0, ks, 0.0_dp, ks, 0.0_dp, vT, &
+        call calc_ion_flr_harmonic_debug(0, ks, 0.0_dp, ks, 0.0_dp, vT, &
             omega_c, -omega_c, c_light, B0, nu, fields, fields, ifunc, &
             tensor, channels)
         expected = vT**4*ks**2*abs(fields(QL_BPAR))**2 &
@@ -157,7 +157,7 @@ contains
         ! Add Phi with a non-trivial relative phase.  The two ordered
         ! Phi-Bparallel channels combine to the signed real interference term.
         fields(QL_PHI) = cmplx(5.0e-4_dp,-3.0e-4_dp,dp)
-        call calc_ion_integral_harmonic_debug(0, ks, 0.0_dp, ks, 0.0_dp, vT, &
+        call calc_ion_flr_harmonic_debug(0, ks, 0.0_dp, ks, 0.0_dp, vT, &
             omega_c, -omega_c, c_light, B0, nu, fields, fields, ifunc, &
             tensor, channels)
         expected_phi = c_light**2*ks**2*abs(fields(QL_PHI))**2 &
@@ -230,10 +230,10 @@ contains
         integer :: i, j, observation, source, bpar_count
 
         call set_oracle_inputs(fields_s, fields_o, ifunc)
-        call calc_ion_integral_harmonic_debug(2, 0.7_dp, -0.4_dp, 1.1_dp, 0.3_dp, &
+        call calc_ion_flr_harmonic_debug(2, 0.7_dp, -0.4_dp, 1.1_dp, 0.3_dp, &
             1.2_dp, 1.8_dp, -1.8_dp, 1.3_dp, 0.9_dp, 1.4_dp, fields_s, &
             fields_o, ifunc, minus_tensor, minus_channels)
-        call calc_ion_integral_harmonic_debug(2, 0.7_dp, -0.4_dp, 1.1_dp, 0.3_dp, &
+        call calc_ion_flr_harmonic_debug(2, 0.7_dp, -0.4_dp, 1.1_dp, 0.3_dp, &
             1.2_dp, 1.8_dp, 1.8_dp, 1.3_dp, 0.9_dp, 1.4_dp, fields_s, &
             fields_o, ifunc, plus_tensor, plus_channels)
         do i = 1, 2
@@ -267,7 +267,7 @@ contains
         ! Equal source/observation waves and fields isolate the explicit
         ! (K + K^dagger)/2 construction inside the production routine.
         call set_oracle_inputs(fields, unused_fields, ifunc)
-        call calc_ion_integral_harmonic_debug(2, 0.7_dp, -0.4_dp, 0.7_dp, -0.4_dp, &
+        call calc_ion_flr_harmonic_debug(2, 0.7_dp, -0.4_dp, 0.7_dp, -0.4_dp, &
             1.2_dp, 1.8_dp, -1.8_dp, 1.3_dp, 0.9_dp, 1.4_dp, fields, &
             fields, ifunc, tensor, channels)
         do i = 1, 2
@@ -312,7 +312,7 @@ contains
                 ifunc(p,r) = cmplx(xi**(p+r),0.0_dp,dp)
             end do
         end do
-        call calc_ion_integral_harmonic_debug(1, 0.7_dp, -0.4_dp, 0.7_dp, &
+        call calc_ion_flr_harmonic_debug(1, 0.7_dp, -0.4_dp, 0.7_dp, &
             -0.4_dp, 1.2_dp, 1.8_dp, -1.8_dp, 1.3_dp, 0.9_dp, 1.4_dp, &
             fields, fields, ifunc, tensor, channels)
         do i = 1, 2
@@ -345,10 +345,10 @@ contains
         phase = exp(cmplx(0.0_dp,0.731_dp,dp))
         phased_s = phase*fields_s
         phased_o = phase*fields_o
-        call calc_ion_integral_harmonic_debug(2, 0.7_dp, -0.4_dp, 1.1_dp, 0.3_dp, &
+        call calc_ion_flr_harmonic_debug(2, 0.7_dp, -0.4_dp, 1.1_dp, 0.3_dp, &
             1.2_dp, 1.8_dp, -1.8_dp, 1.3_dp, 0.9_dp, 1.4_dp, fields_s, &
             fields_o, ifunc, tensor, channels)
-        call calc_ion_integral_harmonic_debug(2, 0.7_dp, -0.4_dp, 1.1_dp, 0.3_dp, &
+        call calc_ion_flr_harmonic_debug(2, 0.7_dp, -0.4_dp, 1.1_dp, 0.3_dp, &
             1.2_dp, 1.8_dp, -1.8_dp, 1.3_dp, 0.9_dp, 1.4_dp, phased_s, &
             phased_o, ifunc, phased_tensor, phased_channels)
         call assert_array_complex('common field phase', phased_channels, channels, &
@@ -381,7 +381,7 @@ contains
         end do
         tensor_sum = 0.0_dp
         do harmonic = -limit, limit
-            call calc_ion_integral_harmonic_debug(harmonic, 0.7_dp, -0.4_dp, &
+            call calc_ion_flr_harmonic_debug(harmonic, 0.7_dp, -0.4_dp, &
                 0.7_dp, -0.4_dp, 1.2_dp, 1.8_dp, -1.8_dp, 1.3_dp, 0.9_dp, &
                 1.4_dp, fields, fields, ifunc, tensor, channels)
             tensor_sum = tensor_sum + tensor
@@ -405,7 +405,7 @@ contains
         fields(QL_BPAR) = cmplx(0.7_dp,-0.2_dp,dp)
         ifunc = (0.0_dp,0.0_dp)
         ifunc(0,0) = (1.0_dp,0.0_dp)
-        call calc_ion_integral_harmonic_debug(0, ks, 0.0_dp, ks, 0.0_dp, &
+        call calc_ion_flr_harmonic_debug(0, ks, 0.0_dp, ks, 0.0_dp, &
             1.2_dp, 1.8_dp, -1.8_dp, 1.3_dp, 0.9_dp, 1.4_dp, fields, &
             fields, ifunc, tensor, channels)
         expected = 1.2_dp**4*ks**2*abs(fields(QL_BPAR))**2 &
@@ -416,7 +416,7 @@ contains
     subroutine assert_oracle_version(header)
         character(len=*), intent(in) :: header
         character(len=64) :: expected
-        write(expected,'(a,i0)') '# algebra_version ', QL_INTEGRAL_ALGEBRA_VERSION
+        write(expected,'(a,i0)') '# algebra_version ', QL_FLR_ALGEBRA_VERSION
         if (trim(header) /= trim(expected)) then
             print *, 'FAIL: incompatible Mathematica oracle: ', trim(header)
             error stop
@@ -464,4 +464,4 @@ contains
         end if
     end subroutine assert_array_real
 
-end program test_quasilinear_integral_algebra
+end program test_quasilinear_flr_algebra

@@ -1,10 +1,10 @@
 (* ::Package:: *)
 
-(* Independent symbolic oracle for KIM's integral ion transport algebra.
+(* Independent symbolic oracle for KIM's finite-Larmor-radius ion transport algebra.
 
    Run with
 
-     wolframscript -file KIM/mathematica/verify_quasilinear_integral_transport.wl
+     wolframscript -file KIM/mathematica/verify_quasilinear_flr_transport.wl
 
    The script proves the insertion and energy-polynomial identities exactly,
    checks source/observation reciprocity at high precision, and regenerates
@@ -288,4 +288,4 @@ writeFixture[FileNameJoin[{fixtureDirectory,
 writeFixture[FileNameJoin[{fixtureDirectory,
   "quasilinear_channel_oracle.dat"}], channelRows];
 
-Print["QL_INTEGRAL_ORACLE_OK"];
+Print["QL_FLR_ORACLE_OK"];

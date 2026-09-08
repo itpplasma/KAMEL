@@ -1,8 +1,8 @@
-module quasilinear_integral_m
-    !! One-harmonic, two-wave building block for KIM's integral ion tensor.
+module quasilinear_flr_m
+    !! One-harmonic, two-wave building block for KIM's finite-Larmor-radius ion tensor.
     !!
     !! The implementation follows the restricted field-insertion operators
-    !! derived in mathematica/verify_quasilinear_integral_transport.wl.  The
+    !! derived in mathematica/verify_quasilinear_flr_transport.wl.  The
     !! Bparallel derivatives act only on the Gaussian--Bessel gyro-factor;
     !! kinetic detuning and equilibrium quantities are deliberately absent
     !! from this interface.
@@ -13,9 +13,9 @@ module quasilinear_integral_m
     integer, parameter, public :: QL_PHI = 1
     integer, parameter, public :: QL_BR = 2
     integer, parameter, public :: QL_BPAR = 3
-    integer, parameter, public :: QL_INTEGRAL_ALGEBRA_VERSION = 1
-    public :: calc_ion_integral_harmonic
-    public :: calc_ion_integral_harmonic_debug
+    integer, parameter, public :: QL_FLR_ALGEBRA_VERSION = 1
+    public :: calc_ion_flr_harmonic
+    public :: calc_ion_flr_harmonic_debug
     public :: build_transverse_moments
 
     type :: jet_t
@@ -27,7 +27,7 @@ module quasilinear_integral_m
 
 contains
 
-    subroutine calc_ion_integral_harmonic(ell, ks_s, kr_s, ks_o, kr_o, &
+    subroutine calc_ion_flr_harmonic(ell, ks_s, kr_s, ks_o, kr_o, &
             vT, omega_c, omega_signed, c_light, B0, nu, fields_s, fields_o, &
             ifunc, tensor)
         integer, intent(in) :: ell
@@ -36,12 +36,12 @@ contains
         complex(dp), intent(in) :: fields_s(3), fields_o(3)
         complex(dp), intent(in) :: ifunc(0:3,0:3)
         real(dp), intent(out) :: tensor(2,2)
-        call calc_ion_integral_harmonic_impl(ell, ks_s, kr_s, ks_o, kr_o, &
+        call calc_ion_flr_harmonic_impl(ell, ks_s, kr_s, ks_o, kr_o, &
             vT, omega_c, omega_signed, c_light, B0, nu, fields_s, fields_o, &
             ifunc, tensor)
-    end subroutine calc_ion_integral_harmonic
+    end subroutine calc_ion_flr_harmonic
 
-    subroutine calc_ion_integral_harmonic_debug(ell, ks_s, kr_s, ks_o, kr_o, &
+    subroutine calc_ion_flr_harmonic_debug(ell, ks_s, kr_s, ks_o, kr_o, &
             vT, omega_c, omega_signed, c_light, B0, nu, fields_s, fields_o, &
             ifunc, tensor, channels)
         integer, intent(in) :: ell
@@ -51,12 +51,12 @@ contains
         complex(dp), intent(in) :: ifunc(0:3,0:3)
         real(dp), intent(out) :: tensor(2,2)
         complex(dp), intent(out) :: channels(2,2,3,3)
-        call calc_ion_integral_harmonic_impl(ell, ks_s, kr_s, ks_o, kr_o, &
+        call calc_ion_flr_harmonic_impl(ell, ks_s, kr_s, ks_o, kr_o, &
             vT, omega_c, omega_signed, c_light, B0, nu, fields_s, fields_o, &
             ifunc, tensor, channels)
-    end subroutine calc_ion_integral_harmonic_debug
+    end subroutine calc_ion_flr_harmonic_debug
 
-    subroutine calc_ion_integral_harmonic_impl(ell, ks_s, kr_s, ks_o, kr_o, &
+    subroutine calc_ion_flr_harmonic_impl(ell, ks_s, kr_s, ks_o, kr_o, &
             vT, omega_c, omega_signed, c_light, B0, nu, fields_s, fields_o, &
             ifunc, tensor, channels)
         integer, intent(in) :: ell
@@ -74,7 +74,7 @@ contains
 
         if (vT <= 0.0_dp .or. omega_c <= 0.0_dp .or. &
                 abs(B0) <= tiny(1.0_dp) .or. nu <= 0.0_dp) &
-            error stop 'calc_ion_integral_harmonic: invalid physical scale'
+            error stop 'calc_ion_flr_harmonic: invalid physical scale'
 
         call build_transverse_moments(ell, ks_s, kr_s, ks_o, kr_o, vT, &
             omega_c, omega_signed, c_light, B0, transverse)
@@ -98,7 +98,7 @@ contains
             end do
         end do
         if (present(channels)) channels = channel_work
-    end subroutine calc_ion_integral_harmonic_impl
+    end subroutine calc_ion_flr_harmonic_impl
 
     subroutine build_raw_channels(transverse, fields_s, fields_o, ifunc, nu, raw)
         complex(dp), intent(in) :: transverse(0:2,3,3)
@@ -453,4 +453,4 @@ contains
             + cmplx(fp,0.0_dp,dp)*x%dso
     end function jet_besseli
 
-end module quasilinear_integral_m
+end module quasilinear_flr_m

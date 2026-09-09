@@ -196,6 +196,7 @@ def _to_groups(
     density_scale = physics.density_scale
     builtin = isinstance(config.plasma, BuiltinPlasma)
 
+    profile_path = profile_directory.as_posix().rstrip("/") + "/"
     groups: list[tuple[str, dict[str, Any]]] = [
         (
             "KIM_CONFIG",
@@ -222,7 +223,7 @@ def _to_groups(
         (
             "KIM_IO",
             {
-                "profile_location": str(profile_directory),
+                "profile_location": profile_path,
                 "output_path": str(output_directory),
                 "hdf5_input": config.io.hdf5_input,
                 "hdf5_output": config.io.hdf5_output,
@@ -239,7 +240,7 @@ def _to_groups(
             "KIM_PROFILES",
             {
                 "coord_type": profiles.coordinate_type,
-                "input_profile_dir": str(profile_directory),
+                "input_profile_dir": profile_path,
                 "n_file": profiles.density_file,
                 "Te_file": profiles.electron_temperature_file,
                 "Ti_file": profiles.ion_temperature_file,

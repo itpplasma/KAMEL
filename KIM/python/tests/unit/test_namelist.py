@@ -99,6 +99,8 @@ def test_groups_follow_fortran_read_order_and_fields_are_translated() -> None:
     assert parsed["kim_config"]["type_of_run"] == "electrostatic_periodic"
     assert parsed["kim_io"]["hdf5_input"] is False
     assert parsed["kim_io"]["hdf5_output"] is True
+    assert parsed["kim_io"]["profile_location"] == "/source/profiles/"
+    assert parsed["kim_profiles"]["input_profile_dir"] == "/source/profiles/"
 
 
 @pytest.mark.parametrize(
@@ -201,8 +203,8 @@ def test_import_rejects_hdf5_input() -> None:
 def test_import_rejects_inconsistent_profile_directories() -> None:
     rendered = dumps_namelist(SimulationConfig.electrostatic(**physical_case()))
     rendered = rendered.replace(
-        "input_profile_dir = '/source/profiles'",
-        "input_profile_dir = '/different/profiles'",
+        "input_profile_dir = '/source/profiles/'",
+        "input_profile_dir = '/different/profiles/'",
     )
 
     with pytest.raises(ConfigurationError, match="profile directories must match"):

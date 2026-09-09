@@ -22,7 +22,7 @@
 /
 
 &KIM_IO
-    profile_location = '/source/profiles'
+    profile_location = '/source/profiles/'
     output_path = 'results'
     hdf5_input = .false.
     hdf5_output = .true.
@@ -77,7 +77,7 @@
 
 &KIM_PROFILES
     coord_type = 'r_eff'
-    input_profile_dir = '/source/profiles'
+    input_profile_dir = '/source/profiles/'
     n_file = 'n.dat'
     Te_file = 'Te.dat'
     Ti_file = 'Ti.dat'

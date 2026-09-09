@@ -25,7 +25,8 @@ from kim.config import (
     SimulationConfig,
     ThetaIntegration,
 )
-from kim.errors import ConfigurationError, KimError
+from kim.errors import ConfigurationError, KimError, ProfileError
+from kim.profiles import ProfileCopy, ProfileData, ProfileSet, ProfileValidation
 
 __version__ = "0.1.0"
 
@@ -49,6 +50,11 @@ __all__ = [
     "PhysicsConfig",
     "PlasmaIsotope",
     "ProfileConfig",
+    "ProfileCopy",
+    "ProfileData",
+    "ProfileError",
+    "ProfileSet",
+    "ProfileValidation",
     "QuadpackAlgorithm",
     "RunConfig",
     "RunType",

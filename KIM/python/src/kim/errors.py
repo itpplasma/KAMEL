@@ -7,3 +7,7 @@ class KimError(Exception):
 
 class ConfigurationError(KimError):
     """Raised when a KIM configuration cannot be constructed or loaded."""
+
+
+class ProfileError(KimError):
+    """Raised when radial profile input is missing, malformed, or inconsistent."""

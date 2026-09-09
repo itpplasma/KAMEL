@@ -19,3 +19,7 @@ class ExecutableError(KimError):
 
 class RunError(KimError):
     """Raised when a run repository or manifest operation fails."""
+
+
+class ResultError(KimError):
+    """Raised when a KIM result cannot be safely read or interpreted."""

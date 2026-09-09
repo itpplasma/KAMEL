@@ -8,6 +8,7 @@ from pathlib import Path
 
 import f90nml
 import h5py
+import numpy as np
 import pytest
 from kim import (
     BuiltinPlasma,
@@ -101,6 +102,7 @@ def test_run_uses_exact_command_and_run_directory_and_separate_logs(tmp_path: Pa
     assert result.stdout.read_text() == "fake KIM stdout\n"
     assert result.stderr.read_text() == ""
     assert result.output_file.is_file()
+    np.testing.assert_array_equal(result.periodic.potential, [1 + 1j] * 3)
     assert result.manifest.exit_code == 0
     assert result.manifest.environment == {"OMP_NUM_THREADS": "3"}
     assert result.manifest.discovered_outputs == (Path("results/m7_n2/out_ES_periodic.h5"),)

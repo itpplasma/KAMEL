@@ -7,6 +7,7 @@ import subprocess
 from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import h5py
 from kim.config import RunType, SimulationConfig
@@ -14,6 +15,9 @@ from kim.executable import discover_kamel_git_metadata, executable_sha256, resol
 from kim.namelist import write_namelist
 from kim.profiles import ProfileSet
 from kim.runs import RunFailure, RunManifest, RunPaths, RunRepository, RunStatus
+
+if TYPE_CHECKING:
+    from kim.results import DatasetMetadata, PeriodicResult, Result
 
 _OUTPUT_FILES = {
     RunType.ELECTROSTATIC_PERIODIC: "out_ES_periodic.h5",
@@ -74,6 +78,35 @@ class RunResult:
     @property
     def stderr(self) -> Path:
         return self.paths.stderr
+
+    def list_datasets(self) -> tuple[str, ...]:
+        """List datasets in this run's primary HDF5 output."""
+
+        return self.output.list_datasets()
+
+    def read_dataset(self, path: str) -> object:
+        """Read one dataset from this run's primary HDF5 output."""
+
+        return self.output.read_dataset(path)
+
+    def dataset_metadata(self, path: str) -> DatasetMetadata:
+        """Read metadata for one dataset in the primary HDF5 output."""
+
+        return self.output.dataset_metadata(path)
+
+    @property
+    def output(self) -> Result:
+        """Return generic structured access to the primary HDF5 output."""
+
+        from kim.results import Result
+
+        return Result(self.output_file)
+
+    @property
+    def periodic(self) -> PeriodicResult:
+        """Return the validated periodic view of the primary output."""
+
+        return self.output.periodic
 
 
 class Simulation:

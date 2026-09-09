@@ -25,7 +25,14 @@ from kim.config import (
     SimulationConfig,
     ThetaIntegration,
 )
-from kim.errors import ConfigurationError, ExecutableError, KimError, ProfileError, RunError
+from kim.errors import (
+    ConfigurationError,
+    ExecutableError,
+    KimError,
+    ProfileError,
+    ResultError,
+    RunError,
+)
 from kim.executable import (
     KamelGitMetadata,
     discover_kamel_git_metadata,
@@ -33,6 +40,7 @@ from kim.executable import (
     resolve_executable,
 )
 from kim.profiles import ProfileCopy, ProfileData, ProfileSet, ProfileValidation
+from kim.results import DatasetMetadata, PeriodicResult, Result
 from kim.runs import (
     InputArtifact,
     RunFailure,
@@ -49,6 +57,7 @@ __all__ = [
     "BuiltinPlasma",
     "CollisionModel",
     "ConfigurationError",
+    "DatasetMetadata",
     "ElectrostaticPeriodicRun",
     "ElectrostaticRun",
     "ExplicitPlasma",
@@ -64,6 +73,7 @@ __all__ = [
     "KamelGitMetadata",
     "KimError",
     "PeriodicConfig",
+    "PeriodicResult",
     "PlasmaConfig",
     "PhysicsConfig",
     "PlasmaIsotope",
@@ -75,6 +85,8 @@ __all__ = [
     "ProfileValidation",
     "PreparedSimulation",
     "QuadpackAlgorithm",
+    "Result",
+    "ResultError",
     "RunConfig",
     "RunError",
     "RunFailure",

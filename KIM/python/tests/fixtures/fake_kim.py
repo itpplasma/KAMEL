@@ -54,9 +54,10 @@ def main() -> int:
 
     with h5py.File(mode_dir / output_file, "w") as handle:
         potential_name = "fields/Phi_m" if output_file == "out_ES.h5" else "fields/Phi"
-        handle.create_dataset(potential_name, data=np.ones(3))
+        complex_values = np.ones(3, dtype=[("real", "<f8"), ("imag", "<f8")])
+        handle.create_dataset(potential_name, data=complex_values)
         if mode != "partial_output":
-            handle.create_dataset("fields/jpar", data=np.ones(3))
+            handle.create_dataset("fields/jpar", data=complex_values)
             handle.create_dataset("backs/e/r", data=np.arange(3.0))
             handle.create_dataset("setup/periodic_scale/dx_asis", data=1.0)
     return 0

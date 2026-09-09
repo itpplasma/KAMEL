@@ -6,8 +6,12 @@ module fields_m
 
     type :: EBdat_t
         real(dp), allocatable :: r_grid(:)
+        real(dp) :: r_resonance = 0.0_dp
+        real(dp) :: dx_asis = 0.0_dp
+        real(dp) :: dx_transition = 0.0_dp
         complex(dp), allocatable :: Br(:)
         complex(dp), allocatable :: Bparallel(:)
+        real(dp), allocatable :: D_ion(:,:,:)
         complex(dp), allocatable :: Apar(:)
         complex(dp), allocatable :: E_perp_psi(:)
         complex(dp), allocatable :: E_perp(:)

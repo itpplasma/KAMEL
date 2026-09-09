@@ -11,6 +11,7 @@ program test_kim_solver_em
     !> tight numeric golden for a physics solve is platform-fragile.
     use, intrinsic :: ieee_arithmetic, only: ieee_is_finite
     use KIM_kinds_m, only: dp
+    use grid_m, only: l_space_dim, rg_space_dim, M_mat, xl_grid
     use kim_solver_m, only: kim_solver_t, kim_results_t, kim_profiles_t, KIM_OK
 
     implicit none
@@ -97,7 +98,21 @@ program test_kim_solver_em
         call check_bg('B0th', res%B0th, size(res%r_plasma), all_passed)
     end if
 
+    ! A later mode/profile solve may regenerate the computational meshes.
+    ! Its mass matrix and susceptibility prefactors must use the new grid.
+    l_space_dim = 48
+    rg_space_dim = 48
+    call kim%solve(m=m_mode, n=n_mode, stat=ierr)
+    call check('solve after grid change returns KIM_OK', ierr == KIM_OK, all_passed)
+    res = kim%results()
+    call check('mass matrix follows changed grid', size(M_mat, 1) == xl_grid%npts_b, all_passed)
+    call check_bg('changed-grid B0', res%B0, size(res%r_plasma), all_passed)
+
+    res = kim%background()
+    call check('global background populated before finalize', allocated(res%r_plasma), all_passed)
     call kim%finalize()
+    res = kim%background()
+    call check('finalize releases global background', .not. allocated(res%r_plasma), all_passed)
     call done(all_passed)
 
 contains

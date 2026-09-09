@@ -15,6 +15,8 @@ module kim_solver_m
 
     use KIM_kinds_m, only: dp
     use kim_base_m, only: kim_t
+    use species_m, only: plasma_t
+    use grid_m, only: grid_type
 
     implicit none
     private
@@ -42,10 +44,14 @@ module kim_solver_m
 
         ! field solution (field grid)
         real(dp),    allocatable :: r_field(:)
+        real(dp) :: r_resonance = 0.0_dp
+        real(dp) :: dx_asis = 0.0_dp
+        real(dp) :: dx_transition = 0.0_dp
         complex(dp), allocatable :: Es(:), Ep(:), Er(:), Etheta(:), Ez(:), Br(:), Bparallel(:)
         complex(dp), allocatable :: jpar(:), jpar_e(:), jpar_i(:)
         complex(dp), allocatable :: jrad(:)
         complex(dp), allocatable :: Phi(:)
+        real(dp), allocatable :: D_ion(:,:,:)
 
         ! derived background (plasma grid)
         real(dp), allocatable :: r_plasma(:)
@@ -63,11 +69,15 @@ module kim_solver_m
         logical :: profiles_dirty = .false.
         integer :: status = KIM_OK
         type(kim_results_t) :: last
+        type(kim_results_t) :: global_background
+        type(plasma_t), allocatable :: input_plasma
+        type(grid_type), allocatable :: global_rg_grid
     contains
         procedure :: init        => solver_init
         procedure :: set_profiles => solver_set_profiles
         procedure :: solve       => solver_solve
         procedure :: results     => solver_results
+        procedure :: background  => solver_background
         procedure :: finalize    => solver_finalize
         procedure :: status_code => solver_status_code
     end type kim_solver_t
@@ -80,6 +90,10 @@ contains
     subroutine solver_init(self, config_path, run_type, profiles, stat)
         use config_m, only: nml_config_path, type_of_run, profiles_in_memory
         use kim_mod_m, only: from_kim_factory_get_kim
+        use species_m, only: plasma
+        use grid_m, only: rg_grid
+        use periodic_background_m, only: reset_true_background_cache
+        use kim_resonances_m, only: prop, r_res
 
         class(kim_solver_t), intent(inout) :: self
         character(*), intent(in) :: config_path
@@ -101,7 +115,9 @@ contains
         end if
 
         nml_config_path = trim(config_path)
-        if (present(profiles)) profiles_in_memory = .true.
+        profiles_in_memory = present(profiles)
+        prop = .true.
+        r_res = 0.0_dp
 
         ! Config read + plasma allocation/init (file profiles skipped when in-memory).
         call kim_init
@@ -110,8 +126,14 @@ contains
 
         if (present(run_type)) type_of_run = trim(run_type)
 
+        ! Save raw input profiles before initialization interpolates them onto
+        ! a computational grid. A local periodic solve must never become the
+        ! background source for a later solve or profile update.
+        self%input_plasma = plasma
         call from_kim_factory_get_kim(trim(type_of_run), self%run_type)
         call self%run_type%init()
+        self%global_rg_grid = rg_grid
+        call reset_true_background_cache()
 
         self%is_setup = .true.
         self%profiles_dirty = .false.
@@ -120,6 +142,7 @@ contains
 
     !> Update the in-memory profiles between solves (e.g. time evolution).
     subroutine solver_set_profiles(self, profiles, stat)
+        use species_m, only: plasma
         class(kim_solver_t), intent(inout) :: self
         type(kim_profiles_t), intent(in) :: profiles
         integer, intent(out), optional :: stat
@@ -130,7 +153,9 @@ contains
             return
         end if
 
+        call restore_input_background(self)
         call inject_profiles(profiles)
+        self%input_plasma = plasma
         self%profiles_dirty = .true.
         self%status = KIM_OK
         if (present(stat)) stat = self%status
@@ -142,6 +167,7 @@ contains
     !> currently hand-codes; here they are owned by the handle.
     subroutine solver_solve(self, m, n, stat)
         use setup_m, only: m_mode, n_mode
+        use grid_m, only: rg_grid
 
         class(kim_solver_t), intent(inout) :: self
         integer, intent(in) :: m, n
@@ -161,10 +187,14 @@ contains
         ! init() prepares the configured mode. Reuse it only while neither the
         ! mode nor the in-memory profiles have changed.
         if (self%has_solved .or. mode_changed .or. self%profiles_dirty) then
+            call restore_input_background(self)
             call recompute_equilibrium_for_mode()
+            self%global_rg_grid = rg_grid
             self%profiles_dirty = .false.
         end if
 
+        self%global_background = kim_results_t()
+        call copy_background_from_globals(self%global_background)
         call reset_fields()
         call self%run_type%run()
 
@@ -180,6 +210,13 @@ contains
         type(kim_results_t) :: res
         res = self%last
     end function solver_results
+
+    !> Global derived background before the local solver redirects its grid.
+    function solver_background(self) result(res)
+        class(kim_solver_t), intent(in) :: self
+        type(kim_results_t) :: res
+        res = self%global_background
+    end function solver_background
 
     !> Release run state: reset the field buffers and the full equilibrium
     !> background (so a later init starts clean), drop the run-type, clear the
@@ -202,6 +239,9 @@ contains
         if (allocated(u))           deallocate(u)
         if (allocated(dpress_prof)) deallocate(dpress_prof)
         if (allocated(self%run_type)) deallocate(self%run_type)
+        if (allocated(self%input_plasma)) deallocate(self%input_plasma)
+        if (allocated(self%global_rg_grid)) deallocate(self%global_rg_grid)
+        self%global_background = kim_results_t()
         self%is_setup = .false.
         self%has_solved = .false.
         self%profiles_dirty = .false.
@@ -226,13 +266,27 @@ contains
                                       size(profiles%r))
     end subroutine inject_profiles
 
+    subroutine restore_input_background(self)
+        use species_m, only: plasma
+        use grid_m, only: rg_grid
+        use periodic_background_m, only: reset_true_background_cache
+        class(kim_solver_t), intent(in) :: self
+
+        plasma = self%input_plasma
+        rg_grid = self%global_rg_grid
+        call reset_true_background_cache()
+    end subroutine restore_input_background
+
     !> Recompute the background equilibrium for the current (m_mode, n_mode).
     subroutine recompute_equilibrium_for_mode()
         use equilibrium_m, only: calculate_equil, interpolate_equil
         use species_m, only: deallocate_plasma_derived, plasma, set_plasma_quantities
         use grid_m, only: rg_grid
+        use kim_resonances_m, only: prop
 
         call deallocate_plasma_derived()
+        prop = .true.
+        call generate_grids
         call calculate_equil(.false.)
         call set_plasma_quantities(plasma)
         call interpolate_equil(rg_grid%xb)
@@ -241,10 +295,19 @@ contains
     !> Deallocate the global field buffers so the next run() re-allocates cleanly.
     subroutine reset_fields()
         use fields_m, only: EBdat
+        use grid_m, only: M_mat
+        use kernel_m, only: reset_cc_prefactors
 
+        ! Rebuilt grids and backgrounds invalidate both geometry and kinetic caches.
+        if (allocated(M_mat)) deallocate(M_mat)
+        call reset_cc_prefactors()
         if (allocated(EBdat%r_grid))            deallocate(EBdat%r_grid)
+        EBdat%r_resonance = 0.0_dp
+        EBdat%dx_asis = 0.0_dp
+        EBdat%dx_transition = 0.0_dp
         if (allocated(EBdat%Br))                deallocate(EBdat%Br)
         if (allocated(EBdat%Bparallel))         deallocate(EBdat%Bparallel)
+        if (allocated(EBdat%D_ion))              deallocate(EBdat%D_ion)
         if (allocated(EBdat%Apar))              deallocate(EBdat%Apar)
         if (allocated(EBdat%E_perp_psi))        deallocate(EBdat%E_perp_psi)
         if (allocated(EBdat%E_perp))            deallocate(EBdat%E_perp)
@@ -271,8 +334,6 @@ contains
     !> Every field is guarded: a run-type only fills the buffers it produces.
     subroutine copy_results_from_globals(res, m, n)
         use fields_m, only: EBdat
-        use species_m, only: plasma
-        use equilibrium_m, only: B0, B0z, B0th
 
         type(kim_results_t), intent(out) :: res
         integer, intent(in) :: m, n
@@ -283,6 +344,9 @@ contains
 
         ! field solution (field grid)
         if (allocated(EBdat%r_grid)) res%r_field = EBdat%r_grid
+        res%r_resonance = EBdat%r_resonance
+        res%dx_asis = EBdat%dx_asis
+        res%dx_transition = EBdat%dx_transition
         if (allocated(EBdat%Es))     res%Es      = EBdat%Es
         if (allocated(EBdat%Ep))     res%Ep      = EBdat%Ep
         if (allocated(EBdat%Er))     res%Er      = EBdat%Er
@@ -295,6 +359,15 @@ contains
         if (allocated(EBdat%jpar_i)) res%jpar_i  = EBdat%jpar_i
         if (allocated(EBdat%jrad))   res%jrad    = EBdat%jrad
         if (allocated(EBdat%Phi))    res%Phi     = EBdat%Phi
+        if (allocated(EBdat%D_ion)) res%D_ion    = EBdat%D_ion
+
+        call copy_background_from_globals(res)
+    end subroutine copy_results_from_globals
+
+    subroutine copy_background_from_globals(res)
+        use species_m, only: plasma
+        use equilibrium_m, only: B0, B0z, B0th
+        type(kim_results_t), intent(inout) :: res
 
         ! derived background (plasma grid)
         if (allocated(plasma%r_grid)) res%r_plasma = plasma%r_grid
@@ -314,6 +387,6 @@ contains
         if (allocated(B0))   res%B0   = B0
         if (allocated(B0z))  res%B0z  = B0z
         if (allocated(B0th)) res%B0th = B0th
-    end subroutine copy_results_from_globals
+    end subroutine copy_background_from_globals
 
 end module kim_solver_m

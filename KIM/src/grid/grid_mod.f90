@@ -180,9 +180,9 @@ module grid_m
         x_current = this%min_val
 
         do while(x_current .lt. this%max_val)
-            call recnsplit(x_current, recnsp)
+            call kim_recnsplit(x_current, recnsp)
             x_next = x_current + this%hrmax / recnsp
-            call recnsplit(x_next, recnsp)
+            call kim_recnsplit(x_next, recnsp)
             x_current = 0.5d0 * (x_next + x_current + this%hrmax / recnsp)
             this%npts_b = this%npts_b + 1
         enddo
@@ -216,9 +216,9 @@ module grid_m
         this%xb(1) = x_current
 
         do ipoib=2, this%npts_b
-            call recnsplit(x_current, recnsp)
+            call kim_recnsplit(x_current, recnsp)
             x_next = x_current + this%hrmax / recnsp
-            call recnsplit(x_next, recnsp)
+            call kim_recnsplit(x_next, recnsp)
             x_current = 0.5d0 * (x_next + x_current + this%hrmax / recnsp)
             this%xb(ipoib) = x_current
             this%xc(ipoib-1) = 0.5 * (this%xb(ipoib-1) + this%xb(ipoib))

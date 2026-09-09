@@ -30,22 +30,26 @@ subroutine get_dql
     use plasma_parameters
     use baseparam_mod, only: Z_i, e_charge, am, p_mass, c, e_mass, ev, rtor, pi, rsepar
     use control_mod, only: irf, suppression_mode, misalign_diffusion, type_of_run, wave_code, &
-                          jpar_method
+                          jpar_method, kim_ion_transport_model, &
+                          ion_transport_model_id, ION_TRANSPORT_FLR, &
+                          ION_TRANSPORT_DRIFT_KINETIC
     use time_evolution, only: save_prof_time_step, time_ind, br_formfactor, br_vac_res
     use h5mod
     use wave_code_data
     use kim_wave_code_adapter_m, only: kim_update_profiles, kim_run_for_all_modes, &
         kim_get_wave_fields, kim_get_wave_vectors, kim_vac_Br, kim_Br_modes, &
-        kim_get_current_densities
+        kim_get_current_densities, kim_D_ion_modes, kim_periodic_mode_selected
     use QLBalance_diag, only: i_mn_loop
     use QLBalance_kinds, only: dp
+    use transport_smoothing_m, only: smooth_transport_profile
     use PolyLagrangeInterpolation
     use logger_m, only: log_debug
     use writeData_m, only: write_fields_currs_transp_coefs_to_h5, write_D_one_over_nu_to_h5
 
     implicit none
 
-    integer :: ipoi, ieq, i_mn, mwind_save
+    integer :: ipoi, ieq, i_mn
+    logical :: periodic_transport
     complex(dp), allocatable :: unused_fields(:, :)
     real(dp), dimension(:), allocatable :: dummy
     real(dp), dimension(:), allocatable :: row_buffer
@@ -237,12 +241,31 @@ subroutine get_dql
             call calc_transport_coeffs_collisionless(npoib, vT_i, di11, di12, di22)
             di21 = di12
         else
-            if (.true.) then
-                call calc_transport_coeffs_ornuhl(npoib, vT_e, nu_e, de11, de12, de21, de22)
-                call calc_transport_coeffs_ornuhl(npoib, vT_i, nu_i, di11, di12, di21, di22)
+            ! Electrons retain the established drift-kinetic Heyn/Markl
+            ! coefficients. The ion model is selectable for periodic KIM so
+            ! both formalisms can be compared using the same physical fields.
+            call calc_transport_coeffs_ornuhl(npoib, vT_e, nu_e, de11, de12, de21, de22)
+            if (trim(wave_code) == 'KIM' .and. kim_periodic_mode_selected()) then
+                select case (ion_transport_model_id(kim_ion_transport_model))
+                case (ION_TRANSPORT_FLR)
+                    if (.not. allocated(kim_D_ion_modes)) then
+                        error stop 'finite-Larmor-radius ion transport tensor is unavailable'
+                    end if
+                    if (size(kim_D_ion_modes, 3) /= npoib .or. &
+                            i_mn > size(kim_D_ion_modes, 4)) then
+                        error stop 'finite-Larmor-radius ion transport tensor has an invalid shape'
+                    end if
+                    di11 = kim_D_ion_modes(1, 1, :, i_mn)
+                    di12 = kim_D_ion_modes(1, 2, :, i_mn)
+                    di21 = kim_D_ion_modes(2, 1, :, i_mn)
+                    di22 = kim_D_ion_modes(2, 2, :, i_mn)
+                case (ION_TRANSPORT_DRIFT_KINETIC)
+                    call calc_transport_coeffs_ornuhl(npoib, vT_i, nu_i, di11, di12, di21, di22)
+                case default
+                    error stop 'invalid kim_ion_transport_model'
+                end select
             else
-                call calc_transport_coeffs_ornuhl_drift(1, npoib, de11, de12, de21, de22)
-                call calc_transport_coeffs_ornuhl_drift(2, npoib, di11, di12, di21, di22)
+                call calc_transport_coeffs_ornuhl(npoib, vT_i, nu_i, di11, di12, di21, di22)
             end if
         end if
 
@@ -455,54 +478,15 @@ subroutine get_dql
     call calc_parallel_current_directly
     call calc_ion_parallel_current_directly
 
-    if (.true.) then
-        mwind_save = mwind
-        mwind = 30
-        allocate (dummy(npoib))
-        call smooth_array_gauss(npoib, mwind, dqle11, dummy)
-        dqle11 = dummy
-        call smooth_array_gauss(npoib, mwind, dqle12, dummy)
-        dqle12 = dummy
-        call smooth_array_gauss(npoib, mwind, dqle21, dummy)
-        dqle21 = dummy
-        call smooth_array_gauss(npoib, mwind, dqle22, dummy)
-        dqle22 = dummy
-        mwind = 30
-        call smooth_array_gauss(npoib, mwind, dqli11, dummy)
-        dqli11 = dummy
-        call smooth_array_gauss(npoib, mwind, dqli12, dummy)
-        dqli12 = dummy
-        call smooth_array_gauss(npoib, mwind, dqli21, dummy)
-        dqli21 = dummy
-        call smooth_array_gauss(npoib, mwind, dqli22, dummy)
-        dqli22 = dummy
-        mwind = mwind_save
-        deallocate (dummy)
-    else
-        ! set ion particle flux coefficients to zero
-        mwind_save = mwind
-        mwind = 30
-        allocate (dummy(npoib))
-        !call smooth_array_gauss(npoib, mwind, dqle11, dummy)
-        dqle11 = 0.d0!dummy
-        !call smooth_array_gauss(npoib, mwind, dqle12, dummy)
-        dqle12 = 0.d0!dummy
-        call smooth_array_gauss(npoib, mwind, dqle21, dummy)
-        dqle21 = dummy
-        call smooth_array_gauss(npoib, mwind, dqle22, dummy)
-        dqle22 = dummy
-        mwind = 30
-        call smooth_array_gauss(npoib, mwind, dqli12, dummy)
-        dqli12 = dummy
-        call smooth_array_gauss(npoib, mwind, dqli21, dummy)
-        dqli21 = dummy
-        call smooth_array_gauss(npoib, mwind, dqli21, dummy)
-        dqli21 = dummy
-        call smooth_array_gauss(npoib, mwind, dqli22, dummy)
-        dqli22 = dummy
-        mwind = mwind_save
-        deallocate (dummy)
-    end if
+    periodic_transport = trim(wave_code) == 'KIM' .and. kim_periodic_mode_selected()
+    call smooth_transport_profile(dqle11, periodic_transport)
+    call smooth_transport_profile(dqle12, periodic_transport)
+    call smooth_transport_profile(dqle21, periodic_transport)
+    call smooth_transport_profile(dqle22, periodic_transport)
+    call smooth_transport_profile(dqli11, periodic_transport)
+    call smooth_transport_profile(dqli12, periodic_transport)
+    call smooth_transport_profile(dqli21, periodic_transport)
+    call smooth_transport_profile(dqli22, periodic_transport)
 
     call log_debug("write_fields_currs_transp_coefs_to_h5")
 

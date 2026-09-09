@@ -1,4 +1,4 @@
-subroutine recnsplit(r,recnsp)
+subroutine kim_recnsplit(r,recnsp)
 
     use kim_resonances_m, only: r_res, prop
     use grid_m, only: width_res, ampl_res
@@ -10,9 +10,9 @@ subroutine recnsplit(r,recnsp)
 
     if(prop) then
         prop=.false.
-        call prepare_resonances
+        call kim_prepare_resonances
     endif
 
     recnsp = 1.0d0 +  ampl_res * exp(-((r - r_res) / width_res)**2.0d0)
 
-end subroutine recnsplit
+end subroutine kim_recnsplit

@@ -41,6 +41,24 @@ module kernel_m
 
     contains
 
+    ! Background and grid changes invalidate both values and allocation shapes.
+    subroutine reset_cc_prefactors()
+        pref_ready = .false.
+        if (allocated(pref_rho_phi_g1)) deallocate(pref_rho_phi_g1)
+        if (allocated(pref_rho_phi_g2)) deallocate(pref_rho_phi_g2)
+        if (allocated(pref_rho_phi_g3)) deallocate(pref_rho_phi_g3)
+        if (allocated(pref_rho_phi_g0)) deallocate(pref_rho_phi_g0)
+        if (allocated(pref_rho_B_g1)) deallocate(pref_rho_B_g1)
+        if (allocated(pref_rho_B_g2)) deallocate(pref_rho_B_g2)
+        if (allocated(pref_rho_B_g3)) deallocate(pref_rho_B_g3)
+        if (allocated(pref_j_phi_g1)) deallocate(pref_j_phi_g1)
+        if (allocated(pref_j_phi_g2)) deallocate(pref_j_phi_g2)
+        if (allocated(pref_j_phi_g3)) deallocate(pref_j_phi_g3)
+        if (allocated(pref_j_B_g1)) deallocate(pref_j_B_g1)
+        if (allocated(pref_j_B_g2)) deallocate(pref_j_B_g2)
+        if (allocated(pref_j_B_g3)) deallocate(pref_j_B_g3)
+    end subroutine reset_cc_prefactors
+
     subroutine set_fp_integration_radius(point, spec, j)
 
         use integrands_gauss_m, only: integration_point_t

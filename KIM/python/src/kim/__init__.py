@@ -1,5 +1,59 @@
 """Python automation interface for the KIM plasma-response solver."""
 
+from kim.config import (
+    BuiltinPlasma,
+    CollisionModel,
+    ElectrostaticPeriodicRun,
+    ElectrostaticRun,
+    ExplicitPlasma,
+    Flr2Config,
+    Flr2Run,
+    GridConfig,
+    GridSpacing,
+    IOConfig,
+    IonCollisionModel,
+    IonSpecies,
+    PeriodicConfig,
+    PhysicsConfig,
+    PlasmaConfig,
+    PlasmaIsotope,
+    ProfileConfig,
+    QuadpackAlgorithm,
+    RunConfig,
+    RunType,
+    SetupConfig,
+    SimulationConfig,
+    ThetaIntegration,
+)
+from kim.errors import ConfigurationError, KimError
+
 __version__ = "0.1.0"
 
-__all__ = ["__version__"]
+__all__ = [
+    "BuiltinPlasma",
+    "CollisionModel",
+    "ConfigurationError",
+    "ElectrostaticPeriodicRun",
+    "ElectrostaticRun",
+    "ExplicitPlasma",
+    "Flr2Config",
+    "Flr2Run",
+    "GridConfig",
+    "GridSpacing",
+    "IOConfig",
+    "IonCollisionModel",
+    "IonSpecies",
+    "KimError",
+    "PeriodicConfig",
+    "PlasmaConfig",
+    "PhysicsConfig",
+    "PlasmaIsotope",
+    "ProfileConfig",
+    "QuadpackAlgorithm",
+    "RunConfig",
+    "RunType",
+    "SetupConfig",
+    "SimulationConfig",
+    "ThetaIntegration",
+    "__version__",
+]

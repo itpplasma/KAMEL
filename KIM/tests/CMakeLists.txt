@@ -76,6 +76,20 @@ target_link_libraries(test_wavenumber_geometry KIM_lib)
 add_test(NAME test_wavenumber_geometry
          COMMAND ${CMAKE_BINARY_DIR}/tests/test_wavenumber_geometry.x)
 
+add_executable(test_signed_resonances test_signed_resonances.f90)
+set_target_properties(test_signed_resonances PROPERTIES
+                      OUTPUT_NAME test_signed_resonances.x
+                      RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/tests/")
+target_link_libraries(test_signed_resonances
+                      KIM_lib kilca_lib lapack cerf fortnum_amos_compat)
+add_test(NAME test_signed_resonances
+         COMMAND ${CMAKE_BINARY_DIR}/tests/test_signed_resonances.x)
+foreach(invalid_geometry nan_q nan_r unordered_r shape missing_q)
+    add_test(NAME test_signed_resonances_${invalid_geometry}
+             COMMAND ${CMAKE_BINARY_DIR}/tests/test_signed_resonances.x ${invalid_geometry})
+    set_tests_properties(test_signed_resonances_${invalid_geometry} PROPERTIES WILL_FAIL TRUE)
+endforeach()
+
 add_executable(test_profile_input ${CMAKE_SOURCE_DIR}/KIM/tests/test_profile_input.f90)
 set_target_properties(test_profile_input PROPERTIES
                         OUTPUT_NAME test_profile_input.x

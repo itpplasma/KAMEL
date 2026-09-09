@@ -43,6 +43,11 @@ target_link_libraries(test_vel_integral.x PUBLIC ql-balance_lib)
 add_fortran_test(test_vel_integral)
 configure_file(${CMAKE_SOURCE_DIR}/KIM/tests/test_data/KIM_config_em_small.nml
                ${CMAKE_BINARY_DIR}/tests/KIM_config_em_small.nml COPYONLY)
+file(MAKE_DIRECTORY ${CMAKE_BINARY_DIR}/tests/profiles)
+foreach(profile_file n.dat q.dat Te.dat Ti.dat)
+    configure_file(${CMAKE_SOURCE_DIR}/KIM/tests/test_data/${profile_file}
+                   ${CMAKE_BINARY_DIR}/tests/profiles/${profile_file} COPYONLY)
+endforeach()
 set_tests_properties(test_kim_adapter PROPERTIES
                      WORKING_DIRECTORY ${CMAKE_BINARY_DIR}/tests/)
 
@@ -98,3 +103,29 @@ foreach(invalid_case geometry_duplicate geometry_descending geometry_nan geometr
         COMMAND test_periodic_current_normalization.x ${invalid_case})
     set_tests_properties(test_periodic_current_${invalid_case} PROPERTIES WILL_FAIL TRUE)
 endforeach()
+
+add_executable(test_periodic_multimode_feedback.x test_periodic_multimode_feedback.f90)
+target_link_libraries(test_periodic_multimode_feedback.x PUBLIC ql-balance_lib)
+add_fortran_test(test_periodic_multimode_feedback)
+file(MAKE_DIRECTORY ${CMAKE_BINARY_DIR}/tests/periodic_multimode_feedback)
+set_tests_properties(test_periodic_multimode_feedback PROPERTIES
+    WORKING_DIRECTORY ${CMAKE_BINARY_DIR}/tests/periodic_multimode_feedback)
+
+foreach(case wrong_sign outside)
+    file(MAKE_DIRECTORY ${CMAKE_BINARY_DIR}/tests/periodic_reject_${case})
+    add_test(NAME test_periodic_reject_${case}
+        COMMAND ${CMAKE_COMMAND}
+            -DTEST_EXECUTABLE=$<TARGET_FILE:test_periodic_multimode_feedback.x>
+            -DCASE=${case}
+            -P ${CMAKE_CURRENT_SOURCE_DIR}/check_periodic_nonresonant.cmake)
+    set_tests_properties(test_periodic_reject_${case} PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_BINARY_DIR}/tests/periodic_reject_${case})
+endforeach()
+
+add_executable(test_periodic_multimode_assembly.x test_periodic_multimode_assembly.f90)
+target_link_libraries(test_periodic_multimode_assembly.x PUBLIC ql-balance_lib)
+target_include_directories(test_periodic_multimode_assembly.x PRIVATE ${CMAKE_BINARY_DIR}/OBJS/kim)
+add_fortran_test(test_periodic_multimode_assembly)
+file(MAKE_DIRECTORY ${CMAKE_BINARY_DIR}/tests/periodic_multimode_assembly)
+set_tests_properties(test_periodic_multimode_assembly PROPERTIES
+    WORKING_DIRECTORY ${CMAKE_BINARY_DIR}/tests/periodic_multimode_assembly)

@@ -359,7 +359,7 @@ module rt_electrostatic_periodic_m
         if (periodic_Bparallel_ratio /= (0.0_dp,0.0_dp)) &
             error stop 'periodic Bparallel drive requires the linear compression response'
 
-        ! 1. Locate the resonant surface rm = r_res (q = |m/n|) on the global plasma.
+        ! 1. Locate the resonant surface rm = r_res (q = -m/n) on the global plasma.
         call kim_prepare_resonances
         if (.not. (r_res > 0.0_dp)) then
             print *, "Error (electrostatic_periodic): no resonance found, r_res = ", r_res

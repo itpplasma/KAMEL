@@ -1,0 +1,32 @@
+{
+  "schema_version": 1,
+  "case": "compact_parabolic_deuterium_m7_n2",
+  "required_datasets": [
+    "backs/e/r",
+    "fields/Phi",
+    "fields/jpar",
+    "setup/periodic_scale/M",
+    "setup/periodic_scale/N_rg",
+    "setup/periodic_scale/dx_asis"
+  ],
+  "expected": {
+    "field_shape": [64],
+    "periodic_modes": 4,
+    "periodic_grid_points": 64,
+    "profile_linear_q_crossing_cm": 49.76110556110556,
+    "resonance_radius_cm": 49.76199633699633,
+    "integrated_parallel_current_as_is_statA": {
+      "real": -32288615352346.457,
+      "imag": -37361743309858.055
+    },
+    "integrated_parallel_current_full_window_statA": {
+      "real": 12540891251720.65,
+      "imag": -90205340656075.39
+    }
+  },
+  "tolerances": {
+    "resonance_absolute_cm": 1e-8,
+    "integral_relative": 5e-4,
+    "integral_absolute_statA": 1e8
+  }
+}

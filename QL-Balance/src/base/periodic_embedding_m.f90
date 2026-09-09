@@ -9,8 +9,28 @@ module periodic_embedding_m
     implicit none
     private
     public :: compact_transition, embed_complex_profile, embed_tensor_profile
+    public :: resolved_embedding_width
 
 contains
+
+    real(dp) function resolved_embedding_width(local_r, core_lo, core_hi, requested) result(width)
+        !! Keep the trusted core intact and use one symmetric transition that
+        !! fits inside the sampled domain. KIM's periodic grid omits its upper
+        !! endpoint, so its requested transition contracts by one grid spacing.
+        !! Physical fields need neither periodic wrapping nor extrapolation.
+        use, intrinsic :: ieee_arithmetic, only: ieee_is_finite
+        real(dp), intent(in) :: local_r(:), core_lo, core_hi, requested
+
+        if (size(local_r) < 2) error stop 'periodic embedding needs at least two samples'
+        if (.not. all(ieee_is_finite(local_r)) .or. &
+            .not. all(ieee_is_finite([core_lo, core_hi, requested]))) &
+            error stop 'periodic embedding geometry must be finite'
+        if (core_hi < core_lo .or. requested <= 0.0_dp) &
+            error stop 'periodic embedding has invalid core or requested width'
+        width = min(requested, core_lo - local_r(1), local_r(size(local_r)) - core_hi)
+        if (width <= 0.0_dp) &
+            error stop 'periodic sampling leaves no transition outside the trusted core'
+    end function resolved_embedding_width
 
     real(dp) function compact_transition(r, core_lo, core_hi, width) result(w)
         real(dp), intent(in) :: r, core_lo, core_hi, width

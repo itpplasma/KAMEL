@@ -1,6 +1,7 @@
 program test_periodic_response_contract
     use QLBalance_kinds, only: dp
     use periodic_embedding_m, only: embed_complex_profile, embed_tensor_profile
+    use periodic_embedding_m, only: resolved_embedding_width
     implicit none
 
     integer, parameter :: nl = 6, ng = 11
@@ -49,5 +50,45 @@ program test_periodic_response_contract
     if (.not. (weights(8) > 0.0_dp .and. weights(8) < 1.0_dp)) &
         error stop 'right transition weight'
 
+    call test_solver_grid()
     print *, 'periodic response contract tests passed'
+
+contains
+
+    subroutine test_solver_grid()
+        integer, parameter :: n = 64
+        real(dp), parameter :: rm = 30.0_dp, core = 2.0_dp, requested = 1.0_dp
+        real(dp), parameter :: length = 2.0_dp * (core + requested)
+        real(dp) :: grid(n), points(7), effective, step, weights(7)
+        complex(dp) :: field(n), embedded(7)
+        real(dp) :: tensor(2, 2, n), embedded_tensor(2, 2, 7)
+        integer :: i
+
+        step = length / real(n, dp)
+        do i = 1, n
+            grid(i) = rm - length / 2.0_dp + real(i - 1, dp) * step
+            field(i) = cmplx(grid(i), -2.0_dp * grid(i), dp)
+            tensor(:, :, i) = grid(i)
+        end do
+        effective = resolved_embedding_width(grid, rm - core, rm + core, requested)
+        points = [rm - core, rm, rm + core, rm + core + effective / 2.0_dp, &
+            grid(n), grid(n) + step / 2.0_dp, rm + length / 2.0_dp]
+        call embed_complex_profile(grid, field, points, rm - core, rm + core, &
+            effective, embedded, weights)
+        call embed_tensor_profile(grid, tensor, points, rm - core, rm + core, &
+            effective, embedded_tensor)
+        if (abs(effective - (requested - step)) > 1.0e-12_dp) &
+            error stop 'transition must stay inside the sampled periodic domain'
+        do i = 1, 3
+            if (abs(embedded(i) - cmplx(points(i), -2.0_dp * points(i), dp)) > 1.0e-12_dp) &
+                error stop 'periodic embedding changed a trusted-core field'
+        end do
+        if (abs(weights(4) - 0.5_dp) > 1.0e-12_dp) &
+            error stop 'contracted transition is not smooth and centered'
+        if (maxval(abs(embedded_tensor(:, :, 4) - 0.25_dp * points(4))) > 1.0e-12_dp) &
+            error stop 'contracted tensor transition must use squared field weight'
+        if (any(abs(embedded(5:7)) > 0.0_dp)) error stop 'field extrapolated past sampled support'
+        if (any(abs(embedded_tensor(:, :, 5:7)) > 0.0_dp)) &
+            error stop 'tensor extrapolated past sampled support'
+    end subroutine test_solver_grid
 end program test_periodic_response_contract

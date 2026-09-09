@@ -483,3 +483,8 @@ add_test(NAME test_periodic_convergence
          COMMAND ${CMAKE_BINARY_DIR}/tests/test_periodic_convergence.x)
 set_tests_properties(test_periodic_convergence PROPERTIES
                      WORKING_DIRECTORY ${CMAKE_BINARY_DIR}/tests/)
+
+add_test(NAME test_periodic_bparallel_rejected
+    COMMAND ${CMAKE_COMMAND}
+        -DTEST_EXECUTABLE=$<TARGET_FILE:test_periodic_ion_tensor>
+        -P ${CMAKE_CURRENT_SOURCE_DIR}/check_periodic_bparallel_rejected.cmake)

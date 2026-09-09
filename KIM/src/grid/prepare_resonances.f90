@@ -1,4 +1,4 @@
-subroutine prepare_resonances
+subroutine kim_prepare_resonances
 
     use kim_resonances_m
     use config_m, only: hdf5_output
@@ -44,4 +44,4 @@ subroutine prepare_resonances
     write(*,*) 'resonant radius: ',r_res
     deallocate(q)
 
-end subroutine prepare_resonances
+end subroutine kim_prepare_resonances

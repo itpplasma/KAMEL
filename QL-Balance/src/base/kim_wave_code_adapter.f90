@@ -14,7 +14,8 @@ module kim_wave_code_adapter_m
     use setup_m, only: kim_m_mode => m_mode, kim_n_mode => n_mode
     use grid_m, only: kim_xl_grid => xl_grid, &
                       kim_r_min => r_min, kim_r_plas => r_plas
-    use periodic_embedding_m, only: embed_complex_profile, embed_tensor_profile
+    use periodic_embedding_m, only: embed_complex_profile, embed_tensor_profile, &
+        resolved_embedding_width
 
     implicit none
     private
@@ -31,7 +32,7 @@ module kim_wave_code_adapter_m
     public :: kim_get_current_densities
     public :: interp_complex_profile  ! exposed for testing
     public :: kim_periodic_mode_selected
-    public :: kim_D_ion_modes, kim_transition_weights
+    public :: kim_D_ion_modes, kim_transition_weights, kim_embedding_metadata
 
     !! Module-level KIM solver handle (reused across calls)
     type(kim_solver_t) :: kim_handle
@@ -57,6 +58,8 @@ module kim_wave_code_adapter_m
     complex(8), allocatable, public :: kim_Bparallel_modes(:,:)
     real(8), allocatable :: kim_D_ion_modes(:,:,:,:)
     real(8), allocatable :: kim_transition_weights(:,:)
+    ! Per-mode [core_lo, core_hi, requested_width, sampled_width], all in cm.
+    real(8), allocatable :: kim_embedding_metadata(:,:)
 
     !! Per-mode stored wave vectors (nrad, dim_mn)
     !! kp and ks depend on (m,n) via the equilibrium formulas.
@@ -289,7 +292,7 @@ contains
 
         implicit none
 
-        type(kim_results_t) :: res
+        type(kim_results_t) :: res, background
         integer :: i_mn, ierr, kim_npts, kim_plasma_npts, nrad_inside, i
         real(8), allocatable :: kim_r(:), kim_plasma_r(:), weights(:)
         real(8) :: core_lo, core_hi, width
@@ -309,6 +312,7 @@ contains
         if (allocated(kim_Bparallel_modes)) deallocate(kim_Bparallel_modes)
         if (allocated(kim_D_ion_modes)) deallocate(kim_D_ion_modes)
         if (allocated(kim_transition_weights)) deallocate(kim_transition_weights)
+        if (allocated(kim_embedding_metadata)) deallocate(kim_embedding_metadata)
         if (allocated(kim_kp_modes)) deallocate(kim_kp_modes)
         if (allocated(kim_ks_modes)) deallocate(kim_ks_modes)
         if (allocated(kim_jpar_modes)) deallocate(kim_jpar_modes)
@@ -324,6 +328,7 @@ contains
         allocate(kim_Bparallel_modes(dim_r, dim_mn))
         allocate(kim_D_ion_modes(2, 2, dim_r, dim_mn))
         allocate(kim_transition_weights(dim_r, dim_mn))
+        allocate(kim_embedding_metadata(4, dim_mn))
         allocate(kim_kp_modes(dim_r, dim_mn))
         allocate(kim_ks_modes(dim_r, dim_mn))
         allocate(kim_jpar_modes(dim_r, dim_mn))
@@ -339,6 +344,7 @@ contains
         kim_Bparallel_modes = (0.0d0, 0.0d0)
         kim_D_ion_modes = 0.0d0
         kim_transition_weights = 1.0d0
+        kim_embedding_metadata = 0.0d0
         kim_kp_modes = 0.0d0
         kim_ks_modes = 0.0d0
         kim_jpar_modes = (0.0d0, 0.0d0)
@@ -359,11 +365,13 @@ contains
                 stop 1
             end if
             res = kim_handle%results()
+            background = kim_handle%background()
 
             ! Interpolate KIM fields (on res%r_field) onto the QL-Balance grid.
             kim_npts = size(res%r_field)
             allocate(kim_r(kim_npts))
             kim_r = res%r_field
+            if (.not. periodic) kim_r_boundary = kim_r(kim_npts)
 
             if (periodic) then
                 width = res%dx_transition
@@ -372,6 +380,13 @@ contains
                 if (width <= 0.0d0 .or. core_hi <= core_lo) then
                     error stop 'periodic KIM result lacks compact embedding metadata'
                 end if
+                ! The Fourier output omits the upper endpoint. Keep the trusted
+                ! core and use only the transition supported by actual samples.
+                width = resolved_embedding_width(kim_r, core_lo, core_hi, width)
+                kim_embedding_metadata(:, i_mn) = &
+                    [core_lo, core_hi, res%dx_transition, width]
+                write(*,*) '  KIM compact core and requested/actual width [cm]: ', &
+                    kim_embedding_metadata(:, i_mn)
                 allocate(weights(dim_r))
             end if
 
@@ -494,13 +509,13 @@ contains
             if (.not. kim_periodic_mode_selected()) call apply_vacuum_continuation(i_mn, dim_r, bal_r)
 
             ! kp and ks (mode-dependent wave vectors on plasma grid)
-            kim_plasma_npts = size(res%r_plasma)
+            kim_plasma_npts = size(background%r_plasma)
             allocate(kim_plasma_r(kim_plasma_npts))
-            kim_plasma_r = res%r_plasma
+            kim_plasma_r = background%r_plasma
 
-            call interp_profile(kim_plasma_npts, kim_plasma_r, res%kp, &
+            call interp_profile(kim_plasma_npts, kim_plasma_r, background%kp, &
                 dim_r, bal_r, kim_kp_modes(:, i_mn))
-            call interp_profile(kim_plasma_npts, kim_plasma_r, res%ks, &
+            call interp_profile(kim_plasma_npts, kim_plasma_r, background%ks, &
                 dim_r, bal_r, kim_ks_modes(:, i_mn))
 
             ! Path A: derived background from the first solve, interpolated up
@@ -515,21 +530,21 @@ contains
                     end if
                 end do
 
-                call clamp_to_balance(kim_plasma_npts, kim_plasma_r, res%B0, &
+                call clamp_to_balance(kim_plasma_npts, kim_plasma_r, background%B0, &
                     dim_r, nrad_inside, bal_r, wcd_B0)
-                call clamp_to_balance(kim_plasma_npts, kim_plasma_r, res%B0z, &
+                call clamp_to_balance(kim_plasma_npts, kim_plasma_r, background%B0z, &
                     dim_r, nrad_inside, bal_r, wcd_B0z)
-                call clamp_to_balance(kim_plasma_npts, kim_plasma_r, res%B0th, &
+                call clamp_to_balance(kim_plasma_npts, kim_plasma_r, background%B0th, &
                     dim_r, nrad_inside, bal_r, wcd_B0t)
-                call clamp_to_balance(kim_plasma_npts, kim_plasma_r, res%kp, &
+                call clamp_to_balance(kim_plasma_npts, kim_plasma_r, background%kp, &
                     dim_r, nrad_inside, bal_r, wcd_kp)
-                call clamp_to_balance(kim_plasma_npts, kim_plasma_r, res%ks, &
+                call clamp_to_balance(kim_plasma_npts, kim_plasma_r, background%ks, &
                     dim_r, nrad_inside, bal_r, wcd_ks)
-                call clamp_to_balance(kim_plasma_npts, kim_plasma_r, res%om_E, &
+                call clamp_to_balance(kim_plasma_npts, kim_plasma_r, background%om_E, &
                     dim_r, nrad_inside, bal_r, wcd_om_E)
-                call clamp_to_balance(kim_plasma_npts, kim_plasma_r, res%nu_e, &
+                call clamp_to_balance(kim_plasma_npts, kim_plasma_r, background%nu_e, &
                     dim_r, nrad_inside, bal_r, wcd_nue)
-                call clamp_to_balance(kim_plasma_npts, kim_plasma_r, res%nu_i, &
+                call clamp_to_balance(kim_plasma_npts, kim_plasma_r, background%nu_i, &
                     dim_r, nrad_inside, bal_r, wcd_nui)
 
                 wcd_Vth = 0.0d0
@@ -549,17 +564,17 @@ contains
         !    equilibrium state (non-clamped, full grid)
         ! -------------------------------------------------------
         if (kim_profiles_from_balance) then
-            kim_plasma_npts = size(res%r_plasma)
+            kim_plasma_npts = size(background%r_plasma)
             allocate(kim_plasma_r(kim_plasma_npts))
-            kim_plasma_r = res%r_plasma
+            kim_plasma_r = background%r_plasma
 
-            call interp_profile(kim_plasma_npts, kim_plasma_r, res%om_E, &
+            call interp_profile(kim_plasma_npts, kim_plasma_r, background%om_E, &
                 dim_r, bal_r, wcd_om_E)
-            call interp_profile(kim_plasma_npts, kim_plasma_r, res%nu_e, &
+            call interp_profile(kim_plasma_npts, kim_plasma_r, background%nu_e, &
                 dim_r, bal_r, wcd_nue)
-            call interp_profile(kim_plasma_npts, kim_plasma_r, res%nu_i, &
+            call interp_profile(kim_plasma_npts, kim_plasma_r, background%nu_i, &
                 dim_r, bal_r, wcd_nui)
-            call interp_profile(kim_plasma_npts, kim_plasma_r, res%B0, &
+            call interp_profile(kim_plasma_npts, kim_plasma_r, background%B0, &
                 dim_r, bal_r, wcd_B0)
 
             deallocate(kim_plasma_r)

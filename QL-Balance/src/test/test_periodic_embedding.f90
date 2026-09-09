@@ -1,6 +1,6 @@
 program test_periodic_embedding
     use QLBalance_kinds, only: dp
-    use periodic_embedding_m, only: compact_transition
+    use periodic_embedding_m, only: compact_transition, resolved_embedding_width
     implicit none
 
     real(dp), parameter :: lo = 2.0_dp, hi = 4.0_dp, width = 0.5_dp
@@ -14,6 +14,13 @@ program test_periodic_embedding
     if (compact_transition(hi+width, lo, hi, width) /= 0.0_dp) error stop 'right support endpoint'
     if (compact_transition(lo-2.0_dp*width, lo, hi, width) /= 0.0_dp) error stop 'left outside support'
     if (compact_transition(hi+2.0_dp*width, lo, hi, width) /= 0.0_dp) error stop 'right outside support'
+
+    if (resolved_embedding_width([lo-width, hi+width], lo, hi, width) /= width) &
+        error stop 'endpoint-inclusive sampling changed the requested transition'
+    if (resolved_embedding_width([lo-width, hi+width-0.125_dp], lo, hi, width) /= &
+        width-0.125_dp) error stop 'endpoint-exclusive transition width'
+    if (resolved_embedding_width([lo-width, hi+width-0.0625_dp], lo, hi, width) /= &
+        width-0.0625_dp) error stop 'transition does not converge with refined sampling'
 
     w_left = compact_transition(lo-width/2.0_dp, lo, hi, width)
     w_right = compact_transition(hi+width/2.0_dp, lo, hi, width)

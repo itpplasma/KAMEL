@@ -41,13 +41,15 @@ subroutine get_dql
         kim_get_current_densities, kim_D_ion_modes, kim_periodic_mode_selected
     use QLBalance_diag, only: i_mn_loop
     use QLBalance_kinds, only: dp
+    use transport_smoothing_m, only: smooth_transport_profile
     use PolyLagrangeInterpolation
     use logger_m, only: log_debug
     use writeData_m, only: write_fields_currs_transp_coefs_to_h5, write_D_one_over_nu_to_h5
 
     implicit none
 
-    integer :: ipoi, ieq, i_mn, mwind_save
+    integer :: ipoi, ieq, i_mn
+    logical :: periodic_transport
     complex(dp), allocatable :: unused_fields(:, :)
     real(dp), dimension(:), allocatable :: dummy
     real(dp), dimension(:), allocatable :: row_buffer
@@ -476,54 +478,15 @@ subroutine get_dql
     call calc_parallel_current_directly
     call calc_ion_parallel_current_directly
 
-    if (.true.) then
-        mwind_save = mwind
-        mwind = 30
-        allocate (dummy(npoib))
-        call smooth_array_gauss(npoib, mwind, dqle11, dummy)
-        dqle11 = dummy
-        call smooth_array_gauss(npoib, mwind, dqle12, dummy)
-        dqle12 = dummy
-        call smooth_array_gauss(npoib, mwind, dqle21, dummy)
-        dqle21 = dummy
-        call smooth_array_gauss(npoib, mwind, dqle22, dummy)
-        dqle22 = dummy
-        mwind = 30
-        call smooth_array_gauss(npoib, mwind, dqli11, dummy)
-        dqli11 = dummy
-        call smooth_array_gauss(npoib, mwind, dqli12, dummy)
-        dqli12 = dummy
-        call smooth_array_gauss(npoib, mwind, dqli21, dummy)
-        dqli21 = dummy
-        call smooth_array_gauss(npoib, mwind, dqli22, dummy)
-        dqli22 = dummy
-        mwind = mwind_save
-        deallocate (dummy)
-    else
-        ! set ion particle flux coefficients to zero
-        mwind_save = mwind
-        mwind = 30
-        allocate (dummy(npoib))
-        !call smooth_array_gauss(npoib, mwind, dqle11, dummy)
-        dqle11 = 0.d0!dummy
-        !call smooth_array_gauss(npoib, mwind, dqle12, dummy)
-        dqle12 = 0.d0!dummy
-        call smooth_array_gauss(npoib, mwind, dqle21, dummy)
-        dqle21 = dummy
-        call smooth_array_gauss(npoib, mwind, dqle22, dummy)
-        dqle22 = dummy
-        mwind = 30
-        call smooth_array_gauss(npoib, mwind, dqli12, dummy)
-        dqli12 = dummy
-        call smooth_array_gauss(npoib, mwind, dqli21, dummy)
-        dqli21 = dummy
-        call smooth_array_gauss(npoib, mwind, dqli21, dummy)
-        dqli21 = dummy
-        call smooth_array_gauss(npoib, mwind, dqli22, dummy)
-        dqli22 = dummy
-        mwind = mwind_save
-        deallocate (dummy)
-    end if
+    periodic_transport = trim(wave_code) == 'KIM' .and. kim_periodic_mode_selected()
+    call smooth_transport_profile(dqle11, periodic_transport)
+    call smooth_transport_profile(dqle12, periodic_transport)
+    call smooth_transport_profile(dqle21, periodic_transport)
+    call smooth_transport_profile(dqle22, periodic_transport)
+    call smooth_transport_profile(dqli11, periodic_transport)
+    call smooth_transport_profile(dqli12, periodic_transport)
+    call smooth_transport_profile(dqli21, periodic_transport)
+    call smooth_transport_profile(dqli22, periodic_transport)
 
     call log_debug("write_fields_currs_transp_coefs_to_h5")
 

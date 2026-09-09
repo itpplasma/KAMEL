@@ -7,7 +7,8 @@ module control_mod
     character(100) :: type_of_run
     character(len=32) :: wave_code = 'KiLCA'  ! 'KiLCA' or 'KIM'
     character(len=1024) :: kim_config_path = './KIM_config.nml'
-    character(len=32) :: kim_run_type = 'electrostatic_periodic'
+    ! Preserve existing KIM decks; periodic coupling requires explicit selection.
+    character(len=32) :: kim_run_type = 'electromagnetic'
     character(len=32) :: kim_ion_transport_model = 'finite_larmor_radius'
     logical :: kim_profiles_from_balance = .true.
     integer, parameter :: kim_max_modes = 100

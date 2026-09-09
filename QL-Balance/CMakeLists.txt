@@ -79,6 +79,7 @@ set(balance_lib_base_fortran_sources
     ${base_balance_src}/rhs_balance_m.f90
     ${base_balance_src}/sample_matrix.f90
     ${base_balance_src}/SingleStep.f90
+    ${base_balance_src}/transport_smoothing_m.f90
     ${base_balance_src}/smooth_array_gauss.f90
     ${base_balance_src}/time_evolution.f90
     ${base_balance_src}/toroidal_torque.f90

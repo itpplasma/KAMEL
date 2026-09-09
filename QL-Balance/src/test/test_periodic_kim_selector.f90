@@ -4,8 +4,8 @@ program test_periodic_kim_selector
         ION_TRANSPORT_DRIFT_KINETIC, ION_TRANSPORT_INVALID
     implicit none
 
-    if (trim(kim_run_type) /= 'electrostatic_periodic') &
-        error stop 'periodic KIM coupling is not the production default'
+    if (trim(kim_run_type) /= 'electromagnetic') &
+        error stop 'legacy KIM field model changed without explicit selection'
     if (trim(kim_ion_transport_model) /= 'finite_larmor_radius') &
         error stop 'finite-Larmor-radius ion transport is not the production default'
     if (ion_transport_model_id('finite_larmor_radius') /= ION_TRANSPORT_FLR) &

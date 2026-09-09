@@ -63,3 +63,14 @@ add_fortran_test(test_periodic_response_contract)
 add_executable(test_periodic_kim_selector.x test_periodic_kim_selector.f90)
 target_link_libraries(test_periodic_kim_selector.x PUBLIC ql-balance_lib)
 add_fortran_test(test_periodic_kim_selector)
+
+add_executable(test_periodic_kim_coupling.x test_periodic_kim_coupling.f90)
+target_link_libraries(test_periodic_kim_coupling.x PUBLIC ql-balance_lib)
+add_fortran_test(test_periodic_kim_coupling)
+file(MAKE_DIRECTORY ${CMAKE_BINARY_DIR}/tests/periodic_kim_coupling)
+set_tests_properties(test_periodic_kim_coupling PROPERTIES
+    WORKING_DIRECTORY ${CMAKE_BINARY_DIR}/tests/periodic_kim_coupling)
+
+add_executable(test_transport_smoothing.x test_transport_smoothing.f90)
+target_link_libraries(test_transport_smoothing.x PUBLIC ql-balance_lib)
+add_fortran_test(test_transport_smoothing)

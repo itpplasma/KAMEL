@@ -58,7 +58,7 @@
  wave_code = 'KiLCA' ,
  kim_config_path = './KIM_config.nml' ,
  kim_profiles_from_balance = .true. ,
- kim_run_type = 'electrostatic_periodic' ,
+ kim_run_type = 'electromagnetic' ,
  kim_ion_transport_model = 'finite_larmor_radius' , ! 'finite_larmor_radius' or 'drift_kinetic'
  kim_n_modes = 2 ,
  kim_m_list = 6, -6 ,

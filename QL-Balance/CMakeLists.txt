@@ -66,6 +66,7 @@ set(balance_lib_base_fortran_sources
     ${base_balance_src}/magnetic_island_width.f90
     ${base_balance_src}/matrix_mod.f90
     ${base_balance_src}/paramscan.f90
+    ${base_balance_src}/periodic_transport_benchmark_m.f90
     ${base_balance_src}/periodic_embedding_m.f90
     ${base_balance_src}/plag_coeff.f90
     ${base_balance_src}/plasma_parameters.f90
@@ -121,6 +122,7 @@ target_include_directories(ql-balance_lib PUBLIC ${CMAKE_BINARY_DIR}/KiLCA/mod $
 # import species_m, equilibrium_m, config_m, etc.  Every other QL-Balance
 # source keeps seeing QL-Balance's own resonances_mod.
 set_source_files_properties(${base_balance_src}/kim_wave_code_adapter.f90
+    ${base_balance_src}/periodic_transport_benchmark_m.f90
     PROPERTIES INCLUDE_DIRECTORIES "${CMAKE_BINARY_DIR}/OBJS/kim/")
 
 # fortnum C ABI header (fortnum.h) for vel_integral.cpp.

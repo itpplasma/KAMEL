@@ -5,13 +5,15 @@ program test_periodic_kim_coupling
     use, intrinsic :: ieee_arithmetic, only: ieee_is_finite
     use kim_wave_code_adapter_m, only: kim_initialize, kim_run_for_all_modes, &
         kim_get_wave_fields, kim_D_ion_modes, kim_transition_weights, &
-        kim_embedding_metadata, kim_update_profiles
+        kim_embedding_metadata, kim_update_profiles, kim_get_wave_vectors
     use control_mod, only: wave_code, kim_config_path, kim_profiles_from_balance, &
-        type_of_run, kim_run_type
+        type_of_run, kim_run_type, kim_transport_benchmark, kim_ion_transport_model
     use wave_code_data, only: dim_mn, m_vals, n_vals, r, n, Te, Ti, q, &
         Vth, Vz, dPhi0, Es, Ep, Er, Et, Ez, Br, Bp, B0, nue, nui
     use plasma_parameters, only: params_b
     use baseparam_mod, only: ev, rtor
+    use periodic_transport_benchmark_m, only: select_periodic_ion_transport, &
+        reset_transport_benchmark, write_transport_benchmark
     implicit none
 
     integer, parameter :: npts = 401
@@ -54,6 +56,7 @@ program test_periodic_kim_coupling
     call kim_get_wave_fields(1)
     call check_response()
     call check_input_profiles()
+    call check_transport_benchmark()
     initial_tensor = kim_D_ion_modes(:, :, :, 1)
     initial_weights = kim_transition_weights(:, 1)
     initial_es = Es
@@ -108,6 +111,88 @@ program test_periodic_kim_coupling
     print *, 'PASS: periodic KIM fields and tensor reach QL-Balance reproducibly'
 
 contains
+
+    subroutine check_transport_benchmark()
+        use grid_mod, only: rb, r_resonant, gg_width
+        use QLBalance_diag, only: i_mn_loop
+        use wave_code_data, only: om_E, ks
+        use baseparam_mod, only: c, p_mass, am
+        use h5mod, only: h5_create, h5_close, h5_open, h5_deinit, h5_get, &
+            h5_id, h5_mode_groupname, path2out, h5_obj_exists
+        real(8) :: selected(2, 2, npts), disabled(2, 2, npts)
+        real(8) :: old(2, 2, npts), new(2, 2, npts), residual(2, 2, npts)
+        real(8) :: relative(2, 2, npts), vt(npts), expected(2, 2, npts)
+        complex(8) :: saved_es(npts), saved_br(npts)
+        character(32) :: models(2)
+        character(256) :: group
+        logical :: exists
+        integer :: model
+
+        allocate(rb(npts), r_resonant(1))
+        rb = r
+        r_resonant = sum(kim_embedding_metadata(1:2, 1))/2.0d0
+        gg_width = maxval(r) - minval(r)
+        i_mn_loop = 1
+        call kim_get_wave_vectors(1)
+        om_E = ks*c*dPhi0/B0
+        am = 2.0d0
+        vt = sqrt(Ti*ev/(p_mass*am))
+        saved_es = Es
+        saved_br = Br
+        models = [character(32) :: 'finite_larmor_radius', 'drift_kinetic']
+        path2out = 'periodic_transport_benchmark.h5'
+        h5_mode_groupname = 'coupling'
+        call h5_create(trim(path2out), h5_id)
+        call h5_close(h5_id)
+        call h5_deinit()
+
+        do model = 1, 2
+            kim_ion_transport_model = models(model)
+            kim_transport_benchmark = .false.
+            call reset_transport_benchmark()
+            call select_periodic_ion_transport(1, vt, nui, disabled)
+            kim_transport_benchmark = .true.
+            call select_periodic_ion_transport(1, vt, nui, selected)
+            call require(all(selected == disabled), 'benchmark changed selected ion transport')
+            call require(all(Es == saved_es) .and. all(Br == saved_br), &
+                'benchmark changed physical fields')
+            call write_transport_benchmark(model)
+            ! Repeated output at the same time index must replace the existing group.
+            call write_transport_benchmark(model)
+            write(group, '(A,I0,A)') '/coupling/TransportBenchmark/', model, '/mode_1/'
+            call h5_open(trim(path2out), h5_id)
+            call h5_get(h5_id, trim(group)//'drift_kinetic', old)
+            call h5_get(h5_id, trim(group)//'finite_larmor_radius', new)
+            call h5_get(h5_id, trim(group)//'absolute_residual', residual)
+            call h5_get(h5_id, trim(group)//'relative_residual', relative)
+            call h5_close(h5_id)
+            call h5_deinit()
+            call require(all(new == kim_D_ion_modes(:, :, :, 1)), &
+                'saved benchmark is not the actual spectral ion tensor')
+            expected = abs(new - old)
+            call require(all(residual == expected), 'incorrect saved absolute residual')
+            where (max(abs(old), abs(new)) > 0.0d0)
+                expected = expected/max(abs(old), abs(new))
+            elsewhere
+                expected = 0.0d0
+            end where
+            call require(maxval(abs(relative - expected)) < 1.0d-14, &
+                'incorrect saved relative residual')
+            if (model == 1) call require(all(selected == new), 'FLR selection changed')
+            if (model == 2) call require(all(selected == old), 'drift selection changed')
+        end do
+        kim_transport_benchmark = .false.
+        call reset_transport_benchmark()
+        call write_transport_benchmark(3)
+        call h5_open(trim(path2out), h5_id)
+        call h5_obj_exists(h5_id, '/coupling/TransportBenchmark/3', exists)
+        call h5_close(h5_id)
+        call h5_deinit()
+        call require(.not. exists, 'disabled benchmark wrote stale data')
+        kim_ion_transport_model = 'finite_larmor_radius'
+        deallocate(rb, r_resonant)
+    end subroutine check_transport_benchmark
+
 
     subroutine check_response()
         real(8) :: tensor(2, 2), tensor_scale, symmetric_cross, determinant, weight

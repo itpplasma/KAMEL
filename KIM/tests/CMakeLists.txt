@@ -121,6 +121,20 @@ target_link_libraries(test_dqli_limit_benchmark
 add_test(NAME test_dqli_limit_benchmark
          COMMAND ${CMAKE_BINARY_DIR}/tests/test_dqli_limit_benchmark.x)
 
+add_test(NAME test_dqli_limit_reject_zero_ks
+         COMMAND ${CMAKE_BINARY_DIR}/tests/test_dqli_limit_benchmark.x reject_zero_ks)
+set_tests_properties(test_dqli_limit_reject_zero_ks PROPERTIES WILL_FAIL TRUE)
+
+add_executable(test_dqli_periodic_limit
+               ${CMAKE_SOURCE_DIR}/KIM/tests/test_dqli_periodic_limit.f90)
+set_target_properties(test_dqli_periodic_limit PROPERTIES
+                      OUTPUT_NAME test_dqli_periodic_limit.x
+                      RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/tests/")
+target_link_libraries(test_dqli_periodic_limit
+                      KIM_lib kilca_lib lapack cerf fortnum fortnum_amos_compat)
+add_test(NAME test_dqli_periodic_limit
+         COMMAND ${CMAKE_BINARY_DIR}/tests/test_dqli_periodic_limit.x)
+
 add_executable(test_quasilinear_flr_algebra
                ${CMAKE_SOURCE_DIR}/KIM/tests/test_quasilinear_flr_algebra.f90)
 file(SHA256

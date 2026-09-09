@@ -30,6 +30,12 @@ def main() -> int:
     invocation = {"argv": sys.argv, "cwd": str(Path.cwd())}
     Path("invocation.json").write_text(json.dumps(invocation), encoding="utf-8")
     print("fake KIM stdout", flush=True)
+    if len(sys.argv) > 1 and os.environ.get("FAKE_KIM_FAIL_N_RG"):
+        text = Path(sys.argv[1]).read_text(encoding="utf-8")
+        requested = integer_value(text, "periodic_n_rg")
+        if requested == int(os.environ["FAKE_KIM_FAIL_N_RG"]):
+            print("fake KIM selected sweep failure", file=sys.stderr, flush=True)
+            return 9
     if mode == "stderr":
         print("fake KIM diagnostic", file=sys.stderr, flush=True)
     if mode == "nonzero":

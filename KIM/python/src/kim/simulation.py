@@ -120,6 +120,8 @@ class Simulation:
         runs_directory: Path | str = "runs",
         label: str | None = None,
         timeout: float | None = None,
+        parent_sweep_id: str | None = None,
+        requested_parameters: Mapping[str, object] | None = None,
     ) -> None:
         if timeout is not None and timeout <= 0:
             raise ValueError("timeout must be positive or None")
@@ -128,6 +130,8 @@ class Simulation:
         self.repository = RunRepository(runs_directory)
         self.label = label
         self.timeout = timeout
+        self.parent_sweep_id = parent_sweep_id
+        self.requested_parameters = requested_parameters
 
     def prepare(
         self,
@@ -141,7 +145,12 @@ class Simulation:
         profiles = ProfileSet.from_simulation(self.config)
         validation = profiles.validate_for(self.config)
 
-        paths = self.repository.create(self.config, label=self.label)
+        paths = self.repository.create(
+            self.config,
+            label=self.label,
+            parent_sweep_id=self.parent_sweep_id,
+            requested_parameters=self.requested_parameters,
+        )
         copies = profiles.copy_to(paths.profiles)
         for copied in copies:
             self.repository.record_input(

@@ -32,6 +32,7 @@ from kim.errors import (
     ProfileError,
     ResultError,
     RunError,
+    SweepError,
 )
 from kim.executable import (
     KamelGitMetadata,
@@ -50,6 +51,16 @@ from kim.runs import (
     RunStatus,
 )
 from kim.simulation import PreparedSimulation, RunResult, Simulation
+from kim.sweep import (
+    LinearRange,
+    ParameterSweep,
+    ProfileScale,
+    SweepManifest,
+    SweepResult,
+    SweepSpec,
+    SweepStatus,
+    run_sweep,
+)
 
 __version__ = "0.1.0"
 
@@ -72,8 +83,10 @@ __all__ = [
     "InputArtifact",
     "KamelGitMetadata",
     "KimError",
+    "LinearRange",
     "PeriodicConfig",
     "PeriodicResult",
+    "ParameterSweep",
     "PlasmaConfig",
     "PhysicsConfig",
     "PlasmaIsotope",
@@ -83,6 +96,7 @@ __all__ = [
     "ProfileError",
     "ProfileSet",
     "ProfileValidation",
+    "ProfileScale",
     "PreparedSimulation",
     "QuadpackAlgorithm",
     "Result",
@@ -99,9 +113,15 @@ __all__ = [
     "SetupConfig",
     "SimulationConfig",
     "Simulation",
+    "SweepError",
+    "SweepManifest",
+    "SweepResult",
+    "SweepSpec",
+    "SweepStatus",
     "ThetaIntegration",
     "__version__",
     "discover_kamel_git_metadata",
     "executable_sha256",
     "resolve_executable",
+    "run_sweep",
 ]

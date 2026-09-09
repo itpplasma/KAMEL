@@ -23,3 +23,7 @@ class RunError(KimError):
 
 class ResultError(KimError):
     """Raised when a KIM result cannot be safely read or interpreted."""
+
+
+class SweepError(KimError):
+    """Raised when a parameter sweep is invalid or cannot be prepared."""

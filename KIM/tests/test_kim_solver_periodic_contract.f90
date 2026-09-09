@@ -40,7 +40,7 @@ program test_kim_solver_periodic_contract
     end if
 
     if (ierr == KIM_OK) then
-    res = kim%results()
+        res = kim%results()
         call check('local field grid populated', allocated(res%r_field), all_passed)
         if (allocated(res%r_field)) then
             call check('local field grid has useful size', size(res%r_field) > 1, all_passed)
@@ -58,13 +58,24 @@ program test_kim_solver_periodic_contract
         call check_complex_field('jpar_i', res%jpar_i, res%r_field, all_passed)
         call check('result mode matches request', res%m == m_mode .and. res%n == n_mode, all_passed)
         res_first = res
-        call kim%solve(m=-m_mode, n=n_mode, stat=ierr)
+        ! Reverse both Fourier signs so the second mode still satisfies q=-m/n.
+        ! A flip of m alone is nonresonant on this positive-q equilibrium.
+        call kim%solve(m=-m_mode, n=-n_mode, stat=ierr)
         call check('second periodic mode returns KIM_OK', ierr == KIM_OK, all_passed)
+        res = kim%results()
+        call check('both signed mode numbers reach the solver', &
+            res%m == -m_mode .and. res%n == -n_mode, all_passed)
+        call check('sign-reversed pair retains the rational surface', &
+            abs(res%r_resonance-res_first%r_resonance) < 1.0e-12_dp, all_passed)
         call kim%solve(m=m_mode, n=n_mode, stat=ierr)
         call check('periodic mode can be repeated after another mode', ierr == KIM_OK, all_passed)
         res = kim%results()
         call check('repeated periodic result remains finite', allocated(res%Phi) .and. &
-                   all(ieee_is_finite(real(res%Phi,dp))) .and. all(ieee_is_finite(aimag(res%Phi))), all_passed)
+            all(ieee_is_finite(real(res%Phi,dp))) .and. &
+            all(ieee_is_finite(aimag(res%Phi))), all_passed)
+        call check('repeated periodic solution matches the original', &
+            maxval(abs(res%Phi-res_first%Phi)) <= &
+            1.0e-10_dp*maxval(abs(res_first%Phi)), all_passed)
     end if
 
     call kim%finalize()

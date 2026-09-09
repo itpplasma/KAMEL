@@ -13,7 +13,7 @@ program test_kim_adapter
     use kim_wave_code_adapter_m, only: kim_Bparallel_modes, kim_get_wave_fields
     use kim_wave_code_adapter_m, only: kim_mode_m, kim_mode_n, kim_mode_status, kim_mode_resonance
     use control_mod, only: wave_code, kim_config_path, kim_profiles_from_balance, &
-        type_of_run, kim_run_type, kim_n_modes, kim_m_list, kim_n_list
+        type_of_run, kim_run_type
     use wave_code_data, only: dim_mn, m_vals, n_vals, r, n, Te, Ti, q, &
         Vth, Vz, dPhi0, Bp
     use plasma_parameters, only: params_b
@@ -208,10 +208,7 @@ contains
         kim_config_path = "KIM_config_em_small.nml"
         kim_profiles_from_balance = .true.
         wave_code = "KIM"
-        kim_run_type = "electrostatic_periodic"
-        kim_n_modes = dim_mn
-        kim_m_list(1:dim_mn) = m_vals
-        kim_n_list(1:dim_mn) = n_vals
+        kim_run_type = "electromagnetic"
         type_of_run = "ParameterScan"
 
         call kim_initialize(npts, r_grid)
@@ -224,34 +221,45 @@ contains
         params_b(2, :) = 0.0d0
         params_b(3, :) = Te * ev
         params_b(4, :) = Ti * ev
-        ! Keep the static resonant susceptibility away from the degenerate
-        ! x1=x2=0 point; the dedicated susceptibility tests cover that limit.
-        Ercov = -0.5d0
+        Ercov = 0.0d0
 
         call kim_update_profiles()
         call kim_run_for_all_modes()
 
-        if (kim_mode_m(1) /= m_mode .or. kim_mode_n(1) /= n_mode .or. kim_mode_status(1) /= 0) then
-            print '(A)', "  FAIL: signed mode identity/status was not retained"
-            num_failed = num_failed + 1
-        elseif (trim(kim_run_type) == 'electrostatic_periodic' .and. kim_mode_resonance(1) <= 0.0d0) then
-            print '(A)', "  FAIL: periodic mode resonance metadata missing"
+        if (kim_mode_m(1) /= m_mode .or. kim_mode_n(1) /= n_mode &
+                .or. kim_mode_status(1) /= 0 .or. kim_mode_resonance(1) /= 0.0d0) then
+            print '(A)', "  FAIL: electromagnetic signed mode/status/resonance metadata"
             num_failed = num_failed + 1
         else
-            print '(A)', "  PASS: signed mode identity and resonance metadata retained"
+            print '(A)', "  PASS: electromagnetic signed mode/status; periodic resonance absent"
             num_passed = num_passed + 1
         end if
 
-        ! B_parallel is a first-class KIM output and must reach the
-        ! wave-code contract as Bp (the RSP parallel component).
+        ! The current EM solver returns Phi/Apar/Br, with no compression
+        ! response. Check that this absent channel is exposed as zero.
         call kim_get_wave_fields(1)
-        if (maxval(abs(Bp - kim_Bparallel_modes(:, 1))) <= 1.0d-12) then
-            print '(A)', "  PASS: KIM Bparallel reaches wave_code_data Bp"
+        if (all(Bp == (0.0d0, 0.0d0)) &
+                .and. all(kim_Bparallel_modes(:, 1) == (0.0d0, 0.0d0))) then
+            print '(A)', "  PASS: absent EM compression channel is zero"
             num_passed = num_passed + 1
         else
-            print '(A)', "  FAIL: KIM Bparallel was not copied to Bp"
+            print '(A)', "  FAIL: absent EM compression channel retained stale values"
             num_failed = num_failed + 1
         end if
+
+        ! Separate routing test with a synthetic nonzero stored field. This
+        ! verifies the adapter copy, not a physical EM compression solution.
+        kim_Bparallel_modes(:, 1) = cmplx(0.3d0, -0.2d0, 8)
+        call kim_get_wave_fields(1)
+        if (all(Bp == cmplx(0.3d0, -0.2d0, 8))) then
+            print '(A)', "  PASS: nonzero stored Bparallel is copied to Bp"
+            num_passed = num_passed + 1
+        else
+            print '(A)', "  FAIL: nonzero stored Bparallel was not copied to Bp"
+            num_failed = num_failed + 1
+        end if
+        kim_Bparallel_modes(:, 1) = (0.0d0, 0.0d0)
+        call kim_get_wave_fields(1)
 
         allocate(br_rescaled(npts))
         br_rescaled = kim_Br_modes(:, 1)
@@ -271,7 +279,6 @@ contains
                 response_change
             num_failed = num_failed + 1
         end if
-
     end subroutine
 
 end program test_kim_adapter

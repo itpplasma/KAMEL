@@ -42,6 +42,7 @@ module transp_coeffs_mod
         !
         use wave_code_data, only: antenna_factor, I_par_toroidal
         use control_mod, only: wave_code, kim_run_type
+        use, intrinsic :: ieee_arithmetic, only: ieee_is_finite
         use grid_mod, only: Ipar
 
         implicit none
@@ -54,6 +55,8 @@ module transp_coeffs_mod
         ! diffusion assembly.  Do not apply the legacy antenna factor a
         ! second time to fields/tensors that already carry |s| and |s|^2.
         if (trim(wave_code) == 'KIM' .and. trim(kim_run_type) == 'electrostatic_periodic') then
+            if (.not. ieee_is_finite(I_par_toroidal)) error stop 'non-finite target current'
+            if (I_par_toroidal <= 0.0d0) return
             antenna_factor = 1.0d0
             write(*,*) 'Periodic KIM response already target-current normalized; antenna_factor = 1'
             return

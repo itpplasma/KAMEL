@@ -1,4 +1,5 @@
 subroutine read_config
+    use, intrinsic :: ieee_arithmetic, only: ieee_is_finite
     use baseparam_mod, only: btor, rtor, rsepar, dperp, Z_i, am, urelax
     use control_mod, only: eps, paramscan, data_verbosity, suppression_mode, log_level, &
                            readfromtimestep, temperature_limit, gyro_current_study, &
@@ -6,6 +7,7 @@ subroutine read_config
                            kim_config_path, kim_profiles_from_balance, &
                            kim_run_type, kim_ion_transport_model, kim_transport_benchmark, &
                            kim_n_modes, kim_m_list, kim_n_list, &
+                           kim_current_floor, kim_current_max_scale, kim_current_relaxation, &
                            jpar_method, ion_transport_model_id, &
                            ION_TRANSPORT_INVALID
     use grid_mod, only: rmin, rmax, npoimin, gg_factor, gg_width, gg_r_res, iboutype, rb_cut_in, &
@@ -33,7 +35,8 @@ subroutine read_config
         set_constant_time_step, constant_time_step, urelax, kim_config_path, &
         kim_profiles_from_balance, kim_run_type, kim_ion_transport_model, kim_transport_benchmark, &
         kim_n_modes, kim_m_list, kim_n_list, &
-        I_par_toroidal, jpar_method
+        I_par_toroidal, jpar_method, kim_current_floor, kim_current_max_scale, &
+        kim_current_relaxation
 
     ! read the parameters from namelist file
     open (newunit=u, file=config_file, status="old", action="read", iostat=ios)
@@ -45,6 +48,15 @@ subroutine read_config
     if (ion_transport_model_id(kim_ion_transport_model) == &
             ION_TRANSPORT_INVALID) then
         error stop 'kim_ion_transport_model must be finite_larmor_radius or drift_kinetic'
+    end if
+
+    if (trim(wave_code) == 'KIM' .and. trim(kim_run_type) == 'electrostatic_periodic') then
+        if (.not. ieee_is_finite(I_par_toroidal)) error stop 'non-finite target current'
+        if (.not. all(ieee_is_finite([kim_current_floor, kim_current_max_scale, &
+                kim_current_relaxation]))) error stop 'non-finite current normalization setting'
+        if (kim_current_floor <= 0.0d0 .or. kim_current_max_scale <= 0.0d0 .or. &
+                kim_current_relaxation <= 0.0d0 .or. kim_current_relaxation > 1.0d0) &
+            error stop 'invalid current normalization setting'
     end if
 
     if (kim_transport_benchmark) then

@@ -77,3 +77,24 @@ add_fortran_test(test_transport_smoothing)
 add_executable(test_periodic_current_normalization.x test_periodic_current_normalization.f90)
 target_link_libraries(test_periodic_current_normalization.x PUBLIC ql-balance_lib)
 add_fortran_test(test_periodic_current_normalization)
+
+add_executable(test_periodic_target_current.x test_periodic_target_current.f90)
+target_link_libraries(test_periodic_target_current.x PUBLIC ql-balance_lib)
+target_include_directories(test_periodic_target_current.x PRIVATE ${CMAKE_BINARY_DIR}/OBJS/kim)
+add_fortran_test(test_periodic_target_current)
+file(MAKE_DIRECTORY ${CMAKE_BINARY_DIR}/tests/periodic_target_current)
+set_tests_properties(test_periodic_target_current PROPERTIES
+    WORKING_DIRECTORY ${CMAKE_BINARY_DIR}/tests/periodic_target_current)
+
+add_executable(test_periodic_response_normalization.x test_periodic_response_normalization.f90)
+target_link_libraries(test_periodic_response_normalization.x PUBLIC ql-balance_lib)
+target_include_directories(test_periodic_response_normalization.x PRIVATE
+    ${CMAKE_BINARY_DIR}/OBJS/kim)
+add_fortran_test(test_periodic_response_normalization)
+
+foreach(invalid_case geometry_duplicate geometry_descending geometry_nan geometry_inf
+        bounds_nan bounds_inf bounds_reversed bounds_empty bounds_outside grid_shape)
+    add_test(NAME test_periodic_current_${invalid_case}
+        COMMAND test_periodic_current_normalization.x ${invalid_case})
+    set_tests_properties(test_periodic_current_${invalid_case} PROPERTIES WILL_FAIL TRUE)
+endforeach()

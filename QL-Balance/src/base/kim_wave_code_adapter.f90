@@ -34,6 +34,18 @@ module kim_wave_code_adapter_m
     public :: kim_periodic_mode_selected
     public :: kim_D_ion_modes, kim_transition_weights, kim_embedding_metadata
     public :: kim_periodic_scale_modes, kim_periodic_current_unit, kim_periodic_scale_status
+    public :: kim_normalize_periodic_response, kim_current_records
+    type :: periodic_current_record_t
+        logical :: active = .false.
+        real(8) :: target = 0.0d0, relaxation = 1.0d0, current_floor = 0.0d0, max_scale = 0.0d0
+        real(8) :: core(2) = 0.0d0
+        complex(8) :: unit = (0.0d0, 0.0d0), achieved = (0.0d0, 0.0d0)
+        complex(8) :: scale = (1.0d0, 0.0d0), residual = (0.0d0, 0.0d0)
+        integer :: status = -1
+        real(8), allocatable :: r(:)
+        complex(8), allocatable :: unit_jpar(:), normalized_jpar(:)
+    end type periodic_current_record_t
+    type(periodic_current_record_t), allocatable :: kim_current_records(:)
 
     !! Module-level KIM solver handle (reused across calls)
     type(kim_solver_t) :: kim_handle
@@ -65,9 +77,6 @@ module kim_wave_code_adapter_m
     complex(8), allocatable :: kim_periodic_current_unit(:)
     integer, allocatable :: kim_periodic_scale_status(:)
     real(8), parameter :: periodic_c_light = 2.99792458d10
-    real(8), parameter :: periodic_current_floor = 1.0d-30
-    real(8), parameter :: periodic_max_scale_ratio = 1.0d12
-    real(8), parameter :: periodic_scale_relaxation = 1.0d0
 
     !! Per-mode stored wave vectors (nrad, dim_mn)
     !! kp and ks depend on (m,n) via the equilibrium formulas.
@@ -297,20 +306,27 @@ contains
             wcd_B0 => B0, wcd_nue => nue, wcd_nui => nui, &
             wcd_B0t => B0t, wcd_B0z => B0z, wcd_Vth => Vth, wcd_Vz => Vz, &
             I_par_toroidal
-        use control_mod, only: kim_profiles_from_balance
-        use periodic_current_normalization_m, only: integrate_trusted_current, periodic_drive_scale
+        use control_mod, only: kim_profiles_from_balance, kim_current_floor, &
+            kim_current_max_scale, kim_current_relaxation
+        use, intrinsic :: ieee_arithmetic, only: ieee_is_finite
+        use setup_m, only: Br_boundary_re, Br_boundary_im
+        use periodic_current_normalization_m, only: integrate_trusted_current
 
         implicit none
 
         type(kim_results_t) :: res, background
         integer :: i_mn, ierr, kim_npts, kim_plasma_npts, nrad_inside, i
         real(8), allocatable :: kim_r(:), kim_plasma_r(:), weights(:)
-        real(8) :: core_lo, core_hi, width
+        real(8) :: core_lo, core_hi, width, saved_br_re, saved_br_im
         complex(8) :: current_unit, drive_scale
         integer :: scale_status
-        logical :: periodic
+        logical :: periodic, normalize
 
         periodic = kim_periodic_mode_selected()
+        if (periodic) then
+            if (.not. ieee_is_finite(I_par_toroidal)) error stop 'non-finite target current'
+        end if
+        normalize = periodic .and. I_par_toroidal > 0.0d0
 
         ! -------------------------------------------------------
         ! 1. (Re-)allocate per-mode storage
@@ -325,6 +341,7 @@ contains
         if (allocated(kim_D_ion_modes)) deallocate(kim_D_ion_modes)
         if (allocated(kim_transition_weights)) deallocate(kim_transition_weights)
         if (allocated(kim_embedding_metadata)) deallocate(kim_embedding_metadata)
+        if (allocated(kim_current_records)) deallocate(kim_current_records)
         if (allocated(kim_periodic_scale_modes)) deallocate(kim_periodic_scale_modes)
         if (allocated(kim_periodic_current_unit)) deallocate(kim_periodic_current_unit)
         if (allocated(kim_periodic_scale_status)) deallocate(kim_periodic_scale_status)
@@ -344,6 +361,7 @@ contains
         allocate(kim_D_ion_modes(2, 2, dim_r, dim_mn))
         allocate(kim_transition_weights(dim_r, dim_mn))
         allocate(kim_embedding_metadata(4, dim_mn))
+        allocate(kim_current_records(dim_mn))
         allocate(kim_periodic_scale_modes(dim_mn), kim_periodic_current_unit(dim_mn), &
             kim_periodic_scale_status(dim_mn))
         allocate(kim_kp_modes(dim_r, dim_mn))
@@ -378,7 +396,15 @@ contains
 
             ! The seam owns mode setup, the per-mode equilibrium recompute
             ! (modes 2+), the field reset, and the run.
+            saved_br_re = Br_boundary_re
+            saved_br_im = Br_boundary_im
+            if (normalize) then
+                Br_boundary_re = 1.0d0
+                Br_boundary_im = 0.0d0
+            end if
             call kim_handle%solve(m_vals(i_mn), n_vals(i_mn), stat=ierr)
+            Br_boundary_re = saved_br_re
+            Br_boundary_im = saved_br_im
             if (ierr /= KIM_OK) then
                 write(*,*) 'ERROR: KIM solve failed for mode ', i_mn, &
                            ' status ', ierr
@@ -408,35 +434,33 @@ contains
                 write(*,*) '  KIM compact core and requested/actual width [cm]: ', &
                     kim_embedding_metadata(:, i_mn)
                 allocate(weights(dim_r))
-                current_unit = integrate_trusted_current(kim_r, res%jpar, core_lo, core_hi)
-                call periodic_drive_scale(I_par_toroidal, current_unit, periodic_c_light, &
-                    periodic_current_floor, periodic_max_scale_ratio, &
-                    periodic_scale_relaxation, drive_scale, scale_status)
-                kim_periodic_current_unit(i_mn) = current_unit
-                kim_periodic_scale_modes(i_mn) = drive_scale
-                kim_periodic_scale_status(i_mn) = scale_status
-                write(*,*) '  periodic KIM current normalization: mode ', i_mn, &
-                    ' unit=', current_unit, ' scale=', drive_scale, ' status=', scale_status
-                if (I_par_toroidal > 0.0d0 .and. scale_status /= 0) then
-                    write(*,*) 'WARNING: periodic current normalization guard status ', scale_status, &
-                        ' for mode ', i_mn
-                end if
-                ! For guard statuses 2 and 3, periodic_drive_scale returns a
-                ! zero scale.  Apply it so a failed normalization cannot leak
-                ! the unit-amplitude response into a run whose later antenna
-                ! factor is deliberately fixed to one.
-                if (I_par_toroidal > 0.0d0) then
-                    res%Es = drive_scale*res%Es
-                    res%Ep = drive_scale*res%Ep
-                    res%Er = drive_scale*res%Er
-                    res%Etheta = drive_scale*res%Etheta
-                    res%Ez = drive_scale*res%Ez
-                    res%Br = drive_scale*res%Br
-                    if (allocated(res%Bparallel)) res%Bparallel = drive_scale*res%Bparallel
-                    if (allocated(res%jpar)) res%jpar = drive_scale*res%jpar
-                    if (allocated(res%jpar_e)) res%jpar_e = drive_scale*res%jpar_e
-                    if (allocated(res%jpar_i)) res%jpar_i = drive_scale*res%jpar_i
-                    if (allocated(res%D_ion)) res%D_ion = abs(drive_scale)**2*res%D_ion
+                if (normalize) then
+                    kim_current_records(i_mn)%active = .true.
+                    kim_current_records(i_mn)%target = I_par_toroidal
+                    kim_current_records(i_mn)%relaxation = kim_current_relaxation
+                    kim_current_records(i_mn)%current_floor = kim_current_floor
+                    kim_current_records(i_mn)%max_scale = kim_current_max_scale
+                    kim_current_records(i_mn)%core = [core_lo, core_hi]
+                    kim_current_records(i_mn)%r = kim_r
+                    kim_current_records(i_mn)%unit_jpar = res%jpar
+                    call kim_normalize_periodic_response(res, I_par_toroidal, &
+                        current_unit, drive_scale, scale_status)
+                    kim_periodic_current_unit(i_mn) = current_unit
+                    kim_periodic_scale_modes(i_mn) = drive_scale
+                    kim_periodic_scale_status(i_mn) = scale_status
+                    kim_current_records(i_mn)%unit = current_unit
+                    kim_current_records(i_mn)%scale = drive_scale
+                    kim_current_records(i_mn)%status = scale_status
+                    kim_current_records(i_mn)%normalized_jpar = res%jpar
+                    kim_current_records(i_mn)%achieved = &
+                        2.0d0*acos(-1.0d0)/periodic_c_light * &
+                        integrate_trusted_current(kim_r, res%jpar, core_lo, core_hi)
+                    kim_current_records(i_mn)%residual = &
+                        kim_current_records(i_mn)%achieved - I_par_toroidal
+                    write(*,*) '  periodic current normalization: mode ', i_mn, &
+                        ' unit=', current_unit, ' scale=', drive_scale, ' status=', scale_status
+                    if (scale_status /= 0) write(*,*) &
+                        'WARNING: periodic response suppressed by current guard ', scale_status
                 end if
             end if
 
@@ -633,6 +657,98 @@ contains
         write(*, *) "KIM adapter: all modes solved"
 
     end subroutine kim_run_for_all_modes
+
+    subroutine kim_normalize_periodic_response(res, target, unit_current, scale, status)
+        !! Normalize a complete unit response. Rejected data are assigned clean
+        !! zeros: multiplying NaN or Infinity by zero cannot suppress them.
+        use, intrinsic :: ieee_arithmetic, only: ieee_is_finite
+        use control_mod, only: kim_current_floor, kim_current_max_scale, kim_current_relaxation
+        use periodic_current_normalization_m, only: integrate_trusted_current, periodic_drive_scale
+        type(kim_results_t), intent(inout) :: res
+        real(8), intent(in) :: target
+        complex(8), intent(out) :: unit_current, scale
+        integer, intent(out) :: status
+        real(8) :: core_lo, core_hi
+
+        ! No target is the existing manual-amplitude path, not a zero drive.
+        if (ieee_is_finite(target)) then
+            if (target <= 0.0d0) then
+                unit_current = (0.0d0, 0.0d0)
+                scale = (1.0d0, 0.0d0)
+                status = -1
+                return
+            end if
+        end if
+        if (.not. allocated(res%r_field) .or. .not. allocated(res%jpar)) &
+            error stop 'periodic normalization lacks a current profile'
+        core_lo = res%r_resonance - res%dx_asis
+        core_hi = res%r_resonance + res%dx_asis
+        unit_current = integrate_trusted_current(res%r_field, res%jpar, core_lo, core_hi)
+        call periodic_drive_scale(target, unit_current, periodic_c_light, &
+            kim_current_floor, kim_current_max_scale, kim_current_relaxation, scale, status)
+        if (.not. finite_response()) status = 3
+        if (status == 0) then
+            if (allocated(res%Es)) res%Es = scale*res%Es
+            if (allocated(res%Ep)) res%Ep = scale*res%Ep
+            if (allocated(res%Er)) res%Er = scale*res%Er
+            if (allocated(res%Etheta)) res%Etheta = scale*res%Etheta
+            if (allocated(res%Ez)) res%Ez = scale*res%Ez
+            if (allocated(res%Br)) res%Br = scale*res%Br
+            if (allocated(res%Bparallel)) res%Bparallel = scale*res%Bparallel
+            if (allocated(res%Phi)) res%Phi = scale*res%Phi
+            if (allocated(res%jpar)) res%jpar = scale*res%jpar
+            if (allocated(res%jpar_e)) res%jpar_e = scale*res%jpar_e
+            if (allocated(res%jpar_i)) res%jpar_i = scale*res%jpar_i
+            if (allocated(res%jrad)) res%jrad = scale*res%jrad
+            if (allocated(res%D_ion)) res%D_ion = abs(scale)**2*res%D_ion
+            if (.not. finite_response()) status = 3
+        end if
+        if (status /= 0) then
+            scale = (0.0d0, 0.0d0)
+            if (allocated(res%Es)) res%Es = (0.0d0, 0.0d0)
+            if (allocated(res%Ep)) res%Ep = (0.0d0, 0.0d0)
+            if (allocated(res%Er)) res%Er = (0.0d0, 0.0d0)
+            if (allocated(res%Etheta)) res%Etheta = (0.0d0, 0.0d0)
+            if (allocated(res%Ez)) res%Ez = (0.0d0, 0.0d0)
+            if (allocated(res%Br)) res%Br = (0.0d0, 0.0d0)
+            if (allocated(res%Bparallel)) res%Bparallel = (0.0d0, 0.0d0)
+            if (allocated(res%Phi)) res%Phi = (0.0d0, 0.0d0)
+            if (allocated(res%jpar)) res%jpar = (0.0d0, 0.0d0)
+            if (allocated(res%jpar_e)) res%jpar_e = (0.0d0, 0.0d0)
+            if (allocated(res%jpar_i)) res%jpar_i = (0.0d0, 0.0d0)
+            if (allocated(res%jrad)) res%jrad = (0.0d0, 0.0d0)
+            if (allocated(res%D_ion)) res%D_ion = 0.0d0
+        end if
+    contains
+        logical function finite_response() result(valid)
+            valid = .true.
+            if (allocated(res%Es)) valid = valid .and. &
+                all(ieee_is_finite(real(res%Es))) .and. all(ieee_is_finite(aimag(res%Es)))
+            if (allocated(res%Ep)) valid = valid .and. &
+                all(ieee_is_finite(real(res%Ep))) .and. all(ieee_is_finite(aimag(res%Ep)))
+            if (allocated(res%Er)) valid = valid .and. &
+                all(ieee_is_finite(real(res%Er))) .and. all(ieee_is_finite(aimag(res%Er)))
+            if (allocated(res%Etheta)) valid = valid .and. &
+                all(ieee_is_finite(real(res%Etheta))) .and. all(ieee_is_finite(aimag(res%Etheta)))
+            if (allocated(res%Ez)) valid = valid .and. &
+                all(ieee_is_finite(real(res%Ez))) .and. all(ieee_is_finite(aimag(res%Ez)))
+            if (allocated(res%Br)) valid = valid .and. &
+                all(ieee_is_finite(real(res%Br))) .and. all(ieee_is_finite(aimag(res%Br)))
+            if (allocated(res%Bparallel)) valid = valid .and. &
+                all(ieee_is_finite(real(res%Bparallel))) .and. all(ieee_is_finite(aimag(res%Bparallel)))
+            if (allocated(res%Phi)) valid = valid .and. &
+                all(ieee_is_finite(real(res%Phi))) .and. all(ieee_is_finite(aimag(res%Phi)))
+            if (allocated(res%jpar)) valid = valid .and. &
+                all(ieee_is_finite(real(res%jpar))) .and. all(ieee_is_finite(aimag(res%jpar)))
+            if (allocated(res%jpar_e)) valid = valid .and. &
+                all(ieee_is_finite(real(res%jpar_e))) .and. all(ieee_is_finite(aimag(res%jpar_e)))
+            if (allocated(res%jpar_i)) valid = valid .and. &
+                all(ieee_is_finite(real(res%jpar_i))) .and. all(ieee_is_finite(aimag(res%jpar_i)))
+            if (allocated(res%jrad)) valid = valid .and. &
+                all(ieee_is_finite(real(res%jrad))) .and. all(ieee_is_finite(aimag(res%jrad)))
+            if (allocated(res%D_ion)) valid = valid .and. all(ieee_is_finite(res%D_ion))
+        end function finite_response
+    end subroutine kim_normalize_periodic_response
 
     subroutine kim_update_profiles()
         !! Transfer QL-Balance time-evolved profiles into the

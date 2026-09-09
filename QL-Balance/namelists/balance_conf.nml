@@ -60,6 +60,10 @@
  kim_profiles_from_balance = .true. ,
  kim_run_type = 'electromagnetic' ,
  kim_ion_transport_model = 'finite_larmor_radius' , ! 'finite_larmor_radius' or 'drift_kinetic'
+    ! Positive target: unit-drive normalization; otherwise keep manual antenna factor.
+    kim_current_floor = 1.0d-30
+    kim_current_max_scale = 1.0d12
+    kim_current_relaxation = 1.0d0
  kim_n_modes = 2 ,
  kim_m_list = 6, -6 ,
  kim_n_list = 2, 2 ,

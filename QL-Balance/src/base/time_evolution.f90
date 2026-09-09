@@ -158,6 +158,10 @@ module time_evolution
         call initialize_antenna_factor
         call det_balance_eqs_source_terms
 
+        ! Preserve the established step-zero profile output. There is no
+        ! accepted evolution step to checkpoint until the first commit.
+        if (.not. suppression_mode) call write_kin_prof_data_to_disk
+
         call allocate_timscal_and_params
         timstep = timstep*tol
         scratch = .true.
@@ -182,7 +186,6 @@ module time_evolution
         call hold_prev_transp_coeffs
 
         params_begbeg = params
-        if (.not. suppression_mode) call write_kin_prof_data_to_disk
 
     end subroutine
 
@@ -1057,7 +1060,7 @@ module time_evolution
                                 real(Vth), lbound(Vth), ubound(Vth))
 
             if (trim(wave_code) == 'KIM' .and. kim_periodic_mode_selected() .and. &
-                periodic_amplitudes%initialized) then
+                periodic_amplitudes%initialized .and. time_ind > 0) then
                 call capture_periodic_restart(checkpoint)
                 call write_periodic_checkpoint(h5_id, trim(h5_currentgrp), &
                     m_vals, n_vals, periodic_amplitudes, checkpoint)

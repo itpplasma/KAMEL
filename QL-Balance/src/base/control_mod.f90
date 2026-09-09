@@ -10,6 +10,7 @@ module control_mod
     ! Preserve existing KIM decks; periodic coupling requires explicit selection.
     character(len=32) :: kim_run_type = 'electromagnetic'
     character(len=32) :: kim_ion_transport_model = 'finite_larmor_radius'
+    logical :: kim_transport_benchmark = .false.
     logical :: kim_profiles_from_balance = .true.
     integer, parameter :: kim_max_modes = 100
     integer :: kim_n_modes = 0

@@ -4,7 +4,7 @@ subroutine read_config
                            readfromtimestep, temperature_limit, gyro_current_study, &
                            misalign_diffusion, equil_path, ihdf5IO, wave_code, &
                            kim_config_path, kim_profiles_from_balance, &
-                           kim_run_type, kim_ion_transport_model, &
+                           kim_run_type, kim_ion_transport_model, kim_transport_benchmark, &
                            kim_n_modes, kim_m_list, kim_n_list, &
                            jpar_method, ion_transport_model_id, &
                            ION_TRANSPORT_INVALID
@@ -31,7 +31,7 @@ subroutine read_config
         temperature_limit, antenna_max_stopping, gyro_current_study, viscosity_factor, &
         misalign_diffusion, equil_path, ihdf5IO, type_of_run, wave_code, &
         set_constant_time_step, constant_time_step, urelax, kim_config_path, &
-        kim_profiles_from_balance, kim_run_type, kim_ion_transport_model, &
+        kim_profiles_from_balance, kim_run_type, kim_ion_transport_model, kim_transport_benchmark, &
         kim_n_modes, kim_m_list, kim_n_list, &
         I_par_toroidal, jpar_method
 
@@ -45,6 +45,12 @@ subroutine read_config
     if (ion_transport_model_id(kim_ion_transport_model) == &
             ION_TRANSPORT_INVALID) then
         error stop 'kim_ion_transport_model must be finite_larmor_radius or drift_kinetic'
+    end if
+
+    if (kim_transport_benchmark) then
+        if (trim(wave_code) /= 'KIM' .or. trim(kim_run_type) /= 'electrostatic_periodic') &
+            error stop 'kim_transport_benchmark requires periodic KIM'
+        if (ihdf5IO /= 1) error stop 'kim_transport_benchmark requires HDF5 output'
     end if
 
     call set_log_level(log_level)

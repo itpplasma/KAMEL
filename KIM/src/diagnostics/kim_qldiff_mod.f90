@@ -7,6 +7,7 @@ module kim_qldiff_m
     private
     public :: calc_dqle22, calc_dqli11_phi, calc_dqli_tensor
     public :: calc_dqli_flr_harmonic
+    public :: calc_dqli_limit_benchmark, calc_dqli_benchmark_residuals
 
 contains
 
@@ -38,6 +39,63 @@ contains
             vTi, abs(omega_ci), omega_ci, sol, B0, nui, fields_s, &
             fields_o, symbI, tensor)
     end subroutine calc_dqli_flr_harmonic
+
+    subroutine calc_dqli_limit_benchmark(vTi, nui, om_E, B0, kpar, ks, omega_ci, &
+            omega_mode, Es, Br, old_tensor, new_tensor, absolute_residual, relative_residual)
+        !! Diagnostic comparison at ell=0, kr=0 and Bparallel=0.
+        !! Es is physical E_perp [statV/cm], with E_perp=-i*ks*Phi.
+        !! The FLR tensor is symmetric; full legacy antisymmetric transport
+        !! remains visible in the residuals rather than being projected out.
+        use constants_m, only: sol
+        use config_m, only: resolved_ion_ifunc_conservation_model
+        use species_m, only: evaluate_susceptibility
+        use quasilinear_flr_m, only: calc_ion_flr_harmonic
+        real(dp), intent(in) :: vTi, nui, om_E, B0, kpar, ks, omega_ci, omega_mode
+        complex(dp), intent(in) :: Es, Br
+        real(dp), intent(out) :: old_tensor(2,2), new_tensor(2,2)
+        real(dp), intent(out) :: absolute_residual(2,2), relative_residual(2,2)
+        complex(dp) :: ifunc(0:3,0:3), fields(3)
+        real(dp) :: x1, x2
+
+        if (ks < 0.0_dp .or. abs(omega_ci) <= tiny(1.0_dp)) &
+            error stop 'calc_dqli_limit_benchmark: invalid limiting wave number'
+        if (ks == 0.0_dp .and. Es /= cmplx(0.0_dp, 0.0_dp, dp)) &
+            error stop 'calc_dqli_limit_benchmark: nonzero Es requires nonzero ks'
+        x1 = kpar*vTi/nui
+        x2 = -(om_E-omega_mode)/nui
+        call evaluate_susceptibility(x1, x2, resolved_ion_ifunc_conservation_model, ifunc)
+        call calc_dqli_tensor(vTi, nui, om_E-omega_mode, B0, kpar, Es, Br, &
+            old_tensor(1,1), old_tensor(1,2), old_tensor(2,1), old_tensor(2,2))
+
+        fields = (0.0_dp, 0.0_dp)
+        if (ks /= 0.0_dp) fields(1) = cmplx(0.0_dp, 1.0_dp, dp)*Es/ks
+        fields(2) = Br
+        call calc_ion_flr_harmonic(0, ks, 0.0_dp, ks, 0.0_dp, vTi, abs(omega_ci), &
+            omega_ci, sol, B0, nui, fields, fields, ifunc, new_tensor)
+        call calc_dqli_benchmark_residuals(old_tensor, new_tensor, &
+            absolute_residual, relative_residual)
+    end subroutine calc_dqli_limit_benchmark
+
+    pure subroutine calc_dqli_benchmark_residuals(old_tensor, new_tensor, &
+            absolute_residual, relative_residual)
+        !! Componentwise absolute errors and dimensionless fractional errors.
+        !! Normalize by the larger magnitude so a zero reference is defined;
+        !! zero/zero is zero. No dimensionful scale floor hides small tensors.
+        real(dp), intent(in) :: old_tensor(2,2), new_tensor(2,2)
+        real(dp), intent(out) :: absolute_residual(2,2), relative_residual(2,2)
+        real(dp) :: scale
+        integer :: i, j
+
+        absolute_residual = abs(new_tensor-old_tensor)
+        relative_residual = 0.0_dp
+        do j = 1, 2
+            do i = 1, 2
+                scale = max(abs(old_tensor(i,j)), abs(new_tensor(i,j)))
+                if (scale > 0.0_dp) &
+                    relative_residual(i,j) = absolute_residual(i,j)/scale
+            end do
+        end do
+    end subroutine calc_dqli_benchmark_residuals
 
     function calc_dqli11_phi(vTi, nui, om_E, B0, kpar, Es) result(dqli11)
         ! Local ion Phi-only I-function coefficient (the D11 tracer bullet).

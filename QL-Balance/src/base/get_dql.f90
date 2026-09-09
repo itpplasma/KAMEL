@@ -30,17 +30,17 @@ subroutine get_dql
     use plasma_parameters
     use baseparam_mod, only: Z_i, e_charge, am, p_mass, c, e_mass, ev, rtor, pi, rsepar
     use control_mod, only: irf, suppression_mode, misalign_diffusion, type_of_run, wave_code, &
-                          jpar_method, kim_ion_transport_model, &
-                          ion_transport_model_id, ION_TRANSPORT_FLR, &
-                          ION_TRANSPORT_DRIFT_KINETIC
+                          jpar_method
     use time_evolution, only: save_prof_time_step, time_ind, br_formfactor, br_vac_res
     use h5mod
     use wave_code_data
     use kim_wave_code_adapter_m, only: kim_update_profiles, kim_run_for_all_modes, &
         kim_get_wave_fields, kim_get_wave_vectors, kim_vac_Br, kim_Br_modes, &
-        kim_get_current_densities, kim_D_ion_modes, kim_periodic_mode_selected
+        kim_get_current_densities, kim_periodic_mode_selected
     use QLBalance_diag, only: i_mn_loop
     use QLBalance_kinds, only: dp
+    use periodic_transport_benchmark_m, only: select_periodic_ion_transport, &
+        reset_transport_benchmark, write_transport_benchmark
     use transport_smoothing_m, only: smooth_transport_profile
     use PolyLagrangeInterpolation
     use logger_m, only: log_debug
@@ -55,6 +55,7 @@ subroutine get_dql
     real(dp), dimension(:), allocatable :: row_buffer
 
     real(dp), dimension(npoib) :: spec_weight
+    real(dp) :: ion_tensor(2, 2, npoib)
     real(dp) :: weight
     real(dp), dimension(npoib) :: vT_e, vT_i, nu_e, nu_i
 
@@ -80,6 +81,7 @@ subroutine get_dql
     complex(dp), dimension(:), allocatable :: Br_flre, Bt_flre, Bz_flre
     complex(dp), dimension(:), allocatable :: zeros_dim_r
 
+    call reset_transport_benchmark()
     allocate(unused_fields(dim_r, 8))
     allocate (dqle11_loc(npoib))
     allocate (dqle12_loc(npoib))
@@ -246,24 +248,11 @@ subroutine get_dql
             ! both formalisms can be compared using the same physical fields.
             call calc_transport_coeffs_ornuhl(npoib, vT_e, nu_e, de11, de12, de21, de22)
             if (trim(wave_code) == 'KIM' .and. kim_periodic_mode_selected()) then
-                select case (ion_transport_model_id(kim_ion_transport_model))
-                case (ION_TRANSPORT_FLR)
-                    if (.not. allocated(kim_D_ion_modes)) then
-                        error stop 'finite-Larmor-radius ion transport tensor is unavailable'
-                    end if
-                    if (size(kim_D_ion_modes, 3) /= npoib .or. &
-                            i_mn > size(kim_D_ion_modes, 4)) then
-                        error stop 'finite-Larmor-radius ion transport tensor has an invalid shape'
-                    end if
-                    di11 = kim_D_ion_modes(1, 1, :, i_mn)
-                    di12 = kim_D_ion_modes(1, 2, :, i_mn)
-                    di21 = kim_D_ion_modes(2, 1, :, i_mn)
-                    di22 = kim_D_ion_modes(2, 2, :, i_mn)
-                case (ION_TRANSPORT_DRIFT_KINETIC)
-                    call calc_transport_coeffs_ornuhl(npoib, vT_i, nu_i, di11, di12, di21, di22)
-                case default
-                    error stop 'invalid kim_ion_transport_model'
-                end select
+                call select_periodic_ion_transport(i_mn, vT_i, nu_i, ion_tensor)
+                di11 = ion_tensor(1, 1, :)
+                di12 = ion_tensor(1, 2, :)
+                di21 = ion_tensor(2, 1, :)
+                di22 = ion_tensor(2, 2, :)
             else
                 call calc_transport_coeffs_ornuhl(npoib, vT_i, nu_i, di11, di12, di21, di22)
             end if
@@ -493,6 +482,7 @@ subroutine get_dql
     if (modulo(time_ind, save_prof_time_step) .eq. 0) then
         if (suppression_mode .eqv. .false.) then
             call write_fields_currs_transp_coefs_to_h5(time_ind)
+            call write_transport_benchmark(time_ind)
             call write_D_one_over_nu_to_h5(time_ind)
         end if
     end if

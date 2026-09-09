@@ -142,6 +142,19 @@ Do[
       <> ", q=" <> ToString[q]],
   {q, 0, 2}, {observation, fields}, {source, fields}];
 
+(* Drift-kinetic limiting oracle.  Set both radial wave numbers to zero and
+   approach k_s,k_s' from the positive side.  The gyro-average becomes
+   W_0 -> 1, W_1 -> 1, W_2 -> 2. The complete field-contracted comparison
+   follows the transport-polynomial definitions below. *)
+ClearAll[epsilon, zeroFlrMoment];
+zeroFlrMoment[q_Integer] := FullSimplify[
+  Limit[(wExpected[q] /. {bp -> vT^2 (epsilon^2 + epsilon^2)/(2 omegaC^2),
+      bx -> vT^2 epsilon^2/omegaC^2, l -> 0}), epsilon -> 0,
+    Direction -> "FromAbove"]];
+assertTrue[zeroFlrMoment[0] === 1, "zero-FLR W0 reduction"];
+assertTrue[zeroFlrMoment[1] === 1, "zero-FLR W1 reduction"];
+assertTrue[zeroFlrMoment[2] === 2, "zero-FLR W2 reduction"];
+
 (* The thermodynamic polynomials determine the complete coefficient family
    and the parallel-susceptibility ledger. *)
 
@@ -195,6 +208,80 @@ assertTrue[Length[allLedgers] === 36,
   "four tensor entries contain all nine ordered field pairs"];
 assertTrue[Max[Flatten[allLedgers]] === 3,
   "highest required susceptibility index is three"];
+
+(* Compare actual physical-field contractions, retaining every parallel
+   susceptibility moment and arbitrary electric/magnetic relative phase.
+   Physical Es=-I ks Phi: the c belongs to the radial drift vertex, not to
+   the conversion from electric field to potential. The physical I-function
+   matrix is symmetric, but its entries need not be real. *)
+ClearAll[limitMoment, limitContract, limitField, limitRawPolynomial,
+  limitRaw, limitIntegral, legacyLimit, eReal, eImag, bReal, bImag,
+  momentReal, momentImag, nuLimit];
+limitMoment[p_Integer, q_Integer] :=
+  momentReal[Min[p, q], Max[p, q]] + I momentImag[Min[p, q], Max[p, q]];
+limitContract[expression_] := Total[
+  (Last[#] limitMoment[First[#][[1]], First[#][[2]]]) & /@
+    CoefficientRules[Expand[expression], {xiO, xiS}]];
+limitField["Phi"] = I (eReal + I eImag)/epsilon;
+limitField["Br"] = bReal + I bImag;
+limitFields = {"Phi", "Br"};
+limitAssumptions = c > 0 && B0 > 0 && vT > 0 && omegaC > 0 && nuLimit > 0 &&
+  Element[{eReal, eImag, bReal, bImag, xiO, xiS}, Reals] &&
+  Element[Flatten[Table[{momentReal[p, q], momentImag[p, q]},
+    {p, 0, 3}, {q, p, 3}]], Reals];
+Do[
+  limitRawPolynomial[i, j] = FullSimplify[
+    Limit[FullSimplify[
+      Sum[Conjugate[limitField[observation]] limitField[source] *
+        transportPolynomial[i, j, observation, source],
+        {observation, limitFields}, {source, limitFields}] /.
+          {ksS -> epsilon, ksO -> epsilon, krS -> 0, krO -> 0, l -> 0},
+      Assumptions -> limitAssumptions && epsilon > 0],
+      epsilon -> 0, Direction -> "FromAbove",
+      Assumptions -> limitAssumptions], Assumptions -> limitAssumptions];
+  limitRaw[i, j] = limitContract[limitRawPolynomial[i, j]],
+  {i, 1, 2}, {j, 1, 2}];
+limitIntegral = Table[FullSimplify[
+  Re[(limitRaw[i, j] + Conjugate[limitRaw[j, i]])/2]/(2 nuLimit),
+  Assumptions -> limitAssumptions], {i, 1, 2}, {j, 1, 2}];
+
+(* Independent existing Heyn/Markl formulas, in physical CGS fields. *)
+limitElectric = c^2 (eReal^2 + eImag^2);
+limitMagnetic = vT^2 (bReal^2 + bImag^2);
+limitCrossReal = 2 c vT (eReal bReal + eImag bImag);
+limitCrossImag = 2 c vT (eReal bImag - eImag bReal);
+limitPrefactor = 1/(2 nuLimit B0^2);
+legacy11 = limitPrefactor (limitElectric Re[limitMoment[0, 0]] +
+  limitCrossReal Re[limitMoment[1, 0]] + limitMagnetic Re[limitMoment[1, 1]]);
+legacy12Symmetric = limitPrefactor (
+  limitElectric Re[limitMoment[0, 0] + limitMoment[2, 0]/2] +
+  limitCrossReal Re[limitMoment[1, 0] + (limitMoment[3, 0] + limitMoment[2, 1])/4] +
+  limitMagnetic Re[limitMoment[1, 1] + limitMoment[3, 1]/2]);
+legacy12Antisymmetric = limitPrefactor limitCrossImag *
+  Im[limitMoment[2, 1] - limitMoment[3, 0]]/4;
+legacy22 = limitPrefactor (
+  limitElectric Re[2 limitMoment[0, 0] + limitMoment[2, 0] + limitMoment[2, 2]/4] +
+  limitCrossReal Re[2 limitMoment[1, 0] +
+    (limitMoment[3, 0] + limitMoment[2, 1])/2 + limitMoment[3, 2]/4] +
+  limitMagnetic Re[2 limitMoment[1, 1] + limitMoment[3, 1] + limitMoment[3, 3]/4]);
+legacyLimit = {{legacy11, legacy12Symmetric + legacy12Antisymmetric},
+  {legacy12Symmetric - legacy12Antisymmetric, legacy22}};
+Do[
+  assertTrue[FullSimplify[limitIntegral[[i, j]] -
+      (legacyLimit[[i, j]] + legacyLimit[[j, i]])/2,
+      Assumptions -> limitAssumptions] === 0,
+    "physical zero-FLR symmetric drift reduction D" <> ToString[{i, j}]],
+  {i, 1, 2}, {j, 1, 2}];
+assertTrue[FullSimplify[limitIntegral - legacyLimit -
+    {{0, -legacy12Antisymmetric}, {legacy12Antisymmetric, 0}},
+    Assumptions -> limitAssumptions] === ConstantArray[0, {2, 2}],
+  "full zero-FLR residual retains missing legacy antisymmetric phase term"];
+assertTrue[FullSimplify[legacy12Antisymmetric /.
+    {c -> 1, vT -> 1, B0 -> 1, nuLimit -> 1,
+      eReal -> 1, eImag -> 0, bReal -> 0, bImag -> 1,
+      momentImag[1, 2] -> 1, momentImag[0, 3] -> 0},
+    Assumptions -> limitAssumptions] === 1/4,
+  "antisymmetric residual is not identically zero"];
 
 (* High-precision fixtures.  Inputs remain exact rationals until the final N,
    so these values exercise symbolic differentiation before evaluation. *)

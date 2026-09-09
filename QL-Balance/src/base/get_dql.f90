@@ -41,6 +41,7 @@ subroutine get_dql
     use QLBalance_kinds, only: dp
     use periodic_transport_benchmark_m, only: select_periodic_ion_transport, &
         reset_transport_benchmark, write_transport_benchmark
+    use periodic_current_diagnostics_m, only: write_periodic_current_diagnostics
     use transport_smoothing_m, only: smooth_transport_profile
     use PolyLagrangeInterpolation
     use logger_m, only: log_debug
@@ -483,6 +484,7 @@ subroutine get_dql
         if (suppression_mode .eqv. .false.) then
             call write_fields_currs_transp_coefs_to_h5(time_ind)
             call write_transport_benchmark(time_ind)
+            call write_periodic_current_diagnostics(time_ind)
             call write_D_one_over_nu_to_h5(time_ind)
         end if
     end if

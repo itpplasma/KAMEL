@@ -617,6 +617,14 @@ class SimulationConfig(KimModel):
     physics: PhysicsConfig = Field(default_factory=PhysicsConfig)
     io: IOConfig = Field(default_factory=IOConfig)
 
+    @classmethod
+    def from_namelist(cls, path: Path | str) -> SimulationConfig:
+        """Load and validate a supported KIM namelist."""
+
+        from kim.namelist import load_namelist
+
+        return load_namelist(Path(path))
+
     @model_validator(mode="after")
     def validate_cross_group_constraints(self) -> SimulationConfig:
         if (

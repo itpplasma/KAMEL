@@ -74,3 +74,15 @@ Update `tests/fixtures/periodic_reference.json` only after intentionally changin
 numerics. Run the case with one OpenMP thread, inspect the complete HDF5 schema and logs, record the
 new values, justify the change in review, and keep tolerances no wider than cross-platform evidence
 requires.
+
+## Legacy interface migration
+
+This package replaces the former `KIMpy` runner, `KIMData` reader, and Tk-based KIM GUIs. Use
+`Simulation` or `kim run` instead of creating executable symlinks and changing the process working
+directory. Supply profiles explicitly; the API copies them into every run directory rather than
+linking mutable external directories. Use `Result`, `kim inspect`, and `kim result` for production
+HDF5 output instead of converting legacy text field files.
+
+The experimental dispersion-relation, Poisson, and Poisson-Ampere analysis modules remain in the
+top-level KAMELpy distribution because they perform separate scientific analysis and are not
+replaced by this orchestration API.

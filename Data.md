@@ -170,7 +170,7 @@ KIM_config.nml          Profile files (*.dat)
    backs/, grid/)               │
                                 ▼
                      Python post-processing
-                     (KIMpy, KIMPoissonSolver)
+                     (kim.Result, KIMPoissonSolver)
 ```
 
 ---

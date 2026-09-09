@@ -1,10 +1,9 @@
-# Python code for KIM
+# KIM analysis modules
 
-## kimpy
-Handles preparation and runs of KIM.
-
-## kim_data
-Handles the output data of KIM.
+This package contains experimental dispersion and Poisson/Ampere analysis code. Use the separate
+`kamel-kim` distribution in `KIM/python` to configure, run, sweep, and inspect production KIM
+simulations. The old KIM runner, output reader, and Tk interfaces were removed after those workflow
+features moved to the validated `kim` API and CLI.
 
 ## KIM WKB
 Within the main file wkb.py, this python code calculates the dispersion relation within the KiLCA Integral Model (KIM).

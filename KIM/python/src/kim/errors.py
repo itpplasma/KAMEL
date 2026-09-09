@@ -11,3 +11,7 @@ class ConfigurationError(KimError):
 
 class ProfileError(KimError):
     """Raised when radial profile input is missing, malformed, or inconsistent."""
+
+
+class ExecutableError(KimError):
+    """Raised when the KIM scientific executable cannot be resolved or inspected."""

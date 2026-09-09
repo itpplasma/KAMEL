@@ -25,7 +25,13 @@ from kim.config import (
     SimulationConfig,
     ThetaIntegration,
 )
-from kim.errors import ConfigurationError, KimError, ProfileError
+from kim.errors import ConfigurationError, ExecutableError, KimError, ProfileError
+from kim.executable import (
+    KamelGitMetadata,
+    discover_kamel_git_metadata,
+    executable_sha256,
+    resolve_executable,
+)
 from kim.profiles import ProfileCopy, ProfileData, ProfileSet, ProfileValidation
 
 __version__ = "0.1.0"
@@ -37,6 +43,7 @@ __all__ = [
     "ElectrostaticPeriodicRun",
     "ElectrostaticRun",
     "ExplicitPlasma",
+    "ExecutableError",
     "Flr2Config",
     "Flr2Run",
     "GridConfig",
@@ -44,6 +51,7 @@ __all__ = [
     "IOConfig",
     "IonCollisionModel",
     "IonSpecies",
+    "KamelGitMetadata",
     "KimError",
     "PeriodicConfig",
     "PlasmaConfig",
@@ -62,4 +70,7 @@ __all__ = [
     "SimulationConfig",
     "ThetaIntegration",
     "__version__",
+    "discover_kamel_git_metadata",
+    "executable_sha256",
+    "resolve_executable",
 ]

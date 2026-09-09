@@ -15,3 +15,7 @@ class ProfileError(KimError):
 
 class ExecutableError(KimError):
     """Raised when the KIM scientific executable cannot be resolved or inspected."""
+
+
+class RunError(KimError):
+    """Raised when a run repository or manifest operation fails."""

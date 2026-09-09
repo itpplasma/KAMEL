@@ -25,7 +25,7 @@ from kim.config import (
     SimulationConfig,
     ThetaIntegration,
 )
-from kim.errors import ConfigurationError, ExecutableError, KimError, ProfileError
+from kim.errors import ConfigurationError, ExecutableError, KimError, ProfileError, RunError
 from kim.executable import (
     KamelGitMetadata,
     discover_kamel_git_metadata,
@@ -33,6 +33,14 @@ from kim.executable import (
     resolve_executable,
 )
 from kim.profiles import ProfileCopy, ProfileData, ProfileSet, ProfileValidation
+from kim.runs import (
+    InputArtifact,
+    RunFailure,
+    RunManifest,
+    RunPaths,
+    RunRepository,
+    RunStatus,
+)
 
 __version__ = "0.1.0"
 
@@ -51,6 +59,7 @@ __all__ = [
     "IOConfig",
     "IonCollisionModel",
     "IonSpecies",
+    "InputArtifact",
     "KamelGitMetadata",
     "KimError",
     "PeriodicConfig",
@@ -65,6 +74,12 @@ __all__ = [
     "ProfileValidation",
     "QuadpackAlgorithm",
     "RunConfig",
+    "RunError",
+    "RunFailure",
+    "RunManifest",
+    "RunPaths",
+    "RunRepository",
+    "RunStatus",
     "RunType",
     "SetupConfig",
     "SimulationConfig",

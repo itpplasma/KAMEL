@@ -138,3 +138,24 @@ target_link_libraries(test_periodic_restart_adapter.x PUBLIC ql-balance_lib)
 add_fortran_test(test_periodic_restart_adapter)
 set_tests_properties(test_periodic_restart_adapter PROPERTIES
     WORKING_DIRECTORY ${CMAKE_BINARY_DIR}/tests/)
+
+foreach(case mode_count metadata_shape guard_no_stat invalid_initialize reject_fresh)
+    add_test(NAME test_periodic_amplitude_${case}
+        COMMAND test_periodic_amplitude_state.x ${case})
+    set_tests_properties(test_periodic_amplitude_${case} PROPERTIES WILL_FAIL TRUE)
+endforeach()
+foreach(test periodic_checkpoint periodic_checkpoint_reader periodic_time_evolution time_history_restart)
+    add_executable(test_${test}.x test_${test}.f90)
+    target_link_libraries(test_${test}.x PUBLIC ql-balance_lib)
+    add_fortran_test(test_${test})
+    file(MAKE_DIRECTORY ${CMAKE_BINARY_DIR}/tests/${test})
+    set_tests_properties(test_${test} PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_BINARY_DIR}/tests/${test})
+endforeach()
+
+foreach(case version phase partial modes status duplicate nonfinite)
+    add_test(NAME test_periodic_checkpoint_${case}
+        COMMAND test_periodic_checkpoint.x ${case})
+    set_tests_properties(test_periodic_checkpoint_${case} PROPERTIES WILL_FAIL TRUE
+        WORKING_DIRECTORY ${CMAKE_BINARY_DIR}/tests/periodic_checkpoint)
+endforeach()

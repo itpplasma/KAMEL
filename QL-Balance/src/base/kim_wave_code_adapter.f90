@@ -17,11 +17,16 @@ module kim_wave_code_adapter_m
     use periodic_embedding_m, only: embed_complex_profile, embed_tensor_profile, &
         resolved_embedding_width
 
+    use periodic_amplitude_state_m, only: &
+        kim_periodic_normalization_version => periodic_normalization_version, &
+        kim_periodic_phase_policy => periodic_phase_policy
+    use control_mod, only: kim_periodic_normalization_relaxation => kim_current_relaxation
+
     implicit none
     private
 
-    public :: kim_initialize
-    public :: kim_run_for_all_modes
+    public :: kim_initialize, kim_get_boundary_drive, kim_set_boundary_drive
+    public :: kim_run_for_all_modes, kim_use_accepted_amplitudes
     public :: kim_update_profiles
     public :: kim_get_wave_fields
     public :: kim_get_wave_vectors
@@ -82,9 +87,6 @@ module kim_wave_code_adapter_m
     real(8), parameter :: periodic_c_light = 2.99792458d10
     logical :: periodic_constant_psi_pending = .true.
     logical :: periodic_restored_amplitude_pending = .false.
-    real(8), parameter :: kim_periodic_normalization_relaxation = 1.0d0
-    integer, parameter :: kim_periodic_normalization_version = 1
-    character(len=32), parameter :: kim_periodic_phase_policy = 'complex-current'
     integer, allocatable :: kim_mode_m(:), kim_mode_n(:), kim_mode_status(:)
     real(8), allocatable :: kim_mode_resonance(:)
 
@@ -145,8 +147,9 @@ contains
         periodic_constant_psi_pending = .true.
         periodic_restored_amplitude_pending = .false.
         if (trim(type_of_run) == 'TimeEvolution' .and. periodic_amplitudes%initialized) then
-            if (allocated(periodic_amplitudes%accepted) .and. &
-                    size(periodic_amplitudes%accepted) == dim_mn) then
+            if (.not. allocated(periodic_amplitudes%accepted)) &
+                error stop 'initialized periodic amplitude state has no accepted response'
+            if (size(periodic_amplitudes%accepted) == dim_mn) then
                 periodic_constant_psi_pending = .false.
                 periodic_restored_amplitude_pending = .true.
             else
@@ -712,6 +715,30 @@ contains
 
     end subroutine kim_run_for_all_modes
 
+    function kim_get_boundary_drive() result(drive)
+        use setup_m, only: Br_boundary_re, Br_boundary_im
+        complex(8) :: drive
+        drive = cmplx(Br_boundary_re, Br_boundary_im, 8)
+    end function kim_get_boundary_drive
+
+    subroutine kim_set_boundary_drive(drive)
+        use setup_m, only: Br_boundary_re, Br_boundary_im
+        complex(8), intent(in) :: drive
+        Br_boundary_re = real(drive)
+        Br_boundary_im = aimag(drive)
+    end subroutine kim_set_boundary_drive
+
+    subroutine kim_use_accepted_amplitudes()
+        use periodic_amplitude_state_m, only: periodic_amplitudes
+        use wave_code_data, only: dim_mn
+        if (.not. periodic_amplitudes%initialized) &
+            error stop 'cannot restore a missing accepted periodic response'
+        if (size(periodic_amplitudes%accepted) /= dim_mn) &
+            error stop 'accepted periodic mode count changed'
+        periodic_restored_amplitude_pending = .true.
+        periodic_constant_psi_pending = .false.
+    end subroutine kim_use_accepted_amplitudes
+
     subroutine kim_normalize_periodic_response(res, target, unit_current, scale, status, &
         prescribed_scale, prescribed_status)
         !! Normalize a complete unit response. Rejected data are assigned clean
@@ -741,8 +768,15 @@ contains
         core_lo = res%r_resonance - res%dx_asis
         core_hi = res%r_resonance + res%dx_asis
         unit_current = integrate_trusted_current(res%r_field, res%jpar, core_lo, core_hi)
-        if (present(prescribed_scale) .and. target <= 0.0d0) then
+        if (present(prescribed_status) .or. &
+            (present(prescribed_scale) .and. target <= 0.0d0)) then
+            ! Rebuild a previously accepted response without replacing its
+            ! amplitude by a newly calculated target-current amplitude.
             status = 0
+            if (.not. all(ieee_is_finite([target, kim_current_floor, &
+                kim_current_max_scale, kim_current_relaxation]))) status = 3
+            if (kim_current_floor <= 0.0d0 .or. kim_current_max_scale <= 0.0d0 &
+                .or. kim_current_relaxation <= 0.0d0 .or. kim_current_relaxation > 1.0d0) status = 1
         else
             call periodic_drive_scale(target, unit_current, periodic_c_light, &
                 kim_current_floor, kim_current_max_scale, kim_current_relaxation, scale, status)
@@ -751,7 +785,10 @@ contains
         ! through the shared finite-response checks and single scaling step.
         if (present(prescribed_scale) .and. status == 0) then
             scale = prescribed_scale
-            if (present(prescribed_status)) status = prescribed_status
+            if (present(prescribed_status)) then
+                status = prescribed_status
+                if (status == -1) status = 0
+            end if
             if (.not. ieee_is_finite(real(scale)) .or. &
                 .not. ieee_is_finite(aimag(scale))) then
                 status = 3

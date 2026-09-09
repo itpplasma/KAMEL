@@ -623,151 +623,113 @@ end subroutine
 !
 
 subroutine read_background_profiles_h5_timeevol(tstep)
-
     use h5mod
-    use wave_code_data, only: rq, iq, rn, in, rTi, iTi, rTe, iTe, rVth, iVth, rVz, iVz, rep, idPhi0, m_vals, n_vals
-    use control_mod, only: paramscan
-    use baseparam_mod, only: rtor
-    use logger_m, only: log_debug, log_info, log_warning
+    use wave_code_data, only: rq, iq, rn, in, rTi, iTi, rTe, iTe, &
+        rVth, iVth, rVz, iVz, rep, idPhi0, m_vals, n_vals
+    use baseparam_mod, only: rtor, ev
+    use logger_m, only: log_debug, log_info
     use periodic_amplitude_state_m, only: periodic_amplitudes
-
-    implicit none;
+    use periodic_checkpoint_m, only: periodic_mode_group, read_periodic_checkpoint, &
+        pending_periodic_restart, reset_periodic_restart
+    implicit none
     integer, intent(in) :: tstep
-    double precision, dimension(:), allocatable :: Er_dummy, Vth_dummy
-    character(len=1024) :: groupname
-    integer :: lb, ub, amp_lb, amp_ub, i
-    logical :: amp_exists
-    real(8), allocatable :: amp_acc_real(:), amp_acc_imag(:), amp_trial_real(:), amp_trial_imag(:)
-    real(8), allocatable :: amp_unit_real(:), amp_unit_imag(:), amp_res_real(:), amp_res_imag(:)
-    real(8), allocatable :: amp_status(:), amp_target(:), amp_relax(:)
-    complex(8), allocatable :: amp_acc(:), amp_trial(:), amp_unit(:), amp_res(:)
-    integer, allocatable :: amp_status_int(:)
+    double precision, allocatable :: Er_dummy(:), Vth_dummy(:)
+    character(1024) :: groupname, candidate
+    character(128) :: mode_groups(3), index_name
+    integer :: lb, ub, field_ub, i, j
+    logical :: found
 
     call log_info('Read time evolved background profiles from hdf5 file')
-
-    write (groupname, '(A,I1,A,I1,A,I0,"/")') 'f_', m_vals(1), '_', n_vals(1), '/KinProfiles/', &
-                                              1000 + tstep
-
-    CALL h5_init()
-
-    ! open file and get id for that file
-    CALL h5_open_rw(path2time, h5_id)
-
-    CALL h5_obj_exists(h5_id, trim(groupname), h5_exists_log)
-    if (.not. h5_exists_log) then
-        ! Preserve compatibility with pre-KinProfiles output, while using the
-        ! current writer's group so periodic amplitude checkpoints are found.
-        write (groupname, '(A,I1,A,I1,A,I0,"/")') 'f_', m_vals(1), '_', n_vals(1), '/fort.1000/', &
-                                                  1000 + tstep
-        CALL h5_obj_exists(h5_id, trim(groupname), h5_exists_log)
-    end if
-    if (.not. h5_exists_log) then
-        call log_warning("group " // trim(groupname) // " does not exist.")
-    else
-        call log_info("group " // trim(groupname) // " does exist. Continue with reading")
-    end if
-    ! open group where the profiles are located
-    CALL h5_open_group(h5_id, trim(groupname), group_id_1)
-
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-! Read in profiles, where all profiles have the same dimension!!
-
-    CALL h5_get_bounds_1(group_id_1, "n", lb, ub)
-
-    allocate (in(ub))
-    allocate (iTi(ub))
-    allocate (iTe(ub))
-    allocate (iVth(ub))
-    allocate (iVz(ub))
-    allocate (idPhi0(ub))
-
-    allocate(Er_dummy(ub+1))
-    allocate(Vth_dummy(ub+1))
-
-    CALL h5_get_double_1(group_id_1, "n", in)
-    CALL h5_get_double_1(group_id_1, "Ti", iTi)
-    CALL h5_get_double_1(group_id_1, "Te", iTe)
-    CALL h5_get_double_1(group_id_1, "Vth", Vth_dummy)
-    CALL h5_get_double_1(group_id_1, "Vz", iVz)
-    CALL h5_get_double_1(group_id_1, "Er", Er_dummy)
-
-    iVth = Vth_dummy(1:size(Vth_dummy)-1)
-    idPhi0 = Er_dummy(1:size(Er_dummy)-1)
-    iVz = iVz*rtor
-    deallocate(Er_dummy)
-    deallocate(Vth_dummy)
-
-    allocate (rn(ub))
-    allocate (rTi(ub))
-    allocate (rTe(ub))
-    allocate (rVth(ub))
-    allocate (rVz(ub))
-    allocate (rep(ub))
-
-    CALL h5_get_double_1(group_id_1, "rc", rn)
-    rTi = rn
-    rTe = rn
-    rVth = rn
-    rVz = rn
-    rep = rn
-
-    ! Restore the periodic KIM response state when it is present in the
-    ! profile checkpoint.  Older files simply take the documented unit-drive
-    ! constant-psi initial state.
-    CALL h5_obj_exists(group_id_1, "periodic_amplitude_accepted_real", amp_exists)
-    if (amp_exists) then
-        CALL h5_get_bounds_1(group_id_1, "periodic_amplitude_accepted_real", amp_lb, amp_ub)
-        allocate(amp_acc_real(amp_ub), amp_acc_imag(amp_ub), amp_trial_real(amp_ub), amp_trial_imag(amp_ub))
-        allocate(amp_unit_real(amp_ub), amp_unit_imag(amp_ub), amp_res_real(amp_ub), amp_res_imag(amp_ub))
-        allocate(amp_status(amp_ub), amp_status_int(amp_ub), amp_target(1), amp_relax(1))
-        CALL h5_get_double_1(group_id_1, "periodic_amplitude_accepted_real", amp_acc_real)
-        CALL h5_get_double_1(group_id_1, "periodic_amplitude_accepted_imag", amp_acc_imag)
-        CALL h5_get_double_1(group_id_1, "periodic_amplitude_trial_real", amp_trial_real)
-        CALL h5_get_double_1(group_id_1, "periodic_amplitude_trial_imag", amp_trial_imag)
-        CALL h5_get_double_1(group_id_1, "periodic_current_unit_real", amp_unit_real)
-        CALL h5_get_double_1(group_id_1, "periodic_current_unit_imag", amp_unit_imag)
-        CALL h5_get_double_1(group_id_1, "periodic_current_residual_real", amp_res_real)
-        CALL h5_get_double_1(group_id_1, "periodic_current_residual_imag", amp_res_imag)
-        CALL h5_get_double_1(group_id_1, "periodic_scale_status", amp_status)
-        CALL h5_get_double_1(group_id_1, "periodic_target_current", amp_target)
-        CALL h5_get_double_1(group_id_1, "periodic_normalization_relaxation", amp_relax)
-        amp_acc = cmplx(amp_acc_real, amp_acc_imag, 8)
-        amp_trial = cmplx(amp_trial_real, amp_trial_imag, 8)
-        amp_unit = cmplx(amp_unit_real, amp_unit_imag, 8)
-        amp_res = cmplx(amp_res_real, amp_res_imag, 8)
-        do i = 1, amp_ub
-            amp_status_int(i) = nint(amp_status(i))
+    call reset_periodic_restart()
+    call periodic_amplitudes%reset()
+    mode_groups(1) = periodic_mode_group(m_vals, n_vals)
+    ! These names preserve access to files written with fixed-width mode integers.
+    write(mode_groups(2), '(A,I1,A,I1)') 'f_', m_vals(1), '_', n_vals(1)
+    write(mode_groups(3), '(A,I2,A,I1)') 'f_', m_vals(1), '_', n_vals(1)
+    write(index_name, '(I0)') 1000+tstep
+    call h5_init()
+    call h5_open(path2time, h5_id)
+    found = .false.
+    do j = 1, 2
+        do i = 1, size(mode_groups)
+            if (j == 1) then
+                candidate = trim(mode_groups(i))//'/KinProfiles/'//trim(index_name)//'/'
+            else
+                candidate = trim(mode_groups(i))//'/fort.1000/'//trim(index_name)//'/'
+            end if
+            call h5_obj_exists(h5_id, trim(candidate), found)
+            if (found) exit
         end do
-        call periodic_amplitudes%initialize(amp_acc, amp_unit, amp_res, amp_status_int, amp_target(1), amp_relax(1))
-        call periodic_amplitudes%begin_trial(amp_trial, amp_unit, amp_res, amp_status_int, amp_target(1), amp_relax(1))
-        deallocate(amp_acc_real, amp_acc_imag, amp_trial_real, amp_trial_imag, amp_unit_real, amp_unit_imag)
-        deallocate(amp_res_real, amp_res_imag, amp_status, amp_status_int, amp_target, amp_relax)
-        deallocate(amp_acc, amp_trial, amp_unit, amp_res)
-        call log_info('restored periodic KIM amplitudes from time-evolution checkpoint')
+        if (found) exit
+    end do
+    if (.not. found) error stop 'requested time-evolution checkpoint group is absent'
+    groupname = candidate
+    call read_periodic_checkpoint(h5_id, trim(groupname), m_vals, n_vals, &
+        periodic_amplitudes, pending_periodic_restart, found)
+    if (found) then
+        if (pending_periodic_restart%accepted_step /= tstep) &
+            error stop 'periodic checkpoint step differs from requested profile index'
+        ! Exact doubles and native coordinates bypass the legacy single-precision output.
+        associate(saved => pending_periodic_restart)
+            rn = saved%rc
+            rTi = saved%rc
+            rTe = saved%rc
+            rVz = saved%rc
+            in = saved%params(1,:)
+            iVz = saved%params(2,:)*rtor
+            iTe = saved%params(3,:)/ev
+            iTi = saved%params(4,:)/ev
+            rq = saved%rb
+            iq = saved%q
+            rep = saved%rb
+            idPhi0 = saved%er
+            rVth = saved%rb
+            iVth = saved%vth
+        end associate
+        call h5_close(h5_id)
+        call log_info('restored accepted periodic checkpoint with exact continuation state')
+    else
+        call h5_open_group(h5_id, trim(groupname), group_id_1)
+        call h5_get_bounds_1(group_id_1, 'n', lb, ub)
+        allocate(in(ub), iTi(ub), iTe(ub), iVth(ub), iVz(ub), idPhi0(ub))
+        call h5_get_bounds_1(group_id_1, 'Er', lb, field_ub)
+        if (field_ub < ub) error stop 'legacy checkpoint electric field is too short'
+        allocate(Er_dummy(field_ub))
+        call h5_get_bounds_1(group_id_1, 'Vth', lb, field_ub)
+        if (field_ub < ub) error stop 'legacy checkpoint poloidal velocity is too short'
+        allocate(Vth_dummy(field_ub))
+        call h5_get_double_1(group_id_1, 'n', in)
+        call h5_get_double_1(group_id_1, 'Ti', iTi)
+        call h5_get_double_1(group_id_1, 'Te', iTe)
+        call h5_get_double_1(group_id_1, 'Vth', Vth_dummy)
+        call h5_get_double_1(group_id_1, 'Vz', iVz)
+        call h5_get_double_1(group_id_1, 'Er', Er_dummy)
+        iVth = Vth_dummy(:ub)
+        idPhi0 = Er_dummy(:ub)
+        iVz = iVz*rtor
+        allocate(rn(ub))
+        call h5_get_double_1(group_id_1, 'rc', rn)
+        rTi = rn
+        rTe = rn
+        rVth = rn
+        rVz = rn
+        rep = rn
+        call h5_close_group(group_id_1)
+        call h5_close(h5_id)
+        ! Legacy files do not contain the complete background or continuation state.
+        call h5_open(path2inp, h5_id)
+        call h5_get_bounds_1(h5_id, '/preprocprof/q', lb, ub)
+        allocate(rq(ub), iq(ub))
+        call h5_get_double_1(h5_id, '/preprocprof/q', iq)
+        call h5_get_double_1(h5_id, '/preprocprof/r_out', rq)
+        call h5_close(h5_id)
     end if
-
-    CALL h5_close_group(group_id_1)
-    CALL h5_close(h5_id)
-    !
-
-    ! get q profile (does not change over time)
-    call h5_open(path2inp, h5_id)
-    CALL h5_get_bounds_1(h5_id, '/preprocprof/q', lb, ub)
-    allocate (rq(ub))
-    allocate (iq(ub))
-    CALL h5_get_double_1(h5_id, '/preprocprof/q', iq)
-    CALL h5_get_double_1(h5_id, '/preprocprof/r_out', rq)
-
-    CALL h5_close(h5_id)
-
-    CALL h5_open_rw(path2out, h5_id)
-    CALL h5_add_int(h5_id, '/tstep', tstep)
-    CALL h5_close(h5_id)
-
-    CALL h5_deinit()
-    call log_debug("finished reading background profiles")
-    idPhi0 = -idPhi0; ! Er was loaded from Er.dat
-
+    call h5_open_rw(path2out, h5_id)
+    call h5_add_int(h5_id, '/tstep', tstep)
+    call h5_close(h5_id)
+    call h5_deinit()
+    call log_debug('finished reading background profiles')
+    idPhi0 = -idPhi0
 end subroutine
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!

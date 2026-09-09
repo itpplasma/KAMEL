@@ -31,7 +31,8 @@ subroutine get_dql
     use baseparam_mod, only: Z_i, e_charge, am, p_mass, c, e_mass, ev, rtor, pi, rsepar
     use control_mod, only: irf, suppression_mode, misalign_diffusion, type_of_run, wave_code, &
                           jpar_method
-    use time_evolution, only: save_prof_time_step, time_ind, br_formfactor, br_vac_res
+    use time_evolution, only: save_prof_time_step, time_ind, br_formfactor, br_vac_res, &
+        periodic_response_trial
     use h5mod
     use wave_code_data
     use kim_wave_code_adapter_m, only: kim_update_profiles, kim_run_for_all_modes, &
@@ -481,7 +482,7 @@ subroutine get_dql
     call log_debug("write_fields_currs_transp_coefs_to_h5")
 
     if (modulo(time_ind, save_prof_time_step) .eq. 0) then
-        if (suppression_mode .eqv. .false.) then
+        if (.not. suppression_mode .and. .not. periodic_response_trial) then
             call write_fields_currs_transp_coefs_to_h5(time_ind)
             call write_transport_benchmark(time_ind)
             call write_periodic_current_diagnostics(time_ind)

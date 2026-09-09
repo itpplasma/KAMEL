@@ -250,6 +250,18 @@ def test_copy_to_stages_regular_files_and_records_sha256(tmp_path: Path) -> None
         assert record.sha256 == hashlib.sha256(record.destination.read_bytes()).hexdigest()
 
 
+def test_copy_to_accepts_repository_created_empty_directory(tmp_path: Path) -> None:
+    source = tmp_path / "source"
+    generate(source)
+    destination = tmp_path / "staged"
+    destination.mkdir()
+
+    records = profile_set(source).copy_to(destination)
+
+    assert len(records) == 6
+    assert (destination / "n.dat").is_file()
+
+
 def test_copy_preflights_required_files_before_creating_destination(tmp_path: Path) -> None:
     source = tmp_path / "source"
     generate(source)

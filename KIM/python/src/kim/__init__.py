@@ -41,6 +41,7 @@ from kim.runs import (
     RunRepository,
     RunStatus,
 )
+from kim.simulation import PreparedSimulation, RunResult, Simulation
 
 __version__ = "0.1.0"
 
@@ -72,6 +73,7 @@ __all__ = [
     "ProfileError",
     "ProfileSet",
     "ProfileValidation",
+    "PreparedSimulation",
     "QuadpackAlgorithm",
     "RunConfig",
     "RunError",
@@ -79,10 +81,12 @@ __all__ = [
     "RunManifest",
     "RunPaths",
     "RunRepository",
+    "RunResult",
     "RunStatus",
     "RunType",
     "SetupConfig",
     "SimulationConfig",
+    "Simulation",
     "ThetaIntegration",
     "__version__",
     "discover_kamel_git_metadata",

@@ -135,10 +135,11 @@ class ProfileSet:
                     raise ProfileError(f"{source}: required profile file is missing")
                 continue
             sources.append((name, source))
-        try:
-            target.mkdir(parents=True, exist_ok=False)
-        except FileExistsError as error:
-            raise ProfileError(f"profile staging directory already exists: {target}") from error
+        if target.exists():
+            if not target.is_dir() or any(target.iterdir()):
+                raise ProfileError(f"profile staging directory is not empty: {target}")
+        else:
+            target.mkdir(parents=True)
 
         records = []
         for name, source in sources:

@@ -43,11 +43,14 @@ the API and future automation tools.
 
 ## Tests
 
-The normal Python suite is self-contained and uses a fake executable:
+The unit suite is self-contained and uses a fake executable. It does not require a Fortran build:
 
 ```bash
-python -m pytest
+python -m pytest tests/unit
 ```
+
+CI runs this suite in a separate Python 3.10 job so the package's minimum supported Python version
+and its orchestration behavior are checked independently of the Fortran toolchain.
 
 The periodic integration reference runs a compact parabolic-profile case against a real `KIM.x`.
 It is opt-in so ordinary unit tests do not depend on a compiled solver:
@@ -57,6 +60,10 @@ KIM_RUN_INTEGRATION=1 \
 KIM_EXECUTABLE=/absolute/path/to/KIM.x \
 python -m pytest tests/integration/test_periodic_run.py -v
 ```
+
+CI enables this test in the existing Fortran build job, using the executable produced at
+`build/install/bin/KIM.x`. Running `python -m pytest` locally executes the unit suite and skips the
+real-executable case unless both integration environment variables are set.
 
 The reference checks mandatory HDF5 datasets, field shapes, finite nonzero fields, the derived
 Fourier mode count, the q-crossing radius, and both campaign-compatible parallel-current

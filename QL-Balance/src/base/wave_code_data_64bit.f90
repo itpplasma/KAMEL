@@ -3,8 +3,12 @@
 
     !runs wave code to compute (E,B) - fields.
 subroutine get_wave_code_data(imin, imax)
+    use kilca_wave_code_interface_m, only: &
+        calc_wave_code_data_for_mode => &
+            calc_wave_code_data_for_mode_
+    use kilca_wave_code_interface_m, only: clear_wave_code_data => clear_wave_code_data_
 
-    use wave_code_data
+    use wave_code_data;
     use logger_m, only: log_debug
 
     implicit none
@@ -30,8 +34,18 @@ end subroutine
 !>the background profiles and reads the mode numbers from modes.in. Also,
 !> Calculates background EM fields and collision frequencies.
 subroutine initialize_wave_code_interface(nrad, r_grid)
+    use kilca_wave_code_interface_m, only: &
+        calc_wave_code_data_for_mode => &
+            calc_wave_code_data_for_mode_
+    use kilca_wave_code_interface_m, only: clear_wave_code_data => clear_wave_code_data_
+    use kilca_wave_code_interface_m, only: &
+        get_background_magnetic_fields_from_wave_code => &
+            get_background_magnetic_fields_from_wave_code_
+    use kilca_wave_code_interface_m, only: &
+        get_collision_frequences_from_wave_code => &
+            get_collision_frequences_from_wave_code_
 
-    use wave_code_data
+    use wave_code_data;
     use h5mod
     use control_mod, only: readfromtimestep, ihdf5IO, wave_code, &
                            kim_profiles_from_balance, kim_n_modes, kim_m_list, kim_n_list, &
@@ -157,6 +171,7 @@ end subroutine
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
 subroutine deallocate_wave_code_data()
+    use kilca_wave_code_interface_m, only: clear_wave_code_data => clear_wave_code_data_
 
     use wave_code_data;
     implicit none;
@@ -193,7 +208,7 @@ end subroutine
 
 subroutine save_wave_code_data()
 
-    use wave_code_data
+    use wave_code_data;
 
     implicit none
 
@@ -238,7 +253,7 @@ end subroutine
 
 subroutine update_background_files(path)
 
-    use wave_code_data
+    use wave_code_data;
     use grid_mod, only: Ercov
     use plasma_parameters, only: params_b
     use baseparam_mod
@@ -299,16 +314,23 @@ end subroutine
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
 subroutine eval_diss_power_density(dim, r, type, spec, d_p_d)
+    use kilca_wave_code_interface_m, only: &
+        get_diss_power_density_from_wave_code => &
+            get_diss_power_density_from_wave_code_
+    use kilca_wave_code_interface_m, only: &
+        get_wave_fields_from_wave_code => &
+            get_wave_fields_from_wave_code_
 
     use wave_code_data, only: dim_mn, m_vals, n_vals, vac_cd_ptr, flre_cd_ptr;
-    use baseparam_mod, only: rtor;
+    use baseparam_mod, only: rtor
     implicit none;
     integer, intent(in) :: dim;
     real(8), dimension(dim), intent(in) :: r;
     integer, intent(in) :: type, spec;
     real(8), dimension(dim), intent(out) :: d_p_d;
     complex(8), dimension(dim) :: amn_psi, amn_theta, amn_theta_cyl;
-    complex(8), dimension(dim) :: F, Br; !for vacuum fields
+    complex(8), dimension(dim) :: Br;
+    complex(8) :: unused_fields(dim, 9); !for vacuum fields
 
     real(8), dimension(dim) :: dpd_mn;
     integer :: ind, k, ierr;
@@ -323,8 +345,13 @@ subroutine eval_diss_power_density(dim, r, type, spec, d_p_d)
             !end if
         end do
 
-        call get_wave_fields_from_wave_code(vac_cd_ptr, dim, r, m_vals(ind), n_vals(ind), F, F, F, F, F, Br, F, F, F, F);
-        call get_diss_power_density_from_wave_code(flre_cd_ptr, dim, r, m_vals(ind), n_vals(ind), type, spec, dpd_mn);
+        call get_wave_fields_from_wave_code(vac_cd_ptr(ind), dim, r, &
+            m_vals(ind), n_vals(ind), unused_fields(:,1), unused_fields(:,2), &
+            unused_fields(:,3), &
+            unused_fields(:,4), unused_fields(:,5), Br, unused_fields(:,6), &
+            unused_fields(:,7), unused_fields(:,8), unused_fields(:,9));
+        call get_diss_power_density_from_wave_code(flre_cd_ptr(ind), dim, r, &
+            m_vals(ind), n_vals(ind), type, spec, dpd_mn);
         amn_theta_cyl = (r*rtor/n_vals(ind))*Br;
         d_p_d = d_p_d + 2.0d0*dpd_mn*(abs(amn_theta)**2/abs(amn_theta_cyl)**2);
     end do
@@ -520,10 +547,6 @@ end subroutine
 ! Added this routine which reads the initial background
 ! profiles from an hdf5 file that is located in path.
 ! This uses the hdf5_tools module.
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-! Updated 16.03.2021 by Markus Markl
-! Rescales Er profile if velocity scan is done
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 subroutine read_background_profiles_h5
 
     use h5mod
@@ -537,10 +560,6 @@ subroutine read_background_profiles_h5
     integer :: lb, ub;
     ! Each hdf5 "direction" needs its own ID number
     !integer(HID_T) :: h5_id, group_id, dset_id, dspace_id
-    double precision, dimension(:), allocatable :: ErVzfac ! factor to rescale
-    !Er, is read from hdf5 file
-    ! is the same for every fac_vz
-
     call log_debug('Read background profiles from hdf5 file')
     CALL h5_init()
     !CALL h5_check()
@@ -597,7 +616,6 @@ subroutine read_background_profiles_h5
 
 end subroutine
 
-
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 ! Added by Markus Markl, 01.06.2021
 ! The idea is to read profiles that evolved already in time. These profiles can
@@ -605,107 +623,114 @@ end subroutine
 !
 
 subroutine read_background_profiles_h5_timeevol(tstep)
-
     use h5mod
-    use wave_code_data, only: rq, iq, rn, in, rTi, iTi, rTe, iTe, rVth, iVth, rVz, iVz, rep, idPhi0, m_vals, n_vals
-    use control_mod, only: paramscan
-    use baseparam_mod, only: rtor
-    use logger_m, only: log_debug, log_info, log_warning
-
-    implicit none;
+    use wave_code_data, only: rq, iq, rn, in, rTi, iTi, rTe, iTe, &
+        rVth, iVth, rVz, iVz, rep, idPhi0, m_vals, n_vals
+    use baseparam_mod, only: rtor, ev
+    use logger_m, only: log_debug, log_info
+    use periodic_amplitude_state_m, only: periodic_amplitudes
+    use periodic_checkpoint_m, only: periodic_mode_group, read_periodic_checkpoint, &
+        pending_periodic_restart, reset_periodic_restart
+    implicit none
     integer, intent(in) :: tstep
-    double precision, dimension(:), allocatable :: Er_dummy, Vth_dummy
-    character(len=1024) :: groupname
-    integer :: lb, ub;
-
+    double precision, allocatable :: Er_dummy(:), Vth_dummy(:)
+    character(1024) :: groupname, candidate
+    character(128) :: mode_groups(3), index_name
+    integer :: lb, ub, field_ub, i, j
+    logical :: found
 
     call log_info('Read time evolved background profiles from hdf5 file')
-
-    write (groupname, '(A,I1,A,I1,A,I0,"/")') 'f_', m_vals(1), '_', n_vals(1), '/fort.1000/', &
-                                              1000 + tstep
-
-    CALL h5_init()
-
-    ! open file and get id for that file
-    CALL h5_open_rw(path2time, h5_id)
-
-    CALL h5_obj_exists(h5_id, trim(groupname), h5_exists_log)
-    if (.not. h5_exists_log) then
-        call log_warning("group " // trim(groupname) // " does not exist.")
+    call reset_periodic_restart()
+    call periodic_amplitudes%reset()
+    mode_groups(1) = periodic_mode_group(m_vals, n_vals)
+    ! These names preserve access to files written with fixed-width mode integers.
+    write(mode_groups(2), '(A,I1,A,I1)') 'f_', m_vals(1), '_', n_vals(1)
+    write(mode_groups(3), '(A,I2,A,I1)') 'f_', m_vals(1), '_', n_vals(1)
+    write(index_name, '(I0)') 1000+tstep
+    call h5_init()
+    call h5_open(path2time, h5_id)
+    found = .false.
+    do j = 1, 2
+        do i = 1, size(mode_groups)
+            if (j == 1) then
+                candidate = trim(mode_groups(i))//'/KinProfiles/'//trim(index_name)//'/'
+            else
+                candidate = trim(mode_groups(i))//'/fort.1000/'//trim(index_name)//'/'
+            end if
+            call h5_obj_exists(h5_id, trim(candidate), found)
+            if (found) exit
+        end do
+        if (found) exit
+    end do
+    if (.not. found) error stop 'requested time-evolution checkpoint group is absent'
+    groupname = candidate
+    call read_periodic_checkpoint(h5_id, trim(groupname), m_vals, n_vals, &
+        periodic_amplitudes, pending_periodic_restart, found)
+    if (found) then
+        if (pending_periodic_restart%accepted_step /= tstep) &
+            error stop 'periodic checkpoint step differs from requested profile index'
+        ! Exact doubles and native coordinates bypass the legacy single-precision output.
+        associate(saved => pending_periodic_restart)
+            rn = saved%rc
+            rTi = saved%rc
+            rTe = saved%rc
+            rVz = saved%rc
+            in = saved%params(1,:)
+            iVz = saved%params(2,:)*rtor
+            iTe = saved%params(3,:)/ev
+            iTi = saved%params(4,:)/ev
+            rq = saved%rb
+            iq = saved%q
+            rep = saved%rb
+            idPhi0 = saved%er
+            rVth = saved%rb
+            iVth = saved%vth
+        end associate
+        call h5_close(h5_id)
+        call log_info('restored accepted periodic checkpoint with exact continuation state')
     else
-        call log_info("group " // trim(groupname) // " does exist. Continue with reading")
+        call h5_open_group(h5_id, trim(groupname), group_id_1)
+        call h5_get_bounds_1(group_id_1, 'n', lb, ub)
+        allocate(in(ub), iTi(ub), iTe(ub), iVth(ub), iVz(ub), idPhi0(ub))
+        call h5_get_bounds_1(group_id_1, 'Er', lb, field_ub)
+        if (field_ub < ub) error stop 'legacy checkpoint electric field is too short'
+        allocate(Er_dummy(field_ub))
+        call h5_get_bounds_1(group_id_1, 'Vth', lb, field_ub)
+        if (field_ub < ub) error stop 'legacy checkpoint poloidal velocity is too short'
+        allocate(Vth_dummy(field_ub))
+        call h5_get_double_1(group_id_1, 'n', in)
+        call h5_get_double_1(group_id_1, 'Ti', iTi)
+        call h5_get_double_1(group_id_1, 'Te', iTe)
+        call h5_get_double_1(group_id_1, 'Vth', Vth_dummy)
+        call h5_get_double_1(group_id_1, 'Vz', iVz)
+        call h5_get_double_1(group_id_1, 'Er', Er_dummy)
+        iVth = Vth_dummy(:ub)
+        idPhi0 = Er_dummy(:ub)
+        iVz = iVz*rtor
+        allocate(rn(ub))
+        call h5_get_double_1(group_id_1, 'rc', rn)
+        rTi = rn
+        rTe = rn
+        rVth = rn
+        rVz = rn
+        rep = rn
+        call h5_close_group(group_id_1)
+        call h5_close(h5_id)
+        ! Legacy files do not contain the complete background or continuation state.
+        call h5_open(path2inp, h5_id)
+        call h5_get_bounds_1(h5_id, '/preprocprof/q', lb, ub)
+        allocate(rq(ub), iq(ub))
+        call h5_get_double_1(h5_id, '/preprocprof/q', iq)
+        call h5_get_double_1(h5_id, '/preprocprof/r_out', rq)
+        call h5_close(h5_id)
     end if
-    ! open group where the profiles are located
-    CALL h5_open_group(h5_id, trim(groupname), group_id_1)
-
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-! Read in profiles, where all profiles have the same dimension!!
-
-    CALL h5_get_bounds_1(group_id_1, "n", lb, ub)
-
-    allocate (in(ub))
-    allocate (iTi(ub))
-    allocate (iTe(ub))
-    allocate (iVth(ub))
-    allocate (iVz(ub))
-    allocate (idPhi0(ub))
-
-    allocate(Er_dummy(ub+1))
-    allocate(Vth_dummy(ub+1))
-
-    CALL h5_get_double_1(group_id_1, "n", in)
-    CALL h5_get_double_1(group_id_1, "Ti", iTi)
-    CALL h5_get_double_1(group_id_1, "Te", iTe)
-    CALL h5_get_double_1(group_id_1, "Vth", Vth_dummy)
-    CALL h5_get_double_1(group_id_1, "Vz", iVz)
-    CALL h5_get_double_1(group_id_1, "Er", Er_dummy)
-
-    iVth = Vth_dummy(1:size(Vth_dummy)-1)
-    idPhi0 = Er_dummy(1:size(Er_dummy)-1)
-    iVz = iVz*rtor
-    deallocate(Er_dummy)
-    deallocate(Vth_dummy)
-
-    allocate (rn(ub))
-    allocate (rTi(ub))
-    allocate (rTe(ub))
-    allocate (rVth(ub))
-    allocate (rVz(ub))
-    allocate (rep(ub))
-
-    CALL h5_get_double_1(group_id_1, "rc", rn)
-    rTi = rn
-    rTe = rn
-    rVth = rn
-    rVz = rn
-    rep = rn
-
-    CALL h5_close_group(group_id_1)
-    CALL h5_close(h5_id)
-    !
-
-    ! get q profile (does not change over time)
-    call h5_open(path2inp, h5_id)
-    CALL h5_get_bounds_1(h5_id, '/preprocprof/q', lb, ub)
-    allocate (rq(ub))
-    allocate (iq(ub))
-    CALL h5_get_double_1(h5_id, '/preprocprof/q', iq)
-    CALL h5_get_double_1(h5_id, '/preprocprof/r_out', rq)
-
-    CALL h5_close(h5_id)
-
-    CALL h5_open_rw(path2out, h5_id)
-    CALL h5_add_int(h5_id, '/tstep', tstep)
-    CALL h5_close(h5_id)
-
-    CALL h5_deinit()
-    call log_debug("finished reading background profiles")
-    idPhi0 = -idPhi0; ! Er was loaded from Er.dat
-
-
-
+    call h5_open_rw(path2out, h5_id)
+    call h5_add_int(h5_id, '/tstep', tstep)
+    call h5_close(h5_id)
+    call h5_deinit()
+    call log_debug('finished reading background profiles')
+    idPhi0 = -idPhi0
 end subroutine
-
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
@@ -727,6 +752,7 @@ end subroutine
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
 subroutine interp_profile(dim_old, r_old, q_old, dim_new, r_new, q_new)
+    use kilca_neville_m, only: eval_neville_polynom
 
 ! interpolate a profile to a new grid by moving polynom of degree deg
 

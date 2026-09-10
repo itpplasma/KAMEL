@@ -41,6 +41,8 @@ module transp_coeffs_mod
         !   So: antenna_factor = (I_par_toroidal * c / (2*pi * |Ipar|))^2
         !
         use wave_code_data, only: antenna_factor, I_par_toroidal
+        use control_mod, only: wave_code, kim_run_type
+        use, intrinsic :: ieee_arithmetic, only: ieee_is_finite
         use grid_mod, only: Ipar
 
         implicit none
@@ -48,6 +50,17 @@ module transp_coeffs_mod
         double precision, parameter :: c_light = 2.99792458d10   ! speed of light [cm/s]
         double precision, parameter :: twopi = 6.283185307179586d0
         double precision :: I_tor_cgs, I_cyl_cgs
+
+        ! Periodic KIM responses are normalized at their linear source before
+        ! diffusion assembly.  Do not apply the legacy antenna factor a
+        ! second time to fields/tensors that already carry |s| and |s|^2.
+        if (trim(wave_code) == 'KIM' .and. trim(kim_run_type) == 'electrostatic_periodic') then
+            if (.not. ieee_is_finite(I_par_toroidal)) error stop 'non-finite target current'
+            if (I_par_toroidal <= 0.0d0) return
+            antenna_factor = 1.0d0
+            write(*,*) 'Periodic KIM response already target-current normalized; antenna_factor = 1'
+            return
+        end if
 
         if (I_par_toroidal <= 0.0d0) return  ! legacy mode: use namelist antenna_factor
 

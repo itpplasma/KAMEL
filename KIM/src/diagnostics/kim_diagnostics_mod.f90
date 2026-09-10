@@ -54,16 +54,16 @@ contains
 
         if (.not. (hdf5_output .or. write_diagnostics_dat)) return
 
-        ! Equidistant grids never call recnsplit, so trigger the lazy
-        ! resonance detection here (same guard as recnsplit).
+        ! Equidistant grids never call kim_recnsplit, so trigger the lazy
+        ! resonance detection here (same guard as kim_recnsplit).
         if (prop) then
             prop = .false.
-            call prepare_resonances
+            call kim_prepare_resonances
         end if
 
         npts = size(EBdat%r_grid)
 
-        ! prepare_resonances leaves r_res = 0 when |m/n| is outside the
+        ! kim_prepare_resonances leaves r_res = 0 when |m/n| is outside the
         ! q range. Skip all diagnostics output then: a missing
         ! kim_diagnostics.dat is the scan driver's failure signal,
         ! whereas values evaluated at a bogus radius would be silently

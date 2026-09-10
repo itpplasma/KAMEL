@@ -6,10 +6,40 @@ list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake")
 
 # Core dependencies
 include(FetchLapack)
-include(FetchNetcdf)
 include(FetchSuiteSparse)
 include(FetchSUNDIALS)
 include(FetchFortnum)
+
+include(FetchContent)
+if(NOT TARGET fortio)
+    if(APPLE)
+        execute_process(COMMAND xcrun --show-sdk-path OUTPUT_VARIABLE _kamel_sdk
+                        OUTPUT_STRIP_TRAILING_WHITESPACE)
+        set(ZLIB_INCLUDE_DIR "${_kamel_sdk}/usr/include" CACHE PATH "" FORCE)
+    endif()
+    set(_KAMEL_BUILD_TESTING_SAVED ${BUILD_TESTING})
+    set(BUILD_TESTING OFF)
+    FetchContent_Declare(
+        fortio
+        GIT_REPOSITORY https://github.com/lazy-fortran/fortio.git
+        GIT_TAG 11afd0bd1af0c99ea4e9a1c0df683dbdcc299b69
+    )
+    FetchContent_MakeAvailable(fortio)
+    if(APPLE AND TARGET ZLIB::ZLIB)
+        get_target_property(_zlib_real ZLIB::ZLIB ALIASED_TARGET)
+        if(NOT _zlib_real)
+            set(_zlib_real ZLIB::ZLIB)
+        endif()
+        if(_zlib_real)
+            get_target_property(_zlib_includes ${_zlib_real} INTERFACE_INCLUDE_DIRECTORIES)
+            if(_zlib_includes)
+                list(FILTER _zlib_includes EXCLUDE REGEX "/MacOSX\\.sdk/usr/include/?$")
+                set_property(TARGET ${_zlib_real} PROPERTY INTERFACE_INCLUDE_DIRECTORIES "${_zlib_includes}")
+            endif()
+        endif()
+    endif()
+    set(BUILD_TESTING ${_KAMEL_BUILD_TESTING_SAVED})
+endif()
 
 # QL-Balance sparse module (shared dependency)
 set(QLBALANCE_BASE "${CMAKE_SOURCE_DIR}/QL-Balance/src/base")

@@ -17,7 +17,7 @@ module collisionless_fourier_kernel_m
 contains
 
     subroutine configured_hatG_all(plasma_in, kr, krp, j, rho_phi, rho_B, j_phi, j_B, &
-            j_phi_species, j_B_species)
+            j_phi_species, j_B_species, rho_phi_species, rho_B_species)
         ! Select the configured ion model without changing the electron model.
         ! Accumulate the established per-species FP kernels in FokkerPlanck mode.
         ! In collisionless mode, electrons remain FP while every enabled ion
@@ -28,6 +28,7 @@ contains
         integer, intent(in) :: j
         complex(dp), intent(out) :: rho_phi, rho_B, j_phi, j_B
         complex(dp), intent(out), optional :: j_phi_species(0:), j_B_species(0:)
+        complex(dp), intent(out), optional :: rho_phi_species(0:), rho_B_species(0:)
 
         integer :: sp
         complex(dp) :: species_rho_phi, species_rho_B
@@ -43,6 +44,17 @@ contains
             end if
             j_phi_species = (0.0_dp, 0.0_dp)
             j_B_species = (0.0_dp, 0.0_dp)
+        end if
+        if (present(rho_phi_species) .neqv. present(rho_B_species)) then
+            error stop 'configured_hatG_all requires both species-charge arrays'
+        end if
+        if (present(rho_phi_species)) then
+            if (ubound(rho_phi_species, 1) < plasma_in%n_species - 1 .or. &
+                    ubound(rho_B_species, 1) < plasma_in%n_species - 1) then
+                error stop 'configured_hatG_all species-charge arrays are too small'
+            end if
+            rho_phi_species = (0.0_dp, 0.0_dp)
+            rho_B_species = (0.0_dp, 0.0_dp)
         end if
 
         rho_phi = (0.0_dp, 0.0_dp)
@@ -60,6 +72,10 @@ contains
             if (present(j_phi_species)) then
                 j_phi_species(sp) = species_j_phi
                 j_B_species(sp) = species_j_B
+            end if
+            if (present(rho_phi_species)) then
+                rho_phi_species(sp) = species_rho_phi
+                rho_B_species(sp) = species_rho_B
             end if
         end do
     end subroutine configured_hatG_all
@@ -183,6 +199,7 @@ contains
         complex(dp), intent(out) :: rho_phi, rho_B, j_phi, j_B
 
         real(dp) :: grad_A1, grad_A2, bplus, bcross, ks, k_abs
+        real(dp) :: radial_gaussian
         real(dp) :: lambda_D, omega_c, sI0, sIm1, vT
         real(dp) :: coeff0, coeff1, coeff2
         complex(dp) :: k_pole, zeta0, response_Z
@@ -203,6 +220,8 @@ contains
 
         call flr_arg_pair_sp(plasma_in, sp, kr, krp, j, bplus, bcross)
         call scaled_bessel_pair(bplus, bcross, sI0, sIm1)
+        radial_gaussian = exp(&
+            -0.5_dp * plasma_in%spec(sp)%rho_L(j)**2 * (kr - krp)**2)
 
         k_abs = Krook_collisionless_kpar_magnitude(plasma_in%kp(j), epsilon)
         k_pole = Krook_collisionless_kpar(plasma_in%kp(j), epsilon)
@@ -237,6 +256,16 @@ contains
         ! written with the same explicit 1/(8*pi^2) normalization.
         rho_phi = omega_c / (sqrt(2.0_dp) * lambda_D**2 * vT * k_abs) &
             * rho_phi_moment / (8.0_dp * pi**2)
+
+        ! The moment above is the m_phi=0 contribution. The analytically
+        ! summed nonzero cyclotron harmonics add the finite-FLR remainder
+        ! [exp(-b_plus) I_0(b_cross) - exp(-rho_L^2 (kr-krp)^2/2)]/lambda_D^2;
+        ! see thesis (13.125)--(13.127). In a homogeneous static plasma this
+        ! cancels the -sI0 zeroth harmonic and restores the complete radial
+        ! Gaussian Debye response. The common Fourier normalization is the
+        ! same as for the zeroth-harmonic moment.
+        rho_phi = rho_phi + (sI0 - radial_gaussian) &
+            / (lambda_D**2 * 8.0_dp * pi**2)
         j_phi = omega_c / (lambda_D**2 * k_pole) &
             * j_phi_moment / (8.0_dp * pi**2)
 
@@ -248,8 +277,11 @@ contains
 
         rho_B = com_unit * vT**2 / (sol * lambda_D**2 * omega_c * k_pole) &
             * magnetic_bracket / (8.0_dp * pi**2)
+        ! zeta0 is evaluated with k_abs to keep the retarded response in the
+        ! stable half-plane.  The derived current contains signed
+        ! zeta/k_parallel, whose regularized combination is zeta0/k_abs.
         j_B = com_unit * sqrt(2.0_dp) * vT**3 * zeta0 &
-            / (sol * lambda_D**2 * omega_c * k_pole) &
+            / (sol * lambda_D**2 * omega_c * k_abs) &
             * magnetic_bracket / (8.0_dp * pi**2)
     end subroutine collisionless_ion_cores
 

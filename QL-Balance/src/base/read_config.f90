@@ -1,11 +1,15 @@
 subroutine read_config
+    use, intrinsic :: ieee_arithmetic, only: ieee_is_finite
     use baseparam_mod, only: btor, rtor, rsepar, dperp, Z_i, am, urelax
     use control_mod, only: eps, paramscan, data_verbosity, suppression_mode, log_level, &
                            readfromtimestep, temperature_limit, gyro_current_study, &
                            misalign_diffusion, equil_path, ihdf5IO, wave_code, &
                            kim_config_path, kim_profiles_from_balance, &
+                           kim_run_type, kim_ion_transport_model, kim_transport_benchmark, &
                            kim_n_modes, kim_m_list, kim_n_list, &
-                           jpar_method
+                           kim_current_floor, kim_current_max_scale, kim_current_relaxation, &
+                           jpar_method, ion_transport_model_id, &
+                           ION_TRANSPORT_INVALID
     use grid_mod, only: rmin, rmax, npoimin, gg_factor, gg_width, gg_r_res, iboutype, rb_cut_in, &
                         re_cut_in, rb_cut_out, re_cut_out
     use h5mod, only: path2inp, path2out, path2time
@@ -29,8 +33,10 @@ subroutine read_config
         temperature_limit, antenna_max_stopping, gyro_current_study, viscosity_factor, &
         misalign_diffusion, equil_path, ihdf5IO, type_of_run, wave_code, &
         set_constant_time_step, constant_time_step, urelax, kim_config_path, &
-        kim_profiles_from_balance, kim_n_modes, kim_m_list, kim_n_list, &
-        I_par_toroidal, jpar_method
+        kim_profiles_from_balance, kim_run_type, kim_ion_transport_model, kim_transport_benchmark, &
+        kim_n_modes, kim_m_list, kim_n_list, &
+        I_par_toroidal, jpar_method, kim_current_floor, kim_current_max_scale, &
+        kim_current_relaxation
 
     ! read the parameters from namelist file
     open (newunit=u, file=config_file, status="old", action="read", iostat=ios)
@@ -38,6 +44,26 @@ subroutine read_config
     read (u, nml=BALANCENML, iostat=ios)
     if (ios /= 0) error stop "Failed to read namelist"
     close (u)
+
+    if (ion_transport_model_id(kim_ion_transport_model) == &
+            ION_TRANSPORT_INVALID) then
+        error stop 'kim_ion_transport_model must be finite_larmor_radius or drift_kinetic'
+    end if
+
+    if (trim(wave_code) == 'KIM' .and. trim(kim_run_type) == 'electrostatic_periodic') then
+        if (.not. ieee_is_finite(I_par_toroidal)) error stop 'non-finite target current'
+        if (.not. all(ieee_is_finite([kim_current_floor, kim_current_max_scale, &
+                kim_current_relaxation]))) error stop 'non-finite current normalization setting'
+        if (kim_current_floor <= 0.0d0 .or. kim_current_max_scale <= 0.0d0 .or. &
+                kim_current_relaxation <= 0.0d0 .or. kim_current_relaxation > 1.0d0) &
+            error stop 'invalid current normalization setting'
+    end if
+
+    if (kim_transport_benchmark) then
+        if (trim(wave_code) /= 'KIM' .or. trim(kim_run_type) /= 'electrostatic_periodic') &
+            error stop 'kim_transport_benchmark requires periodic KIM'
+        if (ihdf5IO /= 1) error stop 'kim_transport_benchmark requires HDF5 output'
+    end if
 
     call set_log_level(log_level)
 
@@ -91,6 +117,9 @@ subroutine read_config
     call log_info(fmt_val("    jpar_method", trim(adjustl(jpar_method))))
     call log_info(fmt_val("    kim_config_path", trim(adjustl(kim_config_path))))
     call log_info(fmt_val("    kim_profiles_from_balance", kim_profiles_from_balance))
+    call log_info(fmt_val("    kim_run_type", trim(adjustl(kim_run_type))))
+    call log_info(fmt_val("    kim_ion_transport_model", &
+        trim(adjustl(kim_ion_transport_model))))
     call log_info(fmt_val("    kim_n_modes", kim_n_modes))
     if (kim_n_modes > 0) then
         write (*, "(A,100I5)") "    kim_m_list = ", kim_m_list(1:kim_n_modes)

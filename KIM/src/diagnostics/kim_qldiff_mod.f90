@@ -5,9 +5,167 @@ module kim_qldiff_m
     implicit none
 
     private
-    public :: calc_dqle22
+    public :: calc_dqle22, calc_dqli11_phi, calc_dqli_tensor
+    public :: calc_dqli_flr_harmonic
+    public :: calc_dqli_limit_benchmark, calc_dqli_benchmark_residuals
 
 contains
+
+    subroutine calc_dqli_flr_harmonic(ell, ks_s, kr_s, ks_o, kr_o, &
+            vTi, nui, omega_ci, omega_mode, om_E, B0, kpar, fields_s, &
+            fields_o, tensor)
+        !! Production entry point for one ion cyclotron harmonic and one
+        !! ordered radial-wave pair.  Periodic KIM's spectral assembly sums
+        !! this building block over ell, kr_s and kr_o; #290 consumes that
+        !! completed local tensor without duplicating KIM's conventions.
+        use constants_m, only: sol
+        use config_m, only: resolved_ion_ifunc_conservation_model
+        use quasilinear_flr_m, only: calc_ion_flr_harmonic
+        use species_m, only: evaluate_susceptibility
+        integer, intent(in) :: ell
+        real(dp), intent(in) :: ks_s, kr_s, ks_o, kr_o
+        real(dp), intent(in) :: vTi, nui, omega_ci, omega_mode, om_E, B0, kpar
+        complex(dp), intent(in) :: fields_s(3), fields_o(3)
+        real(dp), intent(out) :: tensor(2,2)
+        real(dp) :: x1, x2
+        complex(dp) :: symbI(0:3,0:3)
+        if (abs(omega_ci) <= tiny(1.0_dp)) &
+            error stop 'calc_dqli_flr_harmonic: zero signed cyclotron frequency'
+        x1 = kpar*vTi/nui
+        x2 = -(om_E+real(ell,dp)*omega_ci-omega_mode)/nui
+        call evaluate_susceptibility(x1, x2, &
+            resolved_ion_ifunc_conservation_model, symbI)
+        call calc_ion_flr_harmonic(ell, ks_s, kr_s, ks_o, kr_o, &
+            vTi, abs(omega_ci), omega_ci, sol, B0, nui, fields_s, &
+            fields_o, symbI, tensor)
+    end subroutine calc_dqli_flr_harmonic
+
+    subroutine calc_dqli_limit_benchmark(vTi, nui, om_E, B0, kpar, ks, omega_ci, &
+            omega_mode, Es, Br, old_tensor, new_tensor, absolute_residual, relative_residual)
+        !! Diagnostic comparison at ell=0, kr=0 and Bparallel=0.
+        !! Es is physical E_perp [statV/cm], with E_perp=-i*ks*Phi.
+        !! The FLR tensor is symmetric; full legacy antisymmetric transport
+        !! remains visible in the residuals rather than being projected out.
+        use constants_m, only: sol
+        use config_m, only: resolved_ion_ifunc_conservation_model
+        use species_m, only: evaluate_susceptibility
+        use quasilinear_flr_m, only: calc_ion_flr_harmonic
+        real(dp), intent(in) :: vTi, nui, om_E, B0, kpar, ks, omega_ci, omega_mode
+        complex(dp), intent(in) :: Es, Br
+        real(dp), intent(out) :: old_tensor(2,2), new_tensor(2,2)
+        real(dp), intent(out) :: absolute_residual(2,2), relative_residual(2,2)
+        complex(dp) :: ifunc(0:3,0:3), fields(3)
+        real(dp) :: x1, x2
+
+        if (ks < 0.0_dp .or. abs(omega_ci) <= tiny(1.0_dp)) &
+            error stop 'calc_dqli_limit_benchmark: invalid limiting wave number'
+        if (ks == 0.0_dp .and. Es /= cmplx(0.0_dp, 0.0_dp, dp)) &
+            error stop 'calc_dqli_limit_benchmark: nonzero Es requires nonzero ks'
+        x1 = kpar*vTi/nui
+        x2 = -(om_E-omega_mode)/nui
+        call evaluate_susceptibility(x1, x2, resolved_ion_ifunc_conservation_model, ifunc)
+        call calc_dqli_tensor(vTi, nui, om_E-omega_mode, B0, kpar, Es, Br, &
+            old_tensor(1,1), old_tensor(1,2), old_tensor(2,1), old_tensor(2,2))
+
+        fields = (0.0_dp, 0.0_dp)
+        if (ks /= 0.0_dp) fields(1) = cmplx(0.0_dp, 1.0_dp, dp)*Es/ks
+        fields(2) = Br
+        call calc_ion_flr_harmonic(0, ks, 0.0_dp, ks, 0.0_dp, vTi, abs(omega_ci), &
+            omega_ci, sol, B0, nui, fields, fields, ifunc, new_tensor)
+        call calc_dqli_benchmark_residuals(old_tensor, new_tensor, &
+            absolute_residual, relative_residual)
+    end subroutine calc_dqli_limit_benchmark
+
+    pure subroutine calc_dqli_benchmark_residuals(old_tensor, new_tensor, &
+            absolute_residual, relative_residual)
+        !! Componentwise absolute errors and dimensionless fractional errors.
+        !! Normalize by the larger magnitude so a zero reference is defined;
+        !! zero/zero is zero. No dimensionful scale floor hides small tensors.
+        real(dp), intent(in) :: old_tensor(2,2), new_tensor(2,2)
+        real(dp), intent(out) :: absolute_residual(2,2), relative_residual(2,2)
+        real(dp) :: scale
+        integer :: i, j
+
+        absolute_residual = abs(new_tensor-old_tensor)
+        relative_residual = 0.0_dp
+        do j = 1, 2
+            do i = 1, 2
+                scale = max(abs(old_tensor(i,j)), abs(new_tensor(i,j)))
+                if (scale > 0.0_dp) &
+                    relative_residual(i,j) = absolute_residual(i,j)/scale
+            end do
+        end do
+    end subroutine calc_dqli_benchmark_residuals
+
+    function calc_dqli11_phi(vTi, nui, om_E, B0, kpar, Es) result(dqli11)
+        ! Local ion Phi-only I-function coefficient (the D11 tracer bullet).
+        ! This is the electrostatic term in the Onsager tensor; magnetic and
+        ! cross terms are deliberately absent.
+        use constants_m, only: sol
+        use config_m, only: resolved_ion_ifunc_conservation_model
+        real(dp), intent(in) :: vTi, nui, om_E, B0, kpar
+        complex(dp), intent(in) :: Es
+        real(dp) :: dqli11, x1, x2, comfac
+        complex(dp) :: symbI(0:3,0:3)
+        interface
+            subroutine getIfunc_model(x1, x2, conservation_model, symbI)
+                double precision, intent(in) :: x1, x2
+                integer, intent(in) :: conservation_model
+                double complex, dimension(0:3,0:3), intent(out) :: symbI
+            end subroutine getIfunc_model
+        end interface
+        x1 = kpar*vTi/nui
+        x2 = -om_E/nui
+        call getIfunc_model(x1, x2, resolved_ion_ifunc_conservation_model, symbI)
+        comfac = 0.5_dp/(nui*B0**2)
+        dqli11 = comfac*sol**2*abs(Es)**2*real(symbI(0,0),dp)
+    end function calc_dqli11_phi
+
+    subroutine calc_dqli_tensor(vTi, nui, om_E, B0, kpar, Es, Br, D11, D12, D21, D22)
+        ! Complete local ion Phi/Br I-function Onsager tensor.
+        ! This is the scalar, local counterpart of QL-Balance's
+        ! calc_transport_coeffs_ornuhl; electrons intentionally retain their
+        ! existing drift-kinetic path.
+        use constants_m, only: sol
+        use config_m, only: resolved_ion_ifunc_conservation_model
+        real(dp), intent(in) :: vTi, nui, om_E, B0, kpar
+        complex(dp), intent(in) :: Es, Br
+        real(dp), intent(out) :: D11, D12, D21, D22
+        real(dp) :: x1, x2, comfac, epm2, brm2, epbr_re, epbr_im, d12a
+        complex(dp) :: symbI(0:3,0:3)
+        interface
+            subroutine getIfunc_model(x1, x2, conservation_model, symbI)
+                double precision, intent(in) :: x1, x2
+                integer, intent(in) :: conservation_model
+                double complex, dimension(0:3,0:3), intent(out) :: symbI
+            end subroutine getIfunc_model
+        end interface
+
+        x1 = kpar*vTi/nui
+        x2 = -om_E/nui
+        call getIfunc_model(x1, x2, resolved_ion_ifunc_conservation_model, symbI)
+
+        comfac = 0.5_dp/(nui*B0**2)
+        epm2 = sol**2*abs(Es)**2
+        brm2 = vTi**2*abs(Br)**2
+        epbr_re = 2.0_dp*sol*vTi*real(conjg(Es)*Br,dp)
+        epbr_im = 2.0_dp*sol*vTi*aimag(conjg(Es)*Br)
+
+        D11 = comfac*(epm2*real(symbI(0,0),dp) + epbr_re*real(symbI(1,0),dp) &
+             + brm2*real(symbI(1,1),dp))
+        D12 = comfac*(epm2*real(symbI(0,0)+0.5_dp*symbI(2,0),dp) &
+             + epbr_re*real(symbI(1,0)+0.25_dp*(symbI(3,0)+symbI(2,1)),dp) &
+             + brm2*real(symbI(1,1)+0.5_dp*symbI(3,1),dp))
+        D21 = D12
+        D22 = comfac*(epm2*real(2.0_dp*symbI(0,0)+symbI(2,0)+0.25_dp*symbI(2,2),dp) &
+             + epbr_re*real(2.0_dp*symbI(1,0)+0.5_dp*(symbI(3,0)+symbI(2,1)) &
+                              +0.25_dp*symbI(3,2),dp) &
+             + brm2*real(2.0_dp*symbI(1,1)+symbI(3,1)+0.25_dp*symbI(3,3),dp))
+
+        d12a = comfac*epbr_im*0.25_dp*aimag(symbI(2,1)-symbI(3,0))
+        D12 = D12 + d12a
+        D21 = D21 - d12a
+    end subroutine calc_dqli_tensor
 
     function calc_dqle22(vTe, nue, om_E, B0, kpar, Es, Br) result(dqle22)
         ! Quasilinear electron heat diffusion coefficient D_ql,e22, the
@@ -29,6 +187,7 @@ contains
         !   Es   - complex perpendicular electric field amplitude [statV/cm]
         !   Br   - complex radial magnetic perturbation amplitude [G]
         use constants_m, only: sol
+        use config_m, only: resolved_electron_ifunc_conservation_model
 
         real(dp), intent(in) :: vTe, nue, om_E, B0, kpar
         complex(dp), intent(in) :: Es, Br
@@ -38,10 +197,11 @@ contains
         complex(dp) :: symbI(0:3, 0:3)
 
         interface
-            subroutine getIfunc(x1, x2, symbI)
+            subroutine getIfunc_model(x1, x2, conservation_model, symbI)
                 double precision, intent(in) :: x1, x2
+                integer, intent(in) :: conservation_model
                 double complex, dimension(0:3, 0:3), intent(out) :: symbI
-            end subroutine
+            end subroutine getIfunc_model
         end interface
 
         ! Normalized distance to resonance and inverse normalized
@@ -49,7 +209,8 @@ contains
         x1 = kpar * vTe / nue
         x2 = -om_E / nue
 
-        call getIfunc(x1, x2, symbI)
+        call getIfunc_model(x1, x2, &
+            resolved_electron_ifunc_conservation_model, symbI)
 
         comfac = 0.5_dp / (nue * B0**2)
         epm2 = sol**2 * abs(Es)**2

@@ -57,7 +57,9 @@ contains
         class(kim_t), allocatable :: kim_instance
 
         complex(dp), allocatable :: Kphi(:,:), KB(:,:), Kjphi(:,:), KjB(:,:)
+        complex(dp), allocatable :: Kjrphi(:,:), KjrB(:,:)
         complex(dp), allocatable :: Kjphi_species(:,:,:), KjB_species(:,:,:)
+        complex(dp), allocatable :: Kphi_species(:,:,:), KB_species(:,:,:)
         real(dp) :: rm, dx_asis, dx_tr, rho_L_rm, L
         integer :: n_rg, N, dim, im, imp
 
@@ -76,7 +78,7 @@ contains
         call kim_instance%init()
 
         ! Locate the resonance (q = |m/n| = 3) on the global plasma.
-        call prepare_resonances
+        call kim_prepare_resonances
         if (.not. (r_res > 0.0_dp)) then
             print *, 'FAIL: resonance not found, r_res = ', r_res
             error stop
@@ -113,14 +115,16 @@ contains
         end if
 
         call assemble_periodic_matrices(plasma, L, M, Kphi, KB, Kjphi, KjB, &
-            Kjphi_species, KjB_species)
+            Kjrphi, KjrB, Kjphi_species, KjB_species, Kphi_species, KB_species)
 
         ! (shape) all four matrices are (2M+1) x (2M+1).
         dim = 2 * M + 1
         if (size(Kphi, 1) /= dim .or. size(Kphi, 2) /= dim .or. &
             size(KB, 1)   /= dim .or. size(KB, 2)   /= dim .or. &
             size(Kjphi, 1) /= dim .or. size(Kjphi, 2) /= dim .or. &
-            size(KjB, 1)  /= dim .or. size(KjB, 2)  /= dim) then
+            size(KjB, 1)  /= dim .or. size(KjB, 2)  /= dim .or. &
+            size(Kjrphi, 1) /= dim .or. size(Kjrphi, 2) /= dim .or. &
+            size(KjrB, 1) /= dim .or. size(KjrB, 2) /= dim) then
             print *, 'FAIL: matrix shape wrong'
             print *, '  Kphi:', size(Kphi, 1), size(Kphi, 2), &
                      '  KB:', size(KB, 1), size(KB, 2), &
@@ -143,10 +147,28 @@ contains
         end if
         print *, 'PASS: species-current matrices sum to aggregate matrices'
 
+        if (lbound(Kphi_species, 3) /= 0 .or. &
+                ubound(Kphi_species, 3) /= plasma%n_species - 1 .or. &
+                any(shape(Kphi_species) /= shape(KB_species))) then
+            error stop 'species-charge matrix shape or bounds are wrong'
+        end if
+        if (maxval(abs(Kphi - sum(Kphi_species, dim=3))) > &
+                2.0e-12_dp * max(1.0_dp, maxval(abs(Kphi))) .or. &
+                maxval(abs(KB - sum(KB_species, dim=3))) > &
+                2.0e-12_dp * max(1.0_dp, maxval(abs(KB)))) then
+            error stop 'species-charge matrices do not sum to aggregate matrices'
+        end if
+        if (maxval(abs(KB_species(:, :, 1))) <= tiny(1.0_dp)) then
+            error stop 'ion rho-B matrix is unexpectedly zero'
+        end if
+        print *, 'PASS: species-charge matrices sum to aggregate matrices'
+
         ! (characterization) recompute two elements by an inline brute-force sum
         ! with the SAME quadrature formula and compare to the stored elements.
-        call check_element(plasma, Kphi, KB, Kjphi, KjB, L, M, N,  0,  0)
-        call check_element(plasma, Kphi, KB, Kjphi, KjB, L, M, N,  1, -2)
+        call check_element(plasma, Kphi, KB, Kjphi, KjB, Kjrphi, KjrB, &
+            L, M, N, 0, 0)
+        call check_element(plasma, Kphi, KB, Kjphi, KjB, Kjrphi, KjrB, &
+            L, M, N, 1, -2)
         print *, 'PASS: characterization -- brute-force sum reproduces elements'
 
         ! (diagonal nonzero) the m = m' = 0 element.
@@ -178,7 +200,11 @@ contains
                     .not. ieee_is_finite(real(Kjphi(im, imp), dp)) .or. &
                     .not. ieee_is_finite(aimag(Kjphi(im, imp))) .or. &
                     .not. ieee_is_finite(real(KjB(im, imp), dp)) .or. &
-                    .not. ieee_is_finite(aimag(KjB(im, imp)))) then
+                    .not. ieee_is_finite(aimag(KjB(im, imp))) .or. &
+                    .not. ieee_is_finite(real(Kjrphi(im, imp), dp)) .or. &
+                    .not. ieee_is_finite(aimag(Kjrphi(im, imp))) .or. &
+                    .not. ieee_is_finite(real(KjrB(im, imp), dp)) .or. &
+                    .not. ieee_is_finite(aimag(KjrB(im, imp)))) then
                     print *, 'FAIL: non-finite matrix element at', im, imp
                     error stop
                 end if
@@ -198,6 +224,8 @@ contains
             hatG_j_phi, hatG_j_B, flr_arg_pair_sp, core_rho_phi_sp, &
             core_rho_B_sp, core_j_phi_sp, core_j_B_sp
         use grid_m, only: rg_grid
+        use radial_current_fourier_kernel_m, only: hatG_jrad_bparallel, &
+            hatG_jrad_br, hatG_jrad_phi
         use species_m, only: plasma_t
 
         type(plasma_t), intent(inout) :: plasma
@@ -208,6 +236,7 @@ contains
         complex(dp) :: ion_phi, ion_B, ion_jphi, ion_jB
         complex(dp) :: core_phi, core_B, core_jphi, core_jB
         complex(dp) :: actual_phi, actual_B, actual_jphi, actual_jB
+        complex(dp) :: actual_jrad(3), collisionless_jrad(3)
 
         j = max(1, rg_grid%npts_b / 2)
         collisionless_kpar_epsilon = 1.0e-5_dp
@@ -266,10 +295,22 @@ contains
             configured_hatG_rho_phi(plasma, kr, krp, j), ion_phi)
         call assert_dispatch_close('electron-off j-Phi', &
             configured_hatG_j_phi(plasma, kr, krp, j), ion_jphi)
+        collisionless_jrad = [hatG_jrad_phi(plasma, kr, krp, j), &
+            hatG_jrad_br(plasma, kr, krp, j), &
+            hatG_jrad_bparallel(plasma, kr, krp, j)]
         saved_nu = plasma%spec(1)%nu(j)
         plasma%spec(1)%nu(j) = saved_nu * 17.0_dp
         call assert_dispatch_close('collisionless ion nu independence', &
             configured_hatG_rho_phi(plasma, kr, krp, j), ion_phi)
+        actual_jrad = [hatG_jrad_phi(plasma, kr, krp, j), &
+            hatG_jrad_br(plasma, kr, krp, j), &
+            hatG_jrad_bparallel(plasma, kr, krp, j)]
+        call assert_dispatch_close('collisionless jrad-Phi nu independence', &
+            actual_jrad(1), collisionless_jrad(1))
+        call assert_dispatch_close('collisionless jrad-Br nu independence', &
+            actual_jrad(2), collisionless_jrad(2))
+        call assert_dispatch_close('collisionless jrad-Bparallel nu independence', &
+            actual_jrad(3), collisionless_jrad(3))
         plasma%spec(1)%nu(j) = saved_nu
 
         turn_off_electrons = .false.
@@ -302,18 +343,22 @@ contains
     !> Recompute K^{rhoPhi}, K^{rhoB}, K^{jPhi} and K^{jB} at (m,m') by an INLINE
     !> brute-force periodic-trapezoidal sum using the SAME formula as the module,
     !> and assert every stored element matches to < 1e-12*(1 + |elem|).
-    subroutine check_element(plasma, Kphi, KB, Kjphi, KjB, L, M, N, mm, mmp)
+    subroutine check_element(plasma, Kphi, KB, Kjphi, KjB, Kjrphi, KjrB, &
+        L, M, N, mm, mmp)
         use species_m, only: plasma_t
         use flr2_fourier_kernel_m, only: hatG_rho_phi, hatG_rho_B, hatG_j_phi, hatG_j_B
+        use radial_current_fourier_kernel_m, only: hatG_jrad_phi, hatG_jrad_br
         use constants_m, only: pi
 
         type(plasma_t), intent(in) :: plasma
         complex(dp), intent(in) :: Kphi(:,:), KB(:,:), Kjphi(:,:), KjB(:,:)
+        complex(dp), intent(in) :: Kjrphi(:,:), KjrB(:,:)
         real(dp), intent(in) :: L
         integer, intent(in) :: M, N, mm, mmp
 
         complex(dp) :: acc_phi, acc_B, ref_phi, ref_B
         complex(dp) :: acc_jphi, acc_jB, ref_jphi, ref_jB
+        complex(dp) :: acc_jrphi, acc_jrB, ref_jrphi, ref_jrB
         real(dp) :: k_m, k_mp, tol
         integer :: im, imp, j
 
@@ -326,16 +371,22 @@ contains
         acc_B    = (0.0_dp, 0.0_dp)
         acc_jphi = (0.0_dp, 0.0_dp)
         acc_jB   = (0.0_dp, 0.0_dp)
+        acc_jrphi = (0.0_dp, 0.0_dp)
+        acc_jrB = (0.0_dp, 0.0_dp)
         do j = 1, N
             acc_phi  = acc_phi  + hatG_rho_phi(plasma, k_m, k_mp, j)
             acc_B    = acc_B    + hatG_rho_B(plasma, k_m, k_mp, j)
             acc_jphi = acc_jphi + hatG_j_phi(plasma, k_m, k_mp, j)
             acc_jB   = acc_jB   + hatG_j_B(plasma, k_m, k_mp, j)
+            acc_jrphi = acc_jrphi + hatG_jrad_phi(plasma, k_m, k_mp, j)
+            acc_jrB = acc_jrB + hatG_jrad_br(plasma, k_m, k_mp, j)
         end do
         ref_phi  = (2.0_dp * pi / real(N, dp)) * acc_phi
         ref_B    = (2.0_dp * pi / real(N, dp)) * acc_B
         ref_jphi = (2.0_dp * pi / real(N, dp)) * acc_jphi
         ref_jB   = (2.0_dp * pi / real(N, dp)) * acc_jB
+        ref_jrphi = (2.0_dp * pi / real(N, dp)) * acc_jrphi
+        ref_jrB = (2.0_dp * pi / real(N, dp)) * acc_jrB
 
         im  = mm  + M + 1
         imp = mmp + M + 1
@@ -369,6 +420,18 @@ contains
             print *, 'FAIL: KjB element mismatch at (m,mp)=', mm, mmp
             print *, '  stored =', KjB(im, imp), ' ref =', ref_jB
             print *, '  |diff| =', abs(KjB(im, imp) - ref_jB), ' tol =', tol
+            error stop
+        end if
+
+        tol = 1.0e-12_dp * (1.0_dp + abs(ref_jrphi))
+        if (abs(Kjrphi(im, imp) - ref_jrphi) >= tol) then
+            print *, 'FAIL: Kjrphi element mismatch at (m,mp)=', mm, mmp
+            error stop
+        end if
+
+        tol = 1.0e-12_dp * (1.0_dp + abs(ref_jrB))
+        if (abs(KjrB(im, imp) - ref_jrB) >= tol) then
+            print *, 'FAIL: KjrB element mismatch at (m,mp)=', mm, mmp
             error stop
         end if
     end subroutine check_element

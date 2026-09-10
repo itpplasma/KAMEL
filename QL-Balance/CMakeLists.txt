@@ -62,10 +62,16 @@ set(balance_lib_base_fortran_sources
     ${base_balance_src}/grid_mod.f90
     ${base_balance_src}/h5mod.f90
     ${base_balance_src}/integrate_parallel_current.f90
+    ${base_balance_src}/periodic_current_normalization_m.f90
+    ${base_balance_src}/periodic_current_diagnostics_m.f90
+    ${base_balance_src}/periodic_amplitude_state_m.f90
+    ${base_balance_src}/periodic_checkpoint_m.f90
     ${base_balance_src}/kim_wave_code_adapter.f90
     ${base_balance_src}/magnetic_island_width.f90
     ${base_balance_src}/matrix_mod.f90
     ${base_balance_src}/paramscan.f90
+    ${base_balance_src}/periodic_transport_benchmark_m.f90
+    ${base_balance_src}/periodic_embedding_m.f90
     ${base_balance_src}/plag_coeff.f90
     ${base_balance_src}/plasma_parameters.f90
     ${base_balance_src}/ql-balance_mod.f90
@@ -78,10 +84,12 @@ set(balance_lib_base_fortran_sources
     ${base_balance_src}/rhs_balance_m.f90
     ${base_balance_src}/sample_matrix.f90
     ${base_balance_src}/SingleStep.f90
+    ${base_balance_src}/transport_smoothing_m.f90
     ${base_balance_src}/smooth_array_gauss.f90
     ${base_balance_src}/time_evolution.f90
     ${base_balance_src}/toroidal_torque.f90
     ${base_balance_src}/transp_coeffs_mod.f90
+    ${base_balance_src}/vel_integral_m.f90
     ${base_balance_src}/W2_arr.f90
     ${base_balance_src}/wave_code_data_64bit.f90
     ${base_balance_src}/wave_code_data_mod.f90
@@ -96,7 +104,6 @@ set(balance_lib_stellarator_fortran_sources
     ${src}/stellarator/evolvestep_stell.f90
 )
 set(balance_lib_cpp_sources
-    ${base_balance_src}/vel_integral.cpp
     ${base_balance_src}/cvodeint.cpp
 )
 
@@ -109,7 +116,7 @@ set_target_properties(ql-balance_lib PROPERTIES LINKER_LANGUAGE Fortran
     ARCHIVE_OUTPUT_DIRECTORY "${lib}"
     Fortran_MODULE_DIRECTORY "${objs}")
 
-add_dependencies(ql-balance_lib kilca_lib kamel_hdf5_tools KIM_lib)
+add_dependencies(ql-balance_lib kilca_lib kamel_hdf5_tools KIM_lib kamel_util)
 target_include_directories(ql-balance_lib PUBLIC ${CMAKE_BINARY_DIR}/KiLCA/mod ${CMAKE_BINARY_DIR}/modules)
 # NOTE: KIM Fortran modules (OBJS/kim/) are NOT added here because KIM and
 # QL-Balance both define a module named resonances_mod with different contents.
@@ -119,13 +126,11 @@ target_include_directories(ql-balance_lib PUBLIC ${CMAKE_BINARY_DIR}/KiLCA/mod $
 # import species_m, equilibrium_m, config_m, etc.  Every other QL-Balance
 # source keeps seeing QL-Balance's own resonances_mod.
 set_source_files_properties(${base_balance_src}/kim_wave_code_adapter.f90
+    ${base_balance_src}/periodic_transport_benchmark_m.f90
     PROPERTIES INCLUDE_DIRECTORIES "${CMAKE_BINARY_DIR}/OBJS/kim/")
 
 # fortnum C ABI header (fortnum.h) for vel_integral.cpp.
 target_include_directories(ql-balance_lib PUBLIC ${fortnum_SOURCE_DIR}/include)
-
-find_package(HDF5 REQUIRED COMPONENTS C HL Fortran Fortran_HL)
-message(" ====== HDF5 was found! ======")
 
 set(BUILD_TESTING OFF)
 
@@ -151,17 +156,12 @@ target_link_libraries(ql-balance_lib PUBLIC
     SUNDIALS::nvecserial
     blas
     fortnum
-    hdf5::hdf5
-    hdf5::hdf5_fortran
-    hdf5::hdf5_hl
-    hdf5::hdf5_hl_fortran
     kamel_hdf5_tools
     kamel_logger
     KIM_lib
+    kamel_util
     kilca_lib
     lapack
-    netcdf
-    netcdff
     fortnum_amos_compat
     sparse
 )

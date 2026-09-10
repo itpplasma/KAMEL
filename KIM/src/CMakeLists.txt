@@ -16,6 +16,7 @@ add_library(KIM_lib STATIC "${KIM_setup}"
                         "${KIM_WKB_dispersion}"
                         "${KIM_asymptotics}"
                         "${KIM_flr2}"
+                        "${KIM_transport}"
                         "${KIM_diagnostics}"
                         "${KIM_electromagnetic}"
 )
@@ -37,8 +38,10 @@ if("${LAPACK_FOUND}")
     message(" ====== LAPACK was found! ======")
     target_link_libraries(KIM_lib PUBLIC "${LAPACK_LIBRARIES}")
     message("LAPACK libraries: ${LAPACK_LIBRARIES}")
-    target_include_directories(KIM_lib PUBLIC "${LAPACK_INCLUDE_DIRS}")
-    message("${LAPACK_INCLUDE_DIRS}")
+    # KIM calls LAPACK through its Fortran ABI; no C/C++ LAPACK headers are
+    # required.  In particular, on macOS FindLAPACK may report the Darwin SDK
+    # `usr/include` directory here.  Propagating that directory to C++ users
+    # breaks libc++'s <cmath>/<cstdio> include_next logic.
 endif()
 
 # SuiteSparse/UMFPACK come SOLELY from the fetched-static SuiteSparse v7.8.3 via the
@@ -56,7 +59,11 @@ if("${SUPERLU_FOUND}")
     message(" ====== SuperLU was found! =====")
     target_link_libraries(KIM_lib PUBLIC "${SUPERLU_LIBRARIES}")
     message("SuperLu libraries: ${SUPERLU_LIBRARIES}")
-    target_include_directories(KIM_lib PUBLIC "${SUPERLU_INCLUDES}")
+    # SuperLU headers are needed only while compiling KIM.  Keeping this
+    # include directory PRIVATE prevents FindSuperLU's Darwin SDK
+    # `usr/include` result from leaking into downstream C++ targets, where it
+    # breaks libc++'s include_next-based C headers.
+    target_include_directories(KIM_lib PRIVATE "${SUPERLU_INCLUDES}")
     message("${SUPERLU_INCLUDES}")
 endif()
 
@@ -67,19 +74,17 @@ set(KILCA_PATH ${CMAKE_SOURCE_DIR}/KiLCA)
 # and breaking KiLCA's wave solver (besselj failures, vacuum stitching errors).
 # KIM_exe links KiLCA directly via fortnum_amos_compat (complex Bessel ABI).
 target_include_directories(KIM_lib PUBLIC ${KILCA_PATH}/math/)
-
-find_package(HDF5 COMPONENTS C Fortran HL REQUIRED)
-message(" ====== HDF5 was found! ======")
+# Shared W2_arr uses KiLCA's native hypergeometric module; executable consumers
+# already supply kilca_lib for the corresponding implementation.
+add_dependencies(KIM_lib kilca_lib)
+target_include_directories(KIM_lib PRIVATE ${CMAKE_BINARY_DIR}/OBJS/kilca/)
 
 target_link_libraries(KIM_lib PUBLIC
-                                hdf5::hdf5
-                                hdf5::hdf5_fortran
-                                hdf5::hdf5_hl
-                                hdf5::hdf5_hl_fortran
                                 kamel_hdf5_tools
                                 kamel_logger
                                 kamel_equil
                                 cerf
+                                kamel_util
 )
 
 add_executable(KIM_exe kim_main.f90)

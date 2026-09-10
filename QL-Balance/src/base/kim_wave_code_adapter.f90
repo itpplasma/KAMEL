@@ -14,12 +14,19 @@ module kim_wave_code_adapter_m
     use setup_m, only: kim_m_mode => m_mode, kim_n_mode => n_mode
     use grid_m, only: kim_xl_grid => xl_grid, &
                       kim_r_min => r_min, kim_r_plas => r_plas
+    use periodic_embedding_m, only: embed_complex_profile, embed_tensor_profile, &
+        resolved_embedding_width
+
+    use periodic_amplitude_state_m, only: &
+        kim_periodic_normalization_version => periodic_normalization_version, &
+        kim_periodic_phase_policy => periodic_phase_policy
+    use control_mod, only: kim_periodic_normalization_relaxation => kim_current_relaxation
 
     implicit none
     private
 
-    public :: kim_initialize
-    public :: kim_run_for_all_modes
+    public :: kim_initialize, kim_get_boundary_drive, kim_set_boundary_drive
+    public :: kim_run_for_all_modes, kim_use_accepted_amplitudes
     public :: kim_update_profiles
     public :: kim_get_wave_fields
     public :: kim_get_wave_vectors
@@ -29,6 +36,24 @@ module kim_wave_code_adapter_m
     public :: kim_check_domain_consistency
     public :: kim_get_current_densities
     public :: interp_complex_profile  ! exposed for testing
+    public :: kim_periodic_mode_selected
+    public :: kim_D_ion_modes, kim_transition_weights, kim_embedding_metadata
+    public :: kim_periodic_scale_modes, kim_periodic_current_unit, kim_periodic_scale_status
+    public :: kim_normalize_periodic_response, kim_current_records
+    type :: periodic_current_record_t
+        logical :: active = .false.
+        real(8) :: target = 0.0d0, relaxation = 1.0d0, current_floor = 0.0d0, max_scale = 0.0d0
+        real(8) :: core(2) = 0.0d0
+        complex(8) :: unit = (0.0d0, 0.0d0), achieved = (0.0d0, 0.0d0)
+        complex(8) :: scale = (1.0d0, 0.0d0), residual = (0.0d0, 0.0d0)
+        integer :: status = -1
+        real(8), allocatable :: r(:)
+        complex(8), allocatable :: unit_jpar(:), normalized_jpar(:)
+    end type periodic_current_record_t
+    type(periodic_current_record_t), allocatable :: kim_current_records(:)
+    public :: kim_periodic_normalization_relaxation, kim_periodic_normalization_version, &
+        kim_periodic_phase_policy
+    public :: kim_mode_m, kim_mode_n, kim_mode_resonance, kim_mode_status
 
     !! Module-level KIM solver handle (reused across calls)
     type(kim_solver_t) :: kim_handle
@@ -49,6 +74,21 @@ module kim_wave_code_adapter_m
     complex(8), allocatable :: kim_Et_modes(:,:)
     complex(8), allocatable :: kim_Ez_modes(:,:)
     complex(8), allocatable, public :: kim_Br_modes(:,:)
+    !! Parallel magnetic perturbation in RSP coordinates.  This is
+    !! exposed through wave_code_data%Bp, matching the KiLCA interface.
+    complex(8), allocatable, public :: kim_Bparallel_modes(:,:)
+    real(8), allocatable :: kim_D_ion_modes(:,:,:,:)
+    real(8), allocatable :: kim_transition_weights(:,:)
+    ! Per-mode [core_lo, core_hi, requested_width, sampled_width], all in cm.
+    real(8), allocatable :: kim_embedding_metadata(:,:)
+    complex(8), allocatable :: kim_periodic_scale_modes(:)
+    complex(8), allocatable :: kim_periodic_current_unit(:)
+    integer, allocatable :: kim_periodic_scale_status(:)
+    real(8), parameter :: periodic_c_light = 2.99792458d10
+    logical :: periodic_constant_psi_pending = .true.
+    logical :: periodic_restored_amplitude_pending = .false.
+    integer, allocatable :: kim_mode_m(:), kim_mode_n(:), kim_mode_status(:)
+    real(8), allocatable :: kim_mode_resonance(:)
 
     !! Per-mode stored wave vectors (nrad, dim_mn)
     !! kp and ks depend on (m,n) via the equilibrium formulas.
@@ -77,8 +117,9 @@ contains
         !!   kim_profiles_from_balance = .false. (Path B):
         !!     KIM reads its own files, adapter reads modes.in, extracts
         !!     everything — original behavior.
-        use control_mod, only: kim_config_path, kim_profiles_from_balance
+        use control_mod, only: kim_config_path, kim_profiles_from_balance, kim_run_type, type_of_run
         use IO_collection_m, only: deinitialize_hdf5_output
+        use periodic_amplitude_state_m, only: periodic_amplitudes
         use wave_code_data, only: dim_mn, m_vals, n_vals, dim_r, &
             r => r, q => q, n => n, Te => Te, Ti => Ti, &
             Vth => Vth, Vz => Vz, dPhi0 => dPhi0, &
@@ -103,6 +144,19 @@ contains
 
         ! Re-init safe: clear any equilibrium/field state from a prior run.
         call kim_handle%finalize()
+        periodic_constant_psi_pending = .true.
+        periodic_restored_amplitude_pending = .false.
+        if (trim(type_of_run) == 'TimeEvolution' .and. periodic_amplitudes%initialized) then
+            if (.not. allocated(periodic_amplitudes%accepted)) &
+                error stop 'initialized periodic amplitude state has no accepted response'
+            if (size(periodic_amplitudes%accepted) == dim_mn) then
+                periodic_constant_psi_pending = .false.
+                periodic_restored_amplitude_pending = .true.
+            else
+                write(*,*) 'WARNING: restored periodic amplitude count does not match mode count; ', &
+                    'using constant-psi initialization'
+            end if
+        end if
 
         if (kim_profiles_from_balance) then
             ! -----------------------------------------------------------
@@ -120,7 +174,7 @@ contains
             prof%r = r; prof%n = n; prof%Te = Te
             prof%Ti = Ti; prof%q = q; prof%Er = -dPhi0
 
-            call kim_handle%init(trim(kim_config_path), run_type='electromagnetic', &
+            call kim_handle%init(trim(kim_config_path), run_type=trim(kim_run_type), &
                                  profiles=prof, stat=ierr)
         else
             ! -----------------------------------------------------------
@@ -129,7 +183,7 @@ contains
             call read_antenna_modes(flre_path)
             call allocate_wave_code_data(nrad, r_grid)
 
-            call kim_handle%init(trim(kim_config_path), run_type='electromagnetic', &
+            call kim_handle%init(trim(kim_config_path), run_type=trim(kim_run_type), &
                                  stat=ierr)
         end if
 
@@ -276,14 +330,30 @@ contains
             dim_r, bal_r => r, &
             wcd_kp => kp, wcd_ks => ks, wcd_om_E => om_E, &
             wcd_B0 => B0, wcd_nue => nue, wcd_nui => nui, &
-            wcd_B0t => B0t, wcd_B0z => B0z, wcd_Vth => Vth, wcd_Vz => Vz
-        use control_mod, only: kim_profiles_from_balance
+            wcd_B0t => B0t, wcd_B0z => B0z, wcd_Vth => Vth, wcd_Vz => Vz, &
+            I_par_toroidal
+        use control_mod, only: kim_profiles_from_balance, type_of_run, kim_current_floor, &
+            kim_current_max_scale, kim_current_relaxation
+        use, intrinsic :: ieee_arithmetic, only: ieee_is_finite
+        use setup_m, only: Br_boundary_re, Br_boundary_im
+        use periodic_current_normalization_m, only: integrate_trusted_current
+        use periodic_amplitude_state_m, only: periodic_amplitudes
 
         implicit none
 
-        type(kim_results_t) :: res
+        type(kim_results_t) :: res, background
         integer :: i_mn, ierr, kim_npts, kim_plasma_npts, nrad_inside, i
-        real(8), allocatable :: kim_r(:), kim_plasma_r(:)
+        real(8), allocatable :: kim_r(:), kim_plasma_r(:), weights(:)
+        real(8) :: core_lo, core_hi, width, saved_br_re, saved_br_im
+        complex(8) :: current_unit, drive_scale
+        integer :: scale_status
+        logical :: periodic, normalize
+
+        periodic = kim_periodic_mode_selected()
+        if (periodic) then
+            if (.not. ieee_is_finite(I_par_toroidal)) error stop 'non-finite target current'
+        end if
+        normalize = periodic .and. I_par_toroidal > 0.0d0
 
         ! -------------------------------------------------------
         ! 1. (Re-)allocate per-mode storage
@@ -294,6 +364,18 @@ contains
         if (allocated(kim_Et_modes)) deallocate(kim_Et_modes)
         if (allocated(kim_Ez_modes)) deallocate(kim_Ez_modes)
         if (allocated(kim_Br_modes)) deallocate(kim_Br_modes)
+        if (allocated(kim_Bparallel_modes)) deallocate(kim_Bparallel_modes)
+        if (allocated(kim_D_ion_modes)) deallocate(kim_D_ion_modes)
+        if (allocated(kim_transition_weights)) deallocate(kim_transition_weights)
+        if (allocated(kim_embedding_metadata)) deallocate(kim_embedding_metadata)
+        if (allocated(kim_current_records)) deallocate(kim_current_records)
+        if (allocated(kim_periodic_scale_modes)) deallocate(kim_periodic_scale_modes)
+        if (allocated(kim_periodic_current_unit)) deallocate(kim_periodic_current_unit)
+        if (allocated(kim_periodic_scale_status)) deallocate(kim_periodic_scale_status)
+        if (allocated(kim_mode_m)) deallocate(kim_mode_m)
+        if (allocated(kim_mode_n)) deallocate(kim_mode_n)
+        if (allocated(kim_mode_resonance)) deallocate(kim_mode_resonance)
+        if (allocated(kim_mode_status)) deallocate(kim_mode_status)
         if (allocated(kim_kp_modes)) deallocate(kim_kp_modes)
         if (allocated(kim_ks_modes)) deallocate(kim_ks_modes)
         if (allocated(kim_jpar_modes)) deallocate(kim_jpar_modes)
@@ -306,6 +388,14 @@ contains
         allocate(kim_Et_modes(dim_r, dim_mn))
         allocate(kim_Ez_modes(dim_r, dim_mn))
         allocate(kim_Br_modes(dim_r, dim_mn))
+        allocate(kim_Bparallel_modes(dim_r, dim_mn))
+        allocate(kim_D_ion_modes(2, 2, dim_r, dim_mn))
+        allocate(kim_transition_weights(dim_r, dim_mn))
+        allocate(kim_embedding_metadata(4, dim_mn))
+        allocate(kim_current_records(dim_mn))
+        allocate(kim_periodic_scale_modes(dim_mn), kim_periodic_current_unit(dim_mn), &
+            kim_periodic_scale_status(dim_mn))
+        allocate(kim_mode_m(dim_mn), kim_mode_n(dim_mn), kim_mode_resonance(dim_mn), kim_mode_status(dim_mn))
         allocate(kim_kp_modes(dim_r, dim_mn))
         allocate(kim_ks_modes(dim_r, dim_mn))
         allocate(kim_jpar_modes(dim_r, dim_mn))
@@ -318,6 +408,17 @@ contains
         kim_Et_modes = (0.0d0, 0.0d0)
         kim_Ez_modes = (0.0d0, 0.0d0)
         kim_Br_modes = (0.0d0, 0.0d0)
+        kim_Bparallel_modes = (0.0d0, 0.0d0)
+        kim_D_ion_modes = 0.0d0
+        kim_transition_weights = 1.0d0
+        kim_embedding_metadata = 0.0d0
+        kim_periodic_scale_modes = (1.0d0, 0.0d0)
+        kim_periodic_current_unit = (0.0d0, 0.0d0)
+        kim_periodic_scale_status = 0
+        kim_mode_m = m_vals
+        kim_mode_n = n_vals
+        kim_mode_resonance = 0.0d0
+        kim_mode_status = 0
         kim_kp_modes = 0.0d0
         kim_ks_modes = 0.0d0
         kim_jpar_modes = (0.0d0, 0.0d0)
@@ -331,18 +432,87 @@ contains
 
             ! The seam owns mode setup, the per-mode equilibrium recompute
             ! (modes 2+), the field reset, and the run.
+            saved_br_re = Br_boundary_re
+            saved_br_im = Br_boundary_im
+            if (normalize) then
+                Br_boundary_re = 1.0d0
+                Br_boundary_im = 0.0d0
+            end if
             call kim_handle%solve(m_vals(i_mn), n_vals(i_mn), stat=ierr)
+            Br_boundary_re = saved_br_re
+            Br_boundary_im = saved_br_im
+            kim_mode_status(i_mn) = ierr
             if (ierr /= KIM_OK) then
                 write(*,*) 'ERROR: KIM solve failed for mode ', i_mn, &
                            ' status ', ierr
                 stop 1
             end if
             res = kim_handle%results()
+            background = kim_handle%background()
+            if (periodic) kim_mode_resonance(i_mn) = res%r_resonance
 
             ! Interpolate KIM fields (on res%r_field) onto the QL-Balance grid.
             kim_npts = size(res%r_field)
             allocate(kim_r(kim_npts))
             kim_r = res%r_field
+            if (.not. periodic) kim_r_boundary = kim_r(kim_npts)
+
+            if (periodic) then
+                width = res%dx_transition
+                core_lo = res%r_resonance - res%dx_asis
+                core_hi = res%r_resonance + res%dx_asis
+                if (width <= 0.0d0 .or. core_hi <= core_lo) then
+                    error stop 'periodic KIM result lacks compact embedding metadata'
+                end if
+                ! The Fourier output omits the upper endpoint. Keep the trusted
+                ! core and use only the transition supported by actual samples.
+                width = resolved_embedding_width(kim_r, core_lo, core_hi, width)
+                kim_embedding_metadata(:, i_mn) = &
+                    [core_lo, core_hi, res%dx_transition, width]
+                write(*,*) '  KIM compact core and requested/actual width [cm]: ', &
+                    kim_embedding_metadata(:, i_mn)
+                allocate(weights(dim_r))
+                if (normalize .or. trim(type_of_run) == 'TimeEvolution') then
+                    kim_current_records(i_mn)%active = .true.
+                    kim_current_records(i_mn)%target = I_par_toroidal
+                    kim_current_records(i_mn)%relaxation = kim_current_relaxation
+                    kim_current_records(i_mn)%current_floor = kim_current_floor
+                    kim_current_records(i_mn)%max_scale = kim_current_max_scale
+                    kim_current_records(i_mn)%core = [core_lo, core_hi]
+                    kim_current_records(i_mn)%r = kim_r
+                    kim_current_records(i_mn)%unit_jpar = res%jpar
+                    if (trim(type_of_run) == 'TimeEvolution' .and. &
+                            periodic_restored_amplitude_pending) then
+                        call kim_normalize_periodic_response(res, I_par_toroidal, &
+                            current_unit, drive_scale, scale_status, &
+                            periodic_amplitudes%accepted(i_mn), &
+                            periodic_amplitudes%accepted_status(i_mn))
+                    elseif (trim(type_of_run) == 'TimeEvolution' .and. &
+                            periodic_constant_psi_pending) then
+                        call kim_normalize_periodic_response(res, I_par_toroidal, &
+                            current_unit, drive_scale, scale_status, (1.0d0, 0.0d0))
+                    else
+                        call kim_normalize_periodic_response(res, I_par_toroidal, &
+                            current_unit, drive_scale, scale_status)
+                    end if
+                    kim_periodic_current_unit(i_mn) = current_unit
+                    kim_periodic_scale_modes(i_mn) = drive_scale
+                    kim_periodic_scale_status(i_mn) = scale_status
+                    kim_current_records(i_mn)%unit = current_unit
+                    kim_current_records(i_mn)%scale = drive_scale
+                    kim_current_records(i_mn)%status = scale_status
+                    kim_current_records(i_mn)%normalized_jpar = res%jpar
+                    kim_current_records(i_mn)%achieved = &
+                        2.0d0*acos(-1.0d0)/periodic_c_light * &
+                        integrate_trusted_current(kim_r, res%jpar, core_lo, core_hi)
+                    kim_current_records(i_mn)%residual = &
+                        kim_current_records(i_mn)%achieved - I_par_toroidal
+                    write(*,*) '  periodic current normalization: mode ', i_mn, &
+                        ' unit=', current_unit, ' scale=', drive_scale, ' status=', scale_status
+                    if (scale_status /= 0) write(*,*) &
+                        'WARNING: periodic response suppressed by current guard ', scale_status
+                end if
+            end if
 
             if (i_mn == 1) then
                 write(*,*) '  KIM field grid: r_min=', kim_r(1), &
@@ -351,59 +521,125 @@ contains
                 write(*,*) '  KIM |Br| at last grid pt =', abs(res%Br(kim_npts))
             end if
 
-            ! Es (perpendicular E field in rsp coordinates)
-            call interp_complex_profile(kim_npts, kim_r, res%Es, &
-                dim_r, bal_r, kim_Es_modes(:, i_mn))
+            ! Physical fields are interpolated before applying one common
+            ! compact transition; no derivative of the window is introduced.
+            if (periodic) then
+                call embed_complex_profile(kim_r, res%Es, bal_r, core_lo, core_hi, width, &
+                    kim_Es_modes(:, i_mn), weights)
+            else
+                call interp_complex_profile(kim_npts, kim_r, res%Es, &
+                    dim_r, bal_r, kim_Es_modes(:, i_mn))
+            end if
 
             ! Ep (parallel E field in rsp coordinates)
-            call interp_complex_profile(kim_npts, kim_r, res%Ep, &
-                dim_r, bal_r, kim_Ep_modes(:, i_mn))
+            if (periodic) then
+                call embed_complex_profile(kim_r, res%Ep, bal_r, core_lo, core_hi, width, &
+                    kim_Ep_modes(:, i_mn), weights)
+            else
+                call interp_complex_profile(kim_npts, kim_r, res%Ep, &
+                    dim_r, bal_r, kim_Ep_modes(:, i_mn))
+            end if
 
             ! Er (radial E field, cylindrical)
-            call interp_complex_profile(kim_npts, kim_r, res%Er, &
-                dim_r, bal_r, kim_Er_modes(:, i_mn))
+            if (periodic) then
+                call embed_complex_profile(kim_r, res%Er, bal_r, core_lo, core_hi, width, &
+                    kim_Er_modes(:, i_mn), weights)
+            else
+                call interp_complex_profile(kim_npts, kim_r, res%Er, &
+                    dim_r, bal_r, kim_Er_modes(:, i_mn))
+            end if
 
             ! Etheta -> Et (poloidal E field, cylindrical)
-            call interp_complex_profile(kim_npts, kim_r, res%Etheta, &
-                dim_r, bal_r, kim_Et_modes(:, i_mn))
+            if (periodic) then
+                call embed_complex_profile(kim_r, res%Etheta, bal_r, core_lo, core_hi, width, &
+                    kim_Et_modes(:, i_mn), weights)
+            else
+                call interp_complex_profile(kim_npts, kim_r, res%Etheta, &
+                    dim_r, bal_r, kim_Et_modes(:, i_mn))
+            end if
 
             ! Ez (axial E field, cylindrical)
-            call interp_complex_profile(kim_npts, kim_r, res%Ez, &
-                dim_r, bal_r, kim_Ez_modes(:, i_mn))
+            if (periodic) then
+                call embed_complex_profile(kim_r, res%Ez, bal_r, core_lo, core_hi, width, &
+                    kim_Ez_modes(:, i_mn), weights)
+            else
+                call interp_complex_profile(kim_npts, kim_r, res%Ez, &
+                    dim_r, bal_r, kim_Ez_modes(:, i_mn))
+            end if
 
             ! Br (radial magnetic field perturbation)
-            call interp_complex_profile(kim_npts, kim_r, res%Br, &
-                dim_r, bal_r, kim_Br_modes(:, i_mn))
+            if (periodic) then
+                call embed_complex_profile(kim_r, res%Br, bal_r, core_lo, core_hi, width, &
+                    kim_Br_modes(:, i_mn), weights)
+            else
+                call interp_complex_profile(kim_npts, kim_r, res%Br, &
+                    dim_r, bal_r, kim_Br_modes(:, i_mn))
+            end if
+
+            ! Bparallel is already represented in RSP coordinates by KIM;
+            ! store it separately so the wave-code adapter can expose it as
+            ! Bp without confusing it with the radial Br component.
+            if (allocated(res%Bparallel)) then
+                if (periodic) then
+                    call embed_complex_profile(kim_r, res%Bparallel, bal_r, core_lo, core_hi, width, &
+                        kim_Bparallel_modes(:, i_mn), weights)
+                else
+                    call interp_complex_profile(kim_npts, kim_r, res%Bparallel, &
+                        dim_r, bal_r, kim_Bparallel_modes(:, i_mn))
+                end if
+            end if
 
             ! jpar (parallel current density: total, electron, ion)
             if (allocated(res%jpar)) then
-                call interp_complex_profile(kim_npts, kim_r, res%jpar, &
-                    dim_r, bal_r, kim_jpar_modes(:, i_mn))
+                if (periodic) then
+                    call embed_complex_profile(kim_r, res%jpar, bal_r, core_lo, core_hi, width, &
+                        kim_jpar_modes(:, i_mn), weights)
+                else
+                    call interp_complex_profile(kim_npts, kim_r, res%jpar, &
+                        dim_r, bal_r, kim_jpar_modes(:, i_mn))
+                end if
             end if
             if (allocated(res%jpar_e)) then
-                call interp_complex_profile(kim_npts, kim_r, res%jpar_e, &
-                    dim_r, bal_r, kim_jpar_e_modes(:, i_mn))
+                if (periodic) then
+                    call embed_complex_profile(kim_r, res%jpar_e, bal_r, core_lo, core_hi, width, &
+                        kim_jpar_e_modes(:, i_mn), weights)
+                else
+                    call interp_complex_profile(kim_npts, kim_r, res%jpar_e, &
+                        dim_r, bal_r, kim_jpar_e_modes(:, i_mn))
+                end if
             end if
             if (allocated(res%jpar_i)) then
-                call interp_complex_profile(kim_npts, kim_r, res%jpar_i, &
-                    dim_r, bal_r, kim_jpar_i_modes(:, i_mn))
+                if (periodic) then
+                    call embed_complex_profile(kim_r, res%jpar_i, bal_r, core_lo, core_hi, width, &
+                        kim_jpar_i_modes(:, i_mn), weights)
+                else
+                    call interp_complex_profile(kim_npts, kim_r, res%jpar_i, &
+                        dim_r, bal_r, kim_jpar_i_modes(:, i_mn))
+                end if
+            end if
+
+            if (periodic .and. allocated(res%D_ion)) then
+                call embed_tensor_profile(kim_r, res%D_ion, bal_r, core_lo, core_hi, width, &
+                    kim_D_ion_modes(:, :, :, i_mn))
+                kim_transition_weights(:, i_mn) = weights
             end if
 
             deallocate(kim_r)
+            if (periodic) deallocate(weights)
 
             ! Apply vacuum continuation beyond r_plas:
             ! KIM fields are only valid inside the plasma domain.
             ! Beyond r_plas, use the vacuum Br from KiLCA and zero E fields.
-            call apply_vacuum_continuation(i_mn, dim_r, bal_r)
+            if (.not. kim_periodic_mode_selected()) call apply_vacuum_continuation(i_mn, dim_r, bal_r)
 
             ! kp and ks (mode-dependent wave vectors on plasma grid)
-            kim_plasma_npts = size(res%r_plasma)
+            kim_plasma_npts = size(background%r_plasma)
             allocate(kim_plasma_r(kim_plasma_npts))
-            kim_plasma_r = res%r_plasma
+            kim_plasma_r = background%r_plasma
 
-            call interp_profile(kim_plasma_npts, kim_plasma_r, res%kp, &
+            call interp_profile(kim_plasma_npts, kim_plasma_r, background%kp, &
                 dim_r, bal_r, kim_kp_modes(:, i_mn))
-            call interp_profile(kim_plasma_npts, kim_plasma_r, res%ks, &
+            call interp_profile(kim_plasma_npts, kim_plasma_r, background%ks, &
                 dim_r, bal_r, kim_ks_modes(:, i_mn))
 
             ! Path A: derived background from the first solve, interpolated up
@@ -418,21 +654,21 @@ contains
                     end if
                 end do
 
-                call clamp_to_balance(kim_plasma_npts, kim_plasma_r, res%B0, &
+                call clamp_to_balance(kim_plasma_npts, kim_plasma_r, background%B0, &
                     dim_r, nrad_inside, bal_r, wcd_B0)
-                call clamp_to_balance(kim_plasma_npts, kim_plasma_r, res%B0z, &
+                call clamp_to_balance(kim_plasma_npts, kim_plasma_r, background%B0z, &
                     dim_r, nrad_inside, bal_r, wcd_B0z)
-                call clamp_to_balance(kim_plasma_npts, kim_plasma_r, res%B0th, &
+                call clamp_to_balance(kim_plasma_npts, kim_plasma_r, background%B0th, &
                     dim_r, nrad_inside, bal_r, wcd_B0t)
-                call clamp_to_balance(kim_plasma_npts, kim_plasma_r, res%kp, &
+                call clamp_to_balance(kim_plasma_npts, kim_plasma_r, background%kp, &
                     dim_r, nrad_inside, bal_r, wcd_kp)
-                call clamp_to_balance(kim_plasma_npts, kim_plasma_r, res%ks, &
+                call clamp_to_balance(kim_plasma_npts, kim_plasma_r, background%ks, &
                     dim_r, nrad_inside, bal_r, wcd_ks)
-                call clamp_to_balance(kim_plasma_npts, kim_plasma_r, res%om_E, &
+                call clamp_to_balance(kim_plasma_npts, kim_plasma_r, background%om_E, &
                     dim_r, nrad_inside, bal_r, wcd_om_E)
-                call clamp_to_balance(kim_plasma_npts, kim_plasma_r, res%nu_e, &
+                call clamp_to_balance(kim_plasma_npts, kim_plasma_r, background%nu_e, &
                     dim_r, nrad_inside, bal_r, wcd_nue)
-                call clamp_to_balance(kim_plasma_npts, kim_plasma_r, res%nu_i, &
+                call clamp_to_balance(kim_plasma_npts, kim_plasma_r, background%nu_i, &
                     dim_r, nrad_inside, bal_r, wcd_nui)
 
                 wcd_Vth = 0.0d0
@@ -452,25 +688,177 @@ contains
         !    equilibrium state (non-clamped, full grid)
         ! -------------------------------------------------------
         if (kim_profiles_from_balance) then
-            kim_plasma_npts = size(res%r_plasma)
+            kim_plasma_npts = size(background%r_plasma)
             allocate(kim_plasma_r(kim_plasma_npts))
-            kim_plasma_r = res%r_plasma
+            kim_plasma_r = background%r_plasma
 
-            call interp_profile(kim_plasma_npts, kim_plasma_r, res%om_E, &
+            call interp_profile(kim_plasma_npts, kim_plasma_r, background%om_E, &
                 dim_r, bal_r, wcd_om_E)
-            call interp_profile(kim_plasma_npts, kim_plasma_r, res%nu_e, &
+            call interp_profile(kim_plasma_npts, kim_plasma_r, background%nu_e, &
                 dim_r, bal_r, wcd_nue)
-            call interp_profile(kim_plasma_npts, kim_plasma_r, res%nu_i, &
+            call interp_profile(kim_plasma_npts, kim_plasma_r, background%nu_i, &
                 dim_r, bal_r, wcd_nui)
-            call interp_profile(kim_plasma_npts, kim_plasma_r, res%B0, &
+            call interp_profile(kim_plasma_npts, kim_plasma_r, background%B0, &
                 dim_r, bal_r, wcd_B0)
 
             deallocate(kim_plasma_r)
         end if
 
+        if (periodic .and. trim(type_of_run) == 'TimeEvolution' .and. periodic_constant_psi_pending) then
+            periodic_constant_psi_pending = .false.
+        end if
+        if (periodic .and. trim(type_of_run) == 'TimeEvolution' .and. &
+                periodic_restored_amplitude_pending) then
+            periodic_restored_amplitude_pending = .false.
+        end if
         write(*, *) "KIM adapter: all modes solved"
 
     end subroutine kim_run_for_all_modes
+
+    function kim_get_boundary_drive() result(drive)
+        use setup_m, only: Br_boundary_re, Br_boundary_im
+        complex(8) :: drive
+        drive = cmplx(Br_boundary_re, Br_boundary_im, 8)
+    end function kim_get_boundary_drive
+
+    subroutine kim_set_boundary_drive(drive)
+        use setup_m, only: Br_boundary_re, Br_boundary_im
+        complex(8), intent(in) :: drive
+        Br_boundary_re = real(drive)
+        Br_boundary_im = aimag(drive)
+    end subroutine kim_set_boundary_drive
+
+    subroutine kim_use_accepted_amplitudes()
+        use periodic_amplitude_state_m, only: periodic_amplitudes
+        use wave_code_data, only: dim_mn
+        if (.not. periodic_amplitudes%initialized) &
+            error stop 'cannot restore a missing accepted periodic response'
+        if (size(periodic_amplitudes%accepted) /= dim_mn) &
+            error stop 'accepted periodic mode count changed'
+        periodic_restored_amplitude_pending = .true.
+        periodic_constant_psi_pending = .false.
+    end subroutine kim_use_accepted_amplitudes
+
+    subroutine kim_normalize_periodic_response(res, target, unit_current, scale, status, &
+        prescribed_scale, prescribed_status)
+        !! Normalize a complete unit response. Rejected data are assigned clean
+        !! zeros: multiplying NaN or Infinity by zero cannot suppress them.
+        use, intrinsic :: ieee_arithmetic, only: ieee_is_finite
+        use control_mod, only: kim_current_floor, kim_current_max_scale, kim_current_relaxation
+        use periodic_current_normalization_m, only: integrate_trusted_current, periodic_drive_scale
+        type(kim_results_t), intent(inout) :: res
+        real(8), intent(in) :: target
+        complex(8), intent(out) :: unit_current, scale
+        integer, intent(out) :: status
+        real(8) :: core_lo, core_hi
+        complex(8), intent(in), optional :: prescribed_scale
+        integer, intent(in), optional :: prescribed_status
+
+        ! No target is the existing manual-amplitude path, not a zero drive.
+        if (ieee_is_finite(target)) then
+            if (target <= 0.0d0 .and. .not. present(prescribed_scale)) then
+                unit_current = (0.0d0, 0.0d0)
+                scale = (1.0d0, 0.0d0)
+                status = -1
+                return
+            end if
+        end if
+        if (.not. allocated(res%r_field) .or. .not. allocated(res%jpar)) &
+            error stop 'periodic normalization lacks a current profile'
+        core_lo = res%r_resonance - res%dx_asis
+        core_hi = res%r_resonance + res%dx_asis
+        unit_current = integrate_trusted_current(res%r_field, res%jpar, core_lo, core_hi)
+        if (present(prescribed_status) .or. &
+            (present(prescribed_scale) .and. target <= 0.0d0)) then
+            ! Rebuild a previously accepted response without replacing its
+            ! amplitude by a newly calculated target-current amplitude.
+            status = 0
+            if (.not. all(ieee_is_finite([target, kim_current_floor, &
+                kim_current_max_scale, kim_current_relaxation]))) status = 3
+            if (kim_current_floor <= 0.0d0 .or. kim_current_max_scale <= 0.0d0 &
+                .or. kim_current_relaxation <= 0.0d0 .or. kim_current_relaxation > 1.0d0) status = 1
+        else
+            call periodic_drive_scale(target, unit_current, periodic_c_light, &
+                kim_current_floor, kim_current_max_scale, kim_current_relaxation, scale, status)
+        end if
+        ! Initial/restarted evolution chooses an amplitude, but still passes
+        ! through the shared finite-response checks and single scaling step.
+        if (present(prescribed_scale) .and. status == 0) then
+            scale = prescribed_scale
+            if (present(prescribed_status)) then
+                status = prescribed_status
+                if (status == -1) status = 0
+            end if
+            if (.not. ieee_is_finite(real(scale)) .or. &
+                .not. ieee_is_finite(aimag(scale))) then
+                status = 3
+            elseif (abs(scale) > kim_current_max_scale) then
+                status = 3
+            end if
+        end if
+        if (.not. finite_response()) status = 3
+        if (status == 0) then
+            if (allocated(res%Es)) res%Es = scale*res%Es
+            if (allocated(res%Ep)) res%Ep = scale*res%Ep
+            if (allocated(res%Er)) res%Er = scale*res%Er
+            if (allocated(res%Etheta)) res%Etheta = scale*res%Etheta
+            if (allocated(res%Ez)) res%Ez = scale*res%Ez
+            if (allocated(res%Br)) res%Br = scale*res%Br
+            if (allocated(res%Bparallel)) res%Bparallel = scale*res%Bparallel
+            if (allocated(res%Phi)) res%Phi = scale*res%Phi
+            if (allocated(res%jpar)) res%jpar = scale*res%jpar
+            if (allocated(res%jpar_e)) res%jpar_e = scale*res%jpar_e
+            if (allocated(res%jpar_i)) res%jpar_i = scale*res%jpar_i
+            if (allocated(res%jrad)) res%jrad = scale*res%jrad
+            if (allocated(res%D_ion)) res%D_ion = abs(scale)**2*res%D_ion
+            if (.not. finite_response()) status = 3
+        end if
+        if (status /= 0) then
+            scale = (0.0d0, 0.0d0)
+            if (allocated(res%Es)) res%Es = (0.0d0, 0.0d0)
+            if (allocated(res%Ep)) res%Ep = (0.0d0, 0.0d0)
+            if (allocated(res%Er)) res%Er = (0.0d0, 0.0d0)
+            if (allocated(res%Etheta)) res%Etheta = (0.0d0, 0.0d0)
+            if (allocated(res%Ez)) res%Ez = (0.0d0, 0.0d0)
+            if (allocated(res%Br)) res%Br = (0.0d0, 0.0d0)
+            if (allocated(res%Bparallel)) res%Bparallel = (0.0d0, 0.0d0)
+            if (allocated(res%Phi)) res%Phi = (0.0d0, 0.0d0)
+            if (allocated(res%jpar)) res%jpar = (0.0d0, 0.0d0)
+            if (allocated(res%jpar_e)) res%jpar_e = (0.0d0, 0.0d0)
+            if (allocated(res%jpar_i)) res%jpar_i = (0.0d0, 0.0d0)
+            if (allocated(res%jrad)) res%jrad = (0.0d0, 0.0d0)
+            if (allocated(res%D_ion)) res%D_ion = 0.0d0
+        end if
+    contains
+        logical function finite_response() result(valid)
+            valid = .true.
+            if (allocated(res%Es)) valid = valid .and. &
+                all(ieee_is_finite(real(res%Es))) .and. all(ieee_is_finite(aimag(res%Es)))
+            if (allocated(res%Ep)) valid = valid .and. &
+                all(ieee_is_finite(real(res%Ep))) .and. all(ieee_is_finite(aimag(res%Ep)))
+            if (allocated(res%Er)) valid = valid .and. &
+                all(ieee_is_finite(real(res%Er))) .and. all(ieee_is_finite(aimag(res%Er)))
+            if (allocated(res%Etheta)) valid = valid .and. &
+                all(ieee_is_finite(real(res%Etheta))) .and. all(ieee_is_finite(aimag(res%Etheta)))
+            if (allocated(res%Ez)) valid = valid .and. &
+                all(ieee_is_finite(real(res%Ez))) .and. all(ieee_is_finite(aimag(res%Ez)))
+            if (allocated(res%Br)) valid = valid .and. &
+                all(ieee_is_finite(real(res%Br))) .and. all(ieee_is_finite(aimag(res%Br)))
+            if (allocated(res%Bparallel)) valid = valid .and. &
+                all(ieee_is_finite(real(res%Bparallel))) .and. all(ieee_is_finite(aimag(res%Bparallel)))
+            if (allocated(res%Phi)) valid = valid .and. &
+                all(ieee_is_finite(real(res%Phi))) .and. all(ieee_is_finite(aimag(res%Phi)))
+            if (allocated(res%jpar)) valid = valid .and. &
+                all(ieee_is_finite(real(res%jpar))) .and. all(ieee_is_finite(aimag(res%jpar)))
+            if (allocated(res%jpar_e)) valid = valid .and. &
+                all(ieee_is_finite(real(res%jpar_e))) .and. all(ieee_is_finite(aimag(res%jpar_e)))
+            if (allocated(res%jpar_i)) valid = valid .and. &
+                all(ieee_is_finite(real(res%jpar_i))) .and. all(ieee_is_finite(aimag(res%jpar_i)))
+            if (allocated(res%jrad)) valid = valid .and. &
+                all(ieee_is_finite(real(res%jrad))) .and. all(ieee_is_finite(aimag(res%jrad)))
+            if (allocated(res%D_ion)) valid = valid .and. all(ieee_is_finite(res%D_ion))
+        end function finite_response
+    end subroutine kim_normalize_periodic_response
 
     subroutine kim_update_profiles()
         !! Transfer QL-Balance time-evolved profiles into the
@@ -487,17 +875,18 @@ contains
         !!
         !! Note: dPhi0 is only updated from Ercov during time evolution.
         !! For SingleStep runs, the input Er profile is preserved.
-        use wave_code_data, only: dim_r, &
+        use wave_code_data, only: dim_r, wcd_r => r, wcd_q => q, &
             wcd_n => n, wcd_Te => Te, wcd_Ti => Ti, &
             wcd_Vz => Vz, wcd_dPhi0 => dPhi0
         use plasma_parameters, only: params_b
         use baseparam_mod, only: ev, rtor
         use grid_mod, only: Ercov
-        use control_mod, only: type_of_run
+        use control_mod, only: type_of_run, kim_profiles_from_balance
 
         implicit none
 
-        integer :: k
+        type(kim_profiles_t) :: prof
+        integer :: k, ierr
 
         do k = 1, dim_r
             wcd_n(k)     = params_b(1, k)
@@ -514,7 +903,32 @@ contains
             end do
         end if
 
+        ! Path A owns the current profiles in QL-Balance. Push every updated
+        ! scan/time-evolution state through KIM's public seam so the next solve
+        ! rebuilds its derived equilibrium from these values.
+        if (kim_profiles_from_balance) then
+            allocate(prof%r(dim_r), prof%n(dim_r), prof%Te(dim_r), &
+                     prof%Ti(dim_r), prof%q(dim_r), prof%Er(dim_r))
+            prof%r = wcd_r
+            prof%n = wcd_n
+            prof%Te = wcd_Te
+            prof%Ti = wcd_Ti
+            prof%q = wcd_q
+            prof%Er = -wcd_dPhi0
+
+            call kim_handle%set_profiles(prof, stat=ierr)
+            if (ierr /= KIM_OK) then
+                write(*,*) 'ERROR: KIM profile update failed with status ', ierr
+                stop 1
+            end if
+        end if
+
     end subroutine kim_update_profiles
+
+    logical function kim_periodic_mode_selected()
+        use control_mod, only: kim_run_type
+        kim_periodic_mode_selected = trim(kim_run_type) == 'electrostatic_periodic'
+    end function kim_periodic_mode_selected
 
     subroutine kim_get_wave_fields(i_mn)
         !! Copy per-mode stored fields from kim_*_modes arrays
@@ -529,15 +943,15 @@ contains
 
         Es = kim_Es_modes(:, i_mn)
         Br = kim_Br_modes(:, i_mn)
+        Bp = kim_Bparallel_modes(:, i_mn)
         Er = kim_Er_modes(:, i_mn)
         Ep = kim_Ep_modes(:, i_mn)
         Et = kim_Et_modes(:, i_mn)
         Ez = kim_Ez_modes(:, i_mn)
 
-        ! KIM does not compute magnetic field perturbation components
-        ! other than Br. Set remaining B components to zero.
+        ! KIM does not compute the cylindrical magnetic perturbations or the
+        ! perpendicular RSP component.  Bparallel is carried above as Bp.
         Bs = (0.0d0, 0.0d0)
-        Bp = (0.0d0, 0.0d0)
         Bt = (0.0d0, 0.0d0)
         Bz = (0.0d0, 0.0d0)
 
@@ -617,6 +1031,9 @@ contains
     ! ---------------------------------------------------------------
 
     subroutine kim_load_vacuum_fields()
+    use kilca_wave_code_interface_m, only: &
+        get_wave_fields_from_wave_code => &
+            get_wave_fields_from_wave_code_
         !! Extract vacuum Br from KiLCA vacuum solution (vac_cd_ptr)
         !! onto the balance grid and store in kim_vac_Br for each mode.
         use wave_code_data, only: dim_r, r, dim_mn, m_vals, n_vals, &
@@ -625,13 +1042,15 @@ contains
         implicit none
 
         integer :: k
+        complex(8) :: unused_fields(dim_r, 8)
 
         ! Extract vacuum Br for each mode.
-        ! get_wave_fields_from_wave_code fills Br; we use Bz as dummy
-        ! for all other field components.
+        ! Keep unused output components in separate storage.
         do k = 1, dim_mn
             call get_wave_fields_from_wave_code(vac_cd_ptr(k), dim_r, r, &
-                m_vals(k), n_vals(k), Bz, Bz, Bz, Bz, Bz, Br, Bz, Bz, Bz, Bz)
+                m_vals(k), n_vals(k), unused_fields(:,1), unused_fields(:,2), unused_fields(:,3), &
+                unused_fields(:,4), unused_fields(:,5), Br, unused_fields(:,6), &
+                unused_fields(:,7), unused_fields(:,8), Bz)
             kim_vac_Br(:, k) = Br
         end do
 
@@ -781,6 +1200,7 @@ contains
             kim_Ez_modes(i, i_mn) = (0.0d0, 0.0d0)
             ! Total Br = vacuum Br beyond plasma
             kim_Br_modes(i, i_mn) = kim_vac_Br(i, i_mn)
+            kim_Bparallel_modes(i, i_mn) = (0.0d0, 0.0d0)
             ! Wave vectors not physical in vacuum
             kim_kp_modes(i, i_mn) = 0.0d0
             kim_ks_modes(i, i_mn) = 0.0d0

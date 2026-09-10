@@ -10,12 +10,22 @@ KIM is configured via the namelist file KIM_config.nml containing multiple namel
 - collisionless_kpar_epsilon ... real, positive causal-pole width in 1/cm required by `ion_collision_model='collisionless'`. KIM uses $k_{\parallel}+i\epsilon$ for signed inverse factors and $\sqrt{k_{\parallel}^2+\epsilon^2}$ for even charge-response factors.
 - ion_fp_collision_scale ... real, positive multiplier applied only to ion FP collision frequencies. It has no effect on collisionless ion kernels.
 - collision_frequency_scale ... real, positive multiplier applied to the calculated electron and ion collision frequencies before the Krook argument z0 and the Fokker-Planck susceptibility inputs are assembled; default 1.0 leaves the collision formulas unchanged
+- electron_ifunc_conservation_model ... integer, electron FPGEN conservation model: `0` particle number, `1` number and energy, `2` number and parallel momentum, `3` number, energy, and parallel momentum. Default `-1` inherits `boole_energy_conservation`. Use `1` for resistive calculations; electron momentum conservation removes the resistive response.
+- ion_ifunc_conservation_model ... integer, ion FPGEN conservation model with the same numbering. Use `1` for the tokamak-like flow-braking model and `3` for the momentum-conserving cylindrical model.
+- boole_energy_conservation ... deprecated boolean fallback used only for a species whose integer model is `-1`; `.true.` resolves to model `1`, `.false.` to model `0`
 - artificial_debye_case ... integer, if 0: full calculation of kernel, if 1: Debye case, if 2: exclude Debye case
 
 Collisionless forced periodicity currently requires `artificial_debye_case=0`,
 `theta_integration='GaussLegendre'`, and a positive
 `collisionless_kpar_epsilon`. Higher cyclotron harmonics are not included in
 this ion model; the implemented derivation uses $m_\phi=0$.
+
+For the cylindrical comparison requested in the Er scan, use:
+
+```fortran
+electron_ifunc_conservation_model = 1  ! N+E: retain electron resistivity
+ion_ifunc_conservation_model = 3       ! N+E+P: conserve ion parallel momentum
+```
 
 ## KIM_IO
 - profile_location ... string, path to the profiles

@@ -11,6 +11,7 @@ end module
 !------------------------------------------------------------------------------
 
 subroutine eval_and_set_params_for_additional_current (r, spec, flag_back)
+    use kilca_background_data_m, only: vs_0_f
 
 !only allowed to be called at the end of all other calls!..
 
@@ -64,7 +65,7 @@ end subroutine
 
 subroutine calc_and_add_galilelian_correction (r, spec, flag_back, ct)
 
-use constants, only: dp, dpc, c, im
+use constants, only: dp, dpc, c, im;
 use flre_sett, only: flre_order
 use gal_corr, only: comfac
 use conduct_parameters, only: omega_, ht_, dht_, hz_, dhz_, ks_, r_

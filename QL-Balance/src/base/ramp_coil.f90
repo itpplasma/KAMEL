@@ -447,3 +447,35 @@ subroutine write_br_discrepancy_reached_info
     CALL h5_deinit()
 
 end subroutine
+
+subroutine periodic_ramp_checkpoint(payload, restore)
+    use periodic_checkpoint_m, only: periodic_restart_t
+    use time_evolution_stellarator, only: hyst_mod_stage, t_flattop_begin, t_flattop_end, &
+        ant_fac_flattop, delta_t_flattop, hyst_mod_amp_fac, hyst_mod_freq, hyst_mod_phase, &
+        bif_crit_flattop
+    implicit none
+    type(periodic_restart_t), intent(inout) :: payload
+    logical, intent(in) :: restore
+    if (payload%ramp_mode /= 10 .and. payload%ramp_mode /= 11) return
+    if (restore) then
+        hyst_mod_stage = payload%hyst_mod_stage
+        t_flattop_begin = payload%t_flattop_begin
+        t_flattop_end = payload%t_flattop_end
+        ant_fac_flattop = nint(payload%ant_fac_flattop)
+        delta_t_flattop = payload%delta_t_flattop
+        hyst_mod_amp_fac = payload%hyst_mod_amp_fac
+        hyst_mod_freq = payload%hyst_mod_freq
+        hyst_mod_phase = payload%hyst_mod_phase
+        bif_crit_flattop = payload%bifcrit_flattop
+    else
+        payload%hyst_mod_stage = hyst_mod_stage
+        payload%t_flattop_begin = t_flattop_begin
+        payload%t_flattop_end = t_flattop_end
+        payload%ant_fac_flattop = ant_fac_flattop
+        payload%delta_t_flattop = delta_t_flattop
+        payload%hyst_mod_amp_fac = hyst_mod_amp_fac
+        payload%hyst_mod_freq = hyst_mod_freq
+        payload%hyst_mod_phase = hyst_mod_phase
+        payload%bifcrit_flattop = bif_crit_flattop
+    end if
+end subroutine periodic_ramp_checkpoint

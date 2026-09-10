@@ -12,6 +12,7 @@ program test_rhs_balance
                              compute_thermodynamic_forces, &
                              compute_particle_fluxes, &
                              compute_total_heat_fluxes, &
+                             compute_linearized_product, &
                              compute_source_terms_at_point, &
                              species_fluxes_t, &
                              transport_fluxes_t
@@ -32,6 +33,7 @@ program test_rhs_balance
     call test_thermodynamic_forces()
     call test_particle_fluxes()
     call test_heat_fluxes()
+    call test_linearized_product()
     call test_source_terms_at_point()
 
     print *, ""
@@ -171,9 +173,9 @@ contains
 
         ! Thermodynamic forces (arbitrary test values)
         forces%e%A1_noE = -0.05_dp
-        forces%e%A2 = 0.1_dp
+        forces%e%A2 = 0.08_dp
         forces%i%A1_noE = -0.04_dp
-        forces%i%A2 = 0.1_dp
+        forces%i%A2 = 0.09_dp
         forces%e%A1 = -0.03_dp
         forces%i%A1 = -0.06_dp
 
@@ -276,6 +278,27 @@ contains
         print *, "  PASSED: ", test_name
 
     end subroutine test_heat_fluxes
+
+
+    subroutine test_linearized_product()
+        ! Verify the complete first variation of a product:
+        !   delta(E * Gamma) = E * delta(Gamma) + delta(E) * Gamma.
+        real(dp) :: actual, expected
+        character(len=*), parameter :: test_name = "test_linearized_product"
+
+        print *, "Running: ", test_name
+
+        expected = 5.0_dp * 2.0_dp + 7.0_dp * 3.0_dp
+        actual = compute_linearized_product(5.0_dp, 2.0_dp, 7.0_dp, 3.0_dp)
+        call assert_equal(actual, expected, "linearized E*Gamma")
+
+        expected = 5.0_dp * 2.0_dp + 7.0_dp * 4.0_dp
+        actual = compute_linearized_product(5.0_dp, 2.0_dp, 7.0_dp, 4.0_dp)
+        call assert_equal(actual, expected, "point-local frozen Gamma")
+
+        print *, "  PASSED: ", test_name
+
+    end subroutine test_linearized_product
 
 
     subroutine test_source_terms_at_point()

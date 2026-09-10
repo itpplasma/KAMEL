@@ -157,6 +157,7 @@ end subroutine
 !------------------------------------------------------------------------------
 
 subroutine calc_dEM_dJMI_matrices (r, N, dEM, dJMI)
+    use kilca_background_data_m, only: eval_hthz => eval_hthz_c
 
 use constants, only: dp;
 use core, only: bp_ptr;
@@ -256,6 +257,7 @@ end subroutine
 !------------------------------------------------------------------------------
 
 subroutine transform_c_matrices_to_rsp (r, cmat)
+    use kilca_legacy_interfaces_m, only: binomial_coefficients
 
 use constants, only: dp, dpc;
 use flre_sett, only: flre_order;
@@ -275,7 +277,7 @@ real(dp), dimension(0:2*flre_order, 0:2*flre_order) :: bico;
 integer :: s, l;
 
 call calc_dEM_dJMI_matrices (r, 2*flre_order, dEM, dJMI);
-call binomial_coefficients (%val(2*flre_order), bico);
+call binomial_coefficients (2*flre_order, bico);
 
 ccpy = cmat;
 

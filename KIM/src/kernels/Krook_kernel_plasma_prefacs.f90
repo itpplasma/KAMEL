@@ -291,7 +291,7 @@ module Krook_kernel_plasma_prefacs_m
         logical, intent(in), optional :: collisionless
         real(dp), intent(in), optional :: epsilon
         complex(dp) :: val
-        real(dp) :: A1, A1_factor, A2
+        real(dp) :: A1, A2
         complex(dp) :: plasma_Z, z0
         logical :: use_collisionless
 
@@ -299,16 +299,14 @@ module Krook_kernel_plasma_prefacs_m
         A2 = 0.5d0 * (spec%A2(j) + spec%A2(j+1))
         use_collisionless = .false.
         if (present(collisionless)) use_collisionless = collisionless
-        A1_factor = 0.5_dp
         if (use_collisionless) then
             if (.not. present(epsilon)) error stop 'Collisionless G1_rho_B requires epsilon'
             z0 = Krook_z0_cc(j, spec, .true., epsilon)
-            A1_factor = 1.0_dp
         else
             z0 = Krook_z0_cc(j, spec, .false.)
         end if
 
-        val = A1_factor * A1 * (z0 * plasma_Z(z0) + 1.0d0) + A2 * &
+        val = A1 * (z0 * plasma_Z(z0) + 1.0d0) + A2 * &
             (&
                 0.5d0 + (z0 * plasma_Z(z0) + 1.0d0) * (1.0d0 + z0**2.0d0) &
             )

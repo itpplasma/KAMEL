@@ -12,11 +12,18 @@ if(CMAKE_HOST_SYSTEM_NAME MATCHES "Darwin")
         endif()
     endif()
     if(NOT DEFINED CMAKE_CXX_COMPILER)
-        find_program(LLVM_CLANGXX clang++
-            PATHS /opt/homebrew/opt/llvm/bin /usr/local/opt/llvm/bin
+        find_program(HOMEBREW_GXX g++-16
+            PATHS /opt/homebrew/bin /usr/local/bin
             NO_DEFAULT_PATH)
-        if(LLVM_CLANGXX)
-            set(CMAKE_CXX_COMPILER "${LLVM_CLANGXX}")
+        if(HOMEBREW_GXX)
+            set(CMAKE_CXX_COMPILER "${HOMEBREW_GXX}")
+        else()
+            find_program(LLVM_CLANGXX clang++
+                PATHS /opt/homebrew/opt/llvm/bin /usr/local/opt/llvm/bin
+                NO_DEFAULT_PATH)
+            if(LLVM_CLANGXX)
+                set(CMAKE_CXX_COMPILER "${LLVM_CLANGXX}")
+            endif()
         endif()
     endif()
     set(CMAKE_PREFIX_PATH /opt/homebrew /usr/local)
@@ -26,24 +33,6 @@ elseif(CMAKE_HOST_SYSTEM_NAME MATCHES "Linux")
     endif()
     if(NOT DEFINED CMAKE_CXX_COMPILER)
         set(CMAKE_CXX_COMPILER g++)
-    endif()
-endif()
-
-if(APPLE AND NOT DEFINED HDF5_DIR)
-    # locate brew
-    find_program(BREW_EXECUTABLE brew HINTS /opt/homebrew/bin /usr/local/bin)
-    if(BREW_EXECUTABLE)
-        execute_process(
-            COMMAND "${BREW_EXECUTABLE}" --prefix hdf5
-            OUTPUT_VARIABLE _hdf5_prefix
-            OUTPUT_STRIP_TRAILING_WHITESPACE
-            RESULT_VARIABLE _hdf5_res
-        )
-
-        if(_hdf5_res EQUAL 0 AND EXISTS "${_hdf5_prefix}/lib/cmake/hdf5")
-            set(HDF5_DIR "${_hdf5_prefix}/lib/cmake/hdf5" CACHE PATH "Path to HDF5Config.cmake")
-            message(STATUS "HDF5_DIR set to ${HDF5_DIR}")
-        endif()
     endif()
 endif()
 
@@ -106,6 +95,7 @@ add_subdirectory(common/math)
 add_subdirectory(common/logger)
 add_subdirectory(common/hdf5_tools)
 add_subdirectory(common/equil)
+add_subdirectory(common/util)
 add_subdirectory(KiLCA)
 add_subdirectory(KIM)
 add_subdirectory(QL-Balance)

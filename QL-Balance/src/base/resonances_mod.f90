@@ -13,18 +13,11 @@ module resonances_mod
 
         use h5mod
         use wave_code_data, only: m_vals, n_vals
+        use periodic_checkpoint_m, only: periodic_mode_group
 
         implicit none
 
-        if (numres .eq. 1) then
-            if (m_vals(1) <= 9) then
-                write (h5_mode_groupname, "(A,I1,A,I1)") "f_", m_vals(1), "_", n_vals(1)
-            else
-                write (h5_mode_groupname, "(A,I2,A,I1)") "f_", m_vals(1), "_", n_vals(1)
-            end if
-        else
-            write (h5_mode_groupname, "(A)") "multi_mode"
-        end if
+        h5_mode_groupname = periodic_mode_group(m_vals, n_vals)
 
     end subroutine
 

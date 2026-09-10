@@ -6,17 +6,24 @@ program test_kim_adapter
     !   1. Module compilation and linkage (the adapter + KIM_lib resolve)
     !   2. interp_complex_profile helper correctness
     !   3. wave_code selector variable default
+    !   4. Rescaled QL-Balance profiles change the subsequent KIM solution
     !
-    ! Note: Full integration tests (calling kim_initialize) require
-    ! KIM config files and profile data, and are covered by Task 10
-    ! (end-to-end SingleStep validation).
-    !
-    use kim_wave_code_adapter_m, only: interp_complex_profile
-    use control_mod, only: wave_code
+    use kim_wave_code_adapter_m, only: interp_complex_profile, kim_initialize, &
+        kim_update_profiles, kim_run_for_all_modes, kim_Br_modes, kim_vac_Br
+    use kim_wave_code_adapter_m, only: kim_Bparallel_modes, kim_get_wave_fields
+    use kim_wave_code_adapter_m, only: kim_mode_m, kim_mode_n, kim_mode_status, kim_mode_resonance
+    use control_mod, only: wave_code, kim_config_path, kim_profiles_from_balance, &
+        type_of_run, kim_run_type
+    use wave_code_data, only: dim_mn, m_vals, n_vals, r, n, Te, Ti, q, &
+        Vth, Vz, dPhi0, Bp
+    use plasma_parameters, only: params_b
+    use grid_mod, only: Ercov
+    use baseparam_mod, only: ev
 
     implicit none
 
     integer :: num_passed, num_failed
+    external :: allocate_wave_code_data
 
     num_passed = 0
     num_failed = 0
@@ -29,6 +36,7 @@ program test_kim_adapter
     call test_wave_code_default()
     call test_interp_complex_constant()
     call test_interp_complex_linear()
+    call test_rescaled_profiles_change_kim_solution()
 
     print *, ""
     print *, "========================================"
@@ -98,7 +106,7 @@ contains
     ! A constant complex function should interpolate exactly.
     ! ------------------------------------------------------------------
     subroutine test_interp_complex_constant()
-        integer, parameter :: n_old = 5, n_new = 3
+        integer, parameter :: n_old = 10, n_new = 3
         real(8) :: r_old(n_old), r_new(n_new)
         complex(8) :: z_old(n_old), z_new(n_new)
         complex(8), parameter :: val = (2.5d0, -1.3d0)
@@ -107,7 +115,7 @@ contains
 
         print *, "--- test_interp_complex_constant ---"
 
-        ! Old grid: [10, 20, 30, 40, 50]
+        ! Old grid: [10, 20, 30, ..., 100]
         do i = 1, n_old
             r_old(i) = 10.0d0 * dble(i)
             z_old(i) = val
@@ -160,6 +168,117 @@ contains
             call assert_equal_complex(z_new(i), expected, tol, &
                 "linear interp at new grid point")
         end do
+    end subroutine
+
+    ! ------------------------------------------------------------------
+    ! Regression for #136: a parameter-scan profile rescaling must cross
+    ! the adapter boundary and change KIM's next wave solution.
+    ! ------------------------------------------------------------------
+    subroutine test_rescaled_profiles_change_kim_solution()
+        integer, parameter :: npts = 40
+        integer, parameter :: m_mode = -6, n_mode = 2
+        real(8) :: r_grid(npts), frac, response_change, response_scale
+        real(8), allocatable :: base_n(:)
+        complex(8), allocatable :: br_rescaled(:)
+        integer :: i
+
+        print *, "--- test_rescaled_profiles_change_kim_solution ---"
+
+        dim_mn = 1
+        allocate(m_vals(dim_mn), n_vals(dim_mn))
+        m_vals = m_mode
+        n_vals = n_mode
+
+        do i = 1, npts
+            r_grid(i) = 3.0d0 + 64.0d0 * dble(i - 1) / dble(npts - 1)
+        end do
+        call allocate_wave_code_data(npts, r_grid)
+
+        do i = 1, npts
+            frac = (r(i) - 3.0d0) / 64.0d0
+            n(i) = 5.0d13 * (1.0d0 - 0.9d0 * frac)
+            Te(i) = 100.0d0 + 1900.0d0 * (1.0d0 - frac)
+            Ti(i) = 0.9d0 * Te(i)
+            q(i) = 1.0d0 + 3.0d0 * frac
+        end do
+        Vth = 0.0d0
+        Vz = 0.0d0
+        dPhi0 = 0.0d0
+
+        kim_config_path = "KIM_config_em_small.nml"
+        kim_profiles_from_balance = .true.
+        wave_code = "KIM"
+        kim_run_type = "electromagnetic"
+        type_of_run = "ParameterScan"
+
+        call kim_initialize(npts, r_grid)
+        kim_vac_Br = (0.0d0, 0.0d0)
+
+        allocate(base_n(npts))
+        base_n = n
+        allocate(params_b(4, npts), Ercov(npts))
+        params_b(1, :) = 1.6d0 * base_n
+        params_b(2, :) = 0.0d0
+        params_b(3, :) = Te * ev
+        params_b(4, :) = Ti * ev
+        Ercov = 0.0d0
+
+        call kim_update_profiles()
+        call kim_run_for_all_modes()
+
+        if (kim_mode_m(1) /= m_mode .or. kim_mode_n(1) /= n_mode &
+                .or. kim_mode_status(1) /= 0 .or. kim_mode_resonance(1) /= 0.0d0) then
+            print '(A)', "  FAIL: electromagnetic signed mode/status/resonance metadata"
+            num_failed = num_failed + 1
+        else
+            print '(A)', "  PASS: electromagnetic signed mode/status; periodic resonance absent"
+            num_passed = num_passed + 1
+        end if
+
+        ! The current EM solver returns Phi/Apar/Br, with no compression
+        ! response. Check that this absent channel is exposed as zero.
+        call kim_get_wave_fields(1)
+        if (all(Bp == (0.0d0, 0.0d0)) &
+                .and. all(kim_Bparallel_modes(:, 1) == (0.0d0, 0.0d0))) then
+            print '(A)', "  PASS: absent EM compression channel is zero"
+            num_passed = num_passed + 1
+        else
+            print '(A)', "  FAIL: absent EM compression channel retained stale values"
+            num_failed = num_failed + 1
+        end if
+
+        ! Separate routing test with a synthetic nonzero stored field. This
+        ! verifies the adapter copy, not a physical EM compression solution.
+        kim_Bparallel_modes(:, 1) = cmplx(0.3d0, -0.2d0, 8)
+        call kim_get_wave_fields(1)
+        if (all(Bp == cmplx(0.3d0, -0.2d0, 8))) then
+            print '(A)', "  PASS: nonzero stored Bparallel is copied to Bp"
+            num_passed = num_passed + 1
+        else
+            print '(A)', "  FAIL: nonzero stored Bparallel was not copied to Bp"
+            num_failed = num_failed + 1
+        end if
+        kim_Bparallel_modes(:, 1) = (0.0d0, 0.0d0)
+        call kim_get_wave_fields(1)
+
+        allocate(br_rescaled(npts))
+        br_rescaled = kim_Br_modes(:, 1)
+
+        params_b(1, :) = base_n
+        call kim_update_profiles()
+        call kim_run_for_all_modes()
+
+        response_change = maxval(abs(kim_Br_modes(:, 1) - br_rescaled))
+        response_scale = max(maxval(abs(br_rescaled)), 1.0d-30)
+        if (response_change > 1.0d-6 * response_scale) then
+            print '(A,ES15.8)', "  PASS: rescaled density changed KIM Br by ", &
+                response_change
+            num_passed = num_passed + 1
+        else
+            print '(A,ES15.8)', "  FAIL: KIM Br remained frozen; max change = ", &
+                response_change
+            num_failed = num_failed + 1
+        end if
     end subroutine
 
 end program test_kim_adapter

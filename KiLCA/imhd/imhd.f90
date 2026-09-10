@@ -293,6 +293,7 @@ end subroutine
 !------------------------------------------------------------------------------
 
 subroutine calc_k_vals_sub (r, kt, kz, ks, kp, k2, kB, kA, kfac)
+    use kilca_imhd_zone_m, only: calc_k_vals => calc_k_vals_
 
 use constants, only: dp, dpc, im
 use imhd_data, only: zone_ptr;

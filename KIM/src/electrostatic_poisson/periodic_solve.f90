@@ -35,7 +35,8 @@ module periodic_solve_m
     implicit none
     private
 
-    public :: solve_periodic, reconstruct_delta_phi, dense_solve, reconstruct_jpar
+    public :: solve_periodic, reconstruct_delta_phi, reconstruct_delta_phi_derivative
+    public :: dense_solve, reconstruct_jpar, reconstruct_jrad
 
 contains
 
@@ -130,6 +131,50 @@ contains
 
         jpar = reconstruct_delta_phi(j_m, L, M, r_out)
     end function reconstruct_jpar
+
+    function reconstruct_delta_phi_derivative(Phi_m, L, M, r_out) result(dphi)
+        use constants_m, only: pi, com_unit
+        complex(dp), intent(in) :: Phi_m(:)
+        real(dp), intent(in) :: L
+        integer, intent(in) :: M
+        real(dp), intent(in) :: r_out(:)
+        complex(dp) :: dphi(size(r_out))
+        integer :: i, mm, im
+        real(dp) :: k
+        dphi = (0.0_dp, 0.0_dp)
+        do i = 1, size(r_out)
+            do mm = -M, M
+                im = mm + M + 1
+                k = 2.0_dp*pi*real(mm,dp)/L
+                dphi(i) = dphi(i) + com_unit*k*Phi_m(im)*exp(com_unit*k*r_out(i))
+            end do
+        end do
+    end function reconstruct_delta_phi_derivative
+
+    !> Reconstruct j_rad from its potential and magnetic-field response matrices.
+    !> Constant Br and optional Bparallel drives occupy only Fourier column m'=0,
+    !> as in the Poisson right-hand side and parallel-current reconstruction.
+    function reconstruct_jrad(Kjrphi, KjrB, Phi_m, Br_const, L, M, r_out, &
+            KjrBparallel, Bparallel_const) result(jrad)
+        complex(dp), intent(in) :: Kjrphi(:,:), KjrB(:,:)
+        complex(dp), intent(in) :: Phi_m(:)
+        complex(dp), intent(in) :: Br_const
+        real(dp), intent(in) :: L, r_out(:)
+        integer, intent(in) :: M
+        complex(dp), intent(in), optional :: KjrBparallel(:,:), Bparallel_const
+        complex(dp) :: jrad(size(r_out))
+
+        complex(dp), allocatable :: j_m(:)
+
+        if (present(KjrBparallel) .neqv. present(Bparallel_const)) then
+            error stop 'KjrBparallel and Bparallel_const must be supplied together'
+        end if
+        j_m = matmul(Kjrphi, Phi_m) + Br_const * KjrB(:, M + 1)
+        if (present(KjrBparallel)) then
+            j_m = j_m + Bparallel_const * KjrBparallel(:, M + 1)
+        end if
+        jrad = reconstruct_delta_phi(j_m, L, M, r_out)
+    end function reconstruct_jrad
 
     !> Inverse DFT: reconstruct dPhi(r) = sum_{m=-M}^{M} Phi_m exp(i k_m r)
     !> on the output radial grid r_out, with k_m = 2*pi*m/L. Phi_m is indexed

@@ -35,6 +35,7 @@ end module
 !------------------------------------------------------------------------------
 
 subroutine allocate_and_set_conductivity_arrays ()
+    use kilca_legacy_interfaces_m, only: binomial_coefficients
 
 use flre_sett, only: Nmax, flre_order;
 use conduct_arrays, only: dimI, Is1;
@@ -105,7 +106,7 @@ allocate (bico(0:flre_order,0:flre_order));
 
 bico = 0.0d0;
 
-call binomial_coefficients (%val(flre_order), bico);
+call binomial_coefficients (flre_order, bico);
 
 ! print *
 ! print *, 'check aco and bico:'

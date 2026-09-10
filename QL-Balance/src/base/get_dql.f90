@@ -1,6 +1,21 @@
 
 !> @brief subroutine get_dql. Calculates quasilinear diffusion coefficients.
 subroutine get_dql
+    use kilca_wave_code_interface_m, only: &
+        get_background_magnetic_fields_from_wave_code => &
+            get_background_magnetic_fields_from_wave_code_
+    use kilca_wave_code_interface_m, only: &
+        get_collision_frequences_from_wave_code => &
+            get_collision_frequences_from_wave_code_
+    use kilca_wave_code_interface_m, only: &
+        get_current_densities_from_wave_code => &
+            get_current_densities_from_wave_code_
+    use kilca_wave_code_interface_m, only: &
+        get_wave_fields_from_wave_code => &
+            get_wave_fields_from_wave_code_
+    use kilca_wave_code_interface_m, only: &
+        get_wave_vectors_from_wave_code => &
+            get_wave_vectors_from_wave_code_
 
     use grid_mod, only: nbaleqs, npoib &
                         , deriv_coef &
@@ -16,25 +31,33 @@ subroutine get_dql
     use baseparam_mod, only: Z_i, e_charge, am, p_mass, c, e_mass, ev, rtor, pi, rsepar
     use control_mod, only: irf, suppression_mode, misalign_diffusion, type_of_run, wave_code, &
                           jpar_method
-    use time_evolution, only: save_prof_time_step, time_ind, br_formfactor, br_vac_res
+    use time_evolution, only: save_prof_time_step, time_ind, br_formfactor, br_vac_res, &
+        periodic_response_trial
     use h5mod
     use wave_code_data
     use kim_wave_code_adapter_m, only: kim_update_profiles, kim_run_for_all_modes, &
         kim_get_wave_fields, kim_get_wave_vectors, kim_vac_Br, kim_Br_modes, &
-        kim_get_current_densities
+        kim_get_current_densities, kim_periodic_mode_selected
     use QLBalance_diag, only: i_mn_loop
     use QLBalance_kinds, only: dp
+    use periodic_transport_benchmark_m, only: select_periodic_ion_transport, &
+        reset_transport_benchmark, write_transport_benchmark
+    use periodic_current_diagnostics_m, only: write_periodic_current_diagnostics
+    use transport_smoothing_m, only: smooth_transport_profile
     use PolyLagrangeInterpolation
     use logger_m, only: log_debug
     use writeData_m, only: write_fields_currs_transp_coefs_to_h5, write_D_one_over_nu_to_h5
 
     implicit none
 
-    integer :: ipoi, ieq, i_mn, mwind_save
+    integer :: ipoi, ieq, i_mn
+    logical :: periodic_transport
+    complex(dp), allocatable :: unused_fields(:, :)
     real(dp), dimension(:), allocatable :: dummy
     real(dp), dimension(:), allocatable :: row_buffer
 
     real(dp), dimension(npoib) :: spec_weight
+    real(dp) :: ion_tensor(2, 2, npoib)
     real(dp) :: weight
     real(dp), dimension(npoib) :: vT_e, vT_i, nu_e, nu_i
 
@@ -60,6 +83,8 @@ subroutine get_dql
     complex(dp), dimension(:), allocatable :: Br_flre, Bt_flre, Bz_flre
     complex(dp), dimension(:), allocatable :: zeros_dim_r
 
+    call reset_transport_benchmark()
+    allocate(unused_fields(dim_r, 8))
     allocate (dqle11_loc(npoib))
     allocate (dqle12_loc(npoib))
     allocate (dqle21_loc(npoib))
@@ -220,12 +245,18 @@ subroutine get_dql
             call calc_transport_coeffs_collisionless(npoib, vT_i, di11, di12, di22)
             di21 = di12
         else
-            if (.true.) then
-                call calc_transport_coeffs_ornuhl(npoib, vT_e, nu_e, de11, de12, de21, de22)
-                call calc_transport_coeffs_ornuhl(npoib, vT_i, nu_i, di11, di12, di21, di22)
+            ! Electrons retain the established drift-kinetic Heyn/Markl
+            ! coefficients. The ion model is selectable for periodic KIM so
+            ! both formalisms can be compared using the same physical fields.
+            call calc_transport_coeffs_ornuhl(npoib, vT_e, nu_e, de11, de12, de21, de22)
+            if (trim(wave_code) == 'KIM' .and. kim_periodic_mode_selected()) then
+                call select_periodic_ion_transport(i_mn, vT_i, nu_i, ion_tensor)
+                di11 = ion_tensor(1, 1, :)
+                di12 = ion_tensor(1, 2, :)
+                di21 = ion_tensor(2, 1, :)
+                di22 = ion_tensor(2, 2, :)
             else
-                call calc_transport_coeffs_ornuhl_drift(1, npoib, de11, de12, de21, de22)
-                call calc_transport_coeffs_ornuhl_drift(2, npoib, di11, di12, di21, di22)
+                call calc_transport_coeffs_ornuhl(npoib, vT_i, nu_i, di11, di12, di21, di22)
             end if
         end if
 
@@ -268,7 +299,10 @@ subroutine get_dql
         select case (trim(wave_code))
         case ('KiLCA')
             call get_wave_fields_from_wave_code(vac_cd_ptr(i_mn), dim_r, r, &
-                                                m_vals(i_mn), n_vals(i_mn), Bz, Bz, Bz, Bz, Bz, Br, Bz, Bz, Bz, Bz)
+                m_vals(i_mn), n_vals(i_mn), unused_fields(:,1), &
+                unused_fields(:,2), unused_fields(:,3), &
+                unused_fields(:,4), unused_fields(:,5), Br, unused_fields(:,6), &
+                unused_fields(:,7), unused_fields(:,8), Bz)
         case ('KIM')
             Br = kim_vac_Br(:, i_mn)
         case default
@@ -302,7 +336,10 @@ subroutine get_dql
         select case (trim(wave_code))
         case ('KiLCA')
             call get_wave_fields_from_wave_code(flre_cd_ptr(i_mn), dim_r, r, &
-                                                m_vals(i_mn), n_vals(i_mn), Bz, Bz, Bz, Bz, Bz, Br, Bz, Bz, Bz, Bz)
+                m_vals(i_mn), n_vals(i_mn), unused_fields(:,1), &
+                unused_fields(:,2), unused_fields(:,3), &
+                unused_fields(:,4), unused_fields(:,5), Br, unused_fields(:,6), &
+                unused_fields(:,7), unused_fields(:,8), Bz)
         case ('KIM')
             Br = kim_Br_modes(:, i_mn)
         case default
@@ -392,7 +429,6 @@ subroutine get_dql
         end select
     end do
 
-
     ! calculate diffusion due to misalignment of equipotentials and flux surfaces
     if (misalign_diffusion .eqv. .true.) then
         ! rsepar/rtor is the inverse aspect ratio
@@ -433,62 +469,23 @@ subroutine get_dql
     call calc_parallel_current_directly
     call calc_ion_parallel_current_directly
 
-
-    if (.true.) then
-        mwind_save = mwind
-        mwind = 30
-        allocate (dummy(npoib))
-        call smooth_array_gauss(npoib, mwind, dqle11, dummy)
-        dqle11 = dummy
-        call smooth_array_gauss(npoib, mwind, dqle12, dummy)
-        dqle12 = dummy
-        call smooth_array_gauss(npoib, mwind, dqle21, dummy)
-        dqle21 = dummy
-        call smooth_array_gauss(npoib, mwind, dqle22, dummy)
-        dqle22 = dummy
-        mwind = 30
-        call smooth_array_gauss(npoib, mwind, dqli11, dummy)
-        dqli11 = dummy
-        call smooth_array_gauss(npoib, mwind, dqli12, dummy)
-        dqli12 = dummy
-        call smooth_array_gauss(npoib, mwind, dqli21, dummy)
-        dqli21 = dummy
-        call smooth_array_gauss(npoib, mwind, dqli22, dummy)
-        dqli22 = dummy
-        mwind = mwind_save
-        deallocate (dummy)
-    else
-        ! set ion particle flux coefficients to zero
-        mwind_save = mwind
-        mwind = 30
-        allocate (dummy(npoib))
-        !call smooth_array_gauss(npoib, mwind, dqle11, dummy)
-        dqle11 = 0.d0!dummy
-        !call smooth_array_gauss(npoib, mwind, dqle12, dummy)
-        dqle12 = 0.d0!dummy
-        call smooth_array_gauss(npoib, mwind, dqle21, dummy)
-        dqle21 = dummy
-        call smooth_array_gauss(npoib, mwind, dqle22, dummy)
-        dqle22 = dummy
-        mwind = 30
-        call smooth_array_gauss(npoib, mwind, dqli12, dummy)
-        dqli12 = dummy
-        call smooth_array_gauss(npoib, mwind, dqli21, dummy)
-        dqli21 = dummy
-        call smooth_array_gauss(npoib, mwind, dqli21, dummy)
-        dqli21 = dummy
-        call smooth_array_gauss(npoib, mwind, dqli22, dummy)
-        dqli22 = dummy
-        mwind = mwind_save
-        deallocate (dummy)
-    end if
-
+    periodic_transport = trim(wave_code) == 'KIM' .and. kim_periodic_mode_selected()
+    call smooth_transport_profile(dqle11, periodic_transport)
+    call smooth_transport_profile(dqle12, periodic_transport)
+    call smooth_transport_profile(dqle21, periodic_transport)
+    call smooth_transport_profile(dqle22, periodic_transport)
+    call smooth_transport_profile(dqli11, periodic_transport)
+    call smooth_transport_profile(dqli12, periodic_transport)
+    call smooth_transport_profile(dqli21, periodic_transport)
+    call smooth_transport_profile(dqli22, periodic_transport)
 
     call log_debug("write_fields_currs_transp_coefs_to_h5")
 
     if (modulo(time_ind, save_prof_time_step) .eq. 0) then
-        if (suppression_mode .eqv. .false.) then
+        if (.not. suppression_mode .and. .not. periodic_response_trial) then
             call write_fields_currs_transp_coefs_to_h5(time_ind)
+            call write_transport_benchmark(time_ind)
+            call write_periodic_current_diagnostics(time_ind)
             call write_D_one_over_nu_to_h5(time_ind)
         end if
     end if
@@ -508,7 +505,6 @@ subroutine initialize_get_dql
     irf = 1
 
 end subroutine
-
 
 subroutine interp_rb_at_r0(func, r0, func_res)
 
@@ -572,6 +568,7 @@ subroutine write_Brvac(brvac_interp)
 
     character(len=1024) :: tempch
     complex(dp), intent(in) :: brvac_interp
+    real(dp), dimension(:, :), allocatable :: diagnostic_data
     integer :: ipoi
 
         if (ihdf5IO .eq. 1) then
@@ -596,10 +593,12 @@ subroutine write_Brvac(brvac_interp)
                 CALL h5_delete(h5_id, trim(tempch))
                 end if
 
-                CALL h5_define_unlimited_matrix(h5_id, trim(tempch), &
-                                            H5T_NATIVE_DOUBLE, (/-1, 2/), dataset_id)
-                CALL h5_append_double_1(dataset_id, r, 1)
-                CALL h5_append_double_1(dataset_id, abs(Br), 2)
+                allocate (diagnostic_data(npoib, 2))
+                diagnostic_data(:, 1) = r
+                diagnostic_data(:, 2) = abs(Br)
+                call h5_add(h5_id, trim(tempch), diagnostic_data, lbound(diagnostic_data), &
+                            ubound(diagnostic_data))
+                deallocate (diagnostic_data)
             end if
 
             CALL h5_close(h5_id)

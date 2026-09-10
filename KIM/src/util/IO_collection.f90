@@ -116,7 +116,8 @@ module IO_collection_m
 
     subroutine write_config_namelist_to_hdf5()
 
-        use KAMEL_hdf5_tools, only: HID_T, h5_define_group, h5_obj_exists, h5_add, h5_close_group
+        use KAMEL_hdf5_tools, only: HID_T, h5_define_group, h5_open_group, h5_obj_exists, &
+            h5_add, h5_close_group
         use config_m
 
         implicit none
@@ -127,6 +128,8 @@ module IO_collection_m
         call h5_obj_exists(h5id, 'config/', ex)
         if (.not. ex) then
             call h5_define_group(h5id, 'config/', h5grpid)
+        else
+            call h5_open_group(h5id, 'config/', h5grpid)
         end if
 
         call h5_add(h5grpid, 'number_of_ion_species', number_of_ion_species, &
@@ -143,6 +146,15 @@ module IO_collection_m
             'Positive imaginary part of the causal collisionless k_parallel pole.', '1/cm')
         call h5_add(h5grpid, 'ion_fp_collision_scale', ion_fp_collision_scale, &
             'Multiplier applied only to computed Fokker-Planck ion collision frequencies.', '1')
+        call h5_add(h5grpid, 'electron_ifunc_conservation_model', &
+            resolved_electron_ifunc_conservation_model, &
+            'Resolved electron I-function model: 0=N, 1=N+E, 2=N+P, 3=N+E+P.', '1')
+        call h5_add(h5grpid, 'ion_ifunc_conservation_model', &
+            resolved_ion_ifunc_conservation_model, &
+            'Resolved ion I-function model: 0=N, 1=N+E, 2=N+P, 3=N+E+P.', '1')
+        call h5_add(h5grpid, 'ion_temperature_gradient_model', &
+            trim(ion_temperature_gradient_model), &
+            'Ion force diagnostic: full, zero_A2, or zero_Tprime.', 'str')
         call h5_add(h5grpid, 'read_species_from_namelist', read_species_from_namelist, &
             'Logical switch to read species from namelist or use default deuterium plasma.', 'true/false')
         call h5_add(h5grpid, 'turn_off_ions', turn_off_ions, &

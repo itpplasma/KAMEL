@@ -24,6 +24,7 @@ program test_kim_solver_periodic
 
     implicit none
 
+    call test_legacy_conservation_default_reset()
     call test_run_type_end_to_end()
     call test_collisionless_ions_end_to_end()
     call test_multi_ion_order_independence()
@@ -36,11 +37,39 @@ program test_kim_solver_periodic
 
 contains
 
+    subroutine test_legacy_conservation_default_reset()
+        use config_m, only: profiles_in_memory, nml_config_path, &
+            resolved_electron_ifunc_conservation_model, &
+            resolved_ion_ifunc_conservation_model
+
+        call write_test_namelist('./KIM_config_legacy_no_energy_test.nml', &
+            legacy_energy_conservation=.false.)
+        nml_config_path = './KIM_config_legacy_no_energy_test.nml'
+        profiles_in_memory = .true.
+        call kim_init()
+        if (resolved_electron_ifunc_conservation_model /= 0 .or. &
+                resolved_ion_ifunc_conservation_model /= 0) then
+            error stop 'legacy energy-off setting did not resolve to model 0'
+        end if
+
+        call write_test_namelist('./KIM_config_default_energy_test.nml')
+        nml_config_path = './KIM_config_default_energy_test.nml'
+        call kim_init()
+        if (resolved_electron_ifunc_conservation_model /= 1 .or. &
+                resolved_ion_ifunc_conservation_model /= 1) then
+            error stop 'omitted conservation settings did not reset to model 1'
+        end if
+
+        print *, 'PASS: omitted conservation settings reset to the 1/1 default'
+    end subroutine test_legacy_conservation_default_reset
+
     subroutine test_species_resolved_currents(collisionless_ions)
-        use config_m, only: profiles_in_memory, nml_config_path
+        use config_m, only: profiles_in_memory, nml_config_path, &
+            resolved_electron_ifunc_conservation_model, &
+            resolved_ion_ifunc_conservation_model, output_path, h5_out_file
         use fields_m, only: EBdat, EBdat_t
         use IO_collection_m, only: deinitialize_hdf5_output, h5id
-        use KAMEL_hdf5_tools, only: h5_get, h5_obj_exists
+        use KAMEL_hdf5_tools, only: h5_get, h5_obj_exists, h5_open, h5_close
         use kim_base_m, only: kim_t
         use kim_mod_m, only: from_kim_factory_get_kim
         use species_m, only: set_profiles_from_arrays
@@ -55,24 +84,38 @@ contains
         complex(dp), allocatable :: jpar_i1(:), jpar_i2(:)
         class(kim_t), allocatable :: kim_instance
         real(dp) :: scale
-        integer :: N
+        integer :: N, h5_electron_ifunc_model, h5_ion_ifunc_model
         logical :: ex
 
         call make_test_profiles(npts, r_prof, n_prof, Te_prof, Ti_prof, &
                                 q_prof, Er_prof)
-        call write_test_namelist('./KIM_config_periodic_species_jpar_test.nml', &
-            ion_masses=ion_masses, collisionless_ions=collisionless_ions, &
-            hdf5_enabled=.true.)
+        if (collisionless_ions) then
+            call write_test_namelist('./KIM_config_periodic_species_jpar_test.nml', &
+                ion_masses=ion_masses, collisionless_ions=.true., &
+                hdf5_enabled=.true.)
+        else
+            call write_test_namelist('./KIM_config_periodic_species_jpar_test.nml', &
+                ion_masses=ion_masses, collisionless_ions=.false., &
+                hdf5_enabled=.true., electron_ifunc_model=1, ion_ifunc_model=3)
+        end if
         nml_config_path = './KIM_config_periodic_species_jpar_test.nml'
 
         profiles_in_memory = .true.
         call kim_init()
+        if (.not. collisionless_ions) then
+            if (resolved_electron_ifunc_conservation_model /= 1 .or. &
+                    resolved_ion_ifunc_conservation_model /= 3) then
+                error stop 'per-species I-function models were not resolved from KIM_CONFIG'
+            end if
+        end if
         call set_profiles_from_arrays(r_prof, n_prof, Te_prof, Ti_prof, &
                                       q_prof, Er_prof, npts)
         EBdat = EBdat_t()
         call from_kim_factory_get_kim('electrostatic_periodic', kim_instance)
         call kim_instance%init()
         call kim_instance%run()
+        call deinitialize_hdf5_output()
+        call h5_open(trim(output_path)//trim(h5_out_file), h5id)
 
         if (.not. allocated(EBdat%jpar_e)) then
             print *, 'FAIL: periodic EBdat%jpar_e not allocated'
@@ -85,6 +128,8 @@ contains
 
         call h5_obj_exists(h5id, 'fields/jpar', ex)
         if (.not. ex) error stop 'periodic total jpar dataset missing'
+        call h5_obj_exists(h5id, 'fields/jrad', ex)
+        if (.not. ex) error stop 'periodic jrad dataset missing'
         call h5_obj_exists(h5id, 'fields/jpar_e', ex)
         if (.not. ex) error stop 'periodic electron jpar dataset missing'
         call h5_obj_exists(h5id, 'fields/jpar_i', ex)
@@ -93,6 +138,24 @@ contains
         if (.not. ex) error stop 'periodic first-ion jpar dataset missing'
         call h5_obj_exists(h5id, 'fields/jpar_i2', ex)
         if (.not. ex) error stop 'periodic second-ion jpar dataset missing'
+        call h5_obj_exists(h5id, 'config/electron_ifunc_conservation_model', ex)
+        if (.not. ex) error stop 'electron I-function model metadata missing'
+        call h5_obj_exists(h5id, 'config/ion_ifunc_conservation_model', ex)
+        if (.not. ex) error stop 'ion I-function model metadata missing'
+        call h5_get(h5id, 'config/electron_ifunc_conservation_model', &
+            h5_electron_ifunc_model)
+        call h5_get(h5id, 'config/ion_ifunc_conservation_model', &
+            h5_ion_ifunc_model)
+        if (h5_electron_ifunc_model /= 1) then
+            error stop 'incorrect electron I-function model metadata'
+        end if
+        if (collisionless_ions) then
+            if (h5_ion_ifunc_model /= 1) then
+                error stop 'incorrect collisionless-run ion I-function model metadata'
+            end if
+        else if (h5_ion_ifunc_model /= 3) then
+            error stop 'incorrect FP ion I-function model metadata'
+        end if
 
         N = size(EBdat%jpar)
         allocate(jpar(N), jpar_e(N), jpar_i(N), jpar_i1(N), jpar_i2(N))
@@ -114,7 +177,7 @@ contains
             error stop 'periodic EBdat species currents differ from HDF5 output'
         end if
 
-        call deinitialize_hdf5_output()
+        call h5_close(h5id)
         if (collisionless_ions) then
             print *, 'PASS: collisionless periodic species currents sum to total jpar'
         else
@@ -245,7 +308,7 @@ contains
         ! Capture the reference scale from the TRUE global plasma before run()
         ! redirects it onto the periodic window. This is the same state used by
         ! run_electrostatic_periodic to derive and store the window parameters.
-        call prepare_resonances
+        call kim_prepare_resonances
         rm = r_res
         if (.not. (rm > 0.0_dp)) then
             print *, 'FAIL: resonance not found, r_res = ', rm
@@ -321,6 +384,24 @@ contains
         end if
         print *, 'PASS: EBdat%jpar allocated, size ', N, &
                  ', finite & non-zero, max|jpar| =', maxval(abs(EBdat%jpar))
+
+        if (.not. allocated(EBdat%jrad)) then
+            print *, 'FAIL: EBdat%jrad not allocated'
+            error stop
+        end if
+        if (size(EBdat%jrad) /= N) then
+            print *, 'FAIL: size(EBdat%jrad) /= rg_grid%npts_b'
+            error stop
+        end if
+        do i = 1, N
+            if (.not. ieee_is_finite(real(EBdat%jrad(i), dp)) .or. &
+                .not. ieee_is_finite(aimag(EBdat%jrad(i)))) then
+                print *, 'FAIL: non-finite EBdat%jrad at', i
+                error stop
+            end if
+        end do
+        print *, 'PASS: EBdat%jrad allocated, finite, max|jrad| =', &
+            maxval(abs(EBdat%jrad))
 
         ! (r_grid) allocated, correct size, spans the window [rm - L/2, rm + L/2].
         if (.not. allocated(EBdat%r_grid)) then
@@ -567,15 +648,18 @@ contains
     end subroutine make_test_profiles
 
     subroutine write_test_namelist(path, ion_masses, match_global_approximations, &
-            collisionless_ions, ions_disabled, hdf5_enabled)
+            collisionless_ions, ions_disabled, hdf5_enabled, &
+            electron_ifunc_model, ion_ifunc_model, legacy_energy_conservation)
         ! Minimal electrostatic-periodic FokkerPlanck configuration; m_mode = -6,
         ! n_mode = 2 makes q resonant at q = 3, type_br_field = 12 (constant Br).
         ! Deliberately OMITS the &KIM_PERIODIC group to prove the periodic_*
         ! config defaults apply when the optional namelist is absent.
         character(len=*), intent(in) :: path
         integer, intent(in), optional :: ion_masses(:)
+        integer, intent(in), optional :: electron_ifunc_model, ion_ifunc_model
         logical, intent(in), optional :: match_global_approximations
         logical, intent(in), optional :: collisionless_ions, ions_disabled, hdf5_enabled
+        logical, intent(in), optional :: legacy_energy_conservation
         integer :: iunit, i, nions
         logical :: custom_species, use_collisionless, disable_ions, write_hdf5
 
@@ -608,6 +692,18 @@ contains
         write(iunit, '(A)') ' rescale_density = .false.'
         write(iunit, '(A)') ' number_density_rescale = 1.0'
         write(iunit, '(A)') ' ion_flr_scale_factor = 1.0'
+        if (present(electron_ifunc_model)) then
+            write(iunit, '(A,I0)') ' electron_ifunc_conservation_model = ', &
+                electron_ifunc_model
+        end if
+        if (present(ion_ifunc_model)) then
+            write(iunit, '(A,I0)') ' ion_ifunc_conservation_model = ', &
+                ion_ifunc_model
+        end if
+        if (present(legacy_energy_conservation)) then
+            write(iunit, '(A,L1)') ' boole_energy_conservation = ', &
+                legacy_energy_conservation
+        end if
         write(iunit, '(A)') '/'
         if (custom_species) then
             write(iunit, '(A)') '&KIM_species'

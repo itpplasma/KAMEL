@@ -12,8 +12,9 @@ subroutine kim_read_config
     implicit none
 
     character(len=256), dimension(:), allocatable :: args
+    character(len=512) :: periodic_iomsg
     integer :: ix, num_args
-    logical :: ex
+    logical :: ex, periodic_group_present
 
     namelist /KIM_CONFIG/ number_of_ion_species, artificial_debye_case, &
                         type_of_run, collision_model, read_species_from_namelist, &
@@ -91,11 +92,24 @@ subroutine kim_read_config
     read(unit = 77, nml = KIM_GRID)
     read(unit = 77, nml = KIM_PROFILES)
 
-    ! Optional KIM_PERIODIC group: rewind and read with iostat so config files
-    ! that omit it keep the config_m defaults instead of aborting the read.
+    ! Optional KIM_PERIODIC group: reset module state before every read so an
+    ! omitted group cannot inherit values from a preceding solver handle.
+    periodic_dr_asis_scale = periodic_dr_asis_scale_default
+    periodic_dr_tr_scale = periodic_dr_tr_scale_default
+    periodic_kmax_scale = periodic_kmax_scale_default
+    periodic_n_rg = periodic_n_rg_default
     periodic_match_global_kernel_approximations = .false.
+    periodic_Bparallel_ratio = (0.0_dp, 0.0_dp)
+    periodic_group_present = namelist_header_present(77, 'KIM_PERIODIC')
+    periodic_iomsg = ''
     rewind(unit = 77)
-    read(unit = 77, nml = KIM_PERIODIC, iostat = periodic_iostat)
+    read(unit = 77, nml = KIM_PERIODIC, iostat = periodic_iostat, &
+         iomsg = periodic_iomsg)
+    if ((periodic_group_present .and. periodic_iostat /= 0) .or. &
+            (.not. periodic_group_present .and. periodic_iostat > 0)) then
+        write(*,*) 'Error reading KIM_PERIODIC namelist: ', trim(periodic_iomsg)
+        error stop 'Malformed KIM_PERIODIC namelist'
+    end if
 
     ! Optional standalone-FLR2 term switches. KIM's background and shared
     ! susceptibility settings remain controlled by the existing groups.
@@ -201,5 +215,52 @@ subroutine kim_read_config
 
     ! Display formatted configuration
     call display_kim_configuration()
+
+contains
+
+    logical function namelist_header_present(unit_number, group_name) result(found)
+        integer, intent(in) :: unit_number
+        character(*), intent(in) :: group_name
+        character(len=1024) :: line, upper_line
+        character(len=64) :: upper_group
+        integer :: header_length, read_status
+
+        found = .false.
+        upper_group = ascii_upper(trim(group_name))
+        header_length = 1 + len_trim(upper_group)
+        rewind(unit_number)
+        do
+            read(unit_number, '(A)', iostat=read_status) line
+            if (read_status /= 0) exit
+            upper_line = adjustl(ascii_upper(line))
+            if (len_trim(upper_line) < header_length) cycle
+            if (upper_line(1:1) /= '&' .and. upper_line(1:1) /= '$') cycle
+            if (upper_line(2:header_length) /= &
+                    upper_group(1:header_length - 1)) cycle
+            if (len_trim(upper_line) == header_length) then
+                found = .true.
+                return
+            end if
+            if (index(' '//achar(9)//',/!', &
+                    upper_line(header_length + 1:header_length + 1)) > 0) then
+                found = .true.
+                return
+            end if
+        end do
+    end function namelist_header_present
+
+    pure function ascii_upper(input) result(output)
+        character(*), intent(in) :: input
+        character(len=len(input)) :: output
+        integer :: code, i
+
+        output = input
+        do i = 1, len(input)
+            code = iachar(output(i:i))
+            if (code >= iachar('a') .and. code <= iachar('z')) then
+                output(i:i) = achar(code - iachar('a') + iachar('A'))
+            end if
+        end do
+    end function ascii_upper
 
 end subroutine kim_read_config

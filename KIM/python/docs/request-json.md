@@ -7,6 +7,19 @@ scientific solver, while the Python layer validates this request and translates 
 
 ## Start with a periodic request
 
+To create a complete, standalone copy of the packaged periodic case, use the public CLI:
+
+```bash
+kim init ./my-periodic-case --example periodic
+cd my-periodic-case
+kim validate request.json
+```
+
+The destination must not already exist. The copied request refers to `./profiles`, so validate and
+run it after changing into the case directory. The case uses compact demonstration settings for
+the reference workflow; check radial, periodic-window, and quadrature convergence before treating
+it as a production setup.
+
 The forced-periodicity electrostatic solver is the recommended starting point. Copy
 [`request-periodic.json`](../examples/request-periodic.json), then change the profile directory and
 physical parameters for your case:

@@ -45,7 +45,7 @@ def fake_executable(tmp_path: Path) -> Path:
 
 @pytest.mark.parametrize(
     "command",
-    ["parameters", "validate", "run", "sweep", "status", "inspect", "result", "doctor"],
+    ["parameters", "validate", "run", "sweep", "status", "inspect", "result", "doctor", "init"],
 )
 def test_every_command_has_help(command: str) -> None:
     result = runner.invoke(app, [command, "--help"])
@@ -97,6 +97,53 @@ def test_doctor_selection_error_is_concise_and_has_no_traceback(tmp_path: Path) 
     payload = json.loads(result.stdout)
     assert payload["selection_status"] == "unavailable"
     assert "explicit executable" in payload["selection_error"]
+    assert "Traceback" not in result.output
+
+
+def test_init_creates_case_and_validate_works_from_inside_case(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    destination = tmp_path / "case with spaces"
+    monkeypatch.chdir(tmp_path)
+
+    result = runner.invoke(app, ["init", str(destination), "--example", "periodic"])
+
+    assert result.exit_code == 0
+    assert "case_directory:" in result.stdout
+    assert "request_path:" in result.stdout
+    assert "cd" in result.stdout
+    assert "kim validate request.json" in result.stdout
+
+    monkeypatch.chdir(destination)
+    validation = runner.invoke(app, ["validate", "request.json", "--format", "json"])
+
+    assert validation.exit_code == 0
+    assert json.loads(validation.stdout)["valid"] is True
+
+
+def test_init_supports_json_output(tmp_path: Path) -> None:
+    destination = tmp_path / "case"
+
+    result = runner.invoke(
+        app,
+        ["init", str(destination), "--example", "periodic", "--format", "json"],
+    )
+
+    assert result.exit_code == 0
+    payload = json.loads(result.stdout)
+    assert payload["example"] == "periodic"
+    assert payload["case_directory"] == str(destination)
+    assert payload["request_path"] == str(destination / "request.json")
+
+
+def test_init_refuses_to_replace_existing_case(tmp_path: Path) -> None:
+    destination = tmp_path / "case"
+    destination.mkdir()
+
+    result = runner.invoke(app, ["init", str(destination), "--example", "periodic"])
+
+    assert result.exit_code == 1
+    assert "destination already exists" in result.stderr
     assert "Traceback" not in result.output
 
 

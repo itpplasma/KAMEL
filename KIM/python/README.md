@@ -41,6 +41,10 @@ kim result RUN_ID --runs-dir runs --list
 Use `kim parameters --format json-schema` to obtain the structured configuration schema used by
 the API and future automation tools.
 
+See the [request JSON guide](docs/request-json.md) for a complete field description, profile
+requirements, and validated examples for every supported run type. Copyable requests are available
+under [`examples/`](examples/).
+
 ## Tests
 
 The unit suite is self-contained and uses a fake executable. It does not require a Fortran build:

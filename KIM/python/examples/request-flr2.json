@@ -1,0 +1,33 @@
+{
+  "run": {
+    "run_type": "flr2",
+    "terms": {}
+  },
+  "plasma": {
+    "source": "builtin",
+    "isotope": "D"
+  },
+  "setup": {
+    "btor": -17977.413,
+    "major_radius": 165.0,
+    "m_mode": 7,
+    "n_mode": 2,
+    "frequency": 0.0,
+    "br_boundary_real": 1.0,
+    "br_boundary_imag": 0.0
+  },
+  "grid": {
+    "radial_minimum": 3.0,
+    "plasma_radius": 63.0,
+    "l_space_dim": 64,
+    "rg_space_dim": 64,
+    "larmor_skip_factor": 20.0,
+    "gauss_nodes_x": 11,
+    "gauss_nodes_x_prime": 10,
+    "gauss_nodes_theta": 7
+  },
+  "profiles": {
+    "directory": "./profiles",
+    "coordinate_type": "r_eff"
+  }
+}

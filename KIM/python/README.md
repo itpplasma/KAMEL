@@ -30,6 +30,8 @@ The CLI accepts a complete JSON request or a supported KIM namelist:
 
 ```bash
 kim validate request.json
+kim doctor
+kim doctor --executable /path/to/KIM.x --format json
 kim run request.json --executable /path/to/KIM.x --runs-dir runs
 kim sweep request.json --parameter periodic.n_rg --values 512 --values 1024
 kim sweep request.json --scale-profile Er --values -1 --values 0 --values 1
@@ -40,6 +42,10 @@ kim result RUN_ID --runs-dir runs --list
 
 Use `kim parameters --format json-schema` to obtain the structured configuration schema used by
 the API and future automation tools.
+
+`kim doctor` reports the package version and the executable selected by the documented precedence
+rules. It checks that the selected path is an executable file; it does not launch `KIM.x` or verify
+its runtime libraries.
 
 See the [request JSON guide](docs/request-json.md) for a complete field description, profile
 requirements, and validated examples for every supported run type. Copyable requests are available

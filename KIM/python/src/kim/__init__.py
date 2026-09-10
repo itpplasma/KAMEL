@@ -25,6 +25,7 @@ from kim.config import (
     SimulationConfig,
     ThetaIntegration,
 )
+from kim.diagnostics import EnvironmentDiagnosticReport, diagnose_environment
 from kim.errors import (
     ConfigurationError,
     ExecutableError,
@@ -73,6 +74,7 @@ __all__ = [
     "DatasetMetadata",
     "ElectrostaticPeriodicRun",
     "ElectrostaticRun",
+    "EnvironmentDiagnosticReport",
     "ExplicitPlasma",
     "ExecutableError",
     "ExecutableSelection",
@@ -124,6 +126,7 @@ __all__ = [
     "ThetaIntegration",
     "__version__",
     "discover_kamel_git_metadata",
+    "diagnose_environment",
     "executable_sha256",
     "resolve_executable",
     "select_executable",

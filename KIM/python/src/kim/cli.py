@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from dataclasses import asdict
 from enum import Enum
 from pathlib import Path
 from typing import Any
@@ -10,6 +11,7 @@ from typing import Any
 import numpy as np
 import typer
 from kim.config import ProfileConfig, SimulationConfig
+from kim.diagnostics import diagnose_environment
 from kim.errors import ConfigurationError, KimError
 from kim.profiles import ProfileSet
 from kim.results import Result
@@ -61,6 +63,19 @@ def parameters_command(
         typer.echo(
             f"{path:<33} {details['type']:<13} " f"{details['units']:<11} {details['sweepable']}"
         )
+
+
+@app.command("doctor")
+def doctor_command(
+    executable: Path | None = typer.Option(None, "--executable", help="Path to KIM.x."),
+    output_format: OutputFormat = typer.Option(OutputFormat.TABLE, "--format"),
+) -> None:
+    """Report package identity and read-only KIM.x selection diagnostics."""
+
+    report = diagnose_environment(executable)
+    _render(asdict(report), output_format)
+    if report.selection_status != "selected":
+        raise typer.Exit(1)
 
 
 @app.command("validate")

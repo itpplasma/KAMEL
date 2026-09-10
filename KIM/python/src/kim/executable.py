@@ -22,21 +22,56 @@ class KamelGitMetadata:
     dirty: bool
 
 
+@dataclass(frozen=True)
+class ExecutableSelection:
+    """The executable selected and the resolver rule that selected it."""
+
+    path: Path
+    source: str
+
+
 def resolve_executable(
     explicit: Path | str | None = None,
     *,
     environment: Mapping[str, str] | None = None,
     start_directory: Path | str | None = None,
 ) -> Path:
-    """Resolve `KIM.x` according to the documented source precedence."""
+    """Resolve `KIM.x` according to the documented source precedence.
+
+    This compatibility adapter returns only the selected path. Use
+    :func:`select_executable` when the selection source is also needed.
+    """
+
+    return select_executable(
+        explicit,
+        environment=environment,
+        start_directory=start_directory,
+    ).path
+
+
+def select_executable(
+    explicit: Path | str | None = None,
+    *,
+    environment: Mapping[str, str] | None = None,
+    start_directory: Path | str | None = None,
+) -> ExecutableSelection:
+    """Select `KIM.x` and report which documented rule supplied it."""
 
     environ = os.environ if environment is None else environment
     if explicit is not None:
-        return _validate_executable(Path(explicit), source="explicit executable")
+        return ExecutableSelection(
+            path=_validate_executable(Path(explicit), source="explicit executable"),
+            source="explicit",
+        )
 
     configured = environ.get("KIM_EXECUTABLE", "").strip()
     if configured:
-        return _validate_executable(Path(configured), source="KIM_EXECUTABLE environment variable")
+        return ExecutableSelection(
+            path=_validate_executable(
+                Path(configured), source="KIM_EXECUTABLE environment variable"
+            ),
+            source="environment",
+        )
 
     checkout = next(
         (
@@ -49,11 +84,17 @@ def resolve_executable(
     if checkout is not None:
         candidate = checkout / "build" / "install" / "bin" / "KIM.x"
         if candidate.exists():
-            return _validate_executable(candidate, source=f"KAMEL checkout {checkout}")
+            return ExecutableSelection(
+                path=_validate_executable(candidate, source=f"KAMEL checkout {checkout}"),
+                source="checkout",
+            )
 
     located = shutil.which("KIM.x", path=environ.get("PATH", ""))
     if located is not None:
-        return _validate_executable(Path(located), source="PATH")
+        return ExecutableSelection(
+            path=_validate_executable(Path(located), source="PATH"),
+            source="path",
+        )
 
     raise ExecutableError(
         "KIM.x was not found: provide an explicit executable, set KIM_EXECUTABLE, "

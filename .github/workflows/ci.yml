@@ -4,7 +4,7 @@ on:
   push:
     branches: [main, fix-ci]
   pull_request:
-    branches: [main, feat/kamel-adoption, docs/kim-installation-entrypoint]
+    branches: [main, feat/kamel-adoption, docs/kim-installation-entrypoint, feat/kim-periodic-example]
   workflow_dispatch:
     inputs:
       libneo_ref:
@@ -33,6 +33,17 @@ jobs:
 
       - name: Run KIM Python unit tests
         run: python -m pytest KIM/python/tests/unit
+
+      - name: Build KIM Python wheel
+        run: python -m pip wheel --no-deps --wheel-dir "${RUNNER_TEMP}/kim-wheel" ./KIM/python
+
+      - name: Smoke-test installed KIM wheel
+        run: |
+          python -m venv "${RUNNER_TEMP}/kim-wheel-venv"
+          "${RUNNER_TEMP}/kim-wheel-venv/bin/python" -m pip install "${RUNNER_TEMP}"/kim-wheel/kamel_kim-*.whl
+          mkdir "${RUNNER_TEMP}/kim-wheel-check"
+          cd "${RUNNER_TEMP}/kim-wheel-check"
+          "${RUNNER_TEMP}/kim-wheel-venv/bin/python" "${GITHUB_WORKSPACE}/KIM/python/tests/packaging/check_installed_example.py"
 
   pre-commit:
     name: Pre-commit

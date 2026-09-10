@@ -74,6 +74,11 @@ Fourier mode count, the q-crossing radius, and both campaign-compatible parallel
 integrals. Integral tolerances allow small compiler and linear-algebra differences while still
 detecting scientific drift.
 
+The `as_is` integral uses the campaign convention: trapezoidal quadrature over grid samples whose
+centres lie inside the requested as-is interval. It does not interpolate fractional cells at the
+interval boundaries. The `full_window` integral uses every stored point of the endpoint-exclusive
+periodic grid.
+
 Update `tests/fixtures/periodic_reference.json` only after intentionally changing KIM physics or
 numerics. Run the case with one OpenMP thread, inspect the complete HDF5 schema and logs, record the
 new values, justify the change in review, and keep tolerances no wider than cross-platform evidence

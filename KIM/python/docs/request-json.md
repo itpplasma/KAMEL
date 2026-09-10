@@ -19,7 +19,9 @@ physical parameters for your case:
       "as_is_width_scale": 2.0,
       "transition_width_scale": 4.0,
       "wavenumber_cutoff_scale": 2.0,
-      "n_rg": 64
+      "n_rg": 64,
+      "bparallel_ratio_real": 0.0,
+      "bparallel_ratio_imag": 0.0
     }
   },
   "plasma": {
@@ -81,7 +83,7 @@ kim run KIM/python/examples/request-periodic.json \
 Unknown fields are rejected. Numeric values must be finite, and constraints spanning several
 sections are checked together. For example, `radial_minimum` must be smaller than `plasma_radius`,
 both radii must lie inside the profile domain, and the safety-factor profile must contain the
-requested `m_mode / n_mode` resonance.
+signed `q = -m_mode / n_mode` resonance used by KIM.
 
 List every public parameter, its type, units, description, and whether it can be swept with:
 
@@ -111,7 +113,16 @@ The `n.dat`, `Te.dat`, `Ti.dat`, and `q.dat` grids must match. `Er.dat` may use 
 KIM interpolates it. `Vz.dat` is optional, but when present its grid must match the main grid.
 File names can be changed with `density_file`, `electron_temperature_file`,
 `ion_temperature_file`, `safety_factor_file`, `radial_electric_field_file`, and
-`toroidal_velocity_file` inside `profiles`.
+`toroidal_velocity_file` inside `profiles`. These values are plain filenames within `directory`;
+absolute paths and directory components are rejected so staging cannot read or write outside the
+copied profile directory.
+
+The `physics` section exposes the current I-function controls as
+`electron_ifunc_conservation_model` and `ion_ifunc_conservation_model` (`-1`, `0`, `1`, `2`, or
+`3`), and the ion temperature-gradient selector as `ion_temperature_gradient_model` (`full`,
+`zero_A2`, or `zero_Tprime`). A value of `-1` inherits the legacy `conserve_energy` setting. For a
+periodic run, `bparallel_ratio_real` and `bparallel_ratio_imag` prescribe the complex
+`B_parallel/Br` drive ratio; both default to zero.
 
 ## Other run types
 

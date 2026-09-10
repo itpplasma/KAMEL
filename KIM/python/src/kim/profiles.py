@@ -228,7 +228,7 @@ class ProfileSet:
         m_mode: int,
         n_mode: int,
     ) -> float:
-        target = abs(m_mode / n_mode)
+        target = -m_mode / n_mode
         inside = (profile.radius > radial_minimum) & (profile.radius < plasma_radius)
         radius = np.concatenate(([radial_minimum], profile.radius[inside], [plasma_radius]))
         values = np.concatenate(
@@ -238,19 +238,17 @@ class ProfileSet:
                 [np.interp(plasma_radius, profile.radius, profile.values)],
             )
         )
-        difference = np.abs(values) - target
-        exact = np.flatnonzero(difference == 0.0)
-        if exact.size:
-            return float(radius[exact[0]])
-        crossings = np.flatnonzero(difference[:-1] * difference[1:] < 0.0)
-        if not crossings.size:
-            raise ProfileError(
-                f"{profile.path}: |q| has no |m/n| = {target:g} crossing inside "
-                f"[{radial_minimum:g}, {plasma_radius:g}] cm"
-            )
-        index = int(crossings[0])
-        fraction = -difference[index] / (difference[index + 1] - difference[index])
-        return float(radius[index] + fraction * (radius[index + 1] - radius[index]))
+        difference = values - target
+        for index, value in enumerate(difference):
+            if value == 0.0:
+                return float(radius[index])
+            if index + 1 < difference.size and value * difference[index + 1] < 0.0:
+                fraction = -value / (difference[index + 1] - value)
+                return float(radius[index] + fraction * (radius[index + 1] - radius[index]))
+        raise ProfileError(
+            f"{profile.path}: signed q=-m/n = {target:g} has no crossing inside "
+            f"[{radial_minimum:g}, {plasma_radius:g}] cm"
+        )
 
 
 def _read_profile(name: str, units: str, path: Path) -> ProfileData:

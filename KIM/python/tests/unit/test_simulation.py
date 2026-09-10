@@ -108,6 +108,30 @@ def test_run_uses_exact_command_and_run_directory_and_separate_logs(tmp_path: Pa
     assert result.manifest.discovered_outputs == (Path("results/m7_n2/out_ES_periodic.h5"),)
 
 
+def test_run_records_inherited_openmp_thread_count(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("OMP_NUM_THREADS", "6")
+
+    result = simulation(tmp_path).run()
+
+    assert result.manifest.environment == {"OMP_NUM_THREADS": "6"}
+
+
+def test_reusing_simulation_allocates_a_new_failed_attempt(tmp_path: Path) -> None:
+    instance = simulation(tmp_path)
+    first = instance.run()
+    (instance.config.profiles.directory / "q.dat").unlink()
+
+    second = instance.run()
+
+    assert first.status is RunStatus.SUCCEEDED
+    assert second.status is RunStatus.FAILED
+    assert second.run_id != first.run_id
+    assert second.manifest.failure is not None
+    assert second.manifest.failure.kind == "preparation_error"
+
+
 def test_stderr_is_preserved_on_success(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("FAKE_KIM_MODE", "stderr")
     result = simulation(tmp_path).run()
@@ -131,7 +155,16 @@ def test_nonzero_exit_records_failure_and_retains_inputs(
     assert (result.run_directory / "inputs/profiles/n.dat").is_file()
 
 
-@pytest.mark.parametrize("mode", ["missing_output", "partial_output"])
+@pytest.mark.parametrize(
+    "mode",
+    [
+        "missing_output",
+        "partial_output",
+        "wrong_object_type",
+        "dangling_dataset",
+        "malformed_dataset",
+    ],
+)
 def test_zero_exit_requires_complete_periodic_hdf5(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, mode: str
 ) -> None:

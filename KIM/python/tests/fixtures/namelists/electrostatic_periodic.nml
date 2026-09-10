@@ -16,6 +16,9 @@
     ion_flr_scale_factor = 1.0
     collision_frequency_scale = 1.0
     boole_energy_conservation = .true.
+    electron_ifunc_conservation_model = -1
+    ion_ifunc_conservation_model = -1
+    ion_temperature_gradient_model = 'full'
 /
 
 &WKB_DISPERSION
@@ -92,4 +95,5 @@
     periodic_kmax_scale = 44.6
     periodic_n_rg = 2048
     periodic_match_global_kernel_approximations = .false.
+    periodic_Bparallel_ratio = (0.0, 0.0)
 /

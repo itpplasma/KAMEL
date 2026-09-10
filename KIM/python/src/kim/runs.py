@@ -165,7 +165,16 @@ class RunManifest(RunModel):
         else:
             if self.finished_at is None:
                 raise ValueError("terminal manifest requires a finish timestamp")
-            if self.status is not RunStatus.INTERRUPTED and self.started_at is None:
+            preparation_failure = (
+                self.status is RunStatus.FAILED
+                and self.failure is not None
+                and self.failure.kind == "preparation_error"
+            )
+            if (
+                self.status is not RunStatus.INTERRUPTED
+                and not preparation_failure
+                and self.started_at is None
+            ):
                 raise ValueError("completed execution requires a start timestamp")
         if self.status is RunStatus.SUCCEEDED:
             if self.exit_code != 0 or self.failure is not None:
@@ -382,7 +391,11 @@ class RunRepository:
 
         manifest = self._mutable_manifest(run_id)
         allowed = {
-            RunStatus.PREPARED: {RunStatus.RUNNING, RunStatus.INTERRUPTED},
+            RunStatus.PREPARED: {
+                RunStatus.RUNNING,
+                RunStatus.FAILED,
+                RunStatus.INTERRUPTED,
+            },
             RunStatus.RUNNING: {
                 RunStatus.SUCCEEDED,
                 RunStatus.FAILED,

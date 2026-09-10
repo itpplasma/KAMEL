@@ -60,8 +60,24 @@ def main() -> int:
 
     with h5py.File(mode_dir / output_file, "w") as handle:
         potential_name = "fields/Phi_m" if output_file == "out_ES.h5" else "fields/Phi"
+        if mode == "wrong_object_type":
+            for name in (
+                potential_name,
+                "fields/jpar",
+                "backs/e/r",
+                "setup/periodic_scale/dx_asis",
+            ):
+                handle.create_group(name)
+            return 0
+        if mode == "dangling_dataset":
+            handle[potential_name] = h5py.SoftLink("/missing")
+            handle.create_dataset("fields/jpar", data=np.ones(3))
+            handle.create_dataset("backs/e/r", data=np.arange(3.0))
+            handle.create_dataset("setup/periodic_scale/dx_asis", data=1.0)
+            return 0
         complex_values = np.ones(3, dtype=[("real", "<f8"), ("imag", "<f8")])
-        handle.create_dataset(potential_name, data=complex_values)
+        potential_values = complex_values[:2] if mode == "malformed_dataset" else complex_values
+        handle.create_dataset(potential_name, data=potential_values)
         if mode != "partial_output":
             handle.create_dataset("fields/jpar", data=complex_values)
             handle.create_dataset("backs/e/r", data=np.arange(3.0))

@@ -178,6 +178,21 @@ class PhysicsConfig(KimModel):
         description="Apply the energy-conserving correction to Fokker-Planck I-functions.",
         json_schema_extra={"sweepable": False},
     )
+    electron_ifunc_conservation_model: Literal[-1, 0, 1, 2, 3] = Field(
+        default=-1,
+        description="Electron I-function conservation model; -1 inherits conserve_energy.",
+        json_schema_extra={"sweepable": False},
+    )
+    ion_ifunc_conservation_model: Literal[-1, 0, 1, 2, 3] = Field(
+        default=-1,
+        description="Ion I-function conservation model; -1 inherits conserve_energy.",
+        json_schema_extra={"sweepable": False},
+    )
+    ion_temperature_gradient_model: Literal["full", "zero_A2", "zero_Tprime"] = Field(
+        default="full",
+        description="Ion temperature-gradient terms retained in the kinetic response.",
+        json_schema_extra={"sweepable": False},
+    )
     turn_off_ions: bool = Field(
         default=False,
         description="Exclude ions from the response calculation.",
@@ -500,6 +515,20 @@ class ProfileConfig(KimModel):
         json_schema_extra={"units": "1", "sweepable": False},
     )
 
+    @field_validator(
+        "density_file",
+        "electron_temperature_file",
+        "ion_temperature_file",
+        "toroidal_velocity_file",
+        "radial_electric_field_file",
+        "safety_factor_file",
+    )
+    @classmethod
+    def profile_files_are_plain_names(cls, filename: str) -> str:
+        if filename in {".", ".."} or "/" in filename or "\\" in filename:
+            raise ValueError("profile file must be a plain filename without directory components")
+        return filename
+
 
 class PeriodicConfig(KimModel):
     """Numerical controls for the forced-periodicity solver."""
@@ -528,6 +557,16 @@ class PeriodicConfig(KimModel):
         default=False,
         description="Use approximations intended only for global-kernel comparisons.",
         json_schema_extra={"sweepable": False},
+    )
+    bparallel_ratio_real: float = Field(
+        default=0.0,
+        description="Real part of the prescribed B_parallel/Br drive ratio.",
+        json_schema_extra={"units": "1", "sweepable": True},
+    )
+    bparallel_ratio_imag: float = Field(
+        default=0.0,
+        description="Imaginary part of the prescribed B_parallel/Br drive ratio.",
+        json_schema_extra={"units": "1", "sweepable": True},
     )
 
 

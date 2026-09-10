@@ -51,6 +51,9 @@ _SUPPORTED_KEYS = {
         "ion_flr_scale_factor",
         "collision_frequency_scale",
         "boole_energy_conservation",
+        "electron_ifunc_conservation_model",
+        "ion_ifunc_conservation_model",
+        "ion_temperature_gradient_model",
     },
     "wkb_dispersion": set(),
     "kim_io": {
@@ -120,6 +123,7 @@ _SUPPORTED_KEYS = {
         "periodic_kmax_scale",
         "periodic_n_rg",
         "periodic_match_global_kernel_approximations",
+        "periodic_bparallel_ratio",
     },
     "kim_flr2": {
         "flr2_electron_flr",
@@ -217,6 +221,9 @@ def _to_groups(
                 "ion_flr_scale_factor": physics.ion_larmor_radius_scale,
                 "collision_frequency_scale": physics.collision_frequency_scale,
                 "boole_energy_conservation": physics.conserve_energy,
+                "electron_ifunc_conservation_model": (physics.electron_ifunc_conservation_model),
+                "ion_ifunc_conservation_model": physics.ion_ifunc_conservation_model,
+                "ion_temperature_gradient_model": physics.ion_temperature_gradient_model,
             },
         ),
         ("WKB_DISPERSION", {}),
@@ -322,6 +329,9 @@ def _periodic_values(periodic: PeriodicConfig) -> dict[str, Any]:
         "periodic_match_global_kernel_approximations": (
             periodic.match_global_kernel_approximations
         ),
+        "periodic_Bparallel_ratio": complex(
+            periodic.bparallel_ratio_real, periodic.bparallel_ratio_imag
+        ),
     }
 
 
@@ -350,6 +360,8 @@ def _format_value(value: Any) -> str:
         return ".true." if value else ".false."
     if isinstance(value, str):
         return "'" + value.replace("'", "''") + "'"
+    if isinstance(value, complex):
+        return f"({value.real!r}, {value.imag!r})"
     if isinstance(value, (list, tuple)):
         return ", ".join(_format_value(item) for item in value)
     return repr(value)
@@ -417,6 +429,11 @@ def _from_groups(groups: Mapping[str, Mapping[str, Any]]) -> SimulationConfig:
         ion_larmor_radius_scale=config_values.get("ion_flr_scale_factor", 1.0),
         artificial_debye_case=_required(config_values, "artificial_debye_case"),
         conserve_energy=config_values.get("boole_energy_conservation", True),
+        electron_ifunc_conservation_model=config_values.get(
+            "electron_ifunc_conservation_model", -1
+        ),
+        ion_ifunc_conservation_model=config_values.get("ion_ifunc_conservation_model", -1),
+        ion_temperature_gradient_model=config_values.get("ion_temperature_gradient_model", "full"),
         turn_off_ions=_required(config_values, "turn_off_ions"),
         turn_off_electrons=_required(config_values, "turn_off_electrons"),
     )
@@ -537,6 +554,7 @@ def _parse_plasma(
 
 
 def _parse_periodic(values: Mapping[str, Any]) -> dict[str, Any]:
+    bparallel_ratio = _complex_value(values.get("periodic_bparallel_ratio", 0.0j))
     return {
         "as_is_width_scale": _required(values, "periodic_dr_asis_scale"),
         "transition_width_scale": _required(values, "periodic_dr_tr_scale"),
@@ -545,6 +563,8 @@ def _parse_periodic(values: Mapping[str, Any]) -> dict[str, Any]:
         "match_global_kernel_approximations": _required(
             values, "periodic_match_global_kernel_approximations"
         ),
+        "bparallel_ratio_real": bparallel_ratio.real,
+        "bparallel_ratio_imag": bparallel_ratio.imag,
     }
 
 
@@ -568,6 +588,23 @@ def _required(values: Mapping[str, Any], key: str) -> Any:
 
 def _optional_positive(value: Any) -> Any:
     return value if value is not None and value > 0 else None
+
+
+def _complex_value(value: Any) -> complex:
+    if isinstance(value, complex):
+        return value
+    if isinstance(value, str):
+        stripped = value.strip()
+        if stripped.startswith("(") and stripped.endswith(")"):
+            parts = stripped[1:-1].split(",")
+            if len(parts) == 2:
+                try:
+                    return complex(
+                        *(float(part.replace("D", "E").replace("d", "e")) for part in parts)
+                    )
+                except ValueError:
+                    pass
+    raise ConfigurationError(f"invalid Fortran complex value: {value!r}")
 
 
 def _as_list(value: Any) -> list[Any]:

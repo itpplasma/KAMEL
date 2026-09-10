@@ -116,6 +116,15 @@ def test_unknown_fields_are_rejected_at_every_level() -> None:
         GridConfig(radial_minimum=3.0, plasma_radius=63.0, unknown_parameter=1)
 
 
+@pytest.mark.parametrize(
+    "filename",
+    ["/tmp/n.dat", "profiles/n.dat", "../n.dat", r"profiles\n.dat"],
+)
+def test_profile_filenames_must_be_plain_basenames(filename: str) -> None:
+    with pytest.raises(ValidationError, match="plain filename"):
+        ProfileConfig(directory=Path("/profiles"), density_file=filename)
+
+
 @pytest.mark.parametrize("field", ["hdf5_input", "hdf5_output"])
 def test_api_managed_runs_force_supported_hdf5_modes(field: str) -> None:
     value = field == "hdf5_input"

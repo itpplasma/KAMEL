@@ -10,6 +10,7 @@ from kim.config import (
     GridConfig,
     IonSpecies,
     PeriodicConfig,
+    PhysicsConfig,
     PlasmaIsotope,
     SimulationConfig,
 )
@@ -101,6 +102,38 @@ def test_groups_follow_fortran_read_order_and_fields_are_translated() -> None:
     assert parsed["kim_io"]["hdf5_output"] is True
     assert parsed["kim_io"]["profile_location"] == "/source/profiles/"
     assert parsed["kim_profiles"]["input_profile_dir"] == "/source/profiles/"
+
+
+def test_current_physics_controls_are_serialized_and_round_trip(tmp_path: Path) -> None:
+    base = configuration("electrostatic_periodic")
+    config = base.model_copy(
+        update={
+            "physics": PhysicsConfig(
+                electron_ifunc_conservation_model=1,
+                ion_ifunc_conservation_model=3,
+                ion_temperature_gradient_model="zero_Tprime",
+            ),
+            "run": base.run.model_copy(
+                update={
+                    "periodic": PeriodicConfig(
+                        bparallel_ratio_real=0.25,
+                        bparallel_ratio_imag=-0.5,
+                    )
+                }
+            ),
+        }
+    )
+    rendered = dumps_namelist(config)
+    parsed = f90nml.reads(rendered)
+
+    assert parsed["kim_config"]["electron_ifunc_conservation_model"] == 1
+    assert parsed["kim_config"]["ion_ifunc_conservation_model"] == 3
+    assert parsed["kim_config"]["ion_temperature_gradient_model"] == "zero_Tprime"
+    assert parsed["kim_periodic"]["periodic_bparallel_ratio"] == "(0.25, -0.5)"
+
+    path = tmp_path / "KIM_config.nml"
+    path.write_text(rendered)
+    assert load_namelist(path) == config
 
 
 @pytest.mark.parametrize(

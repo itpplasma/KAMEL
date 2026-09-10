@@ -14,7 +14,7 @@ from typing import Any, Literal
 import numpy as np
 from kim.config import KimModel, ProfileConfig, SimulationConfig
 from kim.errors import SweepError
-from kim.profiles import ProfileSet
+from kim.profiles import ProfileSet, _read_profile
 from kim.runs import RunStatus
 from kim.simulation import RunResult, Simulation
 from pydantic import BaseModel, ConfigDict, Field, JsonValue, ValidationError, model_validator
@@ -94,6 +94,7 @@ class SweepStatus(str, Enum):
     SUCCEEDED = "succeeded"
     PARTIAL_FAILURE = "partial_failure"
     FAILED = "failed"
+    INTERRUPTED = "interrupted"
 
 
 class SweepManifest(SweepModel):
@@ -186,7 +187,7 @@ def run_sweep(
             "configuration": config.model_dump(mode="json"),
             "variation": descriptor,
         }
-        child = Simulation(
+        simulation = Simulation(
             config,
             executable=executable,
             runs_directory=runs_root,
@@ -194,7 +195,22 @@ def run_sweep(
             timeout=timeout,
             parent_sweep_id=sweep_id,
             requested_parameters=requested,
-        ).run(environment=environment)
+        )
+        try:
+            child = simulation.run(environment=environment)
+        except KeyboardInterrupt:
+            if simulation._last_result is not None:
+                children.append(simulation._last_result)
+            manifest = manifest.model_copy(
+                update={
+                    "status": SweepStatus.INTERRUPTED,
+                    "finished_at": datetime.now(timezone.utc),
+                    "child_run_ids": tuple(item.run_id for item in children),
+                    "child_statuses": tuple(item.status.value for item in children),
+                }
+            )
+            _write_manifest(manifest_path, manifest)
+            raise
         children.append(child)
         manifest = manifest.model_copy(
             update={
@@ -267,9 +283,8 @@ def _profile_scale_configurations(
         electric_field = destination / spec.base.profiles.radial_electric_field_file
         if not electric_field.is_file():
             raise SweepError(f"Er profile is required for scaling: {electric_field}")
-        values = np.loadtxt(electric_field, ndmin=2)
-        if values.shape[1] != 2 or not np.all(np.isfinite(values)):
-            raise SweepError(f"cannot scale invalid Er profile: {electric_field}")
+        profile = _read_profile("Er", "statV/cm", electric_field)
+        values = np.column_stack((profile.radius, profile.values))
         values[:, 1] *= factor
         np.savetxt(electric_field, values, fmt="%.16e")
         profiles = ProfileConfig.model_validate(

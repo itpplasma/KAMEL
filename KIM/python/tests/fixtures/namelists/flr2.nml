@@ -16,6 +16,9 @@
     ion_flr_scale_factor = 1.0
     collision_frequency_scale = 1.0
     boole_energy_conservation = .true.
+    electron_ifunc_conservation_model = -1
+    ion_ifunc_conservation_model = -1
+    ion_temperature_gradient_model = 'full'
 /
 
 &WKB_DISPERSION

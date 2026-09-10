@@ -157,6 +157,106 @@ def test_sweep_continues_after_child_failure_and_reports_partial_failure(
     assert result.status == "partial_failure"
 
 
+def test_sweep_continues_after_child_preparation_failure(tmp_path: Path) -> None:
+    result = run_sweep(
+        ParameterSweep(
+            base=configuration(tmp_path / "profiles"),
+            parameter="setup.m_mode",
+            values=[7, 100, 7],
+        ),
+        executable=fake_executable(tmp_path),
+        runs_directory=tmp_path / "runs",
+    )
+
+    assert [child.status for child in result.children] == [
+        RunStatus.SUCCEEDED,
+        RunStatus.FAILED,
+        RunStatus.SUCCEEDED,
+    ]
+    assert result.children[1].manifest.failure is not None
+    assert result.children[1].manifest.failure.kind == "preparation_error"
+    assert result.status == "partial_failure"
+    persisted = json.loads(result.manifest.read_text())
+    assert persisted["status"] == "partial_failure"
+    assert persisted["finished_at"] is not None
+
+
+def test_staging_failure_uses_one_terminal_run_per_child(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    def deny_copy(*_args: object, **_kwargs: object) -> object:
+        raise PermissionError("profile destination is not writable")
+
+    monkeypatch.setattr("kim.sweep.ProfileSet.copy_to", deny_copy)
+    result = run_sweep(
+        ParameterSweep(
+            base=configuration(tmp_path / "profiles"),
+            parameter="periodic.n_rg",
+            values=[8, 12],
+        ),
+        executable=fake_executable(tmp_path),
+        runs_directory=tmp_path / "runs",
+    )
+
+    assert [child.status for child in result.children] == [RunStatus.FAILED, RunStatus.FAILED]
+    run_manifests = list((tmp_path / "runs").glob("*/manifest.json"))
+    assert len(run_manifests) == 2
+    assert all(json.loads(path.read_text())["status"] == "failed" for path in run_manifests)
+
+
+def test_interrupted_sweep_finalizes_its_manifest(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    def interrupt_process(*_args: object, **_kwargs: object) -> object:
+        raise KeyboardInterrupt
+
+    monkeypatch.setattr("kim.simulation.subprocess.run", interrupt_process)
+    with pytest.raises(KeyboardInterrupt):
+        run_sweep(
+            ParameterSweep(
+                base=configuration(tmp_path / "profiles"),
+                parameter="periodic.n_rg",
+                values=[8, 12],
+            ),
+            executable=fake_executable(tmp_path),
+            runs_directory=tmp_path / "runs",
+        )
+
+    manifests = list((tmp_path / "runs" / "sweeps").glob("*/manifest.json"))
+    assert len(manifests) == 1
+    persisted = json.loads(manifests[0].read_text())
+    assert persisted["status"] == "interrupted"
+    assert persisted["finished_at"] is not None
+    assert persisted["child_statuses"] == ["interrupted"]
+    assert len(persisted["child_run_ids"]) == 1
+
+
+def test_interruption_during_staging_records_the_child(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    def interrupt_copy(*_args: object, **_kwargs: object) -> object:
+        raise KeyboardInterrupt
+
+    monkeypatch.setattr("kim.sweep.ProfileSet.copy_to", interrupt_copy)
+    with pytest.raises(KeyboardInterrupt):
+        run_sweep(
+            ParameterSweep(
+                base=configuration(tmp_path / "profiles"),
+                parameter="periodic.n_rg",
+                values=[8, 12],
+            ),
+            executable=fake_executable(tmp_path),
+            runs_directory=tmp_path / "runs",
+        )
+
+    sweep_manifest = next((tmp_path / "runs" / "sweeps").glob("*/manifest.json"))
+    persisted = json.loads(sweep_manifest.read_text())
+    assert persisted["status"] == "interrupted"
+    assert persisted["child_statuses"] == ["interrupted"]
+    child_manifest = tmp_path / "runs" / persisted["child_run_ids"][0] / "manifest.json"
+    assert json.loads(child_manifest.read_text())["status"] == "interrupted"
+
+
 def test_stop_on_failure_omits_unstarted_children(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -203,6 +303,25 @@ def test_er_profile_scale_preserves_source_and_stages_each_transformation(
             "profile": "Er",
             "factor": factor,
         }
+
+
+def test_er_profile_scale_accepts_valid_fortran_text_syntax(tmp_path: Path) -> None:
+    base = configuration(tmp_path / "profiles")
+    (base.profiles.directory / "Er.dat").write_text(
+        "! radial electric field\n"
+        + "\n".join(f"{r:.1f}D+00 {-0.2 + r * 0.01:.6f}D+00" for r in range(11))
+        + "\n"
+    )
+
+    result = run_sweep(
+        SweepSpec(base=base, variation=ProfileScale(profile="Er", values=[2.0])),
+        executable=fake_executable(tmp_path),
+        runs_directory=tmp_path / "runs",
+    )
+
+    assert result.status == "succeeded"
+    staged = np.loadtxt(result.children[0].run_directory / "inputs/profiles/Er.dat")
+    assert staged[0, 1] == pytest.approx(-0.4)
 
 
 def test_profile_scale_rejects_unsupported_profiles_and_nonfinite_values(

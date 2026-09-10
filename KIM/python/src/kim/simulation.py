@@ -11,6 +11,7 @@ from typing import TYPE_CHECKING
 
 import h5py
 from kim.config import RunType, SimulationConfig
+from kim.errors import KimError
 from kim.executable import discover_kamel_git_metadata, executable_sha256, resolve_executable
 from kim.namelist import write_namelist
 from kim.profiles import ProfileSet
@@ -132,6 +133,8 @@ class Simulation:
         self.timeout = timeout
         self.parent_sweep_id = parent_sweep_id
         self.requested_parameters = requested_parameters
+        self._active_paths: RunPaths | None = None
+        self._last_result: RunResult | None = None
 
     def prepare(
         self,
@@ -151,6 +154,7 @@ class Simulation:
             parent_sweep_id=self.parent_sweep_id,
             requested_parameters=self.requested_parameters,
         )
+        self._active_paths = paths
         copies = profiles.copy_to(paths.profiles)
         for copied in copies:
             self.repository.record_input(
@@ -214,7 +218,15 @@ class Simulation:
         effective_timeout = self.timeout if timeout is None else timeout
         if effective_timeout is not None and effective_timeout <= 0:
             raise ValueError("timeout must be positive or None")
-        prepared = self.prepare(environment=environment)
+        self._active_paths = None
+        self._last_result = None
+        try:
+            prepared = self.prepare(environment=environment)
+        except KeyboardInterrupt:
+            self._record_preparation_interruption()
+            raise
+        except (KimError, OSError, UnicodeError) as error:
+            return self._record_preparation_failure(error)
         self.repository.transition(prepared.paths.run_id, RunStatus.RUNNING)
         process_environment = os.environ.copy()
         process_environment.update(prepared.manifest.environment)
@@ -245,10 +257,15 @@ class Simulation:
                 ),
             )
         except KeyboardInterrupt:
-            self.repository.transition(
+            manifest = self.repository.transition(
                 prepared.paths.run_id,
                 RunStatus.INTERRUPTED,
                 failure=RunFailure(kind="interrupted", message="KIM execution was interrupted"),
+            )
+            self._last_result = RunResult(
+                paths=prepared.paths,
+                manifest=manifest,
+                output_file=prepared.output_file,
             )
             raise
         except OSError as error:
@@ -264,7 +281,69 @@ class Simulation:
         else:
             manifest = self._complete(prepared, completed.returncode)
 
-        return RunResult(paths=prepared.paths, manifest=manifest, output_file=prepared.output_file)
+        result = RunResult(
+            paths=prepared.paths, manifest=manifest, output_file=prepared.output_file
+        )
+        self._last_result = result
+        return result
+
+    def _record_preparation_failure(self, error: Exception) -> RunResult:
+        """Persist one failed preparation attempt for sweep-level accounting."""
+
+        paths = self._active_paths
+        if paths is None:
+            paths = self.repository.create(
+                self.config,
+                label=self.label,
+                parent_sweep_id=self.parent_sweep_id,
+                requested_parameters=self.requested_parameters,
+            )
+            self._active_paths = paths
+        output_file = (
+            paths.results
+            / f"m{self.config.setup.m_mode}_n{self.config.setup.n_mode}"
+            / _OUTPUT_FILES[self.config.run.run_type]
+        )
+        manifest = self.repository.inspect(paths.run_id)
+        if manifest.status is RunStatus.PREPARED:
+            manifest = self.repository.transition(
+                paths.run_id,
+                RunStatus.FAILED,
+                failure=RunFailure(
+                    kind="preparation_error",
+                    message=str(error),
+                    details={"exception_type": type(error).__name__},
+                ),
+            )
+        result = RunResult(paths=paths, manifest=manifest, output_file=output_file)
+        self._last_result = result
+        return result
+
+    def _record_preparation_interruption(self) -> RunResult:
+        """Persist an interruption that occurred before process execution."""
+
+        paths = self._active_paths
+        if paths is None:
+            paths = self.repository.create(
+                self.config,
+                label=self.label,
+                parent_sweep_id=self.parent_sweep_id,
+                requested_parameters=self.requested_parameters,
+            )
+            self._active_paths = paths
+        output_file = (
+            paths.results
+            / f"m{self.config.setup.m_mode}_n{self.config.setup.n_mode}"
+            / _OUTPUT_FILES[self.config.run.run_type]
+        )
+        manifest = self.repository.transition(
+            paths.run_id,
+            RunStatus.INTERRUPTED,
+            failure=RunFailure(kind="interrupted", message="KIM preparation was interrupted"),
+        )
+        result = RunResult(paths=paths, manifest=manifest, output_file=output_file)
+        self._last_result = result
+        return result
 
     def _complete(self, prepared: PreparedSimulation, exit_code: int) -> RunManifest:
         discovered = _discovered_outputs(prepared)
@@ -298,7 +377,8 @@ class Simulation:
 
 
 def _validate_environment(environment: Mapping[str, str] | None) -> dict[str, str]:
-    values = {str(name): str(value) for name, value in (environment or {}).items()}
+    values = {name: os.environ[name] for name in _ALLOWED_ENVIRONMENT if name in os.environ}
+    values.update({str(name): str(value) for name, value in (environment or {}).items()})
     unsupported = set(values) - _ALLOWED_ENVIRONMENT
     if unsupported:
         raise ValueError(
@@ -323,7 +403,15 @@ def _validate_output(path: Path, run_type: RunType) -> RunFailure | None:
     try:
         with h5py.File(path, "r") as handle:
             missing = [name for name in _REQUIRED_DATASETS[run_type] if name not in handle]
-    except (OSError, ValueError) as error:
+            invalid = []
+            for name in _REQUIRED_DATASETS[run_type]:
+                if name in handle:
+                    value = handle[name]
+                    if not isinstance(value, h5py.Dataset):
+                        invalid.append(name)
+                    else:
+                        value[()]
+    except (KeyError, OSError, TypeError, ValueError) as error:
         return RunFailure(
             kind="invalid_output",
             message=f"KIM output is not a readable HDF5 file: {error}",
@@ -335,4 +423,22 @@ def _validate_output(path: Path, run_type: RunType) -> RunFailure | None:
             message="KIM output is missing required datasets: " + ", ".join(missing),
             details={"output": str(path), "missing_datasets": missing},
         )
+    if invalid:
+        return RunFailure(
+            kind="invalid_output",
+            message="KIM output contains invalid required datasets: " + ", ".join(invalid),
+            details={"output": str(path), "invalid_datasets": invalid},
+        )
+    if run_type is RunType.ELECTROSTATIC_PERIODIC:
+        from kim.errors import ResultError
+        from kim.results import Result
+
+        try:
+            Result(path).periodic
+        except ResultError as error:
+            return RunFailure(
+                kind="invalid_output",
+                message=f"KIM periodic output violates the result contract: {error}",
+                details={"output": str(path)},
+            )
     return None

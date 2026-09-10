@@ -40,6 +40,38 @@ def test_generated_profiles_validate_and_have_known_resonant_values(tmp_path: Pa
     assert generated["Ti"][resonance_index] == pytest.approx(2400.0)
 
 
+def test_resonance_validation_uses_signed_fortran_convention(tmp_path: Path) -> None:
+    generate(tmp_path / "profiles")
+    np.savetxt(
+        tmp_path / "profiles" / "q.dat",
+        np.column_stack((np.arange(11.0), np.linspace(1.0, 6.0, 11))),
+    )
+
+    with pytest.raises(ProfileError, match=r"signed q=-m/n = -3\.5"):
+        profile_set(tmp_path / "profiles").validate(
+            radial_minimum=1.0,
+            plasma_radius=9.0,
+            m_mode=7,
+            n_mode=2,
+        )
+
+
+def test_resonance_search_selects_first_crossing_before_later_exact_hit(tmp_path: Path) -> None:
+    generate(tmp_path / "profiles")
+    radius = np.arange(11.0)
+    q = np.array([-1.0, -2.0, -4.0, -5.0, -4.0, -3.0, -2.0, -3.5, -4.0, -5.0, -6.0])
+    np.savetxt(tmp_path / "profiles" / "q.dat", np.column_stack((radius, q)))
+
+    report = profile_set(tmp_path / "profiles").validate(
+        radial_minimum=1.0,
+        plasma_radius=9.0,
+        m_mode=7,
+        n_mode=2,
+    )
+
+    assert report.resonance_radius == pytest.approx(1.75)
+
+
 def test_generator_preserves_signed_er_and_vz_profiles(tmp_path: Path) -> None:
     generated = generate(tmp_path / "profiles")
 
@@ -171,7 +203,7 @@ def test_requested_q_crossing_is_required_inside_domain(tmp_path: Path) -> None:
         fmt="%.16e",
     )
 
-    with pytest.raises(ProfileError, match=r"q\.dat.*\|m/n\| = 3\.5.*crossing"):
+    with pytest.raises(ProfileError, match=r"q\.dat.*signed q=-m/n = -3\.5.*crossing"):
         profile_set(tmp_path / "profiles").validate(
             radial_minimum=1.0,
             plasma_radius=9.0,

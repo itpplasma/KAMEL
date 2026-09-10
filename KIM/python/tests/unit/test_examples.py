@@ -165,3 +165,25 @@ def test_create_example_nested_failure_removes_owned_ancestors(
     assert not destination.exists()
     assert not (ancestor / "created").exists()
     assert unrelated.read_text(encoding="utf-8") == "keep\n"
+
+
+def test_create_example_refuses_target_that_appears_after_initial_check(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    destination = tmp_path / "case"
+    unrelated = destination / "unrelated.txt"
+    original_mkdir_owned = examples._mkdir_owned
+
+    def create_target_before_leaf(path: Path, created_entries: list[Path]) -> None:
+        if path == destination.parent:
+            destination.mkdir()
+            unrelated.write_text("keep\n", encoding="utf-8")
+        original_mkdir_owned(path, created_entries)
+
+    monkeypatch.setattr(examples, "_mkdir_owned", create_target_before_leaf)
+
+    with pytest.raises(FileExistsError):
+        create_example(destination)
+
+    assert unrelated.read_text(encoding="utf-8") == "keep\n"
+    assert list(destination.iterdir()) == [unrelated]

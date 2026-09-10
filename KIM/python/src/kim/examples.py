@@ -29,7 +29,9 @@ def create_example(destination: Path | str, *, name: str = "periodic") -> Path:
     source_root = resources.files("kim.example_data").joinpath(name)
     created_entries: list[Path] = []
     try:
-        _mkdir_owned(target, created_entries)
+        _mkdir_owned(target.parent, created_entries)
+        target.mkdir()
+        created_entries.append(target)
         for relative_path, source in _resource_files(source_root):
             copied = target / relative_path
             _mkdir_owned(copied.parent, created_entries)

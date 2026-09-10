@@ -4,7 +4,7 @@ on:
   push:
     branches: [main]
   pull_request:
-    branches: [main]
+    branches: [main, feat/kamel-adoption]
 
 env:
   PRE_FORTNUM_BASELINE: 0fb4f29622080b86c31d557584dfa5951356a2ee

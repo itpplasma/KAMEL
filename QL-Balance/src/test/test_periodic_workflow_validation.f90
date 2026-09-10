@@ -34,7 +34,7 @@ program test_periodic_workflow_validation
     case ('bparallel')
         call validate_periodic_workflow('KIM', 'electrostatic_periodic', 'TimeEvolution', .true., &
             2, modes_m, modes_n, 4.0_dp, 'conductivity', 'drift_kinetic', &
-            'finite_larmor_radius', 'periodic', 'none')
+                                        'finite_larmor_radius', 'self_consistent', 'none')
         error stop 'unsupported Bparallel source was accepted'
     end select
     call validate_periodic_workflow('KIM', 'electrostatic_periodic', 'TimeEvolution', .true., &
@@ -44,6 +44,9 @@ program test_periodic_workflow_validation
     call validate_periodic_workflow('KIM', 'electrostatic_periodic', 'SingleStep', .true., &
         2, modes_m, modes_n, 0.0_dp, 'conductivity', 'drift_kinetic', 'drift_kinetic', &
         'disabled', 'none')
+    call validate_periodic_workflow('KIM', 'electrostatic_periodic', 'SingleStep', .true., &
+                                    2, modes_m, modes_n, 0.0_dp, 'conductivity', 'drift_kinetic', &
+                                    'finite_larmor_radius', 'prescribed_zero_mode', 'none')
     call validate_periodic_workflow('KiLCA', 'electrostatic_periodic', 'SingleStep', .true., &
         1, modes_m, modes_n, 0.0_dp, 'conductivity', 'ignored', 'ignored', 'ignored', 'ignored')
     call validate_periodic_workflow('KIM', 'future_nonperiodic_solver', 'SingleStep', .false., &

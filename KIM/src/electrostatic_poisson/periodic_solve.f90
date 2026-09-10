@@ -43,7 +43,8 @@ contains
     !> Solve the periodic electrostatic system for the Fourier coefficients
     !> Phi_m of the potential, given the Phase-2.4 matrices Kphi/KB, the period
     !> L, the mode cutoff M, and the constant drive amplitude Br_const.
-    subroutine solve_periodic(Kphi, KB, L, M, Br_const, Phi_m, info)
+    subroutine solve_periodic(Kphi, KB, L, M, Br_const, Phi_m, info, &
+                              KBparallel, Bparallel_const)
         use constants_m, only: pi
 
         complex(dp), intent(in) :: Kphi(:,:), KB(:,:)
@@ -52,6 +53,8 @@ contains
         complex(dp), intent(in) :: Br_const
         complex(dp), allocatable, intent(out) :: Phi_m(:)
         integer, intent(out) :: info
+        complex(dp), intent(in), optional :: KBparallel(:, :)
+        complex(dp), intent(in), optional :: Bparallel_const
 
         complex(dp), allocatable :: A(:,:), b(:)
         real(dp) :: k_m
@@ -69,9 +72,16 @@ contains
             A(im, im) = A(im, im) - k_m * k_m
         end do
 
-        ! b = -4*pi Br_const KB(:, m'=0). The constant drive projects onto the
-        ! m' = 0 column only (column index M+1).
+        if (present(KBparallel) .neqv. present(Bparallel_const)) then
+            error stop 'solve_periodic requires Bparallel matrix and drive together'
+        end if
+
+        ! Constant prescribed drives project onto the m'=0 column only.
         b = -4.0_dp * pi * Br_const * KB(:, M + 1)
+        if (present(KBparallel)) then
+            if (Bparallel_const /= (0.0_dp, 0.0_dp)) &
+                b = b - 4.0_dp * pi * Bparallel_const * KBparallel(:, M + 1)
+        end if
 
         call dense_solve(A, b, info)
 
@@ -117,17 +127,28 @@ contains
     !>
     !> j_par is then inverse-DFT'd exactly as the potential is:
     !>   j_par(r) = sum_{m=-M}^{M} j_m exp(i k_m r).
-    function reconstruct_jpar(Kjphi, KjB, Phi_m, Br_const, L, M, r_out) result(jpar)
+    function reconstruct_jpar(Kjphi, KjB, Phi_m, Br_const, L, M, r_out, &
+            KjBparallel, Bparallel_const) result(jpar)
         complex(dp), intent(in) :: Kjphi(:,:), KjB(:,:)
         complex(dp), intent(in) :: Phi_m(:)
         complex(dp), intent(in) :: Br_const
         real(dp), intent(in) :: L, r_out(:)
         integer, intent(in) :: M
+        complex(dp), intent(in), optional :: KjBparallel(:,:)
+        complex(dp), intent(in), optional :: Bparallel_const
         complex(dp) :: jpar(size(r_out))
 
         complex(dp), allocatable :: j_m(:)
 
+        if (present(KjBparallel) .neqv. present(Bparallel_const)) then
+            error stop 'reconstruct_jpar requires Bparallel matrix and drive together'
+        end if
+
         j_m = matmul(Kjphi, Phi_m) + Br_const * KjB(:, M + 1)
+        if (present(KjBparallel)) then
+            if (Bparallel_const /= (0.0_dp, 0.0_dp)) &
+                j_m = j_m + Bparallel_const * KjBparallel(:, M + 1)
+        end if
 
         jpar = reconstruct_delta_phi(j_m, L, M, r_out)
     end function reconstruct_jpar

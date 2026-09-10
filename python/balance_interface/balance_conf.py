@@ -31,9 +31,8 @@ class balance_conf:
         """Select the validated periodic-KIM transport contract.
 
         ``modes`` is an iterable of ``(m, n)`` pairs.  The generated namelist
-        keeps the policy explicit: drift-kinetic electrons,
-        finite-Larmor-radius ions, and no compression drive until the coupled
-        B-parallel response is implemented.
+        keeps the transport policy explicit. Compression remains disabled
+        until a KIM configuration supplies a nonzero prescribed ratio.
         """
         modes = list(modes)
         if not modes:

@@ -29,7 +29,8 @@ module kim_wave_code_adapter_m
     use periodic_amplitude_state_m, only: &
         kim_periodic_normalization_version => periodic_normalization_version, &
         kim_periodic_phase_policy => periodic_phase_policy
-    use control_mod, only: kim_periodic_normalization_relaxation => kim_current_relaxation
+    use control_mod, only: kim_periodic_normalization_relaxation => kim_current_relaxation, &
+                           kim_bparallel_source
 
     implicit none
     private
@@ -226,8 +227,10 @@ contains
         if (trim(kim_run_type) == 'electrostatic_periodic') then
             if (kim_turn_off_ions) error stop 'periodic KIM workflow requires active ions'
             if (kim_turn_off_electrons) error stop 'periodic KIM workflow requires active electrons'
-            if (kim_periodic_bparallel_ratio /= (0.0d0, 0.0d0)) &
-                error stop 'periodic Bparallel response is not implemented'
+            if (kim_periodic_bparallel_ratio /= (0.0d0, 0.0d0) .and. &
+                trim(kim_bparallel_source) /= 'prescribed_zero_mode') then
+                error stop 'nonzero periodic Bparallel requires prescribed_zero_mode policy'
+            end if
         end if
 
         ! Disable KIM HDF5 output for QL-Balance integration.

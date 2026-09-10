@@ -280,6 +280,22 @@ add_test(NAME test_radial_current_harmonics
 set_tests_properties(test_radial_current_harmonics PROPERTIES
                      WORKING_DIRECTORY ${CMAKE_BINARY_DIR}/tests/)
 
+add_executable(test_bparallel_linear_response
+               ${CMAKE_SOURCE_DIR}/KIM/tests/test_bparallel_linear_response.f90)
+set_target_properties(test_bparallel_linear_response PROPERTIES
+                      OUTPUT_NAME test_bparallel_linear_response.x
+                      RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/tests/")
+target_link_libraries(test_bparallel_linear_response
+                      KIM_lib kilca_lib lapack cerf fortnum_amos_compat)
+add_test(NAME test_bparallel_linear_response
+         COMMAND ${CMAKE_BINARY_DIR}/tests/test_bparallel_linear_response.x)
+add_test(NAME test_bparallel_reject_harmonic
+         COMMAND ${CMAKE_BINARY_DIR}/tests/test_bparallel_linear_response.x harmonic)
+set_tests_properties(test_bparallel_reject_harmonic PROPERTIES WILL_FAIL TRUE)
+add_test(NAME test_bparallel_reject_dropped_ks
+         COMMAND ${CMAKE_BINARY_DIR}/tests/test_bparallel_linear_response.x dropped-ks)
+set_tests_properties(test_bparallel_reject_dropped_ks PROPERTIES WILL_FAIL TRUE)
+
 add_executable(test_flr2_tridiagonal
                ${CMAKE_SOURCE_DIR}/KIM/tests/test_flr2_tridiagonal.f90)
 set_target_properties(test_flr2_tridiagonal PROPERTIES
@@ -492,6 +508,10 @@ target_link_libraries(test_kim_solver_periodic_contract
                       KIM_lib kilca_lib lapack cerf fortnum_amos_compat)
 configure_file(${CMAKE_SOURCE_DIR}/KIM/tests/test_data/KIM_config_em_small.nml
                ${CMAKE_BINARY_DIR}/tests/KIM_config_em_small.nml COPYONLY)
+configure_file(${CMAKE_SOURCE_DIR}/KIM/tests/test_data/KIM_config_em_small.nml
+               ${CMAKE_BINARY_DIR}/tests/KIM_config_bparallel_small.nml COPYONLY)
+file(APPEND ${CMAKE_BINARY_DIR}/tests/KIM_config_bparallel_small.nml
+     "\n&KIM_PERIODIC\n    periodic_Bparallel_ratio = (0.25, -0.10)\n/\n")
 add_test(NAME test_kim_solver_periodic_contract
          COMMAND ${CMAKE_BINARY_DIR}/tests/test_kim_solver_periodic_contract.x)
 set_tests_properties(test_kim_solver_periodic_contract PROPERTIES
@@ -521,8 +541,3 @@ add_test(NAME test_periodic_convergence
          COMMAND ${CMAKE_BINARY_DIR}/tests/test_periodic_convergence.x)
 set_tests_properties(test_periodic_convergence PROPERTIES
                      WORKING_DIRECTORY ${CMAKE_BINARY_DIR}/tests/)
-
-add_test(NAME test_periodic_bparallel_rejected
-    COMMAND ${CMAKE_COMMAND}
-        -DTEST_EXECUTABLE=$<TARGET_FILE:test_periodic_ion_tensor>
-        -P ${CMAKE_CURRENT_SOURCE_DIR}/check_periodic_bparallel_rejected.cmake)

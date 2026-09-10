@@ -25,4 +25,4 @@ classifiers = [
     "Programming Language :: Python :: 3.11"
 ]
 [tool.setuptools]
-packages = { find = { include = ["*"] } }
+packages = { find = { include = ["*"], exclude = ["KIMgui", "KIMgui.*"] } }

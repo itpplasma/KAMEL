@@ -109,10 +109,20 @@ KIM accepts the namelist path as its first argument:
 build/install/bin/KIM.x /path/to/KIM_config.nml
 ```
 
-Start from [`KIM/nmls/KIM_config.nml`](KIM/nmls/KIM_config.nml) and consult the
-[namelist reference](KIM/nmls/README.md). Profile files use CGS units and may
-be supplied as radial-profile files or through the supported HDF5/in-memory
-interfaces.
+For the supported Python workflow (electrostatic, forced-periodic electrostatic, and FLR2), install
+and use the separate package:
+
+```sh
+python -m pip install './KIM/python'
+kim --help
+kim validate /path/to/request.json
+kim run /path/to/request.json --executable /absolute/path/to/KIM.x
+```
+
+See the [Python API guide](KIM/python/README.md) and
+[request JSON guide](KIM/python/docs/request-json.md). The Python API initially supports `r_eff`
+profiles in CGS units and requires HDF5 output. Additional Fortran run modes are documented in the
+[namelist reference](KIM/nmls/README.md).
 
 ### KiLCA
 
@@ -167,9 +177,10 @@ READMEs for usage.
 ## Installation
 
 The build already stages its executables and libraries below `build/install`.
-For a convenient `kim` command, `make install-kim` builds KIM and prints the
-command needed to create `/usr/local/bin/kim`; it does not silently modify the
-system path.
+The `kim` command belongs to the `kamel-kim` Python package; the scientific executable is `KIM.x`.
+The old `make install-kim` target and CMake symlink option have been removed. If you previously
+created a shell alias or `/usr/local/bin/kim` symlink to `KIM.x`, remove that old alias/link so your
+Python environment's CLI is selected. Use `command -v kim` to check the selected command.
 
 ## Contributing
 

@@ -77,7 +77,8 @@ Typical workflow:
 ## Python Interface (KAMELpy)
 
 ### Core Classes
-- **`KIMpy`** - KIM calculations with dispersion relations and collision models
+- **`kim` (`KIM/python`)** - Supported KIM configuration, execution, sweep, and result API/CLI
+- **`KIMpy`** - Experimental KIM dispersion and field-solver analysis modules
 - **`KiLCA_interface`** - Comprehensive KiLCA workflow management with modular components
 - **`QL_Balance_interface`** - Complete transport calculations with automatic preprocessing
 

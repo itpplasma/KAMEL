@@ -112,7 +112,7 @@ Results written to `out/m*_n*/dispersion/` directory:
 
 ### Python Alternative
 
-Python implementation using cxroots: `python/KIMpy/WKB-dispersion/wkb.py`
+Python implementation using cxroots: `python/KIMpy/wkb.py`
 
 ## References
 

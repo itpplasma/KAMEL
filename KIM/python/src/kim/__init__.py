@@ -35,10 +35,12 @@ from kim.errors import (
     SweepError,
 )
 from kim.executable import (
+    ExecutableSelection,
     KamelGitMetadata,
     discover_kamel_git_metadata,
     executable_sha256,
     resolve_executable,
+    select_executable,
 )
 from kim.profiles import ProfileCopy, ProfileData, ProfileSet, ProfileValidation
 from kim.results import DatasetMetadata, PeriodicResult, Result
@@ -73,6 +75,7 @@ __all__ = [
     "ElectrostaticRun",
     "ExplicitPlasma",
     "ExecutableError",
+    "ExecutableSelection",
     "Flr2Config",
     "Flr2Run",
     "GridConfig",
@@ -123,5 +126,6 @@ __all__ = [
     "discover_kamel_git_metadata",
     "executable_sha256",
     "resolve_executable",
+    "select_executable",
     "run_sweep",
 ]

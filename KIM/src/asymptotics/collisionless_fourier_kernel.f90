@@ -13,6 +13,7 @@ module collisionless_fourier_kernel_m
     public :: configured_hatG_all
     public :: configured_hatG_rho_phi, configured_hatG_rho_B
     public :: configured_hatG_j_phi, configured_hatG_j_B
+    public :: configured_hatG_Bparallel_all
 
 contains
 
@@ -79,6 +80,71 @@ contains
             end if
         end do
     end subroutine configured_hatG_all
+
+    subroutine configured_hatG_Bparallel_all(plasma_in, kr, krp, j, &
+                                             rho_Bparallel, j_Bparallel, rho_Bparallel_species, &
+                                             j_Bparallel_species)
+        use config_m, only: artificial_debye_case, collision_model, &
+                            ion_collision_model, turn_off_electrons, turn_off_ions
+        use constants_m, only: com_unit, pi
+        use flr2_fourier_kernel_m, only: core_rho_Bparallel_sp, &
+                                         core_j_Bparallel_sp, kern_include_ks2
+        use grid_m, only: rg_grid
+        use setup_m, only: collisions_off, mphi_max
+
+        type(plasma_t), intent(in) :: plasma_in
+        real(dp), intent(in) :: kr, krp
+        integer, intent(in) :: j
+        complex(dp), intent(out) :: rho_Bparallel, j_Bparallel
+        complex(dp), intent(out), optional :: rho_Bparallel_species(0:)
+        complex(dp), intent(out), optional :: j_Bparallel_species(0:)
+        complex(dp) :: phase, species_rho, species_j
+        integer :: sp
+
+        if (trim(collision_model) /= 'FokkerPlanck' .or. &
+            trim(ion_collision_model) /= 'FokkerPlanck' .or. &
+            collisions_off) then
+            error stop 'Bparallel columns require enabled FokkerPlanck collisions'
+        end if
+        if (artificial_debye_case /= 0 .and. artificial_debye_case /= 2) then
+            error stop 'Bparallel columns require full or no-Debye FP response'
+        end if
+        if (mphi_max /= 0) then
+            error stop 'Bparallel columns currently require mphi_max=0'
+        end if
+        if (.not. kern_include_ks2) then
+            error stop 'Bparallel columns require full periodic gyrogeometry'
+        end if
+        if (present(rho_Bparallel_species) .neqv. present(j_Bparallel_species)) then
+            error stop 'configured_hatG_Bparallel_all requires both species arrays'
+        end if
+        if (present(rho_Bparallel_species)) then
+            if (ubound(rho_Bparallel_species, 1) < plasma_in%n_species - 1 .or. &
+                ubound(j_Bparallel_species, 1) < plasma_in%n_species - 1) then
+                error stop 'configured_hatG_Bparallel_all species arrays are too small'
+            end if
+            rho_Bparallel_species = (0.0_dp, 0.0_dp)
+            j_Bparallel_species = (0.0_dp, 0.0_dp)
+        end if
+
+        phase = exp(-com_unit * (kr - krp) * rg_grid%xb(j))
+        rho_Bparallel = (0.0_dp, 0.0_dp)
+        j_Bparallel = (0.0_dp, 0.0_dp)
+        do sp = 0, plasma_in%n_species - 1
+            if (sp == 0 .and. turn_off_electrons) cycle
+            if (sp >= 1 .and. turn_off_ions) cycle
+            species_rho = phase * core_rho_Bparallel_sp(plasma_in, sp, kr, krp, j) &
+                          / (8.0_dp * pi**2)
+            species_j = phase * core_j_Bparallel_sp(plasma_in, sp, kr, krp, j) &
+                        / (8.0_dp * pi**2)
+            rho_Bparallel = rho_Bparallel + species_rho
+            j_Bparallel = j_Bparallel + species_j
+            if (present(rho_Bparallel_species)) then
+                rho_Bparallel_species(sp) = species_rho
+                j_Bparallel_species(sp) = species_j
+            end if
+        end do
+    end subroutine configured_hatG_Bparallel_all
 
     subroutine configured_hatG_species(plasma_in, sp, kr, krp, j, &
             rho_phi, rho_B, j_phi, j_B)

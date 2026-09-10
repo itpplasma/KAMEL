@@ -51,8 +51,9 @@ contains
                 trim(ion_model) /= 'drift_kinetic') then
             error stop 'periodic workflow ions must use finite_larmor_radius or drift_kinetic transport'
         end if
-        if (trim(bparallel_source) /= 'disabled') then
-            error stop 'periodic Bparallel response is not implemented'
+        if (trim(bparallel_source) /= 'disabled' .and. &
+            trim(bparallel_source) /= 'prescribed_zero_mode') then
+            error stop 'kim_bparallel_source must be disabled or prescribed_zero_mode'
         end if
         if (trim(benchmark_mode) /= 'none' .and. trim(benchmark_mode) /= 'drift_kinetic_limit') then
             error stop 'kim_benchmark_mode must be none or drift_kinetic_limit'

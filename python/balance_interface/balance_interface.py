@@ -1,4 +1,5 @@
 import hashlib
+import math
 import os
 import shutil
 import sys
@@ -118,8 +119,37 @@ class QL_Balance_interface:
         if kim_physics.get("turn_off_electrons", False):
             raise ValueError("periodic KIM workflow requires active electrons")
         bparallel_ratio = kim_config.get("kim_periodic", {}).get("periodic_bparallel_ratio", 0.0)
-        if complex(bparallel_ratio) != 0.0:
-            raise ValueError("nonzero periodic_Bparallel_ratio is not implemented")
+        try:
+            bparallel_ratio = complex(bparallel_ratio)
+        except (TypeError, ValueError):
+            if not isinstance(bparallel_ratio, str):
+                raise ValueError("periodic_Bparallel_ratio must be a complex scalar")
+            stripped_ratio = bparallel_ratio.strip()
+            if not (stripped_ratio.startswith("(") and stripped_ratio.endswith(")")):
+                raise ValueError("periodic_Bparallel_ratio must be a complex scalar")
+            components = stripped_ratio[1:-1].split(",")
+            if len(components) != 2:
+                raise ValueError("periodic_Bparallel_ratio must be a complex scalar")
+            try:
+                bparallel_ratio = complex(float(components[0]), float(components[1]))
+            except ValueError as exc:
+                raise ValueError("periodic_Bparallel_ratio must be a complex scalar") from exc
+        if not math.isfinite(bparallel_ratio.real) or not math.isfinite(bparallel_ratio.imag):
+            raise ValueError("periodic_Bparallel_ratio must be finite")
+        if bparallel_ratio != 0.0:
+            if kim_physics.get("collision_model", "FokkerPlanck") != "FokkerPlanck":
+                raise ValueError("prescribed Bparallel requires FokkerPlanck collisions")
+            if kim_physics.get("ion_collision_model", "FokkerPlanck") != "FokkerPlanck":
+                raise ValueError("prescribed Bparallel requires FokkerPlanck ions")
+            if kim_physics.get("artificial_debye_case", 0) not in (0, 2):
+                raise ValueError("prescribed Bparallel requires artificial_debye_case 0 or 2")
+            kim_setup = kim_config.get("kim_setup", {})
+            if kim_setup.get("mphi_max", 0) != 0:
+                raise ValueError("prescribed Bparallel requires mphi_max=0")
+            periodic = kim_config.get("kim_periodic", {})
+            if periodic.get("periodic_match_global_kernel_approximations", False):
+                raise ValueError("prescribed Bparallel requires full periodic gyrogeometry")
+            self.conf.conf["balancenml"]["kim_bparallel_source"] = "prescribed_zero_mode"
         kim_destination = os.path.join(self.run_path, "KIM_config.nml")
         shutil.copy2(kim_config_file, kim_destination)
         self.conf.conf["balancenml"]["kim_config_path"] = "./KIM_config.nml"

@@ -11,6 +11,7 @@ module flr2_fourier_kernel_m
     public :: hatG_rho_phi_diag_sp, hatG_rho_B_diag_sp
     public :: core_rho_phi_sp, core_rho_B_sp
     public :: core_j_phi_sp, core_j_B_sp
+    public :: core_rho_Bparallel_sp, core_j_Bparallel_sp
     public :: scaled_bessel_pair
     public :: flr_arg_pair_sp
     public :: set_global_kernel_approximations
@@ -360,6 +361,96 @@ contains
                 )
         end if
     end function core_rho_B_sp
+
+    complex(dp) function core_rho_Bparallel_sp(plasma_in, sp, kr_observation, &
+                                               kr_source, j) result(G)
+        ! Per-species rho-B_parallel core for the supported m_phi=0 FP model.
+        ! Paper equation K^{rho B_parallel} differentiates only the SOURCE
+        ! gyrogeometry. The observation k_perp, detuning, omega_E, equilibrium
+        ! forces, and susceptibility functions are held fixed. The moment route
+        ! is I00/I02. No radial phase or /(8*pi^2) normalization is applied here.
+        use config_m, only: artificial_debye_case
+        use constants_m, only: com_unit, sol
+        type(plasma_t), intent(in) :: plasma_in
+        integer, intent(in) :: sp, j
+        real(dp), intent(in) :: kr_observation, kr_source
+        complex(dp) :: derivative
+
+        G = (0.0_dp, 0.0_dp)
+        if (artificial_debye_case == 0 .or. artificial_debye_case == 2) then
+            derivative = source_gyro_bracket_derivative(plasma_in, sp, &
+                                       kr_observation, kr_source, j, plasma_in%spec(sp)%I00(j, 0), &
+                                                        plasma_in%spec(sp)%I02(j, 0))
+            G = -com_unit / plasma_in%spec(sp)%lambda_D(j)**2 * &
+                plasma_in%spec(sp)%vT(j)**2 / &
+                (plasma_in%spec(sp)%nu(j) * sol) * derivative
+        end if
+    end function core_rho_Bparallel_sp
+
+    complex(dp) function core_j_Bparallel_sp(plasma_in, sp, kr_observation, &
+                                             kr_source, j) result(G)
+        ! Per-species j_parallel-B_parallel core for m_phi=0. It shares the
+        ! source-only gyrogeometry derivative above but follows the current
+        ! output route I10/I12 and carries vT^3, as in the revised master kernel.
+        use config_m, only: artificial_debye_case
+        use constants_m, only: com_unit, sol
+        type(plasma_t), intent(in) :: plasma_in
+        integer, intent(in) :: sp, j
+        real(dp), intent(in) :: kr_observation, kr_source
+        complex(dp) :: derivative
+
+        G = (0.0_dp, 0.0_dp)
+        if (artificial_debye_case == 0 .or. artificial_debye_case == 2) then
+            derivative = source_gyro_bracket_derivative(plasma_in, sp, &
+                                       kr_observation, kr_source, j, plasma_in%spec(sp)%I10(j, 0), &
+                                                        plasma_in%spec(sp)%I12(j, 0))
+            G = -com_unit / plasma_in%spec(sp)%lambda_D(j)**2 * &
+                plasma_in%spec(sp)%vT(j)**3 / &
+                (plasma_in%spec(sp)%nu(j) * sol) * derivative
+        end if
+    end function core_j_Bparallel_sp
+
+    complex(dp) function source_gyro_bracket_derivative(plasma_in, sp, &
+                                  kr_observation, kr_source, j, moment0, moment2) result(derivative)
+        ! Analytic d/dk_s of the m_phi=0 Gaussian--Bessel bracket. Only the
+        ! source k_perp is differentiated. With
+        !   g0 = exp(-bplus) I0(bcross),
+        !   g1 = exp(-bplus) bcross I1(bcross),
+        ! the identity d[x I1(x)]/dx = x I0(x) avoids I2 and is regular at x=0.
+        type(plasma_t), intent(in) :: plasma_in
+        integer, intent(in) :: sp, j
+        real(dp), intent(in) :: kr_observation, kr_source
+        complex(dp), intent(in) :: moment0, moment2
+        real(dp) :: rho2, ks, kp_observation, kp_source
+        real(dp) :: bplus, bcross, dbplus, dbcross
+        real(dp) :: sI0, sI1, g1, dg0, dg1, force
+
+        derivative = (0.0_dp, 0.0_dp)
+        if (.not. kern_include_ks2) return
+
+        rho2 = plasma_in%spec(sp)%rho_L(j)**2
+        ks = plasma_in%ks(j)
+        kp_observation = hypot(ks, kr_observation)
+        kp_source = hypot(ks, kr_source)
+        bplus = 0.5_dp * rho2 * (kp_observation**2 + kp_source**2)
+        bcross = rho2 * kp_observation * kp_source
+        dbplus = rho2 * ks
+        dbcross = 0.0_dp
+        if (kp_source > tiny(1.0_dp)) then
+            dbcross = rho2 * kp_observation * ks / kp_source
+        end if
+
+        call scaled_bessel_pair(bplus, bcross, sI0, sI1)
+        g1 = bcross * sI1
+        dg0 = -dbplus * sI0 + dbcross * sI1
+        dg1 = -dbplus * g1 + dbcross * bcross * sI0
+        force = plasma_in%spec(sp)%A1(j) + &
+                plasma_in%spec(sp)%A2(j) * (1.0_dp - bplus)
+        derivative = ( &
+                     (-plasma_in%spec(sp)%A2(j) * dbplus * sI0 + force * dg0 &
+                      + plasma_in%spec(sp)%A2(j) * dg1) * moment0 &
+                     + 0.5_dp * plasma_in%spec(sp)%A2(j) * dg0 * moment2)
+    end function source_gyro_bracket_derivative
 
     complex(dp) function hatG_rho_phi_diag_sp(plasma_in, sp, kr, j) result(G)
         ! Per-species DIAGONAL (single-wavenumber) rho-Phi integrand

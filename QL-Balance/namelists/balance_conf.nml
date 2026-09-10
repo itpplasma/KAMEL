@@ -62,7 +62,7 @@
  kim_run_type = 'electromagnetic' ,
  kim_electron_transport_model = 'drift_kinetic' ,
  kim_ion_transport_model = 'finite_larmor_radius' , ! 'finite_larmor_radius' or 'drift_kinetic'
- kim_bparallel_source = 'disabled' ,
+ kim_bparallel_source = 'disabled' , ! 'disabled' or 'prescribed_zero_mode'
  kim_benchmark_mode = 'none' ,
     ! Positive target: unit-drive normalization; otherwise keep manual antenna factor.
     kim_current_floor = 1.0d-30

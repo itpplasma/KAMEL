@@ -96,16 +96,82 @@ def test_run_periodic_kim_requires_kim_config(tmp_path):
     [
         "&KIM_CONFIG\n turn_off_ions=.true., turn_off_electrons=.false.\n/\n",
         "&KIM_CONFIG\n turn_off_ions=.false., turn_off_electrons=.true.\n/\n",
-        (
-            "&KIM_CONFIG\n turn_off_ions=.false., turn_off_electrons=.false.\n/\n"
-            "&KIM_PERIODIC\n periodic_Bparallel_ratio=(1.0,0.0)\n/\n"
-        ),
     ],
 )
-def test_run_periodic_kim_rejects_unsupported_kim_physics(tmp_path, kim_config):
+def test_run_periodic_kim_rejects_disabled_species(tmp_path, kim_config):
     config_path = tmp_path / "source_KIM_config.nml"
     config_path.write_text(kim_config)
     interface = QL_Balance_interface(tmp_path, 1, 2.0, "periodic", debug=False)
     interface.conf = balance_conf()
     with pytest.raises(ValueError):
+        interface.run_periodic_kim(-2.0, 50.0, [(-6, 2)], kim_config_file=config_path)
+
+
+def test_run_periodic_kim_accepts_prescribed_bparallel(tmp_path, monkeypatch):
+    config_path = tmp_path / "source_KIM_config.nml"
+    config_path.write_text(
+        "&KIM_CONFIG\n"
+        " turn_off_ions=.false., turn_off_electrons=.false.,\n"
+        " collision_model='FokkerPlanck', ion_collision_model='FokkerPlanck',\n"
+        " artificial_debye_case=0\n/\n"
+        "&KIM_SETUP\n mphi_max=0\n/\n"
+        "&KIM_PERIODIC\n"
+        " periodic_Bparallel_ratio=(0.25,-0.1),\n"
+        " periodic_match_global_kernel_approximations=.false.\n/\n"
+    )
+    interface = QL_Balance_interface(tmp_path, 1, 2.0, "periodic", debug=False)
+    interface.conf = balance_conf()
+    monkeypatch.setattr(interface, "prepare_balance_kim", lambda *_: None)
+    monkeypatch.setattr(interface, "set_config_nml", lambda: None)
+    monkeypatch.setattr(interface, "write_config_nml", lambda path: None)
+    monkeypatch.setattr(interface, "run_balance", lambda **kwargs: 0)
+    interface.run_periodic_kim(-2.0, 50.0, [(-6, 2)], kim_config_file=config_path)
+    assert interface.conf.conf["balancenml"]["kim_bparallel_source"] == "prescribed_zero_mode"
+
+
+@pytest.mark.parametrize(
+    ("physics_settings", "setup_settings", "periodic_settings", "message"),
+    [
+        ("collision_model='Krook'", "mphi_max=0", "", "FokkerPlanck collisions"),
+        (
+            "collision_model='FokkerPlanck', ion_collision_model='collisionless'",
+            "mphi_max=0",
+            "",
+            "FokkerPlanck ions",
+        ),
+        (
+            "collision_model='FokkerPlanck', artificial_debye_case=1",
+            "mphi_max=0",
+            "",
+            "artificial_debye_case",
+        ),
+        (
+            "collision_model='FokkerPlanck'",
+            "mphi_max=1",
+            "",
+            "mphi_max=0",
+        ),
+        (
+            "collision_model='FokkerPlanck'",
+            "mphi_max=0",
+            "periodic_match_global_kernel_approximations=.true.",
+            "full periodic gyrogeometry",
+        ),
+    ],
+)
+def test_run_periodic_kim_rejects_unsupported_prescribed_bparallel(
+    tmp_path, physics_settings, setup_settings, periodic_settings, message
+):
+    config_path = tmp_path / "source_KIM_config.nml"
+    config_path.write_text(
+        "&KIM_CONFIG\n"
+        " turn_off_ions=.false., turn_off_electrons=.false.,\n"
+        f" {physics_settings}\n/\n"
+        f"&KIM_SETUP\n {setup_settings}\n/\n"
+        "&KIM_PERIODIC\n periodic_Bparallel_ratio=(0.25,-0.1),\n"
+        f" {periodic_settings}\n/\n"
+    )
+    interface = QL_Balance_interface(tmp_path, 1, 2.0, "periodic", debug=False)
+    interface.conf = balance_conf()
+    with pytest.raises(ValueError, match=message):
         interface.run_periodic_kim(-2.0, 50.0, [(-6, 2)], kim_config_file=config_path)

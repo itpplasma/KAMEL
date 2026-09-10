@@ -10,7 +10,16 @@ module kim_wave_code_adapter_m
     use kim_solver_m, only: kim_solver_t, kim_results_t, kim_profiles_t, KIM_OK
     use species_m, only: kim_plasma => plasma     ! Path B reads KIM's file-loaded inputs
     use equilibrium_m, only: kim_B0 => B0         ! Path B background B0
-    use config_m, only: kim_hdf5_output => hdf5_output
+    use config_m, only: kim_hdf5_output => hdf5_output, &
+        kim_turn_off_ions => turn_off_ions, kim_turn_off_electrons => turn_off_electrons, &
+        kim_periodic_dr_asis_scale => periodic_dr_asis_scale, &
+        kim_periodic_dr_tr_scale => periodic_dr_tr_scale, &
+        kim_periodic_kmax_scale => periodic_kmax_scale, kim_periodic_n_rg => periodic_n_rg, &
+        kim_periodic_match_global => periodic_match_global_kernel_approximations, &
+        kim_periodic_bparallel_ratio => periodic_Bparallel_ratio, &
+        kim_ion_temperature_gradient_model => ion_temperature_gradient_model, &
+        kim_electron_conservation_model => resolved_electron_ifunc_conservation_model, &
+        kim_ion_conservation_model => resolved_ion_ifunc_conservation_model
     use setup_m, only: kim_m_mode => m_mode, kim_n_mode => n_mode
     use grid_m, only: kim_xl_grid => xl_grid, &
                       kim_r_min => r_min, kim_r_plas => r_plas
@@ -37,6 +46,7 @@ module kim_wave_code_adapter_m
     public :: kim_get_current_densities
     public :: interp_complex_profile  ! exposed for testing
     public :: kim_periodic_mode_selected
+    public :: kim_get_periodic_provenance
     public :: kim_D_ion_modes, kim_transition_weights, kim_embedding_metadata
     public :: kim_periodic_scale_modes, kim_periodic_current_unit, kim_periodic_scale_status
     public :: kim_normalize_periodic_response, kim_current_records
@@ -102,6 +112,28 @@ module kim_wave_code_adapter_m
     complex(8), allocatable :: kim_jpar_i_modes(:,:)
 
 contains
+
+    subroutine kim_get_periodic_provenance(ions_active, electrons_active, dr_asis_scale, &
+            dr_tr_scale, kmax_scale, n_rg, match_global, bparallel_ratio, &
+            ion_gradient_model, electron_conservation_model, ion_conservation_model)
+        logical, intent(out) :: ions_active, electrons_active, match_global
+        real(8), intent(out) :: dr_asis_scale, dr_tr_scale, kmax_scale
+        integer, intent(out) :: n_rg, electron_conservation_model, ion_conservation_model
+        complex(8), intent(out) :: bparallel_ratio
+        character(*), intent(out) :: ion_gradient_model
+
+        ions_active = .not. kim_turn_off_ions
+        electrons_active = .not. kim_turn_off_electrons
+        dr_asis_scale = kim_periodic_dr_asis_scale
+        dr_tr_scale = kim_periodic_dr_tr_scale
+        kmax_scale = kim_periodic_kmax_scale
+        n_rg = kim_periodic_n_rg
+        match_global = kim_periodic_match_global
+        bparallel_ratio = kim_periodic_bparallel_ratio
+        ion_gradient_model = kim_ion_temperature_gradient_model
+        electron_conservation_model = kim_electron_conservation_model
+        ion_conservation_model = kim_ion_conservation_model
+    end subroutine kim_get_periodic_provenance
 
     subroutine kim_initialize(nrad, r_grid)
         !! Initialize KIM backend: read config, profiles, grids.
@@ -190,6 +222,12 @@ contains
         if (ierr /= KIM_OK) then
             write(*,*) 'ERROR: KIM init failed with status ', ierr
             stop 1
+        end if
+        if (trim(kim_run_type) == 'electrostatic_periodic') then
+            if (kim_turn_off_ions) error stop 'periodic KIM workflow requires active ions'
+            if (kim_turn_off_electrons) error stop 'periodic KIM workflow requires active electrons'
+            if (kim_periodic_bparallel_ratio /= (0.0d0, 0.0d0)) &
+                error stop 'periodic Bparallel response is not implemented'
         end if
 
         ! Disable KIM HDF5 output for QL-Balance integration.

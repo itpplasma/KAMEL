@@ -1,7 +1,9 @@
+import hashlib
 import os
 import shutil
 import sys
 
+import f90nml
 import h5py
 import numpy as np
 from KiLCA_interface import KiLCA_interface
@@ -75,6 +77,60 @@ class QL_Balance_interface:
     def set_modes(self, m_mode, n_mode):
         self.m_mode = m_mode
         self.n_mode = n_mode
+
+    def configure_periodic_kim(self, modes, target_current=0.0, benchmark_mode="none"):
+        """Configure the complete periodic KIM/QL-Balance transport workflow."""
+        if not hasattr(self, "conf"):
+            self.read_config_nml()
+        self.conf.configure_periodic_kim(modes, target_current, benchmark_mode)
+
+    def run_periodic_kim(
+        self,
+        Btor,
+        a_minor,
+        modes,
+        target_current=0.0,
+        benchmark_mode="none",
+        kim_config_file=None,
+        suppress_console_output=True,
+    ):
+        """Prepare and execute a periodic-KIM QL-Balance run.
+
+        The caller supplies the KIM namelist because grid, harmonic, and
+        compact-transition controls are solver-specific.  The balance
+        namelist is generated with the validated species/B-parallel policy.
+        """
+        modes = list(modes)
+        self.configure_periodic_kim(modes, target_current, benchmark_mode)
+        self.m_mode = [int(mode[0]) for mode in modes]
+        self.n_mode = [int(mode[1]) for mode in modes]
+        if kim_config_file is None:
+            raise ValueError("kim_config_file is required for a periodic KIM run")
+        if not os.path.isfile(kim_config_file):
+            raise FileNotFoundError(f"KIM configuration not found: {kim_config_file}")
+        kim_config = f90nml.read(kim_config_file)
+        kim_physics = kim_config.get("kim_config", {})
+        required_species_flags = {"turn_off_ions", "turn_off_electrons"}
+        if not required_species_flags.issubset(kim_physics):
+            raise ValueError("KIM_CONFIG must explicitly enable ions and electrons")
+        if kim_physics.get("turn_off_ions", False):
+            raise ValueError("periodic KIM workflow requires active ions")
+        if kim_physics.get("turn_off_electrons", False):
+            raise ValueError("periodic KIM workflow requires active electrons")
+        bparallel_ratio = kim_config.get("kim_periodic", {}).get("periodic_bparallel_ratio", 0.0)
+        if complex(bparallel_ratio) != 0.0:
+            raise ValueError("nonzero periodic_Bparallel_ratio is not implemented")
+        kim_destination = os.path.join(self.run_path, "KIM_config.nml")
+        shutil.copy2(kim_config_file, kim_destination)
+        self.conf.conf["balancenml"]["kim_config_path"] = "./KIM_config.nml"
+        with open(kim_destination, "rb") as config_stream:
+            self.conf.conf["balancenml"]["kim_config_sha256"] = hashlib.sha256(
+                config_stream.read()
+            ).hexdigest()
+        self.prepare_balance_kim(Btor, a_minor)
+        self.set_config_nml()
+        self.write_config_nml(os.path.join(self.run_path, "balance_conf.nml"))
+        return self.run_balance(suppress_console_output=suppress_console_output)
 
     def copy_profiles(self, profile_path):
         """Copy the profiles to the run directory."""

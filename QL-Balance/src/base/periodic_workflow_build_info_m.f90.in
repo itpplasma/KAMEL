@@ -1,0 +1,6 @@
+module periodic_workflow_build_info_m
+    implicit none
+    private
+    character(*), parameter, public :: kim_algebra_generator_sha256 = &
+        '@KIM_ALGEBRA_GENERATOR_SHA256@'
+end module periodic_workflow_build_info_m

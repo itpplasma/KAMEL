@@ -4,8 +4,10 @@ subroutine read_config
     use control_mod, only: eps, paramscan, data_verbosity, suppression_mode, log_level, &
                            readfromtimestep, temperature_limit, gyro_current_study, &
                            misalign_diffusion, equil_path, ihdf5IO, wave_code, &
-                           kim_config_path, kim_profiles_from_balance, &
+                           kim_config_path, kim_config_sha256, kim_profiles_from_balance, &
                            kim_run_type, kim_ion_transport_model, kim_transport_benchmark, &
+                           kim_electron_transport_model, &
+                           kim_bparallel_source, kim_benchmark_mode, &
                            kim_n_modes, kim_m_list, kim_n_list, &
                            kim_current_floor, kim_current_max_scale, kim_current_relaxation, &
                            jpar_method, ion_transport_model_id, &
@@ -17,6 +19,8 @@ subroutine read_config
     use time_evolution
     use wave_code_data, only: flre_path, vac_path, antenna_factor, I_par_toroidal
     use logger_m, only: set_log_level, log_info, fmt_val
+    use periodic_workflow_validation_m, only: validate_periodic_workflow, &
+                                              periodic_benchmark_enabled
 
     implicit none
 
@@ -32,11 +36,12 @@ subroutine read_config
         suppression_mode, log_level, readfromtimestep, path2time, ramp_up_mode, t_max_ramp_up, &
         temperature_limit, antenna_max_stopping, gyro_current_study, viscosity_factor, &
         misalign_diffusion, equil_path, ihdf5IO, type_of_run, wave_code, &
-        set_constant_time_step, constant_time_step, urelax, kim_config_path, &
+        set_constant_time_step, constant_time_step, urelax, kim_config_path, kim_config_sha256, &
         kim_profiles_from_balance, kim_run_type, kim_ion_transport_model, kim_transport_benchmark, &
         kim_n_modes, kim_m_list, kim_n_list, &
         I_par_toroidal, jpar_method, kim_current_floor, kim_current_max_scale, &
-        kim_current_relaxation
+        kim_current_relaxation, kim_electron_transport_model, &
+        kim_bparallel_source, kim_benchmark_mode
 
     ! read the parameters from namelist file
     open (newunit=u, file=config_file, status="old", action="read", iostat=ios)
@@ -49,6 +54,12 @@ subroutine read_config
             ION_TRANSPORT_INVALID) then
         error stop 'kim_ion_transport_model must be finite_larmor_radius or drift_kinetic'
     end if
+    call validate_periodic_workflow(wave_code, kim_run_type, type_of_run, &
+        kim_profiles_from_balance, kim_n_modes, kim_m_list, kim_n_list, I_par_toroidal, &
+        jpar_method, kim_electron_transport_model, kim_ion_transport_model, &
+        kim_bparallel_source, kim_benchmark_mode)
+    if (trim(wave_code) == 'KIM' .and. trim(kim_run_type) == 'electrostatic_periodic') &
+        kim_transport_benchmark = periodic_benchmark_enabled(kim_benchmark_mode)
 
     if (trim(wave_code) == 'KIM' .and. trim(kim_run_type) == 'electrostatic_periodic') then
         if (.not. ieee_is_finite(I_par_toroidal)) error stop 'non-finite target current'
@@ -118,8 +129,10 @@ subroutine read_config
     call log_info(fmt_val("    kim_config_path", trim(adjustl(kim_config_path))))
     call log_info(fmt_val("    kim_profiles_from_balance", kim_profiles_from_balance))
     call log_info(fmt_val("    kim_run_type", trim(adjustl(kim_run_type))))
-    call log_info(fmt_val("    kim_ion_transport_model", &
-        trim(adjustl(kim_ion_transport_model))))
+    call log_info(fmt_val("    kim_electron_transport_model", trim(adjustl(kim_electron_transport_model))))
+    call log_info(fmt_val("    kim_ion_transport_model", trim(adjustl(kim_ion_transport_model))))
+    call log_info(fmt_val("    kim_bparallel_source", trim(adjustl(kim_bparallel_source))))
+    call log_info(fmt_val("    kim_benchmark_mode", trim(adjustl(kim_benchmark_mode))))
     call log_info(fmt_val("    kim_n_modes", kim_n_modes))
     if (kim_n_modes > 0) then
         write (*, "(A,100I5)") "    kim_m_list = ", kim_m_list(1:kim_n_modes)

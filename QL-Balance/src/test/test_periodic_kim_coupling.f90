@@ -7,7 +7,8 @@ program test_periodic_kim_coupling
         kim_get_wave_fields, kim_D_ion_modes, kim_transition_weights, &
         kim_embedding_metadata, kim_update_profiles, kim_get_wave_vectors
     use control_mod, only: wave_code, kim_config_path, kim_profiles_from_balance, &
-        type_of_run, kim_run_type, kim_transport_benchmark, kim_ion_transport_model
+        type_of_run, kim_run_type, kim_transport_benchmark, kim_ion_transport_model, &
+        kim_bparallel_source
     use wave_code_data, only: dim_mn, m_vals, n_vals, r, n, Te, Ti, q, &
         Vth, Vz, dPhi0, Es, Ep, Er, Et, Ez, Br, Bp, B0, nue, nui
     use plasma_parameters, only: params_b
@@ -48,6 +49,7 @@ program test_periodic_kim_coupling
     wave_code = 'KIM'
     kim_run_type = 'electrostatic_periodic'
     kim_profiles_from_balance = .true.
+    kim_bparallel_source = 'prescribed_zero_mode'
     type_of_run = 'SingleStep'
     kim_config_path = 'KIM_config_periodic_coupling.nml'
     call write_config(trim(kim_config_path))
@@ -245,6 +247,8 @@ contains
             ! compact embedding is therefore independently known at every point.
             call require(abs(Br(j) - cmplx(weight, 0.0d0, 8)) < 1.0d-12, &
                 'prescribed radial field was not embedded with the field weight')
+            call require(abs(Bp(j) - cmplx(0.25d0, -0.10d0, 8) * Br(j)) < 1.0d-12, &
+                'prescribed parallel field did not use the common field weight')
             if (weight == 0.0d0) then
                 call require(abs(Es(j)) + abs(Ep(j)) + abs(Er(j)) + abs(Et(j)) + &
                     abs(Ez(j)) + abs(Br(j)) + abs(Bp(j)) == 0.0d0, &
@@ -351,7 +355,7 @@ contains
             ' periodic_dr_tr_scale = 10.0', &
             ' periodic_kmax_scale = 0.4', &
             ' periodic_n_rg = 32', &
-            ' periodic_Bparallel_ratio = (0.0, 0.0)', &
+            ' periodic_Bparallel_ratio = (0.25, -0.10)', &
             '/'
         close(unit)
     end subroutine write_config

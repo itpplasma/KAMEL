@@ -1,12 +1,12 @@
 program test_periodic_ion_tensor
     use KIM_kinds_m, only: dp
     use constants_m, only: pi, sol
-    use config_m, only: resolved_ion_ifunc_conservation_model, periodic_Bparallel_ratio
+    use config_m, only: resolved_ion_ifunc_conservation_model
     use setup_m, only: mphi_max
     use species_m, only: evaluate_susceptibility
     use quasilinear_flr_m, only: calc_ion_flr_harmonic
     use rt_electrostatic_periodic_m, only: compute_periodic_ion_tensor, &
-        compute_periodic_ion_tensor_spectrum, electrostatic_periodic_t
+        compute_periodic_ion_tensor_spectrum
     use fortnum_special, only: bessel_in
     implicit none
 
@@ -15,15 +15,6 @@ program test_periodic_ion_tensor
     real(dp), parameter :: b0 = 1.0_dp, period = pi, radius = 0.37_dp
     complex(dp) :: moments(0:3,0:3)
     integer :: failures
-    character(len=32) :: argument
-    type(electrostatic_periodic_t) :: solver
-
-    call get_command_argument(1, argument)
-    if (trim(argument) == 'reject_bparallel') then
-        periodic_Bparallel_ratio = (1.0_dp, 0.0_dp)
-        call solver%run()
-        stop 0
-    end if
 
     failures = 0
     mphi_max = 0
@@ -32,6 +23,7 @@ program test_periodic_ion_tensor
     call test_single_radial_wave()
     call test_radial_interference()
     call test_constant_drive()
+    call test_constant_bparallel_drive()
     call test_negative_wave_harmonics()
     call test_zero_padded_spectrum()
     if (failures /= 0) error stop 'periodic ion spectral tensor regression failed'
@@ -39,12 +31,13 @@ program test_periodic_ion_tensor
 
 contains
 
-    subroutine evaluate_spectrum(phi_m, br, x, tensor)
+    subroutine evaluate_spectrum(phi_m, br, x, tensor, bparallel)
         complex(dp), intent(in) :: phi_m(:), br
+        complex(dp), intent(in), optional :: bparallel
         real(dp), intent(in) :: x
         real(dp), intent(out) :: tensor(2,2)
         call compute_periodic_ion_tensor_spectrum(phi_m, br, period, x, ks, kpar, &
-            vti, nui, omega_ci, 0.0_dp, om_e, b0, tensor)
+            vti, nui, omega_ci, 0.0_dp, om_e, b0, tensor, bparallel)
     end subroutine evaluate_spectrum
 
     subroutine test_single_radial_wave()
@@ -122,6 +115,22 @@ contains
         call evaluate_spectrum(phi_m, br, radius, got)
         call check_tensor('constant drive retains zero-mode normalization', got, expected)
     end subroutine test_constant_drive
+
+    subroutine test_constant_bparallel_drive()
+        complex(dp) :: phi_m(3), fields(3), br, bparallel
+        real(dp) :: got(2, 2), expected(2, 2)
+
+        phi_m = (0.0_dp, 0.0_dp)
+        phi_m(2) = cmplx(0.8_dp, 0.3_dp, dp) / sol
+        br = cmplx(0.2_dp, -0.1_dp, dp)
+        bparallel = cmplx(-0.07_dp, 0.16_dp, dp)
+        fields = [phi_m(2), br, bparallel]
+        call compute_periodic_ion_tensor(fields, ks, 0.0_dp, kpar, vti, nui, omega_ci, &
+            0.0_dp, om_e, b0, expected)
+        call evaluate_spectrum(phi_m, br, radius, got, bparallel)
+        call check_tensor('constant Bparallel retains zero-mode phase and normalization', &
+            got, expected)
+    end subroutine test_constant_bparallel_drive
 
     subroutine test_negative_wave_harmonics()
         complex(dp) :: phi_m(3), fields(3), harmonic_moments(0:3,0:3)

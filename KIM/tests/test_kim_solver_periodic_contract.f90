@@ -10,8 +10,10 @@ program test_kim_solver_periodic_contract
     integer, parameter :: npts = 40
     integer, parameter :: m_mode = -6, n_mode = 2
     type(kim_solver_t) :: kim
+    type(kim_solver_t) :: kim_bparallel
     type(kim_results_t) :: res
     type(kim_results_t) :: res_first
+    type(kim_results_t) :: res_bparallel
     type(kim_profiles_t) :: prof
     integer :: ierr, i
     real(dp) :: frac
@@ -79,6 +81,31 @@ program test_kim_solver_periodic_contract
     end if
 
     call kim%finalize()
+
+    call kim_bparallel%init('KIM_config_bparallel_small.nml', &
+                            run_type='electrostatic_periodic', profiles=prof, stat=ierr)
+    call check('prescribed-Bparallel init returns KIM_OK', ierr == KIM_OK, all_passed)
+    if (ierr == KIM_OK) then
+        call kim_bparallel%solve(m=m_mode, n=n_mode, stat=ierr)
+        call check('prescribed-Bparallel solve returns KIM_OK', ierr == KIM_OK, all_passed)
+    end if
+    if (ierr == KIM_OK) then
+        res_bparallel = kim_bparallel%results()
+        call check('prescribed Bparallel is the configured complex ratio times Br', &
+                   maxval(abs(res_bparallel%Bparallel - &
+                              cmplx(0.25_dp, -0.10_dp, dp) * res_bparallel%Br)) <= 1.0e-13_dp, &
+                   all_passed)
+        call check('prescribed Bparallel changes the self-consistent potential', &
+                   maxval(abs(res_bparallel%Phi - res_first%Phi)) > &
+                   1.0e-10_dp * maxval(abs(res_first%Phi)), all_passed)
+        call check('prescribed Bparallel reaches parallel current response', &
+                   maxval(abs(res_bparallel%jpar - res_first%jpar)) > &
+                   1.0e-10_dp * maxval(abs(res_first%jpar)), all_passed)
+        call check('prescribed Bparallel reaches ion transport', &
+                   maxval(abs(res_bparallel%D_ion - res_first%D_ion)) > &
+                   1.0e-10_dp * maxval(abs(res_first%D_ion)), all_passed)
+    end if
+    call kim_bparallel%finalize()
     if (all_passed) then
         print *, 'All periodic KIM result-contract checks PASSED'
         stop 0

@@ -35,8 +35,8 @@ Periodic single-step and time-evolution outputs contain a
 selected modes, target current, normalization version and phase policy, KIM
 configuration path, benchmark mode, and the SHA-256 hash of the Mathematica
 algebra fixture generator. Per-step checkpoints additionally carry the
-accepted/trial shielding amplitudes and current diagnostics documented in
-[#294](2026-08-12-kim-294-periodic-amplitude-restart.md).
+accepted shielding amplitudes and current diagnostics implemented under
+[issue #294](https://github.com/itpplasma/KAMEL/issues/294).
 
 This metadata is provenance, not a scientific acceptance claim. Human sign-off
 still requires the resolution/taper/harmonic/time-step scans, central-layer

@@ -6,7 +6,7 @@ subroutine read_config
                            misalign_diffusion, equil_path, ihdf5IO, wave_code, &
                            kim_config_path, kim_profiles_from_balance, &
                            kim_run_type, kim_ion_transport_model, kim_transport_benchmark, &
-                           kim_electron_transport_model, kim_ion_transport_model, &
+                           kim_electron_transport_model, &
                            kim_bparallel_source, kim_benchmark_mode, &
                            kim_n_modes, kim_m_list, kim_n_list, &
                            kim_current_floor, kim_current_max_scale, kim_current_relaxation, &

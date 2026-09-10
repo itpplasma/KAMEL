@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import runpy
+import shlex
 import sys
 from pathlib import Path
 
@@ -45,7 +46,7 @@ def fake_executable(tmp_path: Path) -> Path:
 
 @pytest.mark.parametrize(
     "command",
-    ["parameters", "validate", "run", "sweep", "status", "inspect", "result"],
+    ["parameters", "validate", "run", "sweep", "status", "inspect", "result", "doctor", "init"],
 )
 def test_every_command_has_help(command: str) -> None:
     result = runner.invoke(app, [command, "--help"])
@@ -66,6 +67,97 @@ def test_parameters_supports_table_and_json_schema() -> None:
     parsed = json.loads(schema.stdout)
     assert parsed["title"] == "SimulationConfig"
     assert "$defs" in parsed
+
+
+def test_doctor_reports_selected_executable_as_json(tmp_path: Path) -> None:
+    executable = fake_executable(tmp_path)
+
+    result = runner.invoke(
+        app,
+        ["doctor", "--executable", str(executable), "--format", "json"],
+    )
+
+    assert result.exit_code == 0
+    payload = json.loads(result.stdout)
+    assert payload["selection_status"] == "selected"
+    assert payload["executable_path"] == str(executable.resolve())
+    assert payload["executable_source"] == "explicit"
+    assert payload["runtime_libraries_checked"] is False
+    assert "does not verify runtime libraries" in payload["runtime_check"]
+
+
+def test_doctor_selection_error_is_concise_and_has_no_traceback(tmp_path: Path) -> None:
+    missing = tmp_path / "missing" / "KIM.x"
+
+    result = runner.invoke(
+        app,
+        ["doctor", "--executable", str(missing), "--format", "json"],
+    )
+
+    assert result.exit_code == 1
+    payload = json.loads(result.stdout)
+    assert payload["selection_status"] == "unavailable"
+    assert "explicit executable" in payload["selection_error"]
+    assert "Traceback" not in result.output
+
+
+def test_init_creates_case_and_validate_works_from_inside_case(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    destination = tmp_path / "case with spaces"
+    monkeypatch.chdir(tmp_path)
+
+    result = runner.invoke(app, ["init", str(destination), "--example", "periodic"])
+
+    assert result.exit_code == 0
+    assert "case_directory:" in result.stdout
+    assert "request_path:" in result.stdout
+    assert f"next: {shlex.join(('cd', '--', str(destination)))}" in result.stdout
+    assert "kim validate request.json" in result.stdout
+
+    monkeypatch.chdir(destination)
+    validation = runner.invoke(app, ["validate", "request.json", "--format", "json"])
+
+    assert validation.exit_code == 0
+    assert json.loads(validation.stdout)["valid"] is True
+
+
+def test_init_quotes_relative_destination_starting_with_dash(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    destination = Path("-case with spaces")
+    monkeypatch.chdir(tmp_path)
+
+    result = runner.invoke(app, ["init", "--example", "periodic", "--", str(destination)])
+
+    assert result.exit_code == 0
+    assert "next: cd -- '-case with spaces'" in result.stdout
+
+
+def test_init_supports_json_output(tmp_path: Path) -> None:
+    destination = tmp_path / "case"
+
+    result = runner.invoke(
+        app,
+        ["init", str(destination), "--example", "periodic", "--format", "json"],
+    )
+
+    assert result.exit_code == 0
+    payload = json.loads(result.stdout)
+    assert payload["example"] == "periodic"
+    assert payload["case_directory"] == str(destination)
+    assert payload["request_path"] == str(destination / "request.json")
+
+
+def test_init_refuses_to_replace_existing_case(tmp_path: Path) -> None:
+    destination = tmp_path / "case"
+    destination.mkdir()
+
+    result = runner.invoke(app, ["init", str(destination), "--example", "periodic"])
+
+    assert result.exit_code == 1
+    assert "destination already exists" in result.stderr
+    assert "Traceback" not in result.output
 
 
 def test_validate_accepts_json_and_profile_override(tmp_path: Path) -> None:

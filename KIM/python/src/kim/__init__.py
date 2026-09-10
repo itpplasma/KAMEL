@@ -25,6 +25,7 @@ from kim.config import (
     SimulationConfig,
     ThetaIntegration,
 )
+from kim.diagnostics import EnvironmentDiagnosticReport, diagnose_environment
 from kim.errors import (
     ConfigurationError,
     ExecutableError,
@@ -34,11 +35,14 @@ from kim.errors import (
     RunError,
     SweepError,
 )
+from kim.examples import create_example
 from kim.executable import (
+    ExecutableSelection,
     KamelGitMetadata,
     discover_kamel_git_metadata,
     executable_sha256,
     resolve_executable,
+    select_executable,
 )
 from kim.profiles import ProfileCopy, ProfileData, ProfileSet, ProfileValidation
 from kim.results import DatasetMetadata, PeriodicResult, Result
@@ -71,8 +75,10 @@ __all__ = [
     "DatasetMetadata",
     "ElectrostaticPeriodicRun",
     "ElectrostaticRun",
+    "EnvironmentDiagnosticReport",
     "ExplicitPlasma",
     "ExecutableError",
+    "ExecutableSelection",
     "Flr2Config",
     "Flr2Run",
     "GridConfig",
@@ -121,7 +127,10 @@ __all__ = [
     "ThetaIntegration",
     "__version__",
     "discover_kamel_git_metadata",
+    "create_example",
+    "diagnose_environment",
     "executable_sha256",
     "resolve_executable",
+    "select_executable",
     "run_sweep",
 ]

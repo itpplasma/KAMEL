@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import json
+import shlex
+from dataclasses import asdict
 from enum import Enum
 from pathlib import Path
 from typing import Any
@@ -10,7 +12,9 @@ from typing import Any
 import numpy as np
 import typer
 from kim.config import ProfileConfig, SimulationConfig
+from kim.diagnostics import diagnose_environment
 from kim.errors import ConfigurationError, KimError
+from kim.examples import create_example
 from kim.profiles import ProfileSet
 from kim.results import Result
 from kim.runs import RunManifest, RunRepository, RunStatus
@@ -61,6 +65,46 @@ def parameters_command(
         typer.echo(
             f"{path:<33} {details['type']:<13} " f"{details['units']:<11} {details['sweepable']}"
         )
+
+
+@app.command("doctor")
+def doctor_command(
+    executable: Path | None = typer.Option(None, "--executable", help="Path to KIM.x."),
+    output_format: OutputFormat = typer.Option(OutputFormat.TABLE, "--format"),
+) -> None:
+    """Report package identity and read-only KIM.x selection diagnostics."""
+
+    report = diagnose_environment(executable)
+    _render(asdict(report), output_format)
+    if report.selection_status != "selected":
+        raise typer.Exit(1)
+
+
+@app.command("init")
+def init_command(
+    context: typer.Context,
+    destination: Path = typer.Argument(..., help="Directory to create for the example case."),
+    example: str = typer.Option(..., "--example", help="Packaged example name."),
+    output_format: OutputFormat = typer.Option(OutputFormat.TABLE, "--format"),
+) -> None:
+    """Create a standalone copy of a packaged KIM example case."""
+
+    try:
+        request_path = create_example(destination, name=example)
+    except (KimError, OSError, ValueError) as error:
+        _fail(context, error)
+
+    payload = {
+        "example": example,
+        "case_directory": destination,
+        "request_path": request_path,
+    }
+    if output_format is OutputFormat.JSON:
+        _json_output(payload)
+        return
+    _render(payload, output_format)
+    typer.echo(f"next: {shlex.join(('cd', '--', str(destination)))}")
+    typer.echo("next: kim validate request.json")
 
 
 @app.command("validate")

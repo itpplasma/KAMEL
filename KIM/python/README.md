@@ -30,6 +30,9 @@ The CLI accepts a complete JSON request or a supported KIM namelist:
 
 ```bash
 kim validate request.json
+kim doctor
+kim doctor --executable /path/to/KIM.x --format json
+kim init ./my-periodic-case --example periodic
 kim run request.json --executable /path/to/KIM.x --runs-dir runs
 kim sweep request.json --parameter periodic.n_rg --values 512 --values 1024
 kim sweep request.json --scale-profile Er --values -1 --values 0 --values 1
@@ -40,6 +43,22 @@ kim result RUN_ID --runs-dir runs --list
 
 Use `kim parameters --format json-schema` to obtain the structured configuration schema used by
 the API and future automation tools.
+
+Create a standalone copy of the packaged periodic reference case with `kim init`. The destination
+must be new; the command never replaces or merges an existing path:
+
+```bash
+kim init ./my-periodic-case --example periodic
+cd my-periodic-case
+kim validate request.json
+```
+
+The copied request keeps `profiles.directory` set to `./profiles`, so run commands from inside the
+case directory. Use `--format json` when a script needs the created case and request paths.
+
+`kim doctor` reports the package version and the executable selected by the documented precedence
+rules. It checks that the selected path is an executable file; it does not launch `KIM.x` or verify
+its runtime libraries.
 
 See the [request JSON guide](docs/request-json.md) for a complete field description, profile
 requirements, and validated examples for every supported run type. Copyable requests are available

@@ -143,3 +143,25 @@ def test_create_example_preserves_entry_added_during_failed_copy(
         create_example(destination)
 
     assert (destination / "unrelated.txt").read_text(encoding="utf-8") == "keep\n"
+
+
+def test_create_example_nested_failure_removes_owned_ancestors(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    ancestor = tmp_path / "ancestor"
+    ancestor.mkdir()
+    unrelated = ancestor / "keep.txt"
+    unrelated.write_text("keep\n", encoding="utf-8")
+    destination = ancestor / "created" / "nested" / "case"
+
+    def fail_copy(source: object, target: object, *args: object, **kwargs: object) -> None:
+        raise OSError("simulated copy failure")
+
+    monkeypatch.setattr(examples.shutil, "copyfileobj", fail_copy)
+
+    with pytest.raises(OSError, match="simulated copy failure"):
+        create_example(destination)
+
+    assert not destination.exists()
+    assert not (ancestor / "created").exists()
+    assert unrelated.read_text(encoding="utf-8") == "keep\n"

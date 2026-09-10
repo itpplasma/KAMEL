@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import shlex
 from dataclasses import asdict
 from enum import Enum
 from pathlib import Path
@@ -102,7 +103,7 @@ def init_command(
         _json_output(payload)
         return
     _render(payload, output_format)
-    typer.echo(f"next: cd {destination}")
+    typer.echo(f"next: {shlex.join(('cd', '--', str(destination)))}")
     typer.echo("next: kim validate request.json")
 
 

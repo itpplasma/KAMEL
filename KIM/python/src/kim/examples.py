@@ -29,13 +29,10 @@ def create_example(destination: Path | str, *, name: str = "periodic") -> Path:
     source_root = resources.files("kim.example_data").joinpath(name)
     created_entries: list[Path] = []
     try:
-        target.mkdir(parents=True, exist_ok=False)
-        created_entries.append(target)
+        _mkdir_owned(target, created_entries)
         for relative_path, source in _resource_files(source_root):
             copied = target / relative_path
-            if not copied.parent.exists():
-                copied.parent.mkdir(parents=True, exist_ok=False)
-                created_entries.append(copied.parent)
+            _mkdir_owned(copied.parent, created_entries)
             with source.open("rb") as input_file, copied.open("xb") as output_file:
                 created_entries.append(copied)
                 shutil.copyfileobj(input_file, output_file)
@@ -54,6 +51,22 @@ def create_example(destination: Path | str, *, name: str = "periodic") -> Path:
         raise
 
     return target / "request.json"
+
+
+def _mkdir_owned(path: Path, created_entries: list[Path]) -> None:
+    """Create a directory and missing ancestors, recording ownership for cleanup."""
+
+    missing: list[Path] = []
+    current = path
+    while not os.path.lexists(current):
+        missing.append(current)
+        parent = current.parent
+        if parent == current:
+            break
+        current = parent
+    for directory in reversed(missing):
+        directory.mkdir()
+        created_entries.append(directory)
 
 
 def _resource_files(

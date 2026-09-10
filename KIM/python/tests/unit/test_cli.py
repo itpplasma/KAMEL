@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import runpy
+import shlex
 import sys
 from pathlib import Path
 
@@ -111,7 +112,7 @@ def test_init_creates_case_and_validate_works_from_inside_case(
     assert result.exit_code == 0
     assert "case_directory:" in result.stdout
     assert "request_path:" in result.stdout
-    assert "cd" in result.stdout
+    assert f"next: {shlex.join(('cd', '--', str(destination)))}" in result.stdout
     assert "kim validate request.json" in result.stdout
 
     monkeypatch.chdir(destination)
@@ -119,6 +120,18 @@ def test_init_creates_case_and_validate_works_from_inside_case(
 
     assert validation.exit_code == 0
     assert json.loads(validation.stdout)["valid"] is True
+
+
+def test_init_quotes_relative_destination_starting_with_dash(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    destination = Path("-case with spaces")
+    monkeypatch.chdir(tmp_path)
+
+    result = runner.invoke(app, ["init", "--example", "periodic", "--", str(destination)])
+
+    assert result.exit_code == 0
+    assert "next: cd -- '-case with spaces'" in result.stdout
 
 
 def test_init_supports_json_output(tmp_path: Path) -> None:

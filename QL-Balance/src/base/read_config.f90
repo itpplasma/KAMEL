@@ -4,7 +4,7 @@ subroutine read_config
     use control_mod, only: eps, paramscan, data_verbosity, suppression_mode, log_level, &
                            readfromtimestep, temperature_limit, gyro_current_study, &
                            misalign_diffusion, equil_path, ihdf5IO, wave_code, &
-                           kim_config_path, kim_profiles_from_balance, &
+                           kim_config_path, kim_config_sha256, kim_profiles_from_balance, &
                            kim_run_type, kim_ion_transport_model, kim_transport_benchmark, &
                            kim_electron_transport_model, &
                            kim_bparallel_source, kim_benchmark_mode, &
@@ -19,7 +19,8 @@ subroutine read_config
     use time_evolution
     use wave_code_data, only: flre_path, vac_path, antenna_factor, I_par_toroidal
     use logger_m, only: set_log_level, log_info, fmt_val
-    use periodic_workflow_validation_m, only: validate_periodic_workflow
+    use periodic_workflow_validation_m, only: validate_periodic_workflow, &
+                                              periodic_benchmark_enabled
 
     implicit none
 
@@ -35,7 +36,7 @@ subroutine read_config
         suppression_mode, log_level, readfromtimestep, path2time, ramp_up_mode, t_max_ramp_up, &
         temperature_limit, antenna_max_stopping, gyro_current_study, viscosity_factor, &
         misalign_diffusion, equil_path, ihdf5IO, type_of_run, wave_code, &
-        set_constant_time_step, constant_time_step, urelax, kim_config_path, &
+        set_constant_time_step, constant_time_step, urelax, kim_config_path, kim_config_sha256, &
         kim_profiles_from_balance, kim_run_type, kim_ion_transport_model, kim_transport_benchmark, &
         kim_n_modes, kim_m_list, kim_n_list, &
         I_par_toroidal, jpar_method, kim_current_floor, kim_current_max_scale, &
@@ -57,6 +58,8 @@ subroutine read_config
         kim_profiles_from_balance, kim_n_modes, kim_m_list, kim_n_list, I_par_toroidal, &
         jpar_method, kim_electron_transport_model, kim_ion_transport_model, &
         kim_bparallel_source, kim_benchmark_mode)
+    if (trim(wave_code) == 'KIM' .and. trim(kim_run_type) == 'electrostatic_periodic') &
+        kim_transport_benchmark = periodic_benchmark_enabled(kim_benchmark_mode)
 
     if (trim(wave_code) == 'KIM' .and. trim(kim_run_type) == 'electrostatic_periodic') then
         if (.not. ieee_is_finite(I_par_toroidal)) error stop 'non-finite target current'

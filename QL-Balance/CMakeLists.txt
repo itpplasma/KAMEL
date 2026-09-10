@@ -46,7 +46,15 @@ set(CMAKE_Fortran_MODULE_DIRECTORY "${objs}")
 # Inlined CMakeSources.in contents:
 set(src ${CMAKE_CURRENT_SOURCE_DIR}/src)
 set(base_balance_src ${src}/base/)
+file(SHA256
+    ${CMAKE_SOURCE_DIR}/KIM/mathematica/verify_quasilinear_flr_transport.wl
+    KIM_ALGEBRA_GENERATOR_SHA256)
+configure_file(
+    ${base_balance_src}/periodic_workflow_build_info_m.f90.in
+    ${CMAKE_CURRENT_BINARY_DIR}/generated/periodic_workflow_build_info_m.f90
+    @ONLY)
 set(balance_lib_base_fortran_sources
+    ${CMAKE_CURRENT_BINARY_DIR}/generated/periodic_workflow_build_info_m.f90
     ${base_balance_src}/amn_of_r.f90
     ${base_balance_src}/balance_eqs_source_terms.f90
     ${base_balance_src}/balanceBase.f90

@@ -202,7 +202,9 @@ which fields are sweepable. Scale the entire radial electric-field profile with:
 ```bash
 kim sweep request.json \
   --scale-profile Er \
-  --values -10 --values -5 --values 0 --values 5 --values 10
+  --values -10 --values -5 --values 0 --values 5 --values 10 \
+  --runs-dir sweeps \
+  --format json | tee sweep.json
 ```
 
 Every child run receives its own copied inputs, logs, result file, and manifest.

@@ -5,6 +5,9 @@ selects the executable, run repository, timeout, and OpenMP thread count separat
 scientific solver, while the Python layer validates this request and translates it to
 `KIM_config.nml`.
 
+For a command-by-command newcomer workflow, including installation, a real run, output discovery,
+and plotting an existing result, see the [first-result walkthrough](first-run.md).
+
 ## Start with a periodic request
 
 To create a complete, standalone copy of the packaged periodic case, use the public CLI:

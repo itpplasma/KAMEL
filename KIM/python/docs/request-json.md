@@ -126,7 +126,9 @@ increasing. Profile values use CGS units:
 | `Vz.dat` | Toroidal velocity | `cm/s` | No |
 
 The `n.dat`, `Te.dat`, `Ti.dat`, and `q.dat` grids must match. `Er.dat` may use a different grid;
-KIM interpolates it. `Vz.dat` is optional, but when present its grid must match the main grid.
+KIM interpolates it. When `Er.dat` is present, KIM uses it directly. If it is absent, KIM computes
+`Er` from force balance and includes the `Vz.dat` contribution; an absent `Vz.dat` is treated as
+`Vz = 0`. When present, `Vz.dat` must use the main grid.
 File names can be changed with `density_file`, `electron_temperature_file`,
 `ion_temperature_file`, `safety_factor_file`, `radial_electric_field_file`, and
 `toroidal_velocity_file` inside `profiles`. These values are plain filenames within `directory`;
@@ -204,3 +206,11 @@ kim sweep request.json \
 ```
 
 Every child run receives its own copied inputs, logs, result file, and manifest.
+
+For example, inspect a child from the ordered sweep and list its result datasets with:
+
+```bash
+CHILD_ID=$(python -c 'import json; print(json.load(open("sweep.json"))["child_run_ids"][0])')
+kim inspect "$CHILD_ID" --runs-dir sweeps --format json
+kim result "$CHILD_ID" --runs-dir sweeps --list
+```

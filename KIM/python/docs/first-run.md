@@ -105,9 +105,10 @@ The current Python workflow accepts profiles in effective radius `r_eff` with CG
 | `Vz.dat` | Toroidal velocity | `cm/s` | optional |
 
 The required profile grids must match and have strictly increasing radii. `Er.dat` can use another
-grid and is interpolated. If `Er.dat` is absent, KIM calculates the radial electric field from
-force balance; `Vz.dat` is also optional. The validator reports missing files or unit and coverage
-problems before execution.
+grid and is interpolated. When `Er.dat` is present, KIM uses that supplied radial electric field
+directly. When it is absent, KIM calculates `Er` from radial force balance; `Vz.dat` contributes to
+that calculation only in this absence case. If `Vz.dat` is absent, KIM assumes `Vz = 0`. The
+validator reports missing files or unit and coverage problems before execution.
 
 The packaged case is a resolution example, not a convergence claim. Its profile domain and window
 settings are intentionally small. A production study should vary radial, periodic-window, and
@@ -129,8 +130,14 @@ kim sweep request.json \
 ```
 
 Each child receives its own copied request, profiles, logs, HDF5 output, and manifest. The sweep
-report lists child run IDs and statuses. Use `kim inspect` or `kim result` with a child ID to find
-its stored result.
+report lists child run IDs and statuses. Inspect the first child and list its stored HDF5 datasets
+with:
+
+```sh
+CHILD_ID=$(python -c 'import json; print(json.load(open("sweep.json"))["child_run_ids"][0])')
+kim inspect "$CHILD_ID" --runs-dir sweeps --format json
+kim result "$CHILD_ID" --runs-dir sweeps --list
+```
 
 ## Local smoke record
 

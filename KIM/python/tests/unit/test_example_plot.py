@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import importlib.util
+import os
 from pathlib import Path
 
 import h5py
@@ -75,4 +76,38 @@ def test_plot_periodic_result_reports_missing_periodic_data(tmp_path: Path) -> N
     with pytest.raises(ResultError, match="required periodic dataset.*fields/Phi"):
         plot_periodic_result(result_path, tmp_path / "missing.png")
     assert not (tmp_path / "missing.png").exists()
+    assert plt.get_fignums() == []
+
+
+@pytest.mark.parametrize("alias_kind", ["direct", "symlink", "hardlink"])
+def test_plot_periodic_result_rejects_alias_of_input_without_modifying_it(
+    tmp_path: Path, alias_kind: str
+) -> None:
+    result_path = _periodic_file(tmp_path / "result.h5")
+    figure_path = tmp_path / "figure.png"
+    if alias_kind == "direct":
+        figure_path = result_path
+    elif alias_kind == "symlink":
+        figure_path.symlink_to(result_path)
+    else:
+        os.link(result_path, figure_path)
+    before = result_path.read_bytes()
+
+    with pytest.raises(ValueError, match="different files"):
+        plot_periodic_result(result_path, figure_path)
+
+    assert result_path.read_bytes() == before
+    assert plt.get_fignums() == []
+
+
+def test_plot_periodic_result_closes_figure_when_output_parent_cannot_be_created(
+    tmp_path: Path,
+) -> None:
+    result_path = _periodic_file(tmp_path / "result.h5")
+    blocked_parent = tmp_path / "existing-file"
+    blocked_parent.write_text("not a directory", encoding="utf-8")
+
+    with pytest.raises(OSError):
+        plot_periodic_result(result_path, blocked_parent / "figure.png")
+
     assert plt.get_fignums() == []

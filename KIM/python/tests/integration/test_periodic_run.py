@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import json
 import os
+import subprocess
+import sys
 from importlib import resources
 from pathlib import Path
 from typing import Any
@@ -117,3 +119,13 @@ def test_periodic_parabolic_reference_against_kim(tmp_path: Path) -> None:
         _assert_reference(run.output_file, reference)
     except ResultError as error:
         pytest.fail(f"periodic output does not satisfy the typed result contract: {error}")
+
+    plot_script = Path(__file__).parents[2] / "examples" / "plot_periodic.py"
+    figure = tmp_path / "periodic.png"
+    subprocess.run(
+        [sys.executable, str(plot_script), str(run.output_file), str(figure)],
+        check=True,
+        env={**os.environ, "MPLBACKEND": "Agg"},
+    )
+    assert figure.is_file()
+    assert figure.stat().st_size > 0

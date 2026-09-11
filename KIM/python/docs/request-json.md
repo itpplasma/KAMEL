@@ -5,6 +5,9 @@ selects the executable, run repository, timeout, and OpenMP thread count separat
 scientific solver, while the Python layer validates this request and translates it to
 `KIM_config.nml`.
 
+For a command-by-command newcomer workflow, including installation, a real run, output discovery,
+and plotting an existing result, see the [first-result walkthrough](first-run.md).
+
 ## Start with a periodic request
 
 To create a complete, standalone copy of the packaged periodic case, use the public CLI:
@@ -123,7 +126,9 @@ increasing. Profile values use CGS units:
 | `Vz.dat` | Toroidal velocity | `cm/s` | No |
 
 The `n.dat`, `Te.dat`, `Ti.dat`, and `q.dat` grids must match. `Er.dat` may use a different grid;
-KIM interpolates it. `Vz.dat` is optional, but when present its grid must match the main grid.
+KIM interpolates it. When `Er.dat` is present, KIM uses it directly. If it is absent, KIM computes
+`Er` from force balance and includes the `Vz.dat` contribution; an absent `Vz.dat` is treated as
+`Vz = 0`. When present, `Vz.dat` must use the main grid.
 File names can be changed with `density_file`, `electron_temperature_file`,
 `ion_temperature_file`, `safety_factor_file`, `radial_electric_field_file`, and
 `toroidal_velocity_file` inside `profiles`. These values are plain filenames within `directory`;
@@ -197,7 +202,17 @@ which fields are sweepable. Scale the entire radial electric-field profile with:
 ```bash
 kim sweep request.json \
   --scale-profile Er \
-  --values -10 --values -5 --values 0 --values 5 --values 10
+  --values -10 --values -5 --values 0 --values 5 --values 10 \
+  --runs-dir sweeps \
+  --format json | tee sweep.json
 ```
 
 Every child run receives its own copied inputs, logs, result file, and manifest.
+
+For example, inspect a child from the ordered sweep and list its result datasets with:
+
+```bash
+CHILD_ID=$(python -c 'import json; print(json.load(open("sweep.json"))["child_run_ids"][0])')
+kim inspect "$CHILD_ID" --runs-dir sweeps --format json
+kim result "$CHILD_ID" --runs-dir sweeps --list
+```

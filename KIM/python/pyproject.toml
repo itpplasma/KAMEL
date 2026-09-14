@@ -36,6 +36,9 @@ dependencies = [
 test = [
     "pytest>=8",
 ]
+plot = [
+    "matplotlib>=3.8",
+]
 
 [project.scripts]
 kim = "kim.cli:app"

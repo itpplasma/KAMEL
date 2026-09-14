@@ -5,6 +5,9 @@ plasma-response solver. The scientific implementation remains in the `KIM.x` For
 this package validates inputs, stages reproducible runs, invokes the executable, reads structured
 results, and runs one-dimensional parameter scans.
 
+New to KIM? Follow the [first-result walkthrough](docs/first-run.md) for source installation,
+validation, a real run, HDF5 inspection, and a stored-result plot.
+
 ## Requirements
 
 - Python 3.10 or newer
@@ -15,7 +18,7 @@ results, and runs one-dimensional parameter scans.
 From the KAMEL repository root:
 
 ```bash
-python -m pip install -e './KIM/python[test]'
+python -m pip install -e './KIM/python[test,plot]'
 ```
 
 Check the installed command:
@@ -63,6 +66,9 @@ its runtime libraries.
 See the [request JSON guide](docs/request-json.md) for a complete field description, profile
 requirements, and validated examples for every supported run type. Copyable requests are available
 under [`examples/`](examples/).
+
+The optional `plot` extra installs matplotlib for [`examples/plot_periodic.py`](examples/plot_periodic.py),
+which reads a stored periodic HDF5 result and writes a figure without launching `KIM.x`.
 
 ## Tests
 

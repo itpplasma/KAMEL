@@ -124,6 +124,9 @@ See the [Python API guide](KIM/python/README.md) and
 profiles in CGS units and requires HDF5 output. Additional Fortran run modes are documented in the
 [namelist reference](KIM/nmls/README.md).
 
+For a complete newcomer workflow from `kim init` through a stored HDF5 result and first figure,
+see the [KIM first-result walkthrough](KIM/python/docs/first-run.md).
+
 ### KiLCA
 
 Run the versioned `KiLCA_Normal_...` executable from a directory containing a

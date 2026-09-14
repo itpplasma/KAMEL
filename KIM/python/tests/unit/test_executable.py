@@ -6,9 +6,11 @@ from pathlib import Path
 import pytest
 from kim.errors import ExecutableError
 from kim.executable import (
+    ExecutableSelection,
     discover_kamel_git_metadata,
     executable_sha256,
     resolve_executable,
+    select_executable,
 )
 
 
@@ -41,6 +43,59 @@ def test_explicit_path_has_highest_precedence_and_returns_absolute_path(
 
     assert resolved == explicit.resolve()
     assert resolved.is_absolute()
+
+
+def test_select_executable_reports_explicit_source(tmp_path: Path) -> None:
+    executable = make_executable(tmp_path / "explicit" / "KIM.x")
+
+    selection = select_executable(executable, environment={}, start_directory=tmp_path)
+
+    assert selection == ExecutableSelection(path=executable.resolve(), source="explicit")
+
+
+def test_select_executable_reports_environment_source(tmp_path: Path) -> None:
+    executable = make_executable(tmp_path / "environment" / "KIM.x")
+
+    selection = select_executable(
+        environment={"KIM_EXECUTABLE": str(executable), "PATH": ""},
+        start_directory=tmp_path,
+    )
+
+    assert selection.path == executable.resolve()
+    assert selection.source == "environment"
+
+
+def test_select_executable_reports_checkout_source(tmp_path: Path) -> None:
+    checkout = make_checkout(tmp_path / "checkout")
+    executable = make_executable(checkout / "build" / "install" / "bin" / "KIM.x")
+
+    selection = select_executable(environment={"PATH": ""}, start_directory=checkout / "KIM")
+
+    assert selection.path == executable.resolve()
+    assert selection.source == "checkout"
+
+
+def test_select_executable_reports_path_source(tmp_path: Path) -> None:
+    executable = make_executable(tmp_path / "bin" / "KIM.x")
+
+    selection = select_executable(
+        environment={"PATH": str(executable.parent)}, start_directory=tmp_path
+    )
+
+    assert selection.path == executable.resolve()
+    assert selection.source == "path"
+
+
+def test_invalid_explicit_path_does_not_fall_back_to_environment(tmp_path: Path) -> None:
+    environment = make_executable(tmp_path / "environment" / "KIM.x")
+    missing = tmp_path / "missing" / "KIM.x"
+
+    with pytest.raises(ExecutableError, match=r"explicit executable.*does not name a file"):
+        select_executable(
+            missing,
+            environment={"KIM_EXECUTABLE": str(environment), "PATH": str(environment.parent)},
+            start_directory=tmp_path,
+        )
 
 
 def test_environment_variable_precedes_checkout_and_path(tmp_path: Path) -> None:

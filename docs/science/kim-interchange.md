@@ -50,11 +50,15 @@ phase
 \]
 
 in `hatG_rho_phi`, `hatG_rho_B`, `hatG_j_phi`, and `hatG_j_B`
-(`KIM/src/asymptotics/flr2_fourier_kernel.f90:96-123`, `KIM/src/asymptotics/flr2_fourier_kernel.f90:125-151`,
-`KIM/src/asymptotics/flr2_fourier_kernel.f90:153-185`, `KIM/src/asymptotics/flr2_fourier_kernel.f90:187-217`). The periodic assembly integrates this kernel over one
-period with `K=(2*pi/L) int G dr_g`, implemented as an endpoint-exclusive,
+(`KIM/src/asymptotics/flr2_fourier_kernel.f90:96-123`,
+`KIM/src/asymptotics/flr2_fourier_kernel.f90:125-151`,
+`KIM/src/asymptotics/flr2_fourier_kernel.f90:153-185`,
+`KIM/src/asymptotics/flr2_fourier_kernel.f90:187-217`). The periodic
+assembly integrates this kernel over one period with
+`K=(2*pi/L) int G dr_g`, implemented as an endpoint-exclusive,
 equal-weight sum `2*pi/N` (`KIM/src/electrostatic_poisson/periodic_assembly.f90:8-29`,
-`125-131`). A comparison implementation must preserve the endpoint convention
+`KIM/src/electrostatic_poisson/periodic_assembly.f90:125-131`). A comparison implementation
+must preserve the endpoint convention
 and the `1/(8*pi^2)` kernel normalization; neither may be inferred from an
 FFT library default.
 
@@ -118,7 +122,8 @@ as implemented by `Krook_collisionless_z0`
 harmonic detuning is `om_E + ell*omega_c - omega`
 (`KIM/src/asymptotics/radial_current_fourier_kernel.f90:267-305`). The signed
 pole is `k_parallel+i epsilon`, while the magnitude regularizes even factors
-(`KIM/src/kernels/Krook_kernel_plasma_prefacs.f90:5-32`, `KIM/src/asymptotics/collisionless_fourier_kernel.f90:292-349`).
+(`KIM/src/kernels/Krook_kernel_plasma_prefacs.f90:5-32`,
+`KIM/src/asymptotics/collisionless_fourier_kernel.f90:292-349`).
 Replacing signed `omega`, `k_parallel`, or `omega_c` by an absolute value is
 therefore not an approved interchange transformation.
 
@@ -129,33 +134,49 @@ mass and proton mass in grams, charge in statcoulomb, and `ev` in erg/eV
 (`KIM/src/util/constants_mod.f90:7-13`). The equilibrium writes `B0`, `B0z`,
 and `B0theta` in G (`KIM/src/background_equilibrium/calculate_equil.f90:214-223`)
 and writes density in `1/cm^3` (`KIM/src/background_equilibrium/species_mod.f90:789-795`).
-The force-balance implementation documents and computes
+The force-balance implementation documents the third term with B0, but the
+executable expression uses the signed input btor_in and R0_in:
 
 \[
  E_r={T_i eV\over e n}{dn\over dr}+{eV\over e}{dT_i\over dr}
-       +{r B_0 V_z\over c q R_0},
+       +{r\,btor\_in\,V_z\over c q R0\_in},
 \]
 
-with \(T_i\) in eV and output in statV/cm
-(`KIM/src/background_equilibrium/profile_input_m.f90:380-414`). Missing
-`Er.dat` is filled by this `k=0`, no-poloidal-rotation path
-(`KIM/src/background_equilibrium/profile_input_m.f90:252-271`, `KIM/src/background_equilibrium/profile_input_m.f90:327-378`).
+with \(T_i\) in eV and output in statV/cm. The signed `btor_in` term is at
+`KIM/src/background_equilibrium/profile_input_m.f90:403-405`; the full helper
+and its documented equation are at
+`KIM/src/background_equilibrium/profile_input_m.f90:380-414`. Whether an
+external equilibrium's local toroidal field should map to this signed axis
+input requires scientific maintainer review. Missing `Er.dat` is filled by
+this `k=0`, no-poloidal-rotation path
+(`KIM/src/background_equilibrium/profile_input_m.f90:252-271`,
+`KIM/src/background_equilibrium/profile_input_m.f90:327-378`).
 
 The stable Python model declares `btor` in G, `major_radius` in cm, `frequency`
 in `1/s`, boundary `Br` in G, and the signed mode numbers as dimensionless
 (`KIM/python/src/kim/config.py:259-289`). Its profile validator labels radius
 as cm, density as `1/cm^3`, temperatures as eV, `q` as dimensionless, and
 `Er` as statV/cm (`KIM/python/src/kim/profiles.py:166-184`). The Fortran reader
-consumes two columns and associates rows by position; it imposes quasineutral
-ion densities from electron density and configured ion charge
-(`KIM/src/background_equilibrium/species_mod.f90:1358-1444`). These are
+consumes two columns and associates rows by position. For each ion it
+implements exactly
+
+\[
+ n_i=n_e {Z_i\over\sum_j Z_j}
+\]
+
+(`KIM/src/background_equilibrium/species_mod.f90:1434-1444`). The source
+comment calls this quasineutrality, but the resulting charge sum is
+\(\sum_i Z_i n_i=n_e\sum_i Z_i^2/\sum_i Z_i\), which generally differs
+from \(n_e\) for mixed-charge or multi-charge cases. This needs scientific
+review before an external multi-species mapping is approved. These are
 implementation facts, not permission to convert an external source.
 
 `coord_type='r_eff'` uses effective-radius profiles. `coord_type='sqrt_psiN'`
 requires an equilibrium file or GEQDSK and runs the profile preprocessor
 (`KIM/src/background_equilibrium/profile_input_m.f90:26-57`, `119-183`).
 `auto` classifies a maximum first-column value above 2 as `r_eff`, otherwise
-`sqrt_psiN` (`KIM/src/background_equilibrium/profile_input_m.f90:59-117`). This heuristic is unsuitable as
+`sqrt_psiN` (`KIM/src/background_equilibrium/profile_input_m.f90:59-117`).
+This heuristic is unsuitable as
 an external-format contract until a maintainer approves it.
 
 ## Python resonance check: evidence and status
@@ -173,12 +194,20 @@ not establish a valid interchange convention. The Fortran source also uses
 `abs` for the collisionless magnitude and for some numerical guards, but keeps
 the signed `q=-m/n` root and signed pole. Consequently:
 
-| Run type | Resonance evidence | Status of `abs(q)` / `abs(m/n)` check |
+| Run type | Evidence | Absolute-value status |
 | --- | --- | --- |
-| `electrostatic` | Cylindrical `k_parallel` and `kim_prepare_resonances`; legacy `type_br_field=2` override applies | **Incomplete/unsafe**: can locate a root with the wrong sign and cannot model the point-charge override. Use signed `q=-m/n`; maintainer must approve any broader rule. |
-| `electrostatic_periodic` | Same signed root; periodic window is centered on `r_res`, then scaled by active-species `rho_L(r_res)` (`KIM/src/electrostatic_poisson/poisson_periodic.f90:500-549`) | **Wrong as a general rule**: the periodic window requires the physical signed root; absolute-value matching can center the window on a different surface. |
-| `flr2` | Run calls the same initialization and uses signed `m`, `n`, `B0z`, and `omega` in `solve_flr2_response` (`KIM/src/flr2/flr2_run_type.f90:106-116`) | **Insufficient evidence for an absolute-value rule**: the inspected FLR2 response does not define an alternate absolute-value resonance criterion. Retain signed inputs pending maintainer review. |
+| `electrostatic` | Signed root; legacy type-2 override | Unsafe; use signed root pending review |
+| `electrostatic_periodic` | Signed root centers periodic window | Wrong as a general rule |
+| `flr2` | Signed modes passed to FLR2 response | No absolute rule established |
 
+The supporting source locations are
+`KIM/src/grid/prepare_resonances.f90:33-61`,
+`KIM/src/electrostatic_poisson/poisson_periodic.f90:500-549`, and
+`KIM/src/flr2/flr2_run_type.f90:106-116`. For `electrostatic`, an absolute
+check can find a root with the wrong sign and cannot model the type-2
+override. For `electrostatic_periodic`, it can center the window on a
+different surface. For `flr2`, the inspected response defines no alternate
+absolute criterion. Maintainer approval is required for any broader rule.
 The stable API currently requires nonzero `m_mode` and `n_mode`
 (`KIM/python/src/kim/config.py:329-335`) and rejects a missing signed crossing
 (`KIM/python/src/kim/profiles.py:241-251`). Whether nonresonant runs should be

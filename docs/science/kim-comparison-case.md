@@ -51,16 +51,16 @@ candidate boundary for discussion, not permission to use a dataset.
 
 The case record would need these values before implementation is authorized:
 
-| Item | Evidence-backed current representation | Decision required |
+| Item | Current evidence | Approval needed |
 | --- | --- | --- |
-| Mode and resonance | Signed integer `m_mode`, `n_mode`; (q(r_\mathrm{res})=-m/n) | Approve sign convention, crossing selection, and behavior for no/multiple crossings |
-| Radial coordinate | `r_eff` in cm, or `sqrt_psiN` transformed by the profile preprocessor | Approve one input coordinate and equilibrium source |
-| Profiles | Two-column `n.dat`, `Te.dat`, `Ti.dat`, `q.dat`; optional `Er.dat`, `Vz.dat` | Approve exact external field names, units, interpolation and missing-field policy |
-| Equilibrium | `B0`, `B0z`, `B0theta`, `h_z`, `h_theta` derived by `calculate_equil` | Approve external-to-reduced mapping and required provenance |
-| Excitation | Constant complex `Br` in G for `type_br_field=12`; optional `Bparallel` ratio is a separate periodic setting | Approve whether phase and amplitude are compared in complex form |
-| Frequency | Signed `omega` in 1/s; FLR2 currently requires zero frequency | Approve external frequency sign/time convention |
-| Observable | Complex `Phi(r)`, complex `jpar(r)`, or (I_\parallel(\mathcal R)) | Select exactly one reference observable and domain |
-| Reference | None selected | Name collaborator/dataset only after maintainer and data-owner approval |
+| Mode/resonance | Signed `m_mode`, `n_mode`; `q=-m/n` | Sign and crossing policy |
+| Radius | `r_eff` cm or `sqrt_psiN` preprocessing | Coordinate and equilibrium source |
+| Profiles | Two-column KIM profile roles | Names, units, grid and missing fields |
+| Equilibrium | `B0`, `B0z`, `B0theta`, `h_z`, `h_theta` | External-to-reduced mapping |
+| Excitation | Complex constant `Br` in G; optional `Bparallel` | Complex phase/amplitude rule |
+| Frequency | Signed `omega` in 1/s; FLR2 requires zero | Time phase and sign |
+| Observable | Complex field or integrated current | One observable and domain |
+| Reference | None selected | Collaborator, dataset and data rights |
 
 The requested source formats are therefore open. A maintainer must select and
 approve either (a) already permitted two-column profile text plus an approved
@@ -78,8 +78,10 @@ The only mappings that can be stated from current code are:
 1. `r_eff` profile rows are read as radius in cm and values in KIM's CGS
    conventions. The Python validator requires matching grids for `n`, `Te`,
    `Ti`, `q`, and present `Vz` (`KIM/python/src/kim/profiles.py:88-123`).
-2. The Fortran reader constructs ion densities from electron density and ion
-   charge to enforce quasineutrality (`KIM/src/background_equilibrium/species_mod.f90:1434-1444`).
+2. The Fortran reader implements `n_i=n_e Z_i/sum(Z)`, despite the source
+   comment calling this quasineutrality. For mixed charges, the charge sum
+   generally differs from `n_e` (`KIM/src/background_equilibrium/species_mod.f90:1434-1444`).
+   External multi-species mapping requires scientific review.
 3. The equilibrium ODE integrates pressure work, computes signed `B0z`,
    `B0theta`, `B0`, `h_z`, `h_theta`, `k_s`, `k_parallel`, and `omega_E`
    (`KIM/src/background_equilibrium/calculate_equil.f90:96-168`).
@@ -107,10 +109,10 @@ changes it deliberately:
   sweep comparison case.
 - The periodic solver's full kernel includes both radial and perpendicular
   wavenumber contributions; the optional global-matching approximation drops
-  those contributions for comparison purposes
+  only the `k_s^2` contribution from the Bessel arguments. The kernel still
+  depends on `k_r` and `k'_r`; it also sets electron FLR to zero
   (`KIM/src/asymptotics/flr2_fourier_kernel.f90:19-40`,
-  `KIM/src/setup/config_mod.f90:62-65`). Which model is scientifically desired
-  is open.
+  `KIM/src/setup/config_mod.f90:62-65`). Which model is desired is open.
 - Collisionless ions use a causal pole and a magnitude in different factors;
   an external model that supplies only `|k_parallel|` cannot be declared
   equivalent (`KIM/src/kernels/Krook_kernel_plasma_prefacs.f90:5-51`).

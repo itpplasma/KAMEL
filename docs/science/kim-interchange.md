@@ -34,13 +34,13 @@ Both statements are executable conventions: `periodic_solve_m::solve_periodic`
 sets `k_m = 2*pi*m/L` and the diagonal operator to `-k_m**2`
 (`KIM/src/electrostatic_poisson/periodic_solve.f90:63-73`), while
 `reconstruct_delta_phi` uses `exp(com_unit*k_m*r_out)`
-(`.../periodic_solve.f90:200-222`). The derivative is consequently
+(`KIM/src/electrostatic_poisson/periodic_solve.f90:200-222`). The derivative is consequently
 
 \[
  {d\delta\Phi\over dr}=\sum_\ell (+i k_\ell)\Phi_\ell e^{+i k_\ell r}
 \]
 
-(`.../periodic_solve.f90:156-173`).
+(`KIM/src/electrostatic_poisson/periodic_solve.f90:156-173`).
 
 The two-wavenumber kinetic kernel uses the corresponding source/observation
 phase
@@ -50,8 +50,8 @@ phase
 \]
 
 in `hatG_rho_phi`, `hatG_rho_B`, `hatG_j_phi`, and `hatG_j_B`
-(`KIM/src/asymptotics/flr2_fourier_kernel.f90:96-123`, `125-151`,
-`153-185`, `187-217`). The periodic assembly integrates this kernel over one
+(`KIM/src/asymptotics/flr2_fourier_kernel.f90:96-123`, `KIM/src/asymptotics/flr2_fourier_kernel.f90:125-151`,
+`KIM/src/asymptotics/flr2_fourier_kernel.f90:153-185`, `KIM/src/asymptotics/flr2_fourier_kernel.f90:187-217`). The periodic assembly integrates this kernel over one
 period with `K=(2*pi/L) int G dr_g`, implemented as an endpoint-exclusive,
 equal-weight sum `2*pi/N` (`KIM/src/electrostatic_poisson/periodic_assembly.f90:8-29`,
 `125-131`). A comparison implementation must preserve the endpoint convention
@@ -61,8 +61,8 @@ FFT library default.
 For the cylindrical field representation, the periodic solver derives
 
 \[
- E_r=-\partial_r\Phi,\qquad E_\theta=-i,m\Phi/r,\qquad
- E_z=-i,n\Phi/R_0
+ E_r=-\partial_r\Phi,\qquad E_\theta=-i\,m\Phi/r,\qquad
+ E_z=-i\,n\Phi/R_0
 \]
 
 from `EBdat%Phi` (`KIM/src/electrostatic_poisson/poisson_periodic.f90:580-590`).
@@ -89,9 +89,9 @@ The same routine computes
  \omega_E=-c E_r k_s/B_0
 \]
 
-(`.../wavenumber_geometry.f90:31-35`, with `c=sol` from
+(`KIM/src/background_equilibrium/wavenumber_geometry.f90:31-35`, with `c=sol` from
 `KIM/src/util/constants_mod.f90:7-15`). Thus a resonance of the cylindrical
-Fourier mode is (k_\parallel=0), which reduces to
+Fourier mode is \(k_\parallel=0\), which reduces to
 
 \[
  q(r_\mathrm{res})=-m/n
@@ -103,7 +103,7 @@ linearly interpolates the first radial crossing in radial order
 (`KIM/src/grid/prepare_resonances.f90:33-56`). For `type_br_field == 2`, the
 legacy nonperiodic solvers then replace the root by half the profile radius;
 this override is explicitly skipped for `electrostatic_periodic`
-(`.../prepare_resonances.f90:58-61`). A comparison case must record whether it
+(`KIM/src/grid/prepare_resonances.f90:58-61`). A comparison case must record whether it
 is comparing the physical root or this legacy point-charge placement.
 
 Frequency enters the collisionless response through
@@ -118,7 +118,7 @@ as implemented by `Krook_collisionless_z0`
 harmonic detuning is `om_E + ell*omega_c - omega`
 (`KIM/src/asymptotics/radial_current_fourier_kernel.f90:267-305`). The signed
 pole is `k_parallel+i epsilon`, while the magnitude regularizes even factors
-(`.../Krook_kernel_plasma_prefacs.f90:5-32`, `KIM/src/asymptotics/collisionless_fourier_kernel.f90:292-349`).
+(`KIM/src/kernels/Krook_kernel_plasma_prefacs.f90:5-32`, `KIM/src/asymptotics/collisionless_fourier_kernel.f90:292-349`).
 Replacing signed `omega`, `k_parallel`, or `omega_c` by an absolute value is
 therefore not an approved interchange transformation.
 
@@ -136,10 +136,10 @@ The force-balance implementation documents and computes
        +{r B_0 V_z\over c q R_0},
 \]
 
-with (T_i) in eV and output in statV/cm
+with \(T_i\) in eV and output in statV/cm
 (`KIM/src/background_equilibrium/profile_input_m.f90:380-414`). Missing
 `Er.dat` is filled by this `k=0`, no-poloidal-rotation path
-(`.../profile_input_m.f90:252-271`, `327-378`).
+(`KIM/src/background_equilibrium/profile_input_m.f90:252-271`, `KIM/src/background_equilibrium/profile_input_m.f90:327-378`).
 
 The stable Python model declares `btor` in G, `major_radius` in cm, `frequency`
 in `1/s`, boundary `Br` in G, and the signed mode numbers as dimensionless
@@ -155,7 +155,7 @@ implementation facts, not permission to convert an external source.
 requires an equilibrium file or GEQDSK and runs the profile preprocessor
 (`KIM/src/background_equilibrium/profile_input_m.f90:26-57`, `119-183`).
 `auto` classifies a maximum first-column value above 2 as `r_eff`, otherwise
-`sqrt_psiN` (`.../profile_input_m.f90:59-117`). This heuristic is unsuitable as
+`sqrt_psiN` (`KIM/src/background_equilibrium/profile_input_m.f90:59-117`). This heuristic is unsuitable as
 an external-format contract until a maintainer approves it.
 
 ## Python resonance check: evidence and status

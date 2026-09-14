@@ -73,11 +73,26 @@ The existing `type_of_run = 'flr2_benchmark'` is different: it exercises the
 FLR2 approximation of KIM's non-local integral kernel and global Poisson
 solver.
 
-## Compilation
-To compile the code:
+## Installation
+
+From the repository root, build the scientific executable with:
+
+```sh
+make KIM
 ```
-make
+
+The executable is written to `build/install/bin/KIM.x`. For the supported
+Python workflow (`electrostatic`, `electrostatic_periodic`, and `flr2`), install
+the separate package and use its `kim` command:
+
+```sh
+python -m pip install './KIM/python'
+kim --help
 ```
+
+`kim` prepares and runs `KIM.x`; it does not replace the scientific executable.
+Additional Fortran run types are available through the namelist interface
+described in the [namelist reference](nmls/README.md).
 
 The complex region-root finder behind `WKB_dispersion_solver='region_roots'` is provided by fortnum and requires a working LAPACK installation.
 

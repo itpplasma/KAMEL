@@ -80,8 +80,6 @@ include(${CMAKE_SOURCE_DIR}/cmake/Dependencies.cmake)
 
 set(CMAKE_BUILD_TYPE Release)
 
-# Option to install KIM with system-wide symbolic link
-
 # Set default install prefix if not specified
 if(CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT)
     set(CMAKE_INSTALL_PREFIX "${CMAKE_BINARY_DIR}/install" CACHE PATH "Installation prefix" FORCE)

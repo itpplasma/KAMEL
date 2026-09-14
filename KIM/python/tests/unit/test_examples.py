@@ -5,7 +5,7 @@ from importlib import resources
 from pathlib import Path
 
 import pytest
-from kim import ProfileSet, SimulationConfig
+from kim import ConfigurationError, ProfileSet, SimulationConfig, create_example, examples
 
 EXAMPLE = resources.files("kim.example_data").joinpath("periodic")
 REFERENCE = Path(__file__).parents[1] / "fixtures" / "periodic_reference.json"
@@ -47,3 +47,143 @@ def test_periodic_guide_json_agrees_with_packaged_explicit_values() -> None:
                 assert packaged[key] == value
 
     assert_explicit_values(guide_request, request)
+
+
+def test_create_example_copies_a_complete_independent_case(tmp_path: Path) -> None:
+    destination = tmp_path / "case with spaces"
+
+    request_path = create_example(destination)
+
+    assert request_path == destination / "request.json"
+    assert sorted(path.relative_to(destination).as_posix() for path in destination.rglob("*")) == [
+        "README.md",
+        "profiles",
+        "profiles/Er.dat",
+        "profiles/Te.dat",
+        "profiles/Ti.dat",
+        "profiles/Vz.dat",
+        "profiles/n.dat",
+        "profiles/q.dat",
+        "request.json",
+    ]
+    request = json.loads(request_path.read_text(encoding="utf-8"))
+    assert request["profiles"]["directory"] == "./profiles"
+
+    second = tmp_path / "second"
+    create_example(second)
+    (second / "profiles" / "n.dat").write_text("changed\n", encoding="utf-8")
+    assert (destination / "profiles" / "n.dat").read_text(encoding="utf-8") != "changed\n"
+
+
+@pytest.mark.parametrize("kind", ["directory", "file", "symlink"])
+def test_create_example_refuses_existing_destinations(tmp_path: Path, kind: str) -> None:
+    destination = tmp_path / "case"
+    if kind == "directory":
+        destination.mkdir()
+    elif kind == "file":
+        destination.write_text("existing\n", encoding="utf-8")
+    else:
+        destination.symlink_to(tmp_path / "missing")
+
+    with pytest.raises(ConfigurationError, match="destination already exists"):
+        create_example(destination)
+
+
+def test_create_example_rejects_unknown_name(tmp_path: Path) -> None:
+    with pytest.raises(ConfigurationError, match="unknown example"):
+        create_example(tmp_path / "case", name="missing")
+
+
+def test_create_example_cleans_partial_copy_and_preserves_unrelated_files(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    destination = tmp_path / "case"
+    unrelated = tmp_path / "unrelated.txt"
+    unrelated.write_text("keep\n", encoding="utf-8")
+    original_copy = examples.shutil.copyfileobj
+    calls = 0
+
+    def fail_during_copy(source: object, target: object, *args: object, **kwargs: object) -> None:
+        nonlocal calls
+        calls += 1
+        if calls == 2:
+            raise OSError("simulated copy failure")
+        original_copy(source, target, *args, **kwargs)  # type: ignore[arg-type]
+
+    monkeypatch.setattr(examples.shutil, "copyfileobj", fail_during_copy)
+
+    with pytest.raises(OSError, match="simulated copy failure"):
+        create_example(destination)
+
+    assert not destination.exists()
+    assert unrelated.read_text(encoding="utf-8") == "keep\n"
+
+
+def test_create_example_preserves_entry_added_during_failed_copy(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    destination = tmp_path / "case"
+    original_copy = examples.shutil.copyfileobj
+    calls = 0
+
+    def fail_after_unrelated_entry(
+        source: object, target: object, *args: object, **kwargs: object
+    ) -> None:
+        nonlocal calls
+        calls += 1
+        if calls == 1:
+            (destination / "unrelated.txt").write_text("keep\n", encoding="utf-8")
+        if calls == 2:
+            raise OSError("simulated copy failure")
+        original_copy(source, target, *args, **kwargs)  # type: ignore[arg-type]
+
+    monkeypatch.setattr(examples.shutil, "copyfileobj", fail_after_unrelated_entry)
+
+    with pytest.raises(OSError, match="simulated copy failure"):
+        create_example(destination)
+
+    assert (destination / "unrelated.txt").read_text(encoding="utf-8") == "keep\n"
+
+
+def test_create_example_nested_failure_removes_owned_ancestors(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    ancestor = tmp_path / "ancestor"
+    ancestor.mkdir()
+    unrelated = ancestor / "keep.txt"
+    unrelated.write_text("keep\n", encoding="utf-8")
+    destination = ancestor / "created" / "nested" / "case"
+
+    def fail_copy(source: object, target: object, *args: object, **kwargs: object) -> None:
+        raise OSError("simulated copy failure")
+
+    monkeypatch.setattr(examples.shutil, "copyfileobj", fail_copy)
+
+    with pytest.raises(OSError, match="simulated copy failure"):
+        create_example(destination)
+
+    assert not destination.exists()
+    assert not (ancestor / "created").exists()
+    assert unrelated.read_text(encoding="utf-8") == "keep\n"
+
+
+def test_create_example_refuses_target_that_appears_after_initial_check(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    destination = tmp_path / "case"
+    unrelated = destination / "unrelated.txt"
+    original_mkdir_owned = examples._mkdir_owned
+
+    def create_target_before_leaf(path: Path, created_entries: list[Path]) -> None:
+        if path == destination.parent:
+            destination.mkdir()
+            unrelated.write_text("keep\n", encoding="utf-8")
+        original_mkdir_owned(path, created_entries)
+
+    monkeypatch.setattr(examples, "_mkdir_owned", create_target_before_leaf)
+
+    with pytest.raises(FileExistsError):
+        create_example(destination)
+
+    assert unrelated.read_text(encoding="utf-8") == "keep\n"
+    assert list(destination.iterdir()) == [unrelated]

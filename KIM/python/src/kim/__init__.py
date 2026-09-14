@@ -35,6 +35,7 @@ from kim.errors import (
     RunError,
     SweepError,
 )
+from kim.examples import create_example
 from kim.executable import (
     ExecutableSelection,
     KamelGitMetadata,
@@ -126,6 +127,7 @@ __all__ = [
     "ThetaIntegration",
     "__version__",
     "discover_kamel_git_metadata",
+    "create_example",
     "diagnose_environment",
     "executable_sha256",
     "resolve_executable",

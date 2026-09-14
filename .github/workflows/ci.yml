@@ -4,7 +4,7 @@ on:
   push:
     branches: [main, fix-ci]
   pull_request:
-    branches: [main, feat/kamel-adoption]
+    branches: [main, feat/kamel-adoption, docs/kim-installation-entrypoint]
   workflow_dispatch:
     inputs:
       libneo_ref:

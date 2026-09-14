@@ -46,5 +46,8 @@ package-dir = { "" = "src" }
 [tool.setuptools.packages.find]
 where = ["src"]
 
+[tool.setuptools.package-data]
+"kim.example_data" = ["periodic/*.json", "periodic/*.md", "periodic/profiles/*.dat"]
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]

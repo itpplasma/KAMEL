@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import os
+from importlib import resources
 from pathlib import Path
 from typing import Any
 
@@ -9,11 +10,7 @@ import h5py
 import numpy as np
 import pytest
 from kim import (
-    BuiltinPlasma,
     ExecutableError,
-    GridConfig,
-    PeriodicConfig,
-    PlasmaIsotope,
     Result,
     ResultError,
     RunStatus,
@@ -25,59 +22,18 @@ from kim import (
 REFERENCE = Path(__file__).parents[1] / "fixtures" / "periodic_reference.json"
 
 
-def _generate_profiles(directory: Path) -> None:
-    """Write a compact, physical-scale parabolic r_eff test case in CGS units."""
+def _copy_periodic_example(tmp_path: Path) -> tuple[SimulationConfig, Path]:
+    """Copy packaged periodic inputs into a writable temporary case directory."""
 
-    directory.mkdir(parents=True)
-    radius = np.linspace(3.0, 67.0, 65)
-    normalized = radius / 67.0
-    parabola = 1.0 - normalized**2
-    profiles = {
-        "n": 5.0e11 + 4.6e13 * parabola,
-        "Te": 50.0 + 3_800.0 * parabola,
-        "Ti": 70.0 + 3_350.0 * parabola,
-        "q": -(0.99 + 4.55 * normalized**2),
-        "Er": 0.08 - 0.16 * normalized**2,
-        "Vz": 1_500.0 + 1.15e7 * parabola,
-    }
-    for name, values in profiles.items():
-        np.savetxt(
-            directory / f"{name}.dat",
-            np.column_stack((radius, values)),
-            fmt="%.16e",
-        )
+    example = resources.files("kim.example_data").joinpath("periodic")
+    profiles = tmp_path / "profiles"
+    profiles.mkdir()
+    for resource in example.joinpath("profiles").iterdir():
+        (profiles / resource.name).write_bytes(resource.read_bytes())
 
-
-def _configuration(profiles: Path) -> SimulationConfig:
-    return SimulationConfig.electrostatic_periodic(
-        profiles=profiles,
-        plasma=BuiltinPlasma(isotope=PlasmaIsotope.DEUTERIUM),
-        btor=-17_977.413,
-        major_radius=165.0,
-        m_mode=7,
-        n_mode=2,
-        frequency=0.0,
-        br_boundary_real=1.0,
-        br_boundary_imag=0.0,
-        radial_minimum=3.0,
-        plasma_radius=63.0,
-        grid=GridConfig(
-            radial_minimum=3.0,
-            plasma_radius=63.0,
-            l_space_dim=64,
-            rg_space_dim=64,
-            larmor_skip_factor=20.0,
-            gauss_nodes_x=11,
-            gauss_nodes_x_prime=10,
-            gauss_nodes_theta=7,
-        ),
-        periodic=PeriodicConfig(
-            as_is_width_scale=2.0,
-            transition_width_scale=4.0,
-            wavenumber_cutoff_scale=2.0,
-            n_rg=64,
-        ),
-    )
+    request = json.loads(example.joinpath("request.json").read_text(encoding="utf-8"))
+    request["profiles"]["directory"] = str(profiles)
+    return SimulationConfig.model_validate(request), profiles
 
 
 def _reference() -> dict[str, Any]:
@@ -140,8 +96,7 @@ def test_reference_check_rejects_missing_mandatory_dataset(tmp_path: Path) -> No
 
 def test_periodic_parabolic_reference_against_kim(tmp_path: Path) -> None:
     executable = _integration_executable()
-    profiles = tmp_path / "profiles"
-    _generate_profiles(profiles)
+    configuration, profiles = _copy_periodic_example(tmp_path)
     q_profile = np.loadtxt(profiles / "q.dat")
     q_crossing = np.interp(3.5, np.abs(q_profile[:, 1]), q_profile[:, 0])
     reference = _reference()
@@ -151,7 +106,7 @@ def test_periodic_parabolic_reference_against_kim(tmp_path: Path) -> None:
     )
 
     run = Simulation(
-        _configuration(profiles),
+        configuration,
         executable=executable,
         runs_directory=tmp_path / "runs",
         timeout=60.0,

@@ -202,7 +202,8 @@ module rt_electrostatic_periodic_m
             assemble_periodic_bparallel_matrices
         use periodic_solve_m, only: solve_periodic, reconstruct_delta_phi, &
             reconstruct_delta_phi_derivative, reconstruct_jpar, reconstruct_jrad
-        use config_m, only: periodic_match_global_kernel_approximations
+        use config_m, only: periodic_match_global_kernel_approximations, &
+            periodic_calculate_radial_current
         use flr2_fourier_kernel_m, only: set_global_kernel_approximations
 
         real(dp),    intent(in)  :: rm, dx_asis, dx_tr
@@ -241,30 +242,56 @@ module rt_electrostatic_periodic_m
 
         call set_global_kernel_approximations(periodic_match_global_kernel_approximations)
         call build_periodic_plasma(rm, dx_asis, dx_tr, n_rg)
-        if (present(jpar_species) .and. present(rho_B_species)) then
-            call assemble_periodic_matrices(plasma, L, M, Kphi, KB, Kjphi, KjB, &
-                Kjrphi, KjrB, Kjphi_species, KjB_species, Kphi_species, KB_species)
-        else if (present(jpar_species)) then
-            call assemble_periodic_matrices(plasma, L, M, Kphi, KB, Kjphi, KjB, &
-                Kjrphi, KjrB, Kjphi_species, KjB_species)
-        else if (present(rho_B_species)) then
-            call assemble_periodic_matrices(plasma, L, M, Kphi, KB, Kjphi, KjB, &
-                Kjrphi, KjrB, &
-                Kphi_species=Kphi_species, KB_species=KB_species)
+        if (periodic_calculate_radial_current) then
+            if (present(jpar_species) .and. present(rho_B_species)) then
+                call assemble_periodic_matrices(plasma, L, M, Kphi, KB, Kjphi, KjB, &
+                    Kjrphi, KjrB, Kjphi_species, KjB_species, Kphi_species, KB_species)
+            else if (present(jpar_species)) then
+                call assemble_periodic_matrices(plasma, L, M, Kphi, KB, Kjphi, KjB, &
+                    Kjrphi, KjrB, Kjphi_species, KjB_species)
+            else if (present(rho_B_species)) then
+                call assemble_periodic_matrices(plasma, L, M, Kphi, KB, Kjphi, KjB, &
+                    Kjrphi, KjrB, Kphi_species=Kphi_species, KB_species=KB_species)
+            else
+                call assemble_periodic_matrices(plasma, L, M, Kphi, KB, Kjphi, KjB, &
+                    Kjrphi, KjrB)
+            end if
         else
-            call assemble_periodic_matrices(plasma, L, M, Kphi, KB, Kjphi, KjB, &
-                Kjrphi, KjrB)
+            if (present(jpar_species) .and. present(rho_B_species)) then
+                call assemble_periodic_matrices(plasma, L, M, Kphi, KB, Kjphi, KjB, &
+                    Kjphi_species=Kjphi_species, KjB_species=KjB_species, &
+                    Kphi_species=Kphi_species, KB_species=KB_species)
+            else if (present(jpar_species)) then
+                call assemble_periodic_matrices(plasma, L, M, Kphi, KB, Kjphi, KjB, &
+                    Kjphi_species=Kjphi_species, KjB_species=KjB_species)
+            else if (present(rho_B_species)) then
+                call assemble_periodic_matrices(plasma, L, M, Kphi, KB, Kjphi, KjB, &
+                    Kphi_species=Kphi_species, KB_species=KB_species)
+            else
+                call assemble_periodic_matrices(plasma, L, M, Kphi, KB, Kjphi, KjB)
+            end if
         end if
         if (bparallel_active) then
             want_bparallel_species = present(jpar_species) .or. &
                 present(rho_Bparallel_species)
             if (want_bparallel_species) then
-                call assemble_periodic_bparallel_matrices(plasma, L, M, &
-                    KBparallel, KjBparallel, KBparallel_species, &
-                    KjBparallel_species, KjrBparallel)
+                if (periodic_calculate_radial_current) then
+                    call assemble_periodic_bparallel_matrices(plasma, L, M, &
+                        KBparallel, KjBparallel, KBparallel_species, &
+                        KjBparallel_species, KjrBparallel)
+                else
+                    call assemble_periodic_bparallel_matrices(plasma, L, M, &
+                        KBparallel, KjBparallel, KBparallel_species, &
+                        KjBparallel_species)
+                end if
             else
-                call assemble_periodic_bparallel_matrices(plasma, L, M, &
-                    KBparallel, KjBparallel, KjrBparallel=KjrBparallel)
+                if (periodic_calculate_radial_current) then
+                    call assemble_periodic_bparallel_matrices(plasma, L, M, &
+                        KBparallel, KjBparallel, KjrBparallel=KjrBparallel)
+                else
+                    call assemble_periodic_bparallel_matrices(plasma, L, M, &
+                        KBparallel, KjBparallel)
+                end if
             end if
             call solve_periodic(Kphi, KB, L, M, Br_const, Phi_m, info, &
                 KBparallel=KBparallel, Bparallel_const=Bparallel_drive)
@@ -335,7 +362,7 @@ module rt_electrostatic_periodic_m
                 jpar = reconstruct_jpar(Kjphi, KjB, Phi_m, Br_const, L, M, r_out)
             end if
         end if
-        if (present(jrad)) then
+        if (present(jrad) .and. periodic_calculate_radial_current) then
             if (bparallel_active) then
                 jrad = reconstruct_jrad(Kjrphi, KjrB, Phi_m, Br_const, L, M, r_out, &
                     KjrBparallel=KjrBparallel, Bparallel_const=Bparallel_drive)
@@ -466,7 +493,8 @@ module rt_electrostatic_periodic_m
         use config_m, only: periodic_dr_asis_scale, periodic_dr_tr_scale, &
                             periodic_kmax_scale, periodic_n_rg, hdf5_output, &
                             periodic_match_global_kernel_approximations, &
-                            periodic_Bparallel_ratio, turn_off_electrons, turn_off_ions
+                            periodic_Bparallel_ratio, turn_off_electrons, turn_off_ions, &
+                            output_path, periodic_calculate_ion_tensor
         use setup_m, only: Br_boundary_re, Br_boundary_im, m_mode, n_mode, R0, omega
         use species_m, only: plasma
         use grid_m, only: rg_grid
@@ -590,24 +618,27 @@ module rt_electrostatic_periodic_m
         end do
         call calculate_MA_field(plasma, EBdat)
         call calculate_E_in_rsp_from_cyl(EBdat)
-        allocate(EBdat%D_ion(2, 2, size(dPhi)))
-        EBdat%D_ion = 0.0_dp
-        if (.not. turn_off_ions) then
-            do i = 1, size(dPhi)
-                do sp = 1, plasma%n_species - 1
-                    call compute_periodic_ion_tensor_spectrum(phi_spectrum, Br_const, L, r_win(i), &
-                        plasma%ks(i), plasma%kp(i), plasma%spec(sp)%vT(i), plasma%spec(sp)%nu(i), &
-                        plasma%spec(sp)%omega_c(i), omega, plasma%om_E(i), &
-                        plasma%B0(i), tensor_local, Bparallel_const)
-                    EBdat%D_ion(:, :, i) = EBdat%D_ion(:, :, i) + tensor_local
+        if (periodic_calculate_ion_tensor) then
+            allocate(EBdat%D_ion(2, 2, size(dPhi)))
+            EBdat%D_ion = 0.0_dp
+            if (.not. turn_off_ions) then
+                do i = 1, size(dPhi)
+                    do sp = 1, plasma%n_species - 1
+                        call compute_periodic_ion_tensor_spectrum( &
+                            phi_spectrum, Br_const, L, r_win(i), plasma%ks(i), plasma%kp(i), &
+                            plasma%spec(sp)%vT(i), plasma%spec(sp)%nu(i), &
+                            plasma%spec(sp)%omega_c(i), omega, plasma%om_E(i), &
+                            plasma%B0(i), tensor_local, Bparallel_const)
+                        EBdat%D_ion(:, :, i) = EBdat%D_ion(:, :, i) + tensor_local
+                    end do
                 end do
-            end do
+            end if
         end if
         EBdat%jpar   = jpar
         EBdat%jpar_e = jpar_species(:, 0)
         allocate(EBdat%jpar_i(size(jpar)))
         EBdat%jpar_i = (0.0_dp, 0.0_dp)
-        EBdat%jrad   = jrad
+        if (allocated(jrad)) EBdat%jrad = jrad
         if (plasma%n_species > 1) then
             EBdat%jpar_i = sum(jpar_species(:, 1:plasma%n_species - 1), dim=2)
         end if
@@ -640,10 +671,12 @@ module rt_electrostatic_periodic_m
                 "/fields/jpar_i", &
                 'Summed ion parallel current density, forced-periodicity solution', &
                 'statA/cm^2')
-            call write_complex_profile_abs(EBdat%r_grid, EBdat%jrad, rg_grid%npts_b, &
-                "/fields/jrad", &
-                'Radial current density perturbation j_rad, forced-periodicity solution', &
-                'statA/cm^2')
+            if (allocated(EBdat%jrad)) then
+                call write_complex_profile_abs(EBdat%r_grid, EBdat%jrad, rg_grid%npts_b, &
+                    "/fields/jrad", &
+                    'Radial current density perturbation j_rad, forced-periodicity solution', &
+                    'statA/cm^2')
+            end if
             call write_complex_profile_abs(EBdat%r_grid, rho_B, rg_grid%npts_b, &
                 "/fields/rho_B", &
                 'Charge density driven directly by imposed radial magnetic field', &

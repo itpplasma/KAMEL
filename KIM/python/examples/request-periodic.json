@@ -5,7 +5,9 @@
       "as_is_width_scale": 2.0,
       "transition_width_scale": 4.0,
       "wavenumber_cutoff_scale": 2.0,
-      "n_rg": 64
+      "n_rg": 64,
+      "calculate_ion_tensor": false,
+      "calculate_radial_current": false
     }
   },
   "plasma": {

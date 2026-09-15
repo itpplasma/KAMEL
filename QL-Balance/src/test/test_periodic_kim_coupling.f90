@@ -355,6 +355,10 @@ contains
             ' periodic_dr_tr_scale = 10.0', &
             ' periodic_kmax_scale = 0.4', &
             ' periodic_n_rg = 32', &
+            ! The adapter must opt into D_ion for coupled transport even when
+            ! the standalone KIM request leaves its diagnostic switch false.
+            ' periodic_calculate_ion_tensor = .false.', &
+            ' periodic_calculate_radial_current = .true.', &
             ' periodic_Bparallel_ratio = (0.25, -0.10)', &
             '/'
         close(unit)

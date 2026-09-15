@@ -20,6 +20,8 @@ physical parameters for your case:
       "transition_width_scale": 4.0,
       "wavenumber_cutoff_scale": 2.0,
       "n_rg": 64,
+      "calculate_ion_tensor": true,
+      "calculate_radial_current": true,
       "bparallel_ratio_real": 0.0,
       "bparallel_ratio_imag": 0.0
     }
@@ -123,6 +125,12 @@ The `physics` section exposes the current I-function controls as
 `zero_A2`, or `zero_Tprime`). A value of `-1` inherits the legacy `conserve_energy` setting. For a
 periodic run, `bparallel_ratio_real` and `bparallel_ratio_imag` prescribe the complex
 `B_parallel/Br` drive ratio; both default to zero.
+`calculate_radial_current` controls the expensive radial-current response and defaults to false;
+when true, KIM writes the `jrad` output.
+`calculate_ion_tensor` controls the expensive periodic ion diffusion tensor and defaults to false;
+when true, KIM returns `D_ion`; field, current, and diagnostics outputs are retained in either
+case. Readers treat missing metadata in older HDF5 files as true because those files were written
+before this opt-in switch existed.
 
 ## Other run types
 

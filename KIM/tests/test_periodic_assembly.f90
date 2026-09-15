@@ -58,6 +58,8 @@ contains
 
         complex(dp), allocatable :: Kphi(:,:), KB(:,:), Kjphi(:,:), KjB(:,:)
         complex(dp), allocatable :: Kjrphi(:,:), KjrB(:,:)
+        complex(dp), allocatable :: Kphi_with_radial(:,:), KB_with_radial(:,:)
+        complex(dp), allocatable :: Kjphi_with_radial(:,:), KjB_with_radial(:,:)
         complex(dp), allocatable :: Kjphi_species(:,:,:), KjB_species(:,:,:)
         complex(dp), allocatable :: Kphi_species(:,:,:), KB_species(:,:,:)
         real(dp) :: rm, dx_asis, dx_tr, rho_L_rm, L
@@ -211,6 +213,20 @@ contains
             end do
         end do
         print *, 'PASS: all matrix elements finite'
+
+        ! Omitting radial outputs must leave the physical charge and parallel
+        ! current matrices unchanged while skipping the radial-current kernels.
+        Kphi_with_radial = Kphi
+        KB_with_radial = KB
+        Kjphi_with_radial = Kjphi
+        KjB_with_radial = KjB
+        deallocate(Kjrphi, KjrB)
+        call assemble_periodic_matrices(plasma, L, M, Kphi, KB, Kjphi, KjB)
+        if (any(Kphi /= Kphi_with_radial) .or. any(KB /= KB_with_radial) .or. &
+                any(Kjphi /= Kjphi_with_radial) .or. any(KjB /= KjB_with_radial)) then
+            error stop 'non-radial matrices changed when radial outputs were omitted'
+        end if
+        print *, 'PASS: omitted radial outputs preserve non-radial matrices exactly'
     end subroutine test_assemble
 
     subroutine test_configured_dispatch(plasma)

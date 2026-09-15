@@ -90,10 +90,12 @@
 /
 
 &KIM_PERIODIC
+    periodic_calculate_ion_tensor = .true.
     periodic_dr_asis_scale = 2.25
     periodic_dr_tr_scale = 13.53
     periodic_kmax_scale = 44.6
     periodic_n_rg = 2048
+    periodic_calculate_radial_current = .true.
     periodic_match_global_kernel_approximations = .false.
     periodic_Bparallel_ratio = (0.0, 0.0)
 /

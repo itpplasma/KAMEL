@@ -2,7 +2,7 @@ program test_periodic_config_read
     use KIM_kinds_m, only: dp
     use config_m, only: nml_config_path, periodic_Bparallel_ratio, &
         periodic_dr_asis_scale, periodic_dr_tr_scale, periodic_kmax_scale, &
-        periodic_n_rg
+        periodic_n_rg, periodic_calculate_radial_current, periodic_calculate_ion_tensor
 
     implicit none
 
@@ -39,6 +39,12 @@ program test_periodic_config_read
     if (.not. should_reject .and. periodic_Bparallel_ratio /= expected_ratio) then
         error stop 'valid KIM_PERIODIC ratio was not read exactly'
     end if
+    if (.not. should_reject .and. periodic_calculate_radial_current) then
+        error stop 'disabled periodic radial-current setting was not read exactly'
+    end if
+    if (.not. should_reject .and. periodic_calculate_ion_tensor) then
+        error stop 'disabled periodic ion-tensor setting was not read exactly'
+    end if
 
     if (defaults_reset_case) then
         if (periodic_dr_asis_scale /= 7.0_dp .or. &
@@ -52,7 +58,9 @@ program test_periodic_config_read
         if (periodic_dr_asis_scale /= 5.0_dp .or. &
                 periodic_dr_tr_scale /= 10.0_dp .or. &
                 periodic_kmax_scale /= 5.0_dp .or. periodic_n_rg /= 96 .or. &
-                periodic_Bparallel_ratio /= (0.0_dp, 0.0_dp)) then
+                periodic_Bparallel_ratio /= (0.0_dp, 0.0_dp) .or. &
+                periodic_calculate_radial_current .or. &
+                periodic_calculate_ion_tensor) then
             error stop 'omitted KIM_PERIODIC group did not restore defaults'
         end if
         print *, 'periodic config default-reset assertions PASSED'

@@ -167,6 +167,9 @@ module IO_collection_m
             'Logical switch to rescale density.', 'true/false')
         call h5_add(h5grpid, 'number_density_rescale', number_density_rescale, &
             'Factor by which to rescale number density.', 'float')
+        call h5_add(h5grpid, 'periodic_calculate_radial_current', &
+            periodic_calculate_radial_current, &
+            'Whether periodic radial-current matrices and output are calculated.', 'true/false')
 
         call h5_close_group(h5grpid)
 

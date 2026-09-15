@@ -122,6 +122,10 @@ contains
         ! Display Physics Configuration
         call print_section_header('PHYSICS CONFIGURATION', width)
         call print_config_line('Run Type', trim(type_of_run), width)
+        if (trim(type_of_run) == 'electrostatic_periodic') then
+            call print_bool_line('Periodic Radial Current', &
+                periodic_calculate_radial_current, width)
+        end if
         if (trim(type_of_run) == "WKB_dispersion") then
             call print_config_line('WKB Dispersion Mode', trim(WKB_dispersion_mode), width)
         end if

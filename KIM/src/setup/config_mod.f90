@@ -59,6 +59,9 @@ module config_m
     real(dp) :: periodic_dr_tr_scale = periodic_dr_tr_scale_default
     real(dp) :: periodic_kmax_scale = periodic_kmax_scale_default
     integer :: periodic_n_rg = periodic_n_rg_default
+    ! Assemble and reconstruct the expensive periodic radial-current response.
+    ! Keep enabled by default so existing runs retain their output.
+    logical :: periodic_calculate_radial_current = .true.
     ! Reproduce the global FEM kernel approximations for direct comparisons:
     ! drop k_s^2 from Bessel arguments and take electrons in the zero-FLR limit.
     ! The forced-periodic solver uses its full Fourier kernel by default.

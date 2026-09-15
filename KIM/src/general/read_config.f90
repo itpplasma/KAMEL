@@ -56,7 +56,8 @@ subroutine kim_read_config
     ! separately (iostat-guarded, below) so config files without it still parse.
     namelist /KIM_PERIODIC/ periodic_dr_asis_scale, periodic_dr_tr_scale, &
                         periodic_kmax_scale, periodic_n_rg, &
-                        periodic_match_global_kernel_approximations, periodic_Bparallel_ratio
+                        periodic_match_global_kernel_approximations, periodic_Bparallel_ratio, &
+                        periodic_calculate_radial_current
 
     namelist /KIM_FLR2/ flr2_electron_flr, flr2_ion_flr, &
                         flr2_electron_potential, flr2_ion_potential, &
@@ -100,6 +101,7 @@ subroutine kim_read_config
     periodic_n_rg = periodic_n_rg_default
     periodic_match_global_kernel_approximations = .false.
     periodic_Bparallel_ratio = (0.0_dp, 0.0_dp)
+    periodic_calculate_radial_current = .true.
     periodic_group_present = namelist_header_present(77, 'KIM_PERIODIC')
     periodic_iomsg = ''
     rewind(unit = 77)

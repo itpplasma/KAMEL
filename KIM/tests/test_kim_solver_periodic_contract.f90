@@ -10,10 +10,14 @@ program test_kim_solver_periodic_contract
     integer, parameter :: npts = 40
     integer, parameter :: m_mode = -6, n_mode = 2
     type(kim_solver_t) :: kim
+    type(kim_solver_t) :: kim_disabled
     type(kim_solver_t) :: kim_bparallel
+    type(kim_solver_t) :: kim_bparallel_disabled
     type(kim_results_t) :: res
     type(kim_results_t) :: res_first
+    type(kim_results_t) :: res_disabled
     type(kim_results_t) :: res_bparallel
+    type(kim_results_t) :: res_bparallel_disabled
     type(kim_profiles_t) :: prof
     integer :: ierr, i
     real(dp) :: frac
@@ -58,6 +62,7 @@ program test_kim_solver_periodic_contract
         call check_complex_field('jpar', res%jpar, res%r_field, all_passed)
         call check_complex_field('jpar_e', res%jpar_e, res%r_field, all_passed)
         call check_complex_field('jpar_i', res%jpar_i, res%r_field, all_passed)
+        call check_complex_field('jrad', res%jrad, res%r_field, all_passed)
         call check('result mode matches request', res%m == m_mode .and. res%n == n_mode, all_passed)
         res_first = res
         ! Reverse both Fourier signs so the second mode still satisfies q=-m/n.
@@ -81,6 +86,26 @@ program test_kim_solver_periodic_contract
     end if
 
     call kim%finalize()
+
+    call kim_disabled%init('KIM_config_periodic_disabled_small.nml', &
+                           run_type='electrostatic_periodic', profiles=prof, stat=ierr)
+    call check('radial-current-disabled init returns KIM_OK', ierr == KIM_OK, all_passed)
+    if (ierr == KIM_OK) then
+        call kim_disabled%solve(m=m_mode, n=n_mode, stat=ierr)
+        call check('radial-current-disabled solve returns KIM_OK', ierr == KIM_OK, all_passed)
+    end if
+    if (ierr == KIM_OK) then
+        res_disabled = kim_disabled%results()
+        call check('radial current is omitted when disabled', .not. allocated(res_disabled%jrad), &
+                   all_passed)
+        call check('disabled radial current preserves Phi', &
+                   maxval(abs(res_disabled%Phi-res_first%Phi)) <= &
+                   1.0e-12_dp*max(1.0_dp, maxval(abs(res_first%Phi))), all_passed)
+        call check('disabled radial current preserves parallel current', &
+                   maxval(abs(res_disabled%jpar-res_first%jpar)) <= &
+                   1.0e-12_dp*max(1.0_dp, maxval(abs(res_first%jpar))), all_passed)
+    end if
+    call kim_disabled%finalize()
 
     call kim_bparallel%init('KIM_config_bparallel_small.nml', &
                             run_type='electrostatic_periodic', profiles=prof, stat=ierr)
@@ -106,6 +131,26 @@ program test_kim_solver_periodic_contract
                    1.0e-10_dp * maxval(abs(res_first%D_ion)), all_passed)
     end if
     call kim_bparallel%finalize()
+
+    call kim_bparallel_disabled%init('KIM_config_bparallel_disabled_small.nml', &
+                                     run_type='electrostatic_periodic', profiles=prof, stat=ierr)
+    call check('Bparallel radial-current-disabled init returns KIM_OK', ierr == KIM_OK, all_passed)
+    if (ierr == KIM_OK) then
+        call kim_bparallel_disabled%solve(m=m_mode, n=n_mode, stat=ierr)
+        call check('Bparallel radial-current-disabled solve returns KIM_OK', ierr == KIM_OK, all_passed)
+    end if
+    if (ierr == KIM_OK) then
+        res_bparallel_disabled = kim_bparallel_disabled%results()
+        call check('Bparallel disabled radial current is omitted', &
+                   .not. allocated(res_bparallel_disabled%jrad), all_passed)
+        call check('Bparallel disabled radial current preserves Phi', &
+                   maxval(abs(res_bparallel_disabled%Phi-res_bparallel%Phi)) <= &
+                   1.0e-12_dp*max(1.0_dp, maxval(abs(res_bparallel%Phi))), all_passed)
+        call check('Bparallel disabled radial current preserves parallel current', &
+                   maxval(abs(res_bparallel_disabled%jpar-res_bparallel%jpar)) <= &
+                   1.0e-12_dp*max(1.0_dp, maxval(abs(res_bparallel%jpar))), all_passed)
+    end if
+    call kim_bparallel_disabled%finalize()
     if (all_passed) then
         print *, 'All periodic KIM result-contract checks PASSED'
         stop 0

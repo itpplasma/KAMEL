@@ -20,6 +20,7 @@ physical parameters for your case:
       "transition_width_scale": 4.0,
       "wavenumber_cutoff_scale": 2.0,
       "n_rg": 64,
+      "calculate_radial_current": true,
       "bparallel_ratio_real": 0.0,
       "bparallel_ratio_imag": 0.0
     }
@@ -123,6 +124,8 @@ The `physics` section exposes the current I-function controls as
 `zero_A2`, or `zero_Tprime`). A value of `-1` inherits the legacy `conserve_energy` setting. For a
 periodic run, `bparallel_ratio_real` and `bparallel_ratio_imag` prescribe the complex
 `B_parallel/Br` drive ratio; both default to zero.
+`calculate_radial_current` controls the expensive radial-current response and defaults to true;
+when false, KIM omits the `jrad` output.
 
 ## Other run types
 

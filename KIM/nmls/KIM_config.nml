@@ -138,6 +138,8 @@
     periodic_dr_tr_scale = 10.0
     periodic_kmax_scale = 5.0
     periodic_n_rg = 96
+    ! Assemble/reconstruct radial current; disable to skip its dense matrices.
+    periodic_calculate_radial_current = .true.
     ! Complex B_parallel/Br drive ratio for the periodic local response.
     ! Keep zero for a purely radial benchmark; set explicitly for coupled runs.
     periodic_Bparallel_ratio = (0.0, 0.0)

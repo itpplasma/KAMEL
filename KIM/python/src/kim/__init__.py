@@ -25,6 +25,19 @@ from kim.config import (
     SimulationConfig,
     ThetaIntegration,
 )
+from kim.conventions import (
+    ConventionError,
+    ConversionOperation,
+    ConversionReport,
+    ConvertedInputs,
+    SourceMetadata,
+    convert_from_kim,
+    convert_inputs,
+    convert_quantity,
+    reconstruct_fourier,
+    reconstruct_fourier_derivative,
+    resonance_target,
+)
 from kim.diagnostics import EnvironmentDiagnosticReport, diagnose_environment
 from kim.errors import (
     ConfigurationError,
@@ -71,6 +84,10 @@ __version__ = "0.1.0"
 __all__ = [
     "BuiltinPlasma",
     "CollisionModel",
+    "ConversionOperation",
+    "ConversionReport",
+    "ConvertedInputs",
+    "ConventionError",
     "ConfigurationError",
     "DatasetMetadata",
     "ElectrostaticPeriodicRun",
@@ -118,6 +135,7 @@ __all__ = [
     "RunType",
     "SetupConfig",
     "SimulationConfig",
+    "SourceMetadata",
     "Simulation",
     "SweepError",
     "SweepManifest",
@@ -128,9 +146,15 @@ __all__ = [
     "__version__",
     "discover_kamel_git_metadata",
     "create_example",
+    "convert_inputs",
+    "convert_from_kim",
+    "convert_quantity",
     "diagnose_environment",
     "executable_sha256",
     "resolve_executable",
     "select_executable",
     "run_sweep",
+    "reconstruct_fourier",
+    "reconstruct_fourier_derivative",
+    "resonance_target",
 ]

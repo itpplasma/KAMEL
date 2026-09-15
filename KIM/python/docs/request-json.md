@@ -135,6 +135,14 @@ File names can be changed with `density_file`, `electron_temperature_file`,
 absolute paths and directory components are rejected so staging cannot read or write outside the
 copied profile directory.
 
+The explicit interchange conversion API uses `n` for the signed toroidal mode
+when named setup values are supplied. Use `m` and `n` (or `m_mode` and
+`n_mode`) for mode numbers; use `density` or `n_e` for electron density. The
+conversion boundary requires declared units and conventions and stages KIM's
+CGS units without changing signs or complex phase. The approved electric-field
+conversion is `Er[statV/cm] = Er[V/m] / 29979.2458`; frequency must be signed
+`rad/s` with the `exp(-i omega t)` phase declaration.
+
 The `physics` section exposes the current I-function controls as
 `electron_ifunc_conservation_model` and `ion_ifunc_conservation_model` (`-1`, `0`, `1`, `2`, or
 `3`), and the ion temperature-gradient selector as `ion_temperature_gradient_model` (`full`,

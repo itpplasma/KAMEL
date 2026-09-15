@@ -90,6 +90,7 @@
 /
 
 &KIM_PERIODIC
+    periodic_calculate_ion_tensor = .true.
     periodic_dr_asis_scale = 2.25
     periodic_dr_tr_scale = 13.53
     periodic_kmax_scale = 44.6

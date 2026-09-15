@@ -117,6 +117,7 @@ def test_current_physics_controls_are_serialized_and_round_trip(tmp_path: Path) 
                 update={
                     "periodic": PeriodicConfig(
                         calculate_radial_current=False,
+                        calculate_ion_tensor=False,
                         bparallel_ratio_real=0.25,
                         bparallel_ratio_imag=-0.5,
                     )
@@ -131,6 +132,7 @@ def test_current_physics_controls_are_serialized_and_round_trip(tmp_path: Path) 
     assert parsed["kim_config"]["ion_ifunc_conservation_model"] == 3
     assert parsed["kim_config"]["ion_temperature_gradient_model"] == "zero_Tprime"
     assert parsed["kim_periodic"]["periodic_calculate_radial_current"] is False
+    assert parsed["kim_periodic"]["periodic_calculate_ion_tensor"] is False
     assert parsed["kim_periodic"]["periodic_bparallel_ratio"] == "(0.25, -0.5)"
 
     path = tmp_path / "KIM_config.nml"
@@ -145,6 +147,15 @@ def test_old_periodic_namelists_default_radial_current_to_enabled() -> None:
     loaded = load_namelist_text(rendered)
 
     assert loaded.run.periodic.calculate_radial_current is True
+
+
+def test_old_periodic_namelists_default_ion_tensor_to_enabled() -> None:
+    rendered = dumps_namelist(configuration("electrostatic_periodic"))
+    rendered = rendered.replace("    periodic_calculate_ion_tensor = .true.\n", "")
+
+    loaded = load_namelist_text(rendered)
+
+    assert loaded.run.periodic.calculate_ion_tensor is True
 
 
 @pytest.mark.parametrize(

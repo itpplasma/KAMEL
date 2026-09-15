@@ -170,6 +170,9 @@ module IO_collection_m
         call h5_add(h5grpid, 'periodic_calculate_radial_current', &
             periodic_calculate_radial_current, &
             'Whether periodic radial-current matrices and output are calculated.', 'true/false')
+        call h5_add(h5grpid, 'periodic_calculate_ion_tensor', &
+            periodic_calculate_ion_tensor, &
+            'Whether the periodic ion diffusion tensor is calculated and returned.', 'true/false')
 
         call h5_close_group(h5grpid)
 

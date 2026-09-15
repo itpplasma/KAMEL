@@ -118,6 +118,20 @@ def test_periodic_view_reads_required_and_optional_fields(tmp_path: Path) -> Non
     )
 
 
+def test_periodic_result_defaults_ion_tensor_metadata_for_legacy_output(tmp_path: Path) -> None:
+    periodic = Result(periodic_file(tmp_path / "result.h5")).periodic
+
+    assert periodic.calculate_ion_tensor is True
+
+
+def test_periodic_result_reads_ion_tensor_metadata(tmp_path: Path) -> None:
+    path = periodic_file(tmp_path / "result.h5")
+    with h5py.File(path, "a") as handle:
+        handle.create_dataset("config/periodic_calculate_ion_tensor", data=False)
+
+    assert Result(path).periodic.calculate_ion_tensor is False
+
+
 def test_periodic_integrals_match_campaign_trapezoid_for_both_regions(
     tmp_path: Path,
 ) -> None:

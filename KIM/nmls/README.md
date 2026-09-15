@@ -111,6 +111,7 @@ Notes:
 - periodic_kmax_scale ... real, radial Fourier cutoff multiplied by the reference Larmor radius; the solver derives the integer harmonic count $M$ from this cutoff and the period
 - periodic_n_rg ... integer, number of endpoint-exclusive guiding-centre samples over one period
 - periodic_calculate_radial_current ... boolean, assemble and reconstruct the periodic radial-current response; default true. Set false to omit `/fields/jrad` and skip its dense matrices
+- periodic_calculate_ion_tensor ... boolean, calculate and return the periodic ion diffusion tensor; default true. Set false for field/current/diagnostic-only runs; `D_ion` remains unavailable
 - periodic_match_global_kernel_approximations ... boolean, if true drops $k_s^2$ from the FLR arguments and takes electrons in the zero-FLR limit for comparison with the simplified global model; default false
 
 For `ion_collision_model='collisionless'`, these settings control the same

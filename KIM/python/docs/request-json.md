@@ -20,6 +20,7 @@ physical parameters for your case:
       "transition_width_scale": 4.0,
       "wavenumber_cutoff_scale": 2.0,
       "n_rg": 64,
+      "calculate_ion_tensor": true,
       "calculate_radial_current": true,
       "bparallel_ratio_real": 0.0,
       "bparallel_ratio_imag": 0.0
@@ -126,6 +127,9 @@ periodic run, `bparallel_ratio_real` and `bparallel_ratio_imag` prescribe the co
 `B_parallel/Br` drive ratio; both default to zero.
 `calculate_radial_current` controls the expensive radial-current response and defaults to true;
 when false, KIM omits the `jrad` output.
+`calculate_ion_tensor` controls the expensive periodic ion diffusion tensor and defaults to true;
+when false, KIM leaves `D_ion` unavailable while retaining the field, current, and diagnostics
+outputs. Readers treat missing metadata in older HDF5 files as true.
 
 ## Other run types
 

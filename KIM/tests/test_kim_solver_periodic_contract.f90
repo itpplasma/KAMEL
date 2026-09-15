@@ -11,11 +11,13 @@ program test_kim_solver_periodic_contract
     integer, parameter :: m_mode = -6, n_mode = 2
     type(kim_solver_t) :: kim
     type(kim_solver_t) :: kim_disabled
+    type(kim_solver_t) :: kim_ion_tensor_disabled
     type(kim_solver_t) :: kim_bparallel
     type(kim_solver_t) :: kim_bparallel_disabled
     type(kim_results_t) :: res
     type(kim_results_t) :: res_first
     type(kim_results_t) :: res_disabled
+    type(kim_results_t) :: res_ion_tensor_disabled
     type(kim_results_t) :: res_bparallel
     type(kim_results_t) :: res_bparallel_disabled
     type(kim_profiles_t) :: prof
@@ -107,6 +109,26 @@ program test_kim_solver_periodic_contract
     end if
     call kim_disabled%finalize()
 
+    call kim_ion_tensor_disabled%init('KIM_config_periodic_ion_tensor_disabled_small.nml', &
+                                      run_type='electrostatic_periodic', profiles=prof, stat=ierr)
+    call check('ion-tensor-disabled init returns KIM_OK', ierr == KIM_OK, all_passed)
+    if (ierr == KIM_OK) then
+        call kim_ion_tensor_disabled%solve(m=m_mode, n=n_mode, stat=ierr)
+        call check('ion-tensor-disabled solve returns KIM_OK', ierr == KIM_OK, all_passed)
+    end if
+    if (ierr == KIM_OK) then
+        res_ion_tensor_disabled = kim_ion_tensor_disabled%results()
+        call check('ion tensor is omitted when disabled', &
+                   .not. allocated(res_ion_tensor_disabled%D_ion), all_passed)
+        call check('disabled ion tensor preserves Phi', &
+                   maxval(abs(res_ion_tensor_disabled%Phi-res_first%Phi)) <= &
+                   1.0e-12_dp*max(1.0_dp, maxval(abs(res_first%Phi))), all_passed)
+        call check('disabled ion tensor preserves parallel current', &
+                   maxval(abs(res_ion_tensor_disabled%jpar-res_first%jpar)) <= &
+                   1.0e-12_dp*max(1.0_dp, maxval(abs(res_first%jpar))), all_passed)
+    end if
+    call kim_ion_tensor_disabled%finalize()
+
     call kim_bparallel%init('KIM_config_bparallel_small.nml', &
                             run_type='electrostatic_periodic', profiles=prof, stat=ierr)
     call check('prescribed-Bparallel init returns KIM_OK', ierr == KIM_OK, all_passed)
@@ -147,6 +169,14 @@ program test_kim_solver_periodic_contract
                    maxval(abs(res_bparallel_disabled%Phi-res_bparallel%Phi)) <= &
                    1.0e-12_dp*max(1.0_dp, maxval(abs(res_bparallel%Phi))), all_passed)
         call check('Bparallel disabled radial current preserves parallel current', &
+                   maxval(abs(res_bparallel_disabled%jpar-res_bparallel%jpar)) <= &
+                   1.0e-12_dp*max(1.0_dp, maxval(abs(res_bparallel%jpar))), all_passed)
+        call check('Bparallel ion tensor is omitted when disabled', &
+                   .not. allocated(res_bparallel_disabled%D_ion), all_passed)
+        call check('Bparallel ion tensor disabled preserves Phi', &
+                   maxval(abs(res_bparallel_disabled%Phi-res_bparallel%Phi)) <= &
+                   1.0e-12_dp*max(1.0_dp, maxval(abs(res_bparallel%Phi))), all_passed)
+        call check('Bparallel ion tensor disabled preserves parallel current', &
                    maxval(abs(res_bparallel_disabled%jpar-res_bparallel%jpar)) <= &
                    1.0e-12_dp*max(1.0_dp, maxval(abs(res_bparallel%jpar))), all_passed)
     end if

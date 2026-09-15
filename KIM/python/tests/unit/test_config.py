@@ -283,6 +283,11 @@ def test_periodic_dimensions_are_positive() -> None:
         PeriodicConfig(n_rg=0)
 
 
+def test_periodic_ion_tensor_is_enabled_by_default_and_can_be_disabled() -> None:
+    assert PeriodicConfig().calculate_ion_tensor is True
+    assert PeriodicConfig(calculate_ion_tensor=False).calculate_ion_tensor is False
+
+
 def test_json_schema_exposes_units_descriptions_and_sweepability() -> None:
     setup_schema = SetupConfig.model_json_schema()["properties"]
     grid_schema = GridConfig.model_json_schema()["properties"]

@@ -132,6 +132,15 @@ class PeriodicResult:
             if path.startswith("fields/jpar") and "/" not in path.removeprefix(prefix)
         )
 
+    @property
+    def calculate_ion_tensor(self) -> bool:
+        """Return the ion-tensor setting, defaulting true for legacy output."""
+
+        try:
+            return bool(self.result.read_dataset("config/periodic_calculate_ion_tensor"))
+        except ResultError:
+            return True
+
     def read_parallel_current_density(self, name: str) -> NDArray[np.complex128]:
         """Read one discovered total or species-resolved current field."""
 

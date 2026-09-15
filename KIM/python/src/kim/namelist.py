@@ -124,6 +124,7 @@ _SUPPORTED_KEYS = {
         "periodic_n_rg",
         "periodic_match_global_kernel_approximations",
         "periodic_calculate_radial_current",
+        "periodic_calculate_ion_tensor",
         "periodic_bparallel_ratio",
     },
     "kim_flr2": {
@@ -323,6 +324,7 @@ def _grid_values(grid: GridConfig) -> dict[str, Any]:
 
 def _periodic_values(periodic: PeriodicConfig) -> dict[str, Any]:
     return {
+        "periodic_calculate_ion_tensor": periodic.calculate_ion_tensor,
         "periodic_dr_asis_scale": periodic.as_is_width_scale,
         "periodic_dr_tr_scale": periodic.transition_width_scale,
         "periodic_kmax_scale": periodic.wavenumber_cutoff_scale,
@@ -558,6 +560,7 @@ def _parse_plasma(
 def _parse_periodic(values: Mapping[str, Any]) -> dict[str, Any]:
     bparallel_ratio = _complex_value(values.get("periodic_bparallel_ratio", 0.0j))
     return {
+        "calculate_ion_tensor": values.get("periodic_calculate_ion_tensor", True),
         "calculate_radial_current": values.get("periodic_calculate_radial_current", True),
         "as_is_width_scale": _required(values, "periodic_dr_asis_scale"),
         "transition_width_scale": _required(values, "periodic_dr_tr_scale"),

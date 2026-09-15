@@ -493,7 +493,8 @@ module rt_electrostatic_periodic_m
         use config_m, only: periodic_dr_asis_scale, periodic_dr_tr_scale, &
                             periodic_kmax_scale, periodic_n_rg, hdf5_output, &
                             periodic_match_global_kernel_approximations, &
-                            periodic_Bparallel_ratio, turn_off_electrons, turn_off_ions
+                            periodic_Bparallel_ratio, turn_off_electrons, turn_off_ions, &
+                            output_path, periodic_calculate_ion_tensor
         use setup_m, only: Br_boundary_re, Br_boundary_im, m_mode, n_mode, R0, omega
         use species_m, only: plasma
         use grid_m, only: rg_grid
@@ -617,18 +618,21 @@ module rt_electrostatic_periodic_m
         end do
         call calculate_MA_field(plasma, EBdat)
         call calculate_E_in_rsp_from_cyl(EBdat)
-        allocate(EBdat%D_ion(2, 2, size(dPhi)))
-        EBdat%D_ion = 0.0_dp
-        if (.not. turn_off_ions) then
-            do i = 1, size(dPhi)
-                do sp = 1, plasma%n_species - 1
-                    call compute_periodic_ion_tensor_spectrum(phi_spectrum, Br_const, L, r_win(i), &
-                        plasma%ks(i), plasma%kp(i), plasma%spec(sp)%vT(i), plasma%spec(sp)%nu(i), &
-                        plasma%spec(sp)%omega_c(i), omega, plasma%om_E(i), &
-                        plasma%B0(i), tensor_local, Bparallel_const)
-                    EBdat%D_ion(:, :, i) = EBdat%D_ion(:, :, i) + tensor_local
+        if (periodic_calculate_ion_tensor) then
+            allocate(EBdat%D_ion(2, 2, size(dPhi)))
+            EBdat%D_ion = 0.0_dp
+            if (.not. turn_off_ions) then
+                do i = 1, size(dPhi)
+                    do sp = 1, plasma%n_species - 1
+                        call compute_periodic_ion_tensor_spectrum( &
+                            phi_spectrum, Br_const, L, r_win(i), plasma%ks(i), plasma%kp(i), &
+                            plasma%spec(sp)%vT(i), plasma%spec(sp)%nu(i), &
+                            plasma%spec(sp)%omega_c(i), omega, plasma%om_E(i), &
+                            plasma%B0(i), tensor_local, Bparallel_const)
+                        EBdat%D_ion(:, :, i) = EBdat%D_ion(:, :, i) + tensor_local
+                    end do
                 end do
-            end do
+            end if
         end if
         EBdat%jpar   = jpar
         EBdat%jpar_e = jpar_species(:, 0)

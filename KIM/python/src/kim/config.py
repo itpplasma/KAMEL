@@ -533,6 +533,12 @@ class ProfileConfig(KimModel):
 class PeriodicConfig(KimModel):
     """Numerical controls for the forced-periodicity solver."""
 
+    calculate_ion_tensor: bool = Field(
+        default=True,
+        description="Assemble and return the periodic ion diffusion tensor.",
+        json_schema_extra={"sweepable": False},
+    )
+
     calculate_radial_current: bool = Field(
         default=True,
         description="Assemble and return the periodic radial-current response.",

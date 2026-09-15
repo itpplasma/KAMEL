@@ -32,6 +32,7 @@ program test_kim_solver_periodic
     call test_species_resolved_currents(.false.)
     call test_species_resolved_currents(.true.)
     call test_species_resolved_currents(.false., .false.)
+    call test_species_resolved_currents(.false., .true., .false.)
 
     print *, 'All tests PASSED'
     stop 0
@@ -64,7 +65,8 @@ contains
         print *, 'PASS: omitted conservation settings reset to the 1/1 default'
     end subroutine test_legacy_conservation_default_reset
 
-    subroutine test_species_resolved_currents(collisionless_ions, calculate_radial_current)
+    subroutine test_species_resolved_currents(collisionless_ions, calculate_radial_current, &
+                                              calculate_ion_tensor)
         use config_m, only: profiles_in_memory, nml_config_path, &
             resolved_electron_ifunc_conservation_model, &
             resolved_ion_ifunc_conservation_model, output_path, h5_out_file
@@ -77,6 +79,7 @@ contains
 
         logical, intent(in) :: collisionless_ions
         logical, intent(in), optional :: calculate_radial_current
+        logical, intent(in), optional :: calculate_ion_tensor
 
         integer, parameter :: npts = 201
         integer, parameter :: ion_masses(2) = [2, 3]
@@ -87,22 +90,26 @@ contains
         class(kim_t), allocatable :: kim_instance
         real(dp) :: scale
         integer :: N, h5_electron_ifunc_model, h5_ion_ifunc_model
-        logical :: ex, radial_current_enabled
+        logical :: ex, radial_current_enabled, ion_tensor_enabled, h5_ion_tensor
 
         radial_current_enabled = .true.
         if (present(calculate_radial_current)) radial_current_enabled = calculate_radial_current
+        ion_tensor_enabled = .true.
+        if (present(calculate_ion_tensor)) ion_tensor_enabled = calculate_ion_tensor
 
         call make_test_profiles(npts, r_prof, n_prof, Te_prof, Ti_prof, &
                                 q_prof, Er_prof)
         if (collisionless_ions) then
             call write_test_namelist('./KIM_config_periodic_species_jpar_test.nml', &
                 ion_masses=ion_masses, collisionless_ions=.true., &
-                hdf5_enabled=.true., calculate_radial_current=radial_current_enabled)
+                hdf5_enabled=.true., calculate_radial_current=radial_current_enabled, &
+                calculate_ion_tensor=ion_tensor_enabled)
         else
             call write_test_namelist('./KIM_config_periodic_species_jpar_test.nml', &
                 ion_masses=ion_masses, collisionless_ions=.false., &
                 hdf5_enabled=.true., electron_ifunc_model=1, ion_ifunc_model=3, &
-                calculate_radial_current=radial_current_enabled)
+                calculate_radial_current=radial_current_enabled, &
+                calculate_ion_tensor=ion_tensor_enabled)
         end if
         nml_config_path = './KIM_config_periodic_species_jpar_test.nml'
 
@@ -122,6 +129,10 @@ contains
         call kim_instance%run()
         call deinitialize_hdf5_output()
         call h5_open(trim(output_path)//trim(h5_out_file), h5id)
+
+        if (ion_tensor_enabled .neqv. allocated(EBdat%D_ion)) then
+            error stop 'periodic ion tensor allocation did not follow configuration'
+        end if
 
         if (.not. allocated(EBdat%jpar_e)) then
             print *, 'FAIL: periodic EBdat%jpar_e not allocated'
@@ -157,6 +168,12 @@ contains
         if (.not. ex) error stop 'ion I-function model metadata missing'
         call h5_obj_exists(h5id, 'config/periodic_calculate_radial_current', ex)
         if (.not. ex) error stop 'radial-current configuration metadata missing'
+        call h5_obj_exists(h5id, 'config/periodic_calculate_ion_tensor', ex)
+        if (.not. ex) error stop 'ion-tensor configuration metadata missing'
+        call h5_get(h5id, 'config/periodic_calculate_ion_tensor', h5_ion_tensor)
+        if (h5_ion_tensor .neqv. ion_tensor_enabled) then
+            error stop 'incorrect ion-tensor configuration metadata'
+        end if
         call h5_get(h5id, 'config/electron_ifunc_conservation_model', &
             h5_electron_ifunc_model)
         call h5_get(h5id, 'config/ion_ifunc_conservation_model', &
@@ -197,6 +214,8 @@ contains
             print *, 'PASS: collisionless periodic species currents sum to total jpar'
         else if (.not. radial_current_enabled) then
             print *, 'PASS: disabled periodic radial current omits HDF5 jrad output'
+        else if (.not. ion_tensor_enabled) then
+            print *, 'PASS: disabled periodic ion tensor omits allocation and records disabled metadata'
         else
             print *, 'PASS: FokkerPlanck periodic species currents sum to total jpar'
         end if
@@ -667,7 +686,7 @@ contains
     subroutine write_test_namelist(path, ion_masses, match_global_approximations, &
             collisionless_ions, ions_disabled, hdf5_enabled, &
             electron_ifunc_model, ion_ifunc_model, legacy_energy_conservation, &
-            calculate_radial_current)
+            calculate_radial_current, calculate_ion_tensor)
         ! Minimal electrostatic-periodic FokkerPlanck configuration; m_mode = -6,
         ! n_mode = 2 makes q resonant at q = 3, type_br_field = 12 (constant Br).
         ! Deliberately OMITS the &KIM_PERIODIC group to prove the periodic_*
@@ -679,6 +698,7 @@ contains
         logical, intent(in), optional :: collisionless_ions, ions_disabled, hdf5_enabled
         logical, intent(in), optional :: legacy_energy_conservation
         logical, intent(in), optional :: calculate_radial_current
+        logical, intent(in), optional :: calculate_ion_tensor
         integer :: iunit, i, nions
         logical :: custom_species, use_collisionless, disable_ions, write_hdf5
 
@@ -794,7 +814,8 @@ contains
         write(iunit, '(A)') '/'
         write(iunit, '(A)') '&KIM_PROFILES'
         write(iunit, '(A)') '/'
-        if (present(match_global_approximations) .or. present(calculate_radial_current)) then
+        if (present(match_global_approximations) .or. present(calculate_radial_current) .or. &
+            present(calculate_ion_tensor)) then
             write(iunit, '(A)') '&KIM_PERIODIC'
             if (present(match_global_approximations)) then
                 write(iunit, '(A,L1)') &
@@ -804,6 +825,10 @@ contains
             if (present(calculate_radial_current)) then
                 write(iunit, '(A,L1)') &
                     ' periodic_calculate_radial_current = ', calculate_radial_current
+            end if
+            if (present(calculate_ion_tensor)) then
+                write(iunit, '(A,L1)') &
+                    ' periodic_calculate_ion_tensor = ', calculate_ion_tensor
             end if
             write(iunit, '(A)') '/'
         end if

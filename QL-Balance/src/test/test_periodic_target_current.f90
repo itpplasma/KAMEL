@@ -464,6 +464,8 @@ contains
             ' periodic_dr_tr_scale = 10.0', &
             ' periodic_kmax_scale = 0.4', &
             ' periodic_n_rg = 64', &
+            ' periodic_calculate_ion_tensor = .true.', &
+            ' periodic_calculate_radial_current = .true.', &
             ' periodic_Bparallel_ratio = (0.0, 0.0)', &
             '/'
         close (unit)

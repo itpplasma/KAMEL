@@ -59,8 +59,8 @@ program test_periodic_config_read
                 periodic_dr_tr_scale /= 10.0_dp .or. &
                 periodic_kmax_scale /= 5.0_dp .or. periodic_n_rg /= 96 .or. &
                 periodic_Bparallel_ratio /= (0.0_dp, 0.0_dp) .or. &
-                .not. periodic_calculate_radial_current .or. &
-                .not. periodic_calculate_ion_tensor) then
+                periodic_calculate_radial_current .or. &
+                periodic_calculate_ion_tensor) then
             error stop 'omitted KIM_PERIODIC group did not restore defaults'
         end if
         print *, 'periodic config default-reset assertions PASSED'

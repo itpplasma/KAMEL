@@ -139,9 +139,9 @@
     periodic_kmax_scale = 5.0
     periodic_n_rg = 96
     ! Calculate and return the periodic ion diffusion tensor.
-    periodic_calculate_ion_tensor = .true.
+    periodic_calculate_ion_tensor = .false.
     ! Assemble/reconstruct radial current; disable to skip its dense matrices.
-    periodic_calculate_radial_current = .true.
+    periodic_calculate_radial_current = .false.
     ! Complex B_parallel/Br drive ratio for the periodic local response.
     ! Keep zero for a purely radial benchmark; set explicitly for coupled runs.
     periodic_Bparallel_ratio = (0.0, 0.0)

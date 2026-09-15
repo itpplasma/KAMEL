@@ -283,9 +283,11 @@ def test_periodic_dimensions_are_positive() -> None:
         PeriodicConfig(n_rg=0)
 
 
-def test_periodic_ion_tensor_is_enabled_by_default_and_can_be_disabled() -> None:
-    assert PeriodicConfig().calculate_ion_tensor is True
-    assert PeriodicConfig(calculate_ion_tensor=False).calculate_ion_tensor is False
+def test_periodic_ion_tensor_is_disabled_by_default_and_can_be_enabled() -> None:
+    assert PeriodicConfig().calculate_ion_tensor is False
+    assert PeriodicConfig(calculate_ion_tensor=True).calculate_ion_tensor is True
+    assert PeriodicConfig().calculate_radial_current is False
+    assert PeriodicConfig(calculate_radial_current=True).calculate_radial_current is True
 
 
 def test_json_schema_exposes_units_descriptions_and_sweepability() -> None:

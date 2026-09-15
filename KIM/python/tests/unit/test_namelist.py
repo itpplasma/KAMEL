@@ -61,6 +61,8 @@ def configuration(run_type: str) -> SimulationConfig:
                 transition_width_scale=13.53,
                 wavenumber_cutoff_scale=44.6,
                 n_rg=2048,
+                calculate_ion_tensor=True,
+                calculate_radial_current=True,
             ),
         }
     return factory(**physical_case(), **options)
@@ -140,22 +142,22 @@ def test_current_physics_controls_are_serialized_and_round_trip(tmp_path: Path) 
     assert load_namelist(path) == config
 
 
-def test_old_periodic_namelists_default_radial_current_to_enabled() -> None:
+def test_old_periodic_namelists_default_radial_current_to_disabled() -> None:
     rendered = dumps_namelist(configuration("electrostatic_periodic"))
     rendered = rendered.replace("    periodic_calculate_radial_current = .true.\n", "")
 
     loaded = load_namelist_text(rendered)
 
-    assert loaded.run.periodic.calculate_radial_current is True
+    assert loaded.run.periodic.calculate_radial_current is False
 
 
-def test_old_periodic_namelists_default_ion_tensor_to_enabled() -> None:
+def test_old_periodic_namelists_default_ion_tensor_to_disabled() -> None:
     rendered = dumps_namelist(configuration("electrostatic_periodic"))
     rendered = rendered.replace("    periodic_calculate_ion_tensor = .true.\n", "")
 
     loaded = load_namelist_text(rendered)
 
-    assert loaded.run.periodic.calculate_ion_tensor is True
+    assert loaded.run.periodic.calculate_ion_tensor is False
 
 
 @pytest.mark.parametrize(

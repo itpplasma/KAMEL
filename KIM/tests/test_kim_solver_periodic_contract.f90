@@ -39,7 +39,7 @@ program test_kim_solver_periodic_contract
         prof%Er(i) = -0.5_dp
     end do
 
-    call kim%init('KIM_config_em_small.nml', run_type='electrostatic_periodic', &
+    call kim%init('KIM_config_periodic_enabled_small.nml', run_type='electrostatic_periodic', &
                   profiles=prof, stat=ierr)
     call check('periodic init returns KIM_OK', ierr == KIM_OK, all_passed)
     if (ierr == KIM_OK) then

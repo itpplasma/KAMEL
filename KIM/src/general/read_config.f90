@@ -101,8 +101,8 @@ subroutine kim_read_config
     periodic_n_rg = periodic_n_rg_default
     periodic_match_global_kernel_approximations = .false.
     periodic_Bparallel_ratio = (0.0_dp, 0.0_dp)
-    periodic_calculate_radial_current = .true.
-    periodic_calculate_ion_tensor = .true.
+    periodic_calculate_radial_current = .false.
+    periodic_calculate_ion_tensor = .false.
     periodic_group_present = namelist_header_present(77, 'KIM_PERIODIC')
     periodic_iomsg = ''
     rewind(unit = 77)

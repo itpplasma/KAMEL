@@ -560,8 +560,8 @@ def _parse_plasma(
 def _parse_periodic(values: Mapping[str, Any]) -> dict[str, Any]:
     bparallel_ratio = _complex_value(values.get("periodic_bparallel_ratio", 0.0j))
     return {
-        "calculate_ion_tensor": values.get("periodic_calculate_ion_tensor", True),
-        "calculate_radial_current": values.get("periodic_calculate_radial_current", True),
+        "calculate_ion_tensor": values.get("periodic_calculate_ion_tensor", False),
+        "calculate_radial_current": values.get("periodic_calculate_radial_current", False),
         "as_is_width_scale": _required(values, "periodic_dr_asis_scale"),
         "transition_width_scale": _required(values, "periodic_dr_tr_scale"),
         "wavenumber_cutoff_scale": _required(values, "periodic_kmax_scale"),

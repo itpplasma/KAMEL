@@ -29,9 +29,9 @@ program test_kim_solver_periodic
     call test_collisionless_ions_end_to_end()
     call test_multi_ion_order_independence()
     call test_global_approximation_enabled()
-    call test_species_resolved_currents(.false.)
-    call test_species_resolved_currents(.true.)
-    call test_species_resolved_currents(.false., .false.)
+    call test_species_resolved_currents(.false., .true., .true.)
+    call test_species_resolved_currents(.true., .true., .true.)
+    call test_species_resolved_currents(.false., .false., .true.)
     call test_species_resolved_currents(.false., .true., .false.)
 
     print *, 'All tests PASSED'
@@ -329,7 +329,8 @@ contains
         call make_test_profiles(npts, r_prof, n_prof, Te_prof, Ti_prof, &
                                 q_prof, Er_prof)
 
-        call write_test_namelist('./KIM_config_periodic_run_test.nml')
+        call write_test_namelist('./KIM_config_periodic_run_test.nml', &
+            calculate_radial_current=.true., calculate_ion_tensor=.true.)
         nml_config_path = './KIM_config_periodic_run_test.nml'
 
         profiles_in_memory = .true.

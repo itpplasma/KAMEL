@@ -17,6 +17,7 @@ module kim_wave_code_adapter_m
         kim_periodic_kmax_scale => periodic_kmax_scale, kim_periodic_n_rg => periodic_n_rg, &
         kim_periodic_match_global => periodic_match_global_kernel_approximations, &
         kim_periodic_bparallel_ratio => periodic_Bparallel_ratio, &
+        kim_periodic_calculate_ion_tensor => periodic_calculate_ion_tensor, &
         kim_ion_temperature_gradient_model => ion_temperature_gradient_model, &
         kim_electron_conservation_model => resolved_electron_ifunc_conservation_model, &
         kim_ion_conservation_model => resolved_ion_ifunc_conservation_model
@@ -227,6 +228,10 @@ contains
         if (trim(kim_run_type) == 'electrostatic_periodic') then
             if (kim_turn_off_ions) error stop 'periodic KIM workflow requires active ions'
             if (kim_turn_off_electrons) error stop 'periodic KIM workflow requires active electrons'
+            ! QL-Balance's coupled transport path consumes D_ion.  The
+            ! standalone KIM default is diagnostic-only, so explicitly opt in
+            ! before the first solve rather than silently accepting zero fill.
+            kim_periodic_calculate_ion_tensor = .true.
             if (kim_periodic_bparallel_ratio /= (0.0d0, 0.0d0) .and. &
                 trim(kim_bparallel_source) /= 'prescribed_zero_mode') then
                 error stop 'nonzero periodic Bparallel requires prescribed_zero_mode policy'

@@ -568,15 +568,19 @@ configure_file(${CMAKE_SOURCE_DIR}/KIM/tests/test_data/KIM_config_em_small.nml
 configure_file(${CMAKE_SOURCE_DIR}/KIM/tests/test_data/KIM_config_em_small.nml
                ${CMAKE_BINARY_DIR}/tests/KIM_config_bparallel_small.nml COPYONLY)
 file(APPEND ${CMAKE_BINARY_DIR}/tests/KIM_config_bparallel_small.nml
-     "\n&KIM_PERIODIC\n    periodic_Bparallel_ratio = (0.25, -0.10)\n/\n")
+     "\n&KIM_PERIODIC\n    periodic_Bparallel_ratio = (0.25, -0.10)\n    periodic_calculate_radial_current = .true.\n    periodic_calculate_ion_tensor = .true.\n/\n")
+configure_file(${CMAKE_SOURCE_DIR}/KIM/tests/test_data/KIM_config_em_small.nml
+               ${CMAKE_BINARY_DIR}/tests/KIM_config_periodic_enabled_small.nml COPYONLY)
+file(APPEND ${CMAKE_BINARY_DIR}/tests/KIM_config_periodic_enabled_small.nml
+     "\n&KIM_PERIODIC\n    periodic_calculate_radial_current = .true.\n    periodic_calculate_ion_tensor = .true.\n/\n")
 configure_file(${CMAKE_SOURCE_DIR}/KIM/tests/test_data/KIM_config_em_small.nml
                ${CMAKE_BINARY_DIR}/tests/KIM_config_periodic_disabled_small.nml COPYONLY)
 file(APPEND ${CMAKE_BINARY_DIR}/tests/KIM_config_periodic_disabled_small.nml
-     "\n&KIM_PERIODIC\n    periodic_calculate_radial_current = .false.\n/\n")
+     "\n&KIM_PERIODIC\n    periodic_calculate_radial_current = .false.\n    periodic_calculate_ion_tensor = .true.\n/\n")
 configure_file(${CMAKE_SOURCE_DIR}/KIM/tests/test_data/KIM_config_em_small.nml
                ${CMAKE_BINARY_DIR}/tests/KIM_config_periodic_ion_tensor_disabled_small.nml COPYONLY)
 file(APPEND ${CMAKE_BINARY_DIR}/tests/KIM_config_periodic_ion_tensor_disabled_small.nml
-     "\n&KIM_PERIODIC\n    periodic_calculate_ion_tensor = .false.\n/\n")
+     "\n&KIM_PERIODIC\n    periodic_calculate_radial_current = .true.\n    periodic_calculate_ion_tensor = .false.\n/\n")
 configure_file(${CMAKE_SOURCE_DIR}/KIM/tests/test_data/KIM_config_em_small.nml
                ${CMAKE_BINARY_DIR}/tests/KIM_config_bparallel_disabled_small.nml COPYONLY)
 file(APPEND ${CMAKE_BINARY_DIR}/tests/KIM_config_bparallel_disabled_small.nml

@@ -139,6 +139,12 @@ def prepare_marsf_command(
     """Prepare explicit MARS-F profiles as a runnable KIM case."""
 
     try:
+        if equilibrium_file is not None and equilibrium_inputs:
+            raise ConfigurationError(
+                "--equilibrium-input may be used only with --equilibrium-executable"
+            )
+        if equilibrium_timeout <= 0.0:
+            raise ConfigurationError("--equilibrium-timeout must be greater than 0")
         metadata = MarsFMetadata.model_validate_json(metadata_file.read_text(encoding="utf-8"))
         source = read_marsf_profiles(source_directory, metadata)
         config = _load_config(config_file, None)

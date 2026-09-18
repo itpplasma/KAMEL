@@ -267,7 +267,7 @@ def test_prepare_marsf_stages_case_and_validate_can_read_relative_request(
 
 
 def test_prepare_marsf_passes_generator_and_timeout_options(tmp_path: Path) -> None:
-    source, metadata, _ = marsf_case(tmp_path)
+    source, metadata, equilibrium = marsf_case(tmp_path)
     config = configuration_file(tmp_path)
     generator = tmp_path / "equilibrium-generator.py"
     generator.write_text(
@@ -301,6 +301,56 @@ def test_prepare_marsf_passes_generator_and_timeout_options(tmp_path: Path) -> N
     payload = json.loads(result.stdout)
     report = json.loads(Path(payload["conversion_report"]).read_text(encoding="utf-8"))
     assert report["generator"]["timeout_seconds"] == 12.0
+
+
+def test_prepare_marsf_rejects_generator_inputs_with_equilibrium_table(tmp_path: Path) -> None:
+    source, metadata, equilibrium = marsf_case(tmp_path)
+    config = configuration_file(tmp_path)
+    generator_input = tmp_path / "fouriermodes.inp"
+    generator_input.write_text("1 2 3 4 5 6\n", encoding="utf-8")
+
+    result = runner.invoke(
+        app,
+        [
+            "prepare-marsf",
+            str(source),
+            str(config),
+            str(tmp_path / "prepared-case"),
+            "--metadata",
+            str(metadata),
+            "--equilibrium-file",
+            str(equilibrium),
+            "--equilibrium-input",
+            str(generator_input),
+        ],
+    )
+
+    assert result.exit_code == 1
+    assert "only with --equilibrium-executable" in result.stderr
+
+
+def test_prepare_marsf_rejects_zero_generator_timeout(tmp_path: Path) -> None:
+    source, metadata, equilibrium = marsf_case(tmp_path)
+    config = configuration_file(tmp_path)
+
+    result = runner.invoke(
+        app,
+        [
+            "prepare-marsf",
+            str(source),
+            str(config),
+            str(tmp_path / "prepared-case"),
+            "--metadata",
+            str(metadata),
+            "--equilibrium-file",
+            str(equilibrium),
+            "--equilibrium-timeout",
+            "0",
+        ],
+    )
+
+    assert result.exit_code == 1
+    assert "greater than 0" in result.stderr
 
 
 def run_once(tmp_path: Path) -> tuple[Path, dict[str, object]]:

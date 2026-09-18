@@ -125,7 +125,7 @@ The generated `conversion_report.json` is the preparation provenance record:
 - `source_hashes` contains lowercase SHA-256 values. `source/` identifies copied MARS-F files,
   `equilibrium/` identifies the equilibrium table, and `equilibrium_input/` identifies generator
   control files.
-- `operations` lists each quantity's source unit, target unit, scalar factor, and operation scope.
+- `operations` lists each quantity's source unit, target unit, and scalar factor.
 - `output_grid_points` records the number of rows written to each prepared profile.
 - `generator` is `null` for a supplied table. Otherwise it records the command, executable path and
   hash, hashes for command files, and the configured timeout.

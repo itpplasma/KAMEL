@@ -13,6 +13,10 @@ class ProfileError(KimError):
     """Raised when radial profile input is missing, malformed, or inconsistent."""
 
 
+class ExperimentalInputError(KimError):
+    """Raised when an approved experimental input cannot be read safely."""
+
+
 class ExecutableError(KimError):
     """Raised when the KIM scientific executable cannot be resolved or inspected."""
 

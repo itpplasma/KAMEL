@@ -42,6 +42,7 @@ from kim.diagnostics import EnvironmentDiagnosticReport, diagnose_environment
 from kim.errors import (
     ConfigurationError,
     ExecutableError,
+    ExperimentalInputError,
     KimError,
     ProfileError,
     ResultError,
@@ -56,6 +57,12 @@ from kim.executable import (
     executable_sha256,
     resolve_executable,
     select_executable,
+)
+from kim.importers import (
+    ExperimentalProfile,
+    MarsFInput,
+    MarsFMetadata,
+    read_marsf_profiles,
 )
 from kim.profiles import ProfileCopy, ProfileData, ProfileSet, ProfileValidation
 from kim.results import DatasetMetadata, PeriodicResult, Result
@@ -96,6 +103,8 @@ __all__ = [
     "ExplicitPlasma",
     "ExecutableError",
     "ExecutableSelection",
+    "ExperimentalInputError",
+    "ExperimentalProfile",
     "Flr2Config",
     "Flr2Run",
     "GridConfig",
@@ -107,6 +116,8 @@ __all__ = [
     "KamelGitMetadata",
     "KimError",
     "LinearRange",
+    "MarsFInput",
+    "MarsFMetadata",
     "PeriodicConfig",
     "PeriodicResult",
     "ParameterSweep",
@@ -157,4 +168,5 @@ __all__ = [
     "reconstruct_fourier",
     "reconstruct_fourier_derivative",
     "resonance_target",
+    "read_marsf_profiles",
 ]

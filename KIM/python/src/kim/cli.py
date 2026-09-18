@@ -15,6 +15,8 @@ from kim.config import ProfileConfig, SimulationConfig
 from kim.diagnostics import diagnose_environment
 from kim.errors import ConfigurationError, KimError
 from kim.examples import create_example
+from kim.importers.experimental import MarsFMetadata, read_marsf_profiles
+from kim.preparation import prepare_marsf_case
 from kim.profiles import ProfileSet
 from kim.results import Result
 from kim.runs import RunManifest, RunRepository, RunStatus
@@ -105,6 +107,63 @@ def init_command(
     _render(payload, output_format)
     typer.echo(f"next: {shlex.join(('cd', '--', str(destination)))}")
     typer.echo("next: kim validate request.json")
+
+
+@app.command("prepare-marsf")
+def prepare_marsf_command(
+    context: typer.Context,
+    source_directory: Path = typer.Argument(..., help="Directory containing the MARS-F quartet."),
+    config_file: Path = typer.Argument(..., help="JSON request or supported KIM namelist."),
+    destination: Path = typer.Argument(..., help="New directory for the prepared KIM case."),
+    metadata_file: Path = typer.Option(
+        ..., "--metadata", help="JSON file declaring the MARS-F conventions."
+    ),
+    equilibrium_file: Path | None = typer.Option(
+        None, "--equilibrium-file", help="Existing equil_r_q_psi.dat table."
+    ),
+    equilibrium_executable: Path | None = typer.Option(
+        None,
+        "--equilibrium-executable",
+        help="KAMEL equilibrium executable used when no table is supplied.",
+    ),
+    equilibrium_inputs: list[Path] = typer.Option(
+        [],
+        "--equilibrium-input",
+        help="Input file copied into the equilibrium generator directory; repeat as needed.",
+    ),
+    equilibrium_timeout: float = typer.Option(
+        3600.0, "--equilibrium-timeout", min=0.0, help="Generator timeout in seconds."
+    ),
+    output_format: OutputFormat = typer.Option(OutputFormat.TABLE, "--format"),
+) -> None:
+    """Prepare explicit MARS-F profiles as a runnable KIM case."""
+
+    try:
+        metadata = MarsFMetadata.model_validate_json(metadata_file.read_text(encoding="utf-8"))
+        source = read_marsf_profiles(source_directory, metadata)
+        config = _load_config(config_file, None)
+        prepared = prepare_marsf_case(
+            source,
+            config,
+            destination,
+            equilibrium_file=equilibrium_file,
+            equilibrium_executable=equilibrium_executable,
+            equilibrium_input_files=equilibrium_inputs,
+            equilibrium_timeout_seconds=equilibrium_timeout,
+        )
+    except (KimError, ValidationError, OSError, ValueError) as error:
+        _fail(context, error)
+    _render(
+        {
+            "prepared": True,
+            "case_directory": prepared.directory,
+            "profiles_directory": prepared.profiles,
+            "request_path": prepared.request,
+            "equilibrium_path": prepared.equilibrium,
+            "conversion_report": prepared.report,
+        },
+        output_format,
+    )
 
 
 @app.command("validate")

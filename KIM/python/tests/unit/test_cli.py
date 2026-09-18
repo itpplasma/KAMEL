@@ -7,7 +7,7 @@ import sys
 from pathlib import Path
 
 import pytest
-from kim import BuiltinPlasma, PlasmaIsotope, SimulationConfig
+from kim import BuiltinPlasma, MarsFMetadata, PlasmaIsotope, SimulationConfig
 from kim.cli import app
 from typer.testing import CliRunner
 
@@ -44,9 +44,54 @@ def fake_executable(tmp_path: Path) -> Path:
     return executable
 
 
+def marsf_case(tmp_path: Path) -> tuple[Path, Path, Path]:
+    source = tmp_path / "marsf"
+    source.mkdir()
+    profiles = {
+        "PROFDEN.IN": [1.0e19, 2.0e19, 3.0e19],
+        "PROFTE.IN": [100.0, 80.0, 40.0],
+        "PROFTI.IN": [90.0, 70.0, 30.0],
+        "PROFROT.IN": [0.0, -2.5e3, -5.0e3],
+    }
+    coordinates = [0.0, 0.5, 1.0]
+    for filename, values in profiles.items():
+        rows = ["MARS-F profile"]
+        rows.extend(f"{coordinate} {value}" for coordinate, value in zip(coordinates, values))
+        (source / filename).write_text("\n".join(rows) + "\n", encoding="utf-8")
+    metadata = MarsFMetadata(
+        source="mars-f-cli-test",
+        coordinate="sqrt_psiN",
+        coordinate_unit="1",
+        density_unit="1/m^3",
+        electron_temperature_unit="eV",
+        ion_temperature_unit="eV",
+        toroidal_velocity_unit="m/s",
+        equilibrium_provenance="cli-test-equilibrium",
+    )
+    metadata_file = tmp_path / "marsf-metadata.json"
+    metadata_file.write_text(metadata.model_dump_json(indent=2), encoding="utf-8")
+    equilibrium = tmp_path / "equil_r_q_psi.dat"
+    equilibrium.write_text(
+        "# radius q psi\n0.0 -3.6 0.0\n5.0 -3.5 0.25\n10.0 -3.4 1.0\n",
+        encoding="utf-8",
+    )
+    return source, metadata_file, equilibrium
+
+
 @pytest.mark.parametrize(
     "command",
-    ["parameters", "validate", "run", "sweep", "status", "inspect", "result", "doctor", "init"],
+    [
+        "parameters",
+        "validate",
+        "run",
+        "sweep",
+        "status",
+        "inspect",
+        "result",
+        "doctor",
+        "init",
+        "prepare-marsf",
+    ],
 )
 def test_every_command_has_help(command: str) -> None:
     result = runner.invoke(app, [command, "--help"])
@@ -183,6 +228,129 @@ def test_validate_error_is_concise_and_has_no_traceback(tmp_path: Path) -> None:
     assert "unknown" in result.stderr
     assert "errors.pydantic.dev" not in result.stderr
     assert "Traceback" not in result.output
+
+
+def test_prepare_marsf_stages_case_and_validate_can_read_relative_request(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    source, metadata, equilibrium = marsf_case(tmp_path)
+    config = configuration_file(tmp_path)
+    destination = tmp_path / "prepared-case"
+
+    result = runner.invoke(
+        app,
+        [
+            "prepare-marsf",
+            str(source),
+            str(config),
+            str(destination),
+            "--metadata",
+            str(metadata),
+            "--equilibrium-file",
+            str(equilibrium),
+            "--format",
+            "json",
+        ],
+    )
+
+    assert result.exit_code == 0, result.output
+    payload = json.loads(result.stdout)
+    assert payload["prepared"] is True
+    assert Path(payload["request_path"]) == destination / "request.json"
+    request = json.loads((destination / "request.json").read_text())
+    assert request["profiles"]["directory"] == "./profiles"
+    assert (destination / "conversion_report.json").is_file()
+    monkeypatch.chdir(destination)
+    validation = runner.invoke(app, ["validate", "request.json", "--format", "json"])
+    assert validation.exit_code == 0, validation.output
+    assert json.loads(validation.stdout)["valid"] is True
+
+
+def test_prepare_marsf_passes_generator_and_timeout_options(tmp_path: Path) -> None:
+    source, metadata, equilibrium = marsf_case(tmp_path)
+    config = configuration_file(tmp_path)
+    generator = tmp_path / "equilibrium-generator.py"
+    generator.write_text(
+        "#!/usr/bin/env python3\n"
+        "from pathlib import Path\n"
+        "Path('equil_r_q_psi.dat').write_text("
+        "'# radius q psi\\n0 -3.6 0\\n5 -3.5 .25\\n10 -3.4 1\\n')\n",
+        encoding="utf-8",
+    )
+    generator.chmod(0o755)
+
+    result = runner.invoke(
+        app,
+        [
+            "prepare-marsf",
+            str(source),
+            str(config),
+            str(tmp_path / "prepared-case"),
+            "--metadata",
+            str(metadata),
+            "--equilibrium-executable",
+            str(generator),
+            "--equilibrium-timeout",
+            "12",
+            "--format",
+            "json",
+        ],
+    )
+
+    assert result.exit_code == 0, result.output
+    payload = json.loads(result.stdout)
+    report = json.loads(Path(payload["conversion_report"]).read_text(encoding="utf-8"))
+    assert report["generator"]["timeout_seconds"] == 12.0
+
+
+def test_prepare_marsf_rejects_generator_inputs_with_equilibrium_table(tmp_path: Path) -> None:
+    source, metadata, equilibrium = marsf_case(tmp_path)
+    config = configuration_file(tmp_path)
+    generator_input = tmp_path / "fouriermodes.inp"
+    generator_input.write_text("1 2 3 4 5 6\n", encoding="utf-8")
+
+    result = runner.invoke(
+        app,
+        [
+            "prepare-marsf",
+            str(source),
+            str(config),
+            str(tmp_path / "prepared-case"),
+            "--metadata",
+            str(metadata),
+            "--equilibrium-file",
+            str(equilibrium),
+            "--equilibrium-input",
+            str(generator_input),
+        ],
+    )
+
+    assert result.exit_code == 1
+    assert "only with --equilibrium-executable" in result.stderr
+
+
+def test_prepare_marsf_rejects_zero_generator_timeout(tmp_path: Path) -> None:
+    source, metadata, equilibrium = marsf_case(tmp_path)
+    config = configuration_file(tmp_path)
+
+    result = runner.invoke(
+        app,
+        [
+            "prepare-marsf",
+            str(source),
+            str(config),
+            str(tmp_path / "prepared-case"),
+            "--metadata",
+            str(metadata),
+            "--equilibrium-file",
+            str(equilibrium),
+            "--equilibrium-timeout",
+            "0",
+        ],
+    )
+
+    assert result.exit_code == 1
+    assert "greater than 0" in result.stderr
 
 
 def run_once(tmp_path: Path) -> tuple[Path, dict[str, object]]:

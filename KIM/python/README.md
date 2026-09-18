@@ -67,6 +67,9 @@ See the [request JSON guide](docs/request-json.md) for a complete field descript
 requirements, and validated examples for every supported run type. Copyable requests are available
 under [`examples/`](examples/).
 
+The [experimental input guide](docs/experimental-input.md) documents the explicit MARS-F importer
+and preparation workflow, including equilibrium mapping and provenance reports.
+
 The optional `plot` extra installs matplotlib for [`examples/plot_periodic.py`](examples/plot_periodic.py),
 which reads a stored periodic HDF5 result and writes a figure without launching `KIM.x`.
 

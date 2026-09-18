@@ -64,6 +64,7 @@ from kim.importers import (
     MarsFMetadata,
     read_marsf_profiles,
 )
+from kim.preparation import PreparedExperimentalCase, prepare_marsf_case
 from kim.profiles import ProfileCopy, ProfileData, ProfileSet, ProfileValidation
 from kim.results import DatasetMetadata, PeriodicResult, Result
 from kim.runs import (
@@ -130,6 +131,7 @@ __all__ = [
     "ProfileError",
     "ProfileSet",
     "ProfileValidation",
+    "PreparedExperimentalCase",
     "ProfileScale",
     "PreparedSimulation",
     "QuadpackAlgorithm",
@@ -169,4 +171,5 @@ __all__ = [
     "reconstruct_fourier_derivative",
     "resonance_target",
     "read_marsf_profiles",
+    "prepare_marsf_case",
 ]

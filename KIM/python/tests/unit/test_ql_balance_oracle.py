@@ -83,6 +83,40 @@ def test_reads_exact_ql_balance_dataset_mapping_and_preserves_signed_q(
     np.testing.assert_array_equal(result.equilibrium_q, [1.5, -0.75, 0.25])
 
 
+def test_accepts_independent_profile_and_equilibrium_grid_lengths(tmp_path: Path) -> None:
+    path = tmp_path / "independent-grids.h5"
+    values = _valid_data()
+    for dataset_path in _DATASETS[:6]:
+        values[dataset_path] = values[dataset_path][:-1]
+    _write_oracle(path, overrides=values)
+
+    result = read_ql_balance_oracle(path)
+
+    assert result.r_out.shape == (2,)
+    assert result.n.shape == (2,)
+    assert result.Te.shape == (2,)
+    assert result.Ti.shape == (2,)
+    assert result.Vz.shape == (2,)
+    assert result.q.shape == (2,)
+    assert result.equilibrium_r.shape == (3,)
+    assert result.equilibrium_psi_pol_norm.shape == (3,)
+    assert result.equilibrium_q.shape == (3,)
+
+
+def test_tolerates_unrelated_datasets_and_groups(tmp_path: Path) -> None:
+    path = tmp_path / "unrelated-content.h5"
+    _write_oracle(path)
+    with h5py.File(path, "a") as handle:
+        handle.create_group("metadata")
+        handle.create_dataset("metadata/solver_version", data=np.array([1], dtype=np.int64))
+        handle.create_group("transport_output")
+        handle.create_dataset("transport_output/flux", data=np.array([4.0, 5.0], dtype=np.float64))
+
+    result = read_ql_balance_oracle(path)
+
+    np.testing.assert_array_equal(result.r_out, [10.0, 20.0, 30.0])
+
+
 def test_rejects_missing_oracle_file(tmp_path: Path) -> None:
     with pytest.raises(ExperimentalInputError):
         read_ql_balance_oracle(tmp_path / "missing.h5")
@@ -144,7 +178,11 @@ def test_requires_equilibrium_arrays_to_share_equilibrium_r_length(
 @pytest.mark.parametrize("dataset_path", _DATASETS)
 @pytest.mark.parametrize(
     "bad_value",
-    [pytest.param(np.nan, id="nan"), pytest.param(np.inf, id="positive-infinity")],
+    [
+        pytest.param(np.nan, id="nan"),
+        pytest.param(np.inf, id="positive-infinity"),
+        pytest.param(-np.inf, id="negative-infinity"),
+    ],
 )
 def test_rejects_non_finite_oracle_values(
     tmp_path: Path,
@@ -155,6 +193,43 @@ def test_rejects_non_finite_oracle_values(
     replacement = _valid_data()[dataset_path].copy()
     replacement[1] = bad_value
     _write_oracle(path, overrides={dataset_path: replacement})
+
+    with pytest.raises(ExperimentalInputError):
+        read_ql_balance_oracle(path)
+
+
+@pytest.mark.parametrize("dataset_path", _DATASETS)
+def test_rejects_scalar_required_dataset(tmp_path: Path, dataset_path: str) -> None:
+    path = tmp_path / "scalar-required-dataset.h5"
+    _write_oracle(path, overrides={dataset_path: np.asarray(1.0)})
+
+    with pytest.raises(ExperimentalInputError):
+        read_ql_balance_oracle(path)
+
+
+@pytest.mark.parametrize("dataset_path", _DATASETS)
+def test_rejects_required_path_replaced_by_group(tmp_path: Path, dataset_path: str) -> None:
+    path = tmp_path / "required-path-group.h5"
+    _write_oracle(path)
+    with h5py.File(path, "a") as handle:
+        del handle[dataset_path]
+        handle.create_group(dataset_path)
+
+    with pytest.raises(ExperimentalInputError):
+        read_ql_balance_oracle(path)
+
+
+def test_rejects_corrupt_non_hdf5_file(tmp_path: Path) -> None:
+    path = tmp_path / "corrupt.h5"
+    path.write_bytes(b"not an HDF5 file")
+
+    with pytest.raises(ExperimentalInputError):
+        read_ql_balance_oracle(path)
+
+
+def test_rejects_directory_path(tmp_path: Path) -> None:
+    path = tmp_path / "directory.h5"
+    path.mkdir()
 
     with pytest.raises(ExperimentalInputError):
         read_ql_balance_oracle(path)
@@ -270,6 +345,8 @@ def test_reader_opens_source_read_only_and_preserves_bytes_hash_and_mtime(
     original_hash = hashlib.sha256(original_bytes).hexdigest()
     original_mtime_ns = path.stat().st_mtime_ns
 
+    # Bytes, digest, and mtime below are the primary no-write evidence.  The
+    # mode spy is supplementary evidence that opening is explicitly read-only.
     real_file = h5py.File
     opened_modes: list[str] = []
 

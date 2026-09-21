@@ -430,6 +430,37 @@ def test_huge_staging_radius_is_rejected_as_experimental_input_error(
         )
 
 
+def test_huge_staging_operation_factor_is_rejected_as_experimental_input_error(
+    tmp_path: Path,
+) -> None:
+    _balance_paths, _balance_source, staged, marsf = _stage_balance_case(tmp_path)
+    equilibrium = tmp_path / "original-equilibrium.dat"
+    _write_equilibrium(equilibrium)
+    malformed = tmp_path / "huge-operation-factor.json"
+
+    def mutate(payload: dict[str, object]) -> None:
+        operations = payload["operations"]
+        assert isinstance(operations, list)
+        rotation = operations[-1]
+        assert isinstance(rotation, dict)
+        rotation["factor"] = 10**1000
+
+    _write_staging_report_variant(staged.report, malformed, mutate)
+    relinked_source = _relink_marsf_source(marsf, malformed)
+    destination = tmp_path / "prepared"
+
+    with pytest.raises(ExperimentalInputError):
+        prepare_marsf_case(
+            relinked_source,
+            _config(),
+            destination,
+            equilibrium_file=equilibrium,
+            upstream_staging_report=malformed,
+        )
+
+    assert not destination.exists()
+
+
 def test_direct_marsf_preparation_records_absent_upstream_provenance_honestly(
     tmp_path: Path,
 ) -> None:

@@ -440,19 +440,25 @@ def _operations_have_strict_semantics(
                 if not isinstance(actual_value, str) or actual_value != expected_value:
                     return False
             if isinstance(expected_value, float):
-                if (
-                    type(actual_value) not in {int, float}
-                    or not np.isfinite(float(actual_value))
-                    or float(actual_value) != expected_value
-                ):
+                if type(actual_value) not in {int, float}:
+                    return False
+                try:
+                    numeric_value = float(actual_value)
+                except (OverflowError, TypeError, ValueError):
+                    return False
+                if not np.isfinite(numeric_value) or numeric_value != expected_value:
                     return False
             if isinstance(expected_value, dict):
                 if not isinstance(actual_value, dict) or actual_value != expected_value:
                     return False
                 for nested_value in actual_value.values():
-                    if type(nested_value) not in {int, float} or not np.isfinite(
-                        float(nested_value)
-                    ):
+                    if type(nested_value) not in {int, float}:
+                        return False
+                    try:
+                        numeric_value = float(nested_value)
+                    except (OverflowError, TypeError, ValueError):
+                        return False
+                    if not np.isfinite(numeric_value):
                         return False
     return True
 

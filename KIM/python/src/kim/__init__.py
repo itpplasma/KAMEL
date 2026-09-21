@@ -59,9 +59,12 @@ from kim.executable import (
     select_executable,
 )
 from kim.importers import (
+    BalanceInput,
+    BalanceMetadata,
     ExperimentalProfile,
     MarsFInput,
     MarsFMetadata,
+    read_balance_profiles,
     read_marsf_profiles,
 )
 from kim.preparation import PreparedExperimentalCase, prepare_marsf_case
@@ -91,6 +94,8 @@ __version__ = "0.1.0"
 
 __all__ = [
     "BuiltinPlasma",
+    "BalanceInput",
+    "BalanceMetadata",
     "CollisionModel",
     "ConversionOperation",
     "ConversionReport",
@@ -171,5 +176,6 @@ __all__ = [
     "reconstruct_fourier_derivative",
     "resonance_target",
     "read_marsf_profiles",
+    "read_balance_profiles",
     "prepare_marsf_case",
 ]

@@ -1,10 +1,12 @@
 from __future__ import annotations
 
+import hashlib
 from pathlib import Path
 
 import numpy as np
 import pytest
 from kim import BalanceMetadata, ExperimentalInputError, read_balance_profiles
+from kim.importers import balance as balance_importer
 from pydantic import ValidationError
 
 _PROFILE_ROLES = (
@@ -190,6 +192,132 @@ def test_reader_does_not_mutate_source_file_bytes(tmp_path: Path) -> None:
     read_case(paths)
 
     assert {role: path.read_bytes() for role, path in paths.items()} == original
+
+
+def test_reader_profiles_are_deeply_immutable(tmp_path: Path) -> None:
+    paths = write_balance_profiles(tmp_path / "balance")
+
+    result = read_case(paths)
+
+    for profile in result.profiles.values():
+        assert not profile.coordinate.flags.writeable
+        assert not profile.values.flags.writeable
+        with pytest.raises(ValueError):
+            profile.coordinate.setflags(write=True)
+        with pytest.raises(ValueError):
+            profile.values.setflags(write=True)
+        with pytest.raises(ValueError):
+            profile.coordinate[0] = 99.0
+        with pytest.raises(ValueError):
+            profile.values[0] = 99.0
+
+
+def test_reader_hashes_the_same_snapshot_if_source_changes_after_read(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    paths = write_balance_profiles(tmp_path / "balance")
+    density = paths["density"]
+    original_bytes = density.read_bytes()
+    original_hash = hashlib.sha256(original_bytes).hexdigest()
+    original_read_bytes = Path.read_bytes
+    changed = False
+
+    def read_bytes(path: Path) -> bytes:
+        nonlocal changed
+        data = original_read_bytes(path)
+        if path == density and not changed:
+            changed = True
+            path.write_text("0.0 9.0e99\n0.5 9.0e99\n", encoding="utf-8")
+        return data
+
+    monkeypatch.setattr(Path, "read_bytes", read_bytes)
+
+    result = read_case(paths)
+
+    assert result.source_hashes["density"] == original_hash
+    np.testing.assert_allclose(result.profiles["density"].values, [1.0e19, 2.0e19, 3.0e19])
+
+
+def test_reader_wraps_source_read_errors(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    paths = write_balance_profiles(tmp_path / "balance")
+    density = paths["density"].absolute()
+    original_read_bytes = Path.read_bytes
+
+    def read_bytes(path: Path) -> bytes:
+        if path == density:
+            raise OSError("source disappeared")
+        return original_read_bytes(path)
+
+    monkeypatch.setattr(Path, "read_bytes", read_bytes)
+
+    with pytest.raises(ExperimentalInputError, match="unable to read BALANCE profile"):
+        read_case(paths)
+
+
+def test_reader_wraps_source_hash_errors(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    paths = write_balance_profiles(tmp_path / "balance")
+
+    def fail_hash(_source_bytes: bytes) -> str:
+        raise OSError("hashing failed")
+
+    monkeypatch.setattr(balance_importer, "_sha256", fail_hash)
+
+    with pytest.raises(ExperimentalInputError, match="unable to hash BALANCE profile"):
+        read_case(paths)
+
+
+@pytest.mark.parametrize("alias_kind", ["dot-dot", "symlink"])
+def test_reader_rejects_aliases_for_distinct_profile_roles(tmp_path: Path, alias_kind: str) -> None:
+    paths = write_balance_profiles(tmp_path / "balance")
+    density = paths["density"]
+    if alias_kind == "dot-dot":
+        alias = density.parent.parent / density.parent.name / density.name
+    else:
+        alias_directory = tmp_path / "balance-alias"
+        alias_directory.symlink_to(density.parent, target_is_directory=True)
+        alias = alias_directory / density.name
+
+    with pytest.raises(ExperimentalInputError, match="paths must be distinct"):
+        read_balance_profiles(
+            density=density,
+            electron_temperature=alias,
+            ion_temperature=paths["ion_temperature"],
+            toroidal_rotation=paths["toroidal_rotation"],
+            metadata=metadata(),
+        )
+
+
+def test_reader_rejects_hard_link_aliases_for_distinct_profile_roles(tmp_path: Path) -> None:
+    paths = write_balance_profiles(tmp_path / "balance")
+    density = paths["density"]
+    alias = tmp_path / "density-hardlink.raw"
+    alias.hardlink_to(density)
+
+    with pytest.raises(ExperimentalInputError, match="paths must be distinct"):
+        read_balance_profiles(
+            density=density,
+            electron_temperature=alias,
+            ion_temperature=paths["ion_temperature"],
+            toroidal_rotation=paths["toroidal_rotation"],
+            metadata=metadata(),
+        )
+
+
+def test_reader_wraps_symlink_loop_resolution_errors(tmp_path: Path) -> None:
+    paths = write_balance_profiles(tmp_path / "balance")
+    loop_a = tmp_path / "loop-a"
+    loop_b = tmp_path / "loop-b"
+    loop_a.symlink_to(loop_b)
+    loop_b.symlink_to(loop_a)
+
+    with pytest.raises(ExperimentalInputError, match="missing or unavailable"):
+        read_balance_profiles(
+            density=loop_a,
+            electron_temperature=paths["electron_temperature"],
+            ion_temperature=paths["ion_temperature"],
+            toroidal_rotation=paths["toroidal_rotation"],
+            metadata=metadata(),
+        )
 
 
 def test_balance_metadata_is_explicit_frozen_and_does_not_infer_units() -> None:

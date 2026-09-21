@@ -543,11 +543,12 @@ def _prepare_in_directory(
             input_path = Path(input_file)
             if not input_path.is_file():
                 raise ExperimentalInputError(f"equilibrium input file does not exist: {input_path}")
-            if input_path.name in input_names:
+            input_name = input_path.name.casefold()
+            if input_name in input_names:
                 raise ExperimentalInputError(
                     f"duplicate equilibrium input basename: {input_path.name}"
                 )
-            input_names.add(input_path.name)
+            input_names.add(input_name)
             input_bytes, input_hash = _read_bytes_snapshot(input_path, "equilibrium input file")
             (equilibrium_directory / input_path.name).write_bytes(input_bytes)
             source_hashes[f"equilibrium_input/{input_path.name}"] = input_hash
@@ -735,18 +736,20 @@ def _validate_equilibrium_input_names(
         "generator.stdout",
         "generator.stderr",
     }
+    reserved_names = {name.casefold() for name in reserved_names}
     input_names: set[str] = set()
     for input_file in input_files:
         input_path = Path(input_file)
         if not input_path.is_file():
             raise ExperimentalInputError(f"equilibrium input file does not exist: {input_path}")
-        if input_path.name in input_names:
+        input_name = input_path.name.casefold()
+        if input_name in input_names:
             raise ExperimentalInputError(f"duplicate equilibrium input basename: {input_path.name}")
-        if input_path.name in reserved_names:
+        if input_name in reserved_names:
             raise ExperimentalInputError(
                 f"equilibrium input basename is reserved by preparation: {input_path.name}"
             )
-        input_names.add(input_path.name)
+        input_names.add(input_name)
 
 
 def _resolved_executable_path(command: str) -> Path | None:

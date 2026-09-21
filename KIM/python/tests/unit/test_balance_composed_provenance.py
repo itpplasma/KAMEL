@@ -774,9 +774,13 @@ def test_generated_equilibrium_provenance_records_inputs_method_and_identity(
     "input_basename",
     [
         ".verified-equilibrium-generator.py",
+        ".VERIFIED-EQUILIBRIUM-GENERATOR.PY",
         "equil_r_q_psi.dat",
+        "EQUIL_R_Q_PSI.DAT",
         "generator.stdout",
+        "GENERATOR.STDOUT",
         "generator.stderr",
+        "GENERATOR.STDERR",
     ],
 )
 def test_generated_equilibrium_rejects_inputs_owned_by_preparation(
@@ -807,6 +811,37 @@ def test_generated_equilibrium_rejects_inputs_owned_by_preparation(
     assert not destination.exists()
     assert not marker.exists()
     assert equilibrium_input.read_bytes() == b"must not be copied\n"
+
+
+def test_generated_equilibrium_rejects_input_basenames_that_differ_only_by_case(
+    tmp_path: Path,
+) -> None:
+    _balance_paths, _balance_source, _staged, marsf = _stage_balance_case(tmp_path)
+    generator = tmp_path / "collision-generator.py"
+    marker = tmp_path / "generator-ran"
+    generator.write_text(
+        "#!/usr/bin/env python3\n"
+        f"from pathlib import Path\nPath({str(marker)!r}).write_text('ran')\n",
+        encoding="utf-8",
+    )
+    generator.chmod(generator.stat().st_mode | stat.S_IXUSR)
+    first_input = tmp_path / "equilibrium-control.in"
+    second_input = tmp_path / "EQUILIBRIUM-CONTROL.IN"
+    first_input.write_bytes(b"first\n")
+    second_input.write_bytes(b"second\n")
+    destination = tmp_path / "prepared"
+
+    with pytest.raises(ExperimentalInputError, match="duplicate"):
+        prepare_marsf_case(
+            marsf,
+            _config(),
+            destination,
+            equilibrium_executable=generator,
+            equilibrium_input_files=(first_input, second_input),
+        )
+
+    assert not destination.exists()
+    assert not marker.exists()
 
 
 def test_generator_executes_verified_snapshot_when_original_changes_after_hash(

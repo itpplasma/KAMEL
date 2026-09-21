@@ -3,6 +3,7 @@ from __future__ import annotations
 import hashlib
 import importlib.metadata
 import json
+import os
 import stat
 from collections.abc import Callable
 from dataclasses import replace
@@ -21,6 +22,7 @@ from kim import (
     SimulationConfig,
 )
 from kim import executable as executable_module
+from kim import preparation as preparation_module
 from kim import (
     prepare_marsf_case,
     read_balance_profiles,
@@ -766,3 +768,105 @@ def test_generated_equilibrium_provenance_records_inputs_method_and_identity(
     }
     assert generator.read_bytes() == generator_bytes
     assert equilibrium_input.read_bytes() == equilibrium_input_bytes
+
+
+def test_generator_executes_verified_snapshot_when_original_changes_after_hash(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _balance_paths, _balance_source, _staged, marsf = _stage_balance_case(tmp_path)
+    equilibrium = tmp_path / "unused-equilibrium.dat"
+    generator = tmp_path / "switching-generator.py"
+    generator_a = (
+        "#!/usr/bin/env python3\n"
+        "from pathlib import Path\n"
+        "Path('equil_r_q_psi.dat').write_text("
+        "'# radius q psi\\n0.0 1.0 0.0\\n10.0 1.5 0.25\\n20.0 2.0 1.0\\n', "
+        "encoding='utf-8')\n"
+    ).encode("utf-8")
+    generator_b = generator_a.replace(b"0.0 1.0 0.0", b"0.0 9.0 0.0")
+    generator.write_bytes(generator_a)
+    generator.chmod(generator.stat().st_mode | stat.S_IXUSR)
+    generator_digest = _sha256(generator)
+
+    real_run = preparation_module._run_equilibrium_generator
+
+    def replace_original_then_run(
+        command: list[str], working_directory: Path, timeout_seconds: float
+    ) -> None:
+        generator.write_bytes(generator_b)
+        return real_run(command, working_directory, timeout_seconds)
+
+    monkeypatch.setattr(preparation_module, "_run_equilibrium_generator", replace_original_then_run)
+    prepared = prepare_marsf_case(
+        marsf,
+        _config(),
+        tmp_path / "prepared",
+        equilibrium_executable=generator,
+    )
+
+    np.testing.assert_array_equal(np.loadtxt(prepared.equilibrium)[:, 1], [1.0, 1.5, 2.0])
+    report = _report(prepared.report)
+    assert report["generator"]["executable"] == str(generator.absolute())
+    assert report["generator"]["sha256"] == generator_digest
+    assert report["generator"]["executed_sha256"] == generator_digest
+    assert (prepared.directory / report["generator"]["executed_executable"]).is_file()
+    assert generator.read_bytes() == generator_b
+    assert equilibrium.exists() is False
+
+
+def test_generator_bare_path_command_is_resolved_and_verified(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _balance_paths, _balance_source, _staged, marsf = _stage_balance_case(tmp_path)
+    executable_directory = tmp_path / "bin"
+    executable_directory.mkdir()
+    generator = executable_directory / "marsf-generator"
+    generator.write_text(
+        "#!/usr/bin/env python3\n"
+        "from pathlib import Path\n"
+        "Path('equil_r_q_psi.dat').write_text("
+        "'# radius q psi\\n0.0 1.0 0.0\\n10.0 1.5 0.25\\n20.0 2.0 1.0\\n', "
+        "encoding='utf-8')\n",
+        encoding="utf-8",
+    )
+    generator.chmod(generator.stat().st_mode | stat.S_IXUSR)
+    work_directory = tmp_path / "work"
+    work_directory.mkdir()
+    monkeypatch.chdir(work_directory)
+    monkeypatch.setenv("PATH", f"{executable_directory}{os.pathsep}{os.environ['PATH']}")
+
+    prepared = prepare_marsf_case(
+        marsf,
+        _config(),
+        tmp_path / "prepared",
+        equilibrium_executable=generator.name,
+    )
+
+    report = _report(prepared.report)
+    assert report["generator"]["executable"] == str(generator.absolute())
+    assert report["generator"]["sha256"] == _sha256(generator)
+    assert (prepared.directory / report["generator"]["executed_executable"]).is_file()
+
+
+def test_optional_identity_discovery_failures_record_null(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _balance_paths, _balance_source, _staged, marsf = _stage_balance_case(tmp_path)
+    equilibrium = tmp_path / "original-equilibrium.dat"
+    _write_equilibrium(equilibrium)
+
+    def unavailable_version(_package: str) -> str:
+        raise RuntimeError("metadata backend unavailable")
+
+    def unavailable_git(*_args: object, **_kwargs: object) -> None:
+        raise PermissionError("git metadata unavailable")
+
+    monkeypatch.setattr(importlib.metadata, "version", unavailable_version)
+    monkeypatch.setattr(executable_module, "discover_kamel_git_metadata", unavailable_git)
+    prepared = prepare_marsf_case(
+        marsf, _config(), tmp_path / "prepared", equilibrium_file=equilibrium
+    )
+
+    report = _report(prepared.report)
+    assert report["software"] is None
+    assert report["git"] is None

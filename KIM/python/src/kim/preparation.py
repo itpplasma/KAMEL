@@ -535,17 +535,40 @@ def _prepare_in_directory(
             source_hashes[f"equilibrium_input/{input_path.name}"] = input_hash
         generator_command = _resolve_generator_command(equilibrium_executable)
         generator_path = _resolved_executable_path(generator_command[0])
-        command_file_hashes = _hash_command_files(generator_command)
-        generator_hash = _sha256(generator_path) if generator_path is not None else None
+        if generator_path is None or not os.access(generator_path, os.X_OK):
+            raise ExperimentalInputError(
+                f"equilibrium_executable does not name an executable file: "
+                f"{generator_command[0]}"
+            )
+        generator_bytes, generator_hash = _read_bytes_snapshot(
+            generator_path, "equilibrium generator executable"
+        )
+        verified_generator = equilibrium_directory / (
+            ".verified-equilibrium-generator" + generator_path.suffix
+        )
+        try:
+            verified_generator.write_bytes(generator_bytes)
+            verified_generator.chmod(0o700)
+        except OSError as error:
+            raise ExperimentalInputError(
+                "unable to create the verified equilibrium generator copy"
+            ) from error
+        verified_command = [str(verified_generator)]
+        reported_verified_path = f"equilibrium/{verified_generator.name}"
         generator_provenance = {
-            "command": generator_command,
-            "executable": str(generator_path) if generator_path else generator_command[0],
+            "command": [reported_verified_path],
+            "source_command": generator_command,
+            "executable": str(generator_path),
             "sha256": generator_hash,
-            "command_file_hashes": command_file_hashes,
+            "command_file_hashes": {str(generator_path): generator_hash},
+            "executed_command": [reported_verified_path],
+            "executed_executable": reported_verified_path,
+            "executed_sha256": generator_hash,
+            "hash_basis": "exact bytes copied to executed_executable",
             "timeout_seconds": equilibrium_timeout_seconds,
         }
         _run_equilibrium_generator(
-            generator_command, equilibrium_directory, equilibrium_timeout_seconds
+            verified_command, equilibrium_directory, equilibrium_timeout_seconds
         )
         equilibrium_source = equilibrium_directory / "equil_r_q_psi.dat"
         if equilibrium_source.is_symlink() or not equilibrium_source.is_file():
@@ -698,28 +721,19 @@ def _resolved_executable_path(command: str) -> Path | None:
     return Path(located).absolute() if located else None
 
 
-def _hash_command_files(command: Sequence[str]) -> dict[str, str]:
-    """Capture command-file identities before a generator is executed."""
-
-    hashes: dict[str, str] = {}
-    for part in command:
-        path = Path(part)
-        if path.is_file():
-            resolved = path.absolute()
-            hashes[str(resolved)] = _sha256(resolved)
-    return hashes
-
-
 def _software_identity() -> dict[str, str] | None:
     try:
         version = importlib.metadata.version("kamel-kim")
-    except importlib.metadata.PackageNotFoundError:
+    except Exception:
         return None
     return {"name": "kamel-kim", "version": version}
 
 
 def _git_identity() -> dict[str, object] | None:
-    metadata = executable_module.discover_kamel_git_metadata()
+    try:
+        metadata = executable_module.discover_kamel_git_metadata()
+    except Exception:
+        return None
     if metadata is None:
         return None
     return {"commit": metadata.commit, "dirty": metadata.dirty}

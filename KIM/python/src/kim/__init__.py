@@ -71,6 +71,7 @@ from kim.importers import (
 )
 from kim.preparation import PreparedExperimentalCase, prepare_marsf_case
 from kim.profiles import ProfileCopy, ProfileData, ProfileSet, ProfileValidation
+from kim.ql_balance_oracle import QLBalanceOracle, read_ql_balance_oracle
 from kim.results import DatasetMetadata, PeriodicResult, Result
 from kim.runs import (
     InputArtifact,
@@ -139,6 +140,7 @@ __all__ = [
     "ProfileError",
     "ProfileSet",
     "ProfileValidation",
+    "QLBalanceOracle",
     "PreparedExperimentalCase",
     "ProfileScale",
     "PreparedSimulation",
@@ -181,5 +183,6 @@ __all__ = [
     "read_marsf_profiles",
     "read_marsf_profile_snapshot",
     "read_balance_profiles",
+    "read_ql_balance_oracle",
     "prepare_marsf_case",
 ]

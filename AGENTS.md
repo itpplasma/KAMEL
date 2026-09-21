@@ -15,7 +15,7 @@ KAMEL (Kinetic plAsma response ModEL) is a scientific computing framework for mo
 - **Top-level build config**: `CMakeLists.txt`, `Makefile`; build outputs in `build/`
 - **Solver codes**: `KiLCA/`, `KIM/`, `QL-Balance/` (executables use `.x` suffix, e.g. `KIM.x`)
 - **Shared math/utils**: `common/`
-- **Python interface (KAMELpy)**: `python/`
+- **Python interfaces**: `python/` (KAMELpy) and `KIM/python/` (supported KIM API/CLI)
 - **Preprocessing tools**: `PreProc/` (fouriermodes, neo-2 templates)
 - **KIM config namelist**: `KIM/nmls/KIM_config.nml`
 - **QL-Balance config**: `balance_conf.nml` (in run directory)
@@ -38,7 +38,11 @@ make QL-Balance
 make test  # invokes ctest --test-dir build
 
 # Install Python interface
-cd python && make init && make install
+(cd python && make init && make install)
+
+# Install and test the standalone KIM API/CLI
+python -m pip install -e './KIM/python[test]'
+python -m pytest KIM/python/tests/unit
 
 # Clean build (removes build/)
 make clean
@@ -50,10 +54,13 @@ make clean
 - Compilers: MPI Fortran (`mpif90`), C/C++ with clang-format support.
 - Platforms tested: Apple Silicon (clang 16.0 + gfortran 14.2), Debian (GNU 12.2.0).
 - Reconfigure tip: when in doubt, `make clean` then rebuild.
+- With multiple worktrees, confirm that `python -c "import kim; print(kim.__file__)"` resolves to
+  the intended worktree before trusting API test results.
 
 ## Key Dependencies
 
 ### External Libraries
+
 - **MPI** - Parallel computing
 - **LAPACK/BLAS** - Linear algebra
 - **SuiteSparse** - Sparse matrix operations
@@ -62,27 +69,36 @@ make clean
 - **SUNDIALS** - Numerical solvers
 
 ### Python Dependencies
+
 - **Core**: numpy, scipy, h5py, f90nml
 - **Visualization**: matplotlib
 
 ## Data Flow & Workflow
 
-All data exchange uses **HDF5 format** for standardization. HDF5 outputs include git version and timestamps for reproducibility.
+Solver configuration uses Fortran namelists, and profile inputs are normally two-column text files.
+The supported KIM Python interface accepts validated JSON requests, stages immutable input copies,
+and records logs and manifests. Scientific solver results use HDF5 and include version/provenance
+metadata where supported.
 
 Typical workflow:
+
 1. **Profile preparation**: Prepare input profiles in CGS units
 2. **Main run**: Execute solver (KiLCA/KIM/QL-Balance)
 3. **Post-processing**: Python analysis and visualization via KAMELpy
 
-## Python Interface (KAMELpy)
+## Python Interfaces
 
-### Core Classes
-- **`kim` (`KIM/python`)** - Supported KIM configuration, execution, sweep, and result API/CLI
-- **`KIMpy`** - Experimental KIM dispersion and field-solver analysis modules
-- **`KiLCA_interface`** - Comprehensive KiLCA workflow management with modular components
-- **`QL_Balance_interface`** - Complete transport calculations with automatic preprocessing
+The repository contains two distinct Python distributions:
 
-### Common Pattern
+- **`kamel-kim` / `kim` (`KIM/python`)** - Supported KIM configuration, validation, execution,
+  sweeps, and HDF5 result API/CLI. Its main entry points are `SimulationConfig`, `Simulation`,
+  `Result`, and `run_sweep`.
+- **KAMELpy (`python/`)** - KiLCA and QL-Balance workflow interfaces plus experimental KIM
+  dispersion and field-solver analysis modules. Do not use the experimental `KIMpy` analysis
+  modules as substitutes for the supported orchestration API.
+
+### KAMELpy Pattern
+
 ```python
 interface = KiLCA_interface(shot, time, path, run_type, machine)
 interface.set_modes(m_modes, n_modes)
@@ -90,10 +106,20 @@ interface.prepare_balance_input(input_file)
 interface.run_balance()
 ```
 
+For supported KIM automation, start with `KIM/python/README.md` and
+`KIM/python/docs/request-json.md`. Keep CLI commands as thin adapters over the public Python API.
+
 ## KIM Profile Input System
 
+The Fortran solver supports the coordinate modes below. Version 1 of the supported `kim` Python
+API accepts only explicit `r_eff` profiles; it must not silently rely on Fortran auto-detection or
+perform an undeclared coordinate conversion.
+
 ### Unit Requirements (CGS)
-All KIM input profiles must be in CGS units:
+
+Prepared `r_eff` profiles consumed by KIM use the following units. The Fortran preprocessing path
+may accept a normalized `sqrt_psiN` radial coordinate, but transforms it to `r_eff` before solving.
+
 - **Density**: 1/cm^3 (typically 10^12 to 10^15). **NOT** SI units (10^19 1/m^3)
 - **Temperature**: eV (typically 10 to 20000 eV)
 - **Electric field (Er)**: statV/cm (typically +/-0.5 statV/cm)
@@ -101,6 +127,7 @@ All KIM input profiles must be in CGS units:
 - **Radial coordinate**: cm (effective radius r_eff)
 
 ### Profile Coordinate Types (`KIM_PROFILES` namelist)
+
 ```fortran
 &KIM_PROFILES
     coord_type = 'auto'           ! 'auto', 'sqrt_psiN', or 'r_eff'
@@ -114,7 +141,9 @@ All KIM input profiles must be in CGS units:
 - `'r_eff'` - Profiles already in effective radius [cm], used directly
 
 ### Required Profile Files
+
 Located in `profile_location` directory:
+
 - `n.dat` - Electron density (r_eff [cm], n [1/cm^3])
 - `Te.dat` - Electron temperature (r_eff [cm], Te [eV])
 - `Ti.dat` - Ion temperature (r_eff [cm], Ti [eV])
@@ -123,6 +152,7 @@ Located in `profile_location` directory:
 - `Vz.dat` - Toroidal rotation (r_eff [cm], Vz [cm/s]) - optional
 
 ### Automatic Validation Checks
+
 KIM performs these checks on startup:
 1. **Density units** - Error if density >10^17 (likely SI instead of CGS)
 2. **q vs m_mode sign** - Warning if q>0 with m>0 (no resonance expected)
@@ -130,10 +160,13 @@ KIM performs these checks on startup:
 4. **Er interpolation** - Automatic interpolation if Er.dat grid differs from other profiles
 
 ### Er Calculation
+
 If `Er.dat` is not provided, KIM calculates it from radial force balance:
+
 ```
-Er = (Ti/e*n)*dn/dr + (1/e)*dTi/dr + (r*B0*Vz)/(c*q*R0)
+Er = Ti/(e*n)*dn/dr + (1/e)*dTi/dr + (r*B0*Vz)/(c*q*R0)
 ```
+
 Output written to `Er_no_Vpol.dat` (without poloidal rotation contribution).
 
 ## Coding Style
@@ -149,6 +182,10 @@ Output written to `Er_no_Vpol.dat` (without poloidal rotation contribution).
 ## Testing
 
 - **Framework**: CTest enabled at top level; tests run from `build/` via `ctest`.
+- **KIM Python unit tests**: install `./KIM/python[test]`, then run
+  `python -m pytest KIM/python/tests/unit`. These tests use a fake executable.
+- **KIM Python integration test**: opt in with `KIM_RUN_INTEGRATION=1` and an absolute
+  `KIM_EXECUTABLE` path. A skipped integration test is not evidence that the real solver passed.
 - **Example**: `QL-Balance/src/test/test_sparse.f90` registered in `QL-Balance/src/test/CMakeLists.txt` with `add_test`.
 - **New tests**: Add via CMake in relevant subproject.
   - Name sources `test_*.f90`; register with `add_test` in `CMakeLists.txt`.
@@ -180,8 +217,15 @@ Output written to `Er_no_Vpol.dat` (without poloidal rotation contribution).
 - When adding features, add or update tests where practical.
 - Reconfigure with `make clean` if CMake cache/dependency state looks inconsistent.
 - Modular physics: code is extensible for new collision models or zone types.
+- For KIM data adoption, preserve original source arrays/files and record units, coordinates,
+  sign/phase conventions, transformations, hashes, and provenance in staged artifacts.
+- Never guess a scientific unit, coordinate mapping, sign convention, normalization, missing
+  experimental input, or comparison tolerance. Require an explicit reviewed contract and
+  independent reference values before implementing a scientific conversion.
+- Preparation/import operations must not launch the solver or overwrite an existing destination.
 
 ## Known Issues
 
 ### Stale `forces_nl` in `rhs_balance` Jacobian probing (QL-Balance)
+
 In `rhs_balance_m.f90`, the `rhs_balance` subroutine computes `forces_nl` in a pre-loop over all boundary points but only retains the value from the last point (`ipoi = npoib`). This stale value is then reused for all boundary points inside the Jacobian probing loop (lines ~280-283), producing incorrect nonlinear QL fluxes for the torque computation at interior boundary points. The impact is limited to the Jacobian accuracy for the implicit solver and may cause slower convergence or subtle inaccuracies in the nonlinear torque terms during probing.

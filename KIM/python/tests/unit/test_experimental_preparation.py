@@ -16,6 +16,7 @@ from kim import (
     prepare_marsf_case,
     read_marsf_profiles,
 )
+from kim.profiles import ProfileSet
 
 
 def metadata(**updates: object) -> MarsFMetadata:
@@ -285,3 +286,127 @@ def test_rejects_sqrt_psiN_coordinates_outside_the_declared_domain(tmp_path: Pat
 
     with pytest.raises(ExperimentalInputError, match="sqrt_psiN coordinate"):
         prepare_marsf_case(source, config(), tmp_path / "prepared", equilibrium_file=equilibrium)
+
+
+def test_default_q_operation_preserves_supplied_equilibrium_q(tmp_path: Path) -> None:
+    source_directory = tmp_path / "marsf"
+    equilibrium = tmp_path / "equil_r_q_psi.dat"
+    write_marsf_case(source_directory)
+    write_equilibrium(equilibrium)
+    source = read_marsf_profiles(source_directory, metadata())
+
+    prepared = prepare_marsf_case(
+        source,
+        config(),
+        tmp_path / "prepared",
+        equilibrium_file=equilibrium,
+    )
+
+    np.testing.assert_allclose(np.loadtxt(prepared.profiles / "q.dat")[:, 1], [1.0, 1.5, 2.0])
+
+
+@pytest.mark.parametrize(
+    ("q_operation", "expected_q"),
+    [
+        ("preserve", [1.0, 1.5, 2.0]),
+        ("negate", [-1.0, -1.5, -2.0]),
+    ],
+)
+def test_explicit_q_operation_controls_written_equilibrium_q(
+    tmp_path: Path, q_operation: str, expected_q: list[float]
+) -> None:
+    source_directory = tmp_path / "marsf"
+    equilibrium = tmp_path / "equil_r_q_psi.dat"
+    write_marsf_case(source_directory)
+    write_equilibrium(equilibrium)
+    source = read_marsf_profiles(source_directory, metadata())
+
+    prepared = prepare_marsf_case(
+        source,
+        config(),
+        tmp_path / "prepared",
+        equilibrium_file=equilibrium,
+        q_operation=q_operation,
+    )
+
+    np.testing.assert_allclose(np.loadtxt(prepared.profiles / "q.dat")[:, 1], expected_q)
+
+
+@pytest.mark.parametrize(
+    ("q_operation", "factor"),
+    [("preserve", 1.0), ("negate", -1.0)],
+)
+def test_q_operation_is_recorded_in_conversion_report(
+    tmp_path: Path, q_operation: str, factor: float
+) -> None:
+    source_directory = tmp_path / "marsf"
+    equilibrium = tmp_path / "equil_r_q_psi.dat"
+    write_marsf_case(source_directory)
+    write_equilibrium(equilibrium)
+    source = read_marsf_profiles(source_directory, metadata())
+
+    prepared = prepare_marsf_case(
+        source,
+        config(),
+        tmp_path / "prepared",
+        equilibrium_file=equilibrium,
+        q_operation=q_operation,
+    )
+
+    report = json.loads(prepared.report.read_text(encoding="utf-8"))
+    q_operations = [operation for operation in report["operations"] if operation["quantity"] == "q"]
+    assert len(q_operations) == 1
+    q_record = q_operations[0]
+    assert q_record["factor"] == factor
+    assert q_record["operation"] == q_operation
+    assert q_record["quantity"] == "q"
+    assert q_record["source_unit"] == "1"
+    assert q_record["target_unit"] == "1"
+
+
+def test_invalid_q_operation_is_rejected_before_preparation(tmp_path: Path) -> None:
+    source_directory = tmp_path / "marsf"
+    equilibrium = tmp_path / "equil_r_q_psi.dat"
+    write_marsf_case(source_directory)
+    write_equilibrium(equilibrium)
+    source = read_marsf_profiles(source_directory, metadata())
+
+    with pytest.raises(ExperimentalInputError, match="q operation"):
+        prepare_marsf_case(
+            source,
+            config(),
+            tmp_path / "prepared",
+            equilibrium_file=equilibrium,
+            q_operation="infer",
+        )
+
+    assert not (tmp_path / "prepared").exists()
+
+
+def test_negated_analytic_q_profile_has_signed_kim_resonance(tmp_path: Path) -> None:
+    source_directory = tmp_path / "marsf"
+    equilibrium = tmp_path / "equil_r_q_psi.dat"
+    write_marsf_case(source_directory)
+    equilibrium.write_text(
+        "# radius q psi\n" "0.000 2.000 0.000\n" "58.496 3.500 0.500\n" "100.000 4.500 1.000\n",
+        encoding="utf-8",
+    )
+    source = read_marsf_profiles(source_directory, metadata())
+    base_config = config()
+    resonant_config = base_config.model_copy(
+        update={
+            "grid": base_config.grid.model_copy(update={"plasma_radius": 80.0}),
+        }
+    )
+
+    prepared = prepare_marsf_case(
+        source,
+        resonant_config,
+        tmp_path / "prepared",
+        equilibrium_file=equilibrium,
+        q_operation="negate",
+    )
+
+    np.testing.assert_allclose(np.loadtxt(prepared.profiles / "q.dat")[:, 1], [-2.0, -3.5, -4.5])
+    validation = ProfileSet.from_simulation(prepared.config).validate_for(prepared.config)
+    assert validation.resonance_radius == pytest.approx(58.496)

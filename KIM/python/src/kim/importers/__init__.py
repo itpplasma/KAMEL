@@ -5,6 +5,8 @@ from kim.importers.experimental import (
     ExperimentalProfile,
     MarsFInput,
     MarsFMetadata,
+    MarsFProfileSnapshot,
+    read_marsf_profile_snapshot,
     read_marsf_profiles,
 )
 
@@ -13,7 +15,9 @@ __all__ = [
     "BalanceMetadata",
     "ExperimentalProfile",
     "MarsFInput",
+    "MarsFProfileSnapshot",
     "MarsFMetadata",
     "read_balance_profiles",
+    "read_marsf_profile_snapshot",
     "read_marsf_profiles",
 ]

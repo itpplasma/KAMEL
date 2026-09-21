@@ -7,6 +7,7 @@ import stat
 from collections.abc import Callable
 from dataclasses import replace
 from pathlib import Path
+from types import MappingProxyType
 
 import numpy as np
 import pytest
@@ -14,6 +15,8 @@ from kim import (
     BalanceMetadata,
     BuiltinPlasma,
     ExperimentalInputError,
+    ExperimentalProfile,
+    MarsFInput,
     PlasmaIsotope,
     SimulationConfig,
 )
@@ -273,6 +276,158 @@ def test_composes_balance_staging_provenance_into_prepared_report(
     np.testing.assert_array_equal(
         np.loadtxt(prepared.profiles / "Vz.dat")[:, 1], [0.0, -4.125e6, -8.25e6]
     )
+
+
+def test_upstream_staging_radius_must_match_kim_configuration(
+    tmp_path: Path,
+) -> None:
+    _balance_paths, _balance_source, staged, marsf = _stage_balance_case(tmp_path)
+    equilibrium = tmp_path / "original-equilibrium.dat"
+    _write_equilibrium(equilibrium)
+    mismatched_config = _config().model_copy(
+        update={"setup": _config().setup.model_copy(update={"major_radius": 180.0})}
+    )
+    destination = tmp_path / "prepared"
+
+    with pytest.raises(ExperimentalInputError):
+        prepare_marsf_case(
+            marsf,
+            mismatched_config,
+            destination,
+            equilibrium_file=equilibrium,
+            upstream_staging_report=staged.report,
+        )
+
+    assert not destination.exists()
+
+
+def test_mutated_marsf_arrays_are_rejected_before_preparation(
+    tmp_path: Path,
+) -> None:
+    _balance_paths, _balance_source, staged, marsf = _stage_balance_case(tmp_path)
+    equilibrium = tmp_path / "original-equilibrium.dat"
+    _write_equilibrium(equilibrium)
+    density = marsf.profiles["density"]
+    mutable_values = density.values.copy()
+    mutable_values[0] += 1.0e12
+    mutable_profiles = dict(marsf.profiles)
+    mutable_profiles["density"] = ExperimentalProfile(
+        name=density.name,
+        units=density.units,
+        path=density.path,
+        coordinate=density.coordinate,
+        values=mutable_values,
+    )
+    mutable_source = MarsFInput(
+        directory=marsf.directory,
+        metadata=marsf.metadata,
+        profiles=MappingProxyType(mutable_profiles),
+        source_files=marsf.source_files,
+    )
+    destination = tmp_path / "prepared"
+
+    with pytest.raises(ExperimentalInputError):
+        prepare_marsf_case(
+            mutable_source,
+            _config(),
+            destination,
+            equilibrium_file=equilibrium,
+            upstream_staging_report=staged.report,
+        )
+
+    assert not destination.exists()
+
+
+def test_replaced_marsf_file_is_rejected_before_direct_preparation(
+    tmp_path: Path,
+) -> None:
+    _balance_paths, _balance_source, staged, marsf = _stage_balance_case(tmp_path)
+    equilibrium = tmp_path / "original-equilibrium.dat"
+    _write_equilibrium(equilibrium)
+    (staged.directory / "PROFDEN.IN").write_text(
+        "MARS-F profile\n0.0 1.1e13\n0.5 2.0e13\n1.0 3.0e13\n",
+        encoding="utf-8",
+    )
+    destination = tmp_path / "prepared"
+
+    with pytest.raises(ExperimentalInputError):
+        prepare_marsf_case(marsf, _config(), destination, equilibrium_file=equilibrium)
+
+    assert not destination.exists()
+
+
+@pytest.mark.parametrize(
+    "report_bytes",
+    [b"\xff\xfe"],
+)
+def test_malformed_upstream_report_bytes_raise_experimental_input_error(
+    tmp_path: Path, report_bytes: bytes
+) -> None:
+    _balance_paths, _balance_source, staged, marsf = _stage_balance_case(tmp_path)
+    equilibrium = tmp_path / "original-equilibrium.dat"
+    _write_equilibrium(equilibrium)
+    malformed = tmp_path / "malformed-staging-report.json"
+    malformed.write_bytes(report_bytes)
+    relinked_source = _relink_marsf_source(marsf, malformed)
+
+    with pytest.raises(ExperimentalInputError):
+        prepare_marsf_case(
+            relinked_source,
+            _config(),
+            tmp_path / "prepared",
+            equilibrium_file=equilibrium,
+            upstream_staging_report=malformed,
+        )
+
+
+def test_nested_staging_schema_types_are_strict(
+    tmp_path: Path,
+) -> None:
+    _balance_paths, _balance_source, staged, marsf = _stage_balance_case(tmp_path)
+    equilibrium = tmp_path / "original-equilibrium.dat"
+    _write_equilibrium(equilibrium)
+    malformed = tmp_path / "bool-schema-version.json"
+
+    def mutate(payload: dict[str, object]) -> None:
+        source_metadata = payload["source_metadata"]
+        assert isinstance(source_metadata, dict)
+        source_metadata["schema_version"] = True
+
+    _write_staging_report_variant(staged.report, malformed, mutate)
+    relinked_source = _relink_marsf_source(marsf, malformed)
+
+    with pytest.raises(ExperimentalInputError):
+        prepare_marsf_case(
+            relinked_source,
+            _config(),
+            tmp_path / "prepared",
+            equilibrium_file=equilibrium,
+            upstream_staging_report=malformed,
+        )
+
+
+def test_huge_staging_radius_is_rejected_as_experimental_input_error(
+    tmp_path: Path,
+) -> None:
+    _balance_paths, _balance_source, staged, marsf = _stage_balance_case(tmp_path)
+    equilibrium = tmp_path / "original-equilibrium.dat"
+    _write_equilibrium(equilibrium)
+    malformed = tmp_path / "huge-radius.json"
+
+    def mutate(payload: dict[str, object]) -> None:
+        payload["major_radius_cm"] = 10**1000
+
+    _write_staging_report_variant(staged.report, malformed, mutate)
+    relinked_source = _relink_marsf_source(marsf, malformed)
+
+    with pytest.raises(ExperimentalInputError):
+        prepare_marsf_case(
+            relinked_source,
+            _config(),
+            tmp_path / "prepared",
+            equilibrium_file=equilibrium,
+            upstream_staging_report=malformed,
+        )
 
 
 def test_direct_marsf_preparation_records_absent_upstream_provenance_honestly(

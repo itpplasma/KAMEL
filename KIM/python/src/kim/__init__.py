@@ -64,7 +64,9 @@ from kim.importers import (
     ExperimentalProfile,
     MarsFInput,
     MarsFMetadata,
+    MarsFProfileSnapshot,
     read_balance_profiles,
+    read_marsf_profile_snapshot,
     read_marsf_profiles,
 )
 from kim.preparation import PreparedExperimentalCase, prepare_marsf_case
@@ -123,6 +125,7 @@ __all__ = [
     "KimError",
     "LinearRange",
     "MarsFInput",
+    "MarsFProfileSnapshot",
     "MarsFMetadata",
     "PeriodicConfig",
     "PeriodicResult",
@@ -176,6 +179,7 @@ __all__ = [
     "reconstruct_fourier_derivative",
     "resonance_target",
     "read_marsf_profiles",
+    "read_marsf_profile_snapshot",
     "read_balance_profiles",
     "prepare_marsf_case",
 ]

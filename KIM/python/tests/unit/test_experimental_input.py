@@ -146,6 +146,11 @@ def test_marsf_metadata_is_explicit_and_strict() -> None:
         MarsFMetadata.model_validate(metadata().model_dump() | {"guess_units": True})
 
 
+def test_marsf_staging_digest_must_be_lowercase() -> None:
+    with pytest.raises(ValidationError, match="upstream_staging_sha256"):
+        metadata(upstream_staging_sha256="A" * 64)
+
+
 def test_marsf_reader_requires_a_directory(tmp_path: Path) -> None:
     with pytest.raises(ExperimentalInputError, match="directory"):
         read_marsf_profiles(tmp_path / "missing", metadata())

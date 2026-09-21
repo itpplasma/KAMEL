@@ -20,8 +20,9 @@ from kim import executable as executable_module
 from kim.config import ProfileConfig, SimulationConfig
 from kim.conventions import ConversionOperation, SourceMetadata, convert_quantity
 from kim.errors import ExperimentalInputError
+from kim.importers import experimental as experimental_module
 from kim.importers.balance import BalanceMetadata
-from kim.importers.experimental import MarsFInput
+from kim.importers.experimental import ExperimentalProfile, MarsFInput, MarsFProfileSnapshot
 from numpy.typing import NDArray
 
 QOperation = Literal["preserve", "negate"]
@@ -38,6 +39,12 @@ _MARSF_PROFILE_FILENAMES = {
     "ion_temperature": "PROFTI.IN",
     "toroidal_rotation": "PROFROT.IN",
 }
+_MARSF_PROFILE_UNIT_FIELDS = {
+    "density": "density_unit",
+    "electron_temperature": "electron_temperature_unit",
+    "ion_temperature": "ion_temperature_unit",
+    "toroidal_velocity": "toroidal_velocity_unit",
+}
 _STAGING_REPORT_KEYS = frozenset(
     {
         "schema_version",
@@ -52,6 +59,10 @@ _STAGING_REPORT_KEYS = frozenset(
     }
 )
 _SHA256_PATTERN = re.compile(r"[0-9a-f]{64}")
+
+
+def _reject_json_constant(value: str) -> None:
+    raise ValueError(f"JSON constant {value!r} is not allowed")
 
 
 @dataclass(frozen=True)
@@ -102,7 +113,10 @@ def prepare_marsf_case(
     if not np.isfinite(equilibrium_timeout_seconds) or equilibrium_timeout_seconds <= 0.0:
         raise ExperimentalInputError("equilibrium_timeout_seconds must be positive and finite")
 
-    validated_upstream = _validate_upstream_staging_report(source, upstream_staging_report)
+    verified_snapshots = _snapshot_marsf_source(source)
+    validated_upstream = _validate_upstream_staging_report(
+        source, config, upstream_staging_report, verified_snapshots
+    )
 
     final_directory = Path(destination).absolute()
     if final_directory.exists() or final_directory.is_symlink():
@@ -123,6 +137,7 @@ def prepare_marsf_case(
             equilibrium_timeout_seconds=equilibrium_timeout_seconds,
             q_operation=q_operation,
             upstream_staging=validated_upstream,
+            source_snapshots=verified_snapshots,
             final_directory=final_directory,
         )
         _commit_staging_directory(staging_directory, final_directory)
@@ -140,9 +155,37 @@ def prepare_marsf_case(
     )
 
 
+def _snapshot_marsf_source(source: MarsFInput) -> dict[str, MarsFProfileSnapshot]:
+    """Read and verify every source profile from one exact byte snapshot."""
+
+    snapshots: dict[str, MarsFProfileSnapshot] = {}
+    for role, unit_field in _MARSF_PROFILE_UNIT_FIELDS.items():
+        try:
+            path = source.source_files[role]
+            supplied = source.profiles[role]
+        except KeyError as error:
+            raise ExperimentalInputError(f"MARS-F source is missing {role} profile") from error
+        snapshot = experimental_module.read_marsf_profile_snapshot(
+            role, getattr(source.metadata, unit_field), path
+        )
+        if supplied.name != snapshot.profile.name or supplied.units != snapshot.profile.units:
+            raise ExperimentalInputError(f"MARS-F {role} profile metadata changed after reading")
+        try:
+            coordinates_match = np.array_equal(supplied.coordinate, snapshot.profile.coordinate)
+            values_match = np.array_equal(supplied.values, snapshot.profile.values)
+        except (TypeError, ValueError) as error:
+            raise ExperimentalInputError(f"MARS-F {role} profile arrays are invalid") from error
+        if not coordinates_match or not values_match:
+            raise ExperimentalInputError(f"MARS-F {role} profile arrays changed after reading")
+        snapshots[role] = snapshot
+    return snapshots
+
+
 def _validate_upstream_staging_report(
     source: MarsFInput,
+    config: SimulationConfig,
     report_argument: Path | str | None,
+    snapshots: Mapping[str, MarsFProfileSnapshot],
 ) -> dict[str, object] | None:
     """Read and validate one exact-byte BALANCE staging report.
 
@@ -152,6 +195,8 @@ def _validate_upstream_staging_report(
     """
 
     linked_digest = source.metadata.upstream_staging_sha256
+    if linked_digest is not None and _SHA256_PATTERN.fullmatch(linked_digest) is None:
+        raise ExperimentalInputError("MARS-F metadata contains an invalid staging report digest")
     if report_argument is None:
         # Direct preparation remains a supported path.  A staging link is only
         # consumed when its report is explicitly supplied; the output records
@@ -163,8 +208,6 @@ def _validate_upstream_staging_report(
         raise ExperimentalInputError(
             "upstream staging report was supplied without a linked metadata digest"
         )
-    if _SHA256_PATTERN.fullmatch(linked_digest) is None:
-        raise ExperimentalInputError("MARS-F metadata contains an invalid staging report digest")
     report_path = Path(report_argument)
     try:
         report_bytes = report_path.read_bytes()
@@ -178,8 +221,15 @@ def _validate_upstream_staging_report(
             "upstream staging report digest does not match MARS-F metadata"
         )
     try:
-        payload = json.loads(report_bytes)
-    except (TypeError, json.JSONDecodeError) as error:
+        payload = json.loads(report_bytes, parse_constant=_reject_json_constant)
+    except (
+        TypeError,
+        UnicodeError,
+        ValueError,
+        OverflowError,
+        RecursionError,
+        json.JSONDecodeError,
+    ) as error:
         raise ExperimentalInputError("upstream staging report is not valid JSON") from error
     if not isinstance(payload, dict):
         raise ExperimentalInputError("upstream staging report must be a JSON object")
@@ -195,6 +245,27 @@ def _validate_upstream_staging_report(
     source_metadata_payload = payload["source_metadata"]
     if not isinstance(source_metadata_payload, dict):
         raise ExperimentalInputError("upstream staging report source_metadata must be an object")
+    source_metadata_keys = {
+        "schema_version",
+        "source",
+        "coordinate",
+        "coordinate_unit",
+        "density_unit",
+        "electron_temperature_unit",
+        "ion_temperature_unit",
+        "toroidal_rotation_unit",
+    }
+    if set(source_metadata_payload) != source_metadata_keys:
+        raise ExperimentalInputError("upstream staging report source_metadata is not complete")
+    if type(source_metadata_payload["schema_version"]) is not int:
+        raise ExperimentalInputError(
+            "upstream staging report source_metadata schema version is invalid"
+        )
+    if any(
+        not isinstance(source_metadata_payload[field], str)
+        for field in source_metadata_keys - {"schema_version"}
+    ):
+        raise ExperimentalInputError("upstream staging report source_metadata types are invalid")
     try:
         balance_metadata = BalanceMetadata.model_validate(source_metadata_payload)
     except Exception as error:
@@ -216,13 +287,23 @@ def _validate_upstream_staging_report(
     )
 
     major_radius = payload["major_radius_cm"]
+    try:
+        major_radius_value = float(major_radius)
+    except (OverflowError, TypeError, ValueError) as error:
+        raise ExperimentalInputError(
+            "upstream staging report major_radius_cm is invalid"
+        ) from error
     if (
         type(major_radius) not in {int, float}
-        or not np.isfinite(float(major_radius))
-        or float(major_radius) <= 0.0
+        or not np.isfinite(major_radius_value)
+        or major_radius_value <= 0.0
     ):
         raise ExperimentalInputError("upstream staging report major_radius_cm is invalid")
-    major_radius = float(major_radius)
+    major_radius = major_radius_value
+    if major_radius != float(config.setup.major_radius):
+        raise ExperimentalInputError(
+            "upstream staging major radius does not match the KIM configuration"
+        )
 
     coordinate_mapping = payload["coordinate_mapping"]
     if not isinstance(coordinate_mapping, dict):
@@ -300,17 +381,10 @@ def _validate_upstream_staging_report(
         if getattr(source.metadata, field) != expected:
             raise ExperimentalInputError(f"MARS-F metadata does not match upstream staging {field}")
 
-    try:
-        current_derived_hashes = {
-            filename: _sha256(
-                source.source_files["toroidal_velocity" if role == "toroidal_rotation" else role]
-            )
-            for role, filename in _MARSF_PROFILE_FILENAMES.items()
-        }
-    except (KeyError, OSError) as error:
-        raise ExperimentalInputError(
-            "unable to hash the current MARS-F quartet for staging validation"
-        ) from error
+    current_derived_hashes = {
+        filename: snapshots["toroidal_velocity" if role == "toroidal_rotation" else role].sha256
+        for role, filename in _MARSF_PROFILE_FILENAMES.items()
+    }
     if derived_hashes != current_derived_hashes:
         raise ExperimentalInputError(
             "upstream staging derived hashes do not match the current MARS-F quartet"
@@ -411,6 +485,7 @@ def _prepare_in_directory(
     equilibrium_timeout_seconds: float,
     q_operation: QOperation,
     upstream_staging: dict[str, object] | None,
+    source_snapshots: Mapping[str, MarsFProfileSnapshot],
     final_directory: Path,
 ) -> PreparedExperimentalCase:
     source_directory = directory / "source"
@@ -421,10 +496,15 @@ def _prepare_in_directory(
     profiles_directory.mkdir()
 
     source_hashes: dict[str, str] = {}
-    for _name, source_path in source.source_files.items():
+    for _name in _MARSF_PROFILE_UNIT_FIELDS:
+        try:
+            snapshot = source_snapshots[_name]
+        except KeyError as error:
+            raise ExperimentalInputError(f"MARS-F source is missing {_name} snapshot") from error
+        source_path = snapshot.profile.path
         target = source_directory / source_path.name
-        shutil.copy2(source_path, target)
-        source_hashes[f"source/{source_path.name}"] = _sha256(source_path)
+        target.write_bytes(snapshot.raw_bytes)
+        source_hashes[f"source/{source_path.name}"] = snapshot.sha256
     (source_directory / "metadata.json").write_text(
         json.dumps(source.metadata.model_dump(mode="json"), indent=2, sort_keys=True) + "\n",
         encoding="utf-8",
@@ -444,8 +524,9 @@ def _prepare_in_directory(
                     f"duplicate equilibrium input basename: {input_path.name}"
                 )
             input_names.add(input_path.name)
-            shutil.copy2(input_path, equilibrium_directory / input_path.name)
-            source_hashes[f"equilibrium_input/{input_path.name}"] = _sha256(input_path)
+            input_bytes, input_hash = _read_bytes_snapshot(input_path, "equilibrium input file")
+            (equilibrium_directory / input_path.name).write_bytes(input_bytes)
+            source_hashes[f"equilibrium_input/{input_path.name}"] = input_hash
         generator_command = _resolve_generator_command(equilibrium_executable)
         generator_path = _resolved_executable_path(generator_command[0])
         command_file_hashes = _hash_command_files(generator_command)
@@ -465,22 +546,26 @@ def _prepare_in_directory(
             raise ExperimentalInputError(
                 "equilibrium executable must write a regular equil_r_q_psi.dat file"
             )
+        equilibrium_bytes, equilibrium_source_hash = _read_bytes_snapshot(
+            equilibrium_source, "generated equilibrium file"
+        )
         equilibrium_operation = "generated by supplied equilibrium executable"
     else:
-        equilibrium_source = Path(equilibrium_file).absolute()
-        if not equilibrium_source.is_file():
-            raise ExperimentalInputError(f"equilibrium file does not exist: {equilibrium_source}")
-        staged_equilibrium = equilibrium_directory / equilibrium_source.name
-        shutil.copy2(equilibrium_source, staged_equilibrium)
+        equilibrium_path = Path(equilibrium_file).absolute()
+        equilibrium_bytes, equilibrium_source_hash = _read_bytes_snapshot(
+            equilibrium_path, "equilibrium file"
+        )
+        staged_equilibrium = equilibrium_directory / equilibrium_path.name
+        staged_equilibrium.write_bytes(equilibrium_bytes)
         equilibrium_source = staged_equilibrium
         equilibrium_operation = "copied from explicit equilibrium_file"
 
     equilibrium_hash_name = equilibrium_source.name
-    equilibrium_source_hash = _sha256(equilibrium_source)
     source_hashes[f"equilibrium/{equilibrium_hash_name}"] = equilibrium_source_hash
-    radius, q, psi_n = _read_equilibrium(equilibrium_source)
+    radius, q, psi_n = _read_equilibrium_bytes(equilibrium_source, equilibrium_bytes)
+    verified_profiles = {role: snapshot.profile for role, snapshot in source_snapshots.items()}
     output_grid, profile_values, coordinate_operation = _prepare_profiles(
-        source, radius, q, psi_n, profiles_directory, config.profiles
+        source, verified_profiles, radius, q, psi_n, profiles_directory, config.profiles
     )
     _validate_radial_coverage(config, output_grid)
     q_values = (
@@ -634,11 +719,32 @@ def _git_identity() -> dict[str, object] | None:
     return {"commit": metadata.commit, "dirty": metadata.dirty}
 
 
+def _read_bytes_snapshot(path: Path, label: str) -> tuple[bytes, str]:
+    try:
+        raw_bytes = path.read_bytes()
+    except (OSError, UnicodeError) as error:
+        raise ExperimentalInputError(f"{path}: unable to read {label}") from error
+    return raw_bytes, hashlib.sha256(raw_bytes).hexdigest()
+
+
 def _read_equilibrium(
     path: Path,
 ) -> tuple[NDArray[np.float64], NDArray[np.float64], NDArray[np.float64]]:
+    """Compatibility wrapper that parses one equilibrium byte snapshot."""
+
+    raw_bytes, _digest = _read_bytes_snapshot(path, "equilibrium file")
+    return _read_equilibrium_bytes(path, raw_bytes)
+
+
+def _read_equilibrium_bytes(
+    path: Path, raw_bytes: bytes
+) -> tuple[NDArray[np.float64], NDArray[np.float64], NDArray[np.float64]]:
+    try:
+        lines = raw_bytes.decode("utf-8").splitlines()
+    except UnicodeError as error:
+        raise ExperimentalInputError(f"{path}: unable to read equilibrium file") from error
     rows: list[tuple[float, float, float]] = []
-    for line_number, line in enumerate(path.read_text(encoding="utf-8").splitlines(), start=1):
+    for line_number, line in enumerate(lines, start=1):
         stripped = line.strip()
         if not stripped or stripped.startswith("#"):
             continue
@@ -647,7 +753,7 @@ def _read_equilibrium(
             raise ExperimentalInputError(f"{path}: row {line_number} needs r_eff, q, and psi")
         try:
             row = tuple(float(value.replace("D", "E").replace("d", "e")) for value in columns[:3])
-        except ValueError as error:
+        except (OverflowError, ValueError) as error:
             raise ExperimentalInputError(f"{path}: row {line_number} is not numeric") from error
         if not np.all(np.isfinite(row)):
             raise ExperimentalInputError(f"{path}: row {line_number} contains non-finite values")
@@ -667,6 +773,7 @@ def _read_equilibrium(
 
 def _prepare_profiles(
     source: MarsFInput,
+    profiles: Mapping[str, ExperimentalProfile],
     radius: NDArray[np.float64],
     q: NDArray[np.float64],
     psi_n: NDArray[np.float64],
@@ -682,7 +789,7 @@ def _prepare_profiles(
             "target_coordinate": "r_eff",
             "method": "natural cubic interpolation",
         }
-        for profile in source.profiles.values():
+        for profile in profiles.values():
             if profile.coordinate[0] < 0.0 or profile.coordinate[-1] > 1.0:
                 raise ExperimentalInputError(
                     "sqrt_psiN coordinate must be within the declared [0, 1] domain"
@@ -693,13 +800,13 @@ def _prepare_profiles(
                 name,
                 source_metadata,
             )
-            for name, profile in source.profiles.items()
+            for name, profile in profiles.items()
         }
-        for profile in source.profiles.values():
+        for profile in profiles.values():
             _require_covered(profile.coordinate**2, coordinate, "sqrt_psiN profile")
     else:
         scale = 100.0 if source.metadata.coordinate_unit == "m" else 1.0
-        output_grid = source.profiles["density"].coordinate * scale
+        output_grid = profiles["density"].coordinate * scale
         coordinate_operation = {
             "source_coordinate": "r_eff",
             "target_coordinate": "r_eff",
@@ -709,13 +816,13 @@ def _prepare_profiles(
                 else "preserved explicit r_eff grid"
             ),
         }
-        for profile in source.profiles.values():
-            if not np.array_equal(profile.coordinate, source.profiles["density"].coordinate):
+        for profile in profiles.values():
+            if not np.array_equal(profile.coordinate, profiles["density"].coordinate):
                 raise ExperimentalInputError("r_eff MARS-F profiles must share one coordinate grid")
         _require_covered(radius, output_grid, "r_eff profile")
         profile_values = {
             name: _convert_profile(profile.values, name, source_metadata)
-            for name, profile in source.profiles.items()
+            for name, profile in profiles.items()
         }
     _validate_profile_filenames(profile_config)
     for name, values in profile_values.items():

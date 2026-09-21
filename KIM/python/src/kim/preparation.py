@@ -283,7 +283,7 @@ def _validate_upstream_staging_report(
             "parameters": {"major_radius_cm": major_radius},
         },
     ]
-    if not _operations_have_strict_types(operations, expected_operations):
+    if not _operations_have_strict_semantics(operations, expected_operations):
         raise ExperimentalInputError("upstream staging report operations are inconsistent")
 
     expected_source_metadata = {
@@ -352,7 +352,9 @@ def _strict_hash_mapping(
     return value
 
 
-def _operations_have_strict_types(operations: object, expected: list[dict[str, object]]) -> bool:
+def _operations_have_strict_semantics(
+    operations: object, expected: list[dict[str, object]]
+) -> bool:
     if not isinstance(operations, list) or len(operations) != len(expected):
         return False
     for actual, reference in zip(operations, expected, strict=True):
@@ -360,8 +362,9 @@ def _operations_have_strict_types(operations: object, expected: list[dict[str, o
             return False
         for key, expected_value in reference.items():
             actual_value = actual[key]
-            if isinstance(expected_value, str) and not isinstance(actual_value, str):
-                return False
+            if isinstance(expected_value, str):
+                if not isinstance(actual_value, str) or actual_value != expected_value:
+                    return False
             if isinstance(expected_value, float):
                 if (
                     type(actual_value) not in {int, float}

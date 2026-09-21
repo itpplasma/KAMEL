@@ -239,6 +239,23 @@ def test_staging_reports_source_and_derived_hashes_and_scientific_operations(
     assert str(tmp_path) not in report_path.read_text(encoding="utf-8")
 
 
+def test_staging_normalizes_equilibrium_provenance_before_metadata_and_report(
+    tmp_path: Path,
+) -> None:
+    source = read_case(write_balance_profiles(tmp_path / "balance"))
+
+    result = stage_balance_marsf_quartet(
+        source,
+        tmp_path / "marsf",
+        major_radius_cm=_R0_CM,
+        equilibrium_provenance="  synthetic-equilibrium  ",
+    )
+
+    assert result.metadata.equilibrium_provenance == "synthetic-equilibrium"
+    report = json.loads(result.report.read_text(encoding="utf-8"))
+    assert report["equilibrium_provenance"] == "synthetic-equilibrium"
+
+
 def test_staging_result_is_immutable(tmp_path: Path) -> None:
     source = read_case(write_balance_profiles(tmp_path / "balance"))
     result = stage_balance_marsf_quartet(

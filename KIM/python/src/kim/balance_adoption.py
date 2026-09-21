@@ -88,7 +88,7 @@ def stage_balance_marsf_quartet(
 
     staging_directory: Path | None = None
     try:
-        verified_profiles, source_hashes = _validate_staging_arguments(
+        verified_profiles, source_hashes, equilibrium_provenance = _validate_staging_arguments(
             source, major_radius_cm, equilibrium_provenance
         )
         final_directory = Path(destination).absolute()
@@ -202,7 +202,7 @@ def stage_balance_marsf_quartet(
 
 def _validate_staging_arguments(
     source: BalanceInput, major_radius_cm: float, equilibrium_provenance: str
-) -> tuple[dict[str, ExperimentalProfile], dict[str, str]]:
+) -> tuple[dict[str, ExperimentalProfile], dict[str, str], str]:
     if not isinstance(source, BalanceInput):
         raise ExperimentalInputError("source must be a BalanceInput instance")
     try:
@@ -213,6 +213,7 @@ def _validate_staging_arguments(
         raise ExperimentalInputError("major_radius_cm must be finite and positive")
     if not isinstance(equilibrium_provenance, str) or not equilibrium_provenance.strip():
         raise ExperimentalInputError("equilibrium_provenance must be nonempty")
+    equilibrium_provenance = equilibrium_provenance.strip()
     if source.metadata.coordinate_unit != _BALANCE_COORDINATE_UNIT:
         raise ExperimentalInputError("BALANCE coordinate_unit must be 1")
     verified_profiles: dict[str, ExperimentalProfile] = {}
@@ -248,7 +249,7 @@ def _validate_staging_arguments(
             )
         verified_profiles[role] = snapshot
         source_hashes[role] = current_hash
-    return verified_profiles, source_hashes
+    return verified_profiles, source_hashes, equilibrium_provenance
 
 
 def _publish_staging_directory(staging: Path, destination: Path) -> None:

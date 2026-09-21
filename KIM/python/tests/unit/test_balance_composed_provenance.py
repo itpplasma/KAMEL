@@ -5,6 +5,7 @@ import importlib.metadata
 import json
 import stat
 from collections.abc import Callable
+from dataclasses import replace
 from pathlib import Path
 
 import numpy as np
@@ -148,6 +149,11 @@ def _write_staging_report_variant(
     mutate(payload)
     destination.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     return destination
+
+
+def _relink_marsf_source(source, report: Path):
+    metadata = source.metadata.model_copy(update={"upstream_staging_sha256": _sha256(report)})
+    return replace(source, metadata=metadata)
 
 
 def _patch_identity_seams(
@@ -438,6 +444,80 @@ def test_mismatched_upstream_staging_report_is_rejected(tmp_path: Path) -> None:
             tmp_path / "prepared",
             equilibrium_file=equilibrium,
             upstream_staging_report=staged_a.report,
+        )
+
+
+@pytest.mark.parametrize(
+    ("operation_index", "field"),
+    [
+        (0, "quantity"),
+        (0, "source_unit"),
+        (0, "target_unit"),
+        (0, "operation"),
+        (3, "quantity"),
+        (3, "source_unit"),
+        (3, "target_unit"),
+        (3, "operation"),
+    ],
+)
+def test_tampered_staging_operation_semantics_are_rejected_before_preparation(
+    tmp_path: Path, operation_index: int, field: str
+) -> None:
+    _balance_paths, _balance_source, staged, marsf = _stage_balance_case(tmp_path)
+    equilibrium = tmp_path / "original-equilibrium.dat"
+    _write_equilibrium(equilibrium)
+    tampered = tmp_path / f"tampered-operation-{operation_index}-{field}.json"
+
+    def mutate(payload: dict[str, object]) -> None:
+        operations = payload["operations"]
+        assert isinstance(operations, list)
+        operation = operations[operation_index]
+        assert isinstance(operation, dict)
+        operation[field] = "tampered"
+
+    _write_staging_report_variant(staged.report, tampered, mutate)
+    relinked_source = _relink_marsf_source(marsf, tampered)
+    destination = tmp_path / "prepared"
+
+    with pytest.raises(ExperimentalInputError):
+        prepare_marsf_case(
+            relinked_source,
+            _config(),
+            destination,
+            equilibrium_file=equilibrium,
+            upstream_staging_report=tampered,
+        )
+
+    assert not destination.exists()
+
+
+@pytest.mark.parametrize("mutation", ["duplicate", "missing", "extra"])
+def test_staging_operation_role_set_must_be_exact(tmp_path: Path, mutation: str) -> None:
+    _balance_paths, _balance_source, staged, marsf = _stage_balance_case(tmp_path)
+    equilibrium = tmp_path / "original-equilibrium.dat"
+    _write_equilibrium(equilibrium)
+    tampered = tmp_path / f"tampered-operation-{mutation}.json"
+
+    def mutate(payload: dict[str, object]) -> None:
+        operations = payload["operations"]
+        assert isinstance(operations, list)
+        if mutation == "duplicate":
+            operations[0] = dict(operations[1])
+        elif mutation == "missing":
+            operations.pop()
+        else:
+            operations.append(dict(operations[-1]))
+
+    _write_staging_report_variant(staged.report, tampered, mutate)
+    relinked_source = _relink_marsf_source(marsf, tampered)
+
+    with pytest.raises(ExperimentalInputError):
+        prepare_marsf_case(
+            relinked_source,
+            _config(),
+            tmp_path / "prepared",
+            equilibrium_file=equilibrium,
+            upstream_staging_report=tampered,
         )
 
 

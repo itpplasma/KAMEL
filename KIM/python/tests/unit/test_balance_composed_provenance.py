@@ -770,6 +770,45 @@ def test_generated_equilibrium_provenance_records_inputs_method_and_identity(
     assert equilibrium_input.read_bytes() == equilibrium_input_bytes
 
 
+@pytest.mark.parametrize(
+    "input_basename",
+    [
+        ".verified-equilibrium-generator.py",
+        "equil_r_q_psi.dat",
+        "generator.stdout",
+        "generator.stderr",
+    ],
+)
+def test_generated_equilibrium_rejects_inputs_owned_by_preparation(
+    tmp_path: Path, input_basename: str
+) -> None:
+    _balance_paths, _balance_source, _staged, marsf = _stage_balance_case(tmp_path)
+    generator = tmp_path / "collision-generator.py"
+    marker = tmp_path / "generator-ran"
+    generator.write_text(
+        "#!/usr/bin/env python3\n"
+        f"from pathlib import Path\nPath({str(marker)!r}).write_text('ran')\n",
+        encoding="utf-8",
+    )
+    generator.chmod(generator.stat().st_mode | stat.S_IXUSR)
+    equilibrium_input = tmp_path / input_basename
+    equilibrium_input.write_bytes(b"must not be copied\n")
+    destination = tmp_path / "prepared"
+
+    with pytest.raises(ExperimentalInputError, match="reserved"):
+        prepare_marsf_case(
+            marsf,
+            _config(),
+            destination,
+            equilibrium_executable=generator,
+            equilibrium_input_files=(equilibrium_input,),
+        )
+
+    assert not destination.exists()
+    assert not marker.exists()
+    assert equilibrium_input.read_bytes() == b"must not be copied\n"
+
+
 def test_generator_executes_verified_snapshot_when_original_changes_after_hash(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

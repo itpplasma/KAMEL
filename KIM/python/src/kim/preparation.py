@@ -117,6 +117,18 @@ def prepare_marsf_case(
     validated_upstream = _validate_upstream_staging_report(
         source, config, upstream_staging_report, verified_snapshots
     )
+    generator_command: list[str] | None = None
+    generator_path: Path | None = None
+    if equilibrium_file is None:
+        assert equilibrium_executable is not None
+        generator_command = _resolve_generator_command(equilibrium_executable)
+        generator_path = _resolved_executable_path(generator_command[0])
+        if generator_path is None or not os.access(generator_path, os.X_OK):
+            raise ExperimentalInputError(
+                f"equilibrium_executable does not name an executable file: "
+                f"{generator_command[0]}"
+            )
+        _validate_equilibrium_input_names(equilibrium_input_files, generator_path)
 
     final_directory = Path(destination).absolute()
     if final_directory.exists() or final_directory.is_symlink():
@@ -139,6 +151,8 @@ def prepare_marsf_case(
             upstream_staging=validated_upstream,
             source_snapshots=verified_snapshots,
             final_directory=final_directory,
+            generator_command=generator_command,
+            generator_path=generator_path,
         )
         _commit_staging_directory(staging_directory, final_directory)
     except Exception:
@@ -493,6 +507,8 @@ def _prepare_in_directory(
     upstream_staging: dict[str, object] | None,
     source_snapshots: Mapping[str, MarsFProfileSnapshot],
     final_directory: Path,
+    generator_command: Sequence[str] | None,
+    generator_path: Path | None,
 ) -> PreparedExperimentalCase:
     source_directory = directory / "source"
     equilibrium_directory = directory / "equilibrium"
@@ -520,6 +536,8 @@ def _prepare_in_directory(
     generator_provenance: dict[str, object] | None = None
     if generated:
         assert equilibrium_executable is not None
+        assert generator_command is not None
+        assert generator_path is not None
         input_names: set[str] = set()
         for input_file in equilibrium_input_files:
             input_path = Path(input_file)
@@ -533,13 +551,6 @@ def _prepare_in_directory(
             input_bytes, input_hash = _read_bytes_snapshot(input_path, "equilibrium input file")
             (equilibrium_directory / input_path.name).write_bytes(input_bytes)
             source_hashes[f"equilibrium_input/{input_path.name}"] = input_hash
-        generator_command = _resolve_generator_command(equilibrium_executable)
-        generator_path = _resolved_executable_path(generator_command[0])
-        if generator_path is None or not os.access(generator_path, os.X_OK):
-            raise ExperimentalInputError(
-                f"equilibrium_executable does not name an executable file: "
-                f"{generator_command[0]}"
-            )
         generator_bytes, generator_hash = _read_bytes_snapshot(
             generator_path, "equilibrium generator executable"
         )
@@ -711,6 +722,31 @@ def _resolve_generator_command(executable: Path | str) -> list[str]:
     ):
         return [str((Path.cwd() / candidate).resolve())]
     return [str(executable)]
+
+
+def _validate_equilibrium_input_names(
+    input_files: Sequence[Path | str], generator_path: Path
+) -> None:
+    """Reject input names owned by generated equilibrium preparation artifacts."""
+
+    reserved_names = {
+        ".verified-equilibrium-generator" + generator_path.suffix,
+        "equil_r_q_psi.dat",
+        "generator.stdout",
+        "generator.stderr",
+    }
+    input_names: set[str] = set()
+    for input_file in input_files:
+        input_path = Path(input_file)
+        if not input_path.is_file():
+            raise ExperimentalInputError(f"equilibrium input file does not exist: {input_path}")
+        if input_path.name in input_names:
+            raise ExperimentalInputError(f"duplicate equilibrium input basename: {input_path.name}")
+        if input_path.name in reserved_names:
+            raise ExperimentalInputError(
+                f"equilibrium input basename is reserved by preparation: {input_path.name}"
+            )
+        input_names.add(input_path.name)
 
 
 def _resolved_executable_path(command: str) -> Path | None:

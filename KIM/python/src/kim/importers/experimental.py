@@ -36,6 +36,12 @@ class MarsFMetadata(BaseModel):
     ion_temperature_unit: Literal["eV", "keV", "K"]
     toroidal_velocity_unit: Literal["m/s", "cm/s"]
     equilibrium_provenance: str = Field(min_length=1)
+    upstream_staging_sha256: str | None = Field(
+        default=None,
+        min_length=64,
+        max_length=64,
+        pattern=r"[0-9a-fA-F]{64}",
+    )
 
     @model_validator(mode="after")
     def coordinate_unit_is_compatible(self) -> MarsFMetadata:

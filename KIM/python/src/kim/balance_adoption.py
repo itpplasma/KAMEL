@@ -160,6 +160,7 @@ def stage_balance_marsf_quartet(
                 role: Path(source.source_files[role]).name for role in _BALANCE_PROFILE_ROLES
             },
             "source_hashes": {role: source_hashes[role] for role in _BALANCE_PROFILE_ROLES},
+            "source_metadata": source.metadata.model_dump(mode="json"),
             "derived_hashes": derived_hashes,
             "major_radius_cm": float(major_radius_cm),
             "coordinate_mapping": {
@@ -177,10 +178,10 @@ def stage_balance_marsf_quartet(
             "operations": operations,
         }
         report_name = "staging_report.json"
-        (staging_directory / report_name).write_text(
-            json.dumps(report_payload, indent=2, sort_keys=True, allow_nan=False) + "\n",
-            encoding="utf-8",
-        )
+        report_bytes = _serialize_report(report_payload)
+        report_digest = hashlib.sha256(report_bytes).hexdigest()
+        (staging_directory / report_name).write_bytes(report_bytes)
+        metadata = metadata.model_copy(update={"upstream_staging_sha256": report_digest})
 
         _publish_staging_directory(staging_directory, final_directory)
         return StagedMarsFQuartet(
@@ -381,6 +382,12 @@ def _sha256(path: Path) -> str:
         for chunk in iter(lambda: stream.read(1024 * 1024), b""):
             digest.update(chunk)
     return digest.hexdigest()
+
+
+def _serialize_report(payload: dict[str, object]) -> bytes:
+    """Serialize the strict staging report once for hashing and publication."""
+
+    return (json.dumps(payload, indent=2, sort_keys=True, allow_nan=False) + "\n").encode("utf-8")
 
 
 def convert_balance_density(

@@ -69,3 +69,69 @@ case = prepare_marsf_case(
 
 Coordinate mapping uses the explicit equilibrium table and a natural cubic spline. Extrapolation,
 implicit unit inference, unsupported temperature units, and ambiguous `r_eff` grids are rejected.
+
+## CLI Walkthrough
+
+The same preparation is available without writing Python. Store the source declarations in a
+version-controlled metadata file such as `marsf-metadata.json`:
+
+```json
+{
+  "source": "mars-f-shot-12345",
+  "coordinate": "sqrt_psiN",
+  "coordinate_unit": "1",
+  "density_unit": "1/m^3",
+  "electron_temperature_unit": "eV",
+  "ion_temperature_unit": "eV",
+  "toroidal_velocity_unit": "m/s",
+  "equilibrium_provenance": "equilibrium-2026-09-18"
+}
+```
+
+Prepare a new case from an existing equilibrium table:
+
+```bash
+kim prepare-marsf ./marsf-input request.json ./prepared-case \
+  --metadata ./marsf-metadata.json \
+  --equilibrium-file ./equil_r_q_psi.dat \
+  --format json
+cd ./prepared-case
+kim validate request.json
+```
+
+The command does not launch `KIM.x`. It prints the staged paths and writes a request whose profile
+directory is `./profiles`, so validation and later run commands work from inside the prepared case.
+For an equilibrium that must be traced by KAMEL, replace `--equilibrium-file` with the existing
+Fortran preprocessor and its control files:
+
+```bash
+kim prepare-marsf ./marsf-input request.json ./prepared-case \
+  --metadata ./marsf-metadata.json \
+  --equilibrium-executable ./build/fouriermodes.x \
+  --equilibrium-input ./field_divB0.inp \
+  --equilibrium-input ./fouriermodes.inp \
+  --equilibrium-timeout 3600 \
+  --format json
+```
+
+The generated `conversion_report.json` is the preparation provenance record:
+
+- `schema_version` identifies the report schema; `created_at` records its UTC creation time.
+- `source` repeats every explicit metadata declaration supplied by the caller.
+- `target` names the KIM representation, currently `KIM-CGS-r_eff`.
+- `equilibrium` records the original table path when one was supplied, the staged relative path,
+  and whether the table was copied or generated.
+- `coordinate_operation` describes preservation or explicit `sqrt_psiN`/`r_eff` mapping.
+- `source_hashes` contains lowercase SHA-256 values. `source/` identifies copied MARS-F files,
+  `equilibrium/` identifies the equilibrium table, and `equilibrium_input/` identifies generator
+  control files.
+- `operations` lists each quantity's source unit, target unit, and scalar factor.
+- `output_grid_points` records the number of rows written to each prepared profile.
+- `generator` is `null` for a supplied table. Otherwise it records the command, executable path and
+  hash, hashes for command files, and the configured timeout.
+
+The prepared case stores copied MARS-F files and `metadata.json` under `source/`, equilibrium
+artifacts and generator control files under `equilibrium/`, converted profiles under `profiles/`,
+and the request/report at the case root. Restricted or private inputs are supplied by path at
+invocation time and are copied only when the caller is authorized to stage them. The CLI downloads
+nothing and performs no format, unit, coordinate, or equilibrium inference.

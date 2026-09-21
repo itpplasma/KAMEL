@@ -8,6 +8,7 @@ names and it does not apply a Fourier conjugation or sign convention.
 
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Any, Literal, Mapping
@@ -110,6 +111,54 @@ class SourceMetadata(ConventionModel):
         return _unit(value, _FREQUENCY_UNITS, "frequency")
 
 
+class _ImmutableParameters(dict[str, Any]):
+    """Dictionary-shaped JSON data that rejects every in-place mutation."""
+
+    def __copy__(self) -> _ImmutableParameters:
+        return self
+
+    def __deepcopy__(self, memo: dict[int, Any]) -> _ImmutableParameters:
+        memo[id(self)] = self
+        return self
+
+    def _immutable(self) -> None:
+        raise TypeError("conversion operation parameters are immutable")
+
+    def __delitem__(self, key: str) -> None:
+        self._immutable()
+
+    def __setitem__(self, key: str, value: Any) -> None:
+        self._immutable()
+
+    def clear(self) -> None:
+        self._immutable()
+
+    def pop(self, key: str, default: Any = None) -> Any:
+        self._immutable()
+
+    def popitem(self) -> tuple[str, Any]:
+        self._immutable()
+
+    def setdefault(self, key: str, default: Any = None) -> Any:
+        self._immutable()
+
+    def update(self, *args: Any, **kwargs: Any) -> None:
+        self._immutable()
+
+    def __ior__(self, other: Any) -> _ImmutableParameters:
+        self._immutable()
+
+
+def _freeze_parameter(value: Any) -> Any:
+    if isinstance(value, dict):
+        return _ImmutableParameters(
+            {key: _freeze_parameter(nested) for key, nested in value.items()}
+        )
+    if isinstance(value, (list, tuple)):
+        return tuple(_freeze_parameter(nested) for nested in value)
+    return value
+
+
 class ConversionOperation(ConventionModel):
     """One explicit operation recorded in a :class:`ConversionReport`."""
 
@@ -118,6 +167,19 @@ class ConversionOperation(ConventionModel):
     target_unit: str = Field(min_length=1)
     factor: float
     operation: str = Field(min_length=1)
+    parameters: dict[str, Any] = Field(default_factory=dict)
+
+    @field_validator("parameters")
+    @classmethod
+    def parameters_are_json_serializable(cls, value: dict[str, Any]) -> dict[str, Any]:
+        """Keep operation metadata safe to embed in JSON conversion reports."""
+
+        frozen = _freeze_parameter(value)
+        try:
+            json.dumps(frozen, allow_nan=False)
+        except (TypeError, ValueError) as error:
+            raise ValueError("conversion operation parameters must be JSON serializable") from error
+        return frozen
 
 
 class ConversionReport(ConventionModel):

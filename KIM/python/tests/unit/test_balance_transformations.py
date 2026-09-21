@@ -7,7 +7,8 @@ generic arbitrary-unit conversion layer or change the existing MARS-F path.
 
 from __future__ import annotations
 
-import json
+import copy
+import warnings
 
 import numpy as np
 import pytest
@@ -193,13 +194,13 @@ def test_angular_rotation_becomes_signed_toroidal_velocity_using_r0() -> None:
         factor=R0_CM,
         operation="omega_to_v_phi",
     )
-    assert json.loads(json.dumps(result.operation.parameters))["major_radius_cm"] == R0_CM
+    assert result.operation.model_dump(mode="json")["parameters"]["major_radius_cm"] == R0_CM
 
 
 @pytest.mark.parametrize(
     "r0_cm",
-    [None, np.nan, 0.0, -1.0],
-    ids=["missing", "nonfinite", "zero", "negative"],
+    [None, np.nan, 0.0, -1.0, 10**1000],
+    ids=["missing", "nonfinite", "zero", "negative", "overflow"],
 )
 def test_rotation_rejects_missing_nonfinite_or_nonpositive_r0(r0_cm: float | None) -> None:
     with pytest.raises(ConventionError, match="(?i)(radius|r0)"):
@@ -364,3 +365,93 @@ def test_rejects_nonfinite_profile_values_before_conversion() -> None:
             coordinate_unit="1",
             source_unit="1/m^3",
         )
+
+
+@pytest.mark.parametrize("complex_position", ["coordinate", "values"])
+def test_rejects_complex_profile_inputs_without_discarding_imaginary_parts(
+    complex_position: str,
+) -> None:
+    coordinate = [0.0, 1.0]
+    values = [1.0e19, 2.0e19]
+    if complex_position == "coordinate":
+        coordinate = [0.0 + 1.0j, 1.0 + 0.0j]  # type: ignore[assignment]
+    else:
+        values = [1.0e19 + 1.0j, 2.0e19 + 0.0j]  # type: ignore[assignment]
+
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        with pytest.raises(ConventionError, match="(?i)complex"):
+            convert_balance_density(
+                coordinate,
+                values,
+                coordinate="rho_pol",
+                coordinate_unit="1",
+                source_unit="1/m^3",
+            )
+    assert not any("complex" in str(warning.message).lower() for warning in caught)
+
+
+def test_transformation_output_arrays_are_read_only() -> None:
+    result = convert_balance_density(
+        [0.0, 1.0],
+        [1.0e19, 2.0e19],
+        coordinate="rho_pol",
+        coordinate_unit="1",
+        source_unit="1/m^3",
+    )
+
+    with pytest.raises(ValueError, match="read-only"):
+        result.coordinate[0] = 0.25
+    with pytest.raises(ValueError, match="read-only"):
+        result.values[0] = 0.25
+
+
+def test_conversion_operation_parameters_are_deeply_immutable_and_serializable() -> None:
+    operation = ConversionOperation(
+        quantity="example",
+        source_unit="1",
+        target_unit="1",
+        factor=1.0,
+        operation="preserve",
+        parameters={"nested": {"items": [1, 2]}},
+    )
+
+    assert operation.model_dump(mode="json")["parameters"] == {"nested": {"items": [1, 2]}}
+    assert '"parameters":{"nested":{"items":[1,2]}}' in operation.model_dump_json()
+    with pytest.raises(TypeError, match="immutable"):
+        operation.parameters["new"] = 3
+    with pytest.raises(TypeError, match="immutable"):
+        operation.parameters["nested"]["new"] = 3
+    with pytest.raises(TypeError):
+        operation.parameters["nested"]["items"][0] = 9
+
+
+def test_conversion_operation_without_parameters_keeps_empty_default() -> None:
+    operation = ConversionOperation(
+        quantity="example",
+        source_unit="1",
+        target_unit="1",
+        factor=1.0,
+        operation="preserve",
+    )
+
+    assert operation.parameters == {}
+    assert operation.model_dump(mode="json")["parameters"] == {}
+
+
+def test_conversion_operation_copies_preserve_immutable_parameters() -> None:
+    operation = ConversionOperation(
+        quantity="example",
+        source_unit="1",
+        target_unit="1",
+        factor=1.0,
+        operation="preserve",
+        parameters={"nested": {"items": [1, 2]}},
+    )
+
+    copies = [operation.model_copy(deep=True), copy.deepcopy(operation)]
+    for copied in copies:
+        assert copied.parameters is operation.parameters
+        assert copied.model_dump(mode="json")["parameters"] == {"nested": {"items": [1, 2]}}
+        with pytest.raises(TypeError, match="immutable"):
+            copied.parameters["new"] = 3

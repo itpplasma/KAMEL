@@ -11,14 +11,16 @@ import tempfile
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Sequence
+from typing import Literal, Sequence
 
 import numpy as np
 from kim.config import ProfileConfig, SimulationConfig
-from kim.conventions import SourceMetadata, convert_quantity
+from kim.conventions import ConversionOperation, SourceMetadata, convert_quantity
 from kim.errors import ExperimentalInputError
 from kim.importers.experimental import MarsFInput
 from numpy.typing import NDArray
+
+QOperation = Literal["preserve", "negate"]
 
 
 @dataclass(frozen=True)
@@ -42,6 +44,7 @@ def prepare_marsf_case(
     equilibrium_executable: Path | str | None = None,
     equilibrium_input_files: Sequence[Path | str] = (),
     equilibrium_timeout_seconds: float = 3600.0,
+    q_operation: QOperation = "preserve",
 ) -> PreparedExperimentalCase:
     """Stage a MARS-F source as a runnable, provenance-preserving KIM case.
 
@@ -54,6 +57,10 @@ def prepare_marsf_case(
         raise ExperimentalInputError("source must be a MarsFInput instance")
     if not isinstance(config, SimulationConfig):
         raise ExperimentalInputError("config must be a SimulationConfig instance")
+    if not isinstance(q_operation, str) or q_operation not in {"preserve", "negate"}:
+        raise ExperimentalInputError(
+            "q operation must be explicitly selected as preserve or negate"
+        )
     if equilibrium_file is not None and equilibrium_executable is not None:
         raise ExperimentalInputError("provide equilibrium_file or equilibrium_executable, not both")
     if equilibrium_file is None and equilibrium_executable is None:
@@ -80,6 +87,7 @@ def prepare_marsf_case(
             equilibrium_executable=equilibrium_executable,
             equilibrium_input_files=equilibrium_input_files,
             equilibrium_timeout_seconds=equilibrium_timeout_seconds,
+            q_operation=q_operation,
             final_directory=final_directory,
         )
         _commit_staging_directory(staging_directory, final_directory)
@@ -123,6 +131,7 @@ def _prepare_in_directory(
     equilibrium_executable: Path | str | None,
     equilibrium_input_files: Sequence[Path | str],
     equilibrium_timeout_seconds: float,
+    q_operation: QOperation,
     final_directory: Path,
 ) -> PreparedExperimentalCase:
     source_directory = directory / "source"
@@ -200,6 +209,8 @@ def _prepare_in_directory(
     q_values = (
         q if source.metadata.coordinate == "sqrt_psiN" else _interpolate(q, radius, output_grid)
     )
+    q_factor = 1.0 if q_operation == "preserve" else -1.0
+    q_values = q_values * q_factor
     _write_profile(profiles_directory / config.profiles.safety_factor_file, output_grid, q_values)
 
     prepared_config = config.model_copy(
@@ -216,6 +227,13 @@ def _prepare_in_directory(
         json.dumps(request_payload, indent=2, sort_keys=True) + "\n",
         encoding="utf-8",
     )
+    q_conversion = ConversionOperation(
+        quantity="q",
+        source_unit="1",
+        target_unit="1",
+        factor=q_factor,
+        operation=q_operation,
+    )
     report = {
         "schema_version": 1,
         "created_at": datetime.now(timezone.utc).isoformat(),
@@ -229,7 +247,7 @@ def _prepare_in_directory(
         "generator": generator_provenance,
         "coordinate_operation": coordinate_operation,
         "source_hashes": source_hashes,
-        "operations": _unit_operations(source),
+        "operations": [*_unit_operations(source), q_conversion.model_dump(mode="json")],
         "output_grid_points": int(output_grid.size),
     }
     report_path = directory / "conversion_report.json"

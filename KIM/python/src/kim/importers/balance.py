@@ -139,16 +139,30 @@ def _file_identity(path: Path) -> tuple[int, int]:
 
 
 def _read_profile(name: str, units: str, path: Path) -> tuple[ExperimentalProfile, str]:
+    return _read_profile_snapshot(name, units, path)
+
+
+def _read_profile_snapshot(name: str, units: str, path: Path) -> tuple[ExperimentalProfile, str]:
+    """Read, hash, and parse one profile from the same immutable byte snapshot."""
+
     try:
         source_bytes = path.read_bytes()
-        lines = source_bytes.decode("utf-8").splitlines()
     except (OSError, UnicodeError) as error:
         raise ExperimentalInputError(f"{path}: unable to read BALANCE profile") from error
     try:
         source_hash = _sha256(source_bytes)
     except OSError as error:
         raise ExperimentalInputError(f"{path}: unable to hash BALANCE profile") from error
+    try:
+        lines = source_bytes.decode("utf-8").splitlines()
+    except UnicodeError as error:
+        raise ExperimentalInputError(f"{path}: unable to read BALANCE profile") from error
+    return _parse_profile_lines(name, units, path, lines), source_hash
 
+
+def _parse_profile_lines(
+    name: str, units: str, path: Path, lines: list[str]
+) -> ExperimentalProfile:
     rows: list[tuple[float, float]] = []
     for line_number, line in enumerate(lines, start=1):
         stripped = line.strip()
@@ -180,15 +194,12 @@ def _read_profile(name: str, units: str, path: Path) -> tuple[ExperimentalProfil
     data.setflags(write=False)
     coordinate = data[:, 0]
     values = data[:, 1]
-    return (
-        ExperimentalProfile(
-            name=name,
-            units=units,
-            path=path,
-            coordinate=coordinate,
-            values=values,
-        ),
-        source_hash,
+    return ExperimentalProfile(
+        name=name,
+        units=units,
+        path=path,
+        coordinate=coordinate,
+        values=values,
     )
 
 

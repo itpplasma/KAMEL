@@ -338,13 +338,15 @@ def test_staging_refuses_concurrent_destination_reservation(
 ) -> None:
     source = read_case(write_balance_profiles(tmp_path / "balance"))
     destination = tmp_path / "marsf"
-    original_reserve = balance_adoption._reserve_destination
+    original_rename = balance_adoption._rename_directory_noreplace
 
-    def create_concurrent_destination(path: Path) -> None:
+    def create_concurrent_destination(staging: Path, path: Path) -> None:
         path.mkdir()
-        original_reserve(path)
+        original_rename(staging, path)
 
-    monkeypatch.setattr(balance_adoption, "_reserve_destination", create_concurrent_destination)
+    monkeypatch.setattr(
+        balance_adoption, "_rename_directory_noreplace", create_concurrent_destination
+    )
 
     with pytest.raises(ExperimentalInputError, match="already exists"):
         stage_balance_marsf_quartet(
@@ -357,6 +359,112 @@ def test_staging_refuses_concurrent_destination_reservation(
     assert destination.is_dir()
     assert not list(destination.iterdir())
     assert not list(tmp_path.glob(f".{destination.name}-*"))
+
+
+def _write_publication_tree(path: Path, marker: str) -> None:
+    path.mkdir()
+    (path / "marker.txt").write_text(marker, encoding="utf-8")
+
+
+def test_exclusive_publication_publishes_one_complete_directory(tmp_path: Path) -> None:
+    staging = tmp_path / ".staging"
+    destination = tmp_path / "published"
+    _write_publication_tree(staging, "winner")
+
+    balance_adoption._publish_staging_directory(staging, destination)
+
+    assert not staging.exists()
+    assert (destination / "marker.txt").read_text(encoding="utf-8") == "winner"
+
+
+def test_exclusive_publication_loser_preserves_complete_winner(
+    tmp_path: Path,
+) -> None:
+    winner_staging = tmp_path / ".winner"
+    loser_staging = tmp_path / ".loser"
+    destination = tmp_path / "published"
+    _write_publication_tree(winner_staging, "winner")
+    _write_publication_tree(loser_staging, "loser")
+
+    balance_adoption._publish_staging_directory(winner_staging, destination)
+    with pytest.raises(ExperimentalInputError, match="already exists"):
+        balance_adoption._publish_staging_directory(loser_staging, destination)
+
+    assert (destination / "marker.txt").read_text(encoding="utf-8") == "winner"
+    assert (loser_staging / "marker.txt").read_text(encoding="utf-8") == "loser"
+
+
+def test_exclusive_publication_preserves_foreign_destination(
+    tmp_path: Path,
+) -> None:
+    staging = tmp_path / ".staging"
+    destination = tmp_path / "published"
+    _write_publication_tree(staging, "staged")
+    destination.mkdir()
+    sentinel = destination / "foreign.txt"
+    sentinel.write_text("foreign", encoding="utf-8")
+
+    with pytest.raises(ExperimentalInputError, match="already exists"):
+        balance_adoption._publish_staging_directory(staging, destination)
+
+    assert sentinel.read_text(encoding="utf-8") == "foreign"
+    assert (staging / "marker.txt").read_text(encoding="utf-8") == "staged"
+
+
+def test_publication_error_cleans_only_owned_staging(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    source = read_case(write_balance_profiles(tmp_path / "balance"))
+    destination = tmp_path / "marsf"
+    foreign = tmp_path / "foreign"
+    foreign.mkdir()
+    sentinel = foreign / "keep.txt"
+    sentinel.write_text("keep", encoding="utf-8")
+
+    def fail_publication(*_args: object, **_kwargs: object) -> None:
+        raise OSError("simulated publication failure")
+
+    monkeypatch.setattr(balance_adoption, "_rename_directory_noreplace", fail_publication)
+    with pytest.raises(ExperimentalInputError, match="publication"):
+        stage_balance_marsf_quartet(
+            source,
+            destination,
+            major_radius_cm=_R0_CM,
+            equilibrium_provenance=_EQUILIBRIUM_PROVENANCE,
+        )
+
+    assert not destination.exists()
+    assert sentinel.read_text(encoding="utf-8") == "keep"
+    assert not list(tmp_path.glob(f".{destination.name}-*"))
+
+
+def test_staging_rejects_balance_arrays_altered_after_read(tmp_path: Path) -> None:
+    source = read_case(write_balance_profiles(tmp_path / "balance"))
+    original = source.profiles["density"]
+    altered_values = original.values.copy()
+    altered_values[0] += 1.0e12
+    altered_profiles = dict(source.profiles)
+    altered_profiles["density"] = ExperimentalProfile(
+        name=original.name,
+        units=original.units,
+        path=original.path,
+        coordinate=original.coordinate,
+        values=altered_values,
+    )
+    altered_source = BalanceInput(
+        metadata=source.metadata,
+        profiles=MappingProxyType(altered_profiles),
+        source_files=source.source_files,
+        source_hashes=source.source_hashes,
+    )
+
+    with pytest.raises(ExperimentalInputError, match="(?i)(snapshot|array)"):
+        stage_balance_marsf_quartet(
+            altered_source,
+            tmp_path / "marsf",
+            major_radius_cm=_R0_CM,
+            equilibrium_provenance=_EQUILIBRIUM_PROVENANCE,
+        )
 
 
 def test_staging_failure_removes_partial_output_and_temporary_artifacts(tmp_path: Path) -> None:

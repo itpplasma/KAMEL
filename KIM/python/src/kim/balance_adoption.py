@@ -9,9 +9,13 @@ metadata from values.
 
 from __future__ import annotations
 
+import ctypes
+import errno
 import hashlib
 import json
+import os
 import shutil
+import sys
 import tempfile
 from dataclasses import dataclass
 from pathlib import Path
@@ -20,7 +24,7 @@ from typing import Literal
 import numpy as np
 from kim.conventions import ConventionError, ConversionOperation
 from kim.errors import ExperimentalInputError
-from kim.importers.balance import BalanceInput
+from kim.importers.balance import BalanceInput, _read_profile_snapshot
 from kim.importers.experimental import (
     ExperimentalProfile,
     MarsFMetadata,
@@ -42,6 +46,9 @@ _MARSF_FILENAMES = {
     "ion_temperature": "PROFTI.IN",
     "toroidal_rotation": "PROFROT.IN",
 }
+_AT_FDCWD = -2
+_RENAME_NOREPLACE = 1
+_RENAME_EXCL = 0x00000004
 
 
 @dataclass(frozen=True)
@@ -73,14 +80,16 @@ def stage_balance_marsf_quartet(
 
     The source arrays stay in their declared units except for the approved
     angular-rotation-to-linear-velocity conversion.  Staging happens in a
-    temporary sibling directory and is committed with one directory rename;
-    the existing preparation path remains responsible for later CGS density
-    conversion and equilibrium mapping.
+    temporary sibling directory and is published with a native exclusive
+    directory rename; the existing preparation path remains responsible for
+    later CGS density conversion and equilibrium mapping.
     """
 
     staging_directory: Path | None = None
     try:
-        source_hashes = _validate_staging_arguments(source, major_radius_cm, equilibrium_provenance)
+        verified_profiles, source_hashes = _validate_staging_arguments(
+            source, major_radius_cm, equilibrium_provenance
+        )
         final_directory = Path(destination).absolute()
         if final_directory.exists() or final_directory.is_symlink():
             raise ExperimentalInputError(
@@ -107,7 +116,7 @@ def stage_balance_marsf_quartet(
             _preservation_operation("electron_temperature", "eV"),
             _preservation_operation("ion_temperature", "eV"),
         ]
-        rotation = source.profiles["toroidal_rotation"]
+        rotation = verified_profiles["toroidal_rotation"]
         rotation_result = convert_balance_rotation(
             rotation.coordinate,
             rotation.values,
@@ -119,9 +128,9 @@ def stage_balance_marsf_quartet(
         operations.append(rotation_result.operation.model_dump(mode="json"))
 
         profiles = {
-            "density": source.profiles["density"],
-            "electron_temperature": source.profiles["electron_temperature"],
-            "ion_temperature": source.profiles["ion_temperature"],
+            "density": verified_profiles["density"],
+            "electron_temperature": verified_profiles["electron_temperature"],
+            "ion_temperature": verified_profiles["ion_temperature"],
             "toroidal_rotation": ExperimentalProfile(
                 name="toroidal_velocity",
                 units="cm/s",
@@ -172,7 +181,7 @@ def stage_balance_marsf_quartet(
             encoding="utf-8",
         )
 
-        _commit_staging_directory(staging_directory, final_directory)
+        _publish_staging_directory(staging_directory, final_directory)
         return StagedMarsFQuartet(
             directory=final_directory,
             metadata=metadata,
@@ -191,7 +200,7 @@ def stage_balance_marsf_quartet(
 
 def _validate_staging_arguments(
     source: BalanceInput, major_radius_cm: float, equilibrium_provenance: str
-) -> dict[str, str]:
+) -> tuple[dict[str, ExperimentalProfile], dict[str, str]]:
     if not isinstance(source, BalanceInput):
         raise ExperimentalInputError("source must be a BalanceInput instance")
     try:
@@ -204,7 +213,14 @@ def _validate_staging_arguments(
         raise ExperimentalInputError("equilibrium_provenance must be nonempty")
     if source.metadata.coordinate_unit != _BALANCE_COORDINATE_UNIT:
         raise ExperimentalInputError("BALANCE coordinate_unit must be 1")
+    verified_profiles: dict[str, ExperimentalProfile] = {}
     source_hashes: dict[str, str] = {}
+    unit_fields = {
+        "density": "density_unit",
+        "electron_temperature": "electron_temperature_unit",
+        "ion_temperature": "ion_temperature_unit",
+        "toroidal_rotation": "toroidal_rotation_unit",
+    }
     for role in _BALANCE_PROFILE_ROLES:
         if role not in source.profiles:
             raise ExperimentalInputError(f"BALANCE source is missing {role} profile")
@@ -215,40 +231,94 @@ def _validate_staging_arguments(
         if not path.is_file():
             raise ExperimentalInputError(f"{path}: BALANCE profile source is missing")
         try:
-            current_hash = _sha256(path)
-        except OSError as error:
-            raise ExperimentalInputError(f"{path}: unable to verify BALANCE source hash") from error
+            snapshot, current_hash = _read_profile_snapshot(
+                role, getattr(source.metadata, unit_fields[role]), path
+            )
+        except ExperimentalInputError:
+            raise
         if source.source_hashes.get(role) != current_hash:
             raise ExperimentalInputError(f"{path}: BALANCE source hash changed since it was read")
+        coordinates_match = np.array_equal(snapshot.coordinate, source.profiles[role].coordinate)
+        values_match = np.array_equal(snapshot.values, source.profiles[role].values)
+        if not coordinates_match or not values_match:
+            raise ExperimentalInputError(
+                f"{path}: {role} arrays do not match the verified source snapshot"
+            )
+        verified_profiles[role] = snapshot
         source_hashes[role] = current_hash
-    return source_hashes
+    return verified_profiles, source_hashes
 
 
-def _reserve_destination(destination: Path) -> None:
-    """Reserve a previously absent destination without replacing a race winner."""
+def _publish_staging_directory(staging: Path, destination: Path) -> None:
+    """Atomically publish a sibling directory without replacing a destination."""
 
     try:
-        destination.mkdir()
-    except FileExistsError as error:
+        _rename_directory_noreplace(staging, destination)
+    except OSError as error:
+        if error.errno in {errno.EEXIST, errno.ENOTEMPTY}:
+            raise ExperimentalInputError(
+                f"staged quartet destination already exists: {destination}"
+            ) from error
         raise ExperimentalInputError(
-            f"staged quartet destination already exists: {destination}"
+            f"atomic no-replace publication failed for {destination}: {error}"
         ) from error
 
 
-def _commit_staging_directory(staging: Path, destination: Path) -> None:
-    """Reserve the destination, move staged children, and clean up on failure."""
+def _rename_directory_noreplace(source: Path, destination: Path) -> None:
+    """Use the platform's atomic, exclusive directory rename primitive."""
 
-    _reserve_destination(destination)
-    try:
-        for child in tuple(staging.iterdir()):
-            target = destination / child.name
-            if target.exists() or target.is_symlink():
-                raise ExperimentalInputError(f"staged quartet target already exists: {target}")
-            child.rename(target)
-        staging.rmdir()
-    except Exception:
-        shutil.rmtree(destination, ignore_errors=True)
-        raise
+    libc = ctypes.CDLL(None, use_errno=True)
+    source_bytes = os.fsencode(source)
+    destination_bytes = os.fsencode(destination)
+    if sys.platform == "darwin":
+        renameatx_np = getattr(libc, "renameatx_np", None)
+        if renameatx_np is not None:
+            renameatx_np.argtypes = [
+                ctypes.c_int,
+                ctypes.c_char_p,
+                ctypes.c_int,
+                ctypes.c_char_p,
+                ctypes.c_uint,
+            ]
+            renameatx_np.restype = ctypes.c_int
+            result = renameatx_np(
+                _AT_FDCWD,
+                source_bytes,
+                _AT_FDCWD,
+                destination_bytes,
+                _RENAME_EXCL,
+            )
+        else:
+            renamex_np = getattr(libc, "renamex_np", None)
+            if renamex_np is None:
+                raise OSError(errno.ENOTSUP, "Darwin exclusive rename is unavailable")
+            renamex_np.argtypes = [ctypes.c_char_p, ctypes.c_char_p, ctypes.c_uint]
+            renamex_np.restype = ctypes.c_int
+            result = renamex_np(source_bytes, destination_bytes, _RENAME_EXCL)
+    elif sys.platform.startswith("linux"):
+        renameat2 = getattr(libc, "renameat2", None)
+        if renameat2 is None:
+            raise OSError(errno.ENOTSUP, "Linux renameat2 is unavailable")
+        renameat2.argtypes = [
+            ctypes.c_int,
+            ctypes.c_char_p,
+            ctypes.c_int,
+            ctypes.c_char_p,
+            ctypes.c_uint,
+        ]
+        renameat2.restype = ctypes.c_int
+        result = renameat2(
+            _AT_FDCWD,
+            source_bytes,
+            _AT_FDCWD,
+            destination_bytes,
+            _RENAME_NOREPLACE,
+        )
+    else:
+        raise OSError(errno.ENOTSUP, f"exclusive directory rename is unsupported on {sys.platform}")
+    if result != 0:
+        error_number = ctypes.get_errno() or errno.EIO
+        raise OSError(error_number, os.strerror(error_number))
 
 
 def _validate_source_profile(profile: ExperimentalProfile, role: str) -> None:

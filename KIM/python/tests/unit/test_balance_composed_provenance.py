@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import hashlib
 import json
+import stat
+from collections.abc import Callable
 from pathlib import Path
 
 import numpy as np
@@ -57,7 +59,9 @@ def _write_balance_profiles(directory: Path, *, density_offset: float = 0.0) -> 
         "density": [0.0, 0.5, 1.0],
         "electron_temperature": [0.0, 0.4, 1.0],
         "ion_temperature": [0.0, 0.3, 1.0],
-        "toroidal_rotation": [0.0, 0.25, 1.0],
+        # Align angular rotation with the normalized equilibrium nodes so the
+        # R0 conversion is checked without an extra cubic interpolation.
+        "toroidal_rotation": [0.0, 0.5, 1.0],
     }
     values = {
         "density": [1.0e19 + density_offset, 2.0e19, 3.0e19],
@@ -134,6 +138,15 @@ def _sha256(path: Path) -> str:
 
 def _report(path: Path) -> dict[str, object]:
     return json.loads(path.read_text(encoding="utf-8"))
+
+
+def _write_staging_report_variant(
+    source_report: Path, destination: Path, mutate: Callable[[dict[str, object]], None]
+) -> Path:
+    payload = _report(source_report)
+    mutate(payload)
+    destination.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    return destination
 
 
 def test_composes_balance_staging_provenance_into_prepared_report(
@@ -216,6 +229,7 @@ def test_composes_balance_staging_provenance_into_prepared_report(
     assert report["software"] == {"name": "kamel-kim", "version": "test-version"}
     assert report["git"] == {"commit": "0123456789abcdef" * 5, "dirty": False}
     assert report["comparison"]["domain"] is None
+    assert len(upstream["provenance_sha256"]) == 64
 
     np.testing.assert_allclose(
         np.loadtxt(prepared.profiles / "n.dat")[:, 1], [1.0e13, 2.0e13, 3.0e13]
@@ -291,6 +305,99 @@ def test_malformed_upstream_staging_report_is_rejected(tmp_path: Path) -> None:
         )
 
 
+@pytest.mark.parametrize(
+    "variant",
+    ["missing-required-field", "unsupported-schema-version"],
+)
+def test_rejects_valid_json_upstream_reports_with_invalid_schema(
+    tmp_path: Path, variant: str
+) -> None:
+    _balance_paths, _balance_source, staged, marsf = _stage_balance_case(tmp_path)
+    equilibrium = tmp_path / "original-equilibrium.dat"
+    _write_equilibrium(equilibrium)
+    malformed = tmp_path / f"{variant}.json"
+
+    def mutate(payload: dict[str, object]) -> None:
+        if variant == "missing-required-field":
+            payload.pop("source_basenames")
+        else:
+            payload["schema_version"] = 999
+
+    _write_staging_report_variant(staged.report, malformed, mutate)
+
+    with pytest.raises(ExperimentalInputError, match=r"(?i)(staging|upstream|schema|provenance)"):
+        prepare_marsf_case(
+            marsf,
+            _config(),
+            tmp_path / "prepared",
+            equilibrium_file=equilibrium,
+            upstream_staging_report=malformed,
+        )
+
+
+def test_arbitrary_upstream_json_is_rejected_or_excluded_from_composed_report(
+    tmp_path: Path,
+) -> None:
+    _balance_paths, _balance_source, staged, marsf = _stage_balance_case(tmp_path)
+    equilibrium = tmp_path / "original-equilibrium.dat"
+    _write_equilibrium(equilibrium)
+    augmented = tmp_path / "augmented-staging-report.json"
+
+    def mutate(payload: dict[str, object]) -> None:
+        payload["arbitrary_extra"] = {"must_not": "cross_boundary"}
+
+    _write_staging_report_variant(staged.report, augmented, mutate)
+
+    try:
+        prepared = prepare_marsf_case(
+            marsf,
+            _config(),
+            tmp_path / "prepared",
+            equilibrium_file=equilibrium,
+            upstream_staging_report=augmented,
+        )
+    except ExperimentalInputError:
+        return
+
+    composed = _report(prepared.report)["upstream_staging"]
+    assert "arbitrary_extra" not in composed
+
+
+@pytest.mark.parametrize("tampered_field", ["source_metadata", "source_basenames"])
+def test_tampered_upstream_identity_is_rejected_even_when_derived_hashes_match(
+    tmp_path: Path, tampered_field: str
+) -> None:
+    _balance_paths, balance_source, staged, marsf = _stage_balance_case(tmp_path)
+    equilibrium = tmp_path / "original-equilibrium.dat"
+    _write_equilibrium(equilibrium)
+    tampered = tmp_path / f"tampered-{tampered_field}.json"
+
+    def mutate(payload: dict[str, object]) -> None:
+        if tampered_field == "source_metadata":
+            source_metadata = payload.setdefault(
+                "source_metadata", balance_source.metadata.model_dump(mode="json")
+            )
+            assert isinstance(source_metadata, dict)
+            source_metadata["density_unit"] = "1/cm^3"
+        else:
+            source_basenames = payload["source_basenames"]
+            assert isinstance(source_basenames, dict)
+            source_basenames["density"] = "tampered-density.profile"
+
+    _write_staging_report_variant(staged.report, tampered, mutate)
+    original_derived_hashes = _report(staged.report)["derived_hashes"]
+    assert _report(tampered)["derived_hashes"] == original_derived_hashes
+
+    with pytest.raises(ExperimentalInputError, match=r"(?i)(staging|upstream|provenance|hash)"):
+        prepare_marsf_case(
+            marsf,
+            _config(),
+            tmp_path / "prepared",
+            equilibrium_file=equilibrium,
+            upstream_staging_report=tampered,
+        )
+
+
 def test_mismatched_upstream_staging_report_is_rejected(tmp_path: Path) -> None:
     _balance_paths_a, _balance_source_a, staged_a, _marsf_a = _stage_balance_case(
         tmp_path / "case-a"
@@ -309,3 +416,59 @@ def test_mismatched_upstream_staging_report_is_rejected(tmp_path: Path) -> None:
             equilibrium_file=equilibrium,
             upstream_staging_report=staged_a.report,
         )
+
+
+def test_generated_equilibrium_provenance_records_inputs_method_and_identity(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _balance_paths, _balance_source, staged, marsf = _stage_balance_case(tmp_path)
+    generator = tmp_path / "synthetic-equilibrium-generator.py"
+    generator.write_text(
+        "#!/usr/bin/env python3\n"
+        "from pathlib import Path\n"
+        "Path('equil_r_q_psi.dat').write_text(\n"
+        "    '# radius q psi\\n0.0 1.0 0.0\\n10.0 1.5 0.25\\n20.0 2.0 1.0\\n',\n"
+        "    encoding='utf-8',\n"
+        ")\n",
+        encoding="utf-8",
+    )
+    generator.chmod(generator.stat().st_mode | stat.S_IXUSR)
+    equilibrium_input = tmp_path / "equilibrium-control.in"
+    equilibrium_input.write_text("synthetic control\n", encoding="utf-8")
+    monkeypatch.setattr(
+        preparation_module,
+        "_software_identity",
+        lambda: {"name": "kamel-kim", "version": "test-version"},
+        raising=False,
+    )
+    monkeypatch.setattr(
+        preparation_module,
+        "_git_identity",
+        lambda: {"commit": "fedcba9876543210" * 5, "dirty": False},
+        raising=False,
+    )
+
+    prepared = prepare_marsf_case(
+        marsf,
+        _config(),
+        tmp_path / "prepared",
+        equilibrium_executable=generator,
+        equilibrium_input_files=(equilibrium_input,),
+        q_operation="negate",
+        upstream_staging_report=staged.report,
+    )
+    report = _report(prepared.report)
+    generated_equilibrium = prepared.equilibrium
+
+    assert report["equilibrium"]["operation"] == "generated by supplied equilibrium executable"
+    assert report["equilibrium"]["source_hash"] == _sha256(generated_equilibrium)
+    assert report["source_hashes"][f"equilibrium_input/{equilibrium_input.name}"] == _sha256(
+        equilibrium_input
+    )
+    assert report["generator"]["executable"] == str(generator.absolute())
+    assert report["generator"]["sha256"] == _sha256(generator)
+    assert report["generator"]["command_file_hashes"][str(generator.absolute())] == _sha256(
+        generator
+    )
+    assert report["software"] == {"name": "kamel-kim", "version": "test-version"}
+    assert report["git"] == {"commit": "fedcba9876543210" * 5, "dirty": False}

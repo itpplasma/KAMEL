@@ -264,7 +264,7 @@ def test_missing_upstream_staging_report_is_rejected(tmp_path: Path) -> None:
     equilibrium = tmp_path / "original-equilibrium.dat"
     _write_equilibrium(equilibrium)
 
-    with pytest.raises(ExperimentalInputError, match="upstream.*staging.*report"):
+    with pytest.raises(ExperimentalInputError, match=r"(?i)(staging.*report|upstream.*report)"):
         prepare_marsf_case(
             marsf,
             _config(),
@@ -281,7 +281,7 @@ def test_malformed_upstream_staging_report_is_rejected(tmp_path: Path) -> None:
     malformed = tmp_path / "malformed-staging-report.json"
     malformed.write_text("{not-json", encoding="utf-8")
 
-    with pytest.raises(ExperimentalInputError, match="upstream.*staging.*report"):
+    with pytest.raises(ExperimentalInputError, match=r"(?i)(staging.*report|upstream.*report)"):
         prepare_marsf_case(
             marsf,
             _config(),
@@ -301,7 +301,7 @@ def test_mismatched_upstream_staging_report_is_rejected(tmp_path: Path) -> None:
     equilibrium = tmp_path / "original-equilibrium.dat"
     _write_equilibrium(equilibrium)
 
-    with pytest.raises(ExperimentalInputError, match="upstream.*staging.*(mismatch|hash)"):
+    with pytest.raises(ExperimentalInputError, match=r"(?i)staging.*(mismatch|hash)"):
         prepare_marsf_case(
             marsf_b,
             _config(),

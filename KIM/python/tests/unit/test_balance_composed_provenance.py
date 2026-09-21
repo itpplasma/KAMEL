@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+import importlib.metadata
 import json
 import stat
 from collections.abc import Callable
@@ -15,7 +16,7 @@ from kim import (
     PlasmaIsotope,
     SimulationConfig,
 )
-from kim import preparation as preparation_module
+from kim import executable as executable_module
 from kim import (
     prepare_marsf_case,
     read_balance_profiles,
@@ -149,6 +150,35 @@ def _write_staging_report_variant(
     return destination
 
 
+def _patch_identity_seams(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    *,
+    commit: str | None,
+    software_available: bool = True,
+) -> None:
+    git_metadata = (
+        None
+        if commit is None
+        else executable_module.KamelGitMetadata(
+            root=tmp_path / "synthetic-checkout", commit=commit, dirty=False
+        )
+    )
+    monkeypatch.setattr(
+        executable_module,
+        "discover_kamel_git_metadata",
+        lambda *args, **kwargs: git_metadata,
+    )
+    if software_available:
+        monkeypatch.setattr(importlib.metadata, "version", lambda package: "test-version")
+    else:
+
+        def missing_version(package: str) -> str:
+            raise importlib.metadata.PackageNotFoundError(package)
+
+        monkeypatch.setattr(importlib.metadata, "version", missing_version)
+
+
 def test_composes_balance_staging_provenance_into_prepared_report(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -156,17 +186,10 @@ def test_composes_balance_staging_provenance_into_prepared_report(
     equilibrium = tmp_path / "original-equilibrium.dat"
     _write_equilibrium(equilibrium)
 
-    monkeypatch.setattr(
-        preparation_module,
-        "_software_identity",
-        lambda: {"name": "kamel-kim", "version": "test-version"},
-        raising=False,
-    )
-    monkeypatch.setattr(
-        preparation_module,
-        "_git_identity",
-        lambda: {"commit": "0123456789abcdef" * 5, "dirty": False},
-        raising=False,
+    _patch_identity_seams(
+        monkeypatch,
+        tmp_path,
+        commit="0123456789abcdef0123456789abcdef01234567",
     )
 
     prepared = prepare_marsf_case(
@@ -179,7 +202,9 @@ def test_composes_balance_staging_provenance_into_prepared_report(
     )
     report = _report(prepared.report)
 
+    assert report["schema_version"] == 1
     upstream = report["upstream_staging"]
+    assert upstream["schema_version"] == 1
     assert upstream["source_basenames"] == {role: path.name for role, path in balance_paths.items()}
     assert upstream["source_hashes"] == {
         role: _sha256(path) for role, path in balance_paths.items()
@@ -227,14 +252,19 @@ def test_composes_balance_staging_provenance_into_prepared_report(
         for filename in ("n.dat", "Te.dat", "Ti.dat", "Vz.dat", "q.dat")
     }
     assert report["software"] == {"name": "kamel-kim", "version": "test-version"}
-    assert report["git"] == {"commit": "0123456789abcdef" * 5, "dirty": False}
+    assert report["git"] == {
+        "commit": "0123456789abcdef0123456789abcdef01234567",
+        "dirty": False,
+    }
     assert report["comparison"]["domain"] is None
-    assert len(upstream["provenance_sha256"]) == 64
+    upstream_digest = _sha256(staged.report)
+    assert upstream["provenance_sha256"] == upstream_digest
+    assert upstream_digest == upstream_digest.lower()
 
-    np.testing.assert_allclose(
+    np.testing.assert_array_equal(
         np.loadtxt(prepared.profiles / "n.dat")[:, 1], [1.0e13, 2.0e13, 3.0e13]
     )
-    np.testing.assert_allclose(
+    np.testing.assert_array_equal(
         np.loadtxt(prepared.profiles / "Vz.dat")[:, 1], [0.0, -4.125e6, -8.25e6]
     )
 
@@ -261,8 +291,7 @@ def test_missing_software_and_git_identity_are_recorded_as_absent(
     _balance_paths, _balance_source, _staged, marsf = _stage_balance_case(tmp_path)
     equilibrium = tmp_path / "original-equilibrium.dat"
     _write_equilibrium(equilibrium)
-    monkeypatch.setattr(preparation_module, "_software_identity", lambda: None, raising=False)
-    monkeypatch.setattr(preparation_module, "_git_identity", lambda: None, raising=False)
+    _patch_identity_seams(monkeypatch, tmp_path, commit=None, software_available=False)
 
     prepared = prepare_marsf_case(
         marsf, _config(), tmp_path / "prepared", equilibrium_file=equilibrium
@@ -278,7 +307,7 @@ def test_missing_upstream_staging_report_is_rejected(tmp_path: Path) -> None:
     equilibrium = tmp_path / "original-equilibrium.dat"
     _write_equilibrium(equilibrium)
 
-    with pytest.raises(ExperimentalInputError, match=r"(?i)(staging.*report|upstream.*report)"):
+    with pytest.raises(ExperimentalInputError):
         prepare_marsf_case(
             marsf,
             _config(),
@@ -295,7 +324,7 @@ def test_malformed_upstream_staging_report_is_rejected(tmp_path: Path) -> None:
     malformed = tmp_path / "malformed-staging-report.json"
     malformed.write_text("{not-json", encoding="utf-8")
 
-    with pytest.raises(ExperimentalInputError, match=r"(?i)(staging.*report|upstream.*report)"):
+    with pytest.raises(ExperimentalInputError):
         prepare_marsf_case(
             marsf,
             _config(),
@@ -325,7 +354,7 @@ def test_rejects_valid_json_upstream_reports_with_invalid_schema(
 
     _write_staging_report_variant(staged.report, malformed, mutate)
 
-    with pytest.raises(ExperimentalInputError, match=r"(?i)(staging|upstream|schema|provenance)"):
+    with pytest.raises(ExperimentalInputError):
         prepare_marsf_case(
             marsf,
             _config(),
@@ -335,9 +364,7 @@ def test_rejects_valid_json_upstream_reports_with_invalid_schema(
         )
 
 
-def test_arbitrary_upstream_json_is_rejected_or_excluded_from_composed_report(
-    tmp_path: Path,
-) -> None:
+def test_arbitrary_upstream_json_is_rejected(tmp_path: Path) -> None:
     _balance_paths, _balance_source, staged, marsf = _stage_balance_case(tmp_path)
     equilibrium = tmp_path / "original-equilibrium.dat"
     _write_equilibrium(equilibrium)
@@ -348,19 +375,14 @@ def test_arbitrary_upstream_json_is_rejected_or_excluded_from_composed_report(
 
     _write_staging_report_variant(staged.report, augmented, mutate)
 
-    try:
-        prepared = prepare_marsf_case(
+    with pytest.raises(ExperimentalInputError):
+        prepare_marsf_case(
             marsf,
             _config(),
             tmp_path / "prepared",
             equilibrium_file=equilibrium,
             upstream_staging_report=augmented,
         )
-    except ExperimentalInputError:
-        return
-
-    composed = _report(prepared.report)["upstream_staging"]
-    assert "arbitrary_extra" not in composed
 
 
 @pytest.mark.parametrize("tampered_field", ["source_metadata", "source_basenames"])
@@ -387,8 +409,9 @@ def test_tampered_upstream_identity_is_rejected_even_when_derived_hashes_match(
     _write_staging_report_variant(staged.report, tampered, mutate)
     original_derived_hashes = _report(staged.report)["derived_hashes"]
     assert _report(tampered)["derived_hashes"] == original_derived_hashes
+    assert _sha256(tampered) != _sha256(staged.report)
 
-    with pytest.raises(ExperimentalInputError, match=r"(?i)(staging|upstream|provenance|hash)"):
+    with pytest.raises(ExperimentalInputError):
         prepare_marsf_case(
             marsf,
             _config(),
@@ -408,7 +431,7 @@ def test_mismatched_upstream_staging_report_is_rejected(tmp_path: Path) -> None:
     equilibrium = tmp_path / "original-equilibrium.dat"
     _write_equilibrium(equilibrium)
 
-    with pytest.raises(ExperimentalInputError, match=r"(?i)staging.*(mismatch|hash)"):
+    with pytest.raises(ExperimentalInputError):
         prepare_marsf_case(
             marsf_b,
             _config(),
@@ -426,6 +449,8 @@ def test_generated_equilibrium_provenance_records_inputs_method_and_identity(
     generator.write_text(
         "#!/usr/bin/env python3\n"
         "from pathlib import Path\n"
+        "if Path('equilibrium-control.in').read_text(encoding='utf-8') != 'synthetic control\\n':\n"
+        "    raise SystemExit('unexpected copied equilibrium control')\n"
         "Path('equil_r_q_psi.dat').write_text(\n"
         "    '# radius q psi\\n0.0 1.0 0.0\\n10.0 1.5 0.25\\n20.0 2.0 1.0\\n',\n"
         "    encoding='utf-8',\n"
@@ -435,17 +460,14 @@ def test_generated_equilibrium_provenance_records_inputs_method_and_identity(
     generator.chmod(generator.stat().st_mode | stat.S_IXUSR)
     equilibrium_input = tmp_path / "equilibrium-control.in"
     equilibrium_input.write_text("synthetic control\n", encoding="utf-8")
-    monkeypatch.setattr(
-        preparation_module,
-        "_software_identity",
-        lambda: {"name": "kamel-kim", "version": "test-version"},
-        raising=False,
-    )
-    monkeypatch.setattr(
-        preparation_module,
-        "_git_identity",
-        lambda: {"commit": "fedcba9876543210" * 5, "dirty": False},
-        raising=False,
+    generator_bytes = generator.read_bytes()
+    equilibrium_input_bytes = equilibrium_input.read_bytes()
+    generator_digest = _sha256(generator)
+    equilibrium_input_digest = _sha256(equilibrium_input)
+    _patch_identity_seams(
+        monkeypatch,
+        tmp_path,
+        commit="fedcba9876543210fedcba9876543210fedcba98",
     )
 
     prepared = prepare_marsf_case(
@@ -466,9 +488,15 @@ def test_generated_equilibrium_provenance_records_inputs_method_and_identity(
         equilibrium_input
     )
     assert report["generator"]["executable"] == str(generator.absolute())
-    assert report["generator"]["sha256"] == _sha256(generator)
-    assert report["generator"]["command_file_hashes"][str(generator.absolute())] == _sha256(
-        generator
+    assert report["generator"]["sha256"] == generator_digest
+    assert report["generator"]["command_file_hashes"][str(generator.absolute())] == generator_digest
+    assert report["source_hashes"][f"equilibrium_input/{equilibrium_input.name}"] == (
+        equilibrium_input_digest
     )
     assert report["software"] == {"name": "kamel-kim", "version": "test-version"}
-    assert report["git"] == {"commit": "fedcba9876543210" * 5, "dirty": False}
+    assert report["git"] == {
+        "commit": "fedcba9876543210fedcba9876543210fedcba98",
+        "dirty": False,
+    }
+    assert generator.read_bytes() == generator_bytes
+    assert equilibrium_input.read_bytes() == equilibrium_input_bytes

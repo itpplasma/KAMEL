@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import ctypes
+import errno
 import hashlib
 import json
 import subprocess
@@ -436,6 +438,69 @@ def test_publication_error_cleans_only_owned_staging(
     assert not destination.exists()
     assert sentinel.read_text(encoding="utf-8") == "keep"
     assert not list(tmp_path.glob(f".{destination.name}-*"))
+
+
+def test_linux_renameat2_uses_linux_at_fdcwd_and_ctypes_signature(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    calls: list[tuple[object, ...]] = []
+
+    class FakeRenameAt2:
+        argtypes: object = None
+        restype: object = None
+
+        def __call__(self, *args: object) -> int:
+            calls.append(args)
+            return 0
+
+    class FakeLibc:
+        renameat2 = FakeRenameAt2()
+
+    monkeypatch.setattr(balance_adoption.sys, "platform", "linux")
+    monkeypatch.setattr(balance_adoption.ctypes, "CDLL", lambda *_args, **_kwargs: FakeLibc())
+
+    balance_adoption._rename_directory_noreplace(tmp_path / ".staging", tmp_path / "published")
+
+    renameat2 = FakeLibc.renameat2
+    assert renameat2.argtypes == [
+        ctypes.c_int,
+        ctypes.c_char_p,
+        ctypes.c_int,
+        ctypes.c_char_p,
+        ctypes.c_uint,
+    ]
+    assert renameat2.restype is ctypes.c_int
+    assert calls[0][0] == -100
+    assert calls[0][2] == -100
+    assert calls[0][4] == 1
+
+
+@pytest.mark.parametrize("failure", ["missing-symbol", "enosys"])
+def test_linux_unsupported_renameat2_is_explicit(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, failure: str
+) -> None:
+    class FakeRenameAt2:
+        argtypes: object = None
+        restype: object = None
+
+        def __call__(self, *_args: object) -> int:
+            return -1
+
+    class FakeLibc:
+        if failure == "enosys":
+            renameat2 = FakeRenameAt2()
+
+    monkeypatch.setattr(balance_adoption.sys, "platform", "linux")
+    monkeypatch.setattr(balance_adoption.ctypes, "CDLL", lambda *_args, **_kwargs: FakeLibc())
+    if failure == "enosys":
+        monkeypatch.setattr(balance_adoption.ctypes, "get_errno", lambda: errno.ENOSYS)
+
+    staging = tmp_path / ".staging"
+    _write_publication_tree(staging, "staged")
+    with pytest.raises(ExperimentalInputError, match="unsupported"):
+        balance_adoption._publish_staging_directory(staging, tmp_path / "published")
+
+    assert staging.exists()
 
 
 def test_staging_rejects_balance_arrays_altered_after_read(tmp_path: Path) -> None:

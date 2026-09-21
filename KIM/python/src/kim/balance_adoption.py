@@ -46,7 +46,8 @@ _MARSF_FILENAMES = {
     "ion_temperature": "PROFTI.IN",
     "toroidal_rotation": "PROFROT.IN",
 }
-_AT_FDCWD = -2
+_AT_FDCWD_DARWIN = -2
+_AT_FDCWD_LINUX = -100
 _RENAME_NOREPLACE = 1
 _RENAME_EXCL = 0x00000004
 
@@ -259,6 +260,15 @@ def _publish_staging_directory(staging: Path, destination: Path) -> None:
             raise ExperimentalInputError(
                 f"staged quartet destination already exists: {destination}"
             ) from error
+        unsupported_errors = {
+            errno.ENOSYS,
+            errno.ENOTSUP,
+            getattr(errno, "EOPNOTSUPP", errno.ENOTSUP),
+        }
+        if error.errno in unsupported_errors:
+            raise ExperimentalInputError(
+                f"atomic no-replace publication is unsupported for {destination}: {error}"
+            ) from error
         raise ExperimentalInputError(
             f"atomic no-replace publication failed for {destination}: {error}"
         ) from error
@@ -282,9 +292,9 @@ def _rename_directory_noreplace(source: Path, destination: Path) -> None:
             ]
             renameatx_np.restype = ctypes.c_int
             result = renameatx_np(
-                _AT_FDCWD,
+                _AT_FDCWD_DARWIN,
                 source_bytes,
-                _AT_FDCWD,
+                _AT_FDCWD_DARWIN,
                 destination_bytes,
                 _RENAME_EXCL,
             )
@@ -308,9 +318,9 @@ def _rename_directory_noreplace(source: Path, destination: Path) -> None:
         ]
         renameat2.restype = ctypes.c_int
         result = renameat2(
-            _AT_FDCWD,
+            _AT_FDCWD_LINUX,
             source_bytes,
-            _AT_FDCWD,
+            _AT_FDCWD_LINUX,
             destination_bytes,
             _RENAME_NOREPLACE,
         )

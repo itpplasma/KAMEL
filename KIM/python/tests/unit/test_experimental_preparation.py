@@ -73,6 +73,13 @@ def config() -> SimulationConfig:
     )
 
 
+def q_operation_record(report_path: Path) -> dict[str, object]:
+    report = json.loads(report_path.read_text(encoding="utf-8"))
+    q_operations = [operation for operation in report["operations"] if operation["quantity"] == "q"]
+    assert len(q_operations) == 1
+    return q_operations[0]
+
+
 def test_prepares_marsf_profiles_with_explicit_mapping_and_report(tmp_path: Path) -> None:
     source_directory = tmp_path / "marsf"
     equilibrium = tmp_path / "equil_r_q_psi.dat"
@@ -93,7 +100,7 @@ def test_prepares_marsf_profiles_with_explicit_mapping_and_report(tmp_path: Path
     np.testing.assert_allclose(
         np.loadtxt(prepared.profiles / "Vz.dat")[:, 1], [0.0, -2.5e5, -5.0e5]
     )
-    np.testing.assert_allclose(np.loadtxt(prepared.profiles / "q.dat")[:, 1], [1.0, 1.5, 2.0])
+    np.testing.assert_array_equal(np.loadtxt(prepared.profiles / "q.dat")[:, 1], [1.0, 1.5, 2.0])
 
     request = json.loads(prepared.request.read_text(encoding="utf-8"))
     assert request["profiles"]["directory"] == "./profiles"
@@ -221,7 +228,7 @@ def test_accepts_negative_polarity_equilibrium(tmp_path: Path) -> None:
         source, config(), tmp_path / "prepared", equilibrium_file=equilibrium
     )
 
-    np.testing.assert_allclose(np.loadtxt(prepared.profiles / "q.dat")[:, 1], [1.0, 1.5, 2.0])
+    np.testing.assert_array_equal(np.loadtxt(prepared.profiles / "q.dat")[:, 1], [1.0, 1.5, 2.0])
 
 
 def test_uses_profile_filenames_from_the_request(tmp_path: Path) -> None:
@@ -302,7 +309,13 @@ def test_default_q_operation_preserves_supplied_equilibrium_q(tmp_path: Path) ->
         equilibrium_file=equilibrium,
     )
 
-    np.testing.assert_allclose(np.loadtxt(prepared.profiles / "q.dat")[:, 1], [1.0, 1.5, 2.0])
+    np.testing.assert_array_equal(np.loadtxt(prepared.profiles / "q.dat")[:, 1], [1.0, 1.5, 2.0])
+    q_record = q_operation_record(prepared.report)
+    assert q_record["factor"] == 1.0
+    assert q_record["operation"] == "preserve"
+    assert q_record["quantity"] == "q"
+    assert q_record["source_unit"] == "1"
+    assert q_record["target_unit"] == "1"
 
 
 @pytest.mark.parametrize(
@@ -329,7 +342,7 @@ def test_explicit_q_operation_controls_written_equilibrium_q(
         q_operation=q_operation,
     )
 
-    np.testing.assert_allclose(np.loadtxt(prepared.profiles / "q.dat")[:, 1], expected_q)
+    np.testing.assert_array_equal(np.loadtxt(prepared.profiles / "q.dat")[:, 1], expected_q)
 
 
 @pytest.mark.parametrize(
@@ -353,10 +366,7 @@ def test_q_operation_is_recorded_in_conversion_report(
         q_operation=q_operation,
     )
 
-    report = json.loads(prepared.report.read_text(encoding="utf-8"))
-    q_operations = [operation for operation in report["operations"] if operation["quantity"] == "q"]
-    assert len(q_operations) == 1
-    q_record = q_operations[0]
+    q_record = q_operation_record(prepared.report)
     assert q_record["factor"] == factor
     assert q_record["operation"] == q_operation
     assert q_record["quantity"] == "q"
@@ -366,9 +376,22 @@ def test_q_operation_is_recorded_in_conversion_report(
 
 def test_invalid_q_operation_is_rejected_before_preparation(tmp_path: Path) -> None:
     source_directory = tmp_path / "marsf"
-    equilibrium = tmp_path / "equil_r_q_psi.dat"
     write_marsf_case(source_directory)
-    write_equilibrium(equilibrium)
+    generator = tmp_path / "generator.py"
+    counter = tmp_path / "generator-called"
+    generator.write_text(
+        "#!/usr/bin/env python3\n"
+        "from pathlib import Path\n"
+        f"Path({str(counter)!r}).write_text('called\\n')\n"
+        "Path('equil_r_q_psi.dat').write_text('# radius q psi\\n0 1 0\\n10 1.5 .25\\n20 2 1\\n')\n",
+        encoding="utf-8",
+    )
+    generator.chmod(generator.stat().st_mode | stat.S_IXUSR)
+    equilibrium_input = tmp_path / "equilibrium-input.dat"
+    equilibrium_input.write_bytes(b"equilibrium input remains untouched\n")
+    source_bytes = {path.name: path.read_bytes() for path in source_directory.iterdir()}
+    generator_bytes = generator.read_bytes()
+    equilibrium_input_bytes = equilibrium_input.read_bytes()
     source = read_marsf_profiles(source_directory, metadata())
 
     with pytest.raises(ExperimentalInputError, match="q operation"):
@@ -376,10 +399,15 @@ def test_invalid_q_operation_is_rejected_before_preparation(tmp_path: Path) -> N
             source,
             config(),
             tmp_path / "prepared",
-            equilibrium_file=equilibrium,
+            equilibrium_executable=generator,
+            equilibrium_input_files=(equilibrium_input,),
             q_operation="infer",
         )
 
+    assert {path.name: path.read_bytes() for path in source_directory.iterdir()} == source_bytes
+    assert generator.read_bytes() == generator_bytes
+    assert equilibrium_input.read_bytes() == equilibrium_input_bytes
+    assert not counter.exists()
     assert not (tmp_path / "prepared").exists()
 
 
@@ -407,6 +435,6 @@ def test_negated_analytic_q_profile_has_signed_kim_resonance(tmp_path: Path) -> 
         q_operation="negate",
     )
 
-    np.testing.assert_allclose(np.loadtxt(prepared.profiles / "q.dat")[:, 1], [-2.0, -3.5, -4.5])
+    np.testing.assert_array_equal(np.loadtxt(prepared.profiles / "q.dat")[:, 1], [-2.0, -3.5, -4.5])
     validation = ProfileSet.from_simulation(prepared.config).validate_for(prepared.config)
     assert validation.resonance_radius == pytest.approx(58.496)

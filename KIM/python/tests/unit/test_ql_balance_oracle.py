@@ -142,13 +142,18 @@ def test_requires_equilibrium_arrays_to_share_equilibrium_r_length(
 
 
 @pytest.mark.parametrize("dataset_path", _DATASETS)
+@pytest.mark.parametrize(
+    "bad_value",
+    [pytest.param(np.nan, id="nan"), pytest.param(np.inf, id="positive-infinity")],
+)
 def test_rejects_non_finite_oracle_values(
     tmp_path: Path,
     dataset_path: str,
+    bad_value: float,
 ) -> None:
     path = tmp_path / "non-finite.h5"
     replacement = _valid_data()[dataset_path].copy()
-    replacement[1] = np.nan
+    replacement[1] = bad_value
     _write_oracle(path, overrides={dataset_path: replacement})
 
     with pytest.raises(ExperimentalInputError):
@@ -209,6 +214,21 @@ def test_requires_strictly_increasing_bounded_normalized_poloidal_flux(
 
     with pytest.raises(ExperimentalInputError):
         read_ql_balance_oracle(path)
+
+
+def test_accepts_strictly_increasing_bounded_psi_without_exact_endpoints(
+    tmp_path: Path,
+) -> None:
+    path = tmp_path / "interior-psi-pol-norm.h5"
+    psi_pol_norm = np.array([0.1, 0.25, 0.9], dtype=np.float64)
+    _write_oracle(
+        path,
+        overrides={"preprocprof/equil/psi_pol_norm": psi_pol_norm},
+    )
+
+    result = read_ql_balance_oracle(path)
+
+    np.testing.assert_array_equal(result.equilibrium_psi_pol_norm, psi_pol_norm)
 
 
 def test_oracle_is_detached_and_deeply_read_only_after_hdf5_close(tmp_path: Path) -> None:

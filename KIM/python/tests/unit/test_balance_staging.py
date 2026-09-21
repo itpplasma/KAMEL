@@ -209,8 +209,10 @@ def test_staging_reports_source_and_derived_hashes_and_scientific_operations(
     assert report["major_radius_cm"] == _R0_CM
     assert report["coordinate_mapping"] == {
         "source": "rho_pol",
+        "source_unit": "1",
         "target": "sqrt_psiN",
-        "operation": "preserve",
+        "target_unit": "1",
+        "operation": "rho_pol = sqrt(psi_pol_norm)",
     }
     assert report["equilibrium_provenance"] == _EQUILIBRIUM_PROVENANCE
     assert all(operation["quantity"] != "q" for operation in report["operations"])
@@ -308,6 +310,53 @@ def test_staging_refuses_existing_destination_symlink(tmp_path: Path) -> None:
         )
 
     assert destination.is_symlink()
+
+
+def test_staging_rejects_source_file_changed_after_read(tmp_path: Path) -> None:
+    paths = write_balance_profiles(tmp_path / "balance")
+    source = read_case(paths)
+    paths["density"].write_text(
+        "0.0 1.0e19\n0.5 2.0e19\n1.0 4.0e19\n",
+        encoding="utf-8",
+    )
+    destination = tmp_path / "marsf"
+
+    with pytest.raises(ExperimentalInputError, match="(?i)(hash|changed)"):
+        stage_balance_marsf_quartet(
+            source,
+            destination,
+            major_radius_cm=_R0_CM,
+            equilibrium_provenance=_EQUILIBRIUM_PROVENANCE,
+        )
+
+    assert not destination.exists()
+    assert not list(tmp_path.glob(f".{destination.name}-*"))
+
+
+def test_staging_refuses_concurrent_destination_reservation(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    source = read_case(write_balance_profiles(tmp_path / "balance"))
+    destination = tmp_path / "marsf"
+    original_reserve = balance_adoption._reserve_destination
+
+    def create_concurrent_destination(path: Path) -> None:
+        path.mkdir()
+        original_reserve(path)
+
+    monkeypatch.setattr(balance_adoption, "_reserve_destination", create_concurrent_destination)
+
+    with pytest.raises(ExperimentalInputError, match="already exists"):
+        stage_balance_marsf_quartet(
+            source,
+            destination,
+            major_radius_cm=_R0_CM,
+            equilibrium_provenance=_EQUILIBRIUM_PROVENANCE,
+        )
+
+    assert destination.is_dir()
+    assert not list(destination.iterdir())
+    assert not list(tmp_path.glob(f".{destination.name}-*"))
 
 
 def test_staging_failure_removes_partial_output_and_temporary_artifacts(tmp_path: Path) -> None:

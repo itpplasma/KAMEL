@@ -2,8 +2,11 @@
 
 The fixture is deliberately created at test time: a real QL-Balance file is an
 oracle only and must never become an input fixture or be modified by the
-reader.  Profile arrays are required to share ``r_out``'s length, while the
-three equilibrium arrays are required to share ``equilibrium_r``'s length.
+reader.  This module covers the selected QL-Balance *input-HDF oracle* schema;
+it is intentionally distinct from QL-Balance transport-output HDF5 files,
+which use different groups and fields.  Profile arrays are required to share
+``r_out``'s length, while the three equilibrium arrays are required to share
+``equilibrium_r``'s length.
 """
 
 from __future__ import annotations
@@ -99,68 +102,53 @@ def test_rejects_missing_required_oracle_dataset(
         read_ql_balance_oracle(path)
 
 
-@pytest.mark.parametrize(
-    ("dataset_path", "replacement"),
-    [
-        ("preprocprof/r_out", np.array([[10.0, 20.0, 30.0]], dtype=np.float64)),
-        ("preprocprof/n", np.array([[1.0e13], [2.0e13], [3.0e13]], dtype=np.float64)),
-        (
-            "preprocprof/equil/r",
-            np.array([[5.0, 25.0, 45.0]], dtype=np.float64),
-        ),
-        (
-            "preprocprof/equil/psi_pol_norm",
-            np.array([[0.0], [0.25], [1.0]], dtype=np.float64),
-        ),
-    ],
-)
+@pytest.mark.parametrize("dataset_path", _DATASETS)
 def test_rejects_non_one_dimensional_oracle_dataset(
     tmp_path: Path,
     dataset_path: str,
-    replacement: np.ndarray,
 ) -> None:
     path = tmp_path / "non-one-dimensional.h5"
+    replacement = np.asarray([_valid_data()[dataset_path]], dtype=np.float64)
     _write_oracle(path, overrides={dataset_path: replacement})
 
     with pytest.raises(ExperimentalInputError):
         read_ql_balance_oracle(path)
 
 
-@pytest.mark.parametrize(
-    ("dataset_path", "replacement"),
-    [
-        ("preprocprof/n", np.array([1.0e13, 2.0e13], dtype=np.float64)),
-        ("preprocprof/Te", np.array([100.0, 80.0], dtype=np.float64)),
-        ("preprocprof/Ti", np.array([90.0, 70.0], dtype=np.float64)),
-        ("preprocprof/Vz", np.array([-2.0e5, 0.0], dtype=np.float64)),
-        ("preprocprof/q", np.array([-1.25, 0.5], dtype=np.float64)),
-    ],
-)
+@pytest.mark.parametrize("dataset_path", _DATASETS[:6])
 def test_requires_each_profile_to_share_r_out_length(
     tmp_path: Path,
     dataset_path: str,
-    replacement: np.ndarray,
 ) -> None:
     path = tmp_path / "profile-shape-mismatch.h5"
+    replacement = _valid_data()[dataset_path][:-1]
     _write_oracle(path, overrides={dataset_path: replacement})
 
     with pytest.raises(ExperimentalInputError):
         read_ql_balance_oracle(path)
 
 
-@pytest.mark.parametrize(
-    ("dataset_path", "replacement"),
-    [
-        ("preprocprof/equil/psi_pol_norm", np.array([0.0, 1.0], dtype=np.float64)),
-        ("preprocprof/equil/q", np.array([1.5, -0.75], dtype=np.float64)),
-    ],
-)
+@pytest.mark.parametrize("dataset_path", _DATASETS[6:])
 def test_requires_equilibrium_arrays_to_share_equilibrium_r_length(
     tmp_path: Path,
     dataset_path: str,
-    replacement: np.ndarray,
 ) -> None:
     path = tmp_path / "equilibrium-shape-mismatch.h5"
+    replacement = _valid_data()[dataset_path][:-1]
+    _write_oracle(path, overrides={dataset_path: replacement})
+
+    with pytest.raises(ExperimentalInputError):
+        read_ql_balance_oracle(path)
+
+
+@pytest.mark.parametrize("dataset_path", _DATASETS)
+def test_rejects_non_finite_oracle_values(
+    tmp_path: Path,
+    dataset_path: str,
+) -> None:
+    path = tmp_path / "non-finite.h5"
+    replacement = _valid_data()[dataset_path].copy()
+    replacement[1] = np.nan
     _write_oracle(path, overrides={dataset_path: replacement})
 
     with pytest.raises(ExperimentalInputError):
@@ -170,36 +158,31 @@ def test_requires_equilibrium_arrays_to_share_equilibrium_r_length(
 @pytest.mark.parametrize(
     ("dataset_path", "replacement"),
     [
-        ("preprocprof/n", np.array([1.0e13, np.nan, 3.0e13], dtype=np.float64)),
-        ("preprocprof/q", np.array([-1.25, np.inf, 2.0], dtype=np.float64)),
         (
-            "preprocprof/equil/psi_pol_norm",
-            np.array([0.0, np.nan, 1.0], dtype=np.float64),
+            "preprocprof/r_out",
+            np.array([10.0, 10.0, 30.0], dtype=np.float64),
+        ),
+        (
+            "preprocprof/r_out",
+            np.array([10.0, 20.0, 15.0], dtype=np.float64),
+        ),
+        (
+            "preprocprof/equil/r",
+            np.array([5.0, 5.0, 45.0], dtype=np.float64),
+        ),
+        (
+            "preprocprof/equil/r",
+            np.array([5.0, 25.0, 15.0], dtype=np.float64),
         ),
     ],
 )
-def test_rejects_non_finite_oracle_values(
+def test_requires_strictly_increasing_radial_coordinates(
     tmp_path: Path,
     dataset_path: str,
     replacement: np.ndarray,
 ) -> None:
-    path = tmp_path / "non-finite.h5"
-    _write_oracle(path, overrides={dataset_path: replacement})
-
-    with pytest.raises(ExperimentalInputError):
-        read_ql_balance_oracle(path)
-
-
-@pytest.mark.parametrize("dataset_path", ["preprocprof/r_out", "preprocprof/equil/r"])
-def test_requires_strictly_increasing_radial_coordinates(
-    tmp_path: Path,
-    dataset_path: str,
-) -> None:
     path = tmp_path / "non-increasing-radius.h5"
-    _write_oracle(
-        path,
-        overrides={dataset_path: np.array([10.0, 10.0, 30.0], dtype=np.float64)},
-    )
+    _write_oracle(path, overrides={dataset_path: replacement})
 
     with pytest.raises(ExperimentalInputError):
         read_ql_balance_oracle(path)
@@ -209,6 +192,7 @@ def test_requires_strictly_increasing_radial_coordinates(
     "psi_pol_norm",
     [
         np.array([0.0, 0.0, 1.0], dtype=np.float64),
+        np.array([0.0, 0.75, 0.5], dtype=np.float64),
         np.array([0.0, 1.1, 1.2], dtype=np.float64),
         np.array([-0.1, 0.25, 1.0], dtype=np.float64),
     ],

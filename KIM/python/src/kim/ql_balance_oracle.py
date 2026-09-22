@@ -17,6 +17,9 @@ _FloatArray = NDArray[np.float64]
 class QLBalanceOracle:
     """Detached, validated arrays from a QL-Balance input-HDF oracle.
 
+    Each required source dataset may use either the canonical one-dimensional
+    ``(N,)`` representation or a single-row ``(1, N)`` representation.  The
+    public arrays are always detached one-dimensional ``(N,)`` arrays.
     The arrays are copied from the source file and made read-only before this
     object is constructed.  Keeping only these arrays makes the result
     independent of both the source file and its HDF5 handle.
@@ -52,7 +55,9 @@ _EQUILIBRIUM_FIELDS = ("equilibrium_psi_pol_norm", "equilibrium_q")
 def read_ql_balance_oracle(path: Path | str) -> QLBalanceOracle:
     """Read and validate the fixed QL-Balance input-HDF oracle schema.
 
-    Only the nine required one-dimensional real numeric datasets are read.
+    Only the nine required real numeric datasets are read.  Each dataset must
+    have either the canonical one-dimensional shape ``(N,)`` or a single-row
+    shape ``(1, N)``; the returned arrays always have detached shape ``(N,)``.
     The source is opened explicitly read-only and no HDF5 objects escape this
     function.  All path, HDF5, type, shape, and validation failures are
     reported as :class:`ExperimentalInputError`.
@@ -75,6 +80,8 @@ def read_ql_balance_oracle(path: Path | str) -> QLBalanceOracle:
 
 
 def _read_dataset(handle: h5py.File, dataset_path: str) -> _FloatArray:
+    """Read one required dataset from the approved ``(N,)``/``(1, N)`` forms."""
+
     try:
         node = handle[dataset_path]
     except Exception as error:
@@ -82,9 +89,9 @@ def _read_dataset(handle: h5py.File, dataset_path: str) -> _FloatArray:
 
     if not isinstance(node, h5py.Dataset):
         raise ExperimentalInputError(f"required oracle path is not a dataset: {dataset_path}")
-    if len(node.shape) != 1:
+    if len(node.shape) != 1 and not (len(node.shape) == 2 and node.shape[0] == 1):
         raise ExperimentalInputError(
-            f"required oracle dataset must be one-dimensional: {dataset_path}"
+            f"required oracle dataset must have shape (N,) or (1, N): {dataset_path}"
         )
     if not _is_real_numeric(node.dtype):
         raise ExperimentalInputError(
@@ -92,7 +99,9 @@ def _read_dataset(handle: h5py.File, dataset_path: str) -> _FloatArray:
         )
 
     try:
-        copied_values = np.asarray(node[...], dtype=np.float64).copy()
+        raw = np.asarray(node[...], dtype=np.float64)
+        values = raw[0] if raw.ndim == 2 and raw.shape[0] == 1 else raw
+        copied_values = values.copy()
     except Exception as error:
         raise ExperimentalInputError(f"unable to read oracle dataset: {dataset_path}") from error
     # A normal copied ndarray owns a mutable buffer and can therefore be made

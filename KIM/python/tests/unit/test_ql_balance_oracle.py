@@ -6,7 +6,8 @@ reader.  This module covers the selected QL-Balance *input-HDF oracle* schema;
 it is intentionally distinct from QL-Balance transport-output HDF5 files,
 which use different groups and fields.  Profile arrays are required to share
 ``r_out``'s length, while the three equilibrium arrays are required to share
-``equilibrium_r``'s length.
+``equilibrium_r``'s length.  Required datasets may use canonical ``(N,)`` or
+single-row ``(1, N)`` shapes, and the reader returns detached ``(N,)`` arrays.
 """
 
 from __future__ import annotations
@@ -137,15 +138,53 @@ def test_rejects_missing_required_oracle_dataset(
 
 
 @pytest.mark.parametrize("dataset_path", _DATASETS)
-def test_rejects_non_one_dimensional_oracle_dataset(
+def test_accepts_canonical_row_vector_oracle_dataset(
     tmp_path: Path,
     dataset_path: str,
 ) -> None:
-    path = tmp_path / "non-one-dimensional.h5"
-    replacement = np.asarray([_valid_data()[dataset_path]], dtype=np.float64)
+    path = tmp_path / "canonical-row-vector.h5"
+    replacement = _valid_data()[dataset_path][None, :]
     _write_oracle(path, overrides={dataset_path: replacement})
 
-    with pytest.raises(ExperimentalInputError):
+    result = read_ql_balance_oracle(path)
+
+    field_name = {
+        "preprocprof/r_out": "r_out",
+        "preprocprof/n": "n",
+        "preprocprof/Te": "Te",
+        "preprocprof/Ti": "Ti",
+        "preprocprof/Vz": "Vz",
+        "preprocprof/q": "q",
+        "preprocprof/equil/r": "equilibrium_r",
+        "preprocprof/equil/psi_pol_norm": "equilibrium_psi_pol_norm",
+        "preprocprof/equil/q": "equilibrium_q",
+    }[dataset_path]
+    values = getattr(result, field_name)
+    np.testing.assert_array_equal(values, _valid_data()[dataset_path])
+    assert values.shape == (3,)
+    assert not values.flags.writeable
+
+
+@pytest.mark.parametrize("dataset_path", _DATASETS)
+@pytest.mark.parametrize(
+    "shape_name",
+    ["column", "multiple-rows", "rank-three"],
+)
+def test_rejects_noncanonical_oracle_dataset_shapes(
+    tmp_path: Path,
+    dataset_path: str,
+    shape_name: str,
+) -> None:
+    path = tmp_path / f"{shape_name}.h5"
+    values = _valid_data()[dataset_path]
+    replacement = {
+        "column": values[:, None],
+        "multiple-rows": np.vstack((values, values)),
+        "rank-three": values[None, None, :],
+    }[shape_name]
+    _write_oracle(path, overrides={dataset_path: replacement})
+
+    with pytest.raises(ExperimentalInputError, match=r"shape \(N,\) or \(1, N\)"):
         read_ql_balance_oracle(path)
 
 

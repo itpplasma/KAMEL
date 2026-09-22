@@ -10,6 +10,11 @@ from kim.acceptance_comparison import (
     ResonanceComparison,
     compare_profiles,
 )
+from kim.balance_characterization import (
+    BalanceCharacterization,
+    BalanceCharacterizationRequest,
+    characterize_balance,
+)
 from kim.config import (
     BuiltinPlasma,
     CollisionModel,
@@ -112,6 +117,8 @@ __all__ = [
     "ComparisonMeasurements",
     "ComparisonResult",
     "BalanceInput",
+    "BalanceCharacterization",
+    "BalanceCharacterizationRequest",
     "BalanceMetadata",
     "CollisionModel",
     "ConversionOperation",
@@ -186,6 +193,7 @@ __all__ = [
     "__version__",
     "discover_kamel_git_metadata",
     "create_example",
+    "characterize_balance",
     "convert_inputs",
     "convert_from_kim",
     "convert_quantity",

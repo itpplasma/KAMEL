@@ -15,6 +15,7 @@ import hashlib
 import json
 import os
 import shutil
+import stat
 import sys
 import tempfile
 from dataclasses import dataclass
@@ -276,12 +277,94 @@ def _publish_staging_directory(staging: Path, destination: Path) -> None:
         ) from error
 
 
+def _publish_staging_directory_at(
+    source_dir_fd: int,
+    source_name: str,
+    destination_dir_fd: int,
+    destination_name: str,
+    *,
+    expected_source_inode: tuple[int, int] | None = None,
+) -> None:
+    """Atomically publish a private child through distinct source/destination fds.
+
+    When supplied, ``expected_source_inode`` closes the demonstrated private
+    payload-name replacement before the native rename.  A same-user rename
+    that races between this final check and the OS rename remains
+    platform-dependent; the source is nevertheless resolved inside the held
+    private container fd, so replacing its outer name cannot redirect it.
+    """
+
+    try:
+        if expected_source_inode is not None:
+            source_stat = os.stat(source_name, dir_fd=source_dir_fd, follow_symlinks=False)
+            if (
+                not stat.S_ISDIR(source_stat.st_mode)
+                or (
+                    source_stat.st_dev,
+                    source_stat.st_ino,
+                )
+                != expected_source_inode
+            ):
+                raise ExperimentalInputError(
+                    f"private staging entry changed before publication: {source_name}"
+                )
+        _rename_directory_noreplace_at(
+            source_dir_fd,
+            source_name,
+            destination_dir_fd,
+            destination_name,
+        )
+    except OSError as error:
+        if error.errno in {errno.EEXIST, errno.ENOTEMPTY}:
+            raise ExperimentalInputError(
+                f"staged quartet destination already exists: {destination_name}"
+            ) from error
+        unsupported_errors = {
+            errno.ENOSYS,
+            errno.ENOTSUP,
+            getattr(errno, "EOPNOTSUPP", errno.ENOTSUP),
+        }
+        if error.errno in unsupported_errors:
+            raise ExperimentalInputError(
+                f"atomic no-replace publication is unsupported for {destination_name}: {error}"
+            ) from error
+        raise ExperimentalInputError(
+            f"atomic no-replace publication failed for {destination_name}: {error}"
+        ) from error
+
+
 def _rename_directory_noreplace(source: Path, destination: Path) -> None:
     """Use the platform's atomic, exclusive directory rename primitive."""
 
+    _rename_noreplace(
+        _AT_FDCWD_DARWIN if sys.platform == "darwin" else _AT_FDCWD_LINUX,
+        os.fsencode(source),
+        _AT_FDCWD_DARWIN if sys.platform == "darwin" else _AT_FDCWD_LINUX,
+        os.fsencode(destination),
+    )
+
+
+def _rename_directory_noreplace_at(
+    source_dir_fd: int,
+    source: str,
+    destination_dir_fd: int,
+    destination: str,
+) -> None:
+    _rename_noreplace(
+        source_dir_fd,
+        os.fsencode(source),
+        destination_dir_fd,
+        os.fsencode(destination),
+    )
+
+
+def _rename_noreplace(
+    source_dir_fd: int,
+    source_bytes: bytes,
+    destination_dir_fd: int,
+    destination_bytes: bytes,
+) -> None:
     libc = ctypes.CDLL(None, use_errno=True)
-    source_bytes = os.fsencode(source)
-    destination_bytes = os.fsencode(destination)
     if sys.platform == "darwin":
         renameatx_np = getattr(libc, "renameatx_np", None)
         if renameatx_np is not None:
@@ -294,15 +377,17 @@ def _rename_directory_noreplace(source: Path, destination: Path) -> None:
             ]
             renameatx_np.restype = ctypes.c_int
             result = renameatx_np(
-                _AT_FDCWD_DARWIN,
+                source_dir_fd,
                 source_bytes,
-                _AT_FDCWD_DARWIN,
+                destination_dir_fd,
                 destination_bytes,
                 _RENAME_EXCL,
             )
         else:
             renamex_np = getattr(libc, "renamex_np", None)
-            if renamex_np is None:
+            if renamex_np is None or (
+                source_dir_fd != _AT_FDCWD_DARWIN or destination_dir_fd != _AT_FDCWD_DARWIN
+            ):
                 raise OSError(errno.ENOTSUP, "Darwin exclusive rename is unavailable")
             renamex_np.argtypes = [ctypes.c_char_p, ctypes.c_char_p, ctypes.c_uint]
             renamex_np.restype = ctypes.c_int
@@ -320,9 +405,9 @@ def _rename_directory_noreplace(source: Path, destination: Path) -> None:
         ]
         renameat2.restype = ctypes.c_int
         result = renameat2(
-            _AT_FDCWD_LINUX,
+            source_dir_fd,
             source_bytes,
-            _AT_FDCWD_LINUX,
+            destination_dir_fd,
             destination_bytes,
             _RENAME_NOREPLACE,
         )

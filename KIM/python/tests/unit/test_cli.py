@@ -9,10 +9,25 @@ from pathlib import Path
 import pytest
 from kim import BuiltinPlasma, MarsFMetadata, PlasmaIsotope, SimulationConfig
 from kim.cli import app
+from kim.errors import ConfigurationError
 from typer.testing import CliRunner
 
 FIXTURES = Path(__file__).parents[1] / "fixtures"
 runner = CliRunner()
+
+
+@pytest.mark.parametrize(
+    "payload",
+    [
+        '{"core": [1, 2], "core": [3, 4]}',
+        '{"n": 1, "nested": {"floor": 1, "floor": 2}}',
+    ],
+)
+def test_characterization_json_loader_rejects_recursive_duplicate_keys(payload: str) -> None:
+    from kim.cli import _json_mapping
+
+    with pytest.raises(ConfigurationError, match="valid JSON"):
+        _json_mapping(payload, "domains")
 
 
 def configuration_file(tmp_path: Path) -> Path:
@@ -91,6 +106,7 @@ def marsf_case(tmp_path: Path) -> tuple[Path, Path, Path]:
         "doctor",
         "init",
         "prepare-marsf",
+        "characterize-balance",
     ],
 )
 def test_every_command_has_help(command: str) -> None:

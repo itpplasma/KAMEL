@@ -164,14 +164,21 @@ def compare_profiles(
         assert prepared_on_grid is not None
         oracle_values_on_grid = interpolated_values
         prepared_values_on_grid = prepared_on_grid[target_mask]
-    error = prepared_values_on_grid - oracle_values_on_grid
-    relative_error = error / np.maximum(np.abs(oracle_values_on_grid), floor)
+    # Keep the arithmetic inside the floating-point domain long enough to
+    # report a useful domain error rather than leaking inf/nan metrics.  The
+    # scaled RMS below avoids squaring the original values.
+    with np.errstate(over="ignore", invalid="ignore", divide="ignore", under="ignore"):
+        error = prepared_values_on_grid - oracle_values_on_grid
+        relative_error = error / np.maximum(np.abs(oracle_values_on_grid), floor)
+    _validate_computed_array(error, "comparison error")
+    _validate_computed_array(relative_error, "relative comparison error")
     measurements = ComparisonMeasurements(
-        absolute_rms=float(np.sqrt(np.mean(error**2))),
+        absolute_rms=_stable_rms(error, "absolute RMS"),
         absolute_max=float(np.max(np.abs(error))),
-        relative_rms=float(np.sqrt(np.mean(relative_error**2))),
+        relative_rms=_stable_rms(relative_error, "relative RMS"),
         relative_max=float(np.max(np.abs(relative_error))),
     )
+    _validate_measurements(measurements)
 
     oracle_exclusions = _profile_exclusions(
         oracle_radius,
@@ -272,6 +279,8 @@ def _validate_domain(domain: tuple[float, float]) -> tuple[float, float]:
 
 
 def _validate_direction(direction: str) -> str:
+    if not isinstance(direction, str):
+        raise ComparisonError("interpolation direction must be a scalar string")
     if direction not in _DIRECTIONS:
         raise ComparisonError(
             "interpolation direction must be explicitly 'prepared_to_oracle' or "
@@ -281,6 +290,8 @@ def _validate_direction(direction: str) -> str:
 
 
 def _validate_method(method: str) -> None:
+    if not isinstance(method, str):
+        raise ComparisonError("interpolation method must be a scalar string")
     if method != "linear":
         raise ComparisonError("only explicit linear interpolation method is supported")
 
@@ -302,9 +313,15 @@ def _validate_tolerances(
         return None
     if not isinstance(tolerances, Mapping) or not tolerances:
         raise ComparisonError("tolerance mapping must be non-empty")
-    unknown = set(tolerances) - set(_METRIC_NAMES)
+    try:
+        keys = tuple(tolerances.keys())
+    except Exception as error:
+        raise ComparisonError("tolerance mapping keys must be strings") from error
+    if any(not isinstance(key, str) for key in keys):
+        raise ComparisonError("tolerance mapping keys must be strings")
+    unknown = tuple(key for key in keys if key not in _METRIC_NAMES)
     if unknown:
-        raise ComparisonError(f"tolerance mapping contains unknown metric: {sorted(unknown)!r}")
+        raise ComparisonError(f"tolerance mapping contains unknown metric: {unknown!r}")
     validated: dict[str, float] = {}
     for metric in _METRIC_NAMES:
         if metric not in tolerances:
@@ -371,6 +388,41 @@ def _real_scalar(value: object, name: str) -> float:
         return float(candidate)
     except (TypeError, ValueError, OverflowError) as error:
         raise ComparisonError(f"{name} must be a real scalar") from error
+
+
+def _validate_computed_array(values: NDArray[np.float64], name: str) -> None:
+    if not np.all(np.isfinite(values)):
+        raise ComparisonError(f"{name} is not finite and cannot be represented")
+
+
+def _stable_rms(values: NDArray[np.float64], name: str) -> float:
+    """Compute RMS without squaring values at their original scale."""
+
+    scale = float(np.max(np.abs(values)))
+    if not np.isfinite(scale):
+        raise ComparisonError(f"{name} is not finite and cannot be represented")
+    if scale == 0.0:
+        return 0.0
+    with np.errstate(over="ignore", invalid="ignore", divide="ignore", under="ignore"):
+        scaled = np.abs(values) / scale
+        scaled_mean_square = float(np.mean(scaled * scaled))
+        result = scale * float(np.sqrt(scaled_mean_square))
+    if not np.isfinite(result):
+        raise ComparisonError(f"{name} is not finite and cannot be represented")
+    return result
+
+
+def _validate_measurements(measurements: ComparisonMeasurements) -> None:
+    values = np.asarray(
+        (
+            measurements.absolute_rms,
+            measurements.absolute_max,
+            measurements.relative_rms,
+            measurements.relative_max,
+        ),
+        dtype=np.float64,
+    )
+    _validate_computed_array(values, "comparison measurements")
 
 
 def _profile_exclusions(
@@ -471,17 +523,45 @@ def _shared_intervals(
 def _piecewise_linear_roots(
     radius: NDArray[np.float64], values: NDArray[np.float64], target: float
 ) -> tuple[float, ...]:
-    delta = values - target
+    """Return all isolated piecewise-linear roots of ``values == target``.
+
+    A segment whose two adjacent nodes equal the target is rejected: its
+    continuum of crossings cannot be represented by a finite root tuple.
+    """
+
     roots: list[float] = []
-    for index, value in enumerate(delta):
-        if value == 0.0:
+    for index, value in enumerate(values):
+        if index + 1 < values.size and value == target and values[index + 1] == target:
+            raise ComparisonError(
+                "resonance target is flat across adjacent profile nodes; " "crossing is ambiguous"
+            )
+        if value == target:
             roots.append(float(radius[index]))
-        if index + 1 >= delta.size:
+        if index + 1 >= values.size:
             continue
-        next_value = delta[index + 1]
-        if value * next_value < 0.0:
-            fraction = -value / (next_value - value)
-            roots.append(float(radius[index] + fraction * (radius[index + 1] - radius[index])))
+        next_value = values[index + 1]
+        crosses_target = (value < target < next_value) or (next_value < target < value)
+        if not crosses_target:
+            continue
+
+        # Normalize before subtraction so ±tiny and ±max q values retain the
+        # correct crossing fraction without underflow or overflow.
+        scale = max(abs(float(value)), abs(float(next_value)), abs(target))
+        if scale == 0.0 or not np.isfinite(scale):
+            raise ComparisonError("resonance crossing cannot be represented")
+        value_scaled = float(value) / scale
+        next_value_scaled = float(next_value) / scale
+        target_scaled = target / scale
+        denominator = next_value_scaled - value_scaled
+        fraction = (target_scaled - value_scaled) / denominator
+        if not np.isfinite(fraction) or not 0.0 <= fraction <= 1.0:
+            raise ComparisonError("resonance crossing cannot be represented")
+        radius_lower = float(radius[index])
+        radius_upper = float(radius[index + 1])
+        root = radius_lower * (1.0 - fraction) + radius_upper * fraction
+        if not np.isfinite(root):
+            raise ComparisonError("resonance crossing cannot be represented")
+        roots.append(float(root))
     roots.sort()
     unique: list[float] = []
     for root in roots:

@@ -138,6 +138,50 @@ def test_relative_denominator_uses_absolute_oracle_reference_with_a_floor() -> N
 
 
 @pytest.mark.parametrize(
+    ("magnitude", "tolerance"),
+    [(1.0e308, 1.0e307), (1.0e-200, 1.0e-201)],
+)
+def test_rms_is_stable_for_extreme_error_magnitudes_and_decisions(
+    magnitude: float, tolerance: float
+) -> None:
+    result = _compare(
+        np.array([0.0, 1.0]),
+        np.array([0.0, 0.0]),
+        np.array([0.0, 1.0]),
+        np.array([magnitude, magnitude]),
+        domain_cm=(0.0, 1.0),
+        tolerances={"absolute_rms": tolerance},
+    )
+
+    assert np.isfinite(result.measurements.absolute_rms)
+    assert result.measurements.absolute_rms == pytest.approx(magnitude, rel=1e-13)
+    assert result.measurements.absolute_max == pytest.approx(magnitude, rel=1e-13)
+    assert result.threshold_decisions == {"absolute_rms": False}
+    assert result.overall_pass is False
+
+
+@pytest.mark.parametrize(
+    ("oracle_value", "prepared_value", "relative_floor"),
+    [
+        (1.0e308, -1.0e308, 1.0),
+        (0.0, 1.0e308, 1.0e-308),
+    ],
+)
+def test_unrepresentable_computed_error_or_relative_error_is_rejected(
+    oracle_value: float, prepared_value: float, relative_floor: float
+) -> None:
+    with pytest.raises(ComparisonError, match="finite|represent"):
+        _compare(
+            np.array([0.0, 1.0]),
+            np.array([oracle_value, oracle_value]),
+            np.array([0.0, 1.0]),
+            np.array([prepared_value, prepared_value]),
+            domain_cm=(0.0, 1.0),
+            relative_floor=relative_floor,
+        )
+
+
+@pytest.mark.parametrize(
     ("direction", "expected_radius", "expected_absolute_rms", "expected_relative_rms"),
     [
         (
@@ -252,6 +296,46 @@ def test_resonance_includes_profile_and_domain_boundary_crossings_and_all_multip
     # support means covered; crossings outside remain reported above.
     assert result.resonance.reference_crossing_covered is True
     assert result.resonance.candidate_crossing_covered is True
+
+
+@pytest.mark.parametrize(
+    ("q_values", "expected_root"),
+    [
+        (np.array([-1.0e-200, 1.0e-200]), 0.5),
+        (np.array([-1.0e308, 1.0e308]), 0.5),
+    ],
+)
+def test_resonance_crossings_are_stable_for_tiny_and_extreme_q_values(
+    q_values: np.ndarray, expected_root: float
+) -> None:
+    radius = np.array([0.0, 1.0])
+
+    result = _compare(
+        radius,
+        q_values,
+        radius.copy(),
+        q_values.copy(),
+        domain_cm=(0.0, 1.0),
+        resonance=0.0,
+    )
+
+    assert result.resonance.reference_crossing_radii_cm == pytest.approx((expected_root,))
+    assert result.resonance.candidate_crossing_radii_cm == pytest.approx((expected_root,))
+
+
+def test_rejects_ambiguous_flat_resonance_target_segment() -> None:
+    radius = np.array([0.0, 1.0, 2.0])
+    q_values = np.array([-1.5, -1.5, -1.0])
+
+    with pytest.raises(ComparisonError, match="flat|ambiguous"):
+        _compare(
+            radius,
+            q_values,
+            radius.copy(),
+            q_values.copy(),
+            domain_cm=(0.0, 2.0),
+            resonance=-1.5,
+        )
 
 
 @pytest.mark.parametrize(
@@ -786,6 +870,34 @@ def test_rejects_implicit_method_even_when_direction_is_explicit() -> None:
             domain_cm=(0.0, 2.0),
             interpolation_direction="prepared_to_oracle",
             relative_floor=1.0,
+        )
+
+
+@pytest.mark.parametrize("option", ["interpolation_direction", "method"])
+@pytest.mark.parametrize("invalid_value", [np.array(["linear"]), ["linear"], None, 1])
+def test_rejects_non_scalar_string_direction_and_method_options(
+    option: str, invalid_value: object
+) -> None:
+    with pytest.raises(ComparisonError, match="direction|method|interpol"):
+        _raw_call(**{option: invalid_value})
+
+
+@pytest.mark.parametrize(
+    "bad_tolerances",
+    [{1: 1.0}, {1: 1.0, "absolute_max": 1.0}, {"unknown": 1.0, 2: 1.0}],
+)
+def test_rejects_non_string_or_mixed_tolerance_keys_without_sorting_errors(
+    bad_tolerances: dict[object, float],
+) -> None:
+    with pytest.raises(ComparisonError, match="tolerance"):
+        _compare(
+            np.array([1.0, 3.0, 7.0]),
+            np.array([2.0, 4.0, 10.0]),
+            np.array([1.0, 3.0, 7.0]),
+            np.array([3.0, 8.0, 7.0]),
+            domain_cm=(1.0, 7.0),
+            relative_floor=5.0,
+            tolerances=bad_tolerances,
         )
 
 

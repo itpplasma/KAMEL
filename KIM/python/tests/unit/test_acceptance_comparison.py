@@ -310,6 +310,68 @@ def test_reports_requested_domain_exclusions_separately_from_overlap_exclusions(
     assert result.exclusions.prepared.outside_shared_overlap_intervals_cm == ()
 
 
+def test_mixed_domain_and_shared_overlap_exclusions_are_disjoint() -> None:
+    oracle_radius = np.array([0.0, 2.0, 5.0, 8.0, 9.0])
+    prepared_radius = np.array([1.0, 3.0, 6.0, 7.0])
+
+    result = _compare(
+        oracle_radius,
+        1.0 + 2.0 * oracle_radius,
+        prepared_radius,
+        1.0 + 2.0 * prepared_radius,
+        domain_cm=(0.0, 8.0),
+    )
+
+    # Oracle r=9 is outside the requested domain.  Oracle r=0 and r=8 are
+    # inside it but outside the mutual continuous support [1, 7].
+    assert result.exclusions.oracle.outside_domain_points_cm == pytest.approx((9.0,))
+    assert result.exclusions.prepared.outside_domain_points_cm == ()
+    assert result.exclusions.oracle.outside_domain_intervals_cm == pytest.approx(((8.0, 9.0),))
+    assert result.exclusions.prepared.outside_domain_intervals_cm == ()
+    assert result.exclusions.oracle.outside_shared_overlap_points_cm == pytest.approx((0.0, 8.0))
+    assert result.exclusions.prepared.outside_shared_overlap_points_cm == ()
+    assert result.exclusions.oracle.outside_shared_overlap_intervals_cm == pytest.approx(
+        ((0.0, 1.0), (7.0, 8.0))
+    )
+    assert result.exclusions.prepared.outside_shared_overlap_intervals_cm == ()
+
+    # Categories are disjoint rather than repeating edge points/intervals.
+    assert set(result.exclusions.oracle.outside_domain_points_cm).isdisjoint(
+        result.exclusions.oracle.outside_shared_overlap_points_cm
+    )
+    assert set(result.exclusions.prepared.outside_domain_points_cm).isdisjoint(
+        result.exclusions.prepared.outside_shared_overlap_points_cm
+    )
+    assert set(result.exclusions.oracle.outside_domain_intervals_cm).isdisjoint(
+        result.exclusions.oracle.outside_shared_overlap_intervals_cm
+    )
+    assert set(result.exclusions.prepared.outside_domain_intervals_cm).isdisjoint(
+        result.exclusions.prepared.outside_shared_overlap_intervals_cm
+    )
+
+
+def test_oracle_and_candidate_q_crossings_are_computed_independently() -> None:
+    radius = np.array([0.0, 2.0, 4.0, 6.0])
+    # Reference q=r-4 crosses -1.5 at r=2.5, exactly the lower domain edge.
+    oracle_q = radius - 4.0
+    # Candidate q=0.5*r-4 crosses -1.5 at r=5, outside the requested domain.
+    prepared_q = 0.5 * radius - 4.0
+
+    result = _compare(
+        radius,
+        oracle_q,
+        radius.copy(),
+        prepared_q,
+        domain_cm=(2.5, 4.0),
+        resonance=-1.5,
+    )
+
+    assert result.resonance.reference_crossing_radii_cm == pytest.approx((2.5,))
+    assert result.resonance.candidate_crossing_radii_cm == pytest.approx((5.0,))
+    assert result.resonance.reference_crossing_covered is True
+    assert result.resonance.candidate_crossing_covered is False
+
+
 def test_supplied_tolerances_produce_per_metric_decisions_and_an_overall_result() -> None:
     tolerances = {
         "absolute_rms": 3.0,
@@ -482,12 +544,58 @@ def test_rejects_zero_mode_numbers_and_nonfinite_signed_resonance_targets(
             "increasing|duplicate",
         ),
         (
+            {
+                "oracle_radius_cm": np.array([2.0, 1.0, 0.0]),
+                "oracle_values": np.array([1.0, 2.0, 3.0]),
+            },
+            "increasing|duplicate",
+        ),
+        (
+            {
+                "prepared_radius_cm": np.array([2.0, 1.0, 0.0]),
+                "prepared_values": np.array([1.0, 2.0, 3.0]),
+            },
+            "increasing|duplicate",
+        ),
+        (
+            {"oracle_radius_cm": np.array([0.0, np.nan, 5.0, 9.0])},
+            "finite",
+        ),
+        (
+            {"prepared_radius_cm": np.array([1.0, np.nan, 6.0, 7.0])},
+            "finite",
+        ),
+        (
+            {"oracle_values": np.array([1.0, np.inf, 11.0, 19.0])},
+            "finite",
+        ),
+        (
+            {"prepared_values": np.array([3.0, np.inf, 13.0, 15.0])},
+            "finite",
+        ),
+        (
             {"oracle_radius_cm": np.array([0.0]), "oracle_values": np.array([1.0])},
             "at least|length|sample",
         ),
         (
             {"prepared_radius_cm": np.array([0.0]), "prepared_values": np.array([1.0])},
             "at least|length|sample",
+        ),
+        (
+            {"oracle_values": np.array([1.0, 2.0])},
+            "length",
+        ),
+        (
+            {"prepared_values": np.array([1.0, 2.0])},
+            "length",
+        ),
+        (
+            {"oracle_values": np.array([[1.0, 2.0, 3.0]])},
+            "one-dimensional|shape",
+        ),
+        (
+            {"prepared_values": np.array([[1.0, 2.0, 3.0]])},
+            "one-dimensional|shape",
         ),
     ],
 )

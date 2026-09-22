@@ -1,0 +1,540 @@
+"""Pure, in-memory comparison of an oracle and a prepared radial profile.
+
+The oracle is always the reference profile.  This module intentionally has no
+file, HDF5, plotting, or solver dependencies: it reports measurements and
+coverage facts for callers that already have validated arrays.
+"""
+
+from __future__ import annotations
+
+from dataclasses import dataclass
+from types import MappingProxyType
+from typing import Mapping
+
+import numpy as np
+from kim.errors import KimError
+from numpy.typing import ArrayLike, NDArray
+
+
+class ComparisonError(KimError):
+    """Raised when a profile comparison request is invalid."""
+
+
+@dataclass(frozen=True)
+class ComparisonMeasurements:
+    """Absolute and oracle-relative error measurements on the comparison grid."""
+
+    absolute_rms: float
+    absolute_max: float
+    relative_rms: float
+    relative_max: float
+
+
+@dataclass(frozen=True)
+class ExclusionInterval:
+    """One typed interval excluded from a profile comparison.
+
+    Endpoint flags are explicit because domain and shared-overlap exclusions
+    meet at boundaries without sharing the boundary point.
+    """
+
+    lower_cm: float
+    upper_cm: float
+    lower_inclusive: bool
+    upper_inclusive: bool
+
+
+@dataclass(frozen=True)
+class ProfileExclusions:
+    """Points and continuous intervals excluded for one source profile."""
+
+    outside_domain_points_cm: tuple[float, ...]
+    outside_domain_intervals_cm: tuple[ExclusionInterval, ...]
+    outside_shared_overlap_points_cm: tuple[float, ...]
+    outside_shared_overlap_intervals_cm: tuple[ExclusionInterval, ...]
+
+
+@dataclass(frozen=True)
+class ComparisonExclusions:
+    """Exclusions separated by source profile."""
+
+    oracle: ProfileExclusions
+    prepared: ProfileExclusions
+
+
+@dataclass(frozen=True)
+class ResonanceComparison:
+    """Independent piecewise-linear resonance information for both profiles."""
+
+    target_q: float
+    reference_crossing_radii_cm: tuple[float, ...]
+    candidate_crossing_radii_cm: tuple[float, ...]
+    reference_crossing_covered: bool
+    candidate_crossing_covered: bool
+
+
+@dataclass(frozen=True)
+class ComparisonResult:
+    """Complete comparison report, with no implicit acceptance policy."""
+
+    comparison_radius_cm: NDArray[np.float64]
+    measurements: ComparisonMeasurements
+    exclusions: ComparisonExclusions
+    warnings: tuple[str, ...]
+    threshold_decisions: Mapping[str, bool] | None
+    overall_pass: bool | None
+    resonance: ResonanceComparison | None = None
+
+
+_METRIC_NAMES = ("absolute_rms", "absolute_max", "relative_rms", "relative_max")
+_DIRECTIONS = ("prepared_to_oracle", "oracle_to_prepared")
+
+
+def compare_profiles(
+    *,
+    oracle_radius_cm: ArrayLike,
+    oracle_values: ArrayLike,
+    prepared_radius_cm: ArrayLike,
+    prepared_values: ArrayLike,
+    domain_cm: tuple[float, float],
+    interpolation_direction: str,
+    method: str,
+    relative_floor: float,
+    tolerances: Mapping[str, float] | None = None,
+    resonance: tuple[int, int] | float | None = None,
+) -> ComparisonResult:
+    """Compare two finite, strictly increasing piecewise-linear profiles.
+
+    ``interpolation_direction`` names the source-to-target interpolation
+    direction (``prepared_to_oracle`` evaluates on oracle nodes and
+    ``oracle_to_prepared`` evaluates on prepared nodes).  Only existing target
+    nodes within the requested domain and mutual source support are evaluated;
+    endpoints are never synthesized and no extrapolation is performed.
+    """
+
+    oracle_radius, oracle_profile = _validate_profile(oracle_radius_cm, oracle_values, "oracle")
+    prepared_radius, prepared_profile = _validate_profile(
+        prepared_radius_cm, prepared_values, "prepared"
+    )
+    domain_lower, domain_upper = _validate_domain(domain_cm)
+    direction = _validate_direction(interpolation_direction)
+    _validate_method(method)
+    floor = _validate_floor(relative_floor)
+    validated_tolerances = _validate_tolerances(tolerances)
+    target_q = _validate_resonance(resonance)
+
+    shared_lower = max(float(oracle_radius[0]), float(prepared_radius[0]))
+    shared_upper = min(float(oracle_radius[-1]), float(prepared_radius[-1]))
+    if shared_lower > shared_upper:
+        raise ComparisonError("requested domain has no continuous profile overlap")
+    if domain_upper < shared_lower or domain_lower > shared_upper:
+        raise ComparisonError("requested domain has no continuous profile overlap")
+
+    if direction == "prepared_to_oracle":
+        target_radius = oracle_radius
+        oracle_on_grid = oracle_profile
+        prepared_on_grid = None
+        reference_radius = prepared_radius
+        reference_values = prepared_profile
+    else:
+        target_radius = prepared_radius
+        prepared_on_grid = prepared_profile
+        oracle_on_grid = None
+        reference_radius = oracle_radius
+        reference_values = oracle_profile
+
+    target_mask = (
+        (target_radius >= domain_lower)
+        & (target_radius <= domain_upper)
+        & (target_radius >= shared_lower)
+        & (target_radius <= shared_upper)
+    )
+    comparison_radius = target_radius[target_mask]
+    if comparison_radius.size == 0:
+        raise ComparisonError("continuous overlap contains no comparison point")
+
+    # Source support has already been applied to the target mask.  np.interp
+    # therefore evaluates only inside its source grid and never extrapolates.
+    interpolated_values = np.interp(comparison_radius, reference_radius, reference_values)
+    if direction == "prepared_to_oracle":
+        assert oracle_on_grid is not None
+        oracle_values_on_grid = oracle_on_grid[target_mask]
+        prepared_values_on_grid = interpolated_values
+    else:
+        assert prepared_on_grid is not None
+        oracle_values_on_grid = interpolated_values
+        prepared_values_on_grid = prepared_on_grid[target_mask]
+    error = prepared_values_on_grid - oracle_values_on_grid
+    relative_error = error / np.maximum(np.abs(oracle_values_on_grid), floor)
+    measurements = ComparisonMeasurements(
+        absolute_rms=float(np.sqrt(np.mean(error**2))),
+        absolute_max=float(np.max(np.abs(error))),
+        relative_rms=float(np.sqrt(np.mean(relative_error**2))),
+        relative_max=float(np.max(np.abs(relative_error))),
+    )
+
+    oracle_exclusions = _profile_exclusions(
+        oracle_radius,
+        domain_lower,
+        domain_upper,
+        shared_lower,
+        shared_upper,
+    )
+    prepared_exclusions = _profile_exclusions(
+        prepared_radius,
+        domain_lower,
+        domain_upper,
+        shared_lower,
+        shared_upper,
+    )
+    exclusions = ComparisonExclusions(oracle_exclusions, prepared_exclusions)
+
+    resonance_report = None
+    if target_q is not None:
+        reference_crossings = _piecewise_linear_roots(oracle_radius, oracle_profile, target_q)
+        candidate_crossings = _piecewise_linear_roots(prepared_radius, prepared_profile, target_q)
+        resonance_report = ResonanceComparison(
+            target_q=target_q,
+            reference_crossing_radii_cm=reference_crossings,
+            candidate_crossing_radii_cm=candidate_crossings,
+            reference_crossing_covered=_covered(reference_crossings, domain_lower, domain_upper),
+            candidate_crossing_covered=_covered(candidate_crossings, domain_lower, domain_upper),
+        )
+
+    warnings = _warnings(exclusions, resonance_report)
+    decisions = None
+    overall_pass = None
+    if validated_tolerances is not None:
+        decisions_dict = {
+            metric: getattr(measurements, metric) <= limit
+            for metric, limit in validated_tolerances.items()
+        }
+        decisions = MappingProxyType(decisions_dict)
+        overall_pass = all(decisions_dict.values())
+
+    return ComparisonResult(
+        comparison_radius_cm=_immutable_array(comparison_radius),
+        measurements=measurements,
+        exclusions=exclusions,
+        warnings=warnings,
+        threshold_decisions=decisions,
+        overall_pass=overall_pass,
+        resonance=resonance_report,
+    )
+
+
+def _validate_profile(
+    radius: ArrayLike, values: ArrayLike, name: str
+) -> tuple[NDArray[np.float64], NDArray[np.float64]]:
+    radius_array = _as_float_array(radius, f"{name} radius")
+    values_array = _as_float_array(values, f"{name} values")
+    if radius_array.ndim != 1 or values_array.ndim != 1:
+        raise ComparisonError(f"{name} radius and values must be one-dimensional")
+    if radius_array.size < 2 or values_array.size < 2:
+        raise ComparisonError(f"{name} profile must contain at least two samples")
+    if radius_array.size != values_array.size:
+        raise ComparisonError(f"{name} radius and values must have the same length")
+    if not np.all(np.isfinite(radius_array)) or not np.all(np.isfinite(values_array)):
+        raise ComparisonError(f"{name} radius and values must contain only finite values")
+    if not np.all(np.diff(radius_array) > 0.0):
+        raise ComparisonError(f"{name} radius must be strictly increasing without duplicates")
+    return radius_array, values_array
+
+
+def _as_float_array(value: ArrayLike, name: str) -> NDArray[np.float64]:
+    try:
+        candidate = np.asarray(value)
+    except Exception as error:
+        raise ComparisonError(f"{name} must be a numeric array") from error
+    if candidate.ndim != 1:
+        raise ComparisonError(f"{name} must be one-dimensional")
+    if not np.issubdtype(candidate.dtype, np.number) or np.issubdtype(
+        candidate.dtype, np.complexfloating
+    ):
+        raise ComparisonError(f"{name} must be a real numeric array")
+    try:
+        return np.asarray(candidate, dtype=np.float64).copy()
+    except (TypeError, ValueError, OverflowError) as error:
+        raise ComparisonError(f"{name} must be a real numeric array") from error
+
+
+def _validate_domain(domain: tuple[float, float]) -> tuple[float, float]:
+    try:
+        if len(domain) != 2:
+            raise ValueError
+    except (TypeError, ValueError, IndexError, OverflowError) as error:
+        raise ComparisonError("domain must contain two finite endpoints") from error
+    lower = _real_scalar(domain[0], "domain endpoint")
+    upper = _real_scalar(domain[1], "domain endpoint")
+    if not np.isfinite(lower) or not np.isfinite(upper) or lower >= upper:
+        raise ComparisonError("domain must be finite and non-empty with lower < upper")
+    return lower, upper
+
+
+def _validate_direction(direction: str) -> str:
+    if direction not in _DIRECTIONS:
+        raise ComparisonError(
+            "interpolation direction must be explicitly 'prepared_to_oracle' or "
+            "'oracle_to_prepared'"
+        )
+    return direction
+
+
+def _validate_method(method: str) -> None:
+    if method != "linear":
+        raise ComparisonError("only explicit linear interpolation method is supported")
+
+
+def _validate_floor(value: float) -> float:
+    try:
+        floor = _real_scalar(value, "relative floor")
+    except ComparisonError as error:
+        raise ComparisonError("relative floor must be finite and positive") from error
+    if not np.isfinite(floor) or floor <= 0.0:
+        raise ComparisonError("relative floor must be finite and positive")
+    return floor
+
+
+def _validate_tolerances(
+    tolerances: Mapping[str, float] | None,
+) -> dict[str, float] | None:
+    if tolerances is None:
+        return None
+    if not isinstance(tolerances, Mapping) or not tolerances:
+        raise ComparisonError("tolerance mapping must be non-empty")
+    unknown = set(tolerances) - set(_METRIC_NAMES)
+    if unknown:
+        raise ComparisonError(f"tolerance mapping contains unknown metric: {sorted(unknown)!r}")
+    validated: dict[str, float] = {}
+    for metric in _METRIC_NAMES:
+        if metric not in tolerances:
+            continue
+        value = tolerances[metric]
+        try:
+            limit = _real_scalar(value, f"tolerance for {metric}")
+        except ComparisonError as error:
+            raise ComparisonError(
+                f"tolerance for {metric} must be finite and non-negative"
+            ) from error
+        if not np.isfinite(limit) or limit < 0.0:
+            raise ComparisonError(f"tolerance for {metric} must be finite and non-negative")
+        validated[metric] = limit
+    return validated
+
+
+def _validate_resonance(resonance: tuple[int, int] | float | None) -> float | None:
+    if resonance is None:
+        return None
+    if isinstance(resonance, tuple):
+        if len(resonance) != 2:
+            raise ComparisonError("resonance mode must contain m and n")
+        m_mode, n_mode = resonance
+        if (
+            isinstance(m_mode, (bool, np.bool_))
+            or isinstance(n_mode, (bool, np.bool_))
+            or not isinstance(m_mode, (int, np.integer))
+            or not isinstance(n_mode, (int, np.integer))
+            or m_mode == 0
+            or n_mode == 0
+        ):
+            raise ComparisonError("resonance mode numbers must be nonzero integers")
+        try:
+            target = -float(m_mode) / float(n_mode)
+        except (OverflowError, ZeroDivisionError) as error:
+            raise ComparisonError("resonance target must be a finite signed number") from error
+        if not np.isfinite(target):
+            raise ComparisonError("resonance target must be a finite signed number")
+        return target
+    try:
+        target = _real_scalar(resonance, "resonance target")
+    except ComparisonError as error:
+        raise ComparisonError("resonance target must be a finite signed number") from error
+    if not np.isfinite(target):
+        raise ComparisonError("resonance target must be a finite signed number")
+    return target
+
+
+def _real_scalar(value: object, name: str) -> float:
+    """Convert one finite-checkable real scalar without accepting text or arrays."""
+
+    if isinstance(value, (bool, np.bool_, str, bytes)):
+        raise ComparisonError(f"{name} must be a real scalar")
+    try:
+        candidate = np.asarray(value)
+    except Exception as error:
+        raise ComparisonError(f"{name} must be a real scalar") from error
+    if candidate.ndim != 0 or not np.issubdtype(candidate.dtype, np.number):
+        raise ComparisonError(f"{name} must be a real scalar")
+    if np.issubdtype(candidate.dtype, np.complexfloating):
+        raise ComparisonError(f"{name} must be a real scalar")
+    try:
+        return float(candidate)
+    except (TypeError, ValueError, OverflowError) as error:
+        raise ComparisonError(f"{name} must be a real scalar") from error
+
+
+def _profile_exclusions(
+    radius: NDArray[np.float64],
+    domain_lower: float,
+    domain_upper: float,
+    shared_lower: float,
+    shared_upper: float,
+) -> ProfileExclusions:
+    outside_domain_points = tuple(
+        float(point) for point in radius if point < domain_lower or point > domain_upper
+    )
+    outside_domain_intervals = _domain_intervals(
+        float(radius[0]), float(radius[-1]), domain_lower, domain_upper
+    )
+    outside_shared_points = tuple(
+        float(point)
+        for point in radius
+        if domain_lower <= point <= domain_upper and (point < shared_lower or point > shared_upper)
+    )
+    outside_shared_intervals = _shared_intervals(
+        float(radius[0]),
+        float(radius[-1]),
+        domain_lower,
+        domain_upper,
+        shared_lower,
+        shared_upper,
+    )
+    return ProfileExclusions(
+        outside_domain_points_cm=outside_domain_points,
+        outside_domain_intervals_cm=outside_domain_intervals,
+        outside_shared_overlap_points_cm=outside_shared_points,
+        outside_shared_overlap_intervals_cm=outside_shared_intervals,
+    )
+
+
+def _domain_intervals(
+    radius_lower: float, radius_upper: float, domain_lower: float, domain_upper: float
+) -> tuple[ExclusionInterval, ...]:
+    intervals: list[ExclusionInterval] = []
+    left_upper = min(radius_upper, domain_lower)
+    if radius_lower < left_upper:
+        intervals.append(
+            ExclusionInterval(
+                radius_lower,
+                left_upper,
+                True,
+                left_upper < domain_lower,
+            )
+        )
+    right_lower = max(radius_lower, domain_upper)
+    if right_lower < radius_upper:
+        intervals.append(
+            ExclusionInterval(
+                right_lower,
+                radius_upper,
+                right_lower > domain_upper,
+                True,
+            )
+        )
+    return tuple(intervals)
+
+
+def _shared_intervals(
+    radius_lower: float,
+    radius_upper: float,
+    domain_lower: float,
+    domain_upper: float,
+    shared_lower: float,
+    shared_upper: float,
+) -> tuple[ExclusionInterval, ...]:
+    intervals: list[ExclusionInterval] = []
+    left_lower = max(radius_lower, domain_lower)
+    left_upper = min(radius_upper, domain_upper, shared_lower)
+    if left_lower < left_upper:
+        intervals.append(
+            ExclusionInterval(
+                left_lower,
+                left_upper,
+                True,
+                left_upper < shared_lower,
+            )
+        )
+    right_lower = max(radius_lower, domain_lower, shared_upper)
+    right_upper = min(radius_upper, domain_upper)
+    if right_lower < right_upper:
+        intervals.append(
+            ExclusionInterval(
+                right_lower,
+                right_upper,
+                right_lower > shared_upper,
+                True,
+            )
+        )
+    return tuple(intervals)
+
+
+def _piecewise_linear_roots(
+    radius: NDArray[np.float64], values: NDArray[np.float64], target: float
+) -> tuple[float, ...]:
+    delta = values - target
+    roots: list[float] = []
+    for index, value in enumerate(delta):
+        if value == 0.0:
+            roots.append(float(radius[index]))
+        if index + 1 >= delta.size:
+            continue
+        next_value = delta[index + 1]
+        if value * next_value < 0.0:
+            fraction = -value / (next_value - value)
+            roots.append(float(radius[index] + fraction * (radius[index + 1] - radius[index])))
+    roots.sort()
+    unique: list[float] = []
+    for root in roots:
+        # Segment roots never duplicate an exact node (segments touching a
+        # node root are skipped), so exact equality is sufficient here and
+        # preserves genuinely distinct, very closely spaced crossings.
+        if not unique or root != unique[-1]:
+            unique.append(root)
+    return tuple(unique)
+
+
+def _covered(roots: tuple[float, ...], lower: float, upper: float) -> bool:
+    return any(lower <= root <= upper for root in roots)
+
+
+def _warnings(
+    exclusions: ComparisonExclusions, resonance: ResonanceComparison | None
+) -> tuple[str, ...]:
+    warnings: list[str] = []
+    profiles = (exclusions.oracle, exclusions.prepared)
+    if any(
+        profile.outside_domain_points_cm or profile.outside_domain_intervals_cm
+        for profile in profiles
+    ):
+        warnings.append("domain-exclusions")
+    if any(
+        profile.outside_shared_overlap_points_cm or profile.outside_shared_overlap_intervals_cm
+        for profile in profiles
+    ):
+        warnings.append("shared-overlap-exclusions")
+    if resonance is not None and (
+        not resonance.reference_crossing_covered or not resonance.candidate_crossing_covered
+    ):
+        warnings.append("resonance-not-covered")
+    return tuple(warnings)
+
+
+def _immutable_array(values: NDArray[np.float64]) -> NDArray[np.float64]:
+    """Return a read-only array whose write flag cannot be re-enabled."""
+
+    copied = np.asarray(values, dtype=np.float64).copy()
+    immutable = np.frombuffer(copied.tobytes(), dtype=np.float64)
+    immutable.setflags(write=False)
+    return immutable
+
+
+__all__ = [
+    "ComparisonError",
+    "ComparisonExclusions",
+    "ComparisonMeasurements",
+    "ComparisonResult",
+    "ExclusionInterval",
+    "ProfileExclusions",
+    "ResonanceComparison",
+    "compare_profiles",
+]

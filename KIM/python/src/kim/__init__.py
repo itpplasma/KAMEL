@@ -1,5 +1,15 @@
 """Python automation interface for the KIM plasma-response solver."""
 
+from kim.acceptance_comparison import (
+    ComparisonError,
+    ComparisonExclusions,
+    ComparisonMeasurements,
+    ComparisonResult,
+    ExclusionInterval,
+    ProfileExclusions,
+    ResonanceComparison,
+    compare_profiles,
+)
 from kim.config import (
     BuiltinPlasma,
     CollisionModel,
@@ -97,6 +107,10 @@ __version__ = "0.1.0"
 
 __all__ = [
     "BuiltinPlasma",
+    "ComparisonError",
+    "ComparisonExclusions",
+    "ComparisonMeasurements",
+    "ComparisonResult",
     "BalanceInput",
     "BalanceMetadata",
     "CollisionModel",
@@ -108,6 +122,7 @@ __all__ = [
     "DatasetMetadata",
     "ElectrostaticPeriodicRun",
     "ElectrostaticRun",
+    "ExclusionInterval",
     "EnvironmentDiagnosticReport",
     "ExplicitPlasma",
     "ExecutableError",
@@ -130,6 +145,7 @@ __all__ = [
     "MarsFMetadata",
     "PeriodicConfig",
     "PeriodicResult",
+    "ProfileExclusions",
     "ParameterSweep",
     "PlasmaConfig",
     "PhysicsConfig",
@@ -147,6 +163,7 @@ __all__ = [
     "QuadpackAlgorithm",
     "Result",
     "ResultError",
+    "ResonanceComparison",
     "RunConfig",
     "RunError",
     "RunFailure",
@@ -172,6 +189,7 @@ __all__ = [
     "convert_inputs",
     "convert_from_kim",
     "convert_quantity",
+    "compare_profiles",
     "diagnose_environment",
     "executable_sha256",
     "resolve_executable",

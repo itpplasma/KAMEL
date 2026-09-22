@@ -848,19 +848,27 @@ def _prepare_profiles(
             "target_coordinate": "r_eff",
             "method": "natural cubic interpolation",
         }
-        for profile in profiles.values():
-            if np.any(profile.coordinate < 0.0):
-                raise ExperimentalInputError("sqrt_psiN coordinate must be nonnegative")
+        squared_coordinates: dict[str, NDArray[np.float64]] = {}
+        with np.errstate(over="ignore", invalid="ignore"):
+            for name, profile in profiles.items():
+                if np.any(profile.coordinate < 0.0):
+                    raise ExperimentalInputError("sqrt_psiN coordinate must be nonnegative")
+                squared_coordinate = np.square(profile.coordinate)
+                if not np.all(np.isfinite(squared_coordinate)):
+                    raise ExperimentalInputError(
+                        f"{name} squared sqrt_psiN coordinate is not finite"
+                    )
+                squared_coordinates[name] = squared_coordinate
         profile_values = {
             name: _convert_profile(
-                _interpolate(profile.values, profile.coordinate**2, coordinate),
+                _interpolate(profile.values, squared_coordinates[name], coordinate),
                 name,
                 source_metadata,
             )
             for name, profile in profiles.items()
         }
-        for profile in profiles.values():
-            _require_covered(profile.coordinate**2, coordinate, "sqrt_psiN profile")
+        for name in profiles:
+            _require_covered(squared_coordinates[name], coordinate, "sqrt_psiN profile")
     else:
         scale = 100.0 if source.metadata.coordinate_unit == "m" else 1.0
         output_grid = profiles["density"].coordinate * scale

@@ -305,6 +305,23 @@ def test_accepts_sqrt_psiN_profiles_extended_beyond_lcfs(tmp_path: Path) -> None
     }
 
 
+def test_rejects_nonfinite_squared_sqrt_psiN_coordinates(tmp_path: Path) -> None:
+    source_directory = tmp_path / "marsf"
+    equilibrium = tmp_path / "equil_r_q_psi.dat"
+    write_marsf_case(source_directory)
+    write_equilibrium(equilibrium)
+    (source_directory / "PROFDEN.IN").write_text(
+        "header\n0.0 1.0e19\n0.5 2.0e19\n1.0e200 3.0e19\n",
+        encoding="utf-8",
+    )
+    source = read_marsf_profiles(source_directory, metadata())
+
+    with pytest.raises(ExperimentalInputError, match="squared sqrt_psiN coordinate is not finite"):
+        prepare_marsf_case(source, config(), tmp_path / "prepared", equilibrium_file=equilibrium)
+
+    assert not (tmp_path / "prepared").exists()
+
+
 def test_rejects_negative_sqrt_psiN_coordinates(tmp_path: Path) -> None:
     source_directory = tmp_path / "marsf"
     equilibrium = tmp_path / "equil_r_q_psi.dat"

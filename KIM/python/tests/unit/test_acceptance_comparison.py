@@ -5,13 +5,53 @@ oracle is always the reference and the prepared profile is always the
 candidate; swapping those meanings would make acceptance results physically
 misleading.  This suite specifies the small API expected from
 ``kim.acceptance_comparison`` without involving HDF5, plotting, or I/O.
+
+Evaluation is node-only: the selected target grid contributes only its
+existing nodes inside the inclusive requested domain and mutual source
+support.  Domain endpoints are never synthesized; a continuous overlap with
+no target node is rejected.
 """
 
 from __future__ import annotations
 
+from dataclasses import FrozenInstanceError, is_dataclass
+
 import numpy as np
 import pytest
 from kim.acceptance_comparison import ComparisonError, compare_profiles
+
+
+def _interval_signature(intervals: object) -> tuple[tuple[float, float, bool, bool], ...]:
+    """Expose typed exclusion intervals without relying on tuple identity."""
+
+    return tuple(
+        (
+            interval.lower_cm,
+            interval.upper_cm,
+            interval.lower_inclusive,
+            interval.upper_inclusive,
+        )
+        for interval in intervals
+    )
+
+
+def _intervals_are_disjoint(first: object, second: object) -> bool:
+    """Check mathematical set disjointness, including endpoint flags."""
+
+    for left in first:
+        for right in second:
+            if left.upper_cm < right.lower_cm or right.upper_cm < left.lower_cm:
+                continue
+            if left.upper_cm == right.lower_cm:
+                if left.upper_inclusive and right.lower_inclusive:
+                    return False
+                continue
+            if right.upper_cm == left.lower_cm:
+                if right.upper_inclusive and left.lower_inclusive:
+                    return False
+                continue
+            return False
+    return True
 
 
 def _compare(
@@ -76,7 +116,7 @@ def test_reports_exact_absolute_and_relative_measurements_without_decisions() ->
     assert result.measurements.relative_max == pytest.approx(0.8, rel=1e-13)
     assert result.threshold_decisions is None
     assert result.overall_pass is None
-    assert isinstance(result.warnings, tuple)
+    assert result.warnings == ()
 
 
 def test_relative_denominator_uses_absolute_oracle_reference_with_a_floor() -> None:
@@ -187,6 +227,7 @@ def test_accepts_an_explicit_signed_resonance_target_and_reports_uncovered_cross
     # The crossing is reported even when it falls outside the requested domain.
     assert result.resonance.reference_crossing_radii_cm == pytest.approx((3.0,))
     assert result.resonance.candidate_crossing_radii_cm == pytest.approx((3.0,))
+    assert result.warnings == ("domain-exclusions", "resonance-not-covered")
 
 
 def test_resonance_includes_profile_and_domain_boundary_crossings_and_all_multiple_crossings() -> (
@@ -211,6 +252,37 @@ def test_resonance_includes_profile_and_domain_boundary_crossings_and_all_multip
     # support means covered; crossings outside remain reported above.
     assert result.resonance.reference_crossing_covered is True
     assert result.resonance.candidate_crossing_covered is True
+
+
+@pytest.mark.parametrize(
+    "q_values",
+    [
+        # The exact interior node is approached from below and left above;
+        # segment-based detection must not report that same root twice.
+        np.array([-3.0, -2.0, -1.5, -1.0, 0.0]),
+        # A tangential/no-sign-change node root is still an explicit crossing.
+        np.array([-3.0, -2.0, -1.5, -2.0, -3.0]),
+    ],
+)
+def test_resonance_deduplicates_exact_interior_node_and_detects_tangential_node_root(
+    q_values: np.ndarray,
+) -> None:
+    radius = np.array([0.0, 2.0, 4.0, 6.0, 8.0])
+
+    result = _compare(
+        radius,
+        q_values,
+        radius.copy(),
+        q_values.copy(),
+        domain_cm=(0.0, 8.0),
+        resonance=-1.5,
+    )
+
+    assert result.resonance.reference_crossing_radii_cm == pytest.approx((4.0,))
+    assert result.resonance.candidate_crossing_radii_cm == pytest.approx((4.0,))
+    assert result.resonance.reference_crossing_covered is True
+    assert result.resonance.candidate_crossing_covered is True
+    assert result.warnings == ()
 
 
 @pytest.mark.parametrize(
@@ -275,10 +347,12 @@ def test_never_extrapolates_in_either_direction_and_reports_shared_overlap_edges
     assert result.exclusions.prepared.outside_domain_points_cm == ()
     assert result.exclusions.oracle.outside_shared_overlap_points_cm == pytest.approx((0.0, 9.0))
     assert result.exclusions.prepared.outside_shared_overlap_points_cm == ()
-    assert result.exclusions.oracle.outside_shared_overlap_intervals_cm == pytest.approx(
-        ((0.0, 1.0), (7.0, 9.0))
+    assert _interval_signature(result.exclusions.oracle.outside_shared_overlap_intervals_cm) == (
+        (0.0, 1.0, True, False),
+        (7.0, 9.0, False, True),
     )
-    assert result.exclusions.prepared.outside_shared_overlap_intervals_cm == ()
+    assert _interval_signature(result.exclusions.prepared.outside_shared_overlap_intervals_cm) == ()
+    assert result.warnings == ("shared-overlap-exclusions",)
 
 
 def test_reports_requested_domain_exclusions_separately_from_overlap_exclusions() -> None:
@@ -295,19 +369,22 @@ def test_reports_requested_domain_exclusions_separately_from_overlap_exclusions(
 
     assert result.exclusions.oracle.outside_domain_points_cm == pytest.approx((0.0, 8.0, 9.0))
     assert result.exclusions.prepared.outside_domain_points_cm == pytest.approx((1.0, 7.0))
-    assert result.exclusions.oracle.outside_domain_intervals_cm == pytest.approx(
-        ((0.0, 2.0), (6.0, 9.0))
+    assert _interval_signature(result.exclusions.oracle.outside_domain_intervals_cm) == (
+        (0.0, 2.0, True, False),
+        (6.0, 9.0, False, True),
     )
-    assert result.exclusions.prepared.outside_domain_intervals_cm == pytest.approx(
-        ((1.0, 2.0), (6.0, 7.0))
+    assert _interval_signature(result.exclusions.prepared.outside_domain_intervals_cm) == (
+        (1.0, 2.0, True, False),
+        (6.0, 7.0, False, True),
     )
     # The requested-domain and shared-overlap categories are disjoint.  Every
     # point inside [2, 6] is supported by both continuous input grids, so no
     # point or interval is additionally excluded by overlap.
     assert result.exclusions.oracle.outside_shared_overlap_points_cm == ()
     assert result.exclusions.prepared.outside_shared_overlap_points_cm == ()
-    assert result.exclusions.oracle.outside_shared_overlap_intervals_cm == ()
-    assert result.exclusions.prepared.outside_shared_overlap_intervals_cm == ()
+    assert _interval_signature(result.exclusions.oracle.outside_shared_overlap_intervals_cm) == ()
+    assert _interval_signature(result.exclusions.prepared.outside_shared_overlap_intervals_cm) == ()
+    assert result.warnings == ("domain-exclusions",)
 
 
 def test_mixed_domain_and_shared_overlap_exclusions_are_disjoint() -> None:
@@ -326,14 +403,17 @@ def test_mixed_domain_and_shared_overlap_exclusions_are_disjoint() -> None:
     # inside it but outside the mutual continuous support [1, 7].
     assert result.exclusions.oracle.outside_domain_points_cm == pytest.approx((9.0,))
     assert result.exclusions.prepared.outside_domain_points_cm == ()
-    assert result.exclusions.oracle.outside_domain_intervals_cm == pytest.approx(((8.0, 9.0),))
-    assert result.exclusions.prepared.outside_domain_intervals_cm == ()
+    assert _interval_signature(result.exclusions.oracle.outside_domain_intervals_cm) == (
+        (8.0, 9.0, False, True),
+    )
+    assert _interval_signature(result.exclusions.prepared.outside_domain_intervals_cm) == ()
     assert result.exclusions.oracle.outside_shared_overlap_points_cm == pytest.approx((0.0, 8.0))
     assert result.exclusions.prepared.outside_shared_overlap_points_cm == ()
-    assert result.exclusions.oracle.outside_shared_overlap_intervals_cm == pytest.approx(
-        ((0.0, 1.0), (7.0, 8.0))
+    assert _interval_signature(result.exclusions.oracle.outside_shared_overlap_intervals_cm) == (
+        (0.0, 1.0, True, False),
+        (7.0, 8.0, False, True),
     )
-    assert result.exclusions.prepared.outside_shared_overlap_intervals_cm == ()
+    assert _interval_signature(result.exclusions.prepared.outside_shared_overlap_intervals_cm) == ()
 
     # Categories are disjoint rather than repeating edge points/intervals.
     assert set(result.exclusions.oracle.outside_domain_points_cm).isdisjoint(
@@ -342,12 +422,15 @@ def test_mixed_domain_and_shared_overlap_exclusions_are_disjoint() -> None:
     assert set(result.exclusions.prepared.outside_domain_points_cm).isdisjoint(
         result.exclusions.prepared.outside_shared_overlap_points_cm
     )
-    assert set(result.exclusions.oracle.outside_domain_intervals_cm).isdisjoint(
-        result.exclusions.oracle.outside_shared_overlap_intervals_cm
+    assert _intervals_are_disjoint(
+        result.exclusions.oracle.outside_domain_intervals_cm,
+        result.exclusions.oracle.outside_shared_overlap_intervals_cm,
     )
-    assert set(result.exclusions.prepared.outside_domain_intervals_cm).isdisjoint(
-        result.exclusions.prepared.outside_shared_overlap_intervals_cm
+    assert _intervals_are_disjoint(
+        result.exclusions.prepared.outside_domain_intervals_cm,
+        result.exclusions.prepared.outside_shared_overlap_intervals_cm,
     )
+    assert result.warnings == ("domain-exclusions", "shared-overlap-exclusions")
 
 
 def test_oracle_and_candidate_q_crossings_are_computed_independently() -> None:
@@ -370,6 +453,7 @@ def test_oracle_and_candidate_q_crossings_are_computed_independently() -> None:
     assert result.resonance.candidate_crossing_radii_cm == pytest.approx((5.0,))
     assert result.resonance.reference_crossing_covered is True
     assert result.resonance.candidate_crossing_covered is False
+    assert result.warnings == ("domain-exclusions", "resonance-not-covered")
 
 
 def test_supplied_tolerances_produce_per_metric_decisions_and_an_overall_result() -> None:
@@ -435,6 +519,42 @@ def test_nonempty_partial_tolerances_decide_only_supplied_metrics() -> None:
     )
     assert failing.threshold_decisions == {"relative_rms": False}
     assert failing.overall_pass is False
+
+
+def test_result_models_are_frozen_and_comparison_grid_is_deeply_read_only() -> None:
+    radius = np.array([0.0, 2.0, 4.0, 8.0])
+    q = 0.5 * radius - 3.0
+    result = _compare(
+        radius,
+        q,
+        radius.copy(),
+        q.copy(),
+        domain_cm=(0.0, 8.0),
+        tolerances={"absolute_max": 1.0e-12},
+        resonance=(3, 2),
+    )
+
+    for model in (
+        result,
+        result.measurements,
+        result.exclusions,
+        result.exclusions.oracle,
+        result.exclusions.prepared,
+        result.resonance,
+    ):
+        assert is_dataclass(model)
+    with pytest.raises(FrozenInstanceError):
+        result.overall_pass = False
+    with pytest.raises(FrozenInstanceError):
+        result.measurements.absolute_max = 1.0
+    with pytest.raises(FrozenInstanceError):
+        result.exclusions.oracle.outside_domain_points_cm = ()
+
+    assert result.comparison_radius_cm.flags.writeable is False
+    with pytest.raises(ValueError):
+        result.comparison_radius_cm[0] = -1.0
+    with pytest.raises(ValueError):
+        result.comparison_radius_cm.setflags(write=True)
 
 
 @pytest.mark.parametrize(

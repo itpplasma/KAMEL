@@ -153,9 +153,11 @@ def compare_profiles(
     if comparison_radius.size == 0:
         raise ComparisonError("continuous overlap contains no comparison point")
 
-    # Source support has already been applied to the target mask.  np.interp
-    # therefore evaluates only inside its source grid and never extrapolates.
-    interpolated_values = np.interp(comparison_radius, reference_radius, reference_values)
+    # Source support has already been applied to the target mask.  The bounded
+    # interpolator therefore evaluates only inside its source grid.
+    interpolated_values = _linear_interpolate_bounded(
+        comparison_radius, reference_radius, reference_values
+    )
     if direction == "prepared_to_oracle":
         assert oracle_on_grid is not None
         oracle_values_on_grid = oracle_on_grid[target_mask]
@@ -243,7 +245,7 @@ def _validate_profile(
         raise ComparisonError(f"{name} radius and values must have the same length")
     if not np.all(np.isfinite(radius_array)) or not np.all(np.isfinite(values_array)):
         raise ComparisonError(f"{name} radius and values must contain only finite values")
-    if not np.all(np.diff(radius_array) > 0.0):
+    if not np.all(radius_array[1:] > radius_array[:-1]):
         raise ComparisonError(f"{name} radius must be strictly increasing without duplicates")
     return radius_array, values_array
 
@@ -410,6 +412,69 @@ def _stable_rms(values: NDArray[np.float64], name: str) -> float:
     if not np.isfinite(result):
         raise ComparisonError(f"{name} is not finite and cannot be represented")
     return result
+
+
+def _linear_interpolate_bounded(
+    target_radius: NDArray[np.float64],
+    source_radius: NDArray[np.float64],
+    source_values: NDArray[np.float64],
+) -> NDArray[np.float64]:
+    """Linearly interpolate bounded targets without overflow-prone spans."""
+
+    if target_radius.size == 0:
+        return np.empty(0, dtype=np.float64)
+    source_count = source_radius.size
+    insertion_points = np.searchsorted(source_radius, target_radius, side="left")
+    interpolated = np.empty(target_radius.size, dtype=np.float64)
+    for position, target in enumerate(target_radius):
+        insertion = int(insertion_points[position])
+        if insertion < source_count and target == source_radius[insertion]:
+            interpolated[position] = source_values[insertion]
+            continue
+        lower_index = insertion - 1
+        if lower_index < 0 or lower_index >= source_count - 1:
+            raise ComparisonError("interpolation target lies outside source support")
+        lower_radius = float(source_radius[lower_index])
+        upper_radius = float(source_radius[lower_index + 1])
+        fraction = _bounded_fraction(float(target), lower_radius, upper_radius)
+        interpolated[position] = _stable_convex_value(
+            float(source_values[lower_index]),
+            float(source_values[lower_index + 1]),
+            fraction,
+        )
+    _validate_computed_array(interpolated, "interpolated profile")
+    return interpolated
+
+
+def _bounded_fraction(target: float, lower: float, upper: float) -> float:
+    """Return the bounded interval fraction without extreme-coordinate overflow."""
+
+    if lower < 0.0 < upper:
+        scale = max(abs(lower), abs(upper), abs(target))
+        lower_scaled = lower / scale
+        upper_scaled = upper / scale
+        target_scaled = target / scale
+        fraction = (target_scaled - lower_scaled) / (upper_scaled - lower_scaled)
+    else:
+        fraction = (target - lower) / (upper - lower)
+    if not np.isfinite(fraction) or not 0.0 <= fraction <= 1.0:
+        raise ComparisonError("interpolation fraction cannot be represented")
+    return float(fraction)
+
+
+def _stable_convex_value(lower: float, upper: float, fraction: float) -> float:
+    """Blend finite values as a normalized convex combination."""
+
+    scale = max(abs(lower), abs(upper))
+    if scale == 0.0:
+        return 0.0
+    with np.errstate(over="ignore", invalid="ignore", under="ignore"):
+        lower_scaled = lower / scale
+        upper_scaled = upper / scale
+        value = scale * (lower_scaled * (1.0 - fraction) + upper_scaled * fraction)
+    if not np.isfinite(value):
+        raise ComparisonError("interpolated value cannot be represented")
+    return float(value)
 
 
 def _validate_measurements(measurements: ComparisonMeasurements) -> None:

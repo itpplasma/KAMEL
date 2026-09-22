@@ -400,6 +400,34 @@ def test_interpolates_only_in_requested_direction_on_irregular_grids_and_include
     assert result.measurements.relative_max == pytest.approx(0.0, abs=1e-14)
 
 
+def test_interpolation_handles_extreme_coordinate_endpoints_and_target_zero() -> None:
+    result = _compare(
+        np.array([-1.0e308, 1.0e308]),
+        np.array([0.0, 1.0]),
+        np.array([0.0, 1.0]),
+        np.array([0.5, 0.5]),
+        domain_cm=(-1.0, 1.0),
+        interpolation_direction="oracle_to_prepared",
+    )
+
+    np.testing.assert_array_equal(result.comparison_radius_cm, [0.0, 1.0])
+    assert result.measurements.absolute_max == pytest.approx(0.0, abs=1e-14)
+
+
+def test_interpolation_handles_extreme_opposite_profile_values_at_midpoint() -> None:
+    result = _compare(
+        np.array([0.0, 1.0]),
+        np.array([-1.0e308, 1.0e308]),
+        np.array([0.5, 1.0]),
+        np.array([0.0, 1.0e308]),
+        domain_cm=(0.0, 1.0),
+        interpolation_direction="oracle_to_prepared",
+    )
+
+    np.testing.assert_array_equal(result.comparison_radius_cm, [0.5, 1.0])
+    assert result.measurements.absolute_max == pytest.approx(0.0, abs=1e-14)
+
+
 @pytest.mark.parametrize(
     ("direction", "expected_radius"),
     [

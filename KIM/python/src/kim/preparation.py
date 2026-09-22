@@ -849,10 +849,8 @@ def _prepare_profiles(
             "method": "natural cubic interpolation",
         }
         for profile in profiles.values():
-            if profile.coordinate[0] < 0.0 or profile.coordinate[-1] > 1.0:
-                raise ExperimentalInputError(
-                    "sqrt_psiN coordinate must be within the declared [0, 1] domain"
-                )
+            if np.any(profile.coordinate < 0.0):
+                raise ExperimentalInputError("sqrt_psiN coordinate must be nonnegative")
         profile_values = {
             name: _convert_profile(
                 _interpolate(profile.values, profile.coordinate**2, coordinate),

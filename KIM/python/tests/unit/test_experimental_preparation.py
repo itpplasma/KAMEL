@@ -280,7 +280,32 @@ def test_rejects_colliding_profile_filenames(tmp_path: Path) -> None:
         )
 
 
-def test_rejects_sqrt_psiN_coordinates_outside_the_declared_domain(tmp_path: Path) -> None:
+def test_accepts_sqrt_psiN_profiles_extended_beyond_lcfs(tmp_path: Path) -> None:
+    source_directory = tmp_path / "marsf"
+    equilibrium = tmp_path / "equil_r_q_psi.dat"
+    write_marsf_case(source_directory)
+    write_equilibrium(equilibrium)
+    for filename in ("PROFDEN.IN", "PROFTE.IN", "PROFTI.IN", "PROFROT.IN"):
+        (source_directory / filename).write_text(
+            "header\n0.0 1.0\n0.5 2.0\n1.02 3.0\n",
+            encoding="utf-8",
+        )
+    source = read_marsf_profiles(source_directory, metadata())
+
+    prepared = prepare_marsf_case(
+        source, config(), tmp_path / "prepared", equilibrium_file=equilibrium
+    )
+
+    np.testing.assert_array_equal(np.loadtxt(prepared.profiles / "n.dat")[:, 0], [0.0, 10.0, 20.0])
+    report = json.loads(prepared.report.read_text(encoding="utf-8"))
+    assert report["coordinate_operation"] == {
+        "source_coordinate": "sqrt_psiN",
+        "target_coordinate": "r_eff",
+        "method": "natural cubic interpolation",
+    }
+
+
+def test_rejects_negative_sqrt_psiN_coordinates(tmp_path: Path) -> None:
     source_directory = tmp_path / "marsf"
     equilibrium = tmp_path / "equil_r_q_psi.dat"
     write_marsf_case(source_directory)
@@ -291,7 +316,7 @@ def test_rejects_sqrt_psiN_coordinates_outside_the_declared_domain(tmp_path: Pat
     )
     source = read_marsf_profiles(source_directory, metadata())
 
-    with pytest.raises(ExperimentalInputError, match="sqrt_psiN coordinate"):
+    with pytest.raises(ExperimentalInputError, match="sqrt_psiN coordinate must be nonnegative"):
         prepare_marsf_case(source, config(), tmp_path / "prepared", equilibrium_file=equilibrium)
 
 

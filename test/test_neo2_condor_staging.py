@@ -69,6 +69,7 @@ def test_stage_writes_payload_and_submit_description(tmp_path: Path):
         job_input = json.loads((job / "condor_job.json").read_text(encoding="utf-8"))
         assert job_input["schema_version"] == 1
         assert job_input["mode"] == "neo2-surface"
+        assert len(job_input["job_identity"]) == 64
         assert job_input["surface"]["boozer_s"] == pytest.approx(row[0])
         assert job_input["surface"]["r_eff_cm"] == pytest.approx(row[1])
         assert (
@@ -83,7 +84,9 @@ def test_stage_writes_payload_and_submit_description(tmp_path: Path):
         assert 'Arguments = "condor_worker.py"\n' in submit
         assert "request_cpus = 2\n" in submit
         assert "request_memory = 4096\n" in submit
+        assert "Getenv = false\n" in submit
         assert "should_transfer_files = NEVER\n" in submit
+        assert f'+KAMELJobIdentity = "{job_input["job_identity"]}"\n' in submit
         assert (job / "neo2.in").read_bytes() == original_inputs[job]
 
 

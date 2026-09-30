@@ -75,6 +75,7 @@ def test_query_job_ads_normalizes_json_running_record(tmp_path: Path):
             "hold_reason": "",
             "request_cpus": 2,
             "request_memory_mb": 8192,
+            "job_identity": None,
             "ad_source": "condor_q",
         },
     )

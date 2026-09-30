@@ -32,6 +32,7 @@ _QUERY_ATTRIBUTES = (
     "RequestCpus",
     "RequestMemory",
     "ImageSize",
+    "KAMELJobIdentity",
 )
 _ACCOUNTING_KEY_RE = re.compile(r"^[A-Za-z][A-Za-z0-9_]*$")
 
@@ -263,6 +264,7 @@ def _normalize_job_ad(ad: Mapping[str, object], *, source: str) -> dict[str, obj
         "hold_reason": ad.get("HoldReason"),
         "request_cpus": ad.get("RequestCpus"),
         "request_memory_mb": ad.get("RequestMemory"),
+        "job_identity": ad.get("KAMELJobIdentity"),
         "ad_source": source,
     }
 

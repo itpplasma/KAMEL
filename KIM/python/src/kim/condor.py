@@ -748,7 +748,11 @@ def submit_condor_sweep(
             entry["error"] = None
             _save_manifest(run_root, manifest)
             try:
-                result = run_condor(["condor.submit"], config=plan.condor, tool="condor_submit")
+                result = run_condor(
+                    [str(directory / "condor.submit")],
+                    config=plan.condor,
+                    tool="condor_submit",
+                )
                 if result.returncode != 0:
                     raise CondorError(
                         f"condor_submit failed with exit code {result.returncode}: "

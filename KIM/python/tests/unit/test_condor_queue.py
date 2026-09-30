@@ -89,10 +89,13 @@ def _submit_fake(monkeypatch, clusters: list[int]):
 def test_submit_tracks_each_scale_factor_cluster(tmp_path: Path, monkeypatch) -> None:
     root = tmp_path / "run"
     plan = _staged(root)
-    _submit_fake(monkeypatch, [401, 402, 403])
+    submit_calls = _submit_fake(monkeypatch, [401, 402, 403])
 
     result = condor.submit_condor_sweep(root, plan=plan, adopt_existing=False)
 
+    assert [call[0] for call in submit_calls] == [
+        str(root / f"scale-{index:04d}" / "condor.submit") for index in range(3)
+    ]
     assert [job["cluster"] for job in result["jobs"]] == [401, 402, 403]
     assert [job["profile_scale_factor"] for job in result["jobs"]] == [-1.0, 0.0, 1.0]
     manifest = json.loads((root / condor.MANIFEST_NAME).read_text(encoding="utf-8"))

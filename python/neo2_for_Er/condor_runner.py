@@ -14,6 +14,7 @@ import time
 from dataclasses import dataclass, field
 from pathlib import Path
 
+import h5py
 import numpy as np
 
 from .condor import (
@@ -152,6 +153,14 @@ class Neo2CondorPlan:
             if isinstance(value, bool) or not math.isfinite(float(value)) or float(value) < 0.0:
                 raise Neo2CondorError("requested_time_s must be a non-negative finite number")
             object.__setattr__(self, "requested_time_s", float(value))
+
+
+@dataclass(frozen=True, slots=True)
+class Neo2CondorResults:
+    """Validated successful profile points plus an outcome for every surface."""
+
+    profile: np.ndarray | None
+    surface_records: tuple[dict[str, object], ...]
 
 
 def _surface_directory_name(boozer_s: float) -> str:
@@ -947,3 +956,251 @@ def wait_neo2_condor_jobs(
         )
     _write_status(root, status_document)
     return tuple(latest)
+
+
+def _read_json_object(path: Path) -> dict[str, object]:
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, UnicodeError, json.JSONDecodeError) as error:
+        raise ValueError(f"could not read {path.name}: {error}") from error
+    if not isinstance(payload, dict):
+        raise ValueError(f"{path.name} must contain a JSON object")
+    return payload
+
+
+def _surface_failure(
+    record: dict[str, object], kind: str, reason: str, *, status: str = "failed"
+) -> None:
+    record["status"] = status
+    record["failure_kind"] = kind
+    record["failure_reason"] = reason
+
+
+def _load_condor_statuses(root: Path, manifest: dict[str, object]) -> dict[str, dict[str, object]]:
+    status_path = root / STATUS_NAME
+    try:
+        document = _read_json_object(status_path)
+    except ValueError:
+        return {}
+    if (
+        document.get("schema_version") != 1
+        or document.get("kind") != "neo2-condor-status"
+        or document.get("work_directory") != str(root.resolve())
+        or document.get("plan_fingerprint") != manifest.get("plan_fingerprint")
+    ):
+        return {}
+    statuses = document.get("statuses")
+    if not isinstance(statuses, list):
+        return {}
+    result: dict[str, dict[str, object]] = {}
+    for status in statuses:
+        if not isinstance(status, dict):
+            continue
+        identity = status.get("job_identity")
+        if isinstance(identity, str):
+            if identity in result:
+                return {}
+            result[identity] = status
+    return result
+
+
+def _single_finite_real(value: object) -> float:
+    array = np.asarray(value)
+    if array.size != 1 or np.iscomplexobj(array):
+        raise ValueError("expected one real scalar")
+    result = float(array.reshape(-1)[0])
+    if not np.isfinite(result):
+        raise ValueError("value is not finite")
+    return result
+
+
+def _validate_hdf5_outputs(job: Path, expected_boozer_s: float) -> float:
+    try:
+        with h5py.File(job / "neo2_config.h5", "r") as config:
+            boozer_s = _single_finite_real(config["settings/boozer_s"][()])
+        with h5py.File(job / "fulltransp.h5", "r") as transport:
+            k_cof = _single_finite_real(transport["k_cof"][()])
+    except (OSError, KeyError, TypeError, ValueError, OverflowError) as error:
+        raise ValueError(f"invalid NEO-2 HDF5 output: {error}") from error
+    if not np.isclose(boozer_s, expected_boozer_s):
+        raise ValueError(
+            f"neo2_config.h5 settings/boozer_s={boozer_s} does not match "
+            f"the requested surface {expected_boozer_s}"
+        )
+    return k_cof
+
+
+def _validate_worker_record(
+    record: dict[str, object],
+    job_input: dict[str, object],
+    plan: Neo2CondorPlan,
+    executable_hash: str,
+) -> tuple[str | None, str | None]:
+    if record.get("schema_version") != 1 or record.get("mode") != "neo2-surface":
+        return "worker_provenance_mismatch", "unsupported worker record schema or mode"
+    provenance = {
+        "job_identity": job_input.get("job_identity"),
+        "executable": str(plan.executable),
+        "executable_sha256": executable_hash,
+        "omp_num_threads": str(plan.omp_threads_per_process),
+        "surface": job_input.get("surface"),
+    }
+    for field_name, expected in provenance.items():
+        if record.get(field_name) != expected:
+            return (
+                "worker_provenance_mismatch",
+                f"worker {field_name} does not match the staged job and plan",
+            )
+    host = record.get("host")
+    if not isinstance(host, str) or not host.strip():
+        return "worker_provenance_mismatch", "worker record has no execute host"
+    closure_period = record.get("closure_period")
+    if closure_period is not None and (
+        isinstance(closure_period, bool)
+        or not isinstance(closure_period, int)
+        or closure_period < 0
+    ):
+        return "worker_provenance_mismatch", "worker closure_period is not a non-negative integer"
+    if closure_period is not None and closure_period > plan.max_closure_periods:
+        return (
+            "closure_period_exceeded",
+            f"reported closure period {closure_period} exceeds configured limit "
+            f"{plan.max_closure_periods}",
+        )
+    status = record.get("status")
+    exit_code = record.get("exit_code")
+    valid_exit_code = not isinstance(exit_code, bool) and isinstance(exit_code, int)
+    if status != "succeeded" or not valid_exit_code or exit_code != 0:
+        if status == "timeout" or exit_code == 124:
+            return "worker_timeout", "NEO-2 worker exceeded its per-surface timeout"
+        if status == "launch_failure" or exit_code == 127:
+            return "worker_launch_failure", "NEO-2 solver could not be launched"
+        if status == "nonzero_exit" and valid_exit_code:
+            return "worker_nonzero_exit", f"NEO-2 solver exited with code {exit_code}"
+        return (
+            "worker_failed",
+            f"worker did not report success (status={status!r}, exit={exit_code!r})",
+        )
+    return None, None
+
+
+def collect_neo2_condor_results(
+    work_directory: str | Path,
+    *,
+    plan: Neo2CondorPlan,
+) -> Neo2CondorResults:
+    """Validate each scheduler/worker/HDF5 outcome and retain partial successes."""
+
+    root, jobs = _root_and_jobs(work_directory, plan=plan)
+    manifest = _load_manifest(root, plan, jobs)
+    statuses = _load_condor_statuses(root, manifest)
+    executable_hash = _sha256(plan.executable)
+    successful_points: list[tuple[float, float]] = []
+    surface_records: list[dict[str, object]] = []
+
+    for job in manifest["jobs"]:
+        if not isinstance(job, dict):
+            raise Neo2CondorError("Condor manifest contains a malformed surface record")
+        job_directory = Path(str(job["job_directory"]))
+        identity = str(job["job_identity"])
+        surface = job.get("surface")
+        base: dict[str, object] = {
+            "job_directory": str(job_directory),
+            "job_identity": identity,
+            "cluster": job.get("cluster"),
+            "surface": surface,
+            "r_eff_cm": surface.get("r_eff_cm") if isinstance(surface, dict) else None,
+            "boozer_s": surface.get("boozer_s") if isinstance(surface, dict) else None,
+            "status": "failed",
+            "failure_kind": None,
+            "failure_reason": None,
+        }
+        queue_status = statuses.get(identity)
+        if queue_status is None:
+            _surface_failure(
+                base,
+                "condor_status_missing",
+                "no matching per-surface record in condor_status.json",
+            )
+            surface_records.append(base)
+            continue
+        base["condor_status"] = queue_status
+        if queue_status.get("cluster") != job.get("cluster"):
+            _surface_failure(
+                base,
+                "condor_status_identity_mismatch",
+                "Condor status cluster does not match the submitted surface cluster",
+            )
+            surface_records.append(base)
+            continue
+        if queue_status.get("terminal") is not True:
+            _surface_failure(
+                base,
+                "condor_pending",
+                f"Condor job is not terminal (state={queue_status.get('job_status')!r})",
+                status="pending",
+            )
+            surface_records.append(base)
+            continue
+        if queue_status.get("failure_kind") is not None:
+            _surface_failure(
+                base,
+                str(queue_status.get("failure_kind")),
+                str(
+                    queue_status.get("failure_reason") or "Condor job did not complete successfully"
+                ),
+            )
+            surface_records.append(base)
+            continue
+        if queue_status.get("job_status") != "completed" or queue_status.get("exit_code") != 0:
+            _surface_failure(
+                base,
+                "condor_not_successful",
+                "Condor status is not completed with exit code zero",
+            )
+            surface_records.append(base)
+            continue
+
+        try:
+            job_input = _read_json_object(job_directory / JOB_INPUT_NAME)
+            worker_record = _read_json_object(job_directory / "condor_run_record.json")
+        except ValueError as error:
+            kind = (
+                "worker_record_missing"
+                if not (job_directory / "condor_run_record.json").exists()
+                else "worker_record_invalid"
+            )
+            _surface_failure(base, kind, str(error))
+            surface_records.append(base)
+            continue
+        base["worker_host"] = worker_record.get("host")
+        base["closure_period"] = worker_record.get("closure_period")
+        worker_failure, worker_reason = _validate_worker_record(
+            worker_record, job_input, plan, executable_hash
+        )
+        if worker_failure is not None:
+            _surface_failure(base, worker_failure, str(worker_reason))
+            base["worker_record"] = worker_record
+            surface_records.append(base)
+            continue
+        try:
+            expected_boozer_s = float(surface["boozer_s"])
+            k_cof = _validate_hdf5_outputs(job_directory, expected_boozer_s)
+            r_eff_cm = float(surface["r_eff_cm"])
+            if not np.isfinite(r_eff_cm):
+                raise ValueError("requested r_eff_cm is not finite")
+        except (KeyError, TypeError, ValueError, OverflowError) as error:
+            _surface_failure(base, "invalid_hdf5_output", str(error))
+            surface_records.append(base)
+            continue
+        base["status"] = "succeeded"
+        base["k_cof"] = k_cof
+        successful_points.append((r_eff_cm, k_cof))
+        surface_records.append(base)
+
+    profile = (
+        np.asarray(sorted(successful_points, key=lambda point: point[0]), dtype=float)
+        if successful_points
+        else None
+    )
+    return Neo2CondorResults(profile=profile, surface_records=tuple(surface_records))

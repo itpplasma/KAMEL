@@ -47,6 +47,9 @@ def _read_job(path: Path) -> dict[str, object]:
     sha256 = payload.get("executable_sha256")
     if not isinstance(sha256, str) or not re.fullmatch(r"[0-9a-f]{64}", sha256):
         raise ValueError("job input executable_sha256 must be a lowercase SHA-256 digest")
+    identity = payload.get("job_identity")
+    if not isinstance(identity, str) or not re.fullmatch(r"[0-9a-f]{64}", identity):
+        raise ValueError("job input job_identity must be a lowercase SHA-256 digest")
     timeout = payload.get("surface_timeout_s")
     if isinstance(timeout, bool) or not isinstance(timeout, (int, float)):
         raise ValueError("job input surface_timeout_s must be a positive finite number")
@@ -128,6 +131,7 @@ def run_bounded(
     record: dict[str, object] = {
         "schema_version": 1,
         "mode": "neo2-surface",
+        "job_identity": job["job_identity"],
         "command": command,
         "executable": str(executable),
         "executable_sha256": expected_hash,

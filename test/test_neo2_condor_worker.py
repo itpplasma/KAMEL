@@ -26,6 +26,7 @@ def _write_job(
             {
                 "schema_version": 1,
                 "mode": "neo2-surface",
+                "job_identity": "a" * 64,
                 "executable": str(executable),
                 "executable_sha256": (
                     hashlib.sha256(executable.read_bytes()).hexdigest()
@@ -67,6 +68,7 @@ def test_worker_records_success_and_requested_openmp_threads(tmp_path: Path, mon
     assert (tmp_path / "omp.txt").read_text(encoding="utf-8") == "3"
     assert "period: 12" in capsys.readouterr().out
     assert record["mode"] == "neo2-surface"
+    assert record["job_identity"] == "a" * 64
     assert record["status"] == "succeeded"
     assert record["exit_code"] == 0
     assert record["host"]

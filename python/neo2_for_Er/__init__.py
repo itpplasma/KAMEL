@@ -3,6 +3,8 @@ from .neo2_for_Er import *
 from .condor_runner import (
     Neo2CondorError,
     Neo2CondorPlan,
+    Neo2CondorResults,
+    collect_neo2_condor_results,
     stage_neo2_condor_jobs,
     submit_neo2_condor_jobs,
     wait_neo2_condor_jobs,

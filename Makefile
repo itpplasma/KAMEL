@@ -39,7 +39,11 @@ test: ninja
 	ctest --test-dir build --stop-on-failure --output-on-failure --no-label-summary
 
 pytest:
-	$(PYTHON) -m pytest test/golden/bin test/test_periodic_workflow_config.py -q
+	PYTHONPATH=python $(PYTHON) -m pytest \
+		test/golden/bin test/test_periodic_workflow_config.py \
+		test/test_neo2_condor.py test/test_neo2_condor_worker.py \
+		test/test_neo2_condor_staging.py test/test_neo2_condor_queue.py \
+		test/test_neo2_condor_collection.py test/test_neo2_local_runner.py -q
 
 # Golden-record regression now lives in test/golden/ and runs in the dedicated
 # GitHub Actions job, NOT in `make test`/ctest. This target is for manual local

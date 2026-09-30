@@ -17,6 +17,22 @@ def test_package_import_and_cli_help() -> None:
     assert "Run and inspect KIM plasma simulations." in result.stdout
 
 
+def test_package_exports_condor_api() -> None:
+    import kim
+
+    for name in (
+        "KimCondorPlan",
+        "JparCurrentMetric",
+        "KimCondorJob",
+        "KimCondorScanResults",
+        "stage_condor_sweep",
+        "submit_condor_sweep",
+        "wait_condor_sweep",
+        "collect_condor_sweep",
+    ):
+        assert hasattr(kim, name)
+
+
 @pytest.mark.parametrize(
     ("filename", "run_type"),
     [

@@ -34,7 +34,7 @@ from kim.condor_client import (
 from kim.errors import ProfileError
 from kim.profiles import ProfileSet, _read_profile
 from kim.sweep import SweepSpec
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 MANIFEST_NAME = "condor_jobs.json"
 STATUS_NAME = "condor_status.json"
@@ -57,6 +57,7 @@ class _CondorModel(BaseModel):
         arbitrary_types_allowed=True,
         extra="forbid",
         frozen=True,
+        str_strip_whitespace=True,
     )
 
 
@@ -66,6 +67,13 @@ class JparCurrentMetric(_CondorModel):
     current_column: int = Field(ge=1)
     current_unit: str = Field(min_length=1)
     collision_model: str = Field(min_length=1)
+
+    @field_validator("collision_model")
+    @classmethod
+    def collision_model_is_filename_token(cls, value: str) -> str:
+        if value in {".", ".."} or not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_.-]*", value):
+            raise ValueError("collision_model must be a safe filename token")
+        return value
 
 
 class KimCondorPlan(_CondorModel):
@@ -135,6 +143,15 @@ class KimCondorJob:
     directory: Path
     profile_scale_factor: float
     scan_order_index: int
+
+
+@dataclass(frozen=True)
+class KimCondorScanResults:
+    """Ordered per-scale outcomes and an explicitly gated scalar resonance result."""
+
+    curve: tuple[dict[str, object], ...]
+    resonance: dict[str, object]
+    notes: tuple[str, ...]
 
 
 def stage_condor_sweep(
@@ -953,3 +970,336 @@ def wait_condor_sweep(
     status_document["finished_at_utc"] = _utc_now()
     _save_status(run_root, status_document)
     return tuple(dict(status) for status in latest)
+
+
+def _read_json_object(path: Path, *, description: str) -> dict[str, object]:
+    if path.is_symlink() or not path.is_file():
+        raise CondorError(f"{description} is missing or unsafe: {path}")
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, UnicodeError, json.JSONDecodeError) as error:
+        raise CondorError(f"could not read {description} {path}: {error}") from error
+    if not isinstance(payload, dict):
+        raise CondorError(f"{description} must contain a JSON object: {path}")
+    return payload
+
+
+def _finite_record_number(record: dict[str, object], name: str, *, context: str) -> float:
+    value = record.get(name)
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        raise CondorError(f"{context} has no valid {name}")
+    numeric = float(value)
+    if not math.isfinite(numeric):
+        raise CondorError(f"{context} {name} is non-finite")
+    return numeric
+
+
+def _check_worker_record(
+    job_directory: Path,
+    job: dict[str, object],
+    manifest_entry: dict[str, object],
+) -> dict[str, object]:
+    record = _read_json_object(
+        job_directory / "condor_run_record.json", description="KIM worker record"
+    )
+    for field_name in (
+        "job_identity",
+        "backend",
+        "scan_order_index",
+        "profile_scale_factor",
+        "executable_sha256",
+    ):
+        expected = job.get(field_name)
+        if record.get(field_name) != expected:
+            raise CondorError(
+                f"KIM worker record {field_name} does not match staged job {job.get('job')}"
+            )
+    if manifest_entry.get("job_identity") != job.get("job_identity"):
+        raise CondorError(f"KIM manifest identity does not match staged job {job.get('job')}")
+    if record.get("schema_version") != 1:
+        raise CondorError(f"unsupported KIM worker record schema for {job.get('job')}")
+    exit_code = record.get("exit_code")
+    if isinstance(exit_code, bool) or not isinstance(exit_code, int) or exit_code != 0:
+        raise CondorError(f"KIM worker for {job.get('job')} did not exit successfully")
+    if record.get("status") != "succeeded":
+        raise CondorError(f"KIM worker for {job.get('job')} has status {record.get('status')!r}")
+    host = record.get("host")
+    if not isinstance(host, str) or not host.strip():
+        raise CondorError(f"KIM worker record for {job.get('job')} has no execute host")
+    return record
+
+
+def _validate_collection_status(
+    job_name: str,
+    status: dict[str, object] | None,
+    staged_job: dict[str, object],
+    manifest_entry: dict[str, object],
+) -> dict[str, object]:
+    if status is None:
+        raise CondorError(f"KIM Condor status for job {job_name} is missing")
+    expected = {
+        "job_identity": staged_job["job_identity"],
+        "scan_order_index": staged_job["scan_order_index"],
+        "profile_scale_factor": staged_job["profile_scale_factor"],
+        "cluster": manifest_entry["cluster"],
+    }
+    for field_name, value in expected.items():
+        if status.get(field_name) != value:
+            raise CondorError(
+                f"KIM Condor status {field_name} does not match staged job {job_name}"
+            )
+    if status.get("terminal") is not True:
+        raise CondorError(f"KIM Condor job {job_name} is still pending or lacks terminal status")
+    failure = status.get("failure_kind")
+    if failure is not None:
+        raise CondorError(
+            f"KIM Condor job {job_name} has scheduler failure {failure}: "
+            f"{status.get('failure_reason')}"
+        )
+    if status.get("job_status") != "completed" or status.get("job_status_code") != 4:
+        raise CondorError(f"KIM Condor job {job_name} did not complete successfully")
+    if status.get("exit_code") != 0:
+        raise CondorError(
+            f"KIM Condor job {job_name} has scheduler exit code {status.get('exit_code')}"
+        )
+    return status
+
+
+def _find_jpar_profile(directory: Path, collision_model: str) -> Path:
+    pattern = f"jpar_{collision_model}.dat"
+    matches = sorted(path for path in directory.rglob(pattern) if path.is_file())
+    if not matches:
+        raise CondorError(f"no {pattern} output found under {directory}")
+    if len(matches) != 1:
+        raise CondorError(f"ambiguous {pattern} outputs under {directory}")
+    return matches[0]
+
+
+def _integrate_jpar_profile(path: Path, metric: JparCurrentMetric) -> float:
+    try:
+        rows = np.loadtxt(path, ndmin=2)
+    except (OSError, ValueError) as error:
+        raise CondorError(f"could not read declared jpar profile {path}: {error}") from error
+    if rows.ndim != 2 or rows.shape[0] < 2 or rows.shape[1] <= metric.current_column:
+        raise CondorError(
+            f"jpar profile {path} must have at least two rows and column "
+            f"{metric.current_column}"
+        )
+    if not np.all(np.isfinite(rows)):
+        raise CondorError(f"jpar profile contains non-finite values: {path}")
+    radius = rows[:, 0]
+    if np.any(np.diff(radius) <= 0.0):
+        raise CondorError(f"jpar radius grid must be strictly increasing: {path}")
+    column = rows[:, metric.current_column]
+    integral = float(np.sum(0.5 * (column[:-1] + column[1:]) * np.diff(radius)))
+    if not math.isfinite(integral):
+        raise CondorError(f"integrated jpar profile is non-finite: {path}")
+    return integral
+
+
+def _resonance_from_curve(curve: list[dict[str, object]]) -> dict[str, object]:
+    factors = [float(point["profile_scale_factor"]) for point in curve]
+    values = [float(point["integrated_parallel_current"]) for point in curve]
+    if len(curve) < 3:
+        return {
+            "status": "insufficient_points",
+            "profile_scale_factor": None,
+            "current_value": None,
+            "current_unit": curve[0].get("current_unit") if curve else None,
+            "candidate_profile_scale_factors": [],
+        }
+    if len(set(factors)) != len(factors):
+        return {
+            "status": "invalid_scan",
+            "profile_scale_factor": None,
+            "current_value": None,
+            "current_unit": curve[0].get("current_unit"),
+            "candidate_profile_scale_factors": [],
+        }
+    ordered = sorted(zip(factors, values), key=lambda item: item[0])
+    ordered_factors = [item[0] for item in ordered]
+    ordered_values = [item[1] for item in ordered]
+    minima = [
+        index
+        for index in range(1, len(ordered_values) - 1)
+        if ordered_values[index] < ordered_values[index - 1]
+        and ordered_values[index] < ordered_values[index + 1]
+    ]
+    unit = curve[0].get("current_unit")
+    if not minima:
+        return {
+            "status": "no_interior_minimum",
+            "profile_scale_factor": None,
+            "current_value": None,
+            "current_unit": unit,
+            "candidate_profile_scale_factors": [],
+        }
+    if len(minima) > 1:
+        return {
+            "status": "multiple_minima",
+            "profile_scale_factor": None,
+            "current_value": None,
+            "current_unit": unit,
+            "candidate_profile_scale_factors": [ordered_factors[index] for index in minima],
+        }
+    index = minima[0]
+    return {
+        "status": "interior_minimum",
+        "profile_scale_factor": ordered_factors[index],
+        "current_value": ordered_values[index],
+        "current_unit": unit,
+        "candidate_profile_scale_factors": [ordered_factors[index]],
+    }
+
+
+def collect_condor_sweep(
+    root: str | Path,
+    *,
+    plan: KimCondorPlan,
+) -> KimCondorScanResults:
+    """Validate completed job records and produce only explicitly defined scalars."""
+
+    run_root = Path(root).expanduser().absolute()
+    staged = _read_staged_jobs(run_root)
+    manifest = _load_manifest(run_root, staged)
+    status_path = run_root / STATUS_NAME
+    status_by_job: dict[str, dict[str, object]] = {}
+    if status_path.exists() or status_path.is_symlink():
+        status_document = _read_json_object(status_path, description="KIM Condor status")
+        if status_document.get("schema_version") != 1:
+            raise CondorError(f"unsupported KIM Condor status schema: {status_path}")
+        raw_statuses = status_document.get("statuses")
+        if not isinstance(raw_statuses, list):
+            raise CondorError(f"KIM Condor status has no status list: {status_path}")
+        for status in raw_statuses:
+            if not isinstance(status, dict) or not isinstance(status.get("job"), str):
+                raise CondorError(f"KIM Condor status contains an invalid entry: {status_path}")
+            if status["job"] in status_by_job:
+                raise CondorError(f"KIM Condor status has duplicate job {status['job']}")
+            status_by_job[status["job"]] = status
+        expected_jobs = {str(job["job"]) for job in staged}
+        if status_by_job.keys() != expected_jobs:
+            missing = sorted(expected_jobs - status_by_job.keys())
+            unexpected = sorted(status_by_job.keys() - expected_jobs)
+            raise CondorError(
+                f"KIM Condor status job list does not match staged scan; "
+                f"missing={missing}, unexpected={unexpected}"
+            )
+    else:
+        raise CondorError("KIM Condor status is missing; wait for the scan before collecting")
+
+    curve: list[dict[str, object]] = []
+    notes: list[str] = []
+    for staged_job, entry in zip(staged, manifest["jobs"]):
+        job_name = str(staged_job["job"])
+        if staged_job.get("backend") != plan.backend:
+            raise CondorError(f"plan backend does not match staged KIM job {job_name}")
+        directory = run_root / str(entry["directory"])
+        if entry.get("cluster") is None:
+            raise CondorError(f"KIM Condor job {job_name} has no acknowledged cluster")
+        status = _validate_collection_status(
+            job_name, status_by_job.get(job_name), staged_job, entry
+        )
+        worker = _check_worker_record(directory, staged_job, entry)
+        point: dict[str, object] = {
+            "job": job_name,
+            "job_identity": staged_job["job_identity"],
+            "backend": plan.backend,
+            "scan_order_index": staged_job["scan_order_index"],
+            "profile_scale_factor": float(staged_job["profile_scale_factor"]),
+            "cluster": entry["cluster"],
+            "worker_status": worker["status"],
+            "exit_code": worker["exit_code"],
+            "worker_host": worker["host"],
+            "wall_clock_s": worker.get("wall_clock_s"),
+            "scheduler_status": status.get("job_status"),
+            "remote_host": status.get("remote_host"),
+            "integrated_parallel_current_real": None,
+            "integrated_parallel_current_imag": None,
+            "integrated_parallel_current": None,
+            "current_unit": None,
+            "jpar_profile": None,
+        }
+        if plan.backend == "kamel_kim_python":
+            run_type = staged_job["base_config"]["run"]["run_type"]
+            if run_type == "electrostatic_periodic":
+                real = _finite_record_number(
+                    worker, "integrated_parallel_current_real", context=job_name
+                )
+                imag = _finite_record_number(
+                    worker, "integrated_parallel_current_imag", context=job_name
+                )
+                point["integrated_parallel_current_real"] = real
+                point["integrated_parallel_current_imag"] = imag
+                component = plan.api_current_component
+                if component is not None:
+                    if (
+                        worker.get("api_current_component") != component
+                        or worker.get("api_current_unit") != plan.api_current_unit
+                    ):
+                        raise CondorError(f"API current metric provenance mismatch for {job_name}")
+                    if component == "real":
+                        scalar = real
+                    elif component == "imag":
+                        scalar = imag
+                    else:
+                        scalar = math.hypot(real, imag)
+                    recorded_scalar = _finite_record_number(
+                        worker, "api_current_value", context=job_name
+                    )
+                    if recorded_scalar != scalar:
+                        raise CondorError(
+                            f"API scalar current does not match raw complex value for {job_name}"
+                        )
+                    point["integrated_parallel_current"] = scalar
+                    point["current_unit"] = plan.api_current_unit
+                elif worker.get("api_current_value") is not None:
+                    raise CondorError(
+                        f"API worker supplied an undeclared scalar current for {job_name}"
+                    )
+            elif plan.api_current_component is not None:
+                raise CondorError(
+                    "API integrated-current metrics require an electrostatic-periodic scan"
+                )
+        elif plan.jpar_current_metric is not None:
+            expected_metric = plan.jpar_current_metric.model_dump(mode="json")
+            if staged_job.get("jpar_current_metric") != expected_metric:
+                raise CondorError(f"declared jpar metric does not match staged job {job_name}")
+            profile = _find_jpar_profile(directory, plan.jpar_current_metric.collision_model)
+            scalar = _integrate_jpar_profile(profile, plan.jpar_current_metric)
+            point["integrated_parallel_current"] = scalar
+            point["current_unit"] = plan.jpar_current_metric.current_unit
+            point["jpar_profile"] = str(profile)
+        curve.append(point)
+
+    if plan.backend == "kamel_kim_python" and plan.api_current_component is None:
+        notes.append(
+            "raw API integrated-current real and imaginary values are preserved; "
+            "no scalar shielding-current metric was selected"
+        )
+    elif plan.backend == "kim_x_namelist" and plan.jpar_current_metric is None:
+        notes.append(
+            "no jpar current-column metric was declared; no scalar shielding-current "
+            "curve or resonance minimum is selected"
+        )
+
+    if any(point["integrated_parallel_current"] is None for point in curve):
+        resonance: dict[str, object] = {
+            "status": "insufficient_scalars",
+            "profile_scale_factor": None,
+            "current_value": None,
+            "current_unit": None,
+            "candidate_profile_scale_factors": [],
+        }
+    else:
+        scalar_values = [float(point["integrated_parallel_current"]) for point in curve]
+        if not all(math.isfinite(value) for value in scalar_values):
+            raise CondorError("KIM shielding-current curve contains non-finite values")
+        resonance = _resonance_from_curve(curve)
+    notes.append("curve points retain requested scan order; minimum analysis sorts by scale factor")
+    if plan.jpar_current_metric is not None:
+        notes.append(
+            "namelist current values are trapezoid-integrated over the declared profile's "
+            "radius grid; units and column meaning are caller-declared"
+        )
+    return KimCondorScanResults(curve=tuple(curve), resonance=resonance, notes=tuple(notes))

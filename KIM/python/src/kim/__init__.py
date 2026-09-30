@@ -25,6 +25,16 @@ from kim.config import (
     SimulationConfig,
     ThetaIntegration,
 )
+from kim.condor import (
+    JparCurrentMetric,
+    KimCondorJob,
+    KimCondorPlan,
+    KimCondorScanResults,
+    collect_condor_sweep,
+    stage_condor_sweep,
+    submit_condor_sweep,
+    wait_condor_sweep,
+)
 from kim.errors import (
     ConfigurationError,
     ExecutableError,
@@ -81,8 +91,12 @@ __all__ = [
     "IonCollisionModel",
     "IonSpecies",
     "InputArtifact",
+    "JparCurrentMetric",
     "KamelGitMetadata",
     "KimError",
+    "KimCondorJob",
+    "KimCondorPlan",
+    "KimCondorScanResults",
     "LinearRange",
     "PeriodicConfig",
     "PeriodicResult",
@@ -121,7 +135,11 @@ __all__ = [
     "ThetaIntegration",
     "__version__",
     "discover_kamel_git_metadata",
+    "collect_condor_sweep",
     "executable_sha256",
     "resolve_executable",
     "run_sweep",
+    "stage_condor_sweep",
+    "submit_condor_sweep",
+    "wait_condor_sweep",
 ]

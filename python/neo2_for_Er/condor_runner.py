@@ -95,6 +95,11 @@ class Neo2CondorPlan:
             raise Neo2CondorError("condor must be a CondorToolConfig")
         if self.should_transfer_files not in {"NEVER", "IF_NEEDED", "ALWAYS"}:
             raise Neo2CondorError("should_transfer_files must be NEVER, IF_NEEDED, or ALWAYS")
+        if self.should_transfer_files != "NEVER":
+            raise Neo2CondorError(
+                "NEO-2 Condor currently requires should_transfer_files='NEVER'; "
+                "the worker and solver runtime are not staged as a transfer bundle"
+            )
         prefixes = tuple(Path(prefix) for prefix in self.shared_filesystem_prefixes)
         if self.should_transfer_files == "NEVER" and not prefixes:
             raise Neo2CondorError(

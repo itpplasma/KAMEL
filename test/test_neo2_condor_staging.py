@@ -55,6 +55,12 @@ def test_plan_rejects_oversubscribed_openmp(tmp_path: Path):
         )
 
 
+@pytest.mark.parametrize("transfer_policy", ["IF_NEEDED", "ALWAYS"])
+def test_plan_rejects_unstaged_transfer_policy(tmp_path: Path, transfer_policy: str):
+    with pytest.raises(Neo2CondorError, match="requires should_transfer_files='NEVER'"):
+        _plan(tmp_path, should_transfer_files=transfer_policy)
+
+
 def test_stage_writes_payload_and_submit_description(tmp_path: Path):
     root = tmp_path / "work"
     root.mkdir()

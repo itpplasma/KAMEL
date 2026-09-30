@@ -6,6 +6,7 @@ import subprocess
 import sys
 from pathlib import Path
 
+import f90nml
 import numpy as np
 import pytest
 from kim import BuiltinPlasma, PlasmaIsotope, ProfileScale, SimulationConfig, SweepSpec
@@ -50,6 +51,13 @@ def _stage(
 
         reviewed = root.parent / "reviewed.nml"
         reviewed.write_text(dumps_namelist(config), encoding="utf-8")
+        namelist = f90nml.read(reviewed)
+        namelist["kim_config"]["type_of_run"] = "electrostatic"
+        namelist["kim_config"]["collision_model"] = (
+            metric.collision_model if metric is not None else "FokkerPlanck"
+        )
+        namelist["kim_io"]["hdf5_output"] = False
+        f90nml.write(namelist, reviewed, force=True)
     plan = KimCondorPlan(
         backend=backend,
         executable=executable,
@@ -183,13 +191,15 @@ def test_collection_integrates_declared_namelist_current_column(
         metric=JparCurrentMetric(
             current_column=1,
             current_unit="statA/cm^2",
-            collision_model="reviewed",
+            collision_model="FokkerPlanck",
         ),
     )
     _write_records(jobs)
     for job, values in zip(jobs, ([3.0, 3.0, 3.0], [1.0, 1.0, 1.0], [2.0, 2.0, 2.0])):
+        fields = job.directory / "fields"
+        fields.mkdir()
         np.savetxt(
-            job.directory / "jpar_reviewed.dat",
+            fields / "jpar.dat",
             np.column_stack(([1.0, 2.0, 3.0], values)),
         )
 
@@ -206,7 +216,7 @@ def test_collection_rejects_pending_missing_or_invalid_output(
 ) -> None:
     root = tmp_path / invalid_case
     metric = (
-        JparCurrentMetric(current_column=1, current_unit="A/cm", collision_model="reviewed")
+        JparCurrentMetric(current_column=1, current_unit="A/cm", collision_model="FokkerPlanck")
         if invalid_case == "invalid_output"
         else None
     )
@@ -244,8 +254,10 @@ def test_collection_rejects_pending_missing_or_invalid_output(
     if invalid_case == "missing_status":
         (root / condor.STATUS_NAME).unlink()
     if invalid_case == "invalid_output":
+        fields = jobs[0].directory / "fields"
+        fields.mkdir()
         np.savetxt(
-            jobs[0].directory / "jpar_reviewed.dat",
+            fields / "jpar.dat",
             np.column_stack(([1.0, 1.0], [2.0, 3.0])),
         )
 

@@ -192,6 +192,9 @@ def stage_condor_sweep(
     if plan.backend == "kim_x_namelist":
         reviewed_groups = _read_reviewed_namelist(plan)
         _validate_namelist_overrides(reviewed_groups, plan.namelist_overrides)
+        if plan.jpar_current_metric is not None:
+            effective_groups = _apply_namelist_overrides(reviewed_groups, plan.namelist_overrides)
+            _validate_namelist_metric_output(effective_groups, plan.jpar_current_metric)
 
     factors = tuple(float(factor) for factor in spec.variation.values)
     if not factors or any(not math.isfinite(factor) for factor in factors):
@@ -270,6 +273,37 @@ def _validate_namelist_overrides(
             raise CondorError(
                 f"namelist override {dotted_key!r} is not present in reviewed base namelist"
             )
+
+
+def _apply_namelist_overrides(
+    groups: dict[str, dict[str, Any]], overrides: dict[str, Any]
+) -> dict[str, dict[str, Any]]:
+    effective = {name: dict(values) for name, values in groups.items()}
+    for dotted_key, value in overrides.items():
+        group, key = (part.lower() for part in dotted_key.split("."))
+        effective[group][key] = value
+    return effective
+
+
+def _validate_namelist_metric_output(
+    groups: dict[str, dict[str, Any]], metric: JparCurrentMetric
+) -> None:
+    config = groups.get("kim_config", {})
+    run_type = config.get("type_of_run")
+    if run_type not in {"electrostatic", "electromagnetic", "flr2", "flr2_benchmark"}:
+        raise CondorError(
+            "namelist current-column metrics require a KIM run type that writes "
+            "text fields/jpar.dat output"
+        )
+    if groups.get("kim_io", {}).get("hdf5_output") is not False:
+        raise CondorError(
+            "namelist current-column metrics require hdf5_output = .false. "
+            "to produce radius-column text output"
+        )
+    if config.get("collision_model") != metric.collision_model:
+        raise CondorError(
+            "jpar_current_metric.collision_model must match the reviewed namelist collision_model"
+        )
 
 
 def _stage_job(
@@ -360,10 +394,7 @@ def _write_job_namelist(
     plan: KimCondorPlan,
     reviewed_groups: dict[str, dict[str, Any]],
 ) -> None:
-    groups = {name: dict(values) for name, values in reviewed_groups.items()}
-    for dotted_key, value in plan.namelist_overrides.items():
-        group, key = (part.lower() for part in dotted_key.split("."))
-        groups[group][key] = value
+    groups = _apply_namelist_overrides(reviewed_groups, plan.namelist_overrides)
     profile_path = profile_directory.as_posix().rstrip("/") + "/"
     groups["kim_io"]["profile_location"] = profile_path
     groups["kim_io"]["output_path"] = job.directory.as_posix()
@@ -1069,14 +1100,11 @@ def _validate_collection_status(
     return status
 
 
-def _find_jpar_profile(directory: Path, collision_model: str) -> Path:
-    pattern = f"jpar_{collision_model}.dat"
-    matches = sorted(path for path in directory.rglob(pattern) if path.is_file())
-    if not matches:
-        raise CondorError(f"no {pattern} output found under {directory}")
-    if len(matches) != 1:
-        raise CondorError(f"ambiguous {pattern} outputs under {directory}")
-    return matches[0]
+def _find_jpar_profile(directory: Path) -> Path:
+    profile = directory / "fields" / "jpar.dat"
+    if profile.is_symlink() or not profile.is_file():
+        raise CondorError(f"KIM text current profile is missing or unsafe: {profile}")
+    return profile
 
 
 def _integrate_jpar_profile(path: Path, metric: JparCurrentMetric) -> float:
@@ -1269,7 +1297,7 @@ def collect_condor_sweep(
             expected_metric = plan.jpar_current_metric.model_dump(mode="json")
             if staged_job.get("jpar_current_metric") != expected_metric:
                 raise CondorError(f"declared jpar metric does not match staged job {job_name}")
-            profile = _find_jpar_profile(directory, plan.jpar_current_metric.collision_model)
+            profile = _find_jpar_profile(directory)
             scalar = _integrate_jpar_profile(profile, plan.jpar_current_metric)
             point["integrated_parallel_current"] = scalar
             point["current_unit"] = plan.jpar_current_metric.current_unit

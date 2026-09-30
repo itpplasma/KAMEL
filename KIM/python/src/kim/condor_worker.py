@@ -150,6 +150,12 @@ def _run_api(job: dict[str, Any], directory: Path) -> dict[str, object]:
     child = children[0]
     status = getattr(child, "status", None)
     status_name = getattr(status, "value", status)
+    if status_name == "timed_out":
+        return {
+            "status": "timeout",
+            "exit_code": EXIT_TIMEOUT,
+            "failure_reason": f"KIM API child run exceeded {job['job_timeout_s']} s",
+        }
     if status_name != "succeeded":
         raise RuntimeError(f"KIM API child run ended with status {status_name!r}")
     record: dict[str, object] = {

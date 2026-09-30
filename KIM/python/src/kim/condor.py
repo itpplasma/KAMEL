@@ -85,7 +85,7 @@ class KimCondorPlan(_CondorModel):
     kim_source_path: Path | None = None
     condor: CondorToolConfig = Field(default_factory=CondorToolConfig)
     shared_filesystem_prefixes: tuple[Path, ...] = ()
-    should_transfer_files: Literal["NEVER", "IF_NEEDED", "ALWAYS"] = "NEVER"
+    should_transfer_files: Literal["NEVER"] = "NEVER"
     request_cpus: int = Field(default=1, ge=1)
     omp_threads_per_process: int = Field(default=1, ge=1)
     request_memory_mb: int = Field(default=8192, ge=1)
@@ -192,8 +192,9 @@ def stage_condor_sweep(
     if plan.backend == "kim_x_namelist":
         reviewed_groups = _read_reviewed_namelist(plan)
         _validate_namelist_overrides(reviewed_groups, plan.namelist_overrides)
+        effective_groups = _apply_namelist_overrides(reviewed_groups, plan.namelist_overrides)
+        _validate_namelist_profile_contract(effective_groups, spec.base.profiles)
         if plan.jpar_current_metric is not None:
-            effective_groups = _apply_namelist_overrides(reviewed_groups, plan.namelist_overrides)
             _validate_namelist_metric_output(effective_groups, plan.jpar_current_metric)
 
     factors = tuple(float(factor) for factor in spec.variation.values)
@@ -283,6 +284,42 @@ def _apply_namelist_overrides(
         group, key = (part.lower() for part in dotted_key.split("."))
         effective[group][key] = value
     return effective
+
+
+def _validate_namelist_profile_contract(
+    groups: dict[str, dict[str, Any]], profiles: ProfileConfig
+) -> None:
+    namelist_profiles = groups.get("kim_profiles", {})
+    coordinate_type = namelist_profiles.get("coord_type", "auto")
+    if coordinate_type != profiles.coordinate_type:
+        raise CondorError(
+            "reviewed namelist profile contract coordinate_type "
+            f"{coordinate_type!r} does not match staged profiles {profiles.coordinate_type!r}"
+        )
+
+    expected_files = {
+        "n_file": profiles.density_file,
+        "te_file": profiles.electron_temperature_file,
+        "ti_file": profiles.ion_temperature_file,
+        "vz_file": profiles.toroidal_velocity_file,
+        "er_file": profiles.radial_electric_field_file,
+        "q_file": profiles.safety_factor_file,
+    }
+    default_files = {
+        "n_file": "n.dat",
+        "te_file": "Te.dat",
+        "ti_file": "Ti.dat",
+        "vz_file": "Vz.dat",
+        "er_file": "Er.dat",
+        "q_file": "q.dat",
+    }
+    for name, expected in expected_files.items():
+        configured = namelist_profiles.get(name, default_files[name])
+        if configured != expected:
+            raise CondorError(
+                f"reviewed namelist profile contract {name}={configured!r} does not match "
+                f"staged profile filename {expected!r}"
+            )
 
 
 def _validate_namelist_metric_output(
@@ -397,7 +434,7 @@ def _write_job_namelist(
     groups = _apply_namelist_overrides(reviewed_groups, plan.namelist_overrides)
     profile_path = profile_directory.as_posix().rstrip("/") + "/"
     groups["kim_io"]["profile_location"] = profile_path
-    groups["kim_io"]["output_path"] = job.directory.as_posix()
+    groups["kim_io"]["output_path"] = job.directory.as_posix().rstrip("/") + "/"
     groups["kim_profiles"]["input_profile_dir"] = profile_path
     destination = job.directory / "KIM_config.nml"
     try:
@@ -576,6 +613,18 @@ def _load_manifest(root: Path, jobs: list[dict[str, object]]) -> dict[str, objec
     if path.is_symlink():
         raise CondorError(f"refusing to read KIM Condor manifest symlink: {path}")
     if not path.exists():
+        evidence = [
+            root / str(job["job"]) / artifact
+            for job in jobs
+            for artifact in (WORKER_NAME, "condor.submit", "condor_run_record.json")
+            if (root / str(job["job"]) / artifact).exists()
+            or (root / str(job["job"]) / artifact).is_symlink()
+        ]
+        if evidence:
+            raise CondorError(
+                "KIM Condor manifest is missing but submission artifacts exist; "
+                "refusing to risk duplicate jobs"
+            )
         return _new_manifest(root, jobs)
     try:
         manifest = json.loads(path.read_text(encoding="utf-8"))

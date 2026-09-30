@@ -114,7 +114,9 @@ Choose a backend explicitly:
   do not rely on the submitter's `PYTHONPATH` or other environment being copied to workers.
 - **`kim_x_namelist`** runs the staged `KIM.x` with a reviewed base namelist. It copies the source
   profiles per point and applies the scale only to the staged `Er.dat`; it does not rewrite the
-  reviewed physics settings. When selecting a text current-column metric, the reviewed namelist must
+  reviewed physics settings. The reviewed namelist's profile coordinate type must be `r_eff`, and
+  its profile filenames must match those in the `SweepSpec`; incompatible profile contracts are
+  rejected before staging. When selecting a text current-column metric, the reviewed namelist must
   use `electrostatic`, `electromagnetic`, `flr2`, or `flr2_benchmark`, set
   `kim_io.hdf5_output = .false.`, and have a `kim_config.collision_model` matching the metric. KIM
   then writes `fields/jpar.dat`; column 0 is
@@ -148,10 +150,10 @@ Choose a backend explicitly:
   `namelist_plan` to the same stage-submit-wait-collect calls shown above.
 
 The staged run tree, solver executable, and worker Python runtime must be visible to execute nodes at
-the same paths. The adapter currently relies on those shared paths; setting `should_transfer_files`
-does not package the staged profiles, job input, or outputs. With `NEVER`,
-`shared_filesystem_prefixes` is checked before staging. Avoid environment secrets: workers run with
-`getenv` disabled and the manifests do not copy the driver's environment.
+the same paths. The current adapter accepts only `should_transfer_files="NEVER"`; it does not package
+the staged profiles, job input, or outputs for Condor file transfer. `shared_filesystem_prefixes` is
+checked before staging. Avoid environment secrets: workers run with `getenv` disabled and the
+manifests do not copy the driver's environment.
 
 Current interpretation is deliberately opt-in. API periodic results always retain separate complex
 real and imaginary current values. To request a scalar curve, declare `api_current_component` as

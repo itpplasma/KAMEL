@@ -147,29 +147,46 @@ def test_namelist_worker_runs_staged_config(tmp_path: Path, monkeypatch) -> None
 
 
 @pytest.mark.parametrize(
-    ("source", "timeout_s", "expected_status", "expected_exit"),
+    ("backend", "source", "timeout_s", "expected_status", "expected_exit"),
     [
-        ("raise SystemExit(9)\n", 2.0, "solver_error", 9),
-        ("import time\ntime.sleep(5)\n", 0.05, "timeout", worker.EXIT_TIMEOUT),
+        ("kim_x_namelist", "raise SystemExit(9)\n", 2.0, "solver_error", 9),
+        (
+            "kim_x_namelist",
+            "import time\ntime.sleep(5)\n",
+            0.05,
+            "timeout",
+            worker.EXIT_TIMEOUT,
+        ),
+        ("kamel_kim_python", None, 0.05, "timeout", worker.EXIT_TIMEOUT),
     ],
 )
 def test_worker_records_nonzero_exit_and_timeout(
     tmp_path: Path,
     monkeypatch,
-    source: str,
+    backend: str,
+    source: str | None,
     timeout_s: float,
     expected_status: str,
     expected_exit: int,
 ) -> None:
-    executable = _executable(tmp_path / "KIM.x", source)
+    executable = _executable(tmp_path / "KIM.x", source or "pass\n")
     _write_job(
         tmp_path,
-        backend="kim_x_namelist",
+        backend=backend,
         executable=executable,
+        config=_config(tmp_path / "profiles") if backend == "kamel_kim_python" else None,
         timeout_s=timeout_s,
     )
     monkeypatch.chdir(tmp_path)
-    monkeypatch.setattr(worker, "_PROCESS_GROUP_TERM_GRACE_S", 0.05)
+    if backend == "kamel_kim_python":
+        monkeypatch.setattr(
+            "kim.sweep.run_sweep",
+            lambda *_args, **_kwargs: SimpleNamespace(
+                children=(SimpleNamespace(status="timed_out"),)
+            ),
+        )
+    else:
+        monkeypatch.setattr(worker, "_PROCESS_GROUP_TERM_GRACE_S", 0.05)
 
     assert worker.main([]) == expected_exit
 

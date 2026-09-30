@@ -147,6 +147,21 @@ def test_submit_fails_closed_after_ambiguous_ack(tmp_path: Path, monkeypatch) ->
     assert len(calls) == 1
 
 
+def test_submit_fails_closed_when_manifest_missing_after_submit(
+    tmp_path: Path, monkeypatch
+) -> None:
+    root = tmp_path / "run"
+    plan = _staged(root, factors=(1.0,))
+    submit_calls = _submit_fake(monkeypatch, [437, 438])
+    condor.submit_condor_sweep(root, plan=plan, adopt_existing=False)
+    (root / condor.MANIFEST_NAME).unlink()
+
+    with pytest.raises(CondorError, match="manifest.*missing"):
+        condor.submit_condor_sweep(root, plan=plan)
+
+    assert len(submit_calls) == 1
+
+
 def test_dry_run_does_not_submit(tmp_path: Path, monkeypatch) -> None:
     root = tmp_path / "run"
     plan = _staged(root, factors=(1.0,))

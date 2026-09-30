@@ -84,6 +84,16 @@ def test_plan_requires_explicit_backend_and_valid_resources(tmp_path: Path) -> N
             request_cpus=0,
         )
 
+    with pytest.raises(ValidationError, match="should_transfer_files"):
+        KimCondorPlan(
+            backend="kamel_kim_python",
+            executable=executable,
+            python_executable=Path(sys.executable),
+            condor=CondorToolConfig(tmp_path / "condor-bin"),
+            shared_filesystem_prefixes=(tmp_path,),
+            should_transfer_files="ALWAYS",
+        )
+
 
 def test_stage_creates_one_job_in_scan_order(tmp_path: Path) -> None:
     source = tmp_path / "source-profiles"
@@ -169,6 +179,7 @@ def test_namelist_backend_scales_only_er_copy(tmp_path: Path) -> None:
                 assert (staged / name).read_bytes() == original
         staged_namelist = f90nml.read(job.directory / "KIM_config.nml").todict()
         assert staged_namelist["kim_profiles"]["input_profile_dir"] == str(staged) + "/"
+        assert staged_namelist["kim_io"]["output_path"] == str(job.directory) + "/"
         payload = __import__("json").loads(
             (job.directory / "condor_job.json").read_text(encoding="utf-8")
         )
@@ -177,6 +188,34 @@ def test_namelist_backend_scales_only_er_copy(tmp_path: Path) -> None:
         assert "KIM_config.nml" in payload["input_sha256"]
     assert _profile_bytes(source) == source_bytes
     assert reviewed.read_bytes() == reviewed_bytes
+
+
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [("er_file", "unexpected-Er.dat"), ("coord_type", "sqrt_psiN")],
+)
+def test_namelist_profile_contract_must_match_staged_sources(
+    tmp_path: Path, field: str, value: str
+) -> None:
+    source = tmp_path / "source-profiles"
+    config = _base_config(source)
+    reviewed = tmp_path / "reviewed.nml"
+    reviewed.write_text(dumps_namelist(config), encoding="utf-8")
+    groups = f90nml.read(reviewed)
+    groups["kim_profiles"][field] = value
+    f90nml.write(groups, reviewed, force=True)
+    plan = _plan(
+        backend="kim_x_namelist",
+        executable=_executable(tmp_path / "KIM.x"),
+        shared_prefix=tmp_path,
+        base_namelist=reviewed,
+    )
+    root = tmp_path / "run"
+
+    with pytest.raises(CondorError, match="profile contract"):
+        stage_condor_sweep(root, spec=_spec(config, (1.0,)), plan=plan)
+
+    assert not root.exists()
 
 
 def test_namelist_overrides_must_exist_in_reviewed_base(tmp_path: Path) -> None:

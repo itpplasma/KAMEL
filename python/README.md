@@ -73,10 +73,13 @@ polling, and machine exclusions are explicit `Neo2CondorPlan` inputs.
 
 Staging refuses existing Condor payload files. Use a fresh staged run directory
 for a new submission. `condor_jobs.json` records cluster IDs and per-surface
-identity; restart submission adopts only scheduler ads whose identity matches.
-Ambiguous acknowledgements and mismatches fail closed instead of risking
-duplicate work. `wait_neo2_condor_jobs` writes `condor_status.json`, distinguishes
-Condor failures from worker failures, and removes jobs still pending at the
-driver deadline. Collection validates worker provenance, closure periods,
+identity. A per-run advisory lock serializes concurrent submit callers. Restart
+submission adopts only scheduler ads whose identity matches; stale ambiguous
+submissions are looked up by identity and adopted only when there is exactly one
+matching process. Unresolved acknowledgements and mismatches fail closed instead
+of risking duplicate work. `wait_neo2_condor_jobs` writes `condor_status.json`,
+retries scheduler-query errors until the driver deadline, distinguishes Condor
+failures from worker failures, and removes jobs still pending at the deadline.
+Collection validates worker provenance, closure periods,
 `neo2_config.h5`, and finite `fulltransp.h5` `k_cof` values; individual failures
 remain in `surface_records` without discarding successful profile points.

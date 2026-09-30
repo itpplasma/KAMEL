@@ -1,6 +1,11 @@
 import json
+import os
+import stat
 import subprocess
 import sys
+import threading
+import time
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 import numpy as np
@@ -110,6 +115,69 @@ def test_submit_records_clusters_and_adopts_live_jobs(tmp_path: Path, monkeypatc
     assert restarted["jobs"][1]["cluster"] == 102
 
 
+def test_concurrent_submitters_do_not_duplicate_condor_jobs(tmp_path: Path, monkeypatch):
+    root = tmp_path / "run"
+    _jobs, plan = _staged(root)
+    original_load = runner._load_manifest
+
+    def slow_load(*args, **kwargs):
+        manifest = original_load(*args, **kwargs)
+        time.sleep(0.1)
+        return manifest
+
+    monkeypatch.setattr(runner, "_load_manifest", slow_load)
+    submitted = []
+    submitted_lock = threading.Lock()
+
+    def submit(arguments, **_kwargs):
+        with submitted_lock:
+            submitted.append(arguments[0])
+            cluster = 451 + len(submitted)
+        return subprocess.CompletedProcess(
+            arguments, 0, f"1 job submitted to cluster {cluster}\n", ""
+        )
+
+    monkeypatch.setattr(runner, "run_condor", submit)
+    start = threading.Barrier(3)
+
+    def submitter():
+        start.wait(timeout=5)
+        return runner.submit_neo2_condor_jobs(root, plan=plan, adopt_existing=False)
+
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        futures = [pool.submit(submitter) for _ in range(2)]
+        start.wait(timeout=5)
+        results = [future.result(timeout=10) for future in futures]
+
+    assert len(submitted) == 1
+    assert all(result["jobs"][0]["cluster"] is not None for result in results)
+
+
+def test_manifest_is_synced_to_disk_before_condor_submit(tmp_path: Path, monkeypatch):
+    root = tmp_path / "run"
+    _jobs, plan = _staged(root)
+    synced_kinds = []
+    original_fsync = os.fsync
+
+    def track_fsync(descriptor):
+        synced_kinds.append(stat.S_ISDIR(os.fstat(descriptor).st_mode))
+        return original_fsync(descriptor)
+
+    monkeypatch.setattr(runner.os, "fsync", track_fsync)
+
+    def submit(arguments, **_kwargs):
+        assert False in synced_kinds
+        assert True in synced_kinds
+        return subprocess.CompletedProcess(arguments, 0, "1 job submitted to cluster 99\n", "")
+
+    monkeypatch.setattr(runner, "run_condor", submit)
+
+    runner.submit_neo2_condor_jobs(root, plan=plan, adopt_existing=False)
+
+    assert False in synced_kinds
+    assert True in synced_kinds
+
+
 def test_submit_fails_closed_on_ambiguous_acknowledgement(tmp_path: Path, monkeypatch):
     root = tmp_path / "run"
     _jobs, plan = _staged(root)
@@ -129,6 +197,96 @@ def test_submit_fails_closed_on_ambiguous_acknowledgement(tmp_path: Path, monkey
     with pytest.raises(runner.Neo2CondorError, match="ambiguous"):
         runner.submit_neo2_condor_jobs(root, plan=plan, adopt_existing=False)
     assert calls == ["condor_submit"]
+
+
+def test_submit_reconciles_stale_submitting_job_by_unique_identity(tmp_path: Path, monkeypatch):
+    root = tmp_path / "run"
+    _jobs, plan = _staged(root)
+    monkeypatch.setattr(
+        runner,
+        "run_condor",
+        lambda arguments, **_kwargs: subprocess.CompletedProcess(
+            arguments, 1, "", "acknowledgement lost"
+        ),
+    )
+    with pytest.raises(runner.Neo2CondorError, match="ambiguous"):
+        runner.submit_neo2_condor_jobs(root, plan=plan, adopt_existing=False)
+    manifest_path = root / runner.MANIFEST_NAME
+    stale_manifest = json.loads(manifest_path.read_text())
+    stale_manifest["jobs"][0]["state"] = "submitting"
+    manifest_path.write_text(json.dumps(stale_manifest), encoding="utf-8")
+    identity = stale_manifest["jobs"][0]["job_identity"]
+    monkeypatch.setattr(
+        runner,
+        "query_job_ads_by_identity",
+        lambda requested_identity, **_kwargs: (_ad(441, 2, job_identity=requested_identity),),
+    )
+    monkeypatch.setattr(
+        runner, "run_condor", lambda *_args, **_kwargs: pytest.fail("duplicate submit")
+    )
+    monkeypatch.setattr(
+        runner,
+        "query_job_ads",
+        lambda clusters, **_kwargs: (_ad(441, 2, job_identity=identity),),
+    )
+
+    result = runner.submit_neo2_condor_jobs(root, plan=plan)
+
+    assert result["jobs"][0]["cluster"] == 441
+    assert result["jobs"][0]["state"] == "adopted"
+    assert result["adopted_clusters"] == [441]
+
+
+def test_submit_keeps_unmatched_ambiguous_job_from_being_resubmitted(tmp_path: Path, monkeypatch):
+    root = tmp_path / "run"
+    _jobs, plan = _staged(root)
+    submits = []
+
+    def failed_submit(arguments, **_kwargs):
+        submits.append(arguments[0])
+        return subprocess.CompletedProcess(arguments, 1, "", "acknowledgement lost")
+
+    monkeypatch.setattr(runner, "run_condor", failed_submit)
+    with pytest.raises(runner.Neo2CondorError, match="ambiguous"):
+        runner.submit_neo2_condor_jobs(root, plan=plan, adopt_existing=False)
+    monkeypatch.setattr(runner, "query_job_ads_by_identity", lambda *_args, **_kwargs: ())
+
+    with pytest.raises(runner.Neo2CondorError, match="ambiguous"):
+        runner.submit_neo2_condor_jobs(root, plan=plan)
+
+    manifest = json.loads((root / runner.MANIFEST_NAME).read_text(encoding="utf-8"))
+    assert manifest["jobs"][0]["state"] == "ambiguous"
+    assert "expected exactly one" in manifest["jobs"][0]["error"]
+    assert len(submits) == 1
+
+
+def test_submit_rejects_multiple_process_matches_for_one_identity(tmp_path: Path, monkeypatch):
+    root = tmp_path / "run"
+    _jobs, plan = _staged(root)
+    monkeypatch.setattr(
+        runner,
+        "run_condor",
+        lambda arguments, **_kwargs: subprocess.CompletedProcess(
+            arguments, 1, "", "acknowledgement lost"
+        ),
+    )
+    with pytest.raises(runner.Neo2CondorError, match="ambiguous"):
+        runner.submit_neo2_condor_jobs(root, plan=plan, adopt_existing=False)
+    identity = json.loads((root / runner.MANIFEST_NAME).read_text())["jobs"][0]["job_identity"]
+    proc_zero = _ad(441, 2, job_identity=identity)
+    proc_one = {**_ad(441, 2, job_identity=identity), "proc": 1}
+    monkeypatch.setattr(
+        runner,
+        "query_job_ads_by_identity",
+        lambda *_args, **_kwargs: (proc_zero, proc_one),
+    )
+
+    with pytest.raises(runner.Neo2CondorError, match="ambiguous"):
+        runner.submit_neo2_condor_jobs(root, plan=plan)
+
+    manifest = json.loads((root / runner.MANIFEST_NAME).read_text(encoding="utf-8"))
+    assert manifest["jobs"][0]["state"] == "ambiguous"
+    assert "2 unique scheduler jobs" in manifest["jobs"][0]["error"]
 
 
 def test_submit_refuses_to_adopt_cluster_with_a_different_identity(tmp_path: Path, monkeypatch):
@@ -271,6 +429,43 @@ def test_wait_records_missing_cluster_as_distinct_failure(tmp_path: Path, monkey
     assert statuses[0]["job_status"] == "missing"
     assert statuses[0]["failure_kind"] == "condor_missing"
     assert statuses[0]["terminal"] is True
+
+
+def test_wait_retries_query_errors_then_removes_pending_jobs_at_deadline(
+    tmp_path: Path, monkeypatch
+):
+    root = tmp_path / "run"
+    _jobs, plan = _staged(root, max_wall_clock_s=0.04, poll_interval_s=0.01)
+    monkeypatch.setattr(
+        runner,
+        "run_condor",
+        lambda arguments, **_kwargs: subprocess.CompletedProcess(
+            arguments, 0, "1 job submitted to cluster 261\n", ""
+        ),
+    )
+    runner.submit_neo2_condor_jobs(root, plan=plan, adopt_existing=False)
+
+    query_errors = []
+
+    def query_failure(*_args, **_kwargs):
+        query_errors.append("condor_q unavailable")
+        raise runner.CondorError("condor_q unavailable")
+
+    monkeypatch.setattr(runner, "query_job_ads", query_failure)
+    removed = []
+    monkeypatch.setattr(
+        runner, "remove_clusters", lambda clusters, **_kwargs: removed.extend(clusters)
+    )
+
+    statuses = runner.wait_neo2_condor_jobs(root, plan=plan)
+
+    assert len(query_errors) >= 2
+    assert removed == [261]
+    assert statuses[0]["failure_kind"] == "condor_driver_wall_clock"
+    assert statuses[0]["query_error"] == "condor_q unavailable"
+    status_document = json.loads((root / runner.STATUS_NAME).read_text(encoding="utf-8"))
+    assert status_document["driver_removed_clusters"] == [261]
+    assert status_document["query_error"] == "condor_q unavailable"
 
 
 def test_wait_deadline_removes_pending_jobs_and_persists_status(tmp_path: Path, monkeypatch):

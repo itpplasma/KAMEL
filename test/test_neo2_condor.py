@@ -1,14 +1,17 @@
+import subprocess
 import sys
 from pathlib import Path
 
 import pytest
 
+import neo2_for_Er.condor as condor
 from neo2_for_Er.condor import (
     CondorError,
     CondorSubmitSpec,
     CondorToolConfig,
     parse_condor_submit_output,
     query_job_ads,
+    query_job_ads_by_identity,
     run_condor,
     verify_shared_filesystem,
 )
@@ -35,6 +38,25 @@ def test_submit_description_renders_resources_and_escaped_accounting(tmp_path: P
     assert 'requirements = (TARGET.Machine != "faepop43")\n' in rendered
     assert '+MSKLabel = "scan \\"red\\""\n' in rendered
     assert "queue 1\n" in rendered
+
+
+def test_submit_description_does_not_forward_environment_by_default(tmp_path: Path):
+    spec = CondorSubmitSpec(executable=tmp_path / "python", initialdir=tmp_path)
+
+    assert "Getenv = false\n" in spec.render()
+
+
+def test_submit_spec_refuses_dangling_symlink_destination(tmp_path: Path):
+    outside = tmp_path / "outside.submit"
+    destination = tmp_path / "job"
+    destination.mkdir()
+    (destination / "condor.submit").symlink_to(outside)
+    spec = CondorSubmitSpec(executable=tmp_path / "python", initialdir=destination)
+
+    with pytest.raises(CondorError, match="refusing to overwrite"):
+        spec.write(destination)
+
+    assert not outside.exists()
 
 
 def test_submit_output_parses_cluster_id():
@@ -79,6 +101,35 @@ def test_query_job_ads_normalizes_json_running_record(tmp_path: Path):
             "ad_source": "condor_q",
         },
     )
+
+
+def test_query_by_identity_uses_a_quoted_scheduler_constraint(tmp_path: Path, monkeypatch):
+    identity = "a" * 64
+    calls = []
+
+    def query(arguments, *, config, tool):
+        calls.append((tool, arguments))
+        return subprocess.CompletedProcess(arguments, 0, "[]", "")
+
+    monkeypatch.setattr(condor, "run_condor", query)
+
+    assert query_job_ads_by_identity(identity, config=CondorToolConfig(tmp_path)) == ()
+
+    expected = ["-constraint", f'KAMELJobIdentity == "{identity}"']
+    assert len(calls) == 2
+    assert all(arguments[-2:] == expected for _tool, arguments in calls)
+
+
+def test_query_history_error_is_not_reported_as_missing_jobs(tmp_path: Path, monkeypatch):
+    def query(arguments, *, config, tool):
+        if tool == "condor_q":
+            return subprocess.CompletedProcess(arguments, 0, "[]", "")
+        return subprocess.CompletedProcess(arguments, 1, "", "history unavailable")
+
+    monkeypatch.setattr(condor, "run_condor", query)
+
+    with pytest.raises(CondorError, match="condor_history failed.*history unavailable"):
+        query_job_ads([418], config=CondorToolConfig(tmp_path))
 
 
 def test_run_condor_enforces_command_timeout(tmp_path: Path):

@@ -41,7 +41,8 @@ test: ninja
 pytest:
 	PYTHONPATH=python $(PYTHON) -m pytest \
 		test/golden/bin test/test_periodic_workflow_config.py \
-		test/test_neo2_condor.py test/test_neo2_condor_worker.py \
+		test/test_neo2_python38_compat.py test/test_neo2_condor.py \
+		test/test_neo2_condor_worker.py \
 		test/test_neo2_condor_staging.py test/test_neo2_condor_queue.py \
 		test/test_neo2_condor_collection.py test/test_neo2_local_runner.py -q
 

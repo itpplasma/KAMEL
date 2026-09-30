@@ -41,7 +41,7 @@ class CondorError(RuntimeError):
     """An HTCondor command, submit description, or job record is invalid."""
 
 
-@dataclass(frozen=True, slots=True)
+@dataclass(frozen=True)
 class CondorToolConfig:
     """Absolute HTCondor tool directory and bounded command timeout."""
 
@@ -69,7 +69,7 @@ class CondorToolConfig:
         return path
 
 
-@dataclass(frozen=True, slots=True)
+@dataclass(frozen=True)
 class CondorSubmitSpec:
     """One vanilla-universe submit description for a staged solver job."""
 
@@ -84,7 +84,7 @@ class CondorSubmitSpec:
     error_file: str = "NEO2-0.e$(Cluster)"
     log_file: str = "NEO2-0.l$(Cluster)"
     notification: str = "never"
-    getenv: bool = True
+    getenv: bool = False
     should_transfer_files: str = "NEVER"
     run_as_owner: bool = True
     exclude_machines: tuple[str, ...] = ("faepop43",)
@@ -182,9 +182,15 @@ class CondorSubmitSpec:
         if Path(filename).name != filename:
             raise CondorError("submit filename must be a basename")
         path = destination / filename
-        if path.exists():
+        if path.exists() or path.is_symlink():
             raise CondorError(f"refusing to overwrite existing submit description: {path}")
-        path.write_text(self.render(), encoding="utf-8")
+        try:
+            with path.open("x", encoding="utf-8") as stream:
+                stream.write(self.render())
+        except FileExistsError as error:
+            raise CondorError(
+                f"refusing to overwrite existing submit description: {path}"
+            ) from error
         return path
 
 
@@ -294,17 +300,42 @@ def query_job_ads(
         for cluster in clusters
     ):
         raise CondorError("cluster identifiers must be positive integers")
+    return _query_job_ads(
+        tuple(str(cluster) for cluster in clusters), config=config, include_history=include_history
+    )
+
+
+def query_job_ads_by_identity(
+    job_identity: str,
+    *,
+    config: CondorToolConfig,
+    include_history: bool = True,
+) -> tuple[dict[str, object], ...]:
+    """Search queue and history for jobs carrying one staged identity digest."""
+
+    if not isinstance(job_identity, str) or not re.fullmatch(r"[0-9a-f]{64}", job_identity):
+        raise CondorError("job_identity must be a lowercase SHA-256 digest")
+    constraint = f'KAMELJobIdentity == "{job_identity}"'
+    return _query_job_ads(
+        ("-constraint", constraint), config=config, include_history=include_history
+    )
+
+
+def _query_job_ads(
+    selector: Sequence[str],
+    *,
+    config: CondorToolConfig,
+    include_history: bool,
+) -> tuple[dict[str, object], ...]:
     records: list[dict[str, object]] = []
     tools = ("condor_q", "condor_history") if include_history else ("condor_q",)
     for tool in tools:
         result = run_condor(
-            ["-json", "-attributes", ",".join(_QUERY_ATTRIBUTES), *(str(c) for c in clusters)],
+            ["-json", "-attributes", ",".join(_QUERY_ATTRIBUTES), *selector],
             config=config,
             tool=tool,
         )
         if result.returncode != 0:
-            if tool == "condor_history":
-                continue
             raise CondorError(
                 f"{tool} failed with exit code {result.returncode}: {result.stderr.strip()}"
             )

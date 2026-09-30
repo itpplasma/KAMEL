@@ -1,5 +1,7 @@
 """Bounded local NEO-2 execution using KAMEL's existing real-space template."""
 
+from __future__ import annotations
+
 import os
 import shutil
 import subprocess
@@ -104,7 +106,7 @@ def run_staged_surfaces(workdir: str | Path, plan: LocalNeo2Plan) -> np.ndarray:
     if failed:
         raise Neo2LocalError("failed NEO-2 jobs: " + ", ".join(sorted(failed)))
     result = []
-    for row, job in zip(rows, jobs, strict=True):
+    for row, job in zip(rows, jobs):
         with h5py.File(job / "neo2_config.h5") as config, h5py.File(
             job / "fulltransp.h5"
         ) as transport:

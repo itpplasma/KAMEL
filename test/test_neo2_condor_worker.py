@@ -1,9 +1,12 @@
 import hashlib
 import json
+import os
+import stat
 import sys
 import time
 from pathlib import Path
 
+import neo2_for_Er.condor_worker as worker
 from neo2_for_Er.condor_worker import main
 
 
@@ -61,6 +64,14 @@ def test_worker_records_success_and_requested_openmp_threads(tmp_path: Path, mon
     )
     _write_job(tmp_path, executable, omp_threads=3)
     monkeypatch.chdir(tmp_path)
+    synced_kinds = []
+    original_fsync = os.fsync
+
+    def track_fsync(descriptor):
+        synced_kinds.append(stat.S_ISDIR(os.fstat(descriptor).st_mode))
+        return original_fsync(descriptor)
+
+    monkeypatch.setattr(worker.os, "fsync", track_fsync)
 
     assert main([]) == 0
 
@@ -75,6 +86,8 @@ def test_worker_records_success_and_requested_openmp_threads(tmp_path: Path, mon
     assert record["executable_sha256"] == hashlib.sha256(executable.read_bytes()).hexdigest()
     assert record["omp_num_threads"] == "3"
     assert record["closure_period"] == 12
+    assert False in synced_kinds
+    assert True in synced_kinds
 
 
 def test_worker_preserves_nonzero_solver_exit(tmp_path: Path, monkeypatch):
@@ -111,6 +124,7 @@ def test_worker_timeout_terminates_solver_process_group(tmp_path: Path, monkeypa
     )
     _write_job(tmp_path, executable, timeout_s=0.15)
     monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(worker, "_PROCESS_GROUP_TERM_GRACE_S", 0.1)
 
     assert main([]) == 124
     time.sleep(1.0)
@@ -119,3 +133,57 @@ def test_worker_timeout_terminates_solver_process_group(tmp_path: Path, monkeypa
     assert record["status"] == "timeout"
     assert record["exit_code"] == 124
     assert not marker.exists()
+
+
+def test_worker_timeout_kills_signal_resistant_descendants(tmp_path: Path, monkeypatch):
+    marker = tmp_path / "resistant-child-survived.txt"
+    ready = tmp_path / "resistant-child-ready.txt"
+    executable = _write_solver(
+        tmp_path / "neo2.x",
+        "import subprocess, sys, time\n"
+        'child = "import signal, time; signal.signal(signal.SIGTERM, signal.SIG_IGN); '
+        f"open({str(ready)!r}, 'w').close(); time.sleep(3.0); "
+        f"open({str(marker)!r}, 'w').write('alive')\"\n"
+        "subprocess.Popen([sys.executable, '-c', child])\n"
+        f"while not __import__('pathlib').Path({str(ready)!r}).exists(): time.sleep(0.01)\n"
+        "time.sleep(30)\n",
+    )
+    _write_job(tmp_path, executable, timeout_s=2.0)
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(worker, "_PROCESS_GROUP_TERM_GRACE_S", 0.1)
+
+    assert main([]) == 124
+    time.sleep(1.2)
+
+    assert not marker.exists()
+
+
+def test_worker_gives_process_group_the_full_termination_grace(tmp_path: Path, monkeypatch):
+    ready = tmp_path / "grace-child-ready.txt"
+    executable = _write_solver(
+        tmp_path / "neo2.x",
+        "import subprocess, sys, time\n"
+        'child = "import signal, time; signal.signal(signal.SIGTERM, signal.SIG_IGN); '
+        f"open({str(ready)!r}, 'w').close(); time.sleep(30)\"\n"
+        "subprocess.Popen([sys.executable, '-c', child])\n"
+        f"while not __import__('pathlib').Path({str(ready)!r}).exists(): time.sleep(0.01)\n"
+        "time.sleep(30)\n",
+    )
+    _write_job(tmp_path, executable, timeout_s=1.0)
+    monkeypatch.chdir(tmp_path)
+    grace_s = 0.15
+    monkeypatch.setattr(worker, "_PROCESS_GROUP_TERM_GRACE_S", grace_s, raising=False)
+    signals = []
+    original_killpg = os.killpg
+
+    def track_killpg(process_group, sig):
+        if sig in {worker.signal.SIGTERM, worker.signal.SIGKILL}:
+            signals.append((sig, time.monotonic()))
+        return original_killpg(process_group, sig)
+
+    monkeypatch.setattr(worker.os, "killpg", track_killpg)
+
+    assert main([]) == 124
+
+    assert [sig for sig, _timestamp in signals] == [worker.signal.SIGTERM, worker.signal.SIGKILL]
+    assert signals[1][1] - signals[0][1] >= grace_s

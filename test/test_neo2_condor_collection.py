@@ -69,7 +69,7 @@ def _prepare_completed_run(
             "job_identity": identity,
             "ad_source": "condor_history",
         }
-        for cluster, identity in zip(clusters, identities, strict=True)
+        for cluster, identity in zip(clusters, identities)
     )
     monkeypatch.setattr(runner, "query_job_ads", lambda *_args, **_kwargs: ads)
     runner.wait_neo2_condor_jobs(root, plan=plan)
@@ -134,6 +134,30 @@ def test_collection_retains_partial_surface_failure(tmp_path: Path, monkeypatch)
     failed = _record_for(jobs[1], results)
     assert failed["status"] == "failed"
     assert failed["failure_kind"] == "worker_nonzero_exit"
+
+
+def test_collection_attributes_scheduler_nonzero_exit_to_worker_record(tmp_path: Path, monkeypatch):
+    rows = [[0.25, 42.0, 150.0, 0.0, 1000.0, 1.0e13, -0.5]]
+    root = tmp_path / "run"
+    jobs, plan = _prepare_completed_run(root, monkeypatch, rows)
+    worker_path = jobs[0] / "condor_run_record.json"
+    worker_record = json.loads(worker_path.read_text(encoding="utf-8"))
+    worker_record.update(status="nonzero_exit", exit_code=9)
+    worker_path.write_text(json.dumps(worker_record), encoding="utf-8")
+    status_path = root / runner.STATUS_NAME
+    status_document = json.loads(status_path.read_text(encoding="utf-8"))
+    status_document["statuses"][0].update(
+        exit_code=9,
+        failure_kind="condor_nonzero_exit",
+        failure_reason="job completed with exit code 9",
+    )
+    status_path.write_text(json.dumps(status_document), encoding="utf-8")
+
+    results = collect_neo2_condor_results(root, plan=plan)
+
+    record = _record_for(jobs[0], results)
+    assert record["failure_kind"] == "worker_nonzero_exit"
+    assert record["failure_reason"] == "NEO-2 solver exited with code 9"
 
 
 @pytest.mark.parametrize(

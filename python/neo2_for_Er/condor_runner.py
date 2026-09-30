@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import fcntl
 import hashlib
 import json
 import math
@@ -10,7 +11,9 @@ import re
 import shutil
 import subprocess
 import sys
+import tempfile
 import time
+from contextlib import contextmanager
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -23,6 +26,7 @@ from .condor import (
     CondorToolConfig,
     parse_condor_submit_output,
     query_job_ads,
+    query_job_ads_by_identity,
     remove_clusters,
     run_condor,
     verify_shared_filesystem,
@@ -63,7 +67,7 @@ def detect_parallel_runtime(executable: Path) -> dict[str, bool]:
     }
 
 
-@dataclass(frozen=True, slots=True)
+@dataclass(frozen=True)
 class Neo2CondorPlan:
     """Resources, bounds, and provenance for one staged surface set."""
 
@@ -160,7 +164,7 @@ class Neo2CondorPlan:
             object.__setattr__(self, "requested_time_s", float(value))
 
 
-@dataclass(frozen=True, slots=True)
+@dataclass(frozen=True)
 class Neo2CondorResults:
     """Validated successful profile points plus an outcome for every surface."""
 
@@ -275,12 +279,49 @@ def _submit_spec(
 
 
 def _write_json(path: Path, payload: dict[str, object]) -> None:
-    temporary = path.with_name(f".{path.name}.{path.parent.name}.{os.getpid()}.tmp")
+    descriptor, temporary_name = tempfile.mkstemp(
+        prefix=f".{path.name}.", suffix=".tmp", dir=str(path.parent)
+    )
+    temporary = Path(temporary_name)
     try:
-        temporary.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
-        temporary.replace(path)
+        with os.fdopen(descriptor, "w", encoding="utf-8") as stream:
+            stream.write(json.dumps(payload, indent=2, sort_keys=True) + "\n")
+            stream.flush()
+            os.fsync(stream.fileno())
+        os.replace(temporary, path)
+        directory_fd = os.open(str(path.parent), os.O_RDONLY | getattr(os, "O_DIRECTORY", 0))
+        try:
+            os.fsync(directory_fd)
+        finally:
+            os.close(directory_fd)
     finally:
-        temporary.unlink(missing_ok=True)
+        if temporary.exists():
+            temporary.unlink()
+
+
+@contextmanager
+def _submission_lock(root: Path):
+    """Serialize submit/reconcile operations for one staged run directory."""
+
+    lock_path = root / ".neo2-condor-submit.lock"
+    flags = os.O_CREAT | os.O_RDWR | getattr(os, "O_NOFOLLOW", 0)
+    try:
+        descriptor = os.open(str(lock_path), flags, 0o600)
+    except OSError as error:
+        raise Neo2CondorError(
+            f"could not open Condor submission lock {lock_path}: {error}"
+        ) from error
+    with os.fdopen(descriptor, "r+b") as stream:
+        try:
+            fcntl.flock(stream.fileno(), fcntl.LOCK_EX)
+        except OSError as error:
+            raise Neo2CondorError(
+                f"could not acquire Condor submission lock {lock_path}: {error}"
+            ) from error
+        try:
+            yield
+        finally:
+            fcntl.flock(stream.fileno(), fcntl.LOCK_UN)
 
 
 def stage_neo2_condor_jobs(
@@ -306,7 +347,8 @@ def stage_neo2_condor_jobs(
     artifacts = (WORKER_NAME, JOB_INPUT_NAME, "condor.submit")
     for job in jobs:
         for name in artifacts:
-            if (job / name).exists():
+            artifact = job / name
+            if artifact.exists() or artifact.is_symlink():
                 raise Neo2CondorError(f"refusing to overwrite existing payload: {job / name}")
 
     try:
@@ -314,10 +356,18 @@ def stage_neo2_condor_jobs(
     except OSError as error:
         raise Neo2CondorError(f"could not fingerprint NEO-2 executable: {error}") from error
     staged: list[Path] = []
-    for job, row in zip(jobs, rows, strict=True):
+    for job, row in zip(jobs, rows):
         surface = _surface_fields(row)
         job_identity = _job_identity(root, executable_hash, surface)
-        shutil.copy2(worker_source, job / WORKER_NAME)
+        worker_destination = job / WORKER_NAME
+        try:
+            with worker_source.open("rb") as source, worker_destination.open("xb") as target:
+                shutil.copyfileobj(source, target)
+            shutil.copystat(worker_source, worker_destination)
+        except FileExistsError as error:
+            raise Neo2CondorError(
+                f"refusing to overwrite existing payload: {worker_destination}"
+            ) from error
         input_record: dict[str, object] = {
             "schema_version": 1,
             "mode": "neo2-surface",
@@ -388,7 +438,7 @@ def _staged_job_records(jobs: tuple[Path, ...], plan: Neo2CondorPlan) -> list[di
     if rows.shape != (len(jobs), 7) or not np.all(np.isfinite(rows)):
         raise Neo2CondorError("surfaces.dat changed after Condor payload staging")
     records: list[dict[str, object]] = []
-    for job, row in zip(jobs, rows, strict=True):
+    for job, row in zip(jobs, rows):
         input_path = job / JOB_INPUT_NAME
         submit_path = job / "condor.submit"
         try:
@@ -500,7 +550,7 @@ def _load_manifest(root: Path, plan: Neo2CondorPlan, jobs: tuple[Path, ...]) -> 
     actual_jobs = document["jobs"]
     if len(actual_jobs) != len(expected_jobs):
         raise Neo2CondorError("Condor manifest job count does not match staged surfaces")
-    for index, (actual, expected) in enumerate(zip(actual_jobs, expected_jobs, strict=True)):
+    for index, (actual, expected) in enumerate(zip(actual_jobs, expected_jobs)):
         if not isinstance(actual, dict):
             raise Neo2CondorError(f"Condor manifest job {index} is malformed")
         for field_name in ("job_directory", "job_identity", "input_sha256", "submit_sha256"):
@@ -586,7 +636,7 @@ def _root_and_jobs(
     return root, jobs
 
 
-def submit_neo2_condor_jobs(
+def _submit_neo2_condor_jobs_unlocked(
     work_directory: str | Path,
     *,
     plan: Neo2CondorPlan,
@@ -614,16 +664,81 @@ def submit_neo2_condor_jobs(
 
     ambiguous = _ambiguous_jobs(manifest)
     if ambiguous:
-        for job in manifest["jobs"]:
-            if isinstance(job, dict) and job.get("state") == "submitting":
-                job["state"] = "ambiguous"
-                job["error"] = (
-                    "previous process ended during submission; acknowledgement is unknown"
-                )
+        unresolved: list[str] = []
+        if adopt_existing:
+            for job in manifest["jobs"]:
+                if not isinstance(job, dict) or job.get("state") not in {"ambiguous", "submitting"}:
+                    continue
+                identity = str(job.get("job_identity", ""))
+                try:
+                    identity_ads = query_job_ads_by_identity(identity, config=plan.condor)
+                except CondorError as error:
+                    job["state"] = "ambiguous"
+                    job["error"] = f"could not reconcile job identity: {error}"
+                    unresolved.append(str(job.get("job_directory")))
+                    continue
+                matching = [ad for ad in identity_ads if ad.get("job_identity") == identity]
+                by_process: dict[tuple[int, int], dict[str, object]] = {}
+                for ad in matching:
+                    cluster_id = ad.get("cluster")
+                    process_id = ad.get("proc")
+                    if (
+                        isinstance(cluster_id, bool)
+                        or not isinstance(cluster_id, int)
+                        or isinstance(process_id, bool)
+                        or not isinstance(process_id, int)
+                    ):
+                        continue
+                    key = (cluster_id, process_id)
+                    current = by_process.get(key)
+                    if current is None or (
+                        current.get("ad_source") != "condor_q" and ad.get("ad_source") == "condor_q"
+                    ):
+                        by_process[key] = ad
+                if len(by_process) != 1:
+                    job["state"] = "ambiguous"
+                    job["error"] = (
+                        "identity reconciliation found "
+                        f"{len(by_process)} unique scheduler jobs; expected exactly one"
+                    )
+                    unresolved.append(str(job.get("job_directory")))
+                    continue
+                (cluster, process_id), ad = next(iter(by_process.items()))
+                if process_id != 0:
+                    job["state"] = "ambiguous"
+                    job["error"] = "identity reconciliation found a nonzero process id"
+                    unresolved.append(str(job.get("job_directory")))
+                    continue
+                job["cluster"] = cluster
+                job["state"] = "adopted"
+                job["error"] = None
+                job["queue_status"] = {
+                    key: ad.get(key)
+                    for key in (
+                        "job_status_code",
+                        "job_status",
+                        "exit_code",
+                        "remote_host",
+                        "remote_wall_clock_s",
+                        "num_holds",
+                        "hold_reason",
+                        "ad_source",
+                    )
+                }
+        else:
+            for job in manifest["jobs"]:
+                if isinstance(job, dict) and job.get("state") == "submitting":
+                    job["state"] = "ambiguous"
+                    job["error"] = (
+                        "previous process ended during submission; acknowledgement is unknown"
+                    )
+            unresolved = ambiguous
+        if unresolved:
+            _save_manifest(root, manifest)
+            raise Neo2CondorError(
+                f"ambiguous Condor submission for {unresolved}; refusing automatic resubmission"
+            )
         _save_manifest(root, manifest)
-        raise Neo2CondorError(
-            f"ambiguous Condor submission for {ambiguous}; refusing automatic resubmission"
-        )
 
     known_clusters = [
         int(job["cluster"])
@@ -723,6 +838,28 @@ def submit_neo2_condor_jobs(
         and job.get("cluster") is not None
     )
     return result
+
+
+def submit_neo2_condor_jobs(
+    work_directory: str | Path,
+    *,
+    plan: Neo2CondorPlan,
+    dry_run: bool = False,
+    adopt_existing: bool = True,
+) -> dict[str, object]:
+    """Serialize non-dry-run submissions to prevent duplicate jobs across callers."""
+
+    if not isinstance(dry_run, bool) or not isinstance(adopt_existing, bool):
+        raise Neo2CondorError("dry_run and adopt_existing must be booleans")
+    if dry_run:
+        return _submit_neo2_condor_jobs_unlocked(
+            work_directory, plan=plan, dry_run=True, adopt_existing=adopt_existing
+        )
+    root, _jobs = _root_and_jobs(work_directory, plan=plan)
+    with _submission_lock(root):
+        return _submit_neo2_condor_jobs_unlocked(
+            root, plan=plan, dry_run=False, adopt_existing=adopt_existing
+        )
 
 
 def _status_record(job: dict[str, object], ad: dict[str, object] | None) -> dict[str, object]:
@@ -841,14 +978,16 @@ def wait_neo2_condor_jobs(
     }
     latest: list[dict[str, object]] = []
     while True:
+        query_error: str | None = None
         try:
             ads = query_job_ads(clusters, config=plan.condor, include_history=True)
         except CondorError as error:
+            query_error = str(error)
             status_document["state"] = "query_error"
-            status_document["query_error"] = str(error)
+            status_document["query_error"] = query_error
             if latest:
                 for status in latest:
-                    status["query_error"] = str(error)
+                    status["query_error"] = query_error
             else:
                 latest = [
                     {
@@ -860,44 +999,50 @@ def wait_neo2_condor_jobs(
                         "job_status_code": None,
                         "exit_code": None,
                         "failure_kind": "condor_query_error",
-                        "failure_reason": str(error),
-                        "query_error": str(error),
+                        "failure_reason": query_error,
+                        "query_error": query_error,
                         "terminal": False,
                     }
                     for job in records
                 ]
             status_document["statuses"] = latest
             _write_status(root, status_document)
-            raise Neo2CondorError(f"Condor status query failed: {error}") from error
-        by_cluster = _record_by_cluster(ads)
-        latest = [_status_record(job, by_cluster.get(int(job["cluster"]))) for job in records]
-        for job, status in zip(records, latest, strict=True):
-            job["queue_status"] = {
-                key: status.get(key)
-                for key in (
-                    "job_status",
-                    "job_status_code",
-                    "exit_code",
-                    "remote_host",
-                    "remote_wall_clock_s",
-                    "num_holds",
-                    "hold_reason",
-                    "failure_kind",
-                )
-            }
-        _save_manifest(root, manifest)
-        status_document["statuses"] = latest
+            now = time.monotonic()
+            if now < deadline:
+                time.sleep(min(plan.poll_interval_s, max(0.0, deadline - now)))
+                continue
+        if query_error is None:
+            by_cluster = _record_by_cluster(ads)
+            status_document.pop("query_error", None)
+            latest = [_status_record(job, by_cluster.get(int(job["cluster"]))) for job in records]
+            for job, status in zip(records, latest):
+                job["queue_status"] = {
+                    key: status.get(key)
+                    for key in (
+                        "job_status",
+                        "job_status_code",
+                        "exit_code",
+                        "remote_host",
+                        "remote_wall_clock_s",
+                        "num_holds",
+                        "hold_reason",
+                        "failure_kind",
+                    )
+                }
+            _save_manifest(root, manifest)
+            status_document["statuses"] = latest
         pending = [status for status in latest if not status["terminal"]]
-        status_document["state"] = (
-            "polling"
-            if pending
-            else (
-                "completed"
-                if all(status["failure_kind"] is None for status in latest)
-                else "failed"
+        if query_error is None:
+            status_document["state"] = (
+                "polling"
+                if pending
+                else (
+                    "completed"
+                    if all(status["failure_kind"] is None for status in latest)
+                    else "failed"
+                )
             )
-        )
-        _write_status(root, status_document)
+            _write_status(root, status_document)
         if not pending:
             break
         now = time.monotonic()
@@ -924,7 +1069,7 @@ def wait_neo2_condor_jobs(
                     status["failure_kind"] = "condor_driver_deadline_remove_error"
                     status["failure_reason"] = str(error)
                     status["driver_removal_requested"] = True
-                for job, status in zip(records, latest, strict=True):
+                for job, status in zip(records, latest):
                     if status.get("failure_kind") == "condor_driver_deadline_remove_error":
                         job["queue_status"] = {
                             "job_status": status["job_status"],
@@ -941,7 +1086,7 @@ def wait_neo2_condor_jobs(
                 status["terminal"] = True
                 status["driver_removal_requested"] = True
             status_document["driver_removed_clusters"] = pending_clusters
-            for job, status in zip(records, latest, strict=True):
+            for job, status in zip(records, latest):
                 job["queue_status"] = {
                     "job_status": status["job_status"],
                     "job_status_code": status["job_status_code"],
@@ -1148,6 +1293,26 @@ def collect_neo2_condor_results(
             surface_records.append(base)
             continue
         if queue_status.get("failure_kind") is not None:
+            if (
+                queue_status.get("failure_kind") == "condor_nonzero_exit"
+                and queue_status.get("job_status") == "completed"
+            ):
+                try:
+                    job_input = _read_json_object(job_directory / JOB_INPUT_NAME)
+                    worker_record = _read_json_object(job_directory / "condor_run_record.json")
+                except ValueError:
+                    worker_record = None
+                if isinstance(worker_record, dict):
+                    worker_failure, worker_reason = _validate_worker_record(
+                        worker_record, job_input, plan, executable_hash
+                    )
+                    if worker_failure is not None:
+                        base["worker_host"] = worker_record.get("host")
+                        base["closure_period"] = worker_record.get("closure_period")
+                        base["worker_record"] = worker_record
+                        _surface_failure(base, worker_failure, str(worker_reason))
+                        surface_records.append(base)
+                        continue
             _surface_failure(
                 base,
                 str(queue_status.get("failure_kind")),

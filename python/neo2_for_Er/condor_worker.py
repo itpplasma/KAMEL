@@ -13,6 +13,7 @@ import re
 import signal
 import subprocess
 import sys
+import tempfile
 import threading
 import time
 from pathlib import Path
@@ -20,6 +21,7 @@ from typing import TextIO
 
 EXIT_TIMEOUT = 124
 EXIT_LAUNCH_FAILURE = 127
+_PROCESS_GROUP_TERM_GRACE_S = 5.0
 
 _PERIOD_RE = re.compile(r"^\s*period:\s*(?P<period>\d+)\s*$", re.MULTILINE)
 
@@ -65,12 +67,24 @@ def _read_job(path: Path) -> dict[str, object]:
 
 
 def _write_record(path: Path, payload: dict[str, object]) -> None:
-    temporary = path.with_name(f".{path.name}.{os.getpid()}.tmp")
+    descriptor, temporary_name = tempfile.mkstemp(
+        prefix=f".{path.name}.", suffix=".tmp", dir=str(path.parent)
+    )
+    temporary = Path(temporary_name)
     try:
-        temporary.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
-        temporary.replace(path)
+        with os.fdopen(descriptor, "w", encoding="utf-8") as stream:
+            stream.write(json.dumps(payload, indent=2, sort_keys=True) + "\n")
+            stream.flush()
+            os.fsync(stream.fileno())
+        os.replace(temporary, path)
+        directory_fd = os.open(str(path.parent), os.O_RDONLY | getattr(os, "O_DIRECTORY", 0))
+        try:
+            os.fsync(directory_fd)
+        finally:
+            os.close(directory_fd)
     finally:
-        temporary.unlink(missing_ok=True)
+        if temporary.exists():
+            temporary.unlink()
 
 
 def _forward_lines(stream: TextIO, destination: TextIO, state: dict[str, object]) -> None:
@@ -93,15 +107,27 @@ def _terminate_process_group(process: subprocess.Popen[str]) -> int:
     try:
         os.killpg(process.pid, signal.SIGTERM)
     except ProcessLookupError:
-        pass
-    try:
-        return int(process.wait(timeout=5.0))
-    except subprocess.TimeoutExpired:
-        try:
-            os.killpg(process.pid, signal.SIGKILL)
-        except ProcessLookupError:
-            pass
         return int(process.wait())
+    grace_deadline = time.monotonic() + _PROCESS_GROUP_TERM_GRACE_S
+    while True:
+        process.poll()
+        try:
+            os.killpg(process.pid, 0)
+        except ProcessLookupError:
+            return int(process.wait())
+        except PermissionError:
+            pass
+        remaining = grace_deadline - time.monotonic()
+        if remaining <= 0.0:
+            break
+        time.sleep(min(0.05, remaining))
+    # The group leader may exit on SIGTERM while a descendant ignores it, so
+    # wait for the process group rather than only the leader during the grace.
+    try:
+        os.killpg(process.pid, signal.SIGKILL)
+    except ProcessLookupError:
+        pass
+    return int(process.wait())
 
 
 def run_bounded(

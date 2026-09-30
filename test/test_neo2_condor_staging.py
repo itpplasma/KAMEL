@@ -71,7 +71,7 @@ def test_stage_writes_payload_and_submit_description(tmp_path: Path):
     staged = stage_neo2_condor_jobs(root, plan=plan)
 
     assert staged == jobs
-    for job, row in zip(staged, rows, strict=True):
+    for job, row in zip(staged, rows):
         job_input = json.loads((job / "condor_job.json").read_text(encoding="utf-8"))
         assert job_input["schema_version"] == 1
         assert job_input["mode"] == "neo2-surface"
@@ -120,6 +120,20 @@ def test_stage_refuses_existing_payload(tmp_path: Path, existing_file: str):
         stage_neo2_condor_jobs(root, plan=_plan(root))
 
     assert (jobs[0] / existing_file).read_text(encoding="utf-8") == "preserve me\n"
+    assert not (jobs[1] / "condor_job.json").exists()
+
+
+def test_stage_rejects_dangling_worker_symlink_without_writing_outside(tmp_path: Path):
+    root = tmp_path / "work"
+    root.mkdir()
+    jobs, _rows = _prepare_surfaces(root)
+    outside = tmp_path / "outside-worker.py"
+    (jobs[0] / "condor_worker.py").symlink_to(outside)
+
+    with pytest.raises(Neo2CondorError, match="refusing to overwrite"):
+        stage_neo2_condor_jobs(root, plan=_plan(root))
+
+    assert not outside.exists()
     assert not (jobs[1] / "condor_job.json").exists()
 
 

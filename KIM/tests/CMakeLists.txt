@@ -2,6 +2,11 @@
 # carried transitively by kilca_lib's PUBLIC link interface, so no per-target
 # OpenMP linkage is needed here.
 
+add_executable(test_ampere_operator
+               ${CMAKE_SOURCE_DIR}/KIM/tests/test_ampere_operator.f90)
+target_link_libraries(test_ampere_operator KIM_lib)
+add_test(NAME test_ampere_operator COMMAND test_ampere_operator)
+
 # Optional: build QUADPACK/RKF45 integration comparison test
 add_executable(test_integration_methods ${CMAKE_SOURCE_DIR}/KIM/tests/test_integration_methods.f90)
 set_target_properties(test_integration_methods PROPERTIES

@@ -614,3 +614,16 @@ add_test(NAME test_periodic_convergence
          COMMAND ${CMAKE_BINARY_DIR}/tests/test_periodic_convergence.x)
 set_tests_properties(test_periodic_convergence PROPERTIES
                      WORKING_DIRECTORY ${CMAKE_BINARY_DIR}/tests/)
+
+add_executable(test_electron_physical_cells
+               ${CMAKE_SOURCE_DIR}/KIM/tests/test_electron_physical_cells.f90)
+set_target_properties(test_electron_physical_cells PROPERTIES
+                      OUTPUT_NAME test_electron_physical_cells.x
+                      RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/tests/")
+target_link_libraries(test_electron_physical_cells
+                      KIM_lib kilca_lib lapack cerf fortnum_amos_compat)
+add_test(NAME electron_physical_cells
+         COMMAND ${CMAKE_BINARY_DIR}/tests/test_electron_physical_cells.x)
+add_test(NAME electron_physical_cells_unsupported_basis
+         COMMAND ${CMAKE_BINARY_DIR}/tests/test_electron_physical_cells.x unsupported_basis)
+set_tests_properties(electron_physical_cells_unsupported_basis PROPERTIES WILL_FAIL TRUE)

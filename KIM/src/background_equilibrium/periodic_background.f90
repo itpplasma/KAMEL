@@ -371,7 +371,7 @@ contains
         ! endpoint-exclusive equidistant window used for sampling.
         npts = n_rg
         call rg_grid%grid_init_equidistant(npts, r_lo, r_hi, 'rg')
-        call rg_grid%grid_generate_equidistant()
+        call rg_grid%grid_generate_equidistant(endpoint_inclusive=.false.)
         r_win = rg_grid%xb
 
         ! Capture the TRUE B0 at the window's left edge (from the cached true

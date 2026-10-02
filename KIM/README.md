@@ -120,3 +120,12 @@ P. Kravanja, M. Van Barel, O. Ragos, M.N. Vrahatis, F.A. Zafiropoulos,
 *ZEAL: A mathematical software package for computing zeros of analytic functions*,
 Computer Physics Communications **124** (2000) 212-232.
 [doi:10.1016/S0010-4655(99)00429-4](https://doi.org/10.1016/S0010-4655(99)00429-4)
+
+The active zero-FLR electron kernel uses the P1 hat basis (`spline_base=1`).
+It integrates each existing center-constant prefactor over its complete
+physical background cell, splitting hat products at field knots. The
+`1/(4*pi)` factor and gyroaveraged virtual endpoint hats are retained.
+This changes the earlier center-trapezoid numerical integration; comparisons
+must state which source and saved grids were used. Variable prefactor
+sampling still requires a resolution study. Higher-order electron bases
+are not implemented and are rejected in this path.

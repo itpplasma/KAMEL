@@ -21,6 +21,28 @@ The following are automatically downloaded during build:
 ## Configuration
 The code is configured with the namelist file */nmls/KIM_config.nml*.
 
+For `grid_spacing_rg` or `grid_spacing_xl` set to `adaptive` or
+`non-equidistant`, the generated physical nodes include `r_min` and `r_plas`
+exactly. Interior nodes retain the Gaussian refinement around the signed
+rational surface; the final step is shortened to the requested outer
+boundary. A terminal remainder within an accumulated coordinate-roundoff
+allowance is merged into that final step; a resolved short cell is retained.
+The allowance accounts for the number of coordinate additions, not only the
+last addition. It does not bound errors in the nonlinear monitor. A merge
+is rejected if its allowance is not small relative to the local step.
+Cell centers lie strictly inside their accepted cells.
+Earlier adaptive outputs could extend beyond `r_plas`; those outputs used
+a different physical boundary and must be interpreted with their saved
+coordinates.
+
+The nominal `rg_space_dim` and `l_space_dim` set the spacing scale, rather
+than an exact adaptive node count. The two meshes have separate spacing
+selectors and share `ampl_res`, `width_res` and `hrmax_scaling`. Invalid
+nonfinite controls, nonpositive width or spacing scale, and spacing factors
+that cannot stay positive are rejected. Endpoint-preserving refinement
+does not by itself establish response convergence. The inherited
+gyroaveraged virtual-hat extension at field boundaries is unchanged.
+
 For `type_of_run = 'electrostatic_periodic'`, the HDF5 `/fields` group contains
 the total parallel current `jpar`, the electron contribution `jpar_e`, the
 summed ion contribution `jpar_i`, and one dataset per configured ion species:

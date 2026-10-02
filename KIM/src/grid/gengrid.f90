@@ -2,7 +2,6 @@ subroutine generate_grids
 
     use grid_m, only: rg_grid, xl_grid, rg_space_dim, l_space_dim, grid_spacing_rg, grid_spacing_xl, &
         r_min, r_plas
-    use species_m, only: plasma
     use logger_m, only: log_debug, fmt_val
     use IO_collection_m, only: write_profile
 
@@ -12,7 +11,7 @@ subroutine generate_grids
     select case (trim(adjustl(grid_spacing_rg)))
     case ("equidistant")
         call rg_grid%grid_init_equidistant(rg_space_dim, r_min, r_plas, 'rg')
-        call rg_grid%grid_generate_equidistant()
+        call rg_grid%grid_generate_equidistant(endpoint_inclusive=.true.)
     case ("non-equidistant", "adaptive")
         call rg_grid%grid_init(rg_space_dim, r_min, r_plas, 'rg')
         call rg_grid%grid_generate()
@@ -25,7 +24,7 @@ subroutine generate_grids
     select case (trim(adjustl(grid_spacing_xl)))
     case ("equidistant")
         call xl_grid%grid_init_equidistant(l_space_dim, r_min, r_plas, 'xl')
-        call xl_grid%grid_generate_equidistant()
+        call xl_grid%grid_generate_equidistant(endpoint_inclusive=.true.)
     case ("non-equidistant", "adaptive")
         call xl_grid%grid_init(l_space_dim, r_min, r_plas, 'xl')
         call xl_grid%grid_generate()

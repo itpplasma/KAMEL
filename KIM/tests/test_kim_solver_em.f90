@@ -20,7 +20,8 @@ program test_kim_solver_em
     integer, parameter :: m_mode = -6, n_mode = 2
 
     type(kim_solver_t) :: kim
-    type(kim_results_t) :: res
+    type(kim_results_t) :: res, untouched
+    complex(dp), allocatable :: density_snapshot(:)
     type(kim_profiles_t) :: prof
     integer :: ierr, i
     integer(8) :: t0, t1, rate
@@ -83,6 +84,22 @@ program test_kim_solver_em
     call check('results mode == requested (m,n)', &
                res%m == m_mode .and. res%n == n_mode, all_passed)
 
+    call check('actual electron density available', allocated(res%delta_n_e), all_passed)
+    call check('actual ion densities available', allocated(res%delta_n_i), all_passed)
+    call check('density charge metadata available', &
+        allocated(res%density_charge_numbers), all_passed)
+    if (allocated(res%delta_n_e)) then
+        call check('electron density finite', &
+            all(ieee_is_finite(real(res%delta_n_e, dp))) .and. &
+            all(ieee_is_finite(aimag(res%delta_n_e))), all_passed)
+        density_snapshot = res%delta_n_e
+        res%delta_n_e(1) = res%delta_n_e(1)+cmplx(123.0_dp, -456.0_dp, dp)
+        untouched = kim%results()
+        call check('caller density edits do not change solver-owned results', &
+            maxval(abs(untouched%delta_n_e-density_snapshot)) == 0.0_dp, all_passed)
+        res = untouched
+    end if
+
     ! Background quantities the QL-Balance adapter reads from results() --
     ! guard them so the Phase-2 migration's background reads stay covered.
     call check('plasma grid populated', &
@@ -107,6 +124,10 @@ program test_kim_solver_em
     res = kim%results()
     call check('mass matrix follows changed grid', size(M_mat, 1) == xl_grid%npts_b, all_passed)
     call check_bg('changed-grid B0', res%B0, size(res%r_plasma), all_passed)
+    call check('density projection follows changed field grid', &
+        size(res%delta_n_e) == size(res%r_field), all_passed)
+    call check('density charge signs match independent deuterium specification', &
+        all(res%density_charge_numbers == [-1, 1]), all_passed)
 
     res = kim%background()
     call check('global background populated before finalize', allocated(res%r_plasma), all_passed)

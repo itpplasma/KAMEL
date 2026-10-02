@@ -2,6 +2,23 @@
 # carried transitively by kilca_lib's PUBLIC link interface, so no per-target
 # OpenMP linkage is needed here.
 
+add_executable(test_weak_moments
+               ${CMAKE_SOURCE_DIR}/KIM/tests/test_weak_moments.f90)
+target_link_libraries(test_weak_moments KIM_lib)
+add_test(NAME test_weak_moments COMMAND test_weak_moments)
+
+add_executable(test_species_density ${CMAKE_SOURCE_DIR}/KIM/tests/test_species_density.f90)
+target_link_libraries(test_species_density KIM_lib kilca_lib lapack cerf fortnum_amos_compat)
+add_test(NAME test_species_density COMMAND test_species_density)
+set_tests_properties(test_species_density PROPERTIES
+                     WORKING_DIRECTORY ${CMAKE_BINARY_DIR}/tests/)
+
+add_executable(test_manufactured_species
+               ${CMAKE_SOURCE_DIR}/KIM/tests/test_manufactured_species.f90)
+target_link_libraries(test_manufactured_species
+                      KIM_lib kilca_lib lapack cerf fortnum_amos_compat)
+add_test(NAME test_manufactured_species COMMAND test_manufactured_species)
+
 add_executable(test_ampere_operator
                ${CMAKE_SOURCE_DIR}/KIM/tests/test_ampere_operator.f90)
 target_link_libraries(test_ampere_operator KIM_lib)

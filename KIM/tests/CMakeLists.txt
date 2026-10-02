@@ -2,6 +2,11 @@
 # carried transitively by kilca_lib's PUBLIC link interface, so no per-target
 # OpenMP linkage is needed here.
 
+add_executable(test_frozen_fourier_gyroaverage test_frozen_fourier_gyroaverage.f90)
+target_link_libraries(test_frozen_fourier_gyroaverage
+                      KIM_lib kilca_lib lapack cerf fortnum_amos_compat)
+add_test(NAME test_frozen_fourier_gyroaverage COMMAND test_frozen_fourier_gyroaverage)
+
 add_executable(test_weak_moments
                ${CMAKE_SOURCE_DIR}/KIM/tests/test_weak_moments.f90)
 target_link_libraries(test_weak_moments KIM_lib)

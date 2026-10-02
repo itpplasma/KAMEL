@@ -50,6 +50,8 @@ module kim_solver_m
         complex(dp), allocatable :: Es(:), Ep(:), Er(:), Etheta(:), Ez(:), Br(:), Bparallel(:)
         complex(dp), allocatable :: jpar(:), jpar_e(:), jpar_i(:)
         complex(dp), allocatable :: jrad(:)
+        complex(dp), allocatable :: rho(:), delta_n_e(:), delta_n_i(:, :)
+        integer, allocatable :: density_charge_numbers(:)
         complex(dp), allocatable :: Phi(:)
         real(dp), allocatable :: D_ion(:,:,:)
 
@@ -321,6 +323,9 @@ contains
         if (allocated(EBdat%jpar_e))            deallocate(EBdat%jpar_e)
         if (allocated(EBdat%jpar_i))            deallocate(EBdat%jpar_i)
         if (allocated(EBdat%jrad))              deallocate(EBdat%jrad)
+        if (allocated(EBdat%rho))               deallocate(EBdat%rho)
+        if (allocated(EBdat%delta_n_e))         deallocate(EBdat%delta_n_e)
+        if (allocated(EBdat%delta_n_i))         deallocate(EBdat%delta_n_i)
         if (allocated(EBdat%Phi))               deallocate(EBdat%Phi)
         if (allocated(EBdat%Phi_e))             deallocate(EBdat%Phi_e)
         if (allocated(EBdat%Phi_i))             deallocate(EBdat%Phi_i)
@@ -334,6 +339,7 @@ contains
     !> Every field is guarded: a run-type only fills the buffers it produces.
     subroutine copy_results_from_globals(res, m, n)
         use fields_m, only: EBdat
+        use species_m, only: plasma
 
         type(kim_results_t), intent(out) :: res
         integer, intent(in) :: m, n
@@ -358,6 +364,12 @@ contains
         if (allocated(EBdat%jpar_e)) res%jpar_e  = EBdat%jpar_e
         if (allocated(EBdat%jpar_i)) res%jpar_i  = EBdat%jpar_i
         if (allocated(EBdat%jrad))   res%jrad    = EBdat%jrad
+        if (allocated(EBdat%rho)) res%rho = EBdat%rho
+        if (allocated(EBdat%delta_n_e)) then
+            res%delta_n_e = EBdat%delta_n_e
+            res%density_charge_numbers = plasma%spec(:)%Zspec
+        end if
+        if (allocated(EBdat%delta_n_i)) res%delta_n_i = EBdat%delta_n_i
         if (allocated(EBdat%Phi))    res%Phi     = EBdat%Phi
         if (allocated(EBdat%D_ion)) res%D_ion    = EBdat%D_ion
 

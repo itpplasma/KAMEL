@@ -46,8 +46,9 @@ program kim_coupling
         turn_off_ions) error stop 'coupling requires full ion kernel and both species enabled'
     if (periodic_electron_flr) &
         error stop 'set periodic_electron_flr=.false. for drift-kinetic electrons'
-    if (resolved_electron_ifunc_conservation_model /= 0) &
-        error stop 'initial cylindrical provider requires number-conserving OU electrons (model 0)'
+    if (resolved_electron_ifunc_conservation_model < 0 .or. &
+        resolved_electron_ifunc_conservation_model > 1) &
+        error stop 'cylindrical providers support electron conservation models 0/1'
     if (omega /= 0.0_dp .or. collisions_off .or. artificial_debye_case /= 0) &
         error stop 'initial coupling requires static forcing, finite collisions and full charge'
     if (mphi_max /= 0) error stop 'initial coupling requires the zero cyclotron harmonic'
@@ -79,7 +80,7 @@ program kim_coupling
                        Kphi_species=kp_sp, KB_species=kb_sp, Kjphi_species=jp_sp, KjB_species=jb_sp)
         open (newunit=unit, file=trim(prefix)//'background.dat', status='new', action='write')
         write (unit, '(a)') 'GK_BACKGROUND_V1'
-        write (unit, *) M, n_rg, 0, m_mode, n_mode
+        write (unit, *) M, n_rg, resolved_electron_ifunc_conservation_model, m_mode, n_mode
         write (unit, '(3es26.17e3)') L, rm, sol
         do i = 1, n_rg
             write (unit, '(13es26.17e3)') background(i, :)
@@ -106,7 +107,8 @@ program kim_coupling
         if (trim(header) /= 'GK_RESPONSE_V1') error stop 'wrong electron response format'
         read (unit, *) file_m, file_n, file_model, file_mmode, file_nmode
         read (unit, *) file_L, file_rm, file_c
-        if (file_m /= M .or. file_n /= n_rg .or. file_model /= 0 .or. &
+        if (file_m /= M .or. file_n /= n_rg .or. &
+            file_model /= resolved_electron_ifunc_conservation_model .or. &
             file_mmode /= m_mode .or. file_nmode /= n_mode) error stop 'response request mismatch'
         if (file_L /= L .or. file_rm /= rm .or. file_c /= sol) &
             error stop 'response geometry mismatch'

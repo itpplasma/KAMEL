@@ -51,6 +51,7 @@ module rt_electromagnetic_m
         use fields_m, only: EBdat, postprocess_electric_field, &
                             calculate_charge_density, calculate_current_density
         use ampere_matrices_m, only: interpolate_equil_to_xl
+        use ampere_operator_m, only: assemble_ampere_weak
         use setup_m, only: m_mode, n_mode, R0, Br_boundary_re, Br_boundary_im, bc_type
         use constants_m, only: pi, sol, com_unit
         use KIM_kinds_m, only: dp
@@ -85,7 +86,6 @@ module rt_electromagnetic_m
         integer :: sp
 
         integer :: N, i, j
-        real(dp) :: hL, hR
         character(8) :: date
         character(10) :: time
         character(5) :: zone
@@ -149,16 +149,9 @@ module rt_electromagnetic_m
             alpha(i) = com_unit * ks_xl(i)
         end do
 
-        ! Build laplace_perp: nabla^2_perp = d^2/dr^2 + (1/r)d/dr - ks^2
+        ! Weak unweighted dr moments, consistent with the current kernels.
         allocate(laplace_perp(N, N))
-        laplace_perp = 0.0d0
-        do i = 2, N-1
-            hL = xl_grid%xb(i) - xl_grid%xb(i-1)
-            hR = xl_grid%xb(i+1) - xl_grid%xb(i)
-            laplace_perp(i,i-1) = 1.0d0 / hL - 1.0d0 / (xl_grid%xb(i) * (hL + hR))
-            laplace_perp(i,i)   = -(1.0d0 / hL + 1.0d0 / hR) - ks_xl(i)**2
-            laplace_perp(i,i+1) = 1.0d0 / hR + 1.0d0 / (xl_grid%xb(i) * (hL + hR))
-        end do
+        call assemble_ampere_weak(xl_grid%xb, ks_xl, laplace_perp)
 
         ! Assemble Poisson LHS block: A_Phi = Delta + 4*pi * K_rho_phi
         allocate(A_Phi(N, N))

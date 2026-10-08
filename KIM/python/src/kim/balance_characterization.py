@@ -1,8 +1,8 @@
 """Opt-in, solver-free characterization of an explicit BALANCE case.
 
 This module is deliberately a small orchestration boundary.  It stages the
-four source profiles, prepares a KIM input case, and measures that case
-against a read-only QL-Balance oracle.  It never launches either scientific
+four source profiles, prepares a KIM input case, and optionally measures that
+case against a read-only QL-Balance oracle. It never launches either scientific
 solver; the only process that may be started is the explicitly supplied
 equilibrium preprocessor.  Failed work may retain an incomplete private
 staging container so cleanup never follows a swapped path.
@@ -39,7 +39,9 @@ from kim.preparation import (
 )
 from kim.ql_balance_oracle import read_ql_balance_oracle
 
-BalanceStatus = Literal["MEASURED", "PASS", "FAIL", "PARTIALLY_EVALUATED", "UNAVAILABLE"]
+BalanceStatus = Literal[
+    "PREPARED", "MEASURED", "PASS", "FAIL", "PARTIALLY_EVALUATED", "UNAVAILABLE"
+]
 
 _BALANCE_ROLES = (
     "density",
@@ -117,9 +119,9 @@ class BalanceCharacterizationRequest:
     is reported as such.
 
     The legacy positional argument order is preserved. The BALANCE route keeps
-    q exactly as emitted by ``fouriermodes.x``; ``domains`` and both
-    interpolation settings remain runtime-required. ``relative_floors`` is
-    optional; omitting it reports absolute metrics only.
+    q exactly as emitted by ``fouriermodes.x``. Omit ``oracle`` for preparation
+    only; comparison settings are required only when a reference is supplied.
+    ``relative_floors`` is optional; omitting it reports absolute metrics only.
     """
 
     density: Path | str
@@ -129,8 +131,9 @@ class BalanceCharacterizationRequest:
     metadata: BalanceMetadata | Mapping[str, object] | Path | str
     equilibrium_provenance: str
     config: SimulationConfig | Path | str
-    oracle: Path | str
-    destination: Path | str
+    oracle: Path | str | None = None
+    # Keep the positional order compatible; destination remains runtime-required.
+    destination: Path | str | None = None
     # Deprecated compatibility input; the equilibrium calculation remains authoritative.
     major_radius_cm: float | None = None
     q_operation: Literal["preserve"] = "preserve"
@@ -295,10 +298,13 @@ def characterize_balance(
 
         # The oracle is intentionally opened only after preparation.  Its
         # arrays never enter staging or KIM profile generation.
-        oracle = read_ql_balance_oracle(snapshots["oracle"])
         prepared_profile_files = _prepared_profile_files(prepared)
-        comparisons = _compare_all(normalized, prepared, oracle, prepared_profile_files)
-        status, threshold_decisions, overall_pass = _status_for(comparisons)
+        comparisons = {}
+        status, threshold_decisions, overall_pass = "PREPARED", None, None
+        if snapshots["oracle"] is not None:
+            oracle = read_ql_balance_oracle(snapshots["oracle"])
+            comparisons = _compare_all(normalized, prepared, oracle, prepared_profile_files)
+            status, threshold_decisions, overall_pass = _status_for(comparisons)
         prepared_profile_hashes = {
             role: _hash_file(prepared.profiles / filename, "prepared profile")
             for role, filename in prepared_profile_files.items()
@@ -386,10 +392,25 @@ def _normalise_request(request: BalanceCharacterizationRequest) -> dict[str, Any
         raise ExperimentalInputError(
             "BALANCE characterization preserves Fouriers q without a sign change"
         )
-    if not isinstance(request.interpolation_direction, str) or not request.interpolation_direction:
-        raise ExperimentalInputError("interpolation_direction must be a non-empty string")
-    if not isinstance(request.interpolation_method, str) or not request.interpolation_method:
-        raise ExperimentalInputError("interpolation_method must be a non-empty string")
+    if request.oracle is not None:
+        if (
+            not isinstance(request.interpolation_direction, str)
+            or not request.interpolation_direction
+        ):
+            raise ExperimentalInputError("interpolation_direction must be a non-empty string")
+        if not isinstance(request.interpolation_method, str) or not request.interpolation_method:
+            raise ExperimentalInputError("interpolation_method must be a non-empty string")
+    elif any(
+        value is not None
+        for value in (
+            request.domains,
+            request.relative_floors,
+            request.tolerances,
+            request.interpolation_direction,
+            request.interpolation_method,
+        )
+    ):
+        raise ExperimentalInputError("comparison settings require a reference HDF5 file (oracle)")
     _reject_conflicting_reference(
         request.metadata_path,
         request.metadata,
@@ -432,6 +453,8 @@ def _normalise_request(request: BalanceCharacterizationRequest) -> dict[str, Any
     )
     metadata = _load_metadata(request.metadata, metadata_bytes, metadata_source)
     config = _load_config(request.config, config_bytes, config_source)
+    if request.destination is None:
+        raise ExperimentalInputError("destination is required")
     destination = _resolve_destination(request.destination)
     if not request.equilibrium_provenance.strip():
         raise ExperimentalInputError("equilibrium_provenance must be nonempty")
@@ -464,7 +487,7 @@ def _normalise_request(request: BalanceCharacterizationRequest) -> dict[str, Any
         legacy_major_radius = _strict_real(request.major_radius_cm, "major_radius_cm")
         if not np.isfinite(legacy_major_radius) or legacy_major_radius <= 0.0:
             raise ExperimentalInputError("major_radius_cm must be finite and positive")
-    domains = _normalise_domains(request.domains)
+    domains = _normalise_domains(request.domains) if request.oracle is not None else {}
     floors = _normalise_floors(request.relative_floors)
     tolerances = _normalise_tolerances(request.tolerances, domains)
     if (
@@ -564,8 +587,8 @@ def _normalise_request(request: BalanceCharacterizationRequest) -> dict[str, Any
         if request.equilibrium_executable is not None
         else None
     )
-    oracle_alias = _absolute_alias(request.oracle)
-    oracle = _resolve_source_file(oracle_alias, "QL-Balance oracle")
+    oracle_alias = _absolute_alias(request.oracle) if request.oracle is not None else None
+    oracle = _resolve_source_file(oracle_alias, "QL-Balance oracle") if oracle_alias else None
     source_paths = tuple(
         [
             *balance_paths.values(),
@@ -581,7 +604,7 @@ def _normalise_request(request: BalanceCharacterizationRequest) -> dict[str, Any
         ]
         + list(equilibrium_input_paths)
         + ([equilibrium_executable] if equilibrium_executable is not None else [])
-        + [oracle]
+        + ([oracle] if oracle is not None else [])
         + ([metadata_source] if metadata_source is not None else [])
         + ([config_source] if config_source is not None else [])
     )
@@ -630,6 +653,7 @@ def _normalise_request(request: BalanceCharacterizationRequest) -> dict[str, Any
         "tolerances_input": _json_value(request.tolerances),
         "expected_sha256": _normalise_expected(
             request.expected_sha256,
+            oracle=oracle,
             equilibrium_executable=equilibrium_executable,
             equilibrium_input_paths=equilibrium_input_paths,
             equilibrium_parameters_file=equilibrium_parameters_file,
@@ -1171,6 +1195,7 @@ def _metrics(value: object) -> dict[str, float]:
 def _normalise_expected(
     expected: Mapping[str, str] | None,
     *,
+    oracle: Path | None,
     equilibrium_executable: Path | None,
     equilibrium_input_paths: Sequence[Path],
     equilibrium_parameters_file: Path | None,
@@ -1198,6 +1223,8 @@ def _normalise_expected(
         for path in equilibrium_input_paths
     }
     aliases.update(input_keys)
+    if oracle is None and "oracle" in expected:
+        raise ExperimentalInputError("expected_sha256 includes an unavailable oracle")
     if equilibrium_executable is None and "equilibrium_executable" in expected:
         raise ExperimentalInputError(
             "expected_sha256 includes an unavailable equilibrium executable"
@@ -1228,8 +1255,9 @@ def _normalise_expected(
         "ion_temperature",
         "toroidal_rotation",
         "equilibrium",
-        "oracle",
     }
+    if oracle is not None:
+        required.add("oracle")
     if equilibrium_parameters_file is not None:
         required.add("equilibrium_parameters")
     if equilibrium_executable is not None:
@@ -1241,7 +1269,8 @@ def _normalise_expected(
     required.update(input_keys.values())
     if set(result) != required:
         raise ExperimentalInputError(
-            "expected_sha256 must contain all four BALANCE sources, equilibrium, and oracle"
+            "expected_sha256 must contain all four BALANCE sources, equilibrium, "
+            "and every supplied reference/configuration input"
         )
     return result
 
@@ -1263,7 +1292,8 @@ def _preflight(data: Mapping[str, Any]) -> dict[str, str]:
             data["equilibrium_parameters_file"],
             "equilibrium btor_rbig.dat",
         )
-    actual["oracle"] = _hash_alias(data["oracle_alias"], data["oracle"], "QL-Balance oracle")
+    if data["oracle"] is not None:
+        actual["oracle"] = _hash_alias(data["oracle_alias"], data["oracle"], "QL-Balance oracle")
     if data["metadata_source"] is not None:
         actual["metadata"] = _hash_alias(
             data["metadata_alias"],
@@ -1398,13 +1428,15 @@ def _snapshot_nonprofile_inputs(
             "equilibrium executable",
             executable=True,
         )
-    oracle = copy_input(
-        "oracle",
-        data["oracle_alias"],
-        data["oracle"],
-        Path("oracle") / data["oracle"].name,
-        "QL-Balance oracle",
-    )
+    oracle = None
+    if data["oracle"] is not None:
+        oracle = copy_input(
+            "oracle",
+            data["oracle_alias"],
+            data["oracle"],
+            Path("oracle") / data["oracle"].name,
+            "QL-Balance oracle",
+        )
     return {
         "directory": snapshot_root,
         "entries": entries,
@@ -1688,6 +1720,7 @@ def _success_report(
         "report_path": str(final_root / "characterization_report.json"),
         "retained_staging": dict(retained_staging),
         "overall_pass": overall_pass,
+        "comparison_performed": data["oracle"] is not None,
         "threshold_decisions": threshold_decisions,
         "source_hashes": source_hashes,
         "expected_sha256": data["expected_sha256"],
@@ -1735,21 +1768,25 @@ def _success_report(
             ),
         },
         "equilibrium_calculation": equilibrium_report,
-        "comparison_configuration": {
-            "domains": data["domains"],
-            "interpolation_direction": data["interpolation_direction"],
-            "interpolation_method": data["interpolation_method"],
-            "relative_floors": data["relative_floors"],
-            "q_operation": data["q_operation"],
-            "btor_gauss": data["config"].setup.btor,
-            "r_big_cm": data["config"].setup.major_radius,
-            "resonance_mode": {
-                "m": data["config"].setup.m_mode,
-                "n": data["config"].setup.n_mode,
-                "convention": "q=-m/n",
-            },
-            "tolerances": data["tolerances_input"],
-        },
+        "comparison_configuration": (
+            {
+                "domains": data["domains"],
+                "interpolation_direction": data["interpolation_direction"],
+                "interpolation_method": data["interpolation_method"],
+                "relative_floors": data["relative_floors"],
+                "q_operation": data["q_operation"],
+                "btor_gauss": data["config"].setup.btor,
+                "r_big_cm": data["config"].setup.major_radius,
+                "resonance_mode": {
+                    "m": data["config"].setup.m_mode,
+                    "n": data["config"].setup.n_mode,
+                    "convention": "q=-m/n",
+                },
+                "tolerances": data["tolerances_input"],
+            }
+            if data["oracle"] is not None
+            else None
+        ),
         "comparisons": report_comparisons,
         "limitations": dict(_LIMITATIONS),
     }

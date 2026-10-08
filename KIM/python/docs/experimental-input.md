@@ -70,7 +70,43 @@ case = prepare_marsf_case(
 Coordinate mapping uses the explicit equilibrium table and a natural cubic spline. Extrapolation,
 implicit unit inference, unsupported temperature units, and ambiguous `r_eff` grids are rejected.
 
-## BALANCE Characterization Equilibrium Values
+## BALANCE Preparation and Optional Comparison
+
+`characterize_balance` prepares a KIM case from four explicit BALANCE profile paths,
+metadata, a KIM configuration, and an equilibrium calculation. An existing QL-Balance HDF5
+file is **optional**. In Python, omit `oracle` (or pass `None`) for preparation only.
+No comparison domains, interpolation settings, relative floors, or tolerances are needed.
+
+The CLI accepts the destination immediately after the configuration:
+
+```bash
+kim characterize-balance density.dat Te.dat Ti.dat vt.dat metadata.json request.json \
+  ./prepared-balance \
+  --equilibrium-file ./equilibrium/equil_r_q_psi.dat \
+  --equilibrium-parameters-file ./equilibrium/btor_rbig.dat \
+  --equilibrium-provenance selected-equilibrium
+```
+
+Without a reference, success is reported as `PREPARED`, with `comparison_performed: false`,
+empty `comparisons`, and `null` comparison configuration, threshold decisions, and overall pass.
+The prepared profiles, request, conversion reports, and input provenance are still written.
+Preparation does not require or access a reference HDF5 file.
+
+To compare as well, pass `oracle=Path(...)` in Python or add these CLI options:
+
+```bash
+--reference-hdf5 ./reference.hdf5 --domains '{"core":[3,60]}' \
+  --interpolation-direction prepared_to_oracle --interpolation-method linear
+```
+
+The illustrated domain is an example, not an approved AUG comparison domain. Choose domains
+explicitly for your case. Comparison settings require a reference; a missing or invalid supplied
+reference is an error, not a request to skip comparison. The old CLI form with
+`REFERENCE_HDF5 DESTINATION` after the configuration remains supported, as does the Python
+positional argument order. Expected hashes, when supplied, cover every supplied input;
+the `oracle` hash is required only when a reference is supplied.
+
+### Equilibrium Values
 
 The `characterize-balance` API and CLI take `btor` and `r_big` from the equilibrium calculation.
 On the production route, the selected equilibrium executable runs once and must produce both
@@ -99,7 +135,8 @@ EQDSK. EQDSK coordinate conventions can change q's sign, so this route does not 
 change. The selected AUG MICDU file is read in EFIT format, and its Fouriers output is used without
 modification.
 
-Characterization always reports absolute RMS and maximum errors. Relative RMS and maximum require
+When a reference is supplied, characterization reports absolute RMS and maximum errors.
+Relative RMS and maximum require
 caller-supplied per-profile denominator floors; if `relative_floors` or CLI `--relative-floors` is
 omitted, those fields are `null` and the report warns that relative metrics are unavailable. A
 relative tolerance is rejected without floors. No pass/fail result is produced unless tolerances

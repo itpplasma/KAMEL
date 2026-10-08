@@ -40,8 +40,10 @@ No comparison observable is selected for them here.
 
 ## AUG/BALANCE profile characterization (pre-solver)
 
-The `characterize-balance` workflow measures how explicit BALANCE profiles map into the prepared
-KIM profile representation by comparing them with a read-only QL-Balance HDF5 input oracle. It
+The `characterize-balance` workflow prepares KIM profiles from explicit BALANCE inputs. It can
+optionally compare them with a caller-supplied, read-only QL-Balance HDF5 input oracle. Without
+a reference it reports `PREPARED`, with no measurements or pass/fail decision. With a reference it
+measures differences between the prepared profiles and the reference input profiles. It
 does not compare KIM solver output with QL-Balance output and does not establish physical
 equivalence. A reported `PASS` only means caller-supplied thresholds were met; it is not a
 scientific acceptance decision. No thresholds are approved for the AUG 33353 case.

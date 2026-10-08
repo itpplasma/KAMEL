@@ -185,10 +185,15 @@ def characterize_balance_command(
     toroidal_rotation: Path = typer.Argument(..., help="BALANCE angular-rotation profile path."),
     metadata_file: Path = typer.Argument(..., help="JSON BALANCE metadata path."),
     config_file: Path = typer.Argument(..., help="JSON request or supported KIM namelist."),
-    oracle: Path = typer.Argument(..., help="Read-only QL-Balance input-HDF oracle path."),
     destination: Path = typer.Argument(
         ...,
         help="New characterization output directory (its parent must already exist).",
+    ),
+    legacy_destination: Path | None = typer.Argument(
+        None, help="Legacy form: REFERENCE_HDF5 DESTINATION instead of DESTINATION."
+    ),
+    reference_hdf5: Path | None = typer.Option(
+        None, "--reference-hdf5", help="Optional read-only QL-Balance HDF5 for comparison."
     ),
     equilibrium_file: Path | None = typer.Option(
         None, "--equilibrium-file", help="Already-reduced r_eff, q, psi table (synthetic route)."
@@ -218,19 +223,23 @@ def characterize_balance_command(
             "calculation's r_big in cm."
         ),
     ),
-    domains: str = typer.Option(
-        ..., "--domains", help="Strict JSON mapping of domain names to [lower, upper]."
+    domains: str | None = typer.Option(
+        None,
+        "--domains",
+        help="Comparison requires a JSON mapping of domain names to [lower, upper].",
     ),
     relative_floors: str | None = typer.Option(
         None,
         "--relative-floors",
         help="Optional strict JSON profile-to-floor mapping; omit for absolute-only metrics.",
     ),
-    interpolation_direction: str = typer.Option(
-        ..., "--interpolation-direction", help="prepared_to_oracle or oracle_to_prepared."
+    interpolation_direction: str | None = typer.Option(
+        None,
+        "--interpolation-direction",
+        help="Comparison: prepared_to_oracle or oracle_to_prepared.",
     ),
-    interpolation_method: str = typer.Option(
-        ..., "--interpolation-method", help="Explicit method."
+    interpolation_method: str | None = typer.Option(
+        None, "--interpolation-method", help="Explicit comparison method."
     ),
     tolerances: str | None = typer.Option(
         None, "--tolerances", help="Optional strict JSON metric/profile/domain tolerance mapping."
@@ -245,7 +254,7 @@ def characterize_balance_command(
     ),
     output_format: OutputFormat = typer.Option(OutputFormat.JSON, "--format"),
 ) -> None:
-    """Measure explicit BALANCE adoption; expected hashes are optional.
+    """Prepare BALANCE inputs and optionally compare with a reference HDF5.
 
     The destination parent must already exist.  The command publishes one
     complete report atomically and never runs KIM.x or QL-Balance.x.  Failed
@@ -254,6 +263,10 @@ def characterize_balance_command(
     """
 
     try:
+        if legacy_destination is not None:
+            if reference_hdf5 is not None:
+                raise ConfigurationError("reference supplied both positionally and by option")
+            reference_hdf5, destination = destination, legacy_destination
         metadata_snapshot = _read_file_snapshot(metadata_file, "BALANCE metadata")
         config_snapshot = _read_file_snapshot(config_file, "KIM configuration")
         _validate_json_snapshot(metadata_snapshot, "metadata")
@@ -271,7 +284,7 @@ def characterize_balance_command(
             metadata=metadata,
             equilibrium_provenance=metadata_provenance,
             config=config,
-            oracle=oracle,
+            oracle=reference_hdf5,
             destination=destination,
             equilibrium_file=equilibrium_file,
             equilibrium_parameters_file=equilibrium_parameters_file,
@@ -280,7 +293,7 @@ def characterize_balance_command(
             equilibrium_executable=equilibrium_executable,
             equilibrium_inputs=tuple(equilibrium_inputs),
             q_operation="preserve",
-            domains=_json_mapping(domains, "domains"),
+            domains=_json_mapping(domains, "domains") if domains is not None else None,
             relative_floors=(
                 _json_mapping(relative_floors, "relative-floors")
                 if relative_floors is not None

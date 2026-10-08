@@ -358,6 +358,7 @@ def test_synthetic_characterization_measures_without_running_a_solver(
     fd_after = len(os.listdir("/dev/fd"))
 
     assert result.status == "MEASURED"
+    assert result.report["comparison_performed"] is True
     assert Path.cwd() == cwd_before
     assert fd_after <= fd_before + 1
     assert result.report_path == request.destination / "characterization_report.json"
@@ -868,6 +869,22 @@ def test_synthetic_characterization_measures_without_running_a_solver(
     assert cli_retained.parent == tmp_path
     assert cli_payload["request_provenance"]["metadata"]["sha256"] == path_expected["metadata"]
     assert Path(cli_payload["prepared"]["report"]).is_file()
+
+    option_arguments = [
+        *cli_arguments[:7],
+        str(tmp_path / "cli-reference-option"),
+        "--reference-hdf5",
+        str(oracle_path),
+        *cli_arguments[9:],
+    ]
+    cli_option = runner.invoke(app, option_arguments)
+    assert cli_option.exit_code == 0, cli_option.output
+    assert json.loads(cli_option.stdout)["comparison_performed"] is True
+    assert json.loads(cli_option.stdout)["comparisons"] == cli_payload["comparisons"]
+
+    cli_conflict = runner.invoke(app, [*cli_arguments, "--reference-hdf5", str(oracle_path)])
+    assert cli_conflict.exit_code == 1
+    assert "both positionally and by option" in json.loads(cli_conflict.stdout)["error"]["message"]
 
     floor_free_arguments = cli_arguments.copy()
     floor_free_floor_index = floor_free_arguments.index("--relative-floors")

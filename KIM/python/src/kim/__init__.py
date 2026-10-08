@@ -1,5 +1,20 @@
 """Python automation interface for the KIM plasma-response solver."""
 
+from kim.acceptance_comparison import (
+    ComparisonError,
+    ComparisonExclusions,
+    ComparisonMeasurements,
+    ComparisonResult,
+    ExclusionInterval,
+    ProfileExclusions,
+    ResonanceComparison,
+    compare_profiles,
+)
+from kim.balance_characterization import (
+    BalanceCharacterization,
+    BalanceCharacterizationRequest,
+    characterize_balance,
+)
 from kim.config import (
     BuiltinPlasma,
     CollisionModel,
@@ -59,13 +74,19 @@ from kim.executable import (
     select_executable,
 )
 from kim.importers import (
+    BalanceInput,
+    BalanceMetadata,
     ExperimentalProfile,
     MarsFInput,
     MarsFMetadata,
+    MarsFProfileSnapshot,
+    read_balance_profiles,
+    read_marsf_profile_snapshot,
     read_marsf_profiles,
 )
 from kim.preparation import PreparedExperimentalCase, prepare_marsf_case
 from kim.profiles import ProfileCopy, ProfileData, ProfileSet, ProfileValidation
+from kim.ql_balance_oracle import QLBalanceOracle, read_ql_balance_oracle
 from kim.results import DatasetMetadata, PeriodicResult, Result
 from kim.runs import (
     InputArtifact,
@@ -91,6 +112,14 @@ __version__ = "0.1.0"
 
 __all__ = [
     "BuiltinPlasma",
+    "ComparisonError",
+    "ComparisonExclusions",
+    "ComparisonMeasurements",
+    "ComparisonResult",
+    "BalanceInput",
+    "BalanceCharacterization",
+    "BalanceCharacterizationRequest",
+    "BalanceMetadata",
     "CollisionModel",
     "ConversionOperation",
     "ConversionReport",
@@ -100,6 +129,7 @@ __all__ = [
     "DatasetMetadata",
     "ElectrostaticPeriodicRun",
     "ElectrostaticRun",
+    "ExclusionInterval",
     "EnvironmentDiagnosticReport",
     "ExplicitPlasma",
     "ExecutableError",
@@ -118,9 +148,11 @@ __all__ = [
     "KimError",
     "LinearRange",
     "MarsFInput",
+    "MarsFProfileSnapshot",
     "MarsFMetadata",
     "PeriodicConfig",
     "PeriodicResult",
+    "ProfileExclusions",
     "ParameterSweep",
     "PlasmaConfig",
     "PhysicsConfig",
@@ -131,12 +163,14 @@ __all__ = [
     "ProfileError",
     "ProfileSet",
     "ProfileValidation",
+    "QLBalanceOracle",
     "PreparedExperimentalCase",
     "ProfileScale",
     "PreparedSimulation",
     "QuadpackAlgorithm",
     "Result",
     "ResultError",
+    "ResonanceComparison",
     "RunConfig",
     "RunError",
     "RunFailure",
@@ -159,9 +193,11 @@ __all__ = [
     "__version__",
     "discover_kamel_git_metadata",
     "create_example",
+    "characterize_balance",
     "convert_inputs",
     "convert_from_kim",
     "convert_quantity",
+    "compare_profiles",
     "diagnose_environment",
     "executable_sha256",
     "resolve_executable",
@@ -171,5 +207,8 @@ __all__ = [
     "reconstruct_fourier_derivative",
     "resonance_target",
     "read_marsf_profiles",
+    "read_marsf_profile_snapshot",
+    "read_balance_profiles",
+    "read_ql_balance_oracle",
     "prepare_marsf_case",
 ]

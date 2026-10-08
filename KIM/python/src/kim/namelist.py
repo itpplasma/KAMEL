@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import io
 from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
@@ -176,6 +177,22 @@ def load_namelist(path: Path | str) -> SimulationConfig:
     try:
         raw = f90nml.read(source).todict()
     except (OSError, ValueError, StopIteration) as error:
+        raise ConfigurationError(f"could not read KIM namelist {source}: {error}") from error
+
+    groups = {str(name).lower(): _lower_keys(values) for name, values in raw.items()}
+    _validate_contract(groups)
+    try:
+        return _from_groups(groups)
+    except (KeyError, TypeError, ValueError, ValidationError) as error:
+        raise ConfigurationError(f"invalid KIM namelist {source}: {error}") from error
+
+
+def load_namelist_bytes(payload: bytes, source: str = "<bytes>") -> SimulationConfig:
+    """Parse a namelist from an already-read byte snapshot."""
+
+    try:
+        raw = f90nml.read(io.StringIO(payload.decode("utf-8"))).todict()
+    except (UnicodeDecodeError, ValueError, StopIteration) as error:
         raise ConfigurationError(f"could not read KIM namelist {source}: {error}") from error
 
     groups = {str(name).lower(): _lower_keys(values) for name, values in raw.items()}

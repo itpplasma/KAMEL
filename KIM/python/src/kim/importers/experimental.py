@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 from dataclasses import dataclass
 from pathlib import Path
 from types import MappingProxyType
@@ -36,6 +37,12 @@ class MarsFMetadata(BaseModel):
     ion_temperature_unit: Literal["eV", "keV", "K"]
     toroidal_velocity_unit: Literal["m/s", "cm/s"]
     equilibrium_provenance: str = Field(min_length=1)
+    upstream_staging_sha256: str | None = Field(
+        default=None,
+        min_length=64,
+        max_length=64,
+        pattern=r"[0-9a-f]{64}",
+    )
 
     @model_validator(mode="after")
     def coordinate_unit_is_compatible(self) -> MarsFMetadata:
@@ -65,6 +72,15 @@ class MarsFInput:
     metadata: MarsFMetadata
     profiles: Mapping[str, ExperimentalProfile]
     source_files: Mapping[str, Path]
+
+
+@dataclass(frozen=True)
+class MarsFProfileSnapshot:
+    """One parsed MARS-F profile and the exact bytes it came from."""
+
+    profile: ExperimentalProfile
+    raw_bytes: bytes
+    sha256: str
 
 
 _PROFILE_SPECS: tuple[tuple[str, str, str], ...] = (
@@ -97,8 +113,8 @@ def read_marsf_profiles(directory: Path | str, metadata: MarsFMetadata) -> MarsF
         path = root / filename
         if not path.is_file():
             raise ExperimentalInputError(f"{path}: required MARS-F profile is missing")
-        profile = _read_profile(name, getattr(metadata, unit_field), path)
-        profiles[name] = profile
+        snapshot = read_marsf_profile_snapshot(name, getattr(metadata, unit_field), path)
+        profiles[name] = snapshot.profile
         source_files[name] = path.absolute()
 
     return MarsFInput(
@@ -109,10 +125,34 @@ def read_marsf_profiles(directory: Path | str, metadata: MarsFMetadata) -> MarsF
     )
 
 
-def _read_profile(name: str, units: str, path: Path) -> ExperimentalProfile:
+def read_marsf_profile_snapshot(name: str, units: str, path: Path | str) -> MarsFProfileSnapshot:
+    """Read one profile once, retaining parsed values and exact source bytes."""
+
+    candidate = Path(path)
     try:
-        lines = path.read_text(encoding="utf-8").splitlines()
+        raw_bytes = candidate.read_bytes()
     except (OSError, UnicodeError) as error:
+        raise ExperimentalInputError(f"{candidate}: unable to read MARS-F profile") from error
+    profile = _parse_profile_bytes(name, units, candidate, raw_bytes)
+    return MarsFProfileSnapshot(
+        profile=profile,
+        raw_bytes=raw_bytes,
+        sha256=hashlib.sha256(raw_bytes).hexdigest(),
+    )
+
+
+def _read_profile(name: str, units: str, path: Path) -> ExperimentalProfile:
+    """Compatibility wrapper returning only the parsed profile."""
+
+    return read_marsf_profile_snapshot(name, units, path).profile
+
+
+def _parse_profile_bytes(
+    name: str, units: str, path: Path, raw_bytes: bytes
+) -> ExperimentalProfile:
+    try:
+        lines = raw_bytes.decode("utf-8").splitlines()
+    except UnicodeError as error:
         raise ExperimentalInputError(f"{path}: unable to read MARS-F profile") from error
 
     if not lines or not lines[0].strip():
@@ -134,7 +174,7 @@ def _read_profile(name: str, units: str, path: Path) -> ExperimentalProfile:
             )
         try:
             coordinate, value = (_parse_float(column) for column in columns)
-        except ValueError as error:
+        except (OverflowError, ValueError) as error:
             raise ExperimentalInputError(
                 f"{path}: row {line_number} must contain exactly two numeric columns"
             ) from error
@@ -150,6 +190,7 @@ def _read_profile(name: str, units: str, path: Path) -> ExperimentalProfile:
         raise ExperimentalInputError(f"{path}: profile must contain at least two data rows")
 
     data = np.asarray(rows, dtype=np.float64)
+    data.setflags(write=False)
     return ExperimentalProfile(
         name=name,
         units=units,
@@ -178,6 +219,8 @@ def _parse_float(value: str) -> float:
 __all__ = [
     "ExperimentalProfile",
     "MarsFInput",
+    "MarsFProfileSnapshot",
     "MarsFMetadata",
+    "read_marsf_profile_snapshot",
     "read_marsf_profiles",
 ]

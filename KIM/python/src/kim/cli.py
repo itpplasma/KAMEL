@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 import shlex
 from dataclasses import asdict
@@ -11,11 +12,14 @@ from typing import Any
 
 import numpy as np
 import typer
+from kim.balance_characterization import BalanceCharacterizationRequest, characterize_balance
 from kim.config import ProfileConfig, SimulationConfig
 from kim.diagnostics import diagnose_environment
 from kim.errors import ConfigurationError, KimError
 from kim.examples import create_example
+from kim.importers.balance import BalanceMetadata
 from kim.importers.experimental import MarsFMetadata, read_marsf_profiles
+from kim.namelist import load_namelist_bytes
 from kim.preparation import prepare_marsf_case
 from kim.profiles import ProfileSet
 from kim.results import Result
@@ -170,6 +174,182 @@ def prepare_marsf_command(
         },
         output_format,
     )
+
+
+@app.command("characterize-balance")
+def characterize_balance_command(
+    context: typer.Context,
+    density: Path = typer.Argument(..., help="BALANCE density profile path."),
+    electron_temperature: Path = typer.Argument(..., help="BALANCE electron-temperature path."),
+    ion_temperature: Path = typer.Argument(..., help="BALANCE ion-temperature profile path."),
+    toroidal_rotation: Path = typer.Argument(..., help="BALANCE angular-rotation profile path."),
+    metadata_file: Path = typer.Argument(..., help="JSON BALANCE metadata path."),
+    config_file: Path = typer.Argument(..., help="JSON request or supported KIM namelist."),
+    destination: Path = typer.Argument(
+        ...,
+        help="New characterization output directory (its parent must already exist).",
+    ),
+    legacy_destination: Path | None = typer.Argument(
+        None, help="Legacy form: REFERENCE_HDF5 DESTINATION instead of DESTINATION."
+    ),
+    reference_hdf5: Path | None = typer.Option(
+        None, "--reference-hdf5", help="Optional read-only QL-Balance HDF5 for comparison."
+    ),
+    equilibrium_file: Path | None = typer.Option(
+        None, "--equilibrium-file", help="Already-reduced r_eff, q, psi table (synthetic route)."
+    ),
+    equilibrium_parameters_file: Path | None = typer.Option(
+        None,
+        "--equilibrium-parameters-file",
+        help="Paired btor_rbig.dat output for a precomputed equilibrium calculation.",
+    ),
+    original_equilibrium: Path | None = typer.Option(
+        None, "--original-equilibrium", help="Original equilibrium input for the preprocessor."
+    ),
+    equilibrium_executable: Path | None = typer.Option(
+        None, "--equilibrium-executable", help="Explicit equilibrium preprocessor executable."
+    ),
+    equilibrium_inputs: list[Path] = typer.Option(
+        [], "--equilibrium-input", help="Additional preprocessor input; repeat as needed."
+    ),
+    metadata_provenance: str = typer.Option(
+        ..., "--equilibrium-provenance", help="Explicit equilibrium provenance label."
+    ),
+    major_radius_cm: float | None = typer.Option(
+        None,
+        "--major-radius-cm",
+        help=(
+            "Deprecated consistency check; when supplied, must exactly match the equilibrium "
+            "calculation's r_big in cm."
+        ),
+    ),
+    domains: str | None = typer.Option(
+        None,
+        "--domains",
+        help="Comparison requires a JSON mapping of domain names to [lower, upper].",
+    ),
+    relative_floors: str | None = typer.Option(
+        None,
+        "--relative-floors",
+        help="Optional strict JSON profile-to-floor mapping; omit for absolute-only metrics.",
+    ),
+    interpolation_direction: str | None = typer.Option(
+        None,
+        "--interpolation-direction",
+        help="Comparison: prepared_to_oracle or oracle_to_prepared.",
+    ),
+    interpolation_method: str | None = typer.Option(
+        None, "--interpolation-method", help="Explicit comparison method."
+    ),
+    tolerances: str | None = typer.Option(
+        None, "--tolerances", help="Optional strict JSON metric/profile/domain tolerance mapping."
+    ),
+    expected_sha256: str | None = typer.Option(
+        None,
+        "--expected-sha256",
+        help="Optional strict JSON identity mapping; omit for hashless characterization.",
+    ),
+    equilibrium_timeout: float = typer.Option(
+        3600.0, "--equilibrium-timeout", min=0.0, help="Preprocessor timeout in seconds."
+    ),
+    output_format: OutputFormat = typer.Option(OutputFormat.JSON, "--format"),
+) -> None:
+    """Prepare BALANCE inputs and optionally compare with a reference HDF5.
+
+    The destination parent must already exist.  The command publishes one
+    complete report atomically and never runs KIM.x or QL-Balance.x.  Failed
+    work may retain a private incomplete staging container for safety; the
+    JSON ``retained_staging`` field gives cleanup guidance.
+    """
+
+    try:
+        if legacy_destination is not None:
+            if reference_hdf5 is not None:
+                raise ConfigurationError("reference supplied both positionally and by option")
+            reference_hdf5, destination = destination, legacy_destination
+        metadata_snapshot = _read_file_snapshot(metadata_file, "BALANCE metadata")
+        config_snapshot = _read_file_snapshot(config_file, "KIM configuration")
+        _validate_json_snapshot(metadata_snapshot, "metadata")
+        metadata = BalanceMetadata.model_validate_json(metadata_snapshot)
+        if config_file.suffix.casefold() == ".json":
+            _validate_json_snapshot(config_snapshot, "config")
+            config = SimulationConfig.model_validate_json(config_snapshot)
+        else:
+            config = load_namelist_bytes(config_snapshot, str(config_file))
+        request = BalanceCharacterizationRequest(
+            density=density,
+            electron_temperature=electron_temperature,
+            ion_temperature=ion_temperature,
+            toroidal_rotation=toroidal_rotation,
+            metadata=metadata,
+            equilibrium_provenance=metadata_provenance,
+            config=config,
+            oracle=reference_hdf5,
+            destination=destination,
+            equilibrium_file=equilibrium_file,
+            equilibrium_parameters_file=equilibrium_parameters_file,
+            major_radius_cm=major_radius_cm,
+            original_equilibrium=original_equilibrium,
+            equilibrium_executable=equilibrium_executable,
+            equilibrium_inputs=tuple(equilibrium_inputs),
+            q_operation="preserve",
+            domains=_json_mapping(domains, "domains") if domains is not None else None,
+            relative_floors=(
+                _json_mapping(relative_floors, "relative-floors")
+                if relative_floors is not None
+                else None
+            ),
+            interpolation_direction=interpolation_direction,
+            interpolation_method=interpolation_method,
+            tolerances=_json_mapping(tolerances, "tolerances") if tolerances is not None else None,
+            expected_sha256=(
+                _json_mapping(expected_sha256, "expected-sha256")
+                if expected_sha256 is not None
+                else None
+            ),
+            equilibrium_timeout_seconds=equilibrium_timeout,
+            metadata_path=metadata_file,
+            config_path=config_file,
+            metadata_snapshot=metadata_snapshot,
+            config_snapshot=config_snapshot,
+            metadata_sha256=hashlib.sha256(metadata_snapshot).hexdigest(),
+            config_sha256=hashlib.sha256(config_snapshot).hexdigest(),
+        )
+        result = characterize_balance(request)
+    except (KimError, ValidationError, OSError, ValueError) as error:
+        payload = {
+            "schema_version": 1,
+            "status": "UNAVAILABLE",
+            "overall_pass": None,
+            "threshold_decisions": None,
+            "error": {"message": _error_message(error)},
+            "retained_staging": {
+                "path": None,
+                "reason": (
+                    "private staging path unavailable: no characterization " "container was created"
+                ),
+                "state": "not_created",
+                "cleanup_safe_when_no_characterization_is_running": True,
+            },
+            "limitations": {
+                "input_adoption_only": True,
+                "no_physical_response_validation": True,
+                "solvers_not_run": True,
+                "retained_staging_possible": True,
+                "retained_staging_success_state": "empty_container",
+                "retained_staging_failure_state": "incomplete_container_possible",
+            },
+        }
+        _render(payload, output_format)
+        raise typer.Exit(1)
+
+    _render(dict(result.report), output_format)
+    if result.status == "UNAVAILABLE":
+        raise typer.Exit(1)
+    if result.status == "FAIL":
+        raise typer.Exit(3)
+    if result.status == "PARTIALLY_EVALUATED":
+        raise typer.Exit(4)
 
 
 @app.command("validate")
@@ -393,6 +573,51 @@ def _load_config(path: Path, profiles: Path | None) -> SimulationConfig:
         return config
     except (ValidationError, OSError, ValueError) as error:
         raise ConfigurationError(f"could not load configuration {path}: {error}") from error
+
+
+def _json_mapping(value: str, name: str) -> dict[str, Any]:
+    try:
+        parsed = json.loads(
+            value,
+            object_pairs_hook=_reject_duplicate_json_keys,
+            parse_constant=lambda token: (_ for _ in ()).throw(
+                ValueError(f"JSON constant {token!r} is not allowed")
+            ),
+        )
+    except (TypeError, ValueError, json.JSONDecodeError) as error:
+        raise ConfigurationError(f"{name} must be valid JSON") from error
+    if not isinstance(parsed, dict):
+        raise ConfigurationError(f"{name} must be a JSON object")
+    return parsed
+
+
+def _reject_duplicate_json_keys(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
+    result: dict[str, Any] = {}
+    for key, value in pairs:
+        if key in result:
+            raise ValueError(f"duplicate JSON object key: {key!r}")
+        result[key] = value
+    return result
+
+
+def _validate_json_snapshot(payload: bytes, name: str) -> None:
+    try:
+        json.loads(
+            payload,
+            object_pairs_hook=_reject_duplicate_json_keys,
+            parse_constant=lambda token: (_ for _ in ()).throw(
+                ValueError(f"JSON constant {token!r} is not allowed")
+            ),
+        )
+    except (TypeError, ValueError, json.JSONDecodeError) as error:
+        raise ConfigurationError(f"{name} must be valid strict JSON") from error
+
+
+def _read_file_snapshot(path: Path, name: str) -> bytes:
+    try:
+        return path.read_bytes()
+    except OSError as error:
+        raise ConfigurationError(f"unable to read {name}: {path}") from error
 
 
 def _primary_output(repository: RunRepository, run_id: str, manifest: RunManifest) -> Path:

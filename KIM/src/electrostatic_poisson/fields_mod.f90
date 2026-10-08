@@ -25,6 +25,7 @@ module fields_m
         complex(dp), allocatable :: jpar_e(:) ! electron parallel current density
         complex(dp), allocatable :: jpar_i(:) ! ion parallel current density (sum over ion species)
         complex(dp), allocatable :: jrad(:)   ! radial current density
+        complex(dp), allocatable :: rho(:), delta_n_e(:), delta_n_i(:, :)
         complex(dp), allocatable :: Phi(:)
         complex(dp), allocatable :: Phi_e(:)
         complex(dp), allocatable :: Phi_i(:)
@@ -500,9 +501,8 @@ module fields_m
     subroutine calculate_current_density(jpar, Phi, Br, K_j_phi, K_j_B)
 
         use KIM_kinds_m, only: dp
-        use kernel_m, only: kernel_spl_t
-        use numerics_utils_m, only: invert_real_matrix
-        use grid_m, only: M_mat
+        use weak_moments_m, only: weak_moment_projector_t
+        use grid_m, only: xl_grid
 
         implicit none
 
@@ -510,15 +510,64 @@ module fields_m
         complex(dp), intent(in) :: Phi(:), Br(:)
         complex(dp), intent(in) :: K_j_phi(:,:)
         complex(dp), intent(in) :: K_j_B(:,:)
-        real(dp), allocatable :: M_inv(:,:)
+        type(weak_moment_projector_t) :: projector
+        complex(dp), allocatable :: weak_load(:)
 
-        allocate(M_inv(size(M_mat,1), size(M_mat,2)))
-
-        call invert_real_matrix(M_mat, M_inv)
-
-        jpar = matmul(M_inv, matmul(K_j_phi, Phi) + matmul(K_j_B, Br))
+        weak_load = matmul(K_j_phi, Phi) + matmul(K_j_B, Br)
+        call projector%init(xl_grid%xb)
+        call projector%project(weak_load, jpar)
 
     end subroutine
+
+    subroutine postprocess_species_density(EBdat, kernel_phi, kernel_B)
+        use grid_m, only: xl_grid
+        use kernel_m, only: kernel_spl_t
+        use weak_moments_m, only: weak_moment_projector_t
+        use species_m, only: plasma
+        use constants_m, only: e_charge
+        use IO_collection_m, only: write_complex_profile_abs
+        implicit none
+        type(EBdat_t), intent(inout) :: EBdat
+        type(kernel_spl_t), intent(in) :: kernel_phi, kernel_B
+        type(weak_moment_projector_t) :: projector
+        complex(dp), allocatable :: rho_species(:), weak_load(:)
+        integer :: sp, n
+        character(len=256) :: dataset
+        character(len=32) :: species_index
+
+        n = size(xl_grid%xb)
+        if (size(EBdat%r_grid) /= n) error stop 'Density field grid size mismatch'
+        if (any(EBdat%r_grid /= xl_grid%xb)) &
+            error stop 'Density requires the charge kernel field grid'
+   if (plasma%spec(0)%Zspec >= 0) error stop 'Electron density requires negative charge'
+        call projector%init(EBdat%r_grid)
+        weak_load = matmul(kernel_phi%Kllp_e, EBdat%Phi) + &
+                    matmul(kernel_B%Kllp_e, EBdat%Br)
+        call projector%project(weak_load, rho_species)
+        EBdat%rho = rho_species
+        EBdat%delta_n_e = rho_species/(plasma%spec(0)%Zspec*e_charge)
+        if (allocated(EBdat%delta_n_i)) deallocate (EBdat%delta_n_i)
+        allocate (EBdat%delta_n_i(n, plasma%n_species - 1))
+        call write_complex_profile_abs(EBdat%r_grid, EBdat%delta_n_e, n, &
+            '/fields/delta_n_e', 'Electron number density from charge kernels', 'cm^-3')
+        do sp = 1, plasma%n_species - 1
+           if (plasma%spec(sp)%Zspec == 0) error stop 'Density requires charged species'
+            weak_load = matmul(kernel_phi%Kllp_i(:, :, sp), EBdat%Phi) + &
+                        matmul(kernel_B%Kllp_i(:, :, sp), EBdat%Br)
+            call projector%project(weak_load, rho_species)
+            EBdat%rho = EBdat%rho + rho_species
+            EBdat%delta_n_i(:, sp) = rho_species/(plasma%spec(sp)%Zspec*e_charge)
+            dataset = '/fields/delta_n_'//trim(plasma%spec(sp)%name)
+            if (plasma%n_species > 2) then
+                write (species_index, '(I0)') sp
+                dataset = trim(dataset)//'_'//trim(species_index)
+            end if
+            call write_complex_profile_abs(EBdat%r_grid, EBdat%delta_n_i(:, sp), n, &
+                       trim(dataset), 'Ion number density from charge kernels', 'cm^-3')
+        end do
+        call write_complex_profile_abs(EBdat%r_grid, EBdat%rho, n, '/fields/rho', &
+                               'Total charge density from charge kernels', 'statC/cm^3')
+    end subroutine postprocess_species_density
 
     subroutine calc_ideal_MA_phi(EBdat, kernel_phi, kernel_B)
         ! calcualte the misalignment Phi for E_perp_MA = 0, i.e. the ideal cancellation case

@@ -258,6 +258,18 @@ target_link_libraries(test_flr2_fourier_kernel KIM_lib kilca_lib lapack cerf for
 add_test(NAME test_flr2_fourier_kernel
          COMMAND ${CMAKE_BINARY_DIR}/tests/test_flr2_fourier_kernel.x)
 
+# GNU Fortran can inherit IEEE environment handling through an umbrella module
+# even with ONLY imports. Check the hot helper's compiled code, not wall time.
+if(CMAKE_Fortran_COMPILER_ID STREQUAL "GNU"
+   AND CMAKE_SYSTEM_NAME STREQUAL "Linux"
+   AND CMAKE_OBJDUMP)
+    add_test(NAME test_scaled_bessel_no_ieee_environment
+             COMMAND ${CMAKE_COMMAND}
+                     "-DOBJDUMP=${CMAKE_OBJDUMP}"
+                     "-DKIM_LIBRARY=$<TARGET_FILE:KIM_lib>"
+                     -P ${CMAKE_CURRENT_SOURCE_DIR}/check_scaled_bessel_codegen.cmake)
+endif()
+
 add_executable(test_radial_current_fourier_kernel
                ${CMAKE_SOURCE_DIR}/KIM/tests/test_radial_current_fourier_kernel.f90)
 set_target_properties(test_radial_current_fourier_kernel PROPERTIES

@@ -59,12 +59,15 @@ jobs:
     name: Build (Ubuntu)
     needs: pre-commit
     runs-on: ubuntu-latest
+    outputs:
+      python-version: ${{ steps.python.outputs.python-version }}
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
 
       - name: Set up Python
+        id: python
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
@@ -122,12 +125,15 @@ jobs:
     name: Build (macOS 14 ARM64)
     needs: pre-commit
     runs-on: macos-14
+    outputs:
+      python-version: ${{ steps.python.outputs.python-version }}
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
 
       - name: Set up Python
+        id: python
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
@@ -192,7 +198,8 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.11"
+          # CTest stores the build runner's absolute interpreter path.
+          python-version: ${{ needs.build-ubuntu.outputs.python-version }}
 
       - name: Install dependencies (Ubuntu)
         run: |
@@ -262,7 +269,8 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.11"
+          # Keep restored CTest registrations valid across runner-image updates.
+          python-version: ${{ needs.build-macos-arm64.outputs.python-version }}
 
       - name: Install dependencies (macOS)
         env:

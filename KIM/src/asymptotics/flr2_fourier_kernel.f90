@@ -77,7 +77,9 @@ contains
         ! For large bcross the unscaled I_n(bcross) would overflow before the
         ! exp(-bplus) damping (b_+ >= b_x by construction), so use the large-
         ! argument asymptotics (lifted from the recovered kernel_mod.f90).
-        use fortnum_special, only: bessel_in
+        ! Avoid transitive IEEE environment save/restore from the umbrella
+        ! module in this helper, which is called for every kernel node.
+        use fortnum_special_bessel, only: bessel_in
         real(dp), intent(in) :: bplus, bcross
         real(dp), intent(out) :: sI0, sIm1
         real(dp), parameter :: asymptotic_threshold = 500.0d0  ! safely below the ~710 I_0 overflow

@@ -147,6 +147,50 @@ def test_stages_exact_marsf_quartet_with_explicit_metadata(tmp_path: Path) -> No
         assert rows.shape == (3, 2)
 
 
+def test_staging_uses_r_big_from_equilibrium_output(tmp_path: Path) -> None:
+    source = read_case(write_balance_profiles(tmp_path / "balance"))
+    parameters = tmp_path / "btor_rbig.dat"
+    parameters.write_text("-17573.19212 169.9117661\n", encoding="utf-8")
+
+    result = stage_balance_marsf_quartet(
+        source,
+        tmp_path / "marsf-from-equilibrium",
+        equilibrium_parameters_file=parameters,
+        equilibrium_provenance=_EQUILIBRIUM_PROVENANCE,
+    )
+
+    rotation = np.loadtxt(result.directory / "PROFROT.IN", skiprows=1)
+    np.testing.assert_allclose(
+        rotation[:, 1], source.profiles["toroidal_rotation"].values * 169.9117661
+    )
+    report = json.loads(result.report.read_text(encoding="utf-8"))
+    assert report["schema_version"] == 2
+    assert report["equilibrium_parameters"] == {
+        "source_basename": "btor_rbig.dat",
+        "sha256": hashlib.sha256(parameters.read_bytes()).hexdigest(),
+        "btor_gauss": -17573.19212,
+        "r_big_cm": 169.9117661,
+    }
+
+
+@pytest.mark.parametrize("major_radius_cm", [np.nan, True, "169.9117661"])
+def test_equilibrium_radius_consistency_check_rejects_invalid_values(
+    tmp_path: Path, major_radius_cm: object
+) -> None:
+    source = read_case(write_balance_profiles(tmp_path / "balance"))
+    parameters = tmp_path / "btor_rbig.dat"
+    parameters.write_text("-17573.19212 169.9117661\n", encoding="utf-8")
+
+    with pytest.raises(ExperimentalInputError, match="major_radius_cm must be finite and positive"):
+        stage_balance_marsf_quartet(
+            source,
+            tmp_path / "marsf-invalid-radius",
+            equilibrium_parameters_file=parameters,
+            major_radius_cm=major_radius_cm,
+            equilibrium_provenance=_EQUILIBRIUM_PROVENANCE,
+        )
+
+
 def test_staged_quartet_is_readable_and_preserves_role_grids_and_values(
     tmp_path: Path,
 ) -> None:

@@ -31,6 +31,7 @@ from kim.importers.experimental import (
     MarsFMetadata,
     read_marsf_profiles,
 )
+from kim.preparation import read_equilibrium_parameters
 from numpy.typing import ArrayLike, NDArray
 
 _BALANCE_COORDINATES = {"rho_pol", "sqrt_psiN"}
@@ -75,7 +76,8 @@ def stage_balance_marsf_quartet(
     source: BalanceInput,
     destination: Path | str,
     *,
-    major_radius_cm: float,
+    major_radius_cm: float | None = None,
+    equilibrium_parameters_file: Path | str | None = None,
     equilibrium_provenance: str,
 ) -> StagedMarsFQuartet:
     """Stage BALANCE profiles as a derived, reader-compatible MARS-F quartet.
@@ -84,11 +86,40 @@ def stage_balance_marsf_quartet(
     angular-rotation-to-linear-velocity conversion.  Staging happens in a
     temporary sibling directory and is published with a native exclusive
     directory rename; the existing preparation path remains responsible for
-    later CGS density conversion and equilibrium mapping.
+    later CGS density conversion and equilibrium mapping.  When an equilibrium
+    parameter output is supplied, its ``r_big`` is authoritative for rotation.
     """
 
     staging_directory: Path | None = None
     try:
+        equilibrium_parameters = (
+            read_equilibrium_parameters(equilibrium_parameters_file)
+            if equilibrium_parameters_file is not None
+            else None
+        )
+        if equilibrium_parameters is not None:
+            if major_radius_cm is not None:
+                if isinstance(major_radius_cm, (bool, np.bool_)) or not isinstance(
+                    major_radius_cm, (int, float, np.integer, np.floating)
+                ):
+                    raise ExperimentalInputError("major_radius_cm must be finite and positive")
+                try:
+                    legacy_radius = float(major_radius_cm)
+                except (OverflowError, TypeError, ValueError) as error:
+                    raise ExperimentalInputError(
+                        "major_radius_cm must be finite and positive"
+                    ) from error
+                if not np.isfinite(legacy_radius) or legacy_radius <= 0.0:
+                    raise ExperimentalInputError("major_radius_cm must be finite and positive")
+                if legacy_radius != equilibrium_parameters.r_big_cm:
+                    raise ExperimentalInputError(
+                        "major_radius_cm does not match the equilibrium calculation"
+                    )
+            major_radius_cm = equilibrium_parameters.r_big_cm
+        if major_radius_cm is None:
+            raise ExperimentalInputError(
+                "provide btor_rbig.dat equilibrium output or major_radius_cm"
+            )
         verified_profiles, source_hashes, equilibrium_provenance = _validate_staging_arguments(
             source, major_radius_cm, equilibrium_provenance
         )
@@ -156,7 +187,7 @@ def stage_balance_marsf_quartet(
             for filename in _MARSF_FILENAMES.values()
         }
         report_payload = {
-            "schema_version": 1,
+            "schema_version": 2 if equilibrium_parameters is not None else 1,
             "source_basenames": {
                 role: Path(source.source_files[role]).name for role in _BALANCE_PROFILE_ROLES
             },
@@ -164,6 +195,18 @@ def stage_balance_marsf_quartet(
             "source_metadata": source.metadata.model_dump(mode="json"),
             "derived_hashes": derived_hashes,
             "major_radius_cm": float(major_radius_cm),
+            **(
+                {
+                    "equilibrium_parameters": {
+                        "source_basename": Path(equilibrium_parameters_file).name,
+                        "sha256": equilibrium_parameters.sha256,
+                        "btor_gauss": equilibrium_parameters.btor_gauss,
+                        "r_big_cm": equilibrium_parameters.r_big_cm,
+                    }
+                }
+                if equilibrium_parameters is not None
+                else {}
+            ),
             "coordinate_mapping": {
                 "source": source.metadata.coordinate,
                 "source_unit": source.metadata.coordinate_unit,

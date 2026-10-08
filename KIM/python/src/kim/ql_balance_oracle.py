@@ -59,7 +59,10 @@ def read_ql_balance_oracle(path: Path | str) -> QLBalanceOracle:
     have either the canonical one-dimensional shape ``(N,)`` or a single-row
     shape ``(1, N)``; the returned arrays always have detached shape ``(N,)``.
     The source is opened explicitly read-only and no HDF5 objects escape this
-    function.  All path, HDF5, type, shape, and validation failures are
+    function. Required data must be stored in this file: external links,
+    virtual datasets, and external dataset storage are rejected so hashing
+    the oracle identifies all values used. Internal aliases are supported.
+    All path, HDF5, type, shape, and validation failures are
     reported as :class:`ExperimentalInputError`.
     """
 
@@ -89,6 +92,10 @@ def _read_dataset(handle: h5py.File, dataset_path: str) -> _FloatArray:
 
     if not isinstance(node, h5py.Dataset):
         raise ExperimentalInputError(f"required oracle path is not a dataset: {dataset_path}")
+    if node.file.id != handle.id or node.is_virtual or node.external:
+        raise ExperimentalInputError(
+            f"required oracle data must be stored in the oracle file: {dataset_path}"
+        )
     if len(node.shape) != 1 and not (len(node.shape) == 2 and node.shape[0] == 1):
         raise ExperimentalInputError(
             f"required oracle dataset must have shape (N,) or (1, N): {dataset_path}"

@@ -178,10 +178,10 @@ def test_missing_required_input_is_unavailable_without_creating_output(tmp_path:
         },
         equilibrium_provenance="synthetic-equilibrium",
         equilibrium_file=tmp_path / "missing-equilibrium.dat",
+        equilibrium_parameters_file=tmp_path / "btor_rbig.dat",
         config=tmp_path / "missing-request.json",
         oracle=tmp_path / "missing-oracle.h5",
         destination=tmp_path / "characterization",
-        major_radius_cm=165.0,
         domains={"all": (1.0, 2.0)},
         relative_floors={"n": 1.0, "Te": 1.0, "Ti": 1.0, "Vz": 1.0, "q": 1.0},
         interpolation_direction="prepared_to_oracle",
@@ -233,9 +233,11 @@ def test_synthetic_characterization_measures_without_running_a_solver(
         path = balance / f"{role}.dat"
         path.write_text("\n".join(f"{rho} {values[role](rho)}" for rho in grid) + "\n")
         paths[role] = path
-    equilibrium = sources / "equilibrium" / "equilibrium.dat"
+    equilibrium = sources / "equilibrium" / "equil_r_q_psi.dat"
     equilibrium.parent.mkdir()
     equilibrium.write_text("# r q psi\n1 2 0\n3 3.5 .5\n5 5 1\n")
+    equilibrium_parameters = equilibrium.parent / "btor_rbig.dat"
+    equilibrium_parameters.write_text("-17573.19212 200.0\n", encoding="utf-8")
     oracle_path = sources / "oracle" / "oracle.h5"
     oracle_path.parent.mkdir()
     radius = np.array([1.0, 2.0, 3.0, 4.0, 5.0])
@@ -247,7 +249,7 @@ def test_synthetic_characterization_measures_without_running_a_solver(
             "preprocprof/Te": 100.0 - 60.0 * psi,
             "preprocprof/Ti": 8.0 - 4.0 * psi,
             "preprocprof/Vz": 2000.0 - 20000.0 * psi,
-            "preprocprof/q": -2.0 - 3.0 * psi,
+            "preprocprof/q": 2.0 + 3.0 * psi,
             "preprocprof/equil/r": np.array([1.0, 3.0, 5.0]),
             "preprocprof/equil/psi_pol_norm": np.array([0.0, 0.5, 1.0]),
             "preprocprof/equil/q": np.array([2.0, 3.5, 5.0]),
@@ -257,7 +259,7 @@ def test_synthetic_characterization_measures_without_running_a_solver(
         profiles=Path("unused"),
         plasma=BuiltinPlasma(isotope=PlasmaIsotope.DEUTERIUM),
         btor=-18000.0,
-        major_radius=200.0,
+        major_radius=165.0,
         m_mode=7,
         n_mode=2,
         frequency=0.0,
@@ -300,16 +302,55 @@ def test_synthetic_characterization_measures_without_running_a_solver(
         },
         equilibrium_provenance="synthetic-equilibrium",
         equilibrium_file=equilibrium,
+        equilibrium_parameters_file=equilibrium_parameters,
         config=config,
         oracle=oracle_path,
         destination=tmp_path / "characterization",
-        major_radius_cm=200.0,
-        q_operation="negate",
         domains={"core": (2.0, 4.0)},
         relative_floors={"n": 1.0e12, "Te": 1.0, "Ti": 1.0, "Vz": 1.0, "q": 0.1},
         interpolation_direction="prepared_to_oracle",
         interpolation_method="linear",
+        major_radius_cm=200.0,
     )
+    from kim.balance_characterization import _normalise_request
+
+    with pytest.raises(ExperimentalInputError, match="preserves Fouriers q without a sign change"):
+        _normalise_request(replace(request, q_operation="negate"))
+    assert request.q_operation == "preserve"
+    assert request.q_operation == "preserve"
+
+    positional_legacy_request = BalanceCharacterizationRequest(
+        request.density,
+        request.electron_temperature,
+        request.ion_temperature,
+        request.toroidal_rotation,
+        request.metadata,
+        request.equilibrium_provenance,
+        request.config,
+        request.oracle,
+        request.destination,
+        200.0,
+        "preserve",
+        request.domains,
+        request.relative_floors,
+        request.interpolation_direction,
+        request.interpolation_method,
+        equilibrium_file=request.equilibrium_file,
+        equilibrium_parameters_file=request.equilibrium_parameters_file,
+    )
+    assert _normalise_request(positional_legacy_request)["major_radius_cm"] == 200.0
+
+    unrelated_equilibrium_directory = sources / "unrelated-equilibrium"
+    unrelated_equilibrium_directory.mkdir()
+    unrelated_parameters = unrelated_equilibrium_directory / "btor_rbig.dat"
+    unrelated_parameters.write_bytes(equilibrium_parameters.read_bytes())
+    with pytest.raises(ExperimentalInputError, match="same equilibrium calculation directory"):
+        _normalise_request(replace(request, equilibrium_parameters_file=unrelated_parameters))
+
+    renamed_equilibrium = equilibrium.with_name("other-equilibrium-table.dat")
+    renamed_equilibrium.write_bytes(equilibrium.read_bytes())
+    with pytest.raises(ExperimentalInputError, match="equil_r_q_psi.dat"):
+        _normalise_request(replace(request, equilibrium_file=renamed_equilibrium))
 
     cwd_before = Path.cwd()
     fd_before = len(os.listdir("/dev/fd"))
@@ -322,7 +363,65 @@ def test_synthetic_characterization_measures_without_running_a_solver(
     assert result.report_path == request.destination / "characterization_report.json"
     assert result.report["threshold_decisions"] is None
     assert result.report["overall_pass"] is None
+    floor_free = characterize_balance(
+        replace(
+            request,
+            destination=tmp_path / "floor-free-characterization",
+            relative_floors=None,
+        )
+    )
+    assert floor_free.status == "MEASURED"
+    assert floor_free.report["comparison_configuration"]["relative_floors"] is None
+    assert floor_free.report["threshold_decisions"] is None
+    assert floor_free.report["overall_pass"] is None
+    for profiles in floor_free.report["comparisons"].values():
+        for comparison in profiles.values():
+            measurements = comparison["measurements"]
+            assert np.isfinite(measurements["absolute_rms"])
+            assert np.isfinite(measurements["absolute_max"])
+            assert measurements["relative_rms"] is None
+            assert measurements["relative_max"] is None
+            assert any(
+                "relative metrics unavailable" in warning for warning in comparison["warnings"]
+            )
+            assert comparison["overall_pass"] is None
+    relative_tolerance_without_floors = characterize_balance(
+        replace(
+            request,
+            destination=tmp_path / "relative-tolerance-without-floors",
+            relative_floors=None,
+            tolerances={"core": {"n": {"relative_rms": 0.1}}},
+        )
+    )
+    assert relative_tolerance_without_floors.status == "UNAVAILABLE"
+    assert (
+        "relative tolerances require relative_floors"
+        in relative_tolerance_without_floors.report["error"]["message"]
+    )
+    assert not (tmp_path / "relative-tolerance-without-floors").exists()
     assert result.report["expected_hashes_requested"] is False
+    assert json.loads(Path(result.report["staged"]["report"]).read_text())["schema_version"] == 2
+    assert result.report["equilibrium_calculation"]["btor_gauss"] == pytest.approx(-17573.19212)
+    assert result.report["equilibrium_calculation"]["r_big_cm"] == pytest.approx(200.0)
+    equilibrium_report = result.report["equilibrium_calculation"]
+    assert (
+        equilibrium_report["equilibrium_sha256"]
+        == hashlib.sha256(Path(equilibrium_report["equilibrium_file"]).read_bytes()).hexdigest()
+    )
+    assert (
+        equilibrium_report["parameters_sha256"]
+        == hashlib.sha256(Path(equilibrium_report["parameters_file"]).read_bytes()).hexdigest()
+    )
+    prepared_request = json.loads(Path(result.report["prepared"]["request"]).read_text())
+    assert prepared_request["setup"]["btor"] == pytest.approx(-17573.19212)
+    assert prepared_request["setup"]["major_radius"] == pytest.approx(200.0)
+    staged_rotation = np.loadtxt(
+        Path(result.report["staged"]["directory"]) / "PROFROT.IN", skiprows=1
+    )
+    np.testing.assert_allclose(
+        staged_rotation[:, 1],
+        np.loadtxt(paths["toroidal_rotation"])[:, 1] * 200.0,
+    )
     assert result.report["comparisons"]["core"]["q"]["resonance"]["target_q"] == -3.5
     assert result.report["comparisons"]["core"]["n"]["role"]["prepared"] == "custom-density.dat"
     assert "custom-density.dat" in result.report["prepared"]["profile_hashes"]
@@ -342,6 +441,20 @@ def test_synthetic_characterization_measures_without_running_a_solver(
         assert not retained_path.is_relative_to(source_root)
     persisted = json.loads(result.report_path.read_text(encoding="utf-8"))
     assert persisted["retained_staging"] == retained
+
+    mismatched_legacy_radius = characterize_balance(
+        replace(
+            request,
+            destination=tmp_path / "mismatched-legacy-radius",
+            major_radius_cm=201.0,
+        )
+    )
+    assert mismatched_legacy_radius.status == "UNAVAILABLE"
+    assert (
+        "deprecated major_radius_cm does not match"
+        in mismatched_legacy_radius.report["error"]["message"]
+    )
+    assert not (tmp_path / "mismatched-legacy-radius").exists()
 
     from kim import balance_characterization as characterization_module
 
@@ -691,6 +804,7 @@ def test_synthetic_characterization_measures_without_running_a_solver(
         "ion_temperature": hashlib.sha256(paths["ion_temperature"].read_bytes()).hexdigest(),
         "toroidal_rotation": hashlib.sha256(paths["toroidal_rotation"].read_bytes()).hexdigest(),
         "equilibrium": hashlib.sha256(equilibrium.read_bytes()).hexdigest(),
+        "equilibrium_parameters": hashlib.sha256(equilibrium_parameters.read_bytes()).hexdigest(),
         "oracle": hashlib.sha256(oracle_path.read_bytes()).hexdigest(),
     }
     path_expected = {
@@ -721,12 +835,10 @@ def test_synthetic_characterization_measures_without_running_a_solver(
         str(tmp_path / "cli-characterization"),
         "--equilibrium-file",
         str(equilibrium),
-        "--major-radius-cm",
-        "200",
+        "--equilibrium-parameters-file",
+        str(equilibrium_parameters),
         "--equilibrium-provenance",
         "synthetic-equilibrium",
-        "--q-operation",
-        "negate",
         "--domains",
         '{"core":[2,4]}',
         "--relative-floors",
@@ -756,6 +868,16 @@ def test_synthetic_characterization_measures_without_running_a_solver(
     assert cli_retained.parent == tmp_path
     assert cli_payload["request_provenance"]["metadata"]["sha256"] == path_expected["metadata"]
     assert Path(cli_payload["prepared"]["report"]).is_file()
+
+    floor_free_arguments = cli_arguments.copy()
+    floor_free_floor_index = floor_free_arguments.index("--relative-floors")
+    del floor_free_arguments[floor_free_floor_index : floor_free_floor_index + 2]
+    floor_free_arguments[8] = str(tmp_path / "cli-floor-free-characterization")
+    cli_floor_free = runner.invoke(app, floor_free_arguments)
+    assert cli_floor_free.exit_code == 0, cli_floor_free.stdout
+    floor_free_payload = json.loads(cli_floor_free.stdout)
+    assert floor_free_payload["status"] == "MEASURED"
+    assert floor_free_payload["comparisons"]["core"]["Vz"]["measurements"]["relative_rms"] is None
 
     cli_partial_arguments = [*cli_arguments[:-2]]
     cli_partial_arguments[8] = str(tmp_path / "cli-partial-characterization")
@@ -823,11 +945,11 @@ def test_synthetic_characterization_measures_without_running_a_solver(
 
     for name, invalid_request in (
         (
-            "boolean-radius-characterization",
+            "missing-equilibrium-parameters-characterization",
             replace(
                 request,
-                destination=tmp_path / "boolean-radius-characterization",
-                major_radius_cm=True,
+                destination=tmp_path / "missing-equilibrium-parameters-characterization",
+                equilibrium_parameters_file=None,
             ),
         ),
         (
@@ -878,10 +1000,13 @@ def test_synthetic_characterization_measures_without_running_a_solver(
     equilibrium_input.parent.mkdir()
     equilibrium_input.write_text("synthetic-input\n")
     generator = sources / "preprocessor" / "equilibrium-preprocessor.py"
+    run_counter = tmp_path / "equilibrium-run-count.txt"
     generator.write_text(
         "#!/usr/bin/env python3\n"
         "from pathlib import Path\n"
         "Path('equil_r_q_psi.dat').write_text('# r q psi\\n1 2 0\\n3 3.5 .5\\n5 5 1\\n')\n"
+        "Path('btor_rbig.dat').write_text('-16000 211\\n')\n"
+        f"Path({str(run_counter)!r}).open('a').write('x')\n"
     )
     generator.chmod(0o755)
     generator_hashes = {
@@ -890,18 +1015,50 @@ def test_synthetic_characterization_measures_without_running_a_solver(
             equilibrium_input.read_bytes()
         ).hexdigest(),
     }
+    original_equilibrium = sources / "original-equilibrium.gfile"
+    original_equilibrium.write_bytes(equilibrium.read_bytes())
     generated_request = replace(
         request,
         destination=tmp_path / "generated-characterization",
         equilibrium_file=None,
-        original_equilibrium=equilibrium,
+        equilibrium_parameters_file=None,
+        original_equilibrium=original_equilibrium,
         equilibrium_executable=generator,
         equilibrium_inputs=(equilibrium_input,),
-        expected_sha256={**expected, **generator_hashes},
+        major_radius_cm=None,
+        expected_sha256={
+            **{key: value for key, value in expected.items() if key != "equilibrium_parameters"},
+            **generator_hashes,
+        },
     )
     generated = characterize_balance(generated_request)
     assert generated.status == "MEASURED"
-    assert generated.report["actual_sha256"] == {**expected, **generator_hashes}
+    generated_expected = {
+        **{key: value for key, value in expected.items() if key != "equilibrium_parameters"},
+        **generator_hashes,
+    }
+    assert generated.report["actual_sha256"] == generated_expected
+    assert generated.report["equilibrium_calculation"]["btor_gauss"] == -16000.0
+    assert generated.report["equilibrium_calculation"]["r_big_cm"] == 211.0
+    generated_equilibrium = generated.report["equilibrium_calculation"]
+    assert (
+        generated_equilibrium["equilibrium_sha256"]
+        == hashlib.sha256(Path(generated_equilibrium["equilibrium_file"]).read_bytes()).hexdigest()
+    )
+    assert (
+        generated_equilibrium["parameters_sha256"]
+        == hashlib.sha256(Path(generated_equilibrium["parameters_file"]).read_bytes()).hexdigest()
+    )
+    assert generated.report["equilibrium_calculation"]["generator"] is not None
+    assert run_counter.read_text() == "x"
+    generated_request_json = json.loads(Path(generated.report["prepared"]["request"]).read_text())
+    assert generated_request_json["setup"]["btor"] == -16000.0
+    assert generated_request_json["setup"]["major_radius"] == 211.0
+    prepared_report = json.loads(Path(generated.report["prepared"]["report"]).read_text())
+    assert prepared_report["equilibrium"]["operation"] == (
+        "generated by supplied equilibrium executable"
+    )
+    assert prepared_report["generator"] is not None
     for key in (
         "equilibrium",
         "equilibrium_input:fouriermodes.inp",
@@ -917,7 +1074,7 @@ def test_synthetic_characterization_measures_without_running_a_solver(
     # profile directory.  These destinations must be rejected before staging
     # or preprocessor execution.
     for label, source_parent in (
-        ("equilibrium", equilibrium.parent),
+        ("equilibrium", original_equilibrium.parent),
         ("oracle", oracle_path.parent),
         ("equilibrium-input", equilibrium_input.parent),
         ("equilibrium-executable", generator.parent),
@@ -942,17 +1099,24 @@ def test_synthetic_characterization_measures_without_running_a_solver(
             request,
             destination=tmp_path / "bad-generator-hash-characterization",
             equilibrium_file=None,
-            original_equilibrium=equilibrium,
+            equilibrium_parameters_file=None,
+            original_equilibrium=original_equilibrium,
             equilibrium_executable=generator,
             equilibrium_inputs=(equilibrium_input,),
-            expected_sha256={**expected, **generator_hashes, "equilibrium_executable": "0" * 64},
+            expected_sha256={
+                **{
+                    key: value for key, value in expected.items() if key != "equilibrium_parameters"
+                },
+                **generator_hashes,
+                "equilibrium_executable": "0" * 64,
+            },
         )
     )
     assert bad_generator_hash.status == "UNAVAILABLE"
     assert stage_calls == []
 
     for label, source_file in (
-        ("equilibrium", equilibrium),
+        ("equilibrium", original_equilibrium),
         ("equilibrium-input", equilibrium_input),
         ("equilibrium-executable", generator),
         ("oracle", oracle_path),
@@ -1016,12 +1180,12 @@ def test_characterize_balance_cli_emits_parseable_unavailable_json(tmp_path: Pat
             str(tmp_path / "output"),
             "--equilibrium-file",
             str(tmp_path / "equilibrium.dat"),
-            "--major-radius-cm",
-            "165",
+            "--equilibrium-parameters-file",
+            str(tmp_path / "btor_rbig.dat"),
             "--equilibrium-provenance",
             "synthetic-equilibrium",
-            "--q-operation",
-            "preserve",
+            "--major-radius-cm",
+            "200",
             "--domains",
             '{"all":[1,2]}',
             "--relative-floors",

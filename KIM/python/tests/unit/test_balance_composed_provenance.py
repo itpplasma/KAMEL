@@ -194,6 +194,8 @@ def test_composes_balance_staging_provenance_into_prepared_report(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     balance_paths, balance_source, staged, marsf = _stage_balance_case(tmp_path)
+    assert _report(staged.report)["schema_version"] == 1
+    assert "equilibrium_parameters" not in _report(staged.report)
     equilibrium = tmp_path / "original-equilibrium.dat"
     _write_equilibrium(equilibrium)
 
@@ -247,7 +249,10 @@ def test_composes_balance_staging_provenance_into_prepared_report(
 
     assert report["equilibrium"]["source_hash"] == _sha256(equilibrium)
     assert report["equilibrium"]["operation"] == "copied from explicit equilibrium_file"
-    assert report["coordinate_operation"] == {
+    assert report["coordinate_operation"] == (
+        "natural cubic interpolation from sqrt_psiN to equilibrium r_eff"
+    )
+    assert report["coordinate_mapping"] == {
         "source_coordinate": "sqrt_psiN",
         "target_coordinate": "r_eff",
         "method": "natural cubic interpolation",
@@ -278,6 +283,40 @@ def test_composes_balance_staging_provenance_into_prepared_report(
     np.testing.assert_array_equal(
         np.loadtxt(prepared.profiles / "Vz.dat")[:, 1], [0.0, -4.125e6, -8.25e6]
     )
+
+
+def test_consumes_legacy_schema_v1_balance_staging_report(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _, _, staged, marsf = _stage_balance_case(tmp_path)
+    legacy_payload = _report(staged.report)
+    legacy_payload["schema_version"] = 1
+    legacy_payload.pop("equilibrium_parameters", None)
+    legacy_report = tmp_path / "legacy-staging-report.json"
+    legacy_report.write_text(
+        json.dumps(legacy_payload, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+    )
+    legacy_marsf = _relink_marsf_source(marsf, legacy_report)
+    equilibrium = tmp_path / "original-equilibrium.dat"
+    _write_equilibrium(equilibrium)
+    _patch_identity_seams(
+        monkeypatch,
+        tmp_path,
+        commit="0123456789abcdef0123456789abcdef01234567",
+    )
+
+    prepared = prepare_marsf_case(
+        legacy_marsf,
+        _config(),
+        tmp_path / "prepared-legacy-v1",
+        equilibrium_file=equilibrium,
+        q_operation="negate",
+        upstream_staging_report=legacy_report,
+    )
+
+    report = _report(prepared.report)
+    assert report["upstream_staging"]["schema_version"] == 1
+    assert report["upstream_staging"]["equilibrium_parameters"] is None
 
 
 def test_upstream_staging_radius_must_match_kim_configuration(
@@ -530,7 +569,11 @@ def test_malformed_upstream_staging_report_is_rejected(tmp_path: Path) -> None:
 
 @pytest.mark.parametrize(
     "variant",
-    ["missing-required-field", "unsupported-schema-version"],
+    [
+        "missing-required-field",
+        "unsupported-schema-version",
+        "schema-v2-without-equilibrium-parameters",
+    ],
 )
 def test_rejects_valid_json_upstream_reports_with_invalid_schema(
     tmp_path: Path, variant: str
@@ -543,6 +586,9 @@ def test_rejects_valid_json_upstream_reports_with_invalid_schema(
     def mutate(payload: dict[str, object]) -> None:
         if variant == "missing-required-field":
             payload.pop("source_basenames")
+        elif variant == "schema-v2-without-equilibrium-parameters":
+            payload["schema_version"] = 2
+            payload["equilibrium_parameters"] = None
         else:
             payload["schema_version"] = 999
 

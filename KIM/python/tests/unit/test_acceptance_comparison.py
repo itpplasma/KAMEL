@@ -63,7 +63,7 @@ def _compare(
     domain_cm: tuple[float, float] = (1.0, 7.0),
     interpolation_direction: str = "prepared_to_oracle",
     method: str = "linear",
-    relative_floor: float = 1.0,
+    relative_floor: float | None = 1.0,
     tolerances: dict[str, float] | None = None,
     resonance: tuple[int, int] | float | None = None,
 ):
@@ -117,6 +117,39 @@ def test_reports_exact_absolute_and_relative_measurements_without_decisions() ->
     assert result.threshold_decisions is None
     assert result.overall_pass is None
     assert result.warnings == ()
+
+
+def test_reports_absolute_only_when_relative_floor_is_unavailable() -> None:
+    radius = np.array([1.0, 2.0, 3.0])
+    result = _compare(
+        radius,
+        np.array([2.0, 0.0, 4.0]),
+        radius.copy(),
+        np.array([1.0, 3.0, 1.0]),
+        domain_cm=(1.0, 3.0),
+        relative_floor=None,
+    )
+
+    assert result.measurements.absolute_rms == pytest.approx(np.sqrt(19.0 / 3.0))
+    assert result.measurements.absolute_max == pytest.approx(3.0)
+    assert result.measurements.relative_rms is None
+    assert result.measurements.relative_max is None
+    assert result.threshold_decisions is None
+    assert result.overall_pass is None
+    assert any("relative metrics unavailable" in warning for warning in result.warnings)
+
+
+def test_relative_tolerances_require_a_relative_floor() -> None:
+    with pytest.raises(ComparisonError, match="relative tolerances require a relative floor"):
+        _compare(
+            [1.0, 2.0],
+            [2.0, 4.0],
+            [1.0, 2.0],
+            [2.0, 3.0],
+            domain_cm=(1.0, 2.0),
+            relative_floor=None,
+            tolerances={"relative_rms": 1.0},
+        )
 
 
 def test_relative_denominator_uses_absolute_oracle_reference_with_a_floor() -> None:

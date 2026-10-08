@@ -236,7 +236,10 @@ def test_synthetic_balance_to_ql_balance_acceptance(
     np.testing.assert_array_equal(prepared_values["q"], [-2.0, -3.5, -5.0])
 
     prepared_report = json.loads(prepared.report.read_text(encoding="utf-8"))
-    assert prepared_report["coordinate_operation"] == {
+    assert prepared_report["coordinate_operation"] == (
+        "natural cubic interpolation from sqrt_psiN to equilibrium r_eff"
+    )
+    assert prepared_report["coordinate_mapping"] == {
         "source_coordinate": "sqrt_psiN",
         "target_coordinate": "r_eff",
         "method": "natural cubic interpolation",

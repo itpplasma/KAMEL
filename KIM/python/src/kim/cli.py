@@ -193,6 +193,11 @@ def characterize_balance_command(
     equilibrium_file: Path | None = typer.Option(
         None, "--equilibrium-file", help="Already-reduced r_eff, q, psi table (synthetic route)."
     ),
+    equilibrium_parameters_file: Path | None = typer.Option(
+        None,
+        "--equilibrium-parameters-file",
+        help="Paired btor_rbig.dat output for a precomputed equilibrium calculation.",
+    ),
     original_equilibrium: Path | None = typer.Option(
         None, "--original-equilibrium", help="Original equilibrium input for the preprocessor."
     ),
@@ -205,15 +210,21 @@ def characterize_balance_command(
     metadata_provenance: str = typer.Option(
         ..., "--equilibrium-provenance", help="Explicit equilibrium provenance label."
     ),
-    major_radius_cm: float = typer.Option(..., "--major-radius-cm", help="Major radius in cm."),
-    q_operation: str = typer.Option(
-        ..., "--q-operation", help="Explicit q operation: preserve or negate."
+    major_radius_cm: float | None = typer.Option(
+        None,
+        "--major-radius-cm",
+        help=(
+            "Deprecated consistency check; when supplied, must exactly match the equilibrium "
+            "calculation's r_big in cm."
+        ),
     ),
     domains: str = typer.Option(
         ..., "--domains", help="Strict JSON mapping of domain names to [lower, upper]."
     ),
-    relative_floors: str = typer.Option(
-        ..., "--relative-floors", help="Strict JSON profile-to-floor mapping."
+    relative_floors: str | None = typer.Option(
+        None,
+        "--relative-floors",
+        help="Optional strict JSON profile-to-floor mapping; omit for absolute-only metrics.",
     ),
     interpolation_direction: str = typer.Option(
         ..., "--interpolation-direction", help="prepared_to_oracle or oracle_to_prepared."
@@ -263,13 +274,18 @@ def characterize_balance_command(
             oracle=oracle,
             destination=destination,
             equilibrium_file=equilibrium_file,
+            equilibrium_parameters_file=equilibrium_parameters_file,
+            major_radius_cm=major_radius_cm,
             original_equilibrium=original_equilibrium,
             equilibrium_executable=equilibrium_executable,
             equilibrium_inputs=tuple(equilibrium_inputs),
-            major_radius_cm=major_radius_cm,
-            q_operation=q_operation,  # type: ignore[arg-type]
+            q_operation="preserve",
             domains=_json_mapping(domains, "domains"),
-            relative_floors=_json_mapping(relative_floors, "relative-floors"),
+            relative_floors=(
+                _json_mapping(relative_floors, "relative-floors")
+                if relative_floors is not None
+                else None
+            ),
             interpolation_direction=interpolation_direction,
             interpolation_method=interpolation_method,
             tolerances=_json_mapping(tolerances, "tolerances") if tolerances is not None else None,

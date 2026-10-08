@@ -26,8 +26,8 @@ class ComparisonMeasurements:
 
     absolute_rms: float
     absolute_max: float
-    relative_rms: float
-    relative_max: float
+    relative_rms: float | None
+    relative_max: float | None
 
 
 @dataclass(frozen=True)
@@ -64,7 +64,12 @@ class ComparisonExclusions:
 
 @dataclass(frozen=True)
 class ResonanceComparison:
-    """Independent piecewise-linear resonance information for both profiles."""
+    """Independent piecewise-linear resonance information for both profiles.
+
+    ``*_crossing_covered`` means at least one crossing lies in the requested
+    domain. It does not assert shared profile support at that crossing;
+    consult the exclusions and evaluated radii for comparison coverage.
+    """
 
     target_q: float
     reference_crossing_radii_cm: tuple[float, ...]
@@ -99,7 +104,7 @@ def compare_profiles(
     domain_cm: tuple[float, float],
     interpolation_direction: str,
     method: str,
-    relative_floor: float,
+    relative_floor: float | None,
     tolerances: Mapping[str, float] | None = None,
     resonance: tuple[int, int] | float | None = None,
 ) -> ComparisonResult:
@@ -119,8 +124,14 @@ def compare_profiles(
     domain_lower, domain_upper = _validate_domain(domain_cm)
     direction = _validate_direction(interpolation_direction)
     _validate_method(method)
-    floor = _validate_floor(relative_floor)
+    floor = None if relative_floor is None else _validate_floor(relative_floor)
     validated_tolerances = _validate_tolerances(tolerances)
+    if (
+        floor is None
+        and validated_tolerances is not None
+        and any(metric.startswith("relative_") for metric in validated_tolerances)
+    ):
+        raise ComparisonError("relative tolerances require a relative floor")
     target_q = _validate_resonance(resonance)
 
     shared_lower = max(float(oracle_radius[0]), float(prepared_radius[0]))
@@ -169,16 +180,22 @@ def compare_profiles(
     # Keep the arithmetic inside the floating-point domain long enough to
     # report a useful domain error rather than leaking inf/nan metrics.  The
     # scaled RMS below avoids squaring the original values.
-    with np.errstate(over="ignore", invalid="ignore", divide="ignore", under="ignore"):
+    with np.errstate(over="ignore", invalid="ignore", under="ignore"):
         error = prepared_values_on_grid - oracle_values_on_grid
-        relative_error = error / np.maximum(np.abs(oracle_values_on_grid), floor)
     _validate_computed_array(error, "comparison error")
-    _validate_computed_array(relative_error, "relative comparison error")
+    relative_rms = None
+    relative_max = None
+    if floor is not None:
+        with np.errstate(over="ignore", invalid="ignore", divide="ignore", under="ignore"):
+            relative_error = error / np.maximum(np.abs(oracle_values_on_grid), floor)
+        _validate_computed_array(relative_error, "relative comparison error")
+        relative_rms = _stable_rms(relative_error, "relative RMS")
+        relative_max = float(np.max(np.abs(relative_error)))
     measurements = ComparisonMeasurements(
         absolute_rms=_stable_rms(error, "absolute RMS"),
         absolute_max=float(np.max(np.abs(error))),
-        relative_rms=_stable_rms(relative_error, "relative RMS"),
-        relative_max=float(np.max(np.abs(relative_error))),
+        relative_rms=relative_rms,
+        relative_max=relative_max,
     )
     _validate_measurements(measurements)
 
@@ -211,6 +228,8 @@ def compare_profiles(
         )
 
     warnings = _warnings(exclusions, resonance_report)
+    if floor is None:
+        warnings = (*warnings, "relative metrics unavailable: no relative floor was supplied")
     decisions = None
     overall_pass = None
     if validated_tolerances is not None:
@@ -478,16 +497,17 @@ def _stable_convex_value(lower: float, upper: float, fraction: float) -> float:
 
 
 def _validate_measurements(measurements: ComparisonMeasurements) -> None:
-    values = np.asarray(
-        (
-            measurements.absolute_rms,
-            measurements.absolute_max,
-            measurements.relative_rms,
-            measurements.relative_max,
-        ),
-        dtype=np.float64,
+    absolute_values = np.asarray(
+        (measurements.absolute_rms, measurements.absolute_max), dtype=np.float64
     )
-    _validate_computed_array(values, "comparison measurements")
+    _validate_computed_array(absolute_values, "absolute comparison measurements")
+    relative_values = tuple(
+        value
+        for value in (measurements.relative_rms, measurements.relative_max)
+        if value is not None
+    )
+    if relative_values:
+        _validate_computed_array(np.asarray(relative_values, dtype=np.float64), "relative metrics")
 
 
 def _profile_exclusions(

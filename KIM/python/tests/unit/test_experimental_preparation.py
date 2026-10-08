@@ -1,7 +1,10 @@
 from __future__ import annotations
 
+import hashlib
 import json
+import os
 import stat
+import sys
 from pathlib import Path
 
 import numpy as np
@@ -15,6 +18,11 @@ from kim import (
     SimulationConfig,
     prepare_marsf_case,
     read_marsf_profiles,
+)
+from kim.preparation import (
+    read_equilibrium_parameters,
+    run_equilibrium_calculation,
+    simulation_config_for_equilibrium,
 )
 from kim.profiles import ProfileSet
 
@@ -55,6 +63,98 @@ def write_equilibrium(path: Path) -> None:
         "# radius q psi\n" "0.0 1.0 0.0 0 0\n" "10.0 1.5 0.25 0 0\n" "20.0 2.0 1.0 0 0\n",
         encoding="utf-8",
     )
+
+
+def test_reads_btor_and_r_big_from_equilibrium_output(tmp_path: Path) -> None:
+    parameters = tmp_path / "btor_rbig.dat"
+    parameters.write_text("-1.757319212D+04 1.699117661D+02\n", encoding="utf-8")
+
+    result = read_equilibrium_parameters(parameters)
+
+    assert result.btor_gauss == pytest.approx(-17573.19212)
+    assert result.r_big_cm == pytest.approx(169.9117661)
+    assert result.sha256 == hashlib.sha256(parameters.read_bytes()).hexdigest()
+
+
+def test_config_uses_equilibrium_calculated_btor_and_r_big(tmp_path: Path) -> None:
+    parameters_path = tmp_path / "btor_rbig.dat"
+    parameters_path.write_text("-17573.19212 169.9117661\n", encoding="utf-8")
+    parameters = read_equilibrium_parameters(parameters_path)
+
+    result = simulation_config_for_equilibrium(config(), parameters)
+
+    assert result.setup.btor == pytest.approx(-17573.19212)
+    assert result.setup.major_radius == pytest.approx(169.9117661)
+    assert config().setup.btor == -17_977.413
+    assert config().setup.major_radius == 165.0
+
+
+def test_runs_equilibrium_once_and_requires_paired_outputs(tmp_path: Path) -> None:
+    input_file = tmp_path / "equilibrium.inp"
+    input_file.write_text("source input\n", encoding="utf-8")
+    generator = tmp_path / "equilibrium-generator.py"
+    generator.write_text(
+        "#!/usr/bin/env python3\n"
+        "from pathlib import Path\n"
+        "Path('equil_r_q_psi.dat').write_text('# r q psi\\n1 2 0\\n3 3.5 .5\\n5 5 1\\n')\n"
+        "Path('btor_rbig.dat').write_text('-17573.19212 169.9117661\\n')\n"
+    )
+    generator.chmod(0o755)
+
+    result = run_equilibrium_calculation(
+        generator,
+        (input_file,),
+        tmp_path / "calculation",
+    )
+
+    assert result.equilibrium_file.is_file()
+    assert result.parameters_file.is_file()
+    assert result.parameters.btor_gauss == pytest.approx(-17573.19212)
+    assert result.parameters.r_big_cm == pytest.approx(169.9117661)
+    assert (
+        result.equilibrium_sha256
+        == hashlib.sha256(result.equilibrium_file.read_bytes()).hexdigest()
+    )
+    assert result.generator_provenance["input_sha256"] == {
+        input_file.name: hashlib.sha256(input_file.read_bytes()).hexdigest()
+    }
+
+
+@pytest.mark.skipif(not sys.platform.startswith("linux"), reason="requires Linux descriptor paths")
+def test_runs_equilibrium_script_in_descriptor_anchored_directory(tmp_path: Path) -> None:
+    generator = tmp_path / "generator.py"
+    generator.write_text(
+        "#!/usr/bin/env python3\n"
+        "from pathlib import Path\n"
+        "Path('equil_r_q_psi.dat').write_text('# r q psi\\n1 2 0\\n3 3.5 .5\\n5 5 1\\n')\n"
+        "Path('btor_rbig.dat').write_text('-18000 165\\n')\n"
+    )
+    generator.chmod(0o755)
+    descriptor = os.open(tmp_path, os.O_RDONLY | os.O_DIRECTORY)
+    try:
+        result = run_equilibrium_calculation(
+            generator, (), Path(f"/proc/self/fd/{descriptor}") / "calculation"
+        )
+        assert result.equilibrium_file.is_file()
+        assert result.parameters.r_big_cm == 165.0
+        assert (
+            result.generator_provenance["executed_sha256"]
+            == hashlib.sha256(generator.read_bytes()).hexdigest()
+        )
+    finally:
+        os.close(descriptor)
+
+
+@pytest.mark.parametrize(
+    "contents",
+    ["-18000 0\n", "-18000 -165\n", "-18000 nan\n", "-18000 165 extra\n"],
+)
+def test_rejects_invalid_equilibrium_parameter_output(tmp_path: Path, contents: str) -> None:
+    parameters = tmp_path / "btor_rbig.dat"
+    parameters.write_text(contents, encoding="utf-8")
+
+    with pytest.raises(ExperimentalInputError, match="btor_rbig.dat"):
+        read_equilibrium_parameters(parameters)
 
 
 def config() -> SimulationConfig:
@@ -113,6 +213,36 @@ def test_prepares_marsf_profiles_with_explicit_mapping_and_report(tmp_path: Path
         "source/PROFTI.IN",
         "source/PROFROT.IN",
         "equilibrium/equil_r_q_psi.dat",
+    }
+
+
+def test_preparation_uses_equilibrium_btor_and_r_big_outputs(tmp_path: Path) -> None:
+    source_directory = tmp_path / "marsf"
+    equilibrium = tmp_path / "equil_r_q_psi.dat"
+    parameters = tmp_path / "btor_rbig.dat"
+    write_marsf_case(source_directory)
+    write_equilibrium(equilibrium)
+    parameters.write_text("-17573.19212 169.9117661\n", encoding="utf-8")
+    source = read_marsf_profiles(source_directory, metadata())
+
+    prepared = prepare_marsf_case(
+        source,
+        config(),
+        tmp_path / "prepared-from-equilibrium",
+        equilibrium_file=equilibrium,
+        equilibrium_parameters_file=parameters,
+    )
+
+    assert prepared.config.setup.btor == pytest.approx(-17573.19212)
+    assert prepared.config.setup.major_radius == pytest.approx(169.9117661)
+    staged_parameters = prepared.directory / "equilibrium" / "btor_rbig.dat"
+    assert staged_parameters.read_bytes() == parameters.read_bytes()
+    report = json.loads(prepared.report.read_text(encoding="utf-8"))
+    assert report["equilibrium_parameters"] == {
+        "staged_file": "equilibrium/btor_rbig.dat",
+        "source_hash": hashlib.sha256(parameters.read_bytes()).hexdigest(),
+        "btor_gauss": -17573.19212,
+        "r_big_cm": 169.9117661,
     }
 
 
@@ -298,11 +428,44 @@ def test_accepts_sqrt_psiN_profiles_extended_beyond_lcfs(tmp_path: Path) -> None
 
     np.testing.assert_array_equal(np.loadtxt(prepared.profiles / "n.dat")[:, 0], [0.0, 10.0, 20.0])
     report = json.loads(prepared.report.read_text(encoding="utf-8"))
-    assert report["coordinate_operation"] == {
+    assert report["coordinate_operation"] == (
+        "natural cubic interpolation from sqrt_psiN to equilibrium r_eff"
+    )
+    assert report["coordinate_mapping"] == {
         "source_coordinate": "sqrt_psiN",
         "target_coordinate": "r_eff",
         "method": "natural cubic interpolation",
     }
+
+
+@pytest.mark.parametrize("unit", ["cm", "m"])
+def test_r_eff_report_preserves_version_one_coordinate_operation(tmp_path: Path, unit: str) -> None:
+    source_directory = tmp_path / "marsf"
+    equilibrium = tmp_path / "equil_r_q_psi.dat"
+    write_marsf_case(source_directory)
+    write_equilibrium(equilibrium)
+    radii = [0.0, 10.0, 20.0] if unit == "cm" else [0.0, 0.1, 0.2]
+    for path in source_directory.iterdir():
+        rows = np.loadtxt(path, skiprows=1)
+        rows[:, 0] = radii
+        np.savetxt(path, rows, header="MARS-F profile")
+    source = read_marsf_profiles(
+        source_directory, metadata(coordinate="r_eff", coordinate_unit=unit)
+    )
+
+    prepared = prepare_marsf_case(
+        source, config(), tmp_path / "prepared", equilibrium_file=equilibrium
+    )
+
+    report = json.loads(prepared.report.read_text(encoding="utf-8"))
+    expected = (
+        "preserved explicit r_eff grid"
+        if unit == "cm"
+        else "converted explicit r_eff grid from m to cm"
+    )
+    assert report["schema_version"] == 1
+    assert report["coordinate_operation"] == expected
+    assert report["coordinate_mapping"]["method"] == expected
 
 
 def test_rejects_nonfinite_squared_sqrt_psiN_coordinates(tmp_path: Path) -> None:

@@ -38,6 +38,32 @@ potential and charge/current fields through
 normalizations are not interchangeable with the periodic Fourier spectrum.
 No comparison observable is selected for them here.
 
+## AUG/BALANCE profile characterization (pre-solver)
+
+The `characterize-balance` workflow measures how explicit BALANCE profiles map into the prepared
+KIM profile representation by comparing them with a read-only QL-Balance HDF5 input oracle. It
+does not compare KIM solver output with QL-Balance output and does not establish physical
+equivalence. A reported `PASS` only means caller-supplied thresholds were met; it is not a
+scientific acceptance decision. No thresholds are approved for the AUG 33353 case.
+
+This workflow uses one selected equilibrium calculation for both `equil_r_q_psi.dat` and
+`btor_rbig.dat`. The latter supplies KIM `btor` and `major_radius`; its `r_big` also converts
+angular rotation to linear toroidal velocity. The report records both output hashes and scalar
+values. The precomputed route requires canonical filenames colocated in the declared calculation
+output directory. See the
+[experimental-input guide](../../KIM/python/docs/experimental-input.md) for the API and CLI
+contract.
+
+The initial AUG 33353 comparison recorded in
+[`kim-aug-balance-acceptance.md`](../plans/2026-09-21-kim-aug-balance-acceptance.md) predates
+the equilibrium-scalar rule. The user selected MICDU for both profile mapping and KIM
+setup/rotation conversion, so the workflow uses one MICDU calculation for both. An absolute-only
+characterization using Fouriers q unchanged was verified on 2026-10-08, correcting stale signed-q
+errors in the earlier evidence. The user confirmed the
+source `vt` unit is `rad/s`. The report marks relative metrics unavailable and leaves pass/fail
+unset because no relative floors or tolerances are approved. The linked plan records the EQDSK
+sign-convention evidence, domains, and measurements; no solver was run.
+
 ## Candidate case (not approved)
 
 The most constrained candidate for maintainer review is one

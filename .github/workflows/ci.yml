@@ -34,6 +34,9 @@ jobs:
       - name: Run KIM Python unit tests
         run: python -m pytest KIM/python/tests/unit
 
+      - name: Run synthetic BALANCE acceptance test
+        run: python -m pytest KIM/python/tests/integration/test_balance_acceptance.py
+
       - name: Build KIM Python wheel
         run: python -m pip wheel --no-deps --wheel-dir "${RUNNER_TEMP}/kim-wheel" ./KIM/python
 

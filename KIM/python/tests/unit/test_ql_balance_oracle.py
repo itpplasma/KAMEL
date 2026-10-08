@@ -118,6 +118,65 @@ def test_tolerates_unrelated_datasets_and_groups(tmp_path: Path) -> None:
     np.testing.assert_array_equal(result.r_out, [10.0, 20.0, 30.0])
 
 
+@pytest.mark.parametrize("link_kind", ["dataset", "group", "soft-alias"])
+def test_rejects_required_data_in_external_hdf5_files(tmp_path: Path, link_kind: str) -> None:
+    path = tmp_path / "oracle.h5"
+    external = tmp_path / "external.h5"
+    _write_oracle(path)
+    _write_oracle(external)
+    with h5py.File(path, "a") as handle:
+        if link_kind == "group":
+            del handle["preprocprof"]
+            handle["preprocprof"] = h5py.ExternalLink(str(external), "/preprocprof")
+        else:
+            del handle["preprocprof/n"]
+            link = h5py.ExternalLink(str(external), "/preprocprof/n")
+            if link_kind == "soft-alias":
+                handle["external_density"] = link
+                handle["preprocprof/n"] = h5py.SoftLink("/external_density")
+            else:
+                handle["preprocprof/n"] = link
+
+    with pytest.raises(ExperimentalInputError, match="stored in the oracle file"):
+        read_ql_balance_oracle(path)
+
+
+@pytest.mark.parametrize("storage", ["virtual", "external"])
+def test_rejects_required_datasets_with_unhashed_storage(tmp_path: Path, storage: str) -> None:
+    path = tmp_path / "oracle.h5"
+    external = tmp_path / "external.h5"
+    _write_oracle(path)
+    _write_oracle(external)
+    values = _valid_data()["preprocprof/n"]
+    with h5py.File(path, "a") as handle:
+        del handle["preprocprof/n"]
+        if storage == "virtual":
+            layout = h5py.VirtualLayout(shape=values.shape, dtype=values.dtype)
+            layout[:] = h5py.VirtualSource(str(external), "preprocprof/n", shape=values.shape)
+            handle.create_virtual_dataset("preprocprof/n", layout)
+        else:
+            handle.create_dataset(
+                "preprocprof/n",
+                data=values,
+                external=[(str(tmp_path / "density.bin"), 0, values.nbytes)],
+            )
+
+    with pytest.raises(ExperimentalInputError, match="stored in the oracle file"):
+        read_ql_balance_oracle(path)
+
+
+def test_accepts_internal_soft_link_to_stored_data(tmp_path: Path) -> None:
+    path = tmp_path / "internal-alias.h5"
+    _write_oracle(path)
+    with h5py.File(path, "a") as handle:
+        handle.move("preprocprof/n", "density")
+        handle["preprocprof/n"] = h5py.SoftLink("/density")
+
+    result = read_ql_balance_oracle(path)
+
+    np.testing.assert_array_equal(result.n, _valid_data()["preprocprof/n"])
+
+
 def test_rejects_missing_oracle_file(tmp_path: Path) -> None:
     with pytest.raises(ExperimentalInputError):
         read_ql_balance_oracle(tmp_path / "missing.h5")

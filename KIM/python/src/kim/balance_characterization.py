@@ -31,7 +31,12 @@ from kim.errors import ExperimentalInputError
 from kim.importers.balance import BalanceMetadata, read_balance_profiles
 from kim.importers.experimental import read_marsf_profiles
 from kim.namelist import load_namelist_bytes
-from kim.preparation import prepare_marsf_case
+from kim.preparation import (
+    prepare_marsf_case,
+    read_equilibrium_parameters,
+    run_equilibrium_calculation,
+    simulation_config_for_equilibrium,
+)
 from kim.ql_balance_oracle import read_ql_balance_oracle
 
 BalanceStatus = Literal["MEASURED", "PASS", "FAIL", "PARTIALLY_EVALUATED", "UNAVAILABLE"]
@@ -97,10 +102,11 @@ _RETAINED_STAGING_REASON = "safe ownership policy / portable rename limitation"
 class BalanceCharacterizationRequest:
     """Explicit inputs for :func:`characterize_balance`.
 
-    ``equilibrium_file`` is an already-reduced ``r_eff, q, psi`` table and is
-    intended for synthetic tests.  The production route instead supplies
-    ``original_equilibrium`` and ``equilibrium_executable``; the original is
-    copied as one of the explicitly named preprocessor inputs.
+    ``equilibrium_file`` and ``equilibrium_parameters_file`` are the canonical,
+    colocated outputs of one precomputed calculation for synthetic cases.  The
+    production route supplies ``original_equilibrium`` and
+    ``equilibrium_executable``; both outputs are generated once from those
+    inputs before profile staging.
 
     ``destination.parent`` must already exist; this workflow never creates a
     destination parent.  A successful report exposes the empty private
@@ -109,6 +115,11 @@ class BalanceCharacterizationRequest:
     optional.  When supplied, it must cover every canonical identity in this
     request; hashless characterization remains a valid measured outcome and
     is reported as such.
+
+    The legacy positional argument order is preserved. The BALANCE route keeps
+    q exactly as emitted by ``fouriermodes.x``; ``domains`` and both
+    interpolation settings remain runtime-required. ``relative_floors`` is
+    optional; omitting it reports absolute metrics only.
     """
 
     density: Path | str
@@ -120,12 +131,13 @@ class BalanceCharacterizationRequest:
     config: SimulationConfig | Path | str
     oracle: Path | str
     destination: Path | str
-    major_radius_cm: float
-    q_operation: Literal["preserve", "negate"]
-    domains: Mapping[str, Sequence[float]]
-    relative_floors: Mapping[str, float]
-    interpolation_direction: str
-    interpolation_method: str
+    # Deprecated compatibility input; the equilibrium calculation remains authoritative.
+    major_radius_cm: float | None = None
+    q_operation: Literal["preserve"] = "preserve"
+    domains: Mapping[str, Sequence[float]] | None = None
+    relative_floors: Mapping[str, float] | None = None
+    interpolation_direction: str | None = None
+    interpolation_method: str | None = None
     equilibrium_file: Path | str | None = None
     original_equilibrium: Path | str | None = None
     equilibrium_executable: Path | str | None = None
@@ -139,6 +151,7 @@ class BalanceCharacterizationRequest:
     config_snapshot: bytes | None = None
     metadata_sha256: str | None = None
     config_sha256: str | None = None
+    equilibrium_parameters_file: Path | str | None = None
 
 
 @dataclass(frozen=True)
@@ -208,6 +221,43 @@ def characterize_balance(
         output_root = _validate_private_entry(container_fd, _PAYLOAD_NAME, payload_fd)
         snapshots = _snapshot_nonprofile_inputs(normalized, output_root, actual_hashes)
 
+        calculation = None
+        if snapshots["equilibrium_file"] is None:
+            calculation = run_equilibrium_calculation(
+                snapshots["equilibrium_executable"],
+                snapshots["equilibrium_inputs"],
+                output_root / "equilibrium-calculation",
+                timeout_seconds=normalized["equilibrium_timeout_seconds"],
+            )
+            equilibrium_file = calculation.equilibrium_file
+            equilibrium_parameters_file = calculation.parameters_file
+            equilibrium_sha256 = calculation.equilibrium_sha256
+        else:
+            equilibrium_file = snapshots["equilibrium_file"]
+            equilibrium_parameters_file = snapshots["equilibrium_parameters_file"]
+            equilibrium_sha256 = _hash_file(equilibrium_file, "equilibrium table")
+        equilibrium_parameters = read_equilibrium_parameters(equilibrium_parameters_file)
+        legacy_major_radius = normalized["major_radius_cm"]
+        if (
+            legacy_major_radius is not None
+            and legacy_major_radius != equilibrium_parameters.r_big_cm
+        ):
+            raise ExperimentalInputError(
+                "deprecated major_radius_cm does not match the equilibrium calculation"
+            )
+        normalized["config"] = simulation_config_for_equilibrium(
+            normalized["config"], equilibrium_parameters
+        )
+        equilibrium_calculation = {
+            "equilibrium_file": equilibrium_file,
+            "equilibrium_sha256": equilibrium_sha256,
+            "parameters_file": equilibrium_parameters_file,
+            "parameters_sha256": equilibrium_parameters.sha256,
+            "btor_gauss": equilibrium_parameters.btor_gauss,
+            "r_big_cm": equilibrium_parameters.r_big_cm,
+            "generator": calculation.generator_provenance if calculation is not None else None,
+        }
+
         source = read_balance_profiles(
             density=normalized["density"],
             electron_temperature=normalized["electron_temperature"],
@@ -220,7 +270,7 @@ def characterize_balance(
         staged = stage_balance_marsf_quartet(
             source,
             output_root / "staged-marsf",
-            major_radius_cm=normalized["major_radius_cm"],
+            equilibrium_parameters_file=equilibrium_parameters_file,
             equilibrium_provenance=normalized["equilibrium_provenance"],
         )
         _validate_parent_anchor(final_destination.parent, parent_fd)
@@ -234,10 +284,9 @@ def characterize_balance(
             marsf,
             normalized["config"],
             output_root / "prepared",
-            equilibrium_file=snapshots["equilibrium_file"],
-            equilibrium_executable=snapshots["equilibrium_executable"],
-            equilibrium_input_files=snapshots["equilibrium_inputs"],
-            equilibrium_timeout_seconds=normalized["equilibrium_timeout_seconds"],
+            equilibrium_file=equilibrium_file,
+            equilibrium_parameters_file=equilibrium_parameters_file,
+            equilibrium_calculation=calculation,
             q_operation=normalized["q_operation"],
             upstream_staging_report=staged.report,
         )
@@ -272,6 +321,7 @@ def characterize_balance(
             prepared_profile_files,
             prepared_profile_hashes,
             snapshots=snapshots,
+            equilibrium_calculation=equilibrium_calculation,
             private_root=report_private_root,
             final_root=final_destination,
             retained_staging=_retained_staging_info(container_fd, "empty_container"),
@@ -332,6 +382,14 @@ def characterize_balance(
 def _normalise_request(request: BalanceCharacterizationRequest) -> dict[str, Any]:
     if not isinstance(request, BalanceCharacterizationRequest):
         raise ExperimentalInputError("request must be a BalanceCharacterizationRequest")
+    if request.q_operation != "preserve":
+        raise ExperimentalInputError(
+            "BALANCE characterization preserves Fouriers q without a sign change"
+        )
+    if not isinstance(request.interpolation_direction, str) or not request.interpolation_direction:
+        raise ExperimentalInputError("interpolation_direction must be a non-empty string")
+    if not isinstance(request.interpolation_method, str) or not request.interpolation_method:
+        raise ExperimentalInputError("interpolation_method must be a non-empty string")
     _reject_conflicting_reference(
         request.metadata_path,
         request.metadata,
@@ -384,23 +442,41 @@ def _normalise_request(request: BalanceCharacterizationRequest) -> dict[str, Any
             "equilibrium_file is mutually exclusive with "
             "original_equilibrium/equilibrium_executable"
         )
+    if request.equilibrium_file is not None and request.equilibrium_parameters_file is None:
+        raise ExperimentalInputError("equilibrium_file requires its paired btor_rbig.dat output")
     if request.equilibrium_file is None and (
         request.original_equilibrium is None or request.equilibrium_executable is None
     ):
         raise ExperimentalInputError(
             "provide equilibrium_file, or both original_equilibrium and equilibrium_executable"
         )
+    if request.equilibrium_file is None and request.equilibrium_parameters_file is not None:
+        raise ExperimentalInputError(
+            "btor_rbig.dat must be generated with the equilibrium calculation"
+        )
     if request.equilibrium_file is not None and request.equilibrium_inputs:
         raise ExperimentalInputError("equilibrium_inputs require equilibrium_executable")
-    major_radius = _strict_real(request.major_radius_cm, "major_radius_cm")
-    if not np.isfinite(major_radius) or major_radius <= 0.0:
-        raise ExperimentalInputError("major_radius_cm must be finite and positive")
     timeout = _strict_real(request.equilibrium_timeout_seconds, "equilibrium_timeout_seconds")
     if not np.isfinite(timeout) or timeout <= 0.0:
         raise ExperimentalInputError("equilibrium_timeout_seconds must be finite and positive")
+    legacy_major_radius = None
+    if request.major_radius_cm is not None:
+        legacy_major_radius = _strict_real(request.major_radius_cm, "major_radius_cm")
+        if not np.isfinite(legacy_major_radius) or legacy_major_radius <= 0.0:
+            raise ExperimentalInputError("major_radius_cm must be finite and positive")
     domains = _normalise_domains(request.domains)
     floors = _normalise_floors(request.relative_floors)
     tolerances = _normalise_tolerances(request.tolerances, domains)
+    if (
+        floors is None
+        and tolerances is not None
+        and any(
+            metric.startswith("relative_")
+            for metric_mapping in tolerances.values()
+            for metric in metric_mapping
+        )
+    ):
+        raise ExperimentalInputError("relative tolerances require relative_floors")
     balance_aliases = {
         "density": _absolute_alias(request.density),
         "electron_temperature": _absolute_alias(request.electron_temperature),
@@ -427,6 +503,11 @@ def _normalise_request(request: BalanceCharacterizationRequest) -> dict[str, Any
     equilibrium_alias = (
         _absolute_alias(request.equilibrium_file) if request.equilibrium_file is not None else None
     )
+    equilibrium_parameters_alias = (
+        _absolute_alias(request.equilibrium_parameters_file)
+        if request.equilibrium_parameters_file is not None
+        else None
+    )
     original_equilibrium = (
         _resolve_source_file(original_alias, "original equilibrium")
         if original_alias is not None
@@ -437,6 +518,26 @@ def _normalise_request(request: BalanceCharacterizationRequest) -> dict[str, Any
         if equilibrium_alias is not None
         else None
     )
+    equilibrium_parameters_file = (
+        _resolve_source_file(equilibrium_parameters_alias, "equilibrium btor_rbig.dat")
+        if equilibrium_parameters_alias is not None
+        else None
+    )
+    if (
+        equilibrium_parameters_file is not None
+        and equilibrium_parameters_file.name.casefold() != "btor_rbig.dat"
+    ):
+        raise ExperimentalInputError("equilibrium parameters file must be named btor_rbig.dat")
+    if equilibrium_file is not None:
+        if equilibrium_file.name.casefold() != "equil_r_q_psi.dat":
+            raise ExperimentalInputError("equilibrium table file must be named equil_r_q_psi.dat")
+        if equilibrium_parameters_file is None or (
+            equilibrium_file.parent != equilibrium_parameters_file.parent
+        ):
+            raise ExperimentalInputError(
+                "precomputed equilibrium outputs must share the same "
+                "equilibrium calculation directory"
+            )
     equilibrium_input_aliases = tuple(_absolute_alias(item) for item in request.equilibrium_inputs)
     equilibrium_input_paths = tuple(
         _resolve_source_file(item, "equilibrium input") for item in equilibrium_input_aliases
@@ -468,7 +569,15 @@ def _normalise_request(request: BalanceCharacterizationRequest) -> dict[str, Any
     source_paths = tuple(
         [
             *balance_paths.values(),
-            *(path for path in (original_equilibrium, equilibrium_file) if path),
+            *(
+                path
+                for path in (
+                    original_equilibrium,
+                    equilibrium_file,
+                    equilibrium_parameters_file,
+                )
+                if path
+            ),
         ]
         + list(equilibrium_input_paths)
         + ([equilibrium_executable] if equilibrium_executable is not None else [])
@@ -501,6 +610,8 @@ def _normalise_request(request: BalanceCharacterizationRequest) -> dict[str, Any
         "original_equilibrium_alias": original_alias,
         "equilibrium_file": equilibrium_file,
         "equilibrium_file_alias": equilibrium_alias,
+        "equilibrium_parameters_file": equilibrium_parameters_file,
+        "equilibrium_parameters_alias": equilibrium_parameters_alias,
         "equilibrium_executable": equilibrium_executable,
         "equilibrium_executable_alias": equilibrium_executable_alias,
         "equilibrium_input_aliases": equilibrium_input_aliases,
@@ -508,8 +619,8 @@ def _normalise_request(request: BalanceCharacterizationRequest) -> dict[str, Any
         "equilibrium_inputs": equilibrium_inputs,
         "oracle": oracle,
         "oracle_alias": oracle_alias,
-        "major_radius_cm": major_radius,
         "equilibrium_provenance": request.equilibrium_provenance.strip(),
+        "major_radius_cm": legacy_major_radius,
         "q_operation": request.q_operation,
         "domains": domains,
         "relative_floors": floors,
@@ -521,6 +632,7 @@ def _normalise_request(request: BalanceCharacterizationRequest) -> dict[str, Any
             request.expected_sha256,
             equilibrium_executable=equilibrium_executable,
             equilibrium_input_paths=equilibrium_input_paths,
+            equilibrium_parameters_file=equilibrium_parameters_file,
             metadata_source=metadata_source,
             config_source=config_source,
         ),
@@ -966,7 +1078,9 @@ def _normalise_domains(domains: Mapping[str, Sequence[float]]) -> dict[str, tupl
     return result
 
 
-def _normalise_floors(floors: Mapping[str, float]) -> dict[str, float]:
+def _normalise_floors(floors: Mapping[str, float] | None) -> dict[str, float] | None:
+    if floors is None:
+        return None
     if not isinstance(floors, Mapping):
         raise ExperimentalInputError("relative_floors must be a mapping")
     result: dict[str, float] = {}
@@ -1059,6 +1173,7 @@ def _normalise_expected(
     *,
     equilibrium_executable: Path | None,
     equilibrium_input_paths: Sequence[Path],
+    equilibrium_parameters_file: Path | None,
     metadata_source: Path | None,
     config_source: Path | None,
 ) -> dict[str, str] | None:
@@ -1072,6 +1187,7 @@ def _normalise_expected(
         "ion_temperature": "ion_temperature",
         "toroidal_rotation": "toroidal_rotation",
         "equilibrium": "equilibrium",
+        "equilibrium_parameters": "equilibrium_parameters",
         "equilibrium_executable": "equilibrium_executable",
         "oracle": "oracle",
         "metadata": "metadata",
@@ -1086,6 +1202,8 @@ def _normalise_expected(
         raise ExperimentalInputError(
             "expected_sha256 includes an unavailable equilibrium executable"
         )
+    if equilibrium_parameters_file is None and "equilibrium_parameters" in expected:
+        raise ExperimentalInputError("expected_sha256 includes unavailable equilibrium parameters")
     if metadata_source is None and "metadata" in expected:
         raise ExperimentalInputError("expected_sha256 includes unavailable metadata")
     if config_source is None and "config" in expected:
@@ -1112,6 +1230,8 @@ def _normalise_expected(
         "equilibrium",
         "oracle",
     }
+    if equilibrium_parameters_file is not None:
+        required.add("equilibrium_parameters")
     if equilibrium_executable is not None:
         required.add("equilibrium_executable")
     if metadata_source is not None:
@@ -1137,6 +1257,12 @@ def _preflight(data: Mapping[str, Any]) -> dict[str, str]:
     equilibrium_alias = data["equilibrium_file_alias"] or data["original_equilibrium_alias"]
     assert equilibrium_alias is not None
     actual["equilibrium"] = _hash_alias(equilibrium_alias, equilibrium_path, "equilibrium input")
+    if data["equilibrium_parameters_file"] is not None:
+        actual["equilibrium_parameters"] = _hash_alias(
+            data["equilibrium_parameters_alias"],
+            data["equilibrium_parameters_file"],
+            "equilibrium btor_rbig.dat",
+        )
     actual["oracle"] = _hash_alias(data["oracle_alias"], data["oracle"], "QL-Balance oracle")
     if data["metadata_source"] is not None:
         actual["metadata"] = _hash_alias(
@@ -1229,6 +1355,13 @@ def _snapshot_nonprofile_inputs(
             Path("equilibrium") / data["equilibrium_file"].name,
             "reduced equilibrium",
         )
+        equilibrium_parameters_file = copy_input(
+            "equilibrium_parameters",
+            data["equilibrium_parameters_alias"],
+            data["equilibrium_parameters_file"],
+            Path("equilibrium") / data["equilibrium_parameters_file"].name,
+            "equilibrium btor_rbig.dat",
+        )
         equilibrium_inputs: tuple[Path, ...] = ()
     else:
         assert data["original_equilibrium"] is not None
@@ -1252,6 +1385,7 @@ def _snapshot_nonprofile_inputs(
             )
         )
         equilibrium_file = None
+        equilibrium_parameters_file = None
         equilibrium_inputs = (original, *explicit_inputs)
 
     equilibrium_executable = None
@@ -1275,6 +1409,7 @@ def _snapshot_nonprofile_inputs(
         "directory": snapshot_root,
         "entries": entries,
         "equilibrium_file": equilibrium_file,
+        "equilibrium_parameters_file": equilibrium_parameters_file,
         "equilibrium_executable": equilibrium_executable,
         "equilibrium_inputs": equilibrium_inputs,
         "oracle": oracle,
@@ -1405,7 +1540,9 @@ def _compare_all(
                 domain_cm=domain,
                 interpolation_direction=data["interpolation_direction"],
                 method=data["interpolation_method"],
-                relative_floor=data["relative_floors"][role],
+                relative_floor=(
+                    data["relative_floors"][role] if data["relative_floors"] is not None else None
+                ),
                 tolerances=tolerance,
                 resonance=(
                     (data["config"].setup.m_mode, data["config"].setup.n_mode)
@@ -1431,7 +1568,14 @@ def _read_prepared_profile(path: Path) -> tuple[np.ndarray, np.ndarray]:
 
 def _comparison_payload(comparison: ComparisonResult) -> dict[str, Any]:
     return {
-        "measurements": {key: float(getattr(comparison.measurements, key)) for key in _METRICS},
+        "measurements": {
+            key: (
+                float(value)
+                if (value := getattr(comparison.measurements, key)) is not None
+                else None
+            )
+            for key in _METRICS
+        },
         "exclusions": _json_value(comparison.exclusions),
         "warnings": list(comparison.warnings),
         "threshold_decisions": (
@@ -1480,6 +1624,7 @@ def _success_report(
     prepared_profile_hashes: Mapping[str, str],
     snapshots: Mapping[str, Any],
     *,
+    equilibrium_calculation: Mapping[str, Any],
     private_root: Path,
     final_root: Path,
     retained_staging: Mapping[str, object],
@@ -1498,6 +1643,45 @@ def _success_report(
                 "units": {"prepared": _PROFILE_UNITS[role], "oracle": _PROFILE_UNITS[role]},
                 **payload,
             }
+    generator = equilibrium_calculation["generator"]
+    if isinstance(generator, Mapping):
+        generator = dict(generator)
+        for key in ("executed_executable",):
+            if isinstance(generator.get(key), str):
+                path = Path(generator[key])
+                try:
+                    generator[key] = str(final_root / path.relative_to(private_root))
+                except ValueError:
+                    pass
+        source_command = generator.get("source_command")
+        if isinstance(source_command, list):
+            generator["source_command"] = [
+                (
+                    str(final_root / Path(item).relative_to(private_root))
+                    if isinstance(item, str)
+                    and Path(item).is_absolute()
+                    and Path(item).is_relative_to(private_root)
+                    else item
+                )
+                for item in source_command
+            ]
+    equilibrium_report = {
+        "equilibrium_file": str(
+            _published_path(equilibrium_calculation["equilibrium_file"], private_root, final_root)
+        ),
+        "equilibrium_sha256": equilibrium_calculation["equilibrium_sha256"],
+        "parameters_file": str(
+            _published_path(equilibrium_calculation["parameters_file"], private_root, final_root)
+        ),
+        "parameters_sha256": equilibrium_calculation["parameters_sha256"],
+        "btor_gauss": equilibrium_calculation["btor_gauss"],
+        "r_big_cm": equilibrium_calculation["r_big_cm"],
+        "generator": generator,
+        "used_for": [
+            "KIM setup btor and major_radius",
+            "BALANCE angular rotation to toroidal velocity conversion",
+        ],
+    }
     return {
         "schema_version": 1,
         "status": status,
@@ -1537,13 +1721,28 @@ def _success_report(
                 for role, digest in prepared_profile_hashes.items()
             },
             "profile_hashes_by_role": dict(prepared_profile_hashes),
+            "equilibrium_parameters": (
+                {
+                    "file": str(
+                        _published_path(prepared.equilibrium_parameters, private_root, final_root)
+                    ),
+                    "sha256": equilibrium_calculation["parameters_sha256"],
+                    "btor_gauss": prepared.config.setup.btor,
+                    "r_big_cm": prepared.config.setup.major_radius,
+                }
+                if prepared.equilibrium_parameters is not None
+                else None
+            ),
         },
+        "equilibrium_calculation": equilibrium_report,
         "comparison_configuration": {
             "domains": data["domains"],
             "interpolation_direction": data["interpolation_direction"],
             "interpolation_method": data["interpolation_method"],
             "relative_floors": data["relative_floors"],
             "q_operation": data["q_operation"],
+            "btor_gauss": data["config"].setup.btor,
+            "r_big_cm": data["config"].setup.major_radius,
             "resonance_mode": {
                 "m": data["config"].setup.m_mode,
                 "n": data["config"].setup.n_mode,

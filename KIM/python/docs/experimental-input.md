@@ -70,6 +70,47 @@ case = prepare_marsf_case(
 Coordinate mapping uses the explicit equilibrium table and a natural cubic spline. Extrapolation,
 implicit unit inference, unsupported temperature units, and ambiguous `r_eff` grids are rejected.
 
+## BALANCE Characterization Equilibrium Values
+
+The `characterize-balance` API and CLI take `btor` and `r_big` from the equilibrium calculation.
+On the production route, the selected equilibrium executable runs once and must produce both
+`equil_r_q_psi.dat` and `btor_rbig.dat`. On the precomputed route, provide both files with
+`equilibrium_file` and `equilibrium_parameters_file` (CLI options `--equilibrium-file` and
+`--equilibrium-parameters-file`). They must use those canonical filenames and reside in the same
+calculation output directory, which the caller identifies with `equilibrium_provenance`.
+
+The two values in `btor_rbig.dat` replace `config.setup.btor` and `config.setup.major_radius` for
+the staged KIM request. Its `r_big` is also used for the BALANCE conversion
+`v_phi [cm/s] = r_big [cm] * omega [rad/s]`. The characterization report records the values and
+hashes of both equilibrium outputs, plus the generator provenance when the calculation is run by
+the pipeline. The former `major_radius_cm` API argument and `--major-radius-cm` CLI option remain
+available as deprecated consistency checks; if supplied, the value must exactly equal the
+calculation's `r_big` and is never used as an input.
+
+The BALANCE `profiles/Vz.dat` interface expects toroidal velocity in `cm/s`. Its reader loads those
+values directly; BALANCE converts the linear velocity to its internal rotation frequency by
+dividing by `rtor`, and converts back to `cm/s` when updating KIM. For the AUG `vt` source files,
+the user confirmed angular rotation in `rad/s`; the pipeline converts it with the selected
+calculation's `r_big` before staging the BALANCE velocity profile. The two-column source file has
+no embedded unit label, so the confirmed unit is recorded in case metadata.
+
+BALANCE characterization preserves q exactly as `fouriermodes.x` calculates it from the selected
+EQDSK. EQDSK coordinate conventions can change q's sign, so this route does not impose a fixed sign
+change. The selected AUG MICDU file is read in EFIT format, and its Fouriers output is used without
+modification.
+
+Characterization always reports absolute RMS and maximum errors. Relative RMS and maximum require
+caller-supplied per-profile denominator floors; if `relative_floors` or CLI `--relative-floors` is
+omitted, those fields are `null` and the report warns that relative metrics are unavailable. A
+relative tolerance is rejected without floors. No pass/fail result is produced unless tolerances
+are explicitly supplied.
+
+The oracle's required datasets must be stored in its HDF5 file. External links, virtual datasets,
+and external raw storage are rejected because the file hash cannot identify those dependencies.
+Same-file aliases are supported. RMS metrics describe evaluated grid samples, without radial
+quadrature weighting. Resonance coverage flags describe the requested domain; use the reported
+exclusions and comparison radii to assess shared support at a crossing.
+
 ## CLI Walkthrough
 
 The same preparation is available without writing Python. Store the source declarations in a
@@ -122,6 +163,8 @@ The generated `conversion_report.json` is the preparation provenance record:
 - `equilibrium` records the original table path when one was supplied, the staged relative path,
   and whether the table was copied or generated.
 - `coordinate_operation` describes preservation or explicit `sqrt_psiN`/`r_eff` mapping.
+- `coordinate_mapping` adds structured source/target coordinates and method while the version-1
+  `coordinate_operation` string remains compatible with existing readers.
 - `source_hashes` contains lowercase SHA-256 values. `source/` identifies copied MARS-F files,
   `equilibrium/` identifies the equilibrium table, and `equilibrium_input/` identifies generator
   control files.

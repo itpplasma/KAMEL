@@ -47,14 +47,26 @@ program test_grid_equidistant
         call report('periodic Fourier orthogonality', &
             abs(fourier_sum) < 1.0e-10_dp, all_passed)
     end do
-    do fixture = 1, 2
-        lower = merge(-2.0_dp, 3.0_dp, fixture == 1)
-        upper = merge(5.0_dp, 67.0_dp, fixture == 1)
-        npts = 5+6*fixture
+    do fixture = 1, 3
+        select case (fixture)
+        case (1)
+            lower = -2.0_dp
+            upper = 5.0_dp
+            npts = 11
+        case (2)
+            lower = 3.0_dp
+            upper = 67.0_dp
+            npts = 17
+        case (3)
+            ! Arithmetic reconstruction of this endpoint overshoots by one ULP.
+            lower = 0.1_dp
+            upper = 0.3_dp
+            npts = 13
+        end select
         call g%grid_init_equidistant(npts, lower, upper, 'closed')
         call g%grid_generate_equidistant(endpoint_inclusive=.true.)
         call report('closed interval reaches both bounds', &
-            abs(g%xb(1)-lower)+abs(g%xb(npts)-upper) < tol, all_passed)
+            g%xb(1) == lower .and. g%xb(npts) == upper, all_passed)
         integral = sum(g%xb(2:)-g%xb(:npts-1))
         call report('integrated constant over declared interval', &
             abs(integral-(upper-lower)) < tol, all_passed)
@@ -73,10 +85,10 @@ program test_grid_equidistant
 
     ! Exercise production routing with unequal field/background resolutions.
     ! Endpoint correctness is a physical-domain oracle, not source inspection.
-    rg_space_dim = 11
+    rg_space_dim = 13
     l_space_dim = 17
-    r_min = 3.0_dp
-    r_plas = 67.0_dp
+    r_min = 0.1_dp
+    r_plas = 0.3_dp
     grid_spacing_rg = 'equidistant'
     grid_spacing_xl = 'equidistant'
     output_path = './grid-contract-output/'
@@ -84,11 +96,11 @@ program test_grid_equidistant
     call execute_command_line('mkdir -p grid-contract-output/grid')
     call generate_grids()
     call report('production background spans declared domain', &
-        abs(rg_grid%xb(1)-r_min)+ &
-        abs(rg_grid%xb(rg_grid%npts_b)-r_plas) < tol, all_passed)
+        rg_grid%xb(1) == r_min .and. &
+        rg_grid%xb(rg_grid%npts_b) == r_plas, all_passed)
     call report('production field spans declared domain', &
-        abs(xl_grid%xb(1)-r_min)+ &
-        abs(xl_grid%xb(xl_grid%npts_b)-r_plas) < tol, all_passed)
+        xl_grid%xb(1) == r_min .and. &
+        xl_grid%xb(xl_grid%npts_b) == r_plas, all_passed)
 
     if (all_passed) then
         print *, 'All grid tests PASSED'

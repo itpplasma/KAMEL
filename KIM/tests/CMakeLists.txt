@@ -2,6 +2,17 @@
 # carried transitively by kilca_lib's PUBLIC link interface, so no per-target
 # OpenMP linkage is needed here.
 
+add_executable(test_adaptive_grid test_adaptive_grid.f90)
+target_link_libraries(test_adaptive_grid KIM_lib kilca_lib lapack cerf fortnum_amos_compat)
+add_test(NAME test_adaptive_grid COMMAND test_adaptive_grid)
+foreach(invalid_grid nan_min nan_max unordered one_node nan_width zero_width
+                     nan_amplitude nonpositive_factor nan_scale zero_scale stalled)
+    add_test(NAME test_adaptive_grid_${invalid_grid}
+             COMMAND test_adaptive_grid ${invalid_grid})
+    set_tests_properties(test_adaptive_grid_${invalid_grid}
+                        PROPERTIES WILL_FAIL TRUE TIMEOUT 10)
+endforeach()
+
 # Optional: build QUADPACK/RKF45 integration comparison test
 add_executable(test_integration_methods ${CMAKE_SOURCE_DIR}/KIM/tests/test_integration_methods.f90)
 set_target_properties(test_integration_methods PROPERTIES

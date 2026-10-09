@@ -4,6 +4,7 @@ program test_rho_b_collision_moments
     use constants_m, only: sol
     use config_m, only: artificial_debye_case
     use flr2_fourier_kernel_m, only: core_rho_B_sp
+    use, intrinsic :: ieee_arithmetic, only: ieee_is_finite
     implicit none
     integer, parameter :: nh = 64
     type(plasma_t) :: background
@@ -52,7 +53,9 @@ program test_rho_b_collision_moments
         rhs(4, 2) = sqrt(6.0_dp)
         call zgesv(nh, 2, a, nh, pivots, rhs, nh, info)
         if (info /= 0) error stop 'Hermite oracle solve failed'
+        if (.not. all(is_finite_complex(rhs))) error stop 'Nonfinite Hermite oracle solution'
         call getIfunc_model(x1, x2, model, moments)
+        if (.not. all(is_finite_complex(moments))) error stop 'Nonfinite collision moments'
         if (abs(rhs(1, 1)-moments(0, 1)) > 1.0e-10_dp) error stop 1
         if (abs(rhs(1, 2)-moments(0, 3)) > 1.0e-10_dp) error stop 2
         background%spec(0)%I01(1, 0) = moments(0, 1)
@@ -60,6 +63,10 @@ program test_rho_b_collision_moments
         background%spec(0)%I03(1, 0) = moments(0, 3)
         expected = -(rhs(1, 1)+0.5_dp*rhs(1, 2))/sol
         actual = core_rho_B_sp(background, 0, 0.0_dp, 0.0_dp, 1)
+        if (.not. is_finite_complex(expected)) error stop 'Nonfinite density reference'
+        if (.not. is_finite_complex(actual)) error stop 'Nonfinite magnetic density response'
+        if (abs(expected) == 0.0_dp) error stop 'Density reference must be nonzero'
+        if (.not. is_finite_complex(actual/expected)) error stop 'Nonfinite density ratio'
         if (abs(actual/expected-1.0_dp) > 1.0e-10_dp) error stop 3
         if (model == 0) then
             if (abs(moments(0, 3)-moments(2, 1)) < 0.1_dp) &
@@ -69,4 +76,12 @@ program test_rho_b_collision_moments
         end if
     end do
     print *, 'PASS: raw rho-B source moments for number-only and conserving collisions'
+
+contains
+
+    elemental logical function is_finite_complex(value) result(ok)
+        complex(dp), intent(in) :: value
+        ok = ieee_is_finite(real(value, dp)) .and. ieee_is_finite(aimag(value))
+    end function is_finite_complex
+
 end program test_rho_b_collision_moments

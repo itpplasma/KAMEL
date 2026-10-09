@@ -302,6 +302,12 @@ module grid_m
         this%xb(1) = this%min_val
         do ipoib=2, this%npts_b
             this%xb(ipoib) = this%min_val + (ipoib - 1) * h
+        end do
+        if (present(endpoint_inclusive)) then
+            ! Preserve the requested physical endpoint exactly before forming centers.
+            if (endpoint_inclusive) this%xb(this%npts_b) = this%max_val
+        end if
+        do ipoib=2, this%npts_b
             this%xc(ipoib-1) = 0.5 * (this%xb(ipoib-1) + this%xb(ipoib))
         end do
 

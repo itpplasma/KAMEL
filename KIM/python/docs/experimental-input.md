@@ -1,5 +1,29 @@
 # Experimental Input Preparation
 
+For a ready-to-edit Python script, use [`prepare_marsf.py`](../examples/prepare_marsf.py).
+It prepares inputs only and needs no reference HDF5 file. From the repository root:
+
+```bash
+python -m pip install -e './KIM/python'
+cp KIM/python/examples/request-periodic.json ./request.json
+# Edit request.json for your plasma, fields, mode, radial domain, and resolution.
+# Edit the four paths and source metadata at the top of prepare_marsf.py.
+python KIM/python/examples/prepare_marsf.py
+cd prepared-case
+kim validate request.json
+```
+
+The four paths identify the MARS-F profile directory, a precomputed `equil_r_q_psi.dat`,
+your JSON request, and a new output directory. Relative paths use your working directory.
+The equilibrium table's first three columns are `r_eff [cm]`, q, and poloidal flux psi;
+header/comment lines start with `#`. Use the existing KAMEL equilibrium calculation to
+produce it. Preparation normalizes psi by its final tabulated value.
+The script preserves its q sign. The request supplies magnetic field and major radius;
+these must be consistent with your equilibrium. The source metadata explicitly declares
+coordinates, units, and provenance. Confirm those declarations before using your own data;
+the provided declarations are examples, not an inference about your files. No solver runs
+during preparation. Existing output directories are never replaced.
+
 The experimental importer is read-only. To turn a MARS-F profile quartet into a runnable KIM
 case, declare the source conventions and call `prepare_marsf_case`:
 

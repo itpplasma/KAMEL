@@ -69,6 +69,8 @@ under [`examples/`](examples/).
 
 The [experimental input guide](docs/experimental-input.md) documents the explicit MARS-F importer
 and preparation workflow, including equilibrium mapping and provenance reports.
+For a ready-to-edit Python preparation script, see
+[`examples/prepare_marsf.py`](examples/prepare_marsf.py).
 
 The optional `plot` extra installs matplotlib for [`examples/plot_periodic.py`](examples/plot_periodic.py),
 which reads a stored periodic HDF5 result and writes a figure without launching `KIM.x`.

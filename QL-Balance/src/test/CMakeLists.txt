@@ -12,6 +12,11 @@ target_link_libraries(test_sparse.x PUBLIC sparse SuiteSparse::umfpack_wrappers 
 target_include_directories(test_sparse.x PUBLIC "${UMFPACK_INCLUDE_DIR}")
 add_fortran_test(test_sparse)
 
+add_executable(test_sparse_oracle.x test_sparse_oracle.f90)
+target_link_libraries(test_sparse_oracle.x PRIVATE
+    sparse SuiteSparse::umfpack_wrappers SuiteSparse::umfpack)
+add_fortran_test(test_sparse_oracle)
+
 # THE FOLLOWING TEST IS BROKEN, AS 'balance_conf.nml' IS NOT FOUND CORRECTLY
 # add_executable(test_D_one_over_nu.x test_D_one_over_nu.f90)
 # target_link_libraries(test_D_one_over_nu.x PUBLIC ql-balance_lib)

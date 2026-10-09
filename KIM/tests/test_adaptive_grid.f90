@@ -1,7 +1,9 @@
 program test_adaptive_grid
     use KIM_kinds_m, only: dp
     use grid_m, only: grid_type, width_res, ampl_res, hrmax_scaling, &
-        xl_grid, calc_mass_matrix
+        xl_grid, rg_grid, calc_mass_matrix, rg_space_dim, l_space_dim, &
+        grid_spacing_rg, grid_spacing_xl, r_min, r_plas
+    use config_m, only: output_path, hdf5_output
     use kim_resonances_m, only: r_res, prop
     use, intrinsic :: ieee_arithmetic, only: ieee_is_finite, ieee_value, ieee_quiet_nan
     implicit none
@@ -94,9 +96,50 @@ program test_adaptive_grid
     call grid%grid_init(nominal, 1.0_dp, 2.0_dp, 'coarsening')
     call grid%grid_generate()
     call geometry(1.0_dp, 2.0_dp, nominal)
+    call production_grid_oracles()
     print *, 'Adaptive grid independent geometry/weak oracles passed:', checks
 
 contains
+
+    subroutine production_grid_oracles()
+        integer :: fixture
+
+        ! Exercise the public caller with unequal field/background budgets and
+        ! both adaptive routing names, rather than constructing grid types alone.
+        rg_space_dim = 128
+        l_space_dim = 256
+        r_min = 3.0_dp
+        r_plas = 61.45547565601116_dp
+        grid_spacing_rg = 'adaptive'
+        grid_spacing_xl = 'non-equidistant'
+        output_path = './adaptive-grid-contract-output/'
+        hdf5_output = .false.
+        call execute_command_line('mkdir -p adaptive-grid-contract-output/grid')
+        r_res = 59.22635072676093_dp
+        width_res = 0.15_dp
+        hrmax_scaling = 1.0_dp
+        do fixture = 1, 2
+            ampl_res = 0.0_dp
+            if (fixture == 2) ampl_res = 32.0_dp
+            call generate_grids()
+            grid = rg_grid
+            call geometry(r_min, r_plas, rg_space_dim)
+            if (fixture == 1) then
+                call expect(grid%npts_b == rg_space_dim+1, &
+                    'Production background keeps its flat-monitor cell budget')
+            else
+                call gaussian_density(r_min, r_plas)
+            end if
+            grid = xl_grid
+            call geometry(r_min, r_plas, l_space_dim)
+            if (fixture == 1) then
+                call expect(grid%npts_b == l_space_dim+1, &
+                    'Production field keeps its distinct flat-monitor cell budget')
+            else
+                call gaussian_density(r_min, r_plas)
+            end if
+        end do
+    end subroutine production_grid_oracles
 
     subroutine expect(condition, label)
         logical, intent(in) :: condition

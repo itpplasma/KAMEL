@@ -138,7 +138,10 @@ def run_staged_surfaces(workdir: str | Path, plan: LocalNeo2Plan) -> np.ndarray:
 
 
 def collect_staged_surfaces(workdir: str | Path) -> np.ndarray:
-    """Collect scalar or native chunk results using explicit table row ranges."""
+    """Collect scalar or native chunk results using explicit table row ranges.
+
+    Every native ``integral_converged`` flag must be one to return a profile.
+    """
     root = Path(workdir)
     rows = np.loadtxt(root / "surfaces.dat", ndmin=2)
     jobs = [root / line for line in (root / "jobs_list.txt").read_text().splitlines()]
@@ -182,7 +185,7 @@ def collect_staged_surfaces(workdir: str | Path) -> np.ndarray:
                             for value in values
                         )
                         or not np.array_equal(np.column_stack(values[:4]), native[first - 1 : last])
-                        or not np.isin(values[-1], [0, 1]).all()
+                        or not (values[-1] == 1).all()
                     ):
                         raise Neo2LocalError(f"invalid NEO-2 batch output in {job}")
                     result[first - 1 : last, 1] = values[4]

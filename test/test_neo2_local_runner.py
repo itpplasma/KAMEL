@@ -9,7 +9,6 @@ import pytest
 from neo2_for_Er.local_runner import (
     LocalNeo2Plan,
     Neo2LocalError,
-    collect_staged_surfaces,
     run_staged_surfaces,
     stage_surfaces,
 )
@@ -62,7 +61,7 @@ def write_batch_output(root, job, first, last):
         output["k_cof"] = rows[:, 0] / 2
         output["qcurr_g"] = np.ones(len(rows))
         output["qcurr_t"] = 2.5 - rows[:, 0] / 2
-        output["integral_converged"] = np.zeros(len(rows), dtype=int)
+        output["integral_converged"] = np.ones(len(rows), dtype=int)
 
 
 @pytest.mark.parametrize("surfaces_per_run, chunks", [(0, 1), (2, 2)])
@@ -83,7 +82,7 @@ def test_native_chunks_execute_and_preserve_row_mapping(batch_case, surfaces_per
             output['k_cof'] = rows[:,0] / 2
             output['qcurr_g'] = np.ones(len(rows))
             output['qcurr_t'] = 2.5 - rows[:,0] / 2
-            output['integral_converged'] = np.zeros(len(rows), dtype=int)
+            output['integral_converged'] = np.ones(len(rows), dtype=int)
         """))
     executable.chmod(0o755)
     result = run_staged_surfaces(root, LocalNeo2Plan(executable, max_workers=1))
@@ -95,9 +94,25 @@ def test_native_chunks_execute_and_preserve_row_mapping(batch_case, surfaces_per
 
 
 @pytest.mark.parametrize(
-    "fault", ["missing", "nan", "identity", "shape", "range", "overlap", "coverage"]
+    "fault",
+    [
+        "missing",
+        "nan",
+        "identity",
+        "shape",
+        "range",
+        "overlap",
+        "coverage",
+        "convergence_missing",
+        "convergence_shape",
+        "convergence_invalid",
+        "convergence_nan",
+        "convergence_unconverged",
+    ],
 )
 def test_batch_collection_rejects_incomplete_or_wrong_results(batch_case, fault):
+    from profile_processor import Profile_Processor
+
     root, template = batch_case
     jobs = stage_surfaces(root, template, 2)
     write_batch_output(root, jobs[0], 1, 2)
@@ -119,8 +134,22 @@ def test_batch_collection_rejects_incomplete_or_wrong_results(batch_case, fault)
                 output["k_cof"] = []
             elif fault == "range":
                 output["surface_last"][...] = 4
+            elif fault == "convergence_missing":
+                del output["integral_converged"]
+            elif fault == "convergence_shape":
+                del output["integral_converged"]
+                output["integral_converged"] = 1
+            elif fault == "convergence_invalid":
+                output["integral_converged"][0] = 2
+            elif fault == "convergence_nan":
+                del output["integral_converged"]
+                output["integral_converged"] = [np.nan, 1]
+            elif fault == "convergence_unconverged":
+                output["integral_converged"][0] = 0
+    processor = Profile_Processor.__new__(Profile_Processor)
     with pytest.raises(Neo2LocalError):
-        collect_staged_surfaces(root)
+        processor.collect_k_profile(str(root), str(root))
+    assert not (root / "k.dat").exists()
 
 
 def test_profile_collector_reads_native_chunks(batch_case):

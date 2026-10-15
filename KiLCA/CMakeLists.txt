@@ -334,6 +334,9 @@ set_target_properties(test_hyper1f1 PROPERTIES
 add_dependencies(test_hyper1f1 kilca_lib)
 target_link_libraries (test_hyper1f1 kilca_lib ${EXTERNAL_LIBS})
 add_test(NAME test_hyper1f1 COMMAND ${CMAKE_BINARY_DIR}/tests/test_hyper1f1.x)
+add_test(NAME test_hyper1f1_rejects_failed_dependency
+    COMMAND ${CMAKE_BINARY_DIR}/tests/test_hyper1f1.x --reject-pole)
+set_tests_properties(test_hyper1f1_rejects_failed_dependency PROPERTIES WILL_FAIL TRUE)
 
 add_executable (test_neville tests/test_neville.f90)
 set_target_properties(test_neville PROPERTIES

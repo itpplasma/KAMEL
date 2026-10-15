@@ -67,7 +67,37 @@ program test_susceptibility_collisionless_limit
         end if
     end do
 
+    call check_finite_collision_ray()
+
 contains
+
+    subroutine check_finite_collision_ray()
+        ! Independent 60-digit quadrature of the generating integral, inserted
+        ! in the energy-conserving susceptibility (Markl 2023 appendix A).
+        ! These points stay below evaluate_susceptibility's Landau substitution
+        ! and require the actual collisional special-function evaluation.
+        real(dp), parameter :: ray_x1(3) = [3000.0_dp, 6000.0_dp, 9000.0_dp]
+        complex(dp), parameter :: expected_j(3) = [ &
+            cmplx(-0.09900148378348024263_dp, 0.01247667045059763900_dp, dp), &
+            cmplx(-0.09900240536971374563_dp, 0.01247365120557467912_dp, dp), &
+            cmplx(-0.09900271250295240704_dp, 0.01247264481483745869_dp, dp)]
+        complex(dp) :: susceptibility(0:3, 0:3), response, expected
+        real(dp) :: signed_x1, error
+        integer :: point, harmonic
+
+        do point = 1, size(ray_x1)
+            do harmonic = -1, 1, 2
+                signed_x1 = real(harmonic, dp) * ray_x1(point)
+                call evaluate_susceptibility(signed_x1, -0.1_dp * signed_x1, 1, susceptibility)
+                response = cmplx(0.0_dp, 1.0_dp, dp) * signed_x1 * susceptibility(1, 1)
+                expected = expected_j(point)
+                if (harmonic < 0) expected = conjg(expected)
+                error = abs(response - expected) / abs(expected)
+                print '(a,f8.0,a,es12.4)', 'finite-collision x1=', signed_x1, ' error=', error
+                if (error > 1.0e-8_dp) error stop 'finite-collision response missed quadrature oracle'
+            end do
+        end do
+    end subroutine check_finite_collision_ray
 
     subroutine collisionless_limit(x1, x2, values)
         real(dp), intent(in) :: x1, x2

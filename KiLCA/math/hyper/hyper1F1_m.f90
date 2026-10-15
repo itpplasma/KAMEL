@@ -178,7 +178,7 @@ contains
 
     subroutine h_cont_fract_1_modified_0_ada(b_re, b_im, z_re, z_im, f_re, f_im)
         use fortnum_special_hypergeometric_1f1, only: hyperg_1f1m_a1
-        use fortnum_status, only: fortnum_status_t
+        use fortnum_status, only: fortnum_status_t, status_ok
         real(c_double), intent(in) :: b_re, b_im, z_re, z_im
         real(c_double), intent(out) :: f_re, f_im
         complex(dp) :: b, z, res
@@ -191,6 +191,12 @@ contains
         ! cancellation of the |z/b|-dispatch reconstruction. Mirrors the C++
         ! swap in KAMEL#146 so oracle and port share one compiled kernel.
         call hyperg_1f1m_a1(b, z, res, status)
+        if (.not. status_ok(status)) then
+            write (error_unit, '(a,i0,2a)') 'modified 1F1 evaluation failed (status ', &
+                status%code, '): ', trim(status%msg)
+            write (error_unit, '(a,4es23.15)') '  b,z=', b_re, b_im, z_re, z_im
+            error stop 'cannot consume a failed modified 1F1 result'
+        end if
         f_re = real(res, dp)
         f_im = aimag(res)
     end subroutine h_cont_fract_1_modified_0_ada

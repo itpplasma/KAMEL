@@ -12,6 +12,15 @@ program test_hyper1f1
     real(c_double) :: bs(2, 4), zs(2, 4), ref(2, 4)
     real(c_double) :: br, bi, zr, zi, fr, fi
     integer :: i, failures
+    character(32) :: argument
+
+    call get_command_argument(1, argument)
+    if (trim(argument) == '--reject-pole') then
+        ! hyperg_1f1m_a1 evaluates M(1;b+2;z)-1. b=-2 is a pole.
+        ! The wrapper must stop before exposing the failed dependency result.
+        call disp(-2.0d0, 0.0d0, 1.0d0, 0.0d0, fr, fi)
+        stop 0
+    end if
 
     bs = reshape([2.0d0, 0.5d0, 1.5d0, -0.3d0, 3.0d0, 1.0d0, 0.7d0, 0.2d0], [2, 4])
     zs = reshape([0.05d0, 0.02d0, 0.8d0, 0.4d0, 2.0d0, -1.0d0, 0.1d0, 0.05d0], [2, 4])

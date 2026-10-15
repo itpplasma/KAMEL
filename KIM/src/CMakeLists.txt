@@ -97,3 +97,9 @@ target_link_libraries(KIM_exe
                         lapack
                         fortnum_amos_compat
 )
+
+# Restricted external-electron exchange driver; normal KIM.x remains unchanged.
+add_executable(kim_coupling_exe electrostatic_poisson/coupling_main.f90)
+set_target_properties(kim_coupling_exe PROPERTIES OUTPUT_NAME kim_coupling.x
+    RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/install/bin/")
+target_link_libraries(kim_coupling_exe KIM_lib kilca_lib lapack fortnum_amos_compat)

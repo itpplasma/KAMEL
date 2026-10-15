@@ -68,6 +68,8 @@ module config_m
     ! Reproduce the global FEM kernel approximations for direct comparisons:
     ! drop k_s^2 from Bessel arguments and take electrons in the zero-FLR limit.
     ! The forced-periodic solver uses its full Fourier kernel by default.
+    ! Independent electron approximation; never changes the ion FLR kernel.
+    logical :: periodic_electron_flr = .true.
     logical :: periodic_match_global_kernel_approximations = .false.
     complex(dp) :: periodic_Bparallel_ratio = (0.0_dp, 0.0_dp)
 

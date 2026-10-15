@@ -3,7 +3,8 @@ program kim_coupling
     use KIM_kinds_m, only: dp
     use config_m, only: nml_config_path, periodic_electron_flr, collision_model, &
         resolved_electron_ifunc_conservation_model, artificial_debye_case, &
-        periodic_match_global_kernel_approximations, turn_off_electrons, turn_off_ions
+        periodic_match_global_kernel_approximations, turn_off_electrons, turn_off_ions, &
+        ion_collision_model, ion_temperature_gradient_model, ifunc_model_for_species
     use setup_m, only: m_mode, n_mode, omega, collisions_off, mphi_max
     use constants_m, only: sol
     use species_m, only: plasma
@@ -29,7 +30,9 @@ program kim_coupling
     complex(dp), allocatable :: kp(:, :), kb(:, :), jp(:, :), jb(:, :)
     complex(dp), allocatable :: kp_sp(:, :, :), kb_sp(:, :, :), jp_sp(:, :, :), jb_sp(:, :, :)
     complex(dp), allocatable :: phi_modes(:), phi(:), current(:), current_sp(:, :)
-    namelist /COUPLING/ rm, dx_asis, dx_tr, M, n_rg, Br, prefix, response_file, action
+    logical :: export_ions = .false.
+    namelist /COUPLING/ rm, dx_asis, dx_tr, M, n_rg, Br, prefix, response_file, action, &
+        export_ions
     call get_command_argument(1, config_path)
     if (len_trim(config_path) == 0) &
         error stop 'usage: kim_coupling.x KIM_config.nml (with coupling.nml)'
@@ -54,6 +57,12 @@ program kim_coupling
     if (mphi_max /= 0) error stop 'initial coupling requires the zero cyclotron harmonic'
     if (trim(collision_model) /= 'FokkerPlanck') &
         error stop 'OU electron provider requires FokkerPlanck electron susceptibilities'
+    if (export_ions) then
+        if (trim(ion_collision_model) /= 'FokkerPlanck') &
+            error stop 'ion export requires FokkerPlanck ion susceptibilities'
+        if (trim(ion_temperature_gradient_model) /= 'full') &
+            error stop 'ion export requires the full temperature-gradient source'
+    end if
     call from_kim_factory_get_kim('electrostatic', instance)
     call instance%init()
     L = 2.0_dp*(dx_asis + dx_tr)
@@ -86,6 +95,11 @@ program kim_coupling
             write (unit, '(13es26.17e3)') background(i, :)
         end do
         close (unit)
+        if (export_ions) then
+            do sp = 1, plasma%n_species - 1
+                call write_ion_background(sp)
+            end do
+        end if
         open (newunit=unit, file=trim(prefix)//'kim_blocks.dat', status='new', action='write')
         write (unit, '(a)') 'KIM_BLOCKS_V1'
         write (unit, *) 2*M + 1, plasma%n_species
@@ -129,6 +143,40 @@ program kim_coupling
         call write_fields('hybrid_fields.dat')
     end if
 contains
+    subroutine write_ion_background(species)
+        integer, intent(in) :: species
+        real(dp), allocatable :: ion_background(:, :)
+        integer :: ion_unit, model, point
+        character(32) :: filename
+        model = ifunc_model_for_species(species)
+        if (model /= 0 .and. model /= 1) &
+            error stop 'ion provider supports conservation models 0/1'
+        if (species > 999) error stop 'too many species for ion export filenames'
+        allocate (ion_background(n_rg, 14))
+        ion_background(:, 1:4) = background(:, 1:4)
+        ion_background(:, 5) = plasma%spec(species)%lambda_D
+        ion_background(:, 6) = plasma%spec(species)%nu
+        ion_background(:, 7) = plasma%spec(species)%vT
+        ion_background(:, 8) = plasma%spec(species)%omega_c
+        ion_background(:, 9) = plasma%spec(species)%A1
+        ion_background(:, 10) = plasma%spec(species)%A2
+        ion_background(:, 11) = plasma%spec(species)%n
+        ion_background(:, 12) = plasma%spec(species)%T
+        ion_background(:, 13) = plasma%B0
+        ! Export the actual thermal radius, including any configured FLR scale.
+        ion_background(:, 14) = plasma%spec(species)%rho_L
+        write (filename, '(a,i3.3,a)') 'ion_', species, '_background.dat'
+        open (newunit=ion_unit, file=trim(prefix)//trim(filename), &
+              status='new', action='write')
+        write (ion_unit, '(a)') 'GK_ION_BACKGROUND_V1'
+        write (ion_unit, *) M, n_rg, model, m_mode, n_mode, species
+        write (ion_unit, '(3es26.17e3)') L, rm, sol
+        do point = 1, n_rg
+            write (ion_unit, '(14es26.17e3)') ion_background(point, :)
+        end do
+        close (ion_unit)
+    end subroutine write_ion_background
+
     subroutine write_block(block)
         complex(dp), intent(in) :: block(:, :)
         integer :: row, col

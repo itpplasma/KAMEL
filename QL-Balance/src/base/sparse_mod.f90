@@ -1165,7 +1165,7 @@ CONTAINS
        native_solver%backend_id = FORTSPARSE_BACKEND_NATIVE
        native_solver%options%symmetry = FORTSPARSE_SYM_GENERAL
        native_solver%refine = sparse_solve_method == 2
-       CALL native_factor(native_solver,nrow,ncol,nz,pcol,irow,val,status)
+       CALL native_factor(native_solver,nrow,ncol,nz,pcol,irow(:nz),val(:nz),status)
        CALL native_check(status)
        native_scalar = 1
        native_method = sparse_solve_method
@@ -1199,7 +1199,7 @@ CONTAINS
        native_solver%backend_id = FORTSPARSE_BACKEND_NATIVE
        native_solver%options%symmetry = FORTSPARSE_SYM_GENERAL
        native_solver%refine = sparse_solve_method == 2
-       CALL native_factor(native_solver,nrow,ncol,nz,pcol,irow,val,status)
+       CALL native_factor(native_solver,nrow,ncol,nz,pcol,irow(:nz),val(:nz),status)
        CALL native_check(status)
        native_scalar = 2
        native_method = sparse_solve_method
@@ -1234,7 +1234,7 @@ CONTAINS
        native_solver%backend_id = FORTSPARSE_BACKEND_NATIVE
        native_solver%options%symmetry = FORTSPARSE_SYM_GENERAL
        native_solver%refine = sparse_solve_method == 2
-       CALL native_factor(native_solver,nrow,ncol,nz,pcol,irow,val,status)
+       CALL native_factor(native_solver,nrow,ncol,nz,pcol,irow(:nz),val(:nz),status)
        CALL native_check(status)
        native_scalar = 1
        native_method = sparse_solve_method
@@ -1271,7 +1271,7 @@ CONTAINS
        native_solver%backend_id = FORTSPARSE_BACKEND_NATIVE
        native_solver%options%symmetry = FORTSPARSE_SYM_GENERAL
        native_solver%refine = sparse_solve_method == 2
-       CALL native_factor(native_solver,nrow,ncol,nz,pcol,irow,val,status)
+       CALL native_factor(native_solver,nrow,ncol,nz,pcol,irow(:nz),val(:nz),status)
        CALL native_check(status)
        native_scalar = 2
        native_method = sparse_solve_method

@@ -8,6 +8,11 @@ program test_sparse_native
     complex(dp) :: az(3, 3), values_z(4), expected_z(3), rhs_z(3), xz(3), block_z(3, 2)
     complex(dp) :: expected_block_z(3, 2), original_block_z(3, 2)
     integer :: row(4), pointer(4), columns(4), method
+    ! Callers such as evolvestep pass work buffers longer than nz after
+    ! compaction; only the first nz row/value entries define the matrix.
+    integer :: row_long(6)
+    real(dp) :: values_long(6)
+    complex(dp) :: values_z_long(6)
     character(32) :: mode
 
     ! A zero leading diagonal demands row pivoting. Four nonzeros make
@@ -101,6 +106,11 @@ program test_sparse_native
         x = rhs
         call sparse_solve(3, 3, 4, row, columns, values, x)
         call check_real(x, expected, rhs)
+        row_long = [row, 3, 1]
+        values_long = [values, 7.0_dp, -5.0_dp]
+        x = rhs
+        call sparse_solve(3, 3, 4, row_long, pointer, values_long, x)
+        call check_real(x, expected, rhs)
         block = original_block
         call sparse_solve(3, 3, 4, row, pointer, values, block, 2)
         call check_real(block(:, 2), expected_block(:, 2), original_block(:, 2))
@@ -114,6 +124,10 @@ program test_sparse_native
         call sparse_solve(3, 3, 4, row, pointer, values_z, xz, 3)
         xz = rhs_z
         call sparse_solve(3, 3, 4, row, columns, values_z, xz)
+        call check_complex(xz, expected_z, rhs_z)
+        values_z_long = [values_z, cmplx(7.0_dp, 1.0_dp, dp), cmplx(-5.0_dp, 0.0_dp, dp)]
+        xz = rhs_z
+        call sparse_solve(3, 3, 4, row_long, pointer, values_z_long, xz)
         call check_complex(xz, expected_z, rhs_z)
         block_z = original_block_z
         call sparse_solve(3, 3, 4, row, pointer, values_z, block_z, 2)

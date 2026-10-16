@@ -89,8 +89,6 @@ jobs:
             libomp-dev \
             libopenblas-dev \
             libopenmpi-dev \
-            libsuitesparse-dev \
-            libsuperlu-dev \
             ninja-build \
             openmpi-bin \
             python3-dev \
@@ -156,8 +154,6 @@ jobs:
             libomp \
             openblas \
             gsl \
-            suite-sparse \
-            superlu \
             mpfr \
             gmp
           pip install numpy scipy matplotlib h5py f90nml pytest
@@ -217,8 +213,6 @@ jobs:
             libopenblas-dev \
             liblapack-dev \
             libgsl-dev \
-            libsuitesparse-dev \
-            libsuperlu-dev \
             python3-dev \
             python3-pip \
             libmpfr-dev \
@@ -290,8 +284,6 @@ jobs:
             libomp \
             openblas \
             gsl \
-            suite-sparse \
-            superlu \
             mpfr \
             gmp
           pip install numpy scipy matplotlib h5py f90nml pytest

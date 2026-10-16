@@ -6,7 +6,7 @@ list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake")
 
 # Core dependencies
 include(FetchLapack)
-include(FetchSuiteSparse)
+include(FetchFortSparse)
 include(FetchSUNDIALS)
 include(FetchFortnum)
 
@@ -51,8 +51,8 @@ set_target_properties(sparse PROPERTIES LINKER_LANGUAGE Fortran
                         ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/install/lib/"
                         Fortran_MODULE_DIRECTORY "${CMAKE_BINARY_DIR}/OBJS/sparse/")
 
-# Link sparse to SuiteSparse UMFPACK
-target_link_libraries(sparse PUBLIC SuiteSparse::umfpack_wrappers SuiteSparse::umfpack)
+# Native FortSparse is the shared sparse numerical implementation.
+target_link_libraries(sparse PUBLIC fortsparse)
 # Make module directory available
 target_include_directories(sparse PUBLIC "${QLBALANCE_BASE}")
 

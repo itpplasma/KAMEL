@@ -44,29 +44,6 @@ if("${LAPACK_FOUND}")
     # breaks libc++'s <cmath>/<cstdio> include_next logic.
 endif()
 
-# SuiteSparse/UMFPACK come SOLELY from the fetched-static SuiteSparse v7.8.3 via the
-# `sparse` target linked above (Dependencies.cmake -> SuiteSparse::umfpack{,_wrappers},
-# built with -DDLONG -DZLONG). Previously a find_package(SuiteSparse)+find_package(Umfpack)
-# here ALSO linked the system (Homebrew) UMFPACK, so the binary loaded two conflicting
-# UMFPACK builds at once (static 7.8.3 + dylib 6.3.7). The duplicate SuiteSparse_config
-# global state corrupted every complex sparse solve (umf4zsym -> UMFPACK_ERROR_invalid_matrix,
-# solutions Inf/0), which silently made the global electrostatic Poisson solve return Phi==0.
-# The umf4_f77*.c wrappers' umfpack.h and the UMFPACK symbols both propagate transitively from
-# SuiteSparse::umfpack via the `sparse` target, so no separate find_package is needed.
-
-find_package(SuperLU REQUIRED)
-if("${SUPERLU_FOUND}")
-    message(" ====== SuperLU was found! =====")
-    target_link_libraries(KIM_lib PUBLIC "${SUPERLU_LIBRARIES}")
-    message("SuperLu libraries: ${SUPERLU_LIBRARIES}")
-    # SuperLU headers are needed only while compiling KIM.  Keeping this
-    # include directory PRIVATE prevents FindSuperLU's Darwin SDK
-    # `usr/include` result from leaking into downstream C++ targets, where it
-    # breaks libc++'s include_next-based C headers.
-    target_include_directories(KIM_lib PRIVATE "${SUPERLU_INCLUDES}")
-    message("${SUPERLU_INCLUDES}")
-endif()
-
 set(KILCA_PATH ${CMAKE_SOURCE_DIR}/KiLCA)
 # KiLCA is NOT linked to KIM_lib: KIM does not use any KiLCA symbols.
 # Previously PUBLIC, this caused duplicate library linking when QL-Balance

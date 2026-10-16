@@ -10,7 +10,7 @@ if(NOT TARGET fortsparse)
     set(FORTSPARSE_ENABLE_NATIVE_CUDA OFF CACHE BOOL "" FORCE)
     FetchContent_Declare(fortsparse
         GIT_REPOSITORY https://github.com/lazy-fortran/fortsparse.git
-        GIT_TAG 8dfac488ba5384f7a577beeac2d6f7c23ba6ac16
+        GIT_TAG 16e80c3070765f7e8dd14b235cfd7d7c26da7b76
     )
     FetchContent_MakeAvailable(fortsparse)
 endif()

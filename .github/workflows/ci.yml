@@ -2,9 +2,10 @@ name: CI
 
 on:
   push:
-    branches: [main, fix-ci]
+    branches: [fix-ci]
   pull_request:
     types: [opened, synchronize, reopened, labeled]
+  merge_group:
   workflow_dispatch:
     inputs:
       libneo_ref:
@@ -250,11 +251,11 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           EVENT_NAME: ${{ github.event_name }}
           FULL: ${{ inputs.full }}
-          # Upper layers of a PR stack (base is not main) skip the golden record
-          # unless the PR is labeled full-ci.
-          STACK_LAYER: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.ref != github.event.repository.default_branch && !contains(github.event.pull_request.labels.*.name, 'full-ci') }}
+          # Pull requests, including stacked layers, skip the golden record
+          # (full tier, run in the merge queue) unless labeled full-ci.
+          FAST_TIER: ${{ github.event_name == 'pull_request' && !contains(github.event.pull_request.labels.*.name, 'full-ci') }}
         run: |
-          if { [ "$EVENT_NAME" = workflow_dispatch ] && [ "$FULL" != true ]; } || [ "$STACK_LAYER" = true ]; then
+          if { [ "$EVENT_NAME" = workflow_dispatch ] && [ "$FULL" != true ]; } || [ "$FAST_TIER" = true ]; then
             ctest --test-dir build --output-on-failure -LE golden_record
           else
             ctest --test-dir build --output-on-failure
@@ -317,11 +318,11 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           EVENT_NAME: ${{ github.event_name }}
           FULL: ${{ inputs.full }}
-          # Upper layers of a PR stack (base is not main) skip the golden record
-          # unless the PR is labeled full-ci.
-          STACK_LAYER: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.ref != github.event.repository.default_branch && !contains(github.event.pull_request.labels.*.name, 'full-ci') }}
+          # Pull requests, including stacked layers, skip the golden record
+          # (full tier, run in the merge queue) unless labeled full-ci.
+          FAST_TIER: ${{ github.event_name == 'pull_request' && !contains(github.event.pull_request.labels.*.name, 'full-ci') }}
         run: |
-          if { [ "$EVENT_NAME" = workflow_dispatch ] && [ "$FULL" != true ]; } || [ "$STACK_LAYER" = true ]; then
+          if { [ "$EVENT_NAME" = workflow_dispatch ] && [ "$FULL" != true ]; } || [ "$FAST_TIER" = true ]; then
             ctest --test-dir build --output-on-failure -LE golden_record
           else
             ctest --test-dir build --output-on-failure

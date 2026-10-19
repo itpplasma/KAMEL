@@ -5,7 +5,7 @@ module periodic_electron_response_m
     use, intrinsic :: ieee_arithmetic, only: ieee_is_finite
     implicit none
     private
-    public :: electron_response_t, replace_periodic_electrons
+    public :: electron_response_t, replace_periodic_electrons, replace_periodic_species
     type :: electron_response_t
         complex(dp), allocatable :: rho_phi(:, :), rho_b(:, :)
         complex(dp), allocatable :: j_phi(:, :), j_b(:, :)
@@ -31,6 +31,35 @@ contains
         kjphi_sp(:, :, 0) = response%j_phi
         kjb_sp(:, :, 0) = response%j_b
         ! Re-sum species rather than subtracting nearly cancelling old blocks.
+        kphi = sum(kphi_sp, dim=3)
+        kb = sum(kb_sp, dim=3)
+        kjphi = sum(kjphi_sp, dim=3)
+        kjb = sum(kjb_sp, dim=3)
+    end subroutine
+
+    subroutine replace_periodic_species(response, species, kphi, kb, kjphi, kjb, &
+                                        kphi_sp, kb_sp, kjphi_sp, kjb_sp)
+        ! Replace one species' four blocks (e.g. an external ion response) and
+        ! re-sum, so the native contribution of that species enters exactly zero times.
+        type(electron_response_t), intent(in) :: response
+        integer, intent(in) :: species
+        complex(dp), intent(inout) :: kphi(:, :), kb(:, :), kjphi(:, :), kjb(:, :)
+        complex(dp), intent(inout) :: kphi_sp(:, :, 0:), kb_sp(:, :, 0:)
+        complex(dp), intent(inout) :: kjphi_sp(:, :, 0:), kjb_sp(:, :, 0:)
+        integer :: dim
+        dim = size(kphi, 1)
+        if (species < 1 .or. species > ubound(kphi_sp, 3)) error stop 'external species index out of range'
+        if (.not. allocated(response%rho_phi) .or. .not. allocated(response%rho_b) .or. &
+            .not. allocated(response%j_phi) .or. .not. allocated(response%j_b)) &
+            error stop 'external species response requires all four blocks'
+        call check_block(response%rho_phi, dim)
+        call check_block(response%rho_b, dim)
+        call check_block(response%j_phi, dim)
+        call check_block(response%j_b, dim)
+        kphi_sp(:, :, species) = response%rho_phi
+        kb_sp(:, :, species) = response%rho_b
+        kjphi_sp(:, :, species) = response%j_phi
+        kjb_sp(:, :, species) = response%j_b
         kphi = sum(kphi_sp, dim=3)
         kb = sum(kb_sp, dim=3)
         kjphi = sum(kjphi_sp, dim=3)

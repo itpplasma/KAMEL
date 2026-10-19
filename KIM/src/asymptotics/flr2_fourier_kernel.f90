@@ -221,9 +221,10 @@ contains
         ! FLR argument pair (b_+, b_x). Shares the skeleton of core_rho_phi_sp;
         ! only the moment pair and the prefactor differ.
         !
-        ! Moments (I01, I21) per thesis (14.5). j-Phi and rho-B legitimately
-        ! SHARE moments: the pair is (I^{0s}, I^{2s}) with s = moment power +
-        ! drive power, and both have s = 1. This is not a copy-paste artifact.
+        ! Current observes u and the Phi temperature drive contains u^2:
+        ! I12 is required. Transpose reciprocity gives I12=I21 for OU models
+        ! 0/1, so the existing I21 expression here is correct. Density driven
+        ! by B instead requires I03; I03=I21 needs energy conservation.
         !
         ! The prefactor carries vT^3 = vT^(2+s), not the vT^2 printed in (14.5):
         ! (14.3)-(14.6) all print vT^2, and (14.4)'s was confirmed dimensionally
@@ -340,16 +341,25 @@ contains
         ! leading minus, so callers accumulate with '+'. NO Debye term, no phase,
         ! NO /(4*pi); species selection (turn_off_*) stays in callers.
         use config_m, only: artificial_debye_case
+        use config_m, only: resolved_electron_ifunc_conservation_model, IFUNC_MODEL_NUMBER
         use constants_m, only: sol
         type(plasma_t), intent(in) :: plasma_in
         integer, intent(in) :: sp, j
         real(dp), intent(in) :: bplus, bcross
         real(dp) :: sI0, sIm1
+        complex(dp) :: temperature_moment
 
         G = (0.0_dp, 0.0_dp)
 
         if (artificial_debye_case == 0 .or. artificial_debye_case == 2) then
             call scaled_bessel_pair(bplus, bcross, sI0, sIm1)
+            temperature_moment = plasma_in%spec(sp)%I21(j, 0)
+            ! Density observes u^0; the magnetic temperature source is u^3.
+            ! Model0 damps the energy moment, so I03 cannot be replaced by I21.
+            ! Keep ion kernels and all other collision selections unchanged.
+            if (sp == 0 .and. resolved_electron_ifunc_conservation_model == IFUNC_MODEL_NUMBER) then
+                temperature_moment = plasma_in%spec(sp)%I03(j, 0)
+            end if
             G = G - 1.0d0 / plasma_in%spec(sp)%lambda_D(j)**2.0d0 * plasma_in%spec(sp)%vT(j)**3.0d0 &
                 / (plasma_in%spec(sp)%omega_c(j) * plasma_in%spec(sp)%nu(j) * sol) * &
                 (&
@@ -357,7 +367,7 @@ contains
                         sI0 * (plasma_in%spec(sp)%A1(j) + plasma_in%spec(sp)%A2(j) * (1-bplus)) &
                         + plasma_in%spec(sp)%A2(j) * bcross * sIm1 &
                     )&
-                    + 0.5d0 * plasma_in%spec(sp)%I21(j, 0) * plasma_in%spec(sp)%A2(j) * sI0 &
+                    + 0.5d0 * temperature_moment * plasma_in%spec(sp)%A2(j) * sI0 &
                 )
         end if
     end function core_rho_B_sp

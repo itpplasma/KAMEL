@@ -19,7 +19,13 @@ program kim_coupling
     use flr2_fourier_kernel_m, only: set_global_kernel_approximations, kern_zero_flr_electrons
     implicit none
     class(kim_t), allocatable :: instance
-    type(electron_response_t) :: electrons
+    type(electron_response_t) :: electrons, ions
+    ! Optional external ion response (GK_ION_RESPONSE_V1) for the solve action, and
+    ! 'native' electron_source to keep KIM's electrons while replacing ions only.
+    character(1024) :: ion_response_file = '', electron_source = 'external'
+    integer :: ion_species = 0, file_species
+    complex(dp), allocatable :: phi_spectrum(:)
+    real(dp), allocatable :: ion_file_background(:, :), ion_reference(:, :)
     character(1024) :: config_path, coupling_path = 'coupling.nml', action = 'export', header
     character(1024) :: prefix = 'exchange/', response_file = 'exchange/electron_response.dat'
     integer :: M = 3, n_rg = 96, unit, i, sp, info
@@ -32,7 +38,7 @@ program kim_coupling
     complex(dp), allocatable :: phi_modes(:), phi(:), current(:), current_sp(:, :)
     logical :: export_ions = .false.
     namelist /COUPLING/ rm, dx_asis, dx_tr, M, n_rg, Br, prefix, response_file, action, &
-        export_ions
+        export_ions, ion_response_file, electron_source
     call get_command_argument(1, config_path)
     if (len_trim(config_path) == 0) &
         error stop 'usage: kim_coupling.x KIM_config.nml (with coupling.nml)'
@@ -116,6 +122,9 @@ program kim_coupling
         current = reconstruct_jpar(jp, jb, phi_modes, Br, L, M, r)
         call write_fields('reference_fields.dat')
     else
+        if (trim(electron_source) /= 'external' .and. trim(electron_source) /= 'native') &
+            error stop 'electron_source must be external or native'
+        if (trim(electron_source) == 'external') then
         open (newunit=unit, file=trim(response_file), status='old', action='read')
         read (unit, '(a)') header
         if (trim(header) /= 'GK_RESPONSE_V1') error stop 'wrong electron response format'
@@ -137,21 +146,57 @@ program kim_coupling
         call read_block(electrons%j_phi)
         call read_block(electrons%j_b)
         close (unit)
-        call compute_periodic_delta_phi(rm, dx_asis, dx_tr, M, n_rg, Br, r, phi, info, &
-                                jpar=current, jpar_species=current_sp, external_electrons=electrons)
+        end if
+        if (len_trim(ion_response_file) > 0) then
+            open (newunit=unit, file=trim(ion_response_file), status='old', action='read')
+            read (unit, '(a)') header
+            if (trim(header) /= 'GK_ION_RESPONSE_V1') error stop 'wrong ion response format'
+            read (unit, *) file_m, file_n, file_model, file_mmode, file_nmode, file_species
+            read (unit, *) file_L, file_rm, file_c
+            if (file_species < 1 .or. file_species > plasma%n_species - 1) error stop 'ion species out of range'
+            if (file_m /= M .or. file_n /= n_rg .or. file_model /= ifunc_model_for_species(file_species) .or. &
+                file_mmode /= m_mode .or. file_nmode /= n_mode) error stop 'ion response request mismatch'
+            if (file_L /= L .or. file_rm /= rm .or. file_c /= sol) error stop 'ion response geometry mismatch'
+            allocate (ion_file_background(n_rg, 14))
+            do i = 1, n_rg
+                read (unit, *) ion_file_background(i, :)
+            end do
+            call build_ion_background(file_species, ion_reference)
+            if (any(ion_file_background /= ion_reference)) error stop 'ion response background mismatch'
+            call read_block(ions%rho_phi)
+            call read_block(ions%rho_b)
+            call read_block(ions%j_phi)
+            call read_block(ions%j_b)
+            close (unit)
+            ion_species = file_species
+        end if
+        if (trim(electron_source) == 'external' .and. ion_species > 0) then
+            call compute_periodic_delta_phi(rm, dx_asis, dx_tr, M, n_rg, Br, r, phi, info, &
+                jpar=current, jpar_species=current_sp, phi_spectrum=phi_spectrum, &
+                external_electrons=electrons, external_ions=ions, external_ion_species=ion_species)
+        else if (trim(electron_source) == 'external') then
+            call compute_periodic_delta_phi(rm, dx_asis, dx_tr, M, n_rg, Br, r, phi, info, &
+                jpar=current, jpar_species=current_sp, phi_spectrum=phi_spectrum, external_electrons=electrons)
+        else if (ion_species > 0) then
+            call compute_periodic_delta_phi(rm, dx_asis, dx_tr, M, n_rg, Br, r, phi, info, &
+                jpar=current, jpar_species=current_sp, phi_spectrum=phi_spectrum, &
+                external_ions=ions, external_ion_species=ion_species)
+        else
+            error stop 'solve requires external electrons and/or an external ion response'
+        end if
         if (info /= 0) error stop 'hybrid solve failed'
+        open (newunit=unit, file=trim(prefix)//'hybrid_phi_modes.dat', status='new', action='write')
+        write (unit, '(a)') '# k_index RePhi_m[statV] ImPhi_m'
+        do i = 1, size(phi_spectrum)
+            write (unit, '(i8,2es26.17e3)') i - M - 1, real(phi_spectrum(i)), aimag(phi_spectrum(i))
+        end do
+        close (unit)
         call write_fields('hybrid_fields.dat')
     end if
 contains
-    subroutine write_ion_background(species)
+    subroutine build_ion_background(species, ion_background)
         integer, intent(in) :: species
-        real(dp), allocatable :: ion_background(:, :)
-        integer :: ion_unit, model, point
-        character(32) :: filename
-        model = ifunc_model_for_species(species)
-        if (model /= 0 .and. model /= 1) &
-            error stop 'ion provider supports conservation models 0/1'
-        if (species > 999) error stop 'too many species for ion export filenames'
+        real(dp), allocatable, intent(out) :: ion_background(:, :)
         allocate (ion_background(n_rg, 14))
         ion_background(:, 1:4) = background(:, 1:4)
         ion_background(:, 5) = plasma%spec(species)%lambda_D
@@ -165,6 +210,18 @@ contains
         ion_background(:, 13) = plasma%B0
         ! Export the actual thermal radius, including any configured FLR scale.
         ion_background(:, 14) = plasma%spec(species)%rho_L
+    end subroutine build_ion_background
+
+    subroutine write_ion_background(species)
+        integer, intent(in) :: species
+        real(dp), allocatable :: ion_background(:, :)
+        integer :: ion_unit, model, point
+        character(32) :: filename
+        model = ifunc_model_for_species(species)
+        if (model /= 0 .and. model /= 1) &
+            error stop 'ion provider supports conservation models 0/1'
+        if (species > 999) error stop 'too many species for ion export filenames'
+        call build_ion_background(species, ion_background)
         write (filename, '(a,i3.3,a)') 'ion_', species, '_background.dat'
         open (newunit=ion_unit, file=trim(prefix)//trim(filename), &
               status='new', action='write')

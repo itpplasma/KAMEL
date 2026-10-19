@@ -194,8 +194,9 @@ module rt_electrostatic_periodic_m
     subroutine compute_periodic_delta_phi(rm, dx_asis, dx_tr, M, n_rg, Br_const, &
             r_out, dPhi, info, jpar, jpar_species, rho_B, rho_B_species, &
             dPhi_dr, jrad, phi_spectrum, Bparallel_const, rho_Bparallel, &
-            rho_Bparallel_species, external_electrons)
-        use periodic_electron_response_m, only: electron_response_t, replace_periodic_electrons
+            rho_Bparallel_species, external_electrons, external_ions, external_ion_species)
+        use periodic_electron_response_m, only: electron_response_t, replace_periodic_electrons, &
+            replace_periodic_species
         use KIM_kinds_m, only: dp
         use species_m, only: plasma
         use periodic_background_m, only: build_periodic_plasma
@@ -223,6 +224,9 @@ module rt_electrostatic_periodic_m
         complex(dp), allocatable, intent(out), optional :: rho_Bparallel(:)
         complex(dp), allocatable, intent(out), optional :: rho_Bparallel_species(:,:)
         type(electron_response_t), intent(in), optional :: external_electrons
+        ! Optional external ion response replacing native species external_ion_species.
+        type(electron_response_t), intent(in), optional :: external_ions
+        integer, intent(in), optional :: external_ion_species
 
         complex(dp), allocatable :: Kphi(:,:), KB(:,:), Kjphi(:,:), KjB(:,:), Phi_m(:)
         complex(dp), allocatable :: Kjrphi(:,:), KjrB(:,:)
@@ -245,16 +249,23 @@ module rt_electrostatic_periodic_m
         call set_global_kernel_approximations(periodic_match_global_kernel_approximations)
         kern_zero_flr_electrons = kern_zero_flr_electrons .or. .not. periodic_electron_flr
         call build_periodic_plasma(rm, dx_asis, dx_tr, n_rg)
-        if (present(external_electrons)) then
-            if (turn_off_electrons) error stop 'external electrons conflict with disabled electrons'
+        if (present(external_ions) .neqv. present(external_ion_species)) &
+            error stop 'external ions require their species index'
+        if (present(external_electrons) .or. present(external_ions)) then
+            if (present(external_electrons) .and. turn_off_electrons) &
+                error stop 'external electrons conflict with disabled electrons'
             if (periodic_calculate_radial_current .or. present(jrad)) &
-                error stop 'external electrons do not provide a radial-current block'
-            if (bparallel_active) error stop 'external electrons support a radial magnetic drive only'
+                error stop 'external responses do not provide a radial-current block'
+            if (bparallel_active) error stop 'external responses support a radial magnetic drive only'
             call assemble_periodic_matrices(plasma, L, M, Kphi, KB, Kjphi, KjB, &
                 Kjphi_species=Kjphi_species, KjB_species=KjB_species, &
                 Kphi_species=Kphi_species, KB_species=KB_species)
-            call replace_periodic_electrons(external_electrons, Kphi, KB, Kjphi, KjB, &
-                Kphi_species, KB_species, Kjphi_species, KjB_species)
+            if (present(external_electrons)) &
+                call replace_periodic_electrons(external_electrons, Kphi, KB, Kjphi, KjB, &
+                    Kphi_species, KB_species, Kjphi_species, KjB_species)
+            if (present(external_ions)) &
+                call replace_periodic_species(external_ions, external_ion_species, Kphi, KB, Kjphi, KjB, &
+                    Kphi_species, KB_species, Kjphi_species, KjB_species)
         else if (periodic_calculate_radial_current) then
             if (present(jpar_species) .and. present(rho_B_species)) then
                 call assemble_periodic_matrices(plasma, L, M, Kphi, KB, Kjphi, KjB, &

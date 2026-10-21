@@ -158,6 +158,9 @@ jobs:
     runs-on: [self-hosted, itp-macos]
     env:
       MACOSX_DEPLOYMENT_TARGET: '14.0'
+      # CMake queries installed Homebrew prefixes in this read-only sandbox.
+      HOMEBREW_NO_AUTO_UPDATE: '1'
+      HOMEBREW_NO_INSTALL_FROM_API: '1'
     outputs:
       python-version: ${{ steps.python.outputs.python-version }}
 
@@ -170,8 +173,6 @@ jobs:
         run: /opt/itp-ci-macos/setup-python.sh '3.11'
 
       - name: Install dependencies (macOS)
-        env:
-          HOMEBREW_NO_AUTO_UPDATE: "1"
         run: |
           # Homebrew metadata commands can write locks outside the job sandbox.
           for formula in \
@@ -306,6 +307,9 @@ jobs:
     runs-on: [self-hosted, itp-macos]
     env:
       MACOSX_DEPLOYMENT_TARGET: '14.0'
+      # CMake queries installed Homebrew prefixes in this read-only sandbox.
+      HOMEBREW_NO_AUTO_UPDATE: '1'
+      HOMEBREW_NO_INSTALL_FROM_API: '1'
 
     steps:
       - name: Checkout repository
@@ -317,8 +321,6 @@ jobs:
         run: /opt/itp-ci-macos/setup-python.sh "$CI_PYTHON_VERSION"
 
       - name: Install dependencies (macOS)
-        env:
-          HOMEBREW_NO_AUTO_UPDATE: "1"
         run: |
           # Homebrew metadata commands can write locks outside the job sandbox.
           for formula in \

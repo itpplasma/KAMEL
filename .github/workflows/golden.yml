@@ -4,16 +4,29 @@ on:
   pull_request:
     types: [opened, synchronize, reopened, labeled]
   merge_group:
+  push:
+    branches: [main]
+  workflow_dispatch:
 
+permissions:
+  contents: read
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || format('{0}-{1}', github.ref, github.run_id) }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 env:
+  CMAKE_BUILD_PARALLEL_LEVEL: '2'
+  MPLBACKEND: Agg
+  OPENBLAS_NUM_THREADS: '1'
+  OMP_NUM_THREADS: '1'
   PRE_FORTNUM_BASELINE: 0fb4f29622080b86c31d557584dfa5951356a2ee
 
 jobs:
   golden:
     name: golden-record (main)
-    # Full tier: runs in the merge queue; PRs skip it unless labeled full-ci.
-    if: github.event_name != 'pull_request' || contains(github.event.pull_request.labels.*.name, 'full-ci')
-    runs-on: ubuntu-latest
+    if: >-
+      github.event_name == 'merge_group' || github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'push' && github.ref == format('refs/heads/{0}', github.event.repository.default_branch) && github.actor != 'github-merge-queue[bot]')
+    runs-on: [self-hosted, itp-ubuntu24]
     # Backstop: a hanging build or case (e.g. a non-terminating ported solver)
     # must not tie up a runner for GitHub's 6h default. Two clean ref+cur builds
     # plus the tiny case runs finish in <10 min; 30 leaves generous headroom.
@@ -51,9 +64,9 @@ jobs:
   golden-pre-fortnum:
     name: golden-record (pre-fortnum diagnostic)
     if: >-
-      github.event_name == 'merge_group' ||
-      contains(github.event.pull_request.labels.*.name, 'full-ci')
-    runs-on: ubuntu-latest
+      github.event_name == 'merge_group' || github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'push' && github.ref == format('refs/heads/{0}', github.event.repository.default_branch) && github.actor != 'github-merge-queue[bot]')
+    runs-on: [self-hosted, itp-ubuntu24]
     timeout-minutes: 30
     steps:
       - name: Checkout (full history + tags)

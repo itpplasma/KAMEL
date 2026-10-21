@@ -49,7 +49,7 @@ module rt_electromagnetic_m
         use poisson_solver_m, only: prepare_Laplace_matrix
         use config_m, only: output_path, collision_model
         use fields_m, only: EBdat, postprocess_electric_field, &
-                            calculate_charge_density, calculate_current_density
+            postprocess_species_density, calculate_current_density
         use ampere_matrices_m, only: interpolate_equil_to_xl
         use setup_m, only: m_mode, n_mode, R0, Br_boundary_re, Br_boundary_im, bc_type
         use constants_m, only: pi, sol, com_unit
@@ -80,7 +80,7 @@ module rt_electromagnetic_m
         real(dp), allocatable :: ks_xl(:)
         complex(dp), allocatable :: alpha(:)
 
-        complex(dp), allocatable :: jpar(:), jpar_sp(:), rho(:)
+        complex(dp), allocatable :: jpar(:), jpar_sp(:)
         complex(dp) :: Br_boundary
         integer :: sp
 
@@ -303,10 +303,7 @@ module rt_electromagnetic_m
         ! Electric field postprocessing
         call postprocess_electric_field(EBdat)
 
-        ! Charge density
-        call calculate_charge_density(rho, EBdat)
-        call write_complex_profile_abs(xl_grid%xb, rho, N, "/fields/rho", &
-            'Charge density from self-consistent solve', 'statC/cm^3')
+        call postprocess_species_density(EBdat, kernel_rho_phi_llp, kernel_rho_B_llp)
 
         ! Scalar diagnostics: D_ql,e22 at the resonant surface and
         ! integrated parallel currents (no-op if outputs disabled)

@@ -21,6 +21,7 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 env:
   CMAKE_BUILD_PARALLEL_LEVEL: '2'
+  CTEST_PARALLEL_LEVEL: '1'
   MPLBACKEND: Agg
   OPENBLAS_NUM_THREADS: '1'
   OMP_NUM_THREADS: '1'
@@ -35,6 +36,12 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+
+      # setup-python's pip cache uses lsb_release to distinguish Linux images.
+      - name: Install Python cache dependency
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends lsb-release
 
       - name: Set up Python 3.10
         uses: actions/setup-python@v5
@@ -166,7 +173,8 @@ jobs:
         env:
           HOMEBREW_NO_AUTO_UPDATE: "1"
         run: |
-          brew list --versions \
+          # Homebrew metadata commands can write locks outside the job sandbox.
+          for formula in \
             cmake \
             ninja \
             doxygen \
@@ -183,7 +191,12 @@ jobs:
             suite-sparse \
             superlu \
             mpfr \
-            gmp
+            gmp; do
+            test -d "/opt/homebrew/opt/$formula" || {
+              echo "Missing runner dependency: $formula" >&2
+              exit 1
+            }
+          done
           pip install numpy scipy matplotlib h5py f90nml pytest
 
       - name: Cache external dependencies
@@ -307,7 +320,8 @@ jobs:
         env:
           HOMEBREW_NO_AUTO_UPDATE: "1"
         run: |
-          brew list --versions \
+          # Homebrew metadata commands can write locks outside the job sandbox.
+          for formula in \
             cmake \
             ninja \
             doxygen \
@@ -324,7 +338,12 @@ jobs:
             suite-sparse \
             superlu \
             mpfr \
-            gmp
+            gmp; do
+            test -d "/opt/homebrew/opt/$formula" || {
+              echo "Missing runner dependency: $formula" >&2
+              exit 1
+            }
+          done
           pip install numpy scipy matplotlib h5py f90nml pytest
 
       # Owned Mac jobs have separate workspace roots; build here so CTest and

@@ -9,6 +9,11 @@
 #   KiLCA      target kilca_normal_exe -> build/install/bin/KiLCA_Normal_*_64bit
 set -eu
 TAG="$1"; GITREF="$2"
+BUILD_JOBS="${CMAKE_BUILD_PARALLEL_LEVEL:-2}"
+if ! [[ $BUILD_JOBS =~ ^[1-9][0-9]*$ ]]; then
+    echo "Build parallelism must be a positive integer" >&2
+    exit 2
+fi
 GOLDEN_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"   # test/golden
 SRC_REPO="$(cd "$GOLDEN_ROOT/../.." && pwd)"                     # repo root
 WT="$GOLDEN_ROOT/build_$TAG"
@@ -17,7 +22,7 @@ git -C "$SRC_REPO" worktree prune
 git -C "$SRC_REPO" worktree add -f "$WT/src" "$GITREF"
 ( cd "$WT/src" \
   && cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release \
-  && cmake --build build -j --target KIM_exe ql-balance.x kilca_normal_exe )
+  && cmake --build build --parallel "$BUILD_JOBS" --target KIM_exe ql-balance.x kilca_normal_exe )
 # No `cmake --install`: each exe target already sets RUNTIME_OUTPUT_DIRECTORY to
 # build/install/bin, and the project libs (libneo, sundials, *_lib) link
 # statically, so the built exes are self-contained. A full install would fail

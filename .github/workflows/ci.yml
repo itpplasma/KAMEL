@@ -2,7 +2,7 @@ name: CI
 
 on:
   push:
-    branches: [fix-ci]
+    branches: [main, fix-ci]
   pull_request:
     types: [opened, synchronize, reopened, labeled]
   merge_group:
@@ -11,16 +11,37 @@ on:
       libneo_ref:
         default: ''
       full:
-        description: run the full suite incl. the golden record (set by the libneo full-ci gate)
+        description: run every registered CTest case (set by the libneo full-ci gate)
         default: 'false'
+
+permissions:
+  contents: read
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || format('{0}-{1}', github.ref, github.run_id) }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+env:
+  CMAKE_BUILD_PARALLEL_LEVEL: '2'
+  CTEST_PARALLEL_LEVEL: '1'
+  MPLBACKEND: Agg
+  OPENBLAS_NUM_THREADS: '1'
+  OMP_NUM_THREADS: '1'
 
 jobs:
   python-unit:
-    runs-on: ubuntu-latest
+    if: >-
+      github.event_name == 'merge_group' || github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'push' && github.ref == format('refs/heads/{0}', github.event.repository.default_branch) && github.actor != 'github-merge-queue[bot]')
+    runs-on: [self-hosted, itp-ubuntu24]
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+
+      # setup-python's pip cache uses lsb_release to distinguish Linux images.
+      - name: Install Python cache dependency
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends lsb-release
 
       - name: Set up Python 3.10
         uses: actions/setup-python@v5
@@ -36,8 +57,11 @@ jobs:
         run: python -m pytest KIM/python/tests/unit
 
   pre-commit:
+    if: >-
+      github.event_name == 'merge_group' || github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'push' && github.ref == format('refs/heads/{0}', github.event.repository.default_branch) && github.actor != 'github-merge-queue[bot]')
     name: Pre-commit
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, itp-ubuntu24]
 
     steps:
       - name: Checkout repository
@@ -57,9 +81,12 @@ jobs:
         run: pre-commit run --all-files --show-diff-on-failure
 
   build-ubuntu:
+    if: >-
+      github.event_name == 'merge_group' || github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'push' && github.ref == format('refs/heads/{0}', github.event.repository.default_branch) && github.actor != 'github-merge-queue[bot]')
     name: Build (Ubuntu)
     needs: pre-commit
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, itp-ubuntu24]
     outputs:
       python-version: ${{ steps.python.outputs.python-version }}
 
@@ -123,9 +150,15 @@ jobs:
           if-no-files-found: error
 
   build-macos-arm64:
+    if: >-
+      github.event_name == 'merge_group' || github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'push' && github.ref == format('refs/heads/{0}', github.event.repository.default_branch) && github.actor != 'github-merge-queue[bot]')
     name: Build (macOS 14 ARM64)
     needs: pre-commit
-    runs-on: macos-14
+    runs-on: [self-hosted, itp-macos]
+    env:
+      MACOSX_DEPLOYMENT_TARGET: '14.0'
+      HOMEBREW_NO_AUTO_UPDATE: '1'
     outputs:
       python-version: ${{ steps.python.outputs.python-version }}
 
@@ -133,17 +166,14 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v6
 
-      - name: Set up Python
+      - name: Set up native Python 3.11
         id: python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
+        run: /opt/itp-ci-macos/setup-python.sh '3.11'
 
       - name: Install dependencies (macOS)
-        env:
-          HOMEBREW_NO_AUTO_UPDATE: "1"
         run: |
-          brew install \
+          # Homebrew metadata commands can write locks outside the job sandbox.
+          for formula in \
             cmake \
             ninja \
             doxygen \
@@ -160,7 +190,12 @@ jobs:
             suite-sparse \
             superlu \
             mpfr \
-            gmp
+            gmp; do
+            test -d "/opt/homebrew/opt/$formula" || {
+              echo "Missing runner dependency: $formula" >&2
+              exit 1
+            }
+          done
           pip install numpy scipy matplotlib h5py f90nml pytest
 
       - name: Cache external dependencies
@@ -187,10 +222,24 @@ jobs:
           retention-days: 1
           if-no-files-found: error
 
+      - name: Upload CMake failure diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cmake-macos-build
+          path: |
+            build/CMakeFiles/CMakeConfigureLog.yaml
+            build/CMakeFiles/CMakeError.log
+          retention-days: 1
+          if-no-files-found: ignore
+
   test-ubuntu:
+    if: >-
+      github.event_name == 'merge_group' || github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'push' && github.ref == format('refs/heads/{0}', github.event.repository.default_branch) && github.actor != 'github-merge-queue[bot]')
     name: Test (Ubuntu)
     needs: build-ubuntu
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, itp-ubuntu24]
 
     steps:
       - name: Checkout repository
@@ -251,36 +300,37 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           EVENT_NAME: ${{ github.event_name }}
           FULL: ${{ inputs.full }}
-          # Pull requests, including stacked layers, skip the golden record
-          # (full tier, run in the merge queue) unless labeled full-ci.
-          FAST_TIER: ${{ github.event_name == 'pull_request' && !contains(github.event.pull_request.labels.*.name, 'full-ci') }}
         run: |
-          if { [ "$EVENT_NAME" = workflow_dispatch ] && [ "$FULL" != true ]; } || [ "$FAST_TIER" = true ]; then
+          if [ "$EVENT_NAME" = workflow_dispatch ] && [ "$FULL" != true ]; then
             ctest --test-dir build --output-on-failure -LE golden_record
           else
             ctest --test-dir build --output-on-failure
           fi
 
   test-macos-arm64:
+    if: >-
+      github.event_name == 'merge_group' || github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'push' && github.ref == format('refs/heads/{0}', github.event.repository.default_branch) && github.actor != 'github-merge-queue[bot]')
     name: Test (macOS 14 ARM64)
     needs: build-macos-arm64
-    runs-on: macos-14
+    runs-on: [self-hosted, itp-macos]
+    env:
+      MACOSX_DEPLOYMENT_TARGET: '14.0'
+      HOMEBREW_NO_AUTO_UPDATE: '1'
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          # Keep restored CTest registrations valid across runner-image updates.
-          python-version: ${{ needs.build-macos-arm64.outputs.python-version }}
+      - name: Set up native Python 3.11
+        env:
+          CI_PYTHON_VERSION: ${{ needs.build-macos-arm64.outputs.python-version }}
+        run: /opt/itp-ci-macos/setup-python.sh "$CI_PYTHON_VERSION"
 
       - name: Install dependencies (macOS)
-        env:
-          HOMEBREW_NO_AUTO_UPDATE: "1"
         run: |
-          brew install \
+          # Homebrew metadata commands can write locks outside the job sandbox.
+          for formula in \
             cmake \
             ninja \
             doxygen \
@@ -297,17 +347,18 @@ jobs:
             suite-sparse \
             superlu \
             mpfr \
-            gmp
+            gmp; do
+            test -d "/opt/homebrew/opt/$formula" || {
+              echo "Missing runner dependency: $formula" >&2
+              exit 1
+            }
+          done
           pip install numpy scipy matplotlib h5py f90nml pytest
 
-      - name: Restore build artifacts
-        uses: actions/download-artifact@v4
-        with:
-          name: build-macos-14-arm64
-          path: .
-
-      - name: Extract build artifacts
-        run: tar -xzf build.tar.gz
+      # Owned Mac jobs have separate workspace roots; build here so CTest and
+      # library paths belong to this job rather than a previous runner's root.
+      - name: Build in the test job workspace
+        run: make all ${{ inputs.libneo_ref != '' && format('LIBNEO_REF={0}', inputs.libneo_ref) || '' }}
 
       - name: Test golden-record harness
         run: make pytest
@@ -318,12 +369,20 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           EVENT_NAME: ${{ github.event_name }}
           FULL: ${{ inputs.full }}
-          # Pull requests, including stacked layers, skip the golden record
-          # (full tier, run in the merge queue) unless labeled full-ci.
-          FAST_TIER: ${{ github.event_name == 'pull_request' && !contains(github.event.pull_request.labels.*.name, 'full-ci') }}
         run: |
-          if { [ "$EVENT_NAME" = workflow_dispatch ] && [ "$FULL" != true ]; } || [ "$FAST_TIER" = true ]; then
+          if [ "$EVENT_NAME" = workflow_dispatch ] && [ "$FULL" != true ]; then
             ctest --test-dir build --output-on-failure -LE golden_record
           else
             ctest --test-dir build --output-on-failure
           fi
+
+      - name: Upload CMake failure diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cmake-macos-test
+          path: |
+            build/CMakeFiles/CMakeConfigureLog.yaml
+            build/CMakeFiles/CMakeError.log
+          retention-days: 1
+          if-no-files-found: ignore

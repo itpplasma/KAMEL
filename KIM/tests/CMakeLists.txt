@@ -626,3 +626,12 @@ add_test(NAME test_periodic_convergence
          COMMAND ${CMAKE_BINARY_DIR}/tests/test_periodic_convergence.x)
 set_tests_properties(test_periodic_convergence PROPERTIES
                      WORKING_DIRECTORY ${CMAKE_BINARY_DIR}/tests/)
+
+add_executable(test_rho_b_collision_moments test_rho_b_collision_moments.f90)
+set_target_properties(test_rho_b_collision_moments PROPERTIES
+    OUTPUT_NAME test_rho_b_collision_moments.x
+    RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/tests/")
+target_link_libraries(test_rho_b_collision_moments
+    KIM_lib kilca_lib lapack cerf fortnum_amos_compat)
+add_test(NAME test_rho_b_collision_moments
+    COMMAND ${CMAKE_BINARY_DIR}/tests/test_rho_b_collision_moments.x)

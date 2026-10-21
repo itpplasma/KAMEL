@@ -158,9 +158,7 @@ jobs:
     runs-on: [self-hosted, itp-macos]
     env:
       MACOSX_DEPLOYMENT_TARGET: '14.0'
-      # CMake queries installed Homebrew prefixes in this read-only sandbox.
       HOMEBREW_NO_AUTO_UPDATE: '1'
-      HOMEBREW_NO_INSTALL_FROM_API: '1'
     outputs:
       python-version: ${{ steps.python.outputs.python-version }}
 
@@ -223,6 +221,17 @@ jobs:
           compression-level: 0
           retention-days: 1
           if-no-files-found: error
+
+      - name: Upload CMake failure diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cmake-macos-build
+          path: |
+            build/CMakeFiles/CMakeConfigureLog.yaml
+            build/CMakeFiles/CMakeError.log
+          retention-days: 1
+          if-no-files-found: ignore
 
   test-ubuntu:
     if: >-
@@ -307,9 +316,7 @@ jobs:
     runs-on: [self-hosted, itp-macos]
     env:
       MACOSX_DEPLOYMENT_TARGET: '14.0'
-      # CMake queries installed Homebrew prefixes in this read-only sandbox.
       HOMEBREW_NO_AUTO_UPDATE: '1'
-      HOMEBREW_NO_INSTALL_FROM_API: '1'
 
     steps:
       - name: Checkout repository
@@ -368,3 +375,14 @@ jobs:
           else
             ctest --test-dir build --output-on-failure
           fi
+
+      - name: Upload CMake failure diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cmake-macos-test
+          path: |
+            build/CMakeFiles/CMakeConfigureLog.yaml
+            build/CMakeFiles/CMakeError.log
+          retention-days: 1
+          if-no-files-found: ignore

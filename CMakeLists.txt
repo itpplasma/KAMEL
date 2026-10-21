@@ -50,19 +50,31 @@ find_package(OpenMP REQUIRED COMPONENTS C Fortran)
 
 # Set architecture flags based on platform
 if(APPLE)
-    # Locate libomp from Homebrew
-    find_program(BREW_EXECUTABLE brew HINTS /opt/homebrew/bin /usr/local/bin)
-    if(BREW_EXECUTABLE)
-        execute_process(
-            COMMAND "${BREW_EXECUTABLE}" --prefix libomp
-            OUTPUT_VARIABLE LIBOMP_PREFIX
-            OUTPUT_STRIP_TRAILING_WHITESPACE
-        )
-        if(EXISTS "${LIBOMP_PREFIX}")
-            include_directories(SYSTEM "${LIBOMP_PREFIX}/include")
-            link_directories("${LIBOMP_PREFIX}/lib")
-            message(STATUS "Found libomp at ${LIBOMP_PREFIX}")
+    # Prefer installed directories: Homebrew queries can write to a read-only prefix.
+    set(LIBOMP_PREFIX "")
+    foreach(_libomp_prefix IN ITEMS
+        "$ENV{HOMEBREW_PREFIX}/opt/libomp"
+        "/opt/homebrew/opt/libomp"
+        "/usr/local/opt/libomp")
+        if(IS_DIRECTORY "${_libomp_prefix}")
+            set(LIBOMP_PREFIX "${_libomp_prefix}")
+            break()
         endif()
+    endforeach()
+    if(NOT LIBOMP_PREFIX)
+        find_program(BREW_EXECUTABLE brew HINTS /opt/homebrew/bin /usr/local/bin)
+        if(BREW_EXECUTABLE)
+            execute_process(
+                COMMAND "${BREW_EXECUTABLE}" --prefix libomp
+                OUTPUT_VARIABLE LIBOMP_PREFIX
+                OUTPUT_STRIP_TRAILING_WHITESPACE
+            )
+        endif()
+    endif()
+    if(IS_DIRECTORY "${LIBOMP_PREFIX}")
+        include_directories(SYSTEM "${LIBOMP_PREFIX}/include")
+        link_directories("${LIBOMP_PREFIX}/lib")
+        message(STATUS "Found libomp at ${LIBOMP_PREFIX}")
     endif()
 
     set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -fopenmp -O2 -g -fbacktrace -fcheck=all -Wall -Wextra -Wconversion -Wno-external-argument-mismatch")

@@ -13,6 +13,10 @@ on:
       full:
         description: run every registered CTest case (set by the libneo full-ci gate)
         default: 'false'
+      skip_macos:
+        description: Skip macOS build and tests for downstream gate runs
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -151,7 +155,7 @@ jobs:
 
   build-macos-arm64:
     if: >-
-      github.event_name == 'merge_group' || github.event_name == 'workflow_dispatch' ||
+      github.event_name == 'merge_group' || (github.event_name == 'workflow_dispatch' && !inputs.skip_macos) ||
       (github.event_name == 'push' && github.ref == format('refs/heads/{0}', github.event.repository.default_branch) && github.actor != 'github-merge-queue[bot]')
     name: Build (macOS 14 ARM64)
     needs: pre-commit
@@ -309,7 +313,7 @@ jobs:
 
   test-macos-arm64:
     if: >-
-      github.event_name == 'merge_group' || github.event_name == 'workflow_dispatch' ||
+      github.event_name == 'merge_group' || (github.event_name == 'workflow_dispatch' && !inputs.skip_macos) ||
       (github.event_name == 'push' && github.ref == format('refs/heads/{0}', github.event.repository.default_branch) && github.actor != 'github-merge-queue[bot]')
     name: Test (macOS 14 ARM64)
     needs: build-macos-arm64

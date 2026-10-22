@@ -281,10 +281,11 @@ jobs:
           pip install -e './KIM/python[test]'
 
       - name: Restore build artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: build-ubuntu-latest
           path: .
+          digest-mismatch: error
 
       - name: Extract build artifacts
         run: tar -xzf build.tar.gz

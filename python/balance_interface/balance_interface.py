@@ -22,7 +22,7 @@ class QL_Balance_interface:
         os.path.dirname(__file__), "..", "..", "build", "install", "bin", "ql-balance.x"
     )
 
-    run_types = ["SingleStep", "TimeEvolution", "ParameterScan"]
+    run_types = ["SingleStep", "TimeEvolution", "TimeEvolutionNTV", "ParameterScan"]
 
     delta_r_antenna = 3.0  # distance of RMP antenna from plasma boundary
 
@@ -67,7 +67,7 @@ class QL_Balance_interface:
         self.util = utility()
 
     def set_type_of_run(self, run_type="SingleStep"):
-        """Set the type of the run, e.g. 'SingleStep', 'TimeEvolution' or 'ParameterScan"""
+        """Set the run type: SingleStep, TimeEvolution, TimeEvolutionNTV, or ParameterScan."""
         assert run_type in self.run_types, f"Run type {run_type} not supported."
         self.run_type = run_type
         try:

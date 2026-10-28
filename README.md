@@ -23,16 +23,11 @@ Supporting directories include:
 - [`common/`](common/) — shared equilibrium, HDF5, logging, and numerical code.
 - [`test/golden/`](test/golden/) — physics-output regression tests for all three solvers.
 
-KIM supports electrostatic, forced-periodic electrostatic, electromagnetic,
-WKB-dispersion, standalone-FLR2, and FLR2 benchmark runs. The `flr2` run type
-integrates the second-order local response solver from KiLCA-FLR2 while reusing
-KIM's profile, equilibrium, collision-frequency, and susceptibility
-calculation. It is distinct from `flr2_benchmark`, which benchmarks KIM's
-non-local kernel. The forced-periodic solver can use Fokker–Planck ions or
-collisionless ion charge and parallel-current kernels; electrons remain
-Fokker–Planck in the collisionless-ion configuration. See the
-[KIM namelist reference](KIM/nmls/README.md) for current options and
-restrictions.
+KIM run types include electrostatic, forced-periodic electrostatic,
+electromagnetic, WKB dispersion and second-order local FLR (`flr2`) runs; see
+the [KIM namelist reference](KIM/nmls/README.md) for options and restrictions.
+Data flow between the codes, file formats and units are described in
+[Data.md](Data.md).
 
 ## Prerequisites
 
@@ -41,16 +36,15 @@ The complete build requires:
 - CMake 3.24 or newer, Ninja, Git, and a POSIX build environment.
 - C, C++, and Fortran compilers with OpenMP support.
 - BLAS and LAPACK.
-- HDF5 with C, Fortran, high-level C, and high-level Fortran components.
-- NetCDF C and Fortran development packages providing `nc-config` and
-  `nf-config`.
-- SuperLU.
+- SuperLU (used by KIM).
 
 The first configuration needs network access. CMake fetches pinned or selected
-versions of fortnum, SUNDIALS, SuiteSparse, and libneo. The complex error
-function library libcerf is bundled in KIM. Python is optional for the compiled
-solvers but required for KAMELpy and several analysis workflows; its package
-requirements are listed in [`python/requirements.txt`](python/requirements.txt).
+versions of fortnum, fortio, SUNDIALS, SuiteSparse, and libneo. HDF5 and NetCDF
+files are read and written through fortio, so the native HDF5 and NetCDF
+libraries are not linked. The complex error function library libcerf is
+bundled in KIM. Python is optional for the compiled solvers but required for
+KAMELpy and several analysis workflows; its package requirements are listed in
+[`python/requirements.txt`](python/requirements.txt).
 
 CI builds on Ubuntu with GNU compilers. The CMake configuration also contains
 macOS/Homebrew support for LLVM OpenMP and HDF5.
@@ -176,11 +170,10 @@ READMEs for usage.
 
 ## Installation
 
-The build already stages its executables and libraries below `build/install`.
-The `kim` command belongs to the `kamel-kim` Python package; the scientific executable is `KIM.x`.
-The old `make install-kim` target and CMake symlink option have been removed. If you previously
-created a shell alias or `/usr/local/bin/kim` symlink to `KIM.x`, remove that old alias/link so your
-Python environment's CLI is selected. Use `command -v kim` to check the selected command.
+The build stages its executables and libraries below `build/install`. The
+`kim` command belongs to the `kamel-kim` Python package; the solver executable
+is `KIM.x`. If an older setup left a `kim` alias or symlink pointing to `KIM.x`,
+remove it so that the Python command is found (`command -v kim`).
 
 ## Contributing
 

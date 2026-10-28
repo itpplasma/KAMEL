@@ -93,7 +93,8 @@ set(KIM_diagnostics diagnostics/kim_diagnostics_mod.f90
                     diagnostics/kim_qldiff_mod.f90
 )
 
-set(KIM_electromagnetic electromagnetic/electromagnetic_kernel.f90
+set(KIM_electromagnetic electrostatic_poisson/weak_moments.f90
+                        electromagnetic/electromagnetic_kernel.f90
                         electromagnetic/ampere_matrices.f90
                         electromagnetic/electromagnetic_solver.f90
 )

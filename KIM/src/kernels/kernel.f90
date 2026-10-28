@@ -822,115 +822,76 @@ module kernel_m
     end subroutine check_is_nan
 
 
-    subroutine FP_calc_kernel_zero_FLR_limit_electrons(l, lp, k_rho_phi, k_rho_B, k_j_phi, k_j_B, gauss_conf)
-        ! for benchmarking FLR2 and KIM against each other in the zero Larmor radius limit for electrons
-        ! Debye term is omitted since quasineutrality is exploited in FLR2
-
-        use KIM_kinds_m, only: dp
+    subroutine FP_calc_kernel_zero_FLR_limit_electrons(l, lp, k_rho_phi, k_rho_B, &
+                                                       k_j_phi, k_j_B, gauss_conf)
+        ! Local electron response with center-constant prefactors on full rg cells.
         use integrals_gauss_m, only: gauss_config_t
         use integrands_gauss_m, only: integration_point_t
-        use species_m, only: plasma
         use constants_m, only: pi
         use grid_m, only: rg_grid
-        use config_m, only: turn_off_ions, turn_off_electrons
+        use setup_m, only: spline_base
         use functions_m, only: varphi_l
-
         implicit none
-
         integer, intent(in) :: l, lp
         complex(dp), intent(inout) :: k_rho_phi, k_rho_B, k_j_phi, k_j_B
-        integer :: j
-        real(dp) :: delta_rg_local
-
         type(gauss_config_t), intent(in) :: gauss_conf
         type(integration_point_t) :: int_point
+        integer :: j
+        real(dp) :: overlap
 
-        k_rho_phi = (0.0d0, 0.0d0)
-        k_rho_B = (0.0d0, 0.0d0)
-        k_j_phi = (0.0d0, 0.0d0)
-        k_j_B = (0.0d0, 0.0d0)
-
-        if (abs(l-lp)>2) then
-            return
-        end if
-
+        if (spline_base /= 1) error stop 'Local electron kernel requires P1 hats'
+        k_rho_phi = (0.0_dp, 0.0_dp)
+        k_rho_B = (0.0_dp, 0.0_dp)
+        k_j_phi = (0.0_dp, 0.0_dp)
+        k_j_B = (0.0_dp, 0.0_dp)
+        if (abs(l - lp) > 2) return
         call set_xl_at_edge(l, lp, int_point)
 
-        ! Composite trapezoidal rule for non-equidistant grids
-        ! All terms use the same grid structure: evaluate at cell centers but use boundary spacing
-        do j = 1, rg_grid%npts_c-1
-
-            int_point%j = j
-            int_point%rhoT = plasma%spec(0)%rho_L_cc(j)
-
-            ! Compute local spacing between adjacent boundary points
-            ! This is the natural cell width for trapezoidal integration
-            ! if (j == 1) then
-            !     delta_rg_local = 0.5d0 * (rg_grid%xc(j+1) - rg_grid%xc(j))
-            ! else if (j == rg_grid%npts_c) then
-            !     delta_rg_local = 0.5d0 * (rg_grid%xc(j+1) - rg_grid%xc(j))
-            ! else
-            !     delta_rg_local = (rg_grid%xc(j+1) - rg_grid%xc(j))
-            ! end if
-
-            delta_rg_local = 0.5d0 * (rg_grid%xc(j+1) - rg_grid%xc(j))
-
-            k_rho_phi = k_rho_phi + delta_rg_local &
-                * ( ( & ! debye term plus first order
-                    pref_rho_phi_g0(1, j) + pref_rho_phi_g1(1, j, 0) & ! zeroth mphi order is sufficient for electrons
-                ) &
-                * varphi_l(rg_grid%xc(j), int_point%xlm1, int_point%xl, int_point%xlp1) &
-                * varphi_l(rg_grid%xc(j), int_point%xlpm1, int_point%xlp, int_point%xlpp1) &
-                + &
-                ( & ! debye term plus first order
-                    pref_rho_phi_g0(1, j+1) + pref_rho_phi_g1(1, j+1, 0) & ! zeroth mphi order is sufficient for electrons
-                ) &
-                * varphi_l(rg_grid%xc(j+1), int_point%xlm1, int_point%xl, int_point%xlp1) &
-                * varphi_l(rg_grid%xc(j+1), int_point%xlpm1, int_point%xlp, int_point%xlpp1) &
-                )
-
-            k_rho_B = k_rho_B + delta_rg_local &
-                * ( &
-                    pref_rho_B_g1(1, j, 0) &
-                    * varphi_l(rg_grid%xc(j), int_point%xlm1, int_point%xl, int_point%xlp1) &
-                    * varphi_l(rg_grid%xc(j), int_point%xlpm1, int_point%xlp, int_point%xlpp1) &
-                    + &
-                    pref_rho_B_g1(1, j+1, 0) &
-                    * varphi_l(rg_grid%xc(j+1), int_point%xlm1, int_point%xl, int_point%xlp1) &
-                    * varphi_l(rg_grid%xc(j+1), int_point%xlpm1, int_point%xlp, int_point%xlpp1)&
-                )
-
-            k_j_phi = k_j_phi + delta_rg_local &
-                * ( &
-                    pref_j_phi_g1(1, j, 0) &
-                    * varphi_l(rg_grid%xc(j), int_point%xlm1, int_point%xl, int_point%xlp1) &
-                    * varphi_l(rg_grid%xc(j), int_point%xlpm1, int_point%xlp, int_point%xlpp1) &
-                    + &
-                    pref_j_phi_g1(1, j+1, 0) &
-                    * varphi_l(rg_grid%xc(j+1), int_point%xlm1, int_point%xl, int_point%xlp1) &
-                    * varphi_l(rg_grid%xc(j+1), int_point%xlpm1, int_point%xlp, int_point%xlpp1) &
-                )
-
-            k_j_B = k_j_B + delta_rg_local &
-                * ( &
-                    pref_j_B_g1(1, j, 0) &
-                    * varphi_l(rg_grid%xc(j), int_point%xlm1, int_point%xl, int_point%xlp1) &
-                    * varphi_l(rg_grid%xc(j), int_point%xlpm1, int_point%xlp, int_point%xlpp1) &
-                    + &
-                    pref_j_B_g1(1, j+1, 0) &
-                    * varphi_l(rg_grid%xc(j+1), int_point%xlm1, int_point%xl, int_point%xlp1) &
-                    * varphi_l(rg_grid%xc(j+1), int_point%xlpm1, int_point%xlp, int_point%xlpp1) &
-                )
-
+        ! Markl2026 Eqs. 3.21--3.24: freeze each prefactor at its cell center
+        ! and integrate its hat product over the complete boundary interval.
+        do j = 1, rg_grid%npts_c
+            overlap = electron_cell_overlap(rg_grid%xb(j), rg_grid%xb(j + 1))
+            k_rho_phi = k_rho_phi + overlap &
+                *(pref_rho_phi_g0(1, j) + pref_rho_phi_g1(1, j, 0))
+            k_rho_B = k_rho_B + overlap*pref_rho_B_g1(1, j, 0)
+            k_j_phi = k_j_phi + overlap*pref_j_phi_g1(1, j, 0)
+            k_j_B = k_j_B + overlap*pref_j_B_g1(1, j, 0)
         end do
+        ! The Debye coefficient is -1/(4*pi*lambda_D**2) = -n*e**2/T.
+        k_rho_phi = k_rho_phi/(4.0_dp*pi)
+        k_rho_B = k_rho_B/(4.0_dp*pi)
+        k_j_phi = k_j_phi/(4.0_dp*pi)
+        k_j_B = k_j_B/(4.0_dp*pi)
 
-        ! Apply normalization factor ( !TODO: should it be 1/2 ??)
-        k_rho_phi = k_rho_phi / (4.0d0 * pi)
-        k_rho_B = k_rho_B / (4.0d0 * pi)
-        k_j_phi = k_j_phi / (4.0d0 * pi)
-        k_j_B = k_j_B / (4.0d0 * pi)
+    contains
 
-    end subroutine
+        function electron_cell_overlap(left, right) result(value)
+            real(dp), intent(in) :: left, right
+            real(dp) :: value, lower, upper, knots(4), a, b, f0, f1, g0, g1
+            integer :: segment
+            value = 0.0_dp
+            lower = max(left, int_point%xlm1, int_point%xlpm1)
+            upper = min(right, int_point%xlp1, int_point%xlpp1)
+            if (upper <= lower) return
+            ! Clip the existing virtual hats to the actual rg cell; split at peaks.
+            knots(1) = lower
+            knots(2) = max(lower, min(upper, min(int_point%xl, int_point%xlp)))
+            knots(3) = max(lower, min(upper, max(int_point%xl, int_point%xlp)))
+            knots(4) = upper
+            do segment = 1, 3
+                a = knots(segment)
+                b = knots(segment + 1)
+                if (b <= a) cycle
+                f0 = varphi_l(a, int_point%xlm1, int_point%xl, int_point%xlp1)
+                f1 = varphi_l(b, int_point%xlm1, int_point%xl, int_point%xlp1)
+                g0 = varphi_l(a, int_point%xlpm1, int_point%xlp, int_point%xlpp1)
+                g1 = varphi_l(b, int_point%xlpm1, int_point%xlp, int_point%xlpp1)
+                value = value + (b - a)/6.0_dp &
+                    *(2.0_dp*f0*g0 + f0*g1 + f1*g0 + 2.0_dp*f1*g1)
+            end do
+        end function electron_cell_overlap
+
+    end subroutine FP_calc_kernel_zero_FLR_limit_electrons
 
 
     subroutine FP_calc_kernel_element_electrons(l, lp, k_rho_phi, k_rho_B, k_j_phi, k_j_B, gauss_conf)

@@ -14,7 +14,7 @@
     "periodic_modes": 4,
     "periodic_grid_points": 64,
     "profile_linear_q_crossing_cm": 49.76110556110556,
-    "resonance_radius_cm": 49.76199633699633,
+    "resonance_radius_cm": 49.762110697153375,
     "integrated_parallel_current_as_is_statA": {
       "real": -28640772018993.066,
       "imag": -42962988621744.55

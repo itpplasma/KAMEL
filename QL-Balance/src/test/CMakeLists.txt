@@ -173,3 +173,6 @@ foreach(case duplicate shape bparallel)
         COMMAND test_periodic_workflow_validation.x ${case})
     set_tests_properties(test_periodic_workflow_${case} PROPERTIES WILL_FAIL TRUE)
 endforeach()
+
+# About 3 minutes; the merge queue leaves it to the nightly run.
+set_tests_properties(test_kim_adapter PROPERTIES LABELS slow)

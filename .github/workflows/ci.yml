@@ -6,6 +6,8 @@ on:
   pull_request:
     types: [opened, synchronize, reopened, labeled]
   merge_group:
+  # nightly.yml runs the slow jobs below through this trigger.
+  workflow_call:
   workflow_dispatch:
     inputs:
       libneo_ref:
@@ -33,7 +35,7 @@ env:
 jobs:
   python-unit:
     if: >-
-      github.event_name == 'merge_group' || github.event_name == 'workflow_dispatch' ||
+      github.event_name == 'merge_group' || github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' ||
       (github.event_name == 'push' && github.ref == format('refs/heads/{0}', github.event.repository.default_branch) && github.actor != 'github-merge-queue[bot]')
     runs-on: [self-hosted, itp-ubuntu24]
 
@@ -59,10 +61,12 @@ jobs:
 
       - name: Run KIM Python unit tests
         run: python -m pytest KIM/python/tests/unit
+      - name: Check the nightly triage
+        run: python ci/test_nightly_triage.py
 
   pre-commit:
     if: >-
-      github.event_name == 'merge_group' || github.event_name == 'workflow_dispatch' ||
+      github.event_name == 'merge_group' || github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' ||
       (github.event_name == 'push' && github.ref == format('refs/heads/{0}', github.event.repository.default_branch) && github.actor != 'github-merge-queue[bot]')
     name: Pre-commit
     runs-on: [self-hosted, itp-ubuntu24]
@@ -86,7 +90,7 @@ jobs:
 
   build-ubuntu:
     if: >-
-      github.event_name == 'merge_group' || github.event_name == 'workflow_dispatch' ||
+      github.event_name == 'merge_group' || github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' ||
       (github.event_name == 'push' && github.ref == format('refs/heads/{0}', github.event.repository.default_branch) && github.actor != 'github-merge-queue[bot]')
     name: Build (Ubuntu)
     needs: pre-commit
@@ -140,11 +144,32 @@ jobs:
       - name: Build with make
         run: make all ${{ inputs.libneo_ref != '' && format('LIBNEO_REF={0}', inputs.libneo_ref) || '' }}
 
+      # The merge queue tests here instead of in Test (Ubuntu): restoring the
+      # build artifact alone took 15 to 17 minutes. Slow tests run nightly.
+      - name: Test golden-record harness
+        if: github.event_name == 'merge_group'
+        run: |
+          pip install -e './KIM/python[test]'
+          make pytest
+
+      - name: Run KIM Python periodic integration test
+        if: github.event_name == 'merge_group'
+        env:
+          KIM_RUN_INTEGRATION: '1'
+          KIM_EXECUTABLE: ${{ github.workspace }}/build/install/bin/KIM.x
+        run: python3 -m pytest KIM/python/tests/integration/test_periodic_run.py -v
+
+      - name: Run fast tests
+        if: github.event_name == 'merge_group'
+        run: ctest --test-dir build --output-on-failure -LE slow
+
       # Preserve the build directory, executable modes and shared-library symlinks.
       - name: Archive build
+        if: github.event_name != 'merge_group'
         run: tar -czf build.tar.gz build
 
       - name: Upload build artifacts
+        if: github.event_name != 'merge_group'
         uses: actions/upload-artifact@v4
         with:
           name: build-ubuntu-latest
@@ -155,7 +180,7 @@ jobs:
 
   build-macos-arm64:
     if: >-
-      github.event_name == 'merge_group' || (github.event_name == 'workflow_dispatch' && !inputs.skip_macos) ||
+      github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && !inputs.skip_macos) ||
       (github.event_name == 'push' && github.ref == format('refs/heads/{0}', github.event.repository.default_branch) && github.actor != 'github-merge-queue[bot]')
     name: Build (macOS 14 ARM64)
     needs: pre-commit
@@ -239,7 +264,7 @@ jobs:
 
   test-ubuntu:
     if: >-
-      github.event_name == 'merge_group' || github.event_name == 'workflow_dispatch' ||
+      github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' ||
       (github.event_name == 'push' && github.ref == format('refs/heads/{0}', github.event.repository.default_branch) && github.actor != 'github-merge-queue[bot]')
     name: Test (Ubuntu)
     needs: build-ubuntu
@@ -314,7 +339,7 @@ jobs:
 
   test-macos-arm64:
     if: >-
-      github.event_name == 'merge_group' || (github.event_name == 'workflow_dispatch' && !inputs.skip_macos) ||
+      github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && !inputs.skip_macos) ||
       (github.event_name == 'push' && github.ref == format('refs/heads/{0}', github.event.repository.default_branch) && github.actor != 'github-merge-queue[bot]')
     name: Test (macOS 14 ARM64)
     needs: build-macos-arm64

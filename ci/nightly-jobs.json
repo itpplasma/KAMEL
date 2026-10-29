@@ -1,0 +1,9 @@
+{
+  "python-unit": "python -m pip install -e './KIM/python[test]' && python -m pytest KIM/python/tests/unit",
+  "Pre-commit": "pip install pre-commit && pre-commit run --all-files --show-diff-on-failure",
+  "Build (Ubuntu)": "make all",
+  "Test (Ubuntu)": "pip install -e './KIM/python[test]' && make all && make pytest && KIM_RUN_INTEGRATION=1 KIM_EXECUTABLE=\"$PWD/build/install/bin/KIM.x\" python3 -m pytest KIM/python/tests/integration/test_periodic_run.py -v && ctest --test-dir build --output-on-failure",
+  "golden-record (main)": "test/golden/run_golden.sh golden-baseline \"$(git rev-parse HEAD)\"",
+  "Build (macOS 14 ARM64)": "make all",
+  "Test (macOS 14 ARM64)": "make all && make pytest && ctest --test-dir build --output-on-failure"
+}

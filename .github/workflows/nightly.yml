@@ -1,0 +1,112 @@
+name: nightly
+
+# The slow tier once a night on main: the full Ubuntu and macOS test suites
+# and the golden record, which the merge queue no longer runs. When a job
+# fails, a triage job on that job's platform bisects its command
+# (ci/nightly-jobs.json) between the last green nightly and this commit and
+# files or updates one issue labelled nightly-failure; the next green nightly
+# closes it.
+
+on:
+  schedule:
+    - cron: "47 1 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  CMAKE_BUILD_PARALLEL_LEVEL: '2'
+  CTEST_PARALLEL_LEVEL: '1'
+  MPLBACKEND: Agg
+  OPENBLAS_NUM_THREADS: '1'
+  OMP_NUM_THREADS: '1'
+
+jobs:
+  ci:
+    name: CI
+    uses: ./.github/workflows/ci.yml
+
+  golden:
+    name: golden-record
+    uses: ./.github/workflows/golden.yml
+
+  triage-ubuntu:
+    name: Bisect Ubuntu failures and report
+    needs: [ci, golden]
+    if: failure()
+    runs-on: [self-hosted, itp-ubuntu24]
+    timeout-minutes: 600
+    permissions:
+      actions: read
+      contents: read
+      issues: write
+      pull-requests: read
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install dependencies (Ubuntu)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake ninja-build gfortran \
+            libopenmpi-dev openmpi-bin libhdf5-openmpi-dev libnetcdf-dev \
+            libnetcdff-dev libomp-dev libopenblas-dev liblapack-dev doxygen \
+            libgsl-dev libsuitesparse-dev libsuperlu-dev python3-dev python3-pip \
+            libmpfr-dev libgmp-dev
+          pip install numpy scipy matplotlib h5py f90nml pytest
+      - name: Bisect and file or update the nightly-failure issue
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: >-
+          python3 ci/nightly_triage.py failure
+          --jobs "python-unit,Pre-commit,Build (Ubuntu),Test (Ubuntu),golden-record (main)"
+
+  triage-macos:
+    name: Bisect macOS failures and report
+    needs: [ci, golden, triage-ubuntu]
+    if: always() && needs.ci.result == 'failure'
+    runs-on: [self-hosted, itp-macos]
+    timeout-minutes: 600
+    env:
+      MACOSX_DEPLOYMENT_TARGET: '14.0'
+      HOMEBREW_NO_AUTO_UPDATE: '1'
+    permissions:
+      actions: read
+      contents: read
+      issues: write
+      pull-requests: read
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - name: Set up native Python 3.11
+        run: /opt/itp-ci-macos/setup-python.sh '3.11'
+      - run: pip install numpy scipy matplotlib h5py f90nml pytest
+      - name: Bisect and file or update the nightly-failure issue
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: >-
+          python3 ci/nightly_triage.py failure
+          --jobs "Build (macOS 14 ARM64),Test (macOS 14 ARM64)"
+
+  close:
+    name: Close the nightly-failure issue
+    needs: [ci, golden]
+    runs-on: [self-hosted, itp-light]
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - uses: actions/checkout@v6
+      - name: Close the issue once the nightly is green
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 ci/nightly_triage.py success

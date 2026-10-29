@@ -626,3 +626,9 @@ add_test(NAME test_periodic_convergence
          COMMAND ${CMAKE_BINARY_DIR}/tests/test_periodic_convergence.x)
 set_tests_properties(test_periodic_convergence PROPERTIES
                      WORKING_DIRECTORY ${CMAKE_BINARY_DIR}/tests/)
+
+# Each takes 30 s to 8 min; the merge queue leaves them to the nightly run.
+set_tests_properties(test_periodic_convergence test_kim_solver_em
+    test_collisionless_ion_assembly test_kim_diagnostics test_periodic_vs_global
+    test_kim_solver_periodic test_kim_solver_periodic_contract
+    PROPERTIES LABELS slow)

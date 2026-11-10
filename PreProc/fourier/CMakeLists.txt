@@ -36,30 +36,33 @@ set(source_files
 )
 
 add_library(fouriermodes STATIC ${source_files})
-set_target_properties(fouriermodes PROPERTIES
-    LINKER_LANGUAGE Fortran
-    OUTPUT_NAME fouriermodes
-    ARCHIVE_OUTPUT_DIRECTORY ${lib}
-    Fortran_MODULE_DIRECTORY ${objs}
+set_target_properties(
+    fouriermodes
+    PROPERTIES
+        LINKER_LANGUAGE Fortran
+        OUTPUT_NAME fouriermodes
+        ARCHIVE_OUTPUT_DIRECTORY ${lib}
+        Fortran_MODULE_DIRECTORY ${objs}
 )
 
 # Link dependencies - kamel_equil provides mag, rhs1, RK4D for equilibrium tracing
 if(TARGET kamel_equil)
-    target_link_libraries(fouriermodes PUBLIC
-        kamel_equil
-        LIBNEO::magfie
-    )
-    target_include_directories(fouriermodes PUBLIC
-        ${CMAKE_BINARY_DIR}/common/equil/libneo/include
-        ${KAMEL_EQUIL_INCLUDE_DIRS}
+    target_link_libraries(fouriermodes PUBLIC kamel_equil LIBNEO::magfie)
+    target_include_directories(
+        fouriermodes
+        PUBLIC ${CMAKE_BINARY_DIR}/common/equil/libneo/include ${KAMEL_EQUIL_INCLUDE_DIRS}
     )
 else()
     # Standalone build - need to build kamel_equil separately or link directly to libneo
-    message(FATAL_ERROR "kamel_equil target not found. Build fouriermodes as part of KAMEL or ensure kamel_equil is available.")
+    message(
+        FATAL_ERROR
+        "kamel_equil target not found. Build fouriermodes as part of KAMEL or ensure kamel_equil is available."
+    )
 endif()
 
 add_executable(fouriermodes.x ${src}/fouriermodes.f90)
 target_link_libraries(fouriermodes.x PUBLIC fouriermodes)
-set_target_properties(fouriermodes.x PROPERTIES
-    RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/install/bin
+set_target_properties(
+    fouriermodes.x
+    PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/install/bin
 )

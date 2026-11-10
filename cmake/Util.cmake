@@ -2,8 +2,11 @@ include(FetchContent)
 
 # Default to disconnected updates so re-configure does not try to reach the network.
 if(NOT DEFINED FETCHCONTENT_UPDATES_DISCONNECTED)
-    set(FETCHCONTENT_UPDATES_DISCONNECTED ON CACHE BOOL
-        "Disable FetchContent update steps during configure (enable to force dependency updates)")
+    set(FETCHCONTENT_UPDATES_DISCONNECTED
+        ON
+        CACHE BOOL
+        "Disable FetchContent update steps during configure (enable to force dependency updates)"
+    )
 endif()
 
 function(find_or_fetch DEPENDENCY)
@@ -33,30 +36,38 @@ function(find_or_fetch DEPENDENCY)
         if(REMOTE_BRANCH MATCHES "^[0-9a-fA-F]+$" AND NOT REMOTE_BRANCH MATCHES "^[0-9]+$")
             set(${DEPENDENCY}_SOURCE_DIR "${CMAKE_BINARY_DIR}/_deps/${DEPENDENCY}-src")
             if(EXISTS "${${DEPENDENCY}_SOURCE_DIR}/CMakeLists.txt")
-                message(STATUS "Reusing existing ${DEPENDENCY} sources at ${${DEPENDENCY}_SOURCE_DIR}")
+                message(
+                    STATUS
+                    "Reusing existing ${DEPENDENCY} sources at ${${DEPENDENCY}_SOURCE_DIR}"
+                )
             else()
                 message(STATUS "Fetching ${DEPENDENCY} commit ${REMOTE_BRANCH} by SHA")
                 file(REMOVE_RECURSE "${${DEPENDENCY}_SOURCE_DIR}")
                 file(MAKE_DIRECTORY "${${DEPENDENCY}_SOURCE_DIR}")
-                execute_process(COMMAND git init -q
-                    WORKING_DIRECTORY "${${DEPENDENCY}_SOURCE_DIR}")
-                execute_process(COMMAND git remote add origin "${REPO_URL}"
-                    WORKING_DIRECTORY "${${DEPENDENCY}_SOURCE_DIR}" ERROR_QUIET)
+                execute_process(COMMAND git init -q WORKING_DIRECTORY "${${DEPENDENCY}_SOURCE_DIR}")
+                execute_process(
+                    COMMAND git remote add origin "${REPO_URL}"
+                    WORKING_DIRECTORY "${${DEPENDENCY}_SOURCE_DIR}"
+                    ERROR_QUIET
+                )
                 execute_process(
                     COMMAND git fetch --depth 1 origin "${REMOTE_BRANCH}"
                     WORKING_DIRECTORY "${${DEPENDENCY}_SOURCE_DIR}"
-                    RESULT_VARIABLE _gr_fetch_rc)
+                    RESULT_VARIABLE _gr_fetch_rc
+                )
                 if(NOT _gr_fetch_rc EQUAL 0)
-                    message(FATAL_ERROR
-                        "Failed to fetch ${DEPENDENCY} commit ${REMOTE_BRANCH} from ${REPO_URL}")
+                    message(
+                        FATAL_ERROR
+                        "Failed to fetch ${DEPENDENCY} commit ${REMOTE_BRANCH} from ${REPO_URL}"
+                    )
                 endif()
                 execute_process(
                     COMMAND git checkout -q --detach FETCH_HEAD
                     WORKING_DIRECTORY "${${DEPENDENCY}_SOURCE_DIR}"
-                    RESULT_VARIABLE _gr_checkout_rc)
+                    RESULT_VARIABLE _gr_checkout_rc
+                )
                 if(NOT _gr_checkout_rc EQUAL 0)
-                    message(FATAL_ERROR
-                        "Failed to checkout ${DEPENDENCY} commit ${REMOTE_BRANCH}")
+                    message(FATAL_ERROR "Failed to checkout ${DEPENDENCY} commit ${REMOTE_BRANCH}")
                 endif()
             endif()
         else()
@@ -68,8 +79,14 @@ function(find_or_fetch DEPENDENCY)
             )
             FetchContent_GetProperties(${DEPENDENCY})
             if(NOT ${DEPENDENCY}_POPULATED)
-                if(DEFINED ${DEPENDENCY}_SOURCE_DIR AND EXISTS "${${DEPENDENCY}_SOURCE_DIR}/CMakeLists.txt")
-                    message(STATUS "Reusing existing ${DEPENDENCY} sources at ${${DEPENDENCY}_SOURCE_DIR}")
+                if(
+                    DEFINED ${DEPENDENCY}_SOURCE_DIR
+                    AND EXISTS "${${DEPENDENCY}_SOURCE_DIR}/CMakeLists.txt"
+                )
+                    message(
+                        STATUS
+                        "Reusing existing ${DEPENDENCY} sources at ${${DEPENDENCY}_SOURCE_DIR}"
+                    )
                 else()
                     FetchContent_Populate(${DEPENDENCY})
                 endif()
@@ -77,8 +94,14 @@ function(find_or_fetch DEPENDENCY)
         endif()
     endif()
 
-    if(NOT DEFINED ${DEPENDENCY}_SOURCE_DIR OR NOT EXISTS "${${DEPENDENCY}_SOURCE_DIR}/CMakeLists.txt")
-        message(FATAL_ERROR "Unable to locate sources for ${DEPENDENCY}: expected ${${DEPENDENCY}_SOURCE_DIR}")
+    if(
+        NOT DEFINED ${DEPENDENCY}_SOURCE_DIR
+        OR NOT EXISTS "${${DEPENDENCY}_SOURCE_DIR}/CMakeLists.txt"
+    )
+        message(
+            FATAL_ERROR
+            "Unable to locate sources for ${DEPENDENCY}: expected ${${DEPENDENCY}_SOURCE_DIR}"
+        )
     endif()
 
     # Disable tests for fetched dependencies to avoid CTest registering
@@ -88,12 +111,12 @@ function(find_or_fetch DEPENDENCY)
     set(LIBNEO_ENABLE_TESTS OFF CACHE BOOL "" FORCE)
     set(LIBNEO_ENABLE_GOLDEN_TESTS OFF CACHE BOOL "" FORCE)
 
-    add_subdirectory(${${DEPENDENCY}_SOURCE_DIR}
+    add_subdirectory(
+        ${${DEPENDENCY}_SOURCE_DIR}
         ${CMAKE_CURRENT_BINARY_DIR}/${DEPENDENCY}
         EXCLUDE_FROM_ALL
     )
 endfunction()
-
 
 function(get_branch_or_main REPO_URL REMOTE_BRANCH)
     execute_process(

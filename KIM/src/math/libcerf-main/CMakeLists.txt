@@ -32,16 +32,19 @@ else()
     set(CMAKE_C_STANDARD 99)
 endif()
 
-set(CERF_SOVERSION                 2) # API version
+set(CERF_SOVERSION 2) # API version
 set(CERF_VERSION ${CERF_SOVERSION}.4) # minor version
 
 include(GNUInstallDirs)
 
-SET(CERF_COMPILE_OPTIONS "" CACHE
-    STRING "User-supplied compiler options, will be appended to hard-coded ones. Not for Windows.")
+set(CERF_COMPILE_OPTIONS
+    ""
+    CACHE STRING
+    "User-supplied compiler options, will be appended to hard-coded ones. Not for Windows."
+)
 
 if(MSVC)
-    if (NOT CERF_CPP)
+    if(NOT CERF_CPP)
         message(FATAL_ERROR "Under MSVC, only CERF_CPP=ON is supported")
     endif()
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /MP") # parallel compilation
@@ -58,10 +61,8 @@ if(MSVC)
     endif()
     set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
     set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
-
 elseif(CERF_COMPILE_OPTIONS)
     add_compile_options(${CERF_COMPILE_OPTIONS})
-
 else()
     option(PEDANTIC "Compile with pedantic warnings" ON)
     option(WERROR "Treat warnings as errors" OFF)
@@ -73,7 +74,7 @@ else()
     endif()
 
     add_compile_options(-Wno-sign-compare -fno-omit-frame-pointer)
-    if (CMAKE_BUILD_TYPE MATCHES Debug)
+    if(CMAKE_BUILD_TYPE MATCHES Debug)
         add_compile_options(-g)
     else()
         add_compile_options(-O3)
@@ -83,8 +84,10 @@ endif()
 include(CTest)
 
 configure_file("libcerf.pc.in" "libcerf.pc" @ONLY)
-install(FILES "${CMAKE_CURRENT_BINARY_DIR}/libcerf.pc"
-    DESTINATION "${CMAKE_INSTALL_LIBDIR}/pkgconfig/")
+install(
+    FILES "${CMAKE_CURRENT_BINARY_DIR}/libcerf.pc"
+    DESTINATION "${CMAKE_INSTALL_LIBDIR}/pkgconfig/"
+)
 
 add_subdirectory(lib)
 add_subdirectory(test)

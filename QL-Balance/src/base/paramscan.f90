@@ -361,9 +361,9 @@ module paramscan_mod
             ifac_Te = 1
             ifac_Ti = 1
             ifac_vz = 1
-            write (parscan_str, "(A,F0.3,A,F0.3,A,F0.3,A,F0.3,A)") &
+            write (parscan_str, "(A,F0.3,A,F0.3,A,F0.3,A,F0.3)") &
                     "n", fac_n(ifac_n), "Te", fac_Te(ifac_Te), &
-                    "Ti", fac_Ti(ifac_Ti), "vz", fac_vz(ifac_vz), "/"
+                    "Ti", fac_Ti(ifac_Ti), "vz", fac_vz(ifac_vz)
         else
             if (numres .eq. 1) then
                 if (m_vals(1) < 10) then

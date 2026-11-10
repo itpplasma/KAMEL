@@ -94,12 +94,14 @@ class QL_Balance_interface:
         benchmark_mode="none",
         kim_config_file=None,
         suppress_console_output=True,
+        I0=None,
     ):
         """Prepare and execute a periodic-KIM QL-Balance run.
 
         The caller supplies the KIM namelist because grid, harmonic, and
         compact-transition controls are solver-specific.  The balance
         namelist is generated with the validated species/B-parallel policy.
+        I0 is the KiLCA antenna current in statA. None keeps the machine default.
         """
         modes = list(modes)
         self.configure_periodic_kim(modes, target_current, benchmark_mode)
@@ -157,7 +159,7 @@ class QL_Balance_interface:
             self.conf.conf["balancenml"]["kim_config_sha256"] = hashlib.sha256(
                 config_stream.read()
             ).hexdigest()
-        self.prepare_balance_kim(Btor, a_minor)
+        self.prepare_balance_kim(Btor, a_minor, I0)
         self.set_config_nml()
         self.write_config_nml(os.path.join(self.run_path, "balance_conf.nml"))
         return self.run_balance(suppress_console_output=suppress_console_output)

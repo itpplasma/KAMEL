@@ -32,7 +32,7 @@ subroutine read_config
     !> Resolved namelist for /run_info/balancenml (run_info.f90). gfortran writes each
     !> string in one record, so a record must hold a 1024-character path, but wraps
     !> arrays at about 6 values per record: each 100-element list takes about 17.
-    !> Up to 100 records are used, an overflow stops the run.
+    !> 512 records leave ample room; an overflow stops the run.
     character(len=2048), allocatable :: config_records(:)
 
     !> namelist for the balance configuration input

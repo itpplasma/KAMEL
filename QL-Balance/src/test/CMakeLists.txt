@@ -32,6 +32,11 @@ add_executable(test_paramscan.x test_paramscan.f90)
 target_link_libraries(test_paramscan.x PUBLIC ql-balance_lib)
 add_fortran_test(test_paramscan)
 
+# Namelist text stored as /run_info/balancenml
+add_executable(test_run_info.x test_run_info.f90)
+target_link_libraries(test_run_info.x PUBLIC ql-balance_lib)
+add_fortran_test(test_run_info)
+
 # Integrated toroidal torque normalization
 add_executable(test_toroidal_torque.x test_toroidal_torque.f90)
 target_link_libraries(test_toroidal_torque.x PUBLIC ql-balance_lib)

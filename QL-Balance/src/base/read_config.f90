@@ -29,9 +29,11 @@ subroutine read_config
 
     character(len=*), parameter :: config_file = "balance_conf.nml"
 
-    !> Resolved namelist, one record per key, for /run_info/balancenml (run_info.f90).
-    !> A record must hold the longest key: 1024-character paths, 100-element lists.
-    character(len=4096), allocatable :: config_records(:)
+    !> Resolved namelist for /run_info/balancenml (run_info.f90). gfortran writes each
+    !> string in one record, so a record must hold a 1024-character path, but wraps
+    !> arrays at about 6 values per record: each 100-element list takes about 17.
+    !> Up to 100 records are used, an overflow stops the run.
+    character(len=2048), allocatable :: config_records(:)
 
     !> namelist for the balance configuration input
     namelist /BALANCENML/ flre_path, vac_path, btor, rtor, rmin, rmax, rsepar, npoimin, gg_factor, &
@@ -82,7 +84,7 @@ subroutine read_config
     end if
 
     ! Record every value as used by the run, defaults and derived values included.
-    allocate (config_records(128))
+    allocate (config_records(512))
     config_records = ""
     write (config_records, nml=BALANCENML, delim="quote", iostat=ios)
     if (ios /= 0) error stop "Failed to record namelist"

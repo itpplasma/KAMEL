@@ -3,7 +3,8 @@
 !>   /run_info/git_commit  git commit of the KAMEL build, "-dirty" appended if tracked
 !>                         files differed from it at build time ("unknown" without git)
 !>   /run_info/balancenml  namelist BALANCENML with every value as used by the run,
-!>                         defaults included, as recorded by read_config
+!>                         defaults included, as recorded by read_config. Namelist
+!>                         text: arrays continue over several lines.
 !> git_commit is compiled in from ql_balance_git_version.inc, which
 !> cmake/WriteGitVersion.cmake regenerates on every build.
 module run_info_m
@@ -11,7 +12,7 @@ module run_info_m
     implicit none
 
     private
-    public :: set_run_config, write_run_info
+    public :: set_run_config, namelist_text, write_run_info
 
     include 'ql_balance_git_version.inc'
 
@@ -19,17 +20,27 @@ module run_info_m
 
 contains
 
-    !> Store the records of a namelist write as text, one line per record.
-    !> Drops the blanks gfortran pads values with, outside and at the end of strings.
+    !> Store the records of a namelist write for write_run_info.
     subroutine set_run_config(records)
 
         character(len=*), intent(in) :: records(:)
+
+        config_nml = namelist_text(records)
+
+    end subroutine set_run_config
+
+    !> The records of a namelist write as text, one line per nonblank record.
+    !> Drops the blanks gfortran pads values with, outside and at the end of strings.
+    function namelist_text(records) result(text)
+
+        character(len=*), intent(in) :: records(:)
+        character(len=:), allocatable :: text
         character(len=:), allocatable :: line
         character :: c
         logical :: in_string
         integer :: i, j
 
-        config_nml = ""
+        text = ""
         do i = 1, size(records)
             line = ""
             in_string = .false.
@@ -43,10 +54,10 @@ contains
                 end if
                 line = line//c
             end do
-            if (len(line) > 0) config_nml = config_nml//line//new_line("a")
+            if (len(line) > 0) text = text//line//new_line("a")
         end do
 
-    end subroutine set_run_config
+    end function namelist_text
 
     function start_time() result(stamp)
 

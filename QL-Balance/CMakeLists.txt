@@ -139,8 +139,8 @@ add_library(ql-balance_lib STATIC ${balance_lib_base_fortran_sources}
 set(git_version_dir ${PROJECT_BINARY_DIR}/generated/ql-balance)
 set(git_version_inc ${git_version_dir}/ql_balance_git_version.inc)
 add_custom_target(ql-balance_git_version
-    COMMAND ${CMAKE_COMMAND} -DSOURCE_DIR=${CMAKE_SOURCE_DIR} -DOUTPUT=${git_version_inc}
-            -P ${CMAKE_SOURCE_DIR}/cmake/WriteGitVersion.cmake
+    COMMAND ${CMAKE_COMMAND} -DSOURCE_DIR=${PROJECT_SOURCE_DIR} -DOUTPUT=${git_version_inc}
+            -P ${PROJECT_SOURCE_DIR}/cmake/WriteGitVersion.cmake
     BYPRODUCTS ${git_version_inc}
     COMMENT "Recording the git commit of QL-Balance"
     VERBATIM)

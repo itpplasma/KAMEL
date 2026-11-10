@@ -188,12 +188,20 @@ class KiLCA_interface:
         self.BLUE_PATH = inspect.getfile(KiLCA_interface)[0:-18] + self.BLUE_PATH
 
     def set_machine(self, delta_r_antenna: float = 3.0, a_minor: float = None, I0: float = None):
-        """Set the machine geometry. I0 (statA) overrides the AUG default antenna current."""
+        """Set the machine geometry.
+
+        I0 (statA) overrides the antenna current of the machine. None keeps the default
+        of set_ASDEX or set_MASTU.
+        """
+        # Pass I0 only when given: I0=None would replace the machine default.
+        antenna_kwargs = {} if I0 is None else {"I0": I0}
         if self.machine == "AUG":
-            self.set_ASDEX(a_minor=a_minor, delta_r_antenna=delta_r_antenna, I0=I0)
+            self.set_ASDEX(a_minor=a_minor, delta_r_antenna=delta_r_antenna, **antenna_kwargs)
         elif self.machine == "MASTU":
-            self.set_MASTU(delta_r_antenna=delta_r_antenna)
+            self.set_MASTU(delta_r_antenna=delta_r_antenna, **antenna_kwargs)
         elif self.machine == None:
+            if I0 is not None:
+                raise ValueError("I0 needs a machine to set the antenna")
             # don't set the machine
             print("Will not set a machine at constructor")
         else:

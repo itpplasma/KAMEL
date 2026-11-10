@@ -366,18 +366,19 @@ class QL_Balance_interface:
         grp.create_dataset("layer_width", data=[self.layer_width])
         h5f.close()
 
-    def prepare_balance_kim(self, Btor, a_minor):
+    def prepare_balance_kim(self, Btor, a_minor, I0=None):
         """Prepare QL-Balance for KIM mode with vacuum solution.
 
         When wave_code='KIM', the Fortran QL-Balance code calls KIM internally.
         We prepare the HDF5 input (profiles + Da), run the KiLCA vacuum solver
         (needed for vacuum fields beyond the plasma), and set up the output file.
+        I0 is the KiLCA antenna current in statA. None keeps the machine default.
         """
         if self.debug:
             print("D: Prepare balance for KIM mode")
         self.check_if_factors_set()
         self.prepare_input_h5_without_kilca()
-        self.prepare_vacuum_kilca(Btor, a_minor)
+        self.prepare_vacuum_kilca(Btor, a_minor, I0)
         self.prepare_output_h5()
         self.link_executable()
 

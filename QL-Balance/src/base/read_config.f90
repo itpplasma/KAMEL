@@ -19,6 +19,7 @@ subroutine read_config
     use time_evolution
     use wave_code_data, only: flre_path, vac_path, antenna_factor, I_par_toroidal
     use logger_m, only: set_log_level, log_info, fmt_val
+    use run_info_m, only: set_run_config
     use periodic_workflow_validation_m, only: validate_periodic_workflow, &
                                               periodic_benchmark_enabled
 
@@ -27,6 +28,10 @@ subroutine read_config
     integer :: u, ios
 
     character(len=*), parameter :: config_file = "balance_conf.nml"
+
+    !> Resolved namelist, one record per key, for /run_info/balancenml (run_info.f90).
+    !> A record must hold the longest key: 1024-character paths, 100-element lists.
+    character(len=4096), allocatable :: config_records(:)
 
     !> namelist for the balance configuration input
     namelist /BALANCENML/ flre_path, vac_path, btor, rtor, rmin, rmax, rsepar, npoimin, gg_factor, &
@@ -75,6 +80,13 @@ subroutine read_config
             error stop 'kim_transport_benchmark requires periodic KIM'
         if (ihdf5IO /= 1) error stop 'kim_transport_benchmark requires HDF5 output'
     end if
+
+    ! Record every value as used by the run, defaults and derived values included.
+    allocate (config_records(128))
+    config_records = ""
+    write (config_records, nml=BALANCENML, delim="quote", iostat=ios)
+    if (ios /= 0) error stop "Failed to record namelist"
+    call set_run_config(config_records)
 
     call set_log_level(log_level)
 

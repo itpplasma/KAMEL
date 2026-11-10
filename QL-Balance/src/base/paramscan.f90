@@ -143,9 +143,8 @@ module paramscan_mod
         implicit none
 
         if (.not. suppression_mode) then
-            write (parscan_str, "(A,F0.3,A,F0.3,A,F0.3,A,F0.3,A)") "n", fac_n(ifac_n), &
-                "Te", fac_Te(ifac_Te), "Ti", fac_Ti(ifac_Ti), "vz", fac_vz(ifac_vz) &
-                , "/"
+            write (parscan_str, "(A,F0.3,A,F0.3,A,F0.3,A,F0.3)") "n", fac_n(ifac_n), &
+                "Te", fac_Te(ifac_Te), "Ti", fac_Ti(ifac_Ti), "vz", fac_vz(ifac_vz)
         else
             parscan_str = ""
         end if
@@ -265,13 +264,12 @@ module paramscan_mod
     subroutine interpolate_Br_Dql_at_res_parscan
 
         use PolyLagrangeInterpolation, only: nder, nlagr, binsrc, coef, get_ind_Lagr_interp, plag_coeff
-        use grid_mod, only: npoib, rb, r_resonant, dqle22, npoic, Ercovavg, Ercov
+        use grid_mod, only: npoib, rb, r_resonant, dqle22, Ercov
         use wave_code_data, only: Br, antenna_factor
 
         implicit none
 
         integer :: indResRadius, ind_begin_interp, ind_end_interp
-        integer :: ipoi
 
         ! TODO: Correct for multi resonance run
         if (.not. allocated(coef)) allocate (coef(0:nder, nlagr))
@@ -290,10 +288,9 @@ module paramscan_mod
         write(*,*) ""
 
         if (size(fac_vz) .ne. 1) then
-            do ipoi = 1, npoic
-                Ercovavg(ipoi) = 0.5d0*(Ercov(ipoi) + Ercov(ipoi + 1))
-            end do
-            Er_res(ifac_n, ifac_Te, ifac_Ti, ifac_vz) = sum(coef(0, :)*Ercovavg(ind_begin_interp:ind_end_interp))
+            ! Ercov lives on rb, like dqle22 and Br, so it takes the same
+            ! coefficients. Its rc average must not be used with rb nodes.
+            Er_res(ifac_n, ifac_Te, ifac_Ti, ifac_vz) = sum(coef(0, :) * Ercov(ind_begin_interp:ind_end_interp))
             call log_debug("Er_res computed")
         end if
 

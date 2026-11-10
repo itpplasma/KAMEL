@@ -1,10 +1,6 @@
 include(FetchContent)
 
-FetchContent_Declare(
-    sundials
-    GIT_REPOSITORY https://github.com/LLNL/sundials.git
-    GIT_TAG v7.4.0
-)
+FetchContent_Declare(sundials GIT_REPOSITORY https://github.com/LLNL/sundials.git GIT_TAG v7.4.0)
 
 set(SUNDIALS_BUILD_TESTS OFF CACHE BOOL "" FORCE)
 set(SUNDIALS_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)

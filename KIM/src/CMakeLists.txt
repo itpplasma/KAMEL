@@ -2,28 +2,31 @@ include(CMakeSources.in)
 
 set(CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/cmake" ${CMAKE_MODULE_PATH})
 
-
-add_library(KIM_lib STATIC "${KIM_setup}"
-                        "${KIM_grid}"
-                        "${KIM_background_equilibrium}"
-                        "${KIM_general}"
-                        "${KIM_poisson}"
-                        "${KIM_util}"
-                        #"${KIM_kernels}"
-                        "${KIM_math}"
-                        "${KIM_fokkerplanck}"
-                        "${KIM_dispersion}"
-                        "${KIM_WKB_dispersion}"
-                        "${KIM_asymptotics}"
-                        "${KIM_flr2}"
-                        "${KIM_transport}"
-                        "${KIM_diagnostics}"
-                        "${KIM_electromagnetic}"
+add_library(
+    KIM_lib
+    STATIC
+    "${KIM_setup}"
+    "${KIM_grid}"
+    "${KIM_background_equilibrium}"
+    "${KIM_general}"
+    "${KIM_poisson}"
+    "${KIM_util}"
+    #"${KIM_kernels}"
+    "${KIM_math}"
+    "${KIM_fokkerplanck}"
+    "${KIM_dispersion}"
+    "${KIM_WKB_dispersion}"
+    "${KIM_asymptotics}"
+    "${KIM_flr2}"
+    "${KIM_transport}"
+    "${KIM_diagnostics}"
+    "${KIM_electromagnetic}"
 )
 
-set_target_properties(KIM_lib PROPERTIES
-                        OUTPUT_NAME KIM
-                        ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/install/lib/")
+set_target_properties(
+    KIM_lib
+    PROPERTIES OUTPUT_NAME KIM ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/install/lib/"
+)
 
 # Use the shared sparse target instead of bundling a local copy
 add_dependencies(KIM_lib sparse)
@@ -79,21 +82,14 @@ target_include_directories(KIM_lib PUBLIC ${KILCA_PATH}/math/)
 add_dependencies(KIM_lib kilca_lib)
 target_include_directories(KIM_lib PRIVATE ${CMAKE_BINARY_DIR}/OBJS/kilca/)
 
-target_link_libraries(KIM_lib PUBLIC
-                                kamel_hdf5_tools
-                                kamel_logger
-                                kamel_equil
-                                cerf
-                                kamel_util
+target_link_libraries(
+    KIM_lib
+    PUBLIC kamel_hdf5_tools kamel_logger kamel_equil cerf kamel_util
 )
 
 add_executable(KIM_exe kim_main.f90)
-set_target_properties(KIM_exe PROPERTIES
-                        OUTPUT_NAME KIM.x
-                        RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/install/bin/")
-target_link_libraries(KIM_exe
-                        KIM_lib
-                        kilca_lib
-                        lapack
-                        fortnum_amos_compat
+set_target_properties(
+    KIM_exe
+    PROPERTIES OUTPUT_NAME KIM.x RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/install/bin/"
 )
+target_link_libraries(KIM_exe KIM_lib kilca_lib lapack fortnum_amos_compat)

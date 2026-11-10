@@ -5,15 +5,11 @@ if(UMFPACK_INCLUDES AND UMFPACK_LIBRARIES)
     set(UMFPACK_FIND_QUIETLY TRUE)
 endif(UMFPACK_INCLUDES AND UMFPACK_LIBRARIES)
 
-find_path(UMFPACK_INCLUDES
-    NAMES
-    umfpack.h
-    PATHS
-    $ENV{UMFPACKDIR}
-    ${INCLUDE_INSTALL_DIR}
-    PATH_SUFFIXES
-    suitesparse
-    ufsparse
+find_path(
+    UMFPACK_INCLUDES
+    NAMES umfpack.h
+    PATHS $ENV{UMFPACKDIR} ${INCLUDE_INSTALL_DIR}
+    PATH_SUFFIXES suitesparse ufsparse
 )
 
 find_library(UMFPACK_LIBRARIES umfpack PATHS $ENV{UMFPACKDIR} ${LIB_INSTALL_DIR})
@@ -35,13 +31,21 @@ if(UMFPACK_LIBRARIES)
         set(UMFPACK_LIBRARIES ${UMFPACK_LIBRARIES} ${AMD_LIBRARY})
     endif()
 
-    find_library(SUITESPARSE_LIBRARY SuiteSparse PATHS ${UMFPACK_LIBDIR} $ENV{UMFPACKDIR} ${LIB_INSTALL_DIR})
+    find_library(
+        SUITESPARSE_LIBRARY
+        SuiteSparse
+        PATHS ${UMFPACK_LIBDIR} $ENV{UMFPACKDIR} ${LIB_INSTALL_DIR}
+    )
 
     if(SUITESPARSE_LIBRARY)
         set(UMFPACK_LIBRARIES ${UMFPACK_LIBRARIES} ${SUITESPARSE_LIBRARY})
     endif()
 
-    find_library(CHOLMOD_LIBRARY cholmod PATHS $ENV{UMFPACK_LIBDIR} $ENV{UMFPACKDIR} ${LIB_INSTALL_DIR})
+    find_library(
+        CHOLMOD_LIBRARY
+        cholmod
+        PATHS $ENV{UMFPACK_LIBDIR} $ENV{UMFPACKDIR} ${LIB_INSTALL_DIR}
+    )
 
     if(CHOLMOD_LIBRARY)
         set(UMFPACK_LIBRARIES ${UMFPACK_LIBRARIES} ${CHOLMOD_LIBRARY})
@@ -53,8 +57,7 @@ set(Umfpack_INCLUDES ${UMFPACK_INCLUDES})
 set(Umfpack_LIBRARIES ${UMFPACK_LIBRARIES})
 
 include(FindPackageHandleStandardArgs)
-find_package_handle_standard_args(Umfpack DEFAULT_MSG
-    Umfpack_INCLUDES Umfpack_LIBRARIES)
+find_package_handle_standard_args(Umfpack DEFAULT_MSG Umfpack_INCLUDES Umfpack_LIBRARIES)
 
 mark_as_advanced(Umfpack_INCLUDES Umfpack_LIBRARIES)
 

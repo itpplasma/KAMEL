@@ -4,23 +4,27 @@ cmake_minimum_required(VERSION 3.24)
 if(CMAKE_HOST_SYSTEM_NAME MATCHES "Darwin")
     if(NOT DEFINED CMAKE_C_COMPILER)
         # Search for LLVM clang (needed for OpenMP support on macOS)
-        find_program(LLVM_CLANG clang
+        find_program(
+            LLVM_CLANG
+            clang
             PATHS /opt/homebrew/opt/llvm/bin /usr/local/opt/llvm/bin
-            NO_DEFAULT_PATH)
+            NO_DEFAULT_PATH
+        )
         if(LLVM_CLANG)
             set(CMAKE_C_COMPILER "${LLVM_CLANG}")
         endif()
     endif()
     if(NOT DEFINED CMAKE_CXX_COMPILER)
-        find_program(HOMEBREW_GXX g++-16
-            PATHS /opt/homebrew/bin /usr/local/bin
-            NO_DEFAULT_PATH)
+        find_program(HOMEBREW_GXX g++-16 PATHS /opt/homebrew/bin /usr/local/bin NO_DEFAULT_PATH)
         if(HOMEBREW_GXX)
             set(CMAKE_CXX_COMPILER "${HOMEBREW_GXX}")
         else()
-            find_program(LLVM_CLANGXX clang++
+            find_program(
+                LLVM_CLANGXX
+                clang++
                 PATHS /opt/homebrew/opt/llvm/bin /usr/local/opt/llvm/bin
-                NO_DEFAULT_PATH)
+                NO_DEFAULT_PATH
+            )
             if(LLVM_CLANGXX)
                 set(CMAKE_CXX_COMPILER "${LLVM_CLANGXX}")
             endif()
@@ -52,10 +56,11 @@ find_package(OpenMP REQUIRED COMPONENTS C Fortran)
 if(APPLE)
     # Prefer installed directories: Homebrew queries can write to a read-only prefix.
     set(LIBOMP_PREFIX "")
-    foreach(_libomp_prefix IN ITEMS
-        "$ENV{HOMEBREW_PREFIX}/opt/libomp"
-        "/opt/homebrew/opt/libomp"
-        "/usr/local/opt/libomp")
+    foreach(
+        _libomp_prefix
+        IN
+        ITEMS "$ENV{HOMEBREW_PREFIX}/opt/libomp" "/opt/homebrew/opt/libomp" "/usr/local/opt/libomp"
+    )
         if(IS_DIRECTORY "${_libomp_prefix}")
             set(LIBOMP_PREFIX "${_libomp_prefix}")
             break()
@@ -77,13 +82,17 @@ if(APPLE)
         message(STATUS "Found libomp at ${LIBOMP_PREFIX}")
     endif()
 
-    set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -fopenmp -O2 -g -fbacktrace -fcheck=all -Wall -Wextra -Wconversion -Wno-external-argument-mismatch")
+    set(CMAKE_Fortran_FLAGS
+        "${CMAKE_Fortran_FLAGS} -fopenmp -O2 -g -fbacktrace -fcheck=all -Wall -Wextra -Wconversion -Wno-external-argument-mismatch"
+    )
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${OpenMP_C_FLAGS}")
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${OpenMP_CXX_FLAGS}")
     set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -L${LIBOMP_PREFIX}/lib -lomp")
     set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -L${LIBOMP_PREFIX}/lib -lomp")
 else()
-    set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -fopenmp -O2 -mtune=generic -g -fbacktrace -fcheck=all -Wall -Wextra -Wconversion -Wno-external-argument-mismatch")
+    set(CMAKE_Fortran_FLAGS
+        "${CMAKE_Fortran_FLAGS} -fopenmp -O2 -mtune=generic -g -fbacktrace -fcheck=all -Wall -Wextra -Wconversion -Wno-external-argument-mismatch"
+    )
 endif()
 
 enable_testing()

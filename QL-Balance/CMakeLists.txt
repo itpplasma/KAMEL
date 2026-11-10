@@ -10,10 +10,11 @@ if(CMAKE_HOST_SYSTEM_NAME MATCHES "Darwin")
 
     # Prefer installed directories: Homebrew queries can write to a read-only prefix.
     set(LIBOMP_PREFIX "")
-    foreach(_libomp_prefix IN ITEMS
-        "$ENV{HOMEBREW_PREFIX}/opt/libomp"
-        "/opt/homebrew/opt/libomp"
-        "/usr/local/opt/libomp")
+    foreach(
+        _libomp_prefix
+        IN
+        ITEMS "$ENV{HOMEBREW_PREFIX}/opt/libomp" "/opt/homebrew/opt/libomp" "/usr/local/opt/libomp"
+    )
         if(IS_DIRECTORY "${_libomp_prefix}")
             set(LIBOMP_PREFIX "${_libomp_prefix}")
             break()
@@ -36,7 +37,9 @@ if(CMAKE_HOST_SYSTEM_NAME MATCHES "Darwin")
 
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${OpenMP_C_FLAGS} -O3 -DDOUBLE_APPEND_FORTRAN")
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${OpenMP_CXX_FLAGS}")
-    set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -cpp -fPIC -g -Og -Wall -Wno-unused-function -fbacktrace")
+    set(CMAKE_Fortran_FLAGS
+        "${CMAKE_Fortran_FLAGS} -cpp -fPIC -g -Og -Wall -Wno-unused-function -fbacktrace"
+    )
     set(CMAKE_EXE_LINKER_FLAGS "-L/opt/homebrew/lib -L${LIBOMP_PREFIX}/lib -lomp")
 elseif(CMAKE_HOST_SYSTEM_NAME MATCHES "Linux")
     # Linux configurations: use superproject's Fortran compiler
@@ -58,13 +61,15 @@ set(CMAKE_Fortran_MODULE_DIRECTORY "${objs}")
 # Inlined CMakeSources.in contents:
 set(src ${CMAKE_CURRENT_SOURCE_DIR}/src)
 set(base_balance_src ${src}/base/)
-file(SHA256
-    ${CMAKE_SOURCE_DIR}/KIM/mathematica/verify_quasilinear_flr_transport.wl
-    KIM_ALGEBRA_GENERATOR_SHA256)
+file(
+    SHA256 ${CMAKE_SOURCE_DIR}/KIM/mathematica/verify_quasilinear_flr_transport.wl
+    KIM_ALGEBRA_GENERATOR_SHA256
+)
 configure_file(
     ${base_balance_src}/periodic_workflow_build_info_m.f90.in
     ${CMAKE_CURRENT_BINARY_DIR}/generated/periodic_workflow_build_info_m.f90
-    @ONLY)
+    @ONLY
+)
 set(balance_lib_base_fortran_sources
     ${CMAKE_CURRENT_BINARY_DIR}/generated/periodic_workflow_build_info_m.f90
     ${base_balance_src}/amn_of_r.f90
@@ -124,21 +129,30 @@ set(balance_lib_stellarator_fortran_sources
     ${src}/stellarator/time_evol_stell.f90
     ${src}/stellarator/evolvestep_stell.f90
 )
-set(balance_lib_cpp_sources
-    ${base_balance_src}/cvodeint.cpp
+set(balance_lib_cpp_sources ${base_balance_src}/cvodeint.cpp)
+
+add_library(
+    ql-balance_lib
+    STATIC
+    ${balance_lib_base_fortran_sources}
+    ${balance_lib_stellarator_fortran_sources}
+    ${balance_lib_cpp_sources}
 )
 
-add_library(ql-balance_lib STATIC ${balance_lib_base_fortran_sources}
-                                    ${balance_lib_stellarator_fortran_sources}
-                                    ${balance_lib_cpp_sources})
-
-set_target_properties(ql-balance_lib PROPERTIES LINKER_LANGUAGE Fortran
-    OUTPUT_NAME ql-balance
-    ARCHIVE_OUTPUT_DIRECTORY "${lib}"
-    Fortran_MODULE_DIRECTORY "${objs}")
+set_target_properties(
+    ql-balance_lib
+    PROPERTIES
+        LINKER_LANGUAGE Fortran
+        OUTPUT_NAME ql-balance
+        ARCHIVE_OUTPUT_DIRECTORY "${lib}"
+        Fortran_MODULE_DIRECTORY "${objs}"
+)
 
 add_dependencies(ql-balance_lib kilca_lib kamel_hdf5_tools KIM_lib kamel_util)
-target_include_directories(ql-balance_lib PUBLIC ${CMAKE_BINARY_DIR}/KiLCA/mod ${CMAKE_BINARY_DIR}/modules)
+target_include_directories(
+    ql-balance_lib
+    PUBLIC ${CMAKE_BINARY_DIR}/KiLCA/mod ${CMAKE_BINARY_DIR}/modules
+)
 # NOTE: KIM Fortran modules (OBJS/kim/) are NOT added here because KIM and
 # QL-Balance both define a module named resonances_mod with different contents.
 # The adapter source file that needs KIM modules will use a per-file include
@@ -146,9 +160,11 @@ target_include_directories(ql-balance_lib PUBLIC ${CMAKE_BINARY_DIR}/KiLCA/mod $
 # Give ONLY the KIM adapter file access to KIM's Fortran modules so it can
 # import species_m, equilibrium_m, config_m, etc.  Every other QL-Balance
 # source keeps seeing QL-Balance's own resonances_mod.
-set_source_files_properties(${base_balance_src}/kim_wave_code_adapter.f90
+set_source_files_properties(
+    ${base_balance_src}/kim_wave_code_adapter.f90
     ${base_balance_src}/periodic_transport_benchmark_m.f90
-    PROPERTIES INCLUDE_DIRECTORIES "${CMAKE_BINARY_DIR}/OBJS/kim/")
+    PROPERTIES INCLUDE_DIRECTORIES "${CMAKE_BINARY_DIR}/OBJS/kim/"
+)
 
 # fortnum C ABI header (fortnum.h) for vel_integral.cpp.
 target_include_directories(ql-balance_lib PUBLIC ${fortnum_SOURCE_DIR}/include)
@@ -157,7 +173,6 @@ set(BUILD_TESTING OFF)
 
 set(LIBNEO_ENABLE_TESTS OFF CACHE BOOL "Disable libneo tests" FORCE)
 set(LIBNEO_BUILD_TESTING OFF CACHE BOOL "Disable libneo tests" FORCE)
-
 
 # Only fetch libneo if not already available (prevents duplicate targets)
 if(NOT TARGET LIBNEO::polylag)
@@ -168,30 +183,35 @@ include_directories(${CMAKE_CURRENT_BINARY_DIR}/../libneo/include)
 add_dependencies(ql-balance_lib sparse)
 
 # Link common dependencies defined in top-level Dependencies.cmake
-target_link_libraries(ql-balance_lib PUBLIC
-    LIBNEO::collision_freqs
-    LIBNEO::polylag
-    LIBNEO::species
-    LIBNEO::transport
-    SUNDIALS::cvode
-    SUNDIALS::nvecserial
-    blas
-    fortnum
-    kamel_hdf5_tools
-    kamel_logger
-    KIM_lib
-    kamel_util
-    kilca_lib
-    lapack
-    fortnum_amos_compat
-    sparse
+target_link_libraries(
+    ql-balance_lib
+    PUBLIC
+        LIBNEO::collision_freqs
+        LIBNEO::polylag
+        LIBNEO::species
+        LIBNEO::transport
+        SUNDIALS::cvode
+        SUNDIALS::nvecserial
+        blas
+        fortnum
+        kamel_hdf5_tools
+        kamel_logger
+        KIM_lib
+        kamel_util
+        kilca_lib
+        lapack
+        fortnum_amos_compat
+        sparse
 )
 
 target_include_directories(sparse PUBLIC "${CMAKE_BINARY_DIR}/OBJS/sparse/")
 
 add_executable(ql-balance.x ${base_balance_src}/ql-balance.f90)
 target_link_libraries(ql-balance.x PUBLIC ql-balance_lib)
-set_target_properties(ql-balance.x PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/install/bin)
+set_target_properties(
+    ql-balance.x
+    PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/install/bin
+)
 
 # Add KiLCA module directory for Fortran modules
 include_directories(${CMAKE_BINARY_DIR}/KiLCA/mod)

@@ -12,7 +12,8 @@ if(NOT TARGET fortnum)
         message(STATUS "Using fortnum in $ENV{CODE}/fortnum")
         FetchContent_Declare(fortnum SOURCE_DIR $ENV{CODE}/fortnum)
     else()
-        FetchContent_Declare(fortnum
+        FetchContent_Declare(
+            fortnum
             GIT_REPOSITORY https://github.com/lazy-fortran/fortnum.git
             GIT_TAG 48f6f9bf0d4d523c3677bb686f5892f6e1329a24
         )

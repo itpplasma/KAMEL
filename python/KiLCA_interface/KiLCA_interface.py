@@ -187,9 +187,10 @@ class KiLCA_interface:
 
         self.BLUE_PATH = inspect.getfile(KiLCA_interface)[0:-18] + self.BLUE_PATH
 
-    def set_machine(self, delta_r_antenna: float = 3.0, a_minor: float = None):
+    def set_machine(self, delta_r_antenna: float = 3.0, a_minor: float = None, I0: float = None):
+        """Set the machine geometry. I0 (statA) overrides the AUG default antenna current."""
         if self.machine == "AUG":
-            self.set_ASDEX(a_minor=a_minor, delta_r_antenna=delta_r_antenna)
+            self.set_ASDEX(a_minor=a_minor, delta_r_antenna=delta_r_antenna, I0=I0)
         elif self.machine == "MASTU":
             self.set_MASTU(delta_r_antenna=delta_r_antenna)
         elif self.machine == None:

@@ -92,6 +92,7 @@ module rhs_balance_m
     public :: compute_particle_fluxes
     public :: compute_total_heat_fluxes
     public :: compute_linearized_product
+    public :: compute_rmp_induced_sources
     public :: compute_diffusive_parts
     public :: compute_convective_parts
 
@@ -635,10 +636,12 @@ contains
         !         [Markl2023 (22), Heyn2014 (63)]
         !   2.) = Σ_{e,i} -sqrt(g) B^θ_0 / c e Γ^EM = T^EM_φ,e + T^EM_φ,i
         !         [Markl2023 (23), Heyn2014 (64), (67)]
-        !   3.) = -E0r ee Γ^EM_e = +E0r e Γ^EM_e
-        !         [Markl2023 (24), Heyn2014 (65)]
-        !   4.) = -E0r ei Γ^EM_i = -E0r Z e Γ^EM_i
-        !         [Markl2023 (24), Heyn2014 (65)]
+        !   3.) = +E0r ee Γ^EM_e = -E0r e Γ^EM_e
+        !   4.) = +E0r ei Γ^EM_i = +E0r Z e Γ^EM_i
+        !         Markl2023 (24), (25) and Heyn2014 (65), (66) print the opposite sign,
+        !         which is wrong: Q is the kinetic energy flux, so the work of E0r on the
+        !         radial particle flux heats. A purely field-driven flux
+        !         Γ_α = n D e_α E0r / T_α gives e_α E0r Γ_α = n D e_α² E0r² / T_α >= 0.
         !
 
         implicit none
@@ -664,12 +667,12 @@ contains
 
         ! Eq. 3: Electron temperature
         ! Complete linearization: δ(E0r·Γ_ql) = E0r·δΓ_ql + δE0r·Γ_ql_frozen
-        qlheat_e = +e_charge * compute_linearized_product(E0r, Gamma_ql_e, E0r_lin, &
+        qlheat_e = -e_charge * compute_linearized_product(E0r, Gamma_ql_e, E0r_lin, &
                                                           Gamma_ql_e_froz)
 
         ! Eq. 4: Ion temperature
         ! Complete linearization: δ(E0r·Γ_ql) = E0r·δΓ_ql + δE0r·Γ_ql_frozen
-        qlheat_i = -Z * e_charge * compute_linearized_product(E0r, Gamma_ql_i, E0r_lin, &
+        qlheat_i = +Z * e_charge * compute_linearized_product(E0r, Gamma_ql_i, E0r_lin, &
                                                               Gamma_ql_i_froz)
     end subroutine compute_rmp_induced_sources
 

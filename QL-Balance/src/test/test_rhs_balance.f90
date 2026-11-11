@@ -13,6 +13,7 @@ program test_rhs_balance
                              compute_particle_fluxes, &
                              compute_total_heat_fluxes, &
                              compute_linearized_product, &
+                             compute_rmp_induced_sources, &
                              species_fluxes_t, &
                              transport_fluxes_t
     use baseparam_mod, only: e_charge
@@ -33,6 +34,7 @@ program test_rhs_balance
     call test_particle_fluxes()
     call test_heat_fluxes()
     call test_linearized_product()
+    call test_ql_heating_of_field_driven_flux()
 
     print *, ""
     print *, "========================================"
@@ -297,6 +299,36 @@ contains
         print *, "  PASSED: ", test_name
 
     end subroutine test_linearized_product
+
+    subroutine test_ql_heating_of_field_driven_flux()
+        ! A flux driven by E0r alone, Gamma_a = n D e_a E0r / T_a, takes energy from the
+        ! field: e_a E0r Gamma_a = n D e_a**2 E0r**2 / T_a >= 0 for both species and both
+        ! signs of E0r. The QL heating must therefore be +e_a E0r Gamma_a.
+        real(dp), parameter :: n = 2.0e13_dp, D = 3.0e3_dp, Te = 1.6e-9_dp, Ti = 2.4e-9_dp
+        real(dp), parameter :: Z = 1.0_dp, am = 2.0_dp, sqrt_g_Bth_over_c = 1.0e-3_dp
+        real(dp), parameter :: E0r_values(2) = [0.02_dp, -0.03_dp]
+        real(dp) :: E0r, Gamma_e, Gamma_i, polforce, qlheat_e, qlheat_i, torque_e, torque_i
+        integer :: k
+        character(len=*), parameter :: test_name = "test_ql_heating_of_field_driven_flux"
+
+        print *, "Running: ", test_name
+
+        do k = 1, size(E0r_values)
+            E0r = E0r_values(k)
+            Gamma_e = n * D * (-e_charge) * E0r / Te
+            Gamma_i = n * D * (Z * e_charge) * E0r / Ti
+            call compute_rmp_induced_sources(Gamma_e, Gamma_i, 0.0_dp, 0.0_dp, E0r, 0.0_dp, &
+                                             sqrt_g_Bth_over_c, Z, am, polforce, qlheat_e, &
+                                             qlheat_i, torque_e, torque_i)
+            call assert_equal(qlheat_e, n * D * e_charge**2 * E0r**2 / Te, &
+                              "electron Joule heating")
+            call assert_equal(qlheat_i, n * D * (Z * e_charge)**2 * E0r**2 / Ti, &
+                              "ion Joule heating")
+        end do
+
+        print *, "  Finished: ", test_name
+
+    end subroutine test_ql_heating_of_field_driven_flux
 
 
 

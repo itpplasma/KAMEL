@@ -220,6 +220,7 @@ module time_evolution
 
         integer :: iredo
         integer, intent(out), optional :: stat
+        real(dp) :: step_taken
 
         if (present(stat)) stat = 0
         if (trim(wave_code) == 'KIM' .and. kim_periodic_mode_selected()) then
@@ -276,6 +277,7 @@ module time_evolution
             end if
         end do
 
+        step_taken = minval(timstep_arr)
         call rescale_time_step_array
         call set_time_step
         call stop_if_time_step_too_small
@@ -286,7 +288,7 @@ module time_evolution
         timstep_arr = 0.0d0
         call evolvestep(timstep, eps)
         timstep_arr = timstep
-        time = time + timstep
+        time = time + step_taken
 
         call log_debug("msg_time_info")
         if (.not. suppression_mode) call write_kin_profile_at_time_index

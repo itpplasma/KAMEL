@@ -1,8 +1,9 @@
 name: CI
 
 on:
+  # Pull requests and the merge queue test every change before it reaches main.
   push:
-    branches: [main, fix-ci]
+    branches: [fix-ci]
   pull_request:
     types: [opened, synchronize, reopened, labeled]
   merge_group:
@@ -24,28 +25,17 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || format('{0}-{1}', github.ref, github.run_id) }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 env:
-  CMAKE_BUILD_PARALLEL_LEVEL: '2'
-  CTEST_PARALLEL_LEVEL: '1'
   MPLBACKEND: Agg
   OPENBLAS_NUM_THREADS: '1'
   OMP_NUM_THREADS: '1'
 
 jobs:
   python-unit:
-    if: >-
-      github.event_name == 'merge_group' || github.event_name == 'workflow_dispatch' ||
-      (github.event_name == 'push' && github.ref == format('refs/heads/{0}', github.event.repository.default_branch) && github.actor != 'github-merge-queue[bot]')
-    runs-on: [self-hosted, itp-ubuntu24]
+    runs-on: ubuntu-latest
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-
-      # setup-python's pip cache uses lsb_release to distinguish Linux images.
-      - name: Install Python cache dependency
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y --no-install-recommends lsb-release
 
       - name: Set up Python 3.10
         uses: actions/setup-python@v5
@@ -61,11 +51,8 @@ jobs:
         run: python -m pytest KIM/python/tests/unit
 
   pre-commit:
-    if: >-
-      github.event_name == 'merge_group' || github.event_name == 'workflow_dispatch' ||
-      (github.event_name == 'push' && github.ref == format('refs/heads/{0}', github.event.repository.default_branch) && github.actor != 'github-merge-queue[bot]')
     name: Pre-commit
-    runs-on: [self-hosted, itp-ubuntu24]
+    runs-on: ubuntu-latest
 
     steps:
       - name: Checkout repository
@@ -84,22 +71,18 @@ jobs:
       - name: Run pre-commit hooks
         run: pre-commit run --all-files --show-diff-on-failure
 
-  build-ubuntu:
-    if: >-
-      github.event_name == 'merge_group' || github.event_name == 'workflow_dispatch' ||
-      (github.event_name == 'push' && github.ref == format('refs/heads/{0}', github.event.repository.default_branch) && github.actor != 'github-merge-queue[bot]')
-    name: Build (Ubuntu)
+  # Build and test run in one job per platform, so the build directory is
+  # never archived, uploaded and restored between jobs.
+  test-ubuntu:
+    name: Test (Ubuntu)
     needs: pre-commit
-    runs-on: [self-hosted, itp-ubuntu24]
-    outputs:
-      python-version: ${{ steps.python.outputs.python-version }}
+    runs-on: ubuntu-latest
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
 
       - name: Set up Python
-        id: python
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
@@ -128,167 +111,21 @@ jobs:
             python3-dev \
             python3-pip
           pip install numpy scipy matplotlib h5py f90nml pytest
-
-      - name: Cache external dependencies
-        uses: actions/cache@v6
-        with:
-          path: build/external-install
-          key: external-deps-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('cmake/Fetch*.cmake') }}
-          restore-keys: |
-            external-deps-${{ runner.os }}-${{ runner.arch }}-
-
-      - name: Build with make
-        run: make all ${{ inputs.libneo_ref != '' && format('LIBNEO_REF={0}', inputs.libneo_ref) || '' }}
-
-      # Preserve the build directory, executable modes and shared-library symlinks.
-      - name: Archive build
-        run: tar -czf build.tar.gz build
-
-      - name: Upload build artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: build-ubuntu-latest
-          path: build.tar.gz
-          compression-level: 0
-          retention-days: 1
-          if-no-files-found: error
-
-  build-macos-arm64:
-    if: >-
-      github.event_name == 'merge_group' || (github.event_name == 'workflow_dispatch' && !inputs.skip_macos) ||
-      (github.event_name == 'push' && github.ref == format('refs/heads/{0}', github.event.repository.default_branch) && github.actor != 'github-merge-queue[bot]')
-    name: Build (macOS 14 ARM64)
-    needs: pre-commit
-    runs-on: [self-hosted, itp-macos]
-    env:
-      MACOSX_DEPLOYMENT_TARGET: '14.0'
-      HOMEBREW_NO_AUTO_UPDATE: '1'
-    outputs:
-      python-version: ${{ steps.python.outputs.python-version }}
-
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v6
-
-      - name: Set up native Python 3.11
-        id: python
-        run: /opt/itp-ci-macos/setup-python.sh '3.11'
-
-      - name: Install dependencies (macOS)
-        run: |
-          # Homebrew metadata commands can write locks outside the job sandbox.
-          for formula in \
-            cmake \
-            ninja \
-            doxygen \
-            gcc \
-            llvm \
-            lapack \
-            openmpi \
-            hdf5 \
-            netcdf \
-            netcdf-fortran \
-            libomp \
-            openblas \
-            gsl \
-            suite-sparse \
-            superlu \
-            mpfr \
-            gmp; do
-            test -d "/opt/homebrew/opt/$formula" || {
-              echo "Missing runner dependency: $formula" >&2
-              exit 1
-            }
-          done
-          pip install numpy scipy matplotlib h5py f90nml pytest
-
-      - name: Cache external dependencies
-        uses: actions/cache@v6
-        with:
-          path: build/external-install
-          key: external-deps-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('cmake/Fetch*.cmake') }}
-          restore-keys: |
-            external-deps-${{ runner.os }}-${{ runner.arch }}-
-
-      - name: Build with make
-        run: make all ${{ inputs.libneo_ref != '' && format('LIBNEO_REF={0}', inputs.libneo_ref) || '' }}
-
-      # Preserve the build directory, executable modes and shared-library symlinks.
-      - name: Archive build
-        run: tar -czf build.tar.gz build
-
-      - name: Upload build artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: build-macos-14-arm64
-          path: build.tar.gz
-          compression-level: 0
-          retention-days: 1
-          if-no-files-found: error
-
-      - name: Upload CMake failure diagnostics
-        if: failure()
-        uses: actions/upload-artifact@v4
-        with:
-          name: cmake-macos-build
-          path: |
-            build/CMakeFiles/CMakeConfigureLog.yaml
-            build/CMakeFiles/CMakeError.log
-          retention-days: 1
-          if-no-files-found: ignore
-
-  test-ubuntu:
-    if: >-
-      github.event_name == 'merge_group' || github.event_name == 'workflow_dispatch' ||
-      (github.event_name == 'push' && github.ref == format('refs/heads/{0}', github.event.repository.default_branch) && github.actor != 'github-merge-queue[bot]')
-    name: Test (Ubuntu)
-    needs: build-ubuntu
-    runs-on: [self-hosted, itp-ubuntu24]
-
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v6
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          # CTest stores the build runner's absolute interpreter path.
-          python-version: ${{ needs.build-ubuntu.outputs.python-version }}
-
-      - name: Install dependencies (Ubuntu)
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y \
-            cmake \
-            ninja-build \
-            gfortran \
-            libopenmpi-dev \
-            openmpi-bin \
-            libhdf5-openmpi-dev \
-            libnetcdf-dev \
-            libnetcdff-dev \
-            libomp-dev \
-            libopenblas-dev \
-            liblapack-dev \
-            libgsl-dev \
-            libsuitesparse-dev \
-            libsuperlu-dev \
-            python3-dev \
-            python3-pip \
-            libmpfr-dev \
-            libgmp-dev
-          pip install numpy scipy matplotlib h5py f90nml pytest
           pip install -e './KIM/python[test]'
 
-      - name: Restore build artifacts
-        uses: actions/download-artifact@v8
+      - name: Cache external dependencies
+        uses: actions/cache@v6
         with:
-          name: build-ubuntu-latest
-          path: .
-          digest-mismatch: error
+          path: build/external-install
+          key: external-deps-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('cmake/Fetch*.cmake') }}
+          restore-keys: |
+            external-deps-${{ runner.os }}-${{ runner.arch }}-
 
-      - name: Extract build artifacts
-        run: tar -xzf build.tar.gz
+      - name: Set parallelism from the CPU budget
+        run: ci/set_parallelism.sh
+
+      - name: Build with make
+        run: make all ${{ inputs.libneo_ref != '' && format('LIBNEO_REF={0}', inputs.libneo_ref) || '' }}
 
       - name: Test golden-record harness
         run: make pytest
@@ -299,26 +136,29 @@ jobs:
           KIM_EXECUTABLE: ${{ github.workspace }}/build/install/bin/KIM.x
         run: python3 -m pytest KIM/python/tests/integration/test_periodic_run.py -v
 
-      # Invoke CTest directly: make test would rebuild after the fresh checkout.
+      # Invoke CTest directly: make test would rebuild.
       - name: Run tests
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           EVENT_NAME: ${{ github.event_name }}
           FULL: ${{ inputs.full }}
+          # Pull requests skip the golden record (run in the merge queue)
+          # unless labeled full-ci.
+          FAST_TIER: ${{ github.event_name == 'pull_request' && !contains(github.event.pull_request.labels.*.name, 'full-ci') }}
         run: |
-          if [ "$EVENT_NAME" = workflow_dispatch ] && [ "$FULL" != true ]; then
+          if { [ "$EVENT_NAME" = workflow_dispatch ] && [ "$FULL" != true ]; } || [ "$FAST_TIER" = true ]; then
             ctest --test-dir build --output-on-failure -LE golden_record
           else
             ctest --test-dir build --output-on-failure
           fi
 
   test-macos-arm64:
-    if: >-
-      github.event_name == 'merge_group' || (github.event_name == 'workflow_dispatch' && !inputs.skip_macos) ||
-      (github.event_name == 'push' && github.ref == format('refs/heads/{0}', github.event.repository.default_branch) && github.actor != 'github-merge-queue[bot]')
+    if: github.event_name != 'workflow_dispatch' || !inputs.skip_macos
+    # The hosted macos-14 image is retired. The job keeps its required-check
+    # name and builds for macOS 14 (MACOSX_DEPLOYMENT_TARGET) on macos-15.
     name: Test (macOS 14 ARM64)
-    needs: build-macos-arm64
-    runs-on: [self-hosted, itp-macos]
+    needs: pre-commit
+    runs-on: macos-15
     env:
       MACOSX_DEPLOYMENT_TARGET: '14.0'
       HOMEBREW_NO_AUTO_UPDATE: '1'
@@ -327,15 +167,14 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v6
 
-      - name: Set up native Python 3.11
-        env:
-          CI_PYTHON_VERSION: ${{ needs.build-macos-arm64.outputs.python-version }}
-        run: /opt/itp-ci-macos/setup-python.sh "$CI_PYTHON_VERSION"
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
 
       - name: Install dependencies (macOS)
         run: |
-          # Homebrew metadata commands can write locks outside the job sandbox.
-          for formula in \
+          brew install \
             cmake \
             ninja \
             doxygen \
@@ -352,30 +191,37 @@ jobs:
             suite-sparse \
             superlu \
             mpfr \
-            gmp; do
-            test -d "/opt/homebrew/opt/$formula" || {
-              echo "Missing runner dependency: $formula" >&2
-              exit 1
-            }
-          done
+            gmp
           pip install numpy scipy matplotlib h5py f90nml pytest
 
-      # Owned Mac jobs have separate workspace roots; build here so CTest and
-      # library paths belong to this job rather than a previous runner's root.
-      - name: Build in the test job workspace
+      - name: Cache external dependencies
+        uses: actions/cache@v6
+        with:
+          path: build/external-install
+          key: external-deps-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('cmake/Fetch*.cmake') }}
+          restore-keys: |
+            external-deps-${{ runner.os }}-${{ runner.arch }}-
+
+      - name: Set parallelism from the CPU budget
+        run: ci/set_parallelism.sh
+
+      - name: Build with make
         run: make all ${{ inputs.libneo_ref != '' && format('LIBNEO_REF={0}', inputs.libneo_ref) || '' }}
 
       - name: Test golden-record harness
         run: make pytest
 
-      # Invoke CTest directly: make test would rebuild after the fresh checkout.
+      # Invoke CTest directly: make test would rebuild.
       - name: Run tests
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           EVENT_NAME: ${{ github.event_name }}
           FULL: ${{ inputs.full }}
+          # Pull requests skip the golden record (run in the merge queue)
+          # unless labeled full-ci.
+          FAST_TIER: ${{ github.event_name == 'pull_request' && !contains(github.event.pull_request.labels.*.name, 'full-ci') }}
         run: |
-          if [ "$EVENT_NAME" = workflow_dispatch ] && [ "$FULL" != true ]; then
+          if { [ "$EVENT_NAME" = workflow_dispatch ] && [ "$FULL" != true ]; } || [ "$FAST_TIER" = true ]; then
             ctest --test-dir build --output-on-failure -LE golden_record
           else
             ctest --test-dir build --output-on-failure

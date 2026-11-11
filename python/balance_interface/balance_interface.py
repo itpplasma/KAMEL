@@ -94,12 +94,14 @@ class QL_Balance_interface:
         benchmark_mode="none",
         kim_config_file=None,
         suppress_console_output=True,
+        I0=None,
     ):
         """Prepare and execute a periodic-KIM QL-Balance run.
 
         The caller supplies the KIM namelist because grid, harmonic, and
         compact-transition controls are solver-specific.  The balance
         namelist is generated with the validated species/B-parallel policy.
+        I0 is the KiLCA antenna current in statA. None keeps the machine default.
         """
         modes = list(modes)
         self.configure_periodic_kim(modes, target_current, benchmark_mode)
@@ -157,7 +159,7 @@ class QL_Balance_interface:
             self.conf.conf["balancenml"]["kim_config_sha256"] = hashlib.sha256(
                 config_stream.read()
             ).hexdigest()
-        self.prepare_balance_kim(Btor, a_minor)
+        self.prepare_balance_kim(Btor, a_minor, I0)
         self.set_config_nml()
         self.write_config_nml(os.path.join(self.run_path, "balance_conf.nml"))
         return self.run_balance(suppress_console_output=suppress_console_output)
@@ -220,8 +222,12 @@ class QL_Balance_interface:
         """Set the factors for the balance run."""
         self.facs = {"fac_n": fac_n, "fac_Te": fac_Te, "fac_Ti": fac_Ti, "fac_vz": fac_vz}
 
-    def prepare_balance(self, Btor, a_minor):
-        self.prepare_KiLCA(Btor, a_minor)
+    def prepare_balance(self, Btor, a_minor, I0=None):
+        """Run KiLCA and prepare input and output files.
+
+        I0 is the KiLCA antenna current in statA. None keeps the machine default.
+        """
+        self.prepare_KiLCA(Btor, a_minor, I0)
         # self.prepare_balance_input(self.input_h5_file)
         if self.debug:
             print("D: Prepare balance output")
@@ -278,11 +284,11 @@ class QL_Balance_interface:
                 "fac_vz": np.array([1.0]),
             }
 
-    def prepare_KiLCA(self, Btor, a_minor):
+    def prepare_KiLCA(self, Btor, a_minor, I0=None):
         if self.debug:
             print("D: Prepare KiLCA")
         self.kil_flre = KiLCA_interface(self.shot, self.time, self.run_path, "flre", self.machine)
-        self.kil_flre.set_machine(delta_r_antenna=self.delta_r_antenna, a_minor=a_minor)
+        self.kil_flre.set_machine(delta_r_antenna=self.delta_r_antenna, a_minor=a_minor, I0=I0)
         self.kil_flre.background.data["Btor"] = Btor
         self.kil_flre.background.data["vgalsys"] = -1e8
 
@@ -293,7 +299,7 @@ class QL_Balance_interface:
         self.kil_flre_post = KiLCA_postprocessor(self.kil_flre)
         self.I_KiLCA = self.get_KiLCA_current()
 
-        self.prepare_vacuum_kilca(Btor, a_minor)
+        self.prepare_vacuum_kilca(Btor, a_minor, I0)
         if self.debug:
             print("D: Finished KiLCA preperation")
 
@@ -362,27 +368,28 @@ class QL_Balance_interface:
         grp.create_dataset("layer_width", data=[self.layer_width])
         h5f.close()
 
-    def prepare_balance_kim(self, Btor, a_minor):
+    def prepare_balance_kim(self, Btor, a_minor, I0=None):
         """Prepare QL-Balance for KIM mode with vacuum solution.
 
         When wave_code='KIM', the Fortran QL-Balance code calls KIM internally.
         We prepare the HDF5 input (profiles + Da), run the KiLCA vacuum solver
         (needed for vacuum fields beyond the plasma), and set up the output file.
+        I0 is the KiLCA antenna current in statA. None keeps the machine default.
         """
         if self.debug:
             print("D: Prepare balance for KIM mode")
         self.check_if_factors_set()
         self.prepare_input_h5_without_kilca()
-        self.prepare_vacuum_kilca(Btor, a_minor)
+        self.prepare_vacuum_kilca(Btor, a_minor, I0)
         self.prepare_output_h5()
         self.link_executable()
 
-    def prepare_vacuum_kilca(self, Btor, a_minor):
+    def prepare_vacuum_kilca(self, Btor, a_minor, I0=None):
         """Run KiLCA vacuum solver only (no plasma response)."""
         if self.debug:
             print("D: Running KiLCA vacuum solver")
         kil_vac = KiLCA_interface(self.shot, self.time, self.run_path, "vacuum", self.machine)
-        kil_vac.set_machine(delta_r_antenna=self.delta_r_antenna, a_minor=a_minor)
+        kil_vac.set_machine(delta_r_antenna=self.delta_r_antenna, a_minor=a_minor, I0=I0)
         kil_vac.background.data["Btor"] = Btor
         kil_vac.background.data["vgalsys"] = -1e8
         kil_vac.set_modes(self.m_mode, self.n_mode)

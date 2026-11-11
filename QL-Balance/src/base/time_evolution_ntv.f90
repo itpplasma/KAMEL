@@ -105,11 +105,14 @@ contains
     end subroutine initTimeEvolutionNTV
 
     subroutine runTimeEvolutionNTV(this)
-        use time_evolution, only: time_ind, Nstorage
+        use time_evolution, only: time_ind, time_step_range
 
         class(TimeEvolutionNTV_t), intent(inout) :: this
 
-        do time_ind = 1, Nstorage
+        integer :: first_step, last_step
+
+        call time_step_range(first_step, last_step)
+        do time_ind = first_step, last_step
             call doStep(this)
         end do
     end subroutine runTimeEvolutionNTV

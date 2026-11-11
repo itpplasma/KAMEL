@@ -27,6 +27,11 @@ add_executable(test_rhs_balance.x test_rhs_balance.f90)
 target_link_libraries(test_rhs_balance.x PUBLIC ql-balance_lib)
 add_fortran_test(test_rhs_balance)
 
+# A(y)*y + q(y) of the implicit step must count the RMP torque once
+add_executable(test_rhs_source_consistency.x test_rhs_source_consistency.f90)
+target_link_libraries(test_rhs_source_consistency.x PUBLIC ql-balance_lib)
+add_fortran_test(test_rhs_source_consistency)
+
 # Parameter-scan profile rescaling
 add_executable(test_paramscan.x test_paramscan.f90)
 target_link_libraries(test_paramscan.x PUBLIC ql-balance_lib)

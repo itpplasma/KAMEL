@@ -471,6 +471,7 @@ contains
         use PolyLagrangeInterpolation, only: binsrc
         use control_mod, only: data_verbosity
         use grid_mod, only: rb, torque_density_ntv
+        use logger_m, only: log_info
         use writeData_m, only: write_NTV_torque_diagnostic
         use spline, only: spline_coeff, spline_val
         use wave_code_data, only: antenna_factor
@@ -487,6 +488,7 @@ contains
         real(dp), dimension(:, :), allocatable :: torque_splined
         integer :: ntorque, nrb, i, i_separatrix
         real(dp) :: antenna_factor_scaling
+        character(len=128) :: log_line
 
         ! extract array sizes
         ntorque = size(transport_data)
@@ -534,6 +536,12 @@ contains
         ! exponent (for different collisionality regimes)
         antenna_factor_scaling = (antenna_factor / antenna_factor_max)**antenna_factor_exponent
         torque_density_ntv = torque_density_ntv * antenna_factor_scaling
+
+        ! The NTV torque enters the implicit step as a frozen source with no
+        ! Jacobian entry, so its size relative to the step is worth seeing.
+        write (log_line, '(A,ES10.3,A)') "NEO-RT: max |NTV torque density| = ", &
+            maxval(abs(torque_density_ntv)), " dyn/cm^2"
+        call log_info(trim(log_line))
     end subroutine apply_ntv_transport
 
 end module neort_interface

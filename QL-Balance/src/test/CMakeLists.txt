@@ -32,6 +32,11 @@ add_executable(test_rhs_source_consistency.x test_rhs_source_consistency.f90)
 target_link_libraries(test_rhs_source_consistency.x PUBLIC ql-balance_lib)
 add_fortran_test(test_rhs_source_consistency)
 
+# One implicit step must keep a stationary state (accuracy of the sparse solve)
+add_executable(test_evolvestep_stationary.x test_evolvestep_stationary.f90)
+target_link_libraries(test_evolvestep_stationary.x PUBLIC ql-balance_lib)
+add_fortran_test(test_evolvestep_stationary)
+
 # Parameter-scan profile rescaling
 add_executable(test_paramscan.x test_paramscan.f90)
 target_link_libraries(test_paramscan.x PUBLIC ql-balance_lib)

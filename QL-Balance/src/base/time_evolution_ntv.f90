@@ -32,7 +32,8 @@ contains
     subroutine initTimeEvolutionNTV(this)
         use baseparam_mod, only: am, Z_i, rsepar
         use grid_mod, only: rmin
-        use neort_interface, only: meta_config_neort_t, read_neort_meta_config, read_equil_file, &
+        use neort_interface, only: meta_config_neort_t, read_neort_meta_config, &
+                                   meta_config_neort_problem, read_equil_file, &
                                    calculate_s_tor, calculate_coarse_s_tor
         use spline, only: spline_coeff, spline_val
 
@@ -52,6 +53,9 @@ contains
 
         ! NEO-RT
         call read_neort_meta_config(balance_config_file, meta_config)
+        if (len_trim(meta_config_neort_problem(meta_config)) > 0) then
+            error stop trim(meta_config_neort_problem(meta_config))
+        end if
         antenna_factor_exponent = meta_config%antenna_factor_exponent
         s_size = meta_config%amount_of_s
 

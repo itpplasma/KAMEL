@@ -10,10 +10,11 @@ program test_periodic_checkpoint_reader
     implicit none
     integer(HID_T) :: file_id
     integer :: case_index
-    character(128) :: group
+    character(128) :: group, rb_dataset
     real(dp), parameter :: radius(3) = [1.0_dp, 2.0_dp, 3.0_dp]
     real(dp), parameter :: density(3) = [1.1e13_dp, 1.2e13_dp, 1.3e13_dp]
     real(dp), parameter :: electric(3) = [0.11_dp, -0.22_dp, 0.33_dp]
+    real(dp), parameter :: boundary(4) = [0.5_dp, 1.5_dp, 2.5_dp, 3.5_dp]
 
     path2inp = 'checkpoint_reader_input.h5'
     path2time = 'checkpoint_reader_profiles.h5'
@@ -33,14 +34,17 @@ program test_periodic_checkpoint_reader
             m_vals = [-6, -7]
             n_vals = [2, 2]
             group = 'multi_mode/KinProfiles/1004/'
+            rb_dataset = '/init_params/r'
         elseif (case_index == 2) then
             m_vals = [-16]
             n_vals = [12]
             group = 'f_-16_12/KinProfiles/1004/'
+            rb_dataset = '/init_params/r'
         else
             m_vals = [-6]
             n_vals = [2]
             group = 'f_*_2/fort.1000/1004/'
+            rb_dataset = 'f_*_2/fort.5000/5004/r'
         end if
         call h5_init()
         call h5_create(trim(path2time), file_id)
@@ -49,7 +53,8 @@ program test_periodic_checkpoint_reader
         call h5_add(file_id, trim(group)//'Te', radius * 200.0_dp, [1], [3])
         call h5_add(file_id, trim(group)//'Vz', radius, [1], [3])
         call h5_add(file_id, trim(group)//'rc', radius, [1], [3])
-        ! The historical writer saves cell-averaged Er but boundary-point Vth.
+        ! The historical writer saves cell-averaged Er but boundary-point Vth on rb.
+        call h5_add(file_id, trim(rb_dataset), boundary, [1], [4])
         call h5_add(file_id, trim(group)//'Er', electric, [1], [3])
         call h5_add(file_id, trim(group)//'Vth', [10.0_dp, 20.0_dp, 30.0_dp, 40.0_dp], &
                     [1], [4])
@@ -71,7 +76,9 @@ program test_periodic_checkpoint_reader
         call require(all(idPhi0 == -electric), 'legacy Er sign or cell-length reader is wrong')
         call require(all(iVz == radius * rtor), &
                      'legacy angular to linear velocity conversion changed')
-        call require(all(iVth == [10.0_dp, 20.0_dp, 30.0_dp]), 'legacy boundary Vth changed')
+        call require(all(iVth == [10.0_dp, 20.0_dp, 30.0_dp, 40.0_dp]), &
+                     'legacy boundary Vth truncated')
+        call require(all(rVth == boundary), 'legacy Vth not read on the boundary grid rb')
         call require(all(iq == [2.0_dp, 3.0_dp, 4.0_dp, 5.0_dp]), 'legacy input q was not loaded')
         deallocate (rq, iq, rn, in, rTi, iTi, rTe, iTe, rVth, iVth, rVz, iVz, rep, idPhi0)
     end do

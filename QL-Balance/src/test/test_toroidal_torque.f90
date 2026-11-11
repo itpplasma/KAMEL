@@ -1,7 +1,8 @@
 program test_toroidal_torque
     use iso_fortran_env, only: dp => real64
     use baseparam_mod, only: pi, rtor
-    use grid_mod, only: T_EM_phi_e, T_EM_phi_i, torque_ntv, T_tot_phi_e, T_tot_phi_i, T_tot_ntv_i
+    use grid_mod, only: torque_density_e, torque_density_i, torque_density_ntv, &
+                        T_tot_phi_e, T_tot_phi_i, T_tot_phi_ntv
     use wave_code_data, only: r
     use h5mod, only: path2out, h5_mode_groupname
     use KAMEL_hdf5_tools, only: HID_T, h5_add, h5_close, h5_create, h5_deinit, &
@@ -16,13 +17,13 @@ program test_toroidal_torque
     integer :: lo, hi
 
     allocate (r(3))
-    allocate (T_EM_phi_e(3), T_EM_phi_i(3), torque_ntv(3))
-    allocate (T_tot_phi_e(3), T_tot_phi_i(3), T_tot_ntv_i(3))
+    allocate (torque_density_e(3), torque_density_i(3), torque_density_ntv(3))
+    allocate (T_tot_phi_e(3), T_tot_phi_i(3), T_tot_phi_ntv(3))
 
     r = [0.0_dp, 0.5_dp, 1.0_dp]
-    T_EM_phi_e = 1.0_dp
-    T_EM_phi_i = -2.0_dp
-    torque_ntv = 0.5_dp
+    torque_density_e = 1.0_dp
+    torque_density_i = -2.0_dp
+    torque_density_ntv = 0.5_dp
     rtor = 3.0_dp
 
     call calculate_total_toroidal_torque(1)
@@ -33,7 +34,7 @@ program test_toroidal_torque
 
     call assert_close(T_tot_phi_e(1), expected_e, "electron total torque")
     call assert_close(T_tot_phi_i(1), expected_i, "ion total torque")
-    call assert_close(T_tot_ntv_i(1), expected_ntv, "ion total NTV torque")
+    call assert_close(T_tot_phi_ntv(1), expected_ntv, "ion total NTV torque")
 
     ! Seed prior output independently: the first writer call models a fresh
     ! process continuing at step three, with no live unlimited-dataset handles.
@@ -42,12 +43,12 @@ program test_toroidal_torque
     call h5_create(path2out, file_id)
     call h5_add(file_id, '/multi_mode/T_tot_phi_e', [11.0_dp, 12.0_dp], [1], [2])
     call h5_add(file_id, '/multi_mode/T_tot_phi_i', [-21.0_dp, -22.0_dp], [1], [2])
-    call h5_add(file_id, '/multi_mode/T_tot_ntv_i', [51.0_dp, 52.0_dp], [1], [2])
+    call h5_add(file_id, '/multi_mode/T_tot_phi_ntv', [51.0_dp, 52.0_dp], [1], [2])
     call h5_close(file_id)
     call h5_deinit()
     T_tot_phi_e(3) = 13.0_dp
     T_tot_phi_i(3) = -23.0_dp
-    T_tot_ntv_i(3) = 53.0_dp
+    T_tot_phi_ntv(3) = 53.0_dp
     call write_total_toroidal_torque_to_file(3)
     call verify_history(path2out, 'multi_mode', [11.0_dp, 12.0_dp, 13.0_dp], &
                         [-21.0_dp, -22.0_dp, -23.0_dp], [51.0_dp, 52.0_dp, 53.0_dp])
@@ -59,7 +60,7 @@ program test_toroidal_torque
     call h5_deinit()
     T_tot_phi_e(1:2) = [31.0_dp, 32.0_dp]
     T_tot_phi_i(1:2) = [-41.0_dp, -42.0_dp]
-    T_tot_ntv_i(1:2) = [61.0_dp, 62.0_dp]
+    T_tot_phi_ntv(1:2) = [61.0_dp, 62.0_dp]
     call write_total_toroidal_torque_to_file(1)
     call write_total_toroidal_torque_to_file(2)
     call verify_history(path2out, 'multi_mode', [31.0_dp, 32.0_dp], [-41.0_dp, -42.0_dp], &
@@ -100,9 +101,9 @@ contains
         do index = 1, hi
             call assert_close(actual(index), expected_i(index), 'ion torque history')
         end do
-        call h5_get_bounds_1(file_id, '/'//group//'/T_tot_ntv_i', lo, hi)
+        call h5_get_bounds_1(file_id, '/'//group//'/T_tot_phi_ntv', lo, hi)
         if (lo /= 1 .or. hi /= size(expected_ntv)) error stop 'NTV history extent mismatch'
-        call h5_get(file_id, '/'//group//'/T_tot_ntv_i', actual)
+        call h5_get(file_id, '/'//group//'/T_tot_phi_ntv', actual)
         do index = 1, hi
             call assert_close(actual(index), expected_ntv(index), 'NTV torque history')
         end do

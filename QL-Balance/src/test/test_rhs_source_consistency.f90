@@ -1,8 +1,9 @@
 program test_rhs_source_consistency
     !! The implicit balance step advances dy/dt = A(y)*y + q(y), where A comes
-    !! from rhs_balance's frozen-coefficient column probing and q from
-    !! rhs_balance_source. Whatever the split between A and q, their sum at the
-    !! current state must reproduce the physical right-hand side f(y) once.
+    !! from rhs_balance's frozen-coefficient column probing and q is returned by
+    !! rhs_balance. Whatever the split between A and q, their sum at the current
+    !! state must reproduce the physical right-hand side f(y), with every term
+    !! counted once [B1, #199].
     !!
     !! The momentum equation is used because, with the viscosity switched off,
     !! its only right-hand side is the RMP torque density
@@ -11,7 +12,9 @@ program test_rhs_source_consistency
     !!   [Markl2023 (23), Heyn2014 (64), (67)],
     !! so the reference value is computed here directly from the transport
     !! coefficients and the boundary-interpolated profiles, without the
-    !! production assembly routines.
+    !! production assembly routines. The second case adds poloidal rotation,
+    !! whose constant contribution -sqrt(g) B^theta/c q V_pol/r to E0r
+    !! [Markl2023 (26)] does not respond to the Jacobian probe.
     use QLBalance_kinds, only: dp
     use grid_mod, only: rb, npoib, npoic, rmin, rmax, npoimin, iboutype, gg_factor, &
                         gg_width, set_boundary_condition, mwind, neqset, nbaleqs, &
@@ -33,56 +36,18 @@ program test_rhs_source_consistency
     implicit none
 
     real(dp), parameter :: rel_tol = 1.0e-8_dp
-    real(dp), allocatable :: y(:), dy(:), a_times_y(:), rate(:), source(:)
-    real(dp), allocatable :: torque_rate(:), input_r(:)
-    integer :: ipoi, k, npoi, i_mom, num_failed
-    real(dp) :: scale, ratio, max_err
+    real(dp), allocatable :: input_r(:)
+    integer :: num_failed
     external :: gengrid, allocate_wave_code_data, calc_geometric_parameter_profiles
 
     num_failed = 0
     call setup_plasma()
 
-    npoi = npoic
-    allocate (y(neqset), dy(neqset), a_times_y(neqset), rate(neqset), source(neqset))
-    y = reshape(params(:, 1:npoi), [neqset])
+    Vth = 0.0_dp
+    call check_torque_counted_once('no poloidal rotation')
 
-    call initialize_rhs(y, dy)
-    call rhs_balance(0.0_dp, y, dy)
-    source = rhsvec
-
-    a_times_y = 0.0_dp
-    do k = 1, nz
-        a_times_y(irow(k)) = a_times_y(irow(k)) + amat(k) * y(icol(k))
-    end do
-    rate = a_times_y + source
-
-    call reference_torque_rate(torque_rate)
-    scale = maxval(abs(torque_rate))
-    call require(scale > 0.0_dp, 'fixture produces no RMP torque')
-
-    max_err = 0.0_dp
-    do ipoi = 1, npoi
-        i_mom = nbaleqs * (ipoi - 1) + 2
-        max_err = max(max_err, abs(source(i_mom) - torque_rate(ipoi)))
-    end do
-    ! Diagnostic only: the split between A and q is a design choice (before
-    ! a03dc6ea q held no RMP source at all); only their sum is constrained.
-    print '(A,ES12.4)', '  q(y) momentum rows vs reference torque, max rel. error: ', &
-        max_err / scale
-
-    max_err = 0.0_dp
-    ratio = 0.0_dp
-    do ipoi = 1, npoi
-        i_mom = nbaleqs * (ipoi - 1) + 2
-        max_err = max(max_err, abs(rate(i_mom) - torque_rate(ipoi)))
-        ratio = ratio + rate(i_mom) * torque_rate(ipoi)
-    end do
-    ratio = ratio / sum(torque_rate**2)
-    print '(A,ES12.4)', '  A*y+q momentum rows vs reference torque, max rel. error: ', &
-        max_err / scale
-    print '(A,F10.6)', '  least-squares ratio (A*y+q)/torque: ', ratio
-    call require(max_err <= rel_tol * scale, &
-                 'A(y)*y + q(y) counts the RMP torque more than once')
+    Vth = 3.0e5_dp * r / 60.0_dp
+    call check_torque_counted_once('with poloidal rotation')
 
     if (num_failed > 0) then
         print *, 'TESTS FAILED: ', num_failed
@@ -91,6 +56,50 @@ program test_rhs_source_consistency
     print *, 'PASS: A(y)*y + q(y) reproduces the RMP torque once'
 
 contains
+
+    subroutine check_torque_counted_once(label)
+        character(*), intent(in) :: label
+        real(dp), allocatable :: y(:), dy(:), a_times_y(:), rate(:), torque_rate(:)
+        integer :: ipoi, k, npoi, i_mom
+        real(dp) :: scale, ratio, max_err, max_err_q
+
+        npoi = npoic
+        allocate (y(neqset), dy(neqset), a_times_y(neqset), rate(neqset))
+        y = reshape(params(:, 1:npoi), [neqset])
+
+        call initialize_rhs(y, dy)
+        call rhs_balance(0.0_dp, y, dy)
+
+        a_times_y = 0.0_dp
+        do k = 1, nz
+            a_times_y(irow(k)) = a_times_y(irow(k)) + amat(k) * y(icol(k))
+        end do
+        rate = a_times_y + rhsvec
+
+        call reference_torque_rate(torque_rate)
+        scale = maxval(abs(torque_rate))
+        call require(scale > 0.0_dp, label//': fixture produces no RMP torque')
+
+        max_err = 0.0_dp
+        max_err_q = 0.0_dp
+        ratio = 0.0_dp
+        do ipoi = 1, npoi
+            i_mom = nbaleqs * (ipoi - 1) + 2
+            max_err = max(max_err, abs(rate(i_mom) - torque_rate(ipoi)))
+            max_err_q = max(max_err_q, abs(rhsvec(i_mom) - torque_rate(ipoi)))
+            ratio = ratio + rate(i_mom) * torque_rate(ipoi)
+        end do
+        ratio = ratio / sum(torque_rate**2)
+        print '(2A)', '  case: ', label
+        ! Diagnostic only: the split between A and q is a design choice.
+        print '(A,ES12.4)', '    q(y) momentum rows vs reference torque, max rel. error: ', &
+            max_err_q / scale
+        print '(A,ES12.4)', '    A*y+q momentum rows vs reference torque, max rel. error: ', &
+            max_err / scale
+        print '(A,F10.6)', '    least-squares ratio (A*y+q)/torque: ', ratio
+        call require(max_err <= rel_tol * scale, &
+                     label//': A(y)*y + q(y) does not reproduce the RMP torque once')
+    end subroutine check_torque_counted_once
 
     subroutine setup_plasma()
         real(dp), allocatable :: diffusion(:), bump(:)
@@ -176,7 +185,7 @@ contains
             dte = sum(params(3, lo:hi) * deriv_coef(:, ib))
             dti = sum(params(4, lo:hi) * deriv_coef(:, ib))
             er = (tib / nb * dn + dti) / (Z_i * e_charge) + &
-                 sqrt_g_times_B_theta_over_c(ib) * vphib
+                 sqrt_g_times_B_theta_over_c(ib) * (vphib - q(ib) * Vth(ib) / rb(ib))
             a1e = dn / nb - 1.5_dp * dte / teb + e_charge * er / teb
             a2e = dte / teb
             a1i = dn / nb - 1.5_dp * dti / tib - Z_i * e_charge * er / tib

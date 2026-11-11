@@ -24,6 +24,7 @@ module neort_interface
     public :: prepare_profile_data_for_neort
     public :: read_equil_file
     public :: read_neort_meta_config
+    public :: meta_config_neort_problem
 
 contains
 
@@ -38,18 +39,21 @@ contains
         integer :: toroidal_mode_number
 
         ! I/O error handling
-        integer :: iostat
+        integer :: iunit, iostat
         character(len=512) :: iomsg
+
+        ! NEO-RT's own defaults; every key missing from the namelist keeps them
+        type(config_t) :: defaults
 
         ! namelist content
         ! This is a modified version of the full input format used by NEO-RT
         ! as some values are deliberately unused or fixed plus the following:
-        ! - explicit paths for the Boozer input files, where the perturbation file is optional
+        ! - explicit paths for the Boozer input files
         ! - amount of equidistant s to compute on
         ! - an exponent for the antenna_factor the resulting torque gets scaled with
         ! new meta config values:
         character(len=1024) :: boozer_file
-        character(len=1024) :: boozer_pert_file  ! optional
+        character(len=1024) :: boozer_pert_file
         integer :: amount_of_s
         real(dp) :: antenna_factor_exponent
         ! original NEO-RT config values
@@ -78,9 +82,36 @@ contains
             epsmn, supban, magdrift, magdrift_passing, nopassing, noshear, nonlin, bfac, efac, &
             inp_swi, inp_swi_pert, vsteps, mth_max_abs, vmax_over_vth, log_level
 
+        ! defaults
+        boozer_file = ""
+        boozer_pert_file = ""
+        amount_of_s = 100
+        antenna_factor_exponent = 2.0_dp  ! quasilinear NTV torque scales with (delta B)^2
+        epsmn = defaults%epsmn
+        supban = defaults%supban
+        magdrift = defaults%magdrift
+        magdrift_passing = defaults%magdrift_passing
+        nopassing = defaults%nopassing
+        noshear = defaults%noshear
+        nonlin = defaults%nonlin
+        bfac = defaults%bfac
+        efac = defaults%efac
+        inp_swi = defaults%inp_swi
+        inp_swi_pert = defaults%inp_swi_pert
+        vsteps = defaults%vsteps
+        mth_max_abs = defaults%mth_max_abs
+        vmax_over_vth = defaults%vmax_over_vth
+        log_level = defaults%log_level
+
         ! read namelist
-        open (22, file=config_file)
-        read (22, nml=NEORT, iostat=iostat, iomsg=iomsg)
+        open (newunit=iunit, file=config_file, status="old", action="read", iostat=iostat, &
+              iomsg=iomsg)
+        if (iostat /= 0) then
+            write (*, *) "Cannot open "//trim(config_file)//": "//trim(iomsg)
+            error stop
+        end if
+        read (iunit, nml=NEORT, iostat=iostat, iomsg=iomsg)
+        close (iunit)
 
         if (iostat /= 0) then
             write (*, *) "type_of_run == 'TimeEvolutionNTV' specified, but "// &
@@ -107,7 +138,7 @@ contains
         meta_config%config%magdrift_passing = magdrift_passing
         meta_config%config%nopassing = nopassing
         meta_config%config%noshear = noshear
-        meta_config%config%pertfile = boozer_pert_file /= ""  ! only if boozer_pert_file was set
+        meta_config%config%pertfile = len_trim(boozer_pert_file) > 0
         meta_config%config%nonlin = nonlin
         meta_config%config%bfac = bfac
         meta_config%config%efac = efac
@@ -119,6 +150,26 @@ contains
         meta_config%config%log_level = log_level
         ! output_format irrelevant, write_output not called by the lib interface
     end subroutine read_neort_meta_config
+
+    !> @brief Describe why a meta config cannot be used; empty if it can.
+    function meta_config_neort_problem(meta_config) result(problem)
+        type(meta_config_neort_t), intent(in) :: meta_config
+        character(len=256) :: problem
+
+        problem = ""
+        if (len_trim(meta_config%boozer_file) == 0) then
+            problem = "NEORT: boozer_file must be given"
+        else if (len_trim(meta_config%boozer_pert_file) == 0) then
+            ! Without a perturbation file NEO-RT would use an analytic
+            ! perturbation of relative amplitude epsmn with KiLCA's mode numbers,
+            ! whose sign convention is not defined for NEO-RT's Boozer angles.
+            problem = "NEORT: boozer_pert_file must be given (analytic perturbation unsupported)"
+        else if (meta_config%antenna_factor_exponent < 0.0_dp) then
+            problem = "NEORT: antenna_factor_exponent must not be negative"
+        else if (meta_config%amount_of_s < 2) then
+            problem = "NEORT: amount_of_s must be at least 2"
+        end if
+    end function meta_config_neort_problem
 
     !> @brief Prepare plasma profile data for NEO-RT from KAMEL arrays
     !> @param[out] plasma_data 2D array (nflux, 6) for NEO-RT plasma input

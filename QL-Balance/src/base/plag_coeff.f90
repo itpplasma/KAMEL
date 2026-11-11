@@ -95,6 +95,21 @@ module PolyLagrangeInterpolation
 
     end subroutine binsrc
 
+    !> Indices of the nlagr-point stencil around index i of a grid with n >= nlagr
+    !> points, shifted at either end to stay inside 1..n.
+    subroutine get_lagr_stencil(i, n, ind_begin, ind_end)
+
+        implicit none
+
+        integer, intent(in) :: i, n
+        integer, intent(out) :: ind_begin, ind_end
+
+        ind_begin = max(1, min(i - nlagr/2, n - nlagr + 1))
+        ind_end = ind_begin + nlagr - 1
+
+    end subroutine get_lagr_stencil
+
+    !> Stencil around index indResRadius of the balance grid rb.
     subroutine get_ind_Lagr_interp(indResRadius, ind_begin_interp, ind_end_interp)
 
         use grid_mod, only: npoib
@@ -104,12 +119,7 @@ module PolyLagrangeInterpolation
         integer, intent(out) :: ind_begin_interp, ind_end_interp
         integer , intent(in) :: indResRadius
 
-        ind_begin_interp = max(1, indResRadius - nlagr/2)
-        ind_end_interp = ind_begin_interp + nlagr - 1
-        if (ind_end_interp .gt. npoib) then
-            ind_end_interp = npoib
-            ind_begin_interp = ind_end_interp - nlagr + 1
-        end if
+        call get_lagr_stencil(indResRadius, npoib, ind_begin_interp, ind_end_interp)
 
     end subroutine
 end module

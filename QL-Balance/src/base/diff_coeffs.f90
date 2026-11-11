@@ -62,6 +62,7 @@ subroutine calc_equil_diffusion_coeffs
     !code from amn_of_r to interpolate (+do loop)
 
     !interpolate on balance grid
+    if (nr < nlagr) error stop "Da grid has fewer points than the interpolation stencil"
     if (.not. allocated(coef)) allocate (coef(0:nder, nlagr))
 
     do ipoi = 1, npoib
@@ -72,7 +73,9 @@ subroutine calc_equil_diffusion_coeffs
 
         !binsearch
         call binsrc(r_raw, 1, nr, r, i)
-        call get_ind_Lagr_interp(i, ind_begin_interp, ind_end_interp)
+        ! A stencil on the Da grid r_raw, which may be shorter (e.g. ending at the
+        ! separatrix) or longer than the balance grid rb.
+        call get_lagr_stencil(i, nr, ind_begin_interp, ind_end_interp)
         !lagrange interpolation with order 4 only for function (0)
 
         call plag_coeff(nlagr, nder, r, r_raw(ind_begin_interp:ind_end_interp), coef)

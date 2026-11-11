@@ -36,10 +36,9 @@ The complete build requires:
 - CMake 3.24 or newer, Ninja, Git, and a POSIX build environment.
 - C, C++, and Fortran compilers with OpenMP support.
 - BLAS and LAPACK.
-- SuperLU (used by KIM).
 
 The first configuration needs network access. CMake fetches pinned or selected
-versions of fortnum, fortio, SUNDIALS, SuiteSparse, and libneo. HDF5 and NetCDF
+versions of fortnum, fortio, FortSparse, SUNDIALS, and libneo. HDF5 and NetCDF
 files are read and written through fortio, so the native HDF5 and NetCDF
 libraries are not linked. The complex error function library libcerf is
 bundled in KIM. Python is optional for the compiled solvers but required for
@@ -48,6 +47,19 @@ KAMELpy and several analysis workflows; its package requirements are listed in
 
 CI builds on Ubuntu with GNU compilers. The CMake configuration also contains
 macOS/Homebrew support for LLVM OpenMP and HDF5.
+
+The shared QL-Balance/KIM sparse adapter uses native FortSparse real/complex
+pivoted LU; SuperLU, UMFPACK, MUMPS and their helpers are disabled in the fetched
+FortSparse build. BLAS/LAPACK and optional AMD ordering remain available.
+Historical `sparse_solve_method=2` requests original-matrix iterative refinement;
+`3` selects the plain solve. Refinement is fixed at factorization: changing
+methods while reusing factors is rejected with a diagnostic requiring a new
+factorization (`iopt=1` or `0`). The legacy `sparse_solve_suitesparse` names are
+compatibility entry points to this same native implementation. Numerical
+failures terminate explicitly rather than returning unchecked singular output.
+The adapter retains its historical single-factor, module-global ownership and
+is not a concurrent/reentrant solver interface. No distributed sparse ownership
+or MPI solver development is introduced.
 
 ## Build
 

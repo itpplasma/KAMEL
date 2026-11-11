@@ -1,6 +1,14 @@
 MODULE sparse_mod
+  USE fortsparse, ONLY: sparse_solver_t, fortsparse_status_t, &
+       native_factor => sparse_factor, native_solve => sparse_solve, &
+       native_free => sparse_free, status_ok, FORTSPARSE_BACKEND_NATIVE, &
+       FORTSPARSE_SYM_GENERAL
 
   IMPLICIT NONE
+
+  PRIVATE :: sparse_solver_t, fortsparse_status_t, native_factor, native_solve
+  PRIVATE :: native_free, status_ok, FORTSPARSE_BACKEND_NATIVE, FORTSPARSE_SYM_GENERAL
+  PRIVATE :: native_check, native_is_pointer, native_column_pointer, native_prepare
 
   PUBLIC sparse_solve_method
   INTEGER :: sparse_solve_method = 2
@@ -17,21 +25,10 @@ MODULE sparse_mod
   PRIVATE factorization_exists
   LOGICAL :: factorization_exists = .FALSE.
 
-  !-------------------------------------------------------------------------------
-  !Initialization of the parameters of Super_LU c-Routines
-  PRIVATE factors
-  INTEGER(kind=long) :: factors
-  !-------------------------------------------------------------------------------
-
-  !-------------------------------------------------------------------------------
-  !Initialization of the SuiteSparse-Solver-Routine!
-  !Solver's internal data adress pointer
-  INTEGER(kind=long), PRIVATE :: symbolic, numeric
-  !Solves A*x=b (e.g. sys=2 -> solves (A^T)*x=b; further options manual pg. 26)
-  INTEGER(kind=long), PRIVATE :: sys=0
-  !default values for control pg. 22
-  REAL(kind=dp), PRIVATE :: control(20), info_suitesparse(90)
-  !-------------------------------------------------------------------------------
+  ! Legacy entry points retain one factorization, as before. The historical
+  ! method numbers select native LU with (2) or without (3) refinement.
+  TYPE(sparse_solver_t), PRIVATE, SAVE :: native_solver
+  INTEGER, PRIVATE, SAVE :: native_scalar = 0, native_method = 0
 
   PUBLIC load_mini_example
   PRIVATE load_mini_ex
@@ -655,18 +652,17 @@ CONTAINS
     REAL(kind=dp), DIMENSION(:), INTENT(inout) :: b
     INTEGER, INTENT(in), OPTIONAL :: iopt_in
 
-    INTEGER :: iopt = 0
+    INTEGER :: iopt
     INTEGER, DIMENSION(:), ALLOCATABLE :: pcoln
-    LOGICAL :: pcol_modified = .FALSE.
+    LOGICAL :: pcol_modified
 
     !optional input
+    iopt = 0
     IF (PRESENT(iopt_in)) iopt = iopt_in
 
     ! make sure that pcol is a pointer, otherwise create pcoln
-    IF (SIZE(pcol,1) .EQ. SIZE(irow,1)) THEN
-       CALL column_full2pointer(pcol,pcoln)
-       pcol_modified = .TRUE.
-    END IF
+    pcol_modified = .NOT. native_is_pointer(ncol, nz, pcol)
+    IF (pcol_modified) CALL native_column_pointer(ncol, nz, pcol, pcoln)
 
     ! check about existing factorization
     IF (factorization_exists .AND. iopt .EQ. 1) THEN ! free memory first
@@ -699,7 +695,7 @@ CONTAINS
        END IF
     ELSE
        PRINT *, 'sparse_solve_method ',sparse_solve_method,'not implemented'
-       STOP
+       ERROR STOP 'Unsupported sparse method'
     END IF
 
     IF (ALLOCATED(pcoln)) DEALLOCATE(pcoln)
@@ -718,18 +714,17 @@ CONTAINS
     COMPLEX(kind=dp), DIMENSION(:), INTENT(inout) :: b
     INTEGER, INTENT(in), OPTIONAL :: iopt_in
 
-    INTEGER :: iopt = 0
+    INTEGER :: iopt
     INTEGER, DIMENSION(:), ALLOCATABLE :: pcoln
-    LOGICAL :: pcol_modified = .FALSE.
+    LOGICAL :: pcol_modified
 
     !optional input
+    iopt = 0
     IF (PRESENT(iopt_in)) iopt = iopt_in
 
     ! make sure that pcol is a pointer, otherwise create pcoln
-    IF (SIZE(pcol,1) .EQ. SIZE(irow,1)) THEN
-       CALL column_full2pointer(pcol,pcoln)
-       pcol_modified = .TRUE.
-    END IF
+    pcol_modified = .NOT. native_is_pointer(ncol, nz, pcol)
+    IF (pcol_modified) CALL native_column_pointer(ncol, nz, pcol, pcoln)
 
     ! check about existing factorization
     IF (factorization_exists .AND. iopt .EQ. 1) THEN ! free memory first
@@ -762,7 +757,7 @@ CONTAINS
        END IF
     ELSE
        PRINT *, 'sparse_solve_method ',sparse_solve_method,'not implemented'
-       STOP
+       ERROR STOP 'Unsupported sparse method'
     END IF
 
     IF (ALLOCATED(pcoln)) DEALLOCATE(pcoln)
@@ -781,18 +776,17 @@ CONTAINS
     REAL(kind=dp), DIMENSION(:,:), INTENT(inout) :: b
     INTEGER, INTENT(in), OPTIONAL :: iopt_in
 
-    INTEGER :: iopt = 0
+    INTEGER :: iopt
     INTEGER, DIMENSION(:), ALLOCATABLE :: pcoln
-    LOGICAL :: pcol_modified = .FALSE.
+    LOGICAL :: pcol_modified
 
     !optional input
+    iopt = 0
     IF (PRESENT(iopt_in)) iopt = iopt_in
 
     ! make sure that pcol is a pointer, otherwise create pcoln
-    IF (SIZE(pcol,1) .EQ. SIZE(irow,1)) THEN
-       CALL column_full2pointer(pcol,pcoln)
-       pcol_modified = .TRUE.
-    END IF
+    pcol_modified = .NOT. native_is_pointer(ncol, nz, pcol)
+    IF (pcol_modified) CALL native_column_pointer(ncol, nz, pcol, pcoln)
 
     ! check about existing factorization
     IF (factorization_exists .AND. iopt .EQ. 1) THEN ! free memory first
@@ -825,7 +819,7 @@ CONTAINS
        END IF
     ELSE
        PRINT *, 'sparse_solve_method ',sparse_solve_method,'not implemented'
-       STOP
+       ERROR STOP 'Unsupported sparse method'
     END IF
 
     IF (ALLOCATED(pcoln)) DEALLOCATE(pcoln)
@@ -844,18 +838,17 @@ CONTAINS
     COMPLEX(kind=dp), DIMENSION(:,:), INTENT(inout) :: b
     INTEGER, INTENT(in), OPTIONAL :: iopt_in
 
-    INTEGER :: iopt = 0
+    INTEGER :: iopt
     INTEGER, DIMENSION(:), ALLOCATABLE :: pcoln
-    LOGICAL :: pcol_modified = .FALSE.
+    LOGICAL :: pcol_modified
 
     !optional input
+    iopt = 0
     IF (PRESENT(iopt_in)) iopt = iopt_in
 
     ! make sure that pcol is a pointer, otherwise create pcoln
-    IF (SIZE(pcol,1) .EQ. SIZE(irow,1)) THEN
-       CALL column_full2pointer(pcol,pcoln)
-       pcol_modified = .TRUE.
-    END IF
+    pcol_modified = .NOT. native_is_pointer(ncol, nz, pcol)
+    IF (pcol_modified) CALL native_column_pointer(ncol, nz, pcol, pcoln)
 
     ! check about existing factorization
     IF (factorization_exists .AND. iopt .EQ. 1) THEN ! free memory first
@@ -888,7 +881,7 @@ CONTAINS
        END IF
     ELSE
        PRINT *, 'sparse_solve_method ',sparse_solve_method,'not implemented'
-       STOP
+       ERROR STOP 'Unsupported sparse method'
     END IF
 
     IF (ALLOCATED(pcoln)) DEALLOCATE(pcoln)
@@ -905,12 +898,13 @@ CONTAINS
     REAL(kind=dp), DIMENSION(:), INTENT(inout) :: b
     INTEGER, INTENT(in), OPTIONAL :: iopt_in
 
-    INTEGER :: iopt = 0
+    INTEGER :: iopt
     INTEGER :: nrow,ncol,nz
     INTEGER, DIMENSION(:), ALLOCATABLE :: irow,pcol
     REAL(kind=dp), DIMENSION(:), ALLOCATABLE :: val
 
     !optional input
+    iopt = 0
     IF (PRESENT(iopt_in)) iopt = iopt_in
 
     CALL full2sparse(A,irow,pcol,val,nrow,ncol,nz)
@@ -934,7 +928,7 @@ CONTAINS
        CALL sparse_solve_suitesparse(nrow,ncol,nz,irow,pcol,val,b,iopt)
     ELSE
        PRINT *, 'sparse_solve_method ',sparse_solve_method,'not implemented'
-       STOP
+       ERROR STOP 'Unsupported sparse method'
     END IF
 
     IF (ALLOCATED(irow)) DEALLOCATE(irow)
@@ -953,12 +947,13 @@ CONTAINS
     COMPLEX(kind=dp), DIMENSION(:), INTENT(inout) :: b
     INTEGER, INTENT(in), OPTIONAL :: iopt_in
 
-    INTEGER :: iopt = 0
+    INTEGER :: iopt
     INTEGER :: nrow,ncol,nz
     INTEGER, DIMENSION(:), ALLOCATABLE :: irow,pcol
     COMPLEX(kind=dp), DIMENSION(:), ALLOCATABLE :: val
 
     !optional input
+    iopt = 0
     IF (PRESENT(iopt_in)) iopt = iopt_in
 
     CALL full2sparse(A,irow,pcol,val,nrow,ncol,nz)
@@ -982,7 +977,7 @@ CONTAINS
        CALL sparse_solve_suitesparse(nrow,ncol,nz,irow,pcol,val,b,iopt)
     ELSE
        PRINT *, 'sparse_solve_method ',sparse_solve_method,'not implemented'
-       STOP
+       ERROR STOP 'Unsupported sparse method'
     END IF
 
     IF (ALLOCATED(irow)) DEALLOCATE(irow)
@@ -1001,12 +996,13 @@ CONTAINS
     REAL(kind=dp), DIMENSION(:,:), INTENT(inout) :: b
     INTEGER, INTENT(in), OPTIONAL :: iopt_in
 
-    INTEGER :: iopt = 0
+    INTEGER :: iopt
     INTEGER :: nrow,ncol,nz
     INTEGER, DIMENSION(:), ALLOCATABLE :: irow,pcol
     REAL(kind=dp), DIMENSION(:), ALLOCATABLE :: val
 
     !optional input
+    iopt = 0
     IF (PRESENT(iopt_in)) iopt = iopt_in
 
     CALL full2sparse(A,irow,pcol,val,nrow,ncol,nz)
@@ -1030,7 +1026,7 @@ CONTAINS
        CALL sparse_solve_suitesparse(nrow,ncol,nz,irow,pcol,val,b,iopt)
     ELSE
        PRINT *, 'sparse_solve_method ',sparse_solve_method,'not implemented'
-       STOP
+       ERROR STOP 'Unsupported sparse method'
     END IF
 
     IF (ALLOCATED(irow)) DEALLOCATE(irow)
@@ -1049,12 +1045,13 @@ CONTAINS
     COMPLEX(kind=dp), DIMENSION(:,:), INTENT(inout) :: b
     INTEGER, INTENT(in), OPTIONAL :: iopt_in
 
-    INTEGER :: iopt = 0
+    INTEGER :: iopt
     INTEGER :: nrow,ncol,nz
     INTEGER, DIMENSION(:), ALLOCATABLE :: irow,pcol
     COMPLEX(kind=dp), DIMENSION(:), ALLOCATABLE :: val
 
     !optional input
+    iopt = 0
     IF (PRESENT(iopt_in)) iopt = iopt_in
 
     CALL full2sparse(A,irow,pcol,val,nrow,ncol,nz)
@@ -1078,7 +1075,7 @@ CONTAINS
        CALL sparse_solve_suitesparse(nrow,ncol,nz,irow,pcol,val,b,iopt)
     ELSE
        PRINT *, 'sparse_solve_method ',sparse_solve_method,'not implemented'
-       STOP
+       ERROR STOP 'Unsupported sparse method'
     END IF
 
     IF (ALLOCATED(irow)) DEALLOCATE(irow)
@@ -1088,488 +1085,209 @@ CONTAINS
   END SUBROUTINE sparse_solveComplex_A_b2
   !-------------------------------------------------------------------------------
 
-  !-------------------------------------------------------------------------------
-  ! solves A*x = b for sparse A and 1-D vector b
-  ! A is specified through nrow,ncol,nz,irow,pcol,val
-  ! results are returned in b
-  ! Routines from SuperLU-Distribution
+  ! Historical names remain source compatible; no external solver is called.
+  SUBROUTINE native_check(status)
+    TYPE(fortsparse_status_t), INTENT(in) :: status
+    IF (.NOT. status_ok(status)) THEN
+       WRITE(*,*) 'KAMEL native sparse solver: ', status%code, TRIM(status%msg)
+       ERROR STOP 'Native sparse solve failed'
+    END IF
+  END SUBROUTINE native_check
+
+  LOGICAL FUNCTION native_is_pointer(ncol, nz, pcol) RESULT(valid)
+    INTEGER, INTENT(in) :: ncol, nz, pcol(:)
+    valid = .FALSE.
+    IF (ncol < 1 .OR. nz < 0) RETURN
+    IF (SIZE(pcol) /= ncol+1) RETURN
+    IF (pcol(1) /= 1 .OR. pcol(ncol+1) /= nz+1) RETURN
+    IF (ANY(pcol(2:) < pcol(:ncol))) RETURN
+    valid = .TRUE.
+  END FUNCTION native_is_pointer
+
+  ! Sorted per-entry column IDs, including matrices with trailing empty columns.
+  SUBROUTINE native_column_pointer(ncol, nz, columns, pointer)
+    INTEGER, INTENT(in) :: ncol, nz, columns(:)
+    INTEGER, ALLOCATABLE, INTENT(out) :: pointer(:)
+    INTEGER :: j, k
+    IF (ncol < 1 .OR. nz < 0) ERROR STOP 'Invalid sparse matrix dimensions'
+    IF (SIZE(columns) < nz) ERROR STOP 'Short sparse column list'
+    IF (ANY(columns(:nz) < 1) .OR. ANY(columns(:nz) > ncol)) &
+         ERROR STOP 'Invalid sparse column index'
+    IF (nz > 1) THEN
+       IF (ANY(columns(2:nz) < columns(:nz-1))) &
+            ERROR STOP 'Sparse column indices must be sorted'
+    END IF
+    ALLOCATE(pointer(ncol+1))
+    k = 1
+    DO j = 1,ncol
+       pointer(j) = k
+       DO WHILE (k <= nz)
+          IF (columns(k) /= j) EXIT
+          k = k+1
+       END DO
+    END DO
+    pointer(ncol+1) = nz+1
+  END SUBROUTINE native_column_pointer
+
+  SUBROUTINE native_prepare(nrow,ncol,nz,irow,pcol,iopt,scalar)
+    INTEGER, INTENT(in) :: nrow,ncol,nz,irow(:),pcol(:),iopt,scalar
+    IF (iopt < 0 .OR. iopt > 3) ERROR STOP 'Invalid sparse iopt'
+    IF (sparse_solve_method /= 2 .AND. sparse_solve_method /= 3) &
+         ERROR STOP 'Sparse method must be 2 (refined) or 3 (plain)'
+    IF (iopt == 3) RETURN
+    IF (nrow /= ncol .OR. nrow < 1 .OR. nz < 0) &
+         ERROR STOP 'Native sparse solve requires a nonempty square matrix'
+    IF (SIZE(irow) < nz) ERROR STOP 'Short sparse row list'
+    IF (.NOT. native_is_pointer(ncol,nz,pcol)) ERROR STOP 'Invalid sparse CSC pointer'
+    IF (iopt == 2) THEN
+       IF (.NOT. native_solver%factored) ERROR STOP 'Sparse factors not available'
+       IF (native_scalar /= scalar) ERROR STOP 'Sparse factors have different scalar type'
+       IF (native_method /= sparse_solve_method) &
+            ERROR STOP 'Changing sparse refinement method requires refactorization'
+    END IF
+  END SUBROUTINE native_prepare
+
   SUBROUTINE sparse_solve_suitesparse_b1(nrow,ncol,nz,irow,pcol,val,b,iopt_in)
-    INTEGER, INTENT(in) :: nrow,ncol,nz
-    INTEGER, DIMENSION(:), INTENT(in) :: irow,pcol
-    REAL(kind=dp), DIMENSION(:), INTENT(in) :: val
-    REAL(kind=dp), DIMENSION(:), INTENT(inout) :: b
-    INTEGER, INTENT(in) :: iopt_in
+    INTEGER, INTENT(in) :: nrow,ncol,nz,irow(:),pcol(:),iopt_in
+    REAL(kind=dp), INTENT(in) :: val(:)
+    REAL(kind=dp), INTENT(inout) :: b(:)
+    TYPE(fortsparse_status_t) :: status
 
-    INTEGER(kind=long) :: n
-    INTEGER(kind=long), ALLOCATABLE, DIMENSION(:) :: Ai, Ap  !row-index Ai, column-pointer Ap
-    REAL(kind=dp), ALLOCATABLE, DIMENSION(:) :: x !vector to store the solution
-
-    ALLOCATE( x(SIZE(b)) )
-    x = 0.0_dp   ! zero-init: UMFPACK leaves decoupled/empty-row DOFs unwritten
-    ALLOCATE( Ai(SIZE(irow)) )
-    ALLOCATE( Ap(SIZE(pcol)) )
-
-    IF (SIZE(pcol,1) .NE. ncol+1) THEN
-       PRINT *, 'Wrong pcol'
-       STOP
+    CALL native_prepare(nrow,ncol,nz,irow,pcol,iopt_in,1)
+    IF (iopt_in == 3) THEN
+       CALL native_free(native_solver)
+       factorization_exists = .FALSE.
+       RETURN
     END IF
-
-    !   set default parameters
-    CALL umf4def (control)
-
-    n = nrow !convert from 1 to 0-based indexing
-    Ai=irow-1 !convert from 1 to 0-based indexing
-    Ap=pcol-1 !convert from 1 to 0-based indexing
-
-    ! First, factorize the matrix. The factors are stored in *numeric* handle.
-    IF (iopt_in .EQ. 0 .OR. iopt_in .EQ. 1) THEN
-       !pre-order and symbolic analysis
-       CALL umf4sym (n, n, Ap, Ai, val, symbolic, control, info_suitesparse)
-       IF (sparse_talk) THEN
-          IF (info_suitesparse(1) .EQ. 0) THEN
-          ELSE
-             PRINT *, 'Error occurred in umf4sym: ', info_suitesparse (1)
-          ENDIF
-       ENDIF
-
-       CALL umf4num (Ap, Ai, val, symbolic, numeric, control, info_suitesparse)
-
-       IF (sparse_talk) THEN
-          IF (info_suitesparse(1) .EQ. 0) THEN
-             PRINT *, 'Factorization succeeded'
-
-          ELSE
-             PRINT *, 'INFO from factorization = ', info_suitesparse(1)
-          ENDIF
-       END IF
+    IF (SIZE(val) < nz .OR. SIZE(b,1) /= nrow) ERROR STOP 'Invalid sparse value/RHS size'
+    IF (iopt_in == 0 .OR. iopt_in == 1) THEN
+       CALL native_free(native_solver)
+       native_solver%backend_id = FORTSPARSE_BACKEND_NATIVE
+       native_solver%options%symmetry = FORTSPARSE_SYM_GENERAL
+       native_solver%refine = sparse_solve_method == 2
+       CALL native_factor(native_solver,nrow,ncol,nz,pcol,irow(:nz),val(:nz),status)
+       CALL native_check(status)
+       native_scalar = 1
+       native_method = sparse_solve_method
+       factorization_exists = .TRUE.
     END IF
-
-    ! Second, solve the system using the existing factors.
-    IF (iopt_in .EQ. 0 .OR. iopt_in .EQ. 2) THEN
-       IF ( sparse_solve_method .EQ. 2 ) THEN ! SuiteSparse (with (=2)
-          CALL umf4solr (sys, Ap, Ai, val, x, b, numeric, control, info_suitesparse) !iterative refinement
-       ELSE !or without (=3)) iterative refinement
-          CALL umf4sol (sys, x, b, numeric, control, info_suitesparse) !without iterative refinement
-       END IF
-       b=x !store solution under b
-
-       IF (sparse_talk) THEN
-          IF (info_suitesparse(1) .EQ. 0) THEN
-             PRINT *, 'Solve succeeded'
-          ELSE
-             PRINT *, 'INFO from triangular solve = ', info_suitesparse(1)
-          ENDIF
-       END IF
+    IF (iopt_in == 0 .OR. iopt_in == 2) THEN
+       CALL native_solve(native_solver,b,status)
+       CALL native_check(status)
     END IF
-
-    ! Last, free the storage allocated inside SuiteSparse
-    IF (iopt_in .EQ. 0 .OR. iopt_in .EQ. 3) THEN
-       CALL umf4fnum (numeric)
-       CALL umf4fsym (symbolic)
+    IF (iopt_in == 0) THEN
+       CALL native_free(native_solver)
+       factorization_exists = .FALSE.
     END IF
-
-    IF (ALLOCATED(Ai)) DEALLOCATE(Ai)
-    IF (ALLOCATED(Ap)) DEALLOCATE(Ap)
-    IF (ALLOCATED(x))  DEALLOCATE(x)
-
   END SUBROUTINE sparse_solve_suitesparse_b1
-  !-------------------------------------------------------------------------------
 
-  !-------------------------------------------------------------------------------
-  ! solves A*x = b for sparse A and 1-D vector b
-  ! A is specified through nrow,ncol,nz,irow,pcol,val
-  ! results are returned in b
-  ! Routines from SuperLU-Distribution
   SUBROUTINE sparse_solve_suitesparseComplex_b1(nrow,ncol,nz,irow,pcol,val,b,iopt_in)
-    INTEGER, INTENT(in) :: nrow,ncol,nz
-    INTEGER, DIMENSION(:), INTENT(in) :: irow,pcol
-    COMPLEX(kind=dp), DIMENSION(:), INTENT(in) :: val
-    COMPLEX(kind=dp), DIMENSION(:), INTENT(inout) :: b
-    INTEGER, INTENT(in) :: iopt_in
+    INTEGER, INTENT(in) :: nrow,ncol,nz,irow(:),pcol(:),iopt_in
+    COMPLEX(kind=dp), INTENT(in) :: val(:)
+    COMPLEX(kind=dp), INTENT(inout) :: b(:)
+    TYPE(fortsparse_status_t) :: status
 
-    INTEGER :: k
-    INTEGER(kind=long) :: n
-    INTEGER(kind=long), ALLOCATABLE, DIMENSION(:) :: Ai, Ap  !row-index Ai, column-pointer Ap
-    REAL(kind=dp), ALLOCATABLE, DIMENSION(:) :: xx,xz !vector to store the solution (real and imag. part)
-    REAL(kind=dp), ALLOCATABLE, DIMENSION(:) :: valx, valz !val of matrix (real and imag. part)
-    REAL(kind=dp), ALLOCATABLE, DIMENSION(:) :: bx, bz !rhs (real and imag part)
-
-    ALLOCATE( xx(nrow) )
-    ALLOCATE( xz(nrow) )
-    ! zero-init: UMFPACK leaves decoupled/empty-row DOFs unwritten; without
-    ! this they carry uninitialized heap into the solution (b=DCMPLX(xx,xz)).
-    xx = 0.0_dp
-    xz = 0.0_dp
-    ALLOCATE( bx(nrow) )
-    ALLOCATE( bz(nrow) )
-    ALLOCATE( valx(nz) )
-    ALLOCATE( valz(nz) )
-
-
-    bx=DBLE(b)
-    bz=AIMAG(b)
-
-    valx=DBLE(val)
-    valz=AIMAG(val)
-
-    ALLOCATE( Ai(SIZE(irow)) )
-    ALLOCATE( Ap(SIZE(pcol)) )
-
-    IF (SIZE(pcol,1) .NE. ncol+1) THEN
-       PRINT *, 'Wrong pcol'
-       STOP
+    CALL native_prepare(nrow,ncol,nz,irow,pcol,iopt_in,2)
+    IF (iopt_in == 3) THEN
+       CALL native_free(native_solver)
+       factorization_exists = .FALSE.
+       RETURN
     END IF
-
-    !   set default parameters
-    CALL umf4zdef (control)
-
-    n = nrow
-    Ai=irow-1 !convert from 1 to 0-based indexing
-    Ap=pcol-1 !convert from 1 to 0-based indexing
-
-    ! First, factorize the matrix. The factors are stored in *numeric* handle.
-    IF (iopt_in .EQ. 0 .OR. iopt_in .EQ. 1) THEN
-       !pre-order and symbolic analysis
-       CALL umf4zsym (n, n, Ap, Ai, valx, valz, symbolic, control, info_suitesparse)
-
-       IF (sparse_talk) THEN
-          IF (info_suitesparse(1) .EQ. 0) THEN
-             WRITE(*,80)  info_suitesparse (1), info_suitesparse (16), &
-                  (info_suitesparse (21) * info_suitesparse (4)) / 2**20, &
-                  (info_suitesparse (22) * info_suitesparse (4)) / 2**20, &
-                  info_suitesparse (23), info_suitesparse (24), &
-                  info_suitesparse (25)
-80           FORMAT ('symbolic analysis:',/,&
-                  '   status:  ', f5.0,/, &
-                  '   time:    ', e10.4, ' (sec)',/, &
-                  '   estimates (upper bound) for numeric LU:',/, &
-                  '   size of LU:    ', f10.2, ' (MB)',/, &
-                  '   memory needed: ', f10.2, ' (MB)',/, &
-                  '   flop count:    ', e10.2,/, &
-                  '   nnz (L):       ', f10.0,/, &
-                  '   nnz (U):       ', f10.0)
-          ELSE
-             PRINT *, 'Error occurred in umf4sym: ', info_suitesparse (1)
-          ENDIF
-       ENDIF
-
-       CALL umf4znum (Ap, Ai, valx, valz, symbolic, numeric, control, info_suitesparse)
-
-       IF (sparse_talk) THEN
-          IF (info_suitesparse(1) .EQ. 0) THEN
-             PRINT *, 'Factorization succeeded'
-             WRITE(*,90) info_suitesparse (1), info_suitesparse (66),&
-                  (info_suitesparse (41) * info_suitesparse (4)) / 2**20, &
-                  (info_suitesparse (42) * info_suitesparse (4)) / 2**20,&
-                  info_suitesparse (43), info_suitesparse (44),&
-                  info_suitesparse (45)
-90           FORMAT ('numeric factorization:',/, &
-                  '   status:  ', f5.0, /, &
-                  '   time:    ', e10.4, /, &
-                  '   actual numeric LU statistics:', /, &
-                  '   size of LU:    ', f10.2, ' (MB)', /, &
-                  '   memory needed: ', f10.2, ' (MB)', /, &
-                  '   flop count:    ', e10.2, / &
-                  '   nnz (L):       ', f10.0, / &
-                  '   nnz (U):       ', f10.0)
-          ELSE
-             PRINT *, 'INFO from factorization = ', info_suitesparse(1)
-          ENDIF
-       END IF
+    IF (SIZE(val) < nz .OR. SIZE(b,1) /= nrow) ERROR STOP 'Invalid sparse value/RHS size'
+    IF (iopt_in == 0 .OR. iopt_in == 1) THEN
+       CALL native_free(native_solver)
+       native_solver%backend_id = FORTSPARSE_BACKEND_NATIVE
+       native_solver%options%symmetry = FORTSPARSE_SYM_GENERAL
+       native_solver%refine = sparse_solve_method == 2
+       CALL native_factor(native_solver,nrow,ncol,nz,pcol,irow(:nz),val(:nz),status)
+       CALL native_check(status)
+       native_scalar = 2
+       native_method = sparse_solve_method
+       factorization_exists = .TRUE.
     END IF
-
-    ! Second, solve the system using the existing factors.
-    IF (iopt_in .EQ. 0 .OR. iopt_in .EQ. 2) THEN
-       IF ( sparse_solve_method .EQ. 2 ) THEN ! SuiteSparse (with (=2)
-          CALL umf4zsolr (sys, Ap, Ai, valx, valz, xx, xz, bx, bz, numeric, &
-               control, info_suitesparse) !iterative refinement
-       ELSE !or without (=3)) iterative refinement
-          CALL umf4zsol (sys, xx, xz, bx, bz, numeric, control, &
-               info_suitesparse) !without iterative refinement
-       END IF
-
-       b=CMPLX(xx,xz, kind=kind(0d0)) !store solution under b
-
-       IF (sparse_talk) THEN
-          IF (info_suitesparse(1) .EQ. 0) THEN
-             PRINT *, 'Solve succeeded'
-          ELSE
-             PRINT *, 'INFO from triangular solve = ', info_suitesparse(1)
-          ENDIF
-       END IF
+    IF (iopt_in == 0 .OR. iopt_in == 2) THEN
+       CALL native_solve(native_solver,b,status)
+       CALL native_check(status)
     END IF
-
-    ! Last, free the storage allocated inside SuiteSparse
-    IF (iopt_in .EQ. 0 .OR. iopt_in .EQ. 3) THEN
-       CALL umf4zfnum (numeric)
-       CALL umf4zfsym (symbolic)
+    IF (iopt_in == 0) THEN
+       CALL native_free(native_solver)
+       factorization_exists = .FALSE.
     END IF
-
-    IF (ALLOCATED(Ai)) DEALLOCATE(Ai)
-    IF (ALLOCATED(Ap)) DEALLOCATE(Ap)
-    IF (ALLOCATED(xx))  DEALLOCATE(xx)
-    IF (ALLOCATED(xz))  DEALLOCATE(xz)
-    IF (ALLOCATED(bx))  DEALLOCATE(bx)
-    IF (ALLOCATED(bz))  DEALLOCATE(bz)
-    IF (ALLOCATED(valx))  DEALLOCATE(valx)
-    IF (ALLOCATED(valz))  DEALLOCATE(valz)
-
   END SUBROUTINE sparse_solve_suitesparseComplex_b1
-  !-------------------------------------------------------------------------------
 
-
-  !-------------------------------------------------------------------------------
-  ! solves A*x = b for sparse A and 2-D array b
-  ! A is specified through nrow,ncol,nz,irow,pcol,val
-  ! results are returned in b
-  ! Routines from SuiteSparse-Distribution
   SUBROUTINE sparse_solve_suitesparse_b2_loop(nrow,ncol,nz,irow,pcol,val,b,iopt_in)
-    INTEGER, INTENT(in) :: nrow,ncol,nz
-    INTEGER, DIMENSION(:), INTENT(in) :: irow,pcol
-    REAL(kind=dp), DIMENSION(:), INTENT(in) :: val
-    REAL(kind=dp), DIMENSION(:,:), INTENT(inout) :: b
-    INTEGER, INTENT(in) :: iopt_in
+    INTEGER, INTENT(in) :: nrow,ncol,nz,irow(:),pcol(:),iopt_in
+    REAL(kind=dp), INTENT(in) :: val(:)
+    REAL(kind=dp), INTENT(inout) :: b(:,:)
+    TYPE(fortsparse_status_t) :: status
+    INTEGER :: j
 
-    INTEGER(kind=long) :: n, i
-    INTEGER(kind=long), ALLOCATABLE, DIMENSION(:) :: Ai, Ap  !row-index Ai, column-pointer Ap
-    REAL(kind=dp), ALLOCATABLE, DIMENSION(:) :: x !vector to store the solution
-    REAL(kind=dp), DIMENSION(:), ALLOCATABLE :: bloc
-
-    !**********************************************************
-    ! Patch from TU Graz ITPcp Plasma - 01.09.2015
-    ! Wrong allocation size of x fixed
-    !**********************************************************
-    ALLOCATE( x(nrow) )
-    x = 0.0_dp   ! zero-init: UMFPACK leaves decoupled/empty-row DOFs unwritten
-    ALLOCATE( Ai(SIZE(irow)) )
-    ALLOCATE( Ap(SIZE(pcol)) )
-    ALLOCATE(bloc(nrow))
-
-    IF (SIZE(pcol,1) .NE. ncol+1) THEN
-       PRINT *, 'Wrong pcol'
-       STOP
+    CALL native_prepare(nrow,ncol,nz,irow,pcol,iopt_in,1)
+    IF (iopt_in == 3) THEN
+       CALL native_free(native_solver)
+       factorization_exists = .FALSE.
+       RETURN
     END IF
-
-    !   set default parameters
-    CALL umf4def (control)
-
-    n = nrow
-    bloc = 0.0_dp
-    Ai=irow-1 !convert from 1 to 0-based indexing
-    Ap=pcol-1 !convert from 1 to 0-based indexing
-
-    IF (SIZE(pcol,1) .NE. ncol+1) THEN
-       PRINT *, 'Wrong pcol'
-       STOP
+    IF (SIZE(val) < nz .OR. SIZE(b,1) /= nrow) ERROR STOP 'Invalid sparse value/RHS size'
+    IF (iopt_in == 0 .OR. iopt_in == 1) THEN
+       CALL native_free(native_solver)
+       native_solver%backend_id = FORTSPARSE_BACKEND_NATIVE
+       native_solver%options%symmetry = FORTSPARSE_SYM_GENERAL
+       native_solver%refine = sparse_solve_method == 2
+       CALL native_factor(native_solver,nrow,ncol,nz,pcol,irow(:nz),val(:nz),status)
+       CALL native_check(status)
+       native_scalar = 1
+       native_method = sparse_solve_method
+       factorization_exists = .TRUE.
     END IF
-
-
-    ! First, factorize the matrix. The factors are stored in *numeric* handle.
-    IF (iopt_in .EQ. 0 .OR. iopt_in .EQ. 1) THEN
-       !pre-order and symbolic analysis
-       CALL umf4sym (n, n, Ap, Ai, val, symbolic, control, info_suitesparse)
-       IF (sparse_talk) THEN
-          IF (info_suitesparse(1) .EQ. 0) THEN
-          ELSE
-             PRINT *, 'Error occurred in umf4sym: ', info_suitesparse (1)
-          ENDIF
-       ENDIF
-
-       CALL umf4num (Ap, Ai, val, symbolic, numeric, control, info_suitesparse)
-
-       IF (sparse_talk) THEN
-          IF (info_suitesparse(1) .EQ. 0) THEN
-             PRINT *, 'Factorization succeeded'
-          ELSE
-             PRINT *, 'INFO from factorization = ', info_suitesparse(1)
-          ENDIF
-       END IF
-    END IF
-
-    ! Second, solve the system using the existing factors.
-    IF (iopt_in .EQ. 0 .OR. iopt_in .EQ. 2) THEN
-       DO i = 1,SIZE(b,2)
-          bloc = b(:,i)
-          IF ( sparse_solve_method .EQ. 2 ) THEN ! SuiteSparse (with (=2)
-             CALL umf4solr (sys, Ap, Ai, val, x, bloc, numeric, control, info_suitesparse) !iterative refinement
-          ELSE !or without (=3)) iterative refinement
-             CALL umf4sol (sys, x, bloc, numeric, control, info_suitesparse) !without iterative refinement
-          END IF
-
-          IF (sparse_talk) THEN
-             IF (info_suitesparse(1) .EQ. 0) THEN
-             ELSE
-                PRINT *, 'INFO from solve = ', info_suitesparse(1)
-             ENDIF
-          END IF
-          b(:,i) = x
+    IF (iopt_in == 0 .OR. iopt_in == 2) THEN
+       DO j = 1,SIZE(b,2)
+          CALL native_solve(native_solver,b(:,j),status)
+          CALL native_check(status)
        END DO
     END IF
-
-    ! Last, free the storage allocated inside SuiteSparse
-    IF (iopt_in .EQ. 0 .OR. iopt_in .EQ. 3) THEN
-       CALL umf4fnum (numeric)
-       CALL umf4fsym (symbolic)
+    IF (iopt_in == 0) THEN
+       CALL native_free(native_solver)
+       factorization_exists = .FALSE.
     END IF
-
-    IF (ALLOCATED(bloc)) DEALLOCATE(bloc)
-    IF (ALLOCATED(Ai)) DEALLOCATE(Ai)
-    IF (ALLOCATED(Ap)) DEALLOCATE(Ap)
-    IF (ALLOCATED(x))  DEALLOCATE(x)
-
-    RETURN
   END SUBROUTINE sparse_solve_suitesparse_b2_loop
-  !-------------------------------------------------------------------------------
 
-  !-------------------------------------------------------------------------------
-  ! solves A*x = b for sparse A and 2-D array b
-  ! A is specified through nrow,ncol,nz,irow,pcol,val
-  ! results are returned in b
-  ! Routines from SuiteSparse-Distribution
   SUBROUTINE sparse_solve_suitesparseComplex_b2_loop(nrow,ncol,nz,irow,pcol,val,b,iopt_in)
-    INTEGER, INTENT(in) :: nrow,ncol,nz
-    INTEGER, DIMENSION(:), INTENT(in) :: irow,pcol
-    COMPLEX(kind=dp), DIMENSION(:), INTENT(in) :: val
-    COMPLEX(kind=dp), DIMENSION(:,:), INTENT(inout) :: b
-    INTEGER, INTENT(in) :: iopt_in
+    INTEGER, INTENT(in) :: nrow,ncol,nz,irow(:),pcol(:),iopt_in
+    COMPLEX(kind=dp), INTENT(in) :: val(:)
+    COMPLEX(kind=dp), INTENT(inout) :: b(:,:)
+    TYPE(fortsparse_status_t) :: status
+    INTEGER :: j
 
-    INTEGER(kind=long) :: n, i
-    INTEGER(kind=long), ALLOCATABLE, DIMENSION(:) :: Ai, Ap  !row-index Ai, column-pointer Ap
-    REAL(kind=dp), ALLOCATABLE, DIMENSION(:) :: xx,xz !vector to store the solution (real and imag. part)
-    REAL(kind=dp), ALLOCATABLE, DIMENSION(:) :: valx, valz !val of matrix (real and imag. part)
-    REAL(kind=dp), ALLOCATABLE, DIMENSION(:,:) :: bx, bz !rhs (real and imag part)
-    REAL(kind=dp), DIMENSION(:), ALLOCATABLE :: blocx, blocz
-
-    ALLOCATE( xx(nrow) )
-    ALLOCATE( xz(nrow) )
-    ! zero-init: UMFPACK leaves decoupled/empty-row DOFs unwritten; without
-    ! this they carry uninitialized heap into the solution (b=DCMPLX(xx,xz)).
-    xx = 0.0_dp
-    xz = 0.0_dp
-    ALLOCATE( bx(nrow, SIZE(b,2)) )
-    ALLOCATE( bz(nrow, SIZE(b,2)) )
-    ALLOCATE( valx(nz) )
-    ALLOCATE( valz(nz) )
-
-    bx=DBLE(b)
-    bz=AIMAG(b)
-    valx=DBLE(val)
-    valz=AIMAG(val)
-
-    ALLOCATE( Ai(SIZE(irow)) )
-    ALLOCATE( Ap(SIZE(pcol)) )
-    ALLOCATE(blocx(nrow))
-    ALLOCATE(blocz(nrow))
-
-    n = nrow
-    blocx = 0.0_dp
-    blocz = 0.0_dp
-    Ai=irow-1 !convert from 1 to 0-based indexing
-    Ap=pcol-1 !convert from 1 to 0-based indexing
-
-    IF (SIZE(pcol,1) .NE. ncol+1) THEN
-       PRINT *, 'Wrong pcol'
-       STOP
+    CALL native_prepare(nrow,ncol,nz,irow,pcol,iopt_in,2)
+    IF (iopt_in == 3) THEN
+       CALL native_free(native_solver)
+       factorization_exists = .FALSE.
+       RETURN
     END IF
-
-    !   set default parameters
-    CALL umf4zdef (control)
-
-
-    ! First, factorize the matrix. The factors are stored in *numeric* handle.
-    IF (iopt_in .EQ. 0 .OR. iopt_in .EQ. 1) THEN
-       !pre-order and symbolic analysis
-       CALL umf4zsym (n, n, Ap, Ai, valx, valz, symbolic, control, info_suitesparse)
-
-       IF (sparse_talk) THEN
-          IF (info_suitesparse(1) .EQ. 0) THEN
-             WRITE(*,80)  info_suitesparse (1), info_suitesparse (16), &
-                  (info_suitesparse (21) * info_suitesparse (4)) / 2**20, &
-                  (info_suitesparse (22) * info_suitesparse (4)) / 2**20, &
-                  info_suitesparse (23), info_suitesparse (24), &
-                  info_suitesparse (25)
-80           FORMAT ('symbolic analysis:',/,&
-                  '   status:  ', f5.0,/, &
-                  '   time:    ', e10.4, ' (sec)',/, &
-                  '   estimates (upper bound) for numeric LU:',/, &
-                  '   size of LU:    ', f10.2, ' (MB)',/, &
-                  '   memory needed: ', f10.2, ' (MB)',/, &
-                  '   flop count:    ', e10.2,/, &
-                  '   nnz (L):       ', f10.0,/, &
-                  '   nnz (U):       ', f10.0)
-
-          ELSE
-             PRINT *, 'Error occurred in umf4sym: ', info_suitesparse (1)
-          ENDIF
-       ENDIF
-
-       CALL umf4znum (Ap, Ai, valx, valz, symbolic, numeric, control, info_suitesparse)
-
-       IF (sparse_talk) THEN
-          IF (info_suitesparse(1) .EQ. 0) THEN
-             PRINT *, 'Factorization succeeded'
-             WRITE(*,90) info_suitesparse (1), info_suitesparse (66),&
-                  (info_suitesparse (41) * info_suitesparse (4)) / 2**20, &
-                  (info_suitesparse (42) * info_suitesparse (4)) / 2**20,&
-                  info_suitesparse (43), info_suitesparse (44),&
-                  info_suitesparse (45)
-90           FORMAT ('numeric factorization:',/, &
-                  '   status:  ', f5.0, /, &
-                  '   time:    ', e10.4, /, &
-                  '   actual numeric LU statistics:', /, &
-                  '   size of LU:    ', f10.2, ' (MB)', /, &
-                  '   memory needed: ', f10.2, ' (MB)', /, &
-                  '   flop count:    ', e10.2, / &
-                  '   nnz (L):       ', f10.0, / &
-                  '   nnz (U):       ', f10.0)
-          ELSE
-             PRINT *, 'INFO from factorization = ', info_suitesparse(1)
-          ENDIF
-       END IF
+    IF (SIZE(val) < nz .OR. SIZE(b,1) /= nrow) ERROR STOP 'Invalid sparse value/RHS size'
+    IF (iopt_in == 0 .OR. iopt_in == 1) THEN
+       CALL native_free(native_solver)
+       native_solver%backend_id = FORTSPARSE_BACKEND_NATIVE
+       native_solver%options%symmetry = FORTSPARSE_SYM_GENERAL
+       native_solver%refine = sparse_solve_method == 2
+       CALL native_factor(native_solver,nrow,ncol,nz,pcol,irow(:nz),val(:nz),status)
+       CALL native_check(status)
+       native_scalar = 2
+       native_method = sparse_solve_method
+       factorization_exists = .TRUE.
     END IF
-
-    ! Second, solve the system using the existing factors.
-    IF (iopt_in .EQ. 0 .OR. iopt_in .EQ. 2) THEN
-       DO i = 1,SIZE(b,2)
-          blocx = bx(:,i)
-          blocz = bz(:,i)
-          IF ( sparse_solve_method .EQ. 2 ) THEN ! SuiteSparse (with (=2)
-             CALL umf4zsolr (sys, Ap, Ai, valx, valz, xx, xz, blocx, blocz, numeric,&
-                  control, info_suitesparse) !iterative refinement
-          ELSE !or without (=3)) iterative refinement
-             CALL umf4zsol (sys, xx, xz, blocx, blocz, numeric,&
-                  control, info_suitesparse) !without iterative refinement
-          END IF
-
-          IF (sparse_talk) THEN
-             IF (info_suitesparse(1) .EQ. 0) THEN
-             ELSE
-                PRINT *, 'INFO from solve = ', info_suitesparse(1)
-             ENDIF
-          END IF
-          b(:,i)=CMPLX(xx,xz, kind=kind(0d0))
+    IF (iopt_in == 0 .OR. iopt_in == 2) THEN
+       DO j = 1,SIZE(b,2)
+          CALL native_solve(native_solver,b(:,j),status)
+          CALL native_check(status)
        END DO
     END IF
-
-    ! Last, free the storage allocated inside SuiteSparse
-    IF (iopt_in .EQ. 0 .OR. iopt_in .EQ. 3) THEN
-       CALL umf4zfnum (numeric)
-       CALL umf4zfsym (symbolic)
+    IF (iopt_in == 0) THEN
+       CALL native_free(native_solver)
+       factorization_exists = .FALSE.
     END IF
-
-    IF (ALLOCATED(blocx)) DEALLOCATE(blocx)
-    IF (ALLOCATED(blocz)) DEALLOCATE(blocz)
-    IF (ALLOCATED(Ai)) DEALLOCATE(Ai)
-    IF (ALLOCATED(Ap)) DEALLOCATE(Ap)
-    IF (ALLOCATED(xx))  DEALLOCATE(xx)
-    IF (ALLOCATED(xz))  DEALLOCATE(xz)
-    IF (ALLOCATED(bx))  DEALLOCATE(bx)
-    IF (ALLOCATED(bz))  DEALLOCATE(bz)
-    IF (ALLOCATED(valx))  DEALLOCATE(valx)
-    IF (ALLOCATED(valz))  DEALLOCATE(valz)
-
   END SUBROUTINE sparse_solve_suitesparseComplex_b2_loop
-  !-------------------------------------------------------------------------------
 
   !-------------------------------------------------------------------------------
   ! column pointer pcol to full column index icol

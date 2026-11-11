@@ -63,7 +63,7 @@ make clean
 
 - **MPI** - Parallel computing
 - **LAPACK/BLAS** - Linear algebra
-- **SuiteSparse** - Sparse matrix operations
+- **FortSparse** - Native pivoted sparse LU (optional AMD ordering)
 - **HDF5** - Data storage
 - **fortnum** - Numerical core (special functions, quadrature, ODE, root finding)
 - **SUNDIALS** - Numerical solvers

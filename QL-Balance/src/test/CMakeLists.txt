@@ -182,7 +182,8 @@ foreach(case mode_count metadata_shape guard_no_stat invalid_initialize reject_f
         COMMAND test_periodic_amplitude_state.x ${case})
     set_tests_properties(test_periodic_amplitude_${case} PROPERTIES WILL_FAIL TRUE)
 endforeach()
-foreach(test periodic_checkpoint periodic_checkpoint_reader periodic_time_evolution time_history_restart)
+foreach(test periodic_checkpoint periodic_checkpoint_reader periodic_time_evolution time_history_restart
+        timestep_controller)
     add_executable(test_${test}.x test_${test}.f90)
     target_link_libraries(test_${test}.x PUBLIC ql-balance_lib)
     add_fortran_test(test_${test})
